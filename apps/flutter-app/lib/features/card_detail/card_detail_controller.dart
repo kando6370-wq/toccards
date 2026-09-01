@@ -7,6 +7,8 @@ import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/features/home/home_performance_controller.dart';
 import 'package:kando_app/features/search/search_controller.dart';
+import 'package:kando_app/features/subscription/subscription_controller.dart';
+import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/market/market_change.dart';
@@ -27,8 +29,33 @@ final cardDetailRepositoryProvider = Provider<CardDetailRepository>((ref) {
 
 final cardDetailControllerProvider =
     NotifierProvider.family<CardDetailController, CardDetailState, String>(
-      CardDetailController.new,
+      (cardId) => CardDetailController(cardId),
     );
+
+final quickCollectionCardDetailControllerProvider =
+    NotifierProvider.family<CardDetailController, CardDetailState, String>(
+      (cardId) => CardDetailController.collectionEditor(cardId),
+    );
+
+final collectionEditorFoldersProvider =
+    FutureProvider<List<CardPortfolioFolder>>((ref) async {
+      final session = ref.watch(authControllerProvider).session;
+      if (session == null) return const [];
+      final folders = await ref
+          .watch(portfolioApiClientProvider)
+          .listFolders(session);
+      return folders
+          .map(
+            (folder) => CardPortfolioFolder(
+              id: folder.id,
+              name: folder.name,
+              isDefault: folder.isDefault,
+            ),
+          )
+          .toList();
+    });
+
+enum _CardDetailLoadProfile { full, collectionEditor }
 
 const cardCollectionGraders = ['Raw', 'PSA', 'BGS', 'CGC', 'SGC'];
 const cardCollectionConditions = [
@@ -701,9 +728,14 @@ class CardDetailState {
 }
 
 class CardDetailController extends Notifier<CardDetailState> {
-  CardDetailController(this.cardId);
+  CardDetailController(this.cardId)
+    : _loadProfile = _CardDetailLoadProfile.full;
+
+  CardDetailController.collectionEditor(this.cardId)
+    : _loadProfile = _CardDetailLoadProfile.collectionEditor;
 
   final String cardId;
+  final _CardDetailLoadProfile _loadProfile;
   Completer<void>? _loadCompleter;
   var _loadGeneration = 0;
   var _priceLoadGeneration = 0;
@@ -749,6 +781,18 @@ class CardDetailController extends Notifier<CardDetailState> {
     return loadComplete.whenComplete(
       () => _invalidateItemPerformanceCaches(performanceItemIds),
     );
+  }
+
+  Future<void> synchronizeCollectionEditorFolders() async {
+    if (_loadProfile != _CardDetailLoadProfile.collectionEditor ||
+        _repository is! CardDetailSectionRepository ||
+        state.isLoading ||
+        state.isUnavailable) {
+      return;
+    }
+
+    final generation = _loadGeneration;
+    await _loadCollectionEditorFolders(generation);
   }
 
   Future<void> refreshPriceSeries() {
@@ -936,7 +980,7 @@ class CardDetailController extends Notifier<CardDetailState> {
     final finish = state.priceFinish;
     state = state.copyWith(priceSeriesStatus: KandoLoadStatus.loading);
     try {
-      final data = await sectionRepository
+      Future<CardDetailSeriesData> request() => sectionRepository
           .loadPremiumPriceSeries(
             session,
             cardId,
@@ -945,6 +989,23 @@ class CardDetailController extends Notifier<CardDetailState> {
             localPremiumVerified: true,
           )
           .timeout(const Duration(seconds: 15));
+      late final CardDetailSeriesData data;
+      try {
+        data = await request();
+      } on CardDataApiException catch (error) {
+        if (error.statusCode != 409 ||
+            error.code != 'ENTITLEMENT_SYNC_REQUIRED') {
+          rethrow;
+        }
+        final reconciliation = await ref
+            .read(subscriptionControllerProvider.notifier)
+            .reconcileServerEntitlement();
+        if (reconciliation !=
+            EntitlementReconciliationResult.premiumSynchronized) {
+          rethrow;
+        }
+        data = await request();
+      }
       if (generation != _priceLoadGeneration || finish != state.priceFinish) {
         return false;
       }
@@ -1224,7 +1285,10 @@ class CardDetailController extends Notifier<CardDetailState> {
     );
   }
 
-  Future<bool> saveCollectionItemDraft() async {
+  Future<bool> saveCollectionItemDraft({
+    String? idempotencyKey,
+    bool invalidateAssetConsumers = true,
+  }) async {
     final draft = state.collectionItemDraft;
     if (state.isUnavailable ||
         state.isLoading ||
@@ -1296,6 +1360,7 @@ class CardDetailController extends Notifier<CardDetailState> {
               session,
               detail: detail,
               item: draftItem,
+              idempotencyKey: idempotencyKey,
             )
           : await _repository.updateCollectionItem(
               session,
@@ -1372,7 +1437,9 @@ class CardDetailController extends Notifier<CardDetailState> {
       isSavingCollectionItemDraft: false,
     );
     ref.invalidate(cardPerformanceControllerProvider(savedItem.id));
-    _invalidateAssetConsumers();
+    if (invalidateAssetConsumers) {
+      _invalidateAssetConsumers();
+    }
     return true;
   }
 
@@ -1427,6 +1494,9 @@ class CardDetailController extends Notifier<CardDetailState> {
   }
 
   void _invalidateAssetConsumers() {
+    if (_loadProfile == _CardDetailLoadProfile.collectionEditor) {
+      ref.invalidate(cardDetailControllerProvider(cardId));
+    }
     ref.invalidate(homeControllerProvider);
     ref.invalidate(homePerformanceControllerProvider);
     ref.invalidate(collectionControllerProvider);
@@ -1513,11 +1583,20 @@ class CardDetailController extends Notifier<CardDetailState> {
         detail: detail,
         currency: currency,
         assetStateStatus: KandoLoadStatus.loading,
-        priceSeriesStatus: KandoLoadStatus.loading,
+        priceSeriesStatus:
+            _loadProfile == _CardDetailLoadProfile.collectionEditor
+            ? KandoLoadStatus.content
+            : KandoLoadStatus.loading,
         marketPricesStatus: KandoLoadStatus.loading,
-        soldListingsStatus: KandoLoadStatus.loading,
+        soldListingsStatus:
+            _loadProfile == _CardDetailLoadProfile.collectionEditor
+            ? KandoLoadStatus.content
+            : KandoLoadStatus.loading,
       );
-      if (!completer.isCompleted) completer.complete();
+      if (_loadProfile == _CardDetailLoadProfile.full &&
+          !completer.isCompleted) {
+        completer.complete();
+      }
 
       final priceGeneration = _priceLoadGeneration;
       final marketFuture = _loadMarketPrices(
@@ -1525,6 +1604,13 @@ class CardDetailController extends Notifier<CardDetailState> {
         generation,
         priceGeneration,
       );
+      if (_loadProfile == _CardDetailLoadProfile.collectionEditor) {
+        await Future.wait([
+          _loadCollectionEditorFolders(generation),
+          marketFuture,
+        ]);
+        return;
+      }
       await Future.wait([
         _loadAssetState(repository, session, generation),
         marketFuture.then(
@@ -1539,6 +1625,24 @@ class CardDetailController extends Notifier<CardDetailState> {
       }
     } finally {
       if (!completer.isCompleted) completer.complete();
+    }
+  }
+
+  Future<void> _loadCollectionEditorFolders(int generation) async {
+    try {
+      final folders = await ref.read(collectionEditorFoldersProvider.future);
+      if (generation == _loadGeneration) {
+        state = state.copyWith(
+          detail: state.detail.copyWith(portfolioFolders: folders),
+          assetStateStatus: folders.isEmpty
+              ? KandoLoadStatus.failure
+              : KandoLoadStatus.content,
+        );
+      }
+    } catch (_) {
+      if (generation == _loadGeneration) {
+        state = state.copyWith(assetStateStatus: KandoLoadStatus.failure);
+      }
     }
   }
 

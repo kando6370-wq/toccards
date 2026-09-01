@@ -3,12 +3,14 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/features/card_detail/card_detail_models.dart';
 import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_models.dart';
 import 'package:kando_app/features/search/search_repository.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
+import 'package:kando_app/shared/portfolio/pending_collection.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 import 'support/mock_search_repository.dart';
@@ -222,6 +224,33 @@ void main() {
       );
 
       expect(card.changeText, '-/-');
+    },
+  );
+
+  test(
+    'Trending cards display 1D change because Trending Today is a daily market ranking',
+    () {
+      final card = trendingCardFromDto(
+        const CardDataCardDto(
+          cardRef: 'catalog:trending-1d',
+          name: 'Trending 1D',
+          setName: 'Test Set',
+          setCode: 'TEST',
+          cardNumber: '002',
+          finish: 'Normal',
+          language: 'English',
+          objectType: 'tcg',
+          game: 'Pokemon',
+          imageUrl: null,
+          rarity: 'Rare',
+          priceUsd: 20,
+          priceChange1dPercent: 25,
+          priceChange30dPercent: 8.5,
+        ),
+      );
+
+      expect(card.changePercent, 25);
+      expect(card.changeText, '+25.00%');
     },
   );
 
@@ -545,13 +574,11 @@ void main() {
   );
 
   test(
-    'collect and wishlist update immediately while backend mutations are pending',
+    'pending collection keeps persisted asset state and does not call Quick Collect',
     () async {
       final wishlistGate = Completer<void>();
-      final collectionGate = Completer<void>();
       final portfolioApi = _FakePortfolioApi(
         wishlistMutationGate: wishlistGate,
-        collectionMutationGate: collectionGate,
       );
       final repository = HttpSearchRepository(
         _FakeCardDataApi(
@@ -595,10 +622,11 @@ void main() {
       final optimistic = container
           .read(searchControllerProvider)
           .cardById('9359');
-      expect(optimistic.quantity, 1);
-      expect(optimistic.isWishlisted, isFalse);
-      collectionGate.complete();
+      expect(optimistic.quantity, 0);
+      expect(optimistic.isWishlisted, isTrue);
       expect(await collect, SearchCollectAction.updated);
+      expect(portfolioApi.lastCollectedDraft, isNull);
+      expect(container.read(pendingCollectionProvider).single.quantity, 1);
     },
   );
 
@@ -654,49 +682,93 @@ void main() {
       expect(card.quantity, 2);
       expect(card.collectionItemId, 'item-1');
 
-      final collect = controller.toggleCollect('9359');
-      expect(
-        await controller.toggleCollect('9359'),
-        SearchCollectAction.ignored,
-      );
-      expect(await collect, SearchCollectAction.updated);
-      expect(portfolioApi.deletedCollectionItemIds, ['item-1']);
-      expect(
-        container
-            .read(searchControllerProvider)
-            .cardById('9359')
-            .collectionInfo,
-        isNull,
-      );
-
-      expect(await controller.toggleWishlist('9359'), isTrue);
-      card = container.read(searchControllerProvider).cardById('9359');
-      expect(card.wishlistItemId, 'wishlist-1');
-
-      controller.updateSearch('escape');
-      await Future<void>.delayed(searchDebounceDuration * 2);
-      await controller.loadComplete;
-      controller.updateSearch('');
-      await controller.loadComplete;
-      card = container.read(searchControllerProvider).cardById('9359');
-      expect(card.wishlistItemId, 'wishlist-1');
-      expect(card.isWishlisted, isTrue);
-
       expect(
         await controller.toggleCollect('9359'),
         SearchCollectAction.updated,
       );
-      final draft = portfolioApi.lastCollectedDraft!;
-      expect(draft.folderId, 'folder-main');
-      expect(draft.condition, 'Near Mint (NM)');
-      expect(draft.language, 'English');
-      expect(draft.finish, 'Normal');
-      expect(portfolioApi.deletedWishlistItemIds, ['wishlist-1']);
-      expect(portfolioApi.wishlistItems, isEmpty);
+      expect(portfolioApi.deletedCollectionItemIds, isEmpty);
+      expect(portfolioApi.lastCollectedDraft, isNull);
+      expect(container.read(pendingCollectionProvider).single.quantity, 1);
       card = container.read(searchControllerProvider).cardById('9359');
-      expect(card.quantity, 1);
+      expect(card.quantity, 2);
       expect(card.collectionInfo, 'Near Mint (NM)');
       expect(card.isWishlisted, isFalse);
+    },
+  );
+
+  test(
+    'saved collection Items update Search Qty immediately and survive later searches',
+    () async {
+      const assetCard = CardDataCardDto(
+        cardRef: '9359',
+        name: 'Escape Artist',
+        setName: 'Odyssey',
+        setCode: 'ODY',
+        cardNumber: '',
+        finish: 'Normal',
+        language: 'English',
+        objectType: 'tcg',
+        imageUrl: null,
+        rarity: 'Common',
+      );
+      final portfolioApi = _FakePortfolioApi(
+        items: [_portfolioItem(id: 'item-1', quantity: 2)],
+      );
+      final repository = HttpSearchRepository(
+        _FakeCardDataApi(
+          trendingCardRows: const [assetCard],
+          searchCardRows: const [assetCard],
+          sets: const [],
+        ),
+        portfolioApi: portfolioApi,
+      );
+      final container = ProviderContainer(
+        overrides: [
+          searchRepositoryProvider.overrideWithValue(repository),
+          searchSessionProvider.overrideWithValue(_session),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(searchControllerProvider.notifier);
+      await controller.loadComplete;
+
+      controller.applySavedCollectionItems(const [
+        CardCollectionItem(
+          id: 'item-2',
+          cardRef: '9359',
+          folderId: 'main',
+          portfolioName: 'Main',
+          quantity: 3,
+          grader: 'PSA',
+          condition: null,
+          grade: '10',
+          language: 'English',
+          finish: 'Normal',
+          purchasePriceUsd: null,
+          notes: '',
+        ),
+      ]);
+
+      var card = container.read(searchControllerProvider).cardById('9359');
+      expect(card.quantity, 5);
+      expect(card.collectionItemCount, 2);
+      expect(card.collectionItemId, isNull);
+      expect(card.collectionInfo, 'Mixed');
+
+      portfolioApi.failAssetLoad = true;
+      await controller.refreshPreservingContent();
+      card = container.read(searchControllerProvider).cardById('9359');
+      expect(card.quantity, 5);
+      expect(card.collectionItemCount, 2);
+
+      portfolioApi
+        ..failAssetLoad = false
+        ..collectionItems.add(_portfolioItem(id: 'item-2', quantity: 3));
+      controller.submitSearch('escape');
+      await controller.loadComplete;
+      card = container.read(searchControllerProvider).cardById('9359');
+      expect(card.quantity, 5);
+      expect(card.collectionItemCount, 2);
     },
   );
 
@@ -739,6 +811,49 @@ void main() {
     },
   );
 
+  test('Search Qty includes saved Items from every portfolio folder', () async {
+    final repository = HttpSearchRepository(
+      _FakeCardDataApi(
+        trendingCardRows: const [
+          CardDataCardDto(
+            cardRef: '9359',
+            name: 'Escape Artist',
+            setName: 'Odyssey',
+            setCode: 'ODY',
+            cardNumber: '1',
+            finish: 'Normal',
+            language: 'English',
+            objectType: 'tcg',
+            imageUrl: null,
+            rarity: 'Common',
+          ),
+        ],
+        sets: const [],
+      ),
+      portfolioApi: _FakePortfolioApi(
+        items: [
+          _portfolioItem(
+            id: 'item-other-folder',
+            quantity: 2,
+            folderId: 'folder-other',
+          ),
+        ],
+      ),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        searchRepositoryProvider.overrideWithValue(repository),
+        searchSessionProvider.overrideWithValue(_session),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final card = (await _loadedSearchState(container)).cardById('9359');
+    expect(card.quantity, 2);
+    expect(card.isCollected, isTrue);
+    expect(card.collectionItemCount, 1);
+  });
+
   test(
     'Sets query replaces current set results after debounce because set search has a separate Workers endpoint',
     () async {
@@ -772,7 +887,7 @@ void main() {
   );
 
   test(
-    'mutation conflicts reload backend assets because stale Search icons must reflect existing ownership',
+    'pending collection does not mutate persisted state after a Wishlist conflict',
     () async {
       final portfolioApi = _FakePortfolioApi(
         conflictOnWishlist: true,
@@ -820,8 +935,10 @@ void main() {
         SearchCollectAction.updated,
       );
       final card = container.read(searchControllerProvider).cardById('9359');
-      expect(card.isCollected, isTrue);
-      expect(card.isWishlisted, isFalse);
+      expect(card.isCollected, isFalse);
+      expect(card.isWishlisted, isTrue);
+      expect(portfolioApi.lastCollectedDraft, isNull);
+      expect(container.read(pendingCollectionProvider), hasLength(1));
     },
   );
 
@@ -1025,45 +1142,52 @@ void main() {
     },
   );
 
-  test('Collect updates Qty and removes Wishlist state', () async {
-    final container = _searchContainer();
-    addTearDown(container.dispose);
-    final controller = container.read(searchControllerProvider.notifier);
-    await controller.loadComplete;
+  test(
+    'Collect keeps persisted Qty unchanged until the pending item is saved',
+    () async {
+      final container = _searchContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(searchControllerProvider.notifier);
+      await controller.loadComplete;
 
-    await controller.toggleWishlist('squirtle');
-    expect(
-      container
+      await controller.toggleWishlist('squirtle');
+      expect(
+        container
+            .read(searchControllerProvider)
+            .cardById('squirtle')
+            .isWishlisted,
+        isTrue,
+      );
+
+      expect(
+        await controller.toggleCollect('squirtle'),
+        SearchCollectAction.updated,
+      );
+      final collected = container
           .read(searchControllerProvider)
-          .cardById('squirtle')
-          .isWishlisted,
-      isTrue,
-    );
+          .cardById('squirtle');
 
-    expect(
-      await controller.toggleCollect('squirtle'),
-      SearchCollectAction.updated,
-    );
-    final collected = container
-        .read(searchControllerProvider)
-        .cardById('squirtle');
+      expect(collected.quantity, 0);
+      expect(collected.isCollected, isFalse);
+      expect(collected.isWishlisted, isTrue);
+      expect(container.read(pendingCollectionProvider).single.quantity, 1);
 
-    expect(collected.quantity, 1);
-    expect(collected.isCollected, isTrue);
-    expect(collected.isWishlisted, isFalse);
-
-    expect(
-      await controller.toggleCollect('squirtle'),
-      SearchCollectAction.updated,
-    );
-    expect(
-      container.read(searchControllerProvider).cardById('squirtle').quantity,
-      0,
-    );
-  });
+      expect(
+        await controller.toggleCollect('squirtle'),
+        SearchCollectAction.updated,
+      );
+      expect(
+        container.read(searchControllerProvider).cardById('squirtle').quantity,
+        0,
+      );
+      final pendingItems = container.read(pendingCollectionProvider);
+      expect(pendingItems, hasLength(2));
+      expect(pendingItems.map((item) => item.quantity), everyElement(1));
+    },
+  );
 
   test(
-    'Collect on a card with multiple collection items requests detail management',
+    'Collect on an owned card starts another pending Item without changing Qty',
     () async {
       final container = _searchContainer(
         repository: const _MultiCollectionSearchRepository(),
@@ -1077,11 +1201,32 @@ void main() {
           .read(searchControllerProvider)
           .cardById('multi-owned');
 
-      expect(action, SearchCollectAction.openDetail);
+      expect(action, SearchCollectAction.updated);
       expect(card.quantity, 2);
       expect(card.collectionItemCount, 2);
+      expect(container.read(pendingCollectionProvider).single.quantity, 1);
     },
   );
+
+  test('pending collection rejects the twenty-first Item', () async {
+    final container = _searchContainer();
+    addTearDown(container.dispose);
+    final controller = container.read(searchControllerProvider.notifier);
+    await controller.loadComplete;
+
+    for (var index = 0; index < 20; index++) {
+      expect(
+        await controller.toggleCollect('squirtle'),
+        SearchCollectAction.updated,
+      );
+    }
+
+    expect(
+      await controller.toggleCollect('squirtle'),
+      SearchCollectAction.limitReached,
+    );
+    expect(container.read(pendingCollectionProvider), hasLength(20));
+  });
 
   test('missing price and change use PRD fallback text', () async {
     final container = _searchContainer();
@@ -1472,7 +1617,6 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
     this.failAssetLoad = false,
     this.assetLoadGate,
     this.wishlistMutationGate,
-    this.collectionMutationGate,
   }) : collectionItems = [...items];
 
   final List<PortfolioItemDto> collectionItems;
@@ -1482,10 +1626,9 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
   PortfolioItemDraftDto? lastCollectedDraft;
   final bool conflictOnWishlist;
   final bool conflictOnCollect;
-  final bool failAssetLoad;
+  bool failAssetLoad;
   final Completer<void>? assetLoadGate;
   final Completer<void>? wishlistMutationGate;
-  final Completer<void>? collectionMutationGate;
 
   @override
   Future<List<PortfolioFolderDto>> listFolders(AuthSession session) async {
@@ -1519,7 +1662,6 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
     required String cardRef,
     required PortfolioItemDraftDto draft,
   }) async {
-    await collectionMutationGate?.future;
     lastCollectedDraft = draft;
     final item = _portfolioItem(id: 'item-created', quantity: draft.quantity);
     collectionItems.add(item);
@@ -1529,7 +1671,6 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
 
   @override
   Future<void> deleteCollectionItem(AuthSession session, String itemId) async {
-    await collectionMutationGate?.future;
     deletedCollectionItemIds.add(itemId);
     collectionItems.removeWhere((item) => item.id == itemId);
   }
@@ -1561,13 +1702,14 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
 PortfolioItemDto _portfolioItem({
   required String id,
   required int quantity,
+  String folderId = 'folder-main',
   String grader = 'Raw',
   String? condition = 'Near Mint (NM)',
   double? grade,
 }) {
   return PortfolioItemDto(
     id: id,
-    folderId: 'folder-main',
+    folderId: folderId,
     cardRef: '9359',
     objectType: 'tcg',
     grader: grader,

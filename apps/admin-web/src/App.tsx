@@ -25,6 +25,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { resolveAdminApiBase } from "./api-base";
 import { countryName } from "./country-name";
+import {
+  INSTALLATION_PERIOD_OPTIONS,
+  installationTrendForPeriod,
+  type InstallationPeriod,
+} from "./installation-analytics";
 
 type AdminRole = "super_admin" | "operator";
 type MenuKey = "installations" | "billing-orders" | "apple-notifications" | "users" | "feedbacks" | "scans" | "permissions" | "app-versions";
@@ -52,6 +57,13 @@ type InstallationAnalytics = {
   summary: { total_installations: number; countries: number; platforms: number };
   trend: Array<{ date: string; total: number }>;
   rows: InstallationRow[];
+};
+
+type InstallationFilters = {
+  date_from: string;
+  date_to: string;
+  country?: string;
+  environment?: string;
 };
 
 type InstallationRow = {
@@ -120,6 +132,7 @@ type FeedbackTicket = {
 
 type ScanListItem = {
   scan_id: string;
+  environment: string;
   image_url: string;
   uid: string;
   platform: string;
@@ -175,8 +188,6 @@ const API_BASE = resolveAdminApiBase({
 });
 const SESSION_STORAGE_KEY = "kando_admin_session";
 const SESSION_EXPIRED_EVENT = "kando-admin-session-expired";
-const PERIOD_OPTIONS = ["1d", "7d", "15d", "1m", "3m"];
-
 const menuGroups: Array<{ title: string; items: Array<{ key: MenuKey; label: string }> }> = [
   { title: "数据统计", items: [
     { key: "installations", label: "安装统计" },
@@ -431,10 +442,21 @@ function AdminShell({ session, onLogout }: { session: AdminSession; onLogout: ()
 }
 
 function InstallationsPage({ session }: { session: AdminSession }) {
-  const [period, setPeriod] = useState<string>("7d");
-  const { data, loading, reload, error } = useAdminData<InstallationAnalytics>("/analytics/installations?page_size=100", session);
+  const [period, setPeriod] = useState<InstallationPeriod>("7d");
+  const [dateRangeKey, setDateRangeKey] = useState(0);
+  const [draft, setDraft] = useState<InstallationFilters>({ date_from: "", date_to: "" });
+  const [filters, setFilters] = useState<InstallationFilters>(draft);
+  const path = useMemo(() => {
+    const params = new URLSearchParams({ page_size: "100" });
+    Object.entries(filters).forEach(([key, value]) => value && params.set(key, value));
+    return `/analytics/installations?${params.toString()}`;
+  }, [filters]);
+  const { data, loading, reload, error } = useAdminData<InstallationAnalytics>(path, session);
   const rows = data?.rows ?? [];
-  const trend = data?.trend ?? [];
+  const trend = useMemo(
+    () => installationTrendForPeriod(data?.trend ?? [], period, filters.date_to),
+    [data?.trend, filters.date_to, period],
+  );
   const countryOptions = [...new Set(rows.map((row) => row.country))].map(
     (value) => ({ value, label: countryName(value) }),
   );
@@ -447,14 +469,27 @@ function InstallationsPage({ session }: { session: AdminSession }) {
     { title: "安装量", dataIndex: "installs" },
   ];
 
+  function applyInstallationFilters() {
+    setFilters({ ...draft });
+    reload();
+  }
+
+  function resetInstallationFilters() {
+    const empty = { date_from: "", date_to: "" };
+    setDraft(empty);
+    setFilters(empty);
+    setDateRangeKey((value) => value + 1);
+    reload();
+  }
+
   return (
     <PagePanel error={error} onRefresh={reload}>
       <FilterBar>
-        <DatePicker.RangePicker />
-        <Select mode="multiple" placeholder="国家" className="filter-control" options={countryOptions} />
-        <Select placeholder="环境" className="filter-control" options={environmentOptions} />
-        <Button className="cyan-button">搜索</Button>
-        <Button>重置</Button>
+        <DatePicker.RangePicker key={dateRangeKey} onChange={(_, values) => setDraft((current) => ({ ...current, date_from: values[0], date_to: values[1] }))} />
+        <Select showSearch allowClear value={draft.country || undefined} onChange={(country) => setDraft((current) => ({ ...current, country }))} placeholder="国家" className="filter-control" options={countryOptions} />
+        <Select allowClear value={draft.environment || undefined} onChange={(environment) => setDraft((current) => ({ ...current, environment }))} placeholder="环境" className="filter-control" options={environmentOptions} />
+        <Button className="cyan-button" disabled={loading} loading={loading} onClick={applyInstallationFilters}>搜索</Button>
+        <Button disabled={loading} onClick={resetInstallationFilters}>重置</Button>
       </FilterBar>
       <div className="stats-row">
         <Metric label="安装总量" value={data?.summary.total_installations ?? 0} />
@@ -464,7 +499,7 @@ function InstallationsPage({ session }: { session: AdminSession }) {
       <section className="chart-panel">
         <div className="panel-heading">
           <Title level={4}>安装趋势</Title>
-          <Segmented value={period} onChange={(value) => setPeriod(String(value))} options={PERIOD_OPTIONS} />
+          <Segmented value={period} onChange={(value) => setPeriod(value as InstallationPeriod)} options={INSTALLATION_PERIOD_OPTIONS} />
         </div>
         <LineChart data={trend} />
       </section>
@@ -815,6 +850,7 @@ function ScansPage({ session }: { session: AdminSession }) {
     { title: "SCAN ID", dataIndex: "scan_id", ellipsis: true },
     { title: "卡牌图片", dataIndex: "image_url", render: (value: string) => <AuthenticatedScanImage path={value} session={session} className="scan-thumb" /> },
     { title: "UID", dataIndex: "uid" },
+    { title: "环境", dataIndex: "environment" },
     { title: "APP版本", dataIndex: "app_version" },
     { title: "扫描时间", dataIndex: "scan_time", render: formatTime },
     { title: "识别状态", dataIndex: "recognition_status", render: renderRecognitionStatus },
@@ -825,7 +861,7 @@ function ScansPage({ session }: { session: AdminSession }) {
   return (
     <div className="scans-page">
       {error && <Alert type="error" showIcon message={error} action={<Button onClick={reload}>重试</Button>} />}
-      <section className="scans-filter-panel">
+      <section className="scans-filter-panel scan-records-filter-panel">
         <ScanFilterField label="扫描时间">
           <DatePicker.RangePicker placeholder={["扫描开始", "扫描结束"]} onChange={(_, values) => setDraft((current) => ({ ...current, date_from: values[0], date_to: values[1] }))} />
         </ScanFilterField>
@@ -834,6 +870,9 @@ function ScansPage({ session }: { session: AdminSession }) {
         </ScanFilterField>
         <ScanFilterField label="平台">
           <Select placeholder="全部" allowClear value={draft.platform || undefined} options={scanPlatformOptions} onChange={(value) => setDraft((current) => ({ ...current, platform: value ?? "" }))} />
+        </ScanFilterField>
+        <ScanFilterField label="环境">
+          <Select placeholder="全部" allowClear value={draft.environment || undefined} options={environmentOptions} onChange={(value) => setDraft((current) => ({ ...current, environment: value ?? "" }))} />
         </ScanFilterField>
         <ScanFilterField label="App 版本">
           <Input placeholder="e.g. 2.4.0" value={draft.app_version ?? ""} onChange={(event) => setDraft((current) => ({ ...current, app_version: event.target.value }))} />
@@ -853,7 +892,7 @@ function ScansPage({ session }: { session: AdminSession }) {
         </div>
       </section>
       <section className="scans-table-panel">
-        <Table rowKey="scan_id" columns={columns} dataSource={scans} loading={loading} pagination={false} />
+        <Table rowKey="scan_id" columns={columns} dataSource={scans} loading={loading} pagination={false} scroll={{ x: 1100 }} />
         <div className="scans-pagination">
           <Text>{rangeSummaryPage(page, data?.page_size ?? 10, data?.total ?? 0)}</Text>
           <Pagination size="small" current={page} pageSize={data?.page_size ?? 10} total={data?.total ?? 0} showSizeChanger={false} onChange={setPage} />
@@ -1062,6 +1101,7 @@ function ScanDetailDrawer({ scan, session, onClose }: { scan: ScanDetail | null;
               { label: "Scan ID", value: scan.scan_id },
               { label: "UID", value: scan.uid },
               { label: "平台", value: scan.platform },
+              { label: "环境", value: scan.environment },
               { label: "App 版本", value: scan.app_version },
               { label: "设备型号", value: scan.device_model },
               { label: "系统版本", value: scan.os_version },
@@ -1208,30 +1248,59 @@ function Metric({ label, value }: { label: string; value: number }) {
 }
 
 function LineChart({ data }: { data: Array<{ date: string; total: number }> }) {
-  const points = data.length > 0 ? data : [{ date: "1d", total: 0 }, { date: "7d", total: 0 }, { date: "15d", total: 0 }, { date: "1m", total: 0 }, { date: "3m", total: 0 }];
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const points = data;
   const max = Math.max(...points.map((item) => item.total), 1);
+  const pointX = (index: number) => points.length === 1 ? 380 : 36 + (index * 672) / Math.max(points.length - 1, 1);
+  const pointY = (total: number) => 180 - (total / max) * 120;
+  const labelInterval = Math.max(1, Math.ceil(points.length / 8));
   const path = points
     .map((item, index) => {
-      const x = 36 + (index * 672) / Math.max(points.length - 1, 1);
-      const y = 180 - (item.total / max) * 120;
+      const x = pointX(index);
+      const y = pointY(item.total);
       return `${index === 0 ? "M" : "L"} ${x} ${y}`;
     })
     .join(" ");
+  const selectedIndex = points.findIndex((item) => item.date === selectedDate);
+  const selected = selectedIndex >= 0 ? points[selectedIndex] : null;
+  const selectedX = selected ? pointX(selectedIndex) : 0;
+  const selectedY = selected ? pointY(selected.total) : 0;
+  const tooltipX = Math.min(Math.max(selectedX - 66, 28), 596);
+  const tooltipY = Math.max(selectedY - 48, 8);
 
   return (
     <svg className="line-chart" viewBox="0 0 760 220" role="img" aria-label="安装趋势">
       {[40, 80, 120, 160, 200].map((y) => <line key={y} x1="28" x2="728" y1={y} y2={y} />)}
       <path d={path} />
+      {points.length === 0 && <text className="chart-empty" x="380" y="116">所选周期暂无安装数据</text>}
       {points.map((item, index) => {
-        const x = 36 + (index * 672) / Math.max(points.length - 1, 1);
-        const y = 180 - (item.total / max) * 120;
+        const x = pointX(index);
+        const y = pointY(item.total);
         return (
-          <g key={`${item.date}-${index}`}>
-            <circle cx={x} cy={y} r="4" />
-            <text x={x} y="208">{index < PERIOD_OPTIONS.length ? PERIOD_OPTIONS[index] : item.date.slice(5)}</text>
+          <g
+            className="chart-point"
+            key={`${item.date}-${index}`}
+            role="button"
+            tabIndex={0}
+            aria-label={`${item.date}，安装量 ${item.total}`}
+            onMouseEnter={() => setSelectedDate(item.date)}
+            onFocus={() => setSelectedDate(item.date)}
+            onClick={() => setSelectedDate(item.date)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") setSelectedDate(item.date);
+            }}
+          >
+            <circle cx={x} cy={y} r="5" />
+            {(index % labelInterval === 0 || index === points.length - 1) && <text x={x} y="208">{item.date.slice(5)}</text>}
           </g>
         );
       })}
+      {selected && (
+        <g className="chart-tooltip" pointerEvents="none">
+          <rect x={tooltipX} y={tooltipY} width="132" height="36" rx="4" />
+          <text x={tooltipX + 66} y={tooltipY + 22}>{selected.date} · {selected.total}</text>
+        </g>
+      )}
     </svg>
   );
 }

@@ -16,6 +16,7 @@ import {
   shiftDate,
   type PublishedPriceRow,
 } from "./postgres-price-store";
+import { compareDisplayPriceRows } from "./price-selection";
 
 type CardCatalogRow = {
   product_id: string;
@@ -24,14 +25,10 @@ type CardCatalogRow = {
   set_id: string | null;
   set_name: string | null;
   set_code: string | null;
+  number?: string | null;
   name: string | null;
   rarity: string | null;
   product_type_name: string | null;
-};
-
-type CardNumberRow = {
-  product_id: string;
-  number: string | null;
 };
 
 type TrendingRow = CardCatalogRow & {
@@ -52,7 +49,7 @@ type TrendingRow = CardCatalogRow & {
 };
 
 const CARD_SELECT = `
-SELECT product_id, game_id, game, set_id, set_name, set_code, name, rarity, product_type_name
+SELECT product_id, game_id, game, set_id, set_name, set_code, number, name, rarity, product_type_name
 FROM cards_all
 `;
 
@@ -132,19 +129,14 @@ LIMIT ? OFFSET ?`,
     },
 
     async getCard(cardRef) {
-      const row = await db.prepare(`${CARD_SELECT}WHERE product_id = ? LIMIT 1`)
-        .bind(cardRef).first<CardCatalogRow>();
+      const [row, priceRows] = await Promise.all([
+        db.prepare(`${CARD_SELECT}WHERE product_id = ? LIMIT 1`)
+          .bind(cardRef).first<CardCatalogRow>(),
+        loadPublishedPriceRows(db, [cardRef]),
+      ]);
       if (!row) return null;
 
-      const [numbers, priceRows] = await Promise.all([
-        findCardNumbersByProductId(db, [row.product_id]),
-        loadPublishedPriceRows(db, [row.product_id]),
-      ]);
-      const card = cardWithSearchPricing(
-        row,
-        priceRows,
-        numbers.get(row.product_id) ?? "",
-      );
+      const card = cardWithSearchPricing(row, priceRows);
       return {
         ...card,
         available_languages: uniquePriceValues(
@@ -228,12 +220,14 @@ LIMIT ? OFFSET ?`,
     },
 
     async getSoldListings(cardRef): Promise<SoldListing[]> {
-      const card = await db.prepare(`${CARD_SELECT}WHERE product_id = ? LIMIT 1`)
-        .bind(cardRef).first<CardCatalogRow>();
+      const [card, publishedPrices] = await Promise.all([
+        db.prepare(`${CARD_SELECT}WHERE product_id = ? LIMIT 1`)
+          .bind(cardRef).first<CardCatalogRow>(),
+        loadPublishedPriceRows(db, [cardRef]),
+      ]);
       if (!card) return [];
 
-      const prices = (await loadPublishedPriceRows(db, [cardRef]))
-        .filter((row) => row.source_code === "tcgplayer");
+      const prices = publishedPrices.filter((row) => row.source_code === "tcgplayer");
       return preferredRawMarketPrices(prices)
         .map((row) => shopListingFromTcgplayerPrice(card, row))
         .sort((left, right) => right.date.localeCompare(left.date))
@@ -262,7 +256,7 @@ async function loadPriceSeriesBatch(
       ? finishRows.filter((row) => priceMatchesCondition(row, request.condition!))
       : finishRows;
     return isRawRequest
-      ? preferredSearchPrice(conditionRows)
+      ? preferredPriceSeries(conditionRows)
       : preferredGradedSeriesPrice(conditionRows);
   });
   const rowsToLoad = selectedRows.filter(
@@ -436,23 +430,18 @@ async function cardsWithSearchPricing(
   rows: CardCatalogRow[],
 ): Promise<CardSearchResult[]> {
   const refs = rows.map((row) => row.product_id);
-  const [pricesByProductId, numbersByProductId] = await Promise.all([
-    findPriceRowsByProductId(db, refs),
-    findCardNumbersByProductId(db, refs),
-  ]);
+  const pricesByProductId = await findPriceRowsByProductId(db, refs);
   return rows.map((row) => cardWithSearchPricing(
     row,
     pricesByProductId.get(row.product_id) ?? [],
-    numbersByProductId.get(row.product_id) ?? "",
   ));
 }
 
 function cardWithSearchPricing(
   row: CardCatalogRow,
   prices: PublishedPriceRow[],
-  cardNumber: string,
 ): CardSearchResult {
-  const card = cardFromRow(row, cardNumber);
+  const card = cardFromRow(row);
   const price = preferredSearchPrice(prices.filter(isRawPrice));
   if (!price) return card;
 
@@ -484,25 +473,6 @@ function cardWithSearchPricing(
   };
 }
 
-async function findCardNumbersByProductId(
-  db: D1Database,
-  cardRefs: string[],
-): Promise<Map<string, string>> {
-  const numbersByProductId = new Map<string, string>();
-  if (cardRefs.length === 0) return numbersByProductId;
-  const placeholders = cardRefs.map(() => "?").join(", ");
-  const results = await db.prepare(
-    `SELECT product_id, number
-     FROM cards_all
-     WHERE product_id IN (${placeholders})`,
-  ).bind(...cardRefs).all<CardNumberRow>();
-  for (const row of results.results ?? []) {
-    const number = row.number?.trim();
-    if (number) numbersByProductId.set(row.product_id, number);
-  }
-  return numbersByProductId;
-}
-
 async function findPriceRowsByProductId(
   db: D1Database,
   cardRefs: string[],
@@ -515,6 +485,10 @@ async function findPriceRowsByProductId(
 }
 
 function preferredSearchPrice(rows: PublishedPriceRow[]): PublishedPriceRow | null {
+  return [...rows].sort(compareDisplayPriceRows)[0] ?? null;
+}
+
+function preferredPriceSeries(rows: PublishedPriceRow[]): PublishedPriceRow | null {
   return [...rows].sort((left, right) =>
     compareIncreaseDescending(left, right)
     || searchPriceRank(left) - searchPriceRank(right)
@@ -689,14 +663,14 @@ function compareNaturalQualifiers(
     ) || comparePriceFreshness(left, right);
 }
 
-function cardFromRow(row: CardCatalogRow, cardNumber = ""): CardSearchResult {
+function cardFromRow(row: CardCatalogRow): CardSearchResult {
   return {
     card_ref: row.product_id,
     name: row.name ?? row.product_id,
     game: row.game,
     set_name: row.set_name ?? "",
     set_code: row.set_code ?? "",
-    card_number: cardNumber,
+    card_number: row.number?.trim() ?? "",
     finish: null,
     language: null,
     object_type: objectTypeFromProductType(row.product_type_name),

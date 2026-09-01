@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/app/theme.dart';
+import 'package:kando_app/shared/portfolio/pending_collection.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
+import 'package:kando_app/shared/ui/kando_style.dart';
 
 void main() {
+  test('Kando color scheme is reused across scaffold rebuilds', () {
+    expect(buildKandoColorScheme(), same(buildKandoColorScheme()));
+  });
+
   testWidgets(
     'Figma tab bar keeps the 390x844 Home Search Scan Collection Profile order',
     (tester) async {
@@ -13,10 +20,12 @@ void main() {
       addTearDown(tester.view.reset);
 
       await tester.pumpWidget(
-        const MaterialApp(
-          home: KandoTabScaffold(
-            currentTab: KandoMainTab.home,
-            body: SizedBox.expand(),
+        const ProviderScope(
+          child: MaterialApp(
+            home: KandoTabScaffold(
+              currentTab: KandoMainTab.home,
+              body: SizedBox.expand(),
+            ),
           ),
         ),
       );
@@ -31,6 +40,14 @@ void main() {
       expect(tester.getSize(bar), const Size(350, 62));
       expect(tester.getBottomRight(bar), const Offset(370, 822));
       expect(tester.getSize(scan), const Size.square(64));
+      expect(
+        tester.getTopLeft(scan).dx,
+        closeTo(tester.getBottomRight(search).dx, 0.01),
+      );
+      expect(
+        tester.getBottomRight(scan).dx,
+        closeTo(tester.getTopLeft(collection).dx, 0.01),
+      );
       expect(tester.getTopLeft(home).dx, 20);
       expect(tester.getBottomRight(profile).dx, 370);
       expect(tester.getCenter(home).dx, lessThan(tester.getCenter(search).dx));
@@ -69,14 +86,56 @@ void main() {
     },
   );
 
+  testWidgets('the visible top of the Scan button opens Scan', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+
+    final router = GoRouter(
+      initialLocation: '/home',
+      routes: [
+        GoRoute(
+          path: '/home',
+          builder: (_, _) => const KandoTabScaffold(
+            currentTab: KandoMainTab.home,
+            body: SizedBox.expand(),
+          ),
+        ),
+        GoRoute(
+          path: '/scan',
+          builder: (_, _) =>
+              const Scaffold(body: Center(child: Text('Scan target'))),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(child: MaterialApp.router(routerConfig: router)),
+    );
+
+    final scanRect = tester.getRect(find.byKey(const Key('kando-tab-scan')));
+    final overflowRect = tester.getRect(
+      find.byKey(const Key('kando-tab-scan-overflow-hit-region')),
+    );
+    expect(overflowRect.size, const Size(64, 21));
+    expect(overflowRect.topLeft, scanRect.topLeft);
+    await tester.tapAt(Offset(scanRect.center.dx, scanRect.top + 4));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Scan target'), findsOneWidget);
+  });
+
   testWidgets('tab scaffold extends content behind translucent tab bar', (
     tester,
   ) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: KandoTabScaffold(
-          currentTab: KandoMainTab.home,
-          body: SizedBox.expand(),
+      const ProviderScope(
+        child: MaterialApp(
+          home: KandoTabScaffold(
+            currentTab: KandoMainTab.home,
+            body: SizedBox.expand(),
+          ),
         ),
       ),
     );
@@ -84,6 +143,121 @@ void main() {
     final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
     expect(scaffold.extendBody, isTrue);
   });
+
+  testWidgets(
+    'pending collection notice stays visible across the four non-Scan tabs',
+    (tester) async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container
+          .read(pendingCollectionProvider.notifier)
+          .add(
+            const PendingCollectionCard(
+              id: 'card-1',
+              name: 'Card 1',
+              game: 'Pokemon',
+              setName: 'Set',
+              metadataLine: '#1',
+              variantLine: 'Normal',
+            ),
+          );
+
+      for (final tab in const [
+        KandoMainTab.home,
+        KandoMainTab.search,
+        KandoMainTab.scan,
+        KandoMainTab.collection,
+        KandoMainTab.profile,
+      ]) {
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              home: KandoTabScaffold(
+                currentTab: tab,
+                body: const SizedBox.expand(),
+              ),
+            ),
+          ),
+        );
+        final shouldShowNotice = tab != KandoMainTab.scan;
+        expect(
+          find.byKey(const Key('pending-collection-notice')),
+          shouldShowNotice ? findsOneWidget : findsNothing,
+        );
+      }
+    },
+  );
+
+  testWidgets(
+    'updating a pending draft does not rebuild the Search page body when the notice count is unchanged',
+    (tester) async {
+      var bodyBuildCount = 0;
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: KandoTabScaffold(
+              currentTab: KandoMainTab.search,
+              body: _ThemeDependentBuildCounter(
+                onBuild: () => bodyBuildCount += 1,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(KandoTabScaffold)),
+        listen: false,
+      );
+      container
+          .read(pendingCollectionProvider.notifier)
+          .add(
+            const PendingCollectionCard(
+              id: 'card-1',
+              name: 'Card 1',
+              game: 'Pokemon',
+              setName: 'Set',
+              metadataLine: '#1',
+              variantLine: 'Normal',
+            ),
+          );
+      await tester.pump();
+      final buildCountAfterNoticeAppears = bodyBuildCount;
+      final pendingItem = container.read(pendingCollectionProvider).single;
+      final scaffoldElement = tester.element(find.byType(KandoTabScaffold));
+
+      container
+          .read(pendingCollectionProvider.notifier)
+          .updateDraft(
+            pendingItem.id,
+            const PendingCollectionDraft(
+              quantityText: '1',
+              portfolioName: 'Main',
+              grader: 'Raw',
+              condition: 'Near Mint (NM)',
+              grade: '10',
+              language: 'English',
+              finish: 'Normal',
+              purchasePriceText: '',
+              notes: '',
+            ),
+          );
+      expect(
+        scaffoldElement.dirty,
+        isFalse,
+        reason: 'The notice only depends on the pending item count.',
+      );
+      await tester.pump();
+
+      expect(bodyBuildCount, buildCountAfterNoticeAppears);
+      expect(
+        find.byKey(const Key('pending-collection-notice')),
+        findsOneWidget,
+      );
+      expect(find.text('1 card waiting for details'), findsOneWidget);
+    },
+  );
 
   testWidgets('selected tab background slides from the previous active tab', (
     tester,
@@ -117,7 +291,9 @@ void main() {
     );
     addTearDown(router.dispose);
 
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpWidget(
+      ProviderScope(child: MaterialApp.router(routerConfig: router)),
+    );
 
     final background = find.byKey(const Key('kando-tab-selected-background'));
     final collection = find.byKey(const Key('kando-tab-collection'));
@@ -149,17 +325,33 @@ void main() {
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(
-      MaterialApp(
-        theme: buildKandoTheme(),
-        home: const KandoTabScaffold(
-          currentTab: KandoMainTab.home,
-          body: SizedBox.expand(),
+      ProviderScope(
+        child: MaterialApp(
+          theme: buildKandoTheme(),
+          home: const KandoTabScaffold(
+            currentTab: KandoMainTab.home,
+            body: SizedBox.expand(),
+          ),
         ),
       ),
     );
+    await tester.pumpAndSettle();
     await expectLater(
       find.byKey(const Key('kando-tab-bar')),
       matchesGoldenFile('goldens/rendered/figma_tab_bar_home_390x844.png'),
     );
   });
+}
+
+class _ThemeDependentBuildCounter extends StatelessWidget {
+  const _ThemeDependentBuildCounter({required this.onBuild});
+
+  final VoidCallback onBuild;
+
+  @override
+  Widget build(BuildContext context) {
+    Theme.of(context);
+    onBuild();
+    return const SizedBox.expand();
+  }
 }

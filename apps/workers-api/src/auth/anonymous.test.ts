@@ -298,6 +298,13 @@ class FakeD1 {
     owner_id: string;
     image_url: string | null;
   }> = [];
+  scanQuotaRequests: Array<{
+    request_id: string;
+    owner_type: "anonymous" | "user";
+    owner_id: string;
+    access_mode: "free" | "premium";
+    status: "reserved" | "consumed" | "released";
+  }> = [];
   installationWrites: unknown[][] = [];
   nextAccountUid = 100000;
   consumeNextRegisterCodeBeforeUpdate = false;
@@ -336,6 +343,7 @@ class FakeD1 {
       authIdentities: this.authIdentities.map((row) => ({ ...row })),
       verificationCodes: this.verificationCodes.map((row) => ({ ...row })),
       scanRecords: this.scanRecords.map((row) => ({ ...row })),
+      scanQuotaRequests: this.scanQuotaRequests.map((row) => ({ ...row })),
     };
     const results: D1Result<T>[] = [];
 
@@ -370,6 +378,7 @@ class FakeD1 {
       ];
       this.verificationCodes = snapshot.verificationCodes;
       this.scanRecords = snapshot.scanRecords;
+      this.scanQuotaRequests = snapshot.scanQuotaRequests;
       throw error;
     }
 
@@ -836,6 +845,32 @@ class FakeD1 {
       var changes = 0;
       for (const row of this.scanRecords) {
         if (row.owner_type === "anonymous" && row.owner_id === anonymousId) {
+          row.owner_type = "user";
+          row.owner_id = userId;
+          changes += 1;
+        }
+      }
+      return okResult<T>(changes);
+    }
+
+    if (normalizedSql.startsWith("UPDATE scan_quota_request SET owner_type = 'user'")) {
+      const [userId, anonymousId] = values as [string, string];
+      const accountUpgraded = this.hasUpgradedAnonymousAccount(
+        values.length === 6 ? String(values[4]) : String(values[2]),
+        values.length === 6 ? String(values[5]) : String(values[3]),
+      );
+      const guardSatisfied = values.length !== 6 || this.verificationCodes.some(
+        (row) => row.id === values[2] && row.used_at === values[3],
+      );
+      if (!accountUpgraded || !guardSatisfied) return okResult<T>(0);
+      var changes = 0;
+      for (const row of this.scanQuotaRequests) {
+        if (
+          row.owner_type === "anonymous" &&
+          row.owner_id === anonymousId &&
+          row.access_mode === "free" &&
+          row.status === "consumed"
+        ) {
           row.owner_type = "user";
           row.owner_id = userId;
           changes += 1;
@@ -5108,6 +5143,38 @@ describe("POST /api/v1/auth/register/verify", () => {
       owner_id: anonymousId,
       card_ref: "card-wishlist",
     });
+    for (let index = 0; index < 4; index += 1) {
+      db.scanQuotaRequests.push({
+        request_id: `guest-scan-${index}`,
+        owner_type: "anonymous",
+        owner_id: anonymousId,
+        access_mode: "free",
+        status: "consumed",
+      });
+    }
+    db.scanQuotaRequests.push(
+      {
+        request_id: "guest-scan-reserved",
+        owner_type: "anonymous",
+        owner_id: anonymousId,
+        access_mode: "free",
+        status: "reserved",
+      },
+      {
+        request_id: "guest-scan-released",
+        owner_type: "anonymous",
+        owner_id: anonymousId,
+        access_mode: "free",
+        status: "released",
+      },
+      {
+        request_id: "guest-scan-premium",
+        owner_type: "anonymous",
+        owner_id: anonymousId,
+        access_mode: "premium",
+        status: "consumed",
+      },
+    );
 
     const sendResponse = await requestRegisterSendCode(env, {
       email: "migrate@example.com",
@@ -5170,6 +5237,28 @@ describe("POST /api/v1/auth/register/verify", () => {
         owner_id: userId,
       }),
     );
+    expect(
+      db.scanQuotaRequests.filter(
+        (request) => request.access_mode === "free" && request.status === "consumed",
+      ),
+    ).toEqual(
+      Array.from({ length: 4 }, (_, index) =>
+        expect.objectContaining({
+          request_id: `guest-scan-${index}`,
+          owner_type: "user",
+          owner_id: userId,
+        })
+      ),
+    );
+    expect(
+      db.scanQuotaRequests.filter(
+        (request) => request.access_mode !== "free" || request.status !== "consumed",
+      ),
+    ).toEqual([
+      expect.objectContaining({ request_id: "guest-scan-reserved", owner_type: "anonymous" }),
+      expect.objectContaining({ request_id: "guest-scan-released", owner_type: "anonymous" }),
+      expect.objectContaining({ request_id: "guest-scan-premium", owner_type: "anonymous" }),
+    ]);
   });
 
   it("creates default assets when anonymous_id lacks a bearer token because an id alone must not prove guest ownership", async () => {

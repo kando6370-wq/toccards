@@ -65,18 +65,41 @@ class ScanQuotaController extends Notifier<ScanQuotaState> {
     final session = ref.read(authControllerProvider).session;
     if (session == null) return false;
     state = state.copyWith(isLoading: true);
+    Future<ScanQuotaDto> request() => ref
+        .read(scanApiClientProvider)
+        .getQuota(
+          session,
+          localPremiumVerified: ref.read(subscriptionControllerProvider).isPro,
+        );
     try {
-      final quota = await ref
-          .read(scanApiClientProvider)
-          .getQuota(
-            session,
-            localPremiumVerified: ref
-                .read(subscriptionControllerProvider)
-                .isPro,
-          );
+      final quota = await request();
       if (!ref.mounted) return false;
       applyServerQuota(quota);
       return true;
+    } on ScanApiException catch (error) {
+      if (error.statusCode != 409 ||
+          error.code != 'ENTITLEMENT_SYNC_REQUIRED') {
+        if (ref.mounted) state = state.copyWith(isLoading: false);
+        return false;
+      }
+      final reconciliation = await ref
+          .read(subscriptionControllerProvider.notifier)
+          .reconcileServerEntitlement();
+      if (reconciliation ==
+              EntitlementReconciliationResult.verificationUnavailable ||
+          !ref.mounted) {
+        if (ref.mounted) state = state.copyWith(isLoading: false);
+        return false;
+      }
+      try {
+        final quota = await request();
+        if (!ref.mounted) return false;
+        applyServerQuota(quota);
+        return true;
+      } on Object {
+        if (ref.mounted) state = state.copyWith(isLoading: false);
+        return false;
+      }
     } on Object {
       if (ref.mounted) state = state.copyWith(isLoading: false);
       return false;

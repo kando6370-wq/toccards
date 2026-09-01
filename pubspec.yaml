@@ -20,4 +20,4 @@ melos:
       exec: flutter analyze
     test:
       description: 运行所有 Dart/Flutter 包测试
-      exec: flutter test
+      exec: flutter test --dart-define=APP_ENV=test

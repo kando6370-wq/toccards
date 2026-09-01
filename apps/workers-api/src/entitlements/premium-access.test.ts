@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Env } from "../env";
 import { hasActivePremiumGrant } from "./premium-access";
 
 type Grant = {
@@ -8,6 +9,7 @@ type Grant = {
   expiresAt: string | null;
   revokedAt: string | null;
   environment: "Sandbox" | "Production";
+  productId: string;
   purchaseChainStatus: string;
   purchaseChainExpiresAt: string | null;
   purchaseChainRevokedAt: string | null;
@@ -31,16 +33,15 @@ class FakeStatement {
     return this;
   }
 
-  async first<T>(): Promise<T | null> {
-    const [sessionId, entitlementId, now, environment] = this.values as string[];
-    const grant = this.db.grants.find(
+  async all<T>(): Promise<D1Result<T>> {
+    const [sessionId, entitlementId, now] = this.values as string[];
+    const grants = this.db.grants.filter(
       (item) =>
         item.sessionId === sessionId &&
         item.entitlementId === entitlementId &&
         item.status === "active" &&
         item.revokedAt === null &&
         (item.expiresAt === null || item.expiresAt > now) &&
-        item.environment === environment &&
         ["ACTIVE", "TRIAL", "GRACE_PERIOD", "LIFETIME"].includes(
           item.purchaseChainStatus,
         ) &&
@@ -48,7 +49,17 @@ class FakeStatement {
         (item.purchaseChainExpiresAt === null || item.purchaseChainExpiresAt > now),
     );
 
-    return (grant ? { id: "grant", purchase_chain_id: "chain", expires_at: grant.expiresAt } : null) as T | null;
+    return {
+      results: grants.map((grant) => ({
+        id: "grant",
+        purchase_chain_id: "chain",
+        expires_at: grant.expiresAt,
+        environment: grant.environment,
+        product_id: grant.productId,
+      })) as T[],
+      success: true,
+      meta: {},
+    } as D1Result<T>;
   }
 }
 
@@ -62,10 +73,26 @@ describe("session Premium grant", () => {
     await expect(access(db, "session-b", "development")).resolves.toBe(false);
   });
 
-  it("isolates Sandbox from Production because test purchases must never grant production access", async () => {
-    const db = databaseWithActiveGrant("session-a", "Sandbox");
+  it("accepts a production Product Sandbox grant because TestFlight must exercise the submitted production bundle", async () => {
+    const db = databaseWithActiveGrant("session-a", "Sandbox", "CardAi.weekly");
 
-    await expect(access(db, "session-a", "production")).resolves.toBe(false);
+    await expect(access(
+      db,
+      "session-a",
+      "production",
+      "CardAi.weekly,CardAi.yearly,CardAi.lifetime",
+    )).resolves.toBe(true);
+  });
+
+  it("rejects a dev Product Sandbox grant from production because shared PostgreSQL must not cross app catalogs", async () => {
+    const db = databaseWithActiveGrant("session-a", "Sandbox", "cardx.week");
+
+    await expect(access(
+      db,
+      "session-a",
+      "production",
+      "CardAi.weekly,CardAi.yearly,CardAi.lifetime",
+    )).resolves.toBe(false);
   });
 
   it.each(["BILLING_RETRY", "EXPIRED", "REFUNDED", "REVOKED"])(
@@ -89,6 +116,7 @@ describe("session Premium grant", () => {
 function databaseWithActiveGrant(
   sessionId: string,
   environment: "Sandbox" | "Production",
+  productId = "cardx.week",
 ): FakeD1 {
   const db = new FakeD1();
   db.grants.push({
@@ -98,6 +126,7 @@ function databaseWithActiveGrant(
     expiresAt: "2026-08-13T00:00:00.000Z",
     revokedAt: null,
     environment,
+    productId,
     purchaseChainStatus: "ACTIVE",
     purchaseChainExpiresAt: "2026-08-13T00:00:00.000Z",
     purchaseChainRevokedAt: null,
@@ -109,12 +138,14 @@ function access(
   db: FakeD1,
   sessionId: string,
   appEnvironment: "production" | "development",
+  productIds = "cardx.week,cardx.year,cardx.lifetime",
 ): Promise<boolean> {
   return hasActivePremiumGrant(
     {
       DB: db as unknown as D1Database,
       APP_ENVIRONMENT: appEnvironment,
-    },
+      APPLE_IAP_PRODUCT_IDS: productIds,
+    } as Env,
     sessionId,
     NOW,
   );

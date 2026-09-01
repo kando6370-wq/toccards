@@ -4,10 +4,14 @@ import type { Env } from "../env";
 import { createId } from "../id";
 import { authenticateOwner, type AuthenticatedOwner } from "../owner-auth";
 import {
-  createAppleVerifier,
+  appleDatabaseEnvironments,
+  asVerifierConfigurations,
+  configuredProductIds,
+  createAppleVerifiers,
   Environment,
-  type AppleTransactionVerifier,
+  type AppleVerifierFactoryResult,
   type JWSTransactionDecodedPayload,
+  verifyAppleTransaction,
 } from "./apple-signed-data";
 import { PREMIUM_ENTITLEMENT_ID } from "./premium-access";
 import { billingOrderFactStatements, businessStatusForAppleTransaction } from "./billing-order-facts";
@@ -40,13 +44,8 @@ const VERIFICATION_UNAVAILABLE = {
 
 type EntitlementRouteDependencies = {
   now?: () => Date;
-  createVerifier?: (env: Env) => Promise<{
-    environment: Environment;
-    verifier: AppleTransactionVerifier;
-  } | null> | {
-    environment: Environment;
-    verifier: AppleTransactionVerifier;
-  } | null;
+  createVerifier?: (env: Env) =>
+    Promise<AppleVerifierFactoryResult> | AppleVerifierFactoryResult;
 };
 
 type AttemptRow = {
@@ -88,6 +87,7 @@ type SessionLifecycleRow = {
   product_id: string;
   lifecycle_status: string;
   state_effective_at: string | null;
+  environment: "Production" | "Sandbox";
 };
 
 export function createEntitlementRoutes(
@@ -95,40 +95,48 @@ export function createEntitlementRoutes(
 ): Hono<{ Bindings: Env }> {
   const routes = new Hono<{ Bindings: Env }>();
   const now = dependencies.now ?? (() => new Date());
-  const verifierFactory = dependencies.createVerifier ?? createAppleVerifier;
+  const verifierFactory = dependencies.createVerifier ?? createAppleVerifiers;
 
   routes.get("/entitlements/apple/lifecycle", async (c) => {
     const auth = await authenticateOwner(c.env, c.req.header("Authorization"));
     if (auth.status === "internal_error") return internalError(c);
     if (auth.status === "unauthorized") return c.json(UNAUTHORIZED, 401);
 
-    const environment = c.env.APP_ENVIRONMENT === "production" ? "Production" : "Sandbox";
+    const allowedProducts = configuredProductIds(c.env.APPLE_IAP_PRODUCT_IDS);
+    if (!allowedProducts) return c.json(VERIFICATION_UNAVAILABLE, 503);
+    const environments = new Set(appleDatabaseEnvironments(c.env));
     try {
       const result = await c.env.DB.prepare(`
         SELECT purchase_chain.original_transaction_id,
                purchase_chain.product_id,
                purchase_chain.status AS lifecycle_status,
-               purchase_chain.state_effective_at
+               purchase_chain.state_effective_at,
+               purchase_chain.environment
         FROM billing_session_entitlement_grant AS session_grant
         INNER JOIN billing_purchase_chain AS purchase_chain
           ON purchase_chain.id = session_grant.purchase_chain_id
         WHERE session_grant.session_id = ?
           AND session_grant.entitlement_id = ?
           AND purchase_chain.store = 'app_store'
-          AND purchase_chain.environment = ?
         ORDER BY purchase_chain.state_effective_at DESC NULLS LAST,
                  purchase_chain.original_transaction_id ASC
       `).bind(
         auth.owner.session_id,
         PREMIUM_ENTITLEMENT_ID,
-        environment,
       ).all<SessionLifecycleRow>();
+
+      const purchaseChains = (result.results ?? [])
+        .filter((chain) =>
+          environments.has(chain.environment) &&
+          allowedProducts.has(chain.product_id)
+        )
+        .map(({ environment: _environment, ...chain }) => chain);
 
       return c.json({
         success: true,
         data: {
           schema_version: 1,
-          purchase_chains: result.results,
+          purchase_chains: purchaseChains,
         },
       });
     } catch {
@@ -163,7 +171,8 @@ export function createEntitlementRoutes(
       return c.json(VERIFICATION_UNAVAILABLE, 503);
     }
 
-    if (!await verifierFactory(c.env)) return c.json(VERIFICATION_UNAVAILABLE, 503);
+    const verifiers = asVerifierConfigurations(await verifierFactory(c.env));
+    if (verifiers.length === 0) return c.json(VERIFICATION_UNAVAILABLE, 503);
 
     const createdAt = now();
     const token = crypto.randomUUID();
@@ -224,25 +233,29 @@ export function createEntitlementRoutes(
       return raced ? storedAttemptResponse(c, raced) : internalError(c);
     }
 
-    const configuredVerifier = await verifierFactory(c.env);
+    const configuredVerifiers = asVerifierConfigurations(
+      await verifierFactory(c.env),
+    );
     const allowedProducts = configuredProductIds(c.env.APPLE_IAP_PRODUCT_IDS);
-    if (!configuredVerifier || !allowedProducts) {
+    if (configuredVerifiers.length === 0 || !allowedProducts) {
       return await finishAttempt(c, auth.owner.session_id, body.requestId, "VERIFICATION_UNAVAILABLE", 503, VERIFICATION_UNAVAILABLE);
     }
 
-    let transaction: JWSTransactionDecodedPayload;
-    try {
-      transaction = await configuredVerifier.verifier.verifyAndDecodeTransaction(body.signedTransactionInfo);
-    } catch {
+    const verified = await verifyAppleTransaction(
+      configuredVerifiers,
+      body.signedTransactionInfo,
+    );
+    if (!verified) {
       return await finishAttempt(c, auth.owner.session_id, body.requestId, "EVIDENCE_INVALID", 422, {
         success: false,
         error: { code: "EVIDENCE_INVALID", message: "Apple transaction evidence is invalid." },
       });
     }
+    const transaction = verified.transaction;
 
     const normalized = normalizeAppleTransaction(
       transaction,
-      configuredVerifier.environment,
+      verified.configuration.environment,
       allowedProducts,
       attemptedAt,
     );
@@ -931,11 +944,7 @@ function internalError(c: Context<{ Bindings: Env }>) {
   return c.json({ success: false, error: { code: "INTERNAL_ERROR", message: "Something went wrong." } }, 500);
 }
 
-export function configuredProductIds(value: string | undefined): ReadonlySet<string> | null {
-  if (!value) return null;
-  const ids = value.split(",").map((item) => item.trim()).filter(Boolean);
-  return ids.length > 0 ? new Set(ids) : null;
-}
+export { configuredProductIds } from "./apple-signed-data";
 
 async function readJson(request: { json(): Promise<unknown> }): Promise<unknown> {
   try { return await request.json(); } catch { return null; }

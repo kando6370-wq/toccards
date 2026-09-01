@@ -175,8 +175,8 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
         );
 
     return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 390),
+      child: SizedBox(
+        width: double.infinity,
         child: RefreshIndicator(
           key: const Key('profile-pull-to-refresh'),
           onRefresh: widget.onRefresh,
@@ -192,7 +192,12 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
             children: [
               if (subscription.premiumState == AppPremiumState.free) ...[
                 _UpgradeBanner(
-                  onTap: () => context.push(profileSubscriptionLocation),
+                  onTap: () => context.push(
+                    subscriptionPageLocation(
+                      source: 'profile',
+                      entrySource: 'profile_banner',
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 24),
               ],

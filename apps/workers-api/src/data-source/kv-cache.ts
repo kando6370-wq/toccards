@@ -13,7 +13,7 @@ export type DataSourceKvNamespace = {
 };
 
 const SEARCH_CARDS_TTL_SECONDS = 60 * 60;
-const CARD_RESPONSE_CACHE_VERSION = "v11";
+const CARD_RESPONSE_CACHE_VERSION = "v12";
 const DEFAULT_SEARCH_PAGE = 1;
 const DEFAULT_SEARCH_PAGE_SIZE = 20;
 

@@ -88,7 +88,7 @@ Card AI 面向交易卡牌用户提供目录搜索、图片识别、Wishlist/Col
 1. App 读取本地会话、环境配置和已验证 Premium 缓存。
 2. 无有效身份时调用 `POST /api/v1/auth/anonymous` 建立匿名账号和 session。
 3. 用户可通过邮箱、Google 或 Apple 登录；Access Token 过期时使用同一 session 的 Refresh Token 换新。
-4. 游客注册或绑定后，服务端把 Folder、Collection、Wishlist、偏好和扫描记录迁移到正式 UID。
+4. 游客注册为新用户后，服务端把 Folder、Collection、Wishlist、偏好、扫描记录和已结算的 Free Scan 消费迁移到正式 UID；游客登录已有用户时不合并游客 Scan Quota。
 5. 登出撤销 session；删除账号按正式/匿名类型清理或失效业务数据。
 
 异常：刷新失败后客户端清理无效会话；验证码错误/过期、重复邮箱和禁用账号由服务端拒绝。证据：`auth/`、`auth_session_interceptor.dart`。
@@ -97,11 +97,14 @@ Card AI 面向交易卡牌用户提供目录搜索、图片识别、Wishlist/Col
 
 1. 用户按游戏搜索 Card 或 Set，并进入卡牌详情。
 2. 详情加载图片、市场价、价格历史和 TCGplayer 商品外链；已成交记录继续通过独立入口查询。
-3. 用户可加入 Wishlist，或选择 Folder、数量、Raw/评级、品相、评级机构/分数、语言、工艺和购买价后收藏。
-4. 收藏写入同步产生 `collection_item_event`；同卡 Wishlist 被移除。
-5. 后续编辑、数量变化、Folder Move 或删除继续写事件，用于历史估值和 Performance。
+3. Search、Wishlist、Home Trending 等只携带 `card_id` 的入口进入通用 Card Detail，不因卡牌已收藏而猜测某条 Item；Collection、Most Valuable、Top Performers 等携带 `collection_item_id` 的入口继续进入具体 Item 详情和 Performance。通用详情在当前选中 Folder 有正式 Item 时展示 `In Your Portfolio`，逐条显示评级、材质和 SKU 单价，点击整行打开该 Item 编辑 Sheet；其他 Folder 和待编辑 Item 不进入该模块。具体 Item 详情不展示 `In Your Portfolio`，卡图右上角固定使用分享图标并调用既有卡牌分享业务；通用详情右上角使用收藏图标。
+4. Search Cards 与 Sets 卡牌列表的收藏按钮先建立同一全局本地待编辑 Item：按钮显示亮黄色但正式 Qty 不变；无论卡牌是否已收藏，每点击一次 `+` 都追加一个独立、默认 `Quantity=1` 的待编辑 Item，不合并数量，也不执行快捷删除。全局最多保留 20 条，第 21 次点击不新增并显示 `You can add up to 20 cards at a time.`。Sets 收藏必须使用当前 Set 的 Game，不继承无关的 Search 选择；Sets 下拉刷新同时刷新 Set 卡牌和收藏/Wishlist 资产快照，保证 Qty 与互斥按钮和 Search Cards 一致。待编辑提示持续显示在 Home、Search、Collection、Profile 以及当前 Sets 卡牌列表底部并按 Item 条数计数，Scan 不显示；Sets 点击后必须在当前页面立即显示，不要求先返回 Search。单 Item 进入单卡编辑样式，多个 Item（包括同卡重复点击）进入带顶部条和批量操作的 Review 样式；`ADD ALL CARDS` 全部成功后先关闭 Review，再由返回页面按成功 Item 数显示居中 Success Toast，避免弹层退场吞掉反馈。通用 Card Detail 的右上收藏按钮不静默追加待编辑队列，而是直接打开该卡牌的新增 Collection Item 编辑 Sheet；关闭未保存时不改变正式 Qty、持仓或待编辑队列，保存成功后再按既有完整 Item Create 流程刷新资产。
+5. 用户可分别为每个待编辑 Item 选择 Folder、数量、Raw/评级、品相、评级机构/分数、语言、工艺和购买价；每条使用独立 UUID 作为创建请求的幂等键，保存才逐条创建 Collection Item 并增加 Qty。成功条目从队列移除；批量部分失败时保留失败草稿并继续显示 Review。单条和批量全成功使用 Figma 居中 Success Toast，部分成功使用顶部 warning Toast。只有在 Review 中删除待编辑 Item 才取消该条待收藏。
+6. Search `Qty` 汇总当前卡牌在全部 Folder 中已保存 Item 的 Quantity，不包含待编辑 Item；`In Your Portfolio` 只按当前选中 Folder 过滤，两种口径不得混用。同一 `card_ref` 且 Condition、Language、Finish、Grader、Grade 相同时，Home Most Valuable、Search Cards、Sets 卡牌列表、Wishlist 和 Collection 卡牌列表必须使用同一当前 canonical series、当前价格与 30D 涨幅。Home Trending 和 Trending Today 保持独立的 1D / 24h 行情口径：入榜、排名、当前价格、比较价格和页面涨幅统一读取同一条已发布 `card_trending_snapshot` winner，不改用其他列表的 30D 展示口径。Collection Item 的卡片金额为单张价格乘 `Quantity`，因此两张显示两张总价；`Quantity=1` 时必须与其他同规格单卡入口一致。迁移 Item 的旧 `price_series_id` 只服务总资产、Performance 与历史回放，不覆盖当前列表显示。
+7. 收藏与 Wishlist 保持互斥：待编辑期间隐藏 Wishlist 快捷入口但不提前写服务端，保存 Collection Item 时由既有服务端流程移除同卡 Wishlist，删除待编辑 Item 后恢复原 Wishlist 状态；Wishlist 快捷加入/移除流程本身不变。
+8. 收藏写入同步产生 `collection_item_event`；后续编辑、数量变化、Folder Move 或删除继续写事件，用于历史估值和 Performance。
 
-关键约束：数量至少为 1；同所有者、Folder、卡牌、finish、language 组合唯一；目标 Folder 必须属于当前所有者。证据：`src/db/schema.ts`、`portfolio/routes.ts`、`portfolio/collect.test.ts`。
+关键约束：待编辑队列不属于服务端资产真值，账号身份切换时清空；Search 中 `Qty=0` 表示没有正式收藏，`Qty>0` 表示已有正式收藏；数量至少为 1；同所有者、Folder、卡牌、finish、language、grader、condition、grade 组合唯一；目标 Folder 必须属于当前所有者。证据：`pending_collection.dart`、`search_controller.dart`、`search_repository.dart`、`card_detail_controller.dart`、`card_detail_page.dart`、`portfolio_api_client.dart`、`portfolio/routes.ts`、`portfolio/collect.test.ts`。
 
 ### 3.3 扫描与服务端额度
 
@@ -123,6 +126,9 @@ reserved -> released
 - Free 终身上限为 10；`remaining = max(0, 10 - reserved - consumed)`。
 - 同一 request 重试返回已有结果；60 秒 processing lease 过期后允许接管。
 - Premium 请求记录审计但不消耗 Free 额度。
+- 客户端超时或传输结果不确定时，Failed Retry 复用原 request ID，避免服务端迟到成功后以新 ID 再次消费；收到明确终态响应后的 Retry 使用新请求。
+- Premium 在 Scan 页面内确认降级为 Free，或服务端 quota 从 Unlimited 收敛为 Free 时，App 主动刷新并恢复该身份原有 Remaining；Free 提示条在 Scanning、Recognizing、Revealing 和结果状态持续显示并跟随最新服务端结算值。
+- Capture 与 Gallery 共用 10 张 Queue 上限，Waiting、Processing、Matched、Failed 和 No Match 均计入容量。
 - App Queue 的 Processing、Waiting、Done 是客户端展示状态；删除 Processing 不取消已发出的服务端结算，但后台结果不会把已删 Item 插回 UI。
 
 证据：`src/scan/quota.ts`、`routes.ts`、`quota.integration.test.ts`、`scan_page_test.dart`。
@@ -161,7 +167,7 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 - Free 所有者最多有 2 个 Folder（包含默认 Folder）；条件 INSERT 在服务端防止多设备并发越限。
 - 当前 session 有 active grant 时可超过上限；同 UID 的另一 session 不自动继承。
 - Home Performance 可按 Folder 聚合；Card Detail Performance 必须有明确 `collection_item_id`，同卡多 Item 时不猜测聚合。
-- Home Premium Performance 的 Top Performers 只读取当前 Folder 的当前持仓快照；每条 Collection Item 独立排序，Range 切换不改变榜单，金额隐藏不隐藏 Return。该模块不扩展到 Home Overview 或 Card Detail 页面。
+- Home Premium Performance 的 Top Performers 只读取当前 Folder 的当前持仓快照；每条 Collection Item 按卡片右上角展示的 Return 百分比从高到低独立排序，使用未舍入原值比较且无 Return 的条目置后。Range 切换不改变榜单，金额隐藏不隐藏 Return。该模块不扩展到 Home Overview 或 Card Detail 页面。
 - Range 为 `1D/7D/15D/1M/3M/1Y`，默认 1M；历史从可靠起点开始，数据不足返回 `partial_history=true`，不补虚假点。
 - 1Y 价格历史只接受当前 live session grant；普通公开历史接口仍限制到 90 天。
 

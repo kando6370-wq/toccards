@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,8 +19,10 @@ import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/shared/analytics/analytics_events.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
+import 'package:kando_app/shared/portfolio/pending_collection.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
+import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
@@ -28,6 +31,22 @@ import '../support/local_placeholder_auth_repository.dart';
 import '../support/mock_card_detail_repository.dart';
 
 void main() {
+  test('Performance tooltip separates Figma label and value styles', () {
+    final span = buildCardDetailChartTooltipRow(r'Market Value: $790.00');
+    final children = span.children!.cast<TextSpan>();
+
+    expect(children, hasLength(2));
+    expect(children[0].text, 'Market Value:');
+    expect(children[0].style?.color, const Color(0xFF999578));
+    expect(children[0].style?.fontFamily, 'Geist');
+    expect(children[0].style?.fontSize, 12);
+    expect(children[0].style?.height, 18 / 12);
+    expect(children[1].text, r' $790.00');
+    expect(children[1].style?.color, KandoColors.accent);
+    expect(children[1].style?.fontSize, 10);
+    expect(children[1].style?.height, 14 / 10);
+  });
+
   testWidgets(
     'product 180865 shows Normal and Foil tabs and switching refreshes material prices',
     (tester) async {
@@ -217,6 +236,60 @@ void main() {
     expect(actionWidth, heroWidth);
     expect(tabsWidth, heroWidth);
   });
+
+  testWidgets(
+    'owned CardDetail tabs match Figma typography without truncating labels',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(const _CardDetailTestApp(cardId: 'charizard-ex'));
+      await tester.pumpAndSettle();
+
+      final tabs = find.byKey(const Key('card-detail-owned-tabs'));
+      await tester.scrollUntilVisible(tabs, 400);
+      await tester.pumpAndSettle();
+
+      final tabBar = tester.widget<TabBar>(
+        find.descendant(of: tabs, matching: find.byType(TabBar)),
+      );
+      expect(tabBar.labelPadding, EdgeInsets.zero);
+
+      TextStyle labelStyle(String label) => DefaultTextStyle.of(
+        tester.element(find.descendant(of: tabs, matching: find.text(label))),
+      ).style;
+
+      for (final label in const ['Collection Item', 'Performance', 'Price']) {
+        final labelFinder = find.descendant(
+          of: tabs,
+          matching: find.text(label),
+        );
+        expect(labelFinder, findsOneWidget);
+        final style = labelStyle(label);
+        expect(style.fontSize, 13);
+        expect(style.height, closeTo(16 / 13, 0.001));
+        expect(style.fontWeight, FontWeight.w400);
+        expect(style.letterSpacing, 0);
+        expect(
+          tester.renderObject<RenderParagraph>(labelFinder).didExceedMaxLines,
+          isFalse,
+        );
+      }
+
+      expect(labelStyle('Collection Item').color, KandoColors.accent);
+      expect(labelStyle('Performance').color, const Color(0xFF92927D));
+      expect(labelStyle('Price').color, const Color(0xFF92927D));
+
+      await tester.tap(find.descendant(of: tabs, matching: find.text('Price')));
+      await tester.pumpAndSettle();
+
+      expect(labelStyle('Collection Item').color, const Color(0xFF92927D));
+      expect(labelStyle('Performance').color, const Color(0xFF92927D));
+      expect(labelStyle('Price').color, KandoColors.accent);
+    },
+  );
 
   testWidgets('uncollected CardDetail renders identity and price overview', (
     tester,
@@ -694,287 +767,73 @@ void main() {
   );
 
   testWidgets(
-    'Search add sheet switches portfolio only from the header because the form stays focused',
+    'generic CardDetail collection action opens the item editor without changing saved Qty',
     (tester) async {
-      tester.view.physicalSize = const Size(390, 844);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      addTearDown(tester.view.resetViewInsets);
-
       await tester.pumpWidget(
         const _CardDetailTestApp(cardId: 'one-piece-luffy'),
       );
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.favorite), findsNothing);
-      expect(find.byIcon(Icons.favorite_border), findsNothing);
-      final portfolioIcon = tester.widget<SvgPicture>(
-        find.byKey(const Key('card-detail-add-to-portfolio-icon')),
+      final collect = find.byKey(
+        const Key('card-detail-add-to-portfolio-one-piece-luffy'),
       );
-      expect(
-        portfolioIcon.bytesLoader,
-        isA<SvgAssetLoader>().having(
-          (loader) => loader.assetName,
-          'assetName',
-          'assets/collection/add_to_portfolio.svg',
-        ),
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CardDetailPage)),
       );
-      expect(portfolioIcon.width, 20);
-      expect(portfolioIcon.height, 20);
 
-      await tester.tap(
-        find.byKey(const Key('card-detail-add-to-portfolio-one-piece-luffy')),
-      );
+      await tester.tap(collect);
       await tester.pumpAndSettle();
 
+      expect(container.read(pendingCollectionProvider), isEmpty);
+      expect(
+        container
+            .read(cardDetailControllerProvider('one-piece-luffy'))
+            .detail
+            .quantity,
+        0,
+      );
       expect(
         find.byKey(const Key('card-detail-add-item-sheet')),
         findsOneWidget,
       );
-      expect(find.text('Collection item'), findsOneWidget);
-      expect(find.text('Adding to Main'), findsOneWidget);
-      await tester.tap(find.byKey(const Key('card-detail-add-item-portfolio')));
-      await tester.pumpAndSettle();
-      expect(find.text('Portfolio'), findsOneWidget);
-      await tester.tap(find.text('Sealed').last);
-      await tester.pumpAndSettle();
-      expect(find.text('Adding to Sealed'), findsOneWidget);
-      expect(
-        find.byKey(const Key('card-detail-add-item-portfolio')),
-        findsOneWidget,
-      );
-      expect(find.byKey(const Key('card-detail-item-portfolio')), findsNothing);
-      expect(find.text('LANGUAGE'), findsOneWidget);
-      expect(find.text('FINISH'), findsOneWidget);
-      expect(
-        find.byKey(const Key('card-detail-item-state-raw')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const Key('card-detail-item-selected-card')),
-        findsNothing,
-      );
-      expect(
-        find.byKey(const Key('card-detail-item-market-price')),
-        findsNothing,
-      );
-      expect(find.text('TOTAL VALUE'), findsOneWidget);
-      expect(
-        tester
-            .widget<Text>(find.byKey(const Key('card-detail-item-total')))
-            .data,
-        '--',
-      );
-      expect(find.text('Add this card'), findsOneWidget);
-      expect(find.text('Near Mint (NM)'), findsWidgets);
-      expect(tester.takeException(), isNull);
-      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-      expect(
-        tester
-            .getBottomRight(find.byKey(const Key('card-detail-item-submit')))
-            .dy,
-        lessThanOrEqualTo(544),
-      );
-      tester.view.resetViewInsets();
-      await tester.pumpAndSettle();
-      final submitTopBeforeScroll = tester.getTopLeft(
-        find.byKey(const Key('card-detail-item-submit')),
-      );
-      await tester.ensureVisible(
-        find.byKey(const Key('card-detail-item-condition')),
-      );
-      await tester.pumpAndSettle();
-      expect(
-        tester.getTopLeft(find.byKey(const Key('card-detail-item-submit'))).dy,
-        submitTopBeforeScroll.dy,
-      );
-      expect(find.text('Lightly Played (LP)'), findsOneWidget);
-      expect(find.text('Near Mint (NM)'), findsWidgets);
-      await tester.tap(find.text('Lightly Played (LP)'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Near Mint (NM)').last);
-      await tester.pumpAndSettle();
-
-      await tester.ensureVisible(
-        find.byKey(const Key('card-detail-item-submit')),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('card-detail-item-submit')));
-      await tester.pumpAndSettle();
-      final container = ProviderScope.containerOf(
-        tester.element(find.byType(CardDetailPage)),
-      );
-      final savedState = container.read(
-        cardDetailControllerProvider('one-piece-luffy'),
-      );
-      final savedDetail = savedState.detail;
-
-      expect(savedDetail.isCollected, isTrue);
-      expect(savedDetail.quantity, 1);
-      expect(savedDetail.isWishlisted, isFalse);
-      expect(find.byKey(const Key('card-detail-add-item-sheet')), findsNothing);
-      expect(
-        find.byKey(const Key('card-detail-add-to-portfolio-one-piece-luffy')),
-        findsNothing,
-      );
-      expect(
-        find.byKey(const Key('card-detail-share-one-piece-luffy')),
-        findsOneWidget,
-      );
-      expect(find.text('OWNERSHIP SUMMARY'), findsNothing);
-      expect(savedState.collectionItemRows.single.portfolioName, 'Sealed');
-      expect(
-        savedState.collectionItemRows.single.statusText,
-        'Raw / Near Mint (NM)',
-      );
-      expect(savedState.collectionItemRows.single.purchasePriceText, '--');
-      final successToast = find.byKey(
-        const Key('kando-centered-success-toast'),
-      );
-      expect(successToast, findsOneWidget);
-      expect(find.byKey(const Key('kando-top-toast')), findsNothing);
-      expect(find.text('Success'), findsOneWidget);
-      expect(find.text(portfolioCardAddedToastText), findsOneWidget);
-      expect(tester.getSize(successToast), const Size(320, 212));
-      final viewSize = tester.view.physicalSize / tester.view.devicePixelRatio;
-      expect(
-        tester.getCenter(successToast),
-        Offset(viewSize.width / 2, viewSize.height / 2),
-      );
-      final title = tester.widget<Text>(find.text('Success'));
-      expect(title.style?.fontFamily, 'Fraunces');
-      expect(title.style?.fontSize, 24);
-      expect(title.style?.fontWeight, FontWeight.w600);
-      await tester.pump(kandoCenteredSuccessToastDuration);
-      await tester.pump();
-      expect(successToast, findsNothing);
+      expect(find.byType(QuickCollectionReviewPage), findsNothing);
     },
   );
 
-  testWidgets('Add this card waits for the API before showing success', (
-    tester,
-  ) async {
-    final repository = _DelayedCreateCardDetailRepository();
-    await tester.pumpWidget(
-      _CardDetailTestApp(cardId: 'one-piece-luffy', repository: repository),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(
-      find.byKey(const Key('card-detail-add-to-portfolio-one-piece-luffy')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('card-detail-item-submit')));
-    await tester.pump();
-
-    expect(repository.pendingCreate, isNotNull);
-    expect(find.byKey(const Key('card-detail-add-item-sheet')), findsOneWidget);
-    expect(
-      find.byKey(const Key('card-detail-item-submit-loading')),
-      findsOneWidget,
-    );
-    expect(
-      tester
-          .widget<FilledButton>(
-            find.byKey(const Key('card-detail-item-submit')),
-          )
-          .onPressed,
-      isNull,
-    );
-    expect(find.byIcon(Icons.add_circle_outline), findsNothing);
-    expect(find.text('Add this card'), findsOneWidget);
-    expect(find.byKey(const Key('kando-top-toast')), findsNothing);
-
-    repository.completeCreate();
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const Key('card-detail-add-item-sheet')), findsNothing);
-    expect(
-      find.byKey(const Key('card-detail-item-submit-loading')),
-      findsNothing,
-    );
-    final container = ProviderScope.containerOf(
-      tester.element(find.byType(CardDetailPage)),
-    );
-    expect(
-      container
-          .read(cardDetailControllerProvider('one-piece-luffy'))
-          .isSavingCollectionItemDraft,
-      isFalse,
-    );
-    expect(
-      find.byKey(const Key('kando-centered-success-toast')),
-      findsOneWidget,
-    );
-    expect(find.byKey(const Key('kando-top-toast')), findsNothing);
-    expect(find.text(portfolioCardAddedToastText), findsOneWidget);
-    await tester.pump(kandoCenteredSuccessToastDuration);
-    await tester.pump();
-  });
-
   testWidgets(
-    'add item keeps graded grader and grade choices inline because they share one Figma state',
+    'Add this card shows duplicate failures in a top toast because the fixed action must not require scrolling to the form error',
     (tester) async {
-      tester.view.physicalSize = const Size(390, 844);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-
       await tester.pumpWidget(
-        const _CardDetailTestApp(cardId: 'one-piece-luffy'),
+        _CardDetailTestApp(
+          cardId: 'one-piece-luffy',
+          repository: const _DuplicateCreateCardDetailRepository(),
+        ),
       );
       await tester.pumpAndSettle();
+
       await tester.tap(
         find.byKey(const Key('card-detail-add-to-portfolio-one-piece-luffy')),
       );
       await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('card-detail-item-submit')));
+      await tester.pump();
 
-      final gradedState = find.byKey(
-        const Key('card-detail-item-state-graded'),
-      );
-      await tester.ensureVisible(gradedState);
-      await tester.pumpAndSettle();
-      await tester.tap(gradedState);
-      await tester.pumpAndSettle();
-
-      final graderGroup = find.byKey(const Key('card-detail-item-grader'));
-      await tester.ensureVisible(graderGroup);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('BGS').last);
-      await tester.pumpAndSettle();
-
-      expect(find.byType(BottomSheet), findsOneWidget);
-      expect(find.text('GRADING DETAILS'), findsOneWidget);
-      expect(find.byType(DropdownButtonFormField<String>), findsNothing);
-      await tester.ensureVisible(find.text('9.5'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('9.5'));
-      await tester.pumpAndSettle();
-      final container = ProviderScope.containerOf(
-        tester.element(find.byType(CardDetailPage)),
-      );
+      final toast = find.byKey(const Key('kando-top-toast'));
+      expect(toast, findsOneWidget);
       expect(
-        container
-            .read(cardDetailControllerProvider('one-piece-luffy'))
-            .collectionItemDraft
-            ?.grade,
-        '9.5',
-      );
-
-      final rawState = find.byKey(const Key('card-detail-item-state-raw'));
-      await tester.ensureVisible(rawState);
-      await tester.pumpAndSettle();
-      await tester.tap(rawState);
-      await tester.pumpAndSettle();
-      expect(find.byType(BottomSheet), findsOneWidget);
-      expect(find.text('RAW DETAILS'), findsOneWidget);
-      expect(
-        find.byKey(const Key('card-detail-item-condition')),
+        find.descendant(
+          of: toast,
+          matching: find.text(duplicateCollectionItemMessage),
+        ),
         findsOneWidget,
       );
+      expect(
+        find.byKey(const Key('card-detail-add-item-sheet')),
+        findsOneWidget,
+      );
+
+      await tester.pump(kandoTopToastDuration);
+      await tester.pump();
     },
   );
 
@@ -990,6 +849,11 @@ void main() {
     expect(find.byIcon(Icons.favorite), findsNothing);
     expect(find.byIcon(Icons.favorite_border), findsNothing);
     expect(find.byIcon(Icons.ios_share_outlined), findsNothing);
+    expect(find.text('In Your Portfolio'), findsNothing);
+    expect(
+      find.byKey(const Key('card-detail-share-charizard-ex')),
+      findsOneWidget,
+    );
     final shareIcon = tester.widget<SvgPicture>(
       find.byKey(const Key('card-detail-share-icon')),
     );
@@ -1173,7 +1037,7 @@ void main() {
       expect(tooltip, contains('Date: 2026-08-12'));
       expect(tooltip, contains(r'Daily Change: +$40.00'));
       expect(tooltip, contains(r'Market Value: $790.00'));
-      expect(tooltip, contains(r'Profit / Loss: $190.00'));
+      expect(tooltip, contains(r'Profit / Loss: +$190.00'));
       expect(tooltip, contains('Qty: 1'));
       expect(tooltip, isNot(contains('Price:')));
 
@@ -1234,6 +1098,42 @@ void main() {
   );
 
   testWidgets(
+    'Card Performance makes a single data point clearly visible before selection',
+    (tester) async {
+      await tester.pumpWidget(
+        _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          subscriptionController: _ProCardSubscriptionController.new,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Performance'), 400);
+      await tester.tap(find.text('Performance'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const Key('card-detail-performance-chart')),
+      );
+
+      final chart = find.byKey(const Key('card-detail-performance-chart'));
+      final customPaint = tester.widget<CustomPaint>(
+        find.descendant(of: chart, matching: find.byType(CustomPaint)),
+      );
+      final haloAlpha = await tester.runAsync(() async {
+        final recorder = ui.PictureRecorder();
+        customPaint.painter!.paint(Canvas(recorder), const Size(100, 100));
+        final image = await recorder.endRecording().toImage(100, 100);
+        final pixels = await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        );
+        image.dispose();
+        return pixels!.getUint8((52 * 100 + 55) * 4 + 3);
+      });
+
+      expect(haloAlpha, greaterThan(0));
+    },
+  );
+
+  testWidgets(
     'Pro owners without purchase price can edit the Collection Item because Performance cannot be calculated yet',
     (tester) async {
       await tester.pumpWidget(
@@ -1265,7 +1165,7 @@ void main() {
       await tester.tapAt(tester.getRect(chart).center);
       await tester.pump();
       final tooltip = tester.widget<Semantics>(chart).properties.value!;
-      expect(tooltip, contains(r'Daily Change: +$40.00'));
+      expect(tooltip, contains(r'Daily Change: +$55.00'));
       expect(tooltip, contains(r'Market Value: $790.00'));
       expect(tooltip, contains('Qty: 1'));
       expect(tooltip, isNot(contains('Profit / Loss')));
@@ -1435,7 +1335,159 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Performance'), findsNothing);
-      expect(find.text('Collection Item'), findsOneWidget);
+      expect(find.text('Collection Item'), findsNothing);
+      expect(find.text('In Your Portfolio'), findsOneWidget);
+      expect(find.text('Price'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'In Your Portfolio opens the editor before its market refresh completes so editing is never blocked by the network',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final repository = _DelayedEditPriceCardDetailRepository();
+      await tester.pumpWidget(
+        _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          collectionItemId: null,
+          repository: repository,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final item = find.byKey(
+        const Key('card-detail-portfolio-item-item-charizard'),
+      );
+      await tester.scrollUntilVisible(item, 400);
+      await tester.ensureVisible(item);
+      await tester.pumpAndSettle();
+      await tester.tap(item);
+      await tester.pump();
+
+      expect(repository.pendingEditPriceRefresh, isNotNull);
+      expect(find.text('SAVE CHANGES'), findsOneWidget);
+
+      repository.completeEditPriceRefresh();
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets(
+    'In Your Portfolio editor uses the shared backed footer and visible Save loading',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final repository = _DelayedUpdateCardDetailRepository();
+      await tester.pumpWidget(
+        _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          collectionItemId: null,
+          repository: repository,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final item = find.byKey(
+        const Key('card-detail-portfolio-item-item-charizard'),
+      );
+      await tester.scrollUntilVisible(item, 400);
+      await tester.ensureVisible(item);
+      await tester.tap(item);
+      await tester.pumpAndSettle();
+
+      final sheet = find.byKey(const Key('card-detail-edit-item-sheet'));
+      final footer = find.byKey(const Key('card-detail-item-edit-footer'));
+      expect(sheet, findsOneWidget);
+      expect(footer, findsOneWidget);
+      expect(
+        tester.getBottomRight(footer).dy,
+        closeTo(tester.getBottomRight(sheet).dy, 0.01),
+      );
+      final footerDecoration =
+          tester.widget<Container>(footer).decoration! as BoxDecoration;
+      expect(footerDecoration.color, KandoColors.ink);
+
+      final save = find.byKey(const Key('card-detail-edit-item-sheet-save'));
+      await tester.tap(save);
+      await tester.pump();
+
+      expect(repository.pendingUpdate, isNotNull);
+      final progress = tester.widget<CircularProgressIndicator>(
+        find.descendant(
+          of: save,
+          matching: find.byType(CircularProgressIndicator),
+        ),
+      );
+      expect(progress.color, KandoColors.primaryOnDefault);
+      expect(tester.widget<TextButton>(save).onPressed, isNull);
+
+      repository.completeUpdate();
+      await tester.pumpAndSettle();
+      expect(sheet, findsNothing);
+    },
+  );
+
+  testWidgets(
+    'In Your Portfolio editor removes only after Figma confirmation because cancellation must preserve the saved Item',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        const _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          collectionItemId: null,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final item = find.byKey(
+        const Key('card-detail-portfolio-item-item-charizard'),
+      );
+      await tester.scrollUntilVisible(item, 400);
+      await tester.ensureVisible(item);
+      await tester.tap(item);
+      await tester.pumpAndSettle();
+
+      final remove = find.byKey(const Key('card-detail-remove-from-portfolio'));
+      expect(remove, findsOneWidget);
+      await tester.ensureVisible(remove);
+      await tester.tap(remove);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('This card will be removed from your portfolio'),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(const Key('card-detail-remove-confirmation-cancel')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('card-detail-edit-item-sheet')),
+        findsOneWidget,
+      );
+      expect(remove, findsOneWidget);
+
+      await tester.tap(remove);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('card-detail-remove-confirmation-submit')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('card-detail-edit-item-sheet')),
+        findsNothing,
+      );
+      expect(find.text('In Your Portfolio'), findsNothing);
       expect(find.text('Price'), findsOneWidget);
     },
   );
@@ -1504,17 +1556,14 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('card-detail-owned-tabs')),
-        400,
-      );
 
       expect(
         find.byKey(const Key('card-detail-performance-content')),
         findsNothing,
       );
+      expect(find.byKey(const Key('card-detail-owned-tabs')), findsNothing);
       expect(
-        find.byKey(const Key('card-detail-collection-item-item-charizard')),
+        find.byKey(const Key('card-detail-portfolio-item-item-charizard')),
         findsOneWidget,
       );
     },
@@ -1549,6 +1598,38 @@ void main() {
     },
   );
 
+  testWidgets(
+    'owned CardDetail displays the requested Collection Item because same-card versions keep independent ownership data',
+    (tester) async {
+      await tester.pumpWidget(
+        const _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          collectionItemId: 'item-charizard-sealed',
+          repository: _MultiItemCardDetailRepository(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(find.text('Collection Item'), 400);
+
+      expect(
+        find.byKey(
+          const Key('card-detail-collection-item-item-charizard-sealed'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('card-detail-collection-item-item-charizard')),
+        findsNothing,
+      );
+      expect(find.text('Sealed'), findsOneWidget);
+      expect(find.text('2'), findsOneWidget);
+      expect(find.text(r'$20.00'), findsOneWidget);
+      expect(find.text('Hidden duplicate item.'), findsOneWidget);
+      expect(find.text('Pulled from Obsidian Flames binder.'), findsNothing);
+    },
+  );
+
   testWidgets('owned CardDetail can switch to Price overview', (tester) async {
     await tester.pumpWidget(const _CardDetailTestApp(cardId: 'charizard-ex'));
     await tester.pumpAndSettle();
@@ -1566,6 +1647,25 @@ void main() {
     expect(find.byKey(const Key('card-detail-price-chart')), findsOneWidget);
     expect(find.text('RAW'), findsOneWidget);
     expect(find.text('GRADED'), findsOneWidget);
+    final priceModeControl = find.byKey(
+      const Key('card-detail-price-mode-control'),
+    );
+    expect(tester.getSize(priceModeControl), const Size(150, 24));
+    final rawMode = tester.widget<Container>(
+      find.byKey(const Key('card-detail-price-mode-raw')),
+    );
+    final rawDecoration = rawMode.decoration! as BoxDecoration;
+    expect((rawDecoration.gradient! as LinearGradient).colors, const [
+      Color(0x99747B26),
+      Color(0x33747B26),
+    ]);
+    final gradedMode = tester.widget<Container>(
+      find.byKey(const Key('card-detail-price-mode-graded')),
+    );
+    expect(
+      (gradedMode.decoration! as BoxDecoration).color,
+      KandoColors.surface,
+    );
     expect(find.text('1M'), findsOneWidget);
     expect(find.text('Market Prices'), findsOneWidget);
     expect(find.text('Shop'), findsOneWidget);
@@ -1597,6 +1697,22 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('GRADED'));
     await tester.pumpAndSettle();
+    final selectedGradedMode = tester.widget<Container>(
+      find.byKey(const Key('card-detail-price-mode-graded')),
+    );
+    expect(
+      ((selectedGradedMode.decoration! as BoxDecoration).gradient!
+              as LinearGradient)
+          .colors,
+      const [Color(0x99747B26), Color(0x33747B26)],
+    );
+    final unselectedRawMode = tester.widget<Container>(
+      find.byKey(const Key('card-detail-price-mode-raw')),
+    );
+    expect(
+      (unselectedRawMode.decoration! as BoxDecoration).color,
+      KandoColors.surface,
+    );
     expect(find.text('PSA 10'), findsOneWidget);
     expect(find.text('BGS 10'), findsOneWidget);
     expect(find.text('PSA 10 Holofoil'), findsNothing);
@@ -1656,6 +1772,10 @@ void main() {
     );
     expect(find.text('SAVE CHANGES'), findsOneWidget);
     expect(find.text('PURCHASE DETAILS'), findsNothing);
+    expect(
+      find.byKey(const Key('card-detail-remove-from-portfolio')),
+      findsNothing,
+    );
     expect(
       find.byKey(const Key('card-detail-item-selected-card')),
       findsNothing,
@@ -1810,6 +1930,53 @@ void main() {
 
       expect(find.text('Edit item'), findsOneWidget);
       expect(find.text('SAVE CHANGES'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Card Performance keeps its range across tabs but resets to 1M after reentry',
+    (tester) async {
+      BoxDecoration rangeDecoration(String range) {
+        final indicator = find.ancestor(
+          of: find.byKey(Key('card-detail-performance-range-$range')),
+          matching: find.byType(Ink),
+        );
+        expect(indicator, findsOneWidget);
+        return tester.widget<Ink>(indicator).decoration! as BoxDecoration;
+      }
+
+      await tester.pumpWidget(const _CardDetailReentryApp());
+      await tester.tap(find.byKey(const Key('open-card-detail')));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Performance'), 400);
+      await tester.tap(find.text('Performance'));
+      await tester.pumpAndSettle();
+
+      expect(rangeDecoration('1M').gradient, isNotNull);
+      expect(rangeDecoration('3M').gradient, isNull);
+
+      await tester.tap(
+        find.byKey(const Key('card-detail-performance-range-3M')),
+      );
+      await tester.pumpAndSettle();
+      expect(rangeDecoration('3M').gradient, isNotNull);
+
+      await tester.tap(find.text('Price'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Performance'));
+      await tester.pumpAndSettle();
+      expect(rangeDecoration('3M').gradient, isNotNull);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('open-card-detail')));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Performance'), 400);
+      await tester.tap(find.text('Performance'));
+      await tester.pumpAndSettle();
+
+      expect(rangeDecoration('1M').gradient, isNotNull);
+      expect(rangeDecoration('3M').gradient, isNull);
     },
   );
 
@@ -2194,7 +2361,7 @@ class _CardPerformanceApi extends PortfolioApiClient {
     final point = PerformancePointDto(
       date: '2026-08-12',
       marketValueUsd: 790,
-      marketValueChangeUsd: 40,
+      marketValueChangeUsd: 55,
       marketChangeUsd: 10,
       portfolioChangeUsd: 20,
       paidMarketValueUsd: 790,
@@ -2407,6 +2574,62 @@ class _FinishTabCardDetailRepository extends MockCardDetailRepository
       const [];
 }
 
+class _DelayedEditPriceCardDetailRepository
+    extends _FinishTabCardDetailRepository {
+  Completer<CardDetailMarketData>? pendingEditPriceRefresh;
+  var _marketPriceRequestCount = 0;
+
+  @override
+  Future<CardDetail> loadCoreDetail(String cardId) {
+    return const MockCardDetailRepository().loadDetail(
+      const AuthSession(
+        ownerType: OwnerType.anonymous,
+        accessToken: 'test-access',
+        refreshToken: 'test-refresh',
+      ),
+      cardId,
+    );
+  }
+
+  @override
+  Future<CardDetailMarketData> loadMarketPrices(
+    String cardId, {
+    String? finish,
+    String? language,
+  }) {
+    _marketPriceRequestCount += 1;
+    if (_marketPriceRequestCount == 1) {
+      return Future.value(_editMarketData);
+    }
+    pendingEditPriceRefresh = Completer<CardDetailMarketData>();
+    return pendingEditPriceRefresh!.future;
+  }
+
+  void completeEditPriceRefresh() {
+    pendingEditPriceRefresh?.complete(_editMarketData);
+  }
+
+  static final _editMarketData = CardDetailMarketData(
+    prices: const [
+      CardDataMarketPriceDto(
+        grader: 'PSA',
+        grade: 10,
+        condition: null,
+        price: 780,
+      ),
+    ],
+    marketPrices: const [
+      CardMarketPrice(
+        label: 'PSA 10',
+        grader: 'PSA',
+        grade: 10,
+        priceUsd: 780,
+        previous30dPriceUsd: null,
+      ),
+    ],
+  );
+}
+
 class _CardDetailRouteApp extends StatelessWidget {
   const _CardDetailRouteApp();
 
@@ -2439,7 +2662,13 @@ class _CardDetailReentryApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ProviderScope(
-      overrides: _cardDetailOverrides,
+      overrides: [
+        ..._cardDetailOverrides,
+        portfolioApiClientProvider.overrideWithValue(_CardPerformanceApi()),
+        subscriptionControllerProvider.overrideWith(
+          _ProCardSubscriptionController.new,
+        ),
+      ],
       child: MaterialApp(
         home: Builder(
           builder: (context) => Scaffold(
@@ -2448,8 +2677,10 @@ class _CardDetailReentryApp extends StatelessWidget {
                 key: const Key('open-card-detail'),
                 onPressed: () => Navigator.of(context).push<void>(
                   MaterialPageRoute<void>(
-                    builder: (_) =>
-                        const CardDetailPage(cardId: 'charizard-ex'),
+                    builder: (_) => const CardDetailPage(
+                      cardId: 'charizard-ex',
+                      collectionItemId: 'item-charizard',
+                    ),
                   ),
                 ),
                 child: const Text('Open card'),
@@ -2553,46 +2784,27 @@ class _DelayedUpdateCardDetailRepository extends MockCardDetailRepository {
   }
 }
 
-class _DelayedCreateCardDetailRepository extends MockCardDetailRepository {
-  Completer<CardCollectionItem>? pendingCreate;
+class _FailingRemovalCardDetailRepository extends MockCardDetailRepository {
+  @override
+  Future<void> deleteWishlist(AuthSession session, String wishlistItemId) {
+    throw StateError('wishlist removal unavailable');
+  }
+}
+
+class _DuplicateCreateCardDetailRepository extends MockCardDetailRepository {
+  const _DuplicateCreateCardDetailRepository();
 
   @override
   Future<CardCollectionItem> createCollectionItem(
     AuthSession session, {
     required CardDetail detail,
     required CardCollectionItem item,
+    String? idempotencyKey,
   }) {
-    final completer = Completer<CardCollectionItem>();
-    pendingCreate = completer;
-    return completer.future;
-  }
-
-  void completeCreate() {
-    final completer = pendingCreate;
-    if (completer == null || completer.isCompleted) return;
-    completer.complete(
-      const CardCollectionItem(
-        id: 'created-luffy',
-        cardRef: 'one-piece-luffy',
-        folderId: 'main',
-        portfolioName: 'Main',
-        quantity: 1,
-        grader: 'Raw',
-        condition: 'Near Mint (NM)',
-        grade: null,
-        language: 'English',
-        finish: 'Holofoil',
-        purchasePriceUsd: null,
-        notes: '',
-      ),
+    throw const PortfolioApiException(
+      duplicateCollectionItemMessage,
+      code: duplicateCollectionItemErrorCode,
     );
-  }
-}
-
-class _FailingRemovalCardDetailRepository extends MockCardDetailRepository {
-  @override
-  Future<void> deleteWishlist(AuthSession session, String wishlistItemId) {
-    throw StateError('wishlist removal unavailable');
   }
 }
 
@@ -2606,12 +2818,17 @@ class _MultiItemCardDetailRepository extends MockCardDetailRepository {
     return detail.copyWith(
       collectionItems: [
         firstItem,
-        firstItem.copyWith(
+        CardCollectionItem(
+          id: 'item-charizard-sealed',
+          cardRef: firstItem.cardRef,
+          folderId: firstItem.folderId,
           portfolioName: 'Sealed',
           quantity: 2,
           grader: 'Raw',
           condition: 'Lightly Played (LP)',
           grade: null,
+          language: firstItem.language,
+          finish: firstItem.finish,
           purchasePriceUsd: 20.0,
           notes: 'Hidden duplicate item.',
         ),

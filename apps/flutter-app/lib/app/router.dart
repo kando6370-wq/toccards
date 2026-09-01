@@ -19,6 +19,7 @@ import '../features/subscription/subscription_page.dart';
 import '../features/subscription/startup_subscription_gate.dart';
 import '../shared/analytics/analytics_events.dart';
 import '../shared/analytics/app_analytics.dart';
+import '../shared/ui/kando_bottom_sheet_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
@@ -82,6 +83,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
+        path: '/collection-items/pending',
+        pageBuilder: (context, state) => KandoBottomSheetPage<void>(
+          key: state.pageKey,
+          barrierColor: const Color(0xB8000000),
+          isDismissible: true,
+          heightFactor: 0.85,
+          child: const QuickCollectionReviewPage(heightFactor: 1),
+        ),
+      ),
+      GoRoute(
         path: '/search',
         pageBuilder: (context, state) => _mainTabPage(
           state,
@@ -127,28 +138,32 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final sheet = state.uri.queryParameters['presentation'] == 'sheet';
           final source = state.uri.queryParameters['source'];
           final entrySource = state.uri.queryParameters['entry_source'];
+          final analyticsScene = state.uri.queryParameters['scene'];
+          if (sheet) {
+            return KandoBottomSheetPage<SubscriptionPaywallResult>(
+              key: state.pageKey,
+              barrierColor: const Color(0x99000000),
+              isDismissible: false,
+              useSafeArea: true,
+              heightFactor: 0.85,
+              child: SubscriptionPage(
+                sheet: true,
+                source: source,
+                entrySource: entrySource,
+                analyticsScene: analyticsScene,
+              ),
+            );
+          }
           return CustomTransitionPage<SubscriptionPaywallResult>(
             key: state.pageKey,
-            opaque: !sheet,
-            barrierColor: sheet ? const Color(0x99000000) : null,
+            opaque: true,
             child: SubscriptionPage(
-              sheet: sheet,
+              sheet: false,
               source: source,
               entrySource: entrySource,
+              analyticsScene: analyticsScene,
             ),
-            transitionsBuilder:
-                (context, animation, secondaryAnimation, child) {
-                  if (!sheet) return child;
-                  return SlideTransition(
-                    position: animation.drive(
-                      Tween(
-                        begin: const Offset(0, 1),
-                        end: Offset.zero,
-                      ).chain(CurveTween(curve: Curves.easeOutCubic)),
-                    ),
-                    child: child,
-                  );
-                },
+            transitionsBuilder: (_, _, _, child) => child,
           );
         },
       ),

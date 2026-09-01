@@ -5,12 +5,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_controller.dart';
+import 'package:kando_app/features/card_detail/card_detail_models.dart';
 import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/collection/collection_models.dart';
 import 'package:kando_app/features/collection/collection_repository.dart';
 import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/features/home/home_models.dart';
 import 'package:kando_app/features/home/home_repository.dart';
+import 'package:kando_app/features/subscription/subscription_controller.dart';
+import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
@@ -570,6 +573,54 @@ void main() {
   );
 
   test(
+    'successful folder mutations invalidate the Review editor folder source',
+    () async {
+      var editorFolderLoads = 0;
+      final container = _collectionContainer(
+        repository: _RecordingCollectionRepository(),
+        loadEditorFolders: () async {
+          editorFolderLoads += 1;
+          return const <CardPortfolioFolder>[];
+        },
+      );
+      addTearDown(container.dispose);
+      await _loadedState(container);
+      final controller = container.read(collectionControllerProvider.notifier);
+
+      await container.read(collectionEditorFoldersProvider.future);
+      expect(editorFolderLoads, 1);
+
+      final created = (await controller.createFolder('Trade')).folder!;
+      await container.read(collectionEditorFoldersProvider.future);
+      expect(editorFolderLoads, 2);
+
+      expect(await controller.renameFolder(created.id, 'Trade Binder'), isTrue);
+      await container.read(collectionEditorFoldersProvider.future);
+      expect(editorFolderLoads, 3);
+
+      expect(await controller.setDefaultFolder(created.id), isTrue);
+      await container.read(collectionEditorFoldersProvider.future);
+      expect(editorFolderLoads, 4);
+
+      expect(
+        await controller.reorderFolders([
+          created.id,
+          'main',
+          'sealed',
+          'empty',
+        ]),
+        isTrue,
+      );
+      await container.read(collectionEditorFoldersProvider.future);
+      expect(editorFolderLoads, 5);
+
+      expect(await controller.deleteFolder('sealed'), isTrue);
+      await container.read(collectionEditorFoldersProvider.future);
+      expect(editorFolderLoads, 6);
+    },
+  );
+
+  test(
     'server Folder limit refreshes the dashboard because another device may have consumed the final Free slot',
     () async {
       final repository = _FolderCreateFailureRepository(
@@ -611,6 +662,32 @@ void main() {
         expect(result.status, entry.value);
         expect(repository.loadCalls, 1);
       }
+    },
+  );
+
+  test(
+    'an expired entitlement turns Folder sync rejection into the current Free limit',
+    () async {
+      final repository = _FolderCreateFailureRepository(
+        code: 'ENTITLEMENT_SYNC_REQUIRED',
+      );
+      final container = _collectionContainer(
+        repository: repository,
+        subscriptionController: _FreeReconciliationSubscriptionController.new,
+      );
+      addTearDown(container.dispose);
+      await _loadedState(container);
+
+      final result = await container
+          .read(collectionControllerProvider.notifier)
+          .createFolder('Trade');
+
+      expect(result.status, CreateFolderStatus.premiumRequired);
+      expect(repository.loadCalls, 2);
+      expect(
+        container.read(subscriptionControllerProvider).premiumState,
+        AppPremiumState.free,
+      );
     },
   );
 
@@ -825,6 +902,8 @@ ProviderContainer _collectionContainer({
   bool includeFolderConsumers = false,
   HomeRepository homeRepository = const MockHomeRepository(),
   InMemoryPortfolioAmountHiddenStorage? amountStorage,
+  Future<List<CardPortfolioFolder>> Function()? loadEditorFolders,
+  SubscriptionController Function()? subscriptionController,
 }) {
   final storage = InMemoryAuthStorage();
   return ProviderContainer(
@@ -834,9 +913,17 @@ ProviderContainer _collectionContainer({
         LocalPlaceholderAuthRepository(storage),
       ),
       collectionRepositoryProvider.overrideWithValue(repository),
+      subscriptionControllerProvider.overrideWith(
+        subscriptionController ??
+            _UnavailableReconciliationSubscriptionController.new,
+      ),
       portfolioAmountHiddenStorageProvider.overrideWithValue(
         amountStorage ?? InMemoryPortfolioAmountHiddenStorage(),
       ),
+      if (loadEditorFolders != null)
+        collectionEditorFoldersProvider.overrideWith(
+          (ref) => loadEditorFolders(),
+        ),
       if (includeFolderConsumers) ...[
         homeRepositoryProvider.overrideWithValue(homeRepository),
         cardDetailRepositoryProvider.overrideWithValue(
@@ -845,6 +932,30 @@ ProviderContainer _collectionContainer({
       ],
     ],
   );
+}
+
+class _UnavailableReconciliationSubscriptionController
+    extends SubscriptionController {
+  @override
+  SubscriptionState build() =>
+      const SubscriptionState(premiumState: AppPremiumState.premium);
+
+  @override
+  Future<EntitlementReconciliationResult> reconcileServerEntitlement() async {
+    return EntitlementReconciliationResult.verificationUnavailable;
+  }
+}
+
+class _FreeReconciliationSubscriptionController extends SubscriptionController {
+  @override
+  SubscriptionState build() =>
+      const SubscriptionState(premiumState: AppPremiumState.premium);
+
+  @override
+  Future<EntitlementReconciliationResult> reconcileServerEntitlement() async {
+    state = state.copyWith(premiumState: AppPremiumState.free);
+    return EntitlementReconciliationResult.freeConfirmed;
+  }
 }
 
 class _CountingHomeRepository implements HomeRepository {
@@ -937,7 +1048,11 @@ class _FolderCreateFailureRepository extends MockCollectionRepository {
     String name, {
     bool localPremiumVerified = false,
   }) {
-    throw PortfolioApiException('rejected', code: code);
+    throw PortfolioApiException(
+      'rejected',
+      code: code,
+      statusCode: code == 'ENTITLEMENT_SYNC_REQUIRED' ? 409 : null,
+    );
   }
 }
 
@@ -1173,8 +1288,9 @@ class _FakePortfolioApiClient
   @override
   Future<PortfolioItemDto> createCollectionItem(
     AuthSession session,
-    PortfolioItemDraftDto draft,
-  ) async {
+    PortfolioItemDraftDto draft, {
+    String? idempotencyKey,
+  }) async {
     throw UnimplementedError();
   }
 

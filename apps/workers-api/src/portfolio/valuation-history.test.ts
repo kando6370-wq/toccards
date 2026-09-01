@@ -63,6 +63,64 @@ describe("portfolio valuation history", () => {
     }
   });
 
+  it("starts catalog and price reads together because independent PostgreSQL waits must not extend Home history latency", async () => {
+    let releasePrices!: () => void;
+    const pricesBlocked = new Promise<void>((resolve) => {
+      releasePrices = resolve;
+    });
+    const started: string[] = [];
+    const db = {
+      prepare(sql: string) {
+        return {
+          bind() {
+            return {
+              async all<T>() {
+                if (sql.includes("collection_item_event")) {
+                  return {
+                    results: [
+                      event(
+                        "a1",
+                        "item-a",
+                        "main",
+                        "100",
+                        "upsert",
+                        "2026-07-01T00:00:00.000Z",
+                        1,
+                      ),
+                    ] as T[],
+                  };
+                }
+                if (sql.includes("FROM cards_all")) {
+                  started.push("cards");
+                  return { results: [] as T[] };
+                }
+                started.push("prices");
+                await pricesBlocked;
+                return { results: [] as T[] };
+              },
+            };
+          },
+        };
+      },
+    };
+    const pending = loadValuationHistory(
+      db as unknown as D1Database,
+      { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1" },
+      ["main"],
+      30,
+      new Date("2026-07-10T12:00:00.000Z"),
+    );
+
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    const startedBeforePricesCompleted = [...started];
+    releasePrices();
+    await pending;
+
+    expect(startedBeforePricesCompleted).toEqual(["prices", "cards"]);
+  });
+
   it("binds every text card reference because PostgreSQL price_series.card_ref is not numeric-only", async () => {
     const db = new FakeDb([], [], []);
 
@@ -356,6 +414,10 @@ describe("portfolio valuation history", () => {
     );
 
     expect(main?.current_value_usd).toBe(60);
+    expect(main?.most_valuable[0]).toMatchObject({
+      item_id: "item",
+      price_usd: 10,
+    });
   });
 });
 

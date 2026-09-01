@@ -23,6 +23,8 @@ void main() {
       'resetpassword_view',
       'scan_view',
       'reviewMatches_view',
+      'homePerformance_view',
+      'subscribe_view',
       'getCode_click',
       'currency_click',
       'folder_click',
@@ -40,13 +42,31 @@ void main() {
       'signSkip_click',
       'scanClose_click',
       'shareApp_click',
+      'sub_click',
       'Google_success',
       'Apple_success',
       'scan_results',
+      'sub_success',
+      'sub_result',
+      'restore_result',
       'api_err',
       'api_timing',
     });
-    expect(AnalyticsEvent.all, hasLength(40));
+    expect(AnalyticsEvent.all, hasLength(46));
+  });
+
+  test('v1.0.1 analytics events match the yellow spreadsheet additions', () {
+    expect(
+      AnalyticsEvent.all,
+      containsAll(const {
+        'homePerformance_view',
+        'subscribe_view',
+        'sub_click',
+        'sub_success',
+        'sub_result',
+        'restore_result',
+      }),
+    );
   });
 
   test('analytics property names preserve exact spelling and casing', () {
@@ -55,6 +75,12 @@ void main() {
     expect(AnalyticsProperty.uid, 'uid');
     expect(AnalyticsProperty.checkDebug, 'check_debug');
     expect(AnalyticsProperty.subPlan, 'sub_plan');
+    expect(AnalyticsProperty.scene, 'Scene');
+    expect(AnalyticsProperty.plan, 'plan');
+    expect(AnalyticsProperty.currency, 'currency');
+    expect(AnalyticsProperty.price, 'price');
+    expect(AnalyticsProperty.originalId, 'original_id');
+    expect(AnalyticsProperty.results, 'Results');
     expect(AnalyticsProperty.ipType, 'IP type');
     expect(AnalyticsProperty.tabType, 'tab type');
     expect(AnalyticsProperty.collectionType, 'collection type');
@@ -64,6 +90,23 @@ void main() {
     expect(AnalyticsProperty.apiName, 'api_name');
     expect(AnalyticsProperty.apiMessage, 'api_messsage');
     expect(AnalyticsProperty.apiParams, 'api_params');
+  });
+
+  test('subscription values preserve spreadsheet spelling and casing', () {
+    expect(AnalyticsValue.sceneGuide, 'guide');
+    expect(AnalyticsValue.sceneUsual, 'Usual');
+    expect(AnalyticsValue.sceneIcon, 'icon');
+    expect(AnalyticsValue.sceneBanner, 'banner');
+    expect(AnalyticsValue.sceneTimeRange, 'timeRange');
+    expect(AnalyticsValue.sceneHomePerformance, 'homePerformance');
+    expect(AnalyticsValue.sceneCardDetailPerformance, 'cardDetailPerformance');
+    expect(AnalyticsValue.sceneScanTip, 'scanTip');
+    expect(AnalyticsValue.sceneScanTimes, 'scanTimes');
+    expect(AnalyticsValue.sceneScanWaiting, 'scanWating');
+    expect(AnalyticsValue.resultSuccess, 'success');
+    expect(AnalyticsValue.resultCancel, 'cancel');
+    expect(AnalyticsValue.resultFailed, 'failed');
+    expect(AnalyticsValue.resultNotFound, 'notFound');
   });
 
   test('IP values normalize to the spreadsheet enums', () {

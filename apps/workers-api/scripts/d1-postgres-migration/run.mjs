@@ -167,10 +167,28 @@ async function verifyCutoverState(sourceSchemas) {
     [...inboxCounts.values()].reduce((sum, count) => sum + count, 0) === sourceInboxRows,
     "PostgreSQL Apple inbox 存在未分类或重复环境行",
   );
+  const sourceScanRows = sourceSchemas.get("scan_record")?.rowCount;
+  assert(Number.isInteger(sourceScanRows), "缺少 dev D1 scan_record 源计数");
+  const scanCounts = new Map(
+    result.scanRecordsByEnvironment.map((row) => [row.environment, Number(row.row_count)]),
+  );
+  assert(
+    (scanCounts.get("development") ?? 0) === sourceScanRows,
+    "PostgreSQL development scan_record 行数与 dev D1 不一致",
+  );
+  assert(
+    (scanCounts.get("production") ?? 0) === 0,
+    "PostgreSQL 在 dev cutover 前已存在 production scan_record",
+  );
+  assert(
+    [...scanCounts.values()].reduce((sum, count) => sum + count, 0) === sourceScanRows,
+    "PostgreSQL scan_record 存在未分类或重复环境行",
+  );
   console.log(JSON.stringify({
     phase: "cutover-state-verified",
     priceTableCounts: result.priceTableCounts,
     appleInboxByEnvironment: result.appleInboxByEnvironment,
+    scanRecordsByEnvironment: result.scanRecordsByEnvironment,
   }));
 }
 
@@ -249,15 +267,17 @@ function verifyTargetInventory(inventory, manifest) {
     inventory.constraints.map((constraint) => constraint.constraint_name),
   );
   assert(
-    constraintNames.has("uq_apple_notification_inbox_environment_payload")
+    constraintNames.has("uq_apple_notification_inbox_app_environment_payload")
       && constraintNames.has("ck_apple_notification_inbox_environment")
+      && constraintNames.has("ck_scan_record_environment")
       && constraintNames.has("ck_price_history_month_payload_bytes"),
-    "Apple inbox 环境隔离约束不完整",
+    "环境隔离约束不完整",
   );
   const indexNames = new Set(inventory.indexes.map((index) => index.index_name));
   assert(
-    indexNames.has("idx_apple_notification_inbox_processing"),
-    "Apple inbox 环境 processing 索引缺失",
+    indexNames.has("idx_apple_notification_inbox_processing")
+      && indexNames.has("idx_scan_record_environment_created_at"),
+    "环境隔离索引缺失",
   );
 }
 

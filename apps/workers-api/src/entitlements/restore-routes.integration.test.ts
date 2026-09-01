@@ -134,6 +134,211 @@ describe("Apple Restore proof routes", () => {
     expect(await signCount()).toBe(1);
   });
 
+  it("uses a newer active Apple lifecycle to restore the current session without rolling the chain back", async () => {
+    const app = restoreApp();
+    const tokenA = await token("session-a");
+    await registerKey(app, tokenA);
+    const newerStateAt = "2026-08-12T08:00:01.000Z";
+    const authoritativeExpiresAt = "2026-08-14T08:00:00.000Z";
+    await db.prepare(`INSERT INTO billing_purchase_chain
+      (id, store, environment, original_transaction_id, product_id, entitlement_id,
+       original_owner_type, original_owner_id, status, auto_renew, expires_at,
+       state_effective_at, created_at, updated_at)
+      VALUES ('newer-active-chain', 'app_store', 'Sandbox', 'original-restore', ?,
+              'performance_pro', 'unlinked', '', 'ACTIVE', 1, ?, ?, ?, ?)`)
+      .bind(
+        PRODUCT_ID,
+        authoritativeExpiresAt,
+        newerStateAt,
+        NOW.toISOString(),
+        NOW.toISOString(),
+      ).run();
+
+    const restoreChallenge = await challenge(app, tokenA, {
+      purpose: "restore",
+      request_id: "123e4567-e89b-42d3-a456-426614174002",
+      key_id: KEY_ID,
+      signed_transaction_info: JWS,
+    });
+    const restored = await request(
+      app,
+      "/entitlements/apple/restore",
+      tokenA,
+      restoreBody(restoreChallenge.challenge),
+      { "Idempotency-Key": "123e4567-e89b-42d3-a456-426614174002" },
+    );
+
+    expect(restored.status).toBe(200);
+    expect(await restored.json()).toEqual({
+      success: true,
+      data: {
+        schema_version: 1,
+        state: "VERIFIED_ACTIVE",
+        entitlement_id: "performance_pro",
+        product_id: PRODUCT_ID,
+        expires_at: authoritativeExpiresAt,
+      },
+    });
+    expect(await db.prepare(`SELECT original_owner_type, original_owner_id, status,
+      expires_at, state_effective_at
+      FROM billing_purchase_chain WHERE id = 'newer-active-chain'`).first()).toEqual({
+      original_owner_type: "anonymous",
+      original_owner_id: "100000",
+      status: "ACTIVE",
+      expires_at: authoritativeExpiresAt,
+      state_effective_at: newerStateAt,
+    });
+    expect(await db.prepare(`SELECT session_id, purchase_chain_id, source, status, expires_at
+      FROM billing_session_entitlement_grant`).first()).toEqual({
+      session_id: "session-a",
+      purchase_chain_id: "newer-active-chain",
+      source: "restore",
+      status: "active",
+      expires_at: authoritativeExpiresAt,
+    });
+    expect(await signCount()).toBe(1);
+
+    const replayed = await request(
+      app,
+      "/entitlements/apple/restore",
+      tokenA,
+      restoreBody(restoreChallenge.challenge),
+      { "Idempotency-Key": "123e4567-e89b-42d3-a456-426614174002" },
+    );
+    expect(replayed.status).toBe(200);
+    expect(await replayed.json()).toEqual({
+      success: true,
+      data: {
+        schema_version: 1,
+        state: "VERIFIED_ACTIVE",
+        entitlement_id: "performance_pro",
+        product_id: PRODUCT_ID,
+        expires_at: authoritativeExpiresAt,
+      },
+    });
+    expect(await grantCount()).toBe(1);
+    expect(await signCount()).toBe(1);
+  });
+
+  it("keeps a newer inactive Apple lifecycle terminal because Restore must not revive expired access", async () => {
+    const app = restoreApp();
+    const tokenA = await token("session-a");
+    await registerKey(app, tokenA);
+    await db.prepare(`INSERT INTO billing_purchase_chain
+      (id, store, environment, original_transaction_id, product_id, entitlement_id,
+       original_owner_type, original_owner_id, status, auto_renew, expires_at,
+       state_effective_at, created_at, updated_at)
+      VALUES ('newer-expired-chain', 'app_store', 'Sandbox', 'original-restore', ?,
+              'performance_pro', 'unlinked', '', 'EXPIRED', 0,
+              '2026-08-12T07:59:59.000Z', '2026-08-12T08:00:01.000Z', ?, ?)`)
+      .bind(PRODUCT_ID, NOW.toISOString(), NOW.toISOString()).run();
+
+    const restoreChallenge = await challenge(app, tokenA, {
+      purpose: "restore",
+      request_id: "123e4567-e89b-42d3-a456-426614174002",
+      key_id: KEY_ID,
+      signed_transaction_info: JWS,
+    });
+    const headers = {
+      "Idempotency-Key": "123e4567-e89b-42d3-a456-426614174002",
+    };
+    const conflicted = await request(
+      app,
+      "/entitlements/apple/restore",
+      tokenA,
+      restoreBody(restoreChallenge.challenge),
+      headers,
+    );
+
+    expect(conflicted.status).toBe(409);
+    expect(await conflicted.json()).toEqual({
+      success: false,
+      error: {
+        code: "STATE_CONFLICT",
+        message: "A newer Apple lifecycle state already exists.",
+      },
+    });
+    expect(await grantCount()).toBe(0);
+    expect(await signCount()).toBe(1);
+
+    const replayed = await request(
+      app,
+      "/entitlements/apple/restore",
+      tokenA,
+      restoreBody(restoreChallenge.challenge),
+      headers,
+    );
+    expect(replayed.status).toBe(409);
+    expect(await replayed.json()).toEqual({
+      success: false,
+      error: {
+        code: "STATE_CONFLICT",
+        message: "A newer Apple lifecycle state already exists.",
+      },
+    });
+    expect(await signCount()).toBe(1);
+  });
+
+  it("rejects a newer subscription state without an expiry because only Lifetime may be unbounded", async () => {
+    const app = restoreApp();
+    const tokenA = await token("session-a");
+    await registerKey(app, tokenA);
+    await db.prepare(`INSERT INTO billing_purchase_chain
+      (id, store, environment, original_transaction_id, product_id, entitlement_id,
+       original_owner_type, original_owner_id, status, auto_renew, expires_at,
+       state_effective_at, created_at, updated_at)
+      VALUES ('newer-invalid-active-chain', 'app_store', 'Sandbox', 'original-restore', ?,
+              'performance_pro', 'unlinked', '', 'ACTIVE', 1, NULL,
+              '2026-08-12T08:00:01.000Z', ?, ?)`)
+      .bind(PRODUCT_ID, NOW.toISOString(), NOW.toISOString()).run();
+
+    const restoreChallenge = await challenge(app, tokenA, {
+      purpose: "restore",
+      request_id: "123e4567-e89b-42d3-a456-426614174002",
+      key_id: KEY_ID,
+      signed_transaction_info: JWS,
+    });
+    const response = await request(
+      app,
+      "/entitlements/apple/restore",
+      tokenA,
+      restoreBody(restoreChallenge.challenge),
+      { "Idempotency-Key": "123e4567-e89b-42d3-a456-426614174002" },
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      success: false,
+      error: {
+        code: "STATE_CONFLICT",
+        message: "A newer Apple lifecycle state already exists.",
+      },
+    });
+    expect(await grantCount()).toBe(0);
+    expect(await signCount()).toBe(1);
+  });
+
+  async function registerKey(app: App, bearer: string) {
+    const registerChallenge = await challenge(app, bearer, {
+      purpose: "register",
+      request_id: "123e4567-e89b-42d3-a456-426614174001",
+      key_id: KEY_ID,
+    });
+    const registration = await request(
+      app,
+      "/entitlements/apple/app-attest/register",
+      bearer,
+      {
+        schema_version: 1,
+        request_id: "123e4567-e89b-42d3-a456-426614174001",
+        challenge: registerChallenge.challenge,
+        key_id: KEY_ID,
+        attestation: "attestation-base64",
+      },
+    );
+    expect(registration.status).toBe(201);
+  }
+
   async function token(sessionId: string) {
     return signAccessToken(
       { owner_type: "anonymous", owner_id: "100000", session_id: sessionId },
@@ -151,6 +356,33 @@ describe("Apple Restore proof routes", () => {
 });
 
 type App = ReturnType<typeof createAppleRestoreRoutes>;
+
+function restoreApp(): App {
+  return createAppleRestoreRoutes({
+    now: () => NOW,
+    appAttestVerifier: {
+      async verifyAttestation() {
+        return {
+          publicKeyPem: "public-key",
+          receiptBase64: "receipt",
+          signCount: 0,
+        };
+      },
+      async verifyAssertion(input) {
+        expect(input.previousSignCount).toBe(0);
+        return { signCount: 1 };
+      },
+    },
+    createAppleVerifier: () => ({
+      environment: Environment.SANDBOX,
+      verifier: {
+        async verifyAndDecodeTransaction() {
+          return transaction();
+        },
+      },
+    }),
+  });
+}
 
 async function challenge(app: App, bearer: string, body: Record<string, unknown>) {
   const response = await request(app, "/entitlements/apple/app-attest/challenge", bearer, {

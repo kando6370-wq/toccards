@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:dio/dio.dart';
@@ -28,6 +29,8 @@ import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/currency/currency_rate_api.dart';
+import 'package:kando_app/shared/analytics/analytics_events.dart';
+import 'package:kando_app/shared/analytics/app_analytics.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/pagination/pagination.dart';
@@ -40,16 +43,112 @@ import 'package:kando_app/shared/ui/toast.dart';
 
 import '../support/in_memory_auth_storage.dart';
 import '../support/in_memory_portfolio_amount_hidden_storage.dart';
+import '../support/home_fixture_asset_bundle.dart';
 import '../support/local_placeholder_auth_repository.dart';
 import '../support/mock_collection_repository.dart';
 import '../support/mock_home_repository.dart';
 import '../support/mock_search_repository.dart';
 
 void main() {
+  test('Performance tooltip uses the Figma text style', () {
+    final dateStyle = homeChartTooltipTextStyle(
+      isPerformance: true,
+      isDate: true,
+    );
+    final rowStyle = homeChartTooltipTextStyle(
+      isPerformance: true,
+      isDate: false,
+    );
+
+    expect(dateStyle, same(homePerformanceTooltipTextStyle));
+    expect(rowStyle, same(homePerformanceTooltipTextStyle));
+    expect(rowStyle.color, const Color(0xFF999578));
+    expect(rowStyle.fontFamily, 'Geist');
+    expect(rowStyle.fontSize, 12);
+    expect(rowStyle.fontWeight, FontWeight.w400);
+    expect(rowStyle.height, 18 / 12);
+  });
+
+  test('Overview tooltip keeps its existing text styles', () {
+    final dateStyle = homeChartTooltipTextStyle(
+      isPerformance: false,
+      isDate: true,
+    );
+    final rowStyle = homeChartTooltipTextStyle(
+      isPerformance: false,
+      isDate: false,
+    );
+
+    expect(dateStyle.color, const Color(0xFF92927D));
+    expect(dateStyle.fontSize, 11);
+    expect(dateStyle.height, 16 / 11);
+    expect(rowStyle.color, KandoColors.accent);
+    expect(rowStyle.fontSize, 11);
+    expect(rowStyle.fontWeight, FontWeight.w500);
+    expect(rowStyle.height, 16 / 11);
+  });
+
+  testWidgets(
+    'Performance tab reports each actual entry without rebuild duplicates',
+    (tester) async {
+      final events = <String>[];
+      final firebaseEvents = <String>[];
+      final analytics = AppAnalytics.recording(
+        (event, _) => events.add(event),
+        onFirebaseEvent: (event, _) => firebaseEvents.add(event),
+      );
+      await tester.pumpWidget(
+        _mockHomeApp(
+          null,
+          const _TestCurrencyRateApi(),
+          const MockHomeRepository(),
+          _FreeHomeSubscriptionController.new,
+          null,
+          analytics,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _waitForHomeAuth(tester);
+
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pump();
+      await tester.pump();
+      expect(
+        events.where((event) => event == AnalyticsEvent.homePerformanceView),
+        hasLength(1),
+      );
+
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pump();
+      expect(
+        events.where((event) => event == AnalyticsEvent.homePerformanceView),
+        hasLength(1),
+      );
+
+      await tester.tap(find.byKey(const Key('home-overview-tab')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pump();
+      expect(
+        events.where((event) => event == AnalyticsEvent.homePerformanceView),
+        hasLength(2),
+      );
+      expect(
+        firebaseEvents.where(
+          (event) => event == AnalyticsEvent.homePerformanceView,
+        ),
+        hasLength(2),
+      );
+    },
+  );
+
   test(
-    'Figma Home card photo decodes at its design source aspect ratio',
+    'Figma Home card test fixture stays out of runtime assets and decodes at its design source aspect ratio',
     () async {
-      final data = await rootBundle.load('assets/home/mega_lucario_ex.png');
+      expect(File(homeCardFixturePath).existsSync(), isTrue);
+      expect(File(homeCardFixtureAsset).existsSync(), isFalse);
+
+      final data = await homeFixtureAssetBundle.load(homeCardFixtureAsset);
       final codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
       final frame = await codec.getNextFrame();
       addTearDown(() {
@@ -67,8 +166,9 @@ void main() {
   ) async {
     await tester.pumpWidget(const MaterialApp(home: SizedBox.expand()));
     final context = tester.element(find.byType(SizedBox).first);
-    final stream = const AssetImage(
-      'assets/home/mega_lucario_ex.png',
+    final stream = AssetImage(
+      homeCardFixtureAsset,
+      bundle: homeFixtureAssetBundle,
     ).resolve(createLocalImageConfiguration(context));
     final loaded = Completer<void>();
     final listener = ImageStreamListener(
@@ -113,11 +213,14 @@ void main() {
             _FreeHomeSubscriptionController.new,
           ),
         ],
-        child: MaterialApp(
-          theme: buildKandoTheme(),
-          home: const RepaintBoundary(
-            key: Key('home-figma-golden'),
-            child: HomePage(),
+        child: DefaultAssetBundle(
+          bundle: homeFixtureAssetBundle,
+          child: MaterialApp(
+            theme: buildKandoTheme(),
+            home: const RepaintBoundary(
+              key: Key('home-figma-golden'),
+              child: HomePage(),
+            ),
           ),
         ),
       ),
@@ -155,11 +258,14 @@ void main() {
             _FreeHomeSubscriptionController.new,
           ),
         ],
-        child: MaterialApp(
-          theme: buildKandoTheme(),
-          home: const RepaintBoundary(
-            key: Key('home-failure-figma-golden'),
-            child: HomePage(),
+        child: DefaultAssetBundle(
+          bundle: homeFixtureAssetBundle,
+          child: MaterialApp(
+            theme: buildKandoTheme(),
+            home: const RepaintBoundary(
+              key: Key('home-failure-figma-golden'),
+              child: HomePage(),
+            ),
           ),
         ),
       ),
@@ -642,7 +748,136 @@ void main() {
       expect(find.text(r'$12,450.80'), findsOneWidget);
       expect(find.text(r'$800.00'), findsOneWidget);
       expect(find.text('60 cards with purchase price'), findsOneWidget);
+      expect(
+        find.byKey(const Key('home-performance-partial-info')),
+        findsOneWidget,
+      );
       expect(find.text('Trending Today'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Home Performance metrics match the Figma 2x2 card layout and reuse detail icons',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 1200);
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        _mockHomeApp(
+          null,
+          const _TestCurrencyRateApi(),
+          const MockHomeRepository(),
+          _ProHomeSubscriptionController.new,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+
+      const metricKeys = [
+        Key('home-performance-metric-total-paid'),
+        Key('home-performance-metric-market-value'),
+        Key('home-performance-metric-profit-loss'),
+        Key('home-performance-metric-return'),
+      ];
+      const iconAssets = [
+        'assets/collection/performance_purchase_cost.svg',
+        'assets/collection/performance_current_value.svg',
+        'assets/collection/performance_profit_loss.svg',
+        'assets/collection/performance_return.svg',
+      ];
+
+      for (var index = 0; index < metricKeys.length; index++) {
+        final metric = find.byKey(metricKeys[index]);
+        expect(metric, findsOneWidget);
+        expect(tester.getSize(metric).height, 100);
+        final container = find
+            .descendant(of: metric, matching: find.byType(Container))
+            .first;
+        final decoration =
+            tester.widget<Container>(container).decoration! as BoxDecoration;
+        expect(decoration.borderRadius, BorderRadius.circular(12));
+        expect(
+          decoration.border,
+          Border.all(color: const Color(0xFF474836).withValues(alpha: 0.3)),
+        );
+        final gradient = decoration.gradient! as LinearGradient;
+        expect(gradient.begin, Alignment.topCenter);
+        expect(gradient.end, Alignment.bottomCenter);
+        expect(gradient.colors, [
+          const Color(0xFF747B26).withValues(alpha: 0.12),
+          const Color(0xFF343434).withValues(alpha: 0.38),
+        ]);
+        final icon = tester.widget<SvgPicture>(
+          find.descendant(of: metric, matching: find.byType(SvgPicture)),
+        );
+        expect(
+          (icon.bytesLoader as SvgAssetLoader).assetName,
+          iconAssets[index],
+        );
+      }
+
+      final totalPaidRect = tester.getRect(find.byKey(metricKeys[0]));
+      final marketValueRect = tester.getRect(find.byKey(metricKeys[1]));
+      final profitLossRect = tester.getRect(find.byKey(metricKeys[2]));
+      expect(marketValueRect.left - totalPaidRect.right, 12);
+      expect(profitLossRect.top - totalPaidRect.bottom, 12);
+      expect(find.text('Priced cards only'), findsNWidgets(2));
+    },
+  );
+
+  testWidgets(
+    'Performance header replaces a zero purchase-price count without showing info',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 1200);
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        _mockHomeApp(
+          null,
+          const _TestCurrencyRateApi(),
+          const MockHomeRepository(),
+          _ProHomeSubscriptionController.new,
+          _TestHomePerformanceApi(purchasePriceItemCount: 0),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Add purchase prices to track profit and return'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Add purchase prices to track profit and return.'),
+        findsNothing,
+      );
+      expect(find.text('0 cards with purchase price'), findsNothing);
+      expect(
+        find.byKey(const Key('home-performance-partial-info')),
+        findsNothing,
+      );
+      final marketValue = find.byKey(
+        const Key('home-performance-metric-market-value-single'),
+      );
+      expect(marketValue, findsOneWidget);
+      expect(tester.getSize(marketValue).height, 100);
+      expect(tester.getSize(marketValue).width, 350);
+      expect(
+        find.descendant(
+          of: marketValue,
+          matching: find.text('Priced cards only'),
+        ),
+        findsNothing,
+      );
+      final icon = tester.widget<SvgPicture>(
+        find.descendant(of: marketValue, matching: find.byType(SvgPicture)),
+      );
+      expect(
+        (icon.bytesLoader as SvgAssetLoader).assetName,
+        'assets/collection/performance_current_value.svg',
+      );
     },
   );
 
@@ -759,18 +994,105 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('home-performance-empty')), findsOneWidget);
+      expect(find.text('Add your first card'), findsOneWidget);
+      expect(find.text('Scan Cards'), findsOneWidget);
+      expect(find.text('Search Cards'), findsOneWidget);
       expect(find.text('Top Performers'), findsOneWidget);
       expect(
         find.byKey(const Key('home-top-performers-view-all')),
         findsOneWidget,
       );
+      expect(find.text('No cards in this portfolio yet'), findsOneWidget);
       expect(
-        find.text('Add purchase prices to see your top performers.'),
+        tester.getSize(find.byKey(const Key('home-performance-empty'))).height,
+        410,
+      );
+      expect(
+        tester
+            .getSize(find.byKey(const Key('home-top-performers-empty')))
+            .height,
+        200,
+      );
+      expect(
+        find.byKey(const Key('home-card-empty-illustration')),
         findsOneWidget,
       );
       expect(find.byKey(const Key('home-top-performers-list')), findsNothing);
     },
   );
+
+  testWidgets('empty Performance actions keep the Scan and Search routes', (
+    tester,
+  ) async {
+    Future<void> openAction(Key buttonKey, String routeText) async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(
+        _mockHomeRouteApp(
+          subscriptionController: _ProHomeSubscriptionController.new,
+          performanceApi: _TestHomePerformanceApi(
+            itemCount: 0,
+            topPerformerCount: 0,
+          ),
+        ),
+      );
+      await _waitForHomeAuth(tester);
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(buttonKey));
+      await tester.pumpAndSettle();
+      expect(find.text(routeText), findsOneWidget);
+    }
+
+    await openAction(
+      const Key('home-portfolio-empty-scan'),
+      'Scan route target',
+    );
+    await openAction(
+      const Key('home-portfolio-empty-search'),
+      'Search route target',
+    );
+  });
+
+  testWidgets('Top Performers alone reuses the Most Valuable empty state', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _mockHomeApp(
+        null,
+        const _TestCurrencyRateApi(),
+        const MockHomeRepository(),
+        _ProHomeSubscriptionController.new,
+        _TestHomePerformanceApi(topPerformerCount: 0),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('home-performance-tab')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('home-performance-empty')), findsNothing);
+    expect(find.byKey(const Key('home-top-performers-empty')), findsOneWidget);
+    expect(find.text('No cards in this portfolio yet'), findsOneWidget);
+  });
+
+  testWidgets('Most Valuable opens the matching Card Detail Item context', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _mockHomeRouteApp(
+        homeRepository: const _MostValuableRouteHomeRepository(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final card = find.byKey(const Key('home-most-valuable-card-main-0'));
+    await tester.ensureVisible(card);
+    await tester.pumpAndSettle();
+    await tester.tap(card);
+    await tester.pumpAndSettle();
+
+    expect(find.text('card-1|item-pikachu|edit|portfolio'), findsOneWidget);
+  });
 
   testWidgets(
     'Top Performer opens the matching Card Detail Item Performance context',
@@ -1162,7 +1484,7 @@ void main() {
 
       final tooltip = tester.widget<Semantics>(chart).properties.value!;
       expect(tooltip, contains('Date: Aug 12, 2026'));
-      expect(tooltip, contains(r'Daily Change: +$44.00'));
+      expect(tooltip, isNot(contains('Daily Change:')));
       expect(tooltip, contains(r'Market: +$20.00'));
       expect(tooltip, contains(r'Portfolio: +$24.00'));
       expect(tooltip, contains('Qty: 4 (+2)'));
@@ -1176,8 +1498,7 @@ void main() {
       );
       expect(
         find.text(
-          'Profit and return are calculated only from cards\n'
-          'with purchase prices',
+          'Profit and return are calculated only from cards with purchase prices',
         ),
         findsOneWidget,
       );
@@ -1186,8 +1507,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         find.text(
-          'Profit and return are calculated only from cards\n'
-          'with purchase prices',
+          'Profit and return are calculated only from cards with purchase prices',
         ),
         findsNothing,
       );
@@ -1205,8 +1525,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         find.text(
-          'Profit and return are calculated only from cards\n'
-          'with purchase prices',
+          'Profit and return are calculated only from cards with purchase prices',
         ),
         findsNothing,
       );
@@ -1223,6 +1542,69 @@ void main() {
         tester.widget<Semantics>(refreshedChart).properties.value,
         'No chart point selected',
       );
+    },
+  );
+
+  testWidgets(
+    'Performance tooltip keeps unavailable Market and Portfolio rows visible without inventing changes',
+    (tester) async {
+      await tester.pumpWidget(
+        _mockHomeApp(
+          null,
+          const _TestCurrencyRateApi(),
+          const MockHomeRepository(),
+          _ProHomeSubscriptionController.new,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+
+      final chart = find.byKey(const Key('home-performance-chart'));
+      final chartRect = tester.getRect(chart);
+      await tester.tapAt(Offset(chartRect.left + 1, chartRect.center.dy));
+      await tester.pump();
+
+      final tooltip = tester.widget<Semantics>(chart).properties.value!;
+      expect(tooltip, contains('Date: Aug 11, 2026'));
+      expect(tooltip, contains('Market: --'));
+      expect(tooltip, contains('Portfolio: --'));
+      expect(tooltip, contains('Qty: 2'));
+      expect(tooltip, isNot(contains('Daily Change:')));
+    },
+  );
+
+  testWidgets(
+    'Performance tooltip converts Market and Portfolio changes to the selected currency',
+    (tester) async {
+      final preferences = _TestPortfolioManagementApi();
+      await tester.pumpWidget(
+        _mockHomeApp(
+          preferences,
+          const _TestCurrencyRateApi(),
+          const MockHomeRepository(),
+          _ProHomeSubscriptionController.new,
+        ),
+      );
+      await _waitForHomeAuth(tester);
+
+      await tester.tap(find.text('USD'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('EUR').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+
+      final chart = find.byKey(const Key('home-performance-chart'));
+      final chartRect = tester.getRect(chart);
+      await tester.tapAt(Offset(chartRect.right - 1, chartRect.center.dy));
+      await tester.pump();
+
+      final tooltip = tester.widget<Semantics>(chart).properties.value!;
+      expect(tooltip, contains('Market: +€18.20'));
+      expect(tooltip, contains('Portfolio: +€21.84'));
+      expect(tooltip, contains('Qty: 4 (+2)'));
+      expect(tooltip, isNot(contains('Daily Change:')));
     },
   );
 
@@ -1289,8 +1671,7 @@ void main() {
       expect(tipRect.center.dx, closeTo(infoRect.center.dx, .01));
       expect(
         find.text(
-          'Profit and return are calculated only from cards\n'
-          'with purchase prices',
+          'Profit and return are calculated only from cards with purchase prices',
         ),
         findsOneWidget,
       );
@@ -1342,12 +1723,48 @@ void main() {
       await tester.tapAt(tester.getRect(chart).center);
       await tester.pump();
       final tooltip = tester.widget<Semantics>(chart).properties.value!;
-      expect(tooltip, contains('Daily Change: $hiddenMoneyText'));
+      expect(tooltip, isNot(contains('Daily Change:')));
       expect(tooltip, contains('Market: $hiddenMoneyText'));
       expect(tooltip, contains('Portfolio: $hiddenMoneyText'));
       expect(tooltip, contains('Qty: 4 (+2)'));
       expect(tooltip, isNot(contains(r'$20.00')));
       expect(tooltip, isNot(contains(r'$24.00')));
+    },
+  );
+
+  testWidgets(
+    'Home Performance makes a single valid data point visible before selection',
+    (tester) async {
+      await tester.pumpWidget(
+        _mockHomeApp(
+          null,
+          const _TestCurrencyRateApi(),
+          const MockHomeRepository(),
+          _ProHomeSubscriptionController.new,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home-performance-range-1D')));
+      await tester.pumpAndSettle();
+
+      final chart = find.byKey(const Key('home-performance-chart'));
+      final customPaint = tester.widget<CustomPaint>(
+        find.descendant(of: chart, matching: find.byType(CustomPaint)),
+      );
+      final haloAlpha = await tester.runAsync(() async {
+        final recorder = ui.PictureRecorder();
+        customPaint.painter!.paint(Canvas(recorder), const Size(100, 100));
+        final image = await recorder.endRecording().toImage(100, 100);
+        final pixels = await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        );
+        image.dispose();
+        return pixels!.getUint8((56 * 100 + 55) * 4 + 3);
+      });
+
+      expect(haloAlpha, greaterThan(0));
     },
   );
 
@@ -1527,14 +1944,17 @@ void main() {
       ),
     );
     final badgeText = tester.widget<Text>(find.text('+3.20%'));
-    final badgePosition = tester.widget<Positioned>(
-      find.ancestor(of: find.text('+3.20%'), matching: find.byType(Positioned)),
+    final badgePosition = find.descendant(
+      of: firstCard,
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Positioned && widget.top == 0 && widget.right == -2,
+      ),
     );
 
     expect(backdrop, findsOneWidget);
     expect(badgeContainer, findsOneWidget);
-    expect(badgePosition.top, 0);
-    expect(badgePosition.right, -2);
+    expect(badgePosition, findsOneWidget);
     expect(
       (tester.widget<Container>(badgeContainer).decoration as BoxDecoration)
           .color,
@@ -2494,25 +2914,30 @@ Widget _mockHomeApp([
   HomeRepository homeRepository = const MockHomeRepository(),
   SubscriptionController Function()? subscriptionController,
   PortfolioApiClient? performanceApi,
+  AppAnalytics? analytics,
 ]) {
   final portfolioManagement = managementApi ?? _TestPortfolioManagementApi();
-  return ProviderScope(
-    overrides: [
-      ..._localAuthOverrides(),
-      homeRepositoryProvider.overrideWithValue(homeRepository),
-      collectionRepositoryProvider.overrideWithValue(
-        _HomeCollectionRepository(portfolioManagement),
-      ),
-      portfolioManagementApiProvider.overrideWithValue(portfolioManagement),
-      portfolioApiClientProvider.overrideWithValue(
-        performanceApi ?? _TestHomePerformanceApi(),
-      ),
-      currencyRateApiProvider.overrideWithValue(currencyRateApi),
-      subscriptionControllerProvider.overrideWith(
-        subscriptionController ?? _FreeHomeSubscriptionController.new,
-      ),
-    ],
-    child: const _HomeTestApp(),
+  return DefaultAssetBundle(
+    bundle: homeFixtureAssetBundle,
+    child: ProviderScope(
+      overrides: [
+        ..._localAuthOverrides(),
+        homeRepositoryProvider.overrideWithValue(homeRepository),
+        collectionRepositoryProvider.overrideWithValue(
+          _HomeCollectionRepository(portfolioManagement),
+        ),
+        portfolioManagementApiProvider.overrideWithValue(portfolioManagement),
+        portfolioApiClientProvider.overrideWithValue(
+          performanceApi ?? _TestHomePerformanceApi(),
+        ),
+        currencyRateApiProvider.overrideWithValue(currencyRateApi),
+        subscriptionControllerProvider.overrideWith(
+          subscriptionController ?? _FreeHomeSubscriptionController.new,
+        ),
+        if (analytics != null) analyticsProvider.overrideWithValue(analytics),
+      ],
+      child: const _HomeTestApp(),
+    ),
   );
 }
 
@@ -2543,18 +2968,24 @@ class _RepairingHomeSubscriptionController extends SubscriptionController {
   SubscriptionState build() => const SubscriptionState(isPro: true);
 
   @override
-  Future<bool> synchronizeServerEntitlement() async {
+  Future<EntitlementReconciliationResult> reconcileServerEntitlement() async {
     tracker.calls++;
-    return tracker.result;
+    return tracker.result
+        ? EntitlementReconciliationResult.premiumSynchronized
+        : EntitlementReconciliationResult.verificationUnavailable;
   }
 }
 
 class _TestHomePerformanceApi extends PortfolioApiClient {
-  _TestHomePerformanceApi({this.itemCount = 75, this.topPerformerCount = 6})
-    : super(Dio());
+  _TestHomePerformanceApi({
+    this.itemCount = 75,
+    this.topPerformerCount = 6,
+    this.purchasePriceItemCount,
+  }) : super(Dio());
 
   final int itemCount;
   final int topPerformerCount;
+  final int? purchasePriceItemCount;
 
   @override
   Future<PortfolioPerformanceDto> getPortfolioPerformance(
@@ -2563,6 +2994,7 @@ class _TestHomePerformanceApi extends PortfolioApiClient {
     String? folderId,
     bool localPremiumVerified = false,
   }) async {
+    final pricedItemCount = purchasePriceItemCount ?? (itemCount == 0 ? 0 : 60);
     final previous = PerformancePointDto(
       date: '2026-08-11',
       marketValueUsd: 100,
@@ -2601,10 +3033,12 @@ class _TestHomePerformanceApi extends PortfolioApiClient {
       marketPriceStatus: itemCount == 0
           ? MarketPriceStatus.missing
           : MarketPriceStatus.available,
-      purchasePriceStatus: itemCount == 0
+      purchasePriceStatus: pricedItemCount == 0
           ? PurchasePriceStatus.missing
+          : pricedItemCount == itemCount
+          ? PurchasePriceStatus.complete
           : PurchasePriceStatus.partial,
-      purchasePriceItemCount: itemCount == 0 ? 0 : 60,
+      purchasePriceItemCount: pricedItemCount,
       topPerformerCount: topPerformerCount,
       topPerformerItemIds: topPerformerCount == 0
           ? const []
@@ -2775,17 +3209,25 @@ class _EntitlementSyncRangePerformanceApi extends _TestHomePerformanceApi {
   }
 }
 
-Widget _mockHomeRouteApp() {
+Widget _mockHomeRouteApp({
+  HomeRepository homeRepository = const MockHomeRepository(),
+  SubscriptionController Function()? subscriptionController,
+  PortfolioApiClient? performanceApi,
+}) {
   final portfolioManagement = _TestPortfolioManagementApi();
   return ProviderScope(
     overrides: [
       ..._localAuthOverrides(),
-      homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
+      homeRepositoryProvider.overrideWithValue(homeRepository),
       collectionRepositoryProvider.overrideWithValue(
         _HomeCollectionRepository(portfolioManagement),
       ),
       portfolioManagementApiProvider.overrideWithValue(portfolioManagement),
+      if (performanceApi != null)
+        portfolioApiClientProvider.overrideWithValue(performanceApi),
       currencyRateApiProvider.overrideWithValue(const _TestCurrencyRateApi()),
+      if (subscriptionController != null)
+        subscriptionControllerProvider.overrideWith(subscriptionController),
     ],
     child: MaterialApp.router(
       routerConfig: GoRouter(
@@ -2802,10 +3244,56 @@ Widget _mockHomeRouteApp() {
               body: Center(child: Text('Search route target')),
             ),
           ),
+          GoRoute(
+            path: '/cards/:cardId',
+            builder: (context, state) => Scaffold(
+              body: Text(
+                '${state.pathParameters['cardId']}|'
+                '${state.uri.queryParameters['item_id']}|'
+                '${state.uri.queryParameters['entry']}|'
+                '${state.uri.queryParameters['collection']}',
+              ),
+            ),
+          ),
         ],
       ),
     ),
   );
+}
+
+class _MostValuableRouteHomeRepository implements HomeRepository {
+  const _MostValuableRouteHomeRepository();
+
+  @override
+  HomeDashboard loadDashboard() {
+    const source = mockHomeDashboard;
+    final cards = source.mostValuableCardsByFolderId['main']!;
+    final first = cards.first;
+    final linked = HomeCardHighlight(
+      itemId: 'item-pikachu',
+      cardRef: 'card-1',
+      title: first.title,
+      subtitle: first.subtitle,
+      priceUsd: first.priceUsd,
+      previousPriceUsd: first.previousPriceUsd,
+      increasePercent: first.increasePercent,
+      imageAssetPath: first.imageAssetPath,
+      imageUrl: first.imageUrl,
+    );
+    return HomeDashboard(
+      folders: source.folders,
+      portfoliosByFolderId: source.portfoliosByFolderId,
+      mostValuableByFolderId: source.mostValuableByFolderId,
+      mostValuableCardsByFolderId: {
+        ...source.mostValuableCardsByFolderId,
+        'main': [linked, ...cards.skip(1)],
+      },
+      trending: source.trending,
+      currencyCode: source.currencyCode,
+      amountHidden: source.amountHidden,
+      trendingUnavailable: source.trendingUnavailable,
+    );
+  }
 }
 
 class _HomeCollectionRepository extends MockCollectionRepository {

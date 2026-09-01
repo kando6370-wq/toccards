@@ -1516,11 +1516,13 @@ class _FailingThenSuccessfulCardDetailRepository
     AuthSession session, {
     required CardDetail detail,
     required CardCollectionItem item,
+    String? idempotencyKey,
   }) {
     return const MockCardDetailRepository().createCollectionItem(
       session,
       detail: detail,
       item: item,
+      idempotencyKey: idempotencyKey,
     );
   }
 
@@ -1675,6 +1677,7 @@ class _RecordingCardDetailRepository implements CardDetailRepository {
     AuthSession session, {
     required CardDetail detail,
     required CardCollectionItem item,
+    String? idempotencyKey,
   }) async {
     createdItemCardRefs.add(detail.id);
     createdItems.add(item);
@@ -1718,6 +1721,7 @@ class _DuplicateCollectionItemRepository
     AuthSession session, {
     required CardDetail detail,
     required CardCollectionItem item,
+    String? idempotencyKey,
   }) {
     throw const PortfolioApiException(
       duplicateCollectionItemMessage,
@@ -1993,8 +1997,9 @@ class _FakePortfolioApiClient implements PortfolioApi {
   @override
   Future<PortfolioItemDto> createCollectionItem(
     AuthSession session,
-    PortfolioItemDraftDto draft,
-  ) async {
+    PortfolioItemDraftDto draft, {
+    String? idempotencyKey,
+  }) async {
     return _portfolioItem(
       id: 'created-item',
       folderId: draft.folderId,

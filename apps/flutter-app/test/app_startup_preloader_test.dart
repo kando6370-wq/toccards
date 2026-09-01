@@ -153,6 +153,242 @@ void main() {
       expect(container.read(homeControllerProvider).isLoading, isFalse);
     },
   );
+
+  test(
+    'startup preloader warms only the first 20 Search card images',
+    () async {
+      final preloadedUrls = <String>[];
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith(_ReadyAuthController.new),
+          homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
+          collectionRepositoryProvider.overrideWithValue(
+            const MockCollectionRepository(),
+          ),
+          searchRepositoryProvider.overrideWithValue(
+            _SearchImageCatalogRepository(cardCount: 25),
+          ),
+          networkImagePreloaderProvider.overrideWithValue((imageUrls) async {
+            preloadedUrls.addAll(imageUrls);
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(appStartupPreloaderProvider.future);
+      await container.read(searchControllerProvider.notifier).loadComplete;
+      await Future<void>.delayed(Duration.zero);
+
+      expect(preloadedUrls, [
+        for (var index = 0; index < searchImagePreloadLimit; index++)
+          'https://img.example/card-$index.jpg',
+      ]);
+      expect(preloadedUrls, isNot(contains('https://img.example/card-20.jpg')));
+    },
+  );
+
+  test(
+    'startup preloader skips image warming without Home or Search network images',
+    () async {
+      var preloadCalls = 0;
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith(_ReadyAuthController.new),
+          homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
+          collectionRepositoryProvider.overrideWithValue(
+            const MockCollectionRepository(),
+          ),
+          searchRepositoryProvider.overrideWithValue(
+            _SearchImageCatalogRepository(cardCount: 0),
+          ),
+          networkImagePreloaderProvider.overrideWithValue((_) async {
+            preloadCalls++;
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(appStartupPreloaderProvider.future);
+      await container.read(searchControllerProvider.notifier).loadComplete;
+      await Future<void>.delayed(Duration.zero);
+
+      expect(preloadCalls, 0);
+    },
+  );
+
+  test(
+    'startup preloader warms visible Home Most Valuable and Trending images',
+    () async {
+      final preloadedBatches = <List<String>>[];
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith(_ReadyAuthController.new),
+          homeRepositoryProvider.overrideWithValue(
+            const _HomeImageRepository(),
+          ),
+          collectionRepositoryProvider.overrideWithValue(
+            const MockCollectionRepository(),
+          ),
+          searchRepositoryProvider.overrideWithValue(
+            const MockSearchRepository(),
+          ),
+          networkImagePreloaderProvider.overrideWithValue((imageUrls) async {
+            preloadedBatches.add(imageUrls);
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(appStartupPreloaderProvider.future);
+      await container
+          .read(homeControllerProvider.notifier)
+          .trendingLoadComplete;
+      await Future<void>.delayed(Duration.zero);
+
+      expect(preloadedBatches.expand((batch) => batch), [
+        'https://img.example/home-most-valuable-1.jpg',
+        'https://img.example/home-most-valuable-2.jpg',
+        'https://img.example/home-trending-1.jpg',
+        'https://img.example/home-trending-2.jpg',
+      ]);
+      expect(
+        preloadedBatches.expand((batch) => batch),
+        isNot(contains('https://img.example/other-folder.jpg')),
+      );
+    },
+  );
+
+  test('Home image warming never delays startup completion', () async {
+    final imagePreload = Completer<void>();
+    final container = ProviderContainer(
+      overrides: [
+        authControllerProvider.overrideWith(_ReadyAuthController.new),
+        homeRepositoryProvider.overrideWithValue(const _HomeImageRepository()),
+        collectionRepositoryProvider.overrideWithValue(
+          const MockCollectionRepository(),
+        ),
+        searchRepositoryProvider.overrideWithValue(
+          const MockSearchRepository(),
+        ),
+        networkImagePreloaderProvider.overrideWithValue(
+          (_) => imagePreload.future,
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await container.read(appStartupPreloaderProvider.future);
+    expect(imagePreload.isCompleted, isFalse);
+
+    imagePreload.complete();
+  });
+}
+
+class _HomeImageRepository implements ProgressiveHomeRepository {
+  const _HomeImageRepository();
+
+  @override
+  Future<HomeDashboard> loadCoreDashboard() async {
+    return HomeDashboard(
+      folders: mockHomeDashboard.folders,
+      portfoliosByFolderId: mockHomeDashboard.portfoliosByFolderId,
+      mostValuableByFolderId: const {
+        'main': HomeCardHighlight(
+          title: 'Home Card 1',
+          subtitle: 'Set',
+          priceUsd: 10,
+          previousPriceUsd: 9,
+          imageUrl: 'https://img.example/home-most-valuable-1.jpg',
+        ),
+      },
+      mostValuableCardsByFolderId: const {
+        'main': [
+          HomeCardHighlight(
+            title: 'Home Card 1',
+            subtitle: 'Set',
+            priceUsd: 10,
+            previousPriceUsd: 9,
+            imageUrl: 'https://img.example/home-most-valuable-1.jpg',
+          ),
+          HomeCardHighlight(
+            title: 'Home Card 2',
+            subtitle: 'Set',
+            priceUsd: 20,
+            previousPriceUsd: 18,
+            imageUrl: 'https://img.example/home-most-valuable-2.jpg',
+          ),
+        ],
+        'sealed': [
+          HomeCardHighlight(
+            title: 'Other Folder Card',
+            subtitle: 'Set',
+            priceUsd: 30,
+            previousPriceUsd: 27,
+            imageUrl: 'https://img.example/other-folder.jpg',
+          ),
+        ],
+      },
+      trending: const [],
+    );
+  }
+
+  @override
+  Future<List<TrendingCard>> loadTrending() async {
+    return const [
+      TrendingCard(
+        title: 'Trending 1',
+        subtitle: 'Set',
+        priceUsd: 11,
+        increaseRate: 1,
+        imageUrl: 'https://img.example/home-trending-1.jpg',
+      ),
+      TrendingCard(
+        title: 'Trending 2',
+        subtitle: 'Set',
+        priceUsd: 22,
+        increaseRate: 2,
+        imageUrl: 'https://img.example/home-trending-2.jpg',
+      ),
+    ];
+  }
+
+  @override
+  Future<HomeDashboard> loadDashboard() async {
+    final dashboard = await loadCoreDashboard();
+    return dashboard.copyWith(trending: await loadTrending());
+  }
+}
+
+class _SearchImageCatalogRepository extends MockSearchRepository {
+  _SearchImageCatalogRepository({required this.cardCount});
+
+  final int cardCount;
+
+  @override
+  Future<SearchCatalog> loadCatalog() async {
+    return SearchCatalog(
+      games: const [SearchGame(id: 'pokemon', label: 'Pokemon')],
+      cards: [
+        for (var index = 0; index < cardCount; index++)
+          SearchCard(
+            id: 'card-$index',
+            gameId: 'pokemon',
+            type: SearchCardType.tcg,
+            name: 'Card $index',
+            priceUsd: index.toDouble(),
+            previous30dPriceUsd: index.toDouble(),
+            setName: 'Set',
+            metadataLine: 'Rare',
+            variantLine: 'Normal',
+            quantity: 0,
+            isWishlisted: false,
+            changePercent: 0,
+            imageUrl: 'https://img.example/card-$index.jpg',
+          ),
+      ],
+      sets: const [],
+    );
+  }
 }
 
 class _PendingHomeRepository implements HomeRepository {

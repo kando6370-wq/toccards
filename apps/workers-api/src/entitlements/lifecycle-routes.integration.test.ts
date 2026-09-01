@@ -35,6 +35,7 @@ describe("current-session Apple lifecycle route", () => {
       DB: db,
       JWT_SECRET: "lifecycle-test-secret",
       APP_ENVIRONMENT: "development",
+      APPLE_IAP_PRODUCT_IDS: "yearly",
     } as Env;
   });
 

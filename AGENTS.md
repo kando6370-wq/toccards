@@ -45,8 +45,8 @@ Marketing Web ──> 独立的营销与法律页面
 - Flutter App 只通过 Workers API 访问服务端数据，不直接连接 PostgreSQL、KV 或 R2。
 - Admin 是独立 React SPA，但构建产物由 Workers assets 托管，与对应环境的 API 一起部署。
 - Workers 是鉴权、账号归属、资产隔离、卡牌查询、扫描识别和 Admin 操作的服务端边界。
-- PlanetScale PostgreSQL 是唯一业务与目录真源，dev/prod 通过同一 Hyperdrive 指向同一个数据库；`APP_ENVIRONMENT`、Apple 配置、KV、R2、域名和 secrets 仍按环境隔离。
-- D1 到 PostgreSQL 的迁移已经完成。后续开发不得新增或恢复 D1 binding、schema、migration、类型依赖、测试基座、读写路径、数据补全、回退或灾备方案；既有历史记录只作为只读审计证据，不得继续维护、执行或作为新实现依据。仓库中仍存在的 `D1Database` 兼容类型、Miniflare 测试和退役迁移工具属于待清理债务，只能在明确授权的清理任务中收敛，任何新功能或 BUG 修复不得复制、扩展或继续维护。`docs/releases/v1.0.0` 冻结内容仍按文档规则原样保留。
+- PlanetScale PostgreSQL 是 v1.1 业务与目录真源；当前 dev 已通过 Hyperdrive 使用该数据库，截至 2026-08-25 的现网 prod 仍运行 v1.0 D1 版本。v1.1 prod 必须在生产 D1 数据迁移、冲突审计和回滚演练完成后切换到同一 Hyperdrive；`APP_ENVIRONMENT`、Apple 配置、KV、R2、域名和 secrets 仍按环境隔离。
+- dev 的 D1 到 PostgreSQL 迁移已经完成；prod 的 v1.1 数据迁移与运行切换尚未执行。后续 v1.1 开发不得新增或恢复 D1 binding、schema、migration、类型依赖、测试基座、读写路径、数据补全、回退或灾备方案；现网 prod D1 只作为待下线的 v1.0 运行事实，不得成为新实现或回退依据。仓库中仍存在的 `D1Database` 兼容类型、Miniflare 测试和退役迁移工具属于待清理债务，只能在明确授权的清理任务中收敛，任何新功能或 BUG 修复不得复制、扩展或继续维护。`docs/releases/v1.0.0` 冻结内容仍按文档规则原样保留。
 - `packages/*` 只承载跨应用共享能力，应用之间通过包依赖或 HTTP 契约协作。
 
 ## 工具链与常用命令

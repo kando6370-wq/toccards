@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart' as picker;
@@ -132,6 +134,11 @@ final scanResultSourceProvider = Provider<ScanResultSource>(
     localPremiumVerified: () =>
         ref.read(subscriptionControllerProvider).isPro ||
         ref.read(scanQuotaControllerProvider).unlimited,
+    onQuotaChanged: (quota) {
+      if (ref.mounted) {
+        ref.read(scanQuotaControllerProvider.notifier).applyServerQuota(quota);
+      }
+    },
   ),
 );
 
@@ -214,12 +221,14 @@ class ApiScanResultSource implements ScanResultSource {
     required Future<ScanAppInfo> Function() appInfo,
     ScanCardNumberReader? cardNumberReader,
     bool Function()? localPremiumVerified,
+    ValueChanged<ScanQuotaDto>? onQuotaChanged,
   }) : _api = api,
        _session = session,
        _imagePicker = imagePicker,
        _cardRecognizer = cardRecognizer,
        _appInfo = appInfo,
        _localPremiumVerified = localPremiumVerified ?? _false,
+       _onQuotaChanged = onQuotaChanged,
        _cardNumberReader = cardNumberReader ?? const _NoopCardNumberReader();
 
   final ScanApi _api;
@@ -229,6 +238,11 @@ class ApiScanResultSource implements ScanResultSource {
   final Future<ScanAppInfo> Function() _appInfo;
   final ScanCardNumberReader _cardNumberReader;
   final bool Function() _localPremiumVerified;
+  final ValueChanged<ScanQuotaDto>? _onQuotaChanged;
+  Future<void> _reservationTail = Future<void>.value();
+  final Expando<String> _retryRequestIds = Expando<String>(
+    'scanRetryRequestId',
+  );
   @override
   Future<ScanResolution> photo() => _pickAndRecognize(ScanImageSource.camera);
 
@@ -274,7 +288,18 @@ class ApiScanResultSource implements ScanResultSource {
     ScanImage image, {
     ValueChanged<Uint8List>? onDisplayImageReady,
   }) async {
+    final previousReservation = _reservationTail;
+    final reservationFinished = Completer<void>();
+    _reservationTail = reservationFinished.future;
+    var reservationTurnReleased = false;
+    void releaseReservationTurn() {
+      if (reservationTurnReleased) return;
+      reservationTurnReleased = true;
+      reservationFinished.complete();
+    }
+
     Uint8List? displayImageBytes = image.bytes;
+    final requestId = _retryRequestIds[image.bytes] ?? const Uuid().v4();
     final ScanRecognitionDto recognition;
     try {
       final session = _session();
@@ -292,18 +317,35 @@ class ApiScanResultSource implements ScanResultSource {
       final cardNumber = await _cardNumberReader.read(
         embedding.cardImageBytes,
       );
+      await previousReservation;
+      try {
+        final reservationApi = _api is ScanQuotaReservationApi
+            ? _api as ScanQuotaReservationApi
+            : null;
+        if (reservationApi != null) {
+          final quota = await reservationApi.reserveQuota(
+            session,
+            requestId: requestId,
+            localPremiumVerified: _localPremiumVerified(),
+          );
+          _onQuotaChanged?.call(quota);
+        }
+      } finally {
+        releaseReservationTurn();
+      }
       recognition = await _api.recognizeImage(
         session,
         embedding: embedding,
         fileName: image.fileName,
         platform: info.platform,
         appVersion: info.appVersion,
-        requestId: const Uuid().v4(),
+        requestId: requestId,
         localPremiumVerified: _localPremiumVerified(),
         cardNumber: cardNumber,
       );
     } on ScanApiException catch (error) {
       if (error.code == 'SCAN_QUOTA_EXHAUSTED' && error.quota != null) {
+        _retryRequestIds[image.bytes] = null;
         return ScanResolution.quotaExhausted(
           imageBytes: image.bytes,
           displayImageBytes: displayImageBytes,
@@ -311,13 +353,20 @@ class ApiScanResultSource implements ScanResultSource {
           quota: error.quota!,
         );
       }
-      if (error.code == 'ENTITLEMENT_SYNC_REQUIRED') {
+      if (error.statusCode == 409 &&
+          error.code == 'ENTITLEMENT_SYNC_REQUIRED') {
+        _retryRequestIds[image.bytes] = null;
         return ScanResolution.entitlementSyncRequired(
           imageBytes: image.bytes,
           displayImageBytes: displayImageBytes,
           imageFileName: image.fileName,
         );
       }
+      _retryRequestIds[image.bytes] =
+          error.code == scanRequestTimeoutCode ||
+              error.code == 'SCAN_REQUEST_CONFLICT'
+          ? requestId
+          : null;
       return ScanResolution.failed(
         imageBytes: image.bytes,
         displayImageBytes: displayImageBytes,
@@ -325,12 +374,19 @@ class ApiScanResultSource implements ScanResultSource {
         quota: error.quota,
       );
     } on Object {
+      _retryRequestIds[image.bytes] = requestId;
       return ScanResolution.failed(
         imageBytes: image.bytes,
         displayImageBytes: displayImageBytes,
         imageFileName: image.fileName,
       );
+    } finally {
+      if (!reservationTurnReleased) {
+        await previousReservation;
+        releaseReservationTurn();
+      }
     }
+    _retryRequestIds[image.bytes] = null;
     final matchedResults = recognition.results.where(
       (result) => result.matched && result.candidates.isNotEmpty,
     );

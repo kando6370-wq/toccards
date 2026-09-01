@@ -6,9 +6,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/card_image/kando_card_image.dart';
 import 'package:kando_app/shared/currency/currency.dart';
+import 'package:kando_app/shared/portfolio/pending_collection.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/toast.dart';
-import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 
 import '../../shared/analytics/analytics_events.dart';
 import 'search_controller.dart';
@@ -23,6 +23,7 @@ class SearchCardTile extends ConsumerWidget {
     this.showSearchMetadata = false,
     this.showQuantity = true,
     this.entrySource = AnalyticsValue.sourceSearch,
+    this.collectGame,
   });
 
   final SearchCard card;
@@ -31,10 +32,16 @@ class SearchCardTile extends ConsumerWidget {
   final bool showSearchMetadata;
   final bool showQuantity;
   final String entrySource;
+  final String? collectGame;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currency = ref.watch(selectedCurrencyProvider);
+    final isPendingCollection = ref.watch(
+      pendingCollectionProvider.select(
+        (items) => items.any((item) => item.card.id == card.id),
+      ),
+    );
     final showFilledHeart = card.isWishlisted;
     final change = card.changeText;
     final changeColor = marketChangeTextColor(change);
@@ -119,10 +126,12 @@ class SearchCardTile extends ConsumerWidget {
                                 children: [
                                   _SearchCardActionButton(
                                     key: Key('search-collect-${card.id}'),
-                                    tooltip: card.isCollected
-                                        ? 'Collected'
+                                    tooltip: isPendingCollection
+                                        ? 'Pending collection item'
+                                        : card.isCollected
+                                        ? 'Add another item'
                                         : 'Collect',
-                                    iconAsset: card.isCollected
+                                    iconAsset: isPendingCollection
                                         ? 'assets/search/collection_on.svg'
                                         : 'assets/search/collection_off.svg',
                                     onPressed: !actionsEnabled
@@ -133,33 +142,25 @@ class SearchCardTile extends ConsumerWidget {
                                                   searchControllerProvider
                                                       .notifier,
                                                 )
-                                                .toggleCollectCard(card);
+                                                .toggleCollectCard(
+                                                  card,
+                                                  game: collectGame,
+                                                );
                                             if (action ==
-                                                SearchCollectAction
-                                                    .openDetail) {
-                                              if (context.mounted) {
-                                                context.push(
-                                                  _cardDetailsLocation(
-                                                    card,
-                                                    entrySource,
-                                                  ),
-                                                );
-                                              }
-                                            } else if (action ==
-                                                SearchCollectAction.duplicate) {
-                                              if (context.mounted) {
-                                                showKandoTopToast(
-                                                  context,
-                                                  message:
-                                                      duplicateCollectionItemMessage,
-                                                  type:
-                                                      KandoTopToastType.failure,
-                                                );
-                                              }
+                                                    SearchCollectAction
+                                                        .limitReached &&
+                                                context.mounted) {
+                                              showKandoTopToast(
+                                                context,
+                                                message:
+                                                    'You can add up to 20 cards at a time.',
+                                                type: KandoTopToastType.warning,
+                                              );
                                             }
                                           },
                                   ),
-                                  if (!card.isCollected) ...[
+                                  if (!card.isCollected &&
+                                      !isPendingCollection) ...[
                                     const SizedBox(width: 8),
                                     _SearchCardActionButton(
                                       key: Key('search-wishlist-${card.id}'),
@@ -295,7 +296,9 @@ String _cardDetailsLocation(SearchCard card, String entrySource) {
       'collection': collectionType,
       'ip': analyticsIpType(card.gameId),
       'entry': entrySource,
-      if (card.collectionItemId != null) 'item_id': card.collectionItemId!,
+      if (entrySource == AnalyticsValue.sourceEdit &&
+          card.collectionItemId != null)
+        'item_id': card.collectionItemId!,
     },
   ).toString();
 }
@@ -399,6 +402,9 @@ class _PriceRow extends StatelessWidget {
               ),
               Text(
                 change,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.right,
                 style: TextStyle(
                   fontSize: 10,
                   height: 14 / 10,

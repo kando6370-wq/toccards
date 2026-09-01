@@ -1,7 +1,12 @@
 import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { AuthenticatedOwner } from "../owner-auth";
-import { loadScanQuota, reserveScanQuota, settleScanQuota } from "./quota";
+import {
+  loadScanQuota,
+  releaseQueuedScanQuota,
+  reserveScanQuota,
+  settleScanQuota,
+} from "./quota";
 
 const OWNER: AuthenticatedOwner = {
   owner_type: "user",
@@ -107,6 +112,62 @@ describe("server-authoritative scan quota", () => {
         .bind(requestId)
         .first<number>("attempts"),
     ).resolves.toBe(2);
+  });
+
+  it("stops counting an expired lease and rejects its late settlement because an interrupted Worker must not permanently consume quota", async () => {
+    const requestId = crypto.randomUUID();
+    await reserveScanQuota(db, OWNER, requestId, "free", new Date(NOW));
+    const afterLease = new Date("2026-08-12T12:01:01.000Z");
+
+    expect(await loadScanQuota(db, OWNER, afterLease)).toEqual({
+      limit: 10,
+      reserved: 0,
+      consumed: 0,
+      remaining: 10,
+    });
+
+    await settleScanQuota(
+      db,
+      OWNER,
+      requestId,
+      "consumed",
+      "late-scan",
+      null,
+      afterLease,
+    );
+    expect(await loadScanQuota(db, OWNER, afterLease)).toEqual({
+      limit: 10,
+      reserved: 0,
+      consumed: 0,
+      remaining: 10,
+    });
+  });
+
+  it("releases an unstarted reservation because preflight failures must restore the slot immediately", async () => {
+    const requestId = crypto.randomUUID();
+    await reserveScanQuota(
+      db,
+      OWNER,
+      requestId,
+      "free",
+      new Date(NOW),
+      { startProcessing: false },
+    );
+
+    await releaseQueuedScanQuota(
+      db,
+      OWNER,
+      requestId,
+      { body: { success: false }, status: 503 },
+      new Date(NOW),
+    );
+
+    expect(await loadScanQuota(db, OWNER, new Date(NOW))).toEqual({
+      limit: 10,
+      reserved: 0,
+      consumed: 0,
+      remaining: 10,
+    });
   });
 });
 

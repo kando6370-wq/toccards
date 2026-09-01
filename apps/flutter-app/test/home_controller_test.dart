@@ -773,6 +773,7 @@ void main() {
       expect(cardDataApi.calls, 1);
       expect(state.dashboard.trendingUnavailable, isFalse);
       expect(state.dashboard.trending.single.title, 'Live Trending Card');
+      expect(state.dashboard.trending.single.increaseRate, 25);
       expect(state.totalAmountText, r'$12,450.80');
     },
   );

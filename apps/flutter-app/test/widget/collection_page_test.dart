@@ -77,30 +77,100 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Collection filter keeps Apply fixed while options scroll', (
+  testWidgets(
+    'Collection filter keeps its handle and Apply fixed while options scroll',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 884);
+      addTearDown(tester.view.reset);
+
+      await _pumpCollection(tester);
+      await tester.tap(find.byKey(const Key('collection-filter-button')));
+      await tester.pumpAndSettle();
+
+      final apply = find.byKey(const Key('collection-filter-apply'));
+      final handle = find.byKey(const Key('collection-filter-sheet-handle'));
+      final sortOption = find.text('Price: Low to High');
+      final applyBeforeScroll = tester.getRect(apply);
+      final handleBeforeScroll = tester.getRect(handle);
+      final sortBeforeScroll = tester.getRect(sortOption);
+
+      await tester.drag(
+        find.byKey(const Key('collection-filter-sheet')),
+        const Offset(0, -260),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.getRect(apply), applyBeforeScroll);
+      expect(tester.getRect(handle), handleBeforeScroll);
+      expect(tester.getTopLeft(sortOption).dy, lessThan(sortBeforeScroll.top));
+    },
+  );
+
+  testWidgets('Collection filter dismisses when its handle is dragged down', (
     tester,
   ) async {
-    tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(390, 884);
-    addTearDown(tester.view.reset);
-
     await _pumpCollection(tester);
     await tester.tap(find.byKey(const Key('collection-filter-button')));
     await tester.pumpAndSettle();
 
-    final apply = find.byKey(const Key('collection-filter-apply'));
-    final sortOption = find.text('Price: Low to High');
-    final applyBeforeScroll = tester.getRect(apply);
-    final sortBeforeScroll = tester.getRect(sortOption);
-
     await tester.drag(
-      find.byKey(const Key('collection-filter-sheet')),
-      const Offset(0, -260),
+      find.byKey(const Key('collection-filter-sheet-handle')),
+      const Offset(0, 400),
     );
     await tester.pumpAndSettle();
 
-    expect(tester.getRect(apply), applyBeforeScroll);
-    expect(tester.getTopLeft(sortOption).dy, lessThan(sortBeforeScroll.top));
+    expect(
+      find.byKey(const Key('collection-filter-sheet-background')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('Collection search does not regain focus after Filter closes', (
+    tester,
+  ) async {
+    await _pumpCollection(tester);
+    final editableText = tester.widget<EditableText>(
+      find.descendant(
+        of: find.byKey(const Key('collection-search-field')),
+        matching: find.byType(EditableText),
+      ),
+    );
+    await tester.tap(find.byKey(const Key('collection-search-field')));
+    await tester.pump();
+    expect(editableText.focusNode.hasFocus, isTrue);
+
+    await tester.tap(find.byKey(const Key('collection-filter-button')));
+    await tester.pumpAndSettle();
+    expect(editableText.focusNode.hasFocus, isFalse);
+
+    await tester.drag(
+      find.byKey(const Key('collection-filter-sheet-handle')),
+      const Offset(0, 400),
+    );
+    await tester.pumpAndSettle();
+
+    expect(editableText.focusNode.hasFocus, isFalse);
+  });
+
+  testWidgets('Collection search unfocuses when tapping outside', (
+    tester,
+  ) async {
+    await _pumpCollection(tester);
+    final editableText = tester.widget<EditableText>(
+      find.descendant(
+        of: find.byKey(const Key('collection-search-field')),
+        matching: find.byType(EditableText),
+      ),
+    );
+    await tester.tap(find.byKey(const Key('collection-search-field')));
+    await tester.pump();
+    expect(editableText.focusNode.hasFocus, isTrue);
+
+    await tester.tap(find.text('PORTFOLIO'));
+    await tester.pump();
+
+    expect(editableText.focusNode.hasFocus, isFalse);
   });
 
   testWidgets('Collection shows Portfolio summary and rows by default', (
@@ -133,11 +203,35 @@ void main() {
       tester.getSize(find.byKey(const Key('collection-search-field'))).height,
       44,
     );
+    final searchFieldRect = tester.getRect(
+      find.byKey(const Key('collection-search-field')),
+    );
+    final searchIcon = find.descendant(
+      of: find.byKey(const Key('collection-search-field')),
+      matching: find.byIcon(Icons.search),
+    );
+    final filterIcon = find.descendant(
+      of: find.byKey(const Key('collection-search-field')),
+      matching: find.byIcon(Icons.tune),
+    );
+    expect(tester.getRect(searchIcon).left - searchFieldRect.left, 16);
+    expect(searchFieldRect.right - tester.getRect(filterIcon).right, 16);
     expect(
       tester
           .getSize(find.byKey(const Key('collection-portfolio-summary')))
           .height,
       110,
+    );
+    final summaryRect = tester.getRect(
+      find.byKey(const Key('collection-portfolio-summary')),
+    );
+    expect(tester.getTopLeft(find.text('PORTFOLIO')).dx - summaryRect.left, 17);
+    expect(
+      summaryRect.right -
+          tester
+              .getRect(find.byKey(const Key('collection-folder-button')))
+              .right,
+      17,
     );
     expect(
       tester.getSize(find.byKey(const Key('collection-folder-button'))).height,
@@ -441,6 +535,13 @@ void main() {
       expect(repository.createCalls, 1);
       expect(find.text('SAVING'), findsOneWidget);
       expect(
+        find.descendant(
+          of: find.byKey(const Key('collection-folder-name-save')),
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsOneWidget,
+      );
+      expect(
         tester
             .widget<TextFormField>(
               find.byKey(const Key('collection-folder-name')),
@@ -568,6 +669,157 @@ void main() {
     );
   });
 
+  testWidgets(
+    'editing a folder keeps the sheet open with loading until rename succeeds',
+    (tester) async {
+      final repository = _BlockingFolderMutationRepository();
+      await _pumpCollection(tester, repository: repository);
+
+      await tester.tap(find.text('Main'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('collection-folder-edit-sealed')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('collection-folder-name')),
+        'Trade',
+      );
+      await tester.tap(find.byKey(const Key('collection-folder-name-save')));
+      await tester.pump();
+
+      expect(repository.renameCalls, 1);
+      expect(
+        find.byKey(const Key('collection-folder-name-sheet')),
+        findsOneWidget,
+      );
+      expect(find.text('SAVING'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('collection-folder-name-save')),
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<TextFormField>(
+              find.byKey(const Key('collection-folder-name')),
+            )
+            .enabled,
+        isFalse,
+      );
+      await tester.tap(
+        find.byKey(const Key('collection-folder-name-save')),
+        warnIfMissed: false,
+      );
+      expect(repository.renameCalls, 1);
+
+      repository.completeRename(name: 'Trade');
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('collection-folder-name-sheet')),
+        findsNothing,
+      );
+      expect(find.text('Trade'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'deleting a folder keeps confirmation open with loading until success',
+    (tester) async {
+      final repository = _BlockingFolderMutationRepository();
+      await _pumpCollection(tester, repository: repository);
+
+      await tester.tap(find.text('Main'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('collection-folder-delete-sealed')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('collection-folder-delete-confirm')),
+      );
+      await tester.pump();
+
+      expect(repository.deleteCalls, 1);
+      expect(
+        find.byKey(const Key('collection-folder-delete-sheet')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('collection-folder-delete-confirm')),
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(const Key('collection-folder-delete-confirm')),
+        warnIfMissed: false,
+      );
+      expect(repository.deleteCalls, 1);
+
+      repository.completeDelete();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('collection-folder-delete-sheet')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('collection-folder-delete-sealed')),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets(
+    'a failed folder delete keeps confirmation open and restores its action',
+    (tester) async {
+      final repository = _BlockingFolderMutationRepository();
+      await _pumpCollection(tester, repository: repository);
+
+      await tester.tap(find.text('Main'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('collection-folder-delete-sealed')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('collection-folder-delete-confirm')),
+      );
+      await tester.pump();
+
+      repository.failDelete();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('collection-folder-delete-sheet')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('collection-folder-delete-confirm')),
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsNothing,
+      );
+      expect(find.text('DELETE'), findsOneWidget);
+      expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
+      expect(
+        find.byKey(const Key('collection-folder-delete-sealed')),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const Key('kando-top-toast')),
+          matching: find.byTooltip('Close'),
+        ),
+      );
+      await tester.pump();
+    },
+  );
+
   testWidgets('Wishlist tab uses wishlist copy and hides quantity', (
     tester,
   ) async {
@@ -583,6 +835,8 @@ void main() {
     expect(find.text('Raw · Near Mint (NM)'), findsNothing);
     expect(find.text('Enchanted'), findsOneWidget);
     expect(find.textContaining('Qty:'), findsNothing);
+    expect(find.text(r'$480.00'), findsOneWidget);
+    expect(find.text('+6.70%'), findsOneWidget);
     _expectCollectionCardRowMatchesSearchField(
       tester,
       leftCardId: 'lorcana-elsa',
@@ -1173,6 +1427,41 @@ class _BlockingCreateFolderRepository extends MockCollectionRepository {
     createCompleter.completeError(
       PortfolioApiException('rejected', code: code),
     );
+  }
+}
+
+class _BlockingFolderMutationRepository extends MockCollectionRepository {
+  final _renameCompleter = Completer<CollectionFolder>();
+  final _deleteCompleter = Completer<void>();
+  var renameCalls = 0;
+  var deleteCalls = 0;
+
+  @override
+  Future<CollectionFolder> renameFolder(
+    AuthSession session,
+    String folderId,
+    String name,
+  ) {
+    renameCalls += 1;
+    return _renameCompleter.future;
+  }
+
+  @override
+  Future<void> deleteFolder(AuthSession session, String folderId) {
+    deleteCalls += 1;
+    return _deleteCompleter.future;
+  }
+
+  void completeRename({required String name}) {
+    _renameCompleter.complete(
+      CollectionFolder(id: 'sealed', name: name, isDefault: false),
+    );
+  }
+
+  void completeDelete() => _deleteCompleter.complete();
+
+  void failDelete() {
+    _deleteCompleter.completeError(StateError('delete failed'));
   }
 }
 

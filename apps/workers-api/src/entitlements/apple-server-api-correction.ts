@@ -5,6 +5,8 @@ import type {
 } from "@apple/app-store-server-library";
 import type { Env } from "../env";
 import {
+  appleDatabaseEnvironments,
+  configuredProductIds,
   createAppleNotificationVerifier,
   Environment,
   type AppleNotificationVerifier,
@@ -30,8 +32,11 @@ export type AppleServerApi = Pick<
 
 type Dependencies = {
   now?: () => Date;
-  createClient?: (env: Env) => Promise<AppleServerApi | null> | AppleServerApi | null;
-  createVerifier?: (env: Env) => Promise<{
+  createClient?: (
+    env: Env,
+    environment?: Environment,
+  ) => Promise<AppleServerApi | null> | AppleServerApi | null;
+  createVerifier?: (env: Env, environment?: Environment) => Promise<{
     environment: Environment;
     verifier: AppleNotificationVerifier;
   } | null> | {
@@ -47,17 +52,28 @@ type CorrectionRow = {
   environment: "Production" | "Sandbox";
   original_transaction_id: string;
   transaction_id: string | null;
+  product_id: string | null;
 };
 
-export async function createAppleServerApiClient(env: Env): Promise<AppleServerApi | null> {
+export async function createAppleServerApiClient(
+  env: Env,
+  environment = env.APP_ENVIRONMENT === "production"
+    ? Environment.PRODUCTION
+    : Environment.SANDBOX,
+): Promise<AppleServerApi | null> {
   const signingKey = env.APPLE_IAP_PRIVATE_KEY;
   const keyId = env.APPLE_IAP_KEY_ID?.trim();
   const issuerId = env.APPLE_IAP_ISSUER_ID?.trim();
   const bundleId = env.APPLE_IAP_BUNDLE_ID?.trim();
   if (!signingKey || !keyId || !issuerId || !bundleId) return null;
-  const environment = env.APP_ENVIRONMENT === "production"
-    ? Environment.PRODUCTION
-    : Environment.SANDBOX;
+  if (
+    environment !== Environment.PRODUCTION &&
+    environment !== Environment.SANDBOX
+  ) return null;
+  const allowedEnvironment = environment === Environment.PRODUCTION
+    ? "Production"
+    : "Sandbox";
+  if (!appleDatabaseEnvironments(env).includes(allowedEnvironment)) return null;
   try {
     const { AppStoreServerAPIClient } = await import("@apple/app-store-server-library");
     return new AppStoreServerAPIClient(signingKey, keyId, issuerId, bundleId, environment);
@@ -71,23 +87,32 @@ export async function retryAppleServerApiCorrections(
   dependencies: Dependencies = {},
 ): Promise<void> {
   const now = dependencies.now?.() ?? new Date();
-  const environment = runtimeAppleEnvironment(env);
-  const { results = [] } = await env.DB.prepare(`
-    SELECT n.inbox_id, n.notification_uuid, n.notification_type, n.environment,
-           n.original_transaction_id, n.transaction_id
-    FROM apple_server_notification n
-    JOIN apple_notification_inbox i ON i.id = n.inbox_id
-    WHERE i.processing_status = 'correction_required'
-      AND i.environment = ?
-      AND n.environment = ?
-      AND n.original_transaction_id IS NOT NULL
-      AND (i.processing_expires_at IS NULL OR i.processing_expires_at <= ?)
-    ORDER BY i.received_at ASC, i.id ASC LIMIT ?
-  `).bind(environment, environment, now.toISOString(), CORRECTION_BATCH_SIZE)
-    .all<CorrectionRow>();
+  const appBundleId = env.APPLE_IAP_BUNDLE_ID?.trim();
+  if (!appBundleId) return;
+  for (const environment of appleDatabaseEnvironments(env)) {
+    const { results = [] } = await env.DB.prepare(`
+      SELECT n.inbox_id, n.notification_uuid, n.notification_type, n.environment,
+             n.original_transaction_id, n.transaction_id, n.product_id
+      FROM apple_server_notification n
+      JOIN apple_notification_inbox i ON i.id = n.inbox_id
+      WHERE i.processing_status = 'correction_required'
+        AND i.app_bundle_id = ?
+        AND i.environment = ?
+        AND n.environment = ?
+        AND n.original_transaction_id IS NOT NULL
+        AND (i.processing_expires_at IS NULL OR i.processing_expires_at <= ?)
+      ORDER BY i.received_at ASC, i.id ASC LIMIT ?
+    `).bind(
+      appBundleId,
+      environment,
+      environment,
+      now.toISOString(),
+      CORRECTION_BATCH_SIZE,
+    ).all<CorrectionRow>();
 
-  for (const row of results) {
-    await correctApplePurchaseChain(env, row, dependencies);
+    for (const row of results) {
+      await correctApplePurchaseChain(env, row, dependencies);
+    }
   }
 }
 
@@ -107,8 +132,17 @@ async function correctApplePurchaseChain(
   `).bind(leaseExpiresAt, row.inbox_id, row.environment, now.toISOString()).run();
   if (reserved.meta.changes !== 1) return;
 
-  const client = await (dependencies.createClient ?? createAppleServerApiClient)(env);
-  const configuredVerifier = await (dependencies.createVerifier ?? createAppleNotificationVerifier)(env);
+  const appleEnvironment = row.environment === "Production"
+    ? Environment.PRODUCTION
+    : Environment.SANDBOX;
+  const client = await (dependencies.createClient ?? createAppleServerApiClient)(
+    env,
+    appleEnvironment,
+  );
+  const configuredVerifier = await (
+    dependencies.createVerifier ?? createAppleNotificationVerifier
+  )(env, appleEnvironment);
+  const allowedProducts = configuredProductIds(env.APPLE_IAP_PRODUCT_IDS);
   if (!client || !configuredVerifier) {
     await deferCorrection(env.DB, row, "SERVER_API_NOT_CONFIGURED", now);
     return;
@@ -120,9 +154,21 @@ async function correctApplePurchaseChain(
     await deferCorrection(env.DB, row, "SERVER_API_ENVIRONMENT_MISMATCH", now);
     return;
   }
+  if (
+    !allowedProducts ||
+    (row.product_id !== null && !allowedProducts.has(row.product_id))
+  ) {
+    await deferCorrection(env.DB, row, "SERVER_API_PRODUCT_NOT_CONFIGURED", now);
+    return;
+  }
 
   try {
-    const evidence = await loadCurrentEvidence(client, configuredVerifier.verifier, row);
+    const evidence = await loadCurrentEvidence(
+      client,
+      configuredVerifier.verifier,
+      row,
+      allowedProducts,
+    );
     if (!evidence || evidence.environment !== expectedEnvironment) {
       await deferCorrection(env.DB, row, "SERVER_API_EVIDENCE_MISMATCH", now);
       return;
@@ -145,6 +191,7 @@ async function loadCurrentEvidence(
   client: AppleServerApi,
   verifier: AppleNotificationVerifier,
   row: CorrectionRow,
+  allowedProducts: ReadonlySet<string>,
 ): Promise<CorrectedEvidence | null> {
   let statuses: StatusResponse | null = null;
   try {
@@ -161,7 +208,7 @@ async function loadCurrentEvidence(
       verifier.verifyAndDecodeTransaction(item.signedTransactionInfo),
       verifier.verifyAndDecodeRenewalInfo(item.signedRenewalInfo),
     ]);
-    if (!matchesChain(transaction, renewal, row)) return null;
+    if (!matchesChain(transaction, renewal, row, allowedProducts)) return null;
     const mapped = mapSubscriptionStatus(item.status);
     return mapped ? { ...mapped, environment: row.environment, transaction, renewal } : null;
   }
@@ -171,7 +218,10 @@ async function loadCurrentEvidence(
   );
   if (!response.signedTransactionInfo) return null;
   const transaction = await verifier.verifyAndDecodeTransaction(response.signedTransactionInfo);
-  if (!matchesChain(transaction, null, row) || transaction.type !== "Non-Consumable") return null;
+  if (
+    !matchesChain(transaction, null, row, allowedProducts) ||
+    transaction.type !== "Non-Consumable"
+  ) return null;
   const revoked = Number.isFinite(transaction.revocationDate);
   return {
     status: revoked ? "REVOKED" : "LIFETIME",
@@ -186,10 +236,14 @@ function matchesChain(
   transaction: JWSTransactionDecodedPayload,
   renewal: JWSRenewalInfoDecodedPayload | null,
   row: CorrectionRow,
+  allowedProducts: ReadonlySet<string>,
 ): boolean {
   return transaction.originalTransactionId === row.original_transaction_id &&
     transaction.environment === row.environment &&
+    !!transaction.productId && allowedProducts.has(transaction.productId) &&
     (!renewal || renewal.originalTransactionId === row.original_transaction_id) &&
+    (!renewal?.productId || allowedProducts.has(renewal.productId)) &&
+    (!renewal?.autoRenewProductId || allowedProducts.has(renewal.autoRenewProductId)) &&
     (!renewal?.environment || renewal.environment === row.environment);
 }
 
@@ -221,18 +275,25 @@ async function applyCorrection(
     : null;
   const autoRenew = renewal?.autoRenewStatus === 1 ? 1 : 0;
   const correctionVersion = now.toISOString();
+  const autoRenewVersion = iso(renewal?.signedDate) ?? correctionVersion;
 
   const statements: D1PreparedStatement[] = [
     db.prepare(`
       UPDATE billing_purchase_chain SET
         product_id = COALESCE(?, product_id), next_product_id = ?, status = ?,
-        auto_renew = ?, expires_at = CASE WHEN ? = 'LIFETIME' THEN NULL ELSE COALESCE(?, expires_at) END,
+        auto_renew = CASE WHEN auto_renew_signed_at IS NULL OR auto_renew_signed_at < ?
+          THEN ? ELSE auto_renew END,
+        auto_renew_signed_at = CASE WHEN auto_renew_signed_at IS NULL OR auto_renew_signed_at < ?
+          THEN ? ELSE auto_renew_signed_at END,
+        expires_at = CASE WHEN ? = 'LIFETIME' THEN NULL ELSE COALESCE(?, expires_at) END,
         grace_period_expires_at = ?, revoked_at = ?, state_effective_at = ?,
         correction_status = 'server_api_verified', updated_at = ?
       WHERE store = 'app_store' AND environment = ? AND original_transaction_id = ?
     `).bind(
       transaction.productId ?? renewal?.productId ?? null,
-      renewal?.autoRenewProductId ?? null, evidence.status, autoRenew, evidence.status, expiresAt,
+      renewal?.autoRenewProductId ?? null, evidence.status,
+      autoRenewVersion, autoRenew, autoRenewVersion, autoRenewVersion,
+      evidence.status, expiresAt,
       graceExpiresAt, revokedAt, correctionVersion, correctionVersion,
       row.environment, row.original_transaction_id,
     ),
@@ -249,6 +310,30 @@ async function applyCorrection(
       row.environment, row.original_transaction_id,
     ),
   ];
+  if (row.notification_type === "DID_CHANGE_RENEWAL_STATUS") {
+    statements.push(db.prepare(`
+      UPDATE billing_transaction
+      SET auto_renew_snapshot = ?, updated_at = ?
+      WHERE id = (
+        SELECT latest_transaction.id FROM billing_transaction latest_transaction
+        JOIN billing_purchase_chain chain ON chain.id = latest_transaction.purchase_chain_id
+        WHERE chain.store = 'app_store' AND chain.environment = ?
+          AND chain.original_transaction_id = ?
+          AND latest_transaction.environment = ?
+          AND latest_transaction.source_notification_uuid IS NOT NULL
+        ORDER BY latest_transaction.purchase_at DESC, latest_transaction.transaction_id DESC
+        LIMIT 1
+      ) AND EXISTS (
+        SELECT 1 FROM billing_purchase_chain
+        WHERE store = 'app_store' AND environment = ? AND original_transaction_id = ?
+          AND auto_renew = ? AND auto_renew_signed_at = ?
+      )
+    `).bind(
+      autoRenew, correctionVersion,
+      row.environment, row.original_transaction_id, row.environment,
+      row.environment, row.original_transaction_id, autoRenew, autoRenewVersion,
+    ));
+  }
   if (row.notification_type === "REFUND_REVERSED") {
     statements.push(db.prepare(`
       UPDATE billing_transaction SET
@@ -308,10 +393,6 @@ async function deferCorrection(
     row.inbox_id,
     row.environment,
   ).run();
-}
-
-function runtimeAppleEnvironment(env: Env): "Production" | "Sandbox" {
-  return env.APP_ENVIRONMENT === "production" ? "Production" : "Sandbox";
 }
 
 function iso(value: number | undefined): string | null {

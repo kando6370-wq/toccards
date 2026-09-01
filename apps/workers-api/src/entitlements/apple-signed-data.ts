@@ -27,6 +27,21 @@ export type AppleVerifierConfiguration = {
   verifier: AppleTransactionVerifier;
 };
 
+export type AppleNotificationVerifierConfiguration = {
+  environment: Environment;
+  verifier: AppleNotificationVerifier;
+};
+
+export type AppleVerifierFactoryResult =
+  | AppleVerifierConfiguration
+  | readonly AppleVerifierConfiguration[]
+  | null;
+
+export type VerifiedAppleTransaction = {
+  configuration: AppleVerifierConfiguration;
+  transaction: JWSTransactionDecodedPayload;
+};
+
 const APPLE_VERIFICATION_STATUS_NAMES = [
   "OK",
   "VERIFICATION_FAILURE",
@@ -66,25 +81,96 @@ export async function createAppleVerifier(
     | "APPLE_IAP_BUNDLE_ID"
     | "APPLE_ROOT_CERTIFICATES_BASE64"
   >,
+  environment = primaryAppleEnvironment(env),
 ): Promise<AppleVerifierConfiguration | null> {
-  return await createSignedDataVerifier(env);
+  if (!appleVerifierEnvironments(env).includes(environment)) return null;
+  return await createSignedDataVerifier(env, environment);
 }
 
 export async function createAppleNotificationVerifier(
   env: Pick<Env, "APP_ENVIRONMENT" | "APPLE_IAP_APP_ID" | "APPLE_IAP_BUNDLE_ID" | "APPLE_ROOT_CERTIFICATES_BASE64">,
-): Promise<{ environment: Environment; verifier: AppleNotificationVerifier } | null> {
-  return await createSignedDataVerifier(env);
+  environment = primaryAppleEnvironment(env),
+): Promise<AppleNotificationVerifierConfiguration | null> {
+  if (!appleVerifierEnvironments(env).includes(environment)) return null;
+  return await createSignedDataVerifier(env, environment);
+}
+
+export async function createAppleVerifiers(
+  env: Pick<
+    Env,
+    | "APP_ENVIRONMENT"
+    | "APPLE_IAP_APP_ID"
+    | "APPLE_IAP_BUNDLE_ID"
+    | "APPLE_ROOT_CERTIFICATES_BASE64"
+  >,
+): Promise<readonly AppleVerifierConfiguration[] | null> {
+  const configurations: AppleVerifierConfiguration[] = [];
+  for (const environment of appleVerifierEnvironments(env)) {
+    const configuration = await createAppleVerifier(env, environment);
+    if (!configuration) return null;
+    configurations.push(configuration);
+  }
+  return configurations;
+}
+
+export function appleVerifierEnvironments(
+  env: Pick<Env, "APP_ENVIRONMENT">,
+): readonly Environment[] {
+  return env.APP_ENVIRONMENT === "production"
+    ? [Environment.PRODUCTION, Environment.SANDBOX]
+    : [Environment.SANDBOX];
+}
+
+export function appleDatabaseEnvironments(
+  env: Pick<Env, "APP_ENVIRONMENT">,
+): readonly ("Production" | "Sandbox")[] {
+  return appleVerifierEnvironments(env).map((environment) =>
+    environment === Environment.PRODUCTION ? "Production" : "Sandbox"
+  );
+}
+
+export function configuredProductIds(
+  value: string | undefined,
+): ReadonlySet<string> | null {
+  if (!value) return null;
+  const ids = value.split(",").map((item) => item.trim()).filter(Boolean);
+  return ids.length > 0 ? new Set(ids) : null;
+}
+
+export function asVerifierConfigurations<T>(
+  value: T | readonly T[] | null,
+): readonly T[] {
+  if (value === null) return [];
+  return Array.isArray(value) ? value : [value as T];
+}
+
+export async function verifyAppleTransaction(
+  configurations: readonly AppleVerifierConfiguration[],
+  signedTransactionInfo: string,
+): Promise<VerifiedAppleTransaction | null> {
+  for (const configuration of configurations) {
+    try {
+      const transaction = await configuration.verifier
+        .verifyAndDecodeTransaction(signedTransactionInfo);
+      if (transaction.environment === configuration.environment) {
+        return { configuration, transaction };
+      }
+    } catch {
+      // A production bundle may carry either App Store or TestFlight evidence.
+    }
+  }
+  return null;
 }
 
 export type { JWSRenewalInfoDecodedPayload, JWSTransactionDecodedPayload, ResponseBodyV2DecodedPayload };
 
 async function createSignedDataVerifier(
   env: Pick<Env, "APP_ENVIRONMENT" | "APPLE_IAP_APP_ID" | "APPLE_IAP_BUNDLE_ID" | "APPLE_ROOT_CERTIFICATES_BASE64">,
+  environment: Environment,
 ): Promise<{ environment: Environment; verifier: SignedDataVerifier } | null> {
   const bundleId = env.APPLE_IAP_BUNDLE_ID?.trim();
   const roots = parseRootCertificates(env.APPLE_ROOT_CERTIFICATES_BASE64);
   if (!bundleId || !roots) return null;
-  const environment = env.APP_ENVIRONMENT === "production" ? Environment.PRODUCTION : Environment.SANDBOX;
   const appAppleId = environment === Environment.PRODUCTION ? parseAppleId(env.APPLE_IAP_APP_ID) : undefined;
   if (environment === Environment.PRODUCTION && appAppleId === null) return null;
   try {
@@ -96,6 +182,14 @@ async function createSignedDataVerifier(
   } catch {
     return null;
   }
+}
+
+function primaryAppleEnvironment(
+  env: Pick<Env, "APP_ENVIRONMENT">,
+): Environment {
+  return env.APP_ENVIRONMENT === "production"
+    ? Environment.PRODUCTION
+    : Environment.SANDBOX;
 }
 
 function parseRootCertificates(value: string | undefined): Buffer[] | null {

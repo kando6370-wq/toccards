@@ -31,6 +31,7 @@ describe("Extended card price history", () => {
       CACHE_KV: {} as KVNamespace,
       JWT_SECRET,
       APP_ENVIRONMENT: "development",
+      APPLE_IAP_PRODUCT_IDS: "yearly",
     };
   });
 
@@ -67,7 +68,7 @@ describe("Extended card price history", () => {
 
   it("allows only the live session with a server grant for single and batch 1Y", async () => {
     await db.batch([
-      db.prepare("INSERT INTO billing_purchase_chain VALUES ('chain-1', 'Sandbox', 'ACTIVE', '2099-01-01T00:00:00.000Z', NULL)"),
+      db.prepare("INSERT INTO billing_purchase_chain VALUES ('chain-1', 'Sandbox', 'yearly', 'ACTIVE', '2099-01-01T00:00:00.000Z', NULL)"),
       db.prepare("INSERT INTO billing_session_entitlement_grant VALUES ('grant-1', 'session-a', 'chain-1', 'performance_pro', 'active', '2099-01-01T00:00:00.000Z', NULL)"),
     ]);
 
@@ -135,6 +136,6 @@ async function errorCode(response: Response): Promise<string> {
 const SCHEMA = [
   "CREATE TABLE user (id TEXT PRIMARY KEY, status TEXT NOT NULL)",
   "CREATE TABLE session (id TEXT PRIMARY KEY, owner_type TEXT NOT NULL, owner_id TEXT NOT NULL, expires_at TEXT NOT NULL, revoked_at TEXT)",
-  "CREATE TABLE billing_purchase_chain (id TEXT PRIMARY KEY, environment TEXT NOT NULL, status TEXT NOT NULL, expires_at TEXT, revoked_at TEXT)",
+  "CREATE TABLE billing_purchase_chain (id TEXT PRIMARY KEY, environment TEXT NOT NULL, product_id TEXT NOT NULL, status TEXT NOT NULL, expires_at TEXT, revoked_at TEXT)",
   "CREATE TABLE billing_session_entitlement_grant (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, purchase_chain_id TEXT NOT NULL, entitlement_id TEXT NOT NULL, status TEXT NOT NULL, expires_at TEXT, revoked_at TEXT)",
 ];

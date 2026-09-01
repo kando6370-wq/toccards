@@ -21,7 +21,7 @@ describe("Portfolio Folder Premium limit", () => {
       db.prepare("INSERT INTO session (id, owner_type, owner_id, expires_at, revoked_at) VALUES ('session-b', 'user', 'user-1', '2099-01-01T00:00:00.000Z', NULL)"),
       db.prepare("INSERT INTO portfolio_folder (id, owner_type, owner_id, name, is_default, sort_order, created_at, updated_at) VALUES ('main', 'user', 'user-1', 'Main', 1, 0, '2026-08-12T00:00:00.000Z', '2026-08-12T00:00:00.000Z')"),
     ]);
-    env = { DB: db, CACHE_KV: {} as KVNamespace, JWT_SECRET, APP_ENVIRONMENT: "development" };
+    env = { DB: db, CACHE_KV: {} as KVNamespace, JWT_SECRET, APP_ENVIRONMENT: "development", APPLE_IAP_PRODUCT_IDS: "yearly" };
   });
 
   afterEach(async () => { await mf.dispose(); });
@@ -65,7 +65,7 @@ describe("Portfolio Folder Premium limit", () => {
   it("allows the proving session past the Free limit but not another session of the same UID", async () => {
     await db.batch([
       db.prepare("INSERT INTO portfolio_folder (id, owner_type, owner_id, name, is_default, sort_order, created_at, updated_at) VALUES ('binder', 'user', 'user-1', 'Binder', 0, 100, '2026-08-12T00:00:00.000Z', '2026-08-12T00:00:00.000Z')"),
-      db.prepare("INSERT INTO billing_purchase_chain (id, environment, status, expires_at, revoked_at) VALUES ('chain-1', 'Sandbox', 'ACTIVE', '2099-01-01T00:00:00.000Z', NULL)"),
+      db.prepare("INSERT INTO billing_purchase_chain (id, environment, product_id, status, expires_at, revoked_at) VALUES ('chain-1', 'Sandbox', 'yearly', 'ACTIVE', '2099-01-01T00:00:00.000Z', NULL)"),
       db.prepare("INSERT INTO billing_session_entitlement_grant (id, session_id, purchase_chain_id, entitlement_id, status, expires_at, revoked_at) VALUES ('grant-1', 'session-a', 'chain-1', 'performance_pro', 'active', '2099-01-01T00:00:00.000Z', NULL)"),
     ]);
     const app = createPortfolioRoutes();
@@ -76,7 +76,7 @@ describe("Portfolio Folder Premium limit", () => {
 
   it("assigns distinct sort orders to concurrent Premium creates because folder order is owner scoped", async () => {
     await db.batch([
-      db.prepare("INSERT INTO billing_purchase_chain (id, environment, status, expires_at, revoked_at) VALUES ('chain-1', 'Sandbox', 'ACTIVE', '2099-01-01T00:00:00.000Z', NULL)"),
+      db.prepare("INSERT INTO billing_purchase_chain (id, environment, product_id, status, expires_at, revoked_at) VALUES ('chain-1', 'Sandbox', 'yearly', 'ACTIVE', '2099-01-01T00:00:00.000Z', NULL)"),
       db.prepare("INSERT INTO billing_session_entitlement_grant (id, session_id, purchase_chain_id, entitlement_id, status, expires_at, revoked_at) VALUES ('grant-a', 'session-a', 'chain-1', 'performance_pro', 'active', '2099-01-01T00:00:00.000Z', NULL)"),
       db.prepare("INSERT INTO billing_session_entitlement_grant (id, session_id, purchase_chain_id, entitlement_id, status, expires_at, revoked_at) VALUES ('grant-b', 'session-b', 'chain-1', 'performance_pro', 'active', '2099-01-01T00:00:00.000Z', NULL)"),
     ]);
@@ -120,6 +120,6 @@ const SCHEMA = [
   "CREATE TABLE user (id TEXT PRIMARY KEY, status TEXT NOT NULL)",
   "CREATE TABLE session (id TEXT PRIMARY KEY, owner_type TEXT NOT NULL, owner_id TEXT NOT NULL, expires_at TEXT NOT NULL, revoked_at TEXT)",
   "CREATE TABLE portfolio_folder (id TEXT PRIMARY KEY, owner_type TEXT NOT NULL, owner_id TEXT NOT NULL, name TEXT NOT NULL, is_default INTEGER NOT NULL, sort_order INTEGER NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(owner_type, owner_id, name))",
-  "CREATE TABLE billing_purchase_chain (id TEXT PRIMARY KEY, environment TEXT NOT NULL, status TEXT NOT NULL, expires_at TEXT, revoked_at TEXT)",
+  "CREATE TABLE billing_purchase_chain (id TEXT PRIMARY KEY, environment TEXT NOT NULL, product_id TEXT NOT NULL, status TEXT NOT NULL, expires_at TEXT, revoked_at TEXT)",
   "CREATE TABLE billing_session_entitlement_grant (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, purchase_chain_id TEXT NOT NULL, entitlement_id TEXT NOT NULL, status TEXT NOT NULL, expires_at TEXT, revoked_at TEXT)",
 ];

@@ -176,6 +176,7 @@ HomeCardHighlight _highlight(PortfolioMostValuableDto item) {
     item.setName,
   ].join(' • ');
   return HomeCardHighlight(
+    itemId: item.itemId,
     cardRef: item.cardRef,
     title: item.name,
     subtitle: subtitle,

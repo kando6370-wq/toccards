@@ -3,18 +3,79 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/app/theme.dart';
 import 'package:kando_app/features/profile/profile_actions.dart';
 import 'package:kando_app/features/subscription/apple_current_entitlements.dart';
 import 'package:kando_app/features/subscription/subscription_controller.dart';
+import 'package:kando_app/features/subscription/subscription_analytics.dart';
 import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/features/subscription/subscription_page.dart';
+import 'package:kando_app/shared/analytics/app_analytics.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
+import 'package:kando_app/shared/ui/kando_bottom_sheet_page.dart';
+import 'package:kando_app/shared/ui/toast.dart';
 import 'package:subscription_core/subscription_core.dart';
 
 void main() {
+  testWidgets(
+    'onboarding subscription view reports the guide analytics scene',
+    (tester) async {
+      final events = <(String, Map<String, Object?>)>[];
+      final analytics = AppAnalytics.recording(
+        (event, properties) => events.add((event, properties)),
+      );
+      final host = _RestoreTestHost(analytics: analytics);
+      await tester.pumpWidget(host.app);
+      await tester.pumpAndSettle();
+
+      host.router.push('/subscription?source=onboarding');
+      await tester.pumpAndSettle();
+
+      expect(
+        events.where((entry) => entry.$1 == 'subscribe_view').map((e) => e.$2),
+        [containsPair('Scene', 'guide')],
+      );
+    },
+  );
+
+  testWidgets(
+    'subscription click reports selected SKU price currency and Scene',
+    (tester) async {
+      final events = <(String, Map<String, Object?>)>[];
+      final analytics = AppAnalytics.recording(
+        (event, properties) => events.add((event, properties)),
+      );
+      final host = _RestoreTestHost(
+        analytics: analytics,
+        controller: _AnalyticsPurchaseController(),
+      );
+      await tester.pumpWidget(host.app);
+      await tester.pumpAndSettle();
+
+      host.router.push('/subscription?source=onboarding');
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byType(CustomScrollView).last,
+        const Offset(0, -600),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const Key('subscription-purchase-button')),
+      );
+      await tester.tap(find.byKey(const Key('subscription-purchase-button')));
+      await tester.pump();
+
+      final click = events.singleWhere((entry) => entry.$1 == 'sub_click').$2;
+      expect(click, containsPair('plan', 'yearly.product'));
+      expect(click, containsPair('currency', 'USD'));
+      expect(click, containsPair('price', 49.99));
+      expect(click, containsPair('Scene', 'guide'));
+    },
+  );
+
   test('Restore outcome recalculates only from the latest verified result', () {
     expect(
       resolvePremiumStateAfterRestore(
@@ -37,6 +98,25 @@ void main() {
     );
   });
 
+  test('Restore cancellation does not emit a result dialog event', () {
+    expect(
+      subscriptionRestoreFailureEvent(
+        PlatformException(code: appleRestoreCancelledErrorCode),
+      ),
+      isNull,
+    );
+    expect(
+      subscriptionRestoreFailureEvent(
+        PlatformException(code: 'apple_restore_failed'),
+      ),
+      SubscriptionResultEvent.restoreFailed,
+    );
+    expect(
+      subscriptionRestoreFailureEvent(TimeoutException('restore')),
+      SubscriptionResultEvent.restoreFailed,
+    );
+  });
+
   test('one configured SKU keeps the remaining StoreKit catalog usable', () {
     const configuration = AppSubscriptionConfiguration(
       store: SubscriptionStore.appStore,
@@ -53,6 +133,26 @@ void main() {
     });
   });
 
+  test('USD fallback prices require a configured App Store catalog', () {
+    expect(
+      const SubscriptionState().displayPriceFor(subscriptionWeeklyPlanId),
+      'Unavailable',
+    );
+    expect(
+      const SubscriptionState(
+        isConfigured: true,
+      ).displayPriceFor(subscriptionWeeklyPlanId),
+      r'$3.99',
+    );
+    expect(
+      const SubscriptionState(
+        isConfigured: true,
+        displayPrices: {subscriptionWeeklyPlanId: r'CA$4.99'},
+      ).displayPriceFor(subscriptionWeeklyPlanId),
+      r'CA$4.99',
+    );
+  });
+
   test(
     'Android keeps subscription sales disabled because v1.1 has no Google Play proof contract',
     () {
@@ -65,6 +165,121 @@ void main() {
       expect(configuration.isConfigured, isFalse);
     },
   );
+
+  group('subscription purchase feedback', () {
+    test('maps known StoreKit start failures to specific messages', () {
+      expect(
+        subscriptionPurchaseStartErrorMessage(
+          PlatformException(code: 'storekit_duplicate_product_object'),
+        ),
+        subscriptionDuplicatePurchaseMessage,
+      );
+      expect(
+        subscriptionPurchaseStartErrorMessage(
+          PlatformException(
+            code: 'storekit2_purchase_error',
+            message: 'ASDErrorDomain Code=509 No active account',
+          ),
+        ),
+        subscriptionAppStoreAccountMessage,
+      );
+      expect(
+        subscriptionPurchaseStartErrorMessage(
+          PlatformException(code: 'storekit2_failed_to_fetch_product'),
+        ),
+        subscriptionProductUnavailableMessage,
+      );
+      expect(
+        subscriptionPurchaseStartErrorMessage(
+          PlatformException(code: 'Error Domain=StoreKit.StoreKitError Code=3'),
+        ),
+        subscriptionAppStoreTemporaryMessage,
+      );
+      expect(
+        subscriptionPurchaseStartErrorMessage(
+          PlatformException(
+            code: 'storekit2_purchase_error',
+            details: const {'domain': 'StoreKit.StoreKitError', 'code': 3},
+          ),
+        ),
+        subscriptionAppStoreTemporaryMessage,
+      );
+      expect(
+        subscriptionPurchaseStartErrorMessage(
+          PlatformException(code: 'Error Domain=SKErrorDomain Code=4'),
+        ),
+        subscriptionPurchasesDisabledMessage,
+      );
+      expect(
+        subscriptionPurchaseStartErrorMessage(
+          PlatformException(code: 'future_storekit_error'),
+        ),
+        contains('future_storekit_error'),
+      );
+      expect(
+        subscriptionPurchaseStartErrorMessage(
+          PlatformException(
+            code: 'Error Domain=FutureStoreError Code=42 details',
+          ),
+        ),
+        contains('FutureStoreError_42'),
+      );
+      expect(
+        subscriptionPurchaseStartErrorMessage(
+          PlatformException(
+            code: 'storekit2_purchase_error',
+            details: const {'domain': 'FutureStoreError', 'code': 42},
+          ),
+        ),
+        contains('FutureStoreError_42'),
+      );
+    });
+
+    test('maps purchase events without a generic fallback', () {
+      expect(
+        subscriptionPurchaseFeedbackMessage(
+          const SubscriptionEvent(
+            failure: SubscriptionFailure(
+              code: 'verification_failed',
+              message: 'Purchase verification failed.',
+            ),
+          ),
+        ),
+        subscriptionPurchaseVerificationMessage,
+      );
+      expect(
+        subscriptionPurchaseFeedbackMessage(
+          const SubscriptionEvent(
+            purchase: SubscriptionPurchase(
+              store: SubscriptionStore.appStore,
+              storeProductId: 'weekly.product',
+              status: SubscriptionPurchaseStatus.failed,
+              verificationData: '',
+              errorCode: 'purchase_error',
+            ),
+            failure: SubscriptionFailure(
+              code: 'purchase_error',
+              message: 'Purchase failed.',
+            ),
+          ),
+        ),
+        contains('purchase_error'),
+      );
+      expect(
+        subscriptionPurchaseFeedbackMessage(
+          const SubscriptionEvent(
+            purchase: SubscriptionPurchase(
+              store: SubscriptionStore.appStore,
+              storeProductId: 'weekly.product',
+              status: SubscriptionPurchaseStatus.canceled,
+              verificationData: '',
+            ),
+          ),
+        ),
+        subscriptionPurchaseCanceledMessage,
+      );
+    });
+  });
 
   test(
     'product loading retries three transient failures within one deadline',
@@ -184,6 +399,77 @@ void main() {
     expect(find.text('kept'), findsOneWidget);
   });
 
+  testWidgets('subscription sheet handle drag closes to its source', (
+    tester,
+  ) async {
+    tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+    addTearDown(tester.view.resetPadding);
+    final host = _RestoreTestHost();
+    await tester.pumpWidget(host.app);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('source-state')), 'kept');
+
+    host.router.push('/subscription?sheet=true&source=source');
+    await tester.pumpAndSettle();
+    final viewportHeight =
+        tester.view.physicalSize.height / tester.view.devicePixelRatio;
+    expect(
+      tester
+          .getSize(find.byKey(const Key('subscription-sheet-surface')))
+          .height,
+      lessThanOrEqualTo(viewportHeight * 0.85),
+    );
+    final topSafeArea = tester.view.padding.top / tester.view.devicePixelRatio;
+    expect(
+      tester.getRect(find.byKey(const Key('subscription-sheet-handle'))).top,
+      greaterThanOrEqualTo(topSafeArea),
+    );
+    await tester.drag(
+      find.byKey(const Key('subscription-sheet-handle')),
+      const Offset(0, 400),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SubscriptionPage), findsNothing);
+    expect(find.text('Source Page'), findsOneWidget);
+    expect(find.text('kept'), findsOneWidget);
+  });
+
+  testWidgets(
+    'a new subscription presentation resets the selected plan to yearly',
+    (tester) async {
+      final host = _RestoreTestHost();
+      await tester.pumpWidget(host.app);
+      await tester.pumpAndSettle();
+
+      host.router.push('/subscription?source=cold_start');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('subscription-plan-weekly')));
+      await tester.pumpAndSettle();
+      expect(host.controller.state.selectedPlanId, subscriptionWeeklyPlanId);
+
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+      host.router.push('/subscription?sheet=true&source=home');
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byType(CustomScrollView).last,
+        const Offset(0, -240),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SubscriptionPage), findsOneWidget);
+      expect(host.controller.state.selectedPlanId, subscriptionYearlyPlanId);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('subscription-plan-yearly')),
+          matching: find.byIcon(Icons.radio_button_checked),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
   testWidgets(
     'returning to a mounted subscription container refreshes StoreKit products only while it remains open',
     (tester) async {
@@ -278,7 +564,7 @@ void main() {
   );
 
   testWidgets(
-    'missing StoreKit products show Unavailable and cannot replace the first available selection',
+    'missing StoreKit products use USD fallback prices without replacing the first available selection',
     (tester) async {
       final host = _RestoreTestHost(controller: _PartialCatalogController());
       await tester.pumpWidget(host.app);
@@ -290,10 +576,19 @@ void main() {
       expect(
         find.descendant(
           of: find.byKey(const Key('subscription-plan-yearly')),
-          matching: find.text('Unavailable'),
+          matching: find.text(r'$49.99'),
         ),
         findsOneWidget,
       );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('subscription-plan-lifetime')),
+          matching: find.text(r'$79.99'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text(r'$4.99'), findsOneWidget);
+      expect(find.text('Unavailable'), findsNothing);
       await tester.tap(
         find.byKey(const Key('subscription-plan-yearly')),
         warnIfMissed: false,
@@ -307,7 +602,7 @@ void main() {
   );
 
   testWidgets(
-    'all unavailable products keep Subscribe available without a selected SKU',
+    'all unavailable products show USD fallbacks without a StoreKit selection',
     (tester) async {
       final host = _RestoreTestHost(
         controller: _UnavailableCatalogController(),
@@ -319,7 +614,11 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byIcon(Icons.radio_button_checked), findsNothing);
-      expect(find.text('Unavailable'), findsNWidgets(3));
+      expect(find.text(r'$3.99'), findsOneWidget);
+      expect(find.text(r'$49.99'), findsOneWidget);
+      expect(find.text(r'$79.99'), findsOneWidget);
+      expect(find.text('Unavailable'), findsNothing);
+      expect(host.controller.state.availablePlanIds, isEmpty);
       await tester.drag(
         find.byType(CustomScrollView).last,
         const Offset(0, -600),
@@ -489,7 +788,7 @@ void main() {
         await tester.pumpAndSettle();
         await tester.drag(
           find.byType(CustomScrollView).last,
-          const Offset(0, -120),
+          const Offset(0, -240),
         );
         await tester.pumpAndSettle();
 
@@ -694,36 +993,96 @@ void main() {
     },
   );
 
-  testWidgets(
-    'Profile purchase keeps its source through Success and Start Exploring',
-    (tester) async {
-      final host = _RestoreTestHost(initialLocation: '/profile');
-      await tester.pumpWidget(host.app);
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byKey(const Key('profile-state')), 'kept');
+  testWidgets('subscription errors stay visible for five seconds', (
+    tester,
+  ) async {
+    final host = _RestoreTestHost();
+    await tester.pumpWidget(host.app);
+    await tester.pumpAndSettle();
 
-      host.router.push('/subscription?source=profile');
-      await tester.pumpAndSettle();
-      host.controller.emit(
-        SubscriptionResultEvent.purchaseSuccess,
-        isPro: true,
-      );
-      await tester.pumpAndSettle();
+    host.router.push('/subscription');
+    await tester.pumpAndSettle();
+    host.controller.showError(subscriptionPurchaseCanceledMessage);
+    await tester.pump();
 
-      expect(find.text("You're Premium!"), findsOneWidget);
-      final startExploring = find.byKey(
-        const Key('subscription-success-continue'),
-      );
-      await tester.ensureVisible(startExploring);
-      await tester.pump();
-      await tester.tap(startExploring);
-      await tester.pumpAndSettle();
+    expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
+    expect(find.text(subscriptionPurchaseCanceledMessage), findsOneWidget);
+    expect(
+      tester.widget<KandoTopToast>(find.byType(KandoTopToast)).type,
+      KandoTopToastType.warning,
+    );
 
-      expect(find.text('Profile Page'), findsOneWidget);
-      expect(find.text('kept'), findsOneWidget);
-      expect(find.text('Choose Your Plan'), findsNothing);
-    },
-  );
+    await tester.pump(const Duration(milliseconds: 4900));
+    expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byKey(const Key('kando-top-toast')), findsNothing);
+  });
+
+  for (final source in ['home', 'search', 'collection', 'profile', 'scan']) {
+    testWidgets(
+      '$source purchase keeps its source through Success and Start Exploring',
+      (tester) async {
+        final host = _RestoreTestHost(initialLocation: '/$source');
+        await tester.pumpWidget(host.app);
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byKey(Key('$source-state')), 'kept');
+
+        host.router.push(
+          subscriptionPageLocation(
+            source: source,
+            entrySource: source == 'scan'
+                ? 'scan_pro_card'
+                : 'top_subscription_entry',
+          ),
+        );
+        await tester.pumpAndSettle();
+        host.controller.emit(
+          SubscriptionResultEvent.purchaseSuccess,
+          isPro: true,
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text("You're Premium!"), findsOneWidget);
+        final startExploring = find.byKey(
+          const Key('subscription-success-continue'),
+        );
+        await tester.ensureVisible(startExploring);
+        await tester.pump();
+        await tester.tap(startExploring);
+        await tester.pumpAndSettle();
+
+        expect(find.text('${_capitalized(source)} Page'), findsOneWidget);
+        expect(find.text('kept'), findsOneWidget);
+        expect(find.text('Choose Your Plan'), findsNothing);
+        expect(find.text("You're Premium!"), findsNothing);
+        expect(host.router.canPop(), isFalse);
+      },
+    );
+  }
+
+  testWidgets('cold-start purchase Success continues to Home', (tester) async {
+    final host = _RestoreTestHost();
+    await tester.pumpWidget(host.app);
+    await tester.pumpAndSettle();
+
+    host.router.push('/subscription?source=cold_start');
+    await tester.pumpAndSettle();
+    host.controller.emit(SubscriptionResultEvent.purchaseSuccess, isPro: true);
+    await tester.pumpAndSettle();
+
+    final startExploring = find.byKey(
+      const Key('subscription-success-continue'),
+    );
+    await tester.ensureVisible(startExploring);
+    await tester.tap(startExploring);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Home Page'), findsOneWidget);
+    expect(find.text('Choose Your Plan'), findsNothing);
+    expect(find.text("You're Premium!"), findsNothing);
+    expect(host.router.canPop(), isFalse);
+  });
 
   testWidgets(
     'Repeated premium events do not dismiss the purchase Success page',
@@ -782,10 +1141,14 @@ void _returnAppToForeground(WidgetTester tester) {
   tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
 }
 
+String _capitalized(String value) =>
+    '${value.substring(0, 1).toUpperCase()}${value.substring(1)}';
+
 class _RestoreTestHost {
   _RestoreTestHost({
     _RestoreTestController? controller,
     ProfileActions? actions,
+    AppAnalytics? analytics,
     String initialLocation = '/source',
   }) : controller = controller ?? _RestoreTestController() {
     router = GoRouter(
@@ -804,10 +1167,26 @@ class _RestoreTestHost {
         ),
         GoRoute(
           path: '/subscription',
-          builder: (_, state) => SubscriptionPage(
-            sheet: state.uri.queryParameters['sheet'] == 'true',
-            source: state.uri.queryParameters['source'],
-          ),
+          pageBuilder: (_, state) {
+            final sheet = state.uri.queryParameters['sheet'] == 'true';
+            final page = SubscriptionPage(
+              sheet: sheet,
+              source: state.uri.queryParameters['source'],
+              entrySource: state.uri.queryParameters['entry_source'],
+              analyticsScene: state.uri.queryParameters['scene'],
+            );
+            if (sheet) {
+              return KandoBottomSheetPage<SubscriptionPaywallResult>(
+                key: state.pageKey,
+                barrierColor: const Color(0x99000000),
+                isDismissible: false,
+                useSafeArea: true,
+                heightFactor: 0.85,
+                child: page,
+              );
+            }
+            return MaterialPage<void>(key: state.pageKey, child: page);
+          },
         ),
         GoRoute(
           path: '/subscription/success',
@@ -818,18 +1197,23 @@ class _RestoreTestHost {
         ),
         GoRoute(
           path: '/home',
-          builder: (_, _) => const Scaffold(body: Text('Home Page')),
+          builder: (_, _) => const _SourceStatePage(source: 'home'),
+        ),
+        GoRoute(
+          path: '/search',
+          builder: (_, _) => const _SourceStatePage(source: 'search'),
+        ),
+        GoRoute(
+          path: '/collection',
+          builder: (_, _) => const _SourceStatePage(source: 'collection'),
         ),
         GoRoute(
           path: '/profile',
-          builder: (_, _) => const Scaffold(
-            body: Column(
-              children: [
-                Text('Profile Page'),
-                TextField(key: Key('profile-state')),
-              ],
-            ),
-          ),
+          builder: (_, _) => const _SourceStatePage(source: 'profile'),
+        ),
+        GoRoute(
+          path: '/scan',
+          builder: (_, _) => const _SourceStatePage(source: 'scan'),
         ),
       ],
     );
@@ -837,6 +1221,7 @@ class _RestoreTestHost {
       overrides: [
         subscriptionControllerProvider.overrideWith(() => this.controller),
         if (actions != null) profileActionsProvider.overrideWithValue(actions),
+        if (analytics != null) analyticsProvider.overrideWithValue(analytics),
       ],
       child: MaterialApp.router(
         theme: buildKandoTheme(),
@@ -852,6 +1237,24 @@ class _RestoreTestHost {
   final _RestoreTestController controller;
   late final GoRouter router;
   late final Widget app;
+}
+
+class _SourceStatePage extends StatelessWidget {
+  const _SourceStatePage({required this.source});
+
+  final String source;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Column(
+        children: [
+          Text('${_capitalized(source)} Page'),
+          TextField(key: Key('$source-state')),
+        ],
+      ),
+    );
+  }
 }
 
 class _RecordingProfileActions implements ProfileActions {
@@ -912,6 +1315,11 @@ class _InFlightPurchaseController extends _RestoreTestController {
   }
 }
 
+class _AnalyticsPurchaseController extends _RestoreTestController {
+  @override
+  Future<void> purchase() async {}
+}
+
 class _UnavailableCatalogController extends _RestoreTestController {
   @override
   SubscriptionState build() => const SubscriptionState(
@@ -946,6 +1354,23 @@ class _RestoreTestController extends SubscriptionController {
       subscriptionYearlyPlanId: r'$49.99',
       subscriptionLifetimePlanId: r'$79.99',
     },
+    analyticsProducts: {
+      subscriptionWeeklyPlanId: SubscriptionProductAnalytics(
+        sku: 'weekly.product',
+        currency: 'USD',
+        price: 4.99,
+      ),
+      subscriptionYearlyPlanId: SubscriptionProductAnalytics(
+        sku: 'yearly.product',
+        currency: 'USD',
+        price: 49.99,
+      ),
+      subscriptionLifetimePlanId: SubscriptionProductAnalytics(
+        sku: 'lifetime.product',
+        currency: 'USD',
+        price: 79.99,
+      ),
+    },
     availablePlanIds: {
       subscriptionWeeklyPlanId,
       subscriptionYearlyPlanId,
@@ -960,5 +1385,9 @@ class _RestoreTestController extends SubscriptionController {
       resultEventCount: state.resultEventCount + 1,
       restoreSource: SubscriptionRestoreSource.subscriptionPage,
     );
+  }
+
+  void showError(String message) {
+    state = state.copyWith(errorMessage: message);
   }
 }

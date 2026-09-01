@@ -9,6 +9,19 @@ import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 
 void main() {
   test(
+    'portfolio transport keeps the full request deadline for server responses because Collection dashboard enrichment can exceed five seconds',
+    () {
+      final dio = createPortfolioDio(
+        baseUrl: 'https://api.example.test/api/v1',
+      );
+      addTearDown(dio.close);
+
+      expect(dio.options.connectTimeout, const Duration(seconds: 5));
+      expect(dio.options.receiveTimeout, portfolioRequestDeadline);
+    },
+  );
+
+  test(
     'listFolders attaches bearer token because portfolio rows are owner scoped',
     () async {
       final adapter = _RecordingAdapter((request) {
@@ -707,6 +720,54 @@ void main() {
         isNot(adapter.requests[1].idempotencyKey),
       );
       await Future<void>.delayed(const Duration(milliseconds: 100));
+    },
+  );
+
+  test(
+    'distinct pending Items keep distinct explicit idempotency keys even when their drafts match',
+    () async {
+      var responseIndex = 0;
+      final adapter = _RecordingAdapter((request) {
+        responseIndex += 1;
+        return _json(201, {
+          'success': true,
+          'data': _portfolioItemJson(
+            id: 'item-$responseIndex',
+            cardRef: 'squirtle',
+          ),
+        });
+      });
+      final api = PortfolioApiClient(_dio(adapter));
+      const draft = PortfolioItemDraftDto(
+        folderId: 'main',
+        cardRef: 'squirtle',
+        objectType: 'tcg',
+        grader: 'Raw',
+        condition: 'Near Mint (NM)',
+        grade: null,
+        language: 'English',
+        finish: 'Holofoil',
+        quantity: 1,
+        purchasePrice: null,
+        purchaseCurrency: null,
+        notes: '',
+      );
+
+      await api.createCollectionItem(
+        _session,
+        draft,
+        idempotencyKey: 'pending-item-a',
+      );
+      await api.createCollectionItem(
+        _session,
+        draft,
+        idempotencyKey: 'pending-item-b',
+      );
+
+      expect(adapter.requests.map((request) => request.idempotencyKey), [
+        'pending-item-a',
+        'pending-item-b',
+      ]);
     },
   );
 

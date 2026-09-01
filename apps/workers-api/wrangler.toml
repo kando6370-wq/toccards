@@ -34,6 +34,8 @@ MAIL_FROM_ADDRESS = "kando@tcgcard.fun"
 MAIL_FROM_NAME = "Card Ai"
 APP_ENVIRONMENT = "production"
 APPLE_IAP_BUNDLE_ID = "com.cardai.tcg"
+APPLE_IAP_PRODUCT_IDS = "CardAi.weekly,CardAi.yearly,CardAi.lifetime"
+APPLE_IAP_APP_ID = "6793017224"
 
 [[env.prod.hyperdrive]]
 binding = "HYPERDRIVE"

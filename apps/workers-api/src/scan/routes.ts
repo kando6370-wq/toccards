@@ -16,6 +16,7 @@ import {
 } from "../entitlements/premium-access";
 import {
   loadScanQuota,
+  releaseQueuedScanQuota,
   reserveScanQuota,
   settleScanQuota,
   type ScanQuotaSnapshot,
@@ -26,7 +27,7 @@ type ScanBindings = { Bindings: Env };
 
 type ScanCandidate = {
   rank: number;
-  product_id: number;
+  product_id: string;
   card_ref: string;
   catalog_matched: boolean;
   game: string | null;
@@ -39,7 +40,21 @@ type ScanCandidate = {
   distance: number | null;
 };
 
-type RecognitionCandidate = { productId: number; confidence: number };
+type RecognitionCandidate = { productId: string; confidence: number };
+
+type ScanCatalogRow = {
+  product_id: string;
+  game: string | null;
+  set_code: string | null;
+  name: string | null;
+  number: string | null;
+  rarity: string | null;
+};
+
+type ScanCatalogCard = Pick<
+  CardSearchResult,
+  "card_ref" | "game" | "name" | "set_code" | "card_number" | "rarity"
+>;
 
 type ScanResult = {
   index: number;
@@ -120,10 +135,10 @@ const SCAN_REQUEST_CONFLICT_RESPONSE = {
 
 const INSERT_SCAN_RECORD_SQL = `
 INSERT INTO scan_record
-  (id, owner_type, owner_id, image_url, filename, platform, app_version,
+  (id, environment, owner_type, owner_id, image_url, filename, platform, app_version,
    device_model, os_version, recognition_status, user_confirmation_status,
    system_result, user_result, candidates, raw_response, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `;
 
 const SELECT_SCAN_RECORD_SQL = `
@@ -230,17 +245,56 @@ export function createScanRoutes() {
     });
   });
 
+  routes.post("/scan/quota/reserve", async (c) => {
+    const auth = await authenticateOwner(c.env, c.req.header("Authorization"));
+    if (auth.status === "unauthorized") return c.json(UNAUTHORIZED_RESPONSE, 401);
+    if (auth.status === "internal_error") {
+      return c.json(INTERNAL_ERROR_RESPONSE, 500);
+    }
+
+    const body = await readJson(c.req);
+    const requestId = isRecord(body) ? readUuid(body.request_id) : null;
+    if (!requestId || c.req.header("Idempotency-Key") !== requestId) {
+      return c.json(VALIDATION_ERROR_RESPONSE, 422);
+    }
+    const access = await resolvePremiumAccess(
+      c.env,
+      auth.owner.session_id,
+      c.req.header(LOCAL_PREMIUM_STATE_HEADER),
+    );
+    if (access === "sync_required") {
+      return c.json(ENTITLEMENT_SYNC_REQUIRED_RESPONSE, 409);
+    }
+    const reservation = await reserveScanQuota(
+      c.env.DB,
+      auth.owner,
+      requestId,
+      access,
+      new Date(),
+      { startProcessing: false },
+    );
+    if (reservation.status === "exhausted") {
+      return c.json({
+        ...SCAN_QUOTA_EXHAUSTED_RESPONSE,
+        quota: scanQuotaPayload(reservation.quota, "free"),
+      }, 403);
+    }
+    if (reservation.status === "conflict") {
+      return c.json(SCAN_REQUEST_CONFLICT_RESPONSE, 409);
+    }
+    return c.json({
+      success: true,
+      data: {
+        request_id: requestId,
+        quota: scanQuotaPayload(reservation.quota, reservation.accessMode),
+      },
+    });
+  });
+
   routes.post("/scan/recognize", async (c) => {
     const auth = await authenticateOwner(c.env, c.req.header("Authorization"));
     if (auth.status === "unauthorized") return c.json(UNAUTHORIZED_RESPONSE, 401);
     if (auth.status === "internal_error") return c.json(INTERNAL_ERROR_RESPONSE, 500);
-
-    const vectorRecognition = c.env.VECTOR_RECOGNITION;
-    if (!vectorRecognition) {
-      return c.json(VECTOR_RECOGNITION_UNAVAILABLE_RESPONSE, 503);
-    }
-    const imageBucket = c.env.SCAN_IMAGES;
-    if (!imageBucket) return c.json(INTERNAL_ERROR_RESPONSE, 503);
 
     const body = await readFormData(c.req);
     if (!body) return c.json(VALIDATION_ERROR_RESPONSE, 422);
@@ -248,11 +302,47 @@ export function createScanRoutes() {
     if (!requestId || c.req.header("Idempotency-Key") !== requestId) {
       return c.json(VALIDATION_ERROR_RESPONSE, 422);
     }
+    const appEnvironment = c.env.APP_ENVIRONMENT;
+    if (!appEnvironment) {
+      await releaseQueuedScanQuota(
+        c.env.DB,
+        auth.owner,
+        requestId,
+        { body: INTERNAL_ERROR_RESPONSE, status: 503 },
+      );
+      return c.json(INTERNAL_ERROR_RESPONSE, 503);
+    }
+    const vectorRecognition = c.env.VECTOR_RECOGNITION;
+    if (!vectorRecognition) {
+      await releaseQueuedScanQuota(
+        c.env.DB,
+        auth.owner,
+        requestId,
+        { body: VECTOR_RECOGNITION_UNAVAILABLE_RESPONSE, status: 503 },
+      );
+      return c.json(VECTOR_RECOGNITION_UNAVAILABLE_RESPONSE, 503);
+    }
+    const imageBucket = c.env.SCAN_IMAGES;
+    if (!imageBucket) {
+      await releaseQueuedScanQuota(
+        c.env.DB,
+        auth.owner,
+        requestId,
+        { body: INTERNAL_ERROR_RESPONSE, status: 503 },
+      );
+      return c.json(INTERNAL_ERROR_RESPONSE, 503);
+    }
     const vector = readEmbeddingVector(body.get("vector"));
     const gameId = readOptionalGameId(body.get("game_id"));
     const cardNumber = readOptionalCardNumber(body.get("card_number"));
     const image = await validateScanImage(body.get("image"));
     if (!vector || gameId === null || cardNumber === null || !image) {
+      await releaseQueuedScanQuota(
+        c.env.DB,
+        auth.owner,
+        requestId,
+        { body: VALIDATION_ERROR_RESPONSE, status: 422 },
+      );
       return c.json(VALIDATION_ERROR_RESPONSE, 422);
     }
 
@@ -262,6 +352,12 @@ export function createScanRoutes() {
       c.req.header(LOCAL_PREMIUM_STATE_HEADER),
     );
     if (access === "sync_required") {
+      await releaseQueuedScanQuota(
+        c.env.DB,
+        auth.owner,
+        requestId,
+        { body: ENTITLEMENT_SYNC_REQUIRED_RESPONSE, status: 409 },
+      );
       return c.json(ENTITLEMENT_SYNC_REQUIRED_RESPONSE, 409);
     }
     const reservation = await reserveScanQuota(
@@ -348,28 +444,21 @@ export function createScanRoutes() {
     let auditCandidates: ScanCandidate[] = [];
     if (!upstreamFailed && recognized) {
       try {
-        const resolvedCandidates = await Promise.all(
-          recognized.map(async (candidate, index) => {
-            const card = await adapter.getCard(String(candidate.productId));
-            if (!card) return toUnresolvedCandidate(candidate, index);
-            if (
-              gameId !== undefined &&
-              !await cardBelongsToGame(c.env.DB, card.card_ref, gameId)
-            ) {
-              return null;
-            }
-            return toCatalogCandidate(card, candidate, index);
-          }),
-        );
-        auditCandidates = resolvedCandidates
-          .filter((candidate): candidate is ScanCandidate => candidate !== null)
-          .map((candidate, index) => ({ ...candidate, rank: index + 1 }));
+        const catalog = await loadScanCatalogCards(c.env.DB, recognized, gameId);
+        auditCandidates = recognized.map((candidate, index) => {
+          const card = catalog.get(candidate.productId);
+          return card
+            ? toCatalogCandidate(card, candidate, index)
+            : toUnresolvedCandidate(candidate, index);
+        });
         auditCandidates = await disambiguateByCardNumber(
           auditCandidates,
           cardNumber,
           adapter,
         );
-        candidates = auditCandidates.filter((candidate) => candidate.catalog_matched);
+        candidates = auditCandidates
+          .filter((candidate) => candidate.catalog_matched)
+          .map((candidate, index) => ({ ...candidate, rank: index + 1 }));
       } catch (error) {
         console.error("Failed to resolve recognition candidates.", error);
         upstreamFailed = true;
@@ -401,6 +490,7 @@ export function createScanRoutes() {
       await c.env.DB.prepare(INSERT_SCAN_RECORD_SQL)
         .bind(
           scanId,
+          appEnvironment,
           auth.owner.owner_type,
           auth.owner.owner_id,
           imageKey,
@@ -651,7 +741,7 @@ function isStoredScanCandidate(value: unknown): value is ScanCandidate {
 }
 
 function toCatalogCandidate(
-  card: CardSearchResult,
+  card: ScanCatalogCard,
   recognized: RecognitionCandidate,
   index: number,
 ): ScanCandidate {
@@ -671,6 +761,34 @@ function toCatalogCandidate(
   };
 }
 
+async function loadScanCatalogCards(
+  db: D1Database,
+  recognized: RecognitionCandidate[],
+  gameId: number | undefined,
+): Promise<Map<string, ScanCatalogCard>> {
+  const productIds = [...new Set(recognized.map((candidate) => candidate.productId))];
+  if (productIds.length === 0) return new Map();
+  const placeholders = productIds.map(() => "?").join(", ");
+  const gameFilter = gameId === undefined ? "" : " AND game_id = ?";
+  const bindings = gameId === undefined ? productIds : [...productIds, gameId];
+  const result = await db.prepare(`
+    SELECT product_id, game, set_code, name, number, rarity
+    FROM cards_all
+    WHERE product_id IN (${placeholders})${gameFilter}
+  `).bind(...bindings).all<ScanCatalogRow>();
+  return new Map((result.results ?? []).map((row) => [
+    row.product_id,
+    {
+      card_ref: row.product_id,
+      game: row.game,
+      name: row.name ?? row.product_id,
+      set_code: row.set_code ?? "",
+      card_number: row.number ?? "",
+      rarity: row.rarity,
+    },
+  ]));
+}
+
 function toUnresolvedCandidate(
   recognized: RecognitionCandidate,
   index: number,
@@ -678,7 +796,7 @@ function toUnresolvedCandidate(
   return {
     rank: index + 1,
     product_id: recognized.productId,
-    card_ref: String(recognized.productId),
+    card_ref: recognized.productId,
     catalog_matched: false,
     game: null,
     name: null,
@@ -744,20 +862,6 @@ function readOptionalGameId(value: string | File | null): number | undefined | n
   return Number.isInteger(parsed) && parsed >= 1 && parsed <= 4_294_967_295 ? parsed : null;
 }
 
-async function cardBelongsToGame(
-  db: D1Database,
-  cardRef: string,
-  gameId: number,
-): Promise<boolean> {
-  const row = await db.prepare(
-    `SELECT game_id
-     FROM cards_all
-     WHERE product_id = ?
-     LIMIT 1`,
-  ).bind(cardRef).first<{ game_id: number }>();
-  return row?.game_id === gameId;
-}
-
 function readOptionalCardNumber(
   value: string | File | null,
 ): string | undefined | null {
@@ -817,11 +921,10 @@ async function disambiguateByCardNumber(
       const card = matches.find(
         (candidate) => normalizeCardNumber(candidate.card_number) === cardNumber,
       );
-      const productId = Number(card?.card_ref);
-      if (!card || !Number.isInteger(productId) || productId < 1) continue;
+      if (!card) continue;
       const recovered = toCatalogCandidate(
         card,
-        { productId, confidence: source.confidence ?? 0 },
+        { productId: card.card_ref, confidence: source.confidence ?? 0 },
         candidates.length,
       );
       return prioritizeByCardNumber([...candidates, recovered], cardNumber);
@@ -839,14 +942,13 @@ function normalizeCardNumber(value: string | null): string | null {
 function readRecognitionCandidates(value: unknown): RecognitionCandidate[] | null {
   if (!Array.isArray(value)) return null;
   const candidates: RecognitionCandidate[] = [];
-  const seen = new Set<number>();
+  const seen = new Set<string>();
   for (const item of value) {
     if (!isRecord(item)) return null;
-    const productId = item.product_id;
+    const productId = readProductId(item.product_id);
     const confidence = item.confidence;
     if (
-      typeof productId !== "number" || !Number.isInteger(productId) ||
-      productId < 1 || productId > 4_294_967_295 ||
+      productId === null ||
       typeof confidence !== "number" || !Number.isFinite(confidence) ||
       confidence < 0 || confidence > 100
     ) {
@@ -858,6 +960,19 @@ function readRecognitionCandidates(value: unknown): RecognitionCandidate[] | nul
     }
   }
   return candidates;
+}
+
+function readProductId(value: unknown): string | null {
+  if (typeof value === "string") {
+    return value.length > 0 && value === value.trim() ? value : null;
+  }
+  if (
+    typeof value === "number" && Number.isInteger(value) &&
+    value >= 1 && value <= 4_294_967_295
+  ) {
+    return String(value);
+  }
+  return null;
 }
 
 function scanImageKey(

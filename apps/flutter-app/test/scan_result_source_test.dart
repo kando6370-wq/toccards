@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -135,6 +136,38 @@ void main() {
   );
 
   test(
+    'retry reuses an uncertain request id because a late success must not spend Free quota twice',
+    () async {
+      final api = _FakeScanApi(
+        _matchedRecognition,
+        failures: const [
+          ScanApiException(
+            scanRequestTimeoutMessage,
+            code: scanRequestTimeoutCode,
+          ),
+        ],
+      );
+      final source = ApiScanResultSource(
+        api: api,
+        session: () => _session,
+        imagePicker: _FakeScanImagePicker(),
+        cardRecognizer: _FakeScanCardRecognizer(),
+        appInfo: () async =>
+            const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
+      );
+
+      final failed = await source.photo();
+      await source.retry(
+        imageBytes: failed.imageBytes,
+        fileName: failed.imageFileName,
+      );
+
+      expect(api.requestIds, hasLength(2));
+      expect(api.requestIds[1], api.requestIds[0]);
+    },
+  );
+
+  test(
     'picker cancellation does not call recognition because cancelling capture is not a failed scan',
     () async {
       final api = _FakeScanApi(_matchedRecognition);
@@ -198,6 +231,50 @@ void main() {
       expect(api.callCount, 10);
     },
   );
+
+  test(
+    'library submits reservations in picker order because the last Free slots belong to the earliest Queue items',
+    () async {
+      final firstRecognition = Completer<void>();
+      final api = _FakeScanApi(_matchedRecognition);
+      final source = ApiScanResultSource(
+        api: api,
+        session: () => _session,
+        imagePicker: _FakeScanImagePicker(batchCount: 2),
+        cardRecognizer: _OrderedScanCardRecognizer(firstRecognition.future),
+        appInfo: () async =>
+            const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
+      );
+
+      final pending = await source.library();
+      await Future<void>.delayed(Duration.zero);
+      expect(api.fileNames, isEmpty);
+
+      firstRecognition.complete();
+      await Future.wait(pending);
+      expect(api.fileNames, ['scan-0.jpg', 'scan-1.jpg']);
+    },
+  );
+
+  test(
+    'server reservation updates quota before recognition settles because Processing must show available slots',
+    () async {
+      final quotas = <ScanQuotaDto>[];
+      final source = ApiScanResultSource(
+        api: _FakeScanApi(_matchedRecognition),
+        session: () => _session,
+        imagePicker: _FakeScanImagePicker(),
+        cardRecognizer: _FakeScanCardRecognizer(),
+        appInfo: () async =>
+            const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
+        onQuotaChanged: quotas.add,
+      );
+
+      await source.photo();
+
+      expect(quotas, [_reservedQuota]);
+    },
+  );
 }
 
 const _session = AuthSession(
@@ -244,6 +321,15 @@ const _freeQuota = ScanQuotaDto(
   unlimited: false,
 );
 
+const _reservedQuota = ScanQuotaDto(
+  access: ScanQuotaAccess.free,
+  limit: 10,
+  reserved: 1,
+  consumed: 0,
+  remaining: 9,
+  unlimited: false,
+);
+
 class _FakeScanImagePicker implements ScanImagePicker {
   _FakeScanImagePicker({this.cancelled = false, this.batchCount = 1});
 
@@ -280,15 +366,29 @@ class _FakeScanImagePicker implements ScanImagePicker {
   }
 }
 
-class _FakeScanApi implements ScanApi {
-  _FakeScanApi(this.result, {this.failure});
+class _FakeScanApi implements ScanApi, ScanQuotaReservationApi {
+  _FakeScanApi(this.result, {this.failure, this.failures = const []});
 
   final ScanRecognitionDto result;
   final Object? failure;
+  final List<Object> failures;
   ScanCardEmbedding? lastEmbedding;
   String? lastPlatform;
   String? lastCardNumber;
+  final requestIds = <String>[];
+  final fileNames = <String>[];
   var callCount = 0;
+  var reservationCount = 0;
+
+  @override
+  Future<ScanQuotaDto> reserveQuota(
+    AuthSession session, {
+    required String requestId,
+    bool localPremiumVerified = false,
+  }) async {
+    reservationCount += 1;
+    return _reservedQuota;
+  }
 
   @override
   Future<ScanQuotaDto> getQuota(
@@ -320,11 +420,29 @@ class _FakeScanApi implements ScanApi {
   }) async {
     callCount += 1;
     lastEmbedding = embedding;
+    requestIds.add(requestId);
+    fileNames.add(fileName);
     lastPlatform = platform;
     lastCardNumber = cardNumber;
+    if (callCount <= failures.length) throw failures[callCount - 1];
     final failure = this.failure;
     if (failure != null) throw failure;
     return result;
+  }
+}
+
+class _OrderedScanCardRecognizer implements ScanCardRecognizer {
+  _OrderedScanCardRecognizer(this.firstReady);
+
+  final Future<void> firstReady;
+
+  @override
+  Future<ScanCardEmbedding> process(Uint8List imageBytes) async {
+    if (imageBytes.single == 1) await firstReady;
+    return ScanCardEmbedding(
+      vector: List<double>.filled(512, 0.25),
+      cardImageBytes: Uint8List.fromList([4, 5, 6]),
+    );
   }
 }
 

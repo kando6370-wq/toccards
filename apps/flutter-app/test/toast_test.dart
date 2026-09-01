@@ -217,12 +217,12 @@ void main() {
       await tester.pump();
 
       final toast = find.byKey(const Key('kando-centered-success-toast'));
-      expect(tester.getSize(toast), const Size(260, 172.25));
+      expect(tester.getSize(toast), const Size(260, 204));
       expect(tester.getCenter(toast), const Offset(150, 240));
       final surface = tester.widget<DecoratedBox>(
         find.byKey(const Key('kando-centered-success-surface')),
       );
-      expect((surface.decoration as BoxDecoration).border, isNull);
+      expect((surface.decoration as BoxDecoration).border, isNotNull);
       expect(
         find.byKey(const Key('kando-centered-success-background')),
         findsOneWidget,
@@ -230,8 +230,8 @@ void main() {
       final icon = find.byKey(const Key('kando-centered-success-icon'));
       final title = find.byKey(const Key('kando-centered-success-title'));
       expect(tester.getSize(icon), const Size.square(56));
-      expect(tester.widget<Text>(title).style?.fontSize, 24);
-      expect(tester.getTopLeft(title).dy - tester.getBottomLeft(icon).dy, 24);
+      expect(tester.widget<Text>(title).style?.fontSize, 20);
+      expect(tester.getTopLeft(title).dy - tester.getBottomLeft(icon).dy, 6);
       final message = tester.widget<Text>(
         find.text(portfolioCardAddedToastText),
       );
@@ -242,7 +242,7 @@ void main() {
       expect(
         tester.getTopLeft(find.text(portfolioCardAddedToastText)).dy -
             tester.getBottomLeft(title).dy,
-        12,
+        6,
       );
 
       await tester.pump(kandoCenteredSuccessToastDuration);

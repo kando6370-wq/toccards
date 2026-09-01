@@ -49,11 +49,11 @@ CI 的 Flutter 版本冲突是显式目标差异，不合并成虚构的统一�
 - Flutter 端使用 RTMDet-Ins、纯 Dart mask 几何、iOS Core Image/Android Bitmap Matrix 和 PE-Core-T16 完成卡牌检测、矫正与 512 维向量化；iOS 模型运行时为系统 Core ML，Android 为裁剪到两个模型所需 CPU 算子和类型的 `onnxruntime-android 1.23.0` minimal AAR；主 Worker 通过 Service Binding 调用 `recognize-vec` 检索，PostgreSQL/R2 保存结构化记录与受保护的矫正卡面。
 - OpenCV、RGB pHash、`OCR_SERVICE_BASE_URL` 和完整预编译 Android ORT AAR 均不属于当前实现；Web 端侧 Scan 识别当前不支持。完整平台与制品契约见[扫描识别流程](../01-flows/scan-recognition.md)。
 - 汇率服务以 USD 为基准提供快照，KV 可缓存。
-- Firebase Analytics/Crashlytics、Mixpanel、Singular 和 ATT 用于分析、归因与稳定性，不作为授权真源。
+- Firebase Analytics/Crashlytics、Mixpanel、Singular 和 ATT 用于分析、归因与稳定性，不作为授权真源。Flutter 在 dev/prod 环境均开启 Mixpanel 移动端自动事件采集；Project Token 仍按环境加载。
 
 ## 5. 配置和安全边界
 
-- Flutter API 地址等使用 `--dart-define-from-file` 按环境注入。
+- Flutter API 地址等使用 `--dart-define-from-file` 按环境注入；未注入 `APP_ENV` 时默认 production，以匹配 iOS/Android 默认生产 App 身份，test 构建必须显式加载 `apps/flutter-app/config/test.json`，根 Melos 测试任务显式注入 `APP_ENV=test`。
 - Workers 公开 vars 与 bindings 在 `wrangler.toml` 分环境声明。
 - Apple、JWT、邮件、分析等密钥必须使用 secret 管理，不进入源码、文档或测试夹具。
 - dev 与 prod 共享 PostgreSQL 业务数据，但 `APP_ENVIRONMENT`、Bundle ID、Product ID 白名单、KV、R2、域名和密钥严格隔离。

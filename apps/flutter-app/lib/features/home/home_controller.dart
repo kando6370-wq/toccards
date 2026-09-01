@@ -286,6 +286,10 @@ class HomeController extends Notifier<HomeState> {
     );
   }
 
+  Future<void> get trendingLoadComplete {
+    return _trendingLoadCompleter?.future ?? Future<void>.value();
+  }
+
   bool get _isCoreLoadInFlight =>
       _coreLoadCompleter != null && !_coreLoadCompleter!.isCompleted;
 

@@ -1,16 +1,18 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import type { Env } from "../env";
 import { createId } from "../id";
 import { authenticateOwner } from "../owner-auth";
 import { appleAppAttestVerifier, sha256Bytes, type AppleAppAttestVerifier } from "./apple-app-attest";
 import {
-  createAppleVerifier,
+  asVerifierConfigurations,
+  configuredProductIds,
+  createAppleVerifiers,
   Environment,
-  type AppleVerifierConfiguration,
+  type AppleVerifierFactoryResult,
   type JWSTransactionDecodedPayload,
+  verifyAppleTransaction,
 } from "./apple-signed-data";
 import { PREMIUM_ENTITLEMENT_ID } from "./premium-access";
-import { configuredProductIds } from "./routes";
 import { billingOrderFactStatements, businessStatusForAppleTransaction } from "./billing-order-facts";
 
 const CHALLENGE_TTL_MS = 10 * 60 * 1000;
@@ -21,7 +23,7 @@ type Dependencies = {
   now?: () => Date;
   appAttestVerifier?: AppleAppAttestVerifier;
   createAppleVerifier?: (env: Env) =>
-    Promise<AppleVerifierConfiguration | null> | AppleVerifierConfiguration | null;
+    Promise<AppleVerifierFactoryResult> | AppleVerifierFactoryResult;
 };
 
 type ChallengeRow = {
@@ -41,7 +43,15 @@ type ChallengeRow = {
 
 type KeyRow = { public_key_pem: string; sign_count: number; status: string };
 type ProductRow = { entitlement_id: string };
-type ChainRow = { id: string; state_effective_at: string | null };
+type ChainRow = {
+  id: string;
+  product_id: string;
+  entitlement_id: string;
+  status: string;
+  expires_at: string | null;
+  revoked_at: string | null;
+  state_effective_at: string | null;
+};
 
 const unavailable = { success: false, error: { code: "VERIFICATION_UNAVAILABLE", message: "Apple restore verification is not configured." } } as const;
 const invalid = { success: false, error: { code: "EVIDENCE_INVALID", message: "Apple restore evidence is invalid." } } as const;
@@ -51,7 +61,7 @@ export function createAppleRestoreRoutes(dependencies: Dependencies = {}): Hono<
   const routes = new Hono<{ Bindings: Env }>();
   const now = dependencies.now ?? (() => new Date());
   const attestVerifier = dependencies.appAttestVerifier ?? appleAppAttestVerifier;
-  const appleVerifierFactory = dependencies.createAppleVerifier ?? createAppleVerifier;
+  const appleVerifierFactory = dependencies.createAppleVerifier ?? createAppleVerifiers;
 
   routes.post("/entitlements/apple/app-attest/challenge", async (c) => {
     const auth = await authenticateOwner(c.env, c.req.header("Authorization"));
@@ -155,9 +165,13 @@ export function createAppleRestoreRoutes(dependencies: Dependencies = {}): Hono<
     const body = restoreBody(await readJson(c.req));
     if (!body || c.req.header("Idempotency-Key") !== body.requestId) return validationError(c);
     const config = appAttestConfig(c.env);
-    const apple = await appleVerifierFactory(c.env);
+    const appleVerifiers = asVerifierConfigurations(
+      await appleVerifierFactory(c.env),
+    );
     const products = configuredProductIds(c.env.APPLE_IAP_PRODUCT_IDS);
-    if (!config || !apple || !products) return c.json(unavailable, 503);
+    if (!config || appleVerifiers.length === 0 || !products) {
+      return c.json(unavailable, 503);
+    }
     const evidenceSha256 = await sha256Hex(body.signedTransactionInfo);
     const challenge = await loadChallenge(c.env.DB, body.challenge, auth.owner.session_id);
     const stored = storedChallengeResponse(c, challenge, "restore", body.requestId, body.keyId, evidenceSha256);
@@ -166,22 +180,47 @@ export function createAppleRestoreRoutes(dependencies: Dependencies = {}): Hono<
     if (!key || key.status !== "active" || !validChallenge(challenge, "restore", body.requestId, body.keyId, evidenceSha256, now())) return c.json(replay, 409);
 
     let signCount: number;
-    let transaction: JWSTransactionDecodedPayload;
+    let verifiedTransaction: Awaited<ReturnType<typeof verifyAppleTransaction>>;
     try {
       signCount = (await attestVerifier.verifyAssertion({ appId: config.appId, assertion: body.assertion,
         clientData: challenge.client_data, publicKeyPem: key.public_key_pem, previousSignCount: key.sign_count })).signCount;
-      transaction = await apple.verifier.verifyAndDecodeTransaction(body.signedTransactionInfo);
+      verifiedTransaction = await verifyAppleTransaction(
+        appleVerifiers,
+        body.signedTransactionInfo,
+      );
     } catch {
       return c.json(invalid, 422);
     }
+    if (!verifiedTransaction) return c.json(invalid, 422);
+    const transaction: JWSTransactionDecodedPayload = verifiedTransaction.transaction;
     const attemptedAt = now();
-    const normalized = normalizeRestoreTransaction(transaction, apple.environment, products, attemptedAt);
+    const normalized = normalizeRestoreTransaction(
+      transaction,
+      verifiedTransaction.configuration.environment,
+      products,
+      attemptedAt,
+    );
     if (!normalized) return c.json(invalid, 422);
     const product = await c.env.DB.prepare(`SELECT entitlement_id FROM billing_product WHERE store = 'app_store' AND product_id = ? AND active = 1 LIMIT 1`).bind(normalized.productId).first<ProductRow>();
     if (!product || product.entitlement_id !== PREMIUM_ENTITLEMENT_ID) return c.json(unavailable, 503);
-    const existingChain = await c.env.DB.prepare(`SELECT id, state_effective_at FROM billing_purchase_chain WHERE store = 'app_store' AND environment = ? AND original_transaction_id = ? LIMIT 1`).bind(normalized.environment, normalized.originalTransactionId).first<ChainRow>();
+    const existingChain = await c.env.DB.prepare(`SELECT id, product_id, entitlement_id, status,
+      expires_at, revoked_at, state_effective_at
+      FROM billing_purchase_chain
+      WHERE store = 'app_store' AND environment = ? AND original_transaction_id = ? LIMIT 1`)
+      .bind(normalized.environment, normalized.originalTransactionId).first<ChainRow>();
     if (existingChain?.state_effective_at && Date.parse(existingChain.state_effective_at) > Date.parse(normalized.stateEffectiveAt)) {
-      return c.json({ success: false, error: { code: "STATE_CONFLICT", message: "A newer Apple lifecycle state already exists." } }, 409);
+      return finishRestoreAgainstNewerChain(c, {
+        sessionId: auth.owner.session_id,
+        ownerType: auth.owner.owner_type,
+        ownerId: auth.owner.owner_id,
+        challenge: body.challenge,
+        keyId: body.keyId,
+        previousSignCount: key.sign_count,
+        signCount,
+        chain: existingChain,
+        productIds: products,
+        attemptedAt,
+      });
     }
     const timestamp = attemptedAt.toISOString();
     const consumptionId = crypto.randomUUID();
@@ -252,6 +291,210 @@ export function createAppleRestoreRoutes(dependencies: Dependencies = {}): Hono<
     return c.json(response);
   });
   return routes;
+}
+
+async function finishRestoreAgainstNewerChain(
+  c: Context<{ Bindings: Env }>,
+  input: {
+    sessionId: string;
+    ownerType: "anonymous" | "user";
+    ownerId: string;
+    challenge: string;
+    keyId: string;
+    previousSignCount: number;
+    signCount: number;
+    chain: ChainRow;
+    productIds: ReadonlySet<string>;
+    attemptedAt: Date;
+  },
+) {
+  const timestamp = input.attemptedAt.toISOString();
+  const consumptionId = crypto.randomUUID();
+  const authoritativeActive = isActivePremiumChain(
+    input.chain,
+    input.productIds,
+    input.attemptedAt,
+  );
+  const response = authoritativeActive
+    ? {
+      success: true,
+      data: {
+        schema_version: 1,
+        state: "VERIFIED_ACTIVE",
+        entitlement_id: input.chain.entitlement_id,
+        product_id: input.chain.product_id,
+        expires_at: input.chain.expires_at,
+      },
+    } as const
+    : {
+      success: false,
+      error: {
+        code: "STATE_CONFLICT",
+        message: "A newer Apple lifecycle state already exists.",
+      },
+    } as const;
+  const consumeChallenge = authoritativeActive
+    ? c.env.DB.prepare(`UPDATE billing_apple_app_attest_challenge
+        SET consumed_at = ?, consumption_id = ?
+        WHERE token = ? AND session_id = ? AND consumed_at IS NULL AND expires_at > ?
+          AND EXISTS (SELECT 1 FROM billing_apple_app_attest_key
+            WHERE key_id = ? AND status = 'active' AND sign_count = ?)
+              AND EXISTS (SELECT 1 FROM billing_purchase_chain
+                WHERE id = ? AND state_effective_at = ? AND product_id = ?
+                  AND entitlement_id = ? AND status IN ('ACTIVE', 'TRIAL', 'GRACE_PERIOD', 'LIFETIME')
+                  AND revoked_at IS NULL AND (status = 'LIFETIME' OR expires_at > ?))`)
+      .bind(
+        timestamp,
+        consumptionId,
+        input.challenge,
+        input.sessionId,
+        timestamp,
+        input.keyId,
+        input.previousSignCount,
+        input.chain.id,
+        input.chain.state_effective_at,
+        input.chain.product_id,
+        input.chain.entitlement_id,
+        timestamp,
+      )
+    : c.env.DB.prepare(`UPDATE billing_apple_app_attest_challenge
+        SET consumed_at = ?, consumption_id = ?
+        WHERE token = ? AND session_id = ? AND consumed_at IS NULL AND expires_at > ?
+          AND EXISTS (SELECT 1 FROM billing_apple_app_attest_key
+            WHERE key_id = ? AND status = 'active' AND sign_count = ?)
+          AND EXISTS (SELECT 1 FROM billing_purchase_chain
+            WHERE id = ? AND state_effective_at = ? AND product_id = ?
+              AND entitlement_id = ? AND status = ?)`)
+      .bind(
+        timestamp,
+        consumptionId,
+        input.challenge,
+        input.sessionId,
+        timestamp,
+        input.keyId,
+        input.previousSignCount,
+        input.chain.id,
+        input.chain.state_effective_at,
+        input.chain.product_id,
+        input.chain.entitlement_id,
+        input.chain.status,
+      );
+  const statements = [
+    consumeChallenge,
+    c.env.DB.prepare(`UPDATE billing_apple_app_attest_key
+      SET sign_count = ?, updated_at = ?
+      WHERE key_id = ? AND status = 'active' AND sign_count = ?
+        AND EXISTS (SELECT 1 FROM billing_apple_app_attest_challenge
+          WHERE token = ? AND consumption_id = ?)`)
+      .bind(
+        input.signCount,
+        timestamp,
+        input.keyId,
+        input.previousSignCount,
+        input.challenge,
+        consumptionId,
+      ),
+  ];
+  if (authoritativeActive) {
+    statements.push(
+      c.env.DB.prepare(`UPDATE billing_purchase_chain SET
+        original_owner_type = CASE WHEN original_owner_type = 'unlinked'
+          THEN ? ELSE original_owner_type END,
+        original_owner_id = CASE WHEN original_owner_type = 'unlinked'
+          THEN ? ELSE original_owner_id END,
+        updated_at = ?
+        WHERE id = ? AND state_effective_at = ?
+          AND EXISTS (SELECT 1 FROM billing_apple_app_attest_challenge
+            WHERE token = ? AND consumption_id = ?)`)
+        .bind(
+          input.ownerType,
+          input.ownerId,
+          timestamp,
+          input.chain.id,
+          input.chain.state_effective_at,
+          input.challenge,
+          consumptionId,
+        ),
+      c.env.DB.prepare(`INSERT INTO billing_session_entitlement_grant
+        (id, session_id, purchase_chain_id, entitlement_id, source, status, granted_at,
+         expires_at, last_verified_at, revoked_at, updated_at)
+        SELECT ?, ?, id, entitlement_id, 'restore', 'active', ?, expires_at, ?, NULL, ?
+        FROM billing_purchase_chain
+        WHERE id = ? AND state_effective_at = ? AND product_id = ?
+          AND entitlement_id = ? AND status IN ('ACTIVE', 'TRIAL', 'GRACE_PERIOD', 'LIFETIME')
+          AND revoked_at IS NULL AND (status = 'LIFETIME' OR expires_at > ?)
+          AND EXISTS (SELECT 1 FROM billing_apple_app_attest_challenge
+            WHERE token = ? AND consumption_id = ?)
+        ON CONFLICT(session_id, purchase_chain_id, entitlement_id) DO UPDATE SET
+          source='restore', status='active', expires_at=excluded.expires_at,
+          last_verified_at=excluded.last_verified_at, revoked_at=NULL,
+          updated_at=excluded.updated_at`)
+        .bind(
+          createId(input.attemptedAt),
+          input.sessionId,
+          timestamp,
+          timestamp,
+          timestamp,
+          input.chain.id,
+          input.chain.state_effective_at,
+          input.chain.product_id,
+          input.chain.entitlement_id,
+          timestamp,
+          input.challenge,
+          consumptionId,
+        ),
+    );
+  }
+  statements.push(
+    authoritativeActive
+      ? c.env.DB.prepare(`UPDATE billing_apple_app_attest_challenge
+          SET result_code = 'VERIFIED_ACTIVE', response_json = ?, http_status = 200
+          WHERE token = ? AND consumption_id = ?
+            AND EXISTS (SELECT 1 FROM billing_session_entitlement_grant
+              WHERE session_id = ? AND purchase_chain_id = ? AND entitlement_id = ?
+                AND status = 'active' AND last_verified_at = ?)`)
+        .bind(
+          JSON.stringify(response),
+          input.challenge,
+          consumptionId,
+          input.sessionId,
+          input.chain.id,
+          input.chain.entitlement_id,
+          timestamp,
+        )
+      : c.env.DB.prepare(`UPDATE billing_apple_app_attest_challenge
+          SET result_code = 'STATE_CONFLICT', response_json = ?, http_status = 409
+          WHERE token = ? AND consumption_id = ?`)
+        .bind(JSON.stringify(response), input.challenge, consumptionId),
+  );
+  try {
+    const results = await c.env.DB.batch(statements);
+    if (results.some((result) => result.meta.changes !== 1)) {
+      return c.json(replay, 409);
+    }
+  } catch {
+    return internalError(c);
+  }
+  return authoritativeActive ? c.json(response, 200) : c.json(response, 409);
+}
+
+function isActivePremiumChain(
+  chain: ChainRow,
+  productIds: ReadonlySet<string>,
+  at: Date,
+): boolean {
+  if (
+    chain.entitlement_id !== PREMIUM_ENTITLEMENT_ID ||
+    !productIds.has(chain.product_id) ||
+    chain.revoked_at !== null ||
+    !["ACTIVE", "TRIAL", "GRACE_PERIOD", "LIFETIME"].includes(chain.status)
+  ) {
+    return false;
+  }
+  if (chain.status === "LIFETIME") return true;
+  if (chain.expires_at === null) return false;
+  const expiresAt = Date.parse(chain.expires_at);
+  return Number.isFinite(expiresAt) && expiresAt > at.getTime();
 }
 
 type ChallengeBody = { purpose: "register" | "restore"; requestId: string; keyId: string | null; signedTransactionInfo: string | null };

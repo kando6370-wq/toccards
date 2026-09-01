@@ -51,9 +51,19 @@ export async function loadPublishedPriceRows(
 
   for (let offset = 0; offset < uniqueCardRefs.length; offset += CURRENT_CARD_CHUNK_SIZE) {
     const chunk = uniqueCardRefs.slice(offset, offset + CURRENT_CARD_CHUNK_SIZE);
-    const placeholders = chunk.map(() => "?").join(", ");
-    const result = await db.prepare(
-      `WITH ranked_current AS (
+    rows.push(...(await loadPublishedPriceChunk(db, chunk)));
+  }
+
+  return rows;
+}
+
+async function loadPublishedPriceChunk(
+  db: D1Database,
+  cardRefs: string[],
+): Promise<PublishedPriceRow[]> {
+  const placeholders = cardRefs.map(() => "?").join(", ");
+  const result = await db.prepare(
+    `WITH ranked_current AS (
          SELECT batch.source_id, pointer.batch_id,
            ROW_NUMBER() OVER (
              PARTITION BY batch.source_id
@@ -91,23 +101,27 @@ export async function loadPublishedPriceRows(
        JOIN price_current_snapshot AS snapshot
          ON snapshot.batch_id = published.batch_id
         AND snapshot.series_id = series.series_id
-       WHERE series.is_active IS TRUE
+       WHERE series.is_active
          AND source.is_active IS TRUE
          AND series.currency_code = 'USD'
          AND series.card_ref IN (${placeholders})
        ORDER BY series.card_ref, series.series_id
        LIMIT ${CURRENT_QUERY_ROW_LIMIT + 1}`,
-    ).bind(...chunk).all<PublishedPriceRow>();
-    const chunkRows = result.results ?? [];
-    if (chunkRows.length > CURRENT_QUERY_ROW_LIMIT) {
-      throw new PriceQueryLimitError(
-        `Published price query exceeded ${CURRENT_QUERY_ROW_LIMIT} rows for ${chunk.length} cards`,
-      );
-    }
-    rows.push(...chunkRows);
+  ).bind(...cardRefs).all<PublishedPriceRow>();
+  const rows = result.results ?? [];
+  if (rows.length <= CURRENT_QUERY_ROW_LIMIT) return rows;
+
+  if (cardRefs.length === 1) {
+    throw new PriceQueryLimitError(
+      `Published price query exceeded ${CURRENT_QUERY_ROW_LIMIT} rows for 1 cards`,
+    );
   }
 
-  return rows;
+  const midpoint = Math.ceil(cardRefs.length / 2);
+  return [
+    ...(await loadPublishedPriceChunk(db, cardRefs.slice(0, midpoint))),
+    ...(await loadPublishedPriceChunk(db, cardRefs.slice(midpoint))),
+  ];
 }
 
 export async function loadPriceHistoryBySeries(

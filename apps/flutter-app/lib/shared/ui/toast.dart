@@ -218,8 +218,8 @@ class KandoCenteredSuccessToast extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final viewport = MediaQuery.sizeOf(context);
-    const designWidth = 320.0;
-    const designHeight = 212.0;
+    const designWidth = 260.0;
+    const designHeight = 204.0;
     const viewportInset = 20.0;
     final availableWidth = math.max(0.0, viewport.width - viewportInset * 2);
     final availableHeight = math.max(0.0, viewport.height - viewportInset * 2);
@@ -229,7 +229,7 @@ class KandoCenteredSuccessToast extends StatelessWidget {
     );
     final width = designWidth * frameScale;
     final height = designHeight * frameScale;
-    const horizontalPadding = 20.0;
+    const horizontalPadding = 33.0;
 
     return Material(
       color: Colors.transparent,
@@ -255,6 +255,9 @@ class KandoCenteredSuccessToast extends StatelessWidget {
               key: const Key('kando-centered-success-surface'),
               decoration: const BoxDecoration(
                 borderRadius: BorderRadius.all(Radius.circular(16)),
+                border: Border.fromBorderSide(
+                  BorderSide(color: Color(0x33FFFFFF)),
+                ),
               ),
               child: Stack(
                 fit: StackFit.expand,
@@ -273,7 +276,7 @@ class KandoCenteredSuccessToast extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           _KandoCenteredSuccessIcon(),
-                          SizedBox(height: 24),
+                          SizedBox(height: 6),
                           Text(
                             title,
                             key: const Key('kando-centered-success-title'),
@@ -283,12 +286,12 @@ class KandoCenteredSuccessToast extends StatelessWidget {
                             style: const TextStyle(
                               color: Color(0xFFF1FE70),
                               fontFamily: 'Fraunces',
-                              fontSize: 24,
-                              height: 32 / 24,
+                              fontSize: 20,
+                              height: 26 / 20,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 6),
                           Text(
                             message,
                             key: const Key('kando-centered-success-message'),
@@ -320,7 +323,7 @@ class KandoCenteredSuccessToast extends StatelessWidget {
 class _KandoCenteredSuccessBackgroundPainter extends CustomPainter {
   const _KandoCenteredSuccessBackgroundPainter();
 
-  static const _designSize = Size(320, 212);
+  static const _designSize = Size(260, 204);
   static const _figmaAngle = 111.108253161755;
 
   @override

@@ -8,6 +8,7 @@ import 'package:kando_app/shared/ui/load_state.dart';
 
 import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
+import '../card_detail/card_detail_page.dart';
 import '../subscription/premium_top_entry.dart';
 import 'search_card_tile.dart';
 import 'search_controller.dart';
@@ -33,6 +34,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
     return KandoTabScaffold(
       currentTab: KandoMainTab.search,
+      onPendingCollectionReview: () => showQuickCollectionReviewSheet(context),
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -68,7 +70,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                       ? ListView(
                           key: const Key('search-content-list'),
                           physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 116),
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 116),
                           children: [
                             if (widget.fromScan) ...[
                               _BackToScanButton(context: context),
@@ -87,9 +89,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                               SliverPadding(
                                 key: const Key('search-content-top-padding'),
                                 padding: const EdgeInsets.fromLTRB(
-                                  16,
+                                  20,
                                   0,
-                                  16,
+                                  20,
                                   0,
                                 ),
                                 sliver: SliverToBoxAdapter(
@@ -119,9 +121,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                             ),
                             SliverPadding(
                               padding: const EdgeInsets.fromLTRB(
-                                16,
+                                20,
                                 0,
-                                16,
+                                20,
                                 116,
                               ),
                               sliver: SliverToBoxAdapter(
@@ -200,7 +202,7 @@ class _SearchControlsHeader extends StatelessWidget {
     return ColoredBox(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
         child: Column(
           children: [
             SizedBox(

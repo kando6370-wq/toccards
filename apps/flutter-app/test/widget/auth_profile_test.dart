@@ -1483,7 +1483,7 @@ void main() {
   );
 
   testWidgets(
-    'Profile detail pages keep the Figma mobile canvas because account actions must not stretch on wide screens',
+    'Profile tab fills wide screens while detail pages keep the mobile canvas',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(800, 1000);
@@ -1496,7 +1496,11 @@ void main() {
 
       expect(
         tester.getSize(find.byKey(const Key('profile-content-list'))).width,
-        390,
+        800,
+      );
+      expect(
+        tester.getSize(find.byKey(const Key('profile-upgrade-banner'))).width,
+        760,
       );
       expect(find.byKey(const Key('profile-pull-to-refresh')), findsOneWidget);
 
@@ -1866,7 +1870,7 @@ void main() {
     expect(feedbackRepository.submissions, isEmpty);
   });
 
-  testWidgets('unsubscribed Profile banner opens the Subscription sheet', (
+  testWidgets('unsubscribed Profile banner matches the responsive design', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -1906,16 +1910,33 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       tester.getSize(find.byKey(const Key('profile-upgrade-banner'))),
-      const Size(350, 152),
+      const Size(390, 152),
     );
     expect(find.text('Restore'), findsOneWidget);
+  });
+
+  testWidgets('unsubscribed Profile banner opens the full Subscription Page', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final repository = _WidgetAuthRepository(
+      initialSession: _anonymousSession('anon-existing'),
+    );
+
+    await tester.pumpWidget(_testApp(repository));
+    await tester.pumpAndSettle();
+    await _openProfileTab(tester);
 
     await tester.tap(find.text('Upgrade Now'));
     await tester.pumpAndSettle();
 
     expect(
       tester.widget<SubscriptionPage>(find.byType(SubscriptionPage)).sheet,
-      isTrue,
+      isFalse,
     );
     expect(find.text('Choose Your Plan'), findsOneWidget);
     expect(find.text('Unlimited Card Scanning'), findsOneWidget);
@@ -2131,26 +2152,38 @@ void main() {
         ),
       );
 
-      double opacityFor(Key key) => tester
-          .widget<Opacity>(
-            find
-                .descendant(of: find.byKey(key), matching: find.byType(Opacity))
-                .first,
-          )
-          .opacity;
+      double opacityFor(Key key) {
+        final keyed = find.byKey(key);
+        final widget = tester.widget(keyed);
+        return (widget is Opacity
+                ? widget
+                : tester.widget<Opacity>(
+                    find
+                        .descendant(of: keyed, matching: find.byType(Opacity))
+                        .first,
+                  ))
+            .opacity;
+      }
 
       expect(opacityFor(const Key('subscription-success-title-reveal')), 0);
       expect(opacityFor(const Key('subscription-success-benefit-0-reveal')), 0);
 
       await tester.pump(const Duration(milliseconds: 1000));
       expect(opacityFor(const Key('subscription-success-title-reveal')), 1);
-      expect(opacityFor(const Key('subscription-success-benefit-0-reveal')), 0);
+      expect(
+        opacityFor(const Key('subscription-success-benefit-0-reveal')),
+        greaterThan(0),
+      );
 
-      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump(const Duration(milliseconds: 800));
       expect(opacityFor(const Key('subscription-success-benefit-0-reveal')), 1);
       expect(opacityFor(const Key('subscription-success-benefit-2-reveal')), 1);
+      expect(
+        opacityFor(const Key('subscription-success-button-reveal')),
+        greaterThan(0),
+      );
 
-      await tester.pump(const Duration(milliseconds: 1000));
+      await tester.pump(const Duration(milliseconds: 550));
       expect(opacityFor(const Key('subscription-success-title-reveal')), 1);
       expect(opacityFor(const Key('subscription-success-benefit-0-reveal')), 1);
       expect(opacityFor(const Key('subscription-success-benefit-2-reveal')), 1);
@@ -2158,12 +2191,88 @@ void main() {
     },
   );
 
+  testWidgets('subscription success follows the Figma motion timeline once', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildKandoTheme(),
+        home: const SubscriptionSuccessPage(),
+      ),
+    );
+
+    double opacityFor(Key key) {
+      final keyed = find.byKey(key);
+      final widget = tester.widget(keyed);
+      return (widget is Opacity
+              ? widget
+              : tester.widget<Opacity>(
+                  find
+                      .descendant(of: keyed, matching: find.byType(Opacity))
+                      .first,
+                ))
+          .opacity;
+    }
+
+    const outerGlow = Key('subscription-success-glow-outer');
+    const medallion = Key('subscription-success-medallion');
+    const trophy = Key('subscription-success-trophy');
+    const confetti = Key('subscription-success-confetti-0');
+    const checkmark = Key('subscription-success-checkmark-0');
+    expect(opacityFor(outerGlow), 0);
+    expect(opacityFor(medallion), 0);
+    expect(opacityFor(trophy), 0);
+    expect(opacityFor(confetti), 0);
+    expect(opacityFor(checkmark), 0);
+
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(opacityFor(outerGlow), greaterThan(0));
+    expect(opacityFor(medallion), 1);
+    expect(opacityFor(trophy), 1);
+    expect(opacityFor(confetti), greaterThan(0));
+    expect(opacityFor(const Key('subscription-success-title-reveal')), 0);
+
+    await tester.pump(const Duration(milliseconds: 2050));
+    expect(opacityFor(outerGlow), 0);
+    expect(opacityFor(confetti), 0);
+    expect(opacityFor(checkmark), 1);
+    expect(opacityFor(const Key('subscription-success-title-reveal')), 1);
+    expect(opacityFor(const Key('subscription-success-button-reveal')), 1);
+
+    await tester.pump(const Duration(milliseconds: 2350));
+    expect(opacityFor(outerGlow), 0);
+    expect(opacityFor(confetti), 0);
+    expect(opacityFor(checkmark), 1);
+    expect(opacityFor(const Key('subscription-success-button-reveal')), 1);
+  });
+
+  testWidgets('subscription success matches the Figma 300ms motion frame', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(top: 59);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPadding);
+
+    await tester.pumpWidget(
+      _subscriptionGoldenApp(
+        const SubscriptionSuccessPage(),
+        disableAnimations: false,
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await expectLater(
+      find.byKey(const Key('subscription-golden-boundary')),
+      matchesGoldenFile(
+        'goldens/rendered/figma_subscription_success_motion_300ms_390x844.png',
+      ),
+    );
+  });
+
   for (final goldenCase in [
-    (
-      name: 'full page',
-      file: 'figma_subscription_full_1727_13164_390x844.png',
-      child: const SubscriptionPage(),
-    ),
     (
       name: 'bottom sheet',
       file: 'figma_subscription_sheet_1651_9467_390x844.png',
@@ -2211,7 +2320,109 @@ void main() {
     );
   }
 
-  testWidgets('latest subscription sheet visuals are limited to iOS', (
+  testWidgets('subscription video background follows the available width', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 932);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(_subscriptionGoldenApp(const SubscriptionPage()));
+    await tester.pump();
+
+    expect(
+      find.byKey(const Key('subscription-video-background')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<ColoredBox>(
+            find.byKey(const Key('subscription-video-background')),
+          )
+          .color,
+      Colors.black,
+    );
+    final videoFrame = find.byKey(const Key('subscription-video-frame'));
+    expect(tester.getSize(videoFrame).width, 430);
+    expect(tester.getSize(videoFrame).height, closeTo(763.82, 0.01));
+  });
+
+  testWidgets(
+    'full subscription background covers the top inset while actions stay below it',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(top: 59);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPadding);
+
+      await tester.pumpWidget(_subscriptionGoldenApp(const SubscriptionPage()));
+      await tester.pump();
+
+      expect(
+        tester
+            .getRect(find.byKey(const Key('subscription-video-background')))
+            .top,
+        0,
+      );
+      expect(
+        tester.getRect(find.byTooltip('Close')).top,
+        greaterThanOrEqualTo(71),
+      );
+      expect(
+        tester.getRect(find.text('Restore')).top,
+        greaterThanOrEqualTo(71),
+      );
+    },
+  );
+
+  for (final presentation in [
+    (name: 'full page', child: const SubscriptionPage()),
+    (name: 'bottom sheet', child: const SubscriptionPage(sheet: true)),
+  ]) {
+    testWidgets(
+      'subscription ${presentation.name} benefits match Figma 2090:17443',
+      (tester) async {
+        await tester.pumpWidget(_subscriptionGoldenApp(presentation.child));
+        await tester.pump();
+
+        for (var index = 0; index < 4; index += 1) {
+          final row = find.byKey(Key('subscription-benefit-$index'));
+          expect(row, findsOneWidget);
+          expect(tester.getSize(row).height, 50);
+
+          final surface = tester.widget<Container>(
+            find.byKey(Key('subscription-benefit-$index-surface')),
+          );
+          final decoration = surface.decoration! as BoxDecoration;
+          expect(decoration.color, const Color(0x661A1C14));
+          expect(decoration.border!.top.color, const Color(0xFF2A2D20));
+          expect(decoration.borderRadius, BorderRadius.circular(8));
+          expect(
+            find.byKey(Key('subscription-benefit-$index-check')),
+            findsOneWidget,
+          );
+        }
+
+        final first = tester.getRect(
+          find.byKey(const Key('subscription-benefit-0')),
+        );
+        final second = tester.getRect(
+          find.byKey(const Key('subscription-benefit-1')),
+        );
+        expect(second.top - first.bottom, 4);
+
+        final label = tester.widget<Text>(find.text('Unlimited Card Scanning'));
+        expect(label.style!.fontSize, 14);
+        expect(label.style!.height, 20 / 14);
+        expect(label.style!.fontWeight, FontWeight.w400);
+      },
+    );
+  }
+
+  testWidgets('Android sheet uses video while iOS keeps its updated image', (
     tester,
   ) async {
     Iterable<String> renderedAssetNames() => tester
@@ -2231,7 +2442,10 @@ void main() {
         renderedAssetNames(),
         isNot(contains('assets/subscription/sheet_background_1651_9915.png')),
       );
-      expect(renderedAssetNames(), contains('assets/subscription/card_4.png'));
+      expect(
+        find.byKey(const Key('subscription-video-background')),
+        findsOneWidget,
+      );
 
       debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
       await tester.pumpWidget(
@@ -2244,8 +2458,8 @@ void main() {
         contains('assets/subscription/sheet_background_1651_9915.png'),
       );
       expect(
-        renderedAssetNames(),
-        isNot(contains('assets/subscription/card_4.png')),
+        find.byKey(const Key('subscription-video-background')),
+        findsNothing,
       );
     } finally {
       debugDefaultTargetPlatformOverride = null;
@@ -2620,7 +2834,10 @@ class _FreeSubscriptionController extends SubscriptionController {
   }) async {}
 }
 
-ProviderScope _subscriptionGoldenApp(Widget child) {
+ProviderScope _subscriptionGoldenApp(
+  Widget child, {
+  bool disableAnimations = true,
+}) {
   return ProviderScope(
     overrides: [
       subscriptionControllerProvider.overrideWith(
@@ -2630,7 +2847,9 @@ ProviderScope _subscriptionGoldenApp(Widget child) {
     child: MaterialApp(
       theme: buildKandoTheme(),
       builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context).copyWith(disableAnimations: true),
+        data: MediaQuery.of(
+          context,
+        ).copyWith(disableAnimations: disableAnimations),
         child: child!,
       ),
       home: RepaintBoundary(

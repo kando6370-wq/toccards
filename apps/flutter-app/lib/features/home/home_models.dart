@@ -62,6 +62,7 @@ class PortfolioSummary {
 
 class HomeCardHighlight {
   const HomeCardHighlight({
+    this.itemId,
     this.cardRef,
     required this.title,
     required this.subtitle,
@@ -72,6 +73,7 @@ class HomeCardHighlight {
     this.imageUrl,
   });
 
+  final String? itemId;
   final String? cardRef;
   final String title;
   final String subtitle;

@@ -9,6 +9,10 @@ import {
 import { Hono } from "hono";
 import type { Context, Next } from "hono";
 import type { Env } from "../env";
+import {
+  appleDatabaseEnvironments,
+  configuredProductIds,
+} from "../entitlements/apple-signed-data";
 import { getBearerToken, hasSigningSecret } from "../auth/http-auth";
 import { cardImageUrl } from "../card-image-url";
 import { createId } from "../id";
@@ -71,6 +75,7 @@ type FeedbackTicketRow = {
 
 type ScanRecordRow = {
   id: string;
+  environment: "development" | "production";
   owner_type: string;
   owner_id: string;
   image_url: string | null;
@@ -138,6 +143,7 @@ const LEGACY_FEEDBACK_STATUS_MAP: Record<string, FeedbackStatus> = {
   closed: "processed",
 };
 const VALID_APP_VERSION_STATUSES = new Set<AppVersionStatus>(["enabled", "disabled"]);
+const VALID_APP_ENVIRONMENTS = new Set(["development", "production"]);
 const APP_VERSION_PLATFORMS: AppVersionPlatform[] = ["iOS", "Google"];
 const APP_VERSION_CONFIG_PREFIX = "admin.app_version.";
 const VERSION_PATTERN = /^\d+\.\d+\.\d+$/;
@@ -340,7 +346,7 @@ const SELECT_INSTALLATION_ROWS_SQL = `
   GROUP BY uid, substr(first_seen_at, 1, 10),
     COALESCE(NULLIF(country_code, ''), 'Unknown'),
     COALESCE(NULLIF(platform, ''), 'Unknown')
-  ORDER BY MIN(first_seen_at) ASC, uid ASC, country ASC, platform ASC
+  ORDER BY date DESC, uid ASC, country ASC, platform ASC
   LIMIT ? OFFSET ?
 `;
 
@@ -390,13 +396,14 @@ const SELECT_APP_CONFIG_SQL = `
 `;
 
 const SELECT_SCAN_RECORDS_SQL = `
-  SELECT id, owner_type, owner_id, image_url, filename, platform, app_version,
+  SELECT id, environment, owner_type, owner_id, image_url, filename, platform, app_version,
     device_model, os_version, recognition_status, user_confirmation_status,
     modified_result, system_result, user_result, candidates, created_at
   FROM scan_record
   WHERE (CAST(? AS text) IS NULL OR lower(owner_id) LIKE '%' || ? || '%')
     AND (CAST(? AS text) IS NULL OR lower(platform) = ?)
     AND (CAST(? AS text) IS NULL OR lower(app_version) = ?)
+    AND (CAST(? AS text) IS NULL OR environment = ?)
     AND (CAST(? AS text) IS NULL OR recognition_status = ?)
     AND (CAST(? AS text) IS NULL OR user_confirmation_status = ?)
     AND (CAST(? AS integer) IS NULL OR modified_result = ?)
@@ -412,6 +419,7 @@ const COUNT_SCAN_RECORDS_SQL = `
   WHERE (CAST(? AS text) IS NULL OR lower(owner_id) LIKE '%' || ? || '%')
     AND (CAST(? AS text) IS NULL OR lower(platform) = ?)
     AND (CAST(? AS text) IS NULL OR lower(app_version) = ?)
+    AND (CAST(? AS text) IS NULL OR environment = ?)
     AND (CAST(? AS text) IS NULL OR recognition_status = ?)
     AND (CAST(? AS text) IS NULL OR user_confirmation_status = ?)
     AND (CAST(? AS integer) IS NULL OR modified_result = ?)
@@ -420,7 +428,7 @@ const COUNT_SCAN_RECORDS_SQL = `
 `;
 
 const SELECT_SCAN_RECORD_BY_ID_SQL = `
-  SELECT id, owner_type, owner_id, image_url, filename, platform, app_version,
+  SELECT id, environment, owner_type, owner_id, image_url, filename, platform, app_version,
     device_model, os_version, recognition_status, user_confirmation_status,
     modified_result, system_result, user_result, candidates, created_at
   FROM scan_record
@@ -703,13 +711,17 @@ adminRoutes.get("/analytics/installations", async (c) => {
 });
 
 adminRoutes.get("/billing/transactions/options", async (c) => {
+  const scope = appleBillingAdminScope(c.env);
+  if (!scope) return c.json(INTERNAL_ERROR_RESPONSE, 500);
   const [countries, skus] = await Promise.all([
-    c.env.DB.prepare(`SELECT DISTINCT storefront_country_code AS value FROM billing_transaction
+    bindAdminQuery(c.env.DB, `SELECT DISTINCT storefront_country_code AS value FROM billing_transaction
       WHERE source_notification_uuid IS NOT NULL
-        AND NULLIF(TRIM(storefront_country_code), '') IS NOT NULL ORDER BY value`).all<{ value: string }>(),
-    c.env.DB.prepare(`SELECT DISTINCT product_id AS value FROM billing_transaction
+        AND ${scope.sql}
+        AND NULLIF(TRIM(storefront_country_code), '') IS NOT NULL ORDER BY value`, scope.bindings).all<{ value: string }>(),
+    bindAdminQuery(c.env.DB, `SELECT DISTINCT product_id AS value FROM billing_transaction
       WHERE source_notification_uuid IS NOT NULL
-        AND NULLIF(TRIM(product_id), '') IS NOT NULL ORDER BY value`).all<{ value: string }>(),
+        AND ${scope.sql}
+        AND NULLIF(TRIM(product_id), '') IS NOT NULL ORDER BY value`, scope.bindings).all<{ value: string }>(),
   ]);
   return c.json({ success: true, data: {
     countries: (countries.results ?? []).map((row) => row.value),
@@ -718,7 +730,9 @@ adminRoutes.get("/billing/transactions/options", async (c) => {
 });
 
 adminRoutes.get("/billing/transactions/export", async (c) => {
-  const query = billingTransactionQuery((name) => c.req.query(name));
+  const scope = appleBillingAdminScope(c.env, "t");
+  if (!scope) return c.json(INTERNAL_ERROR_RESPONSE, 500);
+  const query = billingTransactionQuery((name) => c.req.query(name), scope);
   if (query.error) return c.json(VALIDATION_ERROR_RESPONSE, 422);
   const total = await bindAdminQuery(c.env.DB,
     `SELECT COUNT(*) AS total ${BILLING_TRANSACTION_FROM_SQL} ${query.where}`, query.bindings)
@@ -749,7 +763,9 @@ adminRoutes.get("/billing/transactions/export", async (c) => {
 adminRoutes.get("/billing/transactions", async (c) => {
   const page = readPositiveInt(c.req.query("page"), 1);
   const pageSize = Math.min(readPositiveInt(c.req.query("page_size"), 20), 100);
-  const query = billingTransactionQuery((name) => c.req.query(name));
+  const scope = appleBillingAdminScope(c.env, "t");
+  if (!scope) return c.json(INTERNAL_ERROR_RESPONSE, 500);
+  const query = billingTransactionQuery((name) => c.req.query(name), scope);
   if (query.error) return c.json(VALIDATION_ERROR_RESPONSE, 422);
   const rows = await bindAdminQuery(c.env.DB,
     `${BILLING_TRANSACTION_SELECT_SQL} ${BILLING_TRANSACTION_FROM_SQL} ${query.where}
@@ -764,8 +780,10 @@ adminRoutes.get("/billing/transactions", async (c) => {
 adminRoutes.get("/apple-notifications", async (c) => {
   const page = readPositiveInt(c.req.query("page"), 1);
   const pageSize = Math.min(readPositiveInt(c.req.query("page_size"), 20), 100);
-  const conditions: string[] = [];
-  const bindings: unknown[] = [];
+  const scope = appleNotificationAdminScope(c.env);
+  if (!scope) return c.json(INTERNAL_ERROR_RESPONSE, 500);
+  const conditions: string[] = [scope.sql];
+  const bindings: unknown[] = [...scope.bindings];
   addExactCondition(conditions, bindings, "n.original_transaction_id", c.req.query("original_transaction_id"));
   addExactCondition(conditions, bindings, "n.transaction_id", c.req.query("order_id"));
   const uid = normalizeQuery(c.req.query("uid"));
@@ -819,14 +837,21 @@ adminRoutes.get("/apple-notifications", async (c) => {
 });
 
 adminRoutes.get("/apple-notifications/options", async (c) => {
-  const rows = await c.env.DB.prepare(`SELECT DISTINCT notification_type, subtype
-    FROM apple_server_notification ORDER BY notification_type, subtype`).all<{
+  const scope = appleNotificationAdminScope(c.env);
+  if (!scope) return c.json(INTERNAL_ERROR_RESPONSE, 500);
+  const rows = await c.env.DB.prepare(`SELECT DISTINCT n.notification_type, n.subtype
+    FROM apple_server_notification n
+    JOIN apple_notification_inbox inbox ON inbox.id = n.inbox_id
+    WHERE ${scope.sql}
+    ORDER BY n.notification_type, n.subtype`).bind(...scope.bindings).all<{
       notification_type: string; subtype: string | null;
     }>();
   return c.json({ success: true, data: { items: rows.results ?? [] } });
 });
 
 adminRoutes.get("/apple-notifications/:detailId", async (c) => {
+  const scope = appleNotificationAdminScope(c.env);
+  if (!scope) return c.json(INTERNAL_ERROR_RESPONSE, 500);
   const row = await c.env.DB.prepare(`SELECT inbox.id, inbox.processing_status, inbox.last_error,
       inbox.received_at, n.notification_type, n.subtype, inbox.environment,
       n.original_transaction_id, n.transaction_id, n.product_id AS sku, n.decoded_payload,
@@ -845,8 +870,12 @@ adminRoutes.get("/apple-notifications/:detailId", async (c) => {
       ) AS linked_owners) AS uids
     FROM apple_notification_inbox inbox
     LEFT JOIN apple_server_notification n ON n.inbox_id = inbox.id
-    WHERE inbox.id = ? OR n.notification_uuid = ? LIMIT 1`)
-    .bind(c.req.param("detailId"), c.req.param("detailId")).first();
+    WHERE ${scope.sql} AND (inbox.id = ? OR n.notification_uuid = ?) LIMIT 1`)
+    .bind(
+      ...scope.bindings,
+      c.req.param("detailId"),
+      c.req.param("detailId"),
+    ).first();
   return row ? c.json({ success: true, data: row }) : c.json(NOT_FOUND_RESPONSE, 404);
 });
 
@@ -964,12 +993,17 @@ adminRoutes.get("/scans", async (c) => {
   const uid = normalizeQuery(c.req.query("uid"));
   const platform = normalizeQuery(c.req.query("platform"));
   const appVersion = normalizeQuery(c.req.query("app_version"));
+  const environment = normalizeQuery(c.req.query("environment"));
   const recognitionStatus = normalizeQuery(c.req.query("recognition_status"));
   const confirmationStatus = normalizeQuery(c.req.query("user_confirmation_status"));
   const modifiedResult = readBooleanQuery(c.req.query("modified_result"));
   const dateFrom = readDateBoundary(c.req.query("date_from"), false);
   const dateTo = readDateBoundary(c.req.query("date_to"), true);
-  if (dateFrom === "invalid" || dateTo === "invalid") {
+  if (
+    dateFrom === "invalid"
+    || dateTo === "invalid"
+    || (environment !== null && !VALID_APP_ENVIRONMENTS.has(environment))
+  ) {
     return c.json(VALIDATION_ERROR_RESPONSE, 422);
   }
   const modifiedResultValue = modifiedResult === null ? null : modifiedResult ? 1 : 0;
@@ -981,6 +1015,8 @@ adminRoutes.get("/scans", async (c) => {
       platform,
       appVersion,
       appVersion,
+      environment,
+      environment,
       recognitionStatus,
       recognitionStatus,
       confirmationStatus,
@@ -1377,11 +1413,40 @@ function bindAdminQuery(db: D1Database, sql: string, bindings: unknown[]): D1Pre
   return bindings.length ? statement.bind(...bindings) : statement;
 }
 
+function appleNotificationAdminScope(
+  env: Pick<Env, "APP_ENVIRONMENT" | "APPLE_IAP_BUNDLE_ID">,
+): { sql: string; bindings: string[] } | null {
+  const appBundleId = env.APPLE_IAP_BUNDLE_ID?.trim();
+  if (!appBundleId) return null;
+  const environments = appleDatabaseEnvironments(env);
+  return {
+    sql: `inbox.app_bundle_id = ? AND inbox.environment IN (${environments.map(() => "?").join(", ")})`,
+    bindings: [appBundleId, ...environments],
+  };
+}
+
+function appleBillingAdminScope(
+  env: Pick<Env, "APP_ENVIRONMENT" | "APPLE_IAP_PRODUCT_IDS">,
+  alias?: string,
+): { sql: string; bindings: string[] } | null {
+  const products = configuredProductIds(env.APPLE_IAP_PRODUCT_IDS);
+  if (!products) return null;
+  const environments = appleDatabaseEnvironments(env);
+  const column = (name: string) => alias ? `${alias}.${name}` : name;
+  return {
+    sql: `${column("product_id")} IN (${[...products].map(() => "?").join(", ")}) AND ${column("environment")} IN (${environments.map(() => "?").join(", ")})`,
+    bindings: [...products, ...environments],
+  };
+}
+
 type BillingTransactionQuery = { where: string; bindings: unknown[]; error: boolean };
 
-function billingTransactionQuery(read: (name: string) => string | undefined): BillingTransactionQuery {
-  const conditions = ["t.source_notification_uuid IS NOT NULL"];
-  const bindings: unknown[] = [];
+function billingTransactionQuery(
+  read: (name: string) => string | undefined,
+  scope: { sql: string; bindings: string[] },
+): BillingTransactionQuery {
+  const conditions = ["t.source_notification_uuid IS NOT NULL", scope.sql];
+  const bindings: unknown[] = [...scope.bindings];
   const uid = normalizeQuery(read("uid"));
   if (uid) {
     conditions.push(`EXISTS (SELECT 1 FROM (${BILLING_LINKED_UIDS_SQL}) linked_uid
@@ -1515,6 +1580,7 @@ function toAdminFeedbackTicket(row: FeedbackTicketRow) {
 function toScanListItem(row: ScanRecordRow) {
   return {
     scan_id: row.id,
+    environment: row.environment,
     image_url: row.image_url
       ? `/scans/${encodeURIComponent(row.id)}/image`
       : "",
