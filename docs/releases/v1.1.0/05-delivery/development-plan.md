@@ -285,6 +285,8 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 - 2026-08-31 Home Performance Tooltip 文本样式按 Figma `1911:8207` 收口：现有 Date、Market、Portfolio、Qty 统一使用 `#999578`、Geist Regular、12px 字号与 18px 行高，并同步调整提示框内部行距和高度以避免文本挤压。Tooltip 字段、金额/数量取值、币种换算、缺失值、Semantics 和交互均不变；PRD 规定不展示的 Daily Change 未新增。Code Review 发现 Home Overview 与 Performance 复用同一 Painter 后，已把新样式严格限定在 Performance 数据行分支并增加 Overview 旧样式保护。Tooltip 相关测试 6/6 与 `flutter analyze --no-pub` 通过；完整 Home Widget 70 项中 69 项通过，唯一失败为既有 Performance Header Golden 10.93% 像素差异，本次未修改或覆盖该基线；iOS/Android 真机视觉仍待人工验收。
 
+- 2026-09-01 Home/Search 首屏卡图启动预加载：现有启动流程仍优先等待 Home 核心数据；核心数据成功后立即在后台预热当前 Folder 实际展示的 Most Valuable 网络卡图，Trending Today 完成后再预热其最多 3 张网络卡图，其他 Folder、Performance 和本地 Asset 不进入该批次。随后在不阻塞进入 Home 的二级页面预热阶段等待 Search 数据；仅当 Search Cards 成功返回且当前默认游戏存在可见卡牌时，按当前排序先截取前 20 条数据，再过滤空图片 URL、去重并写入同一 Flutter 网络图片缓存。空数据、接口失败或图片加载失败均静默跳过，不改 Home/Search 列表、分页、搜索、图片占位或业务状态，也不越过 Search 第 20 条补取后续图片。启动预加载测试 8/8、Home Controller 27/27、Onboarding 启动门禁 5/5、`flutter analyze --no-pub` 与 Dart 格式通过；Code Review 未发现阻断项，确认即使 Home 图片下载未完成也不会延长启动等待，登录会话切换仍走现有重新预加载链路。iOS/Android 真机的冷缓存首屏速度、流量和内存占用仍待人工验收。
+
 ## 4. 数据库与部署策略
 
 - 已存在的 `0025_billing_admin.sql` 不修改；后续均使用递增迁移。
