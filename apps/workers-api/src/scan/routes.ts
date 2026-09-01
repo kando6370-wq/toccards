@@ -73,10 +73,10 @@ const INTERNAL_ERROR_RESPONSE = {
   },
 } as const;
 
-const OCR_UNAVAILABLE_RESPONSE = {
+const VECTOR_RECOGNITION_UNAVAILABLE_RESPONSE = {
   success: false,
   error: {
-    code: "OCR_SERVICE_UNAVAILABLE",
+    code: "VECTOR_RECOGNITION_UNAVAILABLE",
     message: "Recognition service is unavailable.",
   },
 } as const;
@@ -189,7 +189,9 @@ WHERE id = ? AND owner_type = ? AND owner_id = ?
   AND user_confirmation_status = 'pending'
 `;
 
-const PHASH_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+const RECOGNITION_ALGORITHM = "pe-core-t16-384-cosine-v1";
+const EMBEDDING_DIMENSIONS = 512;
+const MAX_VECTOR_JSON_BYTES = 32 * 1024;
 const CARD_NUMBER_PATTERN = /^(?:\d{1,4}\/(?:\d{1,4}|[A-Z]{1,5}-P)|[A-Z]{1,5}-P)$/;
 
 function scanQuotaPayload(
@@ -233,8 +235,10 @@ export function createScanRoutes() {
     if (auth.status === "unauthorized") return c.json(UNAUTHORIZED_RESPONSE, 401);
     if (auth.status === "internal_error") return c.json(INTERNAL_ERROR_RESPONSE, 500);
 
-    const serviceBaseUrl = normalizeBaseUrl(c.env.OCR_SERVICE_BASE_URL);
-    if (!serviceBaseUrl) return c.json(OCR_UNAVAILABLE_RESPONSE, 503);
+    const vectorRecognition = c.env.VECTOR_RECOGNITION;
+    if (!vectorRecognition) {
+      return c.json(VECTOR_RECOGNITION_UNAVAILABLE_RESPONSE, 503);
+    }
     const imageBucket = c.env.SCAN_IMAGES;
     if (!imageBucket) return c.json(INTERNAL_ERROR_RESPONSE, 503);
 
@@ -244,13 +248,11 @@ export function createScanRoutes() {
     if (!requestId || c.req.header("Idempotency-Key") !== requestId) {
       return c.json(VALIDATION_ERROR_RESPONSE, 422);
     }
-    const r = readPhash(body.get("r"));
-    const g = readPhash(body.get("g"));
-    const b = readPhash(body.get("b"));
+    const vector = readEmbeddingVector(body.get("vector"));
     const gameId = readOptionalGameId(body.get("game_id"));
     const cardNumber = readOptionalCardNumber(body.get("card_number"));
     const image = await validateScanImage(body.get("image"));
-    if (!r || !g || !b || gameId === null || cardNumber === null || !image) {
+    if (!vector || gameId === null || cardNumber === null || !image) {
       return c.json(VALIDATION_ERROR_RESPONSE, 422);
     }
 
@@ -284,12 +286,7 @@ export function createScanRoutes() {
       return c.json(SCAN_REQUEST_CONFLICT_RESPONSE, 409);
     }
 
-    const outbound = {
-      r,
-      g,
-      b,
-      ...(gameId === undefined ? {} : { game_id: gameId }),
-    };
+    const outbound = { vector };
 
     const scanId = requestId;
     const createdAt = new Date();
@@ -318,23 +315,32 @@ export function createScanRoutes() {
       return c.json(INTERNAL_ERROR_RESPONSE, 500);
     }
 
-    let ocrPayload: unknown = null;
+    let recognitionPayload: unknown = null;
     let upstreamFailed = false;
     const startedAt = Date.now();
     try {
-      const response = await fetch(`${serviceBaseUrl}/recognize`, {
-        method: "POST",
-        headers: { Accept: "application/json", "Content-Type": "application/json" },
-        body: JSON.stringify(outbound),
-      });
-      ocrPayload = await response.json().catch(() => null);
+      const response = await vectorRecognition.fetch(
+        "https://recognize-vec.internal/recognize",
+        {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(outbound),
+        },
+      );
+      recognitionPayload = await response.json().catch(() => null);
       upstreamFailed = !response.ok;
     } catch (error) {
       upstreamFailed = true;
-      ocrPayload = { error: "upstream_request_failed", message: String(error) };
+      recognitionPayload = {
+        error: "upstream_request_failed",
+        message: String(error),
+      };
     }
 
-    const payload = isRecord(ocrPayload) ? ocrPayload : {};
+    const payload = isRecord(recognitionPayload) ? recognitionPayload : {};
     const recognized = upstreamFailed ? null : readRecognitionCandidates(payload.candidates);
     if (!recognized) upstreamFailed = true;
     const adapter = createLocalDbDataSourceAdapter(c.env.DB);
@@ -342,14 +348,22 @@ export function createScanRoutes() {
     let auditCandidates: ScanCandidate[] = [];
     if (!upstreamFailed && recognized) {
       try {
-        auditCandidates = await Promise.all(
+        const resolvedCandidates = await Promise.all(
           recognized.map(async (candidate, index) => {
             const card = await adapter.getCard(String(candidate.productId));
-            return card
-              ? toCatalogCandidate(card, candidate, index)
-              : toUnresolvedCandidate(candidate, index);
+            if (!card) return toUnresolvedCandidate(candidate, index);
+            if (
+              gameId !== undefined &&
+              !await cardBelongsToGame(c.env.DB, card.card_ref, gameId)
+            ) {
+              return null;
+            }
+            return toCatalogCandidate(card, candidate, index);
           }),
         );
+        auditCandidates = resolvedCandidates
+          .filter((candidate): candidate is ScanCandidate => candidate !== null)
+          .map((candidate, index) => ({ ...candidate, rank: index + 1 }));
         auditCandidates = await disambiguateByCardNumber(
           auditCandidates,
           cardNumber,
@@ -408,7 +422,7 @@ export function createScanRoutes() {
           }),
           JSON.stringify(userResult),
           JSON.stringify(auditCandidates),
-          JSON.stringify(ocrPayload),
+          JSON.stringify(recognitionPayload),
           createdAt.toISOString(),
         )
         .run();
@@ -423,7 +437,10 @@ export function createScanRoutes() {
     }
 
     if (upstreamFailed) {
-      const responseBody = { ...OCR_UNAVAILABLE_RESPONSE, scan_id: scanId };
+      const responseBody = {
+        ...VECTOR_RECOGNITION_UNAVAILABLE_RESPONSE,
+        scan_id: scanId,
+      };
       await settleScanQuota(c.env.DB, auth.owner, requestId, "released", scanId, {
         body: responseBody,
         status: 502,
@@ -649,7 +666,7 @@ function toCatalogCandidate(
     card_number: card.card_number || null,
     rarity: card.rarity,
     confidence: recognized.confidence,
-    retrieval: "rgb-phash-16-v1",
+    retrieval: RECOGNITION_ALGORITHM,
     distance: null,
   };
 }
@@ -669,7 +686,7 @@ function toUnresolvedCandidate(
     card_number: null,
     rarity: null,
     confidence: recognized.confidence,
-    retrieval: "rgb-phash-16-v1",
+    retrieval: RECOGNITION_ALGORITHM,
     distance: null,
   };
 }
@@ -696,11 +713,28 @@ function buildSystemResult(
     rarity: candidate?.rarity ?? null,
     confidence: candidate?.confidence ?? null,
     candidate_count: candidateCount,
+    recognition_algorithm: RECOGNITION_ALGORITHM,
   };
 }
 
-function readPhash(value: unknown): string | null {
-  return typeof value === "string" && PHASH_PATTERN.test(value) ? value : null;
+function readEmbeddingVector(value: string | File | null): number[] | null {
+  if (typeof value !== "string" || value.length > MAX_VECTOR_JSON_BYTES) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(parsed) || parsed.length !== EMBEDDING_DIMENSIONS) return null;
+  const vector = new Array<number>(EMBEDDING_DIMENSIONS);
+  let hasNonZeroValue = false;
+  for (let index = 0; index < parsed.length; index += 1) {
+    const component = parsed[index];
+    if (typeof component !== "number" || !Number.isFinite(component)) return null;
+    vector[index] = component;
+    hasNonZeroValue ||= component !== 0;
+  }
+  return hasNonZeroValue ? vector : null;
 }
 
 function readOptionalGameId(value: string | File | null): number | undefined | null {
@@ -708,6 +742,20 @@ function readOptionalGameId(value: string | File | null): number | undefined | n
   if (typeof value !== "string" || !/^\d+$/.test(value)) return null;
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed >= 1 && parsed <= 4_294_967_295 ? parsed : null;
+}
+
+async function cardBelongsToGame(
+  db: D1Database,
+  cardRef: string,
+  gameId: number,
+): Promise<boolean> {
+  const row = await db.prepare(
+    `SELECT game_id
+     FROM cards_all
+     WHERE product_id = ?
+     LIMIT 1`,
+  ).bind(cardRef).first<{ game_id: number }>();
+  return row?.game_id === gameId;
 }
 
 function readOptionalCardNumber(
@@ -835,12 +883,6 @@ async function deleteUploadedImage(bucket: R2Bucket, key: string): Promise<void>
 function isUniqueConstraintError(error: unknown): boolean {
   return error instanceof Error &&
     error.message.toLowerCase().includes("unique constraint");
-}
-
-function normalizeBaseUrl(value: string | undefined): string | null {
-  const trimmed = value?.trim();
-  if (!trimmed) return null;
-  return trimmed.replace(/\/+$/, "");
 }
 
 function readString(value: unknown): string | null {

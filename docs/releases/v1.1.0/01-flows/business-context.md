@@ -105,11 +105,13 @@ Card AI 面向交易卡牌用户提供目录搜索、图片识别、Wishlist/Col
 
 ### 3.3 扫描与服务端额度
 
-1. App 拍照或选图，计算 RGB pHash，提交图片、`request_id` 和同值 `Idempotency-Key`。
+1. App 拍照或选图，使用 RTMDet-Ins 检测卡牌 mask、拟合四边形并矫正为 `745×1043`，再使用 PE-Core-T16 生成 512 维向量；iOS 使用原生 Core ML，Android 使用仅包含两个模型所需算子和类型的 ONNX Runtime 1.23.0 minimal AAR，提交矫正图片、向量、`request_id` 和同值 `Idempotency-Key`。
 2. Workers 先按当前 session grant 判断 Premium；Free 请求以一条条件 INSERT 原子预占额度。
-3. 图片可写入 R2，OCR 返回成功候选、无匹配或失败。
+3. 矫正图片写入 R2；主 Worker 通过 `VECTOR_RECOGNITION` Service Binding 调用 `recognize-vec`，向量检索返回成功候选、无匹配或失败。
 4. 技术失败释放预占；成功识别消费额度并返回最新 Quota。
 5. 用户在 Review 选择结果，调用 `/scan/:scan_id/confirm` 创建收藏记录。
+
+检测、预处理、双端运行时、向量协议、制品体积及验证边界详见[扫描识别流程](scan-recognition.md)。
 
 Quota 状态：
 
@@ -237,10 +239,10 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 |---|---|---|---|
 | StoreKit/App Store | 上游 | 商品、交易、current entitlement | 商品不可售、购买/Restore 无法完成 |
 | Apple Notifications/Server API | 上游校正 | JWS、通知、当前交易历史 | 生命周期延迟；inbox/校正任务应保留并重试 |
-| OCR | 上游 | 扫描图片识别 | Scan 失败并释放 Free 预占 |
+| `recognize-vec` Worker | 内部 Service Binding | 512 维卡牌向量检索 | Scan 失败并释放 Free 预占 |
 | PlanetScale PostgreSQL / Hyperdrive | 核心真源与连接边界 | 参数化 PostgreSQL SQL | 账号、资产、额度、订阅和 Admin 不可用 |
 | KV | 缓存 | 目录/汇率快照 | 可回源或显式失败，不能改变授权真值 |
-| R2 | 对象存储 | 扫描原图 | 识别可按配置继续；Admin 图片可能不可查看 |
+| R2 | 对象存储 | 扫描矫正卡面 | 写入失败时识别失败；Admin 图片可能不可查看 |
 | 邮件/OAuth | 身份上游 | 验证码和第三方登录 | 注册、找回或 OAuth 登录受阻 |
 | Analytics/Attribution | 下游 | Firebase/Mixpanel/Singular | 统计缺失，不应阻断授权或购买 |
 | Admin | 下游运营 | 查询、排障、配置 | 不影响 Apple 最终真值；不能人工改 Premium |

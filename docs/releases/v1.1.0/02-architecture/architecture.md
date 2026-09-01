@@ -3,12 +3,13 @@
 ## 1. 当前运行结构
 
 ```text
-Flutter App --------------------+
-                                 +--> Cloudflare Workers (`/api/v1`)
+Flutter App -- RTMDet-Ins + PE-Core-T16 --+
+                                           +--> Cloudflare Workers (`/api/v1`)
 React Admin -- Worker assets ----+       |-- PlanetScale PostgreSQL（经 Hyperdrive）: 业务与目录真源
                                          |-- KV: 可重建缓存
-                                         |-- R2: 扫描图片
-                                         +-- Apple / OAuth / OCR / 邮件 / 汇率
+                                         |-- R2: 扫描矫正卡面
+                                         |-- Service Binding: `recognize-vec`
+                                         +-- Apple / OAuth / 邮件 / 汇率
 
 Marketing Web -----------------------> 独立 Cloudflare 静态站点
 ```
@@ -21,6 +22,7 @@ Marketing Web -----------------------> 独立 Cloudflare 静态站点
 
 - `GoRouter` 暴露 Home、Collection、Scan、Search、Card Detail、Profile、Subscription 与辅助页面。
 - `Riverpod` 管理业务状态和依赖；Repository/API Client 负责 HTTP 与本地存储边界。
+- Scan 在端侧执行 RTMDet-Ins `640×640` 卡牌检测和 mask 四边形拟合，矫正到 `745×1043` 后由 PE-Core-T16 `384×384` 预处理生成 512 维向量；iOS 由原生 Core ML 执行两个模型，Android 由模型专用 `onnxruntime-android 1.23.0` minimal AAR 执行 ORT 格式模型，仅保留所需 CPU 算子和类型，也不再生成或兼容 RGB pHash。
 - `dart-packages/subscription-core` 封装 StoreKit/Play 商品、购买和 Restore 抽象；当前 v1.1 产品激活的是 Apple/iOS 购买路径。
 - Premium 本地状态使用 `unknown/free/premium` 三态，不能把无法验证直接降为 Free。
 
@@ -37,7 +39,7 @@ Marketing Web -----------------------> 独立 Cloudflare 静态站点
 | `/auth` | 游客身份、注册、登录、OAuth、会话、资产迁移与删除账号 | `src/auth/anonymous.ts`、`account-flow.ts` |
 | `/cards`、`/games`、`/sets`、`/rates` | 目录、搜索、价格、历史、趋势和汇率 | `src/data-source/routes.ts` |
 | `/portfolio`、`/collection`、`/folders`、`/wishlist` | 资产、Folder、估值和 Performance | `src/portfolio/routes.ts` |
-| `/scan` | 识别、确认、服务端 Quota 与 R2 图片 | `src/scan/routes.ts`、`quota.ts` |
+| `/scan` | 向量识别编排、确认、服务端 Quota、R2 图片与 PostgreSQL 目录过滤 | `src/scan/routes.ts`、`quota.ts` |
 | `/entitlements/apple` | 生命周期查询、Fresh Purchase、App Attest 与 Restore | `src/entitlements/routes.ts`、`restore-routes.ts` |
 | `/apple/notifications/v2` | Apple 通知原文接收、验签、归约与补偿 | `src/entitlements/apple-notification-routes.ts` |
 | `/admin` | 独立 Admin 鉴权、查询、运营配置和 XLSX | `src/admin/routes.ts` |
@@ -74,7 +76,8 @@ Apple Notifications V2 + Server API --> purchase chain lifecycle correction
 | PlanetScale PostgreSQL | 业务、目录与价格域唯一真源；迁移检查点已迁入 33 张业务表、270,577 行，并创建 7 张新价格域表 | dev/prod 通过同一 Hyperdrive 共用一个数据库；运行环境、KV、R2 和 Apple 契约仍分离 |
 | Hyperdrive | dev/prod 当前代码与 Wrangler 配置的唯一数据库连接入口，代码通过 Postgres.js 兼容层访问 | 查询缓存关闭；每请求或 cron 独立 client，后台任务结束后关闭；缺少 binding 立即失败 |
 | KV | 目录查询和汇率等可重新获取数据 | 缓存失败不得改变授权或业务真值 |
-| R2 | 扫描原图等对象 | 读取受 Admin 授权保护 |
+| R2 | 扫描矫正卡面等对象 | 读取受 Admin 授权保护 |
+| `VECTOR_RECOGNITION` | `recognize-vec` Worker 的 Service Binding | 只传 512 维向量；不经过公网识别上游，不提供 pHash 回退 |
 | Flutter 安全存储 | 会话、已验证 Premium 缓存和待同步证据 | 只辅助本机体验，不替代服务端授权 |
 
 PostgreSQL 结构以 `src/db/postgres/migrations/` 中的顺序 migration 为准；后续 schema 变更只允许增加 PostgreSQL 向前迁移。运行时代码仅创建 PostgreSQL 适配器，适配器提供 `prepare/bind/first/all/run/batch` 调用形状、把问号占位符转换为参数化查询，并把 `batch` 放在单一事务中顺序执行。共享 PostgreSQL 中 Apple inbox 以 `environment` 持久化队列归属，通知与校正 cron 只能领取当前 `APP_ENVIRONMENT` 对应的 Sandbox 或 Production 行；价格月历史只对同来源、同 `current:%` scope 的已发布 pointer 可见，单个月块 JSONB 文本不得超过 24 KiB。
@@ -98,5 +101,7 @@ Wrangler vars 保存非敏感环境配置，密钥通过 Worker secrets 注入�
 - `apps/workers-api/src/env.ts`、`wrangler.toml`：binding 与环境边界。
 - `apps/workers-api/src/db/postgres/migrations/`：当前数据结构与顺序迁移。
 - `apps/flutter-app/lib/app/router.dart`：App 页面入口。
+- `apps/flutter-app/lib/shared/scan/`、`android/app/src/main/kotlin/com/cardai/tcg/ScanModelRuntime.kt`、`ios/Runner/ScanModelRuntime.swift`：端侧扫描识别共享逻辑与平台运行时。
 - `apps/admin-web/src/App.tsx`：Admin 菜单与页面。
 - `apps/workers-api/src/entitlements/`：Apple 证据、grant 和通知生命周期。
+- [`scan-recognition.md`](../01-flows/scan-recognition.md)：Scan 检测、矫正、向量化、内部检索和制品验证契约。

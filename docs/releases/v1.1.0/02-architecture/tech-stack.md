@@ -5,6 +5,8 @@
 | 层 | 当前技术 | 证据 |
 |---|---|---|
 | 移动/Web App | Flutter、Dart、Riverpod、GoRouter、Dio | `apps/flutter-app/pubspec.yaml` |
+| iOS Scan | iOS 16+、Core ML、Core Image、`CIPerspectiveCorrection` | `ios/Runner/ScanModelRuntime.swift`、`ios/Runner/AppDelegate.swift` |
+| Android Scan | Android API 24+、Bitmap/Matrix/Canvas、ONNX Runtime 1.23.0 minimal AAR、四 ABI ORT 模型 | `android/app/build.gradle.kts`、`android/app/src/main/kotlin/com/cardai/tcg/` |
 | 订阅模块 | `in_app_purchase`、StoreKit adapter | `dart-packages/subscription-core/pubspec.yaml` |
 | API | TypeScript、Hono、Cloudflare Workers | `apps/workers-api/package.json` |
 | 数据访问 | Postgres.js 适配器、Cloudflare Hyperdrive、PostgreSQL 顺序 migrations | `src/db/postgres-database.ts`、`src/db/postgres/migrations/` |
@@ -34,7 +36,8 @@ CI 的 Flutter 版本冲突是显式目标差异，不合并成虚构的统一�
 | Hyperdrive | Workers 到共享 PlanetScale PostgreSQL 的连接边界，查询缓存已关闭 |
 | PlanetScale PostgreSQL 18.6 | dev/prod 共用的目录、账号、资产、扫描、订阅、通知、价格和运营唯一真源 |
 | KV | 可重建目录/汇率缓存 |
-| R2 | 扫描图片 |
+| R2 | 扫描矫正卡面 |
+| Service Binding | `VECTOR_RECOGNITION` 连接内部 `recognize-vec` Worker |
 | Wrangler 4.106.0 | 本地开发、迁移、dry-run 与环境部署 |
 
 当前 `wrangler.toml` 使用 `nodejs_compat`，以支持 Apple 官方 App Store Server Library 在 Worker 请求/定时任务上下文中加载。
@@ -43,7 +46,8 @@ CI 的 Flutter 版本冲突是显式目标差异，不合并成虚构的统一�
 
 - Apple StoreKit、App Attest、App Store Server Notifications V2 与 Server API。
 - Google/Apple OAuth；邮箱注册与找回密码使用 ZeptoMail。
-- OCR 服务处理扫描识别；PostgreSQL/R2 保存结构化记录与受保护图片。
+- Flutter 端使用 RTMDet-Ins、纯 Dart mask 几何、iOS Core Image/Android Bitmap Matrix 和 PE-Core-T16 完成卡牌检测、矫正与 512 维向量化；iOS 模型运行时为系统 Core ML，Android 为裁剪到两个模型所需 CPU 算子和类型的 `onnxruntime-android 1.23.0` minimal AAR；主 Worker 通过 Service Binding 调用 `recognize-vec` 检索，PostgreSQL/R2 保存结构化记录与受保护的矫正卡面。
+- OpenCV、RGB pHash、`OCR_SERVICE_BASE_URL` 和完整预编译 Android ORT AAR 均不属于当前实现；Web 端侧 Scan 识别当前不支持。完整平台与制品契约见[扫描识别流程](../01-flows/scan-recognition.md)。
 - 汇率服务以 USD 为基准提供快照，KV 可缓存。
 - Firebase Analytics/Crashlytics、Mixpanel、Singular 和 ATT 用于分析、归因与稳定性，不作为授权真源。
 

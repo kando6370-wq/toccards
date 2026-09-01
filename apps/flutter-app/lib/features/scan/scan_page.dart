@@ -17,7 +17,6 @@ import '../../shared/currency/currency.dart';
 import '../../shared/portfolio/portfolio_providers.dart';
 import '../../shared/portfolio/portfolio_api_client.dart';
 import '../../shared/scan/scan_api_client.dart';
-import '../../shared/scan/scan_image_hasher.dart';
 import '../../shared/ui/kando_style.dart';
 import '../../shared/ui/premium_unlocked_toast.dart';
 import '../../shared/ui/subscription_restore_result.dart';
@@ -109,20 +108,6 @@ _ScanViewfinderGeometry _scanViewfinderGeometry(
   final maxTop = math.max(topLimit, bottomLimit - height);
   final top = _viewfinderBaseTop.clamp(topLimit, maxTop);
   return _ScanViewfinderGeometry(Rect.fromLTWH(left, top, width, height));
-}
-
-ScanImageCrop _cameraRecognitionCrop(Size viewport, EdgeInsets padding) {
-  final rect = _scanViewfinderGeometry(
-    viewport,
-    padding,
-  ).rect.intersect(Offset.zero & viewport);
-  return ScanImageCrop(
-    left: rect.left / viewport.width,
-    top: rect.top / viewport.height,
-    width: rect.width / viewport.width,
-    height: rect.height / viewport.height,
-    viewportAspectRatio: viewport.width / viewport.height,
-  );
 }
 
 class _ScanMatch {
@@ -660,18 +645,12 @@ class _ScanPageState extends ConsumerState<ScanPage>
       setState(() => _captureFeedbackItemId = itemId);
       await _captureController.forward(from: 0).orCancel;
       if (!mounted) return const ScanResolution.failed();
-      final mediaQuery = MediaQueryData.fromView(View.of(context));
-      final recognitionCrop = _cameraRecognitionCrop(
-        mediaQuery.size,
-        mediaQuery.padding,
-      );
       final image = await camera.takePhoto();
       onCaptured(image);
       return await source.recognize(
         ScanImage(
           bytes: image.bytes,
           fileName: image.fileName,
-          recognitionCrop: recognitionCrop,
         ),
         onDisplayImageReady: onDisplayImageReady,
       );

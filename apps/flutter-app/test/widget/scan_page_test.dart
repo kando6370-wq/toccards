@@ -555,12 +555,6 @@ void main() {
         find.byKey(const Key('scan-recognition-progress')),
         findsOneWidget,
       );
-      final crop = source.recognizedImages.single.recognitionCrop!;
-      expect(crop.left, closeTo(55 / 390, 0.0001));
-      expect(crop.top, closeTo(213 / 844, 0.0001));
-      expect(crop.width, closeTo(280 / 390, 0.0001));
-      expect(crop.height, closeTo(400 / 844, 0.0001));
-
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
       expect(camera.disposed, isTrue);
@@ -569,7 +563,7 @@ void main() {
   );
 
   testWidgets(
-    'Camera recognition uses the yellow viewfinder because the captured image must match what the user framed',
+    'Camera recognition sends the full photo to model-based card detection',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(360, 800);
@@ -589,14 +583,11 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 501));
 
-      final viewfinder = tester.getRect(
-        find.byKey(const Key('scan-figma-viewfinder')),
+      expect(source.recognizedImages, hasLength(1));
+      expect(
+        source.recognizedImages.single.bytes,
+        Uint8List.fromList(_transparentPngBytes),
       );
-      final crop = source.recognizedImages.single.recognitionCrop!;
-      expect(crop.left, closeTo(viewfinder.left / 360, 0.0001));
-      expect(crop.top, closeTo(viewfinder.top / 800, 0.0001));
-      expect(crop.left + crop.width, closeTo(viewfinder.right / 360, 0.0001));
-      expect(crop.top + crop.height, closeTo(viewfinder.bottom / 800, 0.0001));
     },
   );
 
@@ -641,11 +632,6 @@ void main() {
       );
 
       await tester.pump(const Duration(milliseconds: 750));
-      final crop = source.recognizedImages.single.recognitionCrop!;
-      expect(crop.left, closeTo(viewfinder.left / 375, 0.0001));
-      expect(crop.top, closeTo(viewfinder.top / 667, 0.0001));
-      expect(crop.width, closeTo(viewfinder.width / 375, 0.0001));
-      expect(crop.height, closeTo(viewfinder.height / 667, 0.0001));
       expect(
         tester.getRect(find.byKey(const Key('scan-figma-overlay-viewfinder'))),
         viewfinder,
@@ -684,7 +670,7 @@ void main() {
   );
 
   testWidgets(
-    'capture uses the latest adaptive geometry when the viewport changes during feedback',
+    'capture forwards the full photo when the viewport changes during feedback',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(390, 844);
@@ -708,14 +694,10 @@ void main() {
 
       expect(camera.takePhotoCount, 1);
       expect(source.recognizedImages, hasLength(1));
-      final viewfinder = tester.getRect(
-        find.byKey(const Key('scan-figma-viewfinder')),
+      expect(
+        source.recognizedImages.single.bytes,
+        Uint8List.fromList(_transparentPngBytes),
       );
-      final crop = source.recognizedImages.single.recognitionCrop!;
-      expect(crop.left, closeTo(viewfinder.left / 375, 0.0001));
-      expect(crop.top, closeTo(viewfinder.top / 667, 0.0001));
-      expect(crop.width, closeTo(viewfinder.width / 375, 0.0001));
-      expect(crop.height, closeTo(viewfinder.height / 667, 0.0001));
     },
   );
 

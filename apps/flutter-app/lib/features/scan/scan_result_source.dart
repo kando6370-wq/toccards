@@ -5,8 +5,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../shared/scan/scan_api_client.dart';
+import '../../shared/scan/scan_card_recognizer.dart';
 import '../../shared/scan/scan_card_number_reader.dart';
-import '../../shared/scan/scan_image_hasher.dart';
 import '../../shared/scan/scan_providers.dart';
 import '../auth/auth_controller.dart';
 import '../auth/auth_models.dart';
@@ -126,7 +126,7 @@ final scanResultSourceProvider = Provider<ScanResultSource>(
     api: ref.watch(scanApiClientProvider),
     session: () => ref.read(authControllerProvider).session,
     imagePicker: ImagePickerScanImagePicker(),
-    imageHasher: createScanImageHasher(),
+    cardRecognizer: createScanCardRecognizer(),
     cardNumberReader: createScanCardNumberReader(),
     appInfo: _readScanAppInfo,
     localPremiumVerified: () =>
@@ -141,12 +141,10 @@ class ScanImage {
   const ScanImage({
     required this.bytes,
     required this.fileName,
-    this.recognitionCrop,
   });
 
   final Uint8List bytes;
   final String fileName;
-  final ScanImageCrop? recognitionCrop;
 }
 
 abstract interface class ScanImagePicker {
@@ -212,14 +210,14 @@ class ApiScanResultSource implements ScanResultSource {
     required ScanApi api,
     required AuthSession? Function() session,
     required ScanImagePicker imagePicker,
-    required ScanImageHasher imageHasher,
+    required ScanCardRecognizer cardRecognizer,
     required Future<ScanAppInfo> Function() appInfo,
     ScanCardNumberReader? cardNumberReader,
     bool Function()? localPremiumVerified,
   }) : _api = api,
        _session = session,
        _imagePicker = imagePicker,
-       _imageHasher = imageHasher,
+       _cardRecognizer = cardRecognizer,
        _appInfo = appInfo,
        _localPremiumVerified = localPremiumVerified ?? _false,
        _cardNumberReader = cardNumberReader ?? const _NoopCardNumberReader();
@@ -227,7 +225,7 @@ class ApiScanResultSource implements ScanResultSource {
   final ScanApi _api;
   final AuthSession? Function() _session;
   final ScanImagePicker _imagePicker;
-  final ScanImageHasher _imageHasher;
+  final ScanCardRecognizer _cardRecognizer;
   final Future<ScanAppInfo> Function() _appInfo;
   final ScanCardNumberReader _cardNumberReader;
   final bool Function() _localPremiumVerified;
@@ -276,9 +274,7 @@ class ApiScanResultSource implements ScanResultSource {
     ScanImage image, {
     ValueChanged<Uint8List>? onDisplayImageReady,
   }) async {
-    Uint8List? displayImageBytes = image.recognitionCrop == null
-        ? image.bytes
-        : null;
+    Uint8List? displayImageBytes = image.bytes;
     final ScanRecognitionDto recognition;
     try {
       final session = _session();
@@ -290,23 +286,15 @@ class ApiScanResultSource implements ScanResultSource {
         );
       }
       final info = await _appInfo();
-      final hashes = await _imageHasher.hash(
-        image.bytes,
-        crop: image.recognitionCrop,
-      );
-      if (hashes.cardImageBytes == null) {
-        throw const ScanImageProcessingException(
-          'The corrected card image is unavailable.',
-        );
-      }
-      displayImageBytes = image.recognitionCrop == null
-          ? image.bytes
-          : hashes.cardImageBytes!;
+      final embedding = await _cardRecognizer.process(image.bytes);
+      displayImageBytes = embedding.cardImageBytes;
       onDisplayImageReady?.call(displayImageBytes);
-      final cardNumber = await _cardNumberReader.read(hashes.cardImageBytes!);
+      final cardNumber = await _cardNumberReader.read(
+        embedding.cardImageBytes,
+      );
       recognition = await _api.recognizeImage(
         session,
-        hashes: hashes,
+        embedding: embedding,
         fileName: image.fileName,
         platform: info.platform,
         appVersion: info.appVersion,

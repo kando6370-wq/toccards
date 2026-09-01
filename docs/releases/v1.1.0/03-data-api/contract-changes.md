@@ -109,12 +109,14 @@ Flutter Create Folder 在弹窗内等待服务端结果：保存中锁定输入�
 
 Collection Item 编辑与 Folder Move 继续使用单次 `PATCH /api/v1/portfolio/items/:item_id` 原子提交；Folder 变化和同次字段编辑不会拆成两个业务写请求。目标 Folder 已失效时服务端返回 `NOT_FOUND` 且不更新 Item；App 刷新 Folder/Item 真值，保持原 Source Folder，不展示半迁移结果。
 
-## Scan Quota
+## Scan 识别与 Quota
+
+端侧模型、预处理、平台运行时、内部 Worker 和体积口径统一见[扫描识别流程](../01-flows/scan-recognition.md)。
 
 | API | 当前行为 |
 |---|---|
 | `GET /api/v1/scan/quota` | 返回当前 owner 的终身 10 次 Free quota；有效当前 session grant 返回 `access=premium`、`unlimited=true`，本机 Premium 同步中返回 `ENTITLEMENT_SYNC_REQUIRED`。 |
-| `POST /api/v1/scan/recognize` | 要求 body `request_id` 与 `Idempotency-Key` 为同一 UUID；在 R2/OCR 前原子预占。Matched/No Match 消耗，技术失败释放，Premium 不消耗 Free quota；成功及额度耗尽响应中的 quota 均包含 `access`、`unlimited`、`limit`、`reserved`、`consumed`、`remaining`，完成响应可用原 request ID 重放。 |
+| `POST /api/v1/scan/recognize` | multipart body 必须包含 JSON 编码的 `vector`、矫正后的 JPEG、`request_id`，并要求 `request_id` 与 `Idempotency-Key` 为同一 UUID。向量必须恰好 512 维、各分量为有限数值且整体不能全零，JSON 最大 32 KiB；`game_id` 和 `card_number` 可选。主 Worker 在 R2/向量检索前原子预占，只向 `VECTOR_RECOGNITION` Service Binding 对应的 `recognize-vec` 发送 `{vector}`，再按 PostgreSQL 目录、游戏和可选卡号解析/排序候选；不接受 `r/g/b` pHash，也不提供公网或旧协议回退。Matched/No Match 消耗，技术失败释放，Premium 不消耗 Free quota；成功及额度耗尽响应中的 quota 均包含 `access`、`unlimited`、`limit`、`reserved`、`consumed`、`remaining`，完成响应可用原 request ID 重放。 |
 
 `scan_quota_request` 同时是额度账本和请求幂等真源。Free 的 `reserved + consumed` 最多 10；Free 预占按 owner 摘要锁串行，同 owner 多 session 并发不能预占同一最后额度。Premium 不取得 Free 配额锁，也不消耗 Free 次数。处理中租约为 60 秒，防止 Worker 中断永久占用；同一过期 lease 的并发接管只有一个请求获得处理权，released 请求不计入已用额度。Flutter 严格解析完整 quota，不再把缺失权益字段静默降级为 Free；Scan 以本机 Premium 或服务端 `unlimited=true` 的合并结果更新展示、额度拦截与请求同步保护，并在本机为 Free 时于页面生命周期内至少复核一次 StoreKit 权益。Quota Paywall 或 Scan Pro 返回 typed Purchase/Restore success 后，即使当前没有 Waiting Item，Scan 也会主动提交当前 StoreKit entitlement 并至少刷新一次服务端 Quota；收到 `ENTITLEMENT_SYNC_REQUIRED` 时复用同一个单任务同步周期，保留原图并在最多 15 秒的 Quota 确认窗口内等待。只有服务端确认 `unlimited=true` 后，Waiting 与权益同步中的 Item 才按 Queue 顺序自动递补；同步失败或超时保留同步状态，不改写为 No Match，也不消耗 Free 次数，后续扫描触发可重新开启同步周期。Processing 删除立即移除 UI，但保留原请求的后台观察；最终响应继续更新 Quota，缺少 Quota 时刷新服务端真值，且迟到结果不得重插卡片。
 

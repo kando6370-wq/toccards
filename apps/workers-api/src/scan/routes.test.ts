@@ -2,7 +2,7 @@ import { signAccessToken } from "@kando/auth-core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import app, { type Env as AppEnv } from "../index";
 
-type TestEnv = AppEnv & { JWT_SECRET: string; OCR_SERVICE_BASE_URL: string };
+type TestEnv = AppEnv & { JWT_SECRET: string };
 
 type SessionRow = {
   id: string;
@@ -95,7 +95,7 @@ type CardCatalogRow = {
   number?: string | null;
 };
 
-const PHASH = "vgM8KW2_mtY4LMLQZJvFpzl823zE3mx0mWhpCcRYaGw";
+const VECTOR = Array.from({ length: 512 }, (_, index) => index === 0 ? 1 : 0);
 
 class FakeR2 {
   readonly objects = new Map<string, Uint8Array>();
@@ -463,7 +463,7 @@ describe("scan routes", () => {
     vi.unstubAllGlobals();
   });
 
-  it("resolves production pHash product ids through D1 and stores an audit record because App scans must be reviewable", async () => {
+  it("resolves vector-search product ids through D1 and stores an audit record because App scans must be reviewable", async () => {
     const env = createTestEnv();
     env.DB.sessions.push({
       id: "session-1",
@@ -489,14 +489,14 @@ describe("scan routes", () => {
       env.JWT_SECRET,
     );
 
-    vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
-      expect(url).toBe("https://ocr.example.test/recognize");
+    stubVectorRecognition(env, async (url, init) => {
+      expect(url).toBe("https://recognize-vec.internal/recognize");
       expect(init.method).toBe("POST");
       expect(init.headers).toEqual({
         Accept: "application/json",
         "Content-Type": "application/json",
       });
-      expect(JSON.parse(String(init.body))).toEqual({ r: PHASH, g: PHASH, b: PHASH });
+      expect(JSON.parse(String(init.body))).toEqual({ vector: VECTOR });
       return Response.json({
         candidates: [
           { product_id: 10738, confidence: 80.99 },
@@ -513,7 +513,7 @@ describe("scan routes", () => {
         headers: { Authorization: `Bearer ${token}`, "Idempotency-Key": requestId },
         body: recognitionForm({
           request_id: requestId,
-          r: PHASH, g: PHASH, b: PHASH, filename: "scan.jpg",
+          vector: VECTOR, filename: "scan.jpg",
           platform: "iOS", app_version: "1.0.0",
         }),
       },
@@ -543,7 +543,7 @@ describe("scan routes", () => {
                 name: "Bushi Tenderfoot",
                 set_code: "CHK",
                 confidence: 80.99,
-                retrieval: "rgb-phash-16-v1",
+                retrieval: "pe-core-t16-384-cosine-v1",
               }),
             ],
           }),
@@ -572,9 +572,12 @@ describe("scan routes", () => {
     const env = createRecognitionEnv();
     env.DB.activePremiumSessionIds.add("session-1");
     const token = await recognitionToken(env);
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ candidates: [] })));
+    stubVectorRecognition(
+      env,
+      vi.fn().mockResolvedValue(Response.json({ candidates: [] })),
+    );
 
-    const response = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+    const response = await recognize(env, token, { vector: VECTOR });
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -595,7 +598,7 @@ describe("scan routes", () => {
     ]);
   });
 
-  it("promotes an exact printed number because pHash alone cannot distinguish cards with identical artwork", async () => {
+  it("promotes an exact printed number because embeddings can share nearby artwork", async () => {
     const env = createRecognitionEnv();
     env.DB.cards.push(
       {
@@ -624,8 +627,8 @@ describe("scan routes", () => {
       },
     );
     const token = await recognitionToken(env);
-    vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
-      expect(JSON.parse(String(init.body))).toEqual({ r: PHASH, g: PHASH, b: PHASH });
+    stubVectorRecognition(env, async (_url, init) => {
+      expect(JSON.parse(String(init.body))).toEqual({ vector: VECTOR });
       return Response.json({
         candidates: [
           { product_id: 610499, confidence: 84.1 },
@@ -635,9 +638,7 @@ describe("scan routes", () => {
     });
 
     const response = await recognize(env, token, {
-      r: PHASH,
-      g: PHASH,
-      b: PHASH,
+      vector: VECTOR,
       card_number: "200 / 187",
     });
     const body = await response.json();
@@ -651,7 +652,7 @@ describe("scan routes", () => {
               rank: 1,
               card_ref: "602664",
               card_number: "200/187",
-              retrieval: "rgb-phash-16-v1+card-number-ocr",
+              retrieval: "pe-core-t16-384-cosine-v1+card-number-ocr",
             }),
             expect.objectContaining({ rank: 2, card_ref: "610499" }),
           ],
@@ -661,7 +662,7 @@ describe("scan routes", () => {
     expect(env.DB.scanRecords[0]?.system_result).toContain('"number":"200/187"');
   });
 
-  it("recovers an exact catalog printing because the correct version may fall outside the pHash candidate limit", async () => {
+  it("recovers an exact catalog printing because the correct version may fall outside the vector candidate limit", async () => {
     const env = createRecognitionEnv();
     env.DB.cards.push(
       {
@@ -690,16 +691,14 @@ describe("scan routes", () => {
       },
     );
     const token = await recognitionToken(env);
-    vi.stubGlobal("fetch", async () =>
+    stubVectorRecognition(env, async () =>
       Response.json({
         candidates: [{ product_id: 610499, confidence: 84.1 }],
       })
     );
 
     const response = await recognize(env, token, {
-      r: PHASH,
-      g: PHASH,
-      b: PHASH,
+      vector: VECTOR,
       card_number: "200/187",
     });
     const body = await response.json();
@@ -712,7 +711,7 @@ describe("scan routes", () => {
             expect.objectContaining({
               card_ref: "602664",
               card_number: "200/187",
-              retrieval: "rgb-phash-16-v1+card-number-ocr",
+              retrieval: "pe-core-t16-384-cosine-v1+card-number-ocr",
             }),
             expect.objectContaining({ card_ref: "610499" }),
           ],
@@ -724,11 +723,11 @@ describe("scan routes", () => {
   it("stores no_match when recognition ids are absent from D1 because an upstream id is not a reviewable card", async () => {
     const env = createRecognitionEnv();
     const token = await recognitionToken(env);
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({
+    stubVectorRecognition(env, vi.fn().mockResolvedValue(Response.json({
       candidates: [{ product_id: 999, confidence: 77.125 }],
     })));
 
-    const response = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+    const response = await recognize(env, token, { vector: VECTOR });
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -749,7 +748,55 @@ describe("scan routes", () => {
     ]);
   });
 
-  it("rejects the eleventh Free scan before R2 and OCR because the server quota is authoritative", async () => {
+  it("filters vector candidates by game_id in PostgreSQL because the retrieval Worker is game-agnostic", async () => {
+    const env = createRecognitionEnv();
+    env.DB.cards.push(
+      {
+        product_id: "101",
+        game_id: 1,
+        game: "Magic",
+        set_name: "Set A",
+        set_code: "A",
+        name: "Wrong Game",
+        rarity: "Rare",
+        product_type_name: "Cards",
+        image_url: null,
+      },
+      {
+        product_id: "202",
+        game_id: 3,
+        game: "Pokemon",
+        set_name: "Set B",
+        set_code: "B",
+        name: "Right Game",
+        rarity: "Rare",
+        product_type_name: "Cards",
+        image_url: null,
+      },
+    );
+    stubVectorRecognition(env, async () => Response.json({
+      candidates: [
+        { product_id: 101, confidence: 95 },
+        { product_id: 202, confidence: 90 },
+      ],
+    }));
+
+    const response = await recognize(env, await recognitionToken(env), {
+      vector: VECTOR,
+      game_id: 3,
+    });
+    const body = await response.json() as {
+      data: { results: Array<{ candidates: Array<{ card_ref: string }> }> };
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.data.results[0]?.candidates).toEqual([
+      expect.objectContaining({ rank: 1, card_ref: "202" }),
+    ]);
+    expect(env.DB.scanRecords[0]?.candidates).not.toContain("Wrong Game");
+  });
+
+  it("rejects the eleventh Free scan before R2 and vector search because the server quota is authoritative", async () => {
     const env = createRecognitionEnv();
     const token = await recognitionToken(env);
     for (let index = 0; index < 10; index += 1) {
@@ -766,9 +813,9 @@ describe("scan routes", () => {
       });
     }
     const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
+    stubVectorRecognition(env, fetchMock);
 
-    const response = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+    const response = await recognize(env, token, { vector: VECTOR });
 
     expect(response.status).toBe(403);
     expect(await response.json()).toMatchObject({
@@ -786,16 +833,16 @@ describe("scan routes", () => {
     expect((env.SCAN_IMAGES as unknown as FakeR2).objects.size).toBe(0);
   });
 
-  it("replays a completed request because a lost response must not consume quota or OCR twice", async () => {
+  it("replays a completed request because a lost response must not consume quota or search twice", async () => {
     const env = createRecognitionEnv();
     const token = await recognitionToken(env);
     const requestId = crypto.randomUUID();
     const fetchMock = vi.fn().mockResolvedValue(Response.json({ candidates: [] }));
-    vi.stubGlobal("fetch", fetchMock);
+    stubVectorRecognition(env, fetchMock);
 
-    const first = await recognize(env, token, { request_id: requestId, r: PHASH, g: PHASH, b: PHASH });
+    const first = await recognize(env, token, { request_id: requestId, vector: VECTOR });
     const firstBody = await first.json();
-    const second = await recognize(env, token, { request_id: requestId, r: PHASH, g: PHASH, b: PHASH });
+    const second = await recognize(env, token, { request_id: requestId, vector: VECTOR });
 
     expect(second.status).toBe(200);
     expect(await second.json()).toEqual(firstBody);
@@ -805,15 +852,37 @@ describe("scan routes", () => {
     ]);
   });
 
-  it("rejects malformed pHashes before calling recognition because protocol errors must not create scan records", async () => {
+  it("rejects malformed embeddings before calling recognition because protocol errors must not create scan records", async () => {
     const env = createRecognitionEnv();
     const token = await recognitionToken(env);
     const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
+    stubVectorRecognition(env, fetchMock);
 
-    const response = await recognize(env, token, { r: "invalid", g: PHASH, b: PHASH });
+    const response = await recognize(env, token, { vector: [1, 2, 3] });
 
     expect(response.status).toBe(422);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(env.DB.scanRecords).toEqual([]);
+  });
+
+  it("rejects retired RGB pHash fields and zero vectors because there is no legacy recognition fallback", async () => {
+    const env = createRecognitionEnv();
+    const token = await recognitionToken(env);
+    const fetchMock = vi.fn();
+    stubVectorRecognition(env, fetchMock);
+
+    const legacyHash = "A".repeat(43);
+    const legacyResponse = await recognize(env, token, {
+      r: legacyHash,
+      g: legacyHash,
+      b: legacyHash,
+    });
+    const zeroVectorResponse = await recognize(env, token, {
+      vector: Array.from({ length: 512 }, () => 0),
+    });
+
+    expect(legacyResponse.status).toBe(422);
+    expect(zeroVectorResponse.status).toBe(422);
     expect(fetchMock).not.toHaveBeenCalled();
     expect(env.DB.scanRecords).toEqual([]);
   });
@@ -821,12 +890,12 @@ describe("scan routes", () => {
   it("stores failed with the raw upstream payload because every valid recognition attempt must remain auditable", async () => {
     const env = createRecognitionEnv();
     const token = await recognitionToken(env);
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(
+    stubVectorRecognition(env, vi.fn().mockResolvedValue(Response.json(
       { error: "internal_error" },
       { status: 500 },
     )));
 
-    const response = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+    const response = await recognize(env, token, { vector: VECTOR });
     const body = await response.json() as { scan_id?: unknown };
 
     expect(response.status).toBe(502);
@@ -842,9 +911,12 @@ describe("scan routes", () => {
   it("rejects the retired product_ids response as an upstream failure because clients must not silently lose production confidence", async () => {
     const env = createRecognitionEnv();
     const token = await recognitionToken(env);
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ product_ids: [10738] })));
+    stubVectorRecognition(
+      env,
+      vi.fn().mockResolvedValue(Response.json({ product_ids: [10738] })),
+    );
 
-    const response = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+    const response = await recognize(env, token, { vector: VECTOR });
 
     expect(response.status).toBe(502);
     expect(env.DB.scanRecords[0]?.recognition_status).toBe("failed");
@@ -853,11 +925,11 @@ describe("scan routes", () => {
   it("rejects out-of-range upstream confidence because similarity must remain the exact finite 0 to 100 service value", async () => {
     const env = createRecognitionEnv();
     const token = await recognitionToken(env);
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({
+    stubVectorRecognition(env, vi.fn().mockResolvedValue(Response.json({
       candidates: [{ product_id: 10738, confidence: 100.001 }],
     })));
 
-    const response = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+    const response = await recognize(env, token, { vector: VECTOR });
 
     expect(response.status).toBe(502);
     expect(env.DB.scanRecords[0]?.recognition_status).toBe("failed");
@@ -867,9 +939,12 @@ describe("scan routes", () => {
     const env = createRecognitionEnv();
     env.DB.failScanInsert = true;
     const token = await recognitionToken(env);
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ candidates: [] })));
+    stubVectorRecognition(
+      env,
+      vi.fn().mockResolvedValue(Response.json({ candidates: [] })),
+    );
 
-    const response = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+    const response = await recognize(env, token, { vector: VECTOR });
 
     expect(response.status).toBe(500);
     expect((env.SCAN_IMAGES as unknown as FakeR2).objects.size).toBe(0);
@@ -1137,7 +1212,7 @@ function createTestEnv(): TestEnvWithFakeDb {
     DB: new FakeD1(),
     CACHE_KV: {} as KVNamespace,
     JWT_SECRET: "test-secret",
-    OCR_SERVICE_BASE_URL: "https://ocr.example.test",
+    VECTOR_RECOGNITION: createVectorFetcher(async () => Response.json({ candidates: [] })),
     SCAN_IMAGES: scanImages as unknown as R2Bucket,
   };
 }
@@ -1183,13 +1258,38 @@ async function recognize(
 function recognitionForm(body: Record<string, unknown>): FormData {
   const form = new FormData();
   for (const [key, value] of Object.entries(body)) {
-    if (value !== undefined && value !== null) form.set(key, String(value));
+    if (value !== undefined && value !== null) {
+      form.set(key, Array.isArray(value) ? JSON.stringify(value) : String(value));
+    }
   }
   form.set(
     "image",
     new File([SCAN_JPEG], "scan.jpg", { type: "image/jpeg" }),
   );
   return form;
+}
+
+type VectorFetchHandler = (
+  url: string,
+  init: RequestInit,
+) => Response | Promise<Response>;
+
+function createVectorFetcher(handler: VectorFetchHandler): Fetcher {
+  return {
+    fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string"
+        ? input
+        : input instanceof URL ? input.toString() : input.url;
+      return await handler(url, init ?? {});
+    },
+  } as Fetcher;
+}
+
+function stubVectorRecognition(
+  env: TestEnvWithFakeDb,
+  handler: VectorFetchHandler,
+): void {
+  env.VECTOR_RECOGNITION = createVectorFetcher(handler);
 }
 
 const SCAN_JPEG = new Uint8Array([

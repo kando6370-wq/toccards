@@ -52,11 +52,19 @@ android {
 
     buildTypes {
         release {
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
             signingConfigs.findByName("release")?.let {
                 signingConfig = it
             }
         }
     }
+}
+
+dependencies {
+    implementation(files("libs/onnxruntime-minimal-1.23.0.aar"))
 }
 
 flutter {

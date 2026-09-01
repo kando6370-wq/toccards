@@ -32,7 +32,6 @@ APPLE_APP_ATTEST_DEVELOPMENT = "false"
 ZEPTOMAIL_API_URL = "https://api.zeptomail.com/v1.1/email"
 MAIL_FROM_ADDRESS = "kando@tcgcard.fun"
 MAIL_FROM_NAME = "Card Ai"
-OCR_SERVICE_BASE_URL = "https://recognize.tcgcard.fun"
 APP_ENVIRONMENT = "production"
 APPLE_IAP_BUNDLE_ID = "com.cardai.tcg"
 
@@ -47,6 +46,10 @@ id = "c90e2c87b2c042ea93c58d38095973c7" # Cloudflare KV: CACHE_KV
 [[env.prod.r2_buckets]]
 binding = "SCAN_IMAGES"
 bucket_name = "toccards-scan-images"
+
+[[env.prod.services]]
+binding = "VECTOR_RECOGNITION"
+service = "recognize-vec"
 
 [env.dev]
 name = "toccards-api-dev"
@@ -64,7 +67,6 @@ APPLE_IAP_PRODUCT_IDS = "cardx.week,cardx.year,cardx.lifetime"
 ZEPTOMAIL_API_URL = "https://api.zeptomail.com/v1.1/email"
 MAIL_FROM_ADDRESS = "kando@tcgcard.fun"
 MAIL_FROM_NAME = "Card Ai Dev"
-OCR_SERVICE_BASE_URL = "https://recognize.tcgcard.fun"
 APP_ENVIRONMENT = "development"
 APPLE_IAP_BUNDLE_ID = "com.kando.kandoApp.beta"
 
@@ -79,3 +81,7 @@ id = "a8b4378fabc7473db6ffe04d2ed6ab38"
 [[env.dev.r2_buckets]]
 binding = "SCAN_IMAGES"
 bucket_name = "toccards-scan-images-dev"
+
+[[env.dev.services]]
+binding = "VECTOR_RECOGNITION"
+service = "recognize-vec"

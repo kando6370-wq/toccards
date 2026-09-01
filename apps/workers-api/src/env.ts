@@ -5,6 +5,7 @@ export interface Env {
   HYPERDRIVE?: Hyperdrive;
   CACHE_KV: KVNamespace;
   SCAN_IMAGES?: R2Bucket;
+  VECTOR_RECOGNITION?: Fetcher;
   JWT_SECRET: string;
   GOOGLE_CLIENT_ID?: string;
   APPLE_CLIENT_ID?: string;
@@ -23,7 +24,6 @@ export interface Env {
   MAIL_FROM_NAME?: string;
   MIXPANEL_PROJECT_TOKEN?: string;
   MIXPANEL_API_SECRET?: string;
-  OCR_SERVICE_BASE_URL?: string;
   APP_ENVIRONMENT?: "production" | "development";
 }
 

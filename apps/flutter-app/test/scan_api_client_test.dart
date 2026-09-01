@@ -6,7 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/shared/scan/scan_api_client.dart';
-import 'package:kando_app/shared/scan/scan_image_hasher.dart';
+import 'package:kando_app/shared/scan/scan_card_recognizer.dart';
 
 void main() {
   test(
@@ -25,17 +25,16 @@ void main() {
   );
 
   test(
-    'recognizeImage sends hashes plus only the corrected crop to our API because the external recognizer must never receive an image',
+    'recognizeImage sends the embedding and corrected card to our API',
     () async {
       final adapter = _RecordingAdapter((request) {
         expect(request.method, 'POST');
         expect(request.path, '/scan/recognize');
         expect(request.authorization, 'Bearer access-token');
         final form = request.body as FormData;
-        expect(Map<String, String>.fromEntries(form.fields), {
-          'r': _hash,
-          'g': _hash,
-          'b': _hash,
+        final fields = Map<String, String>.fromEntries(form.fields);
+        expect(fields.remove('vector'), jsonEncode(_vector));
+        expect(fields, {
           'filename': 'scan.jpg',
           'platform': 'iOS',
           'app_version': '1.0.0',
@@ -88,10 +87,8 @@ void main() {
 
       final result = await ScanApiClient(_dio(adapter)).recognizeImage(
         _session,
-        hashes: ScanImageHashes(
-          r: _hash,
-          g: _hash,
-          b: _hash,
+        embedding: ScanCardEmbedding(
+          vector: _vector,
           cardImageBytes: Uint8List.fromList([1, 2, 3, 4]),
         ),
         fileName: 'scan.jpg',
@@ -112,7 +109,7 @@ void main() {
   );
 
   test(
-    'recognition rejects confidence outside 0 to 100 because pHash similarity is neither a probability nor a client-calibrated value',
+    'recognition rejects confidence outside 0 to 100',
     () async {
       final adapter = _RecordingAdapter(
         (_) => _json(200, {
@@ -148,10 +145,8 @@ void main() {
       await expectLater(
         ScanApiClient(_dio(adapter)).recognizeImage(
           _session,
-          hashes: ScanImageHashes(
-            r: _hash,
-            g: _hash,
-            b: _hash,
+          embedding: ScanCardEmbedding(
+            vector: _vector,
             cardImageBytes: Uint8List.fromList([1, 2, 3, 4]),
           ),
           fileName: 'scan.jpg',
@@ -262,7 +257,7 @@ const _session = AuthSession(
   anonymousId: 'anon-1',
 );
 
-const _hash = 'vgM8KW2_mtY4LMLQZJvFpzl823zE3mx0mWhpCcRYaGw';
+final _vector = List<double>.filled(512, 0.25);
 
 Dio _dio(_RecordingAdapter adapter) {
   final dio = Dio(BaseOptions(baseUrl: 'https://api.example.test/api/v1'));

@@ -4,8 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/scan/scan_result_source.dart';
 import 'package:kando_app/shared/scan/scan_api_client.dart';
+import 'package:kando_app/shared/scan/scan_card_recognizer.dart';
 import 'package:kando_app/shared/scan/scan_card_number_reader.dart';
-import 'package:kando_app/shared/scan/scan_image_hasher.dart';
 
 void main() {
   test(
@@ -13,13 +13,13 @@ void main() {
     () async {
       final api = _FakeScanApi(_matchedRecognition);
       final picker = _FakeScanImagePicker();
-      final imageHasher = _FakeScanImageHasher();
+      final cardRecognizer = _FakeScanCardRecognizer();
       final cardNumberReader = _FakeCardNumberReader('018/066');
       final source = ApiScanResultSource(
         api: api,
         session: () => _session,
         imagePicker: picker,
-        imageHasher: imageHasher,
+        cardRecognizer: cardRecognizer,
         cardNumberReader: cardNumberReader,
         appInfo: () async =>
             const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
@@ -34,10 +34,12 @@ void main() {
       expect(result.candidates, ['Bushi Tenderfoot', 'Devoted Retainer']);
       expect(result.candidateCardRefs, ['1', '2']);
       expect(result.imageBytes, Uint8List.fromList([1, 2, 3]));
-      expect(result.displayImageBytes, Uint8List.fromList([1, 2, 3]));
-      expect(imageHasher.lastBytes, Uint8List.fromList([1, 2, 3]));
-      expect(imageHasher.lastCrop, isNull);
-      expect(api.lastHashes?.cardImageBytes, Uint8List.fromList([4, 5, 6]));
+      expect(result.displayImageBytes, Uint8List.fromList([4, 5, 6]));
+      expect(cardRecognizer.lastBytes, Uint8List.fromList([1, 2, 3]));
+      expect(
+        api.lastEmbedding?.cardImageBytes,
+        Uint8List.fromList([4, 5, 6]),
+      );
       expect(api.lastPlatform, 'iOS');
       expect(api.lastCardNumber, '018/066');
       expect(cardNumberReader.lastBytes, Uint8List.fromList([4, 5, 6]));
@@ -46,36 +48,27 @@ void main() {
   );
 
   test(
-    'recognize forwards the camera viewfinder crop because in-app photos must match the visible targeting area',
+    'recognize displays the model-corrected card because detection owns the crop',
     () async {
-      final imageHasher = _FakeScanImageHasher();
+      final cardRecognizer = _FakeScanCardRecognizer();
       final source = ApiScanResultSource(
         api: _FakeScanApi(_matchedRecognition),
         session: () => _session,
         imagePicker: _FakeScanImagePicker(),
-        imageHasher: imageHasher,
+        cardRecognizer: cardRecognizer,
         appInfo: () async =>
             const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
       );
-      const crop = ScanImageCrop(
-        left: 0.1,
-        top: 0.2,
-        width: 0.8,
-        height: 0.6,
-        viewportAspectRatio: 390 / 844,
-      );
-
       Uint8List? displayedBytes;
       final result = await source.recognize(
         ScanImage(
           bytes: Uint8List.fromList([1, 2, 3]),
           fileName: 'camera.jpg',
-          recognitionCrop: crop,
         ),
         onDisplayImageReady: (bytes) => displayedBytes = bytes,
       );
 
-      expect(imageHasher.lastCrop, same(crop));
+      expect(cardRecognizer.lastBytes, Uint8List.fromList([1, 2, 3]));
       expect(
         result.imageBytes,
         Uint8List.fromList([1, 2, 3]),
@@ -84,7 +77,7 @@ void main() {
       expect(
         result.displayImageBytes,
         Uint8List.fromList([4, 5, 6]),
-        reason: 'Camera previews must use the processed viewfinder crop.',
+        reason: 'Camera previews must use the model-corrected card.',
       );
       expect(displayedBytes, Uint8List.fromList([4, 5, 6]));
     },
@@ -104,7 +97,7 @@ void main() {
         ),
         session: () => _session,
         imagePicker: _FakeScanImagePicker(),
-        imageHasher: _FakeScanImageHasher(),
+        cardRecognizer: _FakeScanCardRecognizer(),
         appInfo: () async =>
             const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
       );
@@ -119,12 +112,12 @@ void main() {
     () async {
       final picker = _FakeScanImagePicker();
       final api = _FakeScanApi(_matchedRecognition);
-      final imageHasher = _FakeScanImageHasher();
+      final cardRecognizer = _FakeScanCardRecognizer();
       final source = ApiScanResultSource(
         api: api,
         session: () => _session,
         imagePicker: picker,
-        imageHasher: imageHasher,
+        cardRecognizer: cardRecognizer,
         appInfo: () async =>
             const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
       );
@@ -137,7 +130,7 @@ void main() {
 
       expect(picker.sources, [ScanImageSource.camera]);
       expect(api.callCount, 2);
-      expect(imageHasher.lastBytes, Uint8List.fromList([1, 2, 3]));
+      expect(cardRecognizer.lastBytes, Uint8List.fromList([1, 2, 3]));
     },
   );
 
@@ -149,7 +142,7 @@ void main() {
         api: api,
         session: () => _session,
         imagePicker: _FakeScanImagePicker(cancelled: true),
-        imageHasher: _FakeScanImageHasher(),
+        cardRecognizer: _FakeScanCardRecognizer(),
         appInfo: () async =>
             const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
       );
@@ -166,7 +159,7 @@ void main() {
         api: _FakeScanApi(_matchedRecognition, failure: StateError('offline')),
         session: () => _session,
         imagePicker: _FakeScanImagePicker(),
-        imageHasher: _FakeScanImageHasher(),
+        cardRecognizer: _FakeScanCardRecognizer(),
         appInfo: () async =>
             const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
       );
@@ -188,7 +181,7 @@ void main() {
         api: api,
         session: () => _session,
         imagePicker: picker,
-        imageHasher: _FakeScanImageHasher(),
+        cardRecognizer: _FakeScanCardRecognizer(),
         appInfo: () async =>
             const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
       );
@@ -213,8 +206,6 @@ const _session = AuthSession(
   refreshToken: 'refresh-token',
   anonymousId: 'anon-1',
 );
-
-const _hash = 'vgM8KW2_mtY4LMLQZJvFpzl823zE3mx0mWhpCcRYaGw';
 
 const _matchedRecognition = ScanRecognitionDto(
   scanId: 'scan-1',
@@ -294,7 +285,7 @@ class _FakeScanApi implements ScanApi {
 
   final ScanRecognitionDto result;
   final Object? failure;
-  ScanImageHashes? lastHashes;
+  ScanCardEmbedding? lastEmbedding;
   String? lastPlatform;
   String? lastCardNumber;
   var callCount = 0;
@@ -317,7 +308,7 @@ class _FakeScanApi implements ScanApi {
   @override
   Future<ScanRecognitionDto> recognizeImage(
     AuthSession session, {
-    required ScanImageHashes hashes,
+    required ScanCardEmbedding embedding,
     required String fileName,
     required String platform,
     required String appVersion,
@@ -328,7 +319,7 @@ class _FakeScanApi implements ScanApi {
     String? osVersion,
   }) async {
     callCount += 1;
-    lastHashes = hashes;
+    lastEmbedding = embedding;
     lastPlatform = platform;
     lastCardNumber = cardNumber;
     final failure = this.failure;
@@ -350,21 +341,14 @@ class _FakeCardNumberReader implements ScanCardNumberReader {
   }
 }
 
-class _FakeScanImageHasher implements ScanImageHasher {
+class _FakeScanCardRecognizer implements ScanCardRecognizer {
   Uint8List? lastBytes;
-  ScanImageCrop? lastCrop;
 
   @override
-  Future<ScanImageHashes> hash(
-    Uint8List imageBytes, {
-    ScanImageCrop? crop,
-  }) async {
+  Future<ScanCardEmbedding> process(Uint8List imageBytes) async {
     lastBytes = imageBytes;
-    lastCrop = crop;
-    return ScanImageHashes(
-      r: _hash,
-      g: _hash,
-      b: _hash,
+    return ScanCardEmbedding(
+      vector: List<double>.filled(512, 0.25),
       cardImageBytes: Uint8List.fromList([4, 5, 6]),
     );
   }

@@ -1,4 +1,5 @@
 import Flutter
+import CoreImage
 import CryptoKit
 import DeviceCheck
 import StoreKit
@@ -15,6 +16,12 @@ import UIKit
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    ScanNativeImageProcessor.register(
+      messenger: engineBridge.applicationRegistrar.messenger()
+    )
+    ScanModelRuntime.register(
+      messenger: engineBridge.applicationRegistrar.messenger()
+    )
     let channel = FlutterMethodChannel(
       name: "com.cardai.tcg/apple-current-entitlements",
       binaryMessenger: engineBridge.applicationRegistrar.messenger()
@@ -169,6 +176,236 @@ import UIKit
           details: error?.localizedDescription
         ))
       }
+    }
+  }
+}
+
+private enum ScanNativeImageProcessor {
+  private static let queue = DispatchQueue(
+    label: "com.cardai.tcg.scan-image-processor",
+    qos: .userInitiated
+  )
+  private static let ciContext = CIContext(options: [.cacheIntermediates: false])
+  private static let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
+
+  static func register(messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(
+      name: "com.cardai.tcg/scan-image-processor",
+      binaryMessenger: messenger
+    )
+    channel.setMethodCallHandler { call, result in
+      guard call.method == "prepareDetection" || call.method == "rectifyCard" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      queue.async {
+        do {
+          let value: [String: Any]
+          if call.method == "prepareDetection" {
+            value = try prepareDetection(call.arguments)
+          } else {
+            value = try rectifyCard(call.arguments)
+          }
+          DispatchQueue.main.async { result(value) }
+        } catch {
+          DispatchQueue.main.async {
+            result(FlutterError(
+              code: "scan_image_processing_failed",
+              message: error.localizedDescription,
+              details: nil
+            ))
+          }
+        }
+      }
+    }
+  }
+
+  private static func prepareDetection(_ rawArguments: Any?) throws -> [String: Any] {
+    guard
+      let arguments = rawArguments as? [String: Any],
+      let typedData = arguments["image"] as? FlutterStandardTypedData,
+      let maximumSize = arguments["maximum_size"] as? Int,
+      maximumSize > 0,
+      let image = UIImage(data: typedData.data),
+      let cgImage = image.cgImage
+    else {
+      throw ScanNativeImageError.invalidInput
+    }
+
+    let swapsDimensions: Bool
+    switch image.imageOrientation {
+    case .left, .leftMirrored, .right, .rightMirrored:
+      swapsDimensions = true
+    default:
+      swapsDimensions = false
+    }
+    let sourceWidth = swapsDimensions ? cgImage.height : cgImage.width
+    let sourceHeight = swapsDimensions ? cgImage.width : cgImage.height
+    let scale = min(
+      Double(maximumSize) / Double(sourceWidth),
+      Double(maximumSize) / Double(sourceHeight)
+    )
+    let resizedWidth = max(1, min(maximumSize, Int((Double(sourceWidth) * scale).rounded(.toNearestOrEven))))
+    let resizedHeight = max(1, min(maximumSize, Int((Double(sourceHeight) * scale).rounded(.toNearestOrEven))))
+    let rgb = try rgbBytes(from: image, width: resizedWidth, height: resizedHeight)
+    return [
+      "source_width": sourceWidth,
+      "source_height": sourceHeight,
+      "resized_width": resizedWidth,
+      "resized_height": resizedHeight,
+      "rgb_bytes": FlutterStandardTypedData(bytes: rgb),
+    ]
+  }
+
+  private static func rectifyCard(_ rawArguments: Any?) throws -> [String: Any] {
+    guard
+      let arguments = rawArguments as? [String: Any],
+      let typedData = arguments["image"] as? FlutterStandardTypedData,
+      let cornerNumbers = arguments["corners"] as? [NSNumber],
+      cornerNumbers.count == 8,
+      cornerNumbers.allSatisfy({ $0.doubleValue.isFinite }),
+      let cardWidth = arguments["card_width"] as? Int,
+      let cardHeight = arguments["card_height"] as? Int,
+      let embeddingSize = arguments["embedding_size"] as? Int,
+      let jpegQuality = arguments["jpeg_quality"] as? Int,
+      cardWidth > 0,
+      cardHeight > 0,
+      embeddingSize > 0,
+      let source = CIImage(
+        data: typedData.data,
+        options: [.applyOrientationProperty: true]
+      )
+    else {
+      throw ScanNativeImageError.invalidInput
+    }
+
+    let extent = source.extent
+    guard !extent.isEmpty && !extent.isInfinite else {
+      throw ScanNativeImageError.invalidInput
+    }
+    func vector(_ index: Int) -> CIVector {
+      CIVector(
+        x: extent.minX + CGFloat(cornerNumbers[index * 2].doubleValue),
+        y: extent.maxY - CGFloat(cornerNumbers[index * 2 + 1].doubleValue)
+      )
+    }
+    guard let filter = CIFilter(name: "CIPerspectiveCorrection") else {
+      throw ScanNativeImageError.correctionFailed
+    }
+    filter.setValue(source, forKey: kCIInputImageKey)
+    filter.setValue(vector(0), forKey: "inputTopLeft")
+    filter.setValue(vector(1), forKey: "inputTopRight")
+    filter.setValue(vector(2), forKey: "inputBottomRight")
+    filter.setValue(vector(3), forKey: "inputBottomLeft")
+    guard let corrected = filter.outputImage, !corrected.extent.isEmpty else {
+      throw ScanNativeImageError.correctionFailed
+    }
+
+    let translated = corrected.transformed(
+      by: CGAffineTransform(
+        translationX: -corrected.extent.minX,
+        y: -corrected.extent.minY
+      )
+    )
+    let fixed = translated
+      .transformed(
+        by: CGAffineTransform(
+          scaleX: CGFloat(cardWidth) / translated.extent.width,
+          y: CGFloat(cardHeight) / translated.extent.height
+        )
+      )
+      .cropped(
+        to: CGRect(
+          x: 0,
+          y: 0,
+          width: CGFloat(cardWidth),
+          height: CGFloat(cardHeight)
+        )
+      )
+    guard let fixedCGImage = ciContext.createCGImage(fixed, from: fixed.extent) else {
+      throw ScanNativeImageError.correctionFailed
+    }
+    let cardImage = UIImage(cgImage: fixedCGImage)
+    guard let jpeg = cardImage.jpegData(compressionQuality: CGFloat(jpegQuality) / 100) else {
+      throw ScanNativeImageError.encodingFailed
+    }
+    let embeddingRgb = try rgbBytes(
+      from: cardImage,
+      width: embeddingSize,
+      height: embeddingSize
+    )
+    return [
+      "card_image_bytes": FlutterStandardTypedData(bytes: jpeg),
+      "embedding_rgb_bytes": FlutterStandardTypedData(bytes: embeddingRgb),
+    ]
+  }
+
+  private static func rgbBytes(from image: UIImage, width: Int, height: Int) throws -> Data {
+    let bytesPerPixel = 4
+    let bytesPerRow = width * bytesPerPixel
+    var rgba = [UInt8](repeating: 0, count: height * bytesPerRow)
+    let created = rgba.withUnsafeMutableBytes { bytes -> Bool in
+      guard
+        let base = bytes.baseAddress,
+        let context = CGContext(
+          data: base,
+          width: width,
+          height: height,
+          bitsPerComponent: 8,
+          bytesPerRow: bytesPerRow,
+          space: colorSpace,
+          bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            | CGBitmapInfo.byteOrder32Big.rawValue
+        )
+      else { return false }
+      context.interpolationQuality = .medium
+      context.translateBy(x: 0, y: CGFloat(height))
+      context.scaleBy(x: 1, y: -1)
+      UIGraphicsPushContext(context)
+      image.draw(
+        in: CGRect(
+          x: 0,
+          y: 0,
+          width: CGFloat(width),
+          height: CGFloat(height)
+        )
+      )
+      UIGraphicsPopContext()
+      return true
+    }
+    guard created else { throw ScanNativeImageError.renderingFailed }
+
+    var rgb = Data(count: width * height * 3)
+    rgb.withUnsafeMutableBytes { outputBytes in
+      guard let output = outputBytes.bindMemory(to: UInt8.self).baseAddress else { return }
+      for index in 0..<(width * height) {
+        let source = index * bytesPerPixel
+        let target = index * 3
+        output[target] = rgba[source]
+        output[target + 1] = rgba[source + 1]
+        output[target + 2] = rgba[source + 2]
+      }
+    }
+    return rgb
+  }
+}
+
+private enum ScanNativeImageError: LocalizedError {
+  case invalidInput
+  case correctionFailed
+  case encodingFailed
+  case renderingFailed
+
+  var errorDescription: String? {
+    switch self {
+    case .invalidInput:
+      return "The selected image is invalid."
+    case .correctionFailed:
+      return "The detected card could not be perspective-corrected."
+    case .encodingFailed:
+      return "The corrected card image could not be encoded."
+    case .renderingFailed:
+      return "The image could not be rendered."
     }
   }
 }
