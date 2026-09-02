@@ -26,6 +26,8 @@
 
 CI 的 Flutter 版本冲突是显式目标差异，不合并成虚构的统一版本。涉及复现或发布时按目标流水线选择；统一版本必须作为独立变更同时更新 manifest、CI 和 lockfile 验证。
 
+Flutter 业务 API 继续按 Auth、Card Data、Portfolio、Scan 等领域持有独立 Dio 实例，不使用全局单例。共享网络基础层提供一致的 Dio 创建入口、单次操作总 Deadline、可选的安全读请求重试和进行中请求合并；当前 Card Data 及 Portfolio 的 Dashboard、Folders/Items/Wishlist 列表、Valuation History、Portfolio/Item Performance 读取已迁移。上述 GET/HEAD 对连接、发送、接收 Timeout、连接失败及 `408/429/500/502/503/504` 最多重试一次，使用 300ms 指数退避起点与最多 30% 抖动，并与首次请求共享 15 秒总 Deadline；完全相同的进行中 GET 按 Method、Path、排序后的 Query 与 Header 合并，完成或失败后立即移除，不形成响应缓存。Portfolio Key 的 Authorization 隔离账号，Path 与 Query 隔离 Item、Folder、Range、Days；Portfolio 响应固定为 USD 原始值，显示货币在 DTO 之后换算，不属于 HTTP 请求上下文。`401` 仍由既有会话拦截器处理，普通 `409/422`、POST/PATCH/DELETE 和上传请求不进入通用重试；Home 1Y、Home Performance 与 Item Performance 的精确 `ENTITLEMENT_SYNC_REQUIRED` 仍由业务 Controller 校正并最多重放一次，但首次请求、权益校正和重放共用同一个绝对 15 秒 Deadline。Portfolio Preferences、所有 Portfolio 写请求及其 Idempotency-Key、Auth、Scan、Subscription 与其他 Dio Client 尚未迁移，不得把该策略视为全 App 已启用。
+
 ## 3. Cloudflare 能力
 
 | 能力 | 当前用途 |

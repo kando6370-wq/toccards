@@ -12,6 +12,7 @@ import 'package:kando_app/app/theme.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/shared/api/api_request_executor.dart';
 import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/collection/collection_models.dart';
 import 'package:kando_app/features/collection/collection_page.dart';
@@ -2993,6 +2994,7 @@ class _TestHomePerformanceApi extends PortfolioApiClient {
     required PerformanceRange range,
     String? folderId,
     bool localPremiumVerified = false,
+    ApiRequestDeadline? deadline,
   }) async {
     final pricedItemCount = purchasePriceItemCount ?? (itemCount == 0 ? 0 : 60);
     final previous = PerformancePointDto(
@@ -3082,6 +3084,7 @@ class _SlowOverviewHistoryApi extends _TestHomePerformanceApi {
     int days = 90,
     String? folderId,
     bool localPremiumVerified = false,
+    ApiRequestDeadline? deadline,
   }) {
     folderIds.add(folderId);
     return _response.future;
@@ -3116,6 +3119,7 @@ class _EntitlementSyncPerformanceApi extends _TestHomePerformanceApi {
     required PerformanceRange range,
     String? folderId,
     bool localPremiumVerified = false,
+    ApiRequestDeadline? deadline,
   }) {
     calls++;
     if (calls == 1 || !succeedAfterRepair) {
@@ -3141,6 +3145,7 @@ class _FailingRangePerformanceApi extends _TestHomePerformanceApi {
     required PerformanceRange range,
     String? folderId,
     bool localPremiumVerified = false,
+    ApiRequestDeadline? deadline,
   }) {
     if (range == PerformanceRange.sevenDays) {
       throw const PortfolioApiException(
@@ -3167,6 +3172,7 @@ class _SlowRangePerformanceApi extends _TestHomePerformanceApi {
     required PerformanceRange range,
     String? folderId,
     bool localPremiumVerified = false,
+    ApiRequestDeadline? deadline,
   }) async {
     if (range == PerformanceRange.sevenDays) {
       await _rangeGate.future;
@@ -3191,6 +3197,7 @@ class _EntitlementSyncRangePerformanceApi extends _TestHomePerformanceApi {
     required PerformanceRange range,
     String? folderId,
     bool localPremiumVerified = false,
+    ApiRequestDeadline? deadline,
   }) {
     if (range == PerformanceRange.sevenDays) {
       rangeCalls++;

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/shared/api/api_request_executor.dart';
 import 'package:kando_app/features/home/home_entitlement_repair.dart';
 import 'package:kando_app/features/home/home_performance_controller.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
@@ -295,6 +296,7 @@ class _ControlledPerformanceApi extends PortfolioApiClient {
     required PerformanceRange range,
     String? folderId,
     bool localPremiumVerified = false,
+    ApiRequestDeadline? deadline,
   }) {
     expect(localPremiumVerified, isTrue);
     requests.add(_PerformanceRequest(folderId, range));
@@ -325,6 +327,7 @@ class _RepairablePerformanceApi extends PortfolioApiClient {
     required PerformanceRange range,
     String? folderId,
     bool localPremiumVerified = false,
+    ApiRequestDeadline? deadline,
   }) async {
     calls += 1;
     if (calls == 1) {

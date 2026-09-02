@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/shared/api/api_request_executor.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
@@ -125,21 +126,35 @@ class HomePerformanceController extends Notifier<HomePerformanceState> {
     required String folderId,
     required bool localPremiumVerified,
   }) async {
-    Future<PortfolioPerformanceDto> request() => ref
-        .read(portfolioApiClientProvider)
-        .getPortfolioPerformance(
-          session,
-          range: range,
-          folderId: folderId,
-          localPremiumVerified: localPremiumVerified,
-        )
-        .timeout(const Duration(seconds: 15));
+    final deadline = ApiRequestDeadline(portfolioRequestDeadline);
+    PortfolioApiException timeoutException() => const PortfolioApiException(
+      portfolioRequestTimeoutMessage,
+      code: portfolioRequestTimeoutCode,
+    );
+    Future<PortfolioPerformanceDto> request() => runWithinApiDeadline(
+      deadline,
+      () => ref
+          .read(portfolioApiClientProvider)
+          .getPortfolioPerformance(
+            session,
+            range: range,
+            folderId: folderId,
+            localPremiumVerified: localPremiumVerified,
+            deadline: deadline,
+          ),
+      timeoutException: timeoutException,
+    );
 
     try {
       return await request();
     } catch (error) {
-      if (!isEntitlementSyncRequired(error) ||
-          !await ref.read(homeEntitlementRepairProvider)()) {
+      if (!isEntitlementSyncRequired(error)) rethrow;
+      final repaired = await runWithinApiDeadline(
+        deadline,
+        ref.read(homeEntitlementRepairProvider),
+        timeoutException: timeoutException,
+      );
+      if (!repaired) {
         rethrow;
       }
       return request();

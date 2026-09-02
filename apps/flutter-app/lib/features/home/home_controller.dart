@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/shared/api/api_request_executor.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/currency/currency.dart';
@@ -971,21 +972,35 @@ class HomeController extends Notifier<HomeState> {
     AuthSession session,
     String folderId,
   ) async {
-    Future<List<PortfolioFolderValuationDto>> request() => ref
-        .read(portfolioApiClientProvider)
-        .getValuationHistory(
-          session,
-          days: 365,
-          folderId: folderId,
-          localPremiumVerified: true,
-        )
-        .timeout(const Duration(seconds: 15));
+    final deadline = ApiRequestDeadline(portfolioRequestDeadline);
+    PortfolioApiException timeoutException() => const PortfolioApiException(
+      portfolioRequestTimeoutMessage,
+      code: portfolioRequestTimeoutCode,
+    );
+    Future<List<PortfolioFolderValuationDto>> request() => runWithinApiDeadline(
+      deadline,
+      () => ref
+          .read(portfolioApiClientProvider)
+          .getValuationHistory(
+            session,
+            days: 365,
+            folderId: folderId,
+            localPremiumVerified: true,
+            deadline: deadline,
+          ),
+      timeoutException: timeoutException,
+    );
 
     try {
       return await request();
     } catch (error) {
-      if (!isEntitlementSyncRequired(error) ||
-          !await ref.read(homeEntitlementRepairProvider)()) {
+      if (!isEntitlementSyncRequired(error)) rethrow;
+      final repaired = await runWithinApiDeadline(
+        deadline,
+        ref.read(homeEntitlementRepairProvider),
+        timeoutException: timeoutException,
+      );
+      if (!repaired) {
         rethrow;
       }
       return request();

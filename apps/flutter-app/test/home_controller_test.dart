@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/shared/api/api_request_executor.dart';
 import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/features/home/home_entitlement_repair.dart';
 import 'package:kando_app/features/home/home_models.dart';
@@ -832,6 +833,7 @@ class _DelayedOneYearPortfolioApi extends PortfolioApiClient {
     AuthSession session, {
     int days = 90,
     bool localPremiumVerified = false,
+    ApiRequestDeadline? deadline,
     String? folderId,
   }) {
     calls += 1;
@@ -870,6 +872,7 @@ class _RepairableOneYearPortfolioApi extends PortfolioApiClient {
     AuthSession session, {
     int days = 90,
     bool localPremiumVerified = false,
+    ApiRequestDeadline? deadline,
     String? folderId,
   }) async {
     calls += 1;

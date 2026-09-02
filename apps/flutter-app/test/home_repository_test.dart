@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/shared/api/api_request_executor.dart';
 import 'package:kando_app/features/home/home_models.dart';
 import 'package:kando_app/features/home/home_repository.dart';
 import 'package:kando_app/features/search/search_repository.dart';
@@ -261,6 +262,7 @@ class _PortfolioApi implements PortfolioApi {
     int days = 90,
     String? folderId,
     bool localPremiumVerified = false,
+    ApiRequestDeadline? deadline,
   }) async => [
     PortfolioFolderValuationDto(
       folderId: 'main',

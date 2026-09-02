@@ -5,9 +5,17 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/shared/api/api_request_executor.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 
 void main() {
+  const immediateReadRetry = ApiRetryPolicy(
+    maxAttempts: 2,
+    baseDelay: Duration.zero,
+    maxDelay: Duration.zero,
+    jitterRatio: 0,
+  );
+
   test(
     'portfolio transport keeps the full request deadline for server responses because Collection dashboard enrichment can exceed five seconds',
     () {
@@ -55,6 +63,201 @@ void main() {
       expect(folders.single.sortOrder, 100);
     },
   );
+
+  test(
+    'Portfolio GET retries one transient 503 and then maps success',
+    () async {
+      var calls = 0;
+      final adapter = _RecordingAdapter((_) {
+        calls += 1;
+        if (calls == 1) {
+          return _json(503, {
+            'success': false,
+            'error': {'code': 'UNAVAILABLE', 'message': 'Try again.'},
+          });
+        }
+        return _foldersResponse();
+      });
+
+      final folders = await PortfolioApiClient(
+        _dio(adapter),
+        readRetryPolicy: immediateReadRetry,
+      ).listFolders(_session);
+
+      expect(folders.single.id, 'main');
+      expect(adapter.requests, hasLength(2));
+      expect(adapter.requests.map((request) => request.attempt), [1, 2]);
+    },
+  );
+
+  for (final statusCode in const [409, 422]) {
+    test('Portfolio GET does not retry HTTP $statusCode', () async {
+      final adapter = _RecordingAdapter((_) {
+        return _json(statusCode, {
+          'success': false,
+          'error': {'code': 'TERMINAL', 'message': 'Do not retry.'},
+        });
+      });
+
+      await expectLater(
+        PortfolioApiClient(
+          _dio(adapter),
+          readRetryPolicy: immediateReadRetry,
+        ).listFolders(_session),
+        throwsA(
+          isA<PortfolioApiException>().having(
+            (error) => error.statusCode,
+            'statusCode',
+            statusCode,
+          ),
+        ),
+      );
+
+      expect(adapter.requests, hasLength(1));
+    });
+  }
+
+  test(
+    'identical in-flight Portfolio GET requests share one transport',
+    () async {
+      final gate = Completer<void>();
+      final adapter = _RecordingAdapter((_) async {
+        await gate.future;
+        return _foldersResponse();
+      });
+      final api = PortfolioApiClient(_dio(adapter));
+
+      final first = api.listFolders(_session);
+      final second = api.listFolders(_session);
+      await _waitForRequestCount(adapter, 1);
+
+      expect(adapter.requests, hasLength(1));
+      gate.complete();
+      final results = await Future.wait([first, second]);
+      expect(results[0].single.id, 'main');
+      expect(results[1].single.id, 'main');
+    },
+  );
+
+  test('Portfolio GET coalescing keeps account context isolated', () async {
+    final gate = Completer<void>();
+    final adapter = _RecordingAdapter((_) async {
+      await gate.future;
+      return _foldersResponse();
+    });
+    final api = PortfolioApiClient(_dio(adapter));
+    final otherSession = AuthSession(
+      ownerType: OwnerType.user,
+      accessToken: 'other-access',
+      refreshToken: 'other-refresh',
+      userId: 'owner-2',
+    );
+
+    final first = api.listFolders(_session);
+    final second = api.listFolders(otherSession);
+    await _waitForRequestCount(adapter, 2);
+
+    expect(adapter.requests, hasLength(2));
+    expect(adapter.requests.map((request) => request.authorization).toSet(), {
+      'Bearer owner-access',
+      'Bearer other-access',
+    });
+    gate.complete();
+    await Future.wait([first, second]);
+  });
+
+  test(
+    'Portfolio GET coalescing keeps Folder and range query isolated',
+    () async {
+      final gate = Completer<void>();
+      final adapter = _RecordingAdapter((_) async {
+        await gate.future;
+        return _json(200, {
+          'success': true,
+          'data': {'items': <Object?>[]},
+        });
+      });
+      final api = PortfolioApiClient(_dio(adapter));
+
+      final folderA90 = api.getValuationHistory(
+        _session,
+        days: 90,
+        folderId: 'folder-a',
+      );
+      final folderA365 = api.getValuationHistory(
+        _session,
+        days: 365,
+        folderId: 'folder-a',
+      );
+      final folderB90 = api.getValuationHistory(
+        _session,
+        days: 90,
+        folderId: 'folder-b',
+      );
+      await _waitForRequestCount(adapter, 3);
+
+      expect(adapter.requests, hasLength(3));
+      expect(adapter.requests.map((request) => request.queryParameters), [
+        {'days': '90', 'folder_id': 'folder-a'},
+        {'days': '365', 'folder_id': 'folder-a'},
+        {'days': '90', 'folder_id': 'folder-b'},
+      ]);
+      gate.complete();
+      await Future.wait([folderA90, folderA365, folderB90]);
+    },
+  );
+
+  test('failed Portfolio GET is removed from the in-flight registry', () async {
+    var calls = 0;
+    final adapter = _RecordingAdapter((_) {
+      calls += 1;
+      if (calls == 1) {
+        return _json(422, {
+          'success': false,
+          'error': {'code': 'INVALID', 'message': 'Invalid request.'},
+        });
+      }
+      return _foldersResponse();
+    });
+    final api = PortfolioApiClient(
+      _dio(adapter),
+      readRetryPolicy: ApiRetryPolicy.none,
+    );
+
+    await expectLater(
+      api.listFolders(_session),
+      throwsA(isA<PortfolioApiException>()),
+    );
+    final folders = await api.listFolders(_session);
+
+    expect(folders.single.id, 'main');
+    expect(adapter.requests, hasLength(2));
+  });
+
+  test('Portfolio GET uses the remaining shared operation deadline', () async {
+    final adapter = _RecordingAdapter((_) async {
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      return _foldersResponse();
+    });
+    final deadline = ApiRequestDeadline(const Duration(milliseconds: 50));
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+
+    await expectLater(
+      PortfolioApiClient(
+        _dio(adapter),
+        requestDeadline: const Duration(seconds: 1),
+        readRetryPolicy: ApiRetryPolicy.none,
+      ).getValuationHistory(_session, deadline: deadline),
+      throwsA(
+        isA<PortfolioApiException>().having(
+          (error) => error.code,
+          'code',
+          portfolioRequestTimeoutCode,
+        ),
+      ),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 40));
+  });
 
   test(
     'folder mutations use Workers routes because Portfolio management must persist for the current owner',
@@ -1369,6 +1572,17 @@ ResponseBody _json(int statusCode, Map<String, Object?> body) {
   );
 }
 
+ResponseBody _foldersResponse() {
+  return _json(200, {
+    'success': true,
+    'data': {
+      'items': [
+        _folderJson(id: 'main', name: 'Main', isDefault: true, sortOrder: 100),
+      ],
+    },
+  });
+}
+
 class _RecordingAdapter implements HttpClientAdapter {
   _RecordingAdapter(this.handler);
 
@@ -1390,6 +1604,7 @@ class _RecordingAdapter implements HttpClientAdapter {
       authorization: options.headers['Authorization']?.toString(),
       idempotencyKey: options.headers['Idempotency-Key']?.toString(),
       localPremiumState: options.headers['X-Local-Premium-State']?.toString(),
+      attempt: options.extra[apiRequestAttemptKey] as int?,
       body: await _decodeBody(requestStream) ?? options.data,
     );
     requests.add(request);
@@ -1410,6 +1625,16 @@ Future<Object?> _decodeBody(Stream<Uint8List>? requestStream) async {
   return jsonDecode(utf8.decode(bytes));
 }
 
+Future<void> _waitForRequestCount(
+  _RecordingAdapter adapter,
+  int expected,
+) async {
+  for (var attempt = 0; attempt < 20; attempt += 1) {
+    if (adapter.requests.length >= expected) return;
+    await Future<void>.delayed(const Duration(milliseconds: 1));
+  }
+}
+
 class _RecordedRequest {
   const _RecordedRequest({
     required this.method,
@@ -1418,6 +1643,7 @@ class _RecordedRequest {
     required this.authorization,
     required this.idempotencyKey,
     required this.localPremiumState,
+    required this.attempt,
     required this.body,
   });
 
@@ -1427,5 +1653,6 @@ class _RecordedRequest {
   final String? authorization;
   final String? idempotencyKey;
   final String? localPremiumState;
+  final int? attempt;
   final Object? body;
 }

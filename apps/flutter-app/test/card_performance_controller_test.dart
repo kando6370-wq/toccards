@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/shared/api/api_request_executor.dart';
 import 'package:kando_app/features/card_detail/card_performance_controller.dart';
 import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
@@ -232,6 +233,7 @@ class _ControlledItemPerformanceApi extends PortfolioApiClient {
     required String itemId,
     required PerformanceRange range,
     bool localPremiumVerified = false,
+    ApiRequestDeadline? deadline,
   }) {
     expect(localPremiumVerified, isTrue);
     itemIds.add(itemId);

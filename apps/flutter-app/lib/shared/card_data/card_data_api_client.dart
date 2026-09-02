@@ -1,7 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/shared/api/api_dio_factory.dart';
+import 'package:kando_app/shared/api/api_request_executor.dart';
+import 'package:kando_app/shared/api/in_flight_request_coalescer.dart';
 import 'package:kando_app/shared/pagination/pagination.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
 
@@ -12,12 +16,10 @@ const cardDataRequestTimeoutCode = 'REQUEST_TIMEOUT';
 const cardDataRequestTimeoutMessage = 'Request timed out. Please try again.';
 
 Dio createCardDataDio({String baseUrl = cardDataApiBaseUrl}) {
-  return Dio(
-    BaseOptions(
-      baseUrl: baseUrl,
-      connectTimeout: const Duration(seconds: 5),
-      receiveTimeout: const Duration(seconds: 5),
-    ),
+  return createApiDio(
+    baseUrl: baseUrl,
+    connectTimeout: const Duration(seconds: 5),
+    receiveTimeout: const Duration(seconds: 5),
   );
 }
 
@@ -324,13 +326,19 @@ class CardDataApiClient
         SetCatalogApi,
         BatchCardDataApi,
         PremiumPriceSeriesApi {
-  const CardDataApiClient(
+  CardDataApiClient(
     this._dio, {
     this.requestDeadline = cardDataRequestDeadline,
-  });
+    this.readRetryPolicy = ApiRetryPolicy.transientRead,
+    this.retrySleep,
+    InFlightRequestCoalescer? inFlightReads,
+  }) : _inFlightReads = inFlightReads ?? InFlightRequestCoalescer();
 
   final Dio _dio;
   final Duration requestDeadline;
+  final ApiRetryPolicy readRetryPolicy;
+  final ApiRequestSleep? retrySleep;
+  final InFlightRequestCoalescer _inFlightReads;
 
   @override
   Future<List<CardDataCardDto>> searchCards(String query, {String? game}) {
@@ -568,40 +576,68 @@ class CardDataApiClient
     Object? body,
     Map<String, Object?>? headers,
   }) async {
-    final cancelToken = CancelToken();
-    late final Response<Object?> response;
-    try {
-      response = await _dio
-          .request<Object?>(
-            path,
-            queryParameters: queryParameters,
-            data: body,
-            cancelToken: cancelToken,
-            options: Options(
-              method: method,
-              headers: headers,
-              validateStatus: (_) => true,
-            ),
-          )
-          .timeout(
-            requestDeadline,
-            onTimeout: () {
-              cancelToken.cancel(cardDataRequestTimeoutCode);
-              throw const CardDataApiException(
-                cardDataRequestTimeoutMessage,
-                code: cardDataRequestTimeoutCode,
-              );
-            },
-          );
-    } on DioException {
-      if (cancelToken.isCancelled) {
-        throw const CardDataApiException(
-          cardDataRequestTimeoutMessage,
-          code: cardDataRequestTimeoutCode,
-        );
-      }
-      rethrow;
+    final normalizedMethod = method.toUpperCase();
+    if (normalizedMethod == 'GET' || normalizedMethod == 'HEAD') {
+      return _inFlightReads.run(
+        _readRequestKey(
+          method: normalizedMethod,
+          path: path,
+          queryParameters: queryParameters,
+          headers: headers,
+        ),
+        () => _executeRequestData(
+          normalizedMethod,
+          path,
+          queryParameters: queryParameters,
+          body: body,
+          headers: headers,
+        ),
+      );
     }
+    return _executeRequestData(
+      normalizedMethod,
+      path,
+      queryParameters: queryParameters,
+      body: body,
+      headers: headers,
+    );
+  }
+
+  Future<Map<String, Object?>> _executeRequestData(
+    String method,
+    String path, {
+    Map<String, Object?>? queryParameters,
+    Object? body,
+    Map<String, Object?>? headers,
+  }) async {
+    final response =
+        await ApiRequestExecutor(
+          requestDeadline: requestDeadline,
+          retryPolicy: method == 'GET' || method == 'HEAD'
+              ? readRetryPolicy
+              : ApiRetryPolicy.none,
+          sleep: retrySleep,
+        ).execute(
+          method: method,
+          request: (cancelToken, attempt) {
+            return _dio.request<Object?>(
+              path,
+              queryParameters: queryParameters,
+              data: body,
+              cancelToken: cancelToken,
+              options: Options(
+                method: method,
+                headers: headers,
+                validateStatus: (_) => true,
+                extra: {apiRequestAttemptKey: attempt},
+              ),
+            );
+          },
+          timeoutException: () => const CardDataApiException(
+            cardDataRequestTimeoutMessage,
+            code: cardDataRequestTimeoutCode,
+          ),
+        );
     final envelope = response.data;
     if (envelope is Map && envelope['success'] == true) {
       final data = envelope['data'];
@@ -612,6 +648,23 @@ class CardDataApiClient
     }
 
     throw _apiException(envelope, statusCode: response.statusCode);
+  }
+
+  String _readRequestKey({
+    required String method,
+    required String path,
+    Map<String, Object?>? queryParameters,
+    Map<String, Object?>? headers,
+  }) {
+    final normalizedHeaders = headers?.map(
+      (key, value) => MapEntry(key.toLowerCase(), value),
+    );
+    return jsonEncode({
+      'method': method,
+      'path': path,
+      'query': _sortedRequestValues(queryParameters),
+      'headers': _sortedRequestValues(normalizedHeaders),
+    });
   }
 
   CardDataApiException _apiException(Object? envelope, {int? statusCode}) {
@@ -631,6 +684,12 @@ class CardDataApiClient
       statusCode: statusCode,
     );
   }
+}
+
+Map<String, Object?> _sortedRequestValues(Map<String, Object?>? values) {
+  if (values == null || values.isEmpty) return const {};
+  final keys = values.keys.toList()..sort();
+  return {for (final key in keys) key: values[key]};
 }
 
 List<Map<String, Object?>> _items(Map<String, Object?> data) {

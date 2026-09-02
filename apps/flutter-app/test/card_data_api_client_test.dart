@@ -5,7 +5,15 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/shared/api/api_request_executor.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
+
+const _immediateReadRetryPolicy = ApiRetryPolicy(
+  maxAttempts: 2,
+  baseDelay: Duration.zero,
+  maxDelay: Duration.zero,
+  jitterRatio: 0,
+);
 
 void main() {
   test(
@@ -105,6 +113,236 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 100));
     },
   );
+
+  test(
+    'a transient GET failure retries once within the same operation',
+    () async {
+      var calls = 0;
+      final adapter = _RecordingAdapter((_) {
+        calls += 1;
+        if (calls == 1) {
+          return _json(503, {
+            'success': false,
+            'error': {'code': 'SERVICE_UNAVAILABLE'},
+          });
+        }
+        return _json(200, {
+          'success': true,
+          'data': {
+            'items': [_cardJson(cardRef: 'retry-result')],
+          },
+        });
+      });
+
+      final cards = await CardDataApiClient(
+        _dio(adapter),
+        readRetryPolicy: _immediateReadRetryPolicy,
+      ).searchCards('retry');
+
+      expect(calls, 2);
+      expect(adapter.requests.map((request) => request.attempt), [1, 2]);
+      expect(cards.single.cardRef, 'retry-result');
+    },
+  );
+
+  for (final statusCode in [409, 422]) {
+    test(
+      '$statusCode is not retried because it is a business response',
+      () async {
+        var calls = 0;
+        final adapter = _RecordingAdapter((_) {
+          calls += 1;
+          return _json(statusCode, {
+            'success': false,
+            'error': {
+              'code': statusCode == 409
+                  ? 'ENTITLEMENT_SYNC_REQUIRED'
+                  : 'INVALID_REQUEST',
+            },
+          });
+        });
+
+        await expectLater(
+          CardDataApiClient(
+            _dio(adapter),
+            readRetryPolicy: _immediateReadRetryPolicy,
+          ).searchCards('business-error'),
+          throwsA(
+            isA<CardDataApiException>().having(
+              (error) => error.statusCode,
+              'statusCode',
+              statusCode,
+            ),
+          ),
+        );
+
+        expect(calls, 1);
+      },
+    );
+  }
+
+  test(
+    'POST is not retried after 503 because writes require explicit policy',
+    () async {
+      var calls = 0;
+      final adapter = _RecordingAdapter((_) {
+        calls += 1;
+        return _json(503, {
+          'success': false,
+          'error': {'code': 'SERVICE_UNAVAILABLE'},
+        });
+      });
+
+      await expectLater(
+        CardDataApiClient(
+          _dio(adapter),
+          readRetryPolicy: _immediateReadRetryPolicy,
+        ).getPriceSeriesBatch('card-1', const [
+          CardDataPriceSeriesQuery(days: 30, grader: 'Raw'),
+        ]),
+        throwsA(
+          isA<CardDataApiException>().having(
+            (error) => error.statusCode,
+            'statusCode',
+            503,
+          ),
+        ),
+      );
+
+      expect(calls, 1);
+    },
+  );
+
+  test('a retried GET shares the original total deadline', () async {
+    var calls = 0;
+    final adapter = _RecordingAdapter((_) async {
+      calls += 1;
+      if (calls == 1) {
+        return _json(503, {
+          'success': false,
+          'error': {'code': 'SERVICE_UNAVAILABLE'},
+        });
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      return _json(200, {
+        'success': true,
+        'data': {
+          'items': [_cardJson(cardRef: 'too-late')],
+        },
+      });
+    });
+
+    await expectLater(
+      CardDataApiClient(
+        _dio(adapter),
+        requestDeadline: const Duration(milliseconds: 20),
+        readRetryPolicy: _immediateReadRetryPolicy,
+      ).searchCards('deadline'),
+      throwsA(
+        isA<CardDataApiException>().having(
+          (error) => error.code,
+          'code',
+          cardDataRequestTimeoutCode,
+        ),
+      ),
+    );
+
+    expect(calls, 2);
+  });
+
+  test('identical in-flight GETs share one transport request', () async {
+    final response = Completer<ResponseBody>();
+    final requestStarted = Completer<void>();
+    var calls = 0;
+    final adapter = _RecordingAdapter((_) {
+      calls += 1;
+      if (!requestStarted.isCompleted) requestStarted.complete();
+      return response.future;
+    });
+    final client = CardDataApiClient(
+      _dio(adapter),
+      readRetryPolicy: ApiRetryPolicy.none,
+    );
+
+    final first = client.searchCards('pikachu', game: 'Pokemon');
+    final second = client.searchCards('pikachu', game: 'Pokemon');
+    await requestStarted.future;
+
+    expect(calls, 1);
+    response.complete(
+      _json(200, {
+        'success': true,
+        'data': {
+          'items': [_cardJson(cardRef: 'shared-result')],
+        },
+      }),
+    );
+
+    expect((await first).single.cardRef, 'shared-result');
+    expect((await second).single.cardRef, 'shared-result');
+  });
+
+  test('different GET query parameters are never coalesced', () async {
+    var calls = 0;
+    final adapter = _RecordingAdapter((request) {
+      calls += 1;
+      return _json(200, {
+        'success': true,
+        'data': {
+          'items': [
+            _cardJson(cardRef: request.queryParameters['q'] ?? 'missing'),
+          ],
+        },
+      });
+    });
+    final client = CardDataApiClient(
+      _dio(adapter),
+      readRetryPolicy: ApiRetryPolicy.none,
+    );
+
+    final results = await Future.wait([
+      client.searchCards('pikachu'),
+      client.searchCards('charizard'),
+    ]);
+
+    expect(calls, 2);
+    expect(results.map((cards) => cards.single.cardRef), [
+      'pikachu',
+      'charizard',
+    ]);
+  });
+
+  test('a failed coalesced GET is removed before the next request', () async {
+    var calls = 0;
+    final adapter = _RecordingAdapter((_) {
+      calls += 1;
+      if (calls == 1) {
+        return _json(422, {
+          'success': false,
+          'error': {'code': 'INVALID_REQUEST'},
+        });
+      }
+      return _json(200, {
+        'success': true,
+        'data': {
+          'items': [_cardJson(cardRef: 'recovered')],
+        },
+      });
+    });
+    final client = CardDataApiClient(
+      _dio(adapter),
+      readRetryPolicy: ApiRetryPolicy.none,
+    );
+
+    await expectLater(
+      client.searchCards('retry-later'),
+      throwsA(isA<CardDataApiException>()),
+    );
+    final cards = await client.searchCards('retry-later');
+
+    expect(calls, 2);
+    expect(cards.single.cardRef, 'recovered');
+  });
 
   for (final testCase in <(String, String?)>[
     ('an empty string', ''),
@@ -509,6 +747,7 @@ class _RecordingAdapter implements HttpClientAdapter {
   _RecordingAdapter(this.handler);
 
   final FutureOr<ResponseBody> Function(_RecordedRequest request) handler;
+  final List<_RecordedRequest> requests = [];
 
   @override
   Future<ResponseBody> fetch(
@@ -516,17 +755,18 @@ class _RecordingAdapter implements HttpClientAdapter {
     Stream<Uint8List>? requestStream,
     Future<void>? cancelFuture,
   ) async {
-    return await handler(
-      _RecordedRequest(
-        method: options.method,
-        path: options.path,
-        data: options.data,
-        headers: Map<String, Object?>.from(options.headers),
-        queryParameters: options.queryParameters.map(
-          (key, value) => MapEntry(key, value.toString()),
-        ),
+    final request = _RecordedRequest(
+      method: options.method,
+      path: options.path,
+      data: options.data,
+      headers: Map<String, Object?>.from(options.headers),
+      queryParameters: options.queryParameters.map(
+        (key, value) => MapEntry(key, value.toString()),
       ),
+      attempt: options.extra[apiRequestAttemptKey] as int?,
     );
+    requests.add(request);
+    return await handler(request);
   }
 
   @override
@@ -540,6 +780,7 @@ class _RecordedRequest {
     required this.data,
     required this.headers,
     required this.queryParameters,
+    required this.attempt,
   });
 
   final String method;
@@ -547,4 +788,5 @@ class _RecordedRequest {
   final Object? data;
   final Map<String, Object?> headers;
   final Map<String, String> queryParameters;
+  final int? attempt;
 }

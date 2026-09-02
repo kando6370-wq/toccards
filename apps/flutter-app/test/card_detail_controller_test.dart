@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/shared/api/api_request_executor.dart';
 import 'package:kando_app/features/card_detail/card_detail_controller.dart';
 import 'package:kando_app/features/card_detail/card_detail_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_repository.dart';
@@ -1878,6 +1879,7 @@ class _ImmediatePerformanceApi extends PortfolioApiClient {
     required PerformanceRange range,
     String? folderId,
     bool localPremiumVerified = false,
+    ApiRequestDeadline? deadline,
   }) async {
     final point = PerformancePointDto(
       date: '2026-08-13',
@@ -1952,6 +1954,7 @@ class _FakePortfolioApiClient implements PortfolioApi {
     int days = 90,
     String? folderId,
     bool localPremiumVerified = false,
+    ApiRequestDeadline? deadline,
   }) async => const [];
 
   @override
@@ -1960,6 +1963,7 @@ class _FakePortfolioApiClient implements PortfolioApi {
     required PerformanceRange range,
     String? folderId,
     bool localPremiumVerified = false,
+    ApiRequestDeadline? deadline,
   }) => throw UnimplementedError();
 
   @override
@@ -1968,6 +1972,7 @@ class _FakePortfolioApiClient implements PortfolioApi {
     required String itemId,
     required PerformanceRange range,
     bool localPremiumVerified = false,
+    ApiRequestDeadline? deadline,
   }) => throw UnimplementedError();
 
   @override

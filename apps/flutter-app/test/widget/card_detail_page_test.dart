@@ -10,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/shared/api/api_request_executor.dart';
 import 'package:kando_app/features/card_detail/card_detail_actions.dart';
 import 'package:kando_app/features/card_detail/card_detail_controller.dart';
 import 'package:kando_app/features/card_detail/card_detail_models.dart';
@@ -2357,6 +2358,7 @@ class _CardPerformanceApi extends PortfolioApiClient {
     required String itemId,
     required PerformanceRange range,
     bool localPremiumVerified = false,
+    ApiRequestDeadline? deadline,
   }) async {
     final point = PerformancePointDto(
       date: '2026-08-12',
@@ -2398,6 +2400,7 @@ class _SlowRangeCardPerformanceApi extends _CardPerformanceApi {
     required String itemId,
     required PerformanceRange range,
     bool localPremiumVerified = false,
+    ApiRequestDeadline? deadline,
   }) {
     final response = super.getItemPerformance(
       session,
@@ -2428,6 +2431,7 @@ class _MissingPriceCardPerformanceApi extends _CardPerformanceApi {
     required String itemId,
     required PerformanceRange range,
     bool localPremiumVerified = false,
+    ApiRequestDeadline? deadline,
   }) async {
     requestCount += 1;
     final normal = await super.getItemPerformance(

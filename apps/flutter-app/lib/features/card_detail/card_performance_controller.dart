@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/subscription/subscription_controller.dart';
+import 'package:kando_app/shared/api/api_request_executor.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
@@ -73,15 +74,24 @@ class CardPerformanceController extends Notifier<CardPerformanceState> {
       hasLoaded: previous.hasLoaded,
     );
     try {
-      Future<PortfolioPerformanceDto> request() => ref
-          .read(portfolioApiClientProvider)
-          .getItemPerformance(
-            session,
-            itemId: itemId,
-            range: range,
-            localPremiumVerified: localPremiumVerified,
-          )
-          .timeout(const Duration(seconds: 15));
+      final deadline = ApiRequestDeadline(portfolioRequestDeadline);
+      PortfolioApiException timeoutException() => const PortfolioApiException(
+        portfolioRequestTimeoutMessage,
+        code: portfolioRequestTimeoutCode,
+      );
+      Future<PortfolioPerformanceDto> request() => runWithinApiDeadline(
+        deadline,
+        () => ref
+            .read(portfolioApiClientProvider)
+            .getItemPerformance(
+              session,
+              itemId: itemId,
+              range: range,
+              localPremiumVerified: localPremiumVerified,
+              deadline: deadline,
+            ),
+        timeoutException: timeoutException,
+      );
       late final PortfolioPerformanceDto data;
       try {
         data = await request();
@@ -90,9 +100,13 @@ class CardPerformanceController extends Notifier<CardPerformanceState> {
             error.code != 'ENTITLEMENT_SYNC_REQUIRED') {
           rethrow;
         }
-        final reconciliation = await ref
-            .read(subscriptionControllerProvider.notifier)
-            .reconcileServerEntitlement();
+        final reconciliation = await runWithinApiDeadline(
+          deadline,
+          () => ref
+              .read(subscriptionControllerProvider.notifier)
+              .reconcileServerEntitlement(),
+          timeoutException: timeoutException,
+        );
         if (reconciliation !=
             EntitlementReconciliationResult.premiumSynchronized) {
           rethrow;

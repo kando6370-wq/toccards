@@ -5,6 +5,9 @@ import 'package:dio/dio.dart';
 import 'package:kando_app/shared/pagination/pagination.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
+import 'package:kando_app/shared/api/api_dio_factory.dart';
+import 'package:kando_app/shared/api/api_request_executor.dart';
+import 'package:kando_app/shared/api/in_flight_request_coalescer.dart';
 import 'package:uuid/uuid.dart';
 
 const portfolioApiBaseUrl = authApiBaseUrl;
@@ -16,12 +19,10 @@ const portfolioRequestTimeoutCode = 'REQUEST_TIMEOUT';
 const portfolioRequestTimeoutMessage = 'Request timed out. Please try again.';
 
 Dio createPortfolioDio({String baseUrl = portfolioApiBaseUrl}) {
-  return Dio(
-    BaseOptions(
-      baseUrl: baseUrl,
-      connectTimeout: const Duration(seconds: 5),
-      receiveTimeout: portfolioRequestDeadline,
-    ),
+  return createApiDio(
+    baseUrl: baseUrl,
+    connectTimeout: const Duration(seconds: 5),
+    receiveTimeout: portfolioRequestDeadline,
   );
 }
 
@@ -635,18 +636,21 @@ abstract interface class PortfolioApi {
     int days = 90,
     String? folderId,
     bool localPremiumVerified = false,
+    ApiRequestDeadline? deadline,
   });
   Future<PortfolioPerformanceDto> getPortfolioPerformance(
     AuthSession session, {
     required PerformanceRange range,
     String? folderId,
     bool localPremiumVerified = false,
+    ApiRequestDeadline? deadline,
   });
   Future<PortfolioPerformanceDto> getItemPerformance(
     AuthSession session, {
     required String itemId,
     required PerformanceRange range,
     bool localPremiumVerified = false,
+    ApiRequestDeadline? deadline,
   });
   Future<List<WishlistItemDto>> listWishlistItems(AuthSession session);
   Future<PortfolioItemDto> quickCollect(
@@ -704,10 +708,16 @@ class PortfolioApiClient
   PortfolioApiClient(
     this._dio, {
     this.requestDeadline = portfolioRequestDeadline,
-  });
+    this.readRetryPolicy = ApiRetryPolicy.transientRead,
+    this.retrySleep,
+    InFlightRequestCoalescer? inFlightReads,
+  }) : _inFlightReads = inFlightReads ?? InFlightRequestCoalescer();
 
   final Dio _dio;
   final Duration requestDeadline;
+  final ApiRetryPolicy readRetryPolicy;
+  final ApiRequestSleep? retrySleep;
+  final InFlightRequestCoalescer _inFlightReads;
   final Map<String, String> _pendingFolderRequestIds = {};
   final Map<String, String> _pendingItemRequestIds = {};
   final Map<String, String> _pendingWishlistRequestIds = {};
@@ -716,13 +726,13 @@ class PortfolioApiClient
   Future<CollectionDashboardDto> getCollectionDashboard(
     AuthSession session,
   ) async {
-    final data = await _requestData('GET', '/collection/dashboard', session);
+    final data = await _requestReadData('/collection/dashboard', session);
     return CollectionDashboardDto.fromJson(data);
   }
 
   @override
   Future<List<PortfolioFolderDto>> listFolders(AuthSession session) async {
-    final data = await _requestData('GET', '/portfolio/folders', session);
+    final data = await _requestReadData('/portfolio/folders', session);
     return _items(data).map(PortfolioFolderDto.fromJson).toList();
   }
 
@@ -858,9 +868,9 @@ class PortfolioApiClient
     int days = 90,
     String? folderId,
     bool localPremiumVerified = false,
+    ApiRequestDeadline? deadline,
   }) async {
-    final data = await _requestData(
-      'GET',
+    final data = await _requestReadData(
       '/portfolio/valuation-history',
       session,
       queryParameters: {
@@ -868,6 +878,7 @@ class PortfolioApiClient
         if (folderId != null) 'folder_id': folderId,
       },
       headers: {if (localPremiumVerified) 'X-Local-Premium-State': 'verified'},
+      deadline: deadline,
     );
     return _items(data).map(PortfolioFolderValuationDto.fromJson).toList();
   }
@@ -878,9 +889,9 @@ class PortfolioApiClient
     required PerformanceRange range,
     String? folderId,
     bool localPremiumVerified = false,
+    ApiRequestDeadline? deadline,
   }) async {
-    final data = await _requestData(
-      'GET',
+    final data = await _requestReadData(
       '/portfolio/performance',
       session,
       queryParameters: {
@@ -888,6 +899,7 @@ class PortfolioApiClient
         if (folderId != null) 'folder_id': folderId,
       },
       headers: {if (localPremiumVerified) 'X-Local-Premium-State': 'verified'},
+      deadline: deadline,
     );
     return PortfolioPerformanceDto.fromJson(data);
   }
@@ -898,13 +910,14 @@ class PortfolioApiClient
     required String itemId,
     required PerformanceRange range,
     bool localPremiumVerified = false,
+    ApiRequestDeadline? deadline,
   }) async {
-    final data = await _requestData(
-      'GET',
+    final data = await _requestReadData(
       '/portfolio/items/${Uri.encodeComponent(itemId)}/performance',
       session,
       queryParameters: {'range': range.apiValue},
       headers: {if (localPremiumVerified) 'X-Local-Premium-State': 'verified'},
+      deadline: deadline,
     );
     return PortfolioPerformanceDto.fromJson(data);
   }
@@ -921,8 +934,7 @@ class PortfolioApiClient
   ) async {
     final result = <Map<String, Object?>>[];
     for (var page = 1; ; page += 1) {
-      final data = await _requestData(
-        'GET',
+      final data = await _requestReadData(
         path,
         session,
         queryParameters: {'page': page, 'page_size': kandoPageSize},
@@ -1119,6 +1131,60 @@ class PortfolioApiClient
       }
       rethrow;
     }
+    return _responseData(response);
+  }
+
+  Future<Map<String, Object?>> _requestReadData(
+    String path,
+    AuthSession session, {
+    Map<String, Object?>? queryParameters,
+    Map<String, String>? headers,
+    ApiRequestDeadline? deadline,
+  }) {
+    final requestHeaders = <String, Object?>{
+      'Authorization': 'Bearer ${session.accessToken}',
+      ...?headers,
+    };
+    final key = jsonEncode({
+      'method': 'GET',
+      'path': path,
+      'query': _sortedRequestValues(queryParameters),
+      'headers': _sortedRequestValues(
+        requestHeaders.map((key, value) => MapEntry(key.toLowerCase(), value)),
+      ),
+    });
+    return _inFlightReads.run(key, () async {
+      final response =
+          await ApiRequestExecutor(
+            requestDeadline: requestDeadline,
+            retryPolicy: readRetryPolicy,
+            sleep: retrySleep,
+          ).execute(
+            method: 'GET',
+            request: (cancelToken, attempt) {
+              return _dio.request<Object?>(
+                path,
+                queryParameters: queryParameters,
+                cancelToken: cancelToken,
+                options: Options(
+                  method: 'GET',
+                  headers: requestHeaders,
+                  validateStatus: (_) => true,
+                  extra: {apiRequestAttemptKey: attempt},
+                ),
+              );
+            },
+            timeoutException: () => const PortfolioApiException(
+              portfolioRequestTimeoutMessage,
+              code: portfolioRequestTimeoutCode,
+            ),
+            deadline: deadline,
+          );
+      return _responseData(response);
+    });
+  }
+
+  Map<String, Object?> _responseData(Response<Object?> response) {
     final envelope = response.data;
     if (envelope is Map && envelope['success'] == true) {
       final data = envelope['data'];
@@ -1148,6 +1214,12 @@ class PortfolioApiClient
       statusCode: statusCode,
     );
   }
+}
+
+Map<String, Object?> _sortedRequestValues(Map<String, Object?>? values) {
+  if (values == null || values.isEmpty) return const {};
+  final keys = values.keys.toList()..sort();
+  return {for (final key in keys) key: values[key]};
 }
 
 List<Map<String, Object?>> _items(Map<String, Object?> data) {
