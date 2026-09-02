@@ -1969,6 +1969,9 @@ void main() {
   testWidgets(
     'Add All returns to the non-default Game and refreshes Search once because portfolio updates must preserve browsing context',
     (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 600);
+      addTearDown(tester.view.reset);
       final searchRepository = _CountingSearchRepository();
       await tester.pumpWidget(
         ProviderScope(
@@ -1996,6 +1999,16 @@ void main() {
       await tester.tap(collect);
       await tester.tap(collect);
       await tester.pumpAndSettle();
+      final searchScrollable = find.descendant(
+        of: find.byKey(const Key('search-content-scroll')),
+        matching: find.byType(Scrollable),
+      );
+      final searchPosition = tester
+          .state<ScrollableState>(searchScrollable.first)
+          .position;
+      searchPosition.jumpTo(searchPosition.maxScrollExtent);
+      await tester.pump();
+      expect(searchPosition.pixels, greaterThan(0));
       await tester.tap(find.byKey(const Key('pending-collection-notice')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('pending-collection-add-all')));
@@ -2010,6 +2023,7 @@ void main() {
         'One Piece',
       );
       expect(searchRepository.loadCatalogCount, refreshBaseline + 1);
+      expect(searchPosition.pixels, 0);
       expect(find.text('2 cards added to your portfolio'), findsOneWidget);
       await tester.pump(kandoCenteredSuccessToastDuration);
       await tester.pump();

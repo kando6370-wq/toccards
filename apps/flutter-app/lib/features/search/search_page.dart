@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -24,7 +26,14 @@ class SearchPage extends ConsumerStatefulWidget {
 }
 
 class _SearchPageState extends ConsumerState<SearchPage> {
+  final _scrollController = ScrollController();
   String? _lastViewSignature;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +43,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
     return KandoTabScaffold(
       currentTab: KandoMainTab.search,
-      onPendingCollectionReview: () => showQuickCollectionReviewSheet(context),
+      onPendingCollectionReview: _reviewPendingCollection,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -69,6 +78,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                   child: state.isLoading || state.isUnavailable
                       ? ListView(
                           key: const Key('search-content-list'),
+                          controller: _scrollController,
                           physics: const AlwaysScrollableScrollPhysics(),
                           padding: const EdgeInsets.fromLTRB(20, 0, 20, 116),
                           children: [
@@ -83,6 +93,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                         )
                       : CustomScrollView(
                           key: const Key('search-content-scroll'),
+                          controller: _scrollController,
                           physics: const AlwaysScrollableScrollPhysics(),
                           slivers: [
                             if (widget.fromScan)
@@ -158,6 +169,21 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           .read(analyticsProvider)
           .track(AnalyticsEvent.searchView, properties: properties);
     });
+  }
+
+  Future<int?> _reviewPendingCollection() async {
+    final addedCount = await showQuickCollectionReviewSheet(context);
+    if (!mounted || addedCount == null || addedCount <= 0) return addedCount;
+    if (_scrollController.hasClients) {
+      unawaited(
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+        ),
+      );
+    }
+    return addedCount;
   }
 }
 

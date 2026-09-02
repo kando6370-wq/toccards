@@ -312,6 +312,10 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 - 2026-09-02 Card Detail Price 的 `RAW / GRADED` 切换控件按最新 Figma `2363:24457` 补齐分段样式：整体继续保持原位置与 `150×24`，RAW 使用左侧 6px 圆角、GRADED 使用右侧 6px 圆角；两段分别绘制半透明边框、外投影和白色内高光，并以 1px 重叠消除中缝。选中渐变、未选中 Surface 背景、12/16 文字及点击后的状态互换保持既有口径。修改前视觉回归稳定测得 RAW 实际内容仅 `73×22` 且分段自身缺少圆角；修改后默认 RAW 与切换 GRADED 两种状态回归、Card Detail Widget 54/54、`flutter analyze --no-pub`、Dart 格式及限定路径 `git diff --check` 通过。Code Review 未发现阻断项，确认私有控件仅有一个调用点、两段重叠区不存在点击缝隙且未引入平台专用实现。图表、价格数据、Range、Market Prices、订阅权限、API 和 Schema 均未修改；iOS/Android 真机视觉与触控验收尚未执行。
 
+- 2026-09-02 dev 管理后台订阅方案变更 SKU 修复重新部署：从与 `github/dev` 一致的提交 `672935205f8ec0cc7aa744170c4374a3bcb5a718` 创建干净 detached worktree，按锁文件安装依赖并执行标准 `deploy:dev`，重新构建 Auth Core 与 Admin development assets 后连同当前 Workers 代码发布到 `toccards-api-dev`。Cloudflare deployment `2026-09-02T06:26:56.297Z` 将 version `9b1e9696-1bd5-4f2f-b793-94a3e80b0814` 置于 100% dev 流量；绑定回读保持 dev KV、共享 Hyperdrive、dev R2、`APP_ENVIRONMENT=development`、beta Apple Bundle 与 `cardx.*` Product IDs，未绑定 D1。线上 health 返回 200/`status=ok`，Admin SPA 返回 200/`Kando Admin`，HTML 引用的 10 个 JS/CSS 资源逐个返回成功且 SHA-256 与本次构建一致，未授权订单接口保持 401。Admin 静态资源相对前一版本没有变化，本次实际运行更新为包含方案变更目标 SKU 修复的 Worker；未执行 PostgreSQL migration、prod 部署、生产写入或已登录 Admin 操作。真实 `DID_CHANGE_RENEWAL_PREF` 周年切换通知、Lifetime 边界及已处理历史通知不回填仍待 Sandbox 端到端验收。
+
+- 2026-09-02 Search/Set Detail 快捷收藏成功回顶修复：复现为在 Search 结果或 Set 单系列卡牌列表向下滚动后，通过 Review 将全部待编辑卡牌保存成功，弹层关闭且列表数据已使用 `refreshPreservingContent()` 刷新，但页面仍停留在原滚动位置。现两个入口接收 Review 返回的成功数量，仅在全部保存完成并关闭弹层时启动 300ms `easeOutCubic` 平滑回顶；动画与原成功 Toast 并行，取消、删除及部分失败不触发回顶。继续复用既有单次保留内容刷新，不新增请求、不切换整页 Loading，因此刷新期间旧列表保持可见。修复前回归稳定测得 Search/Set 偏移分别停在 210px/1030px，修复后 Search 47/47、Set Detail 8/8、`flutter analyze --no-pub`、Dart 格式及 `git diff --check` 通过。Code Review 未发现阻断项；API、Schema、收藏数据口径、权限和路由影响为 N/A，未执行 iOS/Android 真机的长列表滚动动画与弱网视觉验收。
+
 ## 4. 数据库与部署策略
 
 - 已存在的 `0025_billing_admin.sql` 不修改；后续均使用递增迁移。

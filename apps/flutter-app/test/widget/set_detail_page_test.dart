@@ -138,6 +138,16 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('2 cards waiting for details'), findsOneWidget);
+      final setScrollable = find.descendant(
+        of: find.byKey(const Key('set-detail-card-grid')),
+        matching: find.byType(Scrollable),
+      );
+      final setPosition = tester
+          .state<ScrollableState>(setScrollable.first)
+          .position;
+      setPosition.jumpTo(setPosition.maxScrollExtent);
+      await tester.pump();
+      expect(setPosition.pixels, greaterThan(0));
       final router = GoRouter.of(tester.element(find.byType(SetDetailPage)));
       expect(
         router.routeInformationProvider.value.uri.path,
@@ -160,6 +170,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('2 cards added to your portfolio'), findsOneWidget);
+      expect(setPosition.pixels, 0);
       final container = ProviderScope.containerOf(
         tester.element(find.byType(SetDetailPage)),
       );
@@ -453,8 +464,8 @@ class _QuickCollectSetCatalogApi implements SetCatalogApi {
     String setCode, {
     required String game,
     int page = 1,
-  }) async => const [
-    CardDataCardDto(
+  }) async => [
+    const CardDataCardDto(
       cardRef: 'squirtle',
       name: 'Squirtle',
       setName: 'Base Set',
@@ -470,6 +481,7 @@ class _QuickCollectSetCatalogApi implements SetCatalogApi {
       previous30dPriceUsd: 10,
       priceChange30dPercent: 25,
     ),
+    ...List.generate(7, (index) => _card('set-card-$index', 'Set Card $index')),
   ];
 
   @override
