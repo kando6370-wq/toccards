@@ -544,7 +544,7 @@ class _FolderButton extends StatelessWidget {
       child: Container(
         key: const Key('collection-folder-button'),
         height: 24,
-        constraints: const BoxConstraints(maxWidth: 120),
+        constraints: const BoxConstraints(minWidth: 70, maxWidth: 150),
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
           color: KandoColors.accent.withValues(alpha: 0.05),

@@ -88,7 +88,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           key: state.pageKey,
           barrierColor: const Color(0xB8000000),
           isDismissible: true,
-          heightFactor: 0.85,
+          heightFactor: 0.93,
           child: const QuickCollectionReviewPage(heightFactor: 1),
         ),
       ),
@@ -145,7 +145,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               barrierColor: const Color(0x99000000),
               isDismissible: false,
               useSafeArea: true,
-              heightFactor: 0.85,
+              heightFactor: subscriptionSheetHeightFactor,
               child: SubscriptionPage(
                 sheet: true,
                 source: source,

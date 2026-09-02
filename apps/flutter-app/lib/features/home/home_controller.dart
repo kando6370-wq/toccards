@@ -35,6 +35,22 @@ final homeControllerProvider = NotifierProvider<HomeController, HomeState>(
   HomeController.new,
 );
 
+final homeDashboardTabProvider =
+    NotifierProvider<HomeDashboardTabController, HomeDashboardTab>(
+      HomeDashboardTabController.new,
+    );
+
+enum HomeDashboardTab { overview, performance }
+
+class HomeDashboardTabController extends Notifier<HomeDashboardTab> {
+  @override
+  HomeDashboardTab build() => HomeDashboardTab.overview;
+
+  void select(HomeDashboardTab tab) {
+    state = tab;
+  }
+}
+
 enum HomeCoreLoadResult { content, failure }
 
 final homeAutomaticRetryDelaysProvider = Provider<List<Duration>>((ref) {

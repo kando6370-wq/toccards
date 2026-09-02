@@ -417,7 +417,7 @@ void main() {
       tester
           .getSize(find.byKey(const Key('subscription-sheet-surface')))
           .height,
-      lessThanOrEqualTo(viewportHeight * 0.85),
+      lessThanOrEqualTo(viewportHeight * subscriptionSheetHeightFactor),
     );
     final topSafeArea = tester.view.padding.top / tester.view.devicePixelRatio;
     expect(
@@ -1181,7 +1181,7 @@ class _RestoreTestHost {
                 barrierColor: const Color(0x99000000),
                 isDismissible: false,
                 useSafeArea: true,
-                heightFactor: 0.85,
+                heightFactor: subscriptionSheetHeightFactor,
                 child: page,
               );
             }

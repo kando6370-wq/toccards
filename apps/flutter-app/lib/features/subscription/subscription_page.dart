@@ -17,6 +17,8 @@ import '../profile/profile_actions.dart';
 import 'subscription_analytics.dart';
 import 'subscription_controller.dart';
 
+const subscriptionSheetHeightFactor = 0.98;
+
 const _benefits = [
   'Unlimited Card Scanning',
   'Unlimited Portfolio Folders',

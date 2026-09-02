@@ -2332,7 +2332,7 @@ class QuickCollectionReviewPage extends ConsumerStatefulWidget {
       _QuickCollectionReviewPageState();
 }
 
-const _quickCollectionReviewHeightFactor = 0.85;
+const _quickCollectionReviewHeightFactor = 0.93;
 
 class _QuickCollectionReviewPageState
     extends ConsumerState<QuickCollectionReviewPage> {
@@ -2418,6 +2418,7 @@ class _QuickCollectionReviewPageState
       heightFactor: widget.heightFactor,
       alignment: Alignment.bottomCenter,
       useBottomSafeArea: true,
+      keepActionsFixedOnKeyboard: true,
       stateOverride: _isSavingAll ? displayState : null,
       batchProgressText: _isSavingAll
           ? 'Saving $_savingCompletedCount of $_savingTotalCount'
@@ -3033,6 +3034,7 @@ class _AddCollectionItemSheet extends ConsumerWidget {
     this.heightFactor = 0.94,
     this.alignment = Alignment.center,
     this.useBottomSafeArea = false,
+    this.keepActionsFixedOnKeyboard = false,
   });
 
   final String cardId;
@@ -3049,6 +3051,7 @@ class _AddCollectionItemSheet extends ConsumerWidget {
   final double heightFactor;
   final Alignment alignment;
   final bool useBottomSafeArea;
+  final bool keepActionsFixedOnKeyboard;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -3065,10 +3068,13 @@ class _AddCollectionItemSheet extends ConsumerWidget {
     }
     final draft = state.collectionItemDraft!;
     final hidesPortfolioSelector = entrySource == AnalyticsValue.sourceSearch;
+    final routeKeyboardInset = MediaQuery.viewInsetsOf(context).bottom;
 
     return AnimatedPadding(
       duration: const Duration(milliseconds: 180),
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      padding: EdgeInsets.only(
+        bottom: keepActionsFixedOnKeyboard ? 0 : routeKeyboardInset,
+      ),
       child: FractionallySizedBox(
         alignment: alignment,
         heightFactor: heightFactor,
@@ -3183,9 +3189,10 @@ class _AddCollectionItemSheet extends ConsumerWidget {
                 ),
               ),
               Expanded(
-                child: SingleChildScrollView(
-                  key: const Key('card-detail-add-item-scroll'),
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                child: _KeyboardAwareCollectionItemScroll(
+                  keyboardInset: keepActionsFixedOnKeyboard
+                      ? routeKeyboardInset
+                      : 0,
                   child: Container(
                     decoration: _kPanel(strong: true),
                     child: Column(
@@ -3223,7 +3230,7 @@ class _AddCollectionItemSheet extends ConsumerWidget {
                   16,
                   20 +
                       (useBottomSafeArea
-                          ? MediaQuery.paddingOf(context).bottom
+                          ? MediaQuery.viewPaddingOf(context).bottom
                           : 0),
                 ),
                 decoration: BoxDecoration(
@@ -3235,6 +3242,7 @@ class _AddCollectionItemSheet extends ConsumerWidget {
                   ),
                 ),
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -3402,6 +3410,75 @@ class _AddCollectionItemSheet extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _KeyboardAwareCollectionItemScroll extends StatefulWidget {
+  const _KeyboardAwareCollectionItemScroll({
+    required this.keyboardInset,
+    required this.child,
+  });
+
+  final double keyboardInset;
+  final Widget child;
+
+  @override
+  State<_KeyboardAwareCollectionItemScroll> createState() =>
+      _KeyboardAwareCollectionItemScrollState();
+}
+
+class _KeyboardAwareCollectionItemScrollState
+    extends State<_KeyboardAwareCollectionItemScroll> {
+  final ScrollController _scrollController = ScrollController();
+  double _lastKeyboardInset = 0;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scheduleFocusedFieldReveal(double visibleBottom) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final focusContext = FocusManager.instance.primaryFocus?.context;
+      final focusBox = focusContext?.findRenderObject() as RenderBox?;
+      if (focusBox == null || !_scrollController.hasClients) {
+        return;
+      }
+      final focusBottom = focusBox
+          .localToGlobal(Offset(0, focusBox.size.height))
+          .dy;
+      final requiredDelta = focusBottom - visibleBottom + 20;
+      if (requiredDelta <= 0) return;
+      final position = _scrollController.position;
+      final target = (position.pixels + requiredDelta)
+          .clamp(position.minScrollExtent, position.maxScrollExtent)
+          .toDouble();
+      unawaited(
+        _scrollController.animateTo(
+          target,
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+        ),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.keyboardInset > _lastKeyboardInset) {
+      _scheduleFocusedFieldReveal(
+        MediaQuery.sizeOf(context).height - widget.keyboardInset,
+      );
+    }
+    _lastKeyboardInset = widget.keyboardInset;
+    return SingleChildScrollView(
+      key: const Key('card-detail-add-item-scroll'),
+      controller: _scrollController,
+      padding: EdgeInsets.fromLTRB(20, 0, 20, 24 + widget.keyboardInset),
+      child: widget.child,
     );
   }
 }

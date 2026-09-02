@@ -237,6 +237,11 @@ void main() {
       tester.getSize(find.byKey(const Key('collection-folder-button'))).height,
       24,
     );
+    final folderButtonWidth = tester
+        .getSize(find.byKey(const Key('collection-folder-button')))
+        .width;
+    expect(folderButtonWidth, greaterThanOrEqualTo(70));
+    expect(folderButtonWidth, lessThan(150));
     expect(
       tester.getSize(find.byKey(const Key('collection-hide-amount'))).height,
       24,
@@ -268,6 +273,29 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'Collection folder control grows without shrinking a long label',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 884);
+      addTearDown(tester.view.reset);
+
+      await _pumpCollection(
+        tester,
+        repository: const _LongFolderCollectionRepository(),
+      );
+
+      expect(
+        tester.getSize(find.byKey(const Key('collection-folder-button'))).width,
+        150,
+      );
+      final label = tester.widget<Text>(find.text(_longFolderName));
+      expect(label.style?.fontSize, 14);
+      expect(label.overflow, TextOverflow.ellipsis);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'Collection passes its 30D change through the generic card field',
@@ -1365,6 +1393,23 @@ class _FailingThenSuccessfulCollectionRepository
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+const _longFolderName = 'International Tournament Collection Archive';
+
+class _LongFolderCollectionRepository extends MockCollectionRepository {
+  const _LongFolderCollectionRepository();
+
+  @override
+  Future<CollectionDashboard> loadDashboard(AuthSession session) async {
+    final dashboard = await super.loadDashboard(session);
+    return dashboard.copyWith(
+      folders: [
+        for (final folder in dashboard.folders)
+          folder.id == 'main' ? folder.copyWith(name: _longFolderName) : folder,
+      ],
+    );
+  }
 }
 
 class _BlockingRefreshCollectionRepository extends MockCollectionRepository {

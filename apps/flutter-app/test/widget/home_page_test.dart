@@ -36,6 +36,7 @@ import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/pagination/pagination.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
+import 'package:kando_app/shared/ui/app_shell.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/premium_locked_panel.dart';
@@ -139,6 +140,125 @@ void main() {
         ),
         hasLength(2),
       );
+    },
+  );
+
+  testWidgets(
+    'Home restores the selected Performance tab after bottom navigation',
+    (tester) async {
+      final router = GoRouter(
+        initialLocation: '/home',
+        routes: [
+          GoRoute(path: '/home', builder: (context, state) => const HomePage()),
+          GoRoute(
+            path: '/search',
+            builder: (context, state) => const KandoTabScaffold(
+              currentTab: KandoMainTab.search,
+              body: Center(child: Text('Search route target')),
+            ),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ..._localAuthOverrides(),
+            homeRepositoryProvider.overrideWithValue(
+              const MockHomeRepository(),
+            ),
+            portfolioApiClientProvider.overrideWithValue(
+              _TestHomePerformanceApi(),
+            ),
+            currencyRateApiProvider.overrideWithValue(
+              const _TestCurrencyRateApi(),
+            ),
+            subscriptionControllerProvider.overrideWith(
+              _ProHomeSubscriptionController.new,
+            ),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _waitForHomeAuth(tester);
+
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+      expect(tester.widget<Text>(find.text('Performance')).style?.fontSize, 16);
+
+      await tester.tap(find.byKey(const Key('kando-tab-search')));
+      await tester.pumpAndSettle();
+      expect(find.text('Search route target'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('kando-tab-home')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(HomePage), findsOneWidget);
+      expect(tester.widget<Text>(find.text('Performance')).style?.fontSize, 16);
+    },
+  );
+
+  testWidgets('Home folder controls grow without shrinking long labels', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      _mockHomeApp(
+        null,
+        const _TestCurrencyRateApi(),
+        const _LongFolderHomeRepository(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _waitForHomeAuth(tester);
+
+    final overviewFolder = find.byKey(const Key('home-overview-folder'));
+    expect(tester.getSize(overviewFolder).width, 160);
+    var label = tester.widget<Text>(find.text(_longFolderName));
+    expect(label.style?.fontSize, 13);
+    expect(label.overflow, TextOverflow.ellipsis);
+
+    await tester.tap(find.byKey(const Key('home-performance-tab')));
+    await tester.pump();
+    await tester.pump();
+
+    final performanceFolder = find.byKey(const Key('home-performance-folder'));
+    expect(tester.getSize(performanceFolder).width, 120);
+    label = tester.widget<Text>(find.text(_longFolderName));
+    expect(label.style?.fontSize, 13);
+    expect(label.overflow, TextOverflow.ellipsis);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'Home short folder controls respect minimum and fixed font size',
+    (tester) async {
+      await tester.pumpWidget(_mockHomeApp());
+      await tester.pumpAndSettle();
+      await _waitForHomeAuth(tester);
+
+      final overviewWidth = tester
+          .getSize(find.byKey(const Key('home-overview-folder')))
+          .width;
+      expect(overviewWidth, greaterThanOrEqualTo(70));
+      expect(overviewWidth, lessThan(160));
+      expect(tester.widget<Text>(find.text('Main')).style?.fontSize, 13);
+
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pump();
+      await tester.pump();
+
+      final performanceWidth = tester
+          .getSize(find.byKey(const Key('home-performance-folder')))
+          .width;
+      expect(performanceWidth, greaterThanOrEqualTo(70));
+      expect(performanceWidth, lessThan(120));
+      expect(tester.widget<Text>(find.text('Main')).style?.fontSize, 13);
     },
   );
 
@@ -3258,6 +3378,26 @@ Widget _mockHomeRouteApp({
         ],
       ),
     ),
+  );
+}
+
+const _longFolderName = 'International Tournament Collection Archive';
+
+class _LongFolderHomeRepository implements HomeRepository {
+  const _LongFolderHomeRepository();
+
+  @override
+  HomeDashboard loadDashboard() => mockHomeDashboard.copyWith(
+    folders: [
+      for (final folder in mockHomeDashboard.folders)
+        folder.id == 'main'
+            ? const HomeFolder(
+                id: 'main',
+                name: _longFolderName,
+                isDefault: true,
+              )
+            : folder,
+    ],
   );
 }
 

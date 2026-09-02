@@ -40,7 +40,6 @@ class HomePage extends ConsumerStatefulWidget {
 class _HomePageState extends ConsumerState<HomePage>
     with WidgetsBindingObserver {
   AppLifecycleState? _lastLifecycleState;
-  var _performanceSelected = false;
 
   @override
   void initState() {
@@ -84,7 +83,10 @@ class _HomePageState extends ConsumerState<HomePage>
       );
     }
     final performance = ref.watch(homePerformanceControllerProvider);
-    if (_performanceSelected &&
+    final selectedDashboardTab = ref.watch(homeDashboardTabProvider);
+    final performanceSelected =
+        selectedDashboardTab == HomeDashboardTab.performance;
+    if (performanceSelected &&
         isPro &&
         (performance.folderId != state.selectedFolderId ||
             !performance.hasLoaded &&
@@ -124,13 +126,17 @@ class _HomePageState extends ConsumerState<HomePage>
                   _Header(
                     currencyCode: state.currencyCode,
                     currencySymbol: state.currency.symbol,
-                    performanceSelected: _performanceSelected,
+                    performanceSelected: performanceSelected,
                     onOverviewPressed: () {
-                      setState(() => _performanceSelected = false);
+                      ref
+                          .read(homeDashboardTabProvider.notifier)
+                          .select(HomeDashboardTab.overview);
                     },
                     onPerformancePressed: () {
-                      if (_performanceSelected) return;
-                      setState(() => _performanceSelected = true);
+                      if (performanceSelected) return;
+                      ref
+                          .read(homeDashboardTabProvider.notifier)
+                          .select(HomeDashboardTab.performance);
                       ref
                           .read(analyticsProvider)
                           .track(AnalyticsEvent.homePerformanceView);
@@ -146,7 +152,7 @@ class _HomePageState extends ConsumerState<HomePage>
                     },
                   ),
                   const SizedBox(height: 24),
-                  if (_performanceSelected)
+                  if (performanceSelected)
                     _PerformanceSection(
                       state: state,
                       performance: performance,
@@ -219,7 +225,7 @@ class _HomePageState extends ConsumerState<HomePage>
                       },
                     ),
                   ],
-                  if (!_performanceSelected) ...[
+                  if (!performanceSelected) ...[
                     const SizedBox(height: 32),
                     _TrendingSection(
                       state: state,
@@ -275,7 +281,10 @@ class _HomePageState extends ConsumerState<HomePage>
       showPremiumUnlockedToast(context);
     }
     final home = ref.read(homeControllerProvider);
-    if (!_performanceSelected || home.selectedFolderId != folderId) return;
+    if (ref.read(homeDashboardTabProvider) != HomeDashboardTab.performance ||
+        home.selectedFolderId != folderId) {
+      return;
+    }
     await _loadPerformance(folderId, force: true);
   }
 
@@ -345,7 +354,7 @@ class _HomePageState extends ConsumerState<HomePage>
     if (!mounted) return;
     final failedState = ref.read(homePerformanceControllerProvider);
     if (failedState.isFailure &&
-        _performanceSelected &&
+        ref.read(homeDashboardTabProvider) == HomeDashboardTab.performance &&
         ref.read(homeControllerProvider).selectedFolderId == folderId &&
         identical(ref.read(homePerformanceControllerProvider), failedState)) {
       showKandoTopFailureToast(context);
@@ -839,6 +848,7 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
                       _FolderPill(
                         key: const Key('home-performance-folder'),
                         label: state.selectedFolder.name,
+                        maxWidth: 120,
                         onPressed: () {
                           _clearOverlays();
                           widget.onFolderPressed();
@@ -1786,7 +1796,9 @@ class _PortfolioCard extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             _FolderPill(
+              key: const Key('home-overview-folder'),
               label: state.selectedFolder.name,
+              maxWidth: 160,
               onPressed: onFolderPressed,
             ),
           ],
@@ -1891,47 +1903,54 @@ class _AmountVisibilityButton extends StatelessWidget {
 }
 
 class _FolderPill extends StatelessWidget {
-  const _FolderPill({super.key, required this.label, required this.onPressed});
+  const _FolderPill({
+    super.key,
+    required this.label,
+    required this.maxWidth,
+    required this.onPressed,
+  });
 
   final String label;
+  final double maxWidth;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 70,
-      height: 24,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onPressed,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-            color: const Color(0x0DF0FE6F),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0x99F0FE6F), width: .5),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: 12,
-                height: 12,
-                child: Center(
-                  child: SvgPicture.asset(
-                    'assets/home/folder_switch.svg',
-                    width: 10.5,
-                    height: 8.24644,
+    return ConstrainedBox(
+      constraints: BoxConstraints(minWidth: 70, maxWidth: maxWidth),
+      child: SizedBox(
+        height: 24,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onPressed,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: const Color(0x0DF0FE6F),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0x99F0FE6F), width: .5),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: Center(
+                    child: SvgPicture.asset(
+                      'assets/home/folder_switch.svg',
+                      width: 10.5,
+                      height: 8.24644,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 4),
-              Flexible(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
+                const SizedBox(width: 4),
+                Flexible(
                   child: Text(
                     label,
                     maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: KandoColors.accent,
                       fontSize: 13,
@@ -1940,8 +1959,8 @@ class _FolderPill extends StatelessWidget {
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

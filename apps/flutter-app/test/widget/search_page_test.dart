@@ -888,7 +888,7 @@ void main() {
         tester.view.physicalSize.height / tester.view.devicePixelRatio;
     expect(
       tester.getSize(reviewSheet).height,
-      closeTo(viewportHeight * 0.85, 0.01),
+      closeTo(viewportHeight * 0.93, 0.01),
     );
     expect(tester.getRect(reviewSheet).bottom, closeTo(viewportHeight, 0.01));
     expect(
@@ -1025,6 +1025,107 @@ void main() {
   });
 
   testWidgets(
+    'pending Review keeps its action area fixed when the keyboard opens',
+    (tester) async {
+      tester.view.padding = const FakeViewPadding(bottom: 34);
+      tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+      addTearDown(tester.view.resetPadding);
+      addTearDown(tester.view.resetViewPadding);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [..._searchOverrides(), ..._cardDetailOverrides()],
+          child: const _SearchTestAppWithRoutes(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('search-collect-squirtle')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+
+      final sheet = find.byKey(const Key('card-detail-add-item-sheet'));
+      final submit = find.byKey(const Key('card-detail-item-submit'));
+      final notes = find.descendant(
+        of: find.byKey(const Key('card-detail-item-notes')),
+        matching: find.byType(TextFormField),
+      );
+      await tester.ensureVisible(notes);
+      await tester.showKeyboard(notes);
+      await tester.pump();
+      final sheetBottomBefore = tester.getRect(sheet).bottom;
+      final submitBottomBefore = tester.getRect(submit).bottom;
+      final scrollable = find.descendant(
+        of: find.byKey(const Key('card-detail-add-item-scroll')),
+        matching: find.byType(Scrollable),
+      );
+      final scrollPosition = tester
+          .state<ScrollableState>(scrollable.first)
+          .position;
+      final scrollOffsetBefore = scrollPosition.pixels;
+
+      tester.view.viewInsets = FakeViewPadding(
+        bottom: 300 * tester.view.devicePixelRatio,
+      );
+      tester.view.padding = FakeViewPadding.zero;
+      await tester.pumpAndSettle();
+
+      expect(tester.getRect(sheet).bottom, closeTo(sheetBottomBefore, 0.01));
+      expect(tester.getRect(submit).bottom, closeTo(submitBottomBefore, 0.01));
+      final viewportHeight =
+          tester.view.physicalSize.height / tester.view.devicePixelRatio;
+      expect(scrollPosition.pixels, greaterThan(scrollOffsetBefore));
+      expect(
+        tester.getRect(notes).bottom,
+        lessThanOrEqualTo(viewportHeight - 300),
+      );
+    },
+  );
+
+  testWidgets(
+    'multiple pending Review keeps its taller action area fixed when the keyboard opens',
+    (tester) async {
+      tester.view.padding = const FakeViewPadding(bottom: 34);
+      tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+      addTearDown(tester.view.resetPadding);
+      addTearDown(tester.view.resetViewPadding);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [..._searchOverrides(), ..._cardDetailOverrides()],
+          child: const _SearchTestAppWithRoutes(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final collect = find.byKey(const Key('search-collect-squirtle'));
+      await tester.tap(collect);
+      await tester.tap(collect);
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+
+      final sheet = find.byKey(const Key('card-detail-add-item-sheet'));
+      final deleteAll = find.byKey(const Key('pending-collection-delete-all'));
+      final sheetBottomBefore = tester.getRect(sheet).bottom;
+      final deleteAllBottomBefore = tester.getRect(deleteAll).bottom;
+
+      tester.view.viewInsets = FakeViewPadding(
+        bottom: 300 * tester.view.devicePixelRatio,
+      );
+      tester.view.padding = FakeViewPadding.zero;
+      await tester.pumpAndSettle();
+
+      expect(tester.getRect(sheet).bottom, closeTo(sheetBottomBefore, 0.01));
+      expect(
+        tester.getRect(deleteAll).bottom,
+        closeTo(deleteAllBottomBefore, 0.01),
+      );
+    },
+  );
+
+  testWidgets(
     'pending Review opens as a transient sheet without changing the Search route',
     (tester) async {
       await tester.pumpWidget(
@@ -1096,10 +1197,10 @@ void main() {
         ),
       );
       for (var step = 0; step < 8; step += 1) {
-        await gesture.moveBy(const Offset(0, 40));
+        await gesture.moveBy(const Offset(0, 50));
         await tester.pump(const Duration(milliseconds: 100));
       }
-      expect(tester.getRect(sheet).top, greaterThan(settledTop + 260));
+      expect(tester.getRect(sheet).top, greaterThan(settledTop + 340));
       await gesture.up();
       await tester.pump();
 
@@ -2354,7 +2455,7 @@ class _SearchTestAppWithRoutes extends StatelessWidget {
               key: state.pageKey,
               barrierColor: const Color(0xB8000000),
               isDismissible: true,
-              heightFactor: 0.85,
+              heightFactor: 0.93,
               child: const QuickCollectionReviewPage(heightFactor: 1),
             ),
           ),
