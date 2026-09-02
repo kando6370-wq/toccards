@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:dio/dio.dart';
@@ -509,6 +510,46 @@ void main() {
     expect(tester.widget<Text>(find.text('Overview')).style?.fontSize, 12);
     expect(tester.widget<Text>(find.text('Performance')).style?.fontSize, 16);
   });
+
+  testWidgets(
+    'Trending Today rows match the Figma surface treatment without changing their content',
+    (tester) async {
+      await tester.pumpWidget(_mockHomeApp());
+      await tester.pumpAndSettle();
+
+      final title = find.text('Ragavan, Nimble Pilferer');
+      final rowContainer = find.ancestor(
+        of: title,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Container &&
+              widget.constraints?.minHeight == 92 &&
+              widget.constraints?.maxHeight == 92,
+        ),
+      );
+      expect(rowContainer, findsOneWidget);
+
+      final container = tester.widget<Container>(rowContainer);
+      final decoration = container.decoration! as BoxDecoration;
+      expect(decoration.gradient, isA<LinearGradient>());
+      final gradient = decoration.gradient! as LinearGradient;
+      expect(decoration.color, isNull);
+      expect(gradient.colors, const [Color(0x66292B22), Color(0x331C1E15)]);
+      expect(gradient.begin, Alignment.centerLeft);
+      expect(gradient.end, Alignment.centerRight);
+      expect(
+        (gradient.transform! as GradientRotation).radians,
+        closeTo((139.73593059220934 - 90) * math.pi / 180, 0.000001),
+      );
+      expect(decoration.borderRadius, BorderRadius.circular(12));
+      expect((decoration.border! as Border).top.color, const Color(0x14FFFFFF));
+      expect(container.padding, const EdgeInsets.all(17));
+      expect(
+        find.ancestor(of: title, matching: find.byType(BackdropFilter)),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets(
     'free users see a locked Performance view because portfolio gains are a Pro entitlement',

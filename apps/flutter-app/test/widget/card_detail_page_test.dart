@@ -1655,6 +1655,27 @@ void main() {
       find.byKey(const Key('card-detail-price-mode-raw')),
     );
     final rawDecoration = rawMode.decoration! as BoxDecoration;
+    expect(tester.getSize(find.byWidget(rawMode)), const Size(74, 24));
+    expect(
+      rawDecoration.borderRadius,
+      const BorderRadius.only(
+        topLeft: Radius.circular(6),
+        bottomLeft: Radius.circular(6),
+      ),
+    );
+    expect(
+      (rawDecoration.border! as Border).top.color,
+      const Color(0x1A90927C),
+    );
+    expect(rawDecoration.boxShadow, const [
+      BoxShadow(color: Color(0x0D000000), offset: Offset(0, 1), blurRadius: 2),
+      BoxShadow(
+        color: Color(0x1FFFFFFF),
+        offset: Offset(0.5, 0.5),
+        blurRadius: 0.5,
+        blurStyle: BlurStyle.inner,
+      ),
+    ]);
     expect((rawDecoration.gradient! as LinearGradient).colors, const [
       Color(0x99747B26),
       Color(0x33747B26),
@@ -1662,10 +1683,32 @@ void main() {
     final gradedMode = tester.widget<Container>(
       find.byKey(const Key('card-detail-price-mode-graded')),
     );
+    final gradedDecoration = gradedMode.decoration! as BoxDecoration;
+    expect(tester.getSize(find.byWidget(gradedMode)), const Size(77, 24));
+    final rawRect = tester.getRect(find.byWidget(rawMode));
+    final gradedRect = tester.getRect(find.byWidget(gradedMode));
+    expect(rawRect.right - gradedRect.left, 1);
     expect(
-      (gradedMode.decoration! as BoxDecoration).color,
-      KandoColors.surface,
+      gradedDecoration.borderRadius,
+      const BorderRadius.only(
+        topRight: Radius.circular(6),
+        bottomRight: Radius.circular(6),
+      ),
     );
+    expect(
+      (gradedDecoration.border! as Border).top.color,
+      const Color(0x1A90927C),
+    );
+    expect(gradedDecoration.boxShadow, const [
+      BoxShadow(color: Color(0x0D000000), offset: Offset(0, 1), blurRadius: 1),
+      BoxShadow(
+        color: Color(0x1FFFFFFF),
+        offset: Offset(0.5, 0.5),
+        blurRadius: 0.5,
+        blurStyle: BlurStyle.inner,
+      ),
+    ]);
+    expect(gradedDecoration.color, KandoColors.surface);
     expect(find.text('1M'), findsOneWidget);
     expect(find.text('Market Prices'), findsOneWidget);
     expect(find.text('Shop'), findsOneWidget);
@@ -1700,19 +1743,34 @@ void main() {
     final selectedGradedMode = tester.widget<Container>(
       find.byKey(const Key('card-detail-price-mode-graded')),
     );
+    final selectedGradedDecoration =
+        selectedGradedMode.decoration! as BoxDecoration;
     expect(
-      ((selectedGradedMode.decoration! as BoxDecoration).gradient!
-              as LinearGradient)
-          .colors,
+      (selectedGradedDecoration.gradient! as LinearGradient).colors,
       const [Color(0x99747B26), Color(0x33747B26)],
     );
+    expect(
+      selectedGradedDecoration.borderRadius,
+      const BorderRadius.only(
+        topRight: Radius.circular(6),
+        bottomRight: Radius.circular(6),
+      ),
+    );
+    expect(selectedGradedDecoration.boxShadow!.first.blurRadius, 2);
     final unselectedRawMode = tester.widget<Container>(
       find.byKey(const Key('card-detail-price-mode-raw')),
     );
+    final unselectedRawDecoration =
+        unselectedRawMode.decoration! as BoxDecoration;
+    expect(unselectedRawDecoration.color, KandoColors.surface);
     expect(
-      (unselectedRawMode.decoration! as BoxDecoration).color,
-      KandoColors.surface,
+      unselectedRawDecoration.borderRadius,
+      const BorderRadius.only(
+        topLeft: Radius.circular(6),
+        bottomLeft: Radius.circular(6),
+      ),
     );
+    expect(unselectedRawDecoration.boxShadow!.first.blurRadius, 1);
     expect(find.text('PSA 10'), findsOneWidget);
     expect(find.text('BGS 10'), findsOneWidget);
     expect(find.text('PSA 10 Holofoil'), findsNothing);

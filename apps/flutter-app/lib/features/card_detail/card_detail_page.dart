@@ -2920,6 +2920,7 @@ class _QuickCollectionFailure extends StatelessWidget {
   Widget build(BuildContext context) {
     return _QuickCollectionStateSurface(
       heightFactor: heightFactor,
+      showHandle: true,
       child: FilledButton(onPressed: onRetry, child: const Text('Try again')),
     );
   }
@@ -2929,10 +2930,12 @@ class _QuickCollectionStateSurface extends StatelessWidget {
   const _QuickCollectionStateSurface({
     required this.heightFactor,
     required this.child,
+    this.showHandle = false,
   });
 
   final double heightFactor;
   final Widget child;
+  final bool showHandle;
 
   @override
   Widget build(BuildContext context) {
@@ -2944,7 +2947,38 @@ class _QuickCollectionStateSurface extends StatelessWidget {
         color: const Color(0xFF222222),
         clipBehavior: Clip.antiAlias,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        child: SafeArea(top: false, child: Center(child: child)),
+        child: SafeArea(
+          top: false,
+          child: Stack(
+            children: [
+              Center(child: child),
+              if (showHandle)
+                const Positioned(
+                  top: 12,
+                  left: 0,
+                  right: 0,
+                  child: Center(child: _QuickCollectionReviewHandle()),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickCollectionReviewHandle extends StatelessWidget {
+  const _QuickCollectionReviewHandle();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('quick-collection-review-handle'),
+      width: 48,
+      height: 6,
+      decoration: BoxDecoration(
+        color: KandoColors.accent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(999),
       ),
     );
   }
@@ -3086,15 +3120,7 @@ class _AddCollectionItemSheet extends ConsumerWidget {
           child: Column(
             children: [
               const SizedBox(height: 12),
-              Container(
-                key: const Key('quick-collection-review-handle'),
-                width: 48,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: KandoColors.accent.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
+              const _QuickCollectionReviewHandle(),
               if (topContent != null) topContent!,
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
@@ -3115,72 +3141,80 @@ class _AddCollectionItemSheet extends ConsumerWidget {
                     ),
                     const SizedBox(width: 12),
                     Flexible(
-                      child: InkWell(
-                        key: const Key('card-detail-add-item-portfolio'),
-                        borderRadius: BorderRadius.circular(8),
-                        onTap: actionsEnabled
-                            ? () async {
-                                final options = [
-                                  for (final folder
-                                      in state.detail.portfolioFolders)
-                                    folder.name,
-                                ];
-                                final next = await _showChoiceSheet(
-                                  context,
-                                  title: 'Portfolio',
-                                  selected: draft.portfolioName,
-                                  options: options,
-                                );
-                                if (next != null) {
-                                  if (useQuickCollectionController) {
-                                    final folderId = state
-                                        .detail
-                                        .portfolioFolders
-                                        .where((folder) => folder.name == next)
-                                        .firstOrNull
-                                        ?.id;
-                                    if (folderId != null) {
-                                      ref
-                                          .read(
-                                            selectedPortfolioFolderProvider
-                                                .notifier,
-                                          )
-                                          .select(folderId);
-                                    }
-                                  }
-                                  controller.updateCollectionItemDraft(
-                                    portfolioName: next,
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        widthFactor: useQuickCollectionController ? null : 1,
+                        child: InkWell(
+                          key: const Key('card-detail-add-item-portfolio'),
+                          borderRadius: BorderRadius.circular(8),
+                          onTap: actionsEnabled
+                              ? () async {
+                                  final options = [
+                                    for (final folder
+                                        in state.detail.portfolioFolders)
+                                      folder.name,
+                                  ];
+                                  final next = await _showChoiceSheet(
+                                    context,
+                                    title: 'Portfolio',
+                                    selected: draft.portfolioName,
+                                    options: options,
                                   );
+                                  if (next != null) {
+                                    if (useQuickCollectionController) {
+                                      final folderId = state
+                                          .detail
+                                          .portfolioFolders
+                                          .where(
+                                            (folder) => folder.name == next,
+                                          )
+                                          .firstOrNull
+                                          ?.id;
+                                      if (folderId != null) {
+                                        ref
+                                            .read(
+                                              selectedPortfolioFolderProvider
+                                                  .notifier,
+                                            )
+                                            .select(folderId);
+                                      }
+                                    }
+                                    controller.updateCollectionItemDraft(
+                                      portfolioName: next,
+                                    );
+                                  }
                                 }
-                              }
-                            : null,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 2,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  'Adding to ${draft.portfolioName}',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    height: 24 / 16,
-                                    color: KandoColors.accent,
+                              : null,
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              left: 4,
+                              right: useQuickCollectionController ? 0 : 4,
+                              top: 2,
+                              bottom: 2,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    'Adding to ${draft.portfolioName}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      height: 24 / 16,
+                                      color: KandoColors.accent,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 4),
-                              const Icon(
-                                Icons.keyboard_arrow_down_rounded,
-                                size: 20,
-                                color: KandoColors.accent,
-                              ),
-                            ],
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  size: 20,
+                                  color: KandoColors.accent,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -3227,7 +3261,7 @@ class _AddCollectionItemSheet extends ConsumerWidget {
                 padding: EdgeInsets.fromLTRB(
                   16,
                   16,
-                  16,
+                  useQuickCollectionController ? 20 : 16,
                   20 +
                       (useBottomSafeArea
                           ? MediaQuery.viewPaddingOf(context).bottom
@@ -5374,37 +5408,40 @@ class _PriceModeControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       key: const Key('card-detail-price-mode-control'),
       width: 150,
       height: 24,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0x1A90927C)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0D000000),
-            offset: Offset(0, 1),
-            blurRadius: 2,
-          ),
-        ],
-      ),
-      child: Row(
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          SizedBox(
-            width: 73,
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: 74,
             child: _PriceModeTab(
               mode: CardPriceChartMode.raw,
               selected: selectedMode == CardPriceChartMode.raw,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(6),
+                bottomLeft: Radius.circular(6),
+              ),
               onSelected: onSelected,
             ),
           ),
-          const SizedBox(width: 1, child: ColoredBox(color: Color(0x1A90927C))),
-          Expanded(
+          Positioned(
+            left: 73,
+            top: 0,
+            right: 0,
+            bottom: 0,
             child: _PriceModeTab(
               mode: CardPriceChartMode.graded,
               selected: selectedMode == CardPriceChartMode.graded,
+              borderRadius: const BorderRadius.only(
+                topRight: Radius.circular(6),
+                bottomRight: Radius.circular(6),
+              ),
               onSelected: onSelected,
             ),
           ),
@@ -5418,17 +5455,20 @@ class _PriceModeTab extends StatelessWidget {
   const _PriceModeTab({
     required this.mode,
     required this.selected,
+    required this.borderRadius,
     required this.onSelected,
   });
 
   final CardPriceChartMode mode;
   final bool selected;
+  final BorderRadius borderRadius;
   final ValueChanged<CardPriceChartMode> onSelected;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () => onSelected(mode),
+      borderRadius: borderRadius,
       child: Container(
         key: Key('card-detail-price-mode-${mode.name}'),
         alignment: Alignment.center,
@@ -5441,6 +5481,21 @@ class _PriceModeTab extends StatelessWidget {
                   colors: [Color(0x99747B26), Color(0x33747B26)],
                 )
               : null,
+          border: Border.all(color: const Color(0x1A90927C)),
+          borderRadius: borderRadius,
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0x0D000000),
+              offset: const Offset(0, 1),
+              blurRadius: selected ? 2 : 1,
+            ),
+            const BoxShadow(
+              color: Color(0x1FFFFFFF),
+              offset: Offset(0.5, 0.5),
+              blurRadius: 0.5,
+              blurStyle: BlurStyle.inner,
+            ),
+          ],
         ),
         child: Text(
           mode.label,

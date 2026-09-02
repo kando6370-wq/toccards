@@ -996,6 +996,44 @@ void main() {
     expect(find.byKey(const Key('search-wishlist-squirtle')), findsOneWidget);
   });
 
+  testWidgets(
+    'pending Review aligns the folder entry and actions with the content right edge',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [..._searchOverrides(), ..._cardDetailOverrides()],
+          child: const _SearchTestAppWithRoutes(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('search-collect-squirtle')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+
+      final contentRight =
+          tester
+              .getRect(find.byKey(const Key('card-detail-add-item-sheet')))
+              .right -
+          20;
+      final folderEntry = find.byKey(
+        const Key('card-detail-add-item-portfolio'),
+      );
+      final folderArrow = find.descendant(
+        of: folderEntry,
+        matching: find.byIcon(Icons.keyboard_arrow_down_rounded),
+      );
+      expect(tester.getRect(folderArrow).right, closeTo(contentRight, 0.01));
+      expect(
+        tester
+            .getRect(find.byKey(const Key('pending-collection-delete')))
+            .right,
+        closeTo(contentRight, 0.01),
+      );
+    },
+  );
+
   testWidgets('pending Review top scrim closes the bottom-aligned sheet', (
     tester,
   ) async {
@@ -1022,6 +1060,42 @@ void main() {
     expect(find.byType(QuickCollectionReviewPage), findsNothing);
     expect(find.byType(SearchPage), findsOneWidget);
     expect(find.byKey(const Key('pending-collection-notice')), findsOneWidget);
+  });
+
+  testWidgets('pending Review failure keeps the drag handle above Try again', (
+    tester,
+  ) async {
+    final repository = _TrackingReviewLoadRepository();
+    final portfolioApi = _CountingFolderPortfolioApi()..folders = const [];
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ..._searchOverrides(),
+          ..._localAuthOverrides(),
+          cardDetailRepositoryProvider.overrideWithValue(repository),
+          portfolioApiClientProvider.overrideWithValue(portfolioApi),
+        ],
+        child: const _SearchTestAppWithRoutes(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('search-collect-squirtle')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('pending-collection-notice')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Try again'), findsOneWidget);
+    expect(
+      find.byKey(const Key('quick-collection-review-handle')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .getRect(find.byKey(const Key('quick-collection-review-handle')))
+          .bottom,
+      lessThan(tester.getRect(find.text('Try again')).top),
+    );
   });
 
   testWidgets(
