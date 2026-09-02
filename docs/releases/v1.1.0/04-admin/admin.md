@@ -93,6 +93,8 @@ Workers 还实现通用 App Config 和 Card Override API，但当前 `App.tsx` �
 
 状态名称由列表已有的 Apple 主通知类型和子通知类型按确认映射在前端确定性生成，不修改通知原始字段或 API。没有子类型时使用该主类型的空子类型映射；未收录、验签失败或字段不完整的组合显示 `--`，不得根据相近类型猜测。
 
+`DID_CHANGE_RENEWAL_PREF` 的通知 SKU 表示目标方案：当子类型为 `UPGRADE`、`DOWNGRADE`、空值或未传，且已验签 `renewalInfo.autoRenewProductId` 命中当前部署配置的周订阅或年订阅 Product ID 时，结构化通知使用该目标 Product ID。dev 为 `cardx.week/cardx.year`，prod（含 TestFlight Sandbox）为 `CardAi.weekly/CardAi.yearly`。Lifetime、其他 Product ID、其他通知类型或其他子类型继续使用交易/续订证据中的原 SKU。该通知不建单、不修改已有订单 SKU；历史上已经处理完成的结构化通知不自动回填。
+
 结构化通知与原始 inbox 使用 LEFT JOIN：验签、解析或处理失败时，即使没有结构化行，失败记录仍出现在列表，供排障。
 
 ### 5.2 详情与敏感内容

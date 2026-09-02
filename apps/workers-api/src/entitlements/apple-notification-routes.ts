@@ -4,6 +4,7 @@ import { createId } from "../id";
 import {
   classifyAppleVerificationFailure,
   appleDatabaseEnvironments,
+  configuredProductIds,
   createAppleNotificationVerifier,
   Environment,
   type AppleNotificationVerifierConfiguration,
@@ -17,6 +18,10 @@ import { loadBillingUsdSnapshot, type BillingUsdSnapshot } from "./billing-curre
 const MAX_REQUEST_BYTES = 200_000;
 const PROCESSING_LEASE_MS = 60_000;
 const RETRY_BATCH_SIZE = 20;
+const PLAN_CHANGE_PRODUCT_IDS = {
+  development: new Set(["cardx.week", "cardx.year"]),
+  production: new Set(["CardAi.weekly", "CardAi.yearly"]),
+} as const;
 
 type Dependencies = {
   now?: () => Date;
@@ -260,7 +265,7 @@ export async function processAppleNotificationInbox(
 
   const originalTransactionId = transaction?.originalTransactionId ?? renewal?.originalTransactionId ?? null;
   const transactionId = transaction?.transactionId ?? null;
-  const productId = transaction?.productId ?? renewal?.productId ?? null;
+  const productId = notificationProductId(env, envelope, transaction, renewal);
   const decodedPayload = JSON.stringify({ notification, transaction, renewal_info: renewal });
   try {
     await env.DB.prepare(`
@@ -305,6 +310,29 @@ export async function processAppleNotificationInbox(
       "BUSINESS_CONSUMPTION_FAILED",
     );
   }
+}
+
+function notificationProductId(
+  env: Pick<Env, "APP_ENVIRONMENT" | "APPLE_IAP_PRODUCT_IDS">,
+  envelope: Envelope,
+  transaction: JWSTransactionDecodedPayload | null,
+  renewal: JWSRenewalInfoDecodedPayload | null,
+): string | null {
+  const sourceProductId = transaction?.productId ?? renewal?.productId ?? null;
+  if (
+    envelope.notificationType !== "DID_CHANGE_RENEWAL_PREF" ||
+    envelope.subtype !== null && envelope.subtype !== "" &&
+      envelope.subtype !== "UPGRADE" && envelope.subtype !== "DOWNGRADE"
+  ) return sourceProductId;
+
+  const targetProductId = renewal?.autoRenewProductId;
+  if (!targetProductId) return sourceProductId;
+  const environment = env.APP_ENVIRONMENT === "production" ? "production" : "development";
+  const configuredProducts = configuredProductIds(env.APPLE_IAP_PRODUCT_IDS);
+  return PLAN_CHANGE_PRODUCT_IDS[environment].has(targetProductId) &&
+      configuredProducts?.has(targetProductId)
+    ? targetProductId
+    : sourceProductId;
 }
 
 type Envelope = {

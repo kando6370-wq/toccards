@@ -539,21 +539,119 @@ describe("Apple Notifications V2 durable consumption", () => {
     expect((await db.prepare("SELECT auto_renew_snapshot FROM billing_transaction").first())?.auto_renew_snapshot).toBe(1);
   });
 
-  it.each(["UPGRADE", "DOWNGRADE"])("records %s as a next-plan change without creating an order", async (subtype) => {
-    await db.prepare("INSERT INTO billing_product (store, product_id, entitlement_id, active) VALUES ('app_store', 'weekly', 'performance_pro', 1)").run();
-    const app = createAppleNotificationRoutes({ now: () => NOW, createVerifier: () => ({
-      environment: Environment.SANDBOX,
-      verifier: verifier({
-        verifyNotification: async () => notification(`plan-${subtype}`, "DID_CHANGE_RENEWAL_PREF", 10 * 60 + 5, subtype),
-        verifyRenewal: async () => ({ originalTransactionId: "original-1", productId: "yearly", autoRenewProductId: "weekly", autoRenewStatus: 1, signedDate: Date.UTC(2026, 7, 12, 10, 5), environment: Environment.SANDBOX }),
-      }),
-    }) });
+  it.each([
+    ["development", "UPGRADE", "cardx.week", "cardx.year"],
+    ["development", "DOWNGRADE", "cardx.year", "cardx.week"],
+    ["development", "", "cardx.week", "cardx.year"],
+    ["development", null, "cardx.week", "cardx.year"],
+    ["production", "UPGRADE", "CardAi.weekly", "CardAi.yearly"],
+    ["production", "DOWNGRADE", "CardAi.yearly", "CardAi.weekly"],
+    ["production", "", "CardAi.weekly", "CardAi.yearly"],
+    ["production", null, "CardAi.weekly", "CardAi.yearly"],
+  ] as const)(
+    "shows the %s %s plan-change target SKU without changing the existing order",
+    async (appEnvironment, subtype, sourceProductId, targetProductId) => {
+      env.APP_ENVIRONMENT = appEnvironment;
+      env.APPLE_IAP_BUNDLE_ID = appEnvironment === "production"
+        ? "com.cardai.tcg"
+        : "com.kando.kandoApp.beta";
+      env.APPLE_IAP_PRODUCT_IDS = appEnvironment === "production"
+        ? "CardAi.weekly,CardAi.yearly,CardAi.lifetime"
+        : "cardx.week,cardx.year,cardx.lifetime";
+      await db.prepare("UPDATE billing_purchase_chain SET product_id = ?").bind(sourceProductId).run();
+      await db.prepare(`INSERT INTO billing_transaction
+        (id, purchase_chain_id, store, environment, transaction_id, product_id,
+         transaction_reason, status, business_status, charge_count, source_notification_uuid,
+         purchase_at, created_at, updated_at)
+        VALUES ('existing-order', 'chain-1', 'app_store', 'Sandbox', 'existing-transaction', ?,
+                'PURCHASE', 'purchased', 'initial_purchase', 1, 'existing-notification', ?, ?, ?)`)
+        .bind(sourceProductId, NOW.toISOString(), NOW.toISOString(), NOW.toISOString()).run();
+      const app = createAppleNotificationRoutes({ now: () => NOW, createVerifier: () => ({
+        environment: Environment.SANDBOX,
+        verifier: verifier({
+          verifyNotification: async () => notification(
+            `plan-${appEnvironment}-${subtype ?? "empty"}`,
+            "DID_CHANGE_RENEWAL_PREF",
+            10 * 60 + 5,
+            subtype ?? undefined,
+          ),
+          verifyTransaction: async () => transaction({ productId: sourceProductId }),
+          verifyRenewal: async () => ({
+            originalTransactionId: "original-1",
+            productId: sourceProductId,
+            autoRenewProductId: targetProductId,
+            autoRenewStatus: 1,
+            signedDate: Date.UTC(2026, 7, 12, 10, 5),
+            environment: Environment.SANDBOX,
+          }),
+        }),
+      }) });
 
-    await post(app, env, `plan-${subtype}`);
+      await post(
+        app,
+        env,
+        `plan-${appEnvironment}-${subtype ?? "empty"}`,
+        {},
+        appEnvironment === "production"
+          ? "/apple/notifications/v2/sandbox"
+          : "/apple/notifications/v2",
+      );
 
-    expect(await db.prepare("SELECT product_id, next_product_id, status FROM billing_purchase_chain").first()).toMatchObject({ product_id: "yearly", next_product_id: "weekly", status: "ACTIVE" });
-    expect(await scalar("SELECT COUNT(*) AS value FROM billing_transaction")).toBe(0);
-  });
+      expect(await db.prepare(
+        "SELECT product_id FROM apple_server_notification",
+      ).first()).toMatchObject({ product_id: targetProductId });
+      expect(await db.prepare(
+        "SELECT product_id, next_product_id, status FROM billing_purchase_chain",
+      ).first()).toMatchObject({
+        product_id: sourceProductId,
+        next_product_id: targetProductId,
+        status: "ACTIVE",
+      });
+      expect(await db.prepare(
+        "SELECT product_id FROM billing_transaction WHERE id = 'existing-order'",
+      ).first()).toMatchObject({ product_id: sourceProductId });
+      expect(await scalar("SELECT COUNT(*) AS value FROM billing_transaction")).toBe(1);
+    },
+  );
+
+  it.each([
+    ["cardx.lifetime", "UPGRADE"],
+    ["other.product", "UPGRADE"],
+    ["cardx.year", "FUTURE_SUBTYPE"],
+  ])(
+    "keeps the source SKU when a plan change targets %s with subtype %s",
+    async (targetProductId, subtype) => {
+      env.APPLE_IAP_PRODUCT_IDS = "cardx.week,cardx.year,cardx.lifetime";
+      await db.prepare("UPDATE billing_purchase_chain SET product_id = 'cardx.week'").run();
+      const app = createAppleNotificationRoutes({ now: () => NOW, createVerifier: () => ({
+        environment: Environment.SANDBOX,
+        verifier: verifier({
+          verifyNotification: async () => notification(
+            `unsupported-${targetProductId}`,
+            "DID_CHANGE_RENEWAL_PREF",
+            10 * 60 + 5,
+            subtype,
+          ),
+          verifyTransaction: async () => transaction({ productId: "cardx.week" }),
+          verifyRenewal: async () => ({
+            originalTransactionId: "original-1",
+            productId: "cardx.week",
+            autoRenewProductId: targetProductId,
+            autoRenewStatus: 1,
+            signedDate: Date.UTC(2026, 7, 12, 10, 5),
+            environment: Environment.SANDBOX,
+          }),
+        }),
+      }) });
+
+      await post(app, env, `unsupported-${targetProductId}`);
+
+      expect(await db.prepare(
+        "SELECT product_id FROM apple_server_notification",
+      ).first()).toMatchObject({ product_id: "cardx.week" });
+      expect(await scalar("SELECT COUNT(*) AS value FROM billing_transaction")).toBe(0);
+    },
+  );
 
   it("classifies RESUBSCRIBE by purchase chain instead of trusting PURCHASE reason alone", async () => {
     await db.prepare(`INSERT INTO billing_transaction
