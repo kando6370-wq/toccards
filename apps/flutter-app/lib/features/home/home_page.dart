@@ -1353,35 +1353,9 @@ class _TopPerformerCard extends StatelessWidget {
                       Positioned(
                         top: 0,
                         right: -2,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: BackdropFilter(
-                            filter: ui.ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: KandoColors.accentGlow10,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                returnText,
-                                maxLines: 1,
-                                style: TextStyle(
-                                  color: performer.returnPercent == null
-                                      ? KandoColors.mutedText
-                                      : performer.returnPercent! < 0
-                                      ? KandoColors.loss
-                                      : KandoColors.gain,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w400,
-                                  height: 14 / 10,
-                                ),
-                              ),
-                            ),
-                          ),
+                        child: _HomeCardChangeBadge(
+                          text: returnText,
+                          percent: performer.returnPercent,
                         ),
                       ),
                     ],
@@ -2691,7 +2665,6 @@ class _MostValuableTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final percent = MarketChange.fromPercent(card.increasePercent).percentText;
-    final percentColor = marketChangeTextColor(percent);
 
     return SizedBox(
       width: 144,
@@ -2746,30 +2719,9 @@ class _MostValuableTile extends StatelessWidget {
                     Positioned(
                       top: 0,
                       right: -2,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: BackdropFilter(
-                          filter: ui.ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: KandoColors.accentGlow10,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              percent,
-                              style: TextStyle(
-                                color: percentColor,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w400,
-                                height: 14 / 10,
-                              ),
-                            ),
-                          ),
-                        ),
+                      child: _HomeCardChangeBadge(
+                        text: percent,
+                        percent: card.increasePercent,
                       ),
                     ),
                   ],
@@ -2813,6 +2765,52 @@ class _MostValuableTile extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+final Color homeCardChangeBadgeBackgroundColor = Color.alphaBlend(
+  const Color(0x4D000000),
+  KandoColors.accentGlow10,
+);
+
+Color homeCardChangeBadgeTextColor(double? percent) {
+  if (percent == null || percent == 0 || percent.isNaN) {
+    return const Color(0xFFFFFFFF);
+  }
+  return percent > 0 ? KandoColors.gain : KandoColors.loss;
+}
+
+class _HomeCardChangeBadge extends StatelessWidget {
+  const _HomeCardChangeBadge({required this.text, required this.percent});
+
+  final String text;
+  final double? percent;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(4),
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: homeCardChangeBadgeBackgroundColor,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            text,
+            maxLines: 1,
+            style: TextStyle(
+              color: homeCardChangeBadgeTextColor(percent),
+              fontSize: 10,
+              fontWeight: FontWeight.w400,
+              height: 14 / 10,
+            ),
           ),
         ),
       ),

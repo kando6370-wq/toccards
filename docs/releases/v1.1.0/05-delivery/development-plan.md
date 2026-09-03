@@ -320,6 +320,8 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 - 2026-09-03 Subscription Page 前后台 Product 闪动修复：根因是页面实例监听每次 `resumed` 后无条件调用 StoreKit `queryProductDetails`，Controller 同时把共享 `isLoading` 切为 true，导致价格虽仍在内存中，套餐项、Restore 和 Subscribe 按钮仍短暂进入禁用/Loading 状态。现每个新 Subscription Page 实例继续主动校验一次商品；同一实例回前台只读取轻量 storefront 环境指纹，完整目录、配置 SKU 和 storefront 未变化时直接复用已加载 Product，不请求商品且不改变 UI。目录缺失、配置 SKU 或 storefront 变化时允许静默补拉，失败或空结果保留当前已展示目录；购买前按同一 Product/环境契约复核，无效时才进入 Product Loading。全局 Premium entitlement 前台静默刷新保持独立，订阅到期后的原页重新上锁逻辑不变。修改前 Widget 回归稳定得到新页面未校验、第一次 resumed 才刷新；修改后目录复用、不完整目录静默补拉、页面重建、SKU/storefront 变化和 storefront 读取失败降级回归通过，Subscription UI 36/36，订阅/启动门禁/权益组合 70/70，`flutter analyze --no-pub`、Dart 格式及限定路径 `git diff --check` 通过。Code Review 未发现阻断项，确认静默空结果与 storefront 读取失败不会清除已展示 Product，购买前环境变化不会继续使用旧 Product，且未改动 entitlement 前台观察器、API、Schema、StoreKit 商品/购买协议或 Android 未启用销售边界；iOS 真机前后台视频纹理和 storefront 切换尚待人工验收。
 
+- 2026-09-03 Home Most Valuable / Performance Top Performers 涨跌徽标按 Figma `2753:6365` 收口：两处徽标复用同一个样式组件，保留原位置、10/14 文字、`6×2px` 内边距和 4px 圆角，背景从单层 10% Accent 改为其上叠加 30% 黑色，并把 backdrop blur 调整为 12px；正涨幅使用 `#4ADE80`、负涨幅使用 `#FF8989`，零值或缺失值使用 `#FFFFFF`。卡片内容、价格、Most Valuable 30D 涨幅、Top Performers Return 数据口径、排序和点击逻辑均未修改。修复前两处局部回归均稳定测得背景仍为单层 Accent；修复后 Most Valuable 与 Top Performers 样式定向回归、Most Valuable 相关 7 项、市场涨跌颜色 7 项和 `flutter analyze --no-pub` 通过。完整 Home Widget 71 项通过、4 项整页/Performance Golden 失败；完整 Home Golden 包含本次有意视觉变化且还存在更大既有漂移，其余失败为已有视觉基线差异，因此未覆盖基线。Code Review 未发现阻断项，确认两处数据文案仍分别使用原 30D Change 和 Return，仅共享视觉容器；API、Schema、服务端和 Android/iOS 行为分支影响为 N/A，真机不同 GPU 的 backdrop blur 视觉尚待人工验收。
+
 ## 4. 数据库与部署策略
 
 - 已存在的 `0025_billing_admin.sql` 不修改；后续均使用递增迁移。

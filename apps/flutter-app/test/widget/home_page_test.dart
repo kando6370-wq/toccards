@@ -52,6 +52,13 @@ import '../support/mock_home_repository.dart';
 import '../support/mock_search_repository.dart';
 
 void main() {
+  test('Home card change badges use the Figma status colors', () {
+    expect(homeCardChangeBadgeTextColor(1), const Color(0xFF4ADE80));
+    expect(homeCardChangeBadgeTextColor(-1), const Color(0xFFFF8989));
+    expect(homeCardChangeBadgeTextColor(0), const Color(0xFFFFFFFF));
+    expect(homeCardChangeBadgeTextColor(null), const Color(0xFFFFFFFF));
+  });
+
   test('Performance tooltip uses the Figma text style', () {
     final dateStyle = homeChartTooltipTextStyle(
       isPerformance: true,
@@ -1072,6 +1079,33 @@ void main() {
       expect(
         find.byKey(const Key('home-top-performer-item-pikachu')),
         findsOneWidget,
+      );
+      final firstPerformer = find.byKey(
+        const Key('home-top-performer-item-pikachu'),
+      );
+      final badgeBackdrop = find.descendant(
+        of: firstPerformer,
+        matching: find.byType(BackdropFilter),
+      );
+      final badgeContainer = find.descendant(
+        of: badgeBackdrop,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Container &&
+              widget.padding ==
+                  const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        ),
+      );
+      expect(badgeBackdrop, findsOneWidget);
+      expect(badgeContainer, findsOneWidget);
+      expect(
+        (tester.widget<Container>(badgeContainer).decoration as BoxDecoration)
+            .color,
+        homeCardChangeBadgeBackgroundColor,
+      );
+      expect(
+        tester.widget<Text>(find.text('+50.00%')).style?.color,
+        KandoColors.gain,
       );
       expect(find.text(r'$100.00'), findsOneWidget);
       expect(find.text('+50.00%'), findsOneWidget);
@@ -2119,8 +2153,9 @@ void main() {
     expect(
       (tester.widget<Container>(badgeContainer).decoration as BoxDecoration)
           .color,
-      KandoColors.accentGlow10,
+      homeCardChangeBadgeBackgroundColor,
     );
+    expect(badgeText.style?.color, KandoColors.gain);
     expect(badgeText.style?.fontSize, 10);
     expect(badgeText.style?.fontWeight, FontWeight.w400);
     expect(badgeText.style?.height, 14 / 10);
