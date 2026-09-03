@@ -322,6 +322,8 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 - 2026-09-03 Home Most Valuable / Performance Top Performers 涨跌徽标按 Figma `2753:6365` 收口：两处徽标复用同一个样式组件，保留原位置、10/14 文字、`6×2px` 内边距和 4px 圆角，背景从单层 10% Accent 改为其上叠加 30% 黑色，并把 backdrop blur 调整为 12px；正涨幅使用 `#4ADE80`、负涨幅使用 `#FF8989`，零值或缺失值使用 `#FFFFFF`。卡片内容、价格、Most Valuable 30D 涨幅、Top Performers Return 数据口径、排序和点击逻辑均未修改。修复前两处局部回归均稳定测得背景仍为单层 Accent；修复后 Most Valuable 与 Top Performers 样式定向回归、Most Valuable 相关 7 项、市场涨跌颜色 7 项和 `flutter analyze --no-pub` 通过。完整 Home Widget 71 项通过、4 项整页/Performance Golden 失败；完整 Home Golden 包含本次有意视觉变化且还存在更大既有漂移，其余失败为已有视觉基线差异，因此未覆盖基线。Code Review 未发现阻断项，确认两处数据文案仍分别使用原 30D Change 和 Return，仅共享视觉容器；API、Schema、服务端和 Android/iOS 行为分支影响为 N/A，真机不同 GPU 的 backdrop blur 视觉尚待人工验收。
 
+- 2026-09-03 dev 管理后台订阅升级降级订单统计发布：从与 `github/dev` 一致的提交 `67000add08f547cbffc01b1dd8fa8a49a85912c8` 执行标准 `deploy:dev`，重新构建 Auth Core 与 Admin development assets，并连同 Workers 代码发布到 `toccards-api-dev`。Cloudflare deployment `9ab238d2-75df-47de-a8e6-b65cb29e5a89` 将 version `4fea0301-a3a2-46ce-a079-4009c20d81a9` 置于 100% dev 流量；发布回读保持 dev KV、共享 Hyperdrive、dev R2、`APP_ENVIRONMENT=development`、beta Apple Bundle、`cardx.*` Product IDs 和 5 分钟 Cron，未绑定 D1。线上 `/api/v1/health` 返回 200/`status=ok`，`/admin` 返回 200 HTML 与 `Kando Admin` 标题，HTML 引用的 10 个 JS/CSS 均返回 200 且 SHA-256 与本地构建一致，未授权订单接口保持 401。发布前 Workers 全量 67 文件 596 项、Admin 21 项及两侧 type-check 已通过；本次未执行 PostgreSQL migration、prod 部署、生产写入、登录态 Admin 操作或真实 Apple Sandbox/TestFlight 升级降级通知验收。
+
 ## 4. 数据库与部署策略
 
 - 已存在的 `0025_billing_admin.sql` 不修改；后续均使用递增迁移。
