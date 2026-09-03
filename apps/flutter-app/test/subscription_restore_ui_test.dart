@@ -133,6 +133,74 @@ void main() {
     });
   });
 
+  test(
+    'loaded StoreKit products must match the current purchase environment',
+    () {
+      const configuration = AppSubscriptionConfiguration(
+        store: SubscriptionStore.appStore,
+        productIds: {
+          subscriptionWeeklyPlanId: 'weekly.product',
+          subscriptionYearlyPlanId: 'yearly.product',
+        },
+      );
+      const loaded = SubscriptionState(
+        isConfigured: true,
+        displayPrices: {
+          subscriptionWeeklyPlanId: r'$4.99',
+          subscriptionYearlyPlanId: r'$49.99',
+        },
+        analyticsProducts: {
+          subscriptionWeeklyPlanId: SubscriptionProductAnalytics(
+            sku: 'weekly.product',
+            currency: 'USD',
+            price: 4.99,
+          ),
+          subscriptionYearlyPlanId: SubscriptionProductAnalytics(
+            sku: 'yearly.product',
+            currency: 'USD',
+            price: 49.99,
+          ),
+        },
+        availablePlanIds: {subscriptionWeeklyPlanId, subscriptionYearlyPlanId},
+      );
+
+      expect(loaded.hasLoadedProductsFor(configuration), isTrue);
+      expect(
+        loaded.hasLoadedProductsFor(
+          const AppSubscriptionConfiguration(
+            store: SubscriptionStore.appStore,
+            productIds: {
+              subscriptionWeeklyPlanId: 'weekly.product.v2',
+              subscriptionYearlyPlanId: 'yearly.product',
+            },
+          ),
+        ),
+        isFalse,
+      );
+      expect(
+        loaded
+            .copyWith(availablePlanIds: const {subscriptionWeeklyPlanId})
+            .hasLoadedProductsFor(configuration),
+        isFalse,
+      );
+      expect(
+        subscriptionPurchaseEnvironmentChanged(
+          loaded: 'appStore:USA',
+          current: 'appStore:CAN',
+        ),
+        isTrue,
+      );
+      expect(
+        subscriptionPurchaseEnvironmentChanged(
+          loaded: 'appStore:USA',
+          current: null,
+        ),
+        isFalse,
+        reason: 'A failed storefront read must not invalidate loaded products.',
+      );
+    },
+  );
+
   test('USD fallback prices require a configured App Store catalog', () {
     expect(
       const SubscriptionState().displayPriceFor(subscriptionWeeklyPlanId),
@@ -471,7 +539,7 @@ void main() {
   );
 
   testWidgets(
-    'returning to a mounted subscription container refreshes StoreKit products only while it remains open',
+    'a mounted subscription page keeps its loaded StoreKit products across foreground resumes',
     (tester) async {
       final controller = _ProductRefreshController();
       final host = _RestoreTestHost(controller: controller);
@@ -480,6 +548,9 @@ void main() {
 
       host.router.push('/subscription');
       await tester.pumpAndSettle();
+      expect(controller.productRefreshCount, 1);
+      expect(controller.productRefreshLoadingModes, [true]);
+
       _sendAppToBackground(tester);
       _returnAppToForeground(tester);
       await tester.pump();
@@ -493,6 +564,35 @@ void main() {
       await tester.pump();
 
       expect(controller.productRefreshCount, 1);
+
+      host.router.push('/subscription');
+      await tester.pumpAndSettle();
+
+      expect(controller.productRefreshCount, 2);
+      expect(controller.productRefreshLoadingModes, [true, true]);
+    },
+  );
+
+  testWidgets(
+    'returning to a mounted subscription page retries StoreKit products when its catalog is incomplete',
+    (tester) async {
+      final controller = _ProductRefreshController(hasLoadedProducts: false);
+      final host = _RestoreTestHost(controller: controller);
+      await tester.pumpWidget(host.app);
+      await tester.pumpAndSettle();
+
+      host.router.push('/subscription');
+      await tester.pumpAndSettle();
+      expect(controller.productRefreshCount, 1);
+      expect(controller.productRefreshLoadingModes, [true]);
+
+      _sendAppToBackground(tester);
+      _returnAppToForeground(tester);
+      await tester.pump();
+
+      expect(controller.productRefreshCount, 2);
+      expect(controller.productRefreshLoadingModes, [true, false]);
+      expect(controller.state.isLoading, isFalse);
     },
   );
 
@@ -1141,6 +1241,15 @@ void _returnAppToForeground(WidgetTester tester) {
   tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
 }
 
+const _testSubscriptionConfiguration = AppSubscriptionConfiguration(
+  store: SubscriptionStore.appStore,
+  productIds: {
+    subscriptionWeeklyPlanId: 'weekly.product',
+    subscriptionYearlyPlanId: 'yearly.product',
+    subscriptionLifetimePlanId: 'lifetime.product',
+  },
+);
+
 String _capitalized(String value) =>
     '${value.substring(0, 1).toUpperCase()}${value.substring(1)}';
 
@@ -1334,14 +1443,36 @@ class _UnavailableCatalogController extends _RestoreTestController {
 }
 
 class _ProductRefreshController extends _RestoreTestController {
+  _ProductRefreshController({this.hasLoadedProducts = true});
+
+  final bool hasLoadedProducts;
   var productRefreshCount = 0;
+  final productRefreshLoadingModes = <bool>[];
+
+  @override
+  SubscriptionState build() => hasLoadedProducts
+      ? super.build()
+      : const SubscriptionState(
+          isConfigured: true,
+          unavailablePlanIds: {
+            subscriptionWeeklyPlanId,
+            subscriptionYearlyPlanId,
+            subscriptionLifetimePlanId,
+          },
+        );
 
   @override
   Future<void> refreshProducts({
     required bool Function() isContextActive,
+    bool force = false,
+    bool showLoading = true,
   }) async {
     if (!isContextActive()) return;
+    if (!force && state.hasLoadedProductsFor(_testSubscriptionConfiguration)) {
+      return;
+    }
     productRefreshCount += 1;
+    productRefreshLoadingModes.add(showLoading);
   }
 }
 

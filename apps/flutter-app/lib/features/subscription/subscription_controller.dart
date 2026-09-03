@@ -4,11 +4,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
+import 'package:in_app_purchase_storekit/store_kit_2_wrappers.dart';
 import 'package:subscription_core/subscription_core.dart';
 
 import '../../shared/portfolio/portfolio_providers.dart';
 import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
+import '../../shared/api/api_environment.dart';
+import '../../shared/attribution/app_attribution.dart';
 import '../auth/auth_controller.dart';
 import '../auth/auth_models.dart';
 import 'apple_app_attest.dart';
@@ -17,6 +20,7 @@ import 'subscription_entitlement_api.dart';
 import 'subscription_entitlement_cache.dart';
 import 'subscription_revenue_reporter.dart';
 import 'subscription_analytics.dart';
+import 'subscription_singular_events.dart';
 import 'subscription_sync_queue.dart';
 
 const subscriptionWeeklyPlanId = 'weekly';
@@ -326,6 +330,28 @@ final appSubscriptionConfigurationProvider =
       return AppSubscriptionConfiguration.fromEnvironment();
     });
 
+typedef SubscriptionPurchaseEnvironmentReader =
+    Future<String?> Function(SubscriptionStore store);
+
+final subscriptionPurchaseEnvironmentReaderProvider =
+    Provider<SubscriptionPurchaseEnvironmentReader>((ref) {
+      return (store) async {
+        try {
+          final countryCode = (await Storefront().countryCode())
+              .trim()
+              .toUpperCase();
+          return countryCode.isEmpty ? null : '${store.name}:$countryCode';
+        } on Object {
+          return null;
+        }
+      };
+    });
+
+bool subscriptionPurchaseEnvironmentChanged({
+  required String? loaded,
+  required String? current,
+}) => current != null && current != loaded;
+
 final subscriptionReceiptVerifierProvider =
     Provider<SubscriptionReceiptVerifier>((ref) {
       return StoreKit2SubscriptionReceiptVerifier(
@@ -524,6 +550,29 @@ class SubscriptionState {
     return isLoading ? 'Loading' : 'Unavailable';
   }
 
+  bool hasLoadedProductFor(
+    String planId,
+    AppSubscriptionConfiguration configuration,
+  ) {
+    final configuredProductId = configuration.configuredProductIds[planId];
+    if (!isConfigured ||
+        !configuration.isConfigured ||
+        configuredProductId == null) {
+      return false;
+    }
+    return availablePlanIds.contains(planId) &&
+        displayPrices.containsKey(planId) &&
+        analyticsProducts[planId]?.sku == configuredProductId;
+  }
+
+  bool hasLoadedProductsFor(AppSubscriptionConfiguration configuration) {
+    final configuredPlanIds = configuration.configuredProductIds.keys;
+    return configuredPlanIds.isNotEmpty &&
+        configuredPlanIds.every(
+          (planId) => hasLoadedProductFor(planId, configuration),
+        );
+  }
+
   SubscriptionState copyWith({
     String? selectedPlanId,
     Map<String, String>? displayPrices,
@@ -585,6 +634,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
   Future<bool>? _productLoadInFlight;
   Timer? _entitlementExpiryTimer;
   var _productLoadCycle = 0;
+  String? _loadedPurchaseEnvironment;
 
   @override
   SubscriptionState build() {
@@ -679,7 +729,10 @@ class SubscriptionController extends Notifier<SubscriptionState> {
 
   Future<void> refreshProducts({
     required bool Function() isContextActive,
+    bool force = false,
+    bool showLoading = true,
   }) async {
+    final configuration = ref.read(appSubscriptionConfigurationProvider);
     if (!state.isConfigured ||
         state.isLoading ||
         state.isPurchasing ||
@@ -689,13 +742,29 @@ class SubscriptionController extends Notifier<SubscriptionState> {
         _store == null) {
       return;
     }
-    state = state.copyWith(isLoading: true);
+    final currentPurchaseEnvironment = await _readPurchaseEnvironment(_store!);
+    if (!ref.mounted || !isContextActive()) return;
+    final environmentChanged = subscriptionPurchaseEnvironmentChanged(
+      loaded: _loadedPurchaseEnvironment,
+      current: currentPurchaseEnvironment,
+    );
+    if (!force &&
+        !environmentChanged &&
+        state.hasLoadedProductsFor(configuration)) {
+      return;
+    }
+    if (showLoading) state = state.copyWith(isLoading: true);
     var loaded = false;
     try {
-      loaded = await _loadProductsWithRetry(isContextActive: isContextActive);
+      loaded = await _loadProductsWithRetry(
+        isContextActive: isContextActive,
+        preserveCatalogOnEmpty: !showLoading,
+      );
     } finally {
-      if (ref.mounted) {
+      if (ref.mounted && showLoading) {
         state = state.copyWith(isLoading: false, clearError: loaded);
+      } else if (ref.mounted && loaded) {
+        state = state.copyWith(clearError: true);
       }
     }
   }
@@ -720,9 +789,22 @@ class SubscriptionController extends Notifier<SubscriptionState> {
     );
     _purchasePresentationActive = true;
     try {
-      if (!state.availablePlanIds.contains(state.selectedPlanId)) {
+      final configuration = ref.read(appSubscriptionConfigurationProvider);
+      final currentPurchaseEnvironment = await _readPurchaseEnvironment(store);
+      final environmentChanged = subscriptionPurchaseEnvironmentChanged(
+        loaded: _loadedPurchaseEnvironment,
+        current: currentPurchaseEnvironment,
+      );
+      if (environmentChanged ||
+          !state.hasLoadedProductFor(state.selectedPlanId, configuration)) {
         final loaded = await _loadProductsWithRetry();
-        if (!loaded || !state.availablePlanIds.contains(state.selectedPlanId)) {
+        final stillChanged = subscriptionPurchaseEnvironmentChanged(
+          loaded: _loadedPurchaseEnvironment,
+          current: currentPurchaseEnvironment,
+        );
+        if (!loaded ||
+            stillChanged ||
+            !state.hasLoadedProductFor(state.selectedPlanId, configuration)) {
           state = state.copyWith(
             isLoading: false,
             isPurchasing: false,
@@ -1271,16 +1353,19 @@ class SubscriptionController extends Notifier<SubscriptionState> {
   Future<bool> _loadProducts(
     int cycle, {
     bool Function()? isContextActive,
+    bool preserveCatalogOnEmpty = false,
   }) async {
     final client = _client;
     final store = _store;
     if (client == null || store == null) return false;
+    final purchaseEnvironment = await _readPurchaseEnvironment(store);
     final catalog = await client.loadProducts();
     if (cycle != _productLoadCycle ||
         !ref.mounted ||
         isContextActive?.call() == false) {
       return false;
     }
+    if (catalog.products.isEmpty && preserveCatalogOnEmpty) return false;
     final prices = <String, String>{};
     final analyticsProducts = <String, SubscriptionProductAnalytics>{};
     final available = <String>{};
@@ -1315,17 +1400,27 @@ class SubscriptionController extends Notifier<SubscriptionState> {
       availablePlanIds: available,
       unavailablePlanIds: unavailable,
     );
+    if (available.isNotEmpty) {
+      _loadedPurchaseEnvironment = purchaseEnvironment;
+    }
     return available.isNotEmpty;
   }
 
-  Future<bool> _loadProductsWithRetry({bool Function()? isContextActive}) {
+  Future<bool> _loadProductsWithRetry({
+    bool Function()? isContextActive,
+    bool preserveCatalogOnEmpty = false,
+  }) {
     final inFlight = _productLoadInFlight;
     if (inFlight != null) return inFlight;
     final cycle = ++_productLoadCycle;
     late final Future<bool> load;
     load =
         loadSubscriptionProductsWithRetry(
-          () => _loadProducts(cycle, isContextActive: isContextActive),
+          () => _loadProducts(
+            cycle,
+            isContextActive: isContextActive,
+            preserveCatalogOnEmpty: preserveCatalogOnEmpty,
+          ),
           shouldContinue: isContextActive,
         ).whenComplete(() {
           if (cycle == _productLoadCycle) _productLoadCycle++;
@@ -1335,6 +1430,10 @@ class SubscriptionController extends Notifier<SubscriptionState> {
         });
     _productLoadInFlight = load;
     return load;
+  }
+
+  Future<String?> _readPurchaseEnvironment(SubscriptionStore store) {
+    return ref.read(subscriptionPurchaseEnvironmentReaderProvider)(store);
   }
 
   void _handleEvent(SubscriptionEvent event) {
@@ -1384,6 +1483,24 @@ class SubscriptionController extends Notifier<SubscriptionState> {
       }
       if (event.purchase?.status == SubscriptionPurchaseStatus.purchased &&
           event.failure == null) {
+        final singularEventName = singularSubscriptionSuccessEventName(
+          event: event,
+          environment: AppConfig.environment,
+          isFreshPurchase:
+              resultEvent == SubscriptionResultEvent.purchaseSuccess,
+        );
+        if (singularEventName != null) {
+          try {
+            ref
+                .read(appAttributionEventReporterProvider)
+                .trackEvent(singularEventName);
+          } on Object catch (error, stackTrace) {
+            debugPrint(
+              'Unable to report Singular subscription event: '
+              '$error\n$stackTrace',
+            );
+          }
+        }
         if (resultEvent == SubscriptionResultEvent.purchaseSuccess &&
             analyticsContext != null) {
           trackVerifiedSubscriptionSuccess(

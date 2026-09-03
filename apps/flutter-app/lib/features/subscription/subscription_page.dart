@@ -85,9 +85,11 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
     });
     Future<void>.microtask(() {
       if (!mounted) return;
-      ref
-          .read(subscriptionControllerProvider.notifier)
-          .resetPlanSelectionForNewPresentation();
+      final controller = ref.read(subscriptionControllerProvider.notifier);
+      controller.resetPlanSelectionForNewPresentation();
+      unawaited(
+        controller.refreshProducts(isContextActive: () => mounted, force: true),
+      );
     });
   }
 
@@ -103,7 +105,10 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
       unawaited(
         ref
             .read(subscriptionControllerProvider.notifier)
-            .refreshProducts(isContextActive: () => mounted),
+            .refreshProducts(
+              isContextActive: () => mounted,
+              showLoading: false,
+            ),
       );
     }
   }

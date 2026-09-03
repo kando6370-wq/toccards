@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:app_tracking_transparency/app_tracking_transparency.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -26,6 +27,10 @@ abstract interface class AppAttributionGateway {
   Future<void> updateTrackingStatus(AppTrackingStatus status);
 }
 
+abstract interface class AppAttributionEventReporter {
+  void trackEvent(String eventName);
+}
+
 abstract interface class AppAttributionStartupStorage {
   Future<bool> claimFirstStartup();
 }
@@ -48,9 +53,20 @@ final appTrackingGatewayProvider = Provider<AppTrackingGateway>((ref) {
   return const PluginAppTrackingGateway();
 });
 
+final singularAttributionGatewayProvider = Provider<SingularAttributionGateway>(
+  (ref) {
+    return SingularAttributionGateway();
+  },
+);
+
 final appAttributionGatewayProvider = Provider<AppAttributionGateway>((ref) {
-  return SingularAttributionGateway();
+  return ref.watch(singularAttributionGatewayProvider);
 });
+
+final appAttributionEventReporterProvider =
+    Provider<AppAttributionEventReporter>((ref) {
+      return ref.watch(singularAttributionGatewayProvider);
+    });
 
 final appAttributionStartupStorageProvider =
     Provider<AppAttributionStartupStorage>(
@@ -169,7 +185,8 @@ class PluginAppTrackingGateway implements AppTrackingGateway {
   };
 }
 
-class SingularAttributionGateway implements AppAttributionGateway {
+class SingularAttributionGateway
+    implements AppAttributionGateway, AppAttributionEventReporter {
   SingularAttributionGateway({
     Future<SingularCredentials?> Function() loadCredentials =
         loadSingularCredentials,
@@ -181,7 +198,12 @@ class SingularAttributionGateway implements AppAttributionGateway {
   @override
   Future<void> updateTrackingStatus(AppTrackingStatus status) async {
     final credentials = await _credentials;
-    if (credentials == null) return;
+    if (credentials == null) {
+      debugPrint(
+        'Singular attribution disabled: runtime credentials unavailable.',
+      );
+      return;
+    }
     final limitDataSharing = switch (status) {
       AppTrackingStatus.denied ||
       AppTrackingStatus.restricted ||
@@ -191,12 +213,30 @@ class SingularAttributionGateway implements AppAttributionGateway {
     if (!_started) {
       final config = SingularConfig(credentials.apiKey, credentials.secretKey)
         ..limitDataSharing = limitDataSharing
-        ..waitForTrackingAuthorizationWithTimeoutInterval = 0;
+        ..waitForTrackingAuthorizationWithTimeoutInterval = 0
+        ..logLevel = kDebugMode ? 5 : -1;
       Singular.start(config);
       _started = true;
+      debugPrint('Singular attribution SDK initialized.');
       return;
     }
     Singular.limitDataSharing(limitDataSharing);
+  }
+
+  @override
+  void trackEvent(String eventName) {
+    if (!_started) {
+      debugPrint(
+        'Singular event skipped before SDK initialization: $eventName',
+      );
+      return;
+    }
+    try {
+      Singular.event(eventName);
+      debugPrint('Singular event handed to SDK: $eventName');
+    } on Object catch (error, stackTrace) {
+      debugPrint('Unable to send Singular event: $error\n$stackTrace');
+    }
   }
 }
 

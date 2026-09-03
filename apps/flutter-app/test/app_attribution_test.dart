@@ -1,5 +1,7 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/shared/attribution/app_attribution.dart';
+import 'package:kando_app/shared/attribution/singular_bootstrap.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -180,6 +182,43 @@ void main() {
       await coordinator.preloadStartupMarker();
 
       expect(events, isEmpty);
+    },
+  );
+
+  test(
+    'Singular events are handed to the SDK only after initialization',
+    () async {
+      const channel = MethodChannel('singular-api');
+      final methodCalls = <MethodCall>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            methodCalls.add(call);
+            return null;
+          });
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null),
+      );
+      final gateway = SingularAttributionGateway(
+        loadCredentials: () async => const SingularCredentials(
+          apiKey: 'api-key',
+          secretKey: 'secret-key',
+        ),
+      );
+
+      gateway.trackEvent('yearly_cardtest');
+      await Future<void>.delayed(Duration.zero);
+      expect(methodCalls.where((call) => call.method == 'event'), isEmpty);
+
+      await gateway.updateTrackingStatus(AppTrackingStatus.authorized);
+      gateway.trackEvent('yearly_cardtest');
+      await Future<void>.delayed(Duration.zero);
+
+      expect(methodCalls.where((call) => call.method == 'start'), hasLength(1));
+      expect(
+        methodCalls.where((call) => call.method == 'event').single.arguments,
+        {'eventName': 'yearly_cardtest'},
+      );
     },
   );
 }
