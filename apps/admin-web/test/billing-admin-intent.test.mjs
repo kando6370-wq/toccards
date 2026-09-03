@@ -29,6 +29,8 @@ test("billing admin follows the v1.1 order facts contract without making UID the
   assert.match(app, /title: "金额（USD）".*billingAmount\(row\.amount_usd_micros, "USD"\)/);
   assert.match(app, /title: "扣款次数".*render: billingValue/);
   assert.match(app, /function billingOrderStatusTag\(value: string \| null\).*: "--"/s);
+  assert.match(app, /upgrade: "升级付款"/);
+  assert.match(app, /\["upgrade", "升级付款"\]/);
   assert.match(routes, /adminRoutes\.get\("\/billing\/transactions"/);
   assert.match(routes, /adminRoutes\.get\("\/apple-notifications"/);
   assert.match(routes, /const conditions = \["t\.source_notification_uuid IS NOT NULL", scope\.sql\]/);

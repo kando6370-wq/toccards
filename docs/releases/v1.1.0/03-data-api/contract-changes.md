@@ -74,9 +74,9 @@ Home/Search/Collection/Profile 顶部入口仅在本机权益明确为 Free 时�
 
 ## Admin 订单与通知契约
 
-`0032_billing_order_facts.sql` 为 `billing_transaction` 增加 `business_status`、`charge_count` 和 `source_notification_uuid`。Fresh Purchase、Restore 与 Notifications V2 都可保存服务端验签通过的 Apple 交易证据并维护即时权益，但 Admin 订单真值只读取 `source_notification_uuid IS NOT NULL` 的通知确认记录；客户端路径写入的暂存交易不进入订单列表、动态筛选选项或 XLSX，也不参与扣款序号。建单类通知命中已有 `environment + transactionId` 时用通知解码字段晋升该记录。免费试用固定为 0；通知确认的成功付费按同一 `environment + originalTransactionId` 内的 `purchase_at + transactionId` 排序；重复通知不增加次数；退款不减序号、不重排。只有存在更早通知确认试用且尚无通知确认成功付费时才标记 `trial_conversion`，不从单独一条历史 `RENEWAL` 猜测试用转换。
+`0032_billing_order_facts.sql` 为 `billing_transaction` 增加 `business_status`、`charge_count` 和 `source_notification_uuid`。Fresh Purchase、Restore 与 Notifications V2 都可保存服务端验签通过的 Apple 交易证据并维护即时权益，但 Admin 订单真值只读取 `source_notification_uuid IS NOT NULL` 的通知确认记录；客户端路径写入的暂存交易不进入订单列表、动态筛选选项或 XLSX，也不参与扣款序号。建单类通知命中已有 `environment + transactionId` 时用通知解码字段晋升该记录。免费试用固定为 0；通知确认且 `amount_micros > 0` 的交易按同一 `environment + originalTransactionId` 内的 `purchase_at + transactionId` 排序并增加扣款次数；重复通知不增加次数；退款不减序号、不重排。只有存在更早通知确认试用且尚无通知确认正金额付费时才标记 `trial_conversion`，不从单独一条历史 `RENEWAL` 猜测试用转换。
 
-`DID_CHANGE_RENEWAL_PREF + UPGRADE/DOWNGRADE` 只更新购买链的 `next_product_id`，不创建订单。`SUBSCRIBED + RESUBSCRIBE` 使用新的 `originalTransactionId` 时是该链首次付费，业务状态为 `initial_purchase`、扣款次数为 1；沿用已有 `originalTransactionId` 时视为同链续费，即使 Apple 交易原因为 `PURCHASE`，也按 `renewal` 计入下一次扣款。确定性重算保证同链只有第一笔实际付费保留 `initial_purchase`。
+`DID_CHANGE_RENEWAL_PREF + UPGRADE` 在已验签交易携带当前周/年方案的新 `transactionId` 时，按实际 `productId`、`purchaseDate`、`price` 和 `currency` 创建 `upgrade` 订单；同一交易重复通知保持幂等。`DOWNGRADE` 只更新购买链的 `next_product_id`，不创建未来订单；降级方案实际续订后由携带新 `transactionId` 的 `DID_RENEW` 建单。subtype 为空时，已有交易只更新计划状态，新 `transactionId` 作为遗漏的真实交易补录。所有订单只在 `price > 0` 时增加扣款次数，`price = 0` 保持原扣款次数，`price` 缺失则扣款次数为 `null`、记录异常并进入 Apple Server API 校正，不使用 `renewalPrice`。`SUBSCRIBED + RESUBSCRIBE` 使用新的 `originalTransactionId` 时是该链首次付费，业务状态为 `initial_purchase`；沿用已有 `originalTransactionId` 时视为同链续费。确定性重算保证同链只有第一笔有正金额证据的实际付费保留 `initial_purchase`。
 
 `0033_billing_exchange_rate_snapshot.sql` 为订单增加可审计的 USD 汇率快照。现有汇率服务口径为 `1 USD = rate × 原币种`，换算使用整数 micros 的除法与 half-away-from-zero 舍入；USD 使用 rate 1。快照固化 rate、base/quote、来源、生效/抓取时间、陈旧标记、换算版本和舍入模式。汇率不可用或币种不支持时订单照常入库，USD 及快照保持空，不以 0 或最新汇率猜测；已固化订单不随未来汇率变化重算。
 

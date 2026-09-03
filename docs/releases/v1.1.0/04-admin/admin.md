@@ -63,7 +63,7 @@ Workers 还实现通用 App Config 和 Card Override API，但当前 `App.tsx` �
 - 建单类通知到达已有 `environment + transactionId` 时，会用通知中的已验签交易字段晋升暂存记录并写入来源通知 UUID；不会因唯一键冲突继续保留为客户端暂存口径。
 - purchase chain 以 `environment + originalTransactionId` 唯一。
 - 单笔交易以 `store + environment + transactionId` 幂等。
-- Trial 扣款次数为 0；通知确认的有效非 Trial 收费按购买链时序累计，客户端暂存记录不占序号。
+- Trial 扣款次数为 0；通知确认且 `signedTransactionInfo.price > 0` 的收费按购买链 `purchase_at` 时序累计。`price = 0` 的试用或免费优惠订单仍展示但不增加次数；`price` 缺失时扣款次数保持 `null` 并进入异常校正，不使用 `renewalPrice` 猜测本次扣款。客户端暂存记录不占序号。
 - Refund 更新原订单为 refunded、保存退款前业务状态并保留交易事实，不创建虚假收费订单；`REFUND_REVERSED` 经 Apple Server API 校正为 active 后恢复退款前状态。迁移前历史退款若没有该状态，则业务分类显示为未知，不继续显示退款，也不猜测订单类型。
 - 自动续订在建单时保存交易发生时的状态。收到不建单的
   `DID_CHANGE_RENEWAL_STATUS` 后，同一 `environment + originalTransactionId`
@@ -93,7 +93,7 @@ Workers 还实现通用 App Config 和 Card Override API，但当前 `App.tsx` �
 
 状态名称由列表已有的 Apple 主通知类型和子通知类型按确认映射在前端确定性生成，不修改通知原始字段或 API。没有子类型时使用该主类型的空子类型映射；未收录、验签失败或字段不完整的组合显示 `--`，不得根据相近类型猜测。
 
-`DID_CHANGE_RENEWAL_PREF` 的通知 SKU 表示目标方案：当子类型为 `UPGRADE`、`DOWNGRADE`、空值或未传，且已验签 `renewalInfo.autoRenewProductId` 命中当前部署配置的周订阅或年订阅 Product ID 时，结构化通知使用该目标 Product ID。dev 为 `cardx.week/cardx.year`，prod（含 TestFlight Sandbox）为 `CardAi.weekly/CardAi.yearly`。Lifetime、其他 Product ID、其他通知类型或其他子类型继续使用交易/续订证据中的原 SKU。该通知不建单、不修改已有订单 SKU；历史上已经处理完成的结构化通知不自动回填。
+`DID_CHANGE_RENEWAL_PREF` 的通知 SKU 表示目标方案：当子类型为 `UPGRADE`、`DOWNGRADE`、空值或未传，且已验签 `renewalInfo.autoRenewProductId` 命中当前部署配置的周订阅或年订阅 Product ID 时，结构化通知使用该目标 Product ID。dev 为 `cardx.week/cardx.year`，prod（含 TestFlight Sandbox）为 `CardAi.weekly/CardAi.yearly`。Lifetime、其他 Product ID、其他通知类型或其他子类型继续使用交易/续订证据中的原 SKU。订单侧独立使用已验签交易事实：`UPGRADE` 携带新 `transactionId` 时新增“升级付款”订单，SKU 取 `signedTransactionInfo.productId`；`DOWNGRADE` 预约不建单；空 subtype 仅在 `transactionId` 尚未入库时补录真实遗漏交易。任何方案变更都不会用 `autoRenewProductId` 改写历史订单 SKU；历史上已经处理完成的结构化通知不自动回填。
 
 结构化通知与原始 inbox 使用 LEFT JOIN：验签、解析或处理失败时，即使没有结构化行，失败记录仍出现在列表，供排障。
 

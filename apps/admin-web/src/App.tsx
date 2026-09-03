@@ -1424,7 +1424,7 @@ function renderAppVersionStatus(value: AppVersionStatus) {
 
 function billingOrderStatusTag(value: string | null) {
   const labels: Record<string, string> = {
-    trial: "试用期", initial_purchase: "首次付款", trial_conversion: "试用转付费",
+    trial: "试用期", initial_purchase: "首次付款", trial_conversion: "试用转付费", upgrade: "升级付款",
     renewal: "续期付款", grace_recovery: "宽限期重试成功",
     billing_recovery: "重试期成功", refunded: "退款",
   };
@@ -1561,7 +1561,7 @@ const recognitionOptions = [
 const scanPlatformOptions = ["iOS", "Android", "web"].map((value) => ({ value, label: value }));
 const confirmationOptions = [{ value: "confirmed", label: "已确认" }, { value: "pending", label: "待确认" }];
 const billingStatusOptions = [
-  ["trial", "试用期"], ["initial_purchase", "首次付款"], ["trial_conversion", "试用转付费"],
+  ["trial", "试用期"], ["initial_purchase", "首次付款"], ["trial_conversion", "试用转付费"], ["upgrade", "升级付款"],
   ["renewal", "续期付款"], ["grace_recovery", "宽限期重试成功"],
   ["billing_recovery", "重试期成功"], ["refunded", "退款"],
 ].map(([value, label]) => ({ value, label }));

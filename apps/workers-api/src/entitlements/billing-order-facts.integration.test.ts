@@ -17,7 +17,8 @@ describe("billing order facts", () => {
     await db.prepare(`CREATE TABLE billing_transaction (
       id TEXT PRIMARY KEY, purchase_chain_id TEXT NOT NULL, environment TEXT NOT NULL,
       transaction_id TEXT NOT NULL, purchase_at TEXT NOT NULL,
-      business_status TEXT, charge_count INTEGER, source_notification_uuid TEXT
+      business_status TEXT, charge_count INTEGER, source_notification_uuid TEXT,
+      amount_micros INTEGER
     )`).run();
   });
 
@@ -71,6 +72,19 @@ describe("billing order facts", () => {
     ]);
   });
 
+  it("increments charge count only for a positive verified transaction amount", async () => {
+    await insert("paid", "t-1", "2026-01-01T00:00:00.000Z", "initial_purchase", "notification-paid", 1_000_000);
+    await insert("free", "t-2", "2026-02-01T00:00:00.000Z", "renewal", "notification-free", 0);
+    await insert("missing", "t-3", "2026-03-01T00:00:00.000Z", "renewal", "notification-missing", null);
+    await recalculate();
+
+    expect(await rows()).toEqual([
+      { transaction_id: "t-1", business_status: "initial_purchase", charge_count: 1 },
+      { transaction_id: "t-2", business_status: "renewal", charge_count: 1 },
+      { transaction_id: "t-3", business_status: "renewal", charge_count: null },
+    ]);
+  });
+
   it("does not infer trial conversion without a proven trial transaction", () => {
     expect(businessStatusForAppleTransaction("DID_RENEW", "ACTIVE", {
       transactionReason: "RENEWAL",
@@ -87,12 +101,13 @@ describe("billing order facts", () => {
     purchaseAt: string,
     status: string,
     sourceNotificationUuid: string | null = `notification-${id}`,
+    amountMicros: number | null = status === "trial" ? 0 : 1_000_000,
   ) {
     await db.prepare(`INSERT INTO billing_transaction
       (id, purchase_chain_id, environment, transaction_id, purchase_at, business_status,
-       source_notification_uuid)
-      VALUES (?, 'chain-1', 'Sandbox', ?, ?, ?, ?)`)
-      .bind(id, transactionId, purchaseAt, status, sourceNotificationUuid).run();
+       source_notification_uuid, amount_micros)
+      VALUES (?, 'chain-1', 'Sandbox', ?, ?, ?, ?, ?)`)
+      .bind(id, transactionId, purchaseAt, status, sourceNotificationUuid, amountMicros).run();
   }
 
   async function recalculate() {

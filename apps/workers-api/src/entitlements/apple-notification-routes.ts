@@ -285,8 +285,16 @@ export async function processAppleNotificationInbox(
       inboxId, appBundleId, environment,
     ).run();
 
+    const createsTransactionOrder = createsOrder(envelope, transaction, renewal);
     const amountMicros = applePriceMicros(transaction?.price);
-    const usd = createsOrder(envelope.notificationType)
+    if (createsTransactionOrder && transaction?.transactionId && transaction.price === undefined) {
+      console.warn("Apple transaction price is missing", {
+        transactionId: transaction.transactionId,
+        originalTransactionId: transaction.originalTransactionId ?? null,
+        notificationUuid: envelope.notificationUuid,
+      });
+    }
+    const usd = createsTransactionOrder
       ? await loadBillingUsdSnapshot(
           env.CACHE_KV, amountMicros, transaction?.currency ?? null, now,
         )
@@ -388,6 +396,7 @@ async function consumeNotification(
 ): Promise<ConsumptionOutcome> {
   const originalTransactionId = transaction?.originalTransactionId ?? renewal?.originalTransactionId;
   const lifecycle = lifecycleFor(envelope, transaction, renewal);
+  const createsTransactionOrder = createsOrder(envelope, transaction, renewal);
   const updatesRenewal = envelope.notificationType === "DID_CHANGE_RENEWAL_STATUS";
   const updatesPlan = envelope.notificationType === "DID_CHANGE_RENEWAL_PREF";
   const expiredBillingRetryAutoRenew = envelope.notificationType === "EXPIRED" &&
@@ -396,7 +405,7 @@ async function consumeNotification(
     ? renewal.autoRenewStatus
     : null;
   const needsChain = lifecycle !== null || updatesRenewal || updatesPlan ||
-    createsOrder(envelope.notificationType) || envelope.notificationType === "REFUND";
+    createsTransactionOrder || envelope.notificationType === "REFUND";
   if (!originalTransactionId) return needsChain ? "correction_required" : "processed";
 
   let chain = await db.prepare(`
@@ -405,7 +414,7 @@ async function consumeNotification(
     FROM billing_purchase_chain
     WHERE store = 'app_store' AND environment = ? AND original_transaction_id = ? LIMIT 1
   `).bind(envelope.environment, originalTransactionId).first<ChainRow>();
-  if (!chain && createsOrder(envelope.notificationType) &&
+  if (!chain && createsTransactionOrder &&
       validTransaction(transaction, envelope.environment) && lifecycle) {
     const product = await db.prepare(`SELECT entitlement_id FROM billing_product
       WHERE store = 'app_store' AND product_id = ? AND active = 1 LIMIT 1`)
@@ -441,7 +450,7 @@ async function consumeNotification(
   ) return "correction_required";
 
   const statements: D1PreparedStatement[] = [];
-  if (createsOrder(envelope.notificationType) && !validTransaction(transaction, envelope.environment)) {
+  if (createsTransactionOrder && !validTransaction(transaction, envelope.environment)) {
     return "correction_required";
   }
   if (updatesRenewal && renewal?.autoRenewStatus !== 0 && renewal?.autoRenewStatus !== 1) {
@@ -491,12 +500,15 @@ async function consumeNotification(
       WHERE id = ? AND (plan_signed_at IS NULL OR plan_signed_at < ?)
     `).bind(renewal?.autoRenewProductId ?? null, envelope.signedAt, now.toISOString(), chain.id, envelope.signedAt));
   }
-  if (createsOrder(envelope.notificationType) && validTransaction(transaction, envelope.environment)) {
-    const businessStatus = businessStatusForAppleTransaction(
-      envelope.notificationType,
-      chain.status,
-      transaction,
-    );
+  if (createsTransactionOrder && validTransaction(transaction, envelope.environment)) {
+    const businessStatus = envelope.notificationType === "DID_CHANGE_RENEWAL_PREF" &&
+        envelope.subtype === "UPGRADE"
+      ? "upgrade"
+      : businessStatusForAppleTransaction(
+          envelope.notificationType,
+          chain.status,
+          transaction,
+        );
     const autoRenewSnapshot = transaction.type === "Non-Consumable"
       ? 0
       : renewal?.autoRenewStatus === 0 || renewal?.autoRenewStatus === 1
@@ -558,6 +570,26 @@ async function consumeNotification(
       now.toISOString(), now.toISOString(),
     ));
     statements.push(...billingOrderFactStatements(db, chain.id, envelope.environment));
+  }
+
+  if (updatesPlan && (renewal?.autoRenewStatus === 0 || renewal?.autoRenewStatus === 1)) {
+    statements.push(db.prepare(`
+      UPDATE billing_transaction
+      SET auto_renew_snapshot = ?, updated_at = ?
+      WHERE id = (
+        SELECT id FROM billing_transaction
+        WHERE purchase_chain_id = ? AND environment = ?
+          AND source_notification_uuid IS NOT NULL
+        ORDER BY purchase_at DESC, transaction_id DESC
+        LIMIT 1
+      ) AND EXISTS (
+        SELECT 1 FROM billing_purchase_chain
+        WHERE id = ? AND plan_signed_at = ?
+      )
+    `).bind(
+      renewal.autoRenewStatus, now.toISOString(), chain.id, envelope.environment,
+      chain.id, envelope.signedAt,
+    ));
   }
 
   if (envelope.notificationType === "REFUND" && transaction?.transactionId) {
@@ -638,6 +670,7 @@ async function consumeNotification(
   }
 
   if (statements.length > 0) await db.batch(statements);
+  if (createsTransactionOrder && transaction?.price === undefined) return "correction_required";
   if (envelope.notificationType === "REFUND_REVERSED") return "correction_required";
   return "processed";
 }
@@ -697,8 +730,24 @@ function lifecycleFor(
   }
 }
 
-function createsOrder(type: string): boolean {
-  return type === "SUBSCRIBED" || type === "DID_RENEW" || type === "ONE_TIME_CHARGE";
+function createsOrder(
+  envelope: Envelope,
+  transaction: JWSTransactionDecodedPayload | null,
+  renewal: JWSRenewalInfoDecodedPayload | null,
+): boolean {
+  if (
+    envelope.notificationType === "SUBSCRIBED" ||
+    envelope.notificationType === "DID_RENEW" ||
+    envelope.notificationType === "ONE_TIME_CHARGE"
+  ) return true;
+  if (
+    envelope.notificationType !== "DID_CHANGE_RENEWAL_PREF" ||
+    envelope.subtype !== "UPGRADE" && envelope.subtype !== null && envelope.subtype !== ""
+  ) return false;
+  return Object.values(PLAN_CHANGE_PRODUCT_IDS).some((products) =>
+    !!transaction?.productId && !!renewal?.autoRenewProductId &&
+    products.has(transaction.productId) && products.has(renewal.autoRenewProductId)
+  );
 }
 
 function validTransaction(

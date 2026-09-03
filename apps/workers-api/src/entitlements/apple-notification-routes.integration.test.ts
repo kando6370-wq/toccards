@@ -1,6 +1,6 @@
 import { Environment, VerificationException, VerificationStatus, type JWSRenewalInfoDecodedPayload, type JWSTransactionDecodedPayload, type ResponseBodyV2DecodedPayload } from "@apple/app-store-server-library";
 import { Miniflare } from "miniflare";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Env } from "../env";
 import { createAppleNotificationRoutes, retryAppleNotificationInbox } from "./apple-notification-routes";
 
@@ -575,7 +575,10 @@ describe("Apple Notifications V2 durable consumption", () => {
             10 * 60 + 5,
             subtype ?? undefined,
           ),
-          verifyTransaction: async () => transaction({ productId: sourceProductId }),
+          verifyTransaction: async () => transaction({
+            transactionId: "existing-transaction",
+            productId: sourceProductId,
+          }),
           verifyRenewal: async () => ({
             originalTransactionId: "original-1",
             productId: sourceProductId,
@@ -608,11 +611,265 @@ describe("Apple Notifications V2 durable consumption", () => {
         status: "ACTIVE",
       });
       expect(await db.prepare(
-        "SELECT product_id FROM billing_transaction WHERE id = 'existing-order'",
-      ).first()).toMatchObject({ product_id: sourceProductId });
+        "SELECT product_id, auto_renew_snapshot FROM billing_transaction WHERE id = 'existing-order'",
+      ).first()).toMatchObject({ product_id: sourceProductId, auto_renew_snapshot: 1 });
       expect(await scalar("SELECT COUNT(*) AS value FROM billing_transaction")).toBe(1);
     },
   );
+
+  it("creates a paid upgrade from the verified transaction without rewriting the previous order", async () => {
+    env.APPLE_IAP_PRODUCT_IDS = "cardx.week,cardx.year,cardx.lifetime";
+    await db.prepare("UPDATE billing_purchase_chain SET product_id = 'cardx.week'").run();
+    await db.prepare(`INSERT INTO billing_transaction
+      (id, purchase_chain_id, store, environment, transaction_id, product_id,
+       transaction_reason, status, business_status, charge_count, source_notification_uuid,
+       auto_renew_snapshot, amount_micros, currency, purchase_at, created_at, updated_at)
+      VALUES ('upgrade-old-order', 'chain-1', 'app_store', 'Sandbox', 'upgrade-old-transaction',
+              'cardx.week', 'PURCHASE', 'purchased', 'initial_purchase', 1, 'upgrade-old-notification',
+              1, 8990000, 'USD', '2026-08-01T00:00:00.000Z', ?, ?)`)
+      .bind(NOW.toISOString(), NOW.toISOString()).run();
+    const app = createAppleNotificationRoutes({ now: () => NOW, createVerifier: () => ({
+      environment: Environment.SANDBOX,
+      verifier: verifier({
+        verifyNotification: async (payload) => notification(payload, "DID_CHANGE_RENEWAL_PREF", 10 * 60 + 5, "UPGRADE"),
+        verifyTransaction: async () => transaction({
+          transactionId: "upgrade-new-transaction",
+          productId: "cardx.year",
+          purchaseDate: Date.UTC(2026, 7, 12, 10, 5),
+          transactionReason: "PURCHASE",
+          price: 49_990,
+          currency: "USD",
+        }),
+        verifyRenewal: async () => ({
+          originalTransactionId: "original-1", productId: "cardx.year",
+          autoRenewProductId: "cardx.year", autoRenewStatus: 1,
+          signedDate: Date.UTC(2026, 7, 12, 10, 5), environment: Environment.SANDBOX,
+        }),
+      }),
+    }) });
+
+    await post(app, env, "upgrade-new-notification");
+
+    expect(await db.prepare(`SELECT transaction_id, product_id, business_status, charge_count,
+      amount_micros, currency, auto_renew_snapshot, purchase_at FROM billing_transaction
+      ORDER BY purchase_at`).all()).toMatchObject({ results: [
+      {
+        transaction_id: "upgrade-old-transaction", product_id: "cardx.week",
+        business_status: "initial_purchase", charge_count: 1, amount_micros: 8_990_000,
+      },
+      {
+        transaction_id: "upgrade-new-transaction", product_id: "cardx.year",
+        business_status: "upgrade", charge_count: 2, amount_micros: 49_990_000,
+        currency: "USD", auto_renew_snapshot: 1,
+        purchase_at: "2026-08-12T10:05:00.000Z",
+      },
+    ] });
+
+    await post(app, env, "upgrade-new-notification");
+    await post(app, env, "upgrade-duplicate-notification");
+    expect(await scalar("SELECT COUNT(*) AS value FROM billing_transaction")).toBe(2);
+    expect((await db.prepare(`SELECT charge_count FROM billing_transaction
+      WHERE transaction_id = 'upgrade-new-transaction'`).first())?.charge_count).toBe(2);
+  });
+
+  it("creates a production Sandbox upgrade order from the verified CardAi transaction", async () => {
+    env.APP_ENVIRONMENT = "production";
+    env.APPLE_IAP_BUNDLE_ID = "com.cardai.tcg";
+    env.APPLE_IAP_PRODUCT_IDS = "CardAi.weekly,CardAi.yearly,CardAi.lifetime";
+    await db.prepare("UPDATE billing_purchase_chain SET product_id = 'CardAi.weekly'").run();
+    await db.prepare(`INSERT INTO billing_transaction
+      (id, purchase_chain_id, store, environment, transaction_id, product_id,
+       transaction_reason, status, business_status, charge_count, source_notification_uuid,
+       amount_micros, currency, purchase_at, created_at, updated_at)
+      VALUES ('production-upgrade-old', 'chain-1', 'app_store', 'Sandbox', 'production-upgrade-old-transaction',
+              'CardAi.weekly', 'PURCHASE', 'purchased', 'initial_purchase', 1, 'production-upgrade-old-notification',
+              1990000, 'USD', '2026-08-01T00:00:00.000Z', ?, ?)`)
+      .bind(NOW.toISOString(), NOW.toISOString()).run();
+    const app = createAppleNotificationRoutes({ now: () => NOW, createVerifier: () => ({
+      environment: Environment.SANDBOX,
+      verifier: verifier({
+        verifyNotification: async () => notification("production-upgrade", "DID_CHANGE_RENEWAL_PREF", 10 * 60 + 5, "UPGRADE"),
+        verifyTransaction: async () => transaction({
+          transactionId: "production-upgrade-transaction", productId: "CardAi.yearly",
+          transactionReason: "PURCHASE", price: 49_990,
+        }),
+        verifyRenewal: async () => ({
+          originalTransactionId: "original-1", productId: "CardAi.yearly",
+          autoRenewProductId: "CardAi.yearly", autoRenewStatus: 1,
+          signedDate: Date.UTC(2026, 7, 12, 10, 5), environment: Environment.SANDBOX,
+        }),
+      }),
+    }) });
+
+    await post(app, env, "production-upgrade", {}, "/apple/notifications/v2/sandbox");
+
+    expect(await db.prepare(`SELECT product_id, business_status, charge_count, amount_micros
+      FROM billing_transaction WHERE transaction_id = 'production-upgrade-transaction'`).first())
+      .toMatchObject({
+        product_id: "CardAi.yearly", business_status: "upgrade",
+        charge_count: 2, amount_micros: 49_990_000,
+      });
+  });
+
+  it("keeps the current order unchanged when a downgrade only schedules the next product", async () => {
+    env.APPLE_IAP_PRODUCT_IDS = "cardx.week,cardx.year,cardx.lifetime";
+    await db.prepare("UPDATE billing_purchase_chain SET product_id = 'cardx.year'").run();
+    await db.prepare(`INSERT INTO billing_transaction
+      (id, purchase_chain_id, store, environment, transaction_id, product_id,
+       transaction_reason, status, business_status, charge_count, source_notification_uuid,
+       auto_renew_snapshot, amount_micros, currency, purchase_at, created_at, updated_at)
+      VALUES ('downgrade-current-order', 'chain-1', 'app_store', 'Sandbox', 'downgrade-current-transaction',
+              'cardx.year', 'PURCHASE', 'purchased', 'initial_purchase', 1, 'downgrade-current-notification',
+              1, 49990000, 'USD', '2026-08-01T00:00:00.000Z', ?, ?)`)
+      .bind(NOW.toISOString(), NOW.toISOString()).run();
+    const app = createAppleNotificationRoutes({ now: () => NOW, createVerifier: () => ({
+      environment: Environment.SANDBOX,
+      verifier: verifier({
+        verifyNotification: async () => notification("downgrade-notification", "DID_CHANGE_RENEWAL_PREF", 10 * 60 + 5, "DOWNGRADE"),
+        verifyTransaction: async () => transaction({
+          transactionId: "downgrade-current-transaction", productId: "cardx.year",
+          purchaseDate: Date.UTC(2026, 7, 1), price: 49_990,
+        }),
+        verifyRenewal: async () => ({
+          originalTransactionId: "original-1", productId: "cardx.year",
+          autoRenewProductId: "cardx.week", autoRenewStatus: 1,
+          signedDate: Date.UTC(2026, 7, 12, 10, 5), environment: Environment.SANDBOX,
+        }),
+      }),
+    }) });
+
+    await post(app, env, "downgrade-notification");
+
+    expect(await scalar("SELECT COUNT(*) AS value FROM billing_transaction")).toBe(1);
+    expect(await db.prepare(`SELECT product_id, amount_micros, business_status, charge_count
+      FROM billing_transaction`).first()).toMatchObject({
+        product_id: "cardx.year", amount_micros: 49_990_000,
+        business_status: "initial_purchase", charge_count: 1,
+      });
+    expect(await db.prepare("SELECT product_id, next_product_id FROM billing_purchase_chain").first())
+      .toMatchObject({ product_id: "cardx.year", next_product_id: "cardx.week" });
+  });
+
+  it("creates the actual weekly renewal after downgrade and only updates lifecycle on renewal failure", async () => {
+    env.APPLE_IAP_PRODUCT_IDS = "cardx.week,cardx.year,cardx.lifetime";
+    await db.prepare("UPDATE billing_purchase_chain SET product_id = 'cardx.year', next_product_id = 'cardx.week'").run();
+    await db.prepare(`INSERT INTO billing_transaction
+      (id, purchase_chain_id, store, environment, transaction_id, product_id,
+       transaction_reason, status, business_status, charge_count, source_notification_uuid,
+       auto_renew_snapshot, amount_micros, currency, purchase_at, created_at, updated_at)
+      VALUES ('before-downgrade-order', 'chain-1', 'app_store', 'Sandbox', 'before-downgrade-transaction',
+              'cardx.year', 'PURCHASE', 'purchased', 'initial_purchase', 1, 'before-downgrade-notification',
+              1, 49990000, 'USD', '2026-08-01T00:00:00.000Z', ?, ?)`)
+      .bind(NOW.toISOString(), NOW.toISOString()).run();
+    const renewed = createAppleNotificationRoutes({ now: () => NOW, createVerifier: () => ({
+      environment: Environment.SANDBOX,
+      verifier: verifier({
+        verifyNotification: async () => notification("downgraded-renewal", "DID_RENEW", 10 * 60 + 5),
+        verifyTransaction: async () => transaction({
+          transactionId: "downgraded-weekly-transaction", productId: "cardx.week",
+          transactionReason: "RENEWAL", price: 1_990,
+        }),
+        verifyRenewal: async () => ({
+          originalTransactionId: "original-1", productId: "cardx.week",
+          autoRenewProductId: "cardx.week", autoRenewStatus: 1,
+          signedDate: Date.UTC(2026, 7, 12, 10, 5), environment: Environment.SANDBOX,
+        }),
+      }),
+    }) });
+    await post(renewed, env, "downgraded-renewal");
+    expect(await db.prepare(`SELECT product_id, business_status, charge_count, amount_micros
+      FROM billing_transaction WHERE transaction_id = 'downgraded-weekly-transaction'`).first())
+      .toMatchObject({ product_id: "cardx.week", business_status: "renewal", charge_count: 2, amount_micros: 1_990_000 });
+
+    const failed = createAppleNotificationRoutes({ now: () => NOW, createVerifier: () => ({
+      environment: Environment.SANDBOX,
+      verifier: verifier({
+        verifyNotification: async () => notification("downgraded-renewal-failed", "DID_FAIL_TO_RENEW", 10 * 60 + 6),
+        verifyTransaction: async () => transaction({
+          transactionId: "downgraded-weekly-transaction", productId: "cardx.week",
+          transactionReason: "RENEWAL", price: 1_990,
+        }),
+        verifyRenewal: async () => ({
+          originalTransactionId: "original-1", productId: "cardx.week",
+          autoRenewProductId: "cardx.week", autoRenewStatus: 1,
+          signedDate: Date.UTC(2026, 7, 12, 10, 6), environment: Environment.SANDBOX,
+        }),
+      }),
+    }) });
+    await post(failed, env, "downgraded-renewal-failed");
+
+    expect(await scalar("SELECT COUNT(*) AS value FROM billing_transaction")).toBe(2);
+    expect((await db.prepare(`SELECT charge_count FROM billing_transaction
+      WHERE transaction_id = 'downgraded-weekly-transaction'`).first())?.charge_count).toBe(2);
+    expect((await db.prepare("SELECT status FROM billing_purchase_chain").first())?.status).toBe("BILLING_RETRY");
+  });
+
+  it("persists zero-price and missing-price transactions without increasing the paid charge sequence", async () => {
+    await db.prepare(`INSERT INTO billing_transaction
+      (id, purchase_chain_id, store, environment, transaction_id, product_id,
+       transaction_reason, status, business_status, charge_count, source_notification_uuid,
+       amount_micros, currency, purchase_at, created_at, updated_at)
+      VALUES ('paid-before-free', 'chain-1', 'app_store', 'Sandbox', 'paid-before-free-transaction',
+              'yearly', 'PURCHASE', 'purchased', 'initial_purchase', 1, 'paid-before-free-notification',
+              49990000, 'USD', '2026-08-01T00:00:00.000Z', ?, ?)`)
+      .bind(NOW.toISOString(), NOW.toISOString()).run();
+    const events = new Map([
+      ["zero-price", transaction({ transactionId: "zero-price-transaction", price: 0 })],
+      ["missing-price", transaction({ transactionId: "missing-price-transaction", price: undefined })],
+    ]);
+    let current = "zero-price";
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const app = createAppleNotificationRoutes({ now: () => NOW, createVerifier: () => ({
+      environment: Environment.SANDBOX,
+      verifier: verifier({
+        verifyNotification: async (payload) => {
+          current = payload;
+          return notification(`${payload}-notification`, "DID_RENEW", payload === "zero-price" ? 10 * 60 + 5 : 10 * 60 + 6);
+        },
+        verifyTransaction: async () => events.get(current)!,
+      }),
+    }) });
+
+    await post(app, env, "zero-price");
+    await post(app, env, "missing-price");
+
+    expect(await db.prepare(`SELECT transaction_id, amount_micros, charge_count
+      FROM billing_transaction WHERE transaction_id IN ('zero-price-transaction', 'missing-price-transaction')
+      ORDER BY transaction_id`).all()).toMatchObject({ results: [
+        { transaction_id: "missing-price-transaction", amount_micros: null, charge_count: null },
+        { transaction_id: "zero-price-transaction", amount_micros: 0, charge_count: 1 },
+      ] });
+    expect(warn).toHaveBeenCalledWith("Apple transaction price is missing", expect.objectContaining({
+      transactionId: "missing-price-transaction", originalTransactionId: "original-1",
+    }));
+    expect(await db.prepare(`SELECT processing_status FROM apple_notification_inbox
+      WHERE notification_uuid = 'missing-price-notification'`).first())
+      .toMatchObject({ processing_status: "correction_required" });
+  });
+
+  it("backfills an omitted real transaction for an empty plan-change subtype", async () => {
+    env.APPLE_IAP_PRODUCT_IDS = "cardx.week,cardx.year,cardx.lifetime";
+    const app = createAppleNotificationRoutes({ now: () => NOW, createVerifier: () => ({
+      environment: Environment.SANDBOX,
+      verifier: verifier({
+        verifyNotification: async () => notification("empty-subtype-backfill", "DID_CHANGE_RENEWAL_PREF", 10 * 60 + 5),
+        verifyTransaction: async () => transaction({
+          transactionId: "omitted-real-transaction", productId: "cardx.year", price: 49_990,
+        }),
+        verifyRenewal: async () => ({
+          originalTransactionId: "original-1", productId: "cardx.year",
+          autoRenewProductId: "cardx.year", autoRenewStatus: 1,
+          signedDate: Date.UTC(2026, 7, 12, 10, 5), environment: Environment.SANDBOX,
+        }),
+      }),
+    }) });
+
+    await post(app, env, "empty-subtype-backfill");
+
+    expect(await db.prepare(`SELECT product_id, amount_micros, charge_count
+      FROM billing_transaction WHERE transaction_id = 'omitted-real-transaction'`).first())
+      .toMatchObject({ product_id: "cardx.year", amount_micros: 49_990_000, charge_count: 1 });
+  });
 
   it.each([
     ["cardx.lifetime", "UPGRADE"],
@@ -657,10 +914,10 @@ describe("Apple Notifications V2 durable consumption", () => {
     await db.prepare(`INSERT INTO billing_transaction
       (id, purchase_chain_id, store, environment, transaction_id, product_id,
        transaction_reason, status, business_status, charge_count, source_notification_uuid,
-       purchase_at, created_at, updated_at)
+       amount_micros, purchase_at, created_at, updated_at)
       VALUES ('order-first', 'chain-1', 'app_store', 'Sandbox', 'transaction-first', 'yearly',
               'PURCHASE', 'purchased', 'initial_purchase', 1, 'first-notification-uuid',
-              '2026-07-01T00:00:00.000Z', ?, ?)`)
+              49990000, '2026-07-01T00:00:00.000Z', ?, ?)`)
       .bind(NOW.toISOString(), NOW.toISOString()).run();
     const sameChain = createAppleNotificationRoutes({ now: () => NOW, createVerifier: () => ({
       environment: Environment.SANDBOX,
