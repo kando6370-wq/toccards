@@ -31,7 +31,7 @@ test("billing admin follows the v1.1 order facts contract without making UID the
   assert.match(app, /function billingOrderStatusTag\(value: string \| null\).*: "--"/s);
   assert.match(routes, /adminRoutes\.get\("\/billing\/transactions"/);
   assert.match(routes, /adminRoutes\.get\("\/apple-notifications"/);
-  assert.match(routes, /const conditions = \["t\.source_notification_uuid IS NOT NULL"\]/);
+  assert.match(routes, /const conditions = \["t\.source_notification_uuid IS NOT NULL", scope\.sql\]/);
   assert.match(routes, /createXlsx/);
   assert.match(routes, /LOWER\(linked_uid\.owner_id\) = \?/);
   assert.match(migration, /CREATE TABLE `billing_purchase_chain`/);

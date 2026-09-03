@@ -3208,10 +3208,12 @@ void main() {
         ],
         retryResult: Future.value(const ScanResolution.noMatch()),
       );
+      final subscription = _SynchronizingScanSubscriptionController();
       await _pumpScanTestApp(
         tester,
         scanResultSource: source,
         scanQuotaController: quotaController,
+        subscriptionController: () => subscription,
         subscriptionResult: SubscriptionPaywallResult.premiumUnlocked,
       );
 
@@ -3222,6 +3224,7 @@ void main() {
 
       expect(source.lastRetryFileName, 'waiting.png');
       expect(quotaController.state.unlimited, isTrue);
+      expect(subscription.synchronizeCount, 1);
     },
   );
 

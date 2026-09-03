@@ -583,7 +583,7 @@ void main() {
       );
       expect(repository.createCalls, 1);
 
-      repository.completeError('ENTITLEMENT_SYNC_REQUIRED');
+      repository.completeError('ENTITLEMENT_SYNC_REQUIRED', statusCode: 409);
       await tester.pumpAndSettle();
       expect(find.text('Trade'), findsOneWidget);
       expect(
@@ -1370,6 +1370,11 @@ class _CollectionTestAppWithRoutes extends StatelessWidget {
 class _ProCollectionSubscriptionController extends SubscriptionController {
   @override
   SubscriptionState build() => const SubscriptionState(isPro: true);
+
+  @override
+  Future<EntitlementReconciliationResult> reconcileServerEntitlement() async {
+    return EntitlementReconciliationResult.verificationUnavailable;
+  }
 }
 
 class _FreeCollectionSubscriptionController extends SubscriptionController {
@@ -1468,9 +1473,9 @@ class _BlockingCreateFolderRepository extends MockCollectionRepository {
     return createCompleter.future;
   }
 
-  void completeError(String code) {
+  void completeError(String code, {int? statusCode}) {
     createCompleter.completeError(
-      PortfolioApiException('rejected', code: code),
+      PortfolioApiException('rejected', code: code, statusCode: statusCode),
     );
   }
 }
