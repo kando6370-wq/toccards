@@ -17,6 +17,7 @@ import 'package:kando_app/shared/ui/premium_locked_panel.dart';
 import 'package:kando_app/shared/ui/premium_unlocked_toast.dart';
 import 'package:kando_app/shared/ui/subscription_restore_result.dart';
 import 'package:kando_app/shared/ui/toast.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
@@ -99,6 +100,7 @@ ThemeData _formFieldTheme(BuildContext context) {
 class CardDetailPage extends ConsumerStatefulWidget {
   const CardDetailPage({
     required this.cardId,
+    this.preview,
     this.collectionItemId,
     this.collectionType = AnalyticsValue.collectionNormal,
     this.entrySource = AnalyticsValue.sourceSearch,
@@ -106,6 +108,7 @@ class CardDetailPage extends ConsumerStatefulWidget {
   });
 
   final String cardId;
+  final CardDetailPreview? preview;
   final String? collectionItemId;
   final String collectionType;
   final String entrySource;
@@ -151,6 +154,10 @@ class _CardDetailPageState extends ConsumerState<CardDetailPage> {
         : null;
     final hasExplicitCollectionItem =
         widget.collectionItemId != null && currentCollectionItemId != null;
+    final isResolvingExplicitCollectionItem =
+        widget.collectionItemId != null &&
+        currentCollectionItemId == null &&
+        state.assetStateStatus == KandoLoadStatus.loading;
     _trackViewWhenLoaded(state);
 
     final page = Scaffold(
@@ -165,9 +172,9 @@ class _CardDetailPageState extends ConsumerState<CardDetailPage> {
       body: SafeArea(
         child: _CardDetailKeyboardDismissOnPointerDown(
           child: state.loadStatus == KandoLoadStatus.loading
-              ? const Padding(
-                  padding: EdgeInsets.all(20),
-                  child: KandoLoadingBlock(),
+              ? _CardDetailLoadingBody(
+                  preview: widget.preview,
+                  onBack: () => _goBack(context, controller),
                 )
               : state.isUnavailable
               ? Padding(
@@ -215,24 +222,21 @@ class _CardDetailPageState extends ConsumerState<CardDetailPage> {
                             onBack: () => _goBack(context, controller),
                           ),
                           const SizedBox(height: 10),
-                          if (state.assetStateStatus == KandoLoadStatus.loading)
-                            const SizedBox(
-                              key: Key('card-detail-asset-state-loading'),
-                              height: 72,
-                              child: KandoLoadingBlock(),
-                            )
-                          else if (state.assetStateStatus ==
-                              KandoLoadStatus.failure)
+                          _PrimaryActions(state: state),
+                          if (state.assetStateStatus ==
+                              KandoLoadStatus.failure) ...[
+                            const SizedBox(height: 12),
                             KandoFailureBlock(
                               key: const Key('card-detail-asset-state-failure'),
                               onRefresh: controller.refreshAssetState,
-                            )
-                          else
-                            _PrimaryActions(state: state),
+                            ),
+                          ],
                           const SizedBox(height: 28),
                           // _BasicInfo(state: state),
                           // const SizedBox(height: 28),
-                          if (hasExplicitCollectionItem)
+                          if (isResolvingExplicitCollectionItem)
+                            const _OwnedDetailTabsSkeleton()
+                          else if (hasExplicitCollectionItem)
                             _OwnedDetailTabs(
                               key: ValueKey(currentCollectionItemId),
                               state: state,
@@ -363,6 +367,229 @@ class _CardDetailKeyboardDismissOnPointerDown extends StatelessWidget {
   }
 }
 
+class _CardDetailLoadingBody extends StatelessWidget {
+  const _CardDetailLoadingBody({required this.preview, required this.onBack});
+
+  final CardDetailPreview? preview;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final horizontalPadding = math.max(
+          20.0,
+          (constraints.maxWidth - 672) / 2,
+        );
+        return Skeletonizer.zone(
+          key: const Key('card-detail-loading-skeleton'),
+          enabled: true,
+          ignorePointers: false,
+          effect: const ShimmerEffect(
+            baseColor: Color(0xFF292B22),
+            highlightColor: Color(0xFF4A4D38),
+            duration: Duration(milliseconds: 1400),
+          ),
+          child: ListView(
+            key: const Key('card-detail-loading-scroll'),
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(
+              horizontalPadding,
+              20,
+              horizontalPadding,
+              28,
+            ),
+            children: [
+              _CardDetailLoadingHero(preview: preview, onBack: onBack),
+              const SizedBox(height: 10),
+              const Bone.button(
+                key: Key('card-detail-primary-action-bone'),
+                width: double.infinity,
+                height: 48,
+                borderRadius: BorderRadius.all(Radius.circular(24)),
+              ),
+              const SizedBox(height: 28),
+              const Bone.text(width: 136, fontSize: 24),
+              const SizedBox(height: 12),
+              const Bone(
+                width: double.infinity,
+                height: 168,
+                borderRadius: BorderRadius.all(Radius.circular(_kRadiusLg)),
+              ),
+              const SizedBox(height: 28),
+              const Bone.text(width: 92, fontSize: 24),
+              const SizedBox(height: 12),
+              const Bone(
+                width: double.infinity,
+                height: 220,
+                borderRadius: BorderRadius.all(Radius.circular(_kRadiusLg)),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _CardDetailLoadingHero extends StatelessWidget {
+  const _CardDetailLoadingHero({required this.preview, required this.onBack});
+
+  final CardDetailPreview? preview;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = preview?.imageUrl;
+    final imageAssetPath = preview?.imageAssetPath;
+    final hasPreviewImage =
+        (imageUrl != null && imageUrl.isNotEmpty) ||
+        (imageAssetPath != null && imageAssetPath.isNotEmpty);
+    final previewChips = [
+      if (preview?.game case final game? when game.isNotEmpty)
+        _HeroChip(label: game, accent: true),
+      if (preview?.setName case final setName? when setName.isNotEmpty)
+        _HeroChip(label: setName),
+      if (preview?.identityLine case final identity? when identity.isNotEmpty)
+        _HeroChip(label: identity),
+    ];
+
+    return SizedBox(
+      key: const Key('card-detail-loading-hero'),
+      width: double.infinity,
+      height: 454,
+      child: DecoratedBox(
+        decoration: _cardHeroDecoration,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(_kRadiusXl),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(54, 56, 54, 54),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(_kRadiusLg),
+                  child: hasPreviewImage
+                      ? KeyedSubtree(
+                          key: const Key('card-detail-preview-image'),
+                          child:
+                              imageAssetPath != null &&
+                                  imageAssetPath.isNotEmpty
+                              ? Image.asset(imageAssetPath, fit: BoxFit.cover)
+                              : KandoCardImage(
+                                  imageUrl: imageUrl,
+                                  semanticLabel: preview?.name,
+                                ),
+                        )
+                      : const Bone(
+                          key: Key('card-detail-image-bone'),
+                          width: double.infinity,
+                          height: double.infinity,
+                          borderRadius: BorderRadius.all(
+                            Radius.circular(_kRadiusLg),
+                          ),
+                        ),
+                ),
+              ),
+              const Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      stops: [0.5, 1],
+                      colors: [Colors.transparent, Color(0xF20D0F08)],
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 18,
+                top: 18,
+                child: IconButton(
+                  key: const Key('card-detail-back'),
+                  tooltip: 'Back',
+                  onPressed: onBack,
+                  style: _cardHeroIconButtonStyle,
+                  icon: const Icon(Icons.arrow_back, size: 22),
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (preview?.name case final name? when name.isNotEmpty)
+                        Text(
+                          name,
+                          key: const Key('card-detail-preview-title'),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: _cardHeroTitleStyle,
+                        )
+                      else
+                        const Bone.text(width: 190, fontSize: 24),
+                      const SizedBox(height: 8),
+                      if (previewChips.isNotEmpty)
+                        Wrap(spacing: 6, runSpacing: 6, children: previewChips)
+                      else
+                        const Row(
+                          children: [
+                            Bone(width: 72, height: 28, uniRadius: 14),
+                            SizedBox(width: 6),
+                            Bone(width: 112, height: 28, uniRadius: 14),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+const _cardHeroTitleStyle = TextStyle(
+  fontFamily: 'Fraunces',
+  fontSize: 24,
+  fontWeight: FontWeight.w600,
+  height: 32 / 24,
+  color: Color(0xFFE4E3D3),
+);
+
+final _cardHeroIconButtonStyle = IconButton.styleFrom(
+  backgroundColor: KandoColors.surface.withValues(alpha: 0.92),
+  foregroundColor: KandoColors.text,
+  side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+  shape: const CircleBorder(),
+  fixedSize: const Size.square(40),
+  padding: EdgeInsets.zero,
+);
+
+final _cardHeroDecoration = BoxDecoration(
+  gradient: const RadialGradient(
+    center: Alignment(0, -0.25),
+    radius: 0.9,
+    colors: [Color(0xFF4D4D28), Color(0xFF21220D), Color(0xFF0C0E06)],
+  ),
+  borderRadius: BorderRadius.circular(_kRadiusXl),
+  border: Border.all(color: KandoColors.border.withValues(alpha: 0.7)),
+  boxShadow: [
+    BoxShadow(
+      color: KandoColors.accent.withValues(alpha: 0.08),
+      blurRadius: 40,
+    ),
+  ],
+);
+
 class _CardHero extends ConsumerWidget {
   const _CardHero({
     required this.state,
@@ -382,15 +609,6 @@ class _CardHero extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final detail = state.detail;
 
-    final iconButtonStyle = IconButton.styleFrom(
-      backgroundColor: KandoColors.surface.withValues(alpha: 0.92),
-      foregroundColor: KandoColors.text,
-      side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
-      shape: const CircleBorder(),
-      fixedSize: const Size.square(40),
-      padding: EdgeInsets.zero,
-    );
-
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: double.infinity),
@@ -399,27 +617,7 @@ class _CardHero extends ConsumerWidget {
           width: double.infinity,
           height: 454,
           child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: const RadialGradient(
-                center: Alignment(0, -0.25),
-                radius: 0.9,
-                colors: [
-                  Color(0xFF4D4D28),
-                  Color(0xFF21220D),
-                  Color(0xFF0C0E06),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(_kRadiusXl),
-              border: Border.all(
-                color: KandoColors.border.withValues(alpha: 0.7),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: KandoColors.accent.withValues(alpha: 0.08),
-                  blurRadius: 40,
-                ),
-              ],
-            ),
+            decoration: _cardHeroDecoration,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(_kRadiusXl),
               child: Stack(
@@ -461,7 +659,7 @@ class _CardHero extends ConsumerWidget {
                           key: const Key('card-detail-back'),
                           tooltip: 'Back',
                           onPressed: onBack,
-                          style: iconButtonStyle,
+                          style: _cardHeroIconButtonStyle,
                           icon: const Icon(Icons.arrow_back, size: 22),
                         ),
                         if (isGenericEntry)
@@ -475,7 +673,7 @@ class _CardHero extends ConsumerWidget {
                               controller,
                               entrySource,
                             ),
-                            style: iconButtonStyle,
+                            style: _cardHeroIconButtonStyle,
                             icon: SvgPicture.asset(
                               'assets/search/collection_off.svg',
                               width: 20,
@@ -508,7 +706,7 @@ class _CardHero extends ConsumerWidget {
                                   }
                                 }
                               },
-                              style: iconButtonStyle,
+                              style: _cardHeroIconButtonStyle,
                               icon: SvgPicture.asset(
                                 'assets/collection/share.svg',
                                 key: const Key('card-detail-share-icon'),
@@ -534,13 +732,7 @@ class _CardHero extends ConsumerWidget {
                             detail.name,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontFamily: 'Fraunces',
-                              fontSize: 24,
-                              fontWeight: FontWeight.w600,
-                              height: 32 / 24,
-                              color: Color(0xFFE4E3D3),
-                            ),
+                            style: _cardHeroTitleStyle,
                           ),
                           const SizedBox(height: 8),
                           Wrap(
@@ -958,6 +1150,55 @@ class _EditCollectionItemSheet extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _OwnedDetailTabsSkeleton extends StatelessWidget {
+  const _OwnedDetailTabsSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Skeletonizer.zone(
+      key: const Key('card-detail-owned-tabs-loading'),
+      enabled: true,
+      effect: const ShimmerEffect(
+        baseColor: Color(0xFF292B22),
+        highlightColor: Color(0xFF4A4D38),
+        duration: Duration(milliseconds: 1400),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            key: const Key('card-detail-owned-tabs-loading-control'),
+            height: 52,
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(
+              color: KandoColors.surface,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: _kCollectionOutline),
+            ),
+            child: const Row(
+              children: [
+                Expanded(child: Bone(height: 42, uniRadius: 999)),
+                SizedBox(width: 5),
+                Expanded(child: Bone(height: 42, uniRadius: 999)),
+                SizedBox(width: 5),
+                Expanded(child: Bone(height: 42, uniRadius: 999)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Bone.text(width: 132, fontSize: 20),
+          const SizedBox(height: 12),
+          const Bone(
+            width: double.infinity,
+            height: 220,
+            borderRadius: BorderRadius.all(Radius.circular(_kRadiusLg)),
+          ),
+        ],
       ),
     );
   }

@@ -48,6 +48,179 @@ void main() {
   });
 
   testWidgets(
+    'CardDetail keeps a stable page shell while the initial detail is loading',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+      final repository = _BlockingCardDetailRepository(blockInitialLoad: true);
+      await tester.pumpWidget(
+        _CardDetailTestApp(
+          cardId: 'squirtle',
+          repository: repository,
+          preview: const CardDetailPreview(
+            cardId: 'squirtle',
+            name: 'Squirtle preview',
+            imageUrl: 'https://image.tcgcard.fun/cards/squirtle.jpg',
+            game: 'Pokemon',
+            setName: 'Mega Evolution Promos',
+            identityLine: 'Promo #039',
+          ),
+        ),
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CardDetailPage)),
+      );
+      await container.read(authControllerProvider.notifier).startupComplete;
+      await tester.pump();
+
+      expect(repository.calls, 1);
+      expect(find.byKey(const Key('card-detail-back')), findsOneWidget);
+      expect(find.byType(KandoLoadingBlock), findsNothing);
+      expect(
+        find.byKey(const Key('card-detail-loading-skeleton')),
+        findsOneWidget,
+      );
+      expect(find.text('Squirtle preview'), findsOneWidget);
+      expect(
+        find.byKey(const Key('card-detail-preview-image')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+
+      repository.completePendingLoad();
+      await tester.pumpAndSettle();
+      expect(find.text('Squirtle'), findsOneWidget);
+    },
+  );
+
+  testWidgets('CardDetail pull refresh keeps the current detail visible', (
+    tester,
+  ) async {
+    final repository = _BlockingCardDetailRepository();
+    await tester.pumpWidget(
+      _CardDetailTestApp(cardId: 'squirtle', repository: repository),
+    );
+    await tester.pumpAndSettle();
+
+    final indicator = find.byKey(const Key('card-detail-pull-to-refresh'));
+    final refresh = tester.state<RefreshIndicatorState>(indicator).show();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(repository.calls, 2);
+    expect(find.byType(RefreshProgressIndicator), findsOneWidget);
+    expect(find.byType(KandoLoadingBlock), findsNothing);
+    expect(find.text('Squirtle'), findsOneWidget);
+
+    repository.completePendingLoad();
+    await refresh;
+    await tester.pumpAndSettle();
+
+    expect(find.byType(RefreshProgressIndicator), findsNothing);
+    expect(find.text('Squirtle'), findsOneWidget);
+  });
+
+  testWidgets(
+    'owned CardDetail shows its core action while the collection Item context is still loading',
+    (tester) async {
+      final repository = _BlockingAssetStateCardDetailRepository();
+      final actions = _RecordingCardDetailActions();
+      await tester.pumpWidget(
+        _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          collectionItemId: 'item-charizard',
+          repository: repository,
+          actions: actions,
+        ),
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CardDetailPage)),
+      );
+      await container.read(authControllerProvider.notifier).startupComplete;
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        find.byKey(const Key('card-detail-view-sold-listings')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('card-detail-asset-state-loading')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('card-detail-owned-tabs-loading')),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .getSize(
+              find.byKey(const Key('card-detail-owned-tabs-loading-control')),
+            )
+            .height,
+        52,
+      );
+      expect(find.byKey(const Key('card-detail-owned-tabs')), findsNothing);
+
+      await tester.tap(find.byKey(const Key('card-detail-view-sold-listings')));
+      await tester.pump();
+      expect(actions.soldListingsName, 'Charizard ex');
+      expect(actions.soldListingsSetName, 'Obsidian Flames');
+
+      repository.completeAssetState();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('card-detail-view-sold-listings')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('card-detail-owned-tabs-loading')),
+        findsNothing,
+      );
+      expect(find.byKey(const Key('card-detail-owned-tabs')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'owned CardDetail keeps its core action and existing asset retry when collection state fails',
+    (tester) async {
+      final repository = _BlockingAssetStateCardDetailRepository();
+      await tester.pumpWidget(
+        _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          collectionItemId: 'item-charizard',
+          repository: repository,
+        ),
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CardDetailPage)),
+      );
+      await container.read(authControllerProvider.notifier).startupComplete;
+      await tester.pump();
+      await tester.pump();
+
+      repository.failAssetState();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('card-detail-view-sold-listings')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('card-detail-asset-state-failure')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('card-detail-owned-tabs-loading')),
+        findsNothing,
+      );
+      expect(find.byKey(const Key('card-detail-owned-tabs')), findsNothing);
+    },
+  );
+
+  testWidgets(
     'product 180865 shows Normal and Foil tabs and switching refreshes material prices',
     (tester) async {
       final repository = _FinishTabCardDetailRepository();
@@ -2312,6 +2485,7 @@ class _CardDetailTestApp extends StatelessWidget {
     required this.cardId,
     this.actions,
     this.repository,
+    this.preview,
     this.entrySource = AnalyticsValue.sourceSearch,
     this.subscriptionController,
     this.performanceApi,
@@ -2321,6 +2495,7 @@ class _CardDetailTestApp extends StatelessWidget {
   final String cardId;
   final CardDetailActions? actions;
   final CardDetailRepository? repository;
+  final CardDetailPreview? preview;
   final String entrySource;
   final SubscriptionController Function()? subscriptionController;
   final PortfolioApiClient? performanceApi;
@@ -2347,6 +2522,7 @@ class _CardDetailTestApp extends StatelessWidget {
       child: MaterialApp(
         home: CardDetailPage(
           cardId: cardId,
+          preview: preview,
           collectionItemId: collectionItemId,
           entrySource: entrySource,
         ),
@@ -2839,6 +3015,80 @@ class _DelayedUpdateCardDetailRepository extends MockCardDetailRepository {
         notes: 'Pulled from Obsidian Flames binder.',
       ),
     );
+  }
+}
+
+class _BlockingCardDetailRepository extends MockCardDetailRepository {
+  _BlockingCardDetailRepository({this.blockInitialLoad = false});
+
+  final bool blockInitialLoad;
+  Completer<CardDetail>? _pendingLoad;
+  int calls = 0;
+
+  @override
+  Future<CardDetail> loadDetail(AuthSession session, String cardId) {
+    calls += 1;
+    if (!blockInitialLoad && calls == 1) {
+      return super.loadDetail(session, cardId);
+    }
+    _pendingLoad = Completer<CardDetail>();
+    return _pendingLoad!.future;
+  }
+
+  Future<void> completePendingLoad() async {
+    final pendingLoad = _pendingLoad;
+    if (pendingLoad == null || pendingLoad.isCompleted) return;
+    pendingLoad.complete(
+      await super.loadDetail(
+        const AuthSession(
+          ownerType: OwnerType.anonymous,
+          accessToken: 'test-access',
+          refreshToken: 'test-refresh',
+        ),
+        'squirtle',
+      ),
+    );
+  }
+}
+
+class _BlockingAssetStateCardDetailRepository
+    extends _FinishTabCardDetailRepository {
+  final Completer<CardDetail> _pendingAssetState = Completer<CardDetail>();
+  late CardDetail _fullDetail;
+
+  @override
+  Future<CardDetail> loadCoreDetail(String cardId) async {
+    _fullDetail = await const MockCardDetailRepository().loadDetail(
+      const AuthSession(
+        ownerType: OwnerType.anonymous,
+        accessToken: 'test-access',
+        refreshToken: 'test-refresh',
+      ),
+      cardId,
+    );
+    return _fullDetail.copyWith(
+      quantity: 0,
+      isWishlisted: false,
+      wishlistItemId: null,
+      portfolioFolders: const [],
+      collectionItems: const [],
+    );
+  }
+
+  @override
+  Future<CardDetail> loadAssetState(AuthSession session, CardDetail detail) =>
+      _pendingAssetState.future;
+
+  void completeAssetState() {
+    if (!_pendingAssetState.isCompleted) {
+      _pendingAssetState.complete(_fullDetail);
+    }
+  }
+
+  void failAssetState() {
+    if (!_pendingAssetState.isCompleted) {
+      _pendingAssetState.completeError(StateError('asset state unavailable'));
+    }
   }
 }
 

@@ -20,6 +20,7 @@ import 'package:kando_app/shared/ui/toast.dart';
 
 import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
+import '../card_detail/card_detail_models.dart';
 import '../collection/collection_page.dart';
 import '../collection/collection_controller.dart';
 import '../collection/collection_models.dart';
@@ -178,6 +179,15 @@ class _HomePageState extends ConsumerState<HomePage>
                             'item_id': performer.itemId,
                           },
                         ).toString(),
+                        extra: CardDetailPreview(
+                          cardId: performer.cardRef,
+                          name: performer.name,
+                          imageUrl: performer.imageUrl,
+                          setName: performer.setName,
+                          identityLine: performer.cardNumber.isEmpty
+                              ? null
+                              : '#${performer.cardNumber}',
+                        ),
                       ),
                       onViewAllTopPerformers: () {
                         ref
@@ -2454,6 +2464,13 @@ class _MostValuableSection extends StatelessWidget {
                               'item_id': card.itemId!,
                             },
                           ).toString(),
+                          extra: CardDetailPreview(
+                            cardId: card.cardRef!,
+                            name: card.title,
+                            imageUrl: card.imageUrl,
+                            imageAssetPath: card.imageAssetPath,
+                            identityLine: card.subtitle,
+                          ),
                         ),
                   price: state.formatCardPrice(card.priceUsd),
                 );
@@ -2529,6 +2546,13 @@ class _TrendingSection extends StatelessWidget {
                   ? null
                   : () => context.push(
                       '/cards/${trends[index].cardRef}?collection=normal&entry=trending%20today',
+                      extra: CardDetailPreview(
+                        cardId: trends[index].cardRef!,
+                        name: trends[index].title,
+                        imageUrl: trends[index].imageUrl,
+                        imageAssetPath: trends[index].imageAssetPath,
+                        identityLine: trends[index].subtitle,
+                      ),
                     ),
               showPlaceholder: state.isUnavailable,
               placeholderKey: state.isUnavailable
