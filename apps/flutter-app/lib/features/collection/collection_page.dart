@@ -445,7 +445,7 @@ class _PortfolioSummaryCard extends StatelessWidget {
                         height: 40,
                         child: Row(
                           children: [
-                            Flexible(
+                            Expanded(
                               child: Text(
                                 summary.totalValueText,
                                 key: const Key('collection-portfolio-total'),

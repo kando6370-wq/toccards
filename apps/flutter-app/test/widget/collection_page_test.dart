@@ -312,6 +312,27 @@ void main() {
   );
 
   testWidgets(
+    'Collection portfolio total ellipsizes only when it does not fit',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 884);
+      addTearDown(tester.view.reset);
+
+      await _pumpCollection(
+        tester,
+        repository: const _LongPortfolioValueCollectionRepository(),
+      );
+
+      final total = tester.widget<Text>(
+        find.byKey(const Key('collection-portfolio-total')),
+      );
+      expect(total.data, r'$123,456,789.00');
+      expect(total.overflow, TextOverflow.ellipsis);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'Collection passes its 30D change through the generic card field',
     (tester) async {
       await _pumpCollection(tester);
@@ -1478,6 +1499,42 @@ class _LongFolderCollectionRepository extends MockCollectionRepository {
         for (final folder in dashboard.folders)
           folder.id == 'main' ? folder.copyWith(name: _longFolderName) : folder,
       ],
+    );
+  }
+}
+
+class _LongPortfolioValueCollectionRepository extends MockCollectionRepository {
+  const _LongPortfolioValueCollectionRepository();
+
+  @override
+  Future<CollectionDashboard> loadDashboard(AuthSession session) async {
+    return CollectionDashboard(
+      folders: const [
+        CollectionFolder(id: 'main', name: 'Main', isDefault: true),
+      ],
+      portfolioItems: const [
+        CollectionItem(
+          id: 'item-long-value',
+          cardRef: 'long-value-card',
+          folderId: 'main',
+          name: 'Long Value Card',
+          setName: 'Test Set',
+          number: '#001',
+          rarity: 'Rare',
+          game: 'Pokemon',
+          language: 'English',
+          finish: 'Holofoil',
+          grader: 'Raw',
+          condition: 'Near Mint',
+          grade: null,
+          quantity: 1,
+          marketValueUsd: 123456789,
+          previous30dPriceUsd: 123456789,
+          increasePercent: null,
+          addedAtSort: 1,
+        ),
+      ],
+      wishlistItems: const [],
     );
   }
 }
