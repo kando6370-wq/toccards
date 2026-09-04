@@ -295,6 +295,16 @@ void main() {
       tester.getSize(find.byKey(const Key('collection-hide-amount'))).height,
       24,
     );
+    final totalFinder = find.byKey(const Key('collection-portfolio-total'));
+    final totalRect = tester.getRect(totalFinder);
+    final eyeRect = tester.getRect(
+      find.byKey(const Key('collection-hide-amount')),
+    );
+    expect(
+      totalRect.width,
+      closeTo(_singleLineTextWidth(tester, totalFinder), 0.01),
+    );
+    expect(eyeRect.left - totalRect.right, 12);
     expect(
       tester
           .widget<Text>(find.byKey(const Key('collection-portfolio-total')))
@@ -363,6 +373,16 @@ void main() {
       );
       expect(total.data, r'$123,456,789.00');
       expect(total.overflow, TextOverflow.ellipsis);
+      final totalFinder = find.byKey(const Key('collection-portfolio-total'));
+      final totalRect = tester.getRect(totalFinder);
+      final eyeRect = tester.getRect(
+        find.byKey(const Key('collection-hide-amount')),
+      );
+      expect(
+        totalRect.width,
+        lessThan(_singleLineTextWidth(tester, totalFinder)),
+      );
+      expect(eyeRect.left - totalRect.right, 12);
       expect(tester.takeException(), isNull);
     },
   );
@@ -1431,6 +1451,21 @@ void _expectTextOrder(WidgetTester tester, List<String> labels) {
       reason: 'Collection cards must preserve the Search Cards field order.',
     );
   }
+}
+
+double _singleLineTextWidth(WidgetTester tester, Finder finder) {
+  final text = tester.widget<Text>(finder);
+  final context = tester.element(finder);
+  final painter = TextPainter(
+    text: TextSpan(
+      text: text.data,
+      style: DefaultTextStyle.of(context).style.merge(text.style),
+    ),
+    maxLines: 1,
+    textDirection: TextDirection.ltr,
+    textScaler: MediaQuery.textScalerOf(context),
+  )..layout();
+  return painter.width;
 }
 
 _searchOverrides() {

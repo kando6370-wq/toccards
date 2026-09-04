@@ -72,6 +72,7 @@ GitLab Flutter CI 使用 3.44.0，GitHub iOS CI 使用 3.44.7。涉及工具链�
 - PostgreSQL schema/migration 与 Hyperdrive binding 是数据库产品和基础设施契约；新增 schema 变更只允许写入 `apps/workers-api/src/db/postgres/migrations/`。修改前必须读取相关实现和文档，并先向用户说明影响。
 - 服务端授权、账号归属、资产隔离和购买权益必须由可信服务端数据验证，不能信任客户端自报状态。
 - 后续app所有轻提示框不在使用底部提示框，使用项目组件中的顶部提示框组件；项目组件中有不同类型的顶部提示组件，使用时需区分使用类型。
+- iOS 内部测试包使用 Bundle ID `com.kando.kandoApp.beta` 时，最终签名 entitlement 的 App Attest 环境必须为 `development`，不得交付 `production`；必须解包检查最终 IPA，不能只看 Xcode 工程设置或描述文件允许值。其他 Bundle ID 的 App Attest 环境暂不固定。
 
 ## 文档真源
 

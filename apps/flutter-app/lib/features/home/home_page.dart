@@ -17,6 +17,7 @@ import 'package:kando_app/shared/ui/premium_locked_panel.dart';
 import 'package:kando_app/shared/ui/premium_unlocked_toast.dart';
 import 'package:kando_app/shared/ui/subscription_restore_result.dart';
 import 'package:kando_app/shared/ui/toast.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
@@ -1140,49 +1141,54 @@ class _PerformanceLoadingSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Skeletonizer.zone(
       key: const Key('home-performance-loading'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var row = 0; row < 2; row++) ...[
-          Row(
-            children: [
-              for (var column = 0; column < 2; column++) ...[
-                const Expanded(child: _PerformanceSkeletonBlock(height: 94)),
-                if (column == 0) const SizedBox(width: 12),
+      enabled: true,
+      effect: const ShimmerEffect.raw(
+        colors: [Color(0xFF292B22), Color(0xFF4A4D38), Color(0xFF292B22)],
+        stops: [0.4, 0.5, 0.6],
+        duration: Duration(milliseconds: 1800),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var row = 0; row < 2; row++) ...[
+            Row(
+              children: [
+                for (var column = 0; column < 2; column++) ...[
+                  const Expanded(
+                    child: Bone(
+                      height: 94,
+                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                    ),
+                  ),
+                  if (column == 0) const SizedBox(width: 12),
+                ],
               ],
-            ],
+            ),
+            const SizedBox(height: 12),
+          ],
+          const Bone(
+            width: double.infinity,
+            height: 190,
+            borderRadius: BorderRadius.all(Radius.circular(8)),
+          ),
+          const SizedBox(height: 32),
+          const Bone(
+            width: 190,
+            height: 32,
+            borderRadius: BorderRadius.all(Radius.circular(8)),
           ),
           const SizedBox(height: 12),
+          for (var index = 0; index < 3; index++) ...[
+            const Bone(
+              width: double.infinity,
+              height: 88,
+              borderRadius: BorderRadius.all(Radius.circular(8)),
+            ),
+            if (index < 2) const SizedBox(height: 10),
+          ],
         ],
-        const _PerformanceSkeletonBlock(height: 190),
-        const SizedBox(height: 32),
-        const _PerformanceSkeletonBlock(height: 32, width: 190),
-        const SizedBox(height: 12),
-        for (var index = 0; index < 3; index++) ...[
-          const _PerformanceSkeletonBlock(height: 88),
-          if (index < 2) const SizedBox(height: 10),
-        ],
-      ],
-    );
-  }
-}
-
-class _PerformanceSkeletonBlock extends StatelessWidget {
-  const _PerformanceSkeletonBlock({required this.height, this.width});
-
-  final double height;
-  final double? width;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        color: KandoColors.surface.withValues(alpha: .72),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: KandoColors.borderSubtle),
       ),
     );
   }

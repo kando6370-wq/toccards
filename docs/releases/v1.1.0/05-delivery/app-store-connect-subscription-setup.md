@@ -291,6 +291,7 @@ Apple 默认将一个月压缩为 5 分钟；在该默认速率下，1 周订阅
 | 检查项 | 期望值 |
 |---|---|
 | Bundle ID | `com.kando.kandoApp.beta` |
+| App Attest（蒲公英/真机内部测试包） | `development`；必须检查最终 IPA 的签名 entitlement，不以 Xcode 工程设置或描述文件允许值代替 |
 | Weekly Product ID | `cardx.week` |
 | Yearly Product ID | `cardx.year` |
 | 订阅组 | `Performance Pro`，Group ID `22251901` |

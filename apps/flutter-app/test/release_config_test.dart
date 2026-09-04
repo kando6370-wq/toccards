@@ -144,7 +144,15 @@ void main() {
       );
       expect(
         releaseScript,
-        contains('BUNDLE_ID="\${BUNDLE_ID:-com.kando.kandoApp.beta}"'),
+        contains('TEST_BUNDLE_ID="com.kando.kandoApp.beta"'),
+      );
+      expect(
+        releaseScript,
+        contains(RegExp(r'"Apple Development:"\s+\\\s+"development"')),
+      );
+      expect(
+        releaseScript,
+        contains(r'"$TEST_INTERNAL_IPA_DIR/Card AI Test.ipa"'),
       );
     },
   );

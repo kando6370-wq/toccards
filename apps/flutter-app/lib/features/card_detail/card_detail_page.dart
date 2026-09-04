@@ -385,10 +385,10 @@ class _CardDetailLoadingBody extends StatelessWidget {
           key: const Key('card-detail-loading-skeleton'),
           enabled: true,
           ignorePointers: false,
-          effect: const ShimmerEffect(
-            baseColor: Color(0xFF292B22),
-            highlightColor: Color(0xFF4A4D38),
-            duration: Duration(milliseconds: 1400),
+          effect: const ShimmerEffect.raw(
+            colors: [Color(0xFF292B22), Color(0xFF4A4D38), Color(0xFF292B22)],
+            stops: [0.4, 0.5, 0.6],
+            duration: Duration(milliseconds: 1800),
           ),
           child: ListView(
             key: const Key('card-detail-loading-scroll'),
@@ -1163,10 +1163,10 @@ class _OwnedDetailTabsSkeleton extends StatelessWidget {
     return Skeletonizer.zone(
       key: const Key('card-detail-owned-tabs-loading'),
       enabled: true,
-      effect: const ShimmerEffect(
-        baseColor: Color(0xFF292B22),
-        highlightColor: Color(0xFF4A4D38),
-        duration: Duration(milliseconds: 1400),
+      effect: const ShimmerEffect.raw(
+        colors: [Color(0xFF292B22), Color(0xFF4A4D38), Color(0xFF292B22)],
+        stops: [0.4, 0.5, 0.6],
+        duration: Duration(milliseconds: 1800),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -6105,6 +6105,10 @@ const _kPriceChartColors = [
   Color(0xFFC6A7FF),
   Color(0xFF7DCB72),
   Color(0xFFE782A9),
+  Color(0xFF89CAFF),
+  Color(0xFF96E4CE),
+  Color(0xFFE496E3),
+  Color(0xFFA5BDFF),
 ];
 
 class _DetailChartSeries {

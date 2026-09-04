@@ -25,6 +25,7 @@ import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/toast.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 import '../support/in_memory_auth_storage.dart';
 import '../support/local_placeholder_auth_repository.dart';
@@ -81,6 +82,12 @@ void main() {
         find.byKey(const Key('card-detail-loading-skeleton')),
         findsOneWidget,
       );
+      final initialSkeleton = tester.widget<Skeletonizer>(
+        find.byKey(const Key('card-detail-loading-skeleton')),
+      );
+      final initialShimmer = initialSkeleton.effect as RawShimmerEffect;
+      expect(initialShimmer.stops, const [0.4, 0.5, 0.6]);
+      expect(initialShimmer.duration, const Duration(milliseconds: 1800));
       expect(find.text('Squirtle preview'), findsOneWidget);
       expect(
         find.byKey(const Key('card-detail-preview-image')),
@@ -153,6 +160,12 @@ void main() {
         find.byKey(const Key('card-detail-owned-tabs-loading')),
         findsOneWidget,
       );
+      final tabsSkeleton = tester.widget<Skeletonizer>(
+        find.byKey(const Key('card-detail-owned-tabs-loading')),
+      );
+      final tabsShimmer = tabsSkeleton.effect as RawShimmerEffect;
+      expect(tabsShimmer.stops, const [0.4, 0.5, 0.6]);
+      expect(tabsShimmer.duration, const Duration(milliseconds: 1800));
       expect(
         tester
             .getSize(
@@ -1973,6 +1986,48 @@ void main() {
     expect(find.text('Shop'), findsOneWidget);
   });
 
+  testWidgets(
+    'Graded price chart uses ten colors before repeating its palette',
+    (tester) async {
+      await tester.pumpWidget(
+        const _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          repository: _GradedPaletteCardDetailRepository(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(find.text('Price'), 400);
+      await tester.tap(find.text('Price'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('GRADED'));
+      await tester.pumpAndSettle();
+
+      final legendSwatches = find.byWidgetPredicate(
+        (widget) =>
+            widget is Container &&
+            widget.constraints ==
+                const BoxConstraints.tightFor(width: 10, height: 2),
+      );
+      final legendColors = tester
+          .widgetList<Container>(legendSwatches)
+          .map((widget) => widget.color)
+          .toList();
+      expect(legendColors, const [
+        KandoColors.accent,
+        Color(0xFF53D8C4),
+        Color(0xFFFFB15A),
+        Color(0xFFC6A7FF),
+        Color(0xFF7DCB72),
+        Color(0xFFE782A9),
+        Color(0xFF89CAFF),
+        Color(0xFF96E4CE),
+        Color(0xFFE496E3),
+        Color(0xFFA5BDFF),
+      ]);
+    },
+  );
+
   testWidgets('owned Collection Item can be edited from CardDetail', (
     tester,
   ) async {
@@ -2862,6 +2917,39 @@ class _DelayedEditPriceCardDetailRepository
       ),
     ],
   );
+}
+
+class _GradedPaletteCardDetailRepository extends MockCardDetailRepository {
+  const _GradedPaletteCardDetailRepository();
+
+  @override
+  Future<CardDetail> loadDetail(AuthSession session, String cardId) async {
+    final detail = await super.loadDetail(session, cardId);
+    const points = [
+      CardPricePoint(dateLabel: 'Yesterday', priceUsd: 700),
+      CardPricePoint(dateLabel: 'Today', priceUsd: 710),
+    ];
+    return detail.copyWith(
+      gradedPriceSeries: [
+        for (final label in const [
+          'BGS 10',
+          'CGC 10',
+          'Grade 7',
+          'Grade 8',
+          'Grade 9',
+          'Grade 9.5',
+          'PSA 10',
+          'SGC 10',
+          'Future Grade A',
+          'Future Grade B',
+        ])
+          CardPriceChartSeries(
+            label: label,
+            seriesByRange: const {CardPriceRange.oneMonth: points},
+          ),
+      ],
+    );
+  }
 }
 
 class _CardDetailRouteApp extends StatelessWidget {

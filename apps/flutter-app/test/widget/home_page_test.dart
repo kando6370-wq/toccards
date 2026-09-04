@@ -43,6 +43,7 @@ import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/premium_locked_panel.dart';
 import 'package:kando_app/shared/ui/toast.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 import '../support/in_memory_auth_storage.dart';
 import '../support/in_memory_portfolio_amount_hidden_storage.dart';
@@ -1469,6 +1470,43 @@ void main() {
       );
       expect(container.read(homeControllerProvider).amountHidden, isTrue);
       expect(tester.getTopLeft(viewAll).dy, closeTo(viewAllTop, 0.1));
+    },
+  );
+
+  testWidgets(
+    'Performance initial load uses Skeletonizer without changing its data flow',
+    (tester) async {
+      final api = _SlowInitialPerformanceApi();
+      await tester.pumpWidget(
+        _mockHomeApp(
+          null,
+          const _TestCurrencyRateApi(),
+          const MockHomeRepository(),
+          _ProHomeSubscriptionController.new,
+          api,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pump();
+      await tester.pump();
+
+      final loading = find.byKey(const Key('home-performance-loading'));
+      expect(loading, findsOneWidget);
+      final skeletonizer = tester.widget<Skeletonizer>(loading);
+      expect(skeletonizer.enabled, isTrue);
+      final effect = skeletonizer.effect;
+      expect(effect, isA<RawShimmerEffect>());
+      final shimmer = effect as RawShimmerEffect;
+      expect(shimmer.stops, const [0.4, 0.5, 0.6]);
+      expect(shimmer.duration, const Duration(milliseconds: 1800));
+
+      api.completeInitial();
+      await tester.pumpAndSettle();
+
+      expect(loading, findsNothing);
+      expect(find.text('Market Value'), findsOneWidget);
     },
   );
 
@@ -3390,6 +3428,28 @@ class _SlowOverviewHistoryApi extends _TestHomePerformanceApi {
       ),
     ]);
   }
+}
+
+class _SlowInitialPerformanceApi extends _TestHomePerformanceApi {
+  final _initialGate = Completer<void>();
+
+  @override
+  Future<PortfolioPerformanceDto> getPortfolioPerformance(
+    AuthSession session, {
+    required PerformanceRange range,
+    String? folderId,
+    bool localPremiumVerified = false,
+  }) async {
+    await _initialGate.future;
+    return super.getPortfolioPerformance(
+      session,
+      range: range,
+      folderId: folderId,
+      localPremiumVerified: localPremiumVerified,
+    );
+  }
+
+  void completeInitial() => _initialGate.complete();
 }
 
 class _EntitlementSyncPerformanceApi extends _TestHomePerformanceApi {
