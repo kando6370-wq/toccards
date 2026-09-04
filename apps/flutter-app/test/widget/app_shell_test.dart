@@ -12,37 +12,6 @@ void main() {
     expect(buildKandoColorScheme(), same(buildKandoColorScheme()));
   });
 
-  test('main Tab pages always enter from the right including Scan', () {
-    expect(
-      const KandoMainTabTransition(
-        from: KandoMainTab.home,
-        to: KandoMainTab.search,
-      ).incomingOffsetX,
-      1,
-    );
-    expect(
-      const KandoMainTabTransition(
-        from: KandoMainTab.search,
-        to: KandoMainTab.home,
-      ).incomingOffsetX,
-      1,
-    );
-    expect(
-      const KandoMainTabTransition(
-        from: KandoMainTab.search,
-        to: KandoMainTab.scan,
-      ).incomingOffsetX,
-      1,
-    );
-    expect(
-      const KandoMainTabTransition(
-        from: KandoMainTab.collection,
-        to: KandoMainTab.scan,
-      ).incomingOffsetX,
-      1,
-    );
-  });
-
   testWidgets(
     'Figma tab bar keeps the 390x844 Home Search Scan Collection Profile order',
     (tester) async {
@@ -157,168 +126,42 @@ void main() {
     expect(find.text('Scan target'), findsOneWidget);
   });
 
-  testWidgets(
-    'tab selection passes navigation context for the page transition',
-    (tester) async {
-      Object? searchTransition;
-      final router = GoRouter(
-        initialLocation: '/home',
-        routes: [
-          GoRoute(
-            path: '/home',
-            builder: (_, _) => const KandoTabScaffold(
-              currentTab: KandoMainTab.home,
-              body: SizedBox.expand(),
-            ),
-          ),
-          GoRoute(
-            path: '/search',
-            builder: (_, state) {
-              searchTransition = state.extra;
-              return const KandoTabScaffold(
-                currentTab: KandoMainTab.search,
-                body: SizedBox.expand(),
-              );
-            },
-          ),
-        ],
-      );
-      addTearDown(router.dispose);
-
-      await tester.pumpWidget(
-        ProviderScope(child: MaterialApp.router(routerConfig: router)),
-      );
-      await tester.tap(find.byKey(const Key('kando-tab-search')));
-      await tester.pumpAndSettle();
-
-      expect(searchTransition, isA<KandoMainTabTransition>());
-      final transition = searchTransition! as KandoMainTabTransition;
-      expect(transition.from, KandoMainTab.home);
-      expect(transition.to, KandoMainTab.search);
-    },
-  );
-
-  testWidgets(
-    'main Tab pages always enter from the right while the bar stays fixed',
-    (tester) async {
-      tester.view.devicePixelRatio = 1;
-      tester.view.physicalSize = const Size(390, 844);
-      addTearDown(tester.view.reset);
-
-      Page<void> tabPage(
-        BuildContext context,
-        GoRouterState state,
-        KandoMainTab tab,
-        Key scaffoldKey,
-        Key bodyKey,
-      ) {
-        final extra = state.extra;
-        final child = KandoTabScaffold(
-          key: scaffoldKey,
-          currentTab: tab,
-          body: ColoredBox(key: bodyKey, color: KandoColors.ink),
-        );
-        if (extra is! KandoMainTabTransition) {
-          return NoTransitionPage<void>(key: state.pageKey, child: child);
-        }
-        final theme = Theme.of(context);
-        final transitionBuilder =
-            theme.pageTransitionsTheme.builders[theme.platform];
-        return KandoMainTabPage(
-          key: state.pageKey,
-          transition: extra,
-          duration:
-              transitionBuilder?.transitionDuration ??
-              const Duration(milliseconds: 300),
-          child: child,
-        );
-      }
-
-      final router = GoRouter(
-        initialLocation: '/home',
-        routes: [
-          GoRoute(
-            path: '/home',
-            pageBuilder: (context, state) => tabPage(
-              context,
-              state,
-              KandoMainTab.home,
-              const Key('home-tab-scaffold'),
-              const Key('home-tab-body'),
-            ),
-          ),
-          GoRoute(
-            path: '/search',
-            pageBuilder: (context, state) => tabPage(
-              context,
-              state,
-              KandoMainTab.search,
-              const Key('search-tab-scaffold'),
-              const Key('search-tab-body'),
-            ),
-          ),
-        ],
-      );
-      addTearDown(router.dispose);
-
-      await tester.pumpWidget(
-        ProviderScope(
-          child: MaterialApp.router(
-            theme: buildKandoTheme(),
-            routerConfig: router,
+  testWidgets('tab selection does not pass a page transition context', (
+    tester,
+  ) async {
+    Object? searchTransition;
+    final router = GoRouter(
+      initialLocation: '/home',
+      routes: [
+        GoRoute(
+          path: '/home',
+          builder: (_, _) => const KandoTabScaffold(
+            currentTab: KandoMainTab.home,
+            body: SizedBox.expand(),
           ),
         ),
-      );
+        GoRoute(
+          path: '/search',
+          builder: (_, state) {
+            searchTransition = state.extra;
+            return const KandoTabScaffold(
+              currentTab: KandoMainTab.search,
+              body: SizedBox.expand(),
+            );
+          },
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
 
-      await tester.tap(find.byKey(const Key('kando-tab-search')));
-      await tester.pump();
-      await tester.pump();
+    await tester.pumpWidget(
+      ProviderScope(child: MaterialApp.router(routerConfig: router)),
+    );
+    await tester.tap(find.byKey(const Key('kando-tab-search')));
+    await tester.pumpAndSettle();
 
-      expect(
-        tester.getTopLeft(find.byKey(const Key('search-tab-body'))).dx,
-        closeTo(390, 0.01),
-      );
-      expect(
-        tester.getTopLeft(find.byKey(const Key('kando-tab-bar')).last).dx,
-        closeTo(20, 0.01),
-      );
-
-      await tester.pump(const Duration(milliseconds: 300));
-      final searchMidpoint = tester
-          .getTopLeft(find.byKey(const Key('search-tab-body')))
-          .dx;
-      expect(searchMidpoint, greaterThan(0));
-      expect(searchMidpoint, lessThan(390));
-      expect(find.byKey(const Key('home-tab-body')), findsOneWidget);
-      expect(
-        tester.getTopLeft(find.byKey(const Key('kando-tab-bar')).last).dx,
-        closeTo(20, 0.01),
-      );
-
-      await tester.pumpAndSettle();
-      expect(
-        tester.getTopLeft(find.byKey(const Key('search-tab-body'))).dx,
-        closeTo(0, 0.01),
-      );
-
-      await tester.tap(find.byKey(const Key('kando-tab-home')));
-      await tester.pump();
-      await tester.pump();
-      expect(
-        tester.getTopLeft(find.byKey(const Key('home-tab-body'))).dx,
-        closeTo(390, 0.01),
-      );
-      expect(
-        tester.getTopLeft(find.byKey(const Key('kando-tab-bar')).last).dx,
-        closeTo(20, 0.01),
-      );
-      await tester.pumpAndSettle();
-      expect(
-        tester.getTopLeft(find.byKey(const Key('home-tab-body'))).dx,
-        closeTo(0, 0.01),
-      );
-    },
-  );
+    expect(searchTransition, isNull);
+  });
 
   testWidgets('tab scaffold extends content behind translucent tab bar', (
     tester,

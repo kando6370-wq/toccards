@@ -75,7 +75,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                         .track(AnalyticsEvent.refreshClick);
                     return controller.refreshPreservingContent();
                   },
-                  child: state.isLoading || state.isUnavailable
+                  child: state.isUnavailable
                       ? ListView(
                           key: const Key('search-content-list'),
                           controller: _scrollController,
@@ -121,6 +121,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                               delegate: _SearchControlsHeaderDelegate(
                                 child: _SearchControlsHeader(
                                   state: state,
+                                  isLoading: state.isLoading,
                                   onSearchChanged: controller.updateSearch,
                                   onClear: controller.clearSearch,
                                   onSelectTab: controller.selectTab,
@@ -137,7 +138,15 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                                 20,
                                 116,
                               ),
-                              sliver: _SearchResults(state: state),
+                              sliver: state.isLoading
+                                  ? const SliverToBoxAdapter(
+                                      child: SizedBox(
+                                        key: Key('search-results-loading'),
+                                        height: 160,
+                                        child: KandoLoadingBlock(),
+                                      ),
+                                    )
+                                  : _SearchResults(state: state),
                             ),
                           ],
                         ),
@@ -207,6 +216,7 @@ class _BackToScanButton extends StatelessWidget {
 class _SearchControlsHeader extends StatelessWidget {
   const _SearchControlsHeader({
     required this.state,
+    required this.isLoading,
     required this.onSearchChanged,
     required this.onClear,
     required this.onSelectTab,
@@ -215,6 +225,7 @@ class _SearchControlsHeader extends StatelessWidget {
   });
 
   final SearchState state;
+  final bool isLoading;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onClear;
   final ValueChanged<SearchTab> onSelectTab;
@@ -242,8 +253,10 @@ class _SearchControlsHeader extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             _GameSelectorField(
-              selectedGame: state.selectedGame,
-              onPressed: onGamePressed,
+              selectedGame: isLoading
+                  ? const SearchGame(id: 'tcg', label: 'TCG')
+                  : state.selectedGame,
+              onPressed: isLoading ? null : onGamePressed,
             ),
             const SizedBox(height: 16),
             _SearchTabs(selected: state.selectedTab, onSelect: onSelectTab),
@@ -409,7 +422,7 @@ class _GameSelectorField extends StatelessWidget {
   });
 
   final SearchGame selectedGame;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -552,7 +565,10 @@ class _SearchResults extends ConsumerWidget {
 
     if (state.isCurrentSearchUnavailable) {
       return SliverToBoxAdapter(
-        child: _SearchFailureState(
+        child: KandoNoContentBlock(
+          key: const Key('search-failure'),
+          illustrationKey: const Key('search-failure-illustration'),
+          refreshButtonKey: const Key('search-empty-refresh'),
           onRefresh: () {
             ref.read(analyticsProvider).track(AnalyticsEvent.refreshClick);
             ref.read(searchControllerProvider.notifier).retrySearch();
@@ -698,62 +714,6 @@ class _SearchNoResultsIllustration extends StatelessWidget {
               width: 27.1,
               height: 29.61,
               excludeFromSemantics: true,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SearchFailureState extends StatelessWidget {
-  const _SearchFailureState({required this.onRefresh});
-
-  final VoidCallback onRefresh;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      key: const Key('search-failure'),
-      padding: const EdgeInsets.only(top: 16),
-      child: Column(
-        children: [
-          SvgPicture.asset(
-            'assets/search/no_content_available.svg',
-            key: const Key('search-failure-illustration'),
-            width: 100,
-            height: 100,
-            excludeFromSemantics: true,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            noContentAvailableText,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 20,
-              height: 26 / 20,
-              fontFamily: 'Fraunces',
-              fontWeight: FontWeight.w600,
-              color: KandoColors.text,
-            ),
-          ),
-          const SizedBox(height: 32),
-          SizedBox(
-            height: 44,
-            child: FilledButton.icon(
-              key: const Key('search-empty-refresh'),
-              onPressed: onRefresh,
-              style: FilledButton.styleFrom(
-                backgroundColor: KandoColors.accent,
-                foregroundColor: KandoColors.ink,
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                shape: const StadiumBorder(),
-              ),
-              icon: const Icon(Icons.refresh, size: 20),
-              label: const Text(
-                refreshText,
-                style: TextStyle(fontSize: 13, height: 16 / 13),
-              ),
             ),
           ),
         ],

@@ -37,6 +37,27 @@ import '../support/mock_collection_repository.dart';
 import '../support/mock_search_repository.dart';
 
 void main() {
+  testWidgets('Search keeps static controls visible while catalog is pending', (
+    tester,
+  ) async {
+    final repository = _PendingSearchRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+        child: const _SearchTestApp(),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byKey(const Key('search-field')), findsOneWidget);
+    expect(find.byKey(const Key('search-game-selector')), findsOneWidget);
+    expect(find.text('TCG'), findsOneWidget);
+    expect(find.byKey(const Key('search-tabs')), findsOneWidget);
+    expect(find.byType(KandoLoadingBlock), findsOneWidget);
+    expect(repository.calls, 1);
+  });
+
   testWidgets('Search shows Cards tab with Pokemon results by default', (
     tester,
   ) async {
@@ -338,7 +359,6 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('search-content-list')), findsOneWidget);
     expect(find.byType(KandoFailureBlock), findsOneWidget);
     expect(find.text(noContentAvailableText), findsOneWidget);
     expect(find.text(refreshText), findsOneWidget);
@@ -2692,6 +2712,27 @@ class _TrackingSearchRepository implements SearchRepository {
   @override
   Future<List<SearchCard>> searchCards(String query, {String? game}) {
     cardCalls += 1;
+    return const MockSearchRepository().searchCards(query, game: game);
+  }
+
+  @override
+  Future<List<SearchSet>> searchSets(String query, {String? game}) {
+    return const MockSearchRepository().searchSets(query, game: game);
+  }
+}
+
+class _PendingSearchRepository implements SearchRepository {
+  final _catalog = Completer<SearchCatalog>();
+  var calls = 0;
+
+  @override
+  Future<SearchCatalog> loadCatalog() {
+    calls += 1;
+    return _catalog.future;
+  }
+
+  @override
+  Future<List<SearchCard>> searchCards(String query, {String? game}) {
     return const MockSearchRepository().searchCards(query, game: game);
   }
 
