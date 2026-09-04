@@ -11,6 +11,7 @@ import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
 import '../../shared/analytics/analytics_events.dart';
+import '../card_detail/card_detail_models.dart';
 import 'search_controller.dart';
 import 'search_models.dart';
 
@@ -60,7 +61,17 @@ class SearchCardTile extends ConsumerWidget {
       color: Colors.transparent,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
-        onTap: () => context.push(_cardDetailsLocation(card, entrySource)),
+        onTap: () => context.push(
+          _cardDetailsLocation(card, entrySource),
+          extra: CardDetailPreview(
+            cardId: card.id,
+            name: card.name,
+            imageUrl: card.imageUrl,
+            game: card.gameId,
+            setName: card.setName,
+            identityLine: card.metadataLine,
+          ),
+        ),
         borderRadius: BorderRadius.circular(12),
         child: Container(
           decoration: BoxDecoration(

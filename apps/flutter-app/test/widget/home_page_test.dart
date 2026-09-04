@@ -13,6 +13,7 @@ import 'package:kando_app/app/theme.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/features/card_detail/card_detail_models.dart';
 import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/collection/collection_models.dart';
 import 'package:kando_app/features/collection/collection_page.dart';
@@ -1294,7 +1295,10 @@ void main() {
     await tester.tap(card);
     await tester.pumpAndSettle();
 
-    expect(find.text('card-1|item-pikachu|edit|portfolio'), findsOneWidget);
+    expect(
+      find.text('card-1|item-pikachu|edit|portfolio|Pikachu'),
+      findsOneWidget,
+    );
   });
 
   testWidgets(
@@ -1305,14 +1309,18 @@ void main() {
           GoRoute(path: '/', builder: (context, state) => const HomePage()),
           GoRoute(
             path: '/cards/:cardId',
-            builder: (context, state) => Scaffold(
-              body: Text(
-                '${state.pathParameters['cardId']}|'
-                '${state.uri.queryParameters['item_id']}|'
-                '${state.uri.queryParameters['entry']}|'
-                '${state.uri.queryParameters['collection']}',
-              ),
-            ),
+            builder: (context, state) {
+              final preview = state.extra as CardDetailPreview?;
+              return Scaffold(
+                body: Text(
+                  '${state.pathParameters['cardId']}|'
+                  '${state.uri.queryParameters['item_id']}|'
+                  '${state.uri.queryParameters['entry']}|'
+                  '${state.uri.queryParameters['collection']}|'
+                  '${preview?.name}',
+                ),
+              );
+            },
           ),
         ],
       );
@@ -1356,7 +1364,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.text('card-1|item-pikachu|home performance|portfolio'),
+        find.text('card-1|item-pikachu|home performance|portfolio|Performer 1'),
         findsOneWidget,
       );
     },
@@ -3526,14 +3534,18 @@ Widget _mockHomeRouteApp({
           ),
           GoRoute(
             path: '/cards/:cardId',
-            builder: (context, state) => Scaffold(
-              body: Text(
-                '${state.pathParameters['cardId']}|'
-                '${state.uri.queryParameters['item_id']}|'
-                '${state.uri.queryParameters['entry']}|'
-                '${state.uri.queryParameters['collection']}',
-              ),
-            ),
+            builder: (context, state) {
+              final preview = state.extra as CardDetailPreview?;
+              return Scaffold(
+                body: Text(
+                  '${state.pathParameters['cardId']}|'
+                  '${state.uri.queryParameters['item_id']}|'
+                  '${state.uri.queryParameters['entry']}|'
+                  '${state.uri.queryParameters['collection']}|'
+                  '${preview?.name}',
+                ),
+              );
+            },
           ),
         ],
       ),

@@ -1,5 +1,25 @@
 enum CardDetailType { tcg, sports, sealed, other }
 
+class CardDetailPreview {
+  const CardDetailPreview({
+    required this.cardId,
+    required this.name,
+    this.imageUrl,
+    this.imageAssetPath,
+    this.game,
+    this.setName,
+    this.identityLine,
+  });
+
+  final String cardId;
+  final String name;
+  final String? imageUrl;
+  final String? imageAssetPath;
+  final String? game;
+  final String? setName;
+  final String? identityLine;
+}
+
 const _cardCollectionItemUnset = Object();
 
 enum CardPriceRange {

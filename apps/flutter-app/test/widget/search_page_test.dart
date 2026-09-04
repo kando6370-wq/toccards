@@ -17,6 +17,7 @@ import 'package:kando_app/features/home/home_page.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
 import 'package:kando_app/features/scan/scan_page.dart';
 import 'package:kando_app/features/search/search_controller.dart';
+import 'package:kando_app/features/search/search_card_tile.dart';
 import 'package:kando_app/features/search/search_models.dart';
 import 'package:kando_app/features/search/search_page.dart';
 import 'package:kando_app/features/search/search_repository.dart';
@@ -82,11 +83,11 @@ void main() {
       viewportWidth - 20,
     );
     expect(
-      tester.getRect(find.byKey(const Key('search-results-grid'))).left,
+      tester.getRect(find.byKey(const Key('search-card-squirtle'))).left,
       tester.getRect(find.byKey(const Key('search-field'))).left,
     );
     expect(
-      tester.getRect(find.byKey(const Key('search-results-grid'))).right,
+      tester.getRect(find.byKey(const Key('search-card-charizard-ex'))).right,
       tester.getRect(find.byKey(const Key('search-field'))).right,
     );
     final squirtlePriceRow = find.byKey(const Key('search-price-row-squirtle'));
@@ -376,11 +377,15 @@ void main() {
         container.read(searchControllerProvider).visibleCards,
         hasLength(40),
       );
-      expect(find.byKey(const Key('search-retry-card-page')), findsOneWidget);
       expect(find.text('Card 1'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('search-retry-card-page')),
+        600,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.byKey(const Key('search-retry-card-page')), findsOneWidget);
 
       final retry = find.byKey(const Key('search-retry-card-page'));
-      await tester.ensureVisible(retry);
       await tester.pumpAndSettle();
       expect(repository.requestedPages, [2]);
       await tester.tap(retry);
@@ -393,6 +398,36 @@ void main() {
       );
       expect(find.text('Card 41'), findsOneWidget);
       expect(find.byKey(const Key('search-retry-card-page')), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Search lazily builds card results so route transitions do not relayout every loaded card',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            searchRepositoryProvider.overrideWithValue(
+              _FailingPaginatedSearchRepository(),
+            ),
+          ],
+          child: const _SearchTestApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SearchPage)),
+      );
+      expect(
+        container.read(searchControllerProvider).visibleCards,
+        hasLength(40),
+      );
+      expect(find.byType(SearchCardTile).evaluate().length, lessThan(40));
     },
   );
 
@@ -2308,6 +2343,10 @@ void main() {
     expect(find.byKey(const Key('card-detail-hero')), findsOneWidget);
     expect(find.text('Squirtle'), findsOneWidget);
     expect(
+      tester.widget<CardDetailPage>(find.byType(CardDetailPage)).preview?.name,
+      'Squirtle',
+    );
+    expect(
       find.byKey(const Key('card-detail-add-to-portfolio-squirtle')),
       findsOneWidget,
     );
@@ -2531,8 +2570,10 @@ class _SearchTestAppWithRoutes extends StatelessWidget {
           GoRoute(
             path: '/cards/:cardId',
             builder: (context, state) {
+              final extra = state.extra;
               return CardDetailPage(
                 cardId: state.pathParameters['cardId'] ?? '',
+                preview: extra is CardDetailPreview ? extra : null,
                 collectionItemId: state.uri.queryParameters['item_id'],
               );
             },

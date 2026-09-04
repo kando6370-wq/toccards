@@ -1,7 +1,8 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/card_detail/card_detail_models.dart';
 import '../features/card_detail/card_detail_page.dart';
 import '../features/collection/collection_page.dart';
 import '../features/home/home_page.dart';
@@ -16,9 +17,11 @@ import '../features/search/search_page.dart';
 import '../features/search/set_detail_page.dart';
 import '../features/subscription/subscription_controller.dart';
 import '../features/subscription/subscription_page.dart';
+import '../features/subscription/subscription_route_page.dart';
 import '../features/subscription/startup_subscription_gate.dart';
 import '../shared/analytics/analytics_events.dart';
 import '../shared/analytics/app_analytics.dart';
+import '../shared/ui/app_shell.dart';
 import '../shared/ui/kando_bottom_sheet_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -43,7 +46,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/home',
         pageBuilder: (context, state) => _mainTabPage(
+          context,
           state,
+          KandoMainTab.home,
           const AnalyticsPageView(
             event: AnalyticsEvent.homeView,
             child: HomePage(),
@@ -56,24 +61,39 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/collection',
-        pageBuilder: (context, state) =>
-            _mainTabPage(state, const CollectionPage()),
+        pageBuilder: (context, state) => _mainTabPage(
+          context,
+          state,
+          KandoMainTab.collection,
+          const CollectionPage(),
+        ),
       ),
       GoRoute(
         path: '/scan',
-        builder: (context, state) => const AnalyticsPageView(
-          event: AnalyticsEvent.scanView,
-          child: ScanPage(),
+        pageBuilder: (context, state) => _mainTabPage(
+          context,
+          state,
+          KandoMainTab.scan,
+          const AnalyticsPageView(
+            event: AnalyticsEvent.scanView,
+            child: ScanPage(),
+          ),
         ),
       ),
       GoRoute(
         path: '/cards/:cardId',
         builder: (context, state) {
+          final cardId = state.pathParameters['cardId'] ?? '';
+          final extra = state.extra;
+          final preview = extra is CardDetailPreview && extra.cardId == cardId
+              ? extra
+              : null;
           final collectionType =
               state.uri.queryParameters['collection'] ??
               AnalyticsValue.collectionNormal;
           return CardDetailPage(
-            cardId: state.pathParameters['cardId'] ?? '',
+            cardId: cardId,
+            preview: preview,
             collectionItemId: state.uri.queryParameters['item_id'],
             collectionType: collectionType,
             entrySource:
@@ -95,7 +115,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/search',
         pageBuilder: (context, state) => _mainTabPage(
+          context,
           state,
+          KandoMainTab.search,
           SearchPage(fromScan: state.uri.queryParameters['from'] == 'scan'),
         ),
       ),
@@ -110,7 +132,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/profile',
         pageBuilder: (context, state) => _mainTabPage(
+          context,
           state,
+          KandoMainTab.profile,
           const AnalyticsPageView(
             event: AnalyticsEvent.profileView,
             child: ProfilePage(),
@@ -146,6 +170,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               isDismissible: false,
               useSafeArea: true,
               heightFactor: subscriptionSheetHeightFactor,
+              sheetAnimationStyle: subscriptionSheetAnimationStyle,
               child: SubscriptionPage(
                 sheet: true,
                 source: source,
@@ -154,16 +179,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               ),
             );
           }
-          return CustomTransitionPage<SubscriptionPaywallResult>(
+          return KandoSubscriptionPage<SubscriptionPaywallResult>(
             key: state.pageKey,
-            opaque: true,
+            source: source,
             child: SubscriptionPage(
               sheet: false,
               source: source,
               entrySource: entrySource,
               analyticsScene: analyticsScene,
             ),
-            transitionsBuilder: (_, _, _, child) => child,
           );
         },
       ),
@@ -180,6 +204,29 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   return router;
 });
 
-Page<void> _mainTabPage(GoRouterState state, Widget child) {
-  return NoTransitionPage<void>(key: state.pageKey, child: child);
+Page<void> _mainTabPage(
+  BuildContext context,
+  GoRouterState state,
+  KandoMainTab currentTab,
+  Widget child,
+) {
+  final transition = state.extra;
+  if (transition is! KandoMainTabTransition ||
+      transition.to != currentTab ||
+      transition.from == currentTab) {
+    return NoTransitionPage<void>(key: state.pageKey, child: child);
+  }
+  return KandoMainTabPage(
+    key: state.pageKey,
+    transition: transition,
+    duration: _platformPageTransitionDuration(context),
+    child: child,
+  );
+}
+
+Duration _platformPageTransitionDuration(BuildContext context) {
+  final theme = Theme.of(context);
+  final transitionBuilder = theme.pageTransitionsTheme.builders[theme.platform];
+  return transitionBuilder?.transitionDuration ??
+      const Duration(milliseconds: 300);
 }

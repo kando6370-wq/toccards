@@ -137,9 +137,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                                 20,
                                 116,
                               ),
-                              sliver: SliverToBoxAdapter(
-                                child: _SearchResults(state: state),
-                              ),
+                              sliver: _SearchResults(state: state),
                             ),
                           ],
                         ),
@@ -543,72 +541,89 @@ class _SearchResults extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (state.isSearching) {
-      return const SizedBox(
-        key: Key('search-results-loading'),
-        height: 160,
-        child: KandoLoadingBlock(),
+      return const SliverToBoxAdapter(
+        child: SizedBox(
+          key: Key('search-results-loading'),
+          height: 160,
+          child: KandoLoadingBlock(),
+        ),
       );
     }
 
     if (state.isCurrentSearchUnavailable) {
-      return _SearchFailureState(
-        onRefresh: () {
-          ref.read(analyticsProvider).track(AnalyticsEvent.refreshClick);
-          ref.read(searchControllerProvider.notifier).retrySearch();
-        },
+      return SliverToBoxAdapter(
+        child: _SearchFailureState(
+          onRefresh: () {
+            ref.read(analyticsProvider).track(AnalyticsEvent.refreshClick);
+            ref.read(searchControllerProvider.notifier).retrySearch();
+          },
+        ),
       );
     }
 
     if (state.isNoMatch) {
-      return const _SearchNoResultsState();
+      return const SliverToBoxAdapter(child: _SearchNoResultsState());
     }
 
     if (state.selectedTab == SearchTab.sets) {
-      return Column(
-        children: [
-          for (final set in state.visibleSets) _SearchSetRow(set: set),
-        ],
+      return SliverList.builder(
+        itemCount: state.visibleSets.length,
+        itemBuilder: (context, index) =>
+            _SearchSetRow(set: state.visibleSets[index]),
       );
     }
 
-    return Column(
-      children: [
-        GridView.count(
+    return SliverMainAxisGroup(
+      slivers: [
+        SliverGrid.builder(
           key: const Key('search-results-grid'),
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          mainAxisExtent: 378,
-          physics: const NeverScrollableScrollPhysics(),
-          children: [
-            for (final card in state.visibleCards)
-              SearchCardTile(
-                card: card,
-                actionsEnabled: state.assetStatus == KandoLoadStatus.content,
-                showSearchMetadata: true,
-              ),
-          ],
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            mainAxisExtent: 378,
+          ),
+          itemCount: state.visibleCards.length,
+          itemBuilder: (context, index) => SearchCardTile(
+            card: state.visibleCards[index],
+            actionsEnabled: state.assetStatus == KandoLoadStatus.content,
+            showSearchMetadata: true,
+          ),
         ),
-        if (state.isLoadingMoreCards) ...[
-          const SizedBox(height: 12),
-          const SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(strokeWidth: 2),
+        if (state.isLoadingMoreCards)
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.only(top: 12),
+              child: Center(
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            ),
+          )
+        else if (state.hasCardPageFailure)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Center(
+                child: IconButton(
+                  key: const Key('search-retry-card-page'),
+                  tooltip: 'Retry loading cards',
+                  onPressed: () {
+                    ref
+                        .read(analyticsProvider)
+                        .track(AnalyticsEvent.refreshClick);
+                    ref
+                        .read(searchControllerProvider.notifier)
+                        .retryNextCardPage();
+                  },
+                  icon: const Icon(Icons.refresh),
+                ),
+              ),
+            ),
           ),
-        ] else if (state.hasCardPageFailure) ...[
-          const SizedBox(height: 12),
-          IconButton(
-            key: const Key('search-retry-card-page'),
-            tooltip: 'Retry loading cards',
-            onPressed: () {
-              ref.read(analyticsProvider).track(AnalyticsEvent.refreshClick);
-              ref.read(searchControllerProvider.notifier).retryNextCardPage();
-            },
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
       ],
     );
   }
