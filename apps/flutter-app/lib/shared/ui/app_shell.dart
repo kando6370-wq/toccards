@@ -11,66 +11,6 @@ import 'toast.dart';
 
 enum KandoMainTab { home, collection, scan, search, profile }
 
-@immutable
-class KandoMainTabTransition {
-  const KandoMainTabTransition({required this.from, required this.to});
-
-  final KandoMainTab from;
-  final KandoMainTab to;
-
-  double get incomingOffsetX => 1;
-}
-
-const _kMainTabPageTransitionCurve = Curves.easeOutCubic;
-
-class KandoMainTabPage extends CustomTransitionPage<void> {
-  KandoMainTabPage({
-    required super.key,
-    required KandoMainTabTransition transition,
-    required Duration duration,
-    required Widget child,
-  }) : super(
-         transitionDuration: duration,
-         reverseTransitionDuration: duration,
-         opaque: true,
-         child: _KandoMainTabTransitionScope(
-           incomingOffsetX: transition.incomingOffsetX,
-           child: child,
-         ),
-         transitionsBuilder: (_, animation, _, child) {
-           return SlideTransition(
-             key: const Key('kando-main-tab-page-slide'),
-             position: animation.drive(
-               Tween<Offset>(
-                 begin: Offset(transition.incomingOffsetX, 0),
-                 end: Offset.zero,
-               ).chain(CurveTween(curve: _kMainTabPageTransitionCurve)),
-             ),
-             child: child,
-           );
-         },
-       );
-}
-
-class _KandoMainTabTransitionScope extends InheritedWidget {
-  const _KandoMainTabTransitionScope({
-    required this.incomingOffsetX,
-    required super.child,
-  });
-
-  final double incomingOffsetX;
-
-  static _KandoMainTabTransitionScope? maybeOf(BuildContext context) {
-    return context
-        .dependOnInheritedWidgetOfExactType<_KandoMainTabTransitionScope>();
-  }
-
-  @override
-  bool updateShouldNotify(_KandoMainTabTransitionScope oldWidget) {
-    return incomingOffsetX != oldWidget.incomingOffsetX;
-  }
-}
-
 class KandoTabScaffold extends ConsumerWidget {
   const KandoTabScaffold({
     super.key,
@@ -95,10 +35,7 @@ class KandoTabScaffold extends ConsumerWidget {
         currentTab != KandoMainTab.scan && pendingCount > 0;
     void selectTab(KandoMainTab next) {
       if (next != currentTab) {
-        context.go(
-          _pathForTab(next),
-          extra: KandoMainTabTransition(from: currentTab, to: next),
-        );
+        context.go(_pathForTab(next));
       }
     }
 
@@ -140,8 +77,9 @@ class KandoTabScaffold extends ConsumerWidget {
             ),
           ],
         ),
-        bottomNavigationBar: _PinnedMainTabBar(
-          child: _FigmaTabBar(currentTab: currentTab, onSelected: selectTab),
+        bottomNavigationBar: _FigmaTabBar(
+          currentTab: currentTab,
+          onSelected: selectTab,
         ),
       ),
     );
@@ -186,38 +124,6 @@ class KandoTabScaffold extends ConsumerWidget {
         ),
       ),
       dividerTheme: const DividerThemeData(color: KandoColors.border),
-    );
-  }
-}
-
-class _PinnedMainTabBar extends StatelessWidget {
-  const _PinnedMainTabBar({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final transition = _KandoMainTabTransitionScope.maybeOf(context);
-    final routeAnimation = ModalRoute.of(context)?.animation;
-    if (transition == null || routeAnimation == null) return child;
-
-    final screenWidth = MediaQuery.sizeOf(context).width;
-    return AnimatedBuilder(
-      animation: routeAnimation,
-      child: child,
-      builder: (context, child) {
-        final progress = _kMainTabPageTransitionCurve.transform(
-          routeAnimation.value,
-        );
-        return Transform.translate(
-          key: const Key('kando-main-tab-bar-anchor'),
-          offset: Offset(
-            -transition.incomingOffsetX * (1 - progress) * screenWidth,
-            0,
-          ),
-          child: child,
-        );
-      },
     );
   }
 }

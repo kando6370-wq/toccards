@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -57,88 +55,77 @@ class _CollectionPageState extends ConsumerState<CollectionPage> {
               ),
             ),
             Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final isPageFailure = state.isUnavailable;
-
-                  if (state.loadStatus == KandoLoadStatus.loading ||
-                      isPageFailure) {
-                    return RefreshIndicator(
-                      key: const Key('collection-pull-to-refresh'),
-                      onRefresh: () =>
-                          _refresh(controller, preserveContent: true),
-                      child: ListView(
-                        key: const Key('collection-content-list'),
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: EdgeInsets.zero,
-                        children: [
-                          if (state.loadStatus == KandoLoadStatus.loading)
-                            const KandoLoadingBlock()
-                          else
-                            SizedBox(
-                              height: math.max(0.0, constraints.maxHeight),
-                              child: KandoFailureBlock(
-                                onRefresh: () => _refresh(controller),
-                              ),
-                            ),
-                        ],
+              child: RefreshIndicator(
+                key: const Key('collection-pull-to-refresh'),
+                onRefresh: () => _refresh(controller, preserveContent: true),
+                child: CustomScrollView(
+                  key: const Key('collection-content-list'),
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    SliverPersistentHeader(
+                      pinned: true,
+                      delegate: _CollectionControlsHeaderDelegate(
+                        extent: state.loadStatus == KandoLoadStatus.content
+                            ? state.selectedTab == CollectionTab.portfolio
+                                  ? _CollectionControlsHeader.portfolioExtent
+                                  : _CollectionControlsHeader.wishlistExtent
+                            : _CollectionControlsHeader.loadingExtent,
+                        child: _CollectionControlsHeader(
+                          state: state,
+                          onSelectTab: controller.selectTab,
+                          onSearchChanged: controller.updateSearch,
+                          filterEnabled:
+                              state.loadStatus == KandoLoadStatus.content,
+                          onFilterPressed: () {
+                            FocusManager.instance.primaryFocus?.unfocus();
+                            _showFilterSheet(context, ref);
+                          },
+                          onFolderPressed: () {
+                            ref
+                                .read(analyticsProvider)
+                                .track(AnalyticsEvent.folderClick);
+                            showPortfolioFolderSheet(context, ref);
+                          },
+                          onHidePressed: () async {
+                            if (!await controller.toggleAmountHidden() &&
+                                context.mounted) {
+                              showKandoTopFailureToast(context);
+                            }
+                          },
+                        ),
                       ),
-                    );
-                  }
-
-                  return RefreshIndicator(
-                    key: const Key('collection-pull-to-refresh'),
-                    onRefresh: () =>
-                        _refresh(controller, preserveContent: true),
-                    child: CustomScrollView(
-                      key: const Key('collection-content-list'),
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      slivers: [
-                        SliverPersistentHeader(
-                          pinned: true,
-                          delegate: _CollectionControlsHeaderDelegate(
-                            extent: state.selectedTab == CollectionTab.portfolio
-                                ? _CollectionControlsHeader.portfolioExtent
-                                : _CollectionControlsHeader.wishlistExtent,
-                            child: _CollectionControlsHeader(
-                              state: state,
-                              onSelectTab: controller.selectTab,
-                              onSearchChanged: controller.updateSearch,
-                              onFilterPressed: () {
-                                FocusManager.instance.primaryFocus?.unfocus();
-                                _showFilterSheet(context, ref);
-                              },
-                              onFolderPressed: () {
-                                ref
-                                    .read(analyticsProvider)
-                                    .track(AnalyticsEvent.folderClick);
-                                showPortfolioFolderSheet(context, ref);
-                              },
-                              onHidePressed: () async {
-                                if (!await controller.toggleAmountHidden() &&
-                                    context.mounted) {
-                                  showKandoTopFailureToast(context);
-                                }
-                              },
-                            ),
-                          ),
-                        ),
-                        SliverPadding(
-                          key: const Key('collection-content-padding'),
-                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                          sliver: SliverToBoxAdapter(
-                            child: Column(
-                              children: [
-                                _CollectionContent(state: state),
-                                const SizedBox(height: 100),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
                     ),
-                  );
-                },
+                    if (state.isUnavailable)
+                      SliverPadding(
+                        key: const Key('collection-results-failure'),
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 124),
+                        sliver: SliverToBoxAdapter(
+                          child: KandoNoContentBlock(
+                            illustrationKey: const Key(
+                              'collection-failure-illustration',
+                            ),
+                            refreshButtonKey: const Key(
+                              'collection-failure-refresh',
+                            ),
+                            onRefresh: () => _refresh(controller),
+                          ),
+                        ),
+                      )
+                    else
+                      SliverPadding(
+                        key: const Key('collection-content-padding'),
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                        sliver: SliverToBoxAdapter(
+                          child: Column(
+                            children: [
+                              _CollectionContent(state: state),
+                              const SizedBox(height: 100),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -178,6 +165,7 @@ class _CollectionControlsHeader extends StatelessWidget {
     required this.state,
     required this.onSelectTab,
     required this.onSearchChanged,
+    required this.filterEnabled,
     required this.onFilterPressed,
     required this.onFolderPressed,
     required this.onHidePressed,
@@ -185,10 +173,12 @@ class _CollectionControlsHeader extends StatelessWidget {
 
   static const portfolioExtent = 246.0;
   static const wishlistExtent = 136.0;
+  static const loadingExtent = 136.0;
 
   final CollectionState state;
   final ValueChanged<CollectionTab> onSelectTab;
   final ValueChanged<String> onSearchChanged;
+  final bool filterEnabled;
   final VoidCallback onFilterPressed;
   final VoidCallback onFolderPressed;
   final VoidCallback onHidePressed;
@@ -207,10 +197,12 @@ class _CollectionControlsHeader extends StatelessWidget {
             _SearchField(
               fieldKey: ValueKey(state.selectedTab),
               onChanged: onSearchChanged,
+              filterEnabled: filterEnabled,
               onFilterPressed: onFilterPressed,
             ),
             const SizedBox(height: 16),
-            if (state.selectedTab == CollectionTab.portfolio)
+            if (state.loadStatus == KandoLoadStatus.content &&
+                state.selectedTab == CollectionTab.portfolio)
               _PortfolioSummaryCard(
                 state: state,
                 onFolderPressed: onFolderPressed,
@@ -310,11 +302,13 @@ class _SearchField extends StatelessWidget {
   const _SearchField({
     required this.fieldKey,
     required this.onChanged,
+    required this.filterEnabled,
     required this.onFilterPressed,
   });
 
   final Key fieldKey;
   final ValueChanged<String> onChanged;
+  final bool filterEnabled;
   final VoidCallback onFilterPressed;
 
   @override
@@ -351,7 +345,7 @@ class _SearchField extends StatelessWidget {
           ),
           suffixIcon: IconButton(
             key: const Key('collection-filter-button'),
-            onPressed: onFilterPressed,
+            onPressed: filterEnabled ? onFilterPressed : null,
             padding: const EdgeInsets.only(left: 12, right: 16),
             constraints: const BoxConstraints.tightFor(width: 48, height: 44),
             icon: const Icon(
@@ -623,6 +617,14 @@ class _CollectionContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (state.isLoading) {
+      return const SizedBox(
+        key: Key('collection-results-loading'),
+        height: 160,
+        child: KandoLoadingBlock(),
+      );
+    }
+
     if (state.isNoMatch) {
       return const _CollectionNoMatchState();
     }
