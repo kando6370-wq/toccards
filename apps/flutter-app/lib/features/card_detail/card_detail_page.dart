@@ -2787,7 +2787,9 @@ class _QuickCollectionReviewPageState
     for (final cardId in savedCardIds) {
       ref.invalidate(cardDetailControllerProvider(cardId));
     }
-    ref.invalidate(homeControllerProvider);
+    unawaited(
+      ref.read(homeControllerProvider.notifier).refreshPreservingContent(),
+    );
     ref.invalidate(homePerformanceControllerProvider);
     ref.invalidate(collectionControllerProvider);
     ref

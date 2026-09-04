@@ -280,32 +280,24 @@ class _SegmentedTabs extends StatelessWidget {
   Widget _tab(CollectionTab tab, String label) {
     final isSelected = selected == tab;
     return Expanded(
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => onSelect(tab),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            gradient: isSelected
-                ? LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      KandoColors.accent.withValues(alpha: 0.30),
-                      KandoColors.accent.withValues(alpha: 0.10),
-                    ],
-                  )
-                : null,
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-              color: isSelected ? KandoColors.accent : KandoColors.mutedText,
+      child: Material(
+        color: isSelected
+            ? KandoColors.accent.withValues(alpha: 0.22)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(999),
+        child: InkWell(
+          onTap: () => onSelect(tab),
+          borderRadius: BorderRadius.circular(999),
+          child: Container(
+            alignment: Alignment.center,
+            height: 34,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                color: isSelected ? KandoColors.accent : KandoColors.mutedText,
+              ),
             ),
           ),
         ),
@@ -826,6 +818,7 @@ class _EmptyStateButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final foregroundColor = primary ? KandoColors.ink : KandoColors.text;
     return SizedBox(
       width: double.infinity,
       height: 56,
@@ -838,6 +831,7 @@ class _EmptyStateButton extends StatelessWidget {
               iconAssetPath,
               width: iconSize.width,
               height: iconSize.height,
+              colorFilter: ColorFilter.mode(foregroundColor, BlendMode.srcIn),
             ),
           ),
         ),
@@ -846,7 +840,7 @@ class _EmptyStateButton extends StatelessWidget {
           backgroundColor: primary
               ? KandoColors.accent
               : KandoColors.elevatedSurface,
-          foregroundColor: primary ? KandoColors.ink : KandoColors.text,
+          foregroundColor: foregroundColor,
           textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
           shape: const StadiumBorder(),
           side: primary

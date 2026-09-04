@@ -1043,7 +1043,6 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
                       key: _chartKey,
                       semanticKey: const Key('home-performance-chart'),
                       semanticLabel: 'Portfolio performance chart',
-                      persistentSelection: true,
                       emphasizeSinglePoint: true,
                       onSelectionChanged: (selected) {
                         if (selected) _removeInfoTip();
@@ -1249,7 +1248,7 @@ class _TopPerformersSection extends StatelessWidget {
         if (visiblePerformers.isEmpty)
           const _EmptyCardBlock(
             key: Key('home-top-performers-empty'),
-            message: 'No cards in this portfolio yet',
+            message: 'Add purchase prices to see your top performers',
           )
         else
           SizedBox(
@@ -3004,38 +3003,36 @@ class _EmptyCardBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 200,
+    return Container(
+      constraints: const BoxConstraints(minHeight: 200),
       width: double.infinity,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0x14FFFFFF)),
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0x1F747B26), Color(0x0A141506)],
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0x14FFFFFF)),
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0x1F747B26), Color(0x0A141506)],
+        ),
+      ),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          const _FigmaEmptyStateIllustration(
+            key: Key('home-card-empty-illustration'),
           ),
-        ),
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            const _FigmaEmptyStateIllustration(
-              key: Key('home-card-empty-illustration'),
+          const SizedBox(height: 24),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: KandoColors.text,
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+              height: 24 / 16,
             ),
-            const SizedBox(height: 24),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: KandoColors.text,
-                fontSize: 16,
-                fontWeight: FontWeight.w400,
-                height: 24 / 16,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -3154,7 +3151,6 @@ class _InteractiveChart extends StatefulWidget {
     this.semanticKey = const Key('home-portfolio-chart'),
     this.semanticLabel = 'Portfolio value chart',
     this.tooltipRows,
-    this.persistentSelection = false,
     this.emphasizeSinglePoint = false,
     this.onSelectionChanged,
   });
@@ -3166,7 +3162,6 @@ class _InteractiveChart extends StatefulWidget {
   final Key semanticKey;
   final String semanticLabel;
   final List<List<String>>? tooltipRows;
-  final bool persistentSelection;
   final bool emphasizeSinglePoint;
   final ValueChanged<bool>? onSelectionChanged;
 
@@ -3231,21 +3226,15 @@ class _InteractiveChartState extends State<_InteractiveChart> {
           value: _semanticValue,
           child: MouseRegion(
             onHover: (event) => _selectAt(event.localPosition.dx, width),
-            onExit: (_) {
-              if (!widget.persistentSelection) clearSelection();
-            },
+            onExit: (_) => clearSelection(),
             child: Listener(
               behavior: HitTestBehavior.opaque,
               onPointerDown: (event) =>
                   _selectAt(event.localPosition.dx, width),
               onPointerMove: (event) =>
                   _selectAt(event.localPosition.dx, width),
-              onPointerUp: (_) {
-                if (!widget.persistentSelection) clearSelection();
-              },
-              onPointerCancel: (_) {
-                if (!widget.persistentSelection) clearSelection();
-              },
+              onPointerUp: (_) => clearSelection(),
+              onPointerCancel: (_) => clearSelection(),
               child: CustomPaint(
                 painter: _ChartPainter(
                   values: widget.values,

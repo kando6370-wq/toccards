@@ -1949,7 +1949,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   void _refreshPortfolioSurfaces() {
-    ref.invalidate(homeControllerProvider);
+    unawaited(
+      ref.read(homeControllerProvider.notifier).refreshPreservingContent(),
+    );
     ref.invalidate(collectionControllerProvider);
     ref.invalidate(searchControllerProvider);
   }

@@ -980,7 +980,9 @@ class SearchController extends Notifier<SearchState> {
   }
 
   void _invalidateAssetConsumers(String cardId) {
-    ref.invalidate(homeControllerProvider);
+    unawaited(
+      ref.read(homeControllerProvider.notifier).refreshPreservingContent(),
+    );
     ref.invalidate(collectionControllerProvider);
     ref.invalidate(cardDetailControllerProvider(cardId));
   }

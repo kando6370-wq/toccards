@@ -199,6 +199,20 @@ void main() {
       tester.getSize(find.byKey(const Key('collection-segmented-tabs'))).height,
       44,
     );
+    _expectCollectionTabStyle(
+      tester,
+      label: 'Portfolio',
+      backgroundColor: KandoColors.accent.withValues(alpha: 0.22),
+      textColor: KandoColors.accent,
+      fontWeight: FontWeight.w600,
+    );
+    _expectCollectionTabStyle(
+      tester,
+      label: 'Wishlist',
+      backgroundColor: Colors.transparent,
+      textColor: KandoColors.mutedText,
+      fontWeight: FontWeight.w400,
+    );
     expect(
       tester.getSize(find.byKey(const Key('collection-search-field'))).height,
       44,
@@ -856,6 +870,20 @@ void main() {
     await tester.tap(find.text('Wishlist'));
     await tester.pumpAndSettle();
 
+    _expectCollectionTabStyle(
+      tester,
+      label: 'Portfolio',
+      backgroundColor: Colors.transparent,
+      textColor: KandoColors.mutedText,
+      fontWeight: FontWeight.w400,
+    );
+    _expectCollectionTabStyle(
+      tester,
+      label: 'Wishlist',
+      backgroundColor: KandoColors.accent.withValues(alpha: 0.22),
+      textColor: KandoColors.accent,
+      fontWeight: FontWeight.w600,
+    );
     expect(find.text('Lorcana Elsa'), findsOneWidget);
     expect(find.text('One Piece Manga Luffy (JP)'), findsOneWidget);
     expect(find.text('Lorcana · The First Chapter'), findsOneWidget);
@@ -1197,6 +1225,22 @@ void main() {
     expect(find.text('Your wishlist is empty'), findsOneWidget);
     expect(find.text('Add cards you want to collect later'), findsOneWidget);
     expect(find.text('SEARCH CARDS'), findsOneWidget);
+    final searchButton = find.widgetWithText(FilledButton, 'SEARCH CARDS');
+    final searchButtonIcon = tester.widget<SvgPicture>(
+      find.descendant(of: searchButton, matching: find.byType(SvgPicture)),
+    );
+    expect(
+      searchButtonIcon.colorFilter,
+      const ColorFilter.mode(KandoColors.ink, BlendMode.srcIn),
+    );
+    expect(
+      tester
+          .widget<FilledButton>(searchButton)
+          .style
+          ?.foregroundColor
+          ?.resolve(const <WidgetState>{}),
+      KandoColors.ink,
+    );
     expect(
       find.byKey(const Key('collection-wishlist-empty-illustration')),
       findsOneWidget,
@@ -1234,6 +1278,27 @@ void main() {
     expect(find.byTooltip('Take Photo'), findsOneWidget);
     expect(find.text('This section is coming soon.'), findsNothing);
   });
+}
+
+void _expectCollectionTabStyle(
+  WidgetTester tester, {
+  required String label,
+  required Color backgroundColor,
+  required Color textColor,
+  required FontWeight fontWeight,
+}) {
+  final labelFinder = find.text(label).first;
+  final materialFinder = find
+      .ancestor(of: labelFinder, matching: find.byType(Material))
+      .first;
+  final material = tester.widget<Material>(materialFinder);
+  final text = tester.widget<Text>(labelFinder);
+
+  expect(material.color, backgroundColor);
+  expect(material.borderRadius, BorderRadius.circular(999));
+  expect(text.style?.fontSize, 15);
+  expect(text.style?.color, textColor);
+  expect(text.style?.fontWeight, fontWeight);
 }
 
 Future<void> _pumpCollection(

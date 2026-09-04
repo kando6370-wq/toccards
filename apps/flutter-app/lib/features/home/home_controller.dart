@@ -342,6 +342,10 @@ class HomeController extends Notifier<HomeState> {
       await coreLoadComplete;
       return;
     }
+    await refreshPreservingContent();
+  }
+
+  Future<void> refreshPreservingContent() async {
     final previousState = state;
     final nextState = _loadDashboard(
       currency: state.currency,

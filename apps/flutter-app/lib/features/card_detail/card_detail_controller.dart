@@ -1497,7 +1497,9 @@ class CardDetailController extends Notifier<CardDetailState> {
     if (_loadProfile == _CardDetailLoadProfile.collectionEditor) {
       ref.invalidate(cardDetailControllerProvider(cardId));
     }
-    ref.invalidate(homeControllerProvider);
+    unawaited(
+      ref.read(homeControllerProvider.notifier).refreshPreservingContent(),
+    );
     ref.invalidate(homePerformanceControllerProvider);
     ref.invalidate(collectionControllerProvider);
     ref.invalidate(searchControllerProvider);

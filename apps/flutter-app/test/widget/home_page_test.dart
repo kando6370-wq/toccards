@@ -1197,7 +1197,10 @@ void main() {
         find.byKey(const Key('home-top-performers-view-all')),
         findsOneWidget,
       );
-      expect(find.text('No cards in this portfolio yet'), findsOneWidget);
+      expect(
+        find.text('Add purchase prices to see your top performers'),
+        findsOneWidget,
+      );
       expect(
         tester.getSize(find.byKey(const Key('home-performance-empty'))).height,
         410,
@@ -1206,7 +1209,7 @@ void main() {
         tester
             .getSize(find.byKey(const Key('home-top-performers-empty')))
             .height,
-        200,
+        greaterThan(200),
       );
       expect(
         find.byKey(const Key('home-card-empty-illustration')),
@@ -1249,7 +1252,7 @@ void main() {
     );
   });
 
-  testWidgets('Top Performers alone reuses the Most Valuable empty state', (
+  testWidgets('Top Performers empty state explains how to populate ranking', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -1267,7 +1270,12 @@ void main() {
 
     expect(find.byKey(const Key('home-performance-empty')), findsNothing);
     expect(find.byKey(const Key('home-top-performers-empty')), findsOneWidget);
-    expect(find.text('No cards in this portfolio yet'), findsOneWidget);
+    final guidance = find.text(
+      'Add purchase prices to see your top performers',
+    );
+    expect(guidance, findsOneWidget);
+    expect(tester.widget<Text>(guidance).textAlign, TextAlign.center);
+    expect(tester.getSize(guidance).height, greaterThan(24));
   });
 
   testWidgets('Most Valuable opens the matching Card Detail Item context', (
@@ -1658,6 +1666,66 @@ void main() {
   );
 
   testWidgets(
+    'Performance chart shows while pointing and clears when leaving like Overview',
+    (tester) async {
+      await tester.pumpWidget(
+        _mockHomeApp(
+          null,
+          const _TestCurrencyRateApi(),
+          const MockHomeRepository(),
+          _ProHomeSubscriptionController.new,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+
+      final chart = find.byKey(const Key('home-performance-chart'));
+      final chartRect = tester.getRect(chart);
+      expect(
+        tester.widget<Semantics>(chart).properties.value,
+        'No chart point selected',
+      );
+
+      final touch = await tester.startGesture(chartRect.center);
+      await tester.pump();
+      expect(
+        tester.widget<Semantics>(chart).properties.value,
+        isNot('No chart point selected'),
+      );
+
+      await touch.up();
+      await tester.pump();
+      expect(
+        tester.widget<Semantics>(chart).properties.value,
+        'No chart point selected',
+      );
+
+      final mouse = await tester.createGesture(
+        kind: ui.PointerDeviceKind.mouse,
+      );
+      await mouse.addPointer(
+        location: Offset(chartRect.right + 20, chartRect.center.dy),
+      );
+      await tester.pump();
+      await mouse.moveTo(chartRect.center);
+      await tester.pump();
+      expect(
+        tester.widget<Semantics>(chart).properties.value,
+        isNot('No chart point selected'),
+      );
+
+      await mouse.moveTo(Offset(chartRect.right + 20, chartRect.center.dy));
+      await tester.pump();
+      expect(
+        tester.widget<Semantics>(chart).properties.value,
+        'No chart point selected',
+      );
+      await mouse.removePointer();
+    },
+  );
+
+  testWidgets(
     'Performance tooltip and partial-price info are mutually exclusive because stale overlays misstate the selected context',
     (tester) async {
       await tester.pumpWidget(
@@ -1674,7 +1742,9 @@ void main() {
 
       final chart = find.byKey(const Key('home-performance-chart'));
       final chartRect = tester.getRect(chart);
-      await tester.tapAt(Offset(chartRect.right - 1, chartRect.center.dy));
+      final tooltipTouch = await tester.startGesture(
+        Offset(chartRect.right - 1, chartRect.center.dy),
+      );
       await tester.pump();
 
       final tooltip = tester.widget<Semantics>(chart).properties.value!;
@@ -1684,6 +1754,8 @@ void main() {
       expect(tooltip, contains(r'Portfolio: +$24.00'));
       expect(tooltip, contains('Qty: 4 (+2)'));
       expect(tooltip, isNot(contains('Price:')));
+      await tooltipTouch.up();
+      await tester.pump();
 
       await tester.tap(find.byKey(const Key('home-performance-partial-info')));
       await tester.pumpAndSettle();
@@ -1757,7 +1829,9 @@ void main() {
 
       final chart = find.byKey(const Key('home-performance-chart'));
       final chartRect = tester.getRect(chart);
-      await tester.tapAt(Offset(chartRect.left + 1, chartRect.center.dy));
+      final tooltipTouch = await tester.startGesture(
+        Offset(chartRect.left + 1, chartRect.center.dy),
+      );
       await tester.pump();
 
       final tooltip = tester.widget<Semantics>(chart).properties.value!;
@@ -1766,6 +1840,8 @@ void main() {
       expect(tooltip, contains('Portfolio: --'));
       expect(tooltip, contains('Qty: 2'));
       expect(tooltip, isNot(contains('Daily Change:')));
+      await tooltipTouch.up();
+      await tester.pump();
     },
   );
 
@@ -1792,7 +1868,9 @@ void main() {
 
       final chart = find.byKey(const Key('home-performance-chart'));
       final chartRect = tester.getRect(chart);
-      await tester.tapAt(Offset(chartRect.right - 1, chartRect.center.dy));
+      final tooltipTouch = await tester.startGesture(
+        Offset(chartRect.right - 1, chartRect.center.dy),
+      );
       await tester.pump();
 
       final tooltip = tester.widget<Semantics>(chart).properties.value!;
@@ -1800,6 +1878,8 @@ void main() {
       expect(tooltip, contains('Portfolio: +€21.84'));
       expect(tooltip, contains('Qty: 4 (+2)'));
       expect(tooltip, isNot(contains('Daily Change:')));
+      await tooltipTouch.up();
+      await tester.pump();
     },
   );
 
@@ -1915,7 +1995,9 @@ void main() {
       await tester.pumpAndSettle();
 
       final chart = find.byKey(const Key('home-performance-chart'));
-      await tester.tapAt(tester.getRect(chart).center);
+      final tooltipTouch = await tester.startGesture(
+        tester.getRect(chart).center,
+      );
       await tester.pump();
       final tooltip = tester.widget<Semantics>(chart).properties.value!;
       expect(tooltip, isNot(contains('Daily Change:')));
@@ -1924,6 +2006,8 @@ void main() {
       expect(tooltip, contains('Qty: 4 (+2)'));
       expect(tooltip, isNot(contains(r'$20.00')));
       expect(tooltip, isNot(contains(r'$24.00')));
+      await tooltipTouch.up();
+      await tester.pump();
     },
   );
 
