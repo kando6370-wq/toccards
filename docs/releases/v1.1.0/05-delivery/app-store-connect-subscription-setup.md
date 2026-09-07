@@ -5,7 +5,7 @@
 > **最近核验**：2026-08-26
 > **适用应用**：dev/test Bundle ID `com.kando.kandoApp.beta`；production Bundle ID `com.cardai.tcg`
 > **权益 ID**：`performance_pro`
-> **状态快照（2026-08-26）**：App Store Connect production App 为 `Card AI: TCG Card Scanner`（Apple ID `6793017224`，Bundle ID `com.cardai.tcg`）；`CardAi.weekly`、`CardAi.yearly` 与 `CardAi.lifetime` 均已创建且处于准备提交状态。付费 App 协议有效，银行账户可用，美国税表使用中；Production Server URL 已保存为 `https://api.tcgcard.fun/api/v1/apple/notifications/v2`，Sandbox Server URL 尚未设置。production App Store Server API Key 已创建并下载；`APPLE_IAP_PRIVATE_KEY` 已通过待部署 version `4af6f4de-eaa0-4f52-b2ad-9ac268ec7bb8` 暂存，仓库内 Workers prod 白名单已配置，v1.1 目标 PostgreSQL 已写入三条 active `performance_pro` production 商品映射。三个 production Product ID 已写入客户端 `config/production.json`；Singular 两个值由 Cloudflare prod 环境管理，App 改为通过公共 `/app-config` 运行时读取，不进入源码、本机发布 JSON 或构建参数。只读 Cloudflare 回查确认现网 prod 100% 流量版本 `57213c10-d392-43a9-8d34-c6472fc3febc` 仍绑定 D1，没有 Hyperdrive，尚未包含 Singular 下发代码；Apple G3 根证书也仍只存在于待部署 version `42f3934f-7cb4-41df-85b5-631b4e4b8954`。PostgreSQL `0009` 已于 2026-08-25 应用并完成事务外复核，production/TestFlight 双环境代码尚未部署；完整购买闭环仍被 dev 新 Worker验证、prod D1 数据迁移/冲突审计、prod v1.1 PostgreSQL 切换、构建及真实 Sandbox/TestFlight 验收阻塞，详见「七、当前阻塞项」。
+> **状态快照（2026-08-26）**：App Store Connect production App 为 `Card AI: TCG Card Scanner`（Apple ID `6793017224`，Bundle ID `com.cardai.tcg`）；`CardAi.weekly`、`CardAi.yearly` 与 `CardAi.lifetime` 均已创建且处于准备提交状态。付费 App 协议有效，银行账户可用，美国税表使用中；Production Server URL 已保存为 `https://api.tcgcard.fun/api/v1/apple/notifications/v2`，Sandbox Server URL 尚未设置。production App Store Server API Key 已创建并下载；`APPLE_IAP_PRIVATE_KEY` 已通过待部署 version `4af6f4de-eaa0-4f52-b2ad-9ac268ec7bb8` 暂存，仓库内 Workers prod 白名单已配置，v1.1 目标 PostgreSQL 已写入三条 active `performance_pro` production 商品映射。三个 production Product ID 已写入客户端 `config/production.json`；Singular 两个值由 Cloudflare prod 环境管理，App 改为通过公共 `/app-config` 运行时读取，不进入源码、本机发布 JSON 或构建参数。只读 Cloudflare 回查确认现网 prod 100% 流量版本 `57213c10-d392-43a9-8d34-c6472fc3febc` 仍绑定 D1，没有 Hyperdrive，尚未包含 Singular 下发代码；Apple G3 根证书也仍只存在于待部署 version `42f3934f-7cb4-41df-85b5-631b4e4b8954`。PostgreSQL `0009` 已于 2026-08-25 应用并完成事务外复核，production/TestFlight 双环境代码尚未部署；完整购买闭环仍被 prod v1.1 PostgreSQL Worker 切换与烟测、构建及真实 Sandbox/TestFlight 验收阻塞，详见「七、当前阻塞项」。prod D1 没有需要保留的业务数据，不执行数据迁移或冲突审计。
 >
 > **dev 部署增量（2026-08-25）**：上述“dev 新 Worker 验证”已完成。提交 `38088799db8a96287c16c3ba456327e06196c657` 对应 Cloudflare dev version `1c4ea3b1-ec2f-4c79-a77c-026d84292aeb`，当前承载 100% dev 流量；`/api/v1/health`、Admin HTML 与新 Scan reservation 未授权边界烟测通过。production 仍保持原 deployment/version、D1 数据源和未设置 Sandbox Server URL 的状态，本次未修改 prod。
 >
@@ -182,11 +182,11 @@ Singular 与 Mixpanel Project Token 使用同一类运行时配置链路，由 C
 在应用的 App Store Server Notifications 配置中分别填写：
 
 - dev/test App Sandbox Server URL：`https://api-dev.tcgcard.fun/api/v1/apple/notifications/v2`。
-- production App Sandbox Server URL：`https://api.tcgcard.fun/api/v1/apple/notifications/v2/sandbox`；只能在 PostgreSQL `0009`、dev 新 Worker验证及 prod v1.1 D1 → PostgreSQL 切换都完成后设置。
+- production App Sandbox Server URL：`https://api.tcgcard.fun/api/v1/apple/notifications/v2/sandbox`；只能在共享 PostgreSQL 实时预检、prod v1.1 PostgreSQL Worker 部署及通知路由烟测都完成后设置。
 - Production Server URL：`https://api.tcgcard.fun/api/v1/apple/notifications/v2`。
 - Version：选择 Version 2。
 
-上述 URL 来自当前 Worker 自定义域名和已挂载路由；填入 App Store Connect 前仍需先完成对应环境迁移、Apple 验签配置和部署，并用 Apple 测试通知验证可达性。接口已实现 Apple 签名验证和重复通知幂等处理。
+上述 URL 来自当前 Worker 自定义域名和已挂载路由；填入 App Store Connect 前仍需先完成共享 PostgreSQL 实时预检、Apple 验签配置和对应 Worker 部署，并用 Apple 测试通知验证可达性。接口已实现 Apple 签名验证和重复通知幂等处理。
 
 截至 2026-08-18，dev 已完成 D1 非价格业务数据到共享 PostgreSQL 的迁移，并部署正式 Worker/Admin；34 条历史 inbox 均标记为 `Sandbox`，Sandbox URL 也已保存。dev Root CA Secret 已用指纹匹配的 Apple 官方 G3 DER Base64 更新并生效，但仍需新的 Apple 测试通知或真实 Sandbox 生命周期通知证明线上验签与业务处理恢复。prod 仅暂存 Root CA version `42f3934f-7cb4-41df-85b5-631b4e4b8954`，线上 deployment/version 未变化。
 
@@ -199,7 +199,7 @@ Singular 与 Mixpanel Project Token 使用同一类运行时配置链路，由 C
 - [x] Lifetime 通过已验证交易建立无到期时间权益；仍待 Sandbox 实单验收。
 - [x] Restore 已使用 StoreKit current entitlements 与 App Attest proof 为当前 session 重建 grant；仍待 iOS 真机验收。
 - [x] 通知原文、处理状态、幂等、重试和 Admin 排障视图已实现；dev 迁移和部署已完成，真实 Apple Sandbox 通知验收尚未完成。
-- [x] 代码已将 Apple JWS 验签异常限制为受控的 `VerificationStatus` 错误码，不保存底层 message/cause；`RETRYABLE_VERIFICATION_FAILURE` 保持为 `processing_failed` 并由现有 5 分钟任务重试，其他验签失败保持终态。dev 仍待在不夹带其他未交付改动的前提下部署，并用新 Sandbox 通知确认具体状态。
+- [x] 代码已将 Apple JWS 验签异常限制为受控的 `VerificationStatus` 错误码，不保存底层 message/cause；`RETRYABLE_VERIFICATION_FAILURE` 保持为 `processing_failed` 并由现有 5 分钟任务重试，其他验签失败保持终态。dev Worker 已部署，仍需用新 Sandbox 通知确认线上具体状态。
 
 ---
 
@@ -215,7 +215,7 @@ Singular 与 Mixpanel Project Token 使用同一类运行时配置链路，由 C
 - dev Root CA 的官方 G3 下载指纹、DER Base64 写入命令和生效版本已确认，但平台不回显 Secret 值，仍需通过真实 Sandbox 通知证明线上验签恢复；App Store Server API Secret 仍需真实调用验证。production Root CA 仅存在于未部署 version；production App Apple ID 与 Product ID 已确认，App Store Server API Key 已创建并下载，但 Workers prod 仍需配置对应 Private Key 并完成实网调用验证。
 - StoreKit 2 服务端同步失败后的 Secure Storage 持久化补偿队列已实现；仍待真机断网与恢复验收。
 - Restore 的 App Attest proof、App Store Server API 和 Notifications V2 生命周期代码已实现；dev Root CA 已按官方 G3 更新，Apple Server API Secret 配置项与 Sandbox 通知 URL 已就绪，但真实 Server API 调用和真机/Sandbox 端到端验收尚未完成。
-- Scan、Folder、Performance 和 1Y Price History 已统一接入当前 live session grant；对应结构与 dev 数据已迁入共享 PostgreSQL 并由 dev 正式版本运行。production Worker、Hyperdrive 和 PostgreSQL 实时状态需在独立发布任务中重新核验，且不得以 D1 作为回退；Sandbox/TestFlight 多设备验收仍待完成。
+- Scan、Folder、Performance 和 1Y Price History 已统一接入当前 live session grant；对应结构与 dev 数据已迁入共享 PostgreSQL 并由 dev 正式版本运行。2026-09-07 已实时核验共享 PostgreSQL `0000` 至 `0010`、约束、production 数据边界和商品映射；prod 发布前仍须做临近切换的只读复核，部署并烟测 PostgreSQL Worker，且不得以 D1 作为回退。Sandbox/TestFlight 多设备验收仍待完成。
 
 challenge 或业务 API 失败不得阻止 Apple 购买；本机 StoreKit 2 verified 仍按 App PRD即时解锁，但服务端受限操作在 grant 未同步时必须返回 `ENTITLEMENT_SYNC_REQUIRED`。
 

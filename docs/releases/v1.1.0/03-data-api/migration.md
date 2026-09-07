@@ -10,7 +10,7 @@ R1 数据库基础批次已通过只在本机运行的 Wrangler remote preview�
 
 本次正式切换时使用的迁移工具固定表顺序、列名和唯一 keyset 游标，并在每次正式执行前枚举 live D1 全表；忽略 `sqlite_%` 内部表后，实际表必须严格等于 33 张业务表与 5 张显式排除表，任何新增未分类表都会停止迁移。每批最多 500 行且编码负载硬上限为 512 KiB，D1 查询按累计 JSON 字节先行裁剪，单行超限直接失败；请求顺序复用单个 Hyperdrive client。写入按固定游标执行 `ON CONFLICT (cursor) DO UPDATE`，使迁移窗口内仍在运行的 dev D1 更新可通过重跑收敛；逐表校验按相同排序比较源/目标完整行 SHA-256。物理删除不会被静默复制，若迁移窗口内出现源删除，最终行数或摘要校验必须失败并停止切换。`--verify-cutover-state` 禁止与 schema-only 组合，且必须同时使用完整 `--verify-only` 或正式迁移及 `--confirm-source-write-frozen`；runner 只有在 33 表完整摘要全部通过后才检查七张价格空表与 Apple inbox 环境。迁移工具只接受运行时生成的 Bearer token，专用 Worker 未部署。
 
-> **数据库边界修正（2026-08-25）**：本页已完成的 33 表、270,577 行迁移与 Worker 切换是 dev 检查点。只读 Cloudflare 回查确认现网 prod 100% 流量版本 `57213c10-d392-43a9-8d34-c6472fc3febc` 仍绑定 D1 `6a22aeca-e7e9-4064-a301-f18c4a0acb41`，没有 Hyperdrive。v1.1 prod 目标才是迁移生产 D1 数据并切换到 dev 共用的 PlanetScale PostgreSQL；切换前必须单独完成生产数据清单、主键/账号/业务冲突审计、完整摘要验证和回滚演练。v1.1 新 schema、代码、测试和后续修复仍只允许基于 PostgreSQL，不得为旧 prod D1 新增功能或回退路径；上述旧迁移 runner 仍仅作为历史证据，不得复用。
+> **数据库边界修正（2026-09-07）**：本页已完成的 33 表、270,577 行迁移与 Worker 切换是 dev 检查点。只读 Cloudflare 回查确认现网 prod 100% 流量版本 `57213c10-d392-43a9-8d34-c6472fc3febc` 仍绑定 D1 `6a22aeca-e7e9-4064-a301-f18c4a0acb41`，没有 Hyperdrive；同时已确认该 D1 没有需要保留的业务数据。v1.1 prod 不复用历史 runner，不执行 D1 到 PostgreSQL 数据迁移、冲突合并或摘要校验，发布时在实时预检共享 PostgreSQL 后直接切换到同一 Hyperdrive。v1.1 新 schema、代码、测试、后续修复、回滚和灾备仍只允许基于 PostgreSQL；发布前应准备并验证 PostgreSQL 兼容的维护版或回滚 Worker。
 
 ## Trending Pin 废弃（2026-08-18）
 
@@ -72,13 +72,13 @@ keyset 扫描不是跨批次数据库快照，不能在 dev D1 持续写入时�
 - Sandbox 与 Production 通过关联 purchase chain 的 `environment` 强制隔离。
 - 回滚仅在确认没有新代码读写该表后执行 `DROP TABLE billing_session_entitlement_grant`；生产回滚前应先导出审计数据。
 
-本文件只记录迁移设计。该迁移已应用到远程 dev，尚未应用到开发者常用 local 或 prod 数据库。
+本文件只记录 D1 历史迁移设计。该迁移已应用到远程 dev D1；开发者常用 local 未核验，prod 不执行该 D1 migration，v1.1 直接使用共享 PostgreSQL 中的等价结构。
 
 ## 0027 Apple Entitlement Verification
 
 迁移新增 Fresh Purchase 一次性 challenge、验证请求幂等/审计表，并为购买链增加 `state_effective_at`。challenge 绑定 session 和 Product ID，消费时必须使用带条件更新确保只消费一次；验证尝试只保存证据 SHA-256 和安全响应，不在该表重复保存原始 JWS。`processing_expires_at` 提供 60 秒处理租约，使 Worker 中断后的同证据幂等请求可以恢复，且不允许有效租约期间并发接管。
 
-该迁移是向后兼容新增。回滚前必须先停止 challenge/verify 接口写入，再删除两个新表；SQLite 已增加的 `state_effective_at` 不在原地回滚，旧代码会忽略该 nullable 列。该迁移已应用到远程 dev，尚未应用到常用 local 或 prod。
+该迁移是 D1 历史向后兼容新增。回滚前必须先停止 challenge/verify 接口写入，再删除两个新表；SQLite 已增加的 `state_effective_at` 不在原地回滚，旧代码会忽略该 nullable 列。该迁移已应用到远程 dev D1；常用 local 未核验，prod 不执行该 D1 migration，v1.1 直接使用共享 PostgreSQL 中的等价结构。
 
 ## Workers 运行兼容性
 
@@ -187,7 +187,7 @@ PostgreSQL migration manifest 测试保护 `0007` 的顺序与内容；远程 Sc
 
 `0009_apple_notification_app_bundle.sql` 为 `apple_notification_inbox` 增加非空 `app_bundle_id`。迁移前架构只有 beta Bundle 会产生 Sandbox inbox，因此既有 `Sandbox` 行确定性回填为 `com.kando.kandoApp.beta`；既有 `Production` 行回填为 `com.cardai.tcg`。去重约束改为 `app_bundle_id + environment + payload_sha256`，processing 索引在 environment 前增加 `app_bundle_id`，使 dev 与 production TestFlight 共用 Sandbox 数据库值时仍不能互抢通知租约。
 
-- 兼容性：migration 通过 `trg_legacy_apple_notification_app_bundle` 为尚未升级的 PostgreSQL Worker 补齐其唯一可能产生的 Bundle，避免 `NOT NULL` 在切换窗口打断 dev 通知持久化；新 Worker始终显式写 Bundle，production TestFlight Sandbox 不依赖该 trigger。必须先应用 PostgreSQL `0009`，再升级 dev Worker并完成验证；prod 在完成生产 D1 数据迁移后直接切换到包含该修复的 v1.1 Worker。dev 新 Worker与 prod v1.1 切换都完成前不得设置 production App Sandbox URL。
+- 兼容性：migration 通过 `trg_legacy_apple_notification_app_bundle` 为尚未升级的 PostgreSQL Worker 补齐其唯一可能产生的 Bundle，避免 `NOT NULL` 在切换窗口打断 dev 通知持久化；新 Worker始终显式写 Bundle，production TestFlight Sandbox 不依赖该 trigger。PostgreSQL `0009` 已应用且 dev 新 Worker 已完成验证；prod 不迁移 D1 数据，直接切换到包含该修复的 v1.1 Worker。必须在 prod Worker 部署并完成通知路由烟测后再设置 production App Sandbox URL。
 - 回滚：应用代码可回退并保留新列、约束和索引。不得在已接收 production Bundle Sandbox 通知后恢复旧 `(environment, payload_sha256)` 唯一键，否则可能无法重建且会重新引入跨 App 抢租约风险。
 - 环境影响：远程执行只影响 dev 使用及未来 v1.1 prod 将使用的 PostgreSQL Schema，不影响仍绑定 D1 的现网 prod；未修改 D1。
 
@@ -199,7 +199,7 @@ PostgreSQL migration manifest 测试保护 `0007` 的顺序与内容；远程 Sc
 
 - 兼容与顺序：先执行共享 PostgreSQL `0010`，再部署依赖该列的 Worker/Admin。旧 Worker 不读取该列，可以在 migration 后继续运行；新 Worker 在列不存在时必须显式失败，不能先部署代码。
 - dev 迁移工具仍受 `--confirm-dev` 和固定 dev D1 binding 保护，`scan_record.targetValues.environment=development`。cutover 复核要求 development 行数等于 dev D1 源计数、production 为 0 且不存在未分类行。
-- prod 边界：现网 prod 仍运行 v1.0 D1。未来 prod 数据迁移必须使用独立受控流程，把生产历史 scan 显式写为 `production`；prod Worker 必须通过 `APP_ENVIRONMENT=production` 显式写入，不得复用 dev-only runner 或依赖数据库默认值。
+- prod 边界：现网 prod 仍运行 v1.0 D1，但该库没有需要保留的历史业务数据，不执行数据迁移。共享 PostgreSQL 现有 production scan 记录为 0；切换后的 prod Worker 必须通过 `APP_ENVIRONMENT=production` 显式写入新记录，不得复用 dev-only runner 或依赖数据库默认值。
 - 回滚：应用代码可回退并保留列、约束和索引。若要物理删除列，必须先回退所有读取/写入，再使用新的递增 PostgreSQL migration；不得修改已执行的 `0010`。
 
 2026-08-31 经用户明确授权部署 dev，先执行 `0010` 再发布依赖它的 Worker/Admin。首次使用固定 dev D1 配置启动 schema-only remote preview 时，Cloudflare 在 preview 启动阶段返回 D1 database not found（code `10181`）；该次尚未连接或执行 PostgreSQL DDL。随后改用只绑定共享 Hyperdrive `7d71bcd0bcf64e518a23a852ced76d66` 的一次性 Wrangler remote preview，未绑定 D1、KV、R2、路由或定时任务。只读预检确认目标为 `postgres/public`、PostgreSQL 18.6，ledger 精确包含 `0000-0009`，环境列、约束和索引均不存在；migration 在 advisory lock 保护的单事务中只应用 `0010`。事务外复核确认 checksum 为 `6ef480092683760fc4f0a50b221ccea35fa58c3ad23c1ebfca30e4272bfde99f`、`applied_at=2026-08-31T08:28:04.491Z`，列为 `text NOT NULL`，约束已验证，索引存在，467 条扫描记录全部为 `development`。preview 随后正常关闭，临时配置已删除。之后部署 dev Worker/Admin version `be0a5923-8c81-485c-b8a3-b0a982fca912`；未执行 prod 部署、prod D1 迁移或生产写入。

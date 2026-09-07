@@ -6,7 +6,7 @@
 
 - 仓库内已形成 Apple 订阅与 session grant、Scan Quota、Folder 限制、Performance、Extended Price History、Admin 订单与 Apple Notifications V2 的实现和自动化证据。
 - “代码已完成”不等于发布完成。Apple 生产配置、Sandbox/TestFlight、真机、多设备、重度数据和真实订单规模仍是独立验收门槛。
-- dev 的 PostgreSQL 迁移与切换已经完成；截至 2026-08-25，现网 prod 仍运行 v1.0 D1 版本，v1.1 prod 尚待生产数据迁移、冲突审计和 Hyperdrive 切换。v1.1 目标架构中 dev/prod 通过同一 Hyperdrive 使用同一个 PlanetScale PostgreSQL，新增 schema、运行代码、测试、修复、回滚与灾备只允许基于 PostgreSQL，不为 prod 旧 D1 扩展新路径。KV、R2、`APP_ENVIRONMENT`、Apple 配置、域名和 secrets 继续按环境隔离。7 张新价格表已创建但仍为空，价格实数仍依赖独立上游导入，详见[数据迁移](03-data-api/migration.md)。
+- dev 的 PostgreSQL 迁移与切换已经完成；截至 2026-08-25，现网 prod 仍运行 v1.0 D1 版本。经 2026-09-07 确认，prod D1 没有需要保留的业务数据，v1.1 prod 不执行 D1 数据迁移、冲突合并或摘要校验，发布时直接切换到 dev 共用的 PlanetScale PostgreSQL/Hyperdrive。新增 schema、运行代码、测试、修复、回滚与灾备只允许基于 PostgreSQL，不为 prod 旧 D1 扩展新路径；KV、R2、`APP_ENVIRONMENT`、Apple 配置、域名和 secrets 继续按环境隔离。共享 PostgreSQL 的 `0000` 至 `0010` migration 已全部应用，三条当前价格指针均为 published，价格导入仍由独立上游维护，详见[数据迁移](03-data-api/migration.md)。
 - 三份原始 PRD 保持字节不变；实现状态只在 `01-flows` 至 `05-delivery` 更新。
 
 ## 原始产品输入

@@ -148,7 +148,7 @@ Home Performance 的 Folder 归属遵循 App PRD 的整体迁移规则：每个 
 
 同一点位同时增加 nullable `market_value_change_usd` 与 `profit_loss_change_usd`，供 Card Detail Performance 使用。两项均由服务端以未提前舍入的目标 Item 历史值和 `t_prev` 计算，Range 首点沿用范围外紧邻可靠节点；不存在可信前态或成本不可计算时返回 `null`。正常状态曲线使用 Profit/Loss，Tooltip 仅展示 Date、Daily Change、Market Value、Profit/Loss、Qty；Purchase Price 缺失状态曲线使用 Market Value，Tooltip 不得展示 Profit/Loss、Purchase Cost 或 Return。1D 单点仍可点击，切 Range 或离开 Performance 会销毁旧 Tooltip 状态。
 
-`0031_performance_history.sql` 增加购买价、币种、生效时间、历史可用起点和 Folder 加入时间等事件事实。该迁移已在隔离空库及远程 dev 只读导出的本地副本执行并验证，并于 2026-08-13 应用到远程 dev；尚未应用到开发者常用 local 或 prod。
+`0031_performance_history.sql` 是 dev D1 的历史迁移，增加购买价、币种、生效时间、历史可用起点和 Folder 加入时间等事件事实；该历史执行不代表 v1.1 prod 需要迁移 D1。对应结构已经由 PostgreSQL `0000_business_schema.sql` 纳入共享数据库，2026-09-07 实时复核确认 PostgreSQL `0000` 至 `0010` migration 全部存在且 checksum 与仓库 SQL 一致。
 
 Card Detail 普通价格历史 1Y 的服务端防绕过已关闭：Free 仍可读取 1D 至 3M；1Y 要求当前 live session 的有效服务端 grant，同 UID 的另一 session 不继承。本机 verified 只区分 `ENTITLEMENT_SYNC_REQUIRED`，不能作为授权。该变更不新增 schema 或迁移。
 
@@ -204,7 +204,7 @@ Apple 官方 Node SDK 的证书吊销检查和 Server API 请求依赖 `node-fet
 
 - 客户端已在 Fresh Purchase 前尽力申请 challenge，并仅将 StoreKit 2 signed transaction 作为即时 Premium 证据异步上传；业务接口失败不反向覆盖本机购买成功。
 - App 已将静默权益读取与主动 Restore 分离：启动只读取 Apple verified `Transaction.currentEntitlements`，用户主动 Restore 才调用 `AppStore.sync()`；Restore 实现 Success/Not Found/Cancelled/Failed/15 秒 Timeout 分流。`AppStore.sync()` 的用户取消及其他同步错误均停止本次流程且不读取设备残留 entitlement；Cancelled 只结束 Loading、保持操作前权益且不显示结果反馈，真实错误继续进入 Failed。Success 不进入 Purchase Success，并在后台尽力完成 App Attest proof，不以 proof 同步失败覆盖本机成功。
-- Workers 已有 Fresh Purchase、Restore、Notifications V2 与 Apple Server API 校正链；production/TestFlight 双 verifier、Bundle 隔离 inbox 与双环境校正代码及 `0009` migration 已准备，但共享 PostgreSQL migration 尚未远程执行，prod Worker 尚未部署。App Attest 原生代码仍需 Xcode/真机验证，Apple Server API Secret 内容仍需真实调用证明。
+- Workers 已有 Fresh Purchase、Restore、Notifications V2 与 Apple Server API 校正链；production/TestFlight 双 verifier、Bundle 隔离 inbox 与双环境校正代码已经完成，共享 PostgreSQL `0000` 至 `0010` migration 已远程应用并复核。prod Worker 尚未部署；App Attest 原生代码仍需 Xcode/真机验证，Apple Server API Secret 内容仍需真实调用证明。
 - `billing_entitlement_grant` 旧 owner 关联只兼容保留，不参与授权。
 - Scan Quota 与 Folder 限制已由服务端基于可信 grant 原子执行；Waiting/自动递补、Processing 删除后的后台结算和 `blocked_action=create_folder` 已按页面内最小上下文实现，非成功或目标失效不执行旧动作。
 - Admin 已可查询原始收件箱失败记录；完整 Decoded Payload 只在授权用户主动打开详情时加载，`signedPayload` 默认不返回，复制 JSON 只由用户主动触发。最新 Admin PRD 未定义额外查看/复制审计表或审计查询功能，本版本不猜测新增该范围。

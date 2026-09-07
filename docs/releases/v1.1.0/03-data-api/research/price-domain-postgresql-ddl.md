@@ -14,7 +14,7 @@
 
 同时给出既有 `collection_item`、`collection_item_event` 增加 `price_series_id` 的兼容迁移设计。
 
-**当前状态：本文仍是设计依据，不是部署脚本；对应 schema 已由 `0001_price_domain.sql`、`0003_price_history_visibility_guard.sql` 和 `0004_price_history_month_payload_limit.sql` 在共享 PlanetScale PostgreSQL 执行。** 7 张价格表当前均为空，旧 `tcg_price` 未迁移；正式价格数据导入、目标规模压测、R2 冷数据和 prod 流量验收尚未完成。实际部署证据以 [数据迁移](../migration.md) 和仓库 migration 为准。
+**当前状态：本文仍是设计依据，不是部署脚本；对应 schema 已由 `0001_price_domain.sql`、`0003_price_history_visibility_guard.sql` 和 `0004_price_history_month_payload_limit.sql` 在共享 PlanetScale PostgreSQL 执行。** 2026-09-07 实时核验已存在三条 published 当前价格指针，业务日期为 2026-09-06，因此 7 张价格表不再是统一空表状态；旧 `tcg_price` 未迁移，目标规模压测、R2 冷数据和 prod 流量验收尚未完成。实际部署证据以 [数据迁移](../migration.md) 和仓库 migration 为准。
 
 目标执行环境是 PlanetScale Postgres 18.6，版本号以 2026-08-17 PlanetScale 控制台显示的已选实例为准；本文按 PostgreSQL 18 主版本语法设计，不再把 PostgreSQL 15 作为部署兼容基线。金额统一保存为 `bigint` micros，评级统一保存为 `smallint` 的十分制值，例如 7.5 保存为 `75`。扩展频繁的来源、状态和指标使用 `text + CHECK`，不创建 PostgreSQL enum。
 
