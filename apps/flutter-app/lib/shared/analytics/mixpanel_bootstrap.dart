@@ -39,7 +39,7 @@ Future<String?> loadMixpanelProjectToken({Dio? dio}) async {
       dio ??
       Dio(
         BaseOptions(
-          baseUrl: kandoApiBaseUrl,
+          baseUrl: appApiBaseUrl,
           connectTimeout: const Duration(seconds: 3),
           receiveTimeout: const Duration(seconds: 3),
         ),

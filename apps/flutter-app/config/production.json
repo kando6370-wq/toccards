@@ -1,6 +1,4 @@
 {
   "APP_ENV": "production",
-  "SUBSCRIPTION_APP_STORE_WEEKLY_ID": "CardAi.weekly",
-  "SUBSCRIPTION_APP_STORE_YEARLY_ID": "CardAi.yearly",
-  "SUBSCRIPTION_APP_STORE_LIFETIME_ID": "CardAi.lifetime"
+  "API_BASE_URL": "http://localhost:8787/api/v1"
 }

@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:kando_app/shared/ui/kando_style.dart';
 
 ThemeData buildKandoTheme() {
-  final colorScheme = buildKandoColorScheme();
+  final colorScheme = ColorScheme.fromSeed(seedColor: Colors.indigo);
 
   return ThemeData(
     colorScheme: colorScheme,
     useMaterial3: true,
-    scaffoldBackgroundColor: KandoColors.ink,
     appBarTheme: AppBarTheme(
       backgroundColor: colorScheme.surface,
       foregroundColor: colorScheme.onSurface,

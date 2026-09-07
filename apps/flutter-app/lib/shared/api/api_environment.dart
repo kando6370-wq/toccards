@@ -10,9 +10,10 @@ abstract final class AppConfig {
       ? AppEnvironment.production
       : AppEnvironment.test;
 
-  static const apiBaseUrl = environment == AppEnvironment.production
-      ? 'https://api.tcgcard.fun/api/v1'
-      : 'https://api-dev.tcgcard.fun/api/v1';
+  static const apiBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://localhost:8787/api/v1',
+  );
 
   static const isTestEnvironment = environment == AppEnvironment.test;
   static const isDebugData = isTestEnvironment;
@@ -26,4 +27,4 @@ abstract final class AppConfig {
   }
 }
 
-const kandoApiBaseUrl = AppConfig.apiBaseUrl;
+const appApiBaseUrl = AppConfig.apiBaseUrl;

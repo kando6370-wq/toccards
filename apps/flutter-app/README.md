@@ -1,118 +1,36 @@
-# Kando App
+# Flutter App Skeleton
 
-## Environments
+这是从 Kando Flutter 客户端提取的跨 iOS、Android 和 Web 的 App 骨架。
 
-`APP_ENV` selects the API and Mixpanel projects together. The supported values
-are `test` and `production`; the default is `production` so an unconfigured
-build stays aligned with the default production app identity. Test builds must
-explicitly load `config/test.json`.
+## 保留能力
 
-From the repository root, run the web app with:
+- Flutter、Dart workspace、Riverpod、GoRouter 和 Dio
+- 环境配置与可注入的 `API_BASE_URL`
+- 匿名/用户会话、Token 刷新、认证存储和 OAuth 适配
+- Firebase、Mixpanel、API 请求日志和测试环境调试覆盖层
+- 可复用的通用订阅包位于 `dart-packages/subscription-core`
 
-```bash
+当前根路由是空白启动路由，不包含原 Card AI 页面、领域模型或页面素材。
+
+## 本地运行
+
+从仓库根目录执行：
+
+```powershell
 pnpm app:chrome:dev
-pnpm app:chrome:prod
 ```
 
-Build a TestFlight package against test services with:
+默认 API 地址为 `http://localhost:8787/api/v1`，可通过
+`--dart-define=API_BASE_URL=...` 或配置文件覆盖。
 
-```bash
-flutter build ipa --release --flavor=test --dart-define-from-file=config/test.json
+## 验证
+
+```powershell
+flutter analyze
+flutter test --dart-define=APP_ENV=test
 ```
 
-Build an App Store package against production services with:
+新的 App 名称、Bundle ID、Firebase 配置、商店发布配置和后端路由需要在产品定义后补充，不应继续复用 Card AI 的线上身份。
 
-```bash
-flutter build ipa --release --dart-define-from-file=config/production.json
-```
-
-Run these `flutter build` commands from `apps/flutter-app`.
-
-The iOS test flavor uses Bundle ID `com.kando.kandoApp.beta` and the Firebase
-configuration in `ios/Runner/Firebase/test`. Pgyer and device-installation
-packages for that Bundle ID must use App Attest `development`. Both values are
-validated against the final Development-signed internal IPA rather than
-inferred from Xcode project settings. Other Bundle IDs do not currently have a
-fixed App Attest rule. Production keeps `com.cardai.tcg` and its separate
-Firebase configuration.
-
-## iOS simulator
-
-Google ML Kit's iOS binaries do not support arm64 simulators. Run the test
-environment with the simulator wrapper so local card-number OCR is disabled and
-the scan request falls back to server recognition:
-
-```bash
-./tool/run_ios_simulator.sh -d <simulator-udid>
-```
-
-This override only applies to that simulator process. iOS device, release, and
-Android builds continue to include ML Kit. When the simulator process exits,
-the wrapper restores the standard device Pods automatically.
-
-## iOS release script
-
-From `apps/flutter-app`, build and validate a clean production App Store IPA:
-
-```bash
-# 构建并验证正式环境的 App Store IPA（不安装、不上传）
-./tool/release_ios.sh
-```
-
-The script increments the current build number automatically. Installation and
-upload are opt-in. Production is the default environment; use `--env
-test` to select the test API, Xcode scheme, and Firebase configuration:
-
-Singular SDK credentials are loaded at runtime from the selected environment's
-public `/app-config` endpoint. Release JSON files contain only non-sensitive
-build configuration such as the environment and subscription product IDs.
-
-```bash
-# 构建并验证测试环境的 App Store IPA 和蒲公英内部测试 IPA（不安装、不上传）
-./tool/release_ios.sh --env test
-
-# 显式构建蒲公英内部测试 IPA；仅支持测试 Bundle ID
-./tool/release_ios.sh --env test --pgy
-
-# 列出当前已配对且可用的 Apple 设备
-./tool/release_ios.sh --list-devices
-
-# 构建正式环境 IPA，并安装到指定设备
-./tool/release_ios.sh --install ABBA554A-D3A7-5651-827D-3754EB085751
-
-# 构建正式环境 IPA，并上传到 App Store Connect
-./tool/release_ios.sh --upload
-
-# 构建测试环境 IPA，并安装到指定设备
-./tool/release_ios.sh --env test --install 00008101-00111DCE3668001E
-
-# 构建正式环境 IPA，安装到指定设备，并上传到 App Store Connect
-./tool/release_ios.sh --env production --install 00008101-00111DCE3668001E --upload
-```
-
-Use `--build-number N` to choose an explicit build number. The selected number
-must be greater than the current value in `pubspec.yaml`. Test builds always
-produce `build/ios/test-internal-development/Card AI Test.ipa` for Pgyer and
-device installation. That IPA preserves the archived Apple Development
-signature and must contain Bundle ID `com.kando.kandoApp.beta` with App Attest
-`development`; the script fails if either value differs. Production device
-installation continues to use a `release-testing` export signed with Apple
-Distribution. The App Store IPA remains separately signed for App Store
-Connect. No device model or UDID is hardcoded; pass any available selector
-shown by `--list-devices` (quote device names that contain spaces).
-
-## Chrome with production services
-
-From the repository root, run:
-
-```bash
-pnpm app:chrome:prod
-```
-
-This starts Flutter Web at `http://localhost:3000` and configures every app API client to use:
-
-```text
-https://api.tcgcard.fun/api/v1
-```
-
-The browser does not connect directly to PostgreSQL or KV. Production data access remains behind the deployed Worker API, including its authentication and authorization checks.
+当前工作环境为 Windows，未运行 CocoaPods；iOS 的 `Podfile.lock` 需要在 macOS 上执行
+`pod install` 后再提交更新。

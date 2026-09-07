@@ -9,7 +9,7 @@ import 'auth_storage.dart';
 
 const oauthAuthorizationFailedMessage =
     'Authorization failed. Please try again.';
-const authApiBaseUrl = kandoApiBaseUrl;
+const authApiBaseUrl = appApiBaseUrl;
 const authRequestDeadline = Duration(seconds: 15);
 
 Dio createAuthDio({String baseUrl = authApiBaseUrl}) {

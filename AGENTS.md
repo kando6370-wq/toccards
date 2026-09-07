@@ -46,7 +46,7 @@ Marketing Web ──> 独立的营销与法律页面
 - Admin 是独立 React SPA，但构建产物由 Workers assets 托管，与对应环境的 API 一起部署。
 - Workers 是鉴权、账号归属、资产隔离、卡牌查询、扫描识别和 Admin 操作的服务端边界。
 - PlanetScale PostgreSQL 是 v1.1 业务与目录真源；当前 dev 已通过 Hyperdrive 使用该数据库，截至 2026-08-25 的现网 prod 仍运行 v1.0 D1 版本。经 2026-09-07 确认，prod D1 没有需要保留的业务数据，v1.1 prod 不执行 D1 到 PostgreSQL 数据迁移、冲突合并或摘要校验，直接切换到 dev 共用的同一 Hyperdrive；`APP_ENVIRONMENT`、Apple 配置、KV、R2、域名和 secrets 仍按环境隔离。
-- dev 的 D1 到 PostgreSQL 迁移已经完成；prod 只需在发布前只读确认 D1 仍无须保留的数据，并完成共享 PostgreSQL 实时预检、PostgreSQL 兼容回滚 Worker 准备和运行切换。后续 v1.1 开发不得新增或恢复 D1 binding、schema、migration、类型依赖、测试基座、读写路径、数据补全、回退或灾备方案；现网 prod D1 只作为待下线的 v1.0 运行事实，不得成为新实现或回退依据。仓库中仍存在的 `D1Database` 兼容类型、Miniflare 测试和退役迁移工具属于待清理债务，只能在明确授权的清理任务中收敛，任何新功能或 BUG 修复不得复制、扩展或继续维护。`docs/releases/v1.0.0` 冻结内容仍按文档规则原样保留。
+- dev 的 D1 到 PostgreSQL 迁移已经完成；prod 只需在发布前只读确认 D1 仍无须保留的数据，并完成共享 PostgreSQL 实时预检、PostgreSQL 兼容回滚 Worker 准备和运行切换。后续 v1.1 开发不得新增或恢复 D1 binding、schema、migration、类型依赖、测试基座、读写路径、数据补全、回退或灾备方案；现网 prod D1 只作为待下线的 v1.0 运行事实，不得成为新实现或回退依据。仓库中仍存在的 `D1Database` 兼容类型、Miniflare 测试和退役迁移工具属于待清理债务，只能在明确授权的清理任务中收敛，任何新功能或 BUG 修复不得复制、扩展或继续维护。
 - `packages/*` 只承载跨应用共享能力，应用之间通过包依赖或 HTTP 契约协作。
 
 ## 工具链与常用命令
@@ -76,18 +76,15 @@ GitLab Flutter CI 使用 3.44.0，GitHub iOS CI 使用 3.44.7。涉及工具链�
 
 ## 文档真源
 
-根 `README.md` 是项目入口，详细实现文档按发布版本归档：
+当前 `codex/app-skeleton` 分支仅保留骨架相关文档：
 
-- `docs/releases/v1.0.0/00-product`：11 份原始 PRD，只读保留。
-- `docs/releases/v1.0.0/01-flows` 至 `04-admin`：v1.0.0 实际业务与工程基线。
-- `docs/releases/v1.1.0/00-product`：三份 v1.1 原始产品输入，只读保留。
-- `docs/releases/v1.1.0/01-flows` 至 `05-delivery`：相对 v1.0.0 的当前业务、架构、数据/API、Admin 和交付文档。
+- 根 `README.md`：仓库入口和 monorepo 总览。
+- `apps/flutter-app/README.md`：Flutter App 骨架能力、运行方式和待配置边界。
+- `docs/README.md`：文档目录说明。
 
-`docs/releases/v1.0.0` 是已发布冻结基线，后续 v1.1.0 开发不得回写；若需修正已经确认的文档错误，必须先说明原因并获得用户明确授权。11 份原始 PRD 包括 `glossary.md`、`overview.md`、`ui-design-system.md` 和 `00-product/modules/` 下的 8 份模块文档，必须保持字节不变，不得因当前实现或后续需求而修订。
+原 Card AI 的 v1.0/v1.1 产品、实现和交付归档已按项目骨架范围删除，不再作为当前分支的实现依据。不要新增执行日志、任务状态快照、交接文档、生成截图或原始设计素材到 `docs/`。
 
-实现文档以对应版本代码、迁移和运行配置为准。v1.1.0 的新增、变更、移除及实现结果只写入 `docs/releases/v1.1.0/01-flows` 至 `05-delivery`；未变化部分引用 v1.0.0。不要新增执行日志、任务状态快照、交接文档、生成截图或原始设计素材到 `docs/`。
-
-Flutter UI 变更前必须阅读 `docs/releases/v1.0.0/00-product/ui-design-system.md`，并优先复用现有组件、颜色、间距和交互模式；若 v1.1.0 有明确增量契约，同时读取该版本文档。
+Flutter UI 变更应优先遵循当前代码中的组件、颜色、间距和交互约定；新 App 的设计规范应在产品定义后单独建立。
 
 ## 安全边界
 

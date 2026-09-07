@@ -1,5 +1,7 @@
 # Kando Global Project
 
+> `codex/app-skeleton` 是从 `dev` 提取的 Flutter 新 App 骨架分支。该分支保留 Flutter、Riverpod、GoRouter、Dio、认证、环境配置、分析和调试基础能力，移除 Card AI 页面与领域功能；v1.1 文档仍描述原产品基线。
+
 Kando 是 Card AI 的 monorepo，包含 Flutter 客户端、Cloudflare Workers API、React 管理后台、营销站点及共享包。产品主线是卡牌搜索、扫描识别、收藏与估值；v1.1 在此基础上增加 Apple 订阅、Premium 权益、服务端扫描额度、Performance 和订单/通知后台。
 
 ## 系统概览
@@ -27,9 +29,9 @@ Workers 是 App 与 Admin 的服务端安全边界。客户端不得直连 Postg
 | `apps/marketing-web` | 营销、法律和公开站点 |
 | `dart-packages/subscription-core` | 可配置的 Apple/Google 订阅业务模块 |
 | `packages/*` | TypeScript 共享认证、API、UI 和 Workers 能力 |
-| `docs/releases` | 按版本冻结的产品输入与实现文档 |
+| `docs` | 当前分支的骨架文档入口 |
 
-完整边界见 [v1.1 Monorepo 文档](docs/releases/v1.1.0/02-architecture/monorepo.md)。
+Flutter 骨架边界见 [Flutter App 骨架说明](apps/flutter-app/README.md)。
 
 ## 环境要求
 
@@ -94,7 +96,4 @@ dart run melos run test
 ## 文档入口
 
 - [项目文档索引](docs/README.md)
-- [v1.0.0 已发布冻结基线](docs/releases/v1.0.0/README.md)
-- [v1.1.0 当前增量](docs/releases/v1.1.0/README.md)
-- [v1.1.0 系统架构](docs/releases/v1.1.0/02-architecture/architecture.md)
-- [v1.1.0 业务上下文](docs/releases/v1.1.0/01-flows/business-context.md)
+- [Flutter App 骨架说明](apps/flutter-app/README.md)

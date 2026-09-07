@@ -1,16 +1,8 @@
 default_platform(:ios)
 
 platform :ios do
-  desc "Upload App Store metadata without changing the binary"
+  desc 'Metadata publishing requires the new App identity and metadata.'
   lane :metadata do
-    deliver(
-      app_identifier: "com.cardai.tcg",
-      metadata_path: "./fastlane/metadata",
-      primary_category: "Reference",
-      secondary_category: "Utilities",
-      skip_binary_upload: true,
-      skip_screenshots: true,
-      force: true
-    )
+    UI.user_error!('Configure the new App Store identity before publishing metadata.')
   end
 end

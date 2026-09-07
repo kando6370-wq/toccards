@@ -5,12 +5,7 @@ void main() {
   test('app environment selects the matching API', () {
     final production = AppConfig.environment == AppEnvironment.production;
 
-    expect(
-      kandoApiBaseUrl,
-      production
-          ? 'https://api.tcgcard.fun/api/v1'
-          : 'https://api-dev.tcgcard.fun/api/v1',
-    );
+    expect(appApiBaseUrl, 'http://localhost:8787/api/v1');
     expect(AppConfig.isTestEnvironment, !production);
     expect(AppConfig.isDebugData, !production);
   });

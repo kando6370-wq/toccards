@@ -1,6 +1,4 @@
 {
   "APP_ENV": "test",
-  "SUBSCRIPTION_APP_STORE_WEEKLY_ID": "cardx.week",
-  "SUBSCRIPTION_APP_STORE_YEARLY_ID": "cardx.year",
-  "SUBSCRIPTION_APP_STORE_LIFETIME_ID": "cardx.lifetime"
+  "API_BASE_URL": "http://localhost:8787/api/v1"
 }

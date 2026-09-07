@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_debug_overlay/flutter_debug_overlay.dart';
 
 import '../api/api_environment.dart';
-import '../ui/kando_style.dart';
 
 final appDebugLogBucket = LogBucket(
   maxStoredEntries: 200,
@@ -114,9 +113,11 @@ class _AppDebugOverlayState extends State<AppDebugOverlay> {
               minimum: const EdgeInsets.symmetric(vertical: 12),
               child: Center(
                 child: Material(
-                  color: KandoColors.ink.withValues(alpha: 0.92),
-                  shape: const CircleBorder(
-                    side: BorderSide(color: KandoColors.accent),
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  shape: CircleBorder(
+                    side: BorderSide(
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
                   ),
                   elevation: 4,
                   child: Semantics(
@@ -128,7 +129,7 @@ class _AppDebugOverlayState extends State<AppDebugOverlay> {
                           _overlayKey.currentState?.toggleVisibility(),
                       style: IconButton.styleFrom(
                         fixedSize: const Size.square(44),
-                        foregroundColor: KandoColors.accent,
+                        foregroundColor: Theme.of(context).colorScheme.primary,
                       ),
                       icon: const Icon(Icons.bug_report_outlined, size: 21),
                     ),

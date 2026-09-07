@@ -1,1 +1,0 @@
-https://api.tcgcard.fun/api/v1/legal/support

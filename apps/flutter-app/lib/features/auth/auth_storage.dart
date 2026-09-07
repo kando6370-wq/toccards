@@ -5,7 +5,6 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'auth_models.dart';
-import '../../shared/security/secure_storage_keys.dart';
 
 abstract interface class AuthStorage {
   Future<AuthSession?> readSession();
@@ -41,9 +40,6 @@ class SecureAuthStorage implements AuthStorage {
         _storage.delete(key: _sessionKey),
         _storage.delete(key: _previousAnonymousSessionKey),
         _storage.delete(key: _deviceIdKey),
-        _storage.delete(key: subscriptionPendingAppleVerificationStorageKey),
-        _storage.delete(key: appleAppAttestKeyIdStorageKey),
-        _storage.delete(key: subscriptionVerifiedEntitlementCacheStorageKey),
       ]);
     }
 

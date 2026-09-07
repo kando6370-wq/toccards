@@ -8,7 +8,6 @@ import 'shared/analytics/app_analytics.dart';
 import 'shared/api/api_environment.dart';
 import 'shared/debug/app_debug_overlay.dart';
 import 'shared/firebase/app_firebase.dart';
-import 'shared/portfolio/portfolio_providers.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,28 +27,13 @@ Future<void> main() async {
   AppConfig.validate();
   configureAppDebugOverlay();
   await const SecureAuthStorage().prepareForCurrentInstallation();
-  const amountHiddenStorage = PreferencesPortfolioAmountHiddenStorage();
-  var initialAmountHidden = false;
-  try {
-    initialAmountHidden = await amountHiddenStorage.readAmountHidden();
-  } catch (_) {
-    // Keep amounts visible when local preferences cannot be read.
-  }
   final firebase = await AppFirebase.initialize();
   firebase?.installGlobalErrorHandlers();
   installAppDebugErrorHandlers();
   final analytics = AppAnalytics.initialize(firebase: firebase);
   runApp(
     ProviderScope(
-      overrides: [
-        analyticsProvider.overrideWithValue(analytics),
-        portfolioAmountHiddenStorageProvider.overrideWithValue(
-          amountHiddenStorage,
-        ),
-        initialPortfolioAmountHiddenProvider.overrideWithValue(
-          initialAmountHidden,
-        ),
-      ],
+      overrides: [analyticsProvider.overrideWithValue(analytics)],
       child: const KandoApp(),
     ),
   );
