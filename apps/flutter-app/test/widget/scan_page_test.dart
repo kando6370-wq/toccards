@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -1485,6 +1486,9 @@ void main() {
   testWidgets(
     'Multiple matched cards keep bulk actions because the batch applies to more than one card',
     (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(375, 844);
+      addTearDown(tester.view.reset);
       final source = _TestScanResultSource(
         photoResult: Future.value(
           const ScanResolution.matched(
@@ -1516,6 +1520,21 @@ void main() {
 
       expect(find.text('ADD ALL CARDS'), findsOneWidget);
       expect(find.text('DELETE ALL CARDS'), findsOneWidget);
+      final deleteAllLabel = tester.renderObject<RenderParagraph>(
+        find.text('DELETE ALL CARDS'),
+      );
+      final deleteAllLineTops = deleteAllLabel
+          .getBoxesForSelection(
+            const TextSelection(baseOffset: 0, extentOffset: 16),
+          )
+          .map((box) => box.top)
+          .toSet();
+      expect(
+        deleteAllLineTops,
+        hasLength(1),
+        reason:
+            'The bulk delete label must remain on one line on narrow screens.',
+      );
     },
   );
 

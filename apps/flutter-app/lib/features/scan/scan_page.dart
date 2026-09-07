@@ -5208,7 +5208,13 @@ class _ReviewFooter extends StatelessWidget {
                     Expanded(
                       child: OutlinedButton(
                         onPressed: saving ? null : onDeleteAll,
-                        child: const Text('DELETE ALL CARDS'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                        ),
+                        child: const FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text('DELETE ALL CARDS'),
+                        ),
                       ),
                     ),
                   ],
