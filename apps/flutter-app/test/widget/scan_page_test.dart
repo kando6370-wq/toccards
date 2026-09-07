@@ -1633,6 +1633,35 @@ void main() {
     },
   );
 
+  testWidgets(
+    'A late incomplete card load cannot replace complete Review data after returning to Scan',
+    (tester) async {
+      final repository = _StaleScanCardsRepository();
+      await _pumpScanTestApp(tester, scanReviewRepository: repository);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.pump();
+      expect(repository.loadCardsCount, 1);
+
+      await tester.tap(find.byTooltip('Review completed scan'));
+      await tester.pumpAndSettle();
+      expect(find.text(r'$25.00'), findsOneWidget);
+
+      repository.completeBackgroundLoadWithEmptyPrices();
+      await tester.pump();
+
+      expect(
+        find.text(r'$25.00'),
+        findsOneWidget,
+        reason: 'A late partial response must not erase the session price.',
+      );
+      await tester.tap(find.byTooltip('Back to Scan'));
+      await tester.pumpAndSettle();
+      expect(find.text(r'$25.00'), findsOneWidget);
+    },
+  );
+
   testWidgets('Figma review renders at the 390x844 baseline', (tester) async {
     await (FontLoader('Fraunces')..addFont(
           rootBundle.load('assets/fonts/Baskerville-BaskervilleSemiBold.ttf'),
@@ -4248,6 +4277,34 @@ class _FakeScanReviewRepository implements ScanReviewRepository {
       cardRef: item.cardRef,
       folderId: item.folderId,
     );
+  }
+}
+
+class _StaleScanCardsRepository extends _FakeScanReviewRepository {
+  final _backgroundLoad = Completer<Map<String, ScanReviewCard>>();
+  var loadCardsCount = 0;
+
+  @override
+  Future<Map<String, ScanReviewCard>> loadCards(List<String> cardRefs) {
+    loadCardsCount += 1;
+    if (loadCardsCount == 1) return _backgroundLoad.future;
+    return super.loadCards(cardRefs);
+  }
+
+  void completeBackgroundLoadWithEmptyPrices() {
+    _backgroundLoad.complete({
+      'card-mega': const ScanReviewCard(
+        cardRef: 'card-mega',
+        name: 'Mega Lucario ex',
+        setName: 'Test Set',
+        cardNumber: '001',
+        game: 'Pokemon',
+        imageUrl: null,
+        language: 'English',
+        finish: 'Holofoil',
+        prices: [],
+      ),
+    });
   }
 }
 

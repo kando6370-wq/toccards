@@ -1515,7 +1515,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
         for (final candidate in match.candidates) candidate.cardRef,
       ]);
       if (!mounted) return;
-      setState(() => _reviewCards = {..._reviewCards, ...cards});
+      setState(() => _reviewCards = _mergeScanCards(_reviewCards, cards));
     } on Exception {
       // Price metadata is supplemental; review retries the same load explicitly.
     }
@@ -1557,10 +1557,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
             : repository.loadCards(missingCardRefs),
       ]);
       final target = results[0] as ScanReviewTarget;
-      final cards = {
-        ...cachedCards,
-        ...results[1] as Map<String, ScanReviewCard>,
-      };
+      final cards = _mergeScanCards(
+        cachedCards,
+        results[1] as Map<String, ScanReviewCard>,
+      );
       final selectedReviewItemId = itemId ?? items.firstOrNull?.id;
       if (selectedReviewItemId == null) {
         throw const _ScanReviewLoadException();
@@ -3208,6 +3208,55 @@ class _ViewfinderPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _ViewfinderPainter oldDelegate) =>
       focusFrameShadow != oldDelegate.focusFrameShadow;
+}
+
+Map<String, ScanReviewCard> _mergeScanCards(
+  Map<String, ScanReviewCard> current,
+  Map<String, ScanReviewCard> updates,
+) {
+  final merged = Map<String, ScanReviewCard>.from(current);
+  for (final entry in updates.entries) {
+    final existing = merged[entry.key];
+    merged[entry.key] = existing == null
+        ? entry.value
+        : _mergeScanCard(existing, entry.value);
+  }
+  return merged;
+}
+
+ScanReviewCard _mergeScanCard(ScanReviewCard existing, ScanReviewCard update) {
+  return ScanReviewCard(
+    cardRef: existing.cardRef.isEmpty ? update.cardRef : existing.cardRef,
+    name: existing.name.trim().isEmpty ? update.name : existing.name,
+    setName: existing.setName.trim().isEmpty
+        ? update.setName
+        : existing.setName,
+    cardNumber: existing.cardNumber.trim().isEmpty
+        ? update.cardNumber
+        : existing.cardNumber,
+    game: existing.game ?? update.game,
+    imageUrl: existing.imageUrl ?? update.imageUrl,
+    language: existing.language ?? update.language,
+    finish: existing.finish ?? update.finish,
+    availableLanguages: _preferMoreCompleteList(
+      existing.availableLanguages,
+      update.availableLanguages,
+    ),
+    availableFinishes: _preferMoreCompleteList(
+      existing.availableFinishes,
+      update.availableFinishes,
+    ),
+    prices: existing.prices.length >= update.prices.length
+        ? existing.prices
+        : update.prices,
+  );
+}
+
+List<String> _preferMoreCompleteList(
+  List<String> existing,
+  List<String> update,
+) {
+  return existing.length >= update.length ? existing : update;
 }
 
 class _ScanResults extends StatelessWidget {
