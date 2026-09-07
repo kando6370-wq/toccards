@@ -38,7 +38,6 @@ enum _ScanItemStatus {
   recognizing,
   revealing,
   matched,
-  added,
   failed,
   noMatch,
   waiting,
@@ -446,8 +445,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
         .toList();
   }
 
-  int get _pendingScanCount =>
-      _items.where((item) => item.status != _ScanItemStatus.added).length;
+  int get _pendingScanCount => _items.length;
 
   bool get _canReview {
     final processing = _items.any(
@@ -459,9 +457,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     return _matchedItems.isNotEmpty && !processing;
   }
 
-  bool get _hasUnsavedScanResults {
-    return _items.any((item) => item.status != _ScanItemStatus.added);
-  }
+  bool get _hasUnsavedScanResults => _items.isNotEmpty;
 
   @override
   void initState() {
@@ -1714,7 +1710,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
     setState(() {
       _reviewing = false;
-      _markItemsAdded({item.id});
+      _removeAddedItems({item.id});
       _selectedReviewItemId = null;
       _reviewTarget = null;
       _reviewDrafts.remove(item.id);
@@ -1778,7 +1774,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     }
 
     setState(() {
-      _markItemsAdded(addedIds);
+      _removeAddedItems(addedIds);
       for (final itemId in addedIds) {
         _reviewDrafts.remove(itemId);
       }
@@ -1969,12 +1965,8 @@ class _ScanPageState extends ConsumerState<ScanPage>
     if (!_reviewing) unawaited(_openCamera());
   }
 
-  void _markItemsAdded(Set<int> itemIds) {
-    for (var index = 0; index < _items.length; index += 1) {
-      if (itemIds.contains(_items[index].id)) {
-        _items[index] = _items[index].copyWith(status: _ScanItemStatus.added);
-      }
-    }
+  void _removeAddedItems(Set<int> itemIds) {
+    _items.removeWhere((item) => itemIds.contains(item.id));
   }
 
   void _refreshPortfolioSurfaces() {
@@ -3314,14 +3306,11 @@ class _ScanResults extends StatelessWidget {
     }
     final completedCount = items.where((item) {
       return item.status == _ScanItemStatus.matched ||
-          item.status == _ScanItemStatus.added ||
           item.status == _ScanItemStatus.failed ||
           item.status == _ScanItemStatus.noMatch;
     }).length;
     final hasValuedCards = items.any(
-      (item) =>
-          item.status == _ScanItemStatus.matched ||
-          item.status == _ScanItemStatus.added,
+      (item) => item.status == _ScanItemStatus.matched,
     );
     final total = items.fold<double>(0, (sum, item) {
       final card = cards[item.match?.cardRef];
@@ -3424,16 +3413,15 @@ class _ScanItemCard extends StatelessWidget {
     }
 
     final matched = item.status == _ScanItemStatus.matched;
-    final added = item.status == _ScanItemStatus.added;
     final failed = item.status == _ScanItemStatus.failed;
     final waiting = item.status == _ScanItemStatus.waiting;
     final entitlementSync = item.status == _ScanItemStatus.entitlementSync;
-    final width = matched || added
+    final width = matched
         ? 240.0
         : waiting
         ? 208.0
         : 176.0;
-    final title = matched || added
+    final title = matched
         ? item.match?.name ?? item.pictureLabel
         : failed
         ? 'Failed'
@@ -3457,8 +3445,6 @@ class _ScanItemCard extends StatelessWidget {
     return Tooltip(
       message: matched
           ? 'Review scan result'
-          : added
-          ? 'Card added to Collection'
           : failed
           ? 'Retry scan'
           : waiting
@@ -3490,7 +3476,7 @@ class _ScanItemCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              _ScanResultThumbnail(item: item, showPlaceholder: waiting),
+              _ScanResultThumbnail(item: item),
               const SizedBox(width: 16),
               Expanded(
                 child: waiting
@@ -3547,7 +3533,7 @@ class _ScanItemCard extends StatelessWidget {
                               ),
                             ],
                           ),
-                          if (matched || added)
+                          if (matched)
                             Row(
                               children: [
                                 Flexible(
@@ -3561,11 +3547,8 @@ class _ScanItemCard extends StatelessWidget {
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(
-                                      added
-                                          ? 'ADDED'
-                                          : previewDraft?.condition
-                                                    .toUpperCase() ??
-                                                'RAW',
+                                      previewDraft?.condition.toUpperCase() ??
+                                          'RAW',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
@@ -3672,7 +3655,6 @@ class _ScanResultThumbnail extends StatelessWidget {
     this.height = 58,
     this.imageWidth,
     this.imageHeight,
-    this.showPlaceholder = false,
   });
 
   final _ScanItem item;
@@ -3680,11 +3662,10 @@ class _ScanResultThumbnail extends StatelessWidget {
   final double height;
   final double? imageWidth;
   final double? imageHeight;
-  final bool showPlaceholder;
 
   @override
   Widget build(BuildContext context) {
-    final bytes = showPlaceholder ? null : item.displayImageBytes;
+    final bytes = item.displayImageBytes;
     return ClipRRect(
       borderRadius: BorderRadius.circular(4),
       child: Container(
@@ -3695,9 +3676,6 @@ class _ScanResultThumbnail extends StatelessWidget {
         child: bytes == null
             ? SvgPicture.asset(
                 'assets/scan/reveal_question.svg',
-                key: showPlaceholder
-                    ? Key('scan-waiting-placeholder-${item.id}')
-                    : null,
                 width: 18,
                 height: 28,
               )

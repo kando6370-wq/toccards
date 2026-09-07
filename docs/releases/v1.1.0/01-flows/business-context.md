@@ -127,9 +127,9 @@ reserved -> released
 - Premium 请求记录审计但不消耗 Free 额度。
 - 客户端超时或传输结果不确定时，Failed Retry 复用原 request ID，避免服务端迟到成功后以新 ID 再次消费；收到明确终态响应后的 Retry 使用新请求。
 - Premium 在 Scan 页面内确认降级为 Free，或服务端 quota 从 Unlimited 收敛为 Free 时，App 主动刷新并恢复该身份原有 Remaining；Free 提示条在 Scanning、Recognizing、Revealing 和结果状态持续显示并跟随最新服务端结算值。
-- Capture 与 Gallery 共用 10 张 Queue 上限，Waiting、Processing、Matched、Failed 和 No Match 均计入容量；已确认加入 Collection 的 Added 项保留在当前会话结果 rail 中，但不再占用待处理容量。
-- 批量 Scan 在当前页面会话内保留每个识别结果的图片、匹配候选、卡牌资料和价格；底部结果 rail 与 Review 使用同一份结果缓存。确认加入 Collection 只更新该项的 Added 状态，不覆盖识别资料或价格；离开当前扫描会话或开始新会话时清理缓存。
-- App Queue 的 Processing、Waiting、Matched、Added、Failed 和 No Match 是客户端展示状态；删除 Processing 不取消已发出的服务端结算，但后台结果不会把已删 Item 插回 UI。
+- Capture 与 Gallery 共用 10 张 Queue 上限，Waiting、Processing、Matched、Failed 和 No Match 均计入容量。Waiting 卡片保留用户拍摄或选择的原图缩略图；只有图片本身不可用时才显示默认占位图。
+- 批量 Scan 在当前页面会话内保留每个未确认识别结果的图片、匹配候选、卡牌资料和价格；底部结果 rail 与 Review 使用同一份结果缓存。确认加入 Collection 后，该项立即从 Queue 和结果 rail 移除；批量部分成功只移除成功项，失败项及其草稿继续留在 Review。
+- App Queue 的 Processing、Waiting、Matched、Failed 和 No Match 是客户端展示状态；不再保留 Added 展示状态。删除 Processing 不取消已发出的服务端结算，但后台结果不会把已删 Item 插回 UI。
 
 证据：`src/scan/quota.ts`、`routes.ts`、`quota.integration.test.ts`、`scan_page_test.dart`。
 
