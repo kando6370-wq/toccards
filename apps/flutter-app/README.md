@@ -29,8 +29,12 @@ flutter build ipa --release --dart-define-from-file=config/production.json
 Run these `flutter build` commands from `apps/flutter-app`.
 
 The iOS test flavor uses Bundle ID `com.kando.kandoApp.beta` and the Firebase
-configuration in `ios/Runner/Firebase/test`. Production keeps
-`com.cardai.tcg` and its separate Firebase configuration.
+configuration in `ios/Runner/Firebase/test`. Pgyer and device-installation
+packages for that Bundle ID must use App Attest `development`. Both values are
+validated against the final Development-signed internal IPA rather than
+inferred from Xcode project settings. Other Bundle IDs do not currently have a
+fixed App Attest rule. Production keeps `com.cardai.tcg` and its separate
+Firebase configuration.
 
 ## iOS simulator
 
@@ -64,8 +68,11 @@ public `/app-config` endpoint. Release JSON files contain only non-sensitive
 build configuration such as the environment and subscription product IDs.
 
 ```bash
-# 构建并验证测试环境的 IPA（不安装、不上传）
+# 构建并验证测试环境的 App Store IPA 和蒲公英内部测试 IPA（不安装、不上传）
 ./tool/release_ios.sh --env test
+
+# 显式构建蒲公英内部测试 IPA；仅支持测试 Bundle ID
+./tool/release_ios.sh --env test --pgy
 
 # 列出当前已配对且可用的 Apple 设备
 ./tool/release_ios.sh --list-devices
@@ -84,11 +91,15 @@ build configuration such as the environment and subscription product IDs.
 ```
 
 Use `--build-number N` to choose an explicit build number. The selected number
-must be greater than the current value in `pubspec.yaml`. Device installation
-uses a `release-testing` export signed with Apple Distribution; the App Store
-IPA remains separately signed for App Store Connect. No device model or UDID is
-hardcoded; pass any available selector shown by `--list-devices` (quote device
-names that contain spaces).
+must be greater than the current value in `pubspec.yaml`. Test builds always
+produce `build/ios/test-internal-development/Card AI Test.ipa` for Pgyer and
+device installation. That IPA preserves the archived Apple Development
+signature and must contain Bundle ID `com.kando.kandoApp.beta` with App Attest
+`development`; the script fails if either value differs. Production device
+installation continues to use a `release-testing` export signed with Apple
+Distribution. The App Store IPA remains separately signed for App Store
+Connect. No device model or UDID is hardcoded; pass any available selector
+shown by `--list-devices` (quote device names that contain spaces).
 
 ## Chrome with production services
 

@@ -524,11 +524,12 @@ class CollectionController extends Notifier<CollectionState> {
           }
         }
         if (generation != _loadGeneration) return;
+        final preservedState = preserveState ?? state;
         final sharedFolderId = ref.read(selectedPortfolioFolderProvider);
-        final preservedFolderId = preserveState?.selectedFolderId;
+        final preservedFolderId = preservedState.selectedFolderId;
         final selectedFolderId =
             dashboard.folders.any((folder) => folder.id == preservedFolderId)
-            ? preservedFolderId!
+            ? preservedFolderId
             : dashboard.folders.any((folder) => folder.id == sharedFolderId)
             ? sharedFolderId!
             : dashboard.defaultFolder.id;
@@ -542,33 +543,22 @@ class CollectionController extends Notifier<CollectionState> {
         ref.read(selectedCurrencyProvider.notifier).select(preferredCurrency);
         state = CollectionState(
           dashboard: dashboard,
-          selectedTab: preserveState?.selectedTab ?? CollectionTab.portfolio,
+          selectedTab: preservedState.selectedTab,
           selectedFolderId: selectedFolderId,
           currency: preferredCurrency,
           amountHidden: amountHidden,
-          searchByTab:
-              preserveState?.searchByTab ??
-              const {CollectionTab.portfolio: '', CollectionTab.wishlist: ''},
+          searchByTab: preservedState.searchByTab,
           sortByTab:
               preserveState?.sortByTab ??
               {
                 CollectionTab.portfolio: initialSort!,
                 CollectionTab.wishlist: CollectionSort.newest,
               },
-          gamesByTab:
-              preserveState?.gamesByTab ??
-              const {
-                CollectionTab.portfolio: <String>{},
-                CollectionTab.wishlist: <String>{},
-              },
-          languagesByTab:
-              preserveState?.languagesByTab ??
-              const {
-                CollectionTab.portfolio: <String>{},
-                CollectionTab.wishlist: <String>{},
-              },
-          performanceItemIds:
-              preserveState?.performanceItemIds ?? initialPerformanceOrder,
+          gamesByTab: preservedState.gamesByTab,
+          languagesByTab: preservedState.languagesByTab,
+          performanceItemIds: preservedState.performanceItemIds.isEmpty
+              ? initialPerformanceOrder
+              : preservedState.performanceItemIds,
           gameOptions: gameOptions,
         );
         if (preserveState == null) {
@@ -612,7 +602,7 @@ class CollectionController extends Notifier<CollectionState> {
   }
 
   void selectTab(CollectionTab tab) {
-    if (state.isUnavailable || state.isLoading) {
+    if (state.isUnavailable) {
       return;
     }
     if (tab == state.selectedTab) return;
@@ -889,7 +879,7 @@ class CollectionController extends Notifier<CollectionState> {
   }
 
   void updateSearch(String value) {
-    if (state.isUnavailable || state.isLoading) {
+    if (state.isUnavailable) {
       return;
     }
 

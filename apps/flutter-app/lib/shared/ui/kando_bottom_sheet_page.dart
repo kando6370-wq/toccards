@@ -12,6 +12,7 @@ class KandoBottomSheetPage<T> extends Page<T> {
     this.enableDrag = true,
     this.useSafeArea = false,
     this.heightFactor,
+    this.sheetAnimationStyle,
     super.key,
     super.name,
     super.arguments,
@@ -24,6 +25,7 @@ class KandoBottomSheetPage<T> extends Page<T> {
   final bool enableDrag;
   final bool useSafeArea;
   final double? heightFactor;
+  final AnimationStyle? sheetAnimationStyle;
 
   @override
   Route<T> createRoute(BuildContext context) {
@@ -54,6 +56,7 @@ class KandoBottomSheetPage<T> extends Page<T> {
       enableDrag: enableDrag,
       showDragHandle: false,
       useSafeArea: useSafeArea,
+      sheetAnimationStyle: sheetAnimationStyle,
     );
   }
 }

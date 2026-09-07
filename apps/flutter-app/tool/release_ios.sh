@@ -11,8 +11,10 @@ BUILD_ROOT="$APP_DIR/build/ios"
 ARCHIVE_PATH="$BUILD_ROOT/archive/Runner.xcarchive"
 APP_STORE_IPA_DIR="$BUILD_ROOT/ipa"
 DEVICE_IPA_DIR="$BUILD_ROOT/device-ipa"
+TEST_INTERNAL_IPA_DIR="$BUILD_ROOT/test-internal-development"
 
 TEAM_ID="${TEAM_ID:-B95U3272HR}"
+TEST_BUNDLE_ID="com.kando.kandoApp.beta"
 BUNDLE_ID="${BUNDLE_ID:-}"
 ENVIRONMENT="production"
 ENV_CONFIG=""
@@ -23,6 +25,7 @@ FIREBASE_PROJECT_ID=""
 BUILD_NUMBER=""
 INSTALL_DEVICE=""
 SHOULD_UPLOAD=0
+SHOULD_EXPORT_TEST_INTERNAL=0
 SKIP_ANALYZE=0
 # Bash 3.2 treats an empty array as unset under `set -u`; the empty sentinel
 # keeps cleanup safe before the first temporary directory is created.
@@ -30,6 +33,7 @@ TEMP_DIRS=("")
 NEW_TEMP_DIR=""
 LAST_APP_PATH=""
 LAST_PROFILE_PATH=""
+LAST_IPA_PATH=""
 
 log() {
   printf '[release-ios] %s\n' "$*"
@@ -50,8 +54,9 @@ The build number is incremented automatically unless --build-number is used.
 Options:
   --env ENV          Build test or production (default: production).
   --build-number N   Use N instead of incrementing the current build number.
-  --install DEVICE   Export a release-testing IPA and install it on DEVICE.
+  --install DEVICE   Export an installable IPA and install it on DEVICE.
                      DEVICE may be a CoreDevice ID, hardware UDID, or unique name.
+  --pgy              Export the test Development-signed IPA for Pgyer.
   --upload           Upload the App Store build to App Store Connect.
   --skip-analyze     Skip flutter analyze.
   --list-devices     List paired devices and exit.
@@ -60,6 +65,7 @@ Options:
 Examples:
   ./tool/release_ios.sh
   ./tool/release_ios.sh --env test
+  ./tool/release_ios.sh --env test --pgy
   ./tool/release_ios.sh --list-devices
   ./tool/release_ios.sh --install ABBA554A-D3A7-5651-827D-3754EB085751
   ./tool/release_ios.sh --upload
@@ -129,6 +135,9 @@ validate_common_ipa() {
   local expected_version="$2"
   local expected_build="$3"
   local label="$4"
+  local expected_get_task_allow="${5:-false}"
+  local expected_authority="${6:-Apple Distribution:}"
+  local expected_app_attest="${7:-}"
   local verify_dir app_path entitlements_path profile_path signature_details
 
   [[ -f "$ipa_path" ]] || die "$label IPA not found: $ipa_path"
@@ -147,16 +156,21 @@ validate_common_ipa() {
 
   entitlements_path="$verify_dir/entitlements.plist"
   codesign -d --entitlements :- "$app_path" >"$entitlements_path" 2>/dev/null
-  assert_equal "false" "$(plist_value "$entitlements_path" get-task-allow)" "$label get-task-allow"
+  assert_equal "$expected_get_task_allow" "$(plist_value "$entitlements_path" get-task-allow)" "$label get-task-allow"
   assert_equal "$TEAM_ID" "$(plist_value "$entitlements_path" com.apple.developer.team-identifier)" "$label team ID"
   assert_equal "$TEAM_ID.$BUNDLE_ID" "$(plist_value "$entitlements_path" application-identifier)" "$label application identifier"
+  if [[ -n "$expected_app_attest" ]]; then
+    assert_equal "$expected_app_attest" \
+      "$(plist_value "$entitlements_path" com.apple.developer.devicecheck.appattest-environment)" \
+      "$label App Attest environment"
+  fi
   signature_details="$(codesign -dvvv "$app_path" 2>&1)"
-  grep -Fq 'Authority=Apple Distribution:' <<<"$signature_details" \
-    || die "$label is not signed with Apple Distribution"
+  grep -Fq "Authority=$expected_authority" <<<"$signature_details" \
+    || die "$label is not signed with $expected_authority"
 
   profile_path="$verify_dir/profile.plist"
   security cms -D -i "$app_path/embedded.mobileprovision" >"$profile_path"
-  assert_equal "false" "$(plist_value "$profile_path" Entitlements:get-task-allow)" "$label profile get-task-allow"
+  assert_equal "$expected_get_task_allow" "$(plist_value "$profile_path" Entitlements:get-task-allow)" "$label profile get-task-allow"
 
   assert_equal "$FIREBASE_PROJECT_ID" "$(plist_value "$app_path/GoogleService-Info.plist" PROJECT_ID)" "$label Firebase project"
   assert_equal "$BUNDLE_ID" "$(plist_value "$app_path/GoogleService-Info.plist" BUNDLE_ID)" "$label Firebase bundle ID"
@@ -166,6 +180,23 @@ validate_common_ipa() {
   LAST_APP_PATH="$app_path"
   LAST_PROFILE_PATH="$profile_path"
   log "$label validation passed"
+}
+
+package_test_internal_ipa() {
+  local package_root payload_path archive_app_path output_path
+
+  archive_app_path="$ARCHIVE_PATH/Products/Applications/Runner.app"
+  [[ -d "$archive_app_path" ]] || die "Archived app not found: $archive_app_path"
+
+  make_temp_dir
+  package_root="$NEW_TEMP_DIR"
+  payload_path="$package_root/Payload"
+  mkdir -p "$payload_path" "$TEST_INTERNAL_IPA_DIR"
+  ditto "$archive_app_path" "$payload_path/Runner.app"
+
+  output_path="$TEST_INTERNAL_IPA_DIR/Card AI Test.ipa"
+  ditto -c -k --sequesterRsrc --keepParent "$payload_path" "$output_path"
+  LAST_IPA_PATH="$output_path"
 }
 
 verify_dsym_coverage() {
@@ -237,6 +268,10 @@ while [[ $# -gt 0 ]]; do
       SHOULD_UPLOAD=1
       shift
       ;;
+    --pgy)
+      SHOULD_EXPORT_TEST_INTERNAL=1
+      shift
+      ;;
     --skip-analyze)
       SKIP_ANALYZE=1
       shift
@@ -268,6 +303,7 @@ require_command perl
 require_command file
 require_command awk
 require_command cmp
+require_command ditto
 
 [[ -f "$PUBSPEC" ]] || die "pubspec.yaml not found: $PUBSPEC"
 
@@ -278,12 +314,19 @@ case "$ENVIRONMENT" in
     ;;
   test)
     API_BASE_URL="https://api-dev.tcgcard.fun/api/v1"
-    BUNDLE_ID="${BUNDLE_ID:-com.kando.kandoApp.beta}"
+    BUNDLE_ID="${BUNDLE_ID:-$TEST_BUNDLE_ID}"
     ;;
   *)
     die "Unsupported environment '$ENVIRONMENT'. Use test or production."
     ;;
 esac
+
+if [[ "$SHOULD_EXPORT_TEST_INTERNAL" -eq 1 && "$BUNDLE_ID" != "$TEST_BUNDLE_ID" ]]; then
+  die "--pgy is only supported for test Bundle ID $TEST_BUNDLE_ID"
+fi
+if [[ "$BUNDLE_ID" == "$TEST_BUNDLE_ID" ]]; then
+  SHOULD_EXPORT_TEST_INTERNAL=1
+fi
 
 ENV_CONFIG="${RELEASE_ENV_CONFIG:-$APP_DIR/config/$ENVIRONMENT.json}"
 FIREBASE_CONFIG_SOURCE="$APP_DIR/ios/Runner/Firebase/$ENVIRONMENT/GoogleService-Info.plist"
@@ -383,28 +426,54 @@ if [[ -f "$packaging_log" ]]; then
   grep -Eiq 'warning:.*dSYM|dSYM.*missing' "$packaging_log" && die "Packaging.log contains a dSYM warning"
 fi
 
+log "App Store IPA: $app_store_ipa"
+log "App Store IPA SHA-256: $(shasum -a 256 "$app_store_ipa" | awk '{print $1}')"
+
+test_internal_ipa=""
+if [[ "$SHOULD_EXPORT_TEST_INTERNAL" -eq 1 ]]; then
+  package_test_internal_ipa
+  test_internal_ipa="$LAST_IPA_PATH"
+  validate_common_ipa \
+    "$test_internal_ipa" \
+    "$marketing_version" \
+    "$BUILD_NUMBER" \
+    "Test internal IPA" \
+    "true" \
+    "Apple Development:" \
+    "development"
+  verify_dsym_coverage "$LAST_APP_PATH"
+
+  if ! plist_value "$LAST_PROFILE_PATH" ProvisionedDevices >/dev/null 2>&1; then
+    die "Test internal profile does not contain provisioned devices"
+  fi
+
+  log "Pgyer IPA: $test_internal_ipa"
+  log "Pgyer IPA SHA-256: $(shasum -a 256 "$test_internal_ipa" | awk '{print $1}')"
+fi
+
 log "Updating pubspec version: $current_version -> $new_version"
 NEW_VERSION="$new_version" perl -pi -e 's/^version:[ \t]*\S+[ \t]*$/version: $ENV{NEW_VERSION}/' "$PUBSPEC"
 assert_equal "$new_version" "$(awk '/^version:[[:space:]]*/ {print $2; exit}' "$PUBSPEC")" "pubspec version"
 
-log "App Store IPA: $app_store_ipa"
-log "App Store IPA SHA-256: $(shasum -a 256 "$app_store_ipa" | awk '{print $1}')"
-
 if [[ -n "$INSTALL_DEVICE" ]]; then
-  release_options="$BUILD_ROOT/ReleaseTestingExportOptions.plist"
-  write_export_options "$release_options" "release-testing" "export"
+  if [[ "$BUNDLE_ID" == "$TEST_BUNDLE_ID" ]]; then
+    device_ipa="$test_internal_ipa"
+  else
+    release_options="$BUILD_ROOT/ReleaseTestingExportOptions.plist"
+    write_export_options "$release_options" "release-testing" "export"
 
-  log "Exporting Apple Distribution device IPA"
-  xcodebuild \
-    -exportArchive \
-    -archivePath "$ARCHIVE_PATH" \
-    -exportPath "$DEVICE_IPA_DIR" \
-    -exportOptionsPlist "$release_options" \
-    -allowProvisioningUpdates \
-    -allowProvisioningDeviceRegistration
+    log "Exporting Apple Distribution device IPA"
+    xcodebuild \
+      -exportArchive \
+      -archivePath "$ARCHIVE_PATH" \
+      -exportPath "$DEVICE_IPA_DIR" \
+      -exportOptionsPlist "$release_options" \
+      -allowProvisioningUpdates \
+      -allowProvisioningDeviceRegistration
 
-  device_ipa="$(find_single_ipa "$DEVICE_IPA_DIR")"
-  validate_common_ipa "$device_ipa" "$marketing_version" "$BUILD_NUMBER" "Device IPA"
+    device_ipa="$(find_single_ipa "$DEVICE_IPA_DIR")"
+    validate_common_ipa "$device_ipa" "$marketing_version" "$BUILD_NUMBER" "Device IPA"
+  fi
 
   provisioned_devices="$(plist_value "$LAST_PROFILE_PATH" ProvisionedDevices)"
   grep -Fq "$device_udid" <<<"$provisioned_devices" \

@@ -35,6 +35,41 @@ import '../support/mock_collection_repository.dart';
 import '../support/mock_search_repository.dart';
 
 void main() {
+  testWidgets(
+    'Collection keeps static controls visible while data is pending',
+    (tester) async {
+      final repository = _PendingCollectionRepository();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ..._localAuthOverrides(),
+            collectionRepositoryProvider.overrideWithValue(repository),
+            subscriptionControllerProvider.overrideWith(
+              _FreeCollectionSubscriptionController.new,
+            ),
+          ],
+          child: const _CollectionTestApp(),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(const Key('collection-controls-header')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('collection-segmented-tabs')),
+        findsOneWidget,
+      );
+      expect(find.text('Portfolio'), findsWidgets);
+      expect(find.text('Wishlist'), findsOneWidget);
+      expect(find.byKey(const Key('collection-search-field')), findsOneWidget);
+      expect(find.byType(KandoLoadingBlock), findsOneWidget);
+      expect(repository.calls, 1);
+    },
+  );
+
   testWidgets('Collection filter matches the 390x884 Figma viewport', (
     tester,
   ) async {
@@ -261,13 +296,16 @@ void main() {
       tester.getSize(find.byKey(const Key('collection-hide-amount'))).height,
       24,
     );
-    final totalRect = tester.getRect(
-      find.byKey(const Key('collection-portfolio-total')),
-    );
-    final hideAmountRect = tester.getRect(
+    final totalFinder = find.byKey(const Key('collection-portfolio-total'));
+    final totalRect = tester.getRect(totalFinder);
+    final eyeRect = tester.getRect(
       find.byKey(const Key('collection-hide-amount')),
     );
-    expect(hideAmountRect.left - totalRect.right, closeTo(12, 0.01));
+    expect(
+      totalRect.width,
+      closeTo(_singleLineTextWidth(tester, totalFinder), 0.01),
+    );
+    expect(eyeRect.left - totalRect.right, 12);
     expect(
       tester
           .widget<Text>(find.byKey(const Key('collection-portfolio-total')))
@@ -346,6 +384,16 @@ void main() {
       );
       expect(total.data, r'$123,456,789.00');
       expect(total.overflow, TextOverflow.ellipsis);
+      final totalFinder = find.byKey(const Key('collection-portfolio-total'));
+      final totalRect = tester.getRect(totalFinder);
+      final eyeRect = tester.getRect(
+        find.byKey(const Key('collection-hide-amount')),
+      );
+      expect(
+        totalRect.width,
+        lessThan(_singleLineTextWidth(tester, totalFinder)),
+      );
+      expect(eyeRect.left - totalRect.right, 12);
       expect(tester.takeException(), isNull);
     },
   );
@@ -508,12 +556,37 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.byKey(const Key('collection-controls-header')), findsOneWidget);
+    expect(find.byKey(const Key('collection-segmented-tabs')), findsOneWidget);
+    expect(find.byKey(const Key('collection-search-field')), findsOneWidget);
     expect(find.text(noContentAvailableText), findsOneWidget);
-    expect(find.text(refreshText), findsOneWidget);
+    expect(
+      find.byKey(const Key('collection-failure-illustration')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('collection-failure-refresh')), findsOneWidget);
+    expect(find.byType(KandoFailureBlock), findsNothing);
     expect(find.text('Collection'), findsWidgets);
     expect(repository.calls, 1);
 
-    await tester.tap(find.text(refreshText));
+    final searchFieldRect = tester.getRect(
+      find.byKey(const Key('collection-search-field')),
+    );
+    final illustrationRect = tester.getRect(
+      find.byKey(const Key('collection-failure-illustration')),
+    );
+    final refreshRect = tester.getRect(
+      find.byKey(const Key('collection-failure-refresh')),
+    );
+    final illustration = tester.widget<SvgPicture>(
+      find.byKey(const Key('collection-failure-illustration')),
+    );
+    expect(illustration.width, 100);
+    expect(illustration.height, 100);
+    expect(refreshRect.height, 44);
+    expect(illustrationRect.top, greaterThan(searchFieldRect.bottom));
+
+    await tester.tap(find.byKey(const Key('collection-failure-refresh')));
     await tester.pumpAndSettle();
 
     expect(find.text('Portfolio'), findsWidgets);
@@ -1391,6 +1464,21 @@ void _expectTextOrder(WidgetTester tester, List<String> labels) {
   }
 }
 
+double _singleLineTextWidth(WidgetTester tester, Finder finder) {
+  final text = tester.widget<Text>(finder);
+  final context = tester.element(finder);
+  final painter = TextPainter(
+    text: TextSpan(
+      text: text.data,
+      style: DefaultTextStyle.of(context).style.merge(text.style),
+    ),
+    maxLines: 1,
+    textDirection: TextDirection.ltr,
+    textScaler: MediaQuery.textScalerOf(context),
+  )..layout();
+  return painter.width;
+}
+
 _searchOverrides() {
   return [
     searchRepositoryProvider.overrideWithValue(const MockSearchRepository()),
@@ -1502,6 +1590,17 @@ class _FailingThenSuccessfulCollectionRepository
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _PendingCollectionRepository extends MockCollectionRepository {
+  final _dashboard = Completer<CollectionDashboard>();
+  var calls = 0;
+
+  @override
+  Future<CollectionDashboard> loadDashboard(AuthSession session) {
+    calls += 1;
+    return _dashboard.future;
+  }
 }
 
 const _longFolderName = 'International Tournament Collection Archive';

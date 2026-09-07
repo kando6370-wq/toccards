@@ -13,6 +13,7 @@ import 'package:kando_app/app/theme.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/features/card_detail/card_detail_models.dart';
 import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/collection/collection_models.dart';
 import 'package:kando_app/features/collection/collection_page.dart';
@@ -42,6 +43,7 @@ import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/premium_locked_panel.dart';
 import 'package:kando_app/shared/ui/toast.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 import '../support/in_memory_auth_storage.dart';
 import '../support/in_memory_portfolio_amount_hidden_storage.dart';
@@ -1294,7 +1296,10 @@ void main() {
     await tester.tap(card);
     await tester.pumpAndSettle();
 
-    expect(find.text('card-1|item-pikachu|edit|portfolio'), findsOneWidget);
+    expect(
+      find.text('card-1|item-pikachu|edit|portfolio|Pikachu'),
+      findsOneWidget,
+    );
   });
 
   testWidgets(
@@ -1305,14 +1310,18 @@ void main() {
           GoRoute(path: '/', builder: (context, state) => const HomePage()),
           GoRoute(
             path: '/cards/:cardId',
-            builder: (context, state) => Scaffold(
-              body: Text(
-                '${state.pathParameters['cardId']}|'
-                '${state.uri.queryParameters['item_id']}|'
-                '${state.uri.queryParameters['entry']}|'
-                '${state.uri.queryParameters['collection']}',
-              ),
-            ),
+            builder: (context, state) {
+              final preview = state.extra as CardDetailPreview?;
+              return Scaffold(
+                body: Text(
+                  '${state.pathParameters['cardId']}|'
+                  '${state.uri.queryParameters['item_id']}|'
+                  '${state.uri.queryParameters['entry']}|'
+                  '${state.uri.queryParameters['collection']}|'
+                  '${preview?.name}',
+                ),
+              );
+            },
           ),
         ],
       );
@@ -1356,7 +1365,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.text('card-1|item-pikachu|home performance|portfolio'),
+        find.text('card-1|item-pikachu|home performance|portfolio|Performer 1'),
         findsOneWidget,
       );
     },
@@ -1461,6 +1470,43 @@ void main() {
       );
       expect(container.read(homeControllerProvider).amountHidden, isTrue);
       expect(tester.getTopLeft(viewAll).dy, closeTo(viewAllTop, 0.1));
+    },
+  );
+
+  testWidgets(
+    'Performance initial load uses Skeletonizer without changing its data flow',
+    (tester) async {
+      final api = _SlowInitialPerformanceApi();
+      await tester.pumpWidget(
+        _mockHomeApp(
+          null,
+          const _TestCurrencyRateApi(),
+          const MockHomeRepository(),
+          _ProHomeSubscriptionController.new,
+          api,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pump();
+      await tester.pump();
+
+      final loading = find.byKey(const Key('home-performance-loading'));
+      expect(loading, findsOneWidget);
+      final skeletonizer = tester.widget<Skeletonizer>(loading);
+      expect(skeletonizer.enabled, isTrue);
+      final effect = skeletonizer.effect;
+      expect(effect, isA<RawShimmerEffect>());
+      final shimmer = effect as RawShimmerEffect;
+      expect(shimmer.stops, const [0.4, 0.5, 0.6]);
+      expect(shimmer.duration, const Duration(milliseconds: 1800));
+
+      api.completeInitial();
+      await tester.pumpAndSettle();
+
+      expect(loading, findsNothing);
+      expect(find.text('Market Value'), findsOneWidget);
     },
   );
 
@@ -3384,6 +3430,28 @@ class _SlowOverviewHistoryApi extends _TestHomePerformanceApi {
   }
 }
 
+class _SlowInitialPerformanceApi extends _TestHomePerformanceApi {
+  final _initialGate = Completer<void>();
+
+  @override
+  Future<PortfolioPerformanceDto> getPortfolioPerformance(
+    AuthSession session, {
+    required PerformanceRange range,
+    String? folderId,
+    bool localPremiumVerified = false,
+  }) async {
+    await _initialGate.future;
+    return super.getPortfolioPerformance(
+      session,
+      range: range,
+      folderId: folderId,
+      localPremiumVerified: localPremiumVerified,
+    );
+  }
+
+  void completeInitial() => _initialGate.complete();
+}
+
 class _EntitlementSyncPerformanceApi extends _TestHomePerformanceApi {
   _EntitlementSyncPerformanceApi({required this.succeedAfterRepair});
 
@@ -3526,14 +3594,18 @@ Widget _mockHomeRouteApp({
           ),
           GoRoute(
             path: '/cards/:cardId',
-            builder: (context, state) => Scaffold(
-              body: Text(
-                '${state.pathParameters['cardId']}|'
-                '${state.uri.queryParameters['item_id']}|'
-                '${state.uri.queryParameters['entry']}|'
-                '${state.uri.queryParameters['collection']}',
-              ),
-            ),
+            builder: (context, state) {
+              final preview = state.extra as CardDetailPreview?;
+              return Scaffold(
+                body: Text(
+                  '${state.pathParameters['cardId']}|'
+                  '${state.uri.queryParameters['item_id']}|'
+                  '${state.uri.queryParameters['entry']}|'
+                  '${state.uri.queryParameters['collection']}|'
+                  '${preview?.name}',
+                ),
+              );
+            },
           ),
         ],
       ),

@@ -25,6 +25,7 @@ import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/toast.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 import '../support/in_memory_auth_storage.dart';
 import '../support/local_placeholder_auth_repository.dart';
@@ -46,6 +47,191 @@ void main() {
     expect(children[1].style?.fontSize, 10);
     expect(children[1].style?.height, 14 / 10);
   });
+
+  testWidgets(
+    'CardDetail keeps a stable page shell while the initial detail is loading',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+      final repository = _BlockingCardDetailRepository(blockInitialLoad: true);
+      await tester.pumpWidget(
+        _CardDetailTestApp(
+          cardId: 'squirtle',
+          repository: repository,
+          preview: const CardDetailPreview(
+            cardId: 'squirtle',
+            name: 'Squirtle preview',
+            imageUrl: 'https://image.tcgcard.fun/cards/squirtle.jpg',
+            game: 'Pokemon',
+            setName: 'Mega Evolution Promos',
+            identityLine: 'Promo #039',
+          ),
+        ),
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CardDetailPage)),
+      );
+      await container.read(authControllerProvider.notifier).startupComplete;
+      await tester.pump();
+
+      expect(repository.calls, 1);
+      expect(find.byKey(const Key('card-detail-back')), findsOneWidget);
+      expect(find.byType(KandoLoadingBlock), findsNothing);
+      expect(
+        find.byKey(const Key('card-detail-loading-skeleton')),
+        findsOneWidget,
+      );
+      final initialSkeleton = tester.widget<Skeletonizer>(
+        find.byKey(const Key('card-detail-loading-skeleton')),
+      );
+      final initialShimmer = initialSkeleton.effect as RawShimmerEffect;
+      expect(initialShimmer.stops, const [0.4, 0.5, 0.6]);
+      expect(initialShimmer.duration, const Duration(milliseconds: 1800));
+      expect(find.text('Squirtle preview'), findsOneWidget);
+      expect(
+        find.byKey(const Key('card-detail-preview-image')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+
+      repository.completePendingLoad();
+      await tester.pumpAndSettle();
+      expect(find.text('Squirtle'), findsOneWidget);
+    },
+  );
+
+  testWidgets('CardDetail pull refresh keeps the current detail visible', (
+    tester,
+  ) async {
+    final repository = _BlockingCardDetailRepository();
+    await tester.pumpWidget(
+      _CardDetailTestApp(cardId: 'squirtle', repository: repository),
+    );
+    await tester.pumpAndSettle();
+
+    final indicator = find.byKey(const Key('card-detail-pull-to-refresh'));
+    final refresh = tester.state<RefreshIndicatorState>(indicator).show();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(repository.calls, 2);
+    expect(find.byType(RefreshProgressIndicator), findsOneWidget);
+    expect(find.byType(KandoLoadingBlock), findsNothing);
+    expect(find.text('Squirtle'), findsOneWidget);
+
+    repository.completePendingLoad();
+    await refresh;
+    await tester.pumpAndSettle();
+
+    expect(find.byType(RefreshProgressIndicator), findsNothing);
+    expect(find.text('Squirtle'), findsOneWidget);
+  });
+
+  testWidgets(
+    'owned CardDetail shows its core action while the collection Item context is still loading',
+    (tester) async {
+      final repository = _BlockingAssetStateCardDetailRepository();
+      final actions = _RecordingCardDetailActions();
+      await tester.pumpWidget(
+        _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          collectionItemId: 'item-charizard',
+          repository: repository,
+          actions: actions,
+        ),
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CardDetailPage)),
+      );
+      await container.read(authControllerProvider.notifier).startupComplete;
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        find.byKey(const Key('card-detail-view-sold-listings')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('card-detail-asset-state-loading')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('card-detail-owned-tabs-loading')),
+        findsOneWidget,
+      );
+      final tabsSkeleton = tester.widget<Skeletonizer>(
+        find.byKey(const Key('card-detail-owned-tabs-loading')),
+      );
+      final tabsShimmer = tabsSkeleton.effect as RawShimmerEffect;
+      expect(tabsShimmer.stops, const [0.4, 0.5, 0.6]);
+      expect(tabsShimmer.duration, const Duration(milliseconds: 1800));
+      expect(
+        tester
+            .getSize(
+              find.byKey(const Key('card-detail-owned-tabs-loading-control')),
+            )
+            .height,
+        52,
+      );
+      expect(find.byKey(const Key('card-detail-owned-tabs')), findsNothing);
+
+      await tester.tap(find.byKey(const Key('card-detail-view-sold-listings')));
+      await tester.pump();
+      expect(actions.soldListingsName, 'Charizard ex');
+      expect(actions.soldListingsSetName, 'Obsidian Flames');
+
+      repository.completeAssetState();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('card-detail-view-sold-listings')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('card-detail-owned-tabs-loading')),
+        findsNothing,
+      );
+      expect(find.byKey(const Key('card-detail-owned-tabs')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'owned CardDetail keeps its core action and existing asset retry when collection state fails',
+    (tester) async {
+      final repository = _BlockingAssetStateCardDetailRepository();
+      await tester.pumpWidget(
+        _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          collectionItemId: 'item-charizard',
+          repository: repository,
+        ),
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CardDetailPage)),
+      );
+      await container.read(authControllerProvider.notifier).startupComplete;
+      await tester.pump();
+      await tester.pump();
+
+      repository.failAssetState();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('card-detail-view-sold-listings')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('card-detail-asset-state-failure')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('card-detail-owned-tabs-loading')),
+        findsNothing,
+      );
+      expect(find.byKey(const Key('card-detail-owned-tabs')), findsNothing);
+    },
+  );
 
   testWidgets(
     'product 180865 shows Normal and Foil tabs and switching refreshes material prices',
@@ -1800,6 +1986,48 @@ void main() {
     expect(find.text('Shop'), findsOneWidget);
   });
 
+  testWidgets(
+    'Graded price chart uses ten colors before repeating its palette',
+    (tester) async {
+      await tester.pumpWidget(
+        const _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          repository: _GradedPaletteCardDetailRepository(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(find.text('Price'), 400);
+      await tester.tap(find.text('Price'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('GRADED'));
+      await tester.pumpAndSettle();
+
+      final legendSwatches = find.byWidgetPredicate(
+        (widget) =>
+            widget is Container &&
+            widget.constraints ==
+                const BoxConstraints.tightFor(width: 10, height: 2),
+      );
+      final legendColors = tester
+          .widgetList<Container>(legendSwatches)
+          .map((widget) => widget.color)
+          .toList();
+      expect(legendColors, const [
+        KandoColors.accent,
+        Color(0xFF53D8C4),
+        Color(0xFFFFB15A),
+        Color(0xFFC6A7FF),
+        Color(0xFF7DCB72),
+        Color(0xFFE782A9),
+        Color(0xFF89CAFF),
+        Color(0xFF96E4CE),
+        Color(0xFFE496E3),
+        Color(0xFFA5BDFF),
+      ]);
+    },
+  );
+
   testWidgets('owned Collection Item can be edited from CardDetail', (
     tester,
   ) async {
@@ -2312,6 +2540,7 @@ class _CardDetailTestApp extends StatelessWidget {
     required this.cardId,
     this.actions,
     this.repository,
+    this.preview,
     this.entrySource = AnalyticsValue.sourceSearch,
     this.subscriptionController,
     this.performanceApi,
@@ -2321,6 +2550,7 @@ class _CardDetailTestApp extends StatelessWidget {
   final String cardId;
   final CardDetailActions? actions;
   final CardDetailRepository? repository;
+  final CardDetailPreview? preview;
   final String entrySource;
   final SubscriptionController Function()? subscriptionController;
   final PortfolioApiClient? performanceApi;
@@ -2347,6 +2577,7 @@ class _CardDetailTestApp extends StatelessWidget {
       child: MaterialApp(
         home: CardDetailPage(
           cardId: cardId,
+          preview: preview,
           collectionItemId: collectionItemId,
           entrySource: entrySource,
         ),
@@ -2688,6 +2919,39 @@ class _DelayedEditPriceCardDetailRepository
   );
 }
 
+class _GradedPaletteCardDetailRepository extends MockCardDetailRepository {
+  const _GradedPaletteCardDetailRepository();
+
+  @override
+  Future<CardDetail> loadDetail(AuthSession session, String cardId) async {
+    final detail = await super.loadDetail(session, cardId);
+    const points = [
+      CardPricePoint(dateLabel: 'Yesterday', priceUsd: 700),
+      CardPricePoint(dateLabel: 'Today', priceUsd: 710),
+    ];
+    return detail.copyWith(
+      gradedPriceSeries: [
+        for (final label in const [
+          'BGS 10',
+          'CGC 10',
+          'Grade 7',
+          'Grade 8',
+          'Grade 9',
+          'Grade 9.5',
+          'PSA 10',
+          'SGC 10',
+          'Future Grade A',
+          'Future Grade B',
+        ])
+          CardPriceChartSeries(
+            label: label,
+            seriesByRange: const {CardPriceRange.oneMonth: points},
+          ),
+      ],
+    );
+  }
+}
+
 class _CardDetailRouteApp extends StatelessWidget {
   const _CardDetailRouteApp();
 
@@ -2839,6 +3103,80 @@ class _DelayedUpdateCardDetailRepository extends MockCardDetailRepository {
         notes: 'Pulled from Obsidian Flames binder.',
       ),
     );
+  }
+}
+
+class _BlockingCardDetailRepository extends MockCardDetailRepository {
+  _BlockingCardDetailRepository({this.blockInitialLoad = false});
+
+  final bool blockInitialLoad;
+  Completer<CardDetail>? _pendingLoad;
+  int calls = 0;
+
+  @override
+  Future<CardDetail> loadDetail(AuthSession session, String cardId) {
+    calls += 1;
+    if (!blockInitialLoad && calls == 1) {
+      return super.loadDetail(session, cardId);
+    }
+    _pendingLoad = Completer<CardDetail>();
+    return _pendingLoad!.future;
+  }
+
+  Future<void> completePendingLoad() async {
+    final pendingLoad = _pendingLoad;
+    if (pendingLoad == null || pendingLoad.isCompleted) return;
+    pendingLoad.complete(
+      await super.loadDetail(
+        const AuthSession(
+          ownerType: OwnerType.anonymous,
+          accessToken: 'test-access',
+          refreshToken: 'test-refresh',
+        ),
+        'squirtle',
+      ),
+    );
+  }
+}
+
+class _BlockingAssetStateCardDetailRepository
+    extends _FinishTabCardDetailRepository {
+  final Completer<CardDetail> _pendingAssetState = Completer<CardDetail>();
+  late CardDetail _fullDetail;
+
+  @override
+  Future<CardDetail> loadCoreDetail(String cardId) async {
+    _fullDetail = await const MockCardDetailRepository().loadDetail(
+      const AuthSession(
+        ownerType: OwnerType.anonymous,
+        accessToken: 'test-access',
+        refreshToken: 'test-refresh',
+      ),
+      cardId,
+    );
+    return _fullDetail.copyWith(
+      quantity: 0,
+      isWishlisted: false,
+      wishlistItemId: null,
+      portfolioFolders: const [],
+      collectionItems: const [],
+    );
+  }
+
+  @override
+  Future<CardDetail> loadAssetState(AuthSession session, CardDetail detail) =>
+      _pendingAssetState.future;
+
+  void completeAssetState() {
+    if (!_pendingAssetState.isCompleted) {
+      _pendingAssetState.complete(_fullDetail);
+    }
+  }
+
+  void failAssetState() {
+    if (!_pendingAssetState.isCompleted) {
+      _pendingAssetState.completeError(StateError('asset state unavailable'));
+    }
   }
 }
 

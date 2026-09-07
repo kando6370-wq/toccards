@@ -776,7 +776,9 @@ class CardDetailController extends Notifier<CardDetailState> {
       return Future<void>.value();
     }
 
-    state = CardDetailState.loading(cardId: cardId, currency: state.currency);
+    if (state.isUnavailable || state.isLoading) {
+      state = CardDetailState.loading(cardId: cardId, currency: state.currency);
+    }
     _startLoad(session: session, currency: state.currency);
     return loadComplete.whenComplete(
       () => _invalidateItemPerformanceCaches(performanceItemIds),

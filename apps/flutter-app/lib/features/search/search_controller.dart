@@ -320,7 +320,7 @@ class SearchController extends Notifier<SearchState> {
       if (generation == _loadGeneration) {
         state = _stateForCatalog(
           catalog,
-          preserveState: preserveState,
+          preserveState: preserveState ?? state,
           clearOverrides: repository is SearchAssetRepository,
           failedSearchTabs: catalogLoad.failedSearchTabs,
           assetStatus: loadsAssets
@@ -364,7 +364,12 @@ class SearchController extends Notifier<SearchState> {
   }
 
   void selectTab(SearchTab tab) {
-    if (state.isUnavailable || state.isLoading) {
+    if (state.isUnavailable) {
+      return;
+    }
+
+    if (state.isLoading) {
+      state = state.copyWith(selectedTab: tab);
       return;
     }
 
@@ -385,12 +390,13 @@ class SearchController extends Notifier<SearchState> {
   }
 
   void _updateSearch(String value, {required bool debounce}) {
-    if (state.isUnavailable || state.isLoading) {
+    if (state.isUnavailable) {
       return;
     }
 
     final tab = state.selectedTab;
     state = state.copyWith(searchByTab: {...state.searchByTab, tab: value});
+    if (state.isLoading) return;
     _scheduleSearch(
       tab: tab,
       query: value,
@@ -400,13 +406,14 @@ class SearchController extends Notifier<SearchState> {
   }
 
   void clearSearch() {
-    if (state.isUnavailable || state.isLoading) {
+    if (state.isUnavailable) {
       return;
     }
 
     state = state.copyWith(
       searchByTab: {...state.searchByTab, state.selectedTab: ''},
     );
+    if (state.isLoading) return;
     _scheduleSearch(tab: state.selectedTab, query: '', allowEmpty: true);
   }
 

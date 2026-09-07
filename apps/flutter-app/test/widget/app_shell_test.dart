@@ -126,6 +126,43 @@ void main() {
     expect(find.text('Scan target'), findsOneWidget);
   });
 
+  testWidgets('tab selection does not pass a page transition context', (
+    tester,
+  ) async {
+    Object? searchTransition;
+    final router = GoRouter(
+      initialLocation: '/home',
+      routes: [
+        GoRoute(
+          path: '/home',
+          builder: (_, _) => const KandoTabScaffold(
+            currentTab: KandoMainTab.home,
+            body: SizedBox.expand(),
+          ),
+        ),
+        GoRoute(
+          path: '/search',
+          builder: (_, state) {
+            searchTransition = state.extra;
+            return const KandoTabScaffold(
+              currentTab: KandoMainTab.search,
+              body: SizedBox.expand(),
+            );
+          },
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(child: MaterialApp.router(routerConfig: router)),
+    );
+    await tester.tap(find.byKey(const Key('kando-tab-search')));
+    await tester.pumpAndSettle();
+
+    expect(searchTransition, isNull);
+  });
+
   testWidgets('tab scaffold extends content behind translucent tab bar', (
     tester,
   ) async {

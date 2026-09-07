@@ -17,6 +17,7 @@ import 'package:kando_app/features/home/home_page.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
 import 'package:kando_app/features/scan/scan_page.dart';
 import 'package:kando_app/features/search/search_controller.dart';
+import 'package:kando_app/features/search/search_card_tile.dart';
 import 'package:kando_app/features/search/search_models.dart';
 import 'package:kando_app/features/search/search_page.dart';
 import 'package:kando_app/features/search/search_repository.dart';
@@ -36,6 +37,27 @@ import '../support/mock_collection_repository.dart';
 import '../support/mock_search_repository.dart';
 
 void main() {
+  testWidgets('Search keeps static controls visible while catalog is pending', (
+    tester,
+  ) async {
+    final repository = _PendingSearchRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+        child: const _SearchTestApp(),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byKey(const Key('search-field')), findsOneWidget);
+    expect(find.byKey(const Key('search-game-selector')), findsOneWidget);
+    expect(find.text('TCG'), findsOneWidget);
+    expect(find.byKey(const Key('search-tabs')), findsOneWidget);
+    expect(find.byType(KandoLoadingBlock), findsOneWidget);
+    expect(repository.calls, 1);
+  });
+
   testWidgets('Search shows Cards tab with Pokemon results by default', (
     tester,
   ) async {
@@ -82,11 +104,11 @@ void main() {
       viewportWidth - 20,
     );
     expect(
-      tester.getRect(find.byKey(const Key('search-results-grid'))).left,
+      tester.getRect(find.byKey(const Key('search-card-squirtle'))).left,
       tester.getRect(find.byKey(const Key('search-field'))).left,
     );
     expect(
-      tester.getRect(find.byKey(const Key('search-results-grid'))).right,
+      tester.getRect(find.byKey(const Key('search-card-charizard-ex'))).right,
       tester.getRect(find.byKey(const Key('search-field'))).right,
     );
     final squirtlePriceRow = find.byKey(const Key('search-price-row-squirtle'));
@@ -337,7 +359,6 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('search-content-list')), findsOneWidget);
     expect(find.byType(KandoFailureBlock), findsOneWidget);
     expect(find.text(noContentAvailableText), findsOneWidget);
     expect(find.text(refreshText), findsOneWidget);
@@ -376,11 +397,15 @@ void main() {
         container.read(searchControllerProvider).visibleCards,
         hasLength(40),
       );
-      expect(find.byKey(const Key('search-retry-card-page')), findsOneWidget);
       expect(find.text('Card 1'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('search-retry-card-page')),
+        600,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.byKey(const Key('search-retry-card-page')), findsOneWidget);
 
       final retry = find.byKey(const Key('search-retry-card-page'));
-      await tester.ensureVisible(retry);
       await tester.pumpAndSettle();
       expect(repository.requestedPages, [2]);
       await tester.tap(retry);
@@ -393,6 +418,36 @@ void main() {
       );
       expect(find.text('Card 41'), findsOneWidget);
       expect(find.byKey(const Key('search-retry-card-page')), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Search lazily builds card results so route transitions do not relayout every loaded card',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            searchRepositoryProvider.overrideWithValue(
+              _FailingPaginatedSearchRepository(),
+            ),
+          ],
+          child: const _SearchTestApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SearchPage)),
+      );
+      expect(
+        container.read(searchControllerProvider).visibleCards,
+        hasLength(40),
+      );
+      expect(find.byType(SearchCardTile).evaluate().length, lessThan(40));
     },
   );
 
@@ -2308,6 +2363,10 @@ void main() {
     expect(find.byKey(const Key('card-detail-hero')), findsOneWidget);
     expect(find.text('Squirtle'), findsOneWidget);
     expect(
+      tester.widget<CardDetailPage>(find.byType(CardDetailPage)).preview?.name,
+      'Squirtle',
+    );
+    expect(
       find.byKey(const Key('card-detail-add-to-portfolio-squirtle')),
       findsOneWidget,
     );
@@ -2531,8 +2590,10 @@ class _SearchTestAppWithRoutes extends StatelessWidget {
           GoRoute(
             path: '/cards/:cardId',
             builder: (context, state) {
+              final extra = state.extra;
               return CardDetailPage(
                 cardId: state.pathParameters['cardId'] ?? '',
+                preview: extra is CardDetailPreview ? extra : null,
                 collectionItemId: state.uri.queryParameters['item_id'],
               );
             },
@@ -2651,6 +2712,27 @@ class _TrackingSearchRepository implements SearchRepository {
   @override
   Future<List<SearchCard>> searchCards(String query, {String? game}) {
     cardCalls += 1;
+    return const MockSearchRepository().searchCards(query, game: game);
+  }
+
+  @override
+  Future<List<SearchSet>> searchSets(String query, {String? game}) {
+    return const MockSearchRepository().searchSets(query, game: game);
+  }
+}
+
+class _PendingSearchRepository implements SearchRepository {
+  final _catalog = Completer<SearchCatalog>();
+  var calls = 0;
+
+  @override
+  Future<SearchCatalog> loadCatalog() {
+    calls += 1;
+    return _catalog.future;
+  }
+
+  @override
+  Future<List<SearchCard>> searchCards(String query, {String? game}) {
     return const MockSearchRepository().searchCards(query, game: game);
   }
 
