@@ -215,7 +215,7 @@ Singular 与 Mixpanel Project Token 使用同一类运行时配置链路，由 C
 - dev Root CA 的官方 G3 下载指纹、DER Base64 写入命令和生效版本已确认，但平台不回显 Secret 值，仍需通过真实 Sandbox 通知证明线上验签恢复；App Store Server API Secret 仍需真实调用验证。production Root CA 仅存在于未部署 version；production App Apple ID 与 Product ID 已确认，App Store Server API Key 已创建并下载，但 Workers prod 仍需配置对应 Private Key 并完成实网调用验证。
 - StoreKit 2 服务端同步失败后的 Secure Storage 持久化补偿队列已实现；仍待真机断网与恢复验收。
 - Restore 的 App Attest proof、App Store Server API 和 Notifications V2 生命周期代码已实现；dev Root CA 已按官方 G3 更新，Apple Server API Secret 配置项与 Sandbox 通知 URL 已就绪，但真实 Server API 调用和真机/Sandbox 端到端验收尚未完成。
-- Scan、Folder、Performance 和 1Y Price History 已统一接入当前 live session grant；对应结构与 dev 数据已迁入共享 PostgreSQL 并由 dev 正式版本运行。2026-09-07 已实时核验共享 PostgreSQL `0000` 至 `0010`、约束、production 数据边界和商品映射；prod 发布前仍须做临近切换的只读复核，部署并烟测 PostgreSQL Worker，且不得以 D1 作为回退。Sandbox/TestFlight 多设备验收仍待完成。
+- Scan、Folder、Performance 和 1Y Price History 已统一接入当前 live session grant；对应结构与 dev 数据已迁入共享 PostgreSQL 并由 dev 正式版本运行。2026-09-07 已实时核验共享 PostgreSQL `0000` 至 `0010`、约束、production 数据边界和商品映射，并上传无流量的 PostgreSQL-only prod version `c03c4877-dc77-4142-a6e0-89be3937d2d5`；远程回读和 preview 烟测通过，当前 prod 流量未改变。发布前仍须做临近切换的只读复核，部署并烟测 PostgreSQL Worker，且不得以 D1 作为回退。该候选与待发布代码相同，若要求隔离同版本业务故障，还需单独决定只读维护模式；Sandbox/TestFlight 多设备验收仍待完成。
 
 challenge 或业务 API 失败不得阻止 Apple 购买；本机 StoreKit 2 verified 仍按 App PRD即时解锁，但服务端受限操作在 grant 未同步时必须返回 `ENTITLEMENT_SYNC_REQUIRED`。
 
