@@ -1561,6 +1561,78 @@ void main() {
     },
   );
 
+  testWidgets(
+    'Adding one batch result keeps every session result and its price when returning to Scan',
+    (tester) async {
+      final source = _TestScanResultSource(
+        photoResult: Future.value(
+          const ScanResolution.matched(
+            scanId: 'scan-one',
+            cardRef: 'card-mega',
+            matchName: 'Mega Lucario ex',
+            candidates: ['Mega Lucario ex'],
+          ),
+        ),
+        subsequentPhotoResults: [
+          Future.value(
+            const ScanResolution.matched(
+              scanId: 'scan-two',
+              cardRef: 'card-charizard',
+              matchName: 'Charizard ex',
+              candidates: ['Charizard ex'],
+            ),
+          ),
+        ],
+      );
+      await _pumpScanTestApp(tester, scanResultSource: source);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.tap(find.text('DONE'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('scan-review-add-one')));
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(kandoCenteredSuccessToastDuration);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('scan-active-item-1')),
+        findsOneWidget,
+        reason: 'An added result remains part of the active scan session.',
+      );
+      expect(find.byKey(const Key('scan-active-item-2')), findsOneWidget);
+      expect(find.text('ADDED'), findsOneWidget);
+      expect(find.text(r'$25.00'), findsNWidgets(2));
+      expect(find.byKey(const Key('scan-item-price-1')), findsOneWidget);
+      expect(find.byKey(const Key('scan-item-price-2')), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Review scan result'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Back to Scan'));
+      await tester.pumpAndSettle();
+      expect(find.text(r'$25.00'), findsNWidgets(2));
+
+      await tester.tap(find.byTooltip('Review scan result'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('scan-review-add-one')));
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(kandoCenteredSuccessToastDuration);
+      await tester.pumpAndSettle();
+
+      expect(find.text('ADDED'), findsNWidgets(2));
+      expect(find.text(r'$25.00'), findsNWidgets(2));
+      await tester.tap(find.byTooltip('Close Scan'));
+      await tester.pumpAndSettle();
+      expect(find.text('Exit scan result?'), findsNothing);
+      expect(find.text('Overview'), findsOneWidget);
+    },
+  );
+
   testWidgets('Figma review renders at the 390x844 baseline', (tester) async {
     await (FontLoader('Fraunces')..addFont(
           rootBundle.load('assets/fonts/Baskerville-BaskervilleSemiBold.ttf'),
@@ -2047,10 +2119,11 @@ void main() {
 
       expect(
         find.byKey(const Key('scan-active-item-1')),
-        findsNothing,
-        reason: 'A confirmed scan must leave the pending results rail.',
+        findsOneWidget,
+        reason: 'A confirmed scan remains available in the active session.',
       );
-      expect(find.text('ADDED'), findsNothing);
+      expect(find.text('ADDED'), findsOneWidget);
+      expect(find.text(r'$25.00'), findsOneWidget);
       expect(reviewRepository.confirmedScanIds, ['scan-mega']);
       final submitted = reviewRepository.confirmedItems.single;
       expect(submitted.folderId, 'trade');
@@ -2248,10 +2321,11 @@ void main() {
 
       expect(
         find.byKey(const Key('scan-active-item-1')),
-        findsNothing,
-        reason: 'An idempotent confirmation is still a completed scan.',
+        findsOneWidget,
+        reason: 'An idempotent confirmation remains in the active session.',
       );
-      expect(find.text('ADDED'), findsNothing);
+      expect(find.text('ADDED'), findsOneWidget);
+      expect(find.text(r'$25.00'), findsOneWidget);
       expect(
         find.text('Something went wrong. Please try again.'),
         findsNothing,
@@ -3787,9 +3861,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Review your matches'), findsNothing);
 
-    expect(find.byKey(const Key('scan-active-item-1')), findsNothing);
-    expect(find.byKey(const Key('scan-active-item-4')), findsNothing);
-    expect(find.text('ADDED'), findsNothing);
+    expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
+    expect(find.byKey(const Key('scan-active-item-4')), findsOneWidget);
+    expect(find.text('ADDED'), findsNWidgets(2));
     expect(repository.confirmedItems.map((item) => item.quantity), [2, 3]);
   });
 

@@ -38,6 +38,7 @@ enum _ScanItemStatus {
   recognizing,
   revealing,
   matched,
+  added,
   failed,
   noMatch,
   waiting,
@@ -445,6 +446,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
         .toList();
   }
 
+  int get _pendingScanCount =>
+      _items.where((item) => item.status != _ScanItemStatus.added).length;
+
   bool get _canReview {
     final processing = _items.any(
       (item) =>
@@ -456,7 +460,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   bool get _hasUnsavedScanResults {
-    return _items.isNotEmpty;
+    return _items.any((item) => item.status != _ScanItemStatus.added);
   }
 
   @override
@@ -716,7 +720,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       unawaited(_openQuotaPaywall());
       return;
     }
-    final remainingQueueCapacity = _maxQueueItems - _items.length;
+    final remainingQueueCapacity = _maxQueueItems - _pendingScanCount;
     ref.read(analyticsProvider).track(AnalyticsEvent.imageClick);
     setState(() => _librarySelectionInFlight = true);
     try {
@@ -787,7 +791,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   bool _hasScanQueueCapacity() {
-    if (_items.length < _maxQueueItems) return true;
+    if (_pendingScanCount < _maxQueueItems) return true;
     showKandoTopToast(
       context,
       message: 'Scan queue is full',
@@ -975,7 +979,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       unawaited(_openQuotaPaywall());
       return;
     }
-    var capacity = quota.unlimited ? _items.length : quota.remainingScans;
+    var capacity = quota.unlimited ? _pendingScanCount : quota.remainingScans;
     if (capacity <= 0) return;
     final resumable = _items.where((item) {
       if (item.status == _ScanItemStatus.waiting) return true;
@@ -1693,10 +1697,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
     setState(() {
       _reviewing = false;
-      _items.removeWhere((candidate) => candidate.id == item.id);
+      _markItemsAdded({item.id});
       _selectedReviewItemId = null;
       _reviewTarget = null;
-      _reviewCards = const {};
       _reviewDrafts.remove(item.id);
       _reviewFormError = null;
       _finishingReview = false;
@@ -1758,7 +1761,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     }
 
     setState(() {
-      _items.removeWhere((item) => addedIds.contains(item.id));
+      _markItemsAdded(addedIds);
       for (final itemId in addedIds) {
         _reviewDrafts.remove(itemId);
       }
@@ -1767,7 +1770,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
       _selectedReviewItemId = remaining.firstOrNull?.id;
       if (!_reviewing) {
         _reviewTarget = null;
-        _reviewCards = const {};
       }
       _reviewFormError = null;
       _savingReviewAction = null;
@@ -1942,10 +1944,20 @@ class _ScanPageState extends ConsumerState<ScanPage>
       _reviewFormError = null;
       if (!_reviewing) {
         _reviewTarget = null;
-        _reviewCards = const {};
+        if (_items.isEmpty) {
+          _reviewCards = const {};
+        }
       }
     });
     if (!_reviewing) unawaited(_openCamera());
+  }
+
+  void _markItemsAdded(Set<int> itemIds) {
+    for (var index = 0; index < _items.length; index += 1) {
+      if (itemIds.contains(_items[index].id)) {
+        _items[index] = _items[index].copyWith(status: _ScanItemStatus.added);
+      }
+    }
   }
 
   void _refreshPortfolioSurfaces() {
@@ -3236,11 +3248,14 @@ class _ScanResults extends StatelessWidget {
     }
     final completedCount = items.where((item) {
       return item.status == _ScanItemStatus.matched ||
+          item.status == _ScanItemStatus.added ||
           item.status == _ScanItemStatus.failed ||
           item.status == _ScanItemStatus.noMatch;
     }).length;
     final hasValuedCards = items.any(
-      (item) => item.status == _ScanItemStatus.matched,
+      (item) =>
+          item.status == _ScanItemStatus.matched ||
+          item.status == _ScanItemStatus.added,
     );
     final total = items.fold<double>(0, (sum, item) {
       final card = cards[item.match?.cardRef];
@@ -3343,11 +3358,12 @@ class _ScanItemCard extends StatelessWidget {
     }
 
     final matched = item.status == _ScanItemStatus.matched;
+    final added = item.status == _ScanItemStatus.added;
     final failed = item.status == _ScanItemStatus.failed;
     final waiting = item.status == _ScanItemStatus.waiting;
     final entitlementSync = item.status == _ScanItemStatus.entitlementSync;
-    final width = matched ? 240.0 : 176.0;
-    final title = matched
+    final width = matched || added ? 240.0 : 176.0;
+    final title = matched || added
         ? item.match?.name ?? item.pictureLabel
         : failed
         ? 'Failed'
@@ -3371,6 +3387,8 @@ class _ScanItemCard extends StatelessWidget {
     return Tooltip(
       message: matched
           ? 'Review scan result'
+          : added
+          ? 'Card added to Collection'
           : failed
           ? 'Retry scan'
           : waiting
@@ -3428,7 +3446,7 @@ class _ScanItemCard extends StatelessWidget {
                         _ScanDeleteButton(itemId: item.id, onPressed: onDelete),
                       ],
                     ),
-                    if (matched)
+                    if (matched || added)
                       Row(
                         children: [
                           Flexible(
@@ -3442,7 +3460,10 @@ class _ScanItemCard extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                previewDraft?.condition.toUpperCase() ?? 'RAW',
+                                added
+                                    ? 'ADDED'
+                                    : previewDraft?.condition.toUpperCase() ??
+                                          'RAW',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
