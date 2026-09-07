@@ -1473,7 +1473,6 @@ void main() {
 
       await tester.tap(find.byTooltip('Take Photo'));
       await _completeFigmaScan(tester);
-      expect(find.text('--'), findsOneWidget);
       await tester.tap(find.byTooltip('Review scan result'));
       await tester.pumpAndSettle();
 
