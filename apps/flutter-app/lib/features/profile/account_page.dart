@@ -139,9 +139,10 @@ class _AccountContent extends ConsumerWidget {
                     }
                   } on Exception {
                     if (context.mounted) {
-                      showKandoToast(
+                      showKandoTopToast(
                         context,
                         message: authAccountActionFailedMessage,
+                        type: KandoTopToastType.failure,
                       );
                     }
                   }
@@ -162,11 +163,11 @@ class _AccountContent extends ConsumerWidget {
       }
     } on AuthNetworkException {
       if (context.mounted) {
-        showKandoNetworkToast(context);
+        showKandoTopNetworkToast(context);
       }
     } on Exception {
       if (context.mounted) {
-        showKandoFailureToast(context);
+        showKandoTopFailureToast(context);
       }
     }
   }

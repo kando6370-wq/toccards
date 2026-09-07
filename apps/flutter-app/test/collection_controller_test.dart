@@ -5,12 +5,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_controller.dart';
+import 'package:kando_app/features/card_detail/card_detail_models.dart';
 import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/collection/collection_models.dart';
 import 'package:kando_app/features/collection/collection_repository.dart';
 import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/features/home/home_models.dart';
 import 'package:kando_app/features/home/home_repository.dart';
+import 'package:kando_app/features/subscription/subscription_controller.dart';
+import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
@@ -291,6 +294,37 @@ void main() {
   );
 
   test(
+    'holdings without PostgreSQL prices show an unknown total because missing values are not zero',
+    () async {
+      final container = _collectionContainer(
+        repository: const _SingleMarketPriceCollectionRepository(null),
+      );
+      addTearDown(container.dispose);
+
+      final state = await _loadedState(container);
+
+      expect(state.portfolioSummary.totalValueText, '--');
+      expect(state.visibleItems.single.valueText, '--');
+      expect(state.portfolioSummary.cardCount, 2);
+    },
+  );
+
+  test(
+    'a published zero PostgreSQL price stays available because zero is a valid market value',
+    () async {
+      final container = _collectionContainer(
+        repository: const _SingleMarketPriceCollectionRepository(0),
+      );
+      addTearDown(container.dispose);
+
+      final state = await _loadedState(container);
+
+      expect(state.portfolioSummary.totalValueText, r'$0.00');
+      expect(state.visibleItems.single.valueText, r'$0.00');
+    },
+  );
+
+  test(
     'graded summary counts graded copies rather than collection rows',
     () async {
       final container = _collectionContainer(
@@ -300,6 +334,7 @@ void main() {
 
       final state = await _loadedState(container);
 
+      expect(state.portfolioSummary.totalValueText, r'$1,245.00');
       expect(state.portfolioSummary.cardCount, 7);
       expect(state.portfolioSummary.gradedCount, 5);
     },
@@ -462,12 +497,11 @@ void main() {
       await _loadedState(container);
       final controller = container.read(collectionControllerProvider.notifier);
 
-      final created = await controller.createFolder('Trade');
-      expect(created?.name, 'Trade');
-      expect(
-        await controller.renameFolder(created!.id, 'Trade Binder'),
-        isTrue,
-      );
+      final createResult = await controller.createFolder('Trade');
+      expect(createResult.status, CreateFolderStatus.success);
+      final created = createResult.folder!;
+      expect(created.name, 'Trade');
+      expect(await controller.renameFolder(created.id, 'Trade Binder'), isTrue);
       expect(await controller.setDefaultFolder(created.id), isTrue);
       expect(
         await controller.reorderFolders([
@@ -517,11 +551,10 @@ void main() {
       await container.read(detailProvider.notifier).loadComplete;
       final detailState = container.read(detailProvider);
 
-      final created = await controller.createFolder('Trade');
-      expect(
-        await controller.renameFolder(created!.id, 'Trade Binder'),
-        isTrue,
-      );
+      final createResult = await controller.createFolder('Trade');
+      expect(createResult.status, CreateFolderStatus.success);
+      final created = createResult.folder!;
+      expect(await controller.renameFolder(created.id, 'Trade Binder'), isTrue);
       expect(await controller.setDefaultFolder(created.id), isTrue);
       expect(
         await controller.reorderFolders([
@@ -536,6 +569,125 @@ void main() {
 
       expect(homeRepository.calls, 1);
       expect(container.read(detailProvider), isNot(same(detailState)));
+    },
+  );
+
+  test(
+    'successful folder mutations invalidate the Review editor folder source',
+    () async {
+      var editorFolderLoads = 0;
+      final container = _collectionContainer(
+        repository: _RecordingCollectionRepository(),
+        loadEditorFolders: () async {
+          editorFolderLoads += 1;
+          return const <CardPortfolioFolder>[];
+        },
+      );
+      addTearDown(container.dispose);
+      await _loadedState(container);
+      final controller = container.read(collectionControllerProvider.notifier);
+
+      await container.read(collectionEditorFoldersProvider.future);
+      expect(editorFolderLoads, 1);
+
+      final created = (await controller.createFolder('Trade')).folder!;
+      await container.read(collectionEditorFoldersProvider.future);
+      expect(editorFolderLoads, 2);
+
+      expect(await controller.renameFolder(created.id, 'Trade Binder'), isTrue);
+      await container.read(collectionEditorFoldersProvider.future);
+      expect(editorFolderLoads, 3);
+
+      expect(await controller.setDefaultFolder(created.id), isTrue);
+      await container.read(collectionEditorFoldersProvider.future);
+      expect(editorFolderLoads, 4);
+
+      expect(
+        await controller.reorderFolders([
+          created.id,
+          'main',
+          'sealed',
+          'empty',
+        ]),
+        isTrue,
+      );
+      await container.read(collectionEditorFoldersProvider.future);
+      expect(editorFolderLoads, 5);
+
+      expect(await controller.deleteFolder('sealed'), isTrue);
+      await container.read(collectionEditorFoldersProvider.future);
+      expect(editorFolderLoads, 6);
+    },
+  );
+
+  test(
+    'server Folder limit refreshes the dashboard because another device may have consumed the final Free slot',
+    () async {
+      final repository = _FolderCreateFailureRepository(
+        code: 'PREMIUM_REQUIRED',
+      );
+      final container = _collectionContainer(repository: repository);
+      addTearDown(container.dispose);
+      await _loadedState(container);
+
+      final result = await container
+          .read(collectionControllerProvider.notifier)
+          .createFolder('Trade');
+
+      expect(result.status, CreateFolderStatus.premiumRequired);
+      expect(repository.loadCalls, 2);
+      expect(
+        container.read(collectionControllerProvider).dashboard.folders.length,
+        2,
+      );
+    },
+  );
+
+  test(
+    'entitlement sync and ordinary failures remain distinct so the create form can preserve user input',
+    () async {
+      for (final entry in {
+        'ENTITLEMENT_SYNC_REQUIRED': CreateFolderStatus.entitlementSyncRequired,
+        'INTERNAL_ERROR': CreateFolderStatus.failed,
+      }.entries) {
+        final repository = _FolderCreateFailureRepository(code: entry.key);
+        final container = _collectionContainer(repository: repository);
+        addTearDown(container.dispose);
+        await _loadedState(container);
+
+        final result = await container
+            .read(collectionControllerProvider.notifier)
+            .createFolder('Trade');
+
+        expect(result.status, entry.value);
+        expect(repository.loadCalls, 1);
+      }
+    },
+  );
+
+  test(
+    'an expired entitlement turns Folder sync rejection into the current Free limit',
+    () async {
+      final repository = _FolderCreateFailureRepository(
+        code: 'ENTITLEMENT_SYNC_REQUIRED',
+      );
+      final container = _collectionContainer(
+        repository: repository,
+        subscriptionController: _FreeReconciliationSubscriptionController.new,
+      );
+      addTearDown(container.dispose);
+      await _loadedState(container);
+
+      final result = await container
+          .read(collectionControllerProvider.notifier)
+          .createFolder('Trade');
+
+      expect(result.status, CreateFolderStatus.premiumRequired);
+      expect(repository.loadCalls, 2);
+      expect(
+        container.read(subscriptionControllerProvider).premiumState,
+        AppPremiumState.free,
+      );
     },
   );
 
@@ -664,6 +816,13 @@ void main() {
       await controller.selectFolder('empty');
       expect(container.read(collectionControllerProvider).isEmpty, isTrue);
       expect(container.read(collectionControllerProvider).isNoMatch, isFalse);
+      expect(
+        container
+            .read(collectionControllerProvider)
+            .portfolioSummary
+            .totalValueText,
+        r'$0.00',
+      );
 
       await controller.selectFolder('main');
       controller.updateSearch('missing');
@@ -743,6 +902,8 @@ ProviderContainer _collectionContainer({
   bool includeFolderConsumers = false,
   HomeRepository homeRepository = const MockHomeRepository(),
   InMemoryPortfolioAmountHiddenStorage? amountStorage,
+  Future<List<CardPortfolioFolder>> Function()? loadEditorFolders,
+  SubscriptionController Function()? subscriptionController,
 }) {
   final storage = InMemoryAuthStorage();
   return ProviderContainer(
@@ -752,9 +913,17 @@ ProviderContainer _collectionContainer({
         LocalPlaceholderAuthRepository(storage),
       ),
       collectionRepositoryProvider.overrideWithValue(repository),
+      subscriptionControllerProvider.overrideWith(
+        subscriptionController ??
+            _UnavailableReconciliationSubscriptionController.new,
+      ),
       portfolioAmountHiddenStorageProvider.overrideWithValue(
         amountStorage ?? InMemoryPortfolioAmountHiddenStorage(),
       ),
+      if (loadEditorFolders != null)
+        collectionEditorFoldersProvider.overrideWith(
+          (ref) => loadEditorFolders(),
+        ),
       if (includeFolderConsumers) ...[
         homeRepositoryProvider.overrideWithValue(homeRepository),
         cardDetailRepositoryProvider.overrideWithValue(
@@ -763,6 +932,30 @@ ProviderContainer _collectionContainer({
       ],
     ],
   );
+}
+
+class _UnavailableReconciliationSubscriptionController
+    extends SubscriptionController {
+  @override
+  SubscriptionState build() =>
+      const SubscriptionState(premiumState: AppPremiumState.premium);
+
+  @override
+  Future<EntitlementReconciliationResult> reconcileServerEntitlement() async {
+    return EntitlementReconciliationResult.verificationUnavailable;
+  }
+}
+
+class _FreeReconciliationSubscriptionController extends SubscriptionController {
+  @override
+  SubscriptionState build() =>
+      const SubscriptionState(premiumState: AppPremiumState.premium);
+
+  @override
+  Future<EntitlementReconciliationResult> reconcileServerEntitlement() async {
+    state = state.copyWith(premiumState: AppPremiumState.free);
+    return EntitlementReconciliationResult.freeConfirmed;
+  }
 }
 
 class _CountingHomeRepository implements HomeRepository {
@@ -792,8 +985,9 @@ class _RecordingCollectionRepository extends MockCollectionRepository {
   @override
   Future<CollectionFolder> createFolder(
     AuthSession session,
-    String name,
-  ) async {
+    String name, {
+    bool localPremiumVerified = false,
+  }) async {
     return CollectionFolder(
       id: 'folder-${name.toLowerCase()}',
       name: name,
@@ -832,6 +1026,33 @@ class _DelayedPreferenceCollectionRepository extends MockCollectionRepository {
     String? lastSelectedFolderId,
   }) {
     return preferenceWrite.future;
+  }
+}
+
+class _FolderCreateFailureRepository extends MockCollectionRepository {
+  _FolderCreateFailureRepository({required this.code});
+
+  final String code;
+  var loadCalls = 0;
+
+  @override
+  Future<CollectionDashboard> loadDashboard(AuthSession session) async {
+    loadCalls += 1;
+    final dashboard = await super.loadDashboard(session);
+    return dashboard.copyWith(folders: dashboard.folders.take(2).toList());
+  }
+
+  @override
+  Future<CollectionFolder> createFolder(
+    AuthSession session,
+    String name, {
+    bool localPremiumVerified = false,
+  }) {
+    throw PortfolioApiException(
+      'rejected',
+      code: code,
+      statusCode: code == 'ENTITLEMENT_SYNC_REQUIRED' ? 409 : null,
+    );
   }
 }
 
@@ -903,6 +1124,43 @@ class _GradedQuantityCollectionRepository extends MockCollectionRepository {
           addedAtSort: 5,
         ),
       ],
+    );
+  }
+}
+
+class _SingleMarketPriceCollectionRepository extends MockCollectionRepository {
+  const _SingleMarketPriceCollectionRepository(this.marketValueUsd);
+
+  final double? marketValueUsd;
+
+  @override
+  Future<CollectionDashboard> loadDashboard(AuthSession session) async {
+    return CollectionDashboard(
+      folders: const [
+        CollectionFolder(id: 'main', name: 'Main', isDefault: true),
+      ],
+      portfolioItems: [
+        CollectionItem(
+          id: 'item-price-state',
+          cardRef: 'price-state',
+          folderId: 'main',
+          name: 'Price State',
+          setName: 'PostgreSQL Set',
+          number: '#001',
+          rarity: 'Rare',
+          game: 'Pokemon',
+          language: 'English',
+          finish: 'Normal',
+          grader: 'Raw',
+          condition: 'Near Mint (NM)',
+          grade: null,
+          quantity: 2,
+          marketValueUsd: marketValueUsd,
+          previous30dPriceUsd: null,
+          addedAtSort: 1,
+        ),
+      ],
+      wishlistItems: const [],
     );
   }
 }
@@ -1030,8 +1288,9 @@ class _FakePortfolioApiClient
   @override
   Future<PortfolioItemDto> createCollectionItem(
     AuthSession session,
-    PortfolioItemDraftDto draft,
-  ) async {
+    PortfolioItemDraftDto draft, {
+    String? idempotencyKey,
+  }) async {
     throw UnimplementedError();
   }
 

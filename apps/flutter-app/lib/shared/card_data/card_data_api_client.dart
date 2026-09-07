@@ -1,9 +1,15 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
+import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/shared/pagination/pagination.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
 
 const cardDataApiBaseUrl = authApiBaseUrl;
 const cardDataResponseVersion = '2';
+const cardDataRequestDeadline = Duration(seconds: 15);
+const cardDataRequestTimeoutCode = 'REQUEST_TIMEOUT';
+const cardDataRequestTimeoutMessage = 'Request timed out. Please try again.';
 
 Dio createCardDataDio({String baseUrl = cardDataApiBaseUrl}) {
   return Dio(
@@ -43,7 +49,10 @@ class CardDataCardDto {
     required this.rarity,
     this.priceUsd,
     this.previous30dPriceUsd,
+    this.previous7dPriceUsd,
     this.previous1dPriceUsd,
+    this.priceChange30dPercent,
+    this.priceChange7dPercent,
     this.priceChange1dPercent,
     this.priceAsOf,
     this.previousPriceAsOf,
@@ -64,7 +73,10 @@ class CardDataCardDto {
   final String? rarity;
   final double? priceUsd;
   final double? previous30dPriceUsd;
+  final double? previous7dPriceUsd;
   final double? previous1dPriceUsd;
+  final double? priceChange30dPercent;
+  final double? priceChange7dPercent;
   final double? priceChange1dPercent;
   final String? priceAsOf;
   final String? previousPriceAsOf;
@@ -86,7 +98,10 @@ class CardDataCardDto {
       rarity: _nullableString(json['rarity']),
       priceUsd: _nullableDouble(json['price_usd']),
       previous30dPriceUsd: _nullableDouble(json['previous_30d_price_usd']),
+      previous7dPriceUsd: _nullableDouble(json['previous_7d_price_usd']),
       previous1dPriceUsd: _nullableDouble(json['previous_1d_price_usd']),
+      priceChange30dPercent: _nullableDouble(json['price_change_30d_percent']),
+      priceChange7dPercent: _nullableDouble(json['price_change_7d_percent']),
       priceChange1dPercent: _nullableDouble(json['price_change_1d_percent']),
       priceAsOf: _nullableString(json['price_as_of']),
       previousPriceAsOf: _nullableString(json['previous_price_as_of']),
@@ -156,6 +171,7 @@ class CardDataMarketPriceDto {
     required this.price,
     this.pricechartingId,
     this.productSubType,
+    this.previous7dPriceUsd,
     this.increasePercent,
     this.history = const [],
   });
@@ -167,6 +183,7 @@ class CardDataMarketPriceDto {
   final double? price;
   final String? pricechartingId;
   final String? productSubType;
+  final double? previous7dPriceUsd;
   final double? increasePercent;
   final List<CardDataPricePointDto> history;
 
@@ -179,6 +196,7 @@ class CardDataMarketPriceDto {
       price: _nullableDouble(json['price']),
       pricechartingId: _nullableString(json['pricecharting_id']),
       productSubType: _nullableString(json['product_sub_type']),
+      previous7dPriceUsd: _nullableDouble(json['previous_7d_price_usd']),
       increasePercent: _nullableDouble(json['increase_percent']),
       history: _optionalPriceHistory(json['history']),
     );
@@ -289,16 +307,30 @@ abstract interface class BatchCardDataApi {
   );
 }
 
+abstract interface class PremiumPriceSeriesApi {
+  Future<List<List<CardDataPricePointDto>>> getPremiumPriceSeriesBatch(
+    AuthSession session,
+    String cardRef,
+    List<CardDataPriceSeriesQuery> requests, {
+    required bool localPremiumVerified,
+  });
+}
+
 class CardDataApiClient
     implements
         CardDataApi,
         PaginatedCardDataApi,
         PaginatedTrendingCardDataApi,
         SetCatalogApi,
-        BatchCardDataApi {
-  const CardDataApiClient(this._dio);
+        BatchCardDataApi,
+        PremiumPriceSeriesApi {
+  const CardDataApiClient(
+    this._dio, {
+    this.requestDeadline = cardDataRequestDeadline,
+  });
 
   final Dio _dio;
+  final Duration requestDeadline;
 
   @override
   Future<List<CardDataCardDto>> searchCards(String query, {String? game}) {
@@ -469,13 +501,37 @@ class CardDataApiClient
   Future<List<List<CardDataPricePointDto>>> getPriceSeriesBatch(
     String cardRef,
     List<CardDataPriceSeriesQuery> requests,
-  ) async {
+  ) => _getPriceSeriesBatch(cardRef, requests);
+
+  @override
+  Future<List<List<CardDataPricePointDto>>> getPremiumPriceSeriesBatch(
+    AuthSession session,
+    String cardRef,
+    List<CardDataPriceSeriesQuery> requests, {
+    required bool localPremiumVerified,
+  }) {
+    return _getPriceSeriesBatch(
+      cardRef,
+      requests,
+      headers: {
+        'Authorization': 'Bearer ${session.accessToken}',
+        if (localPremiumVerified) 'X-Local-Premium-State': 'verified',
+      },
+    );
+  }
+
+  Future<List<List<CardDataPricePointDto>>> _getPriceSeriesBatch(
+    String cardRef,
+    List<CardDataPriceSeriesQuery> requests, {
+    Map<String, Object?>? headers,
+  }) async {
     if (requests.isEmpty) return const [];
     final data = await _requestData(
       'POST',
       '/cards/${Uri.encodeComponent(cardRef)}/price-series/batch',
       queryParameters: {'response_version': cardDataResponseVersion},
       body: {'requests': requests.map((request) => request.toJson()).toList()},
+      headers: headers,
     );
     final results = data['results'];
     if (results is! List || results.length != requests.length) {
@@ -510,13 +566,42 @@ class CardDataApiClient
     String path, {
     Map<String, Object?>? queryParameters,
     Object? body,
+    Map<String, Object?>? headers,
   }) async {
-    final response = await _dio.request<Object?>(
-      path,
-      queryParameters: queryParameters,
-      data: body,
-      options: Options(method: method, validateStatus: (_) => true),
-    );
+    final cancelToken = CancelToken();
+    late final Response<Object?> response;
+    try {
+      response = await _dio
+          .request<Object?>(
+            path,
+            queryParameters: queryParameters,
+            data: body,
+            cancelToken: cancelToken,
+            options: Options(
+              method: method,
+              headers: headers,
+              validateStatus: (_) => true,
+            ),
+          )
+          .timeout(
+            requestDeadline,
+            onTimeout: () {
+              cancelToken.cancel(cardDataRequestTimeoutCode);
+              throw const CardDataApiException(
+                cardDataRequestTimeoutMessage,
+                code: cardDataRequestTimeoutCode,
+              );
+            },
+          );
+    } on DioException {
+      if (cancelToken.isCancelled) {
+        throw const CardDataApiException(
+          cardDataRequestTimeoutMessage,
+          code: cardDataRequestTimeoutCode,
+        );
+      }
+      rethrow;
+    }
     final envelope = response.data;
     if (envelope is Map && envelope['success'] == true) {
       final data = envelope['data'];

@@ -4,11 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_controller.dart';
+import 'package:kando_app/features/card_detail/card_detail_models.dart';
 import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
-import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
+import 'package:kando_app/shared/portfolio/pending_collection.dart';
 import 'package:kando_app/shared/pagination/pagination.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
@@ -32,7 +33,7 @@ final searchControllerProvider =
 
 const searchDebounceDuration = Duration(milliseconds: 300);
 
-enum SearchCollectAction { updated, openDetail, duplicate, ignored }
+enum SearchCollectAction { updated, limitReached, ignored }
 
 class SearchState {
   const SearchState({
@@ -46,6 +47,7 @@ class SearchState {
     this.hasMoreCards = false,
     this.isSearching = false,
     this.isLoadingMoreCards = false,
+    this.hasCardPageFailure = false,
     this.assetStatus = KandoLoadStatus.content,
   }) : _catalog = catalog,
        loadStatus = KandoLoadStatus.content;
@@ -61,6 +63,7 @@ class SearchState {
       hasMoreCards = false,
       isSearching = false,
       isLoadingMoreCards = false,
+      hasCardPageFailure = false,
       assetStatus = KandoLoadStatus.failure,
       loadStatus = KandoLoadStatus.failure;
 
@@ -75,6 +78,7 @@ class SearchState {
       hasMoreCards = false,
       isSearching = false,
       isLoadingMoreCards = false,
+      hasCardPageFailure = false,
       assetStatus = KandoLoadStatus.loading,
       loadStatus = KandoLoadStatus.loading;
 
@@ -89,6 +93,7 @@ class SearchState {
     required this.hasMoreCards,
     required this.isSearching,
     required this.isLoadingMoreCards,
+    required this.hasCardPageFailure,
     required this.assetStatus,
     required this.loadStatus,
   }) : _catalog = catalog;
@@ -103,6 +108,7 @@ class SearchState {
   final bool hasMoreCards;
   final bool isSearching;
   final bool isLoadingMoreCards;
+  final bool hasCardPageFailure;
   final KandoLoadStatus assetStatus;
   final KandoLoadStatus loadStatus;
 
@@ -163,6 +169,7 @@ class SearchState {
     bool? hasMoreCards,
     bool? isSearching,
     bool? isLoadingMoreCards,
+    bool? hasCardPageFailure,
     KandoLoadStatus? assetStatus,
   }) {
     return SearchState._(
@@ -176,6 +183,7 @@ class SearchState {
       hasMoreCards: hasMoreCards ?? this.hasMoreCards,
       isSearching: isSearching ?? this.isSearching,
       isLoadingMoreCards: isLoadingMoreCards ?? this.isLoadingMoreCards,
+      hasCardPageFailure: hasCardPageFailure ?? this.hasCardPageFailure,
       assetStatus: assetStatus ?? this.assetStatus,
       loadStatus: loadStatus,
     );
@@ -301,7 +309,10 @@ class SearchController extends Notifier<SearchState> {
               onError: (Object error, StackTrace stackTrace) => null,
             )
           : null;
-      var catalog = await repository.loadCatalog();
+      final catalogLoad = repository is SearchCatalogLoadRepository
+          ? await repository.loadCatalogResult()
+          : SearchCatalogLoadResult(catalog: await repository.loadCatalog());
+      var catalog = catalogLoad.catalog;
       if (!ref.mounted) return;
       if (catalog.games.isEmpty) {
         throw StateError('Search catalog needs at least one game.');
@@ -309,15 +320,18 @@ class SearchController extends Notifier<SearchState> {
       if (generation == _loadGeneration) {
         state = _stateForCatalog(
           catalog,
-          preserveState: preserveState,
+          preserveState: preserveState ?? state,
           clearOverrides: repository is SearchAssetRepository,
+          failedSearchTabs: catalogLoad.failedSearchTabs,
           assetStatus: loadsAssets
               ? KandoLoadStatus.loading
               : KandoLoadStatus.content,
         );
-        _loadedGameByTab
-          ..[SearchTab.cards] = state.selectedGame.id
-          ..[SearchTab.sets] = state.selectedGame.id;
+        for (final tab in SearchTab.values) {
+          if (!catalogLoad.failedSearchTabs.contains(tab)) {
+            _loadedGameByTab[tab] = state.selectedGame.id;
+          }
+        }
       }
       if (assetsFuture != null) {
         final snapshot = await assetsFuture;
@@ -328,6 +342,7 @@ class SearchController extends Notifier<SearchState> {
               catalog,
               preserveState: state,
               clearOverrides: true,
+              failedSearchTabs: catalogLoad.failedSearchTabs,
               assetStatus: KandoLoadStatus.content,
             );
           }
@@ -349,7 +364,12 @@ class SearchController extends Notifier<SearchState> {
   }
 
   void selectTab(SearchTab tab) {
-    if (state.isUnavailable || state.isLoading) {
+    if (state.isUnavailable) {
+      return;
+    }
+
+    if (state.isLoading) {
+      state = state.copyWith(selectedTab: tab);
       return;
     }
 
@@ -370,12 +390,13 @@ class SearchController extends Notifier<SearchState> {
   }
 
   void _updateSearch(String value, {required bool debounce}) {
-    if (state.isUnavailable || state.isLoading) {
+    if (state.isUnavailable) {
       return;
     }
 
     final tab = state.selectedTab;
     state = state.copyWith(searchByTab: {...state.searchByTab, tab: value});
+    if (state.isLoading) return;
     _scheduleSearch(
       tab: tab,
       query: value,
@@ -385,13 +406,14 @@ class SearchController extends Notifier<SearchState> {
   }
 
   void clearSearch() {
-    if (state.isUnavailable || state.isLoading) {
+    if (state.isUnavailable) {
       return;
     }
 
     state = state.copyWith(
       searchByTab: {...state.searchByTab, state.selectedTab: ''},
     );
+    if (state.isLoading) return;
     _scheduleSearch(tab: state.selectedTab, query: '', allowEmpty: true);
   }
 
@@ -430,6 +452,7 @@ class SearchController extends Notifier<SearchState> {
         state.isCurrentSearchUnavailable ||
         state.isSearching ||
         state.isLoadingMoreCards ||
+        state.hasCardPageFailure ||
         !state.hasMoreCards) {
       return;
     }
@@ -439,7 +462,7 @@ class SearchController extends Notifier<SearchState> {
 
     final generation = ++_loadGeneration;
     final requestedPage = state.cardPage + 1;
-    state = state.copyWith(isLoadingMoreCards: true);
+    state = state.copyWith(isLoadingMoreCards: true, hasCardPageFailure: false);
     try {
       final items = await paginatedRepository.searchCardPage(
         state.searchText.trim(),
@@ -463,9 +486,20 @@ class SearchController extends Notifier<SearchState> {
       );
     } catch (_) {
       if (ref.mounted && generation == _loadGeneration) {
-        state = state.copyWith(isLoadingMoreCards: false);
+        state = state.copyWith(
+          isLoadingMoreCards: false,
+          hasCardPageFailure: true,
+        );
       }
     }
+  }
+
+  Future<void> retryNextCardPage() {
+    if (!state.hasCardPageFailure || state.selectedTab != SearchTab.cards) {
+      return Future<void>.value();
+    }
+    state = state.copyWith(hasCardPageFailure: false);
+    return loadNextCardPage();
   }
 
   Future<SearchCollectAction> toggleCollect(String cardId) async {
@@ -475,7 +509,10 @@ class SearchController extends Notifier<SearchState> {
     return toggleCollectCard(state.cardById(cardId));
   }
 
-  Future<SearchCollectAction> toggleCollectCard(SearchCard card) async {
+  Future<SearchCollectAction> toggleCollectCard(
+    SearchCard card, {
+    String? game,
+  }) async {
     if (state.isUnavailable ||
         state.isLoading ||
         state.assetStatus != KandoLoadStatus.content ||
@@ -483,135 +520,35 @@ class SearchController extends Notifier<SearchState> {
       return SearchCollectAction.ignored;
     }
     try {
-      return await _toggleCollect(resolveCard(card));
+      return await _toggleCollect(resolveCard(card), game: game);
     } finally {
       _pendingCardMutations.remove(card.id);
     }
   }
 
-  Future<SearchCollectAction> _toggleCollect(SearchCard card) async {
-    if (card.isCollected) {
-      final collectionItemCount = card.collectionItemCount > 0
-          ? card.collectionItemCount
-          : 1;
-
-      if (collectionItemCount > 1) {
-        return SearchCollectAction.openDetail;
-      }
-
-      final repository = ref.read(searchRepositoryProvider);
-      if (repository is SearchAssetRepository) {
-        final session = ref.read(searchSessionProvider);
-        final itemId = card.collectionItemId;
-        if (session == null || itemId == null) {
-          return SearchCollectAction.openDetail;
-        }
-        _replaceCard(
-          card.copyWith(
-            quantity: 0,
-            collectionItemCount: 0,
-            collectionItemId: null,
-            collectionInfo: null,
+  Future<SearchCollectAction> _toggleCollect(
+    SearchCard card, {
+    String? game,
+  }) async {
+    final requestedGame = game?.trim();
+    final added = ref
+        .read(pendingCollectionProvider.notifier)
+        .add(
+          PendingCollectionCard(
+            id: card.id,
+            name: card.name,
+            game: requestedGame == null || requestedGame.isEmpty
+                ? state.selectedGame.label
+                : requestedGame,
+            setName: card.setName,
+            metadataLine: card.metadataLine,
+            variantLine: card.variantLine,
+            imageUrl: card.imageUrl,
           ),
         );
-        try {
-          await repository.deleteCollectionItem(session, itemId);
-        } catch (_) {
-          _replaceCard(card);
-          return SearchCollectAction.ignored;
-        }
-        _resetAssets();
-        _invalidateAssetConsumers(card.id);
-        return SearchCollectAction.updated;
-      }
-      _replaceCard(
-        card.copyWith(
-          quantity: 0,
-          collectionItemCount: 0,
-          collectionItemId: null,
-          collectionInfo: null,
-        ),
-      );
-      _invalidateAssetConsumers(card.id);
-      return SearchCollectAction.updated;
-    }
-
-    final repository = ref.read(searchRepositoryProvider);
-    if (repository is SearchAssetRepository) {
-      final session = ref.read(searchSessionProvider);
-      final folderId = ref.read(selectedPortfolioFolderProvider);
-      if (session == null || folderId == null) {
-        return SearchCollectAction.ignored;
-      }
-      _replaceCard(
-        card.copyWith(
-          quantity: 1,
-          collectionItemCount: 1,
-          collectionItemId: null,
-          collectionInfo: card.type == SearchCardType.sealed
-              ? null
-              : 'Near Mint (NM)',
-          isWishlisted: false,
-          wishlistItemId: null,
-        ),
-      );
-      try {
-        final item = await repository.collect(
-          session,
-          card: card,
-          folderId: folderId,
-        );
-        if (card.wishlistItemId != null) {
-          await repository.deleteWishlist(session, card.wishlistItemId!);
-        }
-        final next = card.copyWith(
-          quantity: item.quantity,
-          collectionItemCount: 1,
-          collectionItemId: item.id,
-          collectionInfo: collectionItemInfo(item),
-          isWishlisted: false,
-          wishlistItemId: null,
-        );
-        _replaceCard(next);
-        _resetAssets();
-        _invalidateAssetConsumers(card.id);
-        return SearchCollectAction.updated;
-      } catch (error) {
-        final isDuplicate =
-            error is PortfolioApiException &&
-            error.code == duplicateCollectionItemErrorCode;
-        _resetAssets();
-        final synced = await _reloadAssetsAfterMutation(
-          card.id,
-          fallback: card,
-        );
-        if (isDuplicate) {
-          if (synced?.isCollected ?? false) {
-            _invalidateAssetConsumers(card.id);
-          } else {
-            _replaceCard(card);
-          }
-          return SearchCollectAction.duplicate;
-        }
-        if (synced?.isCollected ?? false) {
-          _invalidateAssetConsumers(card.id);
-          return SearchCollectAction.updated;
-        }
-        _replaceCard(card);
-        return SearchCollectAction.ignored;
-      }
-    }
-
-    final next = card.copyWith(
-      quantity: 1,
-      collectionItemCount: 1,
-      collectionInfo: card.type == SearchCardType.sealed
-          ? null
-          : 'Near Mint (NM)',
-      isWishlisted: false,
-    );
-    _replaceCard(next);
-    return SearchCollectAction.updated;
+    return added
+        ? SearchCollectAction.updated
+        : SearchCollectAction.limitReached;
   }
 
   Future<bool> toggleWishlist(String cardId) async {
@@ -695,6 +632,80 @@ class SearchController extends Notifier<SearchState> {
 
     final assets = _assetSnapshot?.statesByCardRef[card.id];
     return assets == null ? card : _cardWithAssets(card, assets);
+  }
+
+  void applySavedCollectionItems(Iterable<CardCollectionItem> savedItems) {
+    final itemsByCardRef = <String, List<CardCollectionItem>>{};
+    for (final item in savedItems) {
+      (itemsByCardRef[item.cardRef] ??= []).add(item);
+    }
+    if (itemsByCardRef.isEmpty) return;
+
+    _loadGeneration += 1;
+    _assetGeneration += 1;
+    _assetLoad = null;
+    final snapshot = _assetSnapshot;
+    final assetStates = snapshot == null ? null : {...snapshot.statesByCardRef};
+    final overrides = {...state.cardOverrides};
+
+    for (final entry in itemsByCardRef.entries) {
+      final catalogCard = state.catalog.cards
+          .where((card) => card.id == entry.key)
+          .firstOrNull;
+      if (catalogCard == null) continue;
+
+      final current = resolveCard(catalogCard);
+      final currentAssets = assetStates?[entry.key];
+      final itemIds = [
+        ...?currentAssets?.collectionItemIds,
+        if (currentAssets == null && current.collectionItemId != null)
+          current.collectionItemId!,
+      ];
+      final additions = [
+        for (final item in entry.value)
+          if (item.id.isEmpty || !itemIds.contains(item.id)) item,
+      ];
+      if (additions.isEmpty) continue;
+      for (final item in additions) {
+        if (item.id.isNotEmpty) itemIds.add(item.id);
+      }
+
+      final quantity =
+          current.quantity +
+          additions.fold<int>(0, (sum, item) => sum + item.quantity);
+      final itemCount = current.collectionItemCount + additions.length;
+      final collectionInfo = _collectionInfoWithSavedItems(
+        current.collectionInfo,
+        additions,
+      );
+      final updated = current.copyWith(
+        quantity: quantity,
+        collectionItemCount: itemCount,
+        collectionItemId: itemCount == 1 && itemIds.length == 1
+            ? itemIds.single
+            : null,
+        collectionInfo: collectionInfo,
+        isWishlisted: false,
+        wishlistItemId: null,
+      );
+      overrides[entry.key] = updated;
+      if (assetStates != null) {
+        assetStates[entry.key] = SearchCardAssetState(
+          quantity: quantity,
+          collectionItemIds: itemIds,
+          wishlistItemId: null,
+          collectionInfo: collectionInfo,
+        );
+      }
+    }
+
+    if (snapshot != null && assetStates != null) {
+      _assetSnapshot = SearchAssetSnapshot(
+        folderId: snapshot.folderId,
+        statesByCardRef: assetStates,
+      );
+    }
+    state = state.copyWith(cardOverrides: overrides);
   }
 
   void _scheduleSearch({
@@ -788,6 +799,7 @@ class SearchController extends Notifier<SearchState> {
     Set<SearchTab> failedSearchTabs = const {},
     int cardPage = 1,
     bool? hasMoreCards,
+    bool hasCardPageFailure = false,
     KandoLoadStatus? assetStatus,
   }) {
     final selectedTab = preserveState?.selectedTab ?? SearchTab.cards;
@@ -806,6 +818,7 @@ class SearchController extends Notifier<SearchState> {
       cardPage: cardPage,
       hasMoreCards: hasMoreCards ?? catalog.cards.length == kandoPageSize,
       isLoadingMoreCards: false,
+      hasCardPageFailure: hasCardPageFailure,
       assetStatus:
           assetStatus ?? preserveState?.assetStatus ?? KandoLoadStatus.content,
     );
@@ -854,8 +867,30 @@ class SearchController extends Notifier<SearchState> {
       final snapshot = await _loadAssetSnapshot(repository, session);
       return _catalogWithAssets(catalog, snapshot);
     } catch (_) {
-      return catalog;
+      return SearchCatalog(
+        games: catalog.games,
+        cards: [
+          for (final card in catalog.cards) _cardWithRetainedAssets(card),
+        ],
+        sets: catalog.sets,
+      );
     }
+  }
+
+  SearchCard _cardWithRetainedAssets(SearchCard card) {
+    final existing = state.catalog.cards
+        .where((item) => item.id == card.id)
+        .firstOrNull;
+    if (existing == null) return resolveCard(card);
+    final current = resolveCard(existing);
+    return card.copyWith(
+      quantity: current.quantity,
+      collectionItemCount: current.collectionItemCount,
+      collectionItemId: current.collectionItemId,
+      collectionInfo: current.collectionInfo,
+      isWishlisted: current.isWishlisted,
+      wishlistItemId: current.wishlistItemId,
+    );
   }
 
   Future<SearchAssetSnapshot> _loadAssetSnapshot(
@@ -871,17 +906,25 @@ class SearchController extends Notifier<SearchState> {
       selectedFolderId: ref.read(selectedPortfolioFolderProvider),
     );
     final generation = _assetGeneration;
-    _assetLoad = future.then((snapshot) {
-      if (generation == _assetGeneration) {
-        _assetSnapshot = snapshot;
+    _assetLoad = () async {
+      try {
+        final snapshot = await future;
+        if (generation == _assetGeneration) {
+          _assetSnapshot = snapshot;
+        }
+        if (ref.mounted && ref.read(selectedPortfolioFolderProvider) == null) {
+          ref
+              .read(selectedPortfolioFolderProvider.notifier)
+              .select(snapshot.folderId);
+        }
+        return snapshot;
+      } catch (error, stackTrace) {
+        if (generation == _assetGeneration) {
+          _assetLoad = null;
+        }
+        Error.throwWithStackTrace(error, stackTrace);
       }
-      if (ref.mounted && ref.read(selectedPortfolioFolderProvider) == null) {
-        ref
-            .read(selectedPortfolioFolderProvider.notifier)
-            .select(snapshot.folderId);
-      }
-      return snapshot;
-    });
+    }();
     return _assetLoad!;
   }
 
@@ -935,6 +978,7 @@ class SearchController extends Notifier<SearchState> {
         failedSearchTabs: state.failedSearchTabs,
         cardPage: state.cardPage,
         hasMoreCards: state.hasMoreCards,
+        hasCardPageFailure: state.hasCardPageFailure,
       );
       return fallback == null ? state.cardById(cardId) : resolveCard(fallback);
     } catch (_) {
@@ -943,7 +987,9 @@ class SearchController extends Notifier<SearchState> {
   }
 
   void _invalidateAssetConsumers(String cardId) {
-    ref.invalidate(homeControllerProvider);
+    unawaited(
+      ref.read(homeControllerProvider.notifier).refreshPreservingContent(),
+    );
     ref.invalidate(collectionControllerProvider);
     ref.invalidate(cardDetailControllerProvider(cardId));
   }
@@ -953,4 +999,29 @@ class SearchController extends Notifier<SearchState> {
         ? ref.read(searchSessionProvider)
         : null;
   }
+}
+
+String? _collectionInfoWithSavedItems(
+  String? current,
+  Iterable<CardCollectionItem> additions,
+) {
+  if (current == 'Mixed') return current;
+  final values = <String>{
+    if (current?.trim().isNotEmpty ?? false) current!.trim(),
+    for (final item in additions)
+      if (_collectionItemInfo(item) case final info?) info,
+  };
+  if (values.isEmpty) return null;
+  return values.length == 1 ? values.single : 'Mixed';
+}
+
+String? _collectionItemInfo(CardCollectionItem item) {
+  if (item.grader.trim().toLowerCase() == 'raw') {
+    final condition = item.condition?.trim();
+    return condition == null || condition.isEmpty ? null : condition;
+  }
+  final grader = item.grader.trim();
+  if (grader.isEmpty) return null;
+  final grade = item.grade?.trim();
+  return grade == null || grade.isEmpty ? grader : '$grader $grade';
 }

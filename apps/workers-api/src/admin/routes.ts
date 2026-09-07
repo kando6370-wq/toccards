@@ -9,9 +9,15 @@ import {
 import { Hono } from "hono";
 import type { Context, Next } from "hono";
 import type { Env } from "../env";
+import {
+  appleDatabaseEnvironments,
+  configuredProductIds,
+} from "../entitlements/apple-signed-data";
 import { getBearerToken, hasSigningSecret } from "../auth/http-auth";
 import { cardImageUrl } from "../card-image-url";
 import { createId } from "../id";
+import { countryDisplayName } from "./country-name";
+import { createXlsx } from "./xlsx";
 
 type AdminRole = "super_admin" | "operator";
 type AdminStatus = "active" | "disabled";
@@ -36,12 +42,23 @@ type AdminUserRow = {
   created_at: string;
 };
 
-type InstallationSourceRow = {
-  install_type: "anonymous";
+type InstallationSummaryRow = {
+  total_installations: number;
+  countries: number;
+  platforms: number;
+};
+
+type InstallationTrendRow = {
+  date: string;
+  total: number;
+};
+
+type InstallationAnalyticsRow = {
   uid: string;
-  platform: string;
+  date: string;
   country: string;
-  created_at: string;
+  platform: string;
+  installs: number;
 };
 
 type FeedbackTicketRow = {
@@ -58,6 +75,7 @@ type FeedbackTicketRow = {
 
 type ScanRecordRow = {
   id: string;
+  environment: "development" | "production";
   owner_type: string;
   owner_id: string;
   image_url: string | null;
@@ -125,6 +143,7 @@ const LEGACY_FEEDBACK_STATUS_MAP: Record<string, FeedbackStatus> = {
   closed: "processed",
 };
 const VALID_APP_VERSION_STATUSES = new Set<AppVersionStatus>(["enabled", "disabled"]);
+const VALID_APP_ENVIRONMENTS = new Set(["development", "production"]);
 const APP_VERSION_PLATFORMS: AppVersionPlatform[] = ["iOS", "Google"];
 const APP_VERSION_CONFIG_PREFIX = "admin.app_version.";
 const VERSION_PATTERN = /^\d+\.\d+\.\d+$/;
@@ -159,6 +178,32 @@ const VALIDATION_ERROR_RESPONSE = {
   error: { code: "VALIDATION_ERROR", message: "Invalid request." },
 } as const;
 
+const BILLING_LINKED_UIDS_SQL = `SELECT c.original_owner_id AS owner_id
+    WHERE NULLIF(c.original_owner_id, '') IS NOT NULL
+  UNION SELECT linked_session.owner_id
+    FROM billing_session_entitlement_grant linked_grant
+    JOIN session linked_session ON linked_session.id = linked_grant.session_id
+    WHERE linked_grant.purchase_chain_id = c.id`;
+const BILLING_UID_SQL = `(SELECT string_agg(owner_id, ',') FROM (${BILLING_LINKED_UIDS_SQL}) AS linked_owners)`;
+const BILLING_INSTALL_TIME_SQL = `(SELECT MIN(installation.first_seen_at)
+  FROM app_installation installation
+  WHERE installation.uid IN (${BILLING_LINKED_UIDS_SQL}))`;
+const BILLING_ORDER_TIME_SQL = `CASE WHEN t.business_status = 'refunded'
+  THEN COALESCE(t.refund_completed_at, t.purchase_at) ELSE t.purchase_at END`;
+const BILLING_TRANSACTION_FROM_SQL = `FROM billing_transaction t
+  JOIN billing_purchase_chain c ON c.id = t.purchase_chain_id`;
+const BILLING_TRANSACTION_SELECT_SQL = `SELECT t.id, ${BILLING_UID_SQL} AS uid,
+  c.original_transaction_id, t.transaction_id AS order_id,
+  t.storefront_country_code AS country, t.storefront_country_code AS country_code,
+  ${BILLING_INSTALL_TIME_SQL} AS install_time, ${BILLING_ORDER_TIME_SQL} AS order_time,
+  t.product_id AS sku, t.business_status AS order_status, c.status AS subscription_status,
+  t.auto_renew_snapshot AS auto_renew, t.environment, t.amount_micros, t.currency, t.amount_usd_micros,
+  t.charge_count, t.refund_completed_at,
+  (SELECT n.notification_type FROM apple_server_notification n
+    WHERE n.notification_uuid = t.source_notification_uuid LIMIT 1) AS notification_type,
+  (SELECT n.subtype FROM apple_server_notification n
+    WHERE n.notification_uuid = t.source_notification_uuid LIMIT 1) AS notification_subtype`;
+
 const SELECT_ADMIN_BY_EMAIL_SQL = `
   SELECT id, email, password_hash, role, status, created_at
   FROM admin_user
@@ -176,9 +221,9 @@ const SELECT_ADMIN_BY_ID_SQL = `
 const SELECT_ADMIN_PERMISSIONS_SQL = `
   SELECT id, email, password_hash, role, status, created_at
   FROM admin_user
-  WHERE (? IS NULL OR lower(email) LIKE '%' || ? || '%')
-    AND (? IS NULL OR status = ?)
-  ORDER BY created_at DESC
+  WHERE (CAST(? AS text) IS NULL OR lower(email) LIKE '%' || ? || '%')
+    AND (CAST(? AS text) IS NULL OR status = ?)
+  ORDER BY created_at DESC, id ASC
   LIMIT ? OFFSET ?
 `;
 
@@ -223,20 +268,20 @@ const ADMIN_USERS_FILTERED_SQL = `
       CASE WHEN u.status = 'active' THEN 'active' ELSE 'disabled' END AS status,
       COALESCE((
         SELECT ai.provider FROM auth_identity ai WHERE ai.user_id = u.id
-        ORDER BY CASE ai.provider WHEN 'google' THEN 1 WHEN 'apple' THEN 2 ELSE 3 END LIMIT 1
+        ORDER BY CASE ai.provider WHEN 'google' THEN 1 WHEN 'apple' THEN 2 ELSE 3 END, ai.id ASC LIMIT 1
       ), 'email') AS identity,
       COALESCE((
         SELECT sr.platform FROM scan_record sr
         WHERE sr.owner_type = 'user' AND sr.owner_id = u.id
-        ORDER BY sr.created_at DESC LIMIT 1
+        ORDER BY sr.created_at DESC, sr.id ASC LIMIT 1
       ), 'Unknown') AS platform,
       COALESCE((
         SELECT install.country_code FROM app_installation install
         WHERE install.uid = u.id
           AND NULLIF(TRIM(install.country_code), '') IS NOT NULL
-        ORDER BY install.last_seen_at DESC, install.first_seen_at DESC LIMIT 1
+        ORDER BY install.last_seen_at DESC, install.first_seen_at DESC, install.installation_id ASC LIMIT 1
       ), 'Unknown') AS country
-    FROM user u
+    FROM "user" u
     UNION ALL
     SELECT 'anonymous', a.id, NULL, a.device_id, a.created_at,
       CASE WHEN a.upgraded_user_id IS NULL THEN 'guest' ELSE 'upgraded' END,
@@ -244,42 +289,70 @@ const ADMIN_USERS_FILTERED_SQL = `
       COALESCE((
         SELECT sr.platform FROM scan_record sr
         WHERE sr.owner_type = 'anonymous' AND sr.owner_id = a.id
-        ORDER BY sr.created_at DESC LIMIT 1
+        ORDER BY sr.created_at DESC, sr.id ASC LIMIT 1
       ), 'Unknown'),
       COALESCE((
         SELECT install.country_code FROM app_installation install
         WHERE install.uid = a.id
           AND NULLIF(TRIM(install.country_code), '') IS NOT NULL
-        ORDER BY install.last_seen_at DESC, install.first_seen_at DESC LIMIT 1
+        ORDER BY install.last_seen_at DESC, install.first_seen_at DESC, install.installation_id ASC LIMIT 1
       ), 'Unknown')
     FROM anonymous_account a
   )
   SELECT * FROM accounts
-  WHERE (? IS NULL OR account_type = ?)
-    AND (? IS NULL OR lower(id) LIKE '%' || ? || '%' OR lower(COALESCE(email, device_id, '')) LIKE '%' || ? || '%')
-    AND (? IS NULL OR identity = ?)
-    AND (? IS NULL OR lower(platform) = ?)
-    AND (? IS NULL OR created_at >= ?)
-    AND (? IS NULL OR created_at <= ?)
+  WHERE (CAST(? AS text) IS NULL OR account_type = ?)
+    AND (CAST(? AS text) IS NULL OR lower(id) LIKE '%' || ? || '%' OR lower(COALESCE(email, device_id, '')) LIKE '%' || ? || '%')
+    AND (CAST(? AS text) IS NULL OR identity = ?)
+    AND (CAST(? AS text) IS NULL OR lower(platform) = ?)
+    AND (CAST(? AS text) IS NULL OR created_at >= ?)
+    AND (CAST(? AS text) IS NULL OR created_at <= ?)
 `;
 
 const SELECT_ADMIN_USERS_SQL = `${ADMIN_USERS_FILTERED_SQL}
-  ORDER BY created_at DESC
+  ORDER BY created_at DESC, account_type ASC, id ASC
   LIMIT ? OFFSET ?
 `;
 
 const COUNT_ADMIN_USERS_SQL = `SELECT COUNT(*) AS total FROM (${ADMIN_USERS_FILTERED_SQL})`;
 
-const SELECT_INSTALLATION_SOURCES_SQL = `
-  SELECT 'anonymous' AS install_type, uid, platform,
-    COALESCE(country_code, 'Unknown') AS country, first_seen_at AS created_at
+const INSTALLATION_FILTER_SQL = `
   FROM app_installation
-  ORDER BY first_seen_at ASC
+  WHERE (CAST(? AS text) IS NULL OR substr(first_seen_at, 1, 10) >= ?)
+    AND (CAST(? AS text) IS NULL OR substr(first_seen_at, 1, 10) <= ?)
+    AND (CAST(? AS text) IS NULL OR lower(COALESCE(NULLIF(platform, ''), 'Unknown')) = ?)
+    AND (CAST(? AS text) IS NULL OR lower(COALESCE(NULLIF(country_code, ''), 'Unknown')) = ?)
+`;
+
+const SELECT_INSTALLATION_SUMMARY_SQL = `
+  SELECT COUNT(*) AS total_installations,
+    COUNT(DISTINCT COALESCE(NULLIF(country_code, ''), 'Unknown')) AS countries,
+    COUNT(DISTINCT COALESCE(NULLIF(platform, ''), 'Unknown')) AS platforms
+  ${INSTALLATION_FILTER_SQL}
+`;
+
+const SELECT_INSTALLATION_TREND_SQL = `
+  SELECT substr(first_seen_at, 1, 10) AS date, COUNT(*) AS total
+  ${INSTALLATION_FILTER_SQL}
+  GROUP BY substr(first_seen_at, 1, 10)
+  ORDER BY date ASC
+`;
+
+const SELECT_INSTALLATION_ROWS_SQL = `
+  SELECT uid, substr(first_seen_at, 1, 10) AS date,
+    COALESCE(NULLIF(country_code, ''), 'Unknown') AS country,
+    COALESCE(NULLIF(platform, ''), 'Unknown') AS platform,
+    COUNT(*) AS installs
+  ${INSTALLATION_FILTER_SQL}
+  GROUP BY uid, substr(first_seen_at, 1, 10),
+    COALESCE(NULLIF(country_code, ''), 'Unknown'),
+    COALESCE(NULLIF(platform, ''), 'Unknown')
+  ORDER BY date DESC, uid ASC, country ASC, platform ASC
+  LIMIT ? OFFSET ?
 `;
 
 const SELECT_USER_DETAIL_SQL = `
   SELECT id, email, display_name, created_at, updated_at, status, deleted_at
-  FROM user
+  FROM "user"
   WHERE id = ?
   LIMIT 1
 `;
@@ -292,15 +365,15 @@ const SELECT_ANONYMOUS_DETAIL_SQL = `
 `;
 
 const DISABLE_USER_SQL = `
-  UPDATE user SET status = 'disabled', updated_at = ?
+  UPDATE "user" SET status = 'disabled', updated_at = ?
   WHERE id = ? AND status = 'active'
 `;
 
 const SELECT_FEEDBACKS_SQL = `
   SELECT id, uid, email, types, functions, message, status, created_at, updated_at
   FROM feedback_ticket
-  WHERE (? IS NULL OR status = ?)
-  ORDER BY created_at DESC
+  WHERE (CAST(? AS text) IS NULL OR status = ?)
+  ORDER BY created_at DESC, id ASC
   LIMIT ? OFFSET ?
 `;
 
@@ -323,37 +396,39 @@ const SELECT_APP_CONFIG_SQL = `
 `;
 
 const SELECT_SCAN_RECORDS_SQL = `
-  SELECT id, owner_type, owner_id, image_url, filename, platform, app_version,
+  SELECT id, environment, owner_type, owner_id, image_url, filename, platform, app_version,
     device_model, os_version, recognition_status, user_confirmation_status,
     modified_result, system_result, user_result, candidates, created_at
   FROM scan_record
-  WHERE (? IS NULL OR lower(owner_id) LIKE '%' || ? || '%')
-    AND (? IS NULL OR lower(platform) = ?)
-    AND (? IS NULL OR lower(app_version) = ?)
-    AND (? IS NULL OR recognition_status = ?)
-    AND (? IS NULL OR user_confirmation_status = ?)
-    AND (? IS NULL OR modified_result = ?)
-    AND (? IS NULL OR created_at >= ?)
-    AND (? IS NULL OR created_at <= ?)
-  ORDER BY created_at DESC
+  WHERE (CAST(? AS text) IS NULL OR lower(owner_id) LIKE '%' || ? || '%')
+    AND (CAST(? AS text) IS NULL OR lower(platform) = ?)
+    AND (CAST(? AS text) IS NULL OR lower(app_version) = ?)
+    AND (CAST(? AS text) IS NULL OR environment = ?)
+    AND (CAST(? AS text) IS NULL OR recognition_status = ?)
+    AND (CAST(? AS text) IS NULL OR user_confirmation_status = ?)
+    AND (CAST(? AS integer) IS NULL OR modified_result = ?)
+    AND (CAST(? AS text) IS NULL OR created_at >= ?)
+    AND (CAST(? AS text) IS NULL OR created_at <= ?)
+  ORDER BY created_at DESC, id ASC
   LIMIT ? OFFSET ?
 `;
 
 const COUNT_SCAN_RECORDS_SQL = `
   SELECT COUNT(*) AS total
   FROM scan_record
-  WHERE (? IS NULL OR lower(owner_id) LIKE '%' || ? || '%')
-    AND (? IS NULL OR lower(platform) = ?)
-    AND (? IS NULL OR lower(app_version) = ?)
-    AND (? IS NULL OR recognition_status = ?)
-    AND (? IS NULL OR user_confirmation_status = ?)
-    AND (? IS NULL OR modified_result = ?)
-    AND (? IS NULL OR created_at >= ?)
-    AND (? IS NULL OR created_at <= ?)
+  WHERE (CAST(? AS text) IS NULL OR lower(owner_id) LIKE '%' || ? || '%')
+    AND (CAST(? AS text) IS NULL OR lower(platform) = ?)
+    AND (CAST(? AS text) IS NULL OR lower(app_version) = ?)
+    AND (CAST(? AS text) IS NULL OR environment = ?)
+    AND (CAST(? AS text) IS NULL OR recognition_status = ?)
+    AND (CAST(? AS text) IS NULL OR user_confirmation_status = ?)
+    AND (CAST(? AS integer) IS NULL OR modified_result = ?)
+    AND (CAST(? AS text) IS NULL OR created_at >= ?)
+    AND (CAST(? AS text) IS NULL OR created_at <= ?)
 `;
 
 const SELECT_SCAN_RECORD_BY_ID_SQL = `
-  SELECT id, owner_type, owner_id, image_url, filename, platform, app_version,
+  SELECT id, environment, owner_type, owner_id, image_url, filename, platform, app_version,
     device_model, os_version, recognition_status, user_confirmation_status,
     modified_result, system_result, user_result, candidates, created_at
   FROM scan_record
@@ -370,40 +445,12 @@ const UPSERT_APP_CONFIG_SQL = `
     updated_at = excluded.updated_at
 `;
 
-const SELECT_TRENDING_PINS_SQL = `
-  SELECT id, card_ref, rank, active, updated_by, updated_at
-  FROM trending_pin
-  ORDER BY rank ASC
-`;
-
-const SELECT_TRENDING_PIN_BY_ID_SQL = `
-  SELECT id, card_ref, rank, active, updated_by, updated_at
-  FROM trending_pin
-  WHERE id = ?
-  LIMIT 1
-`;
-
-const INSERT_TRENDING_PIN_SQL = `
-  INSERT INTO trending_pin (id, card_ref, rank, active, updated_by, updated_at)
-  VALUES (?, ?, ?, ?, ?, ?)
-`;
-
-const UPDATE_TRENDING_PIN_SQL = `
-  UPDATE trending_pin SET rank = ?, active = ?, updated_by = ?, updated_at = ?
-  WHERE id = ?
-`;
-
-const DELETE_TRENDING_PIN_SQL = `
-  DELETE FROM trending_pin
-  WHERE id = ?
-`;
-
 const SELECT_CARD_OVERRIDES_SQL = `
   SELECT id, card_ref, override_fields, image_url, is_missing_card, updated_by, updated_at
   FROM card_override
-  WHERE (? IS NULL OR is_missing_card = ?)
-    AND (? IS NULL OR lower(card_ref) LIKE '%' || ? || '%')
-  ORDER BY updated_at DESC
+  WHERE (CAST(? AS integer) IS NULL OR is_missing_card = ?)
+    AND (CAST(? AS text) IS NULL OR lower(card_ref) LIKE '%' || ? || '%')
+  ORDER BY updated_at DESC, id ASC
   LIMIT ? OFFSET ?
 `;
 
@@ -425,6 +472,16 @@ const INSERT_CARD_OVERRIDE_SQL = `
   INSERT INTO card_override
     (id, card_ref, override_fields, image_url, is_missing_card, updated_by, updated_at)
   VALUES (?, ?, ?, ?, ?, ?, ?)
+`;
+
+const UPSERT_CARD_OVERRIDE_IMAGE_SQL = `
+  INSERT INTO card_override
+    (id, card_ref, override_fields, image_url, is_missing_card, updated_by, updated_at)
+  VALUES (?, ?, NULL, ?, 0, ?, ?)
+  ON CONFLICT(card_ref) DO UPDATE SET
+    image_url = excluded.image_url,
+    updated_by = excluded.updated_by,
+    updated_at = excluded.updated_at
 `;
 
 const UPDATE_CARD_OVERRIDE_SQL = `
@@ -603,34 +660,223 @@ adminRoutes.get("/analytics/installations", async (c) => {
   const country = normalizeQuery(c.req.query("country"));
   const environment = normalizeQuery(c.req.query("environment"));
   const offset = (page - 1) * pageSize;
+  const currentEnvironment = c.env.APP_ENVIRONMENT ?? "production";
 
-  const { results = [] } = await c.env.DB.prepare(SELECT_INSTALLATION_SOURCES_SQL)
-    .all<InstallationSourceRow>();
-  const installs = results
-    .map((row) =>
-      toInstallationRecord(row, c.env.APP_ENVIRONMENT ?? "production"),
-    )
-    .filter((item) => isWithinDateRange(item.date, dateFrom, dateTo))
-    .filter((item) => !platform || item.platform.toLowerCase() === platform)
-    .filter((item) => !country || item.country.toLowerCase() === country)
-    .filter((item) => !environment || item.environment.toLowerCase() === environment);
-  const trend = buildInstallationTrend(installs, dateFrom, dateTo);
-  const rows = buildInstallationRows(installs);
+  if (environment && environment !== currentEnvironment) {
+    return c.json({
+      success: true,
+      data: {
+        summary: { total_installations: 0, countries: 0, platforms: 0 },
+        trend: buildInstallationTrend([], dateFrom, dateTo),
+        rows: [],
+        page,
+        page_size: pageSize,
+      },
+    });
+  }
+
+  const filterBindings = [
+    dateFrom, dateFrom,
+    dateTo, dateTo,
+    platform, platform,
+    country, country,
+  ];
+  const [summaryResult, trendResult, rowsResult] = await c.env.DB.batch([
+    c.env.DB.prepare(SELECT_INSTALLATION_SUMMARY_SQL).bind(...filterBindings),
+    c.env.DB.prepare(SELECT_INSTALLATION_TREND_SQL).bind(...filterBindings),
+    c.env.DB.prepare(SELECT_INSTALLATION_ROWS_SQL).bind(
+      ...filterBindings,
+      pageSize,
+      offset,
+    ),
+  ]);
+  const summary = summaryResult?.results?.[0] as InstallationSummaryRow | undefined;
+  const trendRows = (trendResult?.results ?? []) as InstallationTrendRow[];
+  const rows = (rowsResult?.results ?? []) as InstallationAnalyticsRow[];
 
   return c.json({
     success: true,
     data: {
       summary: {
-        total_installations: installs.length,
-        countries: new Set(installs.map((item) => item.country)).size,
-        platforms: new Set(installs.map((item) => item.platform)).size,
+        total_installations: Number(summary?.total_installations ?? 0),
+        countries: Number(summary?.countries ?? 0),
+        platforms: Number(summary?.platforms ?? 0),
       },
-      trend,
-      rows: rows.slice(offset, offset + pageSize),
+      trend: buildInstallationTrend(trendRows, dateFrom, dateTo),
+      rows: rows.map((row) => ({ ...row, environment: currentEnvironment })),
       page,
       page_size: pageSize,
     },
   });
+});
+
+adminRoutes.get("/billing/transactions/options", async (c) => {
+  const scope = appleBillingAdminScope(c.env);
+  if (!scope) return c.json(INTERNAL_ERROR_RESPONSE, 500);
+  const [countries, skus] = await Promise.all([
+    bindAdminQuery(c.env.DB, `SELECT DISTINCT storefront_country_code AS value FROM billing_transaction
+      WHERE source_notification_uuid IS NOT NULL
+        AND ${scope.sql}
+        AND NULLIF(TRIM(storefront_country_code), '') IS NOT NULL ORDER BY value`, scope.bindings).all<{ value: string }>(),
+    bindAdminQuery(c.env.DB, `SELECT DISTINCT product_id AS value FROM billing_transaction
+      WHERE source_notification_uuid IS NOT NULL
+        AND ${scope.sql}
+        AND NULLIF(TRIM(product_id), '') IS NOT NULL ORDER BY value`, scope.bindings).all<{ value: string }>(),
+  ]);
+  return c.json({ success: true, data: {
+    countries: (countries.results ?? []).map((row) => row.value),
+    skus: (skus.results ?? []).map((row) => row.value),
+  } });
+});
+
+adminRoutes.get("/billing/transactions/export", async (c) => {
+  const scope = appleBillingAdminScope(c.env, "t");
+  if (!scope) return c.json(INTERNAL_ERROR_RESPONSE, 500);
+  const query = billingTransactionQuery((name) => c.req.query(name), scope);
+  if (query.error) return c.json(VALIDATION_ERROR_RESPONSE, 422);
+  const total = await bindAdminQuery(c.env.DB,
+    `SELECT COUNT(*) AS total ${BILLING_TRANSACTION_FROM_SQL} ${query.where}`, query.bindings)
+    .first<{ total: number }>();
+  if ((total?.total ?? 0) === 0) return c.json(NOT_FOUND_RESPONSE, 404);
+  if ((total?.total ?? 0) > 10_000) {
+    return c.json({ success: false, error: { code: "EXPORT_LIMIT_EXCEEDED", message: "Export is limited to 10,000 rows." } }, 422);
+  }
+  const rows = await bindAdminQuery(c.env.DB,
+    `${BILLING_TRANSACTION_SELECT_SQL} ${BILLING_TRANSACTION_FROM_SQL} ${query.where}
+      ORDER BY order_time DESC, t.created_at DESC, t.id ASC`, query.bindings).all<Record<string, unknown>>();
+  const headers = ["UID", "原始交易 ID", "订单 ID", "国家/地区", "国家/地区代码", "安装时间（UTC+0）",
+    "订单时间（UTC+0）", "SKU", "订单状态", "当前订阅状态", "自动续订", "环境", "原始金额数值",
+    "原始币种", "金额（USD）", "扣款次数", "退款完成时间", "Apple 主通知类型", "Apple 子通知类型"];
+  const workbook = createXlsx(headers, (rows.results ?? []).map((row) => [
+    row.uid, row.original_transaction_id, row.order_id, countryDisplayName(row.country_code), row.country_code,
+    row.install_time, row.order_time, row.sku, row.order_status, row.subscription_status,
+    row.auto_renew, row.environment, microsToDecimal(row.amount_micros), row.currency,
+    microsToDecimal(row.amount_usd_micros), row.charge_count, row.refund_completed_at,
+    row.notification_type, row.notification_subtype,
+  ]));
+  return new Response(workbook, { headers: {
+    "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "Content-Disposition": `attachment; filename="billing-orders-${new Date().toISOString().slice(0, 10)}.xlsx"`,
+  } });
+});
+
+adminRoutes.get("/billing/transactions", async (c) => {
+  const page = readPositiveInt(c.req.query("page"), 1);
+  const pageSize = Math.min(readPositiveInt(c.req.query("page_size"), 20), 100);
+  const scope = appleBillingAdminScope(c.env, "t");
+  if (!scope) return c.json(INTERNAL_ERROR_RESPONSE, 500);
+  const query = billingTransactionQuery((name) => c.req.query(name), scope);
+  if (query.error) return c.json(VALIDATION_ERROR_RESPONSE, 422);
+  const rows = await bindAdminQuery(c.env.DB,
+    `${BILLING_TRANSACTION_SELECT_SQL} ${BILLING_TRANSACTION_FROM_SQL} ${query.where}
+      ORDER BY order_time DESC, t.created_at DESC, t.id ASC LIMIT ? OFFSET ?`,
+    [...query.bindings, pageSize, (page - 1) * pageSize]).all();
+  const count = await bindAdminQuery(c.env.DB,
+    `SELECT COUNT(*) AS total ${BILLING_TRANSACTION_FROM_SQL} ${query.where}`, query.bindings)
+    .first<{ total: number }>();
+  return c.json({ success: true, data: { items: rows.results ?? [], total: count?.total ?? 0, page, page_size: pageSize } });
+});
+
+adminRoutes.get("/apple-notifications", async (c) => {
+  const page = readPositiveInt(c.req.query("page"), 1);
+  const pageSize = Math.min(readPositiveInt(c.req.query("page_size"), 20), 100);
+  const scope = appleNotificationAdminScope(c.env);
+  if (!scope) return c.json(INTERNAL_ERROR_RESPONSE, 500);
+  const conditions: string[] = [scope.sql];
+  const bindings: unknown[] = [...scope.bindings];
+  addExactCondition(conditions, bindings, "n.original_transaction_id", c.req.query("original_transaction_id"));
+  addExactCondition(conditions, bindings, "n.transaction_id", c.req.query("order_id"));
+  const uid = normalizeQuery(c.req.query("uid"));
+  if (uid) {
+    conditions.push(`EXISTS (SELECT 1 FROM billing_purchase_chain matched_chain
+      WHERE matched_chain.original_transaction_id = n.original_transaction_id
+        AND matched_chain.environment = n.environment
+        AND (LOWER(matched_chain.original_owner_id) = ? OR EXISTS (
+          SELECT 1 FROM billing_session_entitlement_grant matched_grant
+          JOIN session matched_session ON matched_session.id = matched_grant.session_id
+          WHERE matched_grant.purchase_chain_id = matched_chain.id
+            AND LOWER(matched_session.owner_id) = ?)))`);
+    bindings.push(uid);
+    bindings.push(uid);
+  }
+  addListCondition(conditions, bindings, "n.notification_type", c.req.query("notification_type"));
+  addListCondition(conditions, bindings, "n.subtype", c.req.query("subtype"));
+  addExactCondition(conditions, bindings, "inbox.environment", c.req.query("environment"));
+  const createdFrom = readDateBoundary(c.req.query("created_from"), false);
+  const createdTo = readDateBoundary(c.req.query("created_to"), true);
+  if (createdFrom === "invalid" || createdTo === "invalid" || invalidDateRange(createdFrom, createdTo)) {
+    return c.json(VALIDATION_ERROR_RESPONSE, 422);
+  }
+  if (createdFrom) { conditions.push("inbox.received_at >= ?"); bindings.push(createdFrom); }
+  if (createdTo) { conditions.push("inbox.received_at <= ?"); bindings.push(createdTo); }
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const rows = await bindAdminQuery(c.env.DB, `SELECT inbox.id, COALESCE(n.notification_uuid, inbox.id) AS detail_id,
+      n.notification_type, n.subtype, inbox.environment, n.original_transaction_id,
+      n.transaction_id, n.product_id AS sku, inbox.processing_status, inbox.received_at,
+      (SELECT string_agg(owner_id, ',') FROM (
+        SELECT linked_chain.original_owner_id AS owner_id
+        FROM billing_purchase_chain linked_chain
+        WHERE linked_chain.original_transaction_id = n.original_transaction_id
+          AND linked_chain.environment = n.environment
+          AND NULLIF(linked_chain.original_owner_id, '') IS NOT NULL
+        UNION SELECT linked_session.owner_id
+        FROM billing_purchase_chain linked_chain
+        JOIN billing_session_entitlement_grant linked_grant ON linked_grant.purchase_chain_id = linked_chain.id
+        JOIN session linked_session ON linked_session.id = linked_grant.session_id
+        WHERE linked_chain.original_transaction_id = n.original_transaction_id
+          AND linked_chain.environment = n.environment
+      ) AS linked_owners) AS uids
+    FROM apple_notification_inbox inbox
+    LEFT JOIN apple_server_notification n ON n.inbox_id = inbox.id ${where}
+    ORDER BY inbox.received_at DESC, inbox.id ASC LIMIT ? OFFSET ?`,
+    [...bindings, pageSize, (page - 1) * pageSize]).all();
+  const count = await bindAdminQuery(c.env.DB,
+    `SELECT COUNT(*) AS total FROM apple_notification_inbox inbox
+      LEFT JOIN apple_server_notification n ON n.inbox_id = inbox.id ${where}`, bindings).first<{ total: number }>();
+  return c.json({ success: true, data: { items: rows.results ?? [], total: count?.total ?? 0, page, page_size: pageSize } });
+});
+
+adminRoutes.get("/apple-notifications/options", async (c) => {
+  const scope = appleNotificationAdminScope(c.env);
+  if (!scope) return c.json(INTERNAL_ERROR_RESPONSE, 500);
+  const rows = await c.env.DB.prepare(`SELECT DISTINCT n.notification_type, n.subtype
+    FROM apple_server_notification n
+    JOIN apple_notification_inbox inbox ON inbox.id = n.inbox_id
+    WHERE ${scope.sql}
+    ORDER BY n.notification_type, n.subtype`).bind(...scope.bindings).all<{
+      notification_type: string; subtype: string | null;
+    }>();
+  return c.json({ success: true, data: { items: rows.results ?? [] } });
+});
+
+adminRoutes.get("/apple-notifications/:detailId", async (c) => {
+  const scope = appleNotificationAdminScope(c.env);
+  if (!scope) return c.json(INTERNAL_ERROR_RESPONSE, 500);
+  const row = await c.env.DB.prepare(`SELECT inbox.id, inbox.processing_status, inbox.last_error,
+      inbox.received_at, n.notification_type, n.subtype, inbox.environment,
+      n.original_transaction_id, n.transaction_id, n.product_id AS sku, n.decoded_payload,
+      (SELECT string_agg(owner_id, ',') FROM (
+        SELECT linked_chain.original_owner_id AS owner_id
+        FROM billing_purchase_chain linked_chain
+        WHERE linked_chain.original_transaction_id = n.original_transaction_id
+          AND linked_chain.environment = n.environment
+          AND NULLIF(linked_chain.original_owner_id, '') IS NOT NULL
+        UNION SELECT linked_session.owner_id
+        FROM billing_purchase_chain linked_chain
+        JOIN billing_session_entitlement_grant linked_grant ON linked_grant.purchase_chain_id = linked_chain.id
+        JOIN session linked_session ON linked_session.id = linked_grant.session_id
+        WHERE linked_chain.original_transaction_id = n.original_transaction_id
+          AND linked_chain.environment = n.environment
+      ) AS linked_owners) AS uids
+    FROM apple_notification_inbox inbox
+    LEFT JOIN apple_server_notification n ON n.inbox_id = inbox.id
+    WHERE ${scope.sql} AND (inbox.id = ? OR n.notification_uuid = ?) LIMIT 1`)
+    .bind(
+      ...scope.bindings,
+      c.req.param("detailId"),
+      c.req.param("detailId"),
+    ).first();
+  return row ? c.json({ success: true, data: row }) : c.json(NOT_FOUND_RESPONSE, 404);
 });
 
 adminRoutes.get("/users", async (c) => {
@@ -747,12 +993,17 @@ adminRoutes.get("/scans", async (c) => {
   const uid = normalizeQuery(c.req.query("uid"));
   const platform = normalizeQuery(c.req.query("platform"));
   const appVersion = normalizeQuery(c.req.query("app_version"));
+  const environment = normalizeQuery(c.req.query("environment"));
   const recognitionStatus = normalizeQuery(c.req.query("recognition_status"));
   const confirmationStatus = normalizeQuery(c.req.query("user_confirmation_status"));
   const modifiedResult = readBooleanQuery(c.req.query("modified_result"));
   const dateFrom = readDateBoundary(c.req.query("date_from"), false);
   const dateTo = readDateBoundary(c.req.query("date_to"), true);
-  if (dateFrom === "invalid" || dateTo === "invalid") {
+  if (
+    dateFrom === "invalid"
+    || dateTo === "invalid"
+    || (environment !== null && !VALID_APP_ENVIRONMENTS.has(environment))
+  ) {
     return c.json(VALIDATION_ERROR_RESPONSE, 422);
   }
   const modifiedResultValue = modifiedResult === null ? null : modifiedResult ? 1 : 0;
@@ -764,6 +1015,8 @@ adminRoutes.get("/scans", async (c) => {
       platform,
       appVersion,
       appVersion,
+      environment,
+      environment,
       recognitionStatus,
       recognitionStatus,
       confirmationStatus,
@@ -945,48 +1198,6 @@ adminRoutes.patch("/app-config/:key", async (c) => {
   return c.json({ success: true, data: row ?? { key, value: input.value } });
 });
 
-adminRoutes.get("/trending-pins", async (c) => {
-  const { results = [] } = await c.env.DB.prepare(SELECT_TRENDING_PINS_SQL).all();
-  return c.json({ success: true, data: { items: results } });
-});
-
-adminRoutes.post("/trending-pins", async (c) => {
-  const input = await readJsonObject(c.req);
-  const cardRef = readRequiredString(input.card_ref);
-  const rank = readPositiveInt(input.rank, 0);
-  const active = input.active === false ? 0 : 1;
-  if (!cardRef || rank <= 0) return c.json(VALIDATION_ERROR_RESPONSE, 422);
-
-  const id = createId();
-  await c.env.DB.prepare(INSERT_TRENDING_PIN_SQL)
-    .bind(id, cardRef, rank, active, c.get("admin").admin_id, new Date().toISOString())
-    .run();
-  const row = await c.env.DB.prepare(SELECT_TRENDING_PIN_BY_ID_SQL).bind(id).first();
-  return c.json({ success: true, data: row });
-});
-
-adminRoutes.patch("/trending-pins/:pinId", async (c) => {
-  const input = await readJsonObject(c.req);
-  const rank = readPositiveInt(input.rank, 0);
-  const active = input.active === false ? 0 : 1;
-  if (rank <= 0) return c.json(VALIDATION_ERROR_RESPONSE, 422);
-
-  const id = c.req.param("pinId");
-  await c.env.DB.prepare(UPDATE_TRENDING_PIN_SQL)
-    .bind(rank, active, c.get("admin").admin_id, new Date().toISOString(), id)
-    .run();
-  const row = await c.env.DB.prepare(SELECT_TRENDING_PIN_BY_ID_SQL).bind(id).first();
-  return row ? c.json({ success: true, data: row }) : c.json(NOT_FOUND_RESPONSE, 404);
-});
-
-adminRoutes.delete("/trending-pins/:pinId", async (c) => {
-  if (c.get("admin").role !== "super_admin") {
-    return c.json(FORBIDDEN_RESPONSE, 403);
-  }
-  await c.env.DB.prepare(DELETE_TRENDING_PIN_SQL).bind(c.req.param("pinId")).run();
-  return c.json({ success: true, data: {} });
-});
-
 adminRoutes.get("/card-overrides", async (c) => {
   const page = readPositiveInt(c.req.query("page"), 1);
   const pageSize = Math.min(readPositiveInt(c.req.query("page_size"), 20), 100);
@@ -1041,27 +1252,11 @@ adminRoutes.post("/card-overrides/image-upload", async (c) => {
   const imageUrl = readRequiredString(input.image_url);
   if (!cardRef || !imageUrl) return c.json(VALIDATION_ERROR_RESPONSE, 422);
 
-  const existing = await c.env.DB.prepare(SELECT_CARD_OVERRIDE_BY_REF_SQL)
-    .bind(cardRef)
-    .first();
-
-  if (isRecord(existing) && typeof existing.id === "string") {
-    await updateCardOverride(c, existing.id, {
-      override_fields: existing.override_fields ?? null,
-      image_url: imageUrl,
-      is_missing_card: existing.is_missing_card ?? 0,
-    });
-    const row = await c.env.DB.prepare(SELECT_CARD_OVERRIDE_BY_ID_SQL)
-      .bind(existing.id)
-      .first();
-    return c.json({ success: true, data: row });
-  }
-
   const id = createId();
-  await c.env.DB.prepare(INSERT_CARD_OVERRIDE_SQL)
-    .bind(id, cardRef, null, imageUrl, 0, c.get("admin").admin_id, new Date().toISOString())
+  await c.env.DB.prepare(UPSERT_CARD_OVERRIDE_IMAGE_SQL)
+    .bind(id, cardRef, imageUrl, c.get("admin").admin_id, new Date().toISOString())
     .run();
-  const row = await c.env.DB.prepare(SELECT_CARD_OVERRIDE_BY_ID_SQL).bind(id).first();
+  const row = await c.env.DB.prepare(SELECT_CARD_OVERRIDE_BY_REF_SQL).bind(cardRef).first();
   return c.json({ success: true, data: row });
 });
 
@@ -1213,6 +1408,108 @@ function readDateOnly(value: string | undefined): string | null {
   return Number.isNaN(Date.parse(`${value}T00:00:00.000Z`)) ? null : value;
 }
 
+function bindAdminQuery(db: D1Database, sql: string, bindings: unknown[]): D1PreparedStatement {
+  const statement = db.prepare(sql);
+  return bindings.length ? statement.bind(...bindings) : statement;
+}
+
+function appleNotificationAdminScope(
+  env: Pick<Env, "APP_ENVIRONMENT" | "APPLE_IAP_BUNDLE_ID">,
+): { sql: string; bindings: string[] } | null {
+  const appBundleId = env.APPLE_IAP_BUNDLE_ID?.trim();
+  if (!appBundleId) return null;
+  const environments = appleDatabaseEnvironments(env);
+  return {
+    sql: `inbox.app_bundle_id = ? AND inbox.environment IN (${environments.map(() => "?").join(", ")})`,
+    bindings: [appBundleId, ...environments],
+  };
+}
+
+function appleBillingAdminScope(
+  env: Pick<Env, "APP_ENVIRONMENT" | "APPLE_IAP_PRODUCT_IDS">,
+  alias?: string,
+): { sql: string; bindings: string[] } | null {
+  const products = configuredProductIds(env.APPLE_IAP_PRODUCT_IDS);
+  if (!products) return null;
+  const environments = appleDatabaseEnvironments(env);
+  const column = (name: string) => alias ? `${alias}.${name}` : name;
+  return {
+    sql: `${column("product_id")} IN (${[...products].map(() => "?").join(", ")}) AND ${column("environment")} IN (${environments.map(() => "?").join(", ")})`,
+    bindings: [...products, ...environments],
+  };
+}
+
+type BillingTransactionQuery = { where: string; bindings: unknown[]; error: boolean };
+
+function billingTransactionQuery(
+  read: (name: string) => string | undefined,
+  scope: { sql: string; bindings: string[] },
+): BillingTransactionQuery {
+  const conditions = ["t.source_notification_uuid IS NOT NULL", scope.sql];
+  const bindings: unknown[] = [...scope.bindings];
+  const uid = normalizeQuery(read("uid"));
+  if (uid) {
+    conditions.push(`EXISTS (SELECT 1 FROM (${BILLING_LINKED_UIDS_SQL}) linked_uid
+      WHERE LOWER(linked_uid.owner_id) = ?)`);
+    bindings.push(uid);
+  }
+  addExactCondition(conditions, bindings, "t.transaction_id", read("order_id"));
+  addListCondition(conditions, bindings, "t.storefront_country_code", read("country"));
+  addListCondition(conditions, bindings, "t.product_id", read("sku"));
+  addListCondition(conditions, bindings, "t.business_status", read("status"));
+  addListCondition(conditions, bindings, "c.status", read("subscription_status"));
+  addExactCondition(conditions, bindings, "t.environment", read("environment"));
+  const autoRenew = read("auto_renew");
+  if (autoRenew && autoRenew !== "true" && autoRenew !== "false") {
+    return { where: "", bindings: [], error: true };
+  }
+  if (autoRenew === "true" || autoRenew === "false") {
+    conditions.push("t.auto_renew_snapshot = ?");
+    bindings.push(autoRenew === "true" ? 1 : 0);
+  }
+  const installFrom = readDateBoundary(read("install_from"), false);
+  const installTo = readDateBoundary(read("install_to"), true);
+  const orderFrom = readDateBoundary(read("purchase_from"), false);
+  const orderTo = readDateBoundary(read("purchase_to"), true);
+  if ([installFrom, installTo, orderFrom, orderTo].includes("invalid") ||
+      invalidDateRange(installFrom, installTo) || invalidDateRange(orderFrom, orderTo)) {
+    return { where: "", bindings: [], error: true };
+  }
+  if (installFrom) { conditions.push(`${BILLING_INSTALL_TIME_SQL} >= ?`); bindings.push(installFrom); }
+  if (installTo) { conditions.push(`${BILLING_INSTALL_TIME_SQL} <= ?`); bindings.push(installTo); }
+  if (orderFrom) { conditions.push(`${BILLING_ORDER_TIME_SQL} >= ?`); bindings.push(orderFrom); }
+  if (orderTo) { conditions.push(`${BILLING_ORDER_TIME_SQL} <= ?`); bindings.push(orderTo); }
+  const chargeCount = read("charge_count");
+  if (chargeCount) {
+    if (chargeCount === "5_plus") conditions.push("t.charge_count >= 5");
+    else if (/^[0-4]$/.test(chargeCount)) { conditions.push("t.charge_count = ?"); bindings.push(Number(chargeCount)); }
+    else return { where: "", bindings: [], error: true };
+  }
+  return { where: conditions.length ? `WHERE ${conditions.join(" AND ")}` : "", bindings, error: false };
+}
+
+function invalidDateRange(from: string | null | "invalid", to: string | null | "invalid"): boolean {
+  return !!from && from !== "invalid" && !!to && to !== "invalid" && from > to;
+}
+
+function microsToDecimal(value: unknown): number | "" {
+  return typeof value === "number" && Number.isFinite(value) ? value / 1_000_000 : "";
+}
+
+function addExactCondition(conditions: string[], bindings: unknown[], column: string, value: string | undefined): void {
+  const normalized = normalizeQuery(value);
+  if (!normalized) return;
+  conditions.push(`LOWER(${column}) = ?`);
+  bindings.push(normalized);
+}
+
+function addListCondition(conditions: string[], bindings: unknown[], column: string, value: string | undefined): void {
+  const values = value?.split(",").map((item) => item.trim()).filter(Boolean) ?? [];
+  if (!values.length) return;
+  conditions.push(`${column} IN (${values.map(() => "?").join(", ")})`);
+  bindings.push(...values);
+}
+
 function normalizeQuery(value: string | undefined): string | null {
   const query = typeof value === "string" ? value.trim().toLowerCase() : "";
   return query.length > 0 ? query : null;
@@ -1234,68 +1531,16 @@ function readRequiredString(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function toInstallationRecord(
-  row: InstallationSourceRow,
-  environment: NonNullable<Env["APP_ENVIRONMENT"]>,
-) {
-  return {
-    uid: row.uid,
-    install_type: row.install_type,
-    platform: row.platform || "Unknown",
-    country: row.country || "Unknown",
-    environment,
-    date: row.created_at.slice(0, 10),
-    created_at: row.created_at,
-  };
-}
-
-function isWithinDateRange(date: string, dateFrom: string | null, dateTo: string | null): boolean {
-  if (dateFrom && date < dateFrom) return false;
-  if (dateTo && date > dateTo) return false;
-  return true;
-}
-
 function buildInstallationTrend(
-  installs: Array<ReturnType<typeof toInstallationRecord>>,
+  trendRows: InstallationTrendRow[],
   dateFrom: string | null,
   dateTo: string | null,
 ) {
-  const dates = dateFrom && dateTo ? enumerateDates(dateFrom, dateTo) : [...new Set(installs.map((item) => item.date))].sort();
-  const totals = new Map<string, number>();
-  for (const item of installs) {
-    totals.set(item.date, (totals.get(item.date) ?? 0) + 1);
-  }
+  const dates = dateFrom && dateTo
+    ? enumerateDates(dateFrom, dateTo)
+    : trendRows.map((row) => row.date);
+  const totals = new Map(trendRows.map((row) => [row.date, Number(row.total)]));
   return dates.map((date) => ({ date, total: totals.get(date) ?? 0 }));
-}
-
-function buildInstallationRows(installs: Array<ReturnType<typeof toInstallationRecord>>) {
-  const groups = new Map<string, {
-    uid: string;
-    date: string;
-    country: string;
-    platform: string;
-    environment: string;
-    installs: number;
-  }>();
-
-  for (const item of installs) {
-    const key = [item.uid, item.date, item.country, item.platform, item.environment].join("|");
-    const existing = groups.get(key);
-    if (existing) {
-      existing.installs += 1;
-    } else {
-      groups.set(key, {
-        uid: item.uid,
-        date: item.date,
-        country: item.country,
-        platform: item.platform,
-        environment: item.environment,
-        installs: 1,
-      });
-    }
-  }
-
-  return [...groups.values()].sort((left, right) => left.date.localeCompare(right.date));
 }
 
 function enumerateDates(dateFrom: string, dateTo: string): string[] {
@@ -1335,6 +1580,7 @@ function toAdminFeedbackTicket(row: FeedbackTicketRow) {
 function toScanListItem(row: ScanRecordRow) {
   return {
     scan_id: row.id,
+    environment: row.environment,
     image_url: row.image_url
       ? `/scans/${encodeURIComponent(row.id)}/image`
       : "",

@@ -44,6 +44,7 @@ class MockCardDetailRepository implements CardDetailRepository {
     AuthSession session, {
     required CardDetail detail,
     required CardCollectionItem item,
+    String? idempotencyKey,
   }) async {
     return item.copyWith(cardRef: detail.id, folderId: item.folderId ?? 'main');
   }

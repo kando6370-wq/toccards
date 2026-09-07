@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/auth_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:kando_app/shared/security/secure_storage_keys.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -31,12 +32,32 @@ void main() {
       await storage.writeSession(anonymous);
       await storage.writeSession(user);
       final previousDeviceId = await storage.readOrCreateDeviceId();
+      await const FlutterSecureStorage().write(
+        key: subscriptionPendingAppleVerificationStorageKey,
+        value: '[{"signed_transaction_info":"stale-jws"}]',
+      );
+      await const FlutterSecureStorage().write(
+        key: appleAppAttestKeyIdStorageKey,
+        value: 'stale-app-attest-key',
+      );
 
       await storage.prepareForCurrentInstallation();
 
       expect(await storage.readSession(), isNull);
       expect(await storage.readPreviousAnonymousSession(), isNull);
       expect(await storage.readOrCreateDeviceId(), isNot(previousDeviceId));
+      expect(
+        await const FlutterSecureStorage().read(
+          key: subscriptionPendingAppleVerificationStorageKey,
+        ),
+        isNull,
+      );
+      expect(
+        await const FlutterSecureStorage().read(
+          key: appleAppAttestKeyIdStorageKey,
+        ),
+        isNull,
+      );
     },
   );
 

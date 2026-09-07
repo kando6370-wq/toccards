@@ -129,6 +129,125 @@ void main() {
   );
 
   test(
+    'refresh reports server failures because transient backend errors must not replace the stored identity',
+    () async {
+      const stored = AuthSession(
+        ownerType: OwnerType.user,
+        accessToken: 'expired-access',
+        refreshToken: 'stored-refresh',
+        userId: 'user-1',
+      );
+      final adapter = _FakeAuthAdapter({
+        'GET /auth/me': _Response(401, {
+          'success': false,
+          'error': {'code': 'UNAUTHORIZED', 'message': 'Unauthorized.'},
+        }),
+        'POST /auth/token/refresh': _Response(500, {
+          'success': false,
+          'error': {
+            'code': 'INTERNAL_ERROR',
+            'message': 'Something went wrong. Please try again.',
+          },
+        }),
+      });
+      final repository = HttpAuthRepository(
+        _dio(adapter),
+        InMemoryAuthStorage(),
+      );
+
+      await expectLater(
+        repository.validateStoredSession(stored),
+        throwsA(
+          isA<AuthApiException>().having(
+            (error) => error.code,
+            'code',
+            'INTERNAL_ERROR',
+          ),
+        ),
+      );
+    },
+  );
+
+  test(
+    'refresh returns no session for unauthorized tokens because revoked identities must not stay active',
+    () async {
+      const stored = AuthSession(
+        ownerType: OwnerType.user,
+        accessToken: 'expired-access',
+        refreshToken: 'revoked-refresh',
+        userId: 'user-1',
+      );
+      final adapter = _FakeAuthAdapter({
+        'GET /auth/me': _Response(401, {
+          'success': false,
+          'error': {'code': 'UNAUTHORIZED', 'message': 'Unauthorized.'},
+        }),
+        'POST /auth/token/refresh': _Response(401, {
+          'success': false,
+          'error': {'code': 'UNAUTHORIZED', 'message': 'Unauthorized.'},
+        }),
+      });
+      final repository = HttpAuthRepository(
+        _dio(adapter),
+        InMemoryAuthStorage(),
+      );
+
+      expect(await repository.validateStoredSession(stored), isNull);
+    },
+  );
+
+  test(
+    'stored session validation shares one deadline across me refresh and retry because internal retries must not reset the operation budget',
+    () async {
+      const stored = AuthSession(
+        ownerType: OwnerType.user,
+        accessToken: 'expired-access',
+        refreshToken: 'stored-refresh',
+        userId: 'user-1',
+      );
+      final adapter = _FakeAuthAdapter({
+        'GET /auth/me': _ResponseSequence([
+          _DelayedResponse(
+            const Duration(milliseconds: 50),
+            _Response(401, {
+              'success': false,
+              'error': {'code': 'UNAUTHORIZED', 'message': 'Unauthorized.'},
+            }),
+          ),
+          _DelayedResponse(
+            const Duration(milliseconds: 100),
+            _ok({
+              'owner_type': 'user',
+              'user_id': 'user-1',
+              'email': 'person@example.com',
+              'login_method': 'email',
+            }),
+          ),
+        ]),
+        'POST /auth/token/refresh': _DelayedResponse(
+          const Duration(milliseconds: 50),
+          _ok({
+            'access_token': 'fresh-access',
+            'refresh_token': 'fresh-refresh',
+          }),
+        ),
+      });
+      final repository = HttpAuthRepository(
+        _dio(adapter),
+        InMemoryAuthStorage(),
+        requestDeadline: const Duration(milliseconds: 140),
+      );
+
+      await expectLater(
+        repository.validateStoredSession(stored),
+        throwsA(isA<AuthNetworkException>()),
+      );
+      expect(adapter.requests, hasLength(3));
+      await Future<void>.delayed(const Duration(milliseconds: 110));
+    },
+  );
+
+  test(
     'stored session validation reports network failure because offline startup must not discard identity',
     () async {
       const stored = AuthSession(
@@ -180,6 +299,35 @@ void main() {
         'email': 'person@example.com',
         'password': 'password123',
       });
+    },
+  );
+
+  test(
+    'login has one total deadline so a late success cannot become the current session',
+    () async {
+      final adapter = _FakeAuthAdapter({
+        'POST /auth/login': _DelayedResponse(
+          const Duration(milliseconds: 80),
+          _ok({
+            'user_id': 'late-user',
+            'email': 'person@example.com',
+            'login_method': 'email',
+            'access_token': 'late-access',
+            'refresh_token': 'late-refresh',
+          }),
+        ),
+      });
+      final repository = HttpAuthRepository(
+        _dio(adapter),
+        InMemoryAuthStorage(),
+        requestDeadline: const Duration(milliseconds: 20),
+      );
+
+      await expectLater(
+        repository.login(email: 'person@example.com', password: 'password123'),
+        throwsA(isA<AuthNetworkException>()),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 100));
     },
   );
 
@@ -375,7 +523,14 @@ class _FakeAuthAdapter implements HttpClientAdapter {
         authorization: options.headers['Authorization']?.toString(),
       ),
     );
-    final response = responses[key];
+    var response = responses[key];
+    if (response is _ResponseSequence) {
+      response = response.next();
+    }
+    if (response is _DelayedResponse) {
+      await Future<void>.delayed(response.delay);
+      response = response.response;
+    }
     if (response is _NetworkFailure) {
       throw DioException(
         requestOptions: options,
@@ -427,6 +582,22 @@ class _Response {
 
 class _NetworkFailure {
   const _NetworkFailure();
+}
+
+class _DelayedResponse {
+  const _DelayedResponse(this.delay, this.response);
+
+  final Duration delay;
+  final _Response response;
+}
+
+class _ResponseSequence {
+  _ResponseSequence(this.responses);
+
+  final List<Object> responses;
+  var _index = 0;
+
+  Object next() => responses[_index++];
 }
 
 class _RecordedRequest {

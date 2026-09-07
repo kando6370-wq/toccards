@@ -5,11 +5,13 @@ import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_controller.dart';
 import 'package:kando_app/features/home/home_controller.dart';
+import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/currency/currency_rate_api.dart';
 import 'package:kando_app/shared/market/market_change.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
+import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 import 'collection_models.dart';
@@ -33,6 +35,11 @@ final collectionInitialSortProvider =
       CollectionInitialSortController.new,
     );
 
+final collectionPerformanceOrderProvider =
+    NotifierProvider<CollectionPerformanceOrderController, List<String>>(
+      CollectionPerformanceOrderController.new,
+    );
+
 class CollectionInitialSortController extends Notifier<CollectionSort?> {
   @override
   CollectionSort? build() => null;
@@ -43,6 +50,19 @@ class CollectionInitialSortController extends Notifier<CollectionSort?> {
 
   void clear() {
     state = null;
+  }
+}
+
+class CollectionPerformanceOrderController extends Notifier<List<String>> {
+  @override
+  List<String> build() => const [];
+
+  void select(List<String> itemIds) {
+    state = List.unmodifiable(itemIds);
+  }
+
+  void clear() {
+    state = const [];
   }
 }
 
@@ -92,6 +112,7 @@ class CollectionState {
     required this.sortByTab,
     required this.gamesByTab,
     required this.languagesByTab,
+    this.performanceItemIds = const [],
     this.gameOptions = const [],
   }) : _dashboard = dashboard,
        loadStatus = KandoLoadStatus.content;
@@ -117,6 +138,7 @@ class CollectionState {
         CollectionTab.portfolio: <String>{},
         CollectionTab.wishlist: <String>{},
       },
+      performanceItemIds = const [],
       gameOptions = const [],
       loadStatus = KandoLoadStatus.failure;
 
@@ -141,6 +163,7 @@ class CollectionState {
         CollectionTab.portfolio: <String>{},
         CollectionTab.wishlist: <String>{},
       },
+      performanceItemIds = const [],
       gameOptions = const [],
       loadStatus = KandoLoadStatus.loading;
 
@@ -154,6 +177,7 @@ class CollectionState {
     required this.sortByTab,
     required this.gamesByTab,
     required this.languagesByTab,
+    required this.performanceItemIds,
     required this.gameOptions,
     required this.loadStatus,
   }) : _dashboard = dashboard;
@@ -167,6 +191,7 @@ class CollectionState {
   final Map<CollectionTab, CollectionSort> sortByTab;
   final Map<CollectionTab, Set<String>> gamesByTab;
   final Map<CollectionTab, Set<String>> languagesByTab;
+  final List<String> performanceItemIds;
   final List<String> gameOptions;
   final KandoLoadStatus loadStatus;
 
@@ -221,6 +246,10 @@ class CollectionState {
       return matchesSearch && matchesGame && matchesLanguage;
     }).toList();
 
+    final performanceRanks = {
+      for (var index = 0; index < performanceItemIds.length; index++)
+        performanceItemIds[index]: index,
+    };
     filtered.sort((a, b) {
       return switch (selectedSort) {
         CollectionSort.newest => b.addedAtSort.compareTo(a.addedAtSort),
@@ -237,6 +266,11 @@ class CollectionState {
           _changePercent(b),
         ),
         CollectionSort.nameAsc => a.name.compareTo(b.name),
+        CollectionSort.performanceDesc => _performanceRankCompare(
+          a,
+          b,
+          performanceRanks,
+        ),
       };
     });
 
@@ -254,16 +288,18 @@ class CollectionState {
     final items = dashboard.portfolioItems
         .where((item) => item.folderId == selectedFolder.id)
         .toList();
-    final total = items.fold<double>(0, (sum, item) {
-      final value = item.marketValueUsd;
-      if (value == null || value <= 0) {
-        return sum;
-      }
-      return sum + value * item.quantity;
-    });
+    final pricedItems = items
+        .where((item) => item.marketValueUsd != null)
+        .toList();
+    final total = pricedItems.fold<double>(
+      0,
+      (sum, item) => sum + item.marketValueUsd! * item.quantity,
+    );
 
     return CollectionSummary(
-      totalValueText: _formatPortfolioTotal(total),
+      totalValueText: items.isNotEmpty && pricedItems.isEmpty
+          ? '--'
+          : _formatPortfolioTotal(total),
       cardCount: items.fold(0, (sum, item) => sum + item.quantity),
       gradedCount: items
           .where((item) => item.isGraded)
@@ -295,6 +331,7 @@ class CollectionState {
     Map<CollectionTab, CollectionSort>? sortByTab,
     Map<CollectionTab, Set<String>>? gamesByTab,
     Map<CollectionTab, Set<String>>? languagesByTab,
+    List<String>? performanceItemIds,
     List<String>? gameOptions,
   }) {
     return CollectionState._(
@@ -307,6 +344,7 @@ class CollectionState {
       sortByTab: sortByTab ?? this.sortByTab,
       gamesByTab: gamesByTab ?? this.gamesByTab,
       languagesByTab: languagesByTab ?? this.languagesByTab,
+      performanceItemIds: performanceItemIds ?? this.performanceItemIds,
       gameOptions: gameOptions ?? this.gameOptions,
       loadStatus: loadStatus,
     );
@@ -318,8 +356,23 @@ class CollectionState {
     ).formatUsd(valueUsd, hidden: amountHidden);
   }
 
+  int _performanceRankCompare(
+    CollectionItem left,
+    CollectionItem right,
+    Map<String, int> ranks,
+  ) {
+    final leftRank = ranks[left.id];
+    final rightRank = ranks[right.id];
+    if (leftRank != null && rightRank != null) {
+      return leftRank.compareTo(rightRank);
+    }
+    if (leftRank != null) return -1;
+    if (rightRank != null) return 1;
+    return right.addedAtSort.compareTo(left.addedAtSort);
+  }
+
   String _formatMoney(double? valueUsd, int quantity) {
-    if (valueUsd == null || valueUsd <= 0) {
+    if (valueUsd == null) {
       return '--';
     }
     return CurrencyFormatter(
@@ -471,11 +524,12 @@ class CollectionController extends Notifier<CollectionState> {
           }
         }
         if (generation != _loadGeneration) return;
+        final preservedState = preserveState ?? state;
         final sharedFolderId = ref.read(selectedPortfolioFolderProvider);
-        final preservedFolderId = preserveState?.selectedFolderId;
+        final preservedFolderId = preservedState.selectedFolderId;
         final selectedFolderId =
             dashboard.folders.any((folder) => folder.id == preservedFolderId)
-            ? preservedFolderId!
+            ? preservedFolderId
             : dashboard.folders.any((folder) => folder.id == sharedFolderId)
             ? sharedFolderId!
             : dashboard.defaultFolder.id;
@@ -483,38 +537,33 @@ class CollectionController extends Notifier<CollectionState> {
         final initialSort = preserveState == null
             ? ref.read(collectionInitialSortProvider) ?? CollectionSort.newest
             : null;
+        final initialPerformanceOrder = preserveState == null
+            ? ref.read(collectionPerformanceOrderProvider)
+            : const <String>[];
         ref.read(selectedCurrencyProvider.notifier).select(preferredCurrency);
         state = CollectionState(
           dashboard: dashboard,
-          selectedTab: preserveState?.selectedTab ?? CollectionTab.portfolio,
+          selectedTab: preservedState.selectedTab,
           selectedFolderId: selectedFolderId,
           currency: preferredCurrency,
           amountHidden: amountHidden,
-          searchByTab:
-              preserveState?.searchByTab ??
-              const {CollectionTab.portfolio: '', CollectionTab.wishlist: ''},
+          searchByTab: preservedState.searchByTab,
           sortByTab:
               preserveState?.sortByTab ??
               {
                 CollectionTab.portfolio: initialSort!,
                 CollectionTab.wishlist: CollectionSort.newest,
               },
-          gamesByTab:
-              preserveState?.gamesByTab ??
-              const {
-                CollectionTab.portfolio: <String>{},
-                CollectionTab.wishlist: <String>{},
-              },
-          languagesByTab:
-              preserveState?.languagesByTab ??
-              const {
-                CollectionTab.portfolio: <String>{},
-                CollectionTab.wishlist: <String>{},
-              },
+          gamesByTab: preservedState.gamesByTab,
+          languagesByTab: preservedState.languagesByTab,
+          performanceItemIds: preservedState.performanceItemIds.isEmpty
+              ? initialPerformanceOrder
+              : preservedState.performanceItemIds,
           gameOptions: gameOptions,
         );
         if (preserveState == null) {
           ref.read(collectionInitialSortProvider.notifier).clear();
+          ref.read(collectionPerformanceOrderProvider.notifier).clear();
         }
         if (sharedFolderId == null) {
           ref
@@ -553,7 +602,7 @@ class CollectionController extends Notifier<CollectionState> {
   }
 
   void selectTab(CollectionTab tab) {
-    if (state.isUnavailable || state.isLoading) {
+    if (state.isUnavailable) {
       return;
     }
     if (tab == state.selectedTab) return;
@@ -566,6 +615,33 @@ class CollectionController extends Notifier<CollectionState> {
       gamesByTab: {...state.gamesByTab, previousTab: <String>{}},
       languagesByTab: {...state.languagesByTab, previousTab: <String>{}},
     );
+  }
+
+  void showTopPerformers({
+    required String folderId,
+    required List<String> itemIds,
+  }) {
+    ref.read(selectedPortfolioFolderProvider.notifier).select(folderId);
+    if (state.isUnavailable || state.isLoading) {
+      ref
+          .read(collectionInitialSortProvider.notifier)
+          .select(CollectionSort.performanceDesc);
+      ref.read(collectionPerformanceOrderProvider.notifier).select(itemIds);
+      return;
+    }
+    if (!state.dashboard.folders.any((folder) => folder.id == folderId)) return;
+
+    state = state.copyWith(
+      selectedTab: CollectionTab.portfolio,
+      selectedFolderId: folderId,
+      sortByTab: {
+        ...state.sortByTab,
+        CollectionTab.portfolio: CollectionSort.performanceDesc,
+      },
+      performanceItemIds: itemIds,
+    );
+    ref.read(collectionInitialSortProvider.notifier).clear();
+    ref.read(collectionPerformanceOrderProvider.notifier).clear();
   }
 
   Future<bool> selectFolder(String folderId) async {
@@ -601,28 +677,77 @@ class CollectionController extends Notifier<CollectionState> {
     }
   }
 
-  Future<CollectionFolder?> createFolder(String name) async {
+  Future<CreateFolderResult> createFolder(String name) async {
     final normalized = name.trim();
     if (state.isUnavailable ||
         state.isLoading ||
         normalized.isEmpty ||
         normalized.length > 50) {
-      return null;
+      return const CreateFolderResult(CreateFolderStatus.failed);
     }
-    try {
-      final session = ref.read(authControllerProvider).session!;
-      final folder = await ref
-          .read(collectionRepositoryProvider)
-          .createFolder(session, normalized);
+    final session = ref.read(authControllerProvider).session!;
+    Future<CollectionFolder> request() => ref
+        .read(collectionRepositoryProvider)
+        .createFolder(
+          session,
+          normalized,
+          localPremiumVerified: ref.read(subscriptionControllerProvider).isPro,
+        );
+    CreateFolderResult applyFolder(CollectionFolder folder) {
       state = state.copyWith(
         dashboard: state.dashboard.copyWith(
           folders: [...state.dashboard.folders, folder],
         ),
       );
       _invalidateFolderDetails();
-      return folder;
+      return CreateFolderResult(CreateFolderStatus.success, folder: folder);
+    }
+
+    try {
+      final folder = await request();
+      return applyFolder(folder);
+    } on PortfolioApiException catch (error) {
+      if (error.code == 'PREMIUM_REQUIRED') {
+        await refreshPreservingContent();
+        return const CreateFolderResult(CreateFolderStatus.premiumRequired);
+      }
+      if (error.statusCode == 409 &&
+          error.code == 'ENTITLEMENT_SYNC_REQUIRED') {
+        final reconciliation = await ref
+            .read(subscriptionControllerProvider.notifier)
+            .reconcileServerEntitlement();
+        if (reconciliation == EntitlementReconciliationResult.freeConfirmed) {
+          await refreshPreservingContent();
+          return const CreateFolderResult(CreateFolderStatus.premiumRequired);
+        }
+        if (reconciliation !=
+            EntitlementReconciliationResult.premiumSynchronized) {
+          return const CreateFolderResult(
+            CreateFolderStatus.entitlementSyncRequired,
+          );
+        }
+        try {
+          final folder = await request();
+          return applyFolder(folder);
+        } on PortfolioApiException catch (retryError) {
+          if (retryError.code == 'PREMIUM_REQUIRED') {
+            await refreshPreservingContent();
+            return const CreateFolderResult(CreateFolderStatus.premiumRequired);
+          }
+          if (retryError.statusCode == 409 &&
+              retryError.code == 'ENTITLEMENT_SYNC_REQUIRED') {
+            return const CreateFolderResult(
+              CreateFolderStatus.entitlementSyncRequired,
+            );
+          }
+          return const CreateFolderResult(CreateFolderStatus.failed);
+        } catch (_) {
+          return const CreateFolderResult(CreateFolderStatus.failed);
+        }
+      }
+      return const CreateFolderResult(CreateFolderStatus.failed);
     } catch (_) {
-      return null;
+      return const CreateFolderResult(CreateFolderStatus.failed);
     }
   }
 
@@ -754,7 +879,7 @@ class CollectionController extends Notifier<CollectionState> {
   }
 
   void updateSearch(String value) {
-    if (state.isUnavailable || state.isLoading) {
+    if (state.isUnavailable) {
       return;
     }
 
@@ -819,6 +944,7 @@ class CollectionController extends Notifier<CollectionState> {
   }
 
   void _invalidateFolderDetails() {
+    ref.invalidate(collectionEditorFoldersProvider);
     ref.invalidate(cardDetailControllerProvider);
   }
 }

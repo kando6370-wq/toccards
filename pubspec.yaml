@@ -6,7 +6,7 @@ environment:
   sdk: ^3.9.2
 workspace:
   - apps/flutter-app
-  # dart-packages/* 等 Dart 共享包后续按需加入（显式路径）。
+  - dart-packages/subscription-core
 dev_dependencies:
   melos: ^8.0.0
 
@@ -38,4 +38,4 @@ melos:
       exec: flutter analyze
     test:
       description: 运行所有 Dart/Flutter 包测试
-      exec: flutter test
+      exec: flutter test --dart-define=APP_ENV=test

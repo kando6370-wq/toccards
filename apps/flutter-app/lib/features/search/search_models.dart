@@ -27,6 +27,7 @@ class SearchCard {
     required this.variantLine,
     required this.quantity,
     required this.isWishlisted,
+    required this.changePercent,
     this.collectionItemCount = 0,
     this.collectionItemId,
     this.wishlistItemId,
@@ -34,7 +35,6 @@ class SearchCard {
     this.language,
     this.finish,
     this.imageUrl,
-    this.priceChange1dPercent,
   });
 
   final String id;
@@ -55,7 +55,7 @@ class SearchCard {
   final String? language;
   final String? finish;
   final String? imageUrl;
-  final double? priceChange1dPercent;
+  final double? changePercent;
 
   bool get isCollected => quantity > 0;
 
@@ -69,7 +69,7 @@ class SearchCard {
   }
 
   String get changeText {
-    return MarketChange.fromPercent(priceChange1dPercent).percentText;
+    return MarketChange.fromPercent(changePercent).percentText;
   }
 
   SearchCard copyWith({
@@ -105,7 +105,7 @@ class SearchCard {
       language: language,
       finish: finish,
       imageUrl: imageUrl,
-      priceChange1dPercent: priceChange1dPercent,
+      changePercent: changePercent,
     );
   }
 }

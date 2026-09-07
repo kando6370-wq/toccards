@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
@@ -5,6 +7,9 @@ import 'package:kando_app/features/auth/auth_repository.dart';
 import 'scan_image_hasher_contract.dart';
 
 const scanApiBaseUrl = authApiBaseUrl;
+const scanRequestDeadline = Duration(seconds: 15);
+const scanRequestTimeoutCode = 'REQUEST_TIMEOUT';
+const scanRequestTimeoutMessage = 'Request timed out. Please try again.';
 
 Dio createScanDio({String baseUrl = scanApiBaseUrl}) {
   return Dio(
@@ -17,10 +22,17 @@ Dio createScanDio({String baseUrl = scanApiBaseUrl}) {
 }
 
 class ScanApiException implements Exception {
-  const ScanApiException(this.message, {this.code});
+  const ScanApiException(
+    this.message, {
+    this.code,
+    this.statusCode,
+    this.quota,
+  });
 
   final String message;
   final String? code;
+  final int? statusCode;
+  final ScanQuotaDto? quota;
 
   @override
   String toString() => message;
@@ -31,17 +43,51 @@ class ScanRecognitionDto {
     required this.scanId,
     required this.recognitionStatus,
     required this.results,
+    required this.quota,
   });
 
   final String scanId;
   final String recognitionStatus;
   final List<ScanResultDto> results;
+  final ScanQuotaDto quota;
 
   factory ScanRecognitionDto.fromJson(Map<String, Object?> json) {
     return ScanRecognitionDto(
       scanId: _requiredString(json['scan_id']),
       recognitionStatus: _requiredString(json['recognition_status']),
       results: _items(json['results']).map(ScanResultDto.fromJson).toList(),
+      quota: ScanQuotaDto.fromJson(_requiredMap(json['quota'])),
+    );
+  }
+}
+
+enum ScanQuotaAccess { free, premium }
+
+class ScanQuotaDto {
+  const ScanQuotaDto({
+    required this.access,
+    required this.limit,
+    required this.reserved,
+    required this.consumed,
+    required this.remaining,
+    required this.unlimited,
+  });
+
+  final ScanQuotaAccess access;
+  final int limit;
+  final int reserved;
+  final int consumed;
+  final int remaining;
+  final bool unlimited;
+
+  factory ScanQuotaDto.fromJson(Map<String, Object?> json) {
+    return ScanQuotaDto(
+      access: _requiredScanQuotaAccess(json['access']),
+      limit: _requiredInt(json['limit']),
+      reserved: _requiredInt(json['reserved']),
+      consumed: _requiredInt(json['consumed']),
+      remaining: _requiredInt(json['remaining']),
+      unlimited: _requiredBool(json['unlimited']),
     );
   }
 }
@@ -72,24 +118,36 @@ class ScanCandidateDto {
   const ScanCandidateDto({
     required this.cardRef,
     required this.name,
+    required this.setName,
+    required this.objectType,
     required this.setCode,
     required this.cardNumber,
     required this.confidence,
+    this.game,
+    this.rarity,
   });
 
   final String cardRef;
   final String name;
+  final String setName;
+  final String objectType;
   final String? setCode;
   final String? cardNumber;
   final double? confidence;
+  final String? game;
+  final String? rarity;
 
   factory ScanCandidateDto.fromJson(Map<String, Object?> json) {
     return ScanCandidateDto(
       cardRef: _requiredString(json['card_ref']),
       name: _requiredString(json['name']),
+      setName: _requiredString(json['set_name']),
+      objectType: _requiredScanObjectType(json['object_type']),
       setCode: _nullableString(json['set_code']),
       cardNumber: _nullableString(json['card_number']),
       confidence: _nullableConfidence(json['confidence']),
+      game: _nullableString(json['game']),
+      rarity: _nullableString(json['rarity']),
     );
   }
 }
@@ -162,12 +220,18 @@ class ScanCollectionItemInput {
 }
 
 abstract interface class ScanApi {
+  Future<ScanQuotaDto> getQuota(
+    AuthSession session, {
+    bool localPremiumVerified = false,
+  });
   Future<ScanRecognitionDto> recognizeImage(
     AuthSession session, {
     required ScanImageHashes hashes,
     required String fileName,
     required String platform,
     required String appVersion,
+    required String requestId,
+    bool localPremiumVerified = false,
     String? cardNumber,
     String? deviceModel,
     String? osVersion,
@@ -179,10 +243,59 @@ abstract interface class ScanApi {
   });
 }
 
-class ScanApiClient implements ScanApi {
-  const ScanApiClient(this._dio);
+abstract interface class ScanQuotaReservationApi {
+  Future<ScanQuotaDto> reserveQuota(
+    AuthSession session, {
+    required String requestId,
+    bool localPremiumVerified = false,
+  });
+}
+
+class ScanApiClient implements ScanApi, ScanQuotaReservationApi {
+  ScanApiClient(this._dio, {this.requestDeadline = scanRequestDeadline});
 
   final Dio _dio;
+  final Duration requestDeadline;
+  final Map<String, Stopwatch> _recognitionDeadlines = {};
+
+  @override
+  Future<ScanQuotaDto> reserveQuota(
+    AuthSession session, {
+    required String requestId,
+    bool localPremiumVerified = false,
+  }) async {
+    final deadline = Stopwatch()..start();
+    _recognitionDeadlines[requestId] = deadline;
+    try {
+      final data = await _requestData(
+        'POST',
+        '/scan/quota/reserve',
+        session,
+        <String, Object?>{'request_id': requestId},
+        idempotencyKey: requestId,
+        localPremiumVerified: localPremiumVerified,
+      );
+      return ScanQuotaDto.fromJson(_requiredMap(data['quota']));
+    } on Object {
+      _recognitionDeadlines.remove(requestId)?.stop();
+      rethrow;
+    }
+  }
+
+  @override
+  Future<ScanQuotaDto> getQuota(
+    AuthSession session, {
+    bool localPremiumVerified = false,
+  }) async {
+    final data = await _requestData(
+      'GET',
+      '/scan/quota',
+      session,
+      null,
+      localPremiumVerified: localPremiumVerified,
+    );
+    return ScanQuotaDto.fromJson(data);
+  }
 
   @override
   Future<ScanRecognitionDto> recognizeImage(
@@ -191,6 +304,8 @@ class ScanApiClient implements ScanApi {
     required String fileName,
     required String platform,
     required String appVersion,
+    required String requestId,
+    bool localPremiumVerified = false,
     String? cardNumber,
     String? deviceModel,
     String? osVersion,
@@ -206,6 +321,7 @@ class ScanApiClient implements ScanApi {
       'filename': fileName,
       'platform': platform,
       'app_version': appVersion,
+      'request_id': requestId,
       if (cardNumber != null) 'card_number': cardNumber,
       if (deviceModel != null) 'device_model': deviceModel,
       if (osVersion != null) 'os_version': osVersion,
@@ -215,7 +331,20 @@ class ScanApiClient implements ScanApi {
         contentType: DioMediaType('image', 'jpeg'),
       ),
     });
-    final data = await _requestData('POST', '/scan/recognize', session, body);
+    final operationDeadline = _recognitionDeadlines.remove(requestId);
+    operationDeadline?.stop();
+    final remaining = operationDeadline == null
+        ? null
+        : requestDeadline - operationDeadline.elapsed;
+    final data = await _requestData(
+      'POST',
+      '/scan/recognize',
+      session,
+      body,
+      idempotencyKey: requestId,
+      localPremiumVerified: localPremiumVerified,
+      deadline: remaining,
+    );
     return ScanRecognitionDto.fromJson(data);
   }
 
@@ -238,17 +367,55 @@ class ScanApiClient implements ScanApi {
     String method,
     String path,
     AuthSession session,
-    Object body,
-  ) async {
-    final response = await _dio.request<Object?>(
-      path,
-      data: body,
-      options: Options(
-        method: method,
-        headers: {'Authorization': 'Bearer ${session.accessToken}'},
-        validateStatus: (_) => true,
-      ),
-    );
+    Object? body, {
+    String? idempotencyKey,
+    bool localPremiumVerified = false,
+    Duration? deadline,
+  }) async {
+    final effectiveDeadline = deadline ?? requestDeadline;
+    if (effectiveDeadline <= Duration.zero) {
+      throw const ScanApiException(
+        scanRequestTimeoutMessage,
+        code: scanRequestTimeoutCode,
+      );
+    }
+    final cancelToken = CancelToken();
+    late final Response<Object?> response;
+    try {
+      response = await _dio
+          .request<Object?>(
+            path,
+            data: body,
+            cancelToken: cancelToken,
+            options: Options(
+              method: method,
+              headers: {
+                'Authorization': 'Bearer ${session.accessToken}',
+                if (idempotencyKey != null) 'Idempotency-Key': idempotencyKey,
+                if (localPremiumVerified) 'X-Local-Premium-State': 'verified',
+              },
+              validateStatus: (_) => true,
+            ),
+          )
+          .timeout(
+            effectiveDeadline,
+            onTimeout: () {
+              cancelToken.cancel(scanRequestTimeoutCode);
+              throw const ScanApiException(
+                scanRequestTimeoutMessage,
+                code: scanRequestTimeoutCode,
+              );
+            },
+          );
+    } on DioException {
+      if (cancelToken.isCancelled) {
+        throw const ScanApiException(
+          scanRequestTimeoutMessage,
+          code: scanRequestTimeoutCode,
+        );
+      }
+      rethrow;
+    }
     final envelope = response.data;
     if (envelope is Map && envelope['success'] == true) {
       final data = envelope['data'];
@@ -258,10 +425,10 @@ class ScanApiClient implements ScanApi {
       return <String, Object?>{};
     }
 
-    throw _apiException(envelope);
+    throw _apiException(envelope, statusCode: response.statusCode);
   }
 
-  ScanApiException _apiException(Object? envelope) {
+  ScanApiException _apiException(Object? envelope, {required int? statusCode}) {
     if (envelope is Map) {
       final error = envelope['error'];
       if (error is Map) {
@@ -269,10 +436,24 @@ class ScanApiClient implements ScanApi {
           _nullableString(error['message']) ??
               'Something went wrong. Please try again.',
           code: _nullableString(error['code']),
+          statusCode: statusCode,
+          quota: _optionalQuota(envelope['quota']),
         );
       }
     }
-    return const ScanApiException('Something went wrong. Please try again.');
+    return ScanApiException(
+      'Something went wrong. Please try again.',
+      statusCode: statusCode,
+    );
+  }
+}
+
+ScanQuotaDto? _optionalQuota(Object? value) {
+  if (value is! Map) return null;
+  try {
+    return ScanQuotaDto.fromJson(Map<String, Object?>.from(value));
+  } on Object {
+    return null;
   }
 }
 
@@ -288,6 +469,13 @@ Map<String, Object?> _mapItem(Object? item) {
     throw const ScanApiException('Something went wrong. Please try again.');
   }
   return Map<String, Object?>.from(item);
+}
+
+Map<String, Object?> _requiredMap(Object? value) {
+  if (value is! Map) {
+    throw const ScanApiException('Something went wrong. Please try again.');
+  }
+  return Map<String, Object?>.from(value);
 }
 
 String _requiredString(Object? value) {
@@ -307,6 +495,29 @@ String? _nullableString(Object? value) {
 int _requiredInt(Object? value) {
   if (value is int) return value;
   throw const ScanApiException('Something went wrong. Please try again.');
+}
+
+bool _requiredBool(Object? value) {
+  if (value is bool) return value;
+  throw const ScanApiException('Something went wrong. Please try again.');
+}
+
+ScanQuotaAccess _requiredScanQuotaAccess(Object? value) {
+  return switch (_requiredString(value)) {
+    'free' => ScanQuotaAccess.free,
+    'premium' => ScanQuotaAccess.premium,
+    _ => throw const ScanApiException(
+      'Something went wrong. Please try again.',
+    ),
+  };
+}
+
+String _requiredScanObjectType(Object? value) {
+  final objectType = _requiredString(value);
+  if (objectType != 'tcg') {
+    throw const ScanApiException('Something went wrong. Please try again.');
+  }
+  return objectType;
 }
 
 double? _nullableConfidence(Object? value) {

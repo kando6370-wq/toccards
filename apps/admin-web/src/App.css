@@ -448,14 +448,39 @@ body {
   stroke-width: 3;
 }
 
-.line-chart circle {
+.line-chart .chart-point {
+  cursor: pointer;
+  outline: none;
+}
+
+.line-chart .chart-point circle {
   fill: #0b8793;
+}
+
+.line-chart .chart-point:hover circle,
+.line-chart .chart-point:focus circle {
+  fill: #075e68;
+  stroke: #fff;
+  stroke-width: 2;
 }
 
 .line-chart text {
   fill: #5f7180;
   font-size: 12px;
   text-anchor: middle;
+}
+
+.line-chart .chart-empty {
+  font-size: 14px;
+}
+
+.line-chart .chart-tooltip rect {
+  fill: #12202d;
+}
+
+.line-chart .chart-tooltip text {
+  fill: #fff;
+  font-size: 12px;
 }
 
 .feedback-list {
@@ -553,6 +578,47 @@ body {
   overflow: hidden;
 }
 
+.billing-table-actions {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  min-height: 56px;
+  padding: 0 18px;
+}
+
+.billing-table-actions h4 {
+  margin: 0;
+}
+
+.notification-detail-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.json-block {
+  background: #111820;
+  border-radius: 6px;
+  color: #dce7ec;
+  font-family: Consolas, "Courier New", monospace;
+  line-height: 1.55;
+  max-height: 52vh;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  padding: 16px;
+  white-space: pre-wrap;
+}
+
+.scan-records-filter-panel {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.notification-detail-state {
+  display: grid;
+  min-height: 240px;
+  place-items: center;
+}
+
 .scans-table-panel .ant-table-thead > tr > th {
   background: #eef2f4;
   color: #23313d;
@@ -603,13 +669,15 @@ body {
   width: 100%;
 }
 
-.scan-detail-drawer .detail-section h5 {
+.scan-detail-drawer .detail-section h5,
+.notification-detail-drawer .detail-section h5 {
   border-left: 4px solid #087d89;
   margin: 0 0 12px;
   padding-left: 10px;
 }
 
-.scan-detail-drawer .info-grid {
+.scan-detail-drawer .info-grid,
+.notification-detail-drawer .info-grid {
   background: #f7fafb;
   border: 1px solid #dce5eb;
   border-radius: 6px;
@@ -619,14 +687,17 @@ body {
   padding: 16px;
 }
 
-.scan-detail-drawer .info-item {
+.scan-detail-drawer .info-item,
+.notification-detail-drawer .info-item {
   display: grid;
   gap: 4px;
 }
 
-.scan-detail-drawer .info-item strong {
+.scan-detail-drawer .info-item strong,
+.notification-detail-drawer .info-item strong {
   color: #17212b;
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .scan-detail-drawer .candidate-list {
@@ -738,7 +809,22 @@ body {
   justify-content: flex-end;
 }
 
+@media (max-width: 991px) {
+  .admin-sider {
+    overflow: visible;
+    z-index: 10;
+  }
+}
+
 @media (max-width: 900px) {
+  .notification-detail-drawer-root .ant-drawer-content-wrapper {
+    width: 92vw !important;
+  }
+
+  .notification-detail-drawer .info-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .scans-filter-panel {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

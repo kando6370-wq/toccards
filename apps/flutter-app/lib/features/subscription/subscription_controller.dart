@@ -1,0 +1,1711 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
+import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
+import 'package:in_app_purchase_storekit/store_kit_2_wrappers.dart';
+import 'package:subscription_core/subscription_core.dart';
+
+import '../../shared/portfolio/portfolio_providers.dart';
+import '../../shared/analytics/analytics_events.dart';
+import '../../shared/analytics/app_analytics.dart';
+import '../../shared/api/api_environment.dart';
+import '../../shared/attribution/app_attribution.dart';
+import '../auth/auth_controller.dart';
+import '../auth/auth_models.dart';
+import 'apple_app_attest.dart';
+import 'apple_current_entitlements.dart';
+import 'subscription_entitlement_api.dart';
+import 'subscription_entitlement_cache.dart';
+import 'subscription_revenue_reporter.dart';
+import 'subscription_analytics.dart';
+import 'subscription_singular_events.dart';
+import 'subscription_sync_queue.dart';
+
+const subscriptionWeeklyPlanId = 'weekly';
+const subscriptionYearlyPlanId = 'yearly';
+const subscriptionLifetimePlanId = 'lifetime';
+String subscriptionSheetLocation({String scene = AnalyticsValue.sceneUsual}) {
+  return Uri(
+    path: '/subscription',
+    queryParameters: {'presentation': 'sheet', 'scene': scene},
+  ).toString();
+}
+
+String subscriptionPageLocation({
+  required String source,
+  required String entrySource,
+}) {
+  return Uri(
+    path: '/subscription',
+    queryParameters: {'source': source, 'entry_source': entrySource},
+  ).toString();
+}
+
+enum SubscriptionPaywallResult { premiumUnlocked, premiumRestored }
+
+class SubscriptionPlanPresentation {
+  const SubscriptionPlanPresentation({
+    required this.id,
+    required this.title,
+    required this.periodLabel,
+    this.badge,
+  });
+
+  final String id;
+  final String title;
+  final String periodLabel;
+  final String? badge;
+}
+
+const subscriptionPlans = [
+  SubscriptionPlanPresentation(
+    id: subscriptionWeeklyPlanId,
+    title: 'Weekly',
+    periodLabel: 'per week',
+  ),
+  SubscriptionPlanPresentation(
+    id: subscriptionYearlyPlanId,
+    title: 'Yearly',
+    periodLabel: 'per year',
+    badge: 'MOST POPULAR',
+  ),
+  SubscriptionPlanPresentation(
+    id: subscriptionLifetimePlanId,
+    title: 'Lifetime Access',
+    periodLabel: 'one-time purchase',
+    badge: 'BEST VALUE',
+  ),
+];
+
+const subscriptionFallbackDisplayPrices = {
+  subscriptionWeeklyPlanId: r'$3.99',
+  subscriptionYearlyPlanId: r'$49.99',
+  subscriptionLifetimePlanId: r'$79.99',
+};
+
+const subscriptionNotConfiguredMessage =
+    'Subscriptions are not configured in this app. Please contact Support.';
+const subscriptionCatalogUnavailableMessage =
+    'Could not load plans from the App Store. Check your connection.';
+const subscriptionPurchaseNetworkMessage =
+    'Could not reach the App Store. Check your connection and retry.';
+const subscriptionAppStoreAccountMessage =
+    'App Store account verification failed. Check the account and retry.';
+const subscriptionAppStoreTemporaryMessage =
+    'The App Store had a temporary system error. Please retry.';
+const subscriptionPaymentMethodMessage =
+    'Payment could not be approved. Check your App Store payment method.';
+const subscriptionPurchasesDisabledMessage =
+    'Purchases are disabled for this App Store account or device.';
+const subscriptionAppStoreTermsMessage =
+    'Accept the latest App Store terms, then retry this purchase.';
+const subscriptionStorefrontUnavailableMessage =
+    'This plan is not available in your current App Store region.';
+const subscriptionOfferUnavailableMessage =
+    'This subscription offer is not available for this account.';
+const subscriptionDuplicatePurchaseMessage =
+    'This purchase is already processing. Wait a moment and retry.';
+const subscriptionProductUnavailableMessage =
+    'This plan is unavailable in the App Store. Try another plan.';
+const subscriptionPurchaseVerificationMessage =
+    'Purchase completed, but Premium verification failed. Tap Restore.';
+const subscriptionPurchaseUpdatesFailedMessage =
+    'Purchase confirmation was interrupted. Reopen this page and retry.';
+const subscriptionUnknownProductMessage =
+    'Apple returned an unknown subscription plan. Contact Support.';
+const subscriptionPurchasePendingMessage =
+    'Apple is still processing this purchase. Premium will unlock later.';
+const subscriptionPurchaseCanceledMessage =
+    'Purchase not completed. You were not charged. Please try again.';
+const subscriptionPremiumVerificationUnavailableMessage =
+    'Could not verify Premium with Apple. Check your connection and retry.';
+
+String subscriptionPurchaseStartErrorMessage(Object error) {
+  if (error is TimeoutException) return subscriptionPurchaseNetworkMessage;
+  if (error is PlatformException) {
+    return _subscriptionStoreErrorMessage(
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      phase: _SubscriptionStoreErrorPhase.start,
+    );
+  }
+  return _subscriptionStoreErrorMessage(
+    message: error.toString(),
+    phase: _SubscriptionStoreErrorPhase.start,
+  );
+}
+
+String? subscriptionPurchaseFeedbackMessage(SubscriptionEvent event) {
+  final failure = event.failure;
+  if (failure == null) {
+    return switch (event.purchase?.status) {
+      SubscriptionPurchaseStatus.pending => subscriptionPurchasePendingMessage,
+      SubscriptionPurchaseStatus.canceled =>
+        subscriptionPurchaseCanceledMessage,
+      _ => null,
+    };
+  }
+  switch (failure.code) {
+    case 'verification_failed':
+      return subscriptionPurchaseVerificationMessage;
+    case 'purchase_updates_failed':
+      return subscriptionPurchaseUpdatesFailedMessage;
+    case 'unknown_product':
+      return subscriptionUnknownProductMessage;
+  }
+
+  final cause = failure.cause;
+  if (cause is PlatformException) {
+    return _subscriptionStoreErrorMessage(
+      code: cause.code,
+      message: cause.message,
+      details: cause.details,
+      phase: _SubscriptionStoreErrorPhase.completion,
+    );
+  }
+  return _subscriptionStoreErrorMessage(
+    code: event.purchase?.errorCode ?? failure.code,
+    message: event.purchase?.errorMessage ?? failure.message,
+    details: cause,
+    phase: _SubscriptionStoreErrorPhase.completion,
+  );
+}
+
+enum _SubscriptionStoreErrorPhase { start, completion }
+
+String _subscriptionStoreErrorMessage({
+  String? code,
+  String? message,
+  Object? details,
+  required _SubscriptionStoreErrorPhase phase,
+}) {
+  final nativeError = _nativeStoreError(details);
+  final searchable = [
+    code,
+    message,
+    details,
+    nativeError,
+  ].whereType<Object>().join(' ').toLowerCase();
+  if (searchable.contains('duplicate_product') ||
+      searchable.contains('pending transaction')) {
+    return subscriptionDuplicatePurchaseMessage;
+  }
+  if (searchable.contains('no active account') ||
+      searchable.contains('not authenticated') ||
+      searchable.contains('authentication') ||
+      searchable.contains('apple id') ||
+      searchable.contains('asderrordomain code=509')) {
+    return subscriptionAppStoreAccountMessage;
+  }
+  if ((searchable.contains('storekit.storekiterror') &&
+          searchable.contains('code=3')) ||
+      searchable.contains('systemerror')) {
+    return subscriptionAppStoreTemporaryMessage;
+  }
+  if (searchable.contains('skerrordomain code=3') ||
+      searchable.contains('payment invalid') ||
+      searchable.contains('payment method')) {
+    return subscriptionPaymentMethodMessage;
+  }
+  if (searchable.contains('skerrordomain code=4') ||
+      searchable.contains('payment not allowed') ||
+      searchable.contains('purchases disabled')) {
+    return subscriptionPurchasesDisabledMessage;
+  }
+  if (searchable.contains('skerrordomain code=9') ||
+      searchable.contains('privacy acknowledgement')) {
+    return subscriptionAppStoreTermsMessage;
+  }
+  if (searchable.contains('network') ||
+      searchable.contains('internet') ||
+      searchable.contains('offline') ||
+      searchable.contains('connection') ||
+      searchable.contains('skerrordomain code=7') ||
+      searchable.contains('timed out') ||
+      searchable.contains('timeout')) {
+    return subscriptionPurchaseNetworkMessage;
+  }
+  if (searchable.contains('not available in storefront') ||
+      searchable.contains('notavailableinstorefront')) {
+    return subscriptionStorefrontUnavailableMessage;
+  }
+  if (searchable.contains('failed_to_fetch_product') ||
+      searchable.contains('products_error') ||
+      searchable.contains('product_not_available') ||
+      searchable.contains('product not available') ||
+      searchable.contains('product has not been loaded') ||
+      searchable.contains('skerrordomain code=5') ||
+      searchable.contains('storekit_no_response')) {
+    return subscriptionProductUnavailableMessage;
+  }
+  if (searchable.contains('invalid offer') ||
+      searchable.contains('ineligibleforoffer') ||
+      searchable.contains('invalid_signature') ||
+      searchable.contains('missing_offer')) {
+    return subscriptionOfferUnavailableMessage;
+  }
+
+  final safeCode =
+      _safeStoreErrorCode(nativeError) ?? _safeStoreErrorCode(code);
+  final codeSuffix = safeCode == null ? '' : ' (error $safeCode)';
+  return switch (phase) {
+    _SubscriptionStoreErrorPhase.start =>
+      'Purchase could not start$codeSuffix. Please retry.',
+    _SubscriptionStoreErrorPhase.completion =>
+      'Purchase failed$codeSuffix. Check your App Store account.',
+  };
+}
+
+String? _nativeStoreError(Object? details) {
+  if (details is! Map) return null;
+  final domain = details['domain']?.toString().trim();
+  final code = details['code']?.toString().trim();
+  if (domain == null || domain.isEmpty || code == null || code.isEmpty) {
+    return null;
+  }
+  return '$domain Code=$code';
+}
+
+String? _safeStoreErrorCode(String? code) {
+  final trimmed = code?.trim();
+  if (trimmed == null || trimmed.isEmpty) return null;
+  final domainCode = RegExp(
+    r'(?:Error Domain=)?([A-Za-z0-9_.]+)\s+Code=(-?\d+)',
+    caseSensitive: false,
+  ).firstMatch(trimmed);
+  if (domainCode != null) {
+    return '${domainCode.group(1)}_${domainCode.group(2)}';
+  }
+  final safe = trimmed.replaceAll(RegExp(r'[^A-Za-z0-9_.-]'), '_');
+  return safe.length <= 24 ? safe : safe.substring(0, 24);
+}
+
+class AppSubscriptionConfiguration {
+  const AppSubscriptionConfiguration({
+    required this.store,
+    required this.productIds,
+  });
+
+  factory AppSubscriptionConfiguration.fromEnvironment({
+    TargetPlatform? platform,
+  }) {
+    final store = switch (platform ?? defaultTargetPlatform) {
+      TargetPlatform.iOS => SubscriptionStore.appStore,
+      _ => null,
+    };
+    if (store == null) {
+      return const AppSubscriptionConfiguration(store: null, productIds: {});
+    }
+    const productIds = {
+      subscriptionWeeklyPlanId: String.fromEnvironment(
+        'SUBSCRIPTION_APP_STORE_WEEKLY_ID',
+      ),
+      subscriptionYearlyPlanId: String.fromEnvironment(
+        'SUBSCRIPTION_APP_STORE_YEARLY_ID',
+      ),
+      subscriptionLifetimePlanId: String.fromEnvironment(
+        'SUBSCRIPTION_APP_STORE_LIFETIME_ID',
+      ),
+    };
+    return AppSubscriptionConfiguration(store: store, productIds: productIds);
+  }
+
+  final SubscriptionStore? store;
+  final Map<String, String> productIds;
+
+  Map<String, String> get configuredProductIds => Map.unmodifiable(
+    Map.fromEntries(
+      productIds.entries.where((entry) => entry.value.isNotEmpty),
+    ),
+  );
+
+  bool get isConfigured => store != null && configuredProductIds.isNotEmpty;
+}
+
+final appSubscriptionConfigurationProvider =
+    Provider<AppSubscriptionConfiguration>((ref) {
+      return AppSubscriptionConfiguration.fromEnvironment();
+    });
+
+typedef SubscriptionPurchaseEnvironmentReader =
+    Future<String?> Function(SubscriptionStore store);
+
+final subscriptionPurchaseEnvironmentReaderProvider =
+    Provider<SubscriptionPurchaseEnvironmentReader>((ref) {
+      return (store) async {
+        try {
+          final countryCode = (await Storefront().countryCode())
+              .trim()
+              .toUpperCase();
+          return countryCode.isEmpty ? null : '${store.name}:$countryCode';
+        } on Object {
+          return null;
+        }
+      };
+    });
+
+bool subscriptionPurchaseEnvironmentChanged({
+  required String? loaded,
+  required String? current,
+}) => current != null && current != loaded;
+
+final subscriptionReceiptVerifierProvider =
+    Provider<SubscriptionReceiptVerifier>((ref) {
+      return StoreKit2SubscriptionReceiptVerifier(
+        session: () => ref.read(authControllerProvider).session,
+        syncQueue: ref.watch(subscriptionSyncQueueProvider),
+      );
+    });
+
+final subscriptionEntitlementApiProvider = Provider<SubscriptionEntitlementApi>(
+  (ref) {
+    return HttpSubscriptionEntitlementApi(ref.watch(portfolioDioProvider));
+  },
+);
+
+final appleRestoreProofApiProvider = Provider<AppleRestoreProofApi>((ref) {
+  return HttpSubscriptionEntitlementApi(ref.watch(portfolioDioProvider));
+});
+
+final appleLifecycleApiProvider = Provider<AppleLifecycleApi>((ref) {
+  return HttpSubscriptionEntitlementApi(ref.watch(portfolioDioProvider));
+});
+
+final subscriptionSyncStorageProvider = Provider<SubscriptionSyncStorage>((
+  ref,
+) {
+  return const SecureSubscriptionSyncStorage();
+});
+
+final subscriptionSyncQueueProvider = Provider<SubscriptionSyncQueue>((ref) {
+  return SubscriptionSyncQueue(
+    storage: ref.watch(subscriptionSyncStorageProvider),
+    api: ref.watch(subscriptionEntitlementApiProvider),
+  );
+});
+
+final appleCurrentEntitlementReaderProvider =
+    Provider<AppleCurrentEntitlementReader>((ref) {
+      return const MethodChannelAppleCurrentEntitlementReader();
+    });
+
+final appleSubscriptionRestorerProvider = Provider<AppleSubscriptionRestorer>((
+  ref,
+) {
+  return AppleSubscriptionRestorer(
+    reader: ref.watch(appleCurrentEntitlementReaderProvider),
+  );
+});
+
+final appleRestoreProofSyncProvider = Provider<AppleRestoreProofSync>((ref) {
+  return AppleRestoreProofSync(
+    api: ref.watch(appleRestoreProofApiProvider),
+    bridge: const MethodChannelAppleAppAttestBridge(),
+    storage: const SecureAppleAppAttestKeyStorage(),
+  );
+});
+
+final subscriptionControllerProvider =
+    NotifierProvider<SubscriptionController, SubscriptionState>(
+      SubscriptionController.new,
+    );
+
+final subscriptionRevenueStorageProvider = Provider<SubscriptionRevenueStorage>(
+  (ref) {
+    return const PreferencesSubscriptionRevenueStorage();
+  },
+);
+
+final subscriptionEntitlementCacheStorageProvider =
+    Provider<SubscriptionEntitlementCacheStorage>((ref) {
+      return const SecureSubscriptionEntitlementCacheStorage();
+    });
+
+final subscriptionRevenueReporterProvider =
+    Provider<SubscriptionRevenueReporter>((ref) {
+      return SubscriptionRevenueReporter(
+        storage: ref.watch(subscriptionRevenueStorageProvider),
+        sink: AnalyticsSubscriptionRevenueSink(ref.watch(analyticsProvider)),
+      );
+    });
+
+enum SubscriptionResultEvent {
+  purchaseSuccess,
+  restoreSuccess,
+  restoreNotFound,
+  restoreFailed,
+  externalPremium,
+}
+
+SubscriptionResultEvent? subscriptionRestoreFailureEvent(Object error) =>
+    isAppleRestoreCancellation(error)
+    ? null
+    : SubscriptionResultEvent.restoreFailed;
+
+enum SubscriptionRestoreSource { subscriptionPage, profile }
+
+enum EntitlementReconciliationResult {
+  premiumSynchronized,
+  freeConfirmed,
+  verificationUnavailable,
+}
+
+class _EntitlementRefreshResult {
+  const _EntitlementRefreshResult({
+    required this.state,
+    required this.wasVerified,
+  });
+
+  final AppPremiumState state;
+  final bool wasVerified;
+}
+
+AppPremiumState resolvePremiumStateAfterRestore(
+  AppPremiumState current,
+  AppleRestoreResult? result,
+) {
+  if (result == null) return current;
+  return result.isSuccess ? AppPremiumState.premium : AppPremiumState.free;
+}
+
+List<AppleCurrentEntitlement> applyAppleLifecycleCorrections(
+  List<AppleCurrentEntitlement> entitlements,
+  List<ApplePurchaseChainLifecycle>? lifecycle,
+) {
+  if (lifecycle == null) return entitlements;
+  return entitlements
+      .where((entitlement) {
+        final payload = decodeStoreKitJwsPayload(
+          entitlement.signedTransactionInfo,
+        );
+        final originalTransactionId = payload?['originalTransactionId'];
+        final signedDate = payload?['signedDate'];
+        if (originalTransactionId is! String || signedDate is! num) return true;
+        final signedAt = DateTime.fromMillisecondsSinceEpoch(
+          signedDate.toInt(),
+          isUtc: true,
+        );
+        return !lifecycle.any(
+          (item) =>
+              item.originalTransactionId == originalTransactionId &&
+              item.isExplicitlyInactive &&
+              item.stateEffectiveAt != null &&
+              !item.stateEffectiveAt!.isBefore(signedAt),
+        );
+      })
+      .toList(growable: false);
+}
+
+class SubscriptionState {
+  const SubscriptionState({
+    this.selectedPlanId = subscriptionYearlyPlanId,
+    this.displayPrices = const {},
+    this.analyticsProducts = const {},
+    this.availablePlanIds = const {},
+    this.unavailablePlanIds = const {},
+    this.isConfigured = false,
+    this.isLoading = false,
+    this.isPurchasing = false,
+    this.isPurchasePending = false,
+    this.isRestoring = false,
+    AppPremiumState? premiumState,
+    bool isPro = false,
+    this.completionCount = 0,
+    this.resultEventCount = 0,
+    this.resultEvent,
+    this.restoreSource,
+    this.errorMessage,
+  }) : premiumState =
+           premiumState ??
+           (isPro ? AppPremiumState.premium : AppPremiumState.unknown);
+
+  final String selectedPlanId;
+  final Map<String, String> displayPrices;
+  final Map<String, SubscriptionProductAnalytics> analyticsProducts;
+  final Set<String> availablePlanIds;
+  final Set<String> unavailablePlanIds;
+  final bool isConfigured;
+  final bool isLoading;
+  final bool isPurchasing;
+  final bool isPurchasePending;
+  final bool isRestoring;
+  final AppPremiumState premiumState;
+  bool get isPro => premiumState == AppPremiumState.premium;
+  final int completionCount;
+  final int resultEventCount;
+  final SubscriptionResultEvent? resultEvent;
+  final SubscriptionRestoreSource? restoreSource;
+  final String? errorMessage;
+
+  String displayPriceFor(String planId) {
+    final storePrice = displayPrices[planId];
+    if (storePrice != null) return storePrice;
+    if (isConfigured) {
+      final fallbackPrice = subscriptionFallbackDisplayPrices[planId];
+      if (fallbackPrice != null) return fallbackPrice;
+    }
+    return isLoading ? 'Loading' : 'Unavailable';
+  }
+
+  bool hasLoadedProductFor(
+    String planId,
+    AppSubscriptionConfiguration configuration,
+  ) {
+    final configuredProductId = configuration.configuredProductIds[planId];
+    if (!isConfigured ||
+        !configuration.isConfigured ||
+        configuredProductId == null) {
+      return false;
+    }
+    return availablePlanIds.contains(planId) &&
+        displayPrices.containsKey(planId) &&
+        analyticsProducts[planId]?.sku == configuredProductId;
+  }
+
+  bool hasLoadedProductsFor(AppSubscriptionConfiguration configuration) {
+    final configuredPlanIds = configuration.configuredProductIds.keys;
+    return configuredPlanIds.isNotEmpty &&
+        configuredPlanIds.every(
+          (planId) => hasLoadedProductFor(planId, configuration),
+        );
+  }
+
+  SubscriptionState copyWith({
+    String? selectedPlanId,
+    Map<String, String>? displayPrices,
+    Map<String, SubscriptionProductAnalytics>? analyticsProducts,
+    Set<String>? availablePlanIds,
+    Set<String>? unavailablePlanIds,
+    bool? isConfigured,
+    bool? isLoading,
+    bool? isPurchasing,
+    bool? isPurchasePending,
+    bool? isRestoring,
+    AppPremiumState? premiumState,
+    bool? isPro,
+    int? completionCount,
+    int? resultEventCount,
+    SubscriptionResultEvent? resultEvent,
+    SubscriptionRestoreSource? restoreSource,
+    String? errorMessage,
+    bool clearError = false,
+    bool clearResult = false,
+  }) {
+    return SubscriptionState(
+      selectedPlanId: selectedPlanId ?? this.selectedPlanId,
+      displayPrices: displayPrices ?? this.displayPrices,
+      analyticsProducts: analyticsProducts ?? this.analyticsProducts,
+      availablePlanIds: availablePlanIds ?? this.availablePlanIds,
+      unavailablePlanIds: unavailablePlanIds ?? this.unavailablePlanIds,
+      isConfigured: isConfigured ?? this.isConfigured,
+      isLoading: isLoading ?? this.isLoading,
+      isPurchasing: isPurchasing ?? this.isPurchasing,
+      isPurchasePending: isPurchasePending ?? this.isPurchasePending,
+      isRestoring: isRestoring ?? this.isRestoring,
+      premiumState:
+          premiumState ??
+          (isPro == null
+              ? this.premiumState
+              : isPro
+              ? AppPremiumState.premium
+              : AppPremiumState.free),
+      completionCount: completionCount ?? this.completionCount,
+      resultEventCount: resultEventCount ?? this.resultEventCount,
+      resultEvent: clearResult ? null : resultEvent ?? this.resultEvent,
+      restoreSource: clearResult ? null : restoreSource ?? this.restoreSource,
+      errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
+    );
+  }
+}
+
+class SubscriptionController extends Notifier<SubscriptionState> {
+  SubscriptionClient? _client;
+  StreamSubscription<SubscriptionEvent>? _eventSubscription;
+  SubscriptionStore? _store;
+  var _restoreAttempt = 0;
+  var _purchasePresentationActive = false;
+  SubscriptionPurchaseAnalyticsContext? _purchaseAnalyticsContext;
+  Future<_EntitlementRefreshResult>? _entitlementRefreshInFlight;
+  Future<bool>? _serverEntitlementSyncInFlight;
+  Future<EntitlementReconciliationResult>? _entitlementReconciliationInFlight;
+  Future<bool>? _productLoadInFlight;
+  Timer? _entitlementExpiryTimer;
+  var _productLoadCycle = 0;
+  String? _loadedPurchaseEnvironment;
+
+  @override
+  SubscriptionState build() {
+    final configuration = ref.watch(appSubscriptionConfigurationProvider);
+    ref.listen(authControllerProvider, (_, next) {
+      final session = next.session;
+      if (session != null) {
+        unawaited(ref.read(subscriptionSyncQueueProvider).flush(session));
+      }
+    });
+    final currentSession = ref.read(authControllerProvider).session;
+    if (currentSession != null) {
+      Future<void>.microtask(
+        () => ref.read(subscriptionSyncQueueProvider).flush(currentSession),
+      );
+    }
+    Future<void>.microtask(() async {
+      try {
+        await ref.read(subscriptionRevenueReporterProvider).flush();
+      } on Object catch (error, stackTrace) {
+        debugPrint('Unable to flush subscription revenue: $error\n$stackTrace');
+      }
+    });
+    ref.onDispose(() {
+      _restoreAttempt++;
+      _productLoadCycle++;
+      _entitlementExpiryTimer?.cancel();
+      unawaited(_eventSubscription?.cancel());
+      unawaited(_client?.dispose());
+    });
+    if (!configuration.isConfigured) {
+      return const SubscriptionState(
+        unavailablePlanIds: {
+          subscriptionWeeklyPlanId,
+          subscriptionYearlyPlanId,
+          subscriptionLifetimePlanId,
+        },
+      );
+    }
+    Future<void>.microtask(() async {
+      try {
+        await refreshEntitlement(showFailure: false);
+      } on Object catch (error, stackTrace) {
+        debugPrint(
+          'Unable to refresh subscription entitlement: $error\n$stackTrace',
+        );
+      }
+    });
+    Future<void>.microtask(() => _initialize(configuration));
+    return const SubscriptionState(isConfigured: true, isLoading: true);
+  }
+
+  void selectPlan(String planId) {
+    if (state.isLoading ||
+        state.isPurchasePending ||
+        !state.availablePlanIds.contains(planId)) {
+      return;
+    }
+    state = state.copyWith(selectedPlanId: planId, clearError: true);
+  }
+
+  void beginPurchaseAnalytics(String scene) {
+    if (state.isLoading || state.isPurchasing || state.isPurchasePending) {
+      return;
+    }
+    final product = state.analyticsProducts[state.selectedPlanId];
+    if (product == null) return;
+    final context = SubscriptionPurchaseAnalyticsContext(
+      product: product,
+      scene: scene,
+    );
+    _purchaseAnalyticsContext = context;
+    trackSubscriptionClick(ref.read(analyticsProvider), context);
+  }
+
+  void resetPlanSelectionForNewPresentation() {
+    if (state.isPurchasing || state.isPurchasePending || state.isRestoring) {
+      return;
+    }
+    final selectedPlanId =
+        state.availablePlanIds.contains(subscriptionYearlyPlanId)
+        ? subscriptionYearlyPlanId
+        : subscriptionPlans
+              .map((plan) => plan.id)
+              .firstWhere(
+                state.availablePlanIds.contains,
+                orElse: () => subscriptionYearlyPlanId,
+              );
+    if (selectedPlanId == state.selectedPlanId) return;
+    state = state.copyWith(selectedPlanId: selectedPlanId);
+  }
+
+  Future<void> refreshProducts({
+    required bool Function() isContextActive,
+    bool force = false,
+    bool showLoading = true,
+  }) async {
+    final configuration = ref.read(appSubscriptionConfigurationProvider);
+    if (!state.isConfigured ||
+        state.isLoading ||
+        state.isPurchasing ||
+        state.isPurchasePending ||
+        state.isRestoring ||
+        _client == null ||
+        _store == null) {
+      return;
+    }
+    final currentPurchaseEnvironment = await _readPurchaseEnvironment(_store!);
+    if (!ref.mounted || !isContextActive()) return;
+    final environmentChanged = subscriptionPurchaseEnvironmentChanged(
+      loaded: _loadedPurchaseEnvironment,
+      current: currentPurchaseEnvironment,
+    );
+    if (!force &&
+        !environmentChanged &&
+        state.hasLoadedProductsFor(configuration)) {
+      return;
+    }
+    if (showLoading) state = state.copyWith(isLoading: true);
+    var loaded = false;
+    try {
+      loaded = await _loadProductsWithRetry(
+        isContextActive: isContextActive,
+        preserveCatalogOnEmpty: !showLoading,
+      );
+    } finally {
+      if (ref.mounted && showLoading) {
+        state = state.copyWith(isLoading: false, clearError: loaded);
+      } else if (ref.mounted && loaded) {
+        state = state.copyWith(clearError: true);
+      }
+    }
+  }
+
+  Future<void> purchase() async {
+    if (state.isLoading || state.isPurchasing || state.isPurchasePending) {
+      return;
+    }
+    final client = _client;
+    final store = _store;
+    if (client == null || store == null) {
+      _trackPurchaseResult(AnalyticsValue.resultFailed);
+      state = state.copyWith(errorMessage: subscriptionNotConfiguredMessage);
+      return;
+    }
+    state = state.copyWith(
+      isLoading: true,
+      isPurchasing: true,
+      isPurchasePending: false,
+      clearError: true,
+      clearResult: true,
+    );
+    _purchasePresentationActive = true;
+    try {
+      final configuration = ref.read(appSubscriptionConfigurationProvider);
+      final currentPurchaseEnvironment = await _readPurchaseEnvironment(store);
+      final environmentChanged = subscriptionPurchaseEnvironmentChanged(
+        loaded: _loadedPurchaseEnvironment,
+        current: currentPurchaseEnvironment,
+      );
+      if (environmentChanged ||
+          !state.hasLoadedProductFor(state.selectedPlanId, configuration)) {
+        final loaded = await _loadProductsWithRetry();
+        final stillChanged = subscriptionPurchaseEnvironmentChanged(
+          loaded: _loadedPurchaseEnvironment,
+          current: currentPurchaseEnvironment,
+        );
+        if (!loaded ||
+            stillChanged ||
+            !state.hasLoadedProductFor(state.selectedPlanId, configuration)) {
+          state = state.copyWith(
+            isLoading: false,
+            isPurchasing: false,
+            errorMessage: subscriptionCatalogUnavailableMessage,
+          );
+          _trackPurchaseResult(AnalyticsValue.resultFailed);
+          _purchasePresentationActive = false;
+          return;
+        }
+        state = state.copyWith(isLoading: true);
+      }
+      String? applicationUserName;
+      final session = ref.read(authControllerProvider).session;
+      if (store == SubscriptionStore.appStore && session != null) {
+        final productId = ref
+            .read(appSubscriptionConfigurationProvider)
+            .productIds[state.selectedPlanId];
+        if (productId != null) {
+          try {
+            applicationUserName = await ref
+                .read(subscriptionEntitlementApiProvider)
+                .createPurchaseChallenge(session, productId: productId);
+          } on Exception {
+            // Per PRD, an unavailable business API must not block StoreKit.
+          }
+        }
+      }
+      await client.purchase(
+        planId: state.selectedPlanId,
+        store: store,
+        applicationUserName: applicationUserName,
+      );
+    } on TimeoutException {
+      _trackPurchaseResult(AnalyticsValue.resultFailed);
+      _purchasePresentationActive = false;
+      state = state.copyWith(
+        isLoading: false,
+        isPurchasing: false,
+        errorMessage: subscriptionPurchaseNetworkMessage,
+      );
+    } on Object catch (error, stackTrace) {
+      debugPrint('Unable to start subscription purchase: $error\n$stackTrace');
+      _trackPurchaseResult(AnalyticsValue.resultFailed);
+      _purchasePresentationActive = false;
+      state = state.copyWith(
+        isLoading: false,
+        isPurchasing: false,
+        errorMessage: subscriptionPurchaseStartErrorMessage(error),
+      );
+    }
+  }
+
+  void abandonPurchasePresentation() {
+    if (state.isPurchasePending) {
+      _purchasePresentationActive = false;
+    }
+  }
+
+  Future<AppPremiumState> refreshEntitlement({bool showFailure = true}) async {
+    final result = await _refreshEntitlementResult(showFailure: showFailure);
+    return result.state;
+  }
+
+  Future<_EntitlementRefreshResult> _refreshEntitlementResult({
+    required bool showFailure,
+  }) {
+    final inFlight = _entitlementRefreshInFlight;
+    if (inFlight != null) return inFlight;
+    final refresh = _runEntitlementRefresh(showFailure: showFailure);
+    _entitlementRefreshInFlight = refresh;
+    return refresh;
+  }
+
+  Future<EntitlementReconciliationResult> reconcileServerEntitlement() {
+    final inFlight = _entitlementReconciliationInFlight;
+    if (inFlight != null) return inFlight;
+    late final Future<EntitlementReconciliationResult> reconciliation;
+    reconciliation = _reconcileServerEntitlement().whenComplete(() {
+      if (identical(_entitlementReconciliationInFlight, reconciliation)) {
+        _entitlementReconciliationInFlight = null;
+      }
+    });
+    _entitlementReconciliationInFlight = reconciliation;
+    return reconciliation;
+  }
+
+  Future<EntitlementReconciliationResult> _reconcileServerEntitlement() async {
+    try {
+      final refresh = await _refreshEntitlementResult(showFailure: false);
+      if (!refresh.wasVerified) {
+        return EntitlementReconciliationResult.verificationUnavailable;
+      }
+      if (refresh.state == AppPremiumState.free) {
+        return EntitlementReconciliationResult.freeConfirmed;
+      }
+      if (refresh.state != AppPremiumState.premium) {
+        return EntitlementReconciliationResult.verificationUnavailable;
+      }
+      return await synchronizeServerEntitlement()
+          ? EntitlementReconciliationResult.premiumSynchronized
+          : EntitlementReconciliationResult.verificationUnavailable;
+    } on Object catch (error, stackTrace) {
+      debugPrint(
+        'Unable to reconcile the denied Premium entitlement: '
+        '$error\n$stackTrace',
+      );
+      return EntitlementReconciliationResult.verificationUnavailable;
+    }
+  }
+
+  Future<bool> synchronizeServerEntitlement() {
+    final inFlight = _serverEntitlementSyncInFlight;
+    if (inFlight != null) return inFlight;
+    late final Future<bool> sync;
+    sync = _synchronizeServerEntitlement().whenComplete(() {
+      if (identical(_serverEntitlementSyncInFlight, sync)) {
+        _serverEntitlementSyncInFlight = null;
+      }
+    });
+    _serverEntitlementSyncInFlight = sync;
+    return sync;
+  }
+
+  Future<bool> _synchronizeServerEntitlement() async {
+    final session = ref.read(authControllerProvider).session;
+    final configuration = ref.read(appSubscriptionConfigurationProvider);
+    final productIds = configuration.configuredProductIds.values.toSet();
+    if (session == null ||
+        configuration.store != SubscriptionStore.appStore ||
+        productIds.isEmpty) {
+      return false;
+    }
+    try {
+      await ref.read(subscriptionSyncQueueProvider).flush(session);
+      try {
+        final lifecycle = await ref
+            .read(appleLifecycleApiProvider)
+            .loadCurrentSessionLifecycle(session)
+            .timeout(const Duration(seconds: 15));
+        if (lifecycle.any(
+          (chain) =>
+              productIds.contains(chain.productId) &&
+              const {
+                'ACTIVE',
+                'TRIAL',
+                'GRACE_PERIOD',
+                'LIFETIME',
+              }.contains(chain.lifecycleStatus),
+        )) {
+          return true;
+        }
+      } on Object catch (error, stackTrace) {
+        debugPrint(
+          'Unable to confirm the current server entitlement: $error\n'
+          '$stackTrace',
+        );
+      }
+      final entitlements = await ref
+          .read(appleCurrentEntitlementReaderProvider)
+          .read(productIds)
+          .timeout(const Duration(seconds: 15));
+      AppleCurrentEntitlement? selected;
+      for (final entitlement in entitlements) {
+        final payload = decodeStoreKitJwsPayload(
+          entitlement.signedTransactionInfo,
+        );
+        final transactionReason = payload?['transactionReason'];
+        if (payload?['productId'] != entitlement.productId ||
+            (transactionReason != 'PURCHASE' &&
+                transactionReason != 'RENEWAL')) {
+          continue;
+        }
+        selected = entitlement;
+        if (entitlement.productId ==
+            configuration.configuredProductIds[subscriptionLifetimePlanId]) {
+          break;
+        }
+      }
+      if (selected == null) return false;
+      return await ref
+          .read(appleRestoreProofSyncProvider)
+          .sync(session, selected.signedTransactionInfo);
+    } on Object catch (error, stackTrace) {
+      debugPrint(
+        'Unable to synchronize current Apple entitlement: $error\n'
+        '$stackTrace',
+      );
+      return false;
+    }
+  }
+
+  Future<_EntitlementRefreshResult> _runEntitlementRefresh({
+    required bool showFailure,
+  }) async {
+    try {
+      return await _refreshEntitlement(
+        ref.read(appSubscriptionConfigurationProvider),
+        showFailure: showFailure,
+      );
+    } finally {
+      _entitlementRefreshInFlight = null;
+    }
+  }
+
+  Future<void> restore({
+    SubscriptionRestoreSource source =
+        SubscriptionRestoreSource.subscriptionPage,
+  }) async {
+    if (state.isLoading || state.isPurchasePending) return;
+    final configuration = ref.read(appSubscriptionConfigurationProvider);
+    if (_client == null || _store != SubscriptionStore.appStore) {
+      debugPrint(
+        'Unable to restore Apple subscription: StoreKit client is not ready '
+        '(client=${_client == null ? 'missing' : 'ready'}, store=$_store).',
+      );
+      state = state.copyWith(
+        resultEvent: SubscriptionResultEvent.restoreFailed,
+        restoreSource: source,
+        resultEventCount: state.resultEventCount + 1,
+      );
+      trackRestoreResult(
+        ref.read(analyticsProvider),
+        AnalyticsValue.resultFailed,
+      );
+      return;
+    }
+    final attempt = ++_restoreAttempt;
+    state = state.copyWith(
+      isLoading: true,
+      isRestoring: true,
+      restoreSource: source,
+      clearError: true,
+      clearResult: true,
+    );
+    try {
+      final result = await ref
+          .read(appleSubscriptionRestorerProvider)
+          .restore(configuration.configuredProductIds.values.toSet());
+      if (attempt != _restoreAttempt) return;
+      if (result.isSuccess) {
+        final session = ref.read(authControllerProvider).session;
+        final evidence = result.signedTransactionInfo;
+        if (session != null && evidence != null) {
+          unawaited(
+            ref
+                .read(appleRestoreProofSyncProvider)
+                .sync(session, evidence)
+                .catchError((Object error, StackTrace stackTrace) {
+                  debugPrint(
+                    'Unable to synchronize Apple Restore proof: $error\n'
+                    '$stackTrace',
+                  );
+                  return false;
+                }),
+          );
+        }
+      }
+      final event = result.isSuccess
+          ? SubscriptionResultEvent.restoreSuccess
+          : SubscriptionResultEvent.restoreNotFound;
+      state = state.copyWith(
+        isLoading: false,
+        isRestoring: false,
+        premiumState: resolvePremiumStateAfterRestore(
+          state.premiumState,
+          result,
+        ),
+        resultEvent: event,
+        restoreSource: source,
+        resultEventCount: state.resultEventCount + 1,
+      );
+      await _cacheRestoreResult(result);
+      trackRestoreResult(
+        ref.read(analyticsProvider),
+        result.isSuccess
+            ? AnalyticsValue.resultSuccess
+            : AnalyticsValue.resultNotFound,
+      );
+      if (result.isSuccess) {
+        final productId = decodeStoreKitJwsPayload(
+          result.signedTransactionInfo!,
+        )?['productId'];
+        if (productId is String) {
+          ref.read(analyticsProvider).updateSubscriptionPlan(productId);
+        }
+      } else {
+        ref.read(analyticsProvider).updateSubscriptionPlan(null);
+      }
+    } on Object catch (error, stackTrace) {
+      final failureEvent = subscriptionRestoreFailureEvent(error);
+      if (failureEvent != null) {
+        debugPrint('Unable to restore Apple subscription: $error\n$stackTrace');
+      }
+      if (attempt != _restoreAttempt) return;
+      if (failureEvent == null) {
+        state = state.copyWith(
+          isLoading: false,
+          isRestoring: false,
+          clearResult: true,
+        );
+        return;
+      }
+      trackRestoreResult(
+        ref.read(analyticsProvider),
+        AnalyticsValue.resultFailed,
+      );
+      state = state.copyWith(
+        isLoading: false,
+        isRestoring: false,
+        premiumState: resolvePremiumStateAfterRestore(state.premiumState, null),
+        resultEvent: failureEvent,
+        restoreSource: source,
+        resultEventCount: state.resultEventCount + 1,
+      );
+    }
+  }
+
+  Future<void> _initialize(AppSubscriptionConfiguration configuration) async {
+    final store = configuration.store!;
+    final configuredProductIds = configuration.configuredProductIds;
+    final config = SubscriptionConfig(
+      enabledStores: {store},
+      plans: subscriptionPlans
+          .where((plan) => configuredProductIds.containsKey(plan.id))
+          .map(
+            (plan) => SubscriptionPlanConfig(
+              id: plan.id,
+              entitlementId: 'performance_pro',
+              productIds: {store: configuredProductIds[plan.id]!},
+            ),
+          )
+          .toList(growable: false),
+    );
+    final client = SubscriptionClient(
+      config: config,
+      gateways: [InAppPurchaseSubscriptionGateway(store: store)],
+      verifier: ref.read(subscriptionReceiptVerifierProvider),
+    );
+    _store = store;
+    _client = client;
+    _eventSubscription = client.events.listen(_handleEvent);
+    try {
+      await client.initialize();
+      final loaded = await _loadProductsWithRetry();
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: loaded ? null : subscriptionCatalogUnavailableMessage,
+        clearError: loaded,
+      );
+    } on Object {
+      state = state.copyWith(
+        isLoading: false,
+        availablePlanIds: const {},
+        unavailablePlanIds: subscriptionPlans.map((plan) => plan.id).toSet(),
+        errorMessage: subscriptionCatalogUnavailableMessage,
+      );
+    }
+  }
+
+  Future<_EntitlementRefreshResult> _refreshEntitlement(
+    AppSubscriptionConfiguration configuration, {
+    bool showFailure = false,
+  }) async {
+    final storage = ref.read(subscriptionEntitlementCacheStorageProvider);
+    final cached = await storage.read();
+    final cachedState = cached?.effectiveState(DateTime.now().toUtc());
+    ref
+        .read(analyticsProvider)
+        .updateSubscriptionPlan(
+          cachedState == AppPremiumState.premium ? cached?.productId : null,
+        );
+    _scheduleEntitlementExpiry(cached);
+    if (cachedState != null && ref.mounted) {
+      state = state.copyWith(premiumState: cachedState);
+    }
+    if (configuration.store != SubscriptionStore.appStore ||
+        configuration.configuredProductIds.isEmpty) {
+      return _EntitlementRefreshResult(
+        state: state.premiumState,
+        wasVerified: false,
+      );
+    }
+    try {
+      final session = ref.read(authControllerProvider).session;
+      final lifecycleFuture = session == null
+          ? Future<List<ApplePurchaseChainLifecycle>?>.value(null)
+          : ref
+                .read(appleLifecycleApiProvider)
+                .loadCurrentSessionLifecycle(session)
+                .timeout(const Duration(seconds: 15))
+                .then<List<ApplePurchaseChainLifecycle>?>((value) => value)
+                .catchError((Object _) => null);
+      final appleEntitlements = await ref
+          .read(appleCurrentEntitlementReaderProvider)
+          .read(configuration.configuredProductIds.values.toSet())
+          .timeout(const Duration(seconds: 15));
+      if (!ref.mounted) {
+        return _EntitlementRefreshResult(
+          state: state.premiumState,
+          wasVerified: false,
+        );
+      }
+      final lifecycle = await lifecycleFuture;
+      if (!ref.mounted) {
+        return _EntitlementRefreshResult(
+          state: state.premiumState,
+          wasVerified: false,
+        );
+      }
+      final entitlements = applyAppleLifecycleCorrections(
+        appleEntitlements,
+        lifecycle,
+      );
+      if (entitlements.isEmpty) {
+        ref.read(analyticsProvider).updateSubscriptionPlan(null);
+        final verifiedFree = VerifiedEntitlementCache(
+          state: AppPremiumState.free,
+          verifiedAt: DateTime.now().toUtc(),
+        );
+        await storage.write(verifiedFree);
+        _scheduleEntitlementExpiry(verifiedFree);
+        if (ref.mounted) {
+          state = state.copyWith(
+            premiumState: AppPremiumState.free,
+            clearError: true,
+          );
+        }
+        return const _EntitlementRefreshResult(
+          state: AppPremiumState.free,
+          wasVerified: true,
+        );
+      }
+      final cache = selectBestVerifiedEntitlementCache(
+        entitlements,
+        lifetimeProductId:
+            configuration.configuredProductIds[subscriptionLifetimePlanId],
+        verifiedAt: DateTime.now().toUtc(),
+      );
+      if (cache == null) {
+        throw StateError('Current Apple entitlement evidence is malformed.');
+      }
+      await storage.write(cache);
+      ref.read(analyticsProvider).updateSubscriptionPlan(cache.productId);
+      _scheduleEntitlementExpiry(cache);
+      if (ref.mounted) {
+        state = state.copyWith(
+          premiumState: AppPremiumState.premium,
+          clearError: true,
+        );
+      }
+      return const _EntitlementRefreshResult(
+        state: AppPremiumState.premium,
+        wasVerified: true,
+      );
+    } on Object {
+      final fallback = cachedState ?? AppPremiumState.unknown;
+      if (ref.mounted) {
+        state = state.copyWith(
+          premiumState: fallback,
+          errorMessage: showFailure
+              ? subscriptionPremiumVerificationUnavailableMessage
+              : null,
+          clearError: !showFailure,
+        );
+      }
+      return _EntitlementRefreshResult(state: fallback, wasVerified: false);
+    }
+  }
+
+  Future<void> _cacheRestoreResult(AppleRestoreResult result) async {
+    final storage = ref.read(subscriptionEntitlementCacheStorageProvider);
+    if (!result.isSuccess) {
+      final cache = VerifiedEntitlementCache(
+        state: AppPremiumState.free,
+        verifiedAt: DateTime.now().toUtc(),
+      );
+      await storage.write(cache);
+      _scheduleEntitlementExpiry(cache);
+      return;
+    }
+    final evidence = result.signedTransactionInfo!;
+    final payload = decodeStoreKitJwsPayload(evidence);
+    final productId = payload?['productId'];
+    final cache = productId is String
+        ? _cacheFromEvidence(productId, evidence)
+        : null;
+    if (cache != null) {
+      await storage.write(cache);
+      _scheduleEntitlementExpiry(cache);
+    }
+  }
+
+  void _scheduleEntitlementExpiry(VerifiedEntitlementCache? cache) {
+    _entitlementExpiryTimer?.cancel();
+    _entitlementExpiryTimer = null;
+    if (cache?.state != AppPremiumState.premium || cache!.isLifetime) return;
+    final expiresAt = cache.expiresAt;
+    if (expiresAt == null) return;
+    final delay = expiresAt.difference(DateTime.now().toUtc());
+    if (delay <= Duration.zero) return;
+    _entitlementExpiryTimer = Timer(delay, () {
+      _entitlementExpiryTimer = null;
+      unawaited(
+        refreshEntitlement(showFailure: false).catchError((
+          Object error,
+          StackTrace stackTrace,
+        ) {
+          debugPrint(
+            'Unable to refresh Premium at the verified expiry time: '
+            '$error\n$stackTrace',
+          );
+          return state.premiumState;
+        }),
+      );
+    });
+  }
+
+  VerifiedEntitlementCache? _cacheFromEvidence(
+    String productId,
+    String evidence,
+  ) {
+    final payload = decodeStoreKitJwsPayload(evidence);
+    if (payload == null || payload['productId'] != productId) return null;
+    final originalTransactionId = payload['originalTransactionId'];
+    final expiresDate = payload['expiresDate'];
+    final configuration = ref.read(appSubscriptionConfigurationProvider);
+    final lifetimeProductId =
+        configuration.configuredProductIds[subscriptionLifetimePlanId];
+    return VerifiedEntitlementCache(
+      state: AppPremiumState.premium,
+      verifiedAt: DateTime.now().toUtc(),
+      productId: productId,
+      originalTransactionId: originalTransactionId is String
+          ? originalTransactionId
+          : null,
+      expiresAt: expiresDate is num
+          ? DateTime.fromMillisecondsSinceEpoch(
+              expiresDate.toInt(),
+              isUtc: true,
+            )
+          : null,
+      isLifetime: productId == lifetimeProductId,
+    );
+  }
+
+  Future<bool> _loadProducts(
+    int cycle, {
+    bool Function()? isContextActive,
+    bool preserveCatalogOnEmpty = false,
+  }) async {
+    final client = _client;
+    final store = _store;
+    if (client == null || store == null) return false;
+    final purchaseEnvironment = await _readPurchaseEnvironment(store);
+    final catalog = await client.loadProducts();
+    if (cycle != _productLoadCycle ||
+        !ref.mounted ||
+        isContextActive?.call() == false) {
+      return false;
+    }
+    if (catalog.products.isEmpty && preserveCatalogOnEmpty) return false;
+    final prices = <String, String>{};
+    final analyticsProducts = <String, SubscriptionProductAnalytics>{};
+    final available = <String>{};
+    for (final product in catalog.products) {
+      final plan = client.config.planByProductId(store, product.storeProductId);
+      if (plan != null) {
+        available.add(plan.id);
+        prices[plan.id] = product.displayPrice;
+        analyticsProducts[plan.id] = SubscriptionProductAnalytics(
+          sku: product.storeProductId,
+          currency: product.currencyCode.toUpperCase(),
+          price: product.rawPrice,
+        );
+      }
+    }
+    final unavailable = subscriptionPlans
+        .map((plan) => plan.id)
+        .where((planId) => !available.contains(planId))
+        .toSet();
+    final selected = available.contains(state.selectedPlanId)
+        ? state.selectedPlanId
+        : subscriptionPlans
+              .map((plan) => plan.id)
+              .firstWhere(
+                available.contains,
+                orElse: () => state.selectedPlanId,
+              );
+    state = state.copyWith(
+      selectedPlanId: selected,
+      displayPrices: prices,
+      analyticsProducts: analyticsProducts,
+      availablePlanIds: available,
+      unavailablePlanIds: unavailable,
+    );
+    if (available.isNotEmpty) {
+      _loadedPurchaseEnvironment = purchaseEnvironment;
+    }
+    return available.isNotEmpty;
+  }
+
+  Future<bool> _loadProductsWithRetry({
+    bool Function()? isContextActive,
+    bool preserveCatalogOnEmpty = false,
+  }) {
+    final inFlight = _productLoadInFlight;
+    if (inFlight != null) return inFlight;
+    final cycle = ++_productLoadCycle;
+    late final Future<bool> load;
+    load =
+        loadSubscriptionProductsWithRetry(
+          () => _loadProducts(
+            cycle,
+            isContextActive: isContextActive,
+            preserveCatalogOnEmpty: preserveCatalogOnEmpty,
+          ),
+          shouldContinue: isContextActive,
+        ).whenComplete(() {
+          if (cycle == _productLoadCycle) _productLoadCycle++;
+          if (identical(_productLoadInFlight, load)) {
+            _productLoadInFlight = null;
+          }
+        });
+    _productLoadInFlight = load;
+    return load;
+  }
+
+  Future<String?> _readPurchaseEnvironment(SubscriptionStore store) {
+    return ref.read(subscriptionPurchaseEnvironmentReaderProvider)(store);
+  }
+
+  void _handleEvent(SubscriptionEvent event) {
+    final purchase = event.purchase;
+    debugPrint(
+      'Subscription purchase event: '
+      'status=${purchase?.status.name}, '
+      'productId=${purchase?.storeProductId}, '
+      'errorCode=${purchase?.errorCode}, '
+      'errorMessage=${purchase?.errorMessage}, '
+      'failureCode=${event.failure?.code}, '
+      'failureMessage=${event.failure?.message}, '
+      'failureCause=${event.failure?.cause}',
+    );
+    final entitlement = event.entitlement;
+    if (entitlement?.isActive == true) {
+      final resultEvent = _purchasePresentationActive
+          ? SubscriptionResultEvent.purchaseSuccess
+          : SubscriptionResultEvent.externalPremium;
+      _purchasePresentationActive = false;
+      final analyticsContext = _purchaseAnalyticsContext;
+      _purchaseAnalyticsContext = null;
+      state = state.copyWith(
+        isLoading: false,
+        isPurchasing: false,
+        isPurchasePending: false,
+        premiumState: AppPremiumState.premium,
+        completionCount: state.completionCount + 1,
+        resultEvent: resultEvent,
+        resultEventCount: state.resultEventCount + 1,
+        clearError: true,
+      );
+      if (purchase != null) {
+        ref
+            .read(analyticsProvider)
+            .updateSubscriptionPlan(purchase.storeProductId);
+        final cache = _cacheFromEvidence(
+          purchase.storeProductId,
+          purchase.verificationData,
+        );
+        if (cache != null) {
+          _scheduleEntitlementExpiry(cache);
+          unawaited(
+            ref.read(subscriptionEntitlementCacheStorageProvider).write(cache),
+          );
+        }
+      }
+      if (event.purchase?.status == SubscriptionPurchaseStatus.purchased &&
+          event.failure == null) {
+        final singularEventName = singularSubscriptionSuccessEventName(
+          event: event,
+          environment: AppConfig.environment,
+          isFreshPurchase:
+              resultEvent == SubscriptionResultEvent.purchaseSuccess,
+        );
+        if (singularEventName != null) {
+          try {
+            ref
+                .read(appAttributionEventReporterProvider)
+                .trackEvent(singularEventName);
+          } on Object catch (error, stackTrace) {
+            debugPrint(
+              'Unable to report Singular subscription event: '
+              '$error\n$stackTrace',
+            );
+          }
+        }
+        if (resultEvent == SubscriptionResultEvent.purchaseSuccess &&
+            analyticsContext != null) {
+          trackVerifiedSubscriptionSuccess(
+            ref.read(analyticsProvider),
+            analyticsContext,
+            event,
+          );
+        }
+        unawaited(synchronizeServerEntitlement());
+        unawaited(
+          ref
+              .read(subscriptionRevenueReporterProvider)
+              .enqueueVerifiedPurchase(event)
+              .catchError((Object error, StackTrace stackTrace) {
+                debugPrint(
+                  'Unable to report subscription revenue: $error\n$stackTrace',
+                );
+              }),
+        );
+      }
+      if (resultEvent == SubscriptionResultEvent.purchaseSuccess &&
+          analyticsContext != null) {
+        trackSubscriptionResult(
+          ref.read(analyticsProvider),
+          analyticsContext,
+          AnalyticsValue.resultSuccess,
+        );
+      }
+      return;
+    }
+    final feedbackMessage = subscriptionPurchaseFeedbackMessage(event);
+    if (event.failure != null) {
+      _trackPurchaseResult(AnalyticsValue.resultFailed);
+      _purchasePresentationActive = false;
+      state = state.copyWith(
+        isLoading: false,
+        isPurchasing: false,
+        isPurchasePending: false,
+        errorMessage: feedbackMessage,
+      );
+      return;
+    }
+    if (event.purchase?.status == SubscriptionPurchaseStatus.pending) {
+      state = state.copyWith(
+        isLoading: false,
+        isPurchasing: false,
+        isPurchasePending: true,
+        errorMessage: feedbackMessage,
+      );
+      return;
+    }
+    if (event.purchase?.status == SubscriptionPurchaseStatus.canceled) {
+      _trackPurchaseResult(AnalyticsValue.resultCancel);
+      _purchasePresentationActive = false;
+      state = state.copyWith(
+        isLoading: false,
+        isPurchasing: false,
+        isPurchasePending: false,
+        errorMessage: feedbackMessage,
+      );
+      return;
+    }
+    if (event.purchase?.status == SubscriptionPurchaseStatus.failed) {
+      _trackPurchaseResult(AnalyticsValue.resultFailed);
+      _purchasePresentationActive = false;
+      state = state.copyWith(
+        isLoading: false,
+        isPurchasing: false,
+        isPurchasePending: false,
+        errorMessage: feedbackMessage,
+      );
+    }
+  }
+
+  void _trackPurchaseResult(String result) {
+    final context = _purchaseAnalyticsContext;
+    _purchaseAnalyticsContext = null;
+    if (context == null) return;
+    trackSubscriptionResult(ref.read(analyticsProvider), context, result);
+  }
+}
+
+Future<bool> loadSubscriptionProductsWithRetry(
+  Future<bool> Function() load, {
+  bool Function()? shouldContinue,
+  Duration deadline = const Duration(seconds: 15),
+  List<Duration> retryDelays = const [
+    Duration(seconds: 1),
+    Duration(seconds: 3),
+    Duration(seconds: 8),
+  ],
+}) async {
+  final elapsed = Stopwatch()..start();
+  for (var attempt = 0; attempt <= retryDelays.length; attempt++) {
+    if (shouldContinue?.call() == false) return false;
+    if (attempt > 0) {
+      final delay = retryDelays[attempt - 1];
+      if (elapsed.elapsed + delay >= deadline) return false;
+      await Future<void>.delayed(delay);
+      if (shouldContinue?.call() == false) return false;
+    }
+    final remaining = deadline - elapsed.elapsed;
+    if (remaining <= Duration.zero) return false;
+    try {
+      if (await load().timeout(remaining)) return true;
+    } on TimeoutException {
+      return false;
+    } on Object {
+      // A transient StoreKit failure may be retried within the same deadline.
+    }
+  }
+  return false;
+}
+
+VerifiedEntitlementCache? selectBestVerifiedEntitlementCache(
+  Iterable<AppleCurrentEntitlement> entitlements, {
+  required String? lifetimeProductId,
+  required DateTime verifiedAt,
+}) {
+  VerifiedEntitlementCache? best;
+  for (final entitlement in entitlements) {
+    final payload = decodeStoreKitJwsPayload(entitlement.signedTransactionInfo);
+    if (payload == null || payload['productId'] != entitlement.productId) {
+      continue;
+    }
+    final originalTransactionId = payload['originalTransactionId'];
+    final expiresDate = payload['expiresDate'];
+    final candidate = VerifiedEntitlementCache(
+      state: AppPremiumState.premium,
+      verifiedAt: verifiedAt,
+      productId: entitlement.productId,
+      originalTransactionId: originalTransactionId is String
+          ? originalTransactionId
+          : null,
+      expiresAt: expiresDate is num
+          ? DateTime.fromMillisecondsSinceEpoch(
+              expiresDate.toInt(),
+              isUtc: true,
+            )
+          : null,
+      isLifetime: entitlement.productId == lifetimeProductId,
+    );
+    if (best == null ||
+        candidate.isLifetime && !best.isLifetime ||
+        !candidate.isLifetime &&
+            !best.isLifetime &&
+            (candidate.expiresAt?.isAfter(
+                  best.expiresAt ?? DateTime.fromMillisecondsSinceEpoch(0),
+                ) ??
+                false)) {
+      best = candidate;
+    }
+  }
+  return best;
+}
+
+class StoreKit2SubscriptionReceiptVerifier
+    implements SubscriptionReceiptVerifier {
+  const StoreKit2SubscriptionReceiptVerifier({
+    required AuthSession? Function() session,
+    required SubscriptionSyncQueue syncQueue,
+  }) : _session = session,
+       _syncQueue = syncQueue;
+
+  final AuthSession? Function() _session;
+  final SubscriptionSyncQueue _syncQueue;
+
+  @override
+  Future<SubscriptionEntitlement> verify(
+    SubscriptionVerificationRequest request,
+  ) async {
+    if (request.purchase.store != SubscriptionStore.appStore ||
+        request.purchase.storeData is! SK2PurchaseDetails ||
+        request.purchase.verificationData.isEmpty) {
+      throw StateError(
+        'The Apple transaction is not StoreKit 2 verified data.',
+      );
+    }
+
+    final payload = decodeStoreKitJwsPayload(request.purchase.verificationData);
+    if (request.purchase.status == SubscriptionPurchaseStatus.purchased &&
+        payload?['transactionReason'] == 'PURCHASE') {
+      final appAccountToken = request.purchase.applicationUserName;
+      final session = _session();
+      if (session != null &&
+          appAccountToken != null &&
+          appAccountToken.isNotEmpty) {
+        try {
+          await _syncQueue.enqueueAndFlush(
+            session,
+            signedTransactionInfo: request.purchase.verificationData,
+          );
+        } on Object catch (error, stackTrace) {
+          debugPrint(
+            'Unable to persist Apple entitlement sync evidence: $error\n'
+            '$stackTrace',
+          );
+        }
+      }
+    }
+
+    return SubscriptionEntitlement(
+      planId: request.plan.id,
+      entitlementId: request.plan.entitlementId,
+      status: SubscriptionEntitlementStatus.active,
+    );
+  }
+}

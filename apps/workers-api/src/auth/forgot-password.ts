@@ -1,5 +1,6 @@
 import { hashPassword } from "@kando/auth-core";
 import type { Hono } from "hono";
+import { mutationLockKey, runWithMutationLock } from "../db/mutation-lock";
 import type { Env } from "../env";
 import { createId } from "../id";
 import { sendVerificationEmail } from "../mail/verification-email";
@@ -112,7 +113,7 @@ const INTERNAL_ERROR_RESPONSE = {
 
 const SELECT_LIVE_EMAIL_PASSWORD_USER_SQL = `
   SELECT id
-  FROM user
+  FROM "user"
   WHERE email = ? AND status = 'active' AND password_hash IS NOT NULL
   LIMIT 1
 `;
@@ -138,7 +139,7 @@ const SELECT_LATEST_RESET_CODE_SQL = `
   SELECT id, code, expires_at, used_at, created_at
   FROM verification_code
   WHERE email = ? AND purpose = 'reset_password'
-  ORDER BY created_at DESC
+  ORDER BY created_at DESC, id ASC
   LIMIT 1
 `;
 
@@ -156,7 +157,7 @@ const UPDATE_RESET_CODE_USED_SQL = `
 `;
 
 const UPDATE_LIVE_EMAIL_PASSWORD_USER_SQL = `
-  UPDATE user
+  UPDATE "user"
   SET password_hash = ?, updated_at = ?
   WHERE email = ? AND status = 'active' AND password_hash IS NOT NULL
     AND EXISTS (
@@ -204,8 +205,7 @@ export function registerForgotPasswordRoutes(
 
       const code = createVerificationCode();
       const verificationCodeId = createId();
-      const result = await c.env.DB.prepare(INSERT_RESET_CODE_SQL)
-        .bind(
+      const insertStatement = c.env.DB.prepare(INSERT_RESET_CODE_SQL).bind(
           verificationCodeId,
           email,
           code,
@@ -213,8 +213,12 @@ export function registerForgotPasswordRoutes(
           createdAt,
           email,
           resendWindowStartedAt,
-        )
-        .run();
+        );
+      const result = await runWithMutationLock(
+        c.env.DB,
+        await mutationLockKey("verification-code-reset-password", email),
+        insertStatement,
+      );
 
       if (result.meta.changes === 0) {
         return c.json(RATE_LIMITED_RESPONSE, 429);

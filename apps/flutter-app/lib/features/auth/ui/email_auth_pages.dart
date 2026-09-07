@@ -588,7 +588,11 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
       Navigator.of(context).pop(message);
       return;
     }
-    showKandoToast(context, message: message);
+    showKandoTopToast(
+      context,
+      message: message,
+      type: KandoTopToastType.success,
+    );
   }
 
   Future<void> _run(Future<void> Function() action) async {

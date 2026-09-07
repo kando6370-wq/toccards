@@ -9,10 +9,12 @@ import 'package:kando_app/features/onboarding/onboarding_controller.dart';
 import 'package:kando_app/features/onboarding/onboarding_gate.dart';
 import 'package:kando_app/features/onboarding/onboarding_page.dart';
 import 'package:kando_app/features/onboarding/onboarding_repository.dart';
+import 'package:kando_app/shared/attribution/app_attribution.dart';
 import 'package:video_player/video_player.dart';
 
 import '../support/in_memory_auth_storage.dart';
 import '../support/in_memory_onboarding_storage.dart';
+import '../support/test_app_attribution.dart';
 import '../support/local_placeholder_auth_repository.dart';
 
 void main() {
@@ -318,6 +320,9 @@ Widget _testPage(
 Widget _testGate(InMemoryOnboardingStorage storage) {
   return ProviderScope(
     overrides: [
+      appAttributionCoordinatorProvider.overrideWithValue(
+        testAppAttributionCoordinator(),
+      ),
       appStartupPreloaderProvider.overrideWith((ref) async {}),
       onboardingRepositoryProvider.overrideWithValue(
         LocalOnboardingRepository(storage),

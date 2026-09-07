@@ -54,6 +54,8 @@ export function createAppConfigRoutes(): Hono<{ Bindings: Env }> {
         terms_url: stringOrNull(configs.get("terms_url")),
         privacy_url: stringOrNull(configs.get("privacy_url")),
         mixpanel_project_token: stringOrNull(c.env.MIXPANEL_PROJECT_TOKEN),
+        singular_api_key: stringOrNull(c.env.SINGULAR_API_KEY),
+        singular_secret_key: stringOrNull(c.env.SINGULAR_SECRET_KEY),
       },
     });
   });

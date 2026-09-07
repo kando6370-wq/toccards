@@ -2,29 +2,70 @@ import { Hono } from "hono";
 import { collectionItemDraftFromBody } from "../collection-item";
 import type { CardSearchResult, DataSourceAdapter } from "../data-source/adapter";
 import { createLocalDbDataSourceAdapter } from "../data-source/local-db-adapter";
+import {
+  mutationLockKey,
+  ownerCardMutationLockKey,
+  runWithMutationLocks,
+} from "../db/mutation-lock";
 import type { Env } from "../env";
 import { createId } from "../id";
 import { authenticateOwner } from "../owner-auth";
+import {
+  LOCAL_PREMIUM_STATE_HEADER,
+  resolvePremiumAccess,
+} from "../entitlements/premium-access";
+import {
+  loadScanQuota,
+  releaseQueuedScanQuota,
+  reserveScanQuota,
+  settleScanQuota,
+  type ScanQuotaSnapshot,
+} from "./quota";
 import { validateScanImage, type ValidatedScanImage } from "./scan-image";
 
 type ScanBindings = { Bindings: Env };
 
 type ScanCandidate = {
   rank: number;
-  product_id: number;
+  product_id: string;
   card_ref: string;
   catalog_matched: boolean;
   game: string | null;
   name: string | null;
+  set_name: string | null;
   set_code: string | null;
   card_number: string | null;
   rarity: string | null;
+  object_type: "tcg" | null;
   confidence: number | null;
   retrieval: string | null;
   distance: number | null;
 };
 
-type RecognitionCandidate = { productId: number; confidence: number };
+type RecognitionCandidate = { productId: string; confidence: number };
+
+type ScanCatalogRow = {
+  product_id: string;
+  game: string | null;
+  set_name: string | null;
+  set_code: string | null;
+  name: string | null;
+  number: string | null;
+  rarity: string | null;
+  product_type_name: string | null;
+};
+
+type ScanCatalogCard = Pick<
+  CardSearchResult,
+  | "card_ref"
+  | "game"
+  | "name"
+  | "set_name"
+  | "set_code"
+  | "card_number"
+  | "rarity"
+  | "object_type"
+>;
 
 type ScanResult = {
   index: number;
@@ -80,16 +121,35 @@ const DUPLICATE_COLLECTION_ITEM_RESPONSE = {
   success: false,
   error: {
     code: "DUPLICATE_COLLECTION_ITEM",
-    message: "This card with the same finish and language is already in this portfolio.",
+    message:
+      "This card with the same finish, language, and grading is already in this portfolio.",
   },
+} as const;
+
+const ENTITLEMENT_SYNC_REQUIRED_RESPONSE = {
+  success: false,
+  error: {
+    code: "ENTITLEMENT_SYNC_REQUIRED",
+    message: "Premium access is still syncing.",
+  },
+} as const;
+
+const SCAN_QUOTA_EXHAUSTED_RESPONSE = {
+  success: false,
+  error: { code: "SCAN_QUOTA_EXHAUSTED", message: "No free scans remaining." },
+} as const;
+
+const SCAN_REQUEST_CONFLICT_RESPONSE = {
+  success: false,
+  error: { code: "SCAN_REQUEST_CONFLICT", message: "Scan request was already processed." },
 } as const;
 
 const INSERT_SCAN_RECORD_SQL = `
 INSERT INTO scan_record
-  (id, owner_type, owner_id, image_url, filename, platform, app_version,
+  (id, environment, owner_type, owner_id, image_url, filename, platform, app_version,
    device_model, os_version, recognition_status, user_confirmation_status,
    system_result, user_result, candidates, raw_response, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `;
 
 const SELECT_SCAN_RECORD_SQL = `
@@ -123,7 +183,8 @@ const SELECT_COLLECTION_ITEM_BY_SKU_SQL = `
 SELECT id
 FROM collection_item
 WHERE owner_type = ? AND owner_id = ? AND folder_id = ? AND card_ref = ?
-  AND language IS ? AND finish IS ?
+  AND language IS NOT DISTINCT FROM ? AND finish IS NOT DISTINCT FROM ?
+  AND grader = ? AND condition IS NOT DISTINCT FROM ? AND grade IS NOT DISTINCT FROM ?
 LIMIT 1
 `;
 
@@ -141,6 +202,10 @@ LIMIT 1
 const DELETE_CONFIRMED_WISHLIST_CARD_SQL = `
 DELETE FROM wishlist_item
 WHERE owner_type = ? AND owner_id = ? AND card_ref = ?
+  AND EXISTS (
+    SELECT 1 FROM collection_item
+    WHERE id = ? AND owner_type = ? AND owner_id = ?
+  )
 `;
 
 const UPDATE_SCAN_CONFIRMATION_SQL = `
@@ -153,21 +218,129 @@ WHERE id = ? AND owner_type = ? AND owner_id = ?
 const PHASH_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const CARD_NUMBER_PATTERN = /^(?:\d{1,4}\/(?:\d{1,4}|[A-Z]{1,5}-P)|[A-Z]{1,5}-P)$/;
 
+function scanQuotaPayload(
+  quota: ScanQuotaSnapshot,
+  access: "free" | "premium",
+) {
+  return {
+    access,
+    unlimited: access === "premium",
+    ...quota,
+  };
+}
+
 export function createScanRoutes() {
   const routes = new Hono<ScanBindings>();
+
+  routes.get("/scan/quota", async (c) => {
+    const auth = await authenticateOwner(c.env, c.req.header("Authorization"));
+    if (auth.status === "unauthorized") return c.json(UNAUTHORIZED_RESPONSE, 401);
+    if (auth.status === "internal_error") {
+      return c.json(INTERNAL_ERROR_RESPONSE, 500);
+    }
+
+    const access = await resolvePremiumAccess(
+      c.env,
+      auth.owner.session_id,
+      c.req.header(LOCAL_PREMIUM_STATE_HEADER),
+    );
+    if (access === "sync_required") {
+      return c.json(ENTITLEMENT_SYNC_REQUIRED_RESPONSE, 409);
+    }
+    const quota = await loadScanQuota(c.env.DB, auth.owner);
+    return c.json({
+      success: true,
+      data: scanQuotaPayload(quota, access),
+    });
+  });
+
+  routes.post("/scan/quota/reserve", async (c) => {
+    const auth = await authenticateOwner(c.env, c.req.header("Authorization"));
+    if (auth.status === "unauthorized") return c.json(UNAUTHORIZED_RESPONSE, 401);
+    if (auth.status === "internal_error") {
+      return c.json(INTERNAL_ERROR_RESPONSE, 500);
+    }
+
+    const body = await readJson(c.req);
+    const requestId = isRecord(body) ? readUuid(body.request_id) : null;
+    if (!requestId || c.req.header("Idempotency-Key") !== requestId) {
+      return c.json(VALIDATION_ERROR_RESPONSE, 422);
+    }
+    const access = await resolvePremiumAccess(
+      c.env,
+      auth.owner.session_id,
+      c.req.header(LOCAL_PREMIUM_STATE_HEADER),
+    );
+    if (access === "sync_required") {
+      return c.json(ENTITLEMENT_SYNC_REQUIRED_RESPONSE, 409);
+    }
+    const reservation = await reserveScanQuota(
+      c.env.DB,
+      auth.owner,
+      requestId,
+      access,
+      new Date(),
+      { startProcessing: false },
+    );
+    if (reservation.status === "exhausted") {
+      return c.json({
+        ...SCAN_QUOTA_EXHAUSTED_RESPONSE,
+        quota: scanQuotaPayload(reservation.quota, "free"),
+      }, 403);
+    }
+    if (reservation.status === "conflict") {
+      return c.json(SCAN_REQUEST_CONFLICT_RESPONSE, 409);
+    }
+    return c.json({
+      success: true,
+      data: {
+        request_id: requestId,
+        quota: scanQuotaPayload(reservation.quota, reservation.accessMode),
+      },
+    });
+  });
 
   routes.post("/scan/recognize", async (c) => {
     const auth = await authenticateOwner(c.env, c.req.header("Authorization"));
     if (auth.status === "unauthorized") return c.json(UNAUTHORIZED_RESPONSE, 401);
     if (auth.status === "internal_error") return c.json(INTERNAL_ERROR_RESPONSE, 500);
 
-    const serviceBaseUrl = normalizeBaseUrl(c.env.OCR_SERVICE_BASE_URL);
-    if (!serviceBaseUrl) return c.json(OCR_UNAVAILABLE_RESPONSE, 503);
-    const imageBucket = c.env.SCAN_IMAGES;
-    if (!imageBucket) return c.json(INTERNAL_ERROR_RESPONSE, 503);
-
     const body = await readFormData(c.req);
     if (!body) return c.json(VALIDATION_ERROR_RESPONSE, 422);
+    const requestId = readUuid(body.get("request_id"));
+    if (!requestId || c.req.header("Idempotency-Key") !== requestId) {
+      return c.json(VALIDATION_ERROR_RESPONSE, 422);
+    }
+    const appEnvironment = c.env.APP_ENVIRONMENT;
+    if (!appEnvironment) {
+      await releaseQueuedScanQuota(
+        c.env.DB,
+        auth.owner,
+        requestId,
+        { body: INTERNAL_ERROR_RESPONSE, status: 503 },
+      );
+      return c.json(INTERNAL_ERROR_RESPONSE, 503);
+    }
+    const serviceBaseUrl = normalizeBaseUrl(c.env.OCR_SERVICE_BASE_URL);
+    if (!serviceBaseUrl) {
+      await releaseQueuedScanQuota(
+        c.env.DB,
+        auth.owner,
+        requestId,
+        { body: OCR_UNAVAILABLE_RESPONSE, status: 503 },
+      );
+      return c.json(OCR_UNAVAILABLE_RESPONSE, 503);
+    }
+    const imageBucket = c.env.SCAN_IMAGES;
+    if (!imageBucket) {
+      await releaseQueuedScanQuota(
+        c.env.DB,
+        auth.owner,
+        requestId,
+        { body: INTERNAL_ERROR_RESPONSE, status: 503 },
+      );
+      return c.json(INTERNAL_ERROR_RESPONSE, 503);
+    }
     const r = readPhash(body.get("r"));
     const g = readPhash(body.get("g"));
     const b = readPhash(body.get("b"));
@@ -175,7 +348,49 @@ export function createScanRoutes() {
     const cardNumber = readOptionalCardNumber(body.get("card_number"));
     const image = await validateScanImage(body.get("image"));
     if (!r || !g || !b || gameId === null || cardNumber === null || !image) {
+      await releaseQueuedScanQuota(
+        c.env.DB,
+        auth.owner,
+        requestId,
+        { body: VALIDATION_ERROR_RESPONSE, status: 422 },
+      );
       return c.json(VALIDATION_ERROR_RESPONSE, 422);
+    }
+
+    const access = await resolvePremiumAccess(
+      c.env,
+      auth.owner.session_id,
+      c.req.header(LOCAL_PREMIUM_STATE_HEADER),
+    );
+    if (access === "sync_required") {
+      await releaseQueuedScanQuota(
+        c.env.DB,
+        auth.owner,
+        requestId,
+        { body: ENTITLEMENT_SYNC_REQUIRED_RESPONSE, status: 409 },
+      );
+      return c.json(ENTITLEMENT_SYNC_REQUIRED_RESPONSE, 409);
+    }
+    const reservation = await reserveScanQuota(
+      c.env.DB,
+      auth.owner,
+      requestId,
+      access,
+    );
+    if (reservation.status === "exhausted") {
+      return c.json({
+        ...SCAN_QUOTA_EXHAUSTED_RESPONSE,
+        quota: scanQuotaPayload(reservation.quota, "free"),
+      }, 403);
+    }
+    if (reservation.status === "existing" && reservation.response !== null) {
+      return new Response(JSON.stringify(reservation.response.body), {
+        status: reservation.response.status,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    if (reservation.status === "conflict" || reservation.status === "existing") {
+      return c.json(SCAN_REQUEST_CONFLICT_RESPONSE, 409);
     }
 
     const outbound = {
@@ -185,7 +400,7 @@ export function createScanRoutes() {
       ...(gameId === undefined ? {} : { game_id: gameId }),
     };
 
-    const scanId = createId();
+    const scanId = requestId;
     const createdAt = new Date();
     const imageKey = scanImageKey(
       auth.owner.owner_type,
@@ -205,6 +420,10 @@ export function createScanRoutes() {
       });
     } catch (error) {
       console.error("Failed to store scan image.", error);
+      await settleScanQuota(c.env.DB, auth.owner, requestId, "released", null, {
+        body: INTERNAL_ERROR_RESPONSE,
+        status: 500,
+      });
       return c.json(INTERNAL_ERROR_RESPONSE, 500);
     }
 
@@ -230,16 +449,18 @@ export function createScanRoutes() {
     const adapter = createLocalDbDataSourceAdapter(c.env.DB);
     let candidates: ScanCandidate[] = [];
     let auditCandidates: ScanCandidate[] = [];
+    let incompleteCatalogCandidateCount = 0;
     if (!upstreamFailed && recognized) {
       try {
-        auditCandidates = await Promise.all(
-          recognized.map(async (candidate, index) => {
-            const card = await adapter.getCard(String(candidate.productId));
-            return card
-              ? toCatalogCandidate(card, candidate, index)
-              : toUnresolvedCandidate(candidate, index);
-          }),
-        );
+        const catalog = await loadScanCatalogCards(c.env.DB, recognized);
+        auditCandidates = recognized.map((candidate, index) => {
+          const row = catalog.get(candidate.productId);
+          if (!row) return toUnresolvedCandidate(candidate, index);
+          const card = scanCatalogCardFromRow(row);
+          if (card) return toCatalogCandidate(card, candidate, index);
+          incompleteCatalogCandidateCount += 1;
+          return toIncompleteCatalogCandidate(row, candidate, index);
+        });
         auditCandidates = await disambiguateByCardNumber(
           auditCandidates,
           cardNumber,
@@ -259,7 +480,9 @@ export function createScanRoutes() {
 
     const recognitionStatus = upstreamFailed
       ? "failed"
-      : candidates.length > 0 ? "success" : "no_match";
+      : candidates.length > 0
+      ? "success"
+      : incompleteCatalogCandidateCount > 0 ? "failed" : "no_match";
     const systemResult = buildSystemResult(
       recognitionStatus,
       candidates[0] ?? null,
@@ -277,6 +500,7 @@ export function createScanRoutes() {
       await c.env.DB.prepare(INSERT_SCAN_RECORD_SQL)
         .bind(
           scanId,
+          appEnvironment,
           auth.owner.owner_type,
           auth.owner.owner_id,
           imageKey,
@@ -305,26 +529,56 @@ export function createScanRoutes() {
     } catch (error) {
       console.error("Failed to persist scan audit record.", error);
       await deleteUploadedImage(imageBucket, imageKey);
+      await settleScanQuota(c.env.DB, auth.owner, requestId, "released", null, {
+        body: INTERNAL_ERROR_RESPONSE,
+        status: 500,
+      });
       return c.json(INTERNAL_ERROR_RESPONSE, 500);
     }
 
     if (upstreamFailed) {
-      return c.json({ ...OCR_UNAVAILABLE_RESPONSE, scan_id: scanId }, 502);
+      const responseBody = { ...OCR_UNAVAILABLE_RESPONSE, scan_id: scanId };
+      await settleScanQuota(c.env.DB, auth.owner, requestId, "released", scanId, {
+        body: responseBody,
+        status: 502,
+      });
+      return c.json(responseBody, 502);
     }
 
-    return c.json({
+    const quotaOutcome = recognitionStatus === "success" ? "consumed" : "released";
+    const quota = reservation.accessMode === "free"
+      ? {
+          ...reservation.quota,
+          reserved: Math.max(0, reservation.quota.reserved - 1),
+          consumed: reservation.quota.consumed + (quotaOutcome === "consumed" ? 1 : 0),
+          remaining: quotaOutcome === "released"
+            ? Math.min(reservation.quota.limit, reservation.quota.remaining + 1)
+            : reservation.quota.remaining,
+        }
+      : reservation.quota;
+    const responseBody = {
       success: true,
       data: {
         scan_id: scanId,
         recognition_status: recognitionStatus,
         cards_detected: candidates.length > 0 ? 1 : 0,
         elapsed: (Date.now() - startedAt) / 1000,
+        quota: scanQuotaPayload(quota, reservation.accessMode),
         warnings: recognized?.length === candidates.length
           ? []
           : ["Some recognized cards are missing from the catalog."],
         results,
       },
-    });
+    };
+    await settleScanQuota(
+      c.env.DB,
+      auth.owner,
+      requestId,
+      quotaOutcome,
+      scanId,
+      { body: responseBody, status: 200 },
+    );
+    return c.json(responseBody);
   });
 
   routes.post("/scan/:scan_id/confirm", async (c) => {
@@ -364,6 +618,9 @@ export function createScanRoutes() {
         draft.card_ref,
         draft.language,
         draft.finish,
+        draft.grader,
+        draft.condition,
+        draft.grade,
       )
       .first<{ id: string }>();
     if (duplicate) return c.json(DUPLICATE_COLLECTION_ITEM_RESPONSE, 409);
@@ -380,50 +637,63 @@ export function createScanRoutes() {
     });
     let results: D1Result<unknown>[];
     try {
-      results = await c.env.DB.batch([
-        c.env.DB.prepare(INSERT_CONFIRMED_COLLECTION_ITEM_SQL).bind(
-        itemId,
-        auth.owner.owner_type,
-        auth.owner.owner_id,
-        draft.folder_id,
-        draft.card_ref,
-        draft.object_type,
-        draft.grader,
-        draft.condition,
-        draft.grade,
-        draft.language,
-        draft.finish,
-        draft.quantity,
-        draft.purchase_price,
-        draft.purchase_currency,
-        draft.notes,
-        now,
-        now,
-        now,
-        scanId,
-        auth.owner.owner_type,
-        auth.owner.owner_id,
-      ),
-      c.env.DB.prepare(INSERT_CONFIRMED_COLLECTION_ITEM_EVENT_SQL).bind(
-        createId(),
-        now,
-        itemId,
-        auth.owner.owner_type,
-        auth.owner.owner_id,
-      ),
-      c.env.DB.prepare(DELETE_CONFIRMED_WISHLIST_CARD_SQL).bind(
-        auth.owner.owner_type,
-        auth.owner.owner_id,
-        draft.card_ref,
-      ),
-      c.env.DB.prepare(UPDATE_SCAN_CONFIRMATION_SQL).bind(
-        candidates[0]?.card_ref === draft.card_ref ? 0 : 1,
-        userResult,
-        scanId,
-        auth.owner.owner_type,
-        auth.owner.owner_id,
-      ),
-      ]);
+      results = await runWithMutationLocks(
+        c.env.DB,
+        [
+          await ownerCardMutationLockKey(auth.owner, draft.card_ref),
+          await mutationLockKey(
+            "scan-confirm",
+            `${auth.owner.owner_type}:${auth.owner.owner_id}:${scanId}`,
+          ),
+        ],
+        [
+          c.env.DB.prepare(INSERT_CONFIRMED_COLLECTION_ITEM_SQL).bind(
+            itemId,
+            auth.owner.owner_type,
+            auth.owner.owner_id,
+            draft.folder_id,
+            draft.card_ref,
+            draft.object_type,
+            draft.grader,
+            draft.condition,
+            draft.grade,
+            draft.language,
+            draft.finish,
+            draft.quantity,
+            draft.purchase_price,
+            draft.purchase_currency,
+            draft.notes,
+            now,
+            now,
+            now,
+            scanId,
+            auth.owner.owner_type,
+            auth.owner.owner_id,
+          ),
+          c.env.DB.prepare(INSERT_CONFIRMED_COLLECTION_ITEM_EVENT_SQL).bind(
+            createId(),
+            now,
+            itemId,
+            auth.owner.owner_type,
+            auth.owner.owner_id,
+          ),
+          c.env.DB.prepare(DELETE_CONFIRMED_WISHLIST_CARD_SQL).bind(
+            auth.owner.owner_type,
+            auth.owner.owner_id,
+            draft.card_ref,
+            itemId,
+            auth.owner.owner_type,
+            auth.owner.owner_id,
+          ),
+          c.env.DB.prepare(UPDATE_SCAN_CONFIRMATION_SQL).bind(
+            candidates[0]?.card_ref === draft.card_ref ? 0 : 1,
+            userResult,
+            scanId,
+            auth.owner.owner_type,
+            auth.owner.owner_id,
+          ),
+        ],
+      );
     } catch (error) {
       if (isUniqueConstraintError(error)) {
         return c.json(DUPLICATE_COLLECTION_ITEM_RESPONSE, 409);
@@ -482,20 +752,83 @@ function isStoredScanCandidate(value: unknown): value is ScanCandidate {
 }
 
 function toCatalogCandidate(
-  card: CardSearchResult,
+  card: ScanCatalogCard,
+  recognized: RecognitionCandidate,
+  index: number,
+): ScanCandidate {
+  const catalogMatched = card.object_type === "tcg" &&
+    readString(card.card_ref) !== null &&
+    readString(card.name) !== null &&
+    readString(card.set_name) !== null;
+  return {
+    rank: index + 1,
+    product_id: recognized.productId,
+    card_ref: card.card_ref,
+    catalog_matched: catalogMatched,
+    game: card.game ?? null,
+    name: card.name,
+    set_name: card.set_name,
+    set_code: card.set_code || null,
+    card_number: card.card_number || null,
+    rarity: card.rarity,
+    object_type: card.object_type === "tcg" ? "tcg" : null,
+    confidence: recognized.confidence,
+    retrieval: "rgb-phash-16-v1",
+    distance: null,
+  };
+}
+
+async function loadScanCatalogCards(
+  db: D1Database,
+  recognized: RecognitionCandidate[],
+): Promise<Map<string, ScanCatalogRow>> {
+  const productIds = [...new Set(recognized.map((candidate) => candidate.productId))];
+  if (productIds.length === 0) return new Map();
+  const placeholders = productIds.map(() => "?").join(", ");
+  const result = await db.prepare(`
+    SELECT product_id, game, set_name, set_code, name, number, rarity, product_type_name
+    FROM cards_all
+    WHERE product_id IN (${placeholders})
+  `).bind(...productIds).all<ScanCatalogRow>();
+  return new Map((result.results ?? []).map((row) => [row.product_id, row]));
+}
+
+function scanCatalogCardFromRow(row: ScanCatalogRow): ScanCatalogCard | null {
+  const cardRef = readString(row.product_id);
+  const name = readString(row.name);
+  const setName = readString(row.set_name);
+  if (!cardRef || !name || !setName || row.product_type_name !== "Cards") {
+    return null;
+  }
+  return {
+    card_ref: cardRef,
+    game: row.game,
+    name,
+    set_name: setName,
+    set_code: row.set_code?.trim() ?? "",
+    card_number: row.number?.trim() ?? "",
+    rarity: row.rarity,
+    object_type: "tcg",
+  };
+}
+
+function toIncompleteCatalogCandidate(
+  row: ScanCatalogRow,
   recognized: RecognitionCandidate,
   index: number,
 ): ScanCandidate {
   return {
     rank: index + 1,
     product_id: recognized.productId,
-    card_ref: card.card_ref,
-    catalog_matched: true,
-    game: card.game ?? null,
-    name: card.name,
-    set_code: card.set_code || null,
-    card_number: card.card_number || null,
-    rarity: card.rarity,
+    card_ref: recognized.productId,
+    catalog_matched: false,
+    game: row.game ?? null,
+    name: readString(row.name),
+    set_name: readString(row.set_name),
+    set_code: readString(row.set_code),
+    card_number: readString(row.number),
+    rarity: row.rarity,
+    object_type: row.product_type_name === "Cards" ? "tcg" : null,
     confidence: recognized.confidence,
     retrieval: "rgb-phash-16-v1",
     distance: null,
@@ -509,13 +842,15 @@ function toUnresolvedCandidate(
   return {
     rank: index + 1,
     product_id: recognized.productId,
-    card_ref: String(recognized.productId),
+    card_ref: recognized.productId,
     catalog_matched: false,
     game: null,
     name: null,
+    set_name: null,
     set_code: null,
     card_number: null,
     rarity: null,
+    object_type: null,
     confidence: recognized.confidence,
     retrieval: "rgb-phash-16-v1",
     distance: null,
@@ -617,11 +952,10 @@ async function disambiguateByCardNumber(
       const card = matches.find(
         (candidate) => normalizeCardNumber(candidate.card_number) === cardNumber,
       );
-      const productId = Number(card?.card_ref);
-      if (!card || !Number.isInteger(productId) || productId < 1) continue;
+      if (!card) continue;
       const recovered = toCatalogCandidate(
         card,
-        { productId, confidence: source.confidence ?? 0 },
+        { productId: card.card_ref, confidence: source.confidence ?? 0 },
         candidates.length,
       );
       return prioritizeByCardNumber([...candidates, recovered], cardNumber);
@@ -639,14 +973,13 @@ function normalizeCardNumber(value: string | null): string | null {
 function readRecognitionCandidates(value: unknown): RecognitionCandidate[] | null {
   if (!Array.isArray(value)) return null;
   const candidates: RecognitionCandidate[] = [];
-  const seen = new Set<number>();
+  const seen = new Set<string>();
   for (const item of value) {
     if (!isRecord(item)) return null;
-    const productId = item.product_id;
+    const productId = readProductId(item.product_id);
     const confidence = item.confidence;
     if (
-      typeof productId !== "number" || !Number.isInteger(productId) ||
-      productId < 1 || productId > 4_294_967_295 ||
+      productId === null ||
       typeof confidence !== "number" || !Number.isFinite(confidence) ||
       confidence < 0 || confidence > 100
     ) {
@@ -658,6 +991,19 @@ function readRecognitionCandidates(value: unknown): RecognitionCandidate[] | nul
     }
   }
   return candidates;
+}
+
+function readProductId(value: unknown): string | null {
+  if (typeof value === "string") {
+    return value.length > 0 && value === value.trim() ? value : null;
+  }
+  if (
+    typeof value === "number" && Number.isInteger(value) &&
+    value >= 1 && value <= 4_294_967_295
+  ) {
+    return String(value);
+  }
+  return null;
 }
 
 function scanImageKey(
@@ -698,6 +1044,14 @@ function readString(value: unknown): string | null {
   }
   if (typeof value === "number") return String(value);
   return null;
+}
+
+function readUuid(value: unknown): string | null {
+  const normalized = readString(value);
+  return normalized &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalized)
+    ? normalized
+    : null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

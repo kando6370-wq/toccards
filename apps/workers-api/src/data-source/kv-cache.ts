@@ -13,14 +13,7 @@ export type DataSourceKvNamespace = {
 };
 
 const SEARCH_CARDS_TTL_SECONDS = 60 * 60;
-const TRENDING_LAST_GOOD_TTL_SECONDS = 24 * 60 * 60;
-const CARD_RESPONSE_CACHE_VERSION = "v10";
-const TRENDING_RESPONSE_CACHE_VERSION = "v8";
-const TRENDING_LEGACY_CACHE_KEYS = [
-  "v6:getTrending:1:10:last-known-good",
-  "v5:getTrending:last-known-good",
-  "v4:getTrending",
-];
+const CARD_RESPONSE_CACHE_VERSION = "v12";
 const DEFAULT_SEARCH_PAGE = 1;
 const DEFAULT_SEARCH_PAGE_SIZE = 20;
 
@@ -50,51 +43,30 @@ export function createKvCachedDataSourceAdapter(
       return source.getPriceSeries(card_ref, grader, grade, condition, days, finish);
     },
 
+    async getPriceSeriesBatch(card_ref, requests) {
+      if (source.getPriceSeriesBatch) {
+        return source.getPriceSeriesBatch(card_ref, requests);
+      }
+      const results = [];
+      for (const request of requests) {
+        results.push(await source.getPriceSeries(
+          card_ref,
+          request.grader,
+          request.grade,
+          request.condition,
+          request.days,
+          request.finish,
+        ));
+      }
+      return results;
+    },
+
     getMarketPrices(card_ref, finish, language) {
       return source.getMarketPrices(card_ref, finish, language);
     },
 
-    async getTrending(options) {
-      const page = options?.page ?? 1;
-      const pageSize = options?.page_size ?? 10;
-      const key = `${TRENDING_RESPONSE_CACHE_VERSION}:getTrending:${page}:${pageSize}`;
-      const lastGoodKey = `${key}:last-known-good`;
-      var lastGood = await readCachedValue<
-        Awaited<ReturnType<typeof source.getTrending>>
-      >(kv, lastGoodKey);
-      if (lastGood === null && page === 1 && pageSize === 10) {
-        for (const legacyKey of TRENDING_LEGACY_CACHE_KEYS) {
-          lastGood = await readCachedValue<
-            Awaited<ReturnType<typeof source.getTrending>>
-          >(kv, legacyKey);
-          if (lastGood !== null) break;
-        }
-        if (lastGood !== null && lastGood.length > 0) {
-          await writeCachedValue(
-            kv,
-            lastGoodKey,
-            lastGood,
-            TRENDING_LAST_GOOD_TTL_SECONDS,
-          );
-        }
-      }
-      try {
-        const fresh = await source.getTrending({ page, page_size: pageSize });
-        if (fresh.length === 0) return lastGood ?? fresh;
-
-        if (JSON.stringify(fresh) != JSON.stringify(lastGood)) {
-          await writeCachedValue(
-            kv,
-            lastGoodKey,
-            fresh,
-            TRENDING_LAST_GOOD_TTL_SECONDS,
-          );
-        }
-        return fresh;
-      } catch (error) {
-        if (lastGood !== null) return lastGood;
-        throw error;
-      }
+    getTrending(options) {
+      return source.getTrending(options);
     },
 
     getSoldListings(card_ref) {

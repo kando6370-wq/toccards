@@ -7,6 +7,7 @@ export type OwnerType = "anonymous" | "user";
 export type AuthenticatedOwner = {
   owner_type: OwnerType;
   owner_id: string;
+  session_id: string;
 };
 
 type SessionLookupRow = {
@@ -41,7 +42,7 @@ LIMIT 1
 
 const SELECT_USER_OWNER_SQL = `
 SELECT id
-FROM user
+FROM "user"
 WHERE id = ? AND status = 'active'
 LIMIT 1
 `;
@@ -91,7 +92,11 @@ export async function authenticateOwner(
 
   return {
     status: "ok",
-    owner: { owner_type: session.owner_type, owner_id: session.owner_id },
+    owner: {
+      owner_type: session.owner_type,
+      owner_id: session.owner_id,
+      session_id: session.id,
+    },
   };
 }
 

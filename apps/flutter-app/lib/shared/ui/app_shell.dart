@@ -1,38 +1,85 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:kando_app/shared/portfolio/pending_collection.dart';
 
 import 'kando_style.dart';
+import 'toast.dart';
 
 enum KandoMainTab { home, collection, scan, search, profile }
 
-class KandoTabScaffold extends StatelessWidget {
+class KandoTabScaffold extends ConsumerWidget {
   const KandoTabScaffold({
     super.key,
     required this.currentTab,
     required this.body,
+    this.onPendingCollectionReview,
   });
 
   final KandoMainTab currentTab;
   final Widget body;
+  final Future<int?> Function()? onPendingCollectionReview;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final tabBarBottomPadding =
+        (bottomInset > 32 ? bottomInset : 32) - _FigmaTabBarState._bottomOffset;
+    final pendingCount = ref.watch(
+      pendingCollectionProvider.select((items) => items.length),
+    );
+    final showPendingNotice =
+        currentTab != KandoMainTab.scan && pendingCount > 0;
+    void selectTab(KandoMainTab next) {
+      if (next != currentTab) {
+        context.go(_pathForTab(next));
+      }
+    }
+
     return Theme(
       data: _tabTheme(context),
       child: Scaffold(
         extendBody: true,
         backgroundColor: KandoColors.ink,
-        body: body,
+        body: Stack(
+          children: [
+            Positioned.fill(child: body),
+            if (showPendingNotice)
+              Positioned(
+                left: 20,
+                right: 20,
+                bottom: 96 + MediaQuery.paddingOf(context).bottom,
+                child: PendingCollectionNotice(
+                  count: pendingCount,
+                  onReview: onPendingCollectionReview,
+                ),
+              ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: tabBarBottomPadding + _FigmaTabBarState._barHeight,
+              height: -_FigmaTabBarState._scanButtonTop,
+              child: Center(
+                child: GestureDetector(
+                  key: const Key('kando-tab-scan-overflow-hit-region'),
+                  behavior: HitTestBehavior.opaque,
+                  excludeFromSemantics: true,
+                  onTap: () => selectTab(KandoMainTab.scan),
+                  child: const SizedBox(
+                    width: _FigmaTabBarState._scanButtonSize,
+                    height: -_FigmaTabBarState._scanButtonTop,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
         bottomNavigationBar: _FigmaTabBar(
           currentTab: currentTab,
-          onSelected: (next) {
-            if (next != currentTab) {
-              context.go(_pathForTab(next));
-            }
-          },
+          onSelected: selectTab,
         ),
       ),
     );
@@ -77,6 +124,97 @@ class KandoTabScaffold extends StatelessWidget {
         ),
       ),
       dividerTheme: const DividerThemeData(color: KandoColors.border),
+    );
+  }
+}
+
+class PendingCollectionNotice extends StatelessWidget {
+  const PendingCollectionNotice({
+    super.key,
+    required this.count,
+    this.onReview,
+  });
+
+  final int count;
+  final Future<int?> Function()? onReview;
+
+  @override
+  Widget build(BuildContext context) {
+    final singular = count == 1;
+    return Material(
+      key: const Key('pending-collection-notice'),
+      color: const Color(0xF7393C21),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: Color(0xFF55582D)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () async {
+          final addedCount = onReview == null
+              ? await context.push<int>('/collection-items/pending')
+              : await onReview!();
+          if (context.mounted && addedCount != null && addedCount > 0) {
+            showKandoCenteredSuccessToast(
+              context,
+              message: portfolioCardsAddedToastText(addedCount),
+            );
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: KandoColors.accent,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: SvgPicture.asset(
+                  'assets/search/collection_on.svg',
+                  width: 20,
+                  height: 20,
+                  colorFilter: const ColorFilter.mode(
+                    KandoColors.ink,
+                    BlendMode.srcIn,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$count ${singular ? 'card' : 'cards'} waiting for details',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: KandoColors.text,
+                        fontSize: 15,
+                        height: 20 / 15,
+                      ),
+                    ),
+                    Text(
+                      'Tap to Review and edit ${singular ? 'it' : 'them'}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: KandoColors.text,
+                        fontSize: 12,
+                        height: 16 / 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -284,6 +422,7 @@ class _FigmaTabBarState extends State<_FigmaTabBar> {
                     child: Center(
                       child: GestureDetector(
                         key: const Key('kando-tab-scan'),
+                        behavior: HitTestBehavior.opaque,
                         onTap: () => _selectTab(KandoMainTab.scan),
                         child: Container(
                           width: _scanButtonSize,

@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -9,10 +7,15 @@ import 'package:kando_app/features/search/search_models.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
+import 'package:kando_app/shared/ui/premium_unlocked_toast.dart';
+import 'package:kando_app/shared/ui/subscription_restore_result.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
 import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
+import '../subscription/subscription_controller.dart';
+import '../subscription/subscription_entitlement_cache.dart';
+import '../subscription/premium_top_entry.dart';
 import 'collection_controller.dart';
 import 'collection_models.dart';
 
@@ -36,59 +39,47 @@ class _CollectionPageState extends ConsumerState<CollectionPage> {
       currentTab: KandoMainTab.collection,
       body: SafeArea(
         bottom: false,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isPageFailure = state.isUnavailable;
-
-            if (state.loadStatus == KandoLoadStatus.loading || isPageFailure) {
-              return RefreshIndicator(
+        child: Column(
+          children: [
+            const Padding(
+              key: Key('collection-fixed-header'),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                KandoLayout.mainTabTopPadding,
+                20,
+                16,
+              ),
+              child: PremiumPageHeader(
+                title: 'Collection',
+                source: 'collection',
+              ),
+            ),
+            Expanded(
+              child: RefreshIndicator(
                 key: const Key('collection-pull-to-refresh'),
                 onRefresh: () => _refresh(controller, preserveContent: true),
-                child: ListView(
+                child: CustomScrollView(
                   key: const Key('collection-content-list'),
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: EdgeInsets.zero,
-                  children: [
-                    if (state.loadStatus == KandoLoadStatus.loading)
-                      const KandoLoadingBlock()
-                    else
-                      SizedBox(
-                        height: math.max(0.0, constraints.maxHeight),
-                        child: KandoFailureBlock(
-                          onRefresh: () => _refresh(controller),
-                        ),
-                      ),
-                  ],
-                ),
-              );
-            }
-
-            return Column(
-              children: [
-                Padding(
-                  key: const Key('collection-fixed-header'),
-                  padding: const EdgeInsets.fromLTRB(
-                    20,
-                    KandoLayout.mainTabTopPadding,
-                    20,
-                    16,
-                  ),
-                  child: Column(
-                    children: [
-                      _SegmentedTabs(
-                        selected: state.selectedTab,
-                        onSelect: controller.selectTab,
-                      ),
-                      const SizedBox(height: 16),
-                      _SearchField(
-                        fieldKey: ValueKey(state.selectedTab),
-                        onChanged: controller.updateSearch,
-                        onFilterPressed: () => _showFilterSheet(context, ref),
-                      ),
-                      const SizedBox(height: 16),
-                      if (state.selectedTab == CollectionTab.portfolio) ...[
-                        _PortfolioSummaryCard(
+                  slivers: [
+                    SliverPersistentHeader(
+                      pinned: true,
+                      delegate: _CollectionControlsHeaderDelegate(
+                        extent: state.loadStatus == KandoLoadStatus.content
+                            ? state.selectedTab == CollectionTab.portfolio
+                                  ? _CollectionControlsHeader.portfolioExtent
+                                  : _CollectionControlsHeader.wishlistExtent
+                            : _CollectionControlsHeader.loadingExtent,
+                        child: _CollectionControlsHeader(
                           state: state,
+                          onSelectTab: controller.selectTab,
+                          onSearchChanged: controller.updateSearch,
+                          filterEnabled:
+                              state.loadStatus == KandoLoadStatus.content,
+                          onFilterPressed: () {
+                            FocusManager.instance.primaryFocus?.unfocus();
+                            _showFilterSheet(context, ref);
+                          },
                           onFolderPressed: () {
                             ref
                                 .read(analyticsProvider)
@@ -98,33 +89,46 @@ class _CollectionPageState extends ConsumerState<CollectionPage> {
                           onHidePressed: () async {
                             if (!await controller.toggleAmountHidden() &&
                                 context.mounted) {
-                              showKandoFailureToast(context);
+                              showKandoTopFailureToast(context);
                             }
                           },
                         ),
-                      ],
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: RefreshIndicator(
-                    key: const Key('collection-pull-to-refresh'),
-                    onRefresh: () =>
-                        _refresh(controller, preserveContent: true),
-                    child: ListView(
-                      key: const Key('collection-content-list'),
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                      children: [
-                        _CollectionContent(state: state),
-                        const SizedBox(height: 100),
-                      ],
+                      ),
                     ),
-                  ),
+                    if (state.isUnavailable)
+                      SliverPadding(
+                        key: const Key('collection-results-failure'),
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 124),
+                        sliver: SliverToBoxAdapter(
+                          child: KandoNoContentBlock(
+                            illustrationKey: const Key(
+                              'collection-failure-illustration',
+                            ),
+                            refreshButtonKey: const Key(
+                              'collection-failure-refresh',
+                            ),
+                            onRefresh: () => _refresh(controller),
+                          ),
+                        ),
+                      )
+                    else
+                      SliverPadding(
+                        key: const Key('collection-content-padding'),
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                        sliver: SliverToBoxAdapter(
+                          child: Column(
+                            children: [
+                              _CollectionContent(state: state),
+                              const SizedBox(height: 100),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-              ],
-            );
-          },
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -156,6 +160,89 @@ class _CollectionPageState extends ConsumerState<CollectionPage> {
   }
 }
 
+class _CollectionControlsHeader extends StatelessWidget {
+  const _CollectionControlsHeader({
+    required this.state,
+    required this.onSelectTab,
+    required this.onSearchChanged,
+    required this.filterEnabled,
+    required this.onFilterPressed,
+    required this.onFolderPressed,
+    required this.onHidePressed,
+  });
+
+  static const portfolioExtent = 246.0;
+  static const wishlistExtent = 136.0;
+  static const loadingExtent = 136.0;
+
+  final CollectionState state;
+  final ValueChanged<CollectionTab> onSelectTab;
+  final ValueChanged<String> onSearchChanged;
+  final bool filterEnabled;
+  final VoidCallback onFilterPressed;
+  final VoidCallback onFolderPressed;
+  final VoidCallback onHidePressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: Padding(
+        key: const Key('collection-controls-header'),
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+        child: Column(
+          children: [
+            _SegmentedTabs(selected: state.selectedTab, onSelect: onSelectTab),
+            const SizedBox(height: 16),
+            _SearchField(
+              fieldKey: ValueKey(state.selectedTab),
+              onChanged: onSearchChanged,
+              filterEnabled: filterEnabled,
+              onFilterPressed: onFilterPressed,
+            ),
+            const SizedBox(height: 16),
+            if (state.loadStatus == KandoLoadStatus.content &&
+                state.selectedTab == CollectionTab.portfolio)
+              _PortfolioSummaryCard(
+                state: state,
+                onFolderPressed: onFolderPressed,
+                onHidePressed: onHidePressed,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CollectionControlsHeaderDelegate extends SliverPersistentHeaderDelegate {
+  const _CollectionControlsHeaderDelegate({
+    required this.extent,
+    required this.child,
+  });
+
+  final double extent;
+  final Widget child;
+
+  @override
+  double get minExtent => extent;
+
+  @override
+  double get maxExtent => extent;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return child;
+  }
+
+  @override
+  bool shouldRebuild(_CollectionControlsHeaderDelegate oldDelegate) => true;
+}
+
 class _SegmentedTabs extends StatelessWidget {
   const _SegmentedTabs({required this.selected, required this.onSelect});
 
@@ -165,8 +252,9 @@ class _SegmentedTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 52,
-      padding: const EdgeInsets.all(5),
+      key: const Key('collection-segmented-tabs'),
+      height: 44,
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: KandoColors.surface,
         borderRadius: BorderRadius.circular(999),
@@ -184,32 +272,24 @@ class _SegmentedTabs extends StatelessWidget {
   Widget _tab(CollectionTab tab, String label) {
     final isSelected = selected == tab;
     return Expanded(
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => onSelect(tab),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            gradient: isSelected
-                ? LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      KandoColors.accent.withValues(alpha: 0.30),
-                      KandoColors.accent.withValues(alpha: 0.10),
-                    ],
-                  )
-                : null,
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-              color: isSelected ? KandoColors.accent : KandoColors.mutedText,
+      child: Material(
+        color: isSelected
+            ? KandoColors.accent.withValues(alpha: 0.22)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(999),
+        child: InkWell(
+          onTap: () => onSelect(tab),
+          borderRadius: BorderRadius.circular(999),
+          child: Container(
+            alignment: Alignment.center,
+            height: 34,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                color: isSelected ? KandoColors.accent : KandoColors.mutedText,
+              ),
             ),
           ),
         ),
@@ -222,11 +302,13 @@ class _SearchField extends StatelessWidget {
   const _SearchField({
     required this.fieldKey,
     required this.onChanged,
+    required this.filterEnabled,
     required this.onFilterPressed,
   });
 
   final Key fieldKey;
   final ValueChanged<String> onChanged;
+  final bool filterEnabled;
   final VoidCallback onFilterPressed;
 
   @override
@@ -235,34 +317,54 @@ class _SearchField extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       borderSide: const BorderSide(color: KandoColors.border),
     );
-    return TextField(
-      key: fieldKey,
-      onChanged: onChanged,
-      style: const TextStyle(color: KandoColors.text, fontSize: 15),
-      decoration: InputDecoration(
-        filled: true,
-        fillColor: KandoColors.surface,
-        prefixIcon: const Icon(
-          Icons.search,
-          color: KandoColors.mutedText,
-          size: 20,
-        ),
-        hintText: 'Search cards',
-        hintStyle: const TextStyle(color: KandoColors.mutedText, fontSize: 15),
-        suffixIcon: IconButton(
-          key: const Key('collection-filter-button'),
-          onPressed: onFilterPressed,
-          icon: const Icon(Icons.tune, color: KandoColors.mutedText, size: 20),
-        ),
-        border: base,
-        enabledBorder: base,
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: KandoColors.accent),
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
+    return SizedBox(
+      key: const Key('collection-search-field'),
+      height: 44,
+      child: TextField(
+        key: fieldKey,
+        autofocus: false,
+        onChanged: onChanged,
+        onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
+        style: const TextStyle(color: KandoColors.text, fontSize: 15),
+        decoration: InputDecoration(
+          isDense: true,
+          filled: true,
+          fillColor: KandoColors.surface,
+          prefixIcon: const Padding(
+            padding: EdgeInsets.only(left: 16, right: 12),
+            child: Icon(Icons.search, color: KandoColors.mutedText, size: 20),
+          ),
+          prefixIconConstraints: const BoxConstraints.tightFor(
+            width: 48,
+            height: 44,
+          ),
+          hintText: 'Search cards',
+          hintStyle: const TextStyle(
+            color: KandoColors.mutedText,
+            fontSize: 15,
+          ),
+          suffixIcon: IconButton(
+            key: const Key('collection-filter-button'),
+            onPressed: filterEnabled ? onFilterPressed : null,
+            padding: const EdgeInsets.only(left: 12, right: 16),
+            constraints: const BoxConstraints.tightFor(width: 48, height: 44),
+            icon: const Icon(
+              Icons.tune,
+              color: KandoColors.mutedText,
+              size: 20,
+            ),
+          ),
+          suffixIconConstraints: const BoxConstraints.tightFor(
+            width: 48,
+            height: 44,
+          ),
+          border: base,
+          enabledBorder: base,
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: KandoColors.accent),
+          ),
+          contentPadding: const EdgeInsets.symmetric(vertical: 12),
         ),
       ),
     );
@@ -286,89 +388,125 @@ class _PortfolioSummaryCard extends StatelessWidget {
     return Container(
       key: const Key('collection-portfolio-summary'),
       width: double.infinity,
-      height: 142,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 21),
+      height: 110,
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            KandoColors.accent.withValues(alpha: 0.10),
-            KandoColors.surface.withValues(alpha: 0.30),
+            Color.fromRGBO(116, 123, 38, 0.12),
+            Color.fromRGBO(20, 21, 6, 0.04),
           ],
         ),
-        color: KandoColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: KandoColors.accent.withValues(alpha: 0.20)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'PORTFOLIO',
-                  style: TextStyle(
-                    fontSize: 13,
-                    letterSpacing: 0.6,
-                    color: KandoColors.mutedText,
+          Positioned(
+            top: -48,
+            right: -48,
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [KandoColors.accentGlow10, Color(0x00F0FE6F)],
+                ),
+              ),
+              child: const SizedBox.square(dimension: 128),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'PORTFOLIO',
+                      style: TextStyle(
+                        fontSize: 14,
+                        height: 20 / 14,
+                        letterSpacing: 0.2,
+                        color: Color(0xFF92927D),
+                      ),
+                    ),
+                    _FolderButton(
+                      name: state.selectedFolder.name,
+                      onPressed: onFolderPressed,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                SizedBox(
+                  height: 40,
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          summary.totalValueText,
+                          key: const Key('collection-portfolio-total'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            height: 40 / 24,
+                            fontWeight: FontWeight.w600,
+                            color: KandoColors.accent,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      _HideAmountButton(
+                        hidden: state.amountHidden,
+                        onPressed: onHidePressed,
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              _FolderButton(
-                name: state.selectedFolder.name,
-                onPressed: onFolderPressed,
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Flexible(
-                child: Text(
-                  summary.totalValueText,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 30,
-                    fontWeight: FontWeight.w700,
-                    color: KandoColors.accent,
+                SizedBox(
+                  height: 16,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Row(
+                      children: [
+                        Text(
+                          '${summary.cardCount} cards',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            height: 16 / 13,
+                            color: KandoColors.mutedText,
+                          ),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 4),
+                          child: Text(
+                            '•',
+                            style: TextStyle(
+                              fontSize: 13,
+                              height: 16 / 13,
+                              color: KandoColors.mutedText,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '${summary.gradedCount} graded',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            height: 16 / 13,
+                            color: KandoColors.mutedText,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              _HideAmountButton(
-                hidden: state.amountHidden,
-                onPressed: onHidePressed,
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Text(
-                '${summary.cardCount} cards',
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: KandoColors.mutedText,
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8),
-                child: Text(
-                  '•',
-                  style: TextStyle(color: KandoColors.mutedText),
-                ),
-              ),
-              Text(
-                '${summary.gradedCount} graded',
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: KandoColors.mutedText,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -388,7 +526,10 @@ class _FolderButton extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onPressed,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        key: const Key('collection-folder-button'),
+        height: 24,
+        constraints: const BoxConstraints(minWidth: 70, maxWidth: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
           color: KandoColors.accent.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(12),
@@ -403,16 +544,21 @@ class _FolderButton extends StatelessWidget {
             SvgPicture.asset(
               'assets/home/folder_switch.svg',
               key: const Key('collection-folder-switch-icon'),
-              width: 10.5,
-              height: 8.24644,
+              width: 12,
+              height: 12,
             ),
             const SizedBox(width: 4),
-            Text(
-              name,
-              style: const TextStyle(
-                fontSize: 15,
-                color: KandoColors.accent,
-                fontWeight: FontWeight.w500,
+            Flexible(
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 14,
+                  height: 24 / 14,
+                  color: KandoColors.accent,
+                  fontWeight: FontWeight.w400,
+                ),
               ),
             ),
           ],
@@ -430,17 +576,33 @@ class _HideAmountButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      key: const Key('collection-hide-amount'),
-      onPressed: onPressed,
-      tooltip: hidden ? 'Show portfolio amount' : 'Hide portfolio amount',
-      padding: EdgeInsets.zero,
-      visualDensity: VisualDensity.compact,
-      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-      icon: Icon(
-        hidden ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-        size: 18,
-        color: KandoColors.mutedText,
+    final tooltip = hidden ? 'Show portfolio amount' : 'Hide portfolio amount';
+    return Tooltip(
+      message: tooltip,
+      child: Semantics(
+        button: true,
+        label: tooltip,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onPressed,
+          child: Container(
+            key: const Key('collection-hide-amount'),
+            width: 24,
+            height: 24,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: KandoColors.border),
+            ),
+            child: Icon(
+              hidden
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
+              size: 13.333,
+              color: KandoColors.mutedText,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -453,6 +615,14 @@ class _CollectionContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (state.isLoading) {
+      return const SizedBox(
+        key: Key('collection-results-loading'),
+        height: 160,
+        child: KandoLoadingBlock(),
+      );
+    }
+
     if (state.isNoMatch) {
       return const _CollectionNoMatchState();
     }
@@ -648,6 +818,7 @@ class _EmptyStateButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final foregroundColor = primary ? KandoColors.ink : KandoColors.text;
     return SizedBox(
       width: double.infinity,
       height: 56,
@@ -660,6 +831,7 @@ class _EmptyStateButton extends StatelessWidget {
               iconAssetPath,
               width: iconSize.width,
               height: iconSize.height,
+              colorFilter: ColorFilter.mode(foregroundColor, BlendMode.srcIn),
             ),
           ),
         ),
@@ -668,7 +840,7 @@ class _EmptyStateButton extends StatelessWidget {
           backgroundColor: primary
               ? KandoColors.accent
               : KandoColors.elevatedSurface,
-          foregroundColor: primary ? KandoColors.ink : KandoColors.text,
+          foregroundColor: foregroundColor,
           textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
           shape: const StadiumBorder(),
           side: primary
@@ -740,13 +912,14 @@ SearchCard _asSearchCard(
     previous30dPriceUsd: source.previous30dPriceUsd == null
         ? null
         : source.previous30dPriceUsd! * quantityMultiplier,
-    priceChange1dPercent: source.increasePercent,
+    changePercent: source.increasePercent,
     setName: source.setName,
     metadataLine: '${source.rarity} ${source.number}',
     variantLine: source.finish,
     quantity: source.quantity,
     isWishlisted: !showQuantity,
-    collectionItemCount: showQuantity ? source.quantity : 0,
+    collectionItemCount: showQuantity ? 1 : 0,
+    collectionItemId: showQuantity ? source.id : null,
     collectionInfo: showQuantity ? _searchCollectionInfo(source) : null,
     language: source.language,
     finish: source.finish,
@@ -984,21 +1157,15 @@ Future<void> showPortfolioFolderSheet(BuildContext context, WidgetRef ref) {
                                   ),
                                   tooltip: 'Edit portfolio',
                                   onPressed: () async {
-                                    final name = await _promptForFolderName(
+                                    await _showEditFolderSheet(
                                       context,
                                       initialName: folder.name,
                                       title: 'Edit Portfolio',
+                                      onSave: (name) => controller.renameFolder(
+                                        folder.id,
+                                        name,
+                                      ),
                                     );
-                                    if (name == null || !context.mounted) {
-                                      return;
-                                    }
-                                    if (!await controller.renameFolder(
-                                          folder.id,
-                                          name,
-                                        ) &&
-                                        context.mounted) {
-                                      _showCollectionActionError(context);
-                                    }
                                   },
                                   icon: const Icon(
                                     Icons.edit_outlined,
@@ -1014,20 +1181,12 @@ Future<void> showPortfolioFolderSheet(BuildContext context, WidgetRef ref) {
                                   onPressed: folder.isDefault
                                       ? null
                                       : () async {
-                                          final confirmed =
-                                              await _confirmDeleteFolder(
-                                                context,
-                                                folder,
-                                              );
-                                          if (!confirmed || !context.mounted) {
-                                            return;
-                                          }
-                                          if (!await controller.deleteFolder(
-                                                folder.id,
-                                              ) &&
-                                              context.mounted) {
-                                            _showCollectionActionError(context);
-                                          }
+                                          await _confirmDeleteFolder(
+                                            context,
+                                            folder,
+                                            onDelete: () => controller
+                                                .deleteFolder(folder.id),
+                                          );
                                         },
                                   icon: Icon(
                                     Icons.delete_outline,
@@ -1066,15 +1225,38 @@ Future<void> showPortfolioFolderSheet(BuildContext context, WidgetRef ref) {
                         shape: const StadiumBorder(),
                       ),
                       onPressed: () async {
-                        final name = await _promptForFolderName(
-                          context,
-                          title: 'Add Portfolio',
-                        );
-                        if (name == null || !context.mounted) return;
-                        if (await controller.createFolder(name) == null &&
-                            context.mounted) {
-                          _showCollectionActionError(context);
+                        var premiumState = ref
+                            .read(subscriptionControllerProvider)
+                            .premiumState;
+                        if (premiumState == AppPremiumState.unknown &&
+                            state.dashboard.folders.length >= 2) {
+                          premiumState = await ref
+                              .read(subscriptionControllerProvider.notifier)
+                              .refreshEntitlement();
+                          if (!context.mounted ||
+                              premiumState == AppPremiumState.unknown) {
+                            return;
+                          }
                         }
+                        if (premiumState == AppPremiumState.free &&
+                            state.dashboard.folders.length >= 2) {
+                          final result = await context
+                              .push<SubscriptionPaywallResult>(
+                                subscriptionSheetLocation(),
+                              );
+                          if (!context.mounted || result == null) return;
+                          if (result ==
+                              SubscriptionPaywallResult.premiumRestored) {
+                            showSubscriptionRestoreResult(
+                              context,
+                              type:
+                                  SubscriptionRestoreResultType.premiumRestored,
+                            );
+                          } else {
+                            showPremiumUnlockedToast(context);
+                          }
+                        }
+                        await _runCreateFolderFlow(context, controller);
                       },
                       icon: const Icon(Icons.add_circle_outline),
                       label: const Text('ADD NEW'),
@@ -1090,13 +1272,130 @@ Future<void> showPortfolioFolderSheet(BuildContext context, WidgetRef ref) {
   );
 }
 
-Future<String?> _promptForFolderName(
+Future<void> _runCreateFolderFlow(
+  BuildContext context,
+  CollectionController controller,
+) async {
+  var initialName = '';
+  while (context.mounted) {
+    final result = await _showCreateFolderSheet(
+      context,
+      initialName: initialName,
+      onSave: controller.createFolder,
+    );
+    if (result == null ||
+        result.status == CreateFolderStatus.success ||
+        !context.mounted) {
+      return;
+    }
+
+    initialName = result.name;
+    final paywallResult = await context.push<SubscriptionPaywallResult>(
+      subscriptionSheetLocation(),
+    );
+    if (!context.mounted || paywallResult == null) return;
+    if (paywallResult == SubscriptionPaywallResult.premiumRestored) {
+      showSubscriptionRestoreResult(
+        context,
+        type: SubscriptionRestoreResultType.premiumRestored,
+      );
+    } else {
+      showPremiumUnlockedToast(context);
+    }
+  }
+}
+
+Future<_CreateFolderSheetResult?> _showCreateFolderSheet(
+  BuildContext context, {
+  required String initialName,
+  required Future<CreateFolderResult> Function(String name) onSave,
+}) {
+  return showModalBottomSheet<_CreateFolderSheetResult>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: const Color(0xBF0D0F08),
+    builder: (context) => Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: _CreateFolderBottomSheet(initialName: initialName, onSave: onSave),
+    ),
+  );
+}
+
+class _CreateFolderSheetResult {
+  const _CreateFolderSheetResult({required this.status, required this.name});
+
+  final CreateFolderStatus status;
+  final String name;
+}
+
+class _CreateFolderBottomSheet extends StatefulWidget {
+  const _CreateFolderBottomSheet({
+    required this.initialName,
+    required this.onSave,
+  });
+
+  final String initialName;
+  final Future<CreateFolderResult> Function(String name) onSave;
+
+  @override
+  State<_CreateFolderBottomSheet> createState() =>
+      _CreateFolderBottomSheetState();
+}
+
+class _CreateFolderBottomSheetState extends State<_CreateFolderBottomSheet> {
+  late String _name = widget.initialName;
+  var _isSaving = false;
+
+  Future<void> _save() async {
+    final name = _name.trim();
+    if (_isSaving || name.isEmpty) return;
+    setState(() => _isSaving = true);
+    final result = await widget.onSave(name);
+    if (!mounted) return;
+
+    if (result.status == CreateFolderStatus.success ||
+        result.status == CreateFolderStatus.premiumRequired) {
+      Navigator.of(
+        context,
+      ).pop(_CreateFolderSheetResult(status: result.status, name: name));
+      return;
+    }
+
+    if (result.status == CreateFolderStatus.entitlementSyncRequired) {
+      showKandoTopToast(
+        context,
+        message: 'Premium access is still syncing. Please try again.',
+        type: KandoTopToastType.failure,
+      );
+    } else {
+      _showCollectionActionError(context);
+    }
+    setState(() => _isSaving = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !_isSaving,
+      child: _FolderNameBottomSheet(
+        title: 'Add Portfolio',
+        initialName: widget.initialName,
+        onChanged: (value) => _name = value,
+        onSave: _isSaving ? null : _save,
+        isSaving: _isSaving,
+      ),
+    );
+  }
+}
+
+Future<void> _showEditFolderSheet(
   BuildContext context, {
   required String title,
   String initialName = '',
-}) async {
-  var value = initialName;
-  return showModalBottomSheet<String>(
+  required Future<bool> Function(String name) onSave,
+}) {
+  return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
@@ -1105,20 +1404,64 @@ Future<String?> _promptForFolderName(
       final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
       return Padding(
         padding: EdgeInsets.only(bottom: bottomInset),
-        child: _FolderNameBottomSheet(
+        child: _EditFolderBottomSheet(
           title: title,
           initialName: initialName,
-          onChanged: (next) => value = next,
-          onSave: () {
-            final normalized = value.trim();
-            if (normalized.isNotEmpty) {
-              Navigator.of(context).pop(normalized);
-            }
-          },
+          onSave: onSave,
         ),
       );
     },
   );
+}
+
+class _EditFolderBottomSheet extends StatefulWidget {
+  const _EditFolderBottomSheet({
+    required this.title,
+    required this.initialName,
+    required this.onSave,
+  });
+
+  final String title;
+  final String initialName;
+  final Future<bool> Function(String name) onSave;
+
+  @override
+  State<_EditFolderBottomSheet> createState() => _EditFolderBottomSheetState();
+}
+
+class _EditFolderBottomSheetState extends State<_EditFolderBottomSheet> {
+  late String _name = widget.initialName;
+  var _isSaving = false;
+
+  Future<void> _save() async {
+    final name = _name.trim();
+    if (_isSaving || name.isEmpty) return;
+    setState(() => _isSaving = true);
+    final saved = await widget.onSave(name);
+    if (!mounted) return;
+
+    if (saved) {
+      Navigator.of(context).pop();
+      return;
+    }
+
+    _showCollectionActionError(context);
+    setState(() => _isSaving = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !_isSaving,
+      child: _FolderNameBottomSheet(
+        title: widget.title,
+        initialName: widget.initialName,
+        onChanged: (value) => _name = value,
+        onSave: _isSaving ? null : _save,
+        isSaving: _isSaving,
+      ),
+    );
+  }
 }
 
 class _FolderNameBottomSheet extends StatelessWidget {
@@ -1127,12 +1470,14 @@ class _FolderNameBottomSheet extends StatelessWidget {
     required this.initialName,
     required this.onChanged,
     required this.onSave,
+    required this.isSaving,
   });
 
   final String title;
   final String initialName;
   final ValueChanged<String> onChanged;
-  final VoidCallback onSave;
+  final VoidCallback? onSave;
+  final bool isSaving;
 
   @override
   Widget build(BuildContext context) {
@@ -1172,6 +1517,7 @@ class _FolderNameBottomSheet extends StatelessWidget {
             initialValue: initialName,
             onChanged: onChanged,
             autofocus: true,
+            enabled: !isSaving,
             maxLength: 50,
             style: const TextStyle(
               color: KandoColors.text,
@@ -1197,7 +1543,7 @@ class _FolderNameBottomSheet extends StatelessWidget {
           Row(
             children: [
               _RoundSheetButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: isSaving ? null : () => Navigator.of(context).pop(),
                 child: const Icon(
                   Icons.arrow_back,
                   color: KandoColors.accent,
@@ -1210,7 +1556,8 @@ class _FolderNameBottomSheet extends StatelessWidget {
                   key: const Key('collection-folder-name-save'),
                   backgroundColor: KandoColors.accent,
                   foregroundColor: KandoColors.primaryOnDefault,
-                  label: 'SAVE',
+                  label: isSaving ? 'SAVING' : 'SAVE',
+                  isLoading: isSaving,
                   onPressed: onSave,
                 ),
               ),
@@ -1280,7 +1627,7 @@ class _PortfolioActionSheet extends StatelessWidget {
 class _RoundSheetButton extends StatelessWidget {
   const _RoundSheetButton({required this.onPressed, required this.child});
 
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final Widget child;
 
   @override
@@ -1310,12 +1657,14 @@ class _PillSheetButton extends StatelessWidget {
     required this.foregroundColor,
     required this.label,
     required this.onPressed,
+    this.isLoading = false,
   });
 
   final Color backgroundColor;
   final Color foregroundColor;
   final String label;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -1330,90 +1679,145 @@ class _PillSheetButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(999),
           border: Border.all(color: KandoColors.borderSubtle),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: foregroundColor,
-            fontSize: 16,
-            fontWeight: FontWeight.w400,
-            height: 24 / 16,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isLoading) ...[
+              SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: foregroundColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                color: foregroundColor,
+                fontSize: 16,
+                fontWeight: FontWeight.w400,
+                height: 24 / 16,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-Future<bool> _confirmDeleteFolder(
+Future<void> _confirmDeleteFolder(
   BuildContext context,
-  CollectionFolder folder,
-) async {
+  CollectionFolder folder, {
+  required Future<bool> Function() onDelete,
+}) {
   _trackCollectionEvent(context, AnalyticsEvent.deleteClick);
-  return await showModalBottomSheet<bool>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        barrierColor: const Color(0xBF0D0F08),
-        builder: (context) => _PortfolioActionSheet(
-          key: const Key('collection-folder-delete-sheet'),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Are you sure you want to delete this ${folder.name} portfolio?',
-                style: const TextStyle(
-                  color: KandoColors.errorText,
-                  fontFamily: 'Fraunces',
-                  fontSize: 24,
-                  fontWeight: FontWeight.w600,
-                  height: 32 / 24,
-                  fontVariations: [
-                    FontVariation('SOFT', 0),
-                    FontVariation('WONK', 1),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
-              Row(
-                children: [
-                  Expanded(
-                    child: _PillSheetButton(
-                      backgroundColor: KandoColors.elevatedSurface,
-                      foregroundColor: KandoColors.text,
-                      label: 'CANCEL',
-                      onPressed: () {
-                        _trackCollectionEvent(
-                          context,
-                          AnalyticsEvent.cancelClick,
-                        );
-                        Navigator.of(context).pop(false);
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _PillSheetButton(
-                      key: const Key('collection-folder-delete-confirm'),
-                      backgroundColor: KandoColors.error,
-                      foregroundColor: KandoColors.primaryOnDefault,
-                      label: 'DELETE',
-                      onPressed: () {
-                        _trackCollectionEvent(
-                          context,
-                          AnalyticsEvent.deleteConfirmClick,
-                        );
-                        Navigator.of(context).pop(true);
-                      },
-                    ),
-                  ),
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: const Color(0xBF0D0F08),
+    builder: (context) =>
+        _DeleteFolderBottomSheet(folder: folder, onDelete: onDelete),
+  );
+}
+
+class _DeleteFolderBottomSheet extends StatefulWidget {
+  const _DeleteFolderBottomSheet({
+    required this.folder,
+    required this.onDelete,
+  });
+
+  final CollectionFolder folder;
+  final Future<bool> Function() onDelete;
+
+  @override
+  State<_DeleteFolderBottomSheet> createState() =>
+      _DeleteFolderBottomSheetState();
+}
+
+class _DeleteFolderBottomSheetState extends State<_DeleteFolderBottomSheet> {
+  var _isDeleting = false;
+
+  Future<void> _delete() async {
+    if (_isDeleting) return;
+    _trackCollectionEvent(context, AnalyticsEvent.deleteConfirmClick);
+    setState(() => _isDeleting = true);
+    final deleted = await widget.onDelete();
+    if (!mounted) return;
+
+    if (deleted) {
+      Navigator.of(context).pop();
+      return;
+    }
+
+    _showCollectionActionError(context);
+    setState(() => _isDeleting = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !_isDeleting,
+      child: _PortfolioActionSheet(
+        key: const Key('collection-folder-delete-sheet'),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you sure you want to delete this ${widget.folder.name} portfolio?',
+              style: const TextStyle(
+                color: KandoColors.errorText,
+                fontFamily: 'Fraunces',
+                fontSize: 24,
+                fontWeight: FontWeight.w600,
+                height: 32 / 24,
+                fontVariations: [
+                  FontVariation('SOFT', 0),
+                  FontVariation('WONK', 1),
                 ],
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 32),
+            Row(
+              children: [
+                Expanded(
+                  child: _PillSheetButton(
+                    backgroundColor: KandoColors.elevatedSurface,
+                    foregroundColor: KandoColors.text,
+                    label: 'CANCEL',
+                    onPressed: _isDeleting
+                        ? null
+                        : () {
+                            _trackCollectionEvent(
+                              context,
+                              AnalyticsEvent.cancelClick,
+                            );
+                            Navigator.of(context).pop();
+                          },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _PillSheetButton(
+                    key: const Key('collection-folder-delete-confirm'),
+                    backgroundColor: KandoColors.error,
+                    foregroundColor: KandoColors.primaryOnDefault,
+                    label: 'DELETE',
+                    isLoading: _isDeleting,
+                    onPressed: _isDeleting ? null : _delete,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
-      ) ??
-      false;
+      ),
+    );
+  }
 }
 
 void _trackCollectionEvent(BuildContext context, String event) {
@@ -1424,7 +1828,7 @@ void _trackCollectionEvent(BuildContext context, String event) {
 }
 
 void _showCollectionActionError(BuildContext context) {
-  showKandoFailureToast(context);
+  showKandoTopFailureToast(context);
 }
 
 Future<void> _showFilterSheet(BuildContext context, WidgetRef ref) {
@@ -1476,22 +1880,24 @@ Future<void> _showFilterSheet(BuildContext context, WidgetRef ref) {
                 top: false,
                 child: Column(
                   children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 18),
+                      child: Container(
+                        key: const Key('collection-filter-sheet-handle'),
+                        width: 48,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF6C6945),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
                     Expanded(
                       child: ListView(
                         key: const Key('collection-filter-sheet'),
-                        padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
                         children: [
-                          Center(
-                            child: Container(
-                              width: 48,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF6C6945),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 18),
                           Row(
                             children: [
                               const Expanded(
@@ -1628,6 +2034,7 @@ String _sortLabel(CollectionSort sort) {
     CollectionSort.valueAsc => 'Price: Low to High',
     CollectionSort.changeDesc => '30D gain high to low',
     CollectionSort.nameAsc => 'Name A-Z',
+    CollectionSort.performanceDesc => 'Top performance',
   };
 }
 

@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../analytics/analytics_events.dart';
 import '../analytics/app_analytics.dart';
@@ -20,6 +21,68 @@ class KandoLoadingBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Center(child: CircularProgressIndicator());
+  }
+}
+
+class KandoNoContentBlock extends StatelessWidget {
+  const KandoNoContentBlock({
+    super.key,
+    this.illustrationKey,
+    this.refreshButtonKey,
+    required this.onRefresh,
+  });
+
+  final Key? illustrationKey;
+  final Key? refreshButtonKey;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Column(
+        children: [
+          SvgPicture.asset(
+            'assets/search/no_content_available.svg',
+            key: illustrationKey,
+            width: 100,
+            height: 100,
+            excludeFromSemantics: true,
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            noContentAvailableText,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 20,
+              height: 26 / 20,
+              fontFamily: 'Fraunces',
+              fontWeight: FontWeight.w600,
+              color: KandoColors.text,
+            ),
+          ),
+          const SizedBox(height: 32),
+          SizedBox(
+            height: 44,
+            child: FilledButton.icon(
+              key: refreshButtonKey,
+              onPressed: onRefresh,
+              style: FilledButton.styleFrom(
+                backgroundColor: KandoColors.accent,
+                foregroundColor: KandoColors.ink,
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                shape: const StadiumBorder(),
+              ),
+              icon: const Icon(Icons.refresh, size: 20),
+              label: const Text(
+                refreshText,
+                style: TextStyle(fontSize: 13, height: 16 / 13),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

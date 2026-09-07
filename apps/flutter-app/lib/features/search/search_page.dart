@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -8,6 +10,8 @@ import 'package:kando_app/shared/ui/load_state.dart';
 
 import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
+import '../card_detail/card_detail_page.dart';
+import '../subscription/premium_top_entry.dart';
 import 'search_card_tile.dart';
 import 'search_controller.dart';
 import 'search_models.dart';
@@ -22,7 +26,14 @@ class SearchPage extends ConsumerStatefulWidget {
 }
 
 class _SearchPageState extends ConsumerState<SearchPage> {
+  final _scrollController = ScrollController();
   String? _lastViewSignature;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,99 +43,117 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
     return KandoTabScaffold(
       currentTab: KandoMainTab.search,
+      onPendingCollectionReview: _reviewPendingCollection,
       body: SafeArea(
         bottom: false,
-        child: NotificationListener<ScrollNotification>(
-          onNotification: (notification) {
-            if (notification.depth == 0 &&
-                notification.metrics.extentAfter <= 320) {
-              controller.loadNextCardPage();
-            }
-            return false;
-          },
-          child: RefreshIndicator(
-            key: const Key('search-pull-to-refresh'),
-            onRefresh: () {
-              ref.read(analyticsProvider).track(AnalyticsEvent.refreshClick);
-              return controller.refreshPreservingContent();
-            },
-            child: state.isLoading || state.isUnavailable
-                ? ListView(
-                    key: const Key('search-content-list'),
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(
-                      16,
-                      KandoLayout.mainTabTopPadding,
-                      16,
-                      116,
-                    ),
-                    children: [
-                      if (widget.fromScan) ...[
-                        _BackToScanButton(context: context),
-                        const SizedBox(height: 8),
-                      ],
-                      if (state.isLoading) ...[
-                        Text(
-                          'Search',
-                          style: Theme.of(context).textTheme.headlineMedium,
+        child: Column(
+          children: [
+            const Padding(
+              key: Key('search-fixed-header'),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                KandoLayout.mainTabTopPadding,
+                20,
+                16,
+              ),
+              child: PremiumPageHeader(title: 'Search', source: 'search'),
+            ),
+            Expanded(
+              child: NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  if (notification.depth == 0 &&
+                      notification.metrics.extentAfter <= 320) {
+                    controller.loadNextCardPage();
+                  }
+                  return false;
+                },
+                child: RefreshIndicator(
+                  key: const Key('search-pull-to-refresh'),
+                  onRefresh: () {
+                    ref
+                        .read(analyticsProvider)
+                        .track(AnalyticsEvent.refreshClick);
+                    return controller.refreshPreservingContent();
+                  },
+                  child: state.isUnavailable
+                      ? ListView(
+                          key: const Key('search-content-list'),
+                          controller: _scrollController,
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 116),
+                          children: [
+                            if (widget.fromScan) ...[
+                              _BackToScanButton(context: context),
+                              const SizedBox(height: 8),
+                            ],
+                            if (state.isLoading) const KandoLoadingBlock(),
+                            if (state.isUnavailable)
+                              KandoFailureBlock(onRefresh: controller.refresh),
+                          ],
+                        )
+                      : CustomScrollView(
+                          key: const Key('search-content-scroll'),
+                          controller: _scrollController,
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          slivers: [
+                            if (widget.fromScan)
+                              SliverPadding(
+                                key: const Key('search-content-top-padding'),
+                                padding: const EdgeInsets.fromLTRB(
+                                  20,
+                                  0,
+                                  20,
+                                  0,
+                                ),
+                                sliver: SliverToBoxAdapter(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      _BackToScanButton(context: context),
+                                      const SizedBox(height: 8),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            SliverPersistentHeader(
+                              pinned: true,
+                              delegate: _SearchControlsHeaderDelegate(
+                                child: _SearchControlsHeader(
+                                  state: state,
+                                  isLoading: state.isLoading,
+                                  onSearchChanged: controller.updateSearch,
+                                  onClear: controller.clearSearch,
+                                  onSelectTab: controller.selectTab,
+                                  onGamePressed: () =>
+                                      _showGameSheet(context, ref),
+                                  onScan: () => context.go('/scan'),
+                                ),
+                              ),
+                            ),
+                            SliverPadding(
+                              padding: const EdgeInsets.fromLTRB(
+                                20,
+                                0,
+                                20,
+                                116,
+                              ),
+                              sliver: state.isLoading
+                                  ? const SliverToBoxAdapter(
+                                      child: SizedBox(
+                                        key: Key('search-results-loading'),
+                                        height: 160,
+                                        child: KandoLoadingBlock(),
+                                      ),
+                                    )
+                                  : _SearchResults(state: state),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 16),
-                        const KandoLoadingBlock(),
-                      ] else ...[
-                        Text(
-                          'Search',
-                          style: Theme.of(context).textTheme.headlineMedium,
-                        ),
-                        const SizedBox(height: 16),
-                        KandoFailureBlock(onRefresh: controller.refresh),
-                      ],
-                    ],
-                  )
-                : CustomScrollView(
-                    key: const Key('search-content-scroll'),
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    slivers: [
-                      SliverPadding(
-                        key: const Key('search-content-top-padding'),
-                        padding: const EdgeInsets.fromLTRB(
-                          16,
-                          KandoLayout.mainTabTopPadding,
-                          16,
-                          0,
-                        ),
-                        sliver: SliverToBoxAdapter(
-                          child: widget.fromScan
-                              ? Column(
-                                  children: [
-                                    _BackToScanButton(context: context),
-                                    const SizedBox(height: 8),
-                                  ],
-                                )
-                              : const SizedBox.shrink(),
-                        ),
-                      ),
-                      SliverPersistentHeader(
-                        pinned: true,
-                        delegate: _SearchControlsHeaderDelegate(
-                          child: _SearchControlsHeader(
-                            state: state,
-                            onSearchChanged: controller.updateSearch,
-                            onClear: controller.clearSearch,
-                            onSelectTab: controller.selectTab,
-                            onGamePressed: () => _showGameSheet(context, ref),
-                            onScan: () => context.go('/scan'),
-                          ),
-                        ),
-                      ),
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 116),
-                        sliver: SliverToBoxAdapter(
-                          child: _SearchResults(state: state),
-                        ),
-                      ),
-                    ],
-                  ),
-          ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -147,6 +176,21 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           .read(analyticsProvider)
           .track(AnalyticsEvent.searchView, properties: properties);
     });
+  }
+
+  Future<int?> _reviewPendingCollection() async {
+    final addedCount = await showQuickCollectionReviewSheet(context);
+    if (!mounted || addedCount == null || addedCount <= 0) return addedCount;
+    if (_scrollController.hasClients) {
+      unawaited(
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+        ),
+      );
+    }
+    return addedCount;
   }
 }
 
@@ -172,6 +216,7 @@ class _BackToScanButton extends StatelessWidget {
 class _SearchControlsHeader extends StatelessWidget {
   const _SearchControlsHeader({
     required this.state,
+    required this.isLoading,
     required this.onSearchChanged,
     required this.onClear,
     required this.onSelectTab,
@@ -180,6 +225,7 @@ class _SearchControlsHeader extends StatelessWidget {
   });
 
   final SearchState state;
+  final bool isLoading;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onClear;
   final ValueChanged<SearchTab> onSelectTab;
@@ -191,11 +237,11 @@ class _SearchControlsHeader extends StatelessWidget {
     return ColoredBox(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
         child: Column(
           children: [
             SizedBox(
-              height: 48,
+              height: 44,
               child: _DebouncedSearchField(
                 key: ValueKey('search-field-${state.selectedTab}'),
                 searchText: state.searchText,
@@ -207,8 +253,10 @@ class _SearchControlsHeader extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             _GameSelectorField(
-              selectedGame: state.selectedGame,
-              onPressed: onGamePressed,
+              selectedGame: isLoading
+                  ? const SearchGame(id: 'tcg', label: 'TCG')
+                  : state.selectedGame,
+              onPressed: isLoading ? null : onGamePressed,
             ),
             const SizedBox(height: 16),
             _SearchTabs(selected: state.selectedTab, onSelect: onSelectTab),
@@ -222,7 +270,7 @@ class _SearchControlsHeader extends StatelessWidget {
 class _SearchControlsHeaderDelegate extends SliverPersistentHeaderDelegate {
   const _SearchControlsHeaderDelegate({required this.child});
 
-  static const extent = 196.0;
+  static const extent = 176.0;
   final Widget child;
 
   @override
@@ -332,7 +380,7 @@ class _DebouncedSearchFieldState extends State<_DebouncedSearchField> {
         hintText: 'Search cards, sets, or characters',
         hintStyle: const TextStyle(fontSize: 15, color: KandoColors.mutedText),
         isDense: true,
-        contentPadding: const EdgeInsets.symmetric(vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(vertical: 12),
         filled: true,
         fillColor: KandoColors.surface,
         prefixIcon: const Icon(
@@ -374,7 +422,7 @@ class _GameSelectorField extends StatelessWidget {
   });
 
   final SearchGame selectedGame;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -386,7 +434,7 @@ class _GameSelectorField extends StatelessWidget {
         onTap: onPressed,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          height: 52,
+          height: 44,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
@@ -431,8 +479,8 @@ class _SearchTabs extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       key: const Key('search-tabs'),
-      height: 52,
-      padding: const EdgeInsets.all(5),
+      height: 44,
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: KandoColors.surface,
         borderRadius: BorderRadius.circular(999),
@@ -483,7 +531,7 @@ class _SearchTabButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         child: Container(
           alignment: Alignment.center,
-          height: 42,
+          height: 34,
           child: Text(
             label,
             style: TextStyle(
@@ -506,61 +554,92 @@ class _SearchResults extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (state.isSearching) {
-      return const SizedBox(
-        key: Key('search-results-loading'),
-        height: 160,
-        child: KandoLoadingBlock(),
+      return const SliverToBoxAdapter(
+        child: SizedBox(
+          key: Key('search-results-loading'),
+          height: 160,
+          child: KandoLoadingBlock(),
+        ),
       );
     }
 
     if (state.isCurrentSearchUnavailable) {
-      return _SearchFailureState(
-        onRefresh: () {
-          ref.read(analyticsProvider).track(AnalyticsEvent.refreshClick);
-          ref.read(searchControllerProvider.notifier).retrySearch();
-        },
+      return SliverToBoxAdapter(
+        child: KandoNoContentBlock(
+          key: const Key('search-failure'),
+          illustrationKey: const Key('search-failure-illustration'),
+          refreshButtonKey: const Key('search-empty-refresh'),
+          onRefresh: () {
+            ref.read(analyticsProvider).track(AnalyticsEvent.refreshClick);
+            ref.read(searchControllerProvider.notifier).retrySearch();
+          },
+        ),
       );
     }
 
     if (state.isNoMatch) {
-      return const _SearchNoResultsState();
+      return const SliverToBoxAdapter(child: _SearchNoResultsState());
     }
 
     if (state.selectedTab == SearchTab.sets) {
-      return Column(
-        children: [
-          for (final set in state.visibleSets) _SearchSetRow(set: set),
-        ],
+      return SliverList.builder(
+        itemCount: state.visibleSets.length,
+        itemBuilder: (context, index) =>
+            _SearchSetRow(set: state.visibleSets[index]),
       );
     }
 
-    return Column(
-      children: [
-        GridView.count(
+    return SliverMainAxisGroup(
+      slivers: [
+        SliverGrid.builder(
           key: const Key('search-results-grid'),
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          mainAxisExtent: 378,
-          physics: const NeverScrollableScrollPhysics(),
-          children: [
-            for (final card in state.visibleCards)
-              SearchCardTile(
-                card: card,
-                actionsEnabled: state.assetStatus == KandoLoadStatus.content,
-                showSearchMetadata: true,
-              ),
-          ],
-        ),
-        if (state.isLoadingMoreCards) ...[
-          const SizedBox(height: 12),
-          const SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(strokeWidth: 2),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            mainAxisExtent: 378,
           ),
-        ],
+          itemCount: state.visibleCards.length,
+          itemBuilder: (context, index) => SearchCardTile(
+            card: state.visibleCards[index],
+            actionsEnabled: state.assetStatus == KandoLoadStatus.content,
+            showSearchMetadata: true,
+          ),
+        ),
+        if (state.isLoadingMoreCards)
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.only(top: 12),
+              child: Center(
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            ),
+          )
+        else if (state.hasCardPageFailure)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Center(
+                child: IconButton(
+                  key: const Key('search-retry-card-page'),
+                  tooltip: 'Retry loading cards',
+                  onPressed: () {
+                    ref
+                        .read(analyticsProvider)
+                        .track(AnalyticsEvent.refreshClick);
+                    ref
+                        .read(searchControllerProvider.notifier)
+                        .retryNextCardPage();
+                  },
+                  icon: const Icon(Icons.refresh),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -635,62 +714,6 @@ class _SearchNoResultsIllustration extends StatelessWidget {
               width: 27.1,
               height: 29.61,
               excludeFromSemantics: true,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SearchFailureState extends StatelessWidget {
-  const _SearchFailureState({required this.onRefresh});
-
-  final VoidCallback onRefresh;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      key: const Key('search-failure'),
-      padding: const EdgeInsets.only(top: 16),
-      child: Column(
-        children: [
-          SvgPicture.asset(
-            'assets/search/no_content_available.svg',
-            key: const Key('search-failure-illustration'),
-            width: 100,
-            height: 100,
-            excludeFromSemantics: true,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            noContentAvailableText,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 20,
-              height: 26 / 20,
-              fontFamily: 'Fraunces',
-              fontWeight: FontWeight.w600,
-              color: KandoColors.text,
-            ),
-          ),
-          const SizedBox(height: 32),
-          SizedBox(
-            height: 44,
-            child: FilledButton.icon(
-              key: const Key('search-empty-refresh'),
-              onPressed: onRefresh,
-              style: FilledButton.styleFrom(
-                backgroundColor: KandoColors.accent,
-                foregroundColor: KandoColors.ink,
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                shape: const StadiumBorder(),
-              ),
-              icon: const Icon(Icons.refresh, size: 20),
-              label: const Text(
-                refreshText,
-                style: TextStyle(fontSize: 13, height: 16 / 13),
-              ),
             ),
           ),
         ],

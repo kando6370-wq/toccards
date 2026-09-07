@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart' as picker;
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../shared/scan/scan_api_client.dart';
 import '../../shared/scan/scan_card_number_reader.dart';
@@ -9,8 +12,17 @@ import '../../shared/scan/scan_image_hasher.dart';
 import '../../shared/scan/scan_providers.dart';
 import '../auth/auth_controller.dart';
 import '../auth/auth_models.dart';
+import '../subscription/scan_quota_controller.dart';
+import '../subscription/subscription_controller.dart';
 
-enum ScanResolutionKind { matched, failed, noMatch, cancelled }
+enum ScanResolutionKind {
+  matched,
+  failed,
+  noMatch,
+  cancelled,
+  quotaExhausted,
+  entitlementSyncRequired,
+}
 
 class ScanResolution {
   const ScanResolution.matched({
@@ -19,32 +31,38 @@ class ScanResolution {
     required this.matchName,
     required this.candidates,
     this.candidateCardRefs = const [],
+    this.candidateDetails = const [],
     this.imageBytes,
     this.displayImageBytes,
     this.imageFileName,
+    this.quota,
   }) : kind = ScanResolutionKind.matched;
 
   const ScanResolution.failed({
     this.imageBytes,
     this.displayImageBytes,
     this.imageFileName,
+    this.quota,
   }) : kind = ScanResolutionKind.failed,
        scanId = null,
        cardRef = null,
        matchName = null,
        candidates = const [],
-       candidateCardRefs = const [];
+       candidateCardRefs = const [],
+       candidateDetails = const [];
 
   const ScanResolution.noMatch({
     this.imageBytes,
     this.displayImageBytes,
     this.imageFileName,
+    this.quota,
   }) : kind = ScanResolutionKind.noMatch,
        scanId = null,
        cardRef = null,
        matchName = null,
        candidates = const [],
-       candidateCardRefs = const [];
+       candidateCardRefs = const [],
+       candidateDetails = const [];
 
   const ScanResolution.cancelled()
     : kind = ScanResolutionKind.cancelled,
@@ -53,9 +71,37 @@ class ScanResolution {
       matchName = null,
       candidates = const [],
       candidateCardRefs = const [],
+      candidateDetails = const [],
       imageBytes = null,
       displayImageBytes = null,
-      imageFileName = null;
+      imageFileName = null,
+      quota = null;
+
+  const ScanResolution.quotaExhausted({
+    required this.imageBytes,
+    required this.displayImageBytes,
+    required this.imageFileName,
+    required this.quota,
+  }) : kind = ScanResolutionKind.quotaExhausted,
+       scanId = null,
+       cardRef = null,
+       matchName = null,
+       candidates = const [],
+       candidateCardRefs = const [],
+       candidateDetails = const [];
+
+  const ScanResolution.entitlementSyncRequired({
+    required this.imageBytes,
+    required this.displayImageBytes,
+    required this.imageFileName,
+  }) : kind = ScanResolutionKind.entitlementSyncRequired,
+       scanId = null,
+       cardRef = null,
+       matchName = null,
+       candidates = const [],
+       candidateCardRefs = const [],
+       candidateDetails = const [],
+       quota = null;
 
   final ScanResolutionKind kind;
   final String? scanId;
@@ -63,14 +109,17 @@ class ScanResolution {
   final String? matchName;
   final List<String> candidates;
   final List<String> candidateCardRefs;
+  final List<ScanCandidateDto> candidateDetails;
   final Uint8List? imageBytes;
   final Uint8List? displayImageBytes;
   final String? imageFileName;
+  final ScanQuotaDto? quota;
 }
 
 abstract interface class ScanResultSource {
   Future<ScanResolution> photo();
   Future<List<Future<ScanResolution>>> library({
+    int maxItems = 10,
     void Function(ScanImage image, Future<ScanResolution> resolution)?
     onSelected,
   });
@@ -89,6 +138,14 @@ final scanResultSourceProvider = Provider<ScanResultSource>(
     imageHasher: createScanImageHasher(),
     cardNumberReader: createScanCardNumberReader(),
     appInfo: _readScanAppInfo,
+    localPremiumVerified: () =>
+        ref.read(subscriptionControllerProvider).isPro ||
+        ref.read(scanQuotaControllerProvider).unlimited,
+    onQuotaChanged: (quota) {
+      if (ref.mounted) {
+        ref.read(scanQuotaControllerProvider.notifier).applyServerQuota(quota);
+      }
+    },
   ),
 );
 
@@ -172,11 +229,15 @@ class ApiScanResultSource implements ScanResultSource {
     required ScanImageHasher imageHasher,
     required Future<ScanAppInfo> Function() appInfo,
     ScanCardNumberReader? cardNumberReader,
+    bool Function()? localPremiumVerified,
+    ValueChanged<ScanQuotaDto>? onQuotaChanged,
   }) : _api = api,
        _session = session,
        _imagePicker = imagePicker,
        _imageHasher = imageHasher,
        _appInfo = appInfo,
+       _localPremiumVerified = localPremiumVerified ?? _false,
+       _onQuotaChanged = onQuotaChanged,
        _cardNumberReader = cardNumberReader ?? const _NoopCardNumberReader();
 
   final ScanApi _api;
@@ -185,19 +246,27 @@ class ApiScanResultSource implements ScanResultSource {
   final ScanImageHasher _imageHasher;
   final Future<ScanAppInfo> Function() _appInfo;
   final ScanCardNumberReader _cardNumberReader;
+  final bool Function() _localPremiumVerified;
+  final ValueChanged<ScanQuotaDto>? _onQuotaChanged;
+  Future<void> _reservationTail = Future<void>.value();
+  final Expando<String> _retryRequestIds = Expando<String>(
+    'scanRetryRequestId',
+  );
   @override
   Future<ScanResolution> photo() => _pickAndRecognize(ScanImageSource.camera);
 
   @override
   Future<List<Future<ScanResolution>>> library({
+    int maxItems = 10,
     void Function(ScanImage image, Future<ScanResolution> resolution)?
     onSelected,
   }) async {
+    if (maxItems <= 0) return const [];
     final images = await _imagePicker.pickMany(
       ScanImageSource.gallery,
-      limit: 10,
+      limit: maxItems,
     );
-    final selectedImages = images.take(10).toList();
+    final selectedImages = images.take(maxItems).toList();
     if (selectedImages.isEmpty) return const [];
     return [
       for (final image in selectedImages)
@@ -228,9 +297,20 @@ class ApiScanResultSource implements ScanResultSource {
     ScanImage image, {
     ValueChanged<Uint8List>? onDisplayImageReady,
   }) async {
+    final previousReservation = _reservationTail;
+    final reservationFinished = Completer<void>();
+    _reservationTail = reservationFinished.future;
+    var reservationTurnReleased = false;
+    void releaseReservationTurn() {
+      if (reservationTurnReleased) return;
+      reservationTurnReleased = true;
+      reservationFinished.complete();
+    }
+
     Uint8List? displayImageBytes = image.recognitionCrop == null
         ? image.bytes
         : null;
+    final requestId = _retryRequestIds[image.bytes] ?? const Uuid().v4();
     final ScanRecognitionDto recognition;
     try {
       final session = _session();
@@ -256,29 +336,101 @@ class ApiScanResultSource implements ScanResultSource {
           : hashes.cardImageBytes!;
       onDisplayImageReady?.call(displayImageBytes);
       final cardNumber = await _cardNumberReader.read(hashes.cardImageBytes!);
+      await previousReservation;
+      try {
+        final reservationApi = _api is ScanQuotaReservationApi
+            ? _api as ScanQuotaReservationApi
+            : null;
+        if (reservationApi != null) {
+          final quota = await reservationApi.reserveQuota(
+            session,
+            requestId: requestId,
+            localPremiumVerified: _localPremiumVerified(),
+          );
+          _onQuotaChanged?.call(quota);
+        }
+      } finally {
+        releaseReservationTurn();
+      }
       recognition = await _api.recognizeImage(
         session,
         hashes: hashes,
         fileName: image.fileName,
         platform: info.platform,
         appVersion: info.appVersion,
+        requestId: requestId,
+        localPremiumVerified: _localPremiumVerified(),
         cardNumber: cardNumber,
       );
-    } catch (_) {
+    } on ScanApiException catch (error) {
+      if (error.code == 'SCAN_QUOTA_EXHAUSTED' && error.quota != null) {
+        _retryRequestIds[image.bytes] = null;
+        return ScanResolution.quotaExhausted(
+          imageBytes: image.bytes,
+          displayImageBytes: displayImageBytes,
+          imageFileName: image.fileName,
+          quota: error.quota!,
+        );
+      }
+      if (error.statusCode == 409 &&
+          error.code == 'ENTITLEMENT_SYNC_REQUIRED') {
+        _retryRequestIds[image.bytes] = null;
+        return ScanResolution.entitlementSyncRequired(
+          imageBytes: image.bytes,
+          displayImageBytes: displayImageBytes,
+          imageFileName: image.fileName,
+        );
+      }
+      _retryRequestIds[image.bytes] =
+          error.code == scanRequestTimeoutCode ||
+              error.code == 'SCAN_REQUEST_CONFLICT'
+          ? requestId
+          : null;
       return ScanResolution.failed(
         imageBytes: image.bytes,
         displayImageBytes: displayImageBytes,
         imageFileName: image.fileName,
+        quota: error.quota,
+      );
+    } on Object {
+      _retryRequestIds[image.bytes] = requestId;
+      return ScanResolution.failed(
+        imageBytes: image.bytes,
+        displayImageBytes: displayImageBytes,
+        imageFileName: image.fileName,
+      );
+    } finally {
+      if (!reservationTurnReleased) {
+        await previousReservation;
+        releaseReservationTurn();
+      }
+    }
+    _retryRequestIds[image.bytes] = null;
+    if (recognition.recognitionStatus != 'success') {
+      if (recognition.recognitionStatus == 'no_match') {
+        return ScanResolution.noMatch(
+          imageBytes: image.bytes,
+          displayImageBytes: displayImageBytes,
+          imageFileName: image.fileName,
+          quota: recognition.quota,
+        );
+      }
+      return ScanResolution.failed(
+        imageBytes: image.bytes,
+        displayImageBytes: displayImageBytes,
+        imageFileName: image.fileName,
+        quota: recognition.quota,
       );
     }
     final matchedResults = recognition.results.where(
       (result) => result.matched && result.candidates.isNotEmpty,
     );
     if (matchedResults.isEmpty) {
-      return ScanResolution.noMatch(
+      return ScanResolution.failed(
         imageBytes: image.bytes,
         displayImageBytes: displayImageBytes,
         imageFileName: image.fileName,
+        quota: recognition.quota,
       );
     }
     final candidates = matchedResults.first.candidates;
@@ -290,12 +442,16 @@ class ApiScanResultSource implements ScanResultSource {
       candidateCardRefs: candidates
           .map((candidate) => candidate.cardRef)
           .toList(),
+      candidateDetails: candidates,
       imageBytes: image.bytes,
       displayImageBytes: displayImageBytes,
       imageFileName: image.fileName,
+      quota: recognition.quota,
     );
   }
 }
+
+bool _false() => false;
 
 class _NoopCardNumberReader implements ScanCardNumberReader {
   const _NoopCardNumberReader();

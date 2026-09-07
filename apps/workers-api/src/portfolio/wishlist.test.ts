@@ -47,6 +47,14 @@ class FakeD1Database {
   prepare(sql: string): FakeD1Statement {
     return new FakeD1Statement(this, sql);
   }
+
+  async batch<T>(statements: FakeD1Statement[]): Promise<D1Result<T>[]> {
+    const results: D1Result<T>[] = [];
+    for (const statement of statements) {
+      results.push(await statement.run() as D1Result<T>);
+    }
+    return results;
+  }
 }
 
 class FakeD1Statement {
@@ -76,7 +84,7 @@ class FakeD1Statement {
       ) ?? null) as T | null;
     }
 
-    if (this.sql.includes("FROM user")) {
+    if (this.sql.includes('FROM "user"')) {
       const [ownerId] = this.args;
       return (this.db.users.find(
         (row) => row.id === ownerId && row.deleted_at === null,
@@ -120,6 +128,10 @@ class FakeD1Statement {
   }
 
   async run(): Promise<{ success: true; meta: { changes: number } }> {
+    if (this.sql.includes("INSERT INTO mutation_lock")) {
+      return changed(1);
+    }
+
     if (this.sql.includes("INSERT INTO wishlist_item")) {
       const [id, ownerType, ownerId, cardRef, createdAt] = this.args as [
         string,
@@ -127,7 +139,21 @@ class FakeD1Statement {
         string,
         string,
         string,
+        OwnerType,
+        string,
+        string,
       ];
+
+      if (
+        this.db.collectionItems.some(
+          (row) =>
+            row.owner_type === ownerType &&
+            row.owner_id === ownerId &&
+            row.card_ref === cardRef,
+        )
+      ) {
+        return changed(0);
+      }
 
       if (
         this.db.wishlist.some(
@@ -203,6 +229,33 @@ describe("wishlist routes", () => {
     });
   });
 
+  it("uses wishlist id as a stable tie-breaker because equal timestamps must not duplicate or skip wishes across pages", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    const createdAt = "2026-02-01T00:00:00.000Z";
+    db.wishlist.push(
+      wishlist({ id: "wish-b", card_ref: "card-b", created_at: createdAt }),
+      wishlist({ id: "wish-a", card_ref: "card-a", created_at: createdAt }),
+    );
+
+    const [firstPage, secondPage] = await Promise.all([
+      app.request(
+        "/api/v1/wishlist?page=1&page_size=1&sort_by=created_at&sort_order=desc",
+        { headers: await authHeaders("anonymous", "anon-1") },
+        createTestEnv(db),
+      ),
+      app.request(
+        "/api/v1/wishlist?page=2&page_size=1&sort_by=created_at&sort_order=desc",
+        { headers: await authHeaders("anonymous", "anon-1") },
+        createTestEnv(db),
+      ),
+    ]);
+    const firstBody = await firstPage.json() as { data: { items: Array<{ id: string }> } };
+    const secondBody = await secondPage.json() as { data: { items: Array<{ id: string }> } };
+
+    expect(firstBody.data.items.map((entry) => entry.id)).toEqual(["wish-a"]);
+    expect(secondBody.data.items.map((entry) => entry.id)).toEqual(["wish-b"]);
+  });
+
   it("creates a wishlist row because search and card detail need to persist owner intent without a folder", async () => {
     const db = createDbForOwner("user", "user-1");
 
@@ -234,6 +287,57 @@ describe("wishlist routes", () => {
         created_at: expect.any(String),
       },
     ]);
+  });
+
+  it("replays Wishlist Add after a lost response because retry must confirm the original intent", async () => {
+    const db = createDbForOwner("user", "user-1");
+    const idempotencyKey = "66666666-6666-4666-8666-666666666666";
+    const headers = {
+      ...(await authHeaders("user", "user-1")),
+      "Idempotency-Key": idempotencyKey,
+    };
+    const body = JSON.stringify({ card_ref: "card-a" });
+
+    const created = await app.request(
+      "/api/v1/wishlist",
+      { method: "POST", headers, body },
+      createTestEnv(db),
+    );
+    const replayed = await app.request(
+      "/api/v1/wishlist",
+      { method: "POST", headers, body },
+      createTestEnv(db),
+    );
+
+    expect(created.status).toBe(201);
+    expect(replayed.status).toBe(200);
+    expect(await replayed.json()).toMatchObject({
+      success: true,
+      data: { id: idempotencyKey, card_ref: "card-a" },
+    });
+    expect(db.wishlist).toHaveLength(1);
+  });
+
+  it("rejects reusing a Wishlist Add key for another card because one key has one intent", async () => {
+    const db = createDbForOwner("user", "user-1");
+    const headers = {
+      ...(await authHeaders("user", "user-1")),
+      "Idempotency-Key": "77777777-7777-4777-8777-777777777777",
+    };
+    await app.request(
+      "/api/v1/wishlist",
+      { method: "POST", headers, body: JSON.stringify({ card_ref: "card-a" }) },
+      createTestEnv(db),
+    );
+
+    const response = await app.request(
+      "/api/v1/wishlist",
+      { method: "POST", headers, body: JSON.stringify({ card_ref: "card-b" }) },
+      createTestEnv(db),
+    );
+
+    expect(response.status).toBe(409);
+    expect(db.wishlist).toHaveLength(1);
   });
 
   it("returns CONFLICT for duplicate card_ref because one owner should have only one wishlist intent per card", async () => {

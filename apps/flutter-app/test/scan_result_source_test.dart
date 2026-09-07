@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -33,6 +34,8 @@ void main() {
       expect(result.matchName, 'Bushi Tenderfoot');
       expect(result.candidates, ['Bushi Tenderfoot', 'Devoted Retainer']);
       expect(result.candidateCardRefs, ['1', '2']);
+      expect(result.candidateDetails.first.setName, 'Champions of Kamigawa');
+      expect(result.candidateDetails.first.objectType, 'tcg');
       expect(result.imageBytes, Uint8List.fromList([1, 2, 3]));
       expect(result.displayImageBytes, Uint8List.fromList([1, 2, 3]));
       expect(imageHasher.lastBytes, Uint8List.fromList([1, 2, 3]));
@@ -99,6 +102,7 @@ void main() {
             scanId: 'scan-2',
             recognitionStatus: 'no_match',
             results: [],
+            quota: _freeQuota,
           ),
         ),
         session: () => _session,
@@ -110,6 +114,48 @@ void main() {
 
       final results = await source.library();
       expect((await results.single).kind, ScanResolutionKind.noMatch);
+    },
+  );
+
+  test(
+    'failed server recognition cannot enter review even if a stale callback still contains a candidate',
+    () async {
+      final source = ApiScanResultSource(
+        api: _FakeScanApi(
+          const ScanRecognitionDto(
+            scanId: 'scan-failed',
+            recognitionStatus: 'failed',
+            results: [
+              ScanResultDto(
+                index: 1,
+                matched: true,
+                candidates: [
+                  ScanCandidateDto(
+                    cardRef: 'incomplete-card',
+                    name: 'Recognized Name Only',
+                    setName: 'Test Set',
+                    objectType: 'tcg',
+                    setCode: 'TST',
+                    cardNumber: '001/100',
+                    confidence: 95,
+                  ),
+                ],
+              ),
+            ],
+            quota: _freeQuota,
+          ),
+        ),
+        session: () => _session,
+        imagePicker: _FakeScanImagePicker(),
+        imageHasher: _FakeScanImageHasher(),
+        appInfo: () async =>
+            const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
+      );
+
+      final result = await source.photo();
+
+      expect(result.kind, ScanResolutionKind.failed);
+      expect(result.cardRef, isNull);
     },
   );
 
@@ -137,6 +183,38 @@ void main() {
       expect(picker.sources, [ScanImageSource.camera]);
       expect(api.callCount, 2);
       expect(imageHasher.lastBytes, Uint8List.fromList([1, 2, 3]));
+    },
+  );
+
+  test(
+    'retry reuses an uncertain request id because a late success must not spend Free quota twice',
+    () async {
+      final api = _FakeScanApi(
+        _matchedRecognition,
+        failures: const [
+          ScanApiException(
+            scanRequestTimeoutMessage,
+            code: scanRequestTimeoutCode,
+          ),
+        ],
+      );
+      final source = ApiScanResultSource(
+        api: api,
+        session: () => _session,
+        imagePicker: _FakeScanImagePicker(),
+        imageHasher: _FakeScanImageHasher(),
+        appInfo: () async =>
+            const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
+      );
+
+      final failed = await source.photo();
+      await source.retry(
+        imageBytes: failed.imageBytes,
+        fileName: failed.imageFileName,
+      );
+
+      expect(api.requestIds, hasLength(2));
+      expect(api.requestIds[1], api.requestIds[0]);
     },
   );
 
@@ -204,6 +282,50 @@ void main() {
       expect(api.callCount, 10);
     },
   );
+
+  test(
+    'library submits reservations in picker order because the last Free slots belong to the earliest Queue items',
+    () async {
+      final firstHash = Completer<void>();
+      final api = _FakeScanApi(_matchedRecognition);
+      final source = ApiScanResultSource(
+        api: api,
+        session: () => _session,
+        imagePicker: _FakeScanImagePicker(batchCount: 2),
+        imageHasher: _OrderedScanImageHasher(firstHash.future),
+        appInfo: () async =>
+            const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
+      );
+
+      final pending = await source.library();
+      await Future<void>.delayed(Duration.zero);
+      expect(api.fileNames, isEmpty);
+
+      firstHash.complete();
+      await Future.wait(pending);
+      expect(api.fileNames, ['scan-0.jpg', 'scan-1.jpg']);
+    },
+  );
+
+  test(
+    'server reservation updates quota before recognition settles because Processing must show available slots',
+    () async {
+      final quotas = <ScanQuotaDto>[];
+      final source = ApiScanResultSource(
+        api: _FakeScanApi(_matchedRecognition),
+        session: () => _session,
+        imagePicker: _FakeScanImagePicker(),
+        imageHasher: _FakeScanImageHasher(),
+        appInfo: () async =>
+            const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
+        onQuotaChanged: quotas.add,
+      );
+
+      await source.photo();
+
+      expect(quotas, [_reservedQuota]);
+    },
+  );
 }
 
 const _session = AuthSession(
@@ -218,6 +340,7 @@ const _hash = 'vgM8KW2_mtY4LMLQZJvFpzl823zE3mx0mWhpCcRYaGw';
 const _matchedRecognition = ScanRecognitionDto(
   scanId: 'scan-1',
   recognitionStatus: 'success',
+  quota: _freeQuota,
   results: [
     ScanResultDto(
       index: 1,
@@ -226,6 +349,8 @@ const _matchedRecognition = ScanRecognitionDto(
         ScanCandidateDto(
           cardRef: '1',
           name: 'Bushi Tenderfoot',
+          setName: 'Champions of Kamigawa',
+          objectType: 'tcg',
           setCode: 'CHK',
           cardNumber: '1',
           confidence: 90,
@@ -233,6 +358,8 @@ const _matchedRecognition = ScanRecognitionDto(
         ScanCandidateDto(
           cardRef: '2',
           name: 'Devoted Retainer',
+          setName: 'Champions of Kamigawa',
+          objectType: 'tcg',
           setCode: 'CHK',
           cardNumber: '2',
           confidence: 80,
@@ -240,6 +367,24 @@ const _matchedRecognition = ScanRecognitionDto(
       ],
     ),
   ],
+);
+
+const _freeQuota = ScanQuotaDto(
+  access: ScanQuotaAccess.free,
+  limit: 10,
+  reserved: 0,
+  consumed: 1,
+  remaining: 9,
+  unlimited: false,
+);
+
+const _reservedQuota = ScanQuotaDto(
+  access: ScanQuotaAccess.free,
+  limit: 10,
+  reserved: 1,
+  consumed: 0,
+  remaining: 9,
+  unlimited: false,
 );
 
 class _FakeScanImagePicker implements ScanImagePicker {
@@ -278,15 +423,35 @@ class _FakeScanImagePicker implements ScanImagePicker {
   }
 }
 
-class _FakeScanApi implements ScanApi {
-  _FakeScanApi(this.result, {this.failure});
+class _FakeScanApi implements ScanApi, ScanQuotaReservationApi {
+  _FakeScanApi(this.result, {this.failure, this.failures = const []});
 
   final ScanRecognitionDto result;
   final Object? failure;
+  final List<Object> failures;
   ScanImageHashes? lastHashes;
   String? lastPlatform;
   String? lastCardNumber;
+  final requestIds = <String>[];
+  final fileNames = <String>[];
   var callCount = 0;
+  var reservationCount = 0;
+
+  @override
+  Future<ScanQuotaDto> reserveQuota(
+    AuthSession session, {
+    required String requestId,
+    bool localPremiumVerified = false,
+  }) async {
+    reservationCount += 1;
+    return _reservedQuota;
+  }
+
+  @override
+  Future<ScanQuotaDto> getQuota(
+    AuthSession session, {
+    bool localPremiumVerified = false,
+  }) async => _freeQuota;
 
   @override
   Future<ScanConfirmationDto> confirmMatch(
@@ -304,17 +469,42 @@ class _FakeScanApi implements ScanApi {
     required String fileName,
     required String platform,
     required String appVersion,
+    required String requestId,
+    bool localPremiumVerified = false,
     String? cardNumber,
     String? deviceModel,
     String? osVersion,
   }) async {
     callCount += 1;
+    requestIds.add(requestId);
+    fileNames.add(fileName);
     lastHashes = hashes;
     lastPlatform = platform;
     lastCardNumber = cardNumber;
+    if (callCount <= failures.length) throw failures[callCount - 1];
     final failure = this.failure;
     if (failure != null) throw failure;
     return result;
+  }
+}
+
+class _OrderedScanImageHasher implements ScanImageHasher {
+  _OrderedScanImageHasher(this.firstReady);
+
+  final Future<void> firstReady;
+
+  @override
+  Future<ScanImageHashes> hash(
+    Uint8List imageBytes, {
+    ScanImageCrop? crop,
+  }) async {
+    if (imageBytes.single == 1) await firstReady;
+    return ScanImageHashes(
+      r: _hash,
+      g: _hash,
+      b: _hash,
+      cardImageBytes: Uint8List.fromList([4, 5, 6]),
+    );
   }
 }
 

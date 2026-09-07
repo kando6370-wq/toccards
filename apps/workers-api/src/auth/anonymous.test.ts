@@ -298,6 +298,13 @@ class FakeD1 {
     owner_id: string;
     image_url: string | null;
   }> = [];
+  scanQuotaRequests: Array<{
+    request_id: string;
+    owner_type: "anonymous" | "user";
+    owner_id: string;
+    access_mode: "free" | "premium";
+    status: "reserved" | "consumed" | "released";
+  }> = [];
   installationWrites: unknown[][] = [];
   nextAccountUid = 100000;
   consumeNextRegisterCodeBeforeUpdate = false;
@@ -307,6 +314,7 @@ class FakeD1 {
   failRunOnSql: string | null = null;
   createConflictingUserBeforeNextUserInsert = false;
   createConflictingIdentityBeforeNextAuthIdentityInsert = false;
+  uniqueErrorMode: "sqlite" | "postgres" = "sqlite";
   concurrentResetCodeLookupBarrierSize = 0;
   concurrentResetCodeLookupResolutions: Array<() => void> = [];
   upgradeAnonymousBeforeUpgrade = false;
@@ -335,6 +343,7 @@ class FakeD1 {
       authIdentities: this.authIdentities.map((row) => ({ ...row })),
       verificationCodes: this.verificationCodes.map((row) => ({ ...row })),
       scanRecords: this.scanRecords.map((row) => ({ ...row })),
+      scanQuotaRequests: this.scanQuotaRequests.map((row) => ({ ...row })),
     };
     const results: D1Result<T>[] = [];
 
@@ -369,6 +378,7 @@ class FakeD1 {
       ];
       this.verificationCodes = snapshot.verificationCodes;
       this.scanRecords = snapshot.scanRecords;
+      this.scanQuotaRequests = snapshot.scanQuotaRequests;
       throw error;
     }
 
@@ -394,7 +404,10 @@ class FakeD1 {
           (row) =>
             row.device_id === deviceId && row.upgraded_user_id === null,
         )
-        .sort((left, right) => right.created_at.localeCompare(left.created_at))
+        .sort((left, right) =>
+          right.created_at.localeCompare(left.created_at)
+          || left.id.localeCompare(right.id)
+        )
         .at(0);
 
       return account ? ({ id: account.id } as T) : null;
@@ -499,7 +512,10 @@ class FakeD1 {
       const [email] = values as [string];
       const code = this.verificationCodes
         .filter((row) => row.email === email && row.purpose === "register")
-        .sort((left, right) => right.created_at.localeCompare(left.created_at))
+        .sort((left, right) =>
+          right.created_at.localeCompare(left.created_at)
+          || left.id.localeCompare(right.id)
+        )
         .at(0);
 
       return code
@@ -519,7 +535,10 @@ class FakeD1 {
         .filter(
           (row) => row.email === email && row.purpose === "reset_password",
         )
-        .sort((left, right) => right.created_at.localeCompare(left.created_at))
+        .sort((left, right) =>
+          right.created_at.localeCompare(left.created_at)
+          || left.id.localeCompare(right.id)
+        )
         .at(0);
 
       return code
@@ -678,14 +697,21 @@ class FakeD1 {
     }
 
     if (normalizedSql === INSERT_ANONYMOUS_ACCOUNT_SQL) {
-      const [id, deviceId, createdAt] = values as [string, string, string];
+      const [id, deviceId, createdAt] = values as [string, string, string, string];
+      if (
+        this.anonymousAccounts.some(
+          (row) => row.device_id === deviceId && row.upgraded_user_id === null,
+        )
+      ) {
+        return okResult<T>(0);
+      }
       this.anonymousAccounts.push({
         id,
         device_id: deviceId,
         created_at: createdAt,
         upgraded_user_id: null,
       });
-      return okResult<T>();
+      return okResult<T>(1);
     }
 
     if (normalizedSql === INSERT_PORTFOLIO_FOLDER_SQL) {
@@ -694,7 +720,11 @@ class FakeD1 {
         string,
         string,
         string,
+        string,
       ];
+      if (!this.anonymousAccounts.some((row) => row.id === ownerId)) {
+        return okResult<T>(0);
+      }
       this.portfolioFolders.push({
         id,
         owner_type: "anonymous",
@@ -714,7 +744,11 @@ class FakeD1 {
         string,
         string,
         string,
+        string,
       ];
+      if (!this.anonymousAccounts.some((row) => row.id === ownerId)) {
+        return okResult<T>(0);
+      }
       this.userPreferences.push({
         id,
         owner_type: "anonymous",
@@ -819,6 +853,32 @@ class FakeD1 {
       return okResult<T>(changes);
     }
 
+    if (normalizedSql.startsWith("UPDATE scan_quota_request SET owner_type = 'user'")) {
+      const [userId, anonymousId] = values as [string, string];
+      const accountUpgraded = this.hasUpgradedAnonymousAccount(
+        values.length === 6 ? String(values[4]) : String(values[2]),
+        values.length === 6 ? String(values[5]) : String(values[3]),
+      );
+      const guardSatisfied = values.length !== 6 || this.verificationCodes.some(
+        (row) => row.id === values[2] && row.used_at === values[3],
+      );
+      if (!accountUpgraded || !guardSatisfied) return okResult<T>(0);
+      var changes = 0;
+      for (const row of this.scanQuotaRequests) {
+        if (
+          row.owner_type === "anonymous" &&
+          row.owner_id === anonymousId &&
+          row.access_mode === "free" &&
+          row.status === "consumed"
+        ) {
+          row.owner_type = "user";
+          row.owner_id = userId;
+          changes += 1;
+        }
+      }
+      return okResult<T>(changes);
+    }
+
     if (normalizedSql === DELETE_VERIFICATION_CODE_SQL) {
       const [id] = values as [string];
       const index = this.verificationCodes.findIndex(
@@ -902,7 +962,10 @@ class FakeD1 {
       }
 
       if (this.users.some((row) => row.email === email && reservesEmail(row))) {
-        throw new Error("UNIQUE constraint failed: user.email");
+        throw this.uniqueConstraintError(
+          "uq_user_non_deleted_email",
+          "UNIQUE constraint failed: user.email",
+        );
       }
 
       this.users.push({
@@ -961,7 +1024,10 @@ class FakeD1 {
       }
 
       if (this.users.some((row) => row.email === email && reservesEmail(row))) {
-        throw new Error("UNIQUE constraint failed: user.email");
+        throw this.uniqueConstraintError(
+          "uq_user_non_deleted_email",
+          "UNIQUE constraint failed: user.email",
+        );
       }
 
       this.users.push({
@@ -1124,7 +1190,10 @@ class FakeD1 {
       }
 
       if (this.users.some((row) => row.email === email && reservesEmail(row))) {
-        throw new Error("UNIQUE constraint failed: user.email");
+        throw this.uniqueConstraintError(
+          "uq_user_non_deleted_email",
+          "UNIQUE constraint failed: user.email",
+        );
       }
 
       this.users.push({
@@ -1173,7 +1242,8 @@ class FakeD1 {
             row.provider === provider && row.provider_uid === providerUid,
         )
       ) {
-        throw new Error(
+        throw this.uniqueConstraintError(
+          "uq_auth_identity_provider",
           "UNIQUE constraint failed: auth_identity.provider, auth_identity.provider_uid",
         );
       }
@@ -1210,7 +1280,10 @@ class FakeD1 {
       }
 
       if (this.users.some((row) => row.email === email && reservesEmail(row))) {
-        throw new Error("UNIQUE constraint failed: user.email");
+        throw this.uniqueConstraintError(
+          "uq_user_non_deleted_email",
+          "UNIQUE constraint failed: user.email",
+        );
       }
 
       this.users.push({
@@ -1265,7 +1338,8 @@ class FakeD1 {
             row.provider === provider && row.provider_uid === providerUid,
         )
       ) {
-        throw new Error(
+        throw this.uniqueConstraintError(
+          "uq_auth_identity_provider",
           "UNIQUE constraint failed: auth_identity.provider, auth_identity.provider_uid",
         );
       }
@@ -2346,6 +2420,17 @@ class FakeD1 {
       return okResult<T>(1);
     }
 
+    if (normalizedSql.startsWith("INSERT INTO mutation_lock")) {
+      return okResult<T>(1);
+    }
+
+    if (normalizedSql.startsWith("INSERT INTO account_uid")) {
+      return {
+        ...okResult<T>(1),
+        results: [{ uid: this.nextAccountUid++ }] as T[],
+      };
+    }
+
     throw new Error(`Unsupported run() SQL: ${normalizedSql}`);
   }
 
@@ -2386,6 +2471,14 @@ class FakeD1 {
     });
   }
 
+  private uniqueConstraintError(constraintName: string, sqliteMessage: string): Error {
+    if (this.uniqueErrorMode === "sqlite") return new Error(sqliteMessage);
+    return Object.assign(
+      new Error(`duplicate key value violates unique constraint "${constraintName}"`),
+      { code: "23505", constraint_name: constraintName },
+    );
+  }
+
   private hasUpgradedAnonymousAccount(id: string, userId: string): boolean {
     return this.anonymousAccounts.some(
       (row) => row.id === id && row.upgraded_user_id === userId,
@@ -2421,7 +2514,7 @@ const SELECT_REUSABLE_ANONYMOUS_ACCOUNT_SQL = normalizeSql(`
   SELECT id
   FROM anonymous_account
   WHERE device_id = ? AND upgraded_user_id IS NULL
-  ORDER BY created_at DESC
+  ORDER BY created_at DESC, id ASC
   LIMIT 1
 `);
 
@@ -2521,7 +2614,7 @@ const SELECT_LATEST_REGISTER_CODE_SQL = normalizeSql(`
   SELECT id, code, expires_at, used_at
   FROM verification_code
   WHERE email = ? AND purpose = 'register'
-  ORDER BY created_at DESC
+  ORDER BY created_at DESC, id ASC
   LIMIT 1
 `);
 
@@ -2529,7 +2622,7 @@ const SELECT_LATEST_RESET_CODE_SQL = normalizeSql(`
   SELECT id, code, expires_at, used_at, created_at
   FROM verification_code
   WHERE email = ? AND purpose = 'reset_password'
-  ORDER BY created_at DESC
+  ORDER BY created_at DESC, id ASC
   LIMIT 1
 `);
 
@@ -2556,19 +2649,25 @@ const SELECT_ANONYMOUS_ACCOUNT_FOR_MIGRATION_SQL = normalizeSql(`
 
 const INSERT_ANONYMOUS_ACCOUNT_SQL = normalizeSql(`
   INSERT INTO anonymous_account (id, device_id, created_at, upgraded_user_id)
-  VALUES (?, ?, ?, NULL)
+  SELECT ?, ?, ?, NULL
+  WHERE NOT EXISTS (
+    SELECT 1 FROM anonymous_account
+    WHERE device_id = ? AND upgraded_user_id IS NULL
+  )
 `);
 
 const INSERT_PORTFOLIO_FOLDER_SQL = normalizeSql(`
   INSERT INTO portfolio_folder
     (id, owner_type, owner_id, name, is_default, sort_order, created_at, updated_at)
-  VALUES (?, 'anonymous', ?, 'Main', 1, 0, ?, ?)
+  SELECT ?, 'anonymous', ?, 'Main', 1, 0, ?, ?
+  WHERE EXISTS (SELECT 1 FROM anonymous_account WHERE id = ?)
 `);
 
 const INSERT_USER_PREFERENCE_SQL = normalizeSql(`
   INSERT INTO user_preference
     (id, owner_type, owner_id, currency, amount_hidden, last_selected_folder_id, created_at, updated_at)
-  VALUES (?, 'anonymous', ?, 'USD', 0, NULL, ?, ?)
+  SELECT ?, 'anonymous', ?, 'USD', 0, NULL, ?, ?
+  WHERE EXISTS (SELECT 1 FROM anonymous_account WHERE id = ?)
 `);
 
 const INSERT_SESSION_SQL = normalizeSql(`
@@ -3110,7 +3209,7 @@ const REVOKE_SESSION_SQL = normalizeSql(`
 `);
 
 function normalizeSql(sql: string): string {
-  return sql.replace(/\s+/g, " ").trim();
+  return sql.replaceAll('"user"', "user").replace(/\s+/g, " ").trim();
 }
 
 function okResult<T = unknown>(changes = 1): D1Result<T> {
@@ -3603,9 +3702,10 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     ]);
   });
 
-  it("google oauth signs in after a concurrent user email insert because duplicate callbacks must not become 500s", async () => {
+  it.each(["sqlite", "postgres"] as const)("google oauth signs in after a concurrent user email insert because duplicate callbacks must not become 500s (%s)", async (uniqueErrorMode) => {
     const env = createTestEnv();
     const db = fakeD1(env);
+    db.uniqueErrorMode = uniqueErrorMode;
     db.createConflictingUserBeforeNextUserInsert = true;
 
     const response = await requestGoogleOAuthCallback(env, {
@@ -3643,9 +3743,10 @@ describe("POST /api/v1/auth/oauth/google/callback", () => {
     ]);
   });
 
-  it("google oauth signs in after a concurrent identity bind because retried callbacks should use the stable provider key", async () => {
+  it.each(["sqlite", "postgres"] as const)("google oauth signs in after a concurrent identity bind because retried callbacks should use the stable provider key (%s)", async (uniqueErrorMode) => {
     const env = createTestEnv();
     const db = fakeD1(env);
+    db.uniqueErrorMode = uniqueErrorMode;
     db.users.push({
       id: "identity-race-user",
       email: "identity-race@example.com",
@@ -4713,6 +4814,25 @@ describe("POST /api/v1/auth/register/send-code", () => {
     expect(newResponse.status).toBe(200);
   });
 
+  it("uses code id as a stable tie-breaker because migrated equal timestamps must not switch the accepted register code", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const email = "register-tie@example.com";
+    const createdAt = new Date().toISOString();
+    const expiresAt = new Date(Date.now() + 600_000).toISOString();
+    db.verificationCodes.push(
+      { id: "register-z", email, code: "999999", purpose: "register", expires_at: expiresAt, used_at: null, created_at: createdAt },
+      { id: "register-a", email, code: "111111", purpose: "register", expires_at: expiresAt, used_at: null, created_at: createdAt },
+    );
+
+    const response = await requestRegisterVerifyCode(env, {
+      email,
+      code: "111111",
+    });
+
+    expect(response.status).toBe(200);
+  });
+
   it.each([
     {
       name: "missing email",
@@ -5023,6 +5143,38 @@ describe("POST /api/v1/auth/register/verify", () => {
       owner_id: anonymousId,
       card_ref: "card-wishlist",
     });
+    for (let index = 0; index < 4; index += 1) {
+      db.scanQuotaRequests.push({
+        request_id: `guest-scan-${index}`,
+        owner_type: "anonymous",
+        owner_id: anonymousId,
+        access_mode: "free",
+        status: "consumed",
+      });
+    }
+    db.scanQuotaRequests.push(
+      {
+        request_id: "guest-scan-reserved",
+        owner_type: "anonymous",
+        owner_id: anonymousId,
+        access_mode: "free",
+        status: "reserved",
+      },
+      {
+        request_id: "guest-scan-released",
+        owner_type: "anonymous",
+        owner_id: anonymousId,
+        access_mode: "free",
+        status: "released",
+      },
+      {
+        request_id: "guest-scan-premium",
+        owner_type: "anonymous",
+        owner_id: anonymousId,
+        access_mode: "premium",
+        status: "consumed",
+      },
+    );
 
     const sendResponse = await requestRegisterSendCode(env, {
       email: "migrate@example.com",
@@ -5085,6 +5237,28 @@ describe("POST /api/v1/auth/register/verify", () => {
         owner_id: userId,
       }),
     );
+    expect(
+      db.scanQuotaRequests.filter(
+        (request) => request.access_mode === "free" && request.status === "consumed",
+      ),
+    ).toEqual(
+      Array.from({ length: 4 }, (_, index) =>
+        expect.objectContaining({
+          request_id: `guest-scan-${index}`,
+          owner_type: "user",
+          owner_id: userId,
+        })
+      ),
+    );
+    expect(
+      db.scanQuotaRequests.filter(
+        (request) => request.access_mode !== "free" || request.status !== "consumed",
+      ),
+    ).toEqual([
+      expect.objectContaining({ request_id: "guest-scan-reserved", owner_type: "anonymous" }),
+      expect.objectContaining({ request_id: "guest-scan-released", owner_type: "anonymous" }),
+      expect.objectContaining({ request_id: "guest-scan-premium", owner_type: "anonymous" }),
+    ]);
   });
 
   it("creates default assets when anonymous_id lacks a bearer token because an id alone must not prove guest ownership", async () => {
@@ -5856,9 +6030,10 @@ describe("POST /api/v1/auth/register/verify", () => {
     expect(code.used_at).not.toBeNull();
   });
 
-  it("returns 409 when user insert hits an email unique race because conflict semantics must survive concurrent registration", async () => {
+  it.each(["sqlite", "postgres"] as const)("returns 409 when user insert hits an email unique race because conflict semantics must survive concurrent registration (%s)", async (uniqueErrorMode) => {
     const env = createTestEnv();
     const db = fakeD1(env);
+    db.uniqueErrorMode = uniqueErrorMode;
     const sendResponse = await requestRegisterSendCode(env, {
       email: "race@example.com",
     });
@@ -6430,6 +6605,34 @@ describe("POST /api/v1/auth/forgot-password", () => {
     expect(code.used_at).toBeNull();
   });
 
+  it("uses code id as a stable tie-breaker because migrated equal timestamps must not switch the accepted reset code", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const email = "reset-tie@example.com";
+    const createdAt = new Date().toISOString();
+    const expiresAt = new Date(Date.now() + 600_000).toISOString();
+    db.users.push({
+      id: "reset-tie-user",
+      email,
+      password_hash: await hashPassword("old-password"),
+      display_name: null,
+      created_at: createdAt,
+      updated_at: createdAt,
+      deleted_at: null,
+    });
+    db.verificationCodes.push(
+      { id: "reset-z", email, code: "999999", purpose: "reset_password", expires_at: expiresAt, used_at: null, created_at: createdAt },
+      { id: "reset-a", email, code: "111111", purpose: "reset_password", expires_at: expiresAt, used_at: null, created_at: createdAt },
+    );
+
+    const response = await requestForgotPasswordVerifyCode(env, {
+      email,
+      code: "111111",
+    });
+
+    expect(response.status).toBe(200);
+  });
+
   it("forgot-password rejects a wrong reset code because only the latest emailed proof can mint a reset token", async () => {
     const env = createTestEnv();
     const db = fakeD1(env);
@@ -6612,7 +6815,7 @@ describe("POST /api/v1/auth/anonymous", () => {
     });
     Object.defineProperty(request, "cf", { value: { country: "us" } });
 
-    const response = await app.fetch(request, env);
+    const response = await app.request(request, undefined, env);
     const body = (await response.clone().json()) as AnonymousSuccessResponse;
 
     expect(response.status).toBe(200);
@@ -6766,6 +6969,43 @@ describe("POST /api/v1/auth/anonymous", () => {
     expect(db.sessions[1]?.refresh_token).toBe(
       await hashRefreshToken(secondBody.data.refresh_token),
     );
+  });
+
+  it("reuses one stable account when migrated live rows share a creation time", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+    const createdAt = "2026-08-18T00:00:00.000Z";
+    db.anonymousAccounts.push(
+      { id: "anonymous-z", device_id: "device-tie", created_at: createdAt, upgraded_user_id: null },
+      { id: "anonymous-a", device_id: "device-tie", created_at: createdAt, upgraded_user_id: null },
+    );
+
+    const response = await requestAnonymous(env, "device-tie");
+    const body = (await response.json()) as AnonymousSuccessResponse;
+
+    expect(response.status).toBe(200);
+    expect(body.data.anonymous_id).toBe("anonymous-a");
+    expect(db.sessions[0]?.owner_id).toBe("anonymous-a");
+  });
+
+  it("reuses one live anonymous account for overlapping device requests because device ownership is serialized", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+
+    const responses = await Promise.all([
+      requestAnonymous(env, "device-concurrent"),
+      requestAnonymous(env, "device-concurrent"),
+    ]);
+    const bodies = await Promise.all(
+      responses.map((response) => response.json() as Promise<AnonymousSuccessResponse>),
+    );
+
+    expect(responses.map((response) => response.status)).toEqual([200, 200]);
+    expect(new Set(bodies.map((body) => body.data.anonymous_id)).size).toBe(1);
+    expect(db.anonymousAccounts).toHaveLength(1);
+    expect(db.portfolioFolders).toHaveLength(1);
+    expect(db.userPreferences).toHaveLength(1);
+    expect(db.sessions).toHaveLength(2);
   });
 
   it("creates a new anonymous account when the same device only has upgraded accounts", async () => {

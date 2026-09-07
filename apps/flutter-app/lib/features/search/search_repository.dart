@@ -11,6 +11,21 @@ abstract interface class SearchRepository {
   Future<List<SearchSet>> searchSets(String query, {String? game});
 }
 
+abstract interface class SearchCatalogLoadRepository
+    implements SearchRepository {
+  Future<SearchCatalogLoadResult> loadCatalogResult();
+}
+
+class SearchCatalogLoadResult {
+  const SearchCatalogLoadResult({
+    required this.catalog,
+    this.failedSearchTabs = const {},
+  });
+
+  final SearchCatalog catalog;
+  final Set<SearchTab> failedSearchTabs;
+}
+
 abstract interface class PaginatedSearchRepository {
   Future<List<SearchCard>> searchCardPage(
     String query, {
@@ -24,12 +39,6 @@ abstract interface class SearchAssetRepository implements SearchRepository {
     AuthSession session, {
     String? selectedFolderId,
   });
-  Future<PortfolioItemDto> collect(
-    AuthSession session, {
-    required SearchCard card,
-    required String folderId,
-  });
-  Future<void> deleteCollectionItem(AuthSession session, String itemId);
   Future<WishlistItemDto> addWishlist(AuthSession session, String cardRef);
   Future<void> deleteWishlist(AuthSession session, String itemId);
 }
@@ -60,7 +69,7 @@ class SearchCardAssetState {
 
 class HttpSearchRepository
     implements
-        SearchRepository,
+        SearchCatalogLoadRepository,
         PaginatedSearchRepository,
         SearchAssetRepository {
   const HttpSearchRepository(
@@ -79,19 +88,25 @@ class HttpSearchRepository
 
   @override
   Future<SearchCatalog> loadCatalog() async {
+    return (await loadCatalogResult()).catalog;
+  }
+
+  @override
+  Future<SearchCatalogLoadResult> loadCatalogResult() async {
     final gameDtos = await _setCatalogApi?.listGames();
     late final List<SearchGame> games;
-    late final List<SearchCard> cards;
     if (gameDtos == null) {
       final seedCards = await _api.trendingCards();
       games = _gamesFromCards(seedCards);
-      cards = seedCards.map(searchCardFromDto).toList();
       final setQuery = _defaultSetQuery ?? games.first.label;
-      final sets = await _api.searchSets('', game: setQuery);
-      return SearchCatalog(
-        games: games,
-        cards: cards,
-        sets: sets.map(_setFromDto).toList(),
+      final sets = await _settle(_api.searchSets('', game: setQuery));
+      return SearchCatalogLoadResult(
+        catalog: SearchCatalog(
+          games: games,
+          cards: seedCards.map(searchCardFromDto).toList(),
+          sets: sets.value?.map(_setFromDto).toList() ?? const [],
+        ),
+        failedSearchTabs: {if (sets.failed) SearchTab.sets},
       );
     } else {
       games = gameDtos
@@ -101,16 +116,25 @@ class HttpSearchRepository
           )
           .toList();
       final setQuery = _defaultSetQuery ?? games.first.label;
-      final results = await Future.wait([
+      final cardsFuture = _settle(
         searchCardPage('', game: games.first.label, page: 1),
-        _api.searchSets('', game: setQuery),
-      ]);
-      cards = results[0] as List<SearchCard>;
-      final sets = results[1] as List<CardDataSetDto>;
-      return SearchCatalog(
-        games: games,
-        cards: cards,
-        sets: sets.map(_setFromDto).toList(),
+      );
+      final setsFuture = _settle(_api.searchSets('', game: setQuery));
+      final cards = await cardsFuture;
+      final sets = await setsFuture;
+      if (cards.failed && sets.failed) {
+        Error.throwWithStackTrace(cards.error!, cards.stackTrace!);
+      }
+      return SearchCatalogLoadResult(
+        catalog: SearchCatalog(
+          games: games,
+          cards: cards.value ?? const [],
+          sets: sets.value?.map(_setFromDto).toList() ?? const [],
+        ),
+        failedSearchTabs: {
+          if (cards.failed) SearchTab.cards,
+          if (sets.failed) SearchTab.sets,
+        },
       );
     }
   }
@@ -168,7 +192,7 @@ class HttpSearchRepository
         folders.where((item) => item.isDefault).firstOrNull ??
         folders.first;
     final itemsByCardRef = <String, List<PortfolioItemDto>>{};
-    for (final item in items.where((item) => item.folderId == folder.id)) {
+    for (final item in items) {
       (itemsByCardRef[item.cardRef] ??= []).add(item);
     }
     final wishlistByCardRef = {
@@ -195,38 +219,6 @@ class HttpSearchRepository
           ),
       },
     );
-  }
-
-  @override
-  Future<PortfolioItemDto> collect(
-    AuthSession session, {
-    required SearchCard card,
-    required String folderId,
-  }) {
-    final sealed = card.type == SearchCardType.sealed;
-    return _requiredPortfolioApi.quickCollect(
-      session,
-      cardRef: card.id,
-      draft: PortfolioItemDraftDto(
-        folderId: folderId,
-        cardRef: card.id,
-        objectType: card.type.name,
-        grader: 'Raw',
-        condition: sealed ? null : 'Near Mint (NM)',
-        grade: null,
-        language: card.language ?? 'English',
-        finish: card.finish,
-        quantity: 1,
-        purchasePrice: null,
-        purchaseCurrency: null,
-        notes: null,
-      ),
-    );
-  }
-
-  @override
-  Future<void> deleteCollectionItem(AuthSession session, String itemId) {
-    return _requiredPortfolioApi.deleteCollectionItem(session, itemId);
   }
 
   @override
@@ -265,6 +257,14 @@ List<SearchGame> _gamesFromCards(List<CardDataCardDto> cards) {
 }
 
 SearchCard searchCardFromDto(CardDataCardDto dto) {
+  return _cardFromDto(dto, changePercent: dto.priceChange30dPercent);
+}
+
+SearchCard trendingCardFromDto(CardDataCardDto dto) {
+  return _cardFromDto(dto, changePercent: dto.priceChange1dPercent);
+}
+
+SearchCard _cardFromDto(CardDataCardDto dto, {required double? changePercent}) {
   return SearchCard(
     id: dto.cardRef,
     gameId: _gameIdFromCard(dto),
@@ -280,7 +280,7 @@ SearchCard searchCardFromDto(CardDataCardDto dto) {
     language: dto.language,
     finish: dto.finish,
     imageUrl: cardImageUrl(dto.cardRef, CardImageVariant.list),
-    priceChange1dPercent: dto.priceChange1dPercent,
+    changePercent: changePercent,
   );
 }
 
@@ -381,4 +381,24 @@ String? collectionInfoFor(List<PortfolioItemDto> items) {
   final values = items.map(collectionItemInfo).whereType<String>().toSet();
   if (values.isEmpty) return null;
   return values.length == 1 ? values.single : 'Mixed';
+}
+
+class _Settled<T> {
+  const _Settled.value(this.value) : error = null, stackTrace = null;
+
+  const _Settled.error(this.error, this.stackTrace) : value = null;
+
+  final T? value;
+  final Object? error;
+  final StackTrace? stackTrace;
+
+  bool get failed => error != null;
+}
+
+Future<_Settled<T>> _settle<T>(Future<T> future) async {
+  try {
+    return _Settled.value(await future);
+  } catch (error, stackTrace) {
+    return _Settled.error(error, stackTrace);
+  }
 }

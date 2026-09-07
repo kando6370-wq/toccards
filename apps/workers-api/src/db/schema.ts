@@ -1,5 +1,5 @@
-// tcg-card D1 Schema —— 严格对齐 docs/tcg-card/03-data-api/data-model.md。
-// 约定：账号主键为至少 6 位的全局数字 UID，其他业务主键为 ULID TEXT；时间戳 ISO8601 UTC TEXT；布尔 INTEGER(0/1)；金额 REAL；枚举 TEXT（Workers 层校验）；多值 JSON 字符串 TEXT；软删 deleted_at；owner 多态 owner_type+owner_id；软引用不设 DB 级 FK。
+// tcg-card D1 Schema —— 对齐 docs/releases/v1.0.0/03-data-api/data-model.md 与 v1.1.0 增量契约。
+// 约定：账号主键为至少 6 位的全局数字 UID，其他业务主键为 ULID TEXT；时间戳 ISO8601 UTC TEXT；布尔 INTEGER(0/1)；资产金额 REAL，账单金额 INTEGER micros；枚举 TEXT（Workers 层校验）；多值 JSON 字符串 TEXT；软删 deleted_at；owner 多态 owner_type+owner_id；软引用不设 DB 级 FK。
 import { sql } from "drizzle-orm";
 import {
   check,
@@ -198,6 +198,10 @@ export const accountUid = sqliteTable(
   (t) => [check("ck_account_uid_minimum", sql`${t.uid} >= 100000`)],
 );
 
+export const mutationLock = sqliteTable("mutation_lock", {
+  lockKey: text("lock_key").primaryKey(),
+});
+
 export const appInstallation = sqliteTable("app_installation", {
   installationId: text("installation_id").primaryKey(),
   uid: text("uid"),
@@ -301,6 +305,9 @@ export const collectionItem = sqliteTable(
     quantity: integer("quantity").notNull().default(1),
     purchasePrice: real("purchase_price"),
     purchaseCurrency: text("purchase_currency"),
+    performanceStartAt: text("performance_start_at"),
+    purchasePriceEffectiveAt: text("purchase_price_effective_at"),
+    performanceHistoryAvailableFrom: text("performance_history_available_from"),
     notes: text("notes"), // 最多 500 字符（Workers 层校验）
     folderJoinedAt: text("folder_joined_at"),
     createdAt: text("created_at").notNull(),
@@ -338,6 +345,9 @@ export const collectionItemEvent = sqliteTable(
     language: text("language"),
     finish: text("finish"),
     quantity: integer("quantity").notNull(),
+    purchasePrice: real("purchase_price"),
+    purchaseCurrency: text("purchase_currency"),
+    performanceHistoryAvailableFrom: text("performance_history_available_from"),
     eventType: text("event_type").notNull(),
     effectiveAt: text("effective_at").notNull(),
   },
@@ -349,6 +359,11 @@ export const collectionItemEvent = sqliteTable(
     ),
     index("idx_collection_item_event_folder_time").on(t.folderId, t.effectiveAt),
     index("idx_collection_item_event_item_time").on(t.itemId, t.effectiveAt),
+    index("idx_collection_item_event_performance_history").on(
+      t.ownerType,
+      t.ownerId,
+      t.performanceHistoryAvailableFrom,
+    ),
     check("ck_collection_item_event_quantity", sql`${t.quantity} >= 1`),
     check(
       "ck_collection_item_event_type",
@@ -415,6 +430,377 @@ export const userPreference = sqliteTable(
   (t) => [unique("uq_user_preference_owner").on(t.ownerType, t.ownerId)],
 );
 
+// ── 订阅与内购层 ──────────────────────────────────────────────
+
+export const billingProduct = sqliteTable(
+  "billing_product",
+  {
+    id: text("id").primaryKey(),
+    store: text("store").notNull(),
+    productId: text("product_id").notNull(),
+    planId: text("plan_id").notNull(),
+    entitlementId: text("entitlement_id").notNull(),
+    productType: text("product_type").notNull(),
+    active: integer("active").notNull().default(1),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [
+    unique("uq_billing_product_store_product").on(t.store, t.productId),
+    unique("uq_billing_product_store_plan").on(t.store, t.planId),
+    check("ck_billing_product_active", sql`${t.active} IN (0, 1)`),
+  ],
+);
+
+export const billingPurchaseChain = sqliteTable(
+  "billing_purchase_chain",
+  {
+    id: text("id").primaryKey(),
+    store: text("store").notNull(),
+    environment: text("environment").notNull(),
+    originalTransactionId: text("original_transaction_id").notNull(),
+    productId: text("product_id").notNull(),
+    entitlementId: text("entitlement_id").notNull(),
+    originalOwnerType: text("original_owner_type").notNull(),
+    originalOwnerId: text("original_owner_id").notNull(),
+    appAccountToken: text("app_account_token"),
+    status: text("status").notNull(),
+    autoRenew: integer("auto_renew").notNull().default(0),
+    expiresAt: text("expires_at"),
+    gracePeriodExpiresAt: text("grace_period_expires_at"),
+    revokedAt: text("revoked_at"),
+    stateEffectiveAt: text("state_effective_at"),
+    nextProductId: text("next_product_id"),
+    lifecycleSignedAt: text("lifecycle_signed_at"),
+    lifecycleNotificationUuid: text("lifecycle_notification_uuid"),
+    correctionStatus: text("correction_status"),
+    autoRenewSignedAt: text("auto_renew_signed_at"),
+    planSignedAt: text("plan_signed_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [
+    unique("uq_billing_chain_store_environment_original").on(
+      t.store,
+      t.environment,
+      t.originalTransactionId,
+    ),
+    index("idx_billing_chain_owner").on(t.originalOwnerType, t.originalOwnerId),
+    index("idx_billing_chain_status_expiry").on(t.status, t.expiresAt),
+    check("ck_billing_chain_auto_renew", sql`${t.autoRenew} IN (0, 1)`),
+  ],
+);
+
+export const billingTransaction = sqliteTable(
+  "billing_transaction",
+  {
+    id: text("id").primaryKey(),
+    purchaseChainId: text("purchase_chain_id")
+      .notNull()
+      .references(() => billingPurchaseChain.id),
+    store: text("store").notNull(),
+    environment: text("environment").notNull(),
+    transactionId: text("transaction_id").notNull(),
+    productId: text("product_id").notNull(),
+    transactionReason: text("transaction_reason").notNull(),
+    status: text("status").notNull(),
+    businessStatus: text("business_status"),
+    businessStatusBeforeRefund: text("business_status_before_refund"),
+    chargeCount: integer("charge_count"),
+    sourceNotificationUuid: text("source_notification_uuid"),
+    autoRenewSnapshot: integer("auto_renew_snapshot"),
+    storefrontCountryCode: text("storefront_country_code"),
+    amountMicros: integer("amount_micros"),
+    currency: text("currency"),
+    amountUsdMicros: integer("amount_usd_micros"),
+    usdExchangeRate: text("usd_exchange_rate"),
+    usdExchangeRateBase: text("usd_exchange_rate_base"),
+    usdExchangeRateQuote: text("usd_exchange_rate_quote"),
+    usdExchangeRateSource: text("usd_exchange_rate_source"),
+    usdExchangeRateEffectiveAt: text("usd_exchange_rate_effective_at"),
+    usdExchangeRateFetchedAt: text("usd_exchange_rate_fetched_at"),
+    usdExchangeRateStale: integer("usd_exchange_rate_stale"),
+    usdConversionVersion: text("usd_conversion_version"),
+    usdRoundingMode: text("usd_rounding_mode"),
+    purchaseAt: text("purchase_at").notNull(),
+    expiresAt: text("expires_at"),
+    revokedAt: text("revoked_at"),
+    refundCompletedAt: text("refund_completed_at"),
+    signedTransaction: text("signed_transaction"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [
+    unique("uq_billing_transaction_store_environment_transaction").on(
+      t.store,
+      t.environment,
+      t.transactionId,
+    ),
+    index("idx_billing_transaction_chain_time").on(t.purchaseChainId, t.purchaseAt),
+    index("idx_billing_transaction_status_time").on(t.status, t.purchaseAt),
+    index("idx_billing_transaction_product_time").on(t.productId, t.purchaseAt),
+    index("idx_billing_transaction_business_status_time").on(t.businessStatus, t.purchaseAt),
+    index("idx_billing_transaction_charge_count").on(t.chargeCount, t.purchaseAt),
+    check(
+      "ck_billing_transaction_auto_renew_snapshot",
+      sql`${t.autoRenewSnapshot} IS NULL OR ${t.autoRenewSnapshot} IN (0, 1)`,
+    ),
+  ],
+);
+
+export const billingEntitlementGrant = sqliteTable(
+  "billing_entitlement_grant",
+  {
+    id: text("id").primaryKey(),
+    purchaseChainId: text("purchase_chain_id")
+      .notNull()
+      .references(() => billingPurchaseChain.id),
+    ownerType: text("owner_type").notNull(),
+    ownerId: text("owner_id").notNull(),
+    source: text("source").notNull(),
+    status: text("status").notNull(),
+    grantedAt: text("granted_at").notNull(),
+    revokedAt: text("revoked_at"),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [
+    unique("uq_billing_grant_chain_owner").on(t.purchaseChainId, t.ownerType, t.ownerId),
+    index("idx_billing_grant_owner_status").on(t.ownerType, t.ownerId, t.status),
+  ],
+);
+
+export const scanQuotaRequest = sqliteTable(
+  "scan_quota_request",
+  {
+    requestId: text("request_id").primaryKey(),
+    ownerType: text("owner_type").notNull(),
+    ownerId: text("owner_id").notNull(),
+    sessionId: text("session_id").notNull(),
+    accessMode: text("access_mode").notNull(),
+    status: text("status").notNull(),
+    scanId: text("scan_id"),
+    processingExpiresAt: text("processing_expires_at"),
+    attempts: integer("attempts").notNull().default(1),
+    responseJson: text("response_json"),
+    httpStatus: integer("http_status"),
+    createdAt: text("created_at").notNull(),
+    settledAt: text("settled_at"),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [
+    index("idx_scan_quota_request_owner_status").on(
+      t.ownerType,
+      t.ownerId,
+      t.status,
+      t.createdAt,
+    ),
+    check(
+      "ck_scan_quota_request_access_mode",
+      sql`${t.accessMode} IN ('free', 'premium')`,
+    ),
+    check(
+      "ck_scan_quota_request_status",
+      sql`${t.status} IN ('reserved', 'consumed', 'released')`,
+    ),
+  ],
+);
+
+export const billingSessionEntitlementGrant = sqliteTable(
+  "billing_session_entitlement_grant",
+  {
+    id: text("id").primaryKey(),
+    sessionId: text("session_id")
+      .notNull()
+      .references(() => session.id),
+    purchaseChainId: text("purchase_chain_id")
+      .notNull()
+      .references(() => billingPurchaseChain.id),
+    entitlementId: text("entitlement_id").notNull(),
+    source: text("source").notNull(),
+    status: text("status").notNull(),
+    grantedAt: text("granted_at").notNull(),
+    expiresAt: text("expires_at"),
+    lastVerifiedAt: text("last_verified_at").notNull(),
+    revokedAt: text("revoked_at"),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [
+    unique("uq_billing_session_grant_session_chain_entitlement").on(
+      t.sessionId,
+      t.purchaseChainId,
+      t.entitlementId,
+    ),
+    index("idx_billing_session_grant_session_status_expiry").on(
+      t.sessionId,
+      t.entitlementId,
+      t.status,
+      t.expiresAt,
+    ),
+    index("idx_billing_session_grant_chain_status").on(t.purchaseChainId, t.status),
+    check(
+      "ck_billing_session_grant_status",
+      sql`${t.status} IN ('active', 'revoked', 'expired')`,
+    ),
+  ],
+);
+
+export const billingApplePurchaseChallenge = sqliteTable(
+  "billing_apple_purchase_challenge",
+  {
+    token: text("token").primaryKey(),
+    sessionId: text("session_id")
+      .notNull()
+      .references(() => session.id),
+    productId: text("product_id").notNull(),
+    expiresAt: text("expires_at").notNull(),
+    consumedAt: text("consumed_at"),
+    consumedTransactionId: text("consumed_transaction_id"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    index("idx_billing_apple_challenge_session_expiry").on(t.sessionId, t.expiresAt),
+  ],
+);
+
+export const billingAppleVerificationAttempt = sqliteTable(
+  "billing_apple_verification_attempt",
+  {
+    id: text("id").primaryKey(),
+    sessionId: text("session_id")
+      .notNull()
+      .references(() => session.id),
+    requestId: text("request_id").notNull(),
+    evidenceType: text("evidence_type").notNull(),
+    evidenceSha256: text("evidence_sha256").notNull(),
+    resultCode: text("result_code").notNull(),
+    transactionId: text("transaction_id"),
+    responseJson: text("response_json").notNull(),
+    httpStatus: integer("http_status").notNull(),
+    processingExpiresAt: text("processing_expires_at"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    unique("uq_billing_apple_attempt_session_request").on(t.sessionId, t.requestId),
+    index("idx_billing_apple_attempt_evidence").on(t.evidenceSha256, t.createdAt),
+  ],
+);
+
+export const billingAppleAppAttestChallenge = sqliteTable(
+  "billing_apple_app_attest_challenge",
+  {
+    token: text("token").primaryKey(),
+    sessionId: text("session_id")
+      .notNull()
+      .references(() => session.id),
+    purpose: text("purpose").notNull(),
+    requestId: text("request_id").notNull(),
+    keyId: text("key_id"),
+    evidenceSha256: text("evidence_sha256"),
+    clientData: text("client_data").notNull(),
+    expiresAt: text("expires_at").notNull(),
+    consumedAt: text("consumed_at"),
+    consumptionId: text("consumption_id"),
+    resultCode: text("result_code"),
+    responseJson: text("response_json"),
+    httpStatus: integer("http_status"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    unique("uq_billing_app_attest_challenge_request").on(t.sessionId, t.requestId),
+    index("idx_billing_app_attest_challenge_expiry").on(t.sessionId, t.expiresAt),
+    check(
+      "ck_billing_app_attest_challenge_purpose",
+      sql`${t.purpose} IN ('register', 'restore')`,
+    ),
+  ],
+);
+
+export const billingAppleAppAttestKey = sqliteTable(
+  "billing_apple_app_attest_key",
+  {
+    keyId: text("key_id").primaryKey(),
+    publicKeyPem: text("public_key_pem").notNull(),
+    receiptBase64: text("receipt_base64").notNull(),
+    signCount: integer("sign_count").notNull().default(0),
+    environment: text("environment").notNull(),
+    registeredSessionId: text("registered_session_id")
+      .notNull()
+      .references(() => session.id),
+    status: text("status").notNull().default("active"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [
+    index("idx_billing_app_attest_key_status").on(t.status, t.updatedAt),
+    check(
+      "ck_billing_app_attest_key_environment",
+      sql`${t.environment} IN ('development', 'production')`,
+    ),
+    check(
+      "ck_billing_app_attest_key_status",
+      sql`${t.status} IN ('active', 'revoked')`,
+    ),
+  ],
+);
+
+export const appleNotificationInbox = sqliteTable(
+  "apple_notification_inbox",
+  {
+    id: text("id").primaryKey(),
+    payloadSha256: text("payload_sha256").notNull().unique(),
+    requestJson: text("request_json").notNull(),
+    signedPayload: text("signed_payload").notNull(),
+    processingStatus: text("processing_status").notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    processingExpiresAt: text("processing_expires_at"),
+    notificationUuid: text("notification_uuid"),
+    lastError: text("last_error"),
+    receivedAt: text("received_at").notNull(),
+    processedAt: text("processed_at"),
+  },
+  (t) => [
+    index("idx_apple_notification_inbox_processing").on(
+      t.processingStatus,
+      t.processingExpiresAt,
+      t.receivedAt,
+    ),
+    check(
+      "ck_apple_notification_inbox_status",
+      sql`${t.processingStatus} IN ('pending', 'processing', 'processed', 'verification_failed', 'parse_failed', 'correction_required', 'processing_failed')`,
+    ),
+  ],
+);
+
+export const appleServerNotification = sqliteTable(
+  "apple_server_notification",
+  {
+    id: text("id").primaryKey(),
+    inboxId: text("inbox_id").references(() => appleNotificationInbox.id),
+    notificationUuid: text("notification_uuid").notNull().unique(),
+    notificationType: text("notification_type").notNull(),
+    subtype: text("subtype"),
+    environment: text("environment").notNull(),
+    originalTransactionId: text("original_transaction_id"),
+    transactionId: text("transaction_id"),
+    productId: text("product_id"),
+    signedPayload: text("signed_payload").notNull(),
+    decodedPayload: text("decoded_payload"),
+    processingStatus: text("processing_status").notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: text("last_error"),
+    signedAt: text("signed_at"),
+    receivedAt: text("received_at").notNull(),
+    processedAt: text("processed_at"),
+  },
+  (t) => [
+    unique("uq_apple_notification_inbox_id").on(t.inboxId),
+    index("idx_apple_notification_received").on(t.receivedAt),
+    index("idx_apple_notification_type_received").on(t.notificationType, t.receivedAt),
+    index("idx_apple_notification_transaction").on(t.originalTransactionId),
+    index("idx_apple_notification_processing").on(t.processingStatus, t.receivedAt),
+  ],
+);
+
 // ── 管理员层 ──────────────────────────────────────────────────
 
 export const adminUser = sqliteTable("admin_user", {
@@ -437,22 +823,6 @@ export const cardOverride = sqliteTable("card_override", {
   updatedBy: text("updated_by"), // 软引用 admin_user.id，无 DB 级 FK
   updatedAt: text("updated_at").notNull(),
 }, (t) => [check("ck_card_override_is_missing", sql`${t.isMissingCard} IN (0, 1)`)]);
-
-export const trendingPin = sqliteTable(
-  "trending_pin",
-  {
-    id: text("id").primaryKey(),
-    cardRef: text("card_ref").notNull().unique(),
-    rank: integer("rank").notNull(),
-    active: integer("active").notNull().default(1),
-    updatedBy: text("updated_by"), // 软引用 admin_user.id，无 DB 级 FK
-    updatedAt: text("updated_at").notNull(),
-  },
-  (t) => [
-    index("idx_trending_pin_rank").on(t.active, t.rank),
-    check("ck_trending_pin_active", sql`${t.active} IN (0, 1)`),
-  ],
-);
 
 export const appConfig = sqliteTable("app_config", {
   key: text("key").primaryKey(),

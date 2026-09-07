@@ -76,6 +76,8 @@ describe("public app config routes", () => {
         terms_url: "https://www.tcgcard.fun/terms",
         privacy_url: "https://www.tcgcard.fun/privacy",
         mixpanel_project_token: "public-project-token",
+        singular_api_key: "singular-api-key",
+        singular_secret_key: "singular-secret-key",
       },
     });
   });
@@ -98,18 +100,24 @@ describe("public app config routes", () => {
         terms_url: null,
         privacy_url: null,
         mixpanel_project_token: "public-project-token",
+        singular_api_key: "singular-api-key",
+        singular_secret_key: "singular-secret-key",
       },
     });
   });
 
-  it("exposes only the Mixpanel project token because API secrets must remain server-side", async () => {
+  it("exposes client SDK configuration without returning server API secrets", async () => {
     const env = createTestEnv([]);
 
     const response = await app.request("/api/v1/app-config", {}, env);
     const body = await response.json();
 
     expect(body).toMatchObject({
-      data: { mixpanel_project_token: "public-project-token" },
+      data: {
+        mixpanel_project_token: "public-project-token",
+        singular_api_key: "singular-api-key",
+        singular_secret_key: "singular-secret-key",
+      },
     });
     expect(JSON.stringify(body)).not.toContain("server-api-secret");
   });
@@ -181,6 +189,8 @@ function createTestEnv(appConfigs: AppConfigRow[]): Env {
     JWT_SECRET: "test-secret",
     MIXPANEL_PROJECT_TOKEN: "public-project-token",
     MIXPANEL_API_SECRET: "server-api-secret",
+    SINGULAR_API_KEY: "singular-api-key",
+    SINGULAR_SECRET_KEY: "singular-secret-key",
   };
 }
 

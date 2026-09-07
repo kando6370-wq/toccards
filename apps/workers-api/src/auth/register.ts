@@ -1,6 +1,7 @@
 import { hashPassword } from "@kando/auth-core";
 import type { Hono } from "hono";
 import { reserveAccountUid } from "../account-uid";
+import { mutationLockKey, runWithMutationLock } from "../db/mutation-lock";
 import type { Env } from "../env";
 import { createId } from "../id";
 import { sendVerificationEmail } from "../mail/verification-email";
@@ -103,7 +104,7 @@ const INTERNAL_ERROR_RESPONSE = {
 
 const SELECT_USER_BY_EMAIL_SQL = `
   SELECT id
-  FROM user
+  FROM "user"
   WHERE email = ? AND status <> 'deleted'
   LIMIT 1
 `;
@@ -127,12 +128,12 @@ const SELECT_LATEST_REGISTER_CODE_SQL = `
   SELECT id, code, expires_at, used_at
   FROM verification_code
   WHERE email = ? AND purpose = 'register'
-  ORDER BY created_at DESC
+  ORDER BY created_at DESC, id ASC
   LIMIT 1
 `;
 
 const INSERT_USER_SQL = `
-  INSERT INTO user
+  INSERT INTO "user"
     (id, email, password_hash, display_name, created_at, updated_at, deleted_at)
   SELECT ?, ?, ?, NULL, ?, ?, NULL
   WHERE EXISTS (
@@ -143,7 +144,7 @@ const INSERT_USER_SQL = `
 `;
 
 const INSERT_MIGRATED_USER_SQL = `
-  INSERT INTO user
+  INSERT INTO "user"
     (id, email, password_hash, display_name, created_at, updated_at, deleted_at)
   SELECT ?, ?, ?, NULL, ?, ?, NULL
   WHERE EXISTS (
@@ -247,8 +248,7 @@ export function registerEmailRegistrationRoutes(
 
       const code = createVerificationCode();
       const verificationCodeId = createId();
-      const result = await c.env.DB.prepare(INSERT_VERIFICATION_CODE_SQL)
-        .bind(
+      const insertStatement = c.env.DB.prepare(INSERT_VERIFICATION_CODE_SQL).bind(
           verificationCodeId,
           email,
           code,
@@ -256,8 +256,12 @@ export function registerEmailRegistrationRoutes(
           createdAt,
           email,
           resendWindowStartedAt,
-        )
-        .run();
+        );
+      const result = await runWithMutationLock(
+        c.env.DB,
+        await mutationLockKey("verification-code-register", email),
+        insertStatement,
+      );
       if (result.meta.changes === 0) {
         return c.json(RATE_LIMITED_RESPONSE, 429);
       }
@@ -409,6 +413,7 @@ export function registerEmailRegistrationRoutes(
           migrationStatements.wishlistItems,
           migrationStatements.userPreference,
           migrationStatements.scanRecords,
+          migrationStatements.consumedFreeScanQuota,
           c.env.DB.prepare(INSERT_MIGRATED_USER_SESSION_SQL).bind(
             session.sessionId,
             userId,
@@ -431,6 +436,7 @@ export function registerEmailRegistrationRoutes(
           wishlistItemsResult,
           userPreferenceResult,
           scanRecordsResult,
+          consumedFreeScanQuotaResult,
           sessionResult,
         ] = results;
         const assetResults = [
@@ -440,13 +446,14 @@ export function registerEmailRegistrationRoutes(
           wishlistItemsResult,
           userPreferenceResult,
           scanRecordsResult,
+          consumedFreeScanQuotaResult,
         ];
 
         if (codeResult?.meta.changes !== 1) {
           return c.json(INCORRECT_VERIFICATION_CODE_RESPONSE, 422);
         }
 
-        if (results.length !== 10 || assetResults.some((result) => !result)) {
+        if (results.length !== 11 || assetResults.some((result) => !result)) {
           return c.json(INTERNAL_ERROR_RESPONSE, 500);
         }
 
@@ -609,9 +616,12 @@ function isValidEmail(email: string): boolean {
 }
 
 function isUserEmailUniqueConstraintError(error: unknown): boolean {
+  const postgresError = error as { code?: unknown; constraint_name?: unknown };
   return (
     error instanceof Error &&
-    error.message.includes("UNIQUE constraint failed: user.email")
+    (error.message.includes("UNIQUE constraint failed: user.email") ||
+      (postgresError.code === "23505" &&
+        postgresError.constraint_name === "uq_user_non_deleted_email"))
   );
 }
 

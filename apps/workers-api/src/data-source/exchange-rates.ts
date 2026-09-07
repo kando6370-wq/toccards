@@ -2,10 +2,14 @@ export type ExchangeRateSnapshot = {
   base: "USD";
   rates: Record<string, number>;
   updatedAt: string;
+  fetchedAt: string;
   stale: boolean;
 };
 
-type CachedExchangeRateSnapshot = Omit<ExchangeRateSnapshot, "stale"> & {
+type CachedExchangeRateSnapshot = Omit<
+  ExchangeRateSnapshot,
+  "stale" | "fetchedAt"
+> & {
   fetchedAt: number;
 };
 
@@ -126,6 +130,7 @@ function publicSnapshot(
     base: snapshot.base,
     rates: snapshot.rates,
     updatedAt: snapshot.updatedAt,
+    fetchedAt: new Date(snapshot.fetchedAt).toISOString(),
     stale,
   };
 }

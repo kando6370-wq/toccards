@@ -32,19 +32,22 @@ abstract final class KandoLayout {
   static const mainTabTopPadding = 8.0;
 }
 
+final ColorScheme _kandoColorScheme =
+    ColorScheme.fromSeed(
+      seedColor: KandoColors.accent,
+      brightness: Brightness.dark,
+    ).copyWith(
+      surface: KandoColors.surface,
+      onSurface: KandoColors.text,
+      primary: KandoColors.accent,
+      onPrimary: KandoColors.ink,
+      secondary: KandoColors.softAccent,
+      onSecondary: KandoColors.ink,
+      secondaryContainer: KandoColors.elevatedSurface,
+      onSecondaryContainer: KandoColors.text,
+      outline: KandoColors.border,
+    );
+
 ColorScheme buildKandoColorScheme() {
-  return ColorScheme.fromSeed(
-    seedColor: KandoColors.accent,
-    brightness: Brightness.dark,
-  ).copyWith(
-    surface: KandoColors.surface,
-    onSurface: KandoColors.text,
-    primary: KandoColors.accent,
-    onPrimary: KandoColors.ink,
-    secondary: KandoColors.softAccent,
-    onSecondary: KandoColors.ink,
-    secondaryContainer: KandoColors.elevatedSurface,
-    onSecondaryContainer: KandoColors.text,
-    outline: KandoColors.border,
-  );
+  return _kandoColorScheme;
 }

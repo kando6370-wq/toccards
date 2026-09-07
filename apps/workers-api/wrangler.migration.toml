@@ -1,0 +1,18 @@
+name = "toccards-d1-postgres-migration"
+main = "scripts/d1-postgres-migration/worker.ts"
+compatibility_date = "2026-08-17"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "SOURCE_DB"
+database_name = "cards_basic_information_all_dev"
+database_id = "28bd145b-ee8a-4984-87de-7f8ab5f46c19"
+
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "7d71bcd0bcf64e518a23a852ced76d66"
+
+[[rules]]
+type = "Text"
+globs = ["**/*.sql"]
+fallthrough = true

@@ -12,17 +12,33 @@ import '../../shared/ui/kando_style.dart';
 import 'onboarding_controller.dart';
 import 'onboarding_page.dart';
 
-class OnboardingGate extends ConsumerWidget {
-  const OnboardingGate({required this.home, super.key});
+class OnboardingGate extends ConsumerStatefulWidget {
+  const OnboardingGate({required this.home, this.firstLaunchHome, super.key});
 
   final Widget home;
+  final Widget? firstLaunchHome;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<OnboardingGate> createState() => _OnboardingGateState();
+}
+
+class _OnboardingGateState extends ConsumerState<OnboardingGate> {
+  var _requiredOnboarding = false;
+
+  @override
+  Widget build(BuildContext context) {
     return ref
         .watch(onboardingControllerProvider)
         .when(
-          data: (completed) => completed ? home : const OnboardingPage(),
+          data: (completed) {
+            if (!completed) {
+              _requiredOnboarding = true;
+              return const OnboardingPage();
+            }
+            return _requiredOnboarding
+                ? widget.firstLaunchHome ?? widget.home
+                : widget.home;
+          },
           loading: () => const _StartupPage(),
           error: (_, _) => const OnboardingPage(),
         );
@@ -125,8 +141,8 @@ class _StartupPageState extends ConsumerState<_StartupPage>
                                   key: const ValueKey(
                                     'onboarding-loading-logo',
                                   ),
-                                  width: 63,
-                                  height: 77,
+                                  width: 76,
+                                  height: 92,
                                   filterQuality: FilterQuality.high,
                                 )
                               : Image.asset(
@@ -134,8 +150,8 @@ class _StartupPageState extends ConsumerState<_StartupPage>
                                   key: const ValueKey(
                                     'onboarding-loading-logo',
                                   ),
-                                  width: 90,
-                                  height: 90,
+                                  width: 76,
+                                  height: 92,
                                   filterQuality: FilterQuality.high,
                                 ),
                         ),

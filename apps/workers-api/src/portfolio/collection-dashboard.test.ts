@@ -9,9 +9,15 @@ class FakeDb {
   ) {}
 
   prepare(sql: string) {
-    const rows = sql.includes("FROM cards_all")
+    const prices = [...this.skus, ...this.gradedPrices];
+    const rows = sql.includes("FROM price_history_month AS history")
+      ? prices.map((row) => ({
+        series_id: row.series_id,
+        points_json: row.price_history,
+      }))
+      : sql.includes("FROM cards_all")
       ? this.cards
-      : [...this.skus, ...this.gradedPrices];
+      : prices;
     return {
       bind: (..._args: unknown[]) => ({
         all: async <T>() => ({ results: rows as T[] }),
@@ -32,6 +38,7 @@ describe("collection dashboard enrichment", () => {
       grade: index === 100 ? 10 : null,
       language: "English",
       finish: "Normal",
+      price_series_id: null,
       quantity: 1,
       folder_joined_at: "2026-07-01T00:00:00.000Z",
       created_at: "2026-07-01T00:00:00.000Z",
@@ -79,6 +86,7 @@ describe("collection dashboard enrichment", () => {
       grade: null,
       language: "Unknown",
       finish: "Unknown",
+      price_series_id: null,
       quantity: 1,
       folder_joined_at: "2026-07-01T00:00:00.000Z",
       created_at: "2026-07-01T00:00:00.000Z",
@@ -106,6 +114,57 @@ describe("collection dashboard enrichment", () => {
     });
   });
 
+  it("uses the same canonical same-specification price for one owned card and Wishlist because every card list must agree with Search", async () => {
+    const older = sku("100");
+    const canonical = {
+      ...older,
+      sku_id: 2,
+      series_id: 2,
+      source_record_id: "sku-2",
+      observed_on: "2026-07-10",
+      amount_micros: 30_000_000,
+      baseline_30d_amount_micros: 15_000_000,
+      price_history: JSON.stringify([
+        { date: "2026-06-10", price: 15 },
+        { date: "2026-07-10", price: 30 },
+      ]),
+      change_30d_percent: 100,
+    };
+    const result = await enrichCollectionDashboard(
+      new FakeDb([card("100")], [older, canonical]) as unknown as D1Database,
+      [
+        {
+          id: "item-1",
+          folder_id: "main",
+          card_ref: "100",
+          object_type: "tcg",
+          grader: "Raw",
+          condition: "Near Mint",
+          grade: null,
+          language: "English",
+          finish: "Normal",
+          price_series_id: null,
+          quantity: 1,
+          folder_joined_at: "2026-07-01T00:00:00.000Z",
+          created_at: "2026-07-01T00:00:00.000Z",
+        },
+      ],
+      [{ id: "wish-1", card_ref: "100", created_at: "2026-07-01T00:00:00.000Z" }],
+      new Date("2026-07-10T12:00:00.000Z"),
+    );
+
+    expect(result.portfolio_items[0]).toMatchObject({
+      market_price_usd: 30,
+      previous_30d_price_usd: 15,
+      increase_percent: 100,
+    });
+    expect(result.wishlist_items[0]).toMatchObject({
+      market_price_usd: 30,
+      previous_30d_price_usd: 15,
+      increase_percent: 100,
+    });
+  });
+
   it("maps PSA 7.5 to Grade 7 because saved grader labels must select the shared database price bucket", async () => {
     const item = {
       id: "graded-item",
@@ -117,6 +176,7 @@ describe("collection dashboard enrichment", () => {
       grade: 7.5,
       language: "English",
       finish: "Normal",
+      price_series_id: null,
       quantity: 2,
       folder_joined_at: "2026-07-01T00:00:00.000Z",
       created_at: "2026-07-01T00:00:00.000Z",
@@ -125,16 +185,16 @@ describe("collection dashboard enrichment", () => {
       new FakeDb(
         [card("100")],
         [],
-        [{
-          product_id: "100",
-          pricecharting_id: "graded-1",
-          variant_name: "Normal",
-          language_name: "English",
-          price_Grade_7: JSON.stringify([
+        [gradedPrice("100", "Normal", 75, {
+          grade_min_x10: 70,
+          grade_max_x10: 75,
+          price_history: JSON.stringify([
             { date: "2026-07-09", price: 70 },
             { date: "2026-07-10", price: 75 },
           ]),
-        }],
+          observed_on: "2026-07-10",
+          amount_micros: 75_000_000,
+        })],
       ) as unknown as D1Database,
       [item],
       [],
@@ -146,6 +206,36 @@ describe("collection dashboard enrichment", () => {
       market_language: "English",
       market_finish: "Normal",
     });
+  });
+
+  it("uses current canonical same-specification pricing for list display without exposing the historical series binding", async () => {
+    const result = await enrichCollectionDashboard(
+      new FakeDb(
+        [card("100")],
+        [sku("100")],
+        [gradedPrice("100", "Normal", 99)],
+      ) as unknown as D1Database,
+      [{
+        id: "stable-item",
+        folder_id: "main",
+        card_ref: "100",
+        object_type: "tcg",
+        grader: "Raw",
+        condition: "Near Mint (NM)",
+        grade: null,
+        language: "English",
+        finish: "Normal",
+        price_series_id: 2,
+        quantity: 1,
+        folder_joined_at: "2026-07-01T00:00:00.000Z",
+        created_at: "2026-07-01T00:00:00.000Z",
+      }],
+      [],
+      new Date("2026-07-10T12:00:00.000Z"),
+    );
+
+    expect(result.portfolio_items[0]).toMatchObject({ market_price_usd: 20 });
+    expect(result.portfolio_items[0]).not.toHaveProperty("price_series_id");
   });
 });
 
@@ -160,12 +250,40 @@ function card(productId: string) {
   };
 }
 
-function gradedPrice(productId: string, finish: string, price: number) {
+function gradedPrice(
+  productId: string,
+  finish: string,
+  price: number,
+  overrides: Record<string, unknown> = {},
+) {
   return {
+    series_id: 2,
+    source_code: "pricecharting",
+    source_record_id: "graded-1",
+    metric_code: "psa_100",
     product_id: productId,
-    pricecharting_id: "graded-1",
-    product_sub_type: finish,
-    price_PSA_10: JSON.stringify([{ date: "2026-07-06", price }]),
+    condition_code: null,
+    condition_name: null,
+    language_code: "EN",
+    language_name: "English",
+    variant_code: "N",
+    variant_name: finish,
+    grader_code: "PSA",
+    grade_min_x10: 100,
+    grade_max_x10: 100,
+    observed_on: "2026-07-06",
+    amount_micros: price * 1_000_000,
+    baseline_1d_on: null,
+    baseline_1d_amount_micros: null,
+    baseline_7d_on: null,
+    baseline_7d_amount_micros: null,
+    baseline_30d_on: null,
+    baseline_30d_amount_micros: null,
+    price_history: JSON.stringify([{ date: "2026-07-06", price }]),
+    change_1d_percent: null,
+    change_7d_percent: null,
+    change_30d_percent: null,
+    ...overrides,
   };
 }
 
@@ -177,6 +295,10 @@ function sku(
 ) {
   return {
     sku_id: 1,
+    series_id: 1,
+    source_code: "tcgplayer",
+    source_record_id: "sku-1",
+    metric_code: "ungraded",
     product_id: productId,
     condition_code: conditionCode,
     condition_name: conditionName,
@@ -184,10 +306,23 @@ function sku(
     language_name: "English",
     variant_code: "N",
     variant_name: "Normal",
+    grader_code: "RAW",
+    grade_min_x10: null,
+    grade_max_x10: null,
+    observed_on: "2026-07-06",
+    amount_micros: currentPrice * 1_000_000,
+    baseline_1d_on: null,
+    baseline_1d_amount_micros: null,
+    baseline_7d_on: null,
+    baseline_7d_amount_micros: null,
+    baseline_30d_on: "2026-06-01",
+    baseline_30d_amount_micros: 10_000_000,
     price_history: JSON.stringify([
       { date: "2026-06-01", price: 10 },
       { date: "2026-07-06", price: currentPrice },
     ]),
-    increase_rate: 12.34,
+    change_1d_percent: null,
+    change_7d_percent: null,
+    change_30d_percent: 12.34,
   };
 }

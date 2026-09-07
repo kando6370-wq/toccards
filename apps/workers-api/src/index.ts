@@ -4,12 +4,17 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { authRoutes } from "./auth/anonymous";
 import { createDataSourceRoutes } from "./data-source/routes";
-import type { Env } from "./env";
+import type { Env, RuntimeEnv } from "./env";
 import { createFeedbackRoutes } from "./feedback/routes";
 import { createLegalRoutes } from "./legal/routes";
 import { createPortfolioRoutes } from "./portfolio/routes";
 import { createScanRoutes } from "./scan/routes";
 import { createCardShareRoutes } from "./card-share/routes";
+import { createEntitlementRoutes } from "./entitlements/routes";
+import { createAppleRestoreRoutes } from "./entitlements/restore-routes";
+import { createAppleNotificationRoutes, retryAppleNotificationInbox } from "./entitlements/apple-notification-routes";
+import { retryAppleServerApiCorrections } from "./entitlements/apple-server-api-correction";
+import { createPostgresDatabase, runWithDatabaseLifecycle } from "./db/postgres-database";
 
 export type { Env } from "./env";
 
@@ -26,7 +31,12 @@ app.use(
   "/api/*",
   cors({
     origin: (origin) => (allowedOrigins.has(origin) ? origin : ""),
-    allowHeaders: ["Authorization", "Content-Type"],
+    allowHeaders: [
+      "Authorization",
+      "Content-Type",
+      "Idempotency-Key",
+      "X-Local-Premium-State",
+    ],
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     maxAge: 86400,
   }),
@@ -43,7 +53,51 @@ api.route("/", createFeedbackRoutes());
 api.route("/", createLegalRoutes());
 api.route("/", createPortfolioRoutes());
 api.route("/", createScanRoutes());
+api.route("/", createEntitlementRoutes());
+api.route("/", createAppleRestoreRoutes());
+api.route("/", createAppleNotificationRoutes());
 
 app.notFound((c) => c.json({ error: "NOT_FOUND" }, 404));
 
-export default app;
+const honoFetch = app.fetch.bind(app);
+
+async function fetch(
+  request: Request,
+  env: RuntimeEnv,
+  ctx?: ExecutionContext,
+): Promise<Response> {
+  if (!env?.HYPERDRIVE) throw new Error("HYPERDRIVE binding is required");
+  if (!ctx) throw new Error("ExecutionContext is required for PostgreSQL requests");
+  const database = createPostgresDatabase(env.HYPERDRIVE.connectionString);
+  const requestEnv = { ...env, DB: database } as Env;
+  return runWithDatabaseLifecycle(database, ctx, (trackedContext) =>
+    Promise.resolve(honoFetch(request, requestEnv, trackedContext)));
+}
+
+function scheduled(
+  _controller: ScheduledController,
+  env: RuntimeEnv,
+  ctx: ExecutionContext,
+): void {
+  if (!env.HYPERDRIVE) throw new Error("HYPERDRIVE binding is required");
+  const database = createPostgresDatabase(env.HYPERDRIVE.connectionString);
+  const scheduledEnv = { ...env, DB: database } as Env;
+  ctx.waitUntil((async () => {
+    try {
+      await runScheduledTasks(scheduledEnv);
+    } finally {
+      await database.close();
+    }
+  })());
+}
+
+async function runScheduledTasks(env: Env): Promise<void> {
+  await retryAppleNotificationInbox(env);
+  await retryAppleServerApiCorrections(env);
+}
+
+export default {
+  fetch,
+  request: app.request.bind(app),
+  scheduled,
+};

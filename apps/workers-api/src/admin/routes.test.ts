@@ -73,15 +73,6 @@ type AppConfigRow = {
   updated_at: string;
 };
 
-type TrendingPinRow = {
-  id: string;
-  card_ref: string;
-  rank: number;
-  active: number;
-  updated_by: string | null;
-  updated_at: string;
-};
-
 type CardOverrideRow = {
   id: string;
   card_ref: string;
@@ -94,6 +85,7 @@ type CardOverrideRow = {
 
 type ScanRecordRow = {
   id: string;
+  environment: "development" | "production";
   owner_type: "anonymous" | "user";
   owner_id: string;
   image_url: string | null;
@@ -142,6 +134,7 @@ type AdminLoginResponse = {
 };
 
 class FakeD1 {
+  preparedSql: string[] = [];
   adminUsers: AdminUserRow[] = [];
   sessions: SessionRow[] = [];
   users: UserRow[] = [];
@@ -150,12 +143,22 @@ class FakeD1 {
   authIdentities: AuthIdentityRow[] = [];
   feedbackTickets: FeedbackTicketRow[] = [];
   appConfigs: AppConfigRow[] = [];
-  trendingPins: TrendingPinRow[] = [];
   cardOverrides: CardOverrideRow[] = [];
   scanRecords: ScanRecordRow[] = [];
 
   prepare(sql: string): FakeD1Statement {
+    const normalizedSql = normalizeSql(sql);
+    this.preparedSql.push(normalizedSql);
+    if (normalizedSql.includes("(? IS NULL")) {
+      throw new Error("PostgreSQL cannot infer an untyped null sentinel");
+    }
     return new FakeD1Statement(this, sql);
+  }
+
+  async batch<T = unknown>(statements: FakeD1Statement[]): Promise<D1Result<T>[]> {
+    const results: D1Result<T>[] = [];
+    for (const statement of statements) results.push(await statement.all<T>());
+    return results;
   }
 }
 
@@ -180,7 +183,7 @@ class FakeD1Statement {
     }
 
     if (sql.startsWith("SELECT COUNT(*) AS total FROM scan_record")) {
-      return { total: this.db.scanRecords.length } as T;
+      return { total: scanRecordResults(this.db, this.values).length } as T;
     }
 
     if (sql.includes("FROM admin_user") && sql.includes("WHERE email = ?")) {
@@ -218,11 +221,6 @@ class FakeD1Statement {
       return (this.db.feedbackTickets.find((row) => row.id === id) ?? null) as T | null;
     }
 
-    if (sql.includes("FROM trending_pin") && sql.includes("WHERE id = ?")) {
-      const [id] = this.values as [string];
-      return (this.db.trendingPins.find((row) => row.id === id) ?? null) as T | null;
-    }
-
     if (sql.includes("FROM card_override") && sql.includes("WHERE id = ?")) {
       const [id] = this.values as [string];
       return (this.db.cardOverrides.find((row) => row.id === id) ?? null) as T | null;
@@ -244,15 +242,47 @@ class FakeD1Statement {
   async all<T = unknown>(): Promise<D1Result<T>> {
     const sql = normalizeSql(this.sql);
 
-    if (sql.includes("AS install_type")) {
-      const installations = this.db.installations.map((row) => ({
-        install_type: "anonymous",
-        uid: row.uid,
-        platform: row.platform,
-        country: row.country_code ?? "Unknown",
-        created_at: row.first_seen_at,
-      }));
-      return okResult<T>(installations as T[]);
+    if (sql.startsWith("SELECT COUNT(*) AS total_installations")) {
+      const installations = installationResults(this.db, this.values);
+      return okResult<T>([{
+        total_installations: installations.length,
+        countries: new Set(installations.map((row) => row.country)).size,
+        platforms: new Set(installations.map((row) => row.platform)).size,
+      }] as T[]);
+    }
+
+    if (sql.includes("COUNT(*) AS total") && sql.includes("GROUP BY substr(first_seen_at, 1, 10)")) {
+      const totals = new Map<string, number>();
+      for (const row of installationResults(this.db, this.values)) {
+        totals.set(row.date, (totals.get(row.date) ?? 0) + 1);
+      }
+      return okResult<T>([...totals.entries()]
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([date, total]) => ({ date, total })) as T[]);
+    }
+
+    if (sql.includes("COUNT(*) AS installs") && sql.includes("LIMIT ? OFFSET ?")) {
+      const groups = new Map<string, {
+        uid: string;
+        date: string;
+        country: string;
+        platform: string;
+        installs: number;
+      }>();
+      for (const row of installationResults(this.db, this.values)) {
+        const key = [row.uid, row.date, row.country, row.platform].join("|");
+        const existing = groups.get(key);
+        if (existing) existing.installs += 1;
+        else groups.set(key, { ...row, installs: 1 });
+      }
+      const pageSize = Number(this.values[8]);
+      const offset = Number(this.values[9]);
+      const rows = [...groups.values()].sort((left, right) =>
+        right.date.localeCompare(left.date) ||
+        left.uid.localeCompare(right.uid) ||
+        left.country.localeCompare(right.country) ||
+        left.platform.localeCompare(right.platform));
+      return okResult<T>(rows.slice(offset, offset + pageSize) as T[]);
     }
 
     if (sql.includes("FROM admin_user")) {
@@ -283,16 +313,15 @@ class FakeD1Statement {
       return okResult<T>(this.db.appConfigs as T[]);
     }
 
-    if (sql.includes("FROM trending_pin")) {
-      return okResult<T>([...this.db.trendingPins].sort((left, right) => left.rank - right.rank) as T[]);
-    }
-
     if (sql.includes("FROM card_override")) {
       return okResult<T>(this.db.cardOverrides as T[]);
     }
 
     if (sql.includes("FROM scan_record")) {
-      return okResult<T>(this.db.scanRecords as T[]);
+      const rows = scanRecordResults(this.db, this.values);
+      const pageSize = Number(this.values[18] ?? rows.length);
+      const offset = Number(this.values[19] ?? 0);
+      return okResult<T>(rows.slice(offset, offset + pageSize) as T[]);
     }
 
     throw new Error(`Unsupported all SQL: ${sql}`);
@@ -394,46 +423,33 @@ class FakeD1Statement {
       return okResult<T>();
     }
 
-    if (sql.startsWith("INSERT INTO trending_pin")) {
-      const [id, cardRef, rank, active, updatedBy, updatedAt] = this.values as [
-        string,
-        string,
-        number,
-        number,
-        string,
-        string,
-      ];
-      this.db.trendingPins.push({
-        id,
-        card_ref: cardRef,
-        rank,
-        active,
-        updated_by: updatedBy,
-        updated_at: updatedAt,
-      });
-      return okResult<T>();
-    }
-
-    if (sql.startsWith("UPDATE trending_pin SET")) {
-      const [rank, active, updatedBy, updatedAt, id] = this.values as [number, number, string, string, string];
-      const row = this.db.trendingPins.find((pin) => pin.id === id);
-      if (row) {
-        row.rank = rank;
-        row.active = active;
-        row.updated_by = updatedBy;
-        row.updated_at = updatedAt;
-      }
-      return okResult<T>(undefined, row ? 1 : 0);
-    }
-
-    if (sql.startsWith("DELETE FROM trending_pin")) {
-      const [id] = this.values as [string];
-      const before = this.db.trendingPins.length;
-      this.db.trendingPins = this.db.trendingPins.filter((row) => row.id !== id);
-      return okResult<T>(undefined, before - this.db.trendingPins.length);
-    }
-
     if (sql.startsWith("INSERT INTO card_override")) {
+      if (sql.includes("ON CONFLICT(card_ref)")) {
+        const [id, cardRef, imageUrl, updatedBy, updatedAt] = this.values as [
+          string,
+          string,
+          string,
+          string,
+          string,
+        ];
+        const row = this.db.cardOverrides.find((override) => override.card_ref === cardRef);
+        if (row) {
+          row.image_url = imageUrl;
+          row.updated_by = updatedBy;
+          row.updated_at = updatedAt;
+        } else {
+          this.db.cardOverrides.push({
+            id,
+            card_ref: cardRef,
+            override_fields: null,
+            image_url: imageUrl,
+            is_missing_card: 0,
+            updated_by: updatedBy,
+            updated_at: updatedAt,
+          });
+        }
+        return okResult<T>();
+      }
       const [id, cardRef, fields, imageUrl, isMissingCard, updatedBy, updatedAt] = this.values as [
         string,
         string,
@@ -488,6 +504,11 @@ class FakeD1Statement {
 
     throw new Error(`Unsupported run SQL: ${sql}`);
   }
+}
+
+function scanRecordResults(db: FakeD1, values: unknown[]): ScanRecordRow[] {
+  const environment = values[6] as string | null | undefined;
+  return db.scanRecords.filter((row) => !environment || row.environment === environment);
 }
 
 describe("admin routes", () => {
@@ -599,6 +620,7 @@ describe("admin routes", () => {
     env.DB.authIdentities.push({ user_id: "UID-GOOGLE-1", provider: "google" });
     env.DB.scanRecords.push({
       id: "scan-user-1", owner_type: "user", owner_id: "UID-GOOGLE-1", image_url: null,
+      environment: "development",
       filename: "card.jpg", platform: "Android", app_version: "2.0.0", device_model: null,
       os_version: null, recognition_status: "success", user_confirmation_status: "confirmed",
       modified_result: 0, system_result: "{}", user_result: "{}", candidates: "[]",
@@ -711,7 +733,7 @@ describe("admin routes", () => {
     );
   });
 
-  it("counts unique installations instead of accounts because account upgrades must not inflate installs", async () => {
+  it("counts unique installations in bounded database queries because upgrades must not inflate installs and Hyperdrive must not return raw installation rows", async () => {
     const env = createTestEnv();
     await seedAdmin(env, "admin-install", "install@example.com", "correct-password", "operator");
     env.DB.users.push(userRow("user-install-1", "one@example.com", "2026-07-07T08:00:00.000Z"));
@@ -728,6 +750,14 @@ describe("admin routes", () => {
       country_code: "US",
       first_seen_at: "2026-07-08T08:00:00.000Z",
       last_seen_at: "2026-07-08T08:00:00.000Z",
+    });
+    env.DB.installations.push({
+      installation_id: "android-device-outside-range",
+      uid: "100124",
+      platform: "Android",
+      country_code: "CA",
+      first_seen_at: "2026-07-09T08:00:00.000Z",
+      last_seen_at: "2026-07-09T08:00:00.000Z",
     });
     const login = await loginAdmin(env, "install@example.com", "correct-password");
 
@@ -761,6 +791,170 @@ describe("admin routes", () => {
         ]),
       }),
     });
+
+    const installationQueries = env.DB.preparedSql.filter((sql) =>
+      sql.includes("FROM app_installation"),
+    );
+    expect(installationQueries).toHaveLength(3);
+    expect(installationQueries).toEqual([
+      expect.stringContaining("COUNT(*) AS total_installations"),
+      expect.stringContaining("GROUP BY substr(first_seen_at, 1, 10)"),
+      expect.stringContaining("LIMIT ? OFFSET ?"),
+    ]);
+    expect(installationQueries.every((sql) => sql.includes(" WHERE "))).toBe(true);
+  });
+
+  it("orders installation detail rows newest first because operators and paginated results must prioritize recent installs", async () => {
+    const env = createTestEnv();
+    await seedAdmin(env, "admin-install-order", "install-order@example.com", "correct-password", "operator");
+    env.DB.installations.push(
+      {
+        installation_id: "install-oldest",
+        uid: "100001",
+        platform: "iOS",
+        country_code: "US",
+        first_seen_at: "2026-07-07T08:00:00.000Z",
+        last_seen_at: "2026-07-07T08:00:00.000Z",
+      },
+      {
+        installation_id: "install-newest",
+        uid: "100003",
+        platform: "Android",
+        country_code: "CA",
+        first_seen_at: "2026-07-09T08:00:00.000Z",
+        last_seen_at: "2026-07-09T08:00:00.000Z",
+      },
+      {
+        installation_id: "install-middle",
+        uid: "100002",
+        platform: "iOS",
+        country_code: "GB",
+        first_seen_at: "2026-07-08T08:00:00.000Z",
+        last_seen_at: "2026-07-08T08:00:00.000Z",
+      },
+    );
+    const login = await loginAdmin(env, "install-order@example.com", "correct-password");
+
+    const response = await requestAdmin(
+      env,
+      "/analytics/installations?page_size=100",
+      "GET",
+      undefined,
+      login.data.access_token,
+    );
+    const body = await response.json() as {
+      data: { rows: Array<{ date: string }> };
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.data.rows.map((row) => row.date)).toEqual([
+      "2026-07-09",
+      "2026-07-08",
+      "2026-07-07",
+    ]);
+    expect(env.DB.preparedSql).toContainEqual(expect.stringContaining(
+      "ORDER BY date DESC, uid ASC, country ASC, platform ASC",
+    ));
+  });
+
+  it("limits grouped installation rows to 100 while keeping full aggregates because response pagination must bound Hyperdrive results", async () => {
+    const env = createTestEnv();
+    await seedAdmin(env, "admin-install-limit", "install-limit@example.com", "correct-password", "operator");
+    env.DB.installations.push(...Array.from({ length: 105 }, (_, index) => ({
+      installation_id: `install-${index}`,
+      uid: String(200000 + index),
+      platform: index % 2 === 0 ? "iOS" : "Android",
+      country_code: index % 3 === 0 ? "US" : "CA",
+      first_seen_at: `2026-07-${String((index % 5) + 1).padStart(2, "0")}T08:00:00.000Z`,
+      last_seen_at: "2026-07-06T08:00:00.000Z",
+    })));
+    const login = await loginAdmin(env, "install-limit@example.com", "correct-password");
+
+    const response = await requestAdmin(
+      env,
+      "/analytics/installations?page_size=500",
+      "GET",
+      undefined,
+      login.data.access_token,
+    );
+    const body = await response.json() as {
+      data: {
+        summary: { total_installations: number };
+        trend: Array<{ total: number }>;
+        rows: unknown[];
+        page_size: number;
+      };
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.data.summary.total_installations).toBe(105);
+    expect(body.data.trend.reduce((total, item) => total + item.total, 0)).toBe(105);
+    expect(body.data.rows).toHaveLength(100);
+    expect(body.data.page_size).toBe(100);
+  });
+
+  it("types every optional Admin filter because PostgreSQL cannot parse standalone null sentinels", async () => {
+    const env = createTestEnv();
+    await seedAdmin(env, "admin-null-filters", "null-filters@example.com", "correct-password", "operator");
+    const login = await loginAdmin(env, "null-filters@example.com", "correct-password");
+
+    const responses = await Promise.all([
+      "/users",
+      "/feedbacks",
+      "/scans",
+      "/permissions",
+      "/card-overrides",
+      "/analytics/installations",
+    ].map((path) => requestAdmin(env, path, "GET", undefined, login.data.access_token)));
+
+    expect(responses.map((response) => response.status)).toEqual([200, 200, 200, 200, 200, 200]);
+  });
+
+  it("adds unique tie-breakers to every Admin offset query because equal timestamps must not move records between pages", async () => {
+    const env = createTestEnv();
+    await seedAdmin(env, "admin-stable-pages", "stable-pages@example.com", "correct-password", "operator");
+    const login = await loginAdmin(env, "stable-pages@example.com", "correct-password");
+
+    await Promise.all([
+      "/users",
+      "/feedbacks",
+      "/scans",
+      "/permissions",
+      "/card-overrides",
+    ].map((path) => requestAdmin(env, path, "GET", undefined, login.data.access_token)));
+
+    const usersSql = env.DB.preparedSql.find((sql) => sql.includes("WITH accounts AS"));
+    const permissionsSql = env.DB.preparedSql.find((sql) =>
+      sql.startsWith("SELECT id, email, password_hash") && sql.includes("LIMIT ? OFFSET ?")
+    );
+    const feedbackSql = env.DB.preparedSql.find((sql) =>
+      sql.startsWith("SELECT id, uid, email, types") && sql.includes("LIMIT ? OFFSET ?")
+    );
+    const scansSql = env.DB.preparedSql.find((sql) =>
+      sql.startsWith("SELECT id, environment, owner_type, owner_id, image_url")
+        && sql.includes("LIMIT ? OFFSET ?")
+    );
+    const overridesSql = env.DB.preparedSql.find((sql) =>
+      sql.startsWith("SELECT id, card_ref, override_fields")
+        && sql.includes("LIMIT ? OFFSET ?")
+    );
+
+    expect(usersSql).toContain(
+      "ORDER BY created_at DESC, account_type ASC, id ASC",
+    );
+    expect(usersSql).toContain(
+      "ORDER BY CASE ai.provider WHEN 'google' THEN 1 WHEN 'apple' THEN 2 ELSE 3 END, ai.id ASC LIMIT 1",
+    );
+    expect(usersSql).toContain(
+      "ORDER BY sr.created_at DESC, sr.id ASC LIMIT 1",
+    );
+    expect(usersSql).toContain(
+      "ORDER BY install.last_seen_at DESC, install.first_seen_at DESC, install.installation_id ASC LIMIT 1",
+    );
+    for (const sql of [permissionsSql, feedbackSql, scansSql]) {
+      expect(sql).toContain("ORDER BY created_at DESC, id ASC");
+    }
+    expect(overridesSql).toContain("ORDER BY updated_at DESC, id ASC");
   });
 
   it("lists scan records with detail fields because support must audit recognition and user confirmation", async () => {
@@ -768,6 +962,7 @@ describe("admin routes", () => {
     await seedAdmin(env, "admin-scan", "scan@example.com", "correct-password", "operator");
     env.DB.scanRecords.push({
       id: "scan-db-1",
+      environment: "development",
       owner_type: "anonymous",
       owner_id: "100284",
       image_url: "scans/anonymous/100284/2026/07/scan-db-1.jpg",
@@ -830,6 +1025,7 @@ describe("admin routes", () => {
         items: [
           expect.objectContaining({
             scan_id: "scan-db-1",
+            environment: "development",
             uid: "100284",
             image_url: "/scans/scan-db-1/image",
             recognition_status: "success",
@@ -844,6 +1040,7 @@ describe("admin routes", () => {
       success: true,
       data: expect.objectContaining({
         scan_id: scanId,
+        environment: "development",
         system_result: expect.objectContaining({ name: "Bushi Tenderfoot", confidence: 86.2 }),
         user_result: expect.objectContaining({ added_to_inventory: expect.any(Boolean) }),
         candidates: [
@@ -950,32 +1147,58 @@ describe("admin routes", () => {
     });
   });
 
-  it("guards destructive ops while still allowing card and trending maintenance", async () => {
+  it("returns 404 for every removed Trending Pin endpoint because the obsolete API must stay retired", async () => {
     const env = createTestEnv();
     await seedAdmin(env, "operator-3", "card-ops@example.com", "correct-password", "operator");
-    await seedAdmin(env, "super-2", "card-super@example.com", "correct-password", "super_admin");
     const operatorLogin = await loginAdmin(env, "card-ops@example.com", "correct-password");
+
+    const responses = await Promise.all([
+      requestAdmin(env, "/trending-pins", "GET", undefined, operatorLogin.data.access_token),
+      requestAdmin(
+        env,
+        "/trending-pins",
+        "POST",
+        { card_ref: "card-1", rank: 1, active: true },
+        operatorLogin.data.access_token,
+      ),
+      requestAdmin(
+        env,
+        "/trending-pins/deprecated",
+        "PATCH",
+        { rank: 2, active: false },
+        operatorLogin.data.access_token,
+      ),
+      requestAdmin(
+        env,
+        "/trending-pins/deprecated",
+        "DELETE",
+        undefined,
+        operatorLogin.data.access_token,
+      ),
+    ]);
+
+    expect(responses.map((response) => response.status)).toEqual([404, 404, 404, 404]);
+  });
+
+  it("guards destructive Card Override operations while still allowing card maintenance", async () => {
+    const env = createTestEnv();
+    await seedAdmin(env, "operator-4", "override-ops@example.com", "correct-password", "operator");
+    await seedAdmin(env, "super-2", "card-super@example.com", "correct-password", "super_admin");
+    const operatorLogin = await loginAdmin(env, "override-ops@example.com", "correct-password");
     const superLogin = await loginAdmin(env, "card-super@example.com", "correct-password");
 
-    const createPinResponse = await requestAdmin(
-      env,
-      "/trending-pins",
-      "POST",
-      { card_ref: "card-1", rank: 1, active: true },
-      operatorLogin.data.access_token,
-    );
-    const operatorDeletePinResponse = await requestAdmin(
-      env,
-      `/trending-pins/${env.DB.trendingPins[0]?.id}`,
-      "DELETE",
-      undefined,
-      operatorLogin.data.access_token,
-    );
     const imageResponse = await requestAdmin(
       env,
       "/card-overrides/image-upload",
       "POST",
       { card_ref: "card-2", image_url: "https://example.com/card.jpg" },
+      operatorLogin.data.access_token,
+    );
+    const operatorDeleteOverrideResponse = await requestAdmin(
+      env,
+      `/card-overrides/${env.DB.cardOverrides[0]?.id}`,
+      "DELETE",
+      undefined,
       operatorLogin.data.access_token,
     );
     const superDeleteOverrideResponse = await requestAdmin(
@@ -986,12 +1209,133 @@ describe("admin routes", () => {
       superLogin.data.access_token,
     );
 
-    expect(createPinResponse.status).toBe(200);
-    expect(operatorDeletePinResponse.status).toBe(403);
     expect(imageResponse.status).toBe(200);
+    expect(operatorDeleteOverrideResponse.status).toBe(403);
     expect(superDeleteOverrideResponse.status).toBe(200);
-    expect(env.DB.trendingPins).toHaveLength(1);
     expect(env.DB.cardOverrides).toHaveLength(0);
+  });
+
+  it("upserts overlapping first image uploads because card_ref has one durable override row", async () => {
+    const env = createTestEnv();
+    await seedAdmin(env, "operator-image", "image-ops@example.com", "correct-password", "operator");
+    const login = await loginAdmin(env, "image-ops@example.com", "correct-password");
+
+    const responses = await Promise.all([
+      requestAdmin(
+        env,
+        "/card-overrides/image-upload",
+        "POST",
+        { card_ref: "card-concurrent", image_url: "https://example.com/first.jpg" },
+        login.data.access_token,
+      ),
+      requestAdmin(
+        env,
+        "/card-overrides/image-upload",
+        "POST",
+        { card_ref: "card-concurrent", image_url: "https://example.com/second.jpg" },
+        login.data.access_token,
+      ),
+    ]);
+
+    expect(responses.map((response) => response.status)).toEqual([200, 200]);
+    expect(env.DB.cardOverrides).toHaveLength(1);
+    expect(env.DB.cardOverrides[0]).toMatchObject({
+      card_ref: "card-concurrent",
+      override_fields: null,
+      is_missing_card: 0,
+      image_url: expect.stringMatching(/first|second/),
+    });
+  });
+
+  it("filters scan records by persisted environment because shared PostgreSQL contains multiple app environments", async () => {
+    const env = createTestEnv();
+    await seedAdmin(env, "admin-scan-env", "scan-env@example.com", "correct-password", "operator");
+    const base = {
+      owner_type: "anonymous" as const,
+      owner_id: "100284",
+      image_url: null,
+      filename: "scan.jpg",
+      platform: "iOS",
+      app_version: "1.0.0",
+      device_model: null,
+      os_version: null,
+      recognition_status: "success",
+      user_confirmation_status: "confirmed",
+      modified_result: 0,
+      system_result: "{}",
+      user_result: "{}",
+      candidates: "[]",
+      created_at: "2026-07-10T09:00:00.000Z",
+    };
+    env.DB.scanRecords.push(
+      { ...base, id: "scan-development", environment: "development" },
+      { ...base, id: "scan-production", environment: "production" },
+    );
+    const login = await loginAdmin(env, "scan-env@example.com", "correct-password");
+
+    const response = await requestAdmin(
+      env,
+      "/scans?environment=production",
+      "GET",
+      undefined,
+      login.data.access_token,
+    );
+    const body = await response.json() as {
+      success: boolean;
+      data?: { items: Array<{ scan_id: string; environment: string }>; total: number };
+    };
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      success: true,
+      data: expect.objectContaining({
+        total: 1,
+        items: [expect.objectContaining({ scan_id: "scan-production", environment: "production" })],
+      }),
+    });
+
+    const invalid = await requestAdmin(
+      env,
+      "/scans?environment=staging",
+      "GET",
+      undefined,
+      login.data.access_token,
+    );
+    expect(invalid.status).toBe(422);
+  });
+
+  it("updates only image metadata on upload because editorial override fields and row identity must survive", async () => {
+    const env = createTestEnv();
+    await seedAdmin(env, "operator-preserve", "preserve@example.com", "correct-password", "operator");
+    const login = await loginAdmin(env, "preserve@example.com", "correct-password");
+    env.DB.cardOverrides.push({
+      id: "override-existing",
+      card_ref: "card-existing",
+      override_fields: JSON.stringify({ name: "Editorial Name" }),
+      image_url: "https://example.com/old.jpg",
+      is_missing_card: 1,
+      updated_by: "previous-admin",
+      updated_at: "2026-08-17T00:00:00.000Z",
+    });
+
+    const response = await requestAdmin(
+      env,
+      "/card-overrides/image-upload",
+      "POST",
+      { card_ref: "card-existing", image_url: "https://example.com/new.jpg" },
+      login.data.access_token,
+    );
+
+    expect(response.status).toBe(200);
+    expect(env.DB.cardOverrides).toEqual([
+      expect.objectContaining({
+        id: "override-existing",
+        card_ref: "card-existing",
+        override_fields: JSON.stringify({ name: "Editorial Name" }),
+        image_url: "https://example.com/new.jpg",
+        is_missing_card: 1,
+      }),
+    ]);
   });
 });
 
@@ -1077,11 +1421,18 @@ function adminUserResults(db: FakeD1, values: unknown[]) {
   const latestPlatform = (accountType: "user" | "anonymous", id: string) =>
     [...db.scanRecords]
       .filter((row) => row.owner_type === accountType && row.owner_id === id)
-      .sort((left, right) => right.created_at.localeCompare(left.created_at))[0]?.platform ?? "Unknown";
+      .sort((left, right) =>
+        right.created_at.localeCompare(left.created_at)
+        || left.id.localeCompare(right.id)
+      )[0]?.platform ?? "Unknown";
   const latestCountry = (id: string) =>
     [...db.installations]
       .filter((row) => row.uid === id && row.country_code?.trim())
-      .sort((left, right) => right.last_seen_at.localeCompare(left.last_seen_at))[0]?.country_code ?? "Unknown";
+      .sort((left, right) =>
+        right.last_seen_at.localeCompare(left.last_seen_at)
+        || right.first_seen_at.localeCompare(left.first_seen_at)
+        || left.installation_id.localeCompare(right.installation_id)
+      )[0]?.country_code ?? "Unknown";
   const formalUsers = db.users.map((row) => ({
     account_type: "user" as const,
     id: row.id,
@@ -1117,7 +1468,22 @@ function adminUserResults(db: FakeD1, values: unknown[]) {
 }
 
 function normalizeSql(sql: string): string {
-  return sql.replace(/\s+/g, " ").trim();
+  return sql.replaceAll('"user"', "user").replace(/\s+/g, " ").trim();
+}
+
+function installationResults(db: FakeD1, values: unknown[]) {
+  const [dateFrom, , dateTo, , platform, , country] = values as Array<string | null>;
+  return db.installations
+    .map((row) => ({
+      uid: row.uid,
+      date: row.first_seen_at.slice(0, 10),
+      country: row.country_code || "Unknown",
+      platform: row.platform || "Unknown",
+    }))
+    .filter((row) => !dateFrom || row.date >= dateFrom)
+    .filter((row) => !dateTo || row.date <= dateTo)
+    .filter((row) => !platform || row.platform.toLowerCase() === platform)
+    .filter((row) => !country || row.country.toLowerCase() === country);
 }
 
 function okResult<T>(results: T[] = [], changes = 1): D1Result<T> {

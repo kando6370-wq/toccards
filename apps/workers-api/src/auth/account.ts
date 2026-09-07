@@ -84,7 +84,7 @@ const SELECT_ACCOUNT_ANONYMOUS_OWNER_SQL = `
 
 const SELECT_ACCOUNT_USER_OWNER_SQL = `
   SELECT id
-  FROM user
+  FROM "user"
   WHERE id = ? AND status = 'active'
   LIMIT 1
 `;
@@ -97,7 +97,7 @@ const SELECT_ANONYMOUS_ACCOUNT_FOR_MIGRATION_SQL = `
 `;
 
 const UPDATE_USER_DELETED_SQL = `
-  UPDATE user
+  UPDATE "user"
   SET status = 'deleted', deleted_at = ?, updated_at = ?
   WHERE id = ? AND status = 'active'
 `;

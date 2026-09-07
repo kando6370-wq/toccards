@@ -11,8 +11,12 @@ import '../auth/auth_models.dart';
 import '../auth/auth_repository.dart';
 import '../auth/ui/auth_sheet.dart';
 import '../app_upgrade/app_upgrade_repository.dart';
+import '../subscription/subscription_controller.dart';
+import '../subscription/subscription_entitlement_cache.dart';
+import '../subscription/premium_top_entry.dart';
 import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
+import '../../shared/ui/subscription_restore_result.dart';
 import '../../shared/ui/toast.dart';
 import 'account_page.dart';
 import 'profile_actions.dart';
@@ -31,34 +35,74 @@ class ProfilePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authControllerProvider);
+    final subscription = ref.watch(subscriptionControllerProvider);
 
-    return KandoTabScaffold(
-      currentTab: KandoMainTab.profile,
-      body: SafeArea(
-        bottom: false,
-        child: authState.isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : authState.hasError
-            ? KandoFailureBlock(
-                onRefresh: () {
-                  ref
-                      .read(analyticsProvider)
-                      .track(AnalyticsEvent.refreshClick);
-                  ref.read(authControllerProvider.notifier).retryStartup();
-                },
-              )
-            : _ProfileContent(
-                authState: authState,
-                onRefresh: () async {
-                  ref
-                      .read(analyticsProvider)
-                      .track(AnalyticsEvent.refreshClick);
-                  ref.invalidate(profileVersionProvider);
-                  await ref
-                      .read(authControllerProvider.notifier)
-                      .retryStartup();
-                },
+    return PopScope(
+      canPop: !subscription.isRestoring,
+      child: Stack(
+        children: [
+          AbsorbPointer(
+            absorbing: subscription.isRestoring,
+            child: KandoTabScaffold(
+              currentTab: KandoMainTab.profile,
+              body: SafeArea(
+                bottom: false,
+                child: Column(
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        20,
+                        KandoLayout.mainTabTopPadding,
+                        20,
+                        0,
+                      ),
+                      child: PremiumPageHeader(
+                        title: 'Profile',
+                        source: 'profile',
+                      ),
+                    ),
+                    Expanded(
+                      child: authState.isLoading
+                          ? const Center(child: CircularProgressIndicator())
+                          : authState.hasError
+                          ? KandoFailureBlock(
+                              onRefresh: () {
+                                ref
+                                    .read(analyticsProvider)
+                                    .track(AnalyticsEvent.refreshClick);
+                                ref
+                                    .read(authControllerProvider.notifier)
+                                    .retryStartup();
+                              },
+                            )
+                          : _ProfileContent(
+                              authState: authState,
+                              onRefresh: () async {
+                                ref
+                                    .read(analyticsProvider)
+                                    .track(AnalyticsEvent.refreshClick);
+                                ref.invalidate(profileVersionProvider);
+                                await ref
+                                    .read(authControllerProvider.notifier)
+                                    .retryStartup();
+                              },
+                            ),
+                    ),
+                  ],
+                ),
               ),
+            ),
+          ),
+          if (subscription.isRestoring)
+            const Positioned.fill(
+              child: ColoredBox(
+                color: Color(0x99000000),
+                child: Center(
+                  child: CircularProgressIndicator(color: KandoColors.accent),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -82,6 +126,43 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
   @override
   Widget build(BuildContext context) {
     final session = widget.authState.session;
+    final subscription = ref.watch(subscriptionControllerProvider);
+    ref.listen(subscriptionControllerProvider, (previous, next) {
+      if (next.resultEventCount != previous?.resultEventCount &&
+          next.restoreSource == SubscriptionRestoreSource.profile &&
+          context.mounted) {
+        switch (next.resultEvent) {
+          case SubscriptionResultEvent.restoreSuccess:
+            showSubscriptionRestoreResult(
+              context,
+              type: SubscriptionRestoreResultType.premiumRestored,
+            );
+          case SubscriptionResultEvent.restoreNotFound:
+            showSubscriptionRestoreResult(
+              context,
+              type: SubscriptionRestoreResultType.notFound,
+            );
+          case SubscriptionResultEvent.restoreFailed:
+            showSubscriptionRestoreResult(
+              context,
+              type: SubscriptionRestoreResultType.failed,
+            );
+          case SubscriptionResultEvent.purchaseSuccess ||
+              SubscriptionResultEvent.externalPremium ||
+              null:
+            break;
+        }
+      }
+      if (next.errorMessage != null &&
+          next.errorMessage != previous?.errorMessage &&
+          context.mounted) {
+        showKandoTopToast(
+          context,
+          message: next.errorMessage!,
+          type: KandoTopToastType.failure,
+        );
+      }
+    });
     final isUser = session?.ownerType == OwnerType.user;
     final emailText = session?.email ?? 'Unknown email';
     final userIdText = session?.userId ?? 'Unknown user';
@@ -94,8 +175,8 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
         );
 
     return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 390),
+      child: SizedBox(
+        width: double.infinity,
         child: RefreshIndicator(
           key: const Key('profile-pull-to-refresh'),
           onRefresh: widget.onRefresh,
@@ -109,6 +190,17 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
               96,
             ),
             children: [
+              if (subscription.premiumState == AppPremiumState.free) ...[
+                _UpgradeBanner(
+                  onTap: () => context.push(
+                    subscriptionPageLocation(
+                      source: 'profile',
+                      entrySource: 'profile_banner',
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
               _SectionLabel('Account'),
               if (isUser)
                 _MenuCard(
@@ -130,6 +222,23 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
                     ),
                   ],
                 ),
+              const SizedBox(height: 24),
+              _SectionLabel('Subscribe'),
+              _MenuCard(
+                children: [
+                  _MenuRow(
+                    icon: Icons.restore,
+                    label: 'Restore',
+                    onTap: subscription.isLoading
+                        ? null
+                        : () => ref
+                              .read(subscriptionControllerProvider.notifier)
+                              .restore(
+                                source: SubscriptionRestoreSource.profile,
+                              ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 24),
               _SectionLabel('Support'),
               _MenuCard(
@@ -272,7 +381,11 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
     if (authorized == true) {
       context.push('/profile/api-requests');
     } else if (authorized == false) {
-      showKandoToast(context, message: 'Invalid code.');
+      showKandoTopToast(
+        context,
+        message: 'Invalid code.',
+        type: KandoTopToastType.failure,
+      );
     }
   }
 
@@ -293,7 +406,11 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
       await action();
     } on Exception {
       if (context.mounted) {
-        showKandoToast(context, message: profileActionFailureText);
+        showKandoTopToast(
+          context,
+          message: profileActionFailureText,
+          type: KandoTopToastType.failure,
+        );
       }
     }
   }
@@ -308,7 +425,11 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
       await ref.read(authControllerProvider.notifier).deleteAccount();
     } on Exception {
       if (context.mounted) {
-        showKandoToast(context, message: authAccountActionFailedMessage);
+        showKandoTopToast(
+          context,
+          message: authAccountActionFailedMessage,
+          type: KandoTopToastType.failure,
+        );
       }
     }
   }
@@ -321,13 +442,124 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
       }
     } on AuthNetworkException {
       if (context.mounted) {
-        showKandoNetworkToast(context);
+        showKandoTopNetworkToast(context);
       }
     } on Exception {
       if (context.mounted) {
-        showKandoFailureToast(context);
+        showKandoTopFailureToast(context);
       }
     }
+  }
+}
+
+class _UpgradeBanner extends StatelessWidget {
+  const _UpgradeBanner({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      key: const Key('profile-upgrade-banner'),
+      width: double.infinity,
+      height: 152,
+      child: Semantics(
+        button: true,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: KandoColors.accent.withValues(alpha: 0.2),
+              ),
+              gradient: const LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [Color(0xFF1C1E15), Color(0xFF2A341C)],
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: Transform(
+                      alignment: Alignment.centerRight,
+                      transform: Matrix4.diagonal3Values(1.07, 1.067, 1),
+                      child: Image.asset(
+                        'assets/profile/upgrade_to_pro.png',
+                        fit: BoxFit.fill,
+                      ),
+                    ),
+                  ),
+                  const Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Color(0x005C6600), Color(0x45CCCC00)],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const Positioned(
+                    left: 25,
+                    top: 25,
+                    child: Text(
+                      'Upgrade to Pro',
+                      style: TextStyle(
+                        color: Color(0xFFE3E3D6),
+                        fontFamily: 'Fraunces',
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        height: 26 / 20,
+                      ),
+                    ),
+                  ),
+                  const Positioned(
+                    left: 25,
+                    top: 55,
+                    width: 155,
+                    child: Text(
+                      'Unlock the full potential of your collection.',
+                      style: TextStyle(
+                        color: KandoColors.mutedText,
+                        fontSize: 11,
+                        height: 14 / 11,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 25,
+                    bottom: 25,
+                    child: Container(
+                      width: 152,
+                      height: 36,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: KandoColors.accent,
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: const Text(
+                        'Upgrade Now',
+                        style: TextStyle(
+                          color: KandoColors.primaryOnDefault,
+                          fontSize: 13,
+                          height: 16 / 13,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

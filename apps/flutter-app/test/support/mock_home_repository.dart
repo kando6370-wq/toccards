@@ -1,5 +1,6 @@
 import 'package:kando_app/features/home/home_models.dart';
 import 'package:kando_app/features/home/home_repository.dart';
+import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 
 class MockHomeRepository implements HomeRepository {
   const MockHomeRepository();
@@ -17,6 +18,8 @@ const mockHomeDashboard = HomeDashboard(
   portfoliosByFolderId: {
     'main': PortfolioSummary(
       folderId: 'main',
+      itemCount: 3,
+      marketPriceStatus: MarketPriceStatus.available,
       totalValueUsd: 12450.8,
       previous30dValueUsd: 12030.8,
       chartValuesByRange: {
@@ -75,6 +78,8 @@ const mockHomeDashboard = HomeDashboard(
     ),
     'sealed': PortfolioSummary(
       folderId: 'sealed',
+      itemCount: 1,
+      marketPriceStatus: MarketPriceStatus.available,
       totalValueUsd: 8640,
       previous30dValueUsd: 8330,
       chartValuesByRange: {
@@ -117,6 +122,8 @@ const mockHomeDashboard = HomeDashboard(
     ),
     'empty': PortfolioSummary(
       folderId: 'empty',
+      itemCount: 0,
+      marketPriceStatus: MarketPriceStatus.missing,
       totalValueUsd: 0,
       previous30dValueUsd: 0,
       chartValuesByRange: {
@@ -150,6 +157,7 @@ const mockHomeDashboard = HomeDashboard(
         subtitle: '#95 • Diamond & Pearl',
         priceUsd: 10000000.12,
         previousPriceUsd: 9690000.12,
+        increasePercent: 3.2,
         imageAssetPath: 'assets/home/mega_lucario_ex.png',
       ),
       HomeCardHighlight(
@@ -157,6 +165,7 @@ const mockHomeDashboard = HomeDashboard(
         subtitle: '#95 · Diamond & Pearl',
         priceUsd: 9999000.12,
         previousPriceUsd: 9690000.12,
+        increasePercent: 3.19,
         imageAssetPath: 'assets/home/mega_lucario_ex.png',
       ),
       HomeCardHighlight(
@@ -164,6 +173,7 @@ const mockHomeDashboard = HomeDashboard(
         subtitle: '#95 · Diamond & Pearl',
         priceUsd: 9998000.12,
         previousPriceUsd: 9690000.12,
+        increasePercent: 3.18,
         imageAssetPath: 'assets/home/mega_lucario_ex.png',
       ),
     ],
@@ -173,6 +183,7 @@ const mockHomeDashboard = HomeDashboard(
         subtitle: 'Sealed • 36 Packs',
         priceUsd: 620,
         previousPriceUsd: 588.24,
+        increasePercent: 5.4,
         imageAssetPath: 'assets/home/mega_lucario_ex.png',
       ),
     ],

@@ -4,6 +4,7 @@ import type {
   CardObjectType,
   CardSearchResult,
   DataSourceAdapter,
+  PriceSeriesRequest,
   SetSearchResult,
 } from "./adapter";
 import {
@@ -17,6 +18,11 @@ import {
   loadUsdExchangeRates,
 } from "./exchange-rates";
 import { cardImageUrl, type CardImageVariant } from "../card-image-url";
+import { authenticateOwner } from "../owner-auth";
+import {
+  LOCAL_PREMIUM_STATE_HEADER,
+  resolvePremiumAccess,
+} from "../entitlements/premium-access";
 
 type DataSourceRoutesOptions = {
   createAdapter?: (env: Env) => DataSourceAdapter;
@@ -33,13 +39,7 @@ export type CardResponse = CardSearchResult & {
   override_applied: boolean;
 };
 
-type PriceSeriesBatchRequest = {
-  grader: string;
-  grade: number | null;
-  condition: string | null;
-  days: number;
-  finish: string | null;
-};
+type PriceSeriesBatchRequest = PriceSeriesRequest;
 
 const SELECT_CARD_OVERRIDE_SQL = `
 SELECT card_ref, override_fields, image_url, is_missing_card
@@ -61,6 +61,29 @@ const NOT_FOUND_RESPONSE = {
   error: {
     code: "NOT_FOUND",
     message: "Not found.",
+  },
+} as const;
+
+const UNAUTHORIZED_RESPONSE = {
+  success: false,
+  error: { code: "UNAUTHORIZED", message: "Unauthorized." },
+} as const;
+
+const INTERNAL_ERROR_RESPONSE = {
+  success: false,
+  error: { code: "INTERNAL_ERROR", message: "Internal server error." },
+} as const;
+
+const PREMIUM_REQUIRED_RESPONSE = {
+  success: false,
+  error: { code: "PREMIUM_REQUIRED", message: "Premium is required." },
+} as const;
+
+const ENTITLEMENT_SYNC_REQUIRED_RESPONSE = {
+  success: false,
+  error: {
+    code: "ENTITLEMENT_SYNC_REQUIRED",
+    message: "Premium access is still syncing.",
   },
 } as const;
 
@@ -119,16 +142,14 @@ export function createDataSourceRoutes(
     const page = positiveIntegerOrDefault(c.req.query("page"), 1);
     const pageSize = positiveIntegerOrDefault(c.req.query("page_size"), 40, 100);
     const adapter = createAdapter(c.env);
-    const items = await listOrEmpty(() =>
-      adapter.searchCards(query, {
-        object_type: "tcg",
-        game,
-        set_id: setId,
-        set_code: setCode,
-        page,
-        page_size: pageSize,
-      }),
-    );
+    const items = await adapter.searchCards(query, {
+      object_type: "tcg",
+      game,
+      set_id: setId,
+      set_code: setCode,
+      page,
+      page_size: pageSize,
+    });
 
     const responseItems = items.map((item) =>
       withCardImageUrl(item, "list"),
@@ -167,9 +188,7 @@ export function createDataSourceRoutes(
     const page = positiveIntegerOrDefault(c.req.query("page"), 1);
     const pageSize = positiveIntegerOrDefault(c.req.query("page_size"), 20, 1000);
     const adapter = createAdapter(c.env);
-    const sets = await listOrEmpty(() =>
-      adapter.searchSets(query, { game, page, page_size: pageSize }),
-    );
+    const sets = await adapter.searchSets(query, { game, page, page_size: pageSize });
     const items = sets.map(withCardSetImageUrl);
 
     return c.json({
@@ -223,15 +242,19 @@ export function createDataSourceRoutes(
     const adapter = createAdapter(c.env);
     const finish = nullableString(c.req.query("finish"));
     const language = nullableString(c.req.query("language"));
-    const prices = await listOrEmpty(() =>
-      adapter.getMarketPrices(cardRef, finish, language),
-    );
+    const prices = await adapter.getMarketPrices(cardRef, finish, language);
 
     return c.json({
       success: true,
       data: {
         card_ref: cardRef,
-        prices: prices.map((price) => ({ ...price, currency: "USD" })),
+        prices: prices.map((price) => ({
+          ...price,
+          ...(price.history
+            ? { history: priceHistoryWithinDays(price.history, 90) }
+            : {}),
+          currency: "USD",
+        })),
         updated_at: new Date().toISOString(),
       },
     });
@@ -243,11 +266,31 @@ export function createDataSourceRoutes(
     const grader = c.req.query("grader")?.trim() || "Raw";
     const grade = nullableNumber(c.req.query("grade"));
     const condition = nullableString(c.req.query("condition"));
-    const days = positiveIntegerOrDefault(c.req.query("days"), 30);
+    const days = positiveIntegerOrDefault(c.req.query("days"), 30, 365);
+    if (days > 90) {
+      const denied = await extendedPriceHistoryDenial(
+        c.env,
+        c.req.header("Authorization"),
+        c.req.header(LOCAL_PREMIUM_STATE_HEADER),
+      );
+      if (denied === "internal_error") return c.json(INTERNAL_ERROR_RESPONSE, 500);
+      if (denied === "unauthorized") return c.json(UNAUTHORIZED_RESPONSE, 401);
+      if (denied === "sync_required") {
+        return c.json(ENTITLEMENT_SYNC_REQUIRED_RESPONSE, 409);
+      }
+      if (denied === "premium_required") {
+        return c.json(PREMIUM_REQUIRED_RESPONSE, 403);
+      }
+    }
     const finish = nullableString(c.req.query("finish"));
     const adapter = createAdapter(c.env);
-    const series = await listOrEmpty(() =>
-      adapter.getPriceSeries(cardRef, grader, grade, condition, days, finish),
+    const series = await adapter.getPriceSeries(
+      cardRef,
+      grader,
+      grade,
+      condition,
+      days,
+      finish,
     );
 
     return c.json({
@@ -272,22 +315,29 @@ export function createDataSourceRoutes(
     if (!requests) {
       return c.json(VALIDATION_ERROR_RESPONSE, 422);
     }
+    if (requests.some((request) => request.days > 90)) {
+      const denied = await extendedPriceHistoryDenial(
+        c.env,
+        c.req.header("Authorization"),
+        c.req.header(LOCAL_PREMIUM_STATE_HEADER),
+      );
+      if (denied === "internal_error") return c.json(INTERNAL_ERROR_RESPONSE, 500);
+      if (denied === "unauthorized") return c.json(UNAUTHORIZED_RESPONSE, 401);
+      if (denied === "sync_required") {
+        return c.json(ENTITLEMENT_SYNC_REQUIRED_RESPONSE, 409);
+      }
+      if (denied === "premium_required") {
+        return c.json(PREMIUM_REQUIRED_RESPONSE, 403);
+      }
+    }
     const adapter = createAdapter(c.env);
-    const results = await Promise.all(
-      requests.map(async (request) => ({
-        ...request,
-        series: await listOrEmpty(() =>
-          adapter.getPriceSeries(
-            cardRef,
-            request.grader,
-            request.grade,
-            request.condition,
-            request.days,
-            request.finish,
-          ),
-        ),
-      })),
-    );
+    const series = adapter.getPriceSeriesBatch
+      ? await adapter.getPriceSeriesBatch(cardRef, requests)
+      : await loadPriceSeriesSequentially(adapter, cardRef, requests);
+    const results = requests.map((request, index) => ({
+      ...request,
+      series: series[index] ?? [],
+    }));
 
     return c.json({ success: true, data: { card_ref: cardRef, results } });
   });
@@ -296,7 +346,7 @@ export function createDataSourceRoutes(
     c.header("Cache-Control", "no-store");
     const cardRef = cardRefParam(c.req.param("card_ref"));
     const adapter = createAdapter(c.env);
-    const items = await listOrEmpty(() => adapter.getSoldListings(cardRef));
+    const items = await adapter.getSoldListings(cardRef);
 
     return c.json({
       success: true,
@@ -359,6 +409,59 @@ export function createDataSourceRoutes(
   return routes;
 }
 
+async function loadPriceSeriesSequentially(
+  adapter: DataSourceAdapter,
+  cardRef: string,
+  requests: PriceSeriesBatchRequest[],
+): Promise<Array<Array<{ date: string; price: number }>>> {
+  const results: Array<Array<{ date: string; price: number }>> = [];
+  for (const request of requests) {
+    results.push(await adapter.getPriceSeries(
+      cardRef,
+      request.grader,
+      request.grade,
+      request.condition,
+      request.days,
+      request.finish,
+    ));
+  }
+  return results;
+}
+
+async function extendedPriceHistoryDenial(
+  env: Env,
+  authorization: string | undefined,
+  localPremiumState: string | undefined,
+): Promise<
+  "allowed" | "unauthorized" | "internal_error" | "sync_required" | "premium_required"
+> {
+  const auth = await authenticateOwner(env, authorization);
+  if (auth.status !== "ok") return auth.status;
+  const access = await resolvePremiumAccess(
+    env,
+    auth.owner.session_id,
+    localPremiumState,
+  );
+  if (access === "premium") return "allowed";
+  return access === "sync_required" ? "sync_required" : "premium_required";
+}
+
+function priceHistoryWithinDays(
+  points: { date: string; price: number }[],
+  days: number,
+): { date: string; price: number }[] {
+  const sorted = [...points].sort((left, right) => left.date.localeCompare(right.date));
+  const latest = sorted.at(-1);
+  if (!latest) return [];
+  const latestAt = Date.parse(latest.date);
+  if (!Number.isFinite(latestAt)) return sorted;
+  const cutoff = latestAt - days * 24 * 60 * 60 * 1000;
+  return sorted.filter((point) => {
+    const pointAt = Date.parse(point.date);
+    return Number.isFinite(pointAt) && pointAt >= cutoff;
+  });
+}
+
 export function createDefaultAdapter(env: Env): DataSourceAdapter {
   const kvCached = createKvCachedDataSourceAdapter(
     createLocalDbDataSourceAdapter(env.DB),
@@ -379,27 +482,14 @@ function runtimeDefaultCache(): DataSourceCache | null {
   return runtime.caches?.default ?? null;
 }
 
-async function listOrEmpty<T>(load: () => Promise<T[]>): Promise<T[]> {
-  try {
-    return await load();
-  } catch (error) {
-    console.error("Data source list request failed.", error);
-    return [];
-  }
-}
-
 async function findCardOverride(
   db: D1Database,
   cardRef: string,
 ): Promise<CardOverrideRow | null> {
-  try {
-    return await db
-      .prepare(SELECT_CARD_OVERRIDE_SQL)
-      .bind(cardRef)
-      .first<CardOverrideRow>();
-  } catch {
-    return null;
-  }
+  return db
+    .prepare(SELECT_CARD_OVERRIDE_SQL)
+    .bind(cardRef)
+    .first<CardOverrideRow>();
 }
 
 async function findCardOverrides(
@@ -409,36 +499,21 @@ async function findCardOverrides(
   const overrides = new Map<string, CardOverrideRow>();
   if (cardRefs.length === 0) return overrides;
 
-  try {
-    const placeholders = cardRefs.map(() => "?").join(", ");
-    const results = await db
-      .prepare(
-        `SELECT card_ref, override_fields, image_url, is_missing_card
+  const placeholders = cardRefs.map(() => "?").join(", ");
+  const results = await db
+    .prepare(
+      `SELECT card_ref, override_fields, image_url, is_missing_card
 FROM card_override
 WHERE card_ref IN (${placeholders})`,
-      )
-      .bind(...cardRefs)
-      .all<CardOverrideRow>();
+    )
+    .bind(...cardRefs)
+    .all<CardOverrideRow>();
 
-    for (const override of results.results ?? []) {
-      overrides.set(override.card_ref, override);
-    }
-  } catch {
-    // Overrides are optional corrections; catalog data remains usable without them.
+  for (const override of results.results ?? []) {
+    overrides.set(override.card_ref, override);
   }
 
   return overrides;
-}
-
-async function getCardOrNull(
-  adapter: DataSourceAdapter,
-  cardRef: string,
-): Promise<CardSearchResult | null> {
-  try {
-    return await adapter.getCard(cardRef);
-  } catch {
-    return null;
-  }
 }
 
 export async function resolveCard(
@@ -456,7 +531,7 @@ export async function resolveCard(
     }
   }
 
-  const card = await getCardOrNull(adapter, cardRef);
+  const card = await adapter.getCard(cardRef);
   return applyCardOverride(card, override, cardRef);
 }
 
@@ -656,7 +731,7 @@ function parsePriceSeriesBatch(value: unknown): PriceSeriesBatchRequest[] | null
       typeof days !== "number" ||
       !Number.isInteger(days) ||
       days < 1 ||
-      days > 3650
+      days > 365
     ) {
       return null;
     }

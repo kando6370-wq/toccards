@@ -144,6 +144,7 @@ class MockCollectionRepository implements CollectionRepository {
   Future<CollectionFolder> createFolder(
     AuthSession session,
     String name,
+    {bool localPremiumVerified = false}
   ) async {
     return CollectionFolder(
       id: 'folder-${name.toLowerCase().replaceAll(' ', '-')}',

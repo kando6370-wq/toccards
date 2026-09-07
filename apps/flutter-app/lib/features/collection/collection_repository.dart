@@ -7,7 +7,11 @@ import 'collection_models.dart';
 
 abstract interface class CollectionRepository {
   Future<CollectionDashboard> loadDashboard(AuthSession session);
-  Future<CollectionFolder> createFolder(AuthSession session, String name);
+  Future<CollectionFolder> createFolder(
+    AuthSession session,
+    String name, {
+    bool localPremiumVerified = false,
+  });
   Future<CollectionFolder> renameFolder(
     AuthSession session,
     String folderId,
@@ -67,9 +71,16 @@ class HttpCollectionRepository
   @override
   Future<CollectionFolder> createFolder(
     AuthSession session,
-    String name,
-  ) async {
-    return _folderFromDto(await _managementApi.createFolder(session, name));
+    String name, {
+    bool localPremiumVerified = false,
+  }) async {
+    return _folderFromDto(
+      await _managementApi.createFolder(
+        session,
+        name,
+        localPremiumVerified: localPremiumVerified,
+      ),
+    );
   }
 
   @override

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/cupertino.dart';
@@ -17,11 +18,17 @@ import '../../shared/portfolio/portfolio_providers.dart';
 import '../../shared/portfolio/portfolio_api_client.dart';
 import '../../shared/scan/scan_api_client.dart';
 import '../../shared/scan/scan_image_hasher.dart';
+import '../../shared/ui/kando_style.dart';
+import '../../shared/ui/premium_unlocked_toast.dart';
+import '../../shared/ui/subscription_restore_result.dart';
 import '../../shared/ui/toast.dart';
 import '../collection/collection_controller.dart';
 import '../card_detail/card_detail_controller.dart';
 import '../home/home_controller.dart';
 import '../search/search_controller.dart';
+import '../subscription/scan_quota_controller.dart';
+import '../subscription/subscription_controller.dart';
+import '../subscription/subscription_entitlement_cache.dart';
 import 'scan_camera.dart';
 import 'scan_permissions.dart';
 import 'scan_review_repository.dart';
@@ -33,6 +40,8 @@ enum _ScanItemStatus {
   matched,
   failed,
   noMatch,
+  waiting,
+  entitlementSync,
 }
 
 enum _ScanReviewSaveAction { single, all }
@@ -41,24 +50,77 @@ class _ScanReviewLoadException implements Exception {
   const _ScanReviewLoadException();
 }
 
-const _viewfinderTop = 163.0;
-const _viewfinderWidth = 280.0;
-const _viewfinderHeight = 400.0;
+const _viewfinderBaseTop = 213.0;
+const _viewfinderBaseWidth = 280.0;
+const _viewfinderBaseHeight = 400.0;
+const _viewfinderHorizontalMargin = 24.0;
+const _viewfinderControlGap = 16.0;
+// Reserve the full Free chrome so unlocking Premium never moves the frame.
+const _viewfinderTopChromeHeight = 10 + 32 + 2 + 34 + 6 + 48;
+const _viewfinderBottomChromeHeight = 22 + 88;
 
-ScanImageCrop _cameraRecognitionCrop(Size viewport) {
-  final viewfinderLeft = (viewport.width - _viewfinderWidth) / 2;
-  final left = viewfinderLeft.clamp(0.0, viewport.width);
-  final top = _viewfinderTop.clamp(0.0, viewport.height);
-  final right = (viewfinderLeft + _viewfinderWidth).clamp(0.0, viewport.width);
-  final bottom = (_viewfinderTop + _viewfinderHeight).clamp(
+class _ScanViewfinderGeometry {
+  const _ScanViewfinderGeometry(this.rect);
+
+  final Rect rect;
+
+  Alignment radialAlignment(Size viewport) {
+    if (viewport.isEmpty) return Alignment.center;
+    return Alignment(
+      (rect.center.dx * 2 / viewport.width) - 1,
+      (rect.center.dy * 2 / viewport.height) - 1,
+    );
+  }
+}
+
+_ScanViewfinderGeometry _scanViewfinderGeometry(
+  Size viewport,
+  EdgeInsets padding,
+) {
+  if (viewport.isEmpty) {
+    return const _ScanViewfinderGeometry(Rect.zero);
+  }
+  final leftLimit = (padding.left + _viewfinderHorizontalMargin).clamp(
     0.0,
-    viewport.height,
+    viewport.width,
   );
+  final rightLimit =
+      (viewport.width - padding.right - _viewfinderHorizontalMargin).clamp(
+        leftLimit,
+        viewport.width,
+      );
+  final topLimit =
+      (padding.top + _viewfinderTopChromeHeight + _viewfinderControlGap).clamp(
+        0.0,
+        viewport.height,
+      );
+  final bottomLimit =
+      (viewport.height -
+              padding.bottom -
+              _viewfinderBottomChromeHeight -
+              _viewfinderControlGap)
+          .clamp(topLimit, viewport.height);
+  final widthScale = (rightLimit - leftLimit) / _viewfinderBaseWidth;
+  final heightScale = (bottomLimit - topLimit) / _viewfinderBaseHeight;
+  final scale = math.max(0.0, math.min(1.0, math.min(widthScale, heightScale)));
+  final width = _viewfinderBaseWidth * scale;
+  final height = _viewfinderBaseHeight * scale;
+  final left = leftLimit + ((rightLimit - leftLimit - width) / 2);
+  final maxTop = math.max(topLimit, bottomLimit - height);
+  final top = _viewfinderBaseTop.clamp(topLimit, maxTop);
+  return _ScanViewfinderGeometry(Rect.fromLTWH(left, top, width, height));
+}
+
+ScanImageCrop _cameraRecognitionCrop(Size viewport, EdgeInsets padding) {
+  final rect = _scanViewfinderGeometry(
+    viewport,
+    padding,
+  ).rect.intersect(Offset.zero & viewport);
   return ScanImageCrop(
-    left: left / viewport.width,
-    top: top / viewport.height,
-    width: (right - left) / viewport.width,
-    height: (bottom - top) / viewport.height,
+    left: rect.left / viewport.width,
+    top: rect.top / viewport.height,
+    width: rect.width / viewport.width,
+    height: rect.height / viewport.height,
     viewportAspectRatio: viewport.width / viewport.height,
   );
 }
@@ -103,6 +165,7 @@ class _ScanItem {
     this.imageBytes,
     this.displayImageBytes,
     this.imageFileName,
+    this.retainOnQuotaExhausted = false,
   });
 
   final int id;
@@ -113,6 +176,7 @@ class _ScanItem {
   final Uint8List? imageBytes;
   final Uint8List? displayImageBytes;
   final String? imageFileName;
+  final bool retainOnQuotaExhausted;
 
   _ScanItem copyWith({
     _ScanItemStatus? status,
@@ -120,6 +184,7 @@ class _ScanItem {
     Uint8List? imageBytes,
     Uint8List? displayImageBytes,
     String? imageFileName,
+    bool? retainOnQuotaExhausted,
   }) {
     return _ScanItem(
       id: id,
@@ -130,6 +195,8 @@ class _ScanItem {
       imageBytes: imageBytes ?? this.imageBytes,
       displayImageBytes: displayImageBytes ?? this.displayImageBytes,
       imageFileName: imageFileName ?? this.imageFileName,
+      retainOnQuotaExhausted:
+          retainOnQuotaExhausted ?? this.retainOnQuotaExhausted,
     );
   }
 }
@@ -284,11 +351,13 @@ String _normalizedReviewCondition(String? value) {
 }
 
 class _PendingScan {
-  _PendingScan(this.token);
+  _PendingScan(this.token, {this.quotaPromptBatchId});
 
   final int token;
+  final int? quotaPromptBatchId;
   ScanResolution? resolution;
   var revealTimelineFinished = false;
+  var removedFromUi = false;
   AnimationController? revealController;
 }
 
@@ -301,6 +370,7 @@ class ScanPage extends ConsumerStatefulWidget {
 
 class _ScanPageState extends ConsumerState<ScanPage>
     with TickerProviderStateMixin, WidgetsBindingObserver {
+  static const _maxQueueItems = 10;
   static const _revealTimelineDuration = Duration(microseconds: 1529856);
   static const _captureAnimationDuration = Duration(milliseconds: 500);
   static const _galleryCameraWarmupDuration = Duration(milliseconds: 500);
@@ -312,11 +382,13 @@ class _ScanPageState extends ConsumerState<ScanPage>
   final Map<int, Duration> _scanDurations = {};
   final Map<int, String> _scanResultValues = {};
   final Set<int> _reportedScanResultIds = {};
+  final Set<int> _quotaPromptedBatchIds = {};
   late final AnimationController _captureController;
   ScanCameraSession? _cameraSession;
 
   var _nextScanId = 1;
   var _nextScanToken = 1;
+  var _nextQuotaPromptBatchId = 1;
   var _cameraGeneration = 0;
   var _openingCamera = false;
   var _cameraPausedForLifecycle = false;
@@ -324,9 +396,16 @@ class _ScanPageState extends ConsumerState<ScanPage>
   var _appActive = true;
   var _openingReview = false;
   var _reviewing = false;
-  var _photoRecognitionInFlight = false;
-  var _capturingPhoto = false;
+  int? _photoRecognitionItemId;
+  var _premiumResolutionInFlight = false;
+  var _freeEntitlementConfirmedForLifecycle = false;
+  var _premiumDowngradedToFree = false;
+  int? _captureFeedbackItemId;
   var _librarySelectionInFlight = false;
+  var _quotaPaywallOpen = false;
+  var _entitlementRefreshInFlight = false;
+  Timer? _entitlementRefreshTimer;
+  Completer<void>? _entitlementRefreshDelay;
   int? _selectedReviewItemId;
   ScanReviewTarget? _reviewTarget;
   Map<String, ScanReviewCard> _reviewCards = const {};
@@ -366,27 +445,19 @@ class _ScanPageState extends ConsumerState<ScanPage>
         .toList();
   }
 
+  int get _pendingScanCount => _items.length;
+
   bool get _canReview {
-    return _matchedItems.isNotEmpty;
+    final processing = _items.any(
+      (item) =>
+          item.status == _ScanItemStatus.scanning ||
+          item.status == _ScanItemStatus.recognizing ||
+          item.status == _ScanItemStatus.revealing,
+    );
+    return _matchedItems.isNotEmpty && !processing;
   }
 
-  Animation<double> get _revealAnimation {
-    final revealingItem = _items
-        .where(
-          (item) =>
-              item.usesCameraFeedback &&
-              item.status == _ScanItemStatus.revealing,
-        )
-        .firstOrNull;
-    return revealingItem == null
-        ? const AlwaysStoppedAnimation(0)
-        : _pendingScans[revealingItem.id]?.revealController ??
-              const AlwaysStoppedAnimation(0);
-  }
-
-  bool get _hasUnsavedScanResults {
-    return _items.isNotEmpty;
-  }
+  bool get _hasUnsavedScanResults => _items.isNotEmpty;
 
   @override
   void initState() {
@@ -396,6 +467,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
       duration: _captureAnimationDuration,
     );
     WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(ref.read(scanQuotaControllerProvider.notifier).refresh());
+      }
+    });
     unawaited(_openCamera());
   }
 
@@ -403,6 +479,8 @@ class _ScanPageState extends ConsumerState<ScanPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _appActive = true;
+      _freeEntitlementConfirmedForLifecycle = false;
+      unawaited(_refreshQuotaAndResumeWaiting());
       unawaited(_resumeCameraForLifecycle());
       return;
     }
@@ -424,6 +502,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
     }
     for (final pending in _pendingScans.values) {
       pending.revealController?.dispose();
+    }
+    _entitlementRefreshTimer?.cancel();
+    final entitlementRefreshDelay = _entitlementRefreshDelay;
+    if (entitlementRefreshDelay?.isCompleted == false) {
+      entitlementRefreshDelay!.complete();
     }
     _pendingScans.clear();
     super.dispose();
@@ -488,7 +571,8 @@ class _ScanPageState extends ConsumerState<ScanPage>
   Future<void> _closeCamera() async {
     _cameraGeneration += 1;
     _cameraPausedForLifecycle = false;
-    _photoRecognitionInFlight = false;
+    _photoRecognitionItemId = null;
+    _captureFeedbackItemId = null;
     final session = _cameraSession;
     if (session == null) return;
     if (mounted) {
@@ -502,7 +586,8 @@ class _ScanPageState extends ConsumerState<ScanPage>
   Future<void> _pauseCameraForLifecycle() async {
     if (_cameraPausedForLifecycle) return;
     _cameraPausedForLifecycle = true;
-    _photoRecognitionInFlight = false;
+    _photoRecognitionItemId = null;
+    _captureFeedbackItemId = null;
     final session = _cameraSession;
     if (session == null) return;
     try {
@@ -534,39 +619,58 @@ class _ScanPageState extends ConsumerState<ScanPage>
     }
   }
 
-  void _startPhotoScan() {
+  Future<void> _startPhotoScan() async {
+    if (!_hasScanQueueCapacity()) return;
+    if (!await _resolvePremiumBeforeScan()) return;
+    if (!mounted) return;
     final source = ref.read(scanResultSourceProvider);
     final camera = _cameraSession;
     if (camera == null) {
       if (_openingCamera) return;
+      if (_scanQuotaExhausted()) {
+        unawaited(_openQuotaPaywall());
+        return;
+      }
       ref.read(analyticsProvider).track(AnalyticsEvent.cameraClick);
       _addScan(Future.sync(source.photo));
       return;
     }
-    if (_photoRecognitionInFlight) return;
+    if (_photoRecognitionItemId != null) return;
+    if (_scanQuotaExhausted()) {
+      unawaited(_openQuotaPaywall());
+      return;
+    }
     ref.read(analyticsProvider).track(AnalyticsEvent.cameraClick);
-    _photoRecognitionInFlight = true;
-    late final int itemId;
+    final itemId = _nextScanId;
+    _photoRecognitionItemId = itemId;
     final result = _captureAndRecognize(
+      itemId,
       camera,
       source,
       onCaptured: (image) => _attachScanImage(itemId, image),
       onDisplayImageReady: (bytes) => _attachScanDisplayImage(itemId, bytes),
     );
-    itemId = _addScan(result);
-    unawaited(_finishPhotoRecognition(result));
+    final addedItemId = _addScan(result);
+    assert(addedItemId == itemId);
+    unawaited(_finishPhotoRecognition(itemId, result));
   }
 
   Future<ScanResolution> _captureAndRecognize(
+    int itemId,
     ScanCameraSession camera,
     ScanResultSource source, {
     required ValueChanged<ScanImage> onCaptured,
     required ValueChanged<Uint8List> onDisplayImageReady,
   }) async {
-    final recognitionCrop = _cameraRecognitionCrop(MediaQuery.sizeOf(context));
     try {
-      setState(() => _capturingPhoto = true);
+      setState(() => _captureFeedbackItemId = itemId);
       await _captureController.forward(from: 0).orCancel;
+      if (!mounted) return const ScanResolution.failed();
+      final mediaQuery = MediaQueryData.fromView(View.of(context));
+      final recognitionCrop = _cameraRecognitionCrop(
+        mediaQuery.size,
+        mediaQuery.padding,
+      );
       final image = await camera.takePhoto();
       onCaptured(image);
       return await source.recognize(
@@ -580,13 +684,20 @@ class _ScanPageState extends ConsumerState<ScanPage>
     } catch (_) {
       return const ScanResolution.failed();
     } finally {
-      if (mounted) setState(() => _capturingPhoto = false);
+      if (mounted && _captureFeedbackItemId == itemId) {
+        setState(() => _captureFeedbackItemId = null);
+      }
     }
   }
 
-  Future<void> _finishPhotoRecognition(Future<ScanResolution> pending) async {
+  Future<void> _finishPhotoRecognition(
+    int itemId,
+    Future<ScanResolution> pending,
+  ) async {
     await pending;
-    _photoRecognitionInFlight = false;
+    if (_photoRecognitionItemId == itemId) {
+      _photoRecognitionItemId = null;
+    }
   }
 
   Future<void> _toggleFlash() async {
@@ -598,6 +709,14 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   Future<void> _startLibraryScan() async {
     if (_librarySelectionInFlight) return;
+    if (!_hasScanQueueCapacity()) return;
+    if (!await _resolvePremiumBeforeScan()) return;
+    if (!mounted) return;
+    if (_scanQuotaExhausted()) {
+      unawaited(_openQuotaPaywall());
+      return;
+    }
+    final remainingQueueCapacity = _maxQueueItems - _pendingScanCount;
     ref.read(analyticsProvider).track(AnalyticsEvent.imageClick);
     setState(() => _librarySelectionInFlight = true);
     try {
@@ -612,9 +731,12 @@ class _ScanPageState extends ConsumerState<ScanPage>
       }
       await _closeCamera();
       var selectedCount = 0;
+      final quotaPromptBatchId = _nextQuotaPromptBatchId;
+      _nextQuotaPromptBatchId += 1;
       final scans = await ref
           .read(scanResultSourceProvider)
           .library(
+            maxItems: remainingQueueCapacity,
             onSelected: (image, resolution) {
               selectedCount += 1;
               if (mounted) {
@@ -624,14 +746,21 @@ class _ScanPageState extends ConsumerState<ScanPage>
                   imageBytes: image.bytes,
                   displayImageBytes: image.bytes,
                   imageFileName: image.fileName,
+                  retainOnQuotaExhausted: true,
+                  quotaPromptBatchId: quotaPromptBatchId,
                 );
               }
             },
           );
       if (!mounted) return;
       if (selectedCount == 0) {
-        for (final scan in scans) {
-          _addScan(scan, usesCameraFeedback: false);
+        for (final scan in scans.take(remainingQueueCapacity)) {
+          _addScan(
+            scan,
+            usesCameraFeedback: false,
+            retainOnQuotaExhausted: true,
+            quotaPromptBatchId: quotaPromptBatchId,
+          );
         }
       }
     } catch (_) {
@@ -646,6 +775,217 @@ class _ScanPageState extends ConsumerState<ScanPage>
         setState(() => _librarySelectionInFlight = false);
         unawaited(_openCamera(previewDelay: _galleryCameraWarmupDuration));
       }
+    }
+  }
+
+  bool _scanQuotaExhausted() {
+    final quota = ref.read(scanQuotaControllerProvider);
+    if (ref.read(subscriptionControllerProvider).isPro || quota.unlimited) {
+      return false;
+    }
+    return quota.isServerAuthoritative && quota.remainingScans == 0;
+  }
+
+  bool _hasScanQueueCapacity() {
+    if (_pendingScanCount < _maxQueueItems) return true;
+    showKandoTopToast(
+      context,
+      message: 'Scan queue is full',
+      type: KandoTopToastType.info,
+    );
+    return false;
+  }
+
+  Future<bool> _resolvePremiumBeforeScan() async {
+    final current = ref.read(subscriptionControllerProvider).premiumState;
+    final quota = ref.read(scanQuotaControllerProvider);
+    if (current == AppPremiumState.premium || quota.unlimited) return true;
+    if (current == AppPremiumState.free &&
+        _freeEntitlementConfirmedForLifecycle) {
+      return true;
+    }
+    if (_premiumResolutionInFlight) return false;
+    _premiumResolutionInFlight = true;
+    try {
+      final resolved = await ref
+          .read(subscriptionControllerProvider.notifier)
+          .refreshEntitlement();
+      if (!mounted) return false;
+      if (resolved == AppPremiumState.unknown) {
+        showKandoTopToast(
+          context,
+          message:
+              ref.read(subscriptionControllerProvider).errorMessage ??
+              'Unable to verify Premium access. Please try again.',
+          type: KandoTopToastType.failure,
+        );
+        return false;
+      }
+      _freeEntitlementConfirmedForLifecycle = resolved == AppPremiumState.free;
+      return true;
+    } finally {
+      _premiumResolutionInFlight = false;
+    }
+  }
+
+  Future<void> _openQuotaPaywall({
+    String scene = AnalyticsValue.sceneScanTimes,
+  }) async {
+    if (!mounted || _quotaPaywallOpen) return;
+    _quotaPaywallOpen = true;
+    try {
+      final result = await context.push<SubscriptionPaywallResult>(
+        subscriptionSheetLocation(scene: scene),
+      );
+      if (!mounted || result == null) return;
+      _markWaitingItemsAsEntitlementSync();
+      if (result == SubscriptionPaywallResult.premiumRestored) {
+        showSubscriptionRestoreResult(
+          context,
+          type: SubscriptionRestoreResultType.premiumRestored,
+        );
+      } else {
+        showPremiumUnlockedToast(context);
+      }
+      unawaited(_synchronizePremiumForScan());
+    } finally {
+      _quotaPaywallOpen = false;
+    }
+  }
+
+  void _markWaitingItemsAsEntitlementSync() {
+    final waitingItems = _items
+        .where((item) => item.status == _ScanItemStatus.waiting)
+        .toList();
+    if (waitingItems.isEmpty) return;
+    setState(() {
+      for (final item in waitingItems) {
+        final index = _items.indexWhere((candidate) => candidate.id == item.id);
+        if (index >= 0) {
+          _items[index] = item.copyWith(
+            status: _ScanItemStatus.entitlementSync,
+          );
+        }
+      }
+    });
+  }
+
+  Future<void> _refreshQuotaAndResumeWaiting() async {
+    final wasUnlimited = ref.read(scanQuotaControllerProvider).unlimited;
+    final refreshed = await ref
+        .read(scanQuotaControllerProvider.notifier)
+        .refresh();
+    if (!mounted || !refreshed) return;
+    final quota = ref.read(scanQuotaControllerProvider);
+    if (wasUnlimited &&
+        !quota.unlimited &&
+        ref.read(subscriptionControllerProvider).premiumState ==
+            AppPremiumState.free) {
+      _premiumDowngradedToFree = true;
+    }
+    _resumeWaitingFromServerQuota();
+  }
+
+  Future<void> _synchronizePremiumForScan({
+    bool reconcileDeniedAccess = false,
+  }) async {
+    if (_entitlementRefreshInFlight) return;
+    _entitlementRefreshInFlight = true;
+    try {
+      final subscription = ref.read(subscriptionControllerProvider.notifier);
+      final reconciliation = reconcileDeniedAccess
+          ? await subscription.reconcileServerEntitlement()
+          : await subscription.synchronizeServerEntitlement()
+          ? EntitlementReconciliationResult.premiumSynchronized
+          : EntitlementReconciliationResult.verificationUnavailable;
+      if (!mounted) return;
+      if (reconciliation == EntitlementReconciliationResult.freeConfirmed) {
+        _premiumDowngradedToFree = true;
+        await _refreshQuotaAndResumeWaiting();
+        return;
+      }
+      if (reconciliation !=
+          EntitlementReconciliationResult.premiumSynchronized) {
+        return;
+      }
+      final deadline = DateTime.now().add(const Duration(seconds: 15));
+      do {
+        await _refreshQuotaAndResumeWaiting();
+        final quota = ref.read(scanQuotaControllerProvider);
+        final premiumState = ref
+            .read(subscriptionControllerProvider)
+            .premiumState;
+        if (!mounted ||
+            quota.unlimited ||
+            (_premiumDowngradedToFree &&
+                premiumState == AppPremiumState.free &&
+                quota.isServerAuthoritative) ||
+            DateTime.now().isAfter(deadline)) {
+          return;
+        }
+        if (!_items.any(_isWaitingForCapacity)) return;
+        await _waitForEntitlementRefresh();
+      } while (mounted && _items.any(_isWaitingForCapacity));
+    } finally {
+      _entitlementRefreshInFlight = false;
+    }
+  }
+
+  Future<void> _waitForEntitlementRefresh() {
+    final completer = Completer<void>();
+    _entitlementRefreshDelay = completer;
+    _entitlementRefreshTimer = Timer(const Duration(seconds: 1), () {
+      _entitlementRefreshTimer = null;
+      _entitlementRefreshDelay = null;
+      completer.complete();
+    });
+    return completer.future;
+  }
+
+  bool _isWaitingForCapacity(_ScanItem item) {
+    return item.status == _ScanItemStatus.waiting ||
+        item.status == _ScanItemStatus.entitlementSync;
+  }
+
+  void _resumeWaitingFromServerQuota() {
+    if (!mounted) return;
+    final quota = ref.read(scanQuotaControllerProvider);
+    if (!quota.isServerAuthoritative) return;
+    final entitlementSyncItems = _items
+        .where((item) => item.status == _ScanItemStatus.entitlementSync)
+        .toList();
+    final confirmedFree =
+        _premiumDowngradedToFree &&
+        ref.read(subscriptionControllerProvider).premiumState ==
+            AppPremiumState.free;
+    if (!quota.unlimited &&
+        confirmedFree &&
+        quota.remainingScans == 0 &&
+        entitlementSyncItems.isNotEmpty) {
+      setState(() {
+        for (final item in entitlementSyncItems) {
+          final index = _items.indexWhere(
+            (candidate) => candidate.id == item.id,
+          );
+          if (index >= 0) {
+            _items[index] = item.copyWith(status: _ScanItemStatus.waiting);
+          }
+        }
+      });
+      unawaited(_openQuotaPaywall());
+      return;
+    }
+    var capacity = quota.unlimited ? _pendingScanCount : quota.remainingScans;
+    if (capacity <= 0) return;
+    final resumable = _items.where((item) {
+      if (item.status == _ScanItemStatus.waiting) return true;
+      return item.status == _ScanItemStatus.entitlementSync &&
+          (quota.unlimited || confirmedFree);
+    }).toList();
+    for (final item in resumable) {
+      if (capacity <= 0) break;
+      capacity -= 1;
+      _restartScan(item);
     }
   }
 
@@ -722,9 +1062,24 @@ class _ScanPageState extends ConsumerState<ScanPage>
     }
   }
 
-  void _retryScan(_ScanItem item) {
+  Future<void> _retryScan(_ScanItem item) async {
+    if (!await _resolvePremiumBeforeScan()) return;
+    if (_scanQuotaExhausted()) {
+      _replaceItem(item.copyWith(status: _ScanItemStatus.waiting));
+      unawaited(_openQuotaPaywall());
+      return;
+    }
+    _restartScan(item);
+  }
+
+  void _restartScan(_ScanItem item) {
     _scanStopwatches[item.id] = Stopwatch()..start();
-    _replaceItem(item.copyWith(status: _ScanItemStatus.scanning));
+    _replaceItem(
+      item.copyWith(
+        status: _ScanItemStatus.scanning,
+        retainOnQuotaExhausted: true,
+      ),
+    );
     _startScanTimeline(
       item.id,
       Future.sync(
@@ -745,8 +1100,16 @@ class _ScanPageState extends ConsumerState<ScanPage>
     setState(() => _dismissedFeedbackItemId = revealingItem.id);
   }
 
-  void _removeScan(_ScanItem item) {
-    _pendingScans.remove(item.id)?.revealController?.dispose();
+  void _removeScan(_ScanItem item, {bool settleInBackground = false}) {
+    final pending = _pendingScans[item.id];
+    if (settleInBackground && pending != null) {
+      pending
+        ..removedFromUi = true
+        ..revealController?.dispose();
+      pending.revealController = null;
+    } else {
+      _pendingScans.remove(item.id)?.revealController?.dispose();
+    }
     setState(() {
       _items.removeWhere((candidate) => candidate.id == item.id);
       if (_selectedReviewItemId == item.id) {
@@ -756,8 +1119,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   void _removeScanFromUser(_ScanItem item) {
-    if (item.status == _ScanItemStatus.scanning ||
-        item.status == _ScanItemStatus.recognizing) {
+    final processing =
+        item.status == _ScanItemStatus.scanning ||
+        item.status == _ScanItemStatus.recognizing ||
+        item.status == _ScanItemStatus.revealing;
+    if (processing) {
       ref.read(analyticsProvider).track(AnalyticsEvent.cancelClick);
       final stopwatch = _scanStopwatches.remove(item.id);
       stopwatch?.stop();
@@ -768,7 +1134,13 @@ class _ScanPageState extends ConsumerState<ScanPage>
     } else {
       ref.read(analyticsProvider).track(AnalyticsEvent.deleteClick);
     }
-    _removeScan(item);
+    if (_photoRecognitionItemId == item.id) {
+      _photoRecognitionItemId = null;
+    }
+    if (_captureFeedbackItemId == item.id) {
+      _captureFeedbackItemId = null;
+    }
+    _removeScan(item, settleInBackground: processing);
   }
 
   Future<void> _searchManually(_ScanItem item) async {
@@ -797,6 +1169,8 @@ class _ScanPageState extends ConsumerState<ScanPage>
     Uint8List? imageBytes,
     Uint8List? displayImageBytes,
     String? imageFileName,
+    bool retainOnQuotaExhausted = false,
+    int? quotaPromptBatchId,
   }) {
     final id = _nextScanId;
     _nextScanId += 1;
@@ -812,10 +1186,15 @@ class _ScanPageState extends ConsumerState<ScanPage>
           imageBytes: imageBytes,
           displayImageBytes: displayImageBytes,
           imageFileName: imageFileName,
+          retainOnQuotaExhausted: retainOnQuotaExhausted,
         ),
       );
     });
-    _startScanTimeline(id, resultFuture);
+    _startScanTimeline(
+      id,
+      resultFuture,
+      quotaPromptBatchId: quotaPromptBatchId,
+    );
     return id;
   }
 
@@ -837,10 +1216,17 @@ class _ScanPageState extends ConsumerState<ScanPage>
     _replaceItem(item.copyWith(displayImageBytes: bytes));
   }
 
-  void _startScanTimeline(int itemId, Future<ScanResolution> resultFuture) {
+  void _startScanTimeline(
+    int itemId,
+    Future<ScanResolution> resultFuture, {
+    int? quotaPromptBatchId,
+  }) {
     final token = _nextScanToken;
     _nextScanToken += 1;
-    _pendingScans[itemId] = _PendingScan(token);
+    _pendingScans[itemId] = _PendingScan(
+      token,
+      quotaPromptBatchId: quotaPromptBatchId,
+    );
     _watchScanResolution(itemId, token, resultFuture);
 
     final timer = Timer(const Duration(seconds: 1), () {
@@ -938,19 +1324,38 @@ class _ScanPageState extends ConsumerState<ScanPage>
     if (pending == null || pending.token != token) {
       return;
     }
-    final stopwatch = _scanStopwatches.remove(itemId);
-    stopwatch?.stop();
-    _scanDurations[itemId] =
-        (_scanDurations[itemId] ?? Duration.zero) +
-        (stopwatch?.elapsed ?? Duration.zero);
-    _scanResultValues[itemId] = switch (resolution.kind) {
-      ScanResolutionKind.matched => AnalyticsValue.scanSuccess,
-      ScanResolutionKind.noMatch => AnalyticsValue.scanNotFound,
-      ScanResolutionKind.failed ||
-      ScanResolutionKind.cancelled => AnalyticsValue.scanFailed,
-    };
+    if (!pending.removedFromUi) {
+      final stopwatch = _scanStopwatches.remove(itemId);
+      stopwatch?.stop();
+      _scanDurations[itemId] =
+          (_scanDurations[itemId] ?? Duration.zero) +
+          (stopwatch?.elapsed ?? Duration.zero);
+      _scanResultValues[itemId] = switch (resolution.kind) {
+        ScanResolutionKind.matched => AnalyticsValue.scanSuccess,
+        ScanResolutionKind.noMatch => AnalyticsValue.scanNotFound,
+        ScanResolutionKind.failed ||
+        ScanResolutionKind.cancelled ||
+        ScanResolutionKind.quotaExhausted ||
+        ScanResolutionKind.entitlementSyncRequired => AnalyticsValue.scanFailed,
+      };
+    }
 
     if (!mounted) {
+      return;
+    }
+    final serverQuota = resolution.quota;
+    if (serverQuota != null) {
+      ref
+          .read(scanQuotaControllerProvider.notifier)
+          .applyServerQuota(serverQuota);
+    }
+    if (pending.removedFromUi) {
+      _pendingScans.remove(itemId)?.revealController?.dispose();
+      if (serverQuota != null) {
+        _resumeWaitingFromServerQuota();
+      } else {
+        unawaited(_refreshQuotaAndResumeWaiting());
+      }
       return;
     }
     if (resolution.kind == ScanResolutionKind.cancelled) {
@@ -960,8 +1365,52 @@ class _ScanPageState extends ConsumerState<ScanPage>
       });
       return;
     }
+    if (resolution.kind == ScanResolutionKind.quotaExhausted) {
+      final shouldOpenQuotaPaywall =
+          pending.quotaPromptBatchId == null ||
+          _quotaPromptedBatchIds.add(pending.quotaPromptBatchId!);
+      _pendingScans.remove(itemId)?.revealController?.dispose();
+      final item = _items.where((item) => item.id == itemId).firstOrNull;
+      if (item?.retainOnQuotaExhausted == true) {
+        _replaceItem(
+          item!.copyWith(
+            status: _ScanItemStatus.waiting,
+            imageBytes: resolution.imageBytes,
+            displayImageBytes: resolution.displayImageBytes,
+            imageFileName: resolution.imageFileName,
+          ),
+        );
+      } else {
+        setState(() => _items.removeWhere((item) => item.id == itemId));
+      }
+      if (shouldOpenQuotaPaywall) {
+        unawaited(_openQuotaPaywall());
+      }
+      return;
+    }
+    if (resolution.kind == ScanResolutionKind.entitlementSyncRequired) {
+      _pendingScans.remove(itemId)?.revealController?.dispose();
+      final item = _items.where((item) => item.id == itemId).firstOrNull;
+      if (item != null) {
+        _replaceItem(
+          item.copyWith(
+            status: _ScanItemStatus.entitlementSync,
+            imageBytes: resolution.imageBytes,
+            displayImageBytes: resolution.displayImageBytes,
+            imageFileName: resolution.imageFileName,
+          ),
+        );
+      }
+      unawaited(_synchronizePremiumForScan(reconcileDeniedAccess: true));
+      return;
+    }
     pending.resolution = resolution;
     _completeScanIfReady(itemId, token);
+    if (serverQuota != null) {
+      _resumeWaitingFromServerQuota();
+    } else if (resolution.kind == ScanResolutionKind.failed) {
+      unawaited(_refreshQuotaAndResumeWaiting());
+    }
   }
 
   _ScanItem? _currentItem(
@@ -1007,6 +1456,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
       ScanResolutionKind.failed => _ScanItemStatus.failed,
       ScanResolutionKind.noMatch => _ScanItemStatus.noMatch,
       ScanResolutionKind.cancelled => _ScanItemStatus.failed,
+      ScanResolutionKind.quotaExhausted => _ScanItemStatus.waiting,
+      ScanResolutionKind.entitlementSyncRequired =>
+        _ScanItemStatus.entitlementSync,
     };
     final match = status == _ScanItemStatus.matched
         ? _ScanMatch(
@@ -1028,6 +1480,20 @@ class _ScanPageState extends ConsumerState<ScanPage>
             ],
           )
         : null;
+    final verifiedCards = {
+      for (final candidate in resolution.candidateDetails)
+        candidate.cardRef: ScanReviewCard(
+          cardRef: candidate.cardRef,
+          name: candidate.name,
+          setName: candidate.setName,
+          cardNumber: candidate.cardNumber ?? '',
+          game: candidate.game,
+          imageUrl: null,
+          language: null,
+          finish: null,
+          prices: const [],
+        ),
+    };
 
     final completedPending = _pendingScans.remove(itemId);
     setState(() {
@@ -1042,6 +1508,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
           );
           break;
         }
+      }
+      if (verifiedCards.isNotEmpty) {
+        _reviewCards = _mergeScanCards(_reviewCards, verifiedCards);
       }
       if (_dismissedFeedbackItemId == itemId) {
         _dismissedFeedbackItemId = null;
@@ -1059,7 +1528,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
         for (final candidate in match.candidates) candidate.cardRef,
       ]);
       if (!mounted) return;
-      setState(() => _reviewCards = {..._reviewCards, ...cards});
+      setState(() => _reviewCards = _mergeScanCards(_reviewCards, cards));
     } on Exception {
       // Price metadata is supplemental; review retries the same load explicitly.
     }
@@ -1101,10 +1570,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
             : repository.loadCards(missingCardRefs),
       ]);
       final target = results[0] as ScanReviewTarget;
-      final cards = {
-        ...cachedCards,
-        ...results[1] as Map<String, ScanReviewCard>,
-      };
+      final cards = _mergeScanCards(
+        cachedCards,
+        results[1] as Map<String, ScanReviewCard>,
+      );
       final selectedReviewItemId = itemId ?? items.firstOrNull?.id;
       if (selectedReviewItemId == null) {
         throw const _ScanReviewLoadException();
@@ -1191,7 +1660,14 @@ class _ScanPageState extends ConsumerState<ScanPage>
     _reportScanResult(item.id);
 
     final input = _reviewInputFor(item);
-    if (input == null) return;
+    if (input == null) {
+      showKandoTopToast(
+        context,
+        message: _reviewFormError ?? genericFailureToastText,
+        type: KandoTopToastType.failure,
+      );
+      return;
+    }
 
     setState(() => _savingReviewAction = _ScanReviewSaveAction.single);
     try {
@@ -1234,10 +1710,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
     setState(() {
       _reviewing = false;
-      _items.removeWhere((candidate) => candidate.id == item.id);
+      _removeAddedItems({item.id});
       _selectedReviewItemId = null;
       _reviewTarget = null;
-      _reviewCards = const {};
       _reviewDrafts.remove(item.id);
       _reviewFormError = null;
       _finishingReview = false;
@@ -1299,7 +1774,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     }
 
     setState(() {
-      _items.removeWhere((item) => addedIds.contains(item.id));
+      _removeAddedItems(addedIds);
       for (final itemId in addedIds) {
         _reviewDrafts.remove(itemId);
       }
@@ -1308,7 +1783,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
       _selectedReviewItemId = remaining.firstOrNull?.id;
       if (!_reviewing) {
         _reviewTarget = null;
-        _reviewCards = const {};
       }
       _reviewFormError = null;
       _savingReviewAction = null;
@@ -1483,14 +1957,22 @@ class _ScanPageState extends ConsumerState<ScanPage>
       _reviewFormError = null;
       if (!_reviewing) {
         _reviewTarget = null;
-        _reviewCards = const {};
+        if (_items.isEmpty) {
+          _reviewCards = const {};
+        }
       }
     });
     if (!_reviewing) unawaited(_openCamera());
   }
 
+  void _removeAddedItems(Set<int> itemIds) {
+    _items.removeWhere((item) => itemIds.contains(item.id));
+  }
+
   void _refreshPortfolioSurfaces() {
-    ref.invalidate(homeControllerProvider);
+    unawaited(
+      ref.read(homeControllerProvider.notifier).refreshPreservingContent(),
+    );
     ref.invalidate(collectionControllerProvider);
     ref.invalidate(searchControllerProvider);
   }
@@ -1598,7 +2080,23 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AppPremiumState>(
+      subscriptionControllerProvider.select((value) => value.premiumState),
+      (previous, next) {
+        if (previous == AppPremiumState.premium &&
+            next == AppPremiumState.free) {
+          _freeEntitlementConfirmedForLifecycle = true;
+          _premiumDowngradedToFree = true;
+          unawaited(_refreshQuotaAndResumeWaiting());
+        }
+      },
+    );
     final currency = ref.watch(selectedCurrencyProvider);
+    final isPro = ref.watch(
+      subscriptionControllerProvider.select((value) => value.isPro),
+    );
+    final quota = ref.watch(scanQuotaControllerProvider);
+    final hasPremiumAccess = isPro || quota.unlimited;
     final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
     return PopScope(
       canPop: false,
@@ -1663,19 +2161,41 @@ class _ScanPageState extends ConsumerState<ScanPage>
                     flashEnabled: _cameraSession?.flashEnabled ?? false,
                     items: _items,
                     canReview: _canReview,
-                    capturingPhoto: _capturingPhoto,
+                    capturingPhoto: _captureFeedbackItemId != null,
                     recognizing: _isRecognizing,
                     revealing: _isRevealing,
                     showRevealingFeedback: _showRevealingFeedback,
                     captureAnimation: _captureController,
-                    revealAnimation: _revealAnimation,
                     cards: _reviewCards,
                     currency: currency,
+                    remainingScans: hasPremiumAccess
+                        ? null
+                        : quota.remainingScans,
                     onClosePressed: _handleClosePressed,
                     onFlashPressed: _cameraSession == null
                         ? null
                         : _toggleFlash,
                     onSearchPressed: () => context.go('/search'),
+                    onUpgradePressed: () async {
+                      final result = await context
+                          .push<SubscriptionPaywallResult>(
+                            subscriptionPageLocation(
+                              source: 'scan',
+                              entrySource: 'scan_pro_card',
+                            ),
+                          );
+                      if (!mounted || !context.mounted || result == null) {
+                        return;
+                      }
+                      _markWaitingItemsAsEntitlementSync();
+                      if (result == SubscriptionPaywallResult.premiumRestored) {
+                        showSubscriptionRestoreResult(
+                          context,
+                          type: SubscriptionRestoreResultType.premiumRestored,
+                        );
+                      }
+                      unawaited(_synchronizePremiumForScan());
+                    },
                     onPhotoPressed: _startPhotoScan,
                     onLibraryPressed: _startLibraryScan,
                     onDismissScanFeedback: _dismissScanFeedback,
@@ -1683,7 +2203,17 @@ class _ScanPageState extends ConsumerState<ScanPage>
                     onReviewItem: _openReview,
                     onRetryItem: _retryScan,
                     onDeleteItem: _removeScanFromUser,
-                    onSearchItem: _searchManually,
+                    onSearchItem: (item) {
+                      if (item.status == _ScanItemStatus.waiting) {
+                        unawaited(
+                          _openQuotaPaywall(
+                            scene: AnalyticsValue.sceneScanWaiting,
+                          ),
+                        );
+                      } else {
+                        unawaited(_searchManually(item));
+                      }
+                    },
                   ),
                   if (_openingReview)
                     const Positioned.fill(
@@ -1711,12 +2241,13 @@ class _ScanCameraView extends StatelessWidget {
     required this.revealing,
     required this.showRevealingFeedback,
     required this.captureAnimation,
-    required this.revealAnimation,
     required this.cards,
     required this.currency,
+    required this.remainingScans,
     required this.onClosePressed,
     required this.onFlashPressed,
     required this.onSearchPressed,
+    required this.onUpgradePressed,
     required this.onPhotoPressed,
     required this.onLibraryPressed,
     required this.onDismissScanFeedback,
@@ -1737,12 +2268,13 @@ class _ScanCameraView extends StatelessWidget {
   final bool revealing;
   final bool showRevealingFeedback;
   final Animation<double> captureAnimation;
-  final Animation<double> revealAnimation;
   final Map<String, ScanReviewCard> cards;
   final AppCurrency currency;
+  final int? remainingScans;
   final VoidCallback onClosePressed;
   final VoidCallback? onFlashPressed;
   final VoidCallback onSearchPressed;
+  final VoidCallback onUpgradePressed;
   final VoidCallback onPhotoPressed;
   final VoidCallback onLibraryPressed;
   final VoidCallback onDismissScanFeedback;
@@ -1754,7 +2286,11 @@ class _ScanCameraView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final topInset = MediaQuery.paddingOf(context).top + 10;
+    final viewport = MediaQuery.sizeOf(context);
+    final padding = MediaQuery.paddingOf(context);
+    final geometry = _scanViewfinderGeometry(viewport, padding);
+    final safeTop = padding.top;
+    final topInset = safeTop + 10;
     return Stack(
       children: [
         if (cameraPreview != null)
@@ -1765,9 +2301,9 @@ class _ScanCameraView extends StatelessWidget {
             ),
           ),
         if (recognizing)
-          const Positioned.fill(child: _FigmaRecognizingOverlay())
+          Positioned.fill(child: _FigmaRecognizingOverlay(geometry: geometry))
         else if (revealing)
-          const Positioned.fill(child: _FigmaRevealingOverlay())
+          Positioned.fill(child: _FigmaRevealingOverlay(geometry: geometry))
         else ...[
           Positioned.fill(
             child: ColoredBox(
@@ -1779,6 +2315,7 @@ class _ScanCameraView extends StatelessWidget {
             child: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: RadialGradient(
+                  center: geometry.radialAlignment(viewport),
                   radius: 0.86,
                   colors: [
                     Colors.transparent,
@@ -1793,56 +2330,22 @@ class _ScanCameraView extends StatelessWidget {
           top: 0,
           left: 0,
           right: 0,
-          height: topInset,
+          height: safeTop,
           child: const ColoredBox(
             key: Key('scan-figma-top-safe-band'),
             color: Color(0xFF10100B),
           ),
         ),
-        Positioned(
-          key: const Key('scan-figma-top-controls'),
-          top: topInset,
-          left: 8,
-          right: 8,
-          child: _FigmaRevealEntrance(
-            animation: revealAnimation,
-            active: revealing,
-            opacityStart: 0,
-            opacityEnd: 0.26146,
-            translateStart: 0,
-            translateEnd: 0.39219,
-            initialOffsetY: -40,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _ScanTopBar(
-                  onClosePressed: onClosePressed,
-                  onFlashPressed: onFlashPressed,
-                  flashEnabled: flashEnabled,
-                  onSearchPressed: onSearchPressed,
-                ),
-                const SizedBox(height: 2),
-                const _AlignCardPill(),
-              ],
-            ),
-          ),
-        ),
-        Positioned(
-          top: _viewfinderTop,
-          left: 0,
-          right: 0,
-          child: Center(
-            child: _ViewfinderCorners(
-              focusFrameShadow: recognizing || revealing,
-            ),
+        Positioned.fromRect(
+          rect: geometry.rect,
+          child: _ViewfinderCorners(
+            size: geometry.rect.size,
+            focusFrameShadow: recognizing || revealing,
           ),
         ),
         if (capturingPhoto) ...[
-          Positioned(
-            left: 55,
-            top: _viewfinderTop,
-            width: _viewfinderWidth,
-            height: _viewfinderHeight,
+          Positioned.fromRect(
+            rect: geometry.rect,
             child: _FigmaScanningLine(
               key: Key('scan-figma-scanning-line'),
               animation: captureAnimation,
@@ -1853,7 +2356,7 @@ class _ScanCameraView extends StatelessWidget {
           Positioned(
             left: 16,
             right: 16,
-            bottom: 126 + MediaQuery.paddingOf(context).bottom,
+            bottom: 126 + padding.bottom,
             child: _ScanResults(
               items: items,
               cards: cards,
@@ -1869,26 +2372,41 @@ class _ScanCameraView extends StatelessWidget {
         Positioned(
           left: 16,
           right: 16,
-          bottom: revealing ? 19 : 22,
-          child: _FigmaRevealEntrance(
-            animation: revealAnimation,
-            active: revealing,
-            opacityStart: 0.52293,
-            opacityEnd: 0.84834,
-            translateStart: 0.52293,
-            translateEnd: 0.91512,
-            initialOffsetY: -25,
-            opacityCurve: const _FigmaSpringCurve(),
-            child: SafeArea(
-              top: false,
-              child: _ScanBottomControls(
-                canReview: canReview,
-                centered: revealing,
-                onPhotoPressed: onPhotoPressed,
-                onLibraryPressed: onLibraryPressed,
-                onReviewPressed: onReviewPressed,
-              ),
+          bottom: 22,
+          child: SafeArea(
+            top: false,
+            child: _ScanBottomControls(
+              canReview: canReview,
+              onPhotoPressed: onPhotoPressed,
+              onLibraryPressed: onLibraryPressed,
+              onReviewPressed: onReviewPressed,
             ),
+          ),
+        ),
+        Positioned(
+          key: const Key('scan-figma-top-controls'),
+          top: topInset,
+          left: 8,
+          right: 8,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _ScanTopBar(
+                onClosePressed: onClosePressed,
+                onFlashPressed: onFlashPressed,
+                flashEnabled: flashEnabled,
+                onSearchPressed: onSearchPressed,
+              ),
+              const SizedBox(height: 2),
+              const _AlignCardPill(),
+              if (remainingScans != null) ...[
+                const SizedBox(height: 6),
+                _ScanQuotaPill(
+                  remainingScans: remainingScans!,
+                  onPressed: onUpgradePressed,
+                ),
+              ],
+            ],
           ),
         ),
       ],
@@ -1912,17 +2430,24 @@ class _ScanTopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 42,
+      key: const Key('scan-figma-top-bar'),
+      height: 32,
       child: Stack(
         alignment: Alignment.center,
         children: [
           Align(
             alignment: Alignment.centerLeft,
             child: IconButton(
+              key: const Key('scan-figma-close-button'),
               tooltip: 'Close Scan',
               onPressed: onClosePressed,
               constraints: const BoxConstraints.tightFor(width: 30, height: 30),
               padding: EdgeInsets.zero,
+              style: IconButton.styleFrom(
+                minimumSize: const Size(30, 30),
+                maximumSize: const Size(30, 30),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
               icon: SvgPicture.asset(
                 'assets/scan/close.svg',
                 key: const Key('scan-figma-close-icon'),
@@ -1932,11 +2457,15 @@ class _ScanTopBar extends StatelessWidget {
             ),
           ),
           IconButton(
+            key: const Key('scan-figma-flash-button'),
             tooltip: flashEnabled ? 'Turn flash off' : 'Turn flash on',
             onPressed: onFlashPressed,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints.tightFor(width: 25, height: 25),
             style: IconButton.styleFrom(
+              minimumSize: const Size(25, 25),
+              maximumSize: const Size(25, 25),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               backgroundColor: flashEnabled
                   ? const Color(0xFFF0FE6F)
                   : const Color(0xFF222222).withValues(alpha: 0.82),
@@ -1957,10 +2486,16 @@ class _ScanTopBar extends StatelessWidget {
           Align(
             alignment: Alignment.centerRight,
             child: IconButton(
+              key: const Key('scan-figma-search-button'),
               tooltip: 'Search Cards',
               onPressed: onSearchPressed,
               constraints: const BoxConstraints.tightFor(width: 30, height: 30),
               padding: EdgeInsets.zero,
+              style: IconButton.styleFrom(
+                minimumSize: const Size(30, 30),
+                maximumSize: const Size(30, 30),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
               icon: SvgPicture.asset(
                 'assets/scan/search.svg',
                 key: const Key('scan-figma-search-icon'),
@@ -2019,6 +2554,107 @@ class _AlignCardPill extends StatelessWidget {
   }
 }
 
+class _ScanQuotaPill extends StatelessWidget {
+  const _ScanQuotaPill({required this.remainingScans, required this.onPressed});
+
+  final int remainingScans;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      key: const Key('scan-free-quota-pill'),
+      decoration: BoxDecoration(
+        color: const Color(0xFF222222),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x40000000),
+            offset: Offset(0, 23.585),
+            blurRadius: 23.585,
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox.square(
+                  key: const Key('scan-free-quota-pro-badge'),
+                  dimension: 24,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      SvgPicture.asset(
+                        'assets/scan/pro_badge.svg',
+                        width: 24,
+                        height: 24,
+                      ),
+                      const Text(
+                        'PRO',
+                        style: TextStyle(
+                          color: KandoColors.elevatedSurface,
+                          fontFamily: 'Fraunces',
+                          fontSize: 7,
+                          fontWeight: FontWeight.w600,
+                          height: 20 / 7,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  key: const Key('scan-free-quota-copy'),
+                  width: 161,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$remainingScans scans remaining',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFFE4E3D3),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          height: 16 / 13,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                      const Text(
+                        'Tap to get unlimited scans',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Color(0xFFE4E3D3),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          height: 16 / 13,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _FigmaScanningLine extends StatelessWidget {
   const _FigmaScanningLine({required this.animation, super.key});
 
@@ -2026,28 +2662,30 @@ class _FigmaScanningLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRect(
-      child: Stack(
-        children: [
-          AnimatedBuilder(
-            animation: animation,
-            child: const SizedBox(
-              width: _viewfinderWidth,
-              height: 4,
-              child: CustomPaint(
-                key: Key('scan-figma-scanning-line-canvas'),
-                painter: _FigmaScanningLinePainter(),
+    return LayoutBuilder(
+      builder: (context, constraints) => ClipRect(
+        child: Stack(
+          children: [
+            AnimatedBuilder(
+              animation: animation,
+              child: SizedBox(
+                width: constraints.maxWidth,
+                height: 4,
+                child: const CustomPaint(
+                  key: Key('scan-figma-scanning-line-canvas'),
+                  painter: _FigmaScanningLinePainter(),
+                ),
               ),
+              builder: (context, child) {
+                final progress = Curves.easeInOut.transform(animation.value);
+                return Transform.translate(
+                  offset: Offset(0, (constraints.maxHeight - 4) * progress),
+                  child: child,
+                );
+              },
             ),
-            builder: (context, child) {
-              final progress = Curves.easeInOut.transform(animation.value);
-              return Transform.translate(
-                offset: Offset(0, (_viewfinderHeight - 4) * progress),
-                child: child,
-              );
-            },
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -2076,14 +2714,12 @@ class _FigmaScanningLinePainter extends CustomPainter {
 class _ScanBottomControls extends StatelessWidget {
   const _ScanBottomControls({
     required this.canReview,
-    required this.centered,
     required this.onPhotoPressed,
     required this.onLibraryPressed,
     required this.onReviewPressed,
   });
 
   final bool canReview;
-  final bool centered;
   final VoidCallback onPhotoPressed;
   final VoidCallback onLibraryPressed;
   final VoidCallback onReviewPressed;
@@ -2092,14 +2728,12 @@ class _ScanBottomControls extends StatelessWidget {
   Widget build(BuildContext context) {
     final controls = Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: centered
-          ? CrossAxisAlignment.center
-          : CrossAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         _ScanSideAction(
           label: 'GALLERY',
           tooltip: 'Choose from Library',
-          width: centered ? 62 : 72,
+          width: 72,
           icon: SvgPicture.asset(
             'assets/scan/gallery.svg',
             key: const Key('scan-figma-gallery-icon'),
@@ -2138,12 +2772,7 @@ class _ScanBottomControls extends StatelessWidget {
         _ScanDoneAction(enabled: canReview, onPressed: onReviewPressed),
       ],
     );
-    return centered
-        ? Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: controls,
-          )
-        : controls;
+    return Padding(padding: EdgeInsets.zero, child: controls);
   }
 }
 
@@ -2287,54 +2916,39 @@ class _ScanSideAction extends StatelessWidget {
 }
 
 class _FigmaRecognizingOverlay extends StatelessWidget {
-  const _FigmaRecognizingOverlay();
+  const _FigmaRecognizingOverlay({required this.geometry});
+
+  final _ScanViewfinderGeometry geometry;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Align(
-          alignment: Alignment.topCenter,
-          child: SizedBox(
-            width: constraints.maxWidth,
-            height: constraints.maxHeight < 884 ? 884 : constraints.maxHeight,
-            child: Stack(
-              children: [
-                const Positioned.fill(
-                  child: CustomPaint(
-                    key: Key('scan-figma-recognizing-overlay'),
-                    painter: _FigmaRecognizingOverlayPainter(),
-                  ),
-                ),
-                const Positioned(
-                  top: _viewfinderTop,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: SizedBox(
-                      key: Key('scan-figma-overlay-viewfinder'),
-                      width: _viewfinderWidth,
-                      height: _viewfinderHeight,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: CustomPaint(
+            key: const Key('scan-figma-recognizing-overlay'),
+            painter: _FigmaRecognizingOverlayPainter(geometry.rect),
           ),
-        );
-      },
+        ),
+        Positioned.fromRect(
+          rect: geometry.rect,
+          child: const SizedBox(key: Key('scan-figma-overlay-viewfinder')),
+        ),
+      ],
     );
   }
 }
 
 class _FigmaRecognizingOverlayPainter extends CustomPainter {
-  const _FigmaRecognizingOverlayPainter();
+  const _FigmaRecognizingOverlayPainter(this.viewfinderRect);
+
+  final Rect viewfinderRect;
 
   @override
   void paint(Canvas canvas, Size size) {
     final vignette = Paint()
       ..shader = ui.Gradient.radial(
-        size.center(Offset.zero),
+        viewfinderRect.center,
         size.longestSide * 0.55,
         const [Color(0x000D0F08), Color(0xD90D0F08)],
         const [0.6, 1],
@@ -2345,10 +2959,7 @@ class _FigmaRecognizingOverlayPainter extends CustomPainter {
       ..fillType = PathFillType.evenOdd
       ..addRect(Offset.zero & size)
       ..addRRect(
-        RRect.fromRectAndRadius(
-          _viewfinderRect(size),
-          const Radius.circular(16),
-        ),
+        RRect.fromRectAndRadius(viewfinderRect, const Radius.circular(16)),
       );
     canvas.drawPath(
       dimOutsideViewfinder,
@@ -2358,59 +2969,45 @@ class _FigmaRecognizingOverlayPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _FigmaRecognizingOverlayPainter oldDelegate) =>
-      false;
+  bool shouldRepaint(covariant _FigmaRecognizingOverlayPainter oldDelegate) {
+    return viewfinderRect != oldDelegate.viewfinderRect;
+  }
 }
 
 class _FigmaRevealingOverlay extends StatelessWidget {
-  const _FigmaRevealingOverlay();
+  const _FigmaRevealingOverlay({required this.geometry});
+
+  final _ScanViewfinderGeometry geometry;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Align(
-          alignment: Alignment.topCenter,
-          child: SizedBox(
-            width: constraints.maxWidth,
-            height: constraints.maxHeight < 884 ? 884 : constraints.maxHeight,
-            child: Stack(
-              children: [
-                const Positioned.fill(
-                  child: CustomPaint(
-                    key: Key('scan-figma-revealing-overlay'),
-                    painter: _FigmaRevealingOverlayPainter(),
-                  ),
-                ),
-                const Positioned(
-                  top: _viewfinderTop,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: SizedBox(
-                      key: Key('scan-figma-overlay-viewfinder'),
-                      width: _viewfinderWidth,
-                      height: _viewfinderHeight,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: CustomPaint(
+            key: const Key('scan-figma-revealing-overlay'),
+            painter: _FigmaRevealingOverlayPainter(geometry.rect),
           ),
-        );
-      },
+        ),
+        Positioned.fromRect(
+          rect: geometry.rect,
+          child: const SizedBox(key: Key('scan-figma-overlay-viewfinder')),
+        ),
+      ],
     );
   }
 }
 
 class _FigmaRevealingOverlayPainter extends CustomPainter {
-  const _FigmaRevealingOverlayPainter();
+  const _FigmaRevealingOverlayPainter(this.viewfinderRect);
+
+  final Rect viewfinderRect;
 
   @override
   void paint(Canvas canvas, Size size) {
     final vignette = Paint()
       ..shader = ui.Gradient.radial(
-        size.center(Offset.zero),
+        viewfinderRect.center,
         size.longestSide * 0.55,
         const [Color(0x000D0F08), Color(0xD90D0F08)],
         const [0.6, 1],
@@ -2421,10 +3018,7 @@ class _FigmaRevealingOverlayPainter extends CustomPainter {
       ..fillType = PathFillType.evenOdd
       ..addRect(Offset.zero & size)
       ..addRRect(
-        RRect.fromRectAndRadius(
-          _viewfinderRect(size),
-          const Radius.circular(16),
-        ),
+        RRect.fromRectAndRadius(viewfinderRect, const Radius.circular(16)),
       );
     canvas.drawPath(
       dimOutsideViewfinder,
@@ -2433,148 +3027,8 @@ class _FigmaRevealingOverlayPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _FigmaRevealingOverlayPainter oldDelegate) =>
-      false;
-}
-
-class _FigmaRevealEntrance extends StatelessWidget {
-  const _FigmaRevealEntrance({
-    required this.animation,
-    required this.active,
-    required this.opacityStart,
-    required this.opacityEnd,
-    required this.translateStart,
-    required this.translateEnd,
-    required this.initialOffsetY,
-    required this.child,
-    this.opacityCurve = const Cubic(0.5, 0, 0.5, 1),
-  });
-
-  final Animation<double> animation;
-  final bool active;
-  final double opacityStart;
-  final double opacityEnd;
-  final double translateStart;
-  final double translateEnd;
-  final double initialOffsetY;
-  final Curve opacityCurve;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    if (!active) {
-      return child;
-    }
-    return AnimatedBuilder(
-      animation: animation,
-      child: child,
-      builder: (context, child) {
-        final opacity = _figmaInterval(
-          animation.value,
-          opacityStart,
-          opacityEnd,
-          opacityCurve,
-        );
-        final translate = _figmaInterval(
-          animation.value,
-          translateStart,
-          translateEnd,
-          const _FigmaSpringCurve(),
-        );
-        return IgnorePointer(
-          ignoring: opacity == 0,
-          child: Opacity(
-            opacity: opacity.clamp(0, 1).toDouble(),
-            child: Transform.translate(
-              offset: Offset(0, initialOffsetY * (1 - translate)),
-              child: child,
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-double _figmaInterval(double progress, double start, double end, Curve curve) {
-  if (progress <= start) {
-    return 0;
-  }
-  if (progress >= end) {
-    return 1;
-  }
-  return curve.transform((progress - start) / (end - start));
-}
-
-class _FigmaSpringCurve extends Curve {
-  const _FigmaSpringCurve();
-
-  static const _samples = [
-    0.0,
-    0.0188,
-    0.0679,
-    0.1374,
-    0.2195,
-    0.308,
-    0.3978,
-    0.4856,
-    0.5686,
-    0.6452,
-    0.7142,
-    0.7753,
-    0.8283,
-    0.8735,
-    0.9113,
-    0.9423,
-    0.9671,
-    0.9866,
-    1.0014,
-    1.0123,
-    1.0198,
-    1.0247,
-    1.0274,
-    1.0283,
-    1.0281,
-    1.0268,
-    1.025,
-    1.0227,
-    1.0202,
-    1.0177,
-    1.0152,
-    1.0128,
-    1.0106,
-    1.0085,
-    1.0068,
-    1.0052,
-    1.0039,
-    1.0028,
-    1.0018,
-    1.0011,
-    1.0005,
-    1.0,
-    0.9997,
-    0.9995,
-    0.9993,
-    0.9992,
-    0.9992,
-    0.9992,
-    0.9992,
-    0.9993,
-    0.9993,
-  ];
-
-  @override
-  double transformInternal(double t) {
-    if (t >= 1) {
-      return 1;
-    }
-    final position = t * (_samples.length - 1);
-    final lower = position.floor();
-    if (lower >= _samples.length - 1) {
-      return _samples.last;
-    }
-    final fraction = position - lower;
-    return _samples[lower] + (_samples[lower + 1] - _samples[lower]) * fraction;
+  bool shouldRepaint(covariant _FigmaRevealingOverlayPainter oldDelegate) {
+    return viewfinderRect != oldDelegate.viewfinderRect;
   }
 }
 
@@ -2665,6 +3119,8 @@ class _ScanRevealingToast extends StatelessWidget {
                                 child: CircularProgressIndicator(
                                   key: Key('scan-recognition-progress'),
                                   strokeWidth: 2,
+                                  strokeAlign: CircularProgressIndicator
+                                      .strokeAlignInside,
                                   color: Color(0xFFF0FE6F),
                                 ),
                               ),
@@ -2685,30 +3141,22 @@ class _ScanRevealingToast extends StatelessWidget {
 }
 
 class _ViewfinderCorners extends StatelessWidget {
-  const _ViewfinderCorners({this.focusFrameShadow = false});
+  const _ViewfinderCorners({required this.size, this.focusFrameShadow = false});
 
+  final Size size;
   final bool focusFrameShadow;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       key: const Key('scan-figma-viewfinder'),
-      width: _viewfinderWidth,
-      height: _viewfinderHeight,
+      width: size.width,
+      height: size.height,
       child: CustomPaint(
         painter: _ViewfinderPainter(focusFrameShadow: focusFrameShadow),
       ),
     );
   }
-}
-
-Rect _viewfinderRect(Size size) {
-  return Rect.fromLTWH(
-    (size.width - _viewfinderWidth) / 2,
-    _viewfinderTop,
-    _viewfinderWidth,
-    _viewfinderHeight,
-  );
 }
 
 class _ViewfinderPainter extends CustomPainter {
@@ -2726,7 +3174,12 @@ class _ViewfinderPainter extends CustomPainter {
         ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 5.1);
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-          const Rect.fromLTWH(0.5, 1.5, 279, 397),
+          Rect.fromLTWH(
+            0.5,
+            1.5,
+            math.max(0, size.width - 1),
+            math.max(0, size.height - 3),
+          ),
           const Radius.circular(16),
         ),
         focusFramePaint,
@@ -2764,6 +3217,55 @@ class _ViewfinderPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _ViewfinderPainter oldDelegate) =>
       focusFrameShadow != oldDelegate.focusFrameShadow;
+}
+
+Map<String, ScanReviewCard> _mergeScanCards(
+  Map<String, ScanReviewCard> current,
+  Map<String, ScanReviewCard> updates,
+) {
+  final merged = Map<String, ScanReviewCard>.from(current);
+  for (final entry in updates.entries) {
+    final existing = merged[entry.key];
+    merged[entry.key] = existing == null
+        ? entry.value
+        : _mergeScanCard(existing, entry.value);
+  }
+  return merged;
+}
+
+ScanReviewCard _mergeScanCard(ScanReviewCard existing, ScanReviewCard update) {
+  return ScanReviewCard(
+    cardRef: existing.cardRef.isEmpty ? update.cardRef : existing.cardRef,
+    name: existing.name.trim().isEmpty ? update.name : existing.name,
+    setName: existing.setName.trim().isEmpty
+        ? update.setName
+        : existing.setName,
+    cardNumber: existing.cardNumber.trim().isEmpty
+        ? update.cardNumber
+        : existing.cardNumber,
+    game: existing.game ?? update.game,
+    imageUrl: existing.imageUrl ?? update.imageUrl,
+    language: existing.language ?? update.language,
+    finish: existing.finish ?? update.finish,
+    availableLanguages: _preferMoreCompleteList(
+      existing.availableLanguages,
+      update.availableLanguages,
+    ),
+    availableFinishes: _preferMoreCompleteList(
+      existing.availableFinishes,
+      update.availableFinishes,
+    ),
+    prices: existing.prices.length >= update.prices.length
+        ? existing.prices
+        : update.prices,
+  );
+}
+
+List<String> _preferMoreCompleteList(
+  List<String> existing,
+  List<String> update,
+) {
+  return existing.length >= update.length ? existing : update;
 }
 
 class _ScanResults extends StatelessWidget {
@@ -2912,17 +3414,27 @@ class _ScanItemCard extends StatelessWidget {
 
     final matched = item.status == _ScanItemStatus.matched;
     final failed = item.status == _ScanItemStatus.failed;
-    final width = matched ? 240.0 : 176.0;
+    final waiting = item.status == _ScanItemStatus.waiting;
+    final entitlementSync = item.status == _ScanItemStatus.entitlementSync;
+    final width = matched
+        ? 240.0
+        : waiting
+        ? 208.0
+        : 176.0;
     final title = matched
         ? item.match?.name ?? item.pictureLabel
         : failed
         ? 'Failed'
+        : waiting
+        ? 'Waiting to scan'
+        : entitlementSync
+        ? 'Premium Syncing'
         : 'No Match Found';
     final action = matched
         ? onReview
         : failed
         ? onRetry
-        : item.status == _ScanItemStatus.noMatch
+        : item.status == _ScanItemStatus.noMatch || waiting
         ? onSearch
         : null;
     final previewDraft = card == null ? null : _previewDraft(card!);
@@ -2935,6 +3447,10 @@ class _ScanItemCard extends StatelessWidget {
           ? 'Review scan result'
           : failed
           ? 'Retry scan'
+          : waiting
+          ? 'Unlock unlimited scans'
+          : entitlementSync
+          ? 'Premium access is syncing'
           : 'Search manually',
       child: InkWell(
         onTap: action,
@@ -2963,90 +3479,126 @@ class _ScanItemCard extends StatelessWidget {
               _ScanResultThumbnail(item: item),
               const SizedBox(width: 16),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: failed
-                                  ? const Color(0xFFFF8493)
-                                  : const Color(0xFFEEECD8),
-                              fontSize: 16,
-                              height: 24 / 16,
-                            ),
-                          ),
-                        ),
-                        _ScanDeleteButton(itemId: item.id, onPressed: onDelete),
-                      ],
-                    ),
-                    if (matched)
-                      Row(
+                child: waiting
+                    ? Stack(
+                        fit: StackFit.expand,
                         children: [
-                          Flexible(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0x33F0FE6F),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                previewDraft?.condition.toUpperCase() ?? 'RAW',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Color(0xFFF0FE6F),
-                                  fontSize: 11,
-                                  height: 16 / 11,
-                                ),
+                          const Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Waiting to scan',
+                              maxLines: 1,
+                              style: TextStyle(
+                                color: Color(0xFFF0FE6F),
+                                fontSize: 13,
+                                height: 16 / 13,
+                                decoration: TextDecoration.underline,
+                                decorationColor: Color(0xFFF0FE6F),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: FittedBox(
-                              key: Key('scan-item-price-${item.id}'),
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                price == null
-                                    ? '--'
-                                    : CurrencyFormatter(
-                                        currency: currency,
-                                      ).formatUsd(price),
-                                maxLines: 1,
-                                style: TextStyle(
-                                  color: Color(0xFFFFF6AF),
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  height: 15 / 13,
-                                ),
-                              ),
+                          Positioned(
+                            top: 0,
+                            right: 0,
+                            child: _ScanDeleteButton(
+                              itemId: item.id,
+                              onPressed: onDelete,
                             ),
                           ),
                         ],
                       )
-                    else
-                      Text(
-                        failed ? 'Tap to retry' : 'Search Manually',
-                        maxLines: 1,
-                        style: const TextStyle(
-                          color: Color(0xFFF0FE6F),
-                          fontSize: 13,
-                          height: 16 / 13,
-                        ),
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: failed
+                                        ? const Color(0xFFFF8493)
+                                        : const Color(0xFFEEECD8),
+                                    fontSize: 16,
+                                    height: 24 / 16,
+                                  ),
+                                ),
+                              ),
+                              _ScanDeleteButton(
+                                itemId: item.id,
+                                onPressed: onDelete,
+                              ),
+                            ],
+                          ),
+                          if (matched)
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0x33F0FE6F),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      previewDraft?.condition.toUpperCase() ??
+                                          'RAW',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Color(0xFFF0FE6F),
+                                        fontSize: 11,
+                                        height: 16 / 11,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: FittedBox(
+                                    key: Key('scan-item-price-${item.id}'),
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      price == null
+                                          ? '--'
+                                          : CurrencyFormatter(
+                                              currency: currency,
+                                            ).formatUsd(price),
+                                      maxLines: 1,
+                                      style: TextStyle(
+                                        color: Color(0xFFFFF6AF),
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        height: 15 / 13,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            )
+                          else
+                            Text(
+                              failed
+                                  ? 'Tap to retry'
+                                  : entitlementSync
+                                  ? 'Syncing Premium'
+                                  : 'Search Manually',
+                              maxLines: 1,
+                              style: const TextStyle(
+                                color: Color(0xFFF0FE6F),
+                                fontSize: 13,
+                                height: 16 / 13,
+                              ),
+                            ),
+                        ],
                       ),
-                  ],
-                ),
               ),
             ],
           ),
@@ -4690,7 +5242,13 @@ class _ReviewFooter extends StatelessWidget {
                     Expanded(
                       child: OutlinedButton(
                         onPressed: saving ? null : onDeleteAll,
-                        child: const Text('DELETE ALL CARDS'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                        ),
+                        child: const FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text('DELETE ALL CARDS'),
+                        ),
                       ),
                     ),
                   ],

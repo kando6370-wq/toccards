@@ -19,6 +19,7 @@ type AnonymousAccountRow = {
 
 type ScanRecordRow = {
   id: string;
+  environment?: "development" | "production";
   owner_type: "anonymous" | "user";
   owner_id: string;
   recognition_status: string;
@@ -29,6 +30,19 @@ type ScanRecordRow = {
   modified_result: number;
   image_url?: string | null;
   raw_response?: string;
+};
+
+type ScanQuotaRequestRow = {
+  request_id: string;
+  owner_type: "anonymous" | "user";
+  owner_id: string;
+  session_id: string;
+  access_mode: "free" | "premium";
+  status: "reserved" | "consumed" | "released";
+  processing_expires_at: string | null;
+  attempts?: number;
+  response_json: string | null;
+  http_status: number | null;
 };
 
 type FolderRow = { id: string; owner_type: "anonymous" | "user"; owner_id: string };
@@ -102,14 +116,18 @@ class FakeD1 {
   sessions: SessionRow[] = [];
   anonymousAccounts: AnonymousAccountRow[] = [];
   scanRecords: ScanRecordRow[] = [];
+  scanQuotaRequests: ScanQuotaRequestRow[] = [];
   folders: FolderRow[] = [];
   collectionItems: CollectionItemRow[] = [];
   collectionItemEvents: CollectionItemEventRow[] = [];
   wishlistItems: WishlistRow[] = [];
   cards: CardCatalogRow[] = [];
+  preparedSql: string[] = [];
+  activePremiumSessionIds = new Set<string>();
   failScanInsert = false;
 
   prepare(sql: string): FakeD1Statement {
+    this.preparedSql.push(normalizeSql(sql));
     return new FakeD1Statement(this, sql);
   }
 
@@ -135,6 +153,12 @@ class FakeD1Statement {
 
   async first<T = unknown>(): Promise<T | null> {
     const sql = normalizeSql(this.sql);
+    if (sql.includes("FROM billing_session_entitlement_grant AS grant_record")) {
+      const [sessionId] = this.values as [string];
+      return (this.db.activePremiumSessionIds.has(sessionId)
+        ? { id: "grant-1", purchase_chain_id: "chain-1", expires_at: null }
+        : null) as T | null;
+    }
     if (sql.includes("FROM session") && sql.includes("WHERE id = ?")) {
       const [id] = this.values as [string];
       return (this.db.sessions.find((row) => row.id === id) ?? null) as T | null;
@@ -153,6 +177,22 @@ class FakeD1Statement {
         (row) => row.id === id && row.owner_type === ownerType && row.owner_id === ownerId,
       ) ?? null) as T | null;
     }
+    if (sql.includes("FROM scan_quota_request") && sql.includes("WHERE request_id = ?")) {
+      const [requestId] = this.values as [string];
+      return (this.db.scanQuotaRequests.find((row) => row.request_id === requestId) ?? null) as T | null;
+    }
+    if (sql.includes("FROM scan_quota_request") && sql.includes("SUM(CASE")) {
+      const [now, ownerType, ownerId] = this.values as [string, string, string];
+      const rows = this.db.scanQuotaRequests.filter(
+        (row) => row.owner_type === ownerType && row.owner_id === ownerId && row.access_mode === "free",
+      );
+      return {
+        reserved_count: rows.filter(
+          (row) => row.status === "reserved" && (row.processing_expires_at ?? "") > now,
+        ).length,
+        consumed_count: rows.filter((row) => row.status === "consumed").length,
+      } as T;
+    }
     if (sql.includes("FROM portfolio_folder")) {
       const [id, ownerType, ownerId] = this.values as [string, string, string];
       return (this.db.folders.find(
@@ -160,10 +200,21 @@ class FakeD1Statement {
       ) ?? null) as T | null;
     }
     if (sql.includes("FROM collection_item") && sql.includes("folder_id = ?")) {
-      const [ownerType, ownerId, folderId, cardRef, language, finish] = this.values;
+      const [
+        ownerType,
+        ownerId,
+        folderId,
+        cardRef,
+        language,
+        finish,
+        grader,
+        condition,
+        grade,
+      ] = this.values;
       return (this.db.collectionItems.find((row) =>
         row.owner_type === ownerType && row.owner_id === ownerId && row.folder_id === folderId &&
-        row.card_ref === cardRef && row.language === language && row.finish === finish
+        row.card_ref === cardRef && row.language === language && row.finish === finish &&
+        row.grader === grader && row.condition === condition && row.grade === grade
       ) ?? null) as T | null;
     }
     return null;
@@ -171,12 +222,36 @@ class FakeD1Statement {
 
   async all<T = unknown>(): Promise<D1Result<T>> {
     const sql = normalizeSql(this.sql);
+    if (sql.includes("FROM billing_session_entitlement_grant AS grant_record")) {
+      const [sessionId] = this.values as [string];
+      return okResult<T>(
+        this.db.activePremiumSessionIds.has(sessionId)
+          ? [{
+              id: "grant-1",
+              purchase_chain_id: "chain-1",
+              expires_at: null,
+              environment: "Sandbox",
+              product_id: "yearly",
+            } as T]
+          : [],
+      );
+    }
     if (sql.includes("SELECT product_id, number") && sql.includes("FROM cards_all")) {
       const productIds = new Set(this.values.map(String));
       return okResult<T>(
         this.db.cards
           .filter((row) => productIds.has(row.product_id))
           .map((row) => ({ product_id: row.product_id, number: row.number ?? null })) as T[],
+      );
+    }
+    if (
+      sql.includes("SELECT product_id, game, set_name, set_code, name, number, rarity, product_type_name") &&
+      sql.includes("FROM cards_all") &&
+      sql.includes("WHERE product_id IN")
+    ) {
+      const productIds = new Set(this.values.map(String));
+      return okResult<T>(
+        this.db.cards.filter((row) => productIds.has(row.product_id)) as T[],
       );
     }
     if (sql.includes("FROM cards_all") && sql.includes("LIKE ?")) {
@@ -196,11 +271,109 @@ class FakeD1Statement {
 
   async run<T = unknown>(): Promise<D1Result<T>> {
     const sql = normalizeSql(this.sql);
+    if (sql.startsWith("INSERT INTO scan_quota_request")) {
+      const [requestId, ownerType, ownerId, sessionId, accessMode, leaseExpiresAt, attempts] = this.values as [
+        string,
+        "anonymous" | "user",
+        string,
+        string,
+        "free" | "premium",
+        string,
+        number,
+      ];
+      if (this.db.scanQuotaRequests.some((row) => row.request_id === requestId)) {
+        throw new Error("UNIQUE constraint failed: scan_quota_request.request_id");
+      }
+      const activeAt = String(this.values[12]);
+      const used = this.db.scanQuotaRequests.filter(
+        (row) => row.owner_type === ownerType && row.owner_id === ownerId && row.access_mode === "free" &&
+          (row.status === "consumed" ||
+            (row.status === "reserved" && (row.processing_expires_at ?? "") > activeAt)),
+      ).length;
+      if (accessMode === "free" && used >= 10) return okResult<T>([], 0);
+      this.db.scanQuotaRequests.push({
+        request_id: requestId,
+        owner_type: ownerType,
+        owner_id: ownerId,
+        session_id: sessionId,
+        access_mode: accessMode,
+        status: "reserved",
+        processing_expires_at: leaseExpiresAt,
+        attempts,
+        response_json: null,
+        http_status: null,
+      });
+      return okResult<T>();
+    }
+    if (sql.startsWith("UPDATE scan_quota_request") && sql.includes("attempts = attempts + 1")) {
+      const [leaseExpiresAt, , requestId, sessionId, now] = this.values as [
+        string,
+        string,
+        string,
+        string,
+        string,
+      ];
+      const row = this.db.scanQuotaRequests.find(
+        (candidate) =>
+          candidate.request_id === requestId &&
+          candidate.session_id === sessionId &&
+          candidate.status === "reserved" &&
+          ((candidate.attempts ?? 1) === 0 ||
+            (candidate.processing_expires_at ?? "") <= now),
+      );
+      if (!row) return okResult<T>([], 0);
+      row.processing_expires_at = leaseExpiresAt;
+      row.attempts = (row.attempts ?? 0) + 1;
+      return okResult<T>();
+    }
+    if (sql.startsWith("UPDATE scan_quota_request") && sql.includes("attempts = 0")) {
+      const [responseJson, httpStatus, , , requestId, ownerType, ownerId, sessionId] = this.values as [
+        string,
+        number,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+      ];
+      const row = this.db.scanQuotaRequests.find(
+        (candidate) =>
+          candidate.request_id === requestId &&
+          candidate.owner_type === ownerType &&
+          candidate.owner_id === ownerId &&
+          candidate.session_id === sessionId &&
+          candidate.status === "reserved" &&
+          (candidate.attempts ?? 1) === 0,
+      );
+      if (!row) return okResult<T>([], 0);
+      row.status = "released";
+      row.response_json = responseJson;
+      row.http_status = httpStatus;
+      return okResult<T>();
+    }
+    if (sql.startsWith("UPDATE scan_quota_request") && sql.includes("SET status = ?")) {
+      const [status, , responseJson, httpStatus, , , requestId, ownerType, ownerId, sessionId, now] = this.values as [
+        "consumed" | "released", string | null, string | null, number | null, string, string, string, string, string, string, string,
+      ];
+      const row = this.db.scanQuotaRequests.find(
+        (candidate) => candidate.request_id === requestId && candidate.owner_type === ownerType &&
+          candidate.owner_id === ownerId && candidate.session_id === sessionId &&
+          candidate.status === "reserved" &&
+          (candidate.processing_expires_at ?? "") > now,
+      );
+      if (!row) return okResult<T>([], 0);
+      row.status = status;
+      row.response_json = responseJson;
+      row.http_status = httpStatus;
+      return okResult<T>();
+    }
     if (sql.startsWith("INSERT INTO scan_record")) {
       if (this.db.failScanInsert) throw new Error("scan insert failed");
-      const [id, ownerType, ownerId, imageUrl, , , , , , recognitionStatus, confirmationStatus, systemResult, userResult, candidates, rawResponse] =
+      const [id, environment, ownerType, ownerId, imageUrl, , , , , , recognitionStatus, confirmationStatus, systemResult, userResult, candidates, rawResponse] =
         this.values as [
           string,
+          "development" | "production",
           "anonymous" | "user",
           string,
           string | null,
@@ -219,6 +392,7 @@ class FakeD1Statement {
         ];
       this.db.scanRecords.push({
         id,
+        environment,
         owner_type: ownerType,
         owner_id: ownerId,
         recognition_status: recognitionStatus,
@@ -333,12 +507,23 @@ class FakeD1Statement {
       return okResult<T>();
     }
     if (sql.startsWith("DELETE FROM wishlist_item")) {
-      const [ownerType, ownerId, cardRef] = this.values as [string, string, string];
+      const [ownerType, ownerId, cardRef, itemId] = this.values as [
+        string,
+        string,
+        string,
+        string,
+      ];
+      if (!this.db.collectionItems.some((row) => row.id === itemId)) {
+        return okResult<T>([], 0);
+      }
       const before = this.db.wishlistItems.length;
       this.db.wishlistItems = this.db.wishlistItems.filter(
         (row) => !(row.owner_type === ownerType && row.owner_id === ownerId && row.card_ref === cardRef),
       );
       return okResult<T>([], before - this.db.wishlistItems.length);
+    }
+    if (sql.startsWith("INSERT INTO mutation_lock")) {
+      return okResult<T>();
     }
     if (sql.startsWith("UPDATE scan_record")) {
       const [modifiedResult, userResult, id, ownerType, ownerId] = this.values as [
@@ -405,12 +590,14 @@ describe("scan routes", () => {
       });
     });
 
+    const requestId = crypto.randomUUID();
     const response = await app.request(
       "/api/v1/scan/recognize",
       {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}`, "Idempotency-Key": requestId },
         body: recognitionForm({
+          request_id: requestId,
           r: PHASH, g: PHASH, b: PHASH, filename: "scan.jpg",
           platform: "iOS", app_version: "1.0.0",
         }),
@@ -424,11 +611,20 @@ describe("scan routes", () => {
       success: true,
       data: expect.objectContaining({
         recognition_status: "success",
+        quota: {
+          access: "free",
+          unlimited: false,
+          limit: 10,
+          reserved: 0,
+          consumed: 1,
+          remaining: 9,
+        },
         results: [
           expect.objectContaining({
             matched: true,
             candidates: [
               expect.objectContaining({
+                product_id: "10738",
                 card_ref: "10738",
                 name: "Bushi Tenderfoot",
                 set_code: "CHK",
@@ -442,6 +638,7 @@ describe("scan routes", () => {
     });
     expect(env.DB.scanRecords).toEqual([
       expect.objectContaining({
+        environment: "development",
         owner_type: "anonymous",
         owner_id: "anon-1",
         recognition_status: "success",
@@ -456,6 +653,228 @@ describe("scan routes", () => {
         }),
       }),
     ]);
+  });
+
+  it("preserves an alphanumeric sports product id because catalog identity is text across the App", async () => {
+    const env = createRecognitionEnv();
+    env.DB.cards.push({
+      product_id: "sports:soccer:rookie-001",
+      game_id: 100003,
+      game: "Soccer",
+      set_name: "Rookie Debut",
+      set_code: "RD",
+      name: "Alex Rookie",
+      rarity: "Rookie",
+      product_type_name: "Cards",
+      image_url: null,
+    });
+    const token = await recognitionToken(env);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({
+      candidates: [
+        { product_id: "sports:soccer:rookie-001", confidence: 91.25 },
+      ],
+    })));
+
+    const response = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+    const body = await response.json() as {
+      data: { results: Array<{ candidates: Array<{ product_id: string; card_ref: string }> }> };
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.data.results[0]?.candidates[0]).toEqual(expect.objectContaining({
+      product_id: "sports:soccer:rookie-001",
+      card_ref: "sports:soccer:rookie-001",
+    }));
+    expect(env.DB.scanRecords[0]?.candidates).toContain(
+      '"product_id":"sports:soccer:rookie-001"',
+    );
+  });
+
+  it("resolves thirty OCR candidates with one catalog query and no price query because Scan must not amplify latency per candidate", async () => {
+    const env = createRecognitionEnv();
+    const recognized = Array.from({ length: 30 }, (_, index) => ({
+      product_id: `scan-card-${index}`,
+      confidence: 90 - index,
+    }));
+    env.DB.cards.push(...recognized.map((candidate, index) => ({
+      product_id: candidate.product_id,
+      game_id: 1,
+      game: "Magic: The Gathering",
+      set_name: "Scan Set",
+      set_code: "SCN",
+      name: `Scan Card ${index}`,
+      rarity: "Common",
+      product_type_name: "Cards",
+      image_url: null,
+      number: `${index + 1}/030`,
+    })));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({
+      candidates: recognized,
+    })));
+
+    const response = await recognize(
+      env,
+      await recognitionToken(env),
+      { r: PHASH, g: PHASH, b: PHASH },
+    );
+    const body = await response.json() as {
+      data: { results: Array<{ candidates: Array<{ product_id: string }> }> };
+    };
+    const catalogQueries = env.DB.preparedSql.filter((sql) =>
+      sql.includes("FROM cards_all")
+    );
+    const priceQueries = env.DB.preparedSql.filter((sql) =>
+      sql.includes("WITH ranked_current")
+    );
+
+    expect(response.status).toBe(200);
+    expect(body.data.results[0]?.candidates.map((item) => item.product_id)).toEqual(
+      recognized.map((item) => item.product_id),
+    );
+    expect(catalogQueries).toHaveLength(1);
+    expect(priceQueries).toHaveLength(0);
+  });
+
+  it("returns an unlimited Premium quota without spending Free allowance", async () => {
+    const env = createRecognitionEnv();
+    env.DB.activePremiumSessionIds.add("session-1");
+    const token = await recognitionToken(env);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ candidates: [] })));
+
+    const response = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      data: {
+        quota: {
+          access: "premium",
+          unlimited: true,
+          limit: 10,
+          reserved: 0,
+          consumed: 0,
+          remaining: 10,
+        },
+      },
+    });
+    expect(env.DB.scanQuotaRequests).toEqual([
+      expect.objectContaining({ access_mode: "premium", status: "released" }),
+    ]);
+  });
+
+  it("returns the server reservation before OCR because Processing must show the current remaining quota", async () => {
+    const env = createRecognitionEnv();
+    const token = await recognitionToken(env);
+    const requestId = crypto.randomUUID();
+
+    const reservation = await app.request(
+      "/api/v1/scan/quota/reserve",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "Idempotency-Key": requestId,
+        },
+        body: JSON.stringify({ request_id: requestId }),
+      },
+      env,
+    );
+
+    expect(reservation.status).toBe(200);
+    expect(await reservation.json()).toMatchObject({
+      success: true,
+      data: {
+        request_id: requestId,
+        quota: {
+          access: "free",
+          unlimited: false,
+          reserved: 1,
+          consumed: 0,
+          remaining: 9,
+        },
+      },
+    });
+    expect(env.DB.scanRecords).toEqual([]);
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ candidates: [] })));
+    const response = await recognize(env, token, {
+      request_id: requestId,
+      r: PHASH,
+      g: PHASH,
+      b: PHASH,
+    });
+    expect(response.status).toBe(200);
+    expect(env.DB.scanQuotaRequests).toEqual([
+      expect.objectContaining({ status: "released" }),
+    ]);
+  });
+
+  it("releases a queued reservation when recognition cannot start because unavailable OCR must not hold Free quota", async () => {
+    const env = createRecognitionEnv();
+    const token = await recognitionToken(env);
+    const requestId = crypto.randomUUID();
+    const reservation = await app.request(
+      "/api/v1/scan/quota/reserve",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "Idempotency-Key": requestId,
+        },
+        body: JSON.stringify({ request_id: requestId }),
+      },
+      env,
+    );
+    expect(reservation.status).toBe(200);
+    env.OCR_SERVICE_BASE_URL = "";
+
+    const response = await recognize(env, token, {
+      request_id: requestId,
+      r: PHASH,
+      g: PHASH,
+      b: PHASH,
+    });
+
+    expect(response.status).toBe(503);
+    expect(env.DB.scanQuotaRequests).toEqual([
+      expect.objectContaining({ status: "released" }),
+    ]);
+  });
+
+  it("releases a queued reservation when the trusted app environment is missing", async () => {
+    const env = createRecognitionEnv();
+    const token = await recognitionToken(env);
+    const requestId = crypto.randomUUID();
+    const reservation = await app.request(
+      "/api/v1/scan/quota/reserve",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "Idempotency-Key": requestId,
+        },
+        body: JSON.stringify({ request_id: requestId }),
+      },
+      env,
+    );
+    expect(reservation.status).toBe(200);
+    delete env.APP_ENVIRONMENT;
+
+    const response = await recognize(env, token, {
+      request_id: requestId,
+      r: PHASH,
+      g: PHASH,
+      b: PHASH,
+    });
+
+    expect(response.status).toBe(503);
+    expect(env.DB.scanQuotaRequests).toEqual([
+      expect.objectContaining({ status: "released" }),
+    ]);
+    expect((env.SCAN_IMAGES as unknown as FakeR2).objects.size).toBe(0);
   });
 
   it("promotes an exact printed number because pHash alone cannot distinguish cards with identical artwork", async () => {
@@ -584,6 +1003,65 @@ describe("scan routes", () => {
     }));
   });
 
+  it("recovers an alphanumeric sports printing because card-number disambiguation must not coerce catalog ids to numbers", async () => {
+    const env = createRecognitionEnv();
+    env.DB.cards.push(
+      {
+        product_id: "610499",
+        game_id: 100003,
+        game: "Soccer",
+        set_name: "Rookie Debut",
+        set_code: "RD",
+        name: "Alex Rookie",
+        rarity: "Rookie",
+        product_type_name: "Cards",
+        image_url: null,
+        number: "14/100",
+      },
+      {
+        product_id: "sports:soccer:rookie-200",
+        game_id: 100003,
+        game: "Soccer",
+        set_name: "Rookie Debut",
+        set_code: "RD",
+        name: "Alex Rookie",
+        rarity: "Rookie Parallel",
+        product_type_name: "Cards",
+        image_url: null,
+        number: "200/200",
+      },
+    );
+    const token = await recognitionToken(env);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({
+      candidates: [{ product_id: 610499, confidence: 84.1 }],
+    })));
+
+    const response = await recognize(env, token, {
+      r: PHASH,
+      g: PHASH,
+      b: PHASH,
+      card_number: "200/200",
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual(expect.objectContaining({
+      data: expect.objectContaining({
+        results: [expect.objectContaining({
+          candidates: [
+            expect.objectContaining({
+              product_id: "sports:soccer:rookie-200",
+              card_ref: "sports:soccer:rookie-200",
+              card_number: "200/200",
+              retrieval: "rgb-phash-16-v1+card-number-ocr",
+            }),
+            expect.objectContaining({ card_ref: "610499" }),
+          ],
+        })],
+      }),
+    }));
+  });
+
   it("stores no_match when recognition ids are absent from D1 because an upstream id is not a reviewable card", async () => {
     const env = createRecognitionEnv();
     const token = await recognitionToken(env);
@@ -609,6 +1087,238 @@ describe("scan routes", () => {
         recognition_status: "no_match",
         candidates: expect.stringContaining('"confidence":77.125'),
       }),
+    ]);
+    expect(env.DB.scanQuotaRequests).toEqual([
+      expect.objectContaining({ status: "released" }),
+    ]);
+  });
+
+  it("releases Free quota when OCR resolves only an incomplete catalog card because unusable details are not a successful scan", async () => {
+    const env = createRecognitionEnv();
+    const token = await recognitionToken(env);
+    const requestId = crypto.randomUUID();
+    env.DB.cards.push({
+      product_id: "incomplete-card",
+      game_id: 1,
+      game: "Pokemon",
+      set_name: null,
+      set_code: "TST",
+      name: "Recognized Name Only",
+      rarity: "Rare",
+      product_type_name: "Cards",
+      image_url: null,
+      number: "001/100",
+    });
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({
+      candidates: [{ product_id: "incomplete-card", confidence: 95 }],
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const first = await recognize(env, token, {
+      request_id: requestId,
+      r: PHASH,
+      g: PHASH,
+      b: PHASH,
+    });
+    const firstBody = await first.json();
+    const replay = await recognize(env, token, {
+      request_id: requestId,
+      r: PHASH,
+      g: PHASH,
+      b: PHASH,
+    });
+
+    expect(first.status).toBe(200);
+    expect(firstBody).toEqual({
+      success: true,
+      data: expect.objectContaining({
+        recognition_status: "failed",
+        cards_detected: 0,
+        quota: {
+          access: "free",
+          unlimited: false,
+          limit: 10,
+          reserved: 0,
+          consumed: 0,
+          remaining: 10,
+        },
+        results: [{ index: 1, matched: false, candidates: [] }],
+      }),
+    });
+    expect(await replay.json()).toEqual(firstBody);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(env.DB.scanQuotaRequests).toEqual([
+      expect.objectContaining({
+        request_id: requestId,
+        status: "released",
+      }),
+    ]);
+    expect(env.DB.scanRecords).toEqual([
+      expect.objectContaining({ recognition_status: "failed" }),
+    ]);
+  });
+
+  it("consumes one Free scan for a complete catalog card without price data because price is not required for usable details", async () => {
+    const env = createRecognitionEnv();
+    const token = await recognitionToken(env);
+    env.DB.cards.push({
+      product_id: "complete-card-without-price",
+      game_id: 1,
+      game: "Pokemon",
+      set_name: "Test Set",
+      set_code: "TST",
+      name: "Complete Card",
+      rarity: "Rare",
+      product_type_name: "Cards",
+      image_url: null,
+      number: "002/100",
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({
+      candidates: [{ product_id: "complete-card-without-price", confidence: 94 }],
+    })));
+
+    const response = await recognize(env, token, {
+      r: PHASH,
+      g: PHASH,
+      b: PHASH,
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      success: true,
+      data: expect.objectContaining({
+        recognition_status: "success",
+        quota: expect.objectContaining({ consumed: 1, remaining: 9 }),
+        results: [expect.objectContaining({
+          matched: true,
+          candidates: [expect.objectContaining({
+            card_ref: "complete-card-without-price",
+            name: "Complete Card",
+            set_name: "Test Set",
+            object_type: "tcg",
+          })],
+        })],
+      }),
+    });
+  });
+
+  it("settles complete and incomplete batch items independently because one bad card must not change another result", async () => {
+    const env = createRecognitionEnv();
+    const token = await recognitionToken(env);
+    env.DB.cards.push(
+      {
+        product_id: "batch-valid",
+        game_id: 1,
+        game: "Pokemon",
+        set_name: "Batch Set",
+        set_code: "BAT",
+        name: "Valid Batch Card",
+        rarity: "Rare",
+        product_type_name: "Cards",
+        image_url: null,
+        number: "001/100",
+      },
+      {
+        product_id: "batch-invalid",
+        game_id: 1,
+        game: "Pokemon",
+        set_name: null,
+        set_code: "BAT",
+        name: "Invalid Batch Card",
+        rarity: "Rare",
+        product_type_name: "Cards",
+        image_url: null,
+        number: "002/100",
+      },
+    );
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({
+        candidates: [{ product_id: "batch-valid", confidence: 96 }],
+      }))
+      .mockResolvedValueOnce(Response.json({
+        candidates: [{ product_id: "batch-invalid", confidence: 93 }],
+      }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const valid = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+    const invalid = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+
+    expect(await valid.json()).toMatchObject({
+      data: {
+        recognition_status: "success",
+        quota: { consumed: 1, remaining: 9 },
+      },
+    });
+    expect(await invalid.json()).toMatchObject({
+      data: {
+        recognition_status: "failed",
+        quota: { consumed: 1, remaining: 9 },
+      },
+    });
+    expect(env.DB.scanQuotaRequests.map((request) => request.status)).toEqual([
+      "consumed",
+      "released",
+    ]);
+    expect(env.DB.scanRecords.map((record) => record.recognition_status)).toEqual([
+      "success",
+      "failed",
+    ]);
+  });
+
+  it("rejects the eleventh Free scan before R2 and OCR because the server quota is authoritative", async () => {
+    const env = createRecognitionEnv();
+    const token = await recognitionToken(env);
+    for (let index = 0; index < 10; index += 1) {
+      env.DB.scanQuotaRequests.push({
+        request_id: crypto.randomUUID(),
+        owner_type: "anonymous",
+        owner_id: "anon-1",
+        session_id: "session-1",
+        access_mode: "free",
+        status: "consumed",
+        processing_expires_at: null,
+        response_json: null,
+        http_status: null,
+      });
+    }
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({
+      error: { code: "SCAN_QUOTA_EXHAUSTED" },
+      quota: {
+        access: "free",
+        unlimited: false,
+        limit: 10,
+        reserved: 0,
+        consumed: 10,
+        remaining: 0,
+      },
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect((env.SCAN_IMAGES as unknown as FakeR2).objects.size).toBe(0);
+  });
+
+  it("replays a completed request because a lost response must not consume quota or OCR twice", async () => {
+    const env = createRecognitionEnv();
+    const token = await recognitionToken(env);
+    const requestId = crypto.randomUUID();
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ candidates: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const first = await recognize(env, token, { request_id: requestId, r: PHASH, g: PHASH, b: PHASH });
+    const firstBody = await first.json();
+    const second = await recognize(env, token, { request_id: requestId, r: PHASH, g: PHASH, b: PHASH });
+
+    expect(second.status).toBe(200);
+    expect(await second.json()).toEqual(firstBody);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(env.DB.scanQuotaRequests).toEqual([
+      expect.objectContaining({ request_id: requestId, status: "released" }),
     ]);
   });
 
@@ -914,7 +1624,7 @@ describe("scan routes", () => {
     expect(env.DB.collectionItems).toHaveLength(1);
   });
 
-  it("rejects the same scanned card, finish, and language despite different grading", async () => {
+  it("allows the same scanned card, finish, and language when grading differs", async () => {
     const env = createConfirmEnv();
     env.DB.collectionItems.push({
       id: "owned", owner_type: "anonymous", owner_id: "anon-1", folder_id: "main",
@@ -930,10 +1640,9 @@ describe("scan routes", () => {
       finish: "Holofoil", purchase_price: null, purchase_currency: null, notes: null,
     });
 
-    expect(response.status).toBe(409);
-    expect(await response.json()).toMatchObject({ error: { code: "DUPLICATE_COLLECTION_ITEM" } });
-    expect(env.DB.collectionItems).toHaveLength(1);
-    expect(env.DB.scanRecords[0]?.user_confirmation_status).toBe("pending");
+    expect(response.status).toBe(201);
+    expect(env.DB.collectionItems).toHaveLength(2);
+    expect(env.DB.scanRecords[0]?.user_confirmation_status).toBe("confirmed");
   });
 });
 
@@ -947,6 +1656,8 @@ function createTestEnv(): TestEnvWithFakeDb {
     JWT_SECRET: "test-secret",
     OCR_SERVICE_BASE_URL: "https://ocr.example.test",
     SCAN_IMAGES: scanImages as unknown as R2Bucket,
+    APP_ENVIRONMENT: "development",
+    APPLE_IAP_PRODUCT_IDS: "yearly",
   };
 }
 
@@ -976,12 +1687,13 @@ async function recognize(
   token: string,
   body: Record<string, unknown>,
 ): Promise<Response> {
+  const requestId = typeof body.request_id === "string" ? body.request_id : crypto.randomUUID();
   return await app.request(
     "/api/v1/scan/recognize",
     {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-      body: recognitionForm(body),
+      headers: { Authorization: `Bearer ${token}`, "Idempotency-Key": requestId },
+      body: recognitionForm({ ...body, request_id: requestId }),
     },
     env,
   );

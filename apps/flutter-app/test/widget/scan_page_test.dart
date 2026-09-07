@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,6 +21,9 @@ import 'package:kando_app/features/scan/scan_result_source.dart';
 import 'package:kando_app/features/scan/scan_review_repository.dart';
 import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_page.dart';
+import 'package:kando_app/features/subscription/scan_quota_controller.dart';
+import 'package:kando_app/features/subscription/subscription_controller.dart';
+import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/shared/analytics/analytics_events.dart';
 import 'package:kando_app/shared/analytics/app_analytics.dart';
 import 'package:kando_app/shared/scan/scan_api_client.dart';
@@ -98,7 +102,401 @@ const _transparentPngBytes = <int>[
   0x82,
 ];
 
+const _exhaustedQuota = ScanQuotaDto(
+  access: ScanQuotaAccess.free,
+  limit: 10,
+  reserved: 0,
+  consumed: 10,
+  remaining: 0,
+  unlimited: false,
+);
+
+const _availableQuota = ScanQuotaDto(
+  access: ScanQuotaAccess.free,
+  limit: 10,
+  reserved: 0,
+  consumed: 0,
+  remaining: 10,
+  unlimited: false,
+);
+
+const _unlimitedQuota = ScanQuotaDto(
+  access: ScanQuotaAccess.premium,
+  limit: 10,
+  reserved: 0,
+  consumed: 2,
+  remaining: 8,
+  unlimited: true,
+);
+
 void main() {
+  testWidgets(
+    'free scanning shows the configured allowance because upgrade urgency depends on the remaining count',
+    (tester) async {
+      await _pumpScanTestApp(tester);
+
+      expect(find.text('10 scans remaining'), findsOneWidget);
+      expect(find.text('Tap to get unlimited scans'), findsOneWidget);
+    },
+  );
+
+  testWidgets('the top Pro quota card opens the full Scan Subscription Page', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(top: 62);
+    addTearDown(tester.view.reset);
+    await _pumpScanTestApp(tester);
+
+    final quotaPrompt = tester.getRect(
+      find.byKey(const Key('scan-free-quota-pill')),
+    );
+
+    await tester.tapAt(quotaPrompt.center);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Subscription'), findsOneWidget);
+    final query = tester
+        .widget<Text>(find.byKey(const Key('subscription-test-query')))
+        .data!;
+    final parameters = Uri.splitQueryString(query);
+    expect(parameters['source'], 'scan');
+    expect(parameters['entry_source'], 'scan_pro_card');
+    expect(parameters.containsKey('presentation'), isFalse);
+  });
+
+  testWidgets(
+    'top Pro card purchase Success returns without a duplicate Premium unlocked toast',
+    (tester) async {
+      await _pumpScanTestApp(
+        tester,
+        subscriptionResult: SubscriptionPaywallResult.premiumUnlocked,
+      );
+
+      await tester.tap(find.byKey(const Key('scan-free-quota-pill')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('subscription-test-result')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.byKey(const Key('scan-page-test-boundary')), findsOneWidget);
+      expect(find.byKey(const Key('premium-unlocked-toast')), findsNothing);
+    },
+  );
+
+  testWidgets('top Pro card Restore still shows its success feedback', (
+    tester,
+  ) async {
+    await _pumpScanTestApp(
+      tester,
+      subscriptionResult: SubscriptionPaywallResult.premiumRestored,
+    );
+
+    await tester.tap(find.byKey(const Key('scan-free-quota-pill')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('subscription-test-result')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.byKey(const Key('scan-page-test-boundary')), findsOneWidget);
+    expect(find.text('Premium restored'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets(
+    'a completed free scan consumes one allowance so the displayed limit stays truthful',
+    (tester) async {
+      await _pumpScanTestApp(tester);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+
+      expect(find.text('9 scans remaining'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'the Free quota prompt stays visible through scanning and follows the settled server count',
+    (tester) async {
+      final pending = Completer<ScanResolution>();
+      final quotaController = _TestScanQuotaController(_availableQuota);
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: _TestScanResultSource(photoResult: pending.future),
+        scanQuotaController: quotaController,
+      );
+
+      expect(find.text('10 scans remaining'), findsOneWidget);
+      expect(find.text('Tap to get unlimited scans'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      quotaController.applyServerQuota(
+        const ScanQuotaDto(
+          access: ScanQuotaAccess.free,
+          limit: 10,
+          reserved: 1,
+          consumed: 0,
+          remaining: 9,
+          unlimited: false,
+        ),
+      );
+      await tester.pump();
+      expect(find.text('9 scans remaining'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('9 scans remaining'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('9 scans remaining'), findsOneWidget);
+
+      pending.complete(
+        const ScanResolution.noMatch(
+          quota: ScanQuotaDto(
+            access: ScanQuotaAccess.free,
+            limit: 10,
+            reserved: 0,
+            consumed: 1,
+            remaining: 9,
+            unlimited: false,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 1530));
+
+      expect(find.text('9 scans remaining'), findsOneWidget);
+      expect(find.text('Tap to get unlimited scans'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'an exhausted free allowance opens the paywall without starting recognition',
+    (tester) async {
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.noMatch()),
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanQuota: _exhaustedQuota,
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pumpAndSettle();
+
+      expect(source.photoCallCount, 0);
+      expect(find.text('Subscription'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'unlocking Premium after an exhausted Capture returns to Scan without starting the camera action',
+    (tester) async {
+      final subscription = _SynchronizingScanSubscriptionController(
+        premiumState: AppPremiumState.free,
+      );
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.noMatch()),
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanQuota: _exhaustedQuota,
+        subscriptionController: () => subscription,
+        subscriptionResult: SubscriptionPaywallResult.premiumUnlocked,
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('subscription-test-result')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.byKey(const Key('scan-page-test-boundary')), findsOneWidget);
+      expect(find.byKey(const Key('premium-unlocked-toast')), findsOneWidget);
+      expect(source.photoCallCount, 0);
+      expect(subscription.synchronizeCount, 1);
+      await tester.pump(const Duration(seconds: 3));
+    },
+  );
+
+  testWidgets(
+    'unlocking Premium after an exhausted Gallery returns to Scan without reopening the picker',
+    (tester) async {
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.noMatch()),
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanQuota: _exhaustedQuota,
+        subscriptionResult: SubscriptionPaywallResult.premiumUnlocked,
+      );
+
+      await tester.tap(find.byTooltip('Choose from Library'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('subscription-test-result')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('scan-page-test-boundary')), findsOneWidget);
+      expect(source.libraryCallCount, 0);
+      await tester.pump(const Duration(seconds: 3));
+    },
+  );
+
+  testWidgets('Pro scanning stays unlimited without showing a quota prompt', (
+    tester,
+  ) async {
+    await _pumpScanTestApp(
+      tester,
+      subscriptionController: _ProScanSubscriptionController.new,
+    );
+
+    expect(find.byKey(const Key('scan-free-quota-pill')), findsNothing);
+    expect(find.byKey(const Key('scan-unlimited-pill')), findsNothing);
+    expect(find.text('Unlimited scans'), findsNothing);
+    await tester.tap(find.byTooltip('Take Photo'));
+    await tester.pump();
+
+    expect(find.byKey(const Key('scan-free-quota-pill')), findsNothing);
+    expect(find.byKey(const Key('scan-unlimited-pill')), findsNothing);
+  });
+
+  testWidgets(
+    'server Unlimited hides Free quota while local entitlement catches up',
+    (tester) async {
+      await _pumpScanTestApp(tester, scanQuota: _unlimitedQuota);
+
+      expect(find.byKey(const Key('scan-free-quota-pill')), findsNothing);
+      expect(find.byKey(const Key('scan-unlimited-pill')), findsNothing);
+      expect(find.text('Unlimited scans'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Premium becoming Free refreshes the original quota so the Free prompt follows entitlement state',
+    (tester) async {
+      const restoredFreeQuota = ScanQuotaDto(
+        access: ScanQuotaAccess.free,
+        limit: 10,
+        reserved: 0,
+        consumed: 3,
+        remaining: 7,
+        unlimited: false,
+      );
+      final subscription = _MutableScanSubscriptionController();
+      final quotaController = _TestScanQuotaController(
+        _unlimitedQuota,
+        refreshQuotas: const [_unlimitedQuota, restoredFreeQuota],
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanQuotaController: quotaController,
+        subscriptionController: () => subscription,
+      );
+
+      expect(find.byKey(const Key('scan-free-quota-pill')), findsNothing);
+      subscription.setPremiumState(AppPremiumState.free);
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('7 scans remaining'), findsOneWidget);
+      expect(find.text('Tap to get unlimited scans'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'stale local Free refreshes once before recognition can spend quota',
+    (tester) async {
+      final subscription = _StaleFreeScanSubscriptionController();
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.noMatch()),
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        subscriptionController: () => subscription,
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+
+      expect(subscription.refreshCount, 1);
+      expect(source.photoCallCount, 1);
+    },
+  );
+
+  testWidgets(
+    'unknown entitlement resolved as Premium starts scanning without a free paywall',
+    (tester) async {
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.noMatch()),
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanQuota: _exhaustedQuota,
+        subscriptionController: () =>
+            _ResolvingScanSubscriptionController(AppPremiumState.premium),
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+
+      expect(source.photoCallCount, 1);
+      expect(find.text('Subscription'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'unknown entitlement resolved as Free opens the paywall before recognition',
+    (tester) async {
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.noMatch()),
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanQuota: _exhaustedQuota,
+        subscriptionController: () =>
+            _ResolvingScanSubscriptionController(AppPremiumState.free),
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pumpAndSettle();
+
+      expect(source.photoCallCount, 0);
+      expect(find.text('Subscription'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'unknown entitlement refresh failure neither scans nor shows a free paywall',
+    (tester) async {
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.noMatch()),
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanQuota: _exhaustedQuota,
+        subscriptionController: () =>
+            _ResolvingScanSubscriptionController(AppPremiumState.unknown),
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pumpAndSettle();
+
+      expect(source.photoCallCount, 0);
+      expect(find.text('Subscription'), findsNothing);
+      expect(
+        find.text('Unable to verify Premium access. Please try again.'),
+        findsOneWidget,
+      );
+      await tester.pump(kandoTopToastDuration);
+    },
+  );
+
   testWidgets('Scan requests camera access before opening the camera', (
     tester,
   ) async {
@@ -204,6 +602,7 @@ void main() {
       'assets/scan/align.svg',
       'assets/scan/gallery.svg',
       'assets/scan/done.svg',
+      'assets/scan/pro_badge.svg',
     ];
 
     for (final asset in iconAssets) {
@@ -300,7 +699,7 @@ void main() {
       );
       final crop = source.recognizedImages.single.recognitionCrop!;
       expect(crop.left, closeTo(55 / 390, 0.0001));
-      expect(crop.top, closeTo(163 / 844, 0.0001));
+      expect(crop.top, closeTo(213 / 844, 0.0001));
       expect(crop.width, closeTo(280 / 390, 0.0001));
       expect(crop.height, closeTo(400 / 844, 0.0001));
 
@@ -321,10 +720,11 @@ void main() {
         photoResult: Future.value(const ScanResolution.failed()),
         recognizeResult: Future.value(const ScanResolution.noMatch()),
       );
+      final camera = _TestScanCameraSession();
       await _pumpScanTestApp(
         tester,
         scanResultSource: source,
-        scanCameraFactory: _TestScanCameraFactory(_TestScanCameraSession()),
+        scanCameraFactory: _TestScanCameraFactory(camera),
       );
 
       await tester.tap(find.byTooltip('Take Photo'));
@@ -339,6 +739,125 @@ void main() {
       expect(crop.top, closeTo(viewfinder.top / 800, 0.0001));
       expect(crop.left + crop.width, closeTo(viewfinder.right / 360, 0.0001));
       expect(crop.top + crop.height, closeTo(viewfinder.bottom / 800, 0.0001));
+    },
+  );
+
+  testWidgets(
+    'iPhone 8 keeps one adaptive viewfinder clear of the top and bottom controls',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(375, 667);
+      tester.view.padding = const FakeViewPadding(top: 20);
+      addTearDown(tester.view.reset);
+      final pending = Completer<ScanResolution>();
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.failed()),
+        recognizeResult: pending.future,
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanCameraFactory: _TestScanCameraFactory(_TestScanCameraSession()),
+      );
+
+      final viewfinder = tester.getRect(
+        find.byKey(const Key('scan-figma-viewfinder')),
+      );
+      final quota = tester.getRect(
+        find.byKey(const Key('scan-free-quota-pill')),
+      );
+      final shutter = tester.getRect(find.byTooltip('Take Photo'));
+
+      expect(viewfinder.top, closeTo(168, 0.01));
+      expect(viewfinder.width, closeTo(261.1, 0.01));
+      expect(viewfinder.height, closeTo(373, 0.01));
+      expect(viewfinder.width / viewfinder.height, closeTo(0.7, 0.0001));
+      expect(viewfinder.top, greaterThanOrEqualTo(quota.bottom + 16));
+      expect(viewfinder.bottom, lessThanOrEqualTo(shutter.top - 16));
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(
+        tester.getRect(find.byKey(const Key('scan-figma-scanning-line'))),
+        viewfinder,
+      );
+
+      await tester.pump(const Duration(milliseconds: 750));
+      final crop = source.recognizedImages.single.recognitionCrop!;
+      expect(crop.left, closeTo(viewfinder.left / 375, 0.0001));
+      expect(crop.top, closeTo(viewfinder.top / 667, 0.0001));
+      expect(crop.width, closeTo(viewfinder.width / 375, 0.0001));
+      expect(crop.height, closeTo(viewfinder.height / 667, 0.0001));
+      expect(
+        tester.getRect(find.byKey(const Key('scan-figma-overlay-viewfinder'))),
+        viewfinder,
+      );
+
+      pending.complete(const ScanResolution.noMatch());
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    },
+  );
+
+  testWidgets(
+    'compact Android keeps the adaptive viewfinder inside both safe areas',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
+      addTearDown(tester.view.reset);
+      await _pumpScanTestApp(tester);
+
+      final viewfinder = tester.getRect(
+        find.byKey(const Key('scan-figma-viewfinder')),
+      );
+      final quota = tester.getRect(
+        find.byKey(const Key('scan-free-quota-pill')),
+      );
+      final shutter = tester.getRect(find.byTooltip('Take Photo'));
+
+      expect(viewfinder.left, closeTo(68.7, 0.01));
+      expect(viewfinder.top, closeTo(172, 0.01));
+      expect(viewfinder.width, closeTo(222.6, 0.01));
+      expect(viewfinder.height, closeTo(318, 0.01));
+      expect(viewfinder.top, greaterThanOrEqualTo(quota.bottom + 16));
+      expect(viewfinder.bottom, lessThanOrEqualTo(shutter.top - 16));
+    },
+  );
+
+  testWidgets(
+    'capture uses the latest adaptive geometry when the viewport changes during feedback',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.failed()),
+        recognizeResult: Future.value(const ScanResolution.noMatch()),
+      );
+      final camera = _TestScanCameraSession();
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanCameraFactory: _TestScanCameraFactory(camera),
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump(const Duration(milliseconds: 250));
+      tester.view.physicalSize = const Size(375, 667);
+      tester.view.padding = const FakeViewPadding(top: 20);
+      await tester.pump(const Duration(milliseconds: 501));
+
+      expect(camera.takePhotoCount, 1);
+      expect(source.recognizedImages, hasLength(1));
+      final viewfinder = tester.getRect(
+        find.byKey(const Key('scan-figma-viewfinder')),
+      );
+      final crop = source.recognizedImages.single.recognitionCrop!;
+      expect(crop.left, closeTo(viewfinder.left / 375, 0.0001));
+      expect(crop.top, closeTo(viewfinder.top / 667, 0.0001));
+      expect(crop.width, closeTo(viewfinder.width / 375, 0.0001));
+      expect(crop.height, closeTo(viewfinder.height / 667, 0.0001));
     },
   );
 
@@ -365,7 +884,7 @@ void main() {
       await tester.pump();
 
       expect(camera.takePhotoCount, 0);
-      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 501));
       expect(camera.takePhotoCount, 1);
       expect(source.recognizedImages, hasLength(1));
     },
@@ -608,6 +1127,89 @@ void main() {
     },
   );
 
+  testWidgets(
+    'Scan controls stay mounted while recognition advances to reveal',
+    (tester) async {
+      final pending = Completer<ScanResolution>();
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: _TestScanResultSource(photoResult: pending.future),
+      );
+
+      final initialTopBar = tester.renderObject(
+        find.byKey(const Key('scan-figma-top-bar')),
+      );
+      final initialDoneAction = tester.renderObject(
+        find.byKey(const Key('scan-done-action')),
+      );
+      final initialGalleryRect = tester.getRect(
+        find.byTooltip('Choose from Library'),
+      );
+      final initialDoneRect = tester.getRect(
+        find.byKey(const Key('scan-done-action')),
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(
+        tester.renderObject(find.byKey(const Key('scan-figma-top-bar'))),
+        same(initialTopBar),
+      );
+      expect(
+        tester.renderObject(find.byKey(const Key('scan-done-action'))),
+        same(initialDoneAction),
+      );
+      expect(
+        tester.getRect(find.byTooltip('Choose from Library')),
+        initialGalleryRect,
+      );
+      expect(
+        tester.getRect(find.byKey(const Key('scan-done-action'))),
+        initialDoneRect,
+      );
+
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(
+        tester.renderObject(find.byKey(const Key('scan-figma-top-bar'))),
+        same(initialTopBar),
+        reason: 'Reveal must not remount and replay the top controls.',
+      );
+      expect(
+        tester.renderObject(find.byKey(const Key('scan-done-action'))),
+        same(initialDoneAction),
+        reason: 'Reveal must not remount and replay the bottom controls.',
+      );
+      expect(
+        tester.getRect(find.byTooltip('Choose from Library')),
+        initialGalleryRect,
+        reason: 'Reveal must not move the Gallery action.',
+      );
+      expect(
+        tester.getRect(find.byKey(const Key('scan-done-action'))),
+        initialDoneRect,
+        reason: 'Reveal must not move the Done action.',
+      );
+
+      pending.complete(const ScanResolution.failed());
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 1530));
+      await tester.pump();
+
+      expect(
+        tester.getRect(find.byTooltip('Choose from Library')),
+        initialGalleryRect,
+        reason: 'Recognition completion must not move the Gallery action.',
+      );
+      expect(
+        tester.getRect(find.byKey(const Key('scan-done-action'))),
+        initialDoneRect,
+        reason: 'Recognition completion must not move the Done action.',
+      );
+    },
+  );
+
   testWidgets('Figma recognition renders at the 390x844 baseline', (
     tester,
   ) async {
@@ -664,6 +1266,21 @@ void main() {
     },
   );
 
+  testWidgets(
+    'Scanning progress paints inside its bounds so no edge is clipped',
+    (tester) async {
+      await _pumpScanTestApp(tester);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump(const Duration(seconds: 2));
+
+      final progress = tester.widget<CircularProgressIndicator>(
+        find.byKey(const Key('scan-recognition-progress')),
+      );
+      expect(progress.strokeAlign, CircularProgressIndicator.strokeAlignInside);
+    },
+  );
+
   testWidgets('Figma scan reveal renders at the 390x844 baseline', (
     tester,
   ) async {
@@ -691,8 +1308,8 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
     await tester.pump(const Duration(milliseconds: 1500));
 
-    expect(tester.getTopLeft(find.byTooltip('Choose from Library')).dx, 31);
-    expect(tester.getTopLeft(find.byTooltip('Choose from Library')).dy, 745);
+    expect(tester.getTopLeft(find.byTooltip('Choose from Library')).dx, 28);
+    expect(tester.getTopLeft(find.byTooltip('Choose from Library')).dy, 750);
 
     await expectLater(
       find.byKey(const Key('scan-revealing-figma-golden')),
@@ -856,6 +1473,7 @@ void main() {
 
       await tester.tap(find.byTooltip('Take Photo'));
       await _completeFigmaScan(tester);
+      expect(find.text('--'), findsOneWidget);
       await tester.tap(find.byTooltip('Review scan result'));
       await tester.pumpAndSettle();
 
@@ -869,6 +1487,9 @@ void main() {
   testWidgets(
     'Multiple matched cards keep bulk actions because the batch applies to more than one card',
     (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(375, 844);
+      addTearDown(tester.view.reset);
       final source = _TestScanResultSource(
         photoResult: Future.value(
           const ScanResolution.matched(
@@ -900,6 +1521,21 @@ void main() {
 
       expect(find.text('ADD ALL CARDS'), findsOneWidget);
       expect(find.text('DELETE ALL CARDS'), findsOneWidget);
+      final deleteAllLabel = tester.renderObject<RenderParagraph>(
+        find.text('DELETE ALL CARDS'),
+      );
+      final deleteAllLineTops = deleteAllLabel
+          .getBoxesForSelection(
+            const TextSelection(baseOffset: 0, extentOffset: 16),
+          )
+          .map((box) => box.top)
+          .toSet();
+      expect(
+        deleteAllLineTops,
+        hasLength(1),
+        reason:
+            'The bulk delete label must remain on one line on narrow screens.',
+      );
     },
   );
 
@@ -942,6 +1578,108 @@ void main() {
       expect(find.text(r'Total: $0.42'), findsOneWidget);
       expect(find.byKey(const Key('scan-item-price-1')), findsOneWidget);
       expect(find.byKey(const Key('scan-item-price-2')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Adding one batch result removes only the confirmed card from the scan rail',
+    (tester) async {
+      final source = _TestScanResultSource(
+        photoResult: Future.value(
+          const ScanResolution.matched(
+            scanId: 'scan-one',
+            cardRef: 'card-mega',
+            matchName: 'Mega Lucario ex',
+            candidates: ['Mega Lucario ex'],
+          ),
+        ),
+        subsequentPhotoResults: [
+          Future.value(
+            const ScanResolution.matched(
+              scanId: 'scan-two',
+              cardRef: 'card-charizard',
+              matchName: 'Charizard ex',
+              candidates: ['Charizard ex'],
+            ),
+          ),
+        ],
+      );
+      await _pumpScanTestApp(tester, scanResultSource: source);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.tap(find.text('DONE'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('scan-review-add-one')));
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(kandoCenteredSuccessToastDuration);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('scan-active-item-1')),
+        findsNothing,
+        reason: 'A confirmed result must leave the active scan session.',
+      );
+      expect(find.byKey(const Key('scan-active-item-2')), findsOneWidget);
+      expect(find.text('ADDED'), findsNothing);
+      expect(find.text(r'$25.00'), findsOneWidget);
+      expect(find.byKey(const Key('scan-item-price-1')), findsNothing);
+      expect(find.byKey(const Key('scan-item-price-2')), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Review scan result'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Back to Scan'));
+      await tester.pumpAndSettle();
+      expect(find.text(r'$25.00'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Review scan result'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('scan-review-add-one')));
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(kandoCenteredSuccessToastDuration);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('scan-active-item-2')), findsNothing);
+      expect(find.text('ADDED'), findsNothing);
+      expect(find.text(r'$25.00'), findsNothing);
+      await tester.tap(find.byTooltip('Close Scan'));
+      await tester.pumpAndSettle();
+      expect(find.text('Exit scan result?'), findsNothing);
+      expect(find.text('Overview'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'A late incomplete card load cannot replace complete Review data after returning to Scan',
+    (tester) async {
+      final repository = _StaleScanCardsRepository();
+      await _pumpScanTestApp(tester, scanReviewRepository: repository);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.pump();
+      expect(repository.loadCardsCount, 1);
+
+      await tester.tap(find.byTooltip('Review completed scan'));
+      await tester.pumpAndSettle();
+      expect(find.text(r'$25.00'), findsOneWidget);
+
+      repository.completeBackgroundLoadWithEmptyPrices();
+      await tester.pump();
+
+      expect(
+        find.text(r'$25.00'),
+        findsOneWidget,
+        reason: 'A late partial response must not erase the session price.',
+      );
+      await tester.tap(find.byTooltip('Back to Scan'));
+      await tester.pumpAndSettle();
+      expect(find.text(r'$25.00'), findsOneWidget);
     },
   );
 
@@ -1093,7 +1831,8 @@ void main() {
 
     expect(source.lastRetryBytes, Uint8List.fromList(_transparentPngBytes));
     expect(source.lastRetryFileName, 'failed-card.jpg');
-    expect(find.byKey(const Key('scan-figma-scanning-line')), findsOneWidget);
+    expect(find.text('Scanning...'), findsOneWidget);
+    expect(find.byKey(const Key('scan-recognition-progress')), findsOneWidget);
 
     await _completeFigmaScan(tester);
     expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
@@ -1212,11 +1951,76 @@ void main() {
       final topControls = tester.getRect(
         find.byKey(const Key('scan-figma-top-controls')),
       );
+      final topBar = tester.getRect(
+        find.byKey(const Key('scan-figma-top-bar')),
+      );
+      final closeButton = tester.getRect(
+        find.byKey(const Key('scan-figma-close-button')),
+      );
+      final flashButton = tester.getRect(
+        find.byKey(const Key('scan-figma-flash-button')),
+      );
+      final searchButton = tester.getRect(
+        find.byKey(const Key('scan-figma-search-button')),
+      );
+      final quotaPillFinder = find.byKey(const Key('scan-free-quota-pill'));
+      final quotaPill = tester.getRect(quotaPillFinder);
+      final quotaBadge = tester.getRect(
+        find.byKey(const Key('scan-free-quota-pro-badge')),
+      );
+      final quotaCopy = tester.getRect(
+        find.byKey(const Key('scan-free-quota-copy')),
+      );
       final safeTop = MediaQuery.paddingOf(
         tester.element(find.byType(ScanPage)),
       ).top;
-      expect(topBand.height, safeTop + 10);
-      expect(topControls.top, topBand.bottom);
+      expect(topBand.height, safeTop);
+      expect(topControls.top, topBand.bottom + 10);
+      expect(topBar.height, 32);
+      expect(closeButton.size, const Size(30, 30));
+      expect(flashButton.size, const Size(25, 25));
+      expect(searchButton.size, const Size(30, 30));
+      expect(closeButton.center.dy, topBar.center.dy);
+      expect(flashButton.center.dy, topBar.center.dy);
+      expect(searchButton.center.dy, topBar.center.dy);
+      expect(quotaPill.height, 48);
+      expect(quotaPill.width, 209);
+      expect(quotaBadge.size, const Size(24, 24));
+      expect(quotaBadge.left, quotaPill.left + 8);
+      expect(quotaBadge.center.dy, quotaPill.center.dy);
+      expect(quotaCopy.left, quotaBadge.right + 8);
+      expect(quotaCopy.width, 161);
+      expect(quotaCopy.height, 32);
+      expect(quotaCopy.right, quotaPill.right - 8);
+      final quotaDecoration =
+          tester.widget<DecoratedBox>(quotaPillFinder).decoration
+              as BoxDecoration;
+      expect(quotaDecoration.color, const Color(0xFF222222));
+      expect(quotaDecoration.borderRadius, BorderRadius.circular(12));
+      expect(quotaDecoration.boxShadow, const [
+        BoxShadow(
+          color: Color(0x40000000),
+          offset: Offset(0, 23.585),
+          blurRadius: 23.585,
+        ),
+      ]);
+      final quotaTitle = tester.widget<Text>(find.text('10 scans remaining'));
+      final quotaSubtitle = tester.widget<Text>(
+        find.text('Tap to get unlimited scans'),
+      );
+      for (final text in [quotaTitle, quotaSubtitle]) {
+        expect(text.style?.color, const Color(0xFFE4E3D3));
+        expect(text.style?.fontSize, 13);
+        expect(text.style?.height, 16 / 13);
+        expect(text.style?.letterSpacing, 0);
+      }
+      expect(
+        find.descendant(
+          of: quotaPillFinder,
+          matching: find.byIcon(Icons.arrow_upward_rounded),
+        ),
+        findsNothing,
+      );
     },
   );
 
@@ -1269,7 +2073,7 @@ void main() {
       );
       expect(
         tester.getTopLeft(find.byKey(const Key('scan-figma-scanning-line'))).dy,
-        163,
+        tester.getTopLeft(find.byKey(const Key('scan-figma-viewfinder'))).dy,
       );
       expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
       expect(find.text('Scanning'), findsNothing);
@@ -1366,9 +2170,10 @@ void main() {
       expect(
         find.byKey(const Key('scan-active-item-1')),
         findsNothing,
-        reason: 'A confirmed scan must leave the pending results rail.',
+        reason: 'A confirmed scan must leave the active session.',
       );
       expect(find.text('ADDED'), findsNothing);
+      expect(find.text(r'$25.00'), findsNothing);
       expect(reviewRepository.confirmedScanIds, ['scan-mega']);
       final submitted = reviewRepository.confirmedItems.single;
       expect(submitted.folderId, 'trade');
@@ -1538,7 +2343,52 @@ void main() {
   );
 
   testWidgets(
-    'Review treats an already confirmed scan as added because confirmation is idempotent',
+    'Verified scan basics keep Review usable when supplemental card loading is unavailable',
+    (tester) async {
+      final repository = _MissingCurrentScanReviewRepository();
+      final source = _TestScanResultSource(
+        photoResult: Future.value(
+          const ScanResolution.matched(
+            scanId: 'scan-verified',
+            cardRef: 'verified-card',
+            matchName: 'Verified Card',
+            candidates: ['Verified Card'],
+            candidateCardRefs: ['verified-card'],
+            candidateDetails: [
+              ScanCandidateDto(
+                cardRef: 'verified-card',
+                name: 'Verified Card',
+                setName: 'Verified Set',
+                objectType: 'tcg',
+                setCode: 'VER',
+                cardNumber: '001/100',
+                confidence: 95,
+                game: 'Pokemon',
+              ),
+            ],
+          ),
+        ),
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanReviewRepository: repository,
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.tap(find.byTooltip('Review scan result'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Review your matches'), findsOneWidget);
+      expect(find.text('Verified Card'), findsWidgets);
+      expect(find.text('Verified Set'), findsWidgets);
+      expect(find.byKey(const Key('kando-top-toast')), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Review removes an already confirmed scan because confirmation is idempotent',
     (tester) async {
       await _pumpScanTestApp(
         tester,
@@ -1567,9 +2417,10 @@ void main() {
       expect(
         find.byKey(const Key('scan-active-item-1')),
         findsNothing,
-        reason: 'An idempotent confirmation is still a completed scan.',
+        reason: 'An idempotent confirmation must remove the completed item.',
       );
       expect(find.text('ADDED'), findsNothing);
+      expect(find.text(r'$25.00'), findsNothing);
       expect(
         find.text('Something went wrong. Please try again.'),
         findsNothing,
@@ -1823,12 +2674,7 @@ void main() {
           .onPressed,
       isNull,
     );
-    expect(
-      tester
-          .widget<OutlinedButton>(find.byKey(const Key('scan-review-add-all')))
-          .onPressed,
-      isNull,
-    );
+    expect(find.byKey(const Key('scan-review-add-all')), findsNothing);
     expect(find.text('Add this card'), findsOneWidget);
 
     repository.completeNextConfirmation();
@@ -1960,6 +2806,236 @@ void main() {
     expect(find.text('Matched'), findsNothing);
   });
 
+  testWidgets(
+    'deleting Processing keeps its request alive so the final quota settles without restoring the card',
+    (tester) async {
+      final pending = Completer<ScanResolution>();
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: _TestScanResultSource(
+          photoResult: Future.value(
+            const ScanResolution.matched(
+              scanId: 'kept-scan',
+              cardRef: 'kept-card',
+              matchName: 'Kept card',
+              candidates: ['Kept card'],
+            ),
+          ),
+          subsequentPhotoResults: [pending.future],
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+      expect(
+        tester.widget<InkWell>(find.byKey(const Key('scan-done-action'))).onTap,
+        isNull,
+      );
+      await tester.tap(find.byKey(const Key('scan-delete-item-2')));
+      await tester.pump();
+
+      expect(
+        tester.widget<InkWell>(find.byKey(const Key('scan-done-action'))).onTap,
+        isNotNull,
+        reason: 'Deleted Processing must leave the visible processing count.',
+      );
+
+      pending.complete(
+        const ScanResolution.matched(
+          scanId: 'deleted-scan',
+          cardRef: 'deleted-card',
+          matchName: 'Deleted card',
+          candidates: ['Deleted card'],
+          quota: ScanQuotaDto(
+            access: ScanQuotaAccess.free,
+            limit: 10,
+            reserved: 0,
+            consumed: 1,
+            remaining: 9,
+            unlimited: false,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
+      expect(find.byKey(const Key('scan-active-item-2')), findsNothing);
+      expect(find.text('Deleted card'), findsNothing);
+      expect(find.text('9 scans remaining'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'deleting an in-flight camera scan allows another capture while the old request settles',
+    (tester) async {
+      final first = Completer<ScanResolution>();
+      final second = Completer<ScanResolution>();
+      final third = Completer<ScanResolution>();
+      final camera = _TestScanCameraSession();
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: _TestScanResultSource(
+          photoResult: Future.value(const ScanResolution.failed()),
+          recognizeResult: first.future,
+          subsequentRecognizeResults: [second.future, third.future],
+        ),
+        scanCameraFactory: _TestScanCameraFactory(camera),
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(camera.takePhotoCount, 1);
+
+      await tester.tap(find.byKey(const Key('scan-delete-item-1')));
+      await tester.pump();
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 1));
+
+      expect(
+        camera.takePhotoCount,
+        2,
+        reason: 'Deleting the Processing item must release its local gate.',
+      );
+      expect(find.byKey(const Key('scan-active-item-2')), findsOneWidget);
+
+      first.complete(const ScanResolution.failed());
+      await tester.pump();
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 1));
+
+      expect(
+        camera.takePhotoCount,
+        2,
+        reason: 'The deleted request must not unlock the newer capture.',
+      );
+      expect(find.byKey(const Key('scan-active-item-1')), findsNothing);
+      expect(find.byKey(const Key('scan-active-item-2')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a deleted Processing failure refreshes returned quota and resumes an existing Waiting item',
+    (tester) async {
+      final pending = Completer<ScanResolution>();
+      final bytes = Uint8List.fromList(_transparentPngBytes);
+      final quotaController = _TestScanQuotaController(
+        _availableQuota,
+        refreshQuotas: const [
+          _availableQuota,
+          ScanQuotaDto(
+            access: ScanQuotaAccess.free,
+            limit: 10,
+            reserved: 0,
+            consumed: 9,
+            remaining: 1,
+            unlimited: false,
+          ),
+        ],
+      );
+      final source = _TestScanResultSource(
+        photoResult: pending.future,
+        libraryImages: [ScanImage(bytes: bytes, fileName: 'waiting.png')],
+        libraryResults: [
+          Future.value(
+            ScanResolution.quotaExhausted(
+              imageBytes: bytes,
+              displayImageBytes: bytes,
+              imageFileName: 'waiting.png',
+              quota: _exhaustedQuota,
+            ),
+          ),
+        ],
+        retryResult: Future.value(const ScanResolution.noMatch()),
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanQuotaController: quotaController,
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.tap(find.byTooltip('Choose from Library'));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Subscription'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('scan-delete-item-1')));
+      await tester.pump();
+
+      pending.complete(const ScanResolution.failed());
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byKey(const Key('scan-active-item-1')), findsNothing);
+      expect(source.lastRetryFileName, 'waiting.png');
+    },
+  );
+
+  testWidgets(
+    'a visible Processing failure refreshes returned quota and resumes the earliest Waiting item',
+    (tester) async {
+      final pending = Completer<ScanResolution>();
+      final bytes = Uint8List.fromList(_transparentPngBytes);
+      final quotaController = _TestScanQuotaController(
+        _availableQuota,
+        refreshQuotas: const [
+          _availableQuota,
+          ScanQuotaDto(
+            access: ScanQuotaAccess.free,
+            limit: 10,
+            reserved: 0,
+            consumed: 9,
+            remaining: 1,
+            unlimited: false,
+          ),
+        ],
+      );
+      final source = _TestScanResultSource(
+        photoResult: pending.future,
+        libraryImages: [ScanImage(bytes: bytes, fileName: 'waiting.png')],
+        libraryResults: [
+          Future.value(
+            ScanResolution.quotaExhausted(
+              imageBytes: bytes,
+              displayImageBytes: bytes,
+              imageFileName: 'waiting.png',
+              quota: _exhaustedQuota,
+            ),
+          ),
+        ],
+        retryResult: Future.value(const ScanResolution.noMatch()),
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanQuotaController: quotaController,
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.tap(find.byTooltip('Choose from Library'));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Subscription'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+
+      pending.complete(const ScanResolution.failed());
+      await _completeFigmaScan(tester);
+
+      expect(find.text('Failed'), findsOneWidget);
+      expect(source.lastRetryFileName, 'waiting.png');
+    },
+  );
+
   testWidgets('Figma scan accepts concurrent capture requests', (tester) async {
     await _pumpScanTestApp(tester);
 
@@ -1985,7 +3061,30 @@ void main() {
   });
 
   testWidgets(
-    'Done highlights after the first match while another scan is pending because completed cards must remain reviewable',
+    'Capture refuses an eleventh item because Waiting and results share the ten-card queue limit',
+    (tester) async {
+      final pending = Completer<ScanResolution>();
+      final source = _TestScanResultSource(photoResult: pending.future);
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        subscriptionController: _ProScanSubscriptionController.new,
+      );
+
+      for (var index = 0; index < 11; index += 1) {
+        await tester.tap(find.byTooltip('Take Photo'));
+        await tester.pump();
+      }
+
+      expect(source.photoCallCount, 10);
+      expect(find.text('Scanned: 0/10'), findsOneWidget);
+      expect(find.text('Scan queue is full'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 3));
+    },
+  );
+
+  testWidgets(
+    'Done stays disabled while another scan is processing because review must use a settled queue',
     (tester) async {
       final pendingLibrary = Completer<ScanResolution>();
       await _pumpScanTestApp(
@@ -2011,7 +3110,7 @@ void main() {
       expect(find.byKey(const Key('scan-active-item-2')), findsOneWidget);
       expect(
         tester.widget<InkWell>(find.byKey(const Key('scan-done-action'))).onTap,
-        isNotNull,
+        isNull,
       );
       final decoration =
           tester
@@ -2020,7 +3119,540 @@ void main() {
                   )
                   .decoration
               as BoxDecoration;
-      expect(decoration.color, const Color(0xFFF0FE6F));
+      expect(decoration.color, isNot(const Color(0xFFF0FE6F)));
+
+      pendingLibrary.complete(const ScanResolution.noMatch());
+      await _completeFigmaScan(tester);
+      expect(
+        tester.widget<InkWell>(find.byKey(const Key('scan-done-action'))).onTap,
+        isNotNull,
+      );
+    },
+  );
+
+  testWidgets(
+    'a server quota rejection removes a single capture because no queued image can be resumed',
+    (tester) async {
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: _TestScanResultSource(
+          photoResult: Future.value(
+            ScanResolution.quotaExhausted(
+              imageBytes: Uint8List.fromList(_transparentPngBytes),
+              displayImageBytes: Uint8List.fromList(_transparentPngBytes),
+              imageFileName: 'capture.png',
+              quota: _exhaustedQuota,
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Subscription'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('scan-active-item-1')), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'gallery quota overflow preserves selected images as Waiting in queue order',
+    (tester) async {
+      final bytes = Uint8List.fromList(_transparentPngBytes);
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: _TestScanResultSource(
+          photoResult: Future.value(const ScanResolution.failed()),
+          libraryImages: [
+            ScanImage(bytes: bytes, fileName: 'first.png'),
+            ScanImage(bytes: bytes, fileName: 'second.png'),
+          ],
+          libraryResults: [
+            Future.value(
+              ScanResolution.noMatch(
+                imageBytes: bytes,
+                imageFileName: 'first.png',
+                quota: _exhaustedQuota,
+              ),
+            ),
+            Future.value(
+              ScanResolution.quotaExhausted(
+                imageBytes: bytes,
+                displayImageBytes: bytes,
+                imageFileName: 'second.png',
+                quota: _exhaustedQuota,
+              ),
+            ),
+          ],
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Choose from Library'));
+      await tester.pumpAndSettle();
+      expect(find.text('Subscription'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      final waitingItem = find.byKey(const Key('scan-active-item-2'));
+      expect(waitingItem, findsOneWidget);
+      expect(tester.getSize(waitingItem), const Size(208, 82));
+      final waitingLabel = find.descendant(
+        of: waitingItem,
+        matching: find.text('Waiting to scan'),
+      );
+      expect(waitingLabel, findsOneWidget);
+      expect(
+        tester.widget<Text>(waitingLabel).style?.decoration,
+        TextDecoration.underline,
+      );
+      final waitingImage = tester.widget<Image>(
+        find.descendant(of: waitingItem, matching: find.byType(Image)),
+      );
+      expect(waitingImage.image, isA<MemoryImage>());
+      expect((waitingImage.image as MemoryImage).bytes, same(bytes));
+    },
+  );
+
+  testWidgets(
+    'one gallery batch opens the quota paywall once when multiple images exceed the remaining allowance',
+    (tester) async {
+      final bytes = Uint8List.fromList(_transparentPngBytes);
+      final lateQuotaRejection = Completer<ScanResolution>();
+      await _pumpScanTestApp(
+        tester,
+        scanQuota: const ScanQuotaDto(
+          access: ScanQuotaAccess.free,
+          limit: 10,
+          reserved: 0,
+          consumed: 9,
+          remaining: 1,
+          unlimited: false,
+        ),
+        scanResultSource: _TestScanResultSource(
+          photoResult: Future.value(const ScanResolution.failed()),
+          libraryImages: [
+            ScanImage(bytes: bytes, fileName: 'allowed.png'),
+            ScanImage(bytes: bytes, fileName: 'waiting-1.png'),
+            ScanImage(bytes: bytes, fileName: 'waiting-2.png'),
+          ],
+          libraryResults: [
+            Future.value(
+              ScanResolution.noMatch(
+                imageBytes: bytes,
+                imageFileName: 'allowed.png',
+                quota: _exhaustedQuota,
+              ),
+            ),
+            Future.value(
+              ScanResolution.quotaExhausted(
+                imageBytes: bytes,
+                displayImageBytes: bytes,
+                imageFileName: 'waiting-1.png',
+                quota: _exhaustedQuota,
+              ),
+            ),
+            lateQuotaRejection.future,
+          ],
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Choose from Library'));
+      await tester.pumpAndSettle();
+      expect(find.text('Subscription'), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pump();
+      lateQuotaRejection.complete(
+        ScanResolution.quotaExhausted(
+          imageBytes: bytes,
+          displayImageBytes: bytes,
+          imageFileName: 'waiting-2.png',
+          quota: _exhaustedQuota,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Subscription'),
+        findsNothing,
+        reason:
+            'One user gallery selection must produce only one quota prompt.',
+      );
+      expect(find.byTooltip('Unlock unlimited scans'), findsNWidgets(2));
+    },
+  );
+
+  testWidgets(
+    'Waiting delete removes only that item without opening the paywall',
+    (tester) async {
+      final bytes = Uint8List.fromList(_transparentPngBytes);
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: _TestScanResultSource(
+          photoResult: Future.value(const ScanResolution.failed()),
+          libraryImages: [ScanImage(bytes: bytes, fileName: 'waiting.png')],
+          libraryResults: [
+            Future.value(
+              ScanResolution.quotaExhausted(
+                imageBytes: bytes,
+                displayImageBytes: bytes,
+                imageFileName: 'waiting.png',
+                quota: _exhaustedQuota,
+              ),
+            ),
+          ],
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Choose from Library'));
+      await tester.pumpAndSettle();
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('scan-delete-item-1')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('scan-active-item-1')), findsNothing);
+      expect(find.text('Subscription'), findsNothing);
+    },
+  );
+
+  testWidgets('Waiting card body opens the functional paywall', (tester) async {
+    final bytes = Uint8List.fromList(_transparentPngBytes);
+    final source = _TestScanResultSource(
+      photoResult: Future.value(const ScanResolution.failed()),
+      libraryImages: [ScanImage(bytes: bytes, fileName: 'waiting.png')],
+      libraryResults: [
+        Future.value(
+          ScanResolution.quotaExhausted(
+            imageBytes: bytes,
+            displayImageBytes: bytes,
+            imageFileName: 'waiting.png',
+            quota: _exhaustedQuota,
+          ),
+        ),
+      ],
+    );
+    await _pumpScanTestApp(tester, scanResultSource: source);
+
+    await tester.tap(find.byTooltip('Choose from Library'));
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Unlock unlimited scans'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Subscription'), findsOneWidget);
+    final query = tester
+        .widget<Text>(find.byKey(const Key('subscription-test-query')))
+        .data!;
+    expect(Uri.splitQueryString(query)['scene'], 'scanWating');
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(source.lastRetryFileName, isNull);
+  });
+
+  testWidgets(
+    'Waiting Premium success resumes the queued image after server quota confirms unlimited',
+    (tester) async {
+      final bytes = Uint8List.fromList(_transparentPngBytes);
+      final quotaController = _TestScanQuotaController(
+        _availableQuota,
+        refreshQuotas: const [
+          _availableQuota,
+          ScanQuotaDto(
+            access: ScanQuotaAccess.premium,
+            limit: 10,
+            reserved: 0,
+            consumed: 10,
+            remaining: 0,
+            unlimited: true,
+          ),
+        ],
+      );
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.failed()),
+        libraryImages: [ScanImage(bytes: bytes, fileName: 'waiting.png')],
+        libraryResults: [
+          Future.value(
+            ScanResolution.quotaExhausted(
+              imageBytes: bytes,
+              displayImageBytes: bytes,
+              imageFileName: 'waiting.png',
+              quota: _exhaustedQuota,
+            ),
+          ),
+        ],
+        retryResult: Future.value(const ScanResolution.noMatch()),
+      );
+      final subscription = _SynchronizingScanSubscriptionController();
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanQuotaController: quotaController,
+        subscriptionController: () => subscription,
+        subscriptionResult: SubscriptionPaywallResult.premiumUnlocked,
+      );
+
+      await tester.tap(find.byTooltip('Choose from Library'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('subscription-test-result')));
+      await tester.pumpAndSettle();
+
+      expect(source.lastRetryFileName, 'waiting.png');
+      expect(quotaController.state.unlimited, isTrue);
+      expect(subscription.synchronizeCount, 1);
+    },
+  );
+
+  testWidgets(
+    'Premium success immediately removes the Waiting paywall action while server entitlement synchronization is pending',
+    (tester) async {
+      final bytes = Uint8List.fromList(_transparentPngBytes);
+      final synchronization = Completer<bool>();
+      final subscription = _SynchronizingScanSubscriptionController(
+        onSynchronize: () => synchronization.future,
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: _TestScanResultSource(
+          photoResult: Future.value(const ScanResolution.failed()),
+          libraryImages: [ScanImage(bytes: bytes, fileName: 'waiting.png')],
+          libraryResults: [
+            Future.value(
+              ScanResolution.quotaExhausted(
+                imageBytes: bytes,
+                displayImageBytes: bytes,
+                imageFileName: 'waiting.png',
+                quota: _exhaustedQuota,
+              ),
+            ),
+          ],
+        ),
+        subscriptionController: () => subscription,
+        subscriptionResult: SubscriptionPaywallResult.premiumUnlocked,
+      );
+
+      await tester.tap(find.byTooltip('Choose from Library'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('subscription-test-result')));
+      await tester.pumpAndSettle();
+
+      expect(subscription.synchronizeCount, 1);
+      expect(find.text('Waiting to scan'), findsNothing);
+      expect(find.text('Premium Syncing'), findsOneWidget);
+      expect(find.text('Syncing Premium'), findsOneWidget);
+      expect(find.byTooltip('Unlock unlimited scans'), findsNothing);
+      expect(find.text('Subscription'), findsNothing);
+
+      await tester.pump(kandoTopToastDuration);
+      await tester.pump();
+      await tester.pumpWidget(const SizedBox.shrink());
+      synchronization.complete(true);
+      await tester.pump();
+    },
+  );
+
+  testWidgets(
+    'Failed retry becomes Waiting when the latest server quota is exhausted',
+    (tester) async {
+      final bytes = Uint8List.fromList(_transparentPngBytes);
+      final source = _TestScanResultSource(
+        photoResult: Future.value(
+          ScanResolution.failed(
+            imageBytes: bytes,
+            imageFileName: 'failed.png',
+            quota: _exhaustedQuota,
+          ),
+        ),
+      );
+      await _pumpScanTestApp(tester, scanResultSource: source);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.tap(find.byTooltip('Retry scan'));
+      await tester.pumpAndSettle();
+
+      expect(source.lastRetryFileName, isNull);
+      expect(find.text('Subscription'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Unlock unlimited scans'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Matched plus Waiting enables Done because Waiting is not Processing',
+    (tester) async {
+      final bytes = Uint8List.fromList(_transparentPngBytes);
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: _TestScanResultSource(
+          photoResult: Future.value(const ScanResolution.failed()),
+          libraryImages: [
+            ScanImage(bytes: bytes, fileName: 'matched.png'),
+            ScanImage(bytes: bytes, fileName: 'waiting.png'),
+          ],
+          libraryResults: [
+            Future.value(
+              const ScanResolution.matched(
+                scanId: 'matched',
+                cardRef: 'card-mega',
+                matchName: 'Mega Lucario ex',
+                candidates: ['Mega Lucario ex'],
+              ),
+            ),
+            Future.value(
+              ScanResolution.quotaExhausted(
+                imageBytes: bytes,
+                displayImageBytes: bytes,
+                imageFileName: 'waiting.png',
+                quota: _exhaustedQuota,
+              ),
+            ),
+          ],
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Choose from Library'));
+      await tester.pumpAndSettle();
+      await tester.binding.handlePopRoute();
+      await _completeFigmaScan(tester);
+
+      expect(
+        tester.widget<InkWell>(find.byKey(const Key('scan-done-action'))).onTap,
+        isNotNull,
+      );
+    },
+  );
+
+  testWidgets(
+    'entitlement synchronization preserves the image without showing a free paywall',
+    (tester) async {
+      final bytes = Uint8List.fromList(_transparentPngBytes);
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: _TestScanResultSource(
+          photoResult: Future.value(
+            ScanResolution.entitlementSyncRequired(
+              imageBytes: bytes,
+              displayImageBytes: bytes,
+              imageFileName: 'premium.png',
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Premium Syncing'), findsOneWidget);
+      expect(find.text('Syncing Premium'), findsOneWidget);
+      expect(find.text('No Match Found'), findsNothing);
+      expect(find.text('Subscription'), findsNothing);
+      expect(find.text('Failed'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Waiting resumes only after the server confirms unlimited Premium',
+    (tester) async {
+      final bytes = Uint8List.fromList(_transparentPngBytes);
+      final quotaController = _TestScanQuotaController(
+        _exhaustedQuota,
+        refreshQuotas: const [
+          _exhaustedQuota,
+          _exhaustedQuota,
+          ScanQuotaDto(
+            access: ScanQuotaAccess.premium,
+            limit: 10,
+            reserved: 0,
+            consumed: 10,
+            remaining: 0,
+            unlimited: true,
+          ),
+        ],
+      );
+      final source = _TestScanResultSource(
+        photoResult: Future.value(
+          ScanResolution.entitlementSyncRequired(
+            imageBytes: bytes,
+            displayImageBytes: bytes,
+            imageFileName: 'premium.png',
+          ),
+        ),
+        retryResult: Future.value(const ScanResolution.noMatch()),
+      );
+      final subscription = _SynchronizingScanSubscriptionController();
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanQuotaController: quotaController,
+        subscriptionController: () => subscription,
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+      expect(source.lastRetryFileName, isNull);
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
+
+      expect(source.lastRetryFileName, 'premium.png');
+      expect(quotaController.state.unlimited, isTrue);
+      expect(subscription.synchronizeCount, 1);
+    },
+  );
+
+  testWidgets(
+    'concurrent Premium sync items share one entitlement synchronization',
+    (tester) async {
+      final bytes = Uint8List.fromList(_transparentPngBytes);
+      final synchronization = Completer<bool>();
+      final subscription = _SynchronizingScanSubscriptionController(
+        onSynchronize: () => synchronization.future,
+      );
+      final quotaController = _TestScanQuotaController(
+        _exhaustedQuota,
+        refreshQuotas: const [_exhaustedQuota, _unlimitedQuota],
+      );
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.failed()),
+        libraryImages: [
+          ScanImage(bytes: bytes, fileName: 'premium-1.png'),
+          ScanImage(bytes: bytes, fileName: 'premium-2.png'),
+        ],
+        libraryResults: [
+          for (var index = 1; index <= 2; index += 1)
+            Future.value(
+              ScanResolution.entitlementSyncRequired(
+                imageBytes: bytes,
+                displayImageBytes: bytes,
+                imageFileName: 'premium-$index.png',
+              ),
+            ),
+        ],
+        retryResult: Future.value(const ScanResolution.noMatch()),
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanQuotaController: quotaController,
+        subscriptionController: () => subscription,
+      );
+
+      await tester.tap(find.byTooltip('Choose from Library'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Premium Syncing'), findsNWidgets(2));
+      expect(subscription.synchronizeCount, 1);
+
+      synchronization.complete(true);
+      await tester.pump();
+      await tester.pump();
+
+      expect(quotaController.state.unlimited, isTrue);
+      expect(source.retryCallCount, 2);
     },
   );
 
@@ -2217,10 +3849,18 @@ void main() {
 
     expect(analytics.count(AnalyticsEvent.collectionItemAddClick), 1);
     expect(analytics.count(AnalyticsEvent.scanResults), 1);
+    expect(find.byKey(const Key('scan-review-form-error')), findsOneWidget);
+    final toast = find.byKey(const Key('kando-top-toast'));
+    expect(toast, findsOneWidget);
     expect(
-      find.text('Quantity must be a whole number of 1 or more.'),
+      find.descendant(
+        of: toast,
+        matching: find.text('Quantity must be a whole number of 1 or more.'),
+      ),
       findsOneWidget,
     );
+    await tester.pump(kandoTopToastDuration);
+    await tester.pump();
   });
 
   testWidgets('Scan keeps capture controls available across multiple results', (
@@ -2419,6 +4059,10 @@ Future<void> _pumpScanTestApp(
   ScanCameraFactory scanCameraFactory = const _DisabledScanCameraFactory(),
   ScanPermissionGateway permissions = const _GrantedScanPermissionGateway(),
   AppAnalytics? analytics,
+  ScanQuotaDto? scanQuota,
+  _TestScanQuotaController? scanQuotaController,
+  SubscriptionController Function()? subscriptionController,
+  SubscriptionPaywallResult? subscriptionResult,
   bool tickerEnabled = true,
 }) async {
   await tester.pumpWidget(const SizedBox.shrink());
@@ -2436,11 +4080,19 @@ Future<void> _pumpScanTestApp(
         ),
         scanCameraFactoryProvider.overrideWithValue(scanCameraFactory),
         scanPermissionGatewayProvider.overrideWithValue(permissions),
+        scanQuotaControllerProvider.overrideWith(
+          () =>
+              scanQuotaController ??
+              _TestScanQuotaController(scanQuota ?? _availableQuota),
+        ),
+        subscriptionControllerProvider.overrideWith(
+          subscriptionController ?? _FreeScanSubscriptionController.new,
+        ),
         if (analytics != null) analyticsProvider.overrideWithValue(analytics),
       ],
       child: TickerMode(
         enabled: tickerEnabled,
-        child: const _ScanTestAppWithRoutes(),
+        child: _ScanTestAppWithRoutes(subscriptionResult: subscriptionResult),
       ),
     ),
   );
@@ -2457,6 +4109,12 @@ _scanGoldenOverrides() {
     ),
     scanResultSourceProvider.overrideWithValue(_defaultTestScanResultSource()),
     scanReviewRepositoryProvider.overrideWithValue(_FakeScanReviewRepository()),
+    scanQuotaControllerProvider.overrideWith(
+      () => _TestScanQuotaController(_availableQuota),
+    ),
+    subscriptionControllerProvider.overrideWith(
+      _FreeScanSubscriptionController.new,
+    ),
   ];
 }
 
@@ -2479,6 +4137,133 @@ class _AnalyticsRecorder {
       for (final record in events)
         if (record.event == event) record.properties,
     ];
+  }
+}
+
+class _ProScanSubscriptionController extends SubscriptionController {
+  @override
+  SubscriptionState build() => const SubscriptionState(isPro: true);
+}
+
+class _MutableScanSubscriptionController extends SubscriptionController {
+  @override
+  SubscriptionState build() =>
+      const SubscriptionState(premiumState: AppPremiumState.premium);
+
+  void setPremiumState(AppPremiumState premiumState) {
+    state = state.copyWith(premiumState: premiumState);
+  }
+
+  @override
+  Future<AppPremiumState> refreshEntitlement({bool showFailure = true}) async {
+    return state.premiumState;
+  }
+}
+
+class _SynchronizingScanSubscriptionController extends SubscriptionController {
+  _SynchronizingScanSubscriptionController({
+    this.premiumState = AppPremiumState.premium,
+    this.onSynchronize,
+  });
+
+  final AppPremiumState premiumState;
+  final Future<bool> Function()? onSynchronize;
+  var synchronizeCount = 0;
+
+  @override
+  SubscriptionState build() => SubscriptionState(premiumState: premiumState);
+
+  @override
+  Future<AppPremiumState> refreshEntitlement({bool showFailure = true}) async {
+    return premiumState;
+  }
+
+  @override
+  Future<EntitlementReconciliationResult> reconcileServerEntitlement() async {
+    synchronizeCount += 1;
+    final synchronized = await onSynchronize?.call() ?? true;
+    return synchronized
+        ? EntitlementReconciliationResult.premiumSynchronized
+        : EntitlementReconciliationResult.verificationUnavailable;
+  }
+
+  @override
+  Future<bool> synchronizeServerEntitlement() async {
+    synchronizeCount += 1;
+    return await onSynchronize?.call() ?? true;
+  }
+}
+
+class _FreeScanSubscriptionController extends SubscriptionController {
+  @override
+  SubscriptionState build() =>
+      const SubscriptionState(premiumState: AppPremiumState.free);
+
+  @override
+  Future<AppPremiumState> refreshEntitlement({bool showFailure = true}) async {
+    return AppPremiumState.free;
+  }
+}
+
+class _StaleFreeScanSubscriptionController extends SubscriptionController {
+  var refreshCount = 0;
+
+  @override
+  SubscriptionState build() =>
+      const SubscriptionState(premiumState: AppPremiumState.free);
+
+  @override
+  Future<AppPremiumState> refreshEntitlement({bool showFailure = true}) async {
+    refreshCount += 1;
+    state = state.copyWith(premiumState: AppPremiumState.premium);
+    return AppPremiumState.premium;
+  }
+}
+
+class _ResolvingScanSubscriptionController extends SubscriptionController {
+  _ResolvingScanSubscriptionController(this.resolvedState);
+
+  final AppPremiumState resolvedState;
+
+  @override
+  SubscriptionState build() => const SubscriptionState();
+
+  @override
+  Future<AppPremiumState> refreshEntitlement({bool showFailure = true}) async {
+    if (resolvedState != AppPremiumState.unknown) {
+      state = state.copyWith(premiumState: resolvedState);
+    } else if (showFailure) {
+      state = state.copyWith(
+        errorMessage: 'Unable to verify Premium access. Please try again.',
+      );
+    }
+    return resolvedState;
+  }
+}
+
+class _TestScanQuotaController extends ScanQuotaController {
+  _TestScanQuotaController(this.quota, {this.refreshQuotas = const []});
+
+  final ScanQuotaDto quota;
+  final List<ScanQuotaDto> refreshQuotas;
+  var _refreshIndex = 0;
+
+  @override
+  ScanQuotaState build() => ScanQuotaState(
+    limit: quota.limit,
+    remainingScans: quota.remaining,
+    unlimited: quota.unlimited,
+    isServerAuthoritative: true,
+  );
+
+  @override
+  Future<bool> refresh() async {
+    await Future<void>.value();
+    if (_refreshIndex < refreshQuotas.length) {
+      applyServerQuota(refreshQuotas[_refreshIndex]);
+      _refreshIndex += 1;
+    }
+    return true;
   }
 }
 
@@ -2569,6 +4354,34 @@ class _FakeScanReviewRepository implements ScanReviewRepository {
   }
 }
 
+class _StaleScanCardsRepository extends _FakeScanReviewRepository {
+  final _backgroundLoad = Completer<Map<String, ScanReviewCard>>();
+  var loadCardsCount = 0;
+
+  @override
+  Future<Map<String, ScanReviewCard>> loadCards(List<String> cardRefs) {
+    loadCardsCount += 1;
+    if (loadCardsCount == 1) return _backgroundLoad.future;
+    return super.loadCards(cardRefs);
+  }
+
+  void completeBackgroundLoadWithEmptyPrices() {
+    _backgroundLoad.complete({
+      'card-mega': const ScanReviewCard(
+        cardRef: 'card-mega',
+        name: 'Mega Lucario ex',
+        setName: 'Test Set',
+        cardNumber: '001',
+        game: 'Pokemon',
+        imageUrl: null,
+        language: 'English',
+        finish: 'Holofoil',
+        prices: [],
+      ),
+    });
+  }
+}
+
 class _DelayedScanReviewRepository extends _FakeScanReviewRepository {
   _DelayedScanReviewRepository(this.targetFuture);
 
@@ -2637,6 +4450,14 @@ ScanResultSource _defaultTestScanResultSource() {
         matchName: 'Mega Lucario ex',
         candidates: ['Mega Lucario ex', 'Lucario ex', 'Riolu Promo'],
         candidateCardRefs: ['card-mega', 'card-lucario', 'card-riolu'],
+        quota: ScanQuotaDto(
+          access: ScanQuotaAccess.free,
+          limit: 10,
+          reserved: 0,
+          consumed: 1,
+          remaining: 9,
+          unlimited: false,
+        ),
       ),
     ),
     subsequentPhotoResults: [
@@ -2667,12 +4488,16 @@ class _TestScanResultSource implements ScanResultSource {
     this.libraryImages = const [],
     this.libraryGate,
     Future<ScanResolution>? recognizeResult,
+    List<Future<ScanResolution>> subsequentRecognizeResults = const [],
     Future<ScanResolution>? retryResult,
   }) : _photoResults = [photoResult, ...subsequentPhotoResults],
        _libraryResults =
            libraryResults ??
            [libraryResult ?? Future.value(const ScanResolution.noMatch())],
-       _recognizeResult = recognizeResult ?? photoResult,
+       _recognizeResults = [
+         recognizeResult ?? photoResult,
+         ...subsequentRecognizeResults,
+       ],
        _retryResult =
            retryResult ?? Future.value(const ScanResolution.failed());
 
@@ -2680,26 +4505,33 @@ class _TestScanResultSource implements ScanResultSource {
   final List<Future<ScanResolution>> _libraryResults;
   final List<ScanImage> libraryImages;
   final Future<void>? libraryGate;
-  final Future<ScanResolution> _recognizeResult;
+  final List<Future<ScanResolution>> _recognizeResults;
   final Future<ScanResolution> _retryResult;
   var photoCallCount = 0;
   var libraryCallCount = 0;
+  var retryCallCount = 0;
   var _nextPhotoResult = 0;
+  var _nextRecognizeResult = 0;
   Uint8List? lastRetryBytes;
   String? lastRetryFileName;
   final recognizedImages = <ScanImage>[];
 
   @override
   Future<List<Future<ScanResolution>>> library({
+    int maxItems = 10,
     void Function(ScanImage image, Future<ScanResolution> resolution)?
     onSelected,
   }) async {
     libraryCallCount += 1;
     await libraryGate;
-    for (var index = 0; index < libraryImages.length; index += 1) {
+    for (
+      var index = 0;
+      index < libraryImages.length && index < maxItems;
+      index += 1
+    ) {
       onSelected?.call(libraryImages[index], _libraryResults[index]);
     }
-    return _libraryResults;
+    return _libraryResults.take(maxItems).toList();
   }
 
   @override
@@ -2718,7 +4550,11 @@ class _TestScanResultSource implements ScanResultSource {
     ValueChanged<Uint8List>? onDisplayImageReady,
   }) async {
     recognizedImages.add(image);
-    final result = await _recognizeResult;
+    final resultIndex = _nextRecognizeResult < _recognizeResults.length
+        ? _nextRecognizeResult
+        : _recognizeResults.length - 1;
+    _nextRecognizeResult += 1;
+    final result = await _recognizeResults[resultIndex];
     final displayImageBytes = result.displayImageBytes;
     if (displayImageBytes != null) {
       onDisplayImageReady?.call(displayImageBytes);
@@ -2728,6 +4564,7 @@ class _TestScanResultSource implements ScanResultSource {
 
   @override
   Future<ScanResolution> retry({Uint8List? imageBytes, String? fileName}) {
+    retryCallCount += 1;
     lastRetryBytes = imageBytes;
     lastRetryFileName = fileName;
     return _retryResult;
@@ -2871,7 +4708,9 @@ _searchOverrides() {
 }
 
 class _ScanTestAppWithRoutes extends StatelessWidget {
-  const _ScanTestAppWithRoutes();
+  const _ScanTestAppWithRoutes({this.subscriptionResult});
+
+  final SubscriptionPaywallResult? subscriptionResult;
 
   @override
   Widget build(BuildContext context) {
@@ -2902,6 +4741,29 @@ class _ScanTestAppWithRoutes extends StatelessWidget {
           GoRoute(
             path: '/profile',
             builder: (context, state) => const ProfilePage(),
+          ),
+          GoRoute(
+            path: '/subscription',
+            builder: (context, state) => Scaffold(
+              body: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Subscription'),
+                    Text(
+                      state.uri.query,
+                      key: const Key('subscription-test-query'),
+                    ),
+                    if (subscriptionResult != null)
+                      TextButton(
+                        key: const Key('subscription-test-result'),
+                        onPressed: () => context.pop(subscriptionResult),
+                        child: const Text('Unlock Premium'),
+                      ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
       ),

@@ -23,6 +23,7 @@ class _TrendingTodayPageState extends ConsumerState<TrendingTodayPage> {
   var _cards = const <SearchCard>[];
   var _loading = true;
   var _loadingMore = false;
+  var _failed = false;
   var _page = 0;
   var _hasMore = true;
 
@@ -35,6 +36,7 @@ class _TrendingTodayPageState extends ConsumerState<TrendingTodayPage> {
   Future<void> _load() async {
     setState(() {
       _loading = true;
+      _failed = false;
       _page = 0;
       _hasMore = true;
     });
@@ -47,9 +49,23 @@ class _TrendingTodayPageState extends ConsumerState<TrendingTodayPage> {
   }
 
   Future<void> _loadMore() async {
-    if (_loading || _loadingMore || !_hasMore) return;
-    setState(() => _loadingMore = true);
+    if (_loading || _loadingMore || _failed || !_hasMore) return;
+    setState(() {
+      _loadingMore = true;
+      _failed = false;
+    });
     await _loadPage(_page + 1, replace: false);
+  }
+
+  Future<void> _retryPage() async {
+    if (_loading || _loadingMore || !_failed || !_hasMore) return;
+    ref.read(analyticsProvider).track(AnalyticsEvent.refreshClick);
+    final replace = _page == 0;
+    setState(() {
+      _loadingMore = true;
+      _failed = false;
+    });
+    await _loadPage(replace ? 1 : _page + 1, replace: replace);
   }
 
   Future<void> _loadPage(int page, {required bool replace}) async {
@@ -68,19 +84,21 @@ class _TrendingTodayPageState extends ConsumerState<TrendingTodayPage> {
                   row.priceChange1dPercent != null &&
                   row.priceChange1dPercent! > 0,
             )
-            .map(searchCardFromDto)
+            .map(trendingCardFromDto)
             .toList();
         _cards = replace ? nextCards : [..._cards, ...nextCards];
         _page = page;
         _hasMore = rows.length == kandoPageSize;
         _loading = false;
         _loadingMore = false;
+        _failed = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _loading = false;
         _loadingMore = false;
+        _failed = true;
       });
     }
   }
@@ -118,8 +136,13 @@ class _TrendingTodayPageState extends ConsumerState<TrendingTodayPage> {
     if (_loading && _cards.isEmpty) {
       return const _FullPageState(child: KandoLoadingBlock());
     }
-    if (_cards.isEmpty) {
+    if (_failed && _cards.isEmpty) {
       return _FullPageState(child: KandoFailureBlock(onRefresh: _refresh));
+    }
+    if (_cards.isEmpty) {
+      return const _FullPageState(
+        child: KandoEmptyBlock(title: 'No trending cards available'),
+      );
     }
 
     return NotificationListener<ScrollNotification>(
@@ -160,11 +183,20 @@ class _TrendingTodayPageState extends ConsumerState<TrendingTodayPage> {
               ),
             ),
           ),
-          if (_loadingMore)
-            const SliverToBoxAdapter(
+          if (_loadingMore || _failed)
+            SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.only(bottom: 32),
-                child: Center(child: CircularProgressIndicator()),
+                padding: const EdgeInsets.only(bottom: 32),
+                child: Center(
+                  child: _loadingMore
+                      ? const CircularProgressIndicator()
+                      : IconButton(
+                          key: const Key('trending-today-retry-page'),
+                          tooltip: 'Retry loading trending cards',
+                          onPressed: _retryPage,
+                          icon: const Icon(Icons.refresh),
+                        ),
+                ),
               ),
             ),
         ],

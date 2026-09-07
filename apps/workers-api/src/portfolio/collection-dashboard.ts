@@ -8,6 +8,7 @@ import {
   type SkuRow,
 } from "./valuation-history";
 import { cardImageUrl } from "../card-image-url";
+import { compareDisplayPriceRows } from "../data-source/price-selection";
 
 export type DashboardPortfolioRow = {
   id: string;
@@ -19,6 +20,7 @@ export type DashboardPortfolioRow = {
   grade: number | null;
   language: string | null;
   finish: string | null;
+  price_series_id: number | null;
   quantity: number;
   folder_joined_at: string;
   created_at: string;
@@ -40,17 +42,23 @@ export async function enrichCollectionDashboard(
     ...portfolio.map((item) => item.card_ref),
     ...wishlist.map((item) => item.card_ref),
   ])];
-  const [cards, skus] = await Promise.all([loadCards(db, refs), loadSkus(db, refs)]);
-  const cardsByRef = new Map(cards.map((card) => [card.product_id, card]));
-  const skusByRef = groupSkus(skus);
   const currentDate = now.toISOString().slice(0, 10);
   const baseline = new Date(`${currentDate}T00:00:00.000Z`);
   baseline.setUTCDate(baseline.getUTCDate() - 30);
   const baselineDate = baseline.toISOString().slice(0, 10);
+  const [cards, skus] = await Promise.all([
+    loadCards(db, refs),
+    loadSkus(db, refs, baselineDate, currentDate),
+  ]);
+  const cardsByRef = new Map(cards.map((card) => [card.product_id, card]));
+  const skusByRef = groupSkus(skus);
 
   return {
     portfolio_items: portfolio.map((item) => {
-      const matched = matchingPrice(item, skusByRef.get(item.card_ref) ?? []);
+      const matched = matchingPrice(
+        { ...item, price_series_id: null },
+        skusByRef.get(item.card_ref) ?? [],
+      );
       return presentation(
         item,
         cardsByRef.get(item.card_ref),
@@ -58,7 +66,7 @@ export async function enrichCollectionDashboard(
         currentDate,
         baselineDate,
         matched?.history ?? null,
-        matched?.increaseRate ?? null,
+        matched?.change30dPercent ?? null,
       );
     }),
     wishlist_items: wishlist.map((item) => {
@@ -71,7 +79,7 @@ export async function enrichCollectionDashboard(
         currentDate,
         baselineDate,
         null,
-        sku?.increase_rate ?? null,
+        sku?.change_30d_percent ?? null,
       );
     }),
   };
@@ -86,8 +94,11 @@ function presentation(
   priceHistory: string | null = null,
   increasePercent: number | null = null,
 ) {
+  const publicItem = "price_series_id" in item
+    ? withoutPriceSeriesId(item)
+    : item;
   return {
-    ...item,
+    ...publicItem,
     name: card?.name ?? item.card_ref,
     set_name: card?.set_name ?? "Card data unavailable",
     card_number: card?.number ?? "",
@@ -110,14 +121,16 @@ function presentation(
   };
 }
 
-function wishlistSku(rows: SkuRow[]): SkuRow | null {
-  const priced = rows.filter((row) => priceOnDate(row.price_history, "9999-12-31") !== null);
-  return priced.find((row) => [row.condition_code, row.condition_name]
-    .some((value) => normalized(value) === "near mint" || normalized(value) === "nm"))
-    ?? priced[0]
-    ?? null;
+function withoutPriceSeriesId(
+  item: DashboardPortfolioRow,
+): Omit<DashboardPortfolioRow, "price_series_id"> {
+  const { price_series_id: _, ...publicItem } = item;
+  return publicItem;
 }
 
-function normalized(value: string | null): string {
-  return (value ?? "").trim().toLowerCase();
+function wishlistSku(rows: SkuRow[]): SkuRow | null {
+  return [...rows].filter((row) =>
+    row.grader_code.trim().toUpperCase() === "RAW"
+    && priceOnDate(row.price_history, "9999-12-31") !== null
+  ).sort(compareDisplayPriceRows)[0] ?? null;
 }

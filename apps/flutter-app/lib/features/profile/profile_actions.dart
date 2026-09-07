@@ -37,7 +37,7 @@ abstract interface class ProfileActions {
 }
 
 class PluginProfileActions implements ProfileActions {
-  const PluginProfileActions(
+  PluginProfileActions(
     this._configRepository, {
     ProfileUrlLauncher launchExternal = _launchProfileUrl,
     ProfileShareLauncher share = _shareProfile,
@@ -47,13 +47,41 @@ class PluginProfileActions implements ProfileActions {
   final AppUpgradeRepository _configRepository;
   final ProfileUrlLauncher _launchExternalUrl;
   final ProfileShareLauncher _share;
+  bool _didAttemptInAppReview = false;
+  Future<void>? _scoreActionInFlight;
 
   @override
   Future<void> requestScore() async {
-    final review = InAppReview.instance;
-    if (await review.isAvailable()) {
-      await review.requestReview();
+    final inFlight = _scoreActionInFlight;
+    if (inFlight != null) {
+      await inFlight;
       return;
+    }
+
+    final action = _requestScoreOnce();
+    _scoreActionInFlight = action;
+    try {
+      await action;
+    } finally {
+      if (identical(_scoreActionInFlight, action)) {
+        _scoreActionInFlight = null;
+      }
+    }
+  }
+
+  Future<void> _requestScoreOnce() async {
+    if (!_didAttemptInAppReview) {
+      _didAttemptInAppReview = true;
+      try {
+        final review = InAppReview.instance;
+        if (await review.isAvailable()) {
+          await review.requestReview();
+          return;
+        }
+      } on Exception {
+        // StoreKit does not report silent suppression; explicit failures can
+        // still fall back to the configured store review page immediately.
+      }
     }
 
     final appStoreUri = await _configuredUri((config) => config.appStoreUrl);

@@ -4,6 +4,7 @@ import 'dart:developer' as developer;
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
+import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/currency/currency.dart';
@@ -14,6 +15,7 @@ import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 import 'home_models.dart';
+import 'home_entitlement_repair.dart';
 import 'home_repository.dart';
 
 final homeRepositoryProvider = Provider<HomeRepository?>((ref) {
@@ -33,6 +35,22 @@ final homeControllerProvider = NotifierProvider<HomeController, HomeState>(
   HomeController.new,
 );
 
+final homeDashboardTabProvider =
+    NotifierProvider<HomeDashboardTabController, HomeDashboardTab>(
+      HomeDashboardTabController.new,
+    );
+
+enum HomeDashboardTab { overview, performance }
+
+class HomeDashboardTabController extends Notifier<HomeDashboardTab> {
+  @override
+  HomeDashboardTab build() => HomeDashboardTab.overview;
+
+  void select(HomeDashboardTab tab) {
+    state = tab;
+  }
+}
+
 enum HomeCoreLoadResult { content, failure }
 
 final homeAutomaticRetryDelaysProvider = Provider<List<Duration>>((ref) {
@@ -46,6 +64,7 @@ class HomeState {
     required this.currency,
     required this.amountHidden,
     required this.chartRange,
+    this.isChartRangeLoading = false,
     this.trendingStatus = KandoLoadStatus.content,
   }) : _dashboard = dashboard,
        loadStatus = KandoLoadStatus.content;
@@ -56,6 +75,7 @@ class HomeState {
     required this.currency,
     required this.amountHidden,
     required this.chartRange,
+    this.isChartRangeLoading = false,
     this.trendingStatus = KandoLoadStatus.failure,
   }) : _dashboard = dashboard,
        loadStatus = KandoLoadStatus.failure;
@@ -66,6 +86,7 @@ class HomeState {
     required this.currency,
     required this.amountHidden,
     required this.chartRange,
+    this.isChartRangeLoading = false,
     this.trendingStatus = KandoLoadStatus.loading,
   }) : _dashboard = dashboard,
        loadStatus = KandoLoadStatus.loading;
@@ -76,6 +97,7 @@ class HomeState {
     required this.currency,
     required this.amountHidden,
     required this.chartRange,
+    required this.isChartRangeLoading,
     required this.loadStatus,
     required this.trendingStatus,
   }) : _dashboard = dashboard;
@@ -85,6 +107,7 @@ class HomeState {
   final AppCurrency currency;
   final bool amountHidden;
   final HomeChartRange chartRange;
+  final bool isChartRangeLoading;
   final KandoLoadStatus loadStatus;
   final KandoLoadStatus trendingStatus;
 
@@ -125,6 +148,12 @@ class HomeState {
     final card = mostValuable;
     return card == null ? const [] : [card];
   }
+
+  bool get hasCollectionItems => selectedPortfolio.itemCount > 0;
+
+  bool get isMarketPriceMissing =>
+      hasCollectionItems &&
+      selectedPortfolio.marketPriceStatus == MarketPriceStatus.missing;
 
   List<double> get chartValues {
     final valuesByRange = selectedPortfolio.chartValuesByRange;
@@ -170,10 +199,12 @@ class HomeState {
     return const [];
   }
 
-  String get totalAmountText =>
-      _formatPortfolioTotal(selectedPortfolio.totalValueUsd);
+  String get totalAmountText => isMarketPriceMissing
+      ? '--'
+      : _formatPortfolioTotal(selectedPortfolio.totalValueUsd);
 
   String get changeAmountText {
+    if (isMarketPriceMissing) return '-- in the last 30 days';
     final change = MarketChange.fromPrices(
       current: selectedPortfolio.totalValueUsd,
       previous: selectedPortfolio.previous30dValueUsd,
@@ -185,6 +216,7 @@ class HomeState {
   }
 
   String get changePercentText {
+    if (isMarketPriceMissing) return '-/-';
     return MarketChange.fromPrices(
       current: selectedPortfolio.totalValueUsd,
       previous: selectedPortfolio.previous30dValueUsd,
@@ -215,6 +247,7 @@ class HomeState {
     AppCurrency? currency,
     bool? amountHidden,
     HomeChartRange? chartRange,
+    bool? isChartRangeLoading,
     KandoLoadStatus? trendingStatus,
   }) {
     return HomeState._(
@@ -223,10 +256,29 @@ class HomeState {
       currency: currency ?? this.currency,
       amountHidden: amountHidden ?? this.amountHidden,
       chartRange: chartRange ?? this.chartRange,
+      isChartRangeLoading: isChartRangeLoading ?? this.isChartRangeLoading,
       loadStatus: loadStatus,
       trendingStatus: trendingStatus ?? this.trendingStatus,
     );
   }
+}
+
+List<PortfolioValuationPointDto> _homeRangePoints(
+  List<PortfolioValuationPointDto> series,
+  HomeChartRange range,
+) {
+  const days = {
+    HomeChartRange.oneDay: 1,
+    HomeChartRange.sevenDays: 7,
+    HomeChartRange.fifteenDays: 15,
+    HomeChartRange.oneMonth: 30,
+    HomeChartRange.threeMonths: 90,
+    HomeChartRange.oneYear: 365,
+  };
+  final pointCount = days[range]! + 1;
+  return series
+      .skip((series.length - pointCount).clamp(0, series.length))
+      .toList();
 }
 
 class HomeController extends Notifier<HomeState> {
@@ -235,6 +287,9 @@ class HomeController extends Notifier<HomeState> {
   var _loadGeneration = 0;
   var _trendingLoadGeneration = 0;
   var _isSelectingCurrency = false;
+  var _chartRangeGeneration = 0;
+  Future<bool>? _oneYearLoad;
+  String? _oneYearLoadFolderId;
   String? _restoringCurrencyCode;
 
   Future<HomeCoreLoadResult> get coreLoadComplete {
@@ -245,6 +300,10 @@ class HomeController extends Notifier<HomeState> {
           ? HomeCoreLoadResult.failure
           : HomeCoreLoadResult.content,
     );
+  }
+
+  Future<void> get trendingLoadComplete {
+    return _trendingLoadCompleter?.future ?? Future<void>.value();
   }
 
   bool get _isCoreLoadInFlight =>
@@ -283,6 +342,10 @@ class HomeController extends Notifier<HomeState> {
       await coreLoadComplete;
       return;
     }
+    await refreshPreservingContent();
+  }
+
+  Future<void> refreshPreservingContent() async {
     final previousState = state;
     final nextState = _loadDashboard(
       currency: state.currency,
@@ -422,7 +485,7 @@ class HomeController extends Notifier<HomeState> {
           previousState?.selectedFolderId ?? dashboard.defaultFolder.id,
       currency: currency,
       amountHidden: _localAmountHidden(previousState),
-      chartRange: previousState?.chartRange ?? HomeChartRange.fifteenDays,
+      chartRange: previousState?.chartRange ?? HomeChartRange.oneMonth,
     );
   }
 
@@ -463,7 +526,7 @@ class HomeController extends Notifier<HomeState> {
               previousState?.selectedFolderId ?? dashboard.defaultFolder.id,
           currency: currency,
           amountHidden: _localAmountHidden(previousState),
-          chartRange: previousState?.chartRange ?? HomeChartRange.fifteenDays,
+          chartRange: previousState?.chartRange ?? HomeChartRange.oneMonth,
         );
         _logLoadFailure(
           'core',
@@ -683,9 +746,11 @@ class HomeController extends Notifier<HomeState> {
         state.selectedPortfolio;
     final previousFolderId = state.selectedFolderId;
     final previousRange = state.chartRange;
+    _chartRangeGeneration++;
     state = state.copyWith(
       selectedFolderId: folderId,
       chartRange: _bestChartRange(portfolio, preferred: state.chartRange),
+      isChartRangeLoading: false,
     );
     try {
       await _updatePreferences(lastSelectedFolderId: folderId);
@@ -695,6 +760,7 @@ class HomeController extends Notifier<HomeState> {
       state = state.copyWith(
         selectedFolderId: previousFolderId,
         chartRange: previousRange,
+        isChartRangeLoading: false,
       );
       return false;
     }
@@ -814,12 +880,136 @@ class HomeController extends Notifier<HomeState> {
         );
   }
 
-  void selectChartRange(HomeChartRange chartRange) {
+  Future<bool> selectChartRange(HomeChartRange chartRange) async {
+    if (chartRange == HomeChartRange.oneYear &&
+        !state.selectedPortfolio.chartValuesByRange.containsKey(chartRange)) {
+      return _loadOneYearChart();
+    }
     if (!state.selectedPortfolio.chartValuesByRange.containsKey(chartRange)) {
-      return;
+      return false;
     }
 
-    state = state.copyWith(chartRange: chartRange);
+    if (state.isChartRangeLoading) _chartRangeGeneration++;
+    state = state.copyWith(chartRange: chartRange, isChartRangeLoading: false);
+    return true;
+  }
+
+  Future<bool> _loadOneYearChart() async {
+    final session = ref.read(authControllerProvider).session;
+    if (session == null || state.isLoading || state.isUnavailable) return false;
+    final folderId = state.selectedFolderId;
+    final inFlight = _oneYearLoad;
+    if (inFlight != null &&
+        _oneYearLoadFolderId == folderId &&
+        state.chartRange == HomeChartRange.oneYear &&
+        state.isChartRangeLoading) {
+      return inFlight;
+    }
+    final request = _loadOneYearChartForFolder(
+      session,
+      folderId,
+      state.chartRange,
+    );
+    _oneYearLoad = request;
+    _oneYearLoadFolderId = folderId;
+    try {
+      return await request;
+    } finally {
+      if (identical(_oneYearLoad, request)) {
+        _oneYearLoad = null;
+        _oneYearLoadFolderId = null;
+      }
+    }
+  }
+
+  Future<bool> _loadOneYearChartForFolder(
+    AuthSession session,
+    String folderId,
+    HomeChartRange previousRange,
+  ) async {
+    final generation = ++_chartRangeGeneration;
+    state = state.copyWith(
+      chartRange: HomeChartRange.oneYear,
+      isChartRangeLoading: true,
+    );
+    try {
+      final valuations = await _loadOneYearWithEntitlementRepair(
+        session,
+        folderId,
+      );
+      if (!ref.mounted ||
+          generation != _chartRangeGeneration ||
+          state.selectedFolderId != folderId) {
+        return true;
+      }
+      final valuation = valuations
+          .where((item) => item.folderId == folderId)
+          .firstOrNull;
+      if (valuation == null) {
+        throw StateError('One year portfolio valuation is unavailable.');
+      }
+      final points = _homeRangePoints(valuation.series, HomeChartRange.oneYear);
+      final portfolio = state.selectedPortfolio;
+      final updated = portfolio.copyWith(
+        chartValuesByRange: {
+          ...portfolio.chartValuesByRange,
+          HomeChartRange.oneYear: points
+              .map((point) => point.valueUsd)
+              .toList(),
+        },
+        chartDatesByRange: {
+          ...portfolio.chartDatesByRange,
+          HomeChartRange.oneYear: points.map((point) => point.date).toList(),
+        },
+      );
+      state = state.copyWith(
+        dashboard: state.dashboard.copyWith(
+          portfoliosByFolderId: {
+            ...state.dashboard.portfoliosByFolderId,
+            folderId: updated,
+          },
+        ),
+        chartRange: HomeChartRange.oneYear,
+        isChartRangeLoading: false,
+      );
+      return true;
+    } catch (_) {
+      if (!ref.mounted ||
+          generation != _chartRangeGeneration ||
+          state.selectedFolderId != folderId) {
+        return true;
+      }
+      state = state.copyWith(
+        chartRange: previousRange,
+        isChartRangeLoading: false,
+      );
+      return false;
+    }
+  }
+
+  Future<List<PortfolioFolderValuationDto>> _loadOneYearWithEntitlementRepair(
+    AuthSession session,
+    String folderId,
+  ) async {
+    Future<List<PortfolioFolderValuationDto>> request() => ref
+        .read(portfolioApiClientProvider)
+        .getValuationHistory(
+          session,
+          days: 365,
+          folderId: folderId,
+          localPremiumVerified: true,
+        )
+        .timeout(const Duration(seconds: 15));
+
+    try {
+      return await request();
+    } catch (error) {
+      if (!isEntitlementSyncRequired(error) ||
+          !await ref.read(homeEntitlementRepairProvider)()) {
+        rethrow;
+      }
+      return request();
+    }
   }
 
   HomeChartRange _bestChartRange(
@@ -829,10 +1019,6 @@ class HomeController extends Notifier<HomeState> {
     final valuesByRange = portfolio.chartValuesByRange;
     if (preferred != null && valuesByRange.containsKey(preferred)) {
       return preferred;
-    }
-
-    if (valuesByRange.containsKey(HomeChartRange.fifteenDays)) {
-      return HomeChartRange.fifteenDays;
     }
 
     if (valuesByRange.containsKey(HomeChartRange.oneMonth)) {
@@ -845,7 +1031,7 @@ class HomeController extends Notifier<HomeState> {
       }
     }
 
-    return preferred ?? HomeChartRange.fifteenDays;
+    return preferred ?? HomeChartRange.oneMonth;
   }
 }
 
@@ -894,6 +1080,8 @@ const _emptyHomeDashboard = HomeDashboard(
   portfoliosByFolderId: {
     'main': PortfolioSummary(
       folderId: 'main',
+      itemCount: 0,
+      marketPriceStatus: MarketPriceStatus.missing,
       totalValueUsd: 0,
       previous30dValueUsd: 0,
       chartValuesByRange: {

@@ -46,6 +46,8 @@
 	<string>Scan trading cards to identify them and add them to your portfolio.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Select trading card photos to identify them and add them to your portfolio.</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Allow Card AI to measure which marketing campaigns led you to the app.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

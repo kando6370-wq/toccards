@@ -3,8 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../features/app_upgrade/app_upgrade_gate.dart';
 import '../features/auth/auth_controller.dart';
+import '../features/subscription/subscription_entitlement_lifecycle.dart';
 import '../shared/analytics/app_analytics.dart';
+import '../shared/attribution/app_attribution.dart';
 import '../shared/debug/app_debug_overlay.dart';
+import '../shared/portfolio/pending_collection.dart';
 import 'app_startup_preloader.dart';
 import 'router.dart';
 import 'theme.dart';
@@ -18,12 +21,24 @@ class KandoApp extends ConsumerWidget {
     final router = ref.watch(appRouterProvider);
     final authState = ref.watch(authControllerProvider);
     final session = authState.session;
-    ref
-        .read(analyticsProvider)
-        .updateIdentity(
-          uid: session?.userId ?? session?.anonymousId,
-          isUser: session?.isUser ?? false,
-        );
+    ref.listen(
+      authControllerProvider.select((state) {
+        final current = state.session;
+        if (current == null) return null;
+        return '${current.ownerType.name}:${current.userId ?? current.anonymousId}';
+      }),
+      (previous, next) {
+        if (previous != next) ref.invalidate(pendingCollectionProvider);
+      },
+    );
+    if (!authState.isLoading) {
+      ref
+          .read(analyticsProvider)
+          .updateIdentity(
+            uid: session?.userId ?? session?.anonymousId,
+            isUser: session?.isUser ?? false,
+          );
+    }
 
     return MaterialApp.router(
       title: 'Card AI',
@@ -38,7 +53,11 @@ class KandoApp extends ConsumerWidget {
               Theme.of(context).platform,
             );
         return buildAppDebugOverlay(
-          AppUpgradeGate(child: child ?? const SizedBox.shrink()),
+          AppAttributionLifecycleObserver(
+            child: SubscriptionEntitlementLifecycleObserver(
+              child: AppUpgradeGate(child: child ?? const SizedBox.shrink()),
+            ),
+          ),
         );
       },
     );

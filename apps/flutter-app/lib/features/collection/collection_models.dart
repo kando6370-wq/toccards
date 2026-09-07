@@ -1,6 +1,27 @@
 enum CollectionTab { portfolio, wishlist }
 
-enum CollectionSort { newest, valueDesc, valueAsc, changeDesc, nameAsc }
+enum CollectionSort {
+  newest,
+  valueDesc,
+  valueAsc,
+  changeDesc,
+  nameAsc,
+  performanceDesc,
+}
+
+enum CreateFolderStatus {
+  success,
+  premiumRequired,
+  entitlementSyncRequired,
+  failed,
+}
+
+class CreateFolderResult {
+  const CreateFolderResult(this.status, {this.folder});
+
+  final CreateFolderStatus status;
+  final CollectionFolder? folder;
+}
 
 class CollectionFolder {
   const CollectionFolder({

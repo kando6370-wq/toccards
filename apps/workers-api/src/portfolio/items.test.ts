@@ -36,9 +36,13 @@ type CollectionItemRow = {
   grade: number | null;
   language: string | null;
   finish: string | null;
+  price_series_id: number | null;
   quantity: number;
   purchase_price: number | null;
   purchase_currency: string | null;
+  performance_start_at: string;
+  purchase_price_effective_at: string;
+  performance_history_available_from: string;
   notes: string | null;
   folder_joined_at: string;
   created_at: string;
@@ -64,7 +68,11 @@ type CollectionItemEventRow = {
   grade: number | null;
   language: string | null;
   finish: string | null;
+  price_series_id: number | null;
   quantity: number;
+  purchase_price: number | null;
+  purchase_currency: string | null;
+  performance_history_available_from: string;
   event_type: "upsert" | "delete";
   effective_at: string;
 };
@@ -120,7 +128,7 @@ class FakeD1Statement {
       ) ?? null) as T | null;
     }
 
-    if (this.sql.includes("FROM user")) {
+    if (this.sql.includes('FROM "user"')) {
       const [ownerId] = this.args;
       return (this.db.users.find(
         (row) => row.id === ownerId && row.deleted_at === null,
@@ -139,10 +147,21 @@ class FakeD1Statement {
 
     if (this.sql.includes("FROM collection_item")) {
       if (this.sql.includes("folder_id = ?")) {
-        const [ownerType, ownerId, folderId, cardRef, language, finish] = this.args;
+        const [
+          ownerType,
+          ownerId,
+          folderId,
+          cardRef,
+          language,
+          finish,
+          grader,
+          condition,
+          grade,
+        ] = this.args;
         return (this.db.items.find((row) =>
           row.owner_type === ownerType && row.owner_id === ownerId && row.folder_id === folderId &&
-          row.card_ref === cardRef && row.language === language && row.finish === finish
+          row.card_ref === cardRef && row.language === language && row.finish === finish &&
+          row.grader === grader && row.condition === condition && row.grade === grade
         ) ?? null) as T | null;
       }
       const [ownerType, ownerId, itemId] = this.args;
@@ -185,7 +204,11 @@ class FakeD1Statement {
         grade,
         language,
         finish,
+        priceSeriesId,
         quantity,
+        purchasePrice,
+        purchaseCurrency,
+        performanceHistoryAvailableFrom,
         eventType,
         effectiveAt,
       ] = this.args as [
@@ -201,7 +224,11 @@ class FakeD1Statement {
         number | null,
         string | null,
         string | null,
+        number | null,
         number,
+        number | null,
+        string | null,
+        string,
         "upsert" | "delete",
         string,
       ];
@@ -218,7 +245,11 @@ class FakeD1Statement {
         grade,
         language,
         finish,
+        price_series_id: priceSeriesId,
         quantity,
+        purchase_price: purchasePrice,
+        purchase_currency: purchaseCurrency,
+        performance_history_available_from: performanceHistoryAvailableFrom,
         event_type: eventType,
         effective_at: effectiveAt,
       });
@@ -238,9 +269,13 @@ class FakeD1Statement {
         grade,
         language,
         finish,
+        priceSeriesId,
         quantity,
         purchasePrice,
         purchaseCurrency,
+        performanceStartAt,
+        purchasePriceEffectiveAt,
+        performanceHistoryAvailableFrom,
         notes,
         createdAt,
         updatedAt,
@@ -256,9 +291,13 @@ class FakeD1Statement {
         number | null,
         string | null,
         string | null,
+        number | null,
         number,
         number | null,
         string | null,
+        string,
+        string,
+        string,
         string | null,
         string,
         string,
@@ -276,9 +315,13 @@ class FakeD1Statement {
         grade,
         language,
         finish,
+        price_series_id: priceSeriesId,
         quantity,
         purchase_price: purchasePrice,
         purchase_currency: purchaseCurrency,
+        performance_start_at: performanceStartAt,
+        purchase_price_effective_at: purchasePriceEffectiveAt,
+        performance_history_available_from: performanceHistoryAvailableFrom,
         notes,
         folder_joined_at: createdAt,
         created_at: createdAt,
@@ -297,6 +340,7 @@ class FakeD1Statement {
         grade,
         language,
         finish,
+        priceSeriesId,
         quantity,
         purchasePrice,
         purchaseCurrency,
@@ -313,6 +357,7 @@ class FakeD1Statement {
         number | null,
         string | null,
         string | null,
+        number | null,
         number,
         number | null,
         string | null,
@@ -334,6 +379,7 @@ class FakeD1Statement {
         grade,
         language,
         finish,
+        price_series_id: priceSeriesId,
         quantity,
         purchase_price: purchasePrice,
         purchase_currency: purchaseCurrency,
@@ -425,6 +471,34 @@ describe("collection item routes", () => {
     });
   });
 
+  it("uses item id as a stable tie-breaker because equal timestamps must not duplicate or skip items across pages", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(folder({ id: "main" }));
+    const createdAt = "2026-02-01T00:00:00.000Z";
+    db.items.push(
+      item({ id: "item-b", folder_id: "main", card_ref: "card-b", created_at: createdAt }),
+      item({ id: "item-a", folder_id: "main", card_ref: "card-a", created_at: createdAt }),
+    );
+
+    const [firstPage, secondPage] = await Promise.all([
+      app.request(
+        "/api/v1/portfolio/items?page=1&page_size=1&sort_by=created_at&sort_order=desc",
+        { headers: await authHeaders("anonymous", "anon-1") },
+        createTestEnv(db),
+      ),
+      app.request(
+        "/api/v1/portfolio/items?page=2&page_size=1&sort_by=created_at&sort_order=desc",
+        { headers: await authHeaders("anonymous", "anon-1") },
+        createTestEnv(db),
+      ),
+    ]);
+    const firstBody = await firstPage.json() as { data: { items: Array<{ id: string }> } };
+    const secondBody = await secondPage.json() as { data: { items: Array<{ id: string }> } };
+
+    expect(firstBody.data.items.map((entry) => entry.id)).toEqual(["item-a"]);
+    expect(secondBody.data.items.map((entry) => entry.id)).toEqual(["item-b"]);
+  });
+
   it("creates a Raw collection item and removes the matching wishlist row because Collect transfers intent into ownership", async () => {
     const db = createDbForOwner("anonymous", "anon-1");
     db.folders.push(folder({ id: "main" }));
@@ -476,9 +550,92 @@ describe("collection item routes", () => {
         folder_id: "main",
         card_ref: "card-a",
         quantity: 2,
+        price_series_id: null,
         event_type: "upsert",
       }),
     ]);
+  });
+
+  it("replays a lost create response by operation key because retry must confirm the original item", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(folder({ id: "main" }));
+    const idempotencyKey = "33333333-3333-4333-8333-333333333333";
+    const headers = {
+      ...(await authHeaders("anonymous", "anon-1")),
+      "Idempotency-Key": idempotencyKey,
+    };
+    const body = JSON.stringify({
+      folder_id: "main",
+      card_ref: "card-a",
+      object_type: "tcg",
+      grader: "Raw",
+      condition: "Near Mint (NM)",
+      grade: null,
+      language: "English",
+      finish: "Holofoil",
+      quantity: 2,
+      purchase_price: 50,
+      purchase_currency: "USD",
+      notes: "first copy",
+    });
+
+    const created = await app.request(
+      "/api/v1/portfolio/items",
+      { method: "POST", headers, body },
+      createTestEnv(db),
+    );
+    const replayed = await app.request(
+      "/api/v1/portfolio/items",
+      { method: "POST", headers, body },
+      createTestEnv(db),
+    );
+
+    expect(created.status).toBe(201);
+    expect(replayed.status).toBe(200);
+    expect(await replayed.json()).toMatchObject({
+      success: true,
+      data: { id: idempotencyKey, card_ref: "card-a", quantity: 2 },
+    });
+    expect(db.items).toHaveLength(1);
+    expect(db.itemEvents).toHaveLength(1);
+  });
+
+  it("rejects changing an item create after reusing its operation key because one key has one request meaning", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(folder({ id: "main" }));
+    const headers = {
+      ...(await authHeaders("anonymous", "anon-1")),
+      "Idempotency-Key": "44444444-4444-4444-8444-444444444444",
+    };
+    const draft = {
+      folder_id: "main",
+      card_ref: "card-a",
+      object_type: "tcg",
+      grader: "Raw",
+      condition: "Near Mint (NM)",
+      grade: null,
+      language: "English",
+      finish: "Holofoil",
+      quantity: 1,
+    };
+    await app.request(
+      "/api/v1/portfolio/items",
+      { method: "POST", headers, body: JSON.stringify(draft) },
+      createTestEnv(db),
+    );
+
+    const response = await app.request(
+      "/api/v1/portfolio/items",
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ ...draft, quantity: 2 }),
+      },
+      createTestEnv(db),
+    );
+
+    expect(response.status).toBe(409);
+    expect(db.items).toHaveLength(1);
   });
 
   it("rejects the old Raw condition label because raw card condition must use the PRD canonical value", async () => {
@@ -639,10 +796,43 @@ describe("collection item routes", () => {
     });
   });
 
-  it("rejects the same card, finish, and language despite different grading", async () => {
+  it("allows the same card variant and grade when the grader differs", async () => {
     const db = createDbForOwner("anonymous", "anon-1");
     db.folders.push(folder({ id: "main" }));
-    db.items.push(item({ id: "owned", folder_id: "main", card_ref: "card-a" }));
+    db.items.push(item({
+      id: "owned",
+      folder_id: "main",
+      card_ref: "card-a",
+      grader: "PSA",
+      condition: null,
+      grade: 10,
+    }));
+
+    const response = await app.request("/api/v1/portfolio/items", {
+      method: "POST",
+      headers: await authHeaders("anonymous", "anon-1"),
+      body: JSON.stringify({
+        folder_id: "main", card_ref: "card-a", object_type: "tcg", grader: "BGS",
+        condition: null, grade: 10, language: "English",
+        finish: "Holofoil", quantity: 1,
+      }),
+    }, createTestEnv(db));
+
+    expect(response.status).toBe(201);
+    expect(db.items).toHaveLength(2);
+  });
+
+  it("allows the same graded card variant when the grade differs", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(folder({ id: "main" }));
+    db.items.push(item({
+      id: "owned",
+      folder_id: "main",
+      card_ref: "card-a",
+      grader: "PSA",
+      condition: null,
+      grade: 9,
+    }));
 
     const response = await app.request("/api/v1/portfolio/items", {
       method: "POST",
@@ -654,9 +844,27 @@ describe("collection item routes", () => {
       }),
     }, createTestEnv(db));
 
-    expect(response.status).toBe(409);
-    expect(await response.json()).toMatchObject({ error: { code: "DUPLICATE_COLLECTION_ITEM" } });
-    expect(db.items).toHaveLength(1);
+    expect(response.status).toBe(201);
+    expect(db.items).toHaveLength(2);
+  });
+
+  it("allows the same Raw card variant when the condition differs", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(folder({ id: "main" }));
+    db.items.push(item({ id: "owned", folder_id: "main", card_ref: "card-a" }));
+
+    const response = await app.request("/api/v1/portfolio/items", {
+      method: "POST",
+      headers: await authHeaders("anonymous", "anon-1"),
+      body: JSON.stringify({
+        folder_id: "main", card_ref: "card-a", object_type: "tcg", grader: "Raw",
+        condition: "Lightly Played (LP)", grade: null, language: "English",
+        finish: "Holofoil", quantity: 1,
+      }),
+    }, createTestEnv(db));
+
+    expect(response.status).toBe(201);
+    expect(db.items).toHaveLength(2);
   });
 
   it("defaults to current-folder join time because moved assets must appear before older folder entries", async () => {
@@ -694,7 +902,7 @@ describe("collection item routes", () => {
   it("preserves folder join time during field-only edits because ordinary edits are not folder additions", async () => {
     const db = createDbForOwner("anonymous", "anon-1");
     db.folders.push(folder({ id: "main" }));
-    db.items.push(item({ id: "owned", folder_id: "main" }));
+    db.items.push(item({ id: "owned", folder_id: "main", price_series_id: 7 }));
 
     const response = await app.request(
       "/api/v1/portfolio/items/owned",
@@ -708,14 +916,16 @@ describe("collection item routes", () => {
 
     expect(response.status).toBe(200);
     expect(db.items[0].quantity).toBe(2);
+    expect(db.items[0].price_series_id).toBe(7);
     expect(db.items[0].folder_joined_at).toBe(NOW);
     expect(db.items[0].updated_at).not.toBe(NOW);
+    expect(db.itemEvents[0]?.price_series_id).toBe(7);
   });
 
   it("edits fields and moves folders in one PATCH because edited moves must complete atomically", async () => {
     const db = createDbForOwner("anonymous", "anon-1");
     db.folders.push(folder({ id: "main" }), folder({ id: "trade" }));
-    db.items.push(item({ id: "owned", folder_id: "main" }));
+    db.items.push(item({ id: "owned", folder_id: "main", price_series_id: 7 }));
 
     const response = await app.request(
       "/api/v1/portfolio/items/owned",
@@ -755,6 +965,7 @@ describe("collection item routes", () => {
         folder_id: "trade",
         grader: "PSA",
         grade: 10,
+        price_series_id: null,
         quantity: 2,
         notes: "trade binder",
       }),
@@ -767,6 +978,7 @@ describe("collection item routes", () => {
         folder_id: "trade",
         grader: "PSA",
         grade: 10,
+        price_series_id: null,
         quantity: 2,
         event_type: "upsert",
       }),
@@ -805,6 +1017,28 @@ describe("collection item routes", () => {
       }),
     ]);
     expect(db.itemEvents).toEqual([]);
+  });
+
+  it("preserves a saved series in move and delete events because folder changes must not rewrite historical pricing", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(folder({ id: "main" }), folder({ id: "trade" }));
+    db.items.push(item({ id: "owned", folder_id: "main", price_series_id: 7 }));
+    const headers = await authHeaders("anonymous", "anon-1");
+
+    const move = await app.request(
+      "/api/v1/portfolio/items/owned/move",
+      { method: "PATCH", headers, body: JSON.stringify({ folder_id: "trade" }) },
+      createTestEnv(db),
+    );
+    const remove = await app.request(
+      "/api/v1/portfolio/items/owned",
+      { method: "DELETE", headers },
+      createTestEnv(db),
+    );
+
+    expect(move.status).toBe(200);
+    expect(remove.status).toBe(200);
+    expect(db.itemEvents.map((eventRow) => eventRow.price_series_id)).toEqual([7, 7]);
   });
 
   it("gets, updates, moves, and deletes only owned collection items because item operations must stay inside the owner boundary", async () => {
@@ -1008,9 +1242,13 @@ function item(overrides: Partial<CollectionItemRow>): CollectionItemRow {
     grade: null,
     language: "English",
     finish: "Holofoil",
+    price_series_id: null,
     quantity: 1,
     purchase_price: null,
     purchase_currency: null,
+    performance_start_at: NOW,
+    purchase_price_effective_at: NOW,
+    performance_history_available_from: NOW,
     notes: null,
     folder_joined_at: NOW,
     created_at: NOW,

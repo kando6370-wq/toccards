@@ -15,6 +15,7 @@ abstract interface class CardDetailRepository {
     AuthSession session, {
     required CardDetail detail,
     required CardCollectionItem item,
+    String? idempotencyKey,
   });
   Future<CardCollectionItem> updateCollectionItem(
     AuthSession session, {
@@ -65,12 +66,33 @@ abstract interface class CardDetailSectionRepository {
     String cardId, {
     CardDetailMarketData? market,
     String? finish,
+    Iterable<CardPriceRange> ranges = const [
+      CardPriceRange.oneDay,
+      CardPriceRange.sevenDays,
+      CardPriceRange.fifteenDays,
+      CardPriceRange.oneMonth,
+      CardPriceRange.threeMonths,
+    ],
   });
   Future<List<CardSoldListing>> loadSoldListings(String cardId);
 }
 
+abstract interface class PremiumCardDetailSectionRepository {
+  Future<CardDetailSeriesData> loadPremiumPriceSeries(
+    AuthSession session,
+    String cardId, {
+    CardDetailMarketData? market,
+    String? finish,
+    required Iterable<CardPriceRange> ranges,
+    required bool localPremiumVerified,
+  });
+}
+
 class HttpCardDetailRepository
-    implements CardDetailRepository, CardDetailSectionRepository {
+    implements
+        CardDetailRepository,
+        CardDetailSectionRepository,
+        PremiumCardDetailSectionRepository {
   const HttpCardDetailRepository({
     required PortfolioApi api,
     required CardDataApi cardDataApi,
@@ -151,6 +173,48 @@ class HttpCardDetailRepository
     String cardId, {
     CardDetailMarketData? market,
     String? finish,
+    Iterable<CardPriceRange> ranges = const [
+      CardPriceRange.oneDay,
+      CardPriceRange.sevenDays,
+      CardPriceRange.fifteenDays,
+      CardPriceRange.oneMonth,
+      CardPriceRange.threeMonths,
+    ],
+  }) {
+    return _loadPriceSeries(
+      cardId,
+      market: market,
+      finish: finish,
+      ranges: ranges,
+    );
+  }
+
+  @override
+  Future<CardDetailSeriesData> loadPremiumPriceSeries(
+    AuthSession session,
+    String cardId, {
+    CardDetailMarketData? market,
+    String? finish,
+    required Iterable<CardPriceRange> ranges,
+    required bool localPremiumVerified,
+  }) {
+    return _loadPriceSeries(
+      cardId,
+      market: market,
+      finish: finish,
+      ranges: ranges,
+      premiumSession: session,
+      localPremiumVerified: localPremiumVerified,
+    );
+  }
+
+  Future<CardDetailSeriesData> _loadPriceSeries(
+    String cardId, {
+    CardDetailMarketData? market,
+    String? finish,
+    required Iterable<CardPriceRange> ranges,
+    AuthSession? premiumSession,
+    bool localPremiumVerified = false,
   }) async {
     final prices =
         market?.prices ??
@@ -158,13 +222,16 @@ class HttpCardDetailRepository
     final rawPrices = prices
         .where((price) => price.grader.toLowerCase() == 'raw')
         .toList();
+    final seriesPrices = premiumSession == null ? rawPrices : prices;
     final rangesByPrice = {
-      for (final price in rawPrices) price: CardPriceRange.values,
+      for (final price in seriesPrices) price: ranges.toList(),
     };
     final seriesByPrice = await _loadSeriesForPrices(
       cardId,
       rangesByPrice,
       finish: finish,
+      premiumSession: premiumSession,
+      localPremiumVerified: localPremiumVerified,
     );
     final rawSeries = rawPrices
         .map(
@@ -176,13 +243,23 @@ class HttpCardDetailRepository
           ),
         )
         .toList();
-    final gradedSeries = prices
-        .where(
-          (price) =>
-              price.grader.toLowerCase() != 'raw' && price.history.length >= 2,
-        )
-        .map(_gradedSeriesFromDto)
-        .toList();
+    final gradedPrices = prices.where(
+      (price) =>
+          price.grader.toLowerCase() != 'raw' &&
+          (premiumSession != null || price.history.length >= 2),
+    );
+    final gradedSeries = premiumSession == null
+        ? gradedPrices
+              .map((price) => _gradedSeriesFromDto(price, ranges))
+              .toList()
+        : gradedPrices
+              .map(
+                (price) => CardPriceChartSeries(
+                  label: _gradedSeriesLabel(price),
+                  seriesByRange: seriesByPrice[price] ?? const {},
+                ),
+              )
+              .toList();
     return CardDetailSeriesData(
       marketPrices: prices
           .map(
@@ -252,10 +329,12 @@ class HttpCardDetailRepository
     AuthSession session, {
     required CardDetail detail,
     required CardCollectionItem item,
+    String? idempotencyKey,
   }) async {
     final dto = await _api.createCollectionItem(
       session,
       _draftFromCardItem(detail, item),
+      idempotencyKey: idempotencyKey,
     );
     return _collectionItemFromDto(dto, {item.folderId: item.portfolioName});
   }
@@ -315,12 +394,9 @@ class HttpCardDetailRepository
   Future<Map<CardPriceRange, List<CardPricePoint>>> _loadSeriesByRange(
     String cardRef,
     CardDataMarketPriceDto price, {
-    required bool includeChartRanges,
+    required Iterable<CardPriceRange> ranges,
     String? finish,
   }) async {
-    final ranges = includeChartRanges
-        ? CardPriceRange.values
-        : const [CardPriceRange.sevenDays, CardPriceRange.oneMonth];
     return Map.fromEntries(
       await Future.wait(
         ranges.map((range) async {
@@ -338,8 +414,32 @@ class HttpCardDetailRepository
     String cardRef,
     Map<CardDataMarketPriceDto, List<CardPriceRange>> rangesByPrice, {
     String? finish,
+    AuthSession? premiumSession,
+    bool localPremiumVerified = false,
   }) async {
     final api = _cardDataApi;
+    if (premiumSession != null) {
+      if (api is! PremiumPriceSeriesApi) {
+        throw const CardDataApiException('Premium price history unavailable.');
+      }
+      final premiumApi = api as PremiumPriceSeriesApi;
+      final keys = [
+        for (final entry in rangesByPrice.entries)
+          for (final range in entry.value) (entry.key, range),
+      ];
+      final results = await premiumApi
+          .getPremiumPriceSeriesBatch(premiumSession, cardRef, [
+            for (final (price, range) in keys)
+              CardDataPriceSeriesQuery(
+                days: range.days,
+                grader: price.grader,
+                grade: price.grade,
+                condition: price.condition,
+                finish: finish,
+              ),
+          ], localPremiumVerified: localPremiumVerified);
+      return _mapBatchSeries(rangesByPrice.keys, keys, results);
+    }
     if (api is BatchCardDataApi) {
       final batchApi = api as BatchCardDataApi;
       try {
@@ -357,15 +457,7 @@ class HttpCardDetailRepository
               finish: finish,
             ),
         ]);
-        final mapped = {
-          for (final price in rangesByPrice.keys)
-            price: <CardPriceRange, List<CardPricePoint>>{},
-        };
-        for (var index = 0; index < keys.length; index += 1) {
-          final (price, range) = keys[index];
-          mapped[price]![range] = _pricePointsFromDtos(results[index]);
-        }
-        return mapped;
+        return _mapBatchSeries(rangesByPrice.keys, keys, results);
       } catch (_) {
         // Supports clients deployed before the batch Workers route is live.
       }
@@ -379,8 +471,7 @@ class HttpCardDetailRepository
             await _loadSeriesByRange(
               cardRef,
               entry.key,
-              includeChartRanges:
-                  entry.value.length == CardPriceRange.values.length,
+              ranges: entry.value,
               finish: finish,
             ),
           ),
@@ -388,6 +479,22 @@ class HttpCardDetailRepository
       ),
     );
   }
+}
+
+Map<CardDataMarketPriceDto, Map<CardPriceRange, List<CardPricePoint>>>
+_mapBatchSeries(
+  Iterable<CardDataMarketPriceDto> prices,
+  List<(CardDataMarketPriceDto, CardPriceRange)> keys,
+  List<List<CardDataPricePointDto>> results,
+) {
+  final mapped = {
+    for (final price in prices) price: <CardPriceRange, List<CardPricePoint>>{},
+  };
+  for (var index = 0; index < keys.length; index += 1) {
+    final (price, range) = keys[index];
+    mapped[price]![range] = _pricePointsFromDtos(results[index]);
+  }
+  return mapped;
 }
 
 List<CardPricePoint> _pricePointsFromDtos(List<CardDataPricePointDto> points) {
@@ -420,7 +527,8 @@ CardDetail _baseDetailFromDto(CardDataCardDto card) {
         label: 'Raw',
         priceUsd: card.priceUsd,
         previous30dPriceUsd: card.previous30dPriceUsd,
-        increasePercent: card.priceChange1dPercent,
+        previous7dPriceUsd: card.previous7dPriceUsd,
+        increasePercent: card.priceChange7dPercent,
       ),
     ],
   );
@@ -464,9 +572,6 @@ CardMarketPrice _marketPriceFromDto(
   Map<CardPriceRange, List<CardPricePoint>> seriesByRange,
 ) {
   final history = _pricePointsFromDtos(dto.history);
-  final sevenDaySeries =
-      seriesByRange[CardPriceRange.sevenDays] ??
-      _filterPointsByDays(history, CardPriceRange.sevenDays.days);
   return CardMarketPrice(
     label: _marketPriceLabel(dto),
     grader: dto.grader,
@@ -479,16 +584,19 @@ CardMarketPrice _marketPriceFromDto(
     history: history,
     priceUsd: dto.price,
     previous30dPriceUsd: _previousPrice(seriesByRange[CardPriceRange.oneMonth]),
-    previous7dPriceUsd: _priceAtDaysAgo(sevenDaySeries, 6),
+    previous7dPriceUsd: dto.previous7dPriceUsd,
   );
 }
 
-CardPriceChartSeries _gradedSeriesFromDto(CardDataMarketPriceDto dto) {
+CardPriceChartSeries _gradedSeriesFromDto(
+  CardDataMarketPriceDto dto,
+  Iterable<CardPriceRange> ranges,
+) {
   final points = _pricePointsFromDtos(dto.history);
   return CardPriceChartSeries(
     label: _gradedSeriesLabel(dto),
     seriesByRange: {
-      for (final range in CardPriceRange.values)
+      for (final range in ranges)
         range: _filterPointsByDays(points, range.days),
     },
   );
@@ -526,22 +634,6 @@ double? _previousPrice(List<CardPricePoint>? points) {
     return null;
   }
   return points.first.priceUsd;
-}
-
-double? _priceAtDaysAgo(List<CardPricePoint> points, int days) {
-  if (points.length < 2) return null;
-  final sorted = [...points]
-    ..sort((left, right) => left.dateLabel.compareTo(right.dateLabel));
-  final latest = DateTime.tryParse(sorted.last.dateLabel);
-  if (latest == null) return null;
-  final cutoff = latest.subtract(Duration(days: days));
-  return sorted
-      .where((point) {
-        final date = DateTime.tryParse(point.dateLabel);
-        return date != null && !date.isAfter(cutoff);
-      })
-      .lastOrNull
-      ?.priceUsd;
 }
 
 String _marketPriceLabel(CardDataMarketPriceDto dto) {
@@ -637,7 +729,7 @@ CardCollectionItem _collectionItemFromDto(
     quantity: dto.quantity,
     grader: dto.grader,
     condition: dto.condition,
-    grade: dto.grade?.toString(),
+    grade: dto.grade == null ? null : _gradeText(dto.grade!),
     language: dto.language,
     finish: dto.finish,
     purchasePriceUsd: dto.purchasePrice,

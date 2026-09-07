@@ -1,5 +1,5 @@
 // 依赖方向校验（M0-8）：apps/ → packages/ 单向；packages/ 不得反向依赖 apps/。
-// 参见 docs/tcg-card/02-architecture/monorepo.md §4。
+// 参见 docs/releases/v1.0.0/02-architecture/monorepo.md。
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";

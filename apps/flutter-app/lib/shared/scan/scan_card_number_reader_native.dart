@@ -5,10 +5,13 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 
 import 'scan_card_number_reader_contract.dart';
 
+const _disableMlKitOcr = bool.fromEnvironment('DISABLE_MLKIT_OCR');
+
 ScanCardNumberReader createScanCardNumberReader() =>
     switch (defaultTargetPlatform) {
-      TargetPlatform.android ||
-      TargetPlatform.iOS => const _MlKitScanCardNumberReader(),
+      TargetPlatform.android => const _MlKitScanCardNumberReader(),
+      TargetPlatform.iOS when !_disableMlKitOcr =>
+        const _MlKitScanCardNumberReader(),
       _ => const _UnsupportedScanCardNumberReader(),
     };
 

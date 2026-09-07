@@ -41,9 +41,13 @@ type CollectionItemRow = {
   grade: number | null;
   language: string | null;
   finish: string | null;
+  price_series_id: number | null;
   quantity: number;
   purchase_price: number | null;
   purchase_currency: string | null;
+  performance_start_at: string;
+  purchase_price_effective_at: string;
+  performance_history_available_from: string;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -124,10 +128,21 @@ class FakeD1Statement {
     }
 
     if (this.sql.includes("FROM collection_item") && this.sql.includes("folder_id = ?")) {
-      const [ownerType, ownerId, folderId, cardRef, language, finish] = this.args;
+      const [
+        ownerType,
+        ownerId,
+        folderId,
+        cardRef,
+        language,
+        finish,
+        grader,
+        condition,
+        grade,
+      ] = this.args;
       return (this.db.items.find((row) =>
         row.owner_type === ownerType && row.owner_id === ownerId && row.folder_id === folderId &&
-        row.card_ref === cardRef && row.language === language && row.finish === finish
+        row.card_ref === cardRef && row.language === language && row.finish === finish &&
+        row.grader === grader && row.condition === condition && row.grade === grade
       ) ?? null) as T | null;
     }
 
@@ -141,7 +156,7 @@ class FakeD1Statement {
       ) ?? null) as T | null;
     }
 
-    if (this.sql.includes("FROM user")) {
+    if (this.sql.includes('FROM "user"')) {
       const [ownerId] = this.args;
       return (this.db.users.find(
         (row) => row.id === ownerId && row.deleted_at === null,
@@ -152,7 +167,7 @@ class FakeD1Statement {
   }
 
   async run(): Promise<{ success: true; meta: { changes: number } }> {
-    if (this.sql.includes("INSERT INTO collection_item")) {
+    if (this.sql.includes("INSERT INTO collection_item\n  (")) {
       const [
         id,
         ownerType,
@@ -165,9 +180,13 @@ class FakeD1Statement {
         grade,
         language,
         finish,
+        priceSeriesId,
         quantity,
         purchasePrice,
         purchaseCurrency,
+        performanceStartAt,
+        purchasePriceEffectiveAt,
+        performanceHistoryAvailableFrom,
         notes,
         createdAt,
         updatedAt,
@@ -183,9 +202,13 @@ class FakeD1Statement {
         number | null,
         string | null,
         string | null,
+        number | null,
         number,
         number | null,
         string | null,
+        string,
+        string,
+        string,
         string | null,
         string,
         string,
@@ -203,9 +226,13 @@ class FakeD1Statement {
         grade,
         language,
         finish,
+        price_series_id: priceSeriesId,
         quantity,
         purchase_price: purchasePrice,
         purchase_currency: purchaseCurrency,
+        performance_start_at: performanceStartAt,
+        purchase_price_effective_at: purchasePriceEffectiveAt,
+        performance_history_available_from: performanceHistoryAvailableFrom,
         notes,
         created_at: createdAt,
         updated_at: updatedAt,
@@ -279,6 +306,45 @@ describe("collect shortcut route", () => {
     expect(db.wishlist).toEqual([]);
   });
 
+  it("replays Quick Collect after a lost response because one-tap retries must not become duplicate errors", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(folder({ id: "main", is_default: 1 }));
+    const idempotencyKey = "55555555-5555-4555-8555-555555555555";
+    const headers = {
+      ...(await authHeaders("anonymous", "anon-1")),
+      "Idempotency-Key": idempotencyKey,
+    };
+    const body = JSON.stringify({
+      folder_id: "main",
+      object_type: "tcg",
+      grader: "Raw",
+      condition: "Near Mint (NM)",
+      grade: null,
+      language: "English",
+      finish: "Holofoil",
+      quantity: 1,
+    });
+
+    const created = await app.request(
+      "/api/v1/cards/card-a/collect",
+      { method: "POST", headers, body },
+      createTestEnv(db),
+    );
+    const replayed = await app.request(
+      "/api/v1/cards/card-a/collect",
+      { method: "POST", headers, body },
+      createTestEnv(db),
+    );
+
+    expect(created.status).toBe(201);
+    expect(replayed.status).toBe(200);
+    expect(await replayed.json()).toMatchObject({
+      success: true,
+      data: { id: idempotencyKey, card_ref: "card-a" },
+    });
+    expect(db.items).toHaveLength(1);
+  });
+
   it("uses the default folder when folder_id is null because the shortcut supports one-tap Collect without folder picking", async () => {
     const db = createDbForOwner("user", "user-1");
     db.folders.push(
@@ -320,14 +386,18 @@ describe("collect shortcut route", () => {
     });
   });
 
-  it("rejects the same card, finish, and language despite different grading", async () => {
+  it("allows different grading while rejecting an exact collection item duplicate", async () => {
     const db = createDbForOwner("anonymous", "anon-1");
     db.folders.push(folder({ id: "main", is_default: 1 }));
     db.items.push({
       id: "owned", owner_type: "anonymous", owner_id: "anon-1", folder_id: "main",
       card_ref: "card-a", object_type: "tcg", grader: "Raw", condition: "Near Mint (NM)",
       grade: null, language: "English", finish: "Holofoil", quantity: 1,
-      purchase_price: null, purchase_currency: null, notes: null, created_at: NOW, updated_at: NOW,
+      price_series_id: null,
+      purchase_price: null, purchase_currency: null,
+      performance_start_at: NOW, purchase_price_effective_at: NOW,
+      performance_history_available_from: NOW,
+      notes: null, created_at: NOW, updated_at: NOW,
     });
     const headers = await authHeaders("anonymous", "anon-1");
     const request = (finish: string) => app.request("/api/v1/cards/card-a/collect", {
@@ -336,16 +406,19 @@ describe("collect shortcut route", () => {
       body: JSON.stringify({ folder_id: "main", object_type: "tcg", grader: "Raw", condition: "Near Mint (NM)", grade: null, language: "English", finish, quantity: 1 }),
     }, createTestEnv(db));
 
-    const duplicate = await app.request("/api/v1/cards/card-a/collect", {
+    const differentGrading = await app.request("/api/v1/cards/card-a/collect", {
       method: "POST", headers,
       body: JSON.stringify({ folder_id: "main", object_type: "tcg", grader: "PSA", condition: null, grade: 10, language: "English", finish: "Holofoil", quantity: 1 }),
     }, createTestEnv(db));
-    expect(db.items).toHaveLength(1);
+    expect(db.items).toHaveLength(2);
+    const duplicate = await request("Holofoil");
     const distinct = await request("Reverse Holofoil");
 
+    expect(differentGrading.status).toBe(201);
     expect(duplicate.status).toBe(409);
     expect(await duplicate.json()).toMatchObject({ error: { code: "DUPLICATE_COLLECTION_ITEM" } });
     expect(distinct.status).toBe(201);
+    expect(db.items).toHaveLength(3);
   });
 
   it("rejects invalid grading and another owner's folder because Collect must preserve collection item invariants", async () => {

@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/card_detail/card_detail_models.dart';
 import '../features/card_detail/card_detail_page.dart';
 import '../features/collection/collection_page.dart';
 import '../features/home/home_page.dart';
@@ -14,8 +15,13 @@ import '../features/profile/profile_page.dart';
 import '../features/scan/scan_page.dart';
 import '../features/search/search_page.dart';
 import '../features/search/set_detail_page.dart';
+import '../features/subscription/subscription_controller.dart';
+import '../features/subscription/subscription_page.dart';
+import '../features/subscription/subscription_route_page.dart';
+import '../features/subscription/startup_subscription_gate.dart';
 import '../shared/analytics/analytics_events.dart';
 import '../shared/analytics/app_analytics.dart';
+import '../shared/ui/kando_bottom_sheet_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
@@ -23,10 +29,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/',
         builder: (context, state) {
+          const home = AnalyticsPageView(
+            event: AnalyticsEvent.homeView,
+            child: HomePage(),
+          );
           return const OnboardingGate(
-            home: AnalyticsPageView(
-              event: AnalyticsEvent.homeView,
-              child: HomePage(),
+            home: StartupSubscriptionGate(source: 'cold_start', home: home),
+            firstLaunchHome: StartupSubscriptionGate(
+              source: 'onboarding',
+              home: home,
             ),
           );
         },
@@ -52,25 +63,45 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/scan',
-        builder: (context, state) => const AnalyticsPageView(
-          event: AnalyticsEvent.scanView,
-          child: ScanPage(),
+        pageBuilder: (context, state) => _mainTabPage(
+          state,
+          const AnalyticsPageView(
+            event: AnalyticsEvent.scanView,
+            child: ScanPage(),
+          ),
         ),
       ),
       GoRoute(
         path: '/cards/:cardId',
         builder: (context, state) {
+          final cardId = state.pathParameters['cardId'] ?? '';
+          final extra = state.extra;
+          final preview = extra is CardDetailPreview && extra.cardId == cardId
+              ? extra
+              : null;
           final collectionType =
               state.uri.queryParameters['collection'] ??
               AnalyticsValue.collectionNormal;
           return CardDetailPage(
-            cardId: state.pathParameters['cardId'] ?? '',
+            cardId: cardId,
+            preview: preview,
+            collectionItemId: state.uri.queryParameters['item_id'],
             collectionType: collectionType,
             entrySource:
                 state.uri.queryParameters['entry'] ??
                 AnalyticsValue.sourceSearch,
           );
         },
+      ),
+      GoRoute(
+        path: '/collection-items/pending',
+        pageBuilder: (context, state) => KandoBottomSheetPage<void>(
+          key: state.pageKey,
+          barrierColor: const Color(0xB8000000),
+          isDismissible: true,
+          heightFactor: 0.93,
+          child: const QuickCollectionReviewPage(heightFactor: 1),
+        ),
       ),
       GoRoute(
         path: '/search',
@@ -111,6 +142,48 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/profile/api-requests',
         builder: (context, state) => const ApiRequestLogPage(),
+      ),
+      GoRoute(
+        path: '/subscription',
+        pageBuilder: (context, state) {
+          final sheet = state.uri.queryParameters['presentation'] == 'sheet';
+          final source = state.uri.queryParameters['source'];
+          final entrySource = state.uri.queryParameters['entry_source'];
+          final analyticsScene = state.uri.queryParameters['scene'];
+          if (sheet) {
+            return KandoBottomSheetPage<SubscriptionPaywallResult>(
+              key: state.pageKey,
+              barrierColor: const Color(0x99000000),
+              isDismissible: false,
+              useSafeArea: true,
+              heightFactor: subscriptionSheetHeightFactor,
+              sheetAnimationStyle: subscriptionSheetAnimationStyle,
+              child: SubscriptionPage(
+                sheet: true,
+                source: source,
+                entrySource: entrySource,
+                analyticsScene: analyticsScene,
+              ),
+            );
+          }
+          return KandoSubscriptionPage<SubscriptionPaywallResult>(
+            key: state.pageKey,
+            source: source,
+            child: SubscriptionPage(
+              sheet: false,
+              source: source,
+              entrySource: entrySource,
+              analyticsScene: analyticsScene,
+            ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/subscription/success',
+        builder: (context, state) => SubscriptionSuccessPage(
+          source: state.uri.queryParameters['source'],
+          entrySource: state.uri.queryParameters['entry_source'],
+        ),
       ),
     ],
   );

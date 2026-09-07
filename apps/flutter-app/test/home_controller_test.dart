@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/home/home_controller.dart';
+import 'package:kando_app/features/home/home_entitlement_repair.dart';
 import 'package:kando_app/features/home/home_models.dart';
 import 'package:kando_app/features/home/home_repository.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
@@ -23,6 +24,53 @@ import 'support/mock_home_repository.dart';
 
 void main() {
   test(
+    'one year keeps loading while repairing a missing session grant',
+    () async {
+      final portfolioApi = _RepairableOneYearPortfolioApi();
+      final repair = Completer<bool>();
+      var repairs = 0;
+      final container = _homeContainer(
+        const MockHomeRepository(),
+        portfolioApi: portfolioApi,
+        entitlementRepair: () {
+          repairs += 1;
+          return repair.future;
+        },
+      );
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+
+      final load = container
+          .read(homeControllerProvider.notifier)
+          .selectChartRange(HomeChartRange.oneYear);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(repairs, 1);
+      expect(portfolioApi.calls, 1);
+      expect(
+        container.read(homeControllerProvider).chartRange,
+        HomeChartRange.oneYear,
+      );
+      expect(
+        container.read(homeControllerProvider).isChartRangeLoading,
+        isTrue,
+      );
+
+      repair.complete(true);
+      expect(await load, isTrue);
+      expect(portfolioApi.calls, 2);
+      expect(
+        container.read(homeControllerProvider).chartRange,
+        HomeChartRange.oneYear,
+      );
+      expect(
+        container.read(homeControllerProvider).isChartRangeLoading,
+        isFalse,
+      );
+    },
+  );
+
+  test(
     'dashboard exposes spec-shaped folder, portfolio, highlight, and trend data',
     () {
       final container = _mockHomeContainer();
@@ -39,6 +87,7 @@ void main() {
         '15d',
         '1m',
         '3m',
+        '1y',
       ]);
       expect(dashboard.defaultFolder.id, 'main');
       expect(dashboard.defaultFolder.isDefault, isTrue);
@@ -81,7 +130,7 @@ void main() {
         ],
       );
       expect(
-        state.chartDates[6],
+        state.chartDates.last,
         '2025-02-18',
         reason: 'HOME tooltips must use the date paired with the live curve.',
       );
@@ -112,6 +161,24 @@ void main() {
       expect(restored.isUnavailable, isFalse);
       expect(restored.totalAmountText, r'$12,450.80');
       expect(repository.calls, 2);
+    },
+  );
+
+  test(
+    'holdings without PostgreSQL prices expose an unknown total instead of an empty portfolio',
+    () {
+      final container = _homeContainer(
+        const _MissingMarketPriceHomeRepository(),
+      );
+      addTearDown(container.dispose);
+
+      final state = container.read(homeControllerProvider);
+
+      expect(state.hasCollectionItems, isTrue);
+      expect(state.isMarketPriceMissing, isTrue);
+      expect(state.totalAmountText, '--');
+      expect(state.changeAmountText, '-- in the last 30 days');
+      expect(state.changePercentText, '-/-');
     },
   );
 
@@ -408,7 +475,7 @@ void main() {
     final controller = container.read(homeControllerProvider.notifier);
     expect(
       container.read(homeControllerProvider).chartRange,
-      HomeChartRange.fifteenDays,
+      HomeChartRange.oneMonth,
     );
 
     controller.selectChartRange(HomeChartRange.oneMonth);
@@ -434,6 +501,164 @@ void main() {
       12450.8,
     ]);
   });
+
+  test(
+    'one year selects immediately and reuses one scoped request because slow history must still acknowledge the tap',
+    () async {
+      final portfolioApi = _DelayedOneYearPortfolioApi();
+      final container = _homeContainer(
+        const MockHomeRepository(),
+        portfolioApi: portfolioApi,
+      );
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+
+      final controller = container.read(homeControllerProvider.notifier);
+      final previousValues = container.read(homeControllerProvider).chartValues;
+      final first = controller.selectChartRange(HomeChartRange.oneYear);
+      final second = controller.selectChartRange(HomeChartRange.oneYear);
+      await Future<void>.delayed(Duration.zero);
+
+      var state = container.read(homeControllerProvider);
+      expect(state.chartRange, HomeChartRange.oneYear);
+      expect(state.chartValues, previousValues);
+      expect(portfolioApi.calls, 1);
+      expect(portfolioApi.folderIds, ['main']);
+
+      portfolioApi.complete();
+      expect(await first, isTrue);
+      expect(await second, isTrue);
+
+      state = container.read(homeControllerProvider);
+      expect(state.chartRange, HomeChartRange.oneYear);
+      expect(state.chartValues, [100, 125]);
+    },
+  );
+
+  test(
+    'one year failure restores the previous range because unavailable history must not leave a false selection',
+    () async {
+      final portfolioApi = _DelayedOneYearPortfolioApi();
+      final container = _homeContainer(
+        const MockHomeRepository(),
+        portfolioApi: portfolioApi,
+      );
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+
+      final controller = container.read(homeControllerProvider.notifier);
+      final load = controller.selectChartRange(HomeChartRange.oneYear);
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        container.read(homeControllerProvider).chartRange,
+        HomeChartRange.oneYear,
+      );
+      expect(
+        container.read(homeControllerProvider).isChartRangeLoading,
+        isTrue,
+      );
+
+      portfolioApi.fail();
+      expect(await load, isFalse);
+
+      final state = container.read(homeControllerProvider);
+      expect(state.chartRange, HomeChartRange.oneMonth);
+      expect(state.isChartRangeLoading, isFalse);
+    },
+  );
+
+  test(
+    'late one year history cannot replace a newer range because slow responses must preserve the latest tap',
+    () async {
+      final portfolioApi = _DelayedOneYearPortfolioApi();
+      final container = _homeContainer(
+        const MockHomeRepository(),
+        portfolioApi: portfolioApi,
+      );
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+
+      final controller = container.read(homeControllerProvider.notifier);
+      final load = controller.selectChartRange(HomeChartRange.oneYear);
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        await controller.selectChartRange(HomeChartRange.sevenDays),
+        isTrue,
+      );
+
+      portfolioApi.complete();
+      expect(await load, isTrue);
+
+      final state = container.read(homeControllerProvider);
+      expect(state.chartRange, HomeChartRange.sevenDays);
+      expect(state.isChartRangeLoading, isFalse);
+      expect(state.chartValues, [11980, 12140, 12300, 12450.8]);
+    },
+  );
+
+  test(
+    'selecting one year again after leaving it starts an active request because a stale request cannot acknowledge the new tap',
+    () async {
+      final portfolioApi = _DelayedOneYearPortfolioApi();
+      final container = _homeContainer(
+        const MockHomeRepository(),
+        portfolioApi: portfolioApi,
+      );
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+
+      final controller = container.read(homeControllerProvider.notifier);
+      final first = controller.selectChartRange(HomeChartRange.oneYear);
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        await controller.selectChartRange(HomeChartRange.sevenDays),
+        isTrue,
+      );
+      final second = controller.selectChartRange(HomeChartRange.oneYear);
+      await Future<void>.delayed(Duration.zero);
+
+      var state = container.read(homeControllerProvider);
+      expect(portfolioApi.calls, 2);
+      expect(state.chartRange, HomeChartRange.oneYear);
+      expect(state.isChartRangeLoading, isTrue);
+
+      portfolioApi.complete();
+      expect(await first, isTrue);
+      expect(await second, isTrue);
+
+      state = container.read(homeControllerProvider);
+      expect(state.chartRange, HomeChartRange.oneYear);
+      expect(state.isChartRangeLoading, isFalse);
+      expect(state.chartValues, [100, 125]);
+    },
+  );
+
+  test(
+    'late one year history cannot replace a newly selected folder because folder changes own the visible chart',
+    () async {
+      final portfolioApi = _DelayedOneYearPortfolioApi();
+      final container = _homeContainer(
+        const MockHomeRepository(),
+        portfolioApi: portfolioApi,
+      );
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+
+      final controller = container.read(homeControllerProvider.notifier);
+      final load = controller.selectChartRange(HomeChartRange.oneYear);
+      await Future<void>.delayed(Duration.zero);
+      expect(await controller.selectFolder('sealed'), isTrue);
+
+      portfolioApi.complete();
+      expect(await load, isTrue);
+
+      final state = container.read(homeControllerProvider);
+      expect(state.selectedFolderId, 'sealed');
+      expect(state.chartRange, HomeChartRange.oneMonth);
+      expect(state.isChartRangeLoading, isFalse);
+      expect(state.chartValues, [7200, 7600, 8040, 8320, 8640]);
+    },
+  );
 
   test(
     'portfolio content renders before slow Trending because market data is not on the critical path',
@@ -548,6 +773,7 @@ void main() {
       expect(cardDataApi.calls, 1);
       expect(state.dashboard.trendingUnavailable, isFalse);
       expect(state.dashboard.trending.single.title, 'Live Trending Card');
+      expect(state.dashboard.trending.single.increaseRate, 25);
       expect(state.totalAmountText, r'$12,450.80');
     },
   );
@@ -561,7 +787,9 @@ ProviderContainer _homeContainer(
   HomeRepository repository, {
   CurrencyRateApi currencyRateApi = const _TestCurrencyRateApi(),
   CardDataApi? cardDataApi,
+  PortfolioApiClient? portfolioApi,
   bool initialAmountHidden = false,
+  Future<bool> Function()? entitlementRepair,
 }) {
   final storage = InMemoryAuthStorage();
   return ProviderContainer(
@@ -575,6 +803,10 @@ ProviderContainer _homeContainer(
       currencyRateApiProvider.overrideWithValue(currencyRateApi),
       if (cardDataApi != null)
         cardDataApiClientProvider.overrideWithValue(cardDataApi),
+      if (portfolioApi != null)
+        portfolioApiClientProvider.overrideWithValue(portfolioApi),
+      if (entitlementRepair != null)
+        homeEntitlementRepairProvider.overrideWithValue(entitlementRepair),
       portfolioManagementApiProvider.overrideWithValue(
         const _TestPortfolioManagementApi(),
       ),
@@ -586,6 +818,82 @@ ProviderContainer _homeContainer(
       ),
     ],
   );
+}
+
+class _DelayedOneYearPortfolioApi extends PortfolioApiClient {
+  _DelayedOneYearPortfolioApi() : super(Dio());
+
+  final _response = Completer<List<PortfolioFolderValuationDto>>();
+  final folderIds = <String?>[];
+  var calls = 0;
+
+  @override
+  Future<List<PortfolioFolderValuationDto>> getValuationHistory(
+    AuthSession session, {
+    int days = 90,
+    bool localPremiumVerified = false,
+    String? folderId,
+  }) {
+    calls += 1;
+    folderIds.add(folderId);
+    return _response.future;
+  }
+
+  void complete() {
+    _response.complete(const [
+      PortfolioFolderValuationDto(
+        folderId: 'main',
+        itemCount: 1,
+        marketPriceStatus: MarketPriceStatus.available,
+        currentValueUsd: 125,
+        series: [
+          PortfolioValuationPointDto(date: '2025-08-20', valueUsd: 100),
+          PortfolioValuationPointDto(date: '2026-08-20', valueUsd: 125),
+        ],
+        mostValuable: [],
+      ),
+    ]);
+  }
+
+  void fail() {
+    _response.completeError(StateError('one year unavailable'));
+  }
+}
+
+class _RepairableOneYearPortfolioApi extends PortfolioApiClient {
+  _RepairableOneYearPortfolioApi() : super(Dio());
+
+  var calls = 0;
+
+  @override
+  Future<List<PortfolioFolderValuationDto>> getValuationHistory(
+    AuthSession session, {
+    int days = 90,
+    bool localPremiumVerified = false,
+    String? folderId,
+  }) async {
+    calls += 1;
+    if (calls == 1) {
+      throw const PortfolioApiException(
+        'Premium access is still syncing.',
+        code: 'ENTITLEMENT_SYNC_REQUIRED',
+        statusCode: 409,
+      );
+    }
+    return const [
+      PortfolioFolderValuationDto(
+        folderId: 'main',
+        itemCount: 1,
+        marketPriceStatus: MarketPriceStatus.available,
+        currentValueUsd: 125,
+        series: [
+          PortfolioValuationPointDto(date: '2025-08-20', valueUsd: 100),
+          PortfolioValuationPointDto(date: '2026-08-20', valueUsd: 125),
+        ],
+        mostValuable: [],
+      ),
+    ];
+  }
 }
 
 class _TrendingFailureHomeRepository implements HomeRepository {
@@ -744,6 +1052,8 @@ class _NegativeChangeHomeRepository implements HomeRepository {
       portfoliosByFolderId: {
         'main': PortfolioSummary(
           folderId: 'main',
+          itemCount: 1,
+          marketPriceStatus: MarketPriceStatus.available,
           totalValueUsd: 12840,
           previous30dValueUsd: 13260,
           chartValuesByRange: {
@@ -752,6 +1062,32 @@ class _NegativeChangeHomeRepository implements HomeRepository {
         ),
       },
       mostValuableByFolderId: {'main': null},
+      trending: [],
+    );
+  }
+}
+
+class _MissingMarketPriceHomeRepository implements HomeRepository {
+  const _MissingMarketPriceHomeRepository();
+
+  @override
+  HomeDashboard loadDashboard() {
+    return const HomeDashboard(
+      folders: [HomeFolder(id: 'main', name: 'Main', isDefault: true)],
+      portfoliosByFolderId: {
+        'main': PortfolioSummary(
+          folderId: 'main',
+          itemCount: 1,
+          marketPriceStatus: MarketPriceStatus.missing,
+          totalValueUsd: 0,
+          previous30dValueUsd: 0,
+          chartValuesByRange: {
+            HomeChartRange.oneMonth: [0],
+          },
+        ),
+      },
+      mostValuableByFolderId: {'main': null},
+      mostValuableCardsByFolderId: {'main': []},
       trending: [],
     );
   }

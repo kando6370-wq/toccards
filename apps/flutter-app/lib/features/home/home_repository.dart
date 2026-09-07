@@ -91,7 +91,8 @@ class ApiHomeRepository implements ProgressiveHomeRepository {
       final total = valuation?.currentValueUsd ?? 0;
       final chartSeries = {
         for (final range in HomeChartRange.values)
-          range: _rangePoints(valuation?.series ?? const [], range),
+          if (range != HomeChartRange.oneYear)
+            range: _rangePoints(valuation?.series ?? const [], range),
       };
       final chartValues = {
         for (final entry in chartSeries.entries)
@@ -104,6 +105,9 @@ class ApiHomeRepository implements ProgressiveHomeRepository {
       final monthValues = chartValues[HomeChartRange.oneMonth]!;
       portfolios[folder.id] = PortfolioSummary(
         folderId: folder.id,
+        itemCount: valuation?.itemCount ?? 0,
+        marketPriceStatus:
+            valuation?.marketPriceStatus ?? MarketPriceStatus.missing,
         totalValueUsd: total,
         previous30dValueUsd: monthValues.length > 1 ? monthValues.first : 0,
         chartValuesByRange: chartValues,
@@ -172,6 +176,7 @@ HomeCardHighlight _highlight(PortfolioMostValuableDto item) {
     item.setName,
   ].join(' • ');
   return HomeCardHighlight(
+    itemId: item.itemId,
     cardRef: item.cardRef,
     title: item.name,
     subtitle: subtitle,
@@ -188,6 +193,7 @@ const _rangeDays = {
   HomeChartRange.fifteenDays: 15,
   HomeChartRange.oneMonth: 30,
   HomeChartRange.threeMonths: 90,
+  HomeChartRange.oneYear: 365,
 };
 
 const _defaultPreferences = UserPreferenceDto(
