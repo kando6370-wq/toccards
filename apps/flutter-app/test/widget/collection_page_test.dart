@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -314,6 +315,16 @@ void main() {
       final label = tester.widget<Text>(find.text(_longFolderName));
       expect(label.style?.fontSize, 14);
       expect(label.overflow, TextOverflow.ellipsis);
+      final folderRect = tester.getRect(
+        find.byKey(const Key('collection-folder-button')),
+      );
+      final totalFinder = find.byKey(const Key('collection-portfolio-total'));
+      final totalRect = tester.getRect(totalFinder);
+      expect(totalRect.top - folderRect.bottom, greaterThanOrEqualTo(4));
+      expect(
+        tester.renderObject<RenderParagraph>(totalFinder).didExceedMaxLines,
+        isFalse,
+      );
       expect(tester.takeException(), isNull);
     },
   );

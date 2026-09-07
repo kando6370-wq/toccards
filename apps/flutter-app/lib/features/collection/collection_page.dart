@@ -424,94 +424,92 @@ class _PortfolioSummaryCard extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            child: Row(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'PORTFOLIO',
+                      style: TextStyle(
+                        fontSize: 14,
+                        height: 20 / 14,
+                        letterSpacing: 0.2,
+                        color: Color(0xFF92927D),
+                      ),
+                    ),
+                    _FolderButton(
+                      name: state.selectedFolder.name,
+                      onPressed: onFolderPressed,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                SizedBox(
+                  height: 40,
+                  child: Row(
                     children: [
-                      const Text(
-                        'PORTFOLIO',
-                        style: TextStyle(
-                          fontSize: 14,
-                          height: 20 / 14,
-                          letterSpacing: 0.2,
-                          color: Color(0xFF92927D),
-                        ),
-                      ),
-                      SizedBox(
-                        height: 40,
-                        child: Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                summary.totalValueText,
-                                key: const Key('collection-portfolio-total'),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  height: 40 / 24,
-                                  fontWeight: FontWeight.w600,
-                                  color: KandoColors.accent,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            _HideAmountButton(
-                              hidden: state.amountHidden,
-                              onPressed: onHidePressed,
-                            ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(
-                        height: 16,
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Row(
-                            children: [
-                              Text(
-                                '${summary.cardCount} cards',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  height: 16 / 13,
-                                  color: KandoColors.mutedText,
-                                ),
-                              ),
-                              const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 4),
-                                child: Text(
-                                  '•',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    height: 16 / 13,
-                                    color: KandoColors.mutedText,
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                '${summary.gradedCount} graded',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  height: 16 / 13,
-                                  color: KandoColors.mutedText,
-                                ),
-                              ),
-                            ],
+                      Flexible(
+                        child: Text(
+                          summary.totalValueText,
+                          key: const Key('collection-portfolio-total'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            height: 40 / 24,
+                            fontWeight: FontWeight.w600,
+                            color: KandoColors.accent,
                           ),
                         ),
+                      ),
+                      const SizedBox(width: 12),
+                      _HideAmountButton(
+                        hidden: state.amountHidden,
+                        onPressed: onHidePressed,
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 12),
-                _FolderButton(
-                  name: state.selectedFolder.name,
-                  onPressed: onFolderPressed,
+                SizedBox(
+                  height: 16,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Row(
+                      children: [
+                        Text(
+                          '${summary.cardCount} cards',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            height: 16 / 13,
+                            color: KandoColors.mutedText,
+                          ),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 4),
+                          child: Text(
+                            '•',
+                            style: TextStyle(
+                              fontSize: 13,
+                              height: 16 / 13,
+                              color: KandoColors.mutedText,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '${summary.gradedCount} graded',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            height: 16 / 13,
+                            color: KandoColors.mutedText,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
