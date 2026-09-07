@@ -260,6 +260,13 @@ void main() {
       tester.getSize(find.byKey(const Key('collection-hide-amount'))).height,
       24,
     );
+    final totalRect = tester.getRect(
+      find.byKey(const Key('collection-portfolio-total')),
+    );
+    final hideAmountRect = tester.getRect(
+      find.byKey(const Key('collection-hide-amount')),
+    );
+    expect(hideAmountRect.left - totalRect.right, closeTo(12, 0.01));
     expect(
       tester
           .widget<Text>(find.byKey(const Key('collection-portfolio-total')))
