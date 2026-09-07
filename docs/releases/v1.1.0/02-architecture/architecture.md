@@ -84,13 +84,13 @@ PostgreSQL 结构以 `src/db/postgres/migrations/` 中的顺序 migration 为准
 | 环境 | Worker | 域名 | 数据资源 |
 |---|---|---|---|
 | dev | `toccards-api-dev` | `api-dev.tcgcard.fun` | 正式 PostgreSQL Worker/Admin 已部署；共享 PG 为业务真源，dev KV/R2 与 `APP_ENVIRONMENT=development` 保持独立 |
-| prod | `toccards-api-prod` | `api.tcgcard.fun` | 当前 100% 流量版本 `57213c10-d392-43a9-8d34-c6472fc3febc` 仍绑定 D1；v1.1 发布时不迁移 D1 数据，直接切换到共享 PostgreSQL，prod KV/R2 与 `APP_ENVIRONMENT=production` 保持独立 |
+| prod | `toccards-api-prod` | `api.tcgcard.fun` | 2026-09-07 正式 version `934506ae-d433-4a38-ae40-6d07b109d50e` 已承载 100% 流量；通过 Hyperdrive 使用共享 PostgreSQL 且无 D1 binding，prod KV/R2 与 `APP_ENVIRONMENT=production` 保持独立 |
 
 Wrangler vars 保存非敏感环境配置，密钥通过 Worker secrets 注入。v1.1 dev 与 prod 共用业务 PostgreSQL 是本次明确的目标决策；prod 发布前只读确认旧 D1 仍无须保留的数据，并实时预检共享 PostgreSQL 后直接切换应用，不执行 D1 数据迁移、冲突合并或摘要校验。`APP_ENVIRONMENT`、Apple Bundle/Product ID、KV、R2、域名和 Worker secrets 不得混用。部署脚本先构建共享认证和对应模式 Admin，再部署 Worker 与静态 assets。
 
 ## 7. 当前与目标架构的区分
 
-dev 数据库迁移已经完成：PlanetScale PostgreSQL、Hyperdrive binding、目标 schema、Postgres.js 访问层、PostgreSQL 业务方言和新价格域读取已承载 dev；迁移检查点把 dev 的 33 张非价格业务表、270,577 行写入 PostgreSQL，并完成逐表行数与完整摘要校验，Hyperdrive 查询缓存已关闭。2026-09-07 实时预检确认 PostgreSQL `18.6` 的 `postgres/public` 已完整应用 `0000` 至 `0010`，checksum 与仓库 SQL 一致且未验证约束为 0。当前 v1.1 代码的 `fetch` 和 `scheduled` 缺少 Hyperdrive 时直接失败，不存在数据库降级路径。现网 prod 的 D1 仅属于待下线的 v1.0 运行事实；prod D1 没有需要保留的业务数据，不执行迁移或冲突审计，也不得作为回滚或灾备目标。发布前必须准备并验证 PostgreSQL 兼容的维护版或回滚 Worker。TimescaleDB 与 ClickHouse 仍只是 [数据库迁移研究](../03-data-api/research/database-migration-research.md) 和 [价格历史容量分析](../03-data-api/research/price-history-database-capacity-analysis.md) 中的后续候选，不属于本次实现。
+dev 数据库迁移已经完成：PlanetScale PostgreSQL、Hyperdrive binding、目标 schema、Postgres.js 访问层、PostgreSQL 业务方言和新价格域读取已承载 dev；迁移检查点把 dev 的 33 张非价格业务表、270,577 行写入 PostgreSQL，并完成逐表行数与完整摘要校验，Hyperdrive 查询缓存已关闭。2026-09-07 prod 切换前实时预检确认 PostgreSQL `18.6` 的 `postgres/public` 已完整应用 `0000` 至 `0010`，checksum 与仓库 SQL 一致且未验证约束为 0；同日 prod 正式 version `934506ae-d433-4a38-ae40-6d07b109d50e` 切换后，`fetch` 与 5 分钟 `scheduled` 均通过 Hyperdrive 正常运行。当前 v1.1 代码缺少 Hyperdrive 时直接失败，不存在数据库降级路径。旧 prod D1 资源可以仍存在于 Cloudflare 账户中，但不再绑定运行版本，不执行迁移或冲突审计，也不得作为回滚或灾备目标。PostgreSQL-only 候选 version `da698dfc-9be3-4713-ba17-ede427edd546` 保留用于版本回退。TimescaleDB 与 ClickHouse 仍只是 [数据库迁移研究](../03-data-api/research/database-migration-research.md) 和 [价格历史容量分析](../03-data-api/research/price-history-database-capacity-analysis.md) 中的后续候选，不属于本次实现。
 
 ## 8. 证据索引
 
