@@ -118,24 +118,36 @@ class ScanCandidateDto {
   const ScanCandidateDto({
     required this.cardRef,
     required this.name,
+    required this.setName,
+    required this.objectType,
     required this.setCode,
     required this.cardNumber,
     required this.confidence,
+    this.game,
+    this.rarity,
   });
 
   final String cardRef;
   final String name;
+  final String setName;
+  final String objectType;
   final String? setCode;
   final String? cardNumber;
   final double? confidence;
+  final String? game;
+  final String? rarity;
 
   factory ScanCandidateDto.fromJson(Map<String, Object?> json) {
     return ScanCandidateDto(
       cardRef: _requiredString(json['card_ref']),
       name: _requiredString(json['name']),
+      setName: _requiredString(json['set_name']),
+      objectType: _requiredScanObjectType(json['object_type']),
       setCode: _nullableString(json['set_code']),
       cardNumber: _nullableString(json['card_number']),
       confidence: _nullableConfidence(json['confidence']),
+      game: _nullableString(json['game']),
+      rarity: _nullableString(json['rarity']),
     );
   }
 }
@@ -498,6 +510,14 @@ ScanQuotaAccess _requiredScanQuotaAccess(Object? value) {
       'Something went wrong. Please try again.',
     ),
   };
+}
+
+String _requiredScanObjectType(Object? value) {
+  final objectType = _requiredString(value);
+  if (objectType != 'tcg') {
+    throw const ScanApiException('Something went wrong. Please try again.');
+  }
+  return objectType;
 }
 
 double? _nullableConfidence(Object? value) {

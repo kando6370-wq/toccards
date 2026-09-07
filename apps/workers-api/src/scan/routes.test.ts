@@ -245,7 +245,7 @@ class FakeD1Statement {
       );
     }
     if (
-      sql.includes("SELECT product_id, game, set_code, name, number, rarity") &&
+      sql.includes("SELECT product_id, game, set_name, set_code, name, number, rarity, product_type_name") &&
       sql.includes("FROM cards_all") &&
       sql.includes("WHERE product_id IN")
     ) {
@@ -758,7 +758,7 @@ describe("scan routes", () => {
       },
     });
     expect(env.DB.scanQuotaRequests).toEqual([
-      expect.objectContaining({ access_mode: "premium", status: "consumed" }),
+      expect.objectContaining({ access_mode: "premium", status: "released" }),
     ]);
   });
 
@@ -806,7 +806,7 @@ describe("scan routes", () => {
     });
     expect(response.status).toBe(200);
     expect(env.DB.scanQuotaRequests).toEqual([
-      expect.objectContaining({ status: "consumed" }),
+      expect.objectContaining({ status: "released" }),
     ]);
   });
 
@@ -1088,6 +1088,182 @@ describe("scan routes", () => {
         candidates: expect.stringContaining('"confidence":77.125'),
       }),
     ]);
+    expect(env.DB.scanQuotaRequests).toEqual([
+      expect.objectContaining({ status: "released" }),
+    ]);
+  });
+
+  it("releases Free quota when OCR resolves only an incomplete catalog card because unusable details are not a successful scan", async () => {
+    const env = createRecognitionEnv();
+    const token = await recognitionToken(env);
+    const requestId = crypto.randomUUID();
+    env.DB.cards.push({
+      product_id: "incomplete-card",
+      game_id: 1,
+      game: "Pokemon",
+      set_name: null,
+      set_code: "TST",
+      name: "Recognized Name Only",
+      rarity: "Rare",
+      product_type_name: "Cards",
+      image_url: null,
+      number: "001/100",
+    });
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({
+      candidates: [{ product_id: "incomplete-card", confidence: 95 }],
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const first = await recognize(env, token, {
+      request_id: requestId,
+      r: PHASH,
+      g: PHASH,
+      b: PHASH,
+    });
+    const firstBody = await first.json();
+    const replay = await recognize(env, token, {
+      request_id: requestId,
+      r: PHASH,
+      g: PHASH,
+      b: PHASH,
+    });
+
+    expect(first.status).toBe(200);
+    expect(firstBody).toEqual({
+      success: true,
+      data: expect.objectContaining({
+        recognition_status: "failed",
+        cards_detected: 0,
+        quota: {
+          access: "free",
+          unlimited: false,
+          limit: 10,
+          reserved: 0,
+          consumed: 0,
+          remaining: 10,
+        },
+        results: [{ index: 1, matched: false, candidates: [] }],
+      }),
+    });
+    expect(await replay.json()).toEqual(firstBody);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(env.DB.scanQuotaRequests).toEqual([
+      expect.objectContaining({
+        request_id: requestId,
+        status: "released",
+      }),
+    ]);
+    expect(env.DB.scanRecords).toEqual([
+      expect.objectContaining({ recognition_status: "failed" }),
+    ]);
+  });
+
+  it("consumes one Free scan for a complete catalog card without price data because price is not required for usable details", async () => {
+    const env = createRecognitionEnv();
+    const token = await recognitionToken(env);
+    env.DB.cards.push({
+      product_id: "complete-card-without-price",
+      game_id: 1,
+      game: "Pokemon",
+      set_name: "Test Set",
+      set_code: "TST",
+      name: "Complete Card",
+      rarity: "Rare",
+      product_type_name: "Cards",
+      image_url: null,
+      number: "002/100",
+    });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({
+      candidates: [{ product_id: "complete-card-without-price", confidence: 94 }],
+    })));
+
+    const response = await recognize(env, token, {
+      r: PHASH,
+      g: PHASH,
+      b: PHASH,
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      success: true,
+      data: expect.objectContaining({
+        recognition_status: "success",
+        quota: expect.objectContaining({ consumed: 1, remaining: 9 }),
+        results: [expect.objectContaining({
+          matched: true,
+          candidates: [expect.objectContaining({
+            card_ref: "complete-card-without-price",
+            name: "Complete Card",
+            set_name: "Test Set",
+            object_type: "tcg",
+          })],
+        })],
+      }),
+    });
+  });
+
+  it("settles complete and incomplete batch items independently because one bad card must not change another result", async () => {
+    const env = createRecognitionEnv();
+    const token = await recognitionToken(env);
+    env.DB.cards.push(
+      {
+        product_id: "batch-valid",
+        game_id: 1,
+        game: "Pokemon",
+        set_name: "Batch Set",
+        set_code: "BAT",
+        name: "Valid Batch Card",
+        rarity: "Rare",
+        product_type_name: "Cards",
+        image_url: null,
+        number: "001/100",
+      },
+      {
+        product_id: "batch-invalid",
+        game_id: 1,
+        game: "Pokemon",
+        set_name: null,
+        set_code: "BAT",
+        name: "Invalid Batch Card",
+        rarity: "Rare",
+        product_type_name: "Cards",
+        image_url: null,
+        number: "002/100",
+      },
+    );
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({
+        candidates: [{ product_id: "batch-valid", confidence: 96 }],
+      }))
+      .mockResolvedValueOnce(Response.json({
+        candidates: [{ product_id: "batch-invalid", confidence: 93 }],
+      }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const valid = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+    const invalid = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+
+    expect(await valid.json()).toMatchObject({
+      data: {
+        recognition_status: "success",
+        quota: { consumed: 1, remaining: 9 },
+      },
+    });
+    expect(await invalid.json()).toMatchObject({
+      data: {
+        recognition_status: "failed",
+        quota: { consumed: 1, remaining: 9 },
+      },
+    });
+    expect(env.DB.scanQuotaRequests.map((request) => request.status)).toEqual([
+      "consumed",
+      "released",
+    ]);
+    expect(env.DB.scanRecords.map((record) => record.recognition_status)).toEqual([
+      "success",
+      "failed",
+    ]);
   });
 
   it("rejects the eleventh Free scan before R2 and OCR because the server quota is authoritative", async () => {
@@ -1142,7 +1318,7 @@ describe("scan routes", () => {
     expect(await second.json()).toEqual(firstBody);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(env.DB.scanQuotaRequests).toEqual([
-      expect.objectContaining({ request_id: requestId, status: "consumed" }),
+      expect.objectContaining({ request_id: requestId, status: "released" }),
     ]);
   });
 

@@ -31,6 +31,7 @@ class ScanResolution {
     required this.matchName,
     required this.candidates,
     this.candidateCardRefs = const [],
+    this.candidateDetails = const [],
     this.imageBytes,
     this.displayImageBytes,
     this.imageFileName,
@@ -47,7 +48,8 @@ class ScanResolution {
        cardRef = null,
        matchName = null,
        candidates = const [],
-       candidateCardRefs = const [];
+       candidateCardRefs = const [],
+       candidateDetails = const [];
 
   const ScanResolution.noMatch({
     this.imageBytes,
@@ -59,7 +61,8 @@ class ScanResolution {
        cardRef = null,
        matchName = null,
        candidates = const [],
-       candidateCardRefs = const [];
+       candidateCardRefs = const [],
+       candidateDetails = const [];
 
   const ScanResolution.cancelled()
     : kind = ScanResolutionKind.cancelled,
@@ -68,6 +71,7 @@ class ScanResolution {
       matchName = null,
       candidates = const [],
       candidateCardRefs = const [],
+      candidateDetails = const [],
       imageBytes = null,
       displayImageBytes = null,
       imageFileName = null,
@@ -83,7 +87,8 @@ class ScanResolution {
        cardRef = null,
        matchName = null,
        candidates = const [],
-       candidateCardRefs = const [];
+       candidateCardRefs = const [],
+       candidateDetails = const [];
 
   const ScanResolution.entitlementSyncRequired({
     required this.imageBytes,
@@ -95,6 +100,7 @@ class ScanResolution {
        matchName = null,
        candidates = const [],
        candidateCardRefs = const [],
+       candidateDetails = const [],
        quota = null;
 
   final ScanResolutionKind kind;
@@ -103,6 +109,7 @@ class ScanResolution {
   final String? matchName;
   final List<String> candidates;
   final List<String> candidateCardRefs;
+  final List<ScanCandidateDto> candidateDetails;
   final Uint8List? imageBytes;
   final Uint8List? displayImageBytes;
   final String? imageFileName;
@@ -399,11 +406,27 @@ class ApiScanResultSource implements ScanResultSource {
       }
     }
     _retryRequestIds[image.bytes] = null;
+    if (recognition.recognitionStatus != 'success') {
+      if (recognition.recognitionStatus == 'no_match') {
+        return ScanResolution.noMatch(
+          imageBytes: image.bytes,
+          displayImageBytes: displayImageBytes,
+          imageFileName: image.fileName,
+          quota: recognition.quota,
+        );
+      }
+      return ScanResolution.failed(
+        imageBytes: image.bytes,
+        displayImageBytes: displayImageBytes,
+        imageFileName: image.fileName,
+        quota: recognition.quota,
+      );
+    }
     final matchedResults = recognition.results.where(
       (result) => result.matched && result.candidates.isNotEmpty,
     );
     if (matchedResults.isEmpty) {
-      return ScanResolution.noMatch(
+      return ScanResolution.failed(
         imageBytes: image.bytes,
         displayImageBytes: displayImageBytes,
         imageFileName: image.fileName,
@@ -419,6 +442,7 @@ class ApiScanResultSource implements ScanResultSource {
       candidateCardRefs: candidates
           .map((candidate) => candidate.cardRef)
           .toList(),
+      candidateDetails: candidates,
       imageBytes: image.bytes,
       displayImageBytes: displayImageBytes,
       imageFileName: image.fileName,

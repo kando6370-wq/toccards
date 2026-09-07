@@ -104,6 +104,8 @@ void main() {
                   {
                     'card_ref': '10738',
                     'name': 'Bushi Tenderfoot',
+                    'set_name': 'Champions of Kamigawa',
+                    'object_type': 'tcg',
                     'set_code': 'CHK',
                     'card_number': '1',
                     'confidence': 80.99,
@@ -111,6 +113,8 @@ void main() {
                   {
                     'card_ref': '240872',
                     'name': 'Devoted Retainer',
+                    'set_name': 'Champions of Kamigawa',
+                    'object_type': 'tcg',
                     'set_code': 'CHK',
                     'card_number': '2',
                     'confidence': 80.729,
@@ -172,6 +176,8 @@ void main() {
                   {
                     'card_ref': '10738',
                     'name': 'Bushi Tenderfoot',
+                    'set_name': 'Champions of Kamigawa',
+                    'object_type': 'tcg',
                     'confidence': 101,
                   },
                 ],
@@ -195,6 +201,42 @@ void main() {
           appVersion: '1.0.0',
           requestId: '123e4567-e89b-42d3-a456-426614174000',
         ),
+        throwsA(isA<ScanApiException>()),
+      );
+    },
+  );
+
+  test(
+    'recognition rejects a name-only candidate because a successful scan must contain usable card details',
+    () {
+      expect(
+        () => ScanRecognitionDto.fromJson({
+          'scan_id': 'scan-1',
+          'recognition_status': 'success',
+          'quota': {
+            'access': 'free',
+            'limit': 10,
+            'reserved': 0,
+            'consumed': 1,
+            'remaining': 9,
+            'unlimited': false,
+          },
+          'results': [
+            {
+              'index': 1,
+              'matched': true,
+              'candidates': [
+                {
+                  'card_ref': 'incomplete-card',
+                  'name': 'Recognized Name Only',
+                  'set_code': 'TST',
+                  'card_number': '001/100',
+                  'confidence': 95,
+                },
+              ],
+            },
+          ],
+        }),
         throwsA(isA<ScanApiException>()),
       );
     },
@@ -296,7 +338,7 @@ void main() {
       var calls = 0;
       final adapter = _RecordingAdapter((request) async {
         calls += 1;
-        await Future<void>.delayed(const Duration(milliseconds: 15));
+        await Future<void>.delayed(const Duration(milliseconds: 60));
         if (request.path == '/scan/quota/reserve') {
           return _json(200, {
             'success': true,
@@ -334,7 +376,7 @@ void main() {
       });
       final client = ScanApiClient(
         _dio(adapter),
-        requestDeadline: const Duration(milliseconds: 25),
+        requestDeadline: const Duration(milliseconds: 100),
       );
       const requestId = '123e4567-e89b-42d3-a456-426614174000';
 

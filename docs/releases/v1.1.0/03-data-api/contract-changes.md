@@ -115,7 +115,7 @@ Collection Item 编辑与 Folder Move 继续使用单次 `PATCH /api/v1/portfoli
 |---|---|
 | `GET /api/v1/scan/quota` | 返回当前 owner 的终身 10 次 Free quota；有效当前 session grant 返回 `access=premium`、`unlimited=true`，本机 Premium 同步中返回 `ENTITLEMENT_SYNC_REQUIRED`。 |
 | `POST /api/v1/scan/quota/reserve` | 要求 JSON `request_id` 与 `Idempotency-Key` 为同一 UUID；按 owner 原子预占并立即返回完整 quota。App 按 Queue 顺序逐张调用，因此有限 Free 额度固定由更早 Item 获得；本机 Premium 同步中返回 `ENTITLEMENT_SYNC_REQUIRED`，额度不足返回 `SCAN_QUOTA_EXHAUSTED`。 |
-| `POST /api/v1/scan/recognize` | 要求 body `request_id` 与 `Idempotency-Key` 为同一 UUID；领取同 request 的预占后再进入 R2/OCR，兼容未预占的旧客户端原子创建并领取。Matched/No Match 消耗，技术失败释放，Premium 不消耗 Free quota；成功及额度耗尽响应中的 quota 均包含 `access`、`unlimited`、`limit`、`reserved`、`consumed`、`remaining`，完成响应可用原 request ID 重放。 |
+| `POST /api/v1/scan/recognize` | 要求 body `request_id` 与 `Idempotency-Key` 为同一 UUID；领取同 request 的预占后再进入 R2/OCR，兼容未预占的旧客户端原子创建并领取。只有目录 `card_ref/name/set_name` 完整且可映射为 `object_type=tcg` 的 Matched 结果消耗额度；No Match、目录详情不完整和技术失败均释放，Premium 不消耗 Free quota。Matched 候选返回详情必填的 `card_ref/name/set_name/object_type`，价格不参与成功判定。成功及额度耗尽响应中的 quota 均包含 `access`、`unlimited`、`limit`、`reserved`、`consumed`、`remaining`，完成响应可用原 request ID 重放且只结算一次。 |
 
 v1.1 的卡牌目录标识统一为字符串：`cards_all.product_id`、内部 `card_ref`、OCR 候选 `product_id`、Scan 响应与审计候选均不得按数值解析、比较或重建。Workers 接受非空且无首尾空白的字符串 OCR `product_id`；为兼容既有识别服务，也接受原有 1 至 `4294967295` 整数并在进入目录查询前立即转换为十进制字符串。卡号消歧补回目录卡时直接透传 `card_ref`，包含字母、冒号或其他非数字字符的体育卡标识不得丢失。PostgreSQL 相关列已经是 `text`，本次不新增 Schema、migration 或数据回填；该兼容改动也不代表 Sports 搜索与 UI 已开放。
 

@@ -32,9 +32,11 @@ type ScanCandidate = {
   catalog_matched: boolean;
   game: string | null;
   name: string | null;
+  set_name: string | null;
   set_code: string | null;
   card_number: string | null;
   rarity: string | null;
+  object_type: "tcg" | null;
   confidence: number | null;
   retrieval: string | null;
   distance: number | null;
@@ -45,15 +47,24 @@ type RecognitionCandidate = { productId: string; confidence: number };
 type ScanCatalogRow = {
   product_id: string;
   game: string | null;
+  set_name: string | null;
   set_code: string | null;
   name: string | null;
   number: string | null;
   rarity: string | null;
+  product_type_name: string | null;
 };
 
 type ScanCatalogCard = Pick<
   CardSearchResult,
-  "card_ref" | "game" | "name" | "set_code" | "card_number" | "rarity"
+  | "card_ref"
+  | "game"
+  | "name"
+  | "set_name"
+  | "set_code"
+  | "card_number"
+  | "rarity"
+  | "object_type"
 >;
 
 type ScanResult = {
@@ -438,14 +449,17 @@ export function createScanRoutes() {
     const adapter = createLocalDbDataSourceAdapter(c.env.DB);
     let candidates: ScanCandidate[] = [];
     let auditCandidates: ScanCandidate[] = [];
+    let incompleteCatalogCandidateCount = 0;
     if (!upstreamFailed && recognized) {
       try {
         const catalog = await loadScanCatalogCards(c.env.DB, recognized);
         auditCandidates = recognized.map((candidate, index) => {
-          const card = catalog.get(candidate.productId);
-          return card
-            ? toCatalogCandidate(card, candidate, index)
-            : toUnresolvedCandidate(candidate, index);
+          const row = catalog.get(candidate.productId);
+          if (!row) return toUnresolvedCandidate(candidate, index);
+          const card = scanCatalogCardFromRow(row);
+          if (card) return toCatalogCandidate(card, candidate, index);
+          incompleteCatalogCandidateCount += 1;
+          return toIncompleteCatalogCandidate(row, candidate, index);
         });
         auditCandidates = await disambiguateByCardNumber(
           auditCandidates,
@@ -466,7 +480,9 @@ export function createScanRoutes() {
 
     const recognitionStatus = upstreamFailed
       ? "failed"
-      : candidates.length > 0 ? "success" : "no_match";
+      : candidates.length > 0
+      ? "success"
+      : incompleteCatalogCandidateCount > 0 ? "failed" : "no_match";
     const systemResult = buildSystemResult(
       recognitionStatus,
       candidates[0] ?? null,
@@ -529,11 +545,15 @@ export function createScanRoutes() {
       return c.json(responseBody, 502);
     }
 
+    const quotaOutcome = recognitionStatus === "success" ? "consumed" : "released";
     const quota = reservation.accessMode === "free"
       ? {
           ...reservation.quota,
           reserved: Math.max(0, reservation.quota.reserved - 1),
-          consumed: reservation.quota.consumed + 1,
+          consumed: reservation.quota.consumed + (quotaOutcome === "consumed" ? 1 : 0),
+          remaining: quotaOutcome === "released"
+            ? Math.min(reservation.quota.limit, reservation.quota.remaining + 1)
+            : reservation.quota.remaining,
         }
       : reservation.quota;
     const responseBody = {
@@ -554,7 +574,7 @@ export function createScanRoutes() {
       c.env.DB,
       auth.owner,
       requestId,
-      "consumed",
+      quotaOutcome,
       scanId,
       { body: responseBody, status: 200 },
     );
@@ -736,16 +756,22 @@ function toCatalogCandidate(
   recognized: RecognitionCandidate,
   index: number,
 ): ScanCandidate {
+  const catalogMatched = card.object_type === "tcg" &&
+    readString(card.card_ref) !== null &&
+    readString(card.name) !== null &&
+    readString(card.set_name) !== null;
   return {
     rank: index + 1,
     product_id: recognized.productId,
     card_ref: card.card_ref,
-    catalog_matched: true,
+    catalog_matched: catalogMatched,
     game: card.game ?? null,
     name: card.name,
+    set_name: card.set_name,
     set_code: card.set_code || null,
     card_number: card.card_number || null,
     rarity: card.rarity,
+    object_type: card.object_type === "tcg" ? "tcg" : null,
     confidence: recognized.confidence,
     retrieval: "rgb-phash-16-v1",
     distance: null,
@@ -755,26 +781,58 @@ function toCatalogCandidate(
 async function loadScanCatalogCards(
   db: D1Database,
   recognized: RecognitionCandidate[],
-): Promise<Map<string, ScanCatalogCard>> {
+): Promise<Map<string, ScanCatalogRow>> {
   const productIds = [...new Set(recognized.map((candidate) => candidate.productId))];
   if (productIds.length === 0) return new Map();
   const placeholders = productIds.map(() => "?").join(", ");
   const result = await db.prepare(`
-    SELECT product_id, game, set_code, name, number, rarity
+    SELECT product_id, game, set_name, set_code, name, number, rarity, product_type_name
     FROM cards_all
     WHERE product_id IN (${placeholders})
   `).bind(...productIds).all<ScanCatalogRow>();
-  return new Map((result.results ?? []).map((row) => [
-    row.product_id,
-    {
-      card_ref: row.product_id,
-      game: row.game,
-      name: row.name ?? row.product_id,
-      set_code: row.set_code ?? "",
-      card_number: row.number ?? "",
-      rarity: row.rarity,
-    },
-  ]));
+  return new Map((result.results ?? []).map((row) => [row.product_id, row]));
+}
+
+function scanCatalogCardFromRow(row: ScanCatalogRow): ScanCatalogCard | null {
+  const cardRef = readString(row.product_id);
+  const name = readString(row.name);
+  const setName = readString(row.set_name);
+  if (!cardRef || !name || !setName || row.product_type_name !== "Cards") {
+    return null;
+  }
+  return {
+    card_ref: cardRef,
+    game: row.game,
+    name,
+    set_name: setName,
+    set_code: row.set_code?.trim() ?? "",
+    card_number: row.number?.trim() ?? "",
+    rarity: row.rarity,
+    object_type: "tcg",
+  };
+}
+
+function toIncompleteCatalogCandidate(
+  row: ScanCatalogRow,
+  recognized: RecognitionCandidate,
+  index: number,
+): ScanCandidate {
+  return {
+    rank: index + 1,
+    product_id: recognized.productId,
+    card_ref: recognized.productId,
+    catalog_matched: false,
+    game: row.game ?? null,
+    name: readString(row.name),
+    set_name: readString(row.set_name),
+    set_code: readString(row.set_code),
+    card_number: readString(row.number),
+    rarity: row.rarity,
+    object_type: row.product_type_name === "Cards" ? "tcg" : null,
+    confidence: recognized.confidence,
+    retrieval: "rgb-phash-16-v1",
+    distance: null,
+  };
 }
 
 function toUnresolvedCandidate(
@@ -788,9 +846,11 @@ function toUnresolvedCandidate(
     catalog_matched: false,
     game: null,
     name: null,
+    set_name: null,
     set_code: null,
     card_number: null,
     rarity: null,
+    object_type: null,
     confidence: recognized.confidence,
     retrieval: "rgb-phash-16-v1",
     distance: null,

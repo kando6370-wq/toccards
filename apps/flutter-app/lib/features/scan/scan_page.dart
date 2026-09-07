@@ -1484,6 +1484,20 @@ class _ScanPageState extends ConsumerState<ScanPage>
             ],
           )
         : null;
+    final verifiedCards = {
+      for (final candidate in resolution.candidateDetails)
+        candidate.cardRef: ScanReviewCard(
+          cardRef: candidate.cardRef,
+          name: candidate.name,
+          setName: candidate.setName,
+          cardNumber: candidate.cardNumber ?? '',
+          game: candidate.game,
+          imageUrl: null,
+          language: null,
+          finish: null,
+          prices: const [],
+        ),
+    };
 
     final completedPending = _pendingScans.remove(itemId);
     setState(() {
@@ -1498,6 +1512,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
           );
           break;
         }
+      }
+      if (verifiedCards.isNotEmpty) {
+        _reviewCards = _mergeScanCards(_reviewCards, verifiedCards);
       }
       if (_dismissedFeedbackItemId == itemId) {
         _dismissedFeedbackItemId = null;
@@ -3411,7 +3428,11 @@ class _ScanItemCard extends StatelessWidget {
     final failed = item.status == _ScanItemStatus.failed;
     final waiting = item.status == _ScanItemStatus.waiting;
     final entitlementSync = item.status == _ScanItemStatus.entitlementSync;
-    final width = matched || added ? 240.0 : 176.0;
+    final width = matched || added
+        ? 240.0
+        : waiting
+        ? 208.0
+        : 176.0;
     final title = matched || added
         ? item.match?.name ?? item.pictureLabel
         : failed
@@ -3469,102 +3490,132 @@ class _ScanItemCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              _ScanResultThumbnail(item: item),
+              _ScanResultThumbnail(item: item, showPlaceholder: waiting),
               const SizedBox(width: 16),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: failed
-                                  ? const Color(0xFFFF8493)
-                                  : const Color(0xFFEEECD8),
-                              fontSize: 16,
-                              height: 24 / 16,
-                            ),
-                          ),
-                        ),
-                        _ScanDeleteButton(itemId: item.id, onPressed: onDelete),
-                      ],
-                    ),
-                    if (matched || added)
-                      Row(
+                child: waiting
+                    ? Stack(
+                        fit: StackFit.expand,
                         children: [
-                          Flexible(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0x33F0FE6F),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                added
-                                    ? 'ADDED'
-                                    : previewDraft?.condition.toUpperCase() ??
-                                          'RAW',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Color(0xFFF0FE6F),
-                                  fontSize: 11,
-                                  height: 16 / 11,
-                                ),
+                          const Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Waiting to scan',
+                              maxLines: 1,
+                              style: TextStyle(
+                                color: Color(0xFFF0FE6F),
+                                fontSize: 13,
+                                height: 16 / 13,
+                                decoration: TextDecoration.underline,
+                                decorationColor: Color(0xFFF0FE6F),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: FittedBox(
-                              key: Key('scan-item-price-${item.id}'),
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                price == null
-                                    ? '--'
-                                    : CurrencyFormatter(
-                                        currency: currency,
-                                      ).formatUsd(price),
-                                maxLines: 1,
-                                style: TextStyle(
-                                  color: Color(0xFFFFF6AF),
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  height: 15 / 13,
-                                ),
-                              ),
+                          Positioned(
+                            top: 0,
+                            right: 0,
+                            child: _ScanDeleteButton(
+                              itemId: item.id,
+                              onPressed: onDelete,
                             ),
                           ),
                         ],
                       )
-                    else
-                      Text(
-                        failed
-                            ? 'Tap to retry'
-                            : waiting
-                            ? 'Waiting to scan'
-                            : entitlementSync
-                            ? 'Syncing Premium'
-                            : 'Search Manually',
-                        maxLines: 1,
-                        style: const TextStyle(
-                          color: Color(0xFFF0FE6F),
-                          fontSize: 13,
-                          height: 16 / 13,
-                        ),
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: failed
+                                        ? const Color(0xFFFF8493)
+                                        : const Color(0xFFEEECD8),
+                                    fontSize: 16,
+                                    height: 24 / 16,
+                                  ),
+                                ),
+                              ),
+                              _ScanDeleteButton(
+                                itemId: item.id,
+                                onPressed: onDelete,
+                              ),
+                            ],
+                          ),
+                          if (matched || added)
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0x33F0FE6F),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      added
+                                          ? 'ADDED'
+                                          : previewDraft?.condition
+                                                    .toUpperCase() ??
+                                                'RAW',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Color(0xFFF0FE6F),
+                                        fontSize: 11,
+                                        height: 16 / 11,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: FittedBox(
+                                    key: Key('scan-item-price-${item.id}'),
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      price == null
+                                          ? '--'
+                                          : CurrencyFormatter(
+                                              currency: currency,
+                                            ).formatUsd(price),
+                                      maxLines: 1,
+                                      style: TextStyle(
+                                        color: Color(0xFFFFF6AF),
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        height: 15 / 13,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            )
+                          else
+                            Text(
+                              failed
+                                  ? 'Tap to retry'
+                                  : entitlementSync
+                                  ? 'Syncing Premium'
+                                  : 'Search Manually',
+                              maxLines: 1,
+                              style: const TextStyle(
+                                color: Color(0xFFF0FE6F),
+                                fontSize: 13,
+                                height: 16 / 13,
+                              ),
+                            ),
+                        ],
                       ),
-                  ],
-                ),
               ),
             ],
           ),
@@ -3621,6 +3672,7 @@ class _ScanResultThumbnail extends StatelessWidget {
     this.height = 58,
     this.imageWidth,
     this.imageHeight,
+    this.showPlaceholder = false,
   });
 
   final _ScanItem item;
@@ -3628,10 +3680,11 @@ class _ScanResultThumbnail extends StatelessWidget {
   final double height;
   final double? imageWidth;
   final double? imageHeight;
+  final bool showPlaceholder;
 
   @override
   Widget build(BuildContext context) {
-    final bytes = item.displayImageBytes;
+    final bytes = showPlaceholder ? null : item.displayImageBytes;
     return ClipRRect(
       borderRadius: BorderRadius.circular(4),
       child: Container(
@@ -3642,6 +3695,9 @@ class _ScanResultThumbnail extends StatelessWidget {
         child: bytes == null
             ? SvgPicture.asset(
                 'assets/scan/reveal_question.svg',
+                key: showPlaceholder
+                    ? Key('scan-waiting-placeholder-${item.id}')
+                    : null,
                 width: 18,
                 height: 28,
               )

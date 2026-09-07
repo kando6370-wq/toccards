@@ -1473,6 +1473,7 @@ void main() {
 
       await tester.tap(find.byTooltip('Take Photo'));
       await _completeFigmaScan(tester);
+      expect(find.text('--'), findsOneWidget);
       await tester.tap(find.byTooltip('Review scan result'));
       await tester.pumpAndSettle();
 
@@ -2341,6 +2342,51 @@ void main() {
   );
 
   testWidgets(
+    'Verified scan basics keep Review usable when supplemental card loading is unavailable',
+    (tester) async {
+      final repository = _MissingCurrentScanReviewRepository();
+      final source = _TestScanResultSource(
+        photoResult: Future.value(
+          const ScanResolution.matched(
+            scanId: 'scan-verified',
+            cardRef: 'verified-card',
+            matchName: 'Verified Card',
+            candidates: ['Verified Card'],
+            candidateCardRefs: ['verified-card'],
+            candidateDetails: [
+              ScanCandidateDto(
+                cardRef: 'verified-card',
+                name: 'Verified Card',
+                setName: 'Verified Set',
+                objectType: 'tcg',
+                setCode: 'VER',
+                cardNumber: '001/100',
+                confidence: 95,
+                game: 'Pokemon',
+              ),
+            ],
+          ),
+        ),
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanReviewRepository: repository,
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.tap(find.byTooltip('Review scan result'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Review your matches'), findsOneWidget);
+      expect(find.text('Verified Card'), findsWidgets);
+      expect(find.text('Verified Set'), findsWidgets);
+      expect(find.byKey(const Key('kando-top-toast')), findsNothing);
+    },
+  );
+
+  testWidgets(
     'Review treats an already confirmed scan as added because confirmation is idempotent',
     (tester) async {
       await _pumpScanTestApp(
@@ -3149,12 +3195,26 @@ void main() {
       await tester.pumpAndSettle();
       final waitingItem = find.byKey(const Key('scan-active-item-2'));
       expect(waitingItem, findsOneWidget);
+      expect(tester.getSize(waitingItem), const Size(208, 82));
+      final waitingLabel = find.descendant(
+        of: waitingItem,
+        matching: find.text('Waiting to scan'),
+      );
+      expect(waitingLabel, findsOneWidget);
+      expect(
+        tester.widget<Text>(waitingLabel).style?.decoration,
+        TextDecoration.underline,
+      );
       expect(
         find.descendant(
           of: waitingItem,
-          matching: find.text('Waiting to scan'),
+          matching: find.byKey(const Key('scan-waiting-placeholder-2')),
         ),
-        findsNWidgets(2),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: waitingItem, matching: find.byType(Image)),
+        findsNothing,
       );
     },
   );

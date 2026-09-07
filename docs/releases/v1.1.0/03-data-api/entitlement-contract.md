@@ -118,6 +118,7 @@ Workers 配置契约：`APPLE_IAP_PRODUCT_IDS`（逗号分隔白名单）、`APP
 - Free quota 归属为 `owner_type + owner_id`：账号用户多 session/多设备共享，游客身份独立；服务端为最终真源。
 - `GET /scan/quota` 和 `/scan/recognize` 均先查询当前 session grant。本机 `verified` 但无 grant 时返回 `ENTITLEMENT_SYNC_REQUIRED`，不预占、不调用 R2/OCR、不消耗 Free quota。
 - 每个识别请求使用 UUID `request_id`，并要求与 `Idempotency-Key` 一致。Free 在外部副作用前以单条条件 INSERT 原子预占；Premium 请求记录用于幂等，但不计入 Free quota。
-- Matched 与 No Match 结算为 consumed；上传、OCR、解析或持久化技术失败结算为 released。完成响应持久化后可由同 session、同 request ID 原样重放。
+- 只有目录中存在非空 `card_ref/name/set_name`、可映射为 `object_type=tcg`，且可构造 Card Detail 基础响应的 Matched 结果才结算为 consumed；No Match、目录基础信息不完整以及上传、OCR、解析或持久化失败均结算为 released。识别开始前的 Free 预占不等于扣次，released 会恢复该次预占；完成响应持久化后可由同 session、同 request ID 原样重放，不能重复扣次或重复释放。
+- Matched 候选响应必须包含 `card_ref`、`name`、`set_name`、`object_type`，Flutter 缺少任一必填字段时显式失败，不得只凭名称进入成功状态。价格不是成功条件；基础信息和详情可用但没有市场价格时仍为 Matched，沿用无价格展示。
 - Quota 查询、识别成功及额度耗尽均返回完整 `{access, unlimited, limit, reserved, consumed, remaining}`；`access` 仅为 `free/premium`。Flutter 对字段缺失显式失败，不得把缺失 `unlimited` 当成 Free。
 - Flutter 不再持久化或读取本地 Scan Quota，使用本机 Premium 或服务端 `unlimited=true` 的合并结果控制 Scan 展示和额度拦截；本机为 Free 时在页面生命周期内至少复核一次 StoreKit，服务端已确认 Unlimited 时请求继续携带同步保护。Gallery 超额与 Failed Retry 可保留原图转 Waiting；单张 Capture quota=0 不保留 Item；Waiting 删除不打开 Paywall，卡体打开 Paywall；Done 仅在存在 Matched 且无 Processing 时可用。Quota 返还按服务端 `remaining` 顺序递补，Purchase/Restore 后只有服务端确认 `unlimited=true` 才恢复全部 Waiting；`ENTITLEMENT_SYNC_REQUIRED` 保留现场且不转 Failed、不弹 Free Paywall。Processing 删除后继续在后台等待服务端结算但不重插 UI，Waiting Paywall 只在 typed success 且原 Queue 仍有效时恢复。

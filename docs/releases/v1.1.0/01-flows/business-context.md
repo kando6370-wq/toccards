@@ -122,6 +122,7 @@ reserved -> released
 ```
 
 - Free 终身上限为 10；`remaining = max(0, 10 - reserved - consumed)`。
+- Free 只在扫描命中可正常打开详情的完整目录卡牌时从 reserved 结算为 consumed；No Match、仅有名称或缺少有效 `card_ref/set_name/object_type` 的目录结果从 reserved 结算为 released。市场价格为空不影响成功判定。
 - 同一 request 重试返回已有结果；60 秒 processing lease 过期后允许接管。
 - Premium 请求记录审计但不消耗 Free 额度。
 - 客户端超时或传输结果不确定时，Failed Retry 复用原 request ID，避免服务端迟到成功后以新 ID 再次消费；收到明确终态响应后的 Retry 使用新请求。
@@ -227,7 +228,7 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 
 | 场景 | 规则/公式 | 边界 | 证据 |
 |---|---|---|---|
-| Free Scan | `remaining = max(0, 10 - reserved - consumed)` | Premium 不扣 Free；技术失败释放 | `scan/quota.ts` |
+| Free Scan | `remaining = max(0, 10 - reserved - consumed)` | Premium 不扣 Free；仅完整可用 Matched 扣次，No Match、不完整目录结果与技术失败释放 | `scan/quota.ts` |
 | Free Folder | `folder_count < 2` 时允许新建 | 2 个包含默认 Folder；条件 INSERT 防并发 | `portfolio/routes.ts: INSERT_FOLDER_SQL` |
 | 收藏估值 | `item_value = matched_market_price * quantity` | 无匹配价不伪造；输出按金额规则舍入 | `portfolio/collection-dashboard.ts` |
 | Performance 日变化 | `portfolio_change = market_value_change - market_change` | 首点使用范围外相邻可靠日；无前态为 null | `portfolio/performance.ts: calculatePerformance()` |

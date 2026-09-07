@@ -34,6 +34,8 @@ void main() {
       expect(result.matchName, 'Bushi Tenderfoot');
       expect(result.candidates, ['Bushi Tenderfoot', 'Devoted Retainer']);
       expect(result.candidateCardRefs, ['1', '2']);
+      expect(result.candidateDetails.first.setName, 'Champions of Kamigawa');
+      expect(result.candidateDetails.first.objectType, 'tcg');
       expect(result.imageBytes, Uint8List.fromList([1, 2, 3]));
       expect(result.displayImageBytes, Uint8List.fromList([1, 2, 3]));
       expect(imageHasher.lastBytes, Uint8List.fromList([1, 2, 3]));
@@ -112,6 +114,48 @@ void main() {
 
       final results = await source.library();
       expect((await results.single).kind, ScanResolutionKind.noMatch);
+    },
+  );
+
+  test(
+    'failed server recognition cannot enter review even if a stale callback still contains a candidate',
+    () async {
+      final source = ApiScanResultSource(
+        api: _FakeScanApi(
+          const ScanRecognitionDto(
+            scanId: 'scan-failed',
+            recognitionStatus: 'failed',
+            results: [
+              ScanResultDto(
+                index: 1,
+                matched: true,
+                candidates: [
+                  ScanCandidateDto(
+                    cardRef: 'incomplete-card',
+                    name: 'Recognized Name Only',
+                    setName: 'Test Set',
+                    objectType: 'tcg',
+                    setCode: 'TST',
+                    cardNumber: '001/100',
+                    confidence: 95,
+                  ),
+                ],
+              ),
+            ],
+            quota: _freeQuota,
+          ),
+        ),
+        session: () => _session,
+        imagePicker: _FakeScanImagePicker(),
+        imageHasher: _FakeScanImageHasher(),
+        appInfo: () async =>
+            const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
+      );
+
+      final result = await source.photo();
+
+      expect(result.kind, ScanResolutionKind.failed);
+      expect(result.cardRef, isNull);
     },
   );
 
@@ -305,6 +349,8 @@ const _matchedRecognition = ScanRecognitionDto(
         ScanCandidateDto(
           cardRef: '1',
           name: 'Bushi Tenderfoot',
+          setName: 'Champions of Kamigawa',
+          objectType: 'tcg',
           setCode: 'CHK',
           cardNumber: '1',
           confidence: 90,
@@ -312,6 +358,8 @@ const _matchedRecognition = ScanRecognitionDto(
         ScanCandidateDto(
           cardRef: '2',
           name: 'Devoted Retainer',
+          setName: 'Champions of Kamigawa',
+          objectType: 'tcg',
           setCode: 'CHK',
           cardNumber: '2',
           confidence: 80,
