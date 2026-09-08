@@ -163,5 +163,20 @@ Code Review 自审已核对必要移植文件与原业务保护范围；模型�
 
 - Windows 无 Xcode，未执行 iOS 编译、签名或真机 Core ML/Core Image 验证；需在 macOS/iOS 设备补验。
 - Android 已构建，但未做设备上的实际模型加载、方向/透视效果、推理耗时、内存及真实卡牌准确率验收。
-- `recognize-vec` 实网联调、两环境发布、弱网端到端及新旧 App 协议切换未执行；当前分支不兼容旧 pHash 请求，发布必须协调 App 和 API。
-- 本轮只运行列出的影响面验证，没有宣称全仓测试通过。本节随识别链路提交到 dev-wxy，尚未部署。
+- 未执行登录态新 App → 主 API → `recognize-vec` 完整扫描、弱网端到端及新旧 App 协议切换验收；需由客户端测试人员使用新包在真机补验。当前分支不兼容旧 pHash 请求。
+- 本轮只运行列出的影响面验证，没有宣称全仓测试通过。dev 发布与内部向量服务契约烟测结果见下；prod 发布未执行。
+
+### dev 发布与线上验证（2026-09-08）
+
+用户明确授权将当前分支部署到共用 dev 环境。发布来源为已推送的 `dev-wxy@e18543afaee9d77616bd71686cb93f8268d7754c`，部署前工作区干净。执行 `pnpm --filter @kando/workers-api run deploy:dev`，完成 Admin dev 构建与 Workers 发布，退出 0；没有合并或推送 dev Git 分支。
+
+- Cloudflare deployment `792ad7da-8219-4f34-a4bc-b057ef387399` 于 `2026-09-08T08:06:20Z` 将 Worker version `5e332a9b-27fb-4133-9103-2909b12a230e` 置于 100% dev 流量。发布后通过 `wrangler deployments list --env dev --json` 与 `wrangler versions view 5e332a9b-27fb-4133-9103-2909b12a230e --env dev --json` 复核，均退出 0。
+- 实际远端版本包含 `VECTOR_RECOGNITION=recognize-vec`，`APP_ENVIRONMENT=development`，没有 `OCR_SERVICE_BASE_URL`。沿用 dev 的 KV/R2 与既有 Hyperdrive，未执行数据库 migration 或数据回填。
+- 发布前通过只绑定 `recognize-vec` 的临时 remote preview，向内部 `/recognize` 提交 512 项 `1 / sqrt(512)` 合成向量；`2026-09-08T08:04:41Z` 返回 `200` 和 10 个候选，全部满足有效 `product_id`、有限且处于 0–100 的 `confidence` 契约。探测退出 0，preview 已关闭；未创建用户/扫描记录或消费额度。该结果只证明内部服务契约可用，不代表真实卡牌准确率或 App 完整扫描已通过。
+- 本次复用的 `recognize-vec` version 为 `bbb962fa-c49a-40a2-8212-25ddb7a3bb2e`，deployment 为 `6065ceed-ff8d-48e5-8d2f-988f7aa0f0b6`；没有重新发布该内部服务。
+- `2026-09-08T08:10:55Z` 的部署后 HTTP 校验退出 0：`https://api-dev.tcgcard.fun/api/v1/health` 返回 `200` / `status=ok`；`/admin` 返回 `200`，包含 `Kando Admin`，HTML SHA-256 与本地构建一致；全部 10 个 JS/CSS 资源返回 `200`，逐文件 SHA-256 一致。
+- 未授权 `/api/v1/admin/app-versions` 与 `POST /api/v1/scan/recognize` 均返回 `401`，验证鉴权入口有效；该检查未覆盖登录后的识别和额度业务。
+- iOS/Google `/api/v1/app-config` 均返回 `200` 与 `Cache-Control: no-store`。本次检查时 iOS 最低/建议版本均为 `1.0.2`，`force_update=false`；Google 返回 `upgrade_prompt=null`。强更状态与前文历史发布时的快照不同，此处记录实时响应；本次部署没有修改后台版本规则。
+- 发布前后 prod deployment 均为 `7cc2f8aa-613e-4da6-9828-3b33015e701d`，version `934506ae-d433-4a38-ae40-6d07b109d50e` 保持 100% 流量，未部署 prod。
+
+本次发布复用上文已完成的代码验证与 Code Review，执行了实际 dev 构建、内部服务契约烟测及部署后校验。iOS 编译/签名、两端真机模型运行及 App 完整扫描仍属未验证项；测试包必须包含本分支的模型和向量协议，并连接 dev API。

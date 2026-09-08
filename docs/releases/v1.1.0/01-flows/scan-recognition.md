@@ -29,4 +29,4 @@
 
 dev/prod 配置均以 `VECTOR_RECOGNITION` 绑定 `recognize-vec`，移除 `OCR_SERVICE_BASE_URL`，不设置旧协议或公网回退。缺少 binding 返回 `503 VECTOR_RECOGNITION_UNAVAILABLE`；上游失败返回 `502`，按既有规则释放额度。没有新增数据库 schema、migration、数据回填或远程写入。
 
-上线必须协调新 App、主 API 与 `recognize-vec`，因为旧 App 的 pHash 请求不兼容新 API。当前任务只修改 dev-wxy 工作区，发布与真机验证结果见[验收记录](../05-delivery/VERIFICATION.md)。
+上线必须协调新 App、主 API 与 `recognize-vec`，因为旧 App 的 pHash 请求不兼容新 API。`dev-wxy@e18543a` 的主 API 与管理后台已于 2026-09-08 发布到共用 dev 环境，`VECTOR_RECOGNITION` 已绑定在线 `recognize-vec`；测试需使用包含模型与向量请求的新 App 包。发布与真机验证结果见[验收记录](../05-delivery/VERIFICATION.md)。
