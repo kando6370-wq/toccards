@@ -192,14 +192,14 @@ Singular 与 Mixpanel Project Token 使用同一类运行时配置链路，由 C
 
 ### 6.3 后端职责
 
-- [x] 代码已使用 App Store Server API 查询交易与订阅状态；dev Secret 配置项已存在，仍待确认内容有效并完成 Sandbox 验收，production 需独立配置。
-- [x] 代码已使用 Apple 官方库验证 StoreKit 2 JWS，校验 Bundle、环境、Product ID、有效期与撤销状态；dev Root CA Secret 已用 Apple 官方 G3 更新并生效，仍待真实 Sandbox 验签；production 对应 Secret 已随 PostgreSQL-only Worker 部署，但值仍需真实 Sandbox/TestFlight JWS 证明。
+- [x] 代码已使用 App Store Server API 查询交易与订阅状态；production Issuer ID、Key ID 与 Private Key 已通过 Production/Sandbox 测试通知 API 完成 Apple 鉴权，真实交易的状态与交易查询仍待 Sandbox/TestFlight 实单验证。
+- [x] 代码已使用 Apple 官方库验证 StoreKit 2 JWS，校验 Bundle、环境、Product ID、有效期与撤销状态；dev Root CA Secret 已用 Apple 官方 G3 更新并生效，production 对应 Secret 已随 PostgreSQL-only Worker 部署。2026-09-07 Production/Sandbox `TEST` 通知 JWS 均在线验签并处理成功；真实交易 JWS 仍需 Sandbox/TestFlight 购买和生命周期矩阵验证。
 - [x] 代码已处理续订、退款、撤销、过期、Billing Retry、Grace Period、乱序保护与 Apple Server API 校正；仍待真实通知矩阵。
 - [x] 交易映射到 Apple purchase chain 与当前 session grant，不把 UID 当作 Premium owner。
 - [x] Lifetime 通过已验证交易建立无到期时间权益；仍待 Sandbox 实单验收。
 - [x] Restore 已使用 StoreKit current entitlements 与 App Attest proof 为当前 session 重建 grant；仍待 iOS 真机验收。
-- [x] 通知原文、处理状态、幂等、重试和 Admin 排障视图已实现；dev 迁移和部署已完成，真实 Apple Sandbox 通知验收尚未完成。
-- [x] 代码已将 Apple JWS 验签异常限制为受控的 `VerificationStatus` 错误码，不保存底层 message/cause；`RETRYABLE_VERIFICATION_FAILURE` 保持为 `processing_failed` 并由现有 5 分钟任务重试，其他验签失败保持终态。dev Worker 已部署，仍需用新 Sandbox 通知确认线上具体状态。
+- [x] 通知原文、处理状态、幂等、重试和 Admin 排障视图已实现；dev/prod 均已部署，Production/Sandbox `TEST` 与一条 production Bundle Sandbox `SUBSCRIBED` 通知均在线处理成功，完整生命周期矩阵仍待完成。
+- [x] 代码已将 Apple JWS 验签异常限制为受控的 `VerificationStatus` 错误码，不保存底层 message/cause；`RETRYABLE_VERIFICATION_FAILURE` 保持为 `processing_failed` 并由现有 5 分钟任务重试，其他验签失败保持终态。dev/prod Worker 均已部署，双环境 `TEST` 通知均处理为 `processed`、无错误。
 
 ---
 
@@ -214,7 +214,7 @@ Singular 与 Mixpanel Project Token 使用同一类运行时配置链路，由 C
 - prod Product ID 已创建并冻结为 `CardAi.weekly`、`CardAi.yearly`、`CardAi.lifetime`，production 客户端配置、Workers prod 白名单与共享 PostgreSQL production 商品映射均已同步；三个商品仍处于准备提交状态，Workers prod 配置已于 2026-09-07 部署。
 - dev Root CA 的官方 G3 下载指纹、DER Base64 写入命令和生效版本已确认。production Root CA、Issuer ID、Key ID 与 Private Key 已随正式 Worker 部署；Production/Sandbox 两次测试通知请求证明 Server API 凭据可完成 Apple 鉴权，两条回调 JWS 均由正式 Worker验签并处理成功。真实交易的订阅状态和交易查询仍需 Sandbox/TestFlight 实单验证。
 - StoreKit 2 服务端同步失败后的 Secure Storage 持久化补偿队列已实现；仍待真机断网与恢复验收。
-- Restore 的 App Attest proof、App Store Server API 和 Notifications V2 生命周期代码已实现；dev Root CA 已按官方 G3 更新，Apple Server API Secret 配置项与 Sandbox 通知 URL 已就绪，但真实 Server API 调用和真机/Sandbox 端到端验收尚未完成。
+- Restore 的 App Attest proof、App Store Server API 和 Notifications V2 生命周期代码已实现；Production/Sandbox `TEST` 通知已证明 production Server API 凭据、URL 和通知 JWS 验签可用。仍需 App Attest 真机、真实交易的状态/交易查询及 Sandbox/TestFlight 端到端验收。
 - Scan、Folder、Performance 和 1Y Price History 已统一接入当前 live session grant；对应结构与 dev 数据已迁入共享 PostgreSQL 并由 dev/prod 正式版本运行。2026-09-07 已实时核验共享 PostgreSQL `0000` 至 `0010`、约束、production 数据边界和商品映射；正式 version `934506ae-d433-4a38-ae40-6d07b109d50e` 已部署并完成线上烟测，候选 version `da698dfc-9be3-4713-ba17-ede427edd546` 保留为 PG-only 版本回退。旧 D1 不属于回滚路径；Sandbox/TestFlight 多设备验收仍待完成。
 
 challenge 或业务 API 失败不得阻止 Apple 购买；本机 StoreKit 2 verified 仍按 App PRD即时解锁，但服务端受限操作在 grant 未同步时必须返回 `ENTITLEMENT_SYNC_REQUIRED`。

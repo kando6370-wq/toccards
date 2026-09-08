@@ -7,7 +7,7 @@
 | 决策 | 状态 | 依据 |
 |---|---|---|
 | Workers 是 App/Admin 的服务端安全边界 | 已采用 | `apps/workers-api/src/index.ts`、`wrangler.toml` |
-| PlanetScale PostgreSQL 经 Cloudflare Hyperdrive 作为业务与目录真源，KV 仅为可重建缓存 | v1.1 dev 已采用；prod 配置已准备但未部署 | `src/db/postgres-database.ts`、`src/db/postgres/migrations/`、`wrangler.toml` |
+| PlanetScale PostgreSQL 经 Cloudflare Hyperdrive 作为业务与目录真源，KV 仅为可重建缓存 | v1.1 dev/prod 均已采用；prod 自 2026-09-07 起由 PostgreSQL-only Worker 承载 100% 流量 | `src/db/postgres-database.ts`、`src/db/postgres/migrations/`、`wrangler.toml` |
 | dev/prod 共用 PostgreSQL 数据集，但运行环境、Apple、KV、R2、域名和 secrets 保持隔离 | v1.1 已采用 | [系统架构](../architecture.md)、[数据迁移](../../03-data-api/migration.md) |
 | Premium 服务端能力按当前 live session grant 授权，不按 UID 授权 | v1.1 已采用 | [Premium 权益契约](../../03-data-api/entitlement-contract.md) |
 | Apple 通知先持久化、幂等处理并允许定时补偿/Server API 校正 | v1.1 已采用 | `src/entitlements/apple-notification-routes.ts` |
