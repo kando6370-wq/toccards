@@ -1,0 +1,25 @@
+{
+  "build_abis": [
+    "armeabi-v7a",
+    "arm64-v8a",
+    "x86",
+    "x86_64"
+  ],
+  "android_min_sdk_version": 24,
+  "android_target_sdk_version": 34,
+  "build_params": [
+    "--enable_lto",
+    "--android",
+    "--parallel",
+    "--cmake_generator=Ninja",
+    "--build_java",
+    "--build_shared_lib",
+    "--skip_tests",
+    "--minimal_build",
+    "--disable_exceptions",
+    "--enable_reduced_operator_type_support",
+    "--disable_ml_ops",
+    "--disable_contrib_ops",
+    "--no_kleidiai"
+  ]
+}

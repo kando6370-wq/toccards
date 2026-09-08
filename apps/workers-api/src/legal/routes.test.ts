@@ -27,7 +27,8 @@ describe("public legal routes", () => {
     expect(html).toContain("perspective-corrected card-area images");
     expect(html).toContain("private Cloudflare R2 bucket");
     expect(html).toContain("not the surrounding camera frame");
-    expect(html).toContain("external card-recognition service receives only the RGB perceptual hashes");
+    expect(html).toContain("vector-recognition service receives only the image embedding");
+    expect(html).not.toContain("RGB perceptual hashes");
     expect(html).not.toContain("the original image is not uploaded");
     expect(html).toContain("retained without a fixed expiration period");
     expect(html).toContain("Deleting an account does not delete these retained scan images");

@@ -124,3 +124,44 @@ Code Review 自审已完成：确认只影响更新弹窗的专用样式、固�
 - 本次没有执行数据迁移或调整版本规则。prod deployment 仍为 `7cc2f8aa-613e-4da6-9828-3b33015e701d`，Worker version `934506ae-d433-4a38-ae40-6d07b109d50e` 保持 100% 流量。
 
 本次发布复用上述已完成的测试与 Code Review，实际执行了完整 dev 构建和部署后验证。未执行登录态后台人工编辑、App 签名包发布或真机 UI 验收，不能把后台发布视作客户端 UI 已更新。
+
+## dev-wxy：仅移植扫描向量识别链路（2026-09-08）
+
+范围：以 `745138292ed7a02f62dee3c3ea78747c0b737745` 为业务基线，从 `dev-xiangyang@ceef1af08ea949d184164ad661dc6228e1cf4773` 按代码段引入 RTMDet-Ins 检测、原生透视矫正、PE-Core-T16 512 维向量化和 Workers `VECTOR_RECOGNITION` 调用。用户明确同意 iOS 16+、Android、Web 扫描暂不支持。未整体合并源分支，也未修改 dev 分支。
+
+核心验收：新识别输入不再使用 OpenCV/pHash；No Match 和目录不完整不扣次数，完整 Matched 才消费，缺少市场价格不影响成功；现有完整候选资料、Queue、批量结果缓存、显示额度、卡号消歧、Review、确认入库及权限保持基线。详细链路和接口变化见[扫描识别](../01-flows/scan-recognition.md)。
+
+### 根因与移植边界证据
+
+- 源分支落后于 dev-wxy 的近期业务修复，故只复制新增识别运行时/模型/许可证/模型工具，并将旧调用替换为 embedding。扫描页改动限于删除旧识别裁剪参数，不改布局和业务状态机。
+- 当前 Workers 扫描测试原本使用 FakeD1。本轮先将同一组 26 个业务用例移至 PGlite PostgreSQL，在协议切换前确认 26/26 通过，再切换向量请求与 Service Binding；切换前选择的 4 个向量用例返回 503 并失败，切换后原业务断言继续通过。没有删除或放宽 No Match、详情完整性、评级、权限、幂等或额度断言。
+- 补充了非法/零/错维向量拒绝和主 API 游戏过滤测试；模型编排测试保护 BGR/RGB 顺序、归一化、角点、矫正尺寸、JPEG 质量、向量维度与低置信度失败。
+- 对照基线逐段比较，`/scan/:scan_id/confirm` 路由、额度结算代码、卡号消歧和完整目录判定保持原文一致。扫描额度控制器、额度账本、Review Repository、相机/权限层、订阅、鉴权、Portfolio、Admin 和版本更新模块没有代码改动。
+- 六个 Android/iOS 模型及 runtime 核心制品的 Git blob 均与 `ceef1af` 一致。Code Review 的资源核对发现 Git 将 iOS 检测模型误判为旧 OpenCV 文件的 rename，最初新增文件筛选未包含它；现已补入并复核全部模型引用和内容。
+
+### 本机验证
+
+环境：Windows、Flutter 3.44.7 / Dart 3.12.2、Node 22.20.0、pnpm 11.9.0；未改动这些工具版本约束。
+
+| 检查 | 命令 / 证据 | 结果 |
+|---|---|---|
+| Flutter 协议、结果、几何、原生图片桥与额度 | `flutter test --no-pub test/scan_api_client_test.dart test/scan_result_source_test.dart test/scan_mask_geometry_test.dart test/scan_native_image_processor_test.dart test/scan_quota_controller_test.dart --reporter expanded` | 30/30，退出 0 |
+| 模型编排与完整扫描页 | `flutter test --no-pub test/scan_card_recognizer_test.dart test/widget/scan_page_test.dart --reporter expanded` | 106 通过、3 个 Golden 失败，退出 1；其中模型编排 3/3 通过 |
+| Golden 原基线复验 | 独立 detached checkout `7451382`，同 Flutter 运行上述三个 Golden 用例 | 同为 3 项失败，每张差异 0.21% / 676 像素；移植前后输出 PNG 的 SHA-256 完全相同，故本次未引入这三处差异，也没有更新 Golden 掩盖问题 |
+| Workers 扫描路由与图片输入 | `pnpm --filter @kando/workers-api exec vitest run src/scan/routes.test.ts src/scan/scan-image.test.ts` | 30/30，退出 0 |
+| Workers 额度与识别隐私说明 | `pnpm --filter @kando/workers-api exec vitest run src/legal/routes.test.ts src/scan/quota.integration.test.ts` | 10/10，退出 0 |
+| Flutter 分析 | `flutter analyze --no-pub` | 无问题，退出 0 |
+| TypeScript/依赖 | Workers `type-check`、根 `pnpm type-check`、`pnpm lint` | 通过；根 7/7，其中 5 个未改动包复用缓存 |
+| Android 实际构建 | `flutter build apk --debug --no-pub --dart-define-from-file=config/test.json` | 通过，退出 0；APK 实际包含两份 ORT 模型与原生 ONNX Runtime，不含 OpenCV/libdartcv |
+| Worker 构建 | `deploy:dry-run:dev` 与 `deploy:dry-run:prod` | 均通过，退出 0；确认打包配置包含 `VECTOR_RECOGNITION=recognize-vec`，没有执行部署 |
+
+Android debug APK 为 237,880,428 字节，SHA-256 为 `04fd423431a50019b705997c7f1e8e56126d5dd69ab8bf67a40d4cc1c0f1f59d`。这只是 debug 构建结果，不代表 release 体积、商店签名或真机模型运行已通过。Gradle/AGP/Kotlin 给出后续升级提醒，本次没有扩大范围升级工具链。
+
+### Code Review 与未验证项
+
+Code Review 自审已核对必要移植文件与原业务保护范围；模型资源遗漏已修正并重新完成六制品核对，未发现剩余的本次代码阻断项。3 个既有 Golden 失败保留为基线问题，不计作通过。未新增数据库 Schema、migration 或数据补全，也未改写冻结产品输入。
+
+- Windows 无 Xcode，未执行 iOS 编译、签名或真机 Core ML/Core Image 验证；需在 macOS/iOS 设备补验。
+- Android 已构建，但未做设备上的实际模型加载、方向/透视效果、推理耗时、内存及真实卡牌准确率验收。
+- `recognize-vec` 实网联调、两环境发布、弱网端到端及新旧 App 协议切换未执行；当前分支不兼容旧 pHash 请求，发布必须协调 App 和 API。
+- 本轮只运行列出的影响面验证，没有宣称全仓测试通过。本节随识别链路提交到 dev-wxy，尚未部署。

@@ -1,10 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
 
-import 'scan_image_hasher_contract.dart';
+import 'scan_card_recognizer_contract.dart';
 
 const scanApiBaseUrl = authApiBaseUrl;
 const scanRequestDeadline = Duration(seconds: 15);
@@ -226,7 +227,7 @@ abstract interface class ScanApi {
   });
   Future<ScanRecognitionDto> recognizeImage(
     AuthSession session, {
-    required ScanImageHashes hashes,
+    required ScanCardEmbedding embedding,
     required String fileName,
     required String platform,
     required String appVersion,
@@ -300,7 +301,7 @@ class ScanApiClient implements ScanApi, ScanQuotaReservationApi {
   @override
   Future<ScanRecognitionDto> recognizeImage(
     AuthSession session, {
-    required ScanImageHashes hashes,
+    required ScanCardEmbedding embedding,
     required String fileName,
     required String platform,
     required String appVersion,
@@ -310,14 +311,8 @@ class ScanApiClient implements ScanApi, ScanQuotaReservationApi {
     String? deviceModel,
     String? osVersion,
   }) async {
-    final cardImageBytes = hashes.cardImageBytes;
-    if (cardImageBytes == null) {
-      throw const ScanApiException('The corrected card image is unavailable.');
-    }
     final body = FormData.fromMap(<String, Object?>{
-      'r': hashes.r,
-      'g': hashes.g,
-      'b': hashes.b,
+      'vector': jsonEncode(embedding.vector),
       'filename': fileName,
       'platform': platform,
       'app_version': appVersion,
@@ -326,7 +321,7 @@ class ScanApiClient implements ScanApi, ScanQuotaReservationApi {
       if (deviceModel != null) 'device_model': deviceModel,
       if (osVersion != null) 'os_version': osVersion,
       'image': MultipartFile.fromBytes(
-        cardImageBytes,
+        embedding.cardImageBytes,
         filename: 'scan-card.jpg',
         contentType: DioMediaType('image', 'jpeg'),
       ),

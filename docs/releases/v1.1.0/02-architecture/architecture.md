@@ -8,12 +8,14 @@ Flutter App --------------------+
 React Admin -- Worker assets ----+       |-- PlanetScale PostgreSQL（经 Hyperdrive）: 业务与目录真源
                                          |-- KV: 可重建缓存
                                          |-- R2: 扫描图片
-                                         +-- Apple / OAuth / OCR / 邮件 / 汇率
+                                         +-- Apple / OAuth / recognize-vec / 邮件 / 汇率
 
 Marketing Web -----------------------> 独立 Cloudflare 静态站点
 ```
 
 `apps/workers-api/src/index.ts` 是 API 组合入口。App 和 Admin 只通过 Workers 访问服务端数据；Workers 负责鉴权、所有者隔离、Premium 服务端授权、幂等与外部服务适配。Admin 静态产物由 `apps/workers-api/wrangler.toml` 的 assets 配置托管，Marketing 使用独立 Wrangler 配置。
+
+dev-wxy 的扫描识别改用端侧 RTMDet-Ins 与 PE-Core-T16，主 Worker 经 `VECTOR_RECOGNITION` Service Binding 调用内部 `recognize-vec`。图片仍只存私有 R2，内部服务只收向量；Queue、额度、目录与资产写入保留现有边界，详见[扫描识别链路](../01-flows/scan-recognition.md)。
 
 ## 2. 客户端与页面边界
 

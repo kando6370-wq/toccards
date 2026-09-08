@@ -1,5 +1,11 @@
 # v1.1.0 契约变化
 
+## dev-wxy 扫描向量协议移植
+
+`POST /api/v1/scan/recognize` 将 multipart `r/g/b` 替换为 JSON `vector`，要求 512 个有限数值且至少一个非零分量，最大 32 KiB；图片为端侧模型检测、原生透视矫正后的 JPEG。请求路径、UUID/Idempotency-Key、平台信息、卡号、返回候选完整资料、业务状态、Quota 和确认入库契约保持当前 dev-wxy 版本。旧 pHash 请求不兼容新接口，需协调 App 与 API 发布。
+
+主 Worker 只经 `VECTOR_RECOGNITION` Service Binding 向内部 `recognize-vec` 发送 `{vector}`，删除 `OCR_SERVICE_BASE_URL`；缺少 binding 为 `503 VECTOR_RECOGNITION_UNAVAILABLE`，内部失败为 `502` 并释放 Free 预占。`game_id` 改在主 Worker 的 PostgreSQL 目录层过滤，保留卡号消歧与候选顺序。算法标识为 `pe-core-t16-384-cosine-v1`，未增加数据库迁移。下文历史契约中的 OCR 识别上游在本分支由向量服务承担，端侧 ML Kit 卡号 OCR 保留；No Match/目录不完整不扣次数等规则仍有效。详见[扫描识别链路](../01-flows/scan-recognition.md)。
+
 ## App 版本控制环境隔离
 
 2026-09-08 更新弹窗按 Figma `736:13370` 使用固定提示语，Admin 版本结构移除 `recommended_update_message` / `forced_update_message`。读取存量配置时忽略这两个字段，写入时不再保存，即使旧后台请求仍携带也不会恢复。公共 `upgrade_prompt.title/message/forced_message` 为旧客户端保留兼容，分别固定为 `Update Now` / `New update available! Tap to upgrade` / `New update available! Tap to upgrade`。新 App 界面不依赖历史文案，不新增数据库迁移或修改已执行迁移。

@@ -25,7 +25,7 @@ export interface Env {
   MIXPANEL_API_SECRET?: string;
   SINGULAR_API_KEY?: string;
   SINGULAR_SECRET_KEY?: string;
-  OCR_SERVICE_BASE_URL?: string;
+  VECTOR_RECOGNITION?: Fetcher;
   APP_ENVIRONMENT?: "production" | "development";
 }
 

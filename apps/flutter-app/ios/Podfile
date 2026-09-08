@@ -1,5 +1,5 @@
-platform :ios, '15.5'
-$iOSVersion = '15.5'
+platform :ios, '16.0'
+$iOSVersion = '16.0'
 
 # CocoaPods analytics sends network stats synchronously affecting Flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
