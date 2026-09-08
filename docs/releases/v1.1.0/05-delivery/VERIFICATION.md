@@ -180,3 +180,16 @@ Code Review 自审已核对必要移植文件与原业务保护范围；模型�
 - 发布前后 prod deployment 均为 `7cc2f8aa-613e-4da6-9828-3b33015e701d`，version `934506ae-d433-4a38-ae40-6d07b109d50e` 保持 100% 流量，未部署 prod。
 
 本次发布复用上文已完成的代码验证与 Code Review，执行了实际 dev 构建、内部服务契约烟测及部署后校验。iOS 编译/签名、两端真机模型运行及 App 完整扫描仍属未验证项；测试包必须包含本分支的模型和向量协议，并连接 dev API。
+
+### 422 协议覆盖后的 dev 重新发布（2026-09-08）
+
+用户反馈最新 dev-wxy iOS App 扫描返回 `422 VALIDATION_ERROR`。排查发现，共用 dev 在 `2026-09-08T08:38:45Z` 被另一轮 Wrangler 发布切换为 version `3b51584d-4089-4ae5-90be-04e65abaccc4`，deployment 为 `dc3584c6-175e-4e3d-bec4-16b3ad54d170`。从 Cloudflare 下载的该版本实际代码仍读取 `r/g/b`，缺少任一值即返回 422；其配置包含 `OCR_SERVICE_BASE_URL`，没有 `VECTOR_RECOGNITION`。用户提供的请求采用新 `vector` 协议，512 项数值有限且非零，因此新 App 与当前旧 API 的协议不一致足以触发该错误。
+
+用户随后明确要求基于当前分支重新部署 dev。发布来源为干净且与远端一致的 `dev-wxy@20db6dc45752a4af8a0a85cd5c4ffd3372d102a2`；Workers、Admin 和共享包与已验证的 `e18543a` 无差异，复用上文测试和 Code Review。本轮未修改业务代码，执行 `pnpm --filter @kando/workers-api run deploy:dev`，Admin dev 构建与 Workers 发布均成功，退出 0。
+
+- Cloudflare deployment `d7453012-1eb3-4ec5-a2ba-60e3548cf404` 于 `2026-09-08T09:14:02Z` 将 version `f351eae7-b0d5-4c19-ac51-930452efd5f4` 置于 100% dev 流量；发布后通过 deployment/version 查询复核。
+- 实际远端配置恢复 `VECTOR_RECOGNITION=recognize-vec`，不含 `OCR_SERVICE_BASE_URL`。再次下载该部署版本的实际代码，确认 `/scan/recognize` 读取 `vector`，不读取 `r/g/b`；将用户提供的同一向量交给从已部署代码提取的 `readEmbeddingVector` 校验，返回合法 512 维向量，检查退出 0（`2026-09-08T09:16:12Z`）。这只验证协议与向量参数，不等于登录态完整扫描已通过。
+- 部署后 HTTP 校验退出 0（`2026-09-08T09:16:03Z`）：`/api/v1/health` 返回 `200` / `status=ok`；`/admin` 及全部 10 个 JS/CSS 返回 `200`，逐文件 SHA-256 与本地 dev 构建一致；未授权 `/api/v1/admin/app-versions` 和 `POST /api/v1/scan/recognize` 均返回 `401`。
+- 本次未执行数据库 migration、数据回填或版本规则调整。prod 发布前后仍为 deployment `7cc2f8aa-613e-4da6-9828-3b33015e701d`、version `934506ae-d433-4a38-ae40-6d07b109d50e`、100% 流量；没有发布 prod 或修改 dev Git 分支。
+
+本轮未取得失败请求的图片文件和登录态，未在线重放该用户的完整扫描；需由用户使用现有 dev-wxy 新 App 重新扫描验收。共用 dev 的运行版本取决于最后一次发布，其他仍采用 pHash 的分支再次部署到同一 Worker 会重新覆盖向量协议。
