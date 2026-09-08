@@ -8,6 +8,35 @@ import 'package:kando_app/features/app_upgrade/app_upgrade_models.dart';
 import 'package:kando_app/features/app_upgrade/app_upgrade_repository.dart';
 
 void main() {
+  testWidgets(
+    'the update gate uses fixed Figma copy so legacy backend release notes cannot alter the approved prompt',
+    (tester) async {
+      await tester.pumpWidget(
+        _upgradeTestApp(
+          repository: const _FakeAppUpgradeRepository(
+            AppUpgradeConfig(
+              upgradePrompt: UpgradePrompt(
+                latestVersion: '1.0.1',
+                forceUpdate: false,
+                title: 'Legacy update title',
+                message: 'Legacy release notes',
+                storeUrl: 'https://apps.apple.com/app/kando',
+              ),
+            ),
+          ),
+          versionReader: const _FakeInstalledVersionReader('1.0.0'),
+          launcher: _FakeAppStoreLauncher(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Update Now'), findsOneWidget);
+      expect(find.text('New update available! Tap to upgrade'), findsOneWidget);
+      expect(find.text('INSTALL'), findsOneWidget);
+      expect(find.text('LATER'), findsOneWidget);
+      expect(find.text('Legacy release notes'), findsNothing);
+    },
+  );
+
   const mandatoryConfig = AppUpgradeConfig(
     upgradePrompt: UpgradePrompt(
       latestVersion: '1.0.1',
@@ -38,7 +67,7 @@ void main() {
       expect(actions, 0);
       pending.complete(mandatoryConfig);
       await tester.pumpAndSettle();
-      expect(find.text('Update required'), findsOneWidget);
+      expect(find.text('Update Now'), findsOneWidget);
     },
   );
 
@@ -91,15 +120,15 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Later'));
+      await tester.tap(find.text('LATER'));
       await tester.pumpAndSettle();
       repository.config = mandatoryConfig;
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pumpAndSettle();
       expect(repository.calls, 2);
-      expect(find.text('Update required'), findsOneWidget);
-      expect(find.text('Later'), findsNothing);
+      expect(find.text('Update Now'), findsOneWidget);
+      expect(find.text('LATER'), findsNothing);
     },
   );
 
@@ -119,7 +148,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Update Now'));
+      await tester.tap(find.text('INSTALL'));
       await tester.pumpAndSettle();
       expect(launcher.openedUrls, ['https://apps.apple.com/app/kando']);
       repository.fail = true;
@@ -127,7 +156,7 @@ void main() {
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pumpAndSettle();
       expect(repository.calls, 2);
-      expect(find.text('Update required'), findsOneWidget);
+      expect(find.text('Update Now'), findsOneWidget);
       await tester.tap(find.text('Home'), warnIfMissed: false);
       expect(actions, 0);
 
@@ -137,7 +166,7 @@ void main() {
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pumpAndSettle();
       expect(repository.calls, 3);
-      expect(find.text('Update required'), findsNothing);
+      expect(find.text('Update Now'), findsNothing);
       await tester.tap(find.text('Home'));
       expect(actions, 1);
     },
@@ -155,18 +184,18 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Update Now'));
+      await tester.tap(find.text('INSTALL'));
       await tester.pumpAndSettle();
       expect(
         find.text('Unable to open the store. Please try again.'),
         findsOneWidget,
       );
-      expect(find.text('Later'), findsNothing);
+      expect(find.text('LATER'), findsNothing);
       launcher.fail = false;
-      await tester.tap(find.text('Update Now'));
+      await tester.tap(find.text('INSTALL'));
       await tester.pumpAndSettle();
       expect(launcher.openedUrls, hasLength(2));
-      expect(find.text('Update required'), findsOneWidget);
+      expect(find.text('Update Now'), findsOneWidget);
     },
   );
 
@@ -196,22 +225,19 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Home'), findsOneWidget);
-      expect(find.text('Update required'), findsOneWidget);
-      expect(
-        find.text('Please install the latest Kando build.'),
-        findsOneWidget,
-      );
+      expect(find.text('Update Now'), findsOneWidget);
+      expect(find.text('New update available! Tap to upgrade'), findsOneWidget);
 
       await tester.tapAt(Offset.zero);
       await tester.pumpAndSettle();
 
-      expect(find.text('Update required'), findsOneWidget);
+      expect(find.text('Update Now'), findsOneWidget);
 
-      await tester.tap(find.text('Update Now'));
+      await tester.tap(find.text('INSTALL'));
       await tester.pumpAndSettle();
 
       expect(launcher.openedUrls, ['https://apps.apple.com/app/kando']);
-      expect(find.text('Update required'), findsOneWidget);
+      expect(find.text('Update Now'), findsOneWidget);
     },
   );
 
@@ -238,12 +264,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Update available'), findsOneWidget);
+      expect(find.text('Update Now'), findsOneWidget);
 
-      await tester.tap(find.text('Later'));
+      await tester.tap(find.text('LATER'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Update available'), findsNothing);
+      expect(find.text('Update Now'), findsNothing);
       expect(find.text('Home'), findsOneWidget);
     },
   );
@@ -272,7 +298,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Home'), findsOneWidget);
-      expect(find.text('Update required'), findsNothing);
+      expect(find.text('Update Now'), findsNothing);
     },
   );
 }

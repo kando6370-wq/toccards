@@ -91,3 +91,25 @@ dev 服务端发布与上述线上检查已完成。新 dev 使用独立环境�
 - Flutter 全仓测试未运行；本次执行的是列出的更新、启动、鉴权/Profile、分享与共享弹窗影响面测试。
 
 旧 1.0.0 安装包里的导航缺陷无法通过服务端下发配置修复；只有用户安装含本次修复的客户端后，后续版本策略才能使用新的可靠拦截链路。正式启用更高最低版本前，必须确认对应商店/测试渠道已提供可更新版本。Google 当前线上地址此前只读检查指向 YouTube，且更新规则停用；迁移不会猜测或替换运营地址，启用 Google 规则前必须由产品/发布人员填写正确下载渠道。
+
+## 更新弹窗设计修正与文案字段移除（2026-09-08）
+
+设计真源为 [Figma 736:13370](https://www.figma.com/design/DjacfTioobtRy59SnqH7SY?node-id=736-13370)。原实现使用手机下载图标、普通弹窗配色和服务端文案，与设计中的火箭、黄绿标题和固定提示语不符。本次按用户明确变更采用该节点：342 × 452.267、16px 圆角、33px 内边距，标题 `Update Now`，提示 `New update available! Tap to upgrade`，按钮 `INSTALL / LATER`。火箭素材从 `736:13372` 原样导出为 PNG（3 倍），保存在 App `assets/ui/update_rocket.png`；Baskerville 标题复用项目已注册的 Fraunces 字体别名，正文及按钮沿用平台字体。
+
+命中强更时移除 `LATER` 及其 56px 布局空间，保留 `INSTALL` 和全局拦截。普通更新与强更均不显示后台自定义版本说明；商店打开失败仍显示可重试提示，更新失败、系统返回、路由跳转和商店返回均不解除既有强更要求。
+
+Admin 表单、列表结构和版本保存移除“建议更新文案”“强制更新文案”。存量 JSON 兼容读取但不展示旧文案，下一次保存时不再写入；不执行远程数据清理，不改动 `0011`。公共 API 保留旧客户端需要的 `title/message/forced_message`，值固定为上述设计文案。环境隔离、版本比较及强更条件保持不变。
+
+失败证据：修复前 UI 测试分别确认普通/强更尺寸与设计不符、旧文案仍被 App 展示；PostgreSQL 路由测试确认 Admin 仍返回被移除的文案字段。本节是本地后续修正，不代表前述 dev 部署已包含此 UI 与字段变更。
+
+| 本轮检查 | 命令 / 证据 | 结果 |
+|---|---|---|
+| Flutter 更新与共享弹窗回归 | `flutter test --no-pub test/app_update_design_test.dart test/app_upgrade_integration_test.dart test/widget/app_upgrade_gate_test.dart test/kando_modal_test.dart test/app_upgrade_policy_test.dart test/app_upgrade_repository_test.dart test/widget/auth_profile_test.dart --reporter expanded` | 107/107，退出 0 |
+| Workers 配置及 Admin 路由 | `pnpm --filter @kando/workers-api exec vitest run src/app-config src/admin/routes.test.ts` | 34/34，退出 0 |
+| Admin 回归 | `pnpm --filter @kando/admin-web test` | 21/21，退出 0 |
+| 静态/类型检查 | `flutter analyze --no-pub`、Workers/Admin 各自 `type-check` | 均通过，退出 0 |
+| UI 对照 | 原始火箭 PNG 与本地 asset SHA-256 相同；已渲染普通和强更两种 390×844 预览并与设计对照 | 火箭、标题、固定提示、按钮与布局一致；强更无 LATER，小屏大字体时 INSTALL 保持可点击 |
+
+Code Review 自审已完成：确认只影响更新弹窗的专用样式、固定提示和后台退役文案，通用确认弹窗既有交互不变；重跑共享弹窗与鉴权/Profile 回归通过。原有强更拦截、平台和环境隔离未改动；API 兼容字段保留，已执行迁移及冻结产品输入未修改。未发现剩余阻断项。
+
+本轮未运行全仓测试、签名安装包或 iOS/Android 真机视觉/商店验收；已有 Widget 两平台验证不替代真机。Figma 的 SF Pro 正文在 iOS 使用平台字体，Android 使用其平台字体，跨平台字形不宣称逐像素相同。本节随修复代码提交，尚未部署。

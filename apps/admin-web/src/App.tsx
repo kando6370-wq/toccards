@@ -174,15 +174,12 @@ type AppVersionItem = {
   recommended_version: string;
   force_update: boolean;
   store_url: string;
-  recommended_update_message: string;
-  forced_update_message: string;
   status: AppVersionStatus;
   updated_at: string;
 };
 
 const { Sider, Content } = Layout;
 const { Title, Text } = Typography;
-const { TextArea } = Input;
 const API_BASE = resolveAdminApiBase({
   DEV: import.meta.env.DEV,
   VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
@@ -1083,12 +1080,6 @@ function AppVersionsPage({ session }: { session: AdminSession }) {
             ({ getFieldValue }) => ({ required: getFieldValue("status") === "enabled", message: "启用更新前必须填写可用的应用下载地址" }),
           ]}>
             <Input placeholder="https://..." />
-          </Form.Item>
-          <Form.Item name="recommended_update_message" label="建议更新文案">
-            <TextArea rows={5} />
-          </Form.Item>
-          <Form.Item name="forced_update_message" label="强制更新文案">
-            <TextArea rows={5} />
           </Form.Item>
           <Form.Item name="status" label="状态">
             <Select options={[{ value: "enabled", label: "生效中" }, { value: "disabled", label: "已停用" }]} />

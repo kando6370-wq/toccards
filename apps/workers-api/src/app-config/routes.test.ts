@@ -37,8 +37,8 @@ describe("public app configuration", () => {
     expect(body).toEqual({ success: true, data: {
       upgrade_prompt: {
         latest_version: "1.0.2", min_version: "1.0.1", force_update: true,
-        title: "Update available", message: "A new version is available.",
-        forced_message: "Update to continue.", store_url: "https://apps.apple.com/app/id6793017224",
+        title: "Update Now", message: "New update available! Tap to upgrade",
+        forced_message: "New update available! Tap to upgrade", store_url: "https://apps.apple.com/app/id6793017224",
       },
       app_store_url: "https://apps.apple.com/app/id6793017224",
       card_share_base_url: "https://api-dev.tcgcard.fun/share/cards",

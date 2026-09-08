@@ -114,8 +114,6 @@ type AppVersionRecord = {
   recommended_version: string;
   force_update: boolean;
   store_url: string;
-  recommended_update_message: string;
-  forced_update_message: string;
   status: AppVersionStatus;
   updated_at: string;
 };
@@ -1173,12 +1171,6 @@ adminRoutes.patch("/app-versions/:platform", async (c) => {
     recommended_version: recommendedVersion,
     force_update: forceUpdate,
     store_url: storeUrl,
-    recommended_update_message: typeof input.recommended_update_message === "string"
-      ? input.recommended_update_message
-      : "",
-    forced_update_message: typeof input.forced_update_message === "string"
-      ? input.forced_update_message
-      : "",
     status,
     updated_at: now,
   };
@@ -1686,8 +1678,6 @@ function defaultAppVersionRecord(platform: AppVersionPlatform): AppVersionRecord
     recommended_version: "1.0.0",
     force_update: false,
     store_url: "",
-    recommended_update_message: "优化首页加载速度",
-    forced_update_message: "请更新至最新版本后继续使用。",
     status: "disabled",
     updated_at: "",
   };
@@ -1708,12 +1698,6 @@ function parseAppVersionRecord(value: string, updatedAt: string): AppVersionReco
       recommended_version: recommendedVersion,
       force_update: parsed.force_update === true,
       store_url: typeof parsed.store_url === "string" ? parsed.store_url.trim() : "",
-      recommended_update_message: typeof parsed.recommended_update_message === "string"
-        ? parsed.recommended_update_message
-        : "",
-      forced_update_message: typeof parsed.forced_update_message === "string"
-        ? parsed.forced_update_message
-        : "",
       status,
       updated_at: typeof parsed.updated_at === "string" ? parsed.updated_at : updatedAt,
     };

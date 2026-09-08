@@ -127,4 +127,21 @@ describe("version control in a shared PostgreSQL database", () => {
     expect((await publicConfig("development")).status).toBe(503);
     expect((await admin("development", "/app-versions")).status).toBe(503);
   });
+
+  it("retires editable release copy while preserving fixed prompts for older clients", async () => {
+    await seed("admin.app_version.development.ios", rule);
+    const listed = await (await admin("development", "/app-versions")).json();
+    expect(JSON.stringify(listed)).not.toContain("recommended_update_message");
+    expect(JSON.stringify(listed)).not.toContain("forced_update_message");
+    const response = await admin("development", "/app-versions/iOS", rule);
+    expect(response.status).toBe(200);
+    const saved = await db.prepare("SELECT value FROM app_config WHERE key = 'admin.app_version.development.ios'").first<{ value: string }>();
+    expect(JSON.parse(saved!.value)).not.toHaveProperty("recommended_update_message");
+    expect(JSON.parse(saved!.value)).not.toHaveProperty("forced_update_message");
+    expect(await (await publicConfig("development")).json()).toMatchObject({ data: { upgrade_prompt: {
+      force_update: true, title: "Update Now",
+      message: "New update available! Tap to upgrade",
+      forced_message: "New update available! Tap to upgrade",
+    } } });
+  });
 });

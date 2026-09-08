@@ -54,15 +54,15 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(tester.takeException(), isNull);
-        expect(find.text('Update required'), findsOneWidget);
-        expect(find.text('Later'), findsNothing);
+        expect(find.text('Update Now'), findsOneWidget);
+        expect(find.text('LATER'), findsNothing);
         await tester.tap(find.text('Use App'), warnIfMissed: false);
         await tester.tapAt(Offset.zero);
         await tester.binding.handlePopRoute();
         router.go('/other');
         await tester.pumpAndSettle();
         expect(actions, 0);
-        expect(find.text('Update required'), findsOneWidget);
+        expect(find.text('Update Now'), findsOneWidget);
       },
       variant: TargetPlatformVariant({platform}),
     );

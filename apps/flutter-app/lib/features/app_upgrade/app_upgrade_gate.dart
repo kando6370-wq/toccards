@@ -80,12 +80,12 @@ class _AppUpgradeGateState extends ConsumerState<AppUpgradeGate>
           if (showUpdate)
             SafeArea(
               child: KandoUpdateModal(
-                title: decision.title,
+                title: 'Update Now',
                 message: _storeFailed
                     ? 'Unable to open the store. Please try again.'
-                    : decision.message,
-                primaryLabel: _openingStore ? 'Opening...' : 'Update Now',
-                secondaryLabel: 'Later',
+                    : 'New update available! Tap to upgrade',
+                primaryLabel: _openingStore ? 'OPENING...' : 'INSTALL',
+                secondaryLabel: 'LATER',
                 forceUpdate: decision.forceUpdate,
                 onPrimary: () => _openStore(decision),
                 onSecondary: () => _dismiss(decision),

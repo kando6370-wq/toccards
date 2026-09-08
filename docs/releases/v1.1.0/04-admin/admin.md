@@ -127,6 +127,7 @@ Admin 页面是只读排障层，不提供重放通知、改订单、改 lifecyc
 ### 版本管理
 
 - UI 管理 iOS 与 Google 的建议/最低版本、强制升级和商店地址，并显示 API 返回的当前 `development/production` 环境。
+- 不再提供“建议更新文案”和“强制更新文案”字段。Admin 列表/保存接口不返回或保存这两个属性；存量 JSON 的旧文案忽略，后续保存版本规则时自然移除。App 使用 Figma 736:13370 的固定标题 `Update Now`、提示语 `New update available! Tap to upgrade` 和火箭插画；普通更新提供 `INSTALL / LATER`，命中强更只显示 `INSTALL`。
 - 版本配置使用 `admin.app_version.<environment>.<ios|google>` 独立键；环境只取 Worker `APP_ENVIRONMENT`。dev/prod 共用 PostgreSQL 时，保存、启用、禁用和查询只影响当前环境。缺少可信环境返回 `503 APP_VERSION_CONFIG_UNAVAILABLE`。
 - 公共 `/app-config?platform=ios|google` 只读取当前环境、当前平台的规则，返回 `Cache-Control: no-store`，不回退到共用 `admin.app_version.ios/google`、`upgrade_prompt` 或 `app_store_url`。规则缺失或损坏返回 `503`，明确禁用的规则返回 `upgrade_prompt: null`。
 - 通用 `/admin/app-config` 不列出版本配置，通用 PATCH 禁止写入版本及旧共用升级键，避免绕过环境隔离或校验。版本修改统一通过 `/admin/app-versions/:platform`。

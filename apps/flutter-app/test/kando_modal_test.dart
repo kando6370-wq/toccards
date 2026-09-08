@@ -227,8 +227,9 @@ void main() {
     await tester.tap(find.text('Upgrade'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Update Now'), findsNWidgets(2));
-    expect(find.text('Later'), findsNothing);
+    expect(find.text('Update Now'), findsOneWidget);
+    expect(find.text('INSTALL'), findsOneWidget);
+    expect(find.text('LATER'), findsNothing);
   });
 
   testWidgets(
@@ -249,8 +250,8 @@ void main() {
                 message:
                     'Please install the latest version to continue using the app. ' *
                     8,
-                primaryLabel: 'Update Now',
-                secondaryLabel: 'Later',
+                primaryLabel: 'INSTALL',
+                secondaryLabel: 'LATER',
                 forceUpdate: true,
                 onPrimary: () => updates++,
                 onSecondary: () {},
@@ -261,10 +262,10 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      expect(tester.getRect(find.text('Update Now')).bottom, lessThan(568));
-      await tester.tap(find.text('Update Now'));
+      expect(tester.getRect(find.text('INSTALL')).bottom, lessThan(568));
+      await tester.tap(find.text('INSTALL'));
       expect(updates, 1);
-      expect(find.text('Later'), findsNothing);
+      expect(find.text('LATER'), findsNothing);
     },
   );
 }

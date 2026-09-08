@@ -78,13 +78,10 @@ function toUpgradePrompt(parsed: Record<string, unknown>): PublicUpgradePrompt {
     latest_version: parsed.recommended_version as string,
     min_version: parsed.min_supported_version as string,
     force_update: parsed.force_update === true,
-    title: "Update available",
-    message:
-      stringOrNull(parsed.recommended_update_message) ??
-      "Please install the latest Kando version.",
-    forced_message:
-      stringOrNull(parsed.forced_update_message) ??
-      "Please update Kando to continue.",
+    // Older clients still consume these fields; release notes are no longer editable.
+    title: "Update Now",
+    message: "New update available! Tap to upgrade",
+    forced_message: "New update available! Tap to upgrade",
     store_url: stringOrNull(parsed.store_url),
   };
 }
