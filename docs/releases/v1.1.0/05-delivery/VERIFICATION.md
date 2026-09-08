@@ -112,4 +112,15 @@ Admin 表单、列表结构和版本保存移除“建议更新文案”“强�
 
 Code Review 自审已完成：确认只影响更新弹窗的专用样式、固定提示和后台退役文案，通用确认弹窗既有交互不变；重跑共享弹窗与鉴权/Profile 回归通过。原有强更拦截、平台和环境隔离未改动；API 兼容字段保留，已执行迁移及冻结产品输入未修改。未发现剩余阻断项。
 
-本轮未运行全仓测试、签名安装包或 iOS/Android 真机视觉/商店验收；已有 Widget 两平台验证不替代真机。Figma 的 SF Pro 正文在 iOS 使用平台字体，Android 使用其平台字体，跨平台字形不宣称逐像素相同。本节随修复代码提交，尚未部署。
+本轮未运行全仓测试、签名安装包或 iOS/Android 真机视觉/商店验收；已有 Widget 两平台验证不替代真机。Figma 的 SF Pro 正文在 iOS 使用平台字体，Android 使用其平台字体，跨平台字形不宣称逐像素相同。后台与 API 发布情况见下方；App 界面仍需通过新客户端包交付。
+
+### dev 后台重新发布（2026-09-08）
+
+按用户明确授权，从与 `github/dev` 同步且工作区干净的 `aaa044317aadc23d7f33b4bd2d09a6924e725a78` 执行 `pnpm --filter @kando/workers-api run deploy:dev`，Admin development 构建、Worker 上传与触发器发布均通过，命令退出 0。
+
+- Cloudflare deployment `c90f1d72-d248-4a15-864e-fd6bcceb9496` 于 `2026-09-08T06:17:29Z` 将 Worker version `262f177d-09e5-462c-b827-c92ea1e3958b` 置于 100% dev 流量。
+- `/api/v1/health` 返回 `200` / `status=ok`；`/admin` 返回 `200`，HTML SHA-256 与本地构建一致。全部 10 个 JS/CSS 返回 `200`，逐文件 SHA-256 一致；发布的前端中已不含“建议更新文案”和“强制更新文案”表单标签。
+- iOS/Google 公共版本接口均返回 `200` 与 `Cache-Control: no-store`；iOS 固定标题/提示语已生效，当前运营规则为最低/建议版本 `1.0.2`、强更开启，Google 规则停用，均与发布前读取的规则一致。未授权 `/api/v1/admin/app-versions` 返回 `401`。
+- 本次没有执行数据迁移或调整版本规则。prod deployment 仍为 `7cc2f8aa-613e-4da6-9828-3b33015e701d`，Worker version `934506ae-d433-4a38-ae40-6d07b109d50e` 保持 100% 流量。
+
+本次发布复用上述已完成的测试与 Code Review，实际执行了完整 dev 构建和部署后验证。未执行登录态后台人工编辑、App 签名包发布或真机 UI 验收，不能把后台发布视作客户端 UI 已更新。
