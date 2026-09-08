@@ -418,11 +418,19 @@ class KandoUpdateModal extends StatelessWidget {
           width: 276,
           child: Column(
             children: [
-              const SizedBox(height: 10),
-              const _KandoUpdateVisual(),
-              const SizedBox(height: 40),
-              _KandoModalText(title: title, message: message),
-              const Spacer(),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 10),
+                      const _KandoUpdateVisual(),
+                      const SizedBox(height: 40),
+                      _KandoModalText(title: title, message: message),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
               _KandoModalActions(
                 primaryLabel: primaryLabel,
                 secondaryLabel: secondaryLabel,

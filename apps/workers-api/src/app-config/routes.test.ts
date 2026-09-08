@@ -1,211 +1,51 @@
-import { describe, expect, it } from "vitest";
-import app, { type Env } from "../index";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import app from "../index";
+import type { Env } from "../env";
+import { PGliteDatabase } from "../test-support/pglite-database";
 
-type AppConfigRow = {
-  key: string;
-  value: string;
-  updated_by: string | null;
-  updated_at: string;
-};
-
-class FakeD1 {
-  constructor(readonly appConfigs: AppConfigRow[] = []) {}
-
-  prepare(sql: string): FakeD1Statement {
-    return new FakeD1Statement(this, sql);
-  }
-}
-
-class FakeD1Statement {
-  constructor(
-    private readonly db: FakeD1,
-    private readonly sql: string,
-  ) {}
-
-  bind(): FakeD1Statement {
-    return this;
-  }
-
-  async all<T = unknown>(): Promise<D1Result<T>> {
-    if (this.sql.includes("FROM app_config")) {
-      return okResult<T>(this.db.appConfigs as T[]);
+describe("public app configuration", () => {
+  let db: PGliteDatabase;
+  beforeAll(async () => {
+    db = await PGliteDatabase.create();
+    await db.exec("CREATE TABLE app_config (key text PRIMARY KEY, value text NOT NULL, updated_at text NOT NULL)");
+    const values: Record<string, string> = {
+      "admin.app_version.development.ios": JSON.stringify({
+        platform: "iOS", min_supported_version: "1.0.1", recommended_version: "1.0.2",
+        force_update: true, status: "enabled", store_url: "https://apps.apple.com/app/id6793017224",
+        recommended_update_message: "A new version is available.", forced_update_message: "Update to continue.",
+      }),
+      card_share_base_url: "https://api-dev.tcgcard.fun/share/cards",
+      terms_url: "https://www.tcgcard.fun/terms",
+      privacy_url: "https://www.tcgcard.fun/privacy",
+      announcement: "Admin only",
+    };
+    for (const [key, value] of Object.entries(values)) {
+      await db.prepare("INSERT INTO app_config VALUES (?, ?, '2026-09-08')").bind(key, value).run();
     }
-
-    throw new Error(`Unsupported SQL: ${this.sql}`);
-  }
-}
-
-describe("public app config routes", () => {
-  it("exposes upgrade config without Admin auth because app startup cannot use back-office tokens", async () => {
-    const env = createTestEnv([
-      appConfigRow(
-        "upgrade_prompt",
-        JSON.stringify({
-          latest_version: "1.0.2",
-          force_update: true,
-          title: "Update required",
-          message: "Please install the latest Kando build.",
-          store_url: "https://apps.apple.com/app/kando",
-        }),
-      ),
-      appConfigRow("app_store_url", "https://apps.apple.com/app/kando"),
-      appConfigRow(
-        "card_share_base_url",
-        "https://api.tcgcard.fun/share/cards",
-      ),
-      appConfigRow("terms_url", "https://www.tcgcard.fun/terms"),
-      appConfigRow("privacy_url", "https://www.tcgcard.fun/privacy"),
-      appConfigRow("announcement", "{\"title\":\"Ops only\"}"),
-    ]);
-
-    const response = await app.request("/api/v1/app-config", {}, env);
-
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({
-      success: true,
-      data: {
-        upgrade_prompt: {
-          latest_version: "1.0.2",
-          force_update: true,
-          title: "Update required",
-          message: "Please install the latest Kando build.",
-          store_url: "https://apps.apple.com/app/kando",
-        },
-        app_store_url: "https://apps.apple.com/app/kando",
-        card_share_base_url: "https://api.tcgcard.fun/share/cards",
-        terms_url: "https://www.tcgcard.fun/terms",
-        privacy_url: "https://www.tcgcard.fun/privacy",
-        mixpanel_project_token: "public-project-token",
-        singular_api_key: "singular-api-key",
-        singular_secret_key: "singular-secret-key",
-      },
-    });
   });
+  afterAll(async () => { await db?.close(); });
 
-  it("drops malformed upgrade JSON because a bad operations value must not break app startup", async () => {
-    const env = createTestEnv([
-      appConfigRow("upgrade_prompt", "{bad json"),
-      appConfigRow("app_store_url", "https://apps.apple.com/app/kando"),
-    ]);
-
+  it("serves the environment's update rule, legal links and client SDK configuration without Admin authentication", async () => {
+    const env: Env = {
+      DB: db, APP_ENVIRONMENT: "development", CACHE_KV: {} as KVNamespace, JWT_SECRET: "unused-test-secret",
+      MIXPANEL_PROJECT_TOKEN: "public-project-token", MIXPANEL_API_SECRET: "server-api-secret",
+      SINGULAR_API_KEY: "client-sdk-key", SINGULAR_SECRET_KEY: "client-sdk-secret",
+    };
     const response = await app.request("/api/v1/app-config", {}, env);
-
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({
-      success: true,
-      data: {
-        upgrade_prompt: null,
-        app_store_url: "https://apps.apple.com/app/kando",
-        card_share_base_url: null,
-        terms_url: null,
-        privacy_url: null,
-        mixpanel_project_token: "public-project-token",
-        singular_api_key: "singular-api-key",
-        singular_secret_key: "singular-secret-key",
-      },
-    });
-  });
-
-  it("exposes client SDK configuration without returning server API secrets", async () => {
-    const env = createTestEnv([]);
-
-    const response = await app.request("/api/v1/app-config", {}, env);
     const body = await response.json();
-
-    expect(body).toMatchObject({
-      data: {
-        mixpanel_project_token: "public-project-token",
-        singular_api_key: "singular-api-key",
-        singular_secret_key: "singular-secret-key",
+    expect(body).toEqual({ success: true, data: {
+      upgrade_prompt: {
+        latest_version: "1.0.2", min_version: "1.0.1", force_update: true,
+        title: "Update available", message: "A new version is available.",
+        forced_message: "Update to continue.", store_url: "https://apps.apple.com/app/id6793017224",
       },
-    });
+      app_store_url: "https://apps.apple.com/app/id6793017224",
+      card_share_base_url: "https://api-dev.tcgcard.fun/share/cards",
+      terms_url: "https://www.tcgcard.fun/terms", privacy_url: "https://www.tcgcard.fun/privacy",
+      mixpanel_project_token: "public-project-token", singular_api_key: "client-sdk-key", singular_secret_key: "client-sdk-secret",
+    } });
     expect(JSON.stringify(body)).not.toContain("server-api-secret");
-  });
-
-  it("returns each platform store URL even when its update prompt is disabled", async () => {
-    const env = createTestEnv([
-      appConfigRow(
-        "admin.app_version.ios",
-        JSON.stringify({
-          status: "enabled",
-          min_supported_version: "1.2.0",
-          recommended_version: "1.5.0",
-          force_update: true,
-          store_url: "https://apps.apple.com/app/kando",
-          recommended_update_message: "A newer version is available.",
-          forced_update_message: "Update to continue.",
-        }),
-      ),
-      appConfigRow(
-        "admin.app_version.google",
-        JSON.stringify({
-          status: "disabled",
-          min_supported_version: "1.1.0",
-          recommended_version: "1.4.0",
-          force_update: true,
-          store_url: "https://play.google.com/store/apps/details?id=com.kando",
-        }),
-      ),
-    ]);
-
-    const ios = await app.request("/api/v1/app-config?platform=ios", {}, env);
-    const google = await app.request("/api/v1/app-config?platform=google", {}, env);
-
-    expect(await ios.json()).toMatchObject({
-      data: {
-        app_store_url: "https://apps.apple.com/app/kando",
-        upgrade_prompt: {
-          latest_version: "1.5.0",
-          min_version: "1.2.0",
-          force_update: true,
-          forced_message: "Update to continue.",
-          store_url: "https://apps.apple.com/app/kando",
-        },
-      },
-    });
-    expect(await google.json()).toMatchObject({
-      data: {
-        app_store_url:
-          "https://play.google.com/store/apps/details?id=com.kando",
-        upgrade_prompt: null,
-      },
-    });
+    expect(JSON.stringify(body)).not.toContain("Admin only");
   });
 });
-
-function appConfigRow(key: string, value: string): AppConfigRow {
-  return {
-    key,
-    value,
-    updated_by: "operator-1",
-    updated_at: "2026-07-08T00:00:00.000Z",
-  };
-}
-
-function createTestEnv(appConfigs: AppConfigRow[]): Env {
-  return {
-    DB: new FakeD1(appConfigs) as unknown as D1Database,
-    CACHE_KV: {} as KVNamespace,
-    JWT_SECRET: "test-secret",
-    MIXPANEL_PROJECT_TOKEN: "public-project-token",
-    MIXPANEL_API_SECRET: "server-api-secret",
-    SINGULAR_API_KEY: "singular-api-key",
-    SINGULAR_SECRET_KEY: "singular-secret-key",
-  };
-}
-
-function okResult<T>(results: T[]): D1Result<T> {
-  return {
-    success: true,
-    results,
-    meta: {
-      duration: 0,
-      size_after: 0,
-      rows_read: 0,
-      rows_written: 0,
-      last_row_id: 0,
-      changed_db: false,
-      changes: 0,
-    },
-  };
-}

@@ -1,5 +1,11 @@
 # v1.1.0 契约变化
 
+## App 版本控制环境隔离
+
+版本规则由可信 Worker `APP_ENVIRONMENT` 选择 `app_config` 中的 `admin.app_version.<development|production>.<ios|google>`。`GET /admin/app-versions` 新增 `data.environment`；版本 PATCH 仅写当前环境。通用 App Config PATCH 禁止写版本键和旧共用升级键，返回 `422`。启用规则必须有有效 HTTP(S) 商店地址、布尔强更标志、合法状态和三段版本号，建议版本必须大于等于最低版本。
+
+公共 `GET /app-config?platform=ios|google` 保持 `upgrade_prompt`、`app_store_url`、法律及 SDK 配置响应字段，增加 `Cache-Control: no-store`。环境或平台规则缺失/损坏返回 `503 APP_VERSION_CONFIG_UNAVAILABLE`；明确停用的规则才返回 `upgrade_prompt: null`。不再读取共用版本键或用共用商店地址兜底。部署前执行 `0011_app_version_environment.sql`，将旧有效规则一次性拆为两份，详见[版本控制验收](../05-delivery/VERIFICATION.md)。
+
 ## 订阅与内购数据骨架
 
 这些表的当前 PostgreSQL 结构位于 `apps/workers-api/src/db/postgres/migrations/0000_business_schema.sql`，dev 数据已完成迁移：

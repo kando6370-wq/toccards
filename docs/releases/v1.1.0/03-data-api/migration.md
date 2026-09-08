@@ -1,5 +1,13 @@
 # v1.1.0 数据迁移
 
+## 版本管理环境配置拆分（0011）
+
+`apps/workers-api/src/db/postgres/migrations/0011_app_version_environment.sql` 在现有 `app_config` 中新增 dev/prod × iOS/Google 四个独立键，不改变表结构。历史平台规则及其有效商店兜底一次性复制；已存在的环境配置不覆盖。新 Worker 不再读取旧共用版本规则。
+
+执行次序为暂停版本配置编辑、迁移和核验四条记录、切换两个环境 Worker、核验各自配置、恢复编辑。迁移保留旧键用于切换期间旧 Worker 的读取，回滚必须使用支持环境键的 PostgreSQL Worker，不能恢复共用版本配置的行为。本次远程执行与发布状态见[版本控制验收](../05-delivery/VERIFICATION.md)。
+
+仅发布 dev 时，允许从同一迁移的源规则生成逻辑中只初始化 `development` 两条键，不提前创建 production 快照，也不把完整 `0011` 登记为已执行。此时 dev 新 Worker 使用独立键，prod 旧 Worker 继续使用旧键，版本设置互不影响。将来发布 prod 前执行完整 `0011`，其 `ON CONFLICT DO NOTHING` 保留已经独立修改的 dev 配置，并按届时旧规则初始化 production。
+
 ## PostgreSQL 正式迁移检查点（2026-08-17）
 
 R1 数据库基础批次已通过只在本机运行的 Wrangler remote preview，把 `0000_business_schema.sql` 与 `0001_price_domain.sql` 应用到 Hyperdrive `tcg-cards-db` 指向的 PlanetScale PostgreSQL。实机返回数据库 `postgres`、schema `public`、PostgreSQL `18.6 (Debian 18.6-1.pgdg12+2)`；目标现有 41 张表（33 张 D1 业务表、7 张新价格域表和 `postgres_migration`）、119 个索引、428 个约束及 2 个价格发布保护 trigger。两份 migration 的 SHA-256 已记录，重复执行只返回 `alreadyApplied`，未重复建表。

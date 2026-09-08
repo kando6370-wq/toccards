@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/app/app.dart';
 import 'package:kando_app/app/app_startup_preloader.dart';
+import 'package:kando_app/features/app_upgrade/app_upgrade_models.dart';
+import 'package:kando_app/features/app_upgrade/app_upgrade_repository.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
@@ -125,6 +127,9 @@ ProviderScope _testApp(
         testAppAttributionCoordinator(),
       ),
       appStartupPreloaderProvider.overrideWith((ref) async {}),
+      appUpgradeDecisionProvider.overrideWith(
+        (ref) async => const AppUpgradeDecision.none(),
+      ),
       authRepositoryProvider.overrideWithValue(
         authRepository ??
             _WidgetTestAuthRepository(

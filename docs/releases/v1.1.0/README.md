@@ -47,6 +47,7 @@
 
 - [开发计划](05-delivery/development-plan.md)
 - [需求可追踪矩阵](05-delivery/traceability-matrix.md)
+- [版本管理环境隔离与强制更新验收](05-delivery/VERIFICATION.md)
 - [App Store Connect 订阅配置手册](05-delivery/app-store-connect-subscription-setup.md)
 
 ## 证据口径

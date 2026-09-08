@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../shared/api/api_environment.dart';
 import '../../shared/card_image/card_image_url.dart';
+import '../app_upgrade/app_upgrade_models.dart';
 import '../app_upgrade/app_upgrade_repository.dart';
 
 final cardDetailActionsProvider = Provider<CardDetailActions>((ref) {
@@ -80,7 +81,12 @@ class PluginCardDetailActions implements CardDetailActions {
     required String marketPrice,
     Rect? sharePositionOrigin,
   }) async {
-    final config = await _configRepository.loadConfig();
+    var config = const AppUpgradeConfig();
+    try {
+      config = await _configRepository.loadConfig();
+    } on Object {
+      // Sharing keeps its existing public-link fallback when config is offline.
+    }
     final baseUrl =
         _webUri(config.cardShareBaseUrl) ?? Uri.parse(cardShareFallbackBaseUrl);
     final cardUrl = baseUrl.replace(

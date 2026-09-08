@@ -57,7 +57,7 @@ final appUpgradeDecisionProvider = FutureProvider<AppUpgradeDecision>((
     currentVersion: currentVersion,
     config: config,
   );
-});
+}, retry: (retryCount, error) => null);
 
 abstract interface class AppUpgradeRepository {
   Future<AppUpgradeConfig> loadConfig();
@@ -71,22 +71,18 @@ class HttpAppUpgradeRepository implements AppUpgradeRepository {
 
   @override
   Future<AppUpgradeConfig> loadConfig() async {
-    try {
-      final response = await _dio.get<Map<String, Object?>>(
-        '/app-config',
-        queryParameters: {'platform': platform},
-      );
-      final body = response.data;
-      final data = body?['data'];
-
-      if (data is Map<String, Object?>) {
-        return AppUpgradeConfig.fromJson(data);
-      }
-    } catch (_) {
-      return const AppUpgradeConfig();
+    final response = await _dio.get<Map<String, Object?>>(
+      '/app-config',
+      queryParameters: {'platform': platform},
+    );
+    final body = response.data;
+    final data = body?['data'];
+    if (body?['success'] != true ||
+        data is! Map<String, Object?> ||
+        !data.containsKey('upgrade_prompt')) {
+      throw const FormatException('Invalid app version configuration response');
     }
-
-    return const AppUpgradeConfig();
+    return AppUpgradeConfig.fromJson(data);
   }
 }
 
@@ -116,12 +112,9 @@ class UrlLauncherAppStoreLauncher implements AppStoreLauncher {
   @override
   Future<void> open(String url) async {
     final uri = Uri.tryParse(url);
-    if (uri == null) return;
-
-    try {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } catch (_) {
-      // App Store jump failure is intentionally silent per global rules.
+    if (uri == null ||
+        !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      throw StateError('Unable to open the app store');
     }
   }
 }

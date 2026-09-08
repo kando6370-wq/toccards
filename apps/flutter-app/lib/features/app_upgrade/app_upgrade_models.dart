@@ -15,6 +15,9 @@ class AppUpgradeConfig {
 
   factory AppUpgradeConfig.fromJson(Map<String, Object?> json) {
     final promptJson = json['upgrade_prompt'];
+    if (promptJson != null && promptJson is! Map<String, Object?>) {
+      throw const FormatException('Invalid upgrade prompt');
+    }
 
     return AppUpgradeConfig(
       upgradePrompt: promptJson is Map<String, Object?>
@@ -48,6 +51,9 @@ class UpgradePrompt {
   final String? forcedMessage;
 
   factory UpgradePrompt.fromJson(Map<String, Object?> json) {
+    if (json['force_update'] is! bool) {
+      throw const FormatException('Invalid mandatory update flag');
+    }
     return UpgradePrompt(
       latestVersion:
           _stringOrNull(json['latest_version']) ??
@@ -124,12 +130,17 @@ class AppUpgradePolicy {
       prompt.minVersion ?? prompt.latestVersion,
     );
     final storeUrl = prompt.storeUrl ?? config.appStoreUrl;
+    final storeUri = storeUrl == null ? null : Uri.tryParse(storeUrl);
 
     if (current == null ||
         latest == null ||
         minimum == null ||
-        storeUrl == null) {
-      return const AppUpgradeDecision.none();
+        storeUri == null ||
+        !const ['http', 'https'].contains(storeUri.scheme) ||
+        storeUri.host.isEmpty ||
+        storeUri.userInfo.isNotEmpty ||
+        minimum.compareTo(latest) > 0) {
+      throw const FormatException('Invalid app update requirement');
     }
 
     if (current.compareTo(latest) >= 0) {
@@ -143,7 +154,7 @@ class AppUpgradePolicy {
       message: forceUpdate
           ? (prompt.forcedMessage ?? prompt.message)
           : prompt.message,
-      storeUrl: storeUrl,
+      storeUrl: storeUrl!,
       latestVersion: prompt.latestVersion,
     );
   }

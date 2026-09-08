@@ -126,8 +126,13 @@ Admin 页面是只读排障层，不提供重放通知、改订单、改 lifecyc
 
 ### 版本管理
 
-- UI 管理 iOS 与 Google 的最新/最低版本、强制升级和商店地址。
-- 公共 `/app-config` 由 App 读取；Admin 更新应保留平台和环境边界。
+- UI 管理 iOS 与 Google 的建议/最低版本、强制升级和商店地址，并显示 API 返回的当前 `development/production` 环境。
+- 版本配置使用 `admin.app_version.<environment>.<ios|google>` 独立键；环境只取 Worker `APP_ENVIRONMENT`。dev/prod 共用 PostgreSQL 时，保存、启用、禁用和查询只影响当前环境。缺少可信环境返回 `503 APP_VERSION_CONFIG_UNAVAILABLE`。
+- 公共 `/app-config?platform=ios|google` 只读取当前环境、当前平台的规则，返回 `Cache-Control: no-store`，不回退到共用 `admin.app_version.ios/google`、`upgrade_prompt` 或 `app_store_url`。规则缺失或损坏返回 `503`，明确禁用的规则返回 `upgrade_prompt: null`。
+- 通用 `/admin/app-config` 不列出版本配置，通用 PATCH 禁止写入版本及旧共用升级键，避免绕过环境隔离或校验。版本修改统一通过 `/admin/app-versions/:platform`。
+- 启用更新必须提供有效 HTTP(S) 下载地址；建议版本不得低于最低支持版本。强制更新只作用于低于最低版本的 App；达到最低版本但低于建议版本时可稍后更新，构建号不参与比较。
+- App 在冷启动和返回前台检查规则。强更由路由上方的全局界面拦截，点击遮罩、返回、页面跳转和商店返回均不解除；初次检查失败显示阻断式重试界面，重新检查失败保留已知强更要求。只有成功检查确认当前安装版本已被支持或运营已解除要求，才恢复使用。
+- 部署前应用 PostgreSQL `0011_app_version_environment.sql`，将既有规则一次性复制为两环境独立配置，已有独立配置不覆盖。迁移与两环境 Worker 切换期间暂停版本配置编辑，旧键不删除、不再作为运行时回退；回滚只能使用支持独立键的 Worker。详见[版本控制验收](../05-delivery/VERIFICATION.md)。
 
 ## 7. API 与前端契约
 

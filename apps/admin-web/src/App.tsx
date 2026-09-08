@@ -989,7 +989,7 @@ function PermissionsPage({ session }: { session: AdminSession }) {
 function AppVersionsPage({ session }: { session: AdminSession }) {
   const [editing, setEditing] = useState<AppVersionItem | null>(null);
   const [form] = Form.useForm<AppVersionItem>();
-  const { data, loading, reload, error } = useAdminData<{ items: AppVersionItem[] }>("/app-versions", session);
+  const { data, loading, reload, error } = useAdminData<{ environment: "development" | "production"; items: AppVersionItem[] }>("/app-versions", session);
 
   useEffect(() => {
     if (editing) form.setFieldsValue(editing);
@@ -1034,6 +1034,7 @@ function AppVersionsPage({ session }: { session: AdminSession }) {
 
   return (
     <PagePanel error={error} onRefresh={reload}>
+      {data && <Alert type="info" showIcon message={`当前环境：${data.environment === "production" ? "生产（prod）" : "开发（dev）"}。版本规则仅影响连接此环境的 App。`} />}
       <div className="top-tabs">
         <span>销售数据</span>
         <span>订单查询</span>
@@ -1055,17 +1056,32 @@ function AppVersionsPage({ session }: { session: AdminSession }) {
             <Input disabled />
           </Form.Item>
           <div className="two-col-form">
-            <Form.Item name="min_supported_version" label="最低支持版本" rules={[{ pattern: /^\d+\.\d+\.\d+$/, message: "请输入数字或英文点号" }]}>
+            <Form.Item name="min_supported_version" label="最低支持版本" rules={[{ required: true, message: "请输入最低支持版本" }, { pattern: /^\d+\.\d+\.\d+$/, message: "请输入三段版本号，例如 1.0.1" }]}>
               <Input />
             </Form.Item>
-            <Form.Item name="recommended_version" label="建议更新版本" rules={[{ pattern: /^\d+\.\d+\.\d+$/, message: "请输入数字或英文点号" }]}>
+            <Form.Item name="recommended_version" label="建议更新版本" dependencies={["min_supported_version"]} rules={[
+              { required: true, message: "请输入建议更新版本" },
+              { pattern: /^\d+\.\d+\.\d+$/, message: "请输入三段版本号，例如 1.0.1" },
+              ({ getFieldValue }) => ({ validator(_, value: string) {
+                const minimum = String(getFieldValue("min_supported_version") ?? "").split(".").map(Number);
+                const recommended = String(value ?? "").split(".").map(Number);
+                for (let i = 0; i < 3; i++) {
+                  if (recommended[i] < minimum[i]) return Promise.reject(new Error("建议更新版本不能低于最低支持版本"));
+                  if (recommended[i] > minimum[i]) break;
+                }
+                return Promise.resolve();
+              } }),
+            ]}>
               <Input />
             </Form.Item>
           </div>
-          <Form.Item name="force_update" label="强制更新" valuePropName="checked">
+          <Form.Item name="force_update" label="强制更新" valuePropName="checked" extra="开启后，低于最低支持版本的用户必须更新；已达到最低版本的用户可稍后更新。构建号不参与比较。">
             <Switch />
           </Form.Item>
-          <Form.Item name="store_url" label="应用商店地址" rules={[{ type: "url", message: "请输入有效的 HTTP(S) 地址" }]}>
+          <Form.Item name="store_url" label="应用商店地址" dependencies={["status"]} rules={[
+            { type: "url", message: "请输入有效的 HTTP(S) 地址" },
+            ({ getFieldValue }) => ({ required: getFieldValue("status") === "enabled", message: "启用更新前必须填写可用的应用下载地址" }),
+          ]}>
             <Input placeholder="https://..." />
           </Form.Item>
           <Form.Item name="recommended_update_message" label="建议更新文案">

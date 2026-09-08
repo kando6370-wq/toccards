@@ -230,4 +230,41 @@ void main() {
     expect(find.text('Update Now'), findsNWidgets(2));
     expect(find.text('Later'), findsNothing);
   });
+
+  testWidgets(
+    'mandatory update action stays reachable on a small phone with large text and long release copy',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 568);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      var updates = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+            child: Scaffold(
+              body: KandoUpdateModal(
+                title: 'Update required',
+                message:
+                    'Please install the latest version to continue using the app. ' *
+                    8,
+                primaryLabel: 'Update Now',
+                secondaryLabel: 'Later',
+                forceUpdate: true,
+                onPrimary: () => updates++,
+                onSecondary: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(tester.getRect(find.text('Update Now')).bottom, lessThan(568));
+      await tester.tap(find.text('Update Now'));
+      expect(updates, 1);
+      expect(find.text('Later'), findsNothing);
+    },
+  );
 }
