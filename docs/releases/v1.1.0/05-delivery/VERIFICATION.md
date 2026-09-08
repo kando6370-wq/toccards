@@ -71,10 +71,22 @@ flutter test --no-pub test/app_upgrade_integration_test.dart test/app_upgrade_re
 
 本轮执行 Code Review 自审。审查发现重新检查时旧错误状态可能使重试按钮仍可点击，已改为请求中显示 Loading，并增加等待重试响应的回归断言；返工后重跑上述 121 项 Flutter 检查及分析，复审未发现本次改动剩余的阻断项。审查确认版本环境只能由服务端选择，旧共用键不再参与运行时读取，迁移幂等且不覆盖独立修改，全局拦截覆盖导航与输入，配置异常不再放行。未将本轮自审表述为独立评审。
 
-本地修复与验证已完成，线上验收尚未完成。未运行项：
+## dev 发布验证（2026-09-08）
 
-- 远程 PostgreSQL `0011` 迁移及 dev/prod Worker 发布：需要按仓库安全边界取得明确授权，当前线上行为尚未改变。
-- 登录态线上 Admin 分环境修改/停用验收：依赖上述发布，须由发布执行者在两个环境分别操作并核验另一环境保持独立。
+用户已明确授权提交、推送 `dev` 并部署 dev 后台。功能提交 `24216dea20f3a8ea075236da66cc92bd00673f76` 已推送到 `github/dev`；执行标准 `pnpm --filter @kando/workers-api run deploy:dev`，命令退出 0。
+
+- 发布前使用只绑定目标 Hyperdrive 的一次性 PostgreSQL preview，在受 advisory lock 保护的事务中仅初始化 `admin.app_version.development.ios` 和 `admin.app_version.development.google`，事务外复核两条规则均合法。旧共用规则摘要在事务前后均为 `39c597361448511daca665f904327fedd10cdc1d77be817babf29992b143a811`；未创建 production 独立键，未改写旧规则，未将完整 `0011` 记入 migration ledger。preview 已关闭。
+- 本次采用的 dev-only SQL 在本地 PGlite 验证了：只新增 development 两条键，旧规则和 production 不受写入；以后执行完整 `0011` 时，已独立修改的 dev 规则不会被覆盖。
+- 初始化时最新 iOS 配置为最低/建议版本 `1.0.1`、强更开启，商店地址为 Card AI 的 Apple ID `6793017224`；Google 规则停用，保留原有地址。没有提高运营当时已配置的最低版本。
+- Cloudflare deployment `6fde4062-783f-42d1-b3c4-dc1225f1b765` 于 `2026-09-08T03:27:20Z` 将 Worker version `e1e232ac-5799-49f7-a003-75a47db2e2b0` 置于 100% dev 流量。
+- `https://api-dev.tcgcard.fun/api/v1/health` 返回 `200` / `status=ok`；`/admin` 返回 `200`，HTML 与本地 dev 构建 SHA-256 一致。全部 10 个 JS/CSS 资源返回 `200`，逐文件 SHA-256 与本地构建一致。
+- dev 公共 iOS/Google 版本接口均返回 `200` 和 `Cache-Control: no-store`；iOS 返回最低/建议版本 `1.0.1` 与 `force_update=true`，Google 返回 `upgrade_prompt=null`。未授权 `/api/v1/admin/app-versions` 返回 `401 UNAUTHORIZED`。
+- 发布前后 prod deployment 均为 `7cc2f8aa-613e-4da6-9828-3b33015e701d`，version `934506ae-d433-4a38-ae40-6d07b109d50e` 保持 100% 流量；prod 版本接口仍读取旧配置，未部署 prod。
+
+dev 服务端发布与上述线上检查已完成。新 dev 使用独立环境键，prod 旧 Worker 使用旧键，双方后续版本设置分别生效。尚未运行的验收项：
+
+- production 独立键初始化、完整 `0011` migration 登记及 prod 新 Worker 发布：不在本次 dev 发布授权范围内，须在后续 prod 发布前完成。
+- 登录态线上 Admin 分环境修改/停用人工验收：未改动线上运营规则做往返测试；已有真实 PostgreSQL 路由集成测试保护环境隔离，人工验收仍须补充。
 - iOS/Android 签名包、真实商店跳转和覆盖升级：需要含修复的新客户端包、对应发布渠道与真机；须由客户端发布/测试人员补验，Widget 平台变体不等于真机通过。
 - Flutter 全仓测试未运行；本次执行的是列出的更新、启动、鉴权/Profile、分享与共享弹窗影响面测试。
 

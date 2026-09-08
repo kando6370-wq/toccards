@@ -8,6 +8,8 @@
 
 仅发布 dev 时，允许从同一迁移的源规则生成逻辑中只初始化 `development` 两条键，不提前创建 production 快照，也不把完整 `0011` 登记为已执行。此时 dev 新 Worker 使用独立键，prod 旧 Worker 继续使用旧键，版本设置互不影响。将来发布 prod 前执行完整 `0011`，其 `ON CONFLICT DO NOTHING` 保留已经独立修改的 dev 配置，并按届时旧规则初始化 production。
 
+2026-09-08 已按用户 dev 发布授权完成 development 两条键的初始化与事务外复核，旧共用规则的前后摘要一致；未创建 production 独立键，`0011` 未登记为完整执行。随后 dev Worker `e1e232ac-5799-49f7-a003-75a47db2e2b0` 已承载 100% 流量，dev 公共配置读取独立键；prod 保持原运行版本与旧配置。完整发布证据见上述验收文档。
+
 ## PostgreSQL 正式迁移检查点（2026-08-17）
 
 R1 数据库基础批次已通过只在本机运行的 Wrangler remote preview，把 `0000_business_schema.sql` 与 `0001_price_domain.sql` 应用到 Hyperdrive `tcg-cards-db` 指向的 PlanetScale PostgreSQL。实机返回数据库 `postgres`、schema `public`、PostgreSQL `18.6 (Debian 18.6-1.pgdg12+2)`；目标现有 41 张表（33 张 D1 业务表、7 张新价格域表和 `postgres_migration`）、119 个索引、428 个约束及 2 个价格发布保护 trigger。两份 migration 的 SHA-256 已记录，重复执行只返回 `alreadyApplied`，未重复建表。
