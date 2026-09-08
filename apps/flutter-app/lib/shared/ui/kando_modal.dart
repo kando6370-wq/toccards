@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -557,14 +558,11 @@ class KandoModalFrame extends StatelessWidget {
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: danger ? const Color(0xFF1D1D1C) : KandoColors.surface,
-          gradient: update
-              ? const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment(-0.17, -0.64),
-                  colors: [Color(0xFF3A3C29), Color(0xFF1D1D1C)],
-                )
-              : null,
+          color: update
+              ? const Color(0xFF222222)
+              : danger
+              ? const Color(0xFF1D1D1C)
+              : KandoColors.surface,
           borderRadius: BorderRadius.circular(danger || update ? 16 : 24),
           boxShadow: danger || update
               ? const [
@@ -583,17 +581,109 @@ class KandoModalFrame extends StatelessWidget {
                   ),
                 ],
         ),
-        foregroundDecoration: BoxDecoration(
-          border: Border.all(
-            color: danger ? const Color(0x1A394E2C) : KandoColors.borderSubtle,
-          ),
-          borderRadius: BorderRadius.circular(danger || update ? 16 : 24),
-        ),
+        foregroundDecoration: update
+            ? null
+            : BoxDecoration(
+                border: Border.all(
+                  color: danger
+                      ? const Color(0x1A394E2C)
+                      : KandoColors.borderSubtle,
+                ),
+                borderRadius: BorderRadius.circular(danger ? 16 : 24),
+              ),
         clipBehavior: Clip.antiAlias,
-        child: child,
+        child: update
+            ? CustomPaint(
+                painter: const _KandoUpdateSurfacePainter(),
+                child: child,
+              )
+            : child,
       ),
     );
   }
+}
+
+class _KandoUpdateSurfacePainter extends CustomPainter {
+  const _KandoUpdateSurfacePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) return;
+    final rect = Offset.zero & size;
+    // Figma 736:13370: normalized coordinates -> diamond gradient space.
+    // Preserve the original transform as the modal changes width or height.
+    final transform = Matrix4.identity()
+      ..setEntry(0, 0, 0.1985977590084076)
+      ..setEntry(0, 1, 0.15397658944129944)
+      ..setEntry(0, 3, 0.6621649861335754)
+      ..setEntry(1, 0, -0.13236625492572784)
+      ..setEntry(1, 1, 0.08926185220479965)
+      ..setEntry(1, 3, 0.5021498203277588);
+    final paint = Paint()
+      ..isAntiAlias = false
+      ..shader = ui.Gradient.linear(
+        Offset.zero,
+        const Offset(0.25, 0.25),
+        const [
+          Color.from(
+            alpha: 0.24,
+            red: 240 / 255,
+            green: 254 / 255,
+            blue: 112 / 255,
+          ),
+          Color.from(
+            alpha: 0.24,
+            red: 16 / 255,
+            green: 0.06143791228532791,
+            blue: 11 / 255,
+          ),
+        ],
+        const [0, 0.667445719242096],
+      );
+    canvas.save();
+    canvas.clipRect(rect);
+    canvas.scale(size.width, size.height);
+    canvas.transform(Matrix4.inverted(transform).storage);
+    canvas.translate(0.5, 0.5);
+    // Each quadrant is linear; together they reproduce the diamond's
+    // 2 * (abs(x - 0.5) + abs(y - 0.5)) falloff without a bitmap or shader asset.
+    for (final direction in const [
+      Offset(1, 1),
+      Offset(1, -1),
+      Offset(-1, 1),
+      Offset(-1, -1),
+    ]) {
+      canvas.save();
+      canvas.scale(direction.dx, direction.dy);
+      canvas.drawRect(const Rect.fromLTWH(0, 0, 1, 1), paint);
+      canvas.restore();
+    }
+    canvas.restore();
+
+    // Figma's 1px inside stroke fades from white to olive at 10% opacity.
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect.deflate(0.5), const Radius.circular(15.5)),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color.from(alpha: 0.1, red: 1, green: 1, blue: 1),
+            Color.from(
+              alpha: 0.1,
+              red: 0.6110798716545105,
+              green: 0.6110798716545105,
+              blue: 0.3442450761795044,
+            ),
+          ],
+        ).createShader(rect),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_KandoUpdateSurfacePainter oldDelegate) => false;
 }
 
 /// Figma modal action button.

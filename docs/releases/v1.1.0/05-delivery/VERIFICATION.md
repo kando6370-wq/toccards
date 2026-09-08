@@ -124,3 +124,20 @@ Code Review 自审已完成：确认只影响更新弹窗的专用样式、固�
 - 本次没有执行数据迁移或调整版本规则。prod deployment 仍为 `7cc2f8aa-613e-4da6-9828-3b33015e701d`，Worker version `934506ae-d433-4a38-ae40-6d07b109d50e` 保持 100% 流量。
 
 本次发布复用上述已完成的测试与 Code Review，实际执行了完整 dev 构建和部署后验证。未执行登录态后台人工编辑、App 签名包发布或真机 UI 验收，不能把后台发布视作客户端 UI 已更新。
+
+### 更新弹窗背景渐变修正（2026-09-08）
+
+用户反馈背景与 Figma `736:13370` 不符。重新读取原始 fills 确认设计为不透明 `#222222` 底色，加 24% 不透明度的菱形渐变；旧 Flutter 使用两个不透明近似颜色的短线性渐变。基准尺寸下部分颜色已经接近，但线性渐变在强更缩短高度、小屏缩窄宽度时改变了光感分布。以 Figma 导出截图的 9 个无内容背景点建立像素对照：修复前 `app_update_design_test.dart` 为 3/5 通过，强更尺寸和窄屏尺寸两项失败（退出 1），不是版本判断或接口问题。
+
+当前 `KandoModalFrame` 仅在 `update=true` 时使用 Flutter Canvas 按 Figma 原始归一化矩阵绘制四个渐变象限，保留原始两色、终止位置和 24% 透明度；同时使用 1px、10% 透明度的白色到橄榄色渐变内描边。背景按实际宽高缩放，原有圆角、阴影、插画、文本、按钮布局及升级逻辑保持不变。使用跨平台绘制能力，没有新增图片、依赖或平台分支。Figma 底层填充完全不透明，背景模糊不贡献可见底色，因此未增加额外的背景采样层。
+
+影响范围：普通和强制更新弹窗，包括全局 Gate 和 `showKandoUpdateModal` 入口。危险确认、移除确认、欢迎及失败弹窗保留原有装饰；后台、公共配置接口、环境隔离、版本比较及商店跳转契约无变更。
+
+本次本地验证环境为 macOS、Flutter 3.44.5 / Dart 3.12.2：
+
+- `flutter test --no-pub test/app_update_design_test.dart --reporter expanded`：修复后 5/5 通过，退出 0；覆盖 342×452.267、342×396.267 和 272×396.267 的背景颜色，以及两种按钮布局。
+- `flutter test --no-pub test/app_update_design_test.dart test/kando_modal_test.dart test/app_upgrade_integration_test.dart test/widget/app_upgrade_gate_test.dart /tmp/toccards-update-background.Wh2ckI/render_upgrade_test.dart --reporter expanded`：22 项仓库回归与 1 项临时预览渲染通过，退出 0。覆盖 iOS/Android Widget 平台变体、强更拦截、商店失败/返回、刷新和小屏大字体按钮可达性。
+- `flutter analyze --no-pub`：无问题，退出 0。Dart 格式检查及 `git diff --check` 通过。
+- 已查看 Figma 原图、完整普通更新和强更的 Flutter 渲染对照。背景抽样 RGB 通道差值为 0～2（8 位通道）；此结论限定于背景抽样，不宣称整张弹窗或真机逐像素相同。预览只保存在临时目录，未把截图加入 `docs/`。临时预览脚本补充真实字体、图片预解码及阴影后，曾因测试结束前未恢复绘制调试变量退出 1；修正临时脚本清理后独立重跑 1/1 通过，应用代码未因此改动。
+
+Code Review 自审通过：核对原始矩阵、颜色叠加、象限连续性、圆角裁剪及描边，确认绘制不会改变尺寸和输入处理；新增像素回归在旧实现下已有失败证据，原有交互回归通过。文档影响限于本节视觉实现和验证说明，业务/API 文档变更为 N/A。未运行全仓测试、iOS/Android 真机截图或签名包构建；客户端测试人员仍需使用包含本次修改的包补验实际设备显示。本次未发布客户端或服务端。
