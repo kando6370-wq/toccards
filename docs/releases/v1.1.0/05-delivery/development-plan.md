@@ -355,6 +355,8 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 - 2026-09-08 Scan confirm Purchase Price Performance 修复：扫描 Review 已把 Purchase Price 保存到 `collection_item`，但 Scan confirm 创建的初始 `collection_item_event` 漏写 Purchase Price、币种和可靠历史起点；Collection 编辑表单读取主记录所以仍显示金额，Performance 只读事件，因此提示缺少 Purchase Price。用户不修改直接保存会由普通编辑路径写入完整事件，提示随即消失。修复前 Scan 路由回归稳定得到主记录为 `12.5 USD`、初始事件三个字段均为空。现 Scan confirm 初始事件同步复制这三个字段；PostgreSQL `0012` 仅补齐已确认扫描所关联、符合缺陷特征的历史初始事件，不改非扫描记录和后续事件，且可重复执行。Flutter UI、扫描识别、额度、收藏确认、Performance 计算、API 响应和 Schema 均未修改。修复后 Scan、migration 与 Performance 定向回归 47/47、Workers TypeScript 类型检查和 `git diff --check` 通过；Workers 全量 613 项中 612 项通过，唯一失败是任务前已存在的 Wishlist/Portfolio 并发用例竞态 500，该文件单独重跑 4/4 通过，不能把全量记为通过。Code Review 发现并修正历史 Item 移动 Folder 后可靠起点可能取错及发布顺序窗口问题，复审未发现阻断项。远程 migration、部署及 Flutter iOS/Android 真机端到端验收未执行。
 
+- 2026-09-08 Card Detail Collection Item 编辑态跨 Tab 泄漏修复：根因是具体 Item 的编辑草稿和底部 Footer 保存在页面级 Controller，而 Tab 切换只更新内容索引，导致进入 Performance 后仍显示 `CANCEL / SAVE CHANGES`，返回 Collection Item 也仍处于编辑态。修复前 Widget 回归稳定复现编辑后切换 Performance 仍存在 Footer。现离开 Collection Item Tab 时使用既有取消编辑动作清理未保存草稿；返回时恢复摘要态，保存进行中的请求不强制取消，避免服务端已提交但客户端丢失完成回调。保存接口、Performance 数据、收藏业务与视觉样式均未修改。完整 Card Detail Widget 60/60、`flutter analyze --no-pub`、Dart 格式和 `git diff --check` 通过。Code Review 未发现阻断项，确认 Performance 加载、通用 Card Detail 编辑 Sheet 与保存流程保持原行为；iOS/Android 真机的 Tab 动画和键盘展开状态切换未执行。
+
 ## 4. 数据库与部署策略
 
 - 已存在的 `0025_billing_admin.sql` 不修改；后续均使用递增迁移。
