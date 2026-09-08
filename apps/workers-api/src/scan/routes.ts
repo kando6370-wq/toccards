@@ -191,9 +191,11 @@ LIMIT 1
 const INSERT_CONFIRMED_COLLECTION_ITEM_EVENT_SQL = `
 INSERT INTO collection_item_event
   (id, item_id, owner_type, owner_id, folder_id, card_ref, object_type, grader,
-   condition, grade, language, finish, quantity, event_type, effective_at)
+   condition, grade, language, finish, quantity, purchase_price,
+   purchase_currency, performance_history_available_from, event_type, effective_at)
 SELECT ?, id, owner_type, owner_id, folder_id, card_ref, object_type, grader,
-  condition, grade, language, finish, quantity, 'upsert', ?
+  condition, grade, language, finish, quantity, purchase_price,
+  purchase_currency, folder_joined_at, 'upsert', ?
 FROM collection_item
 WHERE id = ? AND owner_type = ? AND owner_id = ?
 LIMIT 1

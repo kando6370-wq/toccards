@@ -102,7 +102,7 @@ Card AI 面向交易卡牌用户提供目录搜索、图片识别、Wishlist/Col
 5. 用户可分别为每个待编辑 Item 选择 Folder、数量、Raw/评级、品相、评级机构/分数、语言、工艺和购买价；每条使用独立 UUID 作为创建请求的幂等键，保存才逐条创建 Collection Item 并增加 Qty。成功条目从队列移除；批量部分失败时保留失败草稿并继续显示 Review。单条和批量全成功使用 Figma 居中 Success Toast，部分成功使用顶部 warning Toast。只有在 Review 中删除待编辑 Item 才取消该条待收藏。
 6. Search `Qty` 汇总当前卡牌在全部 Folder 中已保存 Item 的 Quantity，不包含待编辑 Item；`In Your Portfolio` 只按当前选中 Folder 过滤，两种口径不得混用。同一 `card_ref` 且 Condition、Language、Finish、Grader、Grade 相同时，Home Most Valuable、Search Cards、Sets 卡牌列表、Wishlist 和 Collection 卡牌列表必须使用同一当前 canonical series、当前价格与 30D 涨幅。Home Trending 和 Trending Today 保持独立的 1D / 24h 行情口径：入榜、排名、当前价格、比较价格和页面涨幅统一读取同一条已发布 `card_trending_snapshot` winner，不改用其他列表的 30D 展示口径。Collection Item 的卡片金额为单张价格乘 `Quantity`，因此两张显示两张总价；`Quantity=1` 时必须与其他同规格单卡入口一致。迁移 Item 的旧 `price_series_id` 只服务总资产、Performance 与历史回放，不覆盖当前列表显示。
 7. 收藏与 Wishlist 保持互斥：待编辑期间隐藏 Wishlist 快捷入口但不提前写服务端，保存 Collection Item 时由既有服务端流程移除同卡 Wishlist，删除待编辑 Item 后恢复原 Wishlist 状态；Wishlist 快捷加入/移除流程本身不变。
-8. 收藏写入同步产生 `collection_item_event`；后续编辑、数量变化、Folder Move 或删除继续写事件，用于历史估值和 Performance。
+8. 收藏写入同步产生完整的 `collection_item_event`；包括 Scan confirm 创建的初始事件，也必须携带 Collection Item 的 Purchase Price、币种和可靠历史起点。后续编辑、数量变化、Folder Move 或删除继续写事件，用于历史估值和 Performance。
 
 关键约束：待编辑队列不属于服务端资产真值，账号身份切换时清空；Search 中 `Qty=0` 表示没有正式收藏，`Qty>0` 表示已有正式收藏；数量至少为 1；同所有者、Folder、卡牌、finish、language、grader、condition、grade 组合唯一；目标 Folder 必须属于当前所有者。证据：`pending_collection.dart`、`search_controller.dart`、`search_repository.dart`、`card_detail_controller.dart`、`card_detail_page.dart`、`portfolio_api_client.dart`、`portfolio/routes.ts`、`portfolio/collect.test.ts`。
 

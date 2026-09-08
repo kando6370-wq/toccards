@@ -353,6 +353,8 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 - 2026-09-08 Scan 最后一次 Free reservation 与 Paywall 一致性修复：用户路径为顶部仍显示最后 1 次、上一张卡仍在 Processing 且内部 Remaining 已因 reservation 归 0，此时再次点击拍照被误判为免费次数已耗尽并提前打开订阅；退出再进入后服务端结算刷新为 0，进一步暴露展示与门禁不一致。另一个根因是页面初始或生命周期发出的旧 Quota refresh 可在等待期间覆盖较新的预占/终态状态。修复前两条受控回归分别稳定观察到 Processing 阶段出现 `Subscription`，以及迟到 refresh 将 `remaining/display` 从 0 覆盖回 1。现 Capture、Gallery 和 Failed Retry 在“本页仍有 Processing、内部为 0、展示仍大于 0”时不再发请求或打开 Paywall，改用顶部 info Toast 提示等待；Processing 成功揭示并显示 0 后继续沿用原已耗尽 Paywall，失败释放后继续扫描。Quota Controller 使用本地版本门禁丢弃等待期间已过期的 refresh 响应；服务端额度账本、预占/消费/释放/返还、识别、价格、订阅权益和 API/Schema 均未修改。Scan Result Source 与 Quota Controller 18 项通过，完整 Scan Widget 101 项通过、5 项既有 390x844 Golden 像素差异失败，失败集合未扩大且未更新基线；`flutter analyze --no-pub`、Dart 格式及 `git diff --check` 通过。Code Review 发现并修正了最初等待判断范围过宽导致明确耗尽的 Failed Retry 不再打开 Paywall，复审确认拍照、相册、重试、Premium 与真正耗尽分支保持原契约；未执行 iOS/Android 真机的最后一次额度、后台恢复和弱网时序验收。
 
+- 2026-09-08 Scan confirm Purchase Price Performance 修复：扫描 Review 已把 Purchase Price 保存到 `collection_item`，但 Scan confirm 创建的初始 `collection_item_event` 漏写 Purchase Price、币种和可靠历史起点；Collection 编辑表单读取主记录所以仍显示金额，Performance 只读事件，因此提示缺少 Purchase Price。用户不修改直接保存会由普通编辑路径写入完整事件，提示随即消失。修复前 Scan 路由回归稳定得到主记录为 `12.5 USD`、初始事件三个字段均为空。现 Scan confirm 初始事件同步复制这三个字段；PostgreSQL `0012` 仅补齐已确认扫描所关联、符合缺陷特征的历史初始事件，不改非扫描记录和后续事件，且可重复执行。Flutter UI、扫描识别、额度、收藏确认、Performance 计算、API 响应和 Schema 均未修改。修复后 Scan、migration 与 Performance 定向回归 47/47、Workers TypeScript 类型检查和 `git diff --check` 通过；Workers 全量 613 项中 612 项通过，唯一失败是任务前已存在的 Wishlist/Portfolio 并发用例竞态 500，该文件单独重跑 4/4 通过，不能把全量记为通过。Code Review 发现并修正历史 Item 移动 Folder 后可靠起点可能取错及发布顺序窗口问题，复审未发现阻断项。远程 migration、部署及 Flutter iOS/Android 真机端到端验收未执行。
+
 ## 4. 数据库与部署策略
 
 - 已存在的 `0025_billing_admin.sql` 不修改；后续均使用递增迁移。

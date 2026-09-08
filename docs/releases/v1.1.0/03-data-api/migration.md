@@ -1,5 +1,11 @@
 # v1.1.0 数据迁移
 
+## Scan confirm Purchase Price 事件修复（0012）
+
+`apps/workers-api/src/db/postgres/migrations/0012_scan_confirm_purchase_price_event.sql` 不改变 Schema，只补齐旧 Scan confirm 创建的初始 `collection_item_event` 中遗漏的 Purchase Price、币种和可靠历史起点。修复范围由已确认 `scan_record.user_result.collection_item_id` 精确关联，仅处理主记录当前仍有 Purchase Price、初始事件的购买价与币种均为空的记录；非扫描创建记录、后续编辑事件和当前无 Purchase Price 的记录保持不变。迁移可重复执行。
+
+该迁移与旧 Worker 兼容。发布时先部署已修正 Scan confirm 写入的新 Worker，再执行 `0012`，避免旧 Worker 在数据修复后继续产生漏字段事件。应用代码回滚时保留已补齐的事件数据，不能安全地批量清空这些字段；如必须执行数据级回滚，应依据执行前备份按精确事件恢复。本次只提交 PostgreSQL migration，未执行 dev/prod 远程迁移或部署；不得向 D1 迁移或退役工具复制该修复。
+
 ## 版本管理环境配置拆分（0011）
 
 `apps/workers-api/src/db/postgres/migrations/0011_app_version_environment.sql` 在现有 `app_config` 中新增 dev/prod × iOS/Google 四个独立键，不改变表结构。历史平台规则及其有效商店兜底一次性复制；已存在的环境配置不覆盖。新 Worker 不再读取旧共用版本规则。

@@ -77,9 +77,12 @@ type CollectionItemEventRow = Pick<
   | "language"
   | "finish"
   | "quantity"
+  | "purchase_price"
+  | "purchase_currency"
 > & {
   id: string;
   item_id: string;
+  performance_history_available_from: string | null;
   event_type: "upsert" | "delete";
   effective_at: string;
 };
@@ -407,6 +410,7 @@ class FakeD1Statement {
       return okResult<T>();
     }
     if (sql.startsWith("INSERT INTO collection_item_event")) {
+      const selectedColumns = sql.slice(sql.indexOf("SELECT"), sql.indexOf("FROM collection_item"));
       const [id, effectiveAt, itemId, ownerType, ownerId] = this.values as [
         string,
         string,
@@ -432,6 +436,13 @@ class FakeD1Statement {
         language: item.language,
         finish: item.finish,
         quantity: item.quantity,
+        purchase_price: selectedColumns.includes("purchase_price") ? item.purchase_price : null,
+        purchase_currency: selectedColumns.includes("purchase_currency")
+          ? item.purchase_currency
+          : null,
+        performance_history_available_from: selectedColumns.includes("folder_joined_at")
+          ? item.folder_joined_at
+          : null,
         event_type: "upsert",
         effective_at: effectiveAt,
       });
@@ -1489,6 +1500,9 @@ describe("scan routes", () => {
         language: "Japanese",
         finish: "Foil",
         quantity: 2,
+        purchase_price: 12.5,
+        purchase_currency: "USD",
+        performance_history_available_from: env.DB.collectionItems[0]?.folder_joined_at,
         event_type: "upsert",
         effective_at: env.DB.collectionItems[0]?.folder_joined_at,
       }),
