@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,6 +12,179 @@ import 'package:kando_app/shared/scan/scan_api_client.dart';
 import 'package:kando_app/shared/scan/scan_providers.dart';
 
 void main() {
+  test(
+    'reservation changes internal capacity without changing displayed quota',
+    () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(scanQuotaControllerProvider.notifier);
+
+      controller.applyServerQuota(
+        const ScanQuotaDto(
+          access: ScanQuotaAccess.free,
+          limit: 10,
+          reserved: 1,
+          consumed: 0,
+          remaining: 9,
+          unlimited: false,
+        ),
+        syncDisplayedRemaining: false,
+      );
+
+      final quota = container.read(scanQuotaControllerProvider);
+      expect(quota.remainingScans, 9);
+      expect(quota.displayRemainingScans, 10);
+    },
+  );
+
+  test('a settled success updates displayed quota at most once', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final controller = container.read(scanQuotaControllerProvider.notifier);
+
+    controller.applyServerQuota(
+      const ScanQuotaDto(
+        access: ScanQuotaAccess.free,
+        limit: 10,
+        reserved: 0,
+        consumed: 1,
+        remaining: 9,
+        unlimited: false,
+      ),
+      syncDisplayedRemaining: false,
+    );
+    expect(
+      container.read(scanQuotaControllerProvider).displayRemainingScans,
+      10,
+    );
+
+    controller.revealSuccessfulScanInDisplay();
+    controller.revealSuccessfulScanInDisplay();
+
+    expect(
+      container.read(scanQuotaControllerProvider).displayRemainingScans,
+      9,
+    );
+  });
+
+  test('an older concurrent response cannot erase a newer consumed count', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final controller = container.read(scanQuotaControllerProvider.notifier);
+
+    controller.applyServerQuota(
+      const ScanQuotaDto(
+        access: ScanQuotaAccess.free,
+        limit: 10,
+        reserved: 0,
+        consumed: 2,
+        remaining: 8,
+        unlimited: false,
+      ),
+      syncDisplayedRemaining: false,
+    );
+    controller.applyServerQuota(
+      const ScanQuotaDto(
+        access: ScanQuotaAccess.free,
+        limit: 10,
+        reserved: 0,
+        consumed: 1,
+        remaining: 9,
+        unlimited: false,
+      ),
+      syncDisplayedRemaining: false,
+    );
+
+    controller.revealSuccessfulScanInDisplay();
+    controller.revealSuccessfulScanInDisplay();
+
+    final quota = container.read(scanQuotaControllerProvider);
+    expect(quota.displayRemainingScans, 8);
+    expect(quota.serverConsumedScans, 2);
+  });
+
+  test(
+    'an authoritative refresh excludes reservations from displayed quota',
+    () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(scanQuotaControllerProvider.notifier);
+
+      controller.applyServerQuota(
+        const ScanQuotaDto(
+          access: ScanQuotaAccess.free,
+          limit: 10,
+          reserved: 1,
+          consumed: 2,
+          remaining: 7,
+          unlimited: false,
+        ),
+      );
+
+      final quota = container.read(scanQuotaControllerProvider);
+      expect(quota.remainingScans, 7);
+      expect(quota.displayRemainingScans, 8);
+    },
+  );
+
+  test(
+    'an older refresh cannot overwrite quota settled while it waited',
+    () async {
+      final api = _DelayedQuotaApi();
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith(_ReadyAuthController.new),
+          scanApiClientProvider.overrideWithValue(api),
+          subscriptionControllerProvider.overrideWith(
+            _FreeQuotaSubscriptionController.new,
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(scanQuotaControllerProvider.notifier);
+      controller.applyServerQuota(
+        const ScanQuotaDto(
+          access: ScanQuotaAccess.free,
+          limit: 10,
+          reserved: 0,
+          consumed: 9,
+          remaining: 1,
+          unlimited: false,
+        ),
+      );
+
+      final refresh = controller.refresh();
+      await Future<void>.delayed(Duration.zero);
+      controller.applyServerQuota(
+        const ScanQuotaDto(
+          access: ScanQuotaAccess.free,
+          limit: 10,
+          reserved: 0,
+          consumed: 10,
+          remaining: 0,
+          unlimited: false,
+        ),
+        syncDisplayedRemaining: false,
+      );
+      controller.revealSuccessfulScanInDisplay();
+      api.quota.complete(
+        const ScanQuotaDto(
+          access: ScanQuotaAccess.free,
+          limit: 10,
+          reserved: 0,
+          consumed: 9,
+          remaining: 1,
+          unlimited: false,
+        ),
+      );
+
+      expect(await refresh, isTrue);
+      final quota = container.read(scanQuotaControllerProvider);
+      expect(quota.remainingScans, 0);
+      expect(quota.displayRemainingScans, 0);
+    },
+  );
+
   test(
     'expired Premium clears stale Unlimited by retrying quota with the reconciled Free state',
     () async {
@@ -96,6 +271,12 @@ class _ExpiredSubscriptionController extends SubscriptionController {
   }
 }
 
+class _FreeQuotaSubscriptionController extends SubscriptionController {
+  @override
+  SubscriptionState build() =>
+      const SubscriptionState(premiumState: AppPremiumState.free);
+}
+
 class _UnexpectedReconciliationSubscriptionController
     extends SubscriptionController {
   @override
@@ -136,4 +317,16 @@ class _ExpiredPremiumQuotaApi extends ScanApiClient {
       unlimited: false,
     );
   }
+}
+
+class _DelayedQuotaApi extends ScanApiClient {
+  _DelayedQuotaApi() : super(Dio());
+
+  final quota = Completer<ScanQuotaDto>();
+
+  @override
+  Future<ScanQuotaDto> getQuota(
+    AuthSession session, {
+    bool localPremiumVerified = false,
+  }) => quota.future;
 }

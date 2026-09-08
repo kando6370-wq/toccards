@@ -204,19 +204,23 @@ void main() {
   });
 
   testWidgets(
-    'a completed free scan consumes one allowance so the displayed limit stays truthful',
+    'a free scan updates the displayed allowance when its card becomes Matched',
     (tester) async {
       await _pumpScanTestApp(tester);
 
       await tester.tap(find.byTooltip('Take Photo'));
       await tester.pump();
 
+      expect(find.text('10 scans remaining'), findsOneWidget);
+
+      await _completeFigmaScan(tester);
+
       expect(find.text('9 scans remaining'), findsOneWidget);
     },
   );
 
   testWidgets(
-    'the Free quota prompt stays visible through scanning and follows the settled server count',
+    'a reservation updates capacity without reducing the displayed allowance',
     (tester) async {
       final pending = Completer<ScanResolution>();
       final quotaController = _TestScanQuotaController(_availableQuota);
@@ -239,15 +243,17 @@ void main() {
           remaining: 9,
           unlimited: false,
         ),
+        syncDisplayedRemaining: false,
       );
       await tester.pump();
-      expect(find.text('9 scans remaining'), findsOneWidget);
+      expect(quotaController.state.remainingScans, 9);
+      expect(find.text('10 scans remaining'), findsOneWidget);
 
       await tester.pump(const Duration(seconds: 1));
-      expect(find.text('9 scans remaining'), findsOneWidget);
+      expect(find.text('10 scans remaining'), findsOneWidget);
 
       await tester.pump(const Duration(seconds: 1));
-      expect(find.text('9 scans remaining'), findsOneWidget);
+      expect(find.text('10 scans remaining'), findsOneWidget);
 
       pending.complete(
         const ScanResolution.noMatch(
@@ -255,8 +261,8 @@ void main() {
             access: ScanQuotaAccess.free,
             limit: 10,
             reserved: 0,
-            consumed: 1,
-            remaining: 9,
+            consumed: 0,
+            remaining: 10,
             unlimited: false,
           ),
         ),
@@ -264,8 +270,157 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 1530));
 
-      expect(find.text('9 scans remaining'), findsOneWidget);
+      expect(find.text('10 scans remaining'), findsOneWidget);
       expect(find.text('Tap to get unlimited scans'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'the last in-flight Free reservation does not open the paywall before its result is revealed',
+    (tester) async {
+      final pending = Completer<ScanResolution>();
+      final source = _TestScanResultSource(photoResult: pending.future);
+      final quotaController = _TestScanQuotaController(
+        const ScanQuotaDto(
+          access: ScanQuotaAccess.free,
+          limit: 10,
+          reserved: 0,
+          consumed: 9,
+          remaining: 1,
+          unlimited: false,
+        ),
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanQuotaController: quotaController,
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      quotaController.applyServerQuota(
+        const ScanQuotaDto(
+          access: ScanQuotaAccess.free,
+          limit: 10,
+          reserved: 1,
+          consumed: 9,
+          remaining: 0,
+          unlimited: false,
+        ),
+        syncDisplayedRemaining: false,
+      );
+      await tester.pump();
+      expect(find.text('1 scans remaining'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+
+      expect(source.photoCallCount, 1);
+      expect(find.text('Subscription'), findsNothing);
+
+      pending.complete(
+        const ScanResolution.matched(
+          scanId: 'last-free-scan',
+          cardRef: 'card-mega',
+          matchName: 'Mega Lucario ex',
+          candidates: ['Mega Lucario ex'],
+          quota: ScanQuotaDto(
+            access: ScanQuotaAccess.free,
+            limit: 10,
+            reserved: 0,
+            consumed: 10,
+            remaining: 0,
+            unlimited: false,
+          ),
+        ),
+      );
+      await _completeFigmaScan(tester);
+      expect(find.text('0 scans remaining'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Subscription'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a Matched card reduces the displayed allowance before price data arrives',
+    (tester) async {
+      final repository = _StaleScanCardsRepository();
+      await _pumpScanTestApp(tester, scanReviewRepository: repository);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+
+      expect(find.text('10 scans remaining'), findsOneWidget);
+
+      await _completeFigmaScan(tester);
+
+      expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
+      expect(find.byKey(const Key('scan-item-price-1')), findsOneWidget);
+      expect(find.text('--'), findsOneWidget);
+      expect(find.text('9 scans remaining'), findsOneWidget);
+      expect(repository.loadCardsCount, 1);
+
+      repository.completeBackgroundLoadWithEmptyPrices();
+      await tester.pump();
+
+      expect(find.text('9 scans remaining'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'batch results reduce the displayed allowance one match at a time',
+    (tester) async {
+      final source = _TestScanResultSource(
+        photoResult: Future.value(
+          const ScanResolution.matched(
+            scanId: 'scan-one',
+            cardRef: 'card-mega',
+            matchName: 'Mega Lucario ex',
+            candidates: ['Mega Lucario ex'],
+            quota: ScanQuotaDto(
+              access: ScanQuotaAccess.free,
+              limit: 10,
+              reserved: 0,
+              consumed: 1,
+              remaining: 9,
+              unlimited: false,
+            ),
+          ),
+        ),
+        subsequentPhotoResults: [
+          Future.value(
+            const ScanResolution.matched(
+              scanId: 'scan-two',
+              cardRef: 'card-charizard',
+              matchName: 'Charizard ex',
+              candidates: ['Charizard ex'],
+              quota: ScanQuotaDto(
+                access: ScanQuotaAccess.free,
+                limit: 10,
+                reserved: 0,
+                consumed: 2,
+                remaining: 8,
+                unlimited: false,
+              ),
+            ),
+          ),
+        ],
+      );
+      await _pumpScanTestApp(tester, scanResultSource: source);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+      expect(find.text('10 scans remaining'), findsOneWidget);
+      await _completeFigmaScan(tester);
+      expect(find.text('9 scans remaining'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+      expect(find.text('9 scans remaining'), findsOneWidget);
+      await _completeFigmaScan(tester);
+      expect(find.text('8 scans remaining'), findsOneWidget);
     },
   );
 

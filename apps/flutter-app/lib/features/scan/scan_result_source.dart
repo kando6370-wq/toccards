@@ -143,7 +143,9 @@ final scanResultSourceProvider = Provider<ScanResultSource>(
         ref.read(scanQuotaControllerProvider).unlimited,
     onQuotaChanged: (quota) {
       if (ref.mounted) {
-        ref.read(scanQuotaControllerProvider.notifier).applyServerQuota(quota);
+        ref
+            .read(scanQuotaControllerProvider.notifier)
+            .applyServerQuota(quota, syncDisplayedRemaining: false);
       }
     },
   ),

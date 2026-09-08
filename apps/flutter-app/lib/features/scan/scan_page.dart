@@ -623,6 +623,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
     if (!_hasScanQueueCapacity()) return;
     if (!await _resolvePremiumBeforeScan()) return;
     if (!mounted) return;
+    if (_scanQuotaAwaitingSettlement()) {
+      _showScanQuotaAwaitingSettlement();
+      return;
+    }
     final source = ref.read(scanResultSourceProvider);
     final camera = _cameraSession;
     if (camera == null) {
@@ -712,6 +716,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
     if (!_hasScanQueueCapacity()) return;
     if (!await _resolvePremiumBeforeScan()) return;
     if (!mounted) return;
+    if (_scanQuotaAwaitingSettlement()) {
+      _showScanQuotaAwaitingSettlement();
+      return;
+    }
     if (_scanQuotaExhausted()) {
       unawaited(_openQuotaPaywall());
       return;
@@ -784,6 +792,25 @@ class _ScanPageState extends ConsumerState<ScanPage>
       return false;
     }
     return quota.isServerAuthoritative && quota.remainingScans == 0;
+  }
+
+  bool _scanQuotaAwaitingSettlement() {
+    final quota = ref.read(scanQuotaControllerProvider);
+    if (ref.read(subscriptionControllerProvider).isPro || quota.unlimited) {
+      return false;
+    }
+    return quota.isServerAuthoritative &&
+        quota.remainingScans == 0 &&
+        quota.displayRemainingScans > 0 &&
+        _pendingScans.isNotEmpty;
+  }
+
+  void _showScanQuotaAwaitingSettlement() {
+    showKandoTopToast(
+      context,
+      message: 'Please wait for current scans to finish',
+      type: KandoTopToastType.info,
+    );
   }
 
   bool _hasScanQueueCapacity() {
@@ -1064,6 +1091,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   Future<void> _retryScan(_ScanItem item) async {
     if (!await _resolvePremiumBeforeScan()) return;
+    if (_scanQuotaAwaitingSettlement()) {
+      _showScanQuotaAwaitingSettlement();
+      return;
+    }
     if (_scanQuotaExhausted()) {
       _replaceItem(item.copyWith(status: _ScanItemStatus.waiting));
       unawaited(_openQuotaPaywall());
@@ -1347,9 +1378,19 @@ class _ScanPageState extends ConsumerState<ScanPage>
     if (serverQuota != null) {
       ref
           .read(scanQuotaControllerProvider.notifier)
-          .applyServerQuota(serverQuota);
+          .applyServerQuota(
+            serverQuota,
+            syncDisplayedRemaining:
+                resolution.kind == ScanResolutionKind.quotaExhausted,
+          );
     }
     if (pending.removedFromUi) {
+      if (resolution.kind == ScanResolutionKind.matched &&
+          resolution.matchName != null) {
+        ref
+            .read(scanQuotaControllerProvider.notifier)
+            .revealSuccessfulScanInDisplay();
+      }
       _pendingScans.remove(itemId)?.revealController?.dispose();
       if (serverQuota != null) {
         _resumeWaitingFromServerQuota();
@@ -1517,6 +1558,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
       }
     });
     if (match != null) {
+      ref
+          .read(scanQuotaControllerProvider.notifier)
+          .revealSuccessfulScanInDisplay();
       unawaited(_loadScanCards(match));
     }
     completedPending?.revealController?.dispose();
@@ -2170,7 +2214,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
                     currency: currency,
                     remainingScans: hasPremiumAccess
                         ? null
-                        : quota.remainingScans,
+                        : quota.displayRemainingScans,
                     onClosePressed: _handleClosePressed,
                     onFlashPressed: _cameraSession == null
                         ? null

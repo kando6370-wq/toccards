@@ -126,7 +126,7 @@ reserved -> released
 - 同一 request 重试返回已有结果；60 秒 processing lease 过期后允许接管。
 - Premium 请求记录审计但不消耗 Free 额度。
 - 客户端超时或传输结果不确定时，Failed Retry 复用原 request ID，避免服务端迟到成功后以新 ID 再次消费；收到明确终态响应后的 Retry 使用新请求。
-- Premium 在 Scan 页面内确认降级为 Free，或服务端 quota 从 Unlimited 收敛为 Free 时，App 主动刷新并恢复该身份原有 Remaining；Free 提示条在 Scanning、Recognizing、Revealing 和结果状态持续显示并跟随最新服务端结算值。
+- Premium 在 Scan 页面内确认降级为 Free，或服务端 quota 从 Unlimited 收敛为 Free 时，App 主动刷新并恢复该身份原有 Remaining；Free 提示条在 Scanning、Recognizing、Revealing 和结果状态持续显示。服务端预占仍立即更新内部可用额度并用于 Capture 拦截、批量容量和 Waiting 调度，但顶部提示不因 `reserved` 提前减少；只有完整可用结果从 Loading/Revealing 切换为 Matched 时才逐项显示已消费次数，不等待异步价格。No Match、目录数据不完整和技术失败不减少展示次数，无市场价格但详情可用的 Matched 仍正常减少。当本页仍有 Processing，内部 Remaining 因尚未结算的 reservation 暂时为 0、顶部仍显示未消费次数时，Capture、Gallery 和 Retry 使用顶部提示要求等待当前扫描完成，不得提前打开 Free Quota Paywall；Processing 结算且展示次数归 0 后才按已耗尽处理。
 - Capture 与 Gallery 共用 10 张 Queue 上限，Waiting、Processing、Matched、Failed 和 No Match 均计入容量。Waiting 卡片保留用户拍摄或选择的原图缩略图；只有图片本身不可用时才显示默认占位图。
 - 批量 Scan 在当前页面会话内保留每个未确认识别结果的图片、匹配候选、卡牌资料和价格；底部结果 rail 与 Review 使用同一份结果缓存。确认加入 Collection 后，该项立即从 Queue 和结果 rail 移除；批量部分成功只移除成功项，失败项及其草稿继续留在 Review。
 - App Queue 的 Processing、Waiting、Matched、Failed 和 No Match 是客户端展示状态；不再保留 Added 展示状态。删除 Processing 不取消已发出的服务端结算，但后台结果不会把已删 Item 插回 UI。
