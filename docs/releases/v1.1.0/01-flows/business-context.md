@@ -3,7 +3,7 @@
 ## 0. 文档说明
 
 - 分析范围：全项目业务主线，重点记录 v1.1 相对 v1.0 的订阅、额度、Performance 和 Admin 增量。
-- 分析基线：`dev@cea5d4e`，2026-08-14。
+- 当前核对基线：`dev@b0b54df`，2026-09-09；原始分析起点为 2026-08-14，历史环境结果保留其检查日期。
 - 范围边界：当前检出代码、Schema/迁移、运行配置和测试；不把远程环境历史证据外推为当前实时状态。
 - 上一版本未变化流程继续参考 [v1.0.0 业务流程](../../v1.0.0/01-flows/flows.md)。
 
@@ -111,7 +111,7 @@ Card AI 面向交易卡牌用户提供目录搜索、图片识别、Wishlist/Col
 1. App 拍照或选图，经端侧模型检测和原生透视矫正生成 512 维卡面向量，提交矫正图片、`vector`、`request_id` 和同值 `Idempotency-Key`；见[扫描识别链路](scan-recognition.md)。
 2. Workers 先按当前 session grant 判断 Premium；Free 请求以一条条件 INSERT 原子预占额度。
 3. 矫正图片写入私有 R2，Workers 经 `VECTOR_RECOGNITION` Service Binding 向 `recognize-vec` 仅发送向量，返回成功候选、无匹配或失败。
-4. 技术失败释放预占；成功识别消费额度并返回最新 Quota。
+4. 仅完整可用 Matched 消费 Free 额度；No Match、目录不完整及技术失败释放预占，并返回最新 Quota。
 5. 用户在 Review 选择结果，调用 `/scan/:scan_id/confirm` 创建收藏记录。
 
 Quota 状态：
@@ -248,7 +248,7 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 | recognize-vec | 内部识别服务 | 512 维向量检索候选 | Scan 失败并释放 Free 预占 |
 | PlanetScale PostgreSQL / Hyperdrive | 核心真源与连接边界 | 参数化 PostgreSQL SQL | 账号、资产、额度、订阅和 Admin 不可用 |
 | KV | 缓存 | 目录/汇率快照 | 可回源或显式失败，不能改变授权真值 |
-| R2 | 对象存储 | 扫描原图 | 识别可按配置继续；Admin 图片可能不可查看 |
+| R2 | 对象存储 | 受保护的矫正卡面图片 | 缺少 binding 或上传失败时识别失败并释放预占；Admin 读取仍需授权 |
 | 邮件/OAuth | 身份上游 | 验证码和第三方登录 | 注册、找回或 OAuth 登录受阻 |
 | Analytics/Attribution | 下游 | Firebase/Mixpanel/Singular | 统计缺失，不应阻断授权或购买 |
 | Admin | 下游运营 | 查询、排障、配置 | 不影响 Apple 最终真值；不能人工改 Premium |
@@ -274,7 +274,7 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 | 编号 | 文件/符号 | 说明 |
 |---|---|---|
 | E1 | `apps/workers-api/src/index.ts` | API 路由与定时补偿入口 |
-| E2 | `apps/workers-api/src/db/schema.ts` | 当前实体、约束和索引 |
+| E2 | `apps/workers-api/src/db/postgres/migrations/` | 当前 PostgreSQL 实体、约束、索引及向前数据修复 |
 | E3 | `apps/workers-api/src/owner-auth.ts` | owner 与 session 信任边界 |
 | E4 | `apps/workers-api/src/scan/quota.ts` | Free Scan 原子额度规则 |
 | E5 | `apps/workers-api/src/portfolio/routes.ts` | Folder/资产/Performance 路由与授权 |
@@ -291,6 +291,6 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 | Lifetime 已验证本地缓存最长离线时间是多少？ | 冷启动/离线 Premium 体验 | 产品待决，不擅自设时限 |
 | Android 是否在 v1.1 销售 Premium？ | 商品、授权和跨端验收 | 当前只激活 Apple/iOS；保留抽象但不误售 |
 | 独立价格上游导入、目标规模压测和冷数据方案何时验收？ | 价格 API 实数可用性与容量 | PlanetScale PostgreSQL/Hyperdrive 和 7 表结构已实施；迁移检查点七表为空，旧 `tcg_price` 被明确排除，需独立上游契约、R2 冷层和目标规模压测 |
-| 后续 dev/prod 的迁移、Secret 和部署是否仍与 2026-08-17 记录一致？ | 发布判断 | 本次已重连核验 dev/prod deployment；Secret 仅核实配置项存在。远程状态会变化，后续发布前必须重新查询 |
+| 后续 dev/prod 的迁移、Secret 和部署是否仍与最近证据一致？ | 发布判断 | 2026-09-09 已回读 deployment/binding，未重查数据库 ledger；Secret 仅核实名称，不能证明全部内容有效。后续发布前须重新核验 |
 | Apple 生产 SKU、Root CA、Server API 与 Sandbox/TestFlight 是否完成？ | 购买/通知发布验收 | 本次未验证，不宣称完成 |
 | 重度 Portfolio、真实订单与多设备并发是否达标？ | Performance/Admin/Quota SLA | 自动化只证明仓库内逻辑，仍需目标规模验收 |

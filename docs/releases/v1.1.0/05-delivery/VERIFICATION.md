@@ -1,6 +1,21 @@
-# 版本管理环境隔离与强制更新验收
+# v1.1.0 发布与验证记录
 
-本说明对应 2026-09-08 的版本管理修复。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代。
+本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
+
+## 当前运行边界（2026-09-09 回读）
+
+本地 `dev@b0b54df` 与 `github/dev` 一致，包含向量合并 `f38ef98`；四个已清理分支 `dev-wxy`、`dev-xiangyang`、`dev-update-dio`、`dev-scan-page-update-ui` 在本地及远程均不存在。旧分支名仅保留历史来源含义，后续开发与 dev 发布使用当前 `dev`。
+
+| 环境 | 当前 100% 流量 Worker version | 数据与识别边界 |
+|---|---|---|
+| dev | `f904daec-25e6-4a0a-8001-b2ea7166197e`，创建于 `2026-09-09T03:07:51Z` | 共享 Hyperdrive、dev KV/R2、VECTOR_RECOGNITION=recognize-vec；无 D1 或 OCR_SERVICE_BASE_URL |
+| prod | `934506ae-d433-4a38-ae40-6d07b109d50e`，创建于 `2026-09-07T09:24:34Z` | 共享 Hyperdrive、production KV/R2、OCR_SERVICE_BASE_URL；无 D1，尚未切换当前 dev 的向量协议 |
+
+以上分别执行 `wrangler deployments status --env dev`、`wrangler deployments status --env prod` 及对应环境的 `wrangler versions view` 回读，命令均退出 0。较早的 `3e5d4b2d` 是本页下方合并发布时的版本，已被后续部署接替；新版本没有原合并发布 tag，本轮只核对版本与绑定，不把旧版本的 bundle/资源哈希验证外推到新版本。
+
+`2026-09-09T03:16:45Z` dev HTTP 回读：health 为 `200/status=ok`，games 为 `200/10` 条，iOS/Google 公共配置均为 `200/no-store`，iOS 最低/建议版本 `1.0.2`、`force_update=false`，Google 规则停用，未授权 Admin 版本接口为 401。prod `/app-config` 返回 200 且两项 Singular SDK 配置非空；旧接口没有 dev 新增的 `no-store`，本轮未输出配置值。
+
+本次文档核对没有重新部署、运行数据库迁移、修改运营配置、发送 Apple 通知或进行真实购买。`0011` 的 development 初始化与 `0012` 未执行回填沿用下方既有证据，没有重查数据库 ledger。D1 已废弃、dev/test 与 prod 均已完成 PostgreSQL 迁移；后续仅维护 PostgreSQL 内的 schema 和业务数据变更，见[数据迁移](../03-data-api/migration.md)。下文的 Golden 失败、真机待验及 SDK 收件限制仍有效。
 
 ## 验收规则
 
@@ -276,6 +291,6 @@ Code Review 自审通过：逐项核对双方提交和手工解冲突差异，�
 - 远程绑定为 `VECTOR_RECOGNITION=recognize-vec`、dev KV/R2、共享 Hyperdrive、`APP_ENVIRONMENT=development` 与 beta Apple 配置，不含 `OCR_SERVICE_BASE_URL` 或 D1；5 分钟 Cron 发布成功。
 - `2026-09-09T03:02:23Z` 的 HTTP 校验退出 0：health 为 `200/status=ok`，games 为 `200/10` 条，Pokemon Search 第 3 页为 `200/40` 条；iOS/Google 公共配置均为 `200/no-store`，iOS 最低/建议版本均为 `1.0.2`、`force_update=false`，Google 规则停用。
 - `/admin` 返回 200，HTML SHA-256 为 `30121eea22e331509e24030ad1d81dffa324fdc400f53c711f17082b20c54e1b`；HTML 与所引用全部 10 个 JS/CSS 均与本地 dev 构建逐字节一致。未授权 Admin 版本接口及扫描识别 POST 均为 `401 UNAUTHORIZED`，没有创建扫描记录或消费额度。
-- prod 发布前后均为 `934506ae-d433-4a38-ae40-6d07b109d50e`、100% 流量，未部署 prod；没有执行远程数据库迁移、历史回填或运营配置修改。本次只在本地创建 Git 合并与验证记录提交，未执行 Git push。
+- 该次 dev 发布前后 prod 均为 `934506ae-d433-4a38-ae40-6d07b109d50e`、100% 流量，没有重新部署 prod，也未执行远程数据库迁移、历史回填或运营配置修改。随后按用户授权将合并与验证记录推送至 `github/dev@b0b54df`，并清理四个指定的本地/远程分支；当前 Git 与运行状态以上方回读为准。
 
 dev 服务端部署及上述校验已完成；真实图片、登录态完整扫描与新 App 签名包验收仍按本节未验证项补充。后续应从含本次合并的 dev 提交发布，避免旧 pHash 分支再次覆盖同一开发环境。

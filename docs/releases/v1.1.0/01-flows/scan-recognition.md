@@ -1,6 +1,6 @@
 # 扫描识别向量链路
 
-本实现从 `dev-xiangyang@ceef1af` 按识别代码段移植到 `dev-wxy`，基线为 `7451382`，于 2026-09-09 合入 `dev`。保留 `dev` 当前 Queue、Quota、候选资料与确认入库逻辑，包括 Scan confirm 初始估值事件的购买价格、币种和可靠历史起点修复。
+本实现从历史提交 `dev-xiangyang@ceef1af` 按识别代码段移植为 `e18543a`，基线为 `7451382`，于 2026-09-09 经 `f38ef98` 合入 `dev` 并推送远程。`dev-wxy`、`dev-xiangyang` 等来源分支已清理，旧分支名只用于追溯，不再作为检出或发布目标。保留 `dev` 当前 Queue、Quota、候选资料与确认入库逻辑，包括 Scan confirm 初始估值事件的购买价格、币种和可靠历史起点修复。
 
 ## 识别流程
 
@@ -27,6 +27,6 @@
 
 旧 `r/g/b` pHash 不再是有效请求；`vector` 必须是 512 项数值数组、至少一个非零分量，JSON 最大 32 KiB。候选 `product_id` 继续支持字符串与旧整数形式，confidence 保持 0–100。识别审计算法标识为 `pe-core-t16-384-cosine-v1`。`game_id` 在主 Worker 的目录查询层过滤，不发送给内部向量服务。
 
-dev/prod 配置均以 `VECTOR_RECOGNITION` 绑定 `recognize-vec`，移除 `OCR_SERVICE_BASE_URL`，不设置旧协议或公网回退。缺少 binding 返回 `503 VECTOR_RECOGNITION_UNAVAILABLE`；上游失败返回 `502`，按既有规则释放额度。没有新增数据库 schema、migration、数据回填或远程写入。
+仓库中的 dev/prod 配置均以 `VECTOR_RECOGNITION` 绑定 `recognize-vec`，移除 `OCR_SERVICE_BASE_URL`，不设置旧协议或公网回退。缺少 binding 返回 `503 VECTOR_RECOGNITION_UNAVAILABLE`；上游失败返回 `502`，按既有规则释放额度。向量链路本身没有新增数据库 schema 或 migration；合并保留的 `0012` 属于独立历史事件回填，仍未执行。
 
-上线必须协调新 App、主 API 与 `recognize-vec`，因为旧 App 的 pHash 请求不兼容新 API。`dev-wxy@e18543a` 的主 API 与管理后台已于 2026-09-08 发布到共用 dev 环境，`VECTOR_RECOGNITION` 已绑定在线 `recognize-vec`；测试需使用包含模型与向量请求的新 App 包。发布与真机验证结果见[验收记录](../05-delivery/VERIFICATION.md)。
+上线必须协调新 App、主 API 与 `recognize-vec`，因为旧 App 的 pHash 请求不兼容新 API。2026-09-09 合并后的主 API/Admin 已发布到 dev，当日后续回读仍确认 dev 使用 `VECTOR_RECOGNITION`；prod 实际运行版本仍配置旧 `OCR_SERVICE_BASE_URL`，尚未切换向量协议。测试需使用包含模型与向量请求、连接 dev API 的 App 包。Android Debug 构建通过不代表两端真机模型验收或新 App 签名包已发布，具体证据见[验收记录](../05-delivery/VERIFICATION.md)。

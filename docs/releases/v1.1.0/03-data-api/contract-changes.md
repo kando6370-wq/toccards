@@ -12,7 +12,7 @@
 
 版本规则由可信 Worker `APP_ENVIRONMENT` 选择 `app_config` 中的 `admin.app_version.<development|production>.<ios|google>`。`GET /admin/app-versions` 新增 `data.environment`；版本 PATCH 仅写当前环境。通用 App Config PATCH 禁止写版本键和旧共用升级键，返回 `422`。启用规则必须有有效 HTTP(S) 商店地址、布尔强更标志、合法状态和三段版本号，建议版本必须大于等于最低版本。
 
-公共 `GET /app-config?platform=ios|google` 保持 `upgrade_prompt`、`app_store_url`、法律及 SDK 配置响应字段，增加 `Cache-Control: no-store`。环境或平台规则缺失/损坏返回 `503 APP_VERSION_CONFIG_UNAVAILABLE`；明确停用的规则才返回 `upgrade_prompt: null`。不再读取共用版本键或用共用商店地址兜底。部署前执行 `0011_app_version_environment.sql`，将旧有效规则一次性拆为两份，详见[版本控制验收](../05-delivery/VERIFICATION.md)。
+公共 `GET /app-config?platform=ios|google` 保持 `upgrade_prompt`、`app_store_url`、法律及 SDK 配置响应字段，增加 `Cache-Control: no-store`。环境或平台规则缺失/损坏返回 `503 APP_VERSION_CONFIG_UNAVAILABLE`；明确停用的规则才返回 `upgrade_prompt: null`。不再读取共用版本键或用共用商店地址兜底。部署前须准备 `0011_app_version_environment.sql` 对应环境键；2026-09-08 仅初始化 development 两条键并发布 dev，完整 `0011` 未登记完成。prod 的较早 Worker 仍读取旧规则，升级前须执行完整迁移并核验，详见[版本控制验收](../05-delivery/VERIFICATION.md)。
 
 ## 订阅与内购数据骨架
 
@@ -162,7 +162,7 @@ Home Performance 的 Folder 归属遵循 App PRD 的整体迁移规则：每个 
 
 同一点位同时增加 nullable `market_value_change_usd` 与 `profit_loss_change_usd`，供 Card Detail Performance 使用。两项均由服务端以未提前舍入的目标 Item 历史值和 `t_prev` 计算，Range 首点沿用范围外紧邻可靠节点；不存在可信前态或成本不可计算时返回 `null`。正常状态曲线使用 Profit/Loss，Tooltip 仅展示 Date、Daily Change、Market Value、Profit/Loss、Qty；Purchase Price 缺失状态曲线使用 Market Value，Tooltip 不得展示 Profit/Loss、Purchase Cost 或 Return。1D 单点仍可点击，切 Range 或离开 Performance 会销毁旧 Tooltip 状态。
 
-`0031_performance_history.sql` 是 dev D1 的历史迁移，增加购买价、币种、生效时间、历史可用起点和 Folder 加入时间等事件事实；该历史执行不代表 v1.1 prod 需要迁移 D1。对应结构已经由 PostgreSQL `0000_business_schema.sql` 纳入共享数据库，2026-09-07 实时复核确认 PostgreSQL `0000` 至 `0010` migration 全部存在且 checksum 与仓库 SQL 一致。
+`0031_performance_history.sql` 是 dev D1 的历史迁移，增加购买价、币种、生效时间、历史可用起点和 Folder 加入时间等事件事实；D1 已废弃，两环境均已迁移 PostgreSQL，该历史迁移不再执行。对应结构已经由 PostgreSQL `0000_business_schema.sql` 纳入共享数据库，2026-09-07 复核确认 PostgreSQL `0000` 至 `0010` migration 全部存在且 checksum 与仓库 SQL 一致。Scan confirm 后续已补齐初始事件写入，历史漏字段事件由尚未执行的 PostgreSQL `0012` 单独处理。
 
 Card Detail 普通价格历史 1Y 的服务端防绕过已关闭：Free 仍可读取 1D 至 3M；1Y 要求当前 live session 的有效服务端 grant，同 UID 的另一 session 不继承。本机 verified 只区分 `ENTITLEMENT_SYNC_REQUIRED`，不能作为授权。该变更不新增 schema 或迁移。
 
@@ -214,15 +214,15 @@ Apple 官方 Node SDK 的证书吊销检查和 Server API 请求依赖 `node-fet
 
 ## 当前边界
 
-上述能力定位为 **App 订阅体验原型 + StoreKit 抽象层 + Admin/PostgreSQL 数据骨架**，不是生产可用的订阅闭环。当前至少存在以下上线阻塞：
+上述能力已形成 App、可信订阅 API 与 Admin/PostgreSQL 的实现，并存在分环境部署及部分验证证据；生产业务闭环仍须完成真实购买、生命周期和真机验收。当前实现与剩余边界如下：
 
 - 客户端已在 Fresh Purchase 前尽力申请 challenge，并仅将 StoreKit 2 signed transaction 作为即时 Premium 证据异步上传；业务接口失败不反向覆盖本机购买成功。
 - App 已将静默权益读取与主动 Restore 分离：启动只读取 Apple verified `Transaction.currentEntitlements`，用户主动 Restore 才调用 `AppStore.sync()`；Restore 实现 Success/Not Found/Cancelled/Failed/15 秒 Timeout 分流。`AppStore.sync()` 的用户取消及其他同步错误均停止本次流程且不读取设备残留 entitlement；Cancelled 只结束 Loading、保持操作前权益且不显示结果反馈，真实错误继续进入 Failed。Success 不进入 Purchase Success，并在后台尽力完成 App Attest proof，不以 proof 同步失败覆盖本机成功。
-- Workers 已有 Fresh Purchase、Restore、Notifications V2 与 Apple Server API 校正链；production/TestFlight 双 verifier、Bundle 隔离 inbox 与双环境校正代码已经完成，共享 PostgreSQL `0000` 至 `0010` migration 已远程应用并复核。prod Worker 尚未部署；App Attest 原生代码仍需 Xcode/真机验证，Apple Server API Secret 内容仍需真实调用证明。
+- Workers 已有 Fresh Purchase、Restore、Notifications V2 与 Apple Server API 校正链；production/TestFlight 双 verifier、Bundle 隔离 inbox 与双环境校正代码已经完成，2026-09-07 的数据库证据覆盖 `0000` 至 `0010`。2026-09-09 回读确认 dev/prod 均已运行 PostgreSQL Worker，但 prod 尚未部署当前 dev 的向量协议与独立版本配置。Apple 真机、真实交易和 Server API 验收按[发布与验证](../05-delivery/VERIFICATION.md)的具体证据范围判断。
 - `billing_entitlement_grant` 旧 owner 关联只兼容保留，不参与授权。
 - Scan Quota 与 Folder 限制已由服务端基于可信 grant 原子执行；Waiting/自动递补、Processing 删除后的后台结算和 `blocked_action=create_folder` 已按页面内最小上下文实现，非成功或目标失效不执行旧动作。
 - Admin 已可查询原始收件箱失败记录；完整 Decoded Payload 只在授权用户主动打开详情时加载，`signedPayload` 默认不返回，复制 JSON 只由用户主动触发。最新 Admin PRD 未定义额外查看/复制审计表或审计查询功能，本版本不猜测新增该范围。
-- 当前 App 没有 PRD 所述的首次安装网络授权弹窗。按 PRD 同时规定的“不得新增无业务需要权限”，实现没有伪造网络权限，而是在现有 Splash/启动预加载结束后、Onboarding 展示前执行 ATT：仅首次安装且状态为 `notDetermined` 时请求；冷启动不重复请求；后台回前台只读取最新状态并同步 Singular，不主动弹窗。`app_tracking_transparency`、Singular SDK 和 `NSUserTrackingUsageDescription` 已接入；App 与 Mixpanel Project Token 使用相同配置链路，通过公共 `/app-config` 读取 Cloudflare 当前环境管理的 `SINGULAR_API_KEY` / `SINGULAR_SECRET_KEY`，不再通过构建参数或本地发布文件注入。接口缺字段、请求失败或 SDK 异常均不阻断主流程，只关闭 Singular。两个值属于必须下发给移动 SDK 的客户端凭据，Cloudflare 负责环境隔离和轮换，但公共接口不能提供服务端保密性。2026-09-03 起，统一订阅 Controller 只在当前购买界面产生 Apple verified Fresh Purchase、购买状态为 `purchased`、权益为 active 且无验证失败时向 Singular 发送套餐事件：test 为 `weekly_cardtest` / `yearly_cardtest` / `lifetime_cardtest`，production 为 `weekly_card` / `yearly_card` / `lifetime_card`；这些事件不进入 Mixpanel/Firebase，Restore、启动权益恢复、外部解锁、Pending、Cancelled 和 Failed 均不发送。dev Worker version `2513a7a9-6062-4393-a4ea-e89f23aeac67` 已配置两个 Singular Secret 并发布；iPhone 11（iOS 15.6）已用新 Sandbox 账号完成 `cardx.week` Fresh Purchase，Singular Testing Console 以当前安装 SDID 收到 `weekly_cardtest`，App 与 Bundle 分别为 `card ai test`、`com.kando.kandoApp.beta`。prod Worker 对应代码尚未部署，yearly/lifetime 真机事件仍待验证。
+- 当前 App 没有 PRD 所述的首次安装网络授权弹窗。按 PRD 同时规定的“不得新增无业务需要权限”，实现没有伪造网络权限，而是在现有 Splash/启动预加载结束后、Onboarding 展示前执行 ATT：仅首次安装且状态为 `notDetermined` 时请求；冷启动不重复请求；后台回前台只读取最新状态并同步 Singular，不主动弹窗。`app_tracking_transparency`、Singular SDK 和 `NSUserTrackingUsageDescription` 已接入；App 与 Mixpanel Project Token 使用相同配置链路，通过公共 `/app-config` 读取 Cloudflare 当前环境管理的 `SINGULAR_API_KEY` / `SINGULAR_SECRET_KEY`，不再通过构建参数或本地发布文件注入。接口缺字段、请求失败或 SDK 异常均不阻断主流程，只关闭 Singular。两个值属于必须下发给移动 SDK 的客户端凭据，Cloudflare 负责环境隔离和轮换，但公共接口不能提供服务端保密性。2026-09-03 起，统一订阅 Controller 只在当前购买界面产生 Apple verified Fresh Purchase、购买状态为 `purchased`、权益为 active 且无验证失败时向 Singular 发送套餐事件：test 为 `weekly_cardtest` / `yearly_cardtest` / `lifetime_cardtest`，production 为 `weekly_card` / `yearly_card` / `lifetime_card`；这些事件不进入 Mixpanel/Firebase，Restore、启动权益恢复、外部解锁、Pending、Cancelled 和 Failed 均不发送。dev Worker version `2513a7a9-6062-4393-a4ea-e89f23aeac67` 已配置两个 Singular Secret 并发布；iPhone 11（iOS 15.6）已用新 Sandbox 账号完成 `cardx.week` Fresh Purchase，Singular Testing Console 以当前安装 SDID 收到 `weekly_cardtest`，App 与 Bundle 分别为 `card ai test`、`com.kando.kandoApp.beta`。上述为 2026-09-03 的普通事件历史证据；2026-09-09 回读已确认 prod `/app-config` 下发 Singular SDK 配置，当前收入 API 的三套餐后台与真机验收仍待完成。
 
 2026-09-09 按产品要求，上述六个 Singular 套餐事件从普通事件改为收入事件，使用 SDK `customRevenueWithAttributes`，事件名和当前界面 Fresh Purchase 门禁保持不变。金额复用 Apple verified JWS 的 `price / 1000`，币种规范为大写，并携带 `transaction_id`、`product_id`；交易 ID/商品 ID 必须与购买回调匹配，金额或币种缺失/无效时不使用展示价兜底，零金额交易只报 0。复用现有 Revenue 队列实现，但使用 `subscription.singular_revenue.<test|production>` 独立持久化命名空间，不读取或重放 Firebase 收入记录；同一交易的普通重复回调及进程重启由该队列去重。Restore、启动恢复历史交易及外部解锁不新建 Singular 收入，启动仅重试此前 Fresh Purchase 已入队但尚未交给 SDK 的记录。SDK 初始化前的队列等待既有 ATT 顺序完成，缺凭据等交付前错误保留待重试记录；所有上报异步执行，不阻塞购买成功或权益解锁。SDK 1.9.0 的收入方法返回 `void`，本地成功仅表示调用已交给 SDK，原生桥接异步错误记录诊断，不能当作后台到账回执或跨卸载/异常终止的绝对一次性保证。当前 App 正式配置仅启用 Apple 购买；本次使用两平台均提供的 Singular 收入 API，不新增 Google Play 购买或服务端续费收入链路。
 

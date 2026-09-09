@@ -36,11 +36,16 @@ inferred from Xcode project settings. Other Bundle IDs do not currently have a
 fixed App Attest rule. Production keeps `com.cardai.tcg` and its separate
 Firebase configuration.
 
+## 扫描平台与协议
+
+当前 App 的扫描链路支持 iOS 16+ 和 Android API 24+。端侧 RTMDet-Ins 检测与 PE-Core-T16 生成 512 维向量，向 Workers API 提交 `vector` 和矫正后的卡面图片；主 API 通过 `VECTOR_RECOGNITION` 调用内部检索服务。旧 `r/g/b` pHash 请求已退役，Flutter Web 暂不支持扫描。实现与资源说明见[扫描识别链路](../../docs/releases/v1.1.0/01-flows/scan-recognition.md)。
+
 ## iOS simulator
 
 Google ML Kit's iOS binaries do not support arm64 simulators. Run the test
-environment with the simulator wrapper so local card-number OCR is disabled and
-the scan request falls back to server recognition:
+environment with the simulator wrapper so local card-number OCR is disabled.
+Scanning still requires on-device Core ML models and sends a vector to the API;
+this wrapper does not provide a pHash or image-only recognition fallback:
 
 ```bash
 ./tool/run_ios_simulator.sh -d <simulator-udid>
