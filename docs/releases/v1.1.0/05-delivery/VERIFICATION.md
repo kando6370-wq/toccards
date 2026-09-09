@@ -267,3 +267,15 @@ flutter test --no-pub test/scan_api_client_test.dart test/scan_result_source_tes
 Code Review 自审通过：逐项核对双方提交和手工解冲突差异，确认向量输入、Service Binding、游戏过滤、模型资源和平台桥接完整；购买价格断言能在撤回修复时失败，dev 的更新弹窗、Card Detail 和 Singular 修复保持原文。没有引入旧协议回退或新的 D1 依赖，冻结产品输入未改动。三个图片基准问题保留为既有待清理项，不属于本次合并新增回归。
 
 本轮未运行 Workers/Flutter 全仓测试、iOS 编译/签名及两端真机模型验收；Windows 无 Xcode，客户端测试人员仍需补验真实图片准确率、推理耗时、内存与登录态完整扫描。服务端部署不发布 App 安装包。PostgreSQL `0012` 文件保持原样，历史数据回填未执行；共享数据库迁移仍需单独授权。dev 发布结果与线上校验另按实际执行结果记录。
+
+### 合并后的 dev 发布
+
+合并提交为 `f38ef98ba254c31d5faa062d4ac6443f767514dd`，两个父提交为 `0e3e53b` 和 `8046c85`；发布前工作区干净，`dev-wxy` 本地与远程提交均为该合并提交的祖先。沿用本任务此前的 dev 部署授权，执行 `pnpm --filter @kando/workers-api run deploy:dev --tag dev-vector-f38ef98 --message "Merge dev-wxy vector recognition with current dev fixes (f38ef98)"`，退出 0。
+
+- Cloudflare 于 `2026-09-09T03:00:50Z` 将 Worker version `3e5d4b2d-da0a-4f15-883e-538b9ee0210c` 置于 100% dev 流量，tag 为 `dev-vector-f38ef98`；deployment status 与 version view 回读均通过。
+- 远程绑定为 `VECTOR_RECOGNITION=recognize-vec`、dev KV/R2、共享 Hyperdrive、`APP_ENVIRONMENT=development` 与 beta Apple 配置，不含 `OCR_SERVICE_BASE_URL` 或 D1；5 分钟 Cron 发布成功。
+- `2026-09-09T03:02:23Z` 的 HTTP 校验退出 0：health 为 `200/status=ok`，games 为 `200/10` 条，Pokemon Search 第 3 页为 `200/40` 条；iOS/Google 公共配置均为 `200/no-store`，iOS 最低/建议版本均为 `1.0.2`、`force_update=false`，Google 规则停用。
+- `/admin` 返回 200，HTML SHA-256 为 `30121eea22e331509e24030ad1d81dffa324fdc400f53c711f17082b20c54e1b`；HTML 与所引用全部 10 个 JS/CSS 均与本地 dev 构建逐字节一致。未授权 Admin 版本接口及扫描识别 POST 均为 `401 UNAUTHORIZED`，没有创建扫描记录或消费额度。
+- prod 发布前后均为 `934506ae-d433-4a38-ae40-6d07b109d50e`、100% 流量，未部署 prod；没有执行远程数据库迁移、历史回填或运营配置修改。本次只在本地创建 Git 合并与验证记录提交，未执行 Git push。
+
+dev 服务端部署及上述校验已完成；真实图片、登录态完整扫描与新 App 签名包验收仍按本节未验证项补充。后续应从含本次合并的 dev 提交发布，避免旧 pHash 分支再次覆盖同一开发环境。
