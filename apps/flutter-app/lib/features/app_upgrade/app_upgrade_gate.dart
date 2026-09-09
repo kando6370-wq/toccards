@@ -18,6 +18,7 @@ class AppUpgradeGate extends ConsumerStatefulWidget {
 
 class _AppUpgradeGateState extends ConsumerState<AppUpgradeGate>
     with WidgetsBindingObserver {
+  bool _homeEntered = false;
   final Set<String> _dismissedRecommendations = {};
   AppUpgradeDecision? _requiredUpdate;
   bool _openingStore = false;
@@ -37,14 +38,21 @@ class _AppUpgradeGateState extends ConsumerState<AppUpgradeGate>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _refresh();
+    if (_homeEntered && state == AppLifecycleState.resumed) _refresh();
+  }
+
+  void _enterHome() {
+    if (!mounted || _homeEntered) return;
+    setState(() => _homeEntered = true);
   }
 
   void _refresh() => ref.invalidate(appUpgradeDecisionProvider);
 
   @override
   Widget build(BuildContext context) {
-    final check = ref.watch(appUpgradeDecisionProvider);
+    final check = _homeEntered
+        ? ref.watch(appUpgradeDecisionProvider)
+        : const AsyncValue<AppUpgradeDecision>.loading();
     final verified = !check.isLoading && !check.hasError ? check.value : null;
     if (verified != null) {
       _requiredUpdate = verified.forceUpdate ? verified : null;
@@ -55,10 +63,10 @@ class _AppUpgradeGateState extends ConsumerState<AppUpgradeGate>
         decision.showUpdate &&
         (decision.forceUpdate ||
             !_dismissedRecommendations.contains(decision.latestVersion));
-    final blocked = verified == null || showUpdate;
+    final blocked = _homeEntered && (verified == null || showUpdate);
 
-    // The gate is above MaterialApp.router's Navigator. Rendering here also
-    // keeps subsequent routes, deep links and store returns below enforcement.
+    // Start only after Home is displayed, then retain enforcement above the
+    // Navigator so route changes and store returns cannot bypass a forced update.
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -124,4 +132,30 @@ class _AppUpgradeGateState extends ConsumerState<AppUpgradeGate>
       if (mounted) setState(() => _openingStore = false);
     }
   }
+}
+
+/// Activates the app-wide upgrade gate when the actual Home content is shown.
+/// Place inside startup gates, not around the route that also hosts onboarding.
+class AppUpgradeHomeEntry extends StatefulWidget {
+  const AppUpgradeHomeEntry({required this.child, super.key});
+
+  final Widget child;
+
+  @override
+  State<AppUpgradeHomeEntry> createState() => _AppUpgradeHomeEntryState();
+}
+
+class _AppUpgradeHomeEntryState extends State<AppUpgradeHomeEntry> {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || (route != null && !route.isCurrent)) return;
+      context.findAncestorStateOfType<_AppUpgradeGateState>()?._enterHome();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

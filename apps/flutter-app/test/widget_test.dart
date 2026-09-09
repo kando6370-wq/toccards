@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/app/app.dart';
 import 'package:kando_app/app/app_startup_preloader.dart';
+import 'package:kando_app/app/router.dart';
 import 'package:kando_app/features/app_upgrade/app_upgrade_models.dart';
 import 'package:kando_app/features/app_upgrade/app_upgrade_repository.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
@@ -23,6 +24,100 @@ import 'support/in_memory_onboarding_storage.dart';
 import 'support/test_app_attribution.dart';
 
 void main() {
+  for (final premiumState in [
+    AppPremiumState.premium,
+    AppPremiumState.unknown,
+  ]) {
+    testWidgets(
+      'cold-start Home triggers optional upgrade for $premiumState only once',
+      (tester) async {
+        var checks = 0;
+        await tester.pumpWidget(
+          _testApp(
+            InMemoryOnboardingStorage(completed: true),
+            premiumState: premiumState,
+            onUpgradeCheck: () => checks++,
+            upgradeDecision: const AppUpgradeDecision.update(
+              forceUpdate: false,
+              title: 'Update Now',
+              message: 'New update available! Tap to upgrade',
+              storeUrl: 'https://apps.apple.com/app/id6793017224',
+              latestVersion: '1.0.2',
+            ),
+          ),
+        );
+        expect(checks, 0);
+        await _finishStartup(tester);
+        await _finishPageTransition(tester);
+        expect(find.text('Overview'), findsOneWidget);
+        expect(find.text('Choose Your Plan'), findsNothing);
+        expect(find.text('Update Now'), findsOneWidget);
+        expect(checks, 1);
+        await tester.tap(find.text('LATER'));
+        await tester.pump();
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(KandoApp)),
+        );
+        final router = container.read(appRouterProvider);
+        router.go('/search');
+        await _finishPageTransition(tester);
+        router.go('/home');
+        await _finishPageTransition(tester);
+        expect(find.text('Overview'), findsOneWidget);
+        expect(find.text('Update Now'), findsNothing);
+        expect(checks, 1);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+
+  testWidgets(
+    'upgrade checks wait for Home after onboarding and the startup paywall',
+    (tester) async {
+      var checks = 0;
+      await tester.pumpWidget(
+        _testApp(
+          InMemoryOnboardingStorage(),
+          onUpgradeCheck: () => checks++,
+          upgradeDecision: const AppUpgradeDecision.update(
+            forceUpdate: true,
+            title: 'Update Now',
+            message: 'New update available! Tap to upgrade',
+            storeUrl: 'https://apps.apple.com/app/id6793017224',
+            latestVersion: '1.0.2',
+          ),
+        ),
+      );
+      await _finishStartup(tester);
+      expect(checks, 0);
+      expect(find.text('Update Now'), findsNothing);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      expect(checks, 0);
+
+      await tester.tap(find.byTooltip("LET'S START"));
+      await _finishPageTransition(tester);
+      await tester.tap(find.byTooltip('NEXT'));
+      await _finishPageTransition(tester);
+      await tester.tap(find.byTooltip('Skip and start now'));
+      await _finishPageTransition(tester);
+      expect(find.text('Choose Your Plan'), findsOneWidget);
+      expect(checks, 0);
+      expect(find.text('Update Now'), findsNothing);
+
+      await tester.tap(find.byTooltip('Close'));
+      await _finishPageTransition(tester);
+      expect(find.text('Overview'), findsOneWidget);
+      expect(checks, 1);
+      expect(find.text('Update Now'), findsOneWidget);
+      expect(find.text('LATER'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
   testWidgets('cold-start events wait for the restored user uid', (
     tester,
   ) async {
@@ -120,6 +215,9 @@ ProviderScope _testApp(
   InMemoryOnboardingStorage storage, {
   AuthRepository? authRepository,
   AppAnalytics? analytics,
+  AppUpgradeDecision upgradeDecision = const AppUpgradeDecision.none(),
+  VoidCallback? onUpgradeCheck,
+  AppPremiumState premiumState = AppPremiumState.free,
 }) {
   return ProviderScope(
     overrides: [
@@ -127,9 +225,10 @@ ProviderScope _testApp(
         testAppAttributionCoordinator(),
       ),
       appStartupPreloaderProvider.overrideWith((ref) async {}),
-      appUpgradeDecisionProvider.overrideWith(
-        (ref) async => const AppUpgradeDecision.none(),
-      ),
+      appUpgradeDecisionProvider.overrideWith((ref) async {
+        onUpgradeCheck?.call();
+        return upgradeDecision;
+      }),
       authRepositoryProvider.overrideWithValue(
         authRepository ??
             _WidgetTestAuthRepository(
@@ -146,7 +245,7 @@ ProviderScope _testApp(
         LocalOnboardingRepository(storage),
       ),
       subscriptionControllerProvider.overrideWith(
-        _FreeWidgetTestSubscriptionController.new,
+        () => _WidgetTestSubscriptionController(premiumState),
       ),
     ],
     child: const KandoApp(),
@@ -189,14 +288,17 @@ class _RecordingMixpanel extends Mixpanel {
   }
 }
 
-class _FreeWidgetTestSubscriptionController extends SubscriptionController {
+class _WidgetTestSubscriptionController extends SubscriptionController {
+  _WidgetTestSubscriptionController(this.premiumState);
+
+  final AppPremiumState premiumState;
+
   @override
-  SubscriptionState build() =>
-      const SubscriptionState(premiumState: AppPremiumState.free);
+  SubscriptionState build() => SubscriptionState(premiumState: premiumState);
 
   @override
   Future<AppPremiumState> refreshEntitlement({bool showFailure = true}) async {
-    return AppPremiumState.free;
+    return premiumState;
   }
 }
 

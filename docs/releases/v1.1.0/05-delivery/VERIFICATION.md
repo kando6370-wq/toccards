@@ -10,6 +10,23 @@
 
 影响范围仅为 iOS RTMDet 检测置信度换算；不修改相机或相册页面、图片方向与色彩解码、mask/四角拟合、透视矫正、PE-Core-T16 向量化、Android 推理及 Workers 向量检索。用户明确要求不执行验证，本轮未运行 iOS 编译、模拟器/真机复现、Flutter 测试或完整构建；Windows 环境也无法执行 Xcode/Core ML 真机路径。Code Review 核对导出脚本、原生输出和 Dart 阈值契约后，确认改动针对根因且未发现额外阻断项；真实 iOS 设备仍需使用 `227.PNG` 补验。
 
+## 升级提示延后到 Home（2026-09-09，本地未发布）
+
+用户明确要求升级提示在进入 Home 后显示。原 `AppUpgradeGate` 挂在 `MaterialApp.router.builder` 中，一挂载即订阅版本决策，导致 Splash、Onboarding 和启动订阅页也被升级/版本检查失败界面遮住。本次是显示时机调整，取代下方 9 月 8 日历史记录中的“启动即全局版本检查”行为。
+
+当前 `/` 内实际 Home 内容及 `/home` 使用 `AppUpgradeHomeEntry`，在 Home 所在路由成为当前页且首帧完成后激活版本门禁。Home 前不启动该门禁的版本请求，生命周期恢复也不提前激活；其他用途的 `/app-config` 请求不受影响。门禁仍挂在 Navigator 上方，激活后继续保留强更跨路由拦截、商店返回重查、请求失败重试和本次运行同版本可选更新的“稍后”去重。外层树结构保持不变，不因激活重建 Navigator 或重置启动流程。版本判断、API、平台/环境隔离、认证及订阅权益契约不变，界面视觉不变。
+
+先失败证据：macOS、Flutter 3.44.5 / Dart 3.12.2，使用真实 `KandoApp`、Onboarding 和启动订阅路径并注入强更决策；修改前 `flutter test --no-pub test/widget_test.dart --plain-name 'upgrade checks wait for Home' --reporter expanded` 退出 1，尚未进入 Home 即发生版本检查（预期 0、实际 1）。修改后同一用例包含于以下运行并通过。
+
+验证命令均在 `apps/flutter-app` 执行：
+
+- `flutter test --no-pub test/widget_test.dart test/app_upgrade_integration_test.dart test/widget/app_upgrade_gate_test.dart test/app_upgrade_policy_test.dart test/app_upgrade_repository_test.dart test/startup_subscription_gate_test.dart test/onboarding_gate_test.dart --reporter expanded`：45/45 通过，退出 0。覆盖首次引导/订阅前不提示、Premium/未知权益冷启动直接进 Home、`/home` 首次提示、稍后后离开并返回不重复、非 Home 入口延后激活、iOS/Android 强更跨路由拦截，以及原有失败/重试/商店返回逻辑。
+- `flutter test --no-pub --dart-define=APP_ENV=test test/widget_test.dart test/app_upgrade_integration_test.dart --reporter expanded`：7/7 通过，退出 0，包含修正测试文件后重新验证的启动路径。
+- `flutter analyze --no-pub`：首次发现新增测试的一个未使用 import，退出 1；移除后重新运行无问题，退出 0。
+- `dart format --output=none --set-exit-if-changed lib/features/app_upgrade/app_upgrade_gate.dart lib/app/router.dart test/widget_test.dart test/widget/app_upgrade_gate_test.dart test/app_upgrade_integration_test.dart`：5 文件无变化，退出 0；`git diff --check` 通过。
+
+Code Review 自审通过：检查两个真实 Home 入口、启动组件挂载顺序、帧回调 mounted/current-route 防护、只激活一次、Navigator 状态保留、原强更和稍后状态延续，未发现本次范围剩余阻断项。行为文档同步至 `01-flows/business-context.md`；API/Schema/部署文档变更为 N/A，因为未改这些契约。未运行全仓测试、签名包构建或 iOS/Android 真机验收：本次仅交付本地代码及 Widget 平台变体验证，测试人员仍需在新包中补验启动至 Home 和商店往返。未部署、发布或修改远程版本配置。
+
 ## 当前运行边界（2026-09-09 回读）
 
 本地 `dev@b0b54df` 与 `github/dev` 一致，包含向量合并 `f38ef98`；四个已清理分支 `dev-wxy`、`dev-xiangyang`、`dev-update-dio`、`dev-scan-page-update-ui` 在本地及远程均不存在。旧分支名仅保留历史来源含义，后续开发与 dev 发布使用当前 `dev`。

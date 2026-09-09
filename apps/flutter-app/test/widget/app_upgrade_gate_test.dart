@@ -328,10 +328,12 @@ Widget _upgradeTestApp({
     ],
     child: MaterialApp(
       home: AppUpgradeGate(
-        child: Scaffold(
-          body: TextButton(
-            onPressed: onUseApp ?? () {},
-            child: const Text('Home'),
+        child: AppUpgradeHomeEntry(
+          child: Scaffold(
+            body: TextButton(
+              onPressed: onUseApp ?? () {},
+              child: const Text('Home'),
+            ),
           ),
         ),
       ),

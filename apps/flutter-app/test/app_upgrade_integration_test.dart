@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:kando_app/app/app.dart';
 import 'package:kando_app/app/app_startup_preloader.dart';
 import 'package:kando_app/app/router.dart';
+import 'package:kando_app/features/app_upgrade/app_upgrade_gate.dart';
 import 'package:kando_app/features/app_upgrade/app_upgrade_models.dart';
 import 'package:kando_app/features/app_upgrade/app_upgrade_repository.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
@@ -13,17 +14,20 @@ import 'package:kando_app/features/auth/auth_models.dart';
 void main() {
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     testWidgets(
-      'KandoApp blocks unsupported versions on $platform because update enforcement must work above the real router',
+      'KandoApp starts enforcement at Home on $platform and retains it across route changes',
       (tester) async {
         var actions = 0;
         final router = GoRouter(
+          initialLocation: '/other',
           routes: [
             GoRoute(
               path: '/',
-              builder: (context, state) => Scaffold(
-                body: TextButton(
-                  onPressed: () => actions++,
-                  child: const Text('Use App'),
+              builder: (context, state) => AppUpgradeHomeEntry(
+                child: Scaffold(
+                  body: TextButton(
+                    onPressed: () => actions++,
+                    child: const Text('Use App'),
+                  ),
                 ),
               ),
             ),
@@ -54,6 +58,10 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(tester.takeException(), isNull);
+        expect(find.text('Other page'), findsOneWidget);
+        expect(find.text('Update Now'), findsNothing);
+        router.go('/');
+        await tester.pumpAndSettle();
         expect(find.text('Update Now'), findsOneWidget);
         expect(find.text('LATER'), findsNothing);
         await tester.tap(find.text('Use App'), warnIfMissed: false);
