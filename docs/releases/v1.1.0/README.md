@@ -20,6 +20,7 @@
 ### 业务流程
 
 - [业务上下文](01-flows/business-context.md)：角色、主流程、状态、实体、规则、上下游和待确认项。
+- [扫描向量识别链路](01-flows/scan-recognition.md)：已合入 dev 的端侧识别引擎、向量接口及保留的扫描业务契约。
 - [官网增量需求](01-flows/requirements.md)：当前版本的营销站搜索发现与视觉增量。
 
 ### 架构

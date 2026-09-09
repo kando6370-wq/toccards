@@ -1,107 +1,13 @@
 import { signAccessToken } from "@kando/auth-core";
+import { readFileSync } from "node:fs";
+import { URL } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import app, { type Env as AppEnv } from "../index";
+import { PGliteDatabase } from "../test-support/pglite-database";
 
-type TestEnv = AppEnv & { JWT_SECRET: string; OCR_SERVICE_BASE_URL: string };
-
-type SessionRow = {
-  id: string;
-  owner_type: "anonymous" | "user";
-  owner_id: string;
-  expires_at: string;
-  revoked_at: string | null;
-};
-
-type AnonymousAccountRow = {
-  id: string;
-  upgraded_user_id: string | null;
-};
-
-type ScanRecordRow = {
-  id: string;
-  environment?: "development" | "production";
-  owner_type: "anonymous" | "user";
-  owner_id: string;
-  recognition_status: string;
-  user_confirmation_status: string;
-  system_result: string;
-  user_result: string;
-  candidates: string;
-  modified_result: number;
-  image_url?: string | null;
-  raw_response?: string;
-};
-
-type ScanQuotaRequestRow = {
-  request_id: string;
-  owner_type: "anonymous" | "user";
-  owner_id: string;
-  session_id: string;
-  access_mode: "free" | "premium";
-  status: "reserved" | "consumed" | "released";
-  processing_expires_at: string | null;
-  attempts?: number;
-  response_json: string | null;
-  http_status: number | null;
-};
-
-type FolderRow = { id: string; owner_type: "anonymous" | "user"; owner_id: string };
-type CollectionItemRow = {
-  id: string;
-  owner_type: "anonymous" | "user";
-  owner_id: string;
-  folder_id: string;
-  card_ref: string;
-  object_type: string;
-  grader: string;
-  condition: string | null;
-  grade: number | null;
-  language: string | null;
-  finish: string | null;
-  quantity: number;
-  purchase_price: number | null;
-  purchase_currency: string | null;
-  notes: string | null;
-  folder_joined_at: string;
-};
-type CollectionItemEventRow = Pick<
-  CollectionItemRow,
-  | "owner_type"
-  | "owner_id"
-  | "folder_id"
-  | "card_ref"
-  | "object_type"
-  | "grader"
-  | "condition"
-  | "grade"
-  | "language"
-  | "finish"
-  | "quantity"
-  | "purchase_price"
-  | "purchase_currency"
-> & {
-  id: string;
-  item_id: string;
-  performance_history_available_from: string | null;
-  event_type: "upsert" | "delete";
-  effective_at: string;
-};
-type WishlistRow = { owner_type: "anonymous" | "user"; owner_id: string; card_ref: string };
-type CardCatalogRow = {
-  product_id: string;
-  game_id: number;
-  game: string | null;
-  set_name: string | null;
-  set_code: string | null;
-  name: string | null;
-  rarity: string | null;
-  product_type_name: string | null;
-  image_url: string | null;
-  number?: string | null;
-};
-
-const PHASH = "vgM8KW2_mtY4LMLQZJvFpzl823zE3mx0mWhpCcRYaGw";
-
+type TestEnvWithPostgres = Omit<AppEnv, "DB"> & { DB: PGliteDatabase; queries: string[]; VECTOR_RECOGNITION?: Fetcher };
+const VECTOR = Array.from({ length: 512 }, (_, index) => (index + 1) / 512);
+const databases: PGliteDatabase[] = [];
 class FakeR2 {
   readonly objects = new Map<string, Uint8Array>();
 
@@ -115,461 +21,62 @@ class FakeR2 {
   }
 }
 
-class FakeD1 {
-  sessions: SessionRow[] = [];
-  anonymousAccounts: AnonymousAccountRow[] = [];
-  scanRecords: ScanRecordRow[] = [];
-  scanQuotaRequests: ScanQuotaRequestRow[] = [];
-  folders: FolderRow[] = [];
-  collectionItems: CollectionItemRow[] = [];
-  collectionItemEvents: CollectionItemEventRow[] = [];
-  wishlistItems: WishlistRow[] = [];
-  cards: CardCatalogRow[] = [];
-  preparedSql: string[] = [];
-  activePremiumSessionIds = new Set<string>();
-  failScanInsert = false;
-
-  prepare(sql: string): FakeD1Statement {
-    this.preparedSql.push(normalizeSql(sql));
-    return new FakeD1Statement(this, sql);
-  }
-
-  async batch<T = unknown>(statements: FakeD1Statement[]): Promise<D1Result<T>[]> {
-    const results = [];
-    for (const statement of statements) results.push(await statement.run<T>());
-    return results;
-  }
-}
-
-class FakeD1Statement {
-  private values: unknown[] = [];
-
-  constructor(
-    private readonly db: FakeD1,
-    private readonly sql: string,
-  ) {}
-
-  bind(...values: unknown[]): FakeD1Statement {
-    this.values = values;
-    return this;
-  }
-
-  async first<T = unknown>(): Promise<T | null> {
-    const sql = normalizeSql(this.sql);
-    if (sql.includes("FROM billing_session_entitlement_grant AS grant_record")) {
-      const [sessionId] = this.values as [string];
-      return (this.db.activePremiumSessionIds.has(sessionId)
-        ? { id: "grant-1", purchase_chain_id: "chain-1", expires_at: null }
-        : null) as T | null;
-    }
-    if (sql.includes("FROM session") && sql.includes("WHERE id = ?")) {
-      const [id] = this.values as [string];
-      return (this.db.sessions.find((row) => row.id === id) ?? null) as T | null;
-    }
-    if (sql.includes("FROM anonymous_account")) {
-      const [id] = this.values as [string];
-      return (this.db.anonymousAccounts.find((row) => row.id === id && row.upgraded_user_id === null) ?? null) as T | null;
-    }
-    if (sql.includes("FROM cards_all")) {
-      const [cardRef] = this.values as [string];
-      return (this.db.cards.find((row) => row.product_id === cardRef) ?? null) as T | null;
-    }
-    if (sql.includes("FROM scan_record")) {
-      const [id, ownerType, ownerId] = this.values as [string, string, string];
-      return (this.db.scanRecords.find(
-        (row) => row.id === id && row.owner_type === ownerType && row.owner_id === ownerId,
-      ) ?? null) as T | null;
-    }
-    if (sql.includes("FROM scan_quota_request") && sql.includes("WHERE request_id = ?")) {
-      const [requestId] = this.values as [string];
-      return (this.db.scanQuotaRequests.find((row) => row.request_id === requestId) ?? null) as T | null;
-    }
-    if (sql.includes("FROM scan_quota_request") && sql.includes("SUM(CASE")) {
-      const [now, ownerType, ownerId] = this.values as [string, string, string];
-      const rows = this.db.scanQuotaRequests.filter(
-        (row) => row.owner_type === ownerType && row.owner_id === ownerId && row.access_mode === "free",
-      );
-      return {
-        reserved_count: rows.filter(
-          (row) => row.status === "reserved" && (row.processing_expires_at ?? "") > now,
-        ).length,
-        consumed_count: rows.filter((row) => row.status === "consumed").length,
-      } as T;
-    }
-    if (sql.includes("FROM portfolio_folder")) {
-      const [id, ownerType, ownerId] = this.values as [string, string, string];
-      return (this.db.folders.find(
-        (row) => row.id === id && row.owner_type === ownerType && row.owner_id === ownerId,
-      ) ?? null) as T | null;
-    }
-    if (sql.includes("FROM collection_item") && sql.includes("folder_id = ?")) {
-      const [
-        ownerType,
-        ownerId,
-        folderId,
-        cardRef,
-        language,
-        finish,
-        grader,
-        condition,
-        grade,
-      ] = this.values;
-      return (this.db.collectionItems.find((row) =>
-        row.owner_type === ownerType && row.owner_id === ownerId && row.folder_id === folderId &&
-        row.card_ref === cardRef && row.language === language && row.finish === finish &&
-        row.grader === grader && row.condition === condition && row.grade === grade
-      ) ?? null) as T | null;
-    }
-    return null;
-  }
-
-  async all<T = unknown>(): Promise<D1Result<T>> {
-    const sql = normalizeSql(this.sql);
-    if (sql.includes("FROM billing_session_entitlement_grant AS grant_record")) {
-      const [sessionId] = this.values as [string];
-      return okResult<T>(
-        this.db.activePremiumSessionIds.has(sessionId)
-          ? [{
-              id: "grant-1",
-              purchase_chain_id: "chain-1",
-              expires_at: null,
-              environment: "Sandbox",
-              product_id: "yearly",
-            } as T]
-          : [],
-      );
-    }
-    if (sql.includes("SELECT product_id, number") && sql.includes("FROM cards_all")) {
-      const productIds = new Set(this.values.map(String));
-      return okResult<T>(
-        this.db.cards
-          .filter((row) => productIds.has(row.product_id))
-          .map((row) => ({ product_id: row.product_id, number: row.number ?? null })) as T[],
-      );
-    }
-    if (
-      sql.includes("SELECT product_id, game, set_name, set_code, name, number, rarity, product_type_name") &&
-      sql.includes("FROM cards_all") &&
-      sql.includes("WHERE product_id IN")
-    ) {
-      const productIds = new Set(this.values.map(String));
-      return okResult<T>(
-        this.db.cards.filter((row) => productIds.has(row.product_id)) as T[],
-      );
-    }
-    if (sql.includes("FROM cards_all") && sql.includes("LIKE ?")) {
-      const termCount = (sql.match(/LIKE \?/g) ?? []).length;
-      const terms = this.values
-        .slice(0, termCount)
-        .map((value) => String(value).replaceAll("%", "").toLowerCase());
-      const rows = this.db.cards.filter((row) => {
-        const searchable = `${row.name ?? ""} ${row.number ?? ""} ${row.set_name ?? ""} ${row.set_code ?? ""} ${row.rarity ?? ""} ${row.game ?? ""}`
-          .toLowerCase();
-        return terms.every((term) => searchable.includes(term));
-      });
-      return okResult<T>(rows as T[]);
-    }
-    return okResult<T>();
-  }
-
-  async run<T = unknown>(): Promise<D1Result<T>> {
-    const sql = normalizeSql(this.sql);
-    if (sql.startsWith("INSERT INTO scan_quota_request")) {
-      const [requestId, ownerType, ownerId, sessionId, accessMode, leaseExpiresAt, attempts] = this.values as [
-        string,
-        "anonymous" | "user",
-        string,
-        string,
-        "free" | "premium",
-        string,
-        number,
-      ];
-      if (this.db.scanQuotaRequests.some((row) => row.request_id === requestId)) {
-        throw new Error("UNIQUE constraint failed: scan_quota_request.request_id");
-      }
-      const activeAt = String(this.values[12]);
-      const used = this.db.scanQuotaRequests.filter(
-        (row) => row.owner_type === ownerType && row.owner_id === ownerId && row.access_mode === "free" &&
-          (row.status === "consumed" ||
-            (row.status === "reserved" && (row.processing_expires_at ?? "") > activeAt)),
-      ).length;
-      if (accessMode === "free" && used >= 10) return okResult<T>([], 0);
-      this.db.scanQuotaRequests.push({
-        request_id: requestId,
-        owner_type: ownerType,
-        owner_id: ownerId,
-        session_id: sessionId,
-        access_mode: accessMode,
-        status: "reserved",
-        processing_expires_at: leaseExpiresAt,
-        attempts,
-        response_json: null,
-        http_status: null,
-      });
-      return okResult<T>();
-    }
-    if (sql.startsWith("UPDATE scan_quota_request") && sql.includes("attempts = attempts + 1")) {
-      const [leaseExpiresAt, , requestId, sessionId, now] = this.values as [
-        string,
-        string,
-        string,
-        string,
-        string,
-      ];
-      const row = this.db.scanQuotaRequests.find(
-        (candidate) =>
-          candidate.request_id === requestId &&
-          candidate.session_id === sessionId &&
-          candidate.status === "reserved" &&
-          ((candidate.attempts ?? 1) === 0 ||
-            (candidate.processing_expires_at ?? "") <= now),
-      );
-      if (!row) return okResult<T>([], 0);
-      row.processing_expires_at = leaseExpiresAt;
-      row.attempts = (row.attempts ?? 0) + 1;
-      return okResult<T>();
-    }
-    if (sql.startsWith("UPDATE scan_quota_request") && sql.includes("attempts = 0")) {
-      const [responseJson, httpStatus, , , requestId, ownerType, ownerId, sessionId] = this.values as [
-        string,
-        number,
-        string,
-        string,
-        string,
-        string,
-        string,
-        string,
-      ];
-      const row = this.db.scanQuotaRequests.find(
-        (candidate) =>
-          candidate.request_id === requestId &&
-          candidate.owner_type === ownerType &&
-          candidate.owner_id === ownerId &&
-          candidate.session_id === sessionId &&
-          candidate.status === "reserved" &&
-          (candidate.attempts ?? 1) === 0,
-      );
-      if (!row) return okResult<T>([], 0);
-      row.status = "released";
-      row.response_json = responseJson;
-      row.http_status = httpStatus;
-      return okResult<T>();
-    }
-    if (sql.startsWith("UPDATE scan_quota_request") && sql.includes("SET status = ?")) {
-      const [status, , responseJson, httpStatus, , , requestId, ownerType, ownerId, sessionId, now] = this.values as [
-        "consumed" | "released", string | null, string | null, number | null, string, string, string, string, string, string, string,
-      ];
-      const row = this.db.scanQuotaRequests.find(
-        (candidate) => candidate.request_id === requestId && candidate.owner_type === ownerType &&
-          candidate.owner_id === ownerId && candidate.session_id === sessionId &&
-          candidate.status === "reserved" &&
-          (candidate.processing_expires_at ?? "") > now,
-      );
-      if (!row) return okResult<T>([], 0);
-      row.status = status;
-      row.response_json = responseJson;
-      row.http_status = httpStatus;
-      return okResult<T>();
-    }
-    if (sql.startsWith("INSERT INTO scan_record")) {
-      if (this.db.failScanInsert) throw new Error("scan insert failed");
-      const [id, environment, ownerType, ownerId, imageUrl, , , , , , recognitionStatus, confirmationStatus, systemResult, userResult, candidates, rawResponse] =
-        this.values as [
-          string,
-          "development" | "production",
-          "anonymous" | "user",
-          string,
-          string | null,
-          string,
-          string,
-          string | null,
-          string | null,
-          string | null,
-          string,
-          string,
-          string,
-          string,
-          string,
-          string,
-          string,
-        ];
-      this.db.scanRecords.push({
-        id,
-        environment,
-        owner_type: ownerType,
-        owner_id: ownerId,
-        recognition_status: recognitionStatus,
-        user_confirmation_status: confirmationStatus,
-        system_result: systemResult,
-        user_result: userResult,
-        candidates,
-        modified_result: 0,
-        image_url: imageUrl,
-        raw_response: rawResponse,
-      });
-      return okResult<T>();
-    }
-    if (sql.startsWith("INSERT INTO collection_item_event")) {
-      const selectedColumns = sql.slice(sql.indexOf("SELECT"), sql.indexOf("FROM collection_item"));
-      const [id, effectiveAt, itemId, ownerType, ownerId] = this.values as [
-        string,
-        string,
-        string,
-        "anonymous" | "user",
-        string,
-      ];
-      const item = this.db.collectionItems.find(
-        (row) => row.id === itemId && row.owner_type === ownerType && row.owner_id === ownerId,
-      );
-      if (!item) return okResult<T>([], 0);
-      this.db.collectionItemEvents.push({
-        id,
-        item_id: item.id,
-        owner_type: item.owner_type,
-        owner_id: item.owner_id,
-        folder_id: item.folder_id,
-        card_ref: item.card_ref,
-        object_type: item.object_type,
-        grader: item.grader,
-        condition: item.condition,
-        grade: item.grade,
-        language: item.language,
-        finish: item.finish,
-        quantity: item.quantity,
-        purchase_price: selectedColumns.includes("purchase_price") ? item.purchase_price : null,
-        purchase_currency: selectedColumns.includes("purchase_currency")
-          ? item.purchase_currency
-          : null,
-        performance_history_available_from: selectedColumns.includes("folder_joined_at")
-          ? item.folder_joined_at
-          : null,
-        event_type: "upsert",
-        effective_at: effectiveAt,
-      });
-      return okResult<T>();
-    }
-    if (sql.startsWith("INSERT INTO collection_item")) {
-      const [
-        id,
-        ownerType,
-        ownerId,
-        folderId,
-        cardRef,
-        objectType,
-        grader,
-        condition,
-        grade,
-        language,
-        finish,
-        quantity,
-        purchasePrice,
-        purchaseCurrency,
-        notes,
-        folderJoinedAt,
-        ,
-        ,
-        scanId,
-      ] = this.values as [
-        string,
-        "anonymous" | "user",
-        string,
-        string,
-        string,
-        string,
-        string,
-        string | null,
-        number | null,
-        string | null,
-        string | null,
-        number,
-        number | null,
-        string | null,
-        string | null,
-        string,
-        string,
-        string,
-        string,
-        string,
-        string,
-      ];
-      const pending = this.db.scanRecords.some(
-        (row) => row.id === scanId && row.owner_type === ownerType &&
-          row.owner_id === ownerId && row.user_confirmation_status === "pending",
-      );
-      if (!pending) return okResult<T>([], 0);
-      this.db.collectionItems.push({
-        id,
-        owner_type: ownerType,
-        owner_id: ownerId,
-        folder_id: folderId,
-        card_ref: cardRef,
-        object_type: objectType,
-        grader,
-        condition,
-        grade,
-        language,
-        finish,
-        quantity,
-        purchase_price: purchasePrice,
-        purchase_currency: purchaseCurrency,
-        notes,
-        folder_joined_at: folderJoinedAt,
-      });
-      return okResult<T>();
-    }
-    if (sql.startsWith("DELETE FROM wishlist_item")) {
-      const [ownerType, ownerId, cardRef, itemId] = this.values as [
-        string,
-        string,
-        string,
-        string,
-      ];
-      if (!this.db.collectionItems.some((row) => row.id === itemId)) {
-        return okResult<T>([], 0);
-      }
-      const before = this.db.wishlistItems.length;
-      this.db.wishlistItems = this.db.wishlistItems.filter(
-        (row) => !(row.owner_type === ownerType && row.owner_id === ownerId && row.card_ref === cardRef),
-      );
-      return okResult<T>([], before - this.db.wishlistItems.length);
-    }
-    if (sql.startsWith("INSERT INTO mutation_lock")) {
-      return okResult<T>();
-    }
-    if (sql.startsWith("UPDATE scan_record")) {
-      const [modifiedResult, userResult, id, ownerType, ownerId] = this.values as [
-        number, string, string, string, string,
-      ];
-      const row = this.db.scanRecords.find(
-        (candidate) => candidate.id === id && candidate.owner_type === ownerType &&
-          candidate.owner_id === ownerId && candidate.user_confirmation_status === "pending",
-      );
-      if (!row) return okResult<T>([], 0);
-      row.user_confirmation_status = "confirmed";
-      row.modified_result = modifiedResult;
-      row.user_result = userResult;
-      return okResult<T>();
-    }
-    throw new Error(`Unsupported run SQL: ${sql}`);
-  }
-}
 
 describe("scan routes", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
+  it("rejects retired hashes and invalid vectors before storage or quota consumption", async () => {
+    const env = await createRecognitionEnv();
+    const token = await recognitionToken(env);
+    const upstream = vi.fn();
+    stubVectorRecognition(env, upstream);
+    for (const body of [
+      { r: "legacy", g: "legacy", b: "legacy" },
+      { vector: [] },
+      { vector: [1, 2, 3] },
+      { vector: Array.from({ length: 512 }, () => 0) },
+      { vector: [...VECTOR.slice(0, 511), null] },
+      { vector: [...VECTOR, 1] },
+    ]) {
+      expect((await recognize(env, token, body)).status).toBe(422);
+    }
+    expect(upstream).not.toHaveBeenCalled();
+    expect(await readRows(env.DB, "scan_record")).toEqual([]);
+    expect(await readRows(env.DB, "scan_quota_request")).toEqual([]);
+    expect((env.SCAN_IMAGES as unknown as FakeR2).objects.size).toBe(0);
   });
 
-  it("resolves production pHash product ids through D1 and stores an audit record because App scans must be reviewable", async () => {
-    const env = createTestEnv();
-    env.DB.sessions.push({
+  it("keeps the game filter in the catalog boundary because vector search receives no game or owner information", async () => {
+    const env = await createRecognitionEnv();
+    await insertRows(env.DB, "cards_all",
+      { product_id: "same-game", game_id: 1, game: "Pokemon", name: "Wanted Card", set_name: "Set A", product_type_name: "Cards" },
+      { product_id: "other-game", game_id: 2, game: "Magic", name: "Other Card", set_name: "Set B", product_type_name: "Cards" },
+    );
+    const upstream = vi.fn(async (_url, init) => {
+      expect(JSON.parse(init.body)).toEqual({ vector: VECTOR });
+      return Response.json({ candidates: [{ product_id: "other-game", confidence: 99 }, { product_id: "same-game", confidence: 90 }] });
+    });
+    stubVectorRecognition(env, upstream);
+    const response = await recognize(env, await recognitionToken(env), { vector: VECTOR, game_id: 1 });
+    expect(response.status).toBe(200);
+    const body = await response.json() as { data: { results: Array<{ candidates: Array<{ card_ref: string }> }> } };
+    expect(body.data.results[0].candidates.map((candidate) => candidate.card_ref)).toEqual(["same-game"]);
+  });
+
+  afterEach(async () => {
+    vi.unstubAllGlobals();
+    await Promise.all(databases.splice(0).map((db) => db.close()));
+  });
+
+  it("resolves production vector product ids through PostgreSQL and stores an audit record because App scans must be reviewable", async () => {
+    const env = await createTestEnv();
+    await insertRows(env.DB, "session", {
       id: "session-1",
       owner_type: "anonymous",
       owner_id: "anon-1",
       expires_at: "2099-01-01T00:00:00.000Z",
       revoked_at: null,
     });
-    env.DB.anonymousAccounts.push({ id: "anon-1", upgraded_user_id: null });
-    env.DB.cards.push({
+    await insertRows(env.DB, "anonymous_account", { id: "anon-1", upgraded_user_id: null });
+    await insertRows(env.DB, "cards_all", {
       product_id: "10738",
       game_id: 1,
       game: "Magic: The Gathering",
@@ -585,14 +92,14 @@ describe("scan routes", () => {
       env.JWT_SECRET,
     );
 
-    vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
-      expect(url).toBe("https://ocr.example.test/recognize");
+    stubVectorRecognition(env, async (url: string, init: RequestInit) => {
+      expect(url).toBe("https://recognize-vec.internal/recognize");
       expect(init.method).toBe("POST");
       expect(init.headers).toEqual({
         Accept: "application/json",
         "Content-Type": "application/json",
       });
-      expect(JSON.parse(String(init.body))).toEqual({ r: PHASH, g: PHASH, b: PHASH });
+      expect(JSON.parse(String(init.body))).toEqual({ vector: VECTOR });
       return Response.json({
         candidates: [
           { product_id: 10738, confidence: 80.99 },
@@ -609,7 +116,7 @@ describe("scan routes", () => {
         headers: { Authorization: `Bearer ${token}`, "Idempotency-Key": requestId },
         body: recognitionForm({
           request_id: requestId,
-          r: PHASH, g: PHASH, b: PHASH, filename: "scan.jpg",
+          vector: VECTOR, filename: "scan.jpg",
           platform: "iOS", app_version: "1.0.0",
         }),
       },
@@ -640,14 +147,14 @@ describe("scan routes", () => {
                 name: "Bushi Tenderfoot",
                 set_code: "CHK",
                 confidence: 80.99,
-                retrieval: "rgb-phash-16-v1",
+                retrieval: "pe-core-t16-384-cosine-v1",
               }),
             ],
           }),
         ],
       }),
     });
-    expect(env.DB.scanRecords).toEqual([
+    expect((await readRows(env.DB, "scan_record"))).toEqual([
       expect.objectContaining({
         environment: "development",
         owner_type: "anonymous",
@@ -667,8 +174,8 @@ describe("scan routes", () => {
   });
 
   it("preserves an alphanumeric sports product id because catalog identity is text across the App", async () => {
-    const env = createRecognitionEnv();
-    env.DB.cards.push({
+    const env = await createRecognitionEnv();
+    await insertRows(env.DB, "cards_all", {
       product_id: "sports:soccer:rookie-001",
       game_id: 100003,
       game: "Soccer",
@@ -680,13 +187,13 @@ describe("scan routes", () => {
       image_url: null,
     });
     const token = await recognitionToken(env);
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({
+    stubVectorRecognition(env, vi.fn().mockResolvedValue(Response.json({
       candidates: [
         { product_id: "sports:soccer:rookie-001", confidence: 91.25 },
       ],
     })));
 
-    const response = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+    const response = await recognize(env, token, { vector: VECTOR });
     const body = await response.json() as {
       data: { results: Array<{ candidates: Array<{ product_id: string; card_ref: string }> }> };
     };
@@ -696,18 +203,18 @@ describe("scan routes", () => {
       product_id: "sports:soccer:rookie-001",
       card_ref: "sports:soccer:rookie-001",
     }));
-    expect(env.DB.scanRecords[0]?.candidates).toContain(
+    expect((await readRows(env.DB, "scan_record"))[0]?.candidates).toContain(
       '"product_id":"sports:soccer:rookie-001"',
     );
   });
 
-  it("resolves thirty OCR candidates with one catalog query and no price query because Scan must not amplify latency per candidate", async () => {
-    const env = createRecognitionEnv();
+  it("resolves thirty vector search candidates with one catalog query and no price query because Scan must not amplify latency per candidate", async () => {
+    const env = await createRecognitionEnv();
     const recognized = Array.from({ length: 30 }, (_, index) => ({
       product_id: `scan-card-${index}`,
       confidence: 90 - index,
     }));
-    env.DB.cards.push(...recognized.map((candidate, index) => ({
+    await insertRows(env.DB, "cards_all", ...recognized.map((candidate, index) => ({
       product_id: candidate.product_id,
       game_id: 1,
       game: "Magic: The Gathering",
@@ -719,22 +226,22 @@ describe("scan routes", () => {
       image_url: null,
       number: `${index + 1}/030`,
     })));
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({
+    stubVectorRecognition(env, vi.fn().mockResolvedValue(Response.json({
       candidates: recognized,
     })));
 
     const response = await recognize(
       env,
       await recognitionToken(env),
-      { r: PHASH, g: PHASH, b: PHASH },
+      { vector: VECTOR },
     );
     const body = await response.json() as {
       data: { results: Array<{ candidates: Array<{ product_id: string }> }> };
     };
-    const catalogQueries = env.DB.preparedSql.filter((sql) =>
+    const catalogQueries = env.queries.filter((sql) =>
       sql.includes("FROM cards_all")
     );
-    const priceQueries = env.DB.preparedSql.filter((sql) =>
+    const priceQueries = env.queries.filter((sql) =>
       sql.includes("WITH ranked_current")
     );
 
@@ -747,12 +254,12 @@ describe("scan routes", () => {
   });
 
   it("returns an unlimited Premium quota without spending Free allowance", async () => {
-    const env = createRecognitionEnv();
-    env.DB.activePremiumSessionIds.add("session-1");
+    const env = await createRecognitionEnv();
+    await grantPremium(env.DB);
     const token = await recognitionToken(env);
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ candidates: [] })));
+    stubVectorRecognition(env, vi.fn().mockResolvedValue(Response.json({ candidates: [] })));
 
-    const response = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+    const response = await recognize(env, token, { vector: VECTOR });
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -768,13 +275,13 @@ describe("scan routes", () => {
         },
       },
     });
-    expect(env.DB.scanQuotaRequests).toEqual([
+    expect((await readRows(env.DB, "scan_quota_request"))).toEqual([
       expect.objectContaining({ access_mode: "premium", status: "released" }),
     ]);
   });
 
-  it("returns the server reservation before OCR because Processing must show the current remaining quota", async () => {
-    const env = createRecognitionEnv();
+  it("returns the server reservation before vector search because Processing must show the current remaining quota", async () => {
+    const env = await createRecognitionEnv();
     const token = await recognitionToken(env);
     const requestId = crypto.randomUUID();
 
@@ -806,23 +313,21 @@ describe("scan routes", () => {
         },
       },
     });
-    expect(env.DB.scanRecords).toEqual([]);
+    expect((await readRows(env.DB, "scan_record"))).toEqual([]);
 
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ candidates: [] })));
+    stubVectorRecognition(env, vi.fn().mockResolvedValue(Response.json({ candidates: [] })));
     const response = await recognize(env, token, {
       request_id: requestId,
-      r: PHASH,
-      g: PHASH,
-      b: PHASH,
+      vector: VECTOR,
     });
     expect(response.status).toBe(200);
-    expect(env.DB.scanQuotaRequests).toEqual([
+    expect((await readRows(env.DB, "scan_quota_request"))).toEqual([
       expect.objectContaining({ status: "released" }),
     ]);
   });
 
-  it("releases a queued reservation when recognition cannot start because unavailable OCR must not hold Free quota", async () => {
-    const env = createRecognitionEnv();
+  it("releases a queued reservation when recognition cannot start because unavailable vector search must not hold Free quota", async () => {
+    const env = await createRecognitionEnv();
     const token = await recognitionToken(env);
     const requestId = crypto.randomUUID();
     const reservation = await app.request(
@@ -839,23 +344,21 @@ describe("scan routes", () => {
       env,
     );
     expect(reservation.status).toBe(200);
-    env.OCR_SERVICE_BASE_URL = "";
+    env.VECTOR_RECOGNITION = undefined;
 
     const response = await recognize(env, token, {
       request_id: requestId,
-      r: PHASH,
-      g: PHASH,
-      b: PHASH,
+      vector: VECTOR,
     });
 
     expect(response.status).toBe(503);
-    expect(env.DB.scanQuotaRequests).toEqual([
+    expect((await readRows(env.DB, "scan_quota_request"))).toEqual([
       expect.objectContaining({ status: "released" }),
     ]);
   });
 
   it("releases a queued reservation when the trusted app environment is missing", async () => {
-    const env = createRecognitionEnv();
+    const env = await createRecognitionEnv();
     const token = await recognitionToken(env);
     const requestId = crypto.randomUUID();
     const reservation = await app.request(
@@ -876,21 +379,19 @@ describe("scan routes", () => {
 
     const response = await recognize(env, token, {
       request_id: requestId,
-      r: PHASH,
-      g: PHASH,
-      b: PHASH,
+      vector: VECTOR,
     });
 
     expect(response.status).toBe(503);
-    expect(env.DB.scanQuotaRequests).toEqual([
+    expect((await readRows(env.DB, "scan_quota_request"))).toEqual([
       expect.objectContaining({ status: "released" }),
     ]);
     expect((env.SCAN_IMAGES as unknown as FakeR2).objects.size).toBe(0);
   });
 
-  it("promotes an exact printed number because pHash alone cannot distinguish cards with identical artwork", async () => {
-    const env = createRecognitionEnv();
-    env.DB.cards.push(
+  it("promotes an exact printed number because vector alone cannot distinguish cards with identical artwork", async () => {
+    const env = await createRecognitionEnv();
+    await insertRows(env.DB, "cards_all",
       {
         product_id: "610499",
         game_id: 3,
@@ -917,8 +418,8 @@ describe("scan routes", () => {
       },
     );
     const token = await recognitionToken(env);
-    vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
-      expect(JSON.parse(String(init.body))).toEqual({ r: PHASH, g: PHASH, b: PHASH });
+    stubVectorRecognition(env, async (_url: string, init: RequestInit) => {
+      expect(JSON.parse(String(init.body))).toEqual({ vector: VECTOR });
       return Response.json({
         candidates: [
           { product_id: 610499, confidence: 84.1 },
@@ -928,9 +429,7 @@ describe("scan routes", () => {
     });
 
     const response = await recognize(env, token, {
-      r: PHASH,
-      g: PHASH,
-      b: PHASH,
+      vector: VECTOR,
       card_number: "200 / 187",
     });
     const body = await response.json();
@@ -944,19 +443,19 @@ describe("scan routes", () => {
               rank: 1,
               card_ref: "602664",
               card_number: "200/187",
-              retrieval: "rgb-phash-16-v1+card-number-ocr",
+              retrieval: "pe-core-t16-384-cosine-v1+card-number-ocr",
             }),
             expect.objectContaining({ rank: 2, card_ref: "610499" }),
           ],
         })],
       }),
     }));
-    expect(env.DB.scanRecords[0]?.system_result).toContain('"number":"200/187"');
+    expect((await readRows(env.DB, "scan_record"))[0]?.system_result).toContain('"number":"200/187"');
   });
 
-  it("recovers an exact catalog printing because the correct version may fall outside the pHash candidate limit", async () => {
-    const env = createRecognitionEnv();
-    env.DB.cards.push(
+  it("recovers an exact catalog printing because the correct version may fall outside the vector candidate limit", async () => {
+    const env = await createRecognitionEnv();
+    await insertRows(env.DB, "cards_all",
       {
         product_id: "610499",
         game_id: 3,
@@ -983,16 +482,14 @@ describe("scan routes", () => {
       },
     );
     const token = await recognitionToken(env);
-    vi.stubGlobal("fetch", async () =>
+    stubVectorRecognition(env, async () =>
       Response.json({
         candidates: [{ product_id: 610499, confidence: 84.1 }],
       })
     );
 
     const response = await recognize(env, token, {
-      r: PHASH,
-      g: PHASH,
-      b: PHASH,
+      vector: VECTOR,
       card_number: "200/187",
     });
     const body = await response.json();
@@ -1005,7 +502,7 @@ describe("scan routes", () => {
             expect.objectContaining({
               card_ref: "602664",
               card_number: "200/187",
-              retrieval: "rgb-phash-16-v1+card-number-ocr",
+              retrieval: "pe-core-t16-384-cosine-v1+card-number-ocr",
             }),
             expect.objectContaining({ card_ref: "610499" }),
           ],
@@ -1015,8 +512,8 @@ describe("scan routes", () => {
   });
 
   it("recovers an alphanumeric sports printing because card-number disambiguation must not coerce catalog ids to numbers", async () => {
-    const env = createRecognitionEnv();
-    env.DB.cards.push(
+    const env = await createRecognitionEnv();
+    await insertRows(env.DB, "cards_all",
       {
         product_id: "610499",
         game_id: 100003,
@@ -1043,14 +540,12 @@ describe("scan routes", () => {
       },
     );
     const token = await recognitionToken(env);
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({
+    stubVectorRecognition(env, vi.fn().mockResolvedValue(Response.json({
       candidates: [{ product_id: 610499, confidence: 84.1 }],
     })));
 
     const response = await recognize(env, token, {
-      r: PHASH,
-      g: PHASH,
-      b: PHASH,
+      vector: VECTOR,
       card_number: "200/200",
     });
     const body = await response.json();
@@ -1064,7 +559,7 @@ describe("scan routes", () => {
               product_id: "sports:soccer:rookie-200",
               card_ref: "sports:soccer:rookie-200",
               card_number: "200/200",
-              retrieval: "rgb-phash-16-v1+card-number-ocr",
+              retrieval: "pe-core-t16-384-cosine-v1+card-number-ocr",
             }),
             expect.objectContaining({ card_ref: "610499" }),
           ],
@@ -1073,14 +568,14 @@ describe("scan routes", () => {
     }));
   });
 
-  it("stores no_match when recognition ids are absent from D1 because an upstream id is not a reviewable card", async () => {
-    const env = createRecognitionEnv();
+  it("stores no_match when recognition ids are absent from PostgreSQL because an upstream id is not a reviewable card", async () => {
+    const env = await createRecognitionEnv();
     const token = await recognitionToken(env);
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({
+    stubVectorRecognition(env, vi.fn().mockResolvedValue(Response.json({
       candidates: [{ product_id: 999, confidence: 77.125 }],
     })));
 
-    const response = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+    const response = await recognize(env, token, { vector: VECTOR });
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -1093,22 +588,22 @@ describe("scan routes", () => {
         results: [{ index: 1, matched: false, candidates: [] }],
       }),
     });
-    expect(env.DB.scanRecords).toEqual([
+    expect((await readRows(env.DB, "scan_record"))).toEqual([
       expect.objectContaining({
         recognition_status: "no_match",
         candidates: expect.stringContaining('"confidence":77.125'),
       }),
     ]);
-    expect(env.DB.scanQuotaRequests).toEqual([
+    expect((await readRows(env.DB, "scan_quota_request"))).toEqual([
       expect.objectContaining({ status: "released" }),
     ]);
   });
 
-  it("releases Free quota when OCR resolves only an incomplete catalog card because unusable details are not a successful scan", async () => {
-    const env = createRecognitionEnv();
+  it("releases Free quota when vector search resolves only an incomplete catalog card because unusable details are not a successful scan", async () => {
+    const env = await createRecognitionEnv();
     const token = await recognitionToken(env);
     const requestId = crypto.randomUUID();
-    env.DB.cards.push({
+    await insertRows(env.DB, "cards_all", {
       product_id: "incomplete-card",
       game_id: 1,
       game: "Pokemon",
@@ -1123,20 +618,16 @@ describe("scan routes", () => {
     const fetchMock = vi.fn().mockResolvedValue(Response.json({
       candidates: [{ product_id: "incomplete-card", confidence: 95 }],
     }));
-    vi.stubGlobal("fetch", fetchMock);
+    stubVectorRecognition(env, fetchMock);
 
     const first = await recognize(env, token, {
       request_id: requestId,
-      r: PHASH,
-      g: PHASH,
-      b: PHASH,
+      vector: VECTOR,
     });
     const firstBody = await first.json();
     const replay = await recognize(env, token, {
       request_id: requestId,
-      r: PHASH,
-      g: PHASH,
-      b: PHASH,
+      vector: VECTOR,
     });
 
     expect(first.status).toBe(200);
@@ -1158,21 +649,21 @@ describe("scan routes", () => {
     });
     expect(await replay.json()).toEqual(firstBody);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(env.DB.scanQuotaRequests).toEqual([
+    expect((await readRows(env.DB, "scan_quota_request"))).toEqual([
       expect.objectContaining({
         request_id: requestId,
         status: "released",
       }),
     ]);
-    expect(env.DB.scanRecords).toEqual([
+    expect((await readRows(env.DB, "scan_record"))).toEqual([
       expect.objectContaining({ recognition_status: "failed" }),
     ]);
   });
 
   it("consumes one Free scan for a complete catalog card without price data because price is not required for usable details", async () => {
-    const env = createRecognitionEnv();
+    const env = await createRecognitionEnv();
     const token = await recognitionToken(env);
-    env.DB.cards.push({
+    await insertRows(env.DB, "cards_all", {
       product_id: "complete-card-without-price",
       game_id: 1,
       game: "Pokemon",
@@ -1184,14 +675,12 @@ describe("scan routes", () => {
       image_url: null,
       number: "002/100",
     });
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({
+    stubVectorRecognition(env, vi.fn().mockResolvedValue(Response.json({
       candidates: [{ product_id: "complete-card-without-price", confidence: 94 }],
     })));
 
     const response = await recognize(env, token, {
-      r: PHASH,
-      g: PHASH,
-      b: PHASH,
+      vector: VECTOR,
     });
     const body = await response.json();
 
@@ -1215,9 +704,9 @@ describe("scan routes", () => {
   });
 
   it("settles complete and incomplete batch items independently because one bad card must not change another result", async () => {
-    const env = createRecognitionEnv();
+    const env = await createRecognitionEnv();
     const token = await recognitionToken(env);
-    env.DB.cards.push(
+    await insertRows(env.DB, "cards_all",
       {
         product_id: "batch-valid",
         game_id: 1,
@@ -1250,10 +739,10 @@ describe("scan routes", () => {
       .mockResolvedValueOnce(Response.json({
         candidates: [{ product_id: "batch-invalid", confidence: 93 }],
       }));
-    vi.stubGlobal("fetch", fetchMock);
+    stubVectorRecognition(env, fetchMock);
 
-    const valid = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
-    const invalid = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+    const valid = await recognize(env, token, { vector: VECTOR });
+    const invalid = await recognize(env, token, { vector: VECTOR });
 
     expect(await valid.json()).toMatchObject({
       data: {
@@ -1267,21 +756,21 @@ describe("scan routes", () => {
         quota: { consumed: 1, remaining: 9 },
       },
     });
-    expect(env.DB.scanQuotaRequests.map((request) => request.status)).toEqual([
+    expect((await readRows(env.DB, "scan_quota_request")).map((request) => request.status)).toEqual([
       "consumed",
       "released",
     ]);
-    expect(env.DB.scanRecords.map((record) => record.recognition_status)).toEqual([
+    expect((await readRows(env.DB, "scan_record")).map((record) => record.recognition_status)).toEqual([
       "success",
       "failed",
     ]);
   });
 
-  it("rejects the eleventh Free scan before R2 and OCR because the server quota is authoritative", async () => {
-    const env = createRecognitionEnv();
+  it("rejects the eleventh Free scan before R2 and vector search because the server quota is authoritative", async () => {
+    const env = await createRecognitionEnv();
     const token = await recognitionToken(env);
     for (let index = 0; index < 10; index += 1) {
-      env.DB.scanQuotaRequests.push({
+      await insertRows(env.DB, "scan_quota_request", {
         request_id: crypto.randomUUID(),
         owner_type: "anonymous",
         owner_id: "anon-1",
@@ -1294,9 +783,9 @@ describe("scan routes", () => {
       });
     }
     const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
+    stubVectorRecognition(env, fetchMock);
 
-    const response = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+    const response = await recognize(env, token, { vector: VECTOR });
 
     expect(response.status).toBe(403);
     expect(await response.json()).toMatchObject({
@@ -1314,52 +803,52 @@ describe("scan routes", () => {
     expect((env.SCAN_IMAGES as unknown as FakeR2).objects.size).toBe(0);
   });
 
-  it("replays a completed request because a lost response must not consume quota or OCR twice", async () => {
-    const env = createRecognitionEnv();
+  it("replays a completed request because a lost response must not consume quota or vector search twice", async () => {
+    const env = await createRecognitionEnv();
     const token = await recognitionToken(env);
     const requestId = crypto.randomUUID();
     const fetchMock = vi.fn().mockResolvedValue(Response.json({ candidates: [] }));
-    vi.stubGlobal("fetch", fetchMock);
+    stubVectorRecognition(env, fetchMock);
 
-    const first = await recognize(env, token, { request_id: requestId, r: PHASH, g: PHASH, b: PHASH });
+    const first = await recognize(env, token, { request_id: requestId, vector: VECTOR });
     const firstBody = await first.json();
-    const second = await recognize(env, token, { request_id: requestId, r: PHASH, g: PHASH, b: PHASH });
+    const second = await recognize(env, token, { request_id: requestId, vector: VECTOR });
 
     expect(second.status).toBe(200);
     expect(await second.json()).toEqual(firstBody);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(env.DB.scanQuotaRequests).toEqual([
+    expect((await readRows(env.DB, "scan_quota_request"))).toEqual([
       expect.objectContaining({ request_id: requestId, status: "released" }),
     ]);
   });
 
-  it("rejects malformed pHashes before calling recognition because protocol errors must not create scan records", async () => {
-    const env = createRecognitionEnv();
+  it("rejects malformed vectores before calling recognition because protocol errors must not create scan records", async () => {
+    const env = await createRecognitionEnv();
     const token = await recognitionToken(env);
     const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
+    stubVectorRecognition(env, fetchMock);
 
-    const response = await recognize(env, token, { r: "invalid", g: PHASH, b: PHASH });
+    const response = await recognize(env, token, { vector: [1, 2, 3] });
 
     expect(response.status).toBe(422);
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(env.DB.scanRecords).toEqual([]);
+    expect((await readRows(env.DB, "scan_record"))).toEqual([]);
   });
 
   it("stores failed with the raw upstream payload because every valid recognition attempt must remain auditable", async () => {
-    const env = createRecognitionEnv();
+    const env = await createRecognitionEnv();
     const token = await recognitionToken(env);
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(
+    stubVectorRecognition(env, vi.fn().mockResolvedValue(Response.json(
       { error: "internal_error" },
       { status: 500 },
     )));
 
-    const response = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+    const response = await recognize(env, token, { vector: VECTOR });
     const body = await response.json() as { scan_id?: unknown };
 
     expect(response.status).toBe(502);
     expect(body.scan_id).toEqual(expect.any(String));
-    expect(env.DB.scanRecords).toEqual([
+    expect((await readRows(env.DB, "scan_record"))).toEqual([
       expect.objectContaining({
         recognition_status: "failed",
         candidates: "[]",
@@ -1368,59 +857,59 @@ describe("scan routes", () => {
   });
 
   it("rejects the retired product_ids response as an upstream failure because clients must not silently lose production confidence", async () => {
-    const env = createRecognitionEnv();
+    const env = await createRecognitionEnv();
     const token = await recognitionToken(env);
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ product_ids: [10738] })));
+    stubVectorRecognition(env, vi.fn().mockResolvedValue(Response.json({ product_ids: [10738] })));
 
-    const response = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+    const response = await recognize(env, token, { vector: VECTOR });
 
     expect(response.status).toBe(502);
-    expect(env.DB.scanRecords[0]?.recognition_status).toBe("failed");
+    expect((await readRows(env.DB, "scan_record"))[0]?.recognition_status).toBe("failed");
   });
 
   it("rejects out-of-range upstream confidence because similarity must remain the exact finite 0 to 100 service value", async () => {
-    const env = createRecognitionEnv();
+    const env = await createRecognitionEnv();
     const token = await recognitionToken(env);
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({
+    stubVectorRecognition(env, vi.fn().mockResolvedValue(Response.json({
       candidates: [{ product_id: 10738, confidence: 100.001 }],
     })));
 
-    const response = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+    const response = await recognize(env, token, { vector: VECTOR });
 
     expect(response.status).toBe(502);
-    expect(env.DB.scanRecords[0]?.recognition_status).toBe("failed");
+    expect((await readRows(env.DB, "scan_record"))[0]?.recognition_status).toBe("failed");
   });
 
-  it("deletes the private image when D1 insert fails because compensation must not leave an orphaned R2 object", async () => {
-    const env = createRecognitionEnv();
-    env.DB.failScanInsert = true;
+  it("deletes the private image when PostgreSQL insert fails because compensation must not leave an orphaned R2 object", async () => {
+    const env = await createRecognitionEnv();
+    await env.DB.exec("CREATE FUNCTION fail_scan_insert() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'test scan insert failure'; END $$; CREATE TRIGGER fail_scan_insert BEFORE INSERT ON scan_record FOR EACH ROW EXECUTE FUNCTION fail_scan_insert();");
     const token = await recognitionToken(env);
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ candidates: [] })));
+    stubVectorRecognition(env, vi.fn().mockResolvedValue(Response.json({ candidates: [] })));
 
-    const response = await recognize(env, token, { r: PHASH, g: PHASH, b: PHASH });
+    const response = await recognize(env, token, { vector: VECTOR });
 
     expect(response.status).toBe(500);
     expect((env.SCAN_IMAGES as unknown as FakeR2).objects.size).toBe(0);
-    expect(env.DB.scanRecords).toEqual([]);
+    expect((await readRows(env.DB, "scan_record"))).toEqual([]);
   });
 
-  it("confirms a stored candidate and records its valuation event because Scan additions must reach Collection and HOME", async () => {
-    const env = createTestEnv();
-    env.DB.sessions.push({
+  it("confirms a stored candidate with its purchase price event because Scan additions must reach Collection and Performance", async () => {
+    const env = await createTestEnv();
+    await insertRows(env.DB, "session", {
       id: "session-1",
       owner_type: "anonymous",
       owner_id: "anon-1",
       expires_at: "2099-01-01T00:00:00.000Z",
       revoked_at: null,
     });
-    env.DB.anonymousAccounts.push({ id: "anon-1", upgraded_user_id: null });
-    env.DB.folders.push({ id: "main", owner_type: "anonymous", owner_id: "anon-1" });
-    env.DB.wishlistItems.push({
+    await insertRows(env.DB, "anonymous_account", { id: "anon-1", upgraded_user_id: null });
+    await insertRows(env.DB, "portfolio_folder", { id: "main", owner_type: "anonymous", owner_id: "anon-1" });
+    await insertRows(env.DB, "wishlist_item", {
       owner_type: "anonymous",
       owner_id: "anon-1",
       card_ref: "11958",
     });
-    env.DB.scanRecords.push({
+    await insertRows(env.DB, "scan_record", {
       id: "scan-1",
       owner_type: "anonymous",
       owner_id: "anon-1",
@@ -1469,7 +958,7 @@ describe("scan routes", () => {
         folder_id: "main",
       },
     });
-    expect(env.DB.collectionItems).toEqual([
+    expect((await readRows(env.DB, "collection_item"))).toEqual([
       expect.objectContaining({
         folder_id: "main",
         card_ref: "11958",
@@ -1486,9 +975,9 @@ describe("scan routes", () => {
         folder_joined_at: expect.any(String),
       }),
     ]);
-    expect(env.DB.collectionItemEvents).toEqual([
+    expect((await readRows(env.DB, "collection_item_event"))).toEqual([
       expect.objectContaining({
-        item_id: env.DB.collectionItems[0]?.id,
+        item_id: (await readRows(env.DB, "collection_item"))[0]?.id,
         owner_type: "anonymous",
         owner_id: "anon-1",
         folder_id: "main",
@@ -1502,13 +991,13 @@ describe("scan routes", () => {
         quantity: 2,
         purchase_price: 12.5,
         purchase_currency: "USD",
-        performance_history_available_from: env.DB.collectionItems[0]?.folder_joined_at,
+        performance_history_available_from: (await readRows(env.DB, "collection_item"))[0]?.folder_joined_at,
         event_type: "upsert",
-        effective_at: env.DB.collectionItems[0]?.folder_joined_at,
+        effective_at: (await readRows(env.DB, "collection_item"))[0]?.folder_joined_at,
       }),
     ]);
-    expect(env.DB.wishlistItems).toEqual([]);
-    expect(env.DB.scanRecords[0]).toEqual(
+    expect((await readRows(env.DB, "wishlist_item"))).toEqual([]);
+    expect((await readRows(env.DB, "scan_record"))[0]).toEqual(
       expect.objectContaining({
         user_confirmation_status: "confirmed",
         user_result: expect.stringContaining('"added_to_inventory":true'),
@@ -1517,7 +1006,7 @@ describe("scan routes", () => {
   });
 
   it("persists Raw review fields because condition-based valuation must survive Scan confirmation", async () => {
-    const env = createConfirmEnv();
+    const env = await createConfirmEnv();
     const token = await confirmToken(env);
 
     const response = await confirmScan(env, token, {
@@ -1535,7 +1024,7 @@ describe("scan routes", () => {
     });
 
     expect(response.status).toBe(201);
-    expect(env.DB.collectionItems).toEqual([
+    expect((await readRows(env.DB, "collection_item"))).toEqual([
       expect.objectContaining({
         grader: "Raw",
         condition: "Lightly Played (LP)",
@@ -1577,9 +1066,9 @@ describe("scan routes", () => {
       },
     ];
 
+    const env = await createConfirmEnv();
+    const token = await confirmToken(env);
     for (const invalid of invalidBodies) {
-      const env = createConfirmEnv();
-      const token = await confirmToken(env);
       const response = await confirmScan(env, token, {
         folder_id: "main",
         card_ref: "11958",
@@ -1591,14 +1080,14 @@ describe("scan routes", () => {
       });
 
       expect(response.status).toBe(422);
-      expect(env.DB.collectionItems).toEqual([]);
-      expect(env.DB.scanRecords[0]?.user_confirmation_status).toBe("pending");
+      expect((await readRows(env.DB, "collection_item"))).toEqual([]);
+      expect((await readRows(env.DB, "scan_record"))[0]?.user_confirmation_status).toBe("pending");
     }
   });
 
   it("rejects foreign folders, non-candidates, and repeated confirmation because Review cannot cross ownership or duplicate items", async () => {
-    const env = createConfirmEnv();
-    env.DB.folders.push({ id: "foreign", owner_type: "user", owner_id: "other" });
+    const env = await createConfirmEnv();
+    await insertRows(env.DB, "portfolio_folder", { id: "foreign", owner_type: "user", owner_id: "other" });
     const token = await confirmToken(env);
     const base = {
       quantity: 1,
@@ -1635,12 +1124,12 @@ describe("scan routes", () => {
     expect(nonCandidate.status).toBe(422);
     expect(first.status).toBe(201);
     expect(repeated.status).toBe(409);
-    expect(env.DB.collectionItems).toHaveLength(1);
+    expect((await readRows(env.DB, "collection_item"))).toHaveLength(1);
   });
 
   it("allows the same scanned card, finish, and language when grading differs", async () => {
-    const env = createConfirmEnv();
-    env.DB.collectionItems.push({
+    const env = await createConfirmEnv();
+    await insertRows(env.DB, "collection_item", {
       id: "owned", owner_type: "anonymous", owner_id: "anon-1", folder_id: "main",
       card_ref: "11958", object_type: "tcg", grader: "Raw",
       condition: "Near Mint (NM)", grade: null, language: "English",
@@ -1655,29 +1144,63 @@ describe("scan routes", () => {
     });
 
     expect(response.status).toBe(201);
-    expect(env.DB.collectionItems).toHaveLength(2);
-    expect(env.DB.scanRecords[0]?.user_confirmation_status).toBe("confirmed");
+    expect((await readRows(env.DB, "collection_item"))).toHaveLength(2);
+    expect((await readRows(env.DB, "scan_record"))[0]?.user_confirmation_status).toBe("confirmed");
   });
 });
 
-type TestEnvWithFakeDb = Omit<TestEnv, "DB"> & { DB: FakeD1 };
 
-function createTestEnv(): TestEnvWithFakeDb {
-  const scanImages = new FakeR2();
-  return {
-    DB: new FakeD1(),
-    CACHE_KV: {} as KVNamespace,
-    JWT_SECRET: "test-secret",
-    OCR_SERVICE_BASE_URL: "https://ocr.example.test",
-    SCAN_IMAGES: scanImages as unknown as R2Bucket,
-    APP_ENVIRONMENT: "development",
-    APPLE_IAP_PRODUCT_IDS: "yearly",
-  };
+async function createTestEnv(): Promise<TestEnvWithPostgres> {
+  const db = await PGliteDatabase.create();
+  databases.push(db);
+  for (const name of ["0000_business_schema", "0001_price_domain", "0006_mutation_lock", "0008_collection_item_grading_identity", "0010_scan_record_environment"]) {
+    await db.exec(readFileSync(new URL('../db/postgres/migrations/' + name + '.sql', import.meta.url), 'utf8'));
+  }
+  const queries: string[] = [];
+  const prepare = db.prepare.bind(db);
+  vi.spyOn(db, "prepare").mockImplementation((sql) => { queries.push(sql.replace(/\s+/g, " ").trim()); return prepare(sql); });
+  return { DB: db, queries, CACHE_KV: {} as KVNamespace, JWT_SECRET: "test-secret",
+    VECTOR_RECOGNITION: { fetch: vi.fn() } as unknown as Fetcher, SCAN_IMAGES: new FakeR2() as unknown as R2Bucket,
+    APP_ENVIRONMENT: "development", APPLE_IAP_PRODUCT_IDS: "yearly" };
 }
 
-function createRecognitionEnv(): TestEnvWithFakeDb {
-  const env = createTestEnv();
-  env.DB.sessions.push({
+async function insertRows(db: PGliteDatabase, table: string, ...values: Record<string, unknown>[]) {
+  const now = new Date().toISOString();
+  const defaults: Record<string, Record<string, unknown>> = {
+    session: { refresh_token: crypto.randomUUID(), created_at: now },
+    anonymous_account: { device_id: crypto.randomUUID(), created_at: now },
+    portfolio_folder: { name: crypto.randomUUID(), created_at: now, updated_at: now },
+    scan_record: { filename: "scan.jpg", platform: "iOS", app_version: "1.0.0", raw_response: "{}", created_at: now },
+    scan_quota_request: { created_at: now, updated_at: now },
+    collection_item: { created_at: now, updated_at: now },
+    wishlist_item: { id: crypto.randomUUID(), created_at: now },
+  };
+  for (const value of values) {
+    const row = { ...defaults[table], ...value };
+    // Production derives card image URLs; they are not a cards_all column.
+    if (table === "cards_all") delete row.image_url;
+    const columns = Object.keys(row);
+    await db.prepare('INSERT INTO ' + table + ' (' + columns.join(', ') + ') VALUES (' + columns.map(() => '?').join(', ') + ')')
+      .bind(...Object.values(row)).run();
+  }
+}
+
+async function readRows(db: PGliteDatabase, table: string): Promise<Record<string, any>[]> {
+  return (await db.query<Record<string, any>>('SELECT * FROM ' + table + ' ORDER BY ctid')).rows;
+}
+
+async function grantPremium(db: PGliteDatabase) {
+  await db.exec(`
+    INSERT INTO billing_purchase_chain (id, store, environment, original_transaction_id, product_id, entitlement_id,
+      original_owner_type, original_owner_id, status, created_at, updated_at)
+    VALUES ('scan-premium-chain', 'apple', 'Sandbox', 'scan-original', 'yearly', 'performance_pro', 'anonymous', 'anon-1', 'LIFETIME', '2026-09-08', '2026-09-08');
+    INSERT INTO billing_session_entitlement_grant (id, session_id, purchase_chain_id, entitlement_id, source, status, granted_at, last_verified_at, updated_at)
+    VALUES ('scan-premium-grant', 'session-1', 'scan-premium-chain', 'performance_pro', 'verified', 'active', '2026-09-08', '2026-09-08', '2026-09-08');
+  `);
+}
+async function createRecognitionEnv(): Promise<TestEnvWithPostgres> {
+  const env = await createTestEnv();
+  await insertRows(env.DB, "session", {
     id: "session-1",
     owner_type: "anonymous",
     owner_id: "anon-1",
@@ -1685,11 +1208,11 @@ function createRecognitionEnv(): TestEnvWithFakeDb {
     revoked_at: null,
   });
 
-  env.DB.anonymousAccounts.push({ id: "anon-1", upgraded_user_id: null });
+  await insertRows(env.DB, "anonymous_account", { id: "anon-1", upgraded_user_id: null });
   return env;
 }
 
-function recognitionToken(env: TestEnvWithFakeDb): Promise<string> {
+function recognitionToken(env: TestEnvWithPostgres): Promise<string> {
   return signAccessToken(
     { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1" },
     env.JWT_SECRET,
@@ -1697,7 +1220,7 @@ function recognitionToken(env: TestEnvWithFakeDb): Promise<string> {
 }
 
 async function recognize(
-  env: TestEnvWithFakeDb,
+  env: TestEnvWithPostgres,
   token: string,
   body: Record<string, unknown>,
 ): Promise<Response> {
@@ -1716,7 +1239,7 @@ async function recognize(
 function recognitionForm(body: Record<string, unknown>): FormData {
   const form = new FormData();
   for (const [key, value] of Object.entries(body)) {
-    if (value !== undefined && value !== null) form.set(key, String(value));
+    if (value !== undefined && value !== null) form.set(key, key === "vector" ? JSON.stringify(value) : String(value));
   }
   form.set(
     "image",
@@ -1732,18 +1255,18 @@ const SCAN_JPEG = new Uint8Array([
   0xff, 0xd9,
 ]);
 
-function createConfirmEnv(): TestEnvWithFakeDb {
-  const env = createTestEnv();
-  env.DB.sessions.push({
+async function createConfirmEnv(): Promise<TestEnvWithPostgres> {
+  const env = await createTestEnv();
+  await insertRows(env.DB, "session", {
     id: "session-1",
     owner_type: "anonymous",
     owner_id: "anon-1",
     expires_at: "2099-01-01T00:00:00.000Z",
     revoked_at: null,
   });
-  env.DB.anonymousAccounts.push({ id: "anon-1", upgraded_user_id: null });
-  env.DB.folders.push({ id: "main", owner_type: "anonymous", owner_id: "anon-1" });
-  env.DB.scanRecords.push({
+  await insertRows(env.DB, "anonymous_account", { id: "anon-1", upgraded_user_id: null });
+  await insertRows(env.DB, "portfolio_folder", { id: "main", owner_type: "anonymous", owner_id: "anon-1" });
+  await insertRows(env.DB, "scan_record", {
     id: "scan-1",
     owner_type: "anonymous",
     owner_id: "anon-1",
@@ -1760,7 +1283,7 @@ function createConfirmEnv(): TestEnvWithFakeDb {
   return env;
 }
 
-function confirmToken(env: TestEnvWithFakeDb): Promise<string> {
+function confirmToken(env: TestEnvWithPostgres): Promise<string> {
   return signAccessToken(
     { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1" },
     env.JWT_SECRET,
@@ -1768,7 +1291,7 @@ function confirmToken(env: TestEnvWithFakeDb): Promise<string> {
 }
 
 async function confirmScan(
-  env: TestEnvWithFakeDb,
+  env: TestEnvWithPostgres,
   token: string,
   body: Record<string, unknown>,
 ): Promise<Response> {
@@ -1783,22 +1306,6 @@ async function confirmScan(
   );
 }
 
-function normalizeSql(sql: string): string {
-  return sql.replace(/\s+/g, " ").trim();
-}
-
-function okResult<T>(results: T[] = [], changes = 1): D1Result<T> {
-  return {
-    success: true,
-    results,
-    meta: {
-      duration: 0,
-      size_after: 0,
-      rows_read: 0,
-      rows_written: changes,
-      last_row_id: 0,
-      changed_db: changes > 0,
-      changes,
-    },
-  };
+function stubVectorRecognition(env: TestEnvWithPostgres, handler: (...args: any[]) => Promise<Response>): void {
+  env.VECTOR_RECOGNITION = { fetch: handler } as unknown as Fetcher;
 }

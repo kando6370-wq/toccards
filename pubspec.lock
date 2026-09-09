@@ -169,14 +169,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.3.5+3"
-  change_case:
-    dependency: transitive
-    description:
-      name: change_case
-      sha256: e41ef3df58521194ef8d7649928954805aeb08061917cf658322305e61568003
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.2.0"
   characters:
     dependency: transitive
     description:
@@ -233,14 +225,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.2"
-  code_assets:
-    dependency: transitive
-    description:
-      name: code_assets
-      sha256: "83ccdaa064c980b5596c35dd64a8d3ecc68620174ab9b90b6343b753aa721687"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.0"
   code_builder:
     dependency: transitive
     description:
@@ -321,14 +305,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.1.3"
-  dartcv4:
-    dependency: transitive
-    description:
-      name: dartcv4
-      sha256: "5764d13550055da3bb35ca28e6866b837579dfb4b594582b7a7753785ca5dfef"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.2.1+4"
   device_info_plus:
     dependency: transitive
     description:
@@ -712,14 +688,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.3.2"
-  hooks:
-    dependency: transitive
-    description:
-      name: hooks
-      sha256: "025f060e86d2d4c3c47b56e33caf7f93bf9283340f26d23424ebcfccf34f621e"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.3"
   html:
     dependency: transitive
     description:
@@ -992,14 +960,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.4"
-  native_toolchain_cmake:
-    dependency: transitive
-    description:
-      name: native_toolchain_cmake
-      sha256: de90e8952bad0684bdcff4d674c53d961f5cd1fdcf3a0255a669a35986c4ac1d
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.2.7"
   node_preamble:
     dependency: transitive
     description:
@@ -1008,14 +968,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.2"
-  opencv_dart:
-    dependency: transitive
-    description:
-      name: opencv_dart
-      sha256: b50ea4788e6d61df6369874e0244445d98ef9210dbb90b8d3c1df198b4ee2333
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.2.1+4"
   package_config:
     dependency: transitive
     description:
@@ -1224,14 +1176,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.5.0"
-  record_use:
-    dependency: transitive
-    description:
-      name: record_use
-      sha256: "2551bd8eecfe95d14ae75f6021ad0248be5c27f138c2ec12fcb52b500b3ba1ed"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.6.0"
   riverpod:
     dependency: transitive
     description:

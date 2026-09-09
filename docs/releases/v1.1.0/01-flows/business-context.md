@@ -108,9 +108,9 @@ Card AI 面向交易卡牌用户提供目录搜索、图片识别、Wishlist/Col
 
 ### 3.3 扫描与服务端额度
 
-1. App 拍照或选图，计算 RGB pHash，提交图片、`request_id` 和同值 `Idempotency-Key`。
+1. App 拍照或选图，经端侧模型检测和原生透视矫正生成 512 维卡面向量，提交矫正图片、`vector`、`request_id` 和同值 `Idempotency-Key`；见[扫描识别链路](scan-recognition.md)。
 2. Workers 先按当前 session grant 判断 Premium；Free 请求以一条条件 INSERT 原子预占额度。
-3. 图片可写入 R2，OCR 返回成功候选、无匹配或失败。
+3. 矫正图片写入私有 R2，Workers 经 `VECTOR_RECOGNITION` Service Binding 向 `recognize-vec` 仅发送向量，返回成功候选、无匹配或失败。
 4. 技术失败释放预占；成功识别消费额度并返回最新 Quota。
 5. 用户在 Review 选择结果，调用 `/scan/:scan_id/confirm` 创建收藏记录。
 
@@ -245,7 +245,7 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 |---|---|---|---|
 | StoreKit/App Store | 上游 | 商品、交易、current entitlement | 商品不可售、购买/Restore 无法完成 |
 | Apple Notifications/Server API | 上游校正 | JWS、通知、当前交易历史 | 生命周期延迟；inbox/校正任务应保留并重试 |
-| OCR | 上游 | 扫描图片识别 | Scan 失败并释放 Free 预占 |
+| recognize-vec | 内部识别服务 | 512 维向量检索候选 | Scan 失败并释放 Free 预占 |
 | PlanetScale PostgreSQL / Hyperdrive | 核心真源与连接边界 | 参数化 PostgreSQL SQL | 账号、资产、额度、订阅和 Admin 不可用 |
 | KV | 缓存 | 目录/汇率快照 | 可回源或显式失败，不能改变授权真值 |
 | R2 | 对象存储 | 扫描原图 | 识别可按配置继续；Admin 图片可能不可查看 |

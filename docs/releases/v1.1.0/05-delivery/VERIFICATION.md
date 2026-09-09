@@ -165,3 +165,105 @@ Code Review 自审通过：对照锁定的 Singular Flutter SDK 1.9.0 Dart 与 i
 真机周订阅补报验证：首次启动日志出现网络离线错误及 `Singular attribution disabled: runtime credentials unavailable.`。用户随后完成购买，日志收到 `status=purchased, productId=cardx.week` 且无购买错误，收入首次尝试报 `Singular revenue unavailable: missing credentials`。本机只读检查 test `/app-config` 确认响应成功、两项 Singular 配置均非空（未输出配置值）；通过 Flutter 调试会话发送 `R` 热重启后，日志依次出现 `Singular attribution SDK initialized.` 和 `Singular revenue handed to SDK: weekly_cardtest`。这验证了该次缺配置失败的收入记录在重启后重试并交给 SDK API，无须再次购买；没有取得 Singular 后台收件回执或实际金额、币种的后台核验结果，不能据此宣称收入已到账。
 
 未运行：Singular 后台收入确认、完整 Sandbox/TestFlight 商品与恢复购买验收矩阵、Release/IPA 构建、Android 真机原生 SDK 收入验收、Flutter 全仓测试。后续由客户端测试/归因负责人使用 Singular Testing Console 的当前安装 SDID，核对本次 `weekly_cardtest` 的收入事件类型、金额、币种及交易属性，并补验其他套餐和恢复购买不新增收入。旧普通事件不自动回填价值；未执行客户端/服务端发布、后台配置写入或远程数据库操作。完整字段与范围见 [收入契约](../03-data-api/contract-changes.md)。
+
+## dev-wxy：仅移植扫描向量识别链路（2026-09-08）
+
+范围：以 `745138292ed7a02f62dee3c3ea78747c0b737745` 为业务基线，从 `dev-xiangyang@ceef1af08ea949d184164ad661dc6228e1cf4773` 按代码段引入 RTMDet-Ins 检测、原生透视矫正、PE-Core-T16 512 维向量化和 Workers `VECTOR_RECOGNITION` 调用。用户明确同意 iOS 16+、Android、Web 扫描暂不支持。未整体合并源分支，也未修改 dev 分支。
+
+核心验收：新识别输入不再使用 OpenCV/pHash；No Match 和目录不完整不扣次数，完整 Matched 才消费，缺少市场价格不影响成功；现有完整候选资料、Queue、批量结果缓存、显示额度、卡号消歧、Review、确认入库及权限保持基线。详细链路和接口变化见[扫描识别](../01-flows/scan-recognition.md)。
+
+### 根因与移植边界证据
+
+- 源分支落后于 dev-wxy 的近期业务修复，故只复制新增识别运行时/模型/许可证/模型工具，并将旧调用替换为 embedding。扫描页改动限于删除旧识别裁剪参数，不改布局和业务状态机。
+- 当前 Workers 扫描测试原本使用 FakeD1。本轮先将同一组 26 个业务用例移至 PGlite PostgreSQL，在协议切换前确认 26/26 通过，再切换向量请求与 Service Binding；切换前选择的 4 个向量用例返回 503 并失败，切换后原业务断言继续通过。没有删除或放宽 No Match、详情完整性、评级、权限、幂等或额度断言。
+- 补充了非法/零/错维向量拒绝和主 API 游戏过滤测试；模型编排测试保护 BGR/RGB 顺序、归一化、角点、矫正尺寸、JPEG 质量、向量维度与低置信度失败。
+- 对照基线逐段比较，`/scan/:scan_id/confirm` 路由、额度结算代码、卡号消歧和完整目录判定保持原文一致。扫描额度控制器、额度账本、Review Repository、相机/权限层、订阅、鉴权、Portfolio、Admin 和版本更新模块没有代码改动。
+- 六个 Android/iOS 模型及 runtime 核心制品的 Git blob 均与 `ceef1af` 一致。Code Review 的资源核对发现 Git 将 iOS 检测模型误判为旧 OpenCV 文件的 rename，最初新增文件筛选未包含它；现已补入并复核全部模型引用和内容。
+
+### 本机验证
+
+环境：Windows、Flutter 3.44.7 / Dart 3.12.2、Node 22.20.0、pnpm 11.9.0；未改动这些工具版本约束。
+
+| 检查 | 命令 / 证据 | 结果 |
+|---|---|---|
+| Flutter 协议、结果、几何、原生图片桥与额度 | `flutter test --no-pub test/scan_api_client_test.dart test/scan_result_source_test.dart test/scan_mask_geometry_test.dart test/scan_native_image_processor_test.dart test/scan_quota_controller_test.dart --reporter expanded` | 30/30，退出 0 |
+| 模型编排与完整扫描页 | `flutter test --no-pub test/scan_card_recognizer_test.dart test/widget/scan_page_test.dart --reporter expanded` | 106 通过、3 个 Golden 失败，退出 1；其中模型编排 3/3 通过 |
+| Golden 原基线复验 | 独立 detached checkout `7451382`，同 Flutter 运行上述三个 Golden 用例 | 同为 3 项失败，每张差异 0.21% / 676 像素；移植前后输出 PNG 的 SHA-256 完全相同，故本次未引入这三处差异，也没有更新 Golden 掩盖问题 |
+| Workers 扫描路由与图片输入 | `pnpm --filter @kando/workers-api exec vitest run src/scan/routes.test.ts src/scan/scan-image.test.ts` | 30/30，退出 0 |
+| Workers 额度与识别隐私说明 | `pnpm --filter @kando/workers-api exec vitest run src/legal/routes.test.ts src/scan/quota.integration.test.ts` | 10/10，退出 0 |
+| Flutter 分析 | `flutter analyze --no-pub` | 无问题，退出 0 |
+| TypeScript/依赖 | Workers `type-check`、根 `pnpm type-check`、`pnpm lint` | 通过；根 7/7，其中 5 个未改动包复用缓存 |
+| Android 实际构建 | `flutter build apk --debug --no-pub --dart-define-from-file=config/test.json` | 通过，退出 0；APK 实际包含两份 ORT 模型与原生 ONNX Runtime，不含 OpenCV/libdartcv |
+| Worker 构建 | `deploy:dry-run:dev` 与 `deploy:dry-run:prod` | 均通过，退出 0；确认打包配置包含 `VECTOR_RECOGNITION=recognize-vec`，没有执行部署 |
+
+Android debug APK 为 237,880,428 字节，SHA-256 为 `04fd423431a50019b705997c7f1e8e56126d5dd69ab8bf67a40d4cc1c0f1f59d`。这只是 debug 构建结果，不代表 release 体积、商店签名或真机模型运行已通过。Gradle/AGP/Kotlin 给出后续升级提醒，本次没有扩大范围升级工具链。
+
+### Code Review 与未验证项
+
+Code Review 自审已核对必要移植文件与原业务保护范围；模型资源遗漏已修正并重新完成六制品核对，未发现剩余的本次代码阻断项。3 个既有 Golden 失败保留为基线问题，不计作通过。未新增数据库 Schema、migration 或数据补全，也未改写冻结产品输入。
+
+- Windows 无 Xcode，未执行 iOS 编译、签名或真机 Core ML/Core Image 验证；需在 macOS/iOS 设备补验。
+- Android 已构建，但未做设备上的实际模型加载、方向/透视效果、推理耗时、内存及真实卡牌准确率验收。
+- 未执行登录态新 App → 主 API → `recognize-vec` 完整扫描、弱网端到端及新旧 App 协议切换验收；需由客户端测试人员使用新包在真机补验。当前分支不兼容旧 pHash 请求。
+- 本轮只运行列出的影响面验证，没有宣称全仓测试通过。dev 发布与内部向量服务契约烟测结果见下；prod 发布未执行。
+
+### dev 发布与线上验证（2026-09-08）
+
+用户明确授权将当前分支部署到共用 dev 环境。发布来源为已推送的 `dev-wxy@e18543afaee9d77616bd71686cb93f8268d7754c`，部署前工作区干净。执行 `pnpm --filter @kando/workers-api run deploy:dev`，完成 Admin dev 构建与 Workers 发布，退出 0；没有合并或推送 dev Git 分支。
+
+- Cloudflare deployment `792ad7da-8219-4f34-a4bc-b057ef387399` 于 `2026-09-08T08:06:20Z` 将 Worker version `5e332a9b-27fb-4133-9103-2909b12a230e` 置于 100% dev 流量。发布后通过 `wrangler deployments list --env dev --json` 与 `wrangler versions view 5e332a9b-27fb-4133-9103-2909b12a230e --env dev --json` 复核，均退出 0。
+- 实际远端版本包含 `VECTOR_RECOGNITION=recognize-vec`，`APP_ENVIRONMENT=development`，没有 `OCR_SERVICE_BASE_URL`。沿用 dev 的 KV/R2 与既有 Hyperdrive，未执行数据库 migration 或数据回填。
+- 发布前通过只绑定 `recognize-vec` 的临时 remote preview，向内部 `/recognize` 提交 512 项 `1 / sqrt(512)` 合成向量；`2026-09-08T08:04:41Z` 返回 `200` 和 10 个候选，全部满足有效 `product_id`、有限且处于 0–100 的 `confidence` 契约。探测退出 0，preview 已关闭；未创建用户/扫描记录或消费额度。该结果只证明内部服务契约可用，不代表真实卡牌准确率或 App 完整扫描已通过。
+- 本次复用的 `recognize-vec` version 为 `bbb962fa-c49a-40a2-8212-25ddb7a3bb2e`，deployment 为 `6065ceed-ff8d-48e5-8d2f-988f7aa0f0b6`；没有重新发布该内部服务。
+- `2026-09-08T08:10:55Z` 的部署后 HTTP 校验退出 0：`https://api-dev.tcgcard.fun/api/v1/health` 返回 `200` / `status=ok`；`/admin` 返回 `200`，包含 `Kando Admin`，HTML SHA-256 与本地构建一致；全部 10 个 JS/CSS 资源返回 `200`，逐文件 SHA-256 一致。
+- 未授权 `/api/v1/admin/app-versions` 与 `POST /api/v1/scan/recognize` 均返回 `401`，验证鉴权入口有效；该检查未覆盖登录后的识别和额度业务。
+- iOS/Google `/api/v1/app-config` 均返回 `200` 与 `Cache-Control: no-store`。本次检查时 iOS 最低/建议版本均为 `1.0.2`，`force_update=false`；Google 返回 `upgrade_prompt=null`。强更状态与前文历史发布时的快照不同，此处记录实时响应；本次部署没有修改后台版本规则。
+- 发布前后 prod deployment 均为 `7cc2f8aa-613e-4da6-9828-3b33015e701d`，version `934506ae-d433-4a38-ae40-6d07b109d50e` 保持 100% 流量，未部署 prod。
+
+本次发布复用上文已完成的代码验证与 Code Review，执行了实际 dev 构建、内部服务契约烟测及部署后校验。iOS 编译/签名、两端真机模型运行及 App 完整扫描仍属未验证项；测试包必须包含本分支的模型和向量协议，并连接 dev API。
+
+### 422 协议覆盖后的 dev 重新发布（2026-09-08）
+
+用户反馈最新 dev-wxy iOS App 扫描返回 `422 VALIDATION_ERROR`。排查发现，共用 dev 在 `2026-09-08T08:38:45Z` 被另一轮 Wrangler 发布切换为 version `3b51584d-4089-4ae5-90be-04e65abaccc4`，deployment 为 `dc3584c6-175e-4e3d-bec4-16b3ad54d170`。从 Cloudflare 下载的该版本实际代码仍读取 `r/g/b`，缺少任一值即返回 422；其配置包含 `OCR_SERVICE_BASE_URL`，没有 `VECTOR_RECOGNITION`。用户提供的请求采用新 `vector` 协议，512 项数值有限且非零，因此新 App 与当前旧 API 的协议不一致足以触发该错误。
+
+用户随后明确要求基于当前分支重新部署 dev。发布来源为干净且与远端一致的 `dev-wxy@20db6dc45752a4af8a0a85cd5c4ffd3372d102a2`；Workers、Admin 和共享包与已验证的 `e18543a` 无差异，复用上文测试和 Code Review。本轮未修改业务代码，执行 `pnpm --filter @kando/workers-api run deploy:dev`，Admin dev 构建与 Workers 发布均成功，退出 0。
+
+- Cloudflare deployment `d7453012-1eb3-4ec5-a2ba-60e3548cf404` 于 `2026-09-08T09:14:02Z` 将 version `f351eae7-b0d5-4c19-ac51-930452efd5f4` 置于 100% dev 流量；发布后通过 deployment/version 查询复核。
+- 实际远端配置恢复 `VECTOR_RECOGNITION=recognize-vec`，不含 `OCR_SERVICE_BASE_URL`。再次下载该部署版本的实际代码，确认 `/scan/recognize` 读取 `vector`，不读取 `r/g/b`；将用户提供的同一向量交给从已部署代码提取的 `readEmbeddingVector` 校验，返回合法 512 维向量，检查退出 0（`2026-09-08T09:16:12Z`）。这只验证协议与向量参数，不等于登录态完整扫描已通过。
+- 部署后 HTTP 校验退出 0（`2026-09-08T09:16:03Z`）：`/api/v1/health` 返回 `200` / `status=ok`；`/admin` 及全部 10 个 JS/CSS 返回 `200`，逐文件 SHA-256 与本地 dev 构建一致；未授权 `/api/v1/admin/app-versions` 和 `POST /api/v1/scan/recognize` 均返回 `401`。
+- 本次未执行数据库 migration、数据回填或版本规则调整。prod 发布前后仍为 deployment `7cc2f8aa-613e-4da6-9828-3b33015e701d`、version `934506ae-d433-4a38-ae40-6d07b109d50e`、100% 流量；没有发布 prod 或修改 dev Git 分支。
+
+本轮未取得失败请求的图片文件和登录态，未在线重放该用户的完整扫描；需由用户使用现有 dev-wxy 新 App 重新扫描验收。共用 dev 的运行版本取决于最后一次发布，其他仍采用 pHash 的分支再次部署到同一 Worker 会重新覆盖向量协议。
+
+## 向量识别合入 dev（2026-09-09）
+
+按用户授权，将 `dev-wxy` 的向量识别链路合入已同步至 `github/dev@0e3e53b` 的 `dev`。来源同时包含向量功能提交 `e18543a`、本地发布记录 `b3b1025` 和远程 Podfile checksum 修正 `221c78c`。保留 dev 的 Scan confirm 购买价格事件修复、更新弹窗背景、Card Detail 离开 Collection Item 时取消草稿以及 Singular 收入上报；未把这些功能回退为源分支的较早实现。
+
+冲突处理：`scan/routes.test.ts` 采用已在真实 PostgreSQL 引擎运行的 PGlite 测试基座，将 dev 的购买价格、币种与可靠历史起点断言迁入该用例，不恢复 FakeD1。验证文档保留双方记录，并将当前流程和架构说明更新为 dev 已合入的状态。扫描路由除保留 dev 的初始事件 SQL 外，其余内容与向量源分支相同；模型、原生桥接和资源与来源一致。平台范围沿用向量实现的 iOS 16+、Android minSdk 24，Web 扫描暂不支持。
+
+本轮验证环境：Windows、Flutter 3.44.7 / Dart 3.12.2、Node 22.20.0、pnpm 11.9.0。
+
+| 检查 | 实际命令 / 证据 | 结果 |
+|---|---|---|
+| 购买价格回归反证 | 临时将初始事件 SQL 恢复为 dev-wxy 的缺字段版本，执行 `pnpm --filter @kando/workers-api exec vitest run src/scan/routes.test.ts -t 'purchase price event'`，随后按原字节恢复合并代码 | 目标用例退出 1，实际购买价、币种及可靠起点均为 null；其余 27 项仅因目标过滤未运行 |
+| Workers 影响面 | `pnpm --filter @kando/workers-api exec vitest run src/scan src/legal/routes.test.ts src/db/postgres/scan-confirm-purchase-price-event.test.ts src/portfolio/performance.test.ts src/app-config src/admin/routes.test.ts` | 9 文件、90/90，退出 0；包含还原后完整扫描路由回归 |
+| Admin | `pnpm --filter @kando/admin-web test` | 21/21，退出 0 |
+| TypeScript / 依赖 | `pnpm type-check`、`pnpm lint` | 通过，均退出 0；Turbo 7 项成功，其中 6 项复用缓存，Workers 类型检查实际执行 |
+| Dart 依赖与分析 | `flutter pub get --enforce-lockfile`、`dart run melos run analyze` | 依赖按锁文件解析；两个工作区包无分析问题，均退出 0 |
+| Flutter 影响面 | 下方命令 | 229 项通过、3 个既有图片基准失败，退出 1；不能标记整组通过 |
+| 图片基准隔离复验 | 干净 detached checkout `dev-wxy@8046c85`，同版本 Flutter，仅运行上述三个失败用例 | 同为 3 项失败，每项 0.21% / 676 像素；三张实际渲染 PNG 的 SHA-256 逐一与合并后完全一致，未修改 Golden |
+| Android | `flutter build apk --debug --no-pub --dart-define-from-file=config/test.json` | 退出 0；解包确认两份 ORT 模型与三个 ABI 的 ONNX Runtime 齐全，无 OpenCV/libdartcv |
+| Worker / Admin 构建 | `pnpm --filter @kando/workers-api run deploy:dry-run:dev`、`pnpm --filter @kando/workers-api run deploy:dry-run:prod` | 均退出 0；两环境预演均含 VECTOR_RECOGNITION，不含 OCR_SERVICE_BASE_URL |
+| 合并完整性 | 比较 dev 的 8 个既有修复文件、初始事件 SQL、源分支原生/模型文件、Podfile 与锁文件 checksum、冻结产品目录 | 均一致；Podfile SHA-1 为 `7bc2f1fa13fd5fe54f198913b6c69f4f1250cd4d` |
+
+Flutter 影响面命令在 `apps/flutter-app` 执行：
+
+```sh
+flutter test --no-pub test/scan_api_client_test.dart test/scan_result_source_test.dart test/scan_mask_geometry_test.dart test/scan_native_image_processor_test.dart test/scan_quota_controller_test.dart test/scan_card_recognizer_test.dart test/widget/scan_page_test.dart test/app_update_design_test.dart test/widget/card_detail_page_test.dart test/subscription_singular_revenue_test.dart test/subscription_revenue_reporter_test.dart test/app_attribution_test.dart --reporter expanded
+```
+
+失败项为 `Figma scan scanning renders at the 390x844 baseline`、`Figma recognition renders at the 390x844 baseline`、`Figma scan reveal renders at the 390x844 baseline`。源分支隔离复验使用 `flutter test --no-pub test/widget/scan_page_test.dart --name 'Figma (recognition|scan scanning|scan reveal) renders at the 390x844 baseline' --reporter expanded`。图片只留在本地测试输出，没有加入文档目录。Android Debug APK SHA-256 为 `17b2e86abbe0d9ec78f5214fa2db9942651c5b7d741229b2187092373753d0b6`；构建提示既有 Gradle/AGP/Kotlin 版本后续升级和 SDK XML 版本差异，本轮没有修改工具链。
+
+Code Review 自审通过：逐项核对双方提交和手工解冲突差异，确认向量输入、Service Binding、游戏过滤、模型资源和平台桥接完整；购买价格断言能在撤回修复时失败，dev 的更新弹窗、Card Detail 和 Singular 修复保持原文。没有引入旧协议回退或新的 D1 依赖，冻结产品输入未改动。三个图片基准问题保留为既有待清理项，不属于本次合并新增回归。
+
+本轮未运行 Workers/Flutter 全仓测试、iOS 编译/签名及两端真机模型验收；Windows 无 Xcode，客户端测试人员仍需补验真实图片准确率、推理耗时、内存与登录态完整扫描。服务端部署不发布 App 安装包。PostgreSQL `0012` 文件保持原样，历史数据回填未执行；共享数据库迁移仍需单独授权。dev 发布结果与线上校验另按实际执行结果记录。
