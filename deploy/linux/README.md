@@ -103,6 +103,28 @@ docker compose logs -f web
 docker compose logs -f db
 ```
 
+## 从开发电脑连接 PostgreSQL
+
+Compose 默认只把 PostgreSQL 映射到服务器回环地址 `127.0.0.1:15432`。如果开发电脑与服务器位于可信局域网，可在服务器 `.env` 中明确设置：
+
+```dotenv
+POSTGRES_LISTEN_ADDRESS=192.168.50.201
+POSTGRES_HOST_PORT=15432
+```
+
+重新执行 Compose 后，Mac 上的数据库客户端使用：
+
+```text
+Host: 192.168.50.201
+Port: 15432
+Database: toccards_test
+Username: toccards
+Password: 读取 kd201 的 shared/.env
+SSL mode: disable
+```
+
+该端口只用于测试环境数据查看。不要设置为 `0.0.0.0`，不要在公网路由器映射 `15432`，也不要把密码写入仓库。
+
 ## 备份
 
 数据库备份：
@@ -125,6 +147,6 @@ docker compose exec -T db pg_dump \
 ## 安全边界
 
 - `.env` 不得提交 Git。
-- PostgreSQL 不映射宿主机端口。
+- PostgreSQL 默认只映射服务器回环地址；需要开发机直连时，只允许绑定可信局域网 IP 和非默认宿主机端口。
 - Linux 必须使用测试 OCR、测试 JWT 和测试第三方凭证。
 - 本部署不执行 prod v1.0 D1 数据迁移或 v1.1 prod Hyperdrive 切换。

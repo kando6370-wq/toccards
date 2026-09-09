@@ -176,6 +176,7 @@ printf '%s\n' '<previous-release-id>' \
 - 本地 Artifact 不包含 `.env`、数据库备份、扫描图片或第三方凭证。
 - 监听器目录权限为 `700`，配置和状态仅属于服务器 `user` 账号。
 - Linux 使用独立测试数据库、JWT、文件卷和 OCR 地址，不调用正式 OCR。
+- `kd201` PostgreSQL 仅通过 `192.168.50.201:15432` 提供可信局域网访问，不映射公网；自动发布继续复用服务器私有 `.env` 中的该配置。
 - 正式 Cloudflare 部署仍由其原工作流或 Cloudflare 平台配置管理。
 
 ## 接手检查清单
@@ -196,3 +197,4 @@ printf '%s\n' '<previous-release-id>' \
 - `watch-branch.sh` 已通过功能分支端到端验证：在干净目录固定安装 pnpm 11.9.0，构建 `@kando/auth-core` 后完成 Workers 类型检查、26/26 定向测试、Admin 2/2 测试、Linux 构建、数据库备份、迁移和版本切换。
 - 验证发布版本为 `branch-feature-linux-test-environment-2cd72364b6ad-20260909111201`，验证完成后 API 健康接口仍返回 `{"status":"ok"}`；临时监听目录已删除。
 - 正式监听器当前只监控 `dev`，首次基线已推进到 `b0b54df2af7fd1614f13fe1e72979cec8e87888b`。因为该提交尚不含 Linux 自动部署资产，监听器按设计跳过发布；本功能分支合入 `dev` 后才会执行第一次正式自动发布。
+- 2026-09-09 发布 `manual-pg-lan-20260909`，将 PostgreSQL 仅绑定到 `192.168.50.201:15432`。Mac TCP 连接成功，并通过项目 `postgres` 客户端只读查询到数据库 `toccards_test`、用户 `toccards`、PostgreSQL `18.6` 和 10 条 migration ledger；API 健康接口保持正常。
