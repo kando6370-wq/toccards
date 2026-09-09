@@ -33,6 +33,7 @@
 - [系统架构](02-architecture/architecture.md)
 - [Monorepo 边界](02-architecture/monorepo.md)
 - [技术栈](02-architecture/tech-stack.md)
+- [Linux 测试环境与 Cloudflare 正式环境兼容设计](02-architecture/linux-test-environment.md)
 - [架构决策索引](02-architecture/decisions/README.md)
 
 ### 数据与 API
@@ -52,6 +53,9 @@
 ### 交付与验收
 
 - [开发计划](05-delivery/development-plan.md)
+- [Linux 测试环境实施计划](05-delivery/linux-test-environment-implementation-plan.md)
+- [Linux 测试环境部署手册](../../../deploy/linux/README.md)
+- [Linux 测试环境自动部署手册](05-delivery/linux-test-auto-deployment.md)
 - [需求可追踪矩阵](05-delivery/traceability-matrix.md)
 - [发布与验证记录](05-delivery/VERIFICATION.md)：版本管理、向量识别、Singular 收入、合并验证与运行环境边界。
 - [App Store Connect 订阅配置手册](05-delivery/app-store-connect-subscription-setup.md)

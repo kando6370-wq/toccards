@@ -1,0 +1,37 @@
+services:
+  db:
+    image: ${OFFLINE_POSTGRES_IMAGE:-toccards-postgres:18}
+    pull_policy: never
+    build:
+      context: ../..
+      dockerfile: deploy/linux/offline/Postgres.Dockerfile
+      args:
+        POSTGRES_RUNTIME_BASE_IMAGE: ${POSTGRES_RUNTIME_BASE_IMAGE:-eclipse-temurin:21.0.11_10-jre}
+
+  migrate:
+    image: ${OFFLINE_POSTGRES_IMAGE:-toccards-postgres:18}
+    pull_policy: never
+
+  api:
+    pull_policy: never
+    build:
+      context: ../..
+      dockerfile: deploy/linux/offline/Dockerfile
+      target: api
+      args:
+        NODE_RUNTIME_IMAGE: ${NODE_RUNTIME_IMAGE:-toccards-node-runtime:22}
+
+  web:
+    pull_policy: never
+    build:
+      context: ../..
+      dockerfile: deploy/linux/offline/Dockerfile
+      target: web
+      args:
+        NODE_RUNTIME_IMAGE: ${NODE_RUNTIME_IMAGE:-toccards-node-runtime:22}
+    environment:
+      API_ORIGIN: http://api:3000
+      WEB_ROOT: /srv
+      WEB_PORT: 80
+    ports: !override
+      - "${HTTP_PORT:-80}:80"
