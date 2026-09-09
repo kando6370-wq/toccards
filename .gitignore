@@ -19,6 +19,7 @@ dist/
 # Cloudflare Workers
 .wrangler/
 apps/workers-api/.dev.vars
+deploy/linux/.env
 
 # Vite
 apps/admin-web/dist/

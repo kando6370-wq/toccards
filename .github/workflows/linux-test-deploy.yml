@@ -1,0 +1,129 @@
+name: Linux test deploy
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - ".github/workflows/linux-test-deploy.yml"
+      - ".dockerignore"
+      - "apps/admin-web/**"
+      - "apps/workers-api/**"
+      - "deploy/linux/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.base.json"
+      - "turbo.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: toccards-linux-test-kd201
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Linux release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.9.0 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify affected Linux runtime
+        run: |
+          pnpm --filter @kando/workers-api type-check
+          pnpm --filter @kando/workers-api exec vitest run \
+            src/db/postgres-database.test.ts \
+            src/linux/in-memory-kv.test.ts \
+            src/linux/filesystem-r2.test.ts \
+            src/linux/execution-context.test.ts \
+            src/cors.test.ts \
+            src/index-postgres-runtime.test.ts
+          node --test apps/admin-web/test/api-environment-intent.test.mjs
+
+      - name: Build Linux API and Admin
+        run: pnpm --filter @kando/workers-api build:linux
+
+      - name: Stage release artifact
+        env:
+          STAGING_DIR: ${{ runner.temp }}/toccards-linux-release
+        run: |
+          set -eu
+          mkdir -p \
+            "$STAGING_DIR/apps/workers-api/dist/linux" \
+            "$STAGING_DIR/apps/workers-api/src/db/postgres/migrations" \
+            "$STAGING_DIR/apps/admin-web/dist"
+          cp .dockerignore "$STAGING_DIR/.dockerignore"
+          cp -R deploy "$STAGING_DIR/deploy"
+          cp -R apps/workers-api/dist/linux/. "$STAGING_DIR/apps/workers-api/dist/linux/"
+          cp -R apps/workers-api/src/db/postgres/migrations/. "$STAGING_DIR/apps/workers-api/src/db/postgres/migrations/"
+          cp -R apps/admin-web/dist/. "$STAGING_DIR/apps/admin-web/dist/"
+          cat > "$STAGING_DIR/release-manifest.txt" <<EOF
+          repository=${GITHUB_REPOSITORY}
+          ref=${GITHUB_REF}
+          sha=${GITHUB_SHA}
+          run_id=${GITHUB_RUN_ID}
+          run_attempt=${GITHUB_RUN_ATTEMPT}
+          built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          EOF
+
+      - name: Upload Linux release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-test-${{ github.sha }}
+          path: ${{ runner.temp }}/toccards-linux-release
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+
+  deploy:
+    name: Deploy to kd201
+    needs: build
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - toccards-kd201
+    environment: linux-test
+    timeout-minutes: 30
+
+    steps:
+      - name: Download Linux release artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-test-${{ github.sha }}
+          path: ${{ runner.temp }}/toccards-linux-release
+
+      - name: Deploy versioned release
+        env:
+          TOCCARDS_RELEASE_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+        run: bash "$RUNNER_TEMP/toccards-linux-release/deploy/linux/ci/deploy-release.sh" "$RUNNER_TEMP/toccards-linux-release"
+
+      - name: Write deployment summary
+        run: |
+          {
+            echo "## Linux test deployment"
+            echo "- Branch: \`${GITHUB_REF_NAME}\`"
+            echo "- Commit: \`${GITHUB_SHA}\`"
+            echo "- Server: \`kd201\`"
+            echo "- URL: \`http://192.168.50.201:8080\`"
+          } >> "$GITHUB_STEP_SUMMARY"

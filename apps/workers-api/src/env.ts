@@ -26,6 +26,7 @@ export interface Env {
   SINGULAR_API_KEY?: string;
   SINGULAR_SECRET_KEY?: string;
   OCR_SERVICE_BASE_URL?: string;
+  ALLOWED_ORIGINS?: string;
   APP_ENVIRONMENT?: "production" | "development";
 }
 

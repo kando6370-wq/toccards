@@ -16,13 +16,19 @@ const developmentEnvironment = await readFile(
   new URL("../.env.development", import.meta.url),
   "utf8",
 );
+const linuxEnvironment = await readFile(
+  new URL("../.env.linux", import.meta.url),
+  "utf8",
+);
 const apiBase = await readFile(new URL("../src/api-base.ts", import.meta.url), "utf8");
 
 test("prod and dev builds use isolated APIs because admin actions must not cross environments", () => {
   assert.equal(adminPackage.scripts["build:prod"], "vite build --mode production");
   assert.equal(adminPackage.scripts["build:dev"], "vite build --mode development");
+  assert.equal(adminPackage.scripts["build:linux"], "vite build --mode linux");
   assert.match(productionEnvironment, /^VITE_API_BASE_URL=https:\/\/api\.tcgcard\.fun\/api\/v1\/admin\s*$/);
   assert.match(developmentEnvironment, /^VITE_API_BASE_URL=https:\/\/api-dev\.tcgcard\.fun\/api\/v1\/admin\s*$/);
+  assert.match(linuxEnvironment, /^VITE_API_BASE_URL=\/api\/v1\/admin\s*$/);
   assert.match(workersPackage.scripts["deploy:prod"], /build:assets:prod/);
   assert.match(workersPackage.scripts["deploy:dev"], /build:assets:dev/);
 });

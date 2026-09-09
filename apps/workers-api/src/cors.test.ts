@@ -61,4 +61,22 @@ describe("API CORS", () => {
 
     expect(response.headers.get("access-control-allow-origin")).not.toBe("https://example.com");
   });
+
+  it("uses the configured Linux test origin without changing the shared routes", async () => {
+    const origin = "https://linux-test.example.com";
+    const response = await app.request(
+      "/api/v1/health",
+      {
+        method: "OPTIONS",
+        headers: {
+          Origin: origin,
+          "Access-Control-Request-Method": "GET",
+        },
+      },
+      { ALLOWED_ORIGINS: origin } as never,
+    );
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get("access-control-allow-origin")).toBe(origin);
+  });
 });
