@@ -1,21 +1,6 @@
 name: Linux test deploy
 
 on:
-  push:
-    branches:
-      - dev
-    paths:
-      - ".github/workflows/linux-test-deploy.yml"
-      - ".dockerignore"
-      - "apps/admin-web/**"
-      - "apps/workers-api/**"
-      - "deploy/linux/**"
-      - "packages/**"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
-      - "tsconfig.base.json"
-      - "turbo.json"
   workflow_dispatch:
 
 permissions:
@@ -50,6 +35,7 @@ jobs:
 
       - name: Verify affected Linux runtime
         run: |
+          pnpm --filter @kando/auth-core build
           pnpm --filter @kando/workers-api type-check
           pnpm --filter @kando/workers-api exec vitest run \
             src/db/postgres-database.test.ts \

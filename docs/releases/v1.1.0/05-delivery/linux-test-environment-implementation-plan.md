@@ -104,9 +104,11 @@ Run only after Tasks 1–4 are complete:
 
 ## Automatic Deployment Extension — 2026-09-09
 
-- Added `.github/workflows/linux-test-deploy.yml` to monitor relevant changes on `dev`, run affected Linux checks, build the API/Admin artifact and dispatch deployment to a `toccards-kd201` self-hosted runner.
+- Added `.github/workflows/linux-test-deploy.yml` as a manual-only optional path that can run affected Linux checks, build the API/Admin artifact and dispatch deployment to a future `toccards-kd201` self-hosted runner.
 - Added `deploy/linux/ci/deploy-release.sh` with deployment locking, artifact validation, PostgreSQL pre-deployment backup, immutable release directories, health gates and previous-application rebuild on failure.
-- Added `linux-test-auto-deployment.md` covering the one-time GitHub Runner setup, branch trigger, Environment protection, normal operations, rollback and security boundaries.
-- The workflow cannot become active until these files are committed to `dev` and a repository administrator registers the `kd201` runner using GitHub's current one-time registration token.
+- Added `watch-branch.sh` and `install-branch-watcher.sh`; `kd201` now uses user crontab to check `dev` every two minutes without repository Admin permission.
+- Added `linux-test-auto-deployment.md` covering branch filtering, watcher installation, normal operations, retries, rollback and security boundaries.
 - Local affected verification passed on 2026-09-09: workflow YAML, Bash guard, Workers type-check, 26 focused Workers tests, 2 Admin environment tests, Linux build and merged Compose configuration.
 - A manual end-to-end invocation on `kd201` created a PostgreSQL backup and successfully switched from release `20260827-111216` to `manual-validation-20260909`; the API health response remained `{"status":"ok"}` and the migration ledger remained at 10.
+- The branch watcher then completed a clean end-to-end feature-branch validation and switched to `branch-feature-linux-test-environment-2cd72364b6ad-20260909111201`. The formal watcher tracks `dev`; it will perform its first real automatic deployment after these assets are merged into `dev`.
+- Because the available GitHub account has push permission but no repository Admin/Actions Runner management permission, the GitHub workflow remains a manual-only future option and must not run concurrently with the watcher.

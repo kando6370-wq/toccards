@@ -91,9 +91,9 @@ docker compose logs --tail=100 migrate api web
 
 ## 自动部署
 
-仓库提供 GitHub Actions 工作流 `.github/workflows/linux-test-deploy.yml`。默认监控 `dev` 分支中影响 API、Admin、共享包或 Linux 部署配置的提交：GitHub 托管 Runner 完成检查与构建，安装在 `kd201` 的自托管 Runner 调用 `ci/deploy-release.sh` 完成数据库备份、版本化发布、健康验证和应用回滚。
+当前 `kd201` 使用服务器本机 `crontab` 每两分钟运行 `ci/watch-branch.sh`，监控 `dev` 分支中影响 API、Admin、共享包或 Linux 部署配置的提交。服务器完成拉取、定向检查、构建后，调用 `ci/deploy-release.sh` 完成数据库备份、版本化发布、健康验证和应用回滚。
 
-首次安装 Runner、触发规则、失败处理和接手步骤见 [`Linux 测试环境自动部署手册`](../../docs/releases/v1.1.0/05-delivery/linux-test-auto-deployment.md)。自动部署不会读取或修改 Cloudflare 正式环境。
+仓库同时保留 `.github/workflows/linux-test-deploy.yml` 作为未来可选的 GitHub 自托管 Runner 方案。当前安装方法、触发规则、失败处理和接手步骤见 [`Linux 测试环境自动部署手册`](../../docs/releases/v1.1.0/05-delivery/linux-test-auto-deployment.md)。自动部署不会读取或修改 Cloudflare 正式环境。
 
 ## 日志
 
