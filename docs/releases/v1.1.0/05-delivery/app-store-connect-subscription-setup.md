@@ -155,7 +155,7 @@ Singular 与 Mixpanel Project Token 使用同一类运行时配置链路，由 C
 | Singular API Key | `SINGULAR_API_KEY` |
 | Singular Secret Key | `SINGULAR_SECRET_KEY` |
 
-三个 production Product ID 是非敏感配置，保存在仓库内 `apps/flutter-app/config/production.json`。Singular 两个字段不写入任何 App Release JSON，也不通过 `--dart-define-from-file` 编译进包；App 启动时请求当前 `APP_ENV` 对应 API 的 `/app-config`，两个字段都有效时才初始化 Singular。接口失败或字段缺失时保持归因关闭，不阻断 App 主流程。
+三个 production Product ID 是非敏感配置，保存在仓库内 `apps/flutter-app/config/production.json`。Singular 两个字段不写入任何 App Release JSON，也不通过 `--dart-define-from-file` 编译进包；App 启动时请求当前 `APP_ENV` 对应 API 的 `/app-config`，两个字段都有效时才初始化 Singular。接口失败或字段缺失不阻断 App 主流程，也不再将失败结果缓存到进程结束：既有 ATT 顺序完成后，前台按 5、15、30、60 秒退避重试，之后每 60 秒尝试；后台暂停，回前台读取最新 ATT 状态后重试，新的收入交付也可触发恢复。初始化成功会自动补发 Singular 队列中已保存的待发送交易，无需重启或再次购买；事件范围和交易去重规则不变。这里只保证重新尝试 SDK 交付，后台收件仍需在 Testing Console 核验。
 
 2026-09-03 已将 production 使用的同一组 Singular SDK 凭据配置到 dev Cloudflare Secret，并发布 dev Worker version `2513a7a9-6062-4393-a4ea-e89f23aeac67`；公开 `/app-config` 已确认两个字段均非空。`com.kando.kandoApp.beta` 的 verified Fresh Purchase 按套餐发送 `weekly_cardtest`、`yearly_cardtest` 或 `lifetime_cardtest`，production 对应发送无 `test` 后缀的 `weekly_card`、`yearly_card` 或 `lifetime_card`。这六个事件只调用 Singular SDK，不复用 Mixpanel/Firebase 事件入口；Restore、冷启动权益恢复和失败流程不发送。
 

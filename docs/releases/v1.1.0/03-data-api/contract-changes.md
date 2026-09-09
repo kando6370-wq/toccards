@@ -226,4 +226,8 @@ Apple 官方 Node SDK 的证书吊销检查和 Server API 请求依赖 `node-fet
 
 2026-09-09 按产品要求，上述六个 Singular 套餐事件从普通事件改为收入事件，使用 SDK `customRevenueWithAttributes`，事件名和当前界面 Fresh Purchase 门禁保持不变。金额复用 Apple verified JWS 的 `price / 1000`，币种规范为大写，并携带 `transaction_id`、`product_id`；交易 ID/商品 ID 必须与购买回调匹配，金额或币种缺失/无效时不使用展示价兜底，零金额交易只报 0。复用现有 Revenue 队列实现，但使用 `subscription.singular_revenue.<test|production>` 独立持久化命名空间，不读取或重放 Firebase 收入记录；同一交易的普通重复回调及进程重启由该队列去重。Restore、启动恢复历史交易及外部解锁不新建 Singular 收入，启动仅重试此前 Fresh Purchase 已入队但尚未交给 SDK 的记录。SDK 初始化前的队列等待既有 ATT 顺序完成，缺凭据等交付前错误保留待重试记录；所有上报异步执行，不阻塞购买成功或权益解锁。SDK 1.9.0 的收入方法返回 `void`，本地成功仅表示调用已交给 SDK，原生桥接异步错误记录诊断，不能当作后台到账回执或跨卸载/异常终止的绝对一次性保证。当前 App 正式配置仅启用 Apple 购买；本次使用两平台均提供的 Singular 收入 API，不新增 Google Play 购买或服务端续费收入链路。
 
+Singular 配置失败后的恢复不再依赖进程重启：只缓存有效配置，并发请求复用同一进行中的请求；既有 ATT 流程提交状态后，前台初始化失败按 5、15、30、60 秒退避重试，之后最多每 60 秒一次。进入后台暂停定时重试，回到前台读取最新 ATT 状态后立即重试；新的收入交付也可触发初始化尝试，不再弹出 ATT。SDK 初始化成功后自动唤起原 Singular 待发送队列，仍按交易 ID 串行去重，不枚举历史交易、不新建恢复购买收入、不重放 Firebase 记录。持续失败时保留 pending，不阻塞购买或权益；销毁 Gateway 时取消定时器，迟到的配置响应不再启动 SDK。此处“初始化成功/已交付”仍指 SDK API 调用边界，不代表 Singular 后台确认收件。
+
+联网授权弹窗结束后的及时恢复依赖 Flutter 活动状态信号：收到 `inactive → resumed` 时同样立即尝试配置恢复，不需要先进入 `paused` 或等待退避计时；初始化仍等待既有 ATT 顺序。项目没有独立的系统“允许联网”按钮回调，不能将 `resumed` 等同于用户已授权或网络已可用，实际配置请求仍决定能否继续。系统未发出该信号或请求继续失败时由前台退避重试兜底。
+
 订阅权益上线前必须以最新 v1.1 PRD 评审结论补齐服务端可信证据、会话级 grant、通知状态归约、幂等和异常处理，并完成 Sandbox、TestFlight 及服务端集成验收。

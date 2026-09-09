@@ -1,16 +1,192 @@
 import 'dart:convert';
 
+import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/features/subscription/subscription_revenue_reporter.dart';
 import 'package:kando_app/features/subscription/subscription_singular_events.dart';
 import 'package:kando_app/shared/api/api_environment.dart';
 import 'package:kando_app/shared/attribution/app_attribution.dart';
+import 'package:kando_app/shared/attribution/singular_bootstrap.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:subscription_core/subscription_core.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  testWidgets(
+    'retries failed startup configuration and flushes pending revenue without restarting or another purchase',
+    (tester) async {
+      const channel = MethodChannel('singular-api');
+      final calls = <MethodCall>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
+        call,
+      ) async {
+        calls.add(call);
+        return null;
+      });
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          channel,
+          null,
+        ),
+      );
+      var online = false;
+      final gateway = SingularAttributionGateway(
+        loadCredentials: () async => online
+            ? const SingularCredentials(apiKey: 'key', secretKey: 'secret')
+            : null,
+      );
+      addTearDown(gateway.dispose);
+      final container = ProviderContainer(
+        overrides: [
+          singularAttributionGatewayProvider.overrideWithValue(gateway),
+        ],
+      );
+      addTearDown(container.dispose);
+      final reporter = container.read(
+        singularSubscriptionRevenueReporterProvider,
+      );
+      await gateway.updateTrackingStatus(AppTrackingStatus.denied);
+      await expectLater(
+        reporter.enqueueVerifiedPurchase(_event(), isFreshPurchase: true),
+        throwsStateError,
+      );
+      final storage = PreferencesSubscriptionRevenueStorage(
+        keyPrefix:
+            'subscription.singular_revenue.${AppConfig.environment.name}',
+      );
+      expect(await storage.readPending(), hasLength(1));
+      expect(await storage.readReportedTransactionIds(), isEmpty);
+      expect(calls, isEmpty);
+
+      online = true;
+      await tester.pump(const Duration(seconds: 5));
+
+      expect(calls.where((call) => call.method == 'start'), hasLength(1));
+      expect(
+        calls.where((call) => call.method == 'customRevenueWithAttributes'),
+        hasLength(1),
+      );
+      expect(await storage.readPending(), isEmpty);
+      expect(await storage.readReportedTransactionIds(), {'transaction-1'});
+      await reporter.enqueueVerifiedPurchase(_event(), isFreshPurchase: true);
+      await gateway.updateTrackingStatus(AppTrackingStatus.denied);
+      await tester.pump(const Duration(minutes: 2));
+      expect(calls.where((call) => call.method == 'start'), hasLength(1));
+      expect(
+        calls.where((call) => call.method == 'customRevenueWithAttributes'),
+        hasLength(1),
+      );
+    },
+  );
+
+  for (final interruption in [
+    AppLifecycleState.paused,
+    AppLifecycleState.inactive,
+  ]) {
+    testWidgets(
+      'resume from ${interruption.name} immediately recovers pending purchases',
+      (tester) async {
+        const channel = MethodChannel('singular-api');
+        final calls = <MethodCall>[];
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          channel,
+          (call) async {
+            calls.add(call);
+            return null;
+          },
+        );
+        addTearDown(
+          () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            channel,
+            null,
+          ),
+        );
+        var online = false;
+        final gateway = SingularAttributionGateway(
+          loadCredentials: () async => online
+              ? const SingularCredentials(apiKey: 'key', secretKey: 'secret')
+              : null,
+        );
+        addTearDown(gateway.dispose);
+        final tracking = _DeniedTracking();
+        final container = ProviderContainer(
+          overrides: [
+            singularAttributionGatewayProvider.overrideWithValue(gateway),
+            appTrackingGatewayProvider.overrideWithValue(tracking),
+          ],
+        );
+        addTearDown(container.dispose);
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: const AppAttributionLifecycleObserver(child: SizedBox()),
+          ),
+        );
+        final reporter = container.read(
+          singularSubscriptionRevenueReporterProvider,
+        );
+        await container
+            .read(appAttributionCoordinatorProvider)
+            .prepareForStartup(allowInitialRequest: false);
+        for (final id in ['transaction-1', 'transaction-2']) {
+          await expectLater(
+            reporter.enqueueVerifiedPurchase(
+              _event(transactionId: id),
+              isFreshPurchase: true,
+            ),
+            throwsStateError,
+          );
+        }
+        final storage = PreferencesSubscriptionRevenueStorage(
+          keyPrefix:
+              'subscription.singular_revenue.${AppConfig.environment.name}',
+        );
+        expect(await storage.readPending(), hasLength(2));
+        expect(await storage.readReportedTransactionIds(), isEmpty);
+        tester.binding.handleAppLifecycleStateChanged(interruption);
+        if (interruption == AppLifecycleState.paused) {
+          online = true;
+          await tester.pump(const Duration(minutes: 2));
+        } else {
+          // The system dialog finishes before the first five-second retry.
+          await tester.pump(const Duration(seconds: 1));
+          online = true;
+        }
+        expect(calls, isEmpty);
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pump();
+        expect(calls.where((call) => call.method == 'start'), hasLength(1));
+        expect(
+          calls.where((call) => call.method == 'customRevenueWithAttributes'),
+          hasLength(2),
+        );
+        expect(await storage.readPending(), isEmpty);
+        expect(await storage.readReportedTransactionIds(), {
+          'transaction-1',
+          'transaction-2',
+        });
+        expect(tracking.requests, 0);
+        expect(tracking.reads, 2);
+        await reporter.flush();
+        await reporter.enqueueVerifiedPurchase(
+          _event(transactionId: 'transaction-2'),
+          isFreshPurchase: true,
+        );
+        expect(
+          calls.where((call) => call.method == 'customRevenueWithAttributes'),
+          hasLength(2),
+        );
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
 
   for (final environment in AppEnvironment.values) {
     for (final plan in ['weekly', 'yearly', 'lifetime']) {
@@ -171,13 +347,14 @@ void main() {
 
 SubscriptionEvent _event({
   String plan = 'weekly',
+  String transactionId = 'transaction-1',
   SubscriptionPurchaseStatus status = SubscriptionPurchaseStatus.purchased,
   bool failed = false,
   bool active = true,
   Map<String, Object?> fields = const {},
 }) {
   final payload = {
-    'transactionId': 'transaction-1',
+    'transactionId': transactionId,
     'productId': 'apple.$plan',
     'price': 5490,
     'currency': 'cad',
@@ -190,7 +367,7 @@ SubscriptionEvent _event({
       storeProductId: 'apple.$plan',
       status: status,
       verificationData: 'header.$encoded.signature',
-      transactionId: 'transaction-1',
+      transactionId: transactionId,
     ),
     plan: SubscriptionPlanConfig(
       id: plan,
@@ -211,6 +388,23 @@ SubscriptionEvent _event({
           )
         : null,
   );
+}
+
+class _DeniedTracking implements AppTrackingGateway {
+  int reads = 0;
+  int requests = 0;
+
+  @override
+  Future<AppTrackingStatus> readStatus() async {
+    reads++;
+    return AppTrackingStatus.denied;
+  }
+
+  @override
+  Future<AppTrackingStatus> requestAuthorization() async {
+    requests++;
+    return AppTrackingStatus.denied;
+  }
 }
 
 class _RecordingAttribution implements AppAttributionEventReporter {

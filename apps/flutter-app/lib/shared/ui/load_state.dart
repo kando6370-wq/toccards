@@ -194,6 +194,7 @@ class _FailureCard extends StatelessWidget {
                       height: 22 / 15,
                       fontWeight: FontWeight.w400,
                       color: KandoColors.mutedText,
+                      decoration: TextDecoration.none,
                     ),
                   ),
                   SizedBox(height: buttonGap),

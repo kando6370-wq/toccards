@@ -84,6 +84,17 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('REFRESH'), findsOneWidget);
+      final title = tester.widget<RichText>(
+        find.descendant(
+          of: find.text('No content available'),
+          matching: find.byType(RichText),
+        ),
+      );
+      expect(
+        title.text.style?.decoration?.contains(TextDecoration.underline) ??
+            false,
+        isFalse,
+      );
       repository.fail = false;
       final retry = Completer<AppUpgradeConfig>();
       repository.pending = retry;

@@ -434,10 +434,25 @@ final subscriptionRevenueReporterProvider =
 
 final singularSubscriptionRevenueReporterProvider =
     Provider<SingularSubscriptionRevenueReporter>((ref) {
-      return SingularSubscriptionRevenueReporter(
+      final reporter = SingularSubscriptionRevenueReporter(
         environment: AppConfig.environment,
         attribution: ref.watch(appAttributionEventReporterProvider),
       );
+      // A failed startup flush must resume as soon as SDK initialization recovers.
+      unawaited(
+        ref
+            .watch(singularAttributionGatewayProvider)
+            .initialized
+            .then((_) async {
+              if (ref.mounted) await reporter.flush();
+            })
+            .catchError((Object error, StackTrace stackTrace) {
+              debugPrint(
+                'Unable to flush Singular revenue: $error\n$stackTrace',
+              );
+            }),
+      );
+      return reporter;
     });
 
 enum SubscriptionResultEvent {

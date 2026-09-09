@@ -181,6 +181,39 @@ Code Review 自审通过：对照锁定的 Singular Flutter SDK 1.9.0 Dart 与 i
 
 未运行：Singular 后台收入确认、完整 Sandbox/TestFlight 商品与恢复购买验收矩阵、Release/IPA 构建、Android 真机原生 SDK 收入验收、Flutter 全仓测试。后续由客户端测试/归因负责人使用 Singular Testing Console 的当前安装 SDID，核对本次 `weekly_cardtest` 的收入事件类型、金额、币种及交易属性，并补验其他套餐和恢复购买不新增收入。旧普通事件不自动回填价值；未执行客户端/服务端发布、后台配置写入或远程数据库操作。完整字段与范围见 [收入契约](../03-data-api/contract-changes.md)。
 
+### Singular 首次配置失败后在当前进程恢复（2026-09-09）
+
+根因有两处：Gateway 将首次配置请求保存为不可替换的 Future，失败得到 `null` 后，回前台和收入交付都继续读取同一失败结果；Singular 收入队列仅在订阅 Controller 启动时 flush，没有初始化恢复后的唤醒。定位时，iPhone 13 的 test 包 `1.0.1 (127)` 本地存在一笔 `cardx.week`、3.99 USD 的 Singular pending，reported 数为 0；重启同一安装后，该交易出现在 reported 中。此次 iPhone 13 首次失败的底层网络原因没有日志，不能据此断言；此前 iPhone 11 已有配置缺失导致交付失败的日志。修复前用可控配置加载器模拟“首次离线、购买入队、恢复联网但不重启”，测试稳定在预期 SDK start 1 次、实际 0 次处失败（退出 1）。
+
+修复只涉及 `app_attribution.dart` 的配置缓存、初始化重试与生命周期，以及 `subscription_controller.dart` 中 Singular Reporter Provider 的初始化完成回调。配置成功才缓存，请求进行中合并；既有 ATT 流程之后按 5/15/30/60 秒前台退避重试，之后保持 60 秒间隔，后台暂停，回前台及收入交付可再次尝试。初始化恢复会自动 flush 已落盘的 Singular 记录。原事件门禁、Apple 校验、金额提取、持久化键、串行去重、Firebase Reporter、支付/恢复购买、权益同步、服务端和 Schema 均未改动。文档影响为配置恢复与自动补报行为，已同步 [收入契约](../03-data-api/contract-changes.md) 和 [订阅测试说明](app-store-connect-subscription-setup.md)。
+
+环境为 macOS、Flutter 3.44.5 / Dart 3.12.2。以下命令在 `apps/flutter-app` 执行：
+
+```sh
+flutter test --no-pub test/subscription_singular_revenue_test.dart --plain-name 'retries failed startup configuration' --reporter expanded
+flutter test --no-pub test/app_attribution_test.dart test/singular_bootstrap_test.dart test/subscription_singular_revenue_test.dart --reporter expanded
+flutter test --no-pub --dart-define-from-file=config/test.json test/subscription_singular_revenue_test.dart --reporter expanded
+flutter test --no-pub test/app_attribution_test.dart test/singular_bootstrap_test.dart test/subscription_singular_events_test.dart test/subscription_singular_revenue_test.dart test/subscription_revenue_reporter_test.dart test/subscription_analytics_test.dart test/subscription_receipt_verifier_test.dart test/subscription_server_entitlement_sync_test.dart test/subscription_entitlement_lifecycle_test.dart test/subscription_sync_queue_test.dart test/subscription_restore_ui_test.dart test/startup_subscription_gate_test.dart --reporter expanded
+flutter analyze --no-pub
+dart format --output=none --set-exit-if-changed lib/shared/attribution/app_attribution.dart lib/features/subscription/subscription_controller.dart test/app_attribution_test.dart test/subscription_singular_revenue_test.dart
+```
+
+结果：原失败复现修复后 1/1；针对性测试 30/30；test 环境收入测试 13/13；扩展订阅回归 106/106，均退出 0。静态分析无问题，格式检查无差异；仓库 `git diff --check` 通过。覆盖不中断进程自动恢复、多笔离线购买分别持久化、真实 Flutter 前后台事件驱动补报、重复交付去重、重试退避和后台暂停、并发请求只启动一次 SDK、最新 ATT 状态且不重复弹窗、销毁后迟到响应无副作用，以及原订阅/权益/恢复路径。新增测试过程中曾因 import 插入位置和把 SDK 附带的 wrapper-version 调用误计为 start 而失败，均已修正测试代码；没有删除业务断言或修改支付代码。
+
+Code Review 自审通过：逐段核对配置成功缓存与失败释放、并发异步返回顺序、前后台取消/恢复、销毁检查、初始化回调与原串行队列的先后关系；确认回调不等待自身 flush、不另建交易、不更换去重键、不影响 Firebase，且 SDK 初始化仍在原 ATT 流程之后。此为自审，不是独立评审。
+
+未运行：包含本次修复的新包 iPhone 13 断网恢复与 Singular 后台收件验收、Android 真机重试验收、Release/IPA 构建和 Flutter 全仓测试。本地测试使用模拟配置响应与 SDK MethodChannel，不能替代原生 SDK 服务端回执；客户端测试/归因负责人仍需用新包补验“首次配置失败 → 购买已入队 → 同进程恢复联网 → 自动补报”，并在 Testing Console 核对当前安装的设备标识、金额和币种。本次没有修改后台测试设备登记、发布客户端/服务端或操作远程数据库。
+
+补充“允许联网后及时重试”验证：现有 Observer 接收所有 `resumed`，不要求先进入后台，因此没有新增业务或原生代码。将生命周期集成回归扩展为 `paused → resumed` 与系统弹窗常见的 `inactive → resumed` 两种路径；后者在首次 5 秒定时器触发前模拟请求恢复，确认收到 resumed 后立即重新请求、补报两笔 pending，交易不重复且不再次请求 ATT。`flutter test --no-pub --dart-define-from-file=config/test.json test/app_attribution_test.dart test/subscription_singular_revenue_test.dart --reporter expanded` 28/28 通过，退出 0；代码自审确认只有测试和行为说明增量。该测试验证 Flutter 信号处理，不代表已经验证 iPhone 13 联网授权弹窗一定发出此信号；系统没有发出信号时仍依赖退避重试，原生授权场景仍由客户端测试人员使用新包补验。
+
+## No content available 弹窗标题下划线（2026-09-09）
+
+根因：启动配置请求失败时，`AppUpgradeGate` 在 Navigator/页面 Material 之外显示共享 `KandoFailureBlock`；标题未覆盖继承的文字装饰，最终 `RichText` 带有 Flutter 默认下划线。使用既有启动检查失败测试，读取渲染文本的有效 style，修复前稳定得到 `contains(TextDecoration.underline) == true`，与无下划线预期不符（退出 1）。本地输入是模拟配置请求失败，不要求实际网络授权弹窗即可复现同一渲染路径。
+
+修复仅在共享失败卡片的 `No content available` 标题设置 `TextDecoration.none`，正常与紧凑布局、启动遮罩及所有复用该组件的页面/弹层一起生效。文案、颜色、字号、间距、刷新回调、加载和启动拦截逻辑均未改动；业务/API/配置文档影响为 N/A，因此仅在此记录 UI 修复。
+
+macOS、Flutter 3.44.5 / Dart 3.12.2；在 `apps/flutter-app` 执行 `flutter test --no-pub test/widget/app_upgrade_gate_test.dart --plain-name 'failed startup checks must block interaction' --reporter expanded`，原失败路径修复后 1/1 通过；`flutter test --no-pub test/load_state_test.dart test/widget/app_upgrade_gate_test.dart --reporter expanded` 13/13 通过，刷新重试和版本拦截保持原断言；`flutter analyze --no-pub` 无问题，均退出 0。测试新增断言的首次格式检查提示换行差异，执行 formatter 后重新验证。Code Review 自审通过：生产代码只增加标题的装饰覆盖，不修改全局主题或其他组件；沿用现有设计 token，未改变尺寸和交互。未运行新包的 iOS/Android 真机截图或首次联网授权流程；客户端测试人员需在下次构建中补验实际设备显示，本次未打包发布。
+
 ## dev-wxy：仅移植扫描向量识别链路（2026-09-08）
 
 范围：以 `745138292ed7a02f62dee3c3ea78747c0b737745` 为业务基线，从 `dev-xiangyang@ceef1af08ea949d184164ad661dc6228e1cf4773` 按代码段引入 RTMDet-Ins 检测、原生透视矫正、PE-Core-T16 512 维向量化和 Workers `VECTOR_RECOGNITION` 调用。用户明确同意 iOS 16+、Android、Web 扫描暂不支持。未整体合并源分支，也未修改 dev 分支。
