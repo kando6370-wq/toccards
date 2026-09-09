@@ -1,9 +1,16 @@
+import 'dart:math' as math;
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../analytics/analytics_events.dart';
 import '../analytics/app_analytics.dart';
 import 'kando_style.dart';
+
+const _dangerHeaderIconAsset = 'assets/ui/modal_danger_delete.svg';
+const _dangerButtonIconAsset = 'assets/ui/modal_delete_button.svg';
 
 /// Result returned by the app update modal.
 ///
@@ -27,31 +34,100 @@ Future<bool> showKandoDangerConfirmModal(
   String confirmLabel = 'Delete',
   String cancelLabel = 'Cancel',
   bool barrierDismissible = false,
+  Future<bool> Function()? confirmAction,
 }) async {
   _track(context, AnalyticsEvent.deleteClick);
   final result = await showDialog<bool>(
     context: context,
     barrierDismissible: barrierDismissible,
-    builder: (context) {
-      return KandoConfirmModal(
-        title: title,
-        message: message,
-        icon: Icons.delete_outline,
-        confirmLabel: confirmLabel,
-        cancelLabel: cancelLabel,
-        confirmType: KandoModalButtonType.delete,
-        onCancel: () {
-          _track(context, AnalyticsEvent.cancelClick);
-          Navigator.of(context).pop(false);
-        },
-        onConfirm: () {
-          _track(context, AnalyticsEvent.deleteConfirmClick);
-          Navigator.of(context).pop(true);
-        },
-      );
-    },
+    builder: (context) => _KandoDangerConfirmDialog(
+      title: title,
+      message: message,
+      confirmLabel: confirmLabel,
+      cancelLabel: cancelLabel,
+      confirmAction: confirmAction,
+    ),
   );
   return result == true;
+}
+
+class _KandoDangerConfirmDialog extends StatefulWidget {
+  const _KandoDangerConfirmDialog({
+    required this.title,
+    required this.message,
+    required this.confirmLabel,
+    required this.cancelLabel,
+    this.confirmAction,
+  });
+
+  final String title;
+  final String message;
+  final String confirmLabel;
+  final String cancelLabel;
+  final Future<bool> Function()? confirmAction;
+
+  @override
+  State<_KandoDangerConfirmDialog> createState() =>
+      _KandoDangerConfirmDialogState();
+}
+
+class _KandoDangerConfirmDialogState extends State<_KandoDangerConfirmDialog> {
+  bool _isConfirming = false;
+
+  Future<void> _confirm() async {
+    if (_isConfirming) return;
+    _track(context, AnalyticsEvent.deleteConfirmClick);
+    final action = widget.confirmAction;
+    if (action == null) {
+      Navigator.of(context).pop(true);
+      return;
+    }
+
+    setState(() => _isConfirming = true);
+    var succeeded = false;
+    try {
+      succeeded = await action();
+    } catch (error, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'kando modal',
+          context: ErrorDescription('while confirming a destructive action'),
+        ),
+      );
+    }
+    if (!mounted) return;
+    if (succeeded) {
+      Navigator.of(context).pop(true);
+    } else {
+      setState(() => _isConfirming = false);
+    }
+  }
+
+  void _cancel() {
+    if (_isConfirming) return;
+    _track(context, AnalyticsEvent.cancelClick);
+    Navigator.of(context).pop(false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !_isConfirming,
+      child: KandoConfirmModal(
+        title: widget.title,
+        message: widget.message,
+        icon: Icons.delete_outline,
+        confirmLabel: widget.confirmLabel,
+        cancelLabel: widget.cancelLabel,
+        confirmType: KandoModalButtonType.delete,
+        isConfirming: _isConfirming,
+        onCancel: _cancel,
+        onConfirm: _confirm,
+      ),
+    );
+  }
 }
 
 /// Shows the single-item removal confirmation modal.
@@ -121,8 +197,8 @@ Future<KandoUpdateModalResult?> showKandoUpdateModal(
   BuildContext context, {
   required String title,
   required String message,
-  String primaryLabel = 'Update Now',
-  String secondaryLabel = 'Later',
+  String primaryLabel = 'INSTALL',
+  String secondaryLabel = 'LATER',
   bool forceUpdate = false,
 }) {
   return showDialog<KandoUpdateModalResult>(
@@ -234,6 +310,7 @@ class KandoConfirmModal extends StatelessWidget {
     required this.onCancel,
     this.confirmType = KandoModalButtonType.primary,
     this.compact = false,
+    this.isConfirming = false,
   });
 
   final String title;
@@ -245,28 +322,57 @@ class KandoConfirmModal extends StatelessWidget {
   final VoidCallback onCancel;
   final KandoModalButtonType confirmType;
   final bool compact;
+  final bool isConfirming;
 
   @override
   Widget build(BuildContext context) {
+    final danger = confirmType == KandoModalButtonType.delete && !compact;
+    final viewportWidth = MediaQuery.sizeOf(context).width;
+    final frameWidth = math.min(342.0, viewportWidth - 48);
+    final compactDangerLayout = danger && frameWidth < 342;
     return KandoModalFrame(
-      height: compact ? 334 : 378,
+      height: compact
+          ? 334
+          : danger
+          ? compactDangerLayout
+                ? 377
+                : 355
+          : 378,
+      danger: danger,
       child: Padding(
-        padding: const EdgeInsets.all(33),
+        padding: EdgeInsets.symmetric(
+          horizontal: danger ? 16 : 33,
+          vertical: 33,
+        ),
         child: SizedBox(
-          width: 276,
+          width: double.infinity,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _KandoModalIcon(icon: icon),
+              _KandoModalIcon(
+                icon: icon,
+                assetPath: danger ? _dangerHeaderIconAsset : null,
+                danger: danger,
+              ),
               const SizedBox(height: 20),
-              _KandoModalText(title: title, message: message),
+              _KandoModalText(
+                title: title,
+                message: message,
+                danger: danger,
+                dangerMessageLines: compactDangerLayout ? 3 : 2,
+              ),
               const Spacer(),
-              _KandoModalActions(
-                primaryLabel: confirmLabel,
-                secondaryLabel: cancelLabel,
-                primaryType: confirmType,
-                onPrimary: onConfirm,
-                onSecondary: onCancel,
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: danger ? 17 : 0),
+                child: _KandoModalActions(
+                  primaryLabel: confirmLabel,
+                  secondaryLabel: cancelLabel,
+                  primaryType: confirmType,
+                  primaryIconAsset: danger ? _dangerButtonIconAsset : null,
+                  primaryLoading: isConfirming,
+                  onPrimary: isConfirming ? null : onConfirm,
+                  onSecondary: isConfirming ? null : onCancel,
+                ),
               ),
             ],
           ),
@@ -306,26 +412,56 @@ class KandoUpdateModal extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return KandoModalFrame(
-      height: 452,
+      height: forceUpdate ? 396.267 : 452.267,
+      update: true,
       child: Padding(
         padding: const EdgeInsets.all(33),
         child: SizedBox(
           width: 276,
           child: Column(
             children: [
-              const SizedBox(height: 10),
-              const _KandoUpdateVisual(),
-              const SizedBox(height: 40),
-              _KandoModalText(title: title, message: message),
-              const Spacer(),
-              _KandoModalActions(
-                primaryLabel: primaryLabel,
-                secondaryLabel: secondaryLabel,
-                hideSecondary: forceUpdate,
-                primaryType: KandoModalButtonType.primary,
-                onPrimary: onPrimary,
-                onSecondary: onSecondary,
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 10),
+                      const _KandoUpdateVisual(),
+                      const SizedBox(height: 30),
+                      Text(
+                        title,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: KandoColors.accent,
+                          fontFamily: 'Fraunces',
+                          fontSize: 24,
+                          fontWeight: FontWeight.w600,
+                          height: 32 / 24,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        message,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: KandoColors.mutedText,
+                          fontSize: 15,
+                          height: 22 / 15,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
+              const SizedBox(height: 28),
+              KandoModalButton(label: primaryLabel, onPressed: onPrimary),
+              if (!forceUpdate) ...[
+                const SizedBox(height: 12),
+                KandoModalButton(
+                  label: secondaryLabel,
+                  type: KandoModalButtonType.secondary,
+                  onPressed: onSecondary,
+                ),
+              ],
             ],
           ),
         ),
@@ -387,25 +523,29 @@ class KandoWelcomeModal extends StatelessWidget {
 
 /// Base Figma modal shell.
 ///
-/// Visual contract: centered dark surface, subtle border, 24px radius, and
-/// shadow. Width defaults to 342px for confirm/update modals; welcome uses
-/// 260px. Use this only when building a new modal type that is already defined
-/// in the design system.
+/// Visual contract: centered dark surface, subtle border, and shadow. Standard
+/// frames use a 24px radius; danger and update variants use 16px. Width defaults
+/// to 342px for confirm/update modals; welcome uses 260px. Use this only when
+/// building a new modal type that is already defined in the design system.
 ///
-/// 中文：Figma 弹窗基础外壳。视觉规格为居中暗色面板、弱描边、24px
-/// 圆角和阴影。确认/升级弹窗默认 342px，欢迎弹窗 260px。只有新增
-/// 设计系统已定义的弹窗类型时才直接使用。
+/// 中文：Figma 弹窗基础外壳。视觉规格为居中暗色面板、弱描边和阴影；
+/// 普通弹窗使用 24px 圆角，危险确认和升级弹窗使用 16px。确认/升级弹窗默认
+/// 342px，欢迎弹窗 260px。只有新增设计系统已定义的弹窗类型时才直接使用。
 class KandoModalFrame extends StatelessWidget {
   const KandoModalFrame({
     super.key,
     required this.child,
     this.width = 342,
     this.height,
+    this.danger = false,
+    this.update = false,
   });
 
   final Widget child;
   final double width;
   final double? height;
+  final bool danger;
+  final bool update;
 
   @override
   Widget build(BuildContext context) {
@@ -418,21 +558,132 @@ class KandoModalFrame extends StatelessWidget {
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: KandoColors.surface,
-          border: Border.all(color: KandoColors.borderSubtle),
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x99000000),
-              blurRadius: 32,
-              offset: Offset(0, 18),
-            ),
-          ],
+          color: update
+              ? const Color(0xFF222222)
+              : danger
+              ? const Color(0xFF1D1D1C)
+              : KandoColors.surface,
+          borderRadius: BorderRadius.circular(danger || update ? 16 : 24),
+          boxShadow: danger || update
+              ? const [
+                  BoxShadow(
+                    color: Color(0x40000000),
+                    blurRadius: 50,
+                    spreadRadius: -12,
+                    offset: Offset(0, 25),
+                  ),
+                ]
+              : const [
+                  BoxShadow(
+                    color: Color(0x99000000),
+                    blurRadius: 32,
+                    offset: Offset(0, 18),
+                  ),
+                ],
         ),
-        child: child,
+        foregroundDecoration: update
+            ? null
+            : BoxDecoration(
+                border: Border.all(
+                  color: danger
+                      ? const Color(0x1A394E2C)
+                      : KandoColors.borderSubtle,
+                ),
+                borderRadius: BorderRadius.circular(danger ? 16 : 24),
+              ),
+        clipBehavior: Clip.antiAlias,
+        child: update
+            ? CustomPaint(
+                painter: const _KandoUpdateSurfacePainter(),
+                child: child,
+              )
+            : child,
       ),
     );
   }
+}
+
+class _KandoUpdateSurfacePainter extends CustomPainter {
+  const _KandoUpdateSurfacePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) return;
+    final rect = Offset.zero & size;
+    // Figma 736:13370: normalized coordinates -> diamond gradient space.
+    // Preserve the original transform as the modal changes width or height.
+    final transform = Matrix4.identity()
+      ..setEntry(0, 0, 0.1985977590084076)
+      ..setEntry(0, 1, 0.15397658944129944)
+      ..setEntry(0, 3, 0.6621649861335754)
+      ..setEntry(1, 0, -0.13236625492572784)
+      ..setEntry(1, 1, 0.08926185220479965)
+      ..setEntry(1, 3, 0.5021498203277588);
+    final paint = Paint()
+      ..isAntiAlias = false
+      ..shader = ui.Gradient.linear(
+        Offset.zero,
+        const Offset(0.25, 0.25),
+        const [
+          Color.from(
+            alpha: 0.24,
+            red: 240 / 255,
+            green: 254 / 255,
+            blue: 112 / 255,
+          ),
+          Color.from(
+            alpha: 0.24,
+            red: 16 / 255,
+            green: 0.06143791228532791,
+            blue: 11 / 255,
+          ),
+        ],
+        const [0, 0.667445719242096],
+      );
+    canvas.save();
+    canvas.clipRect(rect);
+    canvas.scale(size.width, size.height);
+    canvas.transform(Matrix4.inverted(transform).storage);
+    canvas.translate(0.5, 0.5);
+    // Each quadrant is linear; together they reproduce the diamond's
+    // 2 * (abs(x - 0.5) + abs(y - 0.5)) falloff without a bitmap or shader asset.
+    for (final direction in const [
+      Offset(1, 1),
+      Offset(1, -1),
+      Offset(-1, 1),
+      Offset(-1, -1),
+    ]) {
+      canvas.save();
+      canvas.scale(direction.dx, direction.dy);
+      canvas.drawRect(const Rect.fromLTWH(0, 0, 1, 1), paint);
+      canvas.restore();
+    }
+    canvas.restore();
+
+    // Figma's 1px inside stroke fades from white to olive at 10% opacity.
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect.deflate(0.5), const Radius.circular(15.5)),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color.from(alpha: 0.1, red: 1, green: 1, blue: 1),
+            Color.from(
+              alpha: 0.1,
+              red: 0.6110798716545105,
+              green: 0.6110798716545105,
+              blue: 0.3442450761795044,
+            ),
+          ],
+        ).createShader(rect),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_KandoUpdateSurfacePainter oldDelegate) => false;
 }
 
 /// Figma modal action button.
@@ -448,11 +699,15 @@ class KandoModalButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.type = KandoModalButtonType.primary,
+    this.iconAsset,
+    this.loading = false,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final KandoModalButtonType type;
+  final String? iconAsset;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
@@ -482,42 +737,95 @@ class KandoModalButton extends StatelessWidget {
         style: FilledButton.styleFrom(
           backgroundColor: colors.background,
           foregroundColor: colors.foreground,
-          disabledBackgroundColor: KandoColors.elevatedSurface,
-          disabledForegroundColor: KandoColors.disabledText,
+          disabledBackgroundColor: loading
+              ? colors.background
+              : KandoColors.elevatedSurface,
+          disabledForegroundColor: loading
+              ? colors.foreground
+              : KandoColors.disabledText,
           shape: StadiumBorder(side: BorderSide(color: colors.border)),
-          textStyle: const TextStyle(fontSize: 13, height: 16 / 13),
+          textStyle: TextStyle(
+            fontFamily: Theme.of(context).textTheme.labelLarge?.fontFamily,
+            fontSize: 13,
+            height: 16 / 13,
+          ),
         ),
-        child: Text(label),
+        child: loading
+            ? SizedBox.square(
+                key: Key('kando-danger-modal-loading'),
+                dimension: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: colors.foreground,
+                ),
+              )
+            : iconAsset == null
+            ? Text(label)
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox.square(
+                    key: const Key('kando-danger-modal-delete-icon'),
+                    dimension: 20,
+                    child: SvgPicture.asset(iconAsset!, fit: BoxFit.contain),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(label),
+                ],
+              ),
       ),
     );
   }
 }
 
 class _KandoModalIcon extends StatelessWidget {
-  const _KandoModalIcon({required this.icon, this.color = KandoColors.accent});
+  const _KandoModalIcon({
+    required this.icon,
+    this.color = KandoColors.accent,
+    this.assetPath,
+    this.danger = false,
+  });
 
   final IconData icon;
   final Color color;
+  final String? assetPath;
+  final bool danger;
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      key: danger ? const Key('kando-danger-modal-header-icon') : null,
       width: 56,
       height: 56,
-      decoration: const BoxDecoration(
-        color: KandoColors.accentGlow10,
+      decoration: BoxDecoration(
+        color: danger ? const Color(0x1FF87171) : KandoColors.accentGlow10,
         shape: BoxShape.circle,
       ),
-      child: Icon(icon, size: 26, color: color),
+      child: assetPath == null
+          ? Icon(icon, size: 26, color: color)
+          : Center(
+              child: SizedBox(
+                width: 23.1538,
+                height: 24.3207,
+                child: SvgPicture.asset(assetPath!, fit: BoxFit.fill),
+              ),
+            ),
     );
   }
 }
 
 class _KandoModalText extends StatelessWidget {
-  const _KandoModalText({required this.title, this.message});
+  const _KandoModalText({
+    required this.title,
+    this.message,
+    this.danger = false,
+    this.dangerMessageLines = 2,
+  });
 
   final String title;
   final String? message;
+  final bool danger;
+  final int dangerMessageLines;
 
   @override
   Widget build(BuildContext context) {
@@ -526,25 +834,40 @@ class _KandoModalText extends StatelessWidget {
         Text(
           title,
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: KandoColors.text,
-            fontFamily: 'Fraunces',
-            fontSize: 22,
-            fontWeight: FontWeight.w600,
-            height: 32 / 22,
-          ),
+          maxLines: danger ? 1 : null,
+          softWrap: !danger,
+          overflow: danger ? TextOverflow.fade : TextOverflow.clip,
+          style:
+              const TextStyle(
+                color: KandoColors.text,
+                fontFamily: 'Fraunces',
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+                height: 32 / 22,
+              ).copyWith(
+                color: danger ? KandoColors.errorText : null,
+                fontSize: danger ? 24 : null,
+                height: danger ? 32 / 24 : null,
+              ),
         ),
         if (message != null) ...[
           const SizedBox(height: 6),
-          Text(
-            message!,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: KandoColors.mutedText,
-              fontSize: 13,
-              height: 20 / 13,
+          SizedBox(
+            height: danger ? dangerMessageLines * 22 : null,
+            child: Text(
+              message!,
+              textAlign: TextAlign.center,
+              maxLines: danger ? dangerMessageLines : 2,
+              overflow: TextOverflow.ellipsis,
+              style:
+                  const TextStyle(
+                    color: KandoColors.mutedText,
+                    fontSize: 13,
+                    height: 20 / 13,
+                  ).copyWith(
+                    fontSize: danger ? 15 : null,
+                    height: danger ? 22 / 15 : null,
+                  ),
             ),
           ),
         ],
@@ -560,36 +883,39 @@ class _KandoModalActions extends StatelessWidget {
     required this.onPrimary,
     required this.onSecondary,
     this.primaryType = KandoModalButtonType.primary,
-    this.hideSecondary = false,
+    this.primaryIconAsset,
+    this.primaryLoading = false,
   });
 
   final String primaryLabel;
   final String secondaryLabel;
-  final VoidCallback onPrimary;
-  final VoidCallback onSecondary;
+  final VoidCallback? onPrimary;
+  final VoidCallback? onSecondary;
   final KandoModalButtonType primaryType;
-  final bool hideSecondary;
+  final String? primaryIconAsset;
+  final bool primaryLoading;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 276,
-      height: hideSecondary ? 44 : 108,
+      width: double.infinity,
+      height: 108,
       child: Column(
         children: [
+          if (primaryIconAsset != null) const SizedBox(height: 8),
           KandoModalButton(
             label: primaryLabel,
             type: primaryType,
+            iconAsset: primaryIconAsset,
+            loading: primaryLoading,
             onPressed: onPrimary,
           ),
-          if (!hideSecondary) ...[
-            const SizedBox(height: 12),
-            KandoModalButton(
-              label: secondaryLabel,
-              type: KandoModalButtonType.secondary,
-              onPressed: onSecondary,
-            ),
-          ],
+          const SizedBox(height: 12),
+          KandoModalButton(
+            label: secondaryLabel,
+            type: KandoModalButtonType.secondary,
+            onPressed: onSecondary,
+          ),
         ],
       ),
     );
@@ -602,53 +928,21 @@ class _KandoUpdateVisual extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
+      key: const Key('kando-update-rocket'),
       width: 160,
-      height: 158,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Container(
-            width: 132,
-            height: 132,
-            decoration: BoxDecoration(
-              color: KandoColors.accentGlow10,
-              shape: BoxShape.circle,
-              border: Border.all(color: KandoColors.borderFocus),
-            ),
-          ),
-          Container(
-            width: 84,
-            height: 112,
-            decoration: BoxDecoration(
-              color: KandoColors.elevatedSurface,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: KandoColors.borderSubtle),
-            ),
-            child: const Icon(
-              Icons.system_update_alt,
-              color: KandoColors.accent,
-              size: 34,
-            ),
-          ),
-          const Positioned(
-            right: 22,
-            top: 28,
-            child: Icon(
-              Icons.auto_awesome,
-              color: KandoColors.accent,
-              size: 16,
-            ),
-          ),
-          const Positioned(
-            left: 22,
-            bottom: 34,
-            child: Icon(
-              Icons.auto_awesome,
-              color: KandoColors.accent,
-              size: 14,
-            ),
-          ),
-        ],
+      height: 158.267,
+      child: OverflowBox(
+        alignment: Alignment.topCenter,
+        minWidth: 160,
+        maxWidth: 160,
+        minHeight: 165.333,
+        maxHeight: 165.333,
+        child: Image.asset(
+          'assets/ui/update_rocket.png',
+          width: 160,
+          height: 165.333,
+          excludeFromSemantics: true,
+        ),
       ),
     );
   }

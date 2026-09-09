@@ -18,6 +18,14 @@ import { cardImageUrl } from "../card-image-url";
 import { createId } from "../id";
 import { countryDisplayName } from "./country-name";
 import { createXlsx } from "./xlsx";
+import {
+  appVersionConfigKey,
+  appVersionEnvironment,
+  isValidAppVersionRule,
+  isVersionConfigKey,
+  VERSION_CONFIG_UNAVAILABLE,
+  type AppVersionEnvironment,
+} from "../app-config/app-version-config";
 
 type AdminRole = "super_admin" | "operator";
 type AdminStatus = "active" | "disabled";
@@ -75,6 +83,7 @@ type FeedbackTicketRow = {
 
 type ScanRecordRow = {
   id: string;
+  environment: "development" | "production";
   owner_type: string;
   owner_id: string;
   image_url: string | null;
@@ -105,8 +114,6 @@ type AppVersionRecord = {
   recommended_version: string;
   force_update: boolean;
   store_url: string;
-  recommended_update_message: string;
-  forced_update_message: string;
   status: AppVersionStatus;
   updated_at: string;
 };
@@ -142,9 +149,8 @@ const LEGACY_FEEDBACK_STATUS_MAP: Record<string, FeedbackStatus> = {
   closed: "processed",
 };
 const VALID_APP_VERSION_STATUSES = new Set<AppVersionStatus>(["enabled", "disabled"]);
+const VALID_APP_ENVIRONMENTS = new Set(["development", "production"]);
 const APP_VERSION_PLATFORMS: AppVersionPlatform[] = ["iOS", "Google"];
-const APP_VERSION_CONFIG_PREFIX = "admin.app_version.";
-const VERSION_PATTERN = /^\d+\.\d+\.\d+$/;
 const DUMMY_PASSWORD_HASH =
   "pbkdf2-sha256$v1$100000$AAECAwQFBgcICQoLDA0ODw$n9d-PfgjYCpuBQORe6IZg6Op-rlL_-TOqIyWwG54xHI";
 
@@ -344,7 +350,7 @@ const SELECT_INSTALLATION_ROWS_SQL = `
   GROUP BY uid, substr(first_seen_at, 1, 10),
     COALESCE(NULLIF(country_code, ''), 'Unknown'),
     COALESCE(NULLIF(platform, ''), 'Unknown')
-  ORDER BY MIN(first_seen_at) ASC, uid ASC, country ASC, platform ASC
+  ORDER BY date DESC, uid ASC, country ASC, platform ASC
   LIMIT ? OFFSET ?
 `;
 
@@ -394,13 +400,14 @@ const SELECT_APP_CONFIG_SQL = `
 `;
 
 const SELECT_SCAN_RECORDS_SQL = `
-  SELECT id, owner_type, owner_id, image_url, filename, platform, app_version,
+  SELECT id, environment, owner_type, owner_id, image_url, filename, platform, app_version,
     device_model, os_version, recognition_status, user_confirmation_status,
     modified_result, system_result, user_result, candidates, created_at
   FROM scan_record
   WHERE (CAST(? AS text) IS NULL OR lower(owner_id) LIKE '%' || ? || '%')
     AND (CAST(? AS text) IS NULL OR lower(platform) = ?)
     AND (CAST(? AS text) IS NULL OR lower(app_version) = ?)
+    AND (CAST(? AS text) IS NULL OR environment = ?)
     AND (CAST(? AS text) IS NULL OR recognition_status = ?)
     AND (CAST(? AS text) IS NULL OR user_confirmation_status = ?)
     AND (CAST(? AS integer) IS NULL OR modified_result = ?)
@@ -416,6 +423,7 @@ const COUNT_SCAN_RECORDS_SQL = `
   WHERE (CAST(? AS text) IS NULL OR lower(owner_id) LIKE '%' || ? || '%')
     AND (CAST(? AS text) IS NULL OR lower(platform) = ?)
     AND (CAST(? AS text) IS NULL OR lower(app_version) = ?)
+    AND (CAST(? AS text) IS NULL OR environment = ?)
     AND (CAST(? AS text) IS NULL OR recognition_status = ?)
     AND (CAST(? AS text) IS NULL OR user_confirmation_status = ?)
     AND (CAST(? AS integer) IS NULL OR modified_result = ?)
@@ -424,7 +432,7 @@ const COUNT_SCAN_RECORDS_SQL = `
 `;
 
 const SELECT_SCAN_RECORD_BY_ID_SQL = `
-  SELECT id, owner_type, owner_id, image_url, filename, platform, app_version,
+  SELECT id, environment, owner_type, owner_id, image_url, filename, platform, app_version,
     device_model, os_version, recognition_status, user_confirmation_status,
     modified_result, system_result, user_result, candidates, created_at
   FROM scan_record
@@ -989,12 +997,17 @@ adminRoutes.get("/scans", async (c) => {
   const uid = normalizeQuery(c.req.query("uid"));
   const platform = normalizeQuery(c.req.query("platform"));
   const appVersion = normalizeQuery(c.req.query("app_version"));
+  const environment = normalizeQuery(c.req.query("environment"));
   const recognitionStatus = normalizeQuery(c.req.query("recognition_status"));
   const confirmationStatus = normalizeQuery(c.req.query("user_confirmation_status"));
   const modifiedResult = readBooleanQuery(c.req.query("modified_result"));
   const dateFrom = readDateBoundary(c.req.query("date_from"), false);
   const dateTo = readDateBoundary(c.req.query("date_to"), true);
-  if (dateFrom === "invalid" || dateTo === "invalid") {
+  if (
+    dateFrom === "invalid"
+    || dateTo === "invalid"
+    || (environment !== null && !VALID_APP_ENVIRONMENTS.has(environment))
+  ) {
     return c.json(VALIDATION_ERROR_RESPONSE, 422);
   }
   const modifiedResultValue = modifiedResult === null ? null : modifiedResult ? 1 : 0;
@@ -1006,6 +1019,8 @@ adminRoutes.get("/scans", async (c) => {
       platform,
       appVersion,
       appVersion,
+      environment,
+      environment,
       recognitionStatus,
       recognitionStatus,
       confirmationStatus,
@@ -1120,11 +1135,17 @@ adminRoutes.patch("/permissions/:adminId", async (c) => {
 });
 
 adminRoutes.get("/app-versions", async (c) => {
+  c.header("Cache-Control", "no-store");
+  const environment = appVersionEnvironment(c.env.APP_ENVIRONMENT);
+  if (!environment) return c.json(VERSION_CONFIG_UNAVAILABLE, 503);
   const { results = [] } = await c.env.DB.prepare(SELECT_APP_CONFIG_SQL).all<AppConfigRow>();
-  return c.json({ success: true, data: { items: buildAppVersionRecords(results) } });
+  const items = buildAppVersionRecords(results, environment);
+  return items ? c.json({ success: true, data: { environment, items } }) : c.json(VERSION_CONFIG_UNAVAILABLE, 503);
 });
 
 adminRoutes.patch("/app-versions/:platform", async (c) => {
+  const environment = appVersionEnvironment(c.env.APP_ENVIRONMENT);
+  if (!environment) return c.json(VERSION_CONFIG_UNAVAILABLE, 503);
   const platform = readAppVersionPlatform(c.req.param("platform"));
   if (!platform) return c.json(NOT_FOUND_RESPONSE, 404);
 
@@ -1133,12 +1154,12 @@ adminRoutes.patch("/app-versions/:platform", async (c) => {
   const recommendedVersion = readRequiredString(input.recommended_version);
   const forceUpdate = input.force_update === true;
   const storeUrl = typeof input.store_url === "string" ? input.store_url.trim() : "";
-  const status = readAppVersionStatus(input.status) ?? "enabled";
+  const status = readAppVersionStatus(input.status);
   if (
     !minSupportedVersion ||
     !recommendedVersion ||
-    !VERSION_PATTERN.test(minSupportedVersion) ||
-    !VERSION_PATTERN.test(recommendedVersion)
+    !status ||
+    !isValidAppVersionRule({ ...input, min_supported_version: minSupportedVersion, recommended_version: recommendedVersion, store_url: storeUrl })
   ) {
     return c.json(VALIDATION_ERROR_RESPONSE, 422);
   }
@@ -1150,25 +1171,19 @@ adminRoutes.patch("/app-versions/:platform", async (c) => {
     recommended_version: recommendedVersion,
     force_update: forceUpdate,
     store_url: storeUrl,
-    recommended_update_message: typeof input.recommended_update_message === "string"
-      ? input.recommended_update_message
-      : "",
-    forced_update_message: typeof input.forced_update_message === "string"
-      ? input.forced_update_message
-      : "",
     status,
     updated_at: now,
   };
   await c.env.DB.prepare(UPSERT_APP_CONFIG_SQL)
-    .bind(appVersionConfigKey(platform), JSON.stringify(record), c.get("admin").admin_id, now)
+    .bind(appVersionConfigKey(environment, platform), JSON.stringify(record), c.get("admin").admin_id, now)
     .run();
 
   return c.json({ success: true, data: record });
 });
 
 adminRoutes.get("/app-config", async (c) => {
-  const { results = [] } = await c.env.DB.prepare(SELECT_APP_CONFIG_SQL).all();
-  return c.json({ success: true, data: { configs: results } });
+  const { results = [] } = await c.env.DB.prepare(SELECT_APP_CONFIG_SQL).all<AppConfigRow>();
+  return c.json({ success: true, data: { configs: results.filter((row) => !isVersionConfigKey(row.key)) } });
 });
 
 adminRoutes.patch("/app-config/:key", async (c) => {
@@ -1178,6 +1193,7 @@ adminRoutes.patch("/app-config/:key", async (c) => {
   }
 
   const key = c.req.param("key");
+  if (isVersionConfigKey(key)) return c.json(VALIDATION_ERROR_RESPONSE, 422);
   await c.env.DB.prepare(UPSERT_APP_CONFIG_SQL)
     .bind(key, input.value, c.get("admin").admin_id, new Date().toISOString())
     .run();
@@ -1569,6 +1585,7 @@ function toAdminFeedbackTicket(row: FeedbackTicketRow) {
 function toScanListItem(row: ScanRecordRow) {
   return {
     scan_id: row.id,
+    environment: row.environment,
     image_url: row.image_url
       ? `/scans/${encodeURIComponent(row.id)}/image`
       : "",
@@ -1638,19 +1655,17 @@ function readAppVersionStatus(value: unknown): AppVersionStatus | null {
     : null;
 }
 
-function appVersionConfigKey(platform: AppVersionPlatform): string {
-  return `${APP_VERSION_CONFIG_PREFIX}${platform.toLowerCase()}`;
-}
-
-function buildAppVersionRecords(configs: AppConfigRow[]): AppVersionRecord[] {
+function buildAppVersionRecords(configs: AppConfigRow[], environment: AppVersionEnvironment): AppVersionRecord[] | null {
   const records = new Map<AppVersionPlatform, AppVersionRecord>(
     APP_VERSION_PLATFORMS.map((platform) => [platform, defaultAppVersionRecord(platform)]),
   );
 
   for (const config of configs) {
-    if (!config.key.startsWith(APP_VERSION_CONFIG_PREFIX)) continue;
+    const platform = APP_VERSION_PLATFORMS.find((item) => config.key === appVersionConfigKey(environment, item));
+    if (!platform) continue;
     const parsed = parseAppVersionRecord(config.value, config.updated_at);
-    if (parsed) records.set(parsed.platform, parsed);
+    if (!parsed || parsed.platform !== platform) return null;
+    records.set(platform, parsed);
   }
 
   return APP_VERSION_PLATFORMS.map((platform) => records.get(platform) ?? defaultAppVersionRecord(platform));
@@ -1660,20 +1675,18 @@ function defaultAppVersionRecord(platform: AppVersionPlatform): AppVersionRecord
   return {
     platform,
     min_supported_version: "1.0.0",
-    recommended_version: "1.9.0",
+    recommended_version: "1.0.0",
     force_update: false,
     store_url: "",
-    recommended_update_message: "优化首页加载速度",
-    forced_update_message: "请更新至最新版本后继续使用。",
     status: "disabled",
-    updated_at: "2025-04-30T00:00:00.000Z",
+    updated_at: "",
   };
 }
 
 function parseAppVersionRecord(value: string, updatedAt: string): AppVersionRecord | null {
   try {
     const parsed = JSON.parse(value);
-    if (!isRecord(parsed)) return null;
+    if (!isRecord(parsed) || !isValidAppVersionRule(parsed)) return null;
     const platform = typeof parsed.platform === "string" ? readAppVersionPlatform(parsed.platform) : null;
     const minSupportedVersion = readRequiredString(parsed.min_supported_version);
     const recommendedVersion = readRequiredString(parsed.recommended_version);
@@ -1685,12 +1698,6 @@ function parseAppVersionRecord(value: string, updatedAt: string): AppVersionReco
       recommended_version: recommendedVersion,
       force_update: parsed.force_update === true,
       store_url: typeof parsed.store_url === "string" ? parsed.store_url.trim() : "",
-      recommended_update_message: typeof parsed.recommended_update_message === "string"
-        ? parsed.recommended_update_message
-        : "",
-      forced_update_message: typeof parsed.forced_update_message === "string"
-        ? parsed.forced_update_message
-        : "",
       status,
       updated_at: typeof parsed.updated_at === "string" ? parsed.updated_at : updatedAt,
     };

@@ -3,6 +3,92 @@ import 'package:kando_app/features/app_upgrade/app_upgrade_models.dart';
 
 void main() {
   test(
+    'the minimum boundary is inclusive while numeric version ordering avoids forcing already newer builds',
+    () {
+      const config = AppUpgradeConfig(
+        upgradePrompt: UpgradePrompt(
+          latestVersion: '1.0.10',
+          minVersion: '1.0.2',
+          forceUpdate: true,
+          title: 'Update available',
+          message: 'A new version is available.',
+          storeUrl: 'https://apps.apple.com/app/kando',
+        ),
+      );
+      expect(
+        AppUpgradePolicy.evaluate(
+          currentVersion: '1.0.1',
+          config: config,
+        ).forceUpdate,
+        isTrue,
+      );
+      final minimum = AppUpgradePolicy.evaluate(
+        currentVersion: '1.0.2+125',
+        config: config,
+      );
+      expect(minimum.showUpdate, isTrue);
+      expect(minimum.forceUpdate, isFalse);
+      expect(
+        AppUpgradePolicy.evaluate(
+          currentVersion: '1.0.10',
+          config: config,
+        ).showUpdate,
+        isFalse,
+      );
+      expect(
+        AppUpgradePolicy.evaluate(
+          currentVersion: '1.0.11',
+          config: config,
+        ).showUpdate,
+        isFalse,
+      );
+    },
+  );
+
+  test(
+    'an inconsistent minimum cannot be bypassed by matching a lower recommendation',
+    () {
+      expect(
+        () => AppUpgradePolicy.evaluate(
+          currentVersion: '1.0.1',
+          config: const AppUpgradeConfig(
+            upgradePrompt: UpgradePrompt(
+              latestVersion: '1.0.1',
+              minVersion: '2.0.0',
+              forceUpdate: true,
+              title: 'Update required',
+              message: 'Update to continue.',
+              storeUrl: 'https://apps.apple.com/app/kando',
+            ),
+          ),
+        ),
+        throwsFormatException,
+      );
+    },
+  );
+
+  test(
+    'missing store targets must fail explicitly instead of silently disabling mandatory updates',
+    () {
+      expect(
+        () => AppUpgradePolicy.evaluate(
+          currentVersion: '1.0.0',
+          config: const AppUpgradeConfig(
+            upgradePrompt: UpgradePrompt(
+              latestVersion: '1.0.1',
+              forceUpdate: true,
+              title: 'Update required',
+              message: 'Update to continue.',
+              storeUrl: null,
+            ),
+          ),
+        ),
+        throwsFormatException,
+      );
+    },
+  );
+
+  test(
     'config parses Profile links because legal and store actions must use operations-owned URLs',
     () {
       final config = AppUpgradeConfig.fromJson(const {
@@ -142,23 +228,24 @@ void main() {
   );
 
   test(
-    'policy ignores malformed target versions because bad config must not trap users',
+    'policy rejects malformed targets because invalid rules cannot prove that the installed version is supported',
     () {
-      final decision = AppUpgradePolicy.evaluate(
-        currentVersion: '1.0.0',
-        config: const AppUpgradeConfig(
-          upgradePrompt: UpgradePrompt(
-            latestVersion: 'latest',
-            forceUpdate: true,
-            title: 'Update required',
-            message: 'Install the latest Kando build.',
-            storeUrl: 'https://apps.apple.com/app/kando',
+      expect(
+        () => AppUpgradePolicy.evaluate(
+          currentVersion: '1.0.0',
+          config: const AppUpgradeConfig(
+            upgradePrompt: UpgradePrompt(
+              latestVersion: 'latest',
+              forceUpdate: true,
+              title: 'Update required',
+              message: 'Install the latest Kando build.',
+              storeUrl: 'https://apps.apple.com/app/kando',
+            ),
+            appStoreUrl: 'https://apps.apple.com/app/kando',
           ),
-          appStoreUrl: 'https://apps.apple.com/app/kando',
         ),
+        throwsFormatException,
       );
-
-      expect(decision.forceUpdate, isFalse);
     },
   );
 }

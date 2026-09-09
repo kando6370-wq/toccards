@@ -3,7 +3,7 @@
 ## 0. 文档说明
 
 - 分析范围：全项目业务主线，重点记录 v1.1 相对 v1.0 的订阅、额度、Performance 和 Admin 增量。
-- 分析基线：`dev@cea5d4e`，2026-08-14。
+- 当前核对基线：`dev@b0b54df`，2026-09-09；原始分析起点为 2026-08-14，历史环境结果保留其检查日期。
 - 范围边界：当前检出代码、Schema/迁移、运行配置和测试；不把远程环境历史证据外推为当前实时状态。
 - 上一版本未变化流程继续参考 [v1.0.0 业务流程](../../v1.0.0/01-flows/flows.md)。
 
@@ -97,21 +97,21 @@ Card AI 面向交易卡牌用户提供目录搜索、图片识别、Wishlist/Col
 
 1. 用户按游戏搜索 Card 或 Set，并进入卡牌详情。
 2. 详情加载图片、市场价、价格历史和 TCGplayer 商品外链；已成交记录继续通过独立入口查询。
-3. Search、Wishlist、Home Trending 等只携带 `card_id` 的入口进入通用 Card Detail，不因卡牌已收藏而猜测某条 Item；Collection、Most Valuable、Top Performers 等携带 `collection_item_id` 的入口继续进入具体 Item 详情和 Performance。通用详情在当前选中 Folder 有正式 Item 时展示 `In Your Portfolio`，逐条显示评级、材质和 SKU 单价，点击整行打开该 Item 编辑 Sheet；其他 Folder 和待编辑 Item 不进入该模块。具体 Item 详情不展示 `In Your Portfolio`，卡图右上角固定使用分享图标并调用既有卡牌分享业务；通用详情右上角使用收藏图标。
+3. Search、Wishlist、Home Trending 等只携带 `card_id` 的入口进入通用 Card Detail，不因卡牌已收藏而猜测某条 Item；Collection、Most Valuable、Top Performers 等携带 `collection_item_id` 的入口继续进入具体 Item 详情和 Performance。通用详情在当前选中 Folder 有正式 Item 时展示 `In Your Portfolio`，逐条显示评级、材质和 SKU 单价，点击整行打开该 Item 编辑 Sheet；其他 Folder 和待编辑 Item 不进入该模块。具体 Item 详情不展示 `In Your Portfolio`，卡图右上角固定使用分享图标并调用既有卡牌分享业务；通用详情右上角使用收藏图标。具体 Item 的 Collection Item 编辑态只属于该 Tab；切换到 Performance 或 Price 时丢弃未保存草稿并退出编辑态，返回 Collection Item 时展示摘要态。
 4. Search Cards 与 Sets 卡牌列表的收藏按钮先建立同一全局本地待编辑 Item：按钮显示亮黄色但正式 Qty 不变；无论卡牌是否已收藏，每点击一次 `+` 都追加一个独立、默认 `Quantity=1` 的待编辑 Item，不合并数量，也不执行快捷删除。全局最多保留 20 条，第 21 次点击不新增并显示 `You can add up to 20 cards at a time.`。Sets 收藏必须使用当前 Set 的 Game，不继承无关的 Search 选择；Sets 下拉刷新同时刷新 Set 卡牌和收藏/Wishlist 资产快照，保证 Qty 与互斥按钮和 Search Cards 一致。待编辑提示持续显示在 Home、Search、Collection、Profile 以及当前 Sets 卡牌列表底部并按 Item 条数计数，Scan 不显示；Sets 点击后必须在当前页面立即显示，不要求先返回 Search。单 Item 进入单卡编辑样式，多个 Item（包括同卡重复点击）进入带顶部条和批量操作的 Review 样式；`ADD ALL CARDS` 全部成功后先关闭 Review，再由返回页面按成功 Item 数显示居中 Success Toast，避免弹层退场吞掉反馈。通用 Card Detail 的右上收藏按钮不静默追加待编辑队列，而是直接打开该卡牌的新增 Collection Item 编辑 Sheet；关闭未保存时不改变正式 Qty、持仓或待编辑队列，保存成功后再按既有完整 Item Create 流程刷新资产。
 5. 用户可分别为每个待编辑 Item 选择 Folder、数量、Raw/评级、品相、评级机构/分数、语言、工艺和购买价；每条使用独立 UUID 作为创建请求的幂等键，保存才逐条创建 Collection Item 并增加 Qty。成功条目从队列移除；批量部分失败时保留失败草稿并继续显示 Review。单条和批量全成功使用 Figma 居中 Success Toast，部分成功使用顶部 warning Toast。只有在 Review 中删除待编辑 Item 才取消该条待收藏。
 6. Search `Qty` 汇总当前卡牌在全部 Folder 中已保存 Item 的 Quantity，不包含待编辑 Item；`In Your Portfolio` 只按当前选中 Folder 过滤，两种口径不得混用。同一 `card_ref` 且 Condition、Language、Finish、Grader、Grade 相同时，Home Most Valuable、Search Cards、Sets 卡牌列表、Wishlist 和 Collection 卡牌列表必须使用同一当前 canonical series、当前价格与 30D 涨幅。Home Trending 和 Trending Today 保持独立的 1D / 24h 行情口径：入榜、排名、当前价格、比较价格和页面涨幅统一读取同一条已发布 `card_trending_snapshot` winner，不改用其他列表的 30D 展示口径。Collection Item 的卡片金额为单张价格乘 `Quantity`，因此两张显示两张总价；`Quantity=1` 时必须与其他同规格单卡入口一致。迁移 Item 的旧 `price_series_id` 只服务总资产、Performance 与历史回放，不覆盖当前列表显示。
 7. 收藏与 Wishlist 保持互斥：待编辑期间隐藏 Wishlist 快捷入口但不提前写服务端，保存 Collection Item 时由既有服务端流程移除同卡 Wishlist，删除待编辑 Item 后恢复原 Wishlist 状态；Wishlist 快捷加入/移除流程本身不变。
-8. 收藏写入同步产生 `collection_item_event`；后续编辑、数量变化、Folder Move 或删除继续写事件，用于历史估值和 Performance。
+8. 收藏写入同步产生完整的 `collection_item_event`；包括 Scan confirm 创建的初始事件，也必须携带 Collection Item 的 Purchase Price、币种和可靠历史起点。后续编辑、数量变化、Folder Move 或删除继续写事件，用于历史估值和 Performance。
 
 关键约束：待编辑队列不属于服务端资产真值，账号身份切换时清空；Search 中 `Qty=0` 表示没有正式收藏，`Qty>0` 表示已有正式收藏；数量至少为 1；同所有者、Folder、卡牌、finish、language、grader、condition、grade 组合唯一；目标 Folder 必须属于当前所有者。证据：`pending_collection.dart`、`search_controller.dart`、`search_repository.dart`、`card_detail_controller.dart`、`card_detail_page.dart`、`portfolio_api_client.dart`、`portfolio/routes.ts`、`portfolio/collect.test.ts`。
 
 ### 3.3 扫描与服务端额度
 
-1. App 拍照或选图，计算 RGB pHash，提交图片、`request_id` 和同值 `Idempotency-Key`。
+1. App 拍照或选图，经端侧模型检测和原生透视矫正生成 512 维卡面向量，提交矫正图片、`vector`、`request_id` 和同值 `Idempotency-Key`；见[扫描识别链路](scan-recognition.md)。
 2. Workers 先按当前 session grant 判断 Premium；Free 请求以一条条件 INSERT 原子预占额度。
-3. 图片可写入 R2，OCR 返回成功候选、无匹配或失败。
-4. 技术失败释放预占；成功识别消费额度并返回最新 Quota。
+3. 矫正图片写入私有 R2，Workers 经 `VECTOR_RECOGNITION` Service Binding 向 `recognize-vec` 仅发送向量，返回成功候选、无匹配或失败。
+4. 仅完整可用 Matched 消费 Free 额度；No Match、目录不完整及技术失败释放预占，并返回最新 Quota。
 5. 用户在 Review 选择结果，调用 `/scan/:scan_id/confirm` 创建收藏记录。
 
 Quota 状态：
@@ -122,12 +122,14 @@ reserved -> released
 ```
 
 - Free 终身上限为 10；`remaining = max(0, 10 - reserved - consumed)`。
+- Free 只在扫描命中可正常打开详情的完整目录卡牌时从 reserved 结算为 consumed；No Match、仅有名称或缺少有效 `card_ref/set_name/object_type` 的目录结果从 reserved 结算为 released。市场价格为空不影响成功判定。
 - 同一 request 重试返回已有结果；60 秒 processing lease 过期后允许接管。
 - Premium 请求记录审计但不消耗 Free 额度。
 - 客户端超时或传输结果不确定时，Failed Retry 复用原 request ID，避免服务端迟到成功后以新 ID 再次消费；收到明确终态响应后的 Retry 使用新请求。
-- Premium 在 Scan 页面内确认降级为 Free，或服务端 quota 从 Unlimited 收敛为 Free 时，App 主动刷新并恢复该身份原有 Remaining；Free 提示条在 Scanning、Recognizing、Revealing 和结果状态持续显示并跟随最新服务端结算值。
-- Capture 与 Gallery 共用 10 张 Queue 上限，Waiting、Processing、Matched、Failed 和 No Match 均计入容量。
-- App Queue 的 Processing、Waiting、Done 是客户端展示状态；删除 Processing 不取消已发出的服务端结算，但后台结果不会把已删 Item 插回 UI。
+- Premium 在 Scan 页面内确认降级为 Free，或服务端 quota 从 Unlimited 收敛为 Free 时，App 主动刷新并恢复该身份原有 Remaining；Free 提示条在 Scanning、Recognizing、Revealing 和结果状态持续显示。服务端预占仍立即更新内部可用额度并用于 Capture 拦截、批量容量和 Waiting 调度，但顶部提示不因 `reserved` 提前减少；只有完整可用结果从 Loading/Revealing 切换为 Matched 时才逐项显示已消费次数，不等待异步价格。No Match、目录数据不完整和技术失败不减少展示次数，无市场价格但详情可用的 Matched 仍正常减少。当本页仍有 Processing，内部 Remaining 因尚未结算的 reservation 暂时为 0、顶部仍显示未消费次数时，Capture、Gallery 和 Retry 使用顶部提示要求等待当前扫描完成，不得提前打开 Free Quota Paywall；Processing 结算且展示次数归 0 后才按已耗尽处理。
+- Capture 与 Gallery 共用 10 张 Queue 上限，Waiting、Processing、Matched、Failed 和 No Match 均计入容量。Waiting 卡片保留用户拍摄或选择的原图缩略图；只有图片本身不可用时才显示默认占位图。
+- 批量 Scan 在当前页面会话内保留每个未确认识别结果的图片、匹配候选、卡牌资料和价格；底部结果 rail 与 Review 使用同一份结果缓存。确认加入 Collection 后，该项立即从 Queue 和结果 rail 移除；批量部分成功只移除成功项，失败项及其草稿继续留在 Review。
+- App Queue 的 Processing、Waiting、Matched、Failed 和 No Match 是客户端展示状态；不再保留 Added 展示状态。删除 Processing 不取消已发出的服务端结算，但后台结果不会把已删 Item 插回 UI。
 
 证据：`src/scan/quota.ts`、`routes.ts`、`quota.integration.test.ts`、`scan_page_test.dart`。
 
@@ -165,7 +167,7 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 - Free 所有者最多有 2 个 Folder（包含默认 Folder）；条件 INSERT 在服务端防止多设备并发越限。
 - 当前 session 有 active grant 时可超过上限；同 UID 的另一 session 不自动继承。
 - Home Performance 可按 Folder 聚合；Card Detail Performance 必须有明确 `collection_item_id`，同卡多 Item 时不猜测聚合。
-- Home Premium Performance 的 Top Performers 只读取当前 Folder 的当前持仓快照；每条 Collection Item 独立排序，Range 切换不改变榜单，金额隐藏不隐藏 Return。该模块不扩展到 Home Overview 或 Card Detail 页面。
+- Home Premium Performance 的 Top Performers 只读取当前 Folder 的当前持仓快照；每条 Collection Item 按卡片右上角展示的 Return 百分比从高到低独立排序，使用未舍入原值比较且无 Return 的条目置后。Range 切换不改变榜单，金额隐藏不隐藏 Return。该模块不扩展到 Home Overview 或 Card Detail 页面。
 - Range 为 `1D/7D/15D/1M/3M/1Y`，默认 1M；历史从可靠起点开始，数据不足返回 `partial_history=true`，不补虚假点。
 - 1Y 价格历史只接受当前 live session grant；普通公开历史接口仍限制到 90 天。
 
@@ -226,7 +228,7 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 
 | 场景 | 规则/公式 | 边界 | 证据 |
 |---|---|---|---|
-| Free Scan | `remaining = max(0, 10 - reserved - consumed)` | Premium 不扣 Free；技术失败释放 | `scan/quota.ts` |
+| Free Scan | `remaining = max(0, 10 - reserved - consumed)` | Premium 不扣 Free；仅完整可用 Matched 扣次，No Match、不完整目录结果与技术失败释放 | `scan/quota.ts` |
 | Free Folder | `folder_count < 2` 时允许新建 | 2 个包含默认 Folder；条件 INSERT 防并发 | `portfolio/routes.ts: INSERT_FOLDER_SQL` |
 | 收藏估值 | `item_value = matched_market_price * quantity` | 无匹配价不伪造；输出按金额规则舍入 | `portfolio/collection-dashboard.ts` |
 | Performance 日变化 | `portfolio_change = market_value_change - market_change` | 首点使用范围外相邻可靠日；无前态为 null | `portfolio/performance.ts: calculatePerformance()` |
@@ -243,10 +245,10 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 |---|---|---|---|
 | StoreKit/App Store | 上游 | 商品、交易、current entitlement | 商品不可售、购买/Restore 无法完成 |
 | Apple Notifications/Server API | 上游校正 | JWS、通知、当前交易历史 | 生命周期延迟；inbox/校正任务应保留并重试 |
-| OCR | 上游 | 扫描图片识别 | Scan 失败并释放 Free 预占 |
+| recognize-vec | 内部识别服务 | 512 维向量检索候选 | Scan 失败并释放 Free 预占 |
 | PlanetScale PostgreSQL / Hyperdrive | 核心真源与连接边界 | 参数化 PostgreSQL SQL | 账号、资产、额度、订阅和 Admin 不可用 |
 | KV | 缓存 | 目录/汇率快照 | 可回源或显式失败，不能改变授权真值 |
-| R2 | 对象存储 | 扫描原图 | 识别可按配置继续；Admin 图片可能不可查看 |
+| R2 | 对象存储 | 受保护的矫正卡面图片 | 缺少 binding 或上传失败时识别失败并释放预占；Admin 读取仍需授权 |
 | 邮件/OAuth | 身份上游 | 验证码和第三方登录 | 注册、找回或 OAuth 登录受阻 |
 | Analytics/Attribution | 下游 | Firebase/Mixpanel/Singular | 统计缺失，不应阻断授权或购买 |
 | Admin | 下游运营 | 查询、排障、配置 | 不影响 Apple 最终真值；不能人工改 Premium |
@@ -272,7 +274,7 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 | 编号 | 文件/符号 | 说明 |
 |---|---|---|
 | E1 | `apps/workers-api/src/index.ts` | API 路由与定时补偿入口 |
-| E2 | `apps/workers-api/src/db/schema.ts` | 当前实体、约束和索引 |
+| E2 | `apps/workers-api/src/db/postgres/migrations/` | 当前 PostgreSQL 实体、约束、索引及向前数据修复 |
 | E3 | `apps/workers-api/src/owner-auth.ts` | owner 与 session 信任边界 |
 | E4 | `apps/workers-api/src/scan/quota.ts` | Free Scan 原子额度规则 |
 | E5 | `apps/workers-api/src/portfolio/routes.ts` | Folder/资产/Performance 路由与授权 |
@@ -289,6 +291,6 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 | Lifetime 已验证本地缓存最长离线时间是多少？ | 冷启动/离线 Premium 体验 | 产品待决，不擅自设时限 |
 | Android 是否在 v1.1 销售 Premium？ | 商品、授权和跨端验收 | 当前只激活 Apple/iOS；保留抽象但不误售 |
 | 独立价格上游导入、目标规模压测和冷数据方案何时验收？ | 价格 API 实数可用性与容量 | PlanetScale PostgreSQL/Hyperdrive 和 7 表结构已实施；迁移检查点七表为空，旧 `tcg_price` 被明确排除，需独立上游契约、R2 冷层和目标规模压测 |
-| 后续 dev/prod 的迁移、Secret 和部署是否仍与 2026-08-17 记录一致？ | 发布判断 | 本次已重连核验 dev/prod deployment；Secret 仅核实配置项存在。远程状态会变化，后续发布前必须重新查询 |
+| 后续 dev/prod 的迁移、Secret 和部署是否仍与最近证据一致？ | 发布判断 | 2026-09-09 已回读 deployment/binding，未重查数据库 ledger；Secret 仅核实名称，不能证明全部内容有效。后续发布前须重新核验 |
 | Apple 生产 SKU、Root CA、Server API 与 Sandbox/TestFlight 是否完成？ | 购买/通知发布验收 | 本次未验证，不宣称完成 |
 | 重度 Portfolio、真实订单与多设备并发是否达标？ | Performance/Admin/Quota SLA | 自动化只证明仓库内逻辑，仍需目标规模验收 |

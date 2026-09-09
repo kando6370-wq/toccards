@@ -31,12 +31,14 @@ class KandoApp extends ConsumerWidget {
         if (previous != next) ref.invalidate(pendingCollectionProvider);
       },
     );
-    ref
-        .read(analyticsProvider)
-        .updateIdentity(
-          uid: session?.userId ?? session?.anonymousId,
-          isUser: session?.isUser ?? false,
-        );
+    if (!authState.isLoading) {
+      ref
+          .read(analyticsProvider)
+          .updateIdentity(
+            uid: session?.userId ?? session?.anonymousId,
+            isUser: session?.isUser ?? false,
+          );
+    }
 
     return MaterialApp.router(
       title: 'Card AI',

@@ -3,6 +3,37 @@ import 'package:dio/dio.dart';
 import '../api/api_environment.dart';
 import '../debug/app_debug_overlay.dart';
 
+const mixpanelInitializationRetryDelays = <Duration>[
+  Duration(seconds: 2),
+  Duration(seconds: 5),
+  Duration(seconds: 15),
+];
+
+Future<T?> initializeMixpanelWithRetry<T>({
+  required Future<String?> Function() loadToken,
+  required Future<T> Function(String token) initialize,
+  Future<void> Function(Duration delay) wait = _waitForRetry,
+}) async {
+  for (
+    var attempt = 0;
+    attempt <= mixpanelInitializationRetryDelays.length;
+    attempt++
+  ) {
+    if (attempt > 0) {
+      await wait(mixpanelInitializationRetryDelays[attempt - 1]);
+    }
+    try {
+      final token = await loadToken();
+      if (token != null) return await initialize(token);
+    } on Object {
+      // Retry according to the current cold-start schedule.
+    }
+  }
+  return null;
+}
+
+Future<void> _waitForRetry(Duration delay) => Future<void>.delayed(delay);
+
 Future<String?> loadMixpanelProjectToken({Dio? dio}) async {
   final client =
       dio ??

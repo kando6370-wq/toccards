@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -34,6 +35,41 @@ import '../support/mock_collection_repository.dart';
 import '../support/mock_search_repository.dart';
 
 void main() {
+  testWidgets(
+    'Collection keeps static controls visible while data is pending',
+    (tester) async {
+      final repository = _PendingCollectionRepository();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ..._localAuthOverrides(),
+            collectionRepositoryProvider.overrideWithValue(repository),
+            subscriptionControllerProvider.overrideWith(
+              _FreeCollectionSubscriptionController.new,
+            ),
+          ],
+          child: const _CollectionTestApp(),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(const Key('collection-controls-header')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('collection-segmented-tabs')),
+        findsOneWidget,
+      );
+      expect(find.text('Portfolio'), findsWidgets);
+      expect(find.text('Wishlist'), findsOneWidget);
+      expect(find.byKey(const Key('collection-search-field')), findsOneWidget);
+      expect(find.byType(KandoLoadingBlock), findsOneWidget);
+      expect(repository.calls, 1);
+    },
+  );
+
   testWidgets('Collection filter matches the 390x884 Figma viewport', (
     tester,
   ) async {
@@ -199,6 +235,20 @@ void main() {
       tester.getSize(find.byKey(const Key('collection-segmented-tabs'))).height,
       44,
     );
+    _expectCollectionTabStyle(
+      tester,
+      label: 'Portfolio',
+      backgroundColor: KandoColors.accent.withValues(alpha: 0.22),
+      textColor: KandoColors.accent,
+      fontWeight: FontWeight.w600,
+    );
+    _expectCollectionTabStyle(
+      tester,
+      label: 'Wishlist',
+      backgroundColor: Colors.transparent,
+      textColor: KandoColors.mutedText,
+      fontWeight: FontWeight.w400,
+    );
     expect(
       tester.getSize(find.byKey(const Key('collection-search-field'))).height,
       44,
@@ -237,10 +287,25 @@ void main() {
       tester.getSize(find.byKey(const Key('collection-folder-button'))).height,
       24,
     );
+    final folderButtonWidth = tester
+        .getSize(find.byKey(const Key('collection-folder-button')))
+        .width;
+    expect(folderButtonWidth, greaterThanOrEqualTo(70));
+    expect(folderButtonWidth, lessThan(150));
     expect(
       tester.getSize(find.byKey(const Key('collection-hide-amount'))).height,
       24,
     );
+    final totalFinder = find.byKey(const Key('collection-portfolio-total'));
+    final totalRect = tester.getRect(totalFinder);
+    final eyeRect = tester.getRect(
+      find.byKey(const Key('collection-hide-amount')),
+    );
+    expect(
+      totalRect.width,
+      closeTo(_singleLineTextWidth(tester, totalFinder), 0.01),
+    );
+    expect(eyeRect.left - totalRect.right, 12);
     expect(
       tester
           .widget<Text>(find.byKey(const Key('collection-portfolio-total')))
@@ -268,6 +333,70 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'Collection folder control grows without shrinking a long label',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 884);
+      addTearDown(tester.view.reset);
+
+      await _pumpCollection(
+        tester,
+        repository: const _LongFolderCollectionRepository(),
+      );
+
+      expect(
+        tester.getSize(find.byKey(const Key('collection-folder-button'))).width,
+        150,
+      );
+      final label = tester.widget<Text>(find.text(_longFolderName));
+      expect(label.style?.fontSize, 14);
+      expect(label.overflow, TextOverflow.ellipsis);
+      final folderRect = tester.getRect(
+        find.byKey(const Key('collection-folder-button')),
+      );
+      final totalFinder = find.byKey(const Key('collection-portfolio-total'));
+      final totalRect = tester.getRect(totalFinder);
+      expect(totalRect.top - folderRect.bottom, greaterThanOrEqualTo(4));
+      expect(
+        tester.renderObject<RenderParagraph>(totalFinder).didExceedMaxLines,
+        isFalse,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Collection portfolio total ellipsizes only when it does not fit',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 884);
+      addTearDown(tester.view.reset);
+
+      await _pumpCollection(
+        tester,
+        repository: const _LongPortfolioValueCollectionRepository(),
+      );
+
+      final total = tester.widget<Text>(
+        find.byKey(const Key('collection-portfolio-total')),
+      );
+      expect(total.data, r'$123,456,789.00');
+      expect(total.overflow, TextOverflow.ellipsis);
+      final totalFinder = find.byKey(const Key('collection-portfolio-total'));
+      final totalRect = tester.getRect(totalFinder);
+      final eyeRect = tester.getRect(
+        find.byKey(const Key('collection-hide-amount')),
+      );
+      expect(
+        totalRect.width,
+        lessThan(_singleLineTextWidth(tester, totalFinder)),
+      );
+      expect(eyeRect.left - totalRect.right, 12);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'Collection passes its 30D change through the generic card field',
@@ -427,12 +556,37 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.byKey(const Key('collection-controls-header')), findsOneWidget);
+    expect(find.byKey(const Key('collection-segmented-tabs')), findsOneWidget);
+    expect(find.byKey(const Key('collection-search-field')), findsOneWidget);
     expect(find.text(noContentAvailableText), findsOneWidget);
-    expect(find.text(refreshText), findsOneWidget);
+    expect(
+      find.byKey(const Key('collection-failure-illustration')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('collection-failure-refresh')), findsOneWidget);
+    expect(find.byType(KandoFailureBlock), findsNothing);
     expect(find.text('Collection'), findsWidgets);
     expect(repository.calls, 1);
 
-    await tester.tap(find.text(refreshText));
+    final searchFieldRect = tester.getRect(
+      find.byKey(const Key('collection-search-field')),
+    );
+    final illustrationRect = tester.getRect(
+      find.byKey(const Key('collection-failure-illustration')),
+    );
+    final refreshRect = tester.getRect(
+      find.byKey(const Key('collection-failure-refresh')),
+    );
+    final illustration = tester.widget<SvgPicture>(
+      find.byKey(const Key('collection-failure-illustration')),
+    );
+    expect(illustration.width, 100);
+    expect(illustration.height, 100);
+    expect(refreshRect.height, 44);
+    expect(illustrationRect.top, greaterThan(searchFieldRect.bottom));
+
+    await tester.tap(find.byKey(const Key('collection-failure-refresh')));
     await tester.pumpAndSettle();
 
     expect(find.text('Portfolio'), findsWidgets);
@@ -535,6 +689,13 @@ void main() {
       expect(repository.createCalls, 1);
       expect(find.text('SAVING'), findsOneWidget);
       expect(
+        find.descendant(
+          of: find.byKey(const Key('collection-folder-name-save')),
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsOneWidget,
+      );
+      expect(
         tester
             .widget<TextFormField>(
               find.byKey(const Key('collection-folder-name')),
@@ -548,7 +709,7 @@ void main() {
       );
       expect(repository.createCalls, 1);
 
-      repository.completeError('ENTITLEMENT_SYNC_REQUIRED');
+      repository.completeError('ENTITLEMENT_SYNC_REQUIRED', statusCode: 409);
       await tester.pumpAndSettle();
       expect(find.text('Trade'), findsOneWidget);
       expect(
@@ -662,6 +823,157 @@ void main() {
     );
   });
 
+  testWidgets(
+    'editing a folder keeps the sheet open with loading until rename succeeds',
+    (tester) async {
+      final repository = _BlockingFolderMutationRepository();
+      await _pumpCollection(tester, repository: repository);
+
+      await tester.tap(find.text('Main'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('collection-folder-edit-sealed')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('collection-folder-name')),
+        'Trade',
+      );
+      await tester.tap(find.byKey(const Key('collection-folder-name-save')));
+      await tester.pump();
+
+      expect(repository.renameCalls, 1);
+      expect(
+        find.byKey(const Key('collection-folder-name-sheet')),
+        findsOneWidget,
+      );
+      expect(find.text('SAVING'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('collection-folder-name-save')),
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<TextFormField>(
+              find.byKey(const Key('collection-folder-name')),
+            )
+            .enabled,
+        isFalse,
+      );
+      await tester.tap(
+        find.byKey(const Key('collection-folder-name-save')),
+        warnIfMissed: false,
+      );
+      expect(repository.renameCalls, 1);
+
+      repository.completeRename(name: 'Trade');
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('collection-folder-name-sheet')),
+        findsNothing,
+      );
+      expect(find.text('Trade'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'deleting a folder keeps confirmation open with loading until success',
+    (tester) async {
+      final repository = _BlockingFolderMutationRepository();
+      await _pumpCollection(tester, repository: repository);
+
+      await tester.tap(find.text('Main'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('collection-folder-delete-sealed')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('collection-folder-delete-confirm')),
+      );
+      await tester.pump();
+
+      expect(repository.deleteCalls, 1);
+      expect(
+        find.byKey(const Key('collection-folder-delete-sheet')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('collection-folder-delete-confirm')),
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(const Key('collection-folder-delete-confirm')),
+        warnIfMissed: false,
+      );
+      expect(repository.deleteCalls, 1);
+
+      repository.completeDelete();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('collection-folder-delete-sheet')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('collection-folder-delete-sealed')),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets(
+    'a failed folder delete keeps confirmation open and restores its action',
+    (tester) async {
+      final repository = _BlockingFolderMutationRepository();
+      await _pumpCollection(tester, repository: repository);
+
+      await tester.tap(find.text('Main'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('collection-folder-delete-sealed')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('collection-folder-delete-confirm')),
+      );
+      await tester.pump();
+
+      repository.failDelete();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('collection-folder-delete-sheet')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('collection-folder-delete-confirm')),
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsNothing,
+      );
+      expect(find.text('DELETE'), findsOneWidget);
+      expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
+      expect(
+        find.byKey(const Key('collection-folder-delete-sealed')),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const Key('kando-top-toast')),
+          matching: find.byTooltip('Close'),
+        ),
+      );
+      await tester.pump();
+    },
+  );
+
   testWidgets('Wishlist tab uses wishlist copy and hides quantity', (
     tester,
   ) async {
@@ -670,6 +982,20 @@ void main() {
     await tester.tap(find.text('Wishlist'));
     await tester.pumpAndSettle();
 
+    _expectCollectionTabStyle(
+      tester,
+      label: 'Portfolio',
+      backgroundColor: Colors.transparent,
+      textColor: KandoColors.mutedText,
+      fontWeight: FontWeight.w400,
+    );
+    _expectCollectionTabStyle(
+      tester,
+      label: 'Wishlist',
+      backgroundColor: KandoColors.accent.withValues(alpha: 0.22),
+      textColor: KandoColors.accent,
+      fontWeight: FontWeight.w600,
+    );
     expect(find.text('Lorcana Elsa'), findsOneWidget);
     expect(find.text('One Piece Manga Luffy (JP)'), findsOneWidget);
     expect(find.text('Lorcana · The First Chapter'), findsOneWidget);
@@ -1011,6 +1337,22 @@ void main() {
     expect(find.text('Your wishlist is empty'), findsOneWidget);
     expect(find.text('Add cards you want to collect later'), findsOneWidget);
     expect(find.text('SEARCH CARDS'), findsOneWidget);
+    final searchButton = find.widgetWithText(FilledButton, 'SEARCH CARDS');
+    final searchButtonIcon = tester.widget<SvgPicture>(
+      find.descendant(of: searchButton, matching: find.byType(SvgPicture)),
+    );
+    expect(
+      searchButtonIcon.colorFilter,
+      const ColorFilter.mode(KandoColors.ink, BlendMode.srcIn),
+    );
+    expect(
+      tester
+          .widget<FilledButton>(searchButton)
+          .style
+          ?.foregroundColor
+          ?.resolve(const <WidgetState>{}),
+      KandoColors.ink,
+    );
     expect(
       find.byKey(const Key('collection-wishlist-empty-illustration')),
       findsOneWidget,
@@ -1048,6 +1390,27 @@ void main() {
     expect(find.byTooltip('Take Photo'), findsOneWidget);
     expect(find.text('This section is coming soon.'), findsNothing);
   });
+}
+
+void _expectCollectionTabStyle(
+  WidgetTester tester, {
+  required String label,
+  required Color backgroundColor,
+  required Color textColor,
+  required FontWeight fontWeight,
+}) {
+  final labelFinder = find.text(label).first;
+  final materialFinder = find
+      .ancestor(of: labelFinder, matching: find.byType(Material))
+      .first;
+  final material = tester.widget<Material>(materialFinder);
+  final text = tester.widget<Text>(labelFinder);
+
+  expect(material.color, backgroundColor);
+  expect(material.borderRadius, BorderRadius.circular(999));
+  expect(text.style?.fontSize, 15);
+  expect(text.style?.color, textColor);
+  expect(text.style?.fontWeight, fontWeight);
 }
 
 Future<void> _pumpCollection(
@@ -1099,6 +1462,21 @@ void _expectTextOrder(WidgetTester tester, List<String> labels) {
       reason: 'Collection cards must preserve the Search Cards field order.',
     );
   }
+}
+
+double _singleLineTextWidth(WidgetTester tester, Finder finder) {
+  final text = tester.widget<Text>(finder);
+  final context = tester.element(finder);
+  final painter = TextPainter(
+    text: TextSpan(
+      text: text.data,
+      style: DefaultTextStyle.of(context).style.merge(text.style),
+    ),
+    maxLines: 1,
+    textDirection: TextDirection.ltr,
+    textScaler: MediaQuery.textScalerOf(context),
+  )..layout();
+  return painter.width;
 }
 
 _searchOverrides() {
@@ -1184,6 +1562,11 @@ class _CollectionTestAppWithRoutes extends StatelessWidget {
 class _ProCollectionSubscriptionController extends SubscriptionController {
   @override
   SubscriptionState build() => const SubscriptionState(isPro: true);
+
+  @override
+  Future<EntitlementReconciliationResult> reconcileServerEntitlement() async {
+    return EntitlementReconciliationResult.verificationUnavailable;
+  }
 }
 
 class _FreeCollectionSubscriptionController extends SubscriptionController {
@@ -1207,6 +1590,70 @@ class _FailingThenSuccessfulCollectionRepository
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _PendingCollectionRepository extends MockCollectionRepository {
+  final _dashboard = Completer<CollectionDashboard>();
+  var calls = 0;
+
+  @override
+  Future<CollectionDashboard> loadDashboard(AuthSession session) {
+    calls += 1;
+    return _dashboard.future;
+  }
+}
+
+const _longFolderName = 'International Tournament Collection Archive';
+
+class _LongFolderCollectionRepository extends MockCollectionRepository {
+  const _LongFolderCollectionRepository();
+
+  @override
+  Future<CollectionDashboard> loadDashboard(AuthSession session) async {
+    final dashboard = await super.loadDashboard(session);
+    return dashboard.copyWith(
+      folders: [
+        for (final folder in dashboard.folders)
+          folder.id == 'main' ? folder.copyWith(name: _longFolderName) : folder,
+      ],
+    );
+  }
+}
+
+class _LongPortfolioValueCollectionRepository extends MockCollectionRepository {
+  const _LongPortfolioValueCollectionRepository();
+
+  @override
+  Future<CollectionDashboard> loadDashboard(AuthSession session) async {
+    return CollectionDashboard(
+      folders: const [
+        CollectionFolder(id: 'main', name: 'Main', isDefault: true),
+      ],
+      portfolioItems: const [
+        CollectionItem(
+          id: 'item-long-value',
+          cardRef: 'long-value-card',
+          folderId: 'main',
+          name: 'Long Value Card',
+          setName: 'Test Set',
+          number: '#001',
+          rarity: 'Rare',
+          game: 'Pokemon',
+          language: 'English',
+          finish: 'Holofoil',
+          grader: 'Raw',
+          condition: 'Near Mint',
+          grade: null,
+          quantity: 1,
+          marketValueUsd: 123456789,
+          previous30dPriceUsd: 123456789,
+          increasePercent: null,
+          addedAtSort: 1,
+        ),
+      ],
+      wishlistItems: const [],
+    );
+  }
 }
 
 class _BlockingRefreshCollectionRepository extends MockCollectionRepository {
@@ -1265,10 +1712,45 @@ class _BlockingCreateFolderRepository extends MockCollectionRepository {
     return createCompleter.future;
   }
 
-  void completeError(String code) {
+  void completeError(String code, {int? statusCode}) {
     createCompleter.completeError(
-      PortfolioApiException('rejected', code: code),
+      PortfolioApiException('rejected', code: code, statusCode: statusCode),
     );
+  }
+}
+
+class _BlockingFolderMutationRepository extends MockCollectionRepository {
+  final _renameCompleter = Completer<CollectionFolder>();
+  final _deleteCompleter = Completer<void>();
+  var renameCalls = 0;
+  var deleteCalls = 0;
+
+  @override
+  Future<CollectionFolder> renameFolder(
+    AuthSession session,
+    String folderId,
+    String name,
+  ) {
+    renameCalls += 1;
+    return _renameCompleter.future;
+  }
+
+  @override
+  Future<void> deleteFolder(AuthSession session, String folderId) {
+    deleteCalls += 1;
+    return _deleteCompleter.future;
+  }
+
+  void completeRename({required String name}) {
+    _renameCompleter.complete(
+      CollectionFolder(id: 'sealed', name: name, isDefault: false),
+    );
+  }
+
+  void completeDelete() => _deleteCompleter.complete();
+
+  void failDelete() {
+    _deleteCompleter.completeError(StateError('delete failed'));
   }
 }
 

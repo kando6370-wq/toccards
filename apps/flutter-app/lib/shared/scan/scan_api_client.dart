@@ -1,10 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
 
-import 'scan_image_hasher_contract.dart';
+import 'scan_card_recognizer_contract.dart';
 
 const scanApiBaseUrl = authApiBaseUrl;
 const scanRequestDeadline = Duration(seconds: 15);
@@ -22,10 +23,16 @@ Dio createScanDio({String baseUrl = scanApiBaseUrl}) {
 }
 
 class ScanApiException implements Exception {
-  const ScanApiException(this.message, {this.code, this.quota});
+  const ScanApiException(
+    this.message, {
+    this.code,
+    this.statusCode,
+    this.quota,
+  });
 
   final String message;
   final String? code;
+  final int? statusCode;
   final ScanQuotaDto? quota;
 
   @override
@@ -112,24 +119,36 @@ class ScanCandidateDto {
   const ScanCandidateDto({
     required this.cardRef,
     required this.name,
+    required this.setName,
+    required this.objectType,
     required this.setCode,
     required this.cardNumber,
     required this.confidence,
+    this.game,
+    this.rarity,
   });
 
   final String cardRef;
   final String name;
+  final String setName;
+  final String objectType;
   final String? setCode;
   final String? cardNumber;
   final double? confidence;
+  final String? game;
+  final String? rarity;
 
   factory ScanCandidateDto.fromJson(Map<String, Object?> json) {
     return ScanCandidateDto(
       cardRef: _requiredString(json['card_ref']),
       name: _requiredString(json['name']),
+      setName: _requiredString(json['set_name']),
+      objectType: _requiredScanObjectType(json['object_type']),
       setCode: _nullableString(json['set_code']),
       cardNumber: _nullableString(json['card_number']),
       confidence: _nullableConfidence(json['confidence']),
+      game: _nullableString(json['game']),
+      rarity: _nullableString(json['rarity']),
     );
   }
 }
@@ -208,7 +227,7 @@ abstract interface class ScanApi {
   });
   Future<ScanRecognitionDto> recognizeImage(
     AuthSession session, {
-    required ScanImageHashes hashes,
+    required ScanCardEmbedding embedding,
     required String fileName,
     required String platform,
     required String appVersion,
@@ -282,7 +301,7 @@ class ScanApiClient implements ScanApi, ScanQuotaReservationApi {
   @override
   Future<ScanRecognitionDto> recognizeImage(
     AuthSession session, {
-    required ScanImageHashes hashes,
+    required ScanCardEmbedding embedding,
     required String fileName,
     required String platform,
     required String appVersion,
@@ -292,14 +311,8 @@ class ScanApiClient implements ScanApi, ScanQuotaReservationApi {
     String? deviceModel,
     String? osVersion,
   }) async {
-    final cardImageBytes = hashes.cardImageBytes;
-    if (cardImageBytes == null) {
-      throw const ScanApiException('The corrected card image is unavailable.');
-    }
     final body = FormData.fromMap(<String, Object?>{
-      'r': hashes.r,
-      'g': hashes.g,
-      'b': hashes.b,
+      'vector': jsonEncode(embedding.vector),
       'filename': fileName,
       'platform': platform,
       'app_version': appVersion,
@@ -308,7 +321,7 @@ class ScanApiClient implements ScanApi, ScanQuotaReservationApi {
       if (deviceModel != null) 'device_model': deviceModel,
       if (osVersion != null) 'os_version': osVersion,
       'image': MultipartFile.fromBytes(
-        cardImageBytes,
+        embedding.cardImageBytes,
         filename: 'scan-card.jpg',
         contentType: DioMediaType('image', 'jpeg'),
       ),
@@ -407,10 +420,10 @@ class ScanApiClient implements ScanApi, ScanQuotaReservationApi {
       return <String, Object?>{};
     }
 
-    throw _apiException(envelope);
+    throw _apiException(envelope, statusCode: response.statusCode);
   }
 
-  ScanApiException _apiException(Object? envelope) {
+  ScanApiException _apiException(Object? envelope, {required int? statusCode}) {
     if (envelope is Map) {
       final error = envelope['error'];
       if (error is Map) {
@@ -418,11 +431,15 @@ class ScanApiClient implements ScanApi, ScanQuotaReservationApi {
           _nullableString(error['message']) ??
               'Something went wrong. Please try again.',
           code: _nullableString(error['code']),
+          statusCode: statusCode,
           quota: _optionalQuota(envelope['quota']),
         );
       }
     }
-    return const ScanApiException('Something went wrong. Please try again.');
+    return ScanApiException(
+      'Something went wrong. Please try again.',
+      statusCode: statusCode,
+    );
   }
 }
 
@@ -488,6 +505,14 @@ ScanQuotaAccess _requiredScanQuotaAccess(Object? value) {
       'Something went wrong. Please try again.',
     ),
   };
+}
+
+String _requiredScanObjectType(Object? value) {
+  final objectType = _requiredString(value);
+  if (objectType != 'tcg') {
+    throw const ScanApiException('Something went wrong. Please try again.');
+  }
+  return objectType;
 }
 
 double? _nullableConfidence(Object? value) {

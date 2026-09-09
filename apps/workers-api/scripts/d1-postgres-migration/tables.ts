@@ -138,6 +138,7 @@ export const MIGRATION_TABLES: readonly MigrationTable[] = [
       "device_model", "os_version", "recognition_status", "user_confirmation_status",
       "modified_result", "system_result", "user_result", "candidates", "raw_response", "created_at",
     ],
+    targetValues: { environment: "development" },
   },
   {
     name: "scan_quota_request",
@@ -249,7 +250,10 @@ export const MIGRATION_TABLES: readonly MigrationTable[] = [
       "id", "payload_sha256", "request_json", "signed_payload", "processing_status", "attempts",
       "processing_expires_at", "notification_uuid", "last_error", "received_at", "processed_at",
     ],
-    targetValues: { environment: "Sandbox" },
+    targetValues: {
+      environment: "Sandbox",
+      app_bundle_id: "com.kando.kandoApp.beta",
+    },
   },
   {
     name: "apple_server_notification",

@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "generate:legal": "node scripts/generate-legal-pages.mjs",
+    "test": "node --test test/*.test.mjs",
     "predev": "pnpm generate:legal",
     "dev": "wrangler dev",
     "predeploy": "pnpm generate:legal",

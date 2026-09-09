@@ -17,7 +17,6 @@ import '../../shared/currency/currency.dart';
 import '../../shared/portfolio/portfolio_providers.dart';
 import '../../shared/portfolio/portfolio_api_client.dart';
 import '../../shared/scan/scan_api_client.dart';
-import '../../shared/scan/scan_image_hasher.dart';
 import '../../shared/ui/kando_style.dart';
 import '../../shared/ui/premium_unlocked_toast.dart';
 import '../../shared/ui/subscription_restore_result.dart';
@@ -109,20 +108,6 @@ _ScanViewfinderGeometry _scanViewfinderGeometry(
   final maxTop = math.max(topLimit, bottomLimit - height);
   final top = _viewfinderBaseTop.clamp(topLimit, maxTop);
   return _ScanViewfinderGeometry(Rect.fromLTWH(left, top, width, height));
-}
-
-ScanImageCrop _cameraRecognitionCrop(Size viewport, EdgeInsets padding) {
-  final rect = _scanViewfinderGeometry(
-    viewport,
-    padding,
-  ).rect.intersect(Offset.zero & viewport);
-  return ScanImageCrop(
-    left: rect.left / viewport.width,
-    top: rect.top / viewport.height,
-    width: rect.width / viewport.width,
-    height: rect.height / viewport.height,
-    viewportAspectRatio: viewport.width / viewport.height,
-  );
 }
 
 class _ScanMatch {
@@ -351,9 +336,10 @@ String _normalizedReviewCondition(String? value) {
 }
 
 class _PendingScan {
-  _PendingScan(this.token);
+  _PendingScan(this.token, {this.quotaPromptBatchId});
 
   final int token;
+  final int? quotaPromptBatchId;
   ScanResolution? resolution;
   var revealTimelineFinished = false;
   var removedFromUi = false;
@@ -381,11 +367,13 @@ class _ScanPageState extends ConsumerState<ScanPage>
   final Map<int, Duration> _scanDurations = {};
   final Map<int, String> _scanResultValues = {};
   final Set<int> _reportedScanResultIds = {};
+  final Set<int> _quotaPromptedBatchIds = {};
   late final AnimationController _captureController;
   ScanCameraSession? _cameraSession;
 
   var _nextScanId = 1;
   var _nextScanToken = 1;
+  var _nextQuotaPromptBatchId = 1;
   var _cameraGeneration = 0;
   var _openingCamera = false;
   var _cameraPausedForLifecycle = false;
@@ -442,6 +430,8 @@ class _ScanPageState extends ConsumerState<ScanPage>
         .toList();
   }
 
+  int get _pendingScanCount => _items.length;
+
   bool get _canReview {
     final processing = _items.any(
       (item) =>
@@ -452,9 +442,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     return _matchedItems.isNotEmpty && !processing;
   }
 
-  bool get _hasUnsavedScanResults {
-    return _items.isNotEmpty;
-  }
+  bool get _hasUnsavedScanResults => _items.isNotEmpty;
 
   @override
   void initState() {
@@ -620,6 +608,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
     if (!_hasScanQueueCapacity()) return;
     if (!await _resolvePremiumBeforeScan()) return;
     if (!mounted) return;
+    if (_scanQuotaAwaitingSettlement()) {
+      _showScanQuotaAwaitingSettlement();
+      return;
+    }
     final source = ref.read(scanResultSourceProvider);
     final camera = _cameraSession;
     if (camera == null) {
@@ -663,19 +655,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
       setState(() => _captureFeedbackItemId = itemId);
       await _captureController.forward(from: 0).orCancel;
       if (!mounted) return const ScanResolution.failed();
-      final mediaQuery = MediaQueryData.fromView(View.of(context));
-      final recognitionCrop = _cameraRecognitionCrop(
-        mediaQuery.size,
-        mediaQuery.padding,
-      );
       final image = await camera.takePhoto();
       onCaptured(image);
       return await source.recognize(
-        ScanImage(
-          bytes: image.bytes,
-          fileName: image.fileName,
-          recognitionCrop: recognitionCrop,
-        ),
+        ScanImage(bytes: image.bytes, fileName: image.fileName),
         onDisplayImageReady: onDisplayImageReady,
       );
     } catch (_) {
@@ -709,11 +692,15 @@ class _ScanPageState extends ConsumerState<ScanPage>
     if (!_hasScanQueueCapacity()) return;
     if (!await _resolvePremiumBeforeScan()) return;
     if (!mounted) return;
+    if (_scanQuotaAwaitingSettlement()) {
+      _showScanQuotaAwaitingSettlement();
+      return;
+    }
     if (_scanQuotaExhausted()) {
       unawaited(_openQuotaPaywall());
       return;
     }
-    final remainingQueueCapacity = _maxQueueItems - _items.length;
+    final remainingQueueCapacity = _maxQueueItems - _pendingScanCount;
     ref.read(analyticsProvider).track(AnalyticsEvent.imageClick);
     setState(() => _librarySelectionInFlight = true);
     try {
@@ -728,6 +715,8 @@ class _ScanPageState extends ConsumerState<ScanPage>
       }
       await _closeCamera();
       var selectedCount = 0;
+      final quotaPromptBatchId = _nextQuotaPromptBatchId;
+      _nextQuotaPromptBatchId += 1;
       final scans = await ref
           .read(scanResultSourceProvider)
           .library(
@@ -742,6 +731,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
                   displayImageBytes: image.bytes,
                   imageFileName: image.fileName,
                   retainOnQuotaExhausted: true,
+                  quotaPromptBatchId: quotaPromptBatchId,
                 );
               }
             },
@@ -753,6 +743,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
             scan,
             usesCameraFeedback: false,
             retainOnQuotaExhausted: true,
+            quotaPromptBatchId: quotaPromptBatchId,
           );
         }
       }
@@ -779,8 +770,27 @@ class _ScanPageState extends ConsumerState<ScanPage>
     return quota.isServerAuthoritative && quota.remainingScans == 0;
   }
 
+  bool _scanQuotaAwaitingSettlement() {
+    final quota = ref.read(scanQuotaControllerProvider);
+    if (ref.read(subscriptionControllerProvider).isPro || quota.unlimited) {
+      return false;
+    }
+    return quota.isServerAuthoritative &&
+        quota.remainingScans == 0 &&
+        quota.displayRemainingScans > 0 &&
+        _pendingScans.isNotEmpty;
+  }
+
+  void _showScanQuotaAwaitingSettlement() {
+    showKandoTopToast(
+      context,
+      message: 'Please wait for current scans to finish',
+      type: KandoTopToastType.info,
+    );
+  }
+
   bool _hasScanQueueCapacity() {
-    if (_items.length < _maxQueueItems) return true;
+    if (_pendingScanCount < _maxQueueItems) return true;
     showKandoTopToast(
       context,
       message: 'Scan queue is full',
@@ -821,14 +831,17 @@ class _ScanPageState extends ConsumerState<ScanPage>
     }
   }
 
-  Future<void> _openQuotaPaywall() async {
+  Future<void> _openQuotaPaywall({
+    String scene = AnalyticsValue.sceneScanTimes,
+  }) async {
     if (!mounted || _quotaPaywallOpen) return;
     _quotaPaywallOpen = true;
     try {
       final result = await context.push<SubscriptionPaywallResult>(
-        subscriptionSheetLocation,
+        subscriptionSheetLocation(scene: scene),
       );
       if (!mounted || result == null) return;
+      _markWaitingItemsAsEntitlementSync();
       if (result == SubscriptionPaywallResult.premiumRestored) {
         showSubscriptionRestoreResult(
           context,
@@ -841,6 +854,23 @@ class _ScanPageState extends ConsumerState<ScanPage>
     } finally {
       _quotaPaywallOpen = false;
     }
+  }
+
+  void _markWaitingItemsAsEntitlementSync() {
+    final waitingItems = _items
+        .where((item) => item.status == _ScanItemStatus.waiting)
+        .toList();
+    if (waitingItems.isEmpty) return;
+    setState(() {
+      for (final item in waitingItems) {
+        final index = _items.indexWhere((candidate) => candidate.id == item.id);
+        if (index >= 0) {
+          _items[index] = item.copyWith(
+            status: _ScanItemStatus.entitlementSync,
+          );
+        }
+      }
+    });
   }
 
   Future<void> _refreshQuotaAndResumeWaiting() async {
@@ -859,14 +889,28 @@ class _ScanPageState extends ConsumerState<ScanPage>
     _resumeWaitingFromServerQuota();
   }
 
-  Future<void> _synchronizePremiumForScan() async {
+  Future<void> _synchronizePremiumForScan({
+    bool reconcileDeniedAccess = false,
+  }) async {
     if (_entitlementRefreshInFlight) return;
     _entitlementRefreshInFlight = true;
     try {
-      await ref
-          .read(subscriptionControllerProvider.notifier)
-          .synchronizeServerEntitlement();
+      final subscription = ref.read(subscriptionControllerProvider.notifier);
+      final reconciliation = reconcileDeniedAccess
+          ? await subscription.reconcileServerEntitlement()
+          : await subscription.synchronizeServerEntitlement()
+          ? EntitlementReconciliationResult.premiumSynchronized
+          : EntitlementReconciliationResult.verificationUnavailable;
       if (!mounted) return;
+      if (reconciliation == EntitlementReconciliationResult.freeConfirmed) {
+        _premiumDowngradedToFree = true;
+        await _refreshQuotaAndResumeWaiting();
+        return;
+      }
+      if (reconciliation !=
+          EntitlementReconciliationResult.premiumSynchronized) {
+        return;
+      }
       final deadline = DateTime.now().add(const Duration(seconds: 15));
       do {
         await _refreshQuotaAndResumeWaiting();
@@ -934,7 +978,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       unawaited(_openQuotaPaywall());
       return;
     }
-    var capacity = quota.unlimited ? _items.length : quota.remainingScans;
+    var capacity = quota.unlimited ? _pendingScanCount : quota.remainingScans;
     if (capacity <= 0) return;
     final resumable = _items.where((item) {
       if (item.status == _ScanItemStatus.waiting) return true;
@@ -1023,6 +1067,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   Future<void> _retryScan(_ScanItem item) async {
     if (!await _resolvePremiumBeforeScan()) return;
+    if (_scanQuotaAwaitingSettlement()) {
+      _showScanQuotaAwaitingSettlement();
+      return;
+    }
     if (_scanQuotaExhausted()) {
       _replaceItem(item.copyWith(status: _ScanItemStatus.waiting));
       unawaited(_openQuotaPaywall());
@@ -1129,6 +1177,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     Uint8List? displayImageBytes,
     String? imageFileName,
     bool retainOnQuotaExhausted = false,
+    int? quotaPromptBatchId,
   }) {
     final id = _nextScanId;
     _nextScanId += 1;
@@ -1148,7 +1197,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
         ),
       );
     });
-    _startScanTimeline(id, resultFuture);
+    _startScanTimeline(
+      id,
+      resultFuture,
+      quotaPromptBatchId: quotaPromptBatchId,
+    );
     return id;
   }
 
@@ -1170,10 +1223,17 @@ class _ScanPageState extends ConsumerState<ScanPage>
     _replaceItem(item.copyWith(displayImageBytes: bytes));
   }
 
-  void _startScanTimeline(int itemId, Future<ScanResolution> resultFuture) {
+  void _startScanTimeline(
+    int itemId,
+    Future<ScanResolution> resultFuture, {
+    int? quotaPromptBatchId,
+  }) {
     final token = _nextScanToken;
     _nextScanToken += 1;
-    _pendingScans[itemId] = _PendingScan(token);
+    _pendingScans[itemId] = _PendingScan(
+      token,
+      quotaPromptBatchId: quotaPromptBatchId,
+    );
     _watchScanResolution(itemId, token, resultFuture);
 
     final timer = Timer(const Duration(seconds: 1), () {
@@ -1294,9 +1354,19 @@ class _ScanPageState extends ConsumerState<ScanPage>
     if (serverQuota != null) {
       ref
           .read(scanQuotaControllerProvider.notifier)
-          .applyServerQuota(serverQuota);
+          .applyServerQuota(
+            serverQuota,
+            syncDisplayedRemaining:
+                resolution.kind == ScanResolutionKind.quotaExhausted,
+          );
     }
     if (pending.removedFromUi) {
+      if (resolution.kind == ScanResolutionKind.matched &&
+          resolution.matchName != null) {
+        ref
+            .read(scanQuotaControllerProvider.notifier)
+            .revealSuccessfulScanInDisplay();
+      }
       _pendingScans.remove(itemId)?.revealController?.dispose();
       if (serverQuota != null) {
         _resumeWaitingFromServerQuota();
@@ -1313,6 +1383,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
       return;
     }
     if (resolution.kind == ScanResolutionKind.quotaExhausted) {
+      final shouldOpenQuotaPaywall =
+          pending.quotaPromptBatchId == null ||
+          _quotaPromptedBatchIds.add(pending.quotaPromptBatchId!);
       _pendingScans.remove(itemId)?.revealController?.dispose();
       final item = _items.where((item) => item.id == itemId).firstOrNull;
       if (item?.retainOnQuotaExhausted == true) {
@@ -1327,7 +1400,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
       } else {
         setState(() => _items.removeWhere((item) => item.id == itemId));
       }
-      unawaited(_openQuotaPaywall());
+      if (shouldOpenQuotaPaywall) {
+        unawaited(_openQuotaPaywall());
+      }
       return;
     }
     if (resolution.kind == ScanResolutionKind.entitlementSyncRequired) {
@@ -1343,7 +1418,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
           ),
         );
       }
-      unawaited(_synchronizePremiumForScan());
+      unawaited(_synchronizePremiumForScan(reconcileDeniedAccess: true));
       return;
     }
     pending.resolution = resolution;
@@ -1422,6 +1497,20 @@ class _ScanPageState extends ConsumerState<ScanPage>
             ],
           )
         : null;
+    final verifiedCards = {
+      for (final candidate in resolution.candidateDetails)
+        candidate.cardRef: ScanReviewCard(
+          cardRef: candidate.cardRef,
+          name: candidate.name,
+          setName: candidate.setName,
+          cardNumber: candidate.cardNumber ?? '',
+          game: candidate.game,
+          imageUrl: null,
+          language: null,
+          finish: null,
+          prices: const [],
+        ),
+    };
 
     final completedPending = _pendingScans.remove(itemId);
     setState(() {
@@ -1437,11 +1526,17 @@ class _ScanPageState extends ConsumerState<ScanPage>
           break;
         }
       }
+      if (verifiedCards.isNotEmpty) {
+        _reviewCards = _mergeScanCards(_reviewCards, verifiedCards);
+      }
       if (_dismissedFeedbackItemId == itemId) {
         _dismissedFeedbackItemId = null;
       }
     });
     if (match != null) {
+      ref
+          .read(scanQuotaControllerProvider.notifier)
+          .revealSuccessfulScanInDisplay();
       unawaited(_loadScanCards(match));
     }
     completedPending?.revealController?.dispose();
@@ -1453,7 +1548,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
         for (final candidate in match.candidates) candidate.cardRef,
       ]);
       if (!mounted) return;
-      setState(() => _reviewCards = {..._reviewCards, ...cards});
+      setState(() => _reviewCards = _mergeScanCards(_reviewCards, cards));
     } on Exception {
       // Price metadata is supplemental; review retries the same load explicitly.
     }
@@ -1495,10 +1590,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
             : repository.loadCards(missingCardRefs),
       ]);
       final target = results[0] as ScanReviewTarget;
-      final cards = {
-        ...cachedCards,
-        ...results[1] as Map<String, ScanReviewCard>,
-      };
+      final cards = _mergeScanCards(
+        cachedCards,
+        results[1] as Map<String, ScanReviewCard>,
+      );
       final selectedReviewItemId = itemId ?? items.firstOrNull?.id;
       if (selectedReviewItemId == null) {
         throw const _ScanReviewLoadException();
@@ -1635,10 +1730,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
     setState(() {
       _reviewing = false;
-      _items.removeWhere((candidate) => candidate.id == item.id);
+      _removeAddedItems({item.id});
       _selectedReviewItemId = null;
       _reviewTarget = null;
-      _reviewCards = const {};
       _reviewDrafts.remove(item.id);
       _reviewFormError = null;
       _finishingReview = false;
@@ -1700,7 +1794,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     }
 
     setState(() {
-      _items.removeWhere((item) => addedIds.contains(item.id));
+      _removeAddedItems(addedIds);
       for (final itemId in addedIds) {
         _reviewDrafts.remove(itemId);
       }
@@ -1709,7 +1803,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
       _selectedReviewItemId = remaining.firstOrNull?.id;
       if (!_reviewing) {
         _reviewTarget = null;
-        _reviewCards = const {};
       }
       _reviewFormError = null;
       _savingReviewAction = null;
@@ -1884,14 +1977,22 @@ class _ScanPageState extends ConsumerState<ScanPage>
       _reviewFormError = null;
       if (!_reviewing) {
         _reviewTarget = null;
-        _reviewCards = const {};
+        if (_items.isEmpty) {
+          _reviewCards = const {};
+        }
       }
     });
     if (!_reviewing) unawaited(_openCamera());
   }
 
+  void _removeAddedItems(Set<int> itemIds) {
+    _items.removeWhere((item) => itemIds.contains(item.id));
+  }
+
   void _refreshPortfolioSurfaces() {
-    ref.invalidate(homeControllerProvider);
+    unawaited(
+      ref.read(homeControllerProvider.notifier).refreshPreservingContent(),
+    );
     ref.invalidate(collectionControllerProvider);
     ref.invalidate(searchControllerProvider);
   }
@@ -2089,8 +2190,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
                     currency: currency,
                     remainingScans: hasPremiumAccess
                         ? null
-                        : quota.remainingScans,
-                    unlimitedScans: hasPremiumAccess,
+                        : quota.displayRemainingScans,
                     onClosePressed: _handleClosePressed,
                     onFlashPressed: _cameraSession == null
                         ? null
@@ -2099,18 +2199,20 @@ class _ScanPageState extends ConsumerState<ScanPage>
                     onUpgradePressed: () async {
                       final result = await context
                           .push<SubscriptionPaywallResult>(
-                            scanSubscriptionLocation,
+                            subscriptionPageLocation(
+                              source: 'scan',
+                              entrySource: 'scan_pro_card',
+                            ),
                           );
                       if (!mounted || !context.mounted || result == null) {
                         return;
                       }
+                      _markWaitingItemsAsEntitlementSync();
                       if (result == SubscriptionPaywallResult.premiumRestored) {
                         showSubscriptionRestoreResult(
                           context,
                           type: SubscriptionRestoreResultType.premiumRestored,
                         );
-                      } else {
-                        showPremiumUnlockedToast(context);
                       }
                       unawaited(_synchronizePremiumForScan());
                     },
@@ -2123,7 +2225,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
                     onDeleteItem: _removeScanFromUser,
                     onSearchItem: (item) {
                       if (item.status == _ScanItemStatus.waiting) {
-                        unawaited(_openQuotaPaywall());
+                        unawaited(
+                          _openQuotaPaywall(
+                            scene: AnalyticsValue.sceneScanWaiting,
+                          ),
+                        );
                       } else {
                         unawaited(_searchManually(item));
                       }
@@ -2158,7 +2264,6 @@ class _ScanCameraView extends StatelessWidget {
     required this.cards,
     required this.currency,
     required this.remainingScans,
-    required this.unlimitedScans,
     required this.onClosePressed,
     required this.onFlashPressed,
     required this.onSearchPressed,
@@ -2186,7 +2291,6 @@ class _ScanCameraView extends StatelessWidget {
   final Map<String, ScanReviewCard> cards;
   final AppCurrency currency;
   final int? remainingScans;
-  final bool unlimitedScans;
   final VoidCallback onClosePressed;
   final VoidCallback? onFlashPressed;
   final VoidCallback onSearchPressed;
@@ -2315,10 +2419,7 @@ class _ScanCameraView extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               const _AlignCardPill(),
-              if (unlimitedScans) ...[
-                const SizedBox(height: 6),
-                const _ScanUnlimitedPill(),
-              ] else if (remainingScans != null) ...[
+              if (remainingScans != null) ...[
                 const SizedBox(height: 6),
                 _ScanQuotaPill(
                   remainingScans: remainingScans!,
@@ -2568,41 +2669,6 @@ class _ScanQuotaPill extends StatelessWidget {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ScanUnlimitedPill extends StatelessWidget {
-  const _ScanUnlimitedPill();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      key: const Key('scan-unlimited-pill'),
-      width: 209,
-      height: 48,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: const Color(0xFF222222),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x40000000),
-            offset: Offset(0, 23.585),
-            blurRadius: 23.585,
-          ),
-        ],
-      ),
-      child: const Text(
-        'Unlimited scans',
-        style: TextStyle(
-          color: Color(0xFFE4E3D3),
-          fontSize: 13,
-          fontWeight: FontWeight.w400,
-          height: 16 / 13,
-          letterSpacing: 0,
         ),
       ),
     );
@@ -3173,6 +3239,55 @@ class _ViewfinderPainter extends CustomPainter {
       focusFrameShadow != oldDelegate.focusFrameShadow;
 }
 
+Map<String, ScanReviewCard> _mergeScanCards(
+  Map<String, ScanReviewCard> current,
+  Map<String, ScanReviewCard> updates,
+) {
+  final merged = Map<String, ScanReviewCard>.from(current);
+  for (final entry in updates.entries) {
+    final existing = merged[entry.key];
+    merged[entry.key] = existing == null
+        ? entry.value
+        : _mergeScanCard(existing, entry.value);
+  }
+  return merged;
+}
+
+ScanReviewCard _mergeScanCard(ScanReviewCard existing, ScanReviewCard update) {
+  return ScanReviewCard(
+    cardRef: existing.cardRef.isEmpty ? update.cardRef : existing.cardRef,
+    name: existing.name.trim().isEmpty ? update.name : existing.name,
+    setName: existing.setName.trim().isEmpty
+        ? update.setName
+        : existing.setName,
+    cardNumber: existing.cardNumber.trim().isEmpty
+        ? update.cardNumber
+        : existing.cardNumber,
+    game: existing.game ?? update.game,
+    imageUrl: existing.imageUrl ?? update.imageUrl,
+    language: existing.language ?? update.language,
+    finish: existing.finish ?? update.finish,
+    availableLanguages: _preferMoreCompleteList(
+      existing.availableLanguages,
+      update.availableLanguages,
+    ),
+    availableFinishes: _preferMoreCompleteList(
+      existing.availableFinishes,
+      update.availableFinishes,
+    ),
+    prices: existing.prices.length >= update.prices.length
+        ? existing.prices
+        : update.prices,
+  );
+}
+
+List<String> _preferMoreCompleteList(
+  List<String> existing,
+  List<String> update,
+) {
+  return existing.length >= update.length ? existing : update;
+}
+
 class _ScanResults extends StatelessWidget {
   const _ScanResults({
     required this.items,
@@ -3321,7 +3436,11 @@ class _ScanItemCard extends StatelessWidget {
     final failed = item.status == _ScanItemStatus.failed;
     final waiting = item.status == _ScanItemStatus.waiting;
     final entitlementSync = item.status == _ScanItemStatus.entitlementSync;
-    final width = matched ? 240.0 : 176.0;
+    final width = matched
+        ? 240.0
+        : waiting
+        ? 208.0
+        : 176.0;
     final title = matched
         ? item.match?.name ?? item.pictureLabel
         : failed
@@ -3380,96 +3499,126 @@ class _ScanItemCard extends StatelessWidget {
               _ScanResultThumbnail(item: item),
               const SizedBox(width: 16),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: failed
-                                  ? const Color(0xFFFF8493)
-                                  : const Color(0xFFEEECD8),
-                              fontSize: 16,
-                              height: 24 / 16,
-                            ),
-                          ),
-                        ),
-                        _ScanDeleteButton(itemId: item.id, onPressed: onDelete),
-                      ],
-                    ),
-                    if (matched)
-                      Row(
+                child: waiting
+                    ? Stack(
+                        fit: StackFit.expand,
                         children: [
-                          Flexible(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0x33F0FE6F),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                previewDraft?.condition.toUpperCase() ?? 'RAW',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Color(0xFFF0FE6F),
-                                  fontSize: 11,
-                                  height: 16 / 11,
-                                ),
+                          const Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Waiting to scan',
+                              maxLines: 1,
+                              style: TextStyle(
+                                color: Color(0xFFF0FE6F),
+                                fontSize: 13,
+                                height: 16 / 13,
+                                decoration: TextDecoration.underline,
+                                decorationColor: Color(0xFFF0FE6F),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: FittedBox(
-                              key: Key('scan-item-price-${item.id}'),
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                price == null
-                                    ? '--'
-                                    : CurrencyFormatter(
-                                        currency: currency,
-                                      ).formatUsd(price),
-                                maxLines: 1,
-                                style: TextStyle(
-                                  color: Color(0xFFFFF6AF),
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  height: 15 / 13,
-                                ),
-                              ),
+                          Positioned(
+                            top: 0,
+                            right: 0,
+                            child: _ScanDeleteButton(
+                              itemId: item.id,
+                              onPressed: onDelete,
                             ),
                           ),
                         ],
                       )
-                    else
-                      Text(
-                        failed
-                            ? 'Tap to retry'
-                            : waiting
-                            ? 'Waiting to scan'
-                            : entitlementSync
-                            ? 'Syncing Premium'
-                            : 'Search Manually',
-                        maxLines: 1,
-                        style: const TextStyle(
-                          color: Color(0xFFF0FE6F),
-                          fontSize: 13,
-                          height: 16 / 13,
-                        ),
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: failed
+                                        ? const Color(0xFFFF8493)
+                                        : const Color(0xFFEEECD8),
+                                    fontSize: 16,
+                                    height: 24 / 16,
+                                  ),
+                                ),
+                              ),
+                              _ScanDeleteButton(
+                                itemId: item.id,
+                                onPressed: onDelete,
+                              ),
+                            ],
+                          ),
+                          if (matched)
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0x33F0FE6F),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      previewDraft?.condition.toUpperCase() ??
+                                          'RAW',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Color(0xFFF0FE6F),
+                                        fontSize: 11,
+                                        height: 16 / 11,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: FittedBox(
+                                    key: Key('scan-item-price-${item.id}'),
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      price == null
+                                          ? '--'
+                                          : CurrencyFormatter(
+                                              currency: currency,
+                                            ).formatUsd(price),
+                                      maxLines: 1,
+                                      style: TextStyle(
+                                        color: Color(0xFFFFF6AF),
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        height: 15 / 13,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            )
+                          else
+                            Text(
+                              failed
+                                  ? 'Tap to retry'
+                                  : entitlementSync
+                                  ? 'Syncing Premium'
+                                  : 'Search Manually',
+                              maxLines: 1,
+                              style: const TextStyle(
+                                color: Color(0xFFF0FE6F),
+                                fontSize: 13,
+                                height: 16 / 13,
+                              ),
+                            ),
+                        ],
                       ),
-                  ],
-                ),
               ),
             ],
           ),
@@ -5113,7 +5262,13 @@ class _ReviewFooter extends StatelessWidget {
                     Expanded(
                       child: OutlinedButton(
                         onPressed: saving ? null : onDeleteAll,
-                        child: const Text('DELETE ALL CARDS'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                        ),
+                        child: const FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text('DELETE ALL CARDS'),
+                        ),
                       ),
                     ),
                   ],

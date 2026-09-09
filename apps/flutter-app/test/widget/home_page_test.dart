@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:dio/dio.dart';
@@ -12,6 +13,7 @@ import 'package:kando_app/app/theme.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/features/card_detail/card_detail_models.dart';
 import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/collection/collection_models.dart';
 import 'package:kando_app/features/collection/collection_page.dart';
@@ -29,15 +31,19 @@ import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/currency/currency_rate_api.dart';
+import 'package:kando_app/shared/analytics/analytics_events.dart';
+import 'package:kando_app/shared/analytics/app_analytics.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/pagination/pagination.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
+import 'package:kando_app/shared/ui/app_shell.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/premium_locked_panel.dart';
 import 'package:kando_app/shared/ui/toast.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 import '../support/in_memory_auth_storage.dart';
 import '../support/in_memory_portfolio_amount_hidden_storage.dart';
@@ -48,6 +54,224 @@ import '../support/mock_home_repository.dart';
 import '../support/mock_search_repository.dart';
 
 void main() {
+  test('Home card change badges use the Figma status colors', () {
+    expect(homeCardChangeBadgeTextColor(1), const Color(0xFF4ADE80));
+    expect(homeCardChangeBadgeTextColor(-1), const Color(0xFFFF8989));
+    expect(homeCardChangeBadgeTextColor(0), const Color(0xFFFFFFFF));
+    expect(homeCardChangeBadgeTextColor(null), const Color(0xFFFFFFFF));
+  });
+
+  test('Performance tooltip uses the Figma text style', () {
+    final dateStyle = homeChartTooltipTextStyle(
+      isPerformance: true,
+      isDate: true,
+    );
+    final rowStyle = homeChartTooltipTextStyle(
+      isPerformance: true,
+      isDate: false,
+    );
+
+    expect(dateStyle, same(homePerformanceTooltipTextStyle));
+    expect(rowStyle, same(homePerformanceTooltipTextStyle));
+    expect(rowStyle.color, const Color(0xFF999578));
+    expect(rowStyle.fontFamily, 'Geist');
+    expect(rowStyle.fontSize, 12);
+    expect(rowStyle.fontWeight, FontWeight.w400);
+    expect(rowStyle.height, 18 / 12);
+  });
+
+  test('Overview tooltip keeps its existing text styles', () {
+    final dateStyle = homeChartTooltipTextStyle(
+      isPerformance: false,
+      isDate: true,
+    );
+    final rowStyle = homeChartTooltipTextStyle(
+      isPerformance: false,
+      isDate: false,
+    );
+
+    expect(dateStyle.color, const Color(0xFF92927D));
+    expect(dateStyle.fontSize, 11);
+    expect(dateStyle.height, 16 / 11);
+    expect(rowStyle.color, KandoColors.accent);
+    expect(rowStyle.fontSize, 11);
+    expect(rowStyle.fontWeight, FontWeight.w500);
+    expect(rowStyle.height, 16 / 11);
+  });
+
+  testWidgets(
+    'Performance tab reports each actual entry without rebuild duplicates',
+    (tester) async {
+      final events = <String>[];
+      final firebaseEvents = <String>[];
+      final analytics = AppAnalytics.recording(
+        (event, _) => events.add(event),
+        onFirebaseEvent: (event, _) => firebaseEvents.add(event),
+      );
+      await tester.pumpWidget(
+        _mockHomeApp(
+          null,
+          const _TestCurrencyRateApi(),
+          const MockHomeRepository(),
+          _FreeHomeSubscriptionController.new,
+          null,
+          analytics,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _waitForHomeAuth(tester);
+
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pump();
+      await tester.pump();
+      expect(
+        events.where((event) => event == AnalyticsEvent.homePerformanceView),
+        hasLength(1),
+      );
+
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pump();
+      expect(
+        events.where((event) => event == AnalyticsEvent.homePerformanceView),
+        hasLength(1),
+      );
+
+      await tester.tap(find.byKey(const Key('home-overview-tab')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pump();
+      expect(
+        events.where((event) => event == AnalyticsEvent.homePerformanceView),
+        hasLength(2),
+      );
+      expect(
+        firebaseEvents.where(
+          (event) => event == AnalyticsEvent.homePerformanceView,
+        ),
+        hasLength(2),
+      );
+    },
+  );
+
+  testWidgets(
+    'Home restores the selected Performance tab after bottom navigation',
+    (tester) async {
+      final router = GoRouter(
+        initialLocation: '/home',
+        routes: [
+          GoRoute(path: '/home', builder: (context, state) => const HomePage()),
+          GoRoute(
+            path: '/search',
+            builder: (context, state) => const KandoTabScaffold(
+              currentTab: KandoMainTab.search,
+              body: Center(child: Text('Search route target')),
+            ),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ..._localAuthOverrides(),
+            homeRepositoryProvider.overrideWithValue(
+              const MockHomeRepository(),
+            ),
+            portfolioApiClientProvider.overrideWithValue(
+              _TestHomePerformanceApi(),
+            ),
+            currencyRateApiProvider.overrideWithValue(
+              const _TestCurrencyRateApi(),
+            ),
+            subscriptionControllerProvider.overrideWith(
+              _ProHomeSubscriptionController.new,
+            ),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _waitForHomeAuth(tester);
+
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+      expect(tester.widget<Text>(find.text('Performance')).style?.fontSize, 16);
+
+      await tester.tap(find.byKey(const Key('kando-tab-search')));
+      await tester.pumpAndSettle();
+      expect(find.text('Search route target'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('kando-tab-home')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(HomePage), findsOneWidget);
+      expect(tester.widget<Text>(find.text('Performance')).style?.fontSize, 16);
+    },
+  );
+
+  testWidgets('Home folder controls grow without shrinking long labels', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      _mockHomeApp(
+        null,
+        const _TestCurrencyRateApi(),
+        const _LongFolderHomeRepository(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _waitForHomeAuth(tester);
+
+    final overviewFolder = find.byKey(const Key('home-overview-folder'));
+    expect(tester.getSize(overviewFolder).width, 160);
+    var label = tester.widget<Text>(find.text(_longFolderName));
+    expect(label.style?.fontSize, 13);
+    expect(label.overflow, TextOverflow.ellipsis);
+
+    await tester.tap(find.byKey(const Key('home-performance-tab')));
+    await tester.pump();
+    await tester.pump();
+
+    final performanceFolder = find.byKey(const Key('home-performance-folder'));
+    expect(tester.getSize(performanceFolder).width, 120);
+    label = tester.widget<Text>(find.text(_longFolderName));
+    expect(label.style?.fontSize, 13);
+    expect(label.overflow, TextOverflow.ellipsis);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'Home short folder controls respect minimum and fixed font size',
+    (tester) async {
+      await tester.pumpWidget(_mockHomeApp());
+      await tester.pumpAndSettle();
+      await _waitForHomeAuth(tester);
+
+      final overviewWidth = tester
+          .getSize(find.byKey(const Key('home-overview-folder')))
+          .width;
+      expect(overviewWidth, greaterThanOrEqualTo(70));
+      expect(overviewWidth, lessThan(160));
+      expect(tester.widget<Text>(find.text('Main')).style?.fontSize, 13);
+
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pump();
+      await tester.pump();
+
+      final performanceWidth = tester
+          .getSize(find.byKey(const Key('home-performance-folder')))
+          .width;
+      expect(performanceWidth, greaterThanOrEqualTo(70));
+      expect(performanceWidth, lessThan(120));
+      expect(tester.widget<Text>(find.text('Main')).style?.fontSize, 13);
+    },
+  );
+
   test(
     'Figma Home card test fixture stays out of runtime assets and decodes at its design source aspect ratio',
     () async {
@@ -295,6 +519,46 @@ void main() {
     expect(tester.widget<Text>(find.text('Overview')).style?.fontSize, 12);
     expect(tester.widget<Text>(find.text('Performance')).style?.fontSize, 16);
   });
+
+  testWidgets(
+    'Trending Today rows match the Figma surface treatment without changing their content',
+    (tester) async {
+      await tester.pumpWidget(_mockHomeApp());
+      await tester.pumpAndSettle();
+
+      final title = find.text('Ragavan, Nimble Pilferer');
+      final rowContainer = find.ancestor(
+        of: title,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Container &&
+              widget.constraints?.minHeight == 92 &&
+              widget.constraints?.maxHeight == 92,
+        ),
+      );
+      expect(rowContainer, findsOneWidget);
+
+      final container = tester.widget<Container>(rowContainer);
+      final decoration = container.decoration! as BoxDecoration;
+      expect(decoration.gradient, isA<LinearGradient>());
+      final gradient = decoration.gradient! as LinearGradient;
+      expect(decoration.color, isNull);
+      expect(gradient.colors, const [Color(0x66292B22), Color(0x331C1E15)]);
+      expect(gradient.begin, Alignment.centerLeft);
+      expect(gradient.end, Alignment.centerRight);
+      expect(
+        (gradient.transform! as GradientRotation).radians,
+        closeTo((139.73593059220934 - 90) * math.pi / 180, 0.000001),
+      );
+      expect(decoration.borderRadius, BorderRadius.circular(12));
+      expect((decoration.border! as Border).top.color, const Color(0x14FFFFFF));
+      expect(container.padding, const EdgeInsets.all(17));
+      expect(
+        find.ancestor(of: title, matching: find.byType(BackdropFilter)),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets(
     'free users see a locked Performance view because portfolio gains are a Pro entitlement',
@@ -818,6 +1082,33 @@ void main() {
         find.byKey(const Key('home-top-performer-item-pikachu')),
         findsOneWidget,
       );
+      final firstPerformer = find.byKey(
+        const Key('home-top-performer-item-pikachu'),
+      );
+      final badgeBackdrop = find.descendant(
+        of: firstPerformer,
+        matching: find.byType(BackdropFilter),
+      );
+      final badgeContainer = find.descendant(
+        of: badgeBackdrop,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Container &&
+              widget.padding ==
+                  const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        ),
+      );
+      expect(badgeBackdrop, findsOneWidget);
+      expect(badgeContainer, findsOneWidget);
+      expect(
+        (tester.widget<Container>(badgeContainer).decoration as BoxDecoration)
+            .color,
+        homeCardChangeBadgeBackgroundColor,
+      );
+      expect(
+        tester.widget<Text>(find.text('+50.00%')).style?.color,
+        KandoColors.gain,
+      );
       expect(find.text(r'$100.00'), findsOneWidget);
       expect(find.text('+50.00%'), findsOneWidget);
       expect(
@@ -908,7 +1199,10 @@ void main() {
         find.byKey(const Key('home-top-performers-view-all')),
         findsOneWidget,
       );
-      expect(find.text('No cards in this portfolio yet'), findsOneWidget);
+      expect(
+        find.text('Add purchase prices to see your top performers'),
+        findsOneWidget,
+      );
       expect(
         tester.getSize(find.byKey(const Key('home-performance-empty'))).height,
         410,
@@ -917,7 +1211,7 @@ void main() {
         tester
             .getSize(find.byKey(const Key('home-top-performers-empty')))
             .height,
-        200,
+        greaterThan(200),
       );
       expect(
         find.byKey(const Key('home-card-empty-illustration')),
@@ -960,7 +1254,7 @@ void main() {
     );
   });
 
-  testWidgets('Top Performers alone reuses the Most Valuable empty state', (
+  testWidgets('Top Performers empty state explains how to populate ranking', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -978,7 +1272,12 @@ void main() {
 
     expect(find.byKey(const Key('home-performance-empty')), findsNothing);
     expect(find.byKey(const Key('home-top-performers-empty')), findsOneWidget);
-    expect(find.text('No cards in this portfolio yet'), findsOneWidget);
+    final guidance = find.text(
+      'Add purchase prices to see your top performers',
+    );
+    expect(guidance, findsOneWidget);
+    expect(tester.widget<Text>(guidance).textAlign, TextAlign.center);
+    expect(tester.getSize(guidance).height, greaterThan(24));
   });
 
   testWidgets('Most Valuable opens the matching Card Detail Item context', (
@@ -997,7 +1296,10 @@ void main() {
     await tester.tap(card);
     await tester.pumpAndSettle();
 
-    expect(find.text('card-1|item-pikachu|edit|portfolio'), findsOneWidget);
+    expect(
+      find.text('card-1|item-pikachu|edit|portfolio|Pikachu'),
+      findsOneWidget,
+    );
   });
 
   testWidgets(
@@ -1008,14 +1310,18 @@ void main() {
           GoRoute(path: '/', builder: (context, state) => const HomePage()),
           GoRoute(
             path: '/cards/:cardId',
-            builder: (context, state) => Scaffold(
-              body: Text(
-                '${state.pathParameters['cardId']}|'
-                '${state.uri.queryParameters['item_id']}|'
-                '${state.uri.queryParameters['entry']}|'
-                '${state.uri.queryParameters['collection']}',
-              ),
-            ),
+            builder: (context, state) {
+              final preview = state.extra as CardDetailPreview?;
+              return Scaffold(
+                body: Text(
+                  '${state.pathParameters['cardId']}|'
+                  '${state.uri.queryParameters['item_id']}|'
+                  '${state.uri.queryParameters['entry']}|'
+                  '${state.uri.queryParameters['collection']}|'
+                  '${preview?.name}',
+                ),
+              );
+            },
           ),
         ],
       );
@@ -1059,7 +1365,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.text('card-1|item-pikachu|home performance|portfolio'),
+        find.text('card-1|item-pikachu|home performance|portfolio|Performer 1'),
         findsOneWidget,
       );
     },
@@ -1164,6 +1470,43 @@ void main() {
       );
       expect(container.read(homeControllerProvider).amountHidden, isTrue);
       expect(tester.getTopLeft(viewAll).dy, closeTo(viewAllTop, 0.1));
+    },
+  );
+
+  testWidgets(
+    'Performance initial load uses Skeletonizer without changing its data flow',
+    (tester) async {
+      final api = _SlowInitialPerformanceApi();
+      await tester.pumpWidget(
+        _mockHomeApp(
+          null,
+          const _TestCurrencyRateApi(),
+          const MockHomeRepository(),
+          _ProHomeSubscriptionController.new,
+          api,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pump();
+      await tester.pump();
+
+      final loading = find.byKey(const Key('home-performance-loading'));
+      expect(loading, findsOneWidget);
+      final skeletonizer = tester.widget<Skeletonizer>(loading);
+      expect(skeletonizer.enabled, isTrue);
+      final effect = skeletonizer.effect;
+      expect(effect, isA<RawShimmerEffect>());
+      final shimmer = effect as RawShimmerEffect;
+      expect(shimmer.stops, const [0.4, 0.5, 0.6]);
+      expect(shimmer.duration, const Duration(milliseconds: 1800));
+
+      api.completeInitial();
+      await tester.pumpAndSettle();
+
+      expect(loading, findsNothing);
+      expect(find.text('Market Value'), findsOneWidget);
     },
   );
 
@@ -1369,6 +1712,66 @@ void main() {
   );
 
   testWidgets(
+    'Performance chart shows while pointing and clears when leaving like Overview',
+    (tester) async {
+      await tester.pumpWidget(
+        _mockHomeApp(
+          null,
+          const _TestCurrencyRateApi(),
+          const MockHomeRepository(),
+          _ProHomeSubscriptionController.new,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+
+      final chart = find.byKey(const Key('home-performance-chart'));
+      final chartRect = tester.getRect(chart);
+      expect(
+        tester.widget<Semantics>(chart).properties.value,
+        'No chart point selected',
+      );
+
+      final touch = await tester.startGesture(chartRect.center);
+      await tester.pump();
+      expect(
+        tester.widget<Semantics>(chart).properties.value,
+        isNot('No chart point selected'),
+      );
+
+      await touch.up();
+      await tester.pump();
+      expect(
+        tester.widget<Semantics>(chart).properties.value,
+        'No chart point selected',
+      );
+
+      final mouse = await tester.createGesture(
+        kind: ui.PointerDeviceKind.mouse,
+      );
+      await mouse.addPointer(
+        location: Offset(chartRect.right + 20, chartRect.center.dy),
+      );
+      await tester.pump();
+      await mouse.moveTo(chartRect.center);
+      await tester.pump();
+      expect(
+        tester.widget<Semantics>(chart).properties.value,
+        isNot('No chart point selected'),
+      );
+
+      await mouse.moveTo(Offset(chartRect.right + 20, chartRect.center.dy));
+      await tester.pump();
+      expect(
+        tester.widget<Semantics>(chart).properties.value,
+        'No chart point selected',
+      );
+      await mouse.removePointer();
+    },
+  );
+
+  testWidgets(
     'Performance tooltip and partial-price info are mutually exclusive because stale overlays misstate the selected context',
     (tester) async {
       await tester.pumpWidget(
@@ -1385,7 +1788,9 @@ void main() {
 
       final chart = find.byKey(const Key('home-performance-chart'));
       final chartRect = tester.getRect(chart);
-      await tester.tapAt(Offset(chartRect.right - 1, chartRect.center.dy));
+      final tooltipTouch = await tester.startGesture(
+        Offset(chartRect.right - 1, chartRect.center.dy),
+      );
       await tester.pump();
 
       final tooltip = tester.widget<Semantics>(chart).properties.value!;
@@ -1395,6 +1800,8 @@ void main() {
       expect(tooltip, contains(r'Portfolio: +$24.00'));
       expect(tooltip, contains('Qty: 4 (+2)'));
       expect(tooltip, isNot(contains('Price:')));
+      await tooltipTouch.up();
+      await tester.pump();
 
       await tester.tap(find.byKey(const Key('home-performance-partial-info')));
       await tester.pumpAndSettle();
@@ -1404,8 +1811,7 @@ void main() {
       );
       expect(
         find.text(
-          'Profit and return are calculated only from cards\n'
-          'with purchase prices',
+          'Profit and return are calculated only from cards with purchase prices',
         ),
         findsOneWidget,
       );
@@ -1414,8 +1820,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         find.text(
-          'Profit and return are calculated only from cards\n'
-          'with purchase prices',
+          'Profit and return are calculated only from cards with purchase prices',
         ),
         findsNothing,
       );
@@ -1433,8 +1838,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         find.text(
-          'Profit and return are calculated only from cards\n'
-          'with purchase prices',
+          'Profit and return are calculated only from cards with purchase prices',
         ),
         findsNothing,
       );
@@ -1471,7 +1875,9 @@ void main() {
 
       final chart = find.byKey(const Key('home-performance-chart'));
       final chartRect = tester.getRect(chart);
-      await tester.tapAt(Offset(chartRect.left + 1, chartRect.center.dy));
+      final tooltipTouch = await tester.startGesture(
+        Offset(chartRect.left + 1, chartRect.center.dy),
+      );
       await tester.pump();
 
       final tooltip = tester.widget<Semantics>(chart).properties.value!;
@@ -1480,6 +1886,8 @@ void main() {
       expect(tooltip, contains('Portfolio: --'));
       expect(tooltip, contains('Qty: 2'));
       expect(tooltip, isNot(contains('Daily Change:')));
+      await tooltipTouch.up();
+      await tester.pump();
     },
   );
 
@@ -1506,7 +1914,9 @@ void main() {
 
       final chart = find.byKey(const Key('home-performance-chart'));
       final chartRect = tester.getRect(chart);
-      await tester.tapAt(Offset(chartRect.right - 1, chartRect.center.dy));
+      final tooltipTouch = await tester.startGesture(
+        Offset(chartRect.right - 1, chartRect.center.dy),
+      );
       await tester.pump();
 
       final tooltip = tester.widget<Semantics>(chart).properties.value!;
@@ -1514,6 +1924,8 @@ void main() {
       expect(tooltip, contains('Portfolio: +€21.84'));
       expect(tooltip, contains('Qty: 4 (+2)'));
       expect(tooltip, isNot(contains('Daily Change:')));
+      await tooltipTouch.up();
+      await tester.pump();
     },
   );
 
@@ -1580,8 +1992,7 @@ void main() {
       expect(tipRect.center.dx, closeTo(infoRect.center.dx, .01));
       expect(
         find.text(
-          'Profit and return are calculated only from cards\n'
-          'with purchase prices',
+          'Profit and return are calculated only from cards with purchase prices',
         ),
         findsOneWidget,
       );
@@ -1630,7 +2041,9 @@ void main() {
       await tester.pumpAndSettle();
 
       final chart = find.byKey(const Key('home-performance-chart'));
-      await tester.tapAt(tester.getRect(chart).center);
+      final tooltipTouch = await tester.startGesture(
+        tester.getRect(chart).center,
+      );
       await tester.pump();
       final tooltip = tester.widget<Semantics>(chart).properties.value!;
       expect(tooltip, isNot(contains('Daily Change:')));
@@ -1639,6 +2052,8 @@ void main() {
       expect(tooltip, contains('Qty: 4 (+2)'));
       expect(tooltip, isNot(contains(r'$20.00')));
       expect(tooltip, isNot(contains(r'$24.00')));
+      await tooltipTouch.up();
+      await tester.pump();
     },
   );
 
@@ -1868,8 +2283,9 @@ void main() {
     expect(
       (tester.widget<Container>(badgeContainer).decoration as BoxDecoration)
           .color,
-      KandoColors.accentGlow10,
+      homeCardChangeBadgeBackgroundColor,
     );
+    expect(badgeText.style?.color, KandoColors.gain);
     expect(badgeText.style?.fontSize, 10);
     expect(badgeText.style?.fontWeight, FontWeight.w400);
     expect(badgeText.style?.height, 14 / 10);
@@ -2824,6 +3240,7 @@ Widget _mockHomeApp([
   HomeRepository homeRepository = const MockHomeRepository(),
   SubscriptionController Function()? subscriptionController,
   PortfolioApiClient? performanceApi,
+  AppAnalytics? analytics,
 ]) {
   final portfolioManagement = managementApi ?? _TestPortfolioManagementApi();
   return DefaultAssetBundle(
@@ -2843,6 +3260,7 @@ Widget _mockHomeApp([
         subscriptionControllerProvider.overrideWith(
           subscriptionController ?? _FreeHomeSubscriptionController.new,
         ),
+        if (analytics != null) analyticsProvider.overrideWithValue(analytics),
       ],
       child: const _HomeTestApp(),
     ),
@@ -2876,9 +3294,11 @@ class _RepairingHomeSubscriptionController extends SubscriptionController {
   SubscriptionState build() => const SubscriptionState(isPro: true);
 
   @override
-  Future<bool> synchronizeServerEntitlement() async {
+  Future<EntitlementReconciliationResult> reconcileServerEntitlement() async {
     tracker.calls++;
-    return tracker.result;
+    return tracker.result
+        ? EntitlementReconciliationResult.premiumSynchronized
+        : EntitlementReconciliationResult.verificationUnavailable;
   }
 }
 
@@ -3008,6 +3428,28 @@ class _SlowOverviewHistoryApi extends _TestHomePerformanceApi {
       ),
     ]);
   }
+}
+
+class _SlowInitialPerformanceApi extends _TestHomePerformanceApi {
+  final _initialGate = Completer<void>();
+
+  @override
+  Future<PortfolioPerformanceDto> getPortfolioPerformance(
+    AuthSession session, {
+    required PerformanceRange range,
+    String? folderId,
+    bool localPremiumVerified = false,
+  }) async {
+    await _initialGate.future;
+    return super.getPortfolioPerformance(
+      session,
+      range: range,
+      folderId: folderId,
+      localPremiumVerified: localPremiumVerified,
+    );
+  }
+
+  void completeInitial() => _initialGate.complete();
 }
 
 class _EntitlementSyncPerformanceApi extends _TestHomePerformanceApi {
@@ -3152,18 +3594,42 @@ Widget _mockHomeRouteApp({
           ),
           GoRoute(
             path: '/cards/:cardId',
-            builder: (context, state) => Scaffold(
-              body: Text(
-                '${state.pathParameters['cardId']}|'
-                '${state.uri.queryParameters['item_id']}|'
-                '${state.uri.queryParameters['entry']}|'
-                '${state.uri.queryParameters['collection']}',
-              ),
-            ),
+            builder: (context, state) {
+              final preview = state.extra as CardDetailPreview?;
+              return Scaffold(
+                body: Text(
+                  '${state.pathParameters['cardId']}|'
+                  '${state.uri.queryParameters['item_id']}|'
+                  '${state.uri.queryParameters['entry']}|'
+                  '${state.uri.queryParameters['collection']}|'
+                  '${preview?.name}',
+                ),
+              );
+            },
           ),
         ],
       ),
     ),
+  );
+}
+
+const _longFolderName = 'International Tournament Collection Archive';
+
+class _LongFolderHomeRepository implements HomeRepository {
+  const _LongFolderHomeRepository();
+
+  @override
+  HomeDashboard loadDashboard() => mockHomeDashboard.copyWith(
+    folders: [
+      for (final folder in mockHomeDashboard.folders)
+        folder.id == 'main'
+            ? const HomeFolder(
+                id: 'main',
+                name: _longFolderName,
+                isDefault: true,
+              )
+            : folder,
+    ],
   );
 }
 

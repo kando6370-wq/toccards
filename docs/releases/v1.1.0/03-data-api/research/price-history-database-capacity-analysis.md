@@ -434,7 +434,7 @@ D1 不提供可直接复用的 PostgreSQL WAL CDC。外部价格导入器又不�
 - `apps/workers-api/src/portfolio/valuation-history.ts`：owner 事件、整段价格 JSON 和 Worker 内逐日估值。
 - `apps/workers-api/src/index.ts`：当前 cron 只处理 Apple 通知和校正，没有价格导入任务。
 - `apps/workers-api/wrangler.toml`：当前 dev/prod Hyperdrive binding；`src/env.ts`：PostgreSQL 适配器复用的 `D1Database` 兼容接口。该类型名不是远程 D1 binding，运行时不得读取或回退 D1。
-- [PostgreSQL 价格域详细 DDL 设计](price-domain-postgresql-ddl.md)：7 张持久表、Collection 关联、分区、发布、保留与回滚设计；尚未执行 migration 或压测。
+- [PostgreSQL 价格域详细 DDL 设计](price-domain-postgresql-ddl.md)：7 张持久表、Collection 关联、分区、发布、保留与回滚设计；schema migration 已执行并已有 published 当前价格，目标规模压测尚未执行。
 - 2026-08-14 线上只读命令：`wrangler d1 info ... --json`、`SELECT COUNT(*)` 及最近 ID 10,000 行 JSON 长度样本；均未写入数据。
 
 ### 10.2 官方资料

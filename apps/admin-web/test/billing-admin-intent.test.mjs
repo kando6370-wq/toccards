@@ -29,9 +29,11 @@ test("billing admin follows the v1.1 order facts contract without making UID the
   assert.match(app, /title: "金额（USD）".*billingAmount\(row\.amount_usd_micros, "USD"\)/);
   assert.match(app, /title: "扣款次数".*render: billingValue/);
   assert.match(app, /function billingOrderStatusTag\(value: string \| null\).*: "--"/s);
+  assert.match(app, /upgrade: "升级付款"/);
+  assert.match(app, /\["upgrade", "升级付款"\]/);
   assert.match(routes, /adminRoutes\.get\("\/billing\/transactions"/);
   assert.match(routes, /adminRoutes\.get\("\/apple-notifications"/);
-  assert.match(routes, /const conditions = \["t\.source_notification_uuid IS NOT NULL"\]/);
+  assert.match(routes, /const conditions = \["t\.source_notification_uuid IS NOT NULL", scope\.sql\]/);
   assert.match(routes, /createXlsx/);
   assert.match(routes, /LOWER\(linked_uid\.owner_id\) = \?/);
   assert.match(migration, /CREATE TABLE `billing_purchase_chain`/);
@@ -71,6 +73,8 @@ test("Apple notification payload stays out of list responses and is copied only 
   assert.match(styles, /\.notification-detail-drawer \.info-grid \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/s);
   assert.match(styles, /@media \(max-width: 900px\) \{.*\.notification-detail-drawer-root \.ant-drawer-content-wrapper \{[^}]*width: 92vw !important;.*\.notification-detail-drawer \.info-grid \{[^}]*grid-template-columns: minmax\(0, 1fr\)/s);
   assert.match(app, /const notificationValue = \(value: unknown\).*\? "--"/);
+  assert.match(app, /title: "子通知类型".*title: "状态名称".*title: "SKU"/s);
+  assert.match(app, /appleNotificationStatusName\(row\.notification_type, row\.subtype\)/);
   assert.match(app, /async function openDetail\(id: string\).*setDetailLoading\(true\).*\/apple-notifications\/\$\{id\}/s);
   assert.match(app, /detailLoading \? <div className="notification-detail-state"><Spin/);
   assert.match(app, /detailError \? <Alert type="error" showIcon message="通知详情加载失败，请稍后重试"/);

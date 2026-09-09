@@ -13,6 +13,9 @@ import priceHistoryPayloadLimitSql from "../../src/db/postgres/migrations/0004_p
 import dropTrendingPinSql from "../../src/db/postgres/migrations/0005_drop_trending_pin.sql";
 import mutationLockSql from "../../src/db/postgres/migrations/0006_mutation_lock.sql";
 import billingRefundStatusSql from "../../src/db/postgres/migrations/0007_billing_refund_status.sql";
+import collectionItemGradingIdentitySql from "../../src/db/postgres/migrations/0008_collection_item_grading_identity.sql";
+import appleNotificationAppBundleSql from "../../src/db/postgres/migrations/0009_apple_notification_app_bundle.sql";
+import scanRecordEnvironmentSql from "../../src/db/postgres/migrations/0010_scan_record_environment.sql";
 import {
   MAX_BATCH_BYTES,
   MAX_BATCH_ROWS,
@@ -48,6 +51,9 @@ const MIGRATIONS = [
   { name: "0005_drop_trending_pin", sql: dropTrendingPinSql },
   { name: "0006_mutation_lock", sql: mutationLockSql },
   { name: "0007_billing_refund_status", sql: billingRefundStatusSql },
+  { name: "0008_collection_item_grading_identity", sql: collectionItemGradingIdentitySql },
+  { name: "0009_apple_notification_app_bundle", sql: appleNotificationAppBundleSql },
+  { name: "0010_scan_record_environment", sql: scanRecordEnvironmentSql },
 ] as const;
 
 export default {
@@ -251,13 +257,26 @@ async function inspectCutoverState(sql: ReturnType<typeof postgres>) {
     SELECT 'card_trending_snapshot', COUNT(*)::bigint FROM card_trending_snapshot
     ORDER BY table_name
   `;
-  const appleInboxByEnvironment = await sql`
-    SELECT environment, COUNT(*)::bigint AS row_count
-    FROM apple_notification_inbox
-    GROUP BY environment
-    ORDER BY environment
-  `;
-  return { ok: true, priceTableCounts, appleInboxByEnvironment };
+  const [appleInboxByEnvironment, scanRecordsByEnvironment] = await Promise.all([
+    sql`
+      SELECT environment, COUNT(*)::bigint AS row_count
+      FROM apple_notification_inbox
+      GROUP BY environment
+      ORDER BY environment
+    `,
+    sql`
+      SELECT environment, COUNT(*)::bigint AS row_count
+      FROM scan_record
+      GROUP BY environment
+      ORDER BY environment
+    `,
+  ]);
+  return {
+    ok: true,
+    priceTableCounts,
+    appleInboxByEnvironment,
+    scanRecordsByEnvironment,
+  };
 }
 
 async function verifySchemaGuards(

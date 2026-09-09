@@ -53,11 +53,41 @@ describe("PostgreSQL price store query boundaries", () => {
     expect(db.calls[0]?.sql).toContain("LIMIT 1001");
   });
 
+  it("splits a dense card chunk because valid price dimensions must not make catalog pagination fail", async () => {
+    const db = new RecordingDatabase((_sql, bindings) =>
+      Array.from({ length: bindings.length > 10 ? 1001 : 600 }, () => ({}))
+    );
+    const cardRefs = Array.from({ length: 40 }, (_, index) => `card-${index}`);
+
+    const rows = await loadPublishedPriceRows(db.asD1(), cardRefs);
+
+    expect(rows).toHaveLength(2400);
+    expect(db.calls.map((call) => call.bindings)).toEqual([
+      cardRefs,
+      cardRefs.slice(0, 20),
+      cardRefs.slice(0, 10),
+      cardRefs.slice(10, 20),
+      cardRefs.slice(20),
+      cardRefs.slice(20, 30),
+      cardRefs.slice(30),
+    ]);
+  });
+
   it("fails when a current-price chunk exceeds 1000 rows so oversized responses cannot pass silently", async () => {
     const db = new RecordingDatabase(() => Array.from({ length: 1001 }, () => ({})));
 
     await expect(loadPublishedPriceRows(db.asD1(), ["card-1"]))
       .rejects.toThrow("Published price query exceeded 1000 rows for 1 cards");
+  });
+
+  it("matches the active-series partial index predicate because current prices must not scan every provider series", async () => {
+    const db = new RecordingDatabase();
+
+    await loadPublishedPriceRows(db.asD1(), ["card-1"]);
+
+    const sql = db.calls[0]?.sql ?? "";
+    expect(sql).toContain("WHERE series.is_active\n");
+    expect(sql).not.toContain("series.is_active IS TRUE");
   });
 
   it("chunks history at 100 series and accepts 1600 month rows because price batches need a fixed response ceiling", async () => {

@@ -17,6 +17,7 @@ import 'package:kando_app/features/home/home_page.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
 import 'package:kando_app/features/scan/scan_page.dart';
 import 'package:kando_app/features/search/search_controller.dart';
+import 'package:kando_app/features/search/search_card_tile.dart';
 import 'package:kando_app/features/search/search_models.dart';
 import 'package:kando_app/features/search/search_page.dart';
 import 'package:kando_app/features/search/search_repository.dart';
@@ -36,6 +37,27 @@ import '../support/mock_collection_repository.dart';
 import '../support/mock_search_repository.dart';
 
 void main() {
+  testWidgets('Search keeps static controls visible while catalog is pending', (
+    tester,
+  ) async {
+    final repository = _PendingSearchRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+        child: const _SearchTestApp(),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byKey(const Key('search-field')), findsOneWidget);
+    expect(find.byKey(const Key('search-game-selector')), findsOneWidget);
+    expect(find.text('TCG'), findsOneWidget);
+    expect(find.byKey(const Key('search-tabs')), findsOneWidget);
+    expect(find.byType(KandoLoadingBlock), findsOneWidget);
+    expect(repository.calls, 1);
+  });
+
   testWidgets('Search shows Cards tab with Pokemon results by default', (
     tester,
   ) async {
@@ -82,11 +104,11 @@ void main() {
       viewportWidth - 20,
     );
     expect(
-      tester.getRect(find.byKey(const Key('search-results-grid'))).left,
+      tester.getRect(find.byKey(const Key('search-card-squirtle'))).left,
       tester.getRect(find.byKey(const Key('search-field'))).left,
     );
     expect(
-      tester.getRect(find.byKey(const Key('search-results-grid'))).right,
+      tester.getRect(find.byKey(const Key('search-card-charizard-ex'))).right,
       tester.getRect(find.byKey(const Key('search-field'))).right,
     );
     final squirtlePriceRow = find.byKey(const Key('search-price-row-squirtle'));
@@ -337,7 +359,6 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('search-content-list')), findsOneWidget);
     expect(find.byType(KandoFailureBlock), findsOneWidget);
     expect(find.text(noContentAvailableText), findsOneWidget);
     expect(find.text(refreshText), findsOneWidget);
@@ -376,11 +397,15 @@ void main() {
         container.read(searchControllerProvider).visibleCards,
         hasLength(40),
       );
-      expect(find.byKey(const Key('search-retry-card-page')), findsOneWidget);
       expect(find.text('Card 1'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('search-retry-card-page')),
+        600,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.byKey(const Key('search-retry-card-page')), findsOneWidget);
 
       final retry = find.byKey(const Key('search-retry-card-page'));
-      await tester.ensureVisible(retry);
       await tester.pumpAndSettle();
       expect(repository.requestedPages, [2]);
       await tester.tap(retry);
@@ -393,6 +418,36 @@ void main() {
       );
       expect(find.text('Card 41'), findsOneWidget);
       expect(find.byKey(const Key('search-retry-card-page')), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Search lazily builds card results so route transitions do not relayout every loaded card',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            searchRepositoryProvider.overrideWithValue(
+              _FailingPaginatedSearchRepository(),
+            ),
+          ],
+          child: const _SearchTestApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SearchPage)),
+      );
+      expect(
+        container.read(searchControllerProvider).visibleCards,
+        hasLength(40),
+      );
+      expect(find.byType(SearchCardTile).evaluate().length, lessThan(40));
     },
   );
 
@@ -888,7 +943,7 @@ void main() {
         tester.view.physicalSize.height / tester.view.devicePixelRatio;
     expect(
       tester.getSize(reviewSheet).height,
-      closeTo(viewportHeight * 0.85, 0.01),
+      closeTo(viewportHeight * 0.93, 0.01),
     );
     expect(tester.getRect(reviewSheet).bottom, closeTo(viewportHeight, 0.01));
     expect(
@@ -907,23 +962,46 @@ void main() {
       find.byKey(Key('pending-collection-item-${pendingItems[1].id}')),
       findsOneWidget,
     );
-    var quantity = find.descendant(
-      of: find.byKey(const Key('card-detail-item-quantity')),
+
+    Finder field(String key) => find.descendant(
+      of: find.byKey(Key(key)),
       matching: find.byType(TextFormField),
     );
-    expect(tester.widget<TextFormField>(quantity).initialValue, '1');
-    await tester.enterText(quantity, '3');
+    String displayedText(String key) {
+      final editable = find.descendant(
+        of: field(key),
+        matching: find.byType(EditableText),
+      );
+      return tester.widget<EditableText>(editable).controller.text;
+    }
+
+    Future<void> enterField(String key, String value) async {
+      final target = field(key);
+      await tester.ensureVisible(target);
+      await tester.pumpAndSettle();
+      await tester.enterText(target, value);
+    }
+
+    expect(displayedText('card-detail-item-quantity'), '1');
+    await enterField('card-detail-item-quantity', '3');
+    await enterField('card-detail-item-purchase-price', '12.34');
+    await enterField('card-detail-item-notes', 'first card note');
 
     await tester.tap(
       find.byKey(Key('pending-collection-item-${pendingItems[1].id}')),
     );
     await tester.pumpAndSettle();
-    quantity = find.descendant(
-      of: find.byKey(const Key('card-detail-item-quantity')),
-      matching: find.byType(TextFormField),
+    expect(
+      [
+        displayedText('card-detail-item-quantity'),
+        displayedText('card-detail-item-purchase-price'),
+        displayedText('card-detail-item-notes'),
+      ],
+      ['1', '', ''],
     );
-    expect(tester.widget<TextFormField>(quantity).initialValue, '1');
-    await tester.enterText(quantity, '4');
+    await enterField('card-detail-item-quantity', '4');
+    await enterField('card-detail-item-purchase-price', '56.78');
+    await enterField('card-detail-item-notes', 'second card note');
 
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
@@ -931,20 +1009,26 @@ void main() {
     await tester.tap(find.byKey(const Key('pending-collection-notice')));
     await tester.pumpAndSettle();
 
-    quantity = find.descendant(
-      of: find.byKey(const Key('card-detail-item-quantity')),
-      matching: find.byType(TextFormField),
+    expect(
+      [
+        displayedText('card-detail-item-quantity'),
+        displayedText('card-detail-item-purchase-price'),
+        displayedText('card-detail-item-notes'),
+      ],
+      ['3', '12.34', 'first card note'],
     );
-    expect(tester.widget<TextFormField>(quantity).initialValue, '3');
     await tester.tap(
       find.byKey(Key('pending-collection-item-${pendingItems[1].id}')),
     );
     await tester.pumpAndSettle();
-    quantity = find.descendant(
-      of: find.byKey(const Key('card-detail-item-quantity')),
-      matching: find.byType(TextFormField),
+    expect(
+      [
+        displayedText('card-detail-item-quantity'),
+        displayedText('card-detail-item-purchase-price'),
+        displayedText('card-detail-item-notes'),
+      ],
+      ['4', '56.78', 'second card note'],
     );
-    expect(tester.widget<TextFormField>(quantity).initialValue, '4');
 
     await tester.tap(find.byKey(const Key('pending-collection-delete')));
     await tester.pumpAndSettle();
@@ -966,6 +1050,44 @@ void main() {
     );
     expect(find.byKey(const Key('search-wishlist-squirtle')), findsOneWidget);
   });
+
+  testWidgets(
+    'pending Review aligns the folder entry and actions with the content right edge',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [..._searchOverrides(), ..._cardDetailOverrides()],
+          child: const _SearchTestAppWithRoutes(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('search-collect-squirtle')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+
+      final contentRight =
+          tester
+              .getRect(find.byKey(const Key('card-detail-add-item-sheet')))
+              .right -
+          20;
+      final folderEntry = find.byKey(
+        const Key('card-detail-add-item-portfolio'),
+      );
+      final folderArrow = find.descendant(
+        of: folderEntry,
+        matching: find.byIcon(Icons.keyboard_arrow_down_rounded),
+      );
+      expect(tester.getRect(folderArrow).right, closeTo(contentRight, 0.01));
+      expect(
+        tester
+            .getRect(find.byKey(const Key('pending-collection-delete')))
+            .right,
+        closeTo(contentRight, 0.01),
+      );
+    },
+  );
 
   testWidgets('pending Review top scrim closes the bottom-aligned sheet', (
     tester,
@@ -994,6 +1116,143 @@ void main() {
     expect(find.byType(SearchPage), findsOneWidget);
     expect(find.byKey(const Key('pending-collection-notice')), findsOneWidget);
   });
+
+  testWidgets('pending Review failure keeps the drag handle above Try again', (
+    tester,
+  ) async {
+    final repository = _TrackingReviewLoadRepository();
+    final portfolioApi = _CountingFolderPortfolioApi()..folders = const [];
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ..._searchOverrides(),
+          ..._localAuthOverrides(),
+          cardDetailRepositoryProvider.overrideWithValue(repository),
+          portfolioApiClientProvider.overrideWithValue(portfolioApi),
+        ],
+        child: const _SearchTestAppWithRoutes(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('search-collect-squirtle')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('pending-collection-notice')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Try again'), findsOneWidget);
+    expect(
+      find.byKey(const Key('quick-collection-review-handle')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .getRect(find.byKey(const Key('quick-collection-review-handle')))
+          .bottom,
+      lessThan(tester.getRect(find.text('Try again')).top),
+    );
+  });
+
+  testWidgets(
+    'pending Review keeps its action area fixed when the keyboard opens',
+    (tester) async {
+      tester.view.padding = const FakeViewPadding(bottom: 34);
+      tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+      addTearDown(tester.view.resetPadding);
+      addTearDown(tester.view.resetViewPadding);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [..._searchOverrides(), ..._cardDetailOverrides()],
+          child: const _SearchTestAppWithRoutes(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('search-collect-squirtle')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+
+      final sheet = find.byKey(const Key('card-detail-add-item-sheet'));
+      final submit = find.byKey(const Key('card-detail-item-submit'));
+      final notes = find.descendant(
+        of: find.byKey(const Key('card-detail-item-notes')),
+        matching: find.byType(TextFormField),
+      );
+      await tester.ensureVisible(notes);
+      await tester.showKeyboard(notes);
+      await tester.pump();
+      final sheetBottomBefore = tester.getRect(sheet).bottom;
+      final submitBottomBefore = tester.getRect(submit).bottom;
+      final scrollable = find.descendant(
+        of: find.byKey(const Key('card-detail-add-item-scroll')),
+        matching: find.byType(Scrollable),
+      );
+      final scrollPosition = tester
+          .state<ScrollableState>(scrollable.first)
+          .position;
+      final scrollOffsetBefore = scrollPosition.pixels;
+
+      tester.view.viewInsets = FakeViewPadding(
+        bottom: 300 * tester.view.devicePixelRatio,
+      );
+      tester.view.padding = FakeViewPadding.zero;
+      await tester.pumpAndSettle();
+
+      expect(tester.getRect(sheet).bottom, closeTo(sheetBottomBefore, 0.01));
+      expect(tester.getRect(submit).bottom, closeTo(submitBottomBefore, 0.01));
+      final viewportHeight =
+          tester.view.physicalSize.height / tester.view.devicePixelRatio;
+      expect(scrollPosition.pixels, greaterThan(scrollOffsetBefore));
+      expect(
+        tester.getRect(notes).bottom,
+        lessThanOrEqualTo(viewportHeight - 300),
+      );
+    },
+  );
+
+  testWidgets(
+    'multiple pending Review keeps its taller action area fixed when the keyboard opens',
+    (tester) async {
+      tester.view.padding = const FakeViewPadding(bottom: 34);
+      tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+      addTearDown(tester.view.resetPadding);
+      addTearDown(tester.view.resetViewPadding);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [..._searchOverrides(), ..._cardDetailOverrides()],
+          child: const _SearchTestAppWithRoutes(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final collect = find.byKey(const Key('search-collect-squirtle'));
+      await tester.tap(collect);
+      await tester.tap(collect);
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+
+      final sheet = find.byKey(const Key('card-detail-add-item-sheet'));
+      final deleteAll = find.byKey(const Key('pending-collection-delete-all'));
+      final sheetBottomBefore = tester.getRect(sheet).bottom;
+      final deleteAllBottomBefore = tester.getRect(deleteAll).bottom;
+
+      tester.view.viewInsets = FakeViewPadding(
+        bottom: 300 * tester.view.devicePixelRatio,
+      );
+      tester.view.padding = FakeViewPadding.zero;
+      await tester.pumpAndSettle();
+
+      expect(tester.getRect(sheet).bottom, closeTo(sheetBottomBefore, 0.01));
+      expect(
+        tester.getRect(deleteAll).bottom,
+        closeTo(deleteAllBottomBefore, 0.01),
+      );
+    },
+  );
 
   testWidgets(
     'pending Review opens as a transient sheet without changing the Search route',
@@ -1067,10 +1326,10 @@ void main() {
         ),
       );
       for (var step = 0; step < 8; step += 1) {
-        await gesture.moveBy(const Offset(0, 40));
+        await gesture.moveBy(const Offset(0, 50));
         await tester.pump(const Duration(milliseconds: 100));
       }
-      expect(tester.getRect(sheet).top, greaterThan(settledTop + 260));
+      expect(tester.getRect(sheet).top, greaterThan(settledTop + 340));
       await gesture.up();
       await tester.pump();
 
@@ -1159,6 +1418,122 @@ void main() {
   });
 
   testWidgets(
+    'pending Review Delete All requires confirmation before clearing drafts',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [..._searchOverrides(), ..._cardDetailOverrides()],
+          child: const _SearchTestAppWithRoutes(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('search-collect-squirtle')));
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SearchPage)),
+        listen: false,
+      );
+      container
+          .read(pendingCollectionProvider.notifier)
+          .add(
+            const PendingCollectionCard(
+              id: 'mystery-promo',
+              name: 'Mystery Promo',
+              game: 'Pokemon',
+              setName: 'Promo',
+              metadataLine: 'Promo #001',
+              variantLine: 'Normal',
+            ),
+          );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('pending-collection-delete-all')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('kando-modal-frame')), findsOneWidget);
+      expect(find.text('Delete all cards ?'), findsOneWidget);
+      expect(
+        find.text(
+          'This action will permanently delete all these cards and cannot be undone',
+        ),
+        findsOneWidget,
+      );
+      expect(container.read(pendingCollectionProvider), hasLength(2));
+      expect(find.byType(QuickCollectionReviewPage), findsOneWidget);
+
+      await tester.tap(find.text('CANCEL'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('kando-modal-frame')), findsNothing);
+      expect(container.read(pendingCollectionProvider), hasLength(2));
+      expect(find.byType(QuickCollectionReviewPage), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('pending-collection-delete-all')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('DELETE'));
+      await tester.pump();
+
+      expect(
+        find.byKey(const Key('kando-danger-modal-loading')),
+        findsOneWidget,
+      );
+      expect(find.byType(QuickCollectionReviewPage), findsOneWidget);
+
+      await tester.pumpAndSettle();
+
+      expect(container.read(pendingCollectionProvider), isEmpty);
+      expect(find.byType(QuickCollectionReviewPage), findsNothing);
+      expect(find.byKey(const Key('pending-collection-notice')), findsNothing);
+      expect(find.byType(SearchPage), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'pending Review keeps Delete All Cards on one line on narrow phones',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(320, 700);
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [..._searchOverrides(), ..._cardDetailOverrides()],
+          child: const _SearchTestAppWithRoutes(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('search-collect-squirtle')));
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SearchPage)),
+        listen: false,
+      );
+      container
+          .read(pendingCollectionProvider.notifier)
+          .add(
+            const PendingCollectionCard(
+              id: 'mystery-promo',
+              name: 'Mystery Promo',
+              game: 'Pokemon',
+              setName: 'Promo',
+              metadataLine: 'Promo #001',
+              variantLine: 'Normal',
+            ),
+          );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getSize(find.text('DELETE ALL CARDS')).height,
+        lessThanOrEqualTo(20),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'pending Review preloads adjacent editor data without full Card Detail requests so a warm switch stays interactive',
     (tester) async {
       final repository = _TrackingReviewLoadRepository();
@@ -1210,6 +1585,186 @@ void main() {
         find.byKey(const Key('pending-collection-card-strip')),
         findsOneWidget,
       );
+    },
+  );
+
+  testWidgets(
+    'pending Review reloads folders and starts from the shared Home selection each time it opens',
+    (tester) async {
+      final repository = _TrackingReviewLoadRepository();
+      final portfolioApi = _CountingFolderPortfolioApi();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ..._searchOverrides(),
+            ..._localAuthOverrides(),
+            cardDetailRepositoryProvider.overrideWithValue(repository),
+            portfolioApiClientProvider.overrideWithValue(portfolioApi),
+          ],
+          child: const _SearchTestAppWithRoutes(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('search-collect-squirtle')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(QuickCollectionReviewPage)),
+        listen: false,
+      );
+      final editorProvider = quickCollectionCardDetailControllerProvider(
+        'squirtle',
+      );
+      expect(find.text('Adding to Main'), findsOneWidget);
+
+      Navigator.of(
+        tester.element(find.byType(QuickCollectionReviewPage)),
+      ).pop();
+      await tester.pumpAndSettle();
+
+      portfolioApi.folders = const [
+        PortfolioFolderDto(
+          id: 'main',
+          name: 'Main',
+          isDefault: true,
+          sortOrder: 0,
+        ),
+        PortfolioFolderDto(
+          id: 'trade',
+          name: 'Trade',
+          isDefault: false,
+          sortOrder: 1,
+        ),
+      ];
+      container.invalidate(collectionEditorFoldersProvider);
+      container.read(selectedPortfolioFolderProvider.notifier).select('trade');
+
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Adding to Trade'), findsOneWidget);
+      expect(
+        container
+            .read(editorProvider)
+            .detail
+            .portfolioFolders
+            .map((folder) => folder.name),
+        ['Main', 'Trade'],
+      );
+
+      Navigator.of(
+        tester.element(find.byType(QuickCollectionReviewPage)),
+      ).pop();
+      await tester.pumpAndSettle();
+
+      portfolioApi.folders = const [
+        PortfolioFolderDto(
+          id: 'main',
+          name: 'Main',
+          isDefault: true,
+          sortOrder: 0,
+        ),
+      ];
+      container.invalidate(collectionEditorFoldersProvider);
+      container.read(selectedPortfolioFolderProvider.notifier).select('main');
+
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Adding to Main'), findsOneWidget);
+      expect(find.text('Adding to Trade'), findsNothing);
+      expect(
+        container
+            .read(editorProvider)
+            .detail
+            .portfolioFolders
+            .map((folder) => folder.name),
+        ['Main'],
+      );
+    },
+  );
+
+  testWidgets(
+    'pending Review keeps the chosen folder after close and defaults later cards to it',
+    (tester) async {
+      final repository = _TrackingReviewLoadRepository();
+      final portfolioApi = _CountingFolderPortfolioApi()
+        ..folders = const [
+          PortfolioFolderDto(
+            id: 'main',
+            name: 'Main',
+            isDefault: true,
+            sortOrder: 0,
+          ),
+          PortfolioFolderDto(
+            id: 'trade',
+            name: 'Trade',
+            isDefault: false,
+            sortOrder: 1,
+          ),
+        ];
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ..._searchOverrides(),
+            ..._localAuthOverrides(),
+            cardDetailRepositoryProvider.overrideWithValue(repository),
+            portfolioApiClientProvider.overrideWithValue(portfolioApi),
+          ],
+          child: const _SearchTestAppWithRoutes(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('search-collect-squirtle')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(QuickCollectionReviewPage)),
+        listen: false,
+      );
+      expect(find.text('Adding to Main'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('card-detail-add-item-portfolio')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Trade').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Adding to Trade'), findsOneWidget);
+      expect(container.read(selectedPortfolioFolderProvider), 'trade');
+
+      Navigator.of(
+        tester.element(find.byType(QuickCollectionReviewPage)),
+      ).pop();
+      await tester.pumpAndSettle();
+      expect(
+        container.read(pendingCollectionProvider).single.draft?.portfolioName,
+        'Trade',
+      );
+
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+      expect(find.text('Adding to Trade'), findsOneWidget);
+
+      Navigator.of(
+        tester.element(find.byType(QuickCollectionReviewPage)),
+      ).pop();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('search-collect-charizard-ex')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('pending-collection-notice')));
+      await tester.pumpAndSettle();
+
+      final pendingItems = container.read(pendingCollectionProvider);
+      await tester.tap(
+        find.byKey(Key('pending-collection-item-${pendingItems[1].id}')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Adding to Trade'), findsOneWidget);
     },
   );
 
@@ -1469,6 +2024,9 @@ void main() {
   testWidgets(
     'Add All returns to the non-default Game and refreshes Search once because portfolio updates must preserve browsing context',
     (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 600);
+      addTearDown(tester.view.reset);
       final searchRepository = _CountingSearchRepository();
       await tester.pumpWidget(
         ProviderScope(
@@ -1496,6 +2054,16 @@ void main() {
       await tester.tap(collect);
       await tester.tap(collect);
       await tester.pumpAndSettle();
+      final searchScrollable = find.descendant(
+        of: find.byKey(const Key('search-content-scroll')),
+        matching: find.byType(Scrollable),
+      );
+      final searchPosition = tester
+          .state<ScrollableState>(searchScrollable.first)
+          .position;
+      searchPosition.jumpTo(searchPosition.maxScrollExtent);
+      await tester.pump();
+      expect(searchPosition.pixels, greaterThan(0));
       await tester.tap(find.byKey(const Key('pending-collection-notice')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('pending-collection-add-all')));
@@ -1510,6 +2078,7 @@ void main() {
         'One Piece',
       );
       expect(searchRepository.loadCatalogCount, refreshBaseline + 1);
+      expect(searchPosition.pixels, 0);
       expect(find.text('2 cards added to your portfolio'), findsOneWidget);
       await tester.pump(kandoCenteredSuccessToastDuration);
       await tester.pump();
@@ -1627,6 +2196,20 @@ void main() {
       expect(
         find.byKey(const Key('search-wishlist-charizard-ex')),
         findsNothing,
+      );
+      expect(
+        container
+            .read(searchControllerProvider)
+            .cardById('charizard-ex')
+            .quantity,
+        2,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('search-card-charizard-ex')),
+          matching: find.text('Qty: 2'),
+        ),
+        findsOneWidget,
       );
       await tester.pump(kandoCenteredSuccessToastDuration);
       await tester.pump();
@@ -1779,6 +2362,10 @@ void main() {
 
     expect(find.byKey(const Key('card-detail-hero')), findsOneWidget);
     expect(find.text('Squirtle'), findsOneWidget);
+    expect(
+      tester.widget<CardDetailPage>(find.byType(CardDetailPage)).preview?.name,
+      'Squirtle',
+    );
     expect(
       find.byKey(const Key('card-detail-add-to-portfolio-squirtle')),
       findsOneWidget,
@@ -2003,8 +2590,10 @@ class _SearchTestAppWithRoutes extends StatelessWidget {
           GoRoute(
             path: '/cards/:cardId',
             builder: (context, state) {
+              final extra = state.extra;
               return CardDetailPage(
                 cardId: state.pathParameters['cardId'] ?? '',
+                preview: extra is CardDetailPreview ? extra : null,
                 collectionItemId: state.uri.queryParameters['item_id'],
               );
             },
@@ -2015,7 +2604,7 @@ class _SearchTestAppWithRoutes extends StatelessWidget {
               key: state.pageKey,
               barrierColor: const Color(0xB8000000),
               isDismissible: true,
-              heightFactor: 0.85,
+              heightFactor: 0.93,
               child: const QuickCollectionReviewPage(heightFactor: 1),
             ),
           ),
@@ -2123,6 +2712,27 @@ class _TrackingSearchRepository implements SearchRepository {
   @override
   Future<List<SearchCard>> searchCards(String query, {String? game}) {
     cardCalls += 1;
+    return const MockSearchRepository().searchCards(query, game: game);
+  }
+
+  @override
+  Future<List<SearchSet>> searchSets(String query, {String? game}) {
+    return const MockSearchRepository().searchSets(query, game: game);
+  }
+}
+
+class _PendingSearchRepository implements SearchRepository {
+  final _catalog = Completer<SearchCatalog>();
+  var calls = 0;
+
+  @override
+  Future<SearchCatalog> loadCatalog() {
+    calls += 1;
+    return _catalog.future;
+  }
+
+  @override
+  Future<List<SearchCard>> searchCards(String query, {String? game}) {
     return const MockSearchRepository().searchCards(query, game: game);
   }
 
@@ -2411,21 +3021,24 @@ class _TrackingReviewLoadRepository extends MockCardDetailRepository
 }
 
 class _CountingFolderPortfolioApi extends PortfolioApiClient {
-  _CountingFolderPortfolioApi() : super(Dio());
+  _CountingFolderPortfolioApi()
+    : folders = const [
+        PortfolioFolderDto(
+          id: 'main',
+          name: 'Main',
+          isDefault: true,
+          sortOrder: 0,
+        ),
+      ],
+      super(Dio());
 
   var listFoldersCount = 0;
+  List<PortfolioFolderDto> folders;
 
   @override
   Future<List<PortfolioFolderDto>> listFolders(AuthSession session) async {
     listFoldersCount += 1;
-    return const [
-      PortfolioFolderDto(
-        id: 'main',
-        name: 'Main',
-        isDefault: true,
-        sortOrder: 0,
-      ),
-    ];
+    return folders;
   }
 }
 

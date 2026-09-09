@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/features/card_detail/card_detail_models.dart';
 import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_models.dart';
 import 'package:kando_app/features/search/search_repository.dart';
@@ -692,6 +693,82 @@ void main() {
       expect(card.quantity, 2);
       expect(card.collectionInfo, 'Near Mint (NM)');
       expect(card.isWishlisted, isFalse);
+    },
+  );
+
+  test(
+    'saved collection Items update Search Qty immediately and survive later searches',
+    () async {
+      const assetCard = CardDataCardDto(
+        cardRef: '9359',
+        name: 'Escape Artist',
+        setName: 'Odyssey',
+        setCode: 'ODY',
+        cardNumber: '',
+        finish: 'Normal',
+        language: 'English',
+        objectType: 'tcg',
+        imageUrl: null,
+        rarity: 'Common',
+      );
+      final portfolioApi = _FakePortfolioApi(
+        items: [_portfolioItem(id: 'item-1', quantity: 2)],
+      );
+      final repository = HttpSearchRepository(
+        _FakeCardDataApi(
+          trendingCardRows: const [assetCard],
+          searchCardRows: const [assetCard],
+          sets: const [],
+        ),
+        portfolioApi: portfolioApi,
+      );
+      final container = ProviderContainer(
+        overrides: [
+          searchRepositoryProvider.overrideWithValue(repository),
+          searchSessionProvider.overrideWithValue(_session),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(searchControllerProvider.notifier);
+      await controller.loadComplete;
+
+      controller.applySavedCollectionItems(const [
+        CardCollectionItem(
+          id: 'item-2',
+          cardRef: '9359',
+          folderId: 'main',
+          portfolioName: 'Main',
+          quantity: 3,
+          grader: 'PSA',
+          condition: null,
+          grade: '10',
+          language: 'English',
+          finish: 'Normal',
+          purchasePriceUsd: null,
+          notes: '',
+        ),
+      ]);
+
+      var card = container.read(searchControllerProvider).cardById('9359');
+      expect(card.quantity, 5);
+      expect(card.collectionItemCount, 2);
+      expect(card.collectionItemId, isNull);
+      expect(card.collectionInfo, 'Mixed');
+
+      portfolioApi.failAssetLoad = true;
+      await controller.refreshPreservingContent();
+      card = container.read(searchControllerProvider).cardById('9359');
+      expect(card.quantity, 5);
+      expect(card.collectionItemCount, 2);
+
+      portfolioApi
+        ..failAssetLoad = false
+        ..collectionItems.add(_portfolioItem(id: 'item-2', quantity: 3));
+      controller.submitSearch('escape');
+      await controller.loadComplete;
+      card = container.read(searchControllerProvider).cardById('9359');
+      expect(card.quantity, 5);
+      expect(card.collectionItemCount, 2);
     },
   );
 
@@ -1549,7 +1626,7 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
   PortfolioItemDraftDto? lastCollectedDraft;
   final bool conflictOnWishlist;
   final bool conflictOnCollect;
-  final bool failAssetLoad;
+  bool failAssetLoad;
   final Completer<void>? assetLoadGate;
   final Completer<void>? wishlistMutationGate;
 

@@ -36,3 +36,9 @@ test("scan search reloads when filters are unchanged because every query click m
   );
   assert.match(app, /onClick=\{applyScanFilters\}>查询<\/Button>/);
 });
+
+test("scan records expose and filter the persisted app environment", () => {
+  assert.match(app, /type ScanListItem = \{[\s\S]*?environment: string;/);
+  assert.match(app, /<ScanFilterField label="环境">[\s\S]*?draft\.environment/);
+  assert.match(app, /title: "环境", dataIndex: "environment"/);
+});

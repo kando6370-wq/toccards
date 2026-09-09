@@ -275,18 +275,25 @@ async function applyCorrection(
     : null;
   const autoRenew = renewal?.autoRenewStatus === 1 ? 1 : 0;
   const correctionVersion = now.toISOString();
+  const autoRenewVersion = iso(renewal?.signedDate) ?? correctionVersion;
 
   const statements: D1PreparedStatement[] = [
     db.prepare(`
       UPDATE billing_purchase_chain SET
         product_id = COALESCE(?, product_id), next_product_id = ?, status = ?,
-        auto_renew = ?, expires_at = CASE WHEN ? = 'LIFETIME' THEN NULL ELSE COALESCE(?, expires_at) END,
+        auto_renew = CASE WHEN auto_renew_signed_at IS NULL OR auto_renew_signed_at < ?
+          THEN ? ELSE auto_renew END,
+        auto_renew_signed_at = CASE WHEN auto_renew_signed_at IS NULL OR auto_renew_signed_at < ?
+          THEN ? ELSE auto_renew_signed_at END,
+        expires_at = CASE WHEN ? = 'LIFETIME' THEN NULL ELSE COALESCE(?, expires_at) END,
         grace_period_expires_at = ?, revoked_at = ?, state_effective_at = ?,
         correction_status = 'server_api_verified', updated_at = ?
       WHERE store = 'app_store' AND environment = ? AND original_transaction_id = ?
     `).bind(
       transaction.productId ?? renewal?.productId ?? null,
-      renewal?.autoRenewProductId ?? null, evidence.status, autoRenew, evidence.status, expiresAt,
+      renewal?.autoRenewProductId ?? null, evidence.status,
+      autoRenewVersion, autoRenew, autoRenewVersion, autoRenewVersion,
+      evidence.status, expiresAt,
       graceExpiresAt, revokedAt, correctionVersion, correctionVersion,
       row.environment, row.original_transaction_id,
     ),
@@ -303,6 +310,30 @@ async function applyCorrection(
       row.environment, row.original_transaction_id,
     ),
   ];
+  if (row.notification_type === "DID_CHANGE_RENEWAL_STATUS") {
+    statements.push(db.prepare(`
+      UPDATE billing_transaction
+      SET auto_renew_snapshot = ?, updated_at = ?
+      WHERE id = (
+        SELECT latest_transaction.id FROM billing_transaction latest_transaction
+        JOIN billing_purchase_chain chain ON chain.id = latest_transaction.purchase_chain_id
+        WHERE chain.store = 'app_store' AND chain.environment = ?
+          AND chain.original_transaction_id = ?
+          AND latest_transaction.environment = ?
+          AND latest_transaction.source_notification_uuid IS NOT NULL
+        ORDER BY latest_transaction.purchase_at DESC, latest_transaction.transaction_id DESC
+        LIMIT 1
+      ) AND EXISTS (
+        SELECT 1 FROM billing_purchase_chain
+        WHERE store = 'app_store' AND environment = ? AND original_transaction_id = ?
+          AND auto_renew = ? AND auto_renew_signed_at = ?
+      )
+    `).bind(
+      autoRenew, correctionVersion,
+      row.environment, row.original_transaction_id, row.environment,
+      row.environment, row.original_transaction_id, autoRenew, autoRenewVersion,
+    ));
+  }
   if (row.notification_type === "REFUND_REVERSED") {
     statements.push(db.prepare(`
       UPDATE billing_transaction SET

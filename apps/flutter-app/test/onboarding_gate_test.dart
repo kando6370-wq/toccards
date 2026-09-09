@@ -44,7 +44,7 @@ void main() {
         tester.view.physicalSize = viewport;
         await tester.pump();
         final logo = find.byKey(const ValueKey('onboarding-loading-logo'));
-        expect(tester.getSize(logo), const Size(63, 77));
+        expect(tester.getSize(logo), const Size(76, 92));
         expect(tester.getCenter(logo).dx, closeTo(viewport.width / 2, .01));
         expect(
           tester.getCenter(logo).dy,
@@ -93,7 +93,7 @@ void main() {
         tester.view.physicalSize = viewport;
         await tester.pump();
         final logo = find.byKey(const ValueKey('onboarding-loading-logo'));
-        expect(tester.getSize(logo), const Size.square(90));
+        expect(tester.getSize(logo), const Size(76, 92));
         expect(tester.getCenter(logo).dx, closeTo(viewport.width / 2, .01));
         expect(tester.getCenter(logo).dy, closeTo(viewport.height / 2, .01));
       }

@@ -40,6 +40,14 @@ void main() {
       expect(tester.getSize(bar), const Size(350, 62));
       expect(tester.getBottomRight(bar), const Offset(370, 822));
       expect(tester.getSize(scan), const Size.square(64));
+      expect(
+        tester.getTopLeft(scan).dx,
+        closeTo(tester.getBottomRight(search).dx, 0.01),
+      );
+      expect(
+        tester.getBottomRight(scan).dx,
+        closeTo(tester.getTopLeft(collection).dx, 0.01),
+      );
       expect(tester.getTopLeft(home).dx, 20);
       expect(tester.getBottomRight(profile).dx, 370);
       expect(tester.getCenter(home).dx, lessThan(tester.getCenter(search).dx));
@@ -78,6 +86,83 @@ void main() {
     },
   );
 
+  testWidgets('the visible top of the Scan button opens Scan', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+
+    final router = GoRouter(
+      initialLocation: '/home',
+      routes: [
+        GoRoute(
+          path: '/home',
+          builder: (_, _) => const KandoTabScaffold(
+            currentTab: KandoMainTab.home,
+            body: SizedBox.expand(),
+          ),
+        ),
+        GoRoute(
+          path: '/scan',
+          builder: (_, _) =>
+              const Scaffold(body: Center(child: Text('Scan target'))),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(child: MaterialApp.router(routerConfig: router)),
+    );
+
+    final scanRect = tester.getRect(find.byKey(const Key('kando-tab-scan')));
+    final overflowRect = tester.getRect(
+      find.byKey(const Key('kando-tab-scan-overflow-hit-region')),
+    );
+    expect(overflowRect.size, const Size(64, 21));
+    expect(overflowRect.topLeft, scanRect.topLeft);
+    await tester.tapAt(Offset(scanRect.center.dx, scanRect.top + 4));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Scan target'), findsOneWidget);
+  });
+
+  testWidgets('tab selection does not pass a page transition context', (
+    tester,
+  ) async {
+    Object? searchTransition;
+    final router = GoRouter(
+      initialLocation: '/home',
+      routes: [
+        GoRoute(
+          path: '/home',
+          builder: (_, _) => const KandoTabScaffold(
+            currentTab: KandoMainTab.home,
+            body: SizedBox.expand(),
+          ),
+        ),
+        GoRoute(
+          path: '/search',
+          builder: (_, state) {
+            searchTransition = state.extra;
+            return const KandoTabScaffold(
+              currentTab: KandoMainTab.search,
+              body: SizedBox.expand(),
+            );
+          },
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(child: MaterialApp.router(routerConfig: router)),
+    );
+    await tester.tap(find.byKey(const Key('kando-tab-search')));
+    await tester.pumpAndSettle();
+
+    expect(searchTransition, isNull);
+  });
+
   testWidgets('tab scaffold extends content behind translucent tab bar', (
     tester,
   ) async {
@@ -96,48 +181,50 @@ void main() {
     expect(scaffold.extendBody, isTrue);
   });
 
-  testWidgets('pending collection notice is visible only on the Search tab', (
-    tester,
-  ) async {
-    final container = ProviderContainer();
-    addTearDown(container.dispose);
-    container
-        .read(pendingCollectionProvider.notifier)
-        .add(
-          const PendingCollectionCard(
-            id: 'card-1',
-            name: 'Card 1',
-            game: 'Pokemon',
-            setName: 'Set',
-            metadataLine: '#1',
-            variantLine: 'Normal',
-          ),
-        );
+  testWidgets(
+    'pending collection notice stays visible across the four non-Scan tabs',
+    (tester) async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container
+          .read(pendingCollectionProvider.notifier)
+          .add(
+            const PendingCollectionCard(
+              id: 'card-1',
+              name: 'Card 1',
+              game: 'Pokemon',
+              setName: 'Set',
+              metadataLine: '#1',
+              variantLine: 'Normal',
+            ),
+          );
 
-    for (final tab in const [
-      KandoMainTab.home,
-      KandoMainTab.search,
-      KandoMainTab.scan,
-      KandoMainTab.collection,
-      KandoMainTab.profile,
-    ]) {
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp(
-            home: KandoTabScaffold(
-              currentTab: tab,
-              body: const SizedBox.expand(),
+      for (final tab in const [
+        KandoMainTab.home,
+        KandoMainTab.search,
+        KandoMainTab.scan,
+        KandoMainTab.collection,
+        KandoMainTab.profile,
+      ]) {
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              home: KandoTabScaffold(
+                currentTab: tab,
+                body: const SizedBox.expand(),
+              ),
             ),
           ),
-        ),
-      );
-      expect(
-        find.byKey(const Key('pending-collection-notice')),
-        tab == KandoMainTab.search ? findsOneWidget : findsNothing,
-      );
-    }
-  });
+        );
+        final shouldShowNotice = tab != KandoMainTab.scan;
+        expect(
+          find.byKey(const Key('pending-collection-notice')),
+          shouldShowNotice ? findsOneWidget : findsNothing,
+        );
+      }
+    },
+  );
 
   testWidgets(
     'updating a pending draft does not rebuild the Search page body when the notice count is unchanged',

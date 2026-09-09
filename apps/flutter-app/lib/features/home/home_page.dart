@@ -17,9 +17,11 @@ import 'package:kando_app/shared/ui/premium_locked_panel.dart';
 import 'package:kando_app/shared/ui/premium_unlocked_toast.dart';
 import 'package:kando_app/shared/ui/subscription_restore_result.dart';
 import 'package:kando_app/shared/ui/toast.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
+import '../card_detail/card_detail_models.dart';
 import '../collection/collection_page.dart';
 import '../collection/collection_controller.dart';
 import '../collection/collection_models.dart';
@@ -40,7 +42,6 @@ class HomePage extends ConsumerStatefulWidget {
 class _HomePageState extends ConsumerState<HomePage>
     with WidgetsBindingObserver {
   AppLifecycleState? _lastLifecycleState;
-  var _performanceSelected = false;
 
   @override
   void initState() {
@@ -84,7 +85,10 @@ class _HomePageState extends ConsumerState<HomePage>
       );
     }
     final performance = ref.watch(homePerformanceControllerProvider);
-    if (_performanceSelected &&
+    final selectedDashboardTab = ref.watch(homeDashboardTabProvider);
+    final performanceSelected =
+        selectedDashboardTab == HomeDashboardTab.performance;
+    if (performanceSelected &&
         isPro &&
         (performance.folderId != state.selectedFolderId ||
             !performance.hasLoaded &&
@@ -124,12 +128,20 @@ class _HomePageState extends ConsumerState<HomePage>
                   _Header(
                     currencyCode: state.currencyCode,
                     currencySymbol: state.currency.symbol,
-                    performanceSelected: _performanceSelected,
+                    performanceSelected: performanceSelected,
                     onOverviewPressed: () {
-                      setState(() => _performanceSelected = false);
+                      ref
+                          .read(homeDashboardTabProvider.notifier)
+                          .select(HomeDashboardTab.overview);
                     },
                     onPerformancePressed: () {
-                      setState(() => _performanceSelected = true);
+                      if (performanceSelected) return;
+                      ref
+                          .read(homeDashboardTabProvider.notifier)
+                          .select(HomeDashboardTab.performance);
+                      ref
+                          .read(analyticsProvider)
+                          .track(AnalyticsEvent.homePerformanceView);
                       unawaited(
                         _loadPerformanceIfPremium(state.selectedFolderId),
                       );
@@ -142,7 +154,7 @@ class _HomePageState extends ConsumerState<HomePage>
                     },
                   ),
                   const SizedBox(height: 24),
-                  if (_performanceSelected)
+                  if (performanceSelected)
                     _PerformanceSection(
                       state: state,
                       performance: performance,
@@ -168,6 +180,15 @@ class _HomePageState extends ConsumerState<HomePage>
                             'item_id': performer.itemId,
                           },
                         ).toString(),
+                        extra: CardDetailPreview(
+                          cardId: performer.cardRef,
+                          name: performer.name,
+                          imageUrl: performer.imageUrl,
+                          setName: performer.setName,
+                          identityLine: performer.cardNumber.isEmpty
+                              ? null
+                              : '#${performer.cardNumber}',
+                        ),
                       ),
                       onViewAllTopPerformers: () {
                         ref
@@ -215,7 +236,7 @@ class _HomePageState extends ConsumerState<HomePage>
                       },
                     ),
                   ],
-                  if (!_performanceSelected) ...[
+                  if (!performanceSelected) ...[
                     const SizedBox(height: 32),
                     _TrendingSection(
                       state: state,
@@ -259,7 +280,7 @@ class _HomePageState extends ConsumerState<HomePage>
     }
     if (premiumState == AppPremiumState.unknown) return;
     final result = await context.push<SubscriptionPaywallResult>(
-      subscriptionSheetLocation,
+      subscriptionSheetLocation(scene: AnalyticsValue.sceneHomePerformance),
     );
     if (!mounted || !context.mounted || result == null) return;
     if (result == SubscriptionPaywallResult.premiumRestored) {
@@ -271,7 +292,10 @@ class _HomePageState extends ConsumerState<HomePage>
       showPremiumUnlockedToast(context);
     }
     final home = ref.read(homeControllerProvider);
-    if (!_performanceSelected || home.selectedFolderId != folderId) return;
+    if (ref.read(homeDashboardTabProvider) != HomeDashboardTab.performance ||
+        home.selectedFolderId != folderId) {
+      return;
+    }
     await _loadPerformance(folderId, force: true);
   }
 
@@ -288,7 +312,7 @@ class _HomePageState extends ConsumerState<HomePage>
       if (!context.mounted || resolved == AppPremiumState.unknown) return;
       if (resolved == AppPremiumState.free) {
         final result = await context.push<SubscriptionPaywallResult>(
-          subscriptionSheetLocation,
+          subscriptionSheetLocation(scene: AnalyticsValue.sceneTimeRange),
         );
         if (!context.mounted || result == null) return;
         if (result == SubscriptionPaywallResult.premiumRestored) {
@@ -341,7 +365,7 @@ class _HomePageState extends ConsumerState<HomePage>
     if (!mounted) return;
     final failedState = ref.read(homePerformanceControllerProvider);
     if (failedState.isFailure &&
-        _performanceSelected &&
+        ref.read(homeDashboardTabProvider) == HomeDashboardTab.performance &&
         ref.read(homeControllerProvider).selectedFolderId == folderId &&
         identical(ref.read(homePerformanceControllerProvider), failedState)) {
       showKandoTopFailureToast(context);
@@ -835,6 +859,7 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
                       _FolderPill(
                         key: const Key('home-performance-folder'),
                         label: state.selectedFolder.name,
+                        maxWidth: 120,
                         onPressed: () {
                           _clearOverlays();
                           widget.onFolderPressed();
@@ -1029,7 +1054,6 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
                       key: _chartKey,
                       semanticKey: const Key('home-performance-chart'),
                       semanticLabel: 'Portfolio performance chart',
-                      persistentSelection: true,
                       emphasizeSinglePoint: true,
                       onSelectionChanged: (selected) {
                         if (selected) _removeInfoTip();
@@ -1117,49 +1141,54 @@ class _PerformanceLoadingSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Skeletonizer.zone(
       key: const Key('home-performance-loading'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var row = 0; row < 2; row++) ...[
-          Row(
-            children: [
-              for (var column = 0; column < 2; column++) ...[
-                const Expanded(child: _PerformanceSkeletonBlock(height: 94)),
-                if (column == 0) const SizedBox(width: 12),
+      enabled: true,
+      effect: const ShimmerEffect.raw(
+        colors: [Color(0xFF292B22), Color(0xFF4A4D38), Color(0xFF292B22)],
+        stops: [0.4, 0.5, 0.6],
+        duration: Duration(milliseconds: 1800),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var row = 0; row < 2; row++) ...[
+            Row(
+              children: [
+                for (var column = 0; column < 2; column++) ...[
+                  const Expanded(
+                    child: Bone(
+                      height: 94,
+                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                    ),
+                  ),
+                  if (column == 0) const SizedBox(width: 12),
+                ],
               ],
-            ],
+            ),
+            const SizedBox(height: 12),
+          ],
+          const Bone(
+            width: double.infinity,
+            height: 190,
+            borderRadius: BorderRadius.all(Radius.circular(8)),
+          ),
+          const SizedBox(height: 32),
+          const Bone(
+            width: 190,
+            height: 32,
+            borderRadius: BorderRadius.all(Radius.circular(8)),
           ),
           const SizedBox(height: 12),
+          for (var index = 0; index < 3; index++) ...[
+            const Bone(
+              width: double.infinity,
+              height: 88,
+              borderRadius: BorderRadius.all(Radius.circular(8)),
+            ),
+            if (index < 2) const SizedBox(height: 10),
+          ],
         ],
-        const _PerformanceSkeletonBlock(height: 190),
-        const SizedBox(height: 32),
-        const _PerformanceSkeletonBlock(height: 32, width: 190),
-        const SizedBox(height: 12),
-        for (var index = 0; index < 3; index++) ...[
-          const _PerformanceSkeletonBlock(height: 88),
-          if (index < 2) const SizedBox(height: 10),
-        ],
-      ],
-    );
-  }
-}
-
-class _PerformanceSkeletonBlock extends StatelessWidget {
-  const _PerformanceSkeletonBlock({required this.height, this.width});
-
-  final double height;
-  final double? width;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        color: KandoColors.surface.withValues(alpha: .72),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: KandoColors.borderSubtle),
       ),
     );
   }
@@ -1235,7 +1264,7 @@ class _TopPerformersSection extends StatelessWidget {
         if (visiblePerformers.isEmpty)
           const _EmptyCardBlock(
             key: Key('home-top-performers-empty'),
-            message: 'No cards in this portfolio yet',
+            message: 'Add purchase prices to see your top performers',
           )
         else
           SizedBox(
@@ -1339,35 +1368,9 @@ class _TopPerformerCard extends StatelessWidget {
                       Positioned(
                         top: 0,
                         right: -2,
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: BackdropFilter(
-                            filter: ui.ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: KandoColors.accentGlow10,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                returnText,
-                                maxLines: 1,
-                                style: TextStyle(
-                                  color: performer.returnPercent == null
-                                      ? KandoColors.mutedText
-                                      : performer.returnPercent! < 0
-                                      ? KandoColors.loss
-                                      : KandoColors.gain,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w400,
-                                  height: 14 / 10,
-                                ),
-                              ),
-                            ),
-                          ),
+                        child: _HomeCardChangeBadge(
+                          text: returnText,
+                          percent: performer.returnPercent,
                         ),
                       ),
                     ],
@@ -1490,8 +1493,7 @@ class _PerformanceInfoTip extends StatelessWidget {
                 child: const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 8, vertical: 9),
                   child: Text(
-                    'Profit and return are calculated only from cards\n'
-                    'with purchase prices',
+                    'Profit and return are calculated only from cards with purchase prices',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 10,
@@ -1783,7 +1785,9 @@ class _PortfolioCard extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             _FolderPill(
+              key: const Key('home-overview-folder'),
               label: state.selectedFolder.name,
+              maxWidth: 160,
               onPressed: onFolderPressed,
             ),
           ],
@@ -1888,47 +1892,54 @@ class _AmountVisibilityButton extends StatelessWidget {
 }
 
 class _FolderPill extends StatelessWidget {
-  const _FolderPill({super.key, required this.label, required this.onPressed});
+  const _FolderPill({
+    super.key,
+    required this.label,
+    required this.maxWidth,
+    required this.onPressed,
+  });
 
   final String label;
+  final double maxWidth;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 70,
-      height: 24,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onPressed,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-            color: const Color(0x0DF0FE6F),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0x99F0FE6F), width: .5),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: 12,
-                height: 12,
-                child: Center(
-                  child: SvgPicture.asset(
-                    'assets/home/folder_switch.svg',
-                    width: 10.5,
-                    height: 8.24644,
+    return ConstrainedBox(
+      constraints: BoxConstraints(minWidth: 70, maxWidth: maxWidth),
+      child: SizedBox(
+        height: 24,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onPressed,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: const Color(0x0DF0FE6F),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0x99F0FE6F), width: .5),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: Center(
+                    child: SvgPicture.asset(
+                      'assets/home/folder_switch.svg',
+                      width: 10.5,
+                      height: 8.24644,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 4),
-              Flexible(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
+                const SizedBox(width: 4),
+                Flexible(
                   child: Text(
                     label,
                     maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: KandoColors.accent,
                       fontSize: 13,
@@ -1937,8 +1948,8 @@ class _FolderPill extends StatelessWidget {
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -2458,6 +2469,13 @@ class _MostValuableSection extends StatelessWidget {
                               'item_id': card.itemId!,
                             },
                           ).toString(),
+                          extra: CardDetailPreview(
+                            cardId: card.cardRef!,
+                            name: card.title,
+                            imageUrl: card.imageUrl,
+                            imageAssetPath: card.imageAssetPath,
+                            identityLine: card.subtitle,
+                          ),
                         ),
                   price: state.formatCardPrice(card.priceUsd),
                 );
@@ -2533,6 +2551,13 @@ class _TrendingSection extends StatelessWidget {
                   ? null
                   : () => context.push(
                       '/cards/${trends[index].cardRef}?collection=normal&entry=trending%20today',
+                      extra: CardDetailPreview(
+                        cardId: trends[index].cardRef!,
+                        name: trends[index].title,
+                        imageUrl: trends[index].imageUrl,
+                        imageAssetPath: trends[index].imageAssetPath,
+                        identityLine: trends[index].subtitle,
+                      ),
                     ),
               showPlaceholder: state.isUnavailable,
               placeholderKey: state.isUnavailable
@@ -2669,7 +2694,6 @@ class _MostValuableTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final percent = MarketChange.fromPercent(card.increasePercent).percentText;
-    final percentColor = marketChangeTextColor(percent);
 
     return SizedBox(
       width: 144,
@@ -2724,30 +2748,9 @@ class _MostValuableTile extends StatelessWidget {
                     Positioned(
                       top: 0,
                       right: -2,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: BackdropFilter(
-                          filter: ui.ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: KandoColors.accentGlow10,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              percent,
-                              style: TextStyle(
-                                color: percentColor,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w400,
-                                height: 14 / 10,
-                              ),
-                            ),
-                          ),
-                        ),
+                      child: _HomeCardChangeBadge(
+                        text: percent,
+                        percent: card.increasePercent,
                       ),
                     ),
                   ],
@@ -2798,6 +2801,52 @@ class _MostValuableTile extends StatelessWidget {
   }
 }
 
+final Color homeCardChangeBadgeBackgroundColor = Color.alphaBlend(
+  const Color(0x4D000000),
+  KandoColors.accentGlow10,
+);
+
+Color homeCardChangeBadgeTextColor(double? percent) {
+  if (percent == null || percent == 0 || percent.isNaN) {
+    return const Color(0xFFFFFFFF);
+  }
+  return percent > 0 ? KandoColors.gain : KandoColors.loss;
+}
+
+class _HomeCardChangeBadge extends StatelessWidget {
+  const _HomeCardChangeBadge({required this.text, required this.percent});
+
+  final String text;
+  final double? percent;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(4),
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: homeCardChangeBadgeBackgroundColor,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            text,
+            maxLines: 1,
+            style: TextStyle(
+              color: homeCardChangeBadgeTextColor(percent),
+              fontSize: 10,
+              fontWeight: FontWeight.w400,
+              height: 14 / 10,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _TrendingRow extends StatelessWidget {
   const _TrendingRow({
     required this.title,
@@ -2828,99 +2877,112 @@ class _TrendingRow extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
-      child: Container(
-        height: 92,
-        decoration: BoxDecoration(
-          color: const Color(0x1FFFFFFF),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0x14FFFFFF)),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 17),
-        child: Row(
-          children: [
-            if (showPlaceholder)
-              SizedBox(
-                width: 42,
-                height: 58,
-                child: KandoCardImage(
-                  imageUrl: null,
-                  placeholderKey: placeholderKey,
-                ),
-              )
-            else
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: SizedBox(
-                  width: 42,
-                  height: 58,
-                  child: _HomeCardImage(
-                    imageAssetPath: imageAssetPath,
-                    imageUrl: imageUrl,
-                  ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            height: 92,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [Color(0x66292B22), Color(0x331C1E15)],
+                transform: GradientRotation(
+                  (139.73593059220934 - 90) * math.pi / 180,
                 ),
               ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFFE4E3D3),
-                      fontFamily: 'Fraunces',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      height: 20 / 14,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: KandoColors.mutedText,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w400,
-                      height: 18 / 11,
-                    ),
-                  ),
-                ],
-              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0x14FFFFFF)),
             ),
-            const SizedBox(width: 12),
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.end,
+            padding: const EdgeInsets.all(17),
+            child: Row(
               children: [
-                Text(
-                  price,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFFFFF6AF),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    height: 20 / 14,
+                if (showPlaceholder)
+                  SizedBox(
+                    width: 42,
+                    height: 58,
+                    child: KandoCardImage(
+                      imageUrl: null,
+                      placeholderKey: placeholderKey,
+                    ),
+                  )
+                else
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: SizedBox(
+                      width: 42,
+                      height: 58,
+                      child: _HomeCardImage(
+                        imageAssetPath: imageAssetPath,
+                        imageUrl: imageUrl,
+                      ),
+                    ),
+                  ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFFE4E3D3),
+                          fontFamily: 'Fraunces',
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          height: 20 / 14,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: KandoColors.mutedText,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w400,
+                          height: 18 / 11,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  percent,
-                  style: TextStyle(
-                    color: percentColor,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    height: 16 / 12,
-                  ),
+                const SizedBox(width: 12),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      price,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFFFFF6AF),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        height: 20 / 14,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      percent,
+                      style: TextStyle(
+                        color: percentColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        height: 16 / 12,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -2971,38 +3033,36 @@ class _EmptyCardBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 200,
+    return Container(
+      constraints: const BoxConstraints(minHeight: 200),
       width: double.infinity,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0x14FFFFFF)),
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0x1F747B26), Color(0x0A141506)],
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0x14FFFFFF)),
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0x1F747B26), Color(0x0A141506)],
+        ),
+      ),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          const _FigmaEmptyStateIllustration(
+            key: Key('home-card-empty-illustration'),
           ),
-        ),
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            const _FigmaEmptyStateIllustration(
-              key: Key('home-card-empty-illustration'),
+          const SizedBox(height: 24),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: KandoColors.text,
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+              height: 24 / 16,
             ),
-            const SizedBox(height: 24),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: KandoColors.text,
-                fontSize: 16,
-                fontWeight: FontWeight.w400,
-                height: 24 / 16,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -3121,7 +3181,6 @@ class _InteractiveChart extends StatefulWidget {
     this.semanticKey = const Key('home-portfolio-chart'),
     this.semanticLabel = 'Portfolio value chart',
     this.tooltipRows,
-    this.persistentSelection = false,
     this.emphasizeSinglePoint = false,
     this.onSelectionChanged,
   });
@@ -3133,7 +3192,6 @@ class _InteractiveChart extends StatefulWidget {
   final Key semanticKey;
   final String semanticLabel;
   final List<List<String>>? tooltipRows;
-  final bool persistentSelection;
   final bool emphasizeSinglePoint;
   final ValueChanged<bool>? onSelectionChanged;
 
@@ -3198,21 +3256,15 @@ class _InteractiveChartState extends State<_InteractiveChart> {
           value: _semanticValue,
           child: MouseRegion(
             onHover: (event) => _selectAt(event.localPosition.dx, width),
-            onExit: (_) {
-              if (!widget.persistentSelection) clearSelection();
-            },
+            onExit: (_) => clearSelection(),
             child: Listener(
               behavior: HitTestBehavior.opaque,
               onPointerDown: (event) =>
                   _selectAt(event.localPosition.dx, width),
               onPointerMove: (event) =>
                   _selectAt(event.localPosition.dx, width),
-              onPointerUp: (_) {
-                if (!widget.persistentSelection) clearSelection();
-              },
-              onPointerCancel: (_) {
-                if (!widget.persistentSelection) clearSelection();
-              },
+              onPointerUp: (_) => clearSelection(),
+              onPointerCancel: (_) => clearSelection(),
               child: CustomPaint(
                 painter: _ChartPainter(
                   values: widget.values,
@@ -3345,14 +3397,13 @@ class _ChartPainter extends CustomPainter {
     );
     canvas.drawCircle(selected, 3, Paint()..color = KandoColors.accent);
 
+    final isPerformanceTooltip = tooltipRows != null;
     final datePainter = TextPainter(
       text: TextSpan(
         text: 'Date: ${_formatChartDate(dates, resolvedSelectedIndex)}',
-        style: const TextStyle(
-          color: Color(0xFF92927D),
-          fontSize: 11,
-          fontWeight: FontWeight.w400,
-          height: 16 / 11,
+        style: homeChartTooltipTextStyle(
+          isPerformance: isPerformanceTooltip,
+          isDate: true,
         ),
       ),
       maxLines: 1,
@@ -3365,11 +3416,9 @@ class _ChartPainter extends CustomPainter {
               (row) => TextPainter(
                 text: TextSpan(
                   text: row,
-                  style: const TextStyle(
-                    color: KandoColors.accent,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    height: 16 / 11,
+                  style: homeChartTooltipTextStyle(
+                    isPerformance: isPerformanceTooltip,
+                    isDate: false,
                   ),
                 ),
                 maxLines: 1,
@@ -3377,13 +3426,15 @@ class _ChartPainter extends CustomPainter {
               )..layout(),
             )
             .toList();
+    final tooltipRowHeight = isPerformanceTooltip ? 18.0 : 16.0;
+    final tooltipVerticalPadding = isPerformanceTooltip ? 16.0 : 12.0;
     final tooltipSize = Size(
       [
             datePainter.width,
             ...rowPainters.map((painter) => painter.width),
           ].reduce(math.max) +
           16,
-      16.0 * (rowPainters.length + 1) + 12,
+      tooltipRowHeight * (rowPainters.length + 1) + tooltipVerticalPadding,
     );
     final preferredLeft = selected.dx + tooltipSize.width + 12 <= size.width
         ? selected.dx + 12
@@ -3417,7 +3468,7 @@ class _ChartPainter extends CustomPainter {
     for (var index = 0; index < rowPainters.length; index++) {
       rowPainters[index].paint(
         canvas,
-        tooltipRect.topLeft + Offset(8, 8 + 16.0 * (index + 1)),
+        tooltipRect.topLeft + Offset(8, 8 + tooltipRowHeight * (index + 1)),
       );
     }
   }
@@ -3431,6 +3482,37 @@ class _ChartPainter extends CustomPainter {
         oldDelegate.selectedIndex != selectedIndex ||
         oldDelegate.emphasizeSinglePoint != emphasizeSinglePoint;
   }
+}
+
+/// Figma `1911:8207` typography for Home Performance chart tooltip rows.
+@visibleForTesting
+const homePerformanceTooltipTextStyle = TextStyle(
+  color: Color(0xFF999578),
+  fontFamily: 'Geist',
+  fontSize: 12,
+  fontWeight: FontWeight.w400,
+  height: 18 / 12,
+);
+
+@visibleForTesting
+TextStyle homeChartTooltipTextStyle({
+  required bool isPerformance,
+  required bool isDate,
+}) {
+  if (isPerformance) return homePerformanceTooltipTextStyle;
+  return isDate
+      ? const TextStyle(
+          color: Color(0xFF92927D),
+          fontSize: 11,
+          fontWeight: FontWeight.w400,
+          height: 16 / 11,
+        )
+      : const TextStyle(
+          color: KandoColors.accent,
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          height: 16 / 11,
+        );
 }
 
 void _drawDashedLine(

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
@@ -138,7 +140,7 @@ class _SetDetailPageState extends ConsumerState<SetDetailPage> {
                 bottom: 12,
                 child: PendingCollectionNotice(
                   count: pendingCount,
-                  onReview: () => showQuickCollectionReviewSheet(context),
+                  onReview: _reviewPendingCollection,
                 ),
               ),
           ],
@@ -232,6 +234,21 @@ class _SetDetailPageState extends ConsumerState<SetDetailPage> {
       _load(reset: true),
       ref.read(searchControllerProvider.notifier).refreshPreservingContent(),
     ]);
+  }
+
+  Future<int?> _reviewPendingCollection() async {
+    final addedCount = await showQuickCollectionReviewSheet(context);
+    if (!mounted || addedCount == null || addedCount <= 0) return addedCount;
+    if (_scrollController.hasClients) {
+      unawaited(
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+        ),
+      );
+    }
+    return addedCount;
   }
 
   Widget _fullHeightScrollable(double height, Widget child) {

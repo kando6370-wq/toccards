@@ -7,8 +7,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../shared/scan/scan_api_client.dart';
+import '../../shared/scan/scan_card_recognizer.dart';
 import '../../shared/scan/scan_card_number_reader.dart';
-import '../../shared/scan/scan_image_hasher.dart';
 import '../../shared/scan/scan_providers.dart';
 import '../auth/auth_controller.dart';
 import '../auth/auth_models.dart';
@@ -31,6 +31,7 @@ class ScanResolution {
     required this.matchName,
     required this.candidates,
     this.candidateCardRefs = const [],
+    this.candidateDetails = const [],
     this.imageBytes,
     this.displayImageBytes,
     this.imageFileName,
@@ -47,7 +48,8 @@ class ScanResolution {
        cardRef = null,
        matchName = null,
        candidates = const [],
-       candidateCardRefs = const [];
+       candidateCardRefs = const [],
+       candidateDetails = const [];
 
   const ScanResolution.noMatch({
     this.imageBytes,
@@ -59,7 +61,8 @@ class ScanResolution {
        cardRef = null,
        matchName = null,
        candidates = const [],
-       candidateCardRefs = const [];
+       candidateCardRefs = const [],
+       candidateDetails = const [];
 
   const ScanResolution.cancelled()
     : kind = ScanResolutionKind.cancelled,
@@ -68,6 +71,7 @@ class ScanResolution {
       matchName = null,
       candidates = const [],
       candidateCardRefs = const [],
+      candidateDetails = const [],
       imageBytes = null,
       displayImageBytes = null,
       imageFileName = null,
@@ -83,7 +87,8 @@ class ScanResolution {
        cardRef = null,
        matchName = null,
        candidates = const [],
-       candidateCardRefs = const [];
+       candidateCardRefs = const [],
+       candidateDetails = const [];
 
   const ScanResolution.entitlementSyncRequired({
     required this.imageBytes,
@@ -95,6 +100,7 @@ class ScanResolution {
        matchName = null,
        candidates = const [],
        candidateCardRefs = const [],
+       candidateDetails = const [],
        quota = null;
 
   final ScanResolutionKind kind;
@@ -103,6 +109,7 @@ class ScanResolution {
   final String? matchName;
   final List<String> candidates;
   final List<String> candidateCardRefs;
+  final List<ScanCandidateDto> candidateDetails;
   final Uint8List? imageBytes;
   final Uint8List? displayImageBytes;
   final String? imageFileName;
@@ -128,7 +135,7 @@ final scanResultSourceProvider = Provider<ScanResultSource>(
     api: ref.watch(scanApiClientProvider),
     session: () => ref.read(authControllerProvider).session,
     imagePicker: ImagePickerScanImagePicker(),
-    imageHasher: createScanImageHasher(),
+    cardRecognizer: createScanCardRecognizer(),
     cardNumberReader: createScanCardNumberReader(),
     appInfo: _readScanAppInfo,
     localPremiumVerified: () =>
@@ -136,7 +143,9 @@ final scanResultSourceProvider = Provider<ScanResultSource>(
         ref.read(scanQuotaControllerProvider).unlimited,
     onQuotaChanged: (quota) {
       if (ref.mounted) {
-        ref.read(scanQuotaControllerProvider.notifier).applyServerQuota(quota);
+        ref
+            .read(scanQuotaControllerProvider.notifier)
+            .applyServerQuota(quota, syncDisplayedRemaining: false);
       }
     },
   ),
@@ -145,15 +154,10 @@ final scanResultSourceProvider = Provider<ScanResultSource>(
 enum ScanImageSource { camera, gallery }
 
 class ScanImage {
-  const ScanImage({
-    required this.bytes,
-    required this.fileName,
-    this.recognitionCrop,
-  });
+  const ScanImage({required this.bytes, required this.fileName});
 
   final Uint8List bytes;
   final String fileName;
-  final ScanImageCrop? recognitionCrop;
 }
 
 abstract interface class ScanImagePicker {
@@ -219,7 +223,7 @@ class ApiScanResultSource implements ScanResultSource {
     required ScanApi api,
     required AuthSession? Function() session,
     required ScanImagePicker imagePicker,
-    required ScanImageHasher imageHasher,
+    required ScanCardRecognizer cardRecognizer,
     required Future<ScanAppInfo> Function() appInfo,
     ScanCardNumberReader? cardNumberReader,
     bool Function()? localPremiumVerified,
@@ -227,7 +231,7 @@ class ApiScanResultSource implements ScanResultSource {
   }) : _api = api,
        _session = session,
        _imagePicker = imagePicker,
-       _imageHasher = imageHasher,
+       _cardRecognizer = cardRecognizer,
        _appInfo = appInfo,
        _localPremiumVerified = localPremiumVerified ?? _false,
        _onQuotaChanged = onQuotaChanged,
@@ -236,7 +240,7 @@ class ApiScanResultSource implements ScanResultSource {
   final ScanApi _api;
   final AuthSession? Function() _session;
   final ScanImagePicker _imagePicker;
-  final ScanImageHasher _imageHasher;
+  final ScanCardRecognizer _cardRecognizer;
   final Future<ScanAppInfo> Function() _appInfo;
   final ScanCardNumberReader _cardNumberReader;
   final bool Function() _localPremiumVerified;
@@ -300,9 +304,7 @@ class ApiScanResultSource implements ScanResultSource {
       reservationFinished.complete();
     }
 
-    Uint8List? displayImageBytes = image.recognitionCrop == null
-        ? image.bytes
-        : null;
+    Uint8List? displayImageBytes = image.bytes;
     final requestId = _retryRequestIds[image.bytes] ?? const Uuid().v4();
     final ScanRecognitionDto recognition;
     try {
@@ -315,20 +317,10 @@ class ApiScanResultSource implements ScanResultSource {
         );
       }
       final info = await _appInfo();
-      final hashes = await _imageHasher.hash(
-        image.bytes,
-        crop: image.recognitionCrop,
-      );
-      if (hashes.cardImageBytes == null) {
-        throw const ScanImageProcessingException(
-          'The corrected card image is unavailable.',
-        );
-      }
-      displayImageBytes = image.recognitionCrop == null
-          ? image.bytes
-          : hashes.cardImageBytes!;
+      final embedding = await _cardRecognizer.process(image.bytes);
+      displayImageBytes = embedding.cardImageBytes;
       onDisplayImageReady?.call(displayImageBytes);
-      final cardNumber = await _cardNumberReader.read(hashes.cardImageBytes!);
+      final cardNumber = await _cardNumberReader.read(embedding.cardImageBytes);
       await previousReservation;
       try {
         final reservationApi = _api is ScanQuotaReservationApi
@@ -347,7 +339,7 @@ class ApiScanResultSource implements ScanResultSource {
       }
       recognition = await _api.recognizeImage(
         session,
-        hashes: hashes,
+        embedding: embedding,
         fileName: image.fileName,
         platform: info.platform,
         appVersion: info.appVersion,
@@ -365,7 +357,8 @@ class ApiScanResultSource implements ScanResultSource {
           quota: error.quota!,
         );
       }
-      if (error.code == 'ENTITLEMENT_SYNC_REQUIRED') {
+      if (error.statusCode == 409 &&
+          error.code == 'ENTITLEMENT_SYNC_REQUIRED') {
         _retryRequestIds[image.bytes] = null;
         return ScanResolution.entitlementSyncRequired(
           imageBytes: image.bytes,
@@ -398,11 +391,27 @@ class ApiScanResultSource implements ScanResultSource {
       }
     }
     _retryRequestIds[image.bytes] = null;
+    if (recognition.recognitionStatus != 'success') {
+      if (recognition.recognitionStatus == 'no_match') {
+        return ScanResolution.noMatch(
+          imageBytes: image.bytes,
+          displayImageBytes: displayImageBytes,
+          imageFileName: image.fileName,
+          quota: recognition.quota,
+        );
+      }
+      return ScanResolution.failed(
+        imageBytes: image.bytes,
+        displayImageBytes: displayImageBytes,
+        imageFileName: image.fileName,
+        quota: recognition.quota,
+      );
+    }
     final matchedResults = recognition.results.where(
       (result) => result.matched && result.candidates.isNotEmpty,
     );
     if (matchedResults.isEmpty) {
-      return ScanResolution.noMatch(
+      return ScanResolution.failed(
         imageBytes: image.bytes,
         displayImageBytes: displayImageBytes,
         imageFileName: image.fileName,
@@ -418,6 +427,7 @@ class ApiScanResultSource implements ScanResultSource {
       candidateCardRefs: candidates
           .map((candidate) => candidate.cardRef)
           .toList(),
+      candidateDetails: candidates,
       imageBytes: image.bytes,
       displayImageBytes: displayImageBytes,
       imageFileName: image.fileName,

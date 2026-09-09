@@ -11,7 +11,7 @@
 | Admin | React 18、Vite 6、Ant Design 5、TanStack Query 5 | `apps/admin-web/package.json` |
 | Marketing | Cloudflare static assets/Workers | `apps/marketing-web/wrangler.jsonc` |
 | Monorepo | pnpm 11.9.0、Turborepo 2、Dart pub workspace、Melos 8 | 根 manifests |
-| 测试 | Vitest 4、Node test runner、Flutter test | 各应用 scripts 与 test 目录 |
+| 测试 | Vitest 4、PGlite PostgreSQL、Node test runner、Flutter test；部分旧测试仍使用待清理的 Miniflare/D1 兼容基座 | 各应用 scripts、`src/test-support/pglite-database.ts` 与 test 目录 |
 
 ## 2. 工具链约束
 
@@ -43,9 +43,10 @@ CI 的 Flutter 版本冲突是显式目标差异，不合并成虚构的统一�
 
 - Apple StoreKit、App Attest、App Store Server Notifications V2 与 Server API。
 - Google/Apple OAuth；邮箱注册与找回密码使用 ZeptoMail。
-- OCR 服务处理扫描识别；PostgreSQL/R2 保存结构化记录与受保护图片。
+- Scan 使用端侧 RTMDet-Ins 检测和 PE-Core-T16 向量化：iOS 16+ 使用 Core ML/Core Image，Android 使用最小 ONNX Runtime 与 Bitmap。主 Worker 经 `VECTOR_RECOGNITION` 调用 `recognize-vec`，PostgreSQL/R2 保留结构化记录与受保护图片；ML Kit 卡号 OCR 继续用于消歧。旧 OpenCV/pHash 移除，Web 暂不支持新端侧识别。
+- Singular 的六个 test/production 套餐事件使用 `customRevenueWithAttributes` 上报 Apple verified 交易金额、币种和标识，独立持久化去重并补发此前入队的失败记录；Restore 和启动恢复不创建新收入。SDK API 返回不等于后台收件成功，详见[收入契约](../03-data-api/contract-changes.md#当前边界)。
 - 汇率服务以 USD 为基准提供快照，KV 可缓存。
-- Firebase Analytics/Crashlytics、Mixpanel、Singular 和 ATT 用于分析、归因与稳定性，不作为授权真源。Flutter 在 dev/prod 环境均开启 Mixpanel 移动端自动事件采集；Project Token 仍按环境加载。
+- Firebase Analytics/Crashlytics、Mixpanel、Singular 和 ATT 用于分析、归因与稳定性，不作为授权真源。Flutter 在 dev/prod 环境均开启 Mixpanel 移动端自动事件采集；Project Token 仍按环境加载。每次完整冷启动异步执行一次 Mixpanel 初始化，不阻塞 `runApp`；初始化失败后仅在当前进程内按 2 秒、5 秒、15 秒重试三次，成功后按原顺序补发初始化期间的内存事件，全部失败后停止重试并清空待发事件。表格定义的全部自定义事件共用同一属性组装入口；首次认证会话恢复完成前事件只暂存在内存，恢复为账号或游客后分别使用用户 UID 或匿名 ID 组装 `uid` 并发送，认证明确失败且没有可用身份时才发送空 `uid`。后续身份切换只影响切换后发生的事件，不回写已经组装的历史事件。
 
 ## 5. 配置和安全边界
 

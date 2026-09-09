@@ -16,6 +16,7 @@ import 'package:kando_app/features/auth/auth_repository.dart';
 import 'package:kando_app/features/auth/ui/auth_sheet.dart';
 import 'package:kando_app/features/auth/ui/email_auth_pages.dart';
 import 'package:kando_app/features/app_upgrade/app_upgrade_repository.dart';
+import 'package:kando_app/features/app_upgrade/app_upgrade_models.dart';
 import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/features/onboarding/onboarding_controller.dart';
 import 'package:kando_app/features/onboarding/onboarding_repository.dart';
@@ -1870,7 +1871,7 @@ void main() {
     expect(feedbackRepository.submissions, isEmpty);
   });
 
-  testWidgets('unsubscribed Profile banner opens the Subscription sheet', (
+  testWidgets('unsubscribed Profile banner matches the responsive design', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -1913,13 +1914,30 @@ void main() {
       const Size(390, 152),
     );
     expect(find.text('Restore'), findsOneWidget);
+  });
+
+  testWidgets('unsubscribed Profile banner opens the full Subscription Page', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final repository = _WidgetAuthRepository(
+      initialSession: _anonymousSession('anon-existing'),
+    );
+
+    await tester.pumpWidget(_testApp(repository));
+    await tester.pumpAndSettle();
+    await _openProfileTab(tester);
 
     await tester.tap(find.text('Upgrade Now'));
     await tester.pumpAndSettle();
 
     expect(
       tester.widget<SubscriptionPage>(find.byType(SubscriptionPage)).sheet,
-      isTrue,
+      isFalse,
     );
     expect(find.text('Choose Your Plan'), findsOneWidget);
     expect(find.text('Unlimited Card Scanning'), findsOneWidget);
@@ -2331,6 +2349,80 @@ void main() {
     expect(tester.getSize(videoFrame).height, closeTo(763.82, 0.01));
   });
 
+  testWidgets(
+    'full subscription background covers the top inset while actions stay below it',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(top: 59);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPadding);
+
+      await tester.pumpWidget(_subscriptionGoldenApp(const SubscriptionPage()));
+      await tester.pump();
+
+      expect(
+        tester
+            .getRect(find.byKey(const Key('subscription-video-background')))
+            .top,
+        0,
+      );
+      expect(
+        tester.getRect(find.byTooltip('Close')).top,
+        greaterThanOrEqualTo(71),
+      );
+      expect(
+        tester.getRect(find.text('Restore')).top,
+        greaterThanOrEqualTo(71),
+      );
+    },
+  );
+
+  for (final presentation in [
+    (name: 'full page', child: const SubscriptionPage()),
+    (name: 'bottom sheet', child: const SubscriptionPage(sheet: true)),
+  ]) {
+    testWidgets(
+      'subscription ${presentation.name} benefits match Figma 2090:17443',
+      (tester) async {
+        await tester.pumpWidget(_subscriptionGoldenApp(presentation.child));
+        await tester.pump();
+
+        for (var index = 0; index < 4; index += 1) {
+          final row = find.byKey(Key('subscription-benefit-$index'));
+          expect(row, findsOneWidget);
+          expect(tester.getSize(row).height, 50);
+
+          final surface = tester.widget<Container>(
+            find.byKey(Key('subscription-benefit-$index-surface')),
+          );
+          final decoration = surface.decoration! as BoxDecoration;
+          expect(decoration.color, const Color(0x661A1C14));
+          expect(decoration.border!.top.color, const Color(0xFF2A2D20));
+          expect(decoration.borderRadius, BorderRadius.circular(8));
+          expect(
+            find.byKey(Key('subscription-benefit-$index-check')),
+            findsOneWidget,
+          );
+        }
+
+        final first = tester.getRect(
+          find.byKey(const Key('subscription-benefit-0')),
+        );
+        final second = tester.getRect(
+          find.byKey(const Key('subscription-benefit-1')),
+        );
+        expect(second.top - first.bottom, 4);
+
+        final label = tester.widget<Text>(find.text('Unlimited Card Scanning'));
+        expect(label.style!.fontSize, 14);
+        expect(label.style!.height, 20 / 14);
+        expect(label.style!.fontWeight, FontWeight.w400);
+      },
+    );
+  }
+
   testWidgets('Android sheet uses video while iOS keeps its updated image', (
     tester,
   ) async {
@@ -2671,6 +2763,9 @@ ProviderScope _testApp(
   return ProviderScope(
     overrides: [
       appStartupPreloaderProvider.overrideWith((ref) async {}),
+      appUpgradeDecisionProvider.overrideWith(
+        (ref) async => const AppUpgradeDecision.none(),
+      ),
       onboardingControllerProvider.overrideWith(
         _CompletedOnboardingController.new,
       ),

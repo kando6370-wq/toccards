@@ -85,13 +85,14 @@ void main() {
   });
 
   test(
-    'Restore uses a verified current entitlement when StoreKit synchronization reports system error',
+    'Restore cancellation does not reuse a current entitlement left on the device',
     () async {
+      final error = PlatformException(
+        code: appleRestoreCancelledErrorCode,
+        details: const {'domain': 'StoreKit.StoreKitError'},
+      );
       final reader = _SynchronizationFailureReader(
-        error: PlatformException(
-          code: 'apple_restore_failed',
-          details: const {'domain': 'StoreKit.StoreKitError', 'code': 3},
-        ),
+        error: error,
         values: const [
           AppleCurrentEntitlement(
             productId: 'ios.yearly',
@@ -100,18 +101,38 @@ void main() {
         ],
       );
 
-      final result = await AppleSubscriptionRestorer(
-        reader: reader,
-      ).restore({'ios.yearly'});
-
-      expect(result.isSuccess, isTrue);
-      expect(result.signedTransactionInfo, 'jws-yearly');
-      expect(reader.readCount, 1);
+      await expectLater(
+        AppleSubscriptionRestorer(reader: reader).restore({'ios.yearly'}),
+        throwsA(same(error)),
+      );
+      expect(
+        reader.readCount,
+        0,
+        reason:
+            'A cancelled account check must not restore from '
+            'entitlement data left on the device.',
+      );
     },
   );
 
+  test('Restore cancellation is classified separately from failure', () {
+    expect(
+      isAppleRestoreCancellation(
+        PlatformException(code: appleRestoreCancelledErrorCode),
+      ),
+      isTrue,
+    );
+    expect(
+      isAppleRestoreCancellation(
+        PlatformException(code: 'apple_restore_failed'),
+      ),
+      isFalse,
+    );
+    expect(isAppleRestoreCancellation(TimeoutException('restore')), isFalse);
+  });
+
   test(
-    'Restore keeps StoreKit system error as Failed when fallback has no current entitlement',
+    'Restore keeps StoreKit system error as Failed without reading entitlements',
     () async {
       final error = PlatformException(
         code: 'apple_restore_failed',
@@ -126,7 +147,7 @@ void main() {
         AppleSubscriptionRestorer(reader: reader).restore({'ios.yearly'}),
         throwsA(same(error)),
       );
-      expect(reader.readCount, 1);
+      expect(reader.readCount, 0);
     },
   );
 

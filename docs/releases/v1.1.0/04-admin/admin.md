@@ -19,8 +19,10 @@ Admin 是 `apps/admin-web` 构建的 React SPA，静态产物由 Workers assets 
 | 用户管理 | 用户列表 | 正式/匿名用户查询、详情 | `/users*` |
 | 用户管理 | 用户反馈 | 反馈列表、详情、处理状态 | `/feedbacks*` |
 | 用户管理 | 权限管理 | 管理 Admin 账号、角色和状态 | `/permissions*` |
-| 卡牌管理 | 扫描记录管理 | 条件筛选、识别/确认详情、受保护图片 | `/scans*` |
+| 卡牌管理 | 扫描记录管理 | 环境等条件筛选、环境列、识别/确认详情、受保护图片 | `/scans*` |
 | App 版本管理 | 版本管理 | iOS/Google 版本和升级行为 | `/app-versions*` |
+
+安装统计的趋势数据按日期正序返回，保证图表时间轴从左到右；明细列表在数据库分页前按首次安装日期倒序，同日期按 UID、国家和平台稳定排序，优先展示最近安装且避免跨页顺序漂移。
 
 Workers 还实现通用 App Config 和 Card Override API，但当前 `App.tsx` 的 `MenuKey` 与 `menuGroups` 没有对应页面。这些是后端能力，不是当前可从 Admin UI 操作的页面。旧 Trending Pin API 已废弃，不再属于 Admin 能力。
 
@@ -61,9 +63,15 @@ Workers 还实现通用 App Config 和 Card Override API，但当前 `App.tsx` �
 - 建单类通知到达已有 `environment + transactionId` 时，会用通知中的已验签交易字段晋升暂存记录并写入来源通知 UUID；不会因唯一键冲突继续保留为客户端暂存口径。
 - purchase chain 以 `environment + originalTransactionId` 唯一。
 - 单笔交易以 `store + environment + transactionId` 幂等。
-- Trial 扣款次数为 0；通知确认的有效非 Trial 收费按购买链时序累计，客户端暂存记录不占序号。
+- Trial 扣款次数为 0；通知确认且 `signedTransactionInfo.price > 0` 的收费按购买链 `purchase_at` 时序累计。`price = 0` 的试用或免费优惠订单仍展示但不增加次数；`price` 缺失时扣款次数保持 `null` 并进入异常校正，不使用 `renewalPrice` 猜测本次扣款。客户端暂存记录不占序号。
 - Refund 更新原订单为 refunded、保存退款前业务状态并保留交易事实，不创建虚假收费订单；`REFUND_REVERSED` 经 Apple Server API 校正为 active 后恢复退款前状态。迁移前历史退款若没有该状态，则业务分类显示为未知，不继续显示退款，也不猜测订单类型。
-- 自动续订显示使用交易发生时的 snapshot，不能被购买链后续状态倒灌。
+- 自动续订在建单时保存交易发生时的状态。收到不建单的
+  `DID_CHANGE_RENEWAL_STATUS` 后，同一 `environment + originalTransactionId`
+  购买链中按 `purchase_at + transactionId` 确定的最新通知确认订单，使用已验签
+  `autoRenewStatus` 更新为当前状态；直接通知消费与 Apple Server API 校正遵循同一规则，
+  更早历史订单保持原值，乱序旧通知或旧校正证据不得覆盖较新状态。
+- 收到不建单的 `EXPIRED + BILLING_RETRY` 时，购买链的当前订阅状态和同链最新通知确认订单的
+  自动续订状态在同一批处理中更新；自动续订值读取已验签 `autoRenewStatus`，更早历史订单不变。
 - UID 仅用于业务关联；`unlinked` 购买链不是匿名用户，也不是 Premium owner。
 
 来源：PostgreSQL 迁移 `0000_business_schema.sql`、`0007_billing_refund_status.sql`，`billing-order-facts.ts` 和集成测试。
@@ -79,9 +87,13 @@ Workers 还实现通用 App Config 和 Card Override API，但当前 `App.tsx` �
 
 ### 5.1 列表与筛选
 
-筛选项为 UID、原始交易 ID、订单 ID、环境、主通知类型、子通知类型和创建时间范围。列表显示 UID、原始交易 ID、订单 ID、主/子通知、SKU、环境、UTC+0 创建时间和详情操作，默认按 inbox 接收时间倒序。
+筛选项为 UID、原始交易 ID、订单 ID、环境、主通知类型、子通知类型和创建时间范围。列表显示 UID、原始交易 ID、订单 ID、主/子通知、状态名称、SKU、环境、UTC+0 创建时间和详情操作，默认按 inbox 接收时间倒序。
 
 主通知类型和子通知类型均为可搜索单选，选中主类型后子类型只显示对应实际组合；选项来自结构化通知实际数据，未知 Apple 类型直接显示原值。查询、重置、刷新和分页在列表请求期间禁用；空结果与加载失败使用固定业务文案，页码超过最新总页数时回退到最后一个有效页。
+
+状态名称由列表已有的 Apple 主通知类型和子通知类型按确认映射在前端确定性生成，不修改通知原始字段或 API。没有子类型时使用该主类型的空子类型映射；未收录、验签失败或字段不完整的组合显示 `--`，不得根据相近类型猜测。
+
+`DID_CHANGE_RENEWAL_PREF` 的通知 SKU 表示目标方案：当子类型为 `UPGRADE`、`DOWNGRADE`、空值或未传，且已验签 `renewalInfo.autoRenewProductId` 命中当前部署配置的周订阅或年订阅 Product ID 时，结构化通知使用该目标 Product ID。dev 为 `cardx.week/cardx.year`，prod（含 TestFlight Sandbox）为 `CardAi.weekly/CardAi.yearly`。Lifetime、其他 Product ID、其他通知类型或其他子类型继续使用交易/续订证据中的原 SKU。订单侧独立使用已验签交易事实：`UPGRADE` 携带新 `transactionId` 时新增“升级付款”订单，SKU 取 `signedTransactionInfo.productId`；`DOWNGRADE` 预约不建单；空 subtype 仅在 `transactionId` 尚未入库时补录真实遗漏交易。任何方案变更都不会用 `autoRenewProductId` 改写历史订单 SKU；历史上已经处理完成的结构化通知不自动回填。
 
 结构化通知与原始 inbox 使用 LEFT JOIN：验签、解析或处理失败时，即使没有结构化行，失败记录仍出现在列表，供排障。
 
@@ -107,14 +119,21 @@ Admin 页面是只读排障层，不提供重放通知、改订单、改 lifecyc
 
 ### 扫描审计
 
-- 可按平台、识别状态、确认状态和是否修改结果等筛选。
+- 可按环境、平台、识别状态、确认状态和是否修改结果等筛选；环境只接受可信扫描记录中的 `development/production`。
+- 列表和详情均展示记录创建时由 Worker 持久化的环境，不使用当前 Admin Host 或客户端自报值推断。
 - 详情展示系统候选、置信度、用户确认和是否入库等事实。
 - R2 图片端点要求 Admin Token，并返回私有、不可缓存响应。
 
 ### 版本管理
 
-- UI 管理 iOS 与 Google 的最新/最低版本、强制升级和商店地址。
-- 公共 `/app-config` 由 App 读取；Admin 更新应保留平台和环境边界。
+- UI 管理 iOS 与 Google 的建议/最低版本、强制升级和商店地址，并显示 API 返回的当前 `development/production` 环境。
+- 不再提供“建议更新文案”和“强制更新文案”字段。Admin 列表/保存接口不返回或保存这两个属性；存量 JSON 的旧文案忽略，后续保存版本规则时自然移除。App 使用 Figma 736:13370 的固定标题 `Update Now`、提示语 `New update available! Tap to upgrade` 和火箭插画；普通更新提供 `INSTALL / LATER`，命中强更只显示 `INSTALL`。
+- 版本配置使用 `admin.app_version.<environment>.<ios|google>` 独立键；环境只取 Worker `APP_ENVIRONMENT`。dev/prod 共用 PostgreSQL 时，保存、启用、禁用和查询只影响当前环境。缺少可信环境返回 `503 APP_VERSION_CONFIG_UNAVAILABLE`。
+- 公共 `/app-config?platform=ios|google` 只读取当前环境、当前平台的规则，返回 `Cache-Control: no-store`，不回退到共用 `admin.app_version.ios/google`、`upgrade_prompt` 或 `app_store_url`。规则缺失或损坏返回 `503`，明确禁用的规则返回 `upgrade_prompt: null`。
+- 通用 `/admin/app-config` 不列出版本配置，通用 PATCH 禁止写入版本及旧共用升级键，避免绕过环境隔离或校验。版本修改统一通过 `/admin/app-versions/:platform`。
+- 启用更新必须提供有效 HTTP(S) 下载地址；建议版本不得低于最低支持版本。强制更新只作用于低于最低版本的 App；达到最低版本但低于建议版本时可稍后更新，构建号不参与比较。
+- App 在冷启动和返回前台检查规则。强更由路由上方的全局界面拦截，点击遮罩、返回、页面跳转和商店返回均不解除；初次检查失败显示阻断式重试界面，重新检查失败保留已知强更要求。只有成功检查确认当前安装版本已被支持或运营已解除要求，才恢复使用。
+- 两环境完整切换前应用 PostgreSQL `0011_app_version_environment.sql`，将既有规则一次性复制为独立配置，已有独立配置不覆盖。仅发布 dev 时可先初始化 development 两条键，prod 继续读取旧键；2026-09-08 已完成该 dev 阶段。迁移与对应 Worker 切换期间暂停该环境版本配置编辑；新 Worker 不回退旧键，回滚只能使用支持独立键的 Worker。详见[版本控制验收](../05-delivery/VERIFICATION.md)。
 
 ## 7. API 与前端契约
 
@@ -132,11 +151,14 @@ Admin 页面是只读排障层，不提供重放通知、改订单、改 lifecyc
 
 Admin 没有独立生产部署目标。Workers deploy 会先按 dev/prod 模式构建 `auth-core` 和 Admin，再由 Worker assets 发布。验证时至少区分 API health、SPA HTML 和实际 JS assets。
 
-本次退款撤销依赖 `billing_transaction.business_status_before_refund`。该列是 nullable 向后兼容扩展，必须先应用 PostgreSQL `0007_billing_refund_status`，再部署读取该列的新 Worker；旧 Worker 可忽略该列，代码回滚时保留列。dev/prod 共用 PostgreSQL Schema，迁移会同时影响两套 Worker 所连接的数据结构，不能把 dev 部署与 Schema 迁移当作互相隔离的动作。共享 Schema 已于 2026-08-19 应用 `0007` 并完成幂等复核，同日完成 dev Worker 与 Admin assets 部署。本次发布以 version `ce9ee177-27a0-49fe-8e87-0a0f4414b620` 完成验收检查点：health 与 Admin HTML 返回 `200`，HTML 引用的 10 个 JS/CSS 资源全部返回 `200`，未授权订单 API 返回 `401`；实时流量版本以 Cloudflare deployment 回读为准。
+扫描环境筛选依赖 PostgreSQL `0010_scan_record_environment.sql`。该迁移必须先于读取/写入 `scan_record.environment` 的新 Worker 部署；数据库默认值 `development` 仅用于迁移后、部署前兼容仍未传列的旧 dev Worker，应用回滚时保留列。新 Worker 必须由 `APP_ENVIRONMENT` 显式写入，缺失配置时返回 `503`，不能依赖数据库默认值。现有 PostgreSQL scan 记录基于已确认的 dev D1 迁移事实回填为 `development`；2026-09-07 实时复核确认 production scan 记录为 0。prod 不迁移 D1 历史记录，切换后的新记录由 `APP_ENVIRONMENT=production` 显式写入，不得复用 dev-only runner 的固定值或数据库默认值。
+
+2026-08-31 已按“先 migration、后应用”完成 dev 发布：`0010` 的 ledger、checksum、非空列、已验证约束、索引及 467 条 `development` 回填均经事务外复核；Cloudflare deployment `222a2069-4924-4fff-b28c-6248a884e457` 将 version `be0a5923-8c81-485c-b8a3-b0a982fca912` 置于 100% dev 流量。`/api/v1/health` 与 `/admin` 返回 `200`，Admin HTML 引用的 10 个 JS/CSS 资源全部返回 `200` 且 SHA-256 与本地 dev 构建一致，未授权 `/api/v1/admin/scans` 返回 `401 UNAUTHORIZED`。未部署 prod，也未执行登录态 Admin 环境筛选人工验收。
 
 仓库内证据：
 
 - `apps/admin-web/test/billing-admin-intent.test.mjs`：订单/通知页面意图、空值和交互边界。
+- `apps/admin-web/test/apple-notification-status.test.mjs`：通知主/子类型组合的状态名称翻译和未知组合边界。
 - `apps/workers-api/src/admin/billing-routes.integration.test.ts`：组合筛选、导出、通知失败记录和 payload 安全。
 - `apps/workers-api/src/admin/routes.test.ts`：既有 Admin 路由与权限。
 - `apps/workers-api/src/admin/cors-preflight.test.ts`：跨域预检边界。

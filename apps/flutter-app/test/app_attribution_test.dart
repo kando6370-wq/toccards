@@ -1,5 +1,9 @@
+import 'dart:async';
+
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/shared/attribution/app_attribution.dart';
+import 'package:kando_app/shared/attribution/singular_bootstrap.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -182,6 +186,218 @@ void main() {
       expect(events, isEmpty);
     },
   );
+
+  test('Singular subscription events use the SDK revenue method', () async {
+    const channel = MethodChannel('singular-api');
+    final methodCalls = <MethodCall>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          methodCalls.add(call);
+          return null;
+        });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null),
+    );
+    final gateway = SingularAttributionGateway(
+      loadCredentials: () async =>
+          const SingularCredentials(apiKey: 'api-key', secretKey: 'secret-key'),
+    );
+
+    final revenue = gateway.trackRevenue(
+      eventName: 'yearly_cardtest',
+      currency: 'USD',
+      value: 49.99,
+      transactionId: 'transaction-1',
+      productId: 'apple.yearly',
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(methodCalls, isEmpty);
+
+    await gateway.updateTrackingStatus(AppTrackingStatus.authorized);
+    await revenue;
+    await Future<void>.delayed(Duration.zero);
+
+    expect(methodCalls.where((call) => call.method == 'start'), hasLength(1));
+    expect(
+      methodCalls.where((call) => call.method == 'customRevenueWithAttributes'),
+      hasLength(1),
+    );
+    expect(
+      methodCalls
+          .where((call) => call.method == 'customRevenueWithAttributes')
+          .single
+          .arguments,
+      {
+        'eventName': 'yearly_cardtest',
+        'currency': 'USD',
+        'amount': 49.99,
+        'attributes': {
+          'transaction_id': 'transaction-1',
+          'product_id': 'apple.yearly',
+        },
+      },
+    );
+    expect(methodCalls.where((call) => call.method == 'event'), isEmpty);
+  });
+
+  test(
+    'missing Singular credentials fail the handoff so revenue can stay pending',
+    () async {
+      final gateway = SingularAttributionGateway(
+        loadCredentials: () async => null,
+      );
+      await expectLater(
+        gateway.trackRevenue(
+          eventName: 'weekly_cardtest',
+          currency: 'CAD',
+          value: 5.49,
+          transactionId: 'transaction-1',
+          productId: 'apple.weekly',
+        ),
+        throwsStateError,
+      );
+    },
+  );
+
+  testWidgets('configuration retries back off and stop in the background', (
+    tester,
+  ) async {
+    final calls = _recordSdkCalls();
+    var attempts = 0;
+    var online = false;
+    final gateway = SingularAttributionGateway(
+      loadCredentials: () async {
+        attempts++;
+        if (!online) return null;
+        return const SingularCredentials(apiKey: 'key', secretKey: 'secret');
+      },
+    );
+    addTearDown(gateway.dispose);
+    await gateway.updateTrackingStatus(AppTrackingStatus.denied);
+    final initialAttempts = attempts;
+    await tester.pump(const Duration(seconds: 4));
+    expect(attempts, initialAttempts);
+    await tester.pump(const Duration(seconds: 1));
+    expect(attempts, initialAttempts + 1);
+    await tester.pump(const Duration(seconds: 14));
+    expect(attempts, initialAttempts + 1);
+    await tester.pump(const Duration(seconds: 1));
+    expect(attempts, initialAttempts + 2);
+    await tester.pump(const Duration(seconds: 30));
+    expect(attempts, initialAttempts + 3);
+    await tester.pump(const Duration(seconds: 60));
+    expect(attempts, initialAttempts + 4);
+
+    gateway.setForeground(false);
+    online = true;
+    await tester.pump(const Duration(minutes: 5));
+    expect(attempts, initialAttempts + 4);
+    expect(calls, isEmpty);
+    gateway.setForeground(true);
+    await gateway.updateTrackingStatus(AppTrackingStatus.authorized);
+    expect(calls.where((call) => call.method == 'start'), hasLength(1));
+    await tester.pump(const Duration(minutes: 5));
+    expect(attempts, initialAttempts + 5);
+  });
+
+  testWidgets('configuration retry never starts the SDK before the ATT gate', (
+    tester,
+  ) async {
+    final calls = _recordSdkCalls();
+    var online = false;
+    final gateway = SingularAttributionGateway(
+      loadCredentials: () async {
+        if (!online) throw StateError('offline');
+        return const SingularCredentials(apiKey: 'key', secretKey: 'secret');
+      },
+    );
+    addTearDown(gateway.dispose);
+    await tester.pump();
+    online = true;
+    await tester.pump(const Duration(minutes: 2));
+    expect(calls, isEmpty);
+    await gateway.updateTrackingStatus(AppTrackingStatus.denied);
+    final start = calls.where((call) => call.method == 'start').single;
+    expect((start.arguments as Map)['limitDataSharing'], true);
+  });
+
+  test(
+    'concurrent recovery shares configuration and initializes SDK once',
+    () async {
+      final calls = _recordSdkCalls();
+      final response = Completer<SingularCredentials?>();
+      var attempts = 0;
+      final gateway = SingularAttributionGateway(
+        loadCredentials: () {
+          attempts++;
+          return response.future;
+        },
+      );
+      addTearDown(gateway.dispose);
+      final authorized = gateway.updateTrackingStatus(
+        AppTrackingStatus.authorized,
+      );
+      final denied = gateway.updateTrackingStatus(AppTrackingStatus.denied);
+      final revenue = gateway.trackRevenue(
+        eventName: 'weekly_cardtest',
+        currency: 'USD',
+        value: 3.99,
+        transactionId: 'transaction-1',
+        productId: 'cardx.week',
+      );
+      response.complete(
+        const SingularCredentials(apiKey: 'key', secretKey: 'secret'),
+      );
+      await Future.wait([authorized, denied, revenue]);
+      expect(attempts, 1);
+      final start = calls.where((call) => call.method == 'start').single;
+      expect((start.arguments as Map)['limitDataSharing'], true);
+      expect(
+        calls.where((call) => call.method == 'customRevenueWithAttributes'),
+        hasLength(1),
+      );
+    },
+  );
+
+  testWidgets('disposing cancels retries and ignores an in-flight response', (
+    tester,
+  ) async {
+    final calls = _recordSdkCalls();
+    final response = Completer<SingularCredentials?>();
+    var attempts = 0;
+    final gateway = SingularAttributionGateway(
+      loadCredentials: () async {
+        attempts++;
+        return attempts == 1 ? null : response.future;
+      },
+    );
+    await gateway.updateTrackingStatus(AppTrackingStatus.denied);
+    await tester.pump(const Duration(seconds: 5));
+    expect(attempts, 2);
+    gateway.dispose();
+    response.complete(
+      const SingularCredentials(apiKey: 'key', secretKey: 'secret'),
+    );
+    await tester.pump(const Duration(minutes: 5));
+    expect(attempts, 2);
+    expect(calls, isEmpty);
+  });
+}
+
+List<MethodCall> _recordSdkCalls() {
+  const channel = MethodChannel('singular-api');
+  final calls = <MethodCall>[];
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(channel, (call) async {
+        calls.add(call);
+        return null;
+      });
+  addTearDown(
+    () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, null),
+  );
+  return calls;
 }
 
 class _StartupStorage implements AppAttributionStartupStorage {

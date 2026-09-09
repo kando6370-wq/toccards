@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/card_detail/card_detail_models.dart';
 import '../features/card_detail/card_detail_page.dart';
 import '../features/collection/collection_page.dart';
 import '../features/home/home_page.dart';
@@ -16,6 +17,7 @@ import '../features/search/search_page.dart';
 import '../features/search/set_detail_page.dart';
 import '../features/subscription/subscription_controller.dart';
 import '../features/subscription/subscription_page.dart';
+import '../features/subscription/subscription_route_page.dart';
 import '../features/subscription/startup_subscription_gate.dart';
 import '../shared/analytics/analytics_events.dart';
 import '../shared/analytics/app_analytics.dart';
@@ -61,19 +63,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/scan',
-        builder: (context, state) => const AnalyticsPageView(
-          event: AnalyticsEvent.scanView,
-          child: ScanPage(),
+        pageBuilder: (context, state) => _mainTabPage(
+          state,
+          const AnalyticsPageView(
+            event: AnalyticsEvent.scanView,
+            child: ScanPage(),
+          ),
         ),
       ),
       GoRoute(
         path: '/cards/:cardId',
         builder: (context, state) {
+          final cardId = state.pathParameters['cardId'] ?? '';
+          final extra = state.extra;
+          final preview = extra is CardDetailPreview && extra.cardId == cardId
+              ? extra
+              : null;
           final collectionType =
               state.uri.queryParameters['collection'] ??
               AnalyticsValue.collectionNormal;
           return CardDetailPage(
-            cardId: state.pathParameters['cardId'] ?? '',
+            cardId: cardId,
+            preview: preview,
             collectionItemId: state.uri.queryParameters['item_id'],
             collectionType: collectionType,
             entrySource:
@@ -88,7 +99,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           key: state.pageKey,
           barrierColor: const Color(0xB8000000),
           isDismissible: true,
-          heightFactor: 0.85,
+          heightFactor: 0.93,
           child: const QuickCollectionReviewPage(heightFactor: 1),
         ),
       ),
@@ -138,29 +149,32 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final sheet = state.uri.queryParameters['presentation'] == 'sheet';
           final source = state.uri.queryParameters['source'];
           final entrySource = state.uri.queryParameters['entry_source'];
+          final analyticsScene = state.uri.queryParameters['scene'];
           if (sheet) {
             return KandoBottomSheetPage<SubscriptionPaywallResult>(
               key: state.pageKey,
               barrierColor: const Color(0x99000000),
               isDismissible: false,
               useSafeArea: true,
-              heightFactor: 0.85,
+              heightFactor: subscriptionSheetHeightFactor,
+              sheetAnimationStyle: subscriptionSheetAnimationStyle,
               child: SubscriptionPage(
                 sheet: true,
                 source: source,
                 entrySource: entrySource,
+                analyticsScene: analyticsScene,
               ),
             );
           }
-          return CustomTransitionPage<SubscriptionPaywallResult>(
+          return KandoSubscriptionPage<SubscriptionPaywallResult>(
             key: state.pageKey,
-            opaque: true,
+            source: source,
             child: SubscriptionPage(
               sheet: false,
               source: source,
               entrySource: entrySource,
+              analyticsScene: analyticsScene,
             ),
-            transitionsBuilder: (_, _, _, child) => child,
           );
         },
       ),

@@ -34,6 +34,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241127.0",
+    "@electric-sql/pglite": "0.5.7",
     "@types/node": "^26.3.0",
     "drizzle-kit": "^0.30.0",
     "esbuild": "^0.28.2",

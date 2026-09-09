@@ -121,11 +121,11 @@ void main() {
   );
 
   test(
-    'card share uses the environment fallback when config is absent',
+    'card share uses the environment fallback when configuration cannot be fetched',
     () async {
       ShareParams? shared;
       final actions = PluginCardDetailActions(
-        _FakeAppUpgradeRepository(const AppUpgradeConfig()),
+        _FakeAppUpgradeRepository(const AppUpgradeConfig(), fail: true),
         share: (params) async => shared = params,
         platform: TargetPlatform.iOS,
       );
@@ -146,10 +146,14 @@ void main() {
 }
 
 class _FakeAppUpgradeRepository implements AppUpgradeRepository {
-  const _FakeAppUpgradeRepository(this.config);
+  const _FakeAppUpgradeRepository(this.config, {this.fail = false});
 
   final AppUpgradeConfig config;
+  final bool fail;
 
   @override
-  Future<AppUpgradeConfig> loadConfig() async => config;
+  Future<AppUpgradeConfig> loadConfig() async {
+    if (fail) throw StateError('Config is offline');
+    return config;
+  }
 }

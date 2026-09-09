@@ -9,19 +9,22 @@ Flutter App ------------+
                          +--> Cloudflare Workers (`/api/v1`)
 React Admin -- assets ---+        |-- PlanetScale PostgreSQL（经 Hyperdrive）: 业务与目录真源
                                   |-- KV: 可重建缓存
-                                  |-- R2: 扫描图片
-                                  +-- OAuth、邮件、OCR、汇率和 Apple 服务
+                                  |-- R2: 受保护的扫描卡面图片
+                                  |-- recognize-vec: Service Binding 向量检索
+                                  +-- OAuth、邮件、汇率和 Apple 服务
 
 Marketing Web -----------------> 独立 Cloudflare 静态站点
 ```
 
-Workers 是 App 与 Admin 的服务端安全边界。客户端不得直连 PostgreSQL、KV 或 R2；Admin 构建产物由 Workers assets 托管，营销站点独立部署。当前 dev 已使用 PlanetScale PostgreSQL/Hyperdrive；截至 2026-08-25，现网 prod 仍运行 v1.0 D1 版本 `57213c10-d392-43a9-8d34-c6472fc3febc`。v1.1 prod 的目标是完成生产数据迁移与冲突审计后切换到 dev 共用的 PostgreSQL；运行环境、Apple 配置、KV、R2、域名和 secrets 继续隔离。
+Workers 是 App 与 Admin 的服务端安全边界。客户端不得直连 PostgreSQL、KV 或 R2；Admin 构建产物由 Workers assets 托管，营销站点独立部署。测试环境 dev/test 与正式环境 prod 均已完成 PostgreSQL 迁移，D1 已废弃；2026-09-09 用户确认与 Cloudflare 回读一致，两环境均绑定同一个 PlanetScale PostgreSQL/Hyperdrive，当前运行版本均无 D1 binding。运行环境、Apple 配置、KV、R2、域名和 secrets 继续隔离。后续数据库变更仅涉及 PostgreSQL schema 和业务数据修复，见 [数据迁移](docs/releases/v1.1.0/03-data-api/migration.md)，不再安排 D1 移库任务。
+
+`dev` 已合入端侧模型与 512 维向量识别，主 API 经 `VECTOR_RECOGNITION` 调用 `recognize-vec`。当前 App 要求 iOS 16+ 或 Android API 24+；Flutter Web 可用于其他页面开发，暂不支持扫描。扫描协议、平台资源及新旧 App 兼容边界见 [扫描识别链路](docs/releases/v1.1.0/01-flows/scan-recognition.md)。
 
 ## 仓库结构
 
 | 路径 | 职责 |
 |---|---|
-| `apps/flutter-app` | iOS、Android 和 Web Flutter 客户端 |
+| `apps/flutter-app` | iOS、Android 和 Web Flutter 客户端；扫描仅支持 iOS/Android |
 | `apps/workers-api` | Hono API、PostgreSQL/Hyperdrive 访问层、PostgreSQL migrations、Worker 部署入口 |
 | `apps/admin-web` | React 管理后台 |
 | `apps/marketing-web` | 营销、法律和公开站点 |
@@ -63,7 +66,7 @@ pnpm --filter @kando/admin-web dev
 pnpm --filter @kando/marketing-web dev
 ```
 
-各进程仍需要其目标环境可用的配置和本地/远程 Cloudflare 资源；启动命令成功不等于 Apple、OCR、邮件或生产资源已配置。
+各进程仍需要其目标环境可用的配置和本地/远程 Cloudflare 资源；启动命令成功不等于 Apple、向量识别服务、邮件或生产资源已配置。
 
 ## 质量检查
 
@@ -88,6 +91,8 @@ dart run melos run test
 - Workers 与 Admin prod：`pnpm --filter @kando/workers-api run deploy:prod`。
 - Marketing：`pnpm --filter @kando/marketing-web run deploy`。
 - iOS GitHub Actions 当前只执行 unsigned release compile gate，不等于签名、TestFlight 或真机验收。
+
+dev 后续发布以已合入向量识别的 `dev` 为来源。`dev-wxy`、`dev-xiangyang`、`dev-update-dio`、`dev-scan-page-update-ui` 已于 2026-09-09 清理，本地与远程均不再作为工作分支；文档中带提交号的旧分支名仅保留来源追踪含义。当前运行版本与验收范围见 [发布与验证](docs/releases/v1.1.0/05-delivery/VERIFICATION.md)。
 
 部署、远程迁移、生产写入和发布都需要单独明确授权；Git push 不会自动代表这些操作已获授权。
 

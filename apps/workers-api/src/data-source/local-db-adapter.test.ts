@@ -327,18 +327,18 @@ describe("PostgreSQL card data source adapter", () => {
     ]);
   });
 
-  it("loads a card number by id because scan disambiguation compares exact printings", async () => {
-    const adapter = createLocalDbDataSourceAdapter(
-      new FakeCardDatabase(
-        [card({ product_id: "100", name: "Leafeon ex", number: "200/187" })],
-        [],
-      ) as unknown as D1Database,
+  it("loads a card number by id because Card Detail and Review preserve exact printing identity", async () => {
+    const db = new FakeCardDatabase(
+      [card({ product_id: "100", name: "Leafeon ex", number: "200/187" })],
+      [],
     );
+    const adapter = createLocalDbDataSourceAdapter(db as unknown as D1Database);
 
     await expect(adapter.getCard("100")).resolves.toMatchObject({
       card_ref: "100",
       card_number: "200/187",
     });
+    expect(db.preparedSql.filter((sql) => sql.includes("FROM cards_all"))).toHaveLength(1);
   });
 
   it("returns only the card's distinct SKU qualifiers because collection editing must not offer nonexistent variants", async () => {
@@ -1006,6 +1006,48 @@ describe("PostgreSQL card data source adapter", () => {
         url: "https://www.tcgplayer.com/product/100",
       },
     ]);
+  });
+
+  it("starts Shop card and price reads together because independent PostgreSQL waits must not serialize Card Detail", async () => {
+    let releaseCard!: () => void;
+    const cardBlocked = new Promise<void>((resolve) => {
+      releaseCard = resolve;
+    });
+    const started: string[] = [];
+    const db = {
+      prepare(sql: string) {
+        return {
+          bind() {
+            if (sql.includes("FROM cards_all")) {
+              return {
+                async first() {
+                  started.push("card");
+                  await cardBlocked;
+                  return card({ product_id: "100", name: "Charizard" });
+                },
+              };
+            }
+            return {
+              async all() {
+                started.push("prices");
+                return { results: [] };
+              },
+            };
+          },
+        };
+      },
+    };
+    const pending = createLocalDbDataSourceAdapter(
+      db as unknown as D1Database,
+    ).getSoldListings("100");
+
+    await Promise.resolve();
+    await Promise.resolve();
+    const startedBeforeCardCompleted = [...started];
+    releaseCard();
+    await pending;
+
+    expect(startedBeforeCardCompleted).toEqual(["card", "prices"]);
   });
 
   it("reads the published Trending snapshot because Home must not scan all current prices", async () => {

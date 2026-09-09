@@ -35,6 +35,22 @@ final homeControllerProvider = NotifierProvider<HomeController, HomeState>(
   HomeController.new,
 );
 
+final homeDashboardTabProvider =
+    NotifierProvider<HomeDashboardTabController, HomeDashboardTab>(
+      HomeDashboardTabController.new,
+    );
+
+enum HomeDashboardTab { overview, performance }
+
+class HomeDashboardTabController extends Notifier<HomeDashboardTab> {
+  @override
+  HomeDashboardTab build() => HomeDashboardTab.overview;
+
+  void select(HomeDashboardTab tab) {
+    state = tab;
+  }
+}
+
 enum HomeCoreLoadResult { content, failure }
 
 final homeAutomaticRetryDelaysProvider = Provider<List<Duration>>((ref) {
@@ -286,6 +302,10 @@ class HomeController extends Notifier<HomeState> {
     );
   }
 
+  Future<void> get trendingLoadComplete {
+    return _trendingLoadCompleter?.future ?? Future<void>.value();
+  }
+
   bool get _isCoreLoadInFlight =>
       _coreLoadCompleter != null && !_coreLoadCompleter!.isCompleted;
 
@@ -322,6 +342,10 @@ class HomeController extends Notifier<HomeState> {
       await coreLoadComplete;
       return;
     }
+    await refreshPreservingContent();
+  }
+
+  Future<void> refreshPreservingContent() async {
     final previousState = state;
     final nextState = _loadDashboard(
       currency: state.currency,

@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -21,14 +22,217 @@ import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/portfolio/pending_collection.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
+import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/toast.dart';
+import 'package:skeletonizer/skeletonizer.dart';
 
 import '../support/in_memory_auth_storage.dart';
 import '../support/local_placeholder_auth_repository.dart';
 import '../support/mock_card_detail_repository.dart';
 
 void main() {
+  test('Performance tooltip separates Figma label and value styles', () {
+    final span = buildCardDetailChartTooltipRow(r'Market Value: $790.00');
+    final children = span.children!.cast<TextSpan>();
+
+    expect(children, hasLength(2));
+    expect(children[0].text, 'Market Value:');
+    expect(children[0].style?.color, const Color(0xFF999578));
+    expect(children[0].style?.fontFamily, 'Geist');
+    expect(children[0].style?.fontSize, 12);
+    expect(children[0].style?.height, 18 / 12);
+    expect(children[1].text, r' $790.00');
+    expect(children[1].style?.color, KandoColors.accent);
+    expect(children[1].style?.fontSize, 10);
+    expect(children[1].style?.height, 14 / 10);
+  });
+
+  testWidgets(
+    'CardDetail keeps a stable page shell while the initial detail is loading',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+      final repository = _BlockingCardDetailRepository(blockInitialLoad: true);
+      await tester.pumpWidget(
+        _CardDetailTestApp(
+          cardId: 'squirtle',
+          repository: repository,
+          preview: const CardDetailPreview(
+            cardId: 'squirtle',
+            name: 'Squirtle preview',
+            imageUrl: 'https://image.tcgcard.fun/cards/squirtle.jpg',
+            game: 'Pokemon',
+            setName: 'Mega Evolution Promos',
+            identityLine: 'Promo #039',
+          ),
+        ),
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CardDetailPage)),
+      );
+      await container.read(authControllerProvider.notifier).startupComplete;
+      await tester.pump();
+
+      expect(repository.calls, 1);
+      expect(find.byKey(const Key('card-detail-back')), findsOneWidget);
+      expect(find.byType(KandoLoadingBlock), findsNothing);
+      expect(
+        find.byKey(const Key('card-detail-loading-skeleton')),
+        findsOneWidget,
+      );
+      final initialSkeleton = tester.widget<Skeletonizer>(
+        find.byKey(const Key('card-detail-loading-skeleton')),
+      );
+      final initialShimmer = initialSkeleton.effect as RawShimmerEffect;
+      expect(initialShimmer.stops, const [0.4, 0.5, 0.6]);
+      expect(initialShimmer.duration, const Duration(milliseconds: 1800));
+      expect(find.text('Squirtle preview'), findsOneWidget);
+      expect(
+        find.byKey(const Key('card-detail-preview-image')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+
+      repository.completePendingLoad();
+      await tester.pumpAndSettle();
+      expect(find.text('Squirtle'), findsOneWidget);
+    },
+  );
+
+  testWidgets('CardDetail pull refresh keeps the current detail visible', (
+    tester,
+  ) async {
+    final repository = _BlockingCardDetailRepository();
+    await tester.pumpWidget(
+      _CardDetailTestApp(cardId: 'squirtle', repository: repository),
+    );
+    await tester.pumpAndSettle();
+
+    final indicator = find.byKey(const Key('card-detail-pull-to-refresh'));
+    final refresh = tester.state<RefreshIndicatorState>(indicator).show();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(repository.calls, 2);
+    expect(find.byType(RefreshProgressIndicator), findsOneWidget);
+    expect(find.byType(KandoLoadingBlock), findsNothing);
+    expect(find.text('Squirtle'), findsOneWidget);
+
+    repository.completePendingLoad();
+    await refresh;
+    await tester.pumpAndSettle();
+
+    expect(find.byType(RefreshProgressIndicator), findsNothing);
+    expect(find.text('Squirtle'), findsOneWidget);
+  });
+
+  testWidgets(
+    'owned CardDetail shows its core action while the collection Item context is still loading',
+    (tester) async {
+      final repository = _BlockingAssetStateCardDetailRepository();
+      final actions = _RecordingCardDetailActions();
+      await tester.pumpWidget(
+        _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          collectionItemId: 'item-charizard',
+          repository: repository,
+          actions: actions,
+        ),
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CardDetailPage)),
+      );
+      await container.read(authControllerProvider.notifier).startupComplete;
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        find.byKey(const Key('card-detail-view-sold-listings')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('card-detail-asset-state-loading')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('card-detail-owned-tabs-loading')),
+        findsOneWidget,
+      );
+      final tabsSkeleton = tester.widget<Skeletonizer>(
+        find.byKey(const Key('card-detail-owned-tabs-loading')),
+      );
+      final tabsShimmer = tabsSkeleton.effect as RawShimmerEffect;
+      expect(tabsShimmer.stops, const [0.4, 0.5, 0.6]);
+      expect(tabsShimmer.duration, const Duration(milliseconds: 1800));
+      expect(
+        tester
+            .getSize(
+              find.byKey(const Key('card-detail-owned-tabs-loading-control')),
+            )
+            .height,
+        52,
+      );
+      expect(find.byKey(const Key('card-detail-owned-tabs')), findsNothing);
+
+      await tester.tap(find.byKey(const Key('card-detail-view-sold-listings')));
+      await tester.pump();
+      expect(actions.soldListingsName, 'Charizard ex');
+      expect(actions.soldListingsSetName, 'Obsidian Flames');
+
+      repository.completeAssetState();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('card-detail-view-sold-listings')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('card-detail-owned-tabs-loading')),
+        findsNothing,
+      );
+      expect(find.byKey(const Key('card-detail-owned-tabs')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'owned CardDetail keeps its core action and existing asset retry when collection state fails',
+    (tester) async {
+      final repository = _BlockingAssetStateCardDetailRepository();
+      await tester.pumpWidget(
+        _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          collectionItemId: 'item-charizard',
+          repository: repository,
+        ),
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CardDetailPage)),
+      );
+      await container.read(authControllerProvider.notifier).startupComplete;
+      await tester.pump();
+      await tester.pump();
+
+      repository.failAssetState();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('card-detail-view-sold-listings')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('card-detail-asset-state-failure')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('card-detail-owned-tabs-loading')),
+        findsNothing,
+      );
+      expect(find.byKey(const Key('card-detail-owned-tabs')), findsNothing);
+    },
+  );
+
   testWidgets(
     'product 180865 shows Normal and Foil tabs and switching refreshes material prices',
     (tester) async {
@@ -218,6 +422,60 @@ void main() {
     expect(actionWidth, heroWidth);
     expect(tabsWidth, heroWidth);
   });
+
+  testWidgets(
+    'owned CardDetail tabs match Figma typography without truncating labels',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(const _CardDetailTestApp(cardId: 'charizard-ex'));
+      await tester.pumpAndSettle();
+
+      final tabs = find.byKey(const Key('card-detail-owned-tabs'));
+      await tester.scrollUntilVisible(tabs, 400);
+      await tester.pumpAndSettle();
+
+      final tabBar = tester.widget<TabBar>(
+        find.descendant(of: tabs, matching: find.byType(TabBar)),
+      );
+      expect(tabBar.labelPadding, EdgeInsets.zero);
+
+      TextStyle labelStyle(String label) => DefaultTextStyle.of(
+        tester.element(find.descendant(of: tabs, matching: find.text(label))),
+      ).style;
+
+      for (final label in const ['Collection Item', 'Performance', 'Price']) {
+        final labelFinder = find.descendant(
+          of: tabs,
+          matching: find.text(label),
+        );
+        expect(labelFinder, findsOneWidget);
+        final style = labelStyle(label);
+        expect(style.fontSize, 13);
+        expect(style.height, closeTo(16 / 13, 0.001));
+        expect(style.fontWeight, FontWeight.w400);
+        expect(style.letterSpacing, 0);
+        expect(
+          tester.renderObject<RenderParagraph>(labelFinder).didExceedMaxLines,
+          isFalse,
+        );
+      }
+
+      expect(labelStyle('Collection Item').color, KandoColors.accent);
+      expect(labelStyle('Performance').color, const Color(0xFF92927D));
+      expect(labelStyle('Price').color, const Color(0xFF92927D));
+
+      await tester.tap(find.descendant(of: tabs, matching: find.text('Price')));
+      await tester.pumpAndSettle();
+
+      expect(labelStyle('Collection Item').color, const Color(0xFF92927D));
+      expect(labelStyle('Performance').color, const Color(0xFF92927D));
+      expect(labelStyle('Price').color, KandoColors.accent);
+    },
+  );
 
   testWidgets('uncollected CardDetail renders identity and price overview', (
     tester,
@@ -1304,6 +1562,63 @@ void main() {
   );
 
   testWidgets(
+    'In Your Portfolio editor uses the shared backed footer and visible Save loading',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final repository = _DelayedUpdateCardDetailRepository();
+      await tester.pumpWidget(
+        _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          collectionItemId: null,
+          repository: repository,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final item = find.byKey(
+        const Key('card-detail-portfolio-item-item-charizard'),
+      );
+      await tester.scrollUntilVisible(item, 400);
+      await tester.ensureVisible(item);
+      await tester.tap(item);
+      await tester.pumpAndSettle();
+
+      final sheet = find.byKey(const Key('card-detail-edit-item-sheet'));
+      final footer = find.byKey(const Key('card-detail-item-edit-footer'));
+      expect(sheet, findsOneWidget);
+      expect(footer, findsOneWidget);
+      expect(
+        tester.getBottomRight(footer).dy,
+        closeTo(tester.getBottomRight(sheet).dy, 0.01),
+      );
+      final footerDecoration =
+          tester.widget<Container>(footer).decoration! as BoxDecoration;
+      expect(footerDecoration.color, KandoColors.ink);
+
+      final save = find.byKey(const Key('card-detail-edit-item-sheet-save'));
+      await tester.tap(save);
+      await tester.pump();
+
+      expect(repository.pendingUpdate, isNotNull);
+      final progress = tester.widget<CircularProgressIndicator>(
+        find.descendant(
+          of: save,
+          matching: find.byType(CircularProgressIndicator),
+        ),
+      );
+      expect(progress.color, KandoColors.primaryOnDefault);
+      expect(tester.widget<TextButton>(save).onPressed, isNull);
+
+      repository.completeUpdate();
+      await tester.pumpAndSettle();
+      expect(sheet, findsNothing);
+    },
+  );
+
+  testWidgets(
     'In Your Portfolio editor removes only after Figma confirmation because cancellation must preserve the saved Item',
     (tester) async {
       tester.view.physicalSize = const Size(390, 844);
@@ -1469,6 +1784,38 @@ void main() {
     },
   );
 
+  testWidgets(
+    'owned CardDetail displays the requested Collection Item because same-card versions keep independent ownership data',
+    (tester) async {
+      await tester.pumpWidget(
+        const _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          collectionItemId: 'item-charizard-sealed',
+          repository: _MultiItemCardDetailRepository(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(find.text('Collection Item'), 400);
+
+      expect(
+        find.byKey(
+          const Key('card-detail-collection-item-item-charizard-sealed'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('card-detail-collection-item-item-charizard')),
+        findsNothing,
+      );
+      expect(find.text('Sealed'), findsOneWidget);
+      expect(find.text('2'), findsOneWidget);
+      expect(find.text(r'$20.00'), findsOneWidget);
+      expect(find.text('Hidden duplicate item.'), findsOneWidget);
+      expect(find.text('Pulled from Obsidian Flames binder.'), findsNothing);
+    },
+  );
+
   testWidgets('owned CardDetail can switch to Price overview', (tester) async {
     await tester.pumpWidget(const _CardDetailTestApp(cardId: 'charizard-ex'));
     await tester.pumpAndSettle();
@@ -1486,6 +1833,68 @@ void main() {
     expect(find.byKey(const Key('card-detail-price-chart')), findsOneWidget);
     expect(find.text('RAW'), findsOneWidget);
     expect(find.text('GRADED'), findsOneWidget);
+    final priceModeControl = find.byKey(
+      const Key('card-detail-price-mode-control'),
+    );
+    expect(tester.getSize(priceModeControl), const Size(150, 24));
+    final rawMode = tester.widget<Container>(
+      find.byKey(const Key('card-detail-price-mode-raw')),
+    );
+    final rawDecoration = rawMode.decoration! as BoxDecoration;
+    expect(tester.getSize(find.byWidget(rawMode)), const Size(74, 24));
+    expect(
+      rawDecoration.borderRadius,
+      const BorderRadius.only(
+        topLeft: Radius.circular(6),
+        bottomLeft: Radius.circular(6),
+      ),
+    );
+    expect(
+      (rawDecoration.border! as Border).top.color,
+      const Color(0x1A90927C),
+    );
+    expect(rawDecoration.boxShadow, const [
+      BoxShadow(color: Color(0x0D000000), offset: Offset(0, 1), blurRadius: 2),
+      BoxShadow(
+        color: Color(0x1FFFFFFF),
+        offset: Offset(0.5, 0.5),
+        blurRadius: 0.5,
+        blurStyle: BlurStyle.inner,
+      ),
+    ]);
+    expect((rawDecoration.gradient! as LinearGradient).colors, const [
+      Color(0x99747B26),
+      Color(0x33747B26),
+    ]);
+    final gradedMode = tester.widget<Container>(
+      find.byKey(const Key('card-detail-price-mode-graded')),
+    );
+    final gradedDecoration = gradedMode.decoration! as BoxDecoration;
+    expect(tester.getSize(find.byWidget(gradedMode)), const Size(77, 24));
+    final rawRect = tester.getRect(find.byWidget(rawMode));
+    final gradedRect = tester.getRect(find.byWidget(gradedMode));
+    expect(rawRect.right - gradedRect.left, 1);
+    expect(
+      gradedDecoration.borderRadius,
+      const BorderRadius.only(
+        topRight: Radius.circular(6),
+        bottomRight: Radius.circular(6),
+      ),
+    );
+    expect(
+      (gradedDecoration.border! as Border).top.color,
+      const Color(0x1A90927C),
+    );
+    expect(gradedDecoration.boxShadow, const [
+      BoxShadow(color: Color(0x0D000000), offset: Offset(0, 1), blurRadius: 1),
+      BoxShadow(
+        color: Color(0x1FFFFFFF),
+        offset: Offset(0.5, 0.5),
+        blurRadius: 0.5,
+        blurStyle: BlurStyle.inner,
+      ),
+    ]);
+    expect(gradedDecoration.color, KandoColors.surface);
     expect(find.text('1M'), findsOneWidget);
     expect(find.text('Market Prices'), findsOneWidget);
     expect(find.text('Shop'), findsOneWidget);
@@ -1517,6 +1926,37 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('GRADED'));
     await tester.pumpAndSettle();
+    final selectedGradedMode = tester.widget<Container>(
+      find.byKey(const Key('card-detail-price-mode-graded')),
+    );
+    final selectedGradedDecoration =
+        selectedGradedMode.decoration! as BoxDecoration;
+    expect(
+      (selectedGradedDecoration.gradient! as LinearGradient).colors,
+      const [Color(0x99747B26), Color(0x33747B26)],
+    );
+    expect(
+      selectedGradedDecoration.borderRadius,
+      const BorderRadius.only(
+        topRight: Radius.circular(6),
+        bottomRight: Radius.circular(6),
+      ),
+    );
+    expect(selectedGradedDecoration.boxShadow!.first.blurRadius, 2);
+    final unselectedRawMode = tester.widget<Container>(
+      find.byKey(const Key('card-detail-price-mode-raw')),
+    );
+    final unselectedRawDecoration =
+        unselectedRawMode.decoration! as BoxDecoration;
+    expect(unselectedRawDecoration.color, KandoColors.surface);
+    expect(
+      unselectedRawDecoration.borderRadius,
+      const BorderRadius.only(
+        topLeft: Radius.circular(6),
+        bottomLeft: Radius.circular(6),
+      ),
+    );
+    expect(unselectedRawDecoration.boxShadow!.first.blurRadius, 1);
     expect(find.text('PSA 10'), findsOneWidget);
     expect(find.text('BGS 10'), findsOneWidget);
     expect(find.text('PSA 10 Holofoil'), findsNothing);
@@ -1545,6 +1985,48 @@ void main() {
     expect(find.text(r'$780.00'), findsWidgets);
     expect(find.text('Shop'), findsOneWidget);
   });
+
+  testWidgets(
+    'Graded price chart uses ten colors before repeating its palette',
+    (tester) async {
+      await tester.pumpWidget(
+        const _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          repository: _GradedPaletteCardDetailRepository(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(find.text('Price'), 400);
+      await tester.tap(find.text('Price'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('GRADED'));
+      await tester.pumpAndSettle();
+
+      final legendSwatches = find.byWidgetPredicate(
+        (widget) =>
+            widget is Container &&
+            widget.constraints ==
+                const BoxConstraints.tightFor(width: 10, height: 2),
+      );
+      final legendColors = tester
+          .widgetList<Container>(legendSwatches)
+          .map((widget) => widget.color)
+          .toList();
+      expect(legendColors, const [
+        KandoColors.accent,
+        Color(0xFF53D8C4),
+        Color(0xFFFFB15A),
+        Color(0xFFC6A7FF),
+        Color(0xFF7DCB72),
+        Color(0xFFE782A9),
+        Color(0xFF89CAFF),
+        Color(0xFF96E4CE),
+        Color(0xFFE496E3),
+        Color(0xFFA5BDFF),
+      ]);
+    },
+  );
 
   testWidgets('owned Collection Item can be edited from CardDetail', (
     tester,
@@ -1627,6 +2109,56 @@ void main() {
     expect(find.text('Near Mint (NM)'), findsOneWidget);
     expect(find.text('Cracked slab for binder.'), findsOneWidget);
   });
+
+  testWidgets(
+    'leaving Collection Item cancels edit mode because edit actions belong only to that tab',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(const _CardDetailTestApp(cardId: 'charizard-ex'));
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(find.text('Collection Item'), 400);
+      await tester.ensureVisible(find.text('Edit item'));
+      await tester.tap(find.text('Edit item'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('card-detail-item-edit-footer')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('card-detail-item-quantity')),
+        findsOneWidget,
+      );
+
+      await tester.drag(
+        find.byKey(const Key('card-detail-scroll')),
+        const Offset(0, 500),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Performance'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Performance'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('card-detail-item-edit-footer')),
+        findsNothing,
+      );
+      expect(find.text('SAVE CHANGES'), findsNothing);
+
+      await tester.ensureVisible(find.text('Collection Item'));
+      await tester.tap(find.text('Collection Item'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Edit item'), findsOneWidget);
+      expect(find.byKey(const Key('card-detail-item-quantity')), findsNothing);
+    },
+  );
 
   testWidgets(
     'graded edit keeps grader and grade choices inline because both belong to one Figma state',
@@ -1734,6 +2266,53 @@ void main() {
 
       expect(find.text('Edit item'), findsOneWidget);
       expect(find.text('SAVE CHANGES'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Card Performance keeps its range across tabs but resets to 1M after reentry',
+    (tester) async {
+      BoxDecoration rangeDecoration(String range) {
+        final indicator = find.ancestor(
+          of: find.byKey(Key('card-detail-performance-range-$range')),
+          matching: find.byType(Ink),
+        );
+        expect(indicator, findsOneWidget);
+        return tester.widget<Ink>(indicator).decoration! as BoxDecoration;
+      }
+
+      await tester.pumpWidget(const _CardDetailReentryApp());
+      await tester.tap(find.byKey(const Key('open-card-detail')));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Performance'), 400);
+      await tester.tap(find.text('Performance'));
+      await tester.pumpAndSettle();
+
+      expect(rangeDecoration('1M').gradient, isNotNull);
+      expect(rangeDecoration('3M').gradient, isNull);
+
+      await tester.tap(
+        find.byKey(const Key('card-detail-performance-range-3M')),
+      );
+      await tester.pumpAndSettle();
+      expect(rangeDecoration('3M').gradient, isNotNull);
+
+      await tester.tap(find.text('Price'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Performance'));
+      await tester.pumpAndSettle();
+      expect(rangeDecoration('3M').gradient, isNotNull);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('open-card-detail')));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.text('Performance'), 400);
+      await tester.tap(find.text('Performance'));
+      await tester.pumpAndSettle();
+
+      expect(rangeDecoration('1M').gradient, isNotNull);
+      expect(rangeDecoration('3M').gradient, isNull);
     },
   );
 
@@ -2011,6 +2590,7 @@ class _CardDetailTestApp extends StatelessWidget {
     required this.cardId,
     this.actions,
     this.repository,
+    this.preview,
     this.entrySource = AnalyticsValue.sourceSearch,
     this.subscriptionController,
     this.performanceApi,
@@ -2020,6 +2600,7 @@ class _CardDetailTestApp extends StatelessWidget {
   final String cardId;
   final CardDetailActions? actions;
   final CardDetailRepository? repository;
+  final CardDetailPreview? preview;
   final String entrySource;
   final SubscriptionController Function()? subscriptionController;
   final PortfolioApiClient? performanceApi;
@@ -2046,6 +2627,7 @@ class _CardDetailTestApp extends StatelessWidget {
       child: MaterialApp(
         home: CardDetailPage(
           cardId: cardId,
+          preview: preview,
           collectionItemId: collectionItemId,
           entrySource: entrySource,
         ),
@@ -2387,6 +2969,39 @@ class _DelayedEditPriceCardDetailRepository
   );
 }
 
+class _GradedPaletteCardDetailRepository extends MockCardDetailRepository {
+  const _GradedPaletteCardDetailRepository();
+
+  @override
+  Future<CardDetail> loadDetail(AuthSession session, String cardId) async {
+    final detail = await super.loadDetail(session, cardId);
+    const points = [
+      CardPricePoint(dateLabel: 'Yesterday', priceUsd: 700),
+      CardPricePoint(dateLabel: 'Today', priceUsd: 710),
+    ];
+    return detail.copyWith(
+      gradedPriceSeries: [
+        for (final label in const [
+          'BGS 10',
+          'CGC 10',
+          'Grade 7',
+          'Grade 8',
+          'Grade 9',
+          'Grade 9.5',
+          'PSA 10',
+          'SGC 10',
+          'Future Grade A',
+          'Future Grade B',
+        ])
+          CardPriceChartSeries(
+            label: label,
+            seriesByRange: const {CardPriceRange.oneMonth: points},
+          ),
+      ],
+    );
+  }
+}
+
 class _CardDetailRouteApp extends StatelessWidget {
   const _CardDetailRouteApp();
 
@@ -2419,7 +3034,13 @@ class _CardDetailReentryApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ProviderScope(
-      overrides: _cardDetailOverrides,
+      overrides: [
+        ..._cardDetailOverrides,
+        portfolioApiClientProvider.overrideWithValue(_CardPerformanceApi()),
+        subscriptionControllerProvider.overrideWith(
+          _ProCardSubscriptionController.new,
+        ),
+      ],
       child: MaterialApp(
         home: Builder(
           builder: (context) => Scaffold(
@@ -2532,6 +3153,80 @@ class _DelayedUpdateCardDetailRepository extends MockCardDetailRepository {
         notes: 'Pulled from Obsidian Flames binder.',
       ),
     );
+  }
+}
+
+class _BlockingCardDetailRepository extends MockCardDetailRepository {
+  _BlockingCardDetailRepository({this.blockInitialLoad = false});
+
+  final bool blockInitialLoad;
+  Completer<CardDetail>? _pendingLoad;
+  int calls = 0;
+
+  @override
+  Future<CardDetail> loadDetail(AuthSession session, String cardId) {
+    calls += 1;
+    if (!blockInitialLoad && calls == 1) {
+      return super.loadDetail(session, cardId);
+    }
+    _pendingLoad = Completer<CardDetail>();
+    return _pendingLoad!.future;
+  }
+
+  Future<void> completePendingLoad() async {
+    final pendingLoad = _pendingLoad;
+    if (pendingLoad == null || pendingLoad.isCompleted) return;
+    pendingLoad.complete(
+      await super.loadDetail(
+        const AuthSession(
+          ownerType: OwnerType.anonymous,
+          accessToken: 'test-access',
+          refreshToken: 'test-refresh',
+        ),
+        'squirtle',
+      ),
+    );
+  }
+}
+
+class _BlockingAssetStateCardDetailRepository
+    extends _FinishTabCardDetailRepository {
+  final Completer<CardDetail> _pendingAssetState = Completer<CardDetail>();
+  late CardDetail _fullDetail;
+
+  @override
+  Future<CardDetail> loadCoreDetail(String cardId) async {
+    _fullDetail = await const MockCardDetailRepository().loadDetail(
+      const AuthSession(
+        ownerType: OwnerType.anonymous,
+        accessToken: 'test-access',
+        refreshToken: 'test-refresh',
+      ),
+      cardId,
+    );
+    return _fullDetail.copyWith(
+      quantity: 0,
+      isWishlisted: false,
+      wishlistItemId: null,
+      portfolioFolders: const [],
+      collectionItems: const [],
+    );
+  }
+
+  @override
+  Future<CardDetail> loadAssetState(AuthSession session, CardDetail detail) =>
+      _pendingAssetState.future;
+
+  void completeAssetState() {
+    if (!_pendingAssetState.isCompleted) {
+      _pendingAssetState.complete(_fullDetail);
+    }
+  }
+
+  void failAssetState() {
+    if (!_pendingAssetState.isCompleted) {
+      _pendingAssetState.completeError(StateError('asset state unavailable'));
+    }
   }
 }
 

@@ -37,7 +37,8 @@ Flutter App ───────────────┐
 React Admin ── Worker ─────┘          ├─> PlanetScale PostgreSQL（经 Hyperdrive）：业务与目录真源
                                      ├─> KV：目录与汇率缓存
                                      ├─> R2：扫描图片
-                                     └─> OAuth、邮件、OCR、汇率等外部服务
+                                     ├─> recognize-vec：Service Binding 向量检索
+                                     └─> OAuth、邮件、汇率等外部服务
 
 Marketing Web ──> 独立的营销与法律页面
 ```
@@ -45,8 +46,9 @@ Marketing Web ──> 独立的营销与法律页面
 - Flutter App 只通过 Workers API 访问服务端数据，不直接连接 PostgreSQL、KV 或 R2。
 - Admin 是独立 React SPA，但构建产物由 Workers assets 托管，与对应环境的 API 一起部署。
 - Workers 是鉴权、账号归属、资产隔离、卡牌查询、扫描识别和 Admin 操作的服务端边界。
-- PlanetScale PostgreSQL 是 v1.1 业务与目录真源；当前 dev 已通过 Hyperdrive 使用该数据库，截至 2026-08-25 的现网 prod 仍运行 v1.0 D1 版本。v1.1 prod 必须在生产 D1 数据迁移、冲突审计和回滚演练完成后切换到同一 Hyperdrive；`APP_ENVIRONMENT`、Apple 配置、KV、R2、域名和 secrets 仍按环境隔离。
-- dev 的 D1 到 PostgreSQL 迁移已经完成；prod 的 v1.1 数据迁移与运行切换尚未执行。后续 v1.1 开发不得新增或恢复 D1 binding、schema、migration、类型依赖、测试基座、读写路径、数据补全、回退或灾备方案；现网 prod D1 只作为待下线的 v1.0 运行事实，不得成为新实现或回退依据。仓库中仍存在的 `D1Database` 兼容类型、Miniflare 测试和退役迁移工具属于待清理债务，只能在明确授权的清理任务中收敛，任何新功能或 BUG 修复不得复制、扩展或继续维护。`docs/releases/v1.0.0` 冻结内容仍按文档规则原样保留。
+- D1 已废弃；测试环境 dev/test 与正式环境 prod 均已完成 PostgreSQL 迁移并通过同一个 Hyperdrive 使用 PlanetScale PostgreSQL，业务与目录真源统一为 PostgreSQL。2026-09-09 用户再次确认该状态，Cloudflare 回读也确认两个当前运行版本均无 D1 binding。`APP_ENVIRONMENT`、Apple 配置、KV、R2、域名和 secrets 仍按环境隔离；后续发布不再包含 D1 迁移、冲突审计或 D1 回滚前置任务。
+- dev/prod 的 PostgreSQL 迁移均已完成。后续 v1.1 开发不得新增或恢复 D1 binding、schema、migration、类型依赖、测试基座、读写路径、数据补全、回退或灾备方案；旧 prod D1 仅作为历史资源，不得成为新实现或回退依据。仓库中仍存在的 `D1Database` 兼容类型、Miniflare 测试和退役迁移工具属于待清理债务，只能在明确授权的清理任务中收敛，任何新功能或 BUG 修复不得复制、扩展或继续维护。`docs/releases/v1.0.0` 冻结内容仍按文档规则原样保留。
+- dev 扫描使用 Flutter 编排的端侧模型和 iOS/Android 原生推理桥接，经 `VECTOR_RECOGNITION` 调用 `recognize-vec`；旧 OpenCV/pHash 请求与 `OCR_SERVICE_BASE_URL` 已从当前代码移除。平台范围为 iOS 16+、Android API 24+，Web 扫描暂不支持；后续变更须保持两端兼容。旧来源分支已清理，后续从含向量合并的 `dev` 开发与部署。
 - `packages/*` 只承载跨应用共享能力，应用之间通过包依赖或 HTTP 契约协作。
 
 ## 工具链与常用命令
@@ -72,6 +74,7 @@ GitLab Flutter CI 使用 3.44.0，GitHub iOS CI 使用 3.44.7。涉及工具链�
 - PostgreSQL schema/migration 与 Hyperdrive binding 是数据库产品和基础设施契约；新增 schema 变更只允许写入 `apps/workers-api/src/db/postgres/migrations/`。修改前必须读取相关实现和文档，并先向用户说明影响。
 - 服务端授权、账号归属、资产隔离和购买权益必须由可信服务端数据验证，不能信任客户端自报状态。
 - 后续app所有轻提示框不在使用底部提示框，使用项目组件中的顶部提示框组件；项目组件中有不同类型的顶部提示组件，使用时需区分使用类型。
+- iOS 内部测试包使用 Bundle ID `com.kando.kandoApp.beta` 时，最终签名 entitlement 的 App Attest 环境必须为 `development`，不得交付 `production`；必须解包检查最终 IPA，不能只看 Xcode 工程设置或描述文件允许值。其他 Bundle ID 的 App Attest 环境暂不固定。
 
 ## 文档真源
 
@@ -79,7 +82,7 @@ GitLab Flutter CI 使用 3.44.0，GitHub iOS CI 使用 3.44.7。涉及工具链�
 
 - `docs/releases/v1.0.0/00-product`：11 份原始 PRD，只读保留。
 - `docs/releases/v1.0.0/01-flows` 至 `04-admin`：v1.0.0 实际业务与工程基线。
-- `docs/releases/v1.1.0/00-product`：三份 v1.1 原始产品输入，只读保留。
+- `docs/releases/v1.1.0/00-product`：三份初始 PRD、两份订阅升级降级补充和一份收藏待编辑/卡牌详情改版 PRD，共六份产品输入，只读保留。
 - `docs/releases/v1.1.0/01-flows` 至 `05-delivery`：相对 v1.0.0 的当前业务、架构、数据/API、Admin 和交付文档。
 
 `docs/releases/v1.0.0` 是已发布冻结基线，后续 v1.1.0 开发不得回写；若需修正已经确认的文档错误，必须先说明原因并获得用户明确授权。11 份原始 PRD 包括 `glossary.md`、`overview.md`、`ui-design-system.md` 和 `00-product/modules/` 下的 8 份模块文档，必须保持字节不变，不得因当前实现或后续需求而修订。

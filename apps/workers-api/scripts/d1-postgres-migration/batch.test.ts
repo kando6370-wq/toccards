@@ -37,6 +37,10 @@ const billingRefundStatusSql = readFileSync(
   new URL("../../src/db/postgres/migrations/0007_billing_refund_status.sql", import.meta.url),
   "utf8",
 );
+const scanRecordEnvironmentSql = readFileSync(
+  new URL("../../src/db/postgres/migrations/0010_scan_record_environment.sql", import.meta.url),
+  "utf8",
+);
 const migrationRunnerSource = readFileSync(new URL("./run.mjs", import.meta.url), "utf8");
 const migrationWorkerSource = readFileSync(new URL("./worker.ts", import.meta.url), "utf8");
 
@@ -81,7 +85,10 @@ describe("D1 to PostgreSQL migration batches", () => {
       candidate.name === "apple_notification_inbox"
     );
 
-    expect(inbox?.targetValues).toEqual({ environment: "Sandbox" });
+    expect(inbox?.targetValues).toEqual({
+      environment: "Sandbox",
+      app_bundle_id: "com.kando.kandoApp.beta",
+    });
     expect(appleInboxEnvironmentSql).toContain("UNIQUE (environment, payload_sha256)");
     expect(appleInboxEnvironmentSql).toContain("WHERE environment IS NULL");
   });
@@ -107,8 +114,12 @@ describe("D1 to PostgreSQL migration batches", () => {
   it("fails schema verification when shared-database isolation guards are missing", () => {
     expect(migrationRunnerSource).toContain("trg_price_history_month_staged");
     expect(migrationRunnerSource).toContain("trg_price_history_month_published");
-    expect(migrationRunnerSource).toContain("uq_apple_notification_inbox_environment_payload");
+    expect(migrationRunnerSource).toContain(
+      "uq_apple_notification_inbox_app_environment_payload",
+    );
     expect(migrationRunnerSource).toContain("idx_apple_notification_inbox_processing");
+    expect(migrationRunnerSource).toContain("ck_scan_record_environment");
+    expect(migrationRunnerSource).toContain("idx_scan_record_environment_created_at");
     expect(migrationRunnerSource).toContain("ck_price_history_month_payload_bytes");
     expect(migrationRunnerSource).toContain("manifest.postgresMigrations");
     expect(migrationRunnerSource).not.toContain("inventory.migrations.length === 6");
@@ -116,6 +127,23 @@ describe("D1 to PostgreSQL migration batches", () => {
     expect(migrationRunnerSource).toContain("/cutover-state");
     expect(migrationWorkerSource).toContain("priceTableCounts");
     expect(migrationWorkerSource).toContain("appleInboxByEnvironment");
+  });
+
+  it("labels dev scan records and guards the persisted environment because Admin shares PostgreSQL", () => {
+    const scans = MIGRATION_TABLES.find((candidate) => candidate.name === "scan_record");
+
+    expect(scans?.targetValues).toEqual({ environment: "development" });
+    expect(scanRecordEnvironmentSql).toContain("SET environment = 'development'");
+    expect(scanRecordEnvironmentSql).toContain(
+      "ALTER COLUMN environment SET DEFAULT 'development'",
+    );
+    expect(scanRecordEnvironmentSql).toContain(
+      "CHECK (environment IN ('development', 'production'))",
+    );
+    expect(scanRecordEnvironmentSql).toContain("idx_scan_record_environment_created_at");
+    expect(migrationWorkerSource).toContain('name: "0010_scan_record_environment"');
+    expect(migrationWorkerSource).toContain("scanRecordsByEnvironment");
+    expect(migrationRunnerSource).toContain("scan_record 行数与 dev D1 不一致");
   });
 
   it("classifies mutation locks as optional source infrastructure and required target schema", () => {

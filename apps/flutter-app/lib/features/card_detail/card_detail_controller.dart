@@ -7,6 +7,8 @@ import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/features/home/home_performance_controller.dart';
 import 'package:kando_app/features/search/search_controller.dart';
+import 'package:kando_app/features/subscription/subscription_controller.dart';
+import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/market/market_change.dart';
@@ -774,11 +776,25 @@ class CardDetailController extends Notifier<CardDetailState> {
       return Future<void>.value();
     }
 
-    state = CardDetailState.loading(cardId: cardId, currency: state.currency);
+    if (state.isUnavailable || state.isLoading) {
+      state = CardDetailState.loading(cardId: cardId, currency: state.currency);
+    }
     _startLoad(session: session, currency: state.currency);
     return loadComplete.whenComplete(
       () => _invalidateItemPerformanceCaches(performanceItemIds),
     );
+  }
+
+  Future<void> synchronizeCollectionEditorFolders() async {
+    if (_loadProfile != _CardDetailLoadProfile.collectionEditor ||
+        _repository is! CardDetailSectionRepository ||
+        state.isLoading ||
+        state.isUnavailable) {
+      return;
+    }
+
+    final generation = _loadGeneration;
+    await _loadCollectionEditorFolders(generation);
   }
 
   Future<void> refreshPriceSeries() {
@@ -966,7 +982,7 @@ class CardDetailController extends Notifier<CardDetailState> {
     final finish = state.priceFinish;
     state = state.copyWith(priceSeriesStatus: KandoLoadStatus.loading);
     try {
-      final data = await sectionRepository
+      Future<CardDetailSeriesData> request() => sectionRepository
           .loadPremiumPriceSeries(
             session,
             cardId,
@@ -975,6 +991,23 @@ class CardDetailController extends Notifier<CardDetailState> {
             localPremiumVerified: true,
           )
           .timeout(const Duration(seconds: 15));
+      late final CardDetailSeriesData data;
+      try {
+        data = await request();
+      } on CardDataApiException catch (error) {
+        if (error.statusCode != 409 ||
+            error.code != 'ENTITLEMENT_SYNC_REQUIRED') {
+          rethrow;
+        }
+        final reconciliation = await ref
+            .read(subscriptionControllerProvider.notifier)
+            .reconcileServerEntitlement();
+        if (reconciliation !=
+            EntitlementReconciliationResult.premiumSynchronized) {
+          rethrow;
+        }
+        data = await request();
+      }
       if (generation != _priceLoadGeneration || finish != state.priceFinish) {
         return false;
       }
@@ -1466,7 +1499,9 @@ class CardDetailController extends Notifier<CardDetailState> {
     if (_loadProfile == _CardDetailLoadProfile.collectionEditor) {
       ref.invalidate(cardDetailControllerProvider(cardId));
     }
-    ref.invalidate(homeControllerProvider);
+    unawaited(
+      ref.read(homeControllerProvider.notifier).refreshPreservingContent(),
+    );
     ref.invalidate(homePerformanceControllerProvider);
     ref.invalidate(collectionControllerProvider);
     ref.invalidate(searchControllerProvider);

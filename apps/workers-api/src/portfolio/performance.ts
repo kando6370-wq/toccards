@@ -363,8 +363,8 @@ function calculateTopPerformers(
   }
 
   ranked.sort((left, right) =>
-    right.profitLoss - left.profitLoss
-    || compareNullableDescending(left.returnPercent, right.returnPercent)
+    compareNullableDescending(left.returnPercent, right.returnPercent)
+    || right.profitLoss - left.profitLoss
     || right.marketValue - left.marketValue
     || left.itemId.localeCompare(right.itemId)
   );

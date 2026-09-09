@@ -166,16 +166,16 @@ LIMIT ${VALUATION_EVENT_LIMIT + 1}
     ),
   );
   const relevantEvents = [...eventsByItem.values()].flat();
-  const skus = await loadSkus(
-    db,
-    [...new Set(relevantEvents.map((event) => event.card_ref))],
-    shiftDate(endDate, -Math.max(days, 1) - 30),
-    endDate,
-  );
-  const cards = await loadCards(
-    db,
-    [...new Set(relevantEvents.map((event) => event.card_ref))],
-  );
+  const cardRefs = [...new Set(relevantEvents.map((event) => event.card_ref))];
+  const [skus, cards] = await Promise.all([
+    loadSkus(
+      db,
+      cardRefs,
+      shiftDate(endDate, -Math.max(days, 1) - 30),
+      endDate,
+    ),
+    loadCards(db, cardRefs),
+  ]);
   const skusByProduct = groupSkus(skus);
   const cardsByProduct = new Map(cards.map((card) => [card.product_id, card]));
   const dates = dateKeys(now, days);

@@ -4,9 +4,12 @@ import '../../shared/portfolio/portfolio_api_client.dart';
 import '../subscription/subscription_controller.dart';
 
 final homeEntitlementRepairProvider = Provider<Future<bool> Function()>((ref) {
-  return ref
-      .read(subscriptionControllerProvider.notifier)
-      .synchronizeServerEntitlement;
+  return () async {
+    final result = await ref
+        .read(subscriptionControllerProvider.notifier)
+        .reconcileServerEntitlement();
+    return result == EntitlementReconciliationResult.premiumSynchronized;
+  };
 });
 
 bool isEntitlementSyncRequired(Object error) {

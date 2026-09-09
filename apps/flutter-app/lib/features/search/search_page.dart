@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -24,7 +26,14 @@ class SearchPage extends ConsumerStatefulWidget {
 }
 
 class _SearchPageState extends ConsumerState<SearchPage> {
+  final _scrollController = ScrollController();
   String? _lastViewSignature;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +43,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
     return KandoTabScaffold(
       currentTab: KandoMainTab.search,
-      onPendingCollectionReview: () => showQuickCollectionReviewSheet(context),
+      onPendingCollectionReview: _reviewPendingCollection,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -66,9 +75,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                         .track(AnalyticsEvent.refreshClick);
                     return controller.refreshPreservingContent();
                   },
-                  child: state.isLoading || state.isUnavailable
+                  child: state.isUnavailable
                       ? ListView(
                           key: const Key('search-content-list'),
+                          controller: _scrollController,
                           physics: const AlwaysScrollableScrollPhysics(),
                           padding: const EdgeInsets.fromLTRB(20, 0, 20, 116),
                           children: [
@@ -83,6 +93,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                         )
                       : CustomScrollView(
                           key: const Key('search-content-scroll'),
+                          controller: _scrollController,
                           physics: const AlwaysScrollableScrollPhysics(),
                           slivers: [
                             if (widget.fromScan)
@@ -110,6 +121,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                               delegate: _SearchControlsHeaderDelegate(
                                 child: _SearchControlsHeader(
                                   state: state,
+                                  isLoading: state.isLoading,
                                   onSearchChanged: controller.updateSearch,
                                   onClear: controller.clearSearch,
                                   onSelectTab: controller.selectTab,
@@ -126,9 +138,15 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                                 20,
                                 116,
                               ),
-                              sliver: SliverToBoxAdapter(
-                                child: _SearchResults(state: state),
-                              ),
+                              sliver: state.isLoading
+                                  ? const SliverToBoxAdapter(
+                                      child: SizedBox(
+                                        key: Key('search-results-loading'),
+                                        height: 160,
+                                        child: KandoLoadingBlock(),
+                                      ),
+                                    )
+                                  : _SearchResults(state: state),
                             ),
                           ],
                         ),
@@ -159,6 +177,21 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           .track(AnalyticsEvent.searchView, properties: properties);
     });
   }
+
+  Future<int?> _reviewPendingCollection() async {
+    final addedCount = await showQuickCollectionReviewSheet(context);
+    if (!mounted || addedCount == null || addedCount <= 0) return addedCount;
+    if (_scrollController.hasClients) {
+      unawaited(
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+        ),
+      );
+    }
+    return addedCount;
+  }
 }
 
 class _BackToScanButton extends StatelessWidget {
@@ -183,6 +216,7 @@ class _BackToScanButton extends StatelessWidget {
 class _SearchControlsHeader extends StatelessWidget {
   const _SearchControlsHeader({
     required this.state,
+    required this.isLoading,
     required this.onSearchChanged,
     required this.onClear,
     required this.onSelectTab,
@@ -191,6 +225,7 @@ class _SearchControlsHeader extends StatelessWidget {
   });
 
   final SearchState state;
+  final bool isLoading;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onClear;
   final ValueChanged<SearchTab> onSelectTab;
@@ -218,8 +253,10 @@ class _SearchControlsHeader extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             _GameSelectorField(
-              selectedGame: state.selectedGame,
-              onPressed: onGamePressed,
+              selectedGame: isLoading
+                  ? const SearchGame(id: 'tcg', label: 'TCG')
+                  : state.selectedGame,
+              onPressed: isLoading ? null : onGamePressed,
             ),
             const SizedBox(height: 16),
             _SearchTabs(selected: state.selectedTab, onSelect: onSelectTab),
@@ -385,7 +422,7 @@ class _GameSelectorField extends StatelessWidget {
   });
 
   final SearchGame selectedGame;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -517,72 +554,92 @@ class _SearchResults extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (state.isSearching) {
-      return const SizedBox(
-        key: Key('search-results-loading'),
-        height: 160,
-        child: KandoLoadingBlock(),
+      return const SliverToBoxAdapter(
+        child: SizedBox(
+          key: Key('search-results-loading'),
+          height: 160,
+          child: KandoLoadingBlock(),
+        ),
       );
     }
 
     if (state.isCurrentSearchUnavailable) {
-      return _SearchFailureState(
-        onRefresh: () {
-          ref.read(analyticsProvider).track(AnalyticsEvent.refreshClick);
-          ref.read(searchControllerProvider.notifier).retrySearch();
-        },
+      return SliverToBoxAdapter(
+        child: KandoNoContentBlock(
+          key: const Key('search-failure'),
+          illustrationKey: const Key('search-failure-illustration'),
+          refreshButtonKey: const Key('search-empty-refresh'),
+          onRefresh: () {
+            ref.read(analyticsProvider).track(AnalyticsEvent.refreshClick);
+            ref.read(searchControllerProvider.notifier).retrySearch();
+          },
+        ),
       );
     }
 
     if (state.isNoMatch) {
-      return const _SearchNoResultsState();
+      return const SliverToBoxAdapter(child: _SearchNoResultsState());
     }
 
     if (state.selectedTab == SearchTab.sets) {
-      return Column(
-        children: [
-          for (final set in state.visibleSets) _SearchSetRow(set: set),
-        ],
+      return SliverList.builder(
+        itemCount: state.visibleSets.length,
+        itemBuilder: (context, index) =>
+            _SearchSetRow(set: state.visibleSets[index]),
       );
     }
 
-    return Column(
-      children: [
-        GridView.count(
+    return SliverMainAxisGroup(
+      slivers: [
+        SliverGrid.builder(
           key: const Key('search-results-grid'),
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          mainAxisExtent: 378,
-          physics: const NeverScrollableScrollPhysics(),
-          children: [
-            for (final card in state.visibleCards)
-              SearchCardTile(
-                card: card,
-                actionsEnabled: state.assetStatus == KandoLoadStatus.content,
-                showSearchMetadata: true,
-              ),
-          ],
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            mainAxisExtent: 378,
+          ),
+          itemCount: state.visibleCards.length,
+          itemBuilder: (context, index) => SearchCardTile(
+            card: state.visibleCards[index],
+            actionsEnabled: state.assetStatus == KandoLoadStatus.content,
+            showSearchMetadata: true,
+          ),
         ),
-        if (state.isLoadingMoreCards) ...[
-          const SizedBox(height: 12),
-          const SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(strokeWidth: 2),
+        if (state.isLoadingMoreCards)
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.only(top: 12),
+              child: Center(
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            ),
+          )
+        else if (state.hasCardPageFailure)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Center(
+                child: IconButton(
+                  key: const Key('search-retry-card-page'),
+                  tooltip: 'Retry loading cards',
+                  onPressed: () {
+                    ref
+                        .read(analyticsProvider)
+                        .track(AnalyticsEvent.refreshClick);
+                    ref
+                        .read(searchControllerProvider.notifier)
+                        .retryNextCardPage();
+                  },
+                  icon: const Icon(Icons.refresh),
+                ),
+              ),
+            ),
           ),
-        ] else if (state.hasCardPageFailure) ...[
-          const SizedBox(height: 12),
-          IconButton(
-            key: const Key('search-retry-card-page'),
-            tooltip: 'Retry loading cards',
-            onPressed: () {
-              ref.read(analyticsProvider).track(AnalyticsEvent.refreshClick);
-              ref.read(searchControllerProvider.notifier).retryNextCardPage();
-            },
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
       ],
     );
   }
@@ -657,62 +714,6 @@ class _SearchNoResultsIllustration extends StatelessWidget {
               width: 27.1,
               height: 29.61,
               excludeFromSemantics: true,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SearchFailureState extends StatelessWidget {
-  const _SearchFailureState({required this.onRefresh});
-
-  final VoidCallback onRefresh;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      key: const Key('search-failure'),
-      padding: const EdgeInsets.only(top: 16),
-      child: Column(
-        children: [
-          SvgPicture.asset(
-            'assets/search/no_content_available.svg',
-            key: const Key('search-failure-illustration'),
-            width: 100,
-            height: 100,
-            excludeFromSemantics: true,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            noContentAvailableText,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 20,
-              height: 26 / 20,
-              fontFamily: 'Fraunces',
-              fontWeight: FontWeight.w600,
-              color: KandoColors.text,
-            ),
-          ),
-          const SizedBox(height: 32),
-          SizedBox(
-            height: 44,
-            child: FilledButton.icon(
-              key: const Key('search-empty-refresh'),
-              onPressed: onRefresh,
-              style: FilledButton.styleFrom(
-                backgroundColor: KandoColors.accent,
-                foregroundColor: KandoColors.ink,
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                shape: const StadiumBorder(),
-              ),
-              icon: const Icon(Icons.refresh, size: 20),
-              label: const Text(
-                refreshText,
-                style: TextStyle(fontSize: 13, height: 16 / 13),
-              ),
             ),
           ),
         ],

@@ -27,6 +27,7 @@ export interface Env {
   SINGULAR_SECRET_KEY?: string;
   OCR_SERVICE_BASE_URL?: string;
   ALLOWED_ORIGINS?: string;
+  VECTOR_RECOGNITION?: Fetcher;
   APP_ENVIRONMENT?: "production" | "development";
 }
 

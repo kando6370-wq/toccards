@@ -4,6 +4,7 @@ export type BillingBusinessStatus =
   | "trial"
   | "initial_purchase"
   | "trial_conversion"
+  | "upgrade"
   | "renewal"
   | "grace_recovery"
   | "billing_recovery";
@@ -42,6 +43,7 @@ export function billingOrderFactStatements(
             AND earlier_paid_transaction.environment = current_transaction.environment
             AND earlier_paid_transaction.business_status IS NOT NULL
             AND earlier_paid_transaction.business_status != 'trial'
+            AND earlier_paid_transaction.amount_micros > 0
             AND earlier_paid_transaction.source_notification_uuid IS NOT NULL
             AND (
               earlier_paid_transaction.purchase_at < current_transaction.purchase_at
@@ -69,6 +71,7 @@ export function billingOrderFactStatements(
           AND earlier_paid_transaction.environment = current_transaction.environment
           AND earlier_paid_transaction.business_status IS NOT NULL
           AND earlier_paid_transaction.business_status != 'trial'
+          AND earlier_paid_transaction.amount_micros > 0
           AND earlier_paid_transaction.source_notification_uuid IS NOT NULL
           AND (
             earlier_paid_transaction.purchase_at < current_transaction.purchase_at
@@ -84,13 +87,14 @@ export function billingOrderFactStatements(
       UPDATE billing_transaction AS current_transaction
       SET charge_count = CASE
         WHEN current_transaction.business_status = 'trial' THEN 0
-        WHEN current_transaction.business_status IS NULL THEN NULL
+        WHEN current_transaction.business_status IS NULL OR current_transaction.amount_micros IS NULL THEN NULL
         ELSE (
           SELECT COUNT(*) FROM billing_transaction AS counted_transaction
           WHERE counted_transaction.purchase_chain_id = current_transaction.purchase_chain_id
             AND counted_transaction.environment = current_transaction.environment
             AND counted_transaction.business_status IS NOT NULL
             AND counted_transaction.business_status != 'trial'
+            AND counted_transaction.amount_micros > 0
             AND counted_transaction.source_notification_uuid IS NOT NULL
             AND (
               counted_transaction.purchase_at < current_transaction.purchase_at

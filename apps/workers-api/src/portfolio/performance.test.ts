@@ -53,7 +53,7 @@ describe("portfolio performance", () => {
     expect(result).toMatchObject({ item_count: 1, market_price_status: "available" });
   });
 
-  it("ranks current Folder items by profit, return, then market value because Top Performers is an Item-level current snapshot", () => {
+  it("ranks current Folder items by displayed return percentage descending", () => {
     const definitions = [
       ["a", 10, 50],
       ["b", 20, 60],
@@ -104,18 +104,18 @@ describe("portfolio performance", () => {
     expect(result.top_performer_item_ids).toEqual([
       "item-a",
       "item-b",
-      "item-c",
       "item-d",
       "item-e",
       "item-f",
       "item-g",
+      "item-c",
     ]);
     expect(result.top_performers.map((item) => item.item_id)).toEqual([
       "item-a",
       "item-b",
-      "item-c",
       "item-d",
       "item-e",
+      "item-f",
     ]);
     expect(result.top_performers[0]).toMatchObject({
       name: "Card A",
@@ -124,13 +124,13 @@ describe("portfolio performance", () => {
       market_value_usd: 50,
     });
     expect(result.top_performers[2]).toMatchObject({
-      item_id: "item-c",
-      profit_loss_usd: 40,
-      return_percent: null,
+      item_id: "item-d",
+      profit_loss_usd: 20,
+      return_percent: 100,
     });
   });
 
-  it("ranks Top Performers before response rounding because display precision must not change business order", () => {
+  it("ranks Top Performers by unrounded return because display precision must not change business order", () => {
     const result = calculatePerformance(
       [
         {
@@ -165,8 +165,8 @@ describe("portfolio performance", () => {
     );
 
     expect(result.top_performers.map((item) => item.item_id)).toEqual([
-      "item-a",
       "item-b",
+      "item-a",
     ]);
   });
 

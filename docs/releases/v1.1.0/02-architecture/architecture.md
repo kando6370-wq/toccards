@@ -8,12 +8,14 @@ Flutter App --------------------+
 React Admin -- Worker assets ----+       |-- PlanetScale PostgreSQL（经 Hyperdrive）: 业务与目录真源
                                          |-- KV: 可重建缓存
                                          |-- R2: 扫描图片
-                                         +-- Apple / OAuth / OCR / 邮件 / 汇率
+                                         +-- Apple / OAuth / recognize-vec / 邮件 / 汇率
 
 Marketing Web -----------------------> 独立 Cloudflare 静态站点
 ```
 
 `apps/workers-api/src/index.ts` 是 API 组合入口。App 和 Admin 只通过 Workers 访问服务端数据；Workers 负责鉴权、所有者隔离、Premium 服务端授权、幂等与外部服务适配。Admin 静态产物由 `apps/workers-api/wrangler.toml` 的 assets 配置托管，Marketing 使用独立 Wrangler 配置。
+
+当前 dev 扫描识别使用端侧 RTMDet-Ins 与 PE-Core-T16，主 Worker 经 `VECTOR_RECOGNITION` Service Binding 调用内部 `recognize-vec`；该链路已合入 dev。图片仍只存私有 R2，内部服务只收向量；Queue、额度、目录与资产写入保留现有边界。上图描述当前代码与 dev 运行路径，prod 的较早识别协议见第 6 节；详见[扫描识别链路](../01-flows/scan-recognition.md)。
 
 ## 2. 客户端与页面边界
 
@@ -71,7 +73,7 @@ Apple Notifications V2 + Server API --> purchase chain lifecycle correction
 
 | 资源 | 当前职责 | 一致性边界 |
 |---|---|---|
-| PlanetScale PostgreSQL | v1.1 业务、目录与价格域唯一真源；dev 迁移检查点已迁入 33 张业务表、270,577 行，并创建 7 张新价格域表 | 当前 dev 已使用；v1.1 prod 在生产 D1 数据迁移与冲突审计后通过同一 Hyperdrive 共用，运行环境、KV、R2 和 Apple 契约仍分离 |
+| PlanetScale PostgreSQL | v1.1 业务、目录与价格域唯一真源；dev 迁移检查点已迁入 33 张业务表、270,577 行，并创建 7 张新价格域表 | dev/test 与 prod 均已迁移并通过同一 Hyperdrive 共用，D1 已废弃；运行环境、KV、R2 和 Apple 契约仍分离 |
 | Hyperdrive | dev/prod 当前代码与 Wrangler 配置的唯一数据库连接入口，代码通过 Postgres.js 兼容层访问 | 查询缓存关闭；每请求或 cron 独立 client，后台任务结束后关闭；缺少 binding 立即失败 |
 | KV | 目录查询和汇率等可重新获取数据 | 缓存失败不得改变授权或业务真值 |
 | R2 | 扫描原图等对象 | 读取受 Admin 授权保护 |
@@ -83,14 +85,14 @@ PostgreSQL 结构以 `src/db/postgres/migrations/` 中的顺序 migration 为准
 
 | 环境 | Worker | 域名 | 数据资源 |
 |---|---|---|---|
-| dev | `toccards-api-dev` | `api-dev.tcgcard.fun` | 正式 PostgreSQL Worker/Admin 已部署；共享 PG 为业务真源，dev KV/R2 与 `APP_ENVIRONMENT=development` 保持独立 |
-| prod | `toccards-api-prod` | `api.tcgcard.fun` | 当前 100% 流量版本 `57213c10-d392-43a9-8d34-c6472fc3febc` 仍绑定 D1；v1.1 发布时迁移生产数据并切换到共享 PostgreSQL，prod KV/R2 与 `APP_ENVIRONMENT=production` 保持独立 |
+| dev | `toccards-api-dev` | `api-dev.tcgcard.fun` | 2026-09-09 回读为 PostgreSQL/Hyperdrive 与 VECTOR_RECOGNITION；dev KV/R2、beta Apple 配置和 `APP_ENVIRONMENT=development` 独立 |
+| prod | `toccards-api-prod` | `api.tcgcard.fun` | 2026-09-09 回读为 PostgreSQL/Hyperdrive，无 D1；仍使用 OCR_SERVICE_BASE_URL，prod KV/R2、production Apple 配置和 `APP_ENVIRONMENT=production` 独立 |
 
-Wrangler vars 保存非敏感环境配置，密钥通过 Worker secrets 注入。v1.1 dev 与 prod 共用业务 PostgreSQL 是本次明确的目标决策，但当前 prod 的 D1 → PostgreSQL 数据迁移和应用切换仍是独立发布门槛；`APP_ENVIRONMENT`、Apple Bundle/Product ID、KV、R2、域名和 Worker secrets 不得混用。部署脚本先构建共享认证和对应模式 Admin，再部署 Worker 与静态 assets。
+Wrangler vars 保存非敏感环境配置，密钥通过 Worker secrets 注入。dev/prod 已共用业务 PostgreSQL；`APP_ENVIRONMENT`、Apple Bundle/Product ID、KV、R2、域名和 Worker secrets 不得混用。当前仓库的 prod 配置已包含向量绑定，但配置文件不代表现网版本已切换；版本及 binding 回读集中维护在[发布与验证](../05-delivery/VERIFICATION.md)。部署脚本先构建共享认证和对应模式 Admin，再部署 Worker 与静态 assets。两环境的 PostgreSQL 迁移均已完成，后续仅核对本次变更所需的 PostgreSQL schema、业务数据及应用版本，不再安排 D1 移库或切换任务。
 
 ## 7. 当前与目标架构的区分
 
-dev 数据库迁移已经完成：PlanetScale PostgreSQL、Hyperdrive binding、目标 schema、Postgres.js 访问层、PostgreSQL 业务方言和新价格域读取已承载 dev；迁移检查点把 dev 的 33 张非价格业务表、270,577 行写入 PostgreSQL，并完成逐表行数与完整摘要校验，Hyperdrive 查询缓存已关闭。当前 v1.1 代码的 `fetch` 和 `scheduled` 缺少 Hyperdrive 时直接失败，不存在数据库降级路径。现网 prod 的 D1 仅属于待下线的 v1.0 运行事实，不是 v1.1 新代码的回退方案；prod 切换前必须另行完成生产 D1 数据迁移、与现有 PostgreSQL 数据的冲突审计及回滚演练。TimescaleDB 与 ClickHouse 仍只是 [数据库迁移研究](../03-data-api/research/database-migration-research.md) 和 [价格历史容量分析](../03-data-api/research/price-history-database-capacity-analysis.md) 中的后续候选，不属于本次实现。
+dev 历史迁移检查点把 33 张非价格业务表、270,577 行写入 PostgreSQL，并完成逐表行数与完整摘要校验。2026-09-07 预检记录确认 PostgreSQL `18.6` 的 `postgres/public` 已应用 `0000` 至 `0010`，checksum 与仓库 SQL 一致且未验证约束为 0；该记录不代表本轮重查数据库。后续 `0011` 的 development 初始化、完整迁移登记及 `0012` 回填状态分别见[数据迁移](../03-data-api/migration.md)。当前 dev/prod 均运行 PostgreSQL Worker，v1.1 `fetch` 和 `scheduled` 缺少 Hyperdrive 时直接失败，不存在数据库降级路径；旧 D1 不属于运行、回滚或灾备目标。D1 到 PostgreSQL 迁移已完成，不作为后续发布待办。TimescaleDB 与 ClickHouse 仍只是 [数据库迁移研究](../03-data-api/research/database-migration-research.md) 和 [价格历史容量分析](../03-data-api/research/price-history-database-capacity-analysis.md) 中的后续候选，不属于本次实现。
 
 ## 8. 证据索引
 

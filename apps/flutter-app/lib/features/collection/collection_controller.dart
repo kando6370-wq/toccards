@@ -524,11 +524,12 @@ class CollectionController extends Notifier<CollectionState> {
           }
         }
         if (generation != _loadGeneration) return;
+        final preservedState = preserveState ?? state;
         final sharedFolderId = ref.read(selectedPortfolioFolderProvider);
-        final preservedFolderId = preserveState?.selectedFolderId;
+        final preservedFolderId = preservedState.selectedFolderId;
         final selectedFolderId =
             dashboard.folders.any((folder) => folder.id == preservedFolderId)
-            ? preservedFolderId!
+            ? preservedFolderId
             : dashboard.folders.any((folder) => folder.id == sharedFolderId)
             ? sharedFolderId!
             : dashboard.defaultFolder.id;
@@ -542,33 +543,22 @@ class CollectionController extends Notifier<CollectionState> {
         ref.read(selectedCurrencyProvider.notifier).select(preferredCurrency);
         state = CollectionState(
           dashboard: dashboard,
-          selectedTab: preserveState?.selectedTab ?? CollectionTab.portfolio,
+          selectedTab: preservedState.selectedTab,
           selectedFolderId: selectedFolderId,
           currency: preferredCurrency,
           amountHidden: amountHidden,
-          searchByTab:
-              preserveState?.searchByTab ??
-              const {CollectionTab.portfolio: '', CollectionTab.wishlist: ''},
+          searchByTab: preservedState.searchByTab,
           sortByTab:
               preserveState?.sortByTab ??
               {
                 CollectionTab.portfolio: initialSort!,
                 CollectionTab.wishlist: CollectionSort.newest,
               },
-          gamesByTab:
-              preserveState?.gamesByTab ??
-              const {
-                CollectionTab.portfolio: <String>{},
-                CollectionTab.wishlist: <String>{},
-              },
-          languagesByTab:
-              preserveState?.languagesByTab ??
-              const {
-                CollectionTab.portfolio: <String>{},
-                CollectionTab.wishlist: <String>{},
-              },
-          performanceItemIds:
-              preserveState?.performanceItemIds ?? initialPerformanceOrder,
+          gamesByTab: preservedState.gamesByTab,
+          languagesByTab: preservedState.languagesByTab,
+          performanceItemIds: preservedState.performanceItemIds.isEmpty
+              ? initialPerformanceOrder
+              : preservedState.performanceItemIds,
           gameOptions: gameOptions,
         );
         if (preserveState == null) {
@@ -612,7 +602,7 @@ class CollectionController extends Notifier<CollectionState> {
   }
 
   void selectTab(CollectionTab tab) {
-    if (state.isUnavailable || state.isLoading) {
+    if (state.isUnavailable) {
       return;
     }
     if (tab == state.selectedTab) return;
@@ -695,17 +685,15 @@ class CollectionController extends Notifier<CollectionState> {
         normalized.length > 50) {
       return const CreateFolderResult(CreateFolderStatus.failed);
     }
-    try {
-      final session = ref.read(authControllerProvider).session!;
-      final folder = await ref
-          .read(collectionRepositoryProvider)
-          .createFolder(
-            session,
-            normalized,
-            localPremiumVerified: ref
-                .read(subscriptionControllerProvider)
-                .isPro,
-          );
+    final session = ref.read(authControllerProvider).session!;
+    Future<CollectionFolder> request() => ref
+        .read(collectionRepositoryProvider)
+        .createFolder(
+          session,
+          normalized,
+          localPremiumVerified: ref.read(subscriptionControllerProvider).isPro,
+        );
+    CreateFolderResult applyFolder(CollectionFolder folder) {
       state = state.copyWith(
         dashboard: state.dashboard.copyWith(
           folders: [...state.dashboard.folders, folder],
@@ -713,15 +701,49 @@ class CollectionController extends Notifier<CollectionState> {
       );
       _invalidateFolderDetails();
       return CreateFolderResult(CreateFolderStatus.success, folder: folder);
+    }
+
+    try {
+      final folder = await request();
+      return applyFolder(folder);
     } on PortfolioApiException catch (error) {
       if (error.code == 'PREMIUM_REQUIRED') {
         await refreshPreservingContent();
         return const CreateFolderResult(CreateFolderStatus.premiumRequired);
       }
-      if (error.code == 'ENTITLEMENT_SYNC_REQUIRED') {
-        return const CreateFolderResult(
-          CreateFolderStatus.entitlementSyncRequired,
-        );
+      if (error.statusCode == 409 &&
+          error.code == 'ENTITLEMENT_SYNC_REQUIRED') {
+        final reconciliation = await ref
+            .read(subscriptionControllerProvider.notifier)
+            .reconcileServerEntitlement();
+        if (reconciliation == EntitlementReconciliationResult.freeConfirmed) {
+          await refreshPreservingContent();
+          return const CreateFolderResult(CreateFolderStatus.premiumRequired);
+        }
+        if (reconciliation !=
+            EntitlementReconciliationResult.premiumSynchronized) {
+          return const CreateFolderResult(
+            CreateFolderStatus.entitlementSyncRequired,
+          );
+        }
+        try {
+          final folder = await request();
+          return applyFolder(folder);
+        } on PortfolioApiException catch (retryError) {
+          if (retryError.code == 'PREMIUM_REQUIRED') {
+            await refreshPreservingContent();
+            return const CreateFolderResult(CreateFolderStatus.premiumRequired);
+          }
+          if (retryError.statusCode == 409 &&
+              retryError.code == 'ENTITLEMENT_SYNC_REQUIRED') {
+            return const CreateFolderResult(
+              CreateFolderStatus.entitlementSyncRequired,
+            );
+          }
+          return const CreateFolderResult(CreateFolderStatus.failed);
+        } catch (_) {
+          return const CreateFolderResult(CreateFolderStatus.failed);
+        }
       }
       return const CreateFolderResult(CreateFolderStatus.failed);
     } catch (_) {
@@ -857,7 +879,7 @@ class CollectionController extends Notifier<CollectionState> {
   }
 
   void updateSearch(String value) {
-    if (state.isUnavailable || state.isLoading) {
+    if (state.isUnavailable) {
       return;
     }
 
@@ -922,6 +944,7 @@ class CollectionController extends Notifier<CollectionState> {
   }
 
   void _invalidateFolderDetails() {
+    ref.invalidate(collectionEditorFoldersProvider);
     ref.invalidate(cardDetailControllerProvider);
   }
 }

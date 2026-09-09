@@ -10,7 +10,9 @@ import 'package:kando_app/features/card_detail/card_detail_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_repository.dart';
 import 'package:kando_app/features/collection/collection_controller.dart';
 import 'package:kando_app/features/home/home_controller.dart';
+import 'package:kando_app/features/home/home_models.dart';
 import 'package:kando_app/features/home/home_performance_controller.dart';
+import 'package:kando_app/features/home/home_repository.dart';
 import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
@@ -639,9 +641,13 @@ void main() {
   );
 
   test(
-    'asset mutation invalidates Home Collection and Search because portfolio state is shared across pages',
+    'asset mutation refreshes Home without clearing its loaded dashboard',
     () async {
-      final container = _cardDetailContainer(includeAssetConsumers: true);
+      final homeRepository = _BlockingHomeRefreshRepository();
+      final container = _cardDetailContainer(
+        includeAssetConsumers: true,
+        homeRepository: homeRepository,
+      );
       addTearDown(container.dispose);
       final detailProvider = cardDetailControllerProvider('squirtle');
       final detailController = container.read(detailProvider.notifier);
@@ -661,7 +667,10 @@ void main() {
 
       await detailController.toggleWishlist();
 
-      expect(container.read(homeControllerProvider), isNot(same(homeState)));
+      final homeDuringRefresh = container.read(homeControllerProvider);
+      expect(homeRepository.calls, 2);
+      expect(homeDuringRefresh, same(homeState));
+      expect(homeDuringRefresh.hasCollectionItems, isTrue);
       expect(
         container.read(collectionControllerProvider),
         isNot(same(collectionState)),
@@ -670,6 +679,10 @@ void main() {
         container.read(searchControllerProvider),
         isNot(same(searchState)),
       );
+
+      homeRepository.completeRefresh();
+      await container.read(homeControllerProvider.notifier).coreLoadComplete;
+      expect(container.read(homeControllerProvider).hasCollectionItems, isTrue);
     },
   );
 
@@ -1845,6 +1858,7 @@ ProviderContainer _cardDetailContainer({
   CardDetailRepository repository = const MockCardDetailRepository(),
   bool includeAssetConsumers = false,
   PortfolioApiClient? portfolioApi,
+  HomeRepository homeRepository = const MockHomeRepository(),
 }) {
   final storage = InMemoryAuthStorage();
   return ProviderContainer(
@@ -1857,7 +1871,7 @@ ProviderContainer _cardDetailContainer({
       if (portfolioApi != null)
         portfolioApiClientProvider.overrideWithValue(portfolioApi),
       if (includeAssetConsumers) ...[
-        homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
+        homeRepositoryProvider.overrideWithValue(homeRepository),
         collectionRepositoryProvider.overrideWithValue(
           const MockCollectionRepository(),
         ),
@@ -1867,6 +1881,21 @@ ProviderContainer _cardDetailContainer({
       ],
     ],
   );
+}
+
+class _BlockingHomeRefreshRepository implements HomeRepository {
+  final _refresh = Completer<HomeDashboard>();
+  var calls = 0;
+
+  @override
+  FutureOr<HomeDashboard> loadDashboard() {
+    calls += 1;
+    return calls == 1 ? mockHomeDashboard : _refresh.future;
+  }
+
+  void completeRefresh() {
+    _refresh.complete(mockHomeDashboard);
+  }
 }
 
 class _ImmediatePerformanceApi extends PortfolioApiClient {
