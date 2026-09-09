@@ -432,6 +432,14 @@ final subscriptionRevenueReporterProvider =
       );
     });
 
+final singularSubscriptionRevenueReporterProvider =
+    Provider<SingularSubscriptionRevenueReporter>((ref) {
+      return SingularSubscriptionRevenueReporter(
+        environment: AppConfig.environment,
+        attribution: ref.watch(appAttributionEventReporterProvider),
+      );
+    });
+
 enum SubscriptionResultEvent {
   purchaseSuccess,
   restoreSuccess,
@@ -656,6 +664,13 @@ class SubscriptionController extends Notifier<SubscriptionState> {
         await ref.read(subscriptionRevenueReporterProvider).flush();
       } on Object catch (error, stackTrace) {
         debugPrint('Unable to flush subscription revenue: $error\n$stackTrace');
+      }
+    });
+    Future<void>.microtask(() async {
+      try {
+        await ref.read(singularSubscriptionRevenueReporterProvider).flush();
+      } on Object catch (error, stackTrace) {
+        debugPrint('Unable to flush Singular revenue: $error\n$stackTrace');
       }
     });
     ref.onDispose(() {
@@ -1483,24 +1498,20 @@ class SubscriptionController extends Notifier<SubscriptionState> {
       }
       if (event.purchase?.status == SubscriptionPurchaseStatus.purchased &&
           event.failure == null) {
-        final singularEventName = singularSubscriptionSuccessEventName(
-          event: event,
-          environment: AppConfig.environment,
-          isFreshPurchase:
-              resultEvent == SubscriptionResultEvent.purchaseSuccess,
+        unawaited(
+          ref
+              .read(singularSubscriptionRevenueReporterProvider)
+              .enqueueVerifiedPurchase(
+                event,
+                isFreshPurchase:
+                    resultEvent == SubscriptionResultEvent.purchaseSuccess,
+              )
+              .catchError((Object error, StackTrace stackTrace) {
+                debugPrint(
+                  'Unable to report Singular revenue: $error\n$stackTrace',
+                );
+              }),
         );
-        if (singularEventName != null) {
-          try {
-            ref
-                .read(appAttributionEventReporterProvider)
-                .trackEvent(singularEventName);
-          } on Object catch (error, stackTrace) {
-            debugPrint(
-              'Unable to report Singular subscription event: '
-              '$error\n$stackTrace',
-            );
-          }
-        }
         if (resultEvent == SubscriptionResultEvent.purchaseSuccess &&
             analyticsContext != null) {
           trackVerifiedSubscriptionSuccess(

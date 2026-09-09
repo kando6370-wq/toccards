@@ -159,6 +159,8 @@ Singular 与 Mixpanel Project Token 使用同一类运行时配置链路，由 C
 
 同日已在 iPhone 11（iOS 15.6）使用新 Sandbox 账号完成 `cardx.week` Fresh Purchase：Singular Testing Console 先收到当前安装 SDID 的 `session`，随后收到 `weekly_cardtest`；两条记录的 App 均为 `card ai test`，Bundle ID 均为 `com.kando.kandoApp.beta`。卸载重装会生成新的 SDID，Testing Console 必须注册并选中当前安装的 SDID；旧 IDFA 或旧 SDID 不能作为新安装的事件缺失证据。该结果只完成 test Weekly 套餐事件验收，Yearly、Lifetime 与 production 三个事件仍待对应实单验证。
 
+2026-09-09 起，上述套餐名改为 Singular 收入事件，使用 Apple verified JWS 的实际金额和币种，并按交易 ID 独立持久化去重；本次没有改动商品、支付、权益、Firebase 或 Mixpanel 口径。需安装包含新代码的客户端，以新 Fresh Purchase 在 Testing Console 核验事件名、Revenue/金额、币种和交易属性；9 月 3 日的普通事件入库证据不能替代收入验收，旧普通事件也不会自动回填金额。Restore 与重复回调不得新增收入；本次未执行 Sandbox/TestFlight 实单或修改 Singular 后台配置。具体字段、重试及 SDK 回执边界见 [收入契约](../03-data-api/contract-changes.md)。
+
 `/app-config` 是无需登录的公共客户端接口，因此 Singular SDK 凭据会对 App 客户端可见；Cloudflare Secret 管理提供的是不进仓库、环境隔离和轮换能力，不应把该接口用于 `MIXPANEL_API_SECRET`、Apple Private Key 等真正的服务端密钥。prod Worker 必须先发布包含这两个响应字段的版本，再发布依赖运行时获取的 App，否则 Singular 会按降级规则保持关闭。
 
 仓库内 `apps/flutter-app/config/test.json` 与 `production.json` 分别记录不敏感的 dev/test 和 production Product ID；正式包可直接使用仓库内 production 配置执行 `./tool/release_ios.sh --env production`。

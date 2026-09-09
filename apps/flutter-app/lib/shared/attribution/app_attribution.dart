@@ -28,7 +28,13 @@ abstract interface class AppAttributionGateway {
 }
 
 abstract interface class AppAttributionEventReporter {
-  void trackEvent(String eventName);
+  Future<void> trackRevenue({
+    required String eventName,
+    required String currency,
+    required double value,
+    required String transactionId,
+    required String productId,
+  });
 }
 
 abstract interface class AppAttributionStartupStorage {
@@ -193,6 +199,7 @@ class SingularAttributionGateway
   }) : _credentials = loadCredentials();
 
   final Future<SingularCredentials?> _credentials;
+  final _ready = Completer<void>();
   var _started = false;
 
   @override
@@ -217,6 +224,7 @@ class SingularAttributionGateway
         ..logLevel = kDebugMode ? 5 : -1;
       Singular.start(config);
       _started = true;
+      _ready.complete();
       debugPrint('Singular attribution SDK initialized.');
       return;
     }
@@ -224,19 +232,29 @@ class SingularAttributionGateway
   }
 
   @override
-  void trackEvent(String eventName) {
-    if (!_started) {
-      debugPrint(
-        'Singular event skipped before SDK initialization: $eventName',
-      );
-      return;
+  Future<void> trackRevenue({
+    required String eventName,
+    required String currency,
+    required double value,
+    required String transactionId,
+    required String productId,
+  }) async {
+    if (await _credentials == null) {
+      throw StateError('Singular revenue unavailable: missing credentials.');
     }
-    try {
-      Singular.event(eventName);
-      debugPrint('Singular event handed to SDK: $eventName');
-    } on Object catch (error, stackTrace) {
-      debugPrint('Unable to send Singular event: $error\n$stackTrace');
-    }
+    // Startup retries may reach the reporter before the ATT flow finishes.
+    await _ready.future;
+    // SDK 1.9.0 returns void; completion means handoff, not server delivery.
+    runZonedGuarded(
+      () => Singular.customRevenueWithAttributes(eventName, currency, value, {
+        'transaction_id': transactionId,
+        'product_id': productId,
+      }),
+      (error, stackTrace) => debugPrint(
+        'Unable to hand Singular revenue to the platform: $error\n$stackTrace',
+      ),
+    );
+    debugPrint('Singular revenue handed to SDK: $eventName');
   }
 }
 

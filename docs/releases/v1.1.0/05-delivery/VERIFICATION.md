@@ -141,3 +141,27 @@ Code Review 自审已完成：确认只影响更新弹窗的专用样式、固�
 - 已查看 Figma 原图、完整普通更新和强更的 Flutter 渲染对照。背景抽样 RGB 通道差值为 0～2（8 位通道）；此结论限定于背景抽样，不宣称整张弹窗或真机逐像素相同。预览只保存在临时目录，未把截图加入 `docs/`。临时预览脚本补充真实字体、图片预解码及阴影后，曾因测试结束前未恢复绘制调试变量退出 1；修正临时脚本清理后独立重跑 1/1 通过，应用代码未因此改动。
 
 Code Review 自审通过：核对原始矩阵、颜色叠加、象限连续性、圆角裁剪及描边，确认绘制不会改变尺寸和输入处理；新增像素回归在旧实现下已有失败证据，原有交互回归通过。文档影响限于本节视觉实现和验证说明，业务/API 文档变更为 N/A。未运行全仓测试、iOS/Android 真机截图或签名包构建；客户端测试人员仍需使用包含本次修改的包补验实际设备显示。本次未发布客户端或服务端。
+
+## Singular 套餐收入事件（2026-09-09）
+
+产品要求将现有 Singular 套餐成功事件改为收入事件。根因是 `SubscriptionController._handleEvent` 仅调用 `trackEvent`，最终通过 `Singular.event(eventName)` 发送名称，没有调用收入 API 或传入金额、币种。修改前在 SDK MethodChannel 回归中要求收入方法被调用，稳定得到实际 0 次、预期 1 次，退出 1；这属于本地代码路径复现，没有访问真实用户交易或 Singular 后台。
+
+现六个 test/production 套餐事件改为 `Singular.customRevenueWithAttributes`，使用既有 Apple verified Revenue 提取规则得到交易金额、币种、交易 ID 和商品 ID。复用 Revenue 串行队列与持久化实现，仅增加可选存储命名空间，Firebase 默认键与调用流程保持原样。Singular 使用独立环境键，只为当前购买界面中的 Fresh Purchase 入队；Restore、外部恢复、失败及 Pending 不入队。零金额保留为 0，缺失/错配交易字段不猜测展示价格。启动重试只处理该队列以前已记录的交易，等待 ATT 后 SDK 初始化完成，不枚举旧交易补报。支付、订阅权益、服务端、Schema 与 Google Play 购买范围无变更。
+
+本地环境：macOS、Flutter 3.44.5 / Dart 3.12.2。命令在 `apps/flutter-app` 运行：
+
+```sh
+flutter test --no-pub test/app_attribution_test.dart test/subscription_singular_revenue_test.dart test/subscription_singular_events_test.dart test/subscription_revenue_reporter_test.dart
+flutter test --no-pub test/app_attribution_test.dart test/singular_bootstrap_test.dart test/subscription_singular_events_test.dart test/subscription_singular_revenue_test.dart test/subscription_revenue_reporter_test.dart test/subscription_analytics_test.dart test/subscription_receipt_verifier_test.dart test/subscription_server_entitlement_sync_test.dart test/subscription_entitlement_lifecycle_test.dart test/subscription_sync_queue_test.dart test/subscription_restore_ui_test.dart test/startup_subscription_gate_test.dart --reporter expanded
+flutter analyze --no-pub
+```
+
+结果：第一组 36/36、第二组 100/100、静态分析无问题，均退出 0；修改 Dart 文件的格式检查和仓库 `git diff --check` 通过。覆盖六个事件名、真实币种与千分之一单位换算、零收入、无效字段排除、并发回调及重建 Reporter 去重、失败待重试、Firebase 存储隔离、初始化前不发事件、缺凭据不标记交付，以及订阅/恢复/启动相邻路径。
+
+Code Review 自审通过：对照锁定的 Singular Flutter SDK 1.9.0 Dart 与 iOS/Android 桥接确认 `customRevenueWithAttributes` 参数和方法对应；没有另发同名普通事件；原 Fresh Purchase 门禁、异步调用位置、Firebase 默认存储键和权益状态机保持原口径。SDK 方法返回 `void` 且原生桥接无成功回执，本地记录表示已交给 SDK API；桥接异步错误只提供诊断，不能宣称后台收入已验收，也不保证清数据/卸载或交付与落盘之间异常退出时的全局一次性。
+
+真机 Debug 启动验证：使用数据线连接的 iPhone 11（iOS 18.7.8，开发者模式已开启），执行 `flutter run --debug --no-pub --flavor test --dart-define-from-file=config/test.json -d <device-id>`。Xcode 构建完成（130.8 秒），安装启动完成（30.5 秒），Dart VM Service 已连接，调试进程保持运行。读取 `build/ios/iphoneos/Runner.app/Info.plist` 和 `codesign -d --entitlements :- build/ios/iphoneos/Runner.app` 确认 Bundle ID 为 `com.kando.kandoApp.beta`、最终签名 App Attest 为 `development`、`get-task-allow=true`；`codesign --verify --strict build/ios/iphoneos/Runner.app` 退出 0。本次为签名 `.app` 真机调试，没有生成或交付 IPA。
+
+真机周订阅补报验证：首次启动日志出现网络离线错误及 `Singular attribution disabled: runtime credentials unavailable.`。用户随后完成购买，日志收到 `status=purchased, productId=cardx.week` 且无购买错误，收入首次尝试报 `Singular revenue unavailable: missing credentials`。本机只读检查 test `/app-config` 确认响应成功、两项 Singular 配置均非空（未输出配置值）；通过 Flutter 调试会话发送 `R` 热重启后，日志依次出现 `Singular attribution SDK initialized.` 和 `Singular revenue handed to SDK: weekly_cardtest`。这验证了该次缺配置失败的收入记录在重启后重试并交给 SDK API，无须再次购买；没有取得 Singular 后台收件回执或实际金额、币种的后台核验结果，不能据此宣称收入已到账。
+
+未运行：Singular 后台收入确认、完整 Sandbox/TestFlight 商品与恢复购买验收矩阵、Release/IPA 构建、Android 真机原生 SDK 收入验收、Flutter 全仓测试。后续由客户端测试/归因负责人使用 Singular Testing Console 的当前安装 SDID，核对本次 `weekly_cardtest` 的收入事件类型、金额、币种及交易属性，并补验其他套餐和恢复购买不新增收入。旧普通事件不自动回填价值；未执行客户端/服务端发布、后台配置写入或远程数据库操作。完整字段与范围见 [收入契约](../03-data-api/contract-changes.md)。

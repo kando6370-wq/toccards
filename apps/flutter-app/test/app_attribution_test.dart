@@ -185,39 +185,75 @@ void main() {
     },
   );
 
+  test('Singular subscription events use the SDK revenue method', () async {
+    const channel = MethodChannel('singular-api');
+    final methodCalls = <MethodCall>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          methodCalls.add(call);
+          return null;
+        });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null),
+    );
+    final gateway = SingularAttributionGateway(
+      loadCredentials: () async =>
+          const SingularCredentials(apiKey: 'api-key', secretKey: 'secret-key'),
+    );
+
+    final revenue = gateway.trackRevenue(
+      eventName: 'yearly_cardtest',
+      currency: 'USD',
+      value: 49.99,
+      transactionId: 'transaction-1',
+      productId: 'apple.yearly',
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(methodCalls, isEmpty);
+
+    await gateway.updateTrackingStatus(AppTrackingStatus.authorized);
+    await revenue;
+    await Future<void>.delayed(Duration.zero);
+
+    expect(methodCalls.where((call) => call.method == 'start'), hasLength(1));
+    expect(
+      methodCalls.where((call) => call.method == 'customRevenueWithAttributes'),
+      hasLength(1),
+    );
+    expect(
+      methodCalls
+          .where((call) => call.method == 'customRevenueWithAttributes')
+          .single
+          .arguments,
+      {
+        'eventName': 'yearly_cardtest',
+        'currency': 'USD',
+        'amount': 49.99,
+        'attributes': {
+          'transaction_id': 'transaction-1',
+          'product_id': 'apple.yearly',
+        },
+      },
+    );
+    expect(methodCalls.where((call) => call.method == 'event'), isEmpty);
+  });
+
   test(
-    'Singular events are handed to the SDK only after initialization',
+    'missing Singular credentials fail the handoff so revenue can stay pending',
     () async {
-      const channel = MethodChannel('singular-api');
-      final methodCalls = <MethodCall>[];
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, (call) async {
-            methodCalls.add(call);
-            return null;
-          });
-      addTearDown(
-        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-            .setMockMethodCallHandler(channel, null),
-      );
       final gateway = SingularAttributionGateway(
-        loadCredentials: () async => const SingularCredentials(
-          apiKey: 'api-key',
-          secretKey: 'secret-key',
-        ),
+        loadCredentials: () async => null,
       );
-
-      gateway.trackEvent('yearly_cardtest');
-      await Future<void>.delayed(Duration.zero);
-      expect(methodCalls.where((call) => call.method == 'event'), isEmpty);
-
-      await gateway.updateTrackingStatus(AppTrackingStatus.authorized);
-      gateway.trackEvent('yearly_cardtest');
-      await Future<void>.delayed(Duration.zero);
-
-      expect(methodCalls.where((call) => call.method == 'start'), hasLength(1));
-      expect(
-        methodCalls.where((call) => call.method == 'event').single.arguments,
-        {'eventName': 'yearly_cardtest'},
+      await expectLater(
+        gateway.trackRevenue(
+          eventName: 'weekly_cardtest',
+          currency: 'CAD',
+          value: 5.49,
+          transactionId: 'transaction-1',
+          productId: 'apple.weekly',
+        ),
+        throwsStateError,
       );
     },
   );

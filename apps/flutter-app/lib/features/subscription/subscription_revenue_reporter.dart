@@ -71,10 +71,13 @@ abstract interface class SubscriptionRevenueStorage {
 
 class PreferencesSubscriptionRevenueStorage
     implements SubscriptionRevenueStorage {
-  const PreferencesSubscriptionRevenueStorage();
+  const PreferencesSubscriptionRevenueStorage({
+    this.keyPrefix = 'subscription.revenue',
+  });
 
-  static const _reportedKey = 'subscription.revenue.reported_transaction_ids';
-  static const _pendingKey = 'subscription.revenue.pending';
+  final String keyPrefix;
+  String get _reportedKey => '$keyPrefix.reported_transaction_ids';
+  String get _pendingKey => '$keyPrefix.pending';
 
   @override
   Future<Set<String>> readReportedTransactionIds() async {
