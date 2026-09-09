@@ -2,6 +2,14 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## iOS 原始分类分数修复（2026-09-09）
+
+问题输入为 `227.PNG`（1206×1515、EXIF orientation=1、Display P3）。电脑端同源 ONNX 检测可输出约 0.535 的分类概率并完成四角拟合与 745×1043 卡面矫正，但 iOS 相册导入在端侧检测阶段直接失败，因此请求尚未提交 Workers，管理平台不会生成扫描记录。
+
+根因是 iOS Core ML 模型导出原始 RTMDet 分类 head，输出值是 logit；`ScanModelRuntime.swift` 此前直接把 logit 当作概率返回，而 Dart 按 0.35 概率阈值过滤。该图片约 0.535 的概率对应约 0.140 的 logit，因而被错误过滤。修复在 iOS 候选后处理对分类 logit 执行 sigmoid，候选排序保持不变，返回值恢复为与 Android/ONNX 契约一致的 0–1 概率。
+
+影响范围仅为 iOS RTMDet 检测置信度换算；不修改相机或相册页面、图片方向与色彩解码、mask/四角拟合、透视矫正、PE-Core-T16 向量化、Android 推理及 Workers 向量检索。用户明确要求不执行验证，本轮未运行 iOS 编译、模拟器/真机复现、Flutter 测试或完整构建；Windows 环境也无法执行 Xcode/Core ML 真机路径。Code Review 核对导出脚本、原生输出和 Dart 阈值契约后，确认改动针对根因且未发现额外阻断项；真实 iOS 设备仍需使用 `227.PNG` 补验。
+
 ## 当前运行边界（2026-09-09 回读）
 
 本地 `dev@b0b54df` 与 `github/dev` 一致，包含向量合并 `f38ef98`；四个已清理分支 `dev-wxy`、`dev-xiangyang`、`dev-update-dio`、`dev-scan-page-update-ui` 在本地及远程均不存在。旧分支名仅保留历史来源含义，后续开发与 dev 发布使用当前 `dev`。

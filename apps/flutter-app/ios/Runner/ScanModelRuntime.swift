@@ -201,7 +201,7 @@ final class ScanModelRuntime {
       let kernel = try ScanTensorView(kernelArray, shape: [169, height, width])
       for y in 0..<height {
         for x in 0..<width {
-          let score = cls[0, 0, y, x]
+          let score = sigmoid(cls[0, 0, y, x])
           if let best, score <= best.score { continue }
           let centerX = Float32(x * stride)
           let centerY = Float32(y * stride)
