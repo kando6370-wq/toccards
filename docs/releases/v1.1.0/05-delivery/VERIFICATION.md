@@ -2,6 +2,27 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## 扫描结果遮挡取景框修复（2026-09-10，本地未发布）
+
+用户报告 iPhone 12 相机识别完成后，底部结果卡片遮挡黄色取景框，并要求兼容其他机型。用户图片未提供已安装 App 的版本或 iOS 版本；本地复现基于 `dev@075db55`、App `1.0.2+132`、Windows、Flutter 3.44.7 / Dart 3.12.2，以相机测试替身完成拍照与匹配，不依赖真实模型或网络。
+
+根因是 `_scanViewfinderGeometry` 仅为底部 22 像素边距及 88 像素拍照控件预留空间，遗漏定位在安全区上方 126 像素处的结果区（16 像素统计行、8 像素间距、82 像素卡片列表）。iPhone 12 的 390×844 逻辑视口、顶部 47 / 底部 34 安全区下，原取景框底边为 613，结果区顶部为 578，稳定重叠 35 个逻辑像素；免费与 Premium 均可复现。
+
+先失败证据：在修改生产代码前，于 `apps/flutter-app` 执行 `flutter test --no-pub test/widget/scan_page_test.dart --plain-name 'result rail never covers' --reporter expanded`，12 项中 4 通过、8 失败，退出 1；iPhone 12、iPhone 8、360×640 与 320×568 Android 的两种权益状态均未能为结果区留足间距，430×932 iPhone 与 412×915 Android 的对照用例通过。
+
+修复将结果区实际使用的底部位置、统计行、间距及列表高度与取景框预留共用常量。结果出现前即预留完整区域，空间不足时等比例缩小取景框；布局不依赖具体机型或结果状态。影响范围为扫描页取景框、扫描线与识别遮罩的共享几何及对应回归基准；相机输入、模型推理、额度、队列、Review、确认入库、API、Schema 和部署配置变更为 N/A。
+
+修改后验证（命令除注明外均在 `apps/flutter-app` 执行）：
+
+- `flutter test --no-pub test/widget/scan_page_test.dart --plain-name 'result rail never covers' --reporter expanded`：12/12 通过，退出 0。覆盖上述六个竖屏尺寸、两平台及免费/Premium；首张匹配、第二张拍照期间、两张匹配及删空结果均保持取景框位置和比例，结果区与取景框/拍照按钮均留有间距。320×568 用例使用无市场报价的匹配卡，其余使用 0.13 单价，分别覆盖无总价和有总价；测试默认 Ahem 字体下的长总价横向排版不是本次修复范围。
+- `flutter test --no-pub test/widget/scan_page_test.dart --reporter expanded`：最终 115 通过、3 个既有 Golden 失败，退出 1，不能记为全量通过。原有相机完整照片输入、扫描线/遮罩一致性、权限、队列、额度、Review 和保存用例通过。失败仍是 `Figma scan scanning`、`Figma recognition`、`Figma scan reveal` 的 390×844 截图比较；修改前已存在顶部额度文字差异。仅更新本次四张受影响视觉基准的取景框/遮罩布局，保留原有文字差异；逐像素回读确认三个剩余差异均与修改前完全相同，各 676 像素，位于 `(143,93)` 至 `(248,106)` 区域，无新增视觉差异。
+- `flutter analyze --no-pub`：无问题，退出 0。
+- `dart format --output=none --set-exit-if-changed lib/features/scan/scan_page.dart test/widget/scan_page_test.dart`：2 文件无变化，退出 0；仓库根 `git diff --check` 通过。已目视核对更新后的待扫描、扫描中、识别中和结果反馈基准，取景框下沿与结果统计/卡片分离。
+
+Code Review 自审通过：核对取景框计算的唯一调用方、顶部与底部安全区、等比例缩放及最大尺寸、结果区实际高度与位置共用常量、无结果到连续识别的几何稳定性，以及扫描线/遮罩继续复用同一几何；未增加机型判断或改动识别输入。保留原有小屏用例对安全区、比例、扫描线/遮罩稳定性的断言，仅调整本次布局变化对应的尺寸期望。修复前相同回归用例的 8 项失败证明恢复旧预留高度会再次暴露遮挡。业务说明同步至[扫描识别](../01-flows/scan-recognition.md#扫描页布局)。
+
+未运行：全 App/全仓测试、签名包构建、iOS/Android 真机相机验收；本次为局部 Flutter 布局修改，Windows 无法执行 Xcode，未连接测试手机。以上 Widget 尺寸与平台变体不能代替真机验收，客户端开发/测试人员需用包含修复的新包在 iPhone 12 及其他 iOS/Android 大小屏手机复测连续扫描和结果删除。代码提交与推送不代表客户端已部署或发布。
+
 ## Home 版本静默复查与详情页 Loading 修复（2026-09-10，本地未发布）
 
 用户在 iPhone 11 的 `1.0.2 (132)` 上报告：进入 Home 后返回桌面、不杀进程，再打开 App 出现全屏 Loading；卡牌详情也出现，引导和启动订阅页不出现。设备版本已只读确认，未抓取该包切换日志。代码根因是 9 月 9 日只延后了首次激活：`_homeEntered` 一旦置为 true，所有页面 resumed 都 invalidate 版本决策，且重新请求时把上一次通过的决策置为不可用，进而显示全局 Loading。

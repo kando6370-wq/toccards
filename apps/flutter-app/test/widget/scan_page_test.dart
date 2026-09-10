@@ -915,8 +915,8 @@ void main() {
       final shutter = tester.getRect(find.byTooltip('Take Photo'));
 
       expect(viewfinder.top, closeTo(168, 0.01));
-      expect(viewfinder.width, closeTo(261.1, 0.01));
-      expect(viewfinder.height, closeTo(373, 0.01));
+      expect(viewfinder.width, closeTo(175.7, 0.01));
+      expect(viewfinder.height, closeTo(251, 0.01));
       expect(viewfinder.width / viewfinder.height, closeTo(0.7, 0.0001));
       expect(viewfinder.top, greaterThanOrEqualTo(quota.bottom + 16));
       expect(viewfinder.bottom, lessThanOrEqualTo(shutter.top - 16));
@@ -957,14 +957,149 @@ void main() {
       );
       final shutter = tester.getRect(find.byTooltip('Take Photo'));
 
-      expect(viewfinder.left, closeTo(68.7, 0.01));
+      expect(viewfinder.left, closeTo(111.4, 0.01));
       expect(viewfinder.top, closeTo(172, 0.01));
-      expect(viewfinder.width, closeTo(222.6, 0.01));
-      expect(viewfinder.height, closeTo(318, 0.01));
+      expect(viewfinder.width, closeTo(137.2, 0.01));
+      expect(viewfinder.height, closeTo(196, 0.01));
       expect(viewfinder.top, greaterThanOrEqualTo(quota.bottom + 16));
       expect(viewfinder.bottom, lessThanOrEqualTo(shutter.top - 16));
     },
   );
+
+  for (final device in [
+    (
+      name: 'iPhone 12',
+      size: const Size(390, 844),
+      padding: const FakeViewPadding(top: 47, bottom: 34),
+      platform: TargetPlatform.iOS,
+    ),
+    (
+      name: 'iPhone 8',
+      size: const Size(375, 667),
+      padding: const FakeViewPadding(top: 20),
+      platform: TargetPlatform.iOS,
+    ),
+    (
+      name: 'large iPhone',
+      size: const Size(430, 932),
+      padding: const FakeViewPadding(top: 59, bottom: 34),
+      platform: TargetPlatform.iOS,
+    ),
+    (
+      name: 'compact Android',
+      size: const Size(360, 640),
+      padding: const FakeViewPadding(top: 24, bottom: 24),
+      platform: TargetPlatform.android,
+    ),
+    (
+      name: 'small Android',
+      size: const Size(320, 568),
+      padding: const FakeViewPadding(top: 24, bottom: 24),
+      platform: TargetPlatform.android,
+    ),
+    (
+      name: 'large Android',
+      size: const Size(412, 915),
+      padding: const FakeViewPadding(top: 24, bottom: 24),
+      platform: TargetPlatform.android,
+    ),
+  ]) {
+    for (final premium in [false, true]) {
+      testWidgets(
+        '${device.name} ${premium ? 'Premium' : 'Free'} result rail never covers the targeting frame during continuous scanning',
+        (tester) async {
+          tester.view.devicePixelRatio = 1;
+          tester.view.physicalSize = device.size;
+          tester.view.padding = device.padding;
+          addTearDown(tester.view.reset);
+
+          await _pumpScanTestApp(
+            tester,
+            scanCameraFactory: _TestScanCameraFactory(_TestScanCameraSession()),
+            scanReviewRepository: _FakeScanReviewRepository(
+              rawPrice: device.size.width < 360 ? 0 : 0.13,
+            ),
+            scanResultSource: _TestScanResultSource(
+              photoResult: Future.value(
+                const ScanResolution.matched(
+                  scanId: 'scan-mega',
+                  cardRef: 'card-mega',
+                  matchName: 'Mega Lucario ex',
+                  candidates: ['Mega Lucario ex'],
+                  candidateCardRefs: ['card-mega'],
+                ),
+              ),
+            ),
+            scanQuota: premium ? _unlimitedQuota : _availableQuota,
+            subscriptionController: premium
+                ? _ProScanSubscriptionController.new
+                : _FreeScanSubscriptionController.new,
+          );
+          final viewfinderFinder = find.byKey(
+            const Key('scan-figma-viewfinder'),
+          );
+          final initialFrame = tester.getRect(viewfinderFinder);
+          final initialShutter = tester.getRect(find.byTooltip('Take Photo'));
+
+          void expectClearTargetingFrame() {
+            final frame = tester.getRect(viewfinderFinder);
+            final resultsTop = tester.getTopLeft(
+              find.textContaining('Scanned:'),
+            );
+            final resultRail = tester.getRect(
+              find.byKey(const Key('scan-figma-result-rail')),
+            );
+            final topControls = tester.getRect(
+              find.byKey(const Key('scan-figma-top-controls')),
+            );
+            expect(
+              frame.bottom,
+              lessThanOrEqualTo(resultsTop.dy - 16),
+              reason:
+                  'The next card must remain fully visible above the scan count and results.',
+            );
+            expect(frame.top, greaterThanOrEqualTo(topControls.bottom + 16));
+            expect(frame.width / frame.height, closeTo(0.7, 0.0001));
+            expect(
+              frame,
+              initialFrame,
+              reason:
+                  'Capturing and completing scans must not move the targeting frame.',
+            );
+            expect(
+              resultRail.bottom,
+              lessThanOrEqualTo(initialShutter.top - 16),
+            );
+            expect(
+              tester.getRect(find.byTooltip('Take Photo')),
+              initialShutter,
+            );
+            expect(tester.takeException(), isNull);
+          }
+
+          await tester.tap(find.byTooltip('Take Photo'));
+          await _completeFigmaScan(tester);
+          expect(find.text('Scanned: 1/1'), findsOneWidget);
+          expectClearTargetingFrame();
+
+          await tester.tap(find.byTooltip('Take Photo'));
+          await tester.pump(const Duration(milliseconds: 250));
+          expectClearTargetingFrame();
+          await _completeFigmaScan(tester);
+          expect(find.text('Scanned: 2/2'), findsOneWidget);
+          expectClearTargetingFrame();
+
+          for (final id in [2, 1]) {
+            await tester.tap(find.byKey(Key('scan-delete-item-$id')));
+            await tester.pumpAndSettle();
+          }
+          expect(find.byKey(const Key('scan-figma-result-rail')), findsNothing);
+          expect(tester.getRect(viewfinderFinder), initialFrame);
+        },
+        variant: TargetPlatformVariant({device.platform}),
+      );
+    }
+  }
 
   testWidgets(
     'capture forwards the full photo when the viewport changes during feedback',

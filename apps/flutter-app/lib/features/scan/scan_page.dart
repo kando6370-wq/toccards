@@ -56,7 +56,16 @@ const _viewfinderHorizontalMargin = 24.0;
 const _viewfinderControlGap = 16.0;
 // Reserve the full Free chrome so unlocking Premium never moves the frame.
 const _viewfinderTopChromeHeight = 10 + 32 + 2 + 34 + 6 + 48;
-const _viewfinderBottomChromeHeight = 22 + 88;
+const _scanResultsBottom = 126.0;
+const _scanResultsHeaderHeight = 16.0;
+const _scanResultsGap = 8.0;
+const _scanResultsRailHeight = 82.0;
+// Reserve results before capture so arriving cards never move or cover the frame.
+const _viewfinderBottomChromeHeight =
+    _scanResultsBottom +
+    _scanResultsHeaderHeight +
+    _scanResultsGap +
+    _scanResultsRailHeight;
 
 class _ScanViewfinderGeometry {
   const _ScanViewfinderGeometry(this.rect);
@@ -2376,7 +2385,7 @@ class _ScanCameraView extends StatelessWidget {
           Positioned(
             left: 16,
             right: 16,
-            bottom: 126 + padding.bottom,
+            bottom: _scanResultsBottom + padding.bottom,
             child: _ScanResults(
               items: items,
               cards: cards,
@@ -3343,7 +3352,7 @@ class _ScanResults extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          height: 16,
+          height: _scanResultsHeaderHeight,
           child: Row(
             children: [
               Text(
@@ -3368,9 +3377,9 @@ class _ScanResults extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: _scanResultsGap),
         SizedBox(
-          height: 82,
+          height: _scanResultsRailHeight,
           child: ListView.separated(
             key: const Key('scan-figma-result-rail'),
             scrollDirection: Axis.horizontal,
