@@ -33,6 +33,7 @@ import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/currency/currency_rate_api.dart';
 import 'package:kando_app/shared/analytics/analytics_events.dart';
 import 'package:kando_app/shared/analytics/app_analytics.dart';
+import 'package:kando_app/shared/attribution/app_attribution.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/pagination/pagination.dart';
@@ -2758,6 +2759,10 @@ void main() {
     'auth startup shows the empty portfolio state instead of a false data failure',
     (tester) async {
       final storage = InMemoryAuthStorage();
+      final attribution = SingularAttributionGateway(
+        loadCredentials: () async => null,
+      );
+      addTearDown(attribution.dispose);
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -2765,6 +2770,7 @@ void main() {
             authRepositoryProvider.overrideWithValue(
               _PendingStartupAuthRepository(storage),
             ),
+            singularAttributionGatewayProvider.overrideWithValue(attribution),
           ],
           child: const _HomeTestApp(),
         ),

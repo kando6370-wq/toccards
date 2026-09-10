@@ -6,6 +6,8 @@
 
 测试地址：`http://192.168.50.201:8080`
 
+代码核对基线为 `dev@699ca48`（2026-09-10），部署资产已通过 `19a6ac4` 合入 dev。服务器安装、发布与连接结果保留 2026-09-09 历史记录；本轮未回读 kd201 的 crontab、运行 SHA、release 或数据库 ledger。当前 Linux 缺少向量适配器，扫描不可用，详见[兼容缺口](../02-architecture/linux-test-environment.md#扫描兼容缺口)。
+
 ## 当前工作方式
 
 ```text
@@ -175,19 +177,21 @@ printf '%s\n' '<previous-release-id>' \
 - 监听器只检出受信任的 `dev` 分支，不执行 Pull Request head commit。
 - 本地 Artifact 不包含 `.env`、数据库备份、扫描图片或第三方凭证。
 - 监听器目录权限为 `700`，配置和状态仅属于服务器 `user` 账号。
-- Linux 使用独立测试数据库、JWT、文件卷和 OCR 地址，不调用正式 OCR。
+- Linux 使用独立测试数据库、JWT 和文件卷；旧 OCR 字段仍为启动必填项但不被扫描路由读取，不能用它连接正式资源或宣称扫描已可用。
 - `kd201` PostgreSQL 仅通过 `192.168.50.201:15432` 提供可信局域网访问，不映射公网；自动发布继续复用服务器私有 `.env` 中的该配置。
 - 正式 Cloudflare 部署仍由其原工作流或 Cloudflare 平台配置管理。
 
 ## 接手检查清单
 
+服务器已勾选项为 2026-09-09 的历史核验；接手时仍需按上文命令复核。
+
 - [x] `crontab -l` 包含 `TOCCARDS LINUX TEST WATCHER` 区块。
 - [x] 监听日志已推进到 2026-09-09 当时的 `dev@b0b54df2af7f`；一次 GitHub 网络超时在后续 cron 自动恢复。
-- [ ] `dev` 已包含分支监听和发布脚本。
+- [x] `dev` 已通过 `19a6ac4` 包含分支监听和发布脚本（2026-09-10 本地代码确认）。
 - [x] `kd201` 的共享 `.env` 存在且权限为 `600`。
 - [x] 监听用户能够运行 `git`、`npm`、`docker ps`。
-- [ ] 合入一次相关 `dev` 提交并确认构建、备份、迁移、健康检查和 `current-release`。
-- [ ] 独立测试 OCR 地址准备后，更新服务器 `.env` 并重新部署。
+- [ ] 回读合入后的 dev 自动发布结果，确认目标 SHA、构建、备份、迁移、健康检查和 `current-release`。
+- [ ] 补齐独立测试向量适配后，验证 Linux 扫描成功、缺服务失败与额度释放；仅更新 OCR 地址不满足条件。
 
 ## 实施验证记录 — 2026-09-09
 
@@ -196,5 +200,5 @@ printf '%s\n' '<previous-release-id>' \
 - 发布脚本已使用与 Artifact 相同的目录结构在 `kd201` 验证：发布前生成 PostgreSQL custom-format 备份，创建并切换到 `manual-validation-20260909`，migration ledger 为 10，健康接口返回 `{"status":"ok"}`。
 - `watch-branch.sh` 已通过功能分支端到端验证：在干净目录固定安装 pnpm 11.9.0，构建 `@kando/auth-core` 后完成 Workers 类型检查、26/26 定向测试、Admin 2/2 测试、Linux 构建、数据库备份、迁移和版本切换。
 - 验证发布版本为 `branch-feature-linux-test-environment-2cd72364b6ad-20260909111201`，验证完成后 API 健康接口仍返回 `{"status":"ok"}`；临时监听目录已删除。
-- 正式监听器当前只监控 `dev`，首次基线已推进到 `b0b54df2af7fd1614f13fe1e72979cec8e87888b`。因为该提交尚不含 Linux 自动部署资产，监听器按设计跳过发布；本功能分支合入 `dev` 后才会执行第一次正式自动发布。
+- 该次检查中正式监听器只监控 `dev`，首次基线推进到 `b0b54df2af7fd1614f13fe1e72979cec8e87888b`。该提交尚不含 Linux 自动部署资产，监听器按设计跳过发布；资产现已通过 `19a6ac4` 合入，但本轮未核实随后首次正式自动发布是否成功。
 - 2026-09-09 发布 `manual-pg-lan-20260909`，将 PostgreSQL 仅绑定到 `192.168.50.201:15432`。Mac TCP 连接成功，并通过项目 `postgres` 客户端只读查询到数据库 `toccards_test`、用户 `toccards`、PostgreSQL `18.6` 和 10 条 migration ledger；API 健康接口保持正常。

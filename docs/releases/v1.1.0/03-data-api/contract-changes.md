@@ -4,9 +4,13 @@
 
 `POST /api/v1/scan/recognize` 将 multipart `r/g/b` 替换为 JSON `vector`，要求 512 个有限数值且至少一个非零分量，最大 32 KiB；图片为端侧模型检测、原生透视矫正后的 JPEG。该变更于 2026-09-09 从 `dev-wxy` 合入 `dev`，请求路径、UUID/Idempotency-Key、平台信息、卡号、返回候选完整资料、业务状态与 Quota 保持原契约；确认入库保留 `dev` 已有的初始事件购买价格、币种及可靠历史起点修复。旧 pHash 请求不兼容新接口，需协调 App 与 API 发布。
 
-主 Worker 只经 `VECTOR_RECOGNITION` Service Binding 向内部 `recognize-vec` 发送 `{vector}`，删除 `OCR_SERVICE_BASE_URL`；缺少 binding 为 `503 VECTOR_RECOGNITION_UNAVAILABLE`，内部失败为 `502` 并释放 Free 预占。`game_id` 改在主 Worker 的 PostgreSQL 目录层过滤，保留卡号消歧与候选顺序。算法标识为 `pe-core-t16-384-cosine-v1`，未增加数据库迁移。下文历史契约中的 OCR 识别上游在本分支由向量服务承担，端侧 ML Kit 卡号 OCR 保留；No Match/目录不完整不扣次数等规则仍有效。详见[扫描识别链路](../01-flows/scan-recognition.md)。
+主 Worker 只经 `VECTOR_RECOGNITION` Service Binding 向内部 `recognize-vec` 发送 `{vector}`，Cloudflare 配置和扫描请求路径不再使用 `OCR_SERVICE_BASE_URL`；缺少 binding 为 `503 VECTOR_RECOGNITION_UNAVAILABLE`，内部失败为 `502` 并释放 Free 预占。`game_id` 改在主 Worker 的 PostgreSQL 目录层过滤，保留卡号消歧与候选顺序。算法标识为 `pe-core-t16-384-cosine-v1`，未增加数据库迁移。下文历史契约中的 OCR 识别上游在本分支由向量服务承担，端侧 ML Kit 卡号 OCR 保留；No Match/目录不完整不扣次数等规则仍有效。详见[扫描识别链路](../01-flows/scan-recognition.md)。
+
+Linux 入口虽共用上述路由，但 `src/linux/config.ts` 仍要求旧 OCR 字段，未提供 `VECTOR_RECOGNITION`。合法识别请求完成鉴权和额度预占后会进入缺少 binding 的 `503` 分支并释放预占，不能通过修改 OCR 地址恢复，见[Linux 兼容缺口](../02-architecture/linux-test-environment.md#扫描兼容缺口)。
 
 ## App 版本控制环境隔离
+
+当前 Flutter 升级门禁只在实际 Home 首帧后开始检查，不覆盖此前的 Splash、Onboarding 或启动订阅页。首次 Home 检查保留 Loading/失败重试；已有成功决策后，从其他路由返回 Home 或 Home 回前台时静默复查，失败保留原决策。新可选提示只在 Home 展示，离开 Home 后才返回的结果不在其他页新增提示；已确认强更继续全局拦截，并可在其他页回前台时重新验证，成功确认解除后才放行。同一次运行对同建议版本的“稍后”去重、版本比较及服务端响应契约不变。
 
 2026-09-08 更新弹窗按 Figma `736:13370` 使用固定提示语，Admin 版本结构移除 `recommended_update_message` / `forced_update_message`。读取存量配置时忽略这两个字段，写入时不再保存，即使旧后台请求仍携带也不会恢复。公共 `upgrade_prompt.title/message/forced_message` 为旧客户端保留兼容，分别固定为 `Update Now` / `New update available! Tap to upgrade` / `New update available! Tap to upgrade`。新 App 界面不依赖历史文案，不新增数据库迁移或修改已执行迁移。
 

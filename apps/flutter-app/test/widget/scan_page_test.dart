@@ -1363,6 +1363,11 @@ void main() {
     );
     await tester.pump();
 
+    expect(
+      find.text('10 scans remaining'),
+      findsOneWidget,
+      reason: 'Capture must not spend the displayed allowance before a match.',
+    );
     await expectLater(
       find.byKey(const Key('scan-scanning-figma-golden')),
       matchesGoldenFile(
@@ -1508,6 +1513,11 @@ void main() {
     await tester.tap(find.byTooltip('Take Photo'));
     await tester.pump(const Duration(seconds: 1));
 
+    expect(
+      find.text('10 scans remaining'),
+      findsOneWidget,
+      reason: 'Recognition must keep the allowance until its result is shown.',
+    );
     await expectLater(
       find.byKey(const Key('scan-recognizing-figma-golden')),
       matchesGoldenFile(
@@ -1583,6 +1593,11 @@ void main() {
     expect(tester.getTopLeft(find.byTooltip('Choose from Library')).dx, 28);
     expect(tester.getTopLeft(find.byTooltip('Choose from Library')).dy, 750);
 
+    expect(
+      find.text('10 scans remaining'),
+      findsOneWidget,
+      reason: 'Reveal feedback must finish before the displayed count changes.',
+    );
     await expectLater(
       find.byKey(const Key('scan-revealing-figma-golden')),
       matchesGoldenFile(
@@ -1967,6 +1982,15 @@ void main() {
     await tester.tap(find.byTooltip('Take Photo'));
     await _completeFigmaScan(tester);
     await tester.tap(find.byTooltip('Review completed scan'));
+    await tester.pumpAndSettle();
+
+    // The screenshot must include card art even without earlier tests warming it.
+    await tester.runAsync(
+      () => precacheImage(
+        const AssetImage('assets/home/trend_placeholder.png'),
+        tester.element(find.byKey(const Key('scan-page-test-boundary'))),
+      ),
+    );
     await tester.pumpAndSettle();
 
     await expectLater(

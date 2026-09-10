@@ -1,6 +1,13 @@
 # Linux Test Environment Implementation Plan
 
-> **For agentic workers:** Implement tasks in order. The repository rule overrides TDD ordering: finish the scoped implementation first, then run only affected tests and builds.
+> 后续变更遵循当前根 `AGENTS.md`：BUGFIX 必须先复现并建立失败证据，再执行最小修复、回归验证与 Code Review。下方任务勾选及测试结果保留原始实施记录，不代表当前提交已重新验收。
+
+## 当前实现边界（2026-09-10）
+
+- `19a6ac4` 已合入 Linux 测试环境，当前核对基线为 `dev@699ca48`；不再等待功能分支合入。
+- Cloudflare dev/test 与 prod 已完成 PostgreSQL 迁移，D1 已退役；Linux 使用独立 PostgreSQL。
+- 当前扫描路由只使用 `VECTOR_RECOGNITION`，Linux 配置仍要求旧 `OCR_SERVICE_BASE_URL` 且未提供向量适配器。Linux 扫描不可用，填写 OCR 地址不能恢复，见[架构中的兼容缺口](../02-architecture/linux-test-environment.md#扫描兼容缺口)。
+- 本轮未连接 kd201；下方 10 条 migration、容器运行与发布结果只对应注明的历史时间，当前 ledger、运行 SHA 及自动发布状态需重新核验。
 
 **Goal:** Add a single-instance Linux test deployment that runs the existing Hono/PostgreSQL application without duplicating business code or changing Cloudflare production behavior.
 
@@ -55,7 +62,7 @@
 - [x] Bundle `src/linux/server.ts` to `dist/linux/server.mjs`.
 - [x] Build Admin in Linux mode with `/api/v1/admin`.
 - [x] Define API and Caddy image targets from the repository root.
-- [x] Start PostgreSQL with an internal-only port and persistent volume.
+- [x] Start PostgreSQL with a persistent volume; host access defaults to loopback, with the later explicit LAN override recorded below.
 - [x] Apply missing PostgreSQL migration files once through `schema_migrations`.
 - [x] Start API only after migration succeeds and PostgreSQL is healthy.
 - [x] Proxy `/api/*` and `/share/*`; serve all other paths as the Admin SPA.
@@ -65,12 +72,12 @@
 
 - [x] Document first deployment, updates, logs, health checks and backup commands.
 - [x] Document that Linux credentials and OCR endpoint must be independent test values.
-- [x] Document that prod v1.0 D1 migration/cutover is excluded.
+- [x] Document that Linux does not modify Cloudflare resources; Cloudflare dev/prod now use PostgreSQL and D1 is retired.
 - [x] Keep the existing UI autostash untouched.
 
 ## Task 5: Final Impacted Verification
 
-Run only after Tasks 1–4 are complete:
+Historical results from the original implementation; follow the current root verification rules for subsequent changes:
 
 - [x] `pnpm --filter @kando/workers-api type-check`
 - [x] Focused Workers tests for app/Worker runtime, PostgreSQL adapter and Linux adapters: 26/26 passed.
@@ -110,6 +117,6 @@ Run only after Tasks 1–4 are complete:
 - Added `linux-test-auto-deployment.md` covering branch filtering, watcher installation, normal operations, retries, rollback and security boundaries.
 - Local affected verification passed on 2026-09-09: workflow YAML, Bash guard, Workers type-check, 26 focused Workers tests, 2 Admin environment tests, Linux build and merged Compose configuration.
 - A manual end-to-end invocation on `kd201` created a PostgreSQL backup and successfully switched from release `20260827-111216` to `manual-validation-20260909`; the API health response remained `{"status":"ok"}` and the migration ledger remained at 10.
-- The branch watcher then completed a clean end-to-end feature-branch validation and switched to `branch-feature-linux-test-environment-2cd72364b6ad-20260909111201`. The formal watcher tracks `dev`; it will perform its first real automatic deployment after these assets are merged into `dev`.
+- The branch watcher then completed a clean end-to-end feature-branch validation and switched to `branch-feature-linux-test-environment-2cd72364b6ad-20260909111201`. At that checkpoint the formal watcher tracked `dev` before the assets were merged. Merge `19a6ac4` is now present; a successful automatic deployment of the merged commit has not been reverified in this documentation update.
 - Because the available GitHub account has push permission but no repository Admin/Actions Runner management permission, the GitHub workflow remains a manual-only future option and must not run concurrently with the watcher.
 - On 2026-09-09, release `manual-pg-lan-20260909` added the explicit LAN-only PostgreSQL mapping `192.168.50.201:15432`. A direct Mac connection returned database `toccards_test`, user `toccards`, PostgreSQL `18.6` and migration count 10; the API health check remained green.

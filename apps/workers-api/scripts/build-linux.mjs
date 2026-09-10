@@ -1,4 +1,5 @@
 import { mkdir, rm } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 
 import { build } from "esbuild";
 
@@ -7,8 +8,8 @@ await rm(outDir, { force: true, recursive: true });
 await mkdir(outDir, { recursive: true });
 
 await build({
-  entryPoints: [new URL("../src/linux/server.ts", import.meta.url).pathname],
-  outfile: new URL("server.mjs", outDir).pathname,
+  entryPoints: [fileURLToPath(new URL("../src/linux/server.ts", import.meta.url))],
+  outfile: fileURLToPath(new URL("server.mjs", outDir)),
   bundle: true,
   platform: "node",
   target: "node22",

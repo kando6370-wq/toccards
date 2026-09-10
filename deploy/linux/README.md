@@ -1,12 +1,14 @@
 # Linux 测试环境部署
 
-本目录启动独立 PostgreSQL、Node API 和 Caddy/Admin。它只用于测试环境，不连接 Cloudflare Hyperdrive、KV、R2 或正式 OCR 服务。
+本目录启动独立 PostgreSQL、Node API 和 Caddy/Admin；离线模式使用 Node 静态服务。它只用于测试环境，不连接 Cloudflare Hyperdrive、KV、R2 或正式识别服务。
+
+当前代码按 `dev@699ca48`（2026-09-10）核对，已包含 Linux 合并 `19a6ac4`。Linux 入口尚未提供扫描路由需要的 `VECTOR_RECOGNITION`，扫描不可用；旧 OCR 字段仅保留启动校验，补填地址不能修复，见[Linux 兼容缺口](../../docs/releases/v1.1.0/02-architecture/linux-test-environment.md#扫描兼容缺口)。服务器运行提交与历史部署证据见[运维手册](../../docs/linux-test-environment/README.md)。
 
 ## 前置条件
 
 - Linux 服务器已安装 Docker Engine 和 Docker Compose Plugin。
 - 测试域名已解析到服务器；首次验证也可直接使用 `http://服务器IP:8080`。
-- 已准备独立测试 OCR 地址、JWT secret 和需要启用的 OAuth/Apple/邮件测试配置。
+- 已准备独立测试 JWT secret 和需要启用的 OAuth/Apple/邮件测试配置；当前必填旧 OCR 字段可保留 `.invalid` 占位地址。
 
 默认使用 Docker 官方 `node`、`caddy` 和 `postgres` 镜像。如果服务器无法访问 Docker Hub，可在 `.env` 中将 `NODE_IMAGE`、`CADDY_IMAGE`、`POSTGRES_IMAGE` 改为企业已审核的镜像代理地址，不需要修改 Dockerfile 或业务代码。
 
@@ -25,7 +27,7 @@ chmod 600 .env
 - `POSTGRES_PASSWORD`
 - `DATABASE_URL` 中对应密码
 - `JWT_SECRET`
-- `OCR_SERVICE_BASE_URL`
+- `OCR_SERVICE_BASE_URL`：当前启动必填的旧字段，不参与扫描请求。
 - `LINUX_TEST_SITE_ADDRESS`
 - `ALLOWED_ORIGINS`
 
@@ -59,7 +61,9 @@ curl -fsS http://服务器IP:8080/api/v1/health
 
 ## 离线镜像部署
 
-先在开发机完成构建并将仓库工作区复制到服务器。服务器必须已有 `.env` 中 `NODE_RUNTIME_BASE_IMAGE` 和 `POSTGRES_RUNTIME_BASE_IMAGE` 指定的本地 Ubuntu 基础镜像；Node 运行镜像使用宿主机 Node 22，PostgreSQL 镜像通过 Ubuntu 软件源在服务器本机生成对应 CPU 架构的镜像。
+先在仓库根执行 `pnpm --filter @kando/workers-api build:linux`，再将仓库及构建产物复制到服务器。服务器必须已有 `.env` 中 `NODE_RUNTIME_BASE_IMAGE` 和 `POSTGRES_RUNTIME_BASE_IMAGE` 指定的本地 Ubuntu 基础镜像；Node 运行镜像使用宿主机 Node 22，PostgreSQL 镜像通过 Ubuntu 软件源在服务器本机生成对应 CPU 架构的镜像。
+
+API 打包脚本通过 Node `fileURLToPath` 解析入口和输出路径，可从 Windows 工作区构建离线产物；容器运行、原生镜像和数据库验证仍需在目标 Linux 服务器完成。本地构建成功不覆盖向量识别适配缺口。
 
 在服务器执行：
 
@@ -91,7 +95,7 @@ docker compose logs --tail=100 migrate api web
 
 ## 自动部署
 
-当前 `kd201` 使用服务器本机 `crontab` 每两分钟运行 `ci/watch-branch.sh`，监控 `dev` 分支中影响 API、Admin、共享包或 Linux 部署配置的提交。服务器完成拉取、定向检查、构建后，调用 `ci/deploy-release.sh` 完成数据库备份、版本化发布、健康验证和应用回滚。
+2026-09-09 的服务器记录显示 `kd201` 使用本机 `crontab` 每两分钟运行 `ci/watch-branch.sh`，监控 `dev` 分支中影响 API、Admin、共享包或 Linux 部署配置的提交。脚本在拉取、定向检查、构建后，调用 `ci/deploy-release.sh` 完成数据库备份、版本化发布、健康验证和应用回滚；本轮未确认当前服务器安装或最新自动发布结果。
 
 仓库同时保留 `.github/workflows/linux-test-deploy.yml` 作为未来可选的 GitHub 自托管 Runner 方案。当前安装方法、触发规则、失败处理和接手步骤见 [`Linux 测试环境自动部署手册`](../../docs/releases/v1.1.0/05-delivery/linux-test-auto-deployment.md)。自动部署不会读取或修改 Cloudflare 正式环境。
 
@@ -148,5 +152,5 @@ docker compose exec -T db pg_dump \
 
 - `.env` 不得提交 Git。
 - PostgreSQL 默认只映射服务器回环地址；需要开发机直连时，只允许绑定可信局域网 IP 和非默认宿主机端口。
-- Linux 必须使用测试 OCR、测试 JWT 和测试第三方凭证。
-- 本部署不执行 prod v1.0 D1 数据迁移或 v1.1 prod Hyperdrive 切换。
+- Linux 必须使用独立测试数据库、JWT 和第三方凭证；向量适配完成前不能宣称扫描可用。
+- 本部署不修改 Cloudflare dev/prod 数据或 bindings；两环境已完成 PostgreSQL 迁移，D1 不属于迁移或回滚目标。

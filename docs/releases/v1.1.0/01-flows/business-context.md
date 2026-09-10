@@ -3,7 +3,7 @@
 ## 0. 文档说明
 
 - 分析范围：全项目业务主线，重点记录 v1.1 相对 v1.0 的订阅、额度、Performance 和 Admin 增量。
-- 当前核对基线：`dev@b0b54df`，2026-09-09；原始分析起点为 2026-08-14，历史环境结果保留其检查日期。
+- 当前核对基线：`dev@699ca48`，2026-09-10；原始分析起点为 2026-08-14，历史环境结果保留其检查日期。
 - 范围边界：当前检出代码、Schema/迁移、运行配置和测试；不把远程环境历史证据外推为当前实时状态。
 - 上一版本未变化流程继续参考 [v1.0.0 业务流程](../../v1.0.0/01-flows/flows.md)。
 
@@ -18,6 +18,8 @@
 ### 1.1 系统定位
 
 Card AI 面向交易卡牌用户提供目录搜索、图片识别、Wishlist/Collection、Folder 管理、估值和 Performance。iOS 用户可通过 Apple 购买 Premium，获得无限扫描、更多 Folder、Performance 和扩展价格历史；内部运营人员通过 Admin 查看安装、用户、反馈、扫描、订单和 Apple 通知，并维护版本与权限。
+
+Cloudflare 与 Linux 测试入口复用同一 Hono 业务应用；Linux 使用独立 PostgreSQL 和本地资源，当前未提供向量识别适配器，不能承担完整扫描验收。运行边界见[系统架构](../02-architecture/architecture.md)。
 
 ### 1.2 完整业务闭环
 
@@ -274,7 +276,7 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 
 | 编号 | 文件/符号 | 说明 |
 |---|---|---|
-| E1 | `apps/workers-api/src/index.ts` | API 路由与定时补偿入口 |
+| E1 | `apps/workers-api/src/app.ts`、`src/index.ts`、`src/linux/server.ts` | 共享 API/定时补偿，以及 Cloudflare/Linux 运行入口 |
 | E2 | `apps/workers-api/src/db/postgres/migrations/` | 当前 PostgreSQL 实体、约束、索引及向前数据修复 |
 | E3 | `apps/workers-api/src/owner-auth.ts` | owner 与 session 信任边界 |
 | E4 | `apps/workers-api/src/scan/quota.ts` | Free Scan 原子额度规则 |

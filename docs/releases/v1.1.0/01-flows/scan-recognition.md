@@ -29,6 +29,8 @@ iOS 与 Android 共用 Flutter 取景框布局。取景框根据视口和安全�
 
 ## 平台、资源和协议
 
+本节向量资源描述 Cloudflare 运行路径。Linux 测试入口当前仅保留旧 `OCR_SERVICE_BASE_URL` 配置，未提供 `VECTOR_RECOGNITION`，合法识别请求到达资源检查时返回 `503 VECTOR_RECOGNITION_UNAVAILABLE` 并释放 Free 预占。配置旧 OCR 地址不能恢复扫描；待补齐独立测试向量适配后才能验收，见[Linux 兼容缺口](../02-architecture/linux-test-environment.md#扫描兼容缺口)。
+
 用户已明确选择与源分支一致的兼容范围：iOS 16+、Android minSdk 24，Web 扫描暂不支持。iOS 使用系统 Core ML/Core Image；Android 使用 `onnxruntime-minimal-1.23.0.aar` 和两份 `.ort` 模型。模型、运行时、许可证和转换工具从源提交引入，不重新训练或重新导出模型。模型端到端准确率、耗时与内存仍需设备验收。
 
 旧 `r/g/b` pHash 不再是有效请求；`vector` 必须是 512 项数值数组、至少一个非零分量，JSON 最大 32 KiB。候选 `product_id` 继续支持字符串与旧整数形式，confidence 保持 0–100。识别审计算法标识为 `pe-core-t16-384-cosine-v1`。`game_id` 在主 Worker 的目录查询层过滤，不发送给内部向量服务。

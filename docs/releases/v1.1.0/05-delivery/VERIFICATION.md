@@ -2,6 +2,56 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## Golden 基准与全量复验（2026-09-10）
+
+用户要求修复 Golden 并全量复验。基线为 `dev@699ca48` 加本地文档更新，App `1.0.2+134`；环境为 Windows、Flutter `3.44.7` / Dart `3.12.2`、Node `22.20.0`、pnpm `11.9.0`。本次未修改 Flutter 业务代码、UI 设计、API 或数据库结构。
+
+根因与修改：
+
+- 三张扫描 Golden 仍记录提前扣减后的 `9 scans remaining`，而 `38c362c` 已把可见次数改为完整 Matched 展示后才扣减。Scanning、Recognizing 和 Revealing 阶段应保持 `10 scans remaining`；旧基准各有 676 个差异像素，均在 `(143,93)` 至 `(247,105)`。仅重新生成这三张对应基准，逐像素确认改动范围相同；取景框、遮罩和其他区域无差异。三个 Golden 用例补充业务原因明确的次数断言，保留原严格图片比较，不放宽容差。
+- Review Golden 单独运行时，`KandoCardImage` 使用的 `assets/home/trend_placeholder.png` 尚未解码，导致 60,048 像素缺图；全文件运行会因之前用例预热缓存而通过。截图前通过 `tester.runAsync` 等待 `precacheImage` 完成并重新绘制，不修改 Review 基准，不用固定延时猜测加载完成。
+- 首轮 Dart 全量另有三个页面测试遗留 Dio 的零时长 Timer：两项 Search 首帧用例和一项 Home 认证启动用例触发了订阅收入补发，从而创建真实 Singular Gateway 并预取配置。测试为该依赖注入返回空配置的既有 Gateway 构造参数，并登记 dispose；认证、页面和图片断言保持原样。归因初始化与收入行为仍由原专门测试覆盖。
+- Linux 打包在 Windows 下因 `URL.pathname` 产生 `/D:/.../src/linux/server.ts` 而失败。`build-linux.mjs` 的入口和输出文件改用 Node `fileURLToPath`，同时保留 Linux 路径与 URL 转义处理；调用方、打包目标、数据库和运行适配器均不变。
+
+先失败与同路径验证：初次筛选 5 个扫描 Golden 为 1 通过/4 失败，其中三项次数基准失败、一项 Review 缺图；增加 `APP_ENV=test` 后仍相同。先完成测试依赖修复、保留旧三张图片时，7 项定向用例为 4 通过/3 失败，失败仍严格指向旧次数基准；仅更新三张基准后同一组 7/7 通过。Linux `build:linux` 修改前明确报 `Could not resolve "/D:/.../src/linux/server.ts"`，修改后同一命令成功生成 Node API 与 Admin 产物。
+
+验证结果（除 Flutter 定向命令外均在仓库根执行）：
+
+| 检查 | 命令 | 结果 |
+|---|---|---|
+| 修复后最窄回归 | 在 `apps/flutter-app` 执行 `flutter test --no-pub --dart-define=APP_ENV=test test/widget/scan_page_test.dart test/widget/search_page_test.dart test/widget/home_page_test.dart --name '^Figma (scan scanning\|recognition\|scan reveal\|review) renders at the 390x844 baseline$\|^Search keeps static controls visible while catalog is pending$\|^Search renders backend card art\|^auth startup shows' --reporter expanded` | 7/7，退出 0；三项扫描基准、独立 Review 和三项页面依赖隔离均通过。 |
+| Dart/Flutter 全量 | `dart run melos run test` | 修复前 App 1041 通过/6 失败、订阅包 9 通过；修复后 App 1047/1047、订阅包 9/9，退出 0。全部现有 Golden 随完整 App 测试通过。 |
+| Dart/Flutter 分析 | `dart run melos run analyze` | App 与 subscription-core 均无问题，退出 0。 |
+| Node 默认全量 | `pnpm -r --if-present test` | 首轮退出 1；Auth 34/34、Admin 21/21、Marketing 4/4 通过，Workers 620 通过/4 失败，详见下文。 |
+| Workers 受 Git 跟踪的全部测试 | `pnpm --filter @kando/workers-api exec vitest run src scripts --maxWorkers=2` | 73 文件、621/621，退出 0；包含全部 `src` 与迁移脚本既有测试，未改超时、断言或测试内容。 |
+| TypeScript 全仓类型检查 | `pnpm type-check --force` | 7 个任务全部成功、0 个缓存，退出 0。 |
+| 依赖方向 | `pnpm lint` | 4 个共享包通过，退出 0。 |
+| TypeScript 全仓构建 | `pnpm build --force` | 6 个任务全部成功、0 个缓存，含 Workers/Admin dev/prod dry-run，退出 0。 |
+| Linux API/Admin 构建 | `pnpm --filter @kando/workers-api build:linux` | 路径修复后退出 0，生成 `dist/linux/server.mjs` 及对应 Admin。 |
+| Marketing 打包 | `pnpm --filter @kando/marketing-web exec wrangler deploy --dry-run` | 读取 26 个 assets、dry-run 退出 0，无部署。 |
+| 格式与脚本语法 | `dart format --output=none --set-exit-if-changed apps/flutter-app/test/widget/scan_page_test.dart apps/flutter-app/test/widget/search_page_test.dart apps/flutter-app/test/widget/home_page_test.dart`；`node --check apps/workers-api/scripts/build-linux.mjs` | 三个 Dart 文件无需格式变化，Node 语法检查退出 0。 |
+
+默认 Workers 命令的失败必须保留：其一是旧 Miniflare/D1 基座的 Wishlist/Portfolio 并发用例返回 500，读取 Wishlist 响应时行已为空；另外三项来自 Git 忽略的 `.wrangler/diagnostics/installation-environment-20260909/installations-environment.test.ts`，复现共享库安装环境无法按来源过滤的问题。中间一次 `vitest run src` 为 606 通过/1 失败，扫描用例触发原 5 秒超时；最终限制两个 worker 的完整 `src scripts` 复验通过，不等于并发不稳定或安装环境业务缺口已修复。没有删除诊断文件、修改测试发现配置、放宽超时/断言或维护旧 D1 测试基座；后续由 API 维护者用 PostgreSQL 场景单独处理，默认命令首轮不能标为通过。
+
+Code Review 自审通过：三张图片差异仅限已确认的次数文案；Review 等待真实图片解码且基准不变；三项页面测试只隔离无关归因 I/O，专门归因回归仍在全量中执行；`fileURLToPath` 同时处理入口和输出，未改变清理目标、打包选项或运行逻辑。首次失败、保留旧图时仍失败及最终严格比较通过组成回归证据；无新增业务行为、Schema 或远程配置变更，相关产品/API 文档影响为 N/A，Windows 构建方式已同步至 Linux 部署手册。
+
+未运行：iOS 签名构建、IPA/dSYM 保存测试（Windows 无 Xcode/macOS `ditto`）；Android/iOS 真机及移动端打包（本次未改 Flutter 运行代码、未连接测试设备）；kd201 容器与真实扫描、Cloudflare dev/prod 和数据库实测（本次是本地修复与复验，无远程发布）。客户端测试人员负责后续新包真机验收，Linux 维护者负责运行 SHA、资源适配及扫描端到端；本地构建通过不代表 Linux 向量适配缺口已解决。
+
+## 当前代码与交付边界
+
+2026-09-10 文档核对基线为 `dev@699ca48`，Flutter `pubspec.yaml` 为 `1.0.2+134`。本节汇总已提交实现；下方原始测试和部署记录继续保留各自日期，不代表本轮重跑或新包已发布。
+
+| 增量 | 当前实现 | 验证与交付边界 |
+|---|---|---|
+| Linux 测试环境（`19a6ac4`） | 共享 Hono 应用、Node 入口、独立 PostgreSQL/内存 KV/图片卷、Compose 与 dev 分支监听发布 | Linux 未提供 `VECTOR_RECOGNITION`；扫描不可用，旧 OCR 地址不能恢复。kd201 当前 release、SHA、ledger 和合入后自动发布结果未回读，见[Linux 手册](linux-test-auto-deployment.md)。 |
+| Singular 同进程恢复（`c28e754`） | 仅缓存有效配置；ATT 顺序完成后按前台退避、resumed 和收入交付恢复初始化，成功后补发已有 pending | SDK API 调用不等于后台收件；原始回归记录见下文，同进程断网恢复的新包真机/后台验收仍待完成。 |
+| iOS 分类分数（`2cec31d`） | RTMDet 原始 logit 经 sigmoid 转为概率后交给 Dart 阈值判断 | 原修复未运行平台验证；需使用 `227.PNG` 在新包真机补验，不因已合入而改为通过。 |
+| Home 版本检查（`fc23c6f`、`075db55`） | 实际 Home 首帧激活；后续返回 Home/回前台静默复查，已确认强更继续全局拦截 | 2026-09-10 原回归为 54/54、test 配置 16/16，通过范围见下文；新包安装、商店往返和真机切页未验收。 |
+| iOS 交付物（`deb1d3c`） | 校验 IPA/dSYM 后、安装或上传前按 Bundle ID 保存；测试 3 个版本、正式 7 个版本 | 保存规则按成功保存时间保留，新版本完整保存后才将最旧超额版本移入废纸篓；不清理 Xcode Archives。命令与产物说明见[Flutter README](../../../../apps/flutter-app/README.md#ipa-与符号文件保存)。 |
+| 扫描取景框（`699ca48`） | 首帧预留底部统计行、结果列表和操作区，共用几何随视口/安全区等比缩放 | 2026-09-10 原尺寸回归 12/12；原完整 Scan Widget 的 3 个 Golden 失败已在本页 Golden 修复中收口，最新 App 全量 1047/1047 通过；真机仍待验收。 |
+
+前一轮文档核对在 Windows 执行 `pnpm --filter @kando/workers-api type-check`，退出 0；该轮仅核对源码、配置和文档，未运行全量测试。后续 Golden 修复与全量复验结果见本页上方对应记录。iOS 保存脚本及其测试依赖 macOS `ditto`，截至本次仍未执行保存测试、签名构建或产物清理，也未连接 Cloudflare、kd201 或远程数据库执行发布。
+
 ## 扫描结果遮挡取景框修复（2026-09-10，本地未发布）
 
 用户报告 iPhone 12 相机识别完成后，底部结果卡片遮挡黄色取景框，并要求兼容其他机型。用户图片未提供已安装 App 的版本或 iOS 版本；本地复现基于 `dev@075db55`、App `1.0.2+132`、Windows、Flutter 3.44.7 / Dart 3.12.2，以相机测试替身完成拍照与匹配，不依赖真实模型或网络。
@@ -67,9 +117,9 @@ Code Review 自审通过：检查两个真实 Home 入口、启动组件挂载�
 
 ## 当前运行边界（2026-09-09 回读）
 
-本地 `dev@b0b54df` 与 `github/dev` 一致，包含向量合并 `f38ef98`；四个已清理分支 `dev-wxy`、`dev-xiangyang`、`dev-update-dio`、`dev-scan-page-update-ui` 在本地及远程均不存在。旧分支名仅保留历史来源含义，后续开发与 dev 发布使用当前 `dev`。
+以下为 2026-09-09 历史回读。当时本地 `dev@b0b54df` 与 `github/dev` 一致，包含向量合并 `f38ef98`；四个已清理分支 `dev-wxy`、`dev-xiangyang`、`dev-update-dio`、`dev-scan-page-update-ui` 在本地及远程均不存在。旧分支名仅保留历史来源含义；该记录不证明当前 HEAD 或远程部署状态。
 
-| 环境 | 当前 100% 流量 Worker version | 数据与识别边界 |
+| 环境 | 该次回读的 100% 流量 Worker version | 数据与识别边界 |
 |---|---|---|
 | dev | `f904daec-25e6-4a0a-8001-b2ea7166197e`，创建于 `2026-09-09T03:07:51Z` | 共享 Hyperdrive、dev KV/R2、VECTOR_RECOGNITION=recognize-vec；无 D1 或 OCR_SERVICE_BASE_URL |
 | prod | `934506ae-d433-4a38-ae40-6d07b109d50e`，创建于 `2026-09-07T09:24:34Z` | 共享 Hyperdrive、production KV/R2、OCR_SERVICE_BASE_URL；无 D1，尚未切换当前 dev 的向量协议 |

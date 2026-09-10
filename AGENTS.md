@@ -22,7 +22,7 @@
 
 - `apps/admin-web`：React、Vite、TypeScript、Ant Design 管理后台。
 - `apps/marketing-web`：Cloudflare Workers 营销与法律页面。
-- `apps/workers-api`：Hono、Cloudflare Workers、PlanetScale PostgreSQL/Hyperdrive、KV/R2 API 与 PostgreSQL migrations。
+- `apps/workers-api`：共享 Hono API、Cloudflare Workers 与 Linux Node 运行入口、PostgreSQL 访问层及 migrations。
 - `apps/flutter-app`：Flutter 客户端，使用 Riverpod 与 GoRouter。
 - `packages/auth-core`：共享认证与密码学能力。
 - `packages/api-client`、`packages/ui-kit`、`packages/workers-common`：TypeScript 共享包。
@@ -43,12 +43,13 @@ React Admin ── Worker ─────┘          ├─> PlanetScale Postgr
 Marketing Web ──> 独立的营销与法律页面
 ```
 
-- Flutter App 只通过 Workers API 访问服务端数据，不直接连接 PostgreSQL、KV 或 R2。
-- Admin 是独立 React SPA，但构建产物由 Workers assets 托管，与对应环境的 API 一起部署。
-- Workers 是鉴权、账号归属、资产隔离、卡牌查询、扫描识别和 Admin 操作的服务端边界。
-- D1 已废弃；测试环境 dev/test 与正式环境 prod 均已完成 PostgreSQL 迁移并通过同一个 Hyperdrive 使用 PlanetScale PostgreSQL，业务与目录真源统一为 PostgreSQL。2026-09-09 用户再次确认该状态，Cloudflare 回读也确认两个当前运行版本均无 D1 binding。`APP_ENVIRONMENT`、Apple 配置、KV、R2、域名和 secrets 仍按环境隔离；后续发布不再包含 D1 迁移、冲突审计或 D1 回滚前置任务。
+- Flutter App 只通过 API 访问服务端数据，不直接连接 PostgreSQL、KV 或 R2。
+- Admin 是独立 React SPA；Cloudflare 构建产物由 Workers assets 托管，Linux 测试环境由 Caddy 或离线 Node 静态服务托管，与对应环境的 API 一起部署。
+- 共享 Hono API 是鉴权、账号归属、资产隔离、卡牌查询、扫描识别和 Admin 操作的服务端边界。`src/app.ts` 组合业务路由；`src/index.ts` 和 `src/linux/server.ts` 分别适配 Cloudflare 与 Linux。
+- D1 已废弃；Cloudflare 测试环境 dev/test 与正式环境 prod 均已完成 PostgreSQL 迁移并通过同一个 Hyperdrive 使用 PlanetScale PostgreSQL，业务与目录真源统一为 PostgreSQL。2026-09-09 用户再次确认该状态，Cloudflare 回读也确认两个当前运行版本均无 D1 binding。`APP_ENVIRONMENT`、Apple 配置、KV、R2、域名和 secrets 仍按环境隔离；后续发布不再包含 D1 迁移、冲突审计或 D1 回滚前置任务。
 - dev/prod 的 PostgreSQL 迁移均已完成。后续 v1.1 开发不得新增或恢复 D1 binding、schema、migration、类型依赖、测试基座、读写路径、数据补全、回退或灾备方案；旧 prod D1 仅作为历史资源，不得成为新实现或回退依据。仓库中仍存在的 `D1Database` 兼容类型、Miniflare 测试和退役迁移工具属于待清理债务，只能在明确授权的清理任务中收敛，任何新功能或 BUG 修复不得复制、扩展或继续维护。`docs/releases/v1.0.0` 冻结内容仍按文档规则原样保留。
-- dev 扫描使用 Flutter 编排的端侧模型和 iOS/Android 原生推理桥接，经 `VECTOR_RECOGNITION` 调用 `recognize-vec`；旧 OpenCV/pHash 请求与 `OCR_SERVICE_BASE_URL` 已从当前代码移除。平台范围为 iOS 16+、Android API 24+，Web 扫描暂不支持；后续变更须保持两端兼容。旧来源分支已清理，后续从含向量合并的 `dev` 开发与部署。
+- dev 扫描使用 Flutter 编排的端侧模型和 iOS/Android 原生推理桥接，经 `VECTOR_RECOGNITION` 调用 `recognize-vec`；旧 OpenCV/pHash 请求与 Cloudflare 配置中的 `OCR_SERVICE_BASE_URL` 已移除。Linux 配置与 `Env` 仍残留该旧字段，当前扫描路由不读取它；Linux 未提供向量适配器，不能把配置 OCR 地址视为扫描可用。平台范围为 iOS 16+、Android API 24+，Web 扫描暂不支持；后续变更须保持两端兼容。旧来源分支已清理，后续从含向量合并的 `dev` 开发与部署。
+- Linux 测试入口已合入 `dev`，仅允许 `APP_ENVIRONMENT=development`，通过 `DATABASE_URL` 使用独立 PostgreSQL，配合进程内 KV 与本地图片卷；不连接 Cloudflare 共用数据库。架构、扫描兼容缺口及历史部署证据见 [Linux 测试环境](docs/releases/v1.1.0/02-architecture/linux-test-environment.md)。
 - `packages/*` 只承载跨应用共享能力，应用之间通过包依赖或 HTTP 契约协作。
 
 ## 工具链与常用命令
@@ -69,8 +70,8 @@ GitLab Flutter CI 使用 3.44.0，GitHub iOS CI 使用 3.44.7。涉及工具链�
 ## 架构约束
 
 - `apps/` 可以依赖 `packages/`，`packages/` 不得反向依赖 `apps/`；`pnpm lint` 强制检查此规则。
-- Workers API 入口是 `apps/workers-api/src/index.ts`，业务路由统一挂载在 `/api/v1`。
-- Admin 构建产物由 Workers 的 assets 配置托管，不是独立部署目标。
+- 共享 API 路由组合位于 `apps/workers-api/src/app.ts`，业务路由统一挂载在 `/api/v1`；Cloudflare 入口是 `src/index.ts`，Linux 入口是 `src/linux/server.ts`。
+- Cloudflare Admin 构建产物由 Workers 的 assets 配置托管，不是独立部署目标；Linux 托管方式见 `deploy/linux/`。
 - PostgreSQL schema/migration 与 Hyperdrive binding 是数据库产品和基础设施契约；新增 schema 变更只允许写入 `apps/workers-api/src/db/postgres/migrations/`。修改前必须读取相关实现和文档，并先向用户说明影响。
 - 服务端授权、账号归属、资产隔离和购买权益必须由可信服务端数据验证，不能信任客户端自报状态。
 - 后续app所有轻提示框不在使用底部提示框，使用项目组件中的顶部提示框组件；项目组件中有不同类型的顶部提示组件，使用时需区分使用类型。

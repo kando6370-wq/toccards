@@ -2,7 +2,7 @@
 
 ## 1. 依据与优先级
 
-本计划以三份初始 v1.1 PRD 及后续订阅、收藏/卡牌详情补充输入定义业务目标和验收行为；当前实现以 2026-09-09 核对的 `dev@b0b54df`、迁移和运行配置为准，并保留各历史检查点的 P0/P1 结论。App 业务不得因为当前代码尚未实现而缩减、改写或降级 PRD；发现不一致时必须记录为待实现差距并按 PRD 收口。
+本计划以三份初始 v1.1 PRD 及后续订阅、收藏/卡牌详情补充输入定义业务目标和验收行为；当前实现以 2026-09-10 核对的 `dev@699ca48`、迁移和仓库配置为准，远程运行证据仍保留原核验日期及各历史检查点的 P0/P1 结论。App 业务不得因为当前代码尚未实现而缩减、改写或降级 PRD；发现不一致时必须记录为待实现差距并按 PRD 收口。
 
 发生冲突时按以下顺序裁决：
 
@@ -17,16 +17,18 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 ## 2. 当前基线
 
-`dev` 已合入并推送向量识别、Scan confirm 购买价格事件修复、Card Detail 取消编辑和 Singular 收入上报。2026-09-09 回读确认 dev 运行向量 Worker，prod 运行较早的 PostgreSQL Worker；两环境均已完成 PostgreSQL 迁移且 D1 已废弃；prod 尚未切换当前 dev 的向量协议和环境版本键。分支来源、部署版本、229 项 Flutter 通过与 3 个既有 Golden 失败等验证边界统一见[发布与验证](VERIFICATION.md)。
+`dev` 已包含向量识别、Scan confirm 购买价格事件修复、Card Detail 取消编辑、Singular 收入及同进程初始化恢复、Linux 测试入口、Home 版本静默复查、iOS 交付物保存和扫描结果区布局修复。客户端版本为 `1.0.2+134`；当前源码不代表新包已发布。2026-09-09 历史回读确认 Cloudflare dev 为向量 Worker、prod 为较早 PostgreSQL Worker，两环境已完成 PostgreSQL 迁移且 D1 已退役；本轮未重查远程协议、版本键或运行 SHA。扫描尺寸回归原 12/12 通过；后续本地 Golden 和测试隔离修复后，App 全量 1047/1047、订阅包 9/9 通过，原 3 个扫描 Golden 失败已收口。Windows Linux 打包路径已修复，Workers 默认首轮失败与限制并发后的 621/621 复验分别记录，见[Golden 与全量复验](VERIFICATION.md#golden-基准与全量复验2026-09-10)。
 
 2026-08-27 官网 Download BUG 修复检查点：根因是首页两处 App Store badge 均为无链接静态 `div`。考虑正式 App Store 地址基本不变且下载入口不应依赖业务数据库，最终按产品决定将当前正式 URL 直接写入两处链接，撤回运行时 `/app-config`、官网代理 Worker 及相关环境依赖；Google Play、App/Workers API 契约、数据库和其他官网交互均不受影响。修复前回归确认 HTML 中正式 URL 为 0 处；修复后 Marketing 1 项回归、Wrangler dry-run、依赖方向、`git diff --check` 及真实本地静态页验证均通过，本地页面正式 URL 恰好 2 处且动态配置引用为 0。Code Review 未发现残留代理、数据库依赖或无关修改。官网已部署为 `toccards-website` version `9816a0b4-9ef5-43f1-96fb-031205f8adcc`；绕缓存线上复核返回 200，正式 URL 恰好 2 处，动态配置引用为 0。
 
 | 范围 | 当前代码事实 | v1.1 差距 |
 |---|---|---|
+| Linux 测试环境 | `19a6ac4` 已合入共享 Hono/Node 入口、独立 PostgreSQL、内存 KV、本地图片卷及 dev 分支监听发布 | 未提供 `VECTOR_RECOGNITION`，扫描不可用；旧 OCR 字段不参与识别；kd201 当前运行提交与合入后自动发布结果待回读 |
+| App 版本与交付 | 实际 Home 首帧激活版本检查，后续 Home 复查静默进行，已确认强更继续全局拦截；iOS 校验后保存 IPA/dSYM，按 Bundle ID 保留测试 3 个/正式 7 个版本 | 新包安装、升级/商店往返和真机验收待完成；本轮未在 macOS 执行保存脚本或签名构建 |
 | App 订阅体验 | 已有 Subscription Page、Paywall、Success、StoreKit 2 Fresh Purchase verifier、Secure Storage 补偿队列、本机 Restore 结果分流、App Attest 原生桥接，以及 Performance/1Y/Folder/Scan Waiting 的来源动作恢复；Home/Search/Collection/Profile 顶部入口、Profile Banner 和 Scan 顶部 Pro 次数卡均已接入完整 Subscription Page，功能卡点仍使用 Functional Paywall Bottom Sheet；Profile 顶部及升级 Banner 已同步 Figma `2129:5678` 并按左右 20px 响应式布局，Search/Collection 顶部已同步 Figma `2070:9663` 的标题与皇冠 PRO 胶囊，Search 顶部搜索框、游戏选择框及 Cards/Sets 切换框和 Collection 顶部 Tab、搜索框均已统一为 44px，Collection Portfolio 摘要已同步 Figma `2070:9486` 的 110px 紧凑布局，Home 顶部订阅入口及 Overview/Performance Tab 已同步 Figma `2181:12864`，模式切换器使用固定外框宽度以保持皇冠入口位置稳定；商品局部缺失、15 秒重载、Purchase 状态、首次/冷启动 Premium 三态分流、ATT/Singular 启动顺序及 v1.1 PRD 视觉 Golden 已实现 | 前后台完整矩阵、Singular 收入后台收件及 iOS 真机验收不完整 |
 | Premium 真值 | 鉴权保留可信 `session_id`；Fresh Purchase 与 Restore 均已有独立 Apple 证据、session proof 和 session grant 写链；App 使用 Unknown/Free/Premium 三态及已验证缓存；Scan、Folder、Performance、Home 与 Card Detail 普通历史 1Y 已接入统一授权 | 三态仍缺 iOS 真机前后台与过期续订矩阵验收 |
 | Billing 数据 | `0025` 至 `0034` 已覆盖购买链、交易、session grant、原始通知 inbox、生命周期、订单业务事实、USD 汇率及自动续订订单快照；对应结构与 dev 数据已迁入共享 PostgreSQL，34 条 inbox 均归属 `Sandbox` | production 实时 deployment 需在发布任务中重新核验；缺 Sandbox/TestFlight 实单验收 |
-| Scan | 端侧模型检测、原生矫正及 512 维向量识别已合入 dev，Workers 经 Service Binding 调用 recognize-vec；服务端已有终身 10 次真源、request ID 原子预占、逐张结算/返还、60 秒租约、响应重放和多设备并发保护；Quota 查询、识别成功及额度耗尽均返回完整 `access/unlimited` 权益字段，Flutter 严格解析并合并本机 Premium 与服务端 Unlimited，完成 Waiting、Quota=0 Paywall、Done 公式、服务端确认 Unlimited 后自动递补、Scan Pro 完整订阅来源返回及 Processing 删除后的后台结算；扫描页在 typed 订阅成功或收到 `ENTITLEMENT_SYNC_REQUIRED` 后主动同步当前 StoreKit 证明，单任务刷新服务端 Quota，只有服务端确认 Unlimited 后才按原图恢复识别；扫描相机页顶部操作栏已收紧为 32px，并保持退出、闪光和搜索按钮垂直居中，状态栏实色背景仅覆盖系统安全区、不再覆盖其下方 10px 间距；扫描定位框以 `390×844` 下的 `top=213px、280×400px` 为基准，结合屏幕尺寸及四边安全区在顶部完整操作区和底部拍照区之间等比缩放，固定保留 16px 间距；可见边框、扫描线、径向暗角中心和 Recognizing/Revealing 透明区共用同一个 Rect；识别输入改为完整照片，卡面由模型检测和透视矫正取得；剩余扫描次数入口已同步 Figma `1644:6741` 的 48px 提示条、24px PRO 徽章及 13/16 两行文案样式，并置于扫描页最高层级，避免与取景框重叠时丢失点击；顶部及底部操作栏在 Scanning、Recognizing、Revealing 和识别完成切换中持续挂载且保持相同坐标，不再重播入场动画或改变相册/Done 位置；删除相机 Processing Item 会立即释放该 Item 的本地拍照门禁，允许下一次拍照，原识别请求及 Quota 仍按既定契约后台结算 | Sandbox/TestFlight 与真实并发、超时规模验收尚未完成 |
+| Scan | 端侧模型检测、原生矫正及 512 维向量识别已合入 dev，Workers 经 Service Binding 调用 recognize-vec；服务端已有终身 10 次真源、request ID 原子预占、逐张结算/返还、60 秒租约、响应重放和多设备并发保护；Quota 查询、识别成功及额度耗尽均返回完整 `access/unlimited` 权益字段，Flutter 严格解析并合并本机 Premium 与服务端 Unlimited，完成 Waiting、Quota=0 Paywall、Done 公式、服务端确认 Unlimited 后自动递补、Scan Pro 完整订阅来源返回及 Processing 删除后的后台结算；扫描页在 typed 订阅成功或收到 `ENTITLEMENT_SYNC_REQUIRED` 后主动同步当前 StoreKit 证明，单任务刷新服务端 Quota，只有服务端确认 Unlimited 后才按原图恢复识别；扫描相机页顶部操作栏已收紧为 32px，并保持退出、闪光和搜索按钮垂直居中，状态栏实色背景仅覆盖系统安全区、不再覆盖其下方 10px 间距；扫描定位框以 280:400 比例、最大 280×400 布局，按屏幕尺寸和安全区在顶部完整操作区与底部统计行、结果卡片及拍照区之间等比缩放，从首帧预留结果区并保留上下至少 16px 间距；结果出现、连续拍照和删除不会推动取景框；可见边框、扫描线、径向暗角中心和 Recognizing/Revealing 透明区共用同一个 Rect；识别输入改为完整照片，卡面由模型检测和透视矫正取得；剩余扫描次数入口已同步 Figma `1644:6741` 的 48px 提示条、24px PRO 徽章及 13/16 两行文案样式，并置于扫描页最高层级，避免与取景框重叠时丢失点击；顶部及底部操作栏在 Scanning、Recognizing、Revealing 和识别完成切换中持续挂载且保持相同坐标，不再重播入场动画或改变相册/Done 位置；删除相机 Processing Item 会立即释放该 Item 的本地拍照门禁，允许下一次拍照，原识别请求及 Quota 仍按既定契约后台结算 | Sandbox/TestFlight 与真实并发、超时规模验收尚未完成 |
 | Folder | 已有 Folder CRUD；Free 总数最多 2 个（含默认 Folder），服务端按当前 session grant 判断，并以单条条件 INSERT 防止并发越限；购买或恢复成功后在原 Folder Sheet 仍有效时打开 Create Folder Modal；服务端并发上限拒绝会先刷新 Folder List 再进入 Paywall，普通失败或权益同步中保留名称输入 | dev 数据已迁入 PostgreSQL 并部署；仍缺 Sandbox/TestFlight 多设备人工验收 |
 | Performance | 已有 Home 与 Card Detail 独立服务端接口、六档自然范围、Purchase/Quantity/Folder Move 历史、迁移 baseline、Premium session grant 校验及 App 完整状态渲染；`0031` 已在 dev 真实历史数据的本地副本验证不伪造历史 | dev 最大 owner 仅 24 条 Event、12 个现存 Item，只能证明当前小样本；仍缺重度收藏用户规模、Cloudflare 端到端、Sandbox/TestFlight 验收 |
 | Admin | 订单 13 列、11 项组合筛选、动态国家/SKU、10,000 行以内 XLSX 全量导出及 inbox 通知排障视图已实现；订单请求期间查询、重置、分页与刷新均锁定，避免重复请求；完整 Decoded Payload 仅授权用户打开详情时加载，默认不返回 `signedPayload`，复制由用户主动触发 | dev 订单表为空，无法证明有数据及 10,000 行导出时的 3 秒普通查询目标；Sandbox/TestFlight 人工验收尚未完成 |
@@ -370,4 +372,4 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 ## 5. 完成定义
 
-“v1.1 开发完成”必须同时满足：初始 PRD 与适用补充输入的验收条款均有可追踪证据；评审 P0/P1 全部关闭；客户端与服务端端到端可用；Sandbox/TestFlight 通过；全量测试和构建通过；所有外部配置齐备。单独完成 UI、StoreKit 抽象或 D1 表不能宣称完成。
+“v1.1 开发完成”必须同时满足：初始 PRD 与适用补充输入的验收条款均有可追踪证据；评审 P0/P1 全部关闭；客户端与服务端端到端可用；Sandbox/TestFlight 通过；全量测试和构建通过；所有外部配置齐备。单独完成 UI、StoreKit 抽象或 PostgreSQL 表结构不能宣称完成。

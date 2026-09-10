@@ -1,13 +1,16 @@
 # v1.1.0 版本文档
 
-本目录记录 v1.1.0 相对 [v1.0.0](../v1.0.0/README.md) 的产品输入、当前实现、数据契约和交付边界。当前代码核对基线为 `dev@b0b54df`（2026-09-09），已包含向量识别合并 `f38ef98`、Scan 购买价格事件修复和 Singular 收入上报；历史检查点保留原日期，不能外推为当前验收结果。
+本目录记录 v1.1.0 相对 [v1.0.0](../v1.0.0/README.md) 的产品输入、当前实现、数据契约和交付边界。当前代码核对基线为 `dev@699ca48`（2026-09-10），已包含 Linux 测试环境合并、Singular 同进程初始化恢复、Home 版本复查、iOS 交付物保存及扫描取景框布局修复。客户端 `pubspec.yaml` 为 `1.0.2+134`，与本目录的产品迭代版本分别管理；历史检查点保留原日期，不能外推为当前验收结果。
 
 ## 当前结论
 
 - 仓库内已形成 Apple 订阅与 session grant、Scan Quota、Folder 限制、Performance、Extended Price History、Admin 订单与 Apple Notifications V2 的实现和自动化证据。
 - 扫描向量链路已合入并推送 `dev`，对应 Workers/Admin 已发布到 dev；App 扫描支持 iOS 16+、Android API 24+，Web 扫描暂不支持。源分支已清理，后续使用 `dev`，详见[扫描识别链路](01-flows/scan-recognition.md)。
+- Linux 测试环境已通过 `19a6ac4` 合入 dev，包含共享 Hono/Node 入口、独立 PostgreSQL、内存 KV、本地图片卷和分支监听发布脚本。Linux 尚未提供 `VECTOR_RECOGNITION` 适配器，仅填写旧 OCR 地址不能启用扫描；服务器当前部署 SHA 未于本轮回读，见[Linux 兼容设计](02-architecture/linux-test-environment.md)。
+- 升级门禁在实际 Home 首帧后启动，后续 Home 返回或回前台静默复查，已确认强更仍跨路由拦截。扫描取景框从首帧预留底部结果区，iOS 检测分数按 sigmoid 转为概率。iOS 发布脚本按 Bundle ID 保存 IPA/dSYM，测试保留 3 个版本、正式保留 7 个版本；当前实现和既有测试限制见[发布与验证](05-delivery/VERIFICATION.md#当前代码与交付边界)。
+- 后续本地修复已收口三项扫描 Golden、Review 图片等待、页面测试归因隔离和 Windows 的 Linux 打包路径。App 全量 1047/1047、订阅包 9/9 通过；Workers 默认首轮失败与完整受 Git 跟踪测试降低并发后的 621/621 通过分别保留，详见[Golden 与全量复验](05-delivery/VERIFICATION.md#golden-基准与全量复验2026-09-10)。
 - “代码已完成”不等于发布完成。Apple 生产配置、Sandbox/TestFlight、真机、多设备、重度数据和真实订单规模仍是独立验收门槛。
-- D1 已废弃，dev/test 与 prod 均已完成 PostgreSQL 迁移；2026-09-09 用户确认与 Cloudflare 回读一致，两环境均绑定同一 PlanetScale PostgreSQL/Hyperdrive，均无 D1 binding。dev 已使用向量识别，prod 仍为较早的识别协议，不能将本地 prod 配置视为已部署。KV、R2、`APP_ENVIRONMENT`、Apple 配置、域名和 secrets 继续隔离，最新版本回读见[发布与验证](05-delivery/VERIFICATION.md)。
+- D1 已废弃，Cloudflare dev/test 与 prod 均已完成 PostgreSQL 迁移；2026-09-09 用户确认与 Cloudflare 回读一致，两环境均绑定同一 PlanetScale PostgreSQL/Hyperdrive，均无 D1 binding。该次回读中 dev 使用向量识别，prod 为较早的识别协议，不能将本地 prod 配置视为已部署。KV、R2、`APP_ENVIRONMENT`、Apple 配置、域名和 secrets 继续隔离；本轮未重新连接 Cloudflare 或数据库，历史回读见[发布与验证](05-delivery/VERIFICATION.md)。
 - 数据库执行状态按证据区分：`0000` 至 `0010` 的远程应用与校验记录截至 2026-09-07；2026-09-08 仅初始化 `0011` 的 development 两条版本键，完整 `0011` 未登记完成；`0012` 已有修复脚本及测试，新 Worker 已发布，历史数据回填尚未执行。本轮未重查数据库 ledger、价格指针或业务数据，详见[数据迁移](03-data-api/migration.md)。
 - 六份产品输入保持字节不变；实现状态只在 `01-flows` 至 `05-delivery` 更新。
 
@@ -57,7 +60,8 @@
 - [Linux 测试环境部署手册](../../../deploy/linux/README.md)
 - [Linux 测试环境自动部署手册](05-delivery/linux-test-auto-deployment.md)
 - [需求可追踪矩阵](05-delivery/traceability-matrix.md)
-- [发布与验证记录](05-delivery/VERIFICATION.md)：版本管理、向量识别、Singular 收入、合并验证与运行环境边界。
+- [发布与验证记录](05-delivery/VERIFICATION.md)：Home 版本复查、扫描布局、iOS 交付物、Singular 收入和历史发布边界。
+- [iOS IPA 与符号文件保存](../../../apps/flutter-app/README.md#ipa-与符号文件保存)
 - [App Store Connect 订阅配置手册](05-delivery/app-store-connect-subscription-setup.md)
 
 ## 证据口径
