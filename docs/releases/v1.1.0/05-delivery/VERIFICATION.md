@@ -2,6 +2,23 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## Home 版本静默复查与详情页 Loading 修复（2026-09-10，本地未发布）
+
+用户在 iPhone 11 的 `1.0.2 (132)` 上报告：进入 Home 后返回桌面、不杀进程，再打开 App 出现全屏 Loading；卡牌详情也出现，引导和启动订阅页不出现。设备版本已只读确认，未抓取该包切换日志。代码根因是 9 月 9 日只延后了首次激活：`_homeEntered` 一旦置为 true，所有页面 resumed 都 invalidate 版本决策，且重新请求时把上一次通过的决策置为不可用，进而显示全局 Loading。
+
+经用户明确授权，本次保留首次 Home 检查/失败重试，后续普通复查仅在当前 Home 返回前台或从其他路由返回 Home 时触发，保留上一次成功决策并静默检查，失败不遮盖现有页面。`AppUpgradeHomeEntry` 跟踪实际路由是否为当前页及组件移除，覆盖 push/pop 的底层 Home 与 go 替换销毁的 Home。可选提示仅在 Home 展示，Home 请求离开后才返回的新提示延后处理。已在 Home 确认的强更仍全局拦截，并允许其他页 resumed 重查；失败保留强更，成功确认解除才放行。正在检查时不重复发起请求。版本比较、服务端配置、订阅/扫描业务、Home 数据刷新及 UI 视觉不变；用户原有 `pubspec.yaml` 改动保留。
+
+先失败证据：macOS、Flutter 3.44.5 / Dart 3.12.2，`flutter test --no-pub test/app_upgrade_resume_test.dart --reporter expanded` 在修改前 1/7 通过、6 项失败（退出 1）。iOS/Android 前台复查均发现不应出现的转圈；详情 resume 请求次数错误；迟到结果用例因旧全屏 Loading 导致 pumpAndSettle 超时。修改后同一复现路径全部通过，另补充初次等待期间切页/返回不重复请求，以及已显示可选提示离开 Home 后隐藏的回归。
+
+验证命令在 `apps/flutter-app` 执行：
+
+- `flutter test --no-pub test/app_upgrade_resume_test.dart test/widget/app_upgrade_gate_test.dart test/app_upgrade_integration_test.dart test/widget_test.dart test/app_upgrade_policy_test.dart test/app_upgrade_repository_test.dart test/startup_subscription_gate_test.dart test/onboarding_gate_test.dart --reporter expanded`：54/54，退出 0；覆盖原有引导/订阅入口、初次失败重试、商店失败/返回、两平台强更、版本规则及本次 9 项回归。
+- `flutter test --no-pub --dart-define=APP_ENV=test test/app_upgrade_resume_test.dart test/app_upgrade_integration_test.dart test/widget_test.dart --reporter expanded`：16/16，退出 0。
+- `flutter analyze --no-pub`：无问题，退出 0。
+- `dart format --output=none --set-exit-if-changed apps/flutter-app/lib/features/app_upgrade/app_upgrade_gate.dart apps/flutter-app/test/app_upgrade_resume_test.dart apps/flutter-app/test/widget_test.dart`（仓库根）：3 文件无变化，退出 0；`git diff --check` 通过。
+
+Code Review 自审通过：核对当前路由判定、帧后回调及 disposed 防护、Home 多实例的进入/移除、异步请求迟到、已知强更与普通决策分离、并发请求合并及原“稍后”去重。已有启动测试只调整了返回 Home 应再次检查的次数断言，仍验证同版本不重复提示。实现限于共用版本 Gate，使用 Flutter 跨平台能力；业务与 Admin 行为文档已同步，API/Schema 变更为 N/A。未执行全仓测试、签名包构建、新包安装或 iOS/Android 真机切换/商店往返：当前手机仍为旧安装包，需客户端测试人员使用含修复的新包补验；Widget 平台变体不代表真机已通过。未修改远程规则、部署或发布。
+
 ## iOS 原始分类分数修复（2026-09-09）
 
 问题输入为 `227.PNG`（1206×1515、EXIF orientation=1、Display P3）。电脑端同源 ONNX 检测可输出约 0.535 的分类概率并完成四角拟合与 745×1043 卡面矫正，但 iOS 相册导入在端侧检测阶段直接失败，因此请求尚未提交 Workers，管理平台不会生成扫描记录。

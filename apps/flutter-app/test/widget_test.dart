@@ -65,7 +65,7 @@ void main() {
         await _finishPageTransition(tester);
         expect(find.text('Overview'), findsOneWidget);
         expect(find.text('Update Now'), findsNothing);
-        expect(checks, 1);
+        expect(checks, 2);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
       },

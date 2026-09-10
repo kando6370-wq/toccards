@@ -19,8 +19,10 @@ class AppUpgradeGate extends ConsumerStatefulWidget {
 class _AppUpgradeGateState extends ConsumerState<AppUpgradeGate>
     with WidgetsBindingObserver {
   bool _homeEntered = false;
+  bool _homeWasVisible = false;
+  final Set<_AppUpgradeHomeEntryState> _homeEntries = {};
   final Set<String> _dismissedRecommendations = {};
-  AppUpgradeDecision? _requiredUpdate;
+  AppUpgradeDecision? _lastVerified;
   bool _openingStore = false;
   bool _storeFailed = false;
 
@@ -38,15 +40,36 @@ class _AppUpgradeGateState extends ConsumerState<AppUpgradeGate>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (_homeEntered && state == AppLifecycleState.resumed) _refresh();
+    if (state == AppLifecycleState.resumed &&
+        (_homeVisible || _lastVerified?.forceUpdate == true)) {
+      _refresh();
+    }
   }
 
-  void _enterHome() {
-    if (!mounted || _homeEntered) return;
-    setState(() => _homeEntered = true);
+  bool get _homeVisible => _homeEntries.any((entry) => entry.isCurrentHome);
+
+  void _updateHome(_AppUpgradeHomeEntryState entry, {bool removed = false}) {
+    if (!mounted) return;
+    if (removed) {
+      _homeEntries.remove(entry);
+    } else {
+      _homeEntries.add(entry);
+    }
+    final visible = _homeVisible;
+    if (_homeWasVisible == visible) return;
+    final recheck = visible && _homeEntered;
+    setState(() {
+      _homeWasVisible = visible;
+      if (visible) _homeEntered = true;
+    });
+    if (recheck) _refresh();
   }
 
-  void _refresh() => ref.invalidate(appUpgradeDecisionProvider);
+  void _refresh() {
+    if (_homeEntered && !ref.read(appUpgradeDecisionProvider).isLoading) {
+      ref.invalidate(appUpgradeDecisionProvider);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,19 +77,24 @@ class _AppUpgradeGateState extends ConsumerState<AppUpgradeGate>
         ? ref.watch(appUpgradeDecisionProvider)
         : const AsyncValue<AppUpgradeDecision>.loading();
     final verified = !check.isLoading && !check.hasError ? check.value : null;
-    if (verified != null) {
-      _requiredUpdate = verified.forceUpdate ? verified : null;
+    final homeVisible = _homeVisible;
+    // A result arriving after Home was covered must not introduce a new prompt
+    // on another page. An already enforced update can still be reverified there.
+    if (verified != null &&
+        (homeVisible || _lastVerified?.forceUpdate == true)) {
+      _lastVerified = verified;
     }
-    final decision = verified ?? _requiredUpdate;
+    final decision = _lastVerified;
     final showUpdate =
         decision != null &&
         decision.showUpdate &&
         (decision.forceUpdate ||
-            !_dismissedRecommendations.contains(decision.latestVersion));
-    final blocked = _homeEntered && (verified == null || showUpdate);
+            homeVisible &&
+                !_dismissedRecommendations.contains(decision.latestVersion));
+    final blocked = showUpdate || homeVisible && _lastVerified == null;
 
-    // Start only after Home is displayed, then retain enforcement above the
-    // Navigator so route changes and store returns cannot bypass a forced update.
+    // Only the initial Home check blocks on loading/failure. Later Home checks
+    // retain verified content; a known mandatory update remains above all routes.
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -134,7 +162,7 @@ class _AppUpgradeGateState extends ConsumerState<AppUpgradeGate>
   }
 }
 
-/// Activates the app-wide upgrade gate when the actual Home content is shown.
+/// Reports whether the actual Home content is on the current route.
 /// Place inside startup gates, not around the route that also hosts onboarding.
 class AppUpgradeHomeEntry extends StatefulWidget {
   const AppUpgradeHomeEntry({required this.child, super.key});
@@ -146,14 +174,28 @@ class AppUpgradeHomeEntry extends StatefulWidget {
 }
 
 class _AppUpgradeHomeEntryState extends State<AppUpgradeHomeEntry> {
+  _AppUpgradeGateState? _gate;
+  ModalRoute<dynamic>? _route;
+
+  bool get isCurrentHome => mounted && (_route == null || _route!.isCurrent);
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final route = ModalRoute.of(context);
+    _route = ModalRoute.of(context);
+    _gate = context.findAncestorStateOfType<_AppUpgradeGateState>();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || (route != null && !route.isCurrent)) return;
-      context.findAncestorStateOfType<_AppUpgradeGateState>()?._enterHome();
+      if (mounted) _gate?._updateHome(this);
     });
+  }
+
+  @override
+  void dispose() {
+    final gate = _gate;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      gate?._updateHome(this, removed: true);
+    });
+    super.dispose();
   }
 
   @override

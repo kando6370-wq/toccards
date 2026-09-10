@@ -188,7 +188,7 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 
 - 用户提交反馈后初始保存为 `open`；Admin 展示归并为 `pending`，可更新为 `processed` 或 `ignored`。
 - Admin 管理 iOS/Google 最低版本、最新版本、强制升级和商店 URL；App 通过公共 `/app-config` 获取。
-- 2026-09-09 起，App 版本门禁在本次运行首次实际显示 Home 后启动，覆盖冷启动 `/` 内的 Home 与 `/home` 入口；Splash、Onboarding、启动权益检查和启动订阅页不触发更新弹窗或版本检查失败界面。启动后沿用原有版本判断、强更全局拦截、返回前台重查，以及本次运行同版本可选更新的“稍后”去重；切换页面不会清空已确认的强更要求。
+- App 版本检查仅在实际显示 Home 后启动，覆盖冷启动 `/` 内的 Home 与 `/home` 入口；Splash、Onboarding、启动权益检查和启动订阅页不触发。2026-09-10 调整为普通检查和可选更新提示仅作用于当前可见 Home：详情等页面返回前台不发起版本复查，也不显示版本 Loading/失败界面；从其他页面回到 Home 或 Home 返回前台会复查，请求进行中不重复发起。首次 Home 检查仍保留 Loading/失败重试，已有成功版本决策后采用静默复查，网络失败保留页面和上次决策。离开 Home 后才返回的新提示延后到 Home 处理；已在 Home 确认的强更仍全局拦截，并允许在其他页返回前台时复查，只有成功验证解除要求才取消拦截。版本判断和本次运行同版本可选更新的“稍后”去重不变。
 - Workers 另有 Card Override 和通用 App Config API，但当前 Admin 菜单没有对应页面，不能描述为 UI 已提供。旧 Trending Pin API 与 `trending_pin` 表已废弃；Trending Today 继续由 `card_trending_snapshot` 提供。
 
 ## 4. 状态与核心数据实体
