@@ -106,6 +106,22 @@ Distribution. The App Store IPA remains separately signed for App Store
 Connect. No device model or UDID is hardcoded; pass any available selector
 shown by `--list-devices` (quote device names that contain spaces).
 
+### IPA 与符号文件保存
+
+脚本在包校验通过后、安装或上传前，自动保存到 `~/Downloads/CardAI-Packages/`，
+专用目录下使用 Bundle ID 作为文件夹名称：测试包为 `com.kando.kandoApp.beta/`，
+正式包为 `com.cardai.tcg/`。每个 Bundle ID 目录内再按版本建目录，例如
+`com.kando.kandoApp.beta/CardAI-Test-1.0.2-134/`，目录内保存内部安装 IPA
+和 `dSYMs.zip`；正式包目录名为 `CardAI-Prod-<版本>-<构建号>/`，保存
+App Store IPA 和 `dSYMs.zip`，指定真机安装时还保存 `Card AI Device.ipa`。
+
+测试包保留最近成功保存的 **3 个版本**，正式包保留 **7 个版本**，各自按保存时间排序。
+同一包新增版本保存并校验成功后，将超出数量的最早版本移入废纸篓，
+可在清空废纸篓前恢复；另一环境的版本不受影响。
+保存失败不会清理旧版本，同名版本拒绝覆盖；无关目录和符号链接不参与清理。
+此规则仅管理上述专用目录内的 IPA/dSYM，不清理 Xcode Archives。
+保存步骤使用 macOS 的 `ditto` 和 Python 3 标准库，不需要额外安装 Python 包。
+
 ## Chrome with production services
 
 From the repository root, run:
