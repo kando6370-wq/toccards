@@ -8,6 +8,10 @@
     "build": "pnpm run deploy:dry-run:prod && pnpm run deploy:dry-run:dev",
     "build:assets:prod": "pnpm --filter @kando/auth-core build && pnpm --filter @kando/admin-web build:prod",
     "build:assets:dev": "pnpm --filter @kando/auth-core build && pnpm --filter @kando/admin-web build:dev",
+    "build:assets:linux": "pnpm --filter @kando/auth-core build && pnpm --filter @kando/admin-web build:linux",
+    "build:linux:api": "pnpm --filter @kando/auth-core build && node scripts/build-linux.mjs",
+    "build:linux": "pnpm run build:assets:linux && pnpm run build:linux:api",
+    "start:linux": "node dist/linux/server.mjs",
     "deploy:dry-run:prod": "pnpm run build:assets:prod && wrangler deploy --env prod --dry-run --outdir dist/prod",
     "deploy:dry-run:dev": "pnpm run build:assets:dev && wrangler deploy --env dev --dry-run --outdir dist/dev",
     "deploy:prod": "pnpm run build:assets:prod && wrangler deploy --env prod",
@@ -19,6 +23,7 @@
   "dependencies": {
     "@apple/app-store-server-library": "3.1.0",
     "@bradford-tech/supabase-integrity-attest": "0.9.1",
+    "@hono/node-server": "^2.1.1",
     "@kando/auth-core": "workspace:*",
     "drizzle-orm": "^0.38.0",
     "fflate": "^0.8.2",
@@ -30,7 +35,9 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241127.0",
     "@electric-sql/pglite": "0.5.7",
+    "@types/node": "^26.3.0",
     "drizzle-kit": "^0.30.0",
+    "esbuild": "^0.28.2",
     "miniflare": "4.20260630.0",
     "typescript": "^5.7.0",
     "vitest": "^4.1.9",

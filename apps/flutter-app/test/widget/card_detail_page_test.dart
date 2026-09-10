@@ -2111,6 +2111,56 @@ void main() {
   });
 
   testWidgets(
+    'leaving Collection Item cancels edit mode because edit actions belong only to that tab',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(const _CardDetailTestApp(cardId: 'charizard-ex'));
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(find.text('Collection Item'), 400);
+      await tester.ensureVisible(find.text('Edit item'));
+      await tester.tap(find.text('Edit item'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('card-detail-item-edit-footer')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('card-detail-item-quantity')),
+        findsOneWidget,
+      );
+
+      await tester.drag(
+        find.byKey(const Key('card-detail-scroll')),
+        const Offset(0, 500),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Performance'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Performance'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('card-detail-item-edit-footer')),
+        findsNothing,
+      );
+      expect(find.text('SAVE CHANGES'), findsNothing);
+
+      await tester.ensureVisible(find.text('Collection Item'));
+      await tester.tap(find.text('Collection Item'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Edit item'), findsOneWidget);
+      expect(find.byKey(const Key('card-detail-item-quantity')), findsNothing);
+    },
+  );
+
+  testWidgets(
     'graded edit keeps grader and grade choices inline because both belong to one Figma state',
     (tester) async {
       await tester.pumpWidget(const _CardDetailTestApp(cardId: 'charizard-ex'));

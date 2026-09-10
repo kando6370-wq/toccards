@@ -36,11 +36,16 @@ inferred from Xcode project settings. Other Bundle IDs do not currently have a
 fixed App Attest rule. Production keeps `com.cardai.tcg` and its separate
 Firebase configuration.
 
+## 扫描平台与协议
+
+当前 App 的扫描链路支持 iOS 16+ 和 Android API 24+。端侧 RTMDet-Ins 检测与 PE-Core-T16 生成 512 维向量，向 Workers API 提交 `vector` 和矫正后的卡面图片；主 API 通过 `VECTOR_RECOGNITION` 调用内部检索服务。旧 `r/g/b` pHash 请求已退役，Flutter Web 暂不支持扫描。实现与资源说明见[扫描识别链路](../../docs/releases/v1.1.0/01-flows/scan-recognition.md)。
+
 ## iOS simulator
 
 Google ML Kit's iOS binaries do not support arm64 simulators. Run the test
-environment with the simulator wrapper so local card-number OCR is disabled and
-the scan request falls back to server recognition:
+environment with the simulator wrapper so local card-number OCR is disabled.
+Scanning still requires on-device Core ML models and sends a vector to the API;
+this wrapper does not provide a pHash or image-only recognition fallback:
 
 ```bash
 ./tool/run_ios_simulator.sh -d <simulator-udid>
@@ -100,6 +105,22 @@ installation continues to use a `release-testing` export signed with Apple
 Distribution. The App Store IPA remains separately signed for App Store
 Connect. No device model or UDID is hardcoded; pass any available selector
 shown by `--list-devices` (quote device names that contain spaces).
+
+### IPA 与符号文件保存
+
+脚本在包校验通过后、安装或上传前，自动保存到 `~/Downloads/CardAI-Packages/`，
+专用目录下使用 Bundle ID 作为文件夹名称：测试包为 `com.kando.kandoApp.beta/`，
+正式包为 `com.cardai.tcg/`。每个 Bundle ID 目录内再按版本建目录，例如
+`com.kando.kandoApp.beta/CardAI-Test-1.0.2-134/`，目录内保存内部安装 IPA
+和 `dSYMs.zip`；正式包目录名为 `CardAI-Prod-<版本>-<构建号>/`，保存
+App Store IPA 和 `dSYMs.zip`，指定真机安装时还保存 `Card AI Device.ipa`。
+
+测试包保留最近成功保存的 **3 个版本**，正式包保留 **7 个版本**，各自按保存时间排序。
+同一包新增版本保存并校验成功后，将超出数量的最早版本移入废纸篓，
+可在清空废纸篓前恢复；另一环境的版本不受影响。
+保存失败不会清理旧版本，同名版本拒绝覆盖；无关目录和符号链接不参与清理。
+此规则仅管理上述专用目录内的 IPA/dSYM，不清理 Xcode Archives。
+保存步骤使用 macOS 的 `ditto` 和 Python 3 标准库，不需要额外安装 Python 包。
 
 ## Chrome with production services
 

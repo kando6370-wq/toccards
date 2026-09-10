@@ -6,12 +6,13 @@
 |---|---|---|
 | 移动/Web App | Flutter、Dart、Riverpod、GoRouter、Dio | `apps/flutter-app/pubspec.yaml` |
 | 订阅模块 | `in_app_purchase`、StoreKit adapter | `dart-packages/subscription-core/pubspec.yaml` |
-| API | TypeScript、Hono、Cloudflare Workers | `apps/workers-api/package.json` |
+| API | TypeScript、共享 Hono 应用、Cloudflare Workers；Linux 测试使用 Node 22 / `@hono/node-server` | `apps/workers-api/package.json`、`src/app.ts`、`src/linux/server.ts` |
 | 数据访问 | Postgres.js 适配器、Cloudflare Hyperdrive、PostgreSQL 顺序 migrations | `src/db/postgres-database.ts`、`src/db/postgres/migrations/` |
 | Admin | React 18、Vite 6、Ant Design 5、TanStack Query 5 | `apps/admin-web/package.json` |
 | Marketing | Cloudflare static assets/Workers | `apps/marketing-web/wrangler.jsonc` |
+| Linux 测试部署 | Docker Compose、独立 PostgreSQL、进程内 KV、本地图片卷；标准 Caddy 或离线 Node 静态服务 | `deploy/linux/`、`src/linux/` |
 | Monorepo | pnpm 11.9.0、Turborepo 2、Dart pub workspace、Melos 8 | 根 manifests |
-| 测试 | Vitest 4、Node test runner、Flutter test | 各应用 scripts 与 test 目录 |
+| 测试 | Vitest 4、PGlite PostgreSQL、Node test runner、Flutter test；部分旧测试仍使用待清理的 Miniflare/D1 兼容基座 | 各应用 scripts、`src/test-support/pglite-database.ts` 与 test 目录 |
 
 ## 2. 工具链约束
 
@@ -39,11 +40,15 @@ CI 的 Flutter 版本冲突是显式目标差异，不合并成虚构的统一�
 
 当前 `wrangler.toml` 使用 `nodejs_compat`，以支持 Apple 官方 App Store Server Library 在 Worker 请求/定时任务上下文中加载。
 
+以上数据库与 bindings 描述 Cloudflare dev/prod。Linux 使用 `DATABASE_URL` 直连独立 PostgreSQL；标准 Compose 默认 `postgres:16-alpine`，离线配置默认本地 `toccards-postgres:18` 镜像，kd201 的 PostgreSQL 18.6 是 2026-09-09 历史核验值，不是本轮服务器回读。
+
 ## 4. 外部与平台集成
 
 - Apple StoreKit、App Attest、App Store Server Notifications V2 与 Server API。
 - Google/Apple OAuth；邮箱注册与找回密码使用 ZeptoMail。
-- OCR 服务处理扫描识别；PostgreSQL/R2 保存结构化记录与受保护图片。
+- Scan 使用端侧 RTMDet-Ins 检测和 PE-Core-T16 向量化：iOS 16+ 使用 Core ML/Core Image，Android 使用最小 ONNX Runtime 与 Bitmap。主 Worker 经 `VECTOR_RECOGNITION` 调用 `recognize-vec`，PostgreSQL/R2 保留结构化记录与受保护图片；ML Kit 卡号 OCR 继续用于消歧。旧 OpenCV/pHash 移除，Web 暂不支持新端侧识别。
+- Linux 配置仍要求旧 `OCR_SERVICE_BASE_URL`，但未构造 `VECTOR_RECOGNITION`，当前扫描路由不会读取 OCR 地址；Linux 扫描适配尚未完成，详见[兼容缺口](linux-test-environment.md#扫描兼容缺口)。
+- Singular 的六个 test/production 套餐事件使用 `customRevenueWithAttributes` 上报 Apple verified 交易金额、币种和标识，独立持久化去重并补发此前入队的失败记录；Restore 和启动恢复不创建新收入。SDK API 返回不等于后台收件成功，详见[收入契约](../03-data-api/contract-changes.md#当前边界)。
 - 汇率服务以 USD 为基准提供快照，KV 可缓存。
 - Firebase Analytics/Crashlytics、Mixpanel、Singular 和 ATT 用于分析、归因与稳定性，不作为授权真源。Flutter 在 dev/prod 环境均开启 Mixpanel 移动端自动事件采集；Project Token 仍按环境加载。每次完整冷启动异步执行一次 Mixpanel 初始化，不阻塞 `runApp`；初始化失败后仅在当前进程内按 2 秒、5 秒、15 秒重试三次，成功后按原顺序补发初始化期间的内存事件，全部失败后停止重试并清空待发事件。表格定义的全部自定义事件共用同一属性组装入口；首次认证会话恢复完成前事件只暂存在内存，恢复为账号或游客后分别使用用户 UID 或匿名 ID 组装 `uid` 并发送，认证明确失败且没有可用身份时才发送空 `uid`。后续身份切换只影响切换后发生的事件，不回写已经组装的历史事件。
 
@@ -53,4 +58,5 @@ CI 的 Flutter 版本冲突是显式目标差异，不合并成虚构的统一�
 - Workers 公开 vars 与 bindings 在 `wrangler.toml` 分环境声明。
 - Apple、JWT、邮件、分析等密钥必须使用 secret 管理，不进入源码、文档或测试夹具。
 - dev 与 prod 共享 PostgreSQL 业务数据，但 `APP_ENVIRONMENT`、Bundle ID、Product ID 白名单、KV、R2、域名和密钥严格隔离。
-- Admin 的 Vite 构建模式随对应 Worker assets 部署，不能把独立本地 dev server 当成生产部署模型。
+- Linux 配置只接受 `APP_ENVIRONMENT=development`，数据库、JWT、图片卷和外部凭据独立于 Cloudflare；必填环境变量缺失时启动失败。
+- Admin 的 dev/prod Vite 构建模式随对应 Worker assets 部署；Linux 模式使用同源 `/api/v1/admin`，由 Caddy 或离线 Node 服务托管。

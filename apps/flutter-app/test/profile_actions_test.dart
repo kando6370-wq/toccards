@@ -287,6 +287,26 @@ void main() {
   });
 
   test(
+    'legal links keep their public fallback when version configuration is offline',
+    () async {
+      final opened = <Uri>[];
+      final actions = PluginProfileActions(
+        const _FakeAppUpgradeRepository(AppUpgradeConfig(), fail: true),
+        launchExternal: (uri) async {
+          opened.add(uri);
+          return true;
+        },
+      );
+      await actions.openTerms();
+      await actions.openPrivacy();
+      expect(opened.map((uri) => uri.toString()), [
+        profileTermsUrl,
+        profilePrivacyUrl,
+      ]);
+    },
+  );
+
+  test(
     'legal action fails loudly when the operating system rejects the URL',
     () async {
       final actions = PluginProfileActions(
@@ -300,10 +320,14 @@ void main() {
 }
 
 class _FakeAppUpgradeRepository implements AppUpgradeRepository {
-  const _FakeAppUpgradeRepository(this.config);
+  const _FakeAppUpgradeRepository(this.config, {this.fail = false});
 
   final AppUpgradeConfig config;
+  final bool fail;
 
   @override
-  Future<AppUpgradeConfig> loadConfig() async => config;
+  Future<AppUpgradeConfig> loadConfig() async {
+    if (fail) throw StateError('Config is offline');
+    return config;
+  }
 }

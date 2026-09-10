@@ -8,12 +8,16 @@ Flutter App --------------------+
 React Admin -- Worker assets ----+       |-- PlanetScale PostgreSQL（经 Hyperdrive）: 业务与目录真源
                                          |-- KV: 可重建缓存
                                          |-- R2: 扫描图片
-                                         +-- Apple / OAuth / OCR / 邮件 / 汇率
+                                         +-- Apple / OAuth / recognize-vec / 邮件 / 汇率
 
 Marketing Web -----------------------> 独立 Cloudflare 静态站点
 ```
 
-`apps/workers-api/src/index.ts` 是 API 组合入口。App 和 Admin 只通过 Workers 访问服务端数据；Workers 负责鉴权、所有者隔离、Premium 服务端授权、幂等与外部服务适配。Admin 静态产物由 `apps/workers-api/wrangler.toml` 的 assets 配置托管，Marketing 使用独立 Wrangler 配置。
+上图为 Cloudflare 部署结构。`apps/workers-api/src/app.ts` 组合共享 Hono 路由、CORS 与定时任务；`src/index.ts` 负责 Cloudflare fetch/scheduled 适配和每请求/定时任务的 PostgreSQL 连接生命周期。App 和 Admin 通过 API 访问服务端数据；共享路由负责鉴权、所有者隔离、Premium 服务端授权与幂等。Cloudflare Admin 静态产物由 `wrangler.toml` 的 assets 配置托管，Marketing 使用独立 Wrangler 配置。
+
+`dev@699ca48`（2026-09-10）还包含 Linux Node 入口 `src/linux/server.ts`，复用相同 Hono 应用和 `PostgresDatabase`：从 `DATABASE_URL` 连接独立 PostgreSQL，使用带 TTL 的内存 KV 与本地图片卷；标准部署由 Caddy 托管 Admin 并反向代理 API/share，离线模式使用 Node 静态服务。Linux 向量识别资源适配尚未完成，不能把共用路由或健康检查成功视为扫描可用，见[Linux 测试环境](linux-test-environment.md)。
+
+当前 dev 扫描识别使用端侧 RTMDet-Ins 与 PE-Core-T16，主 Worker 经 `VECTOR_RECOGNITION` Service Binding 调用内部 `recognize-vec`；该链路已合入 dev。图片仍只存私有 R2，内部服务只收向量；Queue、额度、目录与资产写入保留现有边界。上图描述当前代码与 dev 运行路径，prod 的较早识别协议见第 6 节；详见[扫描识别链路](../01-flows/scan-recognition.md)。
 
 ## 2. 客户端与页面边界
 
@@ -42,7 +46,7 @@ Marketing Web -----------------------> 独立 Cloudflare 静态站点
 | `/apple/notifications/v2` | Apple 通知原文接收、验签、归约与补偿 | `src/entitlements/apple-notification-routes.ts` |
 | `/admin` | 独立 Admin 鉴权、查询、运营配置和 XLSX | `src/admin/routes.ts` |
 
-Worker 的 5 分钟 cron 调用通知 inbox 和 Apple Server API 校正重试。通知请求先持久化并按 payload/notification UUID 幂等，再异步归约交易和购买链状态。
+Cloudflare Worker 的 5 分钟 cron 调用共享 `runScheduledTasks`，执行通知 inbox 和 Apple Server API 校正重试。Linux 单进程 interval 默认同为 300 秒，可通过 `SCHEDULED_TASK_INTERVAL_SECONDS` 设置；前一次任务未完成时跳过本次触发，退出时等待定时任务和后台请求完成后关闭数据库。通知请求先持久化并按 payload/notification UUID 幂等，再异步归约交易和购买链状态。
 
 ## 4. v1.1 Premium 信任边界
 
@@ -71,8 +75,9 @@ Apple Notifications V2 + Server API --> purchase chain lifecycle correction
 
 | 资源 | 当前职责 | 一致性边界 |
 |---|---|---|
-| PlanetScale PostgreSQL | v1.1 业务、目录与价格域唯一真源；dev 迁移检查点已迁入 33 张业务表、270,577 行，并创建 7 张新价格域表 | 当前 dev 已使用；v1.1 prod 不迁移 D1 数据，发布时直接通过同一 Hyperdrive 共用，运行环境、KV、R2 和 Apple 契约仍分离 |
-| Hyperdrive | dev/prod 当前代码与 Wrangler 配置的唯一数据库连接入口，代码通过 Postgres.js 兼容层访问 | 查询缓存关闭；每请求或 cron 独立 client，后台任务结束后关闭；缺少 binding 立即失败 |
+| PlanetScale PostgreSQL | v1.1 业务、目录与价格域唯一真源；dev 迁移检查点已迁入 33 张业务表、270,577 行，并创建 7 张新价格域表 | dev/test 与 prod 均已迁移并通过同一 Hyperdrive 共用，D1 已废弃；运行环境、KV、R2 和 Apple 契约仍分离 |
+| Hyperdrive | Cloudflare dev/prod 当前代码与 Wrangler 配置的数据库连接入口，代码通过 Postgres.js 兼容层访问 | 查询缓存关闭；每请求或 cron 独立 client，后台任务结束后关闭；缺少 binding 立即失败 |
+| Linux PostgreSQL / 本地卷 | 隔离测试数据库与扫描图片，复用同一数据库适配器和 migration | 仅使用 Linux 测试 `DATABASE_URL`；进程级数据库连接在退出时关闭；不读取 Cloudflare 数据集 |
 | KV | 目录查询和汇率等可重新获取数据 | 缓存失败不得改变授权或业务真值 |
 | R2 | 扫描原图等对象 | 读取受 Admin 授权保护 |
 | Flutter 安全存储 | 会话、已验证 Premium 缓存和待同步证据 | 只辅助本机体验，不替代服务端授权 |
@@ -81,20 +86,25 @@ PostgreSQL 结构以 `src/db/postgres/migrations/` 中的顺序 migration 为准
 
 ## 6. 环境与部署
 
-| 环境 | Worker | 域名 | 数据资源 |
+| 环境 | 运行入口 | 地址 | 数据资源 |
 |---|---|---|---|
-| dev | `toccards-api-dev` | `api-dev.tcgcard.fun` | 正式 PostgreSQL Worker/Admin 已部署；共享 PG 为业务真源，dev KV/R2 与 `APP_ENVIRONMENT=development` 保持独立 |
-| prod | `toccards-api-prod` | `api.tcgcard.fun` | 2026-09-07 正式 version `934506ae-d433-4a38-ae40-6d07b109d50e` 已承载 100% 流量；通过 Hyperdrive 使用共享 PostgreSQL 且无 D1 binding，prod KV/R2 与 `APP_ENVIRONMENT=production` 保持独立 |
+| dev | `toccards-api-dev` | `api-dev.tcgcard.fun` | 2026-09-09 回读为 PostgreSQL/Hyperdrive 与 VECTOR_RECOGNITION；dev KV/R2、beta Apple 配置和 `APP_ENVIRONMENT=development` 独立 |
+| prod | `toccards-api-prod` | `api.tcgcard.fun` | 2026-09-09 回读为 PostgreSQL/Hyperdrive，无 D1；仍使用 OCR_SERVICE_BASE_URL，prod KV/R2、production Apple 配置和 `APP_ENVIRONMENT=production` 独立 |
+| Linux 测试 | Node / `src/linux/server.ts` | kd201 历史入口 `http://192.168.50.201:8080` | 独立 PostgreSQL、内存 KV、本地图片卷、`APP_ENVIRONMENT=development`；当前源码缺少向量适配器，服务器运行提交未于本轮回读 |
 
-Wrangler vars 保存非敏感环境配置，密钥通过 Worker secrets 注入。v1.1 dev 与 prod 共用业务 PostgreSQL 是本次明确的目标决策；prod 发布前只读确认旧 D1 仍无须保留的数据，并实时预检共享 PostgreSQL 后直接切换应用，不执行 D1 数据迁移、冲突合并或摘要校验。`APP_ENVIRONMENT`、Apple Bundle/Product ID、KV、R2、域名和 Worker secrets 不得混用。部署脚本先构建共享认证和对应模式 Admin，再部署 Worker 与静态 assets。
+Wrangler vars 保存非敏感环境配置，密钥通过 Worker secrets 注入。dev/prod 已共用业务 PostgreSQL；`APP_ENVIRONMENT`、Apple Bundle/Product ID、KV、R2、域名和 Worker secrets 不得混用。当前仓库的 prod 配置已包含向量绑定，但配置文件不代表现网版本已切换；版本及 binding 回读集中维护在[发布与验证](../05-delivery/VERIFICATION.md)。部署脚本先构建共享认证和对应模式 Admin，再部署 Worker 与静态 assets。两环境的 PostgreSQL 迁移均已完成，后续仅核对本次变更所需的 PostgreSQL schema、业务数据及应用版本，不再安排 D1 移库或切换任务。
+
+Linux 的真实配置仅保存在服务器 `.env`。分支监听器默认每两分钟检查 `dev`，相关路径变化才执行定向检查、构建、数据库备份和版本化发布；GitHub Linux workflow 仅为手动触发选项。`19a6ac4` 已将相关资产合入 dev，但当前服务器 release、SHA 与 migration ledger 仍需按[自动部署手册](../05-delivery/linux-test-auto-deployment.md)回读，不能沿用功能分支历史验证宣称当前提交已部署。
 
 ## 7. 当前与目标架构的区分
 
-dev 数据库迁移已经完成：PlanetScale PostgreSQL、Hyperdrive binding、目标 schema、Postgres.js 访问层、PostgreSQL 业务方言和新价格域读取已承载 dev；迁移检查点把 dev 的 33 张非价格业务表、270,577 行写入 PostgreSQL，并完成逐表行数与完整摘要校验，Hyperdrive 查询缓存已关闭。2026-09-07 prod 切换前实时预检确认 PostgreSQL `18.6` 的 `postgres/public` 已完整应用 `0000` 至 `0010`，checksum 与仓库 SQL 一致且未验证约束为 0；同日 prod 正式 version `934506ae-d433-4a38-ae40-6d07b109d50e` 切换后，`fetch` 与 5 分钟 `scheduled` 均通过 Hyperdrive 正常运行。当前 v1.1 代码缺少 Hyperdrive 时直接失败，不存在数据库降级路径。旧 prod D1 资源可以仍存在于 Cloudflare 账户中，但不再绑定运行版本，不执行迁移或冲突审计，也不得作为回滚或灾备目标。PostgreSQL-only 候选 version `da698dfc-9be3-4713-ba17-ede427edd546` 保留用于版本回退。TimescaleDB 与 ClickHouse 仍只是 [数据库迁移研究](../03-data-api/research/database-migration-research.md) 和 [价格历史容量分析](../03-data-api/research/price-history-database-capacity-analysis.md) 中的后续候选，不属于本次实现。
+dev 历史迁移检查点把 33 张非价格业务表、270,577 行写入 PostgreSQL，并完成逐表行数与完整摘要校验。2026-09-07 预检记录确认 PostgreSQL `18.6` 的 `postgres/public` 已应用 `0000` 至 `0010`，checksum 与仓库 SQL 一致且未验证约束为 0；该记录不代表本轮重查数据库。后续 `0011` 的 development 初始化、完整迁移登记及 `0012` 回填状态分别见[数据迁移](../03-data-api/migration.md)。当前 dev/prod 均运行 PostgreSQL Worker，Cloudflare v1.1 `fetch` 和 `scheduled` 缺少 Hyperdrive 时直接失败，不存在数据库降级路径；旧 D1 不属于运行、回滚或灾备目标。D1 到 PostgreSQL 迁移已完成，不作为后续发布待办。TimescaleDB 与 ClickHouse 仍只是 [数据库迁移研究](../03-data-api/research/database-migration-research.md) 和 [价格历史容量分析](../03-data-api/research/price-history-database-capacity-analysis.md) 中的后续候选，不属于本次实现。
 
 ## 8. 证据索引
 
-- `apps/workers-api/src/index.ts`：路由组合与定时任务。
+- `apps/workers-api/src/app.ts`：共享路由、CORS 和定时任务组合。
+- `apps/workers-api/src/index.ts`：Cloudflare 请求/cron 与数据库生命周期适配。
+- `apps/workers-api/src/linux/`、`deploy/linux/`：Linux 资源适配、Compose 与发布脚本。
 - `apps/workers-api/src/env.ts`、`wrangler.toml`：binding 与环境边界。
 - `apps/workers-api/src/db/postgres/migrations/`：当前数据结构与顺序迁移。
 - `apps/flutter-app/lib/app/router.dart`：App 页面入口。

@@ -1,25 +1,34 @@
 # v1.1.0 版本文档
 
-本目录记录 v1.1.0 相对 [v1.0.0](../v1.0.0/README.md) 的产品输入、当前实现、数据契约和交付边界。文档重整基线为 `dev@cea5d4e`（2026-08-14）；后续状态应以当前检出代码和带日期的验证证据为准。
+本目录记录 v1.1.0 相对 [v1.0.0](../v1.0.0/README.md) 的产品输入、当前实现、数据契约和交付边界。当前 main 已合入 `dev@2d94c80`（2026-09-10），已包含 Linux 测试环境合并、Singular 同进程初始化恢复、Home 版本复查、iOS 交付物保存及扫描取景框布局修复。客户端 `pubspec.yaml` 为 `1.0.2+135`，与本目录的产品迭代版本分别管理；历史检查点保留原日期，不能外推为当前验收结果。
 
 ## 当前结论
 
 - 仓库内已形成 Apple 订阅与 session grant、Scan Quota、Folder 限制、Performance、Extended Price History、Admin 订单与 Apple Notifications V2 的实现和自动化证据。
+- 扫描向量链路已合入并推送 `dev`，对应 Workers/Admin 已发布到 dev；App 扫描支持 iOS 16+、Android API 24+，Web 扫描暂不支持。源分支已清理，后续使用 `dev`，详见[扫描识别链路](01-flows/scan-recognition.md)。
+- Linux 测试环境已通过 `19a6ac4` 合入 dev，包含共享 Hono/Node 入口、独立 PostgreSQL、内存 KV、本地图片卷和分支监听发布脚本。Linux 尚未提供 `VECTOR_RECOGNITION` 适配器，仅填写旧 OCR 地址不能启用扫描；服务器当前部署 SHA 未于本轮回读，见[Linux 兼容设计](02-architecture/linux-test-environment.md)。
+- 升级门禁在实际 Home 首帧后启动，后续 Home 返回或回前台静默复查，已确认强更仍跨路由拦截。扫描取景框从首帧预留底部结果区，iOS 检测分数按 sigmoid 转为概率。iOS 发布脚本按 Bundle ID 保存 IPA/dSYM，测试保留 3 个版本、正式保留 7 个版本；当前实现和既有测试限制见[发布与验证](05-delivery/VERIFICATION.md#当前代码与交付边界)。
+- 后续本地修复已收口三项扫描 Golden、Review 图片等待、页面测试归因隔离和 Windows 的 Linux 打包路径。App 全量 1047/1047、订阅包 9/9 通过；Workers 默认首轮失败与完整受 Git 跟踪测试降低并发后的 621/621 通过分别保留，详见[Golden 与全量复验](05-delivery/VERIFICATION.md#golden-基准与全量复验2026-09-10)。
 - “代码已完成”不等于发布完成。Apple 生产配置、Sandbox/TestFlight、真机、多设备、重度数据和真实订单规模仍是独立验收门槛。
-- dev 与 prod 的 PostgreSQL 运行切换均已完成。2026-09-07 prod 直接切换到 dev 共用的 PlanetScale PostgreSQL/Hyperdrive，正式 Worker version `934506ae-d433-4a38-ae40-6d07b109d50e` 承载 100% 流量且不含 D1 binding；没有执行 D1 数据迁移、冲突合并或摘要校验。新增 schema、运行代码、测试、修复、回滚与灾备只允许基于 PostgreSQL，账户中保留的旧 D1 资源不属于运行或回滚路径；KV、R2、`APP_ENVIRONMENT`、Apple 配置、域名和 secrets 继续按环境隔离。共享 PostgreSQL 的 `0000` 至 `0010` migration 已全部应用并与仓库 checksum 一致，三条当前价格指针均为 published，详见[数据迁移](03-data-api/migration.md)。
-- 三份原始 PRD 保持字节不变；实现状态只在 `01-flows` 至 `05-delivery` 更新。
+- D1 已废弃，Cloudflare dev/test 与 prod 均已完成 PostgreSQL 迁移；2026-09-09 用户确认与 Cloudflare 回读一致，两环境均绑定同一 PlanetScale PostgreSQL/Hyperdrive，均无 D1 binding。该次回读中 dev 使用向量识别，prod 为较早的识别协议，不能将本地 prod 配置视为已部署。KV、R2、`APP_ENVIRONMENT`、Apple 配置、域名和 secrets 继续隔离；本轮未重新连接 Cloudflare 或数据库，历史回读见[发布与验证](05-delivery/VERIFICATION.md)。
+- 数据库执行状态按证据区分：`0000` 至 `0010` 的远程应用与校验记录截至 2026-09-07；2026-09-08 仅初始化 `0011` 的 development 两条版本键，完整 `0011` 未登记完成；`0012` 已有修复脚本及测试，新 Worker 已发布，历史数据回填尚未执行。本轮未重查数据库 ledger、价格指针或业务数据，详见[数据迁移](03-data-api/migration.md)。
+- 六份产品输入保持字节不变；实现状态只在 `01-flows` 至 `05-delivery` 更新。
 
 ## 原始产品输入
 
 - [Apple Subscription & Premium 权益统一方案](00-product/Apple_Subscription_Premium_%E6%9D%83%E7%9B%8A%E7%BB%9F%E4%B8%80%E6%96%B9%E6%A1%88.md)
 - [TCG Admin 订单统计与苹果通知消息 PRD](00-product/TCG_Admin_%E8%AE%A2%E5%8D%95%E7%BB%9F%E8%AE%A1%E4%B8%8E%E8%8B%B9%E6%9E%9C%E9%80%9A%E7%9F%A5%E6%B6%88%E6%81%AF_PRD_V1.1_%E8%AE%A2%E9%98%85%E7%9C%9F%E5%80%BC%E6%94%B6%E5%8F%A3%E7%89%88.md)
 - [TCG Card App v1.1 PRD](00-product/TCG_Card_App_v1.1_PRD.md)
+- [订阅升级降级补充](00-product/修改-升级降级订阅.md)
+- [订阅升级降级补充（二）](00-product/修改2-升级降级订阅.md)
+- [收藏待编辑与通用卡牌详情改版 PRD](00-product/TCG_Card_App_v1.1_收藏待编辑与通用卡牌详情改版_PRD.md)
 
 ## 实现文档
 
 ### 业务流程
 
 - [业务上下文](01-flows/business-context.md)：角色、主流程、状态、实体、规则、上下游和待确认项。
+- [扫描向量识别链路](01-flows/scan-recognition.md)：已合入 dev 的端侧识别引擎、向量接口及保留的扫描业务契约。
 - [官网增量需求](01-flows/requirements.md)：当前版本的营销站搜索发现与视觉增量。
 
 ### 架构
@@ -27,6 +36,7 @@
 - [系统架构](02-architecture/architecture.md)
 - [Monorepo 边界](02-architecture/monorepo.md)
 - [技术栈](02-architecture/tech-stack.md)
+- [Linux 测试环境与 Cloudflare 正式环境兼容设计](02-architecture/linux-test-environment.md)
 - [架构决策索引](02-architecture/decisions/README.md)
 
 ### 数据与 API
@@ -46,7 +56,12 @@
 ### 交付与验收
 
 - [开发计划](05-delivery/development-plan.md)
+- [Linux 测试环境实施计划](05-delivery/linux-test-environment-implementation-plan.md)
+- [Linux 测试环境部署手册](../../../deploy/linux/README.md)
+- [Linux 测试环境自动部署手册](05-delivery/linux-test-auto-deployment.md)
 - [需求可追踪矩阵](05-delivery/traceability-matrix.md)
+- [发布与验证记录](05-delivery/VERIFICATION.md)：Home 版本复查、扫描布局、iOS 交付物、Singular 收入和历史发布边界。
+- [iOS IPA 与符号文件保存](../../../apps/flutter-app/README.md#ipa-与符号文件保存)
 - [App Store Connect 订阅配置手册](05-delivery/app-store-connect-subscription-setup.md)
 
 ## 证据口径

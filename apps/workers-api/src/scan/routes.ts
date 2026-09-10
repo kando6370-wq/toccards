@@ -8,6 +8,7 @@ import {
   runWithMutationLocks,
 } from "../db/mutation-lock";
 import type { Env } from "../env";
+import type { Database } from "../db/database";
 import { createId } from "../id";
 import { authenticateOwner } from "../owner-auth";
 import {
@@ -99,10 +100,10 @@ const INTERNAL_ERROR_RESPONSE = {
   },
 } as const;
 
-const OCR_UNAVAILABLE_RESPONSE = {
+const VECTOR_RECOGNITION_UNAVAILABLE_RESPONSE = {
   success: false,
   error: {
-    code: "OCR_SERVICE_UNAVAILABLE",
+    code: "VECTOR_RECOGNITION_UNAVAILABLE",
     message: "Recognition service is unavailable.",
   },
 } as const;
@@ -191,9 +192,11 @@ LIMIT 1
 const INSERT_CONFIRMED_COLLECTION_ITEM_EVENT_SQL = `
 INSERT INTO collection_item_event
   (id, item_id, owner_type, owner_id, folder_id, card_ref, object_type, grader,
-   condition, grade, language, finish, quantity, event_type, effective_at)
+   condition, grade, language, finish, quantity, purchase_price,
+   purchase_currency, performance_history_available_from, event_type, effective_at)
 SELECT ?, id, owner_type, owner_id, folder_id, card_ref, object_type, grader,
-  condition, grade, language, finish, quantity, 'upsert', ?
+  condition, grade, language, finish, quantity, purchase_price,
+  purchase_currency, folder_joined_at, 'upsert', ?
 FROM collection_item
 WHERE id = ? AND owner_type = ? AND owner_id = ?
 LIMIT 1
@@ -215,7 +218,9 @@ WHERE id = ? AND owner_type = ? AND owner_id = ?
   AND user_confirmation_status = 'pending'
 `;
 
-const PHASH_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+const RECOGNITION_ALGORITHM = "pe-core-t16-384-cosine-v1";
+const EMBEDDING_DIMENSIONS = 512;
+const MAX_VECTOR_JSON_BYTES = 32 * 1024;
 const CARD_NUMBER_PATTERN = /^(?:\d{1,4}\/(?:\d{1,4}|[A-Z]{1,5}-P)|[A-Z]{1,5}-P)$/;
 
 function scanQuotaPayload(
@@ -321,15 +326,15 @@ export function createScanRoutes() {
       );
       return c.json(INTERNAL_ERROR_RESPONSE, 503);
     }
-    const serviceBaseUrl = normalizeBaseUrl(c.env.OCR_SERVICE_BASE_URL);
-    if (!serviceBaseUrl) {
+    const vectorRecognition = c.env.VECTOR_RECOGNITION;
+    if (!vectorRecognition) {
       await releaseQueuedScanQuota(
         c.env.DB,
         auth.owner,
         requestId,
-        { body: OCR_UNAVAILABLE_RESPONSE, status: 503 },
+        { body: VECTOR_RECOGNITION_UNAVAILABLE_RESPONSE, status: 503 },
       );
-      return c.json(OCR_UNAVAILABLE_RESPONSE, 503);
+      return c.json(VECTOR_RECOGNITION_UNAVAILABLE_RESPONSE, 503);
     }
     const imageBucket = c.env.SCAN_IMAGES;
     if (!imageBucket) {
@@ -341,13 +346,11 @@ export function createScanRoutes() {
       );
       return c.json(INTERNAL_ERROR_RESPONSE, 503);
     }
-    const r = readPhash(body.get("r"));
-    const g = readPhash(body.get("g"));
-    const b = readPhash(body.get("b"));
+    const vector = readEmbeddingVector(body.get("vector"));
     const gameId = readOptionalGameId(body.get("game_id"));
     const cardNumber = readOptionalCardNumber(body.get("card_number"));
     const image = await validateScanImage(body.get("image"));
-    if (!r || !g || !b || gameId === null || cardNumber === null || !image) {
+    if (!vector || gameId === null || cardNumber === null || !image) {
       await releaseQueuedScanQuota(
         c.env.DB,
         auth.owner,
@@ -393,12 +396,7 @@ export function createScanRoutes() {
       return c.json(SCAN_REQUEST_CONFLICT_RESPONSE, 409);
     }
 
-    const outbound = {
-      r,
-      g,
-      b,
-      ...(gameId === undefined ? {} : { game_id: gameId }),
-    };
+    const outbound = { vector };
 
     const scanId = requestId;
     const createdAt = new Date();
@@ -427,23 +425,23 @@ export function createScanRoutes() {
       return c.json(INTERNAL_ERROR_RESPONSE, 500);
     }
 
-    let ocrPayload: unknown = null;
+    let recognitionPayload: unknown = null;
     let upstreamFailed = false;
     const startedAt = Date.now();
     try {
-      const response = await fetch(`${serviceBaseUrl}/recognize`, {
+      const response = await vectorRecognition.fetch("https://recognize-vec.internal/recognize", {
         method: "POST",
         headers: { Accept: "application/json", "Content-Type": "application/json" },
         body: JSON.stringify(outbound),
       });
-      ocrPayload = await response.json().catch(() => null);
+      recognitionPayload = await response.json().catch(() => null);
       upstreamFailed = !response.ok;
     } catch (error) {
       upstreamFailed = true;
-      ocrPayload = { error: "upstream_request_failed", message: String(error) };
+      recognitionPayload = { error: "upstream_request_failed", message: String(error) };
     }
 
-    const payload = isRecord(ocrPayload) ? ocrPayload : {};
+    const payload = isRecord(recognitionPayload) ? recognitionPayload : {};
     const recognized = upstreamFailed ? null : readRecognitionCandidates(payload.candidates);
     if (!recognized) upstreamFailed = true;
     const adapter = createLocalDbDataSourceAdapter(c.env.DB);
@@ -452,7 +450,7 @@ export function createScanRoutes() {
     let incompleteCatalogCandidateCount = 0;
     if (!upstreamFailed && recognized) {
       try {
-        const catalog = await loadScanCatalogCards(c.env.DB, recognized);
+        const catalog = await loadScanCatalogCards(c.env.DB, recognized, gameId);
         auditCandidates = recognized.map((candidate, index) => {
           const row = catalog.get(candidate.productId);
           if (!row) return toUnresolvedCandidate(candidate, index);
@@ -522,7 +520,7 @@ export function createScanRoutes() {
           }),
           JSON.stringify(userResult),
           JSON.stringify(auditCandidates),
-          JSON.stringify(ocrPayload),
+          JSON.stringify(recognitionPayload),
           createdAt.toISOString(),
         )
         .run();
@@ -537,7 +535,7 @@ export function createScanRoutes() {
     }
 
     if (upstreamFailed) {
-      const responseBody = { ...OCR_UNAVAILABLE_RESPONSE, scan_id: scanId };
+      const responseBody = { ...VECTOR_RECOGNITION_UNAVAILABLE_RESPONSE, scan_id: scanId };
       await settleScanQuota(c.env.DB, auth.owner, requestId, "released", scanId, {
         body: responseBody,
         status: 502,
@@ -773,23 +771,26 @@ function toCatalogCandidate(
     rarity: card.rarity,
     object_type: card.object_type === "tcg" ? "tcg" : null,
     confidence: recognized.confidence,
-    retrieval: "rgb-phash-16-v1",
+    retrieval: RECOGNITION_ALGORITHM,
     distance: null,
   };
 }
 
 async function loadScanCatalogCards(
-  db: D1Database,
+  db: Database,
   recognized: RecognitionCandidate[],
+  gameId: number | undefined,
 ): Promise<Map<string, ScanCatalogRow>> {
   const productIds = [...new Set(recognized.map((candidate) => candidate.productId))];
   if (productIds.length === 0) return new Map();
   const placeholders = productIds.map(() => "?").join(", ");
+  const gameFilter = gameId === undefined ? "" : " AND game_id = ?";
+  const bindings = gameId === undefined ? productIds : [...productIds, gameId];
   const result = await db.prepare(`
     SELECT product_id, game, set_name, set_code, name, number, rarity, product_type_name
     FROM cards_all
-    WHERE product_id IN (${placeholders})
-  `).bind(...productIds).all<ScanCatalogRow>();
+    WHERE product_id IN (${placeholders})${gameFilter}
+  `).bind(...bindings).all<ScanCatalogRow>();
   return new Map((result.results ?? []).map((row) => [row.product_id, row]));
 }
 
@@ -830,7 +831,7 @@ function toIncompleteCatalogCandidate(
     rarity: row.rarity,
     object_type: row.product_type_name === "Cards" ? "tcg" : null,
     confidence: recognized.confidence,
-    retrieval: "rgb-phash-16-v1",
+    retrieval: RECOGNITION_ALGORITHM,
     distance: null,
   };
 }
@@ -852,7 +853,7 @@ function toUnresolvedCandidate(
     rarity: null,
     object_type: null,
     confidence: recognized.confidence,
-    retrieval: "rgb-phash-16-v1",
+    retrieval: RECOGNITION_ALGORITHM,
     distance: null,
   };
 }
@@ -879,11 +880,28 @@ function buildSystemResult(
     rarity: candidate?.rarity ?? null,
     confidence: candidate?.confidence ?? null,
     candidate_count: candidateCount,
+    recognition_algorithm: RECOGNITION_ALGORITHM,
   };
 }
 
-function readPhash(value: unknown): string | null {
-  return typeof value === "string" && PHASH_PATTERN.test(value) ? value : null;
+function readEmbeddingVector(value: string | File | null): number[] | null {
+  if (typeof value !== "string" || value.length > MAX_VECTOR_JSON_BYTES) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(parsed) || parsed.length !== EMBEDDING_DIMENSIONS) return null;
+  const vector = new Array<number>(EMBEDDING_DIMENSIONS);
+  let hasNonZeroValue = false;
+  for (let index = 0; index < parsed.length; index += 1) {
+    const component = parsed[index];
+    if (typeof component !== "number" || !Number.isFinite(component)) return null;
+    vector[index] = component;
+    hasNonZeroValue ||= component !== 0;
+  }
+  return hasNonZeroValue ? vector : null;
 }
 
 function readOptionalGameId(value: string | File | null): number | undefined | null {
@@ -1029,12 +1047,6 @@ async function deleteUploadedImage(bucket: R2Bucket, key: string): Promise<void>
 function isUniqueConstraintError(error: unknown): boolean {
   return error instanceof Error &&
     error.message.toLowerCase().includes("unique constraint");
-}
-
-function normalizeBaseUrl(value: string | undefined): string | null {
-  const trimmed = value?.trim();
-  if (!trimmed) return null;
-  return trimmed.replace(/\/+$/, "");
 }
 
 function readString(value: unknown): string | null {

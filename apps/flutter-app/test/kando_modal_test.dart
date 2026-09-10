@@ -227,7 +227,45 @@ void main() {
     await tester.tap(find.text('Upgrade'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Update Now'), findsNWidgets(2));
-    expect(find.text('Later'), findsNothing);
+    expect(find.text('Update Now'), findsOneWidget);
+    expect(find.text('INSTALL'), findsOneWidget);
+    expect(find.text('LATER'), findsNothing);
   });
+
+  testWidgets(
+    'mandatory update action stays reachable on a small phone with large text and long release copy',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 568);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      var updates = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+            child: Scaffold(
+              body: KandoUpdateModal(
+                title: 'Update required',
+                message:
+                    'Please install the latest version to continue using the app. ' *
+                    8,
+                primaryLabel: 'INSTALL',
+                secondaryLabel: 'LATER',
+                forceUpdate: true,
+                onPrimary: () => updates++,
+                onSecondary: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(tester.getRect(find.text('INSTALL')).bottom, lessThan(568));
+      await tester.tap(find.text('INSTALL'));
+      expect(updates, 1);
+      expect(find.text('LATER'), findsNothing);
+    },
+  );
 }

@@ -204,19 +204,23 @@ void main() {
   });
 
   testWidgets(
-    'a completed free scan consumes one allowance so the displayed limit stays truthful',
+    'a free scan updates the displayed allowance when its card becomes Matched',
     (tester) async {
       await _pumpScanTestApp(tester);
 
       await tester.tap(find.byTooltip('Take Photo'));
       await tester.pump();
 
+      expect(find.text('10 scans remaining'), findsOneWidget);
+
+      await _completeFigmaScan(tester);
+
       expect(find.text('9 scans remaining'), findsOneWidget);
     },
   );
 
   testWidgets(
-    'the Free quota prompt stays visible through scanning and follows the settled server count',
+    'a reservation updates capacity without reducing the displayed allowance',
     (tester) async {
       final pending = Completer<ScanResolution>();
       final quotaController = _TestScanQuotaController(_availableQuota);
@@ -239,15 +243,17 @@ void main() {
           remaining: 9,
           unlimited: false,
         ),
+        syncDisplayedRemaining: false,
       );
       await tester.pump();
-      expect(find.text('9 scans remaining'), findsOneWidget);
+      expect(quotaController.state.remainingScans, 9);
+      expect(find.text('10 scans remaining'), findsOneWidget);
 
       await tester.pump(const Duration(seconds: 1));
-      expect(find.text('9 scans remaining'), findsOneWidget);
+      expect(find.text('10 scans remaining'), findsOneWidget);
 
       await tester.pump(const Duration(seconds: 1));
-      expect(find.text('9 scans remaining'), findsOneWidget);
+      expect(find.text('10 scans remaining'), findsOneWidget);
 
       pending.complete(
         const ScanResolution.noMatch(
@@ -255,8 +261,8 @@ void main() {
             access: ScanQuotaAccess.free,
             limit: 10,
             reserved: 0,
-            consumed: 1,
-            remaining: 9,
+            consumed: 0,
+            remaining: 10,
             unlimited: false,
           ),
         ),
@@ -264,8 +270,157 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 1530));
 
-      expect(find.text('9 scans remaining'), findsOneWidget);
+      expect(find.text('10 scans remaining'), findsOneWidget);
       expect(find.text('Tap to get unlimited scans'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'the last in-flight Free reservation does not open the paywall before its result is revealed',
+    (tester) async {
+      final pending = Completer<ScanResolution>();
+      final source = _TestScanResultSource(photoResult: pending.future);
+      final quotaController = _TestScanQuotaController(
+        const ScanQuotaDto(
+          access: ScanQuotaAccess.free,
+          limit: 10,
+          reserved: 0,
+          consumed: 9,
+          remaining: 1,
+          unlimited: false,
+        ),
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanQuotaController: quotaController,
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      quotaController.applyServerQuota(
+        const ScanQuotaDto(
+          access: ScanQuotaAccess.free,
+          limit: 10,
+          reserved: 1,
+          consumed: 9,
+          remaining: 0,
+          unlimited: false,
+        ),
+        syncDisplayedRemaining: false,
+      );
+      await tester.pump();
+      expect(find.text('1 scans remaining'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+
+      expect(source.photoCallCount, 1);
+      expect(find.text('Subscription'), findsNothing);
+
+      pending.complete(
+        const ScanResolution.matched(
+          scanId: 'last-free-scan',
+          cardRef: 'card-mega',
+          matchName: 'Mega Lucario ex',
+          candidates: ['Mega Lucario ex'],
+          quota: ScanQuotaDto(
+            access: ScanQuotaAccess.free,
+            limit: 10,
+            reserved: 0,
+            consumed: 10,
+            remaining: 0,
+            unlimited: false,
+          ),
+        ),
+      );
+      await _completeFigmaScan(tester);
+      expect(find.text('0 scans remaining'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Subscription'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a Matched card reduces the displayed allowance before price data arrives',
+    (tester) async {
+      final repository = _StaleScanCardsRepository();
+      await _pumpScanTestApp(tester, scanReviewRepository: repository);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+
+      expect(find.text('10 scans remaining'), findsOneWidget);
+
+      await _completeFigmaScan(tester);
+
+      expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
+      expect(find.byKey(const Key('scan-item-price-1')), findsOneWidget);
+      expect(find.text('--'), findsOneWidget);
+      expect(find.text('9 scans remaining'), findsOneWidget);
+      expect(repository.loadCardsCount, 1);
+
+      repository.completeBackgroundLoadWithEmptyPrices();
+      await tester.pump();
+
+      expect(find.text('9 scans remaining'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'batch results reduce the displayed allowance one match at a time',
+    (tester) async {
+      final source = _TestScanResultSource(
+        photoResult: Future.value(
+          const ScanResolution.matched(
+            scanId: 'scan-one',
+            cardRef: 'card-mega',
+            matchName: 'Mega Lucario ex',
+            candidates: ['Mega Lucario ex'],
+            quota: ScanQuotaDto(
+              access: ScanQuotaAccess.free,
+              limit: 10,
+              reserved: 0,
+              consumed: 1,
+              remaining: 9,
+              unlimited: false,
+            ),
+          ),
+        ),
+        subsequentPhotoResults: [
+          Future.value(
+            const ScanResolution.matched(
+              scanId: 'scan-two',
+              cardRef: 'card-charizard',
+              matchName: 'Charizard ex',
+              candidates: ['Charizard ex'],
+              quota: ScanQuotaDto(
+                access: ScanQuotaAccess.free,
+                limit: 10,
+                reserved: 0,
+                consumed: 2,
+                remaining: 8,
+                unlimited: false,
+              ),
+            ),
+          ),
+        ],
+      );
+      await _pumpScanTestApp(tester, scanResultSource: source);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+      expect(find.text('10 scans remaining'), findsOneWidget);
+      await _completeFigmaScan(tester);
+      expect(find.text('9 scans remaining'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+      expect(find.text('9 scans remaining'), findsOneWidget);
+      await _completeFigmaScan(tester);
+      expect(find.text('8 scans remaining'), findsOneWidget);
     },
   );
 
@@ -697,12 +852,6 @@ void main() {
         find.byKey(const Key('scan-recognition-progress')),
         findsOneWidget,
       );
-      final crop = source.recognizedImages.single.recognitionCrop!;
-      expect(crop.left, closeTo(55 / 390, 0.0001));
-      expect(crop.top, closeTo(213 / 844, 0.0001));
-      expect(crop.width, closeTo(280 / 390, 0.0001));
-      expect(crop.height, closeTo(400 / 844, 0.0001));
-
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
       expect(camera.disposed, isTrue);
@@ -711,7 +860,7 @@ void main() {
   );
 
   testWidgets(
-    'Camera recognition uses the yellow viewfinder because the captured image must match what the user framed',
+    'Camera recognition sends the full photo to model-based card detection',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(360, 800);
@@ -731,14 +880,11 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 501));
 
-      final viewfinder = tester.getRect(
-        find.byKey(const Key('scan-figma-viewfinder')),
+      expect(source.recognizedImages, hasLength(1));
+      expect(
+        source.recognizedImages.single.bytes,
+        Uint8List.fromList(_transparentPngBytes),
       );
-      final crop = source.recognizedImages.single.recognitionCrop!;
-      expect(crop.left, closeTo(viewfinder.left / 360, 0.0001));
-      expect(crop.top, closeTo(viewfinder.top / 800, 0.0001));
-      expect(crop.left + crop.width, closeTo(viewfinder.right / 360, 0.0001));
-      expect(crop.top + crop.height, closeTo(viewfinder.bottom / 800, 0.0001));
     },
   );
 
@@ -769,8 +915,8 @@ void main() {
       final shutter = tester.getRect(find.byTooltip('Take Photo'));
 
       expect(viewfinder.top, closeTo(168, 0.01));
-      expect(viewfinder.width, closeTo(261.1, 0.01));
-      expect(viewfinder.height, closeTo(373, 0.01));
+      expect(viewfinder.width, closeTo(175.7, 0.01));
+      expect(viewfinder.height, closeTo(251, 0.01));
       expect(viewfinder.width / viewfinder.height, closeTo(0.7, 0.0001));
       expect(viewfinder.top, greaterThanOrEqualTo(quota.bottom + 16));
       expect(viewfinder.bottom, lessThanOrEqualTo(shutter.top - 16));
@@ -783,11 +929,6 @@ void main() {
       );
 
       await tester.pump(const Duration(milliseconds: 750));
-      final crop = source.recognizedImages.single.recognitionCrop!;
-      expect(crop.left, closeTo(viewfinder.left / 375, 0.0001));
-      expect(crop.top, closeTo(viewfinder.top / 667, 0.0001));
-      expect(crop.width, closeTo(viewfinder.width / 375, 0.0001));
-      expect(crop.height, closeTo(viewfinder.height / 667, 0.0001));
       expect(
         tester.getRect(find.byKey(const Key('scan-figma-overlay-viewfinder'))),
         viewfinder,
@@ -816,17 +957,152 @@ void main() {
       );
       final shutter = tester.getRect(find.byTooltip('Take Photo'));
 
-      expect(viewfinder.left, closeTo(68.7, 0.01));
+      expect(viewfinder.left, closeTo(111.4, 0.01));
       expect(viewfinder.top, closeTo(172, 0.01));
-      expect(viewfinder.width, closeTo(222.6, 0.01));
-      expect(viewfinder.height, closeTo(318, 0.01));
+      expect(viewfinder.width, closeTo(137.2, 0.01));
+      expect(viewfinder.height, closeTo(196, 0.01));
       expect(viewfinder.top, greaterThanOrEqualTo(quota.bottom + 16));
       expect(viewfinder.bottom, lessThanOrEqualTo(shutter.top - 16));
     },
   );
 
+  for (final device in [
+    (
+      name: 'iPhone 12',
+      size: const Size(390, 844),
+      padding: const FakeViewPadding(top: 47, bottom: 34),
+      platform: TargetPlatform.iOS,
+    ),
+    (
+      name: 'iPhone 8',
+      size: const Size(375, 667),
+      padding: const FakeViewPadding(top: 20),
+      platform: TargetPlatform.iOS,
+    ),
+    (
+      name: 'large iPhone',
+      size: const Size(430, 932),
+      padding: const FakeViewPadding(top: 59, bottom: 34),
+      platform: TargetPlatform.iOS,
+    ),
+    (
+      name: 'compact Android',
+      size: const Size(360, 640),
+      padding: const FakeViewPadding(top: 24, bottom: 24),
+      platform: TargetPlatform.android,
+    ),
+    (
+      name: 'small Android',
+      size: const Size(320, 568),
+      padding: const FakeViewPadding(top: 24, bottom: 24),
+      platform: TargetPlatform.android,
+    ),
+    (
+      name: 'large Android',
+      size: const Size(412, 915),
+      padding: const FakeViewPadding(top: 24, bottom: 24),
+      platform: TargetPlatform.android,
+    ),
+  ]) {
+    for (final premium in [false, true]) {
+      testWidgets(
+        '${device.name} ${premium ? 'Premium' : 'Free'} result rail never covers the targeting frame during continuous scanning',
+        (tester) async {
+          tester.view.devicePixelRatio = 1;
+          tester.view.physicalSize = device.size;
+          tester.view.padding = device.padding;
+          addTearDown(tester.view.reset);
+
+          await _pumpScanTestApp(
+            tester,
+            scanCameraFactory: _TestScanCameraFactory(_TestScanCameraSession()),
+            scanReviewRepository: _FakeScanReviewRepository(
+              rawPrice: device.size.width < 360 ? 0 : 0.13,
+            ),
+            scanResultSource: _TestScanResultSource(
+              photoResult: Future.value(
+                const ScanResolution.matched(
+                  scanId: 'scan-mega',
+                  cardRef: 'card-mega',
+                  matchName: 'Mega Lucario ex',
+                  candidates: ['Mega Lucario ex'],
+                  candidateCardRefs: ['card-mega'],
+                ),
+              ),
+            ),
+            scanQuota: premium ? _unlimitedQuota : _availableQuota,
+            subscriptionController: premium
+                ? _ProScanSubscriptionController.new
+                : _FreeScanSubscriptionController.new,
+          );
+          final viewfinderFinder = find.byKey(
+            const Key('scan-figma-viewfinder'),
+          );
+          final initialFrame = tester.getRect(viewfinderFinder);
+          final initialShutter = tester.getRect(find.byTooltip('Take Photo'));
+
+          void expectClearTargetingFrame() {
+            final frame = tester.getRect(viewfinderFinder);
+            final resultsTop = tester.getTopLeft(
+              find.textContaining('Scanned:'),
+            );
+            final resultRail = tester.getRect(
+              find.byKey(const Key('scan-figma-result-rail')),
+            );
+            final topControls = tester.getRect(
+              find.byKey(const Key('scan-figma-top-controls')),
+            );
+            expect(
+              frame.bottom,
+              lessThanOrEqualTo(resultsTop.dy - 16),
+              reason:
+                  'The next card must remain fully visible above the scan count and results.',
+            );
+            expect(frame.top, greaterThanOrEqualTo(topControls.bottom + 16));
+            expect(frame.width / frame.height, closeTo(0.7, 0.0001));
+            expect(
+              frame,
+              initialFrame,
+              reason:
+                  'Capturing and completing scans must not move the targeting frame.',
+            );
+            expect(
+              resultRail.bottom,
+              lessThanOrEqualTo(initialShutter.top - 16),
+            );
+            expect(
+              tester.getRect(find.byTooltip('Take Photo')),
+              initialShutter,
+            );
+            expect(tester.takeException(), isNull);
+          }
+
+          await tester.tap(find.byTooltip('Take Photo'));
+          await _completeFigmaScan(tester);
+          expect(find.text('Scanned: 1/1'), findsOneWidget);
+          expectClearTargetingFrame();
+
+          await tester.tap(find.byTooltip('Take Photo'));
+          await tester.pump(const Duration(milliseconds: 250));
+          expectClearTargetingFrame();
+          await _completeFigmaScan(tester);
+          expect(find.text('Scanned: 2/2'), findsOneWidget);
+          expectClearTargetingFrame();
+
+          for (final id in [2, 1]) {
+            await tester.tap(find.byKey(Key('scan-delete-item-$id')));
+            await tester.pumpAndSettle();
+          }
+          expect(find.byKey(const Key('scan-figma-result-rail')), findsNothing);
+          expect(tester.getRect(viewfinderFinder), initialFrame);
+        },
+        variant: TargetPlatformVariant({device.platform}),
+      );
+    }
+  }
+
   testWidgets(
-    'capture uses the latest adaptive geometry when the viewport changes during feedback',
+    'capture forwards the full photo when the viewport changes during feedback',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(390, 844);
@@ -850,14 +1126,10 @@ void main() {
 
       expect(camera.takePhotoCount, 1);
       expect(source.recognizedImages, hasLength(1));
-      final viewfinder = tester.getRect(
-        find.byKey(const Key('scan-figma-viewfinder')),
+      expect(
+        source.recognizedImages.single.bytes,
+        Uint8List.fromList(_transparentPngBytes),
       );
-      final crop = source.recognizedImages.single.recognitionCrop!;
-      expect(crop.left, closeTo(viewfinder.left / 375, 0.0001));
-      expect(crop.top, closeTo(viewfinder.top / 667, 0.0001));
-      expect(crop.width, closeTo(viewfinder.width / 375, 0.0001));
-      expect(crop.height, closeTo(viewfinder.height / 667, 0.0001));
     },
   );
 
@@ -1091,6 +1363,11 @@ void main() {
     );
     await tester.pump();
 
+    expect(
+      find.text('10 scans remaining'),
+      findsOneWidget,
+      reason: 'Capture must not spend the displayed allowance before a match.',
+    );
     await expectLater(
       find.byKey(const Key('scan-scanning-figma-golden')),
       matchesGoldenFile(
@@ -1236,6 +1513,11 @@ void main() {
     await tester.tap(find.byTooltip('Take Photo'));
     await tester.pump(const Duration(seconds: 1));
 
+    expect(
+      find.text('10 scans remaining'),
+      findsOneWidget,
+      reason: 'Recognition must keep the allowance until its result is shown.',
+    );
     await expectLater(
       find.byKey(const Key('scan-recognizing-figma-golden')),
       matchesGoldenFile(
@@ -1311,6 +1593,11 @@ void main() {
     expect(tester.getTopLeft(find.byTooltip('Choose from Library')).dx, 28);
     expect(tester.getTopLeft(find.byTooltip('Choose from Library')).dy, 750);
 
+    expect(
+      find.text('10 scans remaining'),
+      findsOneWidget,
+      reason: 'Reveal feedback must finish before the displayed count changes.',
+    );
     await expectLater(
       find.byKey(const Key('scan-revealing-figma-golden')),
       matchesGoldenFile(
@@ -1695,6 +1982,15 @@ void main() {
     await tester.tap(find.byTooltip('Take Photo'));
     await _completeFigmaScan(tester);
     await tester.tap(find.byTooltip('Review completed scan'));
+    await tester.pumpAndSettle();
+
+    // The screenshot must include card art even without earlier tests warming it.
+    await tester.runAsync(
+      () => precacheImage(
+        const AssetImage('assets/home/trend_placeholder.png'),
+        tester.element(find.byKey(const Key('scan-page-test-boundary'))),
+      ),
+    );
     await tester.pumpAndSettle();
 
     await expectLater(

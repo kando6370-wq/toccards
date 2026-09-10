@@ -16,6 +16,7 @@ import 'package:kando_app/features/auth/auth_repository.dart';
 import 'package:kando_app/features/auth/ui/auth_sheet.dart';
 import 'package:kando_app/features/auth/ui/email_auth_pages.dart';
 import 'package:kando_app/features/app_upgrade/app_upgrade_repository.dart';
+import 'package:kando_app/features/app_upgrade/app_upgrade_models.dart';
 import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/features/onboarding/onboarding_controller.dart';
 import 'package:kando_app/features/onboarding/onboarding_repository.dart';
@@ -2762,6 +2763,9 @@ ProviderScope _testApp(
   return ProviderScope(
     overrides: [
       appStartupPreloaderProvider.overrideWith((ref) async {}),
+      appUpgradeDecisionProvider.overrideWith(
+        (ref) async => const AppUpgradeDecision.none(),
+      ),
       onboardingControllerProvider.overrideWith(
         _CompletedOnboardingController.new,
       ),

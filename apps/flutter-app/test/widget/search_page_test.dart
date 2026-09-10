@@ -21,6 +21,7 @@ import 'package:kando_app/features/search/search_card_tile.dart';
 import 'package:kando_app/features/search/search_models.dart';
 import 'package:kando_app/features/search/search_page.dart';
 import 'package:kando_app/features/search/search_repository.dart';
+import 'package:kando_app/shared/attribution/app_attribution.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/pending_collection.dart';
@@ -41,10 +42,17 @@ void main() {
     tester,
   ) async {
     final repository = _PendingSearchRepository();
+    final attribution = SingularAttributionGateway(
+      loadCredentials: () async => null,
+    );
+    addTearDown(attribution.dispose);
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+        overrides: [
+          searchRepositoryProvider.overrideWithValue(repository),
+          singularAttributionGatewayProvider.overrideWithValue(attribution),
+        ],
         child: const _SearchTestApp(),
       ),
     );
@@ -272,6 +280,10 @@ void main() {
   testWidgets(
     'Search renders backend card art because Figma cards are not placeholders',
     (tester) async {
+      final attribution = SingularAttributionGateway(
+        loadCredentials: () async => null,
+      );
+      addTearDown(attribution.dispose);
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(390, 844);
       addTearDown(tester.view.reset);
@@ -282,6 +294,7 @@ void main() {
             searchRepositoryProvider.overrideWithValue(
               const _ImageSearchRepository(),
             ),
+            singularAttributionGatewayProvider.overrideWithValue(attribution),
           ],
           child: const _SearchTestApp(),
         ),

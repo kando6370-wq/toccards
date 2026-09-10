@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/app_upgrade/app_upgrade_gate.dart';
 import '../features/card_detail/card_detail_models.dart';
 import '../features/card_detail/card_detail_page.dart';
 import '../features/collection/collection_page.dart';
@@ -29,9 +30,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/',
         builder: (context, state) {
-          const home = AnalyticsPageView(
-            event: AnalyticsEvent.homeView,
-            child: HomePage(),
+          const home = AppUpgradeHomeEntry(
+            child: AnalyticsPageView(
+              event: AnalyticsEvent.homeView,
+              child: HomePage(),
+            ),
           );
           return const OnboardingGate(
             home: StartupSubscriptionGate(source: 'cold_start', home: home),
@@ -46,9 +49,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/home',
         pageBuilder: (context, state) => _mainTabPage(
           state,
-          const AnalyticsPageView(
-            event: AnalyticsEvent.homeView,
-            child: HomePage(),
+          const AppUpgradeHomeEntry(
+            child: AnalyticsPageView(
+              event: AnalyticsEvent.homeView,
+              child: HomePage(),
+            ),
           ),
         ),
       ),

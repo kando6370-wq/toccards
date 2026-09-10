@@ -28,7 +28,13 @@ abstract interface class AppAttributionGateway {
 }
 
 abstract interface class AppAttributionEventReporter {
-  void trackEvent(String eventName);
+  Future<void> trackRevenue({
+    required String eventName,
+    required String currency,
+    required double value,
+    required String transactionId,
+    required String productId,
+  });
 }
 
 abstract interface class AppAttributionStartupStorage {
@@ -55,7 +61,9 @@ final appTrackingGatewayProvider = Provider<AppTrackingGateway>((ref) {
 
 final singularAttributionGatewayProvider = Provider<SingularAttributionGateway>(
   (ref) {
-    return SingularAttributionGateway();
+    final gateway = SingularAttributionGateway();
+    ref.onDispose(gateway.dispose);
+    return gateway;
   },
 );
 
@@ -190,53 +198,145 @@ class SingularAttributionGateway
   SingularAttributionGateway({
     Future<SingularCredentials?> Function() loadCredentials =
         loadSingularCredentials,
-  }) : _credentials = loadCredentials();
+  }) : _loadCredentials = loadCredentials {
+    unawaited(_readCredentials());
+  }
 
-  final Future<SingularCredentials?> _credentials;
+  final Future<SingularCredentials?> Function() _loadCredentials;
+  SingularCredentials? _credentials;
+  Future<SingularCredentials?>? _credentialsRequest;
+  final _ready = Completer<void>();
+  Future<void> get initialized => _ready.future;
+
+  static const _retrySeconds = [5, 15, 30, 60];
+  Timer? _retryTimer;
+  var _retryAttempt = 0;
+  var _foreground = true;
+  var _disposed = false;
   var _started = false;
+  AppTrackingStatus? _trackingStatus;
 
-  @override
-  Future<void> updateTrackingStatus(AppTrackingStatus status) async {
-    final credentials = await _credentials;
-    if (credentials == null) {
-      debugPrint(
-        'Singular attribution disabled: runtime credentials unavailable.',
-      );
-      return;
+  Future<SingularCredentials?> _readCredentials() {
+    if (_disposed) return Future.value(null);
+    if (_credentials != null) return Future.value(_credentials);
+    return _credentialsRequest ??= _fetchCredentials().whenComplete(() {
+      _credentialsRequest = null;
+    });
+  }
+
+  Future<SingularCredentials?> _fetchCredentials() async {
+    try {
+      return _credentials = await _loadCredentials();
+    } on Object {
+      // Do not log the request or credentials. A failure remains retryable.
+      debugPrint('Unable to load Singular runtime configuration.');
+      return null;
     }
-    final limitDataSharing = switch (status) {
-      AppTrackingStatus.denied ||
-      AppTrackingStatus.restricted ||
-      AppTrackingStatus.notDetermined => true,
-      AppTrackingStatus.authorized || AppTrackingStatus.notSupported => false,
-    };
-    if (!_started) {
-      final config = SingularConfig(credentials.apiKey, credentials.secretKey)
-        ..limitDataSharing = limitDataSharing
-        ..waitForTrackingAuthorizationWithTimeoutInterval = 0
-        ..logLevel = kDebugMode ? 5 : -1;
-      Singular.start(config);
-      _started = true;
-      debugPrint('Singular attribution SDK initialized.');
-      return;
+  }
+
+  void setForeground(bool foreground) {
+    _foreground = foreground;
+    if (!foreground) {
+      _retryTimer?.cancel();
+      _retryTimer = null;
     }
-    Singular.limitDataSharing(limitDataSharing);
+    // Resume uses updateTrackingStatus after rereading ATT without a prompt.
+  }
+
+  void dispose() {
+    _disposed = true;
+    _retryTimer?.cancel();
+    _retryTimer = null;
   }
 
   @override
-  void trackEvent(String eventName) {
-    if (!_started) {
-      debugPrint(
-        'Singular event skipped before SDK initialization: $eventName',
-      );
-      return;
-    }
+  Future<void> updateTrackingStatus(AppTrackingStatus status) async {
+    _trackingStatus = status;
+    await _attemptInitialization();
+  }
+
+  Future<void> _attemptInitialization() async {
+    if (_disposed || !_foreground || _trackingStatus == null) return;
     try {
-      Singular.event(eventName);
-      debugPrint('Singular event handed to SDK: $eventName');
-    } on Object catch (error, stackTrace) {
-      debugPrint('Unable to send Singular event: $error\n$stackTrace');
+      final credentials = await _readCredentials();
+      if (_disposed || !_foreground) return;
+      if (credentials == null) {
+        debugPrint(
+          'Singular attribution unavailable: runtime configuration will retry.',
+        );
+        _scheduleRetry();
+        return;
+      }
+      // Concurrent callers share the request and use the latest ATT choice.
+      final limitDataSharing = switch (_trackingStatus!) {
+        AppTrackingStatus.denied ||
+        AppTrackingStatus.restricted ||
+        AppTrackingStatus.notDetermined => true,
+        AppTrackingStatus.authorized || AppTrackingStatus.notSupported => false,
+      };
+      if (!_started) {
+        final config = SingularConfig(credentials.apiKey, credentials.secretKey)
+          ..limitDataSharing = limitDataSharing
+          ..waitForTrackingAuthorizationWithTimeoutInterval = 0
+          ..logLevel = kDebugMode ? 5 : -1;
+        Singular.start(config);
+        _started = true;
+        _retryTimer?.cancel();
+        _retryTimer = null;
+        _ready.complete();
+        debugPrint('Singular attribution SDK initialized.');
+      } else {
+        Singular.limitDataSharing(limitDataSharing);
+      }
+    } on Object {
+      debugPrint('Unable to initialize or update Singular attribution.');
+      _scheduleRetry();
     }
+  }
+
+  void _scheduleRetry() {
+    if (_disposed || !_foreground || _started || _retryTimer != null) return;
+    final seconds = _retrySeconds[_retryAttempt];
+    if (_retryAttempt < _retrySeconds.length - 1) _retryAttempt++;
+    _retryTimer = Timer(Duration(seconds: seconds), () {
+      _retryTimer = null;
+      unawaited(_attemptInitialization());
+    });
+  }
+
+  @override
+  Future<void> trackRevenue({
+    required String eventName,
+    required String currency,
+    required double value,
+    required String transactionId,
+    required String productId,
+  }) async {
+    if (_disposed) throw StateError('Singular attribution has been disposed.');
+    if (!_started && _trackingStatus != null) {
+      await _attemptInitialization();
+      if (!_started) {
+        throw StateError(
+          'Singular revenue unavailable: initialization pending.',
+        );
+      }
+    } else if (!_started && await _readCredentials() == null) {
+      throw StateError('Singular revenue unavailable: missing credentials.');
+    }
+    // Startup retries may reach the reporter before the ATT flow finishes.
+    await _ready.future;
+    if (_disposed) throw StateError('Singular attribution has been disposed.');
+    // SDK 1.9.0 returns void; completion means handoff, not server delivery.
+    runZonedGuarded(
+      () => Singular.customRevenueWithAttributes(eventName, currency, value, {
+        'transaction_id': transactionId,
+        'product_id': productId,
+      }),
+      (error, stackTrace) => debugPrint(
+        'Unable to hand Singular revenue to the platform: $error\n$stackTrace',
+      ),
+    );
+    debugPrint('Singular revenue handed to SDK: $eventName');
   }
 }
 
@@ -268,9 +368,14 @@ class _AppAttributionLifecycleObserverState
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      ref.read(singularAttributionGatewayProvider).setForeground(true);
       unawaited(
         ref.read(appAttributionCoordinatorProvider).refreshWithoutPrompt(),
       );
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
+      ref.read(singularAttributionGatewayProvider).setForeground(false);
     }
   }
 

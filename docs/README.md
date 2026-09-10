@@ -6,6 +6,7 @@
 
 | 版本 | 状态 | 内容 |
 |---|---|---|
+| [`Linux 测试环境`](linux-test-environment/README.md) | 运维入口 | kd201 部署、自动升级、脚本、数据库与回滚手册 |
 | [`v1.0.0`](releases/v1.0.0/README.md) | 已发布冻结 | 原始产品文档、业务流程、架构、数据/API 与 Admin 基线 |
 | [`v1.1.0`](releases/v1.1.0/README.md) | 当前迭代 | 原始 PRD、当前实现、迁移、研究、交付证据与外部验收边界 |
 

@@ -17,7 +17,6 @@ import '../../shared/currency/currency.dart';
 import '../../shared/portfolio/portfolio_providers.dart';
 import '../../shared/portfolio/portfolio_api_client.dart';
 import '../../shared/scan/scan_api_client.dart';
-import '../../shared/scan/scan_image_hasher.dart';
 import '../../shared/ui/kando_style.dart';
 import '../../shared/ui/premium_unlocked_toast.dart';
 import '../../shared/ui/subscription_restore_result.dart';
@@ -57,7 +56,16 @@ const _viewfinderHorizontalMargin = 24.0;
 const _viewfinderControlGap = 16.0;
 // Reserve the full Free chrome so unlocking Premium never moves the frame.
 const _viewfinderTopChromeHeight = 10 + 32 + 2 + 34 + 6 + 48;
-const _viewfinderBottomChromeHeight = 22 + 88;
+const _scanResultsBottom = 126.0;
+const _scanResultsHeaderHeight = 16.0;
+const _scanResultsGap = 8.0;
+const _scanResultsRailHeight = 82.0;
+// Reserve results before capture so arriving cards never move or cover the frame.
+const _viewfinderBottomChromeHeight =
+    _scanResultsBottom +
+    _scanResultsHeaderHeight +
+    _scanResultsGap +
+    _scanResultsRailHeight;
 
 class _ScanViewfinderGeometry {
   const _ScanViewfinderGeometry(this.rect);
@@ -109,20 +117,6 @@ _ScanViewfinderGeometry _scanViewfinderGeometry(
   final maxTop = math.max(topLimit, bottomLimit - height);
   final top = _viewfinderBaseTop.clamp(topLimit, maxTop);
   return _ScanViewfinderGeometry(Rect.fromLTWH(left, top, width, height));
-}
-
-ScanImageCrop _cameraRecognitionCrop(Size viewport, EdgeInsets padding) {
-  final rect = _scanViewfinderGeometry(
-    viewport,
-    padding,
-  ).rect.intersect(Offset.zero & viewport);
-  return ScanImageCrop(
-    left: rect.left / viewport.width,
-    top: rect.top / viewport.height,
-    width: rect.width / viewport.width,
-    height: rect.height / viewport.height,
-    viewportAspectRatio: viewport.width / viewport.height,
-  );
 }
 
 class _ScanMatch {
@@ -623,6 +617,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
     if (!_hasScanQueueCapacity()) return;
     if (!await _resolvePremiumBeforeScan()) return;
     if (!mounted) return;
+    if (_scanQuotaAwaitingSettlement()) {
+      _showScanQuotaAwaitingSettlement();
+      return;
+    }
     final source = ref.read(scanResultSourceProvider);
     final camera = _cameraSession;
     if (camera == null) {
@@ -666,19 +664,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
       setState(() => _captureFeedbackItemId = itemId);
       await _captureController.forward(from: 0).orCancel;
       if (!mounted) return const ScanResolution.failed();
-      final mediaQuery = MediaQueryData.fromView(View.of(context));
-      final recognitionCrop = _cameraRecognitionCrop(
-        mediaQuery.size,
-        mediaQuery.padding,
-      );
       final image = await camera.takePhoto();
       onCaptured(image);
       return await source.recognize(
-        ScanImage(
-          bytes: image.bytes,
-          fileName: image.fileName,
-          recognitionCrop: recognitionCrop,
-        ),
+        ScanImage(bytes: image.bytes, fileName: image.fileName),
         onDisplayImageReady: onDisplayImageReady,
       );
     } catch (_) {
@@ -712,6 +701,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
     if (!_hasScanQueueCapacity()) return;
     if (!await _resolvePremiumBeforeScan()) return;
     if (!mounted) return;
+    if (_scanQuotaAwaitingSettlement()) {
+      _showScanQuotaAwaitingSettlement();
+      return;
+    }
     if (_scanQuotaExhausted()) {
       unawaited(_openQuotaPaywall());
       return;
@@ -784,6 +777,25 @@ class _ScanPageState extends ConsumerState<ScanPage>
       return false;
     }
     return quota.isServerAuthoritative && quota.remainingScans == 0;
+  }
+
+  bool _scanQuotaAwaitingSettlement() {
+    final quota = ref.read(scanQuotaControllerProvider);
+    if (ref.read(subscriptionControllerProvider).isPro || quota.unlimited) {
+      return false;
+    }
+    return quota.isServerAuthoritative &&
+        quota.remainingScans == 0 &&
+        quota.displayRemainingScans > 0 &&
+        _pendingScans.isNotEmpty;
+  }
+
+  void _showScanQuotaAwaitingSettlement() {
+    showKandoTopToast(
+      context,
+      message: 'Please wait for current scans to finish',
+      type: KandoTopToastType.info,
+    );
   }
 
   bool _hasScanQueueCapacity() {
@@ -1064,6 +1076,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   Future<void> _retryScan(_ScanItem item) async {
     if (!await _resolvePremiumBeforeScan()) return;
+    if (_scanQuotaAwaitingSettlement()) {
+      _showScanQuotaAwaitingSettlement();
+      return;
+    }
     if (_scanQuotaExhausted()) {
       _replaceItem(item.copyWith(status: _ScanItemStatus.waiting));
       unawaited(_openQuotaPaywall());
@@ -1347,9 +1363,19 @@ class _ScanPageState extends ConsumerState<ScanPage>
     if (serverQuota != null) {
       ref
           .read(scanQuotaControllerProvider.notifier)
-          .applyServerQuota(serverQuota);
+          .applyServerQuota(
+            serverQuota,
+            syncDisplayedRemaining:
+                resolution.kind == ScanResolutionKind.quotaExhausted,
+          );
     }
     if (pending.removedFromUi) {
+      if (resolution.kind == ScanResolutionKind.matched &&
+          resolution.matchName != null) {
+        ref
+            .read(scanQuotaControllerProvider.notifier)
+            .revealSuccessfulScanInDisplay();
+      }
       _pendingScans.remove(itemId)?.revealController?.dispose();
       if (serverQuota != null) {
         _resumeWaitingFromServerQuota();
@@ -1517,6 +1543,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
       }
     });
     if (match != null) {
+      ref
+          .read(scanQuotaControllerProvider.notifier)
+          .revealSuccessfulScanInDisplay();
       unawaited(_loadScanCards(match));
     }
     completedPending?.revealController?.dispose();
@@ -2170,7 +2199,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
                     currency: currency,
                     remainingScans: hasPremiumAccess
                         ? null
-                        : quota.remainingScans,
+                        : quota.displayRemainingScans,
                     onClosePressed: _handleClosePressed,
                     onFlashPressed: _cameraSession == null
                         ? null
@@ -2356,7 +2385,7 @@ class _ScanCameraView extends StatelessWidget {
           Positioned(
             left: 16,
             right: 16,
-            bottom: 126 + padding.bottom,
+            bottom: _scanResultsBottom + padding.bottom,
             child: _ScanResults(
               items: items,
               cards: cards,
@@ -3323,7 +3352,7 @@ class _ScanResults extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          height: 16,
+          height: _scanResultsHeaderHeight,
           child: Row(
             children: [
               Text(
@@ -3348,9 +3377,9 @@ class _ScanResults extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: _scanResultsGap),
         SizedBox(
-          height: 82,
+          height: _scanResultsRailHeight,
           child: ListView.separated(
             key: const Key('scan-figma-result-rail'),
             scrollDirection: Axis.horizontal,

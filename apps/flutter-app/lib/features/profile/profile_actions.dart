@@ -135,7 +135,12 @@ class PluginProfileActions implements ProfileActions {
     String? Function(AppUpgradeConfig config) select, {
     String? fallback,
   }) async {
-    final value = select(await _configRepository.loadConfig());
+    String? value;
+    try {
+      value = select(await _configRepository.loadConfig());
+    } on Object {
+      if (fallback == null) rethrow;
+    }
     final uri = _webUri(value) ?? _webUri(fallback);
     if (uri == null) {
       throw StateError('Profile link is not configured.');

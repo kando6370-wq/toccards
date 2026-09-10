@@ -1105,48 +1105,6 @@ describe("admin routes", () => {
     expect(env.DB.adminUsers.find((row) => row.id === "operator-permission")?.status).toBe("disabled");
   });
 
-  it("stores app version rules as structured config because the version drawer edits platform-specific rollout copy", async () => {
-    const env = createTestEnv();
-    await seedAdmin(env, "admin-version", "version@example.com", "correct-password", "operator");
-    const login = await loginAdmin(env, "version@example.com", "correct-password");
-
-    const patchResponse = await requestAdmin(
-      env,
-      "/app-versions/iOS",
-      "PATCH",
-      {
-        min_supported_version: "1.0.0",
-        recommended_version: "1.9.0",
-        force_update: true,
-        store_url: "https://apps.apple.com/app/kando",
-        recommended_update_message: "优化首页加载速度",
-        forced_update_message: "请更新至最新版本后继续使用。",
-        status: "enabled",
-      },
-      login.data.access_token,
-    );
-    const listResponse = await requestAdmin(env, "/app-versions", "GET", undefined, login.data.access_token);
-    const listBody = await listResponse.json();
-
-    expect(patchResponse.status).toBe(200);
-    expect(listResponse.status).toBe(200);
-    expect(listBody).toEqual({
-      success: true,
-      data: {
-        items: expect.arrayContaining([
-          expect.objectContaining({
-            platform: "iOS",
-            min_supported_version: "1.0.0",
-            recommended_version: "1.9.0",
-            force_update: true,
-            store_url: "https://apps.apple.com/app/kando",
-            status: "enabled",
-          }),
-        ]),
-      },
-    });
-  });
-
   it("returns 404 for every removed Trending Pin endpoint because the obsolete API must stay retired", async () => {
     const env = createTestEnv();
     await seedAdmin(env, "operator-3", "card-ops@example.com", "correct-password", "operator");

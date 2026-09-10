@@ -2,14 +2,19 @@
 
 > **定位**：指导运营与研发在 App Store Connect 中配置 Performance Pro 的 iOS 商品、测试账号、服务端通知与审核资料。
 > **日期**：2026-08-10
-> **最近核验**：2026-08-26
+> **App Store Connect 历史核验**：2026-08-26 与 2026-09-07；后端运行与公共配置于 2026-09-09 另行回读，本轮未登录 App Store Connect 核对商品状态。
 > **适用应用**：dev/test Bundle ID `com.kando.kandoApp.beta`；production Bundle ID `com.cardai.tcg`
 > **权益 ID**：`performance_pro`
-> **状态快照（2026-09-07）**：App Store Connect production App 为 `Card AI: TCG Card Scanner`（Apple ID `6793017224`，Bundle ID `com.cardai.tcg`）；`CardAi.weekly`、`CardAi.yearly` 与 `CardAi.lifetime` 均已创建且处于准备提交状态。付费 App 协议有效，银行账户可用，美国税表使用中；Production Server URL `https://api.tcgcard.fun/api/v1/apple/notifications/v2` 与 Sandbox Server URL `https://api.tcgcard.fun/api/v1/apple/notifications/v2/sandbox` 均已保存。production App Store Server API Key 与 Worker 的 10 个 Secret 配置项均存在；Apple Production 与 Sandbox API 各自成功请求测试通知，Apple 状态均为 `SUCCESS` 且包含 signed payload，两条 PostgreSQL inbox/structured notification 均一次验签并处理为 `processed`、无错误。正式 PostgreSQL-only Worker version `934506ae-d433-4a38-ae40-6d07b109d50e` 已承载 100% prod 流量，Hyperdrive、production KV/R2、Bundle/Product ID、App Attest 和 Singular bindings/vars 已加载且无 D1 binding。完整购买闭环仍被 App Attest 真机及真实 Sandbox/TestFlight 购买和生命周期矩阵阻塞，详见「七、当前阻塞项」。
+> **历史状态快照（2026-08-26，非当前部署状态）**：App Store Connect production App 为 `Card AI: TCG Card Scanner`（Apple ID `6793017224`，Bundle ID `com.cardai.tcg`）；`CardAi.weekly`、`CardAi.yearly` 与 `CardAi.lifetime` 均已创建且处于准备提交状态。付费 App 协议有效，银行账户可用，美国税表使用中；Production Server URL 已保存为 `https://api.tcgcard.fun/api/v1/apple/notifications/v2`，Sandbox Server URL 尚未设置。production App Store Server API Key 已创建并下载；`APPLE_IAP_PRIVATE_KEY` 已通过待部署 version `4af6f4de-eaa0-4f52-b2ad-9ac268ec7bb8` 暂存，仓库内 Workers prod 白名单已配置，v1.1 目标 PostgreSQL 已写入三条 active `performance_pro` production 商品映射。三个 production Product ID 已写入客户端 `config/production.json`；Singular 两个值由 Cloudflare prod 环境管理，App 改为通过公共 `/app-config` 运行时读取，不进入源码、本机发布 JSON 或构建参数。只读 Cloudflare 回查确认现网 prod 100% 流量版本 `57213c10-d392-43a9-8d34-c6472fc3febc` 仍绑定 D1，没有 Hyperdrive，尚未包含 Singular 下发代码；Apple G3 根证书也仍只存在于待部署 version `42f3934f-7cb4-41df-85b5-631b4e4b8954`。PostgreSQL `0009` 已于 2026-08-25 应用并完成事务外复核，production/TestFlight 双环境代码尚未部署；完整购买闭环仍被 prod v1.1 PostgreSQL Worker 切换与烟测、构建及真实 Sandbox/TestFlight 验收阻塞，详见「七、当前阻塞项」。prod D1 没有需要保留的业务数据，不执行数据迁移或冲突审计。
+
 >
 > **dev 部署增量（2026-08-25）**：上述“dev 新 Worker 验证”已完成。提交 `38088799db8a96287c16c3ba456327e06196c657` 对应 Cloudflare dev version `1c4ea3b1-ec2f-4c79-a77c-026d84292aeb`，当前承载 100% dev 流量；`/api/v1/health`、Admin HTML 与新 Scan reservation 未授权边界烟测通过。production 仍保持原 deployment/version、D1 数据源和未设置 Sandbox Server URL 的状态，本次未修改 prod。
 >
 > **dev Scan 性能部署增量（2026-08-26）**：提交 `1f1d6ed6fb02f4c3b8087a5076c754102411accc` 对应 dev version `fbcabaef-5844-4990-b648-4c9be2f1ba26`，当前承载 100% 流量；默认无 `game_id` Scan reserve + recognize 总耗时 `6.032s` 并返回 200。production 状态未变化，本次仍未部署 prod 或修改 App Store Connect URL。
+
+> **历史状态快照（2026-09-07，非本轮回读）**：App Store Connect production App 为 `Card AI: TCG Card Scanner`（Apple ID `6793017224`，Bundle ID `com.cardai.tcg`）；`CardAi.weekly`、`CardAi.yearly` 与 `CardAi.lifetime` 均已创建且处于准备提交状态。付费 App 协议有效，银行账户可用，美国税表使用中；Production Server URL `https://api.tcgcard.fun/api/v1/apple/notifications/v2` 与 Sandbox Server URL `https://api.tcgcard.fun/api/v1/apple/notifications/v2/sandbox` 均已保存。production App Store Server API Key 与 Worker 的 10 个 Secret 配置项均存在；Apple Production 与 Sandbox API 各自成功请求测试通知，Apple 状态均为 `SUCCESS` 且包含 signed payload，两条 PostgreSQL inbox/structured notification 均一次验签并处理为 `processed`、无错误。正式 PostgreSQL-only Worker version `934506ae-d433-4a38-ae40-6d07b109d50e` 已承载 100% prod 流量，Hyperdrive、production KV/R2、Bundle/Product ID、App Attest 和 Singular bindings/vars 已加载且无 D1 binding。完整购买闭环仍被 App Attest 真机及真实 Sandbox/TestFlight 购买和生命周期矩阵阻塞，详见「七、当前阻塞项」。
+>
+> **后端当前边界（2026-09-09）**：上述旧 D1、待部署 Root CA 和待发布 Singular 配置不再代表当前运行事实。dev/prod 均已绑定 PostgreSQL/Hyperdrive 与 Apple Secret 名称，prod `/app-config` 已返回非空 Singular SDK 配置；dev 使用向量识别，prod 尚未切换该协议。main 分支的 2026-09-07 发布记录包含 Production/Sandbox Apple TEST 成功证据，本轮没有重放通知或核验实单。具体运行版本和证据范围见[发布与验证](VERIFICATION.md)，两环境 PostgreSQL 迁移已完成，后续业务增量见[数据迁移](../03-data-api/migration.md)。
 
 ---
 
@@ -153,13 +158,15 @@ Singular 与 Mixpanel Project Token 使用同一类运行时配置链路，由 C
 | Singular API Key | `SINGULAR_API_KEY` |
 | Singular Secret Key | `SINGULAR_SECRET_KEY` |
 
-三个 production Product ID 是非敏感配置，保存在仓库内 `apps/flutter-app/config/production.json`。Singular 两个字段不写入任何 App Release JSON，也不通过 `--dart-define-from-file` 编译进包；App 启动时请求当前 `APP_ENV` 对应 API 的 `/app-config`，两个字段都有效时才初始化 Singular。接口失败或字段缺失时保持归因关闭，不阻断 App 主流程。
+三个 production Product ID 是非敏感配置，保存在仓库内 `apps/flutter-app/config/production.json`。Singular 两个字段不写入任何 App Release JSON，也不通过 `--dart-define-from-file` 编译进包；App 启动时请求当前 `APP_ENV` 对应 API 的 `/app-config`，两个字段都有效时才初始化 Singular。接口失败或字段缺失不阻断 App 主流程，也不再将失败结果缓存到进程结束：既有 ATT 顺序完成后，前台按 5、15、30、60 秒退避重试，之后每 60 秒尝试；后台暂停，回前台读取最新 ATT 状态后重试，新的收入交付也可触发恢复。初始化成功会自动补发 Singular 队列中已保存的待发送交易，无需重启或再次购买；事件范围和交易去重规则不变。这里只保证重新尝试 SDK 交付，后台收件仍需在 Testing Console 核验。
 
 2026-09-03 已将 production 使用的同一组 Singular SDK 凭据配置到 dev Cloudflare Secret，并发布 dev Worker version `2513a7a9-6062-4393-a4ea-e89f23aeac67`；公开 `/app-config` 已确认两个字段均非空。`com.kando.kandoApp.beta` 的 verified Fresh Purchase 按套餐发送 `weekly_cardtest`、`yearly_cardtest` 或 `lifetime_cardtest`，production 对应发送无 `test` 后缀的 `weekly_card`、`yearly_card` 或 `lifetime_card`。这六个事件只调用 Singular SDK，不复用 Mixpanel/Firebase 事件入口；Restore、冷启动权益恢复和失败流程不发送。
 
 同日已在 iPhone 11（iOS 15.6）使用新 Sandbox 账号完成 `cardx.week` Fresh Purchase：Singular Testing Console 先收到当前安装 SDID 的 `session`，随后收到 `weekly_cardtest`；两条记录的 App 均为 `card ai test`，Bundle ID 均为 `com.kando.kandoApp.beta`。卸载重装会生成新的 SDID，Testing Console 必须注册并选中当前安装的 SDID；旧 IDFA 或旧 SDID 不能作为新安装的事件缺失证据。该结果只完成 test Weekly 套餐事件验收，Yearly、Lifetime 与 production 三个事件仍待对应实单验证。
 
-`/app-config` 是无需登录的公共客户端接口，因此 Singular SDK 凭据会对 App 客户端可见；Cloudflare Secret 管理提供的是不进仓库、环境隔离和轮换能力，不应把该接口用于 `MIXPANEL_API_SECRET`、Apple Private Key 等真正的服务端密钥。prod Worker 必须先发布包含这两个响应字段的版本，再发布依赖运行时获取的 App，否则 Singular 会按降级规则保持关闭。
+2026-09-09 起，上述套餐名改为 Singular 收入事件，使用 Apple verified JWS 的实际金额和币种，并按交易 ID 独立持久化去重；本次没有改动商品、支付、权益、Firebase 或 Mixpanel 口径。需安装包含新代码的客户端，以新 Fresh Purchase 在 Testing Console 核验事件名、Revenue/金额、币种和交易属性；9 月 3 日的普通事件入库证据不能替代收入验收，旧普通事件也不会自动回填金额。Restore 与重复回调不得新增收入；本次未执行 Sandbox/TestFlight 实单或修改 Singular 后台配置。具体字段、重试及 SDK 回执边界见 [收入契约](../03-data-api/contract-changes.md)。
+
+`/app-config` 是无需登录的公共客户端接口，因此 Singular SDK 凭据会对 App 客户端可见；Cloudflare Secret 管理提供的是不进仓库、环境隔离和轮换能力，不应把该接口用于 `MIXPANEL_API_SECRET`、Apple Private Key 等真正的服务端密钥。2026-09-09 prod 公共接口已确认包含这两个非空 SDK 字段；客户端仍需使用正确环境的安装包，接口不可用或字段缺失时 Singular 按既有降级规则保持关闭。
 
 仓库内 `apps/flutter-app/config/test.json` 与 `production.json` 分别记录不敏感的 dev/test 和 production Product ID；正式包可直接使用仓库内 production 配置执行 `./tool/release_ios.sh --env production`。
 
@@ -211,11 +218,11 @@ Singular 与 Mixpanel Project Token 使用同一类运行时配置链路，由 C
 - 2026-08-25 只读核验显示：付费 App 协议有效，银行账户可用，两份美国税表均为使用中；商务前置条件已完成。
 - `cardx.week` 已配置价格、本地化和 174 个销售地区，并已添加以供审核；仍待真实 Sandbox 购买矩阵。
 - `cardx.year` 已配置价格和本地化，但尚未设置销售范围，也尚未添加以供审核；仍需先补齐商品配置并完成真实 Sandbox 购买矩阵。
-- prod Product ID 已创建并冻结为 `CardAi.weekly`、`CardAi.yearly`、`CardAi.lifetime`，production 客户端配置、Workers prod 白名单与共享 PostgreSQL production 商品映射均已同步；三个商品仍处于准备提交状态，Workers prod 配置已于 2026-09-07 部署。
-- dev Root CA 的官方 G3 下载指纹、DER Base64 写入命令和生效版本已确认。production Root CA、Issuer ID、Key ID 与 Private Key 已随正式 Worker 部署；Production/Sandbox 两次测试通知请求证明 Server API 凭据可完成 Apple 鉴权，两条回调 JWS 均由正式 Worker验签并处理成功。真实交易的订阅状态和交易查询仍需 Sandbox/TestFlight 实单验证。
+- prod Product ID 为 `CardAi.weekly`、`CardAi.yearly`、`CardAi.lifetime`，production 客户端与 Worker 白名单已配置；prod Worker 已运行 PostgreSQL 版本。商品准备提交状态是 2026-09-07 的历史快照，本轮未重新核验可售状态、地区或审核进度。
+- 2026-09-07 历史核验：dev Root CA 的官方 G3 下载指纹、DER Base64 写入命令和生效版本已确认。production Root CA、Issuer ID、Key ID 与 Private Key 已随正式 Worker 部署；Production/Sandbox 两次测试通知请求证明 Server API 凭据可完成 Apple 鉴权，两条回调 JWS 均由正式 Worker验签并处理成功。真实交易的订阅状态和交易查询仍需 Sandbox/TestFlight 实单验证。
 - StoreKit 2 服务端同步失败后的 Secure Storage 持久化补偿队列已实现；仍待真机断网与恢复验收。
 - Restore 的 App Attest proof、App Store Server API 和 Notifications V2 生命周期代码已实现；Production/Sandbox `TEST` 通知已证明 production Server API 凭据、URL 和通知 JWS 验签可用。仍需 App Attest 真机、真实交易的状态/交易查询及 Sandbox/TestFlight 端到端验收。
-- Scan、Folder、Performance 和 1Y Price History 已统一接入当前 live session grant；对应结构与 dev 数据已迁入共享 PostgreSQL 并由 dev/prod 正式版本运行。2026-09-07 已实时核验共享 PostgreSQL `0000` 至 `0010`、约束、production 数据边界和商品映射；正式 version `934506ae-d433-4a38-ae40-6d07b109d50e` 已部署并完成线上烟测，候选 version `da698dfc-9be3-4713-ba17-ede427edd546` 保留为 PG-only 版本回退。旧 D1 不属于回滚路径；Sandbox/TestFlight 多设备验收仍待完成。
+- Scan、Folder、Performance 和 1Y Price History 已统一接入当前 live session grant，dev/prod 均运行 PostgreSQL Worker。后续生产升级前仍需重查数据库和各环境配置，完成授权边界、通知、Sandbox/TestFlight 与回滚演练；不得恢复 D1。`0011` 环境键迁移及 `0012` 数据回填的实际进度见[数据迁移](../03-data-api/migration.md)，不能因重新部署而自动标记完成。
 
 challenge 或业务 API 失败不得阻止 Apple 购买；本机 StoreKit 2 verified 仍按 App PRD即时解锁，但服务端受限操作在 grant 未同步时必须返回 `ENTITLEMENT_SYNC_REQUIRED`。
 

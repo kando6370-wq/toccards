@@ -1295,6 +1295,11 @@ class _OwnedDetailTabsState extends ConsumerState<_OwnedDetailTabs>
 
   void _handleTabChange() {
     if (!_tabController.indexIsChanging && mounted) {
+      if (_tabController.index != 0 &&
+          widget.state.editingCollectionItemId != null &&
+          !widget.state.isSavingCollectionItemDraft) {
+        widget.controller.cancelCollectionItemEdit();
+      }
       setState(() {});
       if (_tabController.index == 1 &&
           widget.isPro &&

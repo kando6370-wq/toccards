@@ -126,8 +126,14 @@ Admin 页面是只读排障层，不提供重放通知、改订单、改 lifecyc
 
 ### 版本管理
 
-- UI 管理 iOS 与 Google 的最新/最低版本、强制升级和商店地址。
-- 公共 `/app-config` 由 App 读取；Admin 更新应保留平台和环境边界。
+- UI 管理 iOS 与 Google 的建议/最低版本、强制升级和商店地址，并显示 API 返回的当前 `development/production` 环境。
+- 不再提供“建议更新文案”和“强制更新文案”字段。Admin 列表/保存接口不返回或保存这两个属性；存量 JSON 的旧文案忽略，后续保存版本规则时自然移除。App 使用 Figma 736:13370 的固定标题 `Update Now`、提示语 `New update available! Tap to upgrade` 和火箭插画；普通更新提供 `INSTALL / LATER`，命中强更只显示 `INSTALL`。
+- 版本配置使用 `admin.app_version.<environment>.<ios|google>` 独立键；环境只取 Worker `APP_ENVIRONMENT`。dev/prod 共用 PostgreSQL 时，保存、启用、禁用和查询只影响当前环境。缺少可信环境返回 `503 APP_VERSION_CONFIG_UNAVAILABLE`。
+- 公共 `/app-config?platform=ios|google` 只读取当前环境、当前平台的规则，返回 `Cache-Control: no-store`，不回退到共用 `admin.app_version.ios/google`、`upgrade_prompt` 或 `app_store_url`。规则缺失或损坏返回 `503`，明确禁用的规则返回 `upgrade_prompt: null`。
+- 通用 `/admin/app-config` 不列出版本配置，通用 PATCH 禁止写入版本及旧共用升级键，避免绕过环境隔离或校验。版本修改统一通过 `/admin/app-versions/:platform`。
+- 启用更新必须提供有效 HTTP(S) 下载地址；建议版本不得低于最低支持版本。强制更新只作用于低于最低版本的 App；达到最低版本但低于建议版本时可稍后更新，构建号不参与比较。
+- App 首次进入 Home 时检查规则；普通复查仅在回到 Home 或当前 Home 返回前台时触发，可选提示只在 Home 展示。首次检查失败显示 Home 阻断式重试界面；已有成功决策后的复查静默进行，失败不覆盖现有页面。已确认强更仍由路由上方的全局界面拦截，点击遮罩、返回、页面跳转和商店返回均不解除，其他页返回前台仍允许重查此强更要求。只有成功检查确认当前安装版本已被支持或运营已解除要求，才取消强更拦截。
+- 两环境完整切换前应用 PostgreSQL `0011_app_version_environment.sql`，将既有规则一次性复制为独立配置，已有独立配置不覆盖。仅发布 dev 时可先初始化 development 两条键，prod 继续读取旧键；2026-09-08 已完成该 dev 阶段。迁移与对应 Worker 切换期间暂停该环境版本配置编辑；新 Worker 不回退旧键，回滚只能使用支持独立键的 Worker。详见[版本控制验收](../05-delivery/VERIFICATION.md)。
 
 ## 7. API 与前端契约
 

@@ -304,6 +304,7 @@ require_command file
 require_command awk
 require_command cmp
 require_command ditto
+require_command python3
 
 [[ -f "$PUBSPEC" ]] || die "pubspec.yaml not found: $PUBSPEC"
 
@@ -451,6 +452,15 @@ if [[ "$SHOULD_EXPORT_TEST_INTERNAL" -eq 1 ]]; then
   log "Pgyer IPA SHA-256: $(shasum -a 256 "$test_internal_ipa" | awk '{print $1}')"
 fi
 
+saved_artifacts_dir="$(python3 "$SCRIPT_DIR/save_ios_artifacts.py" \
+  --env "$ENVIRONMENT" \
+  --bundle-id "$BUNDLE_ID" \
+  --version "$marketing_version" \
+  --build-number "$BUILD_NUMBER" \
+  --ipa "${test_internal_ipa:-$app_store_ipa}" \
+  --dsyms "$ARCHIVE_PATH/dSYMs")"
+log "Saved IPA and dSYMs: $saved_artifacts_dir (keep latest 3 test / 7 production)"
+
 log "Updating pubspec version: $current_version -> $new_version"
 NEW_VERSION="$new_version" perl -pi -e 's/^version:[ \t]*\S+[ \t]*$/version: $ENV{NEW_VERSION}/' "$PUBSPEC"
 assert_equal "$new_version" "$(awk '/^version:[[:space:]]*/ {print $2; exit}' "$PUBSPEC")" "pubspec version"
@@ -473,6 +483,9 @@ if [[ -n "$INSTALL_DEVICE" ]]; then
 
     device_ipa="$(find_single_ipa "$DEVICE_IPA_DIR")"
     validate_common_ipa "$device_ipa" "$marketing_version" "$BUILD_NUMBER" "Device IPA"
+    ditto "$device_ipa" "$saved_artifacts_dir/Card AI Device.ipa"
+    cmp -s "$device_ipa" "$saved_artifacts_dir/Card AI Device.ipa" \
+      || die "Saved device IPA differs from the exported IPA"
   fi
 
   provisioned_devices="$(plist_value "$LAST_PROFILE_PATH" ProvisionedDevices)"
