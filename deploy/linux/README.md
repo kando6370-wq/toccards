@@ -2,7 +2,7 @@
 
 本目录启动独立 PostgreSQL、Node API 和 Caddy/Admin；离线模式使用 Node 静态服务。它只用于测试环境，不连接 Cloudflare Hyperdrive、KV、R2 或正式识别服务。
 
-当前代码按 `dev@699ca48`（2026-09-10）核对，已包含 Linux 合并 `19a6ac4`。Linux 入口尚未提供扫描路由需要的 `VECTOR_RECOGNITION`，扫描不可用；旧 OCR 字段仅保留启动校验，补填地址不能修复，见[Linux 兼容缺口](../../docs/releases/v1.1.0/02-architecture/linux-test-environment.md#扫描兼容缺口)。服务器运行提交与历史部署证据见[运维手册](../../docs/linux-test-environment/README.md)。
+当前代码按 `main@659a7c6`（2026-09-10）核对，包含 Linux 运行入口、部署脚本及 Windows 构建路径修复。Linux 入口尚未提供扫描路由需要的 `VECTOR_RECOGNITION`，扫描不可用；旧 OCR 字段仅保留启动校验，补填地址不能修复，见[Linux 兼容缺口](../../docs/releases/v1.1.0/02-architecture/linux-test-environment.md#扫描兼容缺口)。服务器运行提交与历史部署证据见[运维手册](../../docs/linux-test-environment/README.md)。
 
 ## 前置条件
 

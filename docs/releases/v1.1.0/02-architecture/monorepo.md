@@ -62,7 +62,7 @@ Flutter <---- HTTP ----> API (Cloudflare / Linux)
 ## 5. CI 边界
 
 - GitLab CI 使用 Node 22 与 Flutter 3.44.0，执行 TypeScript build/type-check/lint 及 Dart workspace analyze/test。
-- GitHub iOS workflow 使用 Flutter 3.44.7，在 `macos-15` 执行 CocoaPods/Fastlane 配置检查和 unsigned iOS release build。
+- GitHub iOS workflow 使用 Flutter 3.44.7，在 `macos-15` 执行 CocoaPods/Fastlane 配置检查和 unsigned iOS release build。`push` 仅监听 dev 的相关路径，另支持相关路径的 `pull_request` 与手动 `workflow_dispatch`；main 的 push 事件不在该工作流触发范围内。
 - 两条流水线版本不同；变更工具链时必须明确目标流水线并同步相关约束，不能把其中一条的通过外推为另一条已通过。
 - GitHub Linux workflow 使用 Node 22，仅 `workflow_dispatch` 手动触发，构建后由 `toccards-kd201` 自托管 Runner 发布。现有自动路径是服务器每两分钟监听 `dev`；路径筛选、失败冷却和应用回滚见[自动部署手册](../05-delivery/linux-test-auto-deployment.md)，不得同时启用两种发布路径。
 

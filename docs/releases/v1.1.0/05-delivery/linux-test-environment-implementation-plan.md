@@ -4,7 +4,7 @@
 
 ## 当前实现边界（2026-09-10）
 
-- `19a6ac4` 已合入 Linux 测试环境，当前核对基线为 `dev@699ca48`；不再等待功能分支合入。
+- 当前 main 已包含 Linux 测试环境，核对基线为 `main@659a7c6`；来源为 `19a6ac4`，分支监听器默认仍跟踪 dev。
 - Cloudflare dev/test 与 prod 已完成 PostgreSQL 迁移，D1 已退役；Linux 使用独立 PostgreSQL。
 - 当前扫描路由只使用 `VECTOR_RECOGNITION`，Linux 配置仍要求旧 `OCR_SERVICE_BASE_URL` 且未提供向量适配器。Linux 扫描不可用，填写 OCR 地址不能恢复，见[架构中的兼容缺口](../02-architecture/linux-test-environment.md#扫描兼容缺口)。
 - 本轮未连接 kd201；下方 10 条 migration、容器运行与发布结果只对应注明的历史时间，当前 ledger、运行 SHA 及自动发布状态需重新核验。

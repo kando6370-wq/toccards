@@ -6,7 +6,7 @@
 
 测试地址：`http://192.168.50.201:8080`
 
-代码核对基线为 `dev@699ca48`（2026-09-10），部署资产已通过 `19a6ac4` 合入 dev。服务器安装、发布与连接结果保留 2026-09-09 历史记录；本轮未回读 kd201 的 crontab、运行 SHA、release 或数据库 ledger。当前 Linux 缺少向量适配器，扫描不可用，详见[兼容缺口](../02-architecture/linux-test-environment.md#扫描兼容缺口)。
+代码核对基线为 `main@659a7c6`（2026-09-10），main 与 dev 均包含部署资产；分支监听脚本默认仍选择 `TOCCARDS_DEPLOY_BRANCH=dev`。服务器安装、发布与连接结果保留 2026-09-09 历史记录；本轮未回读 kd201 的 crontab、运行 SHA、release 或数据库 ledger。当前 Linux 缺少向量适配器，扫描不可用，详见[兼容缺口](../02-architecture/linux-test-environment.md#扫描兼容缺口)。
 
 ## 当前工作方式
 

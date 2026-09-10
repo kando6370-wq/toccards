@@ -1,6 +1,8 @@
 # 扫描识别向量链路
 
-本实现从历史提交 `dev-xiangyang@ceef1af` 按识别代码段移植为 `e18543a`，基线为 `7451382`，于 2026-09-09 经 `f38ef98` 合入 `dev` 并推送远程。`dev-wxy`、`dev-xiangyang` 等来源分支已清理，旧分支名只用于追溯，不再作为检出或发布目标。保留 `dev` 当前 Queue、Quota、候选资料与确认入库逻辑，包括 Scan confirm 初始估值事件的购买价格、币种和可靠历史起点修复。
+当前源码基线为 `main@659a7c6`（2026-09-10），App 为 `1.0.2+135`。main 的 dev/prod Cloudflare 配置均声明 `VECTOR_RECOGNITION=recognize-vec`；下方来源提交和已部署版本保留历史日期，不能据此推断目标环境已运行当前 main。
+
+本实现从历史提交 `dev-xiangyang@ceef1af` 按识别代码段移植为 `e18543a`，基线为 `7451382`，于 2026-09-09 经 `f38ef98` 合入 `dev` 并推送远程。`dev-wxy`、`dev-xiangyang` 等来源分支已清理，旧分支名只用于追溯，不再作为检出或发布目标。保留当前 Queue、Quota、候选资料与确认入库逻辑，包括 Scan confirm 初始估值事件的购买价格、币种和可靠历史起点修复。
 
 ## 识别流程
 
@@ -37,4 +39,4 @@ iOS 与 Android 共用 Flutter 取景框布局。取景框根据视口和安全�
 
 仓库中的 dev/prod 配置均以 `VECTOR_RECOGNITION` 绑定 `recognize-vec`，移除 `OCR_SERVICE_BASE_URL`，不设置旧协议或公网回退。缺少 binding 返回 `503 VECTOR_RECOGNITION_UNAVAILABLE`；上游失败返回 `502`，按既有规则释放额度。向量链路本身没有新增数据库 schema 或 migration；合并保留的 `0012` 属于独立历史事件回填，仍未执行。
 
-上线必须协调新 App、主 API 与 `recognize-vec`，因为旧 App 的 pHash 请求不兼容新 API。2026-09-09 合并后的主 API/Admin 已发布到 dev，当日后续回读仍确认 dev 使用 `VECTOR_RECOGNITION`；prod 实际运行版本仍配置旧 `OCR_SERVICE_BASE_URL`，尚未切换向量协议。测试需使用包含模型与向量请求、连接 dev API 的 App 包。Android Debug 构建通过不代表两端真机模型验收或新 App 签名包已发布，具体证据见[验收记录](../05-delivery/VERIFICATION.md)。
+上线必须协调新 App、主 API 与 `recognize-vec`，因为旧 App 的 pHash 请求不兼容新 API。2026-09-09 合并后的主 API/Admin 已发布到 dev，当日后续回读仍确认 dev 使用 `VECTOR_RECOGNITION`；该次回读的 prod 版本配置旧 `OCR_SERVICE_BASE_URL`；这属于历史部署证据，不能推断 main 合并后的现网状态。测试需使用包含模型与向量请求、连接 dev API 的 App 包。Android Debug 构建通过不代表两端真机模型验收或新 App 签名包已发布，具体证据见[验收记录](../05-delivery/VERIFICATION.md)。

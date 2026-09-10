@@ -2,15 +2,15 @@
 
 ## 状态
 
-- 当前代码核对：2026-09-10，`dev@699ca48`；原始设计基线为 2026-08-26 的 `dev@8e22c1d`。
-- 合并状态：`19a6ac4` 已将 Linux 入口、Compose、离线镜像和分支监听发布脚本合入 dev。
+- 当前代码核对：2026-09-10，`main@659a7c6`；原始设计基线为 2026-08-26 的 `dev@8e22c1d`。
+- 合并状态：Linux 入口、Compose、离线镜像和分支监听发布脚本已包含于 main；来源为 `19a6ac4`，main 合并提交为 `659a7c6`。
 - 验证边界：2026-08-27 离线容器与持久化验证、2026-09-09 功能分支部署与局域网 PostgreSQL 验证均为历史证据；本轮未回读 kd201 当前 release、提交或 migration ledger。
 - 当前缺口：Linux 未适配 `VECTOR_RECOGNITION`，扫描不可用；旧 OCR 配置仍为启动必填项，不能将它当作可用识别链路。
 - 环境边界：Linux 使用独立测试 PostgreSQL；Cloudflare dev/test 与 prod 已完成 PostgreSQL 迁移且无 D1 binding，不存在待执行的 prod D1 切换任务。
 
 ## 背景与架构纠正
 
-最新 `dev` 已完成 PostgreSQL/Hyperdrive 切换。运行入口通过 `HYPERDRIVE.connectionString` 创建现有 `PostgresDatabase`，业务路由仍调用统一 `Database` 契约。仓库规则明确禁止为 v1.1 新增或恢复 D1 路径。
+当前 main 的 Cloudflare 入口只使用 PostgreSQL/Hyperdrive。运行入口通过 `HYPERDRIVE.connectionString` 创建现有 `PostgresDatabase`，业务路由仍调用统一 `Database` 契约。仓库规则明确禁止为 v1.1 新增或恢复 D1 路径。
 
 因此 Linux 测试环境不再采用旧讨论中的 SQLite 方案，而是连接一个独立 PostgreSQL 容器。Cloudflare 与 Linux 共享同一个 `PostgresDatabase`、同一套 PostgreSQL migration、全部 Hono 路由和业务规则；差异只存在于运行入口、资源适配器和配置文件。
 

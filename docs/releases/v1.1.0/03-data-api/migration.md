@@ -2,7 +2,7 @@
 
 ## 当前 PostgreSQL 数据库边界（2026-09-09）
 
-D1 已废弃，测试环境 dev/test 与正式环境 prod 均已完成 PostgreSQL 迁移。2026-09-09 用户再次确认；Cloudflare deployment/version 回查确认两环境都绑定 Hyperdrive `7d71bcd0bcf64e518a23a852ced76d66`，均不含 D1。prod 当前版本为 `934506ae-d433-4a38-ae40-6d07b109d50e`，创建于 2026-09-07；版本与 dev 的识别协议差异见[发布与验证](../05-delivery/VERIFICATION.md)，该应用协议差异不代表数据库迁移未完成。
+D1 已废弃，测试环境 dev/test 与正式环境 prod 均已完成 PostgreSQL 迁移。2026-09-09 用户再次确认；Cloudflare deployment/version 回查确认两环境都绑定 Hyperdrive `7d71bcd0bcf64e518a23a852ced76d66`，均不含 D1。该次回读中 prod 版本为 `934506ae-d433-4a38-ae40-6d07b109d50e`，创建于 2026-09-07；版本与 dev 的识别协议差异见[发布与验证](../05-delivery/VERIFICATION.md)，该应用协议差异不代表数据库迁移未完成。
 
 后续发布不再安排 D1 数据迁移、冲突合并、摘要校验或切换演练，运行、回滚与灾备仅基于 PostgreSQL。下文出现的 D1 migration 编号、工具和行数只用于历史追溯，不能作为当前操作指南。`0011` 环境版本键和 `0012` 历史事件回填是 PostgreSQL 内的后续业务增量，不属于 D1 到 PostgreSQL 的移库任务。
 
@@ -12,9 +12,11 @@ D1 已废弃，测试环境 dev/test 与正式环境 prod 均已完成 PostgreSQ
 
 `apps/workers-api/src/db/postgres/migrations/0012_scan_confirm_purchase_price_event.sql` 不改变 Schema，只补齐旧 Scan confirm 创建的初始 `collection_item_event` 中遗漏的 Purchase Price、币种和可靠历史起点。修复范围由已确认 `scan_record.user_result.collection_item_id` 精确关联，仅处理主记录当前仍有 Purchase Price、初始事件的购买价与币种均为空的记录；非扫描创建记录、后续编辑事件和当前无 Purchase Price 的记录保持不变。迁移可重复执行。
 
-该迁移与旧 Worker 兼容。发布时先部署已修正 Scan confirm 写入的新 Worker，再执行 `0012`，避免旧 Worker 在数据修复后继续产生漏字段事件。2026-09-09 已部署包含该写入修复及向量识别的 dev Worker，dev 新建扫描收藏会写入完整初始事件；`0012` 历史回填未执行，不能据此宣称既有缺字段事件已修复。prod 仍是较早 Worker，本轮没有部署该修复或执行远程迁移。应用代码回滚时保留已补齐的事件数据，不能安全地批量清空这些字段；如必须执行数据级回滚，应依据执行前备份按精确事件恢复。不得向 D1 迁移或退役工具复制该修复。
+该迁移与旧 Worker 兼容。发布时先部署已修正 Scan confirm 写入的新 Worker，再执行 `0012`，避免旧 Worker 在数据修复后继续产生漏字段事件。2026-09-09 已部署包含该写入修复及向量识别的 dev Worker，dev 新建扫描收藏会写入完整初始事件；`0012` 历史回填未执行，不能据此宣称既有缺字段事件已修复。2026-09-09 的 prod 回读为较早 Worker；当前 main 已含该修复，但本轮未重新核实目标环境版本或远程回填进度。应用代码回滚时保留已补齐的事件数据，不能安全地批量清空这些字段；如必须执行数据级回滚，应依据执行前备份按精确事件恢复。不得向 D1 迁移或退役工具复制该修复。
 
 ## 版本管理环境配置拆分（0011）
+
+当前 main 的 `/app-config` 在 Cloudflare dev/prod 均只读取 `admin.app_version.<development|production>.<ios|google>`，不会因目标为 prod 而回退旧共用键。所需环境键缺失或无效时，整个公共配置接口返回 `503 APP_VERSION_CONFIG_UNAVAILABLE`；依赖该接口的升级、商店地址与 SDK 配置读取均受影响。部署 main 前须按目标环境的 ledger 和实际配置核对 `0011`，不能把 Git 合并或下方 development 初始化的历史记录当作完整迁移已执行。
 
 `apps/workers-api/src/db/postgres/migrations/0011_app_version_environment.sql` 在现有 `app_config` 中新增 dev/prod × iOS/Google 四个独立键，不改变表结构。历史平台规则及其有效商店兜底一次性复制；已存在的环境配置不覆盖。新 Worker 不再读取旧共用版本规则。
 

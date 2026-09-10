@@ -3,7 +3,7 @@
 ## 0. 文档说明
 
 - 分析范围：全项目业务主线，重点记录 v1.1 相对 v1.0 的订阅、额度、Performance 和 Admin 增量。
-- 当前核对基线：`dev@699ca48`，2026-09-10；原始分析起点为 2026-08-14，历史环境结果保留其检查日期。
+- 当前核对基线：`main@659a7c6`，2026-09-10；原始分析起点为 2026-08-14，历史环境结果保留其检查日期。
 - 范围边界：当前检出代码、Schema/迁移、运行配置和测试；不把远程环境历史证据外推为当前实时状态。
 - 上一版本未变化流程继续参考 [v1.0.0 业务流程](../../v1.0.0/01-flows/flows.md)。
 
@@ -45,7 +45,7 @@ Cloudflare 与 Linux 测试入口复用同一 Hono 业务应用；Linux 使用�
 | 扫描 | 相机/相册识别、候选 Review、确认入库 | Scan | `src/scan/routes.ts`、`scan_page.dart` | 代码明确体现 |
 | Portfolio | Folder、Collection、Wishlist、估值与历史 | Collection、Card Detail | `src/portfolio/routes.ts` | 代码明确体现 |
 | Subscription | 商品、Purchase、Restore、本机三态 | Subscription/Paywall | `subscription_controller.dart`、`subscription-core` | 代码明确体现 |
-| Apple 生命周期 | 购买链、session grant、通知、校正 | 无直接用户页面 | `src/entitlements/`、迁移 `0025-0029` | 代码明确体现 |
+| Apple 生命周期 | 购买链、session grant、通知、校正 | 无直接用户页面 | `src/entitlements/`、PostgreSQL `0000/0002/0007/0009` | 代码明确体现 |
 | Performance | Home/单 Item 的自然时间范围表现 | Home、Card Detail | `src/portfolio/performance.ts` | 代码明确体现 |
 | Admin | 查询、排障、权限和版本运营 | React Admin | `apps/admin-web/src/App.tsx`、`src/admin/routes.ts` | 代码明确体现 |
 | Marketing | 产品、法律、搜索发现 | `tcgcard.fun` | `apps/marketing-web/` | 代码明确体现 |
@@ -79,6 +79,7 @@ Cloudflare 与 Linux 测试入口复用同一 Hono 业务应用；Linux 使用�
 - Access Token 同时携带可信 `session_id`；Premium 服务端授权读取该 session 的 active grant，而不是只按 UID 查询。
 - Sandbox 与 Production 通过 purchase chain 的 `environment` 隔离。
 - Admin 使用独立 `admin_user` 和 Admin Token，不复用 App session。
+- 安装统计尚无安装来源环境字段，当前按处理请求的 Worker 环境筛选并标记结果，不能区分共享数据库中的 dev/prod 安装；详见[安装统计环境口径](../04-admin/admin.md#安装统计环境口径)。该缺口不改变资产的 owner 隔离契约。
 - R2 扫描图片读取需要有效 Admin 身份，响应使用私有缓存策略。
 
 证据：`apps/workers-api/src/owner-auth.ts`、`src/entitlements/premium-access.ts`、`src/admin/routes.ts`。
@@ -203,8 +204,8 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 | Session | issued -> refreshed -> revoked/expired | `auth/session.ts` |
 | 本机 Premium | `unknown/free/premium` | `subscription_entitlement_cache.dart` |
 | Purchase chain | `TRIAL/ACTIVE/GRACE_PERIOD/LIFETIME/BILLING_RETRY/EXPIRED/REVOKED` | `apple-notification-routes.ts` |
-| Session grant | `active/expired/revoked` | migration `0026`、`premium-access.ts` |
-| Notification inbox | pending/processing/processed 与各类失败/校正状态 | migration `0029` |
+| Session grant | `active/expired/revoked` | PostgreSQL `0000` 的 `billing_session_entitlement_grant`、`premium-access.ts` |
+| Notification inbox | pending/processing/processed 与各类失败/校正状态 | PostgreSQL `0000/0002/0009` 的 `apple_notification_inbox` |
 | Scan | processing -> success/no_match/failed；pending -> confirmed | `scan/routes.ts` |
 | Scan Quota request | reserved -> consumed/released | `scan/quota.ts` |
 | Collection Item | 创建 -> 编辑/移动/增减 -> 删除；事件为 upsert/delete | `portfolio/routes.ts` |

@@ -8,11 +8,11 @@
 >
 > 自动部署分支：`dev`
 >
-> 代码核对：2026-09-10，`dev@699ca48`
+> 代码核对：2026-09-10，`main@659a7c6`
 >
 > 服务器历史核验：2026-09-09，本轮未重新连接
 
-Linux 部署资产已通过 `19a6ac4` 合入 dev；当前运行 release、SHA 与数据库 ledger 仍需按本文命令回读。当前代码还缺少 Linux 向量识别适配器，扫描不可用；旧 `OCR_SERVICE_BASE_URL` 只保留启动校验，填写 OCR 地址不能启用扫描，见[兼容缺口](../releases/v1.1.0/02-architecture/linux-test-environment.md#扫描兼容缺口)。
+main 与 dev 均已包含 Linux 部署资产；监听器默认仍跟踪 dev，当前运行 release、SHA 与数据库 ledger 仍需按本文命令回读。当前代码还缺少 Linux 向量识别适配器，扫描不可用；旧 `OCR_SERVICE_BASE_URL` 只保留启动校验，填写 OCR 地址不能启用扫描，见[兼容缺口](../releases/v1.1.0/02-architecture/linux-test-environment.md#扫描兼容缺口)。
 
 ## 1. 目标与原则
 
