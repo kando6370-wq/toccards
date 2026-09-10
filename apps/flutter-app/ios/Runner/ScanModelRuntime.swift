@@ -100,7 +100,7 @@ final class ScanModelRuntime {
     }
   }
 
-  private static func runDetection(_ rawArguments: Any?) throws -> [String: Any] {
+  static func runDetection(_ rawArguments: Any?) throws -> [String: Any] {
     let input = try inputArray(rawArguments, shape: [1, 3, 640, 640])
     let model = try loadModel(
       named: "RTMDetInsTinyCardRawFP16",

@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - dev
+      - dev-xiangyang-new
     paths:
       - ".github/workflows/ios-build.yml"
       - "apps/flutter-app/**"
@@ -23,7 +24,7 @@ permissions:
 jobs:
   build:
     runs-on: macos-15
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - name: Check out repository
@@ -81,6 +82,25 @@ jobs:
             echo "$changes"
             exit 1
           fi
+
+      - name: Run iOS detector preprocessing regression
+        working-directory: apps/flutter-app/ios
+        env:
+          KANDO_IOS_SIMULATOR_DISABLE_MLKIT: "1"
+        run: |
+          restore_device_pods() {
+            KANDO_IOS_SIMULATOR_DISABLE_MLKIT=0 bundle exec pod install >/dev/null
+          }
+          trap restore_device_pods EXIT
+          bundle exec pod install >/dev/null
+          device_id="$(xcrun simctl list devices available -j | python3 -c 'import json,sys; data=json.load(sys.stdin); print(next(device["udid"] for runtime,devices in data["devices"].items() if "iOS" in runtime for device in devices if device["isAvailable"]))')"
+          xcrun simctl boot "$device_id" || true
+          xcrun simctl bootstatus "$device_id" -b
+          bundle exec xcodebuild test \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -destination "platform=iOS Simulator,id=$device_id" \
+            CODE_SIGNING_ALLOWED=NO
 
       - name: Build unsigned iOS release
         working-directory: apps/flutter-app

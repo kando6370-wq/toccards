@@ -5,7 +5,7 @@
 ## 识别流程
 
 1. 用户按原流程拍照或选择相册图片。相机将完整照片交给模型检测，不再传递旧 OpenCV 的取景框裁剪参数；取景框按下方布局约束自适应，快门、权限、队列与动画逻辑不变。
-2. 原生层解码并统一方向，生成最长边 640 的 RGB。RTMDet-Ins Tiny 使用 BGR/CHW、640×640 输入；置信度阈值 0.35、mask 阈值 0.5。iOS Core ML 导出物返回原始分类 logit，原生后处理先执行 sigmoid，再把 0–1 概率交给统一阈值筛选。
+2. 原生层解码并统一方向，生成最长边 640 的 RGB。iOS 与 Android 的检测专用缩放均使用半像素坐标、边界钳制和双线性采样，与参考实现的 OpenCV `INTER_LINEAR` 对齐，但 App 不重新引入 OpenCV。裁正卡牌的 384×384 向量预处理保持原实现。RTMDet-Ins Tiny 使用 BGR/CHW、640×640 输入；置信度阈值 0.35、mask 阈值 0.5。Android 运行含后处理的 `.ort`；iOS Core ML 导出物返回原始分类、边框、动态 mask kernel 与 mask feature，原生层执行 sigmoid、最高分候选选择和 mask 解码，再向 Dart 返回相同的 `dets`/`masks` 契约。
 3. Dart 从 mask 的最大连通区域拟合四边形，必要时使用最小面积矩形；过滤面积低于有效图像 2.5% 的结果，再映射四角到原图。
 4. iOS Core Image / Android Bitmap Matrix 进行透视矫正，得到 745×1043、质量 85 的 JPEG，以及 384×384 RGB。
 5. PE-Core-T16 使用 RGB/CHW、`value / 127.5 - 1` 的输入，生成 512 维有限、非零向量。同一识别器串行推理，图像张量与几何计算使用 Dart isolate。
@@ -31,7 +31,7 @@ iOS 与 Android 共用 Flutter 取景框布局。取景框根据视口和安全�
 
 本节向量资源描述 Cloudflare 运行路径。Linux 测试入口当前仅保留旧 `OCR_SERVICE_BASE_URL` 配置，未提供 `VECTOR_RECOGNITION`，合法识别请求到达资源检查时返回 `503 VECTOR_RECOGNITION_UNAVAILABLE` 并释放 Free 预占。配置旧 OCR 地址不能恢复扫描；待补齐独立测试向量适配后才能验收，见[Linux 兼容缺口](../02-architecture/linux-test-environment.md#扫描兼容缺口)。
 
-用户已明确选择与源分支一致的兼容范围：iOS 16+、Android minSdk 24，Web 扫描暂不支持。iOS 使用系统 Core ML/Core Image；Android 使用 `onnxruntime-minimal-1.23.0.aar` 和两份 `.ort` 模型。模型、运行时、许可证和转换工具从源提交引入，不重新训练或重新导出模型。模型端到端准确率、耗时与内存仍需设备验收。
+用户已明确选择与源分支一致的兼容范围：iOS 16+、Android minSdk 24，Web 扫描暂不支持。iOS 检测使用 `RTMDetInsTinyCardRawFP16.mlmodel` 与系统 Core ML，向量化继续使用 Core ML，透视矫正继续使用 Core Image，不包含 ONNX Runtime；Android 使用 `onnxruntime-minimal-1.23.0.aar` 和两份 `.ort` 模型。模型与运行时资源不因本次缩放对齐发生变化；Dart 检测输出契约、向量协议与服务端链路不变。iOS Core ML 与新检测缩放组合、Android 新检测缩放仍需对应平台构建与设备验收。
 
 旧 `r/g/b` pHash 不再是有效请求；`vector` 必须是 512 项数值数组、至少一个非零分量，JSON 最大 32 KiB。候选 `product_id` 继续支持字符串与旧整数形式，confidence 保持 0–100。识别审计算法标识为 `pe-core-t16-384-cosine-v1`。`game_id` 在主 Worker 的目录查询层过滤，不发送给内部向量服务。
 

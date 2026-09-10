@@ -75,22 +75,21 @@ class MainActivity : FlutterActivity() {
             val scale = min(maximumSize.toDouble() / source.width, maximumSize.toDouble() / source.height)
             val resizedWidth = max(1, min(maximumSize, Math.rint(source.width * scale).toInt()))
             val resizedHeight = max(1, min(maximumSize, Math.rint(source.height * scale).toInt()))
-            val resized = if (source.width == resizedWidth && source.height == resizedHeight) {
-                source
-            } else {
-                Bitmap.createScaledBitmap(source, resizedWidth, resizedHeight, true)
-            }
-            try {
-                return mapOf(
-                    "source_width" to source.width,
-                    "source_height" to source.height,
-                    "resized_width" to resizedWidth,
-                    "resized_height" to resizedHeight,
-                    "rgb_bytes" to rgbBytes(resized),
-                )
-            } finally {
-                if (resized !== source) resized.recycle()
-            }
+            val pixels = IntArray(source.width * source.height)
+            source.getPixels(pixels, 0, source.width, 0, 0, source.width, source.height)
+            return mapOf(
+                "source_width" to source.width,
+                "source_height" to source.height,
+                "resized_width" to resizedWidth,
+                "resized_height" to resizedHeight,
+                "rgb_bytes" to OpenCvLinearRgbScaler.resizeArgb(
+                    pixels,
+                    source.width,
+                    source.height,
+                    resizedWidth,
+                    resizedHeight,
+                ),
+            )
         } finally {
             source.recycle()
         }

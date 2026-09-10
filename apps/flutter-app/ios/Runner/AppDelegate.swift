@@ -188,7 +188,7 @@ import UIKit
   }
 }
 
-private enum ScanNativeImageProcessor {
+enum ScanNativeImageProcessor {
   private static let queue = DispatchQueue(
     label: "com.cardai.tcg.scan-image-processor",
     qos: .userInitiated
@@ -228,7 +228,7 @@ private enum ScanNativeImageProcessor {
     }
   }
 
-  private static func prepareDetection(_ rawArguments: Any?) throws -> [String: Any] {
+  static func prepareDetection(_ rawArguments: Any?) throws -> [String: Any] {
     guard
       let arguments = rawArguments as? [String: Any],
       let typedData = arguments["image"] as? FlutterStandardTypedData,
@@ -255,7 +255,13 @@ private enum ScanNativeImageProcessor {
     )
     let resizedWidth = max(1, min(maximumSize, Int((Double(sourceWidth) * scale).rounded(.toNearestOrEven))))
     let resizedHeight = max(1, min(maximumSize, Int((Double(sourceHeight) * scale).rounded(.toNearestOrEven))))
-    let rgb = try rgbBytes(from: image, width: resizedWidth, height: resizedHeight)
+    let rgb = try detectionRgbBytes(
+      from: image,
+      sourceWidth: sourceWidth,
+      sourceHeight: sourceHeight,
+      width: resizedWidth,
+      height: resizedHeight
+    )
     return [
       "source_width": sourceWidth,
       "source_height": sourceHeight,
@@ -392,6 +398,100 @@ private enum ScanNativeImageProcessor {
         output[target] = rgba[source]
         output[target + 1] = rgba[source + 1]
         output[target + 2] = rgba[source + 2]
+      }
+    }
+    return rgb
+  }
+
+  private static func detectionRgbBytes(
+    from image: UIImage,
+    sourceWidth: Int,
+    sourceHeight: Int,
+    width: Int,
+    height: Int
+  ) throws -> Data {
+    let bytesPerPixel = 4
+    let sourceBytesPerRow = sourceWidth * bytesPerPixel
+    var sourceRgba = [UInt8](repeating: 0, count: sourceHeight * sourceBytesPerRow)
+    let created = sourceRgba.withUnsafeMutableBytes { bytes -> Bool in
+      guard
+        let base = bytes.baseAddress,
+        let context = CGContext(
+          data: base,
+          width: sourceWidth,
+          height: sourceHeight,
+          bitsPerComponent: 8,
+          bytesPerRow: sourceBytesPerRow,
+          space: colorSpace,
+          bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            | CGBitmapInfo.byteOrder32Big.rawValue
+        )
+      else { return false }
+      context.interpolationQuality = .none
+      context.translateBy(x: 0, y: CGFloat(sourceHeight))
+      context.scaleBy(x: 1, y: -1)
+      UIGraphicsPushContext(context)
+      image.draw(
+        in: CGRect(
+          x: 0,
+          y: 0,
+          width: CGFloat(sourceWidth),
+          height: CGFloat(sourceHeight)
+        )
+      )
+      UIGraphicsPopContext()
+      return true
+    }
+    guard created else { throw ScanNativeImageError.renderingFailed }
+
+    let xScale = Double(sourceWidth) / Double(width)
+    let yScale = Double(sourceHeight) / Double(height)
+    var xIndexes = [(Int, Int, Double)]()
+    xIndexes.reserveCapacity(width)
+    for x in 0..<width {
+      let coordinate = (Double(x) + 0.5) * xScale - 0.5
+      let lower = Int(floor(coordinate))
+      xIndexes.append((
+        max(0, min(sourceWidth - 1, lower)),
+        max(0, min(sourceWidth - 1, lower + 1)),
+        coordinate - Double(lower)
+      ))
+    }
+
+    var rgb = Data(count: width * height * 3)
+    sourceRgba.withUnsafeBytes { sourceBytes in
+      rgb.withUnsafeMutableBytes { outputBytes in
+        guard
+          let source = sourceBytes.bindMemory(to: UInt8.self).baseAddress,
+          let output = outputBytes.bindMemory(to: UInt8.self).baseAddress
+        else { return }
+        for y in 0..<height {
+          let coordinate = (Double(y) + 0.5) * yScale - 0.5
+          let lower = Int(floor(coordinate))
+          let top = max(0, min(sourceHeight - 1, lower))
+          let bottom = max(0, min(sourceHeight - 1, lower + 1))
+          let yWeight = coordinate - Double(lower)
+          for x in 0..<width {
+            let (left, right, xWeight) = xIndexes[x]
+            let topLeft = (top * sourceWidth + left) * bytesPerPixel
+            let topRight = (top * sourceWidth + right) * bytesPerPixel
+            let bottomLeft = (bottom * sourceWidth + left) * bytesPerPixel
+            let bottomRight = (bottom * sourceWidth + right) * bytesPerPixel
+            let target = (y * width + x) * 3
+            for channel in 0..<3 {
+              let topValue = Double(source[topLeft + channel])
+                + (Double(source[topRight + channel]) - Double(source[topLeft + channel]))
+                  * xWeight
+              let bottomValue = Double(source[bottomLeft + channel])
+                + (Double(source[bottomRight + channel]) - Double(source[bottomLeft + channel]))
+                  * xWeight
+              let value = topValue + (bottomValue - topValue) * yWeight
+              output[target + channel] = UInt8(
+                max(0, min(255, Int(value.rounded(.toNearestOrEven))))
+              )
+            }
+          }
+        }
       }
     }
     return rgb

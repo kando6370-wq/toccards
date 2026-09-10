@@ -45,7 +45,7 @@ Code Review 自审通过：三张图片差异仅限已确认的次数文案；Re
 |---|---|---|
 | Linux 测试环境（`19a6ac4`） | 共享 Hono 应用、Node 入口、独立 PostgreSQL/内存 KV/图片卷、Compose 与 dev 分支监听发布 | Linux 未提供 `VECTOR_RECOGNITION`；扫描不可用，旧 OCR 地址不能恢复。kd201 当前 release、SHA、ledger 和合入后自动发布结果未回读，见[Linux 手册](linux-test-auto-deployment.md)。 |
 | Singular 同进程恢复（`c28e754`） | 仅缓存有效配置；ATT 顺序完成后按前台退避、resumed 和收入交付恢复初始化，成功后补发已有 pending | SDK API 调用不等于后台收件；原始回归记录见下文，同进程断网恢复的新包真机/后台验收仍待完成。 |
-| iOS 分类分数（`2cec31d`） | RTMDet 原始 logit 经 sigmoid 转为概率后交给 Dart 阈值判断 | 原修复未运行平台验证；需使用 `227.PNG` 在新包真机补验，不因已合入而改为通过。 |
+| 检测图片缩放（`dev-xiangyang-new`） | iOS/Android 检测输入使用确定性的半像素双线性缩放；iOS 保留 Core ML，Android 保留最小 ORT | ORT 回退版本已由用户在 iPhone 真机确认成功；本分支 Core ML 组合和 Android 变更仍待 CI/真机验证。 |
 | Home 版本检查（`fc23c6f`、`075db55`） | 实际 Home 首帧激活；后续返回 Home/回前台静默复查，已确认强更继续全局拦截 | 2026-09-10 原回归为 54/54、test 配置 16/16，通过范围见下文；新包安装、商店往返和真机切页未验收。 |
 | iOS 交付物（`deb1d3c`） | 校验 IPA/dSYM 后、安装或上传前按 Bundle ID 保存；测试 3 个版本、正式 7 个版本 | 保存规则按成功保存时间保留，新版本完整保存后才将最旧超额版本移入废纸篓；不清理 Xcode Archives。命令与产物说明见[Flutter README](../../../../apps/flutter-app/README.md#ipa-与符号文件保存)。 |
 | 扫描取景框（`699ca48`） | 首帧预留底部统计行、结果列表和操作区，共用几何随视口/安全区等比缩放 | 2026-09-10 原尺寸回归 12/12；原完整 Scan Widget 的 3 个 Golden 失败已在本页 Golden 修复中收口，最新 App 全量 1047/1047 通过；真机仍待验收。 |
@@ -90,7 +90,23 @@ Code Review 自审通过：核对取景框计算的唯一调用方、顶部与�
 
 Code Review 自审通过：核对当前路由判定、帧后回调及 disposed 防护、Home 多实例的进入/移除、异步请求迟到、已知强更与普通决策分离、并发请求合并及原“稍后”去重。已有启动测试只调整了返回 Home 应再次检查的次数断言，仍验证同版本不重复提示。实现限于共用版本 Gate，使用 Flutter 跨平台能力；业务与 Admin 行为文档已同步，API/Schema 变更为 N/A。未执行全仓测试、签名包构建、新包安装或 iOS/Android 真机切换/商店往返：当前手机仍为旧安装包，需客户端测试人员使用含修复的新包补验；Widget 平台变体不代表真机已通过。未修改远程规则、部署或发布。
 
-## iOS 原始分类分数修复（2026-09-09）
+## iOS 与 Android 检测图片缩放对齐（2026-09-10，本地未发布）
+
+本轮基于 `origin/dev@b00e76e` 创建 `dev-xiangyang-new`。iOS 问题输入为 `227.PNG`：文件名虽为 PNG，内容实际是带 Display P3 ICC 的 JPEG，尺寸 1206×1515、EXIF Orientation 1，SHA-256 为 `12506B7158BBF0F1AAA5BCB8AACC67A24485AF1472D36D8C3CAEC2245E7716C0`。该图片在相邻 `real_time_recognition` 的 OpenCV 检测预处理中能识别卡牌，而旧 iOS UIKit 缩放会选中背景区域；请求在端侧失败时不会进入 Workers，因此管理平台没有对应扫描记录。
+
+根因证据来自既有 GitHub Actions macOS run `34446393738`：固定 NCHW tensor 输入时 Core ML raw 输出与参考一致，Dart mask 几何也能从参考 mask 得到正确四角，但 UIKit 解码/缩放输入经过同一 Core ML 检测后稳定产生错误候选。受控对照中，sRGB 加 UIKit/Pillow 类双线性缩放使背景候选得分高于正确卡牌；同一 sRGB 图像改用 OpenCV `INTER_LINEAR` 后，正确卡牌成为最高分候选，得分约 0.535，mask bbox 约为 `(77,158)-(418,510)`。这把差异定位到检测前缩放采样，而不是模型格式、Core Image 透视裁正、Dart 四角拟合或向量检索。
+
+修复仅替换最长边 640 的检测专用缩放：iOS 与 Android 都按半像素坐标映射、边界钳制和双线性插值输出 RGB，不重新引入 OpenCV。iOS 保留 `RTMDetInsTinyCardRawFP16.mlmodel`、Core ML raw 输出后处理和 Core Image；Android 保留 `onnxruntime-minimal-1.23.0.aar` 与现有 `.ort` 模型。裁正后的 384×384 embedding 图像预处理、PE-Core-T16 向量化、Flutter 页面、扫描状态机、API、`recognize-vec`、数据库及模型/运行时资源均未修改，因此本轮模型和推理库体积增量为 0；新增生产代码与测试夹具的仓库体积不等于安装包增量。
+
+回归保护包括：Android JVM 测试使用 OpenCV 固定参考像素验证 3×2 到 2×3 的采样，允许理想浮点插值与 OpenCV 定点权重产生的单通道最大 1 级量化差，并覆盖原尺寸像素保持；iOS RunnerTests 将固定 `227.PNG` 经过原生解码、新缩放、Core ML 和 mask 后处理，断言 509×640 输入、约 0.535 分数及正确卡牌 bbox。主 iOS workflow 已接入该模拟器回归和 unsigned release build，并为 `dev-xiangyang-new` push 启用。Windows 本机没有可用 Flutter/Android SDK/Xcode，以上新增平台测试、静态分析、Android 构建和 iOS 构建尚未执行；新 Core ML 组合和 Android 变更不能标记为通过，需由 GitHub Actions macOS Runner 及对应真机补验。
+
+本地静态验证在仓库根执行：`git diff --check` 退出 0；独立 JavaScript 按相同半像素公式计算固定样例，与 OpenCV 参考像素的最大通道差为 1，退出 0；Xcode BuildFile/FileReference/RunnerTests Resources 引用计数符合预期，夹具为 366,304 字节且 SHA-256 匹配；workflow 分支、45 分钟超时、ML Kit 模拟器开关、`xcodebuild test` 和 unsigned build 接线齐全。对 `origin/dev` 检查确认 iOS/Android 模型、最小 ORT AAR、Podfile/Podfile.lock 无差异，Flutter `lib`、Admin、Workers 和共享包也不在改动范围。最初两条 PowerShell 辅助脚本分别因十六进制 Alpha 被解析为负数、把 FileReference 的正常 3 次引用误期望为 2 次而退出 1；修正检查脚本后资源检查通过，像素检查改用无符号无关的 RGB 输入并由 JavaScript 复验通过，失败未被记作产品测试通过。
+
+已验证回退点为 GitHub `dev-xiangyang@3d9f700`，其中检测缩放提交为 `46e812f`，iOS 使用完整 ONNX/ORT 检测。用户于 2026-09-10 明确反馈该 ORT 版本苹果真机测试成功；该结论只适用于该回退版本，不能替代 `dev-xiangyang-new` 的 Core ML 验证。Android 没有同类真机失败证据，本次 Android 修改属于用户要求的跨平台预处理一致性更新。文档影响已同步至[扫描识别](../01-flows/scan-recognition.md)；Schema、部署和运营操作影响为 N/A。
+
+Code Review 自审核对了解码后的方向尺寸、sRGB/RGB 与后续 BGR 通道转换、半像素坐标和边界钳制、源图/输出缓冲生命周期、检测与 embedding 预处理隔离、Core ML raw 输出后处理、Android 最小 ORT 保留、测试资源归属以及 CI 恢复设备 Pods 的失败路径。审查发现 OpenCV 定点权重与理想浮点插值存在最多 1 级量化差，原逐字节相等测试会误报，已改为固定参考值的逐通道最大误差 1 并重新复审，未发现剩余代码阻断项。两端检测均会额外建立约 `source_width × source_height × 4` 字节的临时像素缓冲，常见 12MP 图片约 48 MB；超高分辨率图片的峰值内存、耗时及更多真实图片准确率尚未真机验证，属于本分支交付前的明确剩余风险。
+
+## iOS 原始分类分数修复（2026-09-09，历史记录）
 
 问题输入为 `227.PNG`（1206×1515、EXIF orientation=1、Display P3）。电脑端同源 ONNX 检测可输出约 0.535 的分类概率并完成四角拟合与 745×1043 卡面矫正，但 iOS 相册导入在端侧检测阶段直接失败，因此请求尚未提交 Workers，管理平台不会生成扫描记录。
 
