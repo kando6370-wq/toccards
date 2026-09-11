@@ -2,7 +2,7 @@
 
 Kando 是 Card AI 的 monorepo，包含 Flutter 客户端、Cloudflare Workers API、React 管理后台、营销站点及共享包。产品主线是卡牌搜索、扫描识别、收藏与估值；v1.1 在此基础上增加 Apple 订阅、Premium 权益、服务端扫描额度、Performance 和订单/通知后台。
 
-当前文档按 `main@659a7c6`（2026-09-10）核对；Flutter 客户端版本为 `1.0.2+135`，以 `apps/flutter-app/pubspec.yaml` 为准。`docs/releases/v1.1.0` 是产品迭代文档目录，不代表安装包版本或商店发布状态。
+当前发布来源为 `main@759b072`（2026-09-11）；Flutter 客户端版本为 `1.0.2+135`，以 `apps/flutter-app/pubspec.yaml` 为准。`docs/releases/v1.1.0` 是产品迭代文档目录，不代表安装包版本或商店发布状态。
 
 ## 系统概览
 
@@ -93,6 +93,8 @@ dart run melos run test
 只运行与变更相关的最窄检查时，交付记录必须明确列出未运行项，不能把局部验证写成全仓通过。
 
 ## 部署边界
+
+2026-09-11 已从 `main@759b072` 发布 prod Workers 与配套 Admin，version `4f543496-9d54-48c4-a16c-0e608dcc32f0` 承载 100% 流量，已使用向量识别与独立 production 版本键；`0011` 已完成，`0012` 未在本轮回填。旧 pHash 客户端不兼容的切换边界已获用户确认。详见[prod 发布与验证](docs/releases/v1.1.0/05-delivery/VERIFICATION.md#prod-向量协议与环境版本配置发布2026-09-11)。
 
 - Workers 与 Admin dev：`pnpm --filter @kando/workers-api run deploy:dev`。
 - Workers 与 Admin prod：`pnpm --filter @kando/workers-api run deploy:prod`。

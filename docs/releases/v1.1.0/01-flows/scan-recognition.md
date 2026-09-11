@@ -39,4 +39,4 @@ iOS 与 Android 共用 Flutter 取景框布局。取景框根据视口和安全�
 
 仓库中的 dev/prod 配置均以 `VECTOR_RECOGNITION` 绑定 `recognize-vec`，移除 `OCR_SERVICE_BASE_URL`，不设置旧协议或公网回退。缺少 binding 返回 `503 VECTOR_RECOGNITION_UNAVAILABLE`；上游失败返回 `502`，按既有规则释放额度。向量链路本身没有新增数据库 schema 或 migration；合并保留的 `0012` 属于独立历史事件回填，仍未执行。
 
-上线必须协调新 App、主 API 与 `recognize-vec`，因为旧 App 的 pHash 请求不兼容新 API。2026-09-09 合并后的主 API/Admin 已发布到 dev，当日后续回读仍确认 dev 使用 `VECTOR_RECOGNITION`；该次回读的 prod 版本配置旧 `OCR_SERVICE_BASE_URL`；这属于历史部署证据，不能推断 main 合并后的现网状态。测试需使用包含模型与向量请求、连接 dev API 的 App 包。Android Debug 构建通过不代表两端真机模型验收或新 App 签名包已发布，具体证据见[验收记录](../05-delivery/VERIFICATION.md)。
+上线必须协调新 App、主 API 与 `recognize-vec`，因为旧 App 的 pHash 请求不兼容新 API。dev 已在 2026-09-09 完成向量发布；2026-09-11 用户明确批准兼容边界后，prod 也已从 main 发布 version `4f543496-9d54-48c4-a16c-0e608dcc32f0`，确认 `VECTOR_RECOGNITION=recognize-vec` 且无旧 OCR 地址。测试应使用支持向量协议并指向目标环境的 App 包；本次服务端发布不代表两端真机模型、登录态完整扫描或客户端商店发布已验收，具体证据见[prod 验收记录](../05-delivery/VERIFICATION.md#prod-向量协议与环境版本配置发布2026-09-11)。

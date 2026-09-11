@@ -86,12 +86,12 @@ PostgreSQL 结构以 `src/db/postgres/migrations/` 中的顺序 migration 为准
 
 ## 6. 环境与部署
 
-表中 Cloudflare 行是 2026-09-09 的历史回读。当前 main 的 `wrangler.toml` 在 dev/prod 均声明向量绑定；main 推送后目标环境运行的实际提交与协议，本轮未重新核验。
+表中 prod 行已更新为 2026-09-11 发布回读，dev 行保留 2026-09-09 binding 证据。当前 main 的 `wrangler.toml` 在 dev/prod 均声明向量绑定；prod 已部署该协议，dev 公共版本配置对照仍正常。
 
 | 环境 | 运行入口 | 地址 | 数据资源 |
 |---|---|---|---|
 | dev | `toccards-api-dev` | `api-dev.tcgcard.fun` | 2026-09-09 回读为 PostgreSQL/Hyperdrive 与 VECTOR_RECOGNITION；dev KV/R2、beta Apple 配置和 `APP_ENVIRONMENT=development` 独立 |
-| prod | `toccards-api-prod` | `api.tcgcard.fun` | 2026-09-09 回读为 PostgreSQL/Hyperdrive，无 D1；仍使用 OCR_SERVICE_BASE_URL，prod KV/R2、production Apple 配置和 `APP_ENVIRONMENT=production` 独立 |
+| prod | `toccards-api-prod` | `api.tcgcard.fun` | 2026-09-11 version `4f543496-9d54-48c4-a16c-0e608dcc32f0` 承载 100% 流量；PostgreSQL/Hyperdrive、VECTOR_RECOGNITION、prod KV/R2 和 production Apple 配置齐备，无 D1/旧 OCR 地址；`0011` 已完成 |
 | Linux 测试 | Node / `src/linux/server.ts` | kd201 历史入口 `http://192.168.50.201:8080` | 独立 PostgreSQL、内存 KV、本地图片卷、`APP_ENVIRONMENT=development`；当前源码缺少向量适配器，服务器运行提交未于本轮回读 |
 
 Wrangler vars 保存非敏感环境配置，密钥通过 Worker secrets 注入。dev/prod 已共用业务 PostgreSQL；`APP_ENVIRONMENT`、Apple Bundle/Product ID、KV、R2、域名和 Worker secrets 不得混用。当前仓库的 prod 配置已包含向量绑定，但配置文件不代表现网版本已切换；版本及 binding 回读集中维护在[发布与验证](../05-delivery/VERIFICATION.md)。部署脚本先构建共享认证和对应模式 Admin，再部署 Worker 与静态 assets。两环境的 PostgreSQL 迁移均已完成，后续仅核对本次变更所需的 PostgreSQL schema、业务数据及应用版本，不再安排 D1 移库或切换任务。

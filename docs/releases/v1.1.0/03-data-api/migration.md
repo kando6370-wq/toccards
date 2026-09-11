@@ -1,20 +1,22 @@
 # v1.1.0 数据迁移
 
-## 当前 PostgreSQL 数据库边界（2026-09-09）
+## 当前 PostgreSQL 数据库边界（2026-09-11）
 
-D1 已废弃，测试环境 dev/test 与正式环境 prod 均已完成 PostgreSQL 迁移。2026-09-09 用户再次确认；Cloudflare deployment/version 回查确认两环境都绑定 Hyperdrive `7d71bcd0bcf64e518a23a852ced76d66`，均不含 D1。该次回读中 prod 版本为 `934506ae-d433-4a38-ae40-6d07b109d50e`，创建于 2026-09-07；版本与 dev 的识别协议差异见[发布与验证](../05-delivery/VERIFICATION.md)，该应用协议差异不代表数据库迁移未完成。
+D1 已废弃，测试环境 dev/test 与正式环境 prod 均已完成 PostgreSQL 迁移。2026-09-11 共享 PostgreSQL 回读为 `18.6`，`0000` 至 `0011` 的 12 条 ledger checksum 全部匹配仓库，未验证约束为 0。prod 已发布 version `4f543496-9d54-48c4-a16c-0e608dcc32f0`，通过同一 Hyperdrive `7d71bcd0bcf64e518a23a852ced76d66` 读取数据库，使用向量绑定且不含 D1；发布与验证范围见[验收记录](../05-delivery/VERIFICATION.md#prod-向量协议与环境版本配置发布2026-09-11)。
 
 后续发布不再安排 D1 数据迁移、冲突合并、摘要校验或切换演练，运行、回滚与灾备仅基于 PostgreSQL。下文出现的 D1 migration 编号、工具和行数只用于历史追溯，不能作为当前操作指南。`0011` 环境版本键和 `0012` 历史事件回填是 PostgreSQL 内的后续业务增量，不属于 D1 到 PostgreSQL 的移库任务。
 
-本轮未连接数据库重查 migration ledger、行数、约束或价格指针；下列历史数据与 `0011` 初始化结论保留各自检查日期。共享 PostgreSQL 的后续迁移必须另行授权，不能因服务端重新部署而自动执行。
+本轮只核对 ledger、未验证约束及版本配置，并按单独授权执行 `0011`；没有重查所有业务行数或价格指针。下列其他历史数据保留原日期。共享 PostgreSQL 的后续迁移仍须另行授权，不能因服务端重新部署而自动执行。
 
 ## Scan confirm Purchase Price 事件修复（0012）
 
 `apps/workers-api/src/db/postgres/migrations/0012_scan_confirm_purchase_price_event.sql` 不改变 Schema，只补齐旧 Scan confirm 创建的初始 `collection_item_event` 中遗漏的 Purchase Price、币种和可靠历史起点。修复范围由已确认 `scan_record.user_result.collection_item_id` 精确关联，仅处理主记录当前仍有 Purchase Price、初始事件的购买价与币种均为空的记录；非扫描创建记录、后续编辑事件和当前无 Purchase Price 的记录保持不变。迁移可重复执行。
 
-该迁移与旧 Worker 兼容。发布时先部署已修正 Scan confirm 写入的新 Worker，再执行 `0012`，避免旧 Worker 在数据修复后继续产生漏字段事件。2026-09-09 已部署包含该写入修复及向量识别的 dev Worker，dev 新建扫描收藏会写入完整初始事件；`0012` 历史回填未执行，不能据此宣称既有缺字段事件已修复。2026-09-09 的 prod 回读为较早 Worker；当前 main 已含该修复，但本轮未重新核实目标环境版本或远程回填进度。应用代码回滚时保留已补齐的事件数据，不能安全地批量清空这些字段；如必须执行数据级回滚，应依据执行前备份按精确事件恢复。不得向 D1 迁移或退役工具复制该修复。
+该迁移与旧 Worker 兼容。发布时先部署已修正 Scan confirm 写入的新 Worker，再执行 `0012`，避免旧 Worker 在数据修复后继续产生漏字段事件。2026-09-09 已部署包含该写入修复及向量识别的 dev Worker，dev 新建扫描收藏会写入完整初始事件；`0012` 历史回填未登记完成，不能据此宣称既有缺字段事件已修复。2026-09-11 prod 新版本已包含该写入修复；本轮未执行 `0012`，ledger 中也没有该迁移登记，历史回填不标为完成。应用代码回滚时保留已补齐的事件数据，不能安全地批量清空这些字段；如必须执行数据级回滚，应依据执行前备份按精确事件恢复。不得向 D1 迁移或退役工具复制该修复。
 
 ## 版本管理环境配置拆分（0011）
+
+2026-09-11 已按用户单独授权完整执行并登记 `0011_app_version_environment`，SHA-256 为 `6834828b05fbe01f41a01ae5bf0acbf368909cc4d53670df3da9ad82505b8349`。只新增 production iOS/Google 两条配置，现有 development 与旧共用四条配置的摘要均不变；四条环境规则均通过当前主线校验。prod iOS 最低/建议版本仍为 `1.0.1`、强更开启，Google 保持停用。随后 prod Worker 已切换新读取逻辑，两个平台公共配置均返回 `200/no-store`。
 
 当前 main 的 `/app-config` 在 Cloudflare dev/prod 均只读取 `admin.app_version.<development|production>.<ios|google>`，不会因目标为 prod 而回退旧共用键。所需环境键缺失或无效时，整个公共配置接口返回 `503 APP_VERSION_CONFIG_UNAVAILABLE`；依赖该接口的升级、商店地址与 SDK 配置读取均受影响。部署 main 前须按目标环境的 ledger 和实际配置核对 `0011`，不能把 Git 合并或下方 development 初始化的历史记录当作完整迁移已执行。
 
@@ -22,7 +24,7 @@ D1 已废弃，测试环境 dev/test 与正式环境 prod 均已完成 PostgreSQ
 
 执行次序为暂停版本配置编辑、迁移和核验四条记录、切换两个环境 Worker、核验各自配置、恢复编辑。迁移保留旧键用于切换期间旧 Worker 的读取，回滚必须使用支持环境键的 PostgreSQL Worker，不能恢复共用版本配置的行为。本次远程执行与发布状态见[版本控制验收](../05-delivery/VERIFICATION.md)。
 
-仅发布 dev 时，允许从同一迁移的源规则生成逻辑中只初始化 `development` 两条键，不提前创建 production 快照，也不把完整 `0011` 登记为已执行。此时 dev 新 Worker 使用独立键，prod 旧 Worker 继续使用旧键，版本设置互不影响。将来发布 prod 前执行完整 `0011`，其 `ON CONFLICT DO NOTHING` 保留已经独立修改的 dev 配置，并按届时旧规则初始化 production。
+历史分阶段发布策略：仅发布 dev 时，允许从同一迁移的源规则生成逻辑中只初始化 `development` 两条键，不提前创建 production 快照，也不把完整 `0011` 登记为已执行。此时 dev 新 Worker 使用独立键，prod 旧 Worker 继续使用旧键，版本设置互不影响。将来发布 prod 前执行完整 `0011`，其 `ON CONFLICT DO NOTHING` 保留已经独立修改的 dev 配置，并按届时旧规则初始化 production。
 
 2026-09-08 已按用户 dev 发布授权完成 development 两条键的初始化与事务外复核，旧共用规则的前后摘要一致；未创建 production 独立键，`0011` 未登记为完整执行。随后 dev Worker `e1e232ac-5799-49f7-a003-75a47db2e2b0` 已承载 100% 流量，dev 公共配置读取独立键；prod 保持原运行版本与旧配置。完整发布证据见上述验收文档。
 

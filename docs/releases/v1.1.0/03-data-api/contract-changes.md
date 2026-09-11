@@ -16,7 +16,7 @@ Linux 入口虽共用上述路由，但 `src/linux/config.ts` 仍要求旧 OCR �
 
 版本规则由可信 Worker `APP_ENVIRONMENT` 选择 `app_config` 中的 `admin.app_version.<development|production>.<ios|google>`。`GET /admin/app-versions` 新增 `data.environment`；版本 PATCH 仅写当前环境。通用 App Config PATCH 禁止写版本键和旧共用升级键，返回 `422`。启用规则必须有有效 HTTP(S) 商店地址、布尔强更标志、合法状态和三段版本号，建议版本必须大于等于最低版本。
 
-公共 `GET /app-config?platform=ios|google` 保持 `upgrade_prompt`、`app_store_url`、法律及 SDK 配置响应字段，增加 `Cache-Control: no-store`。环境或平台规则缺失/损坏返回 `503 APP_VERSION_CONFIG_UNAVAILABLE`；明确停用的规则才返回 `upgrade_prompt: null`。不再读取共用版本键或用共用商店地址兜底。部署前须准备 `0011_app_version_environment.sql` 对应环境键；2026-09-08 仅初始化 development 两条键并发布 dev，完整 `0011` 未登记完成。2026-09-09 历史回读中的 prod 较早 Worker 读取旧规则；当前 main 产物只读取环境键，升级前须核对完整迁移和配置，详见[版本控制验收](../05-delivery/VERIFICATION.md)。
+公共 `GET /app-config?platform=ios|google` 保持 `upgrade_prompt`、`app_store_url`、法律及 SDK 配置响应字段，增加 `Cache-Control: no-store`。环境或平台规则缺失/损坏返回 `503 APP_VERSION_CONFIG_UNAVAILABLE`；明确停用的规则才返回 `upgrade_prompt: null`。不再读取共用版本键或用共用商店地址兜底。部署前须准备 `0011_app_version_environment.sql` 对应环境键；2026-09-11 `0011` 已完整执行并登记，production 两条键已补齐，已有 development 与旧共用配置不变；prod 新 Worker 已读取独立键，公共配置返回 `200/no-store`，详见[版本控制验收](../05-delivery/VERIFICATION.md)。
 
 ## 安装统计环境筛选缺口
 

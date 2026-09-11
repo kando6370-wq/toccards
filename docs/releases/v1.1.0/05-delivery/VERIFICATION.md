@@ -2,9 +2,34 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## prod 向量协议与环境版本配置发布（2026-09-11）
+
+发布来源为干净且与远程一致的 `main@759b072`。用户明确授权 prod 部署，并在生产预检发现缺少独立版本配置后，另行批准执行 PostgreSQL `0011` 与立即切换向量协议，接受旧 pHash 客户端不兼容的边界。发布前 App Store 美国区查询仍为 `1.0.1`、最低 iOS `15.5`；本次没有上传移动端安装包，新扫描链路需使用支持向量协议的 App。
+
+上线结果：`2026-09-11T01:35:35Z`，deployment `e2401a70-39cf-4fac-9ec8-6a469c824071` 将 Worker version `4f543496-9d54-48c4-a16c-0e608dcc32f0` 置于 100% prod 流量，tag 为 `prod-main-759b072-20260911`。原 version `934506ae-d433-4a38-ae40-6d07b109d50e` 已被接替。对应 Admin production assets 随版本发布；`api.tcgcard.fun` 自定义域名和 `*/5 * * * *` 定时配置已同步。
+
+数据库预检及迁移：共享 PostgreSQL 为 `18.6`，原 `0000` 至 `0010` 的 11 条 ledger checksum 与仓库 SQL 全部一致，未验证约束为 0。`0011_app_version_environment` 于 `2026-09-11T01:34:41Z` 执行并登记，SHA-256 为 `6834828b05fbe01f41a01ae5bf0acbf368909cc4d53670df3da9ad82505b8349`。事务内只新增 production 的 iOS/Google 两条配置，现有 development 与旧共用四条配置的值及摘要均不变；事务外回读确认四条环境规则有效、12 条 ledger checksum 均匹配。没有改变表结构、迁移 D1 或执行 `0012`；ledger 中没有 `0012` 登记，历史事件回填不标为完成。
+
+版本规则保持运营原值：prod iOS 最低/建议版本均为 `1.0.1`、强更开启；Google 规则仍停用，其既有商店 URL 未改写。dev iOS 仍为最低 `1.0.0`、建议 `1.0.2`、非强更。新版公共配置返回固定更新文案与 `Cache-Control: no-store`，两个环境读取各自独立键。配置迁移和流量切换已完成，可以恢复后台版本规则编辑。
+
+| 验证 | 命令或证据 | 结果 |
+|---|---|---|
+| Workers 影响面 | `pnpm --filter @kando/workers-api exec vitest run src/app-config src/admin/routes.test.ts src/db/postgres/app-version-environment.test.ts src/db/postgres/scan-confirm-purchase-price-event.test.ts src/scan src/index-postgres-runtime.test.ts src/cors.test.ts --maxWorkers=2` | 10 文件、86/86，退出 0 |
+| Admin 与静态检查 | Admin test、Workers/Admin `type-check`、`pnpm lint` | Admin 21/21；类型和依赖方向通过 |
+| prod 构建与版本 | `deploy:dry-run:prod`；`wrangler versions upload --env prod --tag prod-main-759b072-20260911 --strict`；`wrangler versions deploy 4f543496-9d54-48c4-a16c-0e608dcc32f0@100 --env prod --yes` | 构建、上传、100% 发布及 deployment/version 回读通过 |
+| 资源与触发器 | version binding 核对；`wrangler triggers deploy --env prod` | production Hyperdrive/KV/R2 范围正确，10 个 Secret binding 保留；VECTOR_RECOGNITION=recognize-vec，无 D1 或旧 OCR 地址；域名及 5 分钟定时配置同步成功 |
+| 向量依赖 | 仅绑定 Hyperdrive/向量服务的受令牌保护临时 remote preview，使用 512 维合成向量 | 内部服务 200，5 个候选，标识与 0–100 confidence 契约有效；不创建扫描或额度记录 |
+| 公开数据与版本 | health、games、Pokemon Search、prod iOS/Google 公共配置及 dev iOS 对照 | 全部 200；games 10 条，Search 抽样 3 条；prod 配置 no-store、SDK 配置存在，规则与迁移后数据库一致 |
+| Admin assets | 首页与本地 production 构建比对，逐一核对引用资源 SHA-256 | HTML 200，10 个 JS/CSS 资源全部 200 且摘要一致 |
+| 未授权边界 | Admin 版本/订单 GET、Scan recognize 与 Apple verify POST | 均返回 401，未绕过鉴权 |
+
+预检工具仅使用 PostgreSQL，不复用退役 D1 runner；迁移执行前后校验配置摘要、固定迁移 checksum 和预期新增键，校验失败会回滚事务。临时 remote preview 已关闭，本地临时鉴权令牌已删除。回退须保留已新增配置，并使用支持独立环境键和目标扫描协议的 PostgreSQL Worker；历史 PG-only 回退版本不能仅凭数据库兼容就视为当前协议兼容。
+
+未运行：登录态新 App 扫描/收藏端到端、真实图片准确率及耗时、iOS/Android 真机与签名包、真实 Apple 购买/Restore/生命周期和 Singular 后台收入验收；本次没有新移动包或相应测试会话。定时配置已核验，未以实际 Cron 执行结果替代配置回读。Workers 全量、Flutter 全量和 Linux 部署未重复执行，沿用前次代码验证及其既有失败边界；安装统计环境来源缺口和 Linux 向量适配缺口未在本次修复。
+
 ## 当前代码与交付边界
 
-当前实现核对基线为 `main@659a7c6`（2026-09-10），Flutter `pubspec.yaml` 为 `1.0.2+135`。该合并提交已按用户授权推送至 `github/main`，并在推送后回读确认远程提交号一致；这只证明 Git 交付完成。下方原始测试、部署和迁移证据保留各自日期，不代表本轮重新运行或目标环境已升级。
+当前 prod 发布来源为 `main@759b072`（2026-09-11），Flutter `pubspec.yaml` 为 `1.0.2+135`。该源码已同步至 `github/main`；对应 prod Worker `4f543496-9d54-48c4-a16c-0e608dcc32f0` 已承载 100% 流量，具体线上验证以上方发布记录为准。下方原始测试、部署和迁移证据保留各自日期，不代表本轮重新运行或目标环境已升级。
 
 | 增量 | 当前实现 | 验证与交付边界 |
 |---|---|---|
@@ -16,7 +41,7 @@
 | iOS 交付物（`deb1d3c`） | 校验 IPA/dSYM 后、安装或上传前按 Bundle ID 保存；测试 3 个版本、正式 7 个版本 | 保存规则按成功保存时间保留，新版本完整保存后才将最旧超额版本移入废纸篓；不清理 Xcode Archives。命令与产物说明见[Flutter README](../../../../apps/flutter-app/README.md#ipa-与符号文件保存)。 |
 | 扫描取景框（`699ca48`） | 首帧预留底部统计行、结果列表和操作区，共用几何随视口/安全区等比缩放 | 2026-09-10 原尺寸回归 12/12；原完整 Scan Widget 的 3 个 Golden 失败已在本页 Golden 修复中收口，最新 App 全量 1047/1047 通过；真机仍待验收。 |
 
-现有自动化证据对应 `6a96404` 的全量复验及 main 合并时的 19 项版本回归；除客户端构建号外，main 的非文档文件与已测基线一致。默认 Workers 首轮失败、受 Git 跟踪测试降低并发后的通过和真机待验分别保留。此次仅核对并更新文档，不重复运行测试或构建；远程应用、数据库 ledger、Apple 实单、iOS 签名/产物保存及设备验收均未新增验证。
+现有自动化证据对应 `6a96404` 的全量复验及 main 合并时的 19 项版本回归；除客户端构建号外，main 的非文档文件与已测基线一致。默认 Workers 首轮失败、受 Git 跟踪测试降低并发后的通过和真机待验分别保留。2026-09-11 已新增 prod 发布、`0011` 迁移及上述定向回归和线上烟测；Apple 实单、iOS 签名/产物保存、登录态扫描及设备验收未新增验证。
 
 
 ## dev 合入 main（2026-09-10，本地）

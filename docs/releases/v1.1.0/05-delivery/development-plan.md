@@ -17,7 +17,9 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 ## 2. 当前基线
 
-`main` 已包含向量识别、Scan confirm 购买价格事件修复、Card Detail 取消编辑、Singular 收入及同进程初始化恢复、Linux 测试入口、Home 版本静默复查、iOS 交付物保存和扫描结果区布局修复。客户端版本为 `1.0.2+135`；当前源码不代表新包已发布。2026-09-09 历史回读确认 Cloudflare dev 为向量 Worker、prod 为较早 PostgreSQL Worker，两环境已完成 PostgreSQL 迁移且 D1 已退役；本轮未重查远程协议、版本键或运行 SHA。扫描尺寸回归原 12/12 通过；后续本地 Golden 和测试隔离修复后，App 全量 1047/1047、订阅包 9/9 通过，原 3 个扫描 Golden 失败已收口。Windows Linux 打包路径已修复，Workers 默认首轮失败与限制并发后的 621/621 复验分别记录，见[Golden 与全量复验](VERIFICATION.md#golden-基准与全量复验2026-09-10)。
+2026-09-11 prod 交付增量：`main@759b072` 对应 Worker `4f543496-9d54-48c4-a16c-0e608dcc32f0` 已承载 100% 流量，完整 `0011` 已单独授权执行，production 版本键就绪、已有配置不变；当前 prod 使用向量协议。107 项定向测试、类型检查、构建、关键 HTTP 与 Admin 资源核验通过；`0012`、登录态新 App 扫描和 Apple 实单等边界见[发布记录](VERIFICATION.md#prod-向量协议与环境版本配置发布2026-09-11)。
+
+`main` 已包含向量识别、Scan confirm 购买价格事件修复、Card Detail 取消编辑、Singular 收入及同进程初始化恢复、Linux 测试入口、Home 版本静默复查、iOS 交付物保存和扫描结果区布局修复。客户端版本为 `1.0.2+135`；当前源码不代表新包已发布。2026-09-09 历史回读确认 Cloudflare dev 为向量 Worker、prod 为较早 PostgreSQL Worker，两环境已完成 PostgreSQL 迁移且 D1 已退役；2026-09-11 已重新核验 prod 版本、向量绑定及环境版本键，具体范围见上方交付增量。扫描尺寸回归原 12/12 通过；后续本地 Golden 和测试隔离修复后，App 全量 1047/1047、订阅包 9/9 通过，原 3 个扫描 Golden 失败已收口。Windows Linux 打包路径已修复，Workers 默认首轮失败与限制并发后的 621/621 复验分别记录，见[Golden 与全量复验](VERIFICATION.md#golden-基准与全量复验2026-09-10)。
 
 2026-08-27 官网 Download BUG 修复检查点：根因是首页两处 App Store badge 均为无链接静态 `div`。考虑正式 App Store 地址基本不变且下载入口不应依赖业务数据库，最终按产品决定将当前正式 URL 直接写入两处链接，撤回运行时 `/app-config`、官网代理 Worker 及相关环境依赖；Google Play、App/Workers API 契约、数据库和其他官网交互均不受影响。修复前回归确认 HTML 中正式 URL 为 0 处；修复后 Marketing 1 项回归、Wrangler dry-run、依赖方向、`git diff --check` 及真实本地静态页验证均通过，本地页面正式 URL 恰好 2 处且动态配置引用为 0。Code Review 未发现残留代理、数据库依赖或无关修改。官网已部署为 `toccards-website` version `9816a0b4-9ef5-43f1-96fb-031205f8adcc`；绕缓存线上复核返回 200，正式 URL 恰好 2 处，动态配置引用为 0。
 
