@@ -188,7 +188,7 @@ import UIKit
   }
 }
 
-enum ScanNativeImageProcessor {
+private enum ScanNativeImageProcessor {
   private static let queue = DispatchQueue(
     label: "com.cardai.tcg.scan-image-processor",
     qos: .userInitiated
@@ -228,7 +228,7 @@ enum ScanNativeImageProcessor {
     }
   }
 
-  static func prepareDetection(_ rawArguments: Any?) throws -> [String: Any] {
+  private static func prepareDetection(_ rawArguments: Any?) throws -> [String: Any] {
     guard
       let arguments = rawArguments as? [String: Any],
       let typedData = arguments["image"] as? FlutterStandardTypedData,

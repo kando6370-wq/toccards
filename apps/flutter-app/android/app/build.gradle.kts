@@ -65,7 +65,6 @@ android {
 
 dependencies {
     implementation(files("libs/onnxruntime-minimal-1.23.0.aar"))
-    testImplementation("junit:junit:4.13.2")
 }
 
 flutter {
