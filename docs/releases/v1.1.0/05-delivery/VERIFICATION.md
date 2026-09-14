@@ -124,6 +124,26 @@ Code Review 自审通过：复核半像素坐标、边界钳制、取整与 RGB 
 
 未运行：iOS 构建与签名验证（Windows 无 Xcode）、iOS/Android 真机原图识别及大图内存/耗时验证（本轮未使用测试手机）、全 App/全仓测试及远程 API/数据库实测（本轮按检测预处理和直接调用链验证，其余业务代码无差异）。iOS 2026-09-11 成功结论保留为既有用户验收，未在本轮重验；客户端测试人员仍需用合入后的新包完成两端设备复验。本地测试和 Android 构建不能替代这些验证。
 
+### 2026-09-14 dev API/Admin 发布
+
+用户随后授权提交、推送及部署 dev。发布源为本地与 `github/dev` 一致的 `42966a9bb766a58da1f0af8fba01d9301816f685`，包含扫描缩放合并与上方验收文档。部署前核对 Cloudflare 运行版本 `6a76360f-714f-4ec5-9819-f8c1c5031c5d` 的资源与仓库 dev 配置一致，并保留该版本作为本次发布前的回退点；本次未修改 Schema、执行 migration 或切换识别协议。
+
+在仓库根执行 `pnpm --filter @kando/workers-api run deploy:dev --tag dev-42966a9 --message 'Deploy dev from 42966a9; scan resize merge verified'`，标准脚本重新构建 Auth Core 与 Admin development assets，随后发布 `toccards-api-dev`，退出 0。2026-09-14 14:54（北京时间）回读 deployment `77251695-34fd-4b48-b6e8-5bf69901f219`，version `ddeb0040-888b-4b33-bc50-c432c0a3793b`（number `358`、tag `dev-42966a9`）承载 100% dev 流量；发布输出确认 `api-dev.tcgcard.fun` 自定义域名与每 5 分钟 Cron 已同步。
+
+发布后逐项比较 binding 类型、目标、变量值与 Secret 名称，均与发布前快照一致：`APP_ENVIRONMENT=development`、beta Apple Bundle 与 `cardx.*` SKU、dev KV/R2、既有共享 Hyperdrive 和 `VECTOR_RECOGNITION=recognize-vec` 保持原配置，没有 D1 binding。未改写 Secret，未修改 prod、Linux 或独立 Marketing 部署。
+
+本次发布验证：
+
+- `pnpm --filter @kando/workers-api exec vitest run src/index-postgres-runtime.test.ts src/app-config/routes.test.ts src/app-config/version-control.integration.test.ts src/scan/routes.test.ts src/scan/quota.integration.test.ts src/cors.test.ts src/admin/cors-preflight.test.ts --maxWorkers=2`：7 文件、62/62，退出 0。
+- `pnpm --filter @kando/admin-web test`：21/21，跳过 0，退出 0；Workers 与 Admin 各自 `type-check` 均退出 0。
+- `pnpm --filter @kando/workers-api run deploy:dry-run:dev`：Admin development 构建、Worker 打包与 dev bindings 检查通过，退出 0。
+- 发布前后线上检查：`/api/v1/health` 为 200/`status=ok`；`/api/v1/games` 返回 10 个游戏；Pokemon Search 第 3 页、每页 40 条返回 200 与 40 条卡牌；iOS/Google `/api/v1/app-config` 均为 200 且 `Cache-Control: no-store`，版本规则与发布前一致。iOS 为推荐 `1.0.2`、最低 `1.0.0`、非强更；Google 升级提示关闭。
+- Admin `/admin` 为 200，发布后本次回读的 HTML 与本地构建一致，引用的 10 个 JS/CSS 逐个返回 200 且 SHA-256 一致；未授权 `/api/v1/admin/scans` 与 `POST /api/v1/scan/recognize` 均保持 401。线上检查仅保存状态、版本规则和资源哈希，没有保存 `/app-config` 返回的 SDK 凭据。
+
+首次发布前搜索烟测把游戏 ID 传给按游戏名称匹配的 `game` 参数，得到 200/空列表并因预期 40 条而退出 1；核对现有适配器后改用游戏名称，相同第 3 页检查在发布前后均通过，未修改产品代码。发布前 HTML 含 Cloudflare 注入的 beacon，原始 HTML 哈希不一致，但去除已确认的 beacon 并归一化标签间空白后与构建相同，10 个资源哈希原本就一致；没有将该页面转换差异记为应用故障。
+
+本次仅发布 API/Admin。扫描缩放修复位于 iOS/Android App 原生代码，已安装的旧 App 不会因 Worker 发布而更新；仍需安装包含合并提交的新 App 包完成客户端验收。未执行已登录 Admin 操作、真实图片向量识别、购买/通知流程、全仓测试、iOS 签名构建或两端真机验证；线上基础检查不能替代这些业务验收。
+
 ## iOS 原始分类分数修复（2026-09-09，历史记录）
 
 问题输入为 `227.PNG`（1206×1515、EXIF orientation=1、Display P3）。电脑端同源 ONNX 检测可输出约 0.535 的分类概率并完成四角拟合与 745×1043 卡面矫正，但 iOS 相册导入在端侧检测阶段直接失败，因此请求尚未提交 Workers，管理平台不会生成扫描记录。
