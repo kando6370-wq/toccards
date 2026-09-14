@@ -45,7 +45,7 @@ Code Review 自审通过：三张图片差异仅限已确认的次数文案；Re
 |---|---|---|
 | Linux 测试环境（`19a6ac4`） | 共享 Hono 应用、Node 入口、独立 PostgreSQL/内存 KV/图片卷、Compose 与 dev 分支监听发布 | Linux 未提供 `VECTOR_RECOGNITION`；扫描不可用，旧 OCR 地址不能恢复。kd201 当前 release、SHA、ledger 和合入后自动发布结果未回读，见[Linux 手册](linux-test-auto-deployment.md)。 |
 | Singular 同进程恢复（`c28e754`） | 仅缓存有效配置；ATT 顺序完成后按前台退避、resumed 和收入交付恢复初始化，成功后补发已有 pending | SDK API 调用不等于后台收件；原始回归记录见下文，同进程断网恢复的新包真机/后台验收仍待完成。 |
-| 检测图片缩放（`dev-xiangyang-new`） | iOS/Android 检测输入使用确定性的半像素双线性缩放；iOS 保留 Core ML，Android 保留最小 ORT | 2026-09-11 用户确认本分支 iOS Core ML 组合真机扫描成功；Android 仍待构建和真机验证。 |
+| 检测图片缩放（`1da3935`、`070f5b6`） | iOS/Android 检测输入使用确定性的半像素双线性缩放；iOS 保留 Core ML，Android 保留最小 ORT | 2026-09-11 用户确认 iOS 真机扫描成功；2026-09-14 合入本地 `dev` 后扫描回归、分析与 Android Debug 构建通过，Android 真机仍待验收，详见下文。 |
 | Home 版本检查（`fc23c6f`、`075db55`） | 实际 Home 首帧激活；后续返回 Home/回前台静默复查，已确认强更继续全局拦截 | 2026-09-10 原回归为 54/54、test 配置 16/16，通过范围见下文；新包安装、商店往返和真机切页未验收。 |
 | iOS 交付物（`deb1d3c`） | 校验 IPA/dSYM 后、安装或上传前按 Bundle ID 保存；测试 3 个版本、正式 7 个版本 | 保存规则按成功保存时间保留，新版本完整保存后才将最旧超额版本移入废纸篓；不清理 Xcode Archives。命令与产物说明见[Flutter README](../../../../apps/flutter-app/README.md#ipa-与符号文件保存)。 |
 | 扫描取景框（`699ca48`） | 首帧预留底部统计行、结果列表和操作区，共用几何随视口/安全区等比缩放 | 2026-09-10 原尺寸回归 12/12；原完整 Scan Widget 的 3 个 Golden 失败已在本页 Golden 修复中收口，最新 App 全量 1047/1047 通过；真机仍待验收。 |
@@ -90,7 +90,7 @@ Code Review 自审通过：核对取景框计算的唯一调用方、顶部与�
 
 Code Review 自审通过：核对当前路由判定、帧后回调及 disposed 防护、Home 多实例的进入/移除、异步请求迟到、已知强更与普通决策分离、并发请求合并及原“稍后”去重。已有启动测试只调整了返回 Home 应再次检查的次数断言，仍验证同版本不重复提示。实现限于共用版本 Gate，使用 Flutter 跨平台能力；业务与 Admin 行为文档已同步，API/Schema 变更为 N/A。未执行全仓测试、签名包构建、新包安装或 iOS/Android 真机切换/商店往返：当前手机仍为旧安装包，需客户端测试人员使用含修复的新包补验；Widget 平台变体不代表真机已通过。未修改远程规则、部署或发布。
 
-## iOS 与 Android 检测图片缩放对齐（2026-09-10，分支已推送、未合入 dev）
+## iOS 与 Android 检测图片缩放对齐（2026-09-10 修复，2026-09-14 合入本地 dev）
 
 本轮基于 `origin/dev@b00e76e` 创建 `dev-xiangyang-new`。iOS 问题输入为 `227.PNG`：文件名虽为 PNG，内容实际是带 Display P3 ICC 的 JPEG，尺寸 1206×1515、EXIF Orientation 1，SHA-256 为 `12506B7158BBF0F1AAA5BCB8AACC67A24485AF1472D36D8C3CAEC2245E7716C0`。该图片在相邻 `real_time_recognition` 的 OpenCV 检测预处理中能识别卡牌，而旧 iOS UIKit 缩放会选中背景区域；请求在端侧失败时不会进入 Workers，因此管理平台没有对应扫描记录。
 
@@ -105,6 +105,24 @@ Code Review 自审通过：核对当前路由判定、帧后回调及 disposed �
 本地静态验证在仓库根执行：`git diff --check` 退出 0；专项测试支持文件与 `origin/dev` 逐文件一致；最终分支差异不包含 `.github/workflows/ios-build.yml`、Android 测试依赖、RunnerTests、Xcode 测试资源或测试夹具。对 `origin/dev` 检查确认 iOS/Android 模型、最小 ORT AAR、Podfile/Podfile.lock、Flutter `lib`、Admin、Workers 和共享包无差异。首次残留引用检查因 `rg` 正则转义错误退出 2，改用逐项固定字符串检查后无残留、退出 0；该命令错误不记作产品验证通过。Windows 本机没有可用 Flutter/Android SDK/Xcode，因此删除测试后的 Android 构建、iOS 构建、Flutter 分析和 Android 真机测试未运行；iOS 真机成功结论来自用户实际验收。
 
 Code Review 自审核对了解码后的方向尺寸、sRGB/RGB 与后续 BGR 通道转换、半像素坐标和边界钳制、源图/输出缓冲生命周期、检测与 embedding 预处理隔离、Core ML raw 输出后处理、Android 最小 ORT 保留，以及测试删除没有触及生产实现。生产差异限定为 iOS/Android 检测缩放。两端检测均会额外建立约 `source_width × source_height × 4` 字节的临时像素缓冲，常见 12MP 图片约 48 MB；Android 和超高分辨率图片的峰值内存、耗时及更多真实图片准确率尚未真机验证。文档影响已同步至[扫描识别](../01-flows/scan-recognition.md)；Schema、部署和运营操作影响为 N/A。
+
+### 2026-09-14 合入 dev 的本地验证
+
+用户授权将 `dev-xiangyang-new` 合入 `dev`，要求保持其他业务逻辑。刷新 `github` 后，合并前本地与远程 `dev` 均为 `b00e76e`，源分支为 `070f5b6`，提交关系为 `0/2`；扫描回归基线通过后执行 `git merge --ff-only github/dev-xiangyang-new`，本地 `dev` 快进至 `070f5b6`，无冲突。合入两个原提交，未改写生产修复；本轮未推送、部署、修改远程数据库或发布客户端。
+
+范围核对：相对 `b00e76e`，仅 Android `MainActivity.kt`、新增 `OpenCvLinearRgbScaler.kt`、iOS `AppDelegate.swift` 和两份扫描文档有变化。完整文件列表检查与 `git diff --quiet` 均确认 Flutter `lib`、既有测试、模型/运行时资源、依赖与 CI、Admin、Workers、Marketing 和共享包无差异。原生文件逐段比较确认入口注册、生命周期、Android 解码辅助方法、两端卡牌裁正与 384×384 向量预处理以及 iOS 错误契约保持不变。
+
+本轮环境为 Windows、Flutter 3.44.7 / Dart 3.12.2、JDK 21 与本地 Android SDK；与上方源分支阶段的工具可用性记录分开。以下 Flutter 命令均在 `apps/flutter-app` 执行：
+
+- `flutter test --no-pub --dart-define=APP_ENV=test test/scan_native_image_processor_test.dart test/scan_card_recognizer_test.dart test/scan_card_number_reader_test.dart test/scan_mask_geometry_test.dart test/scan_api_client_test.dart test/scan_result_source_test.dart test/scan_review_repository_test.dart test/scan_quota_controller_test.dart test/widget/scan_page_test.dart --reporter expanded`：合并前、后均为 154/154，退出 0；覆盖检测/向量契约、OCR、四角几何、API、队列、额度、Review、保存和扫描页 Golden。原生通道使用测试替身，不代表模型真机识别通过。
+- `flutter analyze --no-pub`：无问题，退出 0。
+- `flutter build apk --debug --no-pub --dart-define=APP_ENV=test`：退出 0，生成 `build/app/outputs/flutter-apk/app-debug.apk`。构建仍提示既有 Gradle 8.12、AGP 8.9.1、Kotlin 2.1.0 后续支持版本及 SDK XML 版本警告；未修改工具链或跳过依赖校验。
+- 临时 Java 检查调用本次 Android 构建出的 `OpenCvLinearRgbScaler` Kotlin 类，复用 `1da3935` 原专项测试的参考像素、容差不超过 1 和原尺寸保持样例：2/2，编译与运行均退出 0。检查程序与日志仅保存在系统临时目录，未恢复仓库专项测试、测试依赖或 CI 接线；仓库内专项回归缺口仍然存在。
+- 仓库根 `git diff --check b00e76e HEAD` 与文档补充后的 `git diff --check` 均通过；两份变更文档的本地相对链接目标存在。
+
+Code Review 自审通过：复核半像素坐标、边界钳制、取整与 RGB 输出长度，确认新缩放只由检测入口调用；通道字段、阈值、模型、裁正与向量化隔离保持原契约。结合相同用例的合并前后结果，未发现本次合并对其他业务代码的额外修改或阻断项。
+
+未运行：iOS 构建与签名验证（Windows 无 Xcode）、iOS/Android 真机原图识别及大图内存/耗时验证（本轮未使用测试手机）、全 App/全仓测试及远程 API/数据库实测（本轮按检测预处理和直接调用链验证，其余业务代码无差异）。iOS 2026-09-11 成功结论保留为既有用户验收，未在本轮重验；客户端测试人员仍需用合入后的新包完成两端设备复验。本地测试和 Android 构建不能替代这些验证。
 
 ## iOS 原始分类分数修复（2026-09-09，历史记录）
 
