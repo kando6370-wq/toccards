@@ -2,6 +2,48 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## dev 迁往 Linux：App/Admin 内网入口（2026-09-15）
+
+基线为已提交并推送的 `dev-inner@b27ca90`，本阶段按用户授权整改现有 test/development 默认入口。环境为 Windows、Flutter `3.44.7` / Dart `3.12.2`、Node `22.20.0`、pnpm `11.9.0`；没有新建第三种业务环境，也没有部署服务器或修改数据库数据。
+
+实现与影响面：
+
+- Flutter 的 `AppConfig.apiOrigin` 在 test 下固定为 `http://192.168.50.201:8080`，由此派生 API 与分享地址；production/default 保持原生产 API。登录、目录、收藏、扫描及版本客户端共用该配置。测试分享固定使用内网，避免复制来的服务端 `card_share_base_url` 将测试用户带到生产环境；生产仍优先采用服务端分享配置，卡牌图片继续使用原 CDN。
+- Admin development 改为同源 `/api/v1/admin`，本机 Vite 的 `/api` 代理到 Linux，production 配置不变。Linux `.env.example` 同步 dev 入口与 Flutter Web 3000 端口的 CORS origin；真实服务器 `.env` 尚未修改。
+- Android 从已有 Flutter `dart-defines` 的 `APP_ENV` 选择网络资源，test 仅允许 `192.168.50.201` 明文 HTTP，其他主机及 production 禁止明文。主 manifest 显式包含 INTERNET 权限。iOS 三个既有 test flavor 使用 `Info-test.plist`，仅添加该 IP 的 ATS 例外和局域网用途；生产 plist、Bundle ID 与 App Attest 设置保持原样，测试比较其余 plist 内容以防配置漂移。
+- 离线 Web 代理此前把 Host 改写为 `api:3000`，导致分享 canonical/og:url 指向内部地址。修改为保留请求 Host，仍使用固定 API_ORIGIN 连接上游；没有新增对客户端转发头的信任。新增真实回环 HTTP 代理回归测试，并纳入两个既有 Linux 发布检查入口。
+
+先失败证据：修改业务代码前，test 环境的 API/分享用例 5 失败、1 通过，分别返回旧 CF dev 或生产分享地址；Admin 环境/代理用例 2 失败、1 通过。原代理 Host 改写逻辑的反证测试退出 1，明确显示上游 host/port 与外部请求不同；恢复修复代码后同一测试通过。首次 Flutter 测试因 C 盘已满未能完成编译，不算业务失败证据；中止该进程并将本任务 TEMP/TMP 改到 D 盘后，得到上述可重复失败和最终通过结果。
+
+| 检查 | 实际命令 / 证据 | 结果 |
+|---|---|---|
+| Flutter test 最窄回归 | `flutter test --no-pub --dart-define=APP_ENV=test test/api_environment_test.dart test/card_detail_actions_test.dart test/release_config_test.dart --reporter expanded` | 15/15，退出 0 |
+| Flutter production 隔离 | 同上三个文件，使用 `--dart-define=APP_ENV=production` | 15/15，退出 0；生产 API 与服务端分享配置行为保持 |
+| Flutter 影响面 | 下方 12 个文件的完整命令 | 109/109，退出 0，无跳过 |
+| Flutter 分析 | `flutter analyze` | 退出 0，No issues found；依赖锁文件无变更 |
+| Admin | `pnpm --filter @kando/admin-web test`、`pnpm --filter @kando/admin-web type-check` | 22/22 与类型检查通过，均退出 0 |
+| Admin 两种产物 | `pnpm --filter @kando/admin-web exec vite build --mode development --outDir D:/Temp/kando-dev-entry-check/admin-dev`；对应 production/admin-prod | 两种构建退出 0；检查实际 JS：dev 使用相对 API，无旧 dev/生产绝对 API；prod 保留生产 API |
+| 本机 Vite → Linux | 启动当前 Vite 配置，待依赖扫描完成后请求本机 `/api/v1/health` | 代理目标 `http://192.168.50.201:8080`，HTTP 200、`status=ok`；只读请求，非登录或完整业务验收 |
+| 离线代理 | `node --test deploy/linux/offline/web-server.test.mjs` | 修复后 1/1，退出 0；实际子进程代理保留外部 Host 与请求路径 |
+| 根检查 | `pnpm lint`、`pnpm type-check --force` | 通过，类型检查 7 个任务、0 缓存 |
+| Android test / production | 分别执行 `flutter build apk --debug --no-pub --dart-define-from-file=config/test.json` 和 production.json | 均退出 0；通过 aapt 解包验证实际 manifest 选择的策略与 INTERNET 权限，test 只对指定 IP 允许明文，prod 无该例外 |
+| iOS 配置 | Python plistlib 解析两份 plist，Flutter 测试核对三组 test/production Xcode 配置 | 结构有效、三组 test 指向新文件、production 指向原文件；去掉两项网络字段后完全一致。不等于已构建 IPA |
+| 脚本及文档 | Git Bash `-n deploy/linux/ci/watch-branch.sh`、`node --check deploy/linux/offline/web-server.mjs`、相对链接与 `git diff --check` | 通过；冻结产品文档、生产配置、Worker 业务代码和数据库 migrations 无修改 |
+
+Flutter 影响面命令在 `apps/flutter-app` 执行：
+
+```sh
+flutter test --no-pub --dart-define=APP_ENV=test test/api_environment_test.dart test/card_detail_actions_test.dart test/release_config_test.dart test/app_debug_overlay_environment_test.dart test/auth_repository_test.dart test/auth_session_interceptor_test.dart test/card_data_api_client_test.dart test/portfolio_api_client_test.dart test/scan_api_client_test.dart test/app_upgrade_repository_test.dart test/currency_rate_api_test.dart test/subscription_entitlement_api_test.dart --reporter expanded
+```
+
+Android 解包确认的 test Debug APK SHA-256 为 `646ec6028ad93f87eb86e7641e2dc6f63d220311eb9debd4261b3ea93cea9d2b`；production 配置的 Debug APK 为 `c67fd140757982dbb02d3a656ef3022b492a2c713483ac61b90c8c056aa5be68`。曾因验证脚本使用错误相对路径及在产物重写时读取而无法解包，等待构建完成并改用绝对路径后已分别复核。构建提示的 Gradle/AGP/Kotlin 与 SDK XML 版本警告为既有工具链事项，本阶段没有绕过检查或升级依赖。
+
+Vite 首次只读代理验证已获得 200，但关闭服务早于异步依赖扫描完成，输出了 dep-scan 关闭错误；随后等待扫描完成再执行相同健康请求并关闭，退出 0 且无该错误。这是验证脚本关闭时序问题，没有修改产品的依赖优化配置。
+
+Code Review 自审通过：检查默认环境与四类业务客户端、test/production 分享分支、Admin 生产产物、Android 编译参数到 manifest 的实际选择、iOS plist 与原生产设置、代理上游与 Host 边界；没有发现阻断问题。配置与代理变化均有失败证据或反证，并在修改后按原路径复验。
+
+未运行：iOS 编译/签名及最终 IPA App Attest 检查（Windows 无 Xcode）、Android Release 签名包、iOS/Android 真机局域网权限与完整登录/扫描/购买、Flutter Web 浏览器联调、kd201 新后端与代理部署、服务器 CORS 更新、dev 发布命令迁移和旧 CF dev 退役。客户端维护者需在两端测试包上补验，服务器维护者需准备配置并发布；本阶段仍为源码与本地验证，不能写成整体 dev 已完成迁移。未提交或推送本阶段改动，没有远程数据库迁移、数据写入或生产发布。
+
 ## dev 迁往 Linux：后端 HTTP 识别适配（2026-09-15）
 
 范围为用户确认的整改第一步：现有 dev 业务部署后续由 Linux 接替，CF 只读向量识别继续复用，prod 保持原部署。本轮从干净 `dev-inner@601294f` 成功 fetch，并快进到 `github/dev@b941a3f81c1b48cb204e9ef23626cd052406dc15`，随后仅完成本地后端适配与验证。环境为 Windows、Node `22.20.0`、pnpm `11.9.0`、Vitest `4.1.9`。

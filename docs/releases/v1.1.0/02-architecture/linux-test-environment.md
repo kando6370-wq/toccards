@@ -5,7 +5,7 @@
 - 当前后端适配：2026-09-15，`dev-inner` 基于 `dev@b941a3f`；原始设计基线为 2026-08-26 的 `dev@8e22c1d`。
 - 合并状态：`19a6ac4` 已将 Linux 入口、Compose、离线镜像和分支监听发布脚本合入 dev。
 - 验证边界：2026-08-27 离线容器与持久化验证、2026-09-09 功能分支部署与局域网 PostgreSQL 验证均为历史证据；本轮未回读 kd201 当前 release、提交或 migration ledger。
-- 当前代码已通过 HTTP 适配 `VECTOR_RECOGNITION`，以必填 `VECTOR_RECOGNITION_BASE_URL` 替换旧 OCR 配置。App/Admin 默认入口、dev 发布目标与线上流量尚未切换，服务器出站和真实扫描仍待验收。
+- 当前源码已通过 HTTP 适配 `VECTOR_RECOGNITION`，并将既有 App test/Admin development 的业务入口改为内网 Linux；发布目标、服务器新版本和旧 CF dev 退役尚待后续完成，设备与真实扫描仍需验收。
 - 环境边界：Linux 使用独立测试 PostgreSQL；Cloudflare dev/test 与 prod 已完成 PostgreSQL 迁移且无 D1 binding，不存在待执行的 prod D1 切换任务。
 
 ## 背景与架构纠正
@@ -97,20 +97,29 @@ Admin 继续构建同一份 React/Vite 应用：
 
 - Cloudflare 使用 Workers Assets。
 - Linux 标准模式使用 Caddy 托管 SPA，并将 `/api/*` 与 `/share/*` 转发给 Node API；离线模式使用 `deploy/linux/offline/web-server.mjs`，仅开放 HTTP，HTTPS 需由入口反向代理处理。
-- Linux Admin API 地址使用同源相对路径 `/api/v1/admin`。
+- Admin development 和原 Linux 构建均使用同源相对路径 `/api/v1/admin`，本机 Vite 将 `/api` 代理到 `http://192.168.50.201:8080`；production 继续使用原 CF 生产 API。
+- 离线 Node 代理保留请求的外部 Host，使分享 canonical/og:url 使用访问者实际请求的 host/port，不再生成 `api:3000` 内部地址。本阶段使用内网 HTTP；尚未新增 HTTPS 网关或对任意转发头的信任。
+
+### App 测试入口与平台网络策略
+
+Flutter 继续以 `APP_ENV=test` 代表现有 dev，默认业务 origin 为 `http://192.168.50.201:8080`，API 路径为 `/api/v1`；`APP_ENV=production` 和未配置值维持原生产 HTTPS API。测试分享由相同 origin 派生 `/share/cards`，即使复制的数据库下发生产分享地址，测试 App 也使用内网地址；production 继续优先采用服务端分享配置。目录卡牌图片仍由原 `image.tcgcard.fun` 提供。
+
+Android 从 Flutter 传给 Gradle 的 `APP_ENV` 参数选择 network security config，仅 test 对 `192.168.50.201` 允许 HTTP，其他目标禁止明文。iOS 的三个既有 test flavor 配置使用独立 `Info-test.plist`，仅添加该 IP 的 ATS 例外及局域网权限说明，生产 plist 不变；测试保护两个 plist 的其他字段一致。iOS 17+ 的 ATS IP exception 和 iOS 16 的 IP 直连规则不同，需在对应设备验证；本机源码检查不能代替签名 IPA 与真机权限验收。
+
+iOS IP 访问规则依据 Apple 的 [NSAllowsLocalNetworking](https://developer.apple.com/documentation/bundleresources/information-property-list/nsapptransportsecurity/nsallowslocalnetworking) 与 [NSExceptionDomains](https://developer.apple.com/documentation/bundleresources/information-property-list/nsapptransportsecurity/nsexceptiondomains)；本次没有使用全局 `NSAllowsArbitraryLoads`。
 
 ## 配置边界
 
 Linux 真实配置存放在服务器 `.env`，仓库只提交 `.env.example`：
 
 ```dotenv
-LINUX_TEST_SITE_ADDRESS=http://localhost
+LINUX_TEST_SITE_ADDRESS=http://192.168.50.201
 POSTGRES_DB=toccards_test
 POSTGRES_USER=toccards
 POSTGRES_PASSWORD=replace-me
 DATABASE_URL=postgres://toccards:replace-me@db:5432/toccards_test
 PORT=3000
-ALLOWED_ORIGINS=http://localhost
+ALLOWED_ORIGINS=http://192.168.50.201:8080,http://localhost:3000,http://127.0.0.1:3000
 OBJECT_STORAGE_PATH=/data/scan-images
 VECTOR_RECOGNITION_BASE_URL=https://recognize-vec.tcgcard.fun
 JWT_SECRET=replace-with-independent-test-secret
@@ -139,7 +148,7 @@ OAuth、Apple、ZeptoMail、Mixpanel 和 Singular 配置全部使用测试凭证
 → 按发布授权使用同一套业务代码发布 Cloudflare prod
 ```
 
-只有基础设施接口新增能力时才需要同时扩展 Cloudflare/Linux 适配器。普通 API、页面、业务规则和 PostgreSQL migration 只实现一次。上面是整改目标，当前 App/Admin 默认入口与 dev 发布指令尚未完成切换；Linux 发布检查已纳入全部 `src/linux` 测试及 PostgreSQL 扫描路由测试。监听器与手动 Runner 的使用、历史发布证据见[自动部署手册](../05-delivery/linux-test-auto-deployment.md)。
+只有基础设施接口新增能力时才需要同时扩展 Cloudflare/Linux 适配器。普通 API、页面、业务规则和 PostgreSQL migration 只实现一次。当前 App/Admin 默认入口已在源码中整改，实际部署和 dev 发布指令仍需后续切换；Linux 发布检查已纳入全部 `src/linux`、PostgreSQL 扫描路由及离线代理 Host 回归测试。监听器与手动 Runner 的使用、历史发布证据见[自动部署手册](../05-delivery/linux-test-auto-deployment.md)。
 
 ## 验收范围
 

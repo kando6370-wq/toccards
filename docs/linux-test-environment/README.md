@@ -8,7 +8,7 @@
 >
 > 服务器历史核验：2026-09-09，本轮未重新连接
 
-Linux 部署资产已通过 `19a6ac4` 合入 dev；2026-09-15 的后端整改已在源码中补齐 CF HTTP 识别适配，必填配置为 `VECTOR_RECOGNITION_BASE_URL`。当前运行 release、SHA 与数据库 ledger 仍需按本文命令回读；App/Admin 默认入口和线上切换尚未完成，见[兼容缺口](../releases/v1.1.0/02-architecture/linux-test-environment.md#扫描兼容缺口)。
+Linux 部署资产已通过 `19a6ac4` 合入 dev；2026-09-15 的整改源码已补齐 CF HTTP 识别适配和 App/Admin 默认内网入口，识别配置为 `VECTOR_RECOGNITION_BASE_URL`。当前运行 release、SHA 与数据库 ledger 仍需回读，服务器发布和旧 CF dev 退役尚未完成，见[兼容设计](../releases/v1.1.0/02-architecture/linux-test-environment.md)。
 
 ## 1. 目标与原则
 
@@ -101,12 +101,14 @@ kd201 使用局域网 HTTP 时的非敏感配置示例：
 ```dotenv
 LINUX_TEST_SITE_ADDRESS=http://192.168.50.201
 HTTP_PORT=8080
-ALLOWED_ORIGINS=http://192.168.50.201:8080
+ALLOWED_ORIGINS=http://192.168.50.201:8080,http://localhost:3000,http://127.0.0.1:3000
 POSTGRES_LISTEN_ADDRESS=192.168.50.201
 POSTGRES_HOST_PORT=15432
 ```
 
 升级本次后端适配前，先补齐 `VECTOR_RECOGNITION_BASE_URL` 并从服务器验证出站连通性。新版本忽略旧 `OCR_SERVICE_BASE_URL`，仅有旧键时拒绝启动；过渡期可保留旧键供旧版本回滚，或恢复对应版本的 `.env`。本阶段没有执行服务器升级、迁移或客户端切换。
+
+App 使用现有 `config/test.json` / `APP_ENV=test` 构建后，业务请求默认进入 `http://192.168.50.201:8080/api/v1`。Admin development 构建使用同源 `/api/v1/admin`；本机 `pnpm --filter @kando/admin-web dev` 通过 Vite 代理同一路径。Flutter Web 从固定 3000 端口直接访问 Linux，需要服务器 `.env` 中相应 CORS origin；仅修改模板不会自动更新现有服务器配置。测试 App 分享固定进入内网，链接需在同局域网访问；production 保持原有 API/分享配置行为。
 
 真实密码只从服务器读取，不写入本文档：
 

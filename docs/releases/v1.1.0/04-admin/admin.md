@@ -151,6 +151,8 @@ Admin 页面是只读排障层，不提供重放通知、改订单、改 lifecyc
 
 Admin 没有独立生产部署目标。Workers deploy 会先按 dev/prod 模式构建 `auth-core` 和 Admin，再由 Worker assets 发布。验证时至少区分 API health、SPA HTML 和实际 JS assets。
 
+2026-09-15 的 dev 入口整改将 Admin `.env.development` 改为同源 `/api/v1/admin`，部署目标为内网 Linux；本机 Vite 开发服务代理 `/api` 到 `http://192.168.50.201:8080`。production 继续请求原 HTTPS API。现有 CF `deploy:dev` 命令和旧线上入口尚未退役，不能因 development 构建成功就视为流量已完成切换。
+
 扫描环境筛选依赖 PostgreSQL `0010_scan_record_environment.sql`。该迁移必须先于读取/写入 `scan_record.environment` 的新 Worker 部署；数据库默认值 `development` 仅用于迁移后、部署前兼容仍未传列的旧 dev Worker，应用回滚时保留列。新 Worker 必须由 `APP_ENVIRONMENT` 显式写入，缺失配置时返回 `503`，不能依赖数据库默认值。现有 PostgreSQL scan 记录基于已确认的 dev D1 迁移事实回填为 `development`；2026-09-07 实时复核确认 production scan 记录为 0。prod 不迁移 D1 历史记录，切换后的新记录由 `APP_ENVIRONMENT=production` 显式写入，不得复用 dev-only runner 的固定值或数据库默认值。
 
 2026-08-31 已按“先 migration、后应用”完成 dev 发布：`0010` 的 ledger、checksum、非空列、已验证约束、索引及 467 条 `development` 回填均经事务外复核；Cloudflare deployment `222a2069-4924-4fff-b28c-6248a884e457` 将 version `be0a5923-8c81-485c-b8a3-b0a982fca912` 置于 100% dev 流量。`/api/v1/health` 与 `/admin` 返回 `200`，Admin HTML 引用的 10 个 JS/CSS 资源全部返回 `200` 且 SHA-256 与本地 dev 构建一致，未授权 `/api/v1/admin/scans` 返回 `401 UNAUTHORIZED`。未部署 prod，也未执行登录态 Admin 环境筛选人工验收。

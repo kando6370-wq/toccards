@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/app_upgrade/app_upgrade_models.dart';
 import 'package:kando_app/features/app_upgrade/app_upgrade_repository.dart';
 import 'package:kando_app/features/card_detail/card_detail_actions.dart';
+import 'package:kando_app/shared/api/api_environment.dart';
 import 'package:share_plus/share_plus.dart';
 
 void main() {
@@ -48,13 +49,13 @@ void main() {
       expect(
         shared?.text,
         'Charizard ex\nObsidian Flames\nMarket price: \$780.00\n'
-        'https://api-dev.tcgcard.fun/share/cards/pokemon:sv3:125',
+        '${AppConfig.isTestEnvironment ? 'http://192.168.50.201:8080' : 'https://api-dev.tcgcard.fun'}/share/cards/pokemon:sv3:125',
       );
     },
   );
 
   test(
-    'card share uses the production API origin in production builds',
+    'copied production share settings cannot send test users to the production API',
     () async {
       ShareParams? shared;
       final actions = PluginCardDetailActions(
@@ -76,7 +77,11 @@ void main() {
 
       expect(
         shared?.text,
-        contains('https://api.tcgcard.fun/share/cards/pokemon:sv3:125'),
+        contains(
+          AppConfig.isTestEnvironment
+              ? 'http://192.168.50.201:8080/share/cards/pokemon:sv3:125'
+              : 'https://api.tcgcard.fun/share/cards/pokemon:sv3:125',
+        ),
       );
     },
   );
@@ -111,7 +116,11 @@ void main() {
 
       expect(
         shared?.uri,
-        Uri.parse('https://api.tcgcard.fun/share/cards/560537'),
+        Uri.parse(
+          AppConfig.isTestEnvironment
+              ? 'http://192.168.50.201:8080/share/cards/560537'
+              : 'https://api.tcgcard.fun/share/cards/560537',
+        ),
       );
       expect(shared?.text, isNull);
       expect(shared?.previewThumbnail, isNull);
@@ -139,7 +148,9 @@ void main() {
 
       expect(
         shared?.uri.toString(),
-        '$cardShareFallbackBaseUrl/pokemon:sv3:125',
+        AppConfig.isTestEnvironment
+            ? 'http://192.168.50.201:8080/share/cards/pokemon:sv3:125'
+            : 'https://api.tcgcard.fun/share/cards/pokemon:sv3:125',
       );
     },
   );

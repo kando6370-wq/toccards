@@ -609,7 +609,7 @@
 				FIREBASE_ENVIRONMENT = test;
 				GOOGLE_CLIENT_ID = "1030914046373-j0ihp89joii8c9k66v89l9dske6mp0mc.apps.googleusercontent.com";
 				GOOGLE_REVERSED_CLIENT_ID = "com.googleusercontent.apps.1030914046373-j0ihp89joii8c9k66v89l9dske6mp0mc";
-				INFOPLIST_FILE = Runner/Info.plist;
+				INFOPLIST_FILE = "Runner/Info-test.plist";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1071,7 +1071,7 @@
 				FIREBASE_ENVIRONMENT = test;
 				GOOGLE_CLIENT_ID = "1030914046373-j0ihp89joii8c9k66v89l9dske6mp0mc.apps.googleusercontent.com";
 				GOOGLE_REVERSED_CLIENT_ID = "com.googleusercontent.apps.1030914046373-j0ihp89joii8c9k66v89l9dske6mp0mc";
-				INFOPLIST_FILE = Runner/Info.plist;
+				INFOPLIST_FILE = "Runner/Info-test.plist";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1098,7 +1098,7 @@
 				FIREBASE_ENVIRONMENT = test;
 				GOOGLE_CLIENT_ID = "1030914046373-j0ihp89joii8c9k66v89l9dske6mp0mc.apps.googleusercontent.com";
 				GOOGLE_REVERSED_CLIENT_ID = "com.googleusercontent.apps.1030914046373-j0ihp89joii8c9k66v89l9dske6mp0mc";
-				INFOPLIST_FILE = Runner/Info.plist;
+				INFOPLIST_FILE = "Runner/Info-test.plist";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

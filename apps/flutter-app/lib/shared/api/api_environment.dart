@@ -10,9 +10,12 @@ abstract final class AppConfig {
       ? AppEnvironment.production
       : AppEnvironment.test;
 
-  static const apiBaseUrl = environment == AppEnvironment.production
-      ? 'https://api.tcgcard.fun/api/v1'
-      : 'https://api-dev.tcgcard.fun/api/v1';
+  static const apiOrigin = environment == AppEnvironment.production
+      ? 'https://api.tcgcard.fun'
+      : 'http://192.168.50.201:8080';
+
+  static const apiBaseUrl = '$apiOrigin/api/v1';
+  static const cardShareBaseUrl = '$apiOrigin/share/cards';
 
   static const isTestEnvironment = environment == AppEnvironment.test;
   static const isDebugData = isTestEnvironment;

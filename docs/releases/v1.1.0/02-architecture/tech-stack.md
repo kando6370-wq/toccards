@@ -54,7 +54,7 @@ CI 的 Flutter 版本冲突是显式目标差异，不合并成虚构的统一�
 
 ## 5. 配置和安全边界
 
-- Flutter API 地址等使用 `--dart-define-from-file` 按环境注入；未注入 `APP_ENV` 时默认 production，以匹配 iOS/Android 默认生产 App 身份，test 构建必须显式加载 `apps/flutter-app/config/test.json`，根 Melos 测试任务显式注入 `APP_ENV=test`。
+- Flutter 通过 `--dart-define-from-file` 选择环境，`APP_ENV=test` 默认业务 API 为 `http://192.168.50.201:8080/api/v1`，production 和未配置值维持原生产 HTTPS API。Android 从同一参数选择指定 IP 的测试 HTTP 策略，iOS 由现有 test flavor 的独立 plist 配置；根 Melos 测试显式注入 `APP_ENV=test`。
 - Workers 公开 vars 与 bindings 在 `wrangler.toml` 分环境声明。
 - Apple、JWT、邮件、分析等密钥必须使用 secret 管理，不进入源码、文档或测试夹具。
 - dev 与 prod 共享 PostgreSQL 业务数据，但 `APP_ENVIRONMENT`、Bundle ID、Product ID 白名单、KV、R2、域名和密钥严格隔离。

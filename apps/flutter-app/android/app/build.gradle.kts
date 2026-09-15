@@ -1,5 +1,6 @@
 import java.io.FileInputStream
 import java.util.Properties
+import java.util.Base64
 
 plugins {
     id("com.android.application")
@@ -13,6 +14,12 @@ val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
     FileInputStream(keystorePropertiesFile).use(keystoreProperties::load)
 }
+
+val isTestEnvironment = (findProperty("dart-defines") as? String).orEmpty()
+    .split(",")
+    .filter { it.isNotEmpty() }
+    .map { String(Base64.getDecoder().decode(it), Charsets.UTF_8) }
+    .lastOrNull { it.startsWith("APP_ENV=") } == "APP_ENV=test"
 
 android {
     namespace = "com.cardai.tcg"
@@ -37,6 +44,11 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["networkSecurityConfig"] = if (isTestEnvironment) {
+            "@xml/network_security_config_test"
+        } else {
+            "@xml/network_security_config"
+        }
     }
 
     if (keystorePropertiesFile.exists()) {

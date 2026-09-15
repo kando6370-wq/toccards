@@ -7,6 +7,15 @@ are `test` and `production`; the default is `production` so an unconfigured
 build stays aligned with the default production app identity. Test builds must
 explicitly load `config/test.json`.
 
+既有 `test` 环境现默认请求内网 Linux `http://192.168.50.201:8080/api/v1`，
+`production` 继续请求 `https://api.tcgcard.fun/api/v1`。登录、目录、收藏、扫描、
+汇率和版本配置共用该环境入口。测试设备需要能访问此局域网；构建成功不代表
+Linux 新后端已部署或手机链路已验收。
+
+测试分享固定使用 `http://192.168.50.201:8080/share/cards`，避免复制来的数据库
+分享配置把测试用户带到生产环境；生产分享继续优先采用服务端配置。
+目录卡牌图片仍使用 `https://image.tcgcard.fun`，不属于本次 API 入口迁移。
+
 From the repository root, run the web app with:
 
 ```bash
@@ -35,6 +44,21 @@ validated against the final Development-signed internal IPA rather than
 inferred from Xcode project settings. Other Bundle IDs do not currently have a
 fixed App Attest rule. Production keeps `com.cardai.tcg` and its separate
 Firebase configuration.
+
+测试 flavor 的 Debug/Profile/Release 三个配置使用 `ios/Runner/Info-test.plist`，
+只为 `192.168.50.201` 设置 HTTP ATS 例外并声明局域网用途；其余 plist 内容
+与生产 `Info.plist` 保持一致。iOS 17+ 使用 IP exception，iOS 16 按系统对 IP
+直连的规则处理。首次访问局域网时需允许系统权限；iOS 签名包仍需在 macOS 构建
+后核验，不能仅凭源码或 Windows 测试认定权限和 App Attest 已生效。
+
+Android 沿用 `--dart-define-from-file=config/test.json` 选择测试环境，无需新增
+flavor。Gradle 从同一 `APP_ENV=test` 编译参数选择网络策略，只为该 IP 允许 HTTP；
+production 和未配置环境均使用禁止明文的默认策略。可分别构建验证：
+
+```bash
+flutter build apk --debug --no-pub --dart-define-from-file=config/test.json
+flutter build apk --debug --no-pub --dart-define-from-file=config/production.json
+```
 
 ## 扫描平台与协议
 

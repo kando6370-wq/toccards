@@ -43,7 +43,7 @@ jobs:
             src/scan/routes.test.ts \
             src/cors.test.ts \
             src/index-postgres-runtime.test.ts
-          node --test apps/admin-web/test/api-environment-intent.test.mjs
+          node --test apps/admin-web/test/api-environment-intent.test.mjs deploy/linux/offline/web-server.test.mjs
 
       - name: Build Linux API and Admin
         run: pnpm --filter @kando/workers-api build:linux

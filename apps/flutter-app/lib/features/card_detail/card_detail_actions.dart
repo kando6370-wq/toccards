@@ -18,10 +18,7 @@ final cardDetailActionsProvider = Provider<CardDetailActions>((ref) {
 typedef CardShareLauncher = Future<void> Function(ShareParams params);
 typedef CardShareThumbnailLoader = Future<XFile?> Function(String imageUrl);
 
-const cardShareFallbackBaseUrl =
-    AppConfig.environment == AppEnvironment.production
-    ? 'https://api.tcgcard.fun/share/cards'
-    : 'https://api-dev.tcgcard.fun/share/cards';
+const cardShareFallbackBaseUrl = AppConfig.cardShareBaseUrl;
 
 Future<void> _shareCard(ShareParams params) async {
   await SharePlus.instance.share(params);
@@ -87,8 +84,10 @@ class PluginCardDetailActions implements CardDetailActions {
     } on Object {
       // Sharing keeps its existing public-link fallback when config is offline.
     }
-    final baseUrl =
-        _webUri(config.cardShareBaseUrl) ?? Uri.parse(cardShareFallbackBaseUrl);
+    final baseUrl = AppConfig.isTestEnvironment
+        ? Uri.parse(cardShareFallbackBaseUrl)
+        : _webUri(config.cardShareBaseUrl) ??
+              Uri.parse(cardShareFallbackBaseUrl);
     final cardUrl = baseUrl.replace(
       pathSegments: [
         ...baseUrl.pathSegments.where((segment) => segment.isNotEmpty),

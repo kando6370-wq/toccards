@@ -49,7 +49,7 @@ Marketing Web ──> 独立的营销与法律页面
 - D1 已废弃；Cloudflare 测试环境 dev/test 与正式环境 prod 均已完成 PostgreSQL 迁移并通过同一个 Hyperdrive 使用 PlanetScale PostgreSQL，业务与目录真源统一为 PostgreSQL。2026-09-09 用户再次确认该状态，Cloudflare 回读也确认两个当前运行版本均无 D1 binding。`APP_ENVIRONMENT`、Apple 配置、KV、R2、域名和 secrets 仍按环境隔离；后续发布不再包含 D1 迁移、冲突审计或 D1 回滚前置任务。
 - dev/prod 的 PostgreSQL 迁移均已完成。后续 v1.1 开发不得新增或恢复 D1 binding、schema、migration、类型依赖、测试基座、读写路径、数据补全、回退或灾备方案；旧 prod D1 仅作为历史资源，不得成为新实现或回退依据。仓库中仍存在的 `D1Database` 兼容类型、Miniflare 测试和退役迁移工具属于待清理债务，只能在明确授权的清理任务中收敛，任何新功能或 BUG 修复不得复制、扩展或继续维护。`docs/releases/v1.0.0` 冻结内容仍按文档规则原样保留。
 - dev 扫描使用 Flutter 编排的端侧模型和 iOS/Android 原生推理桥接，经 `VECTOR_RECOGNITION` 调用 `recognize-vec`。Cloudflare 使用 Service Binding；Linux 源码通过必填 `VECTOR_RECOGNITION_BASE_URL` 的 HTTP 适配只发送向量，候选补全、额度和扫描记录仍使用本地 PostgreSQL。旧 OpenCV/pHash 请求及 `OCR_SERVICE_BASE_URL` 运行时字段已移除。平台范围为 iOS 16+、Android API 24+，Web 扫描暂不支持；后续变更须保持两端兼容。旧来源分支已清理，后续从含向量合并的 `dev` 开发与部署。
-- Linux 入口仅允许 `APP_ENVIRONMENT=development`，通过 `DATABASE_URL` 使用独立 PostgreSQL，配合进程内 KV 与本地图片卷。2026-09-15 用户明确这是现有 dev 环境迁至 Linux 的整改，CF 只读向量识别继续复用，prod 保持现有部署。本地后端适配不代表 App/Admin 默认入口、发布流程或线上流量已切换；实施状态与验收边界见 [Linux 测试环境](docs/releases/v1.1.0/02-architecture/linux-test-environment.md)。
+- Linux 入口仅允许 `APP_ENVIRONMENT=development`，通过 `DATABASE_URL` 使用独立 PostgreSQL，配合进程内 KV 与本地图片卷。2026-09-15 用户明确这是现有 dev 环境迁至 Linux 的整改，CF 只读向量识别继续复用，prod 保持现有部署。源码中 App `test` 默认请求 `http://192.168.50.201:8080/api/v1`，Admin development 使用同源 API/本机 Vite 内网代理；测试分享与移动端指定 IP 的网络策略一并隔离。源码和构建验证不代表服务器发布、设备验收或旧 CF dev 退役已完成，见 [Linux 测试环境](docs/releases/v1.1.0/02-architecture/linux-test-environment.md)。
 - `packages/*` 只承载跨应用共享能力，应用之间通过包依赖或 HTTP 契约协作。
 
 ## 工具链与常用命令

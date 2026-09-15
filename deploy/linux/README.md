@@ -39,6 +39,8 @@ HTTP_PORT=8080
 ALLOWED_ORIGINS=http://服务器IP:8080
 ```
 
+现有 App test 默认请求 `http://192.168.50.201:8080/api/v1`；Admin development 构建使用同源 `/api/v1/admin`，本机 Vite 代理到该内网服务。Flutter Web 的 `pnpm app:chrome:dev` 固定使用 3000 端口，应在服务器 `ALLOWED_ORIGINS` 增加 `http://localhost:3000`、`http://127.0.0.1:3000`，模板已列出这些 origin。本阶段没有写入服务器 `.env`。
+
 启动：
 
 ```bash
