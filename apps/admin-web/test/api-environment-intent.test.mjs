@@ -32,7 +32,9 @@ test("prod and dev builds use isolated APIs because admin actions must not cross
   assert.match(developmentEnvironment, /^VITE_API_BASE_URL=\/api\/v1\/admin\s*$/);
   assert.match(linuxEnvironment, /^VITE_API_BASE_URL=\/api\/v1\/admin\s*$/);
   assert.match(workersPackage.scripts["deploy:prod"], /build:assets:prod/);
-  assert.match(workersPackage.scripts["deploy:dev"], /build:assets:dev/);
+  assert.match(workersPackage.scripts["deploy:dev"], /deploy\/linux\/deploy-dev\.mjs/);
+  assert.doesNotMatch(workersPackage.scripts["deploy:dev"], /wrangler/);
+  assert.match(workersPackage.scripts["deploy:dry-run:dev"], /deploy-dev\.mjs --dry-run/);
 });
 
 test("local Admin requests use the Linux proxy without requiring cross-origin credentials", async () => {

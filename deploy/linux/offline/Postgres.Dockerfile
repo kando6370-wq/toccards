@@ -4,8 +4,8 @@ FROM ${POSTGRES_RUNTIME_BASE_IMAGE}
 
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    postgresql \
-    postgresql-client \
+    postgresql-18 \
+    postgresql-client-18 \
   && rm -rf /var/lib/apt/lists/* /var/lib/postgresql/*
 
 COPY deploy/linux/offline/postgres-entrypoint.sh /usr/local/bin/postgres-entrypoint

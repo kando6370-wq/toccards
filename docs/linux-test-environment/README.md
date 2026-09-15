@@ -4,11 +4,11 @@
 > 测试服务器：`kd201`（`192.168.50.201`）  
 > 测试入口：`http://192.168.50.201:8080`  
 > 自动部署分支：`dev`  
-> 代码核对：2026-09-10，`dev@699ca48`
+> 当前发布基线：2026-09-15，`dev-inner@c9742fa` 加本阶段未提交改动
 >
-> 服务器历史核验：2026-09-09，本轮未重新连接
+> 服务器核验：2026-09-15，既有实例升级、数据库与受控扫描通过
 
-Linux 部署资产已通过 `19a6ac4` 合入 dev；2026-09-15 的整改源码已补齐 CF HTTP 识别适配和 App/Admin 默认内网入口，识别配置为 `VECTOR_RECOGNITION_BASE_URL`。当前运行 release、SHA 与数据库 ledger 仍需回读，服务器发布和旧 CF dev 退役尚未完成，见[兼容设计](../releases/v1.1.0/02-architecture/linux-test-environment.md)。
+Linux 部署资产已通过 `19a6ac4` 合入 dev；2026-09-15 已将整改发布到现有 kd201，当前 release 为 `manual-dev-inner-c9742fa-dirty-20260915-155717`。数据库保持 PostgreSQL 18.6 与原卷，ledger 为 13 项；业务资料、扫描记录、额度与收藏在 Linux，向量识别经 `VECTOR_RECOGNITION_BASE_URL` 访问原 CF。此次使用密码 SSH/SFTP 上传已验证发布包，再调用同一发布脚本；没有安装登录密钥，日常非交互发布仍需配置 SSH key/agent。完整证据见[验证记录](../releases/v1.1.0/05-delivery/VERIFICATION.md)。
 
 ## 1. 目标与原则
 
@@ -206,6 +206,10 @@ ssh kd201 'tail -f /home/user/apps/toccards-test/watcher/logs/watch.log'
 ## 6. 手工部署
 
 只有自动监听器不可用或需要受控恢复时才使用手工部署。
+
+当前 dev 发布命令已在源码中统一到 Linux。开发机先运行 `pnpm --filter @kando/workers-api deploy:dry-run:dev`，生成带 SHA/分支/dirty 状态的发布包；配置 `TOCCARDS_SSH_TARGET` 为已验证的 SSH 目标后，运行 `pnpm --filter @kando/workers-api deploy:dev`。目标账号需能以密钥/agent 非交互登录并访问 Docker；包上传到 `~/apps/toccards-test/incoming/`，服务器配置继续读取 `shared/.env`，不从开发机复制密钥。
+
+新版发布脚本先执行环境、数据库和 CF 识别预检，已有库无论是否存在 `current` 链接都须备份；随后执行原版本化发布、migration、健康检查和应用回退。标准 PostgreSQL 默认已统一为 18，并固定原 `PGDATA` 路径；这不代表可以自动升级任何旧大版本数据库。部署脚本与参数详见[发布入口](../../deploy/linux/README.md#日常-dev-发布命令)。
 
 ### 6.1 标准 Compose
 

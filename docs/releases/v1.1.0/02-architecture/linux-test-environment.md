@@ -4,8 +4,8 @@
 
 - 当前后端适配：2026-09-15，`dev-inner` 基于 `dev@b941a3f`；原始设计基线为 2026-08-26 的 `dev@8e22c1d`。
 - 合并状态：`19a6ac4` 已将 Linux 入口、Compose、离线镜像和分支监听发布脚本合入 dev。
-- 验证边界：2026-08-27 离线容器与持久化验证、2026-09-09 功能分支部署与局域网 PostgreSQL 验证均为历史证据；本轮未回读 kd201 当前 release、提交或 migration ledger。
-- 当前源码已通过 HTTP 适配 `VECTOR_RECOGNITION`，并将既有 App test/Admin development 的业务入口改为内网 Linux；发布目标、服务器新版本和旧 CF dev 退役尚待后续完成，设备与真实扫描仍需验收。
+- 当前服务器：2026-09-15 复核 `feature/linux-test-environment` 的既有部署方式后，原位升级为 `manual-dev-inner-c9742fa-dirty-20260915-155717`；manifest 基线 `c9742fa`、分支 `dev-inner`、`working_tree_dirty=true`。PostgreSQL 18.6、原数据库/图片卷保留，ledger 为 13 项，详见[验证记录](../05-delivery/VERIFICATION.md)。
+- App test/Admin development 入口和 `deploy:dev` 均已改为 Linux；服务器 CF 出站、受控向量扫描、额度及收藏写库通过。尚未合入 `dev`，设备与真实图片扫描、第三方测试配置和旧 CF dev 退役仍待验收。
 - 环境边界：Linux 使用独立测试 PostgreSQL；Cloudflare dev/test 与 prod 已完成 PostgreSQL 迁移且无 D1 binding，不存在待执行的 prod D1 切换任务。
 
 ## 背景与架构纠正
@@ -24,7 +24,7 @@
 
 ## 非目标
 
-- 本阶段只完成后端配置与 HTTP 识别适配，不修改 Cloudflare 数据库、bindings 或流量；实际切换及旧 CF dev 退役属于后续交付。D1 已退役，不属于发布或回滚目标。
+- 本次升级现有 Linux 实例，不修改 Cloudflare 数据库、bindings 或流量；旧 CF dev 退役仍需整体验收。D1 已退役，不属于发布或回滚目标。
 - 不新增 D1、SQLite、Miniflare 数据库回退路径。
 - 不在第一版引入 Redis、MinIO、Kubernetes 或多 API 副本。
 - 不在仓库提交 Linux 服务器真实域名、密码、Token 或证书私钥。
@@ -85,7 +85,7 @@ Linux 使用本地文件目录代替 R2，实现当前使用的 `put/get/delete`
 
 HTTP 适配的 10 秒超时持续覆盖响应正文，并保留调用方取消，不重试或跟随重定向。上游 HTTP 失败、无效 JSON 或超时沿用共享路由的 `502 VECTOR_RECOGNITION_UNAVAILABLE`、审计失败记录与释放额度；无匹配或本地目录不可用不错误扣次。缺少 binding 的既有受控 `503` 分支保留。旧 `OCR_SERVICE_BASE_URL` 已从运行时配置和 `Env` 移除，不再作为回退。
 
-此前“必须独立部署向量服务、不得复用 CF 识别”的设计已被 2026-09-15 用户明确的整改方向替代：dev 业务本地化，识别继续使用现有 CF 服务。本阶段完成的是代码适配，健康检查与本地受控测试不能代替 kd201 出站验证、CF 实际响应和两端真实扫描验收。
+此前“必须独立部署向量服务、不得复用 CF 识别”的设计已被 2026-09-15 用户明确的整改方向替代：dev 业务本地化，识别继续使用现有 CF 服务。本次已从 kd201 验证 CF 出站与实际响应，并经内网 API 验证合成图片/512 维向量的完整服务端链路；它不覆盖两端模型推理、真实图片准确率或真机局域网权限。
 
 ### 定时任务
 
@@ -134,7 +134,7 @@ OAuth、Apple、ZeptoMail、Mixpanel 和 Singular 配置全部使用测试凭证
 ## 数据与安全隔离
 
 - PostgreSQL volume、扫描图片 volume、JWT secret 和外部服务凭证均为 Linux 测试专用。
-- PostgreSQL 默认仅映射宿主机回环地址 `127.0.0.1:15432`；开发机直连时可显式设置可信局域网 `POSTGRES_LISTEN_ADDRESS`。kd201 的 `192.168.50.201:15432` 是 2026-09-09 验证配置，本轮未重新连接。
+- PostgreSQL 默认仅映射宿主机回环地址 `127.0.0.1:15432`；开发机直连时可显式设置可信局域网 `POSTGRES_LISTEN_ADDRESS`。2026-09-15 已再次从局域网只读查询 kd201 的 `192.168.50.201:15432`，发布保留该映射和原数据库卷。
 - API 不直接发布宿主机端口；Web 入口与上述受限 PostgreSQL 端口由 Compose 管理，数据库不得映射到公网。
 - migration runner 使用独立 ledger 表记录已执行的 PostgreSQL migration。
 - Linux 环境禁止配置正式 PlanetScale/Hyperdrive 连接串。
@@ -148,7 +148,7 @@ OAuth、Apple、ZeptoMail、Mixpanel 和 Singular 配置全部使用测试凭证
 → 按发布授权使用同一套业务代码发布 Cloudflare prod
 ```
 
-只有基础设施接口新增能力时才需要同时扩展 Cloudflare/Linux 适配器。普通 API、页面、业务规则和 PostgreSQL migration 只实现一次。当前 App/Admin 默认入口已在源码中整改，实际部署和 dev 发布指令仍需后续切换；Linux 发布检查已纳入全部 `src/linux`、PostgreSQL 扫描路由及离线代理 Host 回归测试。监听器与手动 Runner 的使用、历史发布证据见[自动部署手册](../05-delivery/linux-test-auto-deployment.md)。
+只有基础设施接口新增能力时才需要同时扩展 Cloudflare/Linux 适配器。普通 API、页面、业务规则和 PostgreSQL migration 只实现一次。App/Admin 默认入口与 dev 发布指令已整改：`deploy:dry-run:dev` 只生成 Linux 发布包，`deploy:dev` 通过显式 SSH 目标调用既有版本化发布脚本；预检配置、本地数据库和 CF 识别后，先备份再迁移/发布。Linux 发布检查覆盖全部 `src/linux`、PostgreSQL 扫描路由、离线代理及发布预检/备份回归。当前服务器已完成手工升级，现有监听器仍监控 `dev`，见[自动部署手册](../05-delivery/linux-test-auto-deployment.md)。
 
 ## 验收范围
 

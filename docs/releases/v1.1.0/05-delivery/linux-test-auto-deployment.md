@@ -6,7 +6,9 @@
 
 测试地址：`http://192.168.50.201:8080`
 
-部署资产已通过 `19a6ac4` 合入；2026-09-15 的后端整改基于 `dev@b941a3f`，增加 CF HTTP 向量适配与对应发布检查。服务器安装、发布与连接结果仍保留原历史日期；本阶段未修改 kd201 的 crontab、运行 release 或数据库 ledger，实际出站和扫描仍需验收，详见[兼容缺口](../02-architecture/linux-test-environment.md#扫描兼容缺口)。
+部署资产已通过 `19a6ac4` 合入；2026-09-15 已从 `dev-inner` 工作区升级 kd201 现有实例。当前 release 为 `manual-dev-inner-c9742fa-dirty-20260915-155717`，API/数据库健康、CF 实际出站与受控扫描入库验证通过，ledger 为 13 项。本次使用密码 SSH/SFTP 上传同一个本地发布包并调用 `deploy-release.sh`，没有安装密钥、修改 crontab、监听器或其分支状态文件，详见[验证记录](VERIFICATION.md)。
+
+当前源码的 `deploy:dev` 已改为 Linux SSH 发布，`deploy:dry-run:dev` 仅生成发布包；`build:dev` 构建 Linux API 与 Admin development，旧 `build:linux` 为兼容别名。手工发布可以使用当前整改分支工作树，清单明确记录 SHA/分支/dirty 状态；自动监听仍以 `dev` 为默认来源，实际合并、监听器更新和旧 CF dev 退役尚需按授权实施。
 
 ## 当前工作方式
 
@@ -124,8 +126,8 @@ cat /home/user/apps/toccards-test/watcher/state/last-deployed-sha
 发布脚本：`deploy/linux/ci/deploy-release.sh`
 
 1. 使用独立发布锁防止并发发布。
-2. 验证 Artifact 和服务器 `.env` 完整性。
-3. 在 `/home/user/apps/toccards-test/backups` 创建 PostgreSQL custom-format 备份。
+2. 验证 Artifact 和服务器 `.env`，执行 `preflight.mjs`：拒绝非 development、非 Compose 数据库、PostgreSQL 大版本不兼容与错误识别服务；用拟发布凭据只读核对数据库并列出待执行 migration。
+3. 在 `/home/user/apps/toccards-test/backups` 创建 PostgreSQL custom-format 备份；只要已有数据库容器运行就必须备份，不以 `current` 链接是否存在作为跳过条件。
 4. 创建不可覆盖的版本目录 `/home/user/apps/toccards-test/releases/<release-id>`。
 5. 构建服务器本机架构的离线 Node/PostgreSQL/API/Web 镜像。
 6. 运行 migration，并等待 API 健康。
@@ -138,6 +140,12 @@ cat /home/user/apps/toccards-test/watcher/state/last-deployed-sha
 - migration、API 或 Admin 验证失败：脚本使用上一个 release 重新构建应用容器，`current` 不切换。
 - 数据库 migration 不会自动反向执行。自动发布 migration 必须向后兼容；需要恢复数据库时，由维护人员明确选择发布前生成的 `.dump` 文件后手动恢复。
 - 失败的新 release 会保留，方便读取日志；确认无用后再人工删除。
+
+## 从开发机发布当前 dev 工作树
+
+先执行 `pnpm --filter @kando/workers-api deploy:dry-run:dev` 检查 Linux 发布包，再配置 `TOCCARDS_SSH_TARGET` 并运行 `pnpm --filter @kando/workers-api deploy:dev`。SSH 目标必须已配置非交互密钥/agent 登录及可信主机密钥；该命令不会调用 Wrangler，也不会改变服务器监听分支或写入 `.env`。具体包内容、路径与命令见[部署入口](../../../../deploy/linux/README.md#日常-dev-发布命令)。
+
+服务器也可只运行预检：`node --env-file=/home/user/apps/toccards-test/shared/.env <artifact>/deploy/linux/preflight.mjs <artifact>`。该检查不执行 migration；正式发布会在备份后由原 migrate 服务应用缺失文件。标准与离线 PostgreSQL 均为 18，原数据卷路径保持不变。
 
 查看状态和日志：
 

@@ -23,7 +23,7 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 | 范围 | 当前代码事实 | v1.1 差距 |
 |---|---|---|
-| dev 迁往 Linux | 源码已提供 CF HTTP 向量适配，App test/Admin development 默认入口及测试分享改为内网，移动端网络例外按测试构建隔离 | dev 发布目标与旧 CF dev 退役尚待完成；kd201 部署、两端签名包和完整扫描待验收，见[兼容设计](../02-architecture/linux-test-environment.md) |
+| dev 迁往 Linux | 已从 `dev-inner` 工作区升级 kd201 原实例；发布前预检与备份通过，PostgreSQL 18.6 和原卷保留，受控 CF 扫描、Linux 额度/记录/收藏写库及 Admin 资源验证通过 | 本阶段尚未提交/合入 `dev`；监听器仍监控 `dev`，第三方测试配置、管理员操作、两端签名包/真机扫描及旧 CF dev 退役待完成，见[兼容设计](../02-architecture/linux-test-environment.md) |
 | App 版本与交付 | 实际 Home 首帧激活版本检查，后续 Home 复查静默进行，已确认强更继续全局拦截；iOS 校验后保存 IPA/dSYM，按 Bundle ID 保留测试 3 个/正式 7 个版本 | 新包安装、升级/商店往返和真机验收待完成；本轮未在 macOS 执行保存脚本或签名构建 |
 | App 订阅体验 | 已有 Subscription Page、Paywall、Success、StoreKit 2 Fresh Purchase verifier、Secure Storage 补偿队列、本机 Restore 结果分流、App Attest 原生桥接，以及 Performance/1Y/Folder/Scan Waiting 的来源动作恢复；Home/Search/Collection/Profile 顶部入口、Profile Banner 和 Scan 顶部 Pro 次数卡均已接入完整 Subscription Page，功能卡点仍使用 Functional Paywall Bottom Sheet；Profile 顶部及升级 Banner 已同步 Figma `2129:5678` 并按左右 20px 响应式布局，Search/Collection 顶部已同步 Figma `2070:9663` 的标题与皇冠 PRO 胶囊，Search 顶部搜索框、游戏选择框及 Cards/Sets 切换框和 Collection 顶部 Tab、搜索框均已统一为 44px，Collection Portfolio 摘要已同步 Figma `2070:9486` 的 110px 紧凑布局，Home 顶部订阅入口及 Overview/Performance Tab 已同步 Figma `2181:12864`，模式切换器使用固定外框宽度以保持皇冠入口位置稳定；商品局部缺失、15 秒重载、Purchase 状态、首次/冷启动 Premium 三态分流、ATT/Singular 启动顺序及 v1.1 PRD 视觉 Golden 已实现 | 前后台完整矩阵、Singular 收入后台收件及 iOS 真机验收不完整 |
 | Premium 真值 | 鉴权保留可信 `session_id`；Fresh Purchase 与 Restore 均已有独立 Apple 证据、session proof 和 session grant 写链；App 使用 Unknown/Free/Premium 三态及已验证缓存；Scan、Folder、Performance、Home 与 Card Detail 普通历史 1Y 已接入统一授权 | 三态仍缺 iOS 真机前后台与过期续订矩阵验收 |

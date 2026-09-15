@@ -6,13 +6,15 @@ D1 已废弃，测试环境 dev/test 与正式环境 prod 均已完成 PostgreSQ
 
 后续发布不再安排 D1 数据迁移、冲突合并、摘要校验或切换演练，运行、回滚与灾备仅基于 PostgreSQL。下文出现的 D1 migration 编号、工具和行数只用于历史追溯，不能作为当前操作指南。`0011` 环境版本键和 `0012` 历史事件回填是 PostgreSQL 内的后续业务增量，不属于 D1 到 PostgreSQL 的移库任务。
 
-本轮未连接数据库重查 migration ledger、行数、约束或价格指针；下列历史数据与 `0011` 初始化结论保留各自检查日期。共享 PostgreSQL 的后续迁移必须另行授权，不能因服务端重新部署而自动执行。
+下列 Cloudflare 共享 PostgreSQL 历史数据与 `0011` 初始化结论保留各自检查日期，本次没有重查或迁移该共享库。2026-09-15 仅在 Linux 独立 `toccards_test` 发布时复核并推进 ledger，见下节。共享 PostgreSQL 的后续迁移必须另行授权，不能因服务端重新部署而自动执行。
 
 ## Scan confirm Purchase Price 事件修复（0012）
 
 `apps/workers-api/src/db/postgres/migrations/0012_scan_confirm_purchase_price_event.sql` 不改变 Schema，只补齐旧 Scan confirm 创建的初始 `collection_item_event` 中遗漏的 Purchase Price、币种和可靠历史起点。修复范围由已确认 `scan_record.user_result.collection_item_id` 精确关联，仅处理主记录当前仍有 Purchase Price、初始事件的购买价与币种均为空的记录；非扫描创建记录、后续编辑事件和当前无 Purchase Price 的记录保持不变。迁移可重复执行。
 
 该迁移与旧 Worker 兼容。发布时先部署已修正 Scan confirm 写入的新 Worker，再执行 `0012`，避免旧 Worker 在数据修复后继续产生漏字段事件。2026-09-09 已部署包含该写入修复及向量识别的 dev Worker，dev 新建扫描收藏会写入完整初始事件；`0012` 历史回填未执行，不能据此宣称既有缺字段事件已修复。prod 仍是较早 Worker，本轮没有部署该修复或执行远程迁移。应用代码回滚时保留已补齐的事件数据，不能安全地批量清空这些字段；如必须执行数据级回滚，应依据执行前备份按精确事件恢复。不得向 D1 迁移或退役工具复制该修复。
+
+Linux 独立环境检查点（2026-09-15）：`toccards_test` 在发布前完成 custom-format 全库备份；`0012` 以事务执行，结果为 `UPDATE 0`，随后登记 migration，ledger 从 12 增至 13 项（0000—0012）。原数据卷和 PostgreSQL 18.6 保留。本次未改变 SQL 文件或 Schema，未执行 Cloudflare 共享库迁移；应用回退不会自动逆向数据库迁移。发布后受控 Scan confirm 的主记录与初始事件均写入 `12.5 USD` 及可靠历史起点，测试业务数据已清理。详细备份和版本位置见[验证记录](../05-delivery/VERIFICATION.md)。
 
 ## 版本管理环境配置拆分（0011）
 

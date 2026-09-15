@@ -2,6 +2,50 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## dev 迁往 Linux：发布入口整改与既有实例升级（2026-09-15）
+
+基线为已提交并推送的 `dev-inner@c9742fadad6783e83667e8204f2951de7bbd6b9b`，本阶段按用户授权整改发布流程并升级 `192.168.50.201` 已存在的项目。开发机为 Windows、Node 22.20.0、pnpm 11.9.0；服务器 `srs-node-test1` 使用 Node 22.22.1、Docker Compose 2.40.3 和 PostgreSQL 18.6。没有新建第二套 Compose 项目或数据卷。
+
+根因、失败证据与修复：
+
+- `deploy:dev` 原来仍调用 Wrangler，会继续向 CF 发布；Admin 环境意图测试修正预期后在旧脚本上得到 1 失败/2 通过。现在 `build:dev` 构建 Linux API 与 Admin development，`deploy:dry-run:dev` 生成发布包，`deploy:dev` 通过显式 SSH 目标调用原版本化发布脚本。prod 发布保持原 Wrangler 入口。
+- 既有 `backup_database` 在缺少 `current` 链接时直接返回，即使数据库仍有数据。回归测试通过真实 Bash 函数复现：临时恢复旧函数后，备份文件数量断言为 `0 !== 1`；按原字节恢复修复后通过。现在任何已存在且运行的数据库均须备份。
+- 标准 Compose 原默认 PostgreSQL 16，服务器实际离线数据库为 18.6。标准/离线配置统一 18，显式保留原 `PGDATA=/var/lib/postgresql/data`；新预检通过拟发布密码执行容器内 TCP 只读查询，核对库身份、18 大版本、migration ledger 和 CF 512 维/cosine/Top 5 健康契约。预检失败时，真实 release 脚本回归确认不会执行备份或容器操作。
+- 发布后手工复核发现，通过 `current` 软链接运行预检会静默退出 0：Node 将 `import.meta.url` 解析为真实文件，但原入口比较只对 argv 使用 `path.resolve`。新增目录软链接回归，在修复前运行 `node --test --test-name-pattern='current release symlink' deploy/linux/preflight.test.mjs` 得到 1 失败/1 通过（另一项为同名匹配的备份测试）；现改为 `realpathSync` 比较。初次正式发布通过真实 artifact 路径调用，已实际执行预检；该缺陷影响手工通过软链接执行的入口。
+
+| 检查 | 实际命令或证据 | 结果 |
+|---|---|---|
+| 发布与入口回归 | `node --test apps/admin-web/test/api-environment-intent.test.mjs deploy/linux/preflight.test.mjs deploy/linux/offline/web-server.test.mjs` | 最终 12/12，退出 0，无跳过；包含软链接回归修复后的全部用例 |
+| 根检查 | `pnpm lint`、`pnpm type-check --force` | 均退出 0；类型检查 7/7、0 缓存 |
+| Linux 发布包 | `pnpm --filter @kando/workers-api deploy:dry-run:dev` | 退出 0，40 个文件；39 个部署输入与工作区逐字节相同，另有 manifest；不含 `.env`、依赖目录或数据卷，shell 文件均为 LF |
+| prod 兼容构建 | `pnpm --filter @kando/workers-api deploy:dry-run:prod` | 退出 0；仅打包，未发布 |
+| Compose 与脚本 | 标准/离线 `docker compose config --format json`；两个 CI shell 文件分别 `bash -n`；两个新增 `.mjs` 的 `node --check` | 通过，保留原卷与 PGDATA；标准镜像未实际启动 |
+| 服务器预检 | `node --env-file=shared/.env <artifact>/deploy/linux/preflight.mjs <artifact>`（由发布脚本执行） | 退出 0；`toccards_test`、PostgreSQL 18、CF 可达，仅待执行 0012 |
+| 既有发布脚本 | 设置明确 release ID 后执行 `bash <artifact>/deploy/linux/ci/deploy-release.sh <artifact>` | 退出 0；备份、离线构建、迁移、API/Admin 健康检查及切换 current 完成 |
+| 本地数据库迁移 | `docker logs toccards-linux-test-migrate-1` 与只读 psql 回读 | 0012 事务提交，`UPDATE 0`；ledger 从 12 增至 13，migration 容器退出 0 |
+| 内网公开入口 | `/health`、`/games`、`/cards/100223`、iOS/Google `/app-config`、Admin HTML/10 个资产、分享页与 3 个允许 origin 的 CORS | 全部通过；卡牌为 Jace's Sanctum，资产 SHA-256 与发布包一致，分享 origin 为 `http://192.168.50.201:8080`；未登录 `/admin/scans` 为 401 |
+| 受控服务端扫描 | 临时匿名账号、合成 745×1043 JPEG、512 维单位向量，经内网 `/scan/recognize` 与 `/scan/:id/confirm` | 200/201；CF 返回 5 个候选，首次约 1.664 秒；Linux 数据库实查账号、development 扫描记录、consumed 额度、收藏与初始事件 `12.5 USD`，Linux 图片卷文件存在；相同 request ID 重放结果相同、未再次扣次 |
+| 最终软链接入口复验 | 在服务器通过 `current/deploy/linux/preflight.mjs` 执行真实预检，再以 `APP_ENVIRONMENT=production` 重试 | development 返回 CF reachable、pending migrations 为空，退出 0；production 明确拒绝并退出 1；最终 API/数据库 healthy、migrate 退出 0 |
+
+发布与回滚事实：
+
+- 先 fetch `feature/linux-test-environment`，其 Compose、离线 Compose、release 脚本和 Node runtime 准备脚本与服务器旧 release 按 LF 字节比较一致，确认复用该分支的既有部署。
+- 原 release：`/home/user/apps/toccards-test/releases/branch-dev-6a9640443c81-20260910155650`，保留供应用回退。
+- 当前 release：`/home/user/apps/toccards-test/releases/manual-dev-inner-c9742fa-dirty-20260915-155717`。manifest 为上述 `c9742fa` 基线、`dev-inner`、`working_tree_dirty=true`，构建时间 `2026-09-15T07:56:56.383Z`；不能描述为纯提交版本。前一版 `manual-dev-inner-c9742fa-dirty-20260915-153655` 已完成上述服务端烟测，最后一次发布仅修正预检软链接入口，API/Admin 产物逐字节相同。
+- 最终上传包 `linux-release-J3Bhzj.tar.gz`，SHA-256 为 `72b047edbb38ed80962d13e265354d5de2954f1d17d80132f2b991d11d009828`，SFTP 上传后远端校验一致，再调用同一 release 脚本。此次使用用户提供的密码登录，没有配置 SSH authorized_keys；日常 `deploy:dev` 的非交互 SSH key/agent 路径未做真实发布验收。
+- 数据库备份：`/home/user/apps/toccards-test/backups/toccards-test-20260915-153659-before-manual-dev-inner-c9742fa-dirty-20260915-153655.dump`，1,120,644,979 字节、权限 600，`pg_dump` 退出 0，`pg_restore --list` 可读取；没有执行整库恢复演练。
+- 最终修正仍完整执行预检和备份：`/home/user/apps/toccards-test/backups/toccards-test-20260915-155720-before-manual-dev-inner-c9742fa-dirty-20260915-155717.dump`，1,120,645,398 字节、权限 600，目录可读取；无待执行 migration，ledger 保持 13 项。
+- 配置备份：`/home/user/apps/toccards-test/shared/.env.before-manual-dev-inner-c9742fa-dirty-20260915-153655`。只更新识别 origin、CORS origin 和标准 PostgreSQL 镜像，其他键、密码及旧 OCR 回滚键保留；新版本不读取旧 OCR 键。
+- 保留 `toccards-linux-test_postgres-data` 与 `toccards-linux-test_scan-images`；API 和数据库 healthy，Web 运行。0012 不改 Schema，当前匹配记录为 0；只在独立 Linux 库执行，未操作 CF 共享数据库，应用回退不会自动逆向 migration。
+- 发布期间持有现有 `watcher/watch.lock` 并复用 `shared/deploy.lock`；完成后监听器恢复每两分钟检查。它仍监控 `dev@b941a3f`，未更改其安装文件、crontab 或状态。后续 dev 发布可能接替本次手工版本，需协调合并。
+- 受控扫描的临时账号、安装记录、会话、额度、扫描、收藏/事件、默认 Folder、偏好和图片/metadata 均已精确清理；保留分配过的 UID 占位与基础设施锁，避免复用已发出的账号编号。
+
+Code Review 自审通过：复核入口及调用方、SSH 目标/命令引用、发布包白名单、敏感配置边界、预检只读性、先预检后备份顺序、PG18/原卷兼容、错误回退和回归测试。软链接返工后重新运行 12 项影响面测试并复审 `realpathSync` 入口判定，未发现剩余代码级阻断项；没有改共享业务路由或 migration SQL。
+
+未运行与限制：本阶段未重跑 Workers/Flutter 全仓测试（业务代码未变化，前两阶段验证保留在下文）；未生成两端签名包或执行真机模型/局域网权限/完整登录购买。没有可用管理员登录凭据，Admin 只验证静态资源和未登录鉴权；Google Client ID、Apple 验签根证书/Server API 私钥、邮件及统计测试配置当前缺失，不能宣称这些链路可用。尝试读取已知 CF Vectorize 向量时现有管理凭据返回 401，因此实际服务烟测使用合法合成向量，不把它当成真实图片识别准确率。Windows Docker daemon 未运行，本轮真实容器验证在 kd201 的离线模式完成。客户端与环境维护者需补齐相应配置和设备验收。
+
+文档已同步发布入口、当前服务器和数据库事实，并保留早期检查点的原日期；15 份 Markdown 的 155 个本地链接/锚点与 `git diff --check` 通过，冻结目录和业务源码无改动。当前阶段没有 Git 提交/推送、合并 `dev`、CF dev/prod 发布或旧 CF dev 资源退役；不能据此标记整体环境整改已全部完成。
+
 ## dev 迁往 Linux：App/Admin 内网入口（2026-09-15）
 
 基线为已提交并推送的 `dev-inner@b27ca90`，本阶段按用户授权整改现有 test/development 默认入口。环境为 Windows、Flutter `3.44.7` / Dart `3.12.2`、Node `22.20.0`、pnpm `11.9.0`；没有新建第三种业务环境，也没有部署服务器或修改数据库数据。

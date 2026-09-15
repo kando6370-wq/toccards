@@ -6,8 +6,8 @@
 
 - `19a6ac4` 已合入 Linux 部署资产；下方原始实施记录保留 `dev@699ca48` 历史基线，当前后端整改基于 `dev@b941a3f`，不再等待功能分支合入。
 - Cloudflare dev/test 与 prod 已完成 PostgreSQL 迁移，D1 已退役；Linux 使用独立 PostgreSQL。
-- dev 整改源码已通过 HTTP 适配复用 CF 识别，并统一 App test/Admin development 的内网入口及测试分享，业务读写保持本地；旧 OCR 配置已退出运行路径。服务器部署和设备验收尚待完成，见[架构中的兼容缺口](../02-architecture/linux-test-environment.md#扫描兼容缺口)。下方 Task 勾选与 OCR 配置仅保留原始实施历史，不作为新版本配置指引。
-- 本轮未连接 kd201；下方 10 条 migration、容器运行与发布结果只对应注明的历史时间，当前 ledger、运行 SHA 及自动发布状态需重新核验。
+- dev 整改已通过 HTTP 适配复用 CF 识别，并统一 App test/Admin development 内网入口、测试分享与 Linux 发布命令；2026-09-15 已升级 kd201 现有实例并完成受控扫描、额度和收藏写库验证。设备验收与第三方测试配置仍待完成，见[架构中的兼容缺口](../02-architecture/linux-test-environment.md#扫描兼容缺口)。下方 Task 勾选与 OCR 配置仅保留原始实施历史，不作为新版本配置指引。
+- 当前服务器发布基于 `dev-inner@c9742fa` 加未提交改动，ledger 为 13 项，现有 watcher 仍监控 `dev`。下方 10 条 migration、容器与发布结果只对应注明的历史时间，当前证据见[验证记录](VERIFICATION.md)。
 
 **Goal:** Add a single-instance Linux test deployment that runs the existing Hono/PostgreSQL application without duplicating business code or changing Cloudflare production behavior.
 
