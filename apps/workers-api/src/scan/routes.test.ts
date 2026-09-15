@@ -4,6 +4,7 @@ import { URL } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import app, { type Env as AppEnv } from "../index";
 import { PGliteDatabase } from "../test-support/pglite-database";
+import { createHttpVectorRecognition } from "../linux/vector-recognition";
 
 type TestEnvWithPostgres = Omit<AppEnv, "DB"> & { DB: PGliteDatabase; queries: string[]; VECTOR_RECOGNITION?: Fetcher };
 const VECTOR = Array.from({ length: 512 }, (_, index) => (index + 1) / 512);
@@ -64,6 +65,130 @@ describe("scan routes", () => {
   afterEach(async () => {
     vi.unstubAllGlobals();
     await Promise.all(databases.splice(0).map((db) => db.close()));
+  });
+
+  it("keeps Linux catalog reads, scan records and quota local while sending only the vector to CF recognition", async () => {
+    const env = await createRecognitionEnv();
+    await insertRows(env.DB, "cards_all", {
+      product_id: "linux-card",
+      game_id: 1,
+      game: "Pokemon",
+      name: "Card from the Linux catalog",
+      set_name: "Local Set",
+      product_type_name: "Cards",
+    });
+    const upstream = vi.fn().mockResolvedValue(Response.json({
+      candidates: [
+        { product_id: "cloud-only-card", confidence: 99 },
+        { product_id: "linux-card", confidence: 92.125 },
+      ],
+    }));
+    vi.stubGlobal("fetch", upstream);
+    env.VECTOR_RECOGNITION = createHttpVectorRecognition("https://recognize-vec.tcgcard.fun");
+    const requestId = crypto.randomUUID();
+
+    const response = await recognize(env, await recognitionToken(env), {
+      request_id: requestId, vector: VECTOR, game_id: 1, platform: "iOS",
+    });
+
+    expect(upstream).toHaveBeenCalledExactlyOnceWith(
+      "https://recognize-vec.tcgcard.fun/recognize",
+      expect.objectContaining({
+        method: "POST",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({ vector: VECTOR }),
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: {
+        recognition_status: "success",
+        quota: { reserved: 0, consumed: 1, remaining: 9 },
+        results: [{ candidates: [{ card_ref: "linux-card", name: "Card from the Linux catalog" }] }],
+      },
+    });
+    expect(await readRows(env.DB, "scan_record")).toEqual([
+      expect.objectContaining({ id: requestId, environment: "development", recognition_status: "success" }),
+    ]);
+    expect(await readRows(env.DB, "scan_quota_request")).toEqual([
+      expect.objectContaining({ request_id: requestId, status: "consumed" }),
+    ]);
+    expect((env.SCAN_IMAGES as unknown as FakeR2).objects.size).toBe(1);
+  });
+
+  it.each([
+    { scenario: "no candidates", candidates: [] },
+    { scenario: "a candidate missing from the local catalog", candidates: [{ product_id: "cloud-only-card", confidence: 95 }] },
+  ])("releases Linux Free quota for $scenario because a CF response alone is not a usable local match", async ({ candidates }) => {
+    const env = await createRecognitionEnv();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ candidates })));
+    env.VECTOR_RECOGNITION = createHttpVectorRecognition("https://recognize-vec.tcgcard.fun");
+
+    const response = await recognize(env, await recognitionToken(env), { vector: VECTOR });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: { recognition_status: "no_match", quota: { reserved: 0, consumed: 0, remaining: 10 } },
+    });
+    expect(await readRows(env.DB, "scan_quota_request")).toEqual([
+      expect.objectContaining({ status: "released" }),
+    ]);
+    expect(await readRows(env.DB, "scan_record")).toEqual([
+      expect.objectContaining({ recognition_status: "no_match" }),
+    ]);
+  });
+
+  it.each([
+    { failure: "an HTTP failure", response: () => Response.json({ error: "unavailable" }, { status: 503 }) },
+    { failure: "an invalid JSON response", response: () => new Response("invalid JSON") },
+  ])("releases Linux Free quota and records $failure because transport failures must not consume scans", async ({ response: upstreamResponse }) => {
+    const env = await createRecognitionEnv();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(upstreamResponse()));
+    env.VECTOR_RECOGNITION = createHttpVectorRecognition("https://recognize-vec.tcgcard.fun");
+
+    const response = await recognize(env, await recognitionToken(env), { vector: VECTOR });
+
+    expect(response.status).toBe(502);
+    expect(await response.json()).toMatchObject({ error: { code: "VECTOR_RECOGNITION_UNAVAILABLE" } });
+    expect(await readRows(env.DB, "scan_quota_request")).toEqual([
+      expect.objectContaining({ status: "released" }),
+    ]);
+    expect(await readRows(env.DB, "scan_record")).toEqual([
+      expect.objectContaining({ recognition_status: "failed" }),
+    ]);
+  });
+
+  it("releases a queued Linux reservation after the HTTP deadline because a slow CF service must not retain Free quota", async () => {
+    const env = await createRecognitionEnv();
+    const token = await recognitionToken(env);
+    const requestId = crypto.randomUUID();
+    const reservation = await app.request("/api/v1/scan/quota/reserve", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", "Idempotency-Key": requestId },
+      body: JSON.stringify({ request_id: requestId }),
+    }, env);
+    expect(reservation.status).toBe(200);
+    let abortReason: unknown;
+    const upstream = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => {
+        abortReason = init.signal!.reason;
+        reject(abortReason);
+      }, { once: true });
+    }));
+    vi.stubGlobal("fetch", upstream);
+    env.VECTOR_RECOGNITION = createHttpVectorRecognition("https://recognize-vec.tcgcard.fun", 20);
+
+    const response = await recognize(env, token, { request_id: requestId, vector: VECTOR });
+
+    expect(abortReason).toMatchObject({ name: "TimeoutError" });
+    expect(upstream).toHaveBeenCalledOnce();
+    expect(response.status).toBe(502);
+    expect(await readRows(env.DB, "scan_quota_request")).toEqual([
+      expect.objectContaining({ request_id: requestId, status: "released" }),
+    ]);
+    expect(await readRows(env.DB, "scan_record")).toEqual([
+      expect.objectContaining({ id: requestId, recognition_status: "failed" }),
+    ]);
   });
 
   it("resolves production vector product ids through PostgreSQL and stores an audit record because App scans must be reviewable", async () => {

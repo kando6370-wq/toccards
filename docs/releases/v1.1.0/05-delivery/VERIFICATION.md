@@ -2,6 +2,34 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## dev 迁往 Linux：后端 HTTP 识别适配（2026-09-15）
+
+范围为用户确认的整改第一步：现有 dev 业务部署后续由 Linux 接替，CF 只读向量识别继续复用，prod 保持原部署。本轮从干净 `dev-inner@601294f` 成功 fetch，并快进到 `github/dev@b941a3f81c1b48cb204e9ef23626cd052406dc15`，随后仅完成本地后端适配与验证。环境为 Windows、Node `22.20.0`、pnpm `11.9.0`、Vitest `4.1.9`。
+
+根因与实现：Linux `loadLinuxRuntime` 原先必填旧 `OCR_SERVICE_BASE_URL`，却没有构造扫描路由所需的 `VECTOR_RECOGNITION`。新增 `src/linux/vector-recognition.ts`，将内部 Service Binding 地址映射到必填 `VECTOR_RECOGNITION_BASE_URL` origin 的 `/recognize`；10 秒超时覆盖响应正文，保留调用方取消，拒绝重定向，不新增重试。`Env` 与 Linux 运行时移除旧 OCR 字段，`.env.example` 使用现有 `https://recognize-vec.tcgcard.fun`。共享扫描业务代码、Cloudflare 入口和 PostgreSQL migrations 没有修改；资料补全、额度及扫描记录仍使用注入的本地 PostgreSQL。
+
+先失败证据：新增配置测试在原实现上运行 `pnpm --filter @kando/workers-api exec vitest run src/linux/config.test.ts --maxWorkers=1`，退出 1，2 失败/1 通过。新向量配置因缺旧 OCR 键而无法启动，只有旧 OCR 的无向量配置反而被接受。实现后相同场景全部通过。另临时撤回 HTTP 地址映射、重新请求 `recognize-vec.internal`，执行 `pnpm --filter @kando/workers-api exec vitest run src/scan/routes.test.ts -t 'keeps Linux catalog reads' --maxWorkers=1`，目标测试因实际 URL 错误失败，退出 1；其余 33 项仅因定向过滤未运行。随后按原字节恢复源码并执行完整影响面复验。
+
+| 检查 | 实际命令 / 证据 | 结果 |
+|---|---|---|
+| 配置与 HTTP 适配 | `pnpm --filter @kando/workers-api exec vitest run src/linux/config.test.ts src/linux/vector-recognition.test.ts --maxWorkers=2` | 2 文件、15/15，退出 0；含真实回环 HTTP 的请求超时、正文取消和重定向测试 |
+| Linux / 扫描最窄集成 | `pnpm --filter @kando/workers-api exec vitest run src/linux src/scan/routes.test.ts --maxWorkers=2` | 6 文件、54/54，退出 0；PGlite 验证只发送向量、从本地目录补全、扫描记录及成功/失败/无匹配/超时额度结果 |
+| 还原后的完整影响面 | `pnpm --filter @kando/workers-api exec vitest run src/linux src/scan src/db/postgres-database.test.ts src/cors.test.ts src/index-postgres-runtime.test.ts --maxWorkers=2` | 11 文件、84/84，退出 0，无跳过 |
+| Workers 类型检查 | `pnpm --filter @kando/workers-api type-check` | 退出 0 |
+| 根类型检查与依赖方向 | `pnpm type-check --force`、`pnpm lint` | 均退出 0；类型检查 7 个任务成功、0 缓存，4 个共享包依赖方向通过 |
+| Admin 环境契约 | `node --test apps/admin-web/test/api-environment-intent.test.mjs` | 2/2，退出 0；本阶段未改 App/Admin 默认入口 |
+| Linux 后端构建 | `pnpm --filter @kando/workers-api build:linux:api` | 退出 0，生成 Node API bundle 与 sourcemap |
+| Cloudflare 兼容打包 | `pnpm --filter @kando/workers-api exec wrangler deploy --env prod --dry-run --outdir .wrangler/dev-linux-backend-check/prod`；对应 `--env dev --outdir .wrangler/dev-linux-backend-check/dev` | 两次均退出 0，保留原向量 Service Binding；仅打包预演，复用已有 Admin assets，未重新构建或发布 Admin |
+| CI 检查入口 | Git Bash `--noprofile --norc -n deploy/linux/ci/watch-branch.sh`；解析 `.github/workflows/linux-test-deploy.yml` | 均通过；两个既有 Linux 检查入口现覆盖全部 `src/linux` 和 PostgreSQL 扫描路由测试 |
+| 真实 CF 识别连通性 | 在 `apps/workers-api` 用 `node --experimental-strip-types --input-type=module -` 导入新增适配器，向量为 `[1, ...Array(511).fill(0)]`，经内部 URL 调用配置的现有 CF origin | 退出 0，HTTP 200、5 个 `product_id/confidence` 候选，约 1,242 ms；请求来自当前开发机，不代表 kd201 出站或真实图片识别已验收 |
+| 文档与冻结边界 | 相对链接/残留引用检查、`git diff --check`；比较冻结目录、共享业务路由与 migrations | 通过；冻结产品输入、既有 API 路由与 migrations 保持原样，旧 OCR 名称仅保留历史记录、回滚说明或拒绝旧配置的测试 |
+
+Code Review 自审通过：核对配置入口、唯一扫描调用方、URL 映射、超时覆盖正文、取消与重定向处理、PGlite 数据与额度断言及发布检查入口；没有发现阻断项，没有引入 D1 路径、数据库 schema 变更、旧 OCR 回退或自动重试。文档同步说明现有 dev 的整改目标、只读复用 CF 识别的授权边界和当前尚未部署的状态。
+
+兼容与回滚：部署新代码前必须为服务器 `.env` 添加 `VECTOR_RECOGNITION_BASE_URL`，仅有旧 OCR 键会启动失败。新版本不读取旧键，过渡期可保留旧键供旧版本回滚，或备份并恢复对应版本配置；本次没有执行任何远程 migration（含 0012）。
+
+未运行：Workers/Flutter 全仓测试、App/Admin 默认入口整改、移动端构建或真机扫描、kd201 部署/出站验证、真实购买与通知链路。前两类不属于本阶段后端适配的影响面或交付范围；设备和服务器验证分别需要客户端测试设备与 kd201 部署访问。没有 Git 提交/推送、服务器或 CF 发布、DNS/定时任务切换及业务库写入；不能把本阶段通过解释为原 CF dev 已退役或全部 dev 环境已迁移完成。
+
 ## Golden 基准与全量复验（2026-09-10）
 
 用户要求修复 Golden 并全量复验。基线为 `dev@699ca48` 加本地文档更新，App `1.0.2+134`；环境为 Windows、Flutter `3.44.7` / Dart `3.12.2`、Node `22.20.0`、pnpm `11.9.0`。本次未修改 Flutter 业务代码、UI 设计、API 或数据库结构。

@@ -8,11 +8,11 @@
 >
 > 服务器历史核验：2026-09-09，本轮未重新连接
 
-Linux 部署资产已通过 `19a6ac4` 合入 dev；当前运行 release、SHA 与数据库 ledger 仍需按本文命令回读。当前代码还缺少 Linux 向量识别适配器，扫描不可用；旧 `OCR_SERVICE_BASE_URL` 只保留启动校验，填写 OCR 地址不能启用扫描，见[兼容缺口](../releases/v1.1.0/02-architecture/linux-test-environment.md#扫描兼容缺口)。
+Linux 部署资产已通过 `19a6ac4` 合入 dev；2026-09-15 的后端整改已在源码中补齐 CF HTTP 识别适配，必填配置为 `VECTOR_RECOGNITION_BASE_URL`。当前运行 release、SHA 与数据库 ledger 仍需按本文命令回读；App/Admin 默认入口和线上切换尚未完成，见[兼容缺口](../releases/v1.1.0/02-architecture/linux-test-environment.md#扫描兼容缺口)。
 
 ## 1. 目标与原则
 
-Linux 测试环境和 Cloudflare 正式环境使用同一套业务代码，不维护两套 API、管理后台、SQL 或业务规则。环境差异仅放在运行入口、基础设施适配器、环境变量和部署脚本中。
+Linux 承接现有 dev 环境整改，与 Cloudflare 正式环境使用同一套业务代码，不维护两套 API、管理后台、SQL 或业务规则。环境差异仅放在运行入口、基础设施适配器、环境变量和部署脚本中；识别按用户明确要求继续复用现有 CF 向量服务。
 
 | 项目 | Linux 测试环境 | Cloudflare 正式环境 |
 |---|---|---|
@@ -26,7 +26,7 @@ Linux 测试环境和 Cloudflare 正式环境使用同一套业务代码，不�
 
 必须遵守以下隔离规则：
 
-- Linux 测试环境不得使用 Cloudflare 共用数据库、正式识别服务或正式密钥。
+- Linux 业务读写使用独立 PostgreSQL、图片卷和测试密钥；仅通过 HTTP 向现有 CF 识别服务发送向量，候选资料、额度与扫描记录仍在本地处理。
 - kd201 的 `.env`、数据库密码和 JWT secret 不提交到 Git。
 - 自动部署只负责 kd201，不会触发或修改 Cloudflare 正式环境。
 - 不执行 `docker compose down -v`，除非明确要永久清空测试数据库和扫描图片。
@@ -92,7 +92,7 @@ chmod 600 .env
 - `POSTGRES_PASSWORD`
 - `DATABASE_URL`
 - `JWT_SECRET`
-- `OCR_SERVICE_BASE_URL`：当前启动必填的旧字段，可保持 `.invalid` 占位地址；扫描路由不读取它。
+- `VECTOR_RECOGNITION_BASE_URL`：必填识别服务 origin，例如 `https://recognize-vec.tcgcard.fun`；不得包含路径、凭据、查询参数或 fragment，适配器固定请求 `/recognize`。
 - `LINUX_TEST_SITE_ADDRESS`
 - `ALLOWED_ORIGINS`
 
@@ -105,6 +105,8 @@ ALLOWED_ORIGINS=http://192.168.50.201:8080
 POSTGRES_LISTEN_ADDRESS=192.168.50.201
 POSTGRES_HOST_PORT=15432
 ```
+
+升级本次后端适配前，先补齐 `VECTOR_RECOGNITION_BASE_URL` 并从服务器验证出站连通性。新版本忽略旧 `OCR_SERVICE_BASE_URL`，仅有旧键时拒绝启动；过渡期可保留旧键供旧版本回滚，或恢复对应版本的 `.env`。本阶段没有执行服务器升级、迁移或客户端切换。
 
 真实密码只从服务器读取，不写入本文档：
 
@@ -292,7 +294,7 @@ ssh kd201 'docker exec toccards-linux-test-db-1 \
 {"status":"ok"}
 ```
 
-如果本次变更涉及登录，再额外验证管理后台登录；涉及数据库结构时，再验证对应 migration 和业务接口。健康接口成功不证明扫描可用，扫描验收需先补齐向量适配器；未受影响的 Flutter 或 Cloudflare 正式环境不因一次 Linux 文档/部署变更而重复测试。
+如果本次变更涉及登录，再额外验证管理后台登录；涉及数据库结构时，再验证对应 migration 和业务接口。健康接口成功不证明扫描可用，HTTP 适配仍需从服务器及 iOS/Android 验证完整识别、写库与额度链路；未受影响的 Flutter 或 Cloudflare 正式环境不因一次 Linux 文档/部署变更而重复测试。
 
 ## 10. 备份与回滚
 
@@ -342,7 +344,7 @@ ssh kd201 'docker logs --tail=200 toccards-linux-test-web-1'
 
 ### 扫描返回 VECTOR_RECOGNITION_UNAVAILABLE
 
-当前 `src/linux/config.ts` 未向共享路由提供 `VECTOR_RECOGNITION`。合法识别请求到达资源检查时会返回 `503 VECTOR_RECOGNITION_UNAVAILABLE` 并释放 Free 预占；修改 `OCR_SERVICE_BASE_URL` 不会恢复扫描。应在独立修复中提供测试向量服务适配并清理旧 OCR 配置，不能回退到 pHash 或正式识别服务。
+当前源码通过 `VECTOR_RECOGNITION_BASE_URL` 构造 HTTP `VECTOR_RECOGNITION`；若服务器仍返回缺 binding 的 503，应先确认实际运行版本及新配置。上游 HTTP 失败、无效 JSON 或 10 秒超时会沿用 502 和释放额度，需检查 CF 服务的出站访问与响应。旧 OCR 配置已退出运行路径，不能用于回退；仅完成本地测试不能宣称服务器扫描已可用。
 
 ## 12. 维护检查表
 

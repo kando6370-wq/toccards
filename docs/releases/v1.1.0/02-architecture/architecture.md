@@ -15,7 +15,7 @@ Marketing Web -----------------------> 独立 Cloudflare 静态站点
 
 上图为 Cloudflare 部署结构。`apps/workers-api/src/app.ts` 组合共享 Hono 路由、CORS 与定时任务；`src/index.ts` 负责 Cloudflare fetch/scheduled 适配和每请求/定时任务的 PostgreSQL 连接生命周期。App 和 Admin 通过 API 访问服务端数据；共享路由负责鉴权、所有者隔离、Premium 服务端授权与幂等。Cloudflare Admin 静态产物由 `wrangler.toml` 的 assets 配置托管，Marketing 使用独立 Wrangler 配置。
 
-`dev@699ca48`（2026-09-10）还包含 Linux Node 入口 `src/linux/server.ts`，复用相同 Hono 应用和 `PostgresDatabase`：从 `DATABASE_URL` 连接独立 PostgreSQL，使用带 TTL 的内存 KV 与本地图片卷；标准部署由 Caddy 托管 Admin 并反向代理 API/share，离线模式使用 Node 静态服务。Linux 向量识别资源适配尚未完成，不能把共用路由或健康检查成功视为扫描可用，见[Linux 测试环境](linux-test-environment.md)。
+Linux Node 入口 `src/linux/server.ts` 复用相同 Hono 应用和 `PostgresDatabase`：从 `DATABASE_URL` 连接独立 PostgreSQL，使用带 TTL 的内存 KV 与本地图片卷；标准部署由 Caddy 托管 Admin 并反向代理 API/share，离线模式使用 Node 静态服务。2026-09-15 的 dev 后端整改通过 `VECTOR_RECOGNITION_BASE_URL` 的 HTTP 适配复用现有 CF 向量识别，业务读写保持本地。目标是 Linux 接替原 dev；当前仅完成后端代码，客户端入口、发布及真实扫描尚待验收，见[Linux 测试环境](linux-test-environment.md)。
 
 当前 dev 扫描识别使用端侧 RTMDet-Ins 与 PE-Core-T16，主 Worker 经 `VECTOR_RECOGNITION` Service Binding 调用内部 `recognize-vec`；该链路已合入 dev。图片仍只存私有 R2，内部服务只收向量；Queue、额度、目录与资产写入保留现有边界。上图描述当前代码与 dev 运行路径，prod 的较早识别协议见第 6 节；详见[扫描识别链路](../01-flows/scan-recognition.md)。
 
@@ -90,7 +90,7 @@ PostgreSQL 结构以 `src/db/postgres/migrations/` 中的顺序 migration 为准
 |---|---|---|---|
 | dev | `toccards-api-dev` | `api-dev.tcgcard.fun` | 2026-09-09 回读为 PostgreSQL/Hyperdrive 与 VECTOR_RECOGNITION；dev KV/R2、beta Apple 配置和 `APP_ENVIRONMENT=development` 独立 |
 | prod | `toccards-api-prod` | `api.tcgcard.fun` | 2026-09-09 回读为 PostgreSQL/Hyperdrive，无 D1；仍使用 OCR_SERVICE_BASE_URL，prod KV/R2、production Apple 配置和 `APP_ENVIRONMENT=production` 独立 |
-| Linux 测试 | Node / `src/linux/server.ts` | kd201 历史入口 `http://192.168.50.201:8080` | 独立 PostgreSQL、内存 KV、本地图片卷、`APP_ENVIRONMENT=development`；当前源码缺少向量适配器，服务器运行提交未于本轮回读 |
+| Linux dev 整改目标 | Node / `src/linux/server.ts` | kd201 历史入口 `http://192.168.50.201:8080` | 独立 PostgreSQL、内存 KV、本地图片卷、`APP_ENVIRONMENT=development`；源码已提供 CF HTTP 向量适配，实际部署与入口切换尚待完成 |
 
 Wrangler vars 保存非敏感环境配置，密钥通过 Worker secrets 注入。dev/prod 已共用业务 PostgreSQL；`APP_ENVIRONMENT`、Apple Bundle/Product ID、KV、R2、域名和 Worker secrets 不得混用。当前仓库的 prod 配置已包含向量绑定，但配置文件不代表现网版本已切换；版本及 binding 回读集中维护在[发布与验证](../05-delivery/VERIFICATION.md)。部署脚本先构建共享认证和对应模式 Admin，再部署 Worker 与静态 assets。两环境的 PostgreSQL 迁移均已完成，后续仅核对本次变更所需的 PostgreSQL schema、业务数据及应用版本，不再安排 D1 移库或切换任务。
 

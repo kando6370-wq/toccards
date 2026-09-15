@@ -69,5 +69,5 @@
 
 | 能力 | 实现证据 | 当前边界 |
 |---|---|---|
-| Linux 测试入口与自动部署 | [共享应用](../../../../apps/workers-api/src/app.ts)、[Linux 入口](../../../../apps/workers-api/src/linux/server.ts)、[分支监听器](../../../../deploy/linux/ci/watch-branch.sh)、[自动部署手册](linux-test-auto-deployment.md) | `19a6ac4` 已合入；当前缺少向量适配器，扫描不可用；历史功能分支测试不代表合入后 kd201 已成功部署，运行 SHA/release/ledger 待回读。 |
+| dev 迁往 Linux 的后端适配 | [共享应用](../../../../apps/workers-api/src/app.ts)、[Linux 入口](../../../../apps/workers-api/src/linux/server.ts)、[分支监听器](../../../../deploy/linux/ci/watch-branch.sh)、[自动部署手册](linux-test-auto-deployment.md) | `19a6ac4` 已合入；2026-09-15 源码提供 CF HTTP 向量适配、新配置校验和本地扫描/额度回归测试。客户端入口、实际部署、旧 CF dev 退役及设备验收仍待后续完成。 |
 | iOS IPA/dSYM 保存与保留 | [发布脚本](../../../../apps/flutter-app/tool/release_ios.sh)、[保存实现](../../../../apps/flutter-app/tool/save_ios_artifacts.py)、[保存测试](../../../../apps/flutter-app/tool/test_save_ios_artifacts.py) | 新版本校验并完整保存后，按 Bundle ID 保留最近测试 3 个/正式 7 个版本，超额最旧版本移入废纸篓；同名拒绝覆盖、失败不清理旧包，不清理 Xcode Archives。本轮仅源码核对，未运行 macOS 保存测试或构建签名包。 |

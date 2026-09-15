@@ -6,7 +6,7 @@
 
 测试地址：`http://192.168.50.201:8080`
 
-代码核对基线为 `dev@699ca48`（2026-09-10），部署资产已通过 `19a6ac4` 合入 dev。服务器安装、发布与连接结果保留 2026-09-09 历史记录；本轮未回读 kd201 的 crontab、运行 SHA、release 或数据库 ledger。当前 Linux 缺少向量适配器，扫描不可用，详见[兼容缺口](../02-architecture/linux-test-environment.md#扫描兼容缺口)。
+部署资产已通过 `19a6ac4` 合入；2026-09-15 的后端整改基于 `dev@b941a3f`，增加 CF HTTP 向量适配与对应发布检查。服务器安装、发布与连接结果仍保留原历史日期；本阶段未修改 kd201 的 crontab、运行 release 或数据库 ledger，实际出站和扫描仍需验收，详见[兼容缺口](../02-architecture/linux-test-environment.md#扫描兼容缺口)。
 
 ## 当前工作方式
 
@@ -114,7 +114,7 @@ cat /home/user/apps/toccards-test/watcher/state/last-deployed-sha
 4. 使用 Node.js 22，并通过 npm 在监听器私有目录固定安装 pnpm 11.9.0；不写入系统 `/usr/bin`。
 5. 先构建共享 `@kando/auth-core`，保证干净检出环境能解析 workspace 类型。
 6. 执行 Workers API 类型检查。
-7. 执行 PostgreSQL、Linux adapter、CORS 和 Worker PostgreSQL runtime 定向测试。
+7. 执行 PostgreSQL、全部 Linux adapter/config 测试、PostgreSQL 扫描路由、CORS 和 Worker PostgreSQL runtime 定向测试，覆盖 CF HTTP 识别成功、失败、超时与本地额度结算。
 8. 执行 Admin Linux API 地址测试。
 9. 构建 `apps/workers-api/dist/linux/server.mjs` 和 `apps/admin-web/dist`。
 10. 在服务器本地生成不含密钥的临时 Artifact。
@@ -177,7 +177,7 @@ printf '%s\n' '<previous-release-id>' \
 - 监听器只检出受信任的 `dev` 分支，不执行 Pull Request head commit。
 - 本地 Artifact 不包含 `.env`、数据库备份、扫描图片或第三方凭证。
 - 监听器目录权限为 `700`，配置和状态仅属于服务器 `user` 账号。
-- Linux 使用独立测试数据库、JWT 和文件卷；旧 OCR 字段仍为启动必填项但不被扫描路由读取，不能用它连接正式资源或宣称扫描已可用。
+- Linux 使用独立测试数据库、JWT 和文件卷；部署前须配置 `VECTOR_RECOGNITION_BASE_URL`，仅向已授权复用的 CF 识别服务发送向量。旧 OCR 键不被新代码读取，不能代替新配置；服务器与设备扫描需单独验收。
 - `kd201` PostgreSQL 仅通过 `192.168.50.201:15432` 提供可信局域网访问，不映射公网；自动发布继续复用服务器私有 `.env` 中的该配置。
 - 正式 Cloudflare 部署仍由其原工作流或 Cloudflare 平台配置管理。
 
@@ -191,7 +191,7 @@ printf '%s\n' '<previous-release-id>' \
 - [x] `kd201` 的共享 `.env` 存在且权限为 `600`。
 - [x] 监听用户能够运行 `git`、`npm`、`docker ps`。
 - [ ] 回读合入后的 dev 自动发布结果，确认目标 SHA、构建、备份、迁移、健康检查和 `current-release`。
-- [ ] 补齐独立测试向量适配后，验证 Linux 扫描成功、缺服务失败与额度释放；仅更新 OCR 地址不满足条件。
+- [ ] 发布含 HTTP 向量适配的新版本后，验证服务器到 CF 的识别成功、失败/超时释放额度和两端完整扫描；本地代码检查不能代替该验收。
 
 ## 实施验证记录 — 2026-09-09
 

@@ -20,7 +20,7 @@ Marketing Web -----------------> 独立 Cloudflare 静态站点
 
 共享 Hono API 是 App 与 Admin 的服务端安全边界，路由组合位于 `apps/workers-api/src/app.ts`，Cloudflare 入口为 `src/index.ts`。客户端不得直连数据库或对象存储；Cloudflare 环境的 Admin 构建产物由 Workers assets 托管，营销站点独立部署。Cloudflare 测试环境 dev/test 与正式环境 prod 均已完成 PostgreSQL 迁移，D1 已废弃；2026-09-09 用户确认与 Cloudflare 回读一致，两环境均绑定同一个 PlanetScale PostgreSQL/Hyperdrive，回读版本均无 D1 binding。运行环境、Apple 配置、KV、R2、域名和 secrets 继续隔离。后续数据库变更仅涉及 PostgreSQL schema 和业务数据修复，见 [数据迁移](docs/releases/v1.1.0/03-data-api/migration.md)，不再安排 D1 移库任务。
 
-`dev` 已合入 Linux 测试入口 `src/linux/server.ts`，复用同一 Hono 应用与 PostgreSQL migration，使用独立 PostgreSQL、进程内 KV 和本地图片卷；Admin 由 Caddy 托管，离线模式使用 Node 静态服务。Linux 尚未提供向量识别适配器，扫描不可用；架构与兼容缺口见 [Linux 测试环境](docs/releases/v1.1.0/02-architecture/linux-test-environment.md)。
+`dev` 已合入 Linux 入口 `src/linux/server.ts`，复用同一 Hono 应用与 PostgreSQL migration，使用独立 PostgreSQL、进程内 KV 和本地图片卷；Admin 由 Caddy 托管，离线模式使用 Node 静态服务。2026-09-15 的 dev 整改第一步补齐了 HTTP 向量适配：通过必填 `VECTOR_RECOGNITION_BASE_URL` 复用现有 CF 识别，业务读写保持本地。目标是由 Linux 接替原 dev；App/Admin 默认入口、服务器部署和旧 CF dev 退役仍待后续完成，见 [Linux 测试环境](docs/releases/v1.1.0/02-architecture/linux-test-environment.md)。
 
 `dev` 已合入端侧模型与 512 维向量识别，主 API 经 `VECTOR_RECOGNITION` 调用 `recognize-vec`。当前 App 要求 iOS 16+ 或 Android API 24+；Flutter Web 可用于其他页面开发，暂不支持扫描。扫描协议、平台资源及新旧 App 兼容边界见 [扫描识别链路](docs/releases/v1.1.0/01-flows/scan-recognition.md)。
 

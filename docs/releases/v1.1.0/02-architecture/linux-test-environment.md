@@ -2,10 +2,10 @@
 
 ## 状态
 
-- 当前代码核对：2026-09-10，`dev@699ca48`；原始设计基线为 2026-08-26 的 `dev@8e22c1d`。
+- 当前后端适配：2026-09-15，`dev-inner` 基于 `dev@b941a3f`；原始设计基线为 2026-08-26 的 `dev@8e22c1d`。
 - 合并状态：`19a6ac4` 已将 Linux 入口、Compose、离线镜像和分支监听发布脚本合入 dev。
 - 验证边界：2026-08-27 离线容器与持久化验证、2026-09-09 功能分支部署与局域网 PostgreSQL 验证均为历史证据；本轮未回读 kd201 当前 release、提交或 migration ledger。
-- 当前缺口：Linux 未适配 `VECTOR_RECOGNITION`，扫描不可用；旧 OCR 配置仍为启动必填项，不能将它当作可用识别链路。
+- 当前代码已通过 HTTP 适配 `VECTOR_RECOGNITION`，以必填 `VECTOR_RECOGNITION_BASE_URL` 替换旧 OCR 配置。App/Admin 默认入口、dev 发布目标与线上流量尚未切换，服务器出站和真实扫描仍待验收。
 - 环境边界：Linux 使用独立测试 PostgreSQL；Cloudflare dev/test 与 prod 已完成 PostgreSQL 迁移且无 D1 binding，不存在待执行的 prod D1 切换任务。
 
 ## 背景与架构纠正
@@ -16,15 +16,15 @@
 
 ## 目标
 
-1. 同一个 Git commit 可先部署 Linux 测试环境，再部署 Cloudflare dev/prod。
-2. Linux 使用独立 PostgreSQL、内存 KV 与本地扫描图片目录；完整扫描验收还需独立测试向量服务适配。
-3. Cloudflare 继续使用 Hyperdrive、KV、R2、Workers Assets 和 Cron Triggers。
+1. 现有 dev 业务部署迁至 Linux，保持原 test/development 环境身份，不新增长期并行的第三套环境；prod 继续使用 Cloudflare。
+2. Linux 使用独立 PostgreSQL、内存 KV 与本地扫描图片目录，向量检索复用现有 CF `recognize-vec/Vectorize`。
+3. Cloudflare prod 继续使用 Hyperdrive、KV、R2、Workers Assets 和 Cron Triggers；旧 CF dev 业务部署在整体切换验收后退役。
 4. 后续业务版本只开发一套路由、SQL 和业务逻辑。
-5. Linux 不读取正式数据库、R2、KV、密钥或外部正式接口。
+5. Linux 业务读写不连接正式 PostgreSQL、R2 或 KV；按用户明确方向，仅复用 CF 的只读向量识别服务，其他外部服务使用相应测试配置。
 
 ## 非目标
 
-- Linux 部署不修改 Cloudflare dev/prod 数据库、bindings 或流量；D1 已退役，不属于发布或回滚目标。
+- 本阶段只完成后端配置与 HTTP 识别适配，不修改 Cloudflare 数据库、bindings 或流量；实际切换及旧 CF dev 退役属于后续交付。D1 已退役，不属于发布或回滚目标。
 - 不新增 D1、SQLite、Miniflare 数据库回退路径。
 - 不在第一版引入 Redis、MinIO、Kubernetes 或多 API 副本。
 - 不在仓库提交 Linux 服务器真实域名、密码、Token 或证书私钥。
@@ -49,6 +49,7 @@ Linux 测试运行时
 ├── Node.js HTTP server -> PostgreSQL container
 ├── In-memory KV adapter
 ├── Local filesystem object-storage adapter
+├── HTTP vector adapter -> CF recognize-vec / Vectorize
 ├── Caddy or offline Node server -> Admin SPA + API reverse proxy
 └── Node interval -> scheduled jobs
 ```
@@ -80,9 +81,11 @@ Linux 使用本地文件目录代替 R2，实现当前使用的 `put/get/delete`
 
 ### 扫描兼容缺口
 
-当前 `src/scan/routes.ts` 只接受 512 维 `vector`，并通过 `Env.VECTOR_RECOGNITION.fetch()` 调用检索服务；Cloudflare `wrangler.toml` 已配置该 Service Binding。Linux 的 `src/linux/config.ts` 没有构造该适配器，却仍把 `OCR_SERVICE_BASE_URL` 作为必填变量注入 `Env`。
+`src/scan/routes.ts` 只接受 512 维 `vector`，并通过 `Env.VECTOR_RECOGNITION.fetch()` 调用检索服务。Cloudflare 继续使用 Service Binding；Linux 的 `src/linux/config.ts` 通过 `vector-recognition.ts` 构造 HTTP 适配，目标为 `VECTOR_RECOGNITION_BASE_URL` origin 下的 `/recognize`。共享路由只发送 `{vector}`，不向识别服务转发图片、用户 token 或业务数据库请求；候选资料、游戏过滤、额度与扫描记录使用 Linux 的 `DB`。
 
-因此，即使 Linux API 启动、鉴权和数据库正常，合法扫描请求到达资源检查时仍返回 `503 VECTOR_RECOGNITION_UNAVAILABLE`，并释放 Free 预占。补填 OCR 地址不会改变这条路径，健康接口和现有 Linux 适配器测试也不能证明扫描可用。当前启动配置可继续使用 `.invalid` 占位值；后续需在独立修复中提供测试向量服务的 Fetcher 适配并清理不再使用的旧 OCR 字段，不能恢复 pHash 协议或借用正式识别资源。
+HTTP 适配的 10 秒超时持续覆盖响应正文，并保留调用方取消，不重试或跟随重定向。上游 HTTP 失败、无效 JSON 或超时沿用共享路由的 `502 VECTOR_RECOGNITION_UNAVAILABLE`、审计失败记录与释放额度；无匹配或本地目录不可用不错误扣次。缺少 binding 的既有受控 `503` 分支保留。旧 `OCR_SERVICE_BASE_URL` 已从运行时配置和 `Env` 移除，不再作为回退。
+
+此前“必须独立部署向量服务、不得复用 CF 识别”的设计已被 2026-09-15 用户明确的整改方向替代：dev 业务本地化，识别继续使用现有 CF 服务。本阶段完成的是代码适配，健康检查与本地受控测试不能代替 kd201 出站验证、CF 实际响应和两端真实扫描验收。
 
 ### 定时任务
 
@@ -109,7 +112,7 @@ DATABASE_URL=postgres://toccards:replace-me@db:5432/toccards_test
 PORT=3000
 ALLOWED_ORIGINS=http://localhost
 OBJECT_STORAGE_PATH=/data/scan-images
-OCR_SERVICE_BASE_URL=https://replace-with-test-recognize.example.com
+VECTOR_RECOGNITION_BASE_URL=https://recognize-vec.tcgcard.fun
 JWT_SECRET=replace-with-independent-test-secret
 SCHEDULED_TASK_INTERVAL_SECONDS=300
 APP_ENVIRONMENT=development
@@ -117,7 +120,7 @@ APP_ENVIRONMENT=development
 
 OAuth、Apple、ZeptoMail、Mixpanel 和 Singular 配置全部使用测试凭证。缺失的可选外部配置保持现有受控错误语义，不允许回退到 Cloudflare 正式值。
 
-上例保留 `OCR_SERVICE_BASE_URL` 是为了满足当前启动校验；它不参与当前扫描请求。Linux 只接受 `APP_ENVIRONMENT=development`，其他值启动失败。
+`VECTOR_RECOGNITION_BASE_URL` 必须为无凭据、路径、查询参数或 fragment 的 HTTP(S) origin；缺失或非法时启动失败。Linux 只接受 `APP_ENVIRONMENT=development`。升级前需补齐新键；如需回滚旧代码，可在过渡期保留旧 OCR 键或恢复旧版 `.env`，新代码不会读取该旧值。
 
 ## 数据与安全隔离
 
@@ -131,12 +134,12 @@ OAuth、Apple、ZeptoMail、Mixpanel 和 Singular 配置全部使用测试凭证
 
 ```text
 开发共享功能
-→ 构建并部署 Linux 测试环境
+→ 构建并部署整改后的 Linux dev
 → 完成受影响功能验收
-→ 使用同一 commit 执行 Cloudflare dev/prod 流程
+→ 按发布授权使用同一套业务代码发布 Cloudflare prod
 ```
 
-只有基础设施接口新增能力时才需要同时扩展 Cloudflare/Linux 适配器。普通 API、页面、业务规则和 PostgreSQL migration 只实现一次。上面是交付目标；当前 Linux 缺少向量适配器，扫描不能通过此路径验收。监听器与手动 Runner 的使用、历史发布证据见[自动部署手册](../05-delivery/linux-test-auto-deployment.md)。
+只有基础设施接口新增能力时才需要同时扩展 Cloudflare/Linux 适配器。普通 API、页面、业务规则和 PostgreSQL migration 只实现一次。上面是整改目标，当前 App/Admin 默认入口与 dev 发布指令尚未完成切换；Linux 发布检查已纳入全部 `src/linux` 测试及 PostgreSQL 扫描路由测试。监听器与手动 Runner 的使用、历史发布证据见[自动部署手册](../05-delivery/linux-test-auto-deployment.md)。
 
 ## 验收范围
 
@@ -147,7 +150,7 @@ OAuth、Apple、ZeptoMail、Mixpanel 和 Singular 配置全部使用测试凭证
 - 登录、资产、卡牌、扫描和 Admin 的代表性请求
 - 内存 KV TTL
 - 本地扫描图片写入、读取和删除
-- 扫描缺少向量适配时返回明确失败并释放额度；补齐适配后再验证独立测试向量接口与完整识别路径
+- CF HTTP 识别成功、失败、超时和无匹配时，本地候选资料、扫描记录与额度结果正确；实际服务与设备链路单独验收
 - Linux scheduled jobs 不重叠
 - Admin SPA 同源 API 代理
 - Cloudflare prod/dev dry-run 仍通过
@@ -158,7 +161,7 @@ Flutter UI、iOS/Android 打包和未涉及页面不属于本任务验证范围�
 
 - Linux 可通过一条 Docker Compose 命令启动完整测试环境。
 - Linux 与 Cloudflare 使用同一套业务代码和 PostgreSQL migration。
-- 独立测试向量适配完成后，扫描端到端验收通过；当前尚未满足。
+- HTTP 向量适配完成后，扫描端到端验收通过；当前仅完成本地后端验证，设备与部署验收尚未满足。
 - Linux 重启后 PostgreSQL 数据和扫描图片保留，内存缓存允许清空。
 - Linux 不依赖 D1、Hyperdrive、Cloudflare KV 或 R2。
-- Cloudflare 现有入口、bindings、Cron 和静态资源行为不变。
+- Cloudflare prod 与共享识别服务保持独立；整体 dev 切换验收后，旧 CF dev 主 Worker 业务入口、cron 与自动部署退役。
