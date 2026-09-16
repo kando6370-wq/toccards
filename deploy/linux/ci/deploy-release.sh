@@ -26,6 +26,7 @@ required_paths=(
   "deploy/linux/docker-compose.yml"
   "deploy/linux/docker-compose.offline.yml"
   "deploy/linux/offline/prepare-node-runtime.sh"
+  "deploy/linux/preflight.mjs"
   "apps/workers-api/dist/linux/server.mjs"
   "apps/workers-api/src/db/postgres/migrations"
   "apps/admin-web/dist/index.html"
@@ -76,10 +77,13 @@ compose_in() {
 }
 
 backup_database() {
-  if [[ -z "$previous_release" || ! -d "$previous_release/deploy/linux" ]]; then
-    return
-  fi
-  if [[ "$(docker inspect toccards-linux-test-db-1 --format '{{.State.Running}}' 2>/dev/null || true)" != "true" ]]; then
+  local database_running
+  database_running=$(docker inspect toccards-linux-test-db-1 --format '{{.State.Running}}' 2>/dev/null || true)
+  if [[ "$database_running" != "true" ]]; then
+    if [[ -z "$database_running" && -z "$previous_release" ]]; then
+      echo "No existing database container; this is an initial deployment."
+      return
+    fi
     echo "Existing database container is not running; refusing deployment without backup." >&2
     exit 7
   fi
@@ -87,7 +91,7 @@ backup_database() {
   local backup_file="$backups_dir/toccards-test-$(date +%Y%m%d-%H%M%S)-before-$release_id.dump"
   local temporary_backup="$backup_file.tmp"
   echo "Creating PostgreSQL backup: $backup_file"
-  compose_in "$previous_release" exec -T db sh -c \
+  docker exec toccards-linux-test-db-1 sh -c \
     'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom' \
     > "$temporary_backup"
   test -s "$temporary_backup"
@@ -111,6 +115,9 @@ rollback_application() {
   fi
   exit "$failed_status"
 }
+
+echo "Checking Linux environment, PostgreSQL and CF recognition before deployment"
+node --env-file="$env_file" "$artifact_root/deploy/linux/preflight.mjs" "$artifact_root"
 
 backup_database
 

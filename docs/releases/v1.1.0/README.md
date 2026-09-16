@@ -6,7 +6,7 @@
 
 - 仓库内已形成 Apple 订阅与 session grant、Scan Quota、Folder 限制、Performance、Extended Price History、Admin 订单与 Apple Notifications V2 的实现和自动化证据。
 - 扫描向量链路已合入并推送 `dev`，对应 Workers/Admin 已发布到 dev；App 扫描支持 iOS 16+、Android API 24+，Web 扫描暂不支持。源分支已清理，后续使用 `dev`，详见[扫描识别链路](01-flows/scan-recognition.md)。
-- Linux 测试环境已通过 `19a6ac4` 合入 dev，包含共享 Hono/Node 入口、独立 PostgreSQL、内存 KV、本地图片卷和分支监听发布脚本。Linux 尚未提供 `VECTOR_RECOGNITION` 适配器，仅填写旧 OCR 地址不能启用扫描；服务器当前部署 SHA 未于本轮回读，见[Linux 兼容设计](02-architecture/linux-test-environment.md)。
+- Linux 入口已通过 `19a6ac4` 合入 dev，包含共享 Hono/Node、独立 PostgreSQL、内存 KV、本地图片卷和分支监听发布脚本。2026-09-15 的整改源码补齐 CF HTTP `VECTOR_RECOGNITION` 及 App test/Admin development 默认内网入口，测试分享和平台网络策略同步隔离。目标为 Linux 接替原 dev，实际服务器部署、设备验收和旧 CF dev 退役尚待完成，见[Linux 兼容设计](02-architecture/linux-test-environment.md)。
 - 升级门禁在实际 Home 首帧后启动，后续 Home 返回或回前台静默复查，已确认强更仍跨路由拦截。扫描取景框从首帧预留底部结果区，iOS 检测分数按 sigmoid 转为概率。iOS 发布脚本按 Bundle ID 保存 IPA/dSYM，测试保留 3 个版本、正式保留 7 个版本；当前实现和既有测试限制见[发布与验证](05-delivery/VERIFICATION.md#当前代码与交付边界)。
 - 后续本地修复已收口三项扫描 Golden、Review 图片等待、页面测试归因隔离和 Windows 的 Linux 打包路径。App 全量 1047/1047、订阅包 9/9 通过；Workers 默认首轮失败与完整受 Git 跟踪测试降低并发后的 621/621 通过分别保留，详见[Golden 与全量复验](05-delivery/VERIFICATION.md#golden-基准与全量复验2026-09-10)。
 - “代码已完成”不等于发布完成。Apple 生产配置、Sandbox/TestFlight、真机、多设备、重度数据和真实订单规模仍是独立验收门槛。

@@ -53,7 +53,8 @@ Flutter <---- HTTP ----> API (Cloudflare / Linux)
 | 依赖方向 | `pnpm lint` |
 | Workers 测试 | `pnpm --filter @kando/workers-api test` |
 | Admin 测试 | `pnpm --filter @kando/admin-web test` |
-| Linux API 与 Admin 构建 | `pnpm --filter @kando/workers-api build:linux` |
+| Linux dev API 与 Admin 构建 | `pnpm --filter @kando/workers-api build:dev`（`build:linux` 兼容别名） |
+| Linux 发布包预演 / SSH 发布 | `pnpm --filter @kando/workers-api deploy:dry-run:dev` / 设置 `TOCCARDS_SSH_TARGET` 后执行 `deploy:dev` |
 | Dart/Flutter 分析 | `dart run melos run analyze` |
 | Dart/Flutter 测试 | `dart run melos run test` |
 

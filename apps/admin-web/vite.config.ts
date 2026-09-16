@@ -3,6 +3,11 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [react()],
+  server: {
+    proxy: {
+      "/api": { target: "http://192.168.50.201:8080", changeOrigin: true },
+    },
+  },
   build: {
     rollupOptions: {
       output: {

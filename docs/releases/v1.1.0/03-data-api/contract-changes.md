@@ -6,7 +6,7 @@
 
 主 Worker 只经 `VECTOR_RECOGNITION` Service Binding 向内部 `recognize-vec` 发送 `{vector}`，Cloudflare 配置和扫描请求路径不再使用 `OCR_SERVICE_BASE_URL`；缺少 binding 为 `503 VECTOR_RECOGNITION_UNAVAILABLE`，内部失败为 `502` 并释放 Free 预占。`game_id` 改在主 Worker 的 PostgreSQL 目录层过滤，保留卡号消歧与候选顺序。算法标识为 `pe-core-t16-384-cosine-v1`，未增加数据库迁移。下文历史契约中的 OCR 识别上游在本分支由向量服务承担，端侧 ML Kit 卡号 OCR 保留；No Match/目录不完整不扣次数等规则仍有效。详见[扫描识别链路](../01-flows/scan-recognition.md)。
 
-Linux 入口虽共用上述路由，但 `src/linux/config.ts` 仍要求旧 OCR 字段，未提供 `VECTOR_RECOGNITION`。合法识别请求完成鉴权和额度预占后会进入缺少 binding 的 `503` 分支并释放预占，不能通过修改 OCR 地址恢复，见[Linux 兼容缺口](../02-architecture/linux-test-environment.md#扫描兼容缺口)。
+Linux 入口共用上述路由，2026-09-15 的后端整改以必填 `VECTOR_RECOGNITION_BASE_URL` 构造 HTTP `VECTOR_RECOGNITION`。适配器只把 `{vector}` 交给现有 CF 识别服务，10 秒超时覆盖正文读取；候选补全、额度与扫描记录使用本地 PostgreSQL。旧 OCR 配置已退出运行路径，缺 binding 的 503 和上游失败的 502/释放额度语义保持不变。当前仅完成本地代码与验证，实际部署和设备扫描边界见[Linux 兼容缺口](../02-architecture/linux-test-environment.md#扫描兼容缺口)。
 
 ## App 版本控制环境隔离
 

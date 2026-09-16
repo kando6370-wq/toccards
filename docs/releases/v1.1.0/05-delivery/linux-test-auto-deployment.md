@@ -6,7 +6,9 @@
 
 测试地址：`http://192.168.50.201:8080`
 
-代码核对基线为 `dev@699ca48`（2026-09-10），部署资产已通过 `19a6ac4` 合入 dev。服务器安装、发布与连接结果保留 2026-09-09 历史记录；本轮未回读 kd201 的 crontab、运行 SHA、release 或数据库 ledger。当前 Linux 缺少向量适配器，扫描不可用，详见[兼容缺口](../02-architecture/linux-test-environment.md#扫描兼容缺口)。
+部署资产已通过 `19a6ac4` 合入；2026-09-15 从 `dev-inner` 工作区手工升级并验收的 release 为 `manual-dev-inner-c9742fa-dirty-20260915-155717`。2026-09-16 配置邮件时回读确认，watcher 已将 current 切换至 `branch-dev-a4194156c572-20260916110050`；该 dev 提交未包含整改分支的 HTTP 向量适配和新发布入口，旧手工验收不能作为当前扫描可用的依据。应先完成分支对齐再发布复验，详见[集中处理清单](development-plan.md#linux-dev-集中处理清单2026-09-16)。本次只应用邮件配置，没有修改监听器、crontab 或应用版本。
+
+当前源码的 `deploy:dev` 已改为 Linux SSH 发布，`deploy:dry-run:dev` 仅生成发布包；`build:dev` 构建 Linux API 与 Admin development，旧 `build:linux` 为兼容别名。手工发布可以使用当前整改分支工作树，清单明确记录 SHA/分支/dirty 状态；自动监听仍以 `dev` 为默认来源，实际合并、监听器更新和旧 CF dev 退役尚需按授权实施。
 
 ## 当前工作方式
 
@@ -114,7 +116,7 @@ cat /home/user/apps/toccards-test/watcher/state/last-deployed-sha
 4. 使用 Node.js 22，并通过 npm 在监听器私有目录固定安装 pnpm 11.9.0；不写入系统 `/usr/bin`。
 5. 先构建共享 `@kando/auth-core`，保证干净检出环境能解析 workspace 类型。
 6. 执行 Workers API 类型检查。
-7. 执行 PostgreSQL、Linux adapter、CORS 和 Worker PostgreSQL runtime 定向测试。
+7. 执行 PostgreSQL、全部 Linux adapter/config 测试、PostgreSQL 扫描路由、CORS 和 Worker PostgreSQL runtime 定向测试，覆盖 CF HTTP 识别成功、失败、超时与本地额度结算。
 8. 执行 Admin Linux API 地址测试。
 9. 构建 `apps/workers-api/dist/linux/server.mjs` 和 `apps/admin-web/dist`。
 10. 在服务器本地生成不含密钥的临时 Artifact。
@@ -124,8 +126,8 @@ cat /home/user/apps/toccards-test/watcher/state/last-deployed-sha
 发布脚本：`deploy/linux/ci/deploy-release.sh`
 
 1. 使用独立发布锁防止并发发布。
-2. 验证 Artifact 和服务器 `.env` 完整性。
-3. 在 `/home/user/apps/toccards-test/backups` 创建 PostgreSQL custom-format 备份。
+2. 验证 Artifact 和服务器 `.env`，执行 `preflight.mjs`：拒绝非 development、非 Compose 数据库、PostgreSQL 大版本不兼容与错误识别服务；用拟发布凭据只读核对数据库并列出待执行 migration。
+3. 在 `/home/user/apps/toccards-test/backups` 创建 PostgreSQL custom-format 备份；只要已有数据库容器运行就必须备份，不以 `current` 链接是否存在作为跳过条件。
 4. 创建不可覆盖的版本目录 `/home/user/apps/toccards-test/releases/<release-id>`。
 5. 构建服务器本机架构的离线 Node/PostgreSQL/API/Web 镜像。
 6. 运行 migration，并等待 API 健康。
@@ -138,6 +140,12 @@ cat /home/user/apps/toccards-test/watcher/state/last-deployed-sha
 - migration、API 或 Admin 验证失败：脚本使用上一个 release 重新构建应用容器，`current` 不切换。
 - 数据库 migration 不会自动反向执行。自动发布 migration 必须向后兼容；需要恢复数据库时，由维护人员明确选择发布前生成的 `.dump` 文件后手动恢复。
 - 失败的新 release 会保留，方便读取日志；确认无用后再人工删除。
+
+## 从开发机发布当前 dev 工作树
+
+先执行 `pnpm --filter @kando/workers-api deploy:dry-run:dev` 检查 Linux 发布包，再配置 `TOCCARDS_SSH_TARGET` 并运行 `pnpm --filter @kando/workers-api deploy:dev`。SSH 目标必须已配置非交互密钥/agent 登录及可信主机密钥；该命令不会调用 Wrangler，也不会改变服务器监听分支或写入 `.env`。具体包内容、路径与命令见[部署入口](../../../../deploy/linux/README.md#日常-dev-发布命令)。
+
+服务器也可只运行预检：`node --env-file=/home/user/apps/toccards-test/shared/.env <artifact>/deploy/linux/preflight.mjs <artifact>`。该检查不执行 migration；正式发布会在备份后由原 migrate 服务应用缺失文件。标准与离线 PostgreSQL 均为 18，原数据卷路径保持不变。
 
 查看状态和日志：
 
@@ -177,7 +185,7 @@ printf '%s\n' '<previous-release-id>' \
 - 监听器只检出受信任的 `dev` 分支，不执行 Pull Request head commit。
 - 本地 Artifact 不包含 `.env`、数据库备份、扫描图片或第三方凭证。
 - 监听器目录权限为 `700`，配置和状态仅属于服务器 `user` 账号。
-- Linux 使用独立测试数据库、JWT 和文件卷；旧 OCR 字段仍为启动必填项但不被扫描路由读取，不能用它连接正式资源或宣称扫描已可用。
+- Linux 使用独立测试数据库、JWT 和文件卷；部署前须配置 `VECTOR_RECOGNITION_BASE_URL`，仅向已授权复用的 CF 识别服务发送向量。旧 OCR 键不被新代码读取，不能代替新配置；服务器与设备扫描需单独验收。
 - `kd201` PostgreSQL 仅通过 `192.168.50.201:15432` 提供可信局域网访问，不映射公网；自动发布继续复用服务器私有 `.env` 中的该配置。
 - 正式 Cloudflare 部署仍由其原工作流或 Cloudflare 平台配置管理。
 
@@ -191,7 +199,7 @@ printf '%s\n' '<previous-release-id>' \
 - [x] `kd201` 的共享 `.env` 存在且权限为 `600`。
 - [x] 监听用户能够运行 `git`、`npm`、`docker ps`。
 - [ ] 回读合入后的 dev 自动发布结果，确认目标 SHA、构建、备份、迁移、健康检查和 `current-release`。
-- [ ] 补齐独立测试向量适配后，验证 Linux 扫描成功、缺服务失败与额度释放；仅更新 OCR 地址不满足条件。
+- [ ] 发布含 HTTP 向量适配的新版本后，验证服务器到 CF 的识别成功、失败/超时释放额度和两端完整扫描；本地代码检查不能代替该验收。
 
 ## 实施验证记录 — 2026-09-09
 

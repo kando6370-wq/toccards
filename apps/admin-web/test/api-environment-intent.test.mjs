@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { loadConfigFromFile, loadEnv } from "vite";
+import { fileURLToPath } from "node:url";
 
 const adminPackage = JSON.parse(
   await readFile(new URL("../package.json", import.meta.url), "utf8"),
@@ -27,10 +29,24 @@ test("prod and dev builds use isolated APIs because admin actions must not cross
   assert.equal(adminPackage.scripts["build:dev"], "vite build --mode development");
   assert.equal(adminPackage.scripts["build:linux"], "vite build --mode linux");
   assert.match(productionEnvironment, /^VITE_API_BASE_URL=https:\/\/api\.tcgcard\.fun\/api\/v1\/admin\s*$/);
-  assert.match(developmentEnvironment, /^VITE_API_BASE_URL=https:\/\/api-dev\.tcgcard\.fun\/api\/v1\/admin\s*$/);
+  assert.match(developmentEnvironment, /^VITE_API_BASE_URL=\/api\/v1\/admin\s*$/);
   assert.match(linuxEnvironment, /^VITE_API_BASE_URL=\/api\/v1\/admin\s*$/);
   assert.match(workersPackage.scripts["deploy:prod"], /build:assets:prod/);
-  assert.match(workersPackage.scripts["deploy:dev"], /build:assets:dev/);
+  assert.match(workersPackage.scripts["deploy:dev"], /deploy\/linux\/deploy-dev\.mjs/);
+  assert.doesNotMatch(workersPackage.scripts["deploy:dev"], /wrangler/);
+  assert.match(workersPackage.scripts["deploy:dry-run:dev"], /deploy-dev\.mjs --dry-run/);
+});
+
+test("local Admin requests use the Linux proxy without requiring cross-origin credentials", async () => {
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const loaded = await loadConfigFromFile(
+    { command: "serve", mode: "development" },
+    fileURLToPath(new URL("../vite.config.ts", import.meta.url)),
+  );
+  const proxy = loaded.config.server?.proxy?.["/api"];
+  assert.equal(proxy?.target, "http://192.168.50.201:8080");
+  assert.equal(loadEnv("development", root).VITE_API_BASE_URL, "/api/v1/admin");
+  assert.equal(loadEnv("production", root).VITE_API_BASE_URL, "https://api.tcgcard.fun/api/v1/admin");
 });
 
 test("non-development builds fail loudly when their API environment is missing", () => {

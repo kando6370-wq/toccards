@@ -178,6 +178,48 @@ void main() {
       expect(androidBuild, contains('applicationId = "com.cardai.tcg"'));
     },
   );
+
+  test('only the existing iOS test flavor permits the local dev HTTP server', () {
+    final production = File('ios/Runner/Info.plist').readAsStringSync();
+    final development = File('ios/Runner/Info-test.plist').readAsStringSync();
+    final project = File(
+      'ios/Runner.xcodeproj/project.pbxproj',
+    ).readAsStringSync();
+    final testNetworkSettings = RegExp(
+      r'\t<key>NSAppTransportSecurity</key>[\s\S]*?'
+      r'\t<key>NSLocalNetworkUsageDescription</key>\r?\n\t<string>[^<]+</string>\r?\n',
+    );
+
+    expect(production, isNot(contains('NSAppTransportSecurity')));
+    expect(production, isNot(contains('NSLocalNetworkUsageDescription')));
+    expect(development, contains('<key>192.168.50.201</key>'));
+    expect(
+      development,
+      contains('<key>NSExceptionAllowsInsecureHTTPLoads</key>'),
+    );
+    expect(development, isNot(contains('NSAllowsArbitraryLoads')));
+    expect(development.replaceFirst(testNetworkSettings, ''), production);
+    final configurations = RegExp(
+      r'\t\t[A-F0-9]+ /\* (?:Debug|Release|Profile)(?:-test)? \*/ = \{[\s\S]*?\n\t\t\};',
+    ).allMatches(project).map((match) => match.group(0)!);
+    final testConfigurations = configurations.where(
+      (value) => value.contains('FIREBASE_ENVIRONMENT = test;'),
+    );
+    final productionConfigurations = configurations.where(
+      (value) => value.contains('FIREBASE_ENVIRONMENT = production;'),
+    );
+    expect(testConfigurations, hasLength(3));
+    expect(productionConfigurations, hasLength(3));
+    for (final configuration in testConfigurations) {
+      expect(
+        configuration,
+        contains('INFOPLIST_FILE = "Runner/Info-test.plist";'),
+      );
+    }
+    for (final configuration in productionConfigurations) {
+      expect(configuration, contains('INFOPLIST_FILE = Runner/Info.plist;'));
+    }
+  });
 }
 
 Map<String, Object?> validConfig() => {

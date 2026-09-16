@@ -19,7 +19,7 @@
 
 Card AI 面向交易卡牌用户提供目录搜索、图片识别、Wishlist/Collection、Folder 管理、估值和 Performance。iOS 用户可通过 Apple 购买 Premium，获得无限扫描、更多 Folder、Performance 和扩展价格历史；内部运营人员通过 Admin 查看安装、用户、反馈、扫描、订单和 Apple 通知，并维护版本与权限。
 
-Cloudflare 与 Linux 测试入口复用同一 Hono 业务应用；Linux 使用独立 PostgreSQL 和本地资源，当前未提供向量识别适配器，不能承担完整扫描验收。运行边界见[系统架构](../02-architecture/architecture.md)。
+Cloudflare 与 Linux 入口复用同一 Hono 业务应用；Linux 使用独立 PostgreSQL 和本地资源，源码通过 HTTP 适配仅复用现有 CF 向量识别。当前 dev 整改已在源码中统一 App test/Admin development 内网入口及测试分享，实际服务器部署和完整扫描仍待验收。运行边界见[系统架构](../02-architecture/architecture.md)。
 
 ### 1.2 完整业务闭环
 

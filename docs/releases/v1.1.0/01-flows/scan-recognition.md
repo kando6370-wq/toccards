@@ -29,7 +29,7 @@ iOS 与 Android 共用 Flutter 取景框布局。取景框根据视口和安全�
 
 ## 平台、资源和协议
 
-本节向量资源描述 Cloudflare 运行路径。Linux 测试入口当前仅保留旧 `OCR_SERVICE_BASE_URL` 配置，未提供 `VECTOR_RECOGNITION`，合法识别请求到达资源检查时返回 `503 VECTOR_RECOGNITION_UNAVAILABLE` 并释放 Free 预占。配置旧 OCR 地址不能恢复扫描；待补齐独立测试向量适配后才能验收，见[Linux 兼容缺口](../02-architecture/linux-test-environment.md#扫描兼容缺口)。
+Cloudflare 运行路径使用 Service Binding。2026-09-15 的 dev 后端整改为 Linux 提供 HTTP `VECTOR_RECOGNITION`，从必填 `VECTOR_RECOGNITION_BASE_URL` origin 请求 `/recognize`，只发送 `{vector}`，10 秒超时覆盖正文读取；调用方取消与不跟随重定向由适配器处理。候选补全、额度、审计与图片仍使用本地 PostgreSQL/图片卷，旧 `OCR_SERVICE_BASE_URL` 已退出运行路径。缺 binding 保持 503，上游失败或超时保持 502 并释放预占；部署与两端真实扫描仍待后续验收，见[Linux 兼容缺口](../02-architecture/linux-test-environment.md#扫描兼容缺口)。
 
 用户已明确选择与源分支一致的兼容范围：iOS 16+、Android minSdk 24，Web 扫描暂不支持。iOS 检测使用 `RTMDetInsTinyCardRawFP16.mlmodel` 与系统 Core ML，向量化继续使用 Core ML，透视矫正继续使用 Core Image，不包含 ONNX Runtime；Android 使用 `onnxruntime-minimal-1.23.0.aar` 和两份 `.ort` 模型。模型与运行时资源不因本次缩放对齐发生变化；Dart 检测输出契约、向量协议与服务端链路不变。iOS Core ML 与新检测缩放组合已由用户于 2026-09-11 完成真机验收；2026-09-14 合入本地 `dev` 后，Android Debug 构建及两项缩放参考检查通过，Android 真机识别、耗时与峰值内存仍待验收，详见[验收记录](../05-delivery/VERIFICATION.md)。
 

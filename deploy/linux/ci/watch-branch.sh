@@ -121,12 +121,11 @@ export PATH="$pnpm_tools_dir/node_modules/.bin:$PATH"
 "$pnpm_bin" --filter @kando/workers-api type-check
 "$pnpm_bin" --filter @kando/workers-api exec vitest run \
   src/db/postgres-database.test.ts \
-  src/linux/in-memory-kv.test.ts \
-  src/linux/filesystem-r2.test.ts \
-  src/linux/execution-context.test.ts \
+  src/linux \
+  src/scan/routes.test.ts \
   src/cors.test.ts \
   src/index-postgres-runtime.test.ts
-node --test apps/admin-web/test/api-environment-intent.test.mjs
+node --test apps/admin-web/test/api-environment-intent.test.mjs deploy/linux/preflight.test.mjs deploy/linux/offline/web-server.test.mjs
 "$pnpm_bin" --filter @kando/workers-api build:linux
 
 rm -rf "$artifact_dir"

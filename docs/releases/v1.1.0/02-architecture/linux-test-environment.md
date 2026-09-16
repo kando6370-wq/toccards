@@ -2,10 +2,13 @@
 
 ## 状态
 
-- 当前代码核对：2026-09-10，`dev@699ca48`；原始设计基线为 2026-08-26 的 `dev@8e22c1d`。
+- 当前后端适配：2026-09-15，`dev-inner` 基于 `dev@b941a3f`；原始设计基线为 2026-08-26 的 `dev@8e22c1d`。
 - 合并状态：`19a6ac4` 已将 Linux 入口、Compose、离线镜像和分支监听发布脚本合入 dev。
-- 验证边界：2026-08-27 离线容器与持久化验证、2026-09-09 功能分支部署与局域网 PostgreSQL 验证均为历史证据；本轮未回读 kd201 当前 release、提交或 migration ledger。
-- 当前缺口：Linux 未适配 `VECTOR_RECOGNITION`，扫描不可用；旧 OCR 配置仍为启动必填项，不能将它当作可用识别链路。
+- 当前服务器：2026-09-16 回读确认 watcher 已部署 `dev@a419415`，current 为 `branch-dev-a4194156c572-20260916110050`；其运行 bundle 未包含 `dev-inner` 的 HTTP 向量适配，仍要求旧 OCR 键。2026-09-15 手工整改 release 的扫描成功仅为历史证据，当前应先对齐分支。原数据库/图片卷保留，ledger 为 13 项，详见[验证记录](../05-delivery/VERIFICATION.md)。
+- 本整改分支的 App test/Admin development 入口和 `deploy:dev` 均已改为 Linux；手工整改版本的受控向量扫描、额度及收藏写库通过，但尚未合入当前 dev，不能代表其自动发布结果。设备与真实图片扫描、第三方测试配置和旧 CF dev 退役仍待验收。
+- 2026-09-16 配置增量：原 CF dev 的 Google/App Attest/邮件公开配置及 Apple 官方根证书已落入 Linux；API 通过 Node 22.22.1 原生环境代理访问外网，Google 网络验证通过，CF 向量服务和内网仍直连。私密凭据、公网通知入口与真机缺项集中维护在[开发计划](../05-delivery/development-plan.md#linux-dev-集中处理清单2026-09-16)。
+- 同日已将用户提供的原始 ZeptoMail Token 写入服务器私有配置，唯一一封注册验证码测试邮件由用户确认收到；邮件凭据缺项解除，完整注册与找回密码流程未验收。
+- Apple Server API 的三项 dev 凭据也已配置，项目客户端从实际 API 容器查询 Sandbox 通知历史返回 200；私钥解析与验签器构造通过。公网通知、真实购买/恢复与交易校正仍待独立验收。
 - 环境边界：Linux 使用独立测试 PostgreSQL；Cloudflare dev/test 与 prod 已完成 PostgreSQL 迁移且无 D1 binding，不存在待执行的 prod D1 切换任务。
 
 ## 背景与架构纠正
@@ -16,15 +19,15 @@
 
 ## 目标
 
-1. 同一个 Git commit 可先部署 Linux 测试环境，再部署 Cloudflare dev/prod。
-2. Linux 使用独立 PostgreSQL、内存 KV 与本地扫描图片目录；完整扫描验收还需独立测试向量服务适配。
-3. Cloudflare 继续使用 Hyperdrive、KV、R2、Workers Assets 和 Cron Triggers。
+1. 现有 dev 业务部署迁至 Linux，保持原 test/development 环境身份，不新增长期并行的第三套环境；prod 继续使用 Cloudflare。
+2. Linux 使用独立 PostgreSQL、内存 KV 与本地扫描图片目录，向量检索复用现有 CF `recognize-vec/Vectorize`。
+3. Cloudflare prod 继续使用 Hyperdrive、KV、R2、Workers Assets 和 Cron Triggers；旧 CF dev 业务部署在整体切换验收后退役。
 4. 后续业务版本只开发一套路由、SQL 和业务逻辑。
-5. Linux 不读取正式数据库、R2、KV、密钥或外部正式接口。
+5. Linux 业务读写不连接正式 PostgreSQL、R2 或 KV；按用户明确方向，仅复用 CF 的只读向量识别服务，其他外部服务使用相应测试配置。
 
 ## 非目标
 
-- Linux 部署不修改 Cloudflare dev/prod 数据库、bindings 或流量；D1 已退役，不属于发布或回滚目标。
+- 本次升级现有 Linux 实例，不修改 Cloudflare 数据库、bindings 或流量；旧 CF dev 退役仍需整体验收。D1 已退役，不属于发布或回滚目标。
 - 不新增 D1、SQLite、Miniflare 数据库回退路径。
 - 不在第一版引入 Redis、MinIO、Kubernetes 或多 API 副本。
 - 不在仓库提交 Linux 服务器真实域名、密码、Token 或证书私钥。
@@ -49,6 +52,7 @@ Linux 测试运行时
 ├── Node.js HTTP server -> PostgreSQL container
 ├── In-memory KV adapter
 ├── Local filesystem object-storage adapter
+├── HTTP vector adapter -> CF recognize-vec / Vectorize
 ├── Caddy or offline Node server -> Admin SPA + API reverse proxy
 └── Node interval -> scheduled jobs
 ```
@@ -80,9 +84,11 @@ Linux 使用本地文件目录代替 R2，实现当前使用的 `put/get/delete`
 
 ### 扫描兼容缺口
 
-当前 `src/scan/routes.ts` 只接受 512 维 `vector`，并通过 `Env.VECTOR_RECOGNITION.fetch()` 调用检索服务；Cloudflare `wrangler.toml` 已配置该 Service Binding。Linux 的 `src/linux/config.ts` 没有构造该适配器，却仍把 `OCR_SERVICE_BASE_URL` 作为必填变量注入 `Env`。
+`src/scan/routes.ts` 只接受 512 维 `vector`，并通过 `Env.VECTOR_RECOGNITION.fetch()` 调用检索服务。Cloudflare 继续使用 Service Binding；Linux 的 `src/linux/config.ts` 通过 `vector-recognition.ts` 构造 HTTP 适配，目标为 `VECTOR_RECOGNITION_BASE_URL` origin 下的 `/recognize`。共享路由只发送 `{vector}`，不向识别服务转发图片、用户 token 或业务数据库请求；候选资料、游戏过滤、额度与扫描记录使用 Linux 的 `DB`。
 
-因此，即使 Linux API 启动、鉴权和数据库正常，合法扫描请求到达资源检查时仍返回 `503 VECTOR_RECOGNITION_UNAVAILABLE`，并释放 Free 预占。补填 OCR 地址不会改变这条路径，健康接口和现有 Linux 适配器测试也不能证明扫描可用。当前启动配置可继续使用 `.invalid` 占位值；后续需在独立修复中提供测试向量服务的 Fetcher 适配并清理不再使用的旧 OCR 字段，不能恢复 pHash 协议或借用正式识别资源。
+HTTP 适配的 10 秒超时持续覆盖响应正文，并保留调用方取消，不重试或跟随重定向。上游 HTTP 失败、无效 JSON 或超时沿用共享路由的 `502 VECTOR_RECOGNITION_UNAVAILABLE`、审计失败记录与释放额度；无匹配或本地目录不可用不错误扣次。缺少 binding 的既有受控 `503` 分支保留。旧 `OCR_SERVICE_BASE_URL` 已从运行时配置和 `Env` 移除，不再作为回退。
+
+此前“必须独立部署向量服务、不得复用 CF 识别”的设计已被 2026-09-15 用户明确的整改方向替代：dev 业务本地化，识别继续使用现有 CF 服务。本次已从 kd201 验证 CF 出站与实际响应，并经内网 API 验证合成图片/512 维向量的完整服务端链路；它不覆盖两端模型推理、真实图片准确率或真机局域网权限。
 
 ### 定时任务
 
@@ -94,22 +100,31 @@ Admin 继续构建同一份 React/Vite 应用：
 
 - Cloudflare 使用 Workers Assets。
 - Linux 标准模式使用 Caddy 托管 SPA，并将 `/api/*` 与 `/share/*` 转发给 Node API；离线模式使用 `deploy/linux/offline/web-server.mjs`，仅开放 HTTP，HTTPS 需由入口反向代理处理。
-- Linux Admin API 地址使用同源相对路径 `/api/v1/admin`。
+- Admin development 和原 Linux 构建均使用同源相对路径 `/api/v1/admin`，本机 Vite 将 `/api` 代理到 `http://192.168.50.201:8080`；production 继续使用原 CF 生产 API。
+- 离线 Node 代理保留请求的外部 Host，使分享 canonical/og:url 使用访问者实际请求的 host/port，不再生成 `api:3000` 内部地址。本阶段使用内网 HTTP；尚未新增 HTTPS 网关或对任意转发头的信任。
+
+### App 测试入口与平台网络策略
+
+Flutter 继续以 `APP_ENV=test` 代表现有 dev，默认业务 origin 为 `http://192.168.50.201:8080`，API 路径为 `/api/v1`；`APP_ENV=production` 和未配置值维持原生产 HTTPS API。测试分享由相同 origin 派生 `/share/cards`，即使复制的数据库下发生产分享地址，测试 App 也使用内网地址；production 继续优先采用服务端分享配置。目录卡牌图片仍由原 `image.tcgcard.fun` 提供。
+
+Android 从 Flutter 传给 Gradle 的 `APP_ENV` 参数选择 network security config，仅 test 对 `192.168.50.201` 允许 HTTP，其他目标禁止明文。iOS 的三个既有 test flavor 配置使用独立 `Info-test.plist`，仅添加该 IP 的 ATS 例外及局域网权限说明，生产 plist 不变；测试保护两个 plist 的其他字段一致。iOS 17+ 的 ATS IP exception 和 iOS 16 的 IP 直连规则不同，需在对应设备验证；本机源码检查不能代替签名 IPA 与真机权限验收。
+
+iOS IP 访问规则依据 Apple 的 [NSAllowsLocalNetworking](https://developer.apple.com/documentation/bundleresources/information-property-list/nsapptransportsecurity/nsallowslocalnetworking) 与 [NSExceptionDomains](https://developer.apple.com/documentation/bundleresources/information-property-list/nsapptransportsecurity/nsexceptiondomains)；本次没有使用全局 `NSAllowsArbitraryLoads`。
 
 ## 配置边界
 
 Linux 真实配置存放在服务器 `.env`，仓库只提交 `.env.example`：
 
 ```dotenv
-LINUX_TEST_SITE_ADDRESS=http://localhost
+LINUX_TEST_SITE_ADDRESS=http://192.168.50.201
 POSTGRES_DB=toccards_test
 POSTGRES_USER=toccards
 POSTGRES_PASSWORD=replace-me
 DATABASE_URL=postgres://toccards:replace-me@db:5432/toccards_test
 PORT=3000
-ALLOWED_ORIGINS=http://localhost
+ALLOWED_ORIGINS=http://192.168.50.201:8080,http://localhost:3000,http://127.0.0.1:3000
 OBJECT_STORAGE_PATH=/data/scan-images
-OCR_SERVICE_BASE_URL=https://replace-with-test-recognize.example.com
+VECTOR_RECOGNITION_BASE_URL=https://recognize-vec.tcgcard.fun
 JWT_SECRET=replace-with-independent-test-secret
 SCHEDULED_TASK_INTERVAL_SECONDS=300
 APP_ENVIRONMENT=development
@@ -117,12 +132,14 @@ APP_ENVIRONMENT=development
 
 OAuth、Apple、ZeptoMail、Mixpanel 和 Singular 配置全部使用测试凭证。缺失的可选外部配置保持现有受控错误语义，不允许回退到 Cloudflare 正式值。
 
-上例保留 `OCR_SERVICE_BASE_URL` 是为了满足当前启动校验；它不参与当前扫描请求。Linux 只接受 `APP_ENVIRONMENT=development`，其他值启动失败。
+受限网络可在 API 启动环境中设置 `NODE_USE_ENV_PROXY=1`、`HTTP_PROXY`/`HTTPS_PROXY` 和 `NO_PROXY`，要求 Node 22.21.0+。这是 Linux 运行配置，不改变共享 OAuth 路由或 Cloudflare 构建。kd201 使用已验证的混合代理端口的 HTTP CONNECT 模式，数据库和 CF 向量识别保留直连；配置、回退和验证限制见[运维手册](../../../linux-test-environment/README.md#外部服务配置与代理)。
+
+`VECTOR_RECOGNITION_BASE_URL` 必须为无凭据、路径、查询参数或 fragment 的 HTTP(S) origin；缺失或非法时启动失败。Linux 只接受 `APP_ENVIRONMENT=development`。升级前需补齐新键；如需回滚旧代码，可在过渡期保留旧 OCR 键或恢复旧版 `.env`，新代码不会读取该旧值。
 
 ## 数据与安全隔离
 
 - PostgreSQL volume、扫描图片 volume、JWT secret 和外部服务凭证均为 Linux 测试专用。
-- PostgreSQL 默认仅映射宿主机回环地址 `127.0.0.1:15432`；开发机直连时可显式设置可信局域网 `POSTGRES_LISTEN_ADDRESS`。kd201 的 `192.168.50.201:15432` 是 2026-09-09 验证配置，本轮未重新连接。
+- PostgreSQL 默认仅映射宿主机回环地址 `127.0.0.1:15432`；开发机直连时可显式设置可信局域网 `POSTGRES_LISTEN_ADDRESS`。2026-09-15 已再次从局域网只读查询 kd201 的 `192.168.50.201:15432`，发布保留该映射和原数据库卷。
 - API 不直接发布宿主机端口；Web 入口与上述受限 PostgreSQL 端口由 Compose 管理，数据库不得映射到公网。
 - migration runner 使用独立 ledger 表记录已执行的 PostgreSQL migration。
 - Linux 环境禁止配置正式 PlanetScale/Hyperdrive 连接串。
@@ -131,12 +148,12 @@ OAuth、Apple、ZeptoMail、Mixpanel 和 Singular 配置全部使用测试凭证
 
 ```text
 开发共享功能
-→ 构建并部署 Linux 测试环境
+→ 构建并部署整改后的 Linux dev
 → 完成受影响功能验收
-→ 使用同一 commit 执行 Cloudflare dev/prod 流程
+→ 按发布授权使用同一套业务代码发布 Cloudflare prod
 ```
 
-只有基础设施接口新增能力时才需要同时扩展 Cloudflare/Linux 适配器。普通 API、页面、业务规则和 PostgreSQL migration 只实现一次。上面是交付目标；当前 Linux 缺少向量适配器，扫描不能通过此路径验收。监听器与手动 Runner 的使用、历史发布证据见[自动部署手册](../05-delivery/linux-test-auto-deployment.md)。
+只有基础设施接口新增能力时才需要同时扩展 Cloudflare/Linux 适配器。普通 API、页面、业务规则和 PostgreSQL migration 只实现一次。App/Admin 默认入口与 dev 发布指令已整改：`deploy:dry-run:dev` 只生成 Linux 发布包，`deploy:dev` 通过显式 SSH 目标调用既有版本化发布脚本；预检配置、本地数据库和 CF 识别后，先备份再迁移/发布。Linux 发布检查覆盖全部 `src/linux`、PostgreSQL 扫描路由、离线代理及发布预检/备份回归。当前服务器已完成手工升级，现有监听器仍监控 `dev`，见[自动部署手册](../05-delivery/linux-test-auto-deployment.md)。
 
 ## 验收范围
 
@@ -147,7 +164,7 @@ OAuth、Apple、ZeptoMail、Mixpanel 和 Singular 配置全部使用测试凭证
 - 登录、资产、卡牌、扫描和 Admin 的代表性请求
 - 内存 KV TTL
 - 本地扫描图片写入、读取和删除
-- 扫描缺少向量适配时返回明确失败并释放额度；补齐适配后再验证独立测试向量接口与完整识别路径
+- CF HTTP 识别成功、失败、超时和无匹配时，本地候选资料、扫描记录与额度结果正确；实际服务与设备链路单独验收
 - Linux scheduled jobs 不重叠
 - Admin SPA 同源 API 代理
 - Cloudflare prod/dev dry-run 仍通过
@@ -158,7 +175,7 @@ Flutter UI、iOS/Android 打包和未涉及页面不属于本任务验证范围�
 
 - Linux 可通过一条 Docker Compose 命令启动完整测试环境。
 - Linux 与 Cloudflare 使用同一套业务代码和 PostgreSQL migration。
-- 独立测试向量适配完成后，扫描端到端验收通过；当前尚未满足。
+- HTTP 向量适配完成后，扫描端到端验收通过；当前仅完成本地后端验证，设备与部署验收尚未满足。
 - Linux 重启后 PostgreSQL 数据和扫描图片保留，内存缓存允许清空。
 - Linux 不依赖 D1、Hyperdrive、Cloudflare KV 或 R2。
-- Cloudflare 现有入口、bindings、Cron 和静态资源行为不变。
+- Cloudflare prod 与共享识别服务保持独立；整体 dev 切换验收后，旧 CF dev 主 Worker 业务入口、cron 与自动部署退役。
