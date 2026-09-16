@@ -36,12 +36,12 @@
 | Linux 测试环境（`19a6ac4`） | 共享 Hono 应用、Node 入口、独立 PostgreSQL/内存 KV/图片卷、Compose 与 dev 分支监听发布 | Linux 未提供 `VECTOR_RECOGNITION`；扫描不可用，旧 OCR 地址不能恢复。kd201 当前 release、SHA、ledger 和合入后自动发布结果未回读，见[Linux 手册](linux-test-auto-deployment.md)。 |
 | 安装统计环境 | 汇总、趋势和明细读取共享 `app_installation`，环境参数仅匹配处理请求的 Worker | 安装行未持久化来源环境，dev/prod 来源筛选未实现；详情见[Admin 口径](../04-admin/admin.md#安装统计环境口径)。 |
 | Singular 同进程恢复（`c28e754`） | 仅缓存有效配置；ATT 顺序完成后按前台退避、resumed 和收入交付恢复初始化，成功后补发已有 pending | SDK API 调用不等于后台收件；原始回归记录见下文，同进程断网恢复的新包真机/后台验收仍待完成。 |
-| iOS 分类分数（`2cec31d`） | RTMDet 原始 logit 经 sigmoid 转为概率后交给 Dart 阈值判断 | 原修复未运行平台验证；需使用 `227.PNG` 在新包真机补验，不因已合入而改为通过。 |
+| 检测图片缩放（`1da3935`、`070f5b6`） | iOS/Android 检测输入使用确定性的半像素双线性缩放；iOS 保留 Core ML，Android 保留最小 ORT | 2026-09-11 用户确认 iOS 真机扫描成功；2026-09-14 合入本地 `dev` 后扫描回归、分析与 Android Debug 构建通过，Android 真机仍待验收，详见下文。 |
 | Home 版本检查（`fc23c6f`、`075db55`） | 实际 Home 首帧激活；后续返回 Home/回前台静默复查，已确认强更继续全局拦截 | 2026-09-10 原回归为 54/54、test 配置 16/16，通过范围见下文；新包安装、商店往返和真机切页未验收。 |
 | iOS 交付物（`deb1d3c`） | 校验 IPA/dSYM 后、安装或上传前按 Bundle ID 保存；测试 3 个版本、正式 7 个版本 | 保存规则按成功保存时间保留，新版本完整保存后才将最旧超额版本移入废纸篓；不清理 Xcode Archives。命令与产物说明见[Flutter README](../../../../apps/flutter-app/README.md#ipa-与符号文件保存)。 |
 | 扫描取景框（`699ca48`） | 首帧预留底部统计行、结果列表和操作区，共用几何随视口/安全区等比缩放 | 2026-09-10 原尺寸回归 12/12；原完整 Scan Widget 的 3 个 Golden 失败已在本页 Golden 修复中收口，最新 App 全量 1047/1047 通过；真机仍待验收。 |
 
-现有自动化证据对应 `6a96404` 的全量复验及 main 合并时的 19 项版本回归；除客户端构建号外，main 的非文档文件与已测基线一致。默认 Workers 首轮失败、受 Git 跟踪测试降低并发后的通过和真机待验分别保留。2026-09-11 已新增 prod 发布、`0011` 迁移及上述定向回归和线上烟测；Apple 实单、iOS 签名/产物保存、登录态扫描及设备验收未新增验证。
+截至 2026-09-11，自动化证据对应 `6a96404` 的全量复验及 main 合并时的 19 项版本回归；除当时客户端构建号外，main 的非文档文件与已测基线一致。默认 Workers 首轮失败、受 Git 跟踪测试降低并发后的通过和真机待验分别保留。2026-09-11 已新增 prod 发布、`0011` 迁移及上述定向回归和线上烟测；该轮未新增 Apple 实单、iOS 签名/产物保存、登录态扫描及设备验收。
 
 
 ## dev 合入 main（2026-09-10，本地）
@@ -131,7 +131,61 @@ Code Review 自审通过：核对取景框计算的唯一调用方、顶部与�
 
 Code Review 自审通过：核对当前路由判定、帧后回调及 disposed 防护、Home 多实例的进入/移除、异步请求迟到、已知强更与普通决策分离、并发请求合并及原“稍后”去重。已有启动测试只调整了返回 Home 应再次检查的次数断言，仍验证同版本不重复提示。实现限于共用版本 Gate，使用 Flutter 跨平台能力；业务与 Admin 行为文档已同步，API/Schema 变更为 N/A。未执行全仓测试、签名包构建、新包安装或 iOS/Android 真机切换/商店往返：当前手机仍为旧安装包，需客户端测试人员使用含修复的新包补验；Widget 平台变体不代表真机已通过。未修改远程规则、部署或发布。
 
-## iOS 原始分类分数修复（2026-09-09）
+## iOS 与 Android 检测图片缩放对齐（2026-09-10 修复，2026-09-14 合入本地 dev）
+
+本轮基于 `origin/dev@b00e76e` 创建 `dev-xiangyang-new`。iOS 问题输入为 `227.PNG`：文件名虽为 PNG，内容实际是带 Display P3 ICC 的 JPEG，尺寸 1206×1515、EXIF Orientation 1，SHA-256 为 `12506B7158BBF0F1AAA5BCB8AACC67A24485AF1472D36D8C3CAEC2245E7716C0`。该图片在相邻 `real_time_recognition` 的 OpenCV 检测预处理中能识别卡牌，而旧 iOS UIKit 缩放会选中背景区域；请求在端侧失败时不会进入 Workers，因此管理平台没有对应扫描记录。
+
+根因证据来自既有 GitHub Actions macOS run `34446393738`：固定 NCHW tensor 输入时 Core ML raw 输出与参考一致，Dart mask 几何也能从参考 mask 得到正确四角，但 UIKit 解码/缩放输入经过同一 Core ML 检测后稳定产生错误候选。受控对照中，sRGB 加 UIKit/Pillow 类双线性缩放使背景候选得分高于正确卡牌；同一 sRGB 图像改用 OpenCV `INTER_LINEAR` 后，正确卡牌成为最高分候选，得分约 0.535，mask bbox 约为 `(77,158)-(418,510)`。这把差异定位到检测前缩放采样，而不是模型格式、Core Image 透视裁正、Dart 四角拟合或向量检索。
+
+修复仅替换最长边 640 的检测专用缩放：iOS 与 Android 都按半像素坐标映射、边界钳制和双线性插值输出 RGB，不重新引入 OpenCV。iOS 保留 `RTMDetInsTinyCardRawFP16.mlmodel`、Core ML raw 输出后处理和 Core Image；Android 保留 `onnxruntime-minimal-1.23.0.aar` 与现有 `.ort` 模型。裁正后的 384×384 embedding 图像预处理、PE-Core-T16 向量化、Flutter 页面、扫描状态机、API、`recognize-vec`、数据库及模型/运行时资源均未修改，因此本轮模型和推理库体积增量为 0；最终分支只增加少量生产缩放代码。
+
+2026-09-11，用户使用云端 `dev-xiangyang-new@1da3935` 构建的苹果端包完成真机测试，并确认 Core ML 检测配合新缩放可以成功识别此前失败的输入。本结论验证 iOS 生产组合，不代表 Android 已验收。已验证回退点仍为 GitHub `dev-xiangyang@3d9f700`，其中 iOS 使用完整 ONNX/ORT 检测；当前分支无需改用该回退方案。
+
+按用户为降低后续合入 `dev` 的差异范围所作的明确选择，本分支后续删除了专项 Android JVM 测试、iOS `227.PNG` RunnerTests、366,304 字节测试夹具、JUnit 测试依赖、Xcode 测试资源引用和 iOS CI 专项测试接线，并恢复仅为测试开放的 Swift 可见性。删除范围不包括既有 `dev` 测试，也不改变 iOS/Android 生产缩放代码；原根因证据和本次 iOS 真机结果保留在本文。由于专项自动化回归已移除，后续合并或修改该缩放实现时不能依赖仓库内用例自动发现采样行为回退。
+
+本地静态验证在仓库根执行：`git diff --check` 退出 0；专项测试支持文件与 `origin/dev` 逐文件一致；最终分支差异不包含 `.github/workflows/ios-build.yml`、Android 测试依赖、RunnerTests、Xcode 测试资源或测试夹具。对 `origin/dev` 检查确认 iOS/Android 模型、最小 ORT AAR、Podfile/Podfile.lock、Flutter `lib`、Admin、Workers 和共享包无差异。首次残留引用检查因 `rg` 正则转义错误退出 2，改用逐项固定字符串检查后无残留、退出 0；该命令错误不记作产品验证通过。Windows 本机没有可用 Flutter/Android SDK/Xcode，因此删除测试后的 Android 构建、iOS 构建、Flutter 分析和 Android 真机测试未运行；iOS 真机成功结论来自用户实际验收。
+
+Code Review 自审核对了解码后的方向尺寸、sRGB/RGB 与后续 BGR 通道转换、半像素坐标和边界钳制、源图/输出缓冲生命周期、检测与 embedding 预处理隔离、Core ML raw 输出后处理、Android 最小 ORT 保留，以及测试删除没有触及生产实现。生产差异限定为 iOS/Android 检测缩放。两端检测均会额外建立约 `source_width × source_height × 4` 字节的临时像素缓冲，常见 12MP 图片约 48 MB；Android 和超高分辨率图片的峰值内存、耗时及更多真实图片准确率尚未真机验证。文档影响已同步至[扫描识别](../01-flows/scan-recognition.md)；Schema、部署和运营操作影响为 N/A。
+
+### 2026-09-14 合入 dev 的本地验证
+
+用户授权将 `dev-xiangyang-new` 合入 `dev`，要求保持其他业务逻辑。刷新 `github` 后，合并前本地与远程 `dev` 均为 `b00e76e`，源分支为 `070f5b6`，提交关系为 `0/2`；扫描回归基线通过后执行 `git merge --ff-only github/dev-xiangyang-new`，本地 `dev` 快进至 `070f5b6`，无冲突。合入两个原提交，未改写生产修复；本轮未推送、部署、修改远程数据库或发布客户端。
+
+范围核对：相对 `b00e76e`，仅 Android `MainActivity.kt`、新增 `OpenCvLinearRgbScaler.kt`、iOS `AppDelegate.swift` 和两份扫描文档有变化。完整文件列表检查与 `git diff --quiet` 均确认 Flutter `lib`、既有测试、模型/运行时资源、依赖与 CI、Admin、Workers、Marketing 和共享包无差异。原生文件逐段比较确认入口注册、生命周期、Android 解码辅助方法、两端卡牌裁正与 384×384 向量预处理以及 iOS 错误契约保持不变。
+
+本轮环境为 Windows、Flutter 3.44.7 / Dart 3.12.2、JDK 21 与本地 Android SDK；与上方源分支阶段的工具可用性记录分开。以下 Flutter 命令均在 `apps/flutter-app` 执行：
+
+- `flutter test --no-pub --dart-define=APP_ENV=test test/scan_native_image_processor_test.dart test/scan_card_recognizer_test.dart test/scan_card_number_reader_test.dart test/scan_mask_geometry_test.dart test/scan_api_client_test.dart test/scan_result_source_test.dart test/scan_review_repository_test.dart test/scan_quota_controller_test.dart test/widget/scan_page_test.dart --reporter expanded`：合并前、后均为 154/154，退出 0；覆盖检测/向量契约、OCR、四角几何、API、队列、额度、Review、保存和扫描页 Golden。原生通道使用测试替身，不代表模型真机识别通过。
+- `flutter analyze --no-pub`：无问题，退出 0。
+- `flutter build apk --debug --no-pub --dart-define=APP_ENV=test`：退出 0，生成 `build/app/outputs/flutter-apk/app-debug.apk`。构建仍提示既有 Gradle 8.12、AGP 8.9.1、Kotlin 2.1.0 后续支持版本及 SDK XML 版本警告；未修改工具链或跳过依赖校验。
+- 临时 Java 检查调用本次 Android 构建出的 `OpenCvLinearRgbScaler` Kotlin 类，复用 `1da3935` 原专项测试的参考像素、容差不超过 1 和原尺寸保持样例：2/2，编译与运行均退出 0。检查程序与日志仅保存在系统临时目录，未恢复仓库专项测试、测试依赖或 CI 接线；仓库内专项回归缺口仍然存在。
+- 仓库根 `git diff --check b00e76e HEAD` 与文档补充后的 `git diff --check` 均通过；两份变更文档的本地相对链接目标存在。
+
+Code Review 自审通过：复核半像素坐标、边界钳制、取整与 RGB 输出长度，确认新缩放只由检测入口调用；通道字段、阈值、模型、裁正与向量化隔离保持原契约。结合相同用例的合并前后结果，未发现本次合并对其他业务代码的额外修改或阻断项。
+
+未运行：iOS 构建与签名验证（Windows 无 Xcode）、iOS/Android 真机原图识别及大图内存/耗时验证（本轮未使用测试手机）、全 App/全仓测试及远程 API/数据库实测（本轮按检测预处理和直接调用链验证，其余业务代码无差异）。iOS 2026-09-11 成功结论保留为既有用户验收，未在本轮重验；客户端测试人员仍需用合入后的新包完成两端设备复验。本地测试和 Android 构建不能替代这些验证。
+
+### 2026-09-14 dev API/Admin 发布
+
+用户随后授权提交、推送及部署 dev。发布源为本地与 `github/dev` 一致的 `42966a9bb766a58da1f0af8fba01d9301816f685`，包含扫描缩放合并与上方验收文档。部署前核对 Cloudflare 运行版本 `6a76360f-714f-4ec5-9819-f8c1c5031c5d` 的资源与仓库 dev 配置一致，并保留该版本作为本次发布前的回退点；本次未修改 Schema、执行 migration 或切换识别协议。
+
+在仓库根执行 `pnpm --filter @kando/workers-api run deploy:dev --tag dev-42966a9 --message 'Deploy dev from 42966a9; scan resize merge verified'`，标准脚本重新构建 Auth Core 与 Admin development assets，随后发布 `toccards-api-dev`，退出 0。2026-09-14 14:54（北京时间）回读 deployment `77251695-34fd-4b48-b6e8-5bf69901f219`，version `ddeb0040-888b-4b33-bc50-c432c0a3793b`（number `358`、tag `dev-42966a9`）承载 100% dev 流量；发布输出确认 `api-dev.tcgcard.fun` 自定义域名与每 5 分钟 Cron 已同步。
+
+发布后逐项比较 binding 类型、目标、变量值与 Secret 名称，均与发布前快照一致：`APP_ENVIRONMENT=development`、beta Apple Bundle 与 `cardx.*` SKU、dev KV/R2、既有共享 Hyperdrive 和 `VECTOR_RECOGNITION=recognize-vec` 保持原配置，没有 D1 binding。未改写 Secret，未修改 prod、Linux 或独立 Marketing 部署。
+
+本次发布验证：
+
+- `pnpm --filter @kando/workers-api exec vitest run src/index-postgres-runtime.test.ts src/app-config/routes.test.ts src/app-config/version-control.integration.test.ts src/scan/routes.test.ts src/scan/quota.integration.test.ts src/cors.test.ts src/admin/cors-preflight.test.ts --maxWorkers=2`：7 文件、62/62，退出 0。
+- `pnpm --filter @kando/admin-web test`：21/21，跳过 0，退出 0；Workers 与 Admin 各自 `type-check` 均退出 0。
+- `pnpm --filter @kando/workers-api run deploy:dry-run:dev`：Admin development 构建、Worker 打包与 dev bindings 检查通过，退出 0。
+- 发布前后线上检查：`/api/v1/health` 为 200/`status=ok`；`/api/v1/games` 返回 10 个游戏；Pokemon Search 第 3 页、每页 40 条返回 200 与 40 条卡牌；iOS/Google `/api/v1/app-config` 均为 200 且 `Cache-Control: no-store`，版本规则与发布前一致。iOS 为推荐 `1.0.2`、最低 `1.0.0`、非强更；Google 升级提示关闭。
+- Admin `/admin` 为 200，发布后本次回读的 HTML 与本地构建一致，引用的 10 个 JS/CSS 逐个返回 200 且 SHA-256 一致；未授权 `/api/v1/admin/scans` 与 `POST /api/v1/scan/recognize` 均保持 401。线上检查仅保存状态、版本规则和资源哈希，没有保存 `/app-config` 返回的 SDK 凭据。
+
+首次发布前搜索烟测把游戏 ID 传给按游戏名称匹配的 `game` 参数，得到 200/空列表并因预期 40 条而退出 1；核对现有适配器后改用游戏名称，相同第 3 页检查在发布前后均通过，未修改产品代码。发布前 HTML 含 Cloudflare 注入的 beacon，原始 HTML 哈希不一致，但去除已确认的 beacon 并归一化标签间空白后与构建相同，10 个资源哈希原本就一致；没有将该页面转换差异记为应用故障。
+
+本次仅发布 API/Admin。扫描缩放修复位于 iOS/Android App 原生代码，已安装的旧 App 不会因 Worker 发布而更新；仍需安装包含合并提交的新 App 包完成客户端验收。未执行已登录 Admin 操作、真实图片向量识别、购买/通知流程、全仓测试、iOS 签名构建或两端真机验证；线上基础检查不能替代这些业务验收。
+
+## iOS 原始分类分数修复（2026-09-09，历史记录）
 
 问题输入为 `227.PNG`（1206×1515、EXIF orientation=1、Display P3）。电脑端同源 ONNX 检测可输出约 0.535 的分类概率并完成四角拟合与 745×1043 卡面矫正，但 iOS 相册导入在端侧检测阶段直接失败，因此请求尚未提交 Workers，管理平台不会生成扫描记录。
 
