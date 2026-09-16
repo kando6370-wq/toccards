@@ -6,9 +6,9 @@
 
 测试地址：`http://192.168.50.201:8080`
 
-部署资产已通过 `19a6ac4` 合入；2026-09-15 从 `dev-inner` 工作区手工升级并验收的 release 为 `manual-dev-inner-c9742fa-dirty-20260915-155717`。2026-09-16 配置邮件时回读确认，watcher 已将 current 切换至 `branch-dev-a4194156c572-20260916110050`；该 dev 提交未包含整改分支的 HTTP 向量适配和新发布入口，旧手工验收不能作为当前扫描可用的依据。应先完成分支对齐再发布复验，详见[集中处理清单](development-plan.md#linux-dev-集中处理清单2026-09-16)。本次只应用邮件配置，没有修改监听器、crontab 或应用版本。
+2026-09-16 已将 `dev-inner` 整改与 dev 原有后台筛选改动合并为 `75c0ec4` 并推送。现有 cron 于 15:08 自动发现该提交，运行检查、构建、数据库备份与发布脚本，当前 release 为 `branch-dev-75c0ec4f991d-20260916151043`；运行 bundle 含 HTTP 向量适配，扫描、额度与本地收藏写库复验通过。此前 `a419415` 自动发布缺少整改的状态已解除，完整证据见[验证记录](VERIFICATION.md)。
 
-当前源码的 `deploy:dev` 已改为 Linux SSH 发布，`deploy:dry-run:dev` 仅生成发布包；`build:dev` 构建 Linux API 与 Admin development，旧 `build:linux` 为兼容别名。手工发布可以使用当前整改分支工作树，清单明确记录 SHA/分支/dirty 状态；自动监听仍以 `dev` 为默认来源，实际合并、监听器更新和旧 CF dev 退役尚需按授权实施。
+`deploy:dev` 使用 Linux SSH 发布，`deploy:dry-run:dev` 仅生成发布包；`build:dev` 构建 Linux API 与 Admin development，旧 `build:linux` 为兼容别名。自动监听已更新为合并版本的脚本，仍以 dev 为来源，crontab 周期保持不变；`watcher.env` 单独配置了已验证的局域网 HTTP/HTTPS 代理、NO_PROXY 和 NODE_USE_ENV_PROXY，避免依赖 GitHub 直连。更新前脚本/配置备份后缀为 `before-20260916-150706`。旧 CF dev 退役仍待完整业务与设备验收。
 
 ## 当前工作方式
 

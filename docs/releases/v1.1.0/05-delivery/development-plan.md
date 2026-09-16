@@ -23,7 +23,7 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 | 范围 | 当前代码事实 | v1.1 差距 |
 |---|---|---|
-| dev 迁往 Linux | 发布整改已提交至 `dev-inner@a512dbd`，kd201 既有实例已升级；PostgreSQL 18.6/原卷保留，受控 CF 扫描与本地写库通过；2026-09-16 已补公开配置、Apple 根证书与 API 出站代理 | 尚未合入 `dev`；其余私密凭据、公网回调、真实登录/购买、设备和自动发布缺项见[集中处理清单](#linux-dev-集中处理清单2026-09-16)，不能视为旧 CF dev 已退役 |
+| dev 迁往 Linux | 2026-09-16 整改已通过 `75c0ec4` 合入 dev，并由 kd201 监听器自动部署；当前运行版本的 CF 扫描、幂等扣次与本地收藏写库通过，原卷与邮件/Apple 配置保留 | 公网回调、真实登录/购买、设备、统计和旧 CF dev 退役见[集中处理清单](#linux-dev-集中处理清单2026-09-16)；服务器受控验收不替代真机 |
 | App 版本与交付 | 实际 Home 首帧激活版本检查，后续 Home 复查静默进行，已确认强更继续全局拦截；iOS 校验后保存 IPA/dSYM，按 Bundle ID 保留测试 3 个/正式 7 个版本 | 新包安装、升级/商店往返和真机验收待完成；本轮未在 macOS 执行保存脚本或签名构建 |
 | App 订阅体验 | 已有 Subscription Page、Paywall、Success、StoreKit 2 Fresh Purchase verifier、Secure Storage 补偿队列、本机 Restore 结果分流、App Attest 原生桥接，以及 Performance/1Y/Folder/Scan Waiting 的来源动作恢复；Home/Search/Collection/Profile 顶部入口、Profile Banner 和 Scan 顶部 Pro 次数卡均已接入完整 Subscription Page，功能卡点仍使用 Functional Paywall Bottom Sheet；Profile 顶部及升级 Banner 已同步 Figma `2129:5678` 并按左右 20px 响应式布局，Search/Collection 顶部已同步 Figma `2070:9663` 的标题与皇冠 PRO 胶囊，Search 顶部搜索框、游戏选择框及 Cards/Sets 切换框和 Collection 顶部 Tab、搜索框均已统一为 44px，Collection Portfolio 摘要已同步 Figma `2070:9486` 的 110px 紧凑布局，Home 顶部订阅入口及 Overview/Performance Tab 已同步 Figma `2181:12864`，模式切换器使用固定外框宽度以保持皇冠入口位置稳定；商品局部缺失、15 秒重载、Purchase 状态、首次/冷启动 Premium 三态分流、ATT/Singular 启动顺序及 v1.1 PRD 视觉 Golden 已实现 | 前后台完整矩阵、Singular 收入后台收件及 iOS 真机验收不完整 |
 | Premium 真值 | 鉴权保留可信 `session_id`；Fresh Purchase 与 Restore 均已有独立 Apple 证据、session proof 和 session grant 写链；App 使用 Unknown/Free/Premium 三态及已验证缓存；Scan、Folder、Performance、Home 与 Card Detail 普通历史 1Y 已接入统一授权 | 三态仍缺 iOS 真机前后台与过期续订矩阵验收 |
@@ -54,9 +54,9 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 | Apple 公网通知 | 内网通知路由可达，但 Apple 无法直接访问内网；当前 CF 凭据读取 DNS 返回 403。已有 `smart-mtg-recognition` Tunnel 属旧扫描服务且为 down，不能当作 dev 回调入口 | 提供具备 `tcgcard.fun` Zone DNS Edit、Zone Read 和账户 Cloudflare Tunnel Edit 的 Token 文件，或可用的独立 HTTPS 入口；需要 App Store Connect 的 Sandbox Notification URL 配置权限 | 拟用 `https://dev-callback.tcgcard.fun/api/v1/apple/notifications/v2/sandbox`，只转发该路径，其余返回 404；Apple TEST 通知验签并落到 Linux inbox，正式通知入口保持不变 |
 | 统计与归因 | `MIXPANEL_PROJECT_TOKEN`、`MIXPANEL_API_SECRET`、`SINGULAR_API_KEY`、`SINGULAR_SECRET_KEY` 缺失 | 原 dev 对应的项目配置与凭据；可排在核心登录、扫描和订阅之后处理 | 测试安装/事件/收入在对应测试项目中可核对，不能仅凭 HTTP 连通判断上报成功 |
 | iOS / Android 真机 | 尚未验证真实 Google/Apple 登录、两端模型扫描、局域网权限、购买和重启持久化 | 可访问内网的 iOS 16+/Android API 24+ 设备、测试账号；iOS 另需 Mac/Xcode 和测试签名条件 | test 包业务 API 指向内网，真实扫描候选与额度/收藏在 Linux；beta IPA 最终 App Attest entitlement 为 development |
-| 自动发布与 dev 收口（最高优先级） | 2026-09-16 服务器已由 watcher 更新到 `branch-dev-a4194156c572-20260916110050`；该 dev 提交不包含 `b27ca90`/`a512dbd`/`a457f70`，运行 bundle 仍要求旧 OCR 配置且未构造向量适配，9 月 15 日手工版本的扫描成功不能代表当前版本。API 代理不会自动影响 watcher，非交互 SSH 仍待配置 | 先按用户授权将整改分支与当前 dev 对齐，再发布并重新验收扫描；统一处理 watcher 网络出口与 SSH key/agent，避免手工整改再次被未包含修复的 dev 替换 | 运行 bundle/manifest 对应包含整改的提交；当前版本完整扫描、额度与收藏通过后，再安排旧 CF dev 退役 |
+| 自动发布与 dev 收口 | 已完成本阶段：`dev@75c0ec4` 包含双方改动，watcher 已更新脚本并单独配置代理；cron 自动发布 `branch-dev-75c0ec4f991d-20260916151043`，运行 bundle 含向量适配，原卷与 13 项 ledger 保留 | 日常自动发布继续监听 dev；非交互 SSH key/agent 只影响可选手工发布入口，可后续配置。按其余条目继续公网回调及真机验收 | 当前版本已完成受控扫描 5 候选、10→9 扣次、重复请求不再扣次、收藏和初始价格事件写库；测试业务数据已清理 |
 
-优先对齐实际部署与整改分支，同时集中准备公网回调权限、Sandbox 账号与真机；管理员登录、Google 代理、邮件收件和 Apple Server API 凭据鉴权均已完成，统计可随后补验。当前 Sandbox 验签不要求 `APPLE_IAP_APP_ID`，因此未将其空值列为阻塞，也不能为填满配置而使用正式 App ID。本次未新建 Tunnel、DNS 或修改 App Store Connect，未更改 watcher 分支、合并 dev 或退役 CF 资源；现有 watcher 的自动发布已发生，不能与本次仅修改邮件及 Apple 凭据混为一谈。
+部署分支对齐与自动发布已完成，接下来准备公网回调权限、Sandbox 账号与真机；管理员登录、Google 代理、邮件收件和 Apple Server API 凭据鉴权均已完成，统计可随后补验。当前 Sandbox 验签不要求 `APPLE_IAP_APP_ID`，因此未将其空值列为阻塞，也不能为填满配置而使用正式 App ID。本次合并并推送 dev、更新 watcher 脚本/项目级代理；没有新建 Tunnel/DNS、修改 App Store Connect、变更监听分支或退役 CF 资源。
 
 ## 3. 阶段与验收门槛
 

@@ -2,6 +2,35 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## dev 整改合并、自动部署与扫描复验（2026-09-16）
+
+用户明确接受提交验收文档、合并双方改动、推送 dev、验证现有 Linux 自动部署及扫描写库的执行顺序。先将 6 份凭据/部署验收文档提交为 `dev-inner@628cf25`；随后在最新 `dev@a419415` 合并 `dev-inner`，无冲突，得到 `75c0ec4f991d276a54caf3cde6c75858588e7ff1`。自审比对确认 dev 的 Admin 日期/环境筛选增量完整保留，Workers/Linux/Flutter 实现与已验证的整改分支一致，PostgreSQL migration SQL 及冻结目录无改动。
+
+| 合并后检查 | 实际结果 |
+|---|---|
+| `pnpm lint`、`pnpm type-check --force` | 均退出 0，4 个共享包依赖方向通过，类型检查 7/7、0 缓存 |
+| `pnpm --filter @kando/workers-api exec vitest run src/linux src/scan src/db/postgres-database.test.ts src/cors.test.ts src/index-postgres-runtime.test.ts src/admin --maxWorkers=2` | 15 文件、122/122，退出 0，无跳过 |
+| `pnpm --filter @kando/admin-web test` | 22/22，退出 0；含保留的后台筛选与内网入口契约 |
+| `node --test deploy/linux/preflight.test.mjs deploy/linux/offline/web-server.test.mjs` | 9/9，退出 0 |
+| Flutter test 环境/发布配置/分享定向测试 | `flutter test --no-pub --dart-define=APP_ENV=test test/api_environment_test.dart test/release_config_test.dart test/card_detail_actions_test.dart --reporter expanded`，15/15，退出 0；`flutter analyze --no-pub` 无问题 |
+| dev/prod 打包预演 | `pnpm --filter @kando/workers-api deploy:dry-run:prod` 与 `deploy:dry-run:dev` 均退出 0；prod 仅 dry-run，无发布 |
+| GitHub iOS 编译 | 合并提交触发的 [iOS build 35066969713](https://github.com/kando6370-wq/toccards/actions/runs/35066969713) 已 completed/success；仅无签名 release 编译，不代表最终 IPA 或设备验收 |
+| 合并检查 | 两个发布 shell 分别 `bash -n`、`git diff --cached --check` 通过；20 份合并涉及的 Markdown 共 214 个本地链接/锚点通过 |
+
+服务器自动发布：
+
+- 先在 watcher 锁内确认其专用 source checkout 无用户改动/私有 env，再备份并更新安装的 `watch-branch.sh`，使其覆盖新增运行时和发布预检测试。`watcher.env` 新增项目级 HTTP/HTTPS 代理、NO_PROXY、NODE_USE_ENV_PROXY，继续监控 dev；备份后缀 `before-20260916-150706`，脚本 SHA-256 为 `d81a8d15b5c3885e181c5092b8484ea2eb7aae1095b84306c81a317c6b9d66c7`。没有改变全局代理、其他项目或 crontab 周期。
+- 推送后 `git ls-remote` 与本地 SHA 一致。既有 cron 在 15:08 自动发现 `75c0ec4`，完成锁定依赖安装、Workers 类型检查、运行时 9 文件 75/75 与 Node 发布检查 12/12、Linux/Admin 构建。没有手工调用发布脚本绕过该流程。
+- 实际 preflight 返回本地 `toccards_test`、PostgreSQL 18、CF reachable、pending migrations 为空；随后备份 `/home/user/apps/toccards-test/backups/toccards-test-20260916-151045-before-branch-dev-75c0ec4f991d-20260916151043.dump`，1,120,645,783 字节、权限 600，`pg_restore --list` 可读取。没有整库恢复演练。
+- current 为 `/home/user/apps/toccards-test/releases/branch-dev-75c0ec4f991d-20260916151043`；manifest 的 branch=dev、sha 为完整合并提交、built_at=`2026-09-16T07:10:43Z`、source=kd201-branch-watcher。`last-deployed-sha` 与目标提交一致；原 `a419415` release 保留供回退。
+- API/数据库 healthy、Web 正常；原 `toccards-linux-test_postgres-data` 与 `toccards-linux-test_scan-images` 保留，ledger 仍为 13 项，无新迁移。API 容器 bundle 的 SHA-256 与 release 文件一致，实际 sourcemap 含 `createHttpVectorRecognition`，不再要求旧 OCR 字段。邮件、Apple 凭据、私钥格式及 API 代理均回读确认保留。
+
+部署后烟测：health、games、卡牌 `100223`、iOS/Google app-config、Admin HTML 与 10 个资产、3 个 CORS origin 和分享 canonical 均通过，资产与服务器 release 逐字节比较一致；未登录 Admin scans 为 401。通过临时匿名账号、合成 745×1043 JPEG 和 512 维单位向量发起扫描，约 1.022 秒返回 5 个候选；Linux 数据库验证 development 扫描记录、consumed 额度及本地图片。免费额度由 10 变 9，同 request ID 重放后仍为 9、consumed=1；确认收藏返回 201，主记录与初始事件均保存 `12.5 USD` 及可靠历史起点。测试账号的业务记录和图片/metadata 已精确清理，保留已分配 UID 占位与基础设施锁。
+
+Code Review 自审通过：合并未产生新业务改写，双方增量和测试均保留；监听器仍使用同一版本化发布脚本、原卷与私有配置，运行结果与合并 SHA 一致。未执行 Workers/Flutter 全仓测试、两端签名包或真机识别准确率/购买；本轮是定向合并验证及真实 Linux 服务端链路验收。公网 Apple 回调、统计配置、浏览器 Logout 服务端撤销和旧 CF dev 退役仍在集中清单中，本次未修改 CF dev/prod、DNS 或 App Store Connect。
+
+发布后的 9 份说明文档已按运行事实更新，55 个本地链接/锚点及 diff 检查通过；该文档增量不改变应用或部署构建输入，按 watcher 路径规则仅推进观察基线，不触发重建。应用运行版本仍以上述 `75c0ec4` 为准。
+
 ## Linux Apple Server API 凭据与 Sandbox 鉴权（2026-09-16）
 
 用户提供 Issuer ID，并明确 dev 对应本机 `SubscriptionKey_A2Q978K984.p8`。本轮仅配置 Linux 的 `APPLE_IAP_ISSUER_ID`、`APPLE_IAP_KEY_ID`、`APPLE_IAP_PRIVATE_KEY`；私钥文件内容未输出日志或写入仓库。执行时 current 仍为 `branch-dev-a4194156c572-20260916110050`，部署版本中的 Apple Server API factory 和 signed-data verifier 源码通过 sourcemap 与本地逐字节核对一致。配置前本地库的待处理通知、correction_required 及交易数均为 0。

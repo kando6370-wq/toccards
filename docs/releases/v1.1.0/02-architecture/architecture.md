@@ -90,11 +90,11 @@ PostgreSQL 结构以 `src/db/postgres/migrations/` 中的顺序 migration 为准
 |---|---|---|---|
 | dev | `toccards-api-dev` | `api-dev.tcgcard.fun` | 2026-09-09 回读为 PostgreSQL/Hyperdrive 与 VECTOR_RECOGNITION；dev KV/R2、beta Apple 配置和 `APP_ENVIRONMENT=development` 独立 |
 | prod | `toccards-api-prod` | `api.tcgcard.fun` | 2026-09-09 回读为 PostgreSQL/Hyperdrive，无 D1；仍使用 OCR_SERVICE_BASE_URL，prod KV/R2、production Apple 配置和 `APP_ENVIRONMENT=production` 独立 |
-| Linux dev 整改目标 | Node / `src/linux/server.ts` | `http://192.168.50.201:8080` | 独立 PostgreSQL、内存 KV、本地图片卷、`APP_ENVIRONMENT=development`；源码已提供 CF HTTP 向量适配及 App/Admin 默认入口，服务器新版本与设备验收仍待完成 |
+| Linux dev | Node / `src/linux/server.ts` | `http://192.168.50.201:8080` | 独立 PostgreSQL、内存 KV、本地图片卷、`APP_ENVIRONMENT=development`；2026-09-16 自动发布 `75c0ec4`，CF HTTP 向量与本地扫描/收藏链路受控验证通过，设备验收仍待完成 |
 
 Wrangler vars 保存非敏感环境配置，密钥通过 Worker secrets 注入。dev/prod 已共用业务 PostgreSQL；`APP_ENVIRONMENT`、Apple Bundle/Product ID、KV、R2、域名和 Worker secrets 不得混用。当前仓库的 prod 配置已包含向量绑定，但配置文件不代表现网版本已切换；版本及 binding 回读集中维护在[发布与验证](../05-delivery/VERIFICATION.md)。部署脚本先构建共享认证和对应模式 Admin，再部署 Worker 与静态 assets。两环境的 PostgreSQL 迁移均已完成，后续仅核对本次变更所需的 PostgreSQL schema、业务数据及应用版本，不再安排 D1 移库或切换任务。
 
-Linux 的真实配置仅保存在服务器 `.env`。分支监听器默认每两分钟检查 `dev`，相关路径变化才执行定向检查、构建、数据库备份和版本化发布；GitHub Linux workflow 仅为手动触发选项。2026-09-15 已核实既有部署来自 `feature/linux-test-environment` 的同套资产，并从 `dev-inner` 工作区完成原位升级；当前 release、SHA、dirty 状态与 13 项 migration ledger 见[验证记录](../05-delivery/VERIFICATION.md)。监听器仍监控 `dev`，不能将手工发布等同于分支已合并。
+Linux 的真实配置仅保存在服务器 `.env`。分支监听器默认每两分钟检查 `dev`，相关路径变化才执行定向检查、构建、数据库备份和版本化发布；GitHub Linux workflow 仅为手动触发选项。2026-09-16 已将整改合入 `dev@75c0ec4` 并由现有监听器自动发布、完成受控扫描验收。API 与 watcher 分别使用自身环境文件中的代理配置；当前 release、SHA、备份与 13 项 migration ledger 见[验证记录](../05-delivery/VERIFICATION.md)。
 
 当前源码将 `deploy:dev` 改为 Linux 发布包 + SSH，`deploy:dry-run:dev` 只构建归档。手工、监听器与 Runner 均复用同一个发布脚本，在备份前核对本地数据库凭据/18 大版本、待执行 migration 和 CF 识别契约；已有库不会因 `current` 链接缺失而跳过备份。标准与离线 PostgreSQL 默认均为 18，并保留原卷路径。旧 CF dev 的实际退役仍以部署和业务验收为前提，prod 发布入口保持原状。
 

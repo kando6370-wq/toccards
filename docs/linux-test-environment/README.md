@@ -4,11 +4,11 @@
 > 测试服务器：`kd201`（`192.168.50.201`）  
 > 测试入口：`http://192.168.50.201:8080`  
 > 自动部署分支：`dev`  
-> 当前发布基线：2026-09-16，watcher 自动发布 `dev@a419415`
+> 当前发布基线：2026-09-16，watcher 自动发布 `dev@75c0ec4`
 >
-> 服务器核验：2026-09-16，邮件配置与真实收件通过；当前版本未包含向量整改
+> 服务器核验：2026-09-16，向量扫描、扣次和本地收藏写库通过；邮件与 Apple 凭据保留
 
-Linux 部署资产已通过 `19a6ac4` 合入 dev。2026-09-15 手工发布的整改版本为 `manual-dev-inner-c9742fa-dirty-20260915-155717`；2026-09-16 回读确认 current 已被 watcher 更新为 `branch-dev-a4194156c572-20260916110050`。该提交尚未包含 `dev-inner` 的 HTTP 向量适配，不能沿用手工版本的扫描成功结论；应先对齐分支再发布验收。数据库和图片卷保留，ledger 为 13 项。日常手工发布仍需配置 SSH key/agent，完整证据见[验证记录](../releases/v1.1.0/05-delivery/VERIFICATION.md)。
+Linux 整改已通过 `75c0ec4` 合入 dev，保留该分支原有的后台筛选改动。kd201 每两分钟的定时监听已自动发布 `branch-dev-75c0ec4f991d-20260916151043`，当前运行 API 的 bundle 与该 release 一致且包含 HTTP 向量适配；受控扫描、幂等扣次和收藏写库通过。原数据库及图片卷保留，ledger 为 13 项；此前缺少整改的 `a419415` release 保留为历史版本。日常手工 SSH 发布仍需配置 key/agent，当前自动发布使用服务器现有监听器。完整证据见[验证记录](../releases/v1.1.0/05-delivery/VERIFICATION.md)。
 
 2026-09-16 已在共享 `shared/.env` 补齐 dev 公开配置、Apple 官方根证书、API 出站代理、ZeptoMail Token 和用户确认的 Apple Server API 凭据；这些配置随 release 保留。配置更新只重建 API，单封注册验证码邮件由用户确认收到，管理员登录与 Apple Sandbox 只读 API 鉴权均通过。当前源码版本对齐、第三方真实登录、Apple 购买/回调等剩余项见[集中处理清单](../releases/v1.1.0/05-delivery/development-plan.md#linux-dev-集中处理清单2026-09-16)。
 
@@ -125,7 +125,7 @@ HTTPS_PROXY=http://192.168.48.10:7890
 NO_PROXY=localhost,127.0.0.1,::1,db,api,192.168.50.201,192.168.48.10,recognize-vec.tcgcard.fun
 ```
 
-此方式要求实际 API 运行时为 Node 22.21.0+；kd201 当前为 22.22.1。`NODE_USE_ENV_PROXY` 是 Node 启动配置，不由 `loadLinuxRuntime` 转换；仅设置 `HTTPS_PROXY` 无法保证旧版 Node 的原生 `fetch` 使用代理。Node 原生代理配置接受 HTTP(S) URL，不能把此处改成 `socks5://`。本轮没有修改宿主机全局代理、Docker daemon 或其他项目；数据库为直连 TCP，健康检查、容器内部请求与 CF 向量服务通过 `NO_PROXY` 直连，TLS 校验保持开启。
+此方式要求实际 API 运行时为 Node 22.21.0+；kd201 当前为 22.22.1。`NODE_USE_ENV_PROXY` 是 Node 启动配置，不由 `loadLinuxRuntime` 转换；仅设置 `HTTPS_PROXY` 无法保证旧版 Node 的原生 `fetch` 使用代理。Node 原生代理配置接受 HTTP(S) URL，不能把此处改成 `socks5://`。2026-09-16 自动发布整改时，另外将相同 HTTP/HTTPS/NO_PROXY/NODE_USE_ENV_PROXY 设置加入 `watcher/watcher.env`，使监听器的 Git/Node/pnpm 使用已验证的出口；API 环境和 watcher 环境各自维护，不会自动互相继承。宿主机全局代理、Docker daemon 和其他项目未修改；数据库为直连 TCP，内网与 CF 向量服务通过 `NO_PROXY` 直连，TLS 校验保持开启。
 
 变更前备份 `shared/.env`，持有 watcher/deploy 锁后，在 `current/deploy/linux` 使用既有两份 Compose 配置执行 `up -d --no-deps api`；仅重建 API。回退时恢复对应 `.env` 备份并执行同一命令。Google 返回 `400 invalid_token`（未传真实令牌）只证明网络可达；真实账号登录仍需测试包及用户授权令牌。
 
