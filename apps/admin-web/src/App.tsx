@@ -184,6 +184,7 @@ const API_BASE = resolveAdminApiBase({
   DEV: import.meta.env.DEV,
   VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
 });
+const DEFAULT_BILLING_ENVIRONMENT = import.meta.env.MODE === "production" ? "Production" : "Sandbox";
 const SESSION_STORAGE_KEY = "kando_admin_session";
 const SESSION_EXPIRED_EVENT = "kando-admin-session-expired";
 const menuGroups: Array<{ title: string; items: Array<{ key: MenuKey; label: string }> }> = [
@@ -511,8 +512,8 @@ function InstallationsPage({ session }: { session: AdminSession }) {
 function BillingOrdersPage({ session }: { session: AdminSession }) {
   const [page, setPage] = useState(1);
   const [dateKey, setDateKey] = useState(0);
-  const [draft, setDraft] = useState<Record<string, string>>({});
-  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [draft, setDraft] = useState<Record<string, string>>({ environment: DEFAULT_BILLING_ENVIRONMENT });
+  const [filters, setFilters] = useState<Record<string, string>>({ environment: DEFAULT_BILLING_ENVIRONMENT });
   const [exporting, setExporting] = useState(false);
   const path = useMemo(() => queryPath("/billing/transactions", page, filters), [filters, page]);
   const { data, loading, reload, error } = useAdminData<PagedResponse<BillingTransactionRow>>(path, session);
@@ -566,12 +567,12 @@ function BillingOrdersPage({ session }: { session: AdminSession }) {
       <ScanFilterField label="SKU"><Select showSearch mode="multiple" placeholder="全部" value={csvValues(draft.sku)} options={skuOptions} onChange={(v) => setDraft({ ...draft, sku: v.join(",") })} /></ScanFilterField>
       <ScanFilterField label="订单状态"><Select mode="multiple" placeholder="全部" value={csvValues(draft.status)} options={billingStatusOptions} onChange={(v) => setDraft({ ...draft, status: v.join(",") })} /></ScanFilterField>
       <ScanFilterField label="当前订阅状态"><Select mode="multiple" placeholder="全部" value={csvValues(draft.subscription_status)} options={billingSubscriptionStatusOptions} onChange={(v) => setDraft({ ...draft, subscription_status: v.join(",") })} /></ScanFilterField>
-      <ScanFilterField label="安装时间（UTC+0）"><DatePicker.RangePicker key={`install-${dateKey}`} showTime onChange={(_, v) => setDraft({ ...draft, install_from: v[0], install_to: v[1] })} /></ScanFilterField>
-      <ScanFilterField label="订单时间（UTC+0）"><DatePicker.RangePicker key={`purchase-${dateKey}`} showTime onChange={(_, v) => setDraft({ ...draft, purchase_from: v[0], purchase_to: v[1] })} /></ScanFilterField>
+      <ScanFilterField label="安装时间（UTC+0）"><DatePicker.RangePicker key={`install-${dateKey}`} format="YYYY-MM-DD" onChange={(_, v) => setDraft({ ...draft, install_from: v[0], install_to: v[1] })} /></ScanFilterField>
+      <ScanFilterField label="订单时间（UTC+0）"><DatePicker.RangePicker key={`purchase-${dateKey}`} format="YYYY-MM-DD" onChange={(_, v) => setDraft({ ...draft, purchase_from: v[0], purchase_to: v[1] })} /></ScanFilterField>
       <ScanFilterField label="自动续期"><Select allowClear placeholder="全部" value={draft.auto_renew || undefined} options={[{ value: "true", label: "是" }, { value: "false", label: "否" }]} onChange={(v) => setDraft({ ...draft, auto_renew: v ?? "" })} /></ScanFilterField>
       <ScanFilterField label="环境"><Select allowClear placeholder="全部" value={draft.environment || undefined} options={billingEnvironmentOptions} onChange={(v) => setDraft({ ...draft, environment: v ?? "" })} /></ScanFilterField>
       <ScanFilterField label="扣款次数"><Select allowClear placeholder="全部" value={draft.charge_count || undefined} options={billingChargeCountOptions} onChange={(v) => setDraft({ ...draft, charge_count: v ?? "" })} /></ScanFilterField>
-      <div className="scans-filter-actions"><Button disabled={loading} onClick={() => { setDraft({}); setFilters({}); setPage(1); setDateKey((v) => v + 1); }}>重置</Button><Button className="cyan-button" disabled={loading} loading={loading} onClick={applyFilters}>查询</Button></div>
+      <div className="scans-filter-actions"><Button disabled={loading} onClick={() => { setDraft({ environment: DEFAULT_BILLING_ENVIRONMENT }); setFilters({ environment: DEFAULT_BILLING_ENVIRONMENT }); setPage(1); setDateKey((v) => v + 1); }}>重置</Button><Button className="cyan-button" disabled={loading} loading={loading} onClick={applyFilters}>查询</Button></div>
     </section>
     <section className="scans-table-panel"><div className="billing-table-actions"><Title level={4}>订单列表</Title><Space><Button disabled={loading} loading={loading} onClick={reload}>刷新</Button><Button disabled={!data?.total || loading || exporting} loading={exporting} onClick={exportOrders}>导出</Button></Space></div><Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} locale={{ emptyText: "暂无符合条件的订单" }} pagination={false} scroll={{ x: 1650 }} />
       <div className="scans-pagination"><Text>{rangeSummaryPage(page, data?.page_size ?? 20, data?.total ?? 0)}</Text><Pagination disabled={loading} current={page} pageSize={data?.page_size ?? 20} total={data?.total ?? 0} showQuickJumper showSizeChanger={false} onChange={setPage} /></div>
@@ -582,8 +583,8 @@ function BillingOrdersPage({ session }: { session: AdminSession }) {
 function AppleNotificationsPage({ session }: { session: AdminSession }) {
   const [page, setPage] = useState(1);
   const [dateKey, setDateKey] = useState(0);
-  const [draft, setDraft] = useState<Record<string, string>>({});
-  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [draft, setDraft] = useState<Record<string, string>>({ environment: DEFAULT_BILLING_ENVIRONMENT });
+  const [filters, setFilters] = useState<Record<string, string>>({ environment: DEFAULT_BILLING_ENVIRONMENT });
   const [detail, setDetail] = useState<AppleNotificationDetail | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -616,8 +617,8 @@ function AppleNotificationsPage({ session }: { session: AdminSession }) {
     setPage(1);
   }
   function resetNotificationFilters() {
-    setDraft({});
-    setFilters({});
+    setDraft({ environment: DEFAULT_BILLING_ENVIRONMENT });
+    setFilters({ environment: DEFAULT_BILLING_ENVIRONMENT });
     setPage(1);
     setDateKey((value) => value + 1);
   }
@@ -674,7 +675,7 @@ function AppleNotificationsPage({ session }: { session: AdminSession }) {
       <ScanFilterField label="环境"><Select allowClear placeholder="全部" value={draft.environment || undefined} options={billingEnvironmentOptions} onChange={(v) => setDraft({ ...draft, environment: v ?? "" })} /></ScanFilterField>
       <ScanFilterField label="主通知类型"><Select showSearch allowClear placeholder="全部" value={selectedType} options={notificationTypeOptions} onChange={(v) => setDraft({ ...draft, notification_type: v ?? "", subtype: "" })} /></ScanFilterField>
       <ScanFilterField label="子通知类型"><Select showSearch allowClear placeholder="全部" value={draft.subtype || undefined} options={subtypeOptions} onChange={(v) => setDraft({ ...draft, subtype: v ?? "" })} /></ScanFilterField>
-      <ScanFilterField label="创建时间（UTC+0）"><DatePicker.RangePicker key={dateKey} showTime onChange={(_, v) => setDraft({ ...draft, created_from: v[0], created_to: v[1] })} /></ScanFilterField>
+      <ScanFilterField label="创建时间（UTC+0）"><DatePicker.RangePicker key={dateKey} format="YYYY-MM-DD" onChange={(_, v) => setDraft({ ...draft, created_from: v[0], created_to: v[1] })} /></ScanFilterField>
       <div className="scans-filter-actions"><Button disabled={loading} onClick={resetNotificationFilters}>重置</Button><Button className="cyan-button" disabled={loading} loading={loading} onClick={applyNotificationFilters}>查询</Button></div>
     </section>
     <section className="scans-table-panel"><div className="billing-table-actions"><Title level={4}>通知消息列表</Title><Button disabled={loading} loading={loading} onClick={reload}>刷新</Button></div><Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} locale={{ emptyText: "暂无符合条件的通知消息" }} pagination={false} scroll={{ x: 1510 }} />
