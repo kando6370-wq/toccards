@@ -17,25 +17,32 @@ import '../../profile/profile_actions.dart';
 Future<void> showAuthSheet(
   BuildContext context, {
   bool waitForSuccessFeedback = false,
+  Future<void> Function()? beforeEmailLoginDismiss,
 }) async {
-  // Email returns completion of its welcome dialog so callers can sequence
-  // another route after it. OAuth and cancellation return no feedback future.
+  // Registration returns its welcome completion. Email login shows feedback
+  // over the password page before closing; OAuth and cancellation return null.
   final feedback = await showGeneralDialog<Future<void>>(
     context: context,
     barrierDismissible: true,
     barrierLabel: 'Dismiss authentication options',
     barrierColor: Colors.transparent,
     transitionDuration: const Duration(milliseconds: 260),
-    pageBuilder: (context, animation, _) =>
-        _AuthSheetDialog(animation: animation),
+    pageBuilder: (context, animation, _) => _AuthSheetDialog(
+      animation: animation,
+      beforeEmailLoginDismiss: beforeEmailLoginDismiss,
+    ),
   );
   if (waitForSuccessFeedback && feedback != null) await feedback;
 }
 
 class _AuthSheetDialog extends StatelessWidget {
-  const _AuthSheetDialog({required this.animation});
+  const _AuthSheetDialog({
+    required this.animation,
+    this.beforeEmailLoginDismiss,
+  });
 
   final Animation<double> animation;
+  final Future<void> Function()? beforeEmailLoginDismiss;
 
   @override
   Widget build(BuildContext context) {
@@ -80,7 +87,9 @@ class _AuthSheetDialog extends StatelessWidget {
                   begin: const Offset(0, 0.08),
                   end: Offset.zero,
                 ).animate(sheetAnimation),
-                child: const _AuthSheetFrame(),
+                child: _AuthSheetFrame(
+                  beforeEmailLoginDismiss: beforeEmailLoginDismiss,
+                ),
               ),
             ),
           ),
@@ -91,7 +100,9 @@ class _AuthSheetDialog extends StatelessWidget {
 }
 
 class _AuthSheetFrame extends StatefulWidget {
-  const _AuthSheetFrame();
+  const _AuthSheetFrame({this.beforeEmailLoginDismiss});
+
+  final Future<void> Function()? beforeEmailLoginDismiss;
 
   @override
   State<_AuthSheetFrame> createState() => _AuthSheetFrameState();
@@ -118,6 +129,7 @@ class _AuthSheetFrameState extends State<_AuthSheetFrame> {
               key: const Key('auth-sheet-panel'),
               decoration: const BoxDecoration(),
               child: _AuthSheet(
+                beforeEmailLoginDismiss: widget.beforeEmailLoginDismiss,
                 onOAuthWarningChanged: (value) {
                   if (_showOAuthWarning != value) {
                     setState(() => _showOAuthWarning = value);
@@ -453,9 +465,13 @@ class _FigmaOAuthFailureOptions extends StatelessWidget {
 }
 
 class _AuthSheet extends ConsumerStatefulWidget {
-  const _AuthSheet({required this.onOAuthWarningChanged});
+  const _AuthSheet({
+    required this.onOAuthWarningChanged,
+    this.beforeEmailLoginDismiss,
+  });
 
   final ValueChanged<bool> onOAuthWarningChanged;
+  final Future<void> Function()? beforeEmailLoginDismiss;
 
   @override
   ConsumerState<_AuthSheet> createState() => _AuthSheetState();
@@ -627,29 +643,34 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
   }
 
   Future<void> _openEmailAuthPage() async {
-    final successMessage = await showEmailAuthPage(context);
+    final optionsRoute = ModalRoute.of(context)!;
+    final navigator = Navigator.of(context);
+    final successMessage = await showEmailAuthPage(
+      context,
+      onLoginSuccess: (emailContext) async {
+        await _showCenteredAuthSuccessToast(
+          emailContext,
+          title: 'Welcome back',
+          message: 'Let’s collect the cards.',
+        );
+        if (!emailContext.mounted || !mounted) return;
+        await widget.beforeEmailLoginDismiss?.call();
+        // Keep the password page covering onboarding until its replacement
+        // has rendered, including when saving the completion flag is slow.
+        await WidgetsBinding.instance.endOfFrame;
+      },
+    );
     if (successMessage != null && mounted) {
+      if (successMessage == 'Welcome back') {
+        // The password route has just closed. Remove options in the same
+        // frame without replaying their reverse animation over the next page.
+        if (optionsRoute.isActive) navigator.removeRoute(optionsRoute);
+        return;
+      }
       final rootNavigator = Navigator.of(context, rootNavigator: true);
       final rootContext = rootNavigator.context;
       final feedback = Completer<void>();
       Navigator.of(context).pop(feedback.future);
-
-      final toastCopy = _successToastCopy(successMessage);
-      if (toastCopy != null) {
-        WidgetsBinding.instance.addPostFrameCallback((_) async {
-          try {
-            if (!rootNavigator.mounted) return;
-            await _showCenteredAuthSuccessToast(
-              rootContext,
-              title: toastCopy.title,
-              message: toastCopy.message,
-            );
-          } finally {
-            feedback.complete();
-          }
-        });
-        return;
-      }
 
       final modalCopy = _successModalCopy(successMessage);
       if (modalCopy == null) {
@@ -738,13 +759,6 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
     final parts = message.split('\n');
     if (parts.length >= 2) {
       return (title: parts.first, message: parts.skip(1).join('\n'));
-    }
-    return null;
-  }
-
-  ({String title, String message})? _successToastCopy(String message) {
-    if (message == 'Welcome back') {
-      return (title: 'Welcome back', message: 'Let’s collect the cards.');
     }
     return null;
   }

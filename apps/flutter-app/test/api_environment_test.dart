@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/shared/api/api_environment.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
@@ -7,6 +9,17 @@ import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/scan/scan_api_client.dart';
 
 void main() {
+  test('iOS IPA validation expects the API used by the selected build', () {
+    final script = File('tool/release_ios.sh').readAsStringSync();
+    final environment = AppConfig.environmentName;
+    final assignment = RegExp(
+      '$environment\\)\\s+API_BASE_URL="([^"]+)"',
+    ).firstMatch(script);
+
+    expect(assignment, isNotNull);
+    expect(assignment!.group(1), kandoApiBaseUrl);
+  });
+
   test(
     'test business requests use Linux while production keeps its cloud API',
     () {

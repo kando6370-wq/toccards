@@ -152,8 +152,19 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   }
 
   Future<void> _authenticate() async {
-    await showAuthSheet(context, waitForSuccessFeedback: true);
-    if (!mounted) return;
+    var handledEmailLogin = false;
+    await showAuthSheet(
+      context,
+      waitForSuccessFeedback: true,
+      beforeEmailLoginDismiss: () async {
+        handledEmailLogin = true;
+        if (!mounted) return;
+        if (ref.read(authControllerProvider).session?.isUser ?? false) {
+          await ref.read(onboardingControllerProvider.notifier).complete();
+        }
+      },
+    );
+    if (!mounted || handledEmailLogin) return;
     if (ref.read(authControllerProvider).session?.isUser ?? false) {
       await ref.read(onboardingControllerProvider.notifier).complete();
     }

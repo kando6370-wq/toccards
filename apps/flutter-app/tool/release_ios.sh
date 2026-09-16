@@ -314,7 +314,7 @@ case "$ENVIRONMENT" in
     BUNDLE_ID="${BUNDLE_ID:-com.cardai.tcg}"
     ;;
   test)
-    API_BASE_URL="https://api-dev.tcgcard.fun/api/v1"
+    API_BASE_URL="http://192.168.50.201:8080/api/v1"
     BUNDLE_ID="${BUNDLE_ID:-$TEST_BUNDLE_ID}"
     ;;
   *)

@@ -52,6 +52,9 @@ void main() {
         );
         await _openOnboardingAuth(tester);
         await _submitEmailUntilWelcome(tester);
+        expect(find.byKey(const Key('email-auth-page')), findsOneWidget);
+        expect(find.text('Password'), findsOneWidget);
+        expect(find.byKey(const ValueKey('onboarding-guides')), findsNothing);
         expect(repository._currentSession?.isUser, isTrue);
         expect(repository.loginRequests, hasLength(1));
         expect(await storage.readCompleted(), isFalse);
@@ -61,10 +64,16 @@ void main() {
 
         await tester.pump(const Duration(milliseconds: 999));
         expect(find.byKey(const Key('auth-success-toast')), findsOneWidget);
+        expect(find.byKey(const Key('email-auth-page')), findsOneWidget);
         expect(await storage.readCompleted(), isFalse);
         expect(subscription.refreshCalls, 0);
 
         await tester.pump(const Duration(milliseconds: 1));
+        for (var frame = 0; frame < 20; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          expect(find.byKey(const ValueKey('onboarding-guides')), findsNothing);
+          expect(find.byKey(const Key('auth-sheet-panel')), findsNothing);
+        }
         await tester.pumpAndSettle();
         expect(find.byKey(const Key('auth-success-toast')), findsNothing);
         expect(await storage.readCompleted(), isTrue);
@@ -84,6 +93,132 @@ void main() {
       }),
     );
   }
+
+  testWidgets(
+    'email welcome keeps password page until onboarding is saved',
+    (tester) async {
+      final storage = _DelayedOnboardingStorage();
+      final entitlement = Completer<AppPremiumState>();
+      final subscription = _LoginFlowSubscriptionController(
+        AppPremiumState.unknown,
+        refreshResult: entitlement.future,
+      );
+      final repository = _WidgetAuthRepository(
+        initialSession: _anonymousSession('anon-existing'),
+      );
+      await tester.pumpWidget(
+        _testApp(
+          repository,
+          onboardingStorage: storage,
+          subscriptionController: () => subscription,
+        ),
+      );
+      await _openOnboardingAuth(tester);
+      await _submitEmailUntilWelcome(tester);
+      await tester.pump(const Duration(seconds: 1));
+      for (var frame = 0; frame < 20; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(find.byKey(const Key('auth-success-toast')), findsNothing);
+        expect(find.byKey(const Key('email-auth-page')), findsOneWidget);
+        expect(find.byKey(const ValueKey('onboarding-guides')), findsNothing);
+        expect(find.byKey(const Key('auth-sheet-panel')), findsNothing);
+      }
+      expect(subscription.refreshCalls, 0);
+      expect(repository.loginRequests, hasLength(1));
+      storage.save.complete();
+      for (var frame = 0; frame < 20; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(find.byKey(const ValueKey('onboarding-guides')), findsNothing);
+        expect(find.byKey(const Key('auth-sheet-panel')), findsNothing);
+      }
+      expect(find.byKey(const Key('email-auth-page')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('startup-entitlement-loading')),
+        findsOneWidget,
+      );
+      expect(subscription.refreshCalls, 1);
+      entitlement.complete(AppPremiumState.free);
+      await tester.pumpAndSettle();
+      expect(find.byType(SubscriptionPage), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
+
+  testWidgets('email login saves onboarding only once when storage fails', (
+    tester,
+  ) async {
+    final storage = _DelayedOnboardingStorage();
+    final subscription = _LoginFlowSubscriptionController(AppPremiumState.free);
+    await tester.pumpWidget(
+      _testApp(
+        _WidgetAuthRepository(
+          initialSession: _anonymousSession('anon-existing'),
+        ),
+        onboardingStorage: storage,
+        subscriptionController: () => subscription,
+      ),
+    );
+    await _openOnboardingAuth(tester);
+    await _submitEmailUntilWelcome(tester);
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump();
+    storage.save.completeError(StateError('Storage unavailable'));
+    await tester.pumpAndSettle();
+    expect(storage.writeCalls, 1);
+    expect(await storage.readCompleted(), isFalse);
+    expect(subscription.refreshCalls, 0);
+    expect(find.byType(SubscriptionPage), findsNothing);
+    expect(find.byKey(const ValueKey('onboarding-guides')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('email welcome does not close a newer route after its timer', (
+    tester,
+  ) async {
+    final repository = _WidgetAuthRepository(
+      initialSession: _anonymousSession('anon-existing'),
+    );
+    await tester.pumpWidget(
+      _testApp(
+        repository,
+        onboardingStorage: InMemoryOnboardingStorage(),
+        subscriptionController: () =>
+            _LoginFlowSubscriptionController(AppPremiumState.free),
+      ),
+    );
+    await _openOnboardingAuth(tester);
+    await _submitEmailUntilWelcome(tester);
+    final navigator = Navigator.of(
+      tester.element(find.byKey(const Key('auth-success-toast'))),
+    );
+    unawaited(
+      navigator.push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: Text('Newer page')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    expect(find.text('Newer page'), findsOneWidget);
+    expect(
+      find.byKey(const Key('auth-success-toast'), skipOffstage: false),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const Key('email-auth-page'), skipOffstage: false),
+      findsNothing,
+    );
+    navigator.pop();
+    await tester.pumpAndSettle();
+    expect(find.byType(SubscriptionPage), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   for (final disposeApp in [false, true]) {
     testWidgets(
@@ -211,6 +346,7 @@ void main() {
 
         if (method == 'Email') {
           expect(find.byKey(const Key('auth-success-toast')), findsOneWidget);
+          expect(find.byKey(const Key('email-auth-page')), findsOneWidget);
           expect(subscription.refreshCalls, refreshCalls);
           await tester.pump(const Duration(seconds: 1));
           await tester.pumpAndSettle();
@@ -265,12 +401,12 @@ void main() {
           expect(find.byType(SubscriptionPage), findsNothing);
           expect(repository._currentSession?.isUser, isTrue);
           result.complete(AppPremiumState.free);
-          await tester.pumpAndSettle();
+          await tester.pump();
           if (method == 'Email') {
             expect(find.byKey(const Key('auth-success-toast')), findsOneWidget);
             await tester.tapAt(const Offset(5, 5));
-            await tester.pumpAndSettle();
           }
+          await tester.pumpAndSettle();
           expect(find.byType(SubscriptionPage), findsOneWidget);
           await tester.tap(find.byTooltip('Close'));
           await tester.pumpAndSettle();
@@ -1339,7 +1475,13 @@ void main() {
         loginCompleter: loginCompleter,
       );
 
-      await tester.pumpWidget(_testApp(repository));
+      await tester.pumpWidget(
+        _testApp(
+          repository,
+          subscriptionController: () =>
+              _LoginFlowSubscriptionController(AppPremiumState.premium),
+        ),
+      );
       await tester.pumpAndSettle();
       await _openProfileTab(tester);
       await _openEmailAuth(tester);
@@ -3261,14 +3403,12 @@ Future<void> _openOnboardingAuth(WidgetTester tester) async {
 }
 
 Future<void> _signInFromOptions(WidgetTester tester, String method) async {
+  if (method == 'Email') {
+    await _submitEmailUntilWelcome(tester);
+    return;
+  }
   await tester.tap(find.text('Continue with $method'));
   await tester.pumpAndSettle();
-  if (method == 'Email') {
-    await _continueWithEmail(tester, 'person@example.com');
-    await tester.enterText(find.byType(TextFormField), 'password123');
-    await tester.tap(find.widgetWithText(FilledButton, 'SIGN IN'));
-    await tester.pumpAndSettle();
-  }
 }
 
 Future<void> _submitEmailUntilWelcome(WidgetTester tester) async {
@@ -3444,6 +3584,18 @@ class _StoredOnboardingController extends OnboardingController {
   @override
   Future<bool> build() =>
       ref.read(onboardingRepositoryProvider).readCompleted();
+}
+
+class _DelayedOnboardingStorage extends InMemoryOnboardingStorage {
+  final save = Completer<void>();
+  var writeCalls = 0;
+
+  @override
+  Future<void> writeCompleted() async {
+    writeCalls++;
+    await save.future;
+    await super.writeCompleted();
+  }
 }
 
 class _LoginFlowSubscriptionController extends _FreeSubscriptionController {

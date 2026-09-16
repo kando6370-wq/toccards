@@ -2,6 +2,39 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## 邮箱登录在密码页展示 Welcome back（2026-09-16，已构建测试内部包 145）
+
+用户在首次安装引导的邮箱登录中观察到密码验证成功后先闪回引导页 3，再进入订阅页，要求在密码页展示原有 1 秒 Welcome back 后继续。基于 `dev@a97c5ed`、含已有 `1.0.2+144` 打包改动的工作区；本轮不修改版本或发布脚本。根因由代码路径和失败测试确认：`_completeSignIn` 先 pop 密码页，`_openEmailAuthPage` 再 pop 登录选项并于下一帧展示提示，因而提示背后已变为引导页，随后引导完成和权益检查再次切换画面。此前真机看到提示只能证明提示出现，不能证明背景页面和切换符合本次要求。
+
+修复限于认证 UI 和引导调用方：邮箱验证成功后在密码页等待既有提示实际关闭，再由引导入口保存完成状态；保留密码页直到替代内容完成一帧构建，然后关闭邮箱页、无退场动画移除登录选项。Profile 共用同一密码页提示，但后续仍使用其原权益检查；注册和 Google/Apple 的流程不变。邮箱流程只完成自己的路由，避免等待期间误 pop 新页面；引导保存失败不重复提交保存。登录请求、密码验证、会话持久化、游客资产、订阅购买、权益判定及扫描扣次均未修改。当前行为同步到 `01-flows/business-context.md`，冻结 PRD 未改。
+
+验证环境为 macOS / Flutter 3.44.5 / Dart 3.12.2，以下 Flutter 命令均在 `apps/flutter-app` 执行：
+
+- 失败证据：`flutter test --no-pub --dart-define-from-file=config/test.json test/widget/auth_profile_test.dart --name 'onboarding email welcome auto|email welcome keeps password' --reporter expanded` 在修复前 8/8 失败、退出 1，均为密码页已不存在；覆盖 iOS/Android 三种权益与慢存储。修复后同一断言通过，另逐帧断言提示关闭和慢存储等待时不露出引导或登录选项。
+- 定向回归：`flutter test --no-pub --dart-define-from-file=config/test.json test/widget/auth_profile_test.dart --name 'Profile .*login|Profile .*waits|Profile .*cancellation|onboarding .*login|onboarding .*cancellation|email registration keeps|onboarding email welcome auto|email welcome|email login saves' --reporter expanded` 最终 52/52、退出 0。覆盖 1 秒/999ms、手动关闭、销毁、新页面覆盖、慢存储/慢权益、保存失败、两入口三种登录与权益、取消和失败、注册。新增覆盖页测试在路由精确关闭修复前失败，修复后通过。旧时序 helper 的 `pumpAndSettle` 会因保留密码页的 Loading 动画推进到提示消失，已改为观测提示首帧和显式推进时间，保留原断言。
+- 扩大回归：`flutter test --no-pub --dart-define-from-file=config/test.json test/widget/auth_profile_test.dart test/auth_controller_test.dart test/auth_repository_test.dart test/auth_session_interceptor_test.dart test/oauth_authorizer_test.dart test/auth_storage_test.dart test/startup_subscription_gate_test.dart test/onboarding_gate_test.dart test/onboarding_repository_test.dart test/widget/onboarding_page_test.dart --reporter expanded` 最终 199 通过、4 个 Golden 失败、退出 1，不能标记整组通过。差异分别为 Profile banner 1853px、订阅成功动效 117px、订阅 sheet 7816px、订阅成功页 5080px，与本页此前记录相同；未更新图片或放宽断言。初次扩大回归另发现防重复登录测试缺少登录后权益返回值，补充测试替身后该用例单独 1/1 通过且整组复验不再失败，原防重断言保留。
+- `flutter analyze --no-pub`：无问题、退出 0。四个修改的 Dart 文件执行 `dart format --output=none --set-exit-if-changed`，以及根目录 `git diff --check`，均退出 0。
+
+Code Review 自审通过：逐项核对提示生命周期、密码页和选项路由清理、异步回调 mounted 保护、引导保存单次执行、Profile 调用方、注册/三方入口及测试时序；无待处理审查项。仅页面承接顺序变化，未改变服务端或业务控制器。
+
+签名构建：同日按用户要求重新构建连接 `http://192.168.50.201:8080/api/v1` 的内部包。构建前复跑上方 52 项定向回归，以及 `flutter test --no-pub --dart-define-from-file=config/test.json test/api_environment_test.dart test/release_config_test.dart test/card_detail_actions_test.dart --reporter expanded` 的 16 项环境/分享测试，均退出 0；服务器健康检查 HTTP 200、`status=ok`。执行 `./tool/release_ios.sh --env test --pgy --build-number 145`，首次在 `flutter build ipa` 隐式触发的依赖获取阶段等待包服务响应，长时间无进展后终止该次 `dart pub get`，脚本退出 241；未更改依赖或跳过检查，以相同命令重试后静态分析、清理、签名构建与产物验证全部通过，退出 0。
+
+最终内部包 `1.0.2 (145)` 使用 `com.kando.kandoApp.beta`、Apple Development 签名、App Attest `development`，内网 API 和测试 Firebase 校验通过，41 个 Mach-O UUID 均匹配 dSYM。保存的 IPA 再次回读确认 `192.168.50.201` 的 HTTP ATS 例外和本地网络用途说明。IPA 为 56,689,687 字节，SHA-256 为 `fa8742ee4794b3a083df3c40e43261cf38fa082bf57d653e9573203f54112551`；与 `dSYMs.zip` 保存至 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.2-145/`，保存副本摘要一致。现保留 143、144、145，旧 142 已移入废纸篓，可恢复；归档另存至 `~/Library/Developer/Xcode/Archives/2026-09-16/Card AI Test 1.0.2 (145).xcarchive`。源码同步为 `1.0.2+145`，Dart/CocoaPods 锁文件、API 配置及本节三个运行文件构建前后摘要一致，包含本节最新调整。
+
+未运行：iPhone 12 Pro Max 安装登录复验、Android 真机与构建、全 App/全仓测试及扩大 Golden 整组复跑（本轮为 iOS 内部包交付，使用定向回归、静态分析和签名产物验证；前述 4 项既有截图差异未处理）。客户端测试人员需用 145 包，在能访问内网并允许本地网络权限的设备验收首次引导邮箱登录的实际画面和 1 秒停留。保留已有改动，未安装、上传、push 或远程部署。
+
+## Linux 内网 iOS 测试包校验同步（2026-09-16）
+
+用户要求重新打包并连接 `192.168.50.201`。基线 `dev@a97c5ed`、源码 `1.0.2+143`；App test 与两端网络配置已使用 `http://192.168.50.201:8080/api/v1`，但 `release_ios.sh` 的 test IPA 检查仍要求旧 CF 测试域名，导致正确的内网包无法通过交付检查。新增脚本校验目标与当前编译环境 API 一致的回归，修改脚本前执行 `flutter test --no-pub --dart-define=APP_ENV=test test/api_environment_test.dart --plain-name 'iOS IPA validation expects' --reporter expanded`，退出 1，明确显示旧域名与内网地址不一致。
+
+仅将脚本 test 分支的预期 URL 同步到现有 App 配置，保留实际 IPA 二进制检查；没有修改运行代码、正式环境地址、签名、服务端、共享包或依赖。修复后在 `apps/flutter-app` 分别以 `--dart-define=APP_ENV=test` 和 `--dart-define=APP_ENV=production` 执行 `flutter test --no-pub` 的 `test/api_environment_test.dart test/release_config_test.dart test/card_detail_actions_test.dart --reporter expanded`，两组均 16/16、退出 0；`bash -n tool/release_ios.sh`、目标测试文件的格式检查通过。Mac 对内网 `/api/v1/health` 的只读请求返回 HTTP 200、`status=ok`。
+
+Code Review 自审通过：脚本预期地址与 Flutter test 一致，production 分支不变；原 IPA 签名、环境、Firebase、App Attest 和 dSYM 门禁全部保留，测试在旧脚本上失败、修复后通过。当前架构及 Flutter README 已正确描述内网入口，无需改写；本节记录遗漏校验的修复证据。
+
+签名构建：macOS / Flutter 3.44.5 执行 `./tool/release_ios.sh --env test --pgy --build-number 144`，静态分析、清理构建、导出和最终 IPA 校验全部通过，退出 0。内部包为 `1.0.2 (144)`、`com.kando.kandoApp.beta`、Apple Development 签名，最终 App Attest 为 `development`；二进制包含内网 API，测试 Firebase 正确，41 个 Mach-O UUID 均匹配 dSYM。对保存 IPA 的 Info.plist 再次回读，确认仅 `192.168.50.201` 的 HTTP ATS 例外及局域网用途说明。IPA 为 56,688,941 字节，SHA-256 为 `7e52d99e2ac54e403386343ded9360634173a837845b1e32841b9cbe3cdb9df3`，保存副本摘要一致；与 `dSYMs.zip` 一同存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.2-144/`。当前保留 142、143、144，旧 141 按规则移入废纸篓，可恢复；Xcode 归档另存至 `~/Library/Developer/Xcode/Archives/2026-09-16/Card AI Test 1.0.2 (144).xcarchive`。源码同步为 `1.0.2+144`，Dart/CocoaPods 锁文件和 App API 配置摘要未变化。
+
+未运行：真机局域网权限、登录、扫描、购买和 Android 构建（本次交付 iOS 内部包，未安装设备）；全 App/全仓测试（本次只同步 iOS 交付校验目标，已复验两环境配置、API 客户端和分享相关测试）。客户端测试人员需在可访问内网的设备允许本地网络权限后验收，服务器健康检查不能代替设备业务验收。未上传、安装、推送、部署或执行远程数据写入。
+
 ## dev 整改合并、自动部署与扫描复验（2026-09-16）
 
 用户明确接受提交验收文档、合并双方改动、推送 dev、验证现有 Linux 自动部署及扫描写库的执行顺序。先将 6 份凭据/部署验收文档提交为 `dev-inner@628cf25`；随后在最新 `dev@a419415` 合并 `dev-inner`，无冲突，得到 `75c0ec4f991d276a54caf3cde6c75858588e7ff1`。自审比对确认 dev 的 Admin 日期/环境筛选增量完整保留，Workers/Linux/Flutter 实现与已验证的整改分支一致，PostgreSQL migration SQL 及冻结目录无改动。
