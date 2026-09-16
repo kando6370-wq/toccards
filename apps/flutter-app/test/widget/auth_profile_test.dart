@@ -34,6 +34,493 @@ import '../support/in_memory_onboarding_storage.dart';
 import '../support/mock_home_repository.dart';
 
 void main() {
+  for (final premiumState in AppPremiumState.values) {
+    testWidgets(
+      'onboarding email welcome auto closes after one second before $premiumState',
+      (tester) async {
+        final repository = _WidgetAuthRepository(
+          initialSession: _anonymousSession('anon-existing'),
+        );
+        final storage = InMemoryOnboardingStorage();
+        final subscription = _LoginFlowSubscriptionController(premiumState);
+        await tester.pumpWidget(
+          _testApp(
+            repository,
+            onboardingStorage: storage,
+            subscriptionController: () => subscription,
+          ),
+        );
+        await _openOnboardingAuth(tester);
+        await _submitEmailUntilWelcome(tester);
+        expect(repository._currentSession?.isUser, isTrue);
+        expect(repository.loginRequests, hasLength(1));
+        expect(await storage.readCompleted(), isFalse);
+        expect(subscription.refreshCalls, 0);
+        expect(find.byType(SubscriptionPage), findsNothing);
+        expect(find.byKey(const Key('home-normal-content')), findsNothing);
+
+        await tester.pump(const Duration(milliseconds: 999));
+        expect(find.byKey(const Key('auth-success-toast')), findsOneWidget);
+        expect(await storage.readCompleted(), isFalse);
+        expect(subscription.refreshCalls, 0);
+
+        await tester.pump(const Duration(milliseconds: 1));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('auth-success-toast')), findsNothing);
+        expect(await storage.readCompleted(), isTrue);
+        expect(subscription.refreshCalls, 1);
+        expect(
+          find.byType(SubscriptionPage),
+          premiumState == AppPremiumState.free ? findsOneWidget : findsNothing,
+        );
+        expect(
+          find.byKey(const Key('home-normal-content')),
+          premiumState == AppPremiumState.free ? findsNothing : findsOneWidget,
+        );
+      },
+      variant: TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      }),
+    );
+  }
+
+  for (final disposeApp in [false, true]) {
+    testWidgets(
+      'email welcome timer is safe after early dismissal ($disposeApp)',
+      (tester) async {
+        final repository = _WidgetAuthRepository(
+          initialSession: _anonymousSession('anon-existing'),
+        );
+        final subscription = _LoginFlowSubscriptionController(
+          AppPremiumState.free,
+        );
+        await tester.pumpWidget(
+          _testApp(
+            repository,
+            onboardingStorage: InMemoryOnboardingStorage(),
+            subscriptionController: () => subscription,
+          ),
+        );
+        await _openOnboardingAuth(tester);
+        await _submitEmailUntilWelcome(tester);
+        if (disposeApp) {
+          await tester.pumpWidget(const SizedBox.shrink());
+        } else {
+          await tester.tapAt(const Offset(5, 5));
+          await tester.pumpAndSettle();
+          expect(find.byType(SubscriptionPage), findsOneWidget);
+        }
+        await tester.pump(const Duration(seconds: 2));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('auth-success-toast')), findsNothing);
+        if (!disposeApp) {
+          expect(find.byType(SubscriptionPage), findsOneWidget);
+          expect(subscription.refreshCalls, 1);
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final method in ['Google', 'Apple', 'Email']) {
+    for (final premiumState in AppPremiumState.values) {
+      testWidgets(
+        'onboarding $method login follows $premiumState entitlement before Home',
+        (tester) async {
+          final repository = _WidgetAuthRepository(
+            initialSession: _anonymousSession('anon-existing'),
+          );
+          final storage = InMemoryOnboardingStorage();
+          final subscription = _LoginFlowSubscriptionController(premiumState);
+          await tester.pumpWidget(
+            _testApp(
+              repository,
+              authorizer: _loginAuthorizer(method),
+              onboardingStorage: storage,
+              subscriptionController: () => subscription,
+            ),
+          );
+          await _openOnboardingAuth(tester);
+          await _signInFromOptions(tester, method);
+          if (method == 'Email') {
+            expect(find.byKey(const Key('auth-success-toast')), findsOneWidget);
+            expect(find.byType(SubscriptionPage), findsNothing);
+            await tester.pump(const Duration(seconds: 1));
+            await tester.pumpAndSettle();
+            expect(find.byKey(const Key('auth-success-toast')), findsNothing);
+          }
+
+          expect(repository._currentSession?.isUser, isTrue);
+          expect(await storage.readCompleted(), isTrue);
+          expect(subscription.refreshCalls, 1);
+          expect(find.byKey(const Key('auth-sheet-panel')), findsNothing);
+          expect(find.byKey(const Key('email-auth-page')), findsNothing);
+          if (premiumState == AppPremiumState.free) {
+            expect(find.byType(SubscriptionPage), findsOneWidget);
+            expect(
+              tester
+                  .widget<SubscriptionPage>(find.byType(SubscriptionPage))
+                  .source,
+              'onboarding',
+            );
+            expect(find.byKey(const Key('home-normal-content')), findsNothing);
+            await tester.tap(find.byTooltip('Close'));
+            await tester.pumpAndSettle();
+            expect(find.byType(SubscriptionPage), findsNothing);
+            expect(
+              find.byKey(const Key('home-normal-content')),
+              findsOneWidget,
+            );
+          } else {
+            expect(find.byType(SubscriptionPage), findsNothing);
+            expect(
+              find.byKey(const Key('home-normal-content')),
+              findsOneWidget,
+            );
+          }
+        },
+      );
+    }
+
+    for (final premiumState in AppPremiumState.values) {
+      testWidgets('Profile $method login checks $premiumState before paywall', (
+        tester,
+      ) async {
+        final repository = _WidgetAuthRepository(
+          initialSession: _anonymousSession('anon-existing'),
+        );
+        final subscription = _LoginFlowSubscriptionController(premiumState);
+        await tester.pumpWidget(
+          _testApp(
+            repository,
+            authorizer: _loginAuthorizer(method),
+            subscriptionController: () => subscription,
+          ),
+        );
+        await tester.pumpAndSettle();
+        if (find.byType(SubscriptionPage).evaluate().isNotEmpty) {
+          await tester.tap(find.byTooltip('Close'));
+          await tester.pumpAndSettle();
+        }
+        await _openProfileTab(tester);
+        final profile = tester.element(find.byType(ProfilePage));
+        final refreshCalls = subscription.refreshCalls;
+        await _openAuthSheet(tester);
+        await _signInFromOptions(tester, method);
+
+        if (method == 'Email') {
+          expect(find.byKey(const Key('auth-success-toast')), findsOneWidget);
+          expect(subscription.refreshCalls, refreshCalls);
+          await tester.pump(const Duration(seconds: 1));
+          await tester.pumpAndSettle();
+          expect(find.byKey(const Key('auth-success-toast')), findsNothing);
+        }
+        expect(subscription.refreshCalls, refreshCalls + 1);
+        if (premiumState == AppPremiumState.free) {
+          final page = tester.widget<SubscriptionPage>(
+            find.byType(SubscriptionPage),
+          );
+          expect(page.source, 'profile');
+          expect(page.sheet, isFalse);
+          await tester.tap(find.byTooltip('Close'));
+          await tester.pumpAndSettle();
+        }
+        expect(tester.element(find.byType(ProfilePage)), same(profile));
+        expect(find.text('ID: user-1'), findsOneWidget);
+        expect(find.text('Sign in / Sign up'), findsNothing);
+        expect(find.byType(SubscriptionPage), findsNothing);
+        expect(find.byKey(const Key('home-normal-content')), findsNothing);
+        expect(repository._currentSession?.isUser, isTrue);
+        await tester.pump(const Duration(seconds: 1));
+        expect(find.byType(SubscriptionPage), findsNothing);
+      });
+    }
+  }
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    for (final method in ['Google', 'Apple', 'Email']) {
+      testWidgets(
+        'Profile $method waits for fresh Free entitlement on $platform',
+        (tester) async {
+          final repository = _WidgetAuthRepository(
+            initialSession: _anonymousSession('anon-existing'),
+          );
+          final subscription = _LoginFlowSubscriptionController(
+            AppPremiumState.unknown,
+          );
+          await tester.pumpWidget(
+            _testApp(
+              repository,
+              authorizer: _loginAuthorizer(method),
+              subscriptionController: () => subscription,
+            ),
+          );
+          await tester.pumpAndSettle();
+          await _openProfileTab(tester);
+          final result = Completer<AppPremiumState>();
+          subscription.refreshResult = result.future;
+          await _openAuthSheet(tester);
+          await _signInFromOptions(tester, method);
+          expect(find.byType(SubscriptionPage), findsNothing);
+          expect(repository._currentSession?.isUser, isTrue);
+          result.complete(AppPremiumState.free);
+          await tester.pumpAndSettle();
+          if (method == 'Email') {
+            expect(find.byKey(const Key('auth-success-toast')), findsOneWidget);
+            await tester.tapAt(const Offset(5, 5));
+            await tester.pumpAndSettle();
+          }
+          expect(find.byType(SubscriptionPage), findsOneWidget);
+          await tester.tap(find.byTooltip('Close'));
+          await tester.pumpAndSettle();
+          expect(find.byType(ProfilePage), findsOneWidget);
+          expect(find.byType(SubscriptionPage), findsNothing);
+        },
+        variant: TargetPlatformVariant({platform}),
+      );
+    }
+  }
+
+  for (final outcome in ['premium', 'unknown', 'error', 'timeout', 'leave']) {
+    testWidgets('Profile Apple login ignores stale Free cache after $outcome', (
+      tester,
+    ) async {
+      final repository = _WidgetAuthRepository(
+        initialSession: _anonymousSession('anon-existing'),
+      );
+      final subscription = _LoginFlowSubscriptionController(
+        AppPremiumState.free,
+      );
+      await tester.pumpWidget(
+        _testApp(
+          repository,
+          authorizer: _loginAuthorizer('Apple'),
+          subscriptionController: () => subscription,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+      await _openProfileTab(tester);
+      final result = Completer<AppPremiumState>();
+      subscription.refreshResult = result.future;
+      await _openAuthSheet(tester);
+      await _signInFromOptions(tester, 'Apple');
+      expect(find.byType(SubscriptionPage), findsNothing);
+      switch (outcome) {
+        case 'premium':
+          result.complete(AppPremiumState.premium);
+        case 'unknown':
+          result.complete(AppPremiumState.unknown);
+        case 'error':
+          result.completeError(Exception('offline'));
+        case 'timeout':
+          await tester.pump(const Duration(seconds: 16));
+          result.complete(AppPremiumState.free);
+        case 'leave':
+          await tester.tap(find.text('Home'));
+          await tester.pumpAndSettle();
+          result.complete(AppPremiumState.free);
+      }
+      await tester.pumpAndSettle();
+      expect(find.byType(SubscriptionPage), findsNothing);
+      if (outcome == 'leave') {
+        expect(find.byKey(const Key('home-normal-content')), findsOneWidget);
+      } else {
+        expect(find.byType(ProfilePage), findsOneWidget);
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  for (final method in ['Google', 'Apple']) {
+    for (final fails in [false, true]) {
+      testWidgets(
+        'Profile $method cancellation/failure ($fails) has no paywall',
+        (tester) async {
+          final repository = _WidgetAuthRepository(
+            initialSession: _anonymousSession('anon-existing'),
+          );
+          final subscription = _LoginFlowSubscriptionController(
+            AppPremiumState.unknown,
+          );
+          await tester.pumpWidget(
+            _testApp(
+              repository,
+              authorizer: _WidgetOAuthAuthorizer(
+                error: fails ? Exception('authorization failed') : null,
+              ),
+              subscriptionController: () => subscription,
+            ),
+          );
+          await tester.pumpAndSettle();
+          await _openProfileTab(tester);
+          final refreshCalls = subscription.refreshCalls;
+          await _openAuthSheet(tester);
+          await _signInFromOptions(tester, method);
+          await tester.tap(find.byKey(const Key('auth-sheet-close')));
+          await tester.pumpAndSettle();
+          expect(repository._currentSession?.isAnonymous, isTrue);
+          expect(subscription.refreshCalls, refreshCalls);
+          expect(find.byType(ProfilePage), findsOneWidget);
+          expect(find.byType(SubscriptionPage), findsNothing);
+        },
+      );
+
+      testWidgets(
+        'onboarding $method cancellation/failure ($fails) stays put',
+        (tester) async {
+          final repository = _WidgetAuthRepository(
+            initialSession: _anonymousSession('anon-existing'),
+          );
+          final storage = InMemoryOnboardingStorage();
+          final subscription = _LoginFlowSubscriptionController(
+            AppPremiumState.free,
+          );
+          await tester.pumpWidget(
+            _testApp(
+              repository,
+              onboardingStorage: storage,
+              authorizer: _WidgetOAuthAuthorizer(
+                error: fails ? Exception('authorization failed') : null,
+              ),
+              subscriptionController: () => subscription,
+            ),
+          );
+          await _openOnboardingAuth(tester);
+          await _signInFromOptions(tester, method);
+
+          expect(find.byKey(const Key('auth-sheet-panel')), findsOneWidget);
+          expect(repository._currentSession?.isAnonymous, isTrue);
+          expect(repository.googleCallbackRequests, isEmpty);
+          expect(repository.appleCallbackRequests, isEmpty);
+          await tester.tap(find.byKey(const Key('auth-sheet-close')));
+          await tester.pumpAndSettle();
+          expect(
+            find.byKey(const ValueKey('onboarding-guides')),
+            findsOneWidget,
+          );
+          expect(await storage.readCompleted(), isFalse);
+          expect(subscription.refreshCalls, 0);
+          expect(find.byType(SubscriptionPage), findsNothing);
+          expect(find.byKey(const Key('home-normal-content')), findsNothing);
+        },
+      );
+    }
+  }
+
+  testWidgets('onboarding login waits for entitlement without showing Home', (
+    tester,
+  ) async {
+    final entitlement = Completer<AppPremiumState>();
+    final subscription = _LoginFlowSubscriptionController(
+      AppPremiumState.unknown,
+      refreshResult: entitlement.future,
+    );
+    final repository = _WidgetAuthRepository(
+      initialSession: _anonymousSession('anon-existing'),
+    );
+    await tester.pumpWidget(
+      _testApp(
+        repository,
+        onboardingStorage: InMemoryOnboardingStorage(),
+        authorizer: _loginAuthorizer('Google'),
+        subscriptionController: () => subscription,
+      ),
+    );
+    await _openOnboardingAuth(tester);
+    await tester.tap(find.text('Continue with Google'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(repository._currentSession?.isUser, isTrue);
+    expect(
+      find.byKey(const ValueKey('startup-entitlement-loading')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('home-normal-content')), findsNothing);
+
+    entitlement.complete(AppPremiumState.free);
+    await tester.pumpAndSettle();
+    expect(find.byType(SubscriptionPage), findsOneWidget);
+    expect(find.byKey(const Key('home-normal-content')), findsNothing);
+    expect(subscription.refreshCalls, 1);
+  });
+
+  for (final fromOnboarding in [true, false]) {
+    testWidgets('email registration keeps its entry flow ($fromOnboarding)', (
+      tester,
+    ) async {
+      final repository = _WidgetAuthRepository(
+        initialSession: _anonymousSession('anon-existing'),
+        emailRegistered: false,
+      );
+      final subscription = _LoginFlowSubscriptionController(
+        AppPremiumState.free,
+      );
+      await tester.pumpWidget(
+        _testApp(
+          repository,
+          onboardingStorage: fromOnboarding
+              ? InMemoryOnboardingStorage()
+              : null,
+          subscriptionController: () => subscription,
+        ),
+      );
+      if (fromOnboarding) {
+        await _openOnboardingAuth(tester);
+      } else {
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Close'));
+        await tester.pumpAndSettle();
+        await _openProfileTab(tester);
+        await _openAuthSheet(tester);
+      }
+      await tester.tap(find.text('Continue with Email'));
+      await tester.pumpAndSettle();
+      await _continueWithEmail(
+        tester,
+        'person@example.com',
+        destinationLabel: 'Verification Code',
+      );
+      await tester.enterText(
+        find.byKey(const Key('verification-code-input')),
+        '123456',
+      );
+      await tester.pumpAndSettle();
+      final fields = find.byType(TextFormField);
+      await tester.enterText(fields.at(0), 'password123');
+      await tester.enterText(fields.at(1), 'password123');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Create Account'));
+      await tester.pumpAndSettle();
+
+      expect(repository.registerRequests, [
+        const _RegisterRequest(
+          email: 'person@example.com',
+          code: '123456',
+          password: 'password123',
+          anonymousId: 'anon-existing',
+        ),
+      ]);
+      expect(repository._currentSession?.isUser, isTrue);
+      expect(find.text('Welcome'), findsOneWidget);
+      await tester.tapAt(const Offset(5, 5));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('email-auth-page')), findsNothing);
+      expect(find.byKey(const Key('auth-sheet-panel')), findsNothing);
+      expect(find.byKey(const Key('home-normal-content')), findsNothing);
+      expect(find.byType(SubscriptionPage), findsOneWidget);
+      if (!fromOnboarding) {
+        await tester.tap(find.byTooltip('Close'));
+        await tester.pumpAndSettle();
+        expect(find.byType(ProfilePage), findsOneWidget);
+        expect(find.text('ID: user-1'), findsOneWidget);
+        expect(find.byType(SubscriptionPage), findsNothing);
+      }
+    });
+  }
+
   testWidgets('email auth validates input before enabling submit', (
     tester,
   ) async {
@@ -170,7 +657,7 @@ void main() {
     expect(find.byType(SnackBar), findsNothing);
   });
 
-  testWidgets('google auth returns home with the current guest migrated', (
+  testWidgets('google auth refreshes Profile with the current guest migrated', (
     tester,
   ) async {
     final repository = _WidgetAuthRepository(
@@ -182,7 +669,14 @@ void main() {
       ),
     );
 
-    await tester.pumpWidget(_testApp(repository, authorizer: authorizer));
+    await tester.pumpWidget(
+      _testApp(
+        repository,
+        authorizer: authorizer,
+        subscriptionController: () =>
+            _LoginFlowSubscriptionController(AppPremiumState.premium),
+      ),
+    );
     await tester.pumpAndSettle();
     await _openProfileTab(tester);
     await _openAuthSheet(tester);
@@ -196,7 +690,8 @@ void main() {
         anonymousId: 'anon-existing',
       ),
     ]);
-    expect(find.byKey(const Key('home-normal-content')), findsOneWidget);
+    expect(find.text('flutter.google@example.com'), findsWidgets);
+    expect(find.byType(ProfilePage), findsOneWidget);
   });
 
   testWidgets(
@@ -217,7 +712,14 @@ void main() {
         resultFuture: authorizationCompleter.future,
       );
 
-      await tester.pumpWidget(_testApp(repository, authorizer: authorizer));
+      await tester.pumpWidget(
+        _testApp(
+          repository,
+          authorizer: authorizer,
+          subscriptionController: () =>
+              _LoginFlowSubscriptionController(AppPremiumState.premium),
+        ),
+      );
       await tester.pumpAndSettle();
       await _openProfileTab(tester);
       await _openAuthSheet(tester);
@@ -255,11 +757,12 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(loadingOverlay, findsNothing);
-      expect(find.byKey(const Key('home-normal-content')), findsOneWidget);
+      expect(find.text('flutter.google@example.com'), findsWidgets);
+      expect(find.byType(ProfilePage), findsOneWidget);
     },
   );
 
-  testWidgets('apple auth returns home with the current guest migrated', (
+  testWidgets('apple auth refreshes Profile with the current guest migrated', (
     tester,
   ) async {
     final repository = _WidgetAuthRepository(
@@ -272,7 +775,14 @@ void main() {
       ),
     );
 
-    await tester.pumpWidget(_testApp(repository, authorizer: authorizer));
+    await tester.pumpWidget(
+      _testApp(
+        repository,
+        authorizer: authorizer,
+        subscriptionController: () =>
+            _LoginFlowSubscriptionController(AppPremiumState.premium),
+      ),
+    );
     await tester.pumpAndSettle();
     await _openProfileTab(tester);
     await _openAuthSheet(tester);
@@ -287,7 +797,8 @@ void main() {
         anonymousId: 'anon-existing',
       ),
     ]);
-    expect(find.byKey(const Key('home-normal-content')), findsOneWidget);
+    expect(find.text('flutter.apple@example.com'), findsWidgets);
+    expect(find.byType(ProfilePage), findsOneWidget);
   });
 
   testWidgets(
@@ -308,7 +819,14 @@ void main() {
         resultFuture: authorizationCompleter.future,
       );
 
-      await tester.pumpWidget(_testApp(repository, authorizer: authorizer));
+      await tester.pumpWidget(
+        _testApp(
+          repository,
+          authorizer: authorizer,
+          subscriptionController: () =>
+              _LoginFlowSubscriptionController(AppPremiumState.premium),
+        ),
+      );
       await tester.pumpAndSettle();
       await _openProfileTab(tester);
       await _openAuthSheet(tester);
@@ -348,7 +866,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(loadingOverlay, findsNothing);
-      expect(find.byKey(const Key('home-normal-content')), findsOneWidget);
+      expect(find.text('flutter.apple@example.com'), findsWidgets);
+      expect(find.byType(ProfilePage), findsOneWidget);
     },
   );
 
@@ -2720,6 +3239,54 @@ Future<void> _dismissTopToast(WidgetTester tester) async {
   expect(toast, findsNothing);
 }
 
+_WidgetOAuthAuthorizer _loginAuthorizer(String method) {
+  return _WidgetOAuthAuthorizer(
+    result: method == 'Google'
+        ? const OAuthAuthorizationResult.google(code: 'google-id-token')
+        : const OAuthAuthorizationResult.apple(
+            code: 'apple-auth-code',
+            idToken: 'apple-id-token',
+          ),
+  );
+}
+
+Future<void> _openOnboardingAuth(WidgetTester tester) async {
+  await tester.pumpAndSettle();
+  await tester.tap(find.text("LET'S START"));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('NEXT'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('SIGN UP/SIGN IN'));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _signInFromOptions(WidgetTester tester, String method) async {
+  await tester.tap(find.text('Continue with $method'));
+  await tester.pumpAndSettle();
+  if (method == 'Email') {
+    await _continueWithEmail(tester, 'person@example.com');
+    await tester.enterText(find.byType(TextFormField), 'password123');
+    await tester.tap(find.widgetWithText(FilledButton, 'SIGN IN'));
+    await tester.pumpAndSettle();
+  }
+}
+
+Future<void> _submitEmailUntilWelcome(WidgetTester tester) async {
+  await tester.tap(find.text('Continue with Email'));
+  await tester.pumpAndSettle();
+  await _continueWithEmail(tester, 'person@example.com');
+  await tester.enterText(find.byType(TextFormField), 'password123');
+  await tester.tap(find.widgetWithText(FilledButton, 'SIGN IN'));
+  // Observe the first rendered welcome frame without advancing its timer.
+  for (var frame = 0; frame < 20; frame++) {
+    await tester.pump();
+    if (find.byKey(const Key('auth-success-toast')).evaluate().isNotEmpty) {
+      break;
+    }
+  }
+  expect(find.byKey(const Key('auth-success-toast')), findsOneWidget);
+}
+
 Future<void> _openProfileTab(WidgetTester tester) async {
   await tester.tap(find.text('Profile'));
   await tester.pumpAndSettle();
@@ -2757,8 +3324,10 @@ ProviderScope _testApp(
   ProfileActions? profileActions,
   AuthController Function()? authController,
   SubscriptionController Function()? subscriptionController,
+  InMemoryOnboardingStorage? onboardingStorage,
 }) {
-  final onboardingStorage = InMemoryOnboardingStorage(completed: true);
+  final storage =
+      onboardingStorage ?? InMemoryOnboardingStorage(completed: true);
 
   return ProviderScope(
     overrides: [
@@ -2767,7 +3336,9 @@ ProviderScope _testApp(
         (ref) async => const AppUpgradeDecision.none(),
       ),
       onboardingControllerProvider.overrideWith(
-        _CompletedOnboardingController.new,
+        onboardingStorage == null
+            ? _CompletedOnboardingController.new
+            : _StoredOnboardingController.new,
       ),
       homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
       authRepositoryProvider.overrideWithValue(repository),
@@ -2778,7 +3349,7 @@ ProviderScope _testApp(
       ),
       authDeviceIdProvider.overrideWithValue('widget-test-device'),
       onboardingRepositoryProvider.overrideWithValue(
-        LocalOnboardingRepository(onboardingStorage),
+        LocalOnboardingRepository(storage),
       ),
       installedVersionReaderProvider.overrideWithValue(
         const _WidgetInstalledVersionReader(),
@@ -2867,6 +3438,30 @@ ProviderScope _subscriptionGoldenApp(
 class _CompletedOnboardingController extends OnboardingController {
   @override
   Future<bool> build() async => true;
+}
+
+class _StoredOnboardingController extends OnboardingController {
+  @override
+  Future<bool> build() =>
+      ref.read(onboardingRepositoryProvider).readCompleted();
+}
+
+class _LoginFlowSubscriptionController extends _FreeSubscriptionController {
+  _LoginFlowSubscriptionController(this.premiumState, {this.refreshResult});
+
+  final AppPremiumState premiumState;
+  Future<AppPremiumState>? refreshResult;
+  var refreshCalls = 0;
+
+  @override
+  SubscriptionState build() =>
+      super.build().copyWith(premiumState: premiumState);
+
+  @override
+  Future<AppPremiumState> refreshEntitlement({bool showFailure = true}) async {
+    refreshCalls++;
+    return refreshResult ?? premiumState;
+  }
 }
 
 ProviderScope _testAuthSheetApp(

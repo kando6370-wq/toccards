@@ -122,6 +122,41 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
   static const _apiLogPasscode = 'testapp';
 
   var _versionTapCount = 0;
+  var _signInInProgress = false;
+
+  Future<void> _signIn() async {
+    if (_signInInProgress) return;
+    _signInInProgress = true;
+    final router = GoRouter.of(context);
+    final entryLocation = router.routeInformationProvider.value.uri;
+    try {
+      await showAuthSheet(context, waitForSuccessFeedback: true);
+      if (!mounted) return;
+      final session = ref.read(authControllerProvider).session;
+      if (session?.isUser != true) return;
+
+      final premiumState = await ref
+          .read(subscriptionControllerProvider.notifier)
+          .refreshEntitlement(showFailure: false)
+          .timeout(const Duration(seconds: 15));
+      if (!mounted || premiumState != AppPremiumState.free) return;
+      final currentSession = ref.read(authControllerProvider).session;
+      if (currentSession?.isUser != true ||
+          currentSession?.userId != session?.userId ||
+          router.routeInformationProvider.value.uri != entryLocation) {
+        return;
+      }
+      await router.push<void>(
+        subscriptionPageLocation(source: 'profile', entrySource: 'login'),
+      );
+    } on Object catch (error, stackTrace) {
+      debugPrint(
+        'Unable to complete Profile login paywall: $error\n$stackTrace',
+      );
+    } finally {
+      _signInInProgress = false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -218,7 +253,7 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
                     _MenuRow(
                       icon: Icons.person_outline,
                       label: 'Sign in / Sign up',
-                      onTap: () => showAuthSheet(context),
+                      onTap: _signIn,
                     ),
                   ],
                 ),

@@ -93,6 +93,10 @@ Cloudflare 与 Linux 入口复用同一 Hono 业务应用；Linux 使用独立 P
 4. 游客注册为新用户后，服务端把 Folder、Collection、Wishlist、偏好、扫描记录和已结算的 Free Scan 消费迁移到正式 UID；游客登录已有用户时不合并游客 Scan Quota。
 5. 登出撤销 session；删除账号按正式/匿名类型清理或失效业务数据。
 
+邮箱、Google、Apple 在首次引导和 Profile 登录或注册成功后都检查权益，仅 Free 自动显示完整 Subscription Page。首次引导由 Onboarding 保存完成状态并进入启动权益检查，Free 使用 `source=onboarding`，Premium 或 Unknown 进入 Home；检查期间不提前显示 Home。Profile 先关闭认证页面及邮箱成功提示，再刷新权益；Free 使用 `source=profile`、`entry_source=login` 打开订阅页，关闭后返回原 Profile，Premium 或 Unknown 留在 Profile 刷新账号信息。Profile 检查超过 15 秒或抛错时留在当前页；检查返回时若已离开 Profile 或账号发生变化，则不追加订阅页。取消或失败不触发登录后的权益检查，也不推进引导；普通 Tab 切换、回前台和关闭订阅页不会重复触发登录订阅展示。该流转不改变认证接口、会话持久化、游客资产处理或 Premium 判定；后续完整冷启动仍沿用既有权益检查。
+
+邮箱登录的 `Welcome back` 提示显示 1 秒后自动关闭，也可提前手动关闭；首次安装引导等待提示层实际移除后才保存引导完成状态并进入权益检查，避免提示与订阅页同时出现。Profile 复用同一提示及既有反馈等待，仍按上述权益规则继续。提示关闭或销毁会取消计时，不误关闭后续页面；邮箱注册的 `Welcome` 仍沿用原手动关闭方式，引导同样等待其关闭后继续。
+
 异常：刷新失败后客户端清理无效会话；验证码错误/过期、重复邮箱和禁用账号由服务端拒绝。证据：`auth/`、`auth_session_interceptor.dart`。
 
 ### 3.2 搜索、Wishlist 与 Collection

@@ -217,7 +217,70 @@ Code Review 自审通过：核对配置入口、唯一扫描调用方、URL 映�
 兼容与回滚：部署新代码前必须为服务器 `.env` 添加 `VECTOR_RECOGNITION_BASE_URL`，仅有旧 OCR 键会启动失败。新版本不读取旧键，过渡期可保留旧键供旧版本回滚，或备份并恢复对应版本配置；本次没有执行任何远程 migration（含 0012）。
 
 未运行：Workers/Flutter 全仓测试、App/Admin 默认入口整改、移动端构建或真机扫描、kd201 部署/出站验证、真实购买与通知链路。前两类不属于本阶段后端适配的影响面或交付范围；设备和服务器验证分别需要客户端测试设备与 kd201 部署访问。没有 Git 提交/推送、服务器或 CF 发布、DNS/定时任务切换及业务库写入；不能把本阶段通过解释为原 CF dev 已退役或全部 dev 环境已迁移完成。
+## 首次引导邮箱登录提示定时关闭（2026-09-16，已构建测试内部包 143）
 
+用户确认场景为首次安装引导后的邮箱登录：`Welcome back` 应显示 1 秒后自动关闭，提示隐藏后再进入后续订阅流程。本轮基于含下节 Profile 登录订阅调整的 `1.0.2+142` 工作区，macOS / Flutter 3.44.5 / Dart 3.12.2；已保存的 142 IPA 不包含本节后续修改，新构建的 143 IPA 包含本节修改。
+
+根因：`_showCenteredAuthSuccessToast` 原本没有关闭计时器；Onboarding 调用 `showAuthSheet` 未启用已存在的反馈完成等待，因此邮箱提示刚显示时引导已经完成并开始权益检查。先增加回归后、修改运行代码前，iOS/Android × 三种权益的六项测试均发现提示首帧时 `readCompleted()` 已为 true，提前完成引导；两项提前关闭/销毁对照通过（共 2 通过、6 失败，退出 1）。
+
+修复：`Welcome back` 从首次构建起计时 1 秒，仅关闭自己的提示路由，手动关闭或组件销毁时取消计时；反馈 Future 等待提示路由实际移除。首次引导启用 `waitForSuccessFeedback`，之后才保存引导完成状态并进入既有 Gate。Free 进入订阅页，Premium/Unknown 进入 Home；Profile 复用提示自动关闭，后续仍保留下节现有权益检查和订阅来源规则。邮箱注册 `Welcome` 保留手动关闭方式，引导等待其关闭后继续。认证接口、会话持久化、三方授权、资产、扫描、购买与权益判定未改；未修改已有 Profile 源码、版本号或冻结 PRD，当前行为已同步到业务流程文档。
+
+验证命令均在 `apps/flutter-app` 执行：
+
+- `flutter test --no-pub test/widget/auth_profile_test.dart --name 'onboarding email welcome auto|email welcome timer' --reporter expanded`：修复前 2 通过/6 失败；修复后及最终复验 8/8，退出 0。断言提示首帧和 999ms 时引导未完成、权益检查未启动；1000ms 后提示消失再分流；提前手动关闭后计时器不误关订阅页，销毁页面无异常。
+- `flutter test --no-pub test/widget/auth_profile_test.dart --name 'Profile .*login|Profile .*waits|Profile .*cancellation|onboarding .*login|onboarding .*cancellation|email registration keeps|onboarding email welcome auto|email welcome timer' --reporter expanded`：48/48，退出 0；含两入口三种登录、三种权益、等待/失败/取消、Profile 迟到结果保护、两入口注册及提示时序。
+- `flutter test --no-pub --dart-define-from-file=config/test.json test/widget/auth_profile_test.dart test/auth_controller_test.dart test/auth_repository_test.dart test/auth_session_interceptor_test.dart test/oauth_authorizer_test.dart test/auth_storage_test.dart test/startup_subscription_gate_test.dart test/onboarding_gate_test.dart test/onboarding_repository_test.dart test/widget/onboarding_page_test.dart test/app_upgrade_resume_test.dart test/premium_top_entry_test.dart test/subscription_restore_ui_test.dart --reporter expanded`：250 通过、4 项既有 Golden 失败，退出 1，不能标记整组通过。四项差异仍为 1853px、117px、7816px、5080px；本轮实际渲染图片 SHA-256 与先前原代码对照结果逐项一致，没有更新 Golden 或放宽断言。
+- `flutter analyze --no-pub`：初次发现新增测试 helper 缺少 if 花括号，补齐后无问题、退出 0；随后重跑上方 8 项定向用例通过。`dart format --output=none --set-exit-if-changed lib/features/auth/ui/auth_sheet.dart lib/features/onboarding/onboarding_page.dart test/widget/auth_profile_test.dart` 与 `git diff --check` 均退出 0。
+
+Code Review 自审通过：复核两个反馈等待调用方、计时起点、提示路由移除时机、提前关闭及 dispose 的计时清理、账号状态先保存后显示提示、免费与未知权益分支、注册提示兼容性；无全局导航监听，无新增认证/订阅请求路径。原有提示文案和视觉保持不变。
+
+签名构建：同日按用户要求执行 `./tool/release_ios.sh --env test --pgy --build-number 143`，退出 0；构建前上述 48 项定向回归再次全部通过，脚本静态分析通过，清理后构建 `1.0.2 (143)`。最终内部 IPA 的 `com.kando.kandoApp.beta`、测试 API/Firebase、Apple Development 签名及 App Attest `development` 解包检查通过，41 个 Mach-O UUID 均有匹配 dSYM。IPA 为 56,689,353 字节，SHA-256 为 `db7afd43a67f1f88c1a7e947d4aab68440a24f5f8f36dc79b6215a9627f637c3`；IPA 和 `dSYMs.zip` 保存至 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.2-143/`，回读 IPA 摘要一致，源码版本同步至 `1.0.2+143`。Dart/CocoaPods 锁文件及三个目标运行文件构建前后摘要一致。按保留规则现存 141、142、143，旧 140 已移入废纸篓，可恢复；归档另存至 `~/Library/Developer/Xcode/Archives/2026-09-16/Card AI Test 1.0.2 (143).xcarchive`。
+
+未运行：iOS/Android 真机首次安装登录、真实邮箱/StoreKit/购买与 Restore（使用测试替身，客户端测试人员需用 143 新包补验）；Android 构建、全仓检查及前述扩展 Golden 整组复跑（本轮打包复验范围为 48 项定向回归、静态分析和 iOS 签名产物，4 项既有 Golden 差异仍未处理）。未上传、安装、推送或远程部署，保留工作区已有改动。
+
+## Profile 登录后展示订阅页（2026-09-16，已构建测试内部包 142）
+
+用户在测试内部包 `1.0.2 (141)` 的 Profile 使用 Apple 登录后没有看到订阅页。该包原规则仅在首次引导检查权益，Profile 成功出口只关闭认证弹层；用户随后明确确认新规则：首次引导与 Profile 的 Apple、Google、邮箱登录均需检查权益，Free 展示完整订阅页，Premium 不展示。本节替代下方 141 包历史记录中的 Profile 留页规则，Unknown 仍沿用不自动展示的策略。
+
+实现仅涉及 Flutter 页面衔接：Profile 成功后调用既有 `refreshEntitlement(showFailure: false)`，使用返回状态而非直接读取登录前缓存；Free 推入 `source=profile`、`entry_source=login` 的既有完整订阅页，关闭回到原 Profile。以 15 秒超时约束等待，异常记录诊断并留页；返回时检查页面存活、入口路由与当前账号，避免用户离开页面或切换账号后追加订阅页。仅登录操作触发检查，不添加全局认证监听。首次引导保持既有 Gate。邮箱登录/注册成功提示增加可选的完成等待，Profile 在提示关闭后才进行后续检查，防止慢速权益返回将订阅页压到成功提示上方；首次引导默认行为保持不变。原生 OAuth、认证与订阅 Controller、可信权益判定、购买/Restore、API、模型、Schema 和依赖均未修改，兼容 iOS/Android。当前业务规则同步至 `01-flows/business-context.md`。
+
+验证环境：macOS，Flutter 3.44.5 / Dart 3.12.2。以下命令在 `apps/flutter-app` 执行：
+
+- 变更前 `flutter test --no-pub test/widget/auth_profile_test.dart --name 'Profile .* login checks|email registration keeps' --reporter expanded`：1 通过、10 失败，退出 1；9 个 Profile 登录权益组合没有触发新检查，Profile 邮箱注册未出现订阅页。实现后相同命令 11/11，退出 0。
+- `flutter test --no-pub test/widget/auth_profile_test.dart --name 'Profile .*login|Profile .*waits|Profile .*cancellation|onboarding .*login|onboarding .*cancellation|email registration keeps' --reporter expanded`：40/40，退出 0。覆盖两个入口、三种登录、Free/Premium/Unknown、iOS/Android 延迟结果、邮箱成功提示关闭、超时/异常、离开页面、取消/失败及订阅关闭后留页。初次延迟测试发现邮箱提示层被新路由覆盖；补充可选反馈等待后原测试通过。平台测试最初手工覆盖 debug 变量导致 4 项测试清理错误，改用 Flutter 的 `TargetPlatformVariant` 后通过，未修改应用的平台逻辑。
+- `flutter test --no-pub --dart-define-from-file=config/test.json test/widget/auth_profile_test.dart test/auth_controller_test.dart test/auth_repository_test.dart test/auth_session_interceptor_test.dart test/oauth_authorizer_test.dart test/auth_storage_test.dart test/startup_subscription_gate_test.dart test/onboarding_gate_test.dart test/onboarding_repository_test.dart test/widget/onboarding_page_test.dart test/app_upgrade_resume_test.dart test/premium_top_entry_test.dart test/subscription_restore_ui_test.dart --reporter expanded`：最终 242 通过、4 项既有 Golden 失败，退出 1，不能标记整组通过。四项视觉差异与构建 141 时一致：1853px、117px、7816px、5080px。首次扩展运行另有 4 个旧 OAuth 用例因新增权益调用缺少测试替身而留下 15 秒计时器；为这四项明确注入 Premium 返回值、保留原迁移和 Loading 断言后，定向 4/4 通过，完整命令复跑得到上述最终结果。
+- `flutter analyze --no-pub`：无问题，退出 0；`dart format` 格式化目标文件，`git diff --check` 通过。
+
+Code Review 自审通过：逐项检查两个 `showAuthSheet` 调用方、反馈 Future 在关闭/销毁路径的完成、Free 唯一触发条件、账号和路由迟到结果保护、重复点击防护、现有订阅关闭/购买/Restore 返回 Profile 的路由及首次引导行为；没有发现剩余代码阻断项。视觉组件及布局不变，未更新 Golden 或放宽断言。
+
+签名构建：同日按用户要求执行 `./tool/release_ios.sh --env test --pgy --build-number 142`，退出 0；静态分析再次通过，清理后构建 `1.0.2 (142)`。最终内部 IPA 的 `com.kando.kandoApp.beta`、测试 API/Firebase、Apple Development 签名及 App Attest `development` 解包检查通过，41 个 Mach-O UUID 均有匹配 dSYM。IPA 和 `dSYMs.zip` 已由发布脚本保存，源码版本同步至 `1.0.2+142`；IPA SHA-256 为 `652f36d5442543b1804cb6c50c3aae94550433acb3458273abf6c6af1870aaee`。依赖锁文件未变化，构建前后两个目标运行文件摘要一致，包含本节修改；141 IPA 仍是旧行为。
+
+未运行：新代码的 iOS/Android 真机登录、真实邮箱/StoreKit/购买与 Restore、新包上传分发及全 App/全仓测试。Widget 测试使用替身，客户端测试人员需使用 142 包验收真实服务；未改服务端或共享包，未进行远程部署。
+
+## 登录后按入口流转修复（2026-09-16，141 包历史规则）
+
+环境：macOS、Flutter 3.44.5 / Dart 3.12.2，App `1.0.2+140`。用户报告免费用户通过 Google、Apple、邮箱登录后直接进入 Home；预期按 v1.1 PRD §3.4 完成首次引导权益检查，Free 先展示订阅页，Profile 内登录按全局规则刷新当前页。
+
+根因：认证弹层的 OAuth、邮箱成功出口均调用 `_goHomeAfterAuthSettles`，在下一帧无条件跳转 `/home`；此路由不含启动权益检查，从而绕过 `/` 中的 Onboarding / StartupSubscriptionGate。Profile 也复用同一出口，导致登录后离开当前页面。修改前先增加三种登录方式与权益状态的 15 项流程测试，执行下方定向命令，6 通过、9 失败（退出 1）：三项首次引导 Free 缺失 SubscriptionPage，六项 Profile 登录后的当前页被移除，与用户现象及代码路径一致。
+
+修复仅调整 `auth_sheet.dart`：移除统一首页跳转及其 Home 预加载。认证成功仍保存会话并关闭登录页面，首次引导由既有 `_authenticate` 保存完成状态并进入原权益 Gate；Profile 通过原有 `authControllerProvider` 监听刷新。保留成功反馈、OAuth 等待遮罩、取消/失败、邮箱注册/找回密码和防重复提交行为。没有修改 AuthController、认证 Repository、原生 OAuth、Token/接口契约、资产迁移、扫描额度、购买/Restore、Premium 判定、Schema 或环境配置。当前流转同步到 `01-flows/business-context.md`；冻结 PRD 保持原样。
+
+实际验证（命令在 `apps/flutter-app` 执行）：
+
+| 检查 | 命令 | 结果 |
+|---|---|---|
+| 修复前失败证据 | `flutter test --no-pub test/widget/auth_profile_test.dart --name 'onboarding .* login follows\|Profile .* login stays' --reporter expanded` | 6 通过、9 失败，退出 1；上述直接跳 Home 行为稳定复现。 |
+| 最终定向回归 | `flutter test --no-pub test/widget/auth_profile_test.dart --name 'onboarding .*login\|Profile .* login stays\|onboarding .*cancellation\|email registration keeps' --reporter expanded` | 22/22，退出 0。三种登录方式 × 三种引导权益、三种登录方式 × Free/Premium Profile、Google/Apple 取消及失败、等待权益时隐藏 Home、两个入口邮箱注册均通过；Free 关闭订阅页后进入 Home，Profile 保留同一页面实例并显示账号信息。 |
+| 登录及关联影响面 | `flutter test --no-pub test/widget/auth_profile_test.dart test/auth_controller_test.dart test/auth_repository_test.dart test/auth_session_interceptor_test.dart test/oauth_authorizer_test.dart test/auth_storage_test.dart test/startup_subscription_gate_test.dart test/onboarding_gate_test.dart test/onboarding_repository_test.dart test/widget/onboarding_page_test.dart test/app_upgrade_resume_test.dart --reporter expanded` | 178 通过、4 个 Golden 失败，退出 1；认证、存储、刷新 Token、引导、Profile、启动订阅及 Home 升级检查行为用例通过，不能标记整组通过。 |
+| Golden 原代码对照 | 临时将本次唯一运行代码文件恢复到 HEAD（`git diff --exit-code -- lib/features/auth/ui/auth_sheet.dart` 为 0），执行 `flutter test --no-pub test/widget/auth_profile_test.dart --name 'subscription success matches the Figma 300ms\|unsubscribed Profile banner matches\|v1.1 PRD subscription' --reporter expanded`，随后恢复本次修复并重跑最终 22 项回归 | 同样 4 项失败，退出 1；四份实际渲染图 SHA-256 与修复后完全相同，不由本次跳转修复引入。未更新 Golden、放宽断言或跳过测试。 |
+| 静态分析 | `flutter analyze` | 无问题，退出 0。 |
+| 格式/差异 | `dart format --output=none --set-exit-if-changed lib/features/auth/ui/auth_sheet.dart test/widget/auth_profile_test.dart`、`git diff --check` | 两文件无需格式变化，均退出 0。 |
+
+四项既有视觉失败：Profile 升级 Banner 差异 1853px（3.48%）；订阅成功页 300ms 动画帧 117px（0.04%）；订阅底部弹层 7816px（2.37%）；订阅成功页静态基准 5080px（1.54%）。具体视觉根因不在本次范围内，保留待处理。
+
+Code Review 自审通过：核对全部差异、两个调用入口及现有响应式刷新，确认没有新增全局导航监听或修改 `/home`，因此普通 Tab 切换、回前台、关闭订阅页不会额外触发订阅展示；邮箱成功反馈仍可关闭且不误关后续订阅页；注册仍传递原 anonymous ID；认证失败/取消不推进引导。修复前失败、修复后通过组成根因回归证据，原代码对照后已恢复最终实现并复验。
+
+未运行：iOS/Android 真机三方登录、真实邮箱服务、真实 StoreKit 权益及购买/Restore（本轮使用测试替身，需客户端测试人员在新包补验两端登录与订阅流转）；移动端构建/签名、Flutter 全仓测试及服务端全仓检查（范围仅 Flutter 页面衔接，未改原生桥接、后端或共享包）。没有打包、推送或部署；本地测试不等于第三方平台和真机验收。
 ## Golden 基准与全量复验（2026-09-10）
 
 用户要求修复 Golden 并全量复验。基线为 `dev@699ca48` 加本地文档更新，App `1.0.2+134`；环境为 Windows、Flutter `3.44.7` / Dart `3.12.2`、Node `22.20.0`、pnpm `11.9.0`。本次未修改 Flutter 业务代码、UI 设计、API 或数据库结构。
