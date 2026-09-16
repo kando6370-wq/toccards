@@ -2,6 +2,33 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## Linux dev 外部服务配置与代理（2026-09-15/16）
+
+本阶段基于已提交并推送的 `dev-inner@a512dbd`，按用户“进行下一步”核对外部配置，随后按用户提供的 `192.168.48.10:7890` 代理配置现有 Linux API。用户最新要求先集中整理剩余缺项，再统一解决，因此凭据、公网入口与设备需求集中列入[开发计划](development-plan.md#linux-dev-集中处理清单2026-09-16)。代码改动仅限配置模板和文档，没有改业务逻辑、数据库 Schema 或 migration SQL。
+
+2026-09-15：CF `toccards-api-dev/settings` 回读成功，公开变量与 `wrangler.toml` 的 `env.dev.vars` 一致；Secret 仅返回名称，不能据此获得明文。Wrangler `whoami` 因网络 fetch failed 退出 1，随后通过已授权账户的 CF REST API 完成只读核验。Linux 缺少的 `GOOGLE_CLIENT_ID`、`APPLE_APP_ATTEST_APP_ID`、`MAIL_FROM_ADDRESS`、`MAIL_FROM_NAME` 已按原 dev 配置补齐，JWT/数据库连接及其他私密配置保留。
+
+从 [Apple 官方证书页面](https://www.apple.com/certificateauthority/)下载 Apple Root CA、G2、G3，将 DER 按现有逗号分隔 base64 契约写入 `APPLE_ROOT_CERTIFICATES_BASE64`。Node `X509Certificate` 校验三者 CA 属性、自签名和有效期通过；Python cryptography 的旧 Root CA 签名校验曾报 `Unsupported signature algorithm`，该检查没有记为通过，最终以 Node 验证结果为准。SHA-256 分别为 `b0b1730ecbc7ff4505142c49f1295e6eda6bcaed7e2c68c5be91b5a11001f024`、`c2b9b042dd57830e7d117dac55ac8ae19407d38e41d88f3215bc3a890444a050`、`63343abfb89a6a03ebb57e9b3f5fa7be7c4f5c756f3017b3a8c488c3653e9179`。配置存在与证书有效不代表真实 Apple 购买或通知已经验收。
+
+2026-09-16：Google 验证接口直连曾在宿主机和 API 容器稳定得到 `UND_ERR_CONNECT_TIMEOUT`（约 10.5 秒）。同一服务器通过用户提供的代理，`curl --proxy socks5h://192.168.48.10:7890` 与 `curl --proxy http://192.168.48.10:7890` 均在约 0.77 秒收到 Google HTTP 400，确认该端口同时支持 SOCKS5 和 HTTP CONNECT。服务器 Node 22.22.1 实际支持 [Node 22.21.0 起提供的环境代理](https://nodejs.org/docs/latest-v22.x/api/cli.html#node_use_env_proxy1)，无需引入代理包或修改 OAuth 路由。
+
+服务器 `shared/.env` 已配置 `NODE_USE_ENV_PROXY=1`、HTTP/HTTPS 代理为 `http://192.168.48.10:7890`，`NO_PROXY=localhost,127.0.0.1,::1,db,api,192.168.50.201,192.168.48.10,recognize-vec.tcgcard.fun`。只在本项目 API 启动环境中生效，未设置宿主机全局代理或 Docker daemon 代理。配置前备份、持有 watcher/deploy 锁，使用原两份 Compose 文件执行 `up -d --no-deps api`；首次遇 watcher 正在拉取，锁拒绝时退出 20 且未修改配置，之后取得锁并正常执行。
+
+| 检查 | 结果与边界 |
+|---|---|
+| 私有配置备份与 API 重建 | 公开配置备份 `/home/user/apps/toccards-test/shared/.env.before-services-20260915-171759`；代理备份 `.env.before-proxy-20260916-092027`；均权限 600。两个应用脚本最终退出 0，仅 API 容器重建 |
+| 发布预检与根证书 | 实际 `current/deploy/linux/preflight.mjs` 返回 PostgreSQL 18、CF reachable、pending migrations 为空；3 张根证书均通过 Node 校验 |
+| 实际 API 进程配置 | 从容器 `/proc/1/environ` 白名单回读确认代理和公开配置已生效、3 张根证书存在、`APP_ENVIRONMENT=development`、数据库主机为 `db`，TLS 校验未关闭 |
+| Google 出站 | 在 API 容器仅依赖持久化环境执行原生 `fetch`，返回 `400 invalid_token`，约 817 ms；无真实用户令牌，因此只判定网络可达 |
+| 代理路径反证 | 仅在单独 `docker exec` 进程将代理改为不可达的 `127.0.0.1:9`，Google 明确 `ECONNREFUSED`；同进程 API 回环健康与 CF 识别健康仍为 200，证明代理启用及 NO_PROXY 生效，未修改运行服务的环境 |
+| 内网接口复验 | API health、Admin HTML、iOS/Google app-config 均 200；未登录 Admin scans 为 401；Google OAuth 使用唯一无效测试令牌返回 422，约 779 ms；Apple Sandbox 空请求返回 400，拒绝写库 |
+| 数据与版本边界 | current 仍为 `manual-dev-inner-c9742fa-dirty-20260915-155717`，数据库 healthy、ledger 13 项、通知 inbox 0 条、active 管理员 1 个；未执行业务数据写入或 migration |
+| 公网回调调研 | 当前 CF 凭据可读 Tunnel 配置，但 DNS 读取返回 403。既有 `smart-mtg-recognition` Tunnel 为 down，映射旧 `scanning.tcgcard.fun` 服务；未改该资源，未创建新 Tunnel/DNS 或修改 App Store Connect |
+
+源码模板默认关闭代理，填写经核对的 dev 公开变量，并明确 HTTP(S) 协议与 Node 最低版本；没有添加模拟生产凭据或将实际密钥写入仓库。Code Review 自审核对配置来源、备份/回退、仅重建 API、NO_PROXY 和 TLS 边界，无配置级阻断发现。模板解析确认 10 项公开配置与 CF dev 回读一致、8 项私密值为空；5 份修改的 Markdown 中 33 个本地链接/锚点及 `git diff --check` 通过，冻结目录/业务源码/依赖锁文件无改动。本次没有重跑应用测试或构建，因为业务代码、依赖与打包未修改，验证采用实际容器配置和原接口路径。
+
+剩余未验：管理员真实登录，Google/Apple 授权登录，邮件收件，真实 Apple Sandbox 购买/Restore/Server API 校正/公网通知，Mixpanel/Singular 收件，iOS/Android 真机与最终签名包。Apple Server API 三项、ZeptoMail Token、Mixpanel/Singular 四项私密配置仍缺失；Google 的代理缺项已解决。没有发送邮件或消息、没有扩大公网访问面、没有提交/推送本阶段改动或合并 dev。剩余集中处理顺序与需要材料以开发计划中的清单为准。
+
 ## dev 迁往 Linux：发布入口整改与既有实例升级（2026-09-15）
 
 基线为已提交并推送的 `dev-inner@c9742fadad6783e83667e8204f2951de7bbd6b9b`，本阶段按用户授权整改发布流程并升级 `192.168.50.201` 已存在的项目。开发机为 Windows、Node 22.20.0、pnpm 11.9.0；服务器 `srs-node-test1` 使用 Node 22.22.1、Docker Compose 2.40.3 和 PostgreSQL 18.6。没有新建第二套 Compose 项目或数据卷。

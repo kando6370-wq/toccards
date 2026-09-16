@@ -23,7 +23,7 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 | 范围 | 当前代码事实 | v1.1 差距 |
 |---|---|---|
-| dev 迁往 Linux | 已从 `dev-inner` 工作区升级 kd201 原实例；发布前预检与备份通过，PostgreSQL 18.6 和原卷保留，受控 CF 扫描、Linux 额度/记录/收藏写库及 Admin 资源验证通过 | 本阶段尚未提交/合入 `dev`；监听器仍监控 `dev`，第三方测试配置、管理员操作、两端签名包/真机扫描及旧 CF dev 退役待完成，见[兼容设计](../02-architecture/linux-test-environment.md) |
+| dev 迁往 Linux | 发布整改已提交至 `dev-inner@a512dbd`，kd201 既有实例已升级；PostgreSQL 18.6/原卷保留，受控 CF 扫描与本地写库通过；2026-09-16 已补公开配置、Apple 根证书与 API 出站代理 | 尚未合入 `dev`；其余私密凭据、公网回调、真实登录/购买、设备和自动发布缺项见[集中处理清单](#linux-dev-集中处理清单2026-09-16)，不能视为旧 CF dev 已退役 |
 | App 版本与交付 | 实际 Home 首帧激活版本检查，后续 Home 复查静默进行，已确认强更继续全局拦截；iOS 校验后保存 IPA/dSYM，按 Bundle ID 保留测试 3 个/正式 7 个版本 | 新包安装、升级/商店往返和真机验收待完成；本轮未在 macOS 执行保存脚本或签名构建 |
 | App 订阅体验 | 已有 Subscription Page、Paywall、Success、StoreKit 2 Fresh Purchase verifier、Secure Storage 补偿队列、本机 Restore 结果分流、App Attest 原生桥接，以及 Performance/1Y/Folder/Scan Waiting 的来源动作恢复；Home/Search/Collection/Profile 顶部入口、Profile Banner 和 Scan 顶部 Pro 次数卡均已接入完整 Subscription Page，功能卡点仍使用 Functional Paywall Bottom Sheet；Profile 顶部及升级 Banner 已同步 Figma `2129:5678` 并按左右 20px 响应式布局，Search/Collection 顶部已同步 Figma `2070:9663` 的标题与皇冠 PRO 胶囊，Search 顶部搜索框、游戏选择框及 Cards/Sets 切换框和 Collection 顶部 Tab、搜索框均已统一为 44px，Collection Portfolio 摘要已同步 Figma `2070:9486` 的 110px 紧凑布局，Home 顶部订阅入口及 Overview/Performance Tab 已同步 Figma `2181:12864`，模式切换器使用固定外框宽度以保持皇冠入口位置稳定；商品局部缺失、15 秒重载、Purchase 状态、首次/冷启动 Premium 三态分流、ATT/Singular 启动顺序及 v1.1 PRD 视觉 Golden 已实现 | 前后台完整矩阵、Singular 收入后台收件及 iOS 真机验收不完整 |
 | Premium 真值 | 鉴权保留可信 `session_id`；Fresh Purchase 与 Restore 均已有独立 Apple 证据、session proof 和 session grant 写链；App 使用 Unknown/Free/Premium 三态及已验证缓存；Scan、Folder、Performance、Home 与 Card Detail 普通历史 1Y 已接入统一授权 | 三态仍缺 iOS 真机前后台与过期续订矩阵验收 |
@@ -41,6 +41,22 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 产品待决项：评审 P1-B 要求冻结 Lifetime 在 StoreKit 与服务端均不可用时的最长本地兜底时间。最新 App PRD 仅定义“可临时保持 Premium”，没有给出可测试期限；当前代码按该 PRD 持续使用已验证 Lifetime 缓存。该期限会改变离线用户权益，开发不得自行设定，需产品确认后再实现超时转 Unknown 及对应验收矩阵。
 
 平台范围冲突已显式选择最新 Apple PRD：v1.1 App 只在 iOS 激活 Apple Subscription 销售；Android、macOS 和桌面端不读取或激活订阅 SKU，保持 Free 业务可用、权益 Unknown 且不误售/误授权。`subscription-core` 的 Google Play 抽象继续保留，但在产品定义 Android Premium 范围、Google Play 商品和服务端可信 proof 契约前不由 App 激活。该边界的订阅 UI 14 项及实现/测试文件静态分析通过。
+
+### Linux dev 集中处理清单（2026-09-16）
+
+用户要求先集中整理缺项，再统一解决。Linux API/Admin、本地数据库和受控扫描链路已有证据；当前还不能完成整套 dev 替换验收。已完成的公开配置、Apple 根证书、Google 出站代理和保留的运行版本见[本次验证](VERIFICATION.md#linux-dev-外部服务配置与代理2026-09-1516)。以下按需要准备的材料和实际影响集中列出，密钥不写入仓库或本文档。
+
+| 项目 | 已确认的缺项或问题 | 集中准备的材料 / 后续处理 | 完成标准 |
+|---|---|---|---|
+| 管理后台登录 | Linux 库有 1 个 active 管理员；仅通过 HTML/静态资源和未登录 401 验证，当前没有可用登录凭据 | 提供现有测试管理员账号密码或其本机安全文件路径；不重置既有管理员 | 登录并查询目录、扫描记录、订单等授权页面，确认数据来自 Linux |
+| 邮件注册与找回密码 | 发件人和 API 地址已对齐 CF dev，`ZEPTOMAIL_TOKEN` 缺失 | 原 dev 的 ZeptoMail Token、指定验收邮箱；执行真实邮件发送时明确该收件地址和发送授权 | 在测试邮箱收取验证码，完成注册/找回密码原流程 |
+| Apple Server API | beta Bundle、App Attest development、商品白名单和官方根证书已配置；`APPLE_IAP_ISSUER_ID`、`APPLE_IAP_KEY_ID`、`APPLE_IAP_PRIVATE_KEY` 缺失 | 原 dev 使用的 Issuer ID、Key ID 和 `.p8` 私钥文件，以及 Sandbox 测试账号；不套用正式 Bundle 或商品 | 验证 Sandbox Server API 访问、真实购买/恢复及校正；缺私钥主要阻塞 Server API 校正，不能把根证书配置当成完整订阅验收 |
+| Apple 公网通知 | 内网通知路由可达，但 Apple 无法直接访问内网；当前 CF 凭据读取 DNS 返回 403。已有 `smart-mtg-recognition` Tunnel 属旧扫描服务且为 down，不能当作 dev 回调入口 | 提供具备 `tcgcard.fun` Zone DNS Edit、Zone Read 和账户 Cloudflare Tunnel Edit 的 Token 文件，或可用的独立 HTTPS 入口；需要 App Store Connect 的 Sandbox Notification URL 配置权限 | 拟用 `https://dev-callback.tcgcard.fun/api/v1/apple/notifications/v2/sandbox`，只转发该路径，其余返回 404；Apple TEST 通知验签并落到 Linux inbox，正式通知入口保持不变 |
+| 统计与归因 | `MIXPANEL_PROJECT_TOKEN`、`MIXPANEL_API_SECRET`、`SINGULAR_API_KEY`、`SINGULAR_SECRET_KEY` 缺失 | 原 dev 对应的项目配置与凭据；可排在核心登录、扫描和订阅之后处理 | 测试安装/事件/收入在对应测试项目中可核对，不能仅凭 HTTP 连通判断上报成功 |
+| iOS / Android 真机 | 尚未验证真实 Google/Apple 登录、两端模型扫描、局域网权限、购买和重启持久化 | 可访问内网的 iOS 16+/Android API 24+ 设备、测试账号；iOS 另需 Mac/Xcode 和测试签名条件 | test 包业务 API 指向内网，真实扫描候选与额度/收藏在 Linux；beta IPA 最终 App Attest entitlement 为 development |
+| 自动发布与 dev 收口 | 服务器仍监控 `dev`，当前运行手工 release；2026-09-16 watcher 日志有 GitHub 直连超时，API 代理不会自动影响 watcher。日常 SSH 发布尚无非交互密钥 | 后续统一处理 watcher 的项目级网络出口、SSH key/agent 和已提交版本发布；业务验收后按用户授权合入 `dev`、验证一次自动发布 | 监听器从目标 dev SHA 构建、预检、备份、部署且 current/manifest 对应；整体通过后再退役旧 CF dev，保留 CF 向量服务 |
+
+优先集中收齐管理员、邮件、Apple 及回调所需材料，先完成核心业务验收；统计可随后补验。Google 的网络出口已解决（HTTP CONNECT 与 SOCKS5 指向用户提供的同一混合端口），剩余是实际授权登录验收，不再列为待提供的代理缺项。当前 Sandbox 验签不要求 `APPLE_IAP_APP_ID`，因此未将其空值列为阻塞，也不能为填满配置而使用正式 App ID。当前阶段未新建 Tunnel、DNS 或修改 App Store Connect，也未更改 watcher 分支、合并 dev 或退役 CF 资源。
 
 ## 3. 阶段与验收门槛
 

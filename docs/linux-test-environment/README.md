@@ -10,6 +10,8 @@
 
 Linux 部署资产已通过 `19a6ac4` 合入 dev；2026-09-15 已将整改发布到现有 kd201，当前 release 为 `manual-dev-inner-c9742fa-dirty-20260915-155717`。数据库保持 PostgreSQL 18.6 与原卷，ledger 为 13 项；业务资料、扫描记录、额度与收藏在 Linux，向量识别经 `VECTOR_RECOGNITION_BASE_URL` 访问原 CF。此次使用密码 SSH/SFTP 上传已验证发布包，再调用同一发布脚本；没有安装登录密钥，日常非交互发布仍需配置 SSH key/agent。完整证据见[验证记录](../releases/v1.1.0/05-delivery/VERIFICATION.md)。
 
+2026-09-16 已在上述 release 的 `shared/.env` 补齐已确认的 dev 公开配置、Apple 官方根证书，并启用项目 API 的出站代理。API 容器已重建且健康，源码发布版本、数据库和图片卷保持原状。Google 令牌验证网络可达；真实登录、购买与回调尚未验收。其余配置、权限与设备缺项统一见[集中处理清单](../releases/v1.1.0/05-delivery/development-plan.md#linux-dev-集中处理清单2026-09-16)。
+
 ## 1. 目标与原则
 
 Linux 承接现有 dev 环境整改，与 Cloudflare 正式环境使用同一套业务代码，不维护两套 API、管理后台、SQL 或业务规则。环境差异仅放在运行入口、基础设施适配器、环境变量和部署脚本中；识别按用户明确要求继续复用现有 CF 向量服务。
@@ -106,7 +108,24 @@ POSTGRES_LISTEN_ADDRESS=192.168.50.201
 POSTGRES_HOST_PORT=15432
 ```
 
-升级本次后端适配前，先补齐 `VECTOR_RECOGNITION_BASE_URL` 并从服务器验证出站连通性。新版本忽略旧 `OCR_SERVICE_BASE_URL`，仅有旧键时拒绝启动；过渡期可保留旧键供旧版本回滚，或恢复对应版本的 `.env`。本阶段没有执行服务器升级、迁移或客户端切换。
+升级本次后端适配前，先补齐 `VECTOR_RECOGNITION_BASE_URL` 并从服务器验证出站连通性。新版本忽略旧 `OCR_SERVICE_BASE_URL`，仅有旧键时拒绝启动；过渡期可保留旧键供旧版本回滚，或恢复对应版本的 `.env`。kd201 已于 2026-09-15 完成该升级，客户端真机切换仍待验收。
+
+### 外部服务配置与代理
+
+2026-09-15 已从 CF `toccards-api-dev` 在线配置核对 Google Client ID、beta Bundle、App Attest 标识、商品白名单与邮件发件人；值与仓库 `wrangler.toml` 的 `env.dev.vars` 一致。Linux 已补齐缺失的公开值。Apple 根证书从[官方证书页面](https://www.apple.com/certificateauthority/)下载，验证 CA 属性、自签名和有效期后，按现有契约将 3 张 DER 证书编码为逗号分隔的 `APPLE_ROOT_CERTIFICATES_BASE64`。根证书可公开获取，Server API 私钥、邮件和统计密钥仍需从原 dev 密钥保管处提供；CF Secret 列表不返回明文。
+
+kd201 的 Google 直连在宿主机及 API 容器均连接超时。用户提供的 `192.168.48.10:7890` 经验证同时支持 SOCKS5 与 HTTP CONNECT；当前项目使用 Node 原生 HTTP 代理，服务器 `shared/.env` 已配置：
+
+```dotenv
+NODE_USE_ENV_PROXY=1
+HTTP_PROXY=http://192.168.48.10:7890
+HTTPS_PROXY=http://192.168.48.10:7890
+NO_PROXY=localhost,127.0.0.1,::1,db,api,192.168.50.201,192.168.48.10,recognize-vec.tcgcard.fun
+```
+
+此方式要求实际 API 运行时为 Node 22.21.0+；kd201 当前为 22.22.1。`NODE_USE_ENV_PROXY` 是 Node 启动配置，不由 `loadLinuxRuntime` 转换；仅设置 `HTTPS_PROXY` 无法保证旧版 Node 的原生 `fetch` 使用代理。Node 原生代理配置接受 HTTP(S) URL，不能把此处改成 `socks5://`。本轮没有修改宿主机全局代理、Docker daemon 或其他项目；数据库为直连 TCP，健康检查、容器内部请求与 CF 向量服务通过 `NO_PROXY` 直连，TLS 校验保持开启。
+
+变更前备份 `shared/.env`，持有 watcher/deploy 锁后，在 `current/deploy/linux` 使用既有两份 Compose 配置执行 `up -d --no-deps api`；仅重建 API。回退时恢复对应 `.env` 备份并执行同一命令。Google 返回 `400 invalid_token`（未传真实令牌）只证明网络可达；真实账号登录仍需测试包及用户授权令牌。
 
 App 使用现有 `config/test.json` / `APP_ENV=test` 构建后，业务请求默认进入 `http://192.168.50.201:8080/api/v1`。Admin development 构建使用同源 `/api/v1/admin`；本机 `pnpm --filter @kando/admin-web dev` 通过 Vite 代理同一路径。Flutter Web 从固定 3000 端口直接访问 Linux，需要服务器 `.env` 中相应 CORS origin；仅修改模板不会自动更新现有服务器配置。测试 App 分享固定进入内网，链接需在同局域网访问；production 保持原有 API/分享配置行为。
 

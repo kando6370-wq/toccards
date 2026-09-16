@@ -6,6 +6,7 @@
 - 合并状态：`19a6ac4` 已将 Linux 入口、Compose、离线镜像和分支监听发布脚本合入 dev。
 - 当前服务器：2026-09-15 复核 `feature/linux-test-environment` 的既有部署方式后，原位升级为 `manual-dev-inner-c9742fa-dirty-20260915-155717`；manifest 基线 `c9742fa`、分支 `dev-inner`、`working_tree_dirty=true`。PostgreSQL 18.6、原数据库/图片卷保留，ledger 为 13 项，详见[验证记录](../05-delivery/VERIFICATION.md)。
 - App test/Admin development 入口和 `deploy:dev` 均已改为 Linux；服务器 CF 出站、受控向量扫描、额度及收藏写库通过。尚未合入 `dev`，设备与真实图片扫描、第三方测试配置和旧 CF dev 退役仍待验收。
+- 2026-09-16 配置增量：原 CF dev 的 Google/App Attest/邮件公开配置及 Apple 官方根证书已落入 Linux；API 通过 Node 22.22.1 原生环境代理访问外网，Google 网络验证通过，CF 向量服务和内网仍直连。私密凭据、公网通知入口与真机缺项集中维护在[开发计划](../05-delivery/development-plan.md#linux-dev-集中处理清单2026-09-16)。
 - 环境边界：Linux 使用独立测试 PostgreSQL；Cloudflare dev/test 与 prod 已完成 PostgreSQL 迁移且无 D1 binding，不存在待执行的 prod D1 切换任务。
 
 ## 背景与架构纠正
@@ -128,6 +129,8 @@ APP_ENVIRONMENT=development
 ```
 
 OAuth、Apple、ZeptoMail、Mixpanel 和 Singular 配置全部使用测试凭证。缺失的可选外部配置保持现有受控错误语义，不允许回退到 Cloudflare 正式值。
+
+受限网络可在 API 启动环境中设置 `NODE_USE_ENV_PROXY=1`、`HTTP_PROXY`/`HTTPS_PROXY` 和 `NO_PROXY`，要求 Node 22.21.0+。这是 Linux 运行配置，不改变共享 OAuth 路由或 Cloudflare 构建。kd201 使用已验证的混合代理端口的 HTTP CONNECT 模式，数据库和 CF 向量识别保留直连；配置、回退和验证限制见[运维手册](../../../linux-test-environment/README.md#外部服务配置与代理)。
 
 `VECTOR_RECOGNITION_BASE_URL` 必须为无凭据、路径、查询参数或 fragment 的 HTTP(S) origin；缺失或非法时启动失败。Linux 只接受 `APP_ENVIRONMENT=development`。升级前需补齐新键；如需回滚旧代码，可在过渡期保留旧 OCR 键或恢复旧版 `.env`，新代码不会读取该旧值。
 
