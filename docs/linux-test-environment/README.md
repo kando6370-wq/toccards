@@ -4,13 +4,13 @@
 > 测试服务器：`kd201`（`192.168.50.201`）  
 > 测试入口：`http://192.168.50.201:8080`  
 > 自动部署分支：`dev`  
-> 当前发布基线：2026-09-15，`dev-inner@c9742fa` 加本阶段未提交改动
+> 当前发布基线：2026-09-16，watcher 自动发布 `dev@a419415`
 >
-> 服务器核验：2026-09-15，既有实例升级、数据库与受控扫描通过
+> 服务器核验：2026-09-16，邮件配置与真实收件通过；当前版本未包含向量整改
 
-Linux 部署资产已通过 `19a6ac4` 合入 dev；2026-09-15 已将整改发布到现有 kd201，当前 release 为 `manual-dev-inner-c9742fa-dirty-20260915-155717`。数据库保持 PostgreSQL 18.6 与原卷，ledger 为 13 项；业务资料、扫描记录、额度与收藏在 Linux，向量识别经 `VECTOR_RECOGNITION_BASE_URL` 访问原 CF。此次使用密码 SSH/SFTP 上传已验证发布包，再调用同一发布脚本；没有安装登录密钥，日常非交互发布仍需配置 SSH key/agent。完整证据见[验证记录](../releases/v1.1.0/05-delivery/VERIFICATION.md)。
+Linux 部署资产已通过 `19a6ac4` 合入 dev。2026-09-15 手工发布的整改版本为 `manual-dev-inner-c9742fa-dirty-20260915-155717`；2026-09-16 回读确认 current 已被 watcher 更新为 `branch-dev-a4194156c572-20260916110050`。该提交尚未包含 `dev-inner` 的 HTTP 向量适配，不能沿用手工版本的扫描成功结论；应先对齐分支再发布验收。数据库和图片卷保留，ledger 为 13 项。日常手工发布仍需配置 SSH key/agent，完整证据见[验证记录](../releases/v1.1.0/05-delivery/VERIFICATION.md)。
 
-2026-09-16 已在上述 release 的 `shared/.env` 补齐已确认的 dev 公开配置、Apple 官方根证书，并启用项目 API 的出站代理。API 容器已重建且健康，源码发布版本、数据库和图片卷保持原状。Google 令牌验证网络可达；真实登录、购买与回调尚未验收。其余配置、权限与设备缺项统一见[集中处理清单](../releases/v1.1.0/05-delivery/development-plan.md#linux-dev-集中处理清单2026-09-16)。
+2026-09-16 已在共享 `shared/.env` 补齐 dev 公开配置、Apple 官方根证书、API 出站代理、ZeptoMail Token 和用户确认的 Apple Server API 凭据；这些配置随 release 保留。配置更新只重建 API，单封注册验证码邮件由用户确认收到，管理员登录与 Apple Sandbox 只读 API 鉴权均通过。当前源码版本对齐、第三方真实登录、Apple 购买/回调等剩余项见[集中处理清单](../releases/v1.1.0/05-delivery/development-plan.md#linux-dev-集中处理清单2026-09-16)。
 
 ## 1. 目标与原则
 
@@ -112,7 +112,9 @@ POSTGRES_HOST_PORT=15432
 
 ### 外部服务配置与代理
 
-2026-09-15 已从 CF `toccards-api-dev` 在线配置核对 Google Client ID、beta Bundle、App Attest 标识、商品白名单与邮件发件人；值与仓库 `wrangler.toml` 的 `env.dev.vars` 一致。Linux 已补齐缺失的公开值。Apple 根证书从[官方证书页面](https://www.apple.com/certificateauthority/)下载，验证 CA 属性、自签名和有效期后，按现有契约将 3 张 DER 证书编码为逗号分隔的 `APPLE_ROOT_CERTIFICATES_BASE64`。根证书可公开获取，Server API 私钥、邮件和统计密钥仍需从原 dev 密钥保管处提供；CF Secret 列表不返回明文。
+2026-09-15 已从 CF `toccards-api-dev` 在线配置核对 Google Client ID、beta Bundle、App Attest 标识、商品白名单与邮件发件人；值与仓库 `wrangler.toml` 的 `env.dev.vars` 一致。Linux 已补齐缺失的公开值。Apple 根证书从[官方证书页面](https://www.apple.com/certificateauthority/)下载，验证 CA 属性、自签名和有效期后，按现有契约将 3 张 DER 证书编码为逗号分隔的 `APPLE_ROOT_CERTIFICATES_BASE64`。ZeptoMail Token 已于 2026-09-16 按用户文件配置并完成单封真实收件验收；统计密钥仍待提供。`ZEPTOMAIL_TOKEN` 只保存原始值，代码会添加 `Zoho-enczapikey ` 前缀，不能在配置中重复保存该前缀。CF Secret 列表不返回明文。
+
+同日已按用户确认的 `A2Q978K984` 配置 `APPLE_IAP_ISSUER_ID`、`APPLE_IAP_KEY_ID`、`APPLE_IAP_PRIVATE_KEY`。私钥是完整 PEM 内容，不是文件路径或根证书的 base64；本次使用 dotenv 双引号与转义换行存储，Node 与 Compose 解析后均恢复真实换行，并通过运行容器内的签名及 Sandbox API 鉴权。真实 Issuer ID/PEM 只保存在服务器私有配置，旧配置备份权限为 600。`APP_ENVIRONMENT=development`、beta Bundle、`cardx.*` 商品及 App Attest development 保留；仅只读查询最近一分钟的通知历史，没有触发 Apple TEST 通知、购买或生产请求。
 
 kd201 的 Google 直连在宿主机及 API 容器均连接超时。用户提供的 `192.168.48.10:7890` 经验证同时支持 SOCKS5 与 HTTP CONNECT；当前项目使用 Node 原生 HTTP 代理，服务器 `shared/.env` 已配置：
 

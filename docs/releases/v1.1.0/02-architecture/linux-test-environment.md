@@ -4,9 +4,11 @@
 
 - 当前后端适配：2026-09-15，`dev-inner` 基于 `dev@b941a3f`；原始设计基线为 2026-08-26 的 `dev@8e22c1d`。
 - 合并状态：`19a6ac4` 已将 Linux 入口、Compose、离线镜像和分支监听发布脚本合入 dev。
-- 当前服务器：2026-09-15 复核 `feature/linux-test-environment` 的既有部署方式后，原位升级为 `manual-dev-inner-c9742fa-dirty-20260915-155717`；manifest 基线 `c9742fa`、分支 `dev-inner`、`working_tree_dirty=true`。PostgreSQL 18.6、原数据库/图片卷保留，ledger 为 13 项，详见[验证记录](../05-delivery/VERIFICATION.md)。
-- App test/Admin development 入口和 `deploy:dev` 均已改为 Linux；服务器 CF 出站、受控向量扫描、额度及收藏写库通过。尚未合入 `dev`，设备与真实图片扫描、第三方测试配置和旧 CF dev 退役仍待验收。
+- 当前服务器：2026-09-16 回读确认 watcher 已部署 `dev@a419415`，current 为 `branch-dev-a4194156c572-20260916110050`；其运行 bundle 未包含 `dev-inner` 的 HTTP 向量适配，仍要求旧 OCR 键。2026-09-15 手工整改 release 的扫描成功仅为历史证据，当前应先对齐分支。原数据库/图片卷保留，ledger 为 13 项，详见[验证记录](../05-delivery/VERIFICATION.md)。
+- 本整改分支的 App test/Admin development 入口和 `deploy:dev` 均已改为 Linux；手工整改版本的受控向量扫描、额度及收藏写库通过，但尚未合入当前 dev，不能代表其自动发布结果。设备与真实图片扫描、第三方测试配置和旧 CF dev 退役仍待验收。
 - 2026-09-16 配置增量：原 CF dev 的 Google/App Attest/邮件公开配置及 Apple 官方根证书已落入 Linux；API 通过 Node 22.22.1 原生环境代理访问外网，Google 网络验证通过，CF 向量服务和内网仍直连。私密凭据、公网通知入口与真机缺项集中维护在[开发计划](../05-delivery/development-plan.md#linux-dev-集中处理清单2026-09-16)。
+- 同日已将用户提供的原始 ZeptoMail Token 写入服务器私有配置，唯一一封注册验证码测试邮件由用户确认收到；邮件凭据缺项解除，完整注册与找回密码流程未验收。
+- Apple Server API 的三项 dev 凭据也已配置，项目客户端从实际 API 容器查询 Sandbox 通知历史返回 200；私钥解析与验签器构造通过。公网通知、真实购买/恢复与交易校正仍待独立验收。
 - 环境边界：Linux 使用独立测试 PostgreSQL；Cloudflare dev/test 与 prod 已完成 PostgreSQL 迁移且无 D1 binding，不存在待执行的 prod D1 切换任务。
 
 ## 背景与架构纠正

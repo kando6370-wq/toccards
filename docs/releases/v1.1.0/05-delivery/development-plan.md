@@ -48,15 +48,15 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 | 项目 | 已确认的缺项或问题 | 集中准备的材料 / 后续处理 | 完成标准 |
 |---|---|---|---|
-| 管理后台登录 | Linux 库有 1 个 active 管理员；仅通过 HTML/静态资源和未登录 401 验证，当前没有可用登录凭据 | 提供现有测试管理员账号密码或其本机安全文件路径；不重置既有管理员 | 登录并查询目录、扫描记录、订单等授权页面，确认数据来自 Linux |
-| 邮件注册与找回密码 | 发件人和 API 地址已对齐 CF dev，`ZEPTOMAIL_TOKEN` 缺失 | 原 dev 的 ZeptoMail Token、指定验收邮箱；执行真实邮件发送时明确该收件地址和发送授权 | 在测试邮箱收取验证码，完成注册/找回密码原流程 |
-| Apple Server API | beta Bundle、App Attest development、商品白名单和官方根证书已配置；`APPLE_IAP_ISSUER_ID`、`APPLE_IAP_KEY_ID`、`APPLE_IAP_PRIVATE_KEY` 缺失 | 原 dev 使用的 Issuer ID、Key ID 和 `.p8` 私钥文件，以及 Sandbox 测试账号；不套用正式 Bundle 或商品 | 验证 Sandbox Server API 访问、真实购买/恢复及校正；缺私钥主要阻塞 Server API 校正，不能把根证书配置当成完整订阅验收 |
+| 管理后台登录 | 已完成：2026-09-16 用用户提供的既有账号通过浏览器登录，角色为 super_admin；9 项授权只读接口均 200，扫描/订单/通知数量与 Linux 库一致 | 凭据缺项已解除，密码未写入文件；订单与扫描当前为空，有数据详情/导出及写操作仍待业务验收。源码中 Logout 仅清本地会话，服务端撤销接入另列待整改 | 已通过真实登录与只读查询；独立验证的退出 API 已撤销该接口会话、旧 token 返回 401，不能据此宣称浏览器退出已调用服务端 |
+| 邮件注册与找回密码 | Token 缺项已解除：2026-09-16 从用户文件读取后去掉 `Zoho-enczapikey ` 前缀，仅写入 Linux 私有配置；注册验证码接口返回 200，用户已确认收到唯一一封测试邮件 | 不再需要提供 Token；保留完整注册、验证码校验和找回密码流程的业务验收，后续发送仍按指定收件地址和授权范围执行 | Linux → ZeptoMail → 收件邮箱链路通过；本次未创建 App 账号或重置密码，不能标记全部认证流程通过 |
+| Apple Server API | 凭据缺项已解除：用户确认 dev 使用 `A2Q978K984` 并提供对应 Issuer ID，Linux 已配置三项凭据。项目客户端在配置前及 API 重建后只读查询 Sandbox 通知历史均返回 200 | 不再需要提供 Issuer ID、Key ID 或 `.p8`；继续准备 Sandbox 测试账号与真机，配合公网入口验收购买、Restore 和通知校正 | 私钥签名、PEM 环境变量解析、项目客户端/验签器构造及 Sandbox API 鉴权通过；历史窗口为空，不代表真实交易、Server API 校正或通知闭环通过 |
 | Apple 公网通知 | 内网通知路由可达，但 Apple 无法直接访问内网；当前 CF 凭据读取 DNS 返回 403。已有 `smart-mtg-recognition` Tunnel 属旧扫描服务且为 down，不能当作 dev 回调入口 | 提供具备 `tcgcard.fun` Zone DNS Edit、Zone Read 和账户 Cloudflare Tunnel Edit 的 Token 文件，或可用的独立 HTTPS 入口；需要 App Store Connect 的 Sandbox Notification URL 配置权限 | 拟用 `https://dev-callback.tcgcard.fun/api/v1/apple/notifications/v2/sandbox`，只转发该路径，其余返回 404；Apple TEST 通知验签并落到 Linux inbox，正式通知入口保持不变 |
 | 统计与归因 | `MIXPANEL_PROJECT_TOKEN`、`MIXPANEL_API_SECRET`、`SINGULAR_API_KEY`、`SINGULAR_SECRET_KEY` 缺失 | 原 dev 对应的项目配置与凭据；可排在核心登录、扫描和订阅之后处理 | 测试安装/事件/收入在对应测试项目中可核对，不能仅凭 HTTP 连通判断上报成功 |
 | iOS / Android 真机 | 尚未验证真实 Google/Apple 登录、两端模型扫描、局域网权限、购买和重启持久化 | 可访问内网的 iOS 16+/Android API 24+ 设备、测试账号；iOS 另需 Mac/Xcode 和测试签名条件 | test 包业务 API 指向内网，真实扫描候选与额度/收藏在 Linux；beta IPA 最终 App Attest entitlement 为 development |
-| 自动发布与 dev 收口 | 服务器仍监控 `dev`，当前运行手工 release；2026-09-16 watcher 日志有 GitHub 直连超时，API 代理不会自动影响 watcher。日常 SSH 发布尚无非交互密钥 | 后续统一处理 watcher 的项目级网络出口、SSH key/agent 和已提交版本发布；业务验收后按用户授权合入 `dev`、验证一次自动发布 | 监听器从目标 dev SHA 构建、预检、备份、部署且 current/manifest 对应；整体通过后再退役旧 CF dev，保留 CF 向量服务 |
+| 自动发布与 dev 收口（最高优先级） | 2026-09-16 服务器已由 watcher 更新到 `branch-dev-a4194156c572-20260916110050`；该 dev 提交不包含 `b27ca90`/`a512dbd`/`a457f70`，运行 bundle 仍要求旧 OCR 配置且未构造向量适配，9 月 15 日手工版本的扫描成功不能代表当前版本。API 代理不会自动影响 watcher，非交互 SSH 仍待配置 | 先按用户授权将整改分支与当前 dev 对齐，再发布并重新验收扫描；统一处理 watcher 网络出口与 SSH key/agent，避免手工整改再次被未包含修复的 dev 替换 | 运行 bundle/manifest 对应包含整改的提交；当前版本完整扫描、额度与收藏通过后，再安排旧 CF dev 退役 |
 
-优先集中收齐管理员、邮件、Apple 及回调所需材料，先完成核心业务验收；统计可随后补验。Google 的网络出口已解决（HTTP CONNECT 与 SOCKS5 指向用户提供的同一混合端口），剩余是实际授权登录验收，不再列为待提供的代理缺项。当前 Sandbox 验签不要求 `APPLE_IAP_APP_ID`，因此未将其空值列为阻塞，也不能为填满配置而使用正式 App ID。当前阶段未新建 Tunnel、DNS 或修改 App Store Connect，也未更改 watcher 分支、合并 dev 或退役 CF 资源。
+优先对齐实际部署与整改分支，同时集中准备公网回调权限、Sandbox 账号与真机；管理员登录、Google 代理、邮件收件和 Apple Server API 凭据鉴权均已完成，统计可随后补验。当前 Sandbox 验签不要求 `APPLE_IAP_APP_ID`，因此未将其空值列为阻塞，也不能为填满配置而使用正式 App ID。本次未新建 Tunnel、DNS 或修改 App Store Connect，未更改 watcher 分支、合并 dev 或退役 CF 资源；现有 watcher 的自动发布已发生，不能与本次仅修改邮件及 Apple 凭据混为一谈。
 
 ## 3. 阶段与验收门槛
 

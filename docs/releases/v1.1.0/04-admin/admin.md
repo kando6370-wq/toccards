@@ -151,7 +151,7 @@ Admin 页面是只读排障层，不提供重放通知、改订单、改 lifecyc
 
 Admin 没有独立生产部署目标。prod 发布先构建 `auth-core` 和 Admin production，再由 Worker assets 托管；dev 发布构建 Linux API 与 Admin development，由 Linux 代理和静态服务托管。验证时至少区分 API health、SPA HTML 和实际 JS assets。
 
-2026-09-15 的 dev 入口整改将 Admin `.env.development` 改为同源 `/api/v1/admin`，部署目标为内网 Linux；本机 Vite 开发服务代理 `/api` 到 `http://192.168.50.201:8080`。production 继续请求原 HTTPS API。`deploy:dev` 已统一到 Linux SSH 发布；kd201 已升级，Admin HTML 与 10 个静态资源均与发布包一致，未登录扫描管理接口返回 401。管理员登录及业务操作未验收，旧 CF dev 线上入口尚未退役。
+2026-09-15 的 dev 入口整改将 Admin `.env.development` 改为同源 `/api/v1/admin`，部署目标为内网 Linux；本机 Vite 开发服务代理 `/api` 到 `http://192.168.50.201:8080`。production 继续请求原 HTTPS API。`deploy:dev` 已统一到 Linux SSH 发布；kd201 已升级，Admin HTML 与 10 个静态资源均与发布包一致，未登录扫描管理接口返回 401。2026-09-16 已用既有管理员完成浏览器真实登录、扫描/订单/通知页面及 9 项授权只读接口验证，数据库会话与列表总数确认来自 Linux。当前空列表不覆盖真实记录详情、导出和业务写操作；旧 CF dev 尚未退役。详情见[验证记录](../05-delivery/VERIFICATION.md#linux-admin-既有管理员登录与只读验收2026-09-16)。
 
 扫描环境筛选依赖 PostgreSQL `0010_scan_record_environment.sql`。该迁移必须先于读取/写入 `scan_record.environment` 的新 Worker 部署；数据库默认值 `development` 仅用于迁移后、部署前兼容仍未传列的旧 dev Worker，应用回滚时保留列。新 Worker 必须由 `APP_ENVIRONMENT` 显式写入，缺失配置时返回 `503`，不能依赖数据库默认值。现有 PostgreSQL scan 记录基于已确认的 dev D1 迁移事实回填为 `development`；2026-09-07 实时复核确认 production scan 记录为 0。prod 不迁移 D1 历史记录，切换后的新记录由 `APP_ENVIRONMENT=production` 显式写入，不得复用 dev-only runner 的固定值或数据库默认值。
 

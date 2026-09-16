@@ -2,6 +2,52 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## Linux Apple Server API 凭据与 Sandbox 鉴权（2026-09-16）
+
+用户提供 Issuer ID，并明确 dev 对应本机 `SubscriptionKey_A2Q978K984.p8`。本轮仅配置 Linux 的 `APPLE_IAP_ISSUER_ID`、`APPLE_IAP_KEY_ID`、`APPLE_IAP_PRIVATE_KEY`；私钥文件内容未输出日志或写入仓库。执行时 current 仍为 `branch-dev-a4194156c572-20260916110050`，部署版本中的 Apple Server API factory 和 signed-data verifier 源码通过 sourcemap 与本地逐字节核对一致。配置前本地库的待处理通知、correction_required 及交易数均为 0。
+
+临时诊断工具直接打包项目现有 `createAppleServerApiClient` 与 `createAppleNotificationVerifier`，使用锁定的 Apple 官方 SDK 3.1.0，未修改业务代码或依赖。先在既有 API 容器内通过标准输入传入候选凭据，只读查询最近 60 秒的 Sandbox 通知历史；HTTP 200 后才备份并更新服务器运行配置。API 重建后，第二次诊断完全读取新容器环境并复验同一路径。两个查询均为 `POST /inApps/v1/notifications/history`，这是带过滤条件的只读查询，没有调用 `requestTestNotification` 或购买/生产 API。
+
+| 检查 | 实际结果 |
+|---|---|
+| 私钥与项目配置 | P-256 私钥解析、签名/验签通过；项目 Server API client 与 Sandbox notification verifier 均构造成功，Bundle 为 `com.kando.kandoApp.beta` |
+| Apple Sandbox 鉴权 | 配置前候选凭据、配置后容器环境分别返回 HTTP 200；最近 60 秒 notification_count 均为 0、has_more=false，无重试 |
+| PEM 换行 | `.env` 双引号转义换行经 Node 解析与原始 PEM 完全相同；Compose 注入后 API PID 1 环境可正确解析私钥 |
+| 配置边界 | 备份 `/home/user/apps/toccards-test/shared/.env.before-apple-20260916-141728`；配置与备份权限均为 600；逐键比较只改 Apple 三项，邮件、代理、数据库及其他设置保持 |
+| 运行状态 | 只执行原 Compose 的 `up -d --no-deps api`；API healthy，health/app-config 为 200，未登录 Admin scans 为 401，Web/数据库容器与 current 保留 |
+| 数据与清理 | migration ledger 13 项、通知 inbox/校正待办/交易均为 0；临时私密 JSON 已删除，容器诊断文件已清理，原用户 `.p8` 文件保留 |
+
+两个诊断进程出现依赖的 `punycode` 弃用警告，但均退出 0；没有为去除警告升级依赖。配置自审核对同组凭据、Sandbox 隔离、敏感输出、备份/回退、只读请求及仅重建 API，通过。未重跑应用全仓测试或业务构建（源码和依赖未变化），临时诊断 bundle 的实际运行结果如上。
+
+Issuer ID/Key ID/私钥缺项已解除；本次没有真实交易，因此未验证 Fresh Purchase、Restore、App Attest 真机证据、Server API 交易校正或公网通知闭环，也未变更 App Store Connect、CF、watcher 或发布分支。此前发现的实际 dev 版本缺少向量整改仍须优先处理。本阶段文档未提交或推送。
+
+## Linux ZeptoMail 配置与单封邮件验收（2026-09-16）
+
+用户提供仓库外 Token 文件，并明确授权向指定 Gmail 地址发送一封测试邮件。文件含 `Zoho-enczapikey ` 前缀；代码 `sendZeptoMail` 会自行添加该前缀，因此读取时去掉前缀后仅写入原始 Token，未改用户原文件。Token 值未输出到日志或写入仓库。
+
+执行前回读服务器确认 watcher 已将 current 更新为 `branch-dev-a4194156c572-20260916110050`，manifest 为 `dev@a4194156c5721b2c23255f44f1b64c2268a6382c`、`source=kd201-branch-watcher`，构建时间 `2026-09-16T03:00:50Z`。已比对实际部署 sourcemap 中 ZeptoMail、验证码邮件和注册路由三个文件与本地源代码一致，随后按该运行版本操作，没有覆盖为旧手工 release。
+
+持有原 watcher/deploy 锁后，备份服务器配置到 `/home/user/apps/toccards-test/shared/.env.before-zeptomail-20260916-135420`，只修改 `ZEPTOMAIL_TOKEN`，再用原两份 Compose 文件执行 `up -d --no-deps api`。配置与备份均为 600，临时上传的私密 Token 文件已删除；API 进程回读确认 Token 已设置且不含授权前缀，其他配置逐键比较未变，API 健康检查通过。
+
+2026-09-16 13:55:15（Asia/Shanghai）仅调用一次 Linux `/api/v1/auth/register/send-code`，使用已核对的现有注册验证码流程发送测试邮件。HTTP 200、`success=true`，耗时约 945 ms；该路由仅在 ZeptoMail 请求成功且返回 request_id 后报告成功。数据库只读复核本次产生 1 条未使用的 register 验证码，有效期 600 秒，未创建 App 用户。随后用户明确确认已收到邮件，完成 Linux → ZeptoMail → 实际邮箱的投递验收；没有重试或发送第二封邮件。
+
+运行版本额外发现：fetch 后确认 `dev@a419415` 不包含整改提交 `b27ca90`、`a512dbd`、`a457f70`；容器中 API bundle 的 SHA-256 与 current 文件一致，其 sourcemap 中 Linux 配置仍要求旧 OCR 键且未构造 HTTP 向量适配。此前手工版本的扫描成功证据不适用于这个已被 watcher 替换的版本。该项已列入集中清单最高优先级，本次没有擅自合并分支、改变 watcher 或覆盖应用版本。
+
+本轮邮件配置、单封发送及收件通过，缺失凭据清单已更新。配置自审核对 Token 前缀、受限文件权限、单键修改、仅重建 API、临时文件清理和单次发送约束，通过；6 份修改的 Markdown 中 33 个本地链接/锚点及 `git diff --check` 通过，修改文件中未发现该 Token 明文。未执行完整注册、验证码输入校验或找回密码，未修改业务代码、依赖或 migration SQL，也未运行与本次配置无关的应用构建/测试。仅 API 容器因配置重建，数据库与 Web 容器保留，ledger 仍为 13 项；本阶段文档未提交或推送。
+
+## Linux Admin 既有管理员登录与只读验收（2026-09-16）
+
+基线 `dev-inner@a457f70`。按用户提供的既有管理员凭据，在 `http://192.168.50.201:8080` 完成浏览器真实登录，显示“超级管理员”；扫描记录、订单统计、苹果通知页面均正常打开。密码与访问/刷新 token 仅在验证进程或登录流程中使用，没有写入仓库、文档或临时脚本。
+
+独立接口验证通过 `POST /api/v1/admin/auth/login` 返回 200，并用参数中对应的会话 ID 在 Linux `toccards_test.session/admin_user` 只读核对：owner 为 admin、角色 super_admin、状态 active、会话未撤销。容器环境确认数据库主机为 `db`、库名 `toccards_test`、APP_ENVIRONMENT 为 development。
+
+- 9 项授权只读接口全部 200：scans、billing/transactions、apple-notifications、analytics/installations、users、card-overrides、app-versions、billing/transactions/options、apple-notifications/options；另查公共目录卡牌 `100223` 返回 200。
+- 扫描、订单、苹果通知总数均为 0，与直接查询 Linux 数据库一致；当前无数据不代表有记录详情、图片查看、导出或复杂筛选已验收。
+- 独立接口会话的 refresh 返回 200；调用 logout 后旧 access token 请求 scans 返回 401，数据库 revoked_at 非空。浏览器点 Logout 后回到空登录表单并关闭验证标签页。
+- 源码显示现有浏览器 Logout 仅清除本地会话、未调用后端 logout；本次没有修改这一既有行为，因此只能确认独立接口会话被服务端撤销，不能把页面返回登录表单视为同等撤销证据。该项记入集中清单后续处理。
+
+本次只产生正常登录/刷新/退出会话操作，没有重置管理员、变更权限或修改业务数据，没有部署或数据库迁移。只更新当前版本 Admin 文档、验证记录和集中清单；未重跑应用构建/测试（业务代码未修改），未提交或推送。管理员凭据缺项已解除，其余邮件、Apple、统计和真机缺项继续保留。
+
 ## Linux dev 外部服务配置与代理（2026-09-15/16）
 
 本阶段基于已提交并推送的 `dev-inner@a512dbd`，按用户“进行下一步”核对外部配置，随后按用户提供的 `192.168.48.10:7890` 代理配置现有 Linux API。用户最新要求先集中整理剩余缺项，再统一解决，因此凭据、公网入口与设备需求集中列入[开发计划](development-plan.md#linux-dev-集中处理清单2026-09-16)。代码改动仅限配置模板和文档，没有改业务逻辑、数据库 Schema 或 migration SQL。
