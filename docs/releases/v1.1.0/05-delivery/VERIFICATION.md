@@ -11,7 +11,31 @@ Cloudflare 退役前回读：`toccards-api-dev` 的自定义域名仅有 `api-de
 退役后 `api.tcgcard.fun/api/v1/health`、Linux 内网 health、`recognize-vec.tcgcard.fun/health` 均返回 200；独立 `dev-callback.tcgcard.fun` 对通知路径 GET 返回预期 405。Cloudflare 清单仍包含 prod API、向量 Worker 和独立 Apple 回调，prod 与回调自定义域名保持原归属；只读清单确认旧 dev KV namespace 与 R2 bucket 均仍存在，未读取内容。没有删除或写入共享 PostgreSQL、旧 dev KV/R2、Linux 数据卷、旧包或 prod；旧 Worker 自身的 Secret 和版本历史随脚本删除，若要恢复需重新配置，不能将数据保留等同于 Worker 可无密钥回滚。本次未发送新的 Apple TEST、未执行旧包兼容访问或完整客户端复验，用户确认的客户端验收与上述只读服务检查分别记录。源码移除旧 `wrangler.toml` dev 环境以防误部署；本次本地文档和配置变更未提交、推送或触发 Linux watcher。
 
 本地验证：`pnpm lint` 退出 0；`pnpm type-check` 7/7（其中 6 项命中缓存，Workers API 实际执行）；`pnpm --filter @kando/workers-api exec vitest run src/entitlements/node-fetch-worker-shim.test.ts --maxWorkers=1` 为 5/5；prod `deploy:dry-run:prod` 与 Linux `deploy:dry-run:dev` 均退出 0，后者的完整 API bundle 启动/Apple SDK 回归 2/2，均未发布。反向检查 `wrangler deploy --env dev --dry-run` 退出 1，明确提示配置没有 dev 环境，属于预期拒绝。文档路径/新增退役锚点和 `git diff --check` 通过；Code Review 核对了唯一旧 Worker/域名/cron、prod/回调/识别资源保留、配置删除范围与实际远端回读，未发现阻断项。未运行全仓 Workers/Flutter 测试、真机、真实购买或备份恢复演练，本次未改业务运行逻辑。
+## 引导页 1 视频顶部位置与等比尺寸（2026-09-17，本地修改）
 
+按用户文字要求而非图片中的 390×510 cover 备注调整页面 1：视频源 780×960，最大显示宽度 390 pt、按比例高度 480 pt，距屏幕顶部 56 pt；窄屏等比缩小，宽屏居中。首帧占位图与视频共用原媒体容器，不另行裁剪；页面 2、3 保持原来的顶部安全区布局，播放/循环/降低动态效果及按钮交互未变。`01-flows/business-context.md` 已同步当前行为，冻结 v1.0.0 文档未修改。修改前页 1 顶部布局回归测试失败（实际顶部为 0），页 2 保持原布局测试通过。
+
+本地验证：macOS / Flutter，`flutter test --no-pub --dart-define-from-file=config/test.json test/widget/onboarding_page_test.dart test/onboarding_gate_test.dart --reporter expanded`：20/20 通过、退出 0，覆盖 390×844 顶部 56 与 390×480 等比尺寸、320×700 窄屏比例和静态回退、430×932 居中，以及页 2 原安全区布局、三个引导页跳转和启动门禁。`flutter analyze --no-pub`：无问题、退出 0；`dart format`：仅格式化本轮测试文件；`git diff --check`：退出 0。Code Review 自审核对页 1 媒体尺寸和顶距仅作用于索引 0、首帧图与视频共用尺寸容器，页 2、3 原媒体尺寸分支及播放、文案、底部控制未修改；未发现本轮变更问题。尚未重新打包或在 iOS/Android 真机验收，Widget 布局测试不能代替真机视频解码与尺寸检查，需后续测试包补验。
+
+## 注册 Welcome 留在注册页及登录提示恢复 1 秒（2026-09-17，本地修改）
+
+现象：注册成功后先退出邮箱注册页，再由外层显示 `Welcome`，首次引导会在提示背后露出引导页 3；此前的统一时长调整把邮箱登录 `Welcome back` 改为 2 秒，与用户要求恢复的 1 秒不符。根因：注册 `_completeSignIn` 先关闭邮箱路由，`_openEmailAuthPage` 才在根 Navigator 上展示 Welcome；修改前首次引导/Profile 的注册页保留断言失败。影响范围仅邮箱注册成功的提示位置/流转顺序及邮箱登录提示时长，不改认证请求、会话持久化或权益判定。
+
+修复：全屏注册页直接显示并等待 1 秒 Welcome，然后才关闭自己的路由；外层在同一帧移除登录选项，首次引导/Profile 沿用既有权益刷新分流。登录 Welcome back 计时恢复 1 秒；其他无按钮欢迎弹窗默认 2 秒、带按钮需确认的行为不变。当前流程文档已同步到 `01-flows/business-context.md`；v1.0.0 冻结文档未改。
+
+验证：macOS / Flutter，修复前首次引导和 Profile 的注册页保留断言均失败；修复后 `flutter test --no-pub --dart-define-from-file=config/test.json test/widget/auth_profile_test.dart --name 'email registration keeps its entry flow|successful register passes current anonymous id|onboarding email welcome auto closes after one second|email welcome keeps password page|email login saves onboarding only once|email welcome does not close a newer route|email welcome timer is safe|onboarding Email login follows|Profile Email login checks|welcome without an action|welcome with an action|welcome timer only|early welcome dismissal' --reporter expanded`：29/29 通过、退出 0，覆盖 iOS/Android 登录、首次引导/Profile 注册的 Free/Premium/Unknown 分流及计时边界。`flutter analyze --no-pub`：无问题、退出 0；`git diff --check`：退出 0。全量 `auth_profile_test.dart`：125 项通过、4 项订阅页 Golden 图像对比失败、退出 1；失败项仍是 responsive Profile banner、subscription success 300ms motion、v1.1 bottom sheet 和 success page，与欢迎提示路径无关，未更改 Golden 基线，不把全量测试记为通过。
+
+Code Review 自审：核对注册提示在原注册路由上显示、提示结束后才退出该路由、外层只移除自己的登录选项，以及两处入口和三种权益状态的后续分流；登录提示 1 秒及共享弹窗默认 2 秒的其他行为未改。未运行 iOS/Android 真机首次安装及注册、IPA/Android 构建或真实权益接口联调；Widget 测试不能代替设备视觉/转场验收，需客户端测试人员在后续测试包补验。
+
+## 认证欢迎提示自动关闭（2026-09-17，本地修改）
+
+现象：邮箱注册成功的无按钮 `Welcome` 没有定时关闭路径，只能点击遮罩；登录的 `Welcome back` 固定 1 秒，与本次统一 2 秒的要求不符。根因证据：注册路径调用 `showKandoWelcomeModal`，该共享弹窗原先只等待手动 `showDialog` 结束；修改前注册流转和共享弹窗的计时边界测试失败。影响范围限认证页的欢迎提示及其后的原有引导/Profile 权益检查；认证接口、会话、订阅判定、顶部 toast、支付提示和需确认的弹窗均未修改。
+
+修复：无按钮共享欢迎弹窗默认 2 秒自动关闭，注册显式指定 1 秒；登录 `Welcome back` 改为 2 秒。计时器销毁时取消，仅关闭提示自身路由；保留点击遮罩提前关闭和带按钮弹窗等待用户确认。`01-flows/business-context.md` 已同步当前行为；v1.0.0 冻结文档不变。
+
+本地验证：macOS / Flutter，修改前针对注册流转和无按钮欢迎弹窗的回归测试失败；修改后 `flutter test --no-pub --dart-define-from-file=config/test.json test/widget/auth_profile_test.dart --name 'welcome without an action|welcome with an action|welcome timer only|early welcome dismissal|email registration keeps its entry flow|onboarding email welcome auto closes after two seconds|email welcome keeps password page|email login saves onboarding only once|email welcome does not close a newer route|email welcome timer is safe|onboarding Email login follows|Profile Email login checks' --reporter expanded`：24/24 通过、退出 0，覆盖 iOS/Android 登录及引导/Profile 注册分流。`flutter analyze --no-pub`：无问题、退出 0；`dart format` 仅格式化改动测试文件；`git diff --check`：退出 0。全量 `auth_profile_test.dart`：121 项通过、4 项订阅页 Golden 图像对比失败、退出 1；失败项为 responsive Profile banner、subscription success 300ms motion、v1.1 bottom sheet 和 success page，与本次欢迎弹窗路径无关，未更新 Golden 基线，不把该测试记为通过。
+
+Code Review 自审：核对了无按钮默认/注册特例、带按钮不定时、点击遮罩提前关闭、销毁取消计时、后来打开的页面不被错误关闭，以及引导/Profile 权益分流；未发现本次变更的问题。未运行 iOS/Android 真机首次安装与注册、IPA/Android 构建或订阅接口联调；本地 Widget 测试不能替代真机对提示时长及后续页面流转的验收，需客户端测试人员在后续测试包补验。
 ## Linux dev 公网回源服务器隔离（2026-09-17）
 
 原公网 `111.10.170.43:8089` NAT 到 `192.168.50.201:8080`，可绕过 CF Worker 直接得到 Admin HTML 与 `/api/v1/health` 200；CF Worker 的路径限制无法保护这条直连。kd201 仅在 8080 发布 Docker Web，`ens160` 抓包确认公网请求保留公网源地址，内网客户端从私网到达。为不改 NAT、App/Admin 内网地址或现有 Compose，在主机启动独立 Node 22 回调网关（8081），再通过专属 nftables `ip toccards_callback` 表以 prerouting priority -101（Docker DNAT 为 -100）仅将公网 IPv4 到 `201:8080` 的流量转到该网关；RFC1918 内网源地址仍直达 8080。两项 systemd 服务已启用并运行，代码和策略存放在 `deploy/linux/security/` 与宿主机对应私有安装位置，原 API/Web/DB 容器及 watcher release `dev@7a8300b` 均未更换。
@@ -37,7 +61,15 @@ Cloudflare 退役前回读：`toccards-api-dev` 的自定义域名仅有 `api-de
 用户随后提供同一 Mixpanel 项目的 Project Token 与 API Secret。前者与旧 CF dev 和 Linux `/app-config` 均逐值匹配；仅将后者填入 Linux 原本为空的 `MIXPANEL_API_SECRET` 一行，不改前三项，备份为 `/home/user/apps/toccards-test/shared/.env.before-mixpanel-api-20260917-025354`。备份和新 `.env` 权限均为 600，原离线 Compose 仅重建 API；Web/数据库容器 ID 未变。暂存文件经 Node 解析、运行容器经摘要校验确认该 Secret 已注入；API health/Admin 正常，iOS/Google 的三项公开配置仍与原 dev 一致，`MIXPANEL_API_SECRET` 未进入 `/app-config`。没有向 Mixpanel API 发起凭据校验，也没有验证真机 SDK 初始化或后台事件/收入收件；该字段在当前源码中仍无使用路径。本次仅调整私有运行配置与文档，未执行应用构建/测试、远程 migration、CF/prod 变更或 Git 推送。
 
 后续只读核验：从 Linux API 容器使用现有 `MIXPANEL_API_SECRET` 按 Mixpanel Project Secret 的 HTTPS Basic Auth 方式调用 Raw Data Export，返回 HTTP 200 和有效事件；没有输出原始事件/用户信息，也未向 Mixpanel 写入测试事件。首次当天读取 44 条事件，其事件时间都晚于本轮 Linux 配置同步；第二次当天读取 50 条，包含 `subscribe_view` 3、`splash_view` 2、`homePerformance_view` 1、`sub_click` 1、`sub_result` 1、`restore_result` 1。记录存在证明该 Mixpanel 项目可查询且有 App 类事件，但事件时间由客户端提供、未核对指定用户或交易 ID，不能归因到本次 Linux 测试订阅，也不能宣称 Mixpanel 收入或 `sub_success` 已收到。Singular 的 SDK API Key/Secret Key 已从 Linux `/app-config` 正常下发，但不提供后台报表查询权限；缺少 Singular 后台/Reporting API 访问条件，本轮未验证其安装、事件或收入收件。Mixpanel 官方已将 Project Secret 认证标记为弃用，后续新增服务端查询应改用 Service Account。
+## 首次引导页 1 扫描演示素材（2026-09-17，已构建测试内部包 146）
 
+应用户要求，将 `assets/onboarding/guide_scan.mp4` 替换为提供的 `Card_AI_Pikachu_Scan_3s-2.mp4`（3 秒、780×960、H.264），SHA-256 均为 `cc85b9e35e02fb66a439574ab030cf0b0f236771805fbbf1399c5719a876918e`。原 PNG 在视频解码前与减少动态效果时仍会显示旧喷火龙画面，因此同步以新视频真实首帧生成 `guide_scan_placeholder.png`，按相同比例缩放为 390×480，让图片和视频在现有 `BoxFit.cover` 下按相同方式裁切。两个资源路径不变；引导页布局、文字、播放/循环及页面 2、3 素材与业务流程均未修改。实际视觉内容同步到 `01-flows/business-context.md`，v1.0.0 冻结文档未改。
+
+本地验证：macOS / Flutter 3.44.5，AVFoundation 能解码新视频首帧；图片已回读为 390×480，源文件与目标视频 SHA-256 一致。`flutter test --no-pub --dart-define-from-file=config/test.json test/widget/onboarding_page_test.dart test/onboarding_gate_test.dart --reporter expanded`：17/17，通过、退出 0；`flutter analyze --no-pub`：无问题、退出 0。Code Review 自审核对了媒体加载、首帧 fallback、自动循环、减少动态效果、资源打包声明与页面 2、3 引用，改动限定在页 1 的两份资源和当前版本文档。
+
+签名构建：同日重新执行 `./tool/release_ios.sh --env test --pgy --build-number 146`，退出 0，内网 `http://192.168.50.201:8080/api/v1` 健康检查返回 HTTP 200、`status=ok`。脚本清理旧构建后静态分析通过，归档、导出及最终 IPA 校验通过；最终内部包使用 `com.kando.kandoApp.beta`、Apple Development 签名、App Attest `development`，测试 Firebase 与内网 API 校验通过，41 个 Mach-O UUID 均匹配 dSYM。保存的 IPA 再次回读确认仅 `192.168.50.201` 的 HTTP ATS 例外及本地网络用途说明。IPA 大小 56,482,862 字节，SHA-256 为 `86e61f355fd92c3dc647ba3c35c8c2ca62e296d0e76e16e24ef6510411da3094`；与 `dSYMs.zip` 保存至 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.2-146/`，副本摘要一致。现保留 144、145、146，旧 143 移入废纸篓，可恢复；归档另存至 `~/Library/Developer/Xcode/Archives/2026-09-17/Card AI Test 1.0.2 (146).xcarchive`。源码版本同步为 `1.0.2+146`；Dart/CocoaPods 锁文件未变化。构建前后视频文件摘要一致，为上述新素材。
+
+未运行：iOS/Android 真机视频播放、首次安装登录、扫描与购买、Android 构建以及全 App/全仓测试；本轮为 iOS 内部包交付，Widget 测试与签名构建不能代替设备视频解码/流畅度及局域网权限验收。客户端测试人员需用 146 包在可访问内网的设备上验收。未安装、上传、推送或部署。
 ## 邮箱登录在密码页展示 Welcome back（2026-09-16，已构建测试内部包 145）
 
 用户在首次安装引导的邮箱登录中观察到密码验证成功后先闪回引导页 3，再进入订阅页，要求在密码页展示原有 1 秒 Welcome back 后继续。基于 `dev@a97c5ed`、含已有 `1.0.2+144` 打包改动的工作区；本轮不修改版本或发布脚本。根因由代码路径和失败测试确认：`_completeSignIn` 先 pop 密码页，`_openEmailAuthPage` 再 pop 登录选项并于下一帧展示提示，因而提示背后已变为引导页，随后引导完成和权益检查再次切换画面。此前真机看到提示只能证明提示出现，不能证明背景页面和切换符合本次要求。

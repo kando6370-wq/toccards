@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kando_app/shared/ui/kando_modal.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 import 'package:kando_app/shared/validation/email.dart';
@@ -391,6 +392,15 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
         return;
       }
       _clearSensitiveInputs();
+      if (widget.fullScreen) {
+        FocusScope.of(context).unfocus();
+        await showKandoWelcomeModal(
+          context,
+          message: 'Let’s collect the cards.',
+          autoDismissDuration: const Duration(seconds: 1),
+        );
+        if (!mounted) return;
+      }
       _completeSignIn('Welcome\nLet’s collect the cards.');
     });
   }

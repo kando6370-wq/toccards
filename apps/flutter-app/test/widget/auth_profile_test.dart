@@ -584,78 +584,216 @@ void main() {
   });
 
   for (final fromOnboarding in [true, false]) {
-    testWidgets('email registration keeps its entry flow ($fromOnboarding)', (
-      tester,
-    ) async {
-      final repository = _WidgetAuthRepository(
-        initialSession: _anonymousSession('anon-existing'),
-        emailRegistered: false,
-      );
-      final subscription = _LoginFlowSubscriptionController(
-        AppPremiumState.free,
-      );
-      await tester.pumpWidget(
-        _testApp(
-          repository,
-          onboardingStorage: fromOnboarding
-              ? InMemoryOnboardingStorage()
-              : null,
-          subscriptionController: () => subscription,
-        ),
-      );
-      if (fromOnboarding) {
-        await _openOnboardingAuth(tester);
-      } else {
-        await tester.pumpAndSettle();
-        await tester.tap(find.byTooltip('Close'));
-        await tester.pumpAndSettle();
-        await _openProfileTab(tester);
-        await _openAuthSheet(tester);
-      }
-      await tester.tap(find.text('Continue with Email'));
-      await tester.pumpAndSettle();
-      await _continueWithEmail(
-        tester,
-        'person@example.com',
-        destinationLabel: 'Verification Code',
-      );
-      await tester.enterText(
-        find.byKey(const Key('verification-code-input')),
-        '123456',
-      );
-      await tester.pumpAndSettle();
-      final fields = find.byType(TextFormField);
-      await tester.enterText(fields.at(0), 'password123');
-      await tester.enterText(fields.at(1), 'password123');
-      await tester.pump();
-      await tester.tap(find.widgetWithText(FilledButton, 'Create Account'));
-      await tester.pumpAndSettle();
+    for (final premiumState in AppPremiumState.values) {
+      testWidgets(
+        'email registration keeps its entry flow ($fromOnboarding, $premiumState)',
+        (tester) async {
+          final repository = _WidgetAuthRepository(
+            initialSession: _anonymousSession('anon-existing'),
+            emailRegistered: false,
+          );
+          final subscription = _LoginFlowSubscriptionController(premiumState);
+          await tester.pumpWidget(
+            _testApp(
+              repository,
+              onboardingStorage: fromOnboarding
+                  ? InMemoryOnboardingStorage()
+                  : null,
+              subscriptionController: () => subscription,
+            ),
+          );
+          if (fromOnboarding) {
+            await _openOnboardingAuth(tester);
+          } else {
+            await tester.pumpAndSettle();
+            if (find.byType(SubscriptionPage).evaluate().isNotEmpty) {
+              await tester.tap(find.byTooltip('Close'));
+              await tester.pumpAndSettle();
+            }
+            await _openProfileTab(tester);
+            await _openAuthSheet(tester);
+          }
+          final refreshCallsBeforeRegistration = subscription.refreshCalls;
+          await tester.tap(find.text('Continue with Email'));
+          await tester.pumpAndSettle();
+          await _continueWithEmail(
+            tester,
+            'person@example.com',
+            destinationLabel: 'Verification Code',
+          );
+          await tester.enterText(
+            find.byKey(const Key('verification-code-input')),
+            '123456',
+          );
+          await tester.pumpAndSettle();
+          final fields = find.byType(TextFormField);
+          await tester.enterText(fields.at(0), 'password123');
+          await tester.enterText(fields.at(1), 'password123');
+          await tester.pump();
+          await tester.tap(find.widgetWithText(FilledButton, 'Create Account'));
+          for (var frame = 0; frame < 20; frame++) {
+            await tester.pump();
+            if (find.text('Welcome').evaluate().isNotEmpty) break;
+          }
 
-      expect(repository.registerRequests, [
-        const _RegisterRequest(
-          email: 'person@example.com',
-          code: '123456',
-          password: 'password123',
-          anonymousId: 'anon-existing',
-        ),
-      ]);
-      expect(repository._currentSession?.isUser, isTrue);
-      expect(find.text('Welcome'), findsOneWidget);
-      await tester.tapAt(const Offset(5, 5));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const Key('email-auth-page')), findsNothing);
-      expect(find.byKey(const Key('auth-sheet-panel')), findsNothing);
-      expect(find.byKey(const Key('home-normal-content')), findsNothing);
-      expect(find.byType(SubscriptionPage), findsOneWidget);
-      if (!fromOnboarding) {
-        await tester.tap(find.byTooltip('Close'));
-        await tester.pumpAndSettle();
-        expect(find.byType(ProfilePage), findsOneWidget);
-        expect(find.text('ID: user-1'), findsOneWidget);
-        expect(find.byType(SubscriptionPage), findsNothing);
-      }
-    });
+          expect(repository.registerRequests, [
+            const _RegisterRequest(
+              email: 'person@example.com',
+              code: '123456',
+              password: 'password123',
+              anonymousId: 'anon-existing',
+            ),
+          ]);
+          expect(repository._currentSession?.isUser, isTrue);
+          expect(find.text('Welcome'), findsOneWidget);
+          expect(find.byKey(const Key('email-auth-page')), findsOneWidget);
+          expect(find.text('Set Password'), findsOneWidget);
+          expect(find.byKey(const ValueKey('onboarding-guides')), findsNothing);
+          expect(find.byType(SubscriptionPage), findsNothing);
+          await tester.pump(const Duration(milliseconds: 999));
+          expect(find.text('Welcome'), findsOneWidget);
+          expect(find.byKey(const Key('email-auth-page')), findsOneWidget);
+          expect(subscription.refreshCalls, refreshCallsBeforeRegistration);
+          await tester.pump(const Duration(milliseconds: 1));
+          for (var frame = 0; frame < 20; frame++) {
+            await tester.pump(const Duration(milliseconds: 16));
+            expect(
+              find.byKey(const ValueKey('onboarding-guides')),
+              findsNothing,
+            );
+          }
+          await tester.pumpAndSettle();
+          expect(find.byKey(const Key('email-auth-page')), findsNothing);
+          expect(find.byKey(const Key('auth-sheet-panel')), findsNothing);
+          expect(subscription.refreshCalls, refreshCallsBeforeRegistration + 1);
+          expect(
+            find.byType(SubscriptionPage),
+            premiumState == AppPremiumState.free
+                ? findsOneWidget
+                : findsNothing,
+          );
+          if (fromOnboarding) {
+            expect(
+              find.byKey(const Key('home-normal-content')),
+              premiumState == AppPremiumState.free
+                  ? findsNothing
+                  : findsOneWidget,
+            );
+          } else {
+            expect(find.byKey(const Key('home-normal-content')), findsNothing);
+          }
+          if (!fromOnboarding && premiumState == AppPremiumState.free) {
+            await tester.tap(find.byTooltip('Close'));
+            await tester.pumpAndSettle();
+            expect(find.byType(ProfilePage), findsOneWidget);
+            expect(find.text('ID: user-1'), findsOneWidget);
+            expect(find.byType(SubscriptionPage), findsNothing);
+          }
+        },
+      );
+    }
   }
+
+  testWidgets('welcome without an action closes after two seconds', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () =>
+                showKandoWelcomeModal(context, message: 'Account ready'),
+            child: const Text('Open welcome'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open welcome'));
+    await tester.pump();
+    expect(find.byType(KandoWelcomeModal), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 1999));
+    expect(find.byType(KandoWelcomeModal), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pumpAndSettle();
+    expect(find.byType(KandoWelcomeModal), findsNothing);
+  });
+
+  testWidgets('welcome with an action waits for confirmation', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showKandoWelcomeModal(
+              context,
+              message: 'Account ready',
+              actionLabel: 'CONTINUE',
+            ),
+            child: const Text('Open welcome'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open welcome'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.byType(KandoWelcomeModal), findsOneWidget);
+    await tester.tap(find.text('CONTINUE'));
+    await tester.pumpAndSettle();
+    expect(find.byType(KandoWelcomeModal), findsNothing);
+  });
+
+  testWidgets('welcome timer only removes its own route', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () =>
+                showKandoWelcomeModal(context, message: 'Account ready'),
+            child: const Text('Open welcome'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open welcome'));
+    await tester.pump();
+    final navigator = Navigator.of(
+      tester.element(find.byType(KandoWelcomeModal)),
+    );
+    unawaited(
+      navigator.push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: Text('Newer page')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(find.text('Newer page'), findsOneWidget);
+    expect(find.byType(KandoWelcomeModal, skipOffstage: false), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('early welcome dismissal cancels its timer', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () =>
+                showKandoWelcomeModal(context, message: 'Account ready'),
+            child: const Text('Open welcome'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open welcome'));
+    await tester.pump();
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.text('Open welcome'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('email auth validates input before enabling submit', (
     tester,
@@ -1800,7 +1938,10 @@ void main() {
     await tester.enterText(fields.at(1), 'password123');
     await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, 'Create Account'));
-    await tester.pumpAndSettle();
+    for (var frame = 0; frame < 20; frame++) {
+      await tester.pump();
+      if (find.text('Welcome').evaluate().isNotEmpty) break;
+    }
 
     expect(repository.registerCodeEmails, ['person@example.com']);
     expect(repository.registerRequests, [
@@ -1815,6 +1956,10 @@ void main() {
     expect(find.text('Let’s collect the cards.'), findsOneWidget);
     expect(find.byKey(const Key('kando-modal-frame')), findsOneWidget);
     expect(find.byType(SnackBar), findsNothing);
+    expect(find.byKey(const Key('email-auth-page')), findsOneWidget);
+    expect(find.text('Set Password'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('email-auth-page')), findsNothing);
   });
 
@@ -3654,6 +3799,7 @@ ProviderScope _testEmailAuthPageApp(_WidgetAuthRepository repository) {
               onPressed: () async {
                 final message = await showEmailAuthPage(context);
                 if (message != null && context.mounted) {
+                  if (message == 'Welcome\nLet’s collect the cards.') return;
                   final toastCopy = _successToastCopy(message);
                   if (toastCopy != null) {
                     unawaited(

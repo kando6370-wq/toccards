@@ -19,8 +19,8 @@ Future<void> showAuthSheet(
   bool waitForSuccessFeedback = false,
   Future<void> Function()? beforeEmailLoginDismiss,
 }) async {
-  // Registration returns its welcome completion. Email login shows feedback
-  // over the password page before closing; OAuth and cancellation return null.
+  // Email welcome feedback completes on its own page before it closes.
+  // OAuth and cancellation return null.
   final feedback = await showGeneralDialog<Future<void>>(
     context: context,
     barrierDismissible: true,
@@ -661,9 +661,10 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
       },
     );
     if (successMessage != null && mounted) {
-      if (successMessage == 'Welcome back') {
-        // The password route has just closed. Remove options in the same
-        // frame without replaying their reverse animation over the next page.
+      if (successMessage == 'Welcome back' ||
+          successMessage == 'Welcome\nLet’s collect the cards.') {
+        // The email route has just closed. Remove options in the same frame
+        // without replaying their reverse animation over the next page.
         if (optionsRoute.isActive) navigator.removeRoute(optionsRoute);
         return;
       }
@@ -691,6 +692,7 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
             rootContext,
             title: modalCopy.title,
             message: modalCopy.message,
+            autoDismissDuration: const Duration(seconds: 1),
           );
         } finally {
           feedback.complete();

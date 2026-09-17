@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -234,18 +235,72 @@ Future<void> showKandoWelcomeModal(
   String title = 'Welcome',
   required String message,
   String? actionLabel,
+  Duration autoDismissDuration = const Duration(seconds: 2),
 }) {
   return showDialog<void>(
     context: context,
     barrierDismissible: actionLabel == null,
     builder: (context) {
-      return KandoWelcomeModal(
+      return _TimedWelcomeModal(
         title: title,
         message: message,
         actionLabel: actionLabel,
-        onAction: () => Navigator.of(context).pop(),
+        autoDismissDuration: autoDismissDuration,
       );
     },
+  );
+}
+
+class _TimedWelcomeModal extends StatefulWidget {
+  const _TimedWelcomeModal({
+    required this.title,
+    required this.message,
+    required this.actionLabel,
+    required this.autoDismissDuration,
+  });
+
+  final String title;
+  final String message;
+  final String? actionLabel;
+  final Duration autoDismissDuration;
+
+  @override
+  State<_TimedWelcomeModal> createState() => _TimedWelcomeModalState();
+}
+
+class _TimedWelcomeModalState extends State<_TimedWelcomeModal> {
+  Timer? _dismissTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.actionLabel == null) {
+      _dismissTimer = Timer(widget.autoDismissDuration, () {
+        if (!mounted) return;
+        final route = ModalRoute.of(context);
+        if (route == null || !route.isActive) return;
+        final navigator = Navigator.of(context);
+        if (route.isCurrent) {
+          navigator.pop();
+        } else {
+          navigator.removeRoute(route);
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _dismissTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => KandoWelcomeModal(
+    title: widget.title,
+    message: widget.message,
+    actionLabel: widget.actionLabel,
+    onAction: () => Navigator.of(context).pop(),
   );
 }
 
