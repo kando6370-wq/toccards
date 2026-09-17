@@ -128,20 +128,20 @@ Admin 页面是只读排障层，不提供重放通知、改订单、改 lifecyc
 ### 扫描审计
 
 - 可按环境、平台、识别状态、确认状态和是否修改结果等筛选；环境只接受可信扫描记录中的 `development/production`。
-- 列表和详情均展示记录创建时由 Worker 持久化的环境，不使用当前 Admin Host 或客户端自报值推断。
+- 列表和详情均展示记录创建时由服务端持久化的环境，不使用当前 Admin Host 或客户端自报值推断。
 - 详情展示系统候选、置信度、用户确认和是否入库等事实。
-- R2 图片端点要求 Admin Token，并返回私有、不可缓存响应。
+- 扫描图片端点要求 Admin Token，并返回私有、不可缓存响应；prod 使用 R2，dev 使用 Linux 本地图片卷。
 
 ### 版本管理
 
 - UI 管理 iOS 与 Google 的建议/最低版本、强制升级和商店地址，并显示 API 返回的当前 `development/production` 环境。
 - 不再提供“建议更新文案”和“强制更新文案”字段。Admin 列表/保存接口不返回或保存这两个属性；存量 JSON 的旧文案忽略，后续保存版本规则时自然移除。App 使用 Figma 736:13370 的固定标题 `Update Now`、提示语 `New update available! Tap to upgrade` 和火箭插画；普通更新提供 `INSTALL / LATER`，命中强更只显示 `INSTALL`。
-- 版本配置使用 `admin.app_version.<environment>.<ios|google>` 独立键；环境只取 Worker `APP_ENVIRONMENT`。dev/prod 共用 PostgreSQL 时，保存、启用、禁用和查询只影响当前环境。缺少可信环境返回 `503 APP_VERSION_CONFIG_UNAVAILABLE`。
+- 版本配置使用 `admin.app_version.<environment>.<ios|google>` 独立键；环境只取服务端 `APP_ENVIRONMENT`。当前 dev Linux 与 prod Cloudflare 使用独立 PostgreSQL，保存、启用、禁用和查询只影响对应环境。缺少可信环境返回 `503 APP_VERSION_CONFIG_UNAVAILABLE`。
 - 公共 `/app-config?platform=ios|google` 只读取当前环境、当前平台的规则，返回 `Cache-Control: no-store`，不回退到共用 `admin.app_version.ios/google`、`upgrade_prompt` 或 `app_store_url`。规则缺失或损坏返回 `503`，明确禁用的规则返回 `upgrade_prompt: null`。
 - 通用 `/admin/app-config` 不列出版本配置，通用 PATCH 禁止写入版本及旧共用升级键，避免绕过环境隔离或校验。版本修改统一通过 `/admin/app-versions/:platform`。
 - 启用更新必须提供有效 HTTP(S) 下载地址；建议版本不得低于最低支持版本。强制更新只作用于低于最低版本的 App；达到最低版本但低于建议版本时可稍后更新，构建号不参与比较。
 - App 首次进入 Home 时检查规则；普通复查仅在回到 Home 或当前 Home 返回前台时触发，可选提示只在 Home 展示。首次检查失败显示 Home 阻断式重试界面；已有成功决策后的复查静默进行，失败不覆盖现有页面。已确认强更仍由路由上方的全局界面拦截，点击遮罩、返回、页面跳转和商店返回均不解除，其他页返回前台仍允许重查此强更要求。只有成功检查确认当前安装版本已被支持或运营已解除要求，才取消强更拦截。
-- 两环境完整切换前应用 PostgreSQL `0011_app_version_environment.sql`，将既有规则一次性复制为独立配置，已有独立配置不覆盖。仅发布 dev 时可先初始化 development 两条键，prod 继续读取旧键；2026-09-08 已完成该 dev 阶段。迁移与对应 Worker 切换期间暂停该环境版本配置编辑；新 Worker 不回退旧键，回滚只能使用支持独立键的 Worker。详见[版本控制验收](../05-delivery/VERIFICATION.md)。
+- 旧 CF dev/prod 共库阶段的 `0011_app_version_environment.sql` 执行顺序为：先将既有规则一次性复制为独立配置，已有独立配置不覆盖；仅发布当时的 dev Worker 时可先初始化 development 两条键，prod 继续读取旧键。2026-09-08 已完成该历史 dev 阶段。迁移与对应 Worker 切换期间暂停该环境版本配置编辑；新 Worker 不回退旧键，回滚只能使用支持独立键的 Worker。后续 prod 迁移与 Worker 切换需独立核验，不得把现有 Linux dev 的独立数据库当作共库迁移目标；详见[版本控制验收](../05-delivery/VERIFICATION.md)。
 
 ## 7. API 与前端契约
 
@@ -159,7 +159,7 @@ Admin 页面是只读排障层，不提供重放通知、改订单、改 lifecyc
 
 Admin 没有独立生产部署目标。prod 发布先构建 `auth-core` 和 Admin production，再由 Worker assets 托管；dev 发布构建 Linux API 与 Admin development，由 Linux 代理和静态服务托管。验证时至少区分 API health、SPA HTML 和实际 JS assets。
 
-2026-09-15 的 dev 入口整改将 Admin `.env.development` 改为同源 `/api/v1/admin`，部署目标为内网 Linux；本机 Vite 开发服务代理 `/api` 到 `http://192.168.50.201:8080`。production 继续请求原 HTTPS API。`deploy:dev` 已统一到 Linux SSH 发布；kd201 已升级，Admin HTML 与 10 个静态资源均与发布包一致，未登录扫描管理接口返回 401。2026-09-16 已用既有管理员完成浏览器真实登录、扫描/订单/通知页面及 9 项授权只读接口验证，数据库会话与列表总数确认来自 Linux。当前空列表不覆盖真实记录详情、导出和业务写操作；旧 CF dev 尚未退役。详情见[验证记录](../05-delivery/VERIFICATION.md#linux-admin-既有管理员登录与只读验收2026-09-16)。
+2026-09-15 的 dev 入口整改将 Admin `.env.development` 改为同源 `/api/v1/admin`，部署目标为内网 Linux；本机 Vite 开发服务代理 `/api` 到 `http://192.168.50.201:8080`。production 继续请求原 HTTPS API。`deploy:dev` 已统一到 Linux SSH 发布；kd201 已升级，Admin HTML 与 10 个静态资源均与发布包一致，未登录扫描管理接口返回 401。2026-09-16 已用既有管理员完成浏览器真实登录、扫描/订单/通知页面及 9 项授权只读接口验证，数据库会话与列表总数确认来自 Linux。该次空列表不覆盖真实记录详情、导出和业务写操作；旧 CF dev 业务 Worker 已于 2026-09-17 退役，后续 dev Admin 只发布到 Linux。详情见[验证记录](../05-delivery/VERIFICATION.md#linux-admin-既有管理员登录与只读验收2026-09-16)及[退役记录](../05-delivery/VERIFICATION.md#旧-cloudflare-dev-业务退役2026-09-17)。
 
 扫描环境筛选依赖 PostgreSQL `0010_scan_record_environment.sql`。该迁移必须先于读取/写入 `scan_record.environment` 的新 Worker 部署；数据库默认值 `development` 仅用于迁移后、部署前兼容仍未传列的旧 dev Worker，应用回滚时保留列。新 Worker 必须由 `APP_ENVIRONMENT` 显式写入，缺失配置时返回 `503`，不能依赖数据库默认值。现有 PostgreSQL scan 记录基于已确认的 dev D1 迁移事实回填为 `development`；2026-09-07 实时复核确认 production scan 记录为 0。prod 不迁移 D1 历史记录，切换后的新记录由 `APP_ENVIRONMENT=production` 显式写入，不得复用 dev-only runner 的固定值或数据库默认值。
 

@@ -4,6 +4,7 @@
 
 ## 当前结论
 
+- 当前业务环境只有 prod（维持原 Cloudflare 部署）与 dev（kd201 Linux）；旧 CF dev 仅为历史部署，不再发布。dev 仍通过独立 CF 服务调用向量识别和 Apple Sandbox 回调，详见[系统架构](02-architecture/architecture.md#6-环境与部署)。
 - 仓库内已形成 Apple 订阅与 session grant、Scan Quota、Folder 限制、Performance、Extended Price History、Admin 订单与 Apple Notifications V2 的实现和自动化证据。
 - 扫描向量链路已合入并推送 `dev`，对应 Workers/Admin 曾发布到旧 CF dev，现由 Linux 承接业务；App 扫描支持 iOS 16+、Android API 24+，Web 扫描暂不支持。源分支已清理，后续使用 `dev`，详见[扫描识别链路](01-flows/scan-recognition.md)。
 - Linux 入口已通过 `19a6ac4` 合入 dev，包含共享 Hono/Node、独立 PostgreSQL、内存 KV、本地图片卷和分支监听发布脚本。App test/Admin development 默认使用 Linux 内网入口，扫描仅通过 CF HTTP 向量服务检索。2026-09-17 kd201 watcher 运行 `dev@4d5d66f`；旧 CF dev 业务 Worker、域名和 cron 已退役，测试数据与旧包保留。客户端路径由用户确认已验收，本次没有独立复验真机，见[Linux 兼容设计](02-architecture/linux-test-environment.md)和[验证记录](05-delivery/VERIFICATION.md#旧-cloudflare-dev-业务退役2026-09-17)。

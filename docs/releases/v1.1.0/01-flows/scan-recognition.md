@@ -10,7 +10,7 @@
 4. iOS Core Image / Android Bitmap Matrix 进行透视矫正，得到 745×1043、质量 85 的 JPEG，以及 384×384 RGB。
 5. PE-Core-T16 使用 RGB/CHW、`value / 127.5 - 1` 的输入，生成 512 维有限、非零向量。同一识别器串行推理，图像张量与几何计算使用 Dart isolate。
 6. 保留 ML Kit 的可选卡号 OCR，从矫正卡面读取卡号。App 向 `/api/v1/scan/recognize` 提交矫正 JPEG、JSON `vector`、请求 UUID 和原有审计字段。
-7. Workers 通过 `VECTOR_RECOGNITION` Service Binding 调用 `recognize-vec`，只发送 `{vector}`。返回候选继续经过当前 PostgreSQL 完整目录校验、游戏过滤及卡号消歧，然后进入原有额度结算、Review 与确认入库。
+7. dev Linux API 通过 HTTP `VECTOR_RECOGNITION` 调用 `recognize-vec`，只发送 `{vector}`。返回候选继续经过 Linux PostgreSQL 完整目录校验、游戏过滤及卡号消歧，然后进入原有额度结算、Review 与确认入库；prod 的 Service Binding 配置和运行版本独立。
 
 ## 扫描页布局
 
@@ -29,12 +29,12 @@ iOS 与 Android 共用 Flutter 取景框布局。取景框根据视口和安全�
 
 ## 平台、资源和协议
 
-Cloudflare 运行路径使用 Service Binding。2026-09-15 的 dev 后端整改为 Linux 提供 HTTP `VECTOR_RECOGNITION`，从必填 `VECTOR_RECOGNITION_BASE_URL` origin 请求 `/recognize`，只发送 `{vector}`，10 秒超时覆盖正文读取；调用方取消与不跟随重定向由适配器处理。候选补全、额度、审计与图片仍使用本地 PostgreSQL/图片卷，旧 `OCR_SERVICE_BASE_URL` 已退出运行路径。缺 binding 保持 503，上游失败或超时保持 502 并释放预占；部署与两端真实扫描仍待后续验收，见[Linux 兼容缺口](../02-architecture/linux-test-environment.md#扫描兼容缺口)。
+当前 dev 业务只在 Linux 运行，从必填 `VECTOR_RECOGNITION_BASE_URL` origin 经 HTTP 请求 `/recognize`，仅发送 `{vector}`；10 秒超时覆盖正文读取，调用方取消与不跟随重定向由适配器处理。候选补全、额度、审计与图片仍使用本地 PostgreSQL/图片卷，旧 `OCR_SERVICE_BASE_URL` 已退出 dev 运行路径。Linux 缺少必填识别地址时启动失败；共享路由缺 binding 的受控分支返回 503，上游失败或超时返回 502 并释放预占。prod 保持原 Cloudflare 部署，其仓库配置使用 Service Binding，现网协议须单独核验；服务端受控扫描和用户确认的客户端验收分别见[Linux 兼容设计](../02-architecture/linux-test-environment.md#扫描兼容缺口)及[退役记录](../05-delivery/VERIFICATION.md#旧-cloudflare-dev-业务退役2026-09-17)。
 
 用户已明确选择与源分支一致的兼容范围：iOS 16+、Android minSdk 24，Web 扫描暂不支持。iOS 检测使用 `RTMDetInsTinyCardRawFP16.mlmodel` 与系统 Core ML，向量化继续使用 Core ML，透视矫正继续使用 Core Image，不包含 ONNX Runtime；Android 使用 `onnxruntime-minimal-1.23.0.aar` 和两份 `.ort` 模型。模型与运行时资源不因本次缩放对齐发生变化；Dart 检测输出契约、向量协议与服务端链路不变。iOS Core ML 与新检测缩放组合已由用户于 2026-09-11 完成真机验收；2026-09-14 合入本地 `dev` 后，Android Debug 构建及两项缩放参考检查通过，Android 真机识别、耗时与峰值内存仍待验收，详见[验收记录](../05-delivery/VERIFICATION.md)。
 
 旧 `r/g/b` pHash 不再是有效请求；`vector` 必须是 512 项数值数组、至少一个非零分量，JSON 最大 32 KiB。候选 `product_id` 继续支持字符串与旧整数形式，confidence 保持 0–100。识别审计算法标识为 `pe-core-t16-384-cosine-v1`。`game_id` 在主 Worker 的目录查询层过滤，不发送给内部向量服务。
 
-仓库中的 dev/prod 配置均以 `VECTOR_RECOGNITION` 绑定 `recognize-vec`，移除 `OCR_SERVICE_BASE_URL`，不设置旧协议或公网回退。缺少 binding 返回 `503 VECTOR_RECOGNITION_UNAVAILABLE`；上游失败返回 `502`，按既有规则释放额度。向量链路本身没有新增数据库 schema 或 migration；合并保留的 `0012` 属于独立历史事件回填，仍未执行。
+当前 prod Wrangler 配置以 `VECTOR_RECOGNITION` Service Binding 指向 `recognize-vec`；dev Linux 使用 HTTP 适配，不存在旧 CF dev 的业务 binding 或发布配置。两条入口共享扫描路由的 503/502 与额度释放语义，但 prod 现网协议应以其独立部署版本为准。向量链路本身没有新增数据库 schema 或 migration；旧 CF 共享库与 Linux 独立库的 `0012` 执行状态按各自验证记录判断。
 
-上线必须协调新 App、主 API 与 `recognize-vec`，因为旧 App 的 pHash 请求不兼容新 API。2026-09-09 合并后的主 API/Admin 已发布到 dev，当日后续回读仍确认 dev 使用 `VECTOR_RECOGNITION`；prod 实际运行版本仍配置旧 `OCR_SERVICE_BASE_URL`，尚未切换向量协议。测试需使用包含模型与向量请求、连接 dev API 的 App 包。Android Debug 构建通过不代表两端真机模型验收或新 App 签名包已发布，具体证据见[验收记录](../05-delivery/VERIFICATION.md)。
+新 App、主 API 与 `recognize-vec` 的协议必须匹配，因为旧 App 的 pHash 请求不兼容新 API。2026-09-09 主 API/Admin 发布到当时的 CF dev 是历史检查点；现在 dev 为 Linux，旧 CF dev 不再发布。prod 的较早运行协议与其后续切换仍按独立部署记录判断，不因 dev 迁移而改变。测试包连接 Linux dev，设备验收以用户确认和具体记录区分，见[验收记录](../05-delivery/VERIFICATION.md)。

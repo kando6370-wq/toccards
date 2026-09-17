@@ -2,6 +2,7 @@
 
 ## 状态
 
+- 当前业务环境只有 prod 与 dev：prod 沿用 Cloudflare，dev 专指 kd201 Linux。独立的 CF 向量识别与 Apple Sandbox 回调服务不构成第三套业务环境；已退役的旧 CF dev 不再发布。
 - 当前后端适配：2026-09-15，`dev-inner` 基于 `dev@b941a3f`；原始设计基线为 2026-08-26 的 `dev@8e22c1d`。
 - 合并状态：`19a6ac4` 引入 Linux 基础部署；2026-09-16 的 `75c0ec4` 已将 HTTP 向量、App/Admin 内网入口和发布预检整改合入 dev，并保留原后台筛选增量。
 - 2026-09-17 回读 kd201：watcher 发布的 `dev@4d5d66f` 正在运行，manifest、部署状态和 API/Admin 实际产物一致；PostgreSQL 18.6 的 ledger 为 13 项，发布前备份目录可读取，未做恢复演练。此前手工 ESM 修复现已包含在自动发布版本中，详见[退役验证](../05-delivery/VERIFICATION.md#旧-cloudflare-dev-业务退役2026-09-17)。
@@ -15,11 +16,11 @@
 - 同日已在 kd201 宿主机部署独立回调网关与 nftables 预路由：公网到 `201:8080` 的 IPv4 请求先转到仅允许 Apple Sandbox POST 的 `8081`，私网仍直接使用 `8080`。源站公网的 Admin/其他 API 路径及伪造 Host 均被拒绝，CF 回调和内网 API/Admin 保持可用；宿主机规则独立于 Docker/自动发布，详细边界与回退见[回源隔离策略](../../../../deploy/linux/security/README.md)。CF→origin 仍是 HTTP。
 - 网关启用后新增的一条官方 Apple Sandbox TEST 已获投递 `SUCCESS` 回执，JWS 摘要与 Linux 新增且处理成功的 inbox 一致；该 TEST 不创建交易，详见[验证记录](../05-delivery/VERIFICATION.md)。
 - 同日已将旧 CF dev 公共配置下发的 Mixpanel Project Token、Singular API Key/Secret Key 同步至 Linux 私有 `.env`；用户随后提供与原 dev Token 匹配的 Mixpanel API Secret，也已加入 Linux 私有配置。两次均只重建 API，iOS/Google 的三项公开值与旧 dev 相同且不下发 API Secret；当前代码未使用后者。Linux 容器使用该 Secret 的 Mixpanel 只读导出返回 200，并回读到 App 类事件；指定测试订阅的事件归属和 Singular 后台收件仍未验收。
-- 环境边界：Linux 使用独立测试 PostgreSQL；Cloudflare dev/test 与 prod 已完成 PostgreSQL 迁移且无 D1 binding，不存在待执行的 prod D1 切换任务。
+- 环境边界：当前 dev Linux 使用独立测试 PostgreSQL，prod 使用原 Cloudflare PostgreSQL/Hyperdrive；旧 CF dev/test 曾与 prod 共用 Hyperdrive，两者当时均无 D1 binding。旧 CF dev 已退役，不存在待执行的 prod D1 切换任务。
 
 ## 背景与架构纠正
 
-最新 `dev` 已完成 PostgreSQL/Hyperdrive 切换。运行入口通过 `HYPERDRIVE.connectionString` 创建现有 `PostgresDatabase`，业务路由仍调用统一 `Database` 契约。仓库规则明确禁止为 v1.1 新增或恢复 D1 路径。
+旧 CF dev 曾通过 `HYPERDRIVE.connectionString` 连接共享 PostgreSQL；现在只由 prod Cloudflare 入口使用 Hyperdrive，dev Linux 从独立 `DATABASE_URL` 创建相同的 `PostgresDatabase`，业务路由仍调用统一 `Database` 契约。仓库规则明确禁止为 v1.1 新增或恢复 D1 路径。
 
 因此 Linux 测试环境不再采用旧讨论中的 SQLite 方案，而是连接一个独立 PostgreSQL 容器。Cloudflare 与 Linux 共享同一个 `PostgresDatabase`、同一套 PostgreSQL migration、全部 Hono 路由和业务规则；差异只存在于运行入口、资源适配器和配置文件。
 
@@ -47,14 +48,14 @@
 ├── PostgreSQL migrations
 └── OAuth / Mail / Billing / Scan / Admin contracts
 
-Cloudflare 运行时
+prod Cloudflare 运行时
 ├── Hyperdrive -> PostgreSQL
 ├── Workers KV
 ├── R2
 ├── Workers Assets
 └── Cron Triggers
 
-Linux 测试运行时
+dev Linux 运行时
 ├── Node.js HTTP server -> PostgreSQL container
 ├── In-memory KV adapter
 ├── Local filesystem object-storage adapter
@@ -92,7 +93,7 @@ Linux 使用本地文件目录代替 R2，实现当前使用的 `put/get/delete`
 
 ### 扫描兼容缺口
 
-`src/scan/routes.ts` 只接受 512 维 `vector`，并通过 `Env.VECTOR_RECOGNITION.fetch()` 调用检索服务。Cloudflare 继续使用 Service Binding；Linux 的 `src/linux/config.ts` 通过 `vector-recognition.ts` 构造 HTTP 适配，目标为 `VECTOR_RECOGNITION_BASE_URL` origin 下的 `/recognize`。共享路由只发送 `{vector}`，不向识别服务转发图片、用户 token 或业务数据库请求；候选资料、游戏过滤、额度与扫描记录使用 Linux 的 `DB`。
+`src/scan/routes.ts` 只接受 512 维 `vector`，并通过 `Env.VECTOR_RECOGNITION.fetch()` 调用检索服务。prod 仓库配置使用 Cloudflare Service Binding，现网协议仍按其原部署版本判断；dev Linux 的 `src/linux/config.ts` 通过 `vector-recognition.ts` 构造 HTTP 适配，目标为 `VECTOR_RECOGNITION_BASE_URL` origin 下的 `/recognize`。共享路由只发送 `{vector}`，不向识别服务转发图片、用户 token 或业务数据库请求；dev 的候选资料、游戏过滤、额度与扫描记录使用 Linux 的 `DB`。
 
 HTTP 适配的 10 秒超时持续覆盖响应正文，并保留调用方取消，不重试或跟随重定向。上游 HTTP 失败、无效 JSON 或超时沿用共享路由的 `502 VECTOR_RECOGNITION_UNAVAILABLE`、审计失败记录与释放额度；无匹配或本地目录不可用不错误扣次。缺少 binding 的既有受控 `503` 分支保留。旧 `OCR_SERVICE_BASE_URL` 已从运行时配置和 `Env` 移除，不再作为回退。
 
@@ -100,7 +101,7 @@ HTTP 适配的 10 秒超时持续覆盖响应正文，并保留调用方取消�
 
 ### 定时任务
 
-Cloudflare 保留 5 分钟 Cron Trigger。Linux 入口使用单进程 interval 调用同一组通知重试与 Server API 校正函数，并禁止任务重叠执行。
+prod Cloudflare 保留 5 分钟 Cron Trigger。dev Linux 入口使用单进程 interval 调用同一组通知重试与 Server API 校正函数，并禁止任务重叠执行；旧 CF dev 的 cron 已退役。
 
 ### Admin 静态资源
 

@@ -1,5 +1,7 @@
 # Linux 测试环境部署与自动升级手册
 
+当前 `dev` 即本手册的 Linux 环境，`prod` 保持原 Cloudflare 运行与发布方式；已退役的旧 CF dev 不是第三个业务环境或后续发布目标。
+
 2026-09-17 当前状态：kd201 watcher 已自动发布 `dev@4d5d66f`，旧 CF dev 业务 Worker、域名和 cron 已退役；独立 Apple 回调和 CF 向量服务保留，旧测试数据与包不清理。下方 2026-09-16 基线按原日期保留，最新证据见[退役验证](../releases/v1.1.0/05-delivery/VERIFICATION.md#旧-cloudflare-dev-业务退役2026-09-17)。
 
 > 适用项目：`toccards`  

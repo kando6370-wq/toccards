@@ -31,7 +31,7 @@ Node workspace 由 `pnpm-workspace.yaml` 管理；Dart workspace 由根 `pubspec
 
 ### 项目架构
 
-下图描述 Cloudflare 正式环境；dev 使用下述 Linux 独立数据库与 HTTP 识别适配。
+当前业务环境只分 `prod` 和 `dev`：prod 保持原 Cloudflare 部署，dev 指 kd201 Linux 独立数据库环境。旧 Cloudflare dev 业务 Worker 已退役，不得作为后续 dev 发布目标；CF 向量识别与独立 Apple 回调仅作为 dev 的外部服务保留。下图描述 prod，dev 使用下述 Linux 独立数据库与 HTTP 识别适配。
 
 ```text
 Flutter App ───────────────┐

@@ -1,5 +1,7 @@
 # v1.1.0 数据迁移
 
+当前业务环境只有 prod（原 Cloudflare + PlanetScale PostgreSQL/Hyperdrive）和 dev（Linux 独立 PostgreSQL）。旧 CF dev 曾与 prod 共用 Hyperdrive，已退役且不再发布；下文带日期的旧 dev Worker、共用数据库迁移记录仅作历史证据，不能作为现在的 dev 部署或迁移指令。两套 PostgreSQL 的 ledger 和数据必须分别核验，prod 保持原部署。
+
 ## 当前 PostgreSQL 数据库边界（2026-09-09）
 
 D1 已废弃，测试环境 dev/test 与正式环境 prod 均已完成 PostgreSQL 迁移。2026-09-09 用户再次确认；Cloudflare deployment/version 回查确认两环境都绑定 Hyperdrive `7d71bcd0bcf64e518a23a852ced76d66`，均不含 D1。prod 当前版本为 `934506ae-d433-4a38-ae40-6d07b109d50e`，创建于 2026-09-07；版本与 dev 的识别协议差异见[发布与验证](../05-delivery/VERIFICATION.md)，该应用协议差异不代表数据库迁移未完成。

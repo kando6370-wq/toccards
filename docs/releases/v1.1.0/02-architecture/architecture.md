@@ -13,11 +13,11 @@ React Admin -- Worker assets ----+       |-- PlanetScale PostgreSQL（经 Hyperd
 Marketing Web -----------------------> 独立 Cloudflare 静态站点
 ```
 
-上图为 Cloudflare 部署结构。`apps/workers-api/src/app.ts` 组合共享 Hono 路由、CORS 与定时任务；`src/index.ts` 负责 Cloudflare fetch/scheduled 适配和每请求/定时任务的 PostgreSQL 连接生命周期。App 和 Admin 通过 API 访问服务端数据；共享路由负责鉴权、所有者隔离、Premium 服务端授权与幂等。Cloudflare Admin 静态产物由 `wrangler.toml` 的 assets 配置托管，Marketing 使用独立 Wrangler 配置。
+上图仅为 prod 的 Cloudflare 部署结构。`apps/workers-api/src/app.ts` 组合共享 Hono 路由、CORS 与定时任务；`src/index.ts` 负责 Cloudflare fetch/scheduled 适配和每请求/定时任务的 PostgreSQL 连接生命周期。App 和 Admin 通过 API 访问服务端数据；共享路由负责鉴权、所有者隔离、Premium 服务端授权与幂等。prod Admin 静态产物由 `wrangler.toml` 的 assets 配置托管，Marketing 使用独立 Wrangler 配置。
 
-Linux Node 入口 `src/linux/server.ts` 复用相同 Hono 应用和 `PostgresDatabase`：从 `DATABASE_URL` 连接独立 PostgreSQL，使用带 TTL 的内存 KV 与本地图片卷；标准部署由 Caddy 托管 Admin 并反向代理 API/share，离线模式使用 Node 静态服务。2026-09-15 的 dev 整改源码通过 HTTP 适配复用 CF 向量识别，并将 App test/Admin development 默认业务入口统一到内网 Linux。目标是 Linux 接替原 dev，实际服务器发布及真实扫描尚待验收，见[Linux 测试环境](linux-test-environment.md)。
+dev 的 Linux Node 入口 `src/linux/server.ts` 复用相同 Hono 应用和 `PostgresDatabase`：从 `DATABASE_URL` 连接独立 PostgreSQL，使用带 TTL 的内存 KV 与本地图片卷；标准部署由 Caddy 托管 Admin 并反向代理 API/share，离线模式使用 Node 静态服务。App `APP_ENV=test` 与 Admin development 默认请求此 Linux 入口；API 使用 `APP_ENVIRONMENT=development`，经 HTTP 复用独立 CF 向量识别服务。旧 CF dev 不再运行或发布，见[Linux 测试环境](linux-test-environment.md)。
 
-当前 dev 扫描识别使用端侧 RTMDet-Ins 与 PE-Core-T16，主 Worker 经 `VECTOR_RECOGNITION` Service Binding 调用内部 `recognize-vec`；该链路已合入 dev。图片仍只存私有 R2，内部服务只收向量；Queue、额度、目录与资产写入保留现有边界。上图描述当前代码与 dev 运行路径，prod 的较早识别协议见第 6 节；详见[扫描识别链路](../01-flows/scan-recognition.md)。
+dev 扫描识别使用端侧 RTMDet-Ins 与 PE-Core-T16，Linux API 通过 HTTP 向 `recognize-vec` 只发送向量；候选补全、Queue、额度、目录、资产和图片读写留在 Linux PostgreSQL/本地卷。上图仅描述 prod，其运行协议与仓库配置的区别按实际部署版本核验；详见[扫描识别链路](../01-flows/scan-recognition.md)。
 
 ## 2. 客户端与页面边界
 
@@ -41,12 +41,12 @@ Linux Node 入口 `src/linux/server.ts` 复用相同 Hono 应用和 `PostgresDat
 | `/auth` | 游客身份、注册、登录、OAuth、会话、资产迁移与删除账号 | `src/auth/anonymous.ts`、`account-flow.ts` |
 | `/cards`、`/games`、`/sets`、`/rates` | 目录、搜索、价格、历史、趋势和汇率 | `src/data-source/routes.ts` |
 | `/portfolio`、`/collection`、`/folders`、`/wishlist` | 资产、Folder、估值和 Performance | `src/portfolio/routes.ts` |
-| `/scan` | 识别、确认、服务端 Quota 与 R2 图片 | `src/scan/routes.ts`、`quota.ts` |
+| `/scan` | 识别、确认、服务端 Quota 与受保护图片（prod R2、dev 本地卷） | `src/scan/routes.ts`、`quota.ts` |
 | `/entitlements/apple` | 生命周期查询、Fresh Purchase、App Attest 与 Restore | `src/entitlements/routes.ts`、`restore-routes.ts` |
 | `/apple/notifications/v2` | Apple 通知原文接收、验签、归约与补偿 | `src/entitlements/apple-notification-routes.ts` |
 | `/admin` | 独立 Admin 鉴权、查询、运营配置和 XLSX | `src/admin/routes.ts` |
 
-Cloudflare Worker 的 5 分钟 cron 调用共享 `runScheduledTasks`，执行通知 inbox 和 Apple Server API 校正重试。Linux 单进程 interval 默认同为 300 秒，可通过 `SCHEDULED_TASK_INTERVAL_SECONDS` 设置；前一次任务未完成时跳过本次触发，退出时等待定时任务和后台请求完成后关闭数据库。通知请求先持久化并按 payload/notification UUID 幂等，再异步归约交易和购买链状态。
+prod Cloudflare Worker 的 5 分钟 cron 调用共享 `runScheduledTasks`，执行通知 inbox 和 Apple Server API 校正重试。dev Linux 单进程 interval 默认同为 300 秒，可通过 `SCHEDULED_TASK_INTERVAL_SECONDS` 设置；前一次任务未完成时跳过本次触发，退出时等待定时任务和后台请求完成后关闭数据库。通知请求先持久化并按 payload/notification UUID 幂等，再异步归约交易和购买链状态。旧 CF dev 的 cron 已退役。
 
 ## 4. v1.1 Premium 信任边界
 
@@ -82,17 +82,16 @@ Apple Notifications V2 + Server API --> purchase chain lifecycle correction
 | R2 | 扫描原图等对象 | 读取受 Admin 授权保护 |
 | Flutter 安全存储 | 会话、已验证 Premium 缓存和待同步证据 | 只辅助本机体验，不替代服务端授权 |
 
-PostgreSQL 结构以 `src/db/postgres/migrations/` 中的顺序 migration 为准；后续 schema 变更只允许增加 PostgreSQL 向前迁移。运行时代码仅创建 PostgreSQL 适配器，适配器提供 `prepare/bind/first/all/run/batch` 调用形状、把问号占位符转换为参数化查询，并把 `batch` 放在单一事务中顺序执行。共享 PostgreSQL 中 Apple inbox 以 `environment` 持久化队列归属，通知与校正 cron 只能领取当前 `APP_ENVIRONMENT` 对应的 Sandbox 或 Production 行；价格月历史只对同来源、同 `current:%` scope 的已发布 pointer 可见，单个月块 JSONB 文本不得超过 24 KiB。
+PostgreSQL 结构以 `src/db/postgres/migrations/` 中的顺序 migration 为准；后续 schema 变更只允许增加 PostgreSQL 向前迁移。运行时代码仅创建 PostgreSQL 适配器，适配器提供 `prepare/bind/first/all/run/batch` 调用形状、把问号占位符转换为参数化查询，并把 `batch` 放在单一事务中顺序执行。Apple inbox 在各环境数据库中均以 `environment` 持久化队列归属，通知与校正任务只领取当前 `APP_ENVIRONMENT` 对应的 Sandbox 或 Production 行；价格月历史只对同来源、同 `current:%` scope 的已发布 pointer 可见，单个月块 JSONB 文本不得超过 24 KiB。
 
 ## 6. 环境与部署
 
 | 环境 | 运行入口 | 地址 | 数据资源 |
 |---|---|---|---|
-| 旧 CF dev（已退役） | `toccards-api-dev` 已删除 | `api-dev.tcgcard.fun` 已解绑且权威 DNS 不再解析 | 旧 PostgreSQL 测试数据与 dev KV/R2 未删除；旧包不再可访问原业务入口 |
 | prod | `toccards-api-prod` | `api.tcgcard.fun` | 2026-09-09 回读为 PostgreSQL/Hyperdrive，无 D1；仍使用 OCR_SERVICE_BASE_URL，prod KV/R2、production Apple 配置和 `APP_ENVIRONMENT=production` 独立 |
-| Linux dev | Node / `src/linux/server.ts` | `http://192.168.50.201:8080` | 独立 PostgreSQL、内存 KV、本地图片卷、`APP_ENVIRONMENT=development`；2026-09-17 watcher 运行 `dev@4d5d66f`，客户端路径由用户确认已验收，本次服务端检查另记 |
+| dev | Linux Node / `src/linux/server.ts` | `http://192.168.50.201:8080` | 独立 PostgreSQL、内存 KV、本地图片卷、`APP_ENVIRONMENT=development`；2026-09-17 回读 watcher 运行 `dev@4d5d66f`，客户端路径由用户确认已验收 |
 
-Wrangler vars 保存非敏感环境配置，密钥通过 Worker secrets 注入。旧 CF dev/prod 曾共用业务 PostgreSQL；退役没有清理旧测试数据或共享资源。当前仅 prod 使用该 Worker 配置，`APP_ENVIRONMENT`、Apple Bundle/Product ID、KV、R2、域名和 Worker secrets 不得混用。当前仓库的 prod 配置已包含向量绑定，但配置文件不代表现网版本已切换；版本及 binding 回读集中维护在[发布与验证](../05-delivery/VERIFICATION.md)。部署脚本先构建共享认证和对应模式 Admin，再部署 Worker 与静态 assets。不再安排 D1 移库或切换任务。
+旧 CF dev 的 `toccards-api-dev`、`api-dev.tcgcard.fun` 与 cron 已退役，不属于当前环境表，也不得重新发布；其历史测试数据和旧 KV/R2 保留。Wrangler vars 和 Worker secrets 现在仅用于 prod，密钥不进入仓库。prod 保持原数据库、Apple、KV、R2、域名和部署方式；仓库 prod 配置包含向量绑定，但配置文件不能替代现网版本核验，见[发布与验证](../05-delivery/VERIFICATION.md)。dev 的密钥保存在 Linux 私有环境文件，发布不使用 Wrangler。D1 不作为新迁移或回滚目标。
 
 Linux 的真实配置仅保存在服务器 `.env`。分支监听器默认每两分钟检查 `dev`，相关路径变化才执行定向检查、构建、数据库备份和版本化发布；GitHub Linux workflow 仅为手动触发选项。2026-09-16 已将整改合入 `dev@75c0ec4` 并由现有监听器自动发布、完成受控扫描验收。API 与 watcher 分别使用自身环境文件中的代理配置；当前 release、SHA、备份与 13 项 migration ledger 见[验证记录](../05-delivery/VERIFICATION.md)。
 

@@ -69,5 +69,5 @@
 
 | 能力 | 实现证据 | 当前边界 |
 |---|---|---|
-| dev 迁往 Linux 的后端与入口适配 | [共享应用](../../../../apps/workers-api/src/app.ts)、[Linux 入口](../../../../apps/workers-api/src/linux/server.ts)、[分支监听器](../../../../deploy/linux/ci/watch-branch.sh)、[自动部署手册](linux-test-auto-deployment.md) | 源码已提供 CF HTTP 向量适配、App test/Admin development 内网入口、测试分享和平台网络隔离；现有检查覆盖配置、扫描额度及代理 Host。实际服务器部署、旧 CF dev 退役及设备验收仍待后续完成。 |
+| dev（Linux）后端与入口 | [共享应用](../../../../apps/workers-api/src/app.ts)、[Linux 入口](../../../../apps/workers-api/src/linux/server.ts)、[分支监听器](../../../../deploy/linux/ci/watch-branch.sh)、[自动部署手册](linux-test-auto-deployment.md) | 只有 prod（原 Cloudflare）与 dev（Linux）两个业务环境；App test/Admin development 使用内网 Linux，扫描经独立 CF 服务做向量检索。服务器已发布并通过受控扫描，旧 CF dev 业务 Worker/域名/cron 已退役；客户端路径由用户确认，未在退役任务中独立复验。详见[退役记录](VERIFICATION.md#旧-cloudflare-dev-业务退役2026-09-17)。 |
 | iOS IPA/dSYM 保存与保留 | [发布脚本](../../../../apps/flutter-app/tool/release_ios.sh)、[保存实现](../../../../apps/flutter-app/tool/save_ios_artifacts.py)、[保存测试](../../../../apps/flutter-app/tool/test_save_ios_artifacts.py) | 新版本校验并完整保存后，按 Bundle ID 保留最近测试 3 个/正式 7 个版本，超额最旧版本移入废纸篓；同名拒绝覆盖、失败不清理旧包，不清理 Xcode Archives。本轮仅源码核对，未运行 macOS 保存测试或构建签名包。 |

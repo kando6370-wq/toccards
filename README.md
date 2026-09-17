@@ -6,7 +6,7 @@ Kando 是 Card AI 的 monorepo，包含 Flutter 客户端、Cloudflare Workers A
 
 ## 系统概览
 
-下图为 Cloudflare 正式环境；Linux dev 的部署与数据边界见图后说明。
+当前业务环境只有 `prod` 和 `dev`：`prod` 保持原 Cloudflare 部署，`dev` 是 kd201 上的 Linux 环境。旧 Cloudflare dev 业务 Worker 已退役，不再是发布目标；保留的 CF 向量识别和独立 Apple 回调只是 dev 的外部依赖。下图为 prod；Linux dev 的部署与数据边界见图后说明。
 
 ```text
 Flutter App ------------+

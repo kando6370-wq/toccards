@@ -3,9 +3,11 @@
 ## Environments
 
 `APP_ENV` selects the API and Mixpanel projects together. The supported values
-are `test` and `production`; the default is `production` so an unconfigured
-build stays aligned with the default production app identity. Test builds must
-explicitly load `config/test.json`.
+are `test` and `production`; these map to the current business environments
+`dev` (Linux) and `prod` (Cloudflare), respectively. The default is
+`production` so an unconfigured build stays aligned with the production app
+identity. Test builds must explicitly load `config/test.json`; the retired
+Cloudflare dev API is not a build target.
 
 既有 `test` 环境现默认请求内网 Linux `http://192.168.50.201:8080/api/v1`，
 `production` 继续请求 `https://api.tcgcard.fun/api/v1`。登录、目录、收藏、扫描、

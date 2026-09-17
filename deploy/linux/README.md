@@ -1,6 +1,6 @@
 # Linux 测试环境部署
 
-本目录启动独立 PostgreSQL、Node API 和 Caddy/Admin；离线模式使用 Node 静态服务。它承接现有 dev 的 Linux 整改，业务数据和图片使用本地资源；按用户明确选择，仅向量检索经 HTTP 复用现有 CF 识别服务。
+本目录是当前 dev 业务环境，启动独立 PostgreSQL、Node API 和 Caddy/Admin；离线模式使用 Node 静态服务。prod 保持原 Cloudflare 部署，旧 CF dev 业务 Worker 不再发布。dev 业务数据和图片使用 Linux 本地资源；仅向量检索经 HTTP 复用独立 CF 识别服务，Apple Sandbox 通知经独立 CF 回调代理进入 Linux。
 
 Linux 部署资产已通过 `19a6ac4` 合入；2026-09-15 已将 `dev-inner` 整改发布到 kd201 现有实例，复用原目录与数据卷。HTTP 适配固定请求 `VECTOR_RECOGNITION_BASE_URL` origin 下的 `/recognize`，10 秒超时覆盖响应体读取；服务器受控扫描、额度与收藏写库已验证，设备与真实图片识别仍需验收。发布清单与回滚位置见[验证记录](../../docs/releases/v1.1.0/05-delivery/VERIFICATION.md)，架构边界见[Linux 兼容缺口](../../docs/releases/v1.1.0/02-architecture/linux-test-environment.md#扫描兼容缺口)。
 
@@ -184,4 +184,4 @@ docker compose exec -T db pg_dump \
 - `.env` 不得提交 Git。
 - PostgreSQL 默认只映射服务器回环地址；需要开发机直连时，只允许绑定可信局域网 IP 和非默认宿主机端口。
 - Linux 必须使用独立测试数据库、JWT 和第三方凭证；CF 向量检索作为已授权的只读外部依赖复用，服务器出站和 iOS/Android 完整扫描须另行验收。
-- 本部署不修改 Cloudflare dev/prod 数据或 bindings；两环境已完成 PostgreSQL 迁移，D1 不属于迁移或回滚目标。
+- dev Linux 部署不修改 prod 的数据库或 bindings，也不读取已退役 CF dev 的历史业务数据；prod 保持原发布流程，D1 不属于迁移或回滚目标。

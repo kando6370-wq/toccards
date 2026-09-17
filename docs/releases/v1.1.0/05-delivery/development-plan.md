@@ -173,7 +173,7 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 ### 阶段 B：Apple 通知与生命周期真值
 
-当前状态：通知链与 dev/prod PostgreSQL Worker 均已部署。接收、先存原文、官方验签、幂等归约、乱序保护、补偿重试和 Apple Server API 校正已落地；2026-09-07 Production/Sandbox Apple TEST 成功属于历史发布证据。本轮只回读运行版本及 binding，没有重放 Apple 通知；真实购买、续订、升级降级、退款及多设备矩阵仍须单独验收。
+当前状态：通知链由 prod Cloudflare Worker 与 dev Linux API 分别承载，旧 CF dev Worker 已退役。接收、先存原文、官方验签、幂等归约、乱序保护、补偿重试和 Apple Server API 校正已落地；2026-09-07 Production/Sandbox Apple TEST 成功属于历史发布证据。后续真实购买、续订、升级降级、退款及多设备矩阵仍按各环境独立验收。
 
 - Notifications V2 接口先保存原始请求，再验签、解码和消费。
 - 以 notification UUID 和 environment+transactionId 分别保证通知、交易幂等。
@@ -383,8 +383,8 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 - 已执行 migration 保持原文，包括冻结的 D1 历史文件；新增 schema 或数据修复仅允许使用 `apps/workers-api/src/db/postgres/migrations/` 下的递增 PostgreSQL 迁移，不恢复退役 D1 工具。
 - owner grant 仅保留兼容旧骨架，授权路径禁止读取；不自动迁移到 session grant。
 - 新表/列先向后兼容上线，再切换读写，最后在独立版本清理旧结构。
-- dev/prod 共用 PostgreSQL，运行环境、Apple scope、KV、R2、域名和 secrets 分离；本地测试使用独立数据库。远程迁移和部署必须单独授权。
-- Apple 官方服务端库依赖 Workers `nodejs_compat`，并必须在请求或定时任务处理期间动态加载，避免其依赖在 Worker 全局作用域执行随机操作；dev/prod dry-run build 必须保持通过。
+- 当前 prod 使用原 PlanetScale PostgreSQL/Hyperdrive，dev 使用 Linux 独立 PostgreSQL 与图片卷；Apple scope、域名和 secrets 按环境隔离。旧 CF dev 的历史数据保留但不再发布。远程迁移和部署必须单独授权。
+- prod Worker 的 Apple 官方服务端库依赖 `nodejs_compat`，并必须在请求或定时任务处理期间动态加载，避免其依赖在 Worker 全局作用域执行随机操作；prod Wrangler dry-run 与 dev Linux 发布包预演分别保持通过。
 - 每个迁移在对应文档中记录兼容性、回滚方式和数据回填规则。
 
 ## 5. 完成定义
