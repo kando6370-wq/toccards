@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
@@ -227,7 +226,7 @@ abstract interface class ScanApi {
   });
   Future<ScanRecognitionDto> recognizeImage(
     AuthSession session, {
-    required ScanCardEmbedding embedding,
+    required ScanCardHashes hashes,
     required String fileName,
     required String platform,
     required String appVersion,
@@ -301,7 +300,7 @@ class ScanApiClient implements ScanApi, ScanQuotaReservationApi {
   @override
   Future<ScanRecognitionDto> recognizeImage(
     AuthSession session, {
-    required ScanCardEmbedding embedding,
+    required ScanCardHashes hashes,
     required String fileName,
     required String platform,
     required String appVersion,
@@ -312,7 +311,9 @@ class ScanApiClient implements ScanApi, ScanQuotaReservationApi {
     String? osVersion,
   }) async {
     final body = FormData.fromMap(<String, Object?>{
-      'vector': jsonEncode(embedding.vector),
+      'r': hashes.r,
+      'g': hashes.g,
+      'b': hashes.b,
       'filename': fileName,
       'platform': platform,
       'app_version': appVersion,
@@ -321,7 +322,7 @@ class ScanApiClient implements ScanApi, ScanQuotaReservationApi {
       if (deviceModel != null) 'device_model': deviceModel,
       if (osVersion != null) 'os_version': osVersion,
       'image': MultipartFile.fromBytes(
-        embedding.cardImageBytes,
+        hashes.cardImageBytes,
         filename: 'scan-card.jpg',
         contentType: DioMediaType('image', 'jpeg'),
       ),

@@ -1,5 +1,7 @@
 # 扫描识别向量链路
 
+> `dev-xiangyang-new` 试验分支增量：保留两端 RTMDet-Ins 检测、最长边 640 的半像素双线性缩放、mask 四角拟合和 745×1043 原生透视矫正。矫正后的 RGB 卡面按旧版 Pillow Lanczos 等比白底 letterbox 到 1024×1024，逐通道缩至 64×64 后进行 16×16 低频 DCT，以中位数编码 32 字节 pHash；三个通道均使用无填充 Base64URL。PE-Core-T16 不参与本试验推理，但现有模型资源仍在包内。App 向业务 API 发送矫正 JPEG 和 `r/g/b`，可选卡号 OCR 与既有配额、审计、目录过滤、确认入库保持不变。业务 API 向 `https://recognize.tcgcard.fun/recognize` 仅转发 `{r,g,b,game_id?}`，Worker 返回最多五个候选且不做阈值过滤；API 仍按本地目录校验候选。Linux 须将 `VECTOR_RECOGNITION_BASE_URL` 配为 `https://recognize.tcgcard.fun`。试验分支未发布服务端，也未完成两端真机验收；下述向量链路为 `dev` 基线，不代表该试验分支当前运行路径。
+
 本实现从历史提交 `dev-xiangyang@ceef1af` 按识别代码段移植为 `e18543a`，基线为 `7451382`，于 2026-09-09 经 `f38ef98` 合入 `dev` 并推送远程。`dev-wxy`、`dev-xiangyang` 等来源分支已清理，旧分支名只用于追溯，不再作为检出或发布目标。保留 `dev` 当前 Queue、Quota、候选资料与确认入库逻辑，包括 Scan confirm 初始估值事件的购买价格、币种和可靠历史起点修复。
 
 ## 识别流程

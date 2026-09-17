@@ -218,9 +218,8 @@ WHERE id = ? AND owner_type = ? AND owner_id = ?
   AND user_confirmation_status = 'pending'
 `;
 
-const RECOGNITION_ALGORITHM = "pe-core-t16-384-cosine-v1";
-const EMBEDDING_DIMENSIONS = 512;
-const MAX_VECTOR_JSON_BYTES = 32 * 1024;
+const RECOGNITION_ALGORITHM = "rgb-phash-16-v1";
+const PHASH_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const CARD_NUMBER_PATTERN = /^(?:\d{1,4}\/(?:\d{1,4}|[A-Z]{1,5}-P)|[A-Z]{1,5}-P)$/;
 
 function scanQuotaPayload(
@@ -346,11 +345,13 @@ export function createScanRoutes() {
       );
       return c.json(INTERNAL_ERROR_RESPONSE, 503);
     }
-    const vector = readEmbeddingVector(body.get("vector"));
+    const r = readPhash(body.get("r"));
+    const g = readPhash(body.get("g"));
+    const b = readPhash(body.get("b"));
     const gameId = readOptionalGameId(body.get("game_id"));
     const cardNumber = readOptionalCardNumber(body.get("card_number"));
     const image = await validateScanImage(body.get("image"));
-    if (!vector || gameId === null || cardNumber === null || !image) {
+    if (!r || !g || !b || gameId === null || cardNumber === null || !image) {
       await releaseQueuedScanQuota(
         c.env.DB,
         auth.owner,
@@ -396,7 +397,7 @@ export function createScanRoutes() {
       return c.json(SCAN_REQUEST_CONFLICT_RESPONSE, 409);
     }
 
-    const outbound = { vector };
+    const outbound = { r, g, b, ...(gameId === undefined ? {} : { game_id: gameId }) };
 
     const scanId = requestId;
     const createdAt = new Date();
@@ -429,7 +430,7 @@ export function createScanRoutes() {
     let upstreamFailed = false;
     const startedAt = Date.now();
     try {
-      const response = await vectorRecognition.fetch("https://recognize-vec.internal/recognize", {
+      const response = await vectorRecognition.fetch("https://recognize.tcgcard.fun/recognize", {
         method: "POST",
         headers: { Accept: "application/json", "Content-Type": "application/json" },
         body: JSON.stringify(outbound),
@@ -884,24 +885,8 @@ function buildSystemResult(
   };
 }
 
-function readEmbeddingVector(value: string | File | null): number[] | null {
-  if (typeof value !== "string" || value.length > MAX_VECTOR_JSON_BYTES) return null;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(value);
-  } catch {
-    return null;
-  }
-  if (!Array.isArray(parsed) || parsed.length !== EMBEDDING_DIMENSIONS) return null;
-  const vector = new Array<number>(EMBEDDING_DIMENSIONS);
-  let hasNonZeroValue = false;
-  for (let index = 0; index < parsed.length; index += 1) {
-    const component = parsed[index];
-    if (typeof component !== "number" || !Number.isFinite(component)) return null;
-    vector[index] = component;
-    hasNonZeroValue ||= component !== 0;
-  }
-  return hasNonZeroValue ? vector : null;
+function readPhash(value: string | File | null): string | null {
+  return typeof value === "string" && PHASH_PATTERN.test(value) ? value : null;
 }
 
 function readOptionalGameId(value: string | File | null): number | undefined | null {

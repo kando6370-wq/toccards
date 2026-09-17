@@ -104,14 +104,12 @@ class MainActivity : FlutterActivity() {
             ?: throw IllegalArgumentException("Card width is required.")
         val cardHeight = call.argument<Int>("card_height")
             ?: throw IllegalArgumentException("Card height is required.")
-        val embeddingSize = call.argument<Int>("embedding_size")
-            ?: throw IllegalArgumentException("Embedding size is required.")
         val jpegQuality = call.argument<Int>("jpeg_quality") ?: 85
         require(cornerValues.size == 8) { "Exactly four card corners are required." }
         require(cornerValues.all { it.toDouble().isFinite() }) {
             "Card corners must be finite."
         }
-        require(cardWidth > 0 && cardHeight > 0 && embeddingSize > 0) {
+        require(cardWidth > 0 && cardHeight > 0) {
             "Image dimensions must be positive."
         }
 
@@ -143,15 +141,10 @@ class MainActivity : FlutterActivity() {
                 check(card.compress(Bitmap.CompressFormat.JPEG, jpegQuality, encoded)) {
                     "The corrected card image could not be encoded."
                 }
-                val embedding = Bitmap.createScaledBitmap(card, embeddingSize, embeddingSize, true)
-                try {
-                    return mapOf(
-                        "card_image_bytes" to encoded.toByteArray(),
-                        "embedding_rgb_bytes" to rgbBytes(embedding),
-                    )
-                } finally {
-                    if (embedding !== card) embedding.recycle()
-                }
+                return mapOf(
+                    "card_image_bytes" to encoded.toByteArray(),
+                    "card_rgb_bytes" to rgbBytes(card),
+                )
             } finally {
                 card.recycle()
             }

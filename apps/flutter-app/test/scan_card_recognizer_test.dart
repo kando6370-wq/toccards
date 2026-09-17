@@ -12,12 +12,10 @@ void main() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
   late List<String> calls;
   late double score;
-  late Float32List embedding;
 
   setUp(() {
     calls = [];
     score = 0.9;
-    embedding = Float32List.fromList(List.filled(512, 0.25));
     messenger.setMockMethodCallHandler(imageChannel, (call) async {
       calls.add(call.method);
       final args = call.arguments as Map;
@@ -48,8 +46,8 @@ void main() {
       expect(args['jpeg_quality'], 85);
       return {
         'card_image_bytes': Uint8List.fromList([7, 8, 9]),
-        'embedding_rgb_bytes': Uint8List.fromList(
-          List.generate(384 * 384 * 3, (index) => [0, 127, 255][index % 3]),
+        'card_rgb_bytes': Uint8List.fromList(
+          List.generate(745 * 1043 * 3, (index) => [0, 127, 255][index % 3]),
         ),
       };
     });
@@ -78,11 +76,7 @@ void main() {
           'masks_shape': [1, 1, 640, 640],
         };
       }
-      expect(tensor.length, 3 * 384 * 384);
-      expect(tensor[0], -1);
-      expect(tensor[384 * 384], closeTo(127 / 127.5 - 1, 0.00001));
-      expect(tensor[2 * 384 * 384], 1);
-      return embedding;
+      fail('The embedding model must not run for pHash recognition.');
     });
   });
   tearDown(() {
@@ -91,24 +85,25 @@ void main() {
   });
 
   test(
-    'the recognition pipeline preserves model preprocessing and uses the corrected card for embedding',
+    'the recognition pipeline hashes the corrected card without embedding inference',
     () async {
       final result = await createScanCardRecognizer().process(
         Uint8List.fromList([1, 2, 3]),
       );
-      expect(result.vector, List.filled(512, 0.25));
+      expect(result.r, matches(RegExp(r'^[A-Za-z0-9_-]{43}$')));
+      expect(result.g, matches(RegExp(r'^[A-Za-z0-9_-]{43}$')));
+      expect(result.b, matches(RegExp(r'^[A-Za-z0-9_-]{43}$')));
       expect(result.cardImageBytes, [7, 8, 9]);
       expect(calls, [
         'prepareDetection',
         'runDetection',
         'rectifyCard',
-        'runEmbedding',
       ]);
     },
   );
 
   test(
-    'low confidence cannot proceed to embedding because the vector must describe a detected card',
+    'low confidence cannot proceed to hashing because hashes must describe a detected card',
     () async {
       score = 0.1;
       await expectLater(
@@ -119,14 +114,4 @@ void main() {
     },
   );
 
-  test(
-    'invalid embedding values fail instead of submitting an unusable vector',
-    () async {
-      embedding[0] = double.nan;
-      await expectLater(
-        createScanCardRecognizer().process(Uint8List(3)),
-        throwsA(isA<ScanImageProcessingException>()),
-      );
-    },
-  );
 }

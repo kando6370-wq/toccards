@@ -1,13 +1,17 @@
 import 'dart:typed_data';
 
-class ScanCardEmbedding {
-  const ScanCardEmbedding({
-    required this.vector,
+class ScanCardHashes {
+  const ScanCardHashes({
+    required this.r,
+    required this.g,
+    required this.b,
     required this.cardImageBytes,
     this.diagnostics = const {},
   });
 
-  final List<double> vector;
+  final String r;
+  final String g;
+  final String b;
   final Uint8List cardImageBytes;
   final Map<String, double> diagnostics;
 }
@@ -22,5 +26,5 @@ class ScanImageProcessingException implements Exception {
 }
 
 abstract interface class ScanCardRecognizer {
-  Future<ScanCardEmbedding> process(Uint8List imageBytes);
+  Future<ScanCardHashes> process(Uint8List imageBytes);
 }

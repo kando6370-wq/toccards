@@ -24,12 +24,11 @@ void main() {
               'corners': [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
               'card_width': 10,
               'card_height': 14,
-              'embedding_size': 2,
               'jpeg_quality': 85,
             });
             return {
               'card_image_bytes': Uint8List.fromList([0xff]),
-              'embedding_rgb_bytes': Uint8List(2 * 2 * 3),
+              'card_rgb_bytes': Uint8List(10 * 14 * 3),
             };
           });
 
@@ -43,11 +42,10 @@ void main() {
         ],
         cardWidth: 10,
         cardHeight: 14,
-        embeddingSize: 2,
       );
 
       expect(result.cardImageBytes, [0xff]);
-      expect(result.embeddingRgbBytes, hasLength(12));
+      expect(result.cardRgbBytes, hasLength(10 * 14 * 3));
     },
   );
 }

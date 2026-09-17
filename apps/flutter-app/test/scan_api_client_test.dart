@@ -61,7 +61,7 @@ void main() {
   );
 
   test(
-    'recognizeImage sends the embedding and corrected card to our API',
+    'recognizeImage sends RGB hashes and the corrected card to our API',
     () async {
       final adapter = _RecordingAdapter((request) {
         expect(request.method, 'POST');
@@ -69,7 +69,9 @@ void main() {
         expect(request.authorization, 'Bearer access-token');
         final form = request.body as FormData;
         final fields = Map<String, String>.fromEntries(form.fields);
-        expect(fields.remove('vector'), jsonEncode(_vector));
+        expect(fields.remove('r'), _hash);
+        expect(fields.remove('g'), _hash);
+        expect(fields.remove('b'), _hash);
         expect(fields, {
           'filename': 'scan.jpg',
           'platform': 'iOS',
@@ -127,8 +129,8 @@ void main() {
 
       final result = await ScanApiClient(_dio(adapter)).recognizeImage(
         _session,
-        embedding: ScanCardEmbedding(
-          vector: _vector,
+        hashes: ScanCardHashes(
+          r: _hash, g: _hash, b: _hash,
           cardImageBytes: Uint8List.fromList([1, 2, 3, 4]),
         ),
         fileName: 'scan.jpg',
@@ -185,8 +187,8 @@ void main() {
     await expectLater(
       ScanApiClient(_dio(adapter)).recognizeImage(
         _session,
-        embedding: ScanCardEmbedding(
-          vector: _vector,
+        hashes: ScanCardHashes(
+          r: _hash, g: _hash, b: _hash,
           cardImageBytes: Uint8List.fromList([1, 2, 3, 4]),
         ),
         fileName: 'scan.jpg',
@@ -376,8 +378,8 @@ void main() {
       await expectLater(
         client.recognizeImage(
           _session,
-          embedding: ScanCardEmbedding(
-            vector: _vector,
+          hashes: ScanCardHashes(
+            r: _hash, g: _hash, b: _hash,
             cardImageBytes: Uint8List.fromList([1, 2, 3, 4]),
           ),
           fileName: 'scan.jpg',
@@ -405,7 +407,7 @@ const _session = AuthSession(
   anonymousId: 'anon-1',
 );
 
-final _vector = List<double>.filled(512, 0.25);
+const _hash = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 
 Dio _dio(_RecordingAdapter adapter) {
   final dio = Dio(BaseOptions(baseUrl: 'https://api.example.test/api/v1'));

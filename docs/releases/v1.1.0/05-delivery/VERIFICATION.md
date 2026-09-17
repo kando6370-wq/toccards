@@ -885,4 +885,12 @@ Code Review 自审通过：逐项核对双方提交和手工解冲突差异，�
 - `/admin` 返回 200，HTML SHA-256 为 `30121eea22e331509e24030ad1d81dffa324fdc400f53c711f17082b20c54e1b`；HTML 与所引用全部 10 个 JS/CSS 均与本地 dev 构建逐字节一致。未授权 Admin 版本接口及扫描识别 POST 均为 `401 UNAUTHORIZED`，没有创建扫描记录或消费额度。
 - 该次 dev 发布前后 prod 均为 `934506ae-d433-4a38-ae40-6d07b109d50e`、100% 流量，没有重新部署 prod，也未执行远程数据库迁移、历史回填或运营配置修改。随后按用户授权将合并与验证记录推送至 `github/dev@b0b54df`，并清理四个指定的本地/远程分支；当前 Git 与运行状态以上方回读为准。
 
+### dev-xiangyang-new 检测 + pHash 检索试验（2026-09-17）
+
+此分支在合入 `origin/dev@a4c7f0f` 后保留两端检测、缩放与原生透视矫正，改为对矫正卡面的 RGB 分通道执行旧版 Lanczos letterbox + DCT pHash，不执行 PE-Core-T16 推理；模型资源暂未移除。App 发 `r/g/b` 与矫正 JPEG 给业务 API；API 验证 43 字符 Base64URL 哈希，再向 `recognize.tcgcard.fun/recognize` 发 `{r,g,b,game_id?}`，保留本地目录、卡号消歧、额度、审计与确认入库。证据为旧版 `e18543a^` 的 `scan_phash.dart` 与 `scan_image_hasher_native.dart`、相同金值测试，以及隔壁 Worker 当前 `src/index.ts` 的 768 维展开/前五名响应契约。原生透视矫正不同于旧 OpenCV，不能据算法金值断言实际卡图哈希逐字节相同。无 schema/migration 或新依赖，页面未改；本次不缩减安装包内模型资源。
+
+本地 Windows 验证：`vitest run src/scan/routes.test.ts src/linux/vector-recognition.test.ts --maxWorkers=2` 初次退出 1（44/46，通过协议用例；两项旧确认入库用例超过默认 5 秒，PGlite 关闭后出现连带日志）。以 `--maxWorkers=1 --testTimeout=20000` 复跑退出 0，2 文件 46/46 通过；`git diff --check` 退出 0。`tsc --noEmit -p tsconfig.json` 退出 1，安装目录缺少 `@types/node`（TS2688），未完成类型检查；本机找不到 Flutter/Dart，未运行 Flutter test/analyze、Android 构建和 iOS 编译/实机；需要具备 SDK 的构建环境与用户真机补验真实图片准确率、耗时和内存。本轮未部署 API 或 App，未执行远程数据库操作。
+
+Code Review：核对原生桥的 RGB 字节长度、两端调用参数、历史哈希金值、上游请求与可选游戏过滤、审计/配额测试和正式环境配置；未发现本轮测试覆盖范围内的代码缺陷。`wrangler.toml` 的 prod binding 仍指向向量服务 `recognize-vec`，它不接受此分支的 pHash 请求；禁止以当前配置直接部署此分支的 prod Worker。测试环境 Linux API 发布需同步设置 `VECTOR_RECOGNITION_BASE_URL=https://recognize.tcgcard.fun`，仅更新 iOS App 不会切换现有服务端协议。
+
 dev 服务端部署及上述校验已完成；真实图片、登录态完整扫描与新 App 签名包验收仍按本节未验证项补充。后续应从含本次合并的 dev 提交发布，避免旧 pHash 分支再次覆盖同一开发环境。

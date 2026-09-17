@@ -39,7 +39,7 @@ void main() {
       expect(result.imageBytes, Uint8List.fromList([1, 2, 3]));
       expect(result.displayImageBytes, Uint8List.fromList([4, 5, 6]));
       expect(cardRecognizer.lastBytes, Uint8List.fromList([1, 2, 3]));
-      expect(api.lastEmbedding?.cardImageBytes, Uint8List.fromList([4, 5, 6]));
+      expect(api.lastHashes?.cardImageBytes, Uint8List.fromList([4, 5, 6]));
       expect(api.lastPlatform, 'iOS');
       expect(api.lastCardNumber, '018/066');
       expect(cardNumberReader.lastBytes, Uint8List.fromList([4, 5, 6]));
@@ -408,13 +408,15 @@ class _FakeScanImagePicker implements ScanImagePicker {
   }
 }
 
+const _hash = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+
 class _FakeScanApi implements ScanApi, ScanQuotaReservationApi {
   _FakeScanApi(this.result, {this.failure, this.failures = const []});
 
   final ScanRecognitionDto result;
   final Object? failure;
   final List<Object> failures;
-  ScanCardEmbedding? lastEmbedding;
+  ScanCardHashes? lastHashes;
   String? lastPlatform;
   String? lastCardNumber;
   final requestIds = <String>[];
@@ -450,7 +452,7 @@ class _FakeScanApi implements ScanApi, ScanQuotaReservationApi {
   @override
   Future<ScanRecognitionDto> recognizeImage(
     AuthSession session, {
-    required ScanCardEmbedding embedding,
+    required ScanCardHashes hashes,
     required String fileName,
     required String platform,
     required String appVersion,
@@ -463,7 +465,7 @@ class _FakeScanApi implements ScanApi, ScanQuotaReservationApi {
     callCount += 1;
     requestIds.add(requestId);
     fileNames.add(fileName);
-    lastEmbedding = embedding;
+    lastHashes = hashes;
     lastPlatform = platform;
     lastCardNumber = cardNumber;
     if (callCount <= failures.length) throw failures[callCount - 1];
@@ -479,10 +481,10 @@ class _OrderedScanCardRecognizer implements ScanCardRecognizer {
   final Future<void> firstReady;
 
   @override
-  Future<ScanCardEmbedding> process(Uint8List imageBytes) async {
+  Future<ScanCardHashes> process(Uint8List imageBytes) async {
     if (imageBytes.single == 1) await firstReady;
-    return ScanCardEmbedding(
-      vector: List<double>.filled(512, 0.25),
+    return ScanCardHashes(
+      r: _hash, g: _hash, b: _hash,
       cardImageBytes: Uint8List.fromList([4, 5, 6]),
     );
   }
@@ -505,10 +507,10 @@ class _FakeScanCardRecognizer implements ScanCardRecognizer {
   Uint8List? lastBytes;
 
   @override
-  Future<ScanCardEmbedding> process(Uint8List imageBytes) async {
+  Future<ScanCardHashes> process(Uint8List imageBytes) async {
     lastBytes = imageBytes;
-    return ScanCardEmbedding(
-      vector: List<double>.filled(512, 0.25),
+    return ScanCardHashes(
+      r: _hash, g: _hash, b: _hash,
       cardImageBytes: Uint8List.fromList([4, 5, 6]),
     );
   }

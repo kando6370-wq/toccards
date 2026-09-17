@@ -1,5 +1,7 @@
 # v1.1.0 技术栈
 
+> `dev-xiangyang-new` 试验分支扫描改为 RTMDet-Ins 检测 + 原生透视矫正 + Dart RGB pHash，业务 API 请求 `recognize.tcgcard.fun`。iOS Core ML/Core Image 与 Android 最小 ORT/Bitmap 检测运行时保留，PE-Core-T16 模型资源尚在包内但不参与推理；没有新增 OpenCV 依赖。下文向量化描述为 `dev` 基线。
+
 ## 1. 应用与运行时
 
 | 层 | 当前技术 | 证据 |

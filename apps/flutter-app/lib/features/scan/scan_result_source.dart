@@ -317,10 +317,10 @@ class ApiScanResultSource implements ScanResultSource {
         );
       }
       final info = await _appInfo();
-      final embedding = await _cardRecognizer.process(image.bytes);
-      displayImageBytes = embedding.cardImageBytes;
+      final hashes = await _cardRecognizer.process(image.bytes);
+      displayImageBytes = hashes.cardImageBytes;
       onDisplayImageReady?.call(displayImageBytes);
-      final cardNumber = await _cardNumberReader.read(embedding.cardImageBytes);
+      final cardNumber = await _cardNumberReader.read(hashes.cardImageBytes);
       await previousReservation;
       try {
         final reservationApi = _api is ScanQuotaReservationApi
@@ -339,7 +339,7 @@ class ApiScanResultSource implements ScanResultSource {
       }
       recognition = await _api.recognizeImage(
         session,
-        embedding: embedding,
+        hashes: hashes,
         fileName: image.fileName,
         platform: info.platform,
         appVersion: info.appVersion,

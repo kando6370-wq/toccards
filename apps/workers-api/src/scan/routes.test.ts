@@ -7,7 +7,7 @@ import { PGliteDatabase } from "../test-support/pglite-database";
 import { createHttpVectorRecognition } from "../linux/vector-recognition";
 
 type TestEnvWithPostgres = Omit<AppEnv, "DB"> & { DB: PGliteDatabase; queries: string[]; VECTOR_RECOGNITION?: Fetcher };
-const VECTOR = Array.from({ length: 512 }, (_, index) => (index + 1) / 512);
+const HASHES = { r: "A".repeat(43), g: "B".repeat(43), b: "C".repeat(43) };
 const databases: PGliteDatabase[] = [];
 class FakeR2 {
   readonly objects = new Map<string, Uint8Array>();
@@ -24,18 +24,17 @@ class FakeR2 {
 
 
 describe("scan routes", () => {
-  it("rejects retired hashes and invalid vectors before storage or quota consumption", async () => {
+  it("rejects missing and malformed RGB hashes before storage or quota consumption", async () => {
     const env = await createRecognitionEnv();
     const token = await recognitionToken(env);
     const upstream = vi.fn();
-    stubVectorRecognition(env, upstream);
+    stubPhashRecognition(env, upstream);
     for (const body of [
-      { r: "legacy", g: "legacy", b: "legacy" },
-      { vector: [] },
       { vector: [1, 2, 3] },
-      { vector: Array.from({ length: 512 }, () => 0) },
-      { vector: [...VECTOR.slice(0, 511), null] },
-      { vector: [...VECTOR, 1] },
+      { ...HASHES, r: "short" },
+      { ...HASHES, g: "A".repeat(44) },
+      { ...HASHES, b: "!".repeat(43) },
+      { r: HASHES.r, g: HASHES.g },
     ]) {
       expect((await recognize(env, token, body)).status).toBe(422);
     }
@@ -45,18 +44,18 @@ describe("scan routes", () => {
     expect((env.SCAN_IMAGES as unknown as FakeR2).objects.size).toBe(0);
   });
 
-  it("keeps the game filter in the catalog boundary because vector search receives no game or owner information", async () => {
+  it("passes game_id to pHash retrieval and still filters the local catalog", async () => {
     const env = await createRecognitionEnv();
     await insertRows(env.DB, "cards_all",
       { product_id: "same-game", game_id: 1, game: "Pokemon", name: "Wanted Card", set_name: "Set A", product_type_name: "Cards" },
       { product_id: "other-game", game_id: 2, game: "Magic", name: "Other Card", set_name: "Set B", product_type_name: "Cards" },
     );
     const upstream = vi.fn(async (_url, init) => {
-      expect(JSON.parse(init.body)).toEqual({ vector: VECTOR });
+      expect(JSON.parse(init.body)).toEqual({ ...HASHES, game_id: 1 });
       return Response.json({ candidates: [{ product_id: "other-game", confidence: 99 }, { product_id: "same-game", confidence: 90 }] });
     });
-    stubVectorRecognition(env, upstream);
-    const response = await recognize(env, await recognitionToken(env), { vector: VECTOR, game_id: 1 });
+    stubPhashRecognition(env, upstream);
+    const response = await recognize(env, await recognitionToken(env), { ...HASHES, game_id: 1 });
     expect(response.status).toBe(200);
     const body = await response.json() as { data: { results: Array<{ candidates: Array<{ card_ref: string }> }> } };
     expect(body.data.results[0].candidates.map((candidate) => candidate.card_ref)).toEqual(["same-game"]);
@@ -67,7 +66,7 @@ describe("scan routes", () => {
     await Promise.all(databases.splice(0).map((db) => db.close()));
   });
 
-  it("keeps Linux catalog reads, scan records and quota local while sending only the vector to CF recognition", async () => {
+  it("keeps Linux catalog, records and quota local while sending only hashes and game_id upstream", async () => {
     const env = await createRecognitionEnv();
     await insertRows(env.DB, "cards_all", {
       product_id: "linux-card",
@@ -84,19 +83,19 @@ describe("scan routes", () => {
       ],
     }));
     vi.stubGlobal("fetch", upstream);
-    env.VECTOR_RECOGNITION = createHttpVectorRecognition("https://recognize-vec.tcgcard.fun");
+    env.VECTOR_RECOGNITION = createHttpVectorRecognition("https://recognize.tcgcard.fun");
     const requestId = crypto.randomUUID();
 
     const response = await recognize(env, await recognitionToken(env), {
-      request_id: requestId, vector: VECTOR, game_id: 1, platform: "iOS",
+      request_id: requestId, ...HASHES, game_id: 1, platform: "iOS",
     });
 
     expect(upstream).toHaveBeenCalledExactlyOnceWith(
-      "https://recognize-vec.tcgcard.fun/recognize",
+      "https://recognize.tcgcard.fun/recognize",
       expect.objectContaining({
         method: "POST",
         headers: { Accept: "application/json", "Content-Type": "application/json" },
-        body: JSON.stringify({ vector: VECTOR }),
+        body: JSON.stringify({ ...HASHES, game_id: 1 }),
       }),
     );
     expect(response.status).toBe(200);
@@ -122,9 +121,9 @@ describe("scan routes", () => {
   ])("releases Linux Free quota for $scenario because a CF response alone is not a usable local match", async ({ candidates }) => {
     const env = await createRecognitionEnv();
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ candidates })));
-    env.VECTOR_RECOGNITION = createHttpVectorRecognition("https://recognize-vec.tcgcard.fun");
+    env.VECTOR_RECOGNITION = createHttpVectorRecognition("https://recognize.tcgcard.fun");
 
-    const response = await recognize(env, await recognitionToken(env), { vector: VECTOR });
+    const response = await recognize(env, await recognitionToken(env), { ...HASHES });
 
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
@@ -144,9 +143,9 @@ describe("scan routes", () => {
   ])("releases Linux Free quota and records $failure because transport failures must not consume scans", async ({ response: upstreamResponse }) => {
     const env = await createRecognitionEnv();
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(upstreamResponse()));
-    env.VECTOR_RECOGNITION = createHttpVectorRecognition("https://recognize-vec.tcgcard.fun");
+    env.VECTOR_RECOGNITION = createHttpVectorRecognition("https://recognize.tcgcard.fun");
 
-    const response = await recognize(env, await recognitionToken(env), { vector: VECTOR });
+    const response = await recognize(env, await recognitionToken(env), { ...HASHES });
 
     expect(response.status).toBe(502);
     expect(await response.json()).toMatchObject({ error: { code: "VECTOR_RECOGNITION_UNAVAILABLE" } });
@@ -176,9 +175,9 @@ describe("scan routes", () => {
       }, { once: true });
     }));
     vi.stubGlobal("fetch", upstream);
-    env.VECTOR_RECOGNITION = createHttpVectorRecognition("https://recognize-vec.tcgcard.fun", 20);
+    env.VECTOR_RECOGNITION = createHttpVectorRecognition("https://recognize.tcgcard.fun", 20);
 
-    const response = await recognize(env, token, { request_id: requestId, vector: VECTOR });
+    const response = await recognize(env, token, { request_id: requestId, ...HASHES });
 
     expect(abortReason).toMatchObject({ name: "TimeoutError" });
     expect(upstream).toHaveBeenCalledOnce();
@@ -191,7 +190,7 @@ describe("scan routes", () => {
     ]);
   });
 
-  it("resolves production vector product ids through PostgreSQL and stores an audit record because App scans must be reviewable", async () => {
+  it("resolves pHash product ids through PostgreSQL and stores an audit record because App scans must be reviewable", async () => {
     const env = await createTestEnv();
     await insertRows(env.DB, "session", {
       id: "session-1",
@@ -217,14 +216,14 @@ describe("scan routes", () => {
       env.JWT_SECRET,
     );
 
-    stubVectorRecognition(env, async (url: string, init: RequestInit) => {
-      expect(url).toBe("https://recognize-vec.internal/recognize");
+    stubPhashRecognition(env, async (url: string, init: RequestInit) => {
+      expect(url).toBe("https://recognize.tcgcard.fun/recognize");
       expect(init.method).toBe("POST");
       expect(init.headers).toEqual({
         Accept: "application/json",
         "Content-Type": "application/json",
       });
-      expect(JSON.parse(String(init.body))).toEqual({ vector: VECTOR });
+      expect(JSON.parse(String(init.body))).toEqual(HASHES);
       return Response.json({
         candidates: [
           { product_id: 10738, confidence: 80.99 },
@@ -241,7 +240,7 @@ describe("scan routes", () => {
         headers: { Authorization: `Bearer ${token}`, "Idempotency-Key": requestId },
         body: recognitionForm({
           request_id: requestId,
-          vector: VECTOR, filename: "scan.jpg",
+          ...HASHES, filename: "scan.jpg",
           platform: "iOS", app_version: "1.0.0",
         }),
       },
@@ -272,7 +271,7 @@ describe("scan routes", () => {
                 name: "Bushi Tenderfoot",
                 set_code: "CHK",
                 confidence: 80.99,
-                retrieval: "pe-core-t16-384-cosine-v1",
+                retrieval: "rgb-phash-16-v1",
               }),
             ],
           }),
@@ -312,13 +311,13 @@ describe("scan routes", () => {
       image_url: null,
     });
     const token = await recognitionToken(env);
-    stubVectorRecognition(env, vi.fn().mockResolvedValue(Response.json({
+    stubPhashRecognition(env, vi.fn().mockResolvedValue(Response.json({
       candidates: [
         { product_id: "sports:soccer:rookie-001", confidence: 91.25 },
       ],
     })));
 
-    const response = await recognize(env, token, { vector: VECTOR });
+    const response = await recognize(env, token, { ...HASHES });
     const body = await response.json() as {
       data: { results: Array<{ candidates: Array<{ product_id: string; card_ref: string }> }> };
     };
@@ -351,14 +350,14 @@ describe("scan routes", () => {
       image_url: null,
       number: `${index + 1}/030`,
     })));
-    stubVectorRecognition(env, vi.fn().mockResolvedValue(Response.json({
+    stubPhashRecognition(env, vi.fn().mockResolvedValue(Response.json({
       candidates: recognized,
     })));
 
     const response = await recognize(
       env,
       await recognitionToken(env),
-      { vector: VECTOR },
+      { ...HASHES },
     );
     const body = await response.json() as {
       data: { results: Array<{ candidates: Array<{ product_id: string }> }> };
@@ -382,9 +381,9 @@ describe("scan routes", () => {
     const env = await createRecognitionEnv();
     await grantPremium(env.DB);
     const token = await recognitionToken(env);
-    stubVectorRecognition(env, vi.fn().mockResolvedValue(Response.json({ candidates: [] })));
+    stubPhashRecognition(env, vi.fn().mockResolvedValue(Response.json({ candidates: [] })));
 
-    const response = await recognize(env, token, { vector: VECTOR });
+    const response = await recognize(env, token, { ...HASHES });
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -440,10 +439,10 @@ describe("scan routes", () => {
     });
     expect((await readRows(env.DB, "scan_record"))).toEqual([]);
 
-    stubVectorRecognition(env, vi.fn().mockResolvedValue(Response.json({ candidates: [] })));
+    stubPhashRecognition(env, vi.fn().mockResolvedValue(Response.json({ candidates: [] })));
     const response = await recognize(env, token, {
       request_id: requestId,
-      vector: VECTOR,
+      ...HASHES,
     });
     expect(response.status).toBe(200);
     expect((await readRows(env.DB, "scan_quota_request"))).toEqual([
@@ -473,7 +472,7 @@ describe("scan routes", () => {
 
     const response = await recognize(env, token, {
       request_id: requestId,
-      vector: VECTOR,
+      ...HASHES,
     });
 
     expect(response.status).toBe(503);
@@ -504,7 +503,7 @@ describe("scan routes", () => {
 
     const response = await recognize(env, token, {
       request_id: requestId,
-      vector: VECTOR,
+      ...HASHES,
     });
 
     expect(response.status).toBe(503);
@@ -543,8 +542,8 @@ describe("scan routes", () => {
       },
     );
     const token = await recognitionToken(env);
-    stubVectorRecognition(env, async (_url: string, init: RequestInit) => {
-      expect(JSON.parse(String(init.body))).toEqual({ vector: VECTOR });
+    stubPhashRecognition(env, async (_url: string, init: RequestInit) => {
+      expect(JSON.parse(String(init.body))).toEqual({ ...HASHES });
       return Response.json({
         candidates: [
           { product_id: 610499, confidence: 84.1 },
@@ -554,7 +553,7 @@ describe("scan routes", () => {
     });
 
     const response = await recognize(env, token, {
-      vector: VECTOR,
+      ...HASHES,
       card_number: "200 / 187",
     });
     const body = await response.json();
@@ -568,7 +567,7 @@ describe("scan routes", () => {
               rank: 1,
               card_ref: "602664",
               card_number: "200/187",
-              retrieval: "pe-core-t16-384-cosine-v1+card-number-ocr",
+              retrieval: "rgb-phash-16-v1+card-number-ocr",
             }),
             expect.objectContaining({ rank: 2, card_ref: "610499" }),
           ],
@@ -607,14 +606,14 @@ describe("scan routes", () => {
       },
     );
     const token = await recognitionToken(env);
-    stubVectorRecognition(env, async () =>
+    stubPhashRecognition(env, async () =>
       Response.json({
         candidates: [{ product_id: 610499, confidence: 84.1 }],
       })
     );
 
     const response = await recognize(env, token, {
-      vector: VECTOR,
+      ...HASHES,
       card_number: "200/187",
     });
     const body = await response.json();
@@ -627,7 +626,7 @@ describe("scan routes", () => {
             expect.objectContaining({
               card_ref: "602664",
               card_number: "200/187",
-              retrieval: "pe-core-t16-384-cosine-v1+card-number-ocr",
+              retrieval: "rgb-phash-16-v1+card-number-ocr",
             }),
             expect.objectContaining({ card_ref: "610499" }),
           ],
@@ -665,12 +664,12 @@ describe("scan routes", () => {
       },
     );
     const token = await recognitionToken(env);
-    stubVectorRecognition(env, vi.fn().mockResolvedValue(Response.json({
+    stubPhashRecognition(env, vi.fn().mockResolvedValue(Response.json({
       candidates: [{ product_id: 610499, confidence: 84.1 }],
     })));
 
     const response = await recognize(env, token, {
-      vector: VECTOR,
+      ...HASHES,
       card_number: "200/200",
     });
     const body = await response.json();
@@ -684,7 +683,7 @@ describe("scan routes", () => {
               product_id: "sports:soccer:rookie-200",
               card_ref: "sports:soccer:rookie-200",
               card_number: "200/200",
-              retrieval: "pe-core-t16-384-cosine-v1+card-number-ocr",
+              retrieval: "rgb-phash-16-v1+card-number-ocr",
             }),
             expect.objectContaining({ card_ref: "610499" }),
           ],
@@ -696,11 +695,11 @@ describe("scan routes", () => {
   it("stores no_match when recognition ids are absent from PostgreSQL because an upstream id is not a reviewable card", async () => {
     const env = await createRecognitionEnv();
     const token = await recognitionToken(env);
-    stubVectorRecognition(env, vi.fn().mockResolvedValue(Response.json({
+    stubPhashRecognition(env, vi.fn().mockResolvedValue(Response.json({
       candidates: [{ product_id: 999, confidence: 77.125 }],
     })));
 
-    const response = await recognize(env, token, { vector: VECTOR });
+    const response = await recognize(env, token, { ...HASHES });
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -743,16 +742,16 @@ describe("scan routes", () => {
     const fetchMock = vi.fn().mockResolvedValue(Response.json({
       candidates: [{ product_id: "incomplete-card", confidence: 95 }],
     }));
-    stubVectorRecognition(env, fetchMock);
+    stubPhashRecognition(env, fetchMock);
 
     const first = await recognize(env, token, {
       request_id: requestId,
-      vector: VECTOR,
+      ...HASHES,
     });
     const firstBody = await first.json();
     const replay = await recognize(env, token, {
       request_id: requestId,
-      vector: VECTOR,
+      ...HASHES,
     });
 
     expect(first.status).toBe(200);
@@ -800,12 +799,12 @@ describe("scan routes", () => {
       image_url: null,
       number: "002/100",
     });
-    stubVectorRecognition(env, vi.fn().mockResolvedValue(Response.json({
+    stubPhashRecognition(env, vi.fn().mockResolvedValue(Response.json({
       candidates: [{ product_id: "complete-card-without-price", confidence: 94 }],
     })));
 
     const response = await recognize(env, token, {
-      vector: VECTOR,
+      ...HASHES,
     });
     const body = await response.json();
 
@@ -864,10 +863,10 @@ describe("scan routes", () => {
       .mockResolvedValueOnce(Response.json({
         candidates: [{ product_id: "batch-invalid", confidence: 93 }],
       }));
-    stubVectorRecognition(env, fetchMock);
+    stubPhashRecognition(env, fetchMock);
 
-    const valid = await recognize(env, token, { vector: VECTOR });
-    const invalid = await recognize(env, token, { vector: VECTOR });
+    const valid = await recognize(env, token, { ...HASHES });
+    const invalid = await recognize(env, token, { ...HASHES });
 
     expect(await valid.json()).toMatchObject({
       data: {
@@ -908,9 +907,9 @@ describe("scan routes", () => {
       });
     }
     const fetchMock = vi.fn();
-    stubVectorRecognition(env, fetchMock);
+    stubPhashRecognition(env, fetchMock);
 
-    const response = await recognize(env, token, { vector: VECTOR });
+    const response = await recognize(env, token, { ...HASHES });
 
     expect(response.status).toBe(403);
     expect(await response.json()).toMatchObject({
@@ -933,11 +932,11 @@ describe("scan routes", () => {
     const token = await recognitionToken(env);
     const requestId = crypto.randomUUID();
     const fetchMock = vi.fn().mockResolvedValue(Response.json({ candidates: [] }));
-    stubVectorRecognition(env, fetchMock);
+    stubPhashRecognition(env, fetchMock);
 
-    const first = await recognize(env, token, { request_id: requestId, vector: VECTOR });
+    const first = await recognize(env, token, { request_id: requestId, ...HASHES });
     const firstBody = await first.json();
-    const second = await recognize(env, token, { request_id: requestId, vector: VECTOR });
+    const second = await recognize(env, token, { request_id: requestId, ...HASHES });
 
     expect(second.status).toBe(200);
     expect(await second.json()).toEqual(firstBody);
@@ -947,13 +946,13 @@ describe("scan routes", () => {
     ]);
   });
 
-  it("rejects malformed vectores before calling recognition because protocol errors must not create scan records", async () => {
+  it("rejects malformed hashes before calling recognition because protocol errors must not create scan records", async () => {
     const env = await createRecognitionEnv();
     const token = await recognitionToken(env);
     const fetchMock = vi.fn();
-    stubVectorRecognition(env, fetchMock);
+    stubPhashRecognition(env, fetchMock);
 
-    const response = await recognize(env, token, { vector: [1, 2, 3] });
+    const response = await recognize(env, token, { ...HASHES, r: "invalid" });
 
     expect(response.status).toBe(422);
     expect(fetchMock).not.toHaveBeenCalled();
@@ -963,12 +962,12 @@ describe("scan routes", () => {
   it("stores failed with the raw upstream payload because every valid recognition attempt must remain auditable", async () => {
     const env = await createRecognitionEnv();
     const token = await recognitionToken(env);
-    stubVectorRecognition(env, vi.fn().mockResolvedValue(Response.json(
+    stubPhashRecognition(env, vi.fn().mockResolvedValue(Response.json(
       { error: "internal_error" },
       { status: 500 },
     )));
 
-    const response = await recognize(env, token, { vector: VECTOR });
+    const response = await recognize(env, token, { ...HASHES });
     const body = await response.json() as { scan_id?: unknown };
 
     expect(response.status).toBe(502);
@@ -984,9 +983,9 @@ describe("scan routes", () => {
   it("rejects the retired product_ids response as an upstream failure because clients must not silently lose production confidence", async () => {
     const env = await createRecognitionEnv();
     const token = await recognitionToken(env);
-    stubVectorRecognition(env, vi.fn().mockResolvedValue(Response.json({ product_ids: [10738] })));
+    stubPhashRecognition(env, vi.fn().mockResolvedValue(Response.json({ product_ids: [10738] })));
 
-    const response = await recognize(env, token, { vector: VECTOR });
+    const response = await recognize(env, token, { ...HASHES });
 
     expect(response.status).toBe(502);
     expect((await readRows(env.DB, "scan_record"))[0]?.recognition_status).toBe("failed");
@@ -995,11 +994,11 @@ describe("scan routes", () => {
   it("rejects out-of-range upstream confidence because similarity must remain the exact finite 0 to 100 service value", async () => {
     const env = await createRecognitionEnv();
     const token = await recognitionToken(env);
-    stubVectorRecognition(env, vi.fn().mockResolvedValue(Response.json({
+    stubPhashRecognition(env, vi.fn().mockResolvedValue(Response.json({
       candidates: [{ product_id: 10738, confidence: 100.001 }],
     })));
 
-    const response = await recognize(env, token, { vector: VECTOR });
+    const response = await recognize(env, token, { ...HASHES });
 
     expect(response.status).toBe(502);
     expect((await readRows(env.DB, "scan_record"))[0]?.recognition_status).toBe("failed");
@@ -1009,9 +1008,9 @@ describe("scan routes", () => {
     const env = await createRecognitionEnv();
     await env.DB.exec("CREATE FUNCTION fail_scan_insert() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'test scan insert failure'; END $$; CREATE TRIGGER fail_scan_insert BEFORE INSERT ON scan_record FOR EACH ROW EXECUTE FUNCTION fail_scan_insert();");
     const token = await recognitionToken(env);
-    stubVectorRecognition(env, vi.fn().mockResolvedValue(Response.json({ candidates: [] })));
+    stubPhashRecognition(env, vi.fn().mockResolvedValue(Response.json({ candidates: [] })));
 
-    const response = await recognize(env, token, { vector: VECTOR });
+    const response = await recognize(env, token, { ...HASHES });
 
     expect(response.status).toBe(500);
     expect((env.SCAN_IMAGES as unknown as FakeR2).objects.size).toBe(0);
@@ -1364,7 +1363,7 @@ async function recognize(
 function recognitionForm(body: Record<string, unknown>): FormData {
   const form = new FormData();
   for (const [key, value] of Object.entries(body)) {
-    if (value !== undefined && value !== null) form.set(key, key === "vector" ? JSON.stringify(value) : String(value));
+    if (value !== undefined && value !== null) form.set(key, String(value));
   }
   form.set(
     "image",
@@ -1431,6 +1430,6 @@ async function confirmScan(
   );
 }
 
-function stubVectorRecognition(env: TestEnvWithPostgres, handler: (...args: any[]) => Promise<Response>): void {
+function stubPhashRecognition(env: TestEnvWithPostgres, handler: (...args: any[]) => Promise<Response>): void {
   env.VECTOR_RECOGNITION = { fetch: handler } as unknown as Fetcher;
 }

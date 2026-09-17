@@ -1,5 +1,7 @@
 # v1.1.0 契约变化
 
+> `dev-xiangyang-new` 试验分支当前契约：`POST /api/v1/scan/recognize` 仍为 multipart（图片及现有审计字段），但使用必填的 `r/g/b` 替换 `vector`；每项必须是编码 32 字节哈希的 43 字符无填充 Base64URL。业务 API 只将 `{r,g,b,game_id?}` 作为 JSON POST 到 `https://recognize.tcgcard.fun/recognize`，可选 `game_id` 同时用于本地目录过滤。保留 `VECTOR_RECOGNITION` 注入边界及既有 503/502、额度、扫描记录语义，审计算法标识为 `rgb-phash-16-v1`。Linux 的 `VECTOR_RECOGNITION_BASE_URL` 应配置为 `https://recognize.tcgcard.fun`。此分支的 App 和 API 必须配套发布；下节描述的是 `dev` 的向量协议历史基线。
+
 ## 扫描向量协议
 
 `POST /api/v1/scan/recognize` 将 multipart `r/g/b` 替换为 JSON `vector`，要求 512 个有限数值且至少一个非零分量，最大 32 KiB；图片为端侧模型检测、原生透视矫正后的 JPEG。该变更于 2026-09-09 从 `dev-wxy` 合入 `dev`，请求路径、UUID/Idempotency-Key、平台信息、卡号、返回候选完整资料、业务状态与 Quota 保持原契约；确认入库保留 `dev` 已有的初始事件购买价格、币种及可靠历史起点修复。旧 pHash 请求不兼容新接口，需协调 App 与 API 发布。
