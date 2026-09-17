@@ -894,3 +894,9 @@ Code Review 自审通过：逐项核对双方提交和手工解冲突差异，�
 Code Review：核对原生桥的 RGB 字节长度、两端调用参数、历史哈希金值、上游请求与可选游戏过滤、审计/配额测试和正式环境配置；未发现本轮测试覆盖范围内的代码缺陷。`wrangler.toml` 的 prod binding 仍指向向量服务 `recognize-vec`，它不接受此分支的 pHash 请求；禁止以当前配置直接部署此分支的 prod Worker。测试环境 Linux API 发布需同步设置 `VECTOR_RECOGNITION_BASE_URL=https://recognize.tcgcard.fun`，仅更新 iOS App 不会切换现有服务端协议。
 
 dev 服务端部署及上述校验已完成；真实图片、登录态完整扫描与新 App 签名包验收仍按本节未验证项补充。后续应从含本次合并的 dev 提交发布，避免旧 pHash 分支再次覆盖同一开发环境。
+
+### dev-xiangyang-new pHash 包体积对比输入（2026-09-17）
+
+在先前 `cc5bf24` 试验提交基础上，本次仅调整本分支的客户端打包输入，不改扫描 API、页面或检测模型。将 PE-Core-T16 Android `.ort`（13,355,544 字节）与 iOS `.mlpackage` 源文件（合计 12,558,078 字节）移入未声明为 Flutter 资源的 `apps/flutter-app/assets/models/`，移除 Xcode PE 模型 Sources/FileReference 与两端及 Dart 不再使用的 `runEmbedding` 入口；模型文件迁移前后的 Git blob 哈希一致，可在仓库内回退。保留 Android RTMDet `.ort`（12,352,384 字节）、现有最小 ORT AAR（3,754,131 字节）及 iOS RTMDet Core ML 模型，检测所需推理依赖不能从 pHash 包中移除。当前 AAR 仍按两模型算子集构建，未声称它已缩成仅检测算子。
+
+Windows 静态核对：Android `src/main/assets/models/` 只剩 RTMDet，Xcode `Runner` Sources 和 Models group 只引用 RTMDet，`pubspec.yaml` 无 `assets/models/` 声明，运行时源码无 `runEmbedding` / PE 资源路径引用；`git diff --check` 退出 0。构建后的 APK/IPA 体积、IPA 中 `.mlmodelc` 清单、Android 多 ABI 的压缩差异与真机检测尚未验证；本机无 Flutter/Dart SDK、Xcode，须由相应构建环境补验。上述 13.36 MB 与 12.56 MB 是未压缩源文件输入量，不代表最终包体积减少值；ORT AAR 体积暂不变。Code Review 核对检测模型引用、共享 ORT 保留、模型迁移完整性与各平台资源入口，未发现静态打包配置中的 PE 模型残留；最终制品检查仍为待验证项。

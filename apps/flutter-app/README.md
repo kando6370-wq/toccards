@@ -62,7 +62,7 @@ flutter build apk --debug --no-pub --dart-define-from-file=config/production.jso
 
 ## 扫描平台与协议
 
-当前试验分支的扫描链路支持 iOS 16+ 和 Android API 24+。端侧 RTMDet-Ins 检测并矫正卡面，对矫正后的 RGB 分通道计算 pHash，向业务 API 提交 `r/g/b` 和 JPEG；业务 API 通过 `VECTOR_RECOGNITION` 适配器请求 `recognize.tcgcard.fun`。PE-Core-T16 不参与此试验的推理，模型资源尚未移除；Flutter Web 暂不支持扫描。实现与资源说明见[扫描识别链路](../../docs/releases/v1.1.0/01-flows/scan-recognition.md)。
+当前试验分支的扫描链路支持 iOS 16+ 和 Android API 24+。端侧 RTMDet-Ins 检测并矫正卡面，对矫正后的 RGB 分通道计算 pHash，向业务 API 提交 `r/g/b` 和 JPEG；业务 API 通过 `VECTOR_RECOGNITION` 适配器请求 `recognize.tcgcard.fun`。PE-Core-T16 的模型源文件保存在未声明为 Flutter 资源的 `assets/models/`，不参与 iOS/Android 打包；Android 检测仍需要共享的最小 ORT AAR。Flutter Web 暂不支持扫描。实现与资源说明见[扫描识别链路](../../docs/releases/v1.1.0/01-flows/scan-recognition.md)。
 
 ## iOS simulator
 

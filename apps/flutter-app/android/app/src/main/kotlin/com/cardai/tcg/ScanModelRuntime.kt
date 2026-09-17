@@ -20,11 +20,10 @@ class ScanModelRuntime(
     private val mainHandler = Handler(Looper.getMainLooper())
     private val environment = OrtEnvironment.getEnvironment()
     private var detectionSession: OrtSession? = null
-    private var embeddingSession: OrtSession? = null
 
     init {
         MethodChannel(messenger, CHANNEL).setMethodCallHandler { call, result ->
-            if (call.method != "runDetection" && call.method != "runEmbedding") {
+            if (call.method != "runDetection") {
                 result.notImplemented()
                 return@setMethodCallHandler
             }
@@ -35,10 +34,7 @@ class ScanModelRuntime(
             }
             executor.execute {
                 try {
-                    val output = when (call.method) {
-                        "runDetection" -> runDetection(tensor)
-                        else -> runEmbedding(tensor)
-                    }
+                    val output = runDetection(tensor)
                     mainHandler.post { result.success(output) }
                 } catch (error: Throwable) {
                     mainHandler.post {
@@ -76,22 +72,6 @@ class ScanModelRuntime(
         }
     }
 
-    private fun runEmbedding(tensor: FloatArray): FloatArray {
-        require(tensor.size == EMBEDDING_ELEMENTS) { "Invalid embedding tensor size." }
-        val session = embeddingSession ?: createSession(EMBEDDING_MODEL).also {
-            embeddingSession = it
-        }
-        OnnxTensor.createTensor(
-            environment,
-            FloatBuffer.wrap(tensor),
-            longArrayOf(1, 3, 384, 384),
-        ).use { input ->
-            session.run(mapOf("image" to input)).use { outputs ->
-                return floatValues(outputs.get("embedding").orElseThrow())
-            }
-        }
-    }
-
     private fun createSession(assetPath: String): OrtSession {
         val model = context.assets.open(assetPath).use { it.readBytes() }
         return OrtSession.SessionOptions().use { options ->
@@ -116,14 +96,11 @@ class ScanModelRuntime(
     override fun close() {
         executor.shutdown()
         detectionSession?.close()
-        embeddingSession?.close()
     }
 
     private companion object {
         const val CHANNEL = "com.cardai.tcg/scan-model-runtime"
         const val DETECTION_MODEL = "models/rtmdet_ins_tiny_card_640_fp16.ort"
-        const val EMBEDDING_MODEL = "models/pe_core_t16_image_fp16.ort"
         const val DETECTION_ELEMENTS = 3 * 640 * 640
-        const val EMBEDDING_ELEMENTS = 3 * 384 * 384
     }
 }

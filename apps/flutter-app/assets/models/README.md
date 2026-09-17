@@ -9,10 +9,12 @@ the final Android or iOS app:
 - `pe_core_t16_image_fp16.onnx`: PE-Core-T16 512-dimensional image embedding model, SHA-256 `9D8C56EBB6428BC26F6A85BFD919CD0A73DBDCBB882BBABA8C8D66E9FAAD0F2D`.
 
 License, third-party notice, manifest, and provenance files are retained in
-this directory's `licenses/` folder. Android packages model-specific ORT-format
-artifacts in `android/app/src/main/assets/models/` and runs them with the local
-minimal ONNX Runtime AAR. iOS uses the corresponding converted Core ML models
-from `ios/Runner/Models/`. Conversion and validation commands must receive an
-external ONNX source directory containing the two files above. The runtime
-contract is `pe-core-t16-384-cosine-v1`; these models are not compatible with
-the retired RGB pHash protocol.
+this directory's `licenses/` folder. The `dev-xiangyang-new` pHash experiment
+keeps the converted PE-Core-T16 `.ort` and `.mlpackage` in this source-only
+directory for comparison and rollback. `pubspec.yaml` does not declare this
+directory as a Flutter asset, and Xcode has no PE-Core build reference.
+Android packages only the RTMDet `.ort` from `android/app/src/main/assets/models/`
+and retains the existing minimal ONNX Runtime AAR for detection. iOS builds
+only the RTMDet Core ML model from `ios/Runner/Models/`. Conversion and
+validation commands must receive an external ONNX source directory containing
+the two files above; the embedding model is not used in this pHash build.
