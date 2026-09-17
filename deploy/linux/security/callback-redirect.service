@@ -1,0 +1,13 @@
+[Unit]
+Description=Route public Linux dev traffic through callback-only gateway
+Requires=toccards-callback-gateway.service
+After=network-online.target docker.service toccards-callback-gateway.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/toccards-callback-redirect.nft
+ExecStop=/usr/sbin/nft delete table ip toccards_callback
+
+[Install]
+WantedBy=multi-user.target

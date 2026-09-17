@@ -5,11 +5,15 @@
 - 当前后端适配：2026-09-15，`dev-inner` 基于 `dev@b941a3f`；原始设计基线为 2026-08-26 的 `dev@8e22c1d`。
 - 合并状态：`19a6ac4` 引入 Linux 基础部署；2026-09-16 的 `75c0ec4` 已将 HTTP 向量、App/Admin 内网入口和发布预检整改合入 dev，并保留原后台筛选增量。
 - 2026-09-17 手工验收时的服务器：watcher 先自动发布 `dev@75c0ec4`；手工发布 Linux Apple SDK 打包修复后，current 为 `manual-a97c5ed-apple-esm-dirty-20260917-0949`。本地 `a97c5ed` 相对原部署的 API/Admin 源码与依赖未变，bundle 只增加 Node CommonJS 加载器；原数据库/图片卷保留，ledger 为 13 项，详见[验证记录](../05-delivery/VERIFICATION.md)。当次修复来自未提交工作区，后续自动发布版本需单独核对。
-- 先前自动发布版本的受控扫描、幂等扣次与本地收藏/初始价格事件写入均通过；App test/Admin development 和 `deploy:dev` 已统一到 Linux。Apple Sandbox 官方 TEST 已经由公网回调进入 Linux 并成功处理；设备与真实图片扫描、真实购买/恢复、统计配置和旧 CF dev 退役仍待验收。
+- 先前自动发布版本的受控扫描、幂等扣次与本地收藏/初始价格事件写入均通过；App test/Admin development 和 `deploy:dev` 已统一到 Linux。Apple Sandbox 官方 TEST 已经由公网回调进入 Linux 并成功处理；设备与真实图片扫描、真实购买/恢复完整矩阵、统计后台收件和旧 CF dev 退役仍待验收。
 - 2026-09-16 配置增量：原 CF dev 的 Google/App Attest/邮件公开配置及 Apple 官方根证书已落入 Linux；API 通过 Node 22.22.1 原生环境代理访问外网，Google 网络验证通过，CF 向量服务和内网仍直连。私密凭据、公网通知入口与真机缺项集中维护在[开发计划](../05-delivery/development-plan.md#linux-dev-集中处理清单2026-09-16)。
 - 同日已将用户提供的原始 ZeptoMail Token 写入服务器私有配置，唯一一封注册验证码测试邮件由用户确认收到；邮件凭据缺项解除，完整注册与找回密码流程未验收。
 - Apple Server API 的三项 dev 凭据也已配置，项目客户端从实际 API 容器查询 Sandbox 通知历史返回 200；私钥解析与验签器构造通过。公网 Sandbox TEST 已验收；真实购买/恢复与交易校正仍待独立验收。
 - 2026-09-17 已部署独立 CF Apple Sandbox 回调代理并绑定 `dev-callback.tcgcard.fun`，仅允许通知路径 POST；该 Worker 无业务数据库或 Apple 私钥绑定。用户保存 DNS-only 回源 A 记录与 Apple Sandbox URL 后，官方 TEST 已送达 Linux；修复 ESM 包加载 Apple SDK 问题并重处理原通知后，Sandbox/beta 的 inbox 和结构化 `TEST` 记录均为 `processed`，见[代理配置](../../../../deploy/cloudflare/apple-callback/README.md)及[验证记录](../05-delivery/VERIFICATION.md)。
+- 同日公网映射变更曾使 Worker 回源 502、Apple TEST 投递超时并触发限流；网络恢复后新发一条 TEST，Linux 于 `06:10:48Z` 将其验签并处理，随后真实 `DID_CHANGE_RENEWAL_STATUS` 也处理成功。Apple 官方投递状态查询仍受 429 限制，未取得本条 SUCCESS 回执；本次接收与验签证据见[验证记录](../05-delivery/VERIFICATION.md)。
+- 同日已在 kd201 宿主机部署独立回调网关与 nftables 预路由：公网到 `201:8080` 的 IPv4 请求先转到仅允许 Apple Sandbox POST 的 `8081`，私网仍直接使用 `8080`。源站公网的 Admin/其他 API 路径及伪造 Host 均被拒绝，CF 回调和内网 API/Admin 保持可用；宿主机规则独立于 Docker/自动发布，详细边界与回退见[回源隔离策略](../../../../deploy/linux/security/README.md)。CF→origin 仍是 HTTP。
+- 网关启用后新增的一条官方 Apple Sandbox TEST 已获投递 `SUCCESS` 回执，JWS 摘要与 Linux 新增且处理成功的 inbox 一致；该 TEST 不创建交易，详见[验证记录](../05-delivery/VERIFICATION.md)。
+- 同日已将旧 CF dev 公共配置下发的 Mixpanel Project Token、Singular API Key/Secret Key 同步至 Linux 私有 `.env`；用户随后提供与原 dev Token 匹配的 Mixpanel API Secret，也已加入 Linux 私有配置。两次均只重建 API，iOS/Google 的三项公开值与旧 dev 相同且不下发 API Secret；当前代码未使用后者。Linux 容器使用该 Secret 的 Mixpanel 只读导出返回 200，并回读到 App 类事件；指定测试订阅的事件归属和 Singular 后台收件仍未验收。
 - 环境边界：Linux 使用独立测试 PostgreSQL；Cloudflare dev/test 与 prod 已完成 PostgreSQL 迁移且无 D1 binding，不存在待执行的 prod D1 切换任务。
 
 ## 背景与架构纠正

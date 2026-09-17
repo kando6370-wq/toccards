@@ -4,7 +4,7 @@
 
 公网地址为 `https://dev-callback.tcgcard.fun/api/v1/apple/notifications/v2/sandbox`；同时保留 Worker 的 `workers.dev` 地址用于诊断。`LINUX_CALLBACK_ORIGIN` 使用 `http://dev-callback-origin.tcgcard.fun:8089`，需要 DNS-only A 记录 `dev-callback-origin → 111.10.170.43`。该公网端口由用户映射至 Linux `192.168.50.201:8080`。直接以裸 IP 回源在实际 Workers 环境返回 403/1003，因此必须先建立回源域名并验证连通性。
 
-Cloudflare 的 HTTPS 只覆盖客户端到边缘这一段，HTTP origin 不会因此变成 HTTPS；公网入口层应限制为必要的回调访问，后续可改为 HTTPS origin。仅代理路径受限并不会改变外层 NAT 对其他 API 的开放情况。
+Cloudflare 的 HTTPS 只覆盖客户端到边缘这一段，HTTP origin 不会因此变成 HTTPS；后续可改为 HTTPS origin。2026-09-17 已在 Linux 主机增加[回源隔离策略](../../linux/security/README.md)：公网流量在 Docker DNAT 前转入只允许 Sandbox POST 的 8081 网关，私网 App/Admin 仍访问 8080。路由器的 8089 → 8080 映射不变；如果主机规则失效，该映射仍会暴露整站。
 
 代理最多接收 200,000 字节，向固定的 Sandbox 路径原样传递请求体，不转发客户端 Authorization/Cookie，不重试、不缓存。Workers 使用 `redirect: "manual"` 并显式拒绝 3xx；该运行时不支持 Node 可用的 `redirect: "error"`。上游失败保留失败状态，连接或超时返回 502；10 秒截止时间覆盖上游响应正文。Worker 不绑定数据库、KV、R2 或 Apple 私钥，也不记录通知正文；日志仅包含上游异常类型和消息。
 

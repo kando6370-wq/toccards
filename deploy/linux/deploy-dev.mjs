@@ -43,7 +43,7 @@ async function main() {
     "deploy/linux/preflight.mjs", "deploy/linux/ci/deploy-release.sh",
     "deploy/linux/offline/Dockerfile", "deploy/linux/offline/Postgres.Dockerfile",
     "deploy/linux/offline/postgres-entrypoint.sh", "deploy/linux/offline/prepare-node-runtime.sh",
-    "deploy/linux/offline/web-server.mjs",
+    "deploy/linux/offline/web-server.mjs", "deploy/linux/security",
     "apps/workers-api/dist/linux", "apps/workers-api/src/db/postgres/migrations", "apps/admin-web/dist",
   ];
   for (const input of inputs) {

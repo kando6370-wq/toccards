@@ -2,6 +2,32 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## Linux dev 公网回源服务器隔离（2026-09-17）
+
+原公网 `111.10.170.43:8089` NAT 到 `192.168.50.201:8080`，可绕过 CF Worker 直接得到 Admin HTML 与 `/api/v1/health` 200；CF Worker 的路径限制无法保护这条直连。kd201 仅在 8080 发布 Docker Web，`ens160` 抓包确认公网请求保留公网源地址，内网客户端从私网到达。为不改 NAT、App/Admin 内网地址或现有 Compose，在主机启动独立 Node 22 回调网关（8081），再通过专属 nftables `ip toccards_callback` 表以 prerouting priority -101（Docker DNAT 为 -100）仅将公网 IPv4 到 `201:8080` 的流量转到该网关；RFC1918 内网源地址仍直达 8080。两项 systemd 服务已启用并运行，代码和策略存放在 `deploy/linux/security/` 与宿主机对应私有安装位置，原 API/Web/DB 容器及 watcher release `dev@7a8300b` 均未更换。
+
+网关仅允许精确的 `POST /api/v1/apple/notifications/v2/sandbox`，200,000 字节上限、固定回环上游、8 秒超时、拒绝重定向，不转发客户端 Cookie/Authorization；JWS 验签仍由原 API 负责。Windows 与 kd201 的 Node 定向测试均为 2/2；服务器 `nft -c`、systemd unit 校验和服务状态通过。公网源站 `/`、`/api/v1/health`、Admin API 均为 404；通过原始 SOCKS 连接固定公网目的地后，伪造内网 Host 仍为 404，抓包确认为公网源地址。局域网 HTTP 代理伪造 Host 曾返回 200，原因是代理将连接改走私网，并非公网转发绕过；该私网代理需由其自身访问控制保护。公网回调 GET 为 405、空 JSON POST 经 CF 与直连源站均为 Linux 400；私网 Admin 200、health 200、未登录 Admin API 401。使用既有已处理 Apple TEST 的原始 JWS 经 CF 网关仅重放一次返回 200，inbox 仍为 16 条，未请求 Apple 发送新 TEST。PostgreSQL migration 仍为 13，其他项目/CF prod/识别 Worker 未改。
+
+安全策略上线后，用户再授权发送**一条**新的 Apple Sandbox 官方 TEST。Apple Server API 于 `2026-09-17T06:48:33.381Z` 接受请求，状态回读为 `SUCCESS`，官方 SDK 验签得到 UUID `4c121de4-fa5d-4767-8bb2-3c87c148b9e5` 和 SHA-256 `e03f90e205eb95966f5d69851ab75f93d164729264a2dc6a4dfb9bf1d885aea1`。Linux inbox 于 `06:48:34.688Z` 新增该 UUID，摘要一致、Sandbox/beta、`processed`、attempts=1、`last_error=null`，结构化 `TEST` 与 decoded payload 均存在；inbox 16→17，Sandbox 交易数仍为 14、购买链仍为 1，迁移账本 13 项。公网空 JSON POST 继续返回 Linux 400，临时 Apple token 和诊断脚本已清理。此次真实 TEST 补齐了新网关上线后 Apple 投递回执与 Linux 验签闭环，但仍不代表其余订阅生命周期、Restore 或收入后台验收完成。
+
+残余边界：CF→origin 仍为 HTTP；规则依赖当前 `ens160`、目标 IP 和公网源地址保留，路由器若将 WAN 源地址 SNAT 为私网或未来启用公网 IPv6，必须重新设计/复验。宿主机服务和规则独立于 Git watcher，仓库代码未推送，后续更新需显式同步。若网关故障保持重定向可让公网失败关闭；直接停用重定向会恢复此前整站公网暴露，不可当作无风险回滚。
+
+## Apple Sandbox 公网回源复验（2026-09-17）
+
+公网映射调整期间，Cloudflare `toccards-apple-callback-dev` 仍将精确的 Sandbox POST 路径转发到 `http://dev-callback-origin.tcgcard.fun:8089`，但空请求返回 `502 CALLBACK_UPSTREAM_UNAVAILABLE`，实时 Worker 日志为 10 秒 `TimeoutError`；Linux 内网同一路径返回 400，API 健康、数据库 inbox 基线为 14。按用户要求先发送一条 Apple 官方 TEST，官方签名可验证但投递为 `TIMED_OUT`；随后以至少 10 秒的请求间隔发起 116 条 TEST，其中 115 条已回读为 `TIMED_OUT`、最后一条未取得最终状态，下一次请求触发 Apple HTTP 429，发送进程已停止。这一阶段没有新通知入 Linux，不能把 Apple 接受发送请求写成投递成功；临时 token 与诊断脚本已清理。
+
+网络侧恢复后，用户再次明确要求只发一条 TEST。Apple Server API 接受该请求并给出测试 token；随后的官方投递状态查询仍返回 429，**未取得 Apple 的 SUCCESS 回执**。但公网 HTTPS 回调的空 JSON POST 已恢复为 Linux `400 INVALID_REQUEST`，本地 inbox 于 `2026-09-17T06:10:48.682Z` 新增唯一 `TEST`，UUID `c0bcefe9-816a-4c58-98e6-e4a23cf4b748`，Sandbox、`com.kando.kandoApp.beta`、`processing_status=processed`、`attempts=1`、`last_error=null`，结构化记录及 decoded payload 均存在；HTTP 入口、入库及服务端验签链路已实测。随后 `06:11:42Z` 又收到真实 `DID_CHANGE_RENEWAL_STATUS / AUTO_RENEW_ENABLED`，同样处理为 `processed`、无错误。基线 14 条变为 16 条，迁移账本仍为 13；该生命周期通知不应被描述为本轮新购买或新交易。仅运行现有 Linux release `dev@7a8300b` 和独立 Cloudflare 回调 Worker，没有改业务代码、数据库结构、prod 或旧 CF dev 部署。此次验证不覆盖后续每种订阅通知、真机 Restore 或公网源站的访问面整改；后者由用户暂缓。
+
+## Linux dev 统计 SDK 配置同步（2026-09-17）
+
+原 Cloudflare `toccards-api-dev` 的 Secret 列表含 `MIXPANEL_PROJECT_TOKEN`、`MIXPANEL_API_SECRET`、`SINGULAR_API_KEY`、`SINGULAR_SECRET_KEY`；Secret 接口只返回名称，不能读取明文。旧 dev 公共 `/app-config` 在 iOS/Google 两种平台均下发前三项客户端需要的值（Mixpanel Project Token、Singular API Key/Secret Key）。Linux 原私有 `.env` 声明了四项但运行容器均为空。本次仅把三项公共 SDK 配置从旧 dev 同步到 Linux；`MIXPANEL_API_SECRET` 保持空值，当前代码仅声明此环境变量，没有使用它的服务端路径。
+
+配置操作只替换服务器私有 `.env` 中对应三行；原文件备份到 `/home/user/apps/toccards-test/shared/.env.before-analytics-20260917-024633`，两者权限均为 600，其他内容按字节保留。目标仍为 `branch-dev-7a8300b502d5-20260917101244`，只通过原离线 Compose 重建 API，Web 与 PostgreSQL 容器 ID 未变，没有迁移、业务数据写入、Cloudflare/prod 配置变更或 Git 推送。更新前先验证源响应非空、待写文件格式、现有键为空且各只出现一次；更新后 Node 解析的配置、API 容器环境与来源摘要一致，iOS/Google 两种 `/api/v1/app-config` 均为 200，三项下发值逐项与旧 CF dev 相等，未输出值。API health 200、Admin 标题正常。未运行应用测试/构建（没有源码或依赖变更），也未执行 App 真机安装、Mixpanel/Singular 项目后台事件和收入收件验收；配置相等不等于事件已送达。
+
+用户随后提供同一 Mixpanel 项目的 Project Token 与 API Secret。前者与旧 CF dev 和 Linux `/app-config` 均逐值匹配；仅将后者填入 Linux 原本为空的 `MIXPANEL_API_SECRET` 一行，不改前三项，备份为 `/home/user/apps/toccards-test/shared/.env.before-mixpanel-api-20260917-025354`。备份和新 `.env` 权限均为 600，原离线 Compose 仅重建 API；Web/数据库容器 ID 未变。暂存文件经 Node 解析、运行容器经摘要校验确认该 Secret 已注入；API health/Admin 正常，iOS/Google 的三项公开配置仍与原 dev 一致，`MIXPANEL_API_SECRET` 未进入 `/app-config`。没有向 Mixpanel API 发起凭据校验，也没有验证真机 SDK 初始化或后台事件/收入收件；该字段在当前源码中仍无使用路径。本次仅调整私有运行配置与文档，未执行应用构建/测试、远程 migration、CF/prod 变更或 Git 推送。
+
+后续只读核验：从 Linux API 容器使用现有 `MIXPANEL_API_SECRET` 按 Mixpanel Project Secret 的 HTTPS Basic Auth 方式调用 Raw Data Export，返回 HTTP 200 和有效事件；没有输出原始事件/用户信息，也未向 Mixpanel 写入测试事件。首次当天读取 44 条事件，其事件时间都晚于本轮 Linux 配置同步；第二次当天读取 50 条，包含 `subscribe_view` 3、`splash_view` 2、`homePerformance_view` 1、`sub_click` 1、`sub_result` 1、`restore_result` 1。记录存在证明该 Mixpanel 项目可查询且有 App 类事件，但事件时间由客户端提供、未核对指定用户或交易 ID，不能归因到本次 Linux 测试订阅，也不能宣称 Mixpanel 收入或 `sub_success` 已收到。Singular 的 SDK API Key/Secret Key 已从 Linux `/app-config` 正常下发，但不提供后台报表查询权限；缺少 Singular 后台/Reporting API 访问条件，本轮未验证其安装、事件或收入收件。Mixpanel 官方已将 Project Secret 认证标记为弃用，后续新增服务端查询应改用 Service Account。
+
 ## 邮箱登录在密码页展示 Welcome back（2026-09-16，已构建测试内部包 145）
 
 用户在首次安装引导的邮箱登录中观察到密码验证成功后先闪回引导页 3，再进入订阅页，要求在密码页展示原有 1 秒 Welcome back 后继续。基于 `dev@a97c5ed`、含已有 `1.0.2+144` 打包改动的工作区；本轮不修改版本或发布脚本。根因由代码路径和失败测试确认：`_completeSignIn` 先 pop 密码页，`_openEmailAuthPage` 再 pop 登录选项并于下一帧展示提示，因而提示背后已变为引导页，随后引导完成和权益检查再次切换画面。此前真机看到提示只能证明提示出现，不能证明背景页面和切换符合本次要求。
