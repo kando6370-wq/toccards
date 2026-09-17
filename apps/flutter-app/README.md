@@ -9,8 +9,12 @@
 - 匿名/用户会话、Token 刷新、认证存储和 OAuth 适配
 - Firebase、Mixpanel、API 请求日志和测试环境调试覆盖层
 - 可复用的通用订阅包位于 `dart-packages/subscription-core`
+- `shared/ui/kando_bottom_sheet_page.dart` 提供 GoRouter 页面使用的底部弹层容器，默认显示独立的 32px 顶部拖拽横条区域；长内容只在下方区域滚动
+- `shared/ui/toast.dart` 提供顶部轻提示，支持失败、网络、成功、警告和信息类型
+- `shared/ui/load_state.dart` 提供通用失败态刷新卡片 `KandoFailureBlock`，由调用方提供刷新回调，可嵌入页面或弹层
+- `shared/ui/kando_modal.dart` 提供普通/强制应用更新弹窗及结果返回；检查版本和打开商店由调用方实现
 
-当前根路由是空白启动路由，不包含原 Card AI 页面、领域模型或页面素材。
+当前根路由是空白启动路由，不包含原 Card AI 页面、领域模型或页面素材。原底部 SnackBar 和业务专用弹层未恢复。
 
 ## 本地运行
 
