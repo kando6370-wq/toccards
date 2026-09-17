@@ -23,7 +23,7 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 | 范围 | 当前代码事实 | v1.1 差距 |
 |---|---|---|
-| dev 迁往 Linux | 2026-09-16 整改已通过 `75c0ec4` 合入 dev，并由 kd201 监听器自动部署；当前运行版本的 CF 扫描、幂等扣次与本地收藏写库通过，原卷与邮件/Apple 配置保留 | 公网回调、真实登录/购买、设备、统计和旧 CF dev 退役见[集中处理清单](#linux-dev-集中处理清单2026-09-16)；服务器受控验收不替代真机 |
+| dev 迁往 Linux | 2026-09-17 kd201 watcher 运行 `dev@4d5d66f`，旧 CF dev Worker、域名和 cron 已退役；Linux 原卷、Apple 回调和向量识别保留 | 用户确认客户端路径已测无问题；本次退役未独立重跑设备，统计后台收件及完整订阅生命周期仍按[集中处理清单](#linux-dev-集中处理清单2026-09-16)分别验收 |
 | App 版本与交付 | 实际 Home 首帧激活版本检查，后续 Home 复查静默进行，已确认强更继续全局拦截；iOS 校验后保存 IPA/dSYM，按 Bundle ID 保留测试 3 个/正式 7 个版本 | 新包安装、升级/商店往返和真机验收待完成；本轮未在 macOS 执行保存脚本或签名构建 |
 | App 订阅体验 | 已有 Subscription Page、Paywall、Success、StoreKit 2 Fresh Purchase verifier、Secure Storage 补偿队列、本机 Restore 结果分流、App Attest 原生桥接，以及 Performance/1Y/Folder/Scan Waiting 的来源动作恢复；Home/Search/Collection/Profile 顶部入口、Profile Banner 和 Scan 顶部 Pro 次数卡均已接入完整 Subscription Page，功能卡点仍使用 Functional Paywall Bottom Sheet；Profile 顶部及升级 Banner 已同步 Figma `2129:5678` 并按左右 20px 响应式布局，Search/Collection 顶部已同步 Figma `2070:9663` 的标题与皇冠 PRO 胶囊，Search 顶部搜索框、游戏选择框及 Cards/Sets 切换框和 Collection 顶部 Tab、搜索框均已统一为 44px，Collection Portfolio 摘要已同步 Figma `2070:9486` 的 110px 紧凑布局，Home 顶部订阅入口及 Overview/Performance Tab 已同步 Figma `2181:12864`，模式切换器使用固定外框宽度以保持皇冠入口位置稳定；商品局部缺失、15 秒重载、Purchase 状态、首次/冷启动 Premium 三态分流、ATT/Singular 启动顺序及 v1.1 PRD 视觉 Golden 已实现 | 前后台完整矩阵、Singular 收入后台收件及 iOS 真机验收不完整 |
 | Premium 真值 | 鉴权保留可信 `session_id`；Fresh Purchase 与 Restore 均已有独立 Apple 证据、session proof 和 session grant 写链；App 使用 Unknown/Free/Premium 三态及已验证缓存；Scan、Folder、Performance、Home 与 Card Detail 普通历史 1Y 已接入统一授权 | 三态仍缺 iOS 真机前后台与过期续订矩阵验收 |
@@ -44,7 +44,7 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 ### Linux dev 集中处理清单（2026-09-16）
 
-用户要求先集中整理缺项，再统一解决。Linux API/Admin、本地数据库和受控扫描链路已有证据；当前还不能完成整套 dev 替换验收。已完成的公开配置、Apple 根证书、Google 出站代理和保留的运行版本见[本次验证](VERIFICATION.md#linux-dev-外部服务配置与代理2026-09-1516)。以下按需要准备的材料和实际影响集中列出，密钥不写入仓库或本文档。
+本表最初汇总 2026-09-16 的待办，后续状态按日期更新。2026-09-17 用户确认客户端业务路径已测无问题，旧 CF dev 业务入口已退役；具体远程回读见[退役验证](VERIFICATION.md#旧-cloudflare-dev-业务退役2026-09-17)。未取得独立真机日志的细项仍按原验证边界记录。密钥不写入仓库或本文档。
 
 | 项目 | 已确认的缺项或问题 | 集中准备的材料 / 后续处理 | 完成标准 |
 |---|---|---|---|
@@ -53,10 +53,10 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 | Apple Server API | 凭据缺项已解除：用户确认 dev 使用 `A2Q978K984` 并提供对应 Issuer ID，Linux 已配置三项凭据。项目客户端在配置前及 API 重建后只读查询 Sandbox 通知历史均返回 200 | 不再需要提供 Issuer ID、Key ID 或 `.p8`；继续准备 Sandbox 测试账号与真机，配合公网入口验收购买、Restore 和通知校正 | 私钥签名、PEM 环境变量解析、项目客户端/验签器构造及 Sandbox API 鉴权通过；历史窗口为空，不代表真实交易、Server API 校正或通知闭环通过 |
 | Apple 公网通知 | DNS-only A 与 Sandbox URL 已保存，Linux 自动发布版本已处理原 TEST 和真实订阅。2026-09-17 网络回源调整期间公网曾返回 502、多条 TEST 投递超时并触发 Apple 429；网络恢复后新 TEST 与 `DID_CHANGE_RENEWAL_STATUS` 均处理成功。kd201 宿主机已将公网回源隔离到仅允许 Sandbox POST 的入口；上线后再次只发一条官方 TEST，Apple 状态回读 `SUCCESS`，Linux UUID/摘要一致且 `processed`，交易数未因 TEST 增加 | 当前公网接收/验签与源站路径隔离已实测；后续用 Sandbox/TestFlight 验证 Restore 与其余生命周期。未来 NAT 源地址或公网 IPv6 变化需复验主机规则 | 对外完整 URL 为 `https://dev-callback.tcgcard.fun/api/v1/apple/notifications/v2/sandbox`；新 TEST 和真实订阅通知已入 Linux，公网其他路径及真正的公网 Host 伪造被拒绝。CF→origin 仍为 HTTP，宿主机策略未随 watcher 自动发布 |
 | 统计与归因 | 2026-09-17 Linux 已同步原 CF dev 公共 `/app-config` 中的 Mixpanel Project Token 和 Singular API Key/Secret Key；两平台下发值逐项相等。用户提供的 Mixpanel API Secret 也已写入私有配置，未向客户端公开，当前源码没有使用路径。Linux 容器用该 Secret 只读导出返回 200，当天项目中有已知 App 类事件 | 用指定测试用户/交易时间核对 Mixpanel 的业务事件；在 Singular 后台或具备报表权限的 API 核对安装、事件及收入。若后续新增服务端 Mixpanel 查询，应使用官方推荐的 Service Account | 四项环境变量已配置；Mixpanel 凭据通过导出认证且项目有事件，但未关联本次订阅，也未验证 `sub_success`/收入。Singular SDK 配置下发通过，后台收件与金额/币种仍待验收 |
-| iOS / Android 真机 | 尚未验证真实 Google/Apple 登录、两端模型扫描、局域网权限、购买和重启持久化 | 可访问内网的 iOS 16+/Android API 24+ 设备、测试账号；iOS 另需 Mac/Xcode 和测试签名条件 | test 包业务 API 指向内网，真实扫描候选与额度/收藏在 Linux；beta IPA 最终 App Attest entitlement 为 development |
-| 自动发布与 dev 收口 | `dev@75c0ec4` 已由 watcher 自动发布，受控扫描和本地库验证通过；2026-09-17 手工验收时 Linux 因 Apple SDK ESM 修复切到 `manual-a97c5ed-apple-esm-dirty-20260917-0949`，原卷与 13 项 ledger 保留；该时源码尚未提交远端 dev | 日常自动发布仍监听远端 dev；本次修复与代理配置同步后须核对 watcher 的运行版本。继续真机和旧 CF dev 退役验收 | 原自动发布版本的受控扫描有完整证据；手工版本新增公网 Sandbox TEST 成功证据，真实扫描/购买仍分开验收 |
+| iOS / Android 真机 | 2026-09-17 用户确认 Linux 客户端业务路径已测试无问题；本次退役未独立取得设备日志或逐项重跑 | 后续涉及真机回归时仍保留平台、签名包和测试账号的原验收要求 | 用户确认与本次服务端只读检查为不同证据，不外推为完整订阅生命周期或统计后台收件通过 |
+| 自动发布与 dev 收口 | `dev@4d5d66f` 已由 kd201 watcher 自动发布，API/DB healthy、13 项 ledger，release 与运行 bundle 一致；旧 CF dev Worker、域名与 cron 已删除 | 保留 Linux watcher、独立 Apple 回调、CF 向量与 prod，旧测试数据/包不清理；后续源码变更仍按 Linux 流程发布 | 2026-09-17 远端回读及退役后独立服务烟测见[验证记录](VERIFICATION.md#旧-cloudflare-dev-业务退役2026-09-17) |
 
-部署分支对齐与自动发布已完成，公网 Sandbox TEST 也已走通；下一步准备 Sandbox 账号与真机购买/恢复验收，并核对当前手工修复在远端 dev 的自动发布结果。管理员登录、Google 代理、邮件收件和 Apple Server API 凭据鉴权均已完成，统计可随后补验。当前 Sandbox 验签不要求 `APPLE_IAP_APP_ID`，因此未将其空值列为阻塞，也不能为填满配置而使用正式 App ID。2026-09-16 合并并推送 dev 时没有新建 Tunnel/DNS、修改 App Store Connect、变更监听分支或退役 CF 资源；2026-09-17 的公网入口配置见本表。
+部署分支与 watcher 运行版本已对齐，公网 Sandbox TEST 已走通，旧 CF dev 业务入口已退役。用户确认客户端业务路径通过；本次未复验设备、指定交易的统计后台收件或完整订阅生命周期。管理员登录、Google 代理、邮件收件和 Apple Server API 凭据鉴权已有独立证据。当前 Sandbox 验签不要求 `APPLE_IAP_APP_ID`，不得为填满配置而使用正式 App ID。旧测试数据和包按用户要求保留，退役详情见[验证记录](VERIFICATION.md#旧-cloudflare-dev-业务退役2026-09-17)。
 
 ## 3. 阶段与验收门槛
 

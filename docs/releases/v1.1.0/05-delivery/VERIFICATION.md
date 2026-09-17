@@ -2,6 +2,16 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## 旧 Cloudflare dev 业务退役（2026-09-17）
+
+用户确认 Linux 客户端业务路径已测试无问题，并要求保留旧测试数据和旧包，退役旧业务 Worker、域名入口和 cron；本次没有独立重跑真机路径。退役前只读核对 kd201：`current` 为 watcher 发布的 `dev@4d5d66fdf60c2703604d9c72fc0ed204635c2279`，manifest、`last-deployed-sha` 和远端 dev 一致；API/Web/DB 容器运行，API/DB healthy，API bundle 与 release 的 SHA-256 相同，Admin 首页文件也与 release 一致。PostgreSQL 为 18.6，migration ledger 为 13 项。该 release 的发布前备份为 1,120,771,233 字节，容器内 `pg_restore --list` 退出 0；未执行整库恢复。回调网关和重定向 systemd 服务均为 active/enabled，实际 nftables 表存在，网关文件与本地源码摘要一致。
+
+Cloudflare 退役前回读：`toccards-api-dev` 的自定义域名仅有 `api-dev.tcgcard.fun`，cron 仅有 `*/5 * * * *`，workers.dev 和 preview URLs 均关闭。首次清空 cron 的对象格式请求被 Cloudflare 以 10026 拒绝，没有修改线上状态；按 Wrangler 所用的数组格式 `[]` 重试后，独立 GET 确认 schedules 为 0。仅对已核对域名、服务和 ID 的旧绑定执行 DELETE；该接口返回空响应，但独立 GET 确认旧绑定为 0。随后 `wrangler delete toccards-api-dev` 成功退出 0，未使用 `--force`。脚本清单不再包含旧 Worker；Cloudflare 权威 DNS 对旧域名返回不存在，本机缓存期间的旧 HTTPS 请求返回 530，未再提供旧 API。
+
+退役后 `api.tcgcard.fun/api/v1/health`、Linux 内网 health、`recognize-vec.tcgcard.fun/health` 均返回 200；独立 `dev-callback.tcgcard.fun` 对通知路径 GET 返回预期 405。Cloudflare 清单仍包含 prod API、向量 Worker 和独立 Apple 回调，prod 与回调自定义域名保持原归属；只读清单确认旧 dev KV namespace 与 R2 bucket 均仍存在，未读取内容。没有删除或写入共享 PostgreSQL、旧 dev KV/R2、Linux 数据卷、旧包或 prod；旧 Worker 自身的 Secret 和版本历史随脚本删除，若要恢复需重新配置，不能将数据保留等同于 Worker 可无密钥回滚。本次未发送新的 Apple TEST、未执行旧包兼容访问或完整客户端复验，用户确认的客户端验收与上述只读服务检查分别记录。源码移除旧 `wrangler.toml` dev 环境以防误部署；本次本地文档和配置变更未提交、推送或触发 Linux watcher。
+
+本地验证：`pnpm lint` 退出 0；`pnpm type-check` 7/7（其中 6 项命中缓存，Workers API 实际执行）；`pnpm --filter @kando/workers-api exec vitest run src/entitlements/node-fetch-worker-shim.test.ts --maxWorkers=1` 为 5/5；prod `deploy:dry-run:prod` 与 Linux `deploy:dry-run:dev` 均退出 0，后者的完整 API bundle 启动/Apple SDK 回归 2/2，均未发布。反向检查 `wrangler deploy --env dev --dry-run` 退出 1，明确提示配置没有 dev 环境，属于预期拒绝。文档路径/新增退役锚点和 `git diff --check` 通过；Code Review 核对了唯一旧 Worker/域名/cron、prod/回调/识别资源保留、配置删除范围与实际远端回读，未发现阻断项。未运行全仓 Workers/Flutter 测试、真机、真实购买或备份恢复演练，本次未改业务运行逻辑。
+
 ## Linux dev 公网回源服务器隔离（2026-09-17）
 
 原公网 `111.10.170.43:8089` NAT 到 `192.168.50.201:8080`，可绕过 CF Worker 直接得到 Admin HTML 与 `/api/v1/health` 200；CF Worker 的路径限制无法保护这条直连。kd201 仅在 8080 发布 Docker Web，`ens160` 抓包确认公网请求保留公网源地址，内网客户端从私网到达。为不改 NAT、App/Admin 内网地址或现有 Compose，在主机启动独立 Node 22 回调网关（8081），再通过专属 nftables `ip toccards_callback` 表以 prerouting priority -101（Docker DNAT 为 -100）仅将公网 IPv4 到 `201:8080` 的流量转到该网关；RFC1918 内网源地址仍直达 8080。两项 systemd 服务已启用并运行，代码和策略存放在 `deploy/linux/security/` 与宿主机对应私有安装位置，原 API/Web/DB 容器及 watcher release `dev@7a8300b` 均未更换。

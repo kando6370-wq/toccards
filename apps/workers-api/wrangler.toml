@@ -52,38 +52,3 @@ bucket_name = "toccards-scan-images"
 [[env.prod.services]]
 binding = "VECTOR_RECOGNITION"
 service = "recognize-vec"
-
-[env.dev]
-name = "toccards-api-dev"
-routes = [{ pattern = "api-dev.tcgcard.fun", custom_domain = true }]
-
-[env.dev.triggers]
-crons = ["*/5 * * * *"]
-
-[env.dev.vars]
-GOOGLE_CLIENT_ID = "1030914046373-j0ihp89joii8c9k66v89l9dske6mp0mc.apps.googleusercontent.com"
-APPLE_CLIENT_ID = "com.kando.kandoApp.beta"
-APPLE_APP_ATTEST_APP_ID = "B95U3272HR.com.kando.kandoApp.beta"
-APPLE_APP_ATTEST_DEVELOPMENT = "true"
-APPLE_IAP_PRODUCT_IDS = "cardx.week,cardx.year,cardx.lifetime"
-ZEPTOMAIL_API_URL = "https://api.zeptomail.com/v1.1/email"
-MAIL_FROM_ADDRESS = "kando@tcgcard.fun"
-MAIL_FROM_NAME = "Card Ai Dev"
-APP_ENVIRONMENT = "development"
-APPLE_IAP_BUNDLE_ID = "com.kando.kandoApp.beta"
-
-[[env.dev.hyperdrive]]
-binding = "HYPERDRIVE"
-id = "7d71bcd0bcf64e518a23a852ced76d66" # Cloudflare Hyperdrive: tcg-cards-db
-
-[[env.dev.kv_namespaces]]
-binding = "CACHE_KV"
-id = "a8b4378fabc7473db6ffe04d2ed6ab38"
-
-[[env.dev.r2_buckets]]
-binding = "SCAN_IMAGES"
-bucket_name = "toccards-scan-images-dev"
-
-[[env.dev.services]]
-binding = "VECTOR_RECOGNITION"
-service = "recognize-vec"

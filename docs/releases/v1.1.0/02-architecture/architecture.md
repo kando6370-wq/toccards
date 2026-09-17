@@ -75,8 +75,8 @@ Apple Notifications V2 + Server API --> purchase chain lifecycle correction
 
 | 资源 | 当前职责 | 一致性边界 |
 |---|---|---|
-| PlanetScale PostgreSQL | v1.1 业务、目录与价格域唯一真源；dev 迁移检查点已迁入 33 张业务表、270,577 行，并创建 7 张新价格域表 | dev/test 与 prod 均已迁移并通过同一 Hyperdrive 共用，D1 已废弃；运行环境、KV、R2 和 Apple 契约仍分离 |
-| Hyperdrive | Cloudflare dev/prod 当前代码与 Wrangler 配置的数据库连接入口，代码通过 Postgres.js 兼容层访问 | 查询缓存关闭；每请求或 cron 独立 client，后台任务结束后关闭；缺少 binding 立即失败 |
+| PlanetScale PostgreSQL | v1.1 正式业务、目录与价格域真源；旧 dev 迁移检查点已迁入 33 张业务表、270,577 行，并创建 7 张新价格域表 | 旧 CF dev/prod 曾通过同一 Hyperdrive 共用；旧业务 Worker 已退役，数据库及历史测试数据保留，Linux dev 使用独立 PostgreSQL |
+| Hyperdrive | Cloudflare prod 的数据库连接入口，代码通过 Postgres.js 兼容层访问；旧 CF dev 曾复用该资源，业务 Worker 已退役 | 查询缓存关闭；每请求或 cron 独立 client，后台任务结束后关闭；缺少 binding 立即失败 |
 | Linux PostgreSQL / 本地卷 | 隔离测试数据库与扫描图片，复用同一数据库适配器和 migration | 仅使用 Linux 测试 `DATABASE_URL`；进程级数据库连接在退出时关闭；不读取 Cloudflare 数据集 |
 | KV | 目录查询和汇率等可重新获取数据 | 缓存失败不得改变授权或业务真值 |
 | R2 | 扫描原图等对象 | 读取受 Admin 授权保护 |
@@ -88,19 +88,19 @@ PostgreSQL 结构以 `src/db/postgres/migrations/` 中的顺序 migration 为准
 
 | 环境 | 运行入口 | 地址 | 数据资源 |
 |---|---|---|---|
-| dev | `toccards-api-dev` | `api-dev.tcgcard.fun` | 2026-09-09 回读为 PostgreSQL/Hyperdrive 与 VECTOR_RECOGNITION；dev KV/R2、beta Apple 配置和 `APP_ENVIRONMENT=development` 独立 |
+| 旧 CF dev（已退役） | `toccards-api-dev` 已删除 | `api-dev.tcgcard.fun` 已解绑且权威 DNS 不再解析 | 旧 PostgreSQL 测试数据与 dev KV/R2 未删除；旧包不再可访问原业务入口 |
 | prod | `toccards-api-prod` | `api.tcgcard.fun` | 2026-09-09 回读为 PostgreSQL/Hyperdrive，无 D1；仍使用 OCR_SERVICE_BASE_URL，prod KV/R2、production Apple 配置和 `APP_ENVIRONMENT=production` 独立 |
-| Linux dev | Node / `src/linux/server.ts` | `http://192.168.50.201:8080` | 独立 PostgreSQL、内存 KV、本地图片卷、`APP_ENVIRONMENT=development`；2026-09-16 自动发布 `75c0ec4`，CF HTTP 向量与本地扫描/收藏链路受控验证通过，设备验收仍待完成 |
+| Linux dev | Node / `src/linux/server.ts` | `http://192.168.50.201:8080` | 独立 PostgreSQL、内存 KV、本地图片卷、`APP_ENVIRONMENT=development`；2026-09-17 watcher 运行 `dev@4d5d66f`，客户端路径由用户确认已验收，本次服务端检查另记 |
 
-Wrangler vars 保存非敏感环境配置，密钥通过 Worker secrets 注入。dev/prod 已共用业务 PostgreSQL；`APP_ENVIRONMENT`、Apple Bundle/Product ID、KV、R2、域名和 Worker secrets 不得混用。当前仓库的 prod 配置已包含向量绑定，但配置文件不代表现网版本已切换；版本及 binding 回读集中维护在[发布与验证](../05-delivery/VERIFICATION.md)。部署脚本先构建共享认证和对应模式 Admin，再部署 Worker 与静态 assets。两环境的 PostgreSQL 迁移均已完成，后续仅核对本次变更所需的 PostgreSQL schema、业务数据及应用版本，不再安排 D1 移库或切换任务。
+Wrangler vars 保存非敏感环境配置，密钥通过 Worker secrets 注入。旧 CF dev/prod 曾共用业务 PostgreSQL；退役没有清理旧测试数据或共享资源。当前仅 prod 使用该 Worker 配置，`APP_ENVIRONMENT`、Apple Bundle/Product ID、KV、R2、域名和 Worker secrets 不得混用。当前仓库的 prod 配置已包含向量绑定，但配置文件不代表现网版本已切换；版本及 binding 回读集中维护在[发布与验证](../05-delivery/VERIFICATION.md)。部署脚本先构建共享认证和对应模式 Admin，再部署 Worker 与静态 assets。不再安排 D1 移库或切换任务。
 
 Linux 的真实配置仅保存在服务器 `.env`。分支监听器默认每两分钟检查 `dev`，相关路径变化才执行定向检查、构建、数据库备份和版本化发布；GitHub Linux workflow 仅为手动触发选项。2026-09-16 已将整改合入 `dev@75c0ec4` 并由现有监听器自动发布、完成受控扫描验收。API 与 watcher 分别使用自身环境文件中的代理配置；当前 release、SHA、备份与 13 项 migration ledger 见[验证记录](../05-delivery/VERIFICATION.md)。
 
-当前源码将 `deploy:dev` 改为 Linux 发布包 + SSH，`deploy:dry-run:dev` 只构建归档。手工、监听器与 Runner 均复用同一个发布脚本，在备份前核对本地数据库凭据/18 大版本、待执行 migration 和 CF 识别契约；已有库不会因 `current` 链接缺失而跳过备份。标准与离线 PostgreSQL 默认均为 18，并保留原卷路径。旧 CF dev 的实际退役仍以部署和业务验收为前提，prod 发布入口保持原状。
+当前源码将 `deploy:dev` 改为 Linux 发布包 + SSH，`deploy:dry-run:dev` 只构建归档。手工、监听器与 Runner 均复用同一个发布脚本，在备份前核对本地数据库凭据/18 大版本、待执行 migration 和 CF 识别契约；已有库不会因 `current` 链接缺失而跳过备份。标准与离线 PostgreSQL 默认均为 18，并保留原卷路径。旧 CF dev 已退役，prod 发布入口保持原状。
 
 ## 7. 当前与目标架构的区分
 
-dev 历史迁移检查点把 33 张非价格业务表、270,577 行写入 PostgreSQL，并完成逐表行数与完整摘要校验。2026-09-07 预检记录确认 PostgreSQL `18.6` 的 `postgres/public` 已应用 `0000` 至 `0010`，checksum 与仓库 SQL 一致且未验证约束为 0；该记录不代表本轮重查数据库。后续 `0011` 的 development 初始化、完整迁移登记及 `0012` 回填状态分别见[数据迁移](../03-data-api/migration.md)。当前 dev/prod 均运行 PostgreSQL Worker，Cloudflare v1.1 `fetch` 和 `scheduled` 缺少 Hyperdrive 时直接失败，不存在数据库降级路径；旧 D1 不属于运行、回滚或灾备目标。D1 到 PostgreSQL 迁移已完成，不作为后续发布待办。TimescaleDB 与 ClickHouse 仍只是 [数据库迁移研究](../03-data-api/research/database-migration-research.md) 和 [价格历史容量分析](../03-data-api/research/price-history-database-capacity-analysis.md) 中的后续候选，不属于本次实现。
+dev 历史迁移检查点把 33 张非价格业务表、270,577 行写入 PostgreSQL，并完成逐表行数与完整摘要校验。2026-09-07 预检记录确认 PostgreSQL `18.6` 的 `postgres/public` 已应用 `0000` 至 `0010`，checksum 与仓库 SQL 一致且未验证约束为 0；该记录不代表本轮重查数据库。后续 `0011` 的 development 初始化、完整迁移登记及 `0012` 回填状态分别见[数据迁移](../03-data-api/migration.md)。旧 CF dev 曾运行 PostgreSQL Worker，现已退役；prod 仍运行 PostgreSQL Worker。Cloudflare v1.1 `fetch` 和 `scheduled` 缺少 Hyperdrive 时直接失败，不存在数据库降级路径；旧 D1 不属于运行、回滚或灾备目标。D1 到 PostgreSQL 迁移已完成，不作为后续发布待办。TimescaleDB 与 ClickHouse 仍只是 [数据库迁移研究](../03-data-api/research/database-migration-research.md) 和 [价格历史容量分析](../03-data-api/research/price-history-database-capacity-analysis.md) 中的后续候选，不属于本次实现。
 
 ## 8. 证据索引
 

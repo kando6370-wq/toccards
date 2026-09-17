@@ -20,9 +20,9 @@ React Admin -- assets ---+        |-- PlanetScale PostgreSQL（经 Hyperdrive）
 Marketing Web -----------------> 独立 Cloudflare 静态站点
 ```
 
-共享 Hono API 是 App 与 Admin 的服务端安全边界，路由组合位于 `apps/workers-api/src/app.ts`，Cloudflare 入口为 `src/index.ts`。客户端不得直连数据库或对象存储；Cloudflare 环境的 Admin 构建产物由 Workers assets 托管，营销站点独立部署。Cloudflare 测试环境 dev/test 与正式环境 prod 均已完成 PostgreSQL 迁移，D1 已废弃；2026-09-09 用户确认与 Cloudflare 回读一致，两环境均绑定同一个 PlanetScale PostgreSQL/Hyperdrive，回读版本均无 D1 binding。运行环境、Apple 配置、KV、R2、域名和 secrets 继续隔离。后续数据库变更仅涉及 PostgreSQL schema 和业务数据修复，见 [数据迁移](docs/releases/v1.1.0/03-data-api/migration.md)，不再安排 D1 移库任务。
+共享 Hono API 是 App 与 Admin 的服务端安全边界，路由组合位于 `apps/workers-api/src/app.ts`，Cloudflare 入口为 `src/index.ts`。客户端不得直连数据库或对象存储；Cloudflare 正式环境的 Admin 构建产物由 Workers assets 托管，营销站点独立部署。旧 Cloudflare dev/test 与正式环境 prod 均已完成 PostgreSQL 迁移，D1 已废弃；2026-09-09 用户确认与 Cloudflare 回读一致，两环境当时绑定同一个 PlanetScale PostgreSQL/Hyperdrive，回读版本均无 D1 binding。2026-09-17 旧 dev 业务 Worker 退役，但共享数据库及旧测试数据未删除；正式环境继续使用原资源。后续数据库变更仅涉及 PostgreSQL schema 和业务数据修复，见 [数据迁移](docs/releases/v1.1.0/03-data-api/migration.md)，不再安排 D1 移库任务。
 
-`dev` 已合入 Linux 入口 `src/linux/server.ts`，复用同一 Hono 应用与 PostgreSQL migration，使用独立 PostgreSQL、进程内 KV 和本地图片卷；Admin 由 Caddy 托管，离线模式使用 Node 静态服务。2026-09-16 已将 `dev-inner` 整改合入 `dev@75c0ec4` 并由 kd201 监听器自动发布：App `test` 默认 API 为 `http://192.168.50.201:8080/api/v1`，Admin development 使用同源相对 API，本机开发由 Vite 代理到该 Linux 服务，向量检索经 HTTP 复用 CF。当前运行版本的受控扫描、扣次及本地收藏写库验证通过。真机、公网 Apple 回调、统计配置及旧 CF dev 退役仍待完成，见 [Linux 测试环境](docs/releases/v1.1.0/02-architecture/linux-test-environment.md)。
+`dev` 已合入 Linux 入口 `src/linux/server.ts`，复用同一 Hono 应用与 PostgreSQL migration，使用独立 PostgreSQL、进程内 KV 和本地图片卷；Admin 由 Caddy 托管，离线模式使用 Node 静态服务。App `test` 默认 API 为 `http://192.168.50.201:8080/api/v1`，Admin development 使用同源相对 API，本机开发由 Vite 代理到 Linux，向量检索经 HTTP 复用 CF。2026-09-17 kd201 运行 watcher 发布的 `dev@4d5d66f`，旧 CF dev 的业务 Worker、域名入口和 cron 已退役；独立 Apple Sandbox 回调、CF 向量识别和正式环境保留。验收与未执行项见 [Linux 测试环境](docs/releases/v1.1.0/02-architecture/linux-test-environment.md)及[验证记录](docs/releases/v1.1.0/05-delivery/VERIFICATION.md)。
 
 `dev` 已合入端侧模型与 512 维向量识别，主 API 经 `VECTOR_RECOGNITION` 调用 `recognize-vec`。当前 App 要求 iOS 16+ 或 Android API 24+；Flutter Web 可用于其他页面开发，暂不支持扫描。扫描协议、平台资源及新旧 App 兼容边界见 [扫描识别链路](docs/releases/v1.1.0/01-flows/scan-recognition.md)。
 

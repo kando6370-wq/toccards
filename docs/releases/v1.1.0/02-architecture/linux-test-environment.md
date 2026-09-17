@@ -4,8 +4,9 @@
 
 - 当前后端适配：2026-09-15，`dev-inner` 基于 `dev@b941a3f`；原始设计基线为 2026-08-26 的 `dev@8e22c1d`。
 - 合并状态：`19a6ac4` 引入 Linux 基础部署；2026-09-16 的 `75c0ec4` 已将 HTTP 向量、App/Admin 内网入口和发布预检整改合入 dev，并保留原后台筛选增量。
-- 2026-09-17 手工验收时的服务器：watcher 先自动发布 `dev@75c0ec4`；手工发布 Linux Apple SDK 打包修复后，current 为 `manual-a97c5ed-apple-esm-dirty-20260917-0949`。本地 `a97c5ed` 相对原部署的 API/Admin 源码与依赖未变，bundle 只增加 Node CommonJS 加载器；原数据库/图片卷保留，ledger 为 13 项，详见[验证记录](../05-delivery/VERIFICATION.md)。当次修复来自未提交工作区，后续自动发布版本需单独核对。
-- 先前自动发布版本的受控扫描、幂等扣次与本地收藏/初始价格事件写入均通过；App test/Admin development 和 `deploy:dev` 已统一到 Linux。Apple Sandbox 官方 TEST 已经由公网回调进入 Linux 并成功处理；设备与真实图片扫描、真实购买/恢复完整矩阵、统计后台收件和旧 CF dev 退役仍待验收。
+- 2026-09-17 回读 kd201：watcher 发布的 `dev@4d5d66f` 正在运行，manifest、部署状态和 API/Admin 实际产物一致；PostgreSQL 18.6 的 ledger 为 13 项，发布前备份目录可读取，未做恢复演练。此前手工 ESM 修复现已包含在自动发布版本中，详见[退役验证](../05-delivery/VERIFICATION.md#旧-cloudflare-dev-业务退役2026-09-17)。
+- 受控扫描、幂等扣次与本地收藏/初始价格事件写入均通过；App test/Admin development 和 `deploy:dev` 已统一到 Linux。Apple Sandbox 官方 TEST 已经由独立公网回调进入 Linux 并成功处理。用户确认两端客户端路径已测试无问题，本次未独立重跑真机；指定交易的统计后台收件和完整生命周期矩阵仍单独验收。
+- 2026-09-17 已删除旧 `toccards-api-dev` Worker、`api-dev.tcgcard.fun` 自定义域名及唯一 cron；旧测试数据和包保留。正式 API、共享 CF 向量识别和独立 Apple 回调保持运行。
 - 2026-09-16 配置增量：原 CF dev 的 Google/App Attest/邮件公开配置及 Apple 官方根证书已落入 Linux；API 通过 Node 22.22.1 原生环境代理访问外网，Google 网络验证通过，CF 向量服务和内网仍直连。私密凭据、公网通知入口与真机缺项集中维护在[开发计划](../05-delivery/development-plan.md#linux-dev-集中处理清单2026-09-16)。
 - 同日已将用户提供的原始 ZeptoMail Token 写入服务器私有配置，唯一一封注册验证码测试邮件由用户确认收到；邮件凭据缺项解除，完整注册与找回密码流程未验收。
 - Apple Server API 的三项 dev 凭据也已配置，项目客户端从实际 API 容器查询 Sandbox 通知历史返回 200；私钥解析与验签器构造通过。公网 Sandbox TEST 已验收；真实购买/恢复与交易校正仍待独立验收。
@@ -26,13 +27,13 @@
 
 1. 现有 dev 业务部署迁至 Linux，保持原 test/development 环境身份，不新增长期并行的第三套环境；prod 继续使用 Cloudflare。
 2. Linux 使用独立 PostgreSQL、内存 KV 与本地扫描图片目录，向量检索复用现有 CF `recognize-vec/Vectorize`。
-3. Cloudflare prod 继续使用 Hyperdrive、KV、R2、Workers Assets 和 Cron Triggers；旧 CF dev 业务部署在整体切换验收后退役。
+3. Cloudflare prod 继续使用 Hyperdrive、KV、R2、Workers Assets 和 Cron Triggers；旧 CF dev 业务部署已退役，历史测试数据保留。
 4. 后续业务版本只开发一套路由、SQL 和业务逻辑。
 5. Linux 业务读写不连接正式 PostgreSQL、R2 或 KV；按用户明确方向，仅复用 CF 的只读向量识别服务，其他外部服务使用相应测试配置。
 
 ## 非目标
 
-- 本次升级现有 Linux 实例，不修改 Cloudflare 数据库、bindings 或流量；旧 CF dev 退役仍需整体验收。D1 已退役，不属于发布或回滚目标。
+- Linux 实例升级没有修改 Cloudflare 业务数据库；后续独立退役仅删除旧 dev Worker、业务域名和 cron，未删除历史数据或 prod/向量/回调资源。D1 已退役，不属于发布或回滚目标。
 - 不新增 D1、SQLite、Miniflare 数据库回退路径。
 - 不在第一版引入 Redis、MinIO、Kubernetes 或多 API 副本。
 - 不在仓库提交 Linux 服务器真实域名、密码、Token 或证书私钥。
@@ -185,4 +186,4 @@ Flutter UI、iOS/Android 打包和未涉及页面不属于本任务验证范围�
 - HTTP 向量适配完成后，扫描端到端验收通过；当前仅完成本地后端验证，设备与部署验收尚未满足。
 - Linux 重启后 PostgreSQL 数据和扫描图片保留，内存缓存允许清空。
 - Linux 不依赖 D1、Hyperdrive、Cloudflare KV 或 R2。
-- Cloudflare prod 与共享识别服务保持独立；整体 dev 切换验收后，旧 CF dev 主 Worker 业务入口、cron 与自动部署退役。
+- Cloudflare prod 与共享识别服务保持独立；旧 CF dev 主 Worker 业务入口与 cron 已退役，自动部署入口为 Linux watcher 和显式 SSH 发布。

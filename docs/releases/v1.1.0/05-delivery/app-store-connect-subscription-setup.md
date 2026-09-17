@@ -185,12 +185,12 @@ Singular 与 Mixpanel Project Token 使用同一类运行时配置链路，由 C
 
 在应用的 App Store Server Notifications 配置中分别填写：
 
-- dev/test App Sandbox Server URL：`https://api-dev.tcgcard.fun/api/v1/apple/notifications/v2`。
+- dev/test App Sandbox Server URL：`https://dev-callback.tcgcard.fun/api/v1/apple/notifications/v2/sandbox`，由独立回调 Worker 转发到 Linux。
 - production App Sandbox Server URL：`https://api.tcgcard.fun/api/v1/apple/notifications/v2/sandbox`；只能在共享 PostgreSQL 实时预检、prod v1.1 PostgreSQL Worker 部署及通知路由烟测都完成后设置。
 - Production Server URL：`https://api.tcgcard.fun/api/v1/apple/notifications/v2`。
 - Version：选择 Version 2。
 
-上述 URL 来自当前 Worker 自定义域名和已挂载路由；填入 App Store Connect 前仍需先完成共享 PostgreSQL 实时预检、Apple 验签配置和对应 Worker 部署，并用 Apple 测试通知验证可达性。接口已实现 Apple 签名验证和重复通知幂等处理。
+dev/test URL 的独立回调入口已于 2026-09-17 用 Apple 官方 TEST 验证送达和 Linux 验签；原 `api-dev.tcgcard.fun` 业务入口已退役。production URL 仍由正式 Worker 提供；调整正式配置前需核对对应部署和 Apple 验签。接口已实现 Apple 签名验证和重复通知幂等处理，见[退役验证](VERIFICATION.md#旧-cloudflare-dev-业务退役2026-09-17)。
 
 截至 2026-08-18，dev 已完成 D1 非价格业务数据到共享 PostgreSQL 的迁移，并部署正式 Worker/Admin；34 条历史 inbox 均标记为 `Sandbox`，Sandbox URL 也已保存。dev Root CA Secret 已用指纹匹配的 Apple 官方 G3 DER Base64 更新并生效，但仍需新的 Apple 测试通知或真实 Sandbox 生命周期通知证明线上验签与业务处理恢复。prod 仅暂存 Root CA version `42f3934f-7cb4-41df-85b5-631b4e4b8954`，线上 deployment/version 未变化。
 
