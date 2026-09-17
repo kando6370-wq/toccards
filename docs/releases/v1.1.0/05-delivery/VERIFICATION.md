@@ -34,6 +34,50 @@ Code Review 自审通过：脚本预期地址与 Flutter test 一致，productio
 签名构建：macOS / Flutter 3.44.5 执行 `./tool/release_ios.sh --env test --pgy --build-number 144`，静态分析、清理构建、导出和最终 IPA 校验全部通过，退出 0。内部包为 `1.0.2 (144)`、`com.kando.kandoApp.beta`、Apple Development 签名，最终 App Attest 为 `development`；二进制包含内网 API，测试 Firebase 正确，41 个 Mach-O UUID 均匹配 dSYM。对保存 IPA 的 Info.plist 再次回读，确认仅 `192.168.50.201` 的 HTTP ATS 例外及局域网用途说明。IPA 为 56,688,941 字节，SHA-256 为 `7e52d99e2ac54e403386343ded9360634173a837845b1e32841b9cbe3cdb9df3`，保存副本摘要一致；与 `dSYMs.zip` 一同存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.2-144/`。当前保留 142、143、144，旧 141 按规则移入废纸篓，可恢复；Xcode 归档另存至 `~/Library/Developer/Xcode/Archives/2026-09-16/Card AI Test 1.0.2 (144).xcarchive`。源码同步为 `1.0.2+144`，Dart/CocoaPods 锁文件和 App API 配置摘要未变化。
 
 未运行：真机局域网权限、登录、扫描、购买和 Android 构建（本次交付 iOS 内部包，未安装设备）；全 App/全仓测试（本次只同步 iOS 交付校验目标，已复验两环境配置、API 客户端和分享相关测试）。客户端测试人员需在可访问内网的设备允许本地网络权限后验收，服务器健康检查不能代替设备业务验收。未上传、安装、推送、部署或执行远程数据写入。
+## Linux Apple SDK ESM 打包修复（2026-09-17）
+
+用户保存回源 A 记录与 App Store Connect Sandbox URL 后，Cloudflare Public DNS 已解析 `dev-callback-origin.tcgcard.fun → 111.10.170.43`；公网 HTTPS 空 JSON POST 透传 Linux `400 INVALID_REQUEST`。只请求了一条 Apple 官方 TEST，Apple 报告投递 `SUCCESS`；Linux inbox `01M2PFJSQYF9866127S9TNCSJK` 保存的 JWS SHA-256 与 Apple 返回值完全一致，但异步处理为 `processing_failed / VERIFIER_NOT_CONFIGURED`，不能以 HTTP 200 认定通知处理完成。
+
+根因已通过同一 Node 22.22.1 API 容器的 ESM/CJS 最小对比证实：实际 `loadLinuxRuntime` 保留 Apple 配置；ESM 打包的 Apple SDK 3.1.0 依赖 `node-fetch@2.7.0` 调用 `require("stream")`，报 `Dynamic require of "stream" is not supported`。既有 factory catch 将加载异常转为 null，因此通知验签、购买验签和 Server API 客户端都会不可用；相同配置的 CJS 诊断包可正常初始化，这也是先前凭据诊断未暴露正式 bundle 故障的原因。
+
+最小修复在 Linux 共用构建选项加入 `createRequire(import.meta.url)` banner；共享业务路由、JWS 验证规则、数据契约、Cloudflare 构建与依赖版本不变。新增 `node --test apps/workers-api/scripts/test-linux-bundle.mjs`，Apple SDK 真实打包配置在修复前稳定因 verifier=null 失败；独立子进程不使用 Apple SDK mock、不连接 Apple 或数据库，并校验无效 JWS 仍被拒绝。首次发布预检和 PostgreSQL 备份完成后，新 API 未通过健康检查，发布脚本自动重建了旧版本；在旧容器隔离运行新包明确报 `SyntaxError: Identifier 'createRequire' has already been declared`。`fflate` 在完整 ESM bundle 内已有同名导入，故把 banner 的本地绑定改为 `__linuxCreateRequire`；新增完整 API bundle 的语法检查、独立启动和 health 回归，该测试在修复前复现相同语法错误，修复后与 Apple SDK 检查共 2/2 通过。两项已接入 `build:linux:api`，后续手工与 watcher 构建都会执行。
+
+首次失败后的旧 API 回退健康检查为 200；备份保留于服务器 `backups/toccards-test-20260917-094038-before-manual-a97c5ed-apple-esm-dirty-20260917-0941.dump`，未执行恢复。第二次发布前重新运行 Workers 定向 8 文件 32/32、CF 代理 8/8、全仓 `pnpm lint` 与 `pnpm type-check`、Linux `deploy:dry-run:dev`，均退出 0；第一次部署失败不计为发布通过。
+
+第二次手工发布从本地 `dev@a97c5ed` 的未提交工作区构建，API/Admin 的源码与依赖相对服务器原 `75c0ec4` 无差异；先通过 `deploy:dry-run:dev`，再用原 `deploy-release.sh` 执行 PostgreSQL 18/本地库/CF 识别预检、备份与离线 Compose 部署。该次验收的 release 为 `manual-a97c5ed-apple-esm-dirty-20260917-0949`，回退基线为 `branch-dev-75c0ec4f991d-20260916151043`。API/Admin/数据库健康、health 200、Admin 标题正常；容器内 API bundle 与 release 的 SHA-256 相同（`27ecc6039fcb00e5828ea78f235ca38ad747b4a826f5c6d2de92c44bd69e7e33`），私有 `.env` 哈希未变，ledger 保持 13 项、无待执行迁移。本次新备份 `backups/toccards-test-20260917-095015-before-manual-a97c5ed-apple-esm-dirty-20260917-0949.dump`，没有做整库恢复。首次失败发布的回退事实保留，不能算首次发布成功。
+
+只使用原 Apple 官方 TEST 的 token 读取原 JWS，**没有再次请求 Apple 发送 TEST**；官方签名、`TEST` 类型、`Sandbox` 环境、beta Bundle、UUID 和 SHA-256 逐项匹配。仅把同一 signedPayload 经 `https://dev-callback.tcgcard.fun/api/v1/apple/notifications/v2/sandbox` 重放一次，公网返回 Linux 200。只读查原 inbox `01M2PFJSQYF9866127S9TNCSJK`：状态 `processed`、attempts=6、`last_error=null`、UUID 为 `e2003ab6-6389-4c9c-b5a3-fd878129da9e`、processed_at=`2026-09-17T01:54:10.187Z`；唯一结构化通知 `notification_type=TEST`、状态 `processed`、有 decoded_payload，payload SHA-256 为 `ed189602840ec2b134ddc8b9deb31827977dfa449c30252010d2a2b7c3832e70`。总 inbox 1、结构化通知 1、交易 0、购买链 0；原失败记录未删除或伪造。公网复核 Sandbox GET 为 405、空 POST 为 Linux 400、其他 API 为 404。Code Review 自审核对实际 ESM 绑定冲突、独立 Linux 构建选项、通知幂等和错误状态、回退与卷/配置边界，修正首次发布暴露的冲突后未发现阻断项。真实购买、Restore、续订和真机端到端未运行，不能由 TEST 推断通过；上述手工验收时修复尚未提交，后续远端 dev 的自动发布结果需单独核对。
+
+## Cloudflare Apple Sandbox 回调代理（2026-09-16/17，初次部署检查点）
+
+用户授权通过 CF 将公网 Apple 回调转入 Linux。新增 `deploy/cloudflare/apple-callback/` 独立 Worker、配置、测试与部署说明，仅处理 `POST /api/v1/apple/notifications/v2/sandbox`。请求正文按字节转发，限制 200,000 字节，不转发客户端 Authorization/Cookie、不重试、不缓存；3xx 显式拒绝，上游 HTTP 失败保留，连接/超时返回 502，截止时间覆盖上游响应正文。该 Worker 无数据库、KV、R2、Apple 私钥或邮件凭据绑定，Linux 继续负责通知入库和 JWS 验签。
+
+运行时问题与修复：首版 Node 测试 7/7 和 dry-run 通过，但真实 CF 返回 502。tail 日志明确指出 Workers 不支持 `redirect: "error"`，请求未到达 origin。新增仅 HTTP 的 Workerd/Miniflare 运行时回归（没有数据库绑定或 D1 基座），原实现稳定失败 `502 !== 200`；改为 `redirect: "manual"` 并显式拒绝 3xx 后，完整 8/8 通过。运行时 fetch mock 的请求体是流，最初用字符串 body 匹配得到工具侧 500；取消不适用的 body matcher，原始字节传递仍由独立断言保护，未放宽 200 成功门槛。最终真实边缘请求已通过参数校验；裸 IP 回源返回 403/1003，因此配置改为专用回源域名。
+
+最终 `node --test deploy/cloudflare/apple-callback/worker.test.mjs` 为 8/8、0 跳过，`node --check`、根 `pnpm lint` 和 Wrangler dry-run 通过。Code Review 自审核对路径/方法、固定 origin、正文大小、凭据与重定向边界、取消/超时、失败确认及无重试，未发现本轮代码级阻断项。未运行应用全仓或 Flutter 测试：本轮未改共享业务代码、依赖、数据库或客户端。
+
+以下为用户补齐 DNS 之前的部署检查点，后续进展见本页首节：
+
+- Worker：`toccards-apple-callback-dev`，最终 Version `1b7c6ba8-1a87-4774-832a-c23d21581655`，2026-09-17 发布；`LINUX_CALLBACK_ORIGIN=http://dev-callback-origin.tcgcard.fun:8089`。
+- HTTPS 入口：`https://dev-callback.tcgcard.fun/api/v1/apple/notifications/v2/sandbox`，另保留 `https://toccards-apple-callback-dev.product-dce.workers.dev` 诊断入口，preview URLs 关闭。
+- 自定义域名先通过 Worker domain changeset 确认无更新、移除或冲突，再通过 API 以 `override_existing_origin=false` 和 `override_existing_dns_record=false` 创建；后续再次核对所属 Worker 无变化。没有覆盖其他服务域名。
+- 通过有效 TLS 校验访问固定域名：Admin scans 为 404，Sandbox 路径 GET 为 405，空 JSON POST 为 530/1016；DNS 查询确认 `dev-callback-origin.tcgcard.fun` 为 NXDOMAIN。当前尚未成功将请求转入 Linux，不能将 HTTPS 已部署写成 Apple 回调完成。
+- 缺失记录为 `tcgcard.fun` 区域中的 A `dev-callback-origin → 111.10.170.43`，必须为 DNS-only（灰云）。现有 OAuth 可管理 Worker/自定义域名，但读取和创建该 A 记录均为 403/10000。用户已登录控制台，浏览器工具仍报 `unsupported Codex auth method: apikey`，Windows Computer Use 的 kernel assets 初始化在重置后仍失败，未据此执行任何 UI 写操作；需要用户手动添加记录或提供有 DNS Read/Edit 权限的 Token。
+
+原 Linux API、Admin、数据库、CF dev/prod API、向量服务和既有旧识别 Tunnel 未修改；未更改路由器映射、App Store Connect URL，也未发送 Apple TEST 通知。CF 边缘至 origin 目前设计为 HTTP，边缘 HTTPS 不等于端到端 TLS；且代理自身只放行回调路径不改变用户整端口 NAT 的开放范围。待 DNS 生效后，应先验证 CF 空请求得到 Linux 400，再做 Apple TEST 通知、数据库入库及签名验证。本轮未 Git 提交或推送。
+
+2026-09-17 用户后续提供截图，显示 App Store Connect 的“沙盒环境服务器 URL”为上述 `https://dev-callback.tcgcard.fun/api/v1/apple/notifications/v2/sandbox`；截图未展示 App 身份，不据此推断 beta App 的最终通知目标。复查 Cloudflare Public DNS 的回源 A 记录仍为 NXDOMAIN；附加 Google Public DNS 查询因代理连接中断未取得结果，未标记为通过。真实 CF POST 仍返回 530/1016，Linux 空请求仍为预期 400，通知 inbox/TEST 记录均为 0。因此没有提前触发 Apple TEST，仍等待 Cloudflare 回源 DNS 配置，而非再次要求填写 Apple URL。
+
+## Apple Sandbox 公网入口核查（2026-09-16）
+
+用户提供 `111.10.170.43:8089/api/v1/apple/notifications/v2/sandbox`，并确认目标为 `192.168.50.201:8080/api/v1/apple/notifications/v2/sandbox`。本轮只核查连通性与 HTTPS 条件；未修改服务器服务、网关映射、DNS、证书或 App Store Connect。
+
+- Linux 本地 `POST /api/v1/apple/notifications/v2/sandbox` 携带空 JSON 返回 `400 {"error":"INVALID_REQUEST"}`，与缺少 signedPayload 的既有契约一致，未产生通知入库。浏览器 GET 不是 Apple 通知的验收方法。
+- 当前电脑直连公网 HTTP 约 5 秒被关闭，HTTPS TLS 握手收到 EOF；通过既有代理请求 HTTP 得到 502，HTTPS 同样未建立有效 TLS。服务器直连该公网 TCP 端口超时；这些来源都处于现有内网/代理环境，不能单独证明真正外网必然不可达，仍需外网复验或检查 NAT 回流。
+- 实际 Web 容器为 `8080 → 80` 的 HTTP 服务，API 仅容器内 `3000`，没有监听 HTTPS 443/8443/8089。服务器 80 已由其他项目占用，本次未调整它。将公网 8089 直接转发到该 8080 不会自动提供 HTTPS。
+- [Apple 官方通知接入要求](https://developer.apple.com/documentation/appstoreservernotifications/enabling-app-store-server-notifications)明确 HTTPS 与 TLS 1.2+；[App Store Connect 配置说明](https://developer.apple.com/help/app-store-connect/configure-in-app-purchase-settings/enter-server-urls-for-app-store-server-notifications)区分 Sandbox/Production URL。最终需提供可信 HTTPS 入口，仅代理既有 Sandbox 路径；纯端口 NAT 本身不限制 URL 路径，不能据此宣称 Admin 和其他 API 仍未暴露公网。
+
+当前仍缺可用 HTTPS 域名/证书或相应 DNS 管理条件，未发起 Apple TEST 通知，未宣称公网回调已完成。后续按[集中处理清单](development-plan.md#linux-dev-集中处理清单2026-09-16)解决入口和配置权限，再使用有效 Apple 通知验证入库与验签。
 
 ## dev 整改合并、自动部署与扫描复验（2026-09-16）
 

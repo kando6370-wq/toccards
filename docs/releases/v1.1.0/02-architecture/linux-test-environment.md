@@ -4,11 +4,12 @@
 
 - 当前后端适配：2026-09-15，`dev-inner` 基于 `dev@b941a3f`；原始设计基线为 2026-08-26 的 `dev@8e22c1d`。
 - 合并状态：`19a6ac4` 引入 Linux 基础部署；2026-09-16 的 `75c0ec4` 已将 HTTP 向量、App/Admin 内网入口和发布预检整改合入 dev，并保留原后台筛选增量。
-- 当前服务器：watcher 自动发布 `dev@75c0ec4`，current 为 `branch-dev-75c0ec4f991d-20260916151043`。运行 bundle 已核对包含 HTTP 向量适配、不再要求旧 OCR 字段；原数据库/图片卷保留，ledger 为 13 项，详见[验证记录](../05-delivery/VERIFICATION.md)。
-- 当前自动发布版本的受控扫描、幂等扣次与本地收藏/初始价格事件写入均通过；App test/Admin development 和 `deploy:dev` 已统一到 Linux。设备与真实图片扫描、公网 Apple 回调、统计配置和旧 CF dev 退役仍待验收。
+- 2026-09-17 手工验收时的服务器：watcher 先自动发布 `dev@75c0ec4`；手工发布 Linux Apple SDK 打包修复后，current 为 `manual-a97c5ed-apple-esm-dirty-20260917-0949`。本地 `a97c5ed` 相对原部署的 API/Admin 源码与依赖未变，bundle 只增加 Node CommonJS 加载器；原数据库/图片卷保留，ledger 为 13 项，详见[验证记录](../05-delivery/VERIFICATION.md)。当次修复来自未提交工作区，后续自动发布版本需单独核对。
+- 先前自动发布版本的受控扫描、幂等扣次与本地收藏/初始价格事件写入均通过；App test/Admin development 和 `deploy:dev` 已统一到 Linux。Apple Sandbox 官方 TEST 已经由公网回调进入 Linux 并成功处理；设备与真实图片扫描、真实购买/恢复、统计配置和旧 CF dev 退役仍待验收。
 - 2026-09-16 配置增量：原 CF dev 的 Google/App Attest/邮件公开配置及 Apple 官方根证书已落入 Linux；API 通过 Node 22.22.1 原生环境代理访问外网，Google 网络验证通过，CF 向量服务和内网仍直连。私密凭据、公网通知入口与真机缺项集中维护在[开发计划](../05-delivery/development-plan.md#linux-dev-集中处理清单2026-09-16)。
 - 同日已将用户提供的原始 ZeptoMail Token 写入服务器私有配置，唯一一封注册验证码测试邮件由用户确认收到；邮件凭据缺项解除，完整注册与找回密码流程未验收。
-- Apple Server API 的三项 dev 凭据也已配置，项目客户端从实际 API 容器查询 Sandbox 通知历史返回 200；私钥解析与验签器构造通过。公网通知、真实购买/恢复与交易校正仍待独立验收。
+- Apple Server API 的三项 dev 凭据也已配置，项目客户端从实际 API 容器查询 Sandbox 通知历史返回 200；私钥解析与验签器构造通过。公网 Sandbox TEST 已验收；真实购买/恢复与交易校正仍待独立验收。
+- 2026-09-17 已部署独立 CF Apple Sandbox 回调代理并绑定 `dev-callback.tcgcard.fun`，仅允许通知路径 POST；该 Worker 无业务数据库或 Apple 私钥绑定。用户保存 DNS-only 回源 A 记录与 Apple Sandbox URL 后，官方 TEST 已送达 Linux；修复 ESM 包加载 Apple SDK 问题并重处理原通知后，Sandbox/beta 的 inbox 和结构化 `TEST` 记录均为 `processed`，见[代理配置](../../../../deploy/cloudflare/apple-callback/README.md)及[验证记录](../05-delivery/VERIFICATION.md)。
 - 环境边界：Linux 使用独立测试 PostgreSQL；Cloudflare dev/test 与 prod 已完成 PostgreSQL 迁移且无 D1 binding，不存在待执行的 prod D1 切换任务。
 
 ## 背景与架构纠正
@@ -64,6 +65,8 @@ Linux 测试运行时
 路由注册、CORS 和 `runScheduledTasks` 已抽取到 `apps/workers-api/src/app.ts`。Cloudflare 入口 `src/index.ts` 和 Linux Node 入口 `src/linux/server.ts` 调用同一个 Hono app，不复制 API 路由。
 
 允许来源由 `ALLOWED_ORIGINS` 配置覆盖；未配置时继续使用当前 Cloudflare 默认列表，保证现有部署行为不变。
+
+Linux 单文件 ESM 构建在 `linux-build-options.mjs` 中通过 `createRequire(import.meta.url)` 提供 CommonJS 加载器，使 Apple SDK 的 `node-fetch` 等依赖可加载 Node 内置模块。`build:linux:api` 构建前运行独立 bundle 回归：使用真实 Linux 配置适配与官方 SDK，在仓库外的 Node 子进程验证通知/交易验签器及 Server API 客户端初始化，并确认无效 JWS 仍被拒绝；测试不连接数据库或 Apple 服务。Cloudflare 继续由 Wrangler 和 `nodejs_compat` 构建。
 
 ### PostgreSQL
 

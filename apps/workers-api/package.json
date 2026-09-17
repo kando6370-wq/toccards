@@ -9,7 +9,7 @@
     "build:assets:prod": "pnpm --filter @kando/auth-core build && pnpm --filter @kando/admin-web build:prod",
     "build:assets:dev": "pnpm --filter @kando/auth-core build && pnpm --filter @kando/admin-web build:dev",
     "build:assets:linux": "pnpm run build:assets:dev",
-    "build:linux:api": "pnpm --filter @kando/auth-core build && node scripts/build-linux.mjs",
+    "build:linux:api": "pnpm --filter @kando/auth-core build && node --test scripts/test-linux-bundle.mjs && node scripts/build-linux.mjs",
     "build:dev": "pnpm run build:assets:dev && pnpm run build:linux:api",
     "build:linux": "pnpm run build:dev",
     "start:linux": "node dist/linux/server.mjs",
