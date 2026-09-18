@@ -45,13 +45,14 @@ export class PriceQueryLimitError extends Error {}
 export async function loadPublishedPriceRows(
   db: D1Database,
   cardRefs: string[],
+  options: { rawOnly?: boolean } = {},
 ): Promise<PublishedPriceRow[]> {
   const uniqueCardRefs = [...new Set(cardRefs.filter(Boolean))];
   const rows: PublishedPriceRow[] = [];
 
   for (let offset = 0; offset < uniqueCardRefs.length; offset += CURRENT_CARD_CHUNK_SIZE) {
     const chunk = uniqueCardRefs.slice(offset, offset + CURRENT_CARD_CHUNK_SIZE);
-    rows.push(...(await loadPublishedPriceChunk(db, chunk)));
+    rows.push(...(await loadPublishedPriceChunk(db, chunk, options)));
   }
 
   return rows;
@@ -60,6 +61,7 @@ export async function loadPublishedPriceRows(
 async function loadPublishedPriceChunk(
   db: D1Database,
   cardRefs: string[],
+  options: { rawOnly?: boolean },
 ): Promise<PublishedPriceRow[]> {
   const placeholders = cardRefs.map(() => "?").join(", ");
   const result = await db.prepare(
@@ -105,6 +107,7 @@ async function loadPublishedPriceChunk(
          AND source.is_active IS TRUE
          AND series.currency_code = 'USD'
          AND series.card_ref IN (${placeholders})
+         ${options.rawOnly ? "AND upper(btrim(series.grader_code)) = 'RAW'" : ""}
        ORDER BY series.card_ref, series.series_id
        LIMIT ${CURRENT_QUERY_ROW_LIMIT + 1}`,
   ).bind(...cardRefs).all<PublishedPriceRow>();
@@ -119,8 +122,8 @@ async function loadPublishedPriceChunk(
 
   const midpoint = Math.ceil(cardRefs.length / 2);
   return [
-    ...(await loadPublishedPriceChunk(db, cardRefs.slice(0, midpoint))),
-    ...(await loadPublishedPriceChunk(db, cardRefs.slice(midpoint))),
+    ...(await loadPublishedPriceChunk(db, cardRefs.slice(0, midpoint), options)),
+    ...(await loadPublishedPriceChunk(db, cardRefs.slice(midpoint), options)),
   ];
 }
 

@@ -223,6 +223,37 @@ const EMBEDDING_DIMENSIONS = 512;
 const MAX_VECTOR_JSON_BYTES = 32 * 1024;
 const CARD_NUMBER_PATTERN = /^(?:\d{1,4}\/(?:\d{1,4}|[A-Z]{1,5}-P)|[A-Z]{1,5}-P)$/;
 
+type ScanRecognitionCheckpoints = {
+  started: number;
+  authenticated: number;
+  reserved: number;
+  imageStored: number;
+  recognized: number;
+  catalogLoaded: number;
+  auditStored: number;
+};
+
+function logSlowScanRecognitionTiming(
+  checkpoints: ScanRecognitionCheckpoints,
+  outcome: string,
+): void {
+  const completed = performance.now();
+  const duration = (from: number, to: number) => Math.max(0, Math.round(to - from));
+  const totalMs = duration(checkpoints.started, completed);
+  if (totalMs < 3000) return;
+  console.info("scan_recognize_timing", JSON.stringify({
+    outcome,
+    total_ms: totalMs,
+    auth_ms: duration(checkpoints.started, checkpoints.authenticated),
+    preflight_ms: duration(checkpoints.authenticated, checkpoints.reserved),
+    image_ms: duration(checkpoints.reserved, checkpoints.imageStored),
+    recognition_ms: duration(checkpoints.imageStored, checkpoints.recognized),
+    catalog_ms: duration(checkpoints.recognized, checkpoints.catalogLoaded),
+    audit_ms: duration(checkpoints.catalogLoaded, checkpoints.auditStored),
+    settlement_ms: duration(checkpoints.auditStored, completed),
+  }));
+}
+
 function scanQuotaPayload(
   quota: ScanQuotaSnapshot,
   access: "free" | "premium",
@@ -244,18 +275,22 @@ export function createScanRoutes() {
       return c.json(INTERNAL_ERROR_RESPONSE, 500);
     }
 
-    const access = await resolvePremiumAccess(
+    const localPremiumState = c.req.header(LOCAL_PREMIUM_STATE_HEADER);
+    const accessPromise = resolvePremiumAccess(
       c.env,
       auth.owner.session_id,
-      c.req.header(LOCAL_PREMIUM_STATE_HEADER),
+      localPremiumState,
     );
+    const [access, quota] = localPremiumState?.toLowerCase() === "verified"
+      ? [await accessPromise, null] as const
+      : await Promise.all([accessPromise, loadScanQuota(c.env.DB, auth.owner)]);
     if (access === "sync_required") {
       return c.json(ENTITLEMENT_SYNC_REQUIRED_RESPONSE, 409);
     }
-    const quota = await loadScanQuota(c.env.DB, auth.owner);
+    const snapshot = quota ?? await loadScanQuota(c.env.DB, auth.owner);
     return c.json({
       success: true,
-      data: scanQuotaPayload(quota, access),
+      data: scanQuotaPayload(snapshot, access),
     });
   });
 
@@ -306,9 +341,11 @@ export function createScanRoutes() {
   });
 
   routes.post("/scan/recognize", async (c) => {
+    const requestStartedAt = performance.now();
     const auth = await authenticateOwner(c.env, c.req.header("Authorization"));
     if (auth.status === "unauthorized") return c.json(UNAUTHORIZED_RESPONSE, 401);
     if (auth.status === "internal_error") return c.json(INTERNAL_ERROR_RESPONSE, 500);
+    const authenticatedAt = performance.now();
 
     const body = await readFormData(c.req);
     if (!body) return c.json(VALIDATION_ERROR_RESPONSE, 422);
@@ -395,6 +432,7 @@ export function createScanRoutes() {
     if (reservation.status === "conflict" || reservation.status === "existing") {
       return c.json(SCAN_REQUEST_CONFLICT_RESPONSE, 409);
     }
+    const reservedAt = performance.now();
 
     const outbound = { vector };
 
@@ -424,6 +462,7 @@ export function createScanRoutes() {
       });
       return c.json(INTERNAL_ERROR_RESPONSE, 500);
     }
+    const imageStoredAt = performance.now();
 
     let recognitionPayload: unknown = null;
     let upstreamFailed = false;
@@ -440,6 +479,7 @@ export function createScanRoutes() {
       upstreamFailed = true;
       recognitionPayload = { error: "upstream_request_failed", message: String(error) };
     }
+    const recognizedAt = performance.now();
 
     const payload = isRecord(recognitionPayload) ? recognitionPayload : {};
     const recognized = upstreamFailed ? null : readRecognitionCandidates(payload.candidates);
@@ -472,6 +512,7 @@ export function createScanRoutes() {
         auditCandidates = [];
       }
     }
+    const catalogLoadedAt = performance.now();
     const results: ScanResult[] = [
       { index: 1, matched: candidates.length > 0, candidates },
     ];
@@ -533,6 +574,16 @@ export function createScanRoutes() {
       });
       return c.json(INTERNAL_ERROR_RESPONSE, 500);
     }
+    const auditStoredAt = performance.now();
+    const timingCheckpoints = {
+      started: requestStartedAt,
+      authenticated: authenticatedAt,
+      reserved: reservedAt,
+      imageStored: imageStoredAt,
+      recognized: recognizedAt,
+      catalogLoaded: catalogLoadedAt,
+      auditStored: auditStoredAt,
+    };
 
     if (upstreamFailed) {
       const responseBody = { ...VECTOR_RECOGNITION_UNAVAILABLE_RESPONSE, scan_id: scanId };
@@ -540,6 +591,7 @@ export function createScanRoutes() {
         body: responseBody,
         status: 502,
       });
+      logSlowScanRecognitionTiming(timingCheckpoints, "failed");
       return c.json(responseBody, 502);
     }
 
@@ -576,6 +628,7 @@ export function createScanRoutes() {
       scanId,
       { body: responseBody, status: 200 },
     );
+    logSlowScanRecognitionTiming(timingCheckpoints, recognitionStatus);
     return c.json(responseBody);
   });
 

@@ -3,6 +3,7 @@ import {
   loadPriceHistoryBySeries,
   loadPublishedPriceRows,
 } from "./postgres-price-store";
+import { PGliteDatabase } from "../test-support/pglite-database";
 
 type QueryCall = {
   sql: string;
@@ -88,6 +89,55 @@ describe("PostgreSQL price store query boundaries", () => {
     const sql = db.calls[0]?.sql ?? "";
     expect(sql).toContain("WHERE series.is_active\n");
     expect(sql).not.toContain("series.is_active IS TRUE");
+  });
+
+  it("filters graded rows in Search at PostgreSQL because catalog prices display only Raw series", async () => {
+    const db = new RecordingDatabase();
+
+    await loadPublishedPriceRows(db.asD1(), ["card-1"], { rawOnly: true });
+
+    expect(db.calls[0]?.sql).toContain("upper(btrim(series.grader_code)) = 'RAW'");
+  });
+
+  it("keeps Raw matching case-insensitive in PostgreSQL while detail reads every grade", async () => {
+    const db = await PGliteDatabase.create();
+    try {
+      await db.exec(`
+        CREATE TABLE price_source (source_id bigint, source_code text, is_active boolean);
+        CREATE TABLE current_price_pointer (scope_code text, batch_id bigint);
+        CREATE TABLE price_ingest_batch (batch_id bigint, source_id bigint, scope_code text, business_date date, status text);
+        CREATE TABLE price_series (
+          series_id bigint, source_id bigint, source_record_id text, metric_code text,
+          card_ref text, condition_code text, condition_name text,
+          language_code text, language_name text, finish_code text, finish_name text,
+          grader_code text, grade_min_x10 smallint, grade_max_x10 smallint,
+          currency_code text, is_active boolean
+        );
+        CREATE TABLE price_current_snapshot (
+          batch_id bigint, series_id bigint, observed_on date, amount_micros bigint,
+          baseline_1d_on date, baseline_1d_amount_micros bigint,
+          baseline_7d_on date, baseline_7d_amount_micros bigint,
+          baseline_30d_on date, baseline_30d_amount_micros bigint,
+          change_1d_percent numeric, change_7d_percent numeric, change_30d_percent numeric
+        );
+        INSERT INTO price_source VALUES (1, 'tcgplayer', true);
+        INSERT INTO price_ingest_batch VALUES (10, 1, 'current:tcgplayer', '2026-09-18', 'published');
+        INSERT INTO current_price_pointer VALUES ('current:tcgplayer', 10);
+        INSERT INTO price_series
+          (series_id, source_id, source_record_id, metric_code, card_ref, grader_code, currency_code, is_active)
+          VALUES (1, 1, 'raw-1', 'ungraded', 'card-1', ' rAw ', 'USD', true),
+                 (2, 1, 'psa-1', 'psa', 'card-1', 'PSA', 'USD', true);
+        INSERT INTO price_current_snapshot (batch_id, series_id, observed_on, amount_micros)
+          VALUES (10, 1, '2026-09-18', 10000000), (10, 2, '2026-09-18', 300000000);
+      `);
+
+      const searchRows = await loadPublishedPriceRows(db, ["card-1"], { rawOnly: true });
+      const detailRows = await loadPublishedPriceRows(db, ["card-1"]);
+      expect(searchRows.map((row) => row.series_id)).toEqual([1]);
+      expect(detailRows.map((row) => row.series_id)).toEqual([1, 2]);
+    } finally {
+      await db.close();
+    }
   });
 
   it("chunks history at 100 series and accepts 1600 month rows because price batches need a fixed response ceiling", async () => {

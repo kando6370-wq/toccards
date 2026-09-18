@@ -451,6 +451,106 @@ describe("scan routes", () => {
     ]);
   });
 
+  it("starts independent quota and Premium reads together because a quota refresh must not add their database waits", async () => {
+    const env = await createRecognitionEnv();
+    const token = await recognitionToken(env);
+    const originalQuery = env.DB.query.bind(env.DB);
+    let releaseGrant!: () => void;
+    let grantStarted!: () => void;
+    let quotaStarted = false;
+    const grantGate = new Promise<void>((resolve) => { releaseGrant = resolve; });
+    const started = new Promise<void>((resolve) => { grantStarted = resolve; });
+    vi.spyOn(env.DB, "query").mockImplementation(async (sql, values) => {
+      if (sql.includes("FROM billing_session_entitlement_grant AS grant_record")) {
+        grantStarted();
+        await grantGate;
+      }
+      if (sql.includes("AS reserved_count")) quotaStarted = true;
+      return originalQuery(sql, values);
+    });
+
+    const responsePromise = app.request(
+      "/api/v1/scan/quota",
+      { headers: { Authorization: `Bearer ${token}` } },
+      env,
+    );
+    await started;
+    try {
+      expect(quotaStarted).toBe(true);
+    } finally {
+      releaseGrant();
+      const response = await responsePromise;
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({
+        data: { access: "free", reserved: 0, consumed: 0, remaining: 10 },
+      });
+    }
+  });
+
+  it("keeps entitlement sync required ahead of quota reads because a verified client must receive the original 409", async () => {
+    const env = await createRecognitionEnv();
+    const token = await recognitionToken(env);
+
+    const response = await app.request(
+      "/api/v1/scan/quota",
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-Local-Premium-State": "verified",
+        },
+      },
+      env,
+    );
+
+    expect(response.status).toBe(409);
+    expect(env.queries.some((sql) => sql.includes("AS reserved_count"))).toBe(false);
+  });
+
+  it("reports only stage durations for slow recognition because production timing must locate waits without exposing scan data", async () => {
+    const env = await createRecognitionEnv();
+    const token = await recognitionToken(env);
+    const requestId = crypto.randomUUID();
+    stubVectorRecognition(env, vi.fn().mockImplementation(async () => Response.json({ candidates: [] })));
+    const logs = vi.spyOn(console, "info").mockImplementation(() => {});
+    let clock = 0;
+    const timing = vi.spyOn(performance, "now").mockImplementation(() => clock += 500);
+    try {
+      const response = await recognize(env, token, { request_id: requestId, vector: VECTOR });
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({ data: { recognition_status: "no_match" } });
+      const entry = logs.mock.calls.find(([name]) => name === "scan_recognize_timing");
+      expect(entry).toBeDefined();
+      const payload = JSON.parse(String(entry![1])) as Record<string, unknown>;
+      expect(payload).toMatchObject({ outcome: "no_match" });
+      expect(Object.keys(payload).sort()).toEqual([
+        "audit_ms", "auth_ms", "catalog_ms", "image_ms", "outcome",
+        "preflight_ms", "recognition_ms", "settlement_ms", "total_ms",
+      ]);
+      expect(JSON.stringify(payload)).not.toContain(requestId);
+      expect(JSON.stringify(payload)).not.toContain("anon-1");
+      expect(Object.entries(payload).filter(([key]) => key.endsWith("_ms"))
+        .every(([, value]) => typeof value === "number" && value >= 0)).toBe(true);
+
+      clock = 0;
+      timing.mockImplementation(() => clock += 1);
+      logs.mockClear();
+      expect((await recognize(env, token, { vector: VECTOR })).status).toBe(200);
+      expect(logs.mock.calls.some(([name]) => name === "scan_recognize_timing")).toBe(false);
+
+      clock = 0;
+      timing.mockImplementation(() => clock += 500);
+      logs.mockClear();
+      stubVectorRecognition(env, vi.fn().mockResolvedValue(Response.json({ error: "upstream" }, { status: 503 })));
+      expect((await recognize(env, token, { vector: VECTOR })).status).toBe(502);
+      const failure = logs.mock.calls.find(([name]) => name === "scan_recognize_timing");
+      expect(JSON.parse(String(failure?.[1]))).toMatchObject({ outcome: "failed" });
+      expect(String(failure?.[1])).not.toContain("upstream");
+    } finally {
+      timing.mockRestore();
+      logs.mockRestore();
+    }
+  });
+
   it("releases a queued reservation when recognition cannot start because unavailable vector search must not hold Free quota", async () => {
     const env = await createRecognitionEnv();
     const token = await recognitionToken(env);

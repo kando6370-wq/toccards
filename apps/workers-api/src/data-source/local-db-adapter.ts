@@ -478,7 +478,7 @@ async function findPriceRowsByProductId(
   cardRefs: string[],
 ): Promise<Map<string, PublishedPriceRow[]>> {
   const grouped = new Map<string, PublishedPriceRow[]>();
-  for (const row of await loadPublishedPriceRows(db, cardRefs)) {
+  for (const row of await loadPublishedPriceRows(db, cardRefs, { rawOnly: true })) {
     grouped.set(row.product_id, [...(grouped.get(row.product_id) ?? []), row]);
   }
   return grouped;
