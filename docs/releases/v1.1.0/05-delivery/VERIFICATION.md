@@ -2,6 +2,12 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## Card Detail Price 时间按钮点击方框（2026-09-18，本地修改）
+
+用户截图显示无价格数据时切换 `1D/7D/15D` 等时间范围，选中标识外出现浅色方框。源码中 Price 按钮的 `InkWell` 未设置点击反馈，40×40 热区使用 Flutter 默认 splash/overlay，而选中渐变仅为 40×24；相邻 Performance 范围控件已关闭默认反馈。修复只对 Price 范围按钮关闭 splash/overlay，保留选中渐变、点击热区、范围切换及 1Y PRO 门禁。影响通用与具体 Item 详情的 Price 页，iOS/Android 共用 Flutter 实现；不改 Performance、价格数据、API 或权益逻辑。现有 UI 设计规范已禁止默认 Material 视觉，业务/接口文档契约未变化，故无需另改流程文档（N/A）。
+
+Windows / Flutter 本地验证：新增无价格数据的 widget 回归在修复前失败（默认 `splashFactory=null`）；修复后定向测试 1/1、完整 `test/widget/card_detail_page_test.dart` 61/61 通过；`flutter analyze --no-pub` 无问题；两份改动 Dart 文件的只读格式检查退出 0。初次定向复跑因测试窗口中按钮不在可见区域而未命中，调整测试先滚动至按钮后通过，未修改业务逻辑。Code Review 自审核对通用/具体 Item 两处调用、六个范围和 1Y PRO 入口、选中渐变与默认点击反馈的边界，未发现本轮变更问题。本地检查不等于用户截图所用设备上的视觉验收；未运行 iOS/Android 真机、设备包构建、其他模块或全仓测试，需客户端测试人员在两端后续测试包中复核按压和切换画面。本轮未手动部署。
+
 ## 旧 Cloudflare dev 业务退役（2026-09-17）
 
 用户确认 Linux 客户端业务路径已测试无问题，并要求保留旧测试数据和旧包，退役旧业务 Worker、域名入口和 cron；本次没有独立重跑真机路径。退役前只读核对 kd201：`current` 为 watcher 发布的 `dev@4d5d66fdf60c2703604d9c72fc0ed204635c2279`，manifest、`last-deployed-sha` 和远端 dev 一致；API/Web/DB 容器运行，API/DB healthy，API bundle 与 release 的 SHA-256 相同，Admin 首页文件也与 release 一致。PostgreSQL 为 18.6，migration ledger 为 13 项。该 release 的发布前备份为 1,120,771,233 字节，容器内 `pg_restore --list` 退出 0；未执行整库恢复。回调网关和重定向 systemd 服务均为 active/enabled，实际 nftables 表存在，网关文件与本地源码摘要一致。
