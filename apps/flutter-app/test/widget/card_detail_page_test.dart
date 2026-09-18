@@ -234,7 +234,7 @@ void main() {
   );
 
   testWidgets(
-    'product 180865 shows Normal and Foil tabs and switching refreshes material prices',
+    'product 180865 restores loaded Finish prices without showing loading again',
     (tester) async {
       final repository = _FinishTabCardDetailRepository();
       await tester.pumpWidget(
@@ -270,6 +270,19 @@ void main() {
 
       expect(repository.requestedFinishes.last, 'Foil');
       expect(find.text(r'$20.00'), findsWidgets);
+
+      final requestCount = repository.requestedFinishes.length;
+      await tester.tap(normalTab);
+      await tester.pump();
+      expect(find.text(r'$10.00'), findsWidgets);
+      expect(
+        find.byKey(const Key('card-detail-price-chart-loading')),
+        findsNothing,
+      );
+      await tester.tap(foilTab);
+      await tester.pump();
+      expect(find.text(r'$20.00'), findsWidgets);
+      expect(repository.requestedFinishes.length, requestCount);
     },
   );
 

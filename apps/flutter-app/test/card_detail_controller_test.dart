@@ -1392,6 +1392,16 @@ void main() {
       await _loadedState(container, 'catalog:pikachu-025');
       await _drainSectionLoads();
       expect(container.read(provider).priceFinish, 'Holofoil');
+      final holofoilRows = container
+          .read(provider)
+          .priceTabMarketRows
+          .map((row) => row.priceText)
+          .toList();
+      final holofoilSeries = container
+          .read(provider)
+          .selectedPriceSeries
+          .map((point) => point.priceUsd)
+          .toList();
 
       await container.read(provider.notifier).selectPriceFinish('Normal');
       final normal = container.read(provider);
@@ -1417,6 +1427,133 @@ void main() {
       expect(
         cardDataApi.seriesFinishes.whereType<String>().toSet(),
         contains('Normal'),
+      );
+
+      final marketCalls = cardDataApi.marketFinishes.length;
+      final seriesCalls = cardDataApi.seriesFinishes.length;
+      await container.read(provider.notifier).selectPriceFinish('Holofoil');
+      final restored = container.read(provider);
+      expect(
+        restored.priceTabMarketRows.map((row) => row.priceText),
+        holofoilRows,
+      );
+      expect(
+        restored.selectedPriceSeries.map((point) => point.priceUsd),
+        holofoilSeries,
+      );
+      expect(restored.priceSeriesStatus, KandoLoadStatus.content);
+      expect(restored.marketPricesStatus, KandoLoadStatus.content);
+      await container.read(provider.notifier).selectPriceFinish('Normal');
+      expect(
+        container.read(provider).priceTabMarketRows.map((row) => row.priceText),
+        [r'$25.00', r'$20.00', r'$15.00'],
+      );
+      expect(
+        cardDataApi.marketFinishes.length,
+        marketCalls,
+        reason:
+            'Already loaded materials must not refetch market rows on this detail view.',
+      );
+      expect(
+        cardDataApi.seriesFinishes.length,
+        seriesCalls,
+        reason:
+            'Already loaded materials must not refetch chart points on this detail view.',
+      );
+    },
+  );
+
+  test(
+    'refresh invalidates finish prices because an explicit reload must not restore stale market data',
+    () async {
+      final cardDataApi = _FinishSwitchingCardDataApi();
+      final repository = HttpCardDetailRepository(
+        api: _FakePortfolioApiClient(
+          folders: const [],
+          items: const [],
+          wishlist: const [],
+        ),
+        cardDataApi: cardDataApi,
+      );
+      final container = _cardDetailContainer(repository: repository);
+      addTearDown(container.dispose);
+      final provider = cardDetailControllerProvider('catalog:pikachu-025');
+      final controller = container.read(provider.notifier);
+
+      await _loadedState(container, 'catalog:pikachu-025');
+      await _drainSectionLoads();
+      await controller.selectPriceFinish('Normal');
+      final firstNormalCalls = cardDataApi.marketFinishes
+          .where((finish) => finish == 'Normal')
+          .length;
+
+      await controller.refreshMarketPrices();
+      await controller.selectPriceFinish('Holofoil');
+      await controller.selectPriceFinish('Normal');
+      expect(
+        cardDataApi.marketFinishes.where((finish) => finish == 'Normal').length,
+        firstNormalCalls + 2,
+        reason: 'Manual refresh must evict the old Normal snapshot.',
+      );
+
+      final previousHolofoilCalls = cardDataApi.marketFinishes
+          .where((finish) => finish == 'Holofoil')
+          .length;
+      await controller.refresh();
+      await _drainSectionLoads();
+      expect(
+        cardDataApi.marketFinishes
+            .where((finish) => finish == 'Holofoil')
+            .length,
+        previousHolofoilCalls + 1,
+      );
+      await controller.selectPriceFinish('Normal');
+      expect(
+        cardDataApi.marketFinishes.where((finish) => finish == 'Normal').length,
+        firstNormalCalls + 3,
+        reason: 'A full detail reload must start a new material cache.',
+      );
+      expect(
+        container.read(provider).priceSeriesStatus,
+        KandoLoadStatus.content,
+      );
+    },
+  );
+
+  test(
+    'failed finish remains retryable because an empty or failed material must not be cached as success',
+    () async {
+      final cardDataApi = _FailingFinishCardDataApi();
+      final repository = HttpCardDetailRepository(
+        api: _FakePortfolioApiClient(
+          folders: const [],
+          items: const [],
+          wishlist: const [],
+        ),
+        cardDataApi: cardDataApi,
+      );
+      final container = _cardDetailContainer(repository: repository);
+      addTearDown(container.dispose);
+      final provider = cardDetailControllerProvider('catalog:pikachu-025');
+
+      await _loadedState(container, 'catalog:pikachu-025');
+      await _drainSectionLoads();
+      await container.read(provider.notifier).selectPriceFinish('Normal');
+      expect(
+        container.read(provider).marketPricesStatus,
+        KandoLoadStatus.failure,
+      );
+
+      await container.read(provider.notifier).selectPriceFinish('Holofoil');
+      await container.read(provider.notifier).selectPriceFinish('Normal');
+      expect(cardDataApi.normalCalls, 2);
+      expect(
+        container.read(provider).marketPricesStatus,
+        KandoLoadStatus.content,
+      );
+      expect(
+        container.read(provider).priceSeriesStatus,
+        KandoLoadStatus.content,
       );
     },
   );
@@ -2315,6 +2452,22 @@ class _FinishSwitchingCardDataApi extends _FakeCardDataApi {
       CardDataPricePointDto(date: '2026-07-01', price: current - 1),
       CardDataPricePointDto(date: '2026-07-30', price: current),
     ];
+  }
+}
+
+class _FailingFinishCardDataApi extends _FinishSwitchingCardDataApi {
+  var normalCalls = 0;
+
+  @override
+  Future<List<CardDataMarketPriceDto>> getMarketPrices(
+    String cardRef, {
+    String? finish,
+    String? language,
+  }) {
+    if (finish == 'Normal' && ++normalCalls == 1) {
+      throw StateError('Normal prices temporarily unavailable');
+    }
+    return super.getMarketPrices(cardRef, finish: finish, language: language);
   }
 }
 

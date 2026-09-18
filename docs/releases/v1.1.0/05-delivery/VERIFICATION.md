@@ -2,6 +2,14 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## Card Detail Price 材质切换重复加载（2026-09-18，本地修改）
+
+用户视频显示同一卡牌 Price 从 Reverse Holofoil 切到 Normal 时图表转圈、Market Prices 重新加载。根因是 `selectPriceFinish` 每次无条件请求市场价和价格序列，`detail` 仅保存当前材质；新增的 A→B→A→B 回归在修复前失败（市场价请求 2 次变 4 次）。影响通用及具体 Item 详情共用的 Flutter Price 页面，iOS/Android 共享代码；不改 API、价格计算、Collection Item 编辑维度或其他页面。
+
+修复在当前详情加载代次内按材质和语言保存完整成功的 Price 数据，切回已加载材质同步恢复图表与市场价，不进入 loading；首次选择、失败重试仍请求服务端。单区块手动刷新使旧材质缓存失效，详情整体刷新或会话重建清空缓存；Premium 1Y 成功加载后保留在当前材质快照。异步材质结果须匹配详情与价格加载代次。当前交互已同步到 `01-flows/business-context.md`，未修改 v1.0.0 冻结文档。
+
+Windows / Flutter 3.44.7 本地验证：原 A→B→A→B 用例修复前退出 1，修复后通过；补充手动/整体刷新及失败重试的 Controller 测试、可见价格与 loading 的 Widget 测试。`flutter test --no-pub test/card_detail_controller_test.dart test/widget/card_detail_page_test.dart` 最终 106/106 通过；`flutter analyze --no-pub` 无问题；`git diff --check` 退出 0。Code Review 自审核对了缓存仅存成功结果、材质/语言隔离、整体与局部刷新失效、快速切换的代次检查、Premium 1Y 与编辑草稿路径，未发现本轮剩余问题。未运行 iOS/Android 真机网络与视觉验收、设备构建、全 App/全仓测试或 dev/prod 发布；本地 Widget 测试不能替代真机验证，需客户端测试人员在后续两端测试包中复核。
+
 ## Card Detail Price 时间按钮点击方框（2026-09-18，本地修改）
 
 用户截图显示无价格数据时切换 `1D/7D/15D` 等时间范围，选中标识外出现浅色方框。源码中 Price 按钮的 `InkWell` 未设置点击反馈，40×40 热区使用 Flutter 默认 splash/overlay，而选中渐变仅为 40×24；相邻 Performance 范围控件已关闭默认反馈。修复只对 Price 范围按钮关闭 splash/overlay，保留选中渐变、点击热区、范围切换及 1Y PRO 门禁。影响通用与具体 Item 详情的 Price 页，iOS/Android 共用 Flutter 实现；不改 Performance、价格数据、API 或权益逻辑。现有 UI 设计规范已禁止默认 Material 视觉，业务/接口文档契约未变化，故无需另改流程文档（N/A）。
