@@ -1,0 +1,16 @@
+[Unit]
+Description=Toccards Linux dev callback-only gateway
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=simple
+User=user
+Group=user
+ExecStart=/usr/bin/node /home/user/apps/toccards-test/shared/callback-gateway.mjs
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

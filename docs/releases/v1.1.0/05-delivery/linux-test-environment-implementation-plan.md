@@ -2,12 +2,12 @@
 
 > 后续变更遵循当前根 `AGENTS.md`：BUGFIX 必须先复现并建立失败证据，再执行最小修复、回归验证与 Code Review。下方任务勾选及测试结果保留原始实施记录，不代表当前提交已重新验收。
 
-## 当前实现边界（2026-09-10）
+## 当前实现边界（2026-09-16）
 
-- 当前 main 已包含 Linux 测试环境，核对基线为 `main@659a7c6`；来源为 `19a6ac4`，分支监听器默认仍跟踪 dev。
+- `19a6ac4` 已将 Linux 部署资产合入 dev，并通过 `659a7c6` 进入 main；下方原始实施记录保留 `dev@699ca48` 与 `dev@b941a3f` 的历史基线。当前 dev 后端已运行在 Linux，监听器仍跟踪 dev，不再等待功能分支合入。
 - Cloudflare dev/test 与 prod 已完成 PostgreSQL 迁移，D1 已退役；Linux 使用独立 PostgreSQL。
-- 当前扫描路由只使用 `VECTOR_RECOGNITION`，Linux 配置仍要求旧 `OCR_SERVICE_BASE_URL` 且未提供向量适配器。Linux 扫描不可用，填写 OCR 地址不能恢复，见[架构中的兼容缺口](../02-architecture/linux-test-environment.md#扫描兼容缺口)。
-- 本轮未连接 kd201；下方 10 条 migration、容器运行与发布结果只对应注明的历史时间，当前 ledger、运行 SHA 及自动发布状态需重新核验。
+- dev 整改已通过 HTTP 适配复用 CF 识别，并统一 App test/Admin development 内网入口、测试分享与 Linux 发布命令；2026-09-15 已升级 kd201 现有实例并完成受控扫描、额度和收藏写库验证。设备验收与第三方测试配置仍待完成，见[架构中的兼容缺口](../02-architecture/linux-test-environment.md#扫描兼容缺口)。下方 Task 勾选与 OCR 配置仅保留原始实施历史，不作为新版本配置指引。
+- 整改已通过 `75c0ec4` 合入 dev，现有 watcher 已自动发布该提交并完成扫描/扣次/本地收藏复验；ledger 保持 13 项。下方 10 条 migration、容器与发布结果只对应注明的历史时间，当前证据见[验证记录](VERIFICATION.md)。
 
 **Goal:** Add a single-instance Linux test deployment that runs the existing Hono/PostgreSQL application without duplicating business code or changing Cloudflare production behavior.
 

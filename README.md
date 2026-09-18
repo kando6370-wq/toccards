@@ -2,9 +2,11 @@
 
 Kando 是 Card AI 的 monorepo，包含 Flutter 客户端、Cloudflare Workers API、React 管理后台、营销站点及共享包。产品主线是卡牌搜索、扫描识别、收藏与估值；v1.1 在此基础上增加 Apple 订阅、Premium 权益、服务端扫描额度、Performance 和订单/通知后台。
 
-当前发布来源为 `main@759b072`（2026-09-11）；Flutter 客户端版本为 `1.0.2+135`，以 `apps/flutter-app/pubspec.yaml` 为准。`docs/releases/v1.1.0` 是产品迭代文档目录，不代表安装包版本或商店发布状态。
+当前 prod 运行版本的发布来源为 `main@759b072`（2026-09-11）；Flutter 源码版本为 `1.0.2+146`，以 `apps/flutter-app/pubspec.yaml` 为准。`docs/releases/v1.1.0` 是产品迭代文档目录，不代表安装包版本或商店发布状态；Git 合并不代表目标环境发布。
 
 ## 系统概览
+
+当前业务环境只有 `prod` 和 `dev`：`prod` 保持原 Cloudflare 部署，`dev` 是 kd201 上的 Linux 环境。旧 Cloudflare dev 业务 Worker 已退役，不再是发布目标；保留的 CF 向量识别和独立 Apple 回调只是 dev 的外部依赖。下图为 prod；Linux dev 的部署与数据边界见图后说明。
 
 ```text
 Flutter App ------------+
@@ -18,11 +20,11 @@ React Admin -- assets ---+        |-- PlanetScale PostgreSQL（经 Hyperdrive）
 Marketing Web -----------------> 独立 Cloudflare 静态站点
 ```
 
-共享 Hono API 是 App 与 Admin 的服务端安全边界，路由组合位于 `apps/workers-api/src/app.ts`，Cloudflare 入口为 `src/index.ts`。客户端不得直连数据库或对象存储；Cloudflare 环境的 Admin 构建产物由 Workers assets 托管，营销站点独立部署。Cloudflare 测试环境 dev/test 与正式环境 prod 均已完成 PostgreSQL 迁移，D1 已废弃；2026-09-09 用户确认与 Cloudflare 回读一致，两环境均绑定同一个 PlanetScale PostgreSQL/Hyperdrive，回读版本均无 D1 binding。运行环境、Apple 配置、KV、R2、域名和 secrets 继续隔离。后续数据库变更仅涉及 PostgreSQL schema 和业务数据修复，见 [数据迁移](docs/releases/v1.1.0/03-data-api/migration.md)，不再安排 D1 移库任务。
+共享 Hono API 是 App 与 Admin 的服务端安全边界，路由组合位于 `apps/workers-api/src/app.ts`，Cloudflare 入口为 `src/index.ts`。客户端不得直连数据库或对象存储；Cloudflare 正式环境的 Admin 构建产物由 Workers assets 托管，营销站点独立部署。旧 Cloudflare dev/test 与正式环境 prod 均已完成 PostgreSQL 迁移，D1 已废弃；2026-09-09 用户确认与 Cloudflare 回读一致，两环境当时绑定同一个 PlanetScale PostgreSQL/Hyperdrive，回读版本均无 D1 binding。2026-09-17 旧 dev 业务 Worker 退役，但共享数据库及旧测试数据未删除；正式环境继续使用原资源。后续数据库变更仅涉及 PostgreSQL schema 和业务数据修复，见 [数据迁移](docs/releases/v1.1.0/03-data-api/migration.md)，不再安排 D1 移库任务。
 
-当前 main 包含 Linux 测试入口 `src/linux/server.ts`，复用同一 Hono 应用与 PostgreSQL migration，使用独立 PostgreSQL、进程内 KV 和本地图片卷；Admin 由 Caddy 托管，离线模式使用 Node 静态服务。Linux 尚未提供向量识别适配器，扫描不可用；架构与兼容缺口见 [Linux 测试环境](docs/releases/v1.1.0/02-architecture/linux-test-environment.md)。
+`dev` 已合入 Linux 入口 `src/linux/server.ts`，复用同一 Hono 应用与 PostgreSQL migration，使用独立 PostgreSQL、进程内 KV 和本地图片卷；Admin 由 Caddy 托管，离线模式使用 Node 静态服务。App `test` 默认 API 为 `http://192.168.50.201:8080/api/v1`，Admin development 使用同源相对 API，本机开发由 Vite 代理到 Linux，向量检索经 HTTP 复用 CF。2026-09-17 kd201 运行 watcher 发布的 `dev@cd7c512`，旧 CF dev 的业务 Worker、域名入口和 cron 已退役；独立 Apple Sandbox 回调、CF 向量识别和正式环境保留。验收与未执行项见 [Linux 测试环境](docs/releases/v1.1.0/02-architecture/linux-test-environment.md)及[验证记录](docs/releases/v1.1.0/05-delivery/VERIFICATION.md)。
 
-当前 main 包含端侧模型与 512 维向量识别，主 API 经 `VECTOR_RECOGNITION` 调用 `recognize-vec`。当前 App 要求 iOS 16+ 或 Android API 24+；Flutter Web 可用于其他页面开发，暂不支持扫描。扫描协议、平台资源及新旧 App 兼容边界见 [扫描识别链路](docs/releases/v1.1.0/01-flows/scan-recognition.md)。
+当前代码包含端侧模型与 512 维向量识别；dev Linux 经 HTTP、prod Cloudflare 经 Service Binding 调用 `recognize-vec`。当前 App 要求 iOS 16+ 或 Android API 24+；Flutter Web 可用于其他页面开发，暂不支持扫描。扫描协议、平台资源及新旧 App 兼容边界见 [扫描识别链路](docs/releases/v1.1.0/01-flows/scan-recognition.md)。
 
 ## 仓库结构
 
@@ -73,7 +75,7 @@ pnpm --filter @kando/marketing-web dev
 
 各进程仍需要其目标环境可用的配置和本地/远程 Cloudflare 资源；启动命令成功不等于 Apple、向量识别服务、邮件或生产资源已配置。
 
-Linux API 与 Admin 构建使用 `pnpm --filter @kando/workers-api build:linux`。准备独立测试配置后的启动、数据库和日志操作见 [Linux 运维手册](docs/linux-test-environment/README.md)。
+Linux dev API 与 Admin 构建使用 `pnpm --filter @kando/workers-api build:dev`，原 `build:linux` 为兼容别名。`deploy:dry-run:dev` 构建并生成不含私有配置的 Linux 发布包；`deploy:dev` 使用显式 `TOCCARDS_SSH_TARGET` 经 SSH 调用服务器发布脚本。直接运行 Node API 的 `dev`/`start:linux` 从进程环境读取配置，开发机需使用可达的本地 PostgreSQL 地址，不能直接使用 Compose 内部主机名 `db`。详见 [Linux 运维手册](docs/linux-test-environment/README.md)。
 
 ## 质量检查
 
@@ -96,7 +98,7 @@ dart run melos run test
 
 2026-09-11 已从 `main@759b072` 发布 prod Workers 与配套 Admin，version `4f543496-9d54-48c4-a16c-0e608dcc32f0` 承载 100% 流量，已使用向量识别与独立 production 版本键；`0011` 已完成，`0012` 未在本轮回填。旧 pHash 客户端不兼容的切换边界已获用户确认。详见[prod 发布与验证](docs/releases/v1.1.0/05-delivery/VERIFICATION.md#prod-向量协议与环境版本配置发布2026-09-11)。
 
-- Workers 与 Admin dev：`pnpm --filter @kando/workers-api run deploy:dev`。
+- Linux dev：配置已验证的 SSH 目标 `TOCCARDS_SSH_TARGET` 后运行 `pnpm --filter @kando/workers-api run deploy:dev`；预检环境、PostgreSQL 18 和 CF 识别后，先备份再发布，不调用 Wrangler dev 部署。
 - Workers 与 Admin prod：`pnpm --filter @kando/workers-api run deploy:prod`。
 - Marketing：`pnpm --filter @kando/marketing-web run deploy`。
 - iOS GitHub Actions 的 push 触发仅覆盖 dev 的相关路径，另支持 PR 与手动触发；main 推送不代表该任务已执行。任务只执行 unsigned release compile gate，不等于签名、TestFlight 或真机验收。

@@ -125,18 +125,76 @@ void main() {
     },
   );
 
-  testWidgets('guide media extends behind the top safe area', (tester) async {
+  testWidgets(
+    'scan guide media starts 56pt below the screen top without cropping',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.padding = const FakeViewPadding(left: 19, top: 47, right: 23);
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(_testPage(InMemoryOnboardingStorage()));
+
+      final media = find.descendant(
+        of: find.byKey(const ValueKey('onboarding-media-placeholder-0')),
+        matching: find.byType(Image),
+      );
+      expect(tester.getTopLeft(media), const Offset(0, 56));
+      expect(tester.getSize(media), const Size(390, 480));
+      expect(
+        tester.getRect(find.byKey(const ValueKey('onboarding-video-0'))),
+        const Rect.fromLTWH(0, 56, 390, 480),
+      );
+    },
+  );
+
+  testWidgets(
+    'scan guide media scales down proportionally on compact screens',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(320, 700);
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        _testPage(InMemoryOnboardingStorage(), disableAnimations: true),
+      );
+
+      final media = find.byKey(
+        const ValueKey('onboarding-media-first-frame-0'),
+      );
+      expect(tester.getTopLeft(media), const Offset(0, 56));
+      expect(tester.getSize(media).width, 320);
+      expect(tester.getSize(media).height, closeTo(320 * 960 / 780, 0.01));
+      expect(find.byType(VideoPlayer), findsNothing);
+    },
+  );
+
+  testWidgets('scan guide media stays centered at its 390pt maximum width', (
+    tester,
+  ) async {
     tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.padding = const FakeViewPadding(left: 19, top: 47, right: 23);
+    tester.view.physicalSize = const Size(430, 932);
     addTearDown(tester.view.reset);
 
     await tester.pumpWidget(_testPage(InMemoryOnboardingStorage()));
 
-    final media = find.descendant(
-      of: find.byKey(const ValueKey('onboarding-media-placeholder-0')),
-      matching: find.byType(Image),
-    );
+    final media = find.byKey(const ValueKey('onboarding-media-first-frame-0'));
+    expect(tester.getRect(media), const Rect.fromLTWH(20, 56, 390, 480));
+  });
+
+  testWidgets('second guide retains its safe-area media layout', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.padding = const FakeViewPadding(top: 47);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(_testPage(InMemoryOnboardingStorage()));
+    await tester.tap(find.byTooltip("LET'S START"));
+    await _finishPageTransition(tester);
+
+    final media = find.byKey(const ValueKey('onboarding-media-first-frame-1'));
     expect(tester.getTopLeft(media), Offset.zero);
     expect(tester.getSize(media), const Size(390, 563));
   });

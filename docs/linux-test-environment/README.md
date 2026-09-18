@@ -1,5 +1,9 @@
 # Linux 测试环境部署与自动升级手册
 
+当前 `dev` 即本手册的 Linux 环境，`prod` 保持原 Cloudflare 运行与发布方式；已退役的旧 CF dev 不是第三个业务环境或后续发布目标。
+
+2026-09-17 17:26 回读：kd201 watcher 已发布 `dev@cd7c512`，API/DB healthy、migration ledger 为 13 项；旧 CF dev 业务 Worker、域名和 cron 已退役，独立 Apple 回调和 CF 向量服务保留，旧测试数据与包不清理。下方 2026-09-16 基线按原日期保留，退役证据见[验证记录](../releases/v1.1.0/05-delivery/VERIFICATION.md#旧-cloudflare-dev-业务退役2026-09-17)。
+
 > 适用项目：`toccards`
 >
 > 测试服务器：`kd201`（`192.168.50.201`）
@@ -8,15 +12,17 @@
 >
 > 自动部署分支：`dev`
 >
-> 代码核对：2026-09-10，`main@659a7c6`
+> 2026-09-16 发布基线：watcher 自动发布 `dev@75c0ec4`
 >
-> 服务器历史核验：2026-09-09，本轮未重新连接
+> 服务器核验：2026-09-16，向量扫描、扣次和本地收藏写库通过；邮件与 Apple 凭据保留
 
-main 与 dev 均已包含 Linux 部署资产；监听器默认仍跟踪 dev，当前运行 release、SHA 与数据库 ledger 仍需按本文命令回读。当前代码还缺少 Linux 向量识别适配器，扫描不可用；旧 `OCR_SERVICE_BASE_URL` 只保留启动校验，填写 OCR 地址不能启用扫描，见[兼容缺口](../releases/v1.1.0/02-architecture/linux-test-environment.md#扫描兼容缺口)。
+Linux 整改通过 `75c0ec4` 合入 dev 时保留了该分支原有的后台筛选改动；当时的 `branch-dev-75c0ec4f991d-20260916151043` 已验证 HTTP 向量适配、受控扫描、幂等扣次及收藏写库。原数据库及图片卷保留，ledger 为 13 项。日常手工 SSH 发布仍需配置 key/agent，自动发布使用服务器现有监听器；后续 release 证据见[验证记录](../releases/v1.1.0/05-delivery/VERIFICATION.md)。
+
+2026-09-16 已在共享 `shared/.env` 补齐 dev 公开配置、Apple 官方根证书、API 出站代理、ZeptoMail Token 和用户确认的 Apple Server API 凭据；这些配置随 release 保留。配置更新只重建 API，单封注册验证码邮件由用户确认收到，管理员登录与 Apple Sandbox 只读 API 鉴权均通过。当前源码版本对齐、第三方真实登录、Apple 购买/回调等剩余项见[集中处理清单](../releases/v1.1.0/05-delivery/development-plan.md#linux-dev-集中处理清单2026-09-16)。
 
 ## 1. 目标与原则
 
-Linux 测试环境和 Cloudflare 正式环境使用同一套业务代码，不维护两套 API、管理后台、SQL 或业务规则。环境差异仅放在运行入口、基础设施适配器、环境变量和部署脚本中。
+Linux 承接现有 dev 环境整改，与 Cloudflare 正式环境使用同一套业务代码，不维护两套 API、管理后台、SQL 或业务规则。环境差异仅放在运行入口、基础设施适配器、环境变量和部署脚本中；识别按用户明确要求继续复用现有 CF 向量服务。
 
 | 项目 | Linux 测试环境 | Cloudflare 正式环境 |
 |---|---|---|
@@ -30,7 +36,7 @@ Linux 测试环境和 Cloudflare 正式环境使用同一套业务代码，不�
 
 必须遵守以下隔离规则：
 
-- Linux 测试环境不得使用 Cloudflare 共用数据库、正式识别服务或正式密钥。
+- Linux 业务读写使用独立 PostgreSQL、图片卷和测试密钥；仅通过 HTTP 向现有 CF 识别服务发送向量，候选资料、额度与扫描记录仍在本地处理。
 - kd201 的 `.env`、数据库密码和 JWT secret 不提交到 Git。
 - 自动部署只负责 kd201，不会触发或修改 Cloudflare 正式环境。
 - 不执行 `docker compose down -v`，除非明确要永久清空测试数据库和扫描图片。
@@ -96,7 +102,7 @@ chmod 600 .env
 - `POSTGRES_PASSWORD`
 - `DATABASE_URL`
 - `JWT_SECRET`
-- `OCR_SERVICE_BASE_URL`：当前启动必填的旧字段，可保持 `.invalid` 占位地址；扫描路由不读取它。
+- `VECTOR_RECOGNITION_BASE_URL`：必填识别服务 origin，例如 `https://recognize-vec.tcgcard.fun`；不得包含路径、凭据、查询参数或 fragment，适配器固定请求 `/recognize`。
 - `LINUX_TEST_SITE_ADDRESS`
 - `ALLOWED_ORIGINS`
 
@@ -105,10 +111,33 @@ kd201 使用局域网 HTTP 时的非敏感配置示例：
 ```dotenv
 LINUX_TEST_SITE_ADDRESS=http://192.168.50.201
 HTTP_PORT=8080
-ALLOWED_ORIGINS=http://192.168.50.201:8080
+ALLOWED_ORIGINS=http://192.168.50.201:8080,http://localhost:3000,http://127.0.0.1:3000
 POSTGRES_LISTEN_ADDRESS=192.168.50.201
 POSTGRES_HOST_PORT=15432
 ```
+
+升级本次后端适配前，先补齐 `VECTOR_RECOGNITION_BASE_URL` 并从服务器验证出站连通性。新版本忽略旧 `OCR_SERVICE_BASE_URL`，仅有旧键时拒绝启动；过渡期可保留旧键供旧版本回滚，或恢复对应版本的 `.env`。kd201 已于 2026-09-15 完成该升级，客户端真机切换仍待验收。
+
+### 外部服务配置与代理
+
+2026-09-15 已从 CF `toccards-api-dev` 在线配置核对 Google Client ID、beta Bundle、App Attest 标识、商品白名单与邮件发件人；值与仓库 `wrangler.toml` 的 `env.dev.vars` 一致。Linux 已补齐缺失的公开值。Apple 根证书从[官方证书页面](https://www.apple.com/certificateauthority/)下载，验证 CA 属性、自签名和有效期后，按现有契约将 3 张 DER 证书编码为逗号分隔的 `APPLE_ROOT_CERTIFICATES_BASE64`。ZeptoMail Token 已于 2026-09-16 按用户文件配置并完成单封真实收件验收；统计密钥仍待提供。`ZEPTOMAIL_TOKEN` 只保存原始值，代码会添加 `Zoho-enczapikey ` 前缀，不能在配置中重复保存该前缀。CF Secret 列表不返回明文。
+
+同日已按用户确认的 `A2Q978K984` 配置 `APPLE_IAP_ISSUER_ID`、`APPLE_IAP_KEY_ID`、`APPLE_IAP_PRIVATE_KEY`。私钥是完整 PEM 内容，不是文件路径或根证书的 base64；本次使用 dotenv 双引号与转义换行存储，Node 与 Compose 解析后均恢复真实换行，并通过运行容器内的签名及 Sandbox API 鉴权。真实 Issuer ID/PEM 只保存在服务器私有配置，旧配置备份权限为 600。`APP_ENVIRONMENT=development`、beta Bundle、`cardx.*` 商品及 App Attest development 保留；仅只读查询最近一分钟的通知历史，没有触发 Apple TEST 通知、购买或生产请求。
+
+kd201 的 Google 直连在宿主机及 API 容器均连接超时。用户提供的 `192.168.48.10:7890` 经验证同时支持 SOCKS5 与 HTTP CONNECT；当前项目使用 Node 原生 HTTP 代理，服务器 `shared/.env` 已配置：
+
+```dotenv
+NODE_USE_ENV_PROXY=1
+HTTP_PROXY=http://192.168.48.10:7890
+HTTPS_PROXY=http://192.168.48.10:7890
+NO_PROXY=localhost,127.0.0.1,::1,db,api,192.168.50.201,192.168.48.10,recognize-vec.tcgcard.fun
+```
+
+此方式要求实际 API 运行时为 Node 22.21.0+；kd201 当前为 22.22.1。`NODE_USE_ENV_PROXY` 是 Node 启动配置，不由 `loadLinuxRuntime` 转换；仅设置 `HTTPS_PROXY` 无法保证旧版 Node 的原生 `fetch` 使用代理。Node 原生代理配置接受 HTTP(S) URL，不能把此处改成 `socks5://`。2026-09-16 自动发布整改时，另外将相同 HTTP/HTTPS/NO_PROXY/NODE_USE_ENV_PROXY 设置加入 `watcher/watcher.env`，使监听器的 Git/Node/pnpm 使用已验证的出口；API 环境和 watcher 环境各自维护，不会自动互相继承。宿主机全局代理、Docker daemon 和其他项目未修改；数据库为直连 TCP，内网与 CF 向量服务通过 `NO_PROXY` 直连，TLS 校验保持开启。
+
+变更前备份 `shared/.env`，持有 watcher/deploy 锁后，在 `current/deploy/linux` 使用既有两份 Compose 配置执行 `up -d --no-deps api`；仅重建 API。回退时恢复对应 `.env` 备份并执行同一命令。Google 返回 `400 invalid_token`（未传真实令牌）只证明网络可达；真实账号登录仍需测试包及用户授权令牌。
+
+App 使用现有 `config/test.json` / `APP_ENV=test` 构建后，业务请求默认进入 `http://192.168.50.201:8080/api/v1`。Admin development 构建使用同源 `/api/v1/admin`；本机 `pnpm --filter @kando/admin-web dev` 通过 Vite 代理同一路径。Flutter Web 从固定 3000 端口直接访问 Linux，需要服务器 `.env` 中相应 CORS origin；仅修改模板不会自动更新现有服务器配置。测试 App 分享固定进入内网，链接需在同局域网访问；production 保持原有 API/分享配置行为。
 
 真实密码只从服务器读取，不写入本文档：
 
@@ -207,6 +236,10 @@ ssh kd201 'tail -f /home/user/apps/toccards-test/watcher/logs/watch.log'
 
 只有自动监听器不可用或需要受控恢复时才使用手工部署。
 
+当前 dev 发布命令已在源码中统一到 Linux。开发机先运行 `pnpm --filter @kando/workers-api deploy:dry-run:dev`，生成带 SHA/分支/dirty 状态的发布包；配置 `TOCCARDS_SSH_TARGET` 为已验证的 SSH 目标后，运行 `pnpm --filter @kando/workers-api deploy:dev`。目标账号需能以密钥/agent 非交互登录并访问 Docker；包上传到 `~/apps/toccards-test/incoming/`，服务器配置继续读取 `shared/.env`，不从开发机复制密钥。
+
+新版发布脚本先执行环境、数据库和 CF 识别预检，已有库无论是否存在 `current` 链接都须备份；随后执行原版本化发布、migration、健康检查和应用回退。标准 PostgreSQL 默认已统一为 18，并固定原 `PGDATA` 路径；这不代表可以自动升级任何旧大版本数据库。部署脚本与参数详见[发布入口](../../deploy/linux/README.md#日常-dev-发布命令)。
+
 ### 6.1 标准 Compose
 
 适用于服务器可拉取配置的镜像：
@@ -296,7 +329,7 @@ ssh kd201 'docker exec toccards-linux-test-db-1 \
 {"status":"ok"}
 ```
 
-如果本次变更涉及登录，再额外验证管理后台登录；涉及数据库结构时，再验证对应 migration 和业务接口。健康接口成功不证明扫描可用，扫描验收需先补齐向量适配器；未受影响的 Flutter 或 Cloudflare 正式环境不因一次 Linux 文档/部署变更而重复测试。
+如果本次变更涉及登录，再额外验证管理后台登录；涉及数据库结构时，再验证对应 migration 和业务接口。健康接口成功不证明扫描可用，HTTP 适配仍需从服务器及 iOS/Android 验证完整识别、写库与额度链路；未受影响的 Flutter 或 Cloudflare 正式环境不因一次 Linux 文档/部署变更而重复测试。
 
 ## 10. 备份与回滚
 
@@ -346,7 +379,7 @@ ssh kd201 'docker logs --tail=200 toccards-linux-test-web-1'
 
 ### 扫描返回 VECTOR_RECOGNITION_UNAVAILABLE
 
-当前 `src/linux/config.ts` 未向共享路由提供 `VECTOR_RECOGNITION`。合法识别请求到达资源检查时会返回 `503 VECTOR_RECOGNITION_UNAVAILABLE` 并释放 Free 预占；修改 `OCR_SERVICE_BASE_URL` 不会恢复扫描。应在独立修复中提供测试向量服务适配并清理旧 OCR 配置，不能回退到 pHash 或正式识别服务。
+当前源码通过 `VECTOR_RECOGNITION_BASE_URL` 构造 HTTP `VECTOR_RECOGNITION`；若服务器仍返回缺 binding 的 503，应先确认实际运行版本及新配置。上游 HTTP 失败、无效 JSON 或 10 秒超时会沿用 502 和释放额度，需检查 CF 服务的出站访问与响应。旧 OCR 配置已退出运行路径，不能用于回退；仅完成本地测试不能宣称服务器扫描已可用。
 
 ## 12. 维护检查表
 

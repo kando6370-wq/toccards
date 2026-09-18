@@ -6,7 +6,7 @@
 
 主 Worker 只经 `VECTOR_RECOGNITION` Service Binding 向内部 `recognize-vec` 发送 `{vector}`，Cloudflare 配置和扫描请求路径不再使用 `OCR_SERVICE_BASE_URL`；缺少 binding 为 `503 VECTOR_RECOGNITION_UNAVAILABLE`，内部失败为 `502` 并释放 Free 预占。`game_id` 改在主 Worker 的 PostgreSQL 目录层过滤，保留卡号消歧与候选顺序。算法标识为 `pe-core-t16-384-cosine-v1`，未增加数据库迁移。下文历史契约中的 OCR 识别上游在本分支由向量服务承担，端侧 ML Kit 卡号 OCR 保留；No Match/目录不完整不扣次数等规则仍有效。详见[扫描识别链路](../01-flows/scan-recognition.md)。
 
-Linux 入口虽共用上述路由，但 `src/linux/config.ts` 仍要求旧 OCR 字段，未提供 `VECTOR_RECOGNITION`。合法识别请求完成鉴权和额度预占后会进入缺少 binding 的 `503` 分支并释放预占，不能通过修改 OCR 地址恢复，见[Linux 兼容缺口](../02-architecture/linux-test-environment.md#扫描兼容缺口)。
+Linux 入口共用上述路由，2026-09-15 的后端整改以必填 `VECTOR_RECOGNITION_BASE_URL` 构造 HTTP `VECTOR_RECOGNITION`。适配器只把 `{vector}` 交给现有 CF 识别服务，10 秒超时覆盖正文读取；候选补全、额度与扫描记录使用本地 PostgreSQL。旧 OCR 配置已退出运行路径，缺 binding 的 503 和上游失败的 502/释放额度语义保持不变。当前仅完成本地代码与验证，实际部署和设备扫描边界见[Linux 兼容缺口](../02-architecture/linux-test-environment.md#扫描兼容缺口)。
 
 ## App 版本控制环境隔离
 
@@ -14,13 +14,13 @@ Linux 入口虽共用上述路由，但 `src/linux/config.ts` 仍要求旧 OCR �
 
 2026-09-08 更新弹窗按 Figma `736:13370` 使用固定提示语，Admin 版本结构移除 `recommended_update_message` / `forced_update_message`。读取存量配置时忽略这两个字段，写入时不再保存，即使旧后台请求仍携带也不会恢复。公共 `upgrade_prompt.title/message/forced_message` 为旧客户端保留兼容，分别固定为 `Update Now` / `New update available! Tap to upgrade` / `New update available! Tap to upgrade`。新 App 界面不依赖历史文案，不新增数据库迁移或修改已执行迁移。
 
-版本规则由可信 Worker `APP_ENVIRONMENT` 选择 `app_config` 中的 `admin.app_version.<development|production>.<ios|google>`。`GET /admin/app-versions` 新增 `data.environment`；版本 PATCH 仅写当前环境。通用 App Config PATCH 禁止写版本键和旧共用升级键，返回 `422`。启用规则必须有有效 HTTP(S) 商店地址、布尔强更标志、合法状态和三段版本号，建议版本必须大于等于最低版本。
+版本规则由可信服务端 `APP_ENVIRONMENT` 选择所在数据库 `app_config` 中的 `admin.app_version.<development|production>.<ios|google>`：prod 为 Cloudflare，dev 为 Linux。`GET /admin/app-versions` 新增 `data.environment`；版本 PATCH 仅写当前环境。通用 App Config PATCH 禁止写版本键和旧共用升级键，返回 `422`。启用规则必须有有效 HTTP(S) 商店地址、布尔强更标志、合法状态和三段版本号，建议版本必须大于等于最低版本。
 
 公共 `GET /app-config?platform=ios|google` 保持 `upgrade_prompt`、`app_store_url`、法律及 SDK 配置响应字段，增加 `Cache-Control: no-store`。环境或平台规则缺失/损坏返回 `503 APP_VERSION_CONFIG_UNAVAILABLE`；明确停用的规则才返回 `upgrade_prompt: null`。不再读取共用版本键或用共用商店地址兜底。部署前须准备 `0011_app_version_environment.sql` 对应环境键；2026-09-11 `0011` 已完整执行并登记，production 两条键已补齐，已有 development 与旧共用配置不变；prod 新 Worker 已读取独立键，公共配置返回 `200/no-store`，详见[版本控制验收](../05-delivery/VERIFICATION.md)。
 
 ## 安装统计环境筛选缺口
 
-当前 `GET /api/v1/admin/analytics/installations` 的 `environment` 只用于匹配处理请求的 Worker，未参与安装行 SQL 过滤；返回行的环境也是 Worker 标签。`app_installation` 未持久化来源，因此同库 dev/prod 安装无法按来源拆分，汇总、趋势和明细均受影响。此项尚未修复，现有日期、平台、国家、排序和分页规则保持原样；实现证据见[Admin 环境口径](../04-admin/admin.md#安装统计环境口径)。
+当前 `GET /api/v1/admin/analytics/installations` 的 `environment` 只用于匹配处理请求的服务端，未参与安装行 SQL 过滤；返回行的环境也是服务端标签。`app_installation` 未持久化来源，因此旧 CF dev/prod 共库时期的安装无法按来源拆分；当前 Linux dev 使用独立数据库，新行不混入 prod。历史行的汇总、趋势和明细仍受影响，日期、平台、国家、排序和分页规则保持原样；实现证据见[Admin 环境口径](../04-admin/admin.md#安装统计环境口径)。
 
 ## 订阅与内购数据骨架
 
@@ -78,7 +78,7 @@ Portfolio API 的 Folder、Collection Item、Wishlist、Dashboard 与估值历�
 
 Quick Collect、完整 Collection Item Create 与 Scan Confirm 使用相同重复身份：`owner_type + owner_id + folder_id + card_ref + finish + language + grader + condition + grade`。Raw Item 以 `grader=Raw + condition` 区分品相，评级卡以 `grader + grade` 区分评级机构和分数；因此 `Raw NM`/`Raw LP`、`PSA 9`/`PSA 10`、`PSA 10`/`BGS 10` 可以在同一 Folder 分别收藏。只有上述身份字段全部相同时返回 `409 DUPLICATE_COLLECTION_ITEM`；`quantity`、购买价、币种和备注不参与重复身份，不能用这些字段创建同一状态的第二条 Item。
 
-PostgreSQL `0008_collection_item_grading_identity.sql` 用包含完整评级状态的唯一索引替换旧的 `card_ref + finish + language` 索引。现有数据受旧索引约束，天然满足新索引，无需回填。该迁移已于 2026-08-20 应用到 dev/prod 共用的 PostgreSQL Schema，因此两套 Worker 面向的数据库约束已经同时变更；执行与回滚边界见 [migration.md](migration.md)。
+PostgreSQL `0008_collection_item_grading_identity.sql` 用包含完整评级状态的唯一索引替换旧的 `card_ref + finish + language` 索引。现有数据受旧索引约束，天然满足新索引，无需回填。该迁移已于 2026-08-20 应用到当时旧 CF dev/prod 共用的 PostgreSQL Schema，因此当时两套 Worker 面向的数据库约束同时变更；当前 Linux dev 使用独立数据库，执行与回滚边界见 [migration.md](migration.md)。
 
 Card Data API 的 Home 推荐、Search、Set/Card Detail、市场价与 Price History 请求也使用同一 15 秒总 Deadline；到期取消当前客户端等待并返回 `REQUEST_TIMEOUT`。Search 和 Range Controller 继续以当前请求代次决定是否接纳响应，因此旧查询或旧 Range 的迟到结果不能覆盖用户后续选择。
 
@@ -214,7 +214,7 @@ Hyperdrive 查询边界固定如下：当前价格先按最多 40 个 card ref �
 | 每 5 分钟 Cron | 重试 `pending`、`processing_failed` 或处理租约已过期的收件箱记录。 |
 | Apple Server API 校正 | Cron 查询 `correction_required` 对应的现有 purchase chain，调用 Apple 当前订阅状态/交易接口并再次验签嵌套 JWS；只修正同链状态与已有 grant。 |
 
-dev/prod 共用 PostgreSQL 后，`apple_notification_inbox.app_bundle_id + environment` 是通知队列的持久化归属。入站去重键为 `(app_bundle_id, environment, payload_sha256)`；通知重试、processing lease、完成/失败更新和 Server API 校正均同时过滤可信 Worker Bundle 与真实 environment。dev 只领取 beta Bundle 的 `Sandbox`；prod 可领取 production Bundle 的 `Production` 与 TestFlight `Sandbox`，但 session grant 和 lifecycle 还必须命中当前 prod Product ID 白名单。Admin 通知视图使用相同 Bundle/environment scope，订单列表、导出和动态选项使用当前 Worker Product 白名单与允许 environment，不能跨 App 展示共享库数据。`0009_apple_notification_app_bundle.sql` 将迁移前 Sandbox 行回填为 beta Bundle、Production 行回填为 production Bundle；无法证明 Bundle 的行会阻止 migration，不静默猜测。
+`apple_notification_inbox.app_bundle_id + environment` 是通知队列的持久化归属；旧 CF dev/prod 共库时期必须靠它隔离，当前 dev Linux 与 prod 使用独立 PostgreSQL 仍保留同一验证契约。入站去重键为 `(app_bundle_id, environment, payload_sha256)`；通知重试、processing lease、完成/失败更新和 Server API 校正均同时过滤可信服务端 Bundle 与真实 environment。dev 只领取 beta Bundle 的 `Sandbox`；prod 可领取 production Bundle 的 `Production` 与 TestFlight `Sandbox`，但 session grant 和 lifecycle 还必须命中当前 prod Product ID 白名单。Admin 通知视图使用相同 Bundle/environment scope，订单列表、导出和动态选项使用对应服务端 Product 白名单与允许 environment。`0009_apple_notification_app_bundle.sql` 将旧共享库迁移前 Sandbox 行回填为 beta Bundle、Production 行回填为 production Bundle；无法证明 Bundle 的行会阻止 migration，不静默猜测。
 
 Apple 官方 Node SDK 的证书吊销检查和 Server API 请求依赖 `node-fetch` 接口；Workers bundle 将该模块定向 alias 到原生 Worker `fetch` 兼容层，只补齐 SDK 实际使用的 `Headers`、请求超时和 `Response.buffer()`。证书验签仍保持 `onlineChecks=true`，网络失败继续进入可重试状态，不允许通过关闭在线检查或直接解析未验签 JWS 绕过安全边界。
 
@@ -231,7 +231,7 @@ Apple 官方 Node SDK 的证书吊销检查和 Server API 请求依赖 `node-fet
 - `billing_entitlement_grant` 旧 owner 关联只兼容保留，不参与授权。
 - Scan Quota 与 Folder 限制已由服务端基于可信 grant 原子执行；Waiting/自动递补、Processing 删除后的后台结算和 `blocked_action=create_folder` 已按页面内最小上下文实现，非成功或目标失效不执行旧动作。
 - Admin 已可查询原始收件箱失败记录；完整 Decoded Payload 只在授权用户主动打开详情时加载，`signedPayload` 默认不返回，复制 JSON 只由用户主动触发。最新 Admin PRD 未定义额外查看/复制审计表或审计查询功能，本版本不猜测新增该范围。
-- 当前 App 没有 PRD 所述的首次安装网络授权弹窗。按 PRD 同时规定的“不得新增无业务需要权限”，实现没有伪造网络权限，而是在现有 Splash/启动预加载结束后、Onboarding 展示前执行 ATT：仅首次安装且状态为 `notDetermined` 时请求；冷启动不重复请求；后台回前台只读取最新状态并同步 Singular，不主动弹窗。`app_tracking_transparency`、Singular SDK 和 `NSUserTrackingUsageDescription` 已接入；App 与 Mixpanel Project Token 使用相同配置链路，通过公共 `/app-config` 读取 Cloudflare 当前环境管理的 `SINGULAR_API_KEY` / `SINGULAR_SECRET_KEY`，不再通过构建参数或本地发布文件注入。接口缺字段、请求失败或 SDK 异常均不阻断主流程，只关闭 Singular。两个值属于必须下发给移动 SDK 的客户端凭据，Cloudflare 负责环境隔离和轮换，但公共接口不能提供服务端保密性。2026-09-03 起，统一订阅 Controller 只在当前购买界面产生 Apple verified Fresh Purchase、购买状态为 `purchased`、权益为 active 且无验证失败时向 Singular 发送套餐事件：test 为 `weekly_cardtest` / `yearly_cardtest` / `lifetime_cardtest`，production 为 `weekly_card` / `yearly_card` / `lifetime_card`；这些事件不进入 Mixpanel/Firebase，Restore、启动权益恢复、外部解锁、Pending、Cancelled 和 Failed 均不发送。dev Worker version `2513a7a9-6062-4393-a4ea-e89f23aeac67` 已配置两个 Singular Secret 并发布；iPhone 11（iOS 15.6）已用新 Sandbox 账号完成 `cardx.week` Fresh Purchase，Singular Testing Console 以当前安装 SDID 收到 `weekly_cardtest`，App 与 Bundle 分别为 `card ai test`、`com.kando.kandoApp.beta`。上述为 2026-09-03 的普通事件历史证据；2026-09-09 回读已确认 prod `/app-config` 下发 Singular SDK 配置，当前收入 API 的三套餐后台与真机验收仍待完成。
+- 当前 App 没有 PRD 所述的首次安装网络授权弹窗。按 PRD 同时规定的“不得新增无业务需要权限”，实现没有伪造网络权限，而是在现有 Splash/启动预加载结束后、Onboarding 展示前执行 ATT：仅首次安装且状态为 `notDetermined` 时请求；冷启动不重复请求；后台回前台只读取最新状态并同步 Singular，不主动弹窗。`app_tracking_transparency`、Singular SDK 和 `NSUserTrackingUsageDescription` 已接入；App 与 Mixpanel Project Token 使用相同配置链路，通过对应环境的公共 `/app-config` 读取 `SINGULAR_API_KEY` / `SINGULAR_SECRET_KEY`，不再通过构建参数或本地发布文件注入。接口缺字段、请求失败或 SDK 异常均不阻断主流程，只关闭 Singular。两个值属于必须下发给移动 SDK 的客户端凭据；prod Cloudflare 与 dev Linux 各自管理配置和下发，公共接口不能提供服务端保密性。2026-09-03 起，统一订阅 Controller 只在当前购买界面产生 Apple verified Fresh Purchase、购买状态为 `purchased`、权益为 active 且无验证失败时向 Singular 发送套餐事件：test 为 `weekly_cardtest` / `yearly_cardtest` / `lifetime_cardtest`，production 为 `weekly_card` / `yearly_card` / `lifetime_card`；这些事件不进入 Mixpanel/Firebase，Restore、启动权益恢复、外部解锁、Pending、Cancelled 和 Failed 均不发送。旧 CF dev Worker version `2513a7a9-6062-4393-a4ea-e89f23aeac67` 当时已配置两个 Singular Secret 并发布；iPhone 11（iOS 15.6）已用新 Sandbox 账号完成 `cardx.week` Fresh Purchase，Singular Testing Console 以当前安装 SDID 收到 `weekly_cardtest`，App 与 Bundle 分别为 `card ai test`、`com.kando.kandoApp.beta`。上述为 2026-09-03 的普通事件历史证据；2026-09-09 回读已确认 prod `/app-config` 下发 Singular SDK 配置，当前收入 API 的三套餐后台与真机验收仍待完成。
 
 2026-09-09 按产品要求，上述六个 Singular 套餐事件从普通事件改为收入事件，使用 SDK `customRevenueWithAttributes`，事件名和当前界面 Fresh Purchase 门禁保持不变。金额复用 Apple verified JWS 的 `price / 1000`，币种规范为大写，并携带 `transaction_id`、`product_id`；交易 ID/商品 ID 必须与购买回调匹配，金额或币种缺失/无效时不使用展示价兜底，零金额交易只报 0。复用现有 Revenue 队列实现，但使用 `subscription.singular_revenue.<test|production>` 独立持久化命名空间，不读取或重放 Firebase 收入记录；同一交易的普通重复回调及进程重启由该队列去重。Restore、启动恢复历史交易及外部解锁不新建 Singular 收入，启动仅重试此前 Fresh Purchase 已入队但尚未交给 SDK 的记录。SDK 初始化前的队列等待既有 ATT 顺序完成，缺凭据等交付前错误保留待重试记录；所有上报异步执行，不阻塞购买成功或权益解锁。SDK 1.9.0 的收入方法返回 `void`，本地成功仅表示调用已交给 SDK，原生桥接异步错误记录诊断，不能当作后台到账回执或跨卸载/异常终止的绝对一次性保证。当前 App 正式配置仅启用 Apple 购买；本次使用两平台均提供的 Singular 收入 API，不新增 Google Play 购买或服务端续费收入链路。
 

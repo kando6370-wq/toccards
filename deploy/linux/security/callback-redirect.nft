@@ -1,0 +1,12 @@
+table ip toccards_callback {
+  set private_networks {
+    type ipv4_addr
+    flags interval
+    elements = { 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 }
+  }
+
+  chain public_to_gateway {
+    type nat hook prerouting priority -101; policy accept;
+    iifname "ens160" ip daddr 192.168.50.201 ip saddr != @private_networks tcp dport 8080 redirect to :8081
+  }
+}

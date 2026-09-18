@@ -2,6 +2,7 @@ import type { Env } from "../env";
 import { createPostgresDatabase, type PostgresDatabase } from "../db/postgres-database";
 import { createFilesystemR2Bucket } from "./filesystem-r2";
 import { createInMemoryKv } from "./in-memory-kv";
+import { createHttpVectorRecognition } from "./vector-recognition";
 
 export type LinuxRuntime = {
   env: Env;
@@ -17,6 +18,9 @@ export function loadLinuxRuntime(source: NodeJS.ProcessEnv = process.env): Linux
     throw new Error("Linux test runtime requires APP_ENVIRONMENT=development");
   }
 
+  const vectorRecognition = createHttpVectorRecognition(
+    required(source, "VECTOR_RECOGNITION_BASE_URL"),
+  );
   const database = createPostgresDatabase(required(source, "DATABASE_URL"));
   const objectStoragePath = required(source, "OBJECT_STORAGE_PATH");
   const env: Env = {
@@ -24,7 +28,7 @@ export function loadLinuxRuntime(source: NodeJS.ProcessEnv = process.env): Linux
     CACHE_KV: createInMemoryKv(),
     SCAN_IMAGES: createFilesystemR2Bucket(objectStoragePath),
     JWT_SECRET: required(source, "JWT_SECRET"),
-    OCR_SERVICE_BASE_URL: required(source, "OCR_SERVICE_BASE_URL"),
+    VECTOR_RECOGNITION: vectorRecognition,
     ALLOWED_ORIGINS: required(source, "ALLOWED_ORIGINS"),
     APP_ENVIRONMENT: "development",
     GOOGLE_CLIENT_ID: optional(source, "GOOGLE_CLIENT_ID"),

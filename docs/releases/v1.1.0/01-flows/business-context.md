@@ -19,7 +19,7 @@
 
 Card AI 面向交易卡牌用户提供目录搜索、图片识别、Wishlist/Collection、Folder 管理、估值和 Performance。iOS 用户可通过 Apple 购买 Premium，获得无限扫描、更多 Folder、Performance 和扩展价格历史；内部运营人员通过 Admin 查看安装、用户、反馈、扫描、订单和 Apple 通知，并维护版本与权限。
 
-Cloudflare 与 Linux 测试入口复用同一 Hono 业务应用；Linux 使用独立 PostgreSQL 和本地资源，当前未提供向量识别适配器，不能承担完整扫描验收。运行边界见[系统架构](../02-architecture/architecture.md)。
+当前只有 prod 与 dev 两个业务环境。prod 保持 Cloudflare 入口；dev 使用 Linux 入口、独立 PostgreSQL 和本地资源，通过 HTTP 适配仅复用现有 CF 向量识别。两端复用同一 Hono 业务应用；App test/Admin development 请求 Linux，旧 CF dev 业务入口不再发布。运行与验收边界见[系统架构](../02-architecture/architecture.md)及[退役记录](../05-delivery/VERIFICATION.md#旧-cloudflare-dev-业务退役2026-09-17)。
 
 ### 1.2 完整业务闭环
 
@@ -88,11 +88,17 @@ Cloudflare 与 Linux 测试入口复用同一 Hono 业务应用；Linux 使用�
 
 ### 3.1 启动与身份建立
 
+首次引导页 1 的扫描演示使用皮卡丘扫描视频，距屏幕顶部 56 pt，以原始比例显示、最大宽度 390 pt（高度 480 pt）；窄屏等比缩小，宽屏居中，不按 390×510 容器裁剪。视频就绪前以及减少动态效果时显示与视频首帧一致、布局相同的静态占位图。引导页 2、3 的媒体和三个页面的交互不变。
+
 1. App 读取本地会话、环境配置和已验证 Premium 缓存。
 2. 无有效身份时调用 `POST /api/v1/auth/anonymous` 建立匿名账号和 session。
 3. 用户可通过邮箱、Google 或 Apple 登录；Access Token 过期时使用同一 session 的 Refresh Token 换新。
 4. 游客注册为新用户后，服务端把 Folder、Collection、Wishlist、偏好、扫描记录和已结算的 Free Scan 消费迁移到正式 UID；游客登录已有用户时不合并游客 Scan Quota。
 5. 登出撤销 session；删除账号按正式/匿名类型清理或失效业务数据。
+
+邮箱、Google、Apple 在首次引导和 Profile 登录或注册成功后都检查权益，仅 Free 自动显示完整 Subscription Page。首次引导由 Onboarding 保存完成状态并进入启动权益检查，Free 使用 `source=onboarding`，Premium 或 Unknown 进入 Home；检查期间不提前显示 Home。Profile 先关闭认证页面及邮箱成功提示，再刷新权益；Free 使用 `source=profile`、`entry_source=login` 打开订阅页，关闭后返回原 Profile，Premium 或 Unknown 留在 Profile 刷新账号信息。Profile 检查超过 15 秒或抛错时留在当前页；检查返回时若已离开 Profile 或账号发生变化，则不追加订阅页。取消或失败不触发登录后的权益检查，也不推进引导；普通 Tab 切换、回前台和关闭订阅页不会重复触发登录订阅展示。该流转不改变认证接口、会话持久化、游客资产处理或 Premium 判定；后续完整冷启动仍沿用既有权益检查。
+
+邮箱登录验证成功后保留密码页，在该页上显示 `Welcome back`，1 秒后自动关闭，也可提前手动关闭。首次安装引导等待提示层实际移除后才保存引导完成状态并进入既有权益检查；密码页继续覆盖引导，直到完成状态保存且替代页面完成一帧构建，再关闭密码页并无退场动画移除登录选项，避免中间闪回引导页 3。权益请求未完成时显示既有检查 Loading，Free 进入订阅页，Premium/Unknown 进入 Home。Profile 复用密码页上的提示，关闭后仍按上述权益规则继续。提示关闭或销毁会取消计时，邮箱流程只移除自己的路由，不误关闭后来打开的页面。邮箱注册成功时保持在设置密码的注册页显示无按钮 `Welcome`，1 秒后关闭提示和注册页，再按原有引导/Profile 权益规则判断是否进入订阅页；不会在引导页 3 上显示提示。其他无按钮欢迎弹窗默认 2 秒关闭，带确认按钮的欢迎弹窗仍等待用户操作。
 
 异常：刷新失败后客户端清理无效会话；验证码错误/过期、重复邮箱和禁用账号由服务端拒绝。证据：`auth/`、`auth_session_interceptor.dart`。
 

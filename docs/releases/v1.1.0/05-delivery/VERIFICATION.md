@@ -2,6 +2,14 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+当前业务环境只有 prod（Cloudflare）与 dev（kd201 Linux）。prod 最近一次列明的完整发布验收为 2026-09-11 `main@759b072`/Worker `4f543496`；dev 于 2026-09-17 17:26 回读 watcher 发布的 `dev@cd7c512`，定向检查 75/75、Linux bundle 2/2、预检无待执行 migration、备份目录可读、API/DB healthy、ledger 13 项、运行 API/Admin 产物与 release 摘要一致。旧 CF dev 业务 Worker 已退役，Apple 回调与向量服务独立保留。Git 合并本身不代表目标环境发布。
+
+## dev 合入 main 的本地验证（2026-09-17，未提交）
+
+从与远端一致的 `main@51c3b41` 合入 dev；处理 17 份重叠文档期间 dev 从 `cd7c512` 前进到 `5bc3dcb`，已保存已解决 tree、重新从新提交发起合并并恢复文档，恢复时 tree 与快照完全一致；随后仅补充本节验证记录，`MERGE_HEAD` 指向 `5bc3dcb`。逐段保留 main 独有的 prod 2026-09-11 向量/`0011`/Apple 验收证据，当前 dev 入口、Linux 数据/向量/回调与旧 CF dev 退役口径采用较新的 dev 记录；新引导媒体和邮箱欢迎提示证据也已纳入。非 Markdown 文件与最新 dev 一致，prod Wrangler 配置保留，冻结 v1.0.0 未改。冲突标记和未合并索引均为 0，未创建合并提交、未推送或部署。
+
+本地验证：`pnpm lint` 通过，根 `pnpm type-check --force` 7/7 无缓存；Workers Linux/Scan/Admin/运行时定向 13 文件 113/113、Admin 22/22、回调/网关/预检 Node 19/19 通过。prod Wrangler 和 Linux dev 的 `deploy:dry-run` 均退出 0，Linux 完整 bundle 启动/Apple SDK 检查 2/2，均未发布；这些非 Flutter 检查先于最新 dev 仅修改 Flutter/文档的提交，最终对应文件与检查时一致。Flutter 3.44.7 下重新执行 `flutter analyze --no-pub` 无问题，新引导页/门禁 20/20、邮箱欢迎提示定向 29/29、完整认证 Widget 129/129、test/production 环境及分享定向各 16/16 均通过；视频经 `ffprobe` 核对为 3 秒 780×960 H.264，占位图为 390×480 PNG。此前 macOS 检查中的 4 项订阅 Golden 差异仍保留其原日期，不外推到这次 Windows 结果。24 份改动 Markdown 的 258 个本地链接存在，`git diff --cached --check` 通过。未运行 Workers/Flutter 全仓、iOS/Android 新包签名构建或真机/外部服务复验；本次合并没有重新执行数据库迁移或 prod/dev 部署。
+
 ## prod 向量协议与环境版本配置发布（2026-09-11）
 
 发布来源为干净且与远程一致的 `main@759b072`。用户明确授权 prod 部署，并在生产预检发现缺少独立版本配置后，另行批准执行 PostgreSQL `0011` 与立即切换向量协议，接受旧 pHash 客户端不兼容的边界。发布前 App Store 美国区查询仍为 `1.0.1`、最低 iOS `15.5`；本次没有上传移动端安装包，新扫描链路需使用支持向量协议的 App。
@@ -29,12 +37,12 @@
 
 ## 当前代码与交付边界
 
-当前 prod 发布来源为 `main@759b072`（2026-09-11），Flutter `pubspec.yaml` 为 `1.0.2+135`。该源码已同步至 `github/main`；对应 prod Worker `4f543496-9d54-48c4-a16c-0e608dcc32f0` 已承载 100% 流量，具体线上验证以上方发布记录为准。下方原始测试、部署和迁移证据保留各自日期，不代表本轮重新运行或目标环境已升级。
+prod 运行版本的发布来源为 `main@759b072`（2026-09-11），对应 Worker `4f543496-9d54-48c4-a16c-0e608dcc32f0` 承载 100% 流量；当前 Flutter 源码 `pubspec.yaml` 为 `1.0.2+146`，不代表 prod 客户端已发布。dev Linux 的最近一次回读为 `dev@cd7c512`，新提交 `5bc3dcb` 的设备/服务器状态仍按其独立证据判断；旧 CF dev 已退役。下方原始测试、部署和迁移证据保留各自日期，不代表本轮重新运行或本次合并提交已部署。
 
 | 增量 | 当前实现 | 验证与交付边界 |
 |---|---|---|
-| Linux 测试环境（`19a6ac4`） | 共享 Hono 应用、Node 入口、独立 PostgreSQL/内存 KV/图片卷、Compose 与 dev 分支监听发布 | Linux 未提供 `VECTOR_RECOGNITION`；扫描不可用，旧 OCR 地址不能恢复。kd201 当前 release、SHA、ledger 和合入后自动发布结果未回读，见[Linux 手册](linux-test-auto-deployment.md)。 |
-| 安装统计环境 | 汇总、趋势和明细读取共享 `app_installation`，环境参数仅匹配处理请求的 Worker | 安装行未持久化来源环境，dev/prod 来源筛选未实现；详情见[Admin 口径](../04-admin/admin.md#安装统计环境口径)。 |
+| Linux dev（`19a6ac4` 起） | 共享 Hono 应用、Node 入口、独立 PostgreSQL/内存 KV/图片卷、Compose 与 dev 分支监听发布 | HTTP `VECTOR_RECOGNITION` 已运行，受控扫描、额度与收藏写库通过；2026-09-17 `dev@cd7c512` 的 release、API/Admin 产物、备份和 13 项 ledger 已回读。真机路径由用户确认，本次合并未独立重跑，见[Linux 手册](linux-test-auto-deployment.md)。 |
+| 安装统计环境 | 汇总、趋势和明细分别读取所在环境的 `app_installation` | 旧 CF dev/prod 曾共用 PostgreSQL 且安装行未持久化来源，历史行无法可靠区分；当前 Linux dev 使用独立数据库，新数据不混入 prod。历史口径仍待确认，见[Admin 口径](../04-admin/admin.md#安装统计环境口径)。 |
 | Singular 同进程恢复（`c28e754`） | 仅缓存有效配置；ATT 顺序完成后按前台退避、resumed 和收入交付恢复初始化，成功后补发已有 pending | SDK API 调用不等于后台收件；原始回归记录见下文，同进程断网恢复的新包真机/后台验收仍待完成。 |
 | 检测图片缩放（`1da3935`、`070f5b6`） | iOS/Android 检测输入使用确定性的半像素双线性缩放；iOS 保留 Core ML，Android 保留最小 ORT | 2026-09-11 用户确认 iOS 真机扫描成功；2026-09-14 合入本地 `dev` 后扫描回归、分析与 Android Debug 构建通过，Android 真机仍待验收，详见下文。 |
 | Home 版本检查（`fc23c6f`、`075db55`） | 实际 Home 首帧激活；后续返回 Home/回前台静默复查，已确认强更继续全局拦截 | 2026-09-10 原回归为 54/54、test 配置 16/16，通过范围见下文；新包安装、商店往返和真机切页未验收。 |
@@ -58,6 +66,430 @@
 
 合并提交 `659a7c6` 先在本地创建，随后已按单独授权推送到 `github/main`，推送后 `ls-remote` 与本地提交号一致；该 Git 操作未包含手动部署、远程数据库迁移或客户端发布。完整测试与平台构建未重复执行，原因是手工处理仅涉及文档且代码内容核对一致；iOS/Android 真机、签名包及生产业务验收仍保留原未验证边界。
 
+## 旧 Cloudflare dev 业务退役（2026-09-17）
+
+用户确认 Linux 客户端业务路径已测试无问题，并要求保留旧测试数据和旧包，退役旧业务 Worker、域名入口和 cron；本次没有独立重跑真机路径。退役前只读核对 kd201：`current` 为 watcher 发布的 `dev@4d5d66fdf60c2703604d9c72fc0ed204635c2279`，manifest、`last-deployed-sha` 和远端 dev 一致；API/Web/DB 容器运行，API/DB healthy，API bundle 与 release 的 SHA-256 相同，Admin 首页文件也与 release 一致。PostgreSQL 为 18.6，migration ledger 为 13 项。该 release 的发布前备份为 1,120,771,233 字节，容器内 `pg_restore --list` 退出 0；未执行整库恢复。回调网关和重定向 systemd 服务均为 active/enabled，实际 nftables 表存在，网关文件与本地源码摘要一致。
+
+Cloudflare 退役前回读：`toccards-api-dev` 的自定义域名仅有 `api-dev.tcgcard.fun`，cron 仅有 `*/5 * * * *`，workers.dev 和 preview URLs 均关闭。首次清空 cron 的对象格式请求被 Cloudflare 以 10026 拒绝，没有修改线上状态；按 Wrangler 所用的数组格式 `[]` 重试后，独立 GET 确认 schedules 为 0。仅对已核对域名、服务和 ID 的旧绑定执行 DELETE；该接口返回空响应，但独立 GET 确认旧绑定为 0。随后 `wrangler delete toccards-api-dev` 成功退出 0，未使用 `--force`。脚本清单不再包含旧 Worker；Cloudflare 权威 DNS 对旧域名返回不存在，本机缓存期间的旧 HTTPS 请求返回 530，未再提供旧 API。
+
+退役后 `api.tcgcard.fun/api/v1/health`、Linux 内网 health、`recognize-vec.tcgcard.fun/health` 均返回 200；独立 `dev-callback.tcgcard.fun` 对通知路径 GET 返回预期 405。Cloudflare 清单仍包含 prod API、向量 Worker 和独立 Apple 回调，prod 与回调自定义域名保持原归属；只读清单确认旧 dev KV namespace 与 R2 bucket 均仍存在，未读取内容。没有删除或写入共享 PostgreSQL、旧 dev KV/R2、Linux 数据卷、旧包或 prod；旧 Worker 自身的 Secret 和版本历史随脚本删除，若要恢复需重新配置，不能将数据保留等同于 Worker 可无密钥回滚。本次未发送新的 Apple TEST、未执行旧包兼容访问或完整客户端复验，用户确认的客户端验收与上述只读服务检查分别记录。源码移除旧 `wrangler.toml` dev 环境以防误部署；本次本地文档和配置变更未提交、推送或触发 Linux watcher。
+
+本地验证：`pnpm lint` 退出 0；`pnpm type-check` 7/7（其中 6 项命中缓存，Workers API 实际执行）；`pnpm --filter @kando/workers-api exec vitest run src/entitlements/node-fetch-worker-shim.test.ts --maxWorkers=1` 为 5/5；prod `deploy:dry-run:prod` 与 Linux `deploy:dry-run:dev` 均退出 0，后者的完整 API bundle 启动/Apple SDK 回归 2/2，均未发布。反向检查 `wrangler deploy --env dev --dry-run` 退出 1，明确提示配置没有 dev 环境，属于预期拒绝。文档路径/新增退役锚点和 `git diff --check` 通过；Code Review 核对了唯一旧 Worker/域名/cron、prod/回调/识别资源保留、配置删除范围与实际远端回读，未发现阻断项。未运行全仓 Workers/Flutter 测试、真机、真实购买或备份恢复演练，本次未改业务运行逻辑。
+
+## 引导页 1 视频顶部位置与等比尺寸（2026-09-17，本地修改）
+按用户文字要求而非图片中的 390×510 cover 备注调整页面 1：视频源 780×960，最大显示宽度 390 pt、按比例高度 480 pt，距屏幕顶部 56 pt；窄屏等比缩小，宽屏居中。首帧占位图与视频共用原媒体容器，不另行裁剪；页面 2、3 保持原来的顶部安全区布局，播放/循环/降低动态效果及按钮交互未变。`01-flows/business-context.md` 已同步当前行为，冻结 v1.0.0 文档未修改。修改前页 1 顶部布局回归测试失败（实际顶部为 0），页 2 保持原布局测试通过。
+
+本地验证：macOS / Flutter，`flutter test --no-pub --dart-define-from-file=config/test.json test/widget/onboarding_page_test.dart test/onboarding_gate_test.dart --reporter expanded`：20/20 通过、退出 0，覆盖 390×844 顶部 56 与 390×480 等比尺寸、320×700 窄屏比例和静态回退、430×932 居中，以及页 2 原安全区布局、三个引导页跳转和启动门禁。`flutter analyze --no-pub`：无问题、退出 0；`dart format`：仅格式化本轮测试文件；`git diff --check`：退出 0。Code Review 自审核对页 1 媒体尺寸和顶距仅作用于索引 0、首帧图与视频共用尺寸容器，页 2、3 原媒体尺寸分支及播放、文案、底部控制未修改；未发现本轮变更问题。尚未重新打包或在 iOS/Android 真机验收，Widget 布局测试不能代替真机视频解码与尺寸检查，需后续测试包补验。
+
+## 注册 Welcome 留在注册页及登录提示恢复 1 秒（2026-09-17，本地修改）
+
+现象：注册成功后先退出邮箱注册页，再由外层显示 `Welcome`，首次引导会在提示背后露出引导页 3；此前的统一时长调整把邮箱登录 `Welcome back` 改为 2 秒，与用户要求恢复的 1 秒不符。根因：注册 `_completeSignIn` 先关闭邮箱路由，`_openEmailAuthPage` 才在根 Navigator 上展示 Welcome；修改前首次引导/Profile 的注册页保留断言失败。影响范围仅邮箱注册成功的提示位置/流转顺序及邮箱登录提示时长，不改认证请求、会话持久化或权益判定。
+
+修复：全屏注册页直接显示并等待 1 秒 Welcome，然后才关闭自己的路由；外层在同一帧移除登录选项，首次引导/Profile 沿用既有权益刷新分流。登录 Welcome back 计时恢复 1 秒；其他无按钮欢迎弹窗默认 2 秒、带按钮需确认的行为不变。当前流程文档已同步到 `01-flows/business-context.md`；v1.0.0 冻结文档未改。
+
+验证：macOS / Flutter，修复前首次引导和 Profile 的注册页保留断言均失败；修复后 `flutter test --no-pub --dart-define-from-file=config/test.json test/widget/auth_profile_test.dart --name 'email registration keeps its entry flow|successful register passes current anonymous id|onboarding email welcome auto closes after one second|email welcome keeps password page|email login saves onboarding only once|email welcome does not close a newer route|email welcome timer is safe|onboarding Email login follows|Profile Email login checks|welcome without an action|welcome with an action|welcome timer only|early welcome dismissal' --reporter expanded`：29/29 通过、退出 0，覆盖 iOS/Android 登录、首次引导/Profile 注册的 Free/Premium/Unknown 分流及计时边界。`flutter analyze --no-pub`：无问题、退出 0；`git diff --check`：退出 0。全量 `auth_profile_test.dart`：125 项通过、4 项订阅页 Golden 图像对比失败、退出 1；失败项仍是 responsive Profile banner、subscription success 300ms motion、v1.1 bottom sheet 和 success page，与欢迎提示路径无关，未更改 Golden 基线，不把全量测试记为通过。
+
+Code Review 自审：核对注册提示在原注册路由上显示、提示结束后才退出该路由、外层只移除自己的登录选项，以及两处入口和三种权益状态的后续分流；登录提示 1 秒及共享弹窗默认 2 秒的其他行为未改。未运行 iOS/Android 真机首次安装及注册、IPA/Android 构建或真实权益接口联调；Widget 测试不能代替设备视觉/转场验收，需客户端测试人员在后续测试包补验。
+
+## 认证欢迎提示自动关闭（2026-09-17，本地修改）
+
+现象：邮箱注册成功的无按钮 `Welcome` 没有定时关闭路径，只能点击遮罩；登录的 `Welcome back` 固定 1 秒，与本次统一 2 秒的要求不符。根因证据：注册路径调用 `showKandoWelcomeModal`，该共享弹窗原先只等待手动 `showDialog` 结束；修改前注册流转和共享弹窗的计时边界测试失败。影响范围限认证页的欢迎提示及其后的原有引导/Profile 权益检查；认证接口、会话、订阅判定、顶部 toast、支付提示和需确认的弹窗均未修改。
+
+修复：无按钮共享欢迎弹窗默认 2 秒自动关闭，注册显式指定 1 秒；登录 `Welcome back` 改为 2 秒。计时器销毁时取消，仅关闭提示自身路由；保留点击遮罩提前关闭和带按钮弹窗等待用户确认。`01-flows/business-context.md` 已同步当前行为；v1.0.0 冻结文档不变。
+
+本地验证：macOS / Flutter，修改前针对注册流转和无按钮欢迎弹窗的回归测试失败；修改后 `flutter test --no-pub --dart-define-from-file=config/test.json test/widget/auth_profile_test.dart --name 'welcome without an action|welcome with an action|welcome timer only|early welcome dismissal|email registration keeps its entry flow|onboarding email welcome auto closes after two seconds|email welcome keeps password page|email login saves onboarding only once|email welcome does not close a newer route|email welcome timer is safe|onboarding Email login follows|Profile Email login checks' --reporter expanded`：24/24 通过、退出 0，覆盖 iOS/Android 登录及引导/Profile 注册分流。`flutter analyze --no-pub`：无问题、退出 0；`dart format` 仅格式化改动测试文件；`git diff --check`：退出 0。全量 `auth_profile_test.dart`：121 项通过、4 项订阅页 Golden 图像对比失败、退出 1；失败项为 responsive Profile banner、subscription success 300ms motion、v1.1 bottom sheet 和 success page，与本次欢迎弹窗路径无关，未更新 Golden 基线，不把该测试记为通过。
+
+Code Review 自审：核对了无按钮默认/注册特例、带按钮不定时、点击遮罩提前关闭、销毁取消计时、后来打开的页面不被错误关闭，以及引导/Profile 权益分流；未发现本次变更的问题。未运行 iOS/Android 真机首次安装与注册、IPA/Android 构建或订阅接口联调；本地 Widget 测试不能替代真机对提示时长及后续页面流转的验收，需客户端测试人员在后续测试包补验。
+## Linux dev 公网回源服务器隔离（2026-09-17）
+
+原公网 `111.10.170.43:8089` NAT 到 `192.168.50.201:8080`，可绕过 CF Worker 直接得到 Admin HTML 与 `/api/v1/health` 200；CF Worker 的路径限制无法保护这条直连。kd201 仅在 8080 发布 Docker Web，`ens160` 抓包确认公网请求保留公网源地址，内网客户端从私网到达。为不改 NAT、App/Admin 内网地址或现有 Compose，在主机启动独立 Node 22 回调网关（8081），再通过专属 nftables `ip toccards_callback` 表以 prerouting priority -101（Docker DNAT 为 -100）仅将公网 IPv4 到 `201:8080` 的流量转到该网关；RFC1918 内网源地址仍直达 8080。两项 systemd 服务已启用并运行，代码和策略存放在 `deploy/linux/security/` 与宿主机对应私有安装位置，原 API/Web/DB 容器及 watcher release `dev@7a8300b` 均未更换。
+
+网关仅允许精确的 `POST /api/v1/apple/notifications/v2/sandbox`，200,000 字节上限、固定回环上游、8 秒超时、拒绝重定向，不转发客户端 Cookie/Authorization；JWS 验签仍由原 API 负责。Windows 与 kd201 的 Node 定向测试均为 2/2；服务器 `nft -c`、systemd unit 校验和服务状态通过。公网源站 `/`、`/api/v1/health`、Admin API 均为 404；通过原始 SOCKS 连接固定公网目的地后，伪造内网 Host 仍为 404，抓包确认为公网源地址。局域网 HTTP 代理伪造 Host 曾返回 200，原因是代理将连接改走私网，并非公网转发绕过；该私网代理需由其自身访问控制保护。公网回调 GET 为 405、空 JSON POST 经 CF 与直连源站均为 Linux 400；私网 Admin 200、health 200、未登录 Admin API 401。使用既有已处理 Apple TEST 的原始 JWS 经 CF 网关仅重放一次返回 200，inbox 仍为 16 条，未请求 Apple 发送新 TEST。PostgreSQL migration 仍为 13，其他项目/CF prod/识别 Worker 未改。
+
+安全策略上线后，用户再授权发送**一条**新的 Apple Sandbox 官方 TEST。Apple Server API 于 `2026-09-17T06:48:33.381Z` 接受请求，状态回读为 `SUCCESS`，官方 SDK 验签得到 UUID `4c121de4-fa5d-4767-8bb2-3c87c148b9e5` 和 SHA-256 `e03f90e205eb95966f5d69851ab75f93d164729264a2dc6a4dfb9bf1d885aea1`。Linux inbox 于 `06:48:34.688Z` 新增该 UUID，摘要一致、Sandbox/beta、`processed`、attempts=1、`last_error=null`，结构化 `TEST` 与 decoded payload 均存在；inbox 16→17，Sandbox 交易数仍为 14、购买链仍为 1，迁移账本 13 项。公网空 JSON POST 继续返回 Linux 400，临时 Apple token 和诊断脚本已清理。此次真实 TEST 补齐了新网关上线后 Apple 投递回执与 Linux 验签闭环，但仍不代表其余订阅生命周期、Restore 或收入后台验收完成。
+
+残余边界：CF→origin 仍为 HTTP；规则依赖当前 `ens160`、目标 IP 和公网源地址保留，路由器若将 WAN 源地址 SNAT 为私网或未来启用公网 IPv6，必须重新设计/复验。宿主机服务和规则独立于 Git watcher，仓库代码未推送，后续更新需显式同步。若网关故障保持重定向可让公网失败关闭；直接停用重定向会恢复此前整站公网暴露，不可当作无风险回滚。
+
+## Apple Sandbox 公网回源复验（2026-09-17）
+
+公网映射调整期间，Cloudflare `toccards-apple-callback-dev` 仍将精确的 Sandbox POST 路径转发到 `http://dev-callback-origin.tcgcard.fun:8089`，但空请求返回 `502 CALLBACK_UPSTREAM_UNAVAILABLE`，实时 Worker 日志为 10 秒 `TimeoutError`；Linux 内网同一路径返回 400，API 健康、数据库 inbox 基线为 14。按用户要求先发送一条 Apple 官方 TEST，官方签名可验证但投递为 `TIMED_OUT`；随后以至少 10 秒的请求间隔发起 116 条 TEST，其中 115 条已回读为 `TIMED_OUT`、最后一条未取得最终状态，下一次请求触发 Apple HTTP 429，发送进程已停止。这一阶段没有新通知入 Linux，不能把 Apple 接受发送请求写成投递成功；临时 token 与诊断脚本已清理。
+
+网络侧恢复后，用户再次明确要求只发一条 TEST。Apple Server API 接受该请求并给出测试 token；随后的官方投递状态查询仍返回 429，**未取得 Apple 的 SUCCESS 回执**。但公网 HTTPS 回调的空 JSON POST 已恢复为 Linux `400 INVALID_REQUEST`，本地 inbox 于 `2026-09-17T06:10:48.682Z` 新增唯一 `TEST`，UUID `c0bcefe9-816a-4c58-98e6-e4a23cf4b748`，Sandbox、`com.kando.kandoApp.beta`、`processing_status=processed`、`attempts=1`、`last_error=null`，结构化记录及 decoded payload 均存在；HTTP 入口、入库及服务端验签链路已实测。随后 `06:11:42Z` 又收到真实 `DID_CHANGE_RENEWAL_STATUS / AUTO_RENEW_ENABLED`，同样处理为 `processed`、无错误。基线 14 条变为 16 条，迁移账本仍为 13；该生命周期通知不应被描述为本轮新购买或新交易。仅运行现有 Linux release `dev@7a8300b` 和独立 Cloudflare 回调 Worker，没有改业务代码、数据库结构、prod 或旧 CF dev 部署。此次验证不覆盖后续每种订阅通知、真机 Restore 或公网源站的访问面整改；后者由用户暂缓。
+
+## Linux dev 统计 SDK 配置同步（2026-09-17）
+
+原 Cloudflare `toccards-api-dev` 的 Secret 列表含 `MIXPANEL_PROJECT_TOKEN`、`MIXPANEL_API_SECRET`、`SINGULAR_API_KEY`、`SINGULAR_SECRET_KEY`；Secret 接口只返回名称，不能读取明文。旧 dev 公共 `/app-config` 在 iOS/Google 两种平台均下发前三项客户端需要的值（Mixpanel Project Token、Singular API Key/Secret Key）。Linux 原私有 `.env` 声明了四项但运行容器均为空。本次仅把三项公共 SDK 配置从旧 dev 同步到 Linux；`MIXPANEL_API_SECRET` 保持空值，当前代码仅声明此环境变量，没有使用它的服务端路径。
+
+配置操作只替换服务器私有 `.env` 中对应三行；原文件备份到 `/home/user/apps/toccards-test/shared/.env.before-analytics-20260917-024633`，两者权限均为 600，其他内容按字节保留。目标仍为 `branch-dev-7a8300b502d5-20260917101244`，只通过原离线 Compose 重建 API，Web 与 PostgreSQL 容器 ID 未变，没有迁移、业务数据写入、Cloudflare/prod 配置变更或 Git 推送。更新前先验证源响应非空、待写文件格式、现有键为空且各只出现一次；更新后 Node 解析的配置、API 容器环境与来源摘要一致，iOS/Google 两种 `/api/v1/app-config` 均为 200，三项下发值逐项与旧 CF dev 相等，未输出值。API health 200、Admin 标题正常。未运行应用测试/构建（没有源码或依赖变更），也未执行 App 真机安装、Mixpanel/Singular 项目后台事件和收入收件验收；配置相等不等于事件已送达。
+
+用户随后提供同一 Mixpanel 项目的 Project Token 与 API Secret。前者与旧 CF dev 和 Linux `/app-config` 均逐值匹配；仅将后者填入 Linux 原本为空的 `MIXPANEL_API_SECRET` 一行，不改前三项，备份为 `/home/user/apps/toccards-test/shared/.env.before-mixpanel-api-20260917-025354`。备份和新 `.env` 权限均为 600，原离线 Compose 仅重建 API；Web/数据库容器 ID 未变。暂存文件经 Node 解析、运行容器经摘要校验确认该 Secret 已注入；API health/Admin 正常，iOS/Google 的三项公开配置仍与原 dev 一致，`MIXPANEL_API_SECRET` 未进入 `/app-config`。没有向 Mixpanel API 发起凭据校验，也没有验证真机 SDK 初始化或后台事件/收入收件；该字段在当前源码中仍无使用路径。本次仅调整私有运行配置与文档，未执行应用构建/测试、远程 migration、CF/prod 变更或 Git 推送。
+
+后续只读核验：从 Linux API 容器使用现有 `MIXPANEL_API_SECRET` 按 Mixpanel Project Secret 的 HTTPS Basic Auth 方式调用 Raw Data Export，返回 HTTP 200 和有效事件；没有输出原始事件/用户信息，也未向 Mixpanel 写入测试事件。首次当天读取 44 条事件，其事件时间都晚于本轮 Linux 配置同步；第二次当天读取 50 条，包含 `subscribe_view` 3、`splash_view` 2、`homePerformance_view` 1、`sub_click` 1、`sub_result` 1、`restore_result` 1。记录存在证明该 Mixpanel 项目可查询且有 App 类事件，但事件时间由客户端提供、未核对指定用户或交易 ID，不能归因到本次 Linux 测试订阅，也不能宣称 Mixpanel 收入或 `sub_success` 已收到。Singular 的 SDK API Key/Secret Key 已从 Linux `/app-config` 正常下发，但不提供后台报表查询权限；缺少 Singular 后台/Reporting API 访问条件，本轮未验证其安装、事件或收入收件。Mixpanel 官方已将 Project Secret 认证标记为弃用，后续新增服务端查询应改用 Service Account。
+
+## 首次引导页 1 扫描演示素材（2026-09-17，已构建测试内部包 146）
+
+应用户要求，将 `assets/onboarding/guide_scan.mp4` 替换为提供的 `Card_AI_Pikachu_Scan_3s-2.mp4`（3 秒、780×960、H.264），SHA-256 均为 `cc85b9e35e02fb66a439574ab030cf0b0f236771805fbbf1399c5719a876918e`。原 PNG 在视频解码前与减少动态效果时仍会显示旧喷火龙画面，因此同步以新视频真实首帧生成 `guide_scan_placeholder.png`，按相同比例缩放为 390×480，让图片和视频在现有 `BoxFit.cover` 下按相同方式裁切。两个资源路径不变；引导页布局、文字、播放/循环及页面 2、3 素材与业务流程均未修改。实际视觉内容同步到 `01-flows/business-context.md`，v1.0.0 冻结文档未改。
+
+本地验证：macOS / Flutter 3.44.5，AVFoundation 能解码新视频首帧；图片已回读为 390×480，源文件与目标视频 SHA-256 一致。`flutter test --no-pub --dart-define-from-file=config/test.json test/widget/onboarding_page_test.dart test/onboarding_gate_test.dart --reporter expanded`：17/17，通过、退出 0；`flutter analyze --no-pub`：无问题、退出 0。Code Review 自审核对了媒体加载、首帧 fallback、自动循环、减少动态效果、资源打包声明与页面 2、3 引用，改动限定在页 1 的两份资源和当前版本文档。
+
+签名构建：同日重新执行 `./tool/release_ios.sh --env test --pgy --build-number 146`，退出 0，内网 `http://192.168.50.201:8080/api/v1` 健康检查返回 HTTP 200、`status=ok`。脚本清理旧构建后静态分析通过，归档、导出及最终 IPA 校验通过；最终内部包使用 `com.kando.kandoApp.beta`、Apple Development 签名、App Attest `development`，测试 Firebase 与内网 API 校验通过，41 个 Mach-O UUID 均匹配 dSYM。保存的 IPA 再次回读确认仅 `192.168.50.201` 的 HTTP ATS 例外及本地网络用途说明。IPA 大小 56,482,862 字节，SHA-256 为 `86e61f355fd92c3dc647ba3c35c8c2ca62e296d0e76e16e24ef6510411da3094`；与 `dSYMs.zip` 保存至 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.2-146/`，副本摘要一致。现保留 144、145、146，旧 143 移入废纸篓，可恢复；归档另存至 `~/Library/Developer/Xcode/Archives/2026-09-17/Card AI Test 1.0.2 (146).xcarchive`。源码版本同步为 `1.0.2+146`；Dart/CocoaPods 锁文件未变化。构建前后视频文件摘要一致，为上述新素材。
+未运行：iOS/Android 真机视频播放、首次安装登录、扫描与购买、Android 构建以及全 App/全仓测试；本轮为 iOS 内部包交付，Widget 测试与签名构建不能代替设备视频解码/流畅度及局域网权限验收。客户端测试人员需用 146 包在可访问内网的设备上验收。未安装、上传、推送或部署。
+## 邮箱登录在密码页展示 Welcome back（2026-09-16，已构建测试内部包 145）
+
+用户在首次安装引导的邮箱登录中观察到密码验证成功后先闪回引导页 3，再进入订阅页，要求在密码页展示原有 1 秒 Welcome back 后继续。基于 `dev@a97c5ed`、含已有 `1.0.2+144` 打包改动的工作区；本轮不修改版本或发布脚本。根因由代码路径和失败测试确认：`_completeSignIn` 先 pop 密码页，`_openEmailAuthPage` 再 pop 登录选项并于下一帧展示提示，因而提示背后已变为引导页，随后引导完成和权益检查再次切换画面。此前真机看到提示只能证明提示出现，不能证明背景页面和切换符合本次要求。
+
+修复限于认证 UI 和引导调用方：邮箱验证成功后在密码页等待既有提示实际关闭，再由引导入口保存完成状态；保留密码页直到替代内容完成一帧构建，然后关闭邮箱页、无退场动画移除登录选项。Profile 共用同一密码页提示，但后续仍使用其原权益检查；注册和 Google/Apple 的流程不变。邮箱流程只完成自己的路由，避免等待期间误 pop 新页面；引导保存失败不重复提交保存。登录请求、密码验证、会话持久化、游客资产、订阅购买、权益判定及扫描扣次均未修改。当前行为同步到 `01-flows/business-context.md`，冻结 PRD 未改。
+
+验证环境为 macOS / Flutter 3.44.5 / Dart 3.12.2，以下 Flutter 命令均在 `apps/flutter-app` 执行：
+
+- 失败证据：`flutter test --no-pub --dart-define-from-file=config/test.json test/widget/auth_profile_test.dart --name 'onboarding email welcome auto|email welcome keeps password' --reporter expanded` 在修复前 8/8 失败、退出 1，均为密码页已不存在；覆盖 iOS/Android 三种权益与慢存储。修复后同一断言通过，另逐帧断言提示关闭和慢存储等待时不露出引导或登录选项。
+- 定向回归：`flutter test --no-pub --dart-define-from-file=config/test.json test/widget/auth_profile_test.dart --name 'Profile .*login|Profile .*waits|Profile .*cancellation|onboarding .*login|onboarding .*cancellation|email registration keeps|onboarding email welcome auto|email welcome|email login saves' --reporter expanded` 最终 52/52、退出 0。覆盖 1 秒/999ms、手动关闭、销毁、新页面覆盖、慢存储/慢权益、保存失败、两入口三种登录与权益、取消和失败、注册。新增覆盖页测试在路由精确关闭修复前失败，修复后通过。旧时序 helper 的 `pumpAndSettle` 会因保留密码页的 Loading 动画推进到提示消失，已改为观测提示首帧和显式推进时间，保留原断言。
+- 扩大回归：`flutter test --no-pub --dart-define-from-file=config/test.json test/widget/auth_profile_test.dart test/auth_controller_test.dart test/auth_repository_test.dart test/auth_session_interceptor_test.dart test/oauth_authorizer_test.dart test/auth_storage_test.dart test/startup_subscription_gate_test.dart test/onboarding_gate_test.dart test/onboarding_repository_test.dart test/widget/onboarding_page_test.dart --reporter expanded` 最终 199 通过、4 个 Golden 失败、退出 1，不能标记整组通过。差异分别为 Profile banner 1853px、订阅成功动效 117px、订阅 sheet 7816px、订阅成功页 5080px，与本页此前记录相同；未更新图片或放宽断言。初次扩大回归另发现防重复登录测试缺少登录后权益返回值，补充测试替身后该用例单独 1/1 通过且整组复验不再失败，原防重断言保留。
+- `flutter analyze --no-pub`：无问题、退出 0。四个修改的 Dart 文件执行 `dart format --output=none --set-exit-if-changed`，以及根目录 `git diff --check`，均退出 0。
+
+Code Review 自审通过：逐项核对提示生命周期、密码页和选项路由清理、异步回调 mounted 保护、引导保存单次执行、Profile 调用方、注册/三方入口及测试时序；无待处理审查项。仅页面承接顺序变化，未改变服务端或业务控制器。
+
+签名构建：同日按用户要求重新构建连接 `http://192.168.50.201:8080/api/v1` 的内部包。构建前复跑上方 52 项定向回归，以及 `flutter test --no-pub --dart-define-from-file=config/test.json test/api_environment_test.dart test/release_config_test.dart test/card_detail_actions_test.dart --reporter expanded` 的 16 项环境/分享测试，均退出 0；服务器健康检查 HTTP 200、`status=ok`。执行 `./tool/release_ios.sh --env test --pgy --build-number 145`，首次在 `flutter build ipa` 隐式触发的依赖获取阶段等待包服务响应，长时间无进展后终止该次 `dart pub get`，脚本退出 241；未更改依赖或跳过检查，以相同命令重试后静态分析、清理、签名构建与产物验证全部通过，退出 0。
+
+最终内部包 `1.0.2 (145)` 使用 `com.kando.kandoApp.beta`、Apple Development 签名、App Attest `development`，内网 API 和测试 Firebase 校验通过，41 个 Mach-O UUID 均匹配 dSYM。保存的 IPA 再次回读确认 `192.168.50.201` 的 HTTP ATS 例外和本地网络用途说明。IPA 为 56,689,687 字节，SHA-256 为 `fa8742ee4794b3a083df3c40e43261cf38fa082bf57d653e9573203f54112551`；与 `dSYMs.zip` 保存至 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.2-145/`，保存副本摘要一致。现保留 143、144、145，旧 142 已移入废纸篓，可恢复；归档另存至 `~/Library/Developer/Xcode/Archives/2026-09-16/Card AI Test 1.0.2 (145).xcarchive`。源码同步为 `1.0.2+145`，Dart/CocoaPods 锁文件、API 配置及本节三个运行文件构建前后摘要一致，包含本节最新调整。
+
+未运行：iPhone 12 Pro Max 安装登录复验、Android 真机与构建、全 App/全仓测试及扩大 Golden 整组复跑（本轮为 iOS 内部包交付，使用定向回归、静态分析和签名产物验证；前述 4 项既有截图差异未处理）。客户端测试人员需用 145 包，在能访问内网并允许本地网络权限的设备验收首次引导邮箱登录的实际画面和 1 秒停留。保留已有改动，未安装、上传、push 或远程部署。
+
+## Linux 内网 iOS 测试包校验同步（2026-09-16）
+
+用户要求重新打包并连接 `192.168.50.201`。基线 `dev@a97c5ed`、源码 `1.0.2+143`；App test 与两端网络配置已使用 `http://192.168.50.201:8080/api/v1`，但 `release_ios.sh` 的 test IPA 检查仍要求旧 CF 测试域名，导致正确的内网包无法通过交付检查。新增脚本校验目标与当前编译环境 API 一致的回归，修改脚本前执行 `flutter test --no-pub --dart-define=APP_ENV=test test/api_environment_test.dart --plain-name 'iOS IPA validation expects' --reporter expanded`，退出 1，明确显示旧域名与内网地址不一致。
+
+仅将脚本 test 分支的预期 URL 同步到现有 App 配置，保留实际 IPA 二进制检查；没有修改运行代码、正式环境地址、签名、服务端、共享包或依赖。修复后在 `apps/flutter-app` 分别以 `--dart-define=APP_ENV=test` 和 `--dart-define=APP_ENV=production` 执行 `flutter test --no-pub` 的 `test/api_environment_test.dart test/release_config_test.dart test/card_detail_actions_test.dart --reporter expanded`，两组均 16/16、退出 0；`bash -n tool/release_ios.sh`、目标测试文件的格式检查通过。Mac 对内网 `/api/v1/health` 的只读请求返回 HTTP 200、`status=ok`。
+
+Code Review 自审通过：脚本预期地址与 Flutter test 一致，production 分支不变；原 IPA 签名、环境、Firebase、App Attest 和 dSYM 门禁全部保留，测试在旧脚本上失败、修复后通过。当前架构及 Flutter README 已正确描述内网入口，无需改写；本节记录遗漏校验的修复证据。
+
+签名构建：macOS / Flutter 3.44.5 执行 `./tool/release_ios.sh --env test --pgy --build-number 144`，静态分析、清理构建、导出和最终 IPA 校验全部通过，退出 0。内部包为 `1.0.2 (144)`、`com.kando.kandoApp.beta`、Apple Development 签名，最终 App Attest 为 `development`；二进制包含内网 API，测试 Firebase 正确，41 个 Mach-O UUID 均匹配 dSYM。对保存 IPA 的 Info.plist 再次回读，确认仅 `192.168.50.201` 的 HTTP ATS 例外及局域网用途说明。IPA 为 56,688,941 字节，SHA-256 为 `7e52d99e2ac54e403386343ded9360634173a837845b1e32841b9cbe3cdb9df3`，保存副本摘要一致；与 `dSYMs.zip` 一同存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.2-144/`。当前保留 142、143、144，旧 141 按规则移入废纸篓，可恢复；Xcode 归档另存至 `~/Library/Developer/Xcode/Archives/2026-09-16/Card AI Test 1.0.2 (144).xcarchive`。源码同步为 `1.0.2+144`，Dart/CocoaPods 锁文件和 App API 配置摘要未变化。
+
+未运行：真机局域网权限、登录、扫描、购买和 Android 构建（本次交付 iOS 内部包，未安装设备）；全 App/全仓测试（本次只同步 iOS 交付校验目标，已复验两环境配置、API 客户端和分享相关测试）。客户端测试人员需在可访问内网的设备允许本地网络权限后验收，服务器健康检查不能代替设备业务验收。未上传、安装、推送、部署或执行远程数据写入。
+## Linux Apple SDK ESM 打包修复（2026-09-17）
+
+用户保存回源 A 记录与 App Store Connect Sandbox URL 后，Cloudflare Public DNS 已解析 `dev-callback-origin.tcgcard.fun → 111.10.170.43`；公网 HTTPS 空 JSON POST 透传 Linux `400 INVALID_REQUEST`。只请求了一条 Apple 官方 TEST，Apple 报告投递 `SUCCESS`；Linux inbox `01M2PFJSQYF9866127S9TNCSJK` 保存的 JWS SHA-256 与 Apple 返回值完全一致，但异步处理为 `processing_failed / VERIFIER_NOT_CONFIGURED`，不能以 HTTP 200 认定通知处理完成。
+
+根因已通过同一 Node 22.22.1 API 容器的 ESM/CJS 最小对比证实：实际 `loadLinuxRuntime` 保留 Apple 配置；ESM 打包的 Apple SDK 3.1.0 依赖 `node-fetch@2.7.0` 调用 `require("stream")`，报 `Dynamic require of "stream" is not supported`。既有 factory catch 将加载异常转为 null，因此通知验签、购买验签和 Server API 客户端都会不可用；相同配置的 CJS 诊断包可正常初始化，这也是先前凭据诊断未暴露正式 bundle 故障的原因。
+
+最小修复在 Linux 共用构建选项加入 `createRequire(import.meta.url)` banner；共享业务路由、JWS 验证规则、数据契约、Cloudflare 构建与依赖版本不变。新增 `node --test apps/workers-api/scripts/test-linux-bundle.mjs`，Apple SDK 真实打包配置在修复前稳定因 verifier=null 失败；独立子进程不使用 Apple SDK mock、不连接 Apple 或数据库，并校验无效 JWS 仍被拒绝。首次发布预检和 PostgreSQL 备份完成后，新 API 未通过健康检查，发布脚本自动重建了旧版本；在旧容器隔离运行新包明确报 `SyntaxError: Identifier 'createRequire' has already been declared`。`fflate` 在完整 ESM bundle 内已有同名导入，故把 banner 的本地绑定改为 `__linuxCreateRequire`；新增完整 API bundle 的语法检查、独立启动和 health 回归，该测试在修复前复现相同语法错误，修复后与 Apple SDK 检查共 2/2 通过。两项已接入 `build:linux:api`，后续手工与 watcher 构建都会执行。
+
+首次失败后的旧 API 回退健康检查为 200；备份保留于服务器 `backups/toccards-test-20260917-094038-before-manual-a97c5ed-apple-esm-dirty-20260917-0941.dump`，未执行恢复。第二次发布前重新运行 Workers 定向 8 文件 32/32、CF 代理 8/8、全仓 `pnpm lint` 与 `pnpm type-check`、Linux `deploy:dry-run:dev`，均退出 0；第一次部署失败不计为发布通过。
+
+第二次手工发布从本地 `dev@a97c5ed` 的未提交工作区构建，API/Admin 的源码与依赖相对服务器原 `75c0ec4` 无差异；先通过 `deploy:dry-run:dev`，再用原 `deploy-release.sh` 执行 PostgreSQL 18/本地库/CF 识别预检、备份与离线 Compose 部署。该次验收的 release 为 `manual-a97c5ed-apple-esm-dirty-20260917-0949`，回退基线为 `branch-dev-75c0ec4f991d-20260916151043`。API/Admin/数据库健康、health 200、Admin 标题正常；容器内 API bundle 与 release 的 SHA-256 相同（`27ecc6039fcb00e5828ea78f235ca38ad747b4a826f5c6d2de92c44bd69e7e33`），私有 `.env` 哈希未变，ledger 保持 13 项、无待执行迁移。本次新备份 `backups/toccards-test-20260917-095015-before-manual-a97c5ed-apple-esm-dirty-20260917-0949.dump`，没有做整库恢复。首次失败发布的回退事实保留，不能算首次发布成功。
+
+只使用原 Apple 官方 TEST 的 token 读取原 JWS，**没有再次请求 Apple 发送 TEST**；官方签名、`TEST` 类型、`Sandbox` 环境、beta Bundle、UUID 和 SHA-256 逐项匹配。仅把同一 signedPayload 经 `https://dev-callback.tcgcard.fun/api/v1/apple/notifications/v2/sandbox` 重放一次，公网返回 Linux 200。只读查原 inbox `01M2PFJSQYF9866127S9TNCSJK`：状态 `processed`、attempts=6、`last_error=null`、UUID 为 `e2003ab6-6389-4c9c-b5a3-fd878129da9e`、processed_at=`2026-09-17T01:54:10.187Z`；唯一结构化通知 `notification_type=TEST`、状态 `processed`、有 decoded_payload，payload SHA-256 为 `ed189602840ec2b134ddc8b9deb31827977dfa449c30252010d2a2b7c3832e70`。总 inbox 1、结构化通知 1、交易 0、购买链 0；原失败记录未删除或伪造。公网复核 Sandbox GET 为 405、空 POST 为 Linux 400、其他 API 为 404。Code Review 自审核对实际 ESM 绑定冲突、独立 Linux 构建选项、通知幂等和错误状态、回退与卷/配置边界，修正首次发布暴露的冲突后未发现阻断项。真实购买、Restore、续订和真机端到端未运行，不能由 TEST 推断通过；上述手工验收时修复尚未提交，后续远端 dev 的自动发布结果需单独核对。
+
+## Cloudflare Apple Sandbox 回调代理（2026-09-16/17，初次部署检查点）
+
+用户授权通过 CF 将公网 Apple 回调转入 Linux。新增 `deploy/cloudflare/apple-callback/` 独立 Worker、配置、测试与部署说明，仅处理 `POST /api/v1/apple/notifications/v2/sandbox`。请求正文按字节转发，限制 200,000 字节，不转发客户端 Authorization/Cookie、不重试、不缓存；3xx 显式拒绝，上游 HTTP 失败保留，连接/超时返回 502，截止时间覆盖上游响应正文。该 Worker 无数据库、KV、R2、Apple 私钥或邮件凭据绑定，Linux 继续负责通知入库和 JWS 验签。
+
+运行时问题与修复：首版 Node 测试 7/7 和 dry-run 通过，但真实 CF 返回 502。tail 日志明确指出 Workers 不支持 `redirect: "error"`，请求未到达 origin。新增仅 HTTP 的 Workerd/Miniflare 运行时回归（没有数据库绑定或 D1 基座），原实现稳定失败 `502 !== 200`；改为 `redirect: "manual"` 并显式拒绝 3xx 后，完整 8/8 通过。运行时 fetch mock 的请求体是流，最初用字符串 body 匹配得到工具侧 500；取消不适用的 body matcher，原始字节传递仍由独立断言保护，未放宽 200 成功门槛。最终真实边缘请求已通过参数校验；裸 IP 回源返回 403/1003，因此配置改为专用回源域名。
+
+最终 `node --test deploy/cloudflare/apple-callback/worker.test.mjs` 为 8/8、0 跳过，`node --check`、根 `pnpm lint` 和 Wrangler dry-run 通过。Code Review 自审核对路径/方法、固定 origin、正文大小、凭据与重定向边界、取消/超时、失败确认及无重试，未发现本轮代码级阻断项。未运行应用全仓或 Flutter 测试：本轮未改共享业务代码、依赖、数据库或客户端。
+
+以下为用户补齐 DNS 之前的部署检查点，后续进展见本页首节：
+
+- Worker：`toccards-apple-callback-dev`，最终 Version `1b7c6ba8-1a87-4774-832a-c23d21581655`，2026-09-17 发布；`LINUX_CALLBACK_ORIGIN=http://dev-callback-origin.tcgcard.fun:8089`。
+- HTTPS 入口：`https://dev-callback.tcgcard.fun/api/v1/apple/notifications/v2/sandbox`，另保留 `https://toccards-apple-callback-dev.product-dce.workers.dev` 诊断入口，preview URLs 关闭。
+- 自定义域名先通过 Worker domain changeset 确认无更新、移除或冲突，再通过 API 以 `override_existing_origin=false` 和 `override_existing_dns_record=false` 创建；后续再次核对所属 Worker 无变化。没有覆盖其他服务域名。
+- 通过有效 TLS 校验访问固定域名：Admin scans 为 404，Sandbox 路径 GET 为 405，空 JSON POST 为 530/1016；DNS 查询确认 `dev-callback-origin.tcgcard.fun` 为 NXDOMAIN。当前尚未成功将请求转入 Linux，不能将 HTTPS 已部署写成 Apple 回调完成。
+- 缺失记录为 `tcgcard.fun` 区域中的 A `dev-callback-origin → 111.10.170.43`，必须为 DNS-only（灰云）。现有 OAuth 可管理 Worker/自定义域名，但读取和创建该 A 记录均为 403/10000。用户已登录控制台，浏览器工具仍报 `unsupported Codex auth method: apikey`，Windows Computer Use 的 kernel assets 初始化在重置后仍失败，未据此执行任何 UI 写操作；需要用户手动添加记录或提供有 DNS Read/Edit 权限的 Token。
+
+原 Linux API、Admin、数据库、CF dev/prod API、向量服务和既有旧识别 Tunnel 未修改；未更改路由器映射、App Store Connect URL，也未发送 Apple TEST 通知。CF 边缘至 origin 目前设计为 HTTP，边缘 HTTPS 不等于端到端 TLS；且代理自身只放行回调路径不改变用户整端口 NAT 的开放范围。待 DNS 生效后，应先验证 CF 空请求得到 Linux 400，再做 Apple TEST 通知、数据库入库及签名验证。本轮未 Git 提交或推送。
+
+2026-09-17 用户后续提供截图，显示 App Store Connect 的“沙盒环境服务器 URL”为上述 `https://dev-callback.tcgcard.fun/api/v1/apple/notifications/v2/sandbox`；截图未展示 App 身份，不据此推断 beta App 的最终通知目标。复查 Cloudflare Public DNS 的回源 A 记录仍为 NXDOMAIN；附加 Google Public DNS 查询因代理连接中断未取得结果，未标记为通过。真实 CF POST 仍返回 530/1016，Linux 空请求仍为预期 400，通知 inbox/TEST 记录均为 0。因此没有提前触发 Apple TEST，仍等待 Cloudflare 回源 DNS 配置，而非再次要求填写 Apple URL。
+
+## Apple Sandbox 公网入口核查（2026-09-16）
+
+用户提供 `111.10.170.43:8089/api/v1/apple/notifications/v2/sandbox`，并确认目标为 `192.168.50.201:8080/api/v1/apple/notifications/v2/sandbox`。本轮只核查连通性与 HTTPS 条件；未修改服务器服务、网关映射、DNS、证书或 App Store Connect。
+
+- Linux 本地 `POST /api/v1/apple/notifications/v2/sandbox` 携带空 JSON 返回 `400 {"error":"INVALID_REQUEST"}`，与缺少 signedPayload 的既有契约一致，未产生通知入库。浏览器 GET 不是 Apple 通知的验收方法。
+- 当前电脑直连公网 HTTP 约 5 秒被关闭，HTTPS TLS 握手收到 EOF；通过既有代理请求 HTTP 得到 502，HTTPS 同样未建立有效 TLS。服务器直连该公网 TCP 端口超时；这些来源都处于现有内网/代理环境，不能单独证明真正外网必然不可达，仍需外网复验或检查 NAT 回流。
+- 实际 Web 容器为 `8080 → 80` 的 HTTP 服务，API 仅容器内 `3000`，没有监听 HTTPS 443/8443/8089。服务器 80 已由其他项目占用，本次未调整它。将公网 8089 直接转发到该 8080 不会自动提供 HTTPS。
+- [Apple 官方通知接入要求](https://developer.apple.com/documentation/appstoreservernotifications/enabling-app-store-server-notifications)明确 HTTPS 与 TLS 1.2+；[App Store Connect 配置说明](https://developer.apple.com/help/app-store-connect/configure-in-app-purchase-settings/enter-server-urls-for-app-store-server-notifications)区分 Sandbox/Production URL。最终需提供可信 HTTPS 入口，仅代理既有 Sandbox 路径；纯端口 NAT 本身不限制 URL 路径，不能据此宣称 Admin 和其他 API 仍未暴露公网。
+
+当前仍缺可用 HTTPS 域名/证书或相应 DNS 管理条件，未发起 Apple TEST 通知，未宣称公网回调已完成。后续按[集中处理清单](development-plan.md#linux-dev-集中处理清单2026-09-16)解决入口和配置权限，再使用有效 Apple 通知验证入库与验签。
+
+## dev 整改合并、自动部署与扫描复验（2026-09-16）
+
+用户明确接受提交验收文档、合并双方改动、推送 dev、验证现有 Linux 自动部署及扫描写库的执行顺序。先将 6 份凭据/部署验收文档提交为 `dev-inner@628cf25`；随后在最新 `dev@a419415` 合并 `dev-inner`，无冲突，得到 `75c0ec4f991d276a54caf3cde6c75858588e7ff1`。自审比对确认 dev 的 Admin 日期/环境筛选增量完整保留，Workers/Linux/Flutter 实现与已验证的整改分支一致，PostgreSQL migration SQL 及冻结目录无改动。
+
+| 合并后检查 | 实际结果 |
+|---|---|
+| `pnpm lint`、`pnpm type-check --force` | 均退出 0，4 个共享包依赖方向通过，类型检查 7/7、0 缓存 |
+| `pnpm --filter @kando/workers-api exec vitest run src/linux src/scan src/db/postgres-database.test.ts src/cors.test.ts src/index-postgres-runtime.test.ts src/admin --maxWorkers=2` | 15 文件、122/122，退出 0，无跳过 |
+| `pnpm --filter @kando/admin-web test` | 22/22，退出 0；含保留的后台筛选与内网入口契约 |
+| `node --test deploy/linux/preflight.test.mjs deploy/linux/offline/web-server.test.mjs` | 9/9，退出 0 |
+| Flutter test 环境/发布配置/分享定向测试 | `flutter test --no-pub --dart-define=APP_ENV=test test/api_environment_test.dart test/release_config_test.dart test/card_detail_actions_test.dart --reporter expanded`，15/15，退出 0；`flutter analyze --no-pub` 无问题 |
+| dev/prod 打包预演 | `pnpm --filter @kando/workers-api deploy:dry-run:prod` 与 `deploy:dry-run:dev` 均退出 0；prod 仅 dry-run，无发布 |
+| GitHub iOS 编译 | 合并提交触发的 [iOS build 35066969713](https://github.com/kando6370-wq/toccards/actions/runs/35066969713) 已 completed/success；仅无签名 release 编译，不代表最终 IPA 或设备验收 |
+| 合并检查 | 两个发布 shell 分别 `bash -n`、`git diff --cached --check` 通过；20 份合并涉及的 Markdown 共 214 个本地链接/锚点通过 |
+
+服务器自动发布：
+
+- 先在 watcher 锁内确认其专用 source checkout 无用户改动/私有 env，再备份并更新安装的 `watch-branch.sh`，使其覆盖新增运行时和发布预检测试。`watcher.env` 新增项目级 HTTP/HTTPS 代理、NO_PROXY、NODE_USE_ENV_PROXY，继续监控 dev；备份后缀 `before-20260916-150706`，脚本 SHA-256 为 `d81a8d15b5c3885e181c5092b8484ea2eb7aae1095b84306c81a317c6b9d66c7`。没有改变全局代理、其他项目或 crontab 周期。
+- 推送后 `git ls-remote` 与本地 SHA 一致。既有 cron 在 15:08 自动发现 `75c0ec4`，完成锁定依赖安装、Workers 类型检查、运行时 9 文件 75/75 与 Node 发布检查 12/12、Linux/Admin 构建。没有手工调用发布脚本绕过该流程。
+- 实际 preflight 返回本地 `toccards_test`、PostgreSQL 18、CF reachable、pending migrations 为空；随后备份 `/home/user/apps/toccards-test/backups/toccards-test-20260916-151045-before-branch-dev-75c0ec4f991d-20260916151043.dump`，1,120,645,783 字节、权限 600，`pg_restore --list` 可读取。没有整库恢复演练。
+- current 为 `/home/user/apps/toccards-test/releases/branch-dev-75c0ec4f991d-20260916151043`；manifest 的 branch=dev、sha 为完整合并提交、built_at=`2026-09-16T07:10:43Z`、source=kd201-branch-watcher。`last-deployed-sha` 与目标提交一致；原 `a419415` release 保留供回退。
+- API/数据库 healthy、Web 正常；原 `toccards-linux-test_postgres-data` 与 `toccards-linux-test_scan-images` 保留，ledger 仍为 13 项，无新迁移。API 容器 bundle 的 SHA-256 与 release 文件一致，实际 sourcemap 含 `createHttpVectorRecognition`，不再要求旧 OCR 字段。邮件、Apple 凭据、私钥格式及 API 代理均回读确认保留。
+
+部署后烟测：health、games、卡牌 `100223`、iOS/Google app-config、Admin HTML 与 10 个资产、3 个 CORS origin 和分享 canonical 均通过，资产与服务器 release 逐字节比较一致；未登录 Admin scans 为 401。通过临时匿名账号、合成 745×1043 JPEG 和 512 维单位向量发起扫描，约 1.022 秒返回 5 个候选；Linux 数据库验证 development 扫描记录、consumed 额度及本地图片。免费额度由 10 变 9，同 request ID 重放后仍为 9、consumed=1；确认收藏返回 201，主记录与初始事件均保存 `12.5 USD` 及可靠历史起点。测试账号的业务记录和图片/metadata 已精确清理，保留已分配 UID 占位与基础设施锁。
+
+Code Review 自审通过：合并未产生新业务改写，双方增量和测试均保留；监听器仍使用同一版本化发布脚本、原卷与私有配置，运行结果与合并 SHA 一致。未执行 Workers/Flutter 全仓测试、两端签名包或真机识别准确率/购买；本轮是定向合并验证及真实 Linux 服务端链路验收。公网 Apple 回调、统计配置、浏览器 Logout 服务端撤销和旧 CF dev 退役仍在集中清单中，本次未修改 CF dev/prod、DNS 或 App Store Connect。
+
+发布后的 9 份说明文档已按运行事实更新，55 个本地链接/锚点及 diff 检查通过；该文档增量不改变应用或部署构建输入，按 watcher 路径规则仅推进观察基线，不触发重建。应用运行版本仍以上述 `75c0ec4` 为准。
+
+## Linux Apple Server API 凭据与 Sandbox 鉴权（2026-09-16）
+
+用户提供 Issuer ID，并明确 dev 对应本机 `SubscriptionKey_A2Q978K984.p8`。本轮仅配置 Linux 的 `APPLE_IAP_ISSUER_ID`、`APPLE_IAP_KEY_ID`、`APPLE_IAP_PRIVATE_KEY`；私钥文件内容未输出日志或写入仓库。执行时 current 仍为 `branch-dev-a4194156c572-20260916110050`，部署版本中的 Apple Server API factory 和 signed-data verifier 源码通过 sourcemap 与本地逐字节核对一致。配置前本地库的待处理通知、correction_required 及交易数均为 0。
+
+临时诊断工具直接打包项目现有 `createAppleServerApiClient` 与 `createAppleNotificationVerifier`，使用锁定的 Apple 官方 SDK 3.1.0，未修改业务代码或依赖。先在既有 API 容器内通过标准输入传入候选凭据，只读查询最近 60 秒的 Sandbox 通知历史；HTTP 200 后才备份并更新服务器运行配置。API 重建后，第二次诊断完全读取新容器环境并复验同一路径。两个查询均为 `POST /inApps/v1/notifications/history`，这是带过滤条件的只读查询，没有调用 `requestTestNotification` 或购买/生产 API。
+
+| 检查 | 实际结果 |
+|---|---|
+| 私钥与项目配置 | P-256 私钥解析、签名/验签通过；项目 Server API client 与 Sandbox notification verifier 均构造成功，Bundle 为 `com.kando.kandoApp.beta` |
+| Apple Sandbox 鉴权 | 配置前候选凭据、配置后容器环境分别返回 HTTP 200；最近 60 秒 notification_count 均为 0、has_more=false，无重试 |
+| PEM 换行 | `.env` 双引号转义换行经 Node 解析与原始 PEM 完全相同；Compose 注入后 API PID 1 环境可正确解析私钥 |
+| 配置边界 | 备份 `/home/user/apps/toccards-test/shared/.env.before-apple-20260916-141728`；配置与备份权限均为 600；逐键比较只改 Apple 三项，邮件、代理、数据库及其他设置保持 |
+| 运行状态 | 只执行原 Compose 的 `up -d --no-deps api`；API healthy，health/app-config 为 200，未登录 Admin scans 为 401，Web/数据库容器与 current 保留 |
+| 数据与清理 | migration ledger 13 项、通知 inbox/校正待办/交易均为 0；临时私密 JSON 已删除，容器诊断文件已清理，原用户 `.p8` 文件保留 |
+
+两个诊断进程出现依赖的 `punycode` 弃用警告，但均退出 0；没有为去除警告升级依赖。配置自审核对同组凭据、Sandbox 隔离、敏感输出、备份/回退、只读请求及仅重建 API，通过。未重跑应用全仓测试或业务构建（源码和依赖未变化），临时诊断 bundle 的实际运行结果如上。
+
+Issuer ID/Key ID/私钥缺项已解除；本次没有真实交易，因此未验证 Fresh Purchase、Restore、App Attest 真机证据、Server API 交易校正或公网通知闭环，也未变更 App Store Connect、CF、watcher 或发布分支。此前发现的实际 dev 版本缺少向量整改仍须优先处理。本阶段文档未提交或推送。
+
+## Linux ZeptoMail 配置与单封邮件验收（2026-09-16）
+
+用户提供仓库外 Token 文件，并明确授权向指定 Gmail 地址发送一封测试邮件。文件含 `Zoho-enczapikey ` 前缀；代码 `sendZeptoMail` 会自行添加该前缀，因此读取时去掉前缀后仅写入原始 Token，未改用户原文件。Token 值未输出到日志或写入仓库。
+
+执行前回读服务器确认 watcher 已将 current 更新为 `branch-dev-a4194156c572-20260916110050`，manifest 为 `dev@a4194156c5721b2c23255f44f1b64c2268a6382c`、`source=kd201-branch-watcher`，构建时间 `2026-09-16T03:00:50Z`。已比对实际部署 sourcemap 中 ZeptoMail、验证码邮件和注册路由三个文件与本地源代码一致，随后按该运行版本操作，没有覆盖为旧手工 release。
+
+持有原 watcher/deploy 锁后，备份服务器配置到 `/home/user/apps/toccards-test/shared/.env.before-zeptomail-20260916-135420`，只修改 `ZEPTOMAIL_TOKEN`，再用原两份 Compose 文件执行 `up -d --no-deps api`。配置与备份均为 600，临时上传的私密 Token 文件已删除；API 进程回读确认 Token 已设置且不含授权前缀，其他配置逐键比较未变，API 健康检查通过。
+
+2026-09-16 13:55:15（Asia/Shanghai）仅调用一次 Linux `/api/v1/auth/register/send-code`，使用已核对的现有注册验证码流程发送测试邮件。HTTP 200、`success=true`，耗时约 945 ms；该路由仅在 ZeptoMail 请求成功且返回 request_id 后报告成功。数据库只读复核本次产生 1 条未使用的 register 验证码，有效期 600 秒，未创建 App 用户。随后用户明确确认已收到邮件，完成 Linux → ZeptoMail → 实际邮箱的投递验收；没有重试或发送第二封邮件。
+
+运行版本额外发现：fetch 后确认 `dev@a419415` 不包含整改提交 `b27ca90`、`a512dbd`、`a457f70`；容器中 API bundle 的 SHA-256 与 current 文件一致，其 sourcemap 中 Linux 配置仍要求旧 OCR 键且未构造 HTTP 向量适配。此前手工版本的扫描成功证据不适用于这个已被 watcher 替换的版本。该项已列入集中清单最高优先级，本次没有擅自合并分支、改变 watcher 或覆盖应用版本。
+
+本轮邮件配置、单封发送及收件通过，缺失凭据清单已更新。配置自审核对 Token 前缀、受限文件权限、单键修改、仅重建 API、临时文件清理和单次发送约束，通过；6 份修改的 Markdown 中 33 个本地链接/锚点及 `git diff --check` 通过，修改文件中未发现该 Token 明文。未执行完整注册、验证码输入校验或找回密码，未修改业务代码、依赖或 migration SQL，也未运行与本次配置无关的应用构建/测试。仅 API 容器因配置重建，数据库与 Web 容器保留，ledger 仍为 13 项；本阶段文档未提交或推送。
+
+## Linux Admin 既有管理员登录与只读验收（2026-09-16）
+
+基线 `dev-inner@a457f70`。按用户提供的既有管理员凭据，在 `http://192.168.50.201:8080` 完成浏览器真实登录，显示“超级管理员”；扫描记录、订单统计、苹果通知页面均正常打开。密码与访问/刷新 token 仅在验证进程或登录流程中使用，没有写入仓库、文档或临时脚本。
+
+独立接口验证通过 `POST /api/v1/admin/auth/login` 返回 200，并用参数中对应的会话 ID 在 Linux `toccards_test.session/admin_user` 只读核对：owner 为 admin、角色 super_admin、状态 active、会话未撤销。容器环境确认数据库主机为 `db`、库名 `toccards_test`、APP_ENVIRONMENT 为 development。
+
+- 9 项授权只读接口全部 200：scans、billing/transactions、apple-notifications、analytics/installations、users、card-overrides、app-versions、billing/transactions/options、apple-notifications/options；另查公共目录卡牌 `100223` 返回 200。
+- 扫描、订单、苹果通知总数均为 0，与直接查询 Linux 数据库一致；当前无数据不代表有记录详情、图片查看、导出或复杂筛选已验收。
+- 独立接口会话的 refresh 返回 200；调用 logout 后旧 access token 请求 scans 返回 401，数据库 revoked_at 非空。浏览器点 Logout 后回到空登录表单并关闭验证标签页。
+- 源码显示现有浏览器 Logout 仅清除本地会话、未调用后端 logout；本次没有修改这一既有行为，因此只能确认独立接口会话被服务端撤销，不能把页面返回登录表单视为同等撤销证据。该项记入集中清单后续处理。
+
+本次只产生正常登录/刷新/退出会话操作，没有重置管理员、变更权限或修改业务数据，没有部署或数据库迁移。只更新当前版本 Admin 文档、验证记录和集中清单；未重跑应用构建/测试（业务代码未修改），未提交或推送。管理员凭据缺项已解除，其余邮件、Apple、统计和真机缺项继续保留。
+
+## Linux dev 外部服务配置与代理（2026-09-15/16）
+
+本阶段基于已提交并推送的 `dev-inner@a512dbd`，按用户“进行下一步”核对外部配置，随后按用户提供的 `192.168.48.10:7890` 代理配置现有 Linux API。用户最新要求先集中整理剩余缺项，再统一解决，因此凭据、公网入口与设备需求集中列入[开发计划](development-plan.md#linux-dev-集中处理清单2026-09-16)。代码改动仅限配置模板和文档，没有改业务逻辑、数据库 Schema 或 migration SQL。
+
+2026-09-15：CF `toccards-api-dev/settings` 回读成功，公开变量与 `wrangler.toml` 的 `env.dev.vars` 一致；Secret 仅返回名称，不能据此获得明文。Wrangler `whoami` 因网络 fetch failed 退出 1，随后通过已授权账户的 CF REST API 完成只读核验。Linux 缺少的 `GOOGLE_CLIENT_ID`、`APPLE_APP_ATTEST_APP_ID`、`MAIL_FROM_ADDRESS`、`MAIL_FROM_NAME` 已按原 dev 配置补齐，JWT/数据库连接及其他私密配置保留。
+
+从 [Apple 官方证书页面](https://www.apple.com/certificateauthority/)下载 Apple Root CA、G2、G3，将 DER 按现有逗号分隔 base64 契约写入 `APPLE_ROOT_CERTIFICATES_BASE64`。Node `X509Certificate` 校验三者 CA 属性、自签名和有效期通过；Python cryptography 的旧 Root CA 签名校验曾报 `Unsupported signature algorithm`，该检查没有记为通过，最终以 Node 验证结果为准。SHA-256 分别为 `b0b1730ecbc7ff4505142c49f1295e6eda6bcaed7e2c68c5be91b5a11001f024`、`c2b9b042dd57830e7d117dac55ac8ae19407d38e41d88f3215bc3a890444a050`、`63343abfb89a6a03ebb57e9b3f5fa7be7c4f5c756f3017b3a8c488c3653e9179`。配置存在与证书有效不代表真实 Apple 购买或通知已经验收。
+
+2026-09-16：Google 验证接口直连曾在宿主机和 API 容器稳定得到 `UND_ERR_CONNECT_TIMEOUT`（约 10.5 秒）。同一服务器通过用户提供的代理，`curl --proxy socks5h://192.168.48.10:7890` 与 `curl --proxy http://192.168.48.10:7890` 均在约 0.77 秒收到 Google HTTP 400，确认该端口同时支持 SOCKS5 和 HTTP CONNECT。服务器 Node 22.22.1 实际支持 [Node 22.21.0 起提供的环境代理](https://nodejs.org/docs/latest-v22.x/api/cli.html#node_use_env_proxy1)，无需引入代理包或修改 OAuth 路由。
+
+服务器 `shared/.env` 已配置 `NODE_USE_ENV_PROXY=1`、HTTP/HTTPS 代理为 `http://192.168.48.10:7890`，`NO_PROXY=localhost,127.0.0.1,::1,db,api,192.168.50.201,192.168.48.10,recognize-vec.tcgcard.fun`。只在本项目 API 启动环境中生效，未设置宿主机全局代理或 Docker daemon 代理。配置前备份、持有 watcher/deploy 锁，使用原两份 Compose 文件执行 `up -d --no-deps api`；首次遇 watcher 正在拉取，锁拒绝时退出 20 且未修改配置，之后取得锁并正常执行。
+
+| 检查 | 结果与边界 |
+|---|---|
+| 私有配置备份与 API 重建 | 公开配置备份 `/home/user/apps/toccards-test/shared/.env.before-services-20260915-171759`；代理备份 `.env.before-proxy-20260916-092027`；均权限 600。两个应用脚本最终退出 0，仅 API 容器重建 |
+| 发布预检与根证书 | 实际 `current/deploy/linux/preflight.mjs` 返回 PostgreSQL 18、CF reachable、pending migrations 为空；3 张根证书均通过 Node 校验 |
+| 实际 API 进程配置 | 从容器 `/proc/1/environ` 白名单回读确认代理和公开配置已生效、3 张根证书存在、`APP_ENVIRONMENT=development`、数据库主机为 `db`，TLS 校验未关闭 |
+| Google 出站 | 在 API 容器仅依赖持久化环境执行原生 `fetch`，返回 `400 invalid_token`，约 817 ms；无真实用户令牌，因此只判定网络可达 |
+| 代理路径反证 | 仅在单独 `docker exec` 进程将代理改为不可达的 `127.0.0.1:9`，Google 明确 `ECONNREFUSED`；同进程 API 回环健康与 CF 识别健康仍为 200，证明代理启用及 NO_PROXY 生效，未修改运行服务的环境 |
+| 内网接口复验 | API health、Admin HTML、iOS/Google app-config 均 200；未登录 Admin scans 为 401；Google OAuth 使用唯一无效测试令牌返回 422，约 779 ms；Apple Sandbox 空请求返回 400，拒绝写库 |
+| 数据与版本边界 | current 仍为 `manual-dev-inner-c9742fa-dirty-20260915-155717`，数据库 healthy、ledger 13 项、通知 inbox 0 条、active 管理员 1 个；未执行业务数据写入或 migration |
+| 公网回调调研 | 当前 CF 凭据可读 Tunnel 配置，但 DNS 读取返回 403。既有 `smart-mtg-recognition` Tunnel 为 down，映射旧 `scanning.tcgcard.fun` 服务；未改该资源，未创建新 Tunnel/DNS 或修改 App Store Connect |
+
+源码模板默认关闭代理，填写经核对的 dev 公开变量，并明确 HTTP(S) 协议与 Node 最低版本；没有添加模拟生产凭据或将实际密钥写入仓库。Code Review 自审核对配置来源、备份/回退、仅重建 API、NO_PROXY 和 TLS 边界，无配置级阻断发现。模板解析确认 10 项公开配置与 CF dev 回读一致、8 项私密值为空；5 份修改的 Markdown 中 33 个本地链接/锚点及 `git diff --check` 通过，冻结目录/业务源码/依赖锁文件无改动。本次没有重跑应用测试或构建，因为业务代码、依赖与打包未修改，验证采用实际容器配置和原接口路径。
+
+剩余未验：管理员真实登录，Google/Apple 授权登录，邮件收件，真实 Apple Sandbox 购买/Restore/Server API 校正/公网通知，Mixpanel/Singular 收件，iOS/Android 真机与最终签名包。Apple Server API 三项、ZeptoMail Token、Mixpanel/Singular 四项私密配置仍缺失；Google 的代理缺项已解决。没有发送邮件或消息、没有扩大公网访问面、没有提交/推送本阶段改动或合并 dev。剩余集中处理顺序与需要材料以开发计划中的清单为准。
+
+## dev 迁往 Linux：发布入口整改与既有实例升级（2026-09-15）
+
+基线为已提交并推送的 `dev-inner@c9742fadad6783e83667e8204f2951de7bbd6b9b`，本阶段按用户授权整改发布流程并升级 `192.168.50.201` 已存在的项目。开发机为 Windows、Node 22.20.0、pnpm 11.9.0；服务器 `srs-node-test1` 使用 Node 22.22.1、Docker Compose 2.40.3 和 PostgreSQL 18.6。没有新建第二套 Compose 项目或数据卷。
+
+根因、失败证据与修复：
+
+- `deploy:dev` 原来仍调用 Wrangler，会继续向 CF 发布；Admin 环境意图测试修正预期后在旧脚本上得到 1 失败/2 通过。现在 `build:dev` 构建 Linux API 与 Admin development，`deploy:dry-run:dev` 生成发布包，`deploy:dev` 通过显式 SSH 目标调用原版本化发布脚本。prod 发布保持原 Wrangler 入口。
+- 既有 `backup_database` 在缺少 `current` 链接时直接返回，即使数据库仍有数据。回归测试通过真实 Bash 函数复现：临时恢复旧函数后，备份文件数量断言为 `0 !== 1`；按原字节恢复修复后通过。现在任何已存在且运行的数据库均须备份。
+- 标准 Compose 原默认 PostgreSQL 16，服务器实际离线数据库为 18.6。标准/离线配置统一 18，显式保留原 `PGDATA=/var/lib/postgresql/data`；新预检通过拟发布密码执行容器内 TCP 只读查询，核对库身份、18 大版本、migration ledger 和 CF 512 维/cosine/Top 5 健康契约。预检失败时，真实 release 脚本回归确认不会执行备份或容器操作。
+- 发布后手工复核发现，通过 `current` 软链接运行预检会静默退出 0：Node 将 `import.meta.url` 解析为真实文件，但原入口比较只对 argv 使用 `path.resolve`。新增目录软链接回归，在修复前运行 `node --test --test-name-pattern='current release symlink' deploy/linux/preflight.test.mjs` 得到 1 失败/1 通过（另一项为同名匹配的备份测试）；现改为 `realpathSync` 比较。初次正式发布通过真实 artifact 路径调用，已实际执行预检；该缺陷影响手工通过软链接执行的入口。
+
+| 检查 | 实际命令或证据 | 结果 |
+|---|---|---|
+| 发布与入口回归 | `node --test apps/admin-web/test/api-environment-intent.test.mjs deploy/linux/preflight.test.mjs deploy/linux/offline/web-server.test.mjs` | 最终 12/12，退出 0，无跳过；包含软链接回归修复后的全部用例 |
+| 根检查 | `pnpm lint`、`pnpm type-check --force` | 均退出 0；类型检查 7/7、0 缓存 |
+| Linux 发布包 | `pnpm --filter @kando/workers-api deploy:dry-run:dev` | 退出 0，40 个文件；39 个部署输入与工作区逐字节相同，另有 manifest；不含 `.env`、依赖目录或数据卷，shell 文件均为 LF |
+| prod 兼容构建 | `pnpm --filter @kando/workers-api deploy:dry-run:prod` | 退出 0；仅打包，未发布 |
+| Compose 与脚本 | 标准/离线 `docker compose config --format json`；两个 CI shell 文件分别 `bash -n`；两个新增 `.mjs` 的 `node --check` | 通过，保留原卷与 PGDATA；标准镜像未实际启动 |
+| 服务器预检 | `node --env-file=shared/.env <artifact>/deploy/linux/preflight.mjs <artifact>`（由发布脚本执行） | 退出 0；`toccards_test`、PostgreSQL 18、CF 可达，仅待执行 0012 |
+| 既有发布脚本 | 设置明确 release ID 后执行 `bash <artifact>/deploy/linux/ci/deploy-release.sh <artifact>` | 退出 0；备份、离线构建、迁移、API/Admin 健康检查及切换 current 完成 |
+| 本地数据库迁移 | `docker logs toccards-linux-test-migrate-1` 与只读 psql 回读 | 0012 事务提交，`UPDATE 0`；ledger 从 12 增至 13，migration 容器退出 0 |
+| 内网公开入口 | `/health`、`/games`、`/cards/100223`、iOS/Google `/app-config`、Admin HTML/10 个资产、分享页与 3 个允许 origin 的 CORS | 全部通过；卡牌为 Jace's Sanctum，资产 SHA-256 与发布包一致，分享 origin 为 `http://192.168.50.201:8080`；未登录 `/admin/scans` 为 401 |
+| 受控服务端扫描 | 临时匿名账号、合成 745×1043 JPEG、512 维单位向量，经内网 `/scan/recognize` 与 `/scan/:id/confirm` | 200/201；CF 返回 5 个候选，首次约 1.664 秒；Linux 数据库实查账号、development 扫描记录、consumed 额度、收藏与初始事件 `12.5 USD`，Linux 图片卷文件存在；相同 request ID 重放结果相同、未再次扣次 |
+| 最终软链接入口复验 | 在服务器通过 `current/deploy/linux/preflight.mjs` 执行真实预检，再以 `APP_ENVIRONMENT=production` 重试 | development 返回 CF reachable、pending migrations 为空，退出 0；production 明确拒绝并退出 1；最终 API/数据库 healthy、migrate 退出 0 |
+
+发布与回滚事实：
+
+- 先 fetch `feature/linux-test-environment`，其 Compose、离线 Compose、release 脚本和 Node runtime 准备脚本与服务器旧 release 按 LF 字节比较一致，确认复用该分支的既有部署。
+- 原 release：`/home/user/apps/toccards-test/releases/branch-dev-6a9640443c81-20260910155650`，保留供应用回退。
+- 当前 release：`/home/user/apps/toccards-test/releases/manual-dev-inner-c9742fa-dirty-20260915-155717`。manifest 为上述 `c9742fa` 基线、`dev-inner`、`working_tree_dirty=true`，构建时间 `2026-09-15T07:56:56.383Z`；不能描述为纯提交版本。前一版 `manual-dev-inner-c9742fa-dirty-20260915-153655` 已完成上述服务端烟测，最后一次发布仅修正预检软链接入口，API/Admin 产物逐字节相同。
+- 最终上传包 `linux-release-J3Bhzj.tar.gz`，SHA-256 为 `72b047edbb38ed80962d13e265354d5de2954f1d17d80132f2b991d11d009828`，SFTP 上传后远端校验一致，再调用同一 release 脚本。此次使用用户提供的密码登录，没有配置 SSH authorized_keys；日常 `deploy:dev` 的非交互 SSH key/agent 路径未做真实发布验收。
+- 数据库备份：`/home/user/apps/toccards-test/backups/toccards-test-20260915-153659-before-manual-dev-inner-c9742fa-dirty-20260915-153655.dump`，1,120,644,979 字节、权限 600，`pg_dump` 退出 0，`pg_restore --list` 可读取；没有执行整库恢复演练。
+- 最终修正仍完整执行预检和备份：`/home/user/apps/toccards-test/backups/toccards-test-20260915-155720-before-manual-dev-inner-c9742fa-dirty-20260915-155717.dump`，1,120,645,398 字节、权限 600，目录可读取；无待执行 migration，ledger 保持 13 项。
+- 配置备份：`/home/user/apps/toccards-test/shared/.env.before-manual-dev-inner-c9742fa-dirty-20260915-153655`。只更新识别 origin、CORS origin 和标准 PostgreSQL 镜像，其他键、密码及旧 OCR 回滚键保留；新版本不读取旧 OCR 键。
+- 保留 `toccards-linux-test_postgres-data` 与 `toccards-linux-test_scan-images`；API 和数据库 healthy，Web 运行。0012 不改 Schema，当前匹配记录为 0；只在独立 Linux 库执行，未操作 CF 共享数据库，应用回退不会自动逆向 migration。
+- 发布期间持有现有 `watcher/watch.lock` 并复用 `shared/deploy.lock`；完成后监听器恢复每两分钟检查。它仍监控 `dev@b941a3f`，未更改其安装文件、crontab 或状态。后续 dev 发布可能接替本次手工版本，需协调合并。
+- 受控扫描的临时账号、安装记录、会话、额度、扫描、收藏/事件、默认 Folder、偏好和图片/metadata 均已精确清理；保留分配过的 UID 占位与基础设施锁，避免复用已发出的账号编号。
+
+Code Review 自审通过：复核入口及调用方、SSH 目标/命令引用、发布包白名单、敏感配置边界、预检只读性、先预检后备份顺序、PG18/原卷兼容、错误回退和回归测试。软链接返工后重新运行 12 项影响面测试并复审 `realpathSync` 入口判定，未发现剩余代码级阻断项；没有改共享业务路由或 migration SQL。
+
+未运行与限制：本阶段未重跑 Workers/Flutter 全仓测试（业务代码未变化，前两阶段验证保留在下文）；未生成两端签名包或执行真机模型/局域网权限/完整登录购买。没有可用管理员登录凭据，Admin 只验证静态资源和未登录鉴权；Google Client ID、Apple 验签根证书/Server API 私钥、邮件及统计测试配置当前缺失，不能宣称这些链路可用。尝试读取已知 CF Vectorize 向量时现有管理凭据返回 401，因此实际服务烟测使用合法合成向量，不把它当成真实图片识别准确率。Windows Docker daemon 未运行，本轮真实容器验证在 kd201 的离线模式完成。客户端与环境维护者需补齐相应配置和设备验收。
+
+文档已同步发布入口、当前服务器和数据库事实，并保留早期检查点的原日期；15 份 Markdown 的 155 个本地链接/锚点与 `git diff --check` 通过，冻结目录和业务源码无改动。当前阶段没有 Git 提交/推送、合并 `dev`、CF dev/prod 发布或旧 CF dev 资源退役；不能据此标记整体环境整改已全部完成。
+
+## dev 迁往 Linux：App/Admin 内网入口（2026-09-15）
+
+基线为已提交并推送的 `dev-inner@b27ca90`，本阶段按用户授权整改现有 test/development 默认入口。环境为 Windows、Flutter `3.44.7` / Dart `3.12.2`、Node `22.20.0`、pnpm `11.9.0`；没有新建第三种业务环境，也没有部署服务器或修改数据库数据。
+
+实现与影响面：
+
+- Flutter 的 `AppConfig.apiOrigin` 在 test 下固定为 `http://192.168.50.201:8080`，由此派生 API 与分享地址；production/default 保持原生产 API。登录、目录、收藏、扫描及版本客户端共用该配置。测试分享固定使用内网，避免复制来的服务端 `card_share_base_url` 将测试用户带到生产环境；生产仍优先采用服务端分享配置，卡牌图片继续使用原 CDN。
+- Admin development 改为同源 `/api/v1/admin`，本机 Vite 的 `/api` 代理到 Linux，production 配置不变。Linux `.env.example` 同步 dev 入口与 Flutter Web 3000 端口的 CORS origin；真实服务器 `.env` 尚未修改。
+- Android 从已有 Flutter `dart-defines` 的 `APP_ENV` 选择网络资源，test 仅允许 `192.168.50.201` 明文 HTTP，其他主机及 production 禁止明文。主 manifest 显式包含 INTERNET 权限。iOS 三个既有 test flavor 使用 `Info-test.plist`，仅添加该 IP 的 ATS 例外和局域网用途；生产 plist、Bundle ID 与 App Attest 设置保持原样，测试比较其余 plist 内容以防配置漂移。
+- 离线 Web 代理此前把 Host 改写为 `api:3000`，导致分享 canonical/og:url 指向内部地址。修改为保留请求 Host，仍使用固定 API_ORIGIN 连接上游；没有新增对客户端转发头的信任。新增真实回环 HTTP 代理回归测试，并纳入两个既有 Linux 发布检查入口。
+
+先失败证据：修改业务代码前，test 环境的 API/分享用例 5 失败、1 通过，分别返回旧 CF dev 或生产分享地址；Admin 环境/代理用例 2 失败、1 通过。原代理 Host 改写逻辑的反证测试退出 1，明确显示上游 host/port 与外部请求不同；恢复修复代码后同一测试通过。首次 Flutter 测试因 C 盘已满未能完成编译，不算业务失败证据；中止该进程并将本任务 TEMP/TMP 改到 D 盘后，得到上述可重复失败和最终通过结果。
+
+| 检查 | 实际命令 / 证据 | 结果 |
+|---|---|---|
+| Flutter test 最窄回归 | `flutter test --no-pub --dart-define=APP_ENV=test test/api_environment_test.dart test/card_detail_actions_test.dart test/release_config_test.dart --reporter expanded` | 15/15，退出 0 |
+| Flutter production 隔离 | 同上三个文件，使用 `--dart-define=APP_ENV=production` | 15/15，退出 0；生产 API 与服务端分享配置行为保持 |
+| Flutter 影响面 | 下方 12 个文件的完整命令 | 109/109，退出 0，无跳过 |
+| Flutter 分析 | `flutter analyze` | 退出 0，No issues found；依赖锁文件无变更 |
+| Admin | `pnpm --filter @kando/admin-web test`、`pnpm --filter @kando/admin-web type-check` | 22/22 与类型检查通过，均退出 0 |
+| Admin 两种产物 | `pnpm --filter @kando/admin-web exec vite build --mode development --outDir D:/Temp/kando-dev-entry-check/admin-dev`；对应 production/admin-prod | 两种构建退出 0；检查实际 JS：dev 使用相对 API，无旧 dev/生产绝对 API；prod 保留生产 API |
+| 本机 Vite → Linux | 启动当前 Vite 配置，待依赖扫描完成后请求本机 `/api/v1/health` | 代理目标 `http://192.168.50.201:8080`，HTTP 200、`status=ok`；只读请求，非登录或完整业务验收 |
+| 离线代理 | `node --test deploy/linux/offline/web-server.test.mjs` | 修复后 1/1，退出 0；实际子进程代理保留外部 Host 与请求路径 |
+| 根检查 | `pnpm lint`、`pnpm type-check --force` | 通过，类型检查 7 个任务、0 缓存 |
+| Android test / production | 分别执行 `flutter build apk --debug --no-pub --dart-define-from-file=config/test.json` 和 production.json | 均退出 0；通过 aapt 解包验证实际 manifest 选择的策略与 INTERNET 权限，test 只对指定 IP 允许明文，prod 无该例外 |
+| iOS 配置 | Python plistlib 解析两份 plist，Flutter 测试核对三组 test/production Xcode 配置 | 结构有效、三组 test 指向新文件、production 指向原文件；去掉两项网络字段后完全一致。不等于已构建 IPA |
+| 脚本及文档 | Git Bash `-n deploy/linux/ci/watch-branch.sh`、`node --check deploy/linux/offline/web-server.mjs`、相对链接与 `git diff --check` | 通过；冻结产品文档、生产配置、Worker 业务代码和数据库 migrations 无修改 |
+
+Flutter 影响面命令在 `apps/flutter-app` 执行：
+
+```sh
+flutter test --no-pub --dart-define=APP_ENV=test test/api_environment_test.dart test/card_detail_actions_test.dart test/release_config_test.dart test/app_debug_overlay_environment_test.dart test/auth_repository_test.dart test/auth_session_interceptor_test.dart test/card_data_api_client_test.dart test/portfolio_api_client_test.dart test/scan_api_client_test.dart test/app_upgrade_repository_test.dart test/currency_rate_api_test.dart test/subscription_entitlement_api_test.dart --reporter expanded
+```
+
+Android 解包确认的 test Debug APK SHA-256 为 `646ec6028ad93f87eb86e7641e2dc6f63d220311eb9debd4261b3ea93cea9d2b`；production 配置的 Debug APK 为 `c67fd140757982dbb02d3a656ef3022b492a2c713483ac61b90c8c056aa5be68`。曾因验证脚本使用错误相对路径及在产物重写时读取而无法解包，等待构建完成并改用绝对路径后已分别复核。构建提示的 Gradle/AGP/Kotlin 与 SDK XML 版本警告为既有工具链事项，本阶段没有绕过检查或升级依赖。
+
+Vite 首次只读代理验证已获得 200，但关闭服务早于异步依赖扫描完成，输出了 dep-scan 关闭错误；随后等待扫描完成再执行相同健康请求并关闭，退出 0 且无该错误。这是验证脚本关闭时序问题，没有修改产品的依赖优化配置。
+
+Code Review 自审通过：检查默认环境与四类业务客户端、test/production 分享分支、Admin 生产产物、Android 编译参数到 manifest 的实际选择、iOS plist 与原生产设置、代理上游与 Host 边界；没有发现阻断问题。配置与代理变化均有失败证据或反证，并在修改后按原路径复验。
+
+未运行：iOS 编译/签名及最终 IPA App Attest 检查（Windows 无 Xcode）、Android Release 签名包、iOS/Android 真机局域网权限与完整登录/扫描/购买、Flutter Web 浏览器联调、kd201 新后端与代理部署、服务器 CORS 更新、dev 发布命令迁移和旧 CF dev 退役。客户端维护者需在两端测试包上补验，服务器维护者需准备配置并发布；本阶段仍为源码与本地验证，不能写成整体 dev 已完成迁移。未提交或推送本阶段改动，没有远程数据库迁移、数据写入或生产发布。
+
+## dev 迁往 Linux：后端 HTTP 识别适配（2026-09-15）
+
+范围为用户确认的整改第一步：现有 dev 业务部署后续由 Linux 接替，CF 只读向量识别继续复用，prod 保持原部署。本轮从干净 `dev-inner@601294f` 成功 fetch，并快进到 `github/dev@b941a3f81c1b48cb204e9ef23626cd052406dc15`，随后仅完成本地后端适配与验证。环境为 Windows、Node `22.20.0`、pnpm `11.9.0`、Vitest `4.1.9`。
+
+根因与实现：Linux `loadLinuxRuntime` 原先必填旧 `OCR_SERVICE_BASE_URL`，却没有构造扫描路由所需的 `VECTOR_RECOGNITION`。新增 `src/linux/vector-recognition.ts`，将内部 Service Binding 地址映射到必填 `VECTOR_RECOGNITION_BASE_URL` origin 的 `/recognize`；10 秒超时覆盖响应正文，保留调用方取消，拒绝重定向，不新增重试。`Env` 与 Linux 运行时移除旧 OCR 字段，`.env.example` 使用现有 `https://recognize-vec.tcgcard.fun`。共享扫描业务代码、Cloudflare 入口和 PostgreSQL migrations 没有修改；资料补全、额度及扫描记录仍使用注入的本地 PostgreSQL。
+
+先失败证据：新增配置测试在原实现上运行 `pnpm --filter @kando/workers-api exec vitest run src/linux/config.test.ts --maxWorkers=1`，退出 1，2 失败/1 通过。新向量配置因缺旧 OCR 键而无法启动，只有旧 OCR 的无向量配置反而被接受。实现后相同场景全部通过。另临时撤回 HTTP 地址映射、重新请求 `recognize-vec.internal`，执行 `pnpm --filter @kando/workers-api exec vitest run src/scan/routes.test.ts -t 'keeps Linux catalog reads' --maxWorkers=1`，目标测试因实际 URL 错误失败，退出 1；其余 33 项仅因定向过滤未运行。随后按原字节恢复源码并执行完整影响面复验。
+
+| 检查 | 实际命令 / 证据 | 结果 |
+|---|---|---|
+| 配置与 HTTP 适配 | `pnpm --filter @kando/workers-api exec vitest run src/linux/config.test.ts src/linux/vector-recognition.test.ts --maxWorkers=2` | 2 文件、15/15，退出 0；含真实回环 HTTP 的请求超时、正文取消和重定向测试 |
+| Linux / 扫描最窄集成 | `pnpm --filter @kando/workers-api exec vitest run src/linux src/scan/routes.test.ts --maxWorkers=2` | 6 文件、54/54，退出 0；PGlite 验证只发送向量、从本地目录补全、扫描记录及成功/失败/无匹配/超时额度结果 |
+| 还原后的完整影响面 | `pnpm --filter @kando/workers-api exec vitest run src/linux src/scan src/db/postgres-database.test.ts src/cors.test.ts src/index-postgres-runtime.test.ts --maxWorkers=2` | 11 文件、84/84，退出 0，无跳过 |
+| Workers 类型检查 | `pnpm --filter @kando/workers-api type-check` | 退出 0 |
+| 根类型检查与依赖方向 | `pnpm type-check --force`、`pnpm lint` | 均退出 0；类型检查 7 个任务成功、0 缓存，4 个共享包依赖方向通过 |
+| Admin 环境契约 | `node --test apps/admin-web/test/api-environment-intent.test.mjs` | 2/2，退出 0；本阶段未改 App/Admin 默认入口 |
+| Linux 后端构建 | `pnpm --filter @kando/workers-api build:linux:api` | 退出 0，生成 Node API bundle 与 sourcemap |
+| Cloudflare 兼容打包 | `pnpm --filter @kando/workers-api exec wrangler deploy --env prod --dry-run --outdir .wrangler/dev-linux-backend-check/prod`；对应 `--env dev --outdir .wrangler/dev-linux-backend-check/dev` | 两次均退出 0，保留原向量 Service Binding；仅打包预演，复用已有 Admin assets，未重新构建或发布 Admin |
+| CI 检查入口 | Git Bash `--noprofile --norc -n deploy/linux/ci/watch-branch.sh`；解析 `.github/workflows/linux-test-deploy.yml` | 均通过；两个既有 Linux 检查入口现覆盖全部 `src/linux` 和 PostgreSQL 扫描路由测试 |
+| 真实 CF 识别连通性 | 在 `apps/workers-api` 用 `node --experimental-strip-types --input-type=module -` 导入新增适配器，向量为 `[1, ...Array(511).fill(0)]`，经内部 URL 调用配置的现有 CF origin | 退出 0，HTTP 200、5 个 `product_id/confidence` 候选，约 1,242 ms；请求来自当前开发机，不代表 kd201 出站或真实图片识别已验收 |
+| 文档与冻结边界 | 相对链接/残留引用检查、`git diff --check`；比较冻结目录、共享业务路由与 migrations | 通过；冻结产品输入、既有 API 路由与 migrations 保持原样，旧 OCR 名称仅保留历史记录、回滚说明或拒绝旧配置的测试 |
+
+Code Review 自审通过：核对配置入口、唯一扫描调用方、URL 映射、超时覆盖正文、取消与重定向处理、PGlite 数据与额度断言及发布检查入口；没有发现阻断项，没有引入 D1 路径、数据库 schema 变更、旧 OCR 回退或自动重试。文档同步说明现有 dev 的整改目标、只读复用 CF 识别的授权边界和当前尚未部署的状态。
+
+兼容与回滚：部署新代码前必须为服务器 `.env` 添加 `VECTOR_RECOGNITION_BASE_URL`，仅有旧 OCR 键会启动失败。新版本不读取旧键，过渡期可保留旧键供旧版本回滚，或备份并恢复对应版本配置；本次没有执行任何远程 migration（含 0012）。
+
+未运行：Workers/Flutter 全仓测试、App/Admin 默认入口整改、移动端构建或真机扫描、kd201 部署/出站验证、真实购买与通知链路。前两类不属于本阶段后端适配的影响面或交付范围；设备和服务器验证分别需要客户端测试设备与 kd201 部署访问。没有 Git 提交/推送、服务器或 CF 发布、DNS/定时任务切换及业务库写入；不能把本阶段通过解释为原 CF dev 已退役或全部 dev 环境已迁移完成。
+## 首次引导邮箱登录提示定时关闭（2026-09-16，已构建测试内部包 143）
+
+用户确认场景为首次安装引导后的邮箱登录：`Welcome back` 应显示 1 秒后自动关闭，提示隐藏后再进入后续订阅流程。本轮基于含下节 Profile 登录订阅调整的 `1.0.2+142` 工作区，macOS / Flutter 3.44.5 / Dart 3.12.2；已保存的 142 IPA 不包含本节后续修改，新构建的 143 IPA 包含本节修改。
+
+根因：`_showCenteredAuthSuccessToast` 原本没有关闭计时器；Onboarding 调用 `showAuthSheet` 未启用已存在的反馈完成等待，因此邮箱提示刚显示时引导已经完成并开始权益检查。先增加回归后、修改运行代码前，iOS/Android × 三种权益的六项测试均发现提示首帧时 `readCompleted()` 已为 true，提前完成引导；两项提前关闭/销毁对照通过（共 2 通过、6 失败，退出 1）。
+
+修复：`Welcome back` 从首次构建起计时 1 秒，仅关闭自己的提示路由，手动关闭或组件销毁时取消计时；反馈 Future 等待提示路由实际移除。首次引导启用 `waitForSuccessFeedback`，之后才保存引导完成状态并进入既有 Gate。Free 进入订阅页，Premium/Unknown 进入 Home；Profile 复用提示自动关闭，后续仍保留下节现有权益检查和订阅来源规则。邮箱注册 `Welcome` 保留手动关闭方式，引导等待其关闭后继续。认证接口、会话持久化、三方授权、资产、扫描、购买与权益判定未改；未修改已有 Profile 源码、版本号或冻结 PRD，当前行为已同步到业务流程文档。
+
+验证命令均在 `apps/flutter-app` 执行：
+
+- `flutter test --no-pub test/widget/auth_profile_test.dart --name 'onboarding email welcome auto|email welcome timer' --reporter expanded`：修复前 2 通过/6 失败；修复后及最终复验 8/8，退出 0。断言提示首帧和 999ms 时引导未完成、权益检查未启动；1000ms 后提示消失再分流；提前手动关闭后计时器不误关订阅页，销毁页面无异常。
+- `flutter test --no-pub test/widget/auth_profile_test.dart --name 'Profile .*login|Profile .*waits|Profile .*cancellation|onboarding .*login|onboarding .*cancellation|email registration keeps|onboarding email welcome auto|email welcome timer' --reporter expanded`：48/48，退出 0；含两入口三种登录、三种权益、等待/失败/取消、Profile 迟到结果保护、两入口注册及提示时序。
+- `flutter test --no-pub --dart-define-from-file=config/test.json test/widget/auth_profile_test.dart test/auth_controller_test.dart test/auth_repository_test.dart test/auth_session_interceptor_test.dart test/oauth_authorizer_test.dart test/auth_storage_test.dart test/startup_subscription_gate_test.dart test/onboarding_gate_test.dart test/onboarding_repository_test.dart test/widget/onboarding_page_test.dart test/app_upgrade_resume_test.dart test/premium_top_entry_test.dart test/subscription_restore_ui_test.dart --reporter expanded`：250 通过、4 项既有 Golden 失败，退出 1，不能标记整组通过。四项差异仍为 1853px、117px、7816px、5080px；本轮实际渲染图片 SHA-256 与先前原代码对照结果逐项一致，没有更新 Golden 或放宽断言。
+- `flutter analyze --no-pub`：初次发现新增测试 helper 缺少 if 花括号，补齐后无问题、退出 0；随后重跑上方 8 项定向用例通过。`dart format --output=none --set-exit-if-changed lib/features/auth/ui/auth_sheet.dart lib/features/onboarding/onboarding_page.dart test/widget/auth_profile_test.dart` 与 `git diff --check` 均退出 0。
+
+Code Review 自审通过：复核两个反馈等待调用方、计时起点、提示路由移除时机、提前关闭及 dispose 的计时清理、账号状态先保存后显示提示、免费与未知权益分支、注册提示兼容性；无全局导航监听，无新增认证/订阅请求路径。原有提示文案和视觉保持不变。
+
+签名构建：同日按用户要求执行 `./tool/release_ios.sh --env test --pgy --build-number 143`，退出 0；构建前上述 48 项定向回归再次全部通过，脚本静态分析通过，清理后构建 `1.0.2 (143)`。最终内部 IPA 的 `com.kando.kandoApp.beta`、测试 API/Firebase、Apple Development 签名及 App Attest `development` 解包检查通过，41 个 Mach-O UUID 均有匹配 dSYM。IPA 为 56,689,353 字节，SHA-256 为 `db7afd43a67f1f88c1a7e947d4aab68440a24f5f8f36dc79b6215a9627f637c3`；IPA 和 `dSYMs.zip` 保存至 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.2-143/`，回读 IPA 摘要一致，源码版本同步至 `1.0.2+143`。Dart/CocoaPods 锁文件及三个目标运行文件构建前后摘要一致。按保留规则现存 141、142、143，旧 140 已移入废纸篓，可恢复；归档另存至 `~/Library/Developer/Xcode/Archives/2026-09-16/Card AI Test 1.0.2 (143).xcarchive`。
+
+未运行：iOS/Android 真机首次安装登录、真实邮箱/StoreKit/购买与 Restore（使用测试替身，客户端测试人员需用 143 新包补验）；Android 构建、全仓检查及前述扩展 Golden 整组复跑（本轮打包复验范围为 48 项定向回归、静态分析和 iOS 签名产物，4 项既有 Golden 差异仍未处理）。未上传、安装、推送或远程部署，保留工作区已有改动。
+
+## Profile 登录后展示订阅页（2026-09-16，已构建测试内部包 142）
+
+用户在测试内部包 `1.0.2 (141)` 的 Profile 使用 Apple 登录后没有看到订阅页。该包原规则仅在首次引导检查权益，Profile 成功出口只关闭认证弹层；用户随后明确确认新规则：首次引导与 Profile 的 Apple、Google、邮箱登录均需检查权益，Free 展示完整订阅页，Premium 不展示。本节替代下方 141 包历史记录中的 Profile 留页规则，Unknown 仍沿用不自动展示的策略。
+
+实现仅涉及 Flutter 页面衔接：Profile 成功后调用既有 `refreshEntitlement(showFailure: false)`，使用返回状态而非直接读取登录前缓存；Free 推入 `source=profile`、`entry_source=login` 的既有完整订阅页，关闭回到原 Profile。以 15 秒超时约束等待，异常记录诊断并留页；返回时检查页面存活、入口路由与当前账号，避免用户离开页面或切换账号后追加订阅页。仅登录操作触发检查，不添加全局认证监听。首次引导保持既有 Gate。邮箱登录/注册成功提示增加可选的完成等待，Profile 在提示关闭后才进行后续检查，防止慢速权益返回将订阅页压到成功提示上方；首次引导默认行为保持不变。原生 OAuth、认证与订阅 Controller、可信权益判定、购买/Restore、API、模型、Schema 和依赖均未修改，兼容 iOS/Android。当前业务规则同步至 `01-flows/business-context.md`。
+
+验证环境：macOS，Flutter 3.44.5 / Dart 3.12.2。以下命令在 `apps/flutter-app` 执行：
+
+- 变更前 `flutter test --no-pub test/widget/auth_profile_test.dart --name 'Profile .* login checks|email registration keeps' --reporter expanded`：1 通过、10 失败，退出 1；9 个 Profile 登录权益组合没有触发新检查，Profile 邮箱注册未出现订阅页。实现后相同命令 11/11，退出 0。
+- `flutter test --no-pub test/widget/auth_profile_test.dart --name 'Profile .*login|Profile .*waits|Profile .*cancellation|onboarding .*login|onboarding .*cancellation|email registration keeps' --reporter expanded`：40/40，退出 0。覆盖两个入口、三种登录、Free/Premium/Unknown、iOS/Android 延迟结果、邮箱成功提示关闭、超时/异常、离开页面、取消/失败及订阅关闭后留页。初次延迟测试发现邮箱提示层被新路由覆盖；补充可选反馈等待后原测试通过。平台测试最初手工覆盖 debug 变量导致 4 项测试清理错误，改用 Flutter 的 `TargetPlatformVariant` 后通过，未修改应用的平台逻辑。
+- `flutter test --no-pub --dart-define-from-file=config/test.json test/widget/auth_profile_test.dart test/auth_controller_test.dart test/auth_repository_test.dart test/auth_session_interceptor_test.dart test/oauth_authorizer_test.dart test/auth_storage_test.dart test/startup_subscription_gate_test.dart test/onboarding_gate_test.dart test/onboarding_repository_test.dart test/widget/onboarding_page_test.dart test/app_upgrade_resume_test.dart test/premium_top_entry_test.dart test/subscription_restore_ui_test.dart --reporter expanded`：最终 242 通过、4 项既有 Golden 失败，退出 1，不能标记整组通过。四项视觉差异与构建 141 时一致：1853px、117px、7816px、5080px。首次扩展运行另有 4 个旧 OAuth 用例因新增权益调用缺少测试替身而留下 15 秒计时器；为这四项明确注入 Premium 返回值、保留原迁移和 Loading 断言后，定向 4/4 通过，完整命令复跑得到上述最终结果。
+- `flutter analyze --no-pub`：无问题，退出 0；`dart format` 格式化目标文件，`git diff --check` 通过。
+
+Code Review 自审通过：逐项检查两个 `showAuthSheet` 调用方、反馈 Future 在关闭/销毁路径的完成、Free 唯一触发条件、账号和路由迟到结果保护、重复点击防护、现有订阅关闭/购买/Restore 返回 Profile 的路由及首次引导行为；没有发现剩余代码阻断项。视觉组件及布局不变，未更新 Golden 或放宽断言。
+
+签名构建：同日按用户要求执行 `./tool/release_ios.sh --env test --pgy --build-number 142`，退出 0；静态分析再次通过，清理后构建 `1.0.2 (142)`。最终内部 IPA 的 `com.kando.kandoApp.beta`、测试 API/Firebase、Apple Development 签名及 App Attest `development` 解包检查通过，41 个 Mach-O UUID 均有匹配 dSYM。IPA 和 `dSYMs.zip` 已由发布脚本保存，源码版本同步至 `1.0.2+142`；IPA SHA-256 为 `652f36d5442543b1804cb6c50c3aae94550433acb3458273abf6c6af1870aaee`。依赖锁文件未变化，构建前后两个目标运行文件摘要一致，包含本节修改；141 IPA 仍是旧行为。
+
+未运行：新代码的 iOS/Android 真机登录、真实邮箱/StoreKit/购买与 Restore、新包上传分发及全 App/全仓测试。Widget 测试使用替身，客户端测试人员需使用 142 包验收真实服务；未改服务端或共享包，未进行远程部署。
+
+## 登录后按入口流转修复（2026-09-16，141 包历史规则）
+
+环境：macOS、Flutter 3.44.5 / Dart 3.12.2，App `1.0.2+140`。用户报告免费用户通过 Google、Apple、邮箱登录后直接进入 Home；预期按 v1.1 PRD §3.4 完成首次引导权益检查，Free 先展示订阅页，Profile 内登录按全局规则刷新当前页。
+
+根因：认证弹层的 OAuth、邮箱成功出口均调用 `_goHomeAfterAuthSettles`，在下一帧无条件跳转 `/home`；此路由不含启动权益检查，从而绕过 `/` 中的 Onboarding / StartupSubscriptionGate。Profile 也复用同一出口，导致登录后离开当前页面。修改前先增加三种登录方式与权益状态的 15 项流程测试，执行下方定向命令，6 通过、9 失败（退出 1）：三项首次引导 Free 缺失 SubscriptionPage，六项 Profile 登录后的当前页被移除，与用户现象及代码路径一致。
+
+修复仅调整 `auth_sheet.dart`：移除统一首页跳转及其 Home 预加载。认证成功仍保存会话并关闭登录页面，首次引导由既有 `_authenticate` 保存完成状态并进入原权益 Gate；Profile 通过原有 `authControllerProvider` 监听刷新。保留成功反馈、OAuth 等待遮罩、取消/失败、邮箱注册/找回密码和防重复提交行为。没有修改 AuthController、认证 Repository、原生 OAuth、Token/接口契约、资产迁移、扫描额度、购买/Restore、Premium 判定、Schema 或环境配置。当前流转同步到 `01-flows/business-context.md`；冻结 PRD 保持原样。
+
+实际验证（命令在 `apps/flutter-app` 执行）：
+
+| 检查 | 命令 | 结果 |
+|---|---|---|
+| 修复前失败证据 | `flutter test --no-pub test/widget/auth_profile_test.dart --name 'onboarding .* login follows\|Profile .* login stays' --reporter expanded` | 6 通过、9 失败，退出 1；上述直接跳 Home 行为稳定复现。 |
+| 最终定向回归 | `flutter test --no-pub test/widget/auth_profile_test.dart --name 'onboarding .*login\|Profile .* login stays\|onboarding .*cancellation\|email registration keeps' --reporter expanded` | 22/22，退出 0。三种登录方式 × 三种引导权益、三种登录方式 × Free/Premium Profile、Google/Apple 取消及失败、等待权益时隐藏 Home、两个入口邮箱注册均通过；Free 关闭订阅页后进入 Home，Profile 保留同一页面实例并显示账号信息。 |
+| 登录及关联影响面 | `flutter test --no-pub test/widget/auth_profile_test.dart test/auth_controller_test.dart test/auth_repository_test.dart test/auth_session_interceptor_test.dart test/oauth_authorizer_test.dart test/auth_storage_test.dart test/startup_subscription_gate_test.dart test/onboarding_gate_test.dart test/onboarding_repository_test.dart test/widget/onboarding_page_test.dart test/app_upgrade_resume_test.dart --reporter expanded` | 178 通过、4 个 Golden 失败，退出 1；认证、存储、刷新 Token、引导、Profile、启动订阅及 Home 升级检查行为用例通过，不能标记整组通过。 |
+| Golden 原代码对照 | 临时将本次唯一运行代码文件恢复到 HEAD（`git diff --exit-code -- lib/features/auth/ui/auth_sheet.dart` 为 0），执行 `flutter test --no-pub test/widget/auth_profile_test.dart --name 'subscription success matches the Figma 300ms\|unsubscribed Profile banner matches\|v1.1 PRD subscription' --reporter expanded`，随后恢复本次修复并重跑最终 22 项回归 | 同样 4 项失败，退出 1；四份实际渲染图 SHA-256 与修复后完全相同，不由本次跳转修复引入。未更新 Golden、放宽断言或跳过测试。 |
+| 静态分析 | `flutter analyze` | 无问题，退出 0。 |
+| 格式/差异 | `dart format --output=none --set-exit-if-changed lib/features/auth/ui/auth_sheet.dart test/widget/auth_profile_test.dart`、`git diff --check` | 两文件无需格式变化，均退出 0。 |
+
+四项既有视觉失败：Profile 升级 Banner 差异 1853px（3.48%）；订阅成功页 300ms 动画帧 117px（0.04%）；订阅底部弹层 7816px（2.37%）；订阅成功页静态基准 5080px（1.54%）。具体视觉根因不在本次范围内，保留待处理。
+
+Code Review 自审通过：核对全部差异、两个调用入口及现有响应式刷新，确认没有新增全局导航监听或修改 `/home`，因此普通 Tab 切换、回前台、关闭订阅页不会额外触发订阅展示；邮箱成功反馈仍可关闭且不误关后续订阅页；注册仍传递原 anonymous ID；认证失败/取消不推进引导。修复前失败、修复后通过组成根因回归证据，原代码对照后已恢复最终实现并复验。
+
+未运行：iOS/Android 真机三方登录、真实邮箱服务、真实 StoreKit 权益及购买/Restore（本轮使用测试替身，需客户端测试人员在新包补验两端登录与订阅流转）；移动端构建/签名、Flutter 全仓测试及服务端全仓检查（范围仅 Flutter 页面衔接，未改原生桥接、后端或共享包）。没有打包、推送或部署；本地测试不等于第三方平台和真机验收。
 ## Golden 基准与全量复验（2026-09-10）
 
 用户要求修复 Golden 并全量复验。基线为 `dev@699ca48` 加本地文档更新，App `1.0.2+134`；环境为 Windows、Flutter `3.44.7` / Dart `3.12.2`、Node `22.20.0`、pnpm `11.9.0`。本次未修改 Flutter 业务代码、UI 设计、API 或数据库结构。

@@ -1,12 +1,14 @@
 # v1.1.0 数据迁移
 
+当前业务环境只有 prod（原 Cloudflare + PlanetScale PostgreSQL/Hyperdrive）和 dev（Linux 独立 PostgreSQL）。旧 CF dev 曾与 prod 共用 Hyperdrive，已退役且不再发布；下文带日期的旧 dev Worker、共用数据库迁移记录仅作历史证据，不能作为现在的 dev 部署或迁移指令。两套 PostgreSQL 的 ledger 和数据必须分别核验，prod 保持原部署。
+
 ## 当前 PostgreSQL 数据库边界（2026-09-11）
 
 D1 已废弃，测试环境 dev/test 与正式环境 prod 均已完成 PostgreSQL 迁移。2026-09-11 共享 PostgreSQL 回读为 `18.6`，`0000` 至 `0011` 的 12 条 ledger checksum 全部匹配仓库，未验证约束为 0。prod 已发布 version `4f543496-9d54-48c4-a16c-0e608dcc32f0`，通过同一 Hyperdrive `7d71bcd0bcf64e518a23a852ced76d66` 读取数据库，使用向量绑定且不含 D1；发布与验证范围见[验收记录](../05-delivery/VERIFICATION.md#prod-向量协议与环境版本配置发布2026-09-11)。
 
 后续发布不再安排 D1 数据迁移、冲突合并、摘要校验或切换演练，运行、回滚与灾备仅基于 PostgreSQL。下文出现的 D1 migration 编号、工具和行数只用于历史追溯，不能作为当前操作指南。`0011` 环境版本键和 `0012` 历史事件回填是 PostgreSQL 内的后续业务增量，不属于 D1 到 PostgreSQL 的移库任务。
 
-本轮只核对 ledger、未验证约束及版本配置，并按单独授权执行 `0011`；没有重查所有业务行数或价格指针。下列其他历史数据保留原日期。共享 PostgreSQL 的后续迁移仍须另行授权，不能因服务端重新部署而自动执行。
+2026-09-11 prod 检查只核对 ledger、未验证约束及版本配置，并按单独授权执行 `0011`，没有重查所有业务行数或价格指针。2026-09-15 Linux 独立 `toccards_test` 的 ledger 则随本地发布推进，见下节；两套数据库的历史记录保留原检查日期。后续迁移仍须分别授权，不能因重新部署自动执行。
 
 ## Scan confirm Purchase Price 事件修复（0012）
 
@@ -14,15 +16,17 @@ D1 已废弃，测试环境 dev/test 与正式环境 prod 均已完成 PostgreSQ
 
 该迁移与旧 Worker 兼容。发布时先部署已修正 Scan confirm 写入的新 Worker，再执行 `0012`，避免旧 Worker 在数据修复后继续产生漏字段事件。2026-09-09 已部署包含该写入修复及向量识别的 dev Worker，dev 新建扫描收藏会写入完整初始事件；`0012` 历史回填未登记完成，不能据此宣称既有缺字段事件已修复。2026-09-11 prod 新版本已包含该写入修复；本轮未执行 `0012`，ledger 中也没有该迁移登记，历史回填不标为完成。应用代码回滚时保留已补齐的事件数据，不能安全地批量清空这些字段；如必须执行数据级回滚，应依据执行前备份按精确事件恢复。不得向 D1 迁移或退役工具复制该修复。
 
+Linux 独立环境检查点（2026-09-15）：`toccards_test` 在发布前完成 custom-format 全库备份；`0012` 以事务执行，结果为 `UPDATE 0`，随后登记 migration，ledger 从 12 增至 13 项（0000—0012）。原数据卷和 PostgreSQL 18.6 保留。本次未改变 SQL 文件或 Schema，未执行 Cloudflare 共享库迁移；应用回退不会自动逆向数据库迁移。发布后受控 Scan confirm 的主记录与初始事件均写入 `12.5 USD` 及可靠历史起点，测试业务数据已清理。详细备份和版本位置见[验证记录](../05-delivery/VERIFICATION.md)。
+
 ## 版本管理环境配置拆分（0011）
 
 2026-09-11 已按用户单独授权完整执行并登记 `0011_app_version_environment`，SHA-256 为 `6834828b05fbe01f41a01ae5bf0acbf368909cc4d53670df3da9ad82505b8349`。只新增 production iOS/Google 两条配置，现有 development 与旧共用四条配置的摘要均不变；四条环境规则均通过当前主线校验。prod iOS 最低/建议版本仍为 `1.0.1`、强更开启，Google 保持停用。随后 prod Worker 已切换新读取逻辑，两个平台公共配置均返回 `200/no-store`。
 
-当前 main 的 `/app-config` 在 Cloudflare dev/prod 均只读取 `admin.app_version.<development|production>.<ios|google>`，不会因目标为 prod 而回退旧共用键。所需环境键缺失或无效时，整个公共配置接口返回 `503 APP_VERSION_CONFIG_UNAVAILABLE`；依赖该接口的升级、商店地址与 SDK 配置读取均受影响。部署 main 前须按目标环境的 ledger 和实际配置核对 `0011`，不能把 Git 合并或下方 development 初始化的历史记录当作完整迁移已执行。
+当前 `/app-config` 在 prod Cloudflare 与 dev Linux 分别读取各自数据库中的 `admin.app_version.<development|production>.<ios|google>`，不会回退旧共用键。所需环境键缺失或无效时，公共配置接口返回 `503 APP_VERSION_CONFIG_UNAVAILABLE`；依赖该接口的升级、商店地址与 SDK 配置读取均受影响。prod 共享库的完整 `0011` 已于 2026-09-11 登记，dev Linux 库另有自己的 ledger；未来部署须按目标环境核验，不能把 Git 合并或旧 CF dev 的 development 初始化当作另一库已执行。
 
 `apps/workers-api/src/db/postgres/migrations/0011_app_version_environment.sql` 在现有 `app_config` 中新增 dev/prod × iOS/Google 四个独立键，不改变表结构。历史平台规则及其有效商店兜底一次性复制；已存在的环境配置不覆盖。新 Worker 不再读取旧共用版本规则。
 
-执行次序为暂停版本配置编辑、迁移和核验四条记录、切换两个环境 Worker、核验各自配置、恢复编辑。迁移保留旧键用于切换期间旧 Worker 的读取，回滚必须使用支持环境键的 PostgreSQL Worker，不能恢复共用版本配置的行为。本次远程执行与发布状态见[版本控制验收](../05-delivery/VERIFICATION.md)。
+旧 CF dev/prod 共库阶段的执行次序为暂停版本配置编辑、迁移和核验四条记录、切换对应 Worker、核验各自配置、恢复编辑。迁移保留旧键用于当时旧 Worker 的读取；当前 prod 已切换独立键，dev Linux 使用独立库。回滚必须使用支持环境键的 PostgreSQL 服务端版本，不能恢复共用版本配置的行为；实际执行与发布状态见[版本控制验收](../05-delivery/VERIFICATION.md)。
 
 历史分阶段发布策略：仅发布 dev 时，允许从同一迁移的源规则生成逻辑中只初始化 `development` 两条键，不提前创建 production 快照，也不把完整 `0011` 登记为已执行。此时 dev 新 Worker 使用独立键，prod 旧 Worker 继续使用旧键，版本设置互不影响。将来发布 prod 前执行完整 `0011`，其 `ON CONFLICT DO NOTHING` 保留已经独立修改的 dev 配置，并按届时旧规则初始化 production。
 

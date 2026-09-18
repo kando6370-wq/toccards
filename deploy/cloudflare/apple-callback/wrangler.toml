@@ -1,0 +1,10 @@
+name = "toccards-apple-callback-dev"
+account_id = "dced4adca2f35cff247b39979058b934"
+main = "worker.mjs"
+compatibility_date = "2026-09-16"
+workers_dev = true
+preview_urls = false
+routes = [{ pattern = "dev-callback.tcgcard.fun", custom_domain = true }]
+
+[vars]
+LINUX_CALLBACK_ORIGIN = "http://dev-callback-origin.tcgcard.fun:8089"

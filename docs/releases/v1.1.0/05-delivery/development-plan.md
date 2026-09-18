@@ -19,19 +19,19 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 2026-09-11 prod 交付增量：`main@759b072` 对应 Worker `4f543496-9d54-48c4-a16c-0e608dcc32f0` 已承载 100% 流量，完整 `0011` 已单独授权执行，production 版本键就绪、已有配置不变；当前 prod 使用向量协议。107 项定向测试、类型检查、构建、关键 HTTP 与 Admin 资源核验通过；`0012`、登录态新 App 扫描和 Apple 实单等边界见[发布记录](VERIFICATION.md#prod-向量协议与环境版本配置发布2026-09-11)。
 
-`main` 已包含向量识别、Scan confirm 购买价格事件修复、Card Detail 取消编辑、Singular 收入及同进程初始化恢复、Linux 测试入口、Home 版本静默复查、iOS 交付物保存和扫描结果区布局修复。客户端版本为 `1.0.2+135`；当前源码不代表新包已发布。2026-09-09 历史回读确认 Cloudflare dev 为向量 Worker、prod 为较早 PostgreSQL Worker，两环境已完成 PostgreSQL 迁移且 D1 已退役；2026-09-11 已重新核验 prod 版本、向量绑定及环境版本键，具体范围见上方交付增量。扫描尺寸回归原 12/12 通过；后续本地 Golden 和测试隔离修复后，App 全量 1047/1047、订阅包 9/9 通过，原 3 个扫描 Golden 失败已收口。Windows Linux 打包路径已修复，Workers 默认首轮失败与限制并发后的 621/621 复验分别记录，见[Golden 与全量复验](VERIFICATION.md#golden-基准与全量复验2026-09-10)。
+当前代码包含向量识别、Scan confirm 购买价格事件修复、Card Detail 取消编辑、Singular 收入及同进程初始化恢复、Linux dev 入口、Home 版本静默复查、iOS 交付物保存和扫描结果区布局修复。客户端源码版本为 `1.0.2+146`，不代表新包已发布。2026-09-09 旧 CF dev 与 prod 共库的回读是历史证据；2026-09-11 prod 已独立核验向量协议与环境版本键，2026-09-17 dev 已迁至 Linux 且旧 CF dev 退役。扫描尺寸回归原 12/12、App 全量 1047/1047、订阅包 9/9 及 Workers 621/621 属于 2026-09-10 的代码基线，不作为这次合并的新测试，见[Golden 与全量复验](VERIFICATION.md#golden-基准与全量复验2026-09-10)。
 
 2026-08-27 官网 Download BUG 修复检查点：根因是首页两处 App Store badge 均为无链接静态 `div`。考虑正式 App Store 地址基本不变且下载入口不应依赖业务数据库，最终按产品决定将当前正式 URL 直接写入两处链接，撤回运行时 `/app-config`、官网代理 Worker 及相关环境依赖；Google Play、App/Workers API 契约、数据库和其他官网交互均不受影响。修复前回归确认 HTML 中正式 URL 为 0 处；修复后 Marketing 1 项回归、Wrangler dry-run、依赖方向、`git diff --check` 及真实本地静态页验证均通过，本地页面正式 URL 恰好 2 处且动态配置引用为 0。Code Review 未发现残留代理、数据库依赖或无关修改。官网已部署为 `toccards-website` version `9816a0b4-9ef5-43f1-96fb-031205f8adcc`；绕缓存线上复核返回 200，正式 URL 恰好 2 处，动态配置引用为 0。
 
 | 范围 | 当前代码事实 | v1.1 差距 |
 |---|---|---|
-| 安装统计环境口径 | 安装总量、国家/平台、趋势和分页已实现；环境参数只匹配处理请求的 Worker，安装行无来源字段 | 共享 PostgreSQL 的 dev/prod 安装无法按来源隔离，需单独明确历史记录口径并修复采集与查询；本轮只记录现状，见[Admin 说明](../04-admin/admin.md#安装统计环境口径) |
-| Linux 测试环境 | main 已包含由 `19a6ac4` 引入的共享 Hono/Node 入口、独立 PostgreSQL、内存 KV、本地图片卷及 dev 分支监听发布 | 未提供 `VECTOR_RECOGNITION`，扫描不可用；旧 OCR 字段不参与识别；kd201 当前运行提交与合入后自动发布结果待回读 |
+| 安装统计环境口径 | 安装总量、国家/平台、趋势和分页已实现；安装行尚无来源字段 | 旧 CF dev 与 prod 共用 PostgreSQL 时产生的历史安装行仍无法按来源可靠区分；当前 Linux dev 使用独立库，不混入新 prod 写入。历史口径与采集修复须另行确定，见[Admin 说明](../04-admin/admin.md#安装统计环境口径) |
+| dev 迁往 Linux | 2026-09-17 kd201 watcher 运行 `dev@cd7c512`，旧 CF dev Worker、域名和 cron 已退役；Linux 原卷、Apple 回调和向量识别保留 | 用户确认客户端路径已测无问题；退役任务未独立重跑设备，统计后台收件及完整订阅生命周期仍按[集中处理清单](#linux-dev-集中处理清单2026-09-16)分别验收 |
 | App 版本与交付 | 实际 Home 首帧激活版本检查，后续 Home 复查静默进行，已确认强更继续全局拦截；iOS 校验后保存 IPA/dSYM，按 Bundle ID 保留测试 3 个/正式 7 个版本 | 新包安装、升级/商店往返和真机验收待完成；本轮未在 macOS 执行保存脚本或签名构建 |
 | App 订阅体验 | 已有 Subscription Page、Paywall、Success、StoreKit 2 Fresh Purchase verifier、Secure Storage 补偿队列、本机 Restore 结果分流、App Attest 原生桥接，以及 Performance/1Y/Folder/Scan Waiting 的来源动作恢复；Home/Search/Collection/Profile 顶部入口、Profile Banner 和 Scan 顶部 Pro 次数卡均已接入完整 Subscription Page，功能卡点仍使用 Functional Paywall Bottom Sheet；Profile 顶部及升级 Banner 已同步 Figma `2129:5678` 并按左右 20px 响应式布局，Search/Collection 顶部已同步 Figma `2070:9663` 的标题与皇冠 PRO 胶囊，Search 顶部搜索框、游戏选择框及 Cards/Sets 切换框和 Collection 顶部 Tab、搜索框均已统一为 44px，Collection Portfolio 摘要已同步 Figma `2070:9486` 的 110px 紧凑布局，Home 顶部订阅入口及 Overview/Performance Tab 已同步 Figma `2181:12864`，模式切换器使用固定外框宽度以保持皇冠入口位置稳定；商品局部缺失、15 秒重载、Purchase 状态、首次/冷启动 Premium 三态分流、ATT/Singular 启动顺序及 v1.1 PRD 视觉 Golden 已实现 | 前后台完整矩阵、Singular 收入后台收件及 iOS 真机验收不完整 |
 | Premium 真值 | 鉴权保留可信 `session_id`；Fresh Purchase 与 Restore 均已有独立 Apple 证据、session proof 和 session grant 写链；App 使用 Unknown/Free/Premium 三态及已验证缓存；Scan、Folder、Performance、Home 与 Card Detail 普通历史 1Y 已接入统一授权 | 三态仍缺 iOS 真机前后台与过期续订矩阵验收 |
 | Billing 数据 | PostgreSQL `0000` 业务结构及 `0002/0007/0009` 增量覆盖购买链、交易、session grant、通知 inbox、生命周期、订单事实、USD 汇率与自动续订快照；迁移时的 34 条 Sandbox inbox 是历史检查点，不是当前行数 | production 实时 deployment 需在发布任务中重新核验；缺 Sandbox/TestFlight 实单验收 |
-| Scan | 端侧模型检测、原生矫正及 512 维向量识别已合入 dev，Workers 经 Service Binding 调用 recognize-vec；服务端已有终身 10 次真源、request ID 原子预占、逐张结算/返还、60 秒租约、响应重放和多设备并发保护；Quota 查询、识别成功及额度耗尽均返回完整 `access/unlimited` 权益字段，Flutter 严格解析并合并本机 Premium 与服务端 Unlimited，完成 Waiting、Quota=0 Paywall、Done 公式、服务端确认 Unlimited 后自动递补、Scan Pro 完整订阅来源返回及 Processing 删除后的后台结算；扫描页在 typed 订阅成功或收到 `ENTITLEMENT_SYNC_REQUIRED` 后主动同步当前 StoreKit 证明，单任务刷新服务端 Quota，只有服务端确认 Unlimited 后才按原图恢复识别；扫描相机页顶部操作栏已收紧为 32px，并保持退出、闪光和搜索按钮垂直居中，状态栏实色背景仅覆盖系统安全区、不再覆盖其下方 10px 间距；扫描定位框以 280:400 比例、最大 280×400 布局，按屏幕尺寸和安全区在顶部完整操作区与底部统计行、结果卡片及拍照区之间等比缩放，从首帧预留结果区并保留上下至少 16px 间距；结果出现、连续拍照和删除不会推动取景框；可见边框、扫描线、径向暗角中心和 Recognizing/Revealing 透明区共用同一个 Rect；识别输入改为完整照片，卡面由模型检测和透视矫正取得；剩余扫描次数入口已同步 Figma `1644:6741` 的 48px 提示条、24px PRO 徽章及 13/16 两行文案样式，并置于扫描页最高层级，避免与取景框重叠时丢失点击；顶部及底部操作栏在 Scanning、Recognizing、Revealing 和识别完成切换中持续挂载且保持相同坐标，不再重播入场动画或改变相册/Done 位置；删除相机 Processing Item 会立即释放该 Item 的本地拍照门禁，允许下一次拍照，原识别请求及 Quota 仍按既定契约后台结算 | Sandbox/TestFlight 与真实并发、超时规模验收尚未完成 |
+| Scan | 端侧模型检测、原生矫正及 512 维向量识别已合入 dev；prod Worker 经 Service Binding、dev Linux 经 HTTP 适配调用 recognize-vec。服务端已有终身 10 次真源、request ID 原子预占、逐张结算/返还、60 秒租约、响应重放和多设备并发保护；Quota 查询、识别成功及额度耗尽均返回完整 `access/unlimited` 权益字段，Flutter 严格解析并合并本机 Premium 与服务端 Unlimited，完成 Waiting、Quota=0 Paywall、Done 公式、服务端确认 Unlimited 后自动递补、Scan Pro 完整订阅来源返回及 Processing 删除后的后台结算；扫描页在 typed 订阅成功或收到 `ENTITLEMENT_SYNC_REQUIRED` 后主动同步当前 StoreKit 证明，单任务刷新服务端 Quota，只有服务端确认 Unlimited 后才按原图恢复识别；扫描相机页顶部操作栏已收紧为 32px，并保持退出、闪光和搜索按钮垂直居中，状态栏实色背景仅覆盖系统安全区、不再覆盖其下方 10px 间距；扫描定位框以 280:400 比例、最大 280×400 布局，按屏幕尺寸和安全区在顶部完整操作区与底部统计行、结果卡片及拍照区之间等比缩放，从首帧预留结果区并保留上下至少 16px 间距；结果出现、连续拍照和删除不会推动取景框；可见边框、扫描线、径向暗角中心和 Recognizing/Revealing 透明区共用同一个 Rect；识别输入改为完整照片，卡面由模型检测和透视矫正取得；剩余扫描次数入口已同步 Figma `1644:6741` 的 48px 提示条、24px PRO 徽章及 13/16 两行文案样式，并置于扫描页最高层级，避免与取景框重叠时丢失点击；顶部及底部操作栏在 Scanning、Recognizing、Revealing 和识别完成切换中持续挂载且保持相同坐标，不再重播入场动画或改变相册/Done 位置；删除相机 Processing Item 会立即释放该 Item 的本地拍照门禁，允许下一次拍照，原识别请求及 Quota 仍按既定契约后台结算 | Sandbox/TestFlight 与真实并发、超时规模验收尚未完成 |
 | Folder | 已有 Folder CRUD；Free 总数最多 2 个（含默认 Folder），服务端按当前 session grant 判断，并以单条条件 INSERT 防止并发越限；购买或恢复成功后在原 Folder Sheet 仍有效时打开 Create Folder Modal；服务端并发上限拒绝会先刷新 Folder List 再进入 Paywall，普通失败或权益同步中保留名称输入 | dev 数据已迁入 PostgreSQL 并部署；仍缺 Sandbox/TestFlight 多设备人工验收 |
 | Performance | 已有 Home 与 Card Detail 独立服务端接口、六档自然范围、Purchase/Quantity/Folder Move 历史、迁移 baseline、Premium session grant 校验及 App 完整状态渲染；`0031` 已在 dev 真实历史数据的本地副本验证不伪造历史 | dev 最大 owner 仅 24 条 Event、12 个现存 Item，只能证明当前小样本；仍缺重度收藏用户规模、Cloudflare 端到端、Sandbox/TestFlight 验收 |
 | Admin | 订单 13 列、11 项组合筛选、动态国家/SKU、10,000 行以内 XLSX 全量导出及 inbox 通知排障视图已实现；订单请求期间查询、重置、分页与刷新均锁定，避免重复请求；完整 Decoded Payload 仅授权用户打开详情时加载，默认不返回 `signedPayload`，复制由用户主动触发 | dev 订单表为空，无法证明有数据及 10,000 行导出时的 3 秒普通查询目标；Sandbox/TestFlight 人工验收尚未完成 |
@@ -44,6 +44,22 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 产品待决项：评审 P1-B 要求冻结 Lifetime 在 StoreKit 与服务端均不可用时的最长本地兜底时间。最新 App PRD 仅定义“可临时保持 Premium”，没有给出可测试期限；当前代码按该 PRD 持续使用已验证 Lifetime 缓存。该期限会改变离线用户权益，开发不得自行设定，需产品确认后再实现超时转 Unknown 及对应验收矩阵。
 
 平台范围冲突已显式选择最新 Apple PRD：v1.1 App 只在 iOS 激活 Apple Subscription 销售；Android、macOS 和桌面端不读取或激活订阅 SKU，保持 Free 业务可用、权益 Unknown 且不误售/误授权。`subscription-core` 的 Google Play 抽象继续保留，但在产品定义 Android Premium 范围、Google Play 商品和服务端可信 proof 契约前不由 App 激活。该边界的订阅 UI 14 项及实现/测试文件静态分析通过。
+
+### Linux dev 集中处理清单（2026-09-16）
+
+本表最初汇总 2026-09-16 的待办，后续状态按日期更新。2026-09-17 用户确认客户端业务路径已测无问题，旧 CF dev 业务入口已退役；具体远程回读见[退役验证](VERIFICATION.md#旧-cloudflare-dev-业务退役2026-09-17)。未取得独立真机日志的细项仍按原验证边界记录。密钥不写入仓库或本文档。
+
+| 项目 | 已确认的缺项或问题 | 集中准备的材料 / 后续处理 | 完成标准 |
+|---|---|---|---|
+| 管理后台登录 | 已完成：2026-09-16 用用户提供的既有账号通过浏览器登录，角色为 super_admin；9 项授权只读接口均 200，扫描/订单/通知数量与 Linux 库一致 | 凭据缺项已解除，密码未写入文件；订单与扫描当前为空，有数据详情/导出及写操作仍待业务验收。源码中 Logout 仅清本地会话，服务端撤销接入另列待整改 | 已通过真实登录与只读查询；独立验证的退出 API 已撤销该接口会话、旧 token 返回 401，不能据此宣称浏览器退出已调用服务端 |
+| 邮件注册与找回密码 | Token 缺项已解除：2026-09-16 从用户文件读取后去掉 `Zoho-enczapikey ` 前缀，仅写入 Linux 私有配置；注册验证码接口返回 200，用户已确认收到唯一一封测试邮件 | 不再需要提供 Token；保留完整注册、验证码校验和找回密码流程的业务验收，后续发送仍按指定收件地址和授权范围执行 | Linux → ZeptoMail → 收件邮箱链路通过；本次未创建 App 账号或重置密码，不能标记全部认证流程通过 |
+| Apple Server API | 凭据缺项已解除：用户确认 dev 使用 `A2Q978K984` 并提供对应 Issuer ID，Linux 已配置三项凭据。项目客户端在配置前及 API 重建后只读查询 Sandbox 通知历史均返回 200 | 不再需要提供 Issuer ID、Key ID 或 `.p8`；继续准备 Sandbox 测试账号与真机，配合公网入口验收购买、Restore 和通知校正 | 私钥签名、PEM 环境变量解析、项目客户端/验签器构造及 Sandbox API 鉴权通过；历史窗口为空，不代表真实交易、Server API 校正或通知闭环通过 |
+| Apple 公网通知 | DNS-only A 与 Sandbox URL 已保存，Linux 自动发布版本已处理原 TEST 和真实订阅。2026-09-17 网络回源调整期间公网曾返回 502、多条 TEST 投递超时并触发 Apple 429；网络恢复后新 TEST 与 `DID_CHANGE_RENEWAL_STATUS` 均处理成功。kd201 宿主机已将公网回源隔离到仅允许 Sandbox POST 的入口；上线后再次只发一条官方 TEST，Apple 状态回读 `SUCCESS`，Linux UUID/摘要一致且 `processed`，交易数未因 TEST 增加 | 当前公网接收/验签与源站路径隔离已实测；后续用 Sandbox/TestFlight 验证 Restore 与其余生命周期。未来 NAT 源地址或公网 IPv6 变化需复验主机规则 | 对外完整 URL 为 `https://dev-callback.tcgcard.fun/api/v1/apple/notifications/v2/sandbox`；新 TEST 和真实订阅通知已入 Linux，公网其他路径及真正的公网 Host 伪造被拒绝。CF→origin 仍为 HTTP，宿主机策略未随 watcher 自动发布 |
+| 统计与归因 | 2026-09-17 Linux 已同步原 CF dev 公共 `/app-config` 中的 Mixpanel Project Token 和 Singular API Key/Secret Key；两平台下发值逐项相等。用户提供的 Mixpanel API Secret 也已写入私有配置，未向客户端公开，当前源码没有使用路径。Linux 容器用该 Secret 只读导出返回 200，当天项目中有已知 App 类事件 | 用指定测试用户/交易时间核对 Mixpanel 的业务事件；在 Singular 后台或具备报表权限的 API 核对安装、事件及收入。若后续新增服务端 Mixpanel 查询，应使用官方推荐的 Service Account | 四项环境变量已配置；Mixpanel 凭据通过导出认证且项目有事件，但未关联本次订阅，也未验证 `sub_success`/收入。Singular SDK 配置下发通过，后台收件与金额/币种仍待验收 |
+| iOS / Android 真机 | 2026-09-17 用户确认 Linux 客户端业务路径已测试无问题；本次退役未独立取得设备日志或逐项重跑 | 后续涉及真机回归时仍保留平台、签名包和测试账号的原验收要求 | 用户确认与本次服务端只读检查为不同证据，不外推为完整订阅生命周期或统计后台收件通过 |
+| 自动发布与 dev 收口 | `dev@4d5d66f` 已由 kd201 watcher 自动发布，API/DB healthy、13 项 ledger，release 与运行 bundle 一致；旧 CF dev Worker、域名与 cron 已删除 | 保留 Linux watcher、独立 Apple 回调、CF 向量与 prod，旧测试数据/包不清理；后续源码变更仍按 Linux 流程发布 | 2026-09-17 远端回读及退役后独立服务烟测见[验证记录](VERIFICATION.md#旧-cloudflare-dev-业务退役2026-09-17) |
+
+部署分支与 watcher 运行版本已对齐，公网 Sandbox TEST 已走通，旧 CF dev 业务入口已退役。用户确认客户端业务路径通过；本次未复验设备、指定交易的统计后台收件或完整订阅生命周期。管理员登录、Google 代理、邮件收件和 Apple Server API 凭据鉴权已有独立证据。当前 Sandbox 验签不要求 `APPLE_IAP_APP_ID`，不得为填满配置而使用正式 App ID。旧测试数据和包按用户要求保留，退役详情见[验证记录](VERIFICATION.md#旧-cloudflare-dev-业务退役2026-09-17)。
 
 ## 3. 阶段与验收门槛
 
@@ -160,7 +176,7 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 ### 阶段 B：Apple 通知与生命周期真值
 
-当前状态：通知链与 dev/prod PostgreSQL Worker 均已部署。接收、先存原文、官方验签、幂等归约、乱序保护、补偿重试和 Apple Server API 校正已落地；2026-09-07 Production/Sandbox Apple TEST 成功属于历史发布证据。本轮只回读运行版本及 binding，没有重放 Apple 通知；真实购买、续订、升级降级、退款及多设备矩阵仍须单独验收。
+当前状态：通知链由 prod Cloudflare Worker 与 dev Linux API 分别承载，旧 CF dev Worker 已退役。接收、先存原文、官方验签、幂等归约、乱序保护、补偿重试和 Apple Server API 校正已落地；2026-09-07 Production/Sandbox Apple TEST 成功属于历史发布证据。后续真实购买、续订、升级降级、退款及多设备矩阵仍按各环境独立验收。
 
 - Notifications V2 接口先保存原始请求，再验签、解码和消费。
 - 以 notification UUID 和 environment+transactionId 分别保证通知、交易幂等。
@@ -370,8 +386,8 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 - 已执行 migration 保持原文，包括冻结的 D1 历史文件；新增 schema 或数据修复仅允许使用 `apps/workers-api/src/db/postgres/migrations/` 下的递增 PostgreSQL 迁移，不恢复退役 D1 工具。
 - owner grant 仅保留兼容旧骨架，授权路径禁止读取；不自动迁移到 session grant。
 - 新表/列先向后兼容上线，再切换读写，最后在独立版本清理旧结构。
-- dev/prod 共用 PostgreSQL，运行环境、Apple scope、KV、R2、域名和 secrets 分离；本地测试使用独立数据库。远程迁移和部署必须单独授权。
-- Apple 官方服务端库依赖 Workers `nodejs_compat`，并必须在请求或定时任务处理期间动态加载，避免其依赖在 Worker 全局作用域执行随机操作；dev/prod dry-run build 必须保持通过。
+- 当前 prod 使用原 PlanetScale PostgreSQL/Hyperdrive，dev 使用 Linux 独立 PostgreSQL 与图片卷；Apple scope、域名和 secrets 按环境隔离。旧 CF dev 的历史数据保留但不再发布。远程迁移和部署必须单独授权。
+- prod Worker 的 Apple 官方服务端库依赖 `nodejs_compat`，并必须在请求或定时任务处理期间动态加载，避免其依赖在 Worker 全局作用域执行随机操作；prod Wrangler dry-run 与 dev Linux 发布包预演分别保持通过。
 - 每个迁移在对应文档中记录兼容性、回滚方式和数据回填规则。
 
 ## 5. 完成定义

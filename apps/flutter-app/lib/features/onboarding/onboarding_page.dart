@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -152,8 +153,19 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   }
 
   Future<void> _authenticate() async {
-    await showAuthSheet(context);
-    if (!mounted) return;
+    var handledEmailLogin = false;
+    await showAuthSheet(
+      context,
+      waitForSuccessFeedback: true,
+      beforeEmailLoginDismiss: () async {
+        handledEmailLogin = true;
+        if (!mounted) return;
+        if (ref.read(authControllerProvider).session?.isUser ?? false) {
+          await ref.read(onboardingControllerProvider.notifier).complete();
+        }
+      },
+    );
+    if (!mounted || handledEmailLogin) return;
     if (ref.read(authControllerProvider).session?.isUser ?? false) {
       await ref.read(onboardingControllerProvider.notifier).complete();
     }
@@ -338,36 +350,48 @@ class _OnboardingMedia extends StatelessWidget {
       builder: (context, constraints) {
         final topInset = MediaQuery.paddingOf(context).top;
         final baseHeight = constraints.maxWidth * (516 / 390);
-        final mediaHeight = (baseHeight + topInset).clamp(
-          0.0,
-          constraints.maxHeight,
-        );
+        final isScanGuide = index == 0;
+        final mediaWidth = isScanGuide
+            ? math.min(
+                390.0,
+                math.min(
+                  constraints.maxWidth,
+                  math.max(0.0, constraints.maxHeight - 56) * (780 / 960),
+                ),
+              )
+            : constraints.maxWidth;
+        final mediaHeight = isScanGuide
+            ? mediaWidth * (960 / 780)
+            : (baseHeight + topInset).clamp(0.0, constraints.maxHeight);
 
         return Align(
           alignment: Alignment.topCenter,
-          child: SizedBox(
-            width: constraints.maxWidth,
-            height: mediaHeight,
-            child: RepaintBoundary(
-              child: ClipRect(
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.asset(
-                      placeholderAsset,
-                      key: ValueKey('onboarding-media-first-frame-$index'),
-                      fit: BoxFit.cover,
-                      alignment: Alignment.topCenter,
-                      filterQuality: FilterQuality.high,
-                      excludeFromSemantics: true,
-                    ),
-                    _LoopingOnboardingVideo(
-                      key: ValueKey('onboarding-video-$index'),
-                      videoController: videoController,
-                      isActive: isActive,
-                      enabled: !reduceMotion,
-                    ),
-                  ],
+          child: Padding(
+            padding: EdgeInsets.only(top: isScanGuide ? 56 : 0),
+            child: SizedBox(
+              width: mediaWidth,
+              height: mediaHeight,
+              child: RepaintBoundary(
+                child: ClipRect(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.asset(
+                        placeholderAsset,
+                        key: ValueKey('onboarding-media-first-frame-$index'),
+                        fit: BoxFit.cover,
+                        alignment: Alignment.topCenter,
+                        filterQuality: FilterQuality.high,
+                        excludeFromSemantics: true,
+                      ),
+                      _LoopingOnboardingVideo(
+                        key: ValueKey('onboarding-video-$index'),
+                        videoController: videoController,
+                        isActive: isActive,
+                        enabled: !reduceMotion,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

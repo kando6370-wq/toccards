@@ -71,7 +71,7 @@ function proxyRequest(request, response) {
       port: apiOrigin.port || 80,
       method: request.method,
       path: request.url,
-      headers: { ...request.headers, host: apiOrigin.host },
+      headers: request.headers,
     },
     (upstreamResponse) => {
       response.writeHead(upstreamResponse.statusCode || 502, upstreamResponse.headers);

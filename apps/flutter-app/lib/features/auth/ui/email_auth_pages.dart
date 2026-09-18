@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:kando_app/shared/ui/kando_modal.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 import 'package:kando_app/shared/validation/email.dart';
@@ -27,10 +28,14 @@ enum _EmailPage {
   forgotPassword,
 }
 
-Future<String?> showEmailAuthPage(BuildContext context) {
+Future<String?> showEmailAuthPage(
+  BuildContext context, {
+  Future<void> Function(BuildContext)? onLoginSuccess,
+}) {
   return Navigator.of(context).push<String>(
     PageRouteBuilder<String>(
-      pageBuilder: (_, _, _) => const EmailAuthPages(fullScreen: true),
+      pageBuilder: (_, _, _) =>
+          EmailAuthPages(fullScreen: true, onLoginSuccess: onLoginSuccess),
       transitionDuration: Duration.zero,
       reverseTransitionDuration: Duration.zero,
     ),
@@ -38,9 +43,14 @@ Future<String?> showEmailAuthPage(BuildContext context) {
 }
 
 class EmailAuthPages extends ConsumerStatefulWidget {
-  const EmailAuthPages({super.key, this.fullScreen = false});
+  const EmailAuthPages({
+    super.key,
+    this.fullScreen = false,
+    this.onLoginSuccess,
+  });
 
   final bool fullScreen;
+  final Future<void> Function(BuildContext)? onLoginSuccess;
 
   @override
   ConsumerState<EmailAuthPages> createState() => _EmailAuthPagesState();
@@ -321,6 +331,9 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
         return;
       }
       _clearSensitiveInputs();
+      FocusScope.of(context).unfocus();
+      await widget.onLoginSuccess?.call(context);
+      if (!mounted) return;
       _completeSignIn('Welcome back');
     });
   }
@@ -379,6 +392,15 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
         return;
       }
       _clearSensitiveInputs();
+      if (widget.fullScreen) {
+        FocusScope.of(context).unfocus();
+        await showKandoWelcomeModal(
+          context,
+          message: 'Let’s collect the cards.',
+          autoDismissDuration: const Duration(seconds: 1),
+        );
+        if (!mounted) return;
+      }
       _completeSignIn('Welcome\nLet’s collect the cards.');
     });
   }
@@ -585,7 +607,15 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
 
   void _completeSignIn(String message) {
     if (widget.fullScreen) {
-      Navigator.of(context).pop(message);
+      final route = ModalRoute.of(context)!;
+      final navigator = Navigator.of(context);
+      if (route.isCurrent) {
+        navigator.pop(message);
+      } else if (route.isActive) {
+        // Feedback may have awaited while another page was opened. Complete
+        // only this email route, never pop the newer page above it.
+        navigator.removeRoute(route, message);
+      }
       return;
     }
     showKandoTopToast(

@@ -1,12 +1,16 @@
 # Linux 测试环境自动部署手册
 
+2026-09-17 17:26 回读：kd201 watcher 发布的 `dev@cd7c512` 已核对 manifest、状态文件、运行 bundle、PostgreSQL 18.6/13 项 ledger 与发布前备份；旧 CF dev 业务 Worker、域名和 cron 已退役。下方 2026-09-16 发布记录保留当时的版本与待办，退役证据见[验证记录](VERIFICATION.md#旧-cloudflare-dev-业务退役2026-09-17)。
+
 ## 目标
 
 当 GitHub `dev` 分支出现影响 API、Admin、共享包或 Linux 部署配置的新提交时，由 `kd201` 本机定时监听、构建同一套业务代码并发布到测试环境。Cloudflare 正式环境的构建、绑定和部署流程不由该监听器触发。
 
 测试地址：`http://192.168.50.201:8080`
 
-代码核对基线为 `main@659a7c6`（2026-09-10），main 与 dev 均包含部署资产；分支监听脚本默认仍选择 `TOCCARDS_DEPLOY_BRANCH=dev`。服务器安装、发布与连接结果保留 2026-09-09 历史记录；本轮未回读 kd201 的 crontab、运行 SHA、release 或数据库 ledger。当前 Linux 缺少向量适配器，扫描不可用，详见[兼容缺口](../02-architecture/linux-test-environment.md#扫描兼容缺口)。
+2026-09-16 已将 `dev-inner` 整改与 dev 原有后台筛选改动合并为 `75c0ec4` 并推送。监听器于 15:08 发现该提交并完成检查、构建、备份与发布；当时 release `branch-dev-75c0ec4f991d-20260916151043` 的扫描、额度与本地收藏写库复验通过。后续 release 见[验证记录](VERIFICATION.md)。
+
+`deploy:dev` 使用 Linux SSH 发布，`deploy:dry-run:dev` 仅生成发布包；`build:dev` 构建 Linux API 与 Admin development，旧 `build:linux` 为兼容别名。自动监听已更新为合并版本的脚本，仍以 dev 为来源，crontab 周期保持不变；`watcher.env` 单独配置了已验证的局域网 HTTP/HTTPS 代理、NO_PROXY 和 NODE_USE_ENV_PROXY，避免依赖 GitHub 直连。更新前脚本/配置备份后缀为 `before-20260916-150706`。旧 CF dev 已于 2026-09-17 退役，Linux watcher 继续负责自动部署。
 
 ## 当前工作方式
 
@@ -114,7 +118,7 @@ cat /home/user/apps/toccards-test/watcher/state/last-deployed-sha
 4. 使用 Node.js 22，并通过 npm 在监听器私有目录固定安装 pnpm 11.9.0；不写入系统 `/usr/bin`。
 5. 先构建共享 `@kando/auth-core`，保证干净检出环境能解析 workspace 类型。
 6. 执行 Workers API 类型检查。
-7. 执行 PostgreSQL、Linux adapter、CORS 和 Worker PostgreSQL runtime 定向测试。
+7. 执行 PostgreSQL、全部 Linux adapter/config 测试、PostgreSQL 扫描路由、CORS 和 Worker PostgreSQL runtime 定向测试，覆盖 CF HTTP 识别成功、失败、超时与本地额度结算。
 8. 执行 Admin Linux API 地址测试。
 9. 构建 `apps/workers-api/dist/linux/server.mjs` 和 `apps/admin-web/dist`。
 10. 在服务器本地生成不含密钥的临时 Artifact。
@@ -124,8 +128,8 @@ cat /home/user/apps/toccards-test/watcher/state/last-deployed-sha
 发布脚本：`deploy/linux/ci/deploy-release.sh`
 
 1. 使用独立发布锁防止并发发布。
-2. 验证 Artifact 和服务器 `.env` 完整性。
-3. 在 `/home/user/apps/toccards-test/backups` 创建 PostgreSQL custom-format 备份。
+2. 验证 Artifact 和服务器 `.env`，执行 `preflight.mjs`：拒绝非 development、非 Compose 数据库、PostgreSQL 大版本不兼容与错误识别服务；用拟发布凭据只读核对数据库并列出待执行 migration。
+3. 在 `/home/user/apps/toccards-test/backups` 创建 PostgreSQL custom-format 备份；只要已有数据库容器运行就必须备份，不以 `current` 链接是否存在作为跳过条件。
 4. 创建不可覆盖的版本目录 `/home/user/apps/toccards-test/releases/<release-id>`。
 5. 构建服务器本机架构的离线 Node/PostgreSQL/API/Web 镜像。
 6. 运行 migration，并等待 API 健康。
@@ -138,6 +142,12 @@ cat /home/user/apps/toccards-test/watcher/state/last-deployed-sha
 - migration、API 或 Admin 验证失败：脚本使用上一个 release 重新构建应用容器，`current` 不切换。
 - 数据库 migration 不会自动反向执行。自动发布 migration 必须向后兼容；需要恢复数据库时，由维护人员明确选择发布前生成的 `.dump` 文件后手动恢复。
 - 失败的新 release 会保留，方便读取日志；确认无用后再人工删除。
+
+## 从开发机发布当前 dev 工作树
+
+先执行 `pnpm --filter @kando/workers-api deploy:dry-run:dev` 检查 Linux 发布包，再配置 `TOCCARDS_SSH_TARGET` 并运行 `pnpm --filter @kando/workers-api deploy:dev`。SSH 目标必须已配置非交互密钥/agent 登录及可信主机密钥；该命令不会调用 Wrangler，也不会改变服务器监听分支或写入 `.env`。具体包内容、路径与命令见[部署入口](../../../../deploy/linux/README.md#日常-dev-发布命令)。
+
+服务器也可只运行预检：`node --env-file=/home/user/apps/toccards-test/shared/.env <artifact>/deploy/linux/preflight.mjs <artifact>`。该检查不执行 migration；正式发布会在备份后由原 migrate 服务应用缺失文件。标准与离线 PostgreSQL 均为 18，原数据卷路径保持不变。
 
 查看状态和日志：
 
@@ -177,7 +187,7 @@ printf '%s\n' '<previous-release-id>' \
 - 监听器只检出受信任的 `dev` 分支，不执行 Pull Request head commit。
 - 本地 Artifact 不包含 `.env`、数据库备份、扫描图片或第三方凭证。
 - 监听器目录权限为 `700`，配置和状态仅属于服务器 `user` 账号。
-- Linux 使用独立测试数据库、JWT 和文件卷；旧 OCR 字段仍为启动必填项但不被扫描路由读取，不能用它连接正式资源或宣称扫描已可用。
+- Linux 使用独立测试数据库、JWT 和文件卷；部署前须配置 `VECTOR_RECOGNITION_BASE_URL`，仅向已授权复用的 CF 识别服务发送向量。旧 OCR 键不被新代码读取，不能代替新配置；服务器与设备扫描需单独验收。
 - `kd201` PostgreSQL 仅通过 `192.168.50.201:15432` 提供可信局域网访问，不映射公网；自动发布继续复用服务器私有 `.env` 中的该配置。
 - 正式 Cloudflare 部署仍由其原工作流或 Cloudflare 平台配置管理。
 
@@ -191,7 +201,7 @@ printf '%s\n' '<previous-release-id>' \
 - [x] `kd201` 的共享 `.env` 存在且权限为 `600`。
 - [x] 监听用户能够运行 `git`、`npm`、`docker ps`。
 - [ ] 回读合入后的 dev 自动发布结果，确认目标 SHA、构建、备份、迁移、健康检查和 `current-release`。
-- [ ] 补齐独立测试向量适配后，验证 Linux 扫描成功、缺服务失败与额度释放；仅更新 OCR 地址不满足条件。
+- [ ] 发布含 HTTP 向量适配的新版本后，验证服务器到 CF 的识别成功、失败/超时释放额度和两端完整扫描；本地代码检查不能代替该验收。
 
 ## 实施验证记录 — 2026-09-09
 

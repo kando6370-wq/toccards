@@ -14,7 +14,9 @@
 
 > **历史状态快照（2026-09-07，非本轮回读）**：App Store Connect production App 为 `Card AI: TCG Card Scanner`（Apple ID `6793017224`，Bundle ID `com.cardai.tcg`）；`CardAi.weekly`、`CardAi.yearly` 与 `CardAi.lifetime` 均已创建且处于准备提交状态。付费 App 协议有效，银行账户可用，美国税表使用中；Production Server URL `https://api.tcgcard.fun/api/v1/apple/notifications/v2` 与 Sandbox Server URL `https://api.tcgcard.fun/api/v1/apple/notifications/v2/sandbox` 均已保存。production App Store Server API Key 与 Worker 的 10 个 Secret 配置项均存在；Apple Production 与 Sandbox API 各自成功请求测试通知，Apple 状态均为 `SUCCESS` 且包含 signed payload，两条 PostgreSQL inbox/structured notification 均一次验签并处理为 `processed`、无错误。正式 PostgreSQL-only Worker version `934506ae-d433-4a38-ae40-6d07b109d50e` 已承载 100% prod 流量，Hyperdrive、production KV/R2、Bundle/Product ID、App Attest 和 Singular bindings/vars 已加载且无 D1 binding。完整购买闭环仍被 App Attest 真机及真实 Sandbox/TestFlight 购买和生命周期矩阵阻塞，详见「七、当前阻塞项」。
 >
-> **后端当前边界（2026-09-09）**：上述旧 D1、待部署 Root CA 和待发布 Singular 配置不再代表当前运行事实。dev/prod 均已绑定 PostgreSQL/Hyperdrive 与 Apple Secret 名称，prod `/app-config` 已返回非空 Singular SDK 配置；dev 使用向量识别，prod 尚未切换该协议。main 分支的 2026-09-07 发布记录包含 Production/Sandbox Apple TEST 成功证据，本轮没有重放通知或核验实单。具体运行版本和证据范围见[发布与验证](VERIFICATION.md)，两环境 PostgreSQL 迁移已完成，后续业务增量见[数据迁移](../03-data-api/migration.md)。
+> **后端历史检查点（2026-09-09）**：上述旧 D1、待部署 Root CA 和待发布 Singular 配置不再代表该日运行事实。旧 CF dev/prod 当时均已绑定 PostgreSQL/Hyperdrive 与 Apple Secret 名称，prod `/app-config` 已返回非空 Singular SDK 配置；旧 CF dev 使用向量识别，prod 当时尚未切换该协议。2026-09-07 的 Production/Sandbox Apple TEST 成功属于历史证据，本次没有重放通知或核验实单。
+>
+> **当前后端边界（2026-09-17）**：prod 于 2026-09-11 发布向量协议与独立 production 版本键，保持 Cloudflare 正式环境；dev 已迁至 Linux 独立 PostgreSQL，Sandbox 通知经独立 CF 回调入口进入 Linux，旧 CF dev 业务 Worker/域名/cron 已退役。历史数据保留，prod 和 dev 的数据库与发布分别核验，见[发布与验证](VERIFICATION.md)及[数据迁移](../03-data-api/migration.md)。
 
 ---
 
@@ -188,12 +190,12 @@ Singular 与 Mixpanel Project Token 使用同一类运行时配置链路，由 C
 
 在应用的 App Store Server Notifications 配置中分别填写：
 
-- dev/test App Sandbox Server URL：`https://api-dev.tcgcard.fun/api/v1/apple/notifications/v2`。
+- dev/test App Sandbox Server URL：`https://dev-callback.tcgcard.fun/api/v1/apple/notifications/v2/sandbox`，由独立回调 Worker 转发到 Linux。
 - production App Sandbox Server URL：`https://api.tcgcard.fun/api/v1/apple/notifications/v2/sandbox`；已在共享 PostgreSQL 实时预检和 prod Worker 部署后保存，并通过 Apple 官方 Sandbox `TEST` 通知验收。
 - Production Server URL：`https://api.tcgcard.fun/api/v1/apple/notifications/v2`。
 - Version：选择 Version 2。
 
-上述 URL 来自当前 Worker 自定义域名和已挂载路由。2026-09-07 Apple Production/Sandbox `TEST` 通知状态均为 `SUCCESS`；正式 Worker 对两条回调均返回成功，PostgreSQL inbox 与 structured notification 均为 `processed`。接口已实现 Apple 签名验证和重复通知幂等处理。
+dev/test 的独立回调入口已于 2026-09-17 用 Apple 官方 TEST 验证送达和 Linux 验签；原 `api-dev.tcgcard.fun` 业务入口已退役，见[退役验证](VERIFICATION.md#旧-cloudflare-dev-业务退役2026-09-17)。2026-09-07 Apple Production/Sandbox `TEST` 通知状态均为 `SUCCESS`；prod Worker 对两条回调均返回成功，共享 PostgreSQL inbox 与 structured notification 均为 `processed`。接口已实现 Apple 签名验证和重复通知幂等处理，见[prod 验收](VERIFICATION.md#prod-向量协议与环境版本配置发布2026-09-11)。
 
 截至 2026-08-18，dev 已完成 D1 非价格业务数据到共享 PostgreSQL 的迁移，并部署正式 Worker/Admin；34 条历史 inbox 均标记为 `Sandbox`，Sandbox URL 也已保存。dev Root CA Secret 已用指纹匹配的 Apple 官方 G3 DER Base64 更新并生效，但仍需新的 Apple 测试通知或真实 Sandbox 生命周期通知证明线上验签与业务处理恢复。prod 仅暂存 Root CA version `42f3934f-7cb4-41df-85b5-631b4e4b8954`，线上 deployment/version 未变化。
 
@@ -222,7 +224,7 @@ Singular 与 Mixpanel Project Token 使用同一类运行时配置链路，由 C
 - 2026-09-07 历史核验：dev Root CA 的官方 G3 下载指纹、DER Base64 写入命令和生效版本已确认。production Root CA、Issuer ID、Key ID 与 Private Key 已随正式 Worker 部署；Production/Sandbox 两次测试通知请求证明 Server API 凭据可完成 Apple 鉴权，两条回调 JWS 均由正式 Worker验签并处理成功。真实交易的订阅状态和交易查询仍需 Sandbox/TestFlight 实单验证。
 - StoreKit 2 服务端同步失败后的 Secure Storage 持久化补偿队列已实现；仍待真机断网与恢复验收。
 - Restore 的 App Attest proof、App Store Server API 和 Notifications V2 生命周期代码已实现；Production/Sandbox `TEST` 通知已证明 production Server API 凭据、URL 和通知 JWS 验签可用。仍需 App Attest 真机、真实交易的状态/交易查询及 Sandbox/TestFlight 端到端验收。
-- Scan、Folder、Performance 和 1Y Price History 已统一接入当前 live session grant，dev/prod 均运行 PostgreSQL Worker。后续生产升级前仍需重查数据库和各环境配置，完成授权边界、通知、Sandbox/TestFlight 与回滚演练；不得恢复 D1。`0011` 环境键迁移及 `0012` 数据回填的实际进度见[数据迁移](../03-data-api/migration.md)，不能因重新部署而自动标记完成。
+- Scan、Folder、Performance 和 1Y Price History 已统一接入当前 live session grant；prod 运行 PostgreSQL Worker，dev 运行 Linux PostgreSQL API。后续生产发布前仍需重查目标数据库与配置，完成授权边界、通知、Sandbox/TestFlight 与回滚演练；不得恢复 D1。prod 已执行 `0011`、未执行 `0012`；dev Linux 的 ledger 独立，实际进度见[数据迁移](../03-data-api/migration.md)，不能因重新部署而自动标记完成。
 
 challenge 或业务 API 失败不得阻止 Apple 购买；本机 StoreKit 2 verified 仍按 App PRD即时解锁，但服务端受限操作在 grant 未同步时必须返回 `ENTITLEMENT_SYNC_REQUIRED`。
 
