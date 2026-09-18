@@ -10,11 +10,13 @@ D1 已废弃，测试环境 dev/test 与正式环境 prod 均已完成 PostgreSQ
 
 下列 Cloudflare 共享 PostgreSQL 历史数据与 `0011` 初始化结论保留各自检查日期，本次没有重查或迁移该共享库。2026-09-15 仅在 Linux 独立 `toccards_test` 发布时复核并推进 ledger，见下节。共享 PostgreSQL 的后续迁移必须另行授权，不能因服务端重新部署而自动执行。
 
-## 目录搜索 trigram 索引（0013，待执行）
+## 目录搜索 trigram 索引（0013：dev 已执行，prod 未执行）
 
 `apps/workers-api/src/db/postgres/migrations/0013_cards_all_search_trgm.sql` 为现有 `cards_all` 拼接字段的 `lower(...) LIKE '%词%'` 表达式创建 `pg_trgm` GIN 索引，不改搜索词拆分、过滤、排序、分页或业务表字段。Search 的价格读取同时只从 PostgreSQL 取 Raw 价格；Card Detail、Market Prices、价格历史及资产估值仍读取各自需要的完整价格维度。旧版 Worker 可继续使用数据库，代码回退时索引可保留。
 
-dev 与 prod 是独立 PostgreSQL，必须分别确认 `pg_trgm` 可用、`cards_all` 行数/索引体积、磁盘余量、迁移 ledger 和建索引期间的写入负载。Linux `migrate.sh` 在事务内运行 SQL，普通 GIN 建索引可能阻塞目录写入；prod 不应在业务高峰直接运行该事务。正式环境需另行授权、备份并预先在事务外按同一表达式使用 `CREATE INDEX CONCURRENTLY` 建立同名索引，确认有效且查询计划实际采用后，再登记/执行幂等的 `0013`。若扩展不可用或计划不采用索引，应暂停上线，不改变搜索语义来绕过问题。回滚可在事务外并发删除该索引；旧查询保持正确但冷搜索可能变慢，`pg_trgm` 扩展仅在确认无其他依赖时才可移除。本轮尚未在 dev/prod 执行 migration，也未取得两环境的索引计划。
+dev 与 prod 是独立 PostgreSQL，必须分别确认 `pg_trgm` 可用、`cards_all` 行数/索引体积、磁盘余量、迁移 ledger 和建索引期间的写入负载。Linux `migrate.sh` 在事务内运行 SQL，普通 GIN 建索引可能阻塞目录写入；prod 不应在业务高峰直接运行该事务。正式环境需另行授权、备份并预先在事务外按同一表达式使用 `CREATE INDEX CONCURRENTLY` 建立同名索引，确认有效且查询计划实际采用后，再登记/执行幂等的 `0013`。若扩展不可用或计划不采用索引，应暂停上线，不改变搜索语义来绕过问题。回滚可在事务外并发删除该索引；旧查询保持正确但冷搜索可能变慢，`pg_trgm` 扩展仅在确认无其他依赖时才可移除。
+
+2026-09-18 kd201 watcher 已在 `dev@bfbb61d` 的发布前备份后执行 `0013`；只读回读确认 ledger 登记、`pg_trgm` 扩展存在，`idx_cards_all_search_trgm` 的 `indisvalid/indisready` 均为 true。dev 目录表规划估计约 240.5 万行、525 MB，索引约 220 MB。对与 Search 相同的 `%pikachu%` 表达式、TCG 过滤和排序执行一次只读 `EXPLAIN (ANALYZE, BUFFERS)`，使用 `Bitmap Index Scan on idx_cards_all_search_trgm`，规划 53.8 ms、执行 8.253 ms；该单次内网计划不证明一般 P95 或 prod 提速。prod 未执行此 migration，也未获取 prod 查询计划。
 
 ## Scan confirm Purchase Price 事件修复（0012）
 

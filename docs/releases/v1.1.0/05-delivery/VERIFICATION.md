@@ -2,7 +2,7 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
-## 生产 API Timing 分布与本地优化（2026-09-18，未部署）
+## 生产 API Timing 分布与 dev 优化（2026-09-18，prod 未部署）
 
 正式 Mixpanel 报表自 2026-09-15 起显示 `api_timing` 共 511 条；Flutter 仅对耗时至少 3 秒的请求上报此事件，因此它们是慢请求计数，不是总请求量或 P95/P99。按路径的前列为 `POST /scan/recognize` 106（其中 `timing >= 6` 为 47）、`POST /scan/quota/reserve` 46、`GET /scan/quota` 32（`>= 6` 为 10）、`GET /portfolio/valuation-history` 28、`POST /auth/anonymous` 19、`GET /entitlements/apple/lifecycle` 18；`GET /cards/search` 为 9。Cloudflare 只读回查确认 prod 运行 `24ec705b`，来自 2026-09-16 的 `main@51c3b41` 部署；当前这些业务源码与该基线相同，不能把 dev 内网速度当作 prod 实测。
 
@@ -10,9 +10,11 @@
 
 正式向量 Worker 公网只读探针只发送合成 512 维向量，不写扫描记录或额度：`/health` 三次约 0.74–0.99 秒；同一向量首次 `/recognize` 3.262 秒、随后 0.852/0.811 秒；另一向量请求公网 1.850 秒，对应 `recognize-vec` Worker wall/CPU 为 1013/1 毫秒。它提示向量服务也存在等待和冷/热差异，但公网入口与 API 的 Service Binding 路径不同，不能把这些样本直接当成真实扫描的向量阶段耗时。
 
-本地改动：Search 的批量当前价 SQL 提前过滤 Raw，保留原选价和全量详情维度；新增 `0013_cards_all_search_trgm.sql`，拟为既有前置通配符表达式增加 `pg_trgm` GIN 索引。`GET /scan/quota` 对无本地 `verified` 标记的请求并发读取 Premium grant 与额度计数，保留服务端授权和返回口径；`verified` 而权益未同步时继续优先返回 409，不提前查询额度。Scan recognize 已进入主流程且 Worker 自身超过 3 秒时，仅记录 auth、预处理/额度、R2、向量、目录、审计、结算各阶段毫秒数和结果类别，不记录用户/卡牌/图片/token；早期拒绝或落库异常不在这条日志的覆盖范围。Scan reserve/recognize 的幂等、扣次、响应 JSON、`elapsed`、R2 和向量调用顺序未改。迁移兼容性、锁风险、prod 并发预建及回滚见[数据迁移](../03-data-api/migration.md#目录搜索-trigram-索引0013待执行)。未执行 dev/prod migration、部署、生产数据写入或清除缓存；没有上线后的提速数据，也没有 dev/prod `EXPLAIN (ANALYZE, BUFFERS)` 的索引命中证据。当前工作机访问 kd201 SSH 被拒，PGlite 不提供 `pg_trgm`；真实扫描慢事件是否由向量服务、R2、数据库或网络主导尚未证实。
+实现范围：Search 的批量当前价 SQL 提前过滤 Raw，保留原选价和全量详情维度；`0013_cards_all_search_trgm.sql` 为既有前置通配符表达式增加 `pg_trgm` GIN 索引。`GET /scan/quota` 对无本地 `verified` 标记的请求并发读取 Premium grant 与额度计数，保留服务端授权和返回口径；`verified` 而权益未同步时继续优先返回 409，不提前查询额度。Scan recognize 已进入主流程且 Worker 自身超过 3 秒时，仅记录 auth、预处理/额度、R2、向量、目录、审计、结算各阶段毫秒数和结果类别，不记录用户/卡牌/图片/token；早期拒绝或落库异常不在这条日志的覆盖范围。Scan reserve/recognize 的幂等、扣次、响应 JSON、`elapsed`、R2 和向量调用顺序未改。迁移兼容性、锁风险、prod 并发预建及回滚见[数据迁移](../03-data-api/migration.md)。prod 未执行 migration 或部署，未清除缓存；没有 prod 上线提速和查询计划证据。真实扫描慢事件是否由向量服务、R2、数据库或网络主导尚未证实。
 
-本地验证：新增 Search Raw 下推与详情评级隔离测试、Quota 并发读取测试、慢识别阶段日志测试均在修改前失败；修复后 Data Source/估值四文件 67/67、Scan/Quota/权益三文件 52/52 通过。日志测试覆盖慢成功、快成功与向量上游失败的结果和非敏感字段。PGlite 的真实 SQL 执行测试验证 Raw 大小写/普通空白与全量详情分支，索引表达式与 Search 查询一致性检查通过；PGlite 对索引 DDL 解析到缺失 `gin_trgm_ops` 才报错，不具备验证扩展安装或建索引的能力。最终 `vitest run src --maxWorkers=2` 覆盖源码 74 文件 635/635 通过；Workers `type-check`、根依赖方向检查、dev Linux 发布包 dry-run、prod Wrangler dry-run 和 `git diff --check` 均退出 0；Linux dry-run 打包确认包含 `0013`，未连接服务器。此前未限定源码路径的 `pnpm --filter @kando/workers-api test` **未通过**：648 项中 644 通过、4 失败，另有 3 个 `.wrangler` 历史生成的空测试套件报错；三项历史安装环境诊断断言与本改动无关，Scan 一项全量并发时超时、单独重跑通过。未将这些失败静默视为通过。Code Review 自审核对 Search/Detail 分支、Raw 选价、Quota 的 409/错误分支、扫描日志字段与原响应、索引表达式与迁移锁风险，未发现本轮代码级问题；扩展权限和真实计划仍未验证。仍缺真实 PostgreSQL 索引/查询计划、部署后识别接口的阶段耗时、prod 用户路径前后对照和两端 App 验收；不能宣布整体 API 性能目标已达成。
+本地验证：新增 Search Raw 下推与详情评级隔离测试、Quota 并发读取测试、慢识别阶段日志测试均在修改前失败；修复后 Data Source/估值四文件 67/67、Scan/Quota/权益三文件 52/52 通过。日志测试覆盖慢成功、快成功与向量上游失败的结果和非敏感字段。PGlite 的真实 SQL 执行测试验证 Raw 大小写/普通空白与全量详情分支，索引表达式与 Search 查询一致性检查通过；PGlite 对索引 DDL 解析到缺失 `gin_trgm_ops` 才报错，无法在本地建索引。`vitest run src --maxWorkers=2` 覆盖源码 74 文件 635/635 通过；Workers `type-check`、根依赖方向检查、dev Linux 发布包 dry-run、prod Wrangler dry-run 和 `git diff --check` 均退出 0。此前未限定源码路径的 `pnpm --filter @kando/workers-api test` **未通过**：648 项中 644 通过、4 失败，另有 3 个 `.wrangler` 历史生成的空测试套件报错；三项历史安装环境诊断断言与本改动无关，Scan 一项全量并发时超时、单独重跑通过。未将这些失败静默视为通过。Code Review 自审核对 Search/Detail 分支、Raw 选价、Quota 的 409/错误分支、扫描日志字段与原响应、索引表达式与迁移锁风险，未发现本轮代码级问题。
+
+经用户确认允许 `dev` 推送触发自动部署与 `0013` 迁移后，`bfbb61d` 已由 kd201 watcher 发布为 `branch-dev-bfbb61dc732e-20260918141854`。`last-deployed-sha`、`current` 目录及 manifest 一致，API/Web/DB 容器正常且 API/DB healthy；migration 容器退出 0，ledger 含 `0013`，`pg_trgm` 已安装，索引 valid/ready。发布前 custom-format 备份约 1.1 GB，容器内 `pg_restore --list` 退出 0，未做整库恢复。只读 dev `EXPLAIN (ANALYZE, BUFFERS)` 的单次 `%pikachu%` 查询命中该 GIN 索引，规划 53.8 ms、执行 8.253 ms；dev API 同路径首次 200/0.389 秒、缓存命中 200/0.006 秒。这些内网结果不证明 prod 网络或一般 P95 提速；未执行真实登录扫描、iOS/Android 客户端路径、prod migration/发布或 prod 前后对照。完整 API 性能目标仍未达成。
 
 ## Card Detail Price 材质切换重复加载（2026-09-18，本地修改）
 

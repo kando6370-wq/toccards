@@ -1,6 +1,8 @@
 # Linux 测试环境自动部署手册
 
-2026-09-17 当前状态：kd201 watcher 发布的 `dev@4d5d66f` 已核对 manifest、状态文件、运行 bundle、PostgreSQL 18.6/13 项 ledger 与发布前备份；旧 CF dev 业务 Worker、域名和 cron 已退役。下方 2026-09-16 发布记录保留当时的版本与待办，最新检查见[退役验证](VERIFICATION.md#旧-cloudflare-dev-业务退役2026-09-17)。
+2026-09-17 历史检查点：kd201 watcher 发布的 `dev@4d5d66f` 已核对 manifest、状态文件、运行 bundle、PostgreSQL 18.6/13 项 ledger 与发布前备份；旧 CF dev 业务 Worker、域名和 cron 已退役。下方 2026-09-16 发布记录保留当时的版本与待办，详见[退役验证](VERIFICATION.md#旧-cloudflare-dev-业务退役2026-09-17)。
+
+2026-09-18 回读：watcher 已自动发布 `dev@bfbb61d`，`current`、manifest 与 `last-deployed-sha` 一致；`0013` 目录搜索索引已登记且有效，API/DB healthy。发布前备份与单次只读查询计划见[验证记录](VERIFICATION.md)；这不代表 prod 已部署或真实客户端扫描已验收。
 
 ## 目标
 
