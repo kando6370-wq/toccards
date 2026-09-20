@@ -29,7 +29,7 @@
 ## 目标
 
 1. 现有 dev 业务部署迁至 Linux，保持原 test/development 环境身份，不新增长期并行的第三套环境；prod 继续使用 Cloudflare。
-2. Linux 使用独立 PostgreSQL、内存 KV 与本地扫描图片目录，向量检索复用现有 CF `recognize-vec/Vectorize`。
+2. Linux 使用独立 PostgreSQL、内存 KV 与本地扫描图片目录，pHash 检索复用现有 CF 识别服务。
 3. Cloudflare prod 继续使用 Hyperdrive、KV、R2、Workers Assets 和 Cron Triggers；旧 CF dev 业务部署已退役，历史测试数据保留。
 4. 后续业务版本只开发一套路由、SQL 和业务逻辑。
 5. Linux 业务读写不连接正式 PostgreSQL、R2 或 KV；按用户明确方向，仅复用 CF 的只读向量识别服务，其他外部服务使用相应测试配置。
@@ -61,7 +61,7 @@ dev Linux 运行时
 ├── Node.js HTTP server -> PostgreSQL container
 ├── In-memory KV adapter
 ├── Local filesystem object-storage adapter
-├── HTTP vector adapter -> CF recognize-vec / Vectorize
+├── HTTP recognition adapter -> CF pHash recognition
 ├── Caddy or offline Node server -> Admin SPA + API reverse proxy
 └── Node interval -> scheduled jobs
 ```
@@ -95,11 +95,11 @@ Linux 使用本地文件目录代替 R2，实现当前使用的 `put/get/delete`
 
 ### 扫描兼容缺口
 
-`src/scan/routes.ts` 只接受 512 维 `vector`，并通过 `Env.VECTOR_RECOGNITION.fetch()` 调用检索服务。prod 仓库配置使用 Cloudflare Service Binding，现网协议仍按其原部署版本判断；dev Linux 的 `src/linux/config.ts` 通过 `vector-recognition.ts` 构造 HTTP 适配，目标为 `VECTOR_RECOGNITION_BASE_URL` origin 下的 `/recognize`。共享路由只发送 `{vector}`，不向识别服务转发图片、用户 token 或业务数据库请求；dev 的候选资料、游戏过滤、额度与扫描记录使用 Linux 的 `DB`。
+`src/scan/routes.ts` 接受三个 43 字符无填充 Base64URL RGB pHash，并通过 `Env.VECTOR_RECOGNITION.fetch()` 调用检索服务。prod 仓库配置继续使用 Cloudflare Service Binding，现网协议仍按其独立部署版本判断；dev Linux 的 `src/linux/config.ts` 通过 `vector-recognition.ts` 构造 HTTP 适配，目标为 `VECTOR_RECOGNITION_BASE_URL` origin 下的 `/recognize`。共享路由只发送 `{r,g,b,game_id?}`，不向识别服务转发图片、用户 token 或业务数据库请求；dev 的候选资料、游戏过滤、额度与扫描记录继续使用 Linux 的 `DB`。App 与 API 必须配套切换协议，dev Linux 的识别地址应配置为 `https://recognize.tcgcard.fun`。
 
 HTTP 适配的 10 秒超时持续覆盖响应正文，并保留调用方取消，不重试或跟随重定向。上游 HTTP 失败、无效 JSON 或超时沿用共享路由的 `502 VECTOR_RECOGNITION_UNAVAILABLE`、审计失败记录与释放额度；无匹配或本地目录不可用不错误扣次。缺少 binding 的既有受控 `503` 分支保留。旧 `OCR_SERVICE_BASE_URL` 已从运行时配置和 `Env` 移除，不再作为回退。
 
-此前“必须独立部署向量服务、不得复用 CF 识别”的设计已被 2026-09-15 用户明确的整改方向替代：dev 业务本地化，识别继续使用现有 CF 服务。本次已从 kd201 验证 CF 出站与实际响应，并经内网 API 验证合成图片/512 维向量的完整服务端链路；它不覆盖两端模型推理、真实图片准确率或真机局域网权限。
+此前“必须独立部署向量服务、不得复用 CF 识别”的设计已被 2026-09-15 用户明确的整改方向替代：dev 业务本地化，识别继续使用现有 CF 服务。此前从 kd201 完成的 CF 出站及合成图片/512 维向量验证只属于旧向量协议，不证明当前 pHash 协议已部署或通过真机验收；当前链路仍需补验 Linux API、两端真实图片准确率、耗时、内存和真机局域网权限。
 
 ### 定时任务
 
@@ -135,7 +135,7 @@ DATABASE_URL=postgres://toccards:replace-me@db:5432/toccards_test
 PORT=3000
 ALLOWED_ORIGINS=http://192.168.50.201:8080,http://localhost:3000,http://127.0.0.1:3000
 OBJECT_STORAGE_PATH=/data/scan-images
-VECTOR_RECOGNITION_BASE_URL=https://recognize-vec.tcgcard.fun
+VECTOR_RECOGNITION_BASE_URL=https://recognize.tcgcard.fun
 JWT_SECRET=replace-with-independent-test-secret
 SCHEDULED_TASK_INTERVAL_SECONDS=300
 APP_ENVIRONMENT=development

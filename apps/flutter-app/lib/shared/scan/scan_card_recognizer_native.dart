@@ -7,12 +7,11 @@ import 'scan_card_recognizer_contract.dart';
 import 'scan_mask_geometry.dart';
 import 'scan_model_runtime.dart';
 import 'scan_native_image_processor.dart';
+import 'scan_phash.dart';
 
 const _detectionInputSize = 640;
-const _embeddingInputSize = 384;
 const _cardWidth = 745;
 const _cardHeight = 1043;
-const _embeddingDimensions = 512;
 const _scoreThreshold = 0.35;
 const _maskThreshold = 0.5;
 const _minimumCardAreaFraction = 0.025;
@@ -29,8 +28,8 @@ class _NativeScanCardRecognizer implements ScanCardRecognizer {
   Future<void> _tail = Future.value();
 
   @override
-  Future<ScanCardEmbedding> process(Uint8List imageBytes) {
-    final result = Completer<ScanCardEmbedding>();
+  Future<ScanCardHashes> process(Uint8List imageBytes) {
+    final result = Completer<ScanCardHashes>();
     _tail = _tail.then((_) async {
       try {
         result.complete(await _process(imageBytes));
@@ -41,7 +40,7 @@ class _NativeScanCardRecognizer implements ScanCardRecognizer {
     return result.future;
   }
 
-  Future<ScanCardEmbedding> _process(Uint8List imageBytes) async {
+  Future<ScanCardHashes> _process(Uint8List imageBytes) async {
     try {
       final totalTimer = Stopwatch()..start();
       final detectionTimer = Stopwatch()..start();
@@ -59,27 +58,31 @@ class _NativeScanCardRecognizer implements ScanCardRecognizer {
         selected.points,
         cardWidth: _cardWidth,
         cardHeight: _cardHeight,
-        embeddingSize: _embeddingInputSize,
-      );
-      final embeddingTensor = await Isolate.run(
-        () => _prepareEmbeddingTensor(rectified.embeddingRgbBytes),
       );
       detectionTimer.stop();
 
-      final embeddingTimer = Stopwatch()..start();
-      final vector = await _runEmbedding(embeddingTensor);
-      embeddingTimer.stop();
+      final hashTimer = Stopwatch()..start();
+      final hashes = await Isolate.run(
+        () => hashScanCardRgb(
+          rectified.cardRgbBytes,
+          width: _cardWidth,
+          height: _cardHeight,
+        ),
+      );
+      hashTimer.stop();
       totalTimer.stop();
 
-      return ScanCardEmbedding(
-        vector: vector,
+      return ScanCardHashes(
+        r: hashes.r,
+        g: hashes.g,
+        b: hashes.b,
         cardImageBytes: rectified.cardImageBytes,
         diagnostics: {
           'detection_score': selected.score,
           'card_area_ratio': selected.areaRatio,
           'quad_min_area_rect': selected.usedMinimumAreaRectangle ? 1.0 : 0.0,
           'detection_ms': detectionTimer.elapsedMilliseconds.toDouble(),
-          'embedding_ms': embeddingTimer.elapsedMilliseconds.toDouble(),
+          'hash_ms': hashTimer.elapsedMilliseconds.toDouble(),
           'total_ms': totalTimer.elapsedMilliseconds.toDouble(),
         },
       );
@@ -100,33 +103,6 @@ class _NativeScanCardRecognizer implements ScanCardRecognizer {
       masks: outputs.masks,
       maskShape: outputs.maskShape,
     );
-  }
-
-  Future<List<double>> _runEmbedding(Float32List tensor) async {
-    final values = await _runtime.runEmbedding(tensor);
-    if (values.length != _embeddingDimensions) {
-      throw const ScanImageProcessingException(
-        'The card embedding model returned an invalid result.',
-      );
-    }
-    var squaredNorm = 0.0;
-    final vector = List<double>.filled(_embeddingDimensions, 0);
-    for (var index = 0; index < values.length; index += 1) {
-      final value = values[index].toDouble();
-      if (!value.isFinite) {
-        throw const ScanImageProcessingException(
-          'The card embedding model returned an invalid result.',
-        );
-      }
-      vector[index] = value;
-      squaredNorm += value * value;
-    }
-    if (!squaredNorm.isFinite || squaredNorm <= 0) {
-      throw const ScanImageProcessingException(
-        'The card embedding model returned an invalid result.',
-      );
-    }
-    return vector;
   }
 }
 
@@ -229,24 +205,6 @@ _SelectedCard _extractCardGeometry(
   throw const ScanImageProcessingException(
     'Keep one card fully visible inside the frame and try again.',
   );
-}
-
-Float32List _prepareEmbeddingTensor(Uint8List rgbBytes) {
-  final planeSize = _embeddingInputSize * _embeddingInputSize;
-  if (rgbBytes.length != planeSize * 3) {
-    throw const ScanImageProcessingException(
-      'The corrected card image is invalid.',
-    );
-  }
-  final tensor = Float32List(planeSize * 3);
-  for (var index = 0; index < planeSize; index += 1) {
-    final pixelOffset = index * 3;
-    for (var channel = 0; channel < 3; channel += 1) {
-      tensor[channel * planeSize + index] =
-          rgbBytes[pixelOffset + channel] / 127.5 - 1.0;
-    }
-  }
-  return tensor;
 }
 
 double _distance(ScanImagePoint left, ScanImagePoint right) {

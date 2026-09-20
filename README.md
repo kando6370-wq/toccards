@@ -14,7 +14,7 @@ Flutter App ------------+
 React Admin -- assets ---+        |-- PlanetScale PostgreSQL（经 Hyperdrive）: 业务与目录真源
                                   |-- KV: 可重建缓存
                                   |-- R2: 受保护的扫描卡面图片
-                                  |-- recognize-vec: Service Binding 向量检索
+                                  |-- 识别服务: Service Binding pHash 检索
                                   +-- OAuth、邮件、汇率和 Apple 服务
 
 Marketing Web -----------------> 独立 Cloudflare 静态站点
@@ -24,7 +24,7 @@ Marketing Web -----------------> 独立 Cloudflare 静态站点
 
 `dev` 已合入 Linux 入口 `src/linux/server.ts`，复用同一 Hono 应用与 PostgreSQL migration，使用独立 PostgreSQL、进程内 KV 和本地图片卷；Admin 由 Caddy 托管，离线模式使用 Node 静态服务。App `test` 默认 API 为 `http://192.168.50.201:8080/api/v1`，Admin development 使用同源相对 API，本机开发由 Vite 代理到 Linux，向量检索经 HTTP 复用 CF。2026-09-20 kd201 watcher 已发布 `dev@9488a15`：API/DB healthy、Web running、migration 容器退出 0，PostgreSQL ledger 为 14 项且最新为 `0013`；发布前备份可由 `pg_restore --list` 解析。旧 CF dev 的业务 Worker、域名入口和 cron 已退役；独立 Apple Sandbox 回调、CF 向量识别和正式环境保留。验收与未执行项见 [Linux 测试环境](docs/releases/v1.1.0/02-architecture/linux-test-environment.md)及[验证记录](docs/releases/v1.1.0/05-delivery/VERIFICATION.md)。
 
-`dev` 已合入端侧模型与 512 维向量识别，主 API 经 `VECTOR_RECOGNITION` 调用 `recognize-vec`。当前 App 要求 iOS 16+ 或 Android API 24+；Flutter Web 可用于其他页面开发，暂不支持扫描。扫描协议、平台资源及新旧 App 兼容边界见 [扫描识别链路](docs/releases/v1.1.0/01-flows/scan-recognition.md)。
+`dev-xiangyang` 当前扫描链路保留端侧 RTMDet-Ins 裁剪模型，使用矫正卡面的 RGB pHash 检索；主 API 经保留名称的 `VECTOR_RECOGNITION` 边界发送 `{r,g,b,game_id?}`。当前 App 要求 iOS 16+ 或 Android API 24+；Flutter Web 可用于其他页面开发，暂不支持扫描。扫描协议、平台资源及 App/API 配套切换边界见 [扫描识别链路](docs/releases/v1.1.0/01-flows/scan-recognition.md)。
 
 ## 仓库结构
 

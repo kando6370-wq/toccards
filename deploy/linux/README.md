@@ -52,7 +52,7 @@ chmod 600 .env
 - `POSTGRES_PASSWORD`
 - `DATABASE_URL` 中对应密码
 - `JWT_SECRET`
-- `VECTOR_RECOGNITION_BASE_URL`：必填 HTTP(S) origin，例如 `https://recognize-vec.tcgcard.fun`，不包含路径、凭据、查询参数或 fragment。
+- `VECTOR_RECOGNITION_BASE_URL`：必填 HTTP(S) origin；pHash 识别使用 `https://recognize.tcgcard.fun`，不包含路径、凭据、查询参数或 fragment。
 - `LINUX_TEST_SITE_ADDRESS`
 - `ALLOWED_ORIGINS`
 

@@ -1010,3 +1010,33 @@ Code Review 自审通过：逐项核对双方提交和手工解冲突差异，�
 - 该次 dev 发布前后 prod 均为 `934506ae-d433-4a38-ae40-6d07b109d50e`、100% 流量，没有重新部署 prod，也未执行远程数据库迁移、历史回填或运营配置修改。随后按用户授权将合并与验证记录推送至 `github/dev@b0b54df`，并清理四个指定的本地/远程分支；当前 Git 与运行状态以上方回读为准。
 
 dev 服务端部署及上述校验已完成；真实图片、登录态完整扫描与新 App 签名包验收仍按本节未验证项补充。后续应从含本次合并的 dev 提交发布，避免旧 pHash 分支再次覆盖同一开发环境。
+
+### dev-xiangyang 裁剪 + pHash 识别整合（2026-09-20）
+
+范围严格限定为扫描识别链路：保留 RTMDet-Ins 检测、mask 几何和 745×1043 原生透视矫正，将 PE-Core-T16 向量推理替换为 Dart RGB pHash，App/API 请求从 `vector` 切换为 `r/g/b`，业务 API 向识别服务发送 `{r,g,b,game_id?}`。Queue、Quota、服务端可选卡号消歧兼容、目录补全、审计、确认入库、25 秒客户端 Deadline 和既有 API 性能优化保持不变；无数据库 schema/migration、页面、订阅或其他业务改动。PE-Core-T16 的 ORT/Core ML 文件按原 Git blob 移至未打包的 `assets/models/`，双端运行时和 Xcode 引用移除，RTMDet 与 Android 最小 ORT AAR 保留。
+
+验证环境为 Windows、Node `v24.11.1`、pnpm `11.19.0`，无 Flutter/Dart/Xcode。首次 Workers 命令先按锁文件安装缺失依赖，随后因 `@kando/auth-core` 尚未构建而在扫描路由测试收集阶段退出 1；HTTP 适配测试当次 12/12 通过。执行 `pnpm --filter @kando/auth-core build` 后，以 `apps/workers-api/node_modules/.bin/vitest.cmd run src/scan/routes.test.ts src/linux/vector-recognition.test.ts --maxWorkers=1 --testTimeout=20000` 最终复跑退出 0，2 文件 52/52 通过。`apps/workers-api/node_modules/.bin/tsc.cmd --noEmit -p tsconfig.json`、根 `node scripts/check-dep-direction.mjs`、根 `node_modules/.bin/turbo.cmd type-check` 均退出 0；全仓 TypeScript 7/7 任务通过。`git diff --check` 退出 0，无冲突标记。
+
+静态资源核对确认 Android 平台 assets 和 iOS Xcode Models/Sources 只引用 RTMDet；四个移动后的 PE-Core-T16 文件与 `HEAD` 原路径的 Git blob ID 逐项一致，`pubspec.yaml` 未声明 `assets/models/`。独立使用 Pillow 11.3.0、NumPy 1.26.4 与 SciPy 1.13.1 重算 745×1043 三通道测试图，三个 Base64URL 哈希逐项匹配 `scan_phash_test.dart` 金值。Code Review 对照来源提交与当前目标分支，修正 `_clip8` 的 Dart `num` 到 `int` 显式转换，并确认目标已有 25 秒 Deadline、慢请求阶段日志及数据库等待优化未被来源分支覆盖；未发现其余代码级阻断项。
+
+未运行 Flutter 单测、`flutter analyze`、Android APK 构建、iOS 编译/签名及两端真机真实图片扫描：当前环境没有 Flutter/Dart，Windows 也不能执行 Xcode；因此端侧 Dart 编译、最终 APK/IPA 模型清单、真实图片准确率、pHash 耗时与峰值内存仍需具备对应 SDK 的构建环境和测试设备补验。本轮未部署 dev/prod、未执行远程数据库操作或发布 App。当前 prod Wrangler 仍把 `VECTOR_RECOGNITION` 指向既有 `recognize-vec`，其 pHash 协议兼容性未核验，禁止据本地通过结果直接发布 prod；dev Linux 发布时须同步配置 `VECTOR_RECOGNITION_BASE_URL=https://recognize.tcgcard.fun` 并配套发布 App/API。
+
+### 移除手机端 ML Kit 与缩短结果门槛（2026-09-20）
+
+在上述 pHash 工作区上合入 `dev-xiangyang-vec@229ef82` 的两项扫描改动，并按当前哈希协议处理重叠文件。App 删除卡号 reader 抽象、ML Kit Latin `TextRecognizer` 同步调用、Dart 依赖、iOS Pods、模拟器 Stub 与专用开关；服务端和 `ScanApiClient` 仍兼容旧客户端的可选 `card_number` 字段，当前 App 不再生成或发送该提示。RTMDet 裁剪、RGB pHash、`r/g/b` 协议、Top 5、失败/No Match、Quota、Review、确认入库和 25 秒总网络 Deadline 均未改变。
+
+扫描页原先依次等待 Scanning 1 秒、Recognizing 1 秒和 Revealing 1,529,856 微秒，快速识别也要约 3.53 秒后才能展示结果。本次改为从完整识别开始同时启动单一 1 秒业务计时器，结果展示时刻为 `max(完整识别实际耗时, 1 秒)`；视觉反馈在该窗口内按 500/250/250 毫秒推进，但不再参与完成判定。Widget 回归覆盖快速成功在 999ms 不可见、1000ms 可见，并以 `TickerMode(enabled: false)` 证明动画停用不阻塞结果；慢识别保持 pending 至 1500ms，Future 完成后的下一帧立即展示，不额外等待 1 秒。
+
+验证环境为 Windows、Node `v24.11.1`、pnpm `11.19.0`，没有 Flutter/Dart/Xcode：
+
+| 检查 | 命令 / 证据 | 结果 |
+|---|---|---|
+| Workers 扫描回归 | `vitest run src/scan/routes.test.ts src/linux/vector-recognition.test.ts --maxWorkers=1 --testTimeout=20000` | 2 文件、52/52 通过，退出 0；首次调用误写为根相对路径而未启动测试，修正后完整通过 |
+| TypeScript 与依赖方向 | Workers `tsc --noEmit`、根 `pnpm type-check`、根 `pnpm lint` | 通过；根 TypeScript 7/7、依赖方向 4 个 package，均退出 0 |
+| OCR 残留与时序契约 | `rg` 检查 App/锁文件/Pod/脚本，PowerShell 回读生产常量与 999/1000ms、1500ms、Ticker-disabled 测试标记 | 运行代码和依赖无 ML Kit/reader/开关残留；500+250+250=1000ms，旧 1,529,856us 与 1530ms 标记无残留 |
+| iOS 配置 | Git Bash `bash -n apps/flutter-app/tool/run_ios_simulator.sh`；按 Git LF 内容核对 Podfile SHA-1 | 脚本语法通过；`Podfile.lock` checksum 修正为 `dd705fc5870a3ff767d4e7c2ebbb915f404deb02`，与提交内容一致 |
+| 补丁完整性 | `git diff --check`、冲突标记搜索 | 通过，退出 0 |
+
+Code Review 自审通过：源提交 24 个改动路径全部覆盖，pHash 重叠文件按当前 `r/g/b` 契约合并；四个 PE-Core 文件均以 100% rename 移至未打包目录，RTMDet 资源未动。复核确认 25 秒总网络 Deadline、10 秒连接/12 秒接收超时、服务端 Top 5、失败/No Match、Quota 与确认入库分支没有被本轮 OCR/时序改动覆盖；未发现剩余代码级阻断项。
+
+未运行 `flutter test`、`flutter analyze`、Dart formatter、Android APK/AAB 构建、CocoaPods 实际解析、iOS 编译/签名、安装包体积对比或两端真机扫描计时，因为当前环境没有 Flutter/Dart、Android Flutter 工具链、CocoaPods/Xcode 和测试设备。静态测试代码已更新，但这些动态结果不得标记为通过；需在 Flutter 3.44.x 环境补跑 `test/scan_result_source_test.dart`、`test/widget/scan_page_test.dart`、分析和两端构建，并在真机确认包体、识别耗时及状态反馈。本轮未部署 dev/prod、未执行远程数据库操作、未发布 App，也未推送远端分支。

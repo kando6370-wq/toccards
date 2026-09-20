@@ -23,23 +23,11 @@ done
 
 cd "$APP_DIR"
 
-export KANDO_IOS_SIMULATOR_DISABLE_MLKIT=1
-
-restore_device_pods() {
-  unset KANDO_IOS_SIMULATOR_DISABLE_MLKIT
-  (cd ios && pod install >/dev/null)
-}
-
-trap restore_device_pods EXIT
-
-(cd ios && pod install >/dev/null)
-
 build_started_at="$(date +%s)"
 
 if flutter run \
   --flavor test \
   --dart-define-from-file=config/test.json \
-  --dart-define=DISABLE_MLKIT_OCR=true \
   "$@"; then
   exit 0
 fi

@@ -8,7 +8,6 @@ import 'package:uuid/uuid.dart';
 
 import '../../shared/scan/scan_api_client.dart';
 import '../../shared/scan/scan_card_recognizer.dart';
-import '../../shared/scan/scan_card_number_reader.dart';
 import '../../shared/scan/scan_providers.dart';
 import '../auth/auth_controller.dart';
 import '../auth/auth_models.dart';
@@ -136,7 +135,6 @@ final scanResultSourceProvider = Provider<ScanResultSource>(
     session: () => ref.read(authControllerProvider).session,
     imagePicker: ImagePickerScanImagePicker(),
     cardRecognizer: createScanCardRecognizer(),
-    cardNumberReader: createScanCardNumberReader(),
     appInfo: _readScanAppInfo,
     localPremiumVerified: () =>
         ref.read(subscriptionControllerProvider).isPro ||
@@ -225,7 +223,6 @@ class ApiScanResultSource implements ScanResultSource {
     required ScanImagePicker imagePicker,
     required ScanCardRecognizer cardRecognizer,
     required Future<ScanAppInfo> Function() appInfo,
-    ScanCardNumberReader? cardNumberReader,
     bool Function()? localPremiumVerified,
     ValueChanged<ScanQuotaDto>? onQuotaChanged,
   }) : _api = api,
@@ -234,15 +231,13 @@ class ApiScanResultSource implements ScanResultSource {
        _cardRecognizer = cardRecognizer,
        _appInfo = appInfo,
        _localPremiumVerified = localPremiumVerified ?? _false,
-       _onQuotaChanged = onQuotaChanged,
-       _cardNumberReader = cardNumberReader ?? const _NoopCardNumberReader();
+       _onQuotaChanged = onQuotaChanged;
 
   final ScanApi _api;
   final AuthSession? Function() _session;
   final ScanImagePicker _imagePicker;
   final ScanCardRecognizer _cardRecognizer;
   final Future<ScanAppInfo> Function() _appInfo;
-  final ScanCardNumberReader _cardNumberReader;
   final bool Function() _localPremiumVerified;
   final ValueChanged<ScanQuotaDto>? _onQuotaChanged;
   Future<void> _reservationTail = Future<void>.value();
@@ -317,10 +312,9 @@ class ApiScanResultSource implements ScanResultSource {
         );
       }
       final info = await _appInfo();
-      final embedding = await _cardRecognizer.process(image.bytes);
-      displayImageBytes = embedding.cardImageBytes;
+      final hashes = await _cardRecognizer.process(image.bytes);
+      displayImageBytes = hashes.cardImageBytes;
       onDisplayImageReady?.call(displayImageBytes);
-      final cardNumber = await _cardNumberReader.read(embedding.cardImageBytes);
       await previousReservation;
       try {
         final reservationApi = _api is ScanQuotaReservationApi
@@ -339,13 +333,12 @@ class ApiScanResultSource implements ScanResultSource {
       }
       recognition = await _api.recognizeImage(
         session,
-        embedding: embedding,
+        hashes: hashes,
         fileName: image.fileName,
         platform: info.platform,
         appVersion: info.appVersion,
         requestId: requestId,
         localPremiumVerified: _localPremiumVerified(),
-        cardNumber: cardNumber,
       );
     } on ScanApiException catch (error) {
       if (error.code == 'SCAN_QUOTA_EXHAUSTED' && error.quota != null) {
@@ -437,13 +430,6 @@ class ApiScanResultSource implements ScanResultSource {
 }
 
 bool _false() => false;
-
-class _NoopCardNumberReader implements ScanCardNumberReader {
-  const _NoopCardNumberReader();
-
-  @override
-  Future<String?> read(Uint8List cardImageBytes) async => null;
-}
 
 Future<ScanAppInfo> _readScanAppInfo() async {
   final packageInfo = await PackageInfo.fromPlatform();

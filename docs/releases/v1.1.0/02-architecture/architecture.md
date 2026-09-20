@@ -8,16 +8,16 @@ Flutter App --------------------+
 React Admin -- Worker assets ----+       |-- PlanetScale PostgreSQL（经 Hyperdrive）: 业务与目录真源
                                          |-- KV: 可重建缓存
                                          |-- R2: 扫描图片
-                                         +-- Apple / OAuth / recognize-vec / 邮件 / 汇率
+                                         +-- Apple / OAuth / pHash 识别 / 邮件 / 汇率
 
 Marketing Web -----------------------> 独立 Cloudflare 静态站点
 ```
 
 上图仅为 prod 的 Cloudflare 部署结构。`apps/workers-api/src/app.ts` 组合共享 Hono 路由、CORS 与定时任务；`src/index.ts` 负责 Cloudflare fetch/scheduled 适配和每请求/定时任务的 PostgreSQL 连接生命周期。App 和 Admin 通过 API 访问服务端数据；共享路由负责鉴权、所有者隔离、Premium 服务端授权与幂等。prod Admin 静态产物由 `wrangler.toml` 的 assets 配置托管，Marketing 使用独立 Wrangler 配置。
 
-dev 的 Linux Node 入口 `src/linux/server.ts` 复用相同 Hono 应用和 `PostgresDatabase`：从 `DATABASE_URL` 连接独立 PostgreSQL，使用带 TTL 的内存 KV 与本地图片卷；标准部署由 Caddy 托管 Admin 并反向代理 API/share，离线模式使用 Node 静态服务。App `APP_ENV=test` 与 Admin development 默认请求此 Linux 入口；API 使用 `APP_ENVIRONMENT=development`，经 HTTP 复用独立 CF 向量识别服务。旧 CF dev 不再运行或发布，见[Linux 测试环境](linux-test-environment.md)。
+dev 的 Linux Node 入口 `src/linux/server.ts` 复用相同 Hono 应用和 `PostgresDatabase`：从 `DATABASE_URL` 连接独立 PostgreSQL，使用带 TTL 的内存 KV 与本地图片卷；标准部署由 Caddy 托管 Admin 并反向代理 API/share，离线模式使用 Node 静态服务。App `APP_ENV=test` 与 Admin development 默认请求此 Linux 入口；API 使用 `APP_ENVIRONMENT=development`，经 HTTP 复用独立 CF pHash 识别服务。旧 CF dev 不再运行或发布，见[Linux 测试环境](linux-test-environment.md)。
 
-dev 扫描识别使用端侧 RTMDet-Ins 与 PE-Core-T16，Linux API 通过 HTTP 向 `recognize-vec` 只发送向量；候选补全、Queue、额度、目录、资产和图片读写留在 Linux PostgreSQL/本地卷。上图仅描述 prod，其运行协议与仓库配置的区别按实际部署版本核验；详见[扫描识别链路](../01-flows/scan-recognition.md)。
+dev 扫描识别使用端侧 RTMDet-Ins 裁剪和 Dart RGB pHash，Linux API 通过 HTTP 只发送 `{r,g,b,game_id?}`；候选补全、Queue、额度、目录、资产和图片读写留在 Linux PostgreSQL/本地卷。上图仅描述 prod，其运行协议与仓库配置的区别按实际部署版本核验；详见[扫描识别链路](../01-flows/scan-recognition.md)。
 
 ## 2. 客户端与页面边界
 

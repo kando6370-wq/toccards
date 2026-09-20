@@ -116,9 +116,9 @@ Card AI 面向交易卡牌用户提供目录搜索、图片识别、Wishlist/Col
 
 ### 3.3 扫描与服务端额度
 
-1. App 拍照或选图，经端侧模型检测和原生透视矫正生成 512 维卡面向量，提交矫正图片、`vector`、`request_id` 和同值 `Idempotency-Key`；见[扫描识别链路](scan-recognition.md)。
+1. App 拍照或选图，经端侧模型检测和原生透视矫正生成 RGB 三通道 pHash，提交矫正图片、`r/g/b`、`request_id` 和同值 `Idempotency-Key`；见[扫描识别链路](scan-recognition.md)。
 2. Workers 先按当前 session grant 判断 Premium；Free 请求以一条条件 INSERT 原子预占额度。
-3. 矫正图片写入私有 R2，Workers 经 `VECTOR_RECOGNITION` Service Binding 向 `recognize-vec` 仅发送向量，返回成功候选、无匹配或失败。
+3. 矫正图片写入私有 R2，Workers 经 `VECTOR_RECOGNITION` 识别边界仅发送 `{r,g,b,game_id?}`，返回成功候选、无匹配或失败。
 4. 仅完整可用 Matched 消费 Free 额度；No Match、目录不完整及技术失败释放预占，并返回最新 Quota。
 5. 用户在 Review 选择结果，调用 `/scan/:scan_id/confirm` 创建收藏记录。
 
@@ -254,7 +254,7 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 |---|---|---|---|
 | StoreKit/App Store | 上游 | 商品、交易、current entitlement | 商品不可售、购买/Restore 无法完成 |
 | Apple Notifications/Server API | 上游校正 | JWS、通知、当前交易历史 | 生命周期延迟；inbox/校正任务应保留并重试 |
-| recognize-vec | 内部识别服务 | 512 维向量检索候选 | Scan 失败并释放 Free 预占 |
+| pHash 识别服务 | 内部识别服务 | RGB pHash 检索候选 | Scan 失败并释放 Free 预占 |
 | PlanetScale PostgreSQL / Hyperdrive | 核心真源与连接边界 | 参数化 PostgreSQL SQL | 账号、资产、额度、订阅和 Admin 不可用 |
 | KV | 缓存 | 目录/汇率快照 | 可回源或显式失败，不能改变授权真值 |
 | R2 | 对象存储 | 受保护的矫正卡面图片 | 缺少 binding 或上传失败时识别失败并释放预占；Admin 读取仍需授权 |

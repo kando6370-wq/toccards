@@ -350,7 +350,7 @@ class _PendingScan {
   final int token;
   final int? quotaPromptBatchId;
   ScanResolution? resolution;
-  var revealTimelineFinished = false;
+  var minimumDurationFinished = false;
   var removedFromUi = false;
   AnimationController? revealController;
 }
@@ -365,7 +365,10 @@ class ScanPage extends ConsumerStatefulWidget {
 class _ScanPageState extends ConsumerState<ScanPage>
     with TickerProviderStateMixin, WidgetsBindingObserver {
   static const _maxQueueItems = 10;
-  static const _revealTimelineDuration = Duration(microseconds: 1529856);
+  static const _minimumRecognitionDuration = Duration(seconds: 1);
+  static const _recognizingDelay = Duration(milliseconds: 500);
+  static const _revealDelay = Duration(milliseconds: 250);
+  static const _revealTimelineDuration = Duration(milliseconds: 250);
   static const _captureAnimationDuration = Duration(milliseconds: 500);
   static const _galleryCameraWarmupDuration = Duration(milliseconds: 500);
 
@@ -1245,7 +1248,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     );
     _watchScanResolution(itemId, token, resultFuture);
 
-    final timer = Timer(const Duration(seconds: 1), () {
+    final recognizingTimer = Timer(_recognizingDelay, () {
       final existing = _currentItem(
         itemId,
         token,
@@ -1257,11 +1260,21 @@ class _ScanPageState extends ConsumerState<ScanPage>
       _replaceItem(existing.copyWith(status: _ScanItemStatus.recognizing));
       _scheduleReveal(itemId, token);
     });
-    _scanTimers.add(timer);
+    final minimumDurationTimer = Timer(_minimumRecognitionDuration, () {
+      final pending = _pendingScans[itemId];
+      if (pending == null || pending.token != token) {
+        return;
+      }
+      pending.minimumDurationFinished = true;
+      _completeScanIfReady(itemId, token);
+    });
+    _scanTimers
+      ..add(recognizingTimer)
+      ..add(minimumDurationTimer);
   }
 
   void _scheduleReveal(int itemId, int token) {
-    final timer = Timer(const Duration(seconds: 1), () {
+    final timer = Timer(_revealDelay, () {
       final existing = _currentItem(
         itemId,
         token,
@@ -1289,40 +1302,17 @@ class _ScanPageState extends ConsumerState<ScanPage>
     final disableAnimations = MediaQuery.of(context).disableAnimations;
     if (disableAnimations) {
       controller.value = 1;
-      _markRevealTimelineFinished(itemId, token);
     } else {
-      unawaited(_waitForRevealTimeline(itemId, token, controller));
+      unawaited(_waitForRevealTimeline(controller));
     }
   }
 
-  Future<void> _waitForRevealTimeline(
-    int itemId,
-    int token,
-    AnimationController controller,
-  ) async {
+  Future<void> _waitForRevealTimeline(AnimationController controller) async {
     try {
       await controller.forward(from: 0).orCancel;
     } on TickerCanceled {
       return;
     }
-    _markRevealTimelineFinished(itemId, token);
-  }
-
-  void _markRevealTimelineFinished(int itemId, int token) {
-    final existing = _currentItem(
-      itemId,
-      token,
-      expectedStatus: _ScanItemStatus.revealing,
-    );
-    if (existing == null) {
-      return;
-    }
-    final pending = _pendingScans[itemId];
-    if (pending == null || pending.token != token) {
-      return;
-    }
-    pending.revealTimelineFinished = true;
-    _completeScanIfReady(itemId, token);
   }
 
   Future<void> _watchScanResolution(
@@ -1460,16 +1450,12 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   void _completeScanIfReady(int itemId, int token) {
-    final item = _currentItem(
-      itemId,
-      token,
-      expectedStatus: _ScanItemStatus.revealing,
-    );
+    final item = _currentItem(itemId, token);
     final pending = _pendingScans[itemId];
     if (item == null ||
         pending == null ||
         pending.token != token ||
-        !pending.revealTimelineFinished ||
+        !pending.minimumDurationFinished ||
         pending.resolution == null) {
       return;
     }

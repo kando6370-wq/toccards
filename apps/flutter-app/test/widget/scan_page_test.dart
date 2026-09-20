@@ -268,7 +268,6 @@ void main() {
         ),
       );
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 1530));
 
       expect(find.text('10 scans remaining'), findsOneWidget);
       expect(find.text('Tap to get unlimited scans'), findsOneWidget);
@@ -1290,7 +1289,7 @@ void main() {
 
       await _pumpScanTestApp(tester);
       await tester.tap(find.byTooltip('Take Photo'));
-      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(milliseconds: 500));
 
       final visible = tester.getRect(
         find.byKey(const Key('scan-figma-viewfinder')),
@@ -1387,7 +1386,7 @@ void main() {
 
       await tester.tap(find.byTooltip('Take Photo'));
       await tester.pump();
-      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(milliseconds: 500));
 
       expect(
         find.byKey(const Key('scan-figma-recognizing-overlay')),
@@ -1427,7 +1426,7 @@ void main() {
       );
 
       await tester.tap(find.byTooltip('Take Photo'));
-      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(milliseconds: 500));
 
       expect(
         tester.renderObject(find.byKey(const Key('scan-figma-top-bar'))),
@@ -1446,7 +1445,7 @@ void main() {
         initialDoneRect,
       );
 
-      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(milliseconds: 250));
 
       expect(
         tester.renderObject(find.byKey(const Key('scan-figma-top-bar'))),
@@ -1471,7 +1470,7 @@ void main() {
 
       pending.complete(const ScanResolution.failed());
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 1530));
+      await tester.pump(const Duration(milliseconds: 250));
       await tester.pump();
 
       expect(
@@ -1511,7 +1510,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Take Photo'));
-    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(
       find.text('10 scans remaining'),
@@ -1532,7 +1531,8 @@ void main() {
       await _pumpScanTestApp(tester);
 
       await tester.tap(find.byTooltip('Take Photo'));
-      await tester.pump(const Duration(seconds: 2));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 250));
 
       expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
       expect(find.text('Scanning...'), findsOneWidget);
@@ -1554,7 +1554,8 @@ void main() {
       await _pumpScanTestApp(tester);
 
       await tester.tap(find.byTooltip('Take Photo'));
-      await tester.pump(const Duration(seconds: 2));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 250));
 
       final progress = tester.widget<CircularProgressIndicator>(
         find.byKey(const Key('scan-recognition-progress')),
@@ -1587,8 +1588,9 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Take Photo'));
-    await tester.pump(const Duration(seconds: 2));
-    await tester.pump(const Duration(milliseconds: 1500));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump(const Duration(milliseconds: 245));
 
     expect(tester.getTopLeft(find.byTooltip('Choose from Library')).dx, 28);
     expect(tester.getTopLeft(find.byTooltip('Choose from Library')).dy, 750);
@@ -1596,7 +1598,7 @@ void main() {
     expect(
       find.text('10 scans remaining'),
       findsOneWidget,
-      reason: 'Reveal feedback must finish before the displayed count changes.',
+      reason: 'The one-second minimum must finish before the result appears.',
     );
     await expectLater(
       find.byKey(const Key('scan-revealing-figma-golden')),
@@ -1620,8 +1622,9 @@ void main() {
     );
 
     await tester.tap(find.byTooltip('Take Photo'));
-    await tester.pump(const Duration(seconds: 2));
-    await tester.pump(const Duration(milliseconds: 800));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump(const Duration(milliseconds: 125));
     await tester.tap(find.byKey(const Key('scan-delete-item-1')));
     await tester.pump();
 
@@ -1637,13 +1640,12 @@ void main() {
       ),
     );
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 800));
     await tester.pump();
     expect(find.byKey(const Key('scan-active-item-1')), findsNothing);
   });
 
   testWidgets(
-    'Figma scan waits for its reveal animation before showing a completed recognition',
+    'a fast recognition waits only for the one-second minimum',
     (tester) async {
       await _pumpScanTestApp(
         tester,
@@ -1661,16 +1663,19 @@ void main() {
       );
 
       await tester.tap(find.byTooltip('Take Photo'));
-      await tester.pump(const Duration(seconds: 2));
-      await tester.pump(const Duration(seconds: 2));
+      await tester.pump(const Duration(milliseconds: 999));
 
       expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
       expect(find.text('Matched'), findsNothing);
+
+      await tester.pump(const Duration(milliseconds: 1));
+
+      expect(find.text('Matched'), findsOneWidget);
     },
   );
 
   testWidgets(
-    'A delayed Figma recognition remains in reveal feedback until it resolves',
+    'a recognition slower than one second displays immediately when it resolves',
     (tester) async {
       final result = Completer<ScanResolution>();
       await _pumpScanTestApp(
@@ -1679,8 +1684,7 @@ void main() {
       );
 
       await tester.tap(find.byTooltip('Take Photo'));
-      await tester.pump(const Duration(seconds: 2));
-      await tester.pump(const Duration(milliseconds: 1530));
+      await tester.pump(const Duration(milliseconds: 1500));
 
       expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
       expect(find.text('Matched'), findsNothing);
@@ -1694,9 +1698,8 @@ void main() {
         ),
       );
       await tester.pump();
-      await tester.pump();
 
-      expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
+      expect(find.text('Matched'), findsOneWidget);
     },
   );
 
@@ -2210,8 +2213,6 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
-    await tester.pump(const Duration(seconds: 1));
-    await tester.pump(const Duration(milliseconds: 1530));
 
     expect(find.text('Matched'), findsNothing);
     await tester.tap(find.byTooltip('Close Scan'));
@@ -3097,7 +3098,7 @@ void main() {
     expect(find.byKey(const Key('scan-figma-scanning-line')), findsNothing);
     expect(find.byTooltip('Take Photo'), findsOneWidget);
 
-    await tester.pump(const Duration(seconds: 4));
+    await tester.pump(const Duration(seconds: 1));
     expect(find.text('Matched'), findsNothing);
   });
 
@@ -3336,7 +3337,7 @@ void main() {
 
     await tester.tap(find.byTooltip('Take Photo'));
     await tester.tap(find.byTooltip('Choose from Library'));
-    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(
       find.byKey(const Key('scan-figma-recognizing-overlay')),
@@ -3349,8 +3350,7 @@ void main() {
     expect(find.byTooltip('Take Photo'), findsOneWidget);
     expect(find.byTooltip('Choose from Library'), findsOneWidget);
 
-    await tester.pump(const Duration(seconds: 1));
-    await tester.pump(const Duration(milliseconds: 1530));
+    await tester.pump(const Duration(milliseconds: 500));
     expect(find.text('Mega Lucario ex'), findsOneWidget);
     expect(find.text('No Match Found'), findsOneWidget);
   });
@@ -4343,8 +4343,7 @@ void main() {
 
 Future<void> _completeFigmaScan(WidgetTester tester) async {
   await tester.pump(const Duration(seconds: 1));
-  await tester.pump(const Duration(seconds: 1));
-  await tester.pump(const Duration(milliseconds: 1530));
+  await tester.pump();
 }
 
 Future<void> _pumpScanTestApp(
