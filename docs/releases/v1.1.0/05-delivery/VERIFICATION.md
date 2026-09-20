@@ -2,6 +2,16 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## iOS 测试内部包 1.0.2 (149)（2026-09-20）
+
+按用户要求基于当前 `dev@7a0cdaa` 构建蒲公英可安装的 iOS 测试内部包。构建前工作区干净，源码版本为 `1.0.2+148`；测试环境继续连接 Linux dev `http://192.168.50.201:8080/api/v1`，其 `/health` 返回 HTTP 200、`status=ok`。执行网络超时、环境、归因、Portfolio 和订阅相关测试共 93 项，以及首次引导与启动门禁测试 21 项，全部通过、退出 0。两组测试并行启动时各自输出过一次共享 `build/unit_test_assets` 清理告警，但测试进程随后均完整执行并以 `All tests passed`、退出 0 结束；该工具目录争用不计作业务失败。
+
+执行 `./tool/release_ios.sh --env test --pgy --build-number 149`，依赖按现有锁文件解析，`flutter analyze`、清理、Xcode 归档、App Store IPA 导出及内部 IPA 打包均通过，脚本退出 0。依赖工具提示 120 个与当前约束不兼容的可用新版，没有升级依赖，Dart/CocoaPods 锁文件未变化。Flutter 另提示三个现有 Google ML Kit 插件未来不支持 Swift Package Manager，以及其传递依赖不支持 Apple Silicon iOS 26+ 模拟器 arm64；本次 CocoaPods 真机 Release 归档与 IPA 不受阻断。
+
+最终内部 IPA 为 `1.0.2 (149)`，Bundle ID `com.kando.kandoApp.beta`，Apple Development 签名、`get-task-allow=true`、App Attest `development`；测试 Firebase、内网 API 字符串和签名完整性均由脚本解包校验通过，41 个 Mach-O UUID 均有匹配 dSYM。IPA 为 54,083,090 字节，SHA-256 `8121216bd1a08e6f0ec68c463017705a59721ac070773167af52230426176c9a`；`dSYMs.zip` 为 63,507,301 字节，SHA-256 `1f8298140376ae15770d586503ae0c6563ed0a6ab7933a017dafa1a0ae6bcea5`。两者保存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.2-149/`，Xcode 归档另存于 `~/Library/Developer/Xcode/Archives/2026-09-20/Card AI Test 1.0.2 (149).xcarchive`；归档回读 Bundle ID 与构建号正确。测试包目录现保留 147、148、149，旧 146 已移入废纸篓，可恢复；源码版本同步为 `1.0.2+149`。
+
+未运行：iOS 真机首次引导、登录、订阅、扫描及局域网业务验收，Android 构建/真机验证，Flutter 全仓测试。本次没有安装设备、上传蒲公英或 App Store Connect、Git push、服务端部署或远程数据写入；客户端测试人员仍需在能访问 `192.168.50.201:8080` 且允许本地网络权限的已登记设备上安装验收。
+
 ## 生产慢接口二次诊断与认证/额度收敛（2026-09-20，prod 未部署）
 
 本轮继续以 Cloudflare `$workers.wallTimeMs >= 1000` 与正式 Mixpanel `api_timing` 为两个不同口径：前者是 Worker 服务端执行 wall time，后者仅由 Flutter 对客户端端到端耗时至少 3 秒的请求上报。当前浏览器控制通道无法读取用户提供的两个报表；现有 Wrangler OAuth 可执行只读 tail，但调用历史 Observability API 返回 Cloudflare `10000 Authentication error`，没有刷新七天历史明细。Mixpanel Secret 不在本机，kd201 又没有可用的非交互 SSH 登录，因此也没有刷新 Mixpanel；下节 2026-09-18 的 511 条分布仍是最近一次已验证快照，不能当作 9 月 20 日实时数据。
