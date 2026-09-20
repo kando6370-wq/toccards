@@ -51,7 +51,7 @@ export async function reserveScanQuota(
   options: { startProcessing?: boolean } = {},
 ): Promise<ScanQuotaReservation> {
   const startProcessing = options.startProcessing ?? true;
-  const existing = await findRequest(db, requestId);
+  const existing = startProcessing ? await findRequest(db, requestId) : null;
   if (existing) {
     if (
       existing.owner_type === owner.owner_type &&
@@ -199,19 +199,8 @@ export async function settleScanQuota(
   response: { body: unknown; status: number } | null = null,
   now = new Date(),
 ): Promise<ScanQuotaSnapshot | null> {
-  const request = await findRequest(db, requestId);
-  if (
-    !request ||
-    request.owner_type !== owner.owner_type ||
-    request.owner_id !== owner.owner_id ||
-    request.session_id !== owner.session_id
-  ) {
-    return null;
-  }
-  if (request.status !== "reserved") return readQuota(db, owner, now);
-
   const timestamp = now.toISOString();
-  await db
+  const settled = await db
     .prepare(`
       UPDATE scan_quota_request
       SET status = ?, scan_id = COALESCE(?, scan_id), response_json = ?,
@@ -233,6 +222,19 @@ export async function settleScanQuota(
       timestamp,
     )
     .run();
+  if (settled.meta.changes === 1) {
+    return readQuota(db, owner, now);
+  }
+
+  const request = await findRequest(db, requestId);
+  if (
+    !request ||
+    request.owner_type !== owner.owner_type ||
+    request.owner_id !== owner.owner_id ||
+    request.session_id !== owner.session_id
+  ) {
+    return null;
+  }
   return readQuota(db, owner, now);
 }
 
@@ -288,12 +290,15 @@ async function readQuota(
   const row = await db
     .prepare(`
       SELECT
-        SUM(CASE WHEN access_mode = 'free' AND status = 'reserved'
+        SUM(CASE WHEN status = 'reserved'
           AND processing_expires_at > ? THEN 1 ELSE 0 END)
           AS reserved_count,
-        SUM(CASE WHEN access_mode = 'free' AND status = 'consumed' THEN 1 ELSE 0 END)
+        SUM(CASE WHEN status = 'consumed' THEN 1 ELSE 0 END)
           AS consumed_count
-      FROM scan_quota_request WHERE owner_type = ? AND owner_id = ?
+      FROM scan_quota_request
+      WHERE owner_type = ? AND owner_id = ?
+        AND access_mode = 'free'
+        AND status IN ('reserved', 'consumed')
     `)
     .bind(now.toISOString(), owner.owner_type, owner.owner_id)
     .first<{ reserved_count: number | null; consumed_count: number | null }>();

@@ -167,6 +167,11 @@ LIMIT ${VALUATION_EVENT_LIMIT + 1}
   );
   const relevantEvents = [...eventsByItem.values()].flat();
   const cardRefs = [...new Set(relevantEvents.map((event) => event.card_ref))];
+  const folderIdSet = new Set(folderIds);
+  const currentStates = statesOnDate(eventsByItem, endDate).filter((state) =>
+    folderIdSet.has(state.folder_id)
+  );
+  const currentCardRefs = [...new Set(currentStates.map((state) => state.card_ref))];
   const [skus, cards] = await Promise.all([
     loadSkus(
       db,
@@ -174,12 +179,11 @@ LIMIT ${VALUATION_EVENT_LIMIT + 1}
       shiftDate(endDate, -Math.max(days, 1) - 30),
       endDate,
     ),
-    loadCards(db, cardRefs),
+    loadCards(db, currentCardRefs),
   ]);
   const skusByProduct = groupSkus(skus);
   const cardsByProduct = new Map(cards.map((card) => [card.product_id, card]));
   const dates = dateKeys(now, days);
-  const folderIdSet = new Set(folderIds);
   const seriesByFolder = new Map(
     folderIds.map((folderId) => [
       folderId,
@@ -190,12 +194,11 @@ LIMIT ${VALUATION_EVENT_LIMIT + 1}
     matchingPriceByState: new WeakMap(),
     priceHistoryByValue: new Map(),
   };
-  let currentStates: ItemEventRow[] = [];
-
   for (const date of dates) {
     const totals = new Map<string, number>();
-    const states = statesOnDate(eventsByItem, date);
-    if (date === endDate) currentStates = states;
+    const states = date === endDate
+      ? currentStates
+      : statesOnDate(eventsByItem, date);
     for (const state of states) {
       if (!folderIdSet.has(state.folder_id)) continue;
       const matched = matchingPriceForState(

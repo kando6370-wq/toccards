@@ -240,7 +240,7 @@ function logSlowScanRecognitionTiming(
   const completed = performance.now();
   const duration = (from: number, to: number) => Math.max(0, Math.round(to - from));
   const totalMs = duration(checkpoints.started, completed);
-  if (totalMs < 3000) return;
+  if (totalMs < 1000) return;
   console.info("scan_recognize_timing", JSON.stringify({
     outcome,
     total_ms: totalMs,

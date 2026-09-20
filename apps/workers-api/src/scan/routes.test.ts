@@ -451,6 +451,50 @@ describe("scan routes", () => {
     ]);
   });
 
+  it("inserts a new queued reservation before lookup because the common reserve path must avoid an empty read", async () => {
+    const env = await createRecognitionEnv();
+    const token = await recognitionToken(env);
+    const requestId = crypto.randomUUID();
+
+    const response = await app.request(
+      "/api/v1/scan/quota/reserve",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "Idempotency-Key": requestId,
+        },
+        body: JSON.stringify({ request_id: requestId }),
+      },
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    expect(env.queries.filter((sql) =>
+      sql.includes("FROM scan_quota_request WHERE request_id = ?")
+    )).toHaveLength(0);
+
+    const replay = await app.request(
+      "/api/v1/scan/quota/reserve",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "Idempotency-Key": requestId,
+        },
+        body: JSON.stringify({ request_id: requestId }),
+      },
+      env,
+    );
+    expect(replay.status).toBe(200);
+    expect(await replay.json()).toMatchObject({
+      data: { request_id: requestId, quota: { reserved: 1, remaining: 9 } },
+    });
+    expect(await readRows(env.DB, "scan_quota_request")).toHaveLength(1);
+  });
+
   it("starts independent quota and Premium reads together because a quota refresh must not add their database waits", async () => {
     const env = await createRecognitionEnv();
     const token = await recognitionToken(env);
@@ -485,6 +529,40 @@ describe("scan routes", () => {
         data: { access: "free", reserved: 0, consumed: 0, remaining: 10 },
       });
     }
+  });
+
+  it("filters non-billable quota history in SQL because released and Premium audits must not slow lifetime quota reads", async () => {
+    const env = await createRecognitionEnv();
+    const token = await recognitionToken(env);
+
+    const response = await app.request(
+      "/api/v1/scan/quota",
+      { headers: { Authorization: `Bearer ${token}` } },
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    const quotaSql = env.queries.find((sql) => sql.includes("AS reserved_count"));
+    expect(quotaSql?.replace(/\s+/g, " ")).toContain(
+      "WHERE owner_type = ? AND owner_id = ? AND access_mode = 'free' AND status IN ('reserved', 'consumed')",
+    );
+  });
+
+  it("settles a processed scan without re-reading its reservation because success must not add a database wait", async () => {
+    const env = await createRecognitionEnv();
+    const token = await recognitionToken(env);
+    stubVectorRecognition(
+      env,
+      vi.fn().mockResolvedValue(Response.json({ candidates: [] })),
+    );
+
+    const response = await recognize(env, token, { vector: VECTOR });
+
+    expect(response.status).toBe(200);
+    const requestLookups = env.queries.filter((sql) =>
+      sql.includes("FROM scan_quota_request WHERE request_id = ?")
+    );
+    expect(requestLookups).toHaveLength(1);
   });
 
   it("keeps entitlement sync required ahead of quota reads because a verified client must receive the original 409", async () => {
@@ -536,6 +614,20 @@ describe("scan routes", () => {
       logs.mockClear();
       expect((await recognize(env, token, { vector: VECTOR })).status).toBe(200);
       expect(logs.mock.calls.some(([name]) => name === "scan_recognize_timing")).toBe(false);
+
+      clock = 0;
+      timing.mockImplementation(() => clock += 40);
+      logs.mockClear();
+      expect((await recognize(env, token, { vector: VECTOR })).status).toBe(200);
+      const thresholdEntry = logs.mock.calls.find(
+        ([name]) => name === "scan_recognize_timing",
+      );
+      expect(thresholdEntry).toBeDefined();
+      const thresholdPayload = JSON.parse(String(thresholdEntry?.[1])) as {
+        total_ms: number;
+      };
+      expect(thresholdPayload.total_ms).toBeGreaterThanOrEqual(1000);
+      expect(thresholdPayload.total_ms).toBeLessThan(3000);
 
       clock = 0;
       timing.mockImplementation(() => clock += 500);

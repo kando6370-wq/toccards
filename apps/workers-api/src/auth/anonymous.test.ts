@@ -306,6 +306,7 @@ class FakeD1 {
     status: "reserved" | "consumed" | "released";
   }> = [];
   installationWrites: unknown[][] = [];
+  reusableAnonymousLookupCount = 0;
   nextAccountUid = 100000;
   consumeNextRegisterCodeBeforeUpdate = false;
   failNextBatch = false;
@@ -398,6 +399,7 @@ class FakeD1 {
     }
 
     if (normalizedSql === SELECT_REUSABLE_ANONYMOUS_ACCOUNT_SQL) {
+      this.reusableAnonymousLookupCount += 1;
       const [deviceId] = values as [string];
       const account = this.anonymousAccounts
         .filter(
@@ -6969,6 +6971,16 @@ describe("POST /api/v1/auth/anonymous", () => {
     expect(db.sessions[1]?.refresh_token).toBe(
       await hashRefreshToken(secondBody.data.refresh_token),
     );
+  });
+
+  it("does not re-read a freshly inserted guest because first launch must not add a redundant database wait", async () => {
+    const env = createTestEnv();
+    const db = fakeD1(env);
+
+    const response = await requestAnonymous(env, "device-single-read");
+
+    expect(response.status).toBe(200);
+    expect(db.reusableAnonymousLookupCount).toBe(1);
   });
 
   it("reuses one stable account when migrated live rows share a creation time", async () => {
