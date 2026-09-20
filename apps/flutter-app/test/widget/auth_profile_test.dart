@@ -452,7 +452,7 @@ void main() {
         case 'error':
           result.completeError(Exception('offline'));
         case 'timeout':
-          await tester.pump(const Duration(seconds: 16));
+          await tester.pump(const Duration(seconds: 26));
           result.complete(AppPremiumState.free);
         case 'leave':
           await tester.tap(find.text('Home'));

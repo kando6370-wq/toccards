@@ -7,7 +7,7 @@ import 'package:kando_app/features/auth/auth_repository.dart';
 
 const cardDataApiBaseUrl = authApiBaseUrl;
 const cardDataResponseVersion = '2';
-const cardDataRequestDeadline = Duration(seconds: 15);
+const cardDataRequestDeadline = Duration(seconds: 25);
 const cardDataRequestTimeoutCode = 'REQUEST_TIMEOUT';
 const cardDataRequestTimeoutMessage = 'Request timed out. Please try again.';
 
@@ -15,8 +15,8 @@ Dio createCardDataDio({String baseUrl = cardDataApiBaseUrl}) {
   return Dio(
     BaseOptions(
       baseUrl: baseUrl,
-      connectTimeout: const Duration(seconds: 5),
-      receiveTimeout: const Duration(seconds: 5),
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 10),
     ),
   );
 }

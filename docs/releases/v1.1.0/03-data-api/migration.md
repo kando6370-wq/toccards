@@ -10,6 +10,16 @@ D1 已废弃，测试环境 dev/test 与正式环境 prod 均已完成 PostgreSQ
 
 2026-09-11 prod 检查只核对 ledger、未验证约束及版本配置，并按单独授权执行 `0011`，没有重查所有业务行数或价格指针。2026-09-15 Linux 独立 `toccards_test` 的 ledger 则随本地发布推进，见下节；两套数据库的历史记录保留原检查日期。后续迁移仍须分别授权，不能因重新部署自动执行。
 
+## 目录搜索 trigram 索引（0013：dev 已执行，prod 未执行）
+
+`apps/workers-api/src/db/postgres/migrations/0013_cards_all_search_trgm.sql` 为现有 `cards_all` 拼接字段的 `lower(...) LIKE '%词%'` 表达式创建 `pg_trgm` GIN 索引，不改搜索词拆分、过滤、排序、分页或业务表字段。Search 的价格读取同时只从 PostgreSQL 取 Raw 价格；Card Detail、Market Prices、价格历史及资产估值仍读取各自需要的完整价格维度。旧版 Worker 可继续使用数据库，代码回退时索引可保留。
+
+dev 与 prod 是独立 PostgreSQL，必须分别确认 `pg_trgm` 可用、`cards_all` 行数/索引体积、磁盘余量、迁移 ledger 和建索引期间的写入负载。Linux `migrate.sh` 在事务内运行 SQL，普通 GIN 建索引可能阻塞目录写入；prod 不应在业务高峰直接运行该事务。正式环境需另行授权、备份并预先在事务外按同一表达式使用 `CREATE INDEX CONCURRENTLY` 建立同名索引，确认有效且查询计划实际采用后，再登记/执行幂等的 `0013`。若扩展不可用或计划不采用索引，应暂停上线，不改变搜索语义来绕过问题。回滚可在事务外并发删除该索引；旧查询保持正确但冷搜索可能变慢，`pg_trgm` 扩展仅在确认无其他依赖时才可移除。
+
+2026-09-18 kd201 watcher 已在 `dev@bfbb61d` 的发布前备份后执行 `0013`；只读回读确认 ledger 登记、`pg_trgm` 扩展存在，`idx_cards_all_search_trgm` 的 `indisvalid/indisready` 均为 true。dev 目录表规划估计约 240.5 万行、525 MB，索引约 220 MB。对与 Search 相同的 `%pikachu%` 表达式、TCG 过滤和排序执行一次只读 `EXPLAIN (ANALYZE, BUFFERS)`，使用 `Bitmap Index Scan on idx_cards_all_search_trgm`，规划 53.8 ms、执行 8.253 ms；该单次内网计划不证明一般 P95 或 prod 提速。prod 未执行此 migration，也未获取 prod 查询计划。
+
+2026-09-20 性能提交 `dev@9488a15` 由 kd201 watcher 发布，没有新增 migration；独立 dev PostgreSQL ledger 仍为 14 项，`0013` 保持最新。API/DB healthy、migration 容器退出 0；本次发布前 custom-format 备份为 1,120,850,087 字节并通过 `pg_restore --list`。该结果证明 dev 继续使用已登记索引，不代表 prod 已预建或登记 `0013`；prod 边界与并发建索引要求保持不变。
+
 ## Scan confirm Purchase Price 事件修复（0012）
 
 `apps/workers-api/src/db/postgres/migrations/0012_scan_confirm_purchase_price_event.sql` 不改变 Schema，只补齐旧 Scan confirm 创建的初始 `collection_item_event` 中遗漏的 Purchase Price、币种和可靠历史起点。修复范围由已确认 `scan_record.user_result.collection_item_id` 精确关联，仅处理主记录当前仍有 Purchase Price、初始事件的购买价与币种均为空的记录；非扫描创建记录、后续编辑事件和当前无 Purchase Price 的记录保持不变。迁移可重复执行。
@@ -221,7 +231,7 @@ PostgreSQL migration manifest 测试保护 `0007` 的顺序与内容；远程 Sc
 
 `0009_apple_notification_app_bundle.sql` 为 `apple_notification_inbox` 增加非空 `app_bundle_id`。迁移前架构只有 beta Bundle 会产生 Sandbox inbox，因此既有 `Sandbox` 行确定性回填为 `com.kando.kandoApp.beta`；既有 `Production` 行回填为 `com.cardai.tcg`。去重约束改为 `app_bundle_id + environment + payload_sha256`，processing 索引在 environment 前增加 `app_bundle_id`，使 dev 与 production TestFlight 共用 Sandbox 数据库值时仍不能互抢通知租约。
 
-- 兼容性：migration 通过 `trg_legacy_apple_notification_app_bundle` 为尚未升级的 PostgreSQL Worker 补齐其唯一可能产生的 Bundle，避免 `NOT NULL` 在切换窗口打断 dev 通知持久化；新 Worker始终显式写 Bundle，production TestFlight Sandbox 不依赖该 trigger。PostgreSQL `0009` 已应用，dev/prod 新 Worker均已部署；prod 不迁移 D1 数据。2026-09-07 production App Sandbox URL 在 prod Worker 部署后设置，并与 Production URL 分别通过 Apple 官方 `TEST` 通知验收。
+- 兼容性：migration 通过 `trg_legacy_apple_notification_app_bundle` 为尚未升级的 PostgreSQL Worker 补齐其唯一可能产生的 Bundle，避免 `NOT NULL` 在切换窗口打断 dev 通知持久化；新 Worker 始终显式写 Bundle，production TestFlight Sandbox 不依赖该 trigger。PostgreSQL `0009` 已应用，dev/prod 新 Worker 均已部署；prod 不迁移 D1 数据。2026-09-07 production App Sandbox URL 在 prod Worker 部署后设置，并与 Production URL 分别通过 Apple 官方 `TEST` 通知验收。
 - 回滚：应用代码可回退并保留新列、约束和索引。不得在已接收 production Bundle Sandbox 通知后恢复旧 `(environment, payload_sha256)` 唯一键，否则可能无法重建且会重新引入跨 App 抢租约风险。
 - 环境影响：2026-08-25 执行时只影响 dev 使用及 prod 目标使用的 PostgreSQL Schema，未修改 D1；2026-09-07 prod 切换后，该 Schema 已由两环境共用。
 

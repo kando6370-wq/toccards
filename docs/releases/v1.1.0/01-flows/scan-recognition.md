@@ -1,6 +1,6 @@
 # 扫描识别向量链路
 
-当前源码基线为 `main@659a7c6`（2026-09-10），App 为 `1.0.2+135`。main 的 dev/prod Cloudflare 配置均声明 `VECTOR_RECOGNITION=recognize-vec`；下方来源提交和已部署版本保留历史日期，不能据此推断目标环境已运行当前 main。
+当前 main 合并结果已包含 `dev@8b133ac`，实现基线为 `dev@35c7f87`（2026-09-20），App 为 `1.0.2+149`。prod Cloudflare 通过 Service Binding、dev Linux 通过 HTTP 适配调用 `recognize-vec`；prod 现网仍按 `main@759b072` 的独立发布证据判断，dev Linux API 实际运行 `dev@9488a15`。下方来源提交和已部署版本保留历史日期，不能据此推断目标环境已运行当前 main。
 
 本实现从历史提交 `dev-xiangyang@ceef1af` 按识别代码段移植为 `e18543a`，基线为 `7451382`，于 2026-09-09 经 `f38ef98` 合入 `dev` 并推送远程。`dev-wxy`、`dev-xiangyang` 等来源分支已清理，旧分支名只用于追溯，不再作为检出或发布目标。保留当前 Queue、Quota、候选资料与确认入库逻辑，包括 Scan confirm 初始估值事件的购买价格、币种和可靠历史起点修复。
 
@@ -24,10 +24,16 @@ iOS 与 Android 共用 Flutter 取景框布局。取景框根据视口和安全�
 
 - Free 终身 10 次，Premium 不消耗 Free 次数；只有目录资料完整、可用于详情的 Matched 才消费。No Match、详情不完整与技术失败释放预占。
 - `card_ref/name/set_name/object_type`、候选资料与图片继续传入现有结果缓存；识别阶段不逐候选加载价格，缺少市场价格不阻止完整卡牌计为成功。
-- 预占、15 秒总网络 deadline、request ID 重试、lease、顺序调度、显示次数与内部容量分离保持当前实现。
+- 预占、25 秒总网络 Deadline、request ID 重试、lease、顺序调度、显示次数与内部容量分离保持当前实现。
 - Queue 10 张上限、批量部分成功、删除 Processing 后不重插、Review 草稿和确认后的结果移除不变。
 - `/scan/:scan_id/confirm` 保留所有者/Folder 权限、评级区分、Wishlist 移除和 Collection Item 写入；初始估值事件同步记录购买价格、币种与可靠历史起点，避免已填写购买价格的扫描收藏在 Performance 中被判为缺价。
 - 不改变订阅、登录、版本控制、Admin、Home、Collection 或其他业务。相关依赖删除只清理 OpenCV 及其不再引用的传递依赖。
+
+## 性能与可观测性
+
+2026-09-20 dev API release `9488a15` 在不改变扫描业务顺序的前提下减少数据库等待：queued reserve 对新 request 使用 insert-first，冲突、重试和额度耗尽仍回读；成功 settlement 先执行受 owner/session/有效 lease 约束的 UPDATE，只有 0 行时才回读 request。Quota 聚合只扫描 `free + reserved/consumed` 账本，过期 reservation 仍按原规则不计数；Free=10、Premium unlimited、幂等响应和消费/释放语义不变。
+
+`POST /scan/recognize` 的 Worker 总耗时达到 1 秒时记录 `scan_recognize_timing`，只包含 outcome 及 auth、preflight/quota、R2 image、向量 recognition、目录 catalog、audit、settlement 各阶段毫秒数，不包含 owner、卡牌、图片、token 或上游正文。该日志用于与 Cloudflare `$workers.wallTimeMs >= 1000` 对齐；它不改变响应 JSON、`elapsed`、R2/向量顺序或客户端 25 秒 Deadline。prod 尚未部署本轮代码，其阶段分布仍须独立验证。
 
 ## 平台、资源和协议
 

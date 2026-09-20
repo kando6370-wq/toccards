@@ -16,8 +16,8 @@ void main() {
       );
       addTearDown(dio.close);
 
-      expect(dio.options.connectTimeout, const Duration(seconds: 5));
-      expect(dio.options.receiveTimeout, portfolioRequestDeadline);
+      expect(dio.options.connectTimeout, const Duration(seconds: 10));
+      expect(dio.options.receiveTimeout, const Duration(seconds: 15));
     },
   );
 

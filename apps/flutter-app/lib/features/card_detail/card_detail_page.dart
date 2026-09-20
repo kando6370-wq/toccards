@@ -5778,6 +5778,8 @@ class _PriceRangeButton extends StatelessWidget {
     return InkWell(
       key: Key('card-detail-price-range-${range.label}'),
       borderRadius: BorderRadius.circular(4),
+      overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+      splashFactory: NoSplash.splashFactory,
       onTap: () => onSelected(range),
       child: showProBadge
           ? SizedBox(

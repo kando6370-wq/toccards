@@ -42,7 +42,7 @@ CI 的 Flutter 版本冲突是显式目标差异，不合并成虚构的统一�
 
 当前 `wrangler.toml` 使用 `nodejs_compat`，以支持 Apple 官方 App Store Server Library 在 Worker 请求/定时任务上下文中加载。
 
-以上 bindings 属于 prod。dev Linux 使用独立 PostgreSQL；标准 Compose 默认 `postgres:18-alpine`，离线镜像安装 PostgreSQL 18，两者显式设置 `PGDATA=/var/lib/postgresql/data` 保留现有卷路径。2026-09-17 回读 kd201 时，Node 22.22.1、PostgreSQL 18.6、原数据库卷与 13 项 migration ledger 均保留；标准镜像仅完成 Compose 配置验证，没有实际启动。
+以上 bindings 属于 prod。dev Linux 使用独立 PostgreSQL；标准 Compose 默认 `postgres:18-alpine`，离线镜像安装 PostgreSQL 18，两者显式设置 `PGDATA=/var/lib/postgresql/data` 保留现有卷路径。2026-09-20 回读 kd201 当前 API release `dev@9488a15`：Node 22 运行包、PostgreSQL 18.6、原数据库卷与 14 项 migration ledger 均保留，API/DB healthy、Web running；标准镜像仅完成 Compose 配置验证，没有实际启动。
 
 ## 4. 外部与平台集成
 

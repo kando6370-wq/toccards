@@ -78,7 +78,7 @@ class AppleRestoreResult {
 class AppleSubscriptionRestorer {
   const AppleSubscriptionRestorer({
     required AppleCurrentEntitlementReader reader,
-    this.deadline = const Duration(seconds: 15),
+    this.deadline = const Duration(seconds: 25),
   }) : _reader = reader;
 
   final AppleCurrentEntitlementReader _reader;

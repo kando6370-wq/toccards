@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { createLocalDbDataSourceAdapter } from "./local-db-adapter";
 
@@ -171,7 +173,11 @@ class FakeBoundStatement {
     if (this.sql.includes("FROM price_series AS series")) {
       const productIds = new Set(this.values.map(String));
       return {
-        results: this.skus.filter((sku) => productIds.has(sku.product_id)) as T[],
+        results: this.skus.filter((sku) =>
+          productIds.has(sku.product_id)
+          && (!this.sql.includes("upper(btrim(series.grader_code)) = 'RAW'")
+            || sku.grader_code.trim().toUpperCase() === "RAW")
+        ) as T[],
       };
     }
 
@@ -405,6 +411,45 @@ describe("PostgreSQL card data source adapter", () => {
         price_change_30d_percent: 1.520572,
       }),
     ]);
+  });
+
+  it("reads only Raw prices for Search while Card Detail retains graded qualifiers", async () => {
+    const db = new FakeCardDatabase(
+      [card({ product_id: "100", name: "Charizard" })],
+      [
+        sku({ series_id: 1, amount_micros: 10_000_000 }),
+        gradedPrice({ series_id: 2, language_name: "Japanese", amount_micros: 300_000_000 }),
+      ],
+    );
+    const adapter = createLocalDbDataSourceAdapter(db as unknown as D1Database);
+
+    await expect(adapter.searchCards("Charizard")).resolves.toEqual([
+      expect.objectContaining({ card_ref: "100", price_usd: 10 }),
+    ]);
+    expect(db.preparedSql.find((sql) => sql.includes("FROM price_series AS series")))
+      .toContain("upper(btrim(series.grader_code)) = 'RAW'");
+
+    await expect(adapter.getCard("100")).resolves.toMatchObject({
+      available_languages: ["English", "Japanese"],
+    });
+    expect(db.preparedSql.filter((sql) => sql.includes("FROM price_series AS series"))[1])
+      .not.toContain("upper(btrim(series.grader_code)) = 'RAW'");
+  });
+
+  it("indexes the exact Search expression because a different trigram expression cannot serve the existing LIKE query", async () => {
+    const db = new FakeCardDatabase([card({ product_id: "100" })], []);
+    await createLocalDbDataSourceAdapter(db as unknown as D1Database).searchCards("Charizard");
+    const searchSql = db.preparedSql.find((sql) => sql.includes("FROM cards_all")) ?? "";
+    const searchExpression = searchSql.match(/lower\([\s\S]*?\)(?=\s*LIKE \?)/)?.[0];
+    const migration = readFileSync(
+      fileURLToPath(new URL("../db/postgres/migrations/0013_cards_all_search_trgm.sql", import.meta.url).href),
+      "utf8",
+    );
+    const compact = (value: string) => value.replace(/\s+/g, "");
+
+    expect(searchExpression).toBeDefined();
+    expect(migration).toContain("CREATE EXTENSION IF NOT EXISTS pg_trgm");
+    expect(compact(migration)).toContain(`(${compact(searchExpression!)})gin_trgm_ops`);
   });
 
   it("uses each PostgreSQL change window because Search is 30D while Market Prices is 7D", async () => {

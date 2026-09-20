@@ -2,7 +2,7 @@
 
 Kando 是 Card AI 的 monorepo，包含 Flutter 客户端、Cloudflare Workers API、React 管理后台、营销站点及共享包。产品主线是卡牌搜索、扫描识别、收藏与估值；v1.1 在此基础上增加 Apple 订阅、Premium 权益、服务端扫描额度、Performance 和订单/通知后台。
 
-当前 prod 运行版本的发布来源为 `main@759b072`（2026-09-11）；Flutter 源码版本为 `1.0.2+146`，以 `apps/flutter-app/pubspec.yaml` 为准。`docs/releases/v1.1.0` 是产品迭代文档目录，不代表安装包版本或商店发布状态；Git 合并不代表目标环境发布。
+当前仓库已合入 `dev@8b133ac`，实现按 `dev@35c7f87`（2026-09-20）核对；Flutter 客户端版本为 `1.0.2+149`，以 `apps/flutter-app/pubspec.yaml` 为准。prod 运行版本的发布来源仍为 `main@759b072`（2026-09-11）；kd201 Linux API 实际运行性能提交 `dev@9488a15`，其后的提交只涉及 Flutter/文档。`docs/releases/v1.1.0` 是产品迭代文档目录，不代表安装包版本或商店发布状态；Git 合并不代表目标环境发布。
 
 ## 系统概览
 
@@ -22,7 +22,7 @@ Marketing Web -----------------> 独立 Cloudflare 静态站点
 
 共享 Hono API 是 App 与 Admin 的服务端安全边界，路由组合位于 `apps/workers-api/src/app.ts`，Cloudflare 入口为 `src/index.ts`。客户端不得直连数据库或对象存储；Cloudflare 正式环境的 Admin 构建产物由 Workers assets 托管，营销站点独立部署。旧 Cloudflare dev/test 与正式环境 prod 均已完成 PostgreSQL 迁移，D1 已废弃；2026-09-09 用户确认与 Cloudflare 回读一致，两环境当时绑定同一个 PlanetScale PostgreSQL/Hyperdrive，回读版本均无 D1 binding。2026-09-17 旧 dev 业务 Worker 退役，但共享数据库及旧测试数据未删除；正式环境继续使用原资源。后续数据库变更仅涉及 PostgreSQL schema 和业务数据修复，见 [数据迁移](docs/releases/v1.1.0/03-data-api/migration.md)，不再安排 D1 移库任务。
 
-`dev` 已合入 Linux 入口 `src/linux/server.ts`，复用同一 Hono 应用与 PostgreSQL migration，使用独立 PostgreSQL、进程内 KV 和本地图片卷；Admin 由 Caddy 托管，离线模式使用 Node 静态服务。App `test` 默认 API 为 `http://192.168.50.201:8080/api/v1`，Admin development 使用同源相对 API，本机开发由 Vite 代理到 Linux，向量检索经 HTTP 复用 CF。2026-09-17 kd201 运行 watcher 发布的 `dev@cd7c512`，旧 CF dev 的业务 Worker、域名入口和 cron 已退役；独立 Apple Sandbox 回调、CF 向量识别和正式环境保留。验收与未执行项见 [Linux 测试环境](docs/releases/v1.1.0/02-architecture/linux-test-environment.md)及[验证记录](docs/releases/v1.1.0/05-delivery/VERIFICATION.md)。
+`dev` 已合入 Linux 入口 `src/linux/server.ts`，复用同一 Hono 应用与 PostgreSQL migration，使用独立 PostgreSQL、进程内 KV 和本地图片卷；Admin 由 Caddy 托管，离线模式使用 Node 静态服务。App `test` 默认 API 为 `http://192.168.50.201:8080/api/v1`，Admin development 使用同源相对 API，本机开发由 Vite 代理到 Linux，向量检索经 HTTP 复用 CF。2026-09-20 kd201 watcher 已发布 `dev@9488a15`：API/DB healthy、Web running、migration 容器退出 0，PostgreSQL ledger 为 14 项且最新为 `0013`；发布前备份可由 `pg_restore --list` 解析。旧 CF dev 的业务 Worker、域名入口和 cron 已退役；独立 Apple Sandbox 回调、CF 向量识别和正式环境保留。验收与未执行项见 [Linux 测试环境](docs/releases/v1.1.0/02-architecture/linux-test-environment.md)及[验证记录](docs/releases/v1.1.0/05-delivery/VERIFICATION.md)。
 
 当前代码包含端侧模型与 512 维向量识别；dev Linux 经 HTTP、prod Cloudflare 经 Service Binding 调用 `recognize-vec`。当前 App 要求 iOS 16+ 或 Android API 24+；Flutter Web 可用于其他页面开发，暂不支持扫描。扫描协议、平台资源及新旧 App 兼容边界见 [扫描识别链路](docs/releases/v1.1.0/01-flows/scan-recognition.md)。
 
@@ -105,7 +105,7 @@ dart run melos run test
 - Linux 分支监听脚本默认每两分钟检查 `dev`，仅在相关路径变化时构建并部署 kd201；GitHub Linux workflow 仅支持手动触发。服务器安装与最近部署证据见 [自动部署手册](docs/releases/v1.1.0/05-delivery/linux-test-auto-deployment.md)，合入代码不代表服务器已运行该提交。
 - iOS 发布脚本校验 IPA 后自动保存 IPA/dSYM，按 Bundle ID 分目录，测试保留最近 3 个版本、正式保留 7 个版本；具体命令与保留规则见 [Flutter 交付说明](apps/flutter-app/README.md#ipa-与符号文件保存)。
 
-main 已通过 `659a7c6` 合入 `dev@2d94c80` 并推送远程；Git 提交号不代表对应 Worker、App 包或目标环境已完成发布。`dev-wxy`、`dev-xiangyang`、`dev-update-dio`、`dev-scan-page-update-ui` 已于 2026-09-09 清理，本地与远程均不再作为工作分支；文档中带提交号的旧分支名仅保留来源追踪含义。当前运行版本与验收范围见 [发布与验证](docs/releases/v1.1.0/05-delivery/VERIFICATION.md)。
+当前 main 合并结果已包含 `dev@8b133ac`；Git 提交号不代表对应 Worker、App 包或目标环境已完成发布。`dev-wxy`、`dev-xiangyang`、`dev-update-dio`、`dev-scan-page-update-ui` 已于 2026-09-09 清理，本地与远程均不再作为工作分支；文档中带提交号的旧分支名仅保留来源追踪含义。当前运行版本与验收范围见 [发布与验证](docs/releases/v1.1.0/05-delivery/VERIFICATION.md)。
 
 部署、远程迁移、生产写入和发布都需要单独明确授权；Git push 不会自动代表这些操作已获授权。
 

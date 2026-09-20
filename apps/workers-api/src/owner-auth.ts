@@ -22,28 +22,27 @@ type ValidSessionLookupRow = SessionLookupRow & {
   owner_type: OwnerType;
 };
 
-type OwnerRow = {
-  id: string;
-};
-
-const SELECT_SESSION_BY_ID_SQL = `
-SELECT id, owner_type, owner_id, expires_at, revoked_at
-FROM session
-WHERE id = ?
+const SELECT_ANONYMOUS_SESSION_BY_ID_SQL = `
+SELECT session_record.id, session_record.owner_type, session_record.owner_id,
+       session_record.expires_at, session_record.revoked_at
+FROM session AS session_record
+INNER JOIN anonymous_account AS owner_record
+  ON owner_record.id = session_record.owner_id
+ AND owner_record.upgraded_user_id IS NULL
+WHERE session_record.id = ?
+  AND session_record.owner_type = 'anonymous'
 LIMIT 1
 `;
 
-const SELECT_ANONYMOUS_OWNER_SQL = `
-SELECT id
-FROM anonymous_account
-WHERE id = ? AND upgraded_user_id IS NULL
-LIMIT 1
-`;
-
-const SELECT_USER_OWNER_SQL = `
-SELECT id
-FROM "user"
-WHERE id = ? AND status = 'active'
+const SELECT_USER_SESSION_BY_ID_SQL = `
+SELECT session_record.id, session_record.owner_type, session_record.owner_id,
+       session_record.expires_at, session_record.revoked_at
+FROM session AS session_record
+INNER JOIN "user" AS owner_record
+  ON owner_record.id = session_record.owner_id
+ AND owner_record.status = 'active'
+WHERE session_record.id = ?
+  AND session_record.owner_type = 'user'
 LIMIT 1
 `;
 
@@ -72,7 +71,10 @@ export async function authenticateOwner(
     return { status: "unauthorized" };
   }
 
-  const session = await env.DB.prepare(SELECT_SESSION_BY_ID_SQL)
+  const sessionSql = verification.payload.owner_type === "anonymous"
+    ? SELECT_ANONYMOUS_SESSION_BY_ID_SQL
+    : SELECT_USER_SESSION_BY_ID_SQL;
+  const session = await env.DB.prepare(sessionSql)
     .bind(verification.payload.session_id)
     .first<SessionLookupRow>();
 
@@ -84,12 +86,6 @@ export async function authenticateOwner(
     return { status: "unauthorized" };
   }
 
-  const owner = await findOwner(env.DB, session);
-
-  if (!owner) {
-    return { status: "unauthorized" };
-  }
-
   return {
     status: "ok",
     owner: {
@@ -98,18 +94,6 @@ export async function authenticateOwner(
       session_id: session.id,
     },
   };
-}
-
-async function findOwner(
-  db: D1Database,
-  session: ValidSessionLookupRow,
-): Promise<OwnerRow | null> {
-  const sql =
-    session.owner_type === "anonymous"
-      ? SELECT_ANONYMOUS_OWNER_SQL
-      : SELECT_USER_OWNER_SQL;
-
-  return db.prepare(sql).bind(session.owner_id).first<OwnerRow>();
 }
 
 function isLiveSession(

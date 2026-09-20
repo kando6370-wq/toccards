@@ -13,8 +13,10 @@ type SessionRow = {
 class FakeD1 {
   sessions: SessionRow[] = [];
   users: string[] = [];
+  preparedSql: string[] = [];
 
   prepare(sql: string): D1PreparedStatement {
+    this.preparedSql.push(sql);
     return new FakeStatement(this, sql) as unknown as D1PreparedStatement;
   }
 }
@@ -35,11 +37,15 @@ class FakeStatement {
   async first<T>(): Promise<T | null> {
     if (this.sql.includes("FROM session")) {
       const [sessionId] = this.values as [string];
-      return (this.db.sessions.find((row) => row.id === sessionId) ?? null) as T | null;
-    }
-    if (this.sql.includes('FROM "user"')) {
-      const [ownerId] = this.values as [string];
-      return (this.db.users.includes(ownerId) ? { id: ownerId } : null) as T | null;
+      const session = this.db.sessions.find((row) => row.id === sessionId) ?? null;
+      if (
+        session
+        && this.sql.includes('JOIN "user"')
+        && !this.db.users.includes(session.owner_id)
+      ) {
+        return null;
+      }
+      return session as T | null;
     }
     return null;
   }
@@ -71,6 +77,31 @@ describe("authenticateOwner session context", () => {
       status: "ok",
       owner: { owner_type: "user", owner_id: "100000", session_id: "session-a" },
     });
+    expect(db.preparedSql).toHaveLength(1);
+    expect(db.preparedSql[0]).toContain('JOIN "user"');
+  });
+
+  it("rejects a session whose owner was removed because one-round-trip authentication must preserve owner validation", async () => {
+    const db = new FakeD1();
+    db.sessions.push({
+      id: "session-a",
+      owner_type: "user",
+      owner_id: "100000",
+      expires_at: "2099-01-01T00:00:00.000Z",
+      revoked_at: null,
+    });
+    const secret = "test-secret";
+    const token = await signAccessToken(
+      { owner_type: "user", owner_id: "100000", session_id: "session-a" },
+      secret,
+    );
+
+    const result = await authenticateOwner(
+      { DB: db as unknown as D1Database, JWT_SECRET: secret },
+      `Bearer ${token}`,
+    );
+
+    expect(result).toEqual({ status: "unauthorized" });
   });
 
   it("rejects a revoked session because logout must invalidate its Premium proof", async () => {

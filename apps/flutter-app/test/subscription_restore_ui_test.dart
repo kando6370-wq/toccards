@@ -1083,7 +1083,7 @@ void main() {
 
       await host.controller.purchase();
       await host.controller.purchase();
-      await tester.pump(const Duration(seconds: 16));
+      await tester.pump(const Duration(seconds: 26));
       expect(host.controller.state.isPurchasePending, isTrue);
       expect(host.controller.state.errorMessage, isNull);
 

@@ -234,7 +234,7 @@ void main() {
   );
 
   testWidgets(
-    'product 180865 shows Normal and Foil tabs and switching refreshes material prices',
+    'product 180865 restores loaded Finish prices without showing loading again',
     (tester) async {
       final repository = _FinishTabCardDetailRepository();
       await tester.pumpWidget(
@@ -270,6 +270,19 @@ void main() {
 
       expect(repository.requestedFinishes.last, 'Foil');
       expect(find.text(r'$20.00'), findsWidgets);
+
+      final requestCount = repository.requestedFinishes.length;
+      await tester.tap(normalTab);
+      await tester.pump();
+      expect(find.text(r'$10.00'), findsWidgets);
+      expect(
+        find.byKey(const Key('card-detail-price-chart-loading')),
+        findsNothing,
+      );
+      await tester.tap(foilTab);
+      await tester.pump();
+      expect(find.text(r'$20.00'), findsWidgets);
+      expect(repository.requestedFinishes.length, requestCount);
     },
   );
 
@@ -689,6 +702,48 @@ void main() {
     expect(find.text('No sold listings available.'), findsOneWidget);
     expect(find.text(noContentAvailableText), findsNothing);
   });
+
+  testWidgets(
+    'Price range taps keep only the selected indicator visible even without price data',
+    (tester) async {
+      await tester.pumpWidget(
+        const _CardDetailTestApp(cardId: 'mystery-promo'),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('card-detail-price-chart')),
+        400,
+      );
+
+      for (final range in CardPriceRange.values) {
+        final button = tester.widget<InkWell>(
+          find.byKey(Key('card-detail-price-range-${range.label}')),
+        );
+        expect(button.splashFactory, NoSplash.splashFactory);
+        expect(
+          button.overlayColor?.resolve({WidgetState.pressed}),
+          Colors.transparent,
+        );
+      }
+
+      final sevenDayRange = find.byKey(const Key('card-detail-price-range-7d'));
+      await tester.ensureVisible(sevenDayRange);
+      await tester.pumpAndSettle();
+      await tester.tap(sevenDayRange);
+      await tester.pumpAndSettle();
+      expect(find.text('No price data available.'), findsOneWidget);
+      final selectedIndicator = find.descendant(
+        of: sevenDayRange,
+        matching: find.byType(Container),
+      );
+      expect(
+        (tester.widget<Container>(selectedIndicator).decoration!
+                as BoxDecoration)
+            .gradient,
+        isNotNull,
+      );
+    },
+  );
 
   testWidgets(
     'Price chart reveals point details only after chart interaction',

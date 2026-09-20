@@ -5,6 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/shared/analytics/mixpanel_bootstrap.dart';
 
 void main() {
+  test('Mixpanel config requests allow six seconds per network phase', () {
+    expect(mixpanelNetworkTimeout, const Duration(seconds: 6));
+  });
+
   test('retries Mixpanel initialization after 2s, 5s, and 15s', () async {
     var attempts = 0;
     final waits = <Duration>[];

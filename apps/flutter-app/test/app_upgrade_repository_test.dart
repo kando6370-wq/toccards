@@ -4,6 +4,10 @@ import 'package:kando_app/features/app_upgrade/app_upgrade_models.dart';
 import 'package:kando_app/features/app_upgrade/app_upgrade_repository.dart';
 
 void main() {
+  test('app upgrade requests allow ten seconds per network phase', () {
+    expect(appUpgradeNetworkTimeout, const Duration(seconds: 10));
+  });
+
   test(
     'the public API payload drives the mandatory decision, minimum and store destination end to end',
     () async {

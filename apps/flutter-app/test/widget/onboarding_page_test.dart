@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -46,6 +47,7 @@ void main() {
       'assets/onboarding/guide_scan_placeholder.png',
     );
     expect(find.text('Instantly Scan Cards'), findsOneWidget);
+    expect(find.text('Manage Your Collection'), findsNothing);
     expect(find.byTooltip("LET'S START"), findsOneWidget);
     expect(find.byTooltip('Skip and start now'), findsNothing);
     expect(
@@ -78,7 +80,12 @@ void main() {
     await tester.tap(find.byTooltip('NEXT'));
     await _finishPageTransition(tester);
 
-    expect(find.text('Personalized Wishlist'), findsOneWidget);
+    expect(find.text('Manage Your Collection'), findsOneWidget);
+    expect(find.text('Personalized Wishlist'), findsNothing);
+    expect(
+      find.text('Keep your cards organized and track your collection’s value.'),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const ValueKey('onboarding-media-placeholder-2')),
       findsOneWidget,
@@ -120,33 +127,138 @@ void main() {
         await _advanceToFinalGuide(tester);
 
         expect(tester.takeException(), isNull, reason: 'viewport: $size');
+        final expectedButtonWidth = size.width == 390 ? 284.0 : 278.0;
+        expect(
+          tester.getSize(find.byTooltip('SIGN UP/SIGN IN')).width,
+          expectedButtonWidth,
+        );
+        expect(
+          tester.getSize(find.byTooltip('Skip and start now')).width,
+          expectedButtonWidth,
+        );
         await tester.pumpWidget(const SizedBox.shrink());
       }
     },
   );
 
-  testWidgets(
-    'scan guide media starts 56pt below the screen top without cropping',
-    (tester) async {
-      tester.view.devicePixelRatio = 1;
-      tester.view.physicalSize = const Size(390, 844);
-      tester.view.padding = const FakeViewPadding(left: 19, top: 47, right: 23);
-      addTearDown(tester.view.reset);
+  testWidgets('all guide media keeps 390x480 and starts 86pt from the top', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.padding = const FakeViewPadding(left: 19, top: 47, right: 23);
+    addTearDown(tester.view.reset);
 
-      await tester.pumpWidget(_testPage(InMemoryOnboardingStorage()));
+    await tester.pumpWidget(_testPage(InMemoryOnboardingStorage()));
 
-      final media = find.descendant(
-        of: find.byKey(const ValueKey('onboarding-media-placeholder-0')),
-        matching: find.byType(Image),
+    for (var index = 0; index < 3; index += 1) {
+      final media = find.byKey(ValueKey('onboarding-media-first-frame-$index'));
+      expect(tester.getRect(media), const Rect.fromLTWH(0, 86, 390, 480));
+      if (index < 2) {
+        await tester.tap(find.byTooltip(index == 0 ? "LET'S START" : 'NEXT'));
+        await _finishPageTransition(tester);
+      }
+    }
+  });
+
+  testWidgets('guide copy and controls match the Figma 390x844 layout', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(_testPage(InMemoryOnboardingStorage()));
+
+    for (var index = 0; index < 3; index += 1) {
+      final panel = find.byKey(ValueKey('onboarding-controls-panel-$index'));
+      final title = find.byKey(ValueKey('onboarding-title-$index'));
+      final description = find.byKey(ValueKey('onboarding-description-$index'));
+      final primary = find.byTooltip(
+        index == 0
+            ? "LET'S START"
+            : index == 1
+            ? 'NEXT'
+            : 'SIGN UP/SIGN IN',
       );
-      expect(tester.getTopLeft(media), const Offset(0, 56));
-      expect(tester.getSize(media), const Size(390, 480));
+
+      expect(tester.getRect(panel), const Rect.fromLTWH(0, 552, 390, 292));
+      expect(tester.widget<Text>(title).style?.fontSize, 30);
+      expect(tester.widget<Text>(title).style?.height, 40 / 30);
+      expect(tester.widget<Text>(description).style?.fontSize, 14);
+      expect(tester.widget<Text>(description).style?.height, 24 / 14);
+      expect(tester.getSize(primary), const Size(284, 44));
+
+      final contentTop = index == 2 ? 562.0 : 622.0;
+      final textTop = index < 2 ? contentTop - 30 : contentTop;
+      expect(tester.getTopLeft(title).dy, textTop);
+      expect(tester.getTopLeft(description).dy, textTop + 52);
       expect(
-        tester.getRect(find.byKey(const ValueKey('onboarding-video-0'))),
-        const Rect.fromLTWH(0, 56, 390, 480),
+        tester
+            .getTopLeft(
+              find.byKey(ValueKey('onboarding-page-indicator-$index')),
+            )
+            .dy,
+        contentTop + 108,
       );
-    },
-  );
+      expect(tester.getTopLeft(primary).dy, contentTop + 130);
+
+      if (index == 2) {
+        expect(
+          tester.getSize(find.byTooltip('Skip and start now')),
+          const Size(284, 44),
+        );
+        expect(
+          tester.getTopLeft(find.byTooltip('Skip and start now')).dy,
+          contentTop + 190,
+        );
+      } else {
+        await tester.tap(primary);
+        await _finishPageTransition(tester);
+      }
+    }
+  });
+
+  testWidgets('first two guide descriptions stay complete with larger text', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      _testPage(
+        InMemoryOnboardingStorage(),
+        textScaler: const TextScaler.linear(1.2),
+      ),
+    );
+
+    for (var index = 0; index < 2; index += 1) {
+      final description = find.byKey(ValueKey('onboarding-description-$index'));
+      final paragraph = tester.renderObject<RenderParagraph>(description);
+      expect(
+        tester
+            .getSize(
+              find.byKey(ValueKey('onboarding-description-viewport-$index')),
+            )
+            .width,
+        390,
+      );
+      final text = tester.widget<Text>(description).data!;
+      expect(
+        paragraph.didExceedMaxLines,
+        isFalse,
+        reason:
+            'guide ${index + 1} description must remain fully visible; '
+            'size=${paragraph.size}, '
+            'boxes=${paragraph.getBoxesForSelection(TextSelection(baseOffset: 0, extentOffset: text.length))}',
+      );
+      if (index == 0) {
+        await tester.tap(find.byTooltip("LET'S START"));
+        await _finishPageTransition(tester);
+      }
+    }
+  });
 
   testWidgets(
     'scan guide media scales down proportionally on compact screens',
@@ -162,7 +274,7 @@ void main() {
       final media = find.byKey(
         const ValueKey('onboarding-media-first-frame-0'),
       );
-      expect(tester.getTopLeft(media), const Offset(0, 56));
+      expect(tester.getTopLeft(media), const Offset(0, 86));
       expect(tester.getSize(media).width, 320);
       expect(tester.getSize(media).height, closeTo(320 * 960 / 780, 0.01));
       expect(find.byType(VideoPlayer), findsNothing);
@@ -179,24 +291,7 @@ void main() {
     await tester.pumpWidget(_testPage(InMemoryOnboardingStorage()));
 
     final media = find.byKey(const ValueKey('onboarding-media-first-frame-0'));
-    expect(tester.getRect(media), const Rect.fromLTWH(20, 56, 390, 480));
-  });
-
-  testWidgets('second guide retains its safe-area media layout', (
-    tester,
-  ) async {
-    tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.padding = const FakeViewPadding(top: 47);
-    addTearDown(tester.view.reset);
-
-    await tester.pumpWidget(_testPage(InMemoryOnboardingStorage()));
-    await tester.tap(find.byTooltip("LET'S START"));
-    await _finishPageTransition(tester);
-
-    final media = find.byKey(const ValueKey('onboarding-media-first-frame-1'));
-    expect(tester.getTopLeft(media), Offset.zero);
-    expect(tester.getSize(media), const Size(390, 563));
+    expect(tester.getRect(media), const Rect.fromLTWH(20, 86, 390, 480));
   });
 
   testWidgets(
@@ -354,13 +449,15 @@ bool _videoIsActive(WidgetTester tester, int index) {
 Widget _testPage(
   InMemoryOnboardingStorage storage, {
   bool disableAnimations = false,
+  TextScaler textScaler = TextScaler.noScaling,
 }) {
-  final page = disableAnimations
-      ? const MediaQuery(
-          data: MediaQueryData(disableAnimations: true),
-          child: OnboardingPage(),
-        )
-      : const OnboardingPage();
+  final page = MediaQuery(
+    data: MediaQueryData(
+      disableAnimations: disableAnimations,
+      textScaler: textScaler,
+    ),
+    child: const OnboardingPage(),
+  );
   return ProviderScope(
     overrides: [
       onboardingRepositoryProvider.overrideWithValue(

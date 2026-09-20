@@ -11,7 +11,7 @@ class CurrencyRateApiException implements Exception {
   const CurrencyRateApiException();
 }
 
-const currencyRateRequestDeadline = Duration(seconds: 15);
+const currencyRateRequestDeadline = Duration(seconds: 25);
 
 abstract interface class CurrencyRateApi {
   Future<double> loadUsdRate(String targetCurrency);
@@ -123,8 +123,8 @@ final currencyRateDioProvider = Provider((ref) {
   final dio = Dio(
     BaseOptions(
       baseUrl: kandoApiBaseUrl,
-      connectTimeout: const Duration(seconds: 5),
-      receiveTimeout: const Duration(seconds: 5),
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 10),
     ),
   );
   dio.interceptors.add(

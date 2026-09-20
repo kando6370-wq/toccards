@@ -739,6 +739,7 @@ class CardDetailController extends Notifier<CardDetailState> {
   Completer<void>? _loadCompleter;
   var _loadGeneration = 0;
   var _priceLoadGeneration = 0;
+  final Map<(String, String), CardDetailSeriesData> _priceDataBySelection = {};
 
   Future<void> get loadComplete {
     return _loadCompleter?.future ?? Future<void>.value();
@@ -798,6 +799,9 @@ class CardDetailController extends Notifier<CardDetailState> {
   }
 
   Future<void> refreshPriceSeries() {
+    if (!state.isLoading && !state.isUnavailable) {
+      _priceDataBySelection.remove((state.priceFinish, state.detail.language));
+    }
     return _refreshSection(
       status: (value) => state = state.copyWith(priceSeriesStatus: value),
       load: (repository, isCurrent) async {
@@ -836,6 +840,9 @@ class CardDetailController extends Notifier<CardDetailState> {
   }
 
   Future<void> refreshMarketPrices() {
+    if (!state.isLoading && !state.isUnavailable) {
+      _priceDataBySelection.remove((state.priceFinish, state.detail.language));
+    }
     return _refreshSection(
       status: (value) => state = state.copyWith(marketPricesStatus: value),
       load: (repository, isCurrent) async {
@@ -990,7 +997,7 @@ class CardDetailController extends Notifier<CardDetailState> {
             ranges: const [CardPriceRange.oneYear],
             localPremiumVerified: true,
           )
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 25));
       late final CardDetailSeriesData data;
       try {
         data = await request();
@@ -1033,6 +1040,7 @@ class CardDetailController extends Notifier<CardDetailState> {
         selectedPriceRange: CardPriceRange.oneYear,
         priceSeriesStatus: KandoLoadStatus.content,
       );
+      _cacheCurrentPriceData();
       return true;
     } catch (_) {
       if (generation == _priceLoadGeneration) {
@@ -1063,6 +1071,25 @@ class CardDetailController extends Notifier<CardDetailState> {
     if (repository is! CardDetailSectionRepository) return;
     final sectionRepository = repository as CardDetailSectionRepository;
     final generation = ++_priceLoadGeneration;
+    final loadGeneration = _loadGeneration;
+    final cached = state.collectionItemDraft == null
+        ? _priceDataBySelection[(finish, state.detail.language)]
+        : null;
+    if (cached != null) {
+      state = state.copyWith(
+        selectedFinish: finish,
+        detail: state.detail.copyWith(
+          marketPrices: _resolvedMarketPrices(cached.marketPrices),
+          priceSeriesByRange: cached.rawSeriesByRange,
+          rawPriceSeries: cached.rawSeries,
+          gradedPriceSeriesByRange: cached.gradedSeriesByRange,
+          gradedPriceSeries: cached.gradedSeries,
+        ),
+        priceSeriesStatus: KandoLoadStatus.content,
+        marketPricesStatus: KandoLoadStatus.content,
+      );
+      return;
+    }
     state = state.copyWith(
       selectedFinish: finish,
       priceSeriesStatus: KandoLoadStatus.loading,
@@ -1079,7 +1106,9 @@ class CardDetailController extends Notifier<CardDetailState> {
         market: market,
         finish: finish,
       );
-      if (generation != _priceLoadGeneration || finish != state.priceFinish) {
+      if (loadGeneration != _loadGeneration ||
+          generation != _priceLoadGeneration ||
+          finish != state.priceFinish) {
         return;
       }
       state = state.copyWith(
@@ -1093,8 +1122,11 @@ class CardDetailController extends Notifier<CardDetailState> {
         priceSeriesStatus: KandoLoadStatus.content,
         marketPricesStatus: KandoLoadStatus.content,
       );
+      _cacheCurrentPriceData();
     } catch (_) {
-      if (generation != _priceLoadGeneration || finish != state.priceFinish) {
+      if (loadGeneration != _loadGeneration ||
+          generation != _priceLoadGeneration ||
+          finish != state.priceFinish) {
         return;
       }
       state = state.copyWith(
@@ -1516,6 +1548,7 @@ class CardDetailController extends Notifier<CardDetailState> {
   void _invalidateLoad() {
     _loadGeneration += 1;
     _priceLoadGeneration += 1;
+    _priceDataBySelection.clear();
     final completer = _loadCompleter;
     if (completer != null && !completer.isCompleted) {
       completer.complete();
@@ -1530,6 +1563,7 @@ class CardDetailController extends Notifier<CardDetailState> {
     final completer = Completer<void>();
     final generation = ++_loadGeneration;
     _priceLoadGeneration += 1;
+    _priceDataBySelection.clear();
     _loadCompleter = completer;
     unawaited(_loadDetail(session, currency, generation, completer));
   }
@@ -1722,6 +1756,7 @@ class CardDetailController extends Notifier<CardDetailState> {
           ),
           priceSeriesStatus: KandoLoadStatus.content,
         );
+        _cacheCurrentPriceData();
       }
     } catch (_) {
       if (_isCurrentPriceLoad(generation, priceGeneration)) {
@@ -1733,6 +1768,27 @@ class CardDetailController extends Notifier<CardDetailState> {
   bool _isCurrentPriceLoad(int generation, int priceGeneration) {
     return generation == _loadGeneration &&
         priceGeneration == _priceLoadGeneration;
+  }
+
+  void _cacheCurrentPriceData() {
+    if (state.isLoading ||
+        state.isUnavailable ||
+        state.collectionItemDraft != null ||
+        state.priceSeriesStatus != KandoLoadStatus.content ||
+        state.marketPricesStatus != KandoLoadStatus.content) {
+      return;
+    }
+    final detail = state.detail;
+    _priceDataBySelection[(
+      state.priceFinish,
+      detail.language,
+    )] = CardDetailSeriesData(
+      marketPrices: detail.marketPrices,
+      rawSeriesByRange: detail.priceSeriesByRange,
+      rawSeries: detail.rawPriceSeries,
+      gradedSeriesByRange: detail.gradedPriceSeriesByRange,
+      gradedSeries: detail.gradedPriceSeries,
+    );
   }
 
   Future<void> _loadSoldListings(

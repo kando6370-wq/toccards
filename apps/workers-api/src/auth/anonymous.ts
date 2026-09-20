@@ -218,7 +218,7 @@ async function findOrCreateAnonymousAccount(
 
   const anonymousId = await reserveAccountUid(db, createdAt);
 
-  await runWithMutationLockStatements(
+  const [createdAccount] = await runWithMutationLockStatements(
     db,
     await mutationLockKey("anonymous-device", deviceId),
     [
@@ -233,6 +233,10 @@ async function findOrCreateAnonymousAccount(
         .bind(createId(), anonymousId, createdAt, createdAt, anonymousId),
     ],
   );
+
+  if (createdAccount?.meta.changes === 1) {
+    return anonymousId;
+  }
 
   const created = await db
     .prepare(SELECT_REUSABLE_ANONYMOUS_ACCOUNT_SQL)

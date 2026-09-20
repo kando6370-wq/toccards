@@ -121,6 +121,63 @@ describe("portfolio valuation history", () => {
     expect(startedBeforePricesCompleted).toEqual(["prices", "cards"]);
   });
 
+  it("loads catalog metadata only for current holdings because deleted history must not add database chunks", async () => {
+    const deletedCards = Array.from({ length: 81 }, (_, index) => ({
+      cardRef: `deleted-${index}`,
+      itemId: `deleted-item-${index}`,
+    }));
+    const db = new FakeDb(
+      [
+        event(
+          "current-upsert",
+          "current-item",
+          "main",
+          "current-card",
+          "upsert",
+          "2026-07-08T00:00:00.000Z",
+          1,
+        ),
+        ...deletedCards.flatMap(({ cardRef, itemId }, index) => [
+          event(
+            `deleted-upsert-${index}`,
+            itemId,
+            "main",
+            cardRef,
+            "upsert",
+            "2026-07-08T00:00:00.000Z",
+            1,
+          ),
+          event(
+            `deleted-remove-${index}`,
+            itemId,
+            "main",
+            cardRef,
+            "delete",
+            "2026-07-09T00:00:00.000Z",
+            1,
+          ),
+        ]),
+      ],
+      [],
+      [
+        card("current-card", "Current Card"),
+        ...deletedCards.map(({ cardRef }) => card(cardRef, "Deleted Card")),
+      ],
+    );
+
+    await loadValuationHistory(
+      db as unknown as D1Database,
+      { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1" },
+      ["main"],
+      2,
+      new Date("2026-07-10T12:00:00.000Z"),
+    );
+
+    const catalogQueries = db.bindings.filter(({ sql }) => sql.includes("FROM cards_all"));
+    expect(catalogQueries).toHaveLength(1);
+    expect(catalogQueries[0]?.values).toEqual(["current-card"]);
+  });
+
   it("binds every text card reference because PostgreSQL price_series.card_ref is not numeric-only", async () => {
     const db = new FakeDb([], [], []);
 

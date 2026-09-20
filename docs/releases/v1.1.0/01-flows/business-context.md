@@ -3,7 +3,7 @@
 ## 0. 文档说明
 
 - 分析范围：全项目业务主线，重点记录 v1.1 相对 v1.0 的订阅、额度、Performance 和 Admin 增量。
-- 当前核对基线：`main@659a7c6`，2026-09-10；原始分析起点为 2026-08-14，历史环境结果保留其检查日期。
+- 当前实现核对基线：`dev@35c7f87`，已随 `dev@8b133ac` 合入 main；客户端版本 `1.0.2+149`，Linux API 实际运行 `dev@9488a15`，后续提交只影响 Flutter/文档。prod 现网发布仍按其独立记录判断；原始分析起点为 2026-08-14，历史环境结果保留其检查日期。
 - 范围边界：当前检出代码、Schema/迁移、运行配置和测试；不把远程环境历史证据外推为当前实时状态。
 - 上一版本未变化流程继续参考 [v1.0.0 业务流程](../../v1.0.0/01-flows/flows.md)。
 
@@ -88,7 +88,7 @@ Card AI 面向交易卡牌用户提供目录搜索、图片识别、Wishlist/Col
 
 ### 3.1 启动与身份建立
 
-首次引导页 1 的扫描演示使用皮卡丘扫描视频，距屏幕顶部 56 pt，以原始比例显示、最大宽度 390 pt（高度 480 pt）；窄屏等比缩小，宽屏居中，不按 390×510 容器裁剪。视频就绪前以及减少动态效果时显示与视频首帧一致、布局相同的静态占位图。引导页 2、3 的媒体和三个页面的交互不变。
+首次引导共三页，分别使用扫描、价格追踪和收藏管理演示视频。以 390×844 设计基准显示时，三页视频均位于 `(0, 86)`、尺寸为 390×480；相对 Figma 基准整体下移 30 pt，窄屏保持 780:960 原始比例缩小，宽屏按最大 390 pt 居中，不裁切视频左右内容。视频就绪前、播放失败以及减少动态效果时，显示各自视频的真实首帧静态占位图。三页底部使用 292 pt 高的渐变模糊面板，常规内容区最大宽度 348 pt；第一页和第二页的标题与两行副文本整体向上偏移 30 pt，分页指示点和按钮保持原位。两页副文本可使用完整 390 pt 屏幕宽度，并固定设计字号，仅在文本实际超宽或窄屏时等比缩小，避免任一行被截断。主按钮在设计基准下为 284×44，窄屏仅减少按钮外侧留白以保证文案完整。页面标题依次为 `Instantly Scan Cards`、`Track Card Values`、`Manage Your Collection`。翻页、登录/注册、游客进入、埋点、完成状态和视频生命周期逻辑保持既有行为。
 
 1. App 读取本地会话、环境配置和已验证 Premium 缓存。
 2. 无有效身份时调用 `POST /api/v1/auth/anonymous` 建立匿名账号和 session。
@@ -96,7 +96,7 @@ Card AI 面向交易卡牌用户提供目录搜索、图片识别、Wishlist/Col
 4. 游客注册为新用户后，服务端把 Folder、Collection、Wishlist、偏好、扫描记录和已结算的 Free Scan 消费迁移到正式 UID；游客登录已有用户时不合并游客 Scan Quota。
 5. 登出撤销 session；删除账号按正式/匿名类型清理或失效业务数据。
 
-邮箱、Google、Apple 在首次引导和 Profile 登录或注册成功后都检查权益，仅 Free 自动显示完整 Subscription Page。首次引导由 Onboarding 保存完成状态并进入启动权益检查，Free 使用 `source=onboarding`，Premium 或 Unknown 进入 Home；检查期间不提前显示 Home。Profile 先关闭认证页面及邮箱成功提示，再刷新权益；Free 使用 `source=profile`、`entry_source=login` 打开订阅页，关闭后返回原 Profile，Premium 或 Unknown 留在 Profile 刷新账号信息。Profile 检查超过 15 秒或抛错时留在当前页；检查返回时若已离开 Profile 或账号发生变化，则不追加订阅页。取消或失败不触发登录后的权益检查，也不推进引导；普通 Tab 切换、回前台和关闭订阅页不会重复触发登录订阅展示。该流转不改变认证接口、会话持久化、游客资产处理或 Premium 判定；后续完整冷启动仍沿用既有权益检查。
+邮箱、Google、Apple 在首次引导和 Profile 登录或注册成功后都检查权益，仅 Free 自动显示完整 Subscription Page。首次引导由 Onboarding 保存完成状态并进入启动权益检查，Free 使用 `source=onboarding`，Premium 或 Unknown 进入 Home；检查期间不提前显示 Home。Profile 先关闭认证页面及邮箱成功提示，再刷新权益；Free 使用 `source=profile`、`entry_source=login` 打开订阅页，关闭后返回原 Profile，Premium 或 Unknown 留在 Profile 刷新账号信息。Profile 检查超过当前 25 秒整体 Deadline 或抛错时留在当前页；检查返回时若已离开 Profile 或账号发生变化，则不追加订阅页。取消或失败不触发登录后的权益检查，也不推进引导；普通 Tab 切换、回前台和关闭订阅页不会重复触发登录订阅展示。该流转不改变认证接口、会话持久化、游客资产处理或 Premium 判定；后续完整冷启动仍沿用既有权益检查。
 
 邮箱登录验证成功后保留密码页，在该页上显示 `Welcome back`，1 秒后自动关闭，也可提前手动关闭。首次安装引导等待提示层实际移除后才保存引导完成状态并进入既有权益检查；密码页继续覆盖引导，直到完成状态保存且替代页面完成一帧构建，再关闭密码页并无退场动画移除登录选项，避免中间闪回引导页 3。权益请求未完成时显示既有检查 Loading，Free 进入订阅页，Premium/Unknown 进入 Home。Profile 复用密码页上的提示，关闭后仍按上述权益规则继续。提示关闭或销毁会取消计时，邮箱流程只移除自己的路由，不误关闭后来打开的页面。邮箱注册成功时保持在设置密码的注册页显示无按钮 `Welcome`，1 秒后关闭提示和注册页，再按原有引导/Profile 权益规则判断是否进入订阅页；不会在引导页 3 上显示提示。其他无按钮欢迎弹窗默认 2 秒关闭，带确认按钮的欢迎弹窗仍等待用户操作。
 
@@ -105,7 +105,7 @@ Card AI 面向交易卡牌用户提供目录搜索、图片识别、Wishlist/Col
 ### 3.2 搜索、Wishlist 与 Collection
 
 1. 用户按游戏搜索 Card 或 Set，并进入卡牌详情。
-2. 详情加载图片、市场价、价格历史和 TCGplayer 商品外链；已成交记录继续通过独立入口查询。
+2. 详情加载图片、市场价、价格历史和 TCGplayer 商品外链；已成交记录继续通过独立入口查询。同一详情加载期间，Price 材质首次选中时读取对应市场价和图表，切回已成功加载的材质直接恢复其数据，不重复请求或展示加载态；显式刷新或详情重新加载后重新获取数据。
 3. Search、Wishlist、Home Trending 等只携带 `card_id` 的入口进入通用 Card Detail，不因卡牌已收藏而猜测某条 Item；Collection、Most Valuable、Top Performers 等携带 `collection_item_id` 的入口继续进入具体 Item 详情和 Performance。通用详情在当前选中 Folder 有正式 Item 时展示 `In Your Portfolio`，逐条显示评级、材质和 SKU 单价，点击整行打开该 Item 编辑 Sheet；其他 Folder 和待编辑 Item 不进入该模块。具体 Item 详情不展示 `In Your Portfolio`，卡图右上角固定使用分享图标并调用既有卡牌分享业务；通用详情右上角使用收藏图标。具体 Item 的 Collection Item 编辑态只属于该 Tab；切换到 Performance 或 Price 时丢弃未保存草稿并退出编辑态，返回 Collection Item 时展示摘要态。
 4. Search Cards 与 Sets 卡牌列表的收藏按钮先建立同一全局本地待编辑 Item：按钮显示亮黄色但正式 Qty 不变；无论卡牌是否已收藏，每点击一次 `+` 都追加一个独立、默认 `Quantity=1` 的待编辑 Item，不合并数量，也不执行快捷删除。全局最多保留 20 条，第 21 次点击不新增并显示 `You can add up to 20 cards at a time.`。Sets 收藏必须使用当前 Set 的 Game，不继承无关的 Search 选择；Sets 下拉刷新同时刷新 Set 卡牌和收藏/Wishlist 资产快照，保证 Qty 与互斥按钮和 Search Cards 一致。待编辑提示持续显示在 Home、Search、Collection、Profile 以及当前 Sets 卡牌列表底部并按 Item 条数计数，Scan 不显示；Sets 点击后必须在当前页面立即显示，不要求先返回 Search。单 Item 进入单卡编辑样式，多个 Item（包括同卡重复点击）进入带顶部条和批量操作的 Review 样式；`ADD ALL CARDS` 全部成功后先关闭 Review，再由返回页面按成功 Item 数显示居中 Success Toast，避免弹层退场吞掉反馈。通用 Card Detail 的右上收藏按钮不静默追加待编辑队列，而是直接打开该卡牌的新增 Collection Item 编辑 Sheet；关闭未保存时不改变正式 Qty、持仓或待编辑队列，保存成功后再按既有完整 Item Create 流程刷新资产。
 5. 用户可分别为每个待编辑 Item 选择 Folder、数量、Raw/评级、品相、评级机构/分数、语言、工艺和购买价；每条使用独立 UUID 作为创建请求的幂等键，保存才逐条创建 Collection Item 并增加 Qty。成功条目从队列移除；批量部分失败时保留失败草稿并继续显示 Review。单条和批量全成功使用 Figma 居中 Success Toast，部分成功使用顶部 warning Toast。只有在 Review 中删除待编辑 Item 才取消该条待收藏。
