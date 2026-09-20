@@ -8,7 +8,7 @@ import 'package:kando_app/features/auth/auth_repository.dart';
 import 'scan_card_recognizer_contract.dart';
 
 const scanApiBaseUrl = authApiBaseUrl;
-const scanRequestDeadline = Duration(seconds: 15);
+const scanRequestDeadline = Duration(seconds: 25);
 const scanRequestTimeoutCode = 'REQUEST_TIMEOUT';
 const scanRequestTimeoutMessage = 'Request timed out. Please try again.';
 
@@ -16,7 +16,7 @@ Dio createScanDio({String baseUrl = scanApiBaseUrl}) {
   return Dio(
     BaseOptions(
       baseUrl: baseUrl,
-      connectTimeout: const Duration(seconds: 4),
+      connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 12),
     ),
   );

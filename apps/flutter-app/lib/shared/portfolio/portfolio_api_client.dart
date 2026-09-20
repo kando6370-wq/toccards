@@ -11,7 +11,7 @@ const portfolioApiBaseUrl = authApiBaseUrl;
 const duplicateCollectionItemErrorCode = 'DUPLICATE_COLLECTION_ITEM';
 const duplicateCollectionItemMessage =
     'This card with the same finish, language, and grading is already in this portfolio.';
-const portfolioRequestDeadline = Duration(seconds: 15);
+const portfolioRequestDeadline = Duration(seconds: 25);
 const portfolioRequestTimeoutCode = 'REQUEST_TIMEOUT';
 const portfolioRequestTimeoutMessage = 'Request timed out. Please try again.';
 
@@ -19,8 +19,8 @@ Dio createPortfolioDio({String baseUrl = portfolioApiBaseUrl}) {
   return Dio(
     BaseOptions(
       baseUrl: baseUrl,
-      connectTimeout: const Duration(seconds: 5),
-      receiveTimeout: portfolioRequestDeadline,
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 15),
     ),
   );
 }

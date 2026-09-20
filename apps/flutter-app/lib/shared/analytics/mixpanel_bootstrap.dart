@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../api/api_environment.dart';
 import '../debug/app_debug_overlay.dart';
 
+const mixpanelNetworkTimeout = Duration(seconds: 6);
 const mixpanelInitializationRetryDelays = <Duration>[
   Duration(seconds: 2),
   Duration(seconds: 5),
@@ -40,8 +41,8 @@ Future<String?> loadMixpanelProjectToken({Dio? dio}) async {
       Dio(
         BaseOptions(
           baseUrl: kandoApiBaseUrl,
-          connectTimeout: const Duration(seconds: 3),
-          receiveTimeout: const Duration(seconds: 3),
+          connectTimeout: mixpanelNetworkTimeout,
+          receiveTimeout: mixpanelNetworkTimeout,
         ),
       );
   addAppDebugHttpLogging(client);

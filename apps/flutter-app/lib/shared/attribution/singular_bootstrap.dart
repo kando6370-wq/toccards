@@ -3,6 +3,8 @@ import 'package:dio/dio.dart';
 import '../api/api_environment.dart';
 import '../debug/app_debug_overlay.dart';
 
+const singularNetworkTimeout = Duration(seconds: 6);
+
 class SingularCredentials {
   const SingularCredentials({required this.apiKey, required this.secretKey});
 
@@ -16,8 +18,8 @@ Future<SingularCredentials?> loadSingularCredentials({Dio? dio}) async {
       Dio(
         BaseOptions(
           baseUrl: kandoApiBaseUrl,
-          connectTimeout: const Duration(seconds: 3),
-          receiveTimeout: const Duration(seconds: 3),
+          connectTimeout: singularNetworkTimeout,
+          receiveTimeout: singularNetworkTimeout,
         ),
       );
   addAppDebugHttpLogging(client);

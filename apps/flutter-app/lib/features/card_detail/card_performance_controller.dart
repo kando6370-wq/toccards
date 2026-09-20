@@ -81,7 +81,7 @@ class CardPerformanceController extends Notifier<CardPerformanceState> {
             range: range,
             localPremiumVerified: localPremiumVerified,
           )
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 25));
       late final PortfolioPerformanceDto data;
       try {
         data = await request();

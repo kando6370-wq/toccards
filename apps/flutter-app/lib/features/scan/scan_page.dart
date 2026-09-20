@@ -920,7 +920,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
           EntitlementReconciliationResult.premiumSynchronized) {
         return;
       }
-      final deadline = DateTime.now().add(const Duration(seconds: 15));
+      final deadline = DateTime.now().add(const Duration(seconds: 25));
       do {
         await _refreshQuotaAndResumeWaiting();
         final quota = ref.read(scanQuotaControllerProvider);

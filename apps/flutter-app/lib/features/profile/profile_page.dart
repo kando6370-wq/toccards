@@ -138,7 +138,7 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
       final premiumState = await ref
           .read(subscriptionControllerProvider.notifier)
           .refreshEntitlement(showFailure: false)
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 25));
       if (!mounted || premiumState != AppPremiumState.free) return;
       final currentSession = ref.read(authControllerProvider).session;
       if (currentSession?.isUser != true ||

@@ -133,7 +133,7 @@ class HomePerformanceController extends Notifier<HomePerformanceState> {
           folderId: folderId,
           localPremiumVerified: localPremiumVerified,
         )
-        .timeout(const Duration(seconds: 15));
+        .timeout(const Duration(seconds: 25));
 
     try {
       return await request();

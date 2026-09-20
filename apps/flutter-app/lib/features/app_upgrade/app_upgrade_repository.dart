@@ -10,13 +10,14 @@ import '../../shared/debug/app_debug_overlay.dart';
 import 'app_upgrade_models.dart';
 
 const appUpgradeApiBaseUrl = kandoApiBaseUrl;
+const appUpgradeNetworkTimeout = Duration(seconds: 10);
 
 final appUpgradeDioProvider = Provider<Dio>((ref) {
   final dio = Dio(
     BaseOptions(
       baseUrl: appUpgradeApiBaseUrl,
-      connectTimeout: const Duration(seconds: 2),
-      receiveTimeout: const Duration(seconds: 2),
+      connectTimeout: appUpgradeNetworkTimeout,
+      receiveTimeout: appUpgradeNetworkTimeout,
     ),
   );
   dio.interceptors.add(

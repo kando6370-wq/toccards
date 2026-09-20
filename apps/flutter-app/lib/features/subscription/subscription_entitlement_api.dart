@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import '../auth/auth_models.dart';
 
-const subscriptionEntitlementRequestDeadline = Duration(seconds: 15);
+const subscriptionEntitlementRequestDeadline = Duration(seconds: 25);
 const subscriptionEntitlementTimeoutCode = 'REQUEST_TIMEOUT';
 
 abstract interface class SubscriptionEntitlementApi {

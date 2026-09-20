@@ -973,7 +973,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
         final lifecycle = await ref
             .read(appleLifecycleApiProvider)
             .loadCurrentSessionLifecycle(session)
-            .timeout(const Duration(seconds: 15));
+            .timeout(const Duration(seconds: 25));
         if (lifecycle.any(
           (chain) =>
               productIds.contains(chain.productId) &&
@@ -995,7 +995,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
       final entitlements = await ref
           .read(appleCurrentEntitlementReaderProvider)
           .read(productIds)
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 25));
       AppleCurrentEntitlement? selected;
       for (final entitlement in entitlements) {
         final payload = decodeStoreKitJwsPayload(
@@ -1224,13 +1224,13 @@ class SubscriptionController extends Notifier<SubscriptionState> {
           : ref
                 .read(appleLifecycleApiProvider)
                 .loadCurrentSessionLifecycle(session)
-                .timeout(const Duration(seconds: 15))
+                .timeout(const Duration(seconds: 25))
                 .then<List<ApplePurchaseChainLifecycle>?>((value) => value)
                 .catchError((Object _) => null);
       final appleEntitlements = await ref
           .read(appleCurrentEntitlementReaderProvider)
           .read(configuration.configuredProductIds.values.toSet())
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 25));
       if (!ref.mounted) {
         return _EntitlementRefreshResult(
           state: state.premiumState,
@@ -1612,7 +1612,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
 Future<bool> loadSubscriptionProductsWithRetry(
   Future<bool> Function() load, {
   bool Function()? shouldContinue,
-  Duration deadline = const Duration(seconds: 15),
+  Duration deadline = const Duration(seconds: 25),
   List<Duration> retryDelays = const [
     Duration(seconds: 1),
     Duration(seconds: 3),

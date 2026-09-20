@@ -997,7 +997,7 @@ class CardDetailController extends Notifier<CardDetailState> {
             ranges: const [CardPriceRange.oneYear],
             localPremiumVerified: true,
           )
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 25));
       late final CardDetailSeriesData data;
       try {
         data = await request();

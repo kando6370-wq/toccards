@@ -412,6 +412,26 @@ Code Review 自审通过：核对配置入口、唯一扫描调用方、URL 映�
 兼容与回滚：部署新代码前必须为服务器 `.env` 添加 `VECTOR_RECOGNITION_BASE_URL`，仅有旧 OCR 键会启动失败。新版本不读取旧键，过渡期可保留旧键供旧版本回滚，或备份并恢复对应版本配置；本次没有执行任何远程 migration（含 0012）。
 
 未运行：Workers/Flutter 全仓测试、App/Admin 默认入口整改、移动端构建或真机扫描、kd201 部署/出站验证、真实购买与通知链路。前两类不属于本阶段后端适配的影响面或交付范围；设备和服务器验证分别需要客户端测试设备与 kd201 部署访问。没有 Git 提交/推送、服务器或 CF 发布、DNS/定时任务切换及业务库写入；不能把本阶段通过解释为原 CF dev 已退役或全部 dev 环境已迁移完成。
+## 三页首次引导 Figma UI 更新（2026-09-20，本地未发布）
+
+按 Figma 文件 `DjacfTioobtRy59SnqH7SY` 的三个最新页面 Frame（`3129:35027`、`3129:35063`、`3129:35083`）更新首次引导视觉，并将用户提供的 `guide-page-1.mp4`、`guide-page-2.mp4`、`guide-page-3.mp4` 逐页替换为 App 资源。三份源文件与目标 MP4 逐字节一致；SHA-256 分别为 `cc85b9e35e02fb66a439574ab030cf0b0f236771805fbbf1399c5719a876918e`、`dc71784230ee376205645fbe5ed3658bdd6e039dd7ad307f7019cb68cd7b6cde`、`0d971473f464ded2c2ae43e93454e84ee858096b021d28acf0c295527a9e4022`。每页静态占位图均由对应视频真实首帧生成并保持 390×480，按钮箭头使用 Figma 导出的 20×20 SVG。
+
+390×844 基准下，三页视频最终为 `(0, 86, 390, 480)`，底部面板为 `(0, 552, 390, 292)`，标题为 30/40，正文为 14/24，按钮为 284×44；背景、渐变、模糊、颜色、间距和第三页文案同步设计稿。真机回读曾尝试把视频容器延伸至 520 pt，但因 `cover` 会裁切左右内容而撤销；最终保持原始 390×480 比例并将整个视频相对 Figma 向下移动 30 pt，使底部到达 566 pt 且不裁切左右内容。Figma 分页实例显示四个圆点，但产品流程和实际页面只有三页，因此保留既有三点且随当前页切换，未增加不存在的第四页。窄屏保持媒体等比缩放，内容区收窄时仅减少按钮外侧留白并在必要时等比收小长标题；宽屏媒体和内容区保持设计最大宽度。
+
+真机继续发现第一页和第二页副文本的单行内容被截断。测量确认第一页首行实际绘制宽度超过原 232 pt、后续 348 pt 容器也仍不足，而 390 pt 屏幕有可用空间。两页副文本因此改用最大 390 pt 独立视口，保留明确的两行换行和 14/24 样式；关闭系统文字缩放对该固定视觉文案的二次换行，并通过 `scaleDown` 只在实际超宽和窄屏时做最小幅度缩小。第三页文案、标题、分页点和按钮不变。
+
+随后按用户确认，将第一页和第二页的标题及副文本作为同一视觉组整体上移 30 pt；390×844 基准下标题由 `y=622` 移至 `y=592`，副文本由 `y=674` 移至 `y=644`。布局占位不变，因此两页分页指示点继续保持 `y=730`，按钮位置不变；第三页不调整。
+
+修改前定向布局用例稳定暴露旧实现：第三页仍为 `Personalized Wishlist`，第二页媒体为 `(0, 0, 390, 563)`，且没有新的底部面板节点。初次完整回归还发现 320×700 下第三页两个长按钮分别横向溢出 29 和 40 px；响应式约束调整后，同一用例通过。曾验证 390×520 延伸方案可通过布局测试，但真机显示会裁切左右内容，因此改为保持 390×480 并整体下移；最终按用户确认从 Figma 顶部 56 pt 下移 30 pt 至 86 pt。最终在 `apps/flutter-app` 执行：
+
+- `flutter test --no-pub --dart-define-from-file=config/test.json test/widget/onboarding_page_test.dart --name 'guide actions advance|all guide media|guide copy and controls' --reporter expanded`：3/3 通过，退出 0。
+- `flutter test --no-pub --dart-define-from-file=config/test.json test/widget/onboarding_page_test.dart test/onboarding_gate_test.dart --reporter expanded`：21/21 通过，退出 0；覆盖 390×844 精确布局、前两页副文本完整显示、320×700 无溢出、宽屏媒体上限、三页翻页、减少动态效果、辅助功能、游客完成、登录入口和启动门禁。
+- `flutter test --no-pub --dart-define-from-file=config/test.json test/widget/onboarding_page_test.dart --name 'guide copy and controls|first two guide descriptions' --reporter expanded`：2/2 通过，退出 0；确认前两页副文本完整显示且基准纵向坐标不变。
+- 三个下载源文件与 App MP4 分别执行 `cmp -s` 均退出 0；`file` 确认三张占位图均为 390×480 PNG，三份视频均为 ISO Media MP4，箭头为 SVG。
+- `flutter analyze --no-pub`：无问题，退出 0。`dart format --output=none --set-exit-if-changed lib/features/onboarding/onboarding_page.dart test/widget/onboarding_page_test.dart` 与 `git diff --check` 均退出 0。
+
+Code Review 自审确认 `PageView`、三页操作回调、认证/游客路径、埋点、Onboarding 完成状态、视频预加载/循环/静音/生命周期和失败降级均未改变；修改范围仅为 UI 布局、文案与媒体资源，不涉及 API、权益、数据库、原生平台代码或依赖。未执行 iOS/Android 真机视觉验收、安装包构建或发布；需在两端真实设备补验视频硬解码、循环衔接和不同安全区下的最终视觉。
+
 ## 首次引导邮箱登录提示定时关闭（2026-09-16，已构建测试内部包 143）
 
 用户确认场景为首次安装引导后的邮箱登录：`Welcome back` 应显示 1 秒后自动关闭，提示隐藏后再进入后续订阅流程。本轮基于含下节 Profile 登录订阅调整的 `1.0.2+142` 工作区，macOS / Flutter 3.44.5 / Dart 3.12.2；已保存的 142 IPA 不包含本节后续修改，新构建的 143 IPA 包含本节修改。

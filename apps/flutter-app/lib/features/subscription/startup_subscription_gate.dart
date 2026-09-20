@@ -37,7 +37,7 @@ class _StartupSubscriptionGateState
       resolved = await ref
           .read(subscriptionControllerProvider.notifier)
           .refreshEntitlement(showFailure: false)
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 25));
     } on Object {
       resolved = AppPremiumState.unknown;
     }

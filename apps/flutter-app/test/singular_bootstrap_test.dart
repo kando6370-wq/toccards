@@ -5,6 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/shared/attribution/singular_bootstrap.dart';
 
 void main() {
+  test('Singular config requests allow six seconds per network phase', () {
+    expect(singularNetworkTimeout, const Duration(seconds: 6));
+  });
+
   test('loads Singular SDK credentials from app config', () async {
     final dio = Dio(BaseOptions(baseUrl: 'https://api.example.test/api/v1'))
       ..httpClientAdapter = _JsonAdapter({
