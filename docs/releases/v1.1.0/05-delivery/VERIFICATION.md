@@ -2,6 +2,16 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## iOS 正式包 1.0.3 (150) 上传 App Store Connect（2026-09-20）
+
+按用户要求基于 `dev@35c7f87` 构建正式环境 App Store 包，并将营销版本从 `1.0.2` 提升为 `1.0.3`。构建前生产配置校验通过：Bundle ID `com.cardai.tcg`、App Attest `production`、Firebase 项目 `tcg-card-2072d`、生产 API `https://api.tcgcard.fun/api/v1`、正式订阅 SKU `CardAi.weekly` / `CardAi.yearly` / `CardAi.lifetime`；生产 API `/health` 返回 HTTP 200、`status=ok`。以 `config/production.json` 执行发布配置、环境/API、分享、升级和 Singular 配置测试共 31 项，全部通过、退出 0。Profile 页通过 `PackageInfo.fromPlatform()` 读取安装包营销版本并去掉构建号，因此该包显示 `Version 1.0.3`，没有另设硬编码版本。
+
+执行 `./tool/release_ios.sh --env production --upload --build-number 150`，依赖按现有锁文件解析，`flutter analyze`、清理、Xcode 归档、App Store IPA 导出、签名/配置校验、dSYM 覆盖及上传均通过，脚本退出 0。最终 IPA 为 `1.0.3 (150)`、Apple Distribution 签名、`get-task-allow=false`、App Attest `production`；正式 Firebase 与生产 API 字符串校验通过，41 个 Mach-O UUID 均有匹配 dSYM，Packaging.log 没有 dSYM 缺失警告。Xcode 上传配置启用 `uploadSymbols=true`，App Store Connect 明确返回 `Upload succeeded.`、`Uploaded package is processing.` 和 `** EXPORT SUCCEEDED **`；这证明包与符号已交给 Apple，后台构建处理完成状态仍需在 App Store Connect 回读。
+
+IPA 为 72,735,508 字节，SHA-256 `d807707a171730d11744aa60e700128d5f243d31f89b254d76ae8380671d4b67`；`dSYMs.zip` 为 63,434,956 字节，SHA-256 `65585df3445972add44ffcd656e5a6c4b3973950e1d672f4d216c9842dd1655d`。两者保存于 `~/Downloads/CardAI-Packages/com.cardai.tcg/CardAI-Prod-1.0.3-150/`，Xcode 归档另存于 `~/Library/Developer/Xcode/Archives/2026-09-20/Card AI Prod 1.0.3 (150).xcarchive`；正式包目录目前共 4 个版本，未超过保留 7 个的上限，没有清理旧正式包。源码版本同步为 `1.0.3+150`，Dart/CocoaPods 锁文件未变化。
+
+未运行：App Store Connect 后台处理完成与 TestFlight 可选状态回读、iOS 正式包真机登录/订阅/扫描验收、Android 构建与真机验证、Flutter 全仓测试。本次未安装设备、Git push、服务端部署、远程数据库或运营配置写入；上传完成不等于已经提交 App Store 审核。
+
 ## iOS 测试内部包 1.0.2 (149)（2026-09-20）
 
 按用户要求基于当前 `dev@7a0cdaa` 构建蒲公英可安装的 iOS 测试内部包。构建前工作区干净，源码版本为 `1.0.2+148`；测试环境继续连接 Linux dev `http://192.168.50.201:8080/api/v1`，其 `/health` 返回 HTTP 200、`status=ok`。执行网络超时、环境、归因、Portfolio 和订阅相关测试共 93 项，以及首次引导与启动门禁测试 21 项，全部通过、退出 0。两组测试并行启动时各自输出过一次共享 `build/unit_test_assets` 清理告警，但测试进程随后均完整执行并以 `All tests passed`、退出 0 结束；该工具目录争用不计作业务失败。
