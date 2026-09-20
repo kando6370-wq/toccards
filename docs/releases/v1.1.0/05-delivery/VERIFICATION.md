@@ -24,6 +24,8 @@
 
 Windows / Flutter 3.44.7 本地验证：原 A→B→A→B 用例修复前退出 1，修复后通过；补充手动/整体刷新及失败重试的 Controller 测试、可见价格与 loading 的 Widget 测试。`flutter test --no-pub test/card_detail_controller_test.dart test/widget/card_detail_page_test.dart` 最终 106/106 通过；`flutter analyze --no-pub` 无问题；`git diff --check` 退出 0。Code Review 自审核对了缓存仅存成功结果、材质/语言隔离、整体与局部刷新失效、快速切换的代次检查、Premium 1Y 与编辑草稿路径，未发现本轮剩余问题。未运行 iOS/Android 真机网络与视觉验收、设备构建、全 App/全仓测试或 dev/prod 发布；本地 Widget 测试不能替代真机验证，需客户端测试人员在后续两端测试包中复核。
 
+2026-09-18 后续测试包：macOS 上以 `--dart-define-from-file=config/test.json` 复跑上述两文件，106/106 通过；内网 `http://192.168.50.201:8080/api/v1/health` 返回 HTTP 200。执行 `./tool/release_ios.sh --env test --pgy --build-number 148`，清理构建、静态分析、签名归档和 IPA 校验均通过，退出 0。最终内部 IPA 为 `1.0.2 (148)`，`com.kando.kandoApp.beta`、Apple Development 签名、App Attest `development`，测试 Firebase 和内网 API 校验通过，41 个 Mach-O UUID 均匹配 dSYM。保存的 IPA 再次回读确认 `192.168.50.201` HTTP 例外及本地网络权限说明。IPA 为 56,484,151 字节，SHA-256 `1c28b5956b480e9b7b5f9a22779a08731698a1101b3ea7be89c6097be1b98d59`；IPA 和 `dSYMs.zip` 保存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.2-148/`，副本摘要一致；Xcode 归档另存于 `~/Library/Developer/Xcode/Archives/2026-09-18/Card AI Test 1.0.2 (148).xcarchive`。现保留 146、147、148，旧 145 移入废纸篓，可恢复；源码版本同步为 `1.0.2+148`，Dart/CocoaPods 锁文件未变化。该包也包含下节 Price 时间按钮调整。未运行：iOS/Android 真机 Price 切换和按压视觉验收、Android 构建、全 App/全仓测试、生产 API 优化部署与效果验证；本次仅交付测试环境 iOS 内部包，未安装、上传、推送或部署。
+
 ## Card Detail Price 时间按钮点击方框（2026-09-18，本地修改）
 
 用户截图显示无价格数据时切换 `1D/7D/15D` 等时间范围，选中标识外出现浅色方框。源码中 Price 按钮的 `InkWell` 未设置点击反馈，40×40 热区使用 Flutter 默认 splash/overlay，而选中渐变仅为 40×24；相邻 Performance 范围控件已关闭默认反馈。修复只对 Price 范围按钮关闭 splash/overlay，保留选中渐变、点击热区、范围切换及 1Y PRO 门禁。影响通用与具体 Item 详情的 Price 页，iOS/Android 共用 Flutter 实现；不改 Performance、价格数据、API 或权益逻辑。现有 UI 设计规范已禁止默认 Material 视觉，业务/接口文档契约未变化，故无需另改流程文档（N/A）。
@@ -39,11 +41,15 @@ Cloudflare 退役前回读：`toccards-api-dev` 的自定义域名仅有 `api-de
 退役后 `api.tcgcard.fun/api/v1/health`、Linux 内网 health、`recognize-vec.tcgcard.fun/health` 均返回 200；独立 `dev-callback.tcgcard.fun` 对通知路径 GET 返回预期 405。Cloudflare 清单仍包含 prod API、向量 Worker 和独立 Apple 回调，prod 与回调自定义域名保持原归属；只读清单确认旧 dev KV namespace 与 R2 bucket 均仍存在，未读取内容。没有删除或写入共享 PostgreSQL、旧 dev KV/R2、Linux 数据卷、旧包或 prod；旧 Worker 自身的 Secret 和版本历史随脚本删除，若要恢复需重新配置，不能将数据保留等同于 Worker 可无密钥回滚。本次未发送新的 Apple TEST、未执行旧包兼容访问或完整客户端复验，用户确认的客户端验收与上述只读服务检查分别记录。源码移除旧 `wrangler.toml` dev 环境以防误部署；本次本地文档和配置变更未提交、推送或触发 Linux watcher。
 
 本地验证：`pnpm lint` 退出 0；`pnpm type-check` 7/7（其中 6 项命中缓存，Workers API 实际执行）；`pnpm --filter @kando/workers-api exec vitest run src/entitlements/node-fetch-worker-shim.test.ts --maxWorkers=1` 为 5/5；prod `deploy:dry-run:prod` 与 Linux `deploy:dry-run:dev` 均退出 0，后者的完整 API bundle 启动/Apple SDK 回归 2/2，均未发布。反向检查 `wrangler deploy --env dev --dry-run` 退出 1，明确提示配置没有 dev 环境，属于预期拒绝。文档路径/新增退役锚点和 `git diff --check` 通过；Code Review 核对了唯一旧 Worker/域名/cron、prod/回调/识别资源保留、配置删除范围与实际远端回读，未发现阻断项。未运行全仓 Workers/Flutter 测试、真机、真实购买或备份恢复演练，本次未改业务运行逻辑。
-## 引导页 1 视频顶部位置与等比尺寸（2026-09-17，本地修改）
+## 引导页 1 视频顶部位置与等比尺寸（2026-09-17，已构建测试内部包 147）
 
 按用户文字要求而非图片中的 390×510 cover 备注调整页面 1：视频源 780×960，最大显示宽度 390 pt、按比例高度 480 pt，距屏幕顶部 56 pt；窄屏等比缩小，宽屏居中。首帧占位图与视频共用原媒体容器，不另行裁剪；页面 2、3 保持原来的顶部安全区布局，播放/循环/降低动态效果及按钮交互未变。`01-flows/business-context.md` 已同步当前行为，冻结 v1.0.0 文档未修改。修改前页 1 顶部布局回归测试失败（实际顶部为 0），页 2 保持原布局测试通过。
 
-本地验证：macOS / Flutter，`flutter test --no-pub --dart-define-from-file=config/test.json test/widget/onboarding_page_test.dart test/onboarding_gate_test.dart --reporter expanded`：20/20 通过、退出 0，覆盖 390×844 顶部 56 与 390×480 等比尺寸、320×700 窄屏比例和静态回退、430×932 居中，以及页 2 原安全区布局、三个引导页跳转和启动门禁。`flutter analyze --no-pub`：无问题、退出 0；`dart format`：仅格式化本轮测试文件；`git diff --check`：退出 0。Code Review 自审核对页 1 媒体尺寸和顶距仅作用于索引 0、首帧图与视频共用尺寸容器，页 2、3 原媒体尺寸分支及播放、文案、底部控制未修改；未发现本轮变更问题。尚未重新打包或在 iOS/Android 真机验收，Widget 布局测试不能代替真机视频解码与尺寸检查，需后续测试包补验。
+本地验证：macOS / Flutter，`flutter test --no-pub --dart-define-from-file=config/test.json test/widget/onboarding_page_test.dart test/onboarding_gate_test.dart --reporter expanded`：20/20 通过、退出 0，覆盖 390×844 顶部 56 与 390×480 等比尺寸、320×700 窄屏比例和静态回退、430×932 居中，以及页 2 原安全区布局、三个引导页跳转和启动门禁。`flutter analyze --no-pub`：无问题、退出 0；`dart format`：仅格式化本轮测试文件；`git diff --check`：退出 0。Code Review 自审核对页 1 媒体尺寸和顶距仅作用于索引 0、首帧图与视频共用尺寸容器，页 2、3 原媒体尺寸分支及播放、文案、底部控制未修改；未发现本轮变更问题。
+
+签名构建：同日基于已提交的最新代码执行 `./tool/release_ios.sh --env test --pgy --build-number 147`。首次 Xcode 缺少 iOS 26.5 平台，归档前失败；组件下载完成后第一次重试在两个 storyboard 编译时报平台未安装，待运行时首次安装缓存生成并单独确认 storyboard 能编译后，再以相同命令重试，静态分析、归档、导出及签名产物校验通过，退出 0。最终内部 IPA 为 `1.0.2 (147)`，Bundle ID `com.kando.kandoApp.beta`，Apple Development 签名，App Attest `development`，测试 Firebase 和内网 `http://192.168.50.201:8080/api/v1` 校验通过；41 个 Mach-O UUID 均匹配 dSYM。回读已保存 IPA 的 Info.plist 确认仅 `192.168.50.201` 的 HTTP ATS 例外及本地网络权限说明。IPA 为 56,482,857 字节、SHA-256 `f8cf2ff23d522c7cbb0dcd6a702be18af4e1d94acf63f08b2c9c1f8ef6b13650`，与 `dSYMs.zip` 保存至 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.2-147/`，副本摘要一致；源码版本同步为 `1.0.2+147`，Dart/CocoaPods 锁文件未变化。现保留 145、146、147，旧 144 移入废纸篓，可恢复；归档另存至 `~/Library/Developer/Xcode/Archives/2026-09-17/Card AI Test 1.0.2 (147).xcarchive`。该包同时包含下方注册提示与登录时长调整。
+
+未运行：iOS/Android 真机引导视频、登录/注册、局域网权限、扫描与购买，Android 构建及本次完整 App/全仓测试。上方与下方定向回归属于打包前同一代码版本的验证，本次发布脚本再次通过静态分析；Widget 布局测试不能代替真机视频解码、转场和服务联调。未安装、上传、推送或部署。
 
 ## 注册 Welcome 留在注册页及登录提示恢复 1 秒（2026-09-17，本地修改）
 
@@ -53,7 +59,7 @@ Cloudflare 退役前回读：`toccards-api-dev` 的自定义域名仅有 `api-de
 
 验证：macOS / Flutter，修复前首次引导和 Profile 的注册页保留断言均失败；修复后 `flutter test --no-pub --dart-define-from-file=config/test.json test/widget/auth_profile_test.dart --name 'email registration keeps its entry flow|successful register passes current anonymous id|onboarding email welcome auto closes after one second|email welcome keeps password page|email login saves onboarding only once|email welcome does not close a newer route|email welcome timer is safe|onboarding Email login follows|Profile Email login checks|welcome without an action|welcome with an action|welcome timer only|early welcome dismissal' --reporter expanded`：29/29 通过、退出 0，覆盖 iOS/Android 登录、首次引导/Profile 注册的 Free/Premium/Unknown 分流及计时边界。`flutter analyze --no-pub`：无问题、退出 0；`git diff --check`：退出 0。全量 `auth_profile_test.dart`：125 项通过、4 项订阅页 Golden 图像对比失败、退出 1；失败项仍是 responsive Profile banner、subscription success 300ms motion、v1.1 bottom sheet 和 success page，与欢迎提示路径无关，未更改 Golden 基线，不把全量测试记为通过。
 
-Code Review 自审：核对注册提示在原注册路由上显示、提示结束后才退出该路由、外层只移除自己的登录选项，以及两处入口和三种权益状态的后续分流；登录提示 1 秒及共享弹窗默认 2 秒的其他行为未改。未运行 iOS/Android 真机首次安装及注册、IPA/Android 构建或真实权益接口联调；Widget 测试不能代替设备视觉/转场验收，需客户端测试人员在后续测试包补验。
+Code Review 自审：核对注册提示在原注册路由上显示、提示结束后才退出该路由、外层只移除自己的登录选项，以及两处入口和三种权益状态的后续分流；登录提示 1 秒及共享弹窗默认 2 秒的其他行为未改。后续已包含在上节 iOS 内部包 147 中；Android 构建、iOS/Android 真机首次安装及注册和真实权益接口联调仍未运行，Widget 测试不能代替设备视觉/转场验收。
 
 ## 认证欢迎提示自动关闭（2026-09-17，本地修改）
 
@@ -63,7 +69,7 @@ Code Review 自审：核对注册提示在原注册路由上显示、提示结�
 
 本地验证：macOS / Flutter，修改前针对注册流转和无按钮欢迎弹窗的回归测试失败；修改后 `flutter test --no-pub --dart-define-from-file=config/test.json test/widget/auth_profile_test.dart --name 'welcome without an action|welcome with an action|welcome timer only|early welcome dismissal|email registration keeps its entry flow|onboarding email welcome auto closes after two seconds|email welcome keeps password page|email login saves onboarding only once|email welcome does not close a newer route|email welcome timer is safe|onboarding Email login follows|Profile Email login checks' --reporter expanded`：24/24 通过、退出 0，覆盖 iOS/Android 登录及引导/Profile 注册分流。`flutter analyze --no-pub`：无问题、退出 0；`dart format` 仅格式化改动测试文件；`git diff --check`：退出 0。全量 `auth_profile_test.dart`：121 项通过、4 项订阅页 Golden 图像对比失败、退出 1；失败项为 responsive Profile banner、subscription success 300ms motion、v1.1 bottom sheet 和 success page，与本次欢迎弹窗路径无关，未更新 Golden 基线，不把该测试记为通过。
 
-Code Review 自审：核对了无按钮默认/注册特例、带按钮不定时、点击遮罩提前关闭、销毁取消计时、后来打开的页面不被错误关闭，以及引导/Profile 权益分流；未发现本次变更的问题。未运行 iOS/Android 真机首次安装与注册、IPA/Android 构建或订阅接口联调；本地 Widget 测试不能替代真机对提示时长及后续页面流转的验收，需客户端测试人员在后续测试包补验。
+Code Review 自审：核对了无按钮默认/注册特例、带按钮不定时、点击遮罩提前关闭、销毁取消计时、后来打开的页面不被错误关闭，以及引导/Profile 权益分流；未发现本次变更的问题。后续已包含在上节 iOS 内部包 147 中；Android 构建、iOS/Android 真机首次安装与注册及订阅接口联调仍未运行，本地 Widget 测试不能替代真机对提示时长及后续页面流转的验收。
 ## Linux dev 公网回源服务器隔离（2026-09-17）
 
 原公网 `111.10.170.43:8089` NAT 到 `192.168.50.201:8080`，可绕过 CF Worker 直接得到 Admin HTML 与 `/api/v1/health` 200；CF Worker 的路径限制无法保护这条直连。kd201 仅在 8080 发布 Docker Web，`ens160` 抓包确认公网请求保留公网源地址，内网客户端从私网到达。为不改 NAT、App/Admin 内网地址或现有 Compose，在主机启动独立 Node 22 回调网关（8081），再通过专属 nftables `ip toccards_callback` 表以 prerouting priority -101（Docker DNAT 为 -100）仅将公网 IPv4 到 `201:8080` 的流量转到该网关；RFC1918 内网源地址仍直达 8080。两项 systemd 服务已启用并运行，代码和策略存放在 `deploy/linux/security/` 与宿主机对应私有安装位置，原 API/Web/DB 容器及 watcher release `dev@7a8300b` 均未更换。
