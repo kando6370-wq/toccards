@@ -2,12 +2,12 @@
 
 > 后续变更遵循当前根 `AGENTS.md`：BUGFIX 必须先复现并建立失败证据，再执行最小修复、回归验证与 Code Review。下方任务勾选及测试结果保留原始实施记录，不代表当前提交已重新验收。
 
-## 当前实现边界（2026-09-16）
+## 当前实现边界（2026-09-20）
 
-- `19a6ac4` 已合入 Linux 部署资产；下方原始实施记录保留 `dev@699ca48` 历史基线，当前后端整改基于 `dev@b941a3f`，不再等待功能分支合入。
+- `19a6ac4` 已合入 Linux 部署资产；下方原始实施记录保留 `dev@699ca48` 与 `dev@b941a3f` 历史基线。当前仓库为 `dev@35c7f87`，Linux API 运行 `dev@9488a15`，不再等待功能分支合入。
 - Cloudflare dev/test 与 prod 已完成 PostgreSQL 迁移，D1 已退役；Linux 使用独立 PostgreSQL。
 - dev 整改已通过 HTTP 适配复用 CF 识别，并统一 App test/Admin development 内网入口、测试分享与 Linux 发布命令；2026-09-15 已升级 kd201 现有实例并完成受控扫描、额度和收藏写库验证。设备验收与第三方测试配置仍待完成，见[架构中的兼容缺口](../02-architecture/linux-test-environment.md#扫描兼容缺口)。下方 Task 勾选与 OCR 配置仅保留原始实施历史，不作为新版本配置指引。
-- 整改已通过 `75c0ec4` 合入 dev，现有 watcher 已自动发布该提交并完成扫描/扣次/本地收藏复验；ledger 保持 13 项。下方 10 条 migration、容器与发布结果只对应注明的历史时间，当前证据见[验证记录](VERIFICATION.md)。
+- 整改已通过 `75c0ec4` 合入 dev；2026-09-20 watcher 进一步发布性能提交 `9488a15`，API/DB healthy、Web running、migration exited/0，ledger 为 14 项且最新为 `0013`。下方 10 条 migration、容器与发布结果只对应注明的历史时间，当前证据见[验证记录](VERIFICATION.md)。
 
 **Goal:** Add a single-instance Linux test deployment that runs the existing Hono/PostgreSQL application without duplicating business code or changing Cloudflare production behavior.
 

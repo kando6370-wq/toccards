@@ -3,7 +3,7 @@
 ## 0. 文档说明
 
 - 分析范围：全项目业务主线，重点记录 v1.1 相对 v1.0 的订阅、额度、Performance 和 Admin 增量。
-- 当前核对基线：`dev@699ca48`，2026-09-10；原始分析起点为 2026-08-14，历史环境结果保留其检查日期。
+- 当前核对基线：`dev@35c7f87`，2026-09-20；客户端版本 `1.0.2+149`，Linux API 实际运行 `dev@9488a15`，后续提交只影响 Flutter/文档。原始分析起点为 2026-08-14，历史环境结果保留其检查日期。
 - 范围边界：当前检出代码、Schema/迁移、运行配置和测试；不把远程环境历史证据外推为当前实时状态。
 - 上一版本未变化流程继续参考 [v1.0.0 业务流程](../../v1.0.0/01-flows/flows.md)。
 
@@ -95,7 +95,7 @@ Card AI 面向交易卡牌用户提供目录搜索、图片识别、Wishlist/Col
 4. 游客注册为新用户后，服务端把 Folder、Collection、Wishlist、偏好、扫描记录和已结算的 Free Scan 消费迁移到正式 UID；游客登录已有用户时不合并游客 Scan Quota。
 5. 登出撤销 session；删除账号按正式/匿名类型清理或失效业务数据。
 
-邮箱、Google、Apple 在首次引导和 Profile 登录或注册成功后都检查权益，仅 Free 自动显示完整 Subscription Page。首次引导由 Onboarding 保存完成状态并进入启动权益检查，Free 使用 `source=onboarding`，Premium 或 Unknown 进入 Home；检查期间不提前显示 Home。Profile 先关闭认证页面及邮箱成功提示，再刷新权益；Free 使用 `source=profile`、`entry_source=login` 打开订阅页，关闭后返回原 Profile，Premium 或 Unknown 留在 Profile 刷新账号信息。Profile 检查超过 15 秒或抛错时留在当前页；检查返回时若已离开 Profile 或账号发生变化，则不追加订阅页。取消或失败不触发登录后的权益检查，也不推进引导；普通 Tab 切换、回前台和关闭订阅页不会重复触发登录订阅展示。该流转不改变认证接口、会话持久化、游客资产处理或 Premium 判定；后续完整冷启动仍沿用既有权益检查。
+邮箱、Google、Apple 在首次引导和 Profile 登录或注册成功后都检查权益，仅 Free 自动显示完整 Subscription Page。首次引导由 Onboarding 保存完成状态并进入启动权益检查，Free 使用 `source=onboarding`，Premium 或 Unknown 进入 Home；检查期间不提前显示 Home。Profile 先关闭认证页面及邮箱成功提示，再刷新权益；Free 使用 `source=profile`、`entry_source=login` 打开订阅页，关闭后返回原 Profile，Premium 或 Unknown 留在 Profile 刷新账号信息。Profile 检查超过当前 25 秒整体 Deadline 或抛错时留在当前页；检查返回时若已离开 Profile 或账号发生变化，则不追加订阅页。取消或失败不触发登录后的权益检查，也不推进引导；普通 Tab 切换、回前台和关闭订阅页不会重复触发登录订阅展示。该流转不改变认证接口、会话持久化、游客资产处理或 Premium 判定；后续完整冷启动仍沿用既有权益检查。
 
 邮箱登录验证成功后保留密码页，在该页上显示 `Welcome back`，1 秒后自动关闭，也可提前手动关闭。首次安装引导等待提示层实际移除后才保存引导完成状态并进入既有权益检查；密码页继续覆盖引导，直到完成状态保存且替代页面完成一帧构建，再关闭密码页并无退场动画移除登录选项，避免中间闪回引导页 3。权益请求未完成时显示既有检查 Loading，Free 进入订阅页，Premium/Unknown 进入 Home。Profile 复用密码页上的提示，关闭后仍按上述权益规则继续。提示关闭或销毁会取消计时，邮箱流程只移除自己的路由，不误关闭后来打开的页面。邮箱注册成功时保持在设置密码的注册页显示无按钮 `Welcome`，1 秒后关闭提示和注册页，再按原有引导/Profile 权益规则判断是否进入订阅页；不会在引导页 3 上显示提示。其他无按钮欢迎弹窗默认 2 秒关闭，带确认按钮的欢迎弹窗仍等待用户操作。
 

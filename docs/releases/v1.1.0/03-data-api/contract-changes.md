@@ -6,7 +6,7 @@
 
 主 Worker 只经 `VECTOR_RECOGNITION` Service Binding 向内部 `recognize-vec` 发送 `{vector}`，Cloudflare 配置和扫描请求路径不再使用 `OCR_SERVICE_BASE_URL`；缺少 binding 为 `503 VECTOR_RECOGNITION_UNAVAILABLE`，内部失败为 `502` 并释放 Free 预占。`game_id` 改在主 Worker 的 PostgreSQL 目录层过滤，保留卡号消歧与候选顺序。算法标识为 `pe-core-t16-384-cosine-v1`，未增加数据库迁移。下文历史契约中的 OCR 识别上游在本分支由向量服务承担，端侧 ML Kit 卡号 OCR 保留；No Match/目录不完整不扣次数等规则仍有效。详见[扫描识别链路](../01-flows/scan-recognition.md)。
 
-Linux 入口共用上述路由，2026-09-15 的后端整改以必填 `VECTOR_RECOGNITION_BASE_URL` 构造 HTTP `VECTOR_RECOGNITION`。适配器只把 `{vector}` 交给现有 CF 识别服务，10 秒超时覆盖正文读取；候选补全、额度与扫描记录使用本地 PostgreSQL。旧 OCR 配置已退出运行路径，缺 binding 的 503 和上游失败的 502/释放额度语义保持不变。当前仅完成本地代码与验证，实际部署和设备扫描边界见[Linux 兼容缺口](../02-architecture/linux-test-environment.md#扫描兼容缺口)。
+Linux 入口共用上述路由，以必填 `VECTOR_RECOGNITION_BASE_URL` 构造 HTTP `VECTOR_RECOGNITION`。适配器只把 `{vector}` 交给现有 CF 识别服务，10 秒超时覆盖正文读取；候选补全、额度与扫描记录使用本地 PostgreSQL。旧 OCR 配置已退出运行路径，缺 binding 的 503 和上游失败的 502/释放额度语义保持不变。当前实现已随 `dev@9488a15` 发布到 Linux；设备扫描、真实阶段耗时和 prod 独立协议边界见[Linux 兼容缺口](../02-architecture/linux-test-environment.md#扫描兼容缺口)及[验证记录](../05-delivery/VERIFICATION.md)。
 
 ## App 版本控制环境隔离
 
@@ -145,6 +145,8 @@ OCR 候选返回后，Scan 只读取识别响应需要的 `product_id`、游戏�
 
 Functional Paywall 只在 typed Purchase/Restore success 后启动上述服务端权益同步；quota=0 且图片未入 Queue 时仍只返回 Scan，不自动打开相机或图库。Scan Pro Card 使用完整 Subscription Page：Purchase Success 经 Success Page 返回原 Scan 页面实例，Restore/外部解锁直接返回，因此当前 Queue 不会因重新创建路由而丢失。首次 quota 刷新延后到首帧，避免路由切换构建期修改 Riverpod provider。
 
+2026-09-20 dev 性能实现只收敛数据库读取：`GET /scan/quota` 在 SQL `WHERE` 层排除 Premium 与 released 历史；新 queued reserve 跳过必然为空的首次 request 查询，重试/冲突仍回读；成功 settlement 由条件 UPDATE 直接进入 quota 读取，UPDATE 0 行时保留原回读和错误分支。API 字段、状态码、Free/Premium 口径、lease、幂等与扣次契约均未改变，不新增 migration。
+
 ## Performance 与 Extended Price History
 
 | API | 当前行为 |
@@ -159,6 +161,8 @@ Functional Paywall 只在 typed Purchase/Restore success 后启动上述服务�
 Performance 与普通历史图表统一使用 `1D/7D/15D/1M/3M/1Y`，默认 `1M`。Home 与 Card Detail Performance 整体为 Premium；Home Overview 与 Card Detail Price History 仅 1Y 为 Premium。Functional Paywall Purchase/Restore 成功会返回原图表并自动加载 1Y，未获得 Premium 时不改变原 Range 或已加载数据，Premium 变 Free且当前为 1Y 时回退 3M。
 
 Home Overview 首次选择 1Y 时只请求当前 Folder；请求期间立即选中 1Y、保留已有曲线并显示加载状态，重复点击复用同一请求，切换 Range 或 Folder 后的迟到响应不得覆盖最新选择。365 天估值查询只返回范围开始前每个相关 Item 的最后基线事件及范围内事件，再按一次日期遍历聚合 Folder；SKU 匹配、价格历史解析和日期价格在单次请求内复用。该优化保持估值、Folder Move、Most Valuable、Premium 和错误语义不变，不新增 Schema 或 migration。
+
+估值历史仍为时间窗内全部有效事件加载价格，确保删除、数量和 Folder Move 的每日回放不变；卡牌目录元数据只用于结束日当前持仓的 Most Valuable，因此仅按当前请求 Folder 的 end-date state 加载。历史删除卡不再增加 `cards_all` 分块查询；`item_count`、`market_price_status`、曲线、当前总值和 Top 3 排序不变。
 
 Home Performance 的 `current` 与 `series[]` 点位提供 nullable `market_value_change_usd`、`market_change_usd`、`portfolio_change_usd`、`quantity_change`。服务端按未提前舍入的历史价格和数量计算 `Daily Change = Market Value(t) - Market Value(t_prev)`、`Market Change = sum((MP(t) - MP(t_prev)) * Q(t_prev))`，再以 `Portfolio Change = Daily Change - Market Change` 分离持仓变动；响应末端统一保留两位小数。Range 首点若范围外存在紧邻可靠日，仍使用该日作为 `t_prev`；只有全历史没有可信前序节点时四项才返回 `null`，客户端不得伪造为 0。Home Tooltip 固定展示 Date、Market、Portfolio、Qty，`Daily Change` 只作为内部计算中间值和 `Daily Change = Market Change + Portfolio Change` 校验值，不在 Tooltip 展示；Market 或 Portfolio 为 `null` 时对应行展示 `--`，有值时按 App 当前币种换算并遵循金额隐藏状态。Partial Purchase Price 说明使用 Info Popover，且与 Chart Tooltip 互斥。该响应扩展不新增数据库迁移。
 
@@ -177,6 +181,8 @@ Card Detail 普通价格历史 1Y 的服务端防绕过已关闭：Free 仍可�
 Workers 业务 API 的路径、请求/响应字段、鉴权、owner 隔离、幂等、Premium 和错误语义保持不变；底层查询使用 PostgreSQL 方言。部署运行时的 `fetch` 与 `scheduled` 入口必须存在 `HYPERDRIVE`，缺失时立即失败，不允许读取其他数据库 binding 或执行任务。测试可继续通过直接调用 `app.request` 注入进程内 `DB` 适配器，但这不是部署运行时的回退路径。
 
 Flutter 启动时校验已保存会话：只有 `/auth/me` 或 `/auth/token/refresh` 明确返回 `UNAUTHORIZED` 才判定会话失效并进入匿名账号恢复流程。PostgreSQL、配置或服务端内部错误必须保持显式失败，不能转换为“无会话”，避免短暂后端故障导致客户端错误切换 owner。
+
+服务端 bearer 鉴权根据已验签 token 的 `owner_type` 选择 anonymous 或 user JOIN，在一条 SQL 中同时校验 session 与 live owner；匿名账号仍要求未升级，用户仍要求 active，session 过期、撤销及 token/session owner 一致性继续由同一边界校验。首次匿名建号在设备锁事务确认插入成功后直接使用新 ID，并仅在并发输家或插入 0 行时回读 live account；账号、默认 Folder/Preference 和 session 契约不变。
 
 PostgreSQL 结果适配器必须在类型转换前把 SQL `NULL` 原样映射为 JavaScript `null`。该规则同时适用于 nullable `bigint` 与 `numeric`：价格 baseline/change 缺失、Collection Item 尚未绑定 `price_series_id`、订单金额未知时均保持原有空值语义，不得转换为 `0`、`NaN` 或查询失败。非空 `bigint` 仍必须处于 JavaScript 安全整数范围，非空 `numeric` 仍必须是有限数值；非法值继续显式失败。该修复不新增 Schema、迁移、数据回填或数据库回退。
 

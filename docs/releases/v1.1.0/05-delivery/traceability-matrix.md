@@ -2,7 +2,7 @@
 
 ## 1. 使用规则
 
-本矩阵以三份初始 v1.1 PRD 及后续订阅、收藏/卡牌详情补充输入为产品依据，当前实现核对基线为 `dev@699ca48`（2026-09-10）。`代码已完成` 只表示仓库内闭环成立；本地 Golden、测试隔离和 Windows 打包路径已完成后续修复；全量复验见[验证记录](VERIFICATION.md#golden-基准与全量复验2026-09-10)，历史测试与远程状态仍按原日期解读。需要 Apple 配置、远程迁移、真机、Sandbox/TestFlight 或规模数据的项目仍不得视为发布完成。
+本矩阵以三份初始 v1.1 PRD 及后续订阅、收藏/卡牌详情补充输入为产品依据，当前实现核对基线为 `dev@35c7f87`（2026-09-20），客户端版本为 `1.0.2+149`，Linux API 实际运行 `dev@9488a15`。`代码已完成` 只表示仓库内闭环成立；历史测试与远程状态仍按原日期解读。需要 Apple 配置、远程迁移、真机、Sandbox/TestFlight 或规模数据的项目仍不得视为发布完成。
 
 状态定义：
 
@@ -31,6 +31,12 @@
 | [扫描页结果区布局](../01-flows/scan-recognition.md#扫描页布局) | [共享取景框几何](../../../../apps/flutter-app/lib/features/scan/scan_page.dart) | `scan_page_test.dart`：六种竖屏视口 × Free/Premium，首张、连续拍照及删除结果 | `699ca48` 已预留完整底部结果区；原尺寸回归 12/12 通过；三项次数 Golden 基准已收口，独立 Review 等待真实图片解码，最新完整 App 1047/1047 通过。真机与签名包未验收，见[Golden 与全量复验](VERIFICATION.md#golden-基准与全量复验2026-09-10)。 |
 | [Home 版本检查](../03-data-api/contract-changes.md#app-版本控制环境隔离) | [升级 Gate](../../../../apps/flutter-app/lib/features/app_upgrade/app_upgrade_gate.dart)、[真实 Home 入口](../../../../apps/flutter-app/lib/app/router.dart) | `app_upgrade_resume_test.dart`、`app_upgrade_integration_test.dart`、`widget/app_upgrade_gate_test.dart`、`widget_test.dart` | 首次实际 Home 后检查，后续 Home 复查静默进行，已知强更跨路由拦截；原 54/54 与 test 配置 16/16 通过，新包真机、商店往返与发布仍待完成。 |
 
+### 2.1 API 慢请求治理
+
+| 目标 | 实现证据 | 自动化与运行证据 | 当前边界 |
+|---|---|---|---|
+| Cloudflare Worker wall time 尽量低于 1 秒且不改变业务契约 | [鉴权单查询](../../../../apps/workers-api/src/owner-auth.ts)、[匿名首次建号](../../../../apps/workers-api/src/auth/anonymous.ts)、[Quota 预占/结算与聚合](../../../../apps/workers-api/src/scan/quota.ts)、[估值历史目录读取](../../../../apps/workers-api/src/portfolio/valuation-history.ts)、[Scan 阶段日志](../../../../apps/workers-api/src/scan/routes.ts)、PostgreSQL `0013` | `owner-auth.test.ts`、`owner-auth.integration.test.ts`、`anonymous.test.ts`、`quota.integration.test.ts`、`scan/routes.test.ts`、`valuation-history.test.ts`、`performance-premium.integration.test.ts`；Workers 75 文件、644/644，type-check、依赖方向与 prod/dev dry-run 通过；dev `9488a15` 已发布，API/DB healthy、ledger 14 项 | dev 已收敛 Search、鉴权、Quota、估值目录和扫描可观测等待；真实登录态重度数据与扫描阶段分布仍待复验。prod 未执行 `0013` 或部署本轮代码，不能宣称正式接口已低于 1 秒。 |
+
 ## 3. Admin、通知与归因
 
 | PRD 条款 | 实现证据 | 自动化证据 | 状态与剩余边界 |
@@ -58,7 +64,7 @@
 2026-09-09 运行边界：dev 与 prod 均绑定共享 PostgreSQL/Hyperdrive，运行版本均无 D1；dev 使用向量识别和独立 development 版本键，prod 仍是较早识别/版本配置协议。具体版本、历史测试失败与当前 HTTP 回读范围见[发布与验证](VERIFICATION.md)。线上已部署不代表下列外部业务验收完成。
 
 1. production SKU、Bundle 和 Apple Secret binding 已在运行版本中，2026-09-09 公共接口确认可下发 Singular SDK 配置。商品可售状态、真实购买、Server API 状态查询、三套餐 Revenue 金额与币种仍须独立验收；Apple TEST 历史证据不覆盖完整交易生命周期。
-2. 后续发布前实时复核 Cloudflare 共享 PostgreSQL migration、约束、production 数据边界和商品映射；本次未重查该共享库，0011/0012 状态沿用相应历史记录。2026-09-15 仅在 Linux 独立库完成 0012（UPDATE 0），ledger 为 13 项，不能套用于 CF。D1 移库已完成，不再作为发布待办，见[数据迁移](../03-data-api/migration.md)。
+2. 后续发布前实时复核 Cloudflare 共享 PostgreSQL migration、约束、production 数据边界和商品映射；本次未重查该共享库，0011/0012 状态沿用相应历史记录。Linux 独立库已于 2026-09-20 回读为 14 项 ledger、最新 `0013`，不能套用于 CF；prod `0013` 仍须单独并发预建、计划核验与授权登记。D1 移库已完成，不再作为发布待办，见[数据迁移](../03-data-api/migration.md)。
 3. 完成 iOS 真机 App Attest、ATT、前后台、切号、Restore、多 entitlement 与离线矩阵。
 4. 完成 Sandbox/TestFlight 购买、续订、Grace/Retry、退款、通知重试和 Revenue 验收。
 5. 使用重度收藏数据验证 1Y Performance，并使用真实订单验证 Admin 查询与导出性能。
@@ -69,5 +75,5 @@
 
 | 能力 | 实现证据 | 当前边界 |
 |---|---|---|
-| dev（Linux）后端与入口 | [共享应用](../../../../apps/workers-api/src/app.ts)、[Linux 入口](../../../../apps/workers-api/src/linux/server.ts)、[分支监听器](../../../../deploy/linux/ci/watch-branch.sh)、[自动部署手册](linux-test-auto-deployment.md) | 只有 prod（原 Cloudflare）与 dev（Linux）两个业务环境；App test/Admin development 使用内网 Linux，扫描经独立 CF 服务做向量检索。服务器已发布并通过受控扫描，旧 CF dev 业务 Worker/域名/cron 已退役；客户端路径由用户确认，未在退役任务中独立复验。详见[退役记录](VERIFICATION.md#旧-cloudflare-dev-业务退役2026-09-17)。 |
+| dev（Linux）后端与入口 | [共享应用](../../../../apps/workers-api/src/app.ts)、[Linux 入口](../../../../apps/workers-api/src/linux/server.ts)、[分支监听器](../../../../deploy/linux/ci/watch-branch.sh)、[自动部署手册](linux-test-auto-deployment.md) | 只有 prod（原 Cloudflare）与 dev（Linux）两个业务环境；App test/Admin development 使用内网 Linux，扫描经独立 CF 服务做向量检索。2026-09-20 API release `dev@9488a15` 已发布，API/DB healthy、Web running、ledger 14 项；旧 CF dev 业务 Worker/域名/cron 已退役。后续 Flutter/文档提交仅前移 watcher `last-seen`，当前 `last-deployed` 仍为该 API release。 |
 | iOS IPA/dSYM 保存与保留 | [发布脚本](../../../../apps/flutter-app/tool/release_ios.sh)、[保存实现](../../../../apps/flutter-app/tool/save_ios_artifacts.py)、[保存测试](../../../../apps/flutter-app/tool/test_save_ios_artifacts.py) | 新版本校验并完整保存后，按 Bundle ID 保留最近测试 3 个/正式 7 个版本，超额最旧版本移入废纸篓；同名拒绝覆盖、失败不清理旧包，不清理 Xcode Archives。本轮仅源码核对，未运行 macOS 保存测试或构建签名包。 |

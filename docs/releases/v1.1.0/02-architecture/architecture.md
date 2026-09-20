@@ -88,12 +88,12 @@ PostgreSQL 结构以 `src/db/postgres/migrations/` 中的顺序 migration 为准
 
 | 环境 | 运行入口 | 地址 | 数据资源 |
 |---|---|---|---|
-| prod | `toccards-api-prod` | `api.tcgcard.fun` | 2026-09-09 回读为 PostgreSQL/Hyperdrive，无 D1；仍使用 OCR_SERVICE_BASE_URL，prod KV/R2、production Apple 配置和 `APP_ENVIRONMENT=production` 独立 |
-| dev | Linux Node / `src/linux/server.ts` | `http://192.168.50.201:8080` | 独立 PostgreSQL、内存 KV、本地图片卷、`APP_ENVIRONMENT=development`；2026-09-17 回读 watcher 运行 `dev@4d5d66f`，客户端路径由用户确认已验收 |
+| prod | `toccards-api-prod` | `api.tcgcard.fun` | PostgreSQL/Hyperdrive，无 D1；仓库配置通过 `VECTOR_RECOGNITION` Service Binding 调用 `recognize-vec`，prod KV/R2、production Apple 配置和 `APP_ENVIRONMENT=production` 独立。本轮未部署性能提交或 `0013`，现网协议仍需按独立 release 验证 |
+| dev | Linux Node / `src/linux/server.ts` | `http://192.168.50.201:8080` | 独立 PostgreSQL、内存 KV、本地图片卷、`APP_ENVIRONMENT=development`；2026-09-20 watcher 运行 API release `dev@9488a15`，ledger 14 项，客户端既有路径由用户确认已验收，本次性能发布未独立重跑真机 |
 
 旧 CF dev 的 `toccards-api-dev`、`api-dev.tcgcard.fun` 与 cron 已退役，不属于当前环境表，也不得重新发布；其历史测试数据和旧 KV/R2 保留。Wrangler vars 和 Worker secrets 现在仅用于 prod，密钥不进入仓库。prod 保持原数据库、Apple、KV、R2、域名和部署方式；仓库 prod 配置包含向量绑定，但配置文件不能替代现网版本核验，见[发布与验证](../05-delivery/VERIFICATION.md)。dev 的密钥保存在 Linux 私有环境文件，发布不使用 Wrangler。D1 不作为新迁移或回滚目标。
 
-Linux 的真实配置仅保存在服务器 `.env`。分支监听器默认每两分钟检查 `dev`，相关路径变化才执行定向检查、构建、数据库备份和版本化发布；GitHub Linux workflow 仅为手动触发选项。2026-09-16 已将整改合入 `dev@75c0ec4` 并由现有监听器自动发布、完成受控扫描验收。API 与 watcher 分别使用自身环境文件中的代理配置；当前 release、SHA、备份与 13 项 migration ledger 见[验证记录](../05-delivery/VERIFICATION.md)。
+Linux 的真实配置仅保存在服务器 `.env`。分支监听器默认每两分钟检查 `dev`，相关路径变化才执行定向检查、构建、数据库备份和版本化发布；GitHub Linux workflow 仅为手动触发选项。2026-09-20 当前 release 为 `branch-dev-9488a15f01b0-20260920111505`，manifest、`current` 和 `last-deployed-sha` 一致；API/DB healthy、Web running、migration 容器退出 0，ledger 14 项。API 与 watcher 分别使用自身环境文件中的代理配置；发布 SHA、备份与未验收边界见[验证记录](../05-delivery/VERIFICATION.md)。
 
 当前源码将 `deploy:dev` 改为 Linux 发布包 + SSH，`deploy:dry-run:dev` 只构建归档。手工、监听器与 Runner 均复用同一个发布脚本，在备份前核对本地数据库凭据/18 大版本、待执行 migration 和 CF 识别契约；已有库不会因 `current` 链接缺失而跳过备份。标准与离线 PostgreSQL 默认均为 18，并保留原卷路径。旧 CF dev 已退役，prod 发布入口保持原状。
 

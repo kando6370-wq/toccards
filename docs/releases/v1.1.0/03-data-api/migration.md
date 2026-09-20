@@ -18,6 +18,8 @@ dev 与 prod 是独立 PostgreSQL，必须分别确认 `pg_trgm` 可用、`cards
 
 2026-09-18 kd201 watcher 已在 `dev@bfbb61d` 的发布前备份后执行 `0013`；只读回读确认 ledger 登记、`pg_trgm` 扩展存在，`idx_cards_all_search_trgm` 的 `indisvalid/indisready` 均为 true。dev 目录表规划估计约 240.5 万行、525 MB，索引约 220 MB。对与 Search 相同的 `%pikachu%` 表达式、TCG 过滤和排序执行一次只读 `EXPLAIN (ANALYZE, BUFFERS)`，使用 `Bitmap Index Scan on idx_cards_all_search_trgm`，规划 53.8 ms、执行 8.253 ms；该单次内网计划不证明一般 P95 或 prod 提速。prod 未执行此 migration，也未获取 prod 查询计划。
 
+2026-09-20 性能提交 `dev@9488a15` 由 kd201 watcher 发布，没有新增 migration；独立 dev PostgreSQL ledger 仍为 14 项，`0013` 保持最新。API/DB healthy、migration 容器退出 0；本次发布前 custom-format 备份为 1,120,850,087 字节并通过 `pg_restore --list`。该结果证明 dev 继续使用已登记索引，不代表 prod 已预建或登记 `0013`；prod 边界与并发建索引要求保持不变。
+
 ## Scan confirm Purchase Price 事件修复（0012）
 
 `apps/workers-api/src/db/postgres/migrations/0012_scan_confirm_purchase_price_event.sql` 不改变 Schema，只补齐旧 Scan confirm 创建的初始 `collection_item_event` 中遗漏的 Purchase Price、币种和可靠历史起点。修复范围由已确认 `scan_record.user_result.collection_item_id` 精确关联，仅处理主记录当前仍有 Purchase Price、初始事件的购买价与币种均为空的记录；非扫描创建记录、后续编辑事件和当前无 Purchase Price 的记录保持不变。迁移可重复执行。
