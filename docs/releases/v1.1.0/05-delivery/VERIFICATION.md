@@ -1010,3 +1010,30 @@ Code Review 自审通过：逐项核对双方提交和手工解冲突差异，�
 - 该次 dev 发布前后 prod 均为 `934506ae-d433-4a38-ae40-6d07b109d50e`、100% 流量，没有重新部署 prod，也未执行远程数据库迁移、历史回填或运营配置修改。随后按用户授权将合并与验证记录推送至 `github/dev@b0b54df`，并清理四个指定的本地/远程分支；当前 Git 与运行状态以上方回读为准。
 
 dev 服务端部署及上述校验已完成；真实图片、登录态完整扫描与新 App 签名包验收仍按本节未验证项补充。后续应从含本次合并的 dev 提交发布，避免旧 pHash 分支再次覆盖同一开发环境。
+
+## 移除手机端 ML Kit Latin OCR（2026-09-20）
+
+当前 App 原先在 iOS/Android 完成卡面检测、透视矫正和 512 维向量后，还会同步调用 `google_mlkit_text_recognition` 的 Latin `TextRecognizer` 读取卡号，再提交识别请求。按本次产品取舍，Flutter 扫描链已删除该等待步骤、卡号读取接口/实现及专用测试；`google_mlkit_text_recognition`、传递的 `google_mlkit_commons`、iOS ML Kit Pods、模拟器 Stub 和切换开关均已移除。服务端与 `ScanApiClient` 继续兼容旧客户端的可选 `card_number` 字段，当前 App 不再生成或发送该提示；向量模型、矫正 JPEG、额度、Review、确认入库和候选响应字段不变。预期减少两端安装包依赖并省去每次扫描的 OCR 文件写入与同步推理耗时，但本机未生成新旧 Release 包或真机阶段计时，因此不记录未经测量的体积或耗时数值。
+
+验证环境为 Windows；本机没有 Flutter/Dart SDK、CocoaPods、Xcode 或已配置的 Android Flutter 工具链。
+
+| 检查 | 命令 / 证据 | 结果 |
+|---|---|---|
+| 残留引用 | `rg` 检查 App、Dart/Pod 锁文件、Podfile 和模拟器脚本中的 ML Kit、reader 与开关标识 | 当前代码及依赖无残留，退出 1 表示零匹配；历史 `VERIFICATION.md` 记录保留 |
+| 锁文件静态完整性 | PowerShell 检查根锁文件包名排序/重复、iOS 锁文件五个必需区段及 ML Kit 条目；另核对 Podfile SHA-1 | 根锁文件 212 个包、排序且无重复；iOS 锁文件区段完整且无 ML Kit/MLImage，Podfile 与锁文件 checksum 同为 `4be59aca1860e402f10129996dfe62920ba496eb`，退出 0 |
+| iOS 模拟器脚本 | `C:/Program Files/Git/bin/bash.exe -n apps/flutter-app/tool/run_ios_simulator.sh` | 语法通过，退出 0 |
+| 补丁格式 | `git diff --check` | 通过，退出 0；仅有 Git 对工作区 LF/CRLF 转换的提示 |
+
+`flutter pub get` 与 `dart format` 均因命令不存在而退出 1；随后以最小手工变更维护根锁文件并使用 `git diff --check` 检查格式。尝试使用 Node `yaml` 模块解析锁文件也因仓库未安装该模块而退出 1，改用上表 PowerShell 结构检查。未运行 `flutter test test/scan_result_source_test.dart`、`flutter analyze`、Android/iOS Release 构建、CocoaPods 重新解析、安装包体积对比或两端真机扫描计时；需在具备 Flutter 3.44.x 的构建环境中补验，macOS 还需执行 `pod install` 并确认锁文件无漂移。未部署 dev/prod，未修改数据库、服务端运行配置或冻结 v1.0.0 文档。
+
+Code Review 自审通过：生产调用链不再构造或等待卡号 reader；回归断言要求扫描请求的 `cardNumber` 为 null；Dart 与 iOS 依赖集合不再包含 ML Kit；服务端旧客户端兼容契约保持不变。未发现本轮剩余代码阻断项，动态构建与真机结果仍受上述环境限制。
+
+## 扫描结果最短展示门槛缩短为 1 秒（2026-09-20）
+
+原扫描页依次等待 Scanning 1 秒、Recognizing 1 秒和 Revealing 1,529,856 微秒，快速识别也要约 3.53 秒后才能展示结果；Reveal 的 `AnimationController` 还是业务完成条件，Ticker 停止时结果可持续被阻塞。本次将业务门槛改为从完整识别流程开始同时启动的单一 1 秒计时器，结果展示时刻为 `max(完整识别实际耗时, 1 秒)`。视觉反馈在同一窗口内按 Scanning 500ms、Recognizing 250ms、Revealing 250ms 播放，但不再参与结算；识别超过 1 秒后返回即展示，不附加额外等待。识别接口、RTMDet/PE-Core 模型、服务端 Top 5、失败与 No Match 映射、Quota、Queue、Review 和确认入库逻辑均未修改。
+
+Widget 回归已改为直接保护业务时序：快速成功在 999ms 仍不可见、1000ms 可见，并在 `TickerMode(enabled: false)` 下证明动画不再阻塞；慢识别保持 pending 至 1500ms，Future 完成后的下一帧立即显示，不再 pump 额外 1 秒。共享 `_completeFigmaScan` 从旧 3.53 秒推进改为 1 秒，其余 Recognizing/Revealing、并发、删除和 Golden 阶段测试按 500/250/250ms 新时间线调整，未修改 Golden 文件。
+
+静态检查使用 PowerShell 回读生产常量与测试文本，确认视觉三段 `500+250+250=1000ms`、完成条件只读取 `minimumDurationFinished`，且 999/1000ms 与 1500ms 两类回归均存在；`git diff --check` 和 iOS 模拟器脚本 `bash -n` 均退出 0，旧 `1529856`、`1530`、`revealTimelineFinished` 与 3.53 秒时间线引用无残留。Code Review 自审通过：计时器从同一 `_startScanTimeline` 启动，快结果只等待剩余门槛，慢结果在门槛已过后由原 resolution 回调同步结算；动画控制器在结果结算时照旧释放，删除 Processing、取消、额度耗尽和权益同步的原分支保持不变。
+
+本机没有 Flutter/Dart SDK，Docker Desktop 引擎未运行，且没有 CocoaPods/Xcode/Android Flutter 工具链，因此未运行定向 Widget 测试、`flutter analyze`、Dart formatter、Golden、iOS/Android 构建或真机节奏验收，不能把这些项目标记为通过。GitHub iOS workflow 仅在 `dev` push 或 PR 时自动触发，目标 `dev-xiangyang-vec` push 不会触发；后续应在 Flutter 3.44.x 环境补跑 `test/widget/scan_page_test.dart`、分析和两端构建，并在真机确认一秒内状态反馈与慢请求即时揭示。

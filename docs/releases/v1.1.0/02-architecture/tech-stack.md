@@ -48,7 +48,7 @@ CI 的 Flutter 版本冲突是显式目标差异，不合并成虚构的统一�
 
 - Apple StoreKit、App Attest、App Store Server Notifications V2 与 Server API。
 - Google/Apple OAuth；邮箱注册与找回密码使用 ZeptoMail。
-- Scan 使用端侧 RTMDet-Ins 检测和 PE-Core-T16 向量化：iOS 16+ 使用 Core ML/Core Image，Android 使用最小 ONNX Runtime 与 Bitmap。dev Linux API 经 HTTP `VECTOR_RECOGNITION` 调用 `recognize-vec`，结构化记录与受保护图片留在本地 PostgreSQL/图片卷；ML Kit 卡号 OCR 继续用于消歧。旧 OpenCV/pHash 移除，Web 暂不支持新端侧识别。prod 保持其原有运行版本，后续协议切换另行发布和验收。
+- Scan 使用端侧 RTMDet-Ins 检测和 PE-Core-T16 向量化：iOS 16+ 使用 Core ML/Core Image，Android 使用最小 ONNX Runtime 与 Bitmap。dev Linux API 经 HTTP `VECTOR_RECOGNITION` 调用 `recognize-vec`，结构化记录与受保护图片留在本地 PostgreSQL/图片卷。App 不包含或运行 ML Kit Latin OCR，不再提交端侧卡号提示；旧 OpenCV/pHash 移除，Web 暂不支持新端侧识别。prod 保持其原有运行版本，后续协议切换另行发布和验收。
 - dev Linux 配置以必填 `VECTOR_RECOGNITION_BASE_URL` 构造 HTTP `VECTOR_RECOGNITION`，只发送向量给现有 CF 服务；10 秒超时覆盖正文，业务数据库和图片卷保持本地。旧 OCR 字段已退出 dev 运行路径；服务端受控扫描与用户确认的客户端验收边界见[兼容设计](linux-test-environment.md#扫描兼容缺口)。
 - Singular 的六个 test/production 套餐事件使用 `customRevenueWithAttributes` 上报 Apple verified 交易金额、币种和标识，独立持久化去重并补发此前入队的失败记录；Restore 和启动恢复不创建新收入。SDK API 返回不等于后台收件成功，详见[收入契约](../03-data-api/contract-changes.md#当前边界)。
 - 汇率服务以 USD 为基准提供快照，KV 可缓存。
