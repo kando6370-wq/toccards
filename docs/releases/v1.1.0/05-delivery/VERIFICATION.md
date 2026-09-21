@@ -2,6 +2,16 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## iOS 测试内部包 1.0.3 (154) 与 iPhone 11 安装（2026-09-21）
+
+按用户要求从切换并更新后的干净分支 `dev-xiangyang@251e3892` 构建测试环境内部包并安装到 iPhone 11。该分支源码版本为 `1.0.3+152`，但同一测试 Bundle ID 已保存另一代码线的 153 产物，因此显式使用构建号 154，避免覆盖既有包。测试配置为 `com.kando.kandoApp.beta`、App Attest `development`、测试 Firebase 和 `http://192.168.50.201:8080/api/v1`；构建前 Linux dev `/health` 返回 HTTP 200、`status=ok`。
+
+执行 `./tool/release_ios.sh --env test --build-number 154 --install C685590D-4618-57C1-8518-6DD8E962319F`，依赖解析、`flutter analyze`、全量清理、Xcode Release Archive、App Store IPA 导出、内部 IPA 打包、签名与配置校验均通过，脚本退出 0。最终内部 IPA 为 `1.0.3 (154)`、Apple Development 签名、`get-task-allow=true`、App Attest `development`；测试 Firebase、内网 API 字符串和签名完整性均通过，40 个 Mach-O UUID 均有匹配 dSYM。Dart 锁文件未变化；CocoaPods 重新解析仅移除未再引用的 `GoogleToolboxForMac` 残留条目，没有 Pod 版本升级。现有 `sign_in_with_apple` 不支持 Swift Package Manager 的提示不阻断本次 CocoaPods 真机 Release 包。
+
+IPA 为 28,407,975 字节，SHA-256 `a7263c5ae8805492da2910898caaa1bb66e2ec80729c348bbcb315ac2ad82189`；`dSYMs.zip` 为 60,844,536 字节，SHA-256 `c1f67b8b606b1f4fb0d5910d01dc734c0a4c9a86abf4157ff6849bc3a034a26f`。两者保存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.3-154/`；构建 Archive 位于 `apps/flutter-app/build/ios/archive/Runner.xcarchive`。当前保留 152、153、154，旧 151 已移入废纸篓，可恢复；源码版本同步为 `1.0.3+154`。
+
+安装目标为数据线连接、已配对且开启开发者模式的 iPhone 11（iOS 18.7.8，硬件 UDID `00008030-001C08311E28802E`）。脚本确认最终 embedded provisioning profile 包含该 UDID 后安装成功；设备应用列表回读 `Card AI / com.kando.kandoApp.beta / 1.0.3 / 154`。未自动启动 App，也未运行 Flutter 单元/Widget/集成测试、登录、订阅、扫描或局域网业务验收、Android 构建与真机验证。本次没有上传蒲公英或 App Store Connect、Git push、服务端部署或远程数据写入。
+
 ## iOS 测试内部包 1.0.3 (152) 与 iPhone 11 安装（2026-09-21）
 
 按用户要求从干净的 `dev-xiangyang@ad88ee9` 构建测试环境内部包并安装到 iPhone 11；该提交包含当前 `dev@35c7f87` 向量识别代码。源码版本为 `1.0.3+150`，但同一测试 Bundle ID 已有另一代码线的构建号 151，因此显式使用 152，避免覆盖安装与版本识别冲突。测试配置为 `com.kando.kandoApp.beta`、App Attest `development`、测试 Firebase 和 `http://192.168.50.201:8080/api/v1`；Linux dev `/health` 返回 HTTP 200、`status=ok`。
