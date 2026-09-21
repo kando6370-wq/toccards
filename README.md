@@ -2,7 +2,7 @@
 
 Kando 是 Card AI 的 monorepo，包含 Flutter 客户端、Cloudflare Workers API、React 管理后台、营销站点及共享包。产品主线是卡牌搜索、扫描识别、收藏与估值；v1.1 在此基础上增加 Apple 订阅、Premium 权益、服务端扫描额度、Performance 和订单/通知后台。
 
-当前仓库已合入 `dev@ad88ee9`，Flutter 客户端版本为 `1.0.3+150`，以 `apps/flutter-app/pubspec.yaml` 为准。2026-09-21 prod 服务端仍运行从 `main@870a34c` 发布的 Worker/Admin version `d4c7524c-2112-4801-8119-2c456f182967`，并已完成 prod PostgreSQL `0012/0013`；kd201 Linux API 实际运行性能提交 `dev@9488a15`。`docs/releases/v1.1.0` 是产品迭代文档目录，不代表安装包版本或商店发布状态；Git 合并、服务端发布和客户端发布分别记录。
+当前 main 为 `2cfdea8`，已合入 `dev@ad88ee9`；Flutter 客户端版本为 `1.0.3+150`，以 `apps/flutter-app/pubspec.yaml` 为准。2026-09-21 prod 已从该 main 重新发布 Worker/Admin version `c612c8a6-4873-4760-b435-3c4db27d14e6`，prod PostgreSQL 保持 `0012/0013` 已完成；kd201 Linux API 实际运行性能提交 `dev@9488a15`。`docs/releases/v1.1.0` 是产品迭代文档目录，不代表安装包版本或商店发布状态；Git 合并、服务端发布和客户端发布分别记录。
 
 ## 系统概览
 
@@ -96,7 +96,7 @@ dart run melos run test
 
 ## 部署边界
 
-2026-09-21 已从 `main@870a34c` 发布 prod Workers 与配套 Admin，version `d4c7524c-2112-4801-8119-2c456f182967` 承载 100% 流量；PostgreSQL ledger 为 14 项，`0012` 回填 4 行，`0013` 的 `pg_trgm` GIN 索引已并发创建并被查询计划采用。发布前 PlanetScale 备份、配置、流量、资源摘要及验证边界见[发布与验证](docs/releases/v1.1.0/05-delivery/VERIFICATION.md)。
+2026-09-21 已从 `main@2cfdea8` 重新发布 prod Workers 与配套 Admin，version `c612c8a6-4873-4760-b435-3c4db27d14e6` 承载 100% 流量；PostgreSQL ledger 保持 14 项，`0012/0013` 未重复执行。当前发布、上一版迁移/备份、配置、流量和资源摘要见[发布与验证](docs/releases/v1.1.0/05-delivery/VERIFICATION.md)。
 
 - Linux dev：配置已验证的 SSH 目标 `TOCCARDS_SSH_TARGET` 后运行 `pnpm --filter @kando/workers-api run deploy:dev`；预检环境、PostgreSQL 18 和 CF 识别后，先备份再发布，不调用 Wrangler dev 部署。
 - Workers 与 Admin prod：`pnpm --filter @kando/workers-api run deploy:prod`。

@@ -1,10 +1,10 @@
 # v1.1.0 版本文档
 
-本目录记录 v1.1.0 相对 [v1.0.0](../v1.0.0/README.md) 的产品输入、当前实现、数据契约和交付边界。当前 main 已合入 `dev@ad88ee9`，包含 Linux 测试环境、端侧向量扫描、订阅与归因、25 秒客户端总 Deadline、三页 Onboarding 更新及 API 慢请求收敛。客户端 `pubspec.yaml` 为 `1.0.3+150`，正式包已上传 App Store Connect 但未确认处理完成或提交审核；Linux API 实际运行 `dev@9488a15`。2026-09-21 prod 服务端仍运行从 `main@870a34c` 发布的 Worker/Admin version `d4c7524c-2112-4801-8119-2c456f182967`，并已完成 PostgreSQL `0012/0013`。产品迭代版本、源码版本、安装包和商店发布状态分别管理；历史检查点保留原日期，不能外推为当前验收结果。
+本目录记录 v1.1.0 相对 [v1.0.0](../v1.0.0/README.md) 的产品输入、当前实现、数据契约和交付边界。当前 main 为 `2cfdea8`，已合入 `dev@ad88ee9`，包含 Linux 测试环境、端侧向量扫描、订阅与归因、25 秒客户端总 Deadline、三页 Onboarding 更新及 API 慢请求收敛。客户端 `pubspec.yaml` 为 `1.0.3+150`，正式包已上传 App Store Connect 但未确认处理完成或提交审核；Linux API 实际运行 `dev@9488a15`。2026-09-21 prod 已从该 main 重新发布 Worker/Admin version `c612c8a6-4873-4760-b435-3c4db27d14e6`，PostgreSQL 保持 `0012/0013` 已完成。产品迭代版本、源码版本、安装包和商店发布状态分别管理；历史检查点保留原日期，不能外推为当前验收结果。
 
 ## 当前结论
 
-- 2026-09-21 已将 `main@870a34c` 发布到 prod，Worker `d4c7524c-2112-4801-8119-2c456f182967` 承载 100% 流量；配套 Admin 及 10 个静态资源摘要、向量绑定、公共配置、Custom Domain、Cron 和 Observability 已验证，见[发布与验证](05-delivery/VERIFICATION.md)。
+- 2026-09-21 已将 `main@2cfdea8` 重新发布到 prod，Worker `c612c8a6-4873-4760-b435-3c4db27d14e6` 承载 100% 流量；配套 Admin 及 10 个静态资源摘要、向量绑定、公共配置、Custom Domain、Cron 和 Observability 已验证，见[发布与验证](05-delivery/VERIFICATION.md)。
 
 - 当前业务环境只有 prod（维持原 Cloudflare 部署）与 dev（kd201 Linux）；旧 CF dev 仅为历史部署，不再发布。dev 仍通过独立 CF 服务调用向量识别和 Apple Sandbox 回调，详见[系统架构](02-architecture/architecture.md#6-环境与部署)。
 - 仓库内已形成 Apple 订阅与 session grant、Scan Quota、Folder 限制、Performance、Extended Price History、Admin 订单与 Apple Notifications V2 的实现和自动化证据。

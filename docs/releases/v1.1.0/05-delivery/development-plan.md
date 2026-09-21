@@ -2,7 +2,7 @@
 
 ## 1. 依据与优先级
 
-本计划以三份初始 v1.1 PRD 及后续订阅、收藏/卡牌详情补充输入定义业务目标和验收行为；当前 main 已合入 `dev@ad88ee9`，Linux API 实际运行 `dev@9488a15`，prod 服务端于 2026-09-21 从 `main@870a34c` 发布 Worker/Admin version `d4c7524c-2112-4801-8119-2c456f182967`。远程运行证据仍保留原核验日期及各历史检查点的 P0/P1 结论。App 业务不得因为当前代码尚未实现而缩减、改写或降级 PRD；发现不一致时必须记录为待实现差距并按 PRD 收口。
+本计划以三份初始 v1.1 PRD 及后续订阅、收藏/卡牌详情补充输入定义业务目标和验收行为；当前 main 为 `2cfdea8`，已合入 `dev@ad88ee9`，Linux API 实际运行 `dev@9488a15`，prod 服务端于 2026-09-21 从当前 main 重新发布 Worker/Admin version `c612c8a6-4873-4760-b435-3c4db27d14e6`。远程运行证据仍保留原核验日期及各历史检查点的 P0/P1 结论。App 业务不得因为当前代码尚未实现而缩减、改写或降级 PRD；发现不一致时必须记录为待实现差距并按 PRD 收口。
 
 发生冲突时按以下顺序裁决：
 
@@ -17,9 +17,9 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 ## 2. 当前基线
 
-2026-09-21 prod 交付增量：`main@870a34c` 对应 Worker/Admin version `d4c7524c-2112-4801-8119-2c456f182967` 已承载 100% 流量，PostgreSQL `0012/0013` 经单独授权执行，ledger 为 14 项；production 版本键、向量绑定、Admin assets、Custom Domain、Cron、Cache 与 Observability 均已回读。当前代码测试、数据库备份/迁移、关键 HTTP、资源摘要和 Search 性能小样本见[发布记录](VERIFICATION.md#prod-api-性能与-postgresql-00120013-发布2026-09-21)。
+2026-09-21 prod 交付增量：首次从 `main@870a34c` 发布并完成 PostgreSQL `0012/0013`；随后从 `main@2cfdea8` 重新发布相同 WorkAPI/Admin 内容为 version `c612c8a6-4873-4760-b435-3c4db27d14e6`，PostgreSQL ledger 保持 14 项且未重复迁移。production 版本键、向量绑定、Admin assets、Custom Domain、Cron、Cache 与 Observability 均已回读，见[发布记录](VERIFICATION.md)。
 
-当前代码已包含向量识别、Scan confirm 购买价格事件修复、Card Detail 编辑、订阅/归因、Linux 测试入口、Home 版本静默复查、三页 Onboarding、25 秒客户端总 Deadline 和 API 慢请求收敛。客户端版本为 `1.0.3+150`，正式 IPA 已上传 App Store Connect 但未提交审核；该客户端交付不等于服务端重新发布。2026-09-20 Linux API `dev@9488a15` 已部署并回读，2026-09-21 prod 服务端独立发布 `main@870a34c`；两套 PostgreSQL ledger 均为 14 项且最新为 `0013`。2026-09-10 的 App 全量 1047/1047、订阅包 9/9 和 Workers 621/621 保留为历史检查点；本次配置修正后 Workers `src` 76 文件、646/646 及 Admin 22/22 通过，Onboarding/Deadline 仍按各自证据判断，不能互相替代。
+当前代码已包含向量识别、Scan confirm 购买价格事件修复、Card Detail 编辑、订阅/归因、Linux 测试入口、Home 版本静默复查、三页 Onboarding、25 秒客户端总 Deadline 和 API 慢请求收敛。客户端版本为 `1.0.3+150`，正式 IPA 已上传 App Store Connect 但未提交审核。2026-09-20 Linux API `dev@9488a15` 已部署并回读，2026-09-21 prod 服务端已从当前 `main@2cfdea8` 重新发布；两套 PostgreSQL ledger 均为 14 项且最新为 `0013`。Workers `src` 76 文件、646/646 及 Admin 22/22 在重新部署前通过，Onboarding/Deadline 仍按各自证据判断，不能互相替代。
 
 2026-09-20 Deadline 冲突明确选择当前可执行代码与已更新契约：Auth、Card Data、Currency、Portfolio、Scan、订阅 Workers HTTP、StoreKit 商品加载、权益读取/刷新、Performance 与 1Y 数据请求的整体边界均为 25 秒；Apple Purchase Sheet、`AppStore.sync()` 和原生 App Attest 计算不强制终止。下文出现的 15 秒若属于冻结 PRD 或带日期的旧验证则保留为历史，任何未注明日期的旧实现描述均由本段和[契约变更](../03-data-api/contract-changes.md)取代。
 

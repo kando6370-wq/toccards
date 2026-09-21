@@ -2,7 +2,17 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
-当前业务环境只有 prod（Cloudflare）与 dev（kd201 Linux）。2026-09-21 prod 已从远端一致的 `main@870a34c` 发布 Worker/Admin version `d4c7524c-2112-4801-8119-2c456f182967`，deployment `70125d6e-2f1e-4f2a-a948-f7e637380915` 承载 100% 流量；prod PostgreSQL ledger 为 14 项且最新为 `0013`。dev 于 2026-09-20 回读 watcher 发布的 API release `dev@9488a15`，API/DB healthy、Web running、migration exited/0、ledger 同为 14 项；两套数据库分别验证，不能相互外推。Flutter 源码版本为 `1.0.3+150`，对应正式包已上传 App Store Connect，但未提交审核；服务端发布和客户端交付仍分别记录。旧 CF dev 业务 Worker 已退役，Apple 回调与向量服务独立保留。
+当前业务环境只有 prod（Cloudflare）与 dev（kd201 Linux）。2026-09-21 prod 已从远端一致的 `main@2cfdea8` 重新发布 Worker/Admin version `c612c8a6-4873-4760-b435-3c4db27d14e6`，deployment `d30f6111-8ab4-41a9-bd1f-2d93be41b210` 承载 100% 流量；prod PostgreSQL ledger 保持 14 项且最新为 `0013`。dev 于 2026-09-20 回读 watcher 发布的 API release `dev@9488a15`，API/DB healthy、Web running、migration exited/0、ledger 同为 14 项；两套数据库分别验证，不能相互外推。Flutter 源码版本为 `1.0.3+150`，对应正式包已上传 App Store Connect，但未提交审核；服务端发布和客户端交付仍分别记录。旧 CF dev 业务 Worker 已退役，Apple 回调与向量服务独立保留。
+
+## prod WorkAPI 与 Admin 重新部署（2026-09-21）
+
+用户明确要求重新部署 prod WorkAPI 与 Admin。发布来源为干净且与 `github/main` 一致的 `main@2cfdea8`；相对当前 prod 首次发布来源 `main@870a34c`，Workers 运行时源码、Admin 源码和 PostgreSQL migration 清单均无变化，增量仅为已提交的 Wrangler 显式配置、配置意图测试、Flutter `1.0.3+150` 和文档。因此本次不重复数据库备份或 migration，prod ledger 保持 `0000-0013` 共 14 项。
+
+发布前 `pnpm lint`、根 `pnpm type-check --force` 7/7、Admin 22/22、Workers `src` 76 文件 646/646 及 prod dry-run 全部通过。Wrangler 4.135.0 使用 `--strict` 成功上传 version `c612c8a6-4873-4760-b435-3c4db27d14e6`（number 71，tag `prod-main-2cfdea8-20260921`）；没有新 assets 需要上传，Worker ETag `e24f5e70e5315e1697d84115bccf49eed73e11a52cc347eae3bda6b9d2041bf0` 与原 version 完全相同。候选回读确认 10 个 Secret、Hyperdrive/KV/R2、`VECTOR_RECOGNITION=recognize-vec@production`、production vars、Cache、Observability 和 Admin assets 均保持一致。
+
+无流量远程预览中 health、production app-config、games、Search 和 Admin 均为 200，app-config 为 `no-store`，Admin/Quota 未授权边界均为 401。最终 deployment `d30f6111-8ab4-41a9-bd1f-2d93be41b210` 于 `2026-09-21T02:45:07.222614Z` 将该 version 切至 100% 流量，非版本设置回读 `observability.enabled=true`；Custom Domain 为 production enabled/preview disabled，Cron 为 `*/5 * * * *`。线上 iOS/Google app-config、games、Search、Admin 和 health 均为 200；Admin HTML 与 10 个 JS/CSS 资源逐一和本地 production 构建比较，全部 200 且 SHA-256 一致。实时 tail 确认未命中 KV 的 Snorlax Search 由目标 version 处理，HTTP 200、`outcome=ok`、Worker wall/CPU 为 473/35 ms。切流后连续 1 分钟 health 12/12 为 200，耗时 672-944 ms。
+
+回滚版本为 `d4c7524c-2112-4801-8119-2c456f182967`；两版 Worker ETag 和 Admin assets 相同，数据库继续兼容且本次没有数据写入。未运行项目：实际 Cron 一次完整执行、登录态业务请求、真实 Scan/Quota、Apple 购买生命周期、客户端构建/上传和数据库恢复演练；这些不得写成通过。本节文档是部署后的本地改动，当前未提交或 Git push。
 
 ## dev 合入 main（2026-09-21，本地）
 
@@ -77,7 +87,7 @@ Code Review 核对了两侧提交边界、冲突裁决、非文档 tree、prod �
 
 ## 当前代码与交付边界
 
-prod 当前从 `main@870a34c` 发布 Worker/Admin version `d4c7524c-2112-4801-8119-2c456f182967` 并承载 100% 流量；Flutter 源码 `pubspec.yaml` 为 `1.0.3+150`，正式包已上传 App Store Connect 但未提交审核，不代表客户端已发布给用户。dev Linux 最近一次回读的 API release 为 `dev@9488a15`；旧 CF dev 已退役。下方原始测试、部署和迁移证据保留各自日期，不代表相应历史检查在本轮重新运行。
+prod 当前从 `main@2cfdea8` 重新发布 Worker/Admin version `c612c8a6-4873-4760-b435-3c4db27d14e6` 并承载 100% 流量；Flutter 源码 `pubspec.yaml` 为 `1.0.3+150`，正式包已上传 App Store Connect 但未提交审核，不代表客户端已发布给用户。dev Linux 最近一次回读的 API release 为 `dev@9488a15`；旧 CF dev 已退役。下方原始测试、部署和迁移证据保留各自日期，不代表相应历史检查在本轮重新运行。
 
 | 增量 | 当前实现 | 验证与交付边界 |
 |---|---|---|

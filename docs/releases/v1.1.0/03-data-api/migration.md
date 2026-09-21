@@ -4,7 +4,7 @@
 
 ## 当前 PostgreSQL 数据库边界（2026-09-21）
 
-D1 已废弃，测试环境 dev/test 与正式环境 prod 均已完成 PostgreSQL 迁移。2026-09-21 共享 PostgreSQL 回读为 `18.6`，`0000` 至 `0013` 共 14 条 ledger，既有 `0000-0011` checksum 全部匹配仓库，未验证约束为 0。prod 运行 version `d4c7524c-2112-4801-8119-2c456f182967`，通过 Hyperdrive `7d71bcd0bcf64e518a23a852ced76d66` 读取数据库，使用向量绑定且不含 D1；发布与验证范围见[验收记录](../05-delivery/VERIFICATION.md)。
+D1 已废弃，测试环境 dev/test 与正式环境 prod 均已完成 PostgreSQL 迁移。2026-09-21 共享 PostgreSQL 回读为 `18.6`，`0000` 至 `0013` 共 14 条 ledger，既有 `0000-0011` checksum 全部匹配仓库，未验证约束为 0。prod 运行 version `c612c8a6-4873-4760-b435-3c4db27d14e6`，通过 Hyperdrive `7d71bcd0bcf64e518a23a852ced76d66` 读取数据库，使用向量绑定且不含 D1；本次重新部署没有新增或重复执行 migration，发布与验证范围见[验收记录](../05-delivery/VERIFICATION.md)。
 
 后续发布不再安排 D1 数据迁移、冲突合并、摘要校验或切换演练，运行、回滚与灾备仅基于 PostgreSQL。下文出现的 D1 migration 编号、工具和行数只用于历史追溯，不能作为当前操作指南。`0011` 环境版本键和 `0012` 历史事件回填是 PostgreSQL 内的后续业务增量，不属于 D1 到 PostgreSQL 的移库任务。
 
