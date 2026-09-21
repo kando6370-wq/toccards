@@ -35,7 +35,7 @@ iOS 与 Android 共用 Flutter 取景框布局。取景框根据视口和安全�
 
 `POST /scan/recognize` 的 Worker 总耗时达到 1 秒时记录 `scan_recognize_timing`，只包含 outcome 及 auth、preflight/quota、R2 image、向量 recognition、目录 catalog、audit、settlement 各阶段毫秒数，不包含 owner、卡牌、图片、token 或上游正文。该日志用于与 Cloudflare `$workers.wallTimeMs >= 1000` 对齐；它不改变响应 JSON、`elapsed`、R2/向量顺序或客户端 25 秒 Deadline。prod 尚未部署本轮代码，其阶段分布仍须独立验证。
 
-2026-09-21 并发 Gallery 额度整改：识别路由不再用领取 reservation 时的旧快照手算最终响应，而使用 settlement 返回的当前账本；同 request ID 重放保持原识别业务结果，同时用该次回读的当前 Quota 替换旧快照。Flutter 在同批 Processing 全部完成并结束最短展示时序后合并执行一次 `GET /scan/quota`，刷新期间阻止新的 Capture/Gallery 误用旧额度，刷新完成后才按权威 `remaining` 递补 Waiting。该收敛不改变 Free 10 次、Matched 扣次、No Match/技术失败释放、Premium unlimited 或 60 秒 lease。
+2026-09-21 并发 Gallery 额度整改：识别路由不再用领取 reservation 时的旧快照手算最终响应，而使用 settlement 返回的当前账本；同 request ID 重放保持原识别业务结果，同时用该次回读的当前 Quota 替换旧快照。Flutter 在同批 Processing 全部完成并结束最短展示时序后合并执行一次 `GET /scan/quota`，刷新期间阻止新的 Capture/Gallery 误用旧额度，刷新完成后才按权威 `remaining` 递补 Waiting。该收敛不改变 Free 10 次、Matched 扣次、No Match/技术失败释放、Premium unlimited 或 60 秒 lease；服务端已随 `dev@baf0d7b` 由 kd201 watcher 发布并通过运行 bundle、容器健康、migration ledger 与备份回读，真机客户端仍需包含本次 Flutter 修复的新包验收。
 
 ## 平台、资源和协议
 

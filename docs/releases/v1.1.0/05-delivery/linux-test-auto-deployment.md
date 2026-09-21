@@ -4,7 +4,7 @@
 
 2026-09-18 回读：watcher 已自动发布 `dev@bfbb61d`，`current`、manifest 与 `last-deployed-sha` 一致；`0013` 目录搜索索引已登记且有效，API/DB healthy。发布前备份与单次只读查询计划见[验证记录](VERIFICATION.md)；这不代表 prod 已部署或真实客户端扫描已验收。
 
-2026-09-20 当前检查点：watcher 已发布 API 性能提交 `dev@9488a15`，release 为 `branch-dev-9488a15f01b0-20260920111505`。`current`、manifest 与 `last-deployed-sha` 一致；API/DB healthy、Web running、migration exited/0，ledger 14 项。发布前 1,120,850,087 字节备份通过 `pg_restore --list`。后续至 `dev@35c7f87` 的提交仅改 Flutter/文档；实时回读为 `last-seen=35c7f87`、`last-deployed=9488a15`、失败标记为空，没有替换 Linux API release。prod 未处理。
+2026-09-21 当前检查点：watcher 已发布扫描 Free 额度整改 `dev@baf0d7b`，release 为 `branch-dev-baf0d7b53681-20260921151308`。`current`、manifest 与 `last-deployed-sha` 一致；API/DB healthy、Web running、migration exited/0，ledger 14 项且最新为 `0013`，失败标记为空。发布前 1,121,082,954 字节备份通过 PostgreSQL 18 容器 `pg_restore --list`；运行 API bundle 与 release 文件 SHA-256 一致。后续仅含文档/Agent 规则的提交可前移 `last-seen-sha`，不会替换该 release；prod 未处理。
 
 ## 目标
 
