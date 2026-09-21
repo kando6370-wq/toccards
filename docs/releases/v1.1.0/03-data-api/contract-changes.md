@@ -2,9 +2,9 @@
 
 ## 扫描向量协议
 
-`POST /api/v1/scan/recognize` 将 multipart `r/g/b` 替换为 JSON `vector`，要求 512 个有限数值且至少一个非零分量，最大 32 KiB；图片为端侧模型检测、原生透视矫正后的 JPEG。该变更于 2026-09-09 从 `dev-wxy` 合入 `dev`，请求路径、UUID/Idempotency-Key、平台信息、卡号、返回候选完整资料、业务状态与 Quota 保持原契约；确认入库保留 `dev` 已有的初始事件购买价格、币种及可靠历史起点修复。旧 pHash 请求不兼容新接口，需协调 App 与 API 发布。
+`POST /api/v1/scan/recognize` 将 multipart `r/g/b` 替换为 JSON `vector`，要求 512 个有限数值且至少一个非零分量，最大 32 KiB；图片为端侧模型检测、原生透视矫正后的 JPEG。该变更于 2026-09-09 从 `dev-wxy` 合入 `dev`，请求路径、UUID/Idempotency-Key、平台信息、返回候选完整资料、业务状态与 Quota 保持原契约；服务端仍兼容可选卡号字段，但当前 App 已移除 ML Kit Latin OCR，不再提交端侧卡号提示。确认入库保留 `dev` 已有的初始事件购买价格、币种及可靠历史起点修复。旧 pHash 请求不兼容新接口，需协调 App 与 API 发布。
 
-主 Worker 只经 `VECTOR_RECOGNITION` Service Binding 向内部 `recognize-vec` 发送 `{vector}`，Cloudflare 配置和扫描请求路径不再使用 `OCR_SERVICE_BASE_URL`；缺少 binding 为 `503 VECTOR_RECOGNITION_UNAVAILABLE`，内部失败为 `502` 并释放 Free 预占。`game_id` 改在主 Worker 的 PostgreSQL 目录层过滤，保留卡号消歧与候选顺序。算法标识为 `pe-core-t16-384-cosine-v1`，未增加数据库迁移。下文历史契约中的 OCR 识别上游在本分支由向量服务承担，端侧 ML Kit 卡号 OCR 保留；No Match/目录不完整不扣次数等规则仍有效。详见[扫描识别链路](../01-flows/scan-recognition.md)。
+主 Worker 只经 `VECTOR_RECOGNITION` Service Binding 向内部 `recognize-vec` 发送 `{vector}`，Cloudflare 配置和扫描请求路径不再使用 `OCR_SERVICE_BASE_URL`；缺少 binding 为 `503 VECTOR_RECOGNITION_UNAVAILABLE`，内部失败为 `502` 并释放 Free 预占。`game_id` 改在主 Worker 的 PostgreSQL 目录层过滤；可选卡号消歧能力与候选顺序仍兼容旧客户端，当前 App 不再生成该提示。算法标识为 `pe-core-t16-384-cosine-v1`，未增加数据库迁移。下文历史契约中的 OCR 识别上游在本分支由向量服务承担，端侧 ML Kit 卡号 OCR 已移除；No Match/目录不完整不扣次数等规则仍有效。详见[扫描识别链路](../01-flows/scan-recognition.md)。
 
 Linux 入口共用上述路由，以必填 `VECTOR_RECOGNITION_BASE_URL` 构造 HTTP `VECTOR_RECOGNITION`。适配器只把 `{vector}` 交给现有 CF 识别服务，10 秒超时覆盖正文读取；候选补全、额度与扫描记录使用本地 PostgreSQL。旧 OCR 配置已退出运行路径，缺 binding 的 503 和上游失败的 502/释放额度语义保持不变。当前实现已随 `dev@9488a15` 发布到 Linux；设备扫描、真实阶段耗时和 prod 独立协议边界见[Linux 兼容缺口](../02-architecture/linux-test-environment.md#扫描兼容缺口)及[验证记录](../05-delivery/VERIFICATION.md)。
 

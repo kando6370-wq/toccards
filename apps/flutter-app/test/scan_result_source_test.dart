@@ -5,23 +5,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/scan/scan_result_source.dart';
 import 'package:kando_app/shared/scan/scan_api_client.dart';
-import 'package:kando_app/shared/scan/scan_card_number_reader.dart';
 import 'package:kando_app/shared/scan/scan_card_recognizer.dart';
 
 void main() {
   test(
-    'photo uses recognition API because scan matches must come from card data',
+    'photo uses vector recognition without a device OCR card-number hint',
     () async {
       final api = _FakeScanApi(_matchedRecognition);
       final picker = _FakeScanImagePicker();
       final cardRecognizer = _FakeScanCardRecognizer();
-      final cardNumberReader = _FakeCardNumberReader('018/066');
       final source = ApiScanResultSource(
         api: api,
         session: () => _session,
         imagePicker: picker,
         cardRecognizer: cardRecognizer,
-        cardNumberReader: cardNumberReader,
         appInfo: () async =>
             const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
       );
@@ -41,8 +38,7 @@ void main() {
       expect(cardRecognizer.lastBytes, Uint8List.fromList([1, 2, 3]));
       expect(api.lastEmbedding?.cardImageBytes, Uint8List.fromList([4, 5, 6]));
       expect(api.lastPlatform, 'iOS');
-      expect(api.lastCardNumber, '018/066');
-      expect(cardNumberReader.lastBytes, Uint8List.fromList([4, 5, 6]));
+      expect(api.lastCardNumber, isNull);
       expect(picker.sources, [ScanImageSource.camera]);
     },
   );
@@ -485,19 +481,6 @@ class _OrderedScanCardRecognizer implements ScanCardRecognizer {
       vector: List<double>.filled(512, 0.25),
       cardImageBytes: Uint8List.fromList([4, 5, 6]),
     );
-  }
-}
-
-class _FakeCardNumberReader implements ScanCardNumberReader {
-  _FakeCardNumberReader(this.result);
-
-  final String? result;
-  Uint8List? lastBytes;
-
-  @override
-  Future<String?> read(Uint8List cardImageBytes) async {
-    lastBytes = cardImageBytes;
-    return result;
   }
 }
 
