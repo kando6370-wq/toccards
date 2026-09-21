@@ -12,6 +12,18 @@ Code Review 发现并修复两项：合法大写 UUID 原先被转成小写，�
 
 ## Free 10 次扫描、Gallery 并发与额度不足状态整改（2026-09-21，已部署 dev）
 
+## iOS 测试内部包 1.0.3 (155)（2026-09-21）
+
+按用户要求从干净的 `dev@baf0d7b5` 重新构建测试环境内部包。该分支源码版本为 `1.0.3+153`，但同一测试 Bundle ID 已保存构建号 154，因此显式使用 155，避免覆盖既有产物。测试配置为 `com.kando.kandoApp.beta`、App Attest `development`、测试 Firebase 和 `http://192.168.50.201:8080/api/v1`；构建前 Linux dev `/health` 返回 HTTP 200、`status=ok`。
+
+执行 `./tool/release_ios.sh --env test --pgy --build-number 155`，依赖解析、`flutter analyze`、全量清理、Xcode Release Archive、App Store IPA 导出、内部 IPA 打包、签名与配置校验均通过，脚本退出 0。最终内部 IPA 为 `1.0.3 (155)`、Apple Development 签名、`get-task-allow=true`、App Attest `development`；测试 Firebase、内网 API 字符串和签名完整性均通过，40 个 Mach-O UUID 均有匹配 dSYM。Dart 与 CocoaPods 锁文件均未变化；现有 `sign_in_with_apple` 不支持 Swift Package Manager 的提示不阻断本次 CocoaPods 真机 Release 包。
+
+IPA 为 39,750,535 字节，SHA-256 `16d2ed2027c9566253726bd674e276182fd1b275c5721af429539e0e2249b6ed`；`dSYMs.zip` 为 60,849,778 字节，SHA-256 `6a980ca780aceb74828f4056d1be53ebb79bf18696e09650d62420abb5bd5cd8`。两者保存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.3-155/`；构建 Archive 位于 `apps/flutter-app/build/ios/archive/Runner.xcarchive`。当前保留 153、154、155，旧 152 已移入废纸篓，可恢复；源码版本同步为 `1.0.3+155`。
+
+未运行 Flutter 单元、Widget 或集成测试，也未执行 iOS/Android 真机业务验收、安装设备、上传蒲公英或 App Store Connect、Git push、服务端部署或远程数据写入。
+
+## Free 10 次扫描、Gallery 并发与额度不足状态整改（2026-09-21，本地未发布）
+
 用户报告未订阅用户出现误扣/多扣、相册批量次数错误及额度不足时 Scan 页面状态错误。本轮基于已合入移动端 OCR 清理的当前 `dev@5e701f8` 继续定位，保留上节 `b4b6e12` 的 25 秒总 Deadline 修复。服务端根因是并发识别领取 reservation 后，各请求都用结算前快照手算响应，后完成的成功项即使数据库已经变为 `reserved=0/consumed=9/remaining=1`，仍可返回 `reserved=1/consumed=9/remaining=0`；持久化的幂等响应也保留该旧值。Flutter 根因有两条：成功响应无法解析或 `recognition_status=success` 却没有可用 Matched 时清除了 request ID，Retry 会以新 ID 再次扣次；页面收到并发结果后立即用可能乱序的响应 Quota 递补 Waiting，没有在整批结束后回读服务端真值，刷新窗口还可能按旧 `remaining=0` 误开 Paywall。
 
 修复保持 `scan_quota_request` 为唯一真源：首次识别响应使用 `settleScanQuota` 返回的当前账本，同 request ID 重放保持原识别业务结果但以当次回读的 Quota 替换旧快照。不确定的成功结果继续复用原 request ID；显式 Quota Exhausted、权益同步和已知技术失败仍沿用原终态。Flutter 等同批 Processing 全部完成并结束一秒最短展示后只发起一次异步 `GET /scan/quota`，刷新期间 Capture/Gallery 显示等待提示，刷新成功后才按权威 `remaining` 递补 Waiting。Free 终身 10 次、只有完整 Matched 扣 1 次、No Match/目录不完整/技术失败释放、Premium unlimited、60 秒 lease、Queue 10 张上限、请求/响应字段和 Schema 均未改变；旧客户端继续兼容。回滚不涉及数据库，但会重新引入旧快照、错误 Paywall 和不确定成功 Retry 的重复扣次风险。
