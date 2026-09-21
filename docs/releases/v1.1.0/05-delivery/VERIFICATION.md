@@ -2,6 +2,18 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## 移除移动端 OCR 后的 iOS 测试包 1.0.3 (153)（2026-09-21）
+
+按用户要求从干净的 `dev-xiangyang-vec@229ef82` 构建测试环境内部包并安装到 iPhone 13。源码版本为 `1.0.3+150`，下载目录已有构建号 152，因此本次使用 153。测试配置为 `com.kando.kandoApp.beta`、App Attest `development`、测试 Firebase 和 `http://192.168.50.201:8080/api/v1`；Linux dev `/health` 返回 HTTP 200、`status=ok`。
+
+模型编排、原生图片矫正、扫描结果来源、发布配置与环境测试共 28 项全部通过、退出 0，其中明确覆盖当前 App 不再生成设备 OCR 卡号提示。包含完整扫描页的扩展命令没有通过：总计 125 项通过、21 项失败，退出 1；`scan_page_test.dart` 单计 97 项通过、21 项失败。失败包含新增的一秒最短展示用例（单独复跑仍失败）、连续扫描结果栏未出现、两个顶部提示定时器未收敛和四个 Golden 差异。代码回读显示测试在异步 Premium 判定完成并创建扫描计时器前就先推进虚拟时间，但本轮没有修改或放宽测试，不能把这些失败记为通过；该提交原验证记录也明确说明作者当时没有 Flutter 环境、未运行动态测试。内部包用于真机补验，不代表该扫描页回归门禁已通过。
+
+执行 `./tool/release_ios.sh --env test --pgy --build-number 153 --install 64043AB3-79BB-5E5C-8808-7D19ADB47010`，`flutter analyze`、清理、Xcode 归档、App Store IPA 导出、内部 IPA 打包、签名与配置校验均通过，脚本退出 0。最终内部 IPA 为 `1.0.3 (153)`、Apple Development 签名、`get-task-allow=true`、App Attest `development`；测试 Firebase、内网 API 字符串及签名完整性均通过，40 个 Mach-O UUID 均有匹配 dSYM。最终 IPA 压缩内容没有 GoogleMLKit、MLImage、MLKitCommon 或 TextRecognition；构建开始前出现的模拟器 arm64 提示来自 CocoaPods 更新前状态，不代表这些框架仍在交付包内。
+
+IPA 为 39,748,482 字节，SHA-256 `4d3747a30960d06a06b3ad6695c791b9a6836f8128b36550d2b1555ffd4a357b`；`dSYMs.zip` 为 60,849,317 字节，SHA-256 `932fe0b3c2c9b553dd261c4ffe6af2be0187ba2652791ca6a70613744e60d355`。两者保存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.3-153/`，Xcode 归档另存于 `~/Library/Developer/Xcode/Archives/2026-09-21/Card AI Test 1.0.3 (153).xcarchive`。当前保留 151、152、153，旧 149 已移入废纸篓，可恢复；源码版本同步为 `1.0.3+153`。相对 152 的 54,083,084 字节，IPA 减少 14,334,602 字节。macOS `pod install` 另从 `Podfile.lock` 清除不再引用的 GoogleToolboxForMac 并将 Podfile checksum 更新为当前值；根 Dart 锁文件未变化，该 iOS 锁文件差异保留待提交。
+
+安装目标为数据线连接、已配对且开启开发者模式的 iPhone 13（iOS 26.6.2，硬件 UDID `00008110-000A242A01A2801E`）。脚本确认最终 embedded provisioning profile 包含该 UDID 后安装成功；设备应用列表回读 `Card AI / com.kando.kandoApp.beta / 1.0.3 / 153`。未自动启动 App，也未运行真机扫描节奏、真实图片识别、登录、订阅或局域网业务验收、Android 构建与真机验证、Flutter 全仓测试。本次没有上传蒲公英或 App Store Connect、Git push、服务端部署或远程数据写入。
+
 ## iOS 正式包 1.0.3 (150) 上传 App Store Connect（2026-09-20）
 
 按用户要求基于 `dev@35c7f87` 构建正式环境 App Store 包，并将营销版本从 `1.0.2` 提升为 `1.0.3`。构建前生产配置校验通过：Bundle ID `com.cardai.tcg`、App Attest `production`、Firebase 项目 `tcg-card-2072d`、生产 API `https://api.tcgcard.fun/api/v1`、正式订阅 SKU `CardAi.weekly` / `CardAi.yearly` / `CardAi.lifetime`；生产 API `/health` 返回 HTTP 200、`status=ok`。以 `config/production.json` 执行发布配置、环境/API、分享、升级和 Singular 配置测试共 31 项，全部通过、退出 0。Profile 页通过 `PackageInfo.fromPlatform()` 读取安装包营销版本并去掉构建号，因此该包显示 `Version 1.0.3`，没有另设硬编码版本。
