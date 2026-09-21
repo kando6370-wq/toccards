@@ -2,7 +2,7 @@
 
 Kando 是 Card AI 的 monorepo，包含 Flutter 客户端、Cloudflare Workers API、React 管理后台、营销站点及共享包。产品主线是卡牌搜索、扫描识别、收藏与估值；v1.1 在此基础上增加 Apple 订阅、Premium 权益、服务端扫描额度、Performance 和订单/通知后台。
 
-当前仓库已合入 `dev@8b133ac`，实现按 `dev@35c7f87`（2026-09-20）核对；Flutter 客户端版本为 `1.0.2+149`，以 `apps/flutter-app/pubspec.yaml` 为准。2026-09-21 已从 `main@870a34c` 发布 prod Worker/Admin version `d4c7524c-2112-4801-8119-2c456f182967`，并完成 prod PostgreSQL `0012/0013`；kd201 Linux API 实际运行性能提交 `dev@9488a15`。`docs/releases/v1.1.0` 是产品迭代文档目录，不代表安装包版本或商店发布状态；Git 合并、服务端发布和客户端发布分别记录。
+当前仓库已合入 `dev@ad88ee9`，Flutter 客户端版本为 `1.0.3+150`，以 `apps/flutter-app/pubspec.yaml` 为准。2026-09-21 prod 服务端仍运行从 `main@870a34c` 发布的 Worker/Admin version `d4c7524c-2112-4801-8119-2c456f182967`，并已完成 prod PostgreSQL `0012/0013`；kd201 Linux API 实际运行性能提交 `dev@9488a15`。`docs/releases/v1.1.0` 是产品迭代文档目录，不代表安装包版本或商店发布状态；Git 合并、服务端发布和客户端发布分别记录。
 
 ## 系统概览
 
@@ -105,7 +105,7 @@ dart run melos run test
 - Linux 分支监听脚本默认每两分钟检查 `dev`，仅在相关路径变化时构建并部署 kd201；GitHub Linux workflow 仅支持手动触发。服务器安装与最近部署证据见 [自动部署手册](docs/releases/v1.1.0/05-delivery/linux-test-auto-deployment.md)，合入代码不代表服务器已运行该提交。
 - iOS 发布脚本校验 IPA 后自动保存 IPA/dSYM，按 Bundle ID 分目录，测试保留最近 3 个版本、正式保留 7 个版本；具体命令与保留规则见 [Flutter 交付说明](apps/flutter-app/README.md#ipa-与符号文件保存)。
 
-当前 main 合并结果已包含 `dev@8b133ac`；Git 提交号不代表对应 Worker、App 包或目标环境已完成发布。`dev-wxy`、`dev-xiangyang`、`dev-update-dio`、`dev-scan-page-update-ui` 已于 2026-09-09 清理，本地与远程均不再作为工作分支；文档中带提交号的旧分支名仅保留来源追踪含义。当前运行版本与验收范围见 [发布与验证](docs/releases/v1.1.0/05-delivery/VERIFICATION.md)。
+当前 main 合并结果已包含 `dev@ad88ee9`；Git 提交号不代表对应 Worker、App 包或目标环境已完成发布。`dev-wxy`、`dev-xiangyang`、`dev-update-dio`、`dev-scan-page-update-ui` 已于 2026-09-09 清理，本地与远程均不再作为工作分支；文档中带提交号的旧分支名仅保留来源追踪含义。当前运行版本与验收范围见 [发布与验证](docs/releases/v1.1.0/05-delivery/VERIFICATION.md)。
 
 部署、远程迁移、生产写入和发布都需要单独明确授权；Git push 不会自动代表这些操作已获授权。
 

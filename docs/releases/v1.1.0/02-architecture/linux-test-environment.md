@@ -3,7 +3,7 @@
 ## 状态
 
 - 当前业务环境只有 prod 与 dev：prod 沿用 Cloudflare，dev 专指 kd201 Linux。独立的 CF 向量识别与 Apple Sandbox 回调服务不构成第三套业务环境；已退役的旧 CF dev 不再发布。
-- 当前源码基线：2026-09-20 `dev@35c7f87`，客户端版本 `1.0.2+149`；Linux API 实际运行 `dev@9488a15`。`dev-inner@b941a3f` 与 `dev@8e22c1d` 分别保留为 2026-09-15 整改和 2026-08-26 原始设计基线。
+- 当前源码已到 `dev@ad88ee9`，客户端版本 `1.0.3+150`；Linux API 实际运行 `dev@9488a15`，其后提交只影响 Flutter/文档。`dev-inner@b941a3f` 与 `dev@8e22c1d` 分别保留为 2026-09-15 整改和 2026-08-26 原始设计基线。
 - 合并状态：`19a6ac4` 引入 Linux 基础部署；2026-09-16 的 `75c0ec4` 已将 HTTP 向量、App/Admin 内网入口和发布预检整改合入 dev，并保留原后台筛选增量。
 - 2026-09-17 回读 kd201：watcher 发布的 `dev@4d5d66f` 正在运行，manifest、部署状态和 API/Admin 实际产物一致；PostgreSQL 18.6 的 ledger 为 13 项，发布前备份目录可读取，未做恢复演练。此前手工 ESM 修复现已包含在自动发布版本中，详见[退役验证](../05-delivery/VERIFICATION.md#旧-cloudflare-dev-业务退役2026-09-17)。
 - 2026-09-18 回读 kd201：watcher 已发布 `dev@bfbb61d`，manifest、`current` 与部署 SHA 一致；PostgreSQL ledger 已登记 `0013`，`pg_trgm` 索引有效并被单次 Search 查询计划命中，API/Web/DB 健康。发布前备份可列出内容，未演练整库恢复；prod 未迁移或发布，见[验证记录](../05-delivery/VERIFICATION.md)。

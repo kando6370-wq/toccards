@@ -2,7 +2,7 @@
 
 ## 1. 使用规则
 
-本矩阵以三份初始 v1.1 PRD 及后续订阅、收藏/卡牌详情补充输入为产品依据。2026-09-10 的 `main@659a7c6` 是历史全量测试基线；当前 main 为 `870a34c`，客户端版本为 `1.0.2+149`。当前业务环境仅为 prod Cloudflare 与 dev Linux：2026-09-21 prod 已发布该 main 对应的 Worker/Admin version `d4c7524c-2112-4801-8119-2c456f182967` 并完成 PostgreSQL `0012/0013`，Linux API 实际运行 `dev@9488a15`，旧 CF dev 已退役。`代码已完成` 只表示仓库内闭环成立；历史测试与远程状态仍按原日期解读。需要 Apple 配置、真机、Sandbox/TestFlight 或规模数据的项目仍不得视为客户端发布完成。
+本矩阵以三份初始 v1.1 PRD 及后续订阅、收藏/卡牌详情补充输入为产品依据。2026-09-10 的 `main@659a7c6` 是历史全量测试基线；当前 main 已合入 `dev@ad88ee9`，客户端版本为 `1.0.3+150`。当前业务环境仅为 prod Cloudflare 与 dev Linux：2026-09-21 prod 服务端已从 `main@870a34c` 发布 Worker/Admin version `d4c7524c-2112-4801-8119-2c456f182967` 并完成 PostgreSQL `0012/0013`，Linux API 实际运行 `dev@9488a15`，旧 CF dev 已退役。`代码已完成` 只表示仓库内闭环成立；历史测试与远程状态仍按原日期解读。正式 IPA 已上传 App Store Connect，但真机、Sandbox/TestFlight 与完整购买生命周期仍不得视为完成。
 
 状态定义：
 

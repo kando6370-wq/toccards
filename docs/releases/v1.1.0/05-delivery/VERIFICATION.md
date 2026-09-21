@@ -2,7 +2,13 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
-当前业务环境只有 prod（Cloudflare）与 dev（kd201 Linux）。2026-09-21 prod 已从远端一致的 `main@870a34c` 发布 Worker/Admin version `d4c7524c-2112-4801-8119-2c456f182967`，deployment `70125d6e-2f1e-4f2a-a948-f7e637380915` 承载 100% 流量；prod PostgreSQL ledger 为 14 项且最新为 `0013`。dev 于 2026-09-20 回读 watcher 发布的 API release `dev@9488a15`，API/DB healthy、Web running、migration exited/0、ledger 同为 14 项；两套数据库分别验证，不能相互外推。Flutter 版本为 `1.0.2+149`，本次服务端发布没有上传客户端。旧 CF dev 业务 Worker 已退役，Apple 回调与向量服务独立保留。
+当前业务环境只有 prod（Cloudflare）与 dev（kd201 Linux）。2026-09-21 prod 已从远端一致的 `main@870a34c` 发布 Worker/Admin version `d4c7524c-2112-4801-8119-2c456f182967`，deployment `70125d6e-2f1e-4f2a-a948-f7e637380915` 承载 100% 流量；prod PostgreSQL ledger 为 14 项且最新为 `0013`。dev 于 2026-09-20 回读 watcher 发布的 API release `dev@9488a15`，API/DB healthy、Web running、migration exited/0、ledger 同为 14 项；两套数据库分别验证，不能相互外推。Flutter 源码版本为 `1.0.3+150`，对应正式包已上传 App Store Connect，但未提交审核；服务端发布和客户端交付仍分别记录。旧 CF dev 业务 Worker 已退役，Apple 回调与向量服务独立保留。
+
+## dev 合入 main（2026-09-21，本地）
+
+从与远端一致的 `main@f804ba4` 合入 `dev@ad88ee9`；合并前 main 与 dev 分别有 18 与 1 个独有提交，merge base 为 `dev@8b133ac`，沿用仓库既有 `--no-ff` 方式。dev 唯一增量是把 Flutter `pubspec.yaml` 从 `1.0.2+149` 提升为 `1.0.3+150`，并加入正式 IPA 上传 App Store Connect 的证据。唯一冲突位于本页顶部：采用 main 较新的 2026-09-21 prod Worker/PostgreSQL/配置发布记录，同时完整保留 dev 的 iOS `1.0.3 (150)` 构建、签名、dSYM、产物摘要与上传边界；当前源码文档更新到 `dev@ad88ee9`，prod 服务端仍明确按已部署的 `main@870a34c`/version `d4c7524c` 判断。
+
+合并后执行 production 发布配置、环境/API、分享、升级和 Singular 五个测试文件，共 31/31 通过；`flutter analyze --no-pub` 无问题。GitHub iOS workflow run `35492563809` 对 `dev@ad88ee9` 为 completed/success；它只证明 unsigned iOS Release 编译门禁，正式签名与上传仍按下节 macOS 证据判断。完整 Flutter 全仓、Android 构建、正式包真机、App Store Connect 后台处理完成状态、Git push、服务端重新部署和数据库写入均未在本次合并执行。
 
 ## prod API 性能与 PostgreSQL 0012/0013 发布（2026-09-21）
 
@@ -19,6 +25,16 @@
 最终 deployment `70125d6e-2f1e-4f2a-a948-f7e637380915` 于 `2026-09-21T01:51:37.874456Z` 将该 version 置于 100% 流量；`wrangler triggers deploy` 回读 `api.tcgcard.fun` Custom Domain 为 production enabled/preview disabled，Cron 为 `*/5 * * * *`。线上 health、iOS/Google app-config、games、Admin 和向量 health 均为 200，app-config 为 `no-store` 且必要 SDK/商店配置存在；Admin/Quota 未授权边界为 401。Admin HTML 与 10 个 JS/CSS 文件逐一和本地 production 构建比较 SHA-256，全部 200 且一致。五组未命中 KV 的冷 Search 公网耗时为 0.894-1.615 秒，随后 HIT 为 0.205-0.215 秒；另两条冷请求在实时 tail 中均由目标 version 处理，HTTP 200、`outcome=ok`，Worker wall/CPU 分别为 552/51 ms 与 445/39 ms。切流后连续 1 分钟 health 12/12 为 200，耗时 677-734 ms。
 
 回滚边界：应用可把流量切回原 version `7fa3d946-941c-4c25-9f5b-fd57adb5c88b`，数据库继续兼容旧查询；`0013` 索引可在确认无依赖后并发删除，扩展仅在无其他依赖时移除。`0012` 的 4 行不能通过不区分记录的批量置空安全回退，数据级恢复应使用发布前备份 `9erq7bscq26w`。未运行项目：实际 Cron 一次完整执行、登录态账号/Quota/真实 Scan 写链、真实 Apple 购买/Restore/通知生命周期、iOS/Android 构建与真机、Flutter 全仓测试及整库恢复演练；这些均不得写成通过。
+
+## iOS 正式包 1.0.3 (150) 上传 App Store Connect（2026-09-20）
+
+按用户要求基于 `dev@35c7f87` 构建正式环境 App Store 包，并将营销版本从 `1.0.2` 提升为 `1.0.3`。构建前生产配置校验通过：Bundle ID `com.cardai.tcg`、App Attest `production`、Firebase 项目 `tcg-card-2072d`、生产 API `https://api.tcgcard.fun/api/v1`、正式订阅 SKU `CardAi.weekly` / `CardAi.yearly` / `CardAi.lifetime`；生产 API `/health` 返回 HTTP 200、`status=ok`。以 `config/production.json` 执行发布配置、环境/API、分享、升级和 Singular 配置测试共 31 项，全部通过、退出 0。Profile 页通过 `PackageInfo.fromPlatform()` 读取安装包营销版本并去掉构建号，因此该包显示 `Version 1.0.3`，没有另设硬编码版本。
+
+执行 `./tool/release_ios.sh --env production --upload --build-number 150`，依赖按现有锁文件解析，`flutter analyze`、清理、Xcode 归档、App Store IPA 导出、签名/配置校验、dSYM 覆盖及上传均通过，脚本退出 0。最终 IPA 为 `1.0.3 (150)`、Apple Distribution 签名、`get-task-allow=false`、App Attest `production`；正式 Firebase 与生产 API 字符串校验通过，41 个 Mach-O UUID 均有匹配 dSYM，Packaging.log 没有 dSYM 缺失警告。Xcode 上传配置启用 `uploadSymbols=true`，App Store Connect 明确返回 `Upload succeeded.`、`Uploaded package is processing.` 和 `** EXPORT SUCCEEDED **`；这证明包与符号已交给 Apple，后台构建处理完成状态仍需在 App Store Connect 回读。
+
+IPA 为 72,735,508 字节，SHA-256 `d807707a171730d11744aa60e700128d5f243d31f89b254d76ae8380671d4b67`；`dSYMs.zip` 为 63,434,956 字节，SHA-256 `65585df3445972add44ffcd656e5a6c4b3973950e1d672f4d216c9842dd1655d`。两者保存于 `~/Downloads/CardAI-Packages/com.cardai.tcg/CardAI-Prod-1.0.3-150/`，Xcode 归档另存于 `~/Library/Developer/Xcode/Archives/2026-09-20/Card AI Prod 1.0.3 (150).xcarchive`；正式包目录目前共 4 个版本，未超过保留 7 个的上限，没有清理旧正式包。源码版本同步为 `1.0.3+150`，Dart/CocoaPods 锁文件未变化。
+
+未运行：App Store Connect 后台处理完成与 TestFlight 可选状态回读、iOS 正式包真机登录/订阅/扫描验收、Android 构建与真机验证、Flutter 全仓测试。本次未安装设备、Git push、服务端部署、远程数据库或运营配置写入；上传完成不等于已经提交 App Store 审核。
 
 ## dev 合入 main（2026-09-20，本地）
 
@@ -61,7 +77,7 @@ Code Review 核对了两侧提交边界、冲突裁决、非文档 tree、prod �
 
 ## 当前代码与交付边界
 
-prod 当前从 `main@870a34c` 发布 Worker/Admin version `d4c7524c-2112-4801-8119-2c456f182967` 并承载 100% 流量；Flutter 源码 `pubspec.yaml` 为 `1.0.2+149`，不代表 prod 客户端已发布。dev Linux 最近一次回读的 API release 为 `dev@9488a15`；旧 CF dev 已退役。下方原始测试、部署和迁移证据保留各自日期，不代表相应历史检查在本轮重新运行。
+prod 当前从 `main@870a34c` 发布 Worker/Admin version `d4c7524c-2112-4801-8119-2c456f182967` 并承载 100% 流量；Flutter 源码 `pubspec.yaml` 为 `1.0.3+150`，正式包已上传 App Store Connect 但未提交审核，不代表客户端已发布给用户。dev Linux 最近一次回读的 API release 为 `dev@9488a15`；旧 CF dev 已退役。下方原始测试、部署和迁移证据保留各自日期，不代表相应历史检查在本轮重新运行。
 
 | 增量 | 当前实现 | 验证与交付边界 |
 |---|---|---|

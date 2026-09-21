@@ -4,7 +4,7 @@
 
 ## 当前实现边界（2026-09-20）
 
-- `19a6ac4` 已将 Linux 部署资产合入 dev，并通过 `659a7c6` 进入 main；下方原始实施记录保留 `dev@699ca48` 与 `dev@b941a3f` 的历史基线。当前 main 已合入 `dev@8b133ac`，实现基线为 `dev@35c7f87`，Linux API 运行 `dev@9488a15`；监听器仍跟踪 dev，不再等待功能分支合入。
+- `19a6ac4` 已将 Linux 部署资产合入 dev，并通过 `659a7c6` 进入 main；下方原始实施记录保留 `dev@699ca48` 与 `dev@b941a3f` 的历史基线。当前 main 已合入 `dev@ad88ee9`，Linux API 运行 `dev@9488a15`，其后提交只影响 Flutter/文档；监听器仍跟踪 dev，不再等待功能分支合入。
 - Cloudflare dev/test 与 prod 已完成 PostgreSQL 迁移，D1 已退役；Linux 使用独立 PostgreSQL。
 - dev 整改已通过 HTTP 适配复用 CF 识别，并统一 App test/Admin development 内网入口、测试分享与 Linux 发布命令；2026-09-15 已升级 kd201 现有实例并完成受控扫描、额度和收藏写库验证。设备验收与第三方测试配置仍待完成，见[架构中的兼容缺口](../02-architecture/linux-test-environment.md#扫描兼容缺口)。下方 Task 勾选与 OCR 配置仅保留原始实施历史，不作为新版本配置指引。
 - 整改已通过 `75c0ec4` 合入 dev；2026-09-20 watcher 进一步发布性能提交 `9488a15`，API/DB healthy、Web running、migration exited/0，ledger 为 14 项且最新为 `0013`。下方 10 条 migration、容器与发布结果只对应注明的历史时间，当前证据见[验证记录](VERIFICATION.md)。

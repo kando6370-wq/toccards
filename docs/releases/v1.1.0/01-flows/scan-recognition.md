@@ -1,6 +1,6 @@
 # 扫描识别向量链路
 
-当前 main 为 `870a34c`，App 为 `1.0.2+149`。prod Cloudflare 通过 Service Binding、dev Linux 通过 HTTP 适配调用 `recognize-vec`；2026-09-21 prod 已发布该 main 对应 version `d4c7524c-2112-4801-8119-2c456f182967`，dev Linux API 实际运行 `dev@9488a15`。下方来源提交和历史版本保留原日期，不能据此推断客户端已发布。
+当前 main 已合入 `dev@ad88ee9`，App 为 `1.0.3+150`。prod Cloudflare 通过 Service Binding、dev Linux 通过 HTTP 适配调用 `recognize-vec`；2026-09-21 prod 服务端仍运行从 `main@870a34c` 发布的 version `d4c7524c-2112-4801-8119-2c456f182967`，dev Linux API 实际运行 `dev@9488a15`。下方来源提交和历史版本保留原日期，不能据此推断目标环境随 Git 合并改变。
 
 本实现从历史提交 `dev-xiangyang@ceef1af` 按识别代码段移植为 `e18543a`，基线为 `7451382`，于 2026-09-09 经 `f38ef98` 合入 `dev` 并推送远程。`dev-wxy`、`dev-xiangyang` 等来源分支已清理，旧分支名只用于追溯，不再作为检出或发布目标。保留当前 Queue、Quota、候选资料与确认入库逻辑，包括 Scan confirm 初始估值事件的购买价格、币种和可靠历史起点修复。
 
