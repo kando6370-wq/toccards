@@ -238,7 +238,11 @@ describe("scan routes", () => {
       "/api/v1/scan/recognize",
       {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Idempotency-Key": requestId },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Idempotency-Key": requestId,
+          "X-Request-ID": "123e4567-e89b-42d3-a456-426614174000",
+        },
         body: recognitionForm({
           request_id: requestId,
           vector: VECTOR, filename: "scan.jpg",

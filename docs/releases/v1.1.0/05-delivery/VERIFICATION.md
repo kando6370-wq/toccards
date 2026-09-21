@@ -2,6 +2,14 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## 全业务 API 请求关联 ID（2026-09-21，本地修改）
+
+所有 `/api/v1/*` 已增加 UUID v4 `X-Request-ID`：合法调用方 ID 原样回显，缺失或非法 ID 由 Workers 生成；CORS 允许并暴露该 Header；完成日志只记录 `request_id/method/path/status/duration_ms`。Flutter 与 Admin 每次实际 HTTP 尝试生成新 ID，Flutter 本地请求日志、`api_timing`、`api_err` 使用同值；Admin JSON、导出文件和受保护扫描图片均覆盖。扫描 body 的业务 `request_id` 与 `Idempotency-Key` 仍按原幂等规则复用，主 API 到内部 `recognize-vec` 不转发传输层 ID；`/share/*`、静态资源和第三方请求排除。响应 JSON、数据库 Schema 与 migration 均未变化。
+
+先失败证据：Workers 新增契约测试在中间件接入前 3/3 失败；Flutter 测试因请求 ID 模块尚不存在而编译失败；Admin 测试因请求 ID 源文件不存在而失败。实现后，Workers 请求关联 6/6、Scan 路由 41/41、正式 `src --maxWorkers=2` 76 文件 650/650 通过；Workers type-check 通过。Flutter 请求关联/日志/Auth 重试及受影响 API 客户端 117/117 通过，新增透明重试日志回归所在 Auth 文件 5/5 通过，`flutter analyze --no-pub` 无问题。Admin 23/23、type-check 与 development build 通过。根依赖方向检查和全仓 TypeScript type-check 7/7 通过；Linux dev dry-run 完成 Admin development、Linux API bundle 及 Apple SDK 2/2，明确未连接 SSH、执行 migration 或部署。默认 Workers `pnpm test` 误扫 `.wrangler` 历史发布包/诊断副本并在高并发下出现两个源码 5 秒超时，退出 1；随后正式源码低并发全量通过，不能把前一次失败写成通过。
+
+Code Review 发现并修复两项：合法大写 UUID 原先被转成小写，已改为原样回显；完成日志原先记录真实 URL path，可能带 UID/scan ID，已改为不含实际参数和 query 的路由模板，未匹配 API 统一为 `/api/v1/*`。返工后请求关联 6/6 与 Workers type-check 通过，未发现剩余代码级阻断。Windows `.bat` formatter/analyze 包装曾无输出挂起并由精确进程终止；同一 SDK 直接执行的 16 个 Dart 文件格式检查为 0 changed，Flutter analyze 退出 0。当前尚未执行远程 dev 发布或运行环境回读；本节不得解释为 dev 或 prod 已部署。真机 Flutter 日志、真实 Admin 下载/图片、Apple 回调与跨监控平台检索仍需部署后的环境验收。
+
 ## Free 10 次扫描、Gallery 并发与额度不足状态整改（2026-09-21，已部署 dev）
 
 用户报告未订阅用户出现误扣/多扣、相册批量次数错误及额度不足时 Scan 页面状态错误。本轮基于已合入移动端 OCR 清理的当前 `dev@5e701f8` 继续定位，保留上节 `b4b6e12` 的 25 秒总 Deadline 修复。服务端根因是并发识别领取 reservation 后，各请求都用结算前快照手算响应，后完成的成功项即使数据库已经变为 `reserved=0/consumed=9/remaining=1`，仍可返回 `reserved=1/consumed=9/remaining=0`；持久化的幂等响应也保留该旧值。Flutter 根因有两条：成功响应无法解析或 `recognition_status=success` 却没有可用 Matched 时清除了 request ID，Retry 会以新 ID 再次扣次；页面收到并发结果后立即用可能乱序的响应 Quota 递补 Waiting，没有在整批结束后回读服务端真值，刷新窗口还可能按旧 `remaining=0` 误开 Paywall。

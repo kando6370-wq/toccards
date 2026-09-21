@@ -46,6 +46,8 @@ dev 扫描识别使用端侧 RTMDet-Ins 与 PE-Core-T16，Linux API 通过 HTTP 
 | `/apple/notifications/v2` | Apple 通知原文接收、验签、归约与补偿 | `src/entitlements/apple-notification-routes.ts` |
 | `/admin` | 独立 Admin 鉴权、查询、运营配置和 XLSX | `src/admin/routes.ts` |
 
+共享 Hono 边界为全部 `/api/v1/*` 请求校验或生成 UUID v4 `X-Request-ID`，在响应 Header 回显，并以路由模板记录不含 query、真实路径参数、身份和正文的结构化完成日志。Flutter/Admin 的每次物理 HTTP 尝试使用新 ID；业务 `request_id`/`Idempotency-Key` 继续按各自幂等规则复用。`/share/*`、静态资源、第三方调用及主 API 到 `recognize-vec` 的内部请求不传播该 Header。完整契约见[契约变化](../03-data-api/contract-changes.md#api-请求关联)。
+
 prod Cloudflare Worker 的 5 分钟 cron 调用共享 `runScheduledTasks`，执行通知 inbox 和 Apple Server API 校正重试。dev Linux 单进程 interval 默认同为 300 秒，可通过 `SCHEDULED_TASK_INTERVAL_SECONDS` 设置；前一次任务未完成时跳过本次触发，退出时等待定时任务和后台请求完成后关闭数据库。通知请求先持久化并按 payload/notification UUID 幂等，再异步归约交易和购买链状态。旧 CF dev 的 cron 已退役。
 
 ## 4. v1.1 Premium 信任边界

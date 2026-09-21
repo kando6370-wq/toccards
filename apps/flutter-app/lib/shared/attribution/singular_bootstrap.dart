@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../api/api_environment.dart';
+import '../api/api_request_id.dart';
 import '../debug/app_debug_overlay.dart';
 
 const singularNetworkTimeout = Duration(seconds: 6);
@@ -22,6 +23,7 @@ Future<SingularCredentials?> loadSingularCredentials({Dio? dio}) async {
           receiveTimeout: singularNetworkTimeout,
         ),
       );
+  addApiRequestIdInterceptor(client);
   addAppDebugHttpLogging(client);
   try {
     final response = await client.get<Object?>('/app-config');

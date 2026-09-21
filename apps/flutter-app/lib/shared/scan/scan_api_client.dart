@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
+import 'package:kando_app/shared/api/api_request_id.dart';
 
 import 'scan_card_recognizer_contract.dart';
 
@@ -13,9 +14,11 @@ const scanRequestTimeoutCode = 'REQUEST_TIMEOUT';
 const scanRequestTimeoutMessage = 'Request timed out. Please try again.';
 
 Dio createScanDio({String baseUrl = scanApiBaseUrl}) {
-  return Dio(
+  final dio = Dio(
     BaseOptions(baseUrl: baseUrl, connectTimeout: const Duration(seconds: 10)),
   );
+  addApiRequestIdInterceptor(dio);
+  return dio;
 }
 
 class ScanApiException implements Exception {

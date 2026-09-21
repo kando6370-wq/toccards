@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:kando_app/shared/pagination/pagination.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
+import 'package:kando_app/shared/api/api_request_id.dart';
 import 'package:uuid/uuid.dart';
 
 const portfolioApiBaseUrl = authApiBaseUrl;
@@ -16,13 +17,15 @@ const portfolioRequestTimeoutCode = 'REQUEST_TIMEOUT';
 const portfolioRequestTimeoutMessage = 'Request timed out. Please try again.';
 
 Dio createPortfolioDio({String baseUrl = portfolioApiBaseUrl}) {
-  return Dio(
+  final dio = Dio(
     BaseOptions(
       baseUrl: baseUrl,
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 15),
     ),
   );
+  addApiRequestIdInterceptor(dio);
+  return dio;
 }
 
 class PortfolioApiException implements Exception {

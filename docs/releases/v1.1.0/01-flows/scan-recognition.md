@@ -9,8 +9,8 @@
 3. Dart 从 mask 的最大连通区域拟合四边形，必要时使用最小面积矩形；过滤面积低于有效图像 2.5% 的结果，再映射四角到原图。
 4. iOS Core Image / Android Bitmap Matrix 进行透视矫正，得到 745×1043、质量 85 的 JPEG，以及 384×384 RGB。
 5. PE-Core-T16 使用 RGB/CHW、`value / 127.5 - 1` 的输入，生成 512 维有限、非零向量。同一识别器串行推理，图像张量与几何计算使用 Dart isolate。
-6. App 不再运行 ML Kit Latin OCR，也不从矫正卡面读取或提交卡号提示；它向 `/api/v1/scan/recognize` 提交矫正 JPEG、JSON `vector`、请求 UUID 和原有审计字段。
-7. dev Linux API 通过 HTTP `VECTOR_RECOGNITION` 调用 `recognize-vec`，只发送 `{vector}`。返回候选继续经过 Linux PostgreSQL 完整目录校验和游戏过滤，然后进入原有额度结算、Review 与确认入库；服务端仍兼容可选 `card_number` 字段，但当前 App 不再提供，prod 的 Service Binding 配置和运行版本独立。
+6. App 不再运行 ML Kit Latin OCR，也不从矫正卡面读取或提交卡号提示；它向 `/api/v1/scan/recognize` 提交矫正 JPEG、JSON `vector`、业务 `request_id`/`Idempotency-Key` UUID 和原有审计字段。每次物理 HTTP 尝试另用新的 `X-Request-ID` 做链路关联，不替代或复用业务幂等键。
+7. dev Linux API 通过 HTTP `VECTOR_RECOGNITION` 调用 `recognize-vec`，只发送 `{vector}`，不转发主 API 的 `X-Request-ID`。返回候选继续经过 Linux PostgreSQL 完整目录校验和游戏过滤，然后进入原有额度结算、Review 与确认入库；服务端仍兼容可选 `card_number` 字段，但当前 App 不再提供，prod 的 Service Binding 配置和运行版本独立。
 
 ## 扫描页布局
 
@@ -24,7 +24,7 @@ iOS 与 Android 共用 Flutter 取景框布局。取景框根据视口和安全�
 
 - Free 终身 10 次，Premium 不消耗 Free 次数；只有目录资料完整、可用于详情的 Matched 才消费。No Match、详情不完整与技术失败释放预占。
 - `card_ref/name/set_name/object_type`、候选资料与图片继续传入现有结果缓存；识别阶段不逐候选加载价格，缺少市场价格不阻止完整卡牌计为成功。
-- 预占、25 秒总网络 Deadline、request ID 重试、lease、顺序调度、显示次数与内部容量分离保持当前实现。不确定的成功响应（无错误码、HTTP 2xx 但 DTO 不可解析，或 `success` 缺少可用 Matched）继续复用原 request ID，避免服务端可能已 consumed 后以新 ID 再扣一次。
+- 预占、25 秒总网络 Deadline、业务扫描 `request_id` 重试、lease、顺序调度、显示次数与内部容量分离保持当前实现。不确定的成功响应（无错误码、HTTP 2xx 但 DTO 不可解析，或 `success` 缺少可用 Matched）继续复用原业务 `request_id`/`Idempotency-Key`，避免服务端可能已 consumed 后以新业务 ID 再扣一次；传输层 `X-Request-ID` 每次实际 HTTP 尝试换新。
 - Queue 10 张上限、批量部分成功、删除 Processing 后不重插、Review 草稿和确认后的结果移除不变。
 - `/scan/:scan_id/confirm` 保留所有者/Folder 权限、评级区分、Wishlist 移除和 Collection Item 写入；初始估值事件同步记录购买价格、币种与可靠历史起点，避免已填写购买价格的扫描收藏在 Performance 中被判为缺价。
 - 不改变订阅、登录、版本控制、Admin、Home、Collection 或其他业务。相关依赖删除只清理已退出扫描链路的 OpenCV、ML Kit Latin OCR 及其不再引用的传递依赖。

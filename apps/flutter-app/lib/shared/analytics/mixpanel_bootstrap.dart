@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../api/api_environment.dart';
+import '../api/api_request_id.dart';
 import '../debug/app_debug_overlay.dart';
 
 const mixpanelNetworkTimeout = Duration(seconds: 6);
@@ -45,6 +46,7 @@ Future<String?> loadMixpanelProjectToken({Dio? dio}) async {
           receiveTimeout: mixpanelNetworkTimeout,
         ),
       );
+  addApiRequestIdInterceptor(client);
   addAppDebugHttpLogging(client);
   try {
     final response = await client.get<Object?>('/app-config');

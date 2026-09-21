@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/api_environment.dart';
+import '../api/api_request_id.dart';
 import '../api/api_request_log.dart';
 import '../debug/app_debug_overlay.dart';
 
@@ -127,6 +128,7 @@ final currencyRateDioProvider = Provider((ref) {
       receiveTimeout: const Duration(seconds: 10),
     ),
   );
+  addApiRequestIdInterceptor(dio);
   dio.interceptors.add(
     ApiRequestTimingInterceptor(ref.read(apiRequestLogProvider.notifier)),
   );
