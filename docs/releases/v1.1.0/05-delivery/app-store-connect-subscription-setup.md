@@ -16,7 +16,7 @@
 >
 > **后端历史检查点（2026-09-09）**：上述旧 D1、待部署 Root CA 和待发布 Singular 配置不再代表该日运行事实。旧 CF dev/prod 当时均已绑定 PostgreSQL/Hyperdrive 与 Apple Secret 名称，prod `/app-config` 已返回非空 Singular SDK 配置；旧 CF dev 使用向量识别，prod 当时尚未切换该协议。2026-09-07 的 Production/Sandbox Apple TEST 成功属于历史证据，本次没有重放通知或核验实单。
 >
-> **当前后端边界（2026-09-20）**：prod 于 2026-09-11 发布向量协议与独立 production 版本键，保持 Cloudflare 正式环境；dev 已迁至 Linux 独立 PostgreSQL，当前 API release 为 `dev@9488a15`、ledger 14 项且最新为 `0013`。Sandbox 通知经独立 CF 回调入口进入 Linux，旧 CF dev 业务 Worker/域名/cron 已退役。历史数据保留，prod 和 dev 的数据库与发布分别核验；本轮 Git 合并不改变任一环境运行版本，见[发布与验证](VERIFICATION.md)及[数据迁移](../03-data-api/migration.md)。
+> **当前后端边界（2026-09-21）**：prod 已发布 `main@870a34c` 对应 Worker/Admin version `d4c7524c-2112-4801-8119-2c456f182967`，保持 Cloudflare 正式环境；prod PostgreSQL `0012/0013` 已完成且 ledger 为 14 项。dev 已迁至 Linux 独立 PostgreSQL，当前 API release 为 `dev@9488a15`、ledger 同为 14 项。Sandbox 通知经独立 CF 回调入口进入 Linux，旧 CF dev 业务 Worker/域名/cron 已退役。历史数据保留，prod 和 dev 的数据库与发布分别核验，见[发布与验证](VERIFICATION.md)及[数据迁移](../03-data-api/migration.md)。
 
 ---
 
@@ -224,7 +224,7 @@ dev/test 的独立回调入口已于 2026-09-17 用 Apple 官方 TEST 验证送�
 - 2026-09-07 历史核验：dev Root CA 的官方 G3 下载指纹、DER Base64 写入命令和生效版本已确认。production Root CA、Issuer ID、Key ID 与 Private Key 已随正式 Worker 部署；Production/Sandbox 两次测试通知请求证明 Server API 凭据可完成 Apple 鉴权，两条回调 JWS 均由正式 Worker 验签并处理成功。真实交易的订阅状态和交易查询仍需 Sandbox/TestFlight 实单验证。
 - StoreKit 2 服务端同步失败后的 Secure Storage 持久化补偿队列已实现；仍待真机断网与恢复验收。
 - Restore 的 App Attest proof、App Store Server API 和 Notifications V2 生命周期代码已实现；Production/Sandbox `TEST` 通知已证明 production Server API 凭据、URL 和通知 JWS 验签可用。仍需 App Attest 真机、真实交易的状态/交易查询及 Sandbox/TestFlight 端到端验收。
-- Scan、Folder、Performance 和 1Y Price History 已统一接入当前 live session grant；prod 运行 PostgreSQL Worker，dev 运行 Linux PostgreSQL API。后续生产发布前仍需重查目标数据库与配置，完成授权边界、通知、Sandbox/TestFlight 与回滚演练；不得恢复 D1。prod 已执行 `0011`、未执行 `0012`；dev Linux 的 ledger 独立，实际进度见[数据迁移](../03-data-api/migration.md)，不能因重新部署而自动标记完成。
+- Scan、Folder、Performance 和 1Y Price History 已统一接入当前 live session grant；prod 运行 PostgreSQL Worker，dev 运行 Linux PostgreSQL API。2026-09-21 prod 已在独立备份后执行 `0012/0013` 并回读 14 项 ledger；dev Linux 的 ledger 仍为独立证据。授权边界公开烟测通过，但通知、Sandbox/TestFlight、真实购买和完整回滚演练仍待完成；不得恢复 D1。
 
 challenge 或业务 API 失败不得阻止 Apple 购买；本机 StoreKit 2 verified 仍按 App PRD即时解锁，但服务端受限操作在 grant 未同步时必须返回 `ENTITLEMENT_SYNC_REQUIRED`。
 

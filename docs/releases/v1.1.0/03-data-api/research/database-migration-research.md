@@ -6,6 +6,8 @@
 
 > **实施状态（2026-08-18）**：本文保留为迁移前选型快照，其中“当前 D1/binding”措辞描述当时基线。现已选用 PlanetScale PostgreSQL + Cloudflare Hyperdrive，dev 非价格业务数据与运行时完成切换；D1 与 PostgreSQL 已完全独立，运行、修复、回滚和灾备均不得读取 D1。production 实时 deployment 与数据源未在本次整改中重新核验，不从仓库配置或旧快照外推。当前证据见 [数据迁移](../migration.md) 和 [系统架构](../../02-architecture/architecture.md)。
 
+> **运行状态更正（2026-09-21）**：PlanetScale 控制台实时显示当前 prod 主集群未启用 High Availability，自动备份每 12 小时一次且保留 2 天。下文“1 主 2 副本”描述 PlanetScale HA 方案能力和本页采购建议，不是当前已部署拓扑；启用 HA 与把自动备份保留期扩至至少 7 天仍是待处理运维项，本次 prod 发布未修改两者。
+
 > **容量更新（2026-08-14）**：更新后的规模口径为年初约 808.19 万个价格序列、年末中心约 924.81 万个 365 天历史 JSON，未压缩紧凑内容中心值约 135.03 GB。31.63 亿表示均匀增长假设下的一年逻辑观察点，不是当前 JSON 模型的数据库行数。本文的 100 GB 统一示例及 PS-20/PS-40 初始候选只用于此前的服务商相对比较，**不得作为生产容量或实例规格依据**；现有证据也不能证明必须采购 1 TiB。一年查询、写入、存储、时序数据库对比和目标表结构以 [`price-history-database-capacity-analysis.md`](price-history-database-capacity-analysis.md) 为准。
 
 ## 1. 执行结论
@@ -25,7 +27,7 @@
 
 - Cloudflare 与 PlanetScale 有官方合作入口，可从 Cloudflare Dashboard 创建 Postgres、自动使用 Hyperdrive，并把 PlanetScale 用量合并到 Cloudflare 账单；这是候选中与 Cloudflare **产品级集成最深** 的方案。[CF-PS]
 - PlanetScale Postgres 是标准 PostgreSQL，支持事务、外键、JSONB、全文搜索、表分区、逻辑复制和 Drizzle；可覆盖当前 D1 的事务与查询需求。[PS-COMPAT]
-- 生产集群包含 1 个主节点和 2 个副本，跨 3 个可用区；默认每 12 小时备份，支持 PITR。需要注意默认备份保留仅 2 天，应为本项目配置至少 7 天保留并核算增量备份费用。[PS-PRICE][PS-BACKUP]
+- PlanetScale 高可用集群方案包含 1 个主节点和 2 个副本，跨 3 个可用区；默认每 12 小时备份，支持 PITR。需要注意默认备份保留仅 2 天，应为本项目配置至少 7 天保留并核算增量备份费用。[PS-PRICE][PS-BACKUP]
 - 价格结构公开、可复算，开发 Single Node 从 5 美元/月起，高可用从 15 美元/月起；可先低成本验证再升级。[PS-PRICE]
 
 ### 1.2 备选

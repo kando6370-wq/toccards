@@ -86,14 +86,14 @@ PostgreSQL 结构以 `src/db/postgres/migrations/` 中的顺序 migration 为准
 
 ## 6. 环境与部署
 
-表中 prod 行来自 2026-09-11 Cloudflare 发布回读，dev 行来自 2026-09-20 Linux watcher 回读。`wrangler.toml` 仅保留 prod 业务 Worker；dev Linux 通过 HTTP 适配复用独立 CF 向量服务，不再使用旧 CF dev 的 Service Binding。
+表中 prod 行来自 2026-09-21 Cloudflare 发布回读，dev 行来自 2026-09-20 Linux watcher 回读。`wrangler.toml` 仅保留 prod 业务 Worker；dev Linux 通过 HTTP 适配复用独立 CF 向量服务，不再使用旧 CF dev 的 Service Binding。
 
 | 环境 | 运行入口 | 地址 | 数据资源 |
 |---|---|---|---|
-| prod | `toccards-api-prod` | `api.tcgcard.fun` | 2026-09-11 version `4f543496-9d54-48c4-a16c-0e608dcc32f0` 承载 100% 流量；PostgreSQL/Hyperdrive、`VECTOR_RECOGNITION`、prod KV/R2 和 production Apple 配置齐备，无 D1/旧 OCR 地址，`0011` 已完成。本轮未部署性能提交或 `0013` |
+| prod | `toccards-api-prod` | `api.tcgcard.fun` | 2026-09-21 version `d4c7524c-2112-4801-8119-2c456f182967` 承载 100% 流量；PostgreSQL ledger 14 项且最新为 `0013`，Hyperdrive、`VECTOR_RECOGNITION`、prod KV/R2、production Apple 配置、Admin assets、Custom Domain、5 分钟 Cron 与 Observability 齐备，无 D1/旧 OCR 地址。PlanetScale 当前未启用 High Availability，自动备份每 12 小时一次且保留 2 天；本次另有 3.2 GB 手工发布前备份 |
 | dev | Linux Node / `src/linux/server.ts` | `http://192.168.50.201:8080` | 独立 PostgreSQL、内存 KV、本地图片卷、`APP_ENVIRONMENT=development`；2026-09-20 watcher 运行 API release `dev@9488a15`，ledger 14 项，客户端既有路径由用户确认已验收，本次性能发布未独立重跑真机 |
 
-旧 CF dev 的 `toccards-api-dev`、`api-dev.tcgcard.fun` 与 cron 已退役，不属于当前环境表，也不得重新发布；其历史测试数据和旧 KV/R2 保留。Wrangler vars 和 Worker secrets 现在仅用于 prod，密钥不进入仓库。prod 保持原数据库、Apple、KV、R2、域名和部署方式；仓库 prod 配置包含向量绑定，但配置文件不能替代现网版本核验，见[发布与验证](../05-delivery/VERIFICATION.md)。dev 的密钥保存在 Linux 私有环境文件，发布不使用 Wrangler。D1 不作为新迁移或回滚目标。
+旧 CF dev 的 `toccards-api-dev`、`api-dev.tcgcard.fun` 与 cron 已退役，不属于当前环境表，也不得重新发布；其历史测试数据和旧 KV/R2 保留。Wrangler vars 和 Worker secrets 现在仅用于 prod，密钥不进入仓库。prod 保持原数据库、Apple、KV、R2、域名和部署方式；仓库 prod 配置显式固定 Observability、Cache、workers.dev/Preview、Custom Domain 元数据和向量 production 环境，配置文件仍不能替代现网版本核验，见[发布与验证](../05-delivery/VERIFICATION.md)。dev 的密钥保存在 Linux 私有环境文件，发布不使用 Wrangler。D1 不作为新迁移或回滚目标。
 
 Linux 的真实配置仅保存在服务器 `.env`。分支监听器默认每两分钟检查 `dev`，相关路径变化才执行定向检查、构建、数据库备份和版本化发布；GitHub Linux workflow 仅为手动触发选项。2026-09-20 当前 release 为 `branch-dev-9488a15f01b0-20260920111505`，manifest、`current` 和 `last-deployed-sha` 一致；API/DB healthy、Web running、migration 容器退出 0，ledger 14 项。API 与 watcher 分别使用自身环境文件中的代理配置；Git 合并到 main 不代表该提交已部署到任何环境，发布 SHA、备份与未验收边界见[验证记录](../05-delivery/VERIFICATION.md)。
 

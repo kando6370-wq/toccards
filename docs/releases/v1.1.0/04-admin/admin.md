@@ -2,7 +2,7 @@
 
 ## 1. 运行与身份边界
 
-Admin 是 `apps/admin-web` 构建的 React SPA；prod Cloudflare 使用 Workers assets，dev Linux 使用 Caddy 或离线 Node 静态服务托管，旧 CF dev 不再发布。它使用独立 `admin_user`、Access/Refresh Token 和 `/api/v1/admin` API，不复用 App 用户会话。prod 发布证据对应 2026-09-11 `main@759b072`，dev 最近一次回读对应 2026-09-20 API release `dev@9488a15`；Git 合并本身不改变目标环境运行版本。
+Admin 是 `apps/admin-web` 构建的 React SPA；prod Cloudflare 使用 Workers assets，dev Linux 使用 Caddy 或离线 Node 静态服务托管，旧 CF dev 不再发布。它使用独立 `admin_user`、Access/Refresh Token 和 `/api/v1/admin` API，不复用 App 用户会话。prod 发布证据对应 2026-09-21 `main@870a34c`/version `d4c7524c`，dev 最近一次回读对应 2026-09-20 API release `dev@9488a15`。
 
 - `admin_user.status` 必须为 `active`。
 - 角色为 `operator` 或 `super_admin`。
@@ -127,7 +127,7 @@ Admin 页面是只读排障层，不提供重放通知、改订单、改 lifecyc
 
 本节按 main 源码描述运营能力；历史部署记录不代表当前目标环境已经升级到同一代码版本。
 
-2026-09-11 prod 已从 `main@759b072` 发布配套 Admin 与 Worker，`0011` 完整登记且 production 两条版本键已补齐；两平台公共配置与未授权版本接口均已复核。安装来源环境缺口仍未修复，登录态版本编辑和真实业务操作未在本次烟测中覆盖，见[prod 发布记录](../05-delivery/VERIFICATION.md#prod-向量协议与环境版本配置发布2026-09-11)。
+2026-09-21 prod 已从 `main@870a34c` 发布配套 Admin 与 Worker，PostgreSQL ledger 完成至 `0013`；Admin HTML 和 10 个 JS/CSS 资源与本地 production 构建摘要一致，两平台公共配置与未授权边界均已复核。安装来源环境缺口仍未修复，登录态版本编辑和真实业务操作未在本次烟测中覆盖，见[prod 发布记录](../05-delivery/VERIFICATION.md#prod-api-性能与-postgresql-00120013-发布2026-09-21)。
 
 ### 用户与反馈
 

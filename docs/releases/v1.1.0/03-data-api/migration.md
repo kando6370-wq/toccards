@@ -2,29 +2,31 @@
 
 当前业务环境只有 prod（原 Cloudflare + PlanetScale PostgreSQL/Hyperdrive）和 dev（Linux 独立 PostgreSQL）。旧 CF dev 曾与 prod 共用 Hyperdrive，已退役且不再发布；下文带日期的旧 dev Worker、共用数据库迁移记录仅作历史证据，不能作为现在的 dev 部署或迁移指令。两套 PostgreSQL 的 ledger 和数据必须分别核验，prod 保持原部署。
 
-## 当前 PostgreSQL 数据库边界（2026-09-11）
+## 当前 PostgreSQL 数据库边界（2026-09-21）
 
-D1 已废弃，测试环境 dev/test 与正式环境 prod 均已完成 PostgreSQL 迁移。2026-09-11 共享 PostgreSQL 回读为 `18.6`，`0000` 至 `0011` 的 12 条 ledger checksum 全部匹配仓库，未验证约束为 0。prod 已发布 version `4f543496-9d54-48c4-a16c-0e608dcc32f0`，通过同一 Hyperdrive `7d71bcd0bcf64e518a23a852ced76d66` 读取数据库，使用向量绑定且不含 D1；发布与验证范围见[验收记录](../05-delivery/VERIFICATION.md#prod-向量协议与环境版本配置发布2026-09-11)。
+D1 已废弃，测试环境 dev/test 与正式环境 prod 均已完成 PostgreSQL 迁移。2026-09-21 共享 PostgreSQL 回读为 `18.6`，`0000` 至 `0013` 共 14 条 ledger，既有 `0000-0011` checksum 全部匹配仓库，未验证约束为 0。prod 运行 version `d4c7524c-2112-4801-8119-2c456f182967`，通过 Hyperdrive `7d71bcd0bcf64e518a23a852ced76d66` 读取数据库，使用向量绑定且不含 D1；发布与验证范围见[验收记录](../05-delivery/VERIFICATION.md)。
 
 后续发布不再安排 D1 数据迁移、冲突合并、摘要校验或切换演练，运行、回滚与灾备仅基于 PostgreSQL。下文出现的 D1 migration 编号、工具和行数只用于历史追溯，不能作为当前操作指南。`0011` 环境版本键和 `0012` 历史事件回填是 PostgreSQL 内的后续业务增量，不属于 D1 到 PostgreSQL 的移库任务。
 
-2026-09-11 prod 检查只核对 ledger、未验证约束及版本配置，并按单独授权执行 `0011`，没有重查所有业务行数或价格指针。2026-09-15 Linux 独立 `toccards_test` 的 ledger 则随本地发布推进，见下节；两套数据库的历史记录保留原检查日期。后续迁移仍须分别授权，不能因重新部署自动执行。
+2026-09-21 prod 发布前重新核对 ledger checksum、未验证约束、容量、备份与 `0012/0013` 前置条件，并按单独授权执行两条 migration；没有重查所有业务行数或价格指针。Linux 独立 `toccards_test` 仍按自己的 ledger 和发布记录判断；后续迁移仍须分别授权，不能因重新部署自动执行。
 
-## 目录搜索 trigram 索引（0013：dev 已执行，prod 未执行）
+## 目录搜索 trigram 索引（0013：dev/prod 已分别执行）
 
 `apps/workers-api/src/db/postgres/migrations/0013_cards_all_search_trgm.sql` 为现有 `cards_all` 拼接字段的 `lower(...) LIKE '%词%'` 表达式创建 `pg_trgm` GIN 索引，不改搜索词拆分、过滤、排序、分页或业务表字段。Search 的价格读取同时只从 PostgreSQL 取 Raw 价格；Card Detail、Market Prices、价格历史及资产估值仍读取各自需要的完整价格维度。旧版 Worker 可继续使用数据库，代码回退时索引可保留。
 
 dev 与 prod 是独立 PostgreSQL，必须分别确认 `pg_trgm` 可用、`cards_all` 行数/索引体积、磁盘余量、迁移 ledger 和建索引期间的写入负载。Linux `migrate.sh` 在事务内运行 SQL，普通 GIN 建索引可能阻塞目录写入；prod 不应在业务高峰直接运行该事务。正式环境需另行授权、备份并预先在事务外按同一表达式使用 `CREATE INDEX CONCURRENTLY` 建立同名索引，确认有效且查询计划实际采用后，再登记/执行幂等的 `0013`。若扩展不可用或计划不采用索引，应暂停上线，不改变搜索语义来绕过问题。回滚可在事务外并发删除该索引；旧查询保持正确但冷搜索可能变慢，`pg_trgm` 扩展仅在确认无其他依赖时才可移除。
 
-2026-09-18 kd201 watcher 已在 `dev@bfbb61d` 的发布前备份后执行 `0013`；只读回读确认 ledger 登记、`pg_trgm` 扩展存在，`idx_cards_all_search_trgm` 的 `indisvalid/indisready` 均为 true。dev 目录表规划估计约 240.5 万行、525 MB，索引约 220 MB。对与 Search 相同的 `%pikachu%` 表达式、TCG 过滤和排序执行一次只读 `EXPLAIN (ANALYZE, BUFFERS)`，使用 `Bitmap Index Scan on idx_cards_all_search_trgm`，规划 53.8 ms、执行 8.253 ms；该单次内网计划不证明一般 P95 或 prod 提速。prod 未执行此 migration，也未获取 prod 查询计划。
+2026-09-18 kd201 watcher 已在 `dev@bfbb61d` 的发布前备份后执行 `0013`；只读回读确认 ledger 登记、`pg_trgm` 扩展存在，`idx_cards_all_search_trgm` 的 `indisvalid/indisready` 均为 true。dev 目录表规划估计约 240.5 万行、525 MB，索引约 220 MB。对与 Search 相同的 `%pikachu%` 表达式、TCG 过滤和排序执行一次只读 `EXPLAIN (ANALYZE, BUFFERS)`，使用 `Bitmap Index Scan on idx_cards_all_search_trgm`，规划 53.8 ms、执行 8.253 ms；该单次内网计划不证明一般 P95 或 prod 提速。
 
-2026-09-20 性能提交 `dev@9488a15` 由 kd201 watcher 发布，没有新增 migration；独立 dev PostgreSQL ledger 仍为 14 项，`0013` 保持最新。API/DB healthy、migration 容器退出 0；本次发布前 custom-format 备份为 1,120,850,087 字节并通过 `pg_restore --list`。该结果证明 dev 继续使用已登记索引，不代表 prod 已预建或登记 `0013`；prod 边界与并发建索引要求保持不变。
+2026-09-21 prod 在 3.2 GB 手工备份 `prod-main-870a34c-predeploy-20260921` 完成后执行 `0013`。预检时 `cards_all` 规划估计约 240.9 万行，表本体约 917 MiB、含既有索引约 2.18 GiB；PlanetScale 主分支总存储 17.51 GB，39 GB 磁盘使用 45% 且自动扩容。迁移先安装 `pg_trgm 1.6`，再在事务外使用 `CREATE INDEX CONCURRENTLY` 建立 231,604,224 字节的 `idx_cards_all_search_trgm`；回读 `indisvalid/indisready` 均为 true 后，幂等执行仓库 SQL 并登记 checksum `770c4c9a3ab8b1d08197433b901c568e2812e437cee77d64b3706385cbab2af8`。prod `%pikachu%` 计划命中该索引的 `Bitmap Index Scan`，规划 0.682 ms、执行 6.178 ms；该单次数据库计划和后续公网抽样仍不等于一般 P95/P99。
+
+2026-09-20 性能提交 `dev@9488a15` 由 kd201 watcher 发布，没有新增 migration；独立 dev PostgreSQL ledger 仍为 14 项，`0013` 保持最新。API/DB healthy、migration 容器退出 0；本次发布前 custom-format 备份为 1,120,850,087 字节并通过 `pg_restore --list`。该记录仍只证明 dev 环境；prod 的独立执行证据见上段。
 
 ## Scan confirm Purchase Price 事件修复（0012）
 
 `apps/workers-api/src/db/postgres/migrations/0012_scan_confirm_purchase_price_event.sql` 不改变 Schema，只补齐旧 Scan confirm 创建的初始 `collection_item_event` 中遗漏的 Purchase Price、币种和可靠历史起点。修复范围由已确认 `scan_record.user_result.collection_item_id` 精确关联，仅处理主记录当前仍有 Purchase Price、初始事件的购买价与币种均为空的记录；非扫描创建记录、后续编辑事件和当前无 Purchase Price 的记录保持不变。迁移可重复执行。
 
-该迁移与旧 Worker 兼容。发布时先部署已修正 Scan confirm 写入的新 Worker，再执行 `0012`，避免旧 Worker 在数据修复后继续产生漏字段事件。2026-09-09 已部署包含该写入修复及向量识别的 dev Worker，dev 新建扫描收藏会写入完整初始事件；`0012` 历史回填未登记完成，不能据此宣称既有缺字段事件已修复。2026-09-11 prod 新版本已包含该写入修复；本轮未执行 `0012`，ledger 中也没有该迁移登记，历史回填不标为完成。应用代码回滚时保留已补齐的事件数据，不能安全地批量清空这些字段；如必须执行数据级回滚，应依据执行前备份按精确事件恢复。不得向 D1 迁移或退役工具复制该修复。
+该迁移与旧 Worker 兼容。发布时先部署已修正 Scan confirm 写入的新 Worker，再执行 `0012`，避免旧 Worker 在数据修复后继续产生漏字段事件。2026-09-09 dev 已包含新写入修复，Linux 独立库于 2026-09-15 登记 `0012`。prod 自 2026-09-11 起已运行修正写入的 Worker；2026-09-21 在上述手工备份后事务回填 4 行并登记 checksum `e1b94f223cec4c00d33bf0c634ccb3b5c85096f69403f1c180b326c13422f2cd`，强制绕过 Hyperdrive 查询缓存后待处理数为 0。应用代码回滚时保留已补齐的事件数据，不能安全地批量清空这些字段；如必须执行数据级回滚，应依据备份 `9erq7bscq26w` 恢复。不得向 D1 迁移或退役工具复制该修复。
 
 Linux 独立环境检查点（2026-09-15）：`toccards_test` 在发布前完成 custom-format 全库备份；`0012` 以事务执行，结果为 `UPDATE 0`，随后登记 migration，ledger 从 12 增至 13 项（0000—0012）。原数据卷和 PostgreSQL 18.6 保留。本次未改变 SQL 文件或 Schema，未执行 Cloudflare 共享库迁移；应用回退不会自动逆向数据库迁移。发布后受控 Scan confirm 的主记录与初始事件均写入 `12.5 USD` 及可靠历史起点，测试业务数据已清理。详细备份和版本位置见[验证记录](../05-delivery/VERIFICATION.md)。
 

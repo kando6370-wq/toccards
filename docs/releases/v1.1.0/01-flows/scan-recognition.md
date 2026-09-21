@@ -1,6 +1,6 @@
 # 扫描识别向量链路
 
-当前 main 合并结果已包含 `dev@8b133ac`，实现基线为 `dev@35c7f87`（2026-09-20），App 为 `1.0.2+149`。prod Cloudflare 通过 Service Binding、dev Linux 通过 HTTP 适配调用 `recognize-vec`；prod 现网仍按 `main@759b072` 的独立发布证据判断，dev Linux API 实际运行 `dev@9488a15`。下方来源提交和已部署版本保留历史日期，不能据此推断目标环境已运行当前 main。
+当前 main 为 `870a34c`，App 为 `1.0.2+149`。prod Cloudflare 通过 Service Binding、dev Linux 通过 HTTP 适配调用 `recognize-vec`；2026-09-21 prod 已发布该 main 对应 version `d4c7524c-2112-4801-8119-2c456f182967`，dev Linux API 实际运行 `dev@9488a15`。下方来源提交和历史版本保留原日期，不能据此推断客户端已发布。
 
 本实现从历史提交 `dev-xiangyang@ceef1af` 按识别代码段移植为 `e18543a`，基线为 `7451382`，于 2026-09-09 经 `f38ef98` 合入 `dev` 并推送远程。`dev-wxy`、`dev-xiangyang` 等来源分支已清理，旧分支名只用于追溯，不再作为检出或发布目标。保留当前 Queue、Quota、候选资料与确认入库逻辑，包括 Scan confirm 初始估值事件的购买价格、币种和可靠历史起点修复。
 
@@ -45,4 +45,4 @@ iOS 与 Android 共用 Flutter 取景框布局。取景框根据视口和安全�
 
 当前 prod Wrangler 配置以 `VECTOR_RECOGNITION` Service Binding 指向 `recognize-vec`；dev Linux 使用 HTTP 适配，不存在旧 CF dev 的业务 binding 或发布配置。两条入口共享扫描路由的 503/502 与额度释放语义，但 prod 现网协议应以其独立部署版本为准。向量链路本身没有新增数据库 schema 或 migration；旧 CF 共享库与 Linux 独立库的 `0012` 执行状态按各自验证记录判断。
 
-新 App、主 API 与 `recognize-vec` 的协议必须匹配，因为旧 App 的 pHash 请求不兼容新 API。2026-09-09 的 CF dev 向量发布是历史检查点；现在 dev 为 Linux，旧 CF dev 不再发布。2026-09-11 prod 从 main 发布 version `4f543496-9d54-48c4-a16c-0e608dcc32f0`，确认 `VECTOR_RECOGNITION=recognize-vec` 且无旧 OCR 地址。测试包使用向量协议并连接 Linux dev；用户确认的客户端路径与 prod 的服务端发布验收分别见[验证记录](../05-delivery/VERIFICATION.md)及[prod 验收](../05-delivery/VERIFICATION.md#prod-向量协议与环境版本配置发布2026-09-11)。
+新 App、主 API 与 `recognize-vec` 的协议必须匹配，因为旧 App 的 pHash 请求不兼容新 API。2026-09-09 的 CF dev 向量发布是历史检查点；现在 dev 为 Linux，旧 CF dev 不再发布。2026-09-21 prod version `d4c7524c-2112-4801-8119-2c456f182967` 已回读 `VECTOR_RECOGNITION=recognize-vec@production` 且无旧 OCR 地址。测试包使用向量协议并连接 Linux dev；用户确认的客户端路径与 prod 服务端发布验收分别见[验证记录](../05-delivery/VERIFICATION.md)。

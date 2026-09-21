@@ -2,7 +2,23 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
-当前业务环境只有 prod（Cloudflare）与 dev（kd201 Linux）。prod 最近一次列明的完整发布验收为 2026-09-11 `main@759b072`/Worker `4f543496`；dev 于 2026-09-20 回读 watcher 发布的 API release `dev@9488a15`，API/DB healthy、Web running、migration exited/0、ledger 14 项且最新为 `0013`。当前 main 已合入 `dev@8b133ac`，实现基线为 `dev@35c7f87`，Flutter 版本为 `1.0.2+149`；旧 CF dev 业务 Worker 已退役，Apple 回调与向量服务独立保留。Git 合并本身不代表目标环境发布，prod 未部署本轮 API 性能代码或 `0013`。
+当前业务环境只有 prod（Cloudflare）与 dev（kd201 Linux）。2026-09-21 prod 已从远端一致的 `main@870a34c` 发布 Worker/Admin version `d4c7524c-2112-4801-8119-2c456f182967`，deployment `70125d6e-2f1e-4f2a-a948-f7e637380915` 承载 100% 流量；prod PostgreSQL ledger 为 14 项且最新为 `0013`。dev 于 2026-09-20 回读 watcher 发布的 API release `dev@9488a15`，API/DB healthy、Web running、migration exited/0、ledger 同为 14 项；两套数据库分别验证，不能相互外推。Flutter 版本为 `1.0.2+149`，本次服务端发布没有上传客户端。旧 CF dev 业务 Worker 已退役，Apple 回调与向量服务独立保留。
+
+## prod API 性能与 PostgreSQL 0012/0013 发布（2026-09-21）
+
+发布来源开始时为干净且与 `github/main` 一致的 `main@870a34c`。本次用户分别确认 prod 部署以及 `0012/0013` 迁移和切流；范围为 Cloudflare Worker、Admin assets、prod PostgreSQL 增量和现有触发器，不含 App Store/客户端发布。发布前重新执行 `pnpm lint`、根 `pnpm type-check --force`、Admin 22/22、Workers 75 文件 644/644 及 prod dry-run，均退出 0；候选远程预览的 health、iOS production app-config、games、Search 和 Admin 均为 200，受保护 Admin/Quota 为 401。
+
+数据库只读预检确认 PlanetScale PostgreSQL `18.6`，既有 `0000-0011` 共 12 条 ledger checksum 与仓库完全一致、未知 ledger 为 0、未验证约束为 0；`0012/0013` 均未执行。`cards_all` 规划估计约 240.9 万行，表本体 961,454,080 字节、含既有索引 2,338,193,408 字节。PlanetScale 控制台显示主分支总存储 17.51 GB，39 GB 磁盘使用 45% 且自动扩容，发布窗口 CPU 1%、内存 73%，High Availability 未启用；自动备份每 12 小时一次且仅保留 2 天。本次没有改变数据库拓扑或备份策略，另创建并确认 3.2 GB 手工备份 `prod-main-870a34c-predeploy-20260921`（ID `9erq7bscq26w`），PITR 页面可用，未执行恢复演练。
+
+经授权后，`0012_scan_confirm_purchase_price_event` 在 advisory lock 保护的事务内回填 4 行并登记 checksum `e1b94f223cec4c00d33bf0c634ccb3b5c85096f69403f1c180b326c13422f2cd`，应用时间 `2026-09-21T01:44:06.327Z`。首次使用完全相同 SQL 的只读回查命中 Hyperdrive 缓存并仍显示 4，未将其误记为验证通过；加入变化的 SQL 字面量强制绕过缓存后，待处理数为 0。
+
+`0013_cards_all_search_trgm` 先安装 `pg_trgm 1.6`，再在事务外以 `CREATE INDEX CONCURRENTLY` 建立 `idx_cards_all_search_trgm`；约 49 秒后索引为 231,604,224 字节，`indisvalid/indisready` 均为 true，定义与仓库表达式一致。实际 `%pikachu%` Search SQL 命中 `Bitmap Index Scan`，规划 0.682 ms、执行 6.178 ms，随后幂等执行仓库 SQL 并登记 checksum `770c4c9a3ab8b1d08197433b901c568e2812e437cee77d64b3706385cbab2af8`，应用时间 `2026-09-21T01:47:41.609Z`。最终独立回读为 14 条 ledger、`0012` 待处理数 0、扩展和索引有效；临时迁移预览、令牌和本地工具文件均已关闭或删除。
+
+候选 upload 的首次 `--strict` 检查阻止了 Dashboard 与仓库配置差异，未产生 version；Wrangler 4.135.0 及显式远端字段把差异收敛到只增加既有 Admin assets 后，才上传 version `d4c7524c-2112-4801-8119-2c456f182967`（number 70，tag `prod-main-870a34c-20260921`）。候选回读确认 10 个 Secret、Hyperdrive/KV/R2、`VECTOR_RECOGNITION=recognize-vec@production`、production vars、Cache 与 assets 全部保留。首次 100% 切换时 Wrangler 暴露父级 Observability 默认为 false；health 保持 200，但未把该状态视为完成。随即在正式 `wrangler.toml` 显式启用 Observability，并固定 Cache、`workers_dev=false`、Preview 关闭、Custom Domain 元数据和 Service environment；同一 version 重新部署后回读 `observability.enabled=true`。配置修正后新增部署配置意图测试，与 Apple Worker 配置相邻测试合计 7/7，通过；最终 Workers `src` 全量为 76 文件、646/646。根无缓存 type-check 7/7、依赖方向、prod dry-run 和 `git diff --check` 也通过。该配置修正、测试及本节文档当前仍为本地未提交改动，未 Git push。
+
+最终 deployment `70125d6e-2f1e-4f2a-a948-f7e637380915` 于 `2026-09-21T01:51:37.874456Z` 将该 version 置于 100% 流量；`wrangler triggers deploy` 回读 `api.tcgcard.fun` Custom Domain 为 production enabled/preview disabled，Cron 为 `*/5 * * * *`。线上 health、iOS/Google app-config、games、Admin 和向量 health 均为 200，app-config 为 `no-store` 且必要 SDK/商店配置存在；Admin/Quota 未授权边界为 401。Admin HTML 与 10 个 JS/CSS 文件逐一和本地 production 构建比较 SHA-256，全部 200 且一致。五组未命中 KV 的冷 Search 公网耗时为 0.894-1.615 秒，随后 HIT 为 0.205-0.215 秒；另两条冷请求在实时 tail 中均由目标 version 处理，HTTP 200、`outcome=ok`，Worker wall/CPU 分别为 552/51 ms 与 445/39 ms。切流后连续 1 分钟 health 12/12 为 200，耗时 677-734 ms。
+
+回滚边界：应用可把流量切回原 version `7fa3d946-941c-4c25-9f5b-fd57adb5c88b`，数据库继续兼容旧查询；`0013` 索引可在确认无依赖后并发删除，扩展仅在无其他依赖时移除。`0012` 的 4 行不能通过不区分记录的批量置空安全回退，数据级恢复应使用发布前备份 `9erq7bscq26w`。未运行项目：实际 Cron 一次完整执行、登录态账号/Quota/真实 Scan 写链、真实 Apple 购买/Restore/通知生命周期、iOS/Android 构建与真机、Flutter 全仓测试及整库恢复演练；这些均不得写成通过。
 
 ## dev 合入 main（2026-09-20，本地）
 
@@ -45,7 +61,7 @@ Code Review 核对了两侧提交边界、冲突裁决、非文档 tree、prod �
 
 ## 当前代码与交付边界
 
-prod 运行版本的发布来源仍为 `main@759b072`（2026-09-11），对应 Worker `4f543496-9d54-48c4-a16c-0e608dcc32f0` 承载 100% 流量；当前 main 已合入 `dev@8b133ac`，Flutter 源码 `pubspec.yaml` 为 `1.0.2+149`，不代表 prod 客户端已发布。dev Linux 最近一次回读的 API release 为 `dev@9488a15`；旧 CF dev 已退役。下方原始测试、部署和迁移证据保留各自日期，不代表本轮重新运行或本次合并提交已部署。
+prod 当前从 `main@870a34c` 发布 Worker/Admin version `d4c7524c-2112-4801-8119-2c456f182967` 并承载 100% 流量；Flutter 源码 `pubspec.yaml` 为 `1.0.2+149`，不代表 prod 客户端已发布。dev Linux 最近一次回读的 API release 为 `dev@9488a15`；旧 CF dev 已退役。下方原始测试、部署和迁移证据保留各自日期，不代表相应历史检查在本轮重新运行。
 
 | 增量 | 当前实现 | 验证与交付边界 |
 |---|---|---|
