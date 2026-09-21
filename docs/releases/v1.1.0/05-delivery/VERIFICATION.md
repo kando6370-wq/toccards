@@ -2,6 +2,16 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## iOS 测试内部包 1.0.3 (152) 与 iPhone 11 安装（2026-09-21）
+
+按用户要求从干净的 `dev-xiangyang@ad88ee9` 构建测试环境内部包并安装到 iPhone 11；该提交包含当前 `dev@35c7f87` 向量识别代码。源码版本为 `1.0.3+150`，但同一测试 Bundle ID 已有另一代码线的构建号 151，因此显式使用 152，避免覆盖安装与版本识别冲突。测试配置为 `com.kando.kandoApp.beta`、App Attest `development`、测试 Firebase 和 `http://192.168.50.201:8080/api/v1`；Linux dev `/health` 返回 HTTP 200、`status=ok`。
+
+以 `config/test.json` 执行发布配置、环境/API、分享、升级和 Singular 配置测试共 31 项，全部通过、退出 0。执行 `./tool/release_ios.sh --env test --pgy --build-number 152 --install C685590D-4618-57C1-8518-6DD8E962319F`，依赖按现有锁文件解析，`flutter analyze`、清理、Xcode 归档、App Store IPA 导出、内部 IPA 打包、签名与配置校验均通过，脚本退出 0。最终内部 IPA 为 `1.0.3 (152)`、Apple Development 签名、`get-task-allow=true`、App Attest `development`；测试 Firebase、内网 API 字符串及签名完整性均通过，41 个 Mach-O UUID 均有匹配 dSYM。现有插件的 Swift Package Manager 和 Apple Silicon iOS 26+ 模拟器 arm64 提示不阻断本次 CocoaPods 真机 Release 包。
+
+IPA 为 54,083,084 字节，SHA-256 `e9bbc1b0c27a76140bd6d3e334eb104ee2c5f5833bf5c0127fc5b6de60d9564a`；`dSYMs.zip` 为 63,507,301 字节，SHA-256 `cfeac3bae0c1ba450629276b60af8db9ad003df2ed297e3789bd5fc02e7700d3`。两者保存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.3-152/`，Xcode 归档另存于 `~/Library/Developer/Xcode/Archives/2026-09-21/Card AI Test 1.0.3 (152).xcarchive`。当前保留 149、151、152，旧 148 已移入废纸篓，可恢复；源码版本同步为 `1.0.3+152`，Dart/CocoaPods 锁文件未变化。
+
+安装目标为数据线连接、已配对且开启开发者模式的 iPhone 11（iOS 18.7.8，硬件 UDID `00008030-001C08311E28802E`）。脚本确认最终 embedded provisioning profile 包含该 UDID后安装成功；设备应用列表回读 `Card AI / com.kando.kandoApp.beta / 1.0.3 / 152`。未自动启动 App，也未运行登录、订阅、扫描或局域网业务验收、Android 构建与真机验证、Flutter 全仓测试。本次没有上传蒲公英或 App Store Connect、Git push、服务端部署或远程数据写入。
+
 ## iOS 正式包 1.0.3 (150) 上传 App Store Connect（2026-09-20）
 
 按用户要求基于 `dev@35c7f87` 构建正式环境 App Store 包，并将营销版本从 `1.0.2` 提升为 `1.0.3`。构建前生产配置校验通过：Bundle ID `com.cardai.tcg`、App Attest `production`、Firebase 项目 `tcg-card-2072d`、生产 API `https://api.tcgcard.fun/api/v1`、正式订阅 SKU `CardAi.weekly` / `CardAi.yearly` / `CardAi.lifetime`；生产 API `/health` 返回 HTTP 200、`status=ok`。以 `config/production.json` 执行发布配置、环境/API、分享、升级和 Singular 配置测试共 31 项，全部通过、退出 0。Profile 页通过 `PackageInfo.fromPlatform()` 读取安装包营销版本并去掉构建号，因此该包显示 `Version 1.0.3`，没有另设硬编码版本。
