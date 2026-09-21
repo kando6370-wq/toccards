@@ -2,6 +2,16 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## Scan 接收超时与额度结果一致性（2026-09-21，本地未发布）
+
+用户报告上一轮网络调整没有改善速度，并出现扫描识别及次数控制异常。代码回查确认 `7a0cdaa` 只把 Scan 总 Deadline 从 15 秒延长到 25 秒、连接超时从 4 秒延长到 10 秒，本身不会缩短请求耗时；同时 `createScanDio` 仍保留 12 秒接收超时。由于服务端额度是最终真源，已建立连接的识别响应如果在第 12 至 25 秒返回，客户端会先按传输失败处理，而服务端仍可能完成 Matched 记录与额度结算，形成“客户端显示失败、服务端已经扣次”的确定性代码风险。该缺陷与用户现象一致，但本轮未取得用户请求日志、扫描记录和额度账本，不能据此宣称它是本次真机问题的唯一根因。
+
+修复只移除 Scan Dio 的独立接收超时，保留 10 秒连接超时，并继续由现有 `.timeout(effectiveDeadline)`、`CancelToken` 和 reserve/recognize 共享 Stopwatch 执行 25 秒总预算。请求、响应、Free 终身 10 次、Premium unlimited、60 秒 lease、`request_id` / `Idempotency-Key`、预占、结算与重放均未修改。Code Review 同时发现 `development-plan.md` 仍错误写成 No Match 也消费次数；以当前服务端代码、测试及 `entitlement-contract.md` 为准，已修正为只有目录资料完整且可用于详情的 Matched 消耗，No Match 与技术失败释放预占。当前网络与额度契约已同步到 `contract-changes.md` 和开发计划，v1.0.0 冻结文档未改。
+
+先失败证据：在生产代码修改前运行新增的 Scan 传输回归，期望不存在短于总预算的接收超时，实际得到 `Duration 12s`，1/1 失败、退出 1。修复后 `scan_api_client_test.dart` 9/9、`api_environment_test.dart` 4/4、`scan_result_source_test.dart` 11/11、`scan_quota_controller_test.dart` 7/7 均通过；Flutter analyze 无问题、退出 0。定位阶段的 Workers Scan/Quota/Linux HTTP 向量适配三文件为 59/59，退出 0；服务端代码随后未修改。直接 SDK formatter 完成三份受影响 Dart 文件，最终 `git diff --check` 通过。初次 `pnpm exec vitest` 因 Windows 沙箱路径未找到命令，随后误把 `--version` 传给默认测试脚本并手动终止，该两次退出 1 均不计为测试结果；Dart wrapper 格式检查无输出卡住后也被终止，改用同一 SDK 的直接可执行文件完成检查。
+
+只读 dev 公共接口各采样 5 次：`/games` 平均 10.6 ms，`/app-config?platform=ios` 平均 7.8 ms，`/health` 平均 40.4 ms且单次最高 175.4 ms；这只表明当前局域网公共基础路径可达且较快，不能替代认证、端侧模型、图片上传、向量识别与额度结算的阶段数据。SSH 使用现有主机校验连接 kd201 时被 `publickey,password` 拒绝，因此未读取容器 `scan_recognize_timing`、扫描记录或额度账本，也未执行真实登录扫描。未运行 iOS/Android 真机、弱网、安装包构建、全 App/全仓测试、dev/prod 部署、远程写操作、Git commit 或 push。最终 Code Review 核对 10 秒连接边界、25 秒总预算取消、request ID 重试和服务端契约均保持，未发现本轮剩余代码问题；真机异常究竟是“失败却扣次”“成功不扣次”还是 reservation 卡住，仍需按实际表现和服务端阶段日志继续定位。
+
 ## iOS 正式包 1.0.3 (150) 上传 App Store Connect（2026-09-20）
 
 按用户要求基于 `dev@35c7f87` 构建正式环境 App Store 包，并将营销版本从 `1.0.2` 提升为 `1.0.3`。构建前生产配置校验通过：Bundle ID `com.cardai.tcg`、App Attest `production`、Firebase 项目 `tcg-card-2072d`、生产 API `https://api.tcgcard.fun/api/v1`、正式订阅 SKU `CardAi.weekly` / `CardAi.yearly` / `CardAi.lifetime`；生产 API `/health` 返回 HTTP 200、`status=ok`。以 `config/production.json` 执行发布配置、环境/API、分享、升级和 Singular 配置测试共 31 项，全部通过、退出 0。Profile 页通过 `PackageInfo.fromPlatform()` 读取安装包营销版本并去掉构建号，因此该包显示 `Version 1.0.3`，没有另设硬编码版本。

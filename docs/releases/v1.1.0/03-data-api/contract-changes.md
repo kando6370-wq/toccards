@@ -12,7 +12,7 @@ Linux 入口共用上述路由，以必填 `VECTOR_RECOGNITION_BASE_URL` 构造 
 
 当前 Flutter 升级门禁只在实际 Home 首帧后开始检查，不覆盖此前的 Splash、Onboarding 或启动订阅页。首次 Home 检查保留 Loading/失败重试；已有成功决策后，从其他路由返回 Home 或 Home 回前台时静默复查，失败保留原决策。新可选提示只在 Home 展示，离开 Home 后才返回的结果不在其他页新增提示；已确认强更继续全局拦截，并可在其他页回前台时重新验证，成功确认解除后才放行。同一次运行对同建议版本的“稍后”去重、版本比较及服务端响应契约不变。
 
-2026-09-20 起，Flutter 主要业务 HTTP 请求的整体 Deadline 由 15 秒调整为 25 秒；Auth、Card Data、Currency 和 Portfolio 的连接超时统一为 10 秒，Scan 连接超时也由 4 秒调整为 10 秒。Auth、Card Data 和 Currency 的接收超时由 5 秒调整为 10 秒；Portfolio 接收超时保持 15 秒，Scan 接收超时保持 12 秒。订阅 Workers HTTP、StoreKit 商品加载、权益读取/刷新、Performance 与 1Y 数据请求使用 25 秒整体边界。App Upgrade 的连接/接收超时均为 10 秒，Mixpanel 与 Singular 配置请求的连接/接收超时均为 6 秒。该运行时调整覆盖冻结产品输入中的 15 秒默认值，不改变请求、重试、幂等、错误或迟到响应隔离语义。
+2026-09-20 起，Flutter 主要业务 HTTP 请求的整体 Deadline 由 15 秒调整为 25 秒；Auth、Card Data、Currency 和 Portfolio 的连接超时统一为 10 秒，Scan 连接超时也由 4 秒调整为 10 秒。Auth、Card Data 和 Currency 的接收超时由 5 秒调整为 10 秒；Portfolio 接收超时保持 15 秒。2026-09-21 修正 Scan 当时仍保留 12 秒接收超时的冲突：Scan 不再设置短于整体 Deadline 的独立接收超时，避免服务端在 12 至 25 秒内完成识别并结算额度时，客户端提前显示失败；其连接阶段仍受 10 秒边界约束，完整识别操作仍受 25 秒总 Deadline 约束。订阅 Workers HTTP、StoreKit 商品加载、权益读取/刷新、Performance 与 1Y 数据请求使用 25 秒整体边界。App Upgrade 的连接/接收超时均为 10 秒，Mixpanel 与 Singular 配置请求的连接/接收超时均为 6 秒。该运行时调整覆盖冻结产品输入中的 15 秒默认值，不改变请求、重试、幂等、错误或迟到响应隔离语义。
 
 2026-09-08 更新弹窗按 Figma `736:13370` 使用固定提示语，Admin 版本结构移除 `recommended_update_message` / `forced_update_message`。读取存量配置时忽略这两个字段，写入时不再保存，即使旧后台请求仍携带也不会恢复。公共 `upgrade_prompt.title/message/forced_message` 为旧客户端保留兼容，分别固定为 `Update Now` / `New update available! Tap to upgrade` / `New update available! Tap to upgrade`。新 App 界面不依赖历史文案，不新增数据库迁移或修改已执行迁移。
 
@@ -68,7 +68,7 @@ Apple Revenue 只消费 `status=purchased`、本机验证后已激活且 StoreKi
 
 App 本机 Premium 使用 `Unknown/Free/Premium` 三态，不把尚未读取、读取超时或读取失败降级为 Free。启动读取已验证缓存后，通过 Apple verified `Transaction.currentEntitlements` 静默刷新并读取当前 session 已证明购买链的服务端 lifecycle 校正，不调用 `AppStore.sync()`；只有用户主动 Restore 才调用 `AppStore.sync()`。明确且不旧于 JWS 的失效校正只剔除匹配链，再用剩余全部 Apple entitlement 重算；服务端 active 不能单独授予，接口不可用不直接降级。自动续订缓存只有在 `expiresAt` 未过期时可临时授予本机 Premium，Lifetime 缓存可持续有效；过期缓存且刷新失败保持 Unknown。受限动作遇 Unknown 必须先刷新：刷新为 Premium 才执行，刷新为 Free 才显示 Functional Paywall，刷新仍失败则保持原页面且不发受限请求。该本机状态只用于 App 即时体验和向服务端表达同步需要，不能替代 session grant 授权。
 
-Scan API 的 Quota 查询、识别提交和确认写入统一从请求发起时计算 25 秒总 Deadline，不再把 Dio 连接和响应阶段分别累计。Deadline 到达后客户端取消本次等待并返回 `REQUEST_TIMEOUT`；迟到成功响应不能更新当前操作。识别重试继续复用服务端 `request_id` / `Idempotency-Key`，因此客户端 Timeout 不改变服务端额度预占、最终结算和响应重放契约。
+Scan API 的 Quota 查询、识别提交和确认写入统一从请求发起时计算 25 秒总 Deadline，不再把 Dio 连接和响应阶段分别累计，也不使用更短的独立接收超时截断仍在总预算内的响应。Deadline 到达后客户端取消本次等待并返回 `REQUEST_TIMEOUT`；迟到成功响应不能更新当前操作。识别重试继续复用服务端 `request_id` / `Idempotency-Key`，因此客户端 Timeout 不改变服务端额度预占、最终结算和响应重放契约。
 
 Portfolio API 的 Folder、Collection Item、Wishlist、Dashboard 与估值历史请求同样统一使用从调用发起计时的 25 秒总 Deadline；到期取消客户端等待并返回通用 Timeout 文案，迟到响应不能完成已经过期的保存或覆盖当前读取状态。Create Folder、Quick Collect、完整 Collection Item Create 与 Add Wishlist 均发送 UUID `Idempotency-Key`；Timeout 后按稳定 owner、创建入口及规范化名称、完整 Item 草稿或 card ref 复用该 Key，即使 access token 已刷新也不改变。服务端以 Key 作为新资源 ID，同 Key/相同语义返回原资源，同 Key/不同字段返回 `409`，非法 Key 返回 `422`。网络失败、客户端 Deadline、HTTP `408`/`5xx` 或成功响应 DTO 无法解析等无法确定服务端是否已提交的结果均保留原 Key；成功或 `401`、`403`、`409`、`422` 等明确终态响应后清除，后续主动创建才是新操作。Quick Collect 与完整 Create 使用不同操作域，不会互相重放。旧客户端不带 Key 时继续兼容。该客户端边界不拆分 Folder Move 与字段编辑的原子 `PATCH`。
 

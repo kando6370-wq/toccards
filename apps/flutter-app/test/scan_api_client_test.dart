@@ -10,6 +10,18 @@ import 'package:kando_app/shared/scan/scan_card_recognizer.dart';
 
 void main() {
   test(
+    'scan transport keeps the full operation deadline because an early receive timeout can hide a server-side quota settlement',
+    () {
+      final dio = createScanDio(baseUrl: 'https://api.example.test/api/v1');
+      addTearDown(dio.close);
+
+      expect(dio.options.connectTimeout, const Duration(seconds: 10));
+      expect(dio.options.receiveTimeout, isNull);
+      expect(scanRequestDeadline, const Duration(seconds: 25));
+    },
+  );
+
+  test(
     'quota rejects missing entitlement fields instead of downgrading to Free',
     () {
       expect(

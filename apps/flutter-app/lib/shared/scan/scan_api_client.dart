@@ -14,11 +14,7 @@ const scanRequestTimeoutMessage = 'Request timed out. Please try again.';
 
 Dio createScanDio({String baseUrl = scanApiBaseUrl}) {
   return Dio(
-    BaseOptions(
-      baseUrl: baseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 12),
-    ),
+    BaseOptions(baseUrl: baseUrl, connectTimeout: const Duration(seconds: 10)),
   );
 }
 
