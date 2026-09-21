@@ -339,6 +339,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Subscription'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pump();
     },
   );
 
@@ -1077,11 +1079,13 @@ void main() {
           }
 
           await tester.tap(find.byTooltip('Take Photo'));
+          await _pumpUntilScanStarts(tester, 1);
           await _completeFigmaScan(tester);
           expect(find.text('Scanned: 1/1'), findsOneWidget);
           expectClearTargetingFrame();
 
           await tester.tap(find.byTooltip('Take Photo'));
+          await _pumpUntilScanStarts(tester, 2);
           await tester.pump(const Duration(milliseconds: 250));
           expectClearTargetingFrame();
           await _completeFigmaScan(tester);
@@ -1510,6 +1514,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Take Photo'));
+    await _pumpUntilScanStarts(tester, 1);
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(
@@ -1663,14 +1668,16 @@ void main() {
       );
 
       await tester.tap(find.byTooltip('Take Photo'));
+      await _pumpUntilScanStarts(tester, 1);
       await tester.pump(const Duration(milliseconds: 999));
 
       expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
-      expect(find.text('Matched'), findsNothing);
+      expect(find.text('Mega Lucario ex'), findsNothing);
 
       await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump();
 
-      expect(find.text('Matched'), findsOneWidget);
+      expect(find.text('Mega Lucario ex'), findsOneWidget);
     },
   );
 
@@ -1684,10 +1691,11 @@ void main() {
       );
 
       await tester.tap(find.byTooltip('Take Photo'));
+      await _pumpUntilScanStarts(tester, 1);
       await tester.pump(const Duration(milliseconds: 1500));
 
       expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
-      expect(find.text('Matched'), findsNothing);
+      expect(find.text('Mega Lucario ex'), findsNothing);
 
       result.complete(
         const ScanResolution.matched(
@@ -1698,8 +1706,9 @@ void main() {
         ),
       );
       await tester.pump();
+      await tester.pump();
 
-      expect(find.text('Matched'), findsOneWidget);
+      expect(find.text('Mega Lucario ex'), findsOneWidget);
     },
   );
 
@@ -3510,6 +3519,116 @@ void main() {
   );
 
   testWidgets(
+    'a concurrent Gallery batch refreshes authoritative quota before the next capture gate',
+    (tester) async {
+      const initialQuota = ScanQuotaDto(
+        access: ScanQuotaAccess.free,
+        limit: 10,
+        reserved: 0,
+        consumed: 8,
+        remaining: 2,
+        unlimited: false,
+      );
+      const finalQuota = ScanQuotaDto(
+        access: ScanQuotaAccess.free,
+        limit: 10,
+        reserved: 0,
+        consumed: 9,
+        remaining: 1,
+        unlimited: false,
+      );
+      const staleMatchedQuota = ScanQuotaDto(
+        access: ScanQuotaAccess.free,
+        limit: 10,
+        reserved: 1,
+        consumed: 9,
+        remaining: 0,
+        unlimited: false,
+      );
+      final bytes = Uint8List.fromList(_transparentPngBytes);
+      final noMatch = Completer<ScanResolution>();
+      final matched = Completer<ScanResolution>();
+      final finalRefresh = Completer<void>();
+      final quotaController = _TestScanQuotaController(
+        initialQuota,
+        refreshQuotas: const [initialQuota, finalQuota],
+        refreshGates: [Future<void>.value(), finalRefresh.future],
+        loadingRefreshIndexes: const {1},
+      );
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.noMatch()),
+        libraryImages: [
+          ScanImage(bytes: bytes, fileName: 'no-match.png'),
+          ScanImage(bytes: bytes, fileName: 'matched.png'),
+        ],
+        libraryResults: [noMatch.future, matched.future],
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanQuotaController: quotaController,
+        scanResultSource: source,
+      );
+      expect(quotaController.refreshCount, 1);
+
+      await tester.tap(find.byTooltip('Choose from Library'));
+      await tester.pump();
+      noMatch.complete(
+        ScanResolution.noMatch(
+          imageBytes: bytes,
+          imageFileName: 'no-match.png',
+          quota: const ScanQuotaDto(
+            access: ScanQuotaAccess.free,
+            limit: 10,
+            reserved: 1,
+            consumed: 8,
+            remaining: 1,
+            unlimited: false,
+          ),
+        ),
+      );
+      await tester.pump();
+      matched.complete(
+        ScanResolution.matched(
+          scanId: 'gallery-match',
+          cardRef: 'gallery-card',
+          matchName: 'Gallery Card',
+          candidates: const ['Gallery Card'],
+          candidateCardRefs: const ['gallery-card'],
+          imageBytes: bytes,
+          displayImageBytes: bytes,
+          imageFileName: 'matched.png',
+          quota: staleMatchedQuota,
+        ),
+      );
+      await _completeFigmaScan(tester);
+      await tester.pump();
+
+      expect(quotaController.refreshCount, 2);
+      expect(quotaController.state.isLoading, isTrue);
+      expect(quotaController.state.remainingScans, 0);
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+      expect(source.photoCallCount, 0);
+      expect(
+        find.text('Please wait for current scans to finish'),
+        findsOneWidget,
+      );
+      expect(find.text('Subscription'), findsNothing);
+
+      finalRefresh.complete();
+      await tester.pump();
+      await tester.pump();
+      expect(quotaController.state.remainingScans, 1);
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+      expect(source.photoCallCount, 1);
+      expect(find.text('Subscription'), findsNothing);
+      await tester.pump(kandoTopToastDuration);
+      await tester.pump();
+    },
+  );
+
+  testWidgets(
     'one gallery batch opens the quota paywall once when multiple images exceed the remaining allowance',
     (tester) async {
       final bytes = Uint8List.fromList(_transparentPngBytes);
@@ -3697,6 +3816,8 @@ void main() {
       expect(source.lastRetryFileName, 'waiting.png');
       expect(quotaController.state.unlimited, isTrue);
       expect(subscription.synchronizeCount, 1);
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pump();
     },
   );
 
@@ -4346,6 +4467,14 @@ Future<void> _completeFigmaScan(WidgetTester tester) async {
   await tester.pump();
 }
 
+Future<void> _pumpUntilScanStarts(WidgetTester tester, int itemId) async {
+  final item = find.byKey(Key('scan-active-item-$itemId'));
+  for (var attempt = 0; attempt < 10 && item.evaluate().isEmpty; attempt += 1) {
+    await tester.pump();
+  }
+  expect(item, findsOneWidget);
+}
+
 Future<void> _pumpScanTestApp(
   WidgetTester tester, {
   ScanResultSource? scanResultSource,
@@ -4536,11 +4665,19 @@ class _ResolvingScanSubscriptionController extends SubscriptionController {
 }
 
 class _TestScanQuotaController extends ScanQuotaController {
-  _TestScanQuotaController(this.quota, {this.refreshQuotas = const []});
+  _TestScanQuotaController(
+    this.quota, {
+    this.refreshQuotas = const [],
+    this.refreshGates = const [],
+    this.loadingRefreshIndexes = const {},
+  });
 
   final ScanQuotaDto quota;
   final List<ScanQuotaDto> refreshQuotas;
+  final List<Future<void>> refreshGates;
+  final Set<int> loadingRefreshIndexes;
   var _refreshIndex = 0;
+  var refreshCount = 0;
 
   @override
   ScanQuotaState build() => ScanQuotaState(
@@ -4552,7 +4689,15 @@ class _TestScanQuotaController extends ScanQuotaController {
 
   @override
   Future<bool> refresh() async {
-    await Future<void>.value();
+    refreshCount += 1;
+    if (loadingRefreshIndexes.contains(_refreshIndex)) {
+      state = state.copyWith(isLoading: true);
+    }
+    if (_refreshIndex < refreshGates.length) {
+      await refreshGates[_refreshIndex];
+    } else {
+      await Future<void>.value();
+    }
     if (_refreshIndex < refreshQuotas.length) {
       applyServerQuota(refreshQuotas[_refreshIndex]);
       _refreshIndex += 1;

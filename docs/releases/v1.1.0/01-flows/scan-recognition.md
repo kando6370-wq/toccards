@@ -24,7 +24,7 @@ iOS 与 Android 共用 Flutter 取景框布局。取景框根据视口和安全�
 
 - Free 终身 10 次，Premium 不消耗 Free 次数；只有目录资料完整、可用于详情的 Matched 才消费。No Match、详情不完整与技术失败释放预占。
 - `card_ref/name/set_name/object_type`、候选资料与图片继续传入现有结果缓存；识别阶段不逐候选加载价格，缺少市场价格不阻止完整卡牌计为成功。
-- 预占、25 秒总网络 Deadline、request ID 重试、lease、顺序调度、显示次数与内部容量分离保持当前实现。
+- 预占、25 秒总网络 Deadline、request ID 重试、lease、顺序调度、显示次数与内部容量分离保持当前实现。不确定的成功响应（无错误码、HTTP 2xx 但 DTO 不可解析，或 `success` 缺少可用 Matched）继续复用原 request ID，避免服务端可能已 consumed 后以新 ID 再扣一次。
 - Queue 10 张上限、批量部分成功、删除 Processing 后不重插、Review 草稿和确认后的结果移除不变。
 - `/scan/:scan_id/confirm` 保留所有者/Folder 权限、评级区分、Wishlist 移除和 Collection Item 写入；初始估值事件同步记录购买价格、币种与可靠历史起点，避免已填写购买价格的扫描收藏在 Performance 中被判为缺价。
 - 不改变订阅、登录、版本控制、Admin、Home、Collection 或其他业务。相关依赖删除只清理已退出扫描链路的 OpenCV、ML Kit Latin OCR 及其不再引用的传递依赖。
@@ -34,6 +34,8 @@ iOS 与 Android 共用 Flutter 取景框布局。取景框根据视口和安全�
 2026-09-20 dev API release `9488a15` 在不改变扫描业务顺序的前提下减少数据库等待：queued reserve 对新 request 使用 insert-first，冲突、重试和额度耗尽仍回读；成功 settlement 先执行受 owner/session/有效 lease 约束的 UPDATE，只有 0 行时才回读 request。Quota 聚合只扫描 `free + reserved/consumed` 账本，过期 reservation 仍按原规则不计数；Free=10、Premium unlimited、幂等响应和消费/释放语义不变。
 
 `POST /scan/recognize` 的 Worker 总耗时达到 1 秒时记录 `scan_recognize_timing`，只包含 outcome 及 auth、preflight/quota、R2 image、向量 recognition、目录 catalog、audit、settlement 各阶段毫秒数，不包含 owner、卡牌、图片、token 或上游正文。该日志用于与 Cloudflare `$workers.wallTimeMs >= 1000` 对齐；它不改变响应 JSON、`elapsed`、R2/向量顺序或客户端 25 秒 Deadline。prod 尚未部署本轮代码，其阶段分布仍须独立验证。
+
+2026-09-21 并发 Gallery 额度整改：识别路由不再用领取 reservation 时的旧快照手算最终响应，而使用 settlement 返回的当前账本；同 request ID 重放保持原识别业务结果，同时用该次回读的当前 Quota 替换旧快照。Flutter 在同批 Processing 全部完成并结束最短展示时序后合并执行一次 `GET /scan/quota`，刷新期间阻止新的 Capture/Gallery 误用旧额度，刷新完成后才按权威 `remaining` 递补 Waiting。该收敛不改变 Free 10 次、Matched 扣次、No Match/技术失败释放、Premium unlimited 或 60 秒 lease。
 
 ## 平台、资源和协议
 

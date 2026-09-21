@@ -788,9 +788,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
       return false;
     }
     return quota.isServerAuthoritative &&
-        quota.remainingScans == 0 &&
-        quota.displayRemainingScans > 0 &&
-        _pendingScans.isNotEmpty;
+        (quota.isLoading ||
+            (quota.remainingScans == 0 &&
+                quota.displayRemainingScans > 0 &&
+                _pendingScans.isNotEmpty));
   }
 
   void _showScanQuotaAwaitingSettlement() {
@@ -960,6 +961,12 @@ class _ScanPageState extends ConsumerState<ScanPage>
   bool _isWaitingForCapacity(_ScanItem item) {
     return item.status == _ScanItemStatus.waiting ||
         item.status == _ScanItemStatus.entitlementSync;
+  }
+
+  void _refreshQuotaAfterSettledBatch() {
+    if (!mounted) return;
+    if (_pendingScans.isNotEmpty) return;
+    unawaited(_refreshQuotaAndResumeWaiting());
   }
 
   void _resumeWaitingFromServerQuota() {
@@ -1267,6 +1274,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       }
       pending.minimumDurationFinished = true;
       _completeScanIfReady(itemId, token);
+      _refreshQuotaAfterSettledBatch();
     });
     _scanTimers
       ..add(recognizingTimer)
@@ -1367,11 +1375,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
             .revealSuccessfulScanInDisplay();
       }
       _pendingScans.remove(itemId)?.revealController?.dispose();
-      if (serverQuota != null) {
-        _resumeWaitingFromServerQuota();
-      } else {
-        unawaited(_refreshQuotaAndResumeWaiting());
-      }
+      _refreshQuotaAfterSettledBatch();
       return;
     }
     if (resolution.kind == ScanResolutionKind.cancelled) {
@@ -1402,6 +1406,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       if (shouldOpenQuotaPaywall) {
         unawaited(_openQuotaPaywall());
       }
+      _refreshQuotaAfterSettledBatch();
       return;
     }
     if (resolution.kind == ScanResolutionKind.entitlementSyncRequired) {
@@ -1422,11 +1427,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     }
     pending.resolution = resolution;
     _completeScanIfReady(itemId, token);
-    if (serverQuota != null) {
-      _resumeWaitingFromServerQuota();
-    } else if (resolution.kind == ScanResolutionKind.failed) {
-      unawaited(_refreshQuotaAndResumeWaiting());
-    }
+    _refreshQuotaAfterSettledBatch();
   }
 
   _ScanItem? _currentItem(

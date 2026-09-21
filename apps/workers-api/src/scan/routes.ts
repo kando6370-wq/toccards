@@ -265,6 +265,24 @@ function scanQuotaPayload(
   };
 }
 
+function withCurrentScanQuota(
+  body: unknown,
+  quota: ScanQuotaSnapshot,
+  access: "free" | "premium",
+): unknown {
+  if (!isRecord(body) || body.success !== true || !isRecord(body.data)) {
+    return body;
+  }
+  if (!("quota" in body.data)) return body;
+  return {
+    ...body,
+    data: {
+      ...body.data,
+      quota: scanQuotaPayload(quota, access),
+    },
+  };
+}
+
 export function createScanRoutes() {
   const routes = new Hono<ScanBindings>();
 
@@ -424,7 +442,12 @@ export function createScanRoutes() {
       }, 403);
     }
     if (reservation.status === "existing" && reservation.response !== null) {
-      return new Response(JSON.stringify(reservation.response.body), {
+      const responseBody = withCurrentScanQuota(
+        reservation.response.body,
+        reservation.quota,
+        reservation.accessMode,
+      );
+      return new Response(JSON.stringify(responseBody), {
         status: reservation.response.status,
         headers: { "Content-Type": "application/json" },
       });
@@ -596,7 +619,7 @@ export function createScanRoutes() {
     }
 
     const quotaOutcome = recognitionStatus === "success" ? "consumed" : "released";
-    const quota = reservation.accessMode === "free"
+    const predictedQuota = reservation.accessMode === "free"
       ? {
           ...reservation.quota,
           reserved: Math.max(0, reservation.quota.reserved - 1),
@@ -613,14 +636,14 @@ export function createScanRoutes() {
         recognition_status: recognitionStatus,
         cards_detected: candidates.length > 0 ? 1 : 0,
         elapsed: (Date.now() - startedAt) / 1000,
-        quota: scanQuotaPayload(quota, reservation.accessMode),
+        quota: scanQuotaPayload(predictedQuota, reservation.accessMode),
         warnings: recognized?.length === candidates.length
           ? []
           : ["Some recognized cards are missing from the catalog."],
         results,
       },
     };
-    await settleScanQuota(
+    const settledQuota = await settleScanQuota(
       c.env.DB,
       auth.owner,
       requestId,
@@ -628,8 +651,18 @@ export function createScanRoutes() {
       scanId,
       { body: responseBody, status: 200 },
     );
+    const currentResponseBody = {
+      ...responseBody,
+      data: {
+        ...responseBody.data,
+        quota: scanQuotaPayload(
+          settledQuota ?? predictedQuota,
+          reservation.accessMode,
+        ),
+      },
+    };
     logSlowScanRecognitionTiming(timingCheckpoints, recognitionStatus);
-    return c.json(responseBody);
+    return c.json(currentResponseBody);
   });
 
   routes.post("/scan/:scan_id/confirm", async (c) => {

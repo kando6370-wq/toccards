@@ -361,7 +361,8 @@ class ApiScanResultSource implements ScanResultSource {
       }
       _retryRequestIds[image.bytes] =
           error.code == scanRequestTimeoutCode ||
-              error.code == 'SCAN_REQUEST_CONFLICT'
+              error.code == 'SCAN_REQUEST_CONFLICT' ||
+              error.code == null
           ? requestId
           : null;
       return ScanResolution.failed(
@@ -383,8 +384,8 @@ class ApiScanResultSource implements ScanResultSource {
         releaseReservationTurn();
       }
     }
-    _retryRequestIds[image.bytes] = null;
     if (recognition.recognitionStatus != 'success') {
+      _retryRequestIds[image.bytes] = null;
       if (recognition.recognitionStatus == 'no_match') {
         return ScanResolution.noMatch(
           imageBytes: image.bytes,
@@ -404,6 +405,7 @@ class ApiScanResultSource implements ScanResultSource {
       (result) => result.matched && result.candidates.isNotEmpty,
     );
     if (matchedResults.isEmpty) {
+      _retryRequestIds[image.bytes] = requestId;
       return ScanResolution.failed(
         imageBytes: image.bytes,
         displayImageBytes: displayImageBytes,
@@ -411,6 +413,7 @@ class ApiScanResultSource implements ScanResultSource {
         quota: recognition.quota,
       );
     }
+    _retryRequestIds[image.bytes] = null;
     final candidates = matchedResults.first.candidates;
     return ScanResolution.matched(
       scanId: recognition.scanId,

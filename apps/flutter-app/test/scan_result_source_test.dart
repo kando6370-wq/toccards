@@ -202,6 +202,68 @@ void main() {
   );
 
   test(
+    'retry reuses the request id when a consumed success has no usable result because a new id would double charge',
+    () async {
+      final api = _FakeScanApi(
+        const ScanRecognitionDto(
+          scanId: 'scan-inconsistent',
+          recognitionStatus: 'success',
+          results: [],
+          quota: _freeQuota,
+        ),
+      );
+      final source = ApiScanResultSource(
+        api: api,
+        session: () => _session,
+        imagePicker: _FakeScanImagePicker(),
+        cardRecognizer: _FakeScanCardRecognizer(),
+        appInfo: () async =>
+            const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
+      );
+
+      final failed = await source.photo();
+      expect(failed.kind, ScanResolutionKind.failed);
+      await source.retry(
+        imageBytes: failed.imageBytes,
+        fileName: failed.imageFileName,
+      );
+
+      expect(api.requestIds, hasLength(2));
+      expect(api.requestIds[1], api.requestIds[0]);
+    },
+  );
+
+  test(
+    'retry reuses the request id when a success response cannot be parsed because the server may already have charged it',
+    () async {
+      final api = _FakeScanApi(
+        _matchedRecognition,
+        failures: const [
+          ScanApiException('Invalid success response.', statusCode: 200),
+        ],
+      );
+      final source = ApiScanResultSource(
+        api: api,
+        session: () => _session,
+        imagePicker: _FakeScanImagePicker(),
+        cardRecognizer: _FakeScanCardRecognizer(),
+        appInfo: () async =>
+            const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
+      );
+
+      final failed = await source.photo();
+      expect(failed.kind, ScanResolutionKind.failed);
+      await source.retry(
+        imageBytes: failed.imageBytes,
+        fileName: failed.imageFileName,
+      );
+
+      expect(api.requestIds, hasLength(2));
+      expect(api.requestIds[1], api.requestIds[0]);
+    },
+  );
+
+  test(
     'picker cancellation does not call recognition because cancelling capture is not a failed scan',
     () async {
       final api = _FakeScanApi(_matchedRecognition);

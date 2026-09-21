@@ -2,6 +2,16 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## Free 10 次扫描、Gallery 并发与额度不足状态整改（2026-09-21，本地未发布）
+
+用户报告未订阅用户出现误扣/多扣、相册批量次数错误及额度不足时 Scan 页面状态错误。本轮基于已合入移动端 OCR 清理的当前 `dev@5e701f8` 继续定位，保留上节 `b4b6e12` 的 25 秒总 Deadline 修复。服务端根因是并发识别领取 reservation 后，各请求都用结算前快照手算响应，后完成的成功项即使数据库已经变为 `reserved=0/consumed=9/remaining=1`，仍可返回 `reserved=1/consumed=9/remaining=0`；持久化的幂等响应也保留该旧值。Flutter 根因有两条：成功响应无法解析或 `recognition_status=success` 却没有可用 Matched 时清除了 request ID，Retry 会以新 ID 再次扣次；页面收到并发结果后立即用可能乱序的响应 Quota 递补 Waiting，没有在整批结束后回读服务端真值，刷新窗口还可能按旧 `remaining=0` 误开 Paywall。
+
+修复保持 `scan_quota_request` 为唯一真源：首次识别响应使用 `settleScanQuota` 返回的当前账本，同 request ID 重放保持原识别业务结果但以当次回读的 Quota 替换旧快照。不确定的成功结果继续复用原 request ID；显式 Quota Exhausted、权益同步和已知技术失败仍沿用原终态。Flutter 等同批 Processing 全部完成并结束一秒最短展示后只发起一次异步 `GET /scan/quota`，刷新期间 Capture/Gallery 显示等待提示，刷新成功后才按权威 `remaining` 递补 Waiting。Free 终身 10 次、只有完整 Matched 扣 1 次、No Match/目录不完整/技术失败释放、Premium unlimited、60 秒 lease、Queue 10 张上限、请求/响应字段和 Schema 均未改变；旧客户端继续兼容。回滚不涉及数据库，但会重新引入旧快照、错误 Paywall 和不确定成功 Retry 的重复扣次风险。
+
+先失败证据均在生产代码修改前得到：并发 Gallery 路由期望最终 `reserved=0/remaining=1`，实际为 `reserved=1/remaining=0`，1/1 失败；两条 Retry 用例的第二次 request ID 均与第一次不同，结果源 11 项中 2 项失败；页面期望批次后第二次权威 refresh，实际 refresh 次数仍为 1，随后刷新未完成时也没有等待提示。修复后 Workers Scan routes、Quota、图片与 Linux HTTP 向量适配 4 文件 62/62 通过；Flutter Scan API 9/9、Quota Controller 7/7、Result Source 13/13、额度/相册/Waiting/Paywall 定向 Widget 36/36 通过。Workers 单包及根 TypeScript type-check 均通过，根任务为 7/7；`pnpm lint` 依赖方向通过；Flutter analyze 无问题；三份受影响的生产/结果源 Dart 文件格式检查为 0 变化，`git diff --check` 通过。完整 `scan_page_test.dart` 最终 119/119 通过、退出 0；`5e701f8` 原记录中的 12 项连续扫描结果栏和两项一秒快慢识别失败，根因是测试在异步权益判断创建扫描 Item/计时器前推进虚拟时间，现确定性等待 `scan-active-item-N` 后再计时，并按当前 UI 断言真实卡名而非已不存在的 `Matched` 字面量。Reveal Golden 的新实际图连续两次 SHA-256 均为 `C5A1CBC202AFFAA14E7EB19C9A657E53B8CD57965C5D72C7D7CA963A03D17A0F`；视觉核对确认布局、文字、取景框和控件不变，仅反映新一秒时序下的过渡透明度与转圈相位，因此只更新该一张严格基准，未修改容差或其他图片。本次新增 Widget 代码按 formatter 输出写入，但为保持外科手术范围，恢复了 formatter 对相邻既有动画测试的纯排版改写；同时补齐两个额度用例既有 Toast 计时清理。
+
+Code Review 核对了 Free/Premium、Matched/No Match/技术失败、并发 settlement、幂等重放、DTO 解析失败、Processing 删除、Gallery 顺序、Waiting 递补、额度刷新与 Paywall 门禁；响应结构、授权、图片/向量调用、审计记录和确认入库未改。当前未执行 iOS/Android 真机、真实账号 10 次完整消耗、弱网/断网恢复、安装包构建、全 App/全仓测试、kd201/prod 部署或远程数据库读写，也未 commit/push；本地自动化不能替代 153 包后续真机或新包验收。当前行为已同步到 Scan 流程、权益契约、契约变化与开发计划，v1.0.0 冻结文档未修改。
+
 ## Scan 接收超时与额度结果一致性（2026-09-21，本地未发布）
 
 用户报告上一轮网络调整没有改善速度，并出现扫描识别及次数控制异常。代码回查确认 `7a0cdaa` 只把 Scan 总 Deadline 从 15 秒延长到 25 秒、连接超时从 4 秒延长到 10 秒，本身不会缩短请求耗时；同时 `createScanDio` 仍保留 12 秒接收超时。由于服务端额度是最终真源，已建立连接的识别响应如果在第 12 至 25 秒返回，客户端会先按传输失败处理，而服务端仍可能完成 Matched 记录与额度结算，形成“客户端显示失败、服务端已经扣次”的确定性代码风险。该缺陷与用户现象一致，但本轮未取得用户请求日志、扫描记录和额度账本，不能据此宣称它是本次真机问题的唯一根因。

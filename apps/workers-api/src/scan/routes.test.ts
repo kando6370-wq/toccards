@@ -1083,6 +1083,112 @@ describe("scan routes", () => {
     ]);
   });
 
+  it("returns authoritative quota after concurrent Gallery settlements because completion order must not hide a returned Free slot", async () => {
+    const env = await createRecognitionEnv();
+    const token = await recognitionToken(env);
+    await insertRows(env.DB, "cards_all", {
+      product_id: "gallery-valid",
+      game_id: 1,
+      game: "Pokemon",
+      set_name: "Gallery Set",
+      set_code: "GAL",
+      name: "Gallery Card",
+      rarity: "Rare",
+      product_type_name: "Cards",
+      image_url: null,
+      number: "001/100",
+    });
+    for (let index = 0; index < 8; index += 1) {
+      await insertRows(env.DB, "scan_quota_request", {
+        request_id: crypto.randomUUID(),
+        owner_type: "anonymous",
+        owner_id: "anon-1",
+        session_id: "session-1",
+        access_mode: "free",
+        status: "consumed",
+        processing_expires_at: null,
+        response_json: null,
+        http_status: null,
+      });
+    }
+
+    const successRequestId = crypto.randomUUID();
+    const noMatchRequestId = crypto.randomUUID();
+    for (const requestId of [successRequestId, noMatchRequestId]) {
+      const response = await app.request(
+        "/api/v1/scan/quota/reserve",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            "Idempotency-Key": requestId,
+          },
+          body: JSON.stringify({ request_id: requestId }),
+        },
+        env,
+      );
+      expect(response.status).toBe(200);
+    }
+
+    let releaseSuccess!: () => void;
+    let releaseNoMatch!: () => void;
+    let markFirstStarted!: () => void;
+    let markBothStarted!: () => void;
+    const successGate = new Promise<void>((resolve) => { releaseSuccess = resolve; });
+    const noMatchGate = new Promise<void>((resolve) => { releaseNoMatch = resolve; });
+    const firstStarted = new Promise<void>((resolve) => { markFirstStarted = resolve; });
+    const bothStarted = new Promise<void>((resolve) => { markBothStarted = resolve; });
+    const fetchMock = vi.fn(async () => {
+      const callIndex = fetchMock.mock.calls.length - 1;
+      if (callIndex === 0) markFirstStarted();
+      if (callIndex === 1) markBothStarted();
+      await (callIndex === 0 ? successGate : noMatchGate);
+      return callIndex === 0
+        ? Response.json({ candidates: [{ product_id: "gallery-valid", confidence: 96 }] })
+        : Response.json({ candidates: [] });
+    });
+    stubVectorRecognition(env, fetchMock);
+
+    const successPending = recognize(env, token, {
+      request_id: successRequestId,
+      vector: VECTOR,
+    });
+    await firstStarted;
+    const noMatchPending = recognize(env, token, {
+      request_id: noMatchRequestId,
+      vector: VECTOR,
+    });
+    await bothStarted;
+
+    releaseNoMatch();
+    const noMatch = await noMatchPending;
+    expect(await noMatch.json()).toMatchObject({
+      data: {
+        recognition_status: "no_match",
+        quota: { reserved: 1, consumed: 8, remaining: 1 },
+      },
+    });
+
+    releaseSuccess();
+    const success = await successPending;
+    expect(await success.json()).toMatchObject({
+      data: {
+        recognition_status: "success",
+        quota: { reserved: 0, consumed: 9, remaining: 1 },
+      },
+    });
+
+    const replay = await recognize(env, token, {
+      request_id: successRequestId,
+      vector: VECTOR,
+    });
+    expect(await replay.json()).toMatchObject({
+      data: { quota: { reserved: 0, consumed: 9, remaining: 1 } },
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("rejects the eleventh Free scan before R2 and vector search because the server quota is authoritative", async () => {
     const env = await createRecognitionEnv();
     const token = await recognitionToken(env);
