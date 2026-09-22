@@ -8,13 +8,15 @@
 
 同日请求关联提交 `dev@7d9b0ca` 推送后，dev HTTP 回读已出现新 `X-Request-ID` 行为和对应 Admin 主资源，证明相关 API/Admin 版本对外生效。当前机器的非交互 SSH 以 `publickey,password` 被拒绝，因此没有重新读取 watcher 状态、release manifest、备份、容器和 ledger；`baf0d7b` 保留为最近一次完整基础设施检查点。详细烟测和边界见[验证记录](VERIFICATION.md#全业务-api-请求关联-id2026-09-21已部署-dev)。
 
+2026-09-22 当前检查点：按用户要求强制重新部署后，又发布 Admin 内网 HTTP 请求 ID 修复 `dev@c0dd7a2`。当前 release 为 `branch-dev-c0dd7a2ffa30-20260922215028`，`current`、manifest、`last-seen-sha` 与 `last-deployed-sha` 一致，失败标记为空；API/DB healthy、Web running、migration exited/0、ledger 14 项。发布前 1,135,142,872 字节备份通过 PostgreSQL 18 `pg_restore --list`，运行与 release bundle 摘要一致；浏览器非安全上下文回归见[验证记录](VERIFICATION.md#admin-内网-http-请求-id-兼容修复2026-09-22已部署-dev)。prod 未处理。
+
 ## 目标
 
 当 GitHub `dev` 分支出现影响 API、Admin、共享包或 Linux 部署配置的新提交时，由 `kd201` 本机定时监听、构建同一套业务代码并发布到测试环境。Cloudflare 正式环境的构建、绑定和部署流程不由该监听器触发。
 
 测试地址：`http://192.168.50.201:8080`
 
-2026-09-16 已将 `dev-inner` 整改与 dev 原有后台筛选改动合并为 `75c0ec4` 并推送。现有 cron 于 15:08 自动发现该提交，运行检查、构建、数据库备份与发布脚本；当时 release 为 `branch-dev-75c0ec4f991d-20260916151043`，运行 bundle 含 HTTP 向量适配，扫描、额度与本地收藏写库复验通过。此前 `a419415` 自动发布缺少整改的状态已解除，当前 release 以上述 2026-09-20 检查点为准，完整证据见[验证记录](VERIFICATION.md)。
+2026-09-16 已将 `dev-inner` 整改与 dev 原有后台筛选改动合并为 `75c0ec4` 并推送。现有 cron 于 15:08 自动发现该提交，运行检查、构建、数据库备份与发布脚本；当时 release 为 `branch-dev-75c0ec4f991d-20260916151043`，运行 bundle 含 HTTP 向量适配，扫描、额度与本地收藏写库复验通过。此前 `a419415` 自动发布缺少整改的状态已解除，当前 release 以上述最新检查点为准，完整证据见[验证记录](VERIFICATION.md)。
 
 `deploy:dev` 使用 Linux SSH 发布，`deploy:dry-run:dev` 仅生成发布包；`build:dev` 构建 Linux API 与 Admin development，旧 `build:linux` 为兼容别名。自动监听已更新为合并版本的脚本，仍以 dev 为来源，crontab 周期保持不变；`watcher.env` 单独配置了已验证的局域网 HTTP/HTTPS 代理、NO_PROXY 和 NODE_USE_ENV_PROXY，避免依赖 GitHub 直连。更新前脚本/配置备份后缀为 `before-20260916-150706`。旧 CF dev 已于 2026-09-17 退役，Linux watcher 继续负责自动部署。
 

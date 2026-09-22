@@ -2,13 +2,16 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
-## Admin 内网 HTTP 请求 ID 兼容修复（2026-09-22，本地修改）
+## Admin 内网 HTTP 请求 ID 兼容修复（2026-09-22，已部署 dev）
 
 用户在 `http://192.168.50.201:8080` 登录 Admin 时稳定看到 `crypto.randomUUID is not a function`，登录请求在浏览器发出前失败。根因是该内网 HTTP 地址不属于浏览器安全上下文，`crypto` 与 `getRandomValues` 可用，但 `randomUUID` 不可用；请求 ID helper 无条件调用 `crypto.randomUUID()`。影响 Admin 登录及共用 helper 的 JSON、XLSX 下载和受保护扫描图片请求，不影响 Workers 鉴权、响应契约、Flutter、数据库或 prod HTTPS 的原生路径。
 
 修复保留安全上下文的原生 `randomUUID`；缺少该方法时用 `getRandomValues` 填充 16 字节，并显式设置 UUID v4 版本位和 RFC 4122 变体位。不使用 `Math.random`，不移除 `X-Request-ID`，不改变三个 fetch 调用入口。修改前新增运行时回归在模拟 LAN HTTP 的 Crypto 对象上复现同一 TypeError，1/2 失败；修复后定向 2/2、Admin 全量 24/24、type-check 和 development build 均通过，新主 bundle 为 `index-Dpcx4bfa.js`。Code Review 核对原生/fallback 分支、随机源、UUID 位、Header 保留和全部调用方，未发现剩余代码级问题。
 
-当前仅为本地修复，尚未提交、推送或部署；原问题必须在部署后用非安全上下文浏览器复验，不能用 Node 回归或构建成功替代真实 Admin 登录。文档影响仅为请求 ID 的浏览器生成兼容性，接口与 Schema 无变化。
+修复提交 `435d0a3` 经合并提交 `c0dd7a2ffa30bda0a9a817fe8e7268b0b9fe7477` 推送到 `github/dev`，watcher 发布为 `branch-dev-c0dd7a2ffa30-20260922215028`。manifest、`current`、`last-seen-sha` 与 `last-deployed-sha` 一致，失败标记为空；环境/PostgreSQL 18/CF 识别预检通过且无待执行 migration，API/DB healthy、Web running、migration exited/0、ledger 14 项。发布前备份 `toccards-test-20260922-215030-before-branch-dev-c0dd7a2ffa30-20260922215028.dump` 为 1,135,142,872 字节，PostgreSQL 18 `pg_restore --list` 退出 0，未执行恢复。运行容器与 release 的 `server.mjs` SHA-256 均为 `2f2c46505a70b1731ca8f3ed9c57ae83834b9dc00e22446b68649877d8a4a3c2`，Admin 主资源为 `index-Dpcx4bfa.js`，health 返回 200、`{"status":"ok"}` 与 UUID v4 `X-Request-ID`。
+
+原 Windows `computer-use` 初始化两次因本机内核资源路径不存在而失败，没有操作用户浏览器；随后使用隔离的 Chrome 153 无头实例经 DevTools 访问同一内网 HTTP 地址。页面实测 `isSecureContext=false`、`typeof crypto.randomUUID === "undefined"`、`typeof crypto.getRandomValues === "function"`；以无效测试账号提交登录后，POST `/api/v1/admin/auth/login` 携带 UUID v4 `70db16d2-4bb3-4d10-a481-4f2098e9d782` 并收到后端 422，浏览器无 JS exception，页面不含原 TypeError。隔离 Chrome 进程全部停止，临时 profile 已移出工作区。该验证证明原前端阻断已解除，但没有使用真实管理员密码，因此未宣称授权登录或登录后页面通过；需用户用原账号刷新后复验。prod、真实 Admin 数据写入和移动端包均未处理。接口与 Schema 无变化。
+
 ## iOS 测试内部包 1.0.3 (156)（2026-09-22）
 
 按用户要求基于当前 `dev@5532b34b` 构建测试环境内部包。该分支新增并锁定 `native_dio_adapter 1.8.0`、`cronet_http 1.9.0`、`cupertino_http 3.1.0` 及其原生传递依赖；源码版本为 `1.0.3+155`，同一测试 Bundle ID 已保存构建号 155，因此使用 156，避免覆盖既有产物。测试配置为 `com.kando.kandoApp.beta`、App Attest `development`、测试 Firebase 和 `http://192.168.50.201:8080/api/v1`；构建前 Linux dev `/health` 返回 HTTP 200、`status=ok`。
