@@ -120,6 +120,8 @@ Admin 继续构建同一份 React/Vite 应用：
 
 Flutter 继续以 `APP_ENV=test` 代表现有 dev，默认业务 origin 为 `http://192.168.50.201:8080`，API 路径为 `/api/v1`；`APP_ENV=production` 和未配置值维持原生产 HTTPS API。测试分享由相同 origin 派生 `/share/cards`，即使复制的数据库下发生产分享地址，测试 App 也使用内网地址；production 继续优先采用服务端分享配置。目录卡牌图片仍由原 `image.tcgcard.fun` 提供。
 
+test App 与 production App 都使用应用级 Native Dio Adapter：iOS 复用单一 `URLSession`，Android 复用显式开启 HTTP/2/QUIC 的 embedded Cronet；API、启动配置、分享缩略图与目录图片共享该连接池。Linux dev 的业务入口是明文 HTTP，因此这里只验证 Native transport 的业务兼容和超时/取消语义，不能据此认定 HTTP/2 或 HTTP/3 已协商；协议验收必须针对支持对应协议的 HTTPS origin 在真机执行。扫描仍由现有 25 秒整体 Deadline 与 `CancelToken` 控制，Native transport 不叠加原 Adapter 级 10 秒响应头超时；客户端不对失败 POST 自动换协议重试。
+
 Android 从 Flutter 传给 Gradle 的 `APP_ENV` 参数选择 network security config，仅 test 对 `192.168.50.201` 允许 HTTP，其他目标禁止明文。iOS 的三个既有 test flavor 配置使用独立 `Info-test.plist`，仅添加该 IP 的 ATS 例外及局域网权限说明，生产 plist 不变；测试保护两个 plist 的其他字段一致。iOS 17+ 的 ATS IP exception 和 iOS 16 的 IP 直连规则不同，需在对应设备验证；本机源码检查不能代替签名 IPA 与真机权限验收。
 
 iOS IP 访问规则依据 Apple 的 [NSAllowsLocalNetworking](https://developer.apple.com/documentation/bundleresources/information-property-list/nsapptransportsecurity/nsallowslocalnetworking) 与 [NSExceptionDomains](https://developer.apple.com/documentation/bundleresources/information-property-list/nsapptransportsecurity/nsexceptiondomains)；本次没有使用全局 `NSAllowsArbitraryLoads`。

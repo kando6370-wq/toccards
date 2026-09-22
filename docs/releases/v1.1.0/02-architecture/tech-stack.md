@@ -4,7 +4,7 @@
 
 | 层 | 当前技术 | 证据 |
 |---|---|---|
-| 移动/Web App | Flutter、Dart、Riverpod、GoRouter、Dio | `apps/flutter-app/pubspec.yaml` |
+| 移动/Web App | Flutter、Dart、Riverpod、GoRouter、Dio；iOS `URLSession` / Android Cronet 原生 transport | `apps/flutter-app/pubspec.yaml`、`lib/shared/api/app_http_transport.dart` |
 | 订阅模块 | `in_app_purchase`、StoreKit adapter | `dart-packages/subscription-core/pubspec.yaml` |
 | API | TypeScript、共享 Hono 应用；prod 为 Cloudflare Workers，dev 为 Linux Node 22 / `@hono/node-server` | `apps/workers-api/package.json`、`src/app.ts`、`src/linux/server.ts` |
 | 数据访问 | Postgres.js 适配器与 PostgreSQL 顺序 migrations；prod 经 Hyperdrive，dev 直连独立 PostgreSQL | `src/db/postgres-database.ts`、`src/db/postgres/migrations/` |
@@ -48,6 +48,7 @@ CI 的 Flutter 版本冲突是显式目标差异，不合并成虚构的统一�
 
 - Apple StoreKit、App Attest、App Store Server Notifications V2 与 Server API。
 - Google/Apple OAuth；邮箱注册与找回密码使用 ZeptoMail。
+- Flutter 移动端的业务 API、启动配置、分享缩略图和目录图片复用一个应用级 Native Dio Adapter：iOS 由单一 `URLSession` 协商 HTTP/2，并在 HTTPS 服务发布 `Alt-Svc` 时升级 HTTP/3；Android 使用 embedded Cronet，显式启用 HTTP/2 与 QUIC。协议失败按平台栈正常降级，不对失败的写请求另做换协议重试。Android 仅在 Cronet provider 明确不可用时按进程回退 Dart IO；`APP_HTTP_TRANSPORT=io` 只用于诊断或紧急构建回退，正式 test/production 配置固定并校验为 `native`。
 - Scan 使用端侧 RTMDet-Ins 检测和 PE-Core-T16 向量化：iOS 16+ 使用 Core ML/Core Image，Android 使用最小 ONNX Runtime 与 Bitmap。dev Linux API 经 HTTP `VECTOR_RECOGNITION` 调用 `recognize-vec`，结构化记录与受保护图片留在本地 PostgreSQL/图片卷。App 不包含或运行 ML Kit Latin OCR，不再提交端侧卡号提示；旧 OpenCV/pHash 移除，Web 暂不支持新端侧识别。prod 保持其原有运行版本，后续协议切换另行发布和验收。
 - dev Linux 配置以必填 `VECTOR_RECOGNITION_BASE_URL` 构造 HTTP `VECTOR_RECOGNITION`，只发送向量给现有 CF 服务；10 秒超时覆盖正文，业务数据库和图片卷保持本地。旧 OCR 字段已退出 dev 运行路径；服务端受控扫描与用户确认的客户端验收边界见[兼容设计](linux-test-environment.md#扫描兼容缺口)。
 - Singular 的六个 test/production 套餐事件使用 `customRevenueWithAttributes` 上报 Apple verified 交易金额、币种和标识，独立持久化去重并补发此前入队的失败记录；Restore 和启动恢复不创建新收入。SDK API 返回不等于后台收件成功，详见[收入契约](../03-data-api/contract-changes.md#当前边界)。
@@ -56,7 +57,7 @@ CI 的 Flutter 版本冲突是显式目标差异，不合并成虚构的统一�
 
 ## 5. 配置和安全边界
 
-- Flutter 通过 `--dart-define-from-file` 选择环境，`APP_ENV=test` 默认业务 API 为 `http://192.168.50.201:8080/api/v1`，production 和未配置值维持原生产 HTTPS API。Android 从同一参数选择指定 IP 的测试 HTTP 策略，iOS 由现有 test flavor 的独立 plist 配置；根 Melos 测试显式注入 `APP_ENV=test`。
+- Flutter 通过 `--dart-define-from-file` 选择环境，`APP_ENV=test` 默认业务 API 为 `http://192.168.50.201:8080/api/v1`，production 和未配置值维持原生产 HTTPS API。正式配置同时设置 `APP_HTTP_TRANSPORT=native` 与 `cronetHttpNoPlay=true`；后者使 Android 构建内置 Cronet，不依赖 Google Play Services。Android 从同一参数选择指定 IP 的测试 HTTP 策略，iOS 由现有 test flavor 的独立 plist 配置；根 Melos 测试显式注入 `APP_ENV=test`。内网明文 test API 不能作为 HTTP/2 或 HTTP/3 协议验收目标。
 - prod Worker 的公开 vars 与 bindings 在 `wrangler.toml` 声明；dev 业务配置位于 Linux 私有环境文件。
 - Apple、JWT、邮件、分析等密钥必须使用 secret 管理，不进入源码、文档或测试夹具。
 - dev 与 prod 使用独立 PostgreSQL 业务数据库；`APP_ENVIRONMENT`、Bundle ID、Product ID 白名单、存储、域名和密钥按环境隔离。旧 CF dev 的历史数据仍留在 prod 使用的共享数据库，不属于当前 Linux dev 的读写路径。

@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/api_environment.dart';
+import '../api/app_http_transport.dart';
 import '../api/api_request_id.dart';
 import '../api/api_request_log.dart';
 import '../debug/app_debug_overlay.dart';
@@ -121,19 +122,22 @@ class HttpCurrencyRateApi implements CurrencyRateApi {
 }
 
 final currencyRateDioProvider = Provider((ref) {
-  final dio = Dio(
-    BaseOptions(
-      baseUrl: kandoApiBaseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
-    ),
-  );
+  final dio = ref
+      .watch(appHttpTransportProvider)
+      .bind(
+        Dio(
+          BaseOptions(
+            baseUrl: kandoApiBaseUrl,
+            connectTimeout: const Duration(seconds: 10),
+            receiveTimeout: const Duration(seconds: 10),
+          ),
+        ),
+      );
   addApiRequestIdInterceptor(dio);
   dio.interceptors.add(
     ApiRequestTimingInterceptor(ref.read(apiRequestLogProvider.notifier)),
   );
   addAppDebugHttpLogging(dio);
-  ref.onDispose(dio.close);
   return dio;
 });
 

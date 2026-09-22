@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,6 +8,8 @@ import '../features/auth/auth_controller.dart';
 import '../features/collection/collection_controller.dart';
 import '../features/home/home_controller.dart';
 import '../features/search/search_controller.dart';
+import '../shared/api/app_http_transport.dart';
+import '../shared/card_image/kando_network_image.dart';
 import '../shared/ui/load_state.dart';
 
 const appStartupPreloadTimeout = Duration(seconds: 8);
@@ -15,7 +18,8 @@ const searchImagePreloadLimit = 20;
 typedef NetworkImagePreloader = Future<void> Function(List<String> imageUrls);
 
 final networkImagePreloaderProvider = Provider<NetworkImagePreloader>((ref) {
-  return _preloadNetworkImages;
+  final dio = ref.watch(appImageDioProvider);
+  return (imageUrls) => _preloadNetworkImages(dio, imageUrls);
 });
 
 final appStartupPreloaderProvider = FutureProvider<void>((ref) async {
@@ -150,13 +154,18 @@ Future<void> _preloadImageUrls(
   }
 }
 
-Future<void> _preloadNetworkImages(List<String> imageUrls) {
-  return Future.wait<void>(imageUrls.map(_preloadNetworkImage));
+Future<void> _preloadNetworkImages(Dio dio, List<String> imageUrls) {
+  return Future.wait<void>(
+    imageUrls.map((imageUrl) => _preloadNetworkImage(dio, imageUrl)),
+  );
 }
 
-Future<void> _preloadNetworkImage(String imageUrl) {
+Future<void> _preloadNetworkImage(Dio dio, String imageUrl) {
   final completer = Completer<void>();
-  final stream = NetworkImage(imageUrl).resolve(ImageConfiguration.empty);
+  final stream = createKandoNetworkImage(
+    imageUrl,
+    dio: dio,
+  ).resolve(ImageConfiguration.empty);
   late final ImageStreamListener listener;
   listener = ImageStreamListener(
     (_, _) {

@@ -86,6 +86,7 @@ void main() {
 
   test('app environment is one of the supported build values', () {
     expect(AppConfig.environmentName, anyOf('test', 'production'));
+    expect(AppConfig.httpTransportName, anyOf('native', 'io'));
     expect(() => AppConfig.validate(), returnsNormally);
   });
 }

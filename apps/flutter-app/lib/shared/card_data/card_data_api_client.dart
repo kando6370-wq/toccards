@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/shared/pagination/pagination.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
+import 'package:kando_app/shared/api/app_http_transport.dart';
 import 'package:kando_app/shared/api/api_request_id.dart';
 
 const cardDataApiBaseUrl = authApiBaseUrl;
@@ -12,7 +13,10 @@ const cardDataRequestDeadline = Duration(seconds: 25);
 const cardDataRequestTimeoutCode = 'REQUEST_TIMEOUT';
 const cardDataRequestTimeoutMessage = 'Request timed out. Please try again.';
 
-Dio createCardDataDio({String baseUrl = cardDataApiBaseUrl}) {
+Dio createCardDataDio({
+  String baseUrl = cardDataApiBaseUrl,
+  AppHttpTransport? transport,
+}) {
   final dio = Dio(
     BaseOptions(
       baseUrl: baseUrl,
@@ -21,7 +25,7 @@ Dio createCardDataDio({String baseUrl = cardDataApiBaseUrl}) {
     ),
   );
   addApiRequestIdInterceptor(dio);
-  return dio;
+  return transport?.bind(dio) ?? dio;
 }
 
 class CardDataApiException implements Exception {

@@ -6,11 +6,14 @@ import 'package:kando_app/features/auth/auth_session_interceptor.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api/api_request_log.dart';
+import '../api/app_http_transport.dart';
 import '../debug/app_debug_overlay.dart';
 import 'portfolio_api_client.dart';
 
 final portfolioDioProvider = Provider((ref) {
-  final dio = createPortfolioDio();
+  final dio = createPortfolioDio(
+    transport: ref.watch(appHttpTransportProvider),
+  );
   dio.interceptors.add(
     ApiRequestTimingInterceptor(ref.read(apiRequestLogProvider.notifier)),
   );
@@ -18,7 +21,6 @@ final portfolioDioProvider = Provider((ref) {
   dio.interceptors.add(
     AuthSessionInterceptor(dio: dio, storage: ref.watch(authStorageProvider)),
   );
-  ref.onDispose(dio.close);
   return dio;
 });
 
