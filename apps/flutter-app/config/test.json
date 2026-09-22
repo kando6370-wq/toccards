@@ -1,5 +1,7 @@
 {
   "APP_ENV": "test",
+  "APP_HTTP_TRANSPORT": "native",
+  "cronetHttpNoPlay": true,
   "SUBSCRIPTION_APP_STORE_WEEKLY_ID": "cardx.week",
   "SUBSCRIPTION_APP_STORE_YEARLY_ID": "cardx.year",
   "SUBSCRIPTION_APP_STORE_LIFETIME_ID": "cardx.lifetime"

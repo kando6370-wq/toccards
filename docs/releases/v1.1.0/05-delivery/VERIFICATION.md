@@ -2,6 +2,42 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## iOS 测试内部包 1.0.3 (156)（2026-09-22）
+
+按用户要求基于当前 `dev@5532b34b` 构建测试环境内部包。该分支新增并锁定 `native_dio_adapter 1.8.0`、`cronet_http 1.9.0`、`cupertino_http 3.1.0` 及其原生传递依赖；源码版本为 `1.0.3+155`，同一测试 Bundle ID 已保存构建号 155，因此使用 156，避免覆盖既有产物。测试配置为 `com.kando.kandoApp.beta`、App Attest `development`、测试 Firebase 和 `http://192.168.50.201:8080/api/v1`；构建前 Linux dev `/health` 返回 HTTP 200、`status=ok`。
+
+执行 `./tool/release_ios.sh --env test --pgy --build-number 156`，依赖解析、`flutter analyze`、全量清理、Xcode Release Archive、App Store IPA 导出、内部 IPA 打包、签名与配置校验均通过，脚本退出 0。最终内部 IPA 为 `1.0.3 (156)`、Apple Development 签名、`get-task-allow=true`、App Attest `development`；测试 Firebase、内网 API 字符串和签名完整性均通过，42 个 Mach-O UUID 均有匹配 dSYM。Dart 锁文件按新增依赖解析成功；现有 `sign_in_with_apple` 不支持 Swift Package Manager 的提示不阻断本次 CocoaPods 真机 Release 包。
+
+IPA 为 39,911,195 字节，SHA-256 `9dbc5621a22df3b2f3be7a0e950daef5cedeb8332dfe54d26b3125d5fa402f9e`；`dSYMs.zip` 为 60,996,921 字节，SHA-256 `d3b8a53698d1bf557a1d0b6e0ec955bb0fd6a2537d562ab37fdd84561f2d6d10`。两者保存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.3-156/`；构建 Archive 位于 `apps/flutter-app/build/ios/archive/Runner.xcarchive`。当前保留 154、155、156，旧 153 已移入废纸篓，可恢复；源码版本同步为 `1.0.3+156`。
+
+未运行 Flutter 单元、Widget 或集成测试，也未执行 iOS/Android 真机业务验收、安装设备、上传蒲公英或 App Store Connect、Git push、服务端部署或远程数据写入。
+
+## Flutter iOS/Android HTTP/2、HTTP/3 共享传输（2026-09-22，本地实现未发布）
+
+Flutter App 的业务 API、运行时配置、分享缩略图和目录网络图片现复用一个应用级 Native Dio Adapter，不再由各功能模块维护独立底层连接池。iOS 使用单一 `URLSession`，保留系统 HTTP/2 协商，并在 HTTPS 服务通过 `Alt-Svc` 宣告能力后由系统尝试 HTTP/3；Android 使用 embedded Cronet `143.7445.0`，显式开启 HTTP/2 与 QUIC。正式 test/production 配置固定 `APP_HTTP_TRANSPORT=native` 和 `cronetHttpNoPlay=true`；Android 只有在所有 Cronet provider 明确禁用时才按进程回退 Dart IO，其他连接、TLS、超时和响应错误原样返回，不对失败 POST 换协议自动重试。Web、macOS 和其他非移动端继续使用原平台传输。
+
+`assumesHTTP3Capable` 是 iOS 14.5+ 的单次 `NSMutableURLRequest` 属性，不是 `URLSessionConfiguration` 属性；当前 `cupertino_http` / `native_dio_adapter` 公共请求层不暴露该设置，因此没有伪造配置或维护包内 fork。production HTTPS 服务发布 `Alt-Svc` 后仍具备标准 HTTP/3 升级能力，HTTP/3 未建立时正常保留 HTTP/2 回退。扫描 Native transport 只移除原 Adapter 级 10 秒响应头超时，原有 25 秒整体 Deadline 与 `CancelToken` 保持；这不是把全部请求统一改成 25 秒，其他 API 继续使用各自既有超时。
+
+验证环境为 macOS、Flutter 3.44.5 / Dart 3.12.2；除根 Melos 命令外均在 `apps/flutter-app` 执行。
+
+| 检查 | 命令 / 证据 | 结果 |
+|---|---|---|
+| 锁文件依赖 | `flutter pub get --enforce-lockfile` | 依赖按锁文件解析，退出 0 |
+| 格式与静态分析 | 30 个变更 Dart 文件执行 `dart format --output=none --set-exit-if-changed ...`；`flutter analyze --no-pub`；根 `dart run melos run analyze` | 格式 0 变化；App 无问题；两个 Dart workspace 包均无问题，全部退出 0。Melos 并发启动时一端短暂等待 Flutter startup lock，随后两个包均实际完成分析 |
+| 网络影响面回归 | `flutter test --no-pub --dart-define=APP_ENV=test` 加 17 个 Transport、配置、Auth、Card Data、Portfolio、Scan、汇率、升级、Mixpanel/Singular、分享、预加载、Search/Card Detail 与网络图片测试文件 | 269/269，通过，退出 0；共享 Adapter、非移动端回退、Scan 超时边界和图片缓存路径均覆盖 |
+| Dart workspace 全量测试 | 根 `dart run melos run test` | `subscription_core` 通过；App 1117 通过、14 项 Golden 失败，命令退出 1，不能标记全量通过。未出现 Native Adapter、未关闭请求或遗留 Timer 失败 |
+| iOS 编译 | `flutter build ios --release --no-codesign --no-pub --dart-define-from-file=config/production.json` | 退出 0，生成 64.9 MB `Runner.app`；只有既有 `sign_in_with_apple` 尚不支持 Swift Package Manager 提示 |
+| Android 编译与解包 | `flutter build apk --debug --no-pub --dart-define-from-file=config/test.json`；`zipinfo` 检查 APK | 退出 0；APK 为 225,364,766 字节，SHA-256 `73353c546397e91a621b4f12fa369d7e2e26987423db0ac04db8685424b8eb4b`；三个 ABI 均含 `libcronet.143.0.7445.0.so`，同时保留原 ONNX Runtime。构建仅有既有 Gradle/AGP/Kotlin 后续升级警告 |
+| Web 条件导入 | `flutter build web --no-pub --dart-define-from-file=config/test.json` | 退出 0，Wasm dry-run 同时通过 |
+| production 协议服务端证据 | `curl --http2` 请求 `https://api.tcgcard.fun/api/v1/health` | HTTP/2 200，响应含 `alt-svc: h3=":443"; ma=86400`；本机 curl 不含 HTTP/3 feature，因此该项不代表移动端实际已使用 HTTP/3 |
+| 差异检查 | `git diff --check` | 退出 0 |
+
+全量 App 的 14 项失败均为当前既有严格像素基准：Tab bar；Scan 的 pre-scan、scanning、recognition、reveal、review；Home normal/partial failure；locked Performance；Profile banner；Performance header/tip；Subscription 的 300ms、bottom sheet、success page。JSON reporter 再次提取时仍为同一 14 项；本轮未更新 Golden、放宽断言或跳过测试。
+
+Code Review 自审通过：核对所有生产 Dio 创建点、Provider 生命周期与 Adapter 关闭所有权，确认 App 运行时只有根 Transport 关闭共享连接池；订阅接口继续经共享 Portfolio Dio；图片加载保留 Flutter image cache、进度事件、非 200 错误与失败缓存清理；Android fallback 仅覆盖 provider 禁用；Scan、收藏和购买同步没有新增自动重试。未发现剩余代码级阻断项。
+
+未运行：iOS/Android 真机协议指标或抓包，因此尚未证明任一具体请求实际协商 HTTP/3；未执行 4G/5G/Wi-Fi 切换、弱网恢复、并发连接复用计时、真实图片长列表或扫描 Multipart 峰值内存验收。`native_dio_adapter` 的转换层会聚合上传流，扫描图片必须在两端真机补做内存回归。未生成签名 IPA/AAB，未安装、push、上传、部署或修改远程环境；本地编译和 Cloudflare `Alt-Svc` 不能替代设备验收。
+
 ## 全业务 API 请求关联 ID（2026-09-21，已部署 dev）
 
 所有 `/api/v1/*` 已增加 UUID v4 `X-Request-ID`：合法调用方 ID 原样回显，缺失或非法 ID 由 Workers 生成；CORS 允许并暴露该 Header；完成日志只记录 `request_id/method/path/status/duration_ms`。Flutter 与 Admin 每次实际 HTTP 尝试生成新 ID，Flutter 本地请求日志、`api_timing`、`api_err` 使用同值；Admin JSON、导出文件和受保护扫描图片均覆盖。扫描 body 的业务 `request_id` 与 `Idempotency-Key` 仍按原幂等规则复用，主 API 到内部 `recognize-vec` 不转发传输层 ID；`/share/*`、静态资源和第三方请求排除。响应 JSON、数据库 Schema 与 migration 均未变化。

@@ -9,6 +9,7 @@ import 'auth_repository.dart';
 import 'auth_session_interceptor.dart';
 import 'auth_storage.dart';
 import '../../shared/api/api_request_log.dart';
+import '../../shared/api/app_http_transport.dart';
 import '../../shared/debug/app_debug_overlay.dart';
 
 const authAuthorizationFailedMessage = oauthAuthorizationFailedMessage;
@@ -31,7 +32,7 @@ final authStorageProvider = Provider<AuthStorage>((ref) {
 });
 
 final authDioProvider = Provider((ref) {
-  final dio = createAuthDio();
+  final dio = createAuthDio(transport: ref.watch(appHttpTransportProvider));
   dio.interceptors.add(
     ApiRequestTimingInterceptor(ref.read(apiRequestLogProvider.notifier)),
   );
@@ -39,7 +40,6 @@ final authDioProvider = Provider((ref) {
   dio.interceptors.add(
     AuthSessionInterceptor(dio: dio, storage: ref.watch(authStorageProvider)),
   );
-  ref.onDispose(dio.close);
   return dio;
 });
 

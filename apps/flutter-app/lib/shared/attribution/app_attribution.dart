@@ -9,6 +9,7 @@ import 'package:singular_flutter_sdk/singular.dart';
 import 'package:singular_flutter_sdk/singular_config.dart';
 
 import 'singular_bootstrap.dart';
+import '../api/app_http_transport.dart';
 
 enum AppTrackingStatus {
   notDetermined,
@@ -61,7 +62,12 @@ final appTrackingGatewayProvider = Provider<AppTrackingGateway>((ref) {
 
 final singularAttributionGatewayProvider = Provider<SingularAttributionGateway>(
   (ref) {
-    final gateway = SingularAttributionGateway();
+    final dio = createSingularDio(
+      transport: ref.watch(appHttpTransportProvider),
+    );
+    final gateway = SingularAttributionGateway(
+      loadCredentials: () => loadSingularCredentials(dio: dio),
+    );
     ref.onDispose(gateway.dispose);
     return gateway;
   },

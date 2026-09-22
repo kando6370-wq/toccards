@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.3+155
+version: 1.0.3+156
 
 # 归属根 Dart pub workspace（见仓库根 pubspec.yaml）；依赖由工作区统一解析。
 resolution: workspace
@@ -41,6 +41,9 @@ dependencies:
   flutter_riverpod: ^3.3.2
   go_router: ^17.2.3
   dio: ^5.10.0
+  native_dio_adapter: 1.8.0
+  cronet_http: 1.9.0
+  cupertino_http: 3.1.0
   flutter_debug_overlay: ^0.1.11
   device_info_plus: 12.3.0 # 12.4.0 requires the iOS 26.1 SDK; CI uses Xcode 16.4.
   freezed_annotation: ^3.1.0

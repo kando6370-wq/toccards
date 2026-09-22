@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kando_app/shared/api/app_http_transport.dart';
+import 'package:kando_app/shared/card_image/kando_network_image.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
@@ -722,13 +724,13 @@ class _SearchNoResultsIllustration extends StatelessWidget {
   }
 }
 
-class _SearchSetRow extends StatelessWidget {
+class _SearchSetRow extends ConsumerWidget {
   const _SearchSetRow({required this.set});
 
   final SearchSet set;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return InkWell(
       key: Key('search-set-${set.id}'),
       onTap: () => context.push(
@@ -766,10 +768,13 @@ class _SearchSetRow extends StatelessWidget {
                       Icons.layers_outlined,
                       color: KandoColors.mutedText,
                     )
-                  : Image.network(
-                      set.imageUrl!,
+                  : Image(
+                      image: createKandoNetworkImage(
+                        set.imageUrl!,
+                        dio: ref.watch(appImageDioProvider),
+                        webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+                      ),
                       fit: BoxFit.contain,
-                      webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
                       errorBuilder: (_, _, _) => const Icon(
                         Icons.layers_outlined,
                         color: KandoColors.mutedText,

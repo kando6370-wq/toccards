@@ -3,11 +3,12 @@ import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_session_interceptor.dart';
 
 import '../api/api_request_log.dart';
+import '../api/app_http_transport.dart';
 import '../debug/app_debug_overlay.dart';
 import 'card_data_api_client.dart';
 
 final cardDataDioProvider = Provider((ref) {
-  final dio = createCardDataDio();
+  final dio = createCardDataDio(transport: ref.watch(appHttpTransportProvider));
   dio.interceptors.add(
     ApiRequestTimingInterceptor(ref.read(apiRequestLogProvider.notifier)),
   );
@@ -15,7 +16,6 @@ final cardDataDioProvider = Provider((ref) {
   dio.interceptors.add(
     AuthSessionInterceptor(dio: dio, storage: ref.watch(authStorageProvider)),
   );
-  ref.onDispose(dio.close);
   return dio;
 });
 

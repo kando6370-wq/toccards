@@ -77,7 +77,10 @@ class AppAnalytics {
     return analytics;
   }
 
-  static AppAnalytics initialize({AppFirebase? firebase}) {
+  static AppAnalytics initialize({
+    AppFirebase? firebase,
+    Future<String?> Function()? loadMixpanelToken,
+  }) {
     final analytics = AppAnalytics._(
       mixpanel: null,
       firebase: firebase,
@@ -87,7 +90,12 @@ class AppAnalytics {
       initialIdentityPending: true,
     );
     final appVersionReady = analytics._loadAppVersion();
-    unawaited(analytics._initializeMixpanel(appVersionReady));
+    unawaited(
+      analytics._initializeMixpanel(
+        appVersionReady,
+        loadToken: loadMixpanelToken ?? loadMixpanelProjectToken,
+      ),
+    );
     return analytics;
   }
 
@@ -100,10 +108,13 @@ class AppAnalytics {
     }
   }
 
-  Future<void> _initializeMixpanel(Future<void> appVersionReady) async {
+  Future<void> _initializeMixpanel(
+    Future<void> appVersionReady, {
+    required Future<String?> Function() loadToken,
+  }) async {
     await _completeMixpanelInitialization(
       initializeMixpanelWithRetry<Mixpanel>(
-        loadToken: loadMixpanelProjectToken,
+        loadToken: loadToken,
         initialize: (projectToken) =>
             Mixpanel.init(projectToken, trackAutomaticEvents: true),
       ),

@@ -5,6 +5,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../shared/api/api_environment.dart';
+import '../../shared/api/app_http_transport.dart';
 import '../../shared/api/api_request_id.dart';
 import '../../shared/api/api_request_log.dart';
 import '../../shared/debug/app_debug_overlay.dart';
@@ -14,19 +15,22 @@ const appUpgradeApiBaseUrl = kandoApiBaseUrl;
 const appUpgradeNetworkTimeout = Duration(seconds: 10);
 
 final appUpgradeDioProvider = Provider<Dio>((ref) {
-  final dio = Dio(
-    BaseOptions(
-      baseUrl: appUpgradeApiBaseUrl,
-      connectTimeout: appUpgradeNetworkTimeout,
-      receiveTimeout: appUpgradeNetworkTimeout,
-    ),
-  );
+  final dio = ref
+      .watch(appHttpTransportProvider)
+      .bind(
+        Dio(
+          BaseOptions(
+            baseUrl: appUpgradeApiBaseUrl,
+            connectTimeout: appUpgradeNetworkTimeout,
+            receiveTimeout: appUpgradeNetworkTimeout,
+          ),
+        ),
+      );
   addApiRequestIdInterceptor(dio);
   dio.interceptors.add(
     ApiRequestTimingInterceptor(ref.read(apiRequestLogProvider.notifier)),
   );
   addAppDebugHttpLogging(dio);
-  ref.onDispose(dio.close);
   return dio;
 });
 

@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../api/api_environment.dart';
+import '../api/app_http_transport.dart';
 import '../api/api_request_id.dart';
 import '../debug/app_debug_overlay.dart';
 
@@ -13,18 +14,22 @@ class SingularCredentials {
   final String secretKey;
 }
 
-Future<SingularCredentials?> loadSingularCredentials({Dio? dio}) async {
-  final client =
-      dio ??
-      Dio(
-        BaseOptions(
-          baseUrl: kandoApiBaseUrl,
-          connectTimeout: singularNetworkTimeout,
-          receiveTimeout: singularNetworkTimeout,
-        ),
-      );
+Dio createSingularDio({AppHttpTransport? transport}) {
+  final dio = Dio(
+    BaseOptions(
+      baseUrl: kandoApiBaseUrl,
+      connectTimeout: singularNetworkTimeout,
+      receiveTimeout: singularNetworkTimeout,
+    ),
+  );
+  final client = transport?.bind(dio) ?? dio;
   addApiRequestIdInterceptor(client);
   addAppDebugHttpLogging(client);
+  return client;
+}
+
+Future<SingularCredentials?> loadSingularCredentials({Dio? dio}) async {
+  final client = dio ?? createSingularDio();
   try {
     final response = await client.get<Object?>('/app-config');
     return singularCredentialsFromResponse(response.data);

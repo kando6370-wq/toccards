@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../api/api_environment.dart';
+import '../api/app_http_transport.dart';
 import '../api/api_request_id.dart';
 import '../debug/app_debug_overlay.dart';
 
@@ -36,18 +37,22 @@ Future<T?> initializeMixpanelWithRetry<T>({
 
 Future<void> _waitForRetry(Duration delay) => Future<void>.delayed(delay);
 
-Future<String?> loadMixpanelProjectToken({Dio? dio}) async {
-  final client =
-      dio ??
-      Dio(
-        BaseOptions(
-          baseUrl: kandoApiBaseUrl,
-          connectTimeout: mixpanelNetworkTimeout,
-          receiveTimeout: mixpanelNetworkTimeout,
-        ),
-      );
+Dio createMixpanelDio({AppHttpTransport? transport}) {
+  final dio = Dio(
+    BaseOptions(
+      baseUrl: kandoApiBaseUrl,
+      connectTimeout: mixpanelNetworkTimeout,
+      receiveTimeout: mixpanelNetworkTimeout,
+    ),
+  );
+  final client = transport?.bind(dio) ?? dio;
   addApiRequestIdInterceptor(client);
   addAppDebugHttpLogging(client);
+  return client;
+}
+
+Future<String?> loadMixpanelProjectToken({Dio? dio}) async {
+  final client = dio ?? createMixpanelDio();
   try {
     final response = await client.get<Object?>('/app-config');
     return mixpanelProjectTokenFromResponse(response.data);
