@@ -2,13 +2,17 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
-## 全业务 API 请求关联 ID（2026-09-21，本地修改）
+## 全业务 API 请求关联 ID（2026-09-21，已部署 dev）
 
 所有 `/api/v1/*` 已增加 UUID v4 `X-Request-ID`：合法调用方 ID 原样回显，缺失或非法 ID 由 Workers 生成；CORS 允许并暴露该 Header；完成日志只记录 `request_id/method/path/status/duration_ms`。Flutter 与 Admin 每次实际 HTTP 尝试生成新 ID，Flutter 本地请求日志、`api_timing`、`api_err` 使用同值；Admin JSON、导出文件和受保护扫描图片均覆盖。扫描 body 的业务 `request_id` 与 `Idempotency-Key` 仍按原幂等规则复用，主 API 到内部 `recognize-vec` 不转发传输层 ID；`/share/*`、静态资源和第三方请求排除。响应 JSON、数据库 Schema 与 migration 均未变化。
 
 先失败证据：Workers 新增契约测试在中间件接入前 3/3 失败；Flutter 测试因请求 ID 模块尚不存在而编译失败；Admin 测试因请求 ID 源文件不存在而失败。实现后，Workers 请求关联 6/6、Scan 路由 41/41、正式 `src --maxWorkers=2` 76 文件 650/650 通过；Workers type-check 通过。Flutter 请求关联/日志/Auth 重试及受影响 API 客户端 117/117 通过，新增透明重试日志回归所在 Auth 文件 5/5 通过，`flutter analyze --no-pub` 无问题。Admin 23/23、type-check 与 development build 通过。根依赖方向检查和全仓 TypeScript type-check 7/7 通过；Linux dev dry-run 完成 Admin development、Linux API bundle 及 Apple SDK 2/2，明确未连接 SSH、执行 migration 或部署。默认 Workers `pnpm test` 误扫 `.wrangler` 历史发布包/诊断副本并在高并发下出现两个源码 5 秒超时，退出 1；随后正式源码低并发全量通过，不能把前一次失败写成通过。
 
-Code Review 发现并修复两项：合法大写 UUID 原先被转成小写，已改为原样回显；完成日志原先记录真实 URL path，可能带 UID/scan ID，已改为不含实际参数和 query 的路由模板，未匹配 API 统一为 `/api/v1/*`。返工后请求关联 6/6 与 Workers type-check 通过，未发现剩余代码级阻断。Windows `.bat` formatter/analyze 包装曾无输出挂起并由精确进程终止；同一 SDK 直接执行的 16 个 Dart 文件格式检查为 0 changed，Flutter analyze 退出 0。当前尚未执行远程 dev 发布或运行环境回读；本节不得解释为 dev 或 prod 已部署。真机 Flutter 日志、真实 Admin 下载/图片、Apple 回调与跨监控平台检索仍需部署后的环境验收。
+Code Review 发现并修复两项：合法大写 UUID 原先被转成小写，已改为原样回显；完成日志原先记录真实 URL path，可能带 UID/scan ID，已改为不含实际参数和 query 的路由模板，未匹配 API 统一为 `/api/v1/*`。返工后请求关联 6/6 与 Workers type-check 通过，未发现剩余代码级阻断。Windows `.bat` formatter/analyze 包装曾无输出挂起并由精确进程终止；同一 SDK 直接执行的 16 个 Dart 文件格式检查为 0 changed，Flutter analyze 退出 0。
+
+功能提交 `7d9b0ca254a9df17579ff64df38d1400a7196085` 已推送 `github/dev`，本地、远端跟踪分支与 `ls-remote` 指针一致。推送后的首次回读仍是无请求 ID Header 的旧 API 和旧 Admin 主 bundle；2026-09-21 17:06（UTC+8）再次回读时，health 已返回 200、`{"status":"ok"}` 与 UUID v4 `X-Request-ID`，Admin HTML 已切换到本次本地 development build 相同的主资源 `index-DL_CuD8B.js`。随后无登录、无写入烟测中，5 次 health 得到 5 个不同 UUID v4；合法大写 ID 原样回显，非法 ID 被替换；CORS 预检为 204 并允许 `X-Request-ID`，实际 GET 暴露该 Header；API 404 和未登录 Admin 401 均带 ID，静态首页不带；响应 JSON 未增加字段。
+
+现有非交互 SSH 以 `publickey,password` 被拒绝，未使用、保存或输出用户密码，因此本轮没有重新读取 `current`、manifest、`last-seen-sha`、`last-deployed-sha`、失败标记、备份、容器状态或 migration ledger。上述 HTTP/API 与确定性 Admin 资源证据证明请求关联版本已在 dev 对外生效，但不能替代服务器发布状态和备份回读；最近一次完整基础设施检查点仍为下节 `baf0d7b`。未执行认证扫描、真实 Admin 下载/图片、Apple 回调、Flutter 真机日志、跨监控平台查询或 prod 部署，内部向量不转发 Header 仅由本地路由回归覆盖。
 
 ## Free 10 次扫描、Gallery 并发与额度不足状态整改（2026-09-21，已部署 dev）
 

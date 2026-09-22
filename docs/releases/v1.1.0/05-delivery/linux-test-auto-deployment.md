@@ -6,6 +6,8 @@
 
 2026-09-21 当前检查点：watcher 已发布扫描 Free 额度整改 `dev@baf0d7b`，release 为 `branch-dev-baf0d7b53681-20260921151308`。`current`、manifest 与 `last-deployed-sha` 一致；API/DB healthy、Web running、migration exited/0，ledger 14 项且最新为 `0013`，失败标记为空。发布前 1,121,082,954 字节备份通过 PostgreSQL 18 容器 `pg_restore --list`；运行 API bundle 与 release 文件 SHA-256 一致。后续仅含文档/Agent 规则的提交可前移 `last-seen-sha`，不会替换该 release；prod 未处理。
 
+同日请求关联提交 `dev@7d9b0ca` 推送后，dev HTTP 回读已出现新 `X-Request-ID` 行为和对应 Admin 主资源，证明相关 API/Admin 版本对外生效。当前机器的非交互 SSH 以 `publickey,password` 被拒绝，因此没有重新读取 watcher 状态、release manifest、备份、容器和 ledger；`baf0d7b` 保留为最近一次完整基础设施检查点。详细烟测和边界见[验证记录](VERIFICATION.md#全业务-api-请求关联-id2026-09-21已部署-dev)。
+
 ## 目标
 
 当 GitHub `dev` 分支出现影响 API、Admin、共享包或 Linux 部署配置的新提交时，由 `kd201` 本机定时监听、构建同一套业务代码并发布到测试环境。Cloudflare 正式环境的构建、绑定和部署流程不由该监听器触发。

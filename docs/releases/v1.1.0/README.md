@@ -1,15 +1,15 @@
 # v1.1.0 版本文档
 
-本目录记录 v1.1.0 相对 [v1.0.0](../v1.0.0/README.md) 的产品输入、当前实现、数据契约和交付边界。当前代码核对基线为 `dev@35c7f87`（2026-09-20），已包含 Linux 测试环境、端侧向量扫描、订阅与归因、25 秒客户端总 Deadline、三页 Onboarding 更新及 API 慢请求收敛。客户端 `pubspec.yaml` 为 `1.0.2+149`；Linux API 实际运行 `dev@9488a15`，其后提交仅影响 Flutter/文档。产品迭代版本、源码版本、安装包和商店发布状态分别管理；历史检查点保留原日期，不能外推为当前验收结果。
+本目录记录 v1.1.0 相对 [v1.0.0](../v1.0.0/README.md) 的产品输入、当前实现、数据契约和交付边界。当前功能代码核对基线为 `dev@7d9b0ca`（2026-09-21），已包含 Linux 测试环境、端侧向量扫描、订阅与归因、25 秒客户端总 Deadline、三页 Onboarding 更新、API 慢请求收敛和全业务 API 请求关联。客户端 `pubspec.yaml` 为 `1.0.3+155`。kd201 最近一次完整 SSH 基础设施回读为 `dev@baf0d7b`；推送 `7d9b0ca` 后的 HTTP 回读已确认请求 ID API 与对应 Admin 主资源对外生效，但本机缺少可用 SSH key，未重新读取服务器 manifest、状态文件、备份或 ledger。产品迭代版本、源码版本、安装包和商店发布状态分别管理；历史检查点保留原日期，不能外推为当前验收结果。
 
 ## 当前结论
 
 - 当前业务环境只有 prod（维持原 Cloudflare 部署）与 dev（kd201 Linux）；旧 CF dev 仅为历史部署，不再发布。dev 仍通过独立 CF 服务调用向量识别和 Apple Sandbox 回调，详见[系统架构](02-architecture/architecture.md#6-环境与部署)。
 - 仓库内已形成 Apple 订阅与 session grant、Scan Quota、Folder 限制、Performance、Extended Price History、Admin 订单与 Apple Notifications V2 的实现和自动化证据。
 - 扫描向量链路已合入并推送 `dev`，对应 Workers/Admin 曾发布到旧 CF dev，现由 Linux 承接业务；App 扫描支持 iOS 16+、Android API 24+，Web 扫描暂不支持。源分支已清理，后续使用 `dev`，详见[扫描识别链路](01-flows/scan-recognition.md)。
-- Linux 入口已通过 `19a6ac4` 合入 dev，包含共享 Hono/Node、独立 PostgreSQL、内存 KV、本地图片卷和分支监听发布脚本。App test/Admin development 默认使用 Linux 内网入口，扫描仅通过 CF HTTP 向量服务检索。2026-09-20 kd201 watcher 运行 API release `dev@9488a15`，API/DB healthy、Web running、ledger 为 14 项且最新为 `0013`；旧 CF dev 业务 Worker、域名和 cron 已退役，测试数据与旧包保留。客户端路径由用户确认已验收，本次性能发布没有独立复验真机，见[Linux 兼容设计](02-architecture/linux-test-environment.md)和[验证记录](05-delivery/VERIFICATION.md#生产慢接口二次诊断与认证额度收敛2026-09-20prod-未部署)。
+- Linux 入口已通过 `19a6ac4` 合入 dev，包含共享 Hono/Node、独立 PostgreSQL、内存 KV、本地图片卷和分支监听发布脚本。App test/Admin development 默认使用 Linux 内网入口，扫描仅通过 CF HTTP 向量服务检索。2026-09-21 最近一次完整 SSH 回读为 `dev@baf0d7b`，API/DB healthy、Web running、ledger 为 14 项且最新为 `0013`；随后 `dev@7d9b0ca` 的请求 ID API 与 Admin 主资源已由 HTTP 回读确认对外生效，服务器状态文件未复读。旧 CF dev 业务 Worker、域名和 cron 已退役，测试数据与旧包保留；见[Linux 兼容设计](02-architecture/linux-test-environment.md)和[请求关联验证记录](05-delivery/VERIFICATION.md#全业务-api-请求关联-id2026-09-21已部署-dev)。
 - 升级门禁在实际 Home 首帧后启动，后续 Home 返回或回前台静默复查，已确认强更仍跨路由拦截。扫描取景框从首帧预留底部结果区，iOS 检测分数按 sigmoid 转为概率。iOS 发布脚本按 Bundle ID 保存 IPA/dSYM，测试保留 3 个版本、正式保留 7 个版本；当前实现和既有测试限制见[发布与验证](05-delivery/VERIFICATION.md#当前代码与交付边界)。
-- 2026-09-10 的 App 全量 1047/1047、订阅包 9/9 与 Workers 621/621 保留为对应历史检查点；2026-09-20 API 性能修改后的 Workers `src` 为 75 文件、644/644，并通过 type-check、依赖方向、prod/dev dry-run 与 Code Review。Onboarding 与 25 秒客户端 Deadline 的后续定向验证按其各自记录判断，不能用旧全量结果替代。
+- 2026-09-10 的 App 全量 1047/1047、订阅包 9/9 与 Workers 621/621 保留为对应历史检查点；2026-09-21 请求关联后的 Workers `src` 为 76 文件、650/650，并通过 type-check、依赖方向、dev dry-run 与 Code Review。Flutter 受影响 API 客户端为 117/117，Admin 为 23/23；这些定向和服务端全量结果仍不能替代未重跑的完整 App 测试或真机验收。
 - “代码已完成”不等于发布完成。Apple 生产配置、Sandbox/TestFlight、真机、多设备、重度数据和真实订单规模仍是独立验收门槛。
 - D1 已废弃，旧 Cloudflare dev/test 与 prod 均已完成 PostgreSQL 迁移；2026-09-09 两环境回读均绑定同一 PlanetScale PostgreSQL/Hyperdrive 且无 D1 binding。2026-09-17 旧 dev Worker 已退役，历史数据库/KV/R2 保留；prod 和共享向量识别仍运行，退役回读见[发布与验证](05-delivery/VERIFICATION.md#旧-cloudflare-dev-业务退役2026-09-17)。
 - 数据库执行状态按环境和证据区分：共享 Cloudflare PostgreSQL 的 `0000` 至 `0010` 及 `0011/0012` 状态继续沿用各自历史记录，未因 Linux 发布外推；Linux 独立 PostgreSQL 已在 2026-09-20 回读为 14 项 ledger，最新为 `0013`、`0012`、`0011`。prod 尚未执行 `0013`，详见[数据迁移](03-data-api/migration.md)。

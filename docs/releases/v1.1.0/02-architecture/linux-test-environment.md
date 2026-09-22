@@ -3,12 +3,13 @@
 ## 状态
 
 - 当前业务环境只有 prod 与 dev：prod 沿用 Cloudflare，dev 专指 kd201 Linux。独立的 CF 向量识别与 Apple Sandbox 回调服务不构成第三套业务环境；已退役的旧 CF dev 不再发布。
-- 当前代码与部署基线：2026-09-21 Linux API 实际运行扫描 Free 额度整改 `dev@baf0d7b`；客户端最近已安装测试包 `1.0.3+153` 在本次 Flutter 额度修复前构建，需由后续新包验收。`dev-inner@b941a3f` 与 `dev@8e22c1d` 分别保留为 2026-09-15 整改和 2026-08-26 原始设计基线。
+- 当前代码与部署基线：2026-09-21 请求关联功能提交为 `dev@7d9b0ca`，HTTP 回读已确认新 API Header 与对应 Admin 主资源对外生效；最近一次完整 SSH 基础设施回读仍为扫描 Free 额度整改 `dev@baf0d7b`。客户端最近已构建测试包 `1.0.3+155`，其源码基线为 `baf0d7b`，仍在本次 Flutter 请求关联前，需由后续新包验收客户端 Header。`dev-inner@b941a3f` 与 `dev@8e22c1d` 分别保留为 2026-09-15 整改和 2026-08-26 原始设计基线。
 - 合并状态：`19a6ac4` 引入 Linux 基础部署；2026-09-16 的 `75c0ec4` 已将 HTTP 向量、App/Admin 内网入口和发布预检整改合入 dev，并保留原后台筛选增量。
 - 2026-09-17 回读 kd201：watcher 发布的 `dev@4d5d66f` 正在运行，manifest、部署状态和 API/Admin 实际产物一致；PostgreSQL 18.6 的 ledger 为 13 项，发布前备份目录可读取，未做恢复演练。此前手工 ESM 修复现已包含在自动发布版本中，详见[退役验证](../05-delivery/VERIFICATION.md#旧-cloudflare-dev-业务退役2026-09-17)。
 - 2026-09-18 回读 kd201：watcher 已发布 `dev@bfbb61d`，manifest、`current` 与部署 SHA 一致；PostgreSQL ledger 已登记 `0013`，`pg_trgm` 索引有效并被单次 Search 查询计划命中，API/Web/DB 健康。发布前备份可列出内容，未演练整库恢复；prod 未迁移或发布，见[验证记录](../05-delivery/VERIFICATION.md)。
 - 2026-09-20 回读 kd201：watcher 已发布性能提交 `dev@9488a15`，release 为 `branch-dev-9488a15f01b0-20260920111505`；manifest、`current` 和 `last-deployed-sha` 一致。API/DB healthy、Web running、migration exited/0，ledger 为 14 项且最新为 `0013`。发布前 1,120,850,087 字节 custom-format 备份通过 `pg_restore --list`，未执行恢复；prod 未处理。
 - 2026-09-21 回读 kd201：watcher 已发布 `dev@baf0d7b`，release 为 `branch-dev-baf0d7b53681-20260921151308`；manifest、`current`、`last-seen-sha` 与 `last-deployed-sha` 一致。API/DB healthy、Web running、migration exited/0，ledger 仍为 14 项且最新为 `0013`；运行容器 `/app/server.mjs` 与 release 文件 SHA-256 均为 `1e8db34a5352c9e2bf22ff00182df0f32fa161acf3fdf309e255371d72bd827f`。发布前 1,121,082,954 字节 custom-format 备份经 PostgreSQL 18 容器 `pg_restore --list` 读取成功，未执行恢复；prod 未处理。
+- 同日推送 `dev@7d9b0ca` 后，17:06（UTC+8）内网 health 已返回 UUID v4 `X-Request-ID`，Admin HTML 已引用该提交本地 development build 的主资源；后续只读烟测覆盖 ID 唯一性、合法/非法输入、CORS、404/401 与静态排除。非交互 SSH 被拒绝，未重新读取 release ID、manifest、状态文件、备份、容器和 ledger；上条 `baf0d7b` 仍是最近一次完整基础设施检查点，prod 未部署。
 - 受控扫描、幂等扣次与本地收藏/初始价格事件写入均通过；App test/Admin development 和 `deploy:dev` 已统一到 Linux。Apple Sandbox 官方 TEST 已经由独立公网回调进入 Linux 并成功处理。用户确认两端客户端路径已测试无问题，本次未独立重跑真机；指定交易的统计后台收件和完整生命周期矩阵仍单独验收。
 - 2026-09-17 已删除旧 `toccards-api-dev` Worker、`api-dev.tcgcard.fun` 自定义域名及唯一 cron；旧测试数据和包保留。正式 API、共享 CF 向量识别和独立 Apple 回调保持运行。
 - 2026-09-16 配置增量：原 CF dev 的 Google/App Attest/邮件公开配置及 Apple 官方根证书已落入 Linux；API 通过 Node 22.22.1 原生环境代理访问外网，Google 网络验证通过，CF 向量服务和内网仍直连。私密凭据、公网通知入口与真机缺项集中维护在[开发计划](../05-delivery/development-plan.md#linux-dev-集中处理清单2026-09-16)。
