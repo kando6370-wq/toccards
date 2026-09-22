@@ -2,6 +2,16 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## iOS 测试内部包 1.0.3 (157)（2026-09-22）
+
+按用户要求从干净的 `dev@f0eca6af` 重新构建测试环境内部包。源码版本为 `1.0.3+156`，同一测试 Bundle ID 已保存构建号 156，因此使用 157，避免覆盖既有产物。测试配置为 `com.kando.kandoApp.beta`、App Attest `development`、测试 Firebase 和 `http://192.168.50.201:8080/api/v1`；构建前 Linux dev `/health` 返回 HTTP 200、`status=ok`。
+
+执行 `./tool/release_ios.sh --env test --pgy --build-number 157`，依赖按锁文件解析，`flutter analyze`、全量清理、Xcode Release Archive、App Store IPA 导出、内部 IPA 打包、签名与配置校验均通过，脚本退出 0。最终内部 IPA 为 `1.0.3 (157)`、Apple Development 签名、`get-task-allow=true`、App Attest `development`；测试 Firebase、内网 API 字符串和签名完整性均通过，42 个 Mach-O UUID 均有匹配 dSYM。Dart 与 CocoaPods 锁文件均未变化；现有 `sign_in_with_apple` 不支持 Swift Package Manager 的提示不阻断本次 CocoaPods 真机 Release 包。
+
+IPA 为 39,910,340 字节，SHA-256 `4b2348d6dd7286579949c32acd56156b24afc125cb88c0ffa68e66e2fa220313`；`dSYMs.zip` 为 60,996,688 字节，SHA-256 `d6efc7860d824b94ba5bbe23e76e98dbabcdba367aae083b24556b5dd5b449ec`。两者保存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.3-157/`；构建 Archive 位于 `apps/flutter-app/build/ios/archive/Runner.xcarchive`。当前保留 155、156、157，旧 154 已移入废纸篓，可恢复；源码版本同步为 `1.0.3+157`。
+
+未运行 Flutter 单元、Widget 或集成测试，也未执行 iOS/Android 真机业务验收、安装设备、上传蒲公英或 App Store Connect、Git push、服务端部署或远程数据写入。
+
 ## Scan Results 终态埋点迁移（2026-09-22，本地修改）
 
 原 `scan_results` 只在单张添加、批量添加或退出扫描页时补报；用户只完成识别而不执行这些动作时后台没有事件，且 Matched 在详情/价格尚未完成前已被记录为成功。本次把上报迁移到每次识别 attempt 的真实终态：有效 Matched 等详情/价格请求完成并包含当前 `card_ref` 后报 `success`，空价格列表仍成功；No Match 报 `notfound`；技术失败、取消、详情缺失/加载异常和处理中删除报 `failed`。Quota Waiting 与 Premium Syncing 不作为终态，Retry 使用新 token 单独上报，同一 token 只报一次。单张添加、批量添加和退出页面三处旧调用已移除；成功 `timing` 延续到详情/价格完成。识别、价格、Free/Premium 额度、Review 和确认入库逻辑未改。
