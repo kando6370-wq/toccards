@@ -31,6 +31,8 @@ iOS 与 Android 共用 Flutter 取景框布局。取景框根据视口和安全�
 
 ## 性能与可观测性
 
+Flutter 的 `scan_results` 按每次识别 attempt 在结果终态上报，不再由单张添加、批量添加或退出扫描页补报。Matched 只有在详情/价格加载完成且返回当前卡牌 `card_ref` 后上报 `success`；市场价格列表为空仍是有效成功。No Match 上报 `notfound`，技术失败、取消、详情缺失、详情/价格加载异常及处理中删除上报 `failed`。Quota Waiting 与 Premium Syncing 是可恢复中间态，不上报终态；Retry 作为新的 attempt 单独上报，因此一次失败后重试成功会各有一条事件。每个 attempt 以 token 去重，重复回调、添加卡牌和离开页面不会重复上报。`timing` 从该 attempt 开始识别累计到终态，成功包含详情/价格加载时间；可恢复等待期间暂停计时，值继续使用向上取整的秒数字符串。该调整只改变客户端埋点时机，不改变识别、价格、额度、收藏或订阅流程。
+
 2026-09-20 dev API release `9488a15` 在不改变扫描业务顺序的前提下减少数据库等待：queued reserve 对新 request 使用 insert-first，冲突、重试和额度耗尽仍回读；成功 settlement 先执行受 owner/session/有效 lease 约束的 UPDATE，只有 0 行时才回读 request。Quota 聚合只扫描 `free + reserved/consumed` 账本，过期 reservation 仍按原规则不计数；Free=10、Premium unlimited、幂等响应和消费/释放语义不变。
 
 `POST /scan/recognize` 的 Worker 总耗时达到 1 秒时记录 `scan_recognize_timing`，只包含 outcome 及 auth、preflight/quota、R2 image、向量 recognition、目录 catalog、audit、settlement 各阶段毫秒数，不包含 owner、卡牌、图片、token 或上游正文。该日志用于与 Cloudflare `$workers.wallTimeMs >= 1000` 对齐；它不改变响应 JSON、`elapsed`、R2/向量顺序或客户端 25 秒 Deadline。prod 尚未部署本轮代码，其阶段分布仍须独立验证。

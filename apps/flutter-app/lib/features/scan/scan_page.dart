@@ -377,8 +377,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   final Map<int, _PendingScan> _pendingScans = {};
   final Map<int, Stopwatch> _scanStopwatches = {};
   final Map<int, Duration> _scanDurations = {};
-  final Map<int, String> _scanResultValues = {};
-  final Set<int> _reportedScanResultIds = {};
+  final Map<int, int> _reportedScanResultTokens = {};
   final Set<int> _quotaPromptedBatchIds = {};
   late final AnimationController _captureController;
   ScanCameraSession? _cameraSession;
@@ -1095,10 +1094,13 @@ class _ScanPageState extends ConsumerState<ScanPage>
       unawaited(_openQuotaPaywall());
       return;
     }
-    _restartScan(item);
+    _restartScan(item, startsNewAttempt: true);
   }
 
-  void _restartScan(_ScanItem item) {
+  void _restartScan(_ScanItem item, {bool startsNewAttempt = false}) {
+    if (startsNewAttempt) {
+      _scanDurations.remove(item.id);
+    }
     _scanStopwatches[item.id] = Stopwatch()..start();
     _replaceItem(
       item.copyWith(
@@ -1150,13 +1152,12 @@ class _ScanPageState extends ConsumerState<ScanPage>
         item.status == _ScanItemStatus.recognizing ||
         item.status == _ScanItemStatus.revealing;
     if (processing) {
-      ref.read(analyticsProvider).track(AnalyticsEvent.cancelClick);
-      final stopwatch = _scanStopwatches.remove(item.id);
-      stopwatch?.stop();
-      _scanDurations[item.id] =
-          (_scanDurations[item.id] ?? Duration.zero) +
-          (stopwatch?.elapsed ?? Duration.zero);
-      _scanResultValues[item.id] = AnalyticsValue.scanFailed;
+      final analytics = ref.read(analyticsProvider);
+      analytics.track(AnalyticsEvent.cancelClick);
+      final token = _pendingScans[item.id]?.token;
+      if (token != null) {
+        _reportScanResult(item.id, token, AnalyticsValue.scanFailed, analytics);
+      }
     } else {
       ref.read(analyticsProvider).track(AnalyticsEvent.deleteClick);
     }
@@ -1339,19 +1340,37 @@ class _ScanPageState extends ConsumerState<ScanPage>
       return;
     }
     if (!pending.removedFromUi) {
-      final stopwatch = _scanStopwatches.remove(itemId);
-      stopwatch?.stop();
-      _scanDurations[itemId] =
-          (_scanDurations[itemId] ?? Duration.zero) +
-          (stopwatch?.elapsed ?? Duration.zero);
-      _scanResultValues[itemId] = switch (resolution.kind) {
-        ScanResolutionKind.matched => AnalyticsValue.scanSuccess,
-        ScanResolutionKind.noMatch => AnalyticsValue.scanNotFound,
-        ScanResolutionKind.failed ||
-        ScanResolutionKind.cancelled ||
-        ScanResolutionKind.quotaExhausted ||
-        ScanResolutionKind.entitlementSyncRequired => AnalyticsValue.scanFailed,
-      };
+      final analytics = ref.read(analyticsProvider);
+      switch (resolution.kind) {
+        case ScanResolutionKind.matched:
+          if (resolution.scanId == null ||
+              resolution.cardRef == null ||
+              resolution.matchName == null) {
+            _reportScanResult(
+              itemId,
+              token,
+              AnalyticsValue.scanFailed,
+              analytics,
+            );
+          }
+        case ScanResolutionKind.noMatch:
+          _reportScanResult(
+            itemId,
+            token,
+            AnalyticsValue.scanNotFound,
+            analytics,
+          );
+        case ScanResolutionKind.failed || ScanResolutionKind.cancelled:
+          _reportScanResult(
+            itemId,
+            token,
+            AnalyticsValue.scanFailed,
+            analytics,
+          );
+        case ScanResolutionKind.quotaExhausted ||
+            ScanResolutionKind.entitlementSyncRequired:
+          _pauseScanResultTiming(itemId);
+      }
     }
 
     if (!mounted) {
@@ -1533,19 +1552,29 @@ class _ScanPageState extends ConsumerState<ScanPage>
       ref
           .read(scanQuotaControllerProvider.notifier)
           .revealSuccessfulScanInDisplay();
-      unawaited(_loadScanCards(match));
+      unawaited(_loadScanCards(itemId, token, match));
     }
     completedPending?.revealController?.dispose();
   }
 
-  Future<void> _loadScanCards(_ScanMatch match) async {
+  Future<void> _loadScanCards(int itemId, int token, _ScanMatch match) async {
+    final analytics = ref.read(analyticsProvider);
     try {
       final cards = await ref.read(scanReviewRepositoryProvider).loadCards([
         for (final candidate in match.candidates) candidate.cardRef,
       ]);
+      _reportScanResult(
+        itemId,
+        token,
+        cards.containsKey(match.cardRef)
+            ? AnalyticsValue.scanSuccess
+            : AnalyticsValue.scanFailed,
+        analytics,
+      );
       if (!mounted) return;
       setState(() => _reviewCards = _mergeScanCards(_reviewCards, cards));
     } on Exception {
+      _reportScanResult(itemId, token, AnalyticsValue.scanFailed, analytics);
       // Price metadata is supplemental; review retries the same load explicitly.
     }
   }
@@ -1673,7 +1702,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
       return;
     }
     _trackCollectionItemAdd(item);
-    _reportScanResult(item.id);
 
     final input = _reviewInputFor(item);
     if (input == null) {
@@ -1745,7 +1773,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
     for (final item in matchedItems) {
       _trackCollectionItemAdd(item);
-      _reportScanResult(item.id);
     }
 
     final inputs = <int, ScanCollectionItemInput>{};
@@ -1999,7 +2026,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
     }
     if (!_hasUnsavedScanResults) {
       if (mounted) {
-        _reportAllScanResults();
         context.go('/home');
       }
       return;
@@ -2034,7 +2060,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
       ),
     );
     if (mounted && shouldExit == true) {
-      _reportAllScanResults();
       context.go('/home');
     }
   }
@@ -2062,36 +2087,34 @@ class _ScanPageState extends ConsumerState<ScanPage>
         );
   }
 
-  void _reportAllScanResults() {
-    final itemIds = <int>{
-      ..._scanDurations.keys,
-      ..._scanStopwatches.keys,
-      ..._scanResultValues.keys,
-    };
-    for (final itemId in itemIds) {
-      _reportScanResult(itemId);
-    }
+  void _pauseScanResultTiming(int itemId) {
+    final stopwatch = _scanStopwatches.remove(itemId);
+    stopwatch?.stop();
+    _scanDurations[itemId] =
+        (_scanDurations[itemId] ?? Duration.zero) +
+        (stopwatch?.elapsed ?? Duration.zero);
   }
 
-  void _reportScanResult(int itemId) {
-    if (!_reportedScanResultIds.add(itemId)) return;
-    final duration =
-        _scanDurations[itemId] ??
-        _scanStopwatches[itemId]?.elapsed ??
-        Duration.zero;
+  void _reportScanResult(
+    int itemId,
+    int token,
+    String result,
+    AppAnalytics analytics,
+  ) {
+    if (_reportedScanResultTokens[itemId] == token) return;
+    _reportedScanResultTokens[itemId] = token;
+    _pauseScanResultTiming(itemId);
+    final duration = _scanDurations[itemId] ?? Duration.zero;
     final wholeSeconds = duration.inMilliseconds <= 0
         ? 0
         : (duration.inMilliseconds / 1000).ceil();
-    ref
-        .read(analyticsProvider)
-        .track(
-          AnalyticsEvent.scanResults,
-          properties: {
-            AnalyticsProperty.timing: '${wholeSeconds}s',
-            AnalyticsProperty.scanResults:
-                _scanResultValues[itemId] ?? AnalyticsValue.scanFailed,
-          },
-        );
+    analytics.track(
+      AnalyticsEvent.scanResults,
+      properties: {
+        AnalyticsProperty.timing: '${wholeSeconds}s',
+        AnalyticsProperty.scanResults: result,
+      },
+    );
   }
 
   @override

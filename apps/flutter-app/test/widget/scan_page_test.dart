@@ -2113,6 +2113,7 @@ void main() {
   testWidgets('Figma scan failure retries through the existing scan flow', (
     tester,
   ) async {
+    final analytics = _AnalyticsRecorder();
     final source = _TestScanResultSource(
       photoResult: Future.value(
         ScanResolution.failed(
@@ -2129,10 +2130,20 @@ void main() {
         ),
       ),
     );
-    await _pumpScanTestApp(tester, scanResultSource: source);
+    await _pumpScanTestApp(
+      tester,
+      scanResultSource: source,
+      analytics: analytics.client,
+    );
 
     await tester.tap(find.byTooltip('Take Photo'));
     await _completeFigmaScan(tester);
+    expect(analytics.count(AnalyticsEvent.scanResults), 1);
+    expect(
+      analytics.propertiesFor(AnalyticsEvent.scanResults).single,
+      containsPair(AnalyticsProperty.scanResults, AnalyticsValue.scanFailed),
+    );
+
     await tester.tap(find.byTooltip('Retry scan'));
     await tester.pump();
 
@@ -2143,7 +2154,155 @@ void main() {
 
     await _completeFigmaScan(tester);
     expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
+    expect(analytics.count(AnalyticsEvent.scanResults), 2);
+    expect(
+      analytics.propertiesFor(AnalyticsEvent.scanResults).last,
+      containsPair(AnalyticsProperty.scanResults, AnalyticsValue.scanSuccess),
+    );
   });
+
+  testWidgets(
+    'scan result analytics waits for price completion and accepts no price data',
+    (tester) async {
+      final analytics = _AnalyticsRecorder();
+      final repository = _StaleScanCardsRepository();
+      await _pumpScanTestApp(
+        tester,
+        scanReviewRepository: repository,
+        analytics: analytics.client,
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+
+      expect(find.text('Mega Lucario ex'), findsOneWidget);
+      expect(repository.loadCardsCount, 1);
+      expect(analytics.count(AnalyticsEvent.scanResults), 0);
+
+      await tester.pump(const Duration(seconds: 1));
+      repository.completeBackgroundLoadWithEmptyPrices();
+      await tester.pump();
+
+      expect(analytics.count(AnalyticsEvent.scanResults), 1);
+      expect(
+        analytics.propertiesFor(AnalyticsEvent.scanResults).single,
+        containsPair(AnalyticsProperty.scanResults, AnalyticsValue.scanSuccess),
+      );
+      expect(
+        analytics.propertiesFor(AnalyticsEvent.scanResults).single,
+        containsPair(
+          AnalyticsProperty.timing,
+          matches(RegExp(r'^\d+s$')),
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Review completed scan'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('scan-review-quantity-1')),
+        '0',
+      );
+      await tester.tap(find.text('Add this card'));
+      await tester.pump();
+
+      expect(analytics.count(AnalyticsEvent.scanResults), 1);
+      await tester.pump(kandoTopToastDuration);
+      await tester.pump();
+    },
+  );
+
+  testWidgets(
+    'leaving scan does not report before the pending price load completes',
+    (tester) async {
+      final analytics = _AnalyticsRecorder();
+      final repository = _StaleScanCardsRepository();
+      await _pumpScanTestApp(
+        tester,
+        scanReviewRepository: repository,
+        analytics: analytics.client,
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      expect(analytics.count(AnalyticsEvent.scanResults), 0);
+
+      await tester.tap(find.byTooltip('Close Scan'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('EXIT'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Overview'), findsOneWidget);
+      expect(analytics.count(AnalyticsEvent.scanResults), 0);
+
+      repository.completeBackgroundLoadWithEmptyPrices();
+      await tester.pump();
+
+      expect(analytics.count(AnalyticsEvent.scanResults), 1);
+      expect(
+        analytics.propertiesFor(AnalyticsEvent.scanResults).single,
+        containsPair(AnalyticsProperty.scanResults, AnalyticsValue.scanSuccess),
+      );
+    },
+  );
+
+  testWidgets(
+    'scan result analytics reports failed when complete card data is missing',
+    (tester) async {
+      final analytics = _AnalyticsRecorder();
+      await _pumpScanTestApp(
+        tester,
+        scanReviewRepository: _MissingCurrentScanReviewRepository(),
+        analytics: analytics.client,
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.pump();
+
+      expect(analytics.count(AnalyticsEvent.scanResults), 1);
+      expect(
+        analytics.propertiesFor(AnalyticsEvent.scanResults).single,
+        containsPair(AnalyticsProperty.scanResults, AnalyticsValue.scanFailed),
+      );
+    },
+  );
+
+  testWidgets(
+    'scan result analytics reports no match and failure immediately',
+    (tester) async {
+      final analytics = _AnalyticsRecorder();
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.noMatch()),
+        subsequentPhotoResults: [Future.value(const ScanResolution.failed())],
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        analytics: analytics.client,
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+
+      expect(analytics.count(AnalyticsEvent.scanResults), 1);
+      expect(
+        analytics.propertiesFor(AnalyticsEvent.scanResults).single,
+        containsPair(
+          AnalyticsProperty.scanResults,
+          AnalyticsValue.scanNotFound,
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+
+      expect(analytics.count(AnalyticsEvent.scanResults), 2);
+      expect(
+        analytics.propertiesFor(AnalyticsEvent.scanResults).last,
+        containsPair(AnalyticsProperty.scanResults, AnalyticsValue.scanFailed),
+      );
+    },
+  );
 
   testWidgets(
     'Figma failure returns to generic results after an earlier match is added',

@@ -2,6 +2,14 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## Scan Results 终态埋点迁移（2026-09-22，本地修改）
+
+原 `scan_results` 只在单张添加、批量添加或退出扫描页时补报；用户只完成识别而不执行这些动作时后台没有事件，且 Matched 在详情/价格尚未完成前已被记录为成功。本次把上报迁移到每次识别 attempt 的真实终态：有效 Matched 等详情/价格请求完成并包含当前 `card_ref` 后报 `success`，空价格列表仍成功；No Match 报 `notfound`；技术失败、取消、详情缺失/加载异常和处理中删除报 `failed`。Quota Waiting 与 Premium Syncing 不作为终态，Retry 使用新 token 单独上报，同一 token 只报一次。单张添加、批量添加和退出页面三处旧调用已移除；成功 `timing` 延续到详情/价格完成。识别、价格、Free/Premium 额度、Review 和确认入库逻辑未改。
+
+修改前，成功等待价格、No Match/技术失败和失败后 Retry 三条埋点回归均因期望事件数为 1、实际为 0 而失败。修复后 7 条定向回归全部通过，覆盖空价格成功、价格完成前不报、退出页面不提前补报、详情缺失失败、No Match、技术失败、处理中删除、Retry 的失败与后续成功，以及添加卡牌不重复上报。`flutter analyze --no-pub` 通过、无问题；`git diff --check` 通过。完整 `scan_page_test.dart` 的非 Golden 用例全部通过，5 个严格像素 Golden 在当前环境失败；它们覆盖 pre-scan、scanning、recognition、reveal 和 review，本次未改 UI、未更新图片或放宽断言，属于仓库当前已记录的 Golden 基线集合。
+
+Code Review 核对 Matched/No Match/失败/取消、价格为空、详情缺失、处理中删除、Retry token、Quota/订阅中间态、页面退出和旧三个上报入口。审查发现同一结果项在已报告失败后，若后续 Retry 进入 Quota Waiting，自动恢复会误清等待前累计时长；现已把清零限定为用户 Retry 创建的新 attempt，额度/订阅自动恢复保留当前 attempt 的累计时长。返工后埋点与 Waiting/Premium 影响面 10/10、静态分析再次通过，未发现剩余代码级阻断项。未执行 iOS/Android 真机扫描、Mixpanel 实际收件、安装包构建、Git push 或 dev/prod 部署；因此本地 recorder 通过不等于平台后台已收到事件，需后续测试包在两端真机分别验证成功、No Match 和技术失败事件及 `timing`。
+
 ## Admin 内网 HTTP 请求 ID 兼容修复（2026-09-22，已部署 dev）
 
 用户在 `http://192.168.50.201:8080` 登录 Admin 时稳定看到 `crypto.randomUUID is not a function`，登录请求在浏览器发出前失败。根因是该内网 HTTP 地址不属于浏览器安全上下文，`crypto` 与 `getRandomValues` 可用，但 `randomUUID` 不可用；请求 ID helper 无条件调用 `crypto.randomUUID()`。影响 Admin 登录及共用 helper 的 JSON、XLSX 下载和受保护扫描图片请求，不影响 Workers 鉴权、响应契约、Flutter、数据库或 prod HTTPS 的原生路径。
