@@ -4,7 +4,7 @@
 
 所有 `/api/v1/*` 请求统一使用 `X-Request-ID` 作为传输层关联 ID，覆盖 Flutter、Admin、认证、公共配置、法律、Health 与 Apple 回调。调用方提供合法 UUID v4 时 Workers 保留该值；缺失或非法时由 Workers 生成。所有成功、业务失败、未匹配路由和未处理异常响应都回显同一 Header，CORS 同时允许请求并向浏览器暴露该 Header。响应 JSON body 不增加字段。
 
-Flutter 与 Admin 在每次实际 HTTP 尝试开始时生成新的 UUID v4。Flutter 的请求日志、`api_timing` 与 `api_err` 使用该次实际发送的同一 ID；401 刷新后的透明重试必须换新 ID。Admin 的 JSON 请求、XLSX 下载与受保护扫描图片请求使用同一生成规则。Workers 每个业务 API 请求输出一条 `api_request` 完成日志，仅包含 `request_id/method/path/status/duration_ms`，其中 `path` 使用不含真实路径参数或 query 的路由模板，日志不记录 token、用户、请求正文或响应正文。
+Flutter 与 Admin 在每次实际 HTTP 尝试开始时生成新的 UUID v4。Flutter 的请求日志、`api_timing` 与 `api_err` 使用该次实际发送的同一 ID；401 刷新后的透明重试必须换新 ID。Admin 的 JSON 请求、XLSX 下载与受保护扫描图片请求使用同一生成规则；HTTPS 安全上下文优先使用原生 `crypto.randomUUID()`，Linux dev 的局域网 HTTP 在该 API 不可用时使用仍允许于非安全上下文的 `crypto.getRandomValues()` 生成 UUID v4。Workers 每个业务 API 请求输出一条 `api_request` 完成日志，仅包含 `request_id/method/path/status/duration_ms`，其中 `path` 使用不含真实路径参数或 query 的路由模板，日志不记录 token、用户、请求正文或响应正文。
 
 `X-Request-ID` 只用于一次物理 HTTP 尝试，与扫描、Portfolio 和 Apple proof 等业务 body 中的 `request_id` 及 `Idempotency-Key` 完全独立。业务幂等键在超时或不确定提交后的重试中按原规则复用，传输层请求 ID 每次换新。`/share/*`、静态资源和第三方请求不加该 Header；主 API 调用内部 `recognize-vec` 时也不转发该 Header，只发送既有向量协议字段。该变更不涉及数据库 Schema 或 migration。
 

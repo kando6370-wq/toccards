@@ -154,7 +154,7 @@ Admin 页面是只读排障层，不提供重放通知、改订单、改 lifecyc
 | 错误 | 查询失败显示固定业务文案；不得用空列表掩盖服务端错误 |
 | 导出 | 与列表筛选一致；上限和空结果显式失败 |
 | Payload | 仅详情按需加载 decoded payload；不返回 signed JWS |
-| 请求关联 | JSON、XLSX 下载和受保护扫描图片的每次 fetch 都生成 UUID v4 `X-Request-ID`；服务端响应回显且 CORS 暴露 |
+| 请求关联 | JSON、XLSX 下载和受保护扫描图片的每次 fetch 都生成 UUID v4 `X-Request-ID`；HTTPS 优先使用原生 `randomUUID`，局域网 HTTP 缺少该 API 时使用 `getRandomValues` 生成；服务端响应回显且 CORS 暴露 |
 
 ## 8. 部署与验证边界
 

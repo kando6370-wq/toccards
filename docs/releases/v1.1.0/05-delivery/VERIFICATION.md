@@ -2,6 +2,14 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## Admin 内网 HTTP 请求 ID 兼容修复（2026-09-22，本地修改）
+
+用户在 `http://192.168.50.201:8080` 登录 Admin 时稳定看到 `crypto.randomUUID is not a function`，登录请求在浏览器发出前失败。根因是该内网 HTTP 地址不属于浏览器安全上下文，`crypto` 与 `getRandomValues` 可用，但 `randomUUID` 不可用；请求 ID helper 无条件调用 `crypto.randomUUID()`。影响 Admin 登录及共用 helper 的 JSON、XLSX 下载和受保护扫描图片请求，不影响 Workers 鉴权、响应契约、Flutter、数据库或 prod HTTPS 的原生路径。
+
+修复保留安全上下文的原生 `randomUUID`；缺少该方法时用 `getRandomValues` 填充 16 字节，并显式设置 UUID v4 版本位和 RFC 4122 变体位。不使用 `Math.random`，不移除 `X-Request-ID`，不改变三个 fetch 调用入口。修改前新增运行时回归在模拟 LAN HTTP 的 Crypto 对象上复现同一 TypeError，1/2 失败；修复后定向 2/2、Admin 全量 24/24、type-check 和 development build 均通过，新主 bundle 为 `index-Dpcx4bfa.js`。Code Review 核对原生/fallback 分支、随机源、UUID 位、Header 保留和全部调用方，未发现剩余代码级问题。
+
+当前仅为本地修复，尚未提交、推送或部署；原问题必须在部署后用非安全上下文浏览器复验，不能用 Node 回归或构建成功替代真实 Admin 登录。文档影响仅为请求 ID 的浏览器生成兼容性，接口与 Schema 无变化。
+
 ## 全业务 API 请求关联 ID（2026-09-21，已部署 dev）
 
 所有 `/api/v1/*` 已增加 UUID v4 `X-Request-ID`：合法调用方 ID 原样回显，缺失或非法 ID 由 Workers 生成；CORS 允许并暴露该 Header；完成日志只记录 `request_id/method/path/status/duration_ms`。Flutter 与 Admin 每次实际 HTTP 尝试生成新 ID，Flutter 本地请求日志、`api_timing`、`api_err` 使用同值；Admin JSON、导出文件和受保护扫描图片均覆盖。扫描 body 的业务 `request_id` 与 `Idempotency-Key` 仍按原幂等规则复用，主 API 到内部 `recognize-vec` 不转发传输层 ID；`/share/*`、静态资源和第三方请求排除。响应 JSON、数据库 Schema 与 migration 均未变化。
