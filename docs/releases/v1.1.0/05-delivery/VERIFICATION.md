@@ -14,6 +14,16 @@ Code Review 发现并修复两项：合法大写 UUID 原先被转成小写，�
 
 现有非交互 SSH 以 `publickey,password` 被拒绝，未使用、保存或输出用户密码，因此本轮没有重新读取 `current`、manifest、`last-seen-sha`、`last-deployed-sha`、失败标记、备份、容器状态或 migration ledger。上述 HTTP/API 与确定性 Admin 资源证据证明请求关联版本已在 dev 对外生效，但不能替代服务器发布状态和备份回读；最近一次完整基础设施检查点仍为下节 `baf0d7b`。未执行认证扫描、真实 Admin 下载/图片、Apple 回调、Flutter 真机日志、跨监控平台查询或 prod 部署，内部向量不转发 Header 仅由本地路由回归覆盖。
 
+## iOS 测试内部包 1.0.3 (155)（2026-09-21）
+
+按用户要求从干净的 `dev@baf0d7b5` 重新构建测试环境内部包。该分支源码版本为 `1.0.3+153`，但同一测试 Bundle ID 已保存构建号 154，因此显式使用 155，避免覆盖既有产物。测试配置为 `com.kando.kandoApp.beta`、App Attest `development`、测试 Firebase 和 `http://192.168.50.201:8080/api/v1`；构建前 Linux dev `/health` 返回 HTTP 200、`status=ok`。
+
+执行 `./tool/release_ios.sh --env test --pgy --build-number 155`，依赖解析、`flutter analyze`、全量清理、Xcode Release Archive、App Store IPA 导出、内部 IPA 打包、签名与配置校验均通过，脚本退出 0。最终内部 IPA 为 `1.0.3 (155)`、Apple Development 签名、`get-task-allow=true`、App Attest `development`；测试 Firebase、内网 API 字符串和签名完整性均通过，40 个 Mach-O UUID 均有匹配 dSYM。Dart 与 CocoaPods 锁文件均未变化；现有 `sign_in_with_apple` 不支持 Swift Package Manager 的提示不阻断本次 CocoaPods 真机 Release 包。
+
+IPA 为 39,750,535 字节，SHA-256 `16d2ed2027c9566253726bd674e276182fd1b275c5721af429539e0e2249b6ed`；`dSYMs.zip` 为 60,849,778 字节，SHA-256 `6a980ca780aceb74828f4056d1be53ebb79bf18696e09650d62420abb5bd5cd8`。两者保存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.3-155/`；构建 Archive 位于 `apps/flutter-app/build/ios/archive/Runner.xcarchive`。当前保留 153、154、155，旧 152 已移入废纸篓，可恢复；源码版本同步为 `1.0.3+155`。
+
+未运行 Flutter 单元、Widget 或集成测试，也未执行 iOS/Android 真机业务验收、安装设备、上传蒲公英或 App Store Connect、Git push、服务端部署或远程数据写入。
+
 ## Free 10 次扫描、Gallery 并发与额度不足状态整改（2026-09-21，已部署 dev）
 
 用户报告未订阅用户出现误扣/多扣、相册批量次数错误及额度不足时 Scan 页面状态错误。本轮基于已合入移动端 OCR 清理的当前 `dev@5e701f8` 继续定位，保留上节 `b4b6e12` 的 25 秒总 Deadline 修复。服务端根因是并发识别领取 reservation 后，各请求都用结算前快照手算响应，后完成的成功项即使数据库已经变为 `reserved=0/consumed=9/remaining=1`，仍可返回 `reserved=1/consumed=9/remaining=0`；持久化的幂等响应也保留该旧值。Flutter 根因有两条：成功响应无法解析或 `recognition_status=success` 却没有可用 Matched 时清除了 request ID，Retry 会以新 ID 再次扣次；页面收到并发结果后立即用可能乱序的响应 Quota 递补 Waiting，没有在整批结束后回读服务端真值，刷新窗口还可能按旧 `remaining=0` 误开 Paywall。
