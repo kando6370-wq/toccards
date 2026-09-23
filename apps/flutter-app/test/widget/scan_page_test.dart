@@ -887,14 +887,14 @@ void main() {
   );
 
   testWidgets(
-    'Camera recognition sends the full photo to model-based card detection',
+    'Camera recognition submits the viewfinder crop to model-based detection',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(360, 800);
       addTearDown(tester.view.reset);
       final source = _TestScanResultSource(
         photoResult: Future.value(const ScanResolution.failed()),
-        recognizeResult: Future.value(const ScanResolution.noMatch()),
+        recognizeResult: Future.value(const ScanResolution.failed()),
       );
       final camera = _TestScanCameraSession();
       await _pumpScanTestApp(
@@ -908,10 +908,15 @@ void main() {
       await tester.pump(const Duration(milliseconds: 501));
 
       expect(source.recognizedImages, hasLength(1));
+      expect(source.recognizedImages.single.viewfinderCropped, isTrue);
       expect(
         source.recognizedImages.single.bytes,
         Uint8List.fromList(_transparentPngBytes),
       );
+      await _completeFigmaScan(tester);
+      await tester.tap(find.byTooltip('Retry scan'));
+      await tester.pump();
+      expect(source.lastRetryViewfinderCropped, isTrue);
     },
   );
 
@@ -1131,7 +1136,7 @@ void main() {
   }
 
   testWidgets(
-    'capture forwards the full photo when the viewport changes during feedback',
+    'capture uses the current visible frame when the viewport changes during feedback',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(390, 844);
@@ -1151,10 +1156,17 @@ void main() {
       await tester.pump(const Duration(milliseconds: 250));
       tester.view.physicalSize = const Size(375, 667);
       tester.view.padding = const FakeViewPadding(top: 20);
+      await tester.pump();
       await tester.pump(const Duration(milliseconds: 501));
 
       expect(camera.takePhotoCount, 1);
+      expect(camera.lastViewport, const Size(375, 667));
+      expect(
+        camera.lastViewfinder,
+        tester.getRect(find.byKey(const Key('scan-figma-viewfinder'))),
+      );
       expect(source.recognizedImages, hasLength(1));
+      expect(source.recognizedImages.single.viewfinderCropped, isTrue);
       expect(
         source.recognizedImages.single.bytes,
         Uint8List.fromList(_transparentPngBytes),
@@ -5142,6 +5154,7 @@ class _TestScanResultSource implements ScanResultSource {
   final retryCardTypes = <ScanCardType>[];
   Uint8List? lastRetryBytes;
   String? lastRetryFileName;
+  bool? lastRetryViewfinderCropped;
   final recognizedImages = <ScanImage>[];
 
   @override
@@ -5199,8 +5212,10 @@ class _TestScanResultSource implements ScanResultSource {
     Uint8List? imageBytes,
     String? fileName,
     ScanCardType cardType = ScanCardType.tcg,
+    bool viewfinderCropped = false,
   }) {
     retryCallCount += 1;
+    lastRetryViewfinderCropped = viewfinderCropped;
     retryCardTypes.add(cardType);
     lastRetryBytes = imageBytes;
     lastRetryFileName = fileName;
@@ -5291,6 +5306,8 @@ class _PermissionDelayedScanCameraFactory implements ScanCameraFactory {
 class _TestScanCameraSession implements ScanCameraSession {
   var _flashEnabled = false;
   var takePhotoCount = 0;
+  Rect? lastViewfinder;
+  Size? lastViewport;
   var pausePreviewCount = 0;
   var resumePreviewCount = 0;
   var disposed = false;
@@ -5307,11 +5324,17 @@ class _TestScanCameraSession implements ScanCameraSession {
   }
 
   @override
-  Future<ScanImage> takePhoto() async {
+  Future<ScanImage> takePhoto({
+    required Rect viewfinder,
+    required Size viewport,
+  }) async {
     takePhotoCount += 1;
+    lastViewfinder = viewfinder;
+    lastViewport = viewport;
     return ScanImage(
       bytes: Uint8List.fromList(_transparentPngBytes),
       fileName: 'live-camera.jpg',
+      viewfinderCropped: true,
     );
   }
 

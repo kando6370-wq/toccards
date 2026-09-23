@@ -40,6 +40,36 @@ void main() {
       expect(api.lastPlatform, 'iOS');
       expect(api.lastCardNumber, isNull);
       expect(picker.sources, [ScanImageSource.camera]);
+      expect(cardRecognizer.lastAllowCropFallback, isFalse);
+    },
+  );
+
+  test(
+    'only a viewfinder-cropped photo can use the detector fallback on retry',
+    () async {
+      final recognizer = _FakeScanCardRecognizer();
+      final source = ApiScanResultSource(
+        api: _FakeScanApi(_matchedRecognition),
+        session: () => _session,
+        imagePicker: _FakeScanImagePicker(),
+        cardRecognizer: recognizer,
+        appInfo: () async =>
+            const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
+      );
+      final crop = Uint8List.fromList([1, 2, 3]);
+      await source.recognize(
+        ScanImage(bytes: crop, fileName: 'camera.jpg', viewfinderCropped: true),
+      );
+      expect(recognizer.lastBytes, same(crop));
+      expect(recognizer.lastAllowCropFallback, isTrue);
+      await source.retry(
+        imageBytes: crop,
+        fileName: 'camera.jpg',
+        viewfinderCropped: true,
+      );
+      expect(recognizer.lastAllowCropFallback, isTrue);
+      await source.recognize(ScanImage(bytes: crop, fileName: 'gallery.jpg'));
+      expect(recognizer.lastAllowCropFallback, isFalse);
     },
   );
 
@@ -556,7 +586,10 @@ class _OrderedScanCardRecognizer implements ScanCardRecognizer {
   final Future<void> firstReady;
 
   @override
-  Future<ScanCardEmbedding> process(Uint8List imageBytes) async {
+  Future<ScanCardEmbedding> process(
+    Uint8List imageBytes, {
+    bool allowCropFallback = false,
+  }) async {
     if (imageBytes.single == 1) await firstReady;
     return ScanCardEmbedding(
       vector: List<double>.filled(512, 0.25),
@@ -567,10 +600,15 @@ class _OrderedScanCardRecognizer implements ScanCardRecognizer {
 
 class _FakeScanCardRecognizer implements ScanCardRecognizer {
   Uint8List? lastBytes;
+  bool? lastAllowCropFallback;
 
   @override
-  Future<ScanCardEmbedding> process(Uint8List imageBytes) async {
+  Future<ScanCardEmbedding> process(
+    Uint8List imageBytes, {
+    bool allowCropFallback = false,
+  }) async {
     lastBytes = imageBytes;
+    lastAllowCropFallback = allowCropFallback;
     return ScanCardEmbedding(
       vector: List<double>.filled(512, 0.25),
       cardImageBytes: Uint8List.fromList([4, 5, 6]),

@@ -9,7 +9,10 @@ class _UnsupportedScanCardRecognizer implements ScanCardRecognizer {
   const _UnsupportedScanCardRecognizer();
 
   @override
-  Future<ScanCardEmbedding> process(Uint8List imageBytes) {
+  Future<ScanCardEmbedding> process(
+    Uint8List imageBytes, {
+    bool allowCropFallback = false,
+  }) {
     throw const ScanImageProcessingException(
       'On-device card recognition is unavailable on this platform.',
     );

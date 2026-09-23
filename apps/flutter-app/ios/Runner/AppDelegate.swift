@@ -202,17 +202,18 @@ private enum ScanNativeImageProcessor {
       binaryMessenger: messenger
     )
     channel.setMethodCallHandler { call, result in
-      guard call.method == "prepareDetection" || call.method == "rectifyCard" else {
+      guard ["prepareDetection", "rectifyCard", "cropViewfinder", "prepareFallbackCard"].contains(call.method) else {
         result(FlutterMethodNotImplemented)
         return
       }
       queue.async {
         do {
-          let value: [String: Any]
-          if call.method == "prepareDetection" {
-            value = try prepareDetection(call.arguments)
-          } else {
-            value = try rectifyCard(call.arguments)
+          let value: Any
+          switch call.method {
+          case "prepareDetection": value = try prepareDetection(call.arguments)
+          case "rectifyCard": value = try rectifyCard(call.arguments)
+          case "cropViewfinder": value = try cropViewfinder(call.arguments)
+          default: value = try prepareFallbackCard(call.arguments)
           }
           DispatchQueue.main.async { result(value) }
         } catch {
@@ -268,6 +269,87 @@ private enum ScanNativeImageProcessor {
       "resized_width": resizedWidth,
       "resized_height": resizedHeight,
       "rgb_bytes": FlutterStandardTypedData(bytes: rgb),
+    ]
+  }
+
+  private static func cropViewfinder(_ rawArguments: Any?) throws -> FlutterStandardTypedData {
+    guard
+      let arguments = rawArguments as? [String: Any],
+      let typedData = arguments["image"] as? FlutterStandardTypedData,
+      let frame = arguments["frame"] as? [NSNumber],
+      frame.count == 4,
+      let previewWidth = arguments["preview_width"] as? Double,
+      let previewHeight = arguments["preview_height"] as? Double,
+      previewWidth.isFinite, previewHeight.isFinite,
+      previewWidth > 0, previewHeight > 0,
+      let jpegQuality = arguments["jpeg_quality"] as? Int,
+      let source = CIImage(data: typedData.data, options: [.applyOrientationProperty: true])
+    else { throw ScanNativeImageError.invalidInput }
+    let edges = frame.map { CGFloat($0.doubleValue) }
+    guard
+      edges.allSatisfy({ $0.isFinite }),
+      edges[0] >= 0, edges[1] >= 0,
+      edges[2] <= 1, edges[3] <= 1,
+      edges[0] < edges[2], edges[1] < edges[3],
+      !source.extent.isEmpty, !source.extent.isInfinite
+    else { throw ScanNativeImageError.invalidInput }
+
+    let extent = source.extent
+    let previewAspect = CGFloat(previewWidth / previewHeight)
+    let visible: CGRect
+    if extent.width / extent.height > previewAspect {
+      let width = extent.height * previewAspect
+      visible = CGRect(x: extent.midX - width / 2, y: extent.minY, width: width, height: extent.height)
+    } else {
+      let height = extent.width / previewAspect
+      visible = CGRect(x: extent.minX, y: extent.midY - height / 2, width: extent.width, height: height)
+    }
+    let crop = CGRect(
+      x: visible.minX + visible.width * edges[0],
+      y: visible.maxY - visible.height * edges[3],
+      width: visible.width * (edges[2] - edges[0]),
+      height: visible.height * (edges[3] - edges[1])
+    ).integral.intersection(extent)
+    guard crop.width >= 1, crop.height >= 1,
+          let cgImage = ciContext.createCGImage(source, from: crop),
+          let jpeg = UIImage(cgImage: cgImage).jpegData(
+            compressionQuality: CGFloat(jpegQuality) / 100
+          )
+    else { throw ScanNativeImageError.renderingFailed }
+    return FlutterStandardTypedData(bytes: jpeg)
+  }
+
+  private static func prepareFallbackCard(_ rawArguments: Any?) throws -> [String: Any] {
+    guard
+      let arguments = rawArguments as? [String: Any],
+      let typedData = arguments["image"] as? FlutterStandardTypedData,
+      let cardWidth = arguments["card_width"] as? Int,
+      let cardHeight = arguments["card_height"] as? Int,
+      let embeddingSize = arguments["embedding_size"] as? Int,
+      let jpegQuality = arguments["jpeg_quality"] as? Int,
+      cardWidth > 0, cardHeight > 0, embeddingSize > 0,
+      let source = CIImage(data: typedData.data, options: [.applyOrientationProperty: true]),
+      !source.extent.isEmpty, !source.extent.isInfinite
+    else { throw ScanNativeImageError.invalidInput }
+    let extent = source.extent
+    let fixed = source
+      .transformed(by: CGAffineTransform(translationX: -extent.minX, y: -extent.minY))
+      .transformed(by: CGAffineTransform(
+        scaleX: CGFloat(cardWidth) / extent.width,
+        y: CGFloat(cardHeight) / extent.height
+      ))
+      .cropped(to: CGRect(x: 0, y: 0, width: CGFloat(cardWidth), height: CGFloat(cardHeight)))
+    guard let cgImage = ciContext.createCGImage(fixed, from: fixed.extent) else {
+      throw ScanNativeImageError.renderingFailed
+    }
+    let card = UIImage(cgImage: cgImage)
+    guard let jpeg = card.jpegData(compressionQuality: CGFloat(jpegQuality) / 100) else {
+      throw ScanNativeImageError.encodingFailed
+    }
+    let rgb = try rgbBytes(from: card, width: embeddingSize, height: embeddingSize)
+    return [
+      "card_image_bytes": FlutterStandardTypedData(bytes: jpeg),
+      "embedding_rgb_bytes": FlutterStandardTypedData(bytes: rgb),
     ]
   }
 

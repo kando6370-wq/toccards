@@ -161,6 +161,7 @@ class _ScanItem {
     this.displayImageBytes,
     this.imageFileName,
     this.retainOnQuotaExhausted = false,
+    this.viewfinderCropped = false,
   });
 
   final int id;
@@ -173,6 +174,7 @@ class _ScanItem {
   final Uint8List? displayImageBytes;
   final String? imageFileName;
   final bool retainOnQuotaExhausted;
+  final bool viewfinderCropped;
 
   _ScanItem copyWith({
     _ScanItemStatus? status,
@@ -182,6 +184,7 @@ class _ScanItem {
     Uint8List? displayImageBytes,
     String? imageFileName,
     bool? retainOnQuotaExhausted,
+    bool? viewfinderCropped,
   }) {
     return _ScanItem(
       id: id,
@@ -195,6 +198,7 @@ class _ScanItem {
       imageFileName: imageFileName ?? this.imageFileName,
       retainOnQuotaExhausted:
           retainOnQuotaExhausted ?? this.retainOnQuotaExhausted,
+      viewfinderCropped: viewfinderCropped ?? this.viewfinderCropped,
     );
   }
 }
@@ -677,10 +681,18 @@ class _ScanPageState extends ConsumerState<ScanPage>
       setState(() => _captureFeedbackItemId = itemId);
       await _captureController.forward(from: 0).orCancel;
       if (!mounted) return const ScanResolution.failed();
-      final image = await camera.takePhoto();
+      final viewport = MediaQuery.sizeOf(context);
+      final viewfinder = _scanViewfinderGeometry(
+        viewport,
+        MediaQuery.paddingOf(context),
+      ).rect;
+      final image = await camera.takePhoto(
+        viewfinder: viewfinder,
+        viewport: viewport,
+      );
       onCaptured(image);
       return await source.recognize(
-        ScanImage(bytes: image.bytes, fileName: image.fileName),
+        image,
         cardType: cardType,
         onDisplayImageReady: onDisplayImageReady,
       );
@@ -1134,6 +1146,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
               imageBytes: item.imageBytes,
               fileName: item.imageFileName,
               cardType: item.cardType,
+              viewfinderCropped: item.viewfinderCropped,
             ),
       ),
     );
@@ -1254,7 +1267,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
         .firstOrNull;
     if (item == null) return;
     _replaceItem(
-      item.copyWith(imageBytes: image.bytes, imageFileName: image.fileName),
+      item.copyWith(
+        imageBytes: image.bytes,
+        imageFileName: image.fileName,
+        viewfinderCropped: image.viewfinderCropped,
+      ),
     );
   }
 

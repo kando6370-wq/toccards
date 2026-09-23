@@ -132,6 +132,7 @@ abstract interface class ScanResultSource {
     Uint8List? imageBytes,
     String? fileName,
     ScanCardType cardType = ScanCardType.tcg,
+    bool viewfinderCropped = false,
   });
 }
 
@@ -158,10 +159,15 @@ final scanResultSourceProvider = Provider<ScanResultSource>(
 enum ScanImageSource { camera, gallery }
 
 class ScanImage {
-  const ScanImage({required this.bytes, required this.fileName});
+  const ScanImage({
+    required this.bytes,
+    required this.fileName,
+    this.viewfinderCropped = false,
+  });
 
   final Uint8List bytes;
   final String fileName;
+  final bool viewfinderCropped;
 }
 
 abstract interface class ScanImagePicker {
@@ -283,12 +289,17 @@ class ApiScanResultSource implements ScanResultSource {
     Uint8List? imageBytes,
     String? fileName,
     ScanCardType cardType = ScanCardType.tcg,
+    bool viewfinderCropped = false,
   }) {
     if (imageBytes == null || fileName == null) {
       return Future.value(const ScanResolution.failed());
     }
     return recognize(
-      ScanImage(bytes: imageBytes, fileName: fileName),
+      ScanImage(
+        bytes: imageBytes,
+        fileName: fileName,
+        viewfinderCropped: viewfinderCropped,
+      ),
       cardType: cardType,
     );
   }
@@ -331,7 +342,10 @@ class ApiScanResultSource implements ScanResultSource {
         );
       }
       final info = await _appInfo();
-      final embedding = await _cardRecognizer.process(image.bytes);
+      final embedding = await _cardRecognizer.process(
+        image.bytes,
+        allowCropFallback: image.viewfinderCropped,
+      );
       displayImageBytes = embedding.cardImageBytes;
       onDisplayImageReady?.call(displayImageBytes);
       await previousReservation;

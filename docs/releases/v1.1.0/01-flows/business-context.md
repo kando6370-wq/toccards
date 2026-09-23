@@ -116,9 +116,9 @@ Card AI 面向交易卡牌用户提供目录搜索、图片识别、Wishlist/Col
 
 ### 3.3 扫描与服务端额度
 
-1. App 拍照或选图，经端侧模型检测和原生透视矫正生成 512 维卡面向量，提交矫正图片、`vector`、`card_type`（默认 `0`）、`request_id` 和同值 `Idempotency-Key`；见[扫描识别链路](scan-recognition.md)。
+1. 内置相机拍照先按取景框裁剪，再进行端侧模型检测和原生透视矫正；检测或矫正失败时可用该裁图继续生成 512 维向量。相册及系统相机仍按原图走原链路。提交处理后图片、`vector`、`card_type`（默认 `0`）、`request_id` 和同值 `Idempotency-Key`；见[扫描识别链路](scan-recognition.md)。
 2. Workers 先按当前 session grant 判断 Premium；Free 请求以一条条件 INSERT 原子预占额度。
-3. 矫正图片写入私有 R2，Workers 经 `VECTOR_RECOGNITION` Service Binding 向 `recognize-vec` 发送向量和 `card_type`，返回成功候选、无匹配或失败。
+3. 处理后图片写入私有 R2，Workers 经 `VECTOR_RECOGNITION` Service Binding 向 `recognize-vec` 发送向量和 `card_type`，返回成功候选、无匹配或失败。
 4. 仅完整可用 Matched 消费 Free 额度；No Match、目录不完整及技术失败释放预占，并返回最新 Quota。
 5. 用户在 Review 选择结果，调用 `/scan/:scan_id/confirm` 创建收藏记录。
 
@@ -257,7 +257,7 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 | recognize-vec | 内部识别服务 | 512 维向量检索候选 | Scan 失败并释放 Free 预占 |
 | PlanetScale PostgreSQL / Hyperdrive | 核心真源与连接边界 | 参数化 PostgreSQL SQL | 账号、资产、额度、订阅和 Admin 不可用 |
 | KV | 缓存 | 目录/汇率快照 | 可回源或显式失败，不能改变授权真值 |
-| R2 | 对象存储 | 受保护的矫正卡面图片 | 缺少 binding 或上传失败时识别失败并释放预占；Admin 读取仍需授权 |
+| R2 | 对象存储 | 受保护的处理后卡面图片 | 缺少 binding 或上传失败时识别失败并释放预占；Admin 读取仍需授权 |
 | 邮件/OAuth | 身份上游 | 验证码和第三方登录 | 注册、找回或 OAuth 登录受阻 |
 | Analytics/Attribution | 下游 | Firebase/Mixpanel/Singular | 统计缺失，不应阻断授权或购买 |
 | Admin | 下游运营 | 查询、排障、配置 | 不影响 Apple 最终真值；不能人工改 Premium |
