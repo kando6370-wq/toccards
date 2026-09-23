@@ -2,6 +2,16 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## iOS 测试环境内部包 1.0.3 (160)（2026-09-23）
+
+按用户要求基于干净的 `dev@091e6c8e` 重新构建测试环境内部包；该提交相对上一测试包仅同步了 159 的版本和验证文档，本次仍独立清理构建并使用新构建号 160。测试配置为 Bundle ID `com.kando.kandoApp.beta`、App Attest `development`、测试 Firebase 与 `http://192.168.50.201:8080/api/v1`；Linux dev `/health` 返回 HTTP 200、`status=ok`。以 `config/test.json` 执行发布配置与 API 环境两文件测试 13/13 通过、退出 0。
+
+执行 `./tool/release_ios.sh --env test --pgy --build-number 160`，依赖按锁文件解析，`flutter analyze`、清理、Xcode Release Archive、App Store IPA 导出、内部 IPA 打包及最终签名/配置检查均通过，脚本退出 0。内部 IPA 为 `1.0.3 (160)`、Apple Development 签名、`get-task-allow=true`、App Attest `development`；测试 Firebase 和内网 API 字符串正确，42 个 Mach-O UUID 均匹配 Archive dSYM。Dart 与 CocoaPods 锁文件未变化；现有 `sign_in_with_apple` Swift Package Manager 兼容提示不阻断本次 CocoaPods 真机 Release 构建。
+
+内部 IPA 为 39,921,844 字节，SHA-256 `5e53859cd84ace3dfb029c7fa144d8412f6da0ab96564b2064d98b368f6e3227`；`dSYMs.zip` 为 61,004,899 字节，SHA-256 `367bb32a780b7dedde65ff46ba3ab637d6c9f3b0c0a598d92e8673a87559d5b3`。两者 ZIP 完整性通过，保存副本与校验源 IPA 相同，存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.3-160/`；Archive 保留在 `apps/flutter-app/build/ios/archive/Runner.xcarchive`。当前测试目录保留 157、159、160，旧 156 已移入废纸篓、清空前可恢复；源码版本同步为 `1.0.3+160`。
+
+未运行完整 Flutter 单元/Widget/集成测试、iOS/Android 真机业务验收或 Android 构建；本次未安装设备、上传蒲公英/App Store Connect、Git push、服务端部署或远程数据写入。
+
 ## Sports Shop Linux dev 自动发布回读（2026-09-23）
 
 用户要求部署 Sports Card Shop 后，kd201 watcher 已在 10:35 自动发布 `dev@f9feac7b16b564a579412367b116f9d69e5c3d65`，release 为 `branch-dev-f9feac7b16b5-20260923103511`。服务器只读回读确认：`current`、`shared/current-release`、manifest `sha` 与 `last-deployed-sha` 指向该版本，`failed-sha` 不存在；后续仅修改 Flutter 版本和文档的 `dev@d8f0aa2` 已前移 `last-seen-sha`，watcher 日志明确判定它无 Linux 发布影响，未替换当前 release。没有再强制手工发布。
