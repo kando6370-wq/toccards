@@ -45,6 +45,21 @@ describe("scan routes", () => {
     expect((env.SCAN_IMAGES as unknown as FakeR2).objects.size).toBe(0);
   });
 
+  it("rejects unsupported card types before recognition because the upstream contract is binary", async () => {
+    const env = await createRecognitionEnv();
+    const token = await recognitionToken(env);
+    const upstream = vi.fn();
+    stubVectorRecognition(env, upstream);
+
+    const response = await recognize(env, token, {
+      vector: VECTOR,
+      card_type: 2,
+    });
+
+    expect(response.status).toBe(422);
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
   it("keeps the game filter in the catalog boundary because vector search receives no game or owner information", async () => {
     const env = await createRecognitionEnv();
     await insertRows(env.DB, "cards_all",
@@ -52,11 +67,15 @@ describe("scan routes", () => {
       { product_id: "other-game", game_id: 2, game: "Magic", name: "Other Card", set_name: "Set B", product_type_name: "Cards" },
     );
     const upstream = vi.fn(async (_url, init) => {
-      expect(JSON.parse(init.body)).toEqual({ vector: VECTOR });
+      expect(JSON.parse(init.body)).toEqual({ vector: VECTOR, card_type: 1 });
       return Response.json({ candidates: [{ product_id: "other-game", confidence: 99 }, { product_id: "same-game", confidence: 90 }] });
     });
     stubVectorRecognition(env, upstream);
-    const response = await recognize(env, await recognitionToken(env), { vector: VECTOR, game_id: 1 });
+    const response = await recognize(env, await recognitionToken(env), {
+      vector: VECTOR,
+      game_id: 1,
+      card_type: 1,
+    });
     expect(response.status).toBe(200);
     const body = await response.json() as { data: { results: Array<{ candidates: Array<{ card_ref: string }> }> } };
     expect(body.data.results[0].candidates.map((candidate) => candidate.card_ref)).toEqual(["same-game"]);
@@ -67,7 +86,7 @@ describe("scan routes", () => {
     await Promise.all(databases.splice(0).map((db) => db.close()));
   });
 
-  it("keeps Linux catalog reads, scan records and quota local while sending only the vector to CF recognition", async () => {
+  it("keeps Linux catalog reads, scan records and quota local while sending vector and card type to CF recognition", async () => {
     const env = await createRecognitionEnv();
     await insertRows(env.DB, "cards_all", {
       product_id: "linux-card",
@@ -96,7 +115,7 @@ describe("scan routes", () => {
       expect.objectContaining({
         method: "POST",
         headers: { Accept: "application/json", "Content-Type": "application/json" },
-        body: JSON.stringify({ vector: VECTOR }),
+        body: JSON.stringify({ vector: VECTOR, card_type: 0 }),
       }),
     );
     expect(response.status).toBe(200);
@@ -224,7 +243,7 @@ describe("scan routes", () => {
         Accept: "application/json",
         "Content-Type": "application/json",
       });
-      expect(JSON.parse(String(init.body))).toEqual({ vector: VECTOR });
+      expect(JSON.parse(String(init.body))).toEqual({ vector: VECTOR, card_type: 0 });
       return Response.json({
         candidates: [
           { product_id: 10738, confidence: 80.99 },
@@ -740,7 +759,7 @@ describe("scan routes", () => {
     );
     const token = await recognitionToken(env);
     stubVectorRecognition(env, async (_url: string, init: RequestInit) => {
-      expect(JSON.parse(String(init.body))).toEqual({ vector: VECTOR });
+      expect(JSON.parse(String(init.body))).toEqual({ vector: VECTOR, card_type: 0 });
       return Response.json({
         candidates: [
           { product_id: 610499, confidence: 84.1 },

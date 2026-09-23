@@ -130,6 +130,32 @@ const _unlimitedQuota = ScanQuotaDto(
 );
 
 void main() {
+  testWidgets('scan type selector defaults to TCG and offers Sports Card', (
+    tester,
+  ) async {
+    final source = _defaultTestScanResultSource() as _TestScanResultSource;
+    await _pumpScanTestApp(tester, scanResultSource: source);
+
+    expect(find.byKey(const Key('scan-card-type-selector')), findsOneWidget);
+    expect(find.text('TCG'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('scan-card-type-selector')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('scan-card-type-option-sports')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('scan-card-type-option-sports')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sports Card'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Take Photo'));
+    await tester.pump();
+    expect(source.photoCardTypes, [ScanCardType.sports]);
+  });
+
   testWidgets(
     'free scanning shows the configured allowance because upgrade urgency depends on the remaining count',
     (tester) async {
@@ -2396,7 +2422,7 @@ void main() {
   });
 
   testWidgets(
-    'Figma scan pre-scan uses exported icons without Material glyph fallback',
+    'Figma scan pre-scan uses the type selector and exported controls',
     (tester) async {
       tester.view.padding = const FakeViewPadding(top: 37);
       addTearDown(tester.view.resetPadding);
@@ -2405,7 +2431,8 @@ void main() {
       expect(find.byKey(const Key('scan-figma-close-icon')), findsOneWidget);
       expect(find.byKey(const Key('scan-figma-flash-icon')), findsOneWidget);
       expect(find.byKey(const Key('scan-figma-search-icon')), findsOneWidget);
-      expect(find.byKey(const Key('scan-figma-align-icon')), findsOneWidget);
+      expect(find.byKey(const Key('scan-card-type-selector')), findsOneWidget);
+      expect(find.byKey(const Key('scan-figma-align-hint')), findsOneWidget);
       expect(find.byKey(const Key('scan-figma-gallery-icon')), findsOneWidget);
       expect(find.byKey(const Key('scan-figma-done-icon')), findsOneWidget);
 
@@ -5110,6 +5137,9 @@ class _TestScanResultSource implements ScanResultSource {
   var retryCallCount = 0;
   var _nextPhotoResult = 0;
   var _nextRecognizeResult = 0;
+  final photoCardTypes = <ScanCardType>[];
+  final libraryCardTypes = <ScanCardType>[];
+  final retryCardTypes = <ScanCardType>[];
   Uint8List? lastRetryBytes;
   String? lastRetryFileName;
   final recognizedImages = <ScanImage>[];
@@ -5119,8 +5149,10 @@ class _TestScanResultSource implements ScanResultSource {
     int maxItems = 10,
     void Function(ScanImage image, Future<ScanResolution> resolution)?
     onSelected,
+    ScanCardType cardType = ScanCardType.tcg,
   }) async {
     libraryCallCount += 1;
+    libraryCardTypes.add(cardType);
     await libraryGate;
     for (
       var index = 0;
@@ -5133,8 +5165,9 @@ class _TestScanResultSource implements ScanResultSource {
   }
 
   @override
-  Future<ScanResolution> photo() {
+  Future<ScanResolution> photo({ScanCardType cardType = ScanCardType.tcg}) {
     photoCallCount += 1;
+    photoCardTypes.add(cardType);
     final resultIndex = _nextPhotoResult < _photoResults.length
         ? _nextPhotoResult
         : _photoResults.length - 1;
@@ -5146,6 +5179,7 @@ class _TestScanResultSource implements ScanResultSource {
   Future<ScanResolution> recognize(
     ScanImage image, {
     ValueChanged<Uint8List>? onDisplayImageReady,
+    ScanCardType cardType = ScanCardType.tcg,
   }) async {
     recognizedImages.add(image);
     final resultIndex = _nextRecognizeResult < _recognizeResults.length
@@ -5161,8 +5195,13 @@ class _TestScanResultSource implements ScanResultSource {
   }
 
   @override
-  Future<ScanResolution> retry({Uint8List? imageBytes, String? fileName}) {
+  Future<ScanResolution> retry({
+    Uint8List? imageBytes,
+    String? fileName,
+    ScanCardType cardType = ScanCardType.tcg,
+  }) {
     retryCallCount += 1;
+    retryCardTypes.add(cardType);
     lastRetryBytes = imageBytes;
     lastRetryFileName = fileName;
     return _retryResult;

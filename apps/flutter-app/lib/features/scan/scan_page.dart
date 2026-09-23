@@ -155,6 +155,7 @@ class _ScanItem {
     required this.pictureLabel,
     required this.status,
     required this.usesCameraFeedback,
+    this.cardType = ScanCardType.tcg,
     this.match,
     this.imageBytes,
     this.displayImageBytes,
@@ -166,6 +167,7 @@ class _ScanItem {
   final String pictureLabel;
   final _ScanItemStatus status;
   final bool usesCameraFeedback;
+  final ScanCardType cardType;
   final _ScanMatch? match;
   final Uint8List? imageBytes;
   final Uint8List? displayImageBytes;
@@ -174,6 +176,7 @@ class _ScanItem {
 
   _ScanItem copyWith({
     _ScanItemStatus? status,
+    ScanCardType? cardType,
     _ScanMatch? match,
     Uint8List? imageBytes,
     Uint8List? displayImageBytes,
@@ -185,6 +188,7 @@ class _ScanItem {
       pictureLabel: pictureLabel,
       status: status ?? this.status,
       usesCameraFeedback: usesCameraFeedback,
+      cardType: cardType ?? this.cardType,
       match: match ?? this.match,
       imageBytes: imageBytes ?? this.imageBytes,
       displayImageBytes: displayImageBytes ?? this.displayImageBytes,
@@ -402,6 +406,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   var _entitlementRefreshInFlight = false;
   Timer? _entitlementRefreshTimer;
   Completer<void>? _entitlementRefreshDelay;
+  var _selectedCardType = ScanCardType.tcg;
   int? _selectedReviewItemId;
   ScanReviewTarget? _reviewTarget;
   Map<String, ScanReviewCard> _reviewCards = const {};
@@ -624,6 +629,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       return;
     }
     final source = ref.read(scanResultSourceProvider);
+    final cardType = _selectedCardType;
     final camera = _cameraSession;
     if (camera == null) {
       if (_openingCamera) return;
@@ -632,7 +638,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
         return;
       }
       ref.read(analyticsProvider).track(AnalyticsEvent.cameraClick);
-      _addScan(Future.sync(source.photo));
+      _addScan(
+        Future.sync(() => source.photo(cardType: cardType)),
+        cardType: cardType,
+      );
       return;
     }
     if (_photoRecognitionItemId != null) return;
@@ -647,10 +656,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
       itemId,
       camera,
       source,
+      cardType: cardType,
       onCaptured: (image) => _attachScanImage(itemId, image),
       onDisplayImageReady: (bytes) => _attachScanDisplayImage(itemId, bytes),
     );
-    final addedItemId = _addScan(result);
+    final addedItemId = _addScan(result, cardType: cardType);
     assert(addedItemId == itemId);
     unawaited(_finishPhotoRecognition(itemId, result));
   }
@@ -659,6 +669,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     int itemId,
     ScanCameraSession camera,
     ScanResultSource source, {
+    required ScanCardType cardType,
     required ValueChanged<ScanImage> onCaptured,
     required ValueChanged<Uint8List> onDisplayImageReady,
   }) async {
@@ -670,6 +681,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       onCaptured(image);
       return await source.recognize(
         ScanImage(bytes: image.bytes, fileName: image.fileName),
+        cardType: cardType,
         onDisplayImageReady: onDisplayImageReady,
       );
     } catch (_) {
@@ -712,6 +724,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       return;
     }
     final remainingQueueCapacity = _maxQueueItems - _pendingScanCount;
+    final cardType = _selectedCardType;
     ref.read(analyticsProvider).track(AnalyticsEvent.imageClick);
     setState(() => _librarySelectionInFlight = true);
     try {
@@ -732,6 +745,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
           .read(scanResultSourceProvider)
           .library(
             maxItems: remainingQueueCapacity,
+            cardType: cardType,
             onSelected: (image, resolution) {
               selectedCount += 1;
               if (mounted) {
@@ -743,6 +757,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
                   imageFileName: image.fileName,
                   retainOnQuotaExhausted: true,
                   quotaPromptBatchId: quotaPromptBatchId,
+                  cardType: cardType,
                 );
               }
             },
@@ -755,6 +770,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
             usesCameraFeedback: false,
             retainOnQuotaExhausted: true,
             quotaPromptBatchId: quotaPromptBatchId,
+            cardType: cardType,
           );
         }
       }
@@ -763,6 +779,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
         _addScan(
           Future.value(const ScanResolution.failed()),
           usesCameraFeedback: false,
+          cardType: cardType,
         );
       }
     } finally {
@@ -1113,7 +1130,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
       Future.sync(
         () => ref
             .read(scanResultSourceProvider)
-            .retry(imageBytes: item.imageBytes, fileName: item.imageFileName),
+            .retry(
+              imageBytes: item.imageBytes,
+              fileName: item.imageFileName,
+              cardType: item.cardType,
+            ),
       ),
     );
   }
@@ -1193,6 +1214,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   int _addScan(
     Future<ScanResolution> resultFuture, {
     bool usesCameraFeedback = true,
+    ScanCardType cardType = ScanCardType.tcg,
     Uint8List? imageBytes,
     Uint8List? displayImageBytes,
     String? imageFileName,
@@ -1210,6 +1232,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
           pictureLabel: 'Scan $id',
           status: _ScanItemStatus.scanning,
           usesCameraFeedback: usesCameraFeedback,
+          cardType: cardType,
           imageBytes: imageBytes,
           displayImageBytes: displayImageBytes,
           imageFileName: imageFileName,
@@ -2207,6 +2230,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
                     captureAnimation: _captureController,
                     cards: _reviewCards,
                     currency: currency,
+                    selectedCardType: _selectedCardType,
                     remainingScans: hasPremiumAccess
                         ? null
                         : quota.displayRemainingScans,
@@ -2215,6 +2239,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
                         ? null
                         : _toggleFlash,
                     onSearchPressed: () => context.go('/search'),
+                    onCardTypeChanged: (cardType) {
+                      if (mounted) setState(() => _selectedCardType = cardType);
+                    },
                     onUpgradePressed: () async {
                       final result = await context
                           .push<SubscriptionPaywallResult>(
@@ -2282,10 +2309,12 @@ class _ScanCameraView extends StatelessWidget {
     required this.captureAnimation,
     required this.cards,
     required this.currency,
+    required this.selectedCardType,
     required this.remainingScans,
     required this.onClosePressed,
     required this.onFlashPressed,
     required this.onSearchPressed,
+    required this.onCardTypeChanged,
     required this.onUpgradePressed,
     required this.onPhotoPressed,
     required this.onLibraryPressed,
@@ -2309,10 +2338,12 @@ class _ScanCameraView extends StatelessWidget {
   final Animation<double> captureAnimation;
   final Map<String, ScanReviewCard> cards;
   final AppCurrency currency;
+  final ScanCardType selectedCardType;
   final int? remainingScans;
   final VoidCallback onClosePressed;
   final VoidCallback? onFlashPressed;
   final VoidCallback onSearchPressed;
+  final ValueChanged<ScanCardType> onCardTypeChanged;
   final VoidCallback onUpgradePressed;
   final VoidCallback onPhotoPressed;
   final VoidCallback onLibraryPressed;
@@ -2382,6 +2413,22 @@ class _ScanCameraView extends StatelessWidget {
             focusFrameShadow: recognizing || revealing,
           ),
         ),
+        Positioned.fromRect(
+          rect: geometry.rect,
+          child: const IgnorePointer(
+            child: Center(
+              child: Text(
+                'ALIGN CARD HERE',
+                key: Key('scan-figma-align-hint'),
+                style: TextStyle(
+                  color: Color(0xFFE4E3D3),
+                  fontSize: 15,
+                  height: 16 / 15,
+                ),
+              ),
+            ),
+          ),
+        ),
         if (capturingPhoto) ...[
           Positioned.fromRect(
             rect: geometry.rect,
@@ -2437,7 +2484,15 @@ class _ScanCameraView extends StatelessWidget {
                 onSearchPressed: onSearchPressed,
               ),
               const SizedBox(height: 2),
-              const _AlignCardPill(),
+              SizedBox(
+                height: 34,
+                child: Center(
+                  child: _ScanCardTypeSelector(
+                    selected: selectedCardType,
+                    onChanged: onCardTypeChanged,
+                  ),
+                ),
+              ),
               if (remainingScans != null) ...[
                 const SizedBox(height: 6),
                 _ScanQuotaPill(
@@ -2549,45 +2604,77 @@ class _ScanTopBar extends StatelessWidget {
   }
 }
 
-class _AlignCardPill extends StatelessWidget {
-  const _AlignCardPill();
+class _ScanCardTypeSelector extends StatelessWidget {
+  const _ScanCardTypeSelector({
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final ScanCardType selected;
+  final ValueChanged<ScanCardType> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 34,
-      padding: const EdgeInsets.symmetric(horizontal: 17),
-      decoration: BoxDecoration(
-        color: const Color(0xFF222222).withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0x1A394E2C)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x33000000),
-            blurRadius: 15,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SvgPicture.asset(
-            'assets/scan/align.svg',
-            key: const Key('scan-figma-align-icon'),
-            width: 15,
-            height: 15,
-          ),
-          const SizedBox(width: 12),
-          const Text(
-            'ALIGN CARD HERE',
-            style: TextStyle(
-              color: Color(0xFFE4E3D3),
-              fontSize: 13,
-              height: 16 / 13,
+    return PopupMenuButton<ScanCardType>(
+      key: const Key('scan-card-type-selector'),
+      tooltip: 'Select card type',
+      onSelected: onChanged,
+      color: const Color(0xFF222222),
+      surfaceTintColor: Colors.transparent,
+      elevation: 8,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      offset: const Offset(0, 8),
+      padding: EdgeInsets.zero,
+      itemBuilder: (context) => [
+        for (final type in ScanCardType.values)
+          PopupMenuItem<ScanCardType>(
+            key: Key('scan-card-type-option-${type.name}'),
+            value: type,
+            height: 44,
+            child: Text(
+              type.label,
+              style: const TextStyle(
+                color: KandoColors.text,
+                fontSize: 14,
+                height: 20 / 14,
+              ),
             ),
           ),
-        ],
+      ],
+      child: Container(
+        height: 32,
+        padding: const EdgeInsets.symmetric(horizontal: 17),
+        decoration: BoxDecoration(
+          color: const Color(0xFF222222).withValues(alpha: 0.92),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: const Color(0x1A394E2C)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x33000000),
+              blurRadius: 15,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              selected.label,
+              style: const TextStyle(
+                color: KandoColors.accent,
+                fontSize: 14,
+                height: 24 / 14,
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: 18,
+              color: KandoColors.accent,
+            ),
+          ],
+        ),
       ),
     );
   }

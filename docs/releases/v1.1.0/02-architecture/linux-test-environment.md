@@ -98,7 +98,7 @@ Linux 使用本地文件目录代替 R2，实现当前使用的 `put/get/delete`
 
 ### 扫描兼容缺口
 
-`src/scan/routes.ts` 只接受 512 维 `vector`，并通过 `Env.VECTOR_RECOGNITION.fetch()` 调用检索服务。prod 仓库配置使用 Cloudflare Service Binding，现网协议仍按其原部署版本判断；dev Linux 的 `src/linux/config.ts` 通过 `vector-recognition.ts` 构造 HTTP 适配，目标为 `VECTOR_RECOGNITION_BASE_URL` origin 下的 `/recognize`。共享路由只发送 `{vector}`，不向识别服务转发图片、用户 token 或业务数据库请求；dev 的候选资料、游戏过滤、额度与扫描记录使用 Linux 的 `DB`。
+`src/scan/routes.ts` 接受 512 维 `vector` 和 `card_type`（`0=TCG`、`1=Sports Card`，缺省为 `0`），并通过 `Env.VECTOR_RECOGNITION.fetch()` 调用检索服务。prod 仓库配置使用 Cloudflare Service Binding，现网协议仍按其原部署版本判断；dev Linux 的 `src/linux/config.ts` 通过 `vector-recognition.ts` 构造 HTTP 适配，目标为 `VECTOR_RECOGNITION_BASE_URL` origin 下的 `/recognize`。共享路由只发送 `{vector, card_type}`，不向识别服务转发图片、用户 token 或业务数据库请求；dev 的候选资料、游戏过滤、额度与扫描记录使用 Linux 的 `DB`。
 
 HTTP 适配的 10 秒超时持续覆盖响应正文，并保留调用方取消，不重试或跟随重定向。上游 HTTP 失败、无效 JSON 或超时沿用共享路由的 `502 VECTOR_RECOGNITION_UNAVAILABLE`、审计失败记录与释放额度；无匹配或本地目录不可用不错误扣次。缺少 binding 的既有受控 `503` 分支保留。旧 `OCR_SERVICE_BASE_URL` 已从运行时配置和 `Env` 移除，不再作为回退。
 

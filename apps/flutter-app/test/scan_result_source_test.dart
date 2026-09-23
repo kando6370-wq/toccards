@@ -43,6 +43,22 @@ void main() {
     },
   );
 
+  test('selected Sports Card type reaches the scan API', () async {
+    final api = _FakeScanApi(_matchedRecognition);
+    final source = ApiScanResultSource(
+      api: api,
+      session: () => _session,
+      imagePicker: _FakeScanImagePicker(),
+      cardRecognizer: _FakeScanCardRecognizer(),
+      appInfo: () async =>
+          const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
+    );
+
+    await source.photo(cardType: ScanCardType.sports);
+
+    expect(api.lastCardType, ScanCardType.sports);
+  });
+
   test(
     'recognize uses the model-corrected card while preserving the original photo for retry',
     () async {
@@ -475,6 +491,7 @@ class _FakeScanApi implements ScanApi, ScanQuotaReservationApi {
   ScanCardEmbedding? lastEmbedding;
   String? lastPlatform;
   String? lastCardNumber;
+  ScanCardType? lastCardType;
   final requestIds = <String>[];
   final fileNames = <String>[];
   var callCount = 0;
@@ -517,6 +534,7 @@ class _FakeScanApi implements ScanApi, ScanQuotaReservationApi {
     String? cardNumber,
     String? deviceModel,
     String? osVersion,
+    ScanCardType cardType = ScanCardType.tcg,
   }) async {
     callCount += 1;
     requestIds.add(requestId);
@@ -524,6 +542,7 @@ class _FakeScanApi implements ScanApi, ScanQuotaReservationApi {
     lastEmbedding = embedding;
     lastPlatform = platform;
     lastCardNumber = cardNumber;
+    lastCardType = cardType;
     if (callCount <= failures.length) throw failures[callCount - 1];
     final failure = this.failure;
     if (failure != null) throw failure;

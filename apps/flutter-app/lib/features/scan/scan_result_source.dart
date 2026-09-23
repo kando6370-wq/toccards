@@ -116,17 +116,23 @@ class ScanResolution {
 }
 
 abstract interface class ScanResultSource {
-  Future<ScanResolution> photo();
+  Future<ScanResolution> photo({ScanCardType cardType = ScanCardType.tcg});
   Future<List<Future<ScanResolution>>> library({
     int maxItems = 10,
     void Function(ScanImage image, Future<ScanResolution> resolution)?
     onSelected,
+    ScanCardType cardType = ScanCardType.tcg,
   });
   Future<ScanResolution> recognize(
     ScanImage image, {
     ValueChanged<Uint8List>? onDisplayImageReady,
+    ScanCardType cardType = ScanCardType.tcg,
   });
-  Future<ScanResolution> retry({Uint8List? imageBytes, String? fileName});
+  Future<ScanResolution> retry({
+    Uint8List? imageBytes,
+    String? fileName,
+    ScanCardType cardType = ScanCardType.tcg,
+  });
 }
 
 final scanResultSourceProvider = Provider<ScanResultSource>(
@@ -245,13 +251,15 @@ class ApiScanResultSource implements ScanResultSource {
     'scanRetryRequestId',
   );
   @override
-  Future<ScanResolution> photo() => _pickAndRecognize(ScanImageSource.camera);
+  Future<ScanResolution> photo({ScanCardType cardType = ScanCardType.tcg}) =>
+      _pickAndRecognize(ScanImageSource.camera, cardType: cardType);
 
   @override
   Future<List<Future<ScanResolution>>> library({
     int maxItems = 10,
     void Function(ScanImage image, Future<ScanResolution> resolution)?
     onSelected,
+    ScanCardType cardType = ScanCardType.tcg,
   }) async {
     if (maxItems <= 0) return const [];
     final images = await _imagePicker.pickMany(
@@ -263,7 +271,7 @@ class ApiScanResultSource implements ScanResultSource {
     return [
       for (final image in selectedImages)
         () {
-          final resolution = recognize(image);
+          final resolution = recognize(image, cardType: cardType);
           onSelected?.call(image, resolution);
           return resolution;
         }(),
@@ -271,23 +279,34 @@ class ApiScanResultSource implements ScanResultSource {
   }
 
   @override
-  Future<ScanResolution> retry({Uint8List? imageBytes, String? fileName}) {
+  Future<ScanResolution> retry({
+    Uint8List? imageBytes,
+    String? fileName,
+    ScanCardType cardType = ScanCardType.tcg,
+  }) {
     if (imageBytes == null || fileName == null) {
       return Future.value(const ScanResolution.failed());
     }
-    return recognize(ScanImage(bytes: imageBytes, fileName: fileName));
+    return recognize(
+      ScanImage(bytes: imageBytes, fileName: fileName),
+      cardType: cardType,
+    );
   }
 
-  Future<ScanResolution> _pickAndRecognize(ScanImageSource source) async {
+  Future<ScanResolution> _pickAndRecognize(
+    ScanImageSource source, {
+    required ScanCardType cardType,
+  }) async {
     final image = await _imagePicker.pick(source);
     if (image == null) return const ScanResolution.cancelled();
-    return recognize(image);
+    return recognize(image, cardType: cardType);
   }
 
   @override
   Future<ScanResolution> recognize(
     ScanImage image, {
     ValueChanged<Uint8List>? onDisplayImageReady,
+    ScanCardType cardType = ScanCardType.tcg,
   }) async {
     final previousReservation = _reservationTail;
     final reservationFinished = Completer<void>();
@@ -339,6 +358,7 @@ class ApiScanResultSource implements ScanResultSource {
         appVersion: info.appVersion,
         requestId: requestId,
         localPremiumVerified: _localPremiumVerified(),
+        cardType: cardType,
       );
     } on ScanApiException catch (error) {
       if (error.code == 'SCAN_QUOTA_EXHAUSTED' && error.quota != null) {

@@ -195,7 +195,7 @@ printf '%s\n' '<previous-release-id>' \
 - 监听器只检出受信任的 `dev` 分支，不执行 Pull Request head commit。
 - 本地 Artifact 不包含 `.env`、数据库备份、扫描图片或第三方凭证。
 - 监听器目录权限为 `700`，配置和状态仅属于服务器 `user` 账号。
-- Linux 使用独立测试数据库、JWT 和文件卷；部署前须配置 `VECTOR_RECOGNITION_BASE_URL`，仅向已授权复用的 CF 识别服务发送向量。旧 OCR 键不被新代码读取，不能代替新配置；服务器与设备扫描需单独验收。
+- Linux 使用独立测试数据库、JWT 和文件卷；部署前须配置 `VECTOR_RECOGNITION_BASE_URL`，仅向已授权复用的 CF 识别服务发送向量和 `card_type`（`0=TCG`、`1=Sports Card`，缺省为 `0`）。旧 OCR 键不被新代码读取，不能代替新配置；服务器与设备扫描需单独验收。
 - `kd201` PostgreSQL 仅通过 `192.168.50.201:15432` 提供可信局域网访问，不映射公网；自动发布继续复用服务器私有 `.env` 中的该配置。
 - 正式 Cloudflare 部署仍由其原工作流或 Cloudflare 平台配置管理。
 

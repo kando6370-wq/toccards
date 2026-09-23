@@ -221,6 +221,7 @@ WHERE id = ? AND owner_type = ? AND owner_id = ?
 const RECOGNITION_ALGORITHM = "pe-core-t16-384-cosine-v1";
 const EMBEDDING_DIMENSIONS = 512;
 const MAX_VECTOR_JSON_BYTES = 32 * 1024;
+const DEFAULT_CARD_TYPE = 0;
 const CARD_NUMBER_PATTERN = /^(?:\d{1,4}\/(?:\d{1,4}|[A-Z]{1,5}-P)|[A-Z]{1,5}-P)$/;
 
 type ScanRecognitionCheckpoints = {
@@ -402,10 +403,11 @@ export function createScanRoutes() {
       return c.json(INTERNAL_ERROR_RESPONSE, 503);
     }
     const vector = readEmbeddingVector(body.get("vector"));
+    const cardType = readCardType(body.get("card_type"));
     const gameId = readOptionalGameId(body.get("game_id"));
     const cardNumber = readOptionalCardNumber(body.get("card_number"));
     const image = await validateScanImage(body.get("image"));
-    if (!vector || gameId === null || cardNumber === null || !image) {
+    if (!vector || cardType === null || gameId === null || cardNumber === null || !image) {
       await releaseQueuedScanQuota(
         c.env.DB,
         auth.owner,
@@ -457,7 +459,7 @@ export function createScanRoutes() {
     }
     const reservedAt = performance.now();
 
-    const outbound = { vector };
+    const outbound = { vector, card_type: cardType };
 
     const scanId = requestId;
     const createdAt = new Date();
@@ -988,6 +990,12 @@ function readEmbeddingVector(value: string | File | null): number[] | null {
     hasNonZeroValue ||= component !== 0;
   }
   return hasNonZeroValue ? vector : null;
+}
+
+function readCardType(value: string | File | null): 0 | 1 | null {
+  if (value === null || value === "") return DEFAULT_CARD_TYPE;
+  if (typeof value !== "string" || !/^[01]$/.test(value)) return null;
+  return value === "1" ? 1 : 0;
 }
 
 function readOptionalGameId(value: string | File | null): number | undefined | null {

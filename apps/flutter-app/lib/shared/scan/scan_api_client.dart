@@ -14,6 +14,16 @@ const scanRequestDeadline = Duration(seconds: 25);
 const scanRequestTimeoutCode = 'REQUEST_TIMEOUT';
 const scanRequestTimeoutMessage = 'Request timed out. Please try again.';
 
+enum ScanCardType {
+  tcg(0, 'TCG'),
+  sports(1, 'Sports Card');
+
+  const ScanCardType(this.value, this.label);
+
+  final int value;
+  final String label;
+}
+
 Dio createScanDio({
   String baseUrl = scanApiBaseUrl,
   AppHttpTransport? transport,
@@ -244,6 +254,7 @@ abstract interface class ScanApi {
     String? cardNumber,
     String? deviceModel,
     String? osVersion,
+    ScanCardType cardType = ScanCardType.tcg,
   });
   Future<ScanConfirmationDto> confirmMatch(
     AuthSession session, {
@@ -318,6 +329,7 @@ class ScanApiClient implements ScanApi, ScanQuotaReservationApi {
     String? cardNumber,
     String? deviceModel,
     String? osVersion,
+    ScanCardType cardType = ScanCardType.tcg,
   }) async {
     final body = FormData.fromMap(<String, Object?>{
       'vector': jsonEncode(embedding.vector),
@@ -325,6 +337,7 @@ class ScanApiClient implements ScanApi, ScanQuotaReservationApi {
       'platform': platform,
       'app_version': appVersion,
       'request_id': requestId,
+      'card_type': cardType.value.toString(),
       if (cardNumber != null) 'card_number': cardNumber,
       if (deviceModel != null) 'device_model': deviceModel,
       if (osVersion != null) 'os_version': osVersion,

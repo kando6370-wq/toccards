@@ -116,9 +116,9 @@ Card AI 面向交易卡牌用户提供目录搜索、图片识别、Wishlist/Col
 
 ### 3.3 扫描与服务端额度
 
-1. App 拍照或选图，经端侧模型检测和原生透视矫正生成 512 维卡面向量，提交矫正图片、`vector`、`request_id` 和同值 `Idempotency-Key`；见[扫描识别链路](scan-recognition.md)。
+1. App 拍照或选图，经端侧模型检测和原生透视矫正生成 512 维卡面向量，提交矫正图片、`vector`、`card_type`（默认 `0`）、`request_id` 和同值 `Idempotency-Key`；见[扫描识别链路](scan-recognition.md)。
 2. Workers 先按当前 session grant 判断 Premium；Free 请求以一条条件 INSERT 原子预占额度。
-3. 矫正图片写入私有 R2，Workers 经 `VECTOR_RECOGNITION` Service Binding 向 `recognize-vec` 仅发送向量，返回成功候选、无匹配或失败。
+3. 矫正图片写入私有 R2，Workers 经 `VECTOR_RECOGNITION` Service Binding 向 `recognize-vec` 发送向量和 `card_type`，返回成功候选、无匹配或失败。
 4. 仅完整可用 Matched 消费 Free 额度；No Match、目录不完整及技术失败释放预占，并返回最新 Quota。
 5. 用户在 Review 选择结果，调用 `/scan/:scan_id/confirm` 创建收藏记录。
 

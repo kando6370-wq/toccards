@@ -17,7 +17,7 @@ Marketing Web -----------------------> 独立 Cloudflare 静态站点
 
 dev 的 Linux Node 入口 `src/linux/server.ts` 复用相同 Hono 应用和 `PostgresDatabase`：从 `DATABASE_URL` 连接独立 PostgreSQL，使用带 TTL 的内存 KV 与本地图片卷；标准部署由 Caddy 托管 Admin 并反向代理 API/share，离线模式使用 Node 静态服务。App `APP_ENV=test` 与 Admin development 默认请求此 Linux 入口；API 使用 `APP_ENVIRONMENT=development`，经 HTTP 复用独立 CF 向量识别服务。旧 CF dev 不再运行或发布，见[Linux 测试环境](linux-test-environment.md)。
 
-dev 扫描识别使用端侧 RTMDet-Ins 与 PE-Core-T16，Linux API 通过 HTTP 向 `recognize-vec` 只发送向量；候选补全、Queue、额度、目录、资产和图片读写留在 Linux PostgreSQL/本地卷。上图仅描述 prod，其运行协议与仓库配置的区别按实际部署版本核验；详见[扫描识别链路](../01-flows/scan-recognition.md)。
+dev 扫描识别使用端侧 RTMDet-Ins 与 PE-Core-T16，Linux API 通过 HTTP 向 `recognize-vec` 发送向量和 `card_type`；候选补全、Queue、额度、目录、资产和图片读写留在 Linux PostgreSQL/本地卷。上图仅描述 prod，其运行协议与仓库配置的区别按实际部署版本核验；详见[扫描识别链路](../01-flows/scan-recognition.md)。
 
 ## 2. 客户端与页面边界
 
