@@ -10,6 +10,16 @@ watcher 日志显示发布前环境、PostgreSQL 18、CF 识别服务预检通�
 
 只读业务回归：Basketball 目录卡 `t9937559` 的 Shop 返回单条 eBay 在售搜索链接，`date/price=null`；Pokemon 目录卡 `659612` 仍返回四条 TCGplayer 商品链接和价格，接口为 `no-store`。本地从干净 `f9feac7` 执行 `pnpm --filter @kando/workers-api deploy:dry-run:dev` 退出 0，Admin development 与 Linux API bundle 构建成功，bundle 启动/Apple SDK 两项回归 2/2；dry-run 本身未连接 SSH、迁移或部署。未运行真实移动端 Shop 点击、eBay 网站搜索结果质量、iOS/Android 新测试包构建、真机扫描或整库恢复；Flutter App 不由 Linux watcher 自动安装，prod 未部署。
 
+## iOS 测试环境内部包 1.0.3 (159)（2026-09-23）
+
+按用户要求基于干净的 `dev@d8f0aa20` 构建测试环境内部安装包，不沿用上节的正式配置。源码版本为 `1.0.3+158`，现有测试包最高为 157，本轮用 159 区分构建。测试配置为 Bundle ID `com.kando.kandoApp.beta`、App Attest `development`、测试 Firebase、`http://192.168.50.201:8080/api/v1`；Linux dev `/health` 返回 HTTP 200、`status=ok`。以 `config/test.json` 执行发布配置与 API 环境两文件测试 13/13 通过、退出 0。
+
+执行 `./tool/release_ios.sh --env test --pgy --build-number 159`，依赖按锁文件解析，`flutter analyze`、清理、Xcode Release Archive、App Store IPA 导出、内部 IPA 打包及最终包签名/配置校验通过，脚本退出 0。内部 IPA 为 `1.0.3 (159)`、Apple Development 签名、`get-task-allow=true`、App Attest `development`，测试 Firebase 文件及内网 API 字符串正确；42 个 Mach-O UUID 均匹配 Archive dSYM。Dart 与 CocoaPods 锁文件未变化；现有 `sign_in_with_apple` Swift Package Manager 兼容提示不阻断 CocoaPods 真机 Release 构建。
+
+内部 IPA 为 39,913,890 字节，SHA-256 `620fba2c0b6a12b0f6b0ca2f0193138fb1483cd71e9ce33b66e9b5144c82e8b7`；`dSYMs.zip` 为 60,996,766 字节，SHA-256 `d3eb71c30f710f382a86d0d278e195c94a992cda4403d87eead2a85b95b4d178`。两者 ZIP 完整性检查通过，IPA 保存副本与校验源一致，位于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.3-159/`；Archive 留在 `apps/flutter-app/build/ios/archive/Runner.xcarchive`。当前测试目录保留 156、157、159；旧 155 移入废纸篓，可恢复。源码版本同步为 `1.0.3+159`。
+
+未运行完整 Flutter 单元/Widget/集成测试、iOS/Android 真机业务验收或 Android 构建；本次未安装设备、上传蒲公英/App Store Connect、Git push、服务端部署或远程数据写入。定向测试与构建通过不等于完整业务回归通过。
+
 ## 正式配置的 iOS 开发签名内部包 1.0.3 (158)（2026-09-23）
 
 按用户澄清的目标，从干净的 `dev@817213ce` 生成可供已登记设备内部安装的开发签名 IPA，运行配置全部取正式环境：Bundle ID `com.cardai.tcg`、正式 Firebase `tcg-card-2072d`、生产 API `https://api.tcgcard.fun/api/v1`、正式订阅 Product IDs `CardAi.weekly` / `CardAi.yearly` / `CardAi.lifetime`、App Attest `production`。它不是测试环境 beta Bundle ID，也不是 App Store Connect 上传包。生产 API `/health` 返回 HTTP 200、`status=ok`。以 `config/production.json` 执行 `release_config_test.dart` 与 `api_environment_test.dart` 共 13/13 通过、退出 0。
