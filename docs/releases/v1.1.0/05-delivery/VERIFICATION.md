@@ -4,6 +4,18 @@
 
 当前业务环境只有 prod（Cloudflare）与 dev（kd201 Linux）。最近一次已记录的 prod 发布为 2026-09-21 从 `main@2cfdea8` 发布 Worker/Admin version `c612c8a6-4873-4760-b435-3c4db27d14e6`，deployment `d30f6111-8ab4-41a9-bd1f-2d93be41b210` 当时承载 100% 流量；prod PostgreSQL ledger 保持 14 项且最新为 `0013`。最近一次已记录的 dev API 发布回读为 2026-09-23 watcher 的 `dev@f9feac7`，API/DB healthy、Web running、migration exited/0、ledger 同为 14 项；两套数据库分别验证，不能相互外推。合并源 `dev@b75d81c` 的 Flutter 源码版本为 `1.0.3+160`，dev 测试包与此前上传 App Store Connect 的正式包分别记录，不能视为新业务代码已部署 prod。旧 CF dev 业务 Worker 已退役，Apple 回调与向量服务独立保留。
 
+## iOS 正式包 1.0.4 (161) 上传 App Store Connect（2026-09-23）
+
+按用户要求从干净的 `main@fc4a3261` 将 App 营销版本从 `1.0.3` 改为 `1.0.4`，构建号从 160 提至 161，使用正式配置构建并直接上传 App Store Connect。生产配置为 Bundle ID `com.cardai.tcg`、Firebase 项目 `tcg-card-2072d`、API `https://api.tcgcard.fun/api/v1`、App Attest `production`、正式订阅商品 `CardAi.weekly` / `CardAi.yearly` / `CardAi.lifetime`；生产 `/health` 返回 HTTP 200、`status=ok`。Profile 页由安装包元数据取得版本并隐藏构建号，因此显示 `Version 1.0.4`，未添加硬编码文案。以 `config/production.json` 运行 `release_config_test.dart` 与 `api_environment_test.dart` 共 13/13 通过、退出 0。
+
+执行 `./tool/release_ios.sh --env production --build-number 161`，依赖按现有锁文件解析，`flutter analyze`、清理、Xcode Release Archive、App Store IPA 导出、签名/生产 Firebase/API 校验及 42 个 Mach-O UUID 的 dSYM 覆盖全部通过，脚本退出 0；Dart 和 CocoaPods 锁文件未变化。脚本未断言生产 App Attest，因此在上传前另行解包保存的最终 IPA，复核 `com.cardai.tcg / 1.0.4 (161)`、Apple Distribution 签名、`get-task-allow=false`、`beta-reports-active=true`、App Attest `production`、无设备限定的分发描述文件、Firebase 文件逐字节一致和二进制生产 API 字符串，均通过。
+
+以同一 Archive 执行 `xcodebuild -exportArchive` 上传，选项为 `method=app-store-connect`、`destination=upload`、`uploadSymbols=true`、`manageAppVersionAndBuildNumber=false`；命令退出 0，Xcode 于 2026-09-23 15:59:43（本机时间）明确返回 `Upload succeeded.`、`Uploaded package is processing.` 与 `** EXPORT SUCCEEDED **`。因此包已交给 Apple，后台处理完成、符号在 Apple 侧的最终可用状态和 TestFlight/审核可选状态尚未单独回读；本次没有提交 App Store 审核或发布给用户。
+
+正式 IPA 为 55,478,743 字节，SHA-256 `bf58e164f39d62caae4895603f2553219980eef2ebf5097c5043bb9625ad6d32`；`dSYMs.zip` 为 60,940,321 字节，SHA-256 `3dba8e64b560ca655f8a088abc8f8a2fd13a58b791654eb97bcbb71e6f4af60f`。两者保存于 `~/Downloads/CardAI-Packages/com.cardai.tcg/CardAI-Prod-1.0.4-161/`，IPA 与导出源逐字节一致，ZIP 完整性通过；正式目录现有 6 个保存版本，未超过 7 个上限，没有移除旧正式包；Archive 留在 `apps/flutter-app/build/ios/archive/Runner.xcarchive`，源码版本为 `1.0.4+161`。
+
+未运行完整 Flutter 全仓测试、iOS/Android 真机登录/订阅/扫描与 Shop 验收、Android 构建、App Store Connect 后台处理完成回读或生产服务端新业务版本的端到端兼容验证。当前 prod 最近一次有证据的服务端发布仍早于本次合并的客户端业务代码；上传不等于后端已同步，提交审核前应另行确认正式 API 与本包关键路径兼容。本轮没有安装设备、Git push、prod 服务端部署、数据库迁移或远程数据写入。
+
 ## iOS 测试环境内部包 1.0.3 (160)（2026-09-23）
 
 按用户要求基于干净的 `dev@091e6c8e` 重新构建测试环境内部包；该提交相对上一测试包仅同步了 159 的版本和验证文档，本次仍独立清理构建并使用新构建号 160。测试配置为 Bundle ID `com.kando.kandoApp.beta`、App Attest `development`、测试 Firebase 与 `http://192.168.50.201:8080/api/v1`；Linux dev `/health` 返回 HTTP 200、`status=ok`。以 `config/test.json` 执行发布配置与 API 环境两文件测试 13/13 通过、退出 0。

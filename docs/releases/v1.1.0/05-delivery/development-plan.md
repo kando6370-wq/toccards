@@ -19,7 +19,7 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 2026-09-21 prod 交付增量：首次从 `main@870a34c` 发布并完成 PostgreSQL `0012/0013`；随后从 `main@2cfdea8` 重新发布相同 WorkAPI/Admin 内容为 version `c612c8a6-4873-4760-b435-3c4db27d14e6`，PostgreSQL ledger 保持 14 项且未重复迁移。production 版本键、向量绑定、Admin assets、Custom Domain、Cron、Cache 与 Observability 均已回读，见[发布记录](VERIFICATION.md)。
 
-当前代码已包含向量识别、Scan confirm 购买价格事件修复、Card Detail 编辑、订阅/归因、Linux 测试入口、Home 版本静默复查、三页 Onboarding、25 秒客户端总 Deadline、API 慢请求收敛、请求关联、原生 HTTP 传输和 Sports Shop 入口。客户端源码版本为 `1.0.3+160`；此前 `1.0.3 (150)` 正式 IPA 已上传 App Store Connect 但未提交审核，新 dev 测试包不能视为正式发布。2026-09-23 Linux API `dev@f9feac7` 最近一次已回读，2026-09-21 prod 服务端已从 `main@2cfdea8` 独立发布；两套 PostgreSQL ledger 均为 14 项且最新为 `0013`。prod 发布前 Workers `src` 76 文件 646/646、Admin 22/22；dev 请求关联后 Workers 650/650、Admin 修复后 24/24，均为对应历史检查点，本轮验证另行记录。
+当前代码已包含向量识别、Scan confirm 购买价格事件修复、Card Detail 编辑、订阅/归因、Linux 测试入口、Home 版本静默复查、三页 Onboarding、25 秒客户端总 Deadline、API 慢请求收敛、请求关联、原生 HTTP 传输和 Sports Shop 入口。客户端源码版本为 `1.0.4+161`；该正式 IPA 已于 2026-09-23 上传 App Store Connect、等待 Apple 后台处理，尚未提交审核或对用户发布；此前 `1.0.3 (150)` 也是历史已上传构建，新 dev 测试包不能视为正式发布。2026-09-23 Linux API `dev@f9feac7` 最近一次已回读，2026-09-21 prod 服务端已从 `main@2cfdea8` 独立发布；两套 PostgreSQL ledger 均为 14 项且最新为 `0013`。prod 发布前 Workers `src` 76 文件 646/646、Admin 22/22；dev 请求关联后 Workers 650/650、Admin 修复后 24/24，均为对应历史检查点，本轮验证另行记录。
 
 2026-09-20 Deadline 冲突明确选择当前可执行代码与已更新契约：Auth、Card Data、Currency、Portfolio、Scan、订阅 Workers HTTP、StoreKit 商品加载、权益读取/刷新、Performance 与 1Y 数据请求的整体边界均为 25 秒；Apple Purchase Sheet、`AppStore.sync()` 和原生 App Attest 计算不强制终止。下文出现的 15 秒若属于冻结 PRD 或带日期的旧验证则保留为历史，任何未注明日期的旧实现描述均由本段和[契约变更](../03-data-api/contract-changes.md)取代。
 

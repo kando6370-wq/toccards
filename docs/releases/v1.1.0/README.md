@@ -1,6 +1,6 @@
 # v1.1.0 版本文档
 
-本目录记录 v1.1.0 相对 [v1.0.0](../v1.0.0/README.md) 的产品输入、当前实现、数据契约和交付边界。本次合并源 `dev@b75d81c` 包含 Linux 测试环境、端侧向量扫描、订阅与归因、25 秒客户端总 Deadline、三页 Onboarding、API 慢请求收敛、请求关联、移动端共享原生传输、Admin 内网 HTTP 请求 ID 兼容和 Sports Shop eBay 入口。客户端 `pubspec.yaml` 为 `1.0.3+160`；kd201 Linux 最近一次回读运行 API 祖先提交 `f9feac7`，不能把客户端源码或测试包视为 Linux API 已更新。2026-09-21 prod 已独立从 `main@2cfdea8` 发布 Worker/Admin version `c612c8a6-4873-4760-b435-3c4db27d14e6`，PostgreSQL `0012/0013` 已完成；本次合入的新代码未因此自动部署 prod。产品迭代版本、源码版本、安装包和商店发布状态分别管理；历史检查点保留原日期，不能外推为当前验收结果。
+本目录记录 v1.1.0 相对 [v1.0.0](../v1.0.0/README.md) 的产品输入、当前实现、数据契约和交付边界。本次合并源 `dev@b75d81c` 包含 Linux 测试环境、端侧向量扫描、订阅与归因、25 秒客户端总 Deadline、三页 Onboarding、API 慢请求收敛、请求关联、移动端共享原生传输、Admin 内网 HTTP 请求 ID 兼容和 Sports Shop eBay 入口。合并时客户端 `pubspec.yaml` 为 `1.0.3+160`；当前已同步为 `1.0.4+161`，正式 IPA 已于 2026-09-23 上传 App Store Connect、等待 Apple 后台处理，尚未提交审核。kd201 Linux 最近一次回读运行 API 祖先提交 `f9feac7`，不能把客户端源码或测试包视为 Linux API 已更新。2026-09-21 prod 已独立从 `main@2cfdea8` 发布 Worker/Admin version `c612c8a6-4873-4760-b435-3c4db27d14e6`，PostgreSQL `0012/0013` 已完成；本次合入的新代码未因此自动部署 prod。产品迭代版本、源码版本、安装包和商店发布状态分别管理；历史检查点保留原日期，不能外推为当前验收结果。
 
 ## 当前结论
 
