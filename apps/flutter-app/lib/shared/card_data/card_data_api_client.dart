@@ -257,18 +257,24 @@ class CardDataSoldListingDto {
     this.url,
   });
 
-  final String date;
+  final String? date;
   final String title;
-  final double price;
+  final double? price;
   final String platform;
   final String? url;
 
   factory CardDataSoldListingDto.fromJson(Map<String, Object?> json) {
+    final platform = _requiredString(json['platform']);
+    final searchLink =
+        platform == 'eBay' &&
+        json['date'] == null &&
+        json['price'] == null &&
+        _nullableString(json['url']) != null;
     return CardDataSoldListingDto(
-      date: _requiredString(json['date']),
+      date: searchLink ? null : _requiredString(json['date']),
       title: _requiredString(json['title']),
-      price: _requiredDouble(json['price']),
-      platform: _requiredString(json['platform']),
+      price: searchLink ? null : _requiredDouble(json['price']),
+      platform: platform,
       url: _nullableString(json['url']),
     );
   }

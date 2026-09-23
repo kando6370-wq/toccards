@@ -6036,7 +6036,9 @@ class _ShopTile extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                key: Key('card-detail-shop-image-${row.dateText}-${row.title}'),
+                key: Key(
+                  'card-detail-shop-image-${row.dateText ?? 'search'}-${row.title}',
+                ),
                 width: 64,
                 height: 64,
                 decoration: BoxDecoration(
@@ -6051,28 +6053,31 @@ class _ShopTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            row.dateText,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: KandoColors.mutedText,
+                    if (row.dateText != null || row.priceText != null) ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              row.dateText ?? '',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: KandoColors.mutedText,
+                              ),
                             ),
                           ),
-                        ),
-                        Text(
-                          row.priceText,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFFFFF6AF),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
+                          if (row.priceText != null)
+                            Text(
+                              row.priceText!,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFFFFF6AF),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                    ],
                     Text(
                       row.title,
                       maxLines: 1,
