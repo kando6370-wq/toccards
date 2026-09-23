@@ -8,7 +8,6 @@ import 'package:uuid/uuid.dart';
 
 import '../../shared/scan/scan_api_client.dart';
 import '../../shared/scan/scan_card_recognizer.dart';
-import '../../shared/scan/scan_card_number_reader.dart';
 import '../../shared/scan/scan_providers.dart';
 import '../auth/auth_controller.dart';
 import '../auth/auth_models.dart';
@@ -117,17 +116,24 @@ class ScanResolution {
 }
 
 abstract interface class ScanResultSource {
-  Future<ScanResolution> photo();
+  Future<ScanResolution> photo({ScanCardType cardType = ScanCardType.tcg});
   Future<List<Future<ScanResolution>>> library({
     int maxItems = 10,
     void Function(ScanImage image, Future<ScanResolution> resolution)?
     onSelected,
+    ScanCardType cardType = ScanCardType.tcg,
   });
   Future<ScanResolution> recognize(
     ScanImage image, {
     ValueChanged<Uint8List>? onDisplayImageReady,
+    ScanCardType cardType = ScanCardType.tcg,
   });
-  Future<ScanResolution> retry({Uint8List? imageBytes, String? fileName});
+  Future<ScanResolution> retry({
+    Uint8List? imageBytes,
+    String? fileName,
+    ScanCardType cardType = ScanCardType.tcg,
+    bool viewfinderCropped = false,
+  });
 }
 
 final scanResultSourceProvider = Provider<ScanResultSource>(
@@ -136,7 +142,6 @@ final scanResultSourceProvider = Provider<ScanResultSource>(
     session: () => ref.read(authControllerProvider).session,
     imagePicker: ImagePickerScanImagePicker(),
     cardRecognizer: createScanCardRecognizer(),
-    cardNumberReader: createScanCardNumberReader(),
     appInfo: _readScanAppInfo,
     localPremiumVerified: () =>
         ref.read(subscriptionControllerProvider).isPro ||
@@ -154,10 +159,15 @@ final scanResultSourceProvider = Provider<ScanResultSource>(
 enum ScanImageSource { camera, gallery }
 
 class ScanImage {
-  const ScanImage({required this.bytes, required this.fileName});
+  const ScanImage({
+    required this.bytes,
+    required this.fileName,
+    this.viewfinderCropped = false,
+  });
 
   final Uint8List bytes;
   final String fileName;
+  final bool viewfinderCropped;
 }
 
 abstract interface class ScanImagePicker {
@@ -225,7 +235,6 @@ class ApiScanResultSource implements ScanResultSource {
     required ScanImagePicker imagePicker,
     required ScanCardRecognizer cardRecognizer,
     required Future<ScanAppInfo> Function() appInfo,
-    ScanCardNumberReader? cardNumberReader,
     bool Function()? localPremiumVerified,
     ValueChanged<ScanQuotaDto>? onQuotaChanged,
   }) : _api = api,
@@ -234,15 +243,13 @@ class ApiScanResultSource implements ScanResultSource {
        _cardRecognizer = cardRecognizer,
        _appInfo = appInfo,
        _localPremiumVerified = localPremiumVerified ?? _false,
-       _onQuotaChanged = onQuotaChanged,
-       _cardNumberReader = cardNumberReader ?? const _NoopCardNumberReader();
+       _onQuotaChanged = onQuotaChanged;
 
   final ScanApi _api;
   final AuthSession? Function() _session;
   final ScanImagePicker _imagePicker;
   final ScanCardRecognizer _cardRecognizer;
   final Future<ScanAppInfo> Function() _appInfo;
-  final ScanCardNumberReader _cardNumberReader;
   final bool Function() _localPremiumVerified;
   final ValueChanged<ScanQuotaDto>? _onQuotaChanged;
   Future<void> _reservationTail = Future<void>.value();
@@ -250,13 +257,15 @@ class ApiScanResultSource implements ScanResultSource {
     'scanRetryRequestId',
   );
   @override
-  Future<ScanResolution> photo() => _pickAndRecognize(ScanImageSource.camera);
+  Future<ScanResolution> photo({ScanCardType cardType = ScanCardType.tcg}) =>
+      _pickAndRecognize(ScanImageSource.camera, cardType: cardType);
 
   @override
   Future<List<Future<ScanResolution>>> library({
     int maxItems = 10,
     void Function(ScanImage image, Future<ScanResolution> resolution)?
     onSelected,
+    ScanCardType cardType = ScanCardType.tcg,
   }) async {
     if (maxItems <= 0) return const [];
     final images = await _imagePicker.pickMany(
@@ -268,7 +277,7 @@ class ApiScanResultSource implements ScanResultSource {
     return [
       for (final image in selectedImages)
         () {
-          final resolution = recognize(image);
+          final resolution = recognize(image, cardType: cardType);
           onSelected?.call(image, resolution);
           return resolution;
         }(),
@@ -276,23 +285,39 @@ class ApiScanResultSource implements ScanResultSource {
   }
 
   @override
-  Future<ScanResolution> retry({Uint8List? imageBytes, String? fileName}) {
+  Future<ScanResolution> retry({
+    Uint8List? imageBytes,
+    String? fileName,
+    ScanCardType cardType = ScanCardType.tcg,
+    bool viewfinderCropped = false,
+  }) {
     if (imageBytes == null || fileName == null) {
       return Future.value(const ScanResolution.failed());
     }
-    return recognize(ScanImage(bytes: imageBytes, fileName: fileName));
+    return recognize(
+      ScanImage(
+        bytes: imageBytes,
+        fileName: fileName,
+        viewfinderCropped: viewfinderCropped,
+      ),
+      cardType: cardType,
+    );
   }
 
-  Future<ScanResolution> _pickAndRecognize(ScanImageSource source) async {
+  Future<ScanResolution> _pickAndRecognize(
+    ScanImageSource source, {
+    required ScanCardType cardType,
+  }) async {
     final image = await _imagePicker.pick(source);
     if (image == null) return const ScanResolution.cancelled();
-    return recognize(image);
+    return recognize(image, cardType: cardType);
   }
 
   @override
   Future<ScanResolution> recognize(
     ScanImage image, {
     ValueChanged<Uint8List>? onDisplayImageReady,
+    ScanCardType cardType = ScanCardType.tcg,
   }) async {
     final previousReservation = _reservationTail;
     final reservationFinished = Completer<void>();
@@ -317,10 +342,12 @@ class ApiScanResultSource implements ScanResultSource {
         );
       }
       final info = await _appInfo();
-      final embedding = await _cardRecognizer.process(image.bytes);
+      final embedding = await _cardRecognizer.process(
+        image.bytes,
+        allowCropFallback: image.viewfinderCropped,
+      );
       displayImageBytes = embedding.cardImageBytes;
       onDisplayImageReady?.call(displayImageBytes);
-      final cardNumber = await _cardNumberReader.read(embedding.cardImageBytes);
       await previousReservation;
       try {
         final reservationApi = _api is ScanQuotaReservationApi
@@ -345,7 +372,7 @@ class ApiScanResultSource implements ScanResultSource {
         appVersion: info.appVersion,
         requestId: requestId,
         localPremiumVerified: _localPremiumVerified(),
-        cardNumber: cardNumber,
+        cardType: cardType,
       );
     } on ScanApiException catch (error) {
       if (error.code == 'SCAN_QUOTA_EXHAUSTED' && error.quota != null) {
@@ -368,7 +395,8 @@ class ApiScanResultSource implements ScanResultSource {
       }
       _retryRequestIds[image.bytes] =
           error.code == scanRequestTimeoutCode ||
-              error.code == 'SCAN_REQUEST_CONFLICT'
+              error.code == 'SCAN_REQUEST_CONFLICT' ||
+              error.code == null
           ? requestId
           : null;
       return ScanResolution.failed(
@@ -390,8 +418,8 @@ class ApiScanResultSource implements ScanResultSource {
         releaseReservationTurn();
       }
     }
-    _retryRequestIds[image.bytes] = null;
     if (recognition.recognitionStatus != 'success') {
+      _retryRequestIds[image.bytes] = null;
       if (recognition.recognitionStatus == 'no_match') {
         return ScanResolution.noMatch(
           imageBytes: image.bytes,
@@ -411,6 +439,7 @@ class ApiScanResultSource implements ScanResultSource {
       (result) => result.matched && result.candidates.isNotEmpty,
     );
     if (matchedResults.isEmpty) {
+      _retryRequestIds[image.bytes] = requestId;
       return ScanResolution.failed(
         imageBytes: image.bytes,
         displayImageBytes: displayImageBytes,
@@ -418,6 +447,7 @@ class ApiScanResultSource implements ScanResultSource {
         quota: recognition.quota,
       );
     }
+    _retryRequestIds[image.bytes] = null;
     final candidates = matchedResults.first.candidates;
     return ScanResolution.matched(
       scanId: recognition.scanId,
@@ -437,13 +467,6 @@ class ApiScanResultSource implements ScanResultSource {
 }
 
 bool _false() => false;
-
-class _NoopCardNumberReader implements ScanCardNumberReader {
-  const _NoopCardNumberReader();
-
-  @override
-  Future<String?> read(Uint8List cardImageBytes) async => null;
-}
 
 Future<ScanAppInfo> _readScanAppInfo() async {
   final packageInfo = await PackageInfo.fromPlatform();

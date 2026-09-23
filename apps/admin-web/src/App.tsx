@@ -24,6 +24,7 @@ import type { ColumnsType } from "antd/es/table";
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { resolveAdminApiBase } from "./api-base";
+import { createAdminRequestHeaders } from "./request-id";
 import { appleNotificationStatusName } from "./apple-notification-status";
 import { countryName } from "./country-name";
 import {
@@ -1175,7 +1176,9 @@ function AuthenticatedScanImage({ path, session, className }: { path: string; se
     }
     let active = true;
     let objectUrl: string | null = null;
-    fetch(`${API_BASE}${path}`, { headers: { Authorization: `Bearer ${session.accessToken}` } })
+    fetch(`${API_BASE}${path}`, {
+      headers: createAdminRequestHeaders({ Authorization: `Bearer ${session.accessToken}` }),
+    })
       .then((response) => {
         dispatchSessionExpiredOnUnauthorized(response, session.accessToken);
         if (!response.ok) throw new Error("Scan image unavailable");
@@ -1348,7 +1351,7 @@ function mutate(session: AdminSession, path: string, init: AdminRequestInit) {
 }
 
 async function adminRequest<T>(path: string, init: AdminRequestInit = {}): Promise<T> {
-  const headers = new Headers(init.headers);
+  const headers = createAdminRequestHeaders(init.headers);
   if (init.token) headers.set("Authorization", `Bearer ${init.token}`);
   if (init.body !== undefined) headers.set("Content-Type", "application/json");
 
@@ -1368,7 +1371,7 @@ async function adminRequest<T>(path: string, init: AdminRequestInit = {}): Promi
 
 async function downloadAdminFile(path: string, session: AdminSession, fallbackName: string) {
   const response = await fetch(`${API_BASE}${path}`, {
-    headers: { Authorization: `Bearer ${session.accessToken}` },
+    headers: createAdminRequestHeaders({ Authorization: `Bearer ${session.accessToken}` }),
   });
   dispatchSessionExpiredOnUnauthorized(response, session.accessToken);
   if (!response.ok) {

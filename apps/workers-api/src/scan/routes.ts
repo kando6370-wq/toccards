@@ -221,6 +221,7 @@ WHERE id = ? AND owner_type = ? AND owner_id = ?
 const RECOGNITION_ALGORITHM = "pe-core-t16-384-cosine-v1";
 const EMBEDDING_DIMENSIONS = 512;
 const MAX_VECTOR_JSON_BYTES = 32 * 1024;
+const DEFAULT_CARD_TYPE = 0;
 const CARD_NUMBER_PATTERN = /^(?:\d{1,4}\/(?:\d{1,4}|[A-Z]{1,5}-P)|[A-Z]{1,5}-P)$/;
 
 type ScanRecognitionCheckpoints = {
@@ -262,6 +263,24 @@ function scanQuotaPayload(
     access,
     unlimited: access === "premium",
     ...quota,
+  };
+}
+
+function withCurrentScanQuota(
+  body: unknown,
+  quota: ScanQuotaSnapshot,
+  access: "free" | "premium",
+): unknown {
+  if (!isRecord(body) || body.success !== true || !isRecord(body.data)) {
+    return body;
+  }
+  if (!("quota" in body.data)) return body;
+  return {
+    ...body,
+    data: {
+      ...body.data,
+      quota: scanQuotaPayload(quota, access),
+    },
   };
 }
 
@@ -384,10 +403,11 @@ export function createScanRoutes() {
       return c.json(INTERNAL_ERROR_RESPONSE, 503);
     }
     const vector = readEmbeddingVector(body.get("vector"));
+    const cardType = readCardType(body.get("card_type"));
     const gameId = readOptionalGameId(body.get("game_id"));
     const cardNumber = readOptionalCardNumber(body.get("card_number"));
     const image = await validateScanImage(body.get("image"));
-    if (!vector || gameId === null || cardNumber === null || !image) {
+    if (!vector || cardType === null || gameId === null || cardNumber === null || !image) {
       await releaseQueuedScanQuota(
         c.env.DB,
         auth.owner,
@@ -424,7 +444,12 @@ export function createScanRoutes() {
       }, 403);
     }
     if (reservation.status === "existing" && reservation.response !== null) {
-      return new Response(JSON.stringify(reservation.response.body), {
+      const responseBody = withCurrentScanQuota(
+        reservation.response.body,
+        reservation.quota,
+        reservation.accessMode,
+      );
+      return new Response(JSON.stringify(responseBody), {
         status: reservation.response.status,
         headers: { "Content-Type": "application/json" },
       });
@@ -434,7 +459,7 @@ export function createScanRoutes() {
     }
     const reservedAt = performance.now();
 
-    const outbound = { vector };
+    const outbound = { vector, card_type: cardType };
 
     const scanId = requestId;
     const createdAt = new Date();
@@ -596,7 +621,7 @@ export function createScanRoutes() {
     }
 
     const quotaOutcome = recognitionStatus === "success" ? "consumed" : "released";
-    const quota = reservation.accessMode === "free"
+    const predictedQuota = reservation.accessMode === "free"
       ? {
           ...reservation.quota,
           reserved: Math.max(0, reservation.quota.reserved - 1),
@@ -613,14 +638,14 @@ export function createScanRoutes() {
         recognition_status: recognitionStatus,
         cards_detected: candidates.length > 0 ? 1 : 0,
         elapsed: (Date.now() - startedAt) / 1000,
-        quota: scanQuotaPayload(quota, reservation.accessMode),
+        quota: scanQuotaPayload(predictedQuota, reservation.accessMode),
         warnings: recognized?.length === candidates.length
           ? []
           : ["Some recognized cards are missing from the catalog."],
         results,
       },
     };
-    await settleScanQuota(
+    const settledQuota = await settleScanQuota(
       c.env.DB,
       auth.owner,
       requestId,
@@ -628,8 +653,18 @@ export function createScanRoutes() {
       scanId,
       { body: responseBody, status: 200 },
     );
+    const currentResponseBody = {
+      ...responseBody,
+      data: {
+        ...responseBody.data,
+        quota: scanQuotaPayload(
+          settledQuota ?? predictedQuota,
+          reservation.accessMode,
+        ),
+      },
+    };
     logSlowScanRecognitionTiming(timingCheckpoints, recognitionStatus);
-    return c.json(responseBody);
+    return c.json(currentResponseBody);
   });
 
   routes.post("/scan/:scan_id/confirm", async (c) => {
@@ -955,6 +990,12 @@ function readEmbeddingVector(value: string | File | null): number[] | null {
     hasNonZeroValue ||= component !== 0;
   }
   return hasNonZeroValue ? vector : null;
+}
+
+function readCardType(value: string | File | null): 0 | 1 | null {
+  if (value === null || value === "") return DEFAULT_CARD_TYPE;
+  if (typeof value !== "string" || !/^[01]$/.test(value)) return null;
+  return value === "1" ? 1 : 0;
 }
 
 function readOptionalGameId(value: string | File | null): number | undefined | null {

@@ -1,6 +1,6 @@
 # v1.1.0 版本文档
 
-本目录记录 v1.1.0 相对 [v1.0.0](../v1.0.0/README.md) 的产品输入、当前实现、数据契约和交付边界。当前 main 为 `2cfdea8`，已合入 `dev@ad88ee9`，包含 Linux 测试环境、端侧向量扫描、订阅与归因、25 秒客户端总 Deadline、三页 Onboarding 更新及 API 慢请求收敛。客户端 `pubspec.yaml` 为 `1.0.3+150`，正式包已上传 App Store Connect 但未确认处理完成或提交审核；Linux API 实际运行 `dev@9488a15`。2026-09-21 prod 已从该 main 重新发布 Worker/Admin version `c612c8a6-4873-4760-b435-3c4db27d14e6`，PostgreSQL 保持 `0012/0013` 已完成。产品迭代版本、源码版本、安装包和商店发布状态分别管理；历史检查点保留原日期，不能外推为当前验收结果。
+本目录记录 v1.1.0 相对 [v1.0.0](../v1.0.0/README.md) 的产品输入、当前实现、数据契约和交付边界。本次合并源 `dev@b75d81c` 包含 Linux 测试环境、端侧向量扫描、订阅与归因、25 秒客户端总 Deadline、三页 Onboarding、API 慢请求收敛、请求关联、移动端共享原生传输、Admin 内网 HTTP 请求 ID 兼容和 Sports Shop eBay 入口。客户端 `pubspec.yaml` 为 `1.0.3+160`；kd201 Linux 最近一次回读运行 API 祖先提交 `f9feac7`，不能把客户端源码或测试包视为 Linux API 已更新。2026-09-21 prod 已独立从 `main@2cfdea8` 发布 Worker/Admin version `c612c8a6-4873-4760-b435-3c4db27d14e6`，PostgreSQL `0012/0013` 已完成；本次合入的新代码未因此自动部署 prod。产品迭代版本、源码版本、安装包和商店发布状态分别管理；历史检查点保留原日期，不能外推为当前验收结果。
 
 ## 当前结论
 
@@ -9,12 +9,12 @@
 - 当前业务环境只有 prod（维持原 Cloudflare 部署）与 dev（kd201 Linux）；旧 CF dev 仅为历史部署，不再发布。dev 仍通过独立 CF 服务调用向量识别和 Apple Sandbox 回调，详见[系统架构](02-architecture/architecture.md#6-环境与部署)。
 - 仓库内已形成 Apple 订阅与 session grant、Scan Quota、Folder 限制、Performance、Extended Price History、Admin 订单与 Apple Notifications V2 的实现和自动化证据。
 - 扫描向量链路已合入并推送 `dev`，对应 Workers/Admin 曾发布到旧 CF dev，现由 Linux 承接业务；App 扫描支持 iOS 16+、Android API 24+，Web 扫描暂不支持。源分支已清理，后续使用 `dev`，详见[扫描识别链路](01-flows/scan-recognition.md)。
-- Linux 入口已通过 `19a6ac4` 合入 dev，包含共享 Hono/Node、独立 PostgreSQL、内存 KV、本地图片卷和分支监听发布脚本。App test/Admin development 默认使用 Linux 内网入口，扫描仅通过 CF HTTP 向量服务检索。2026-09-20 kd201 watcher 运行 API release `dev@9488a15`，API/DB healthy、Web running、ledger 为 14 项且最新为 `0013`；旧 CF dev 业务 Worker、域名和 cron 已退役，测试数据与旧包保留。客户端路径由用户确认已验收；prod 的 2026-09-21 独立发布不替换 Linux release，见[Linux 兼容设计](02-architecture/linux-test-environment.md)和[验证记录](05-delivery/VERIFICATION.md)。
+- Linux 入口已通过 `19a6ac4` 合入 dev，包含共享 Hono/Node、独立 PostgreSQL、内存 KV、本地图片卷和分支监听发布脚本。App test/Admin development 默认使用 Linux 内网入口，扫描仅通过 CF HTTP 向量服务检索。2026-09-23 最近一次回读 watcher 运行 `dev@f9feac7`，API/DB healthy、Web running、ledger 为 14 项且最新为 `0013`；体育卡 Shop 的 eBay 搜索链接与 TCG 的 TCGplayer 商品链接已在 dev API 只读回归。旧 CF dev 业务 Worker、域名和 cron 已退役，测试数据与旧包保留；prod 的 2026-09-21 独立发布不替换 Linux release，见[Linux 兼容设计](02-architecture/linux-test-environment.md)和[最新部署验证](05-delivery/VERIFICATION.md#sports-shop-linux-dev-自动发布回读2026-09-23)。
 - 升级门禁在实际 Home 首帧后启动，后续 Home 返回或回前台静默复查，已确认强更仍跨路由拦截。扫描取景框从首帧预留底部结果区，iOS 检测分数按 sigmoid 转为概率。iOS 发布脚本按 Bundle ID 保存 IPA/dSYM，测试保留 3 个版本、正式保留 7 个版本；当前实现和既有测试限制见[发布与验证](05-delivery/VERIFICATION.md#当前代码与交付边界)。
-- 2026-09-10 的 App 全量 1047/1047、订阅包 9/9 与 Workers 621/621 保留为对应历史检查点；2026-09-21 prod 配置收敛后的 Workers `src` 为 76 文件、646/646，并通过 type-check、依赖方向、prod dry-run 与 Code Review。Onboarding 与 25 秒客户端 Deadline 的后续定向验证按其各自记录判断，不能用旧全量结果替代。
+- 2026-09-10 的 App 全量 1047/1047、订阅包 9/9 与 Workers 621/621 保留为对应历史检查点；2026-09-21 prod 配置收敛后的 Workers `src` 为 76 文件、646/646；dev 请求关联后的 Workers `src` 为 76 文件、650/650。当前 Flutter 原生传输影响面为 269/269，但 workspace 全量仍有 14 项既有 Golden 失败；Admin 修复后为 24/24、type-check、development build 和 dev dry-run 通过。各定向结果不能替代未通过的完整 App 测试或移动端真机协议验收。
 - “代码已完成”不等于发布完成。Apple 生产配置、Sandbox/TestFlight、真机、多设备、重度数据和真实订单规模仍是独立验收门槛。
 - D1 已废弃。旧 CF dev/test 与 prod 曾共用 PlanetScale PostgreSQL/Hyperdrive，2026-09-09 两环境均无 D1 binding；旧 dev Worker 已于 2026-09-17 退役，历史数据/KV/R2 保留。现在 dev 使用 Linux 独立 PostgreSQL，prod 继续使用原共享库并运行当前 Cloudflare 发布，见[发布与验证](05-delivery/VERIFICATION.md)。
-- 数据库执行状态按环境和证据区分：2026-09-21 prod 共享 PostgreSQL 已回读 `0000` 至 `0013` 共 14 条 ledger，`0012` 回填 4 行后待处理数为 0，`0013` 索引 valid/ready 并被实际查询计划采用。Linux 独立 PostgreSQL 于 2026-09-20 回读为 14 项 ledger。两库结果来自各自独立验证，详见[数据迁移](03-data-api/migration.md)。
+- 数据库执行状态按环境和证据区分：2026-09-21 prod 共享 PostgreSQL 已回读 `0000` 至 `0013` 共 14 条 ledger，`0012` 回填 4 行后待处理数为 0，`0013` 索引 valid/ready 并被实际查询计划采用。Linux 独立 PostgreSQL 于 2026-09-23 再次回读为 14 项 ledger。两库结果来自各自独立验证，详见[数据迁移](03-data-api/migration.md)。
 - 六份产品输入保持字节不变；实现状态只在 `01-flows` 至 `05-delivery` 更新。
 
 ## 原始产品输入

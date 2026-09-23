@@ -227,10 +227,24 @@ LIMIT ? OFFSET ?`,
       ]);
       if (!card) return [];
 
+      if (card.game_id >= 50_000) {
+        const titleParts = [card.name?.trim() || card.product_id, card.set_name?.trim(), card.number?.trim()]
+          .filter((value): value is string => Boolean(value));
+        const url = new URL("https://www.ebay.com/sch/i.html");
+        url.searchParams.set("_nkw", titleParts.join(" "));
+        return [{
+          date: null,
+          title: titleParts.join(" / "),
+          price: null,
+          platform: "eBay",
+          url: url.toString(),
+        }];
+      }
+
       const prices = publishedPrices.filter((row) => row.source_code === "tcgplayer");
       return preferredRawMarketPrices(prices)
         .map((row) => shopListingFromTcgplayerPrice(card, row))
-        .sort((left, right) => right.date.localeCompare(left.date))
+        .sort((left, right) => (right.date ?? "").localeCompare(left.date ?? ""))
         .slice(0, 4);
     },
   };

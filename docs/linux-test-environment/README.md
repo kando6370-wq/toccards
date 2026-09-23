@@ -2,7 +2,7 @@
 
 当前 `dev` 即本手册的 Linux 环境，`prod` 保持原 Cloudflare 运行与发布方式；已退役的旧 CF dev 不是第三个业务环境或后续发布目标。
 
-2026-09-20 当前状态：kd201 watcher 已自动发布 API 性能提交 `dev@9488a15`，API/DB healthy、Web running、migration exited/0，ledger 为 14 项且最新为 `0013`。旧 CF dev 业务 Worker、域名和 cron 已退役；独立 Apple 回调和 CF 向量服务保留，旧测试数据与包不清理。下方 2026-09-16 基线按原日期保留，最新证据见[验证记录](../releases/v1.1.0/05-delivery/VERIFICATION.md)。
+2026-09-23 最近回读状态：kd201 watcher 已自动发布 Sports Shop 提交 `dev@f9feac7`，API/DB healthy、Web running、migration exited/0，ledger 为 14 项且最新为 `0013`。旧 CF dev 业务 Worker、域名和 cron 已退役；独立 Apple 回调和 CF 向量服务保留，旧测试数据与包不清理。下方 2026-09-16 基线按原日期保留，最新证据见[验证记录](../releases/v1.1.0/05-delivery/VERIFICATION.md)。
 
 > 适用项目：`toccards`
 >
@@ -12,11 +12,11 @@
 >
 > 自动部署分支：`dev`
 >
-> 当前发布基线：2026-09-20，watcher 自动发布 API release `dev@9488a15`
+> 最近一次已回读发布基线：2026-09-23，watcher 自动发布 API/Admin release `dev@f9feac7`
 >
-> 服务器核验：2026-09-20，manifest/current/last-deployed 一致，14 项 ledger、发布前备份、health 与 Admin 通过；既有向量扫描、扣次和本地收藏证据保留
+> 服务器核验：2026-09-23，manifest/current/last-deployed 一致，14 项 ledger、发布前备份、health 与 Admin 通过；Sports Shop 的 eBay 与 TCGplayer 对照已回读，既有向量扫描、扣次和本地收藏历史证据保留
 
-Linux 整改已通过 `75c0ec4` 合入 dev，保留该分支原有的后台筛选改动；该提交及 `a419415` release 现在都是历史检查点。当前 release 为 `branch-dev-9488a15f01b0-20260920111505`，运行 bundle 包含 HTTP 向量适配与 API 等待收敛；原数据库及图片卷保留，ledger 为 14 项。发布前约 1.12 GB custom-format 备份通过 `pg_restore --list`，未执行恢复。日常手工 SSH 发布仍需配置 key/agent，当前自动发布使用服务器现有监听器；只改 Flutter/文档的后续提交不会替换 Linux release。完整证据见[验证记录](../releases/v1.1.0/05-delivery/VERIFICATION.md)。
+Linux 整改已通过 `75c0ec4` 合入 dev，保留该分支原有的后台筛选改动；该提交及 `a419415` release 现在都是历史检查点。当前 release 为 `branch-dev-f9feac7b16b5-20260923103511`，运行 bundle 包含 HTTP 向量适配与 Sports Shop eBay 入口；原数据库及图片卷保留，ledger 为 14 项。发布前 1,135,250,246 字节 custom-format 备份通过 PostgreSQL 18 `pg_restore --list`，未执行恢复。日常手工 SSH 发布仍需配置非交互 key/agent；本次通过交互 SSH 只读核验已由服务器 watcher 完成的自动发布，没有执行手工重发。后续只改 Flutter/文档的 `d8f0aa2` 仅更新 `last-seen-sha`，没有替换 Linux release。完整证据见[验证记录](../releases/v1.1.0/05-delivery/VERIFICATION.md#sports-shop-linux-dev-自动发布回读2026-09-23)。
 
 2026-09-16 已在共享 `shared/.env` 补齐 dev 公开配置、Apple 官方根证书、API 出站代理、ZeptoMail Token 和用户确认的 Apple Server API 凭据；这些配置随 release 保留。配置更新只重建 API，单封注册验证码邮件由用户确认收到，管理员登录与 Apple Sandbox 只读 API 鉴权均通过。当前源码版本对齐、第三方真实登录、Apple 购买/回调等剩余项见[集中处理清单](../releases/v1.1.0/05-delivery/development-plan.md#linux-dev-集中处理清单2026-09-16)。
 

@@ -45,6 +45,21 @@ describe("scan routes", () => {
     expect((env.SCAN_IMAGES as unknown as FakeR2).objects.size).toBe(0);
   });
 
+  it("rejects unsupported card types before recognition because the upstream contract is binary", async () => {
+    const env = await createRecognitionEnv();
+    const token = await recognitionToken(env);
+    const upstream = vi.fn();
+    stubVectorRecognition(env, upstream);
+
+    const response = await recognize(env, token, {
+      vector: VECTOR,
+      card_type: 2,
+    });
+
+    expect(response.status).toBe(422);
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
   it("keeps the game filter in the catalog boundary because vector search receives no game or owner information", async () => {
     const env = await createRecognitionEnv();
     await insertRows(env.DB, "cards_all",
@@ -52,11 +67,15 @@ describe("scan routes", () => {
       { product_id: "other-game", game_id: 2, game: "Magic", name: "Other Card", set_name: "Set B", product_type_name: "Cards" },
     );
     const upstream = vi.fn(async (_url, init) => {
-      expect(JSON.parse(init.body)).toEqual({ vector: VECTOR });
+      expect(JSON.parse(init.body)).toEqual({ vector: VECTOR, card_type: 1 });
       return Response.json({ candidates: [{ product_id: "other-game", confidence: 99 }, { product_id: "same-game", confidence: 90 }] });
     });
     stubVectorRecognition(env, upstream);
-    const response = await recognize(env, await recognitionToken(env), { vector: VECTOR, game_id: 1 });
+    const response = await recognize(env, await recognitionToken(env), {
+      vector: VECTOR,
+      game_id: 1,
+      card_type: 1,
+    });
     expect(response.status).toBe(200);
     const body = await response.json() as { data: { results: Array<{ candidates: Array<{ card_ref: string }> }> } };
     expect(body.data.results[0].candidates.map((candidate) => candidate.card_ref)).toEqual(["same-game"]);
@@ -67,7 +86,7 @@ describe("scan routes", () => {
     await Promise.all(databases.splice(0).map((db) => db.close()));
   });
 
-  it("keeps Linux catalog reads, scan records and quota local while sending only the vector to CF recognition", async () => {
+  it("keeps Linux catalog reads, scan records and quota local while sending vector and card type to CF recognition", async () => {
     const env = await createRecognitionEnv();
     await insertRows(env.DB, "cards_all", {
       product_id: "linux-card",
@@ -96,7 +115,7 @@ describe("scan routes", () => {
       expect.objectContaining({
         method: "POST",
         headers: { Accept: "application/json", "Content-Type": "application/json" },
-        body: JSON.stringify({ vector: VECTOR }),
+        body: JSON.stringify({ vector: VECTOR, card_type: 0 }),
       }),
     );
     expect(response.status).toBe(200);
@@ -224,7 +243,7 @@ describe("scan routes", () => {
         Accept: "application/json",
         "Content-Type": "application/json",
       });
-      expect(JSON.parse(String(init.body))).toEqual({ vector: VECTOR });
+      expect(JSON.parse(String(init.body))).toEqual({ vector: VECTOR, card_type: 0 });
       return Response.json({
         candidates: [
           { product_id: 10738, confidence: 80.99 },
@@ -238,7 +257,11 @@ describe("scan routes", () => {
       "/api/v1/scan/recognize",
       {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Idempotency-Key": requestId },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Idempotency-Key": requestId,
+          "X-Request-ID": "123e4567-e89b-42d3-a456-426614174000",
+        },
         body: recognitionForm({
           request_id: requestId,
           vector: VECTOR, filename: "scan.jpg",
@@ -736,7 +759,7 @@ describe("scan routes", () => {
     );
     const token = await recognitionToken(env);
     stubVectorRecognition(env, async (_url: string, init: RequestInit) => {
-      expect(JSON.parse(String(init.body))).toEqual({ vector: VECTOR });
+      expect(JSON.parse(String(init.body))).toEqual({ vector: VECTOR, card_type: 0 });
       return Response.json({
         candidates: [
           { product_id: 610499, confidence: 84.1 },
@@ -1081,6 +1104,112 @@ describe("scan routes", () => {
       "success",
       "failed",
     ]);
+  });
+
+  it("returns authoritative quota after concurrent Gallery settlements because completion order must not hide a returned Free slot", async () => {
+    const env = await createRecognitionEnv();
+    const token = await recognitionToken(env);
+    await insertRows(env.DB, "cards_all", {
+      product_id: "gallery-valid",
+      game_id: 1,
+      game: "Pokemon",
+      set_name: "Gallery Set",
+      set_code: "GAL",
+      name: "Gallery Card",
+      rarity: "Rare",
+      product_type_name: "Cards",
+      image_url: null,
+      number: "001/100",
+    });
+    for (let index = 0; index < 8; index += 1) {
+      await insertRows(env.DB, "scan_quota_request", {
+        request_id: crypto.randomUUID(),
+        owner_type: "anonymous",
+        owner_id: "anon-1",
+        session_id: "session-1",
+        access_mode: "free",
+        status: "consumed",
+        processing_expires_at: null,
+        response_json: null,
+        http_status: null,
+      });
+    }
+
+    const successRequestId = crypto.randomUUID();
+    const noMatchRequestId = crypto.randomUUID();
+    for (const requestId of [successRequestId, noMatchRequestId]) {
+      const response = await app.request(
+        "/api/v1/scan/quota/reserve",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            "Idempotency-Key": requestId,
+          },
+          body: JSON.stringify({ request_id: requestId }),
+        },
+        env,
+      );
+      expect(response.status).toBe(200);
+    }
+
+    let releaseSuccess!: () => void;
+    let releaseNoMatch!: () => void;
+    let markFirstStarted!: () => void;
+    let markBothStarted!: () => void;
+    const successGate = new Promise<void>((resolve) => { releaseSuccess = resolve; });
+    const noMatchGate = new Promise<void>((resolve) => { releaseNoMatch = resolve; });
+    const firstStarted = new Promise<void>((resolve) => { markFirstStarted = resolve; });
+    const bothStarted = new Promise<void>((resolve) => { markBothStarted = resolve; });
+    const fetchMock = vi.fn(async () => {
+      const callIndex = fetchMock.mock.calls.length - 1;
+      if (callIndex === 0) markFirstStarted();
+      if (callIndex === 1) markBothStarted();
+      await (callIndex === 0 ? successGate : noMatchGate);
+      return callIndex === 0
+        ? Response.json({ candidates: [{ product_id: "gallery-valid", confidence: 96 }] })
+        : Response.json({ candidates: [] });
+    });
+    stubVectorRecognition(env, fetchMock);
+
+    const successPending = recognize(env, token, {
+      request_id: successRequestId,
+      vector: VECTOR,
+    });
+    await firstStarted;
+    const noMatchPending = recognize(env, token, {
+      request_id: noMatchRequestId,
+      vector: VECTOR,
+    });
+    await bothStarted;
+
+    releaseNoMatch();
+    const noMatch = await noMatchPending;
+    expect(await noMatch.json()).toMatchObject({
+      data: {
+        recognition_status: "no_match",
+        quota: { reserved: 1, consumed: 8, remaining: 1 },
+      },
+    });
+
+    releaseSuccess();
+    const success = await successPending;
+    expect(await success.json()).toMatchObject({
+      data: {
+        recognition_status: "success",
+        quota: { reserved: 0, consumed: 9, remaining: 1 },
+      },
+    });
+
+    const replay = await recognize(env, token, {
+      request_id: successRequestId,
+      vector: VECTOR,
+    });
+    expect(await replay.json()).toMatchObject({
+      data: { quota: { reserved: 0, consumed: 9, remaining: 1 } },
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("rejects the eleventh Free scan before R2 and vector search because the server quota is authoritative", async () => {

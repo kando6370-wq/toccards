@@ -1,5 +1,7 @@
 {
   "APP_ENV": "production",
+  "APP_HTTP_TRANSPORT": "native",
+  "cronetHttpNoPlay": true,
   "SUBSCRIPTION_APP_STORE_WEEKLY_ID": "CardAi.weekly",
   "SUBSCRIPTION_APP_STORE_YEARLY_ID": "CardAi.yearly",
   "SUBSCRIPTION_APP_STORE_LIFETIME_ID": "CardAi.lifetime"

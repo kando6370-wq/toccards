@@ -155,42 +155,50 @@ class _ScanItem {
     required this.pictureLabel,
     required this.status,
     required this.usesCameraFeedback,
+    this.cardType = ScanCardType.tcg,
     this.match,
     this.imageBytes,
     this.displayImageBytes,
     this.imageFileName,
     this.retainOnQuotaExhausted = false,
+    this.viewfinderCropped = false,
   });
 
   final int id;
   final String pictureLabel;
   final _ScanItemStatus status;
   final bool usesCameraFeedback;
+  final ScanCardType cardType;
   final _ScanMatch? match;
   final Uint8List? imageBytes;
   final Uint8List? displayImageBytes;
   final String? imageFileName;
   final bool retainOnQuotaExhausted;
+  final bool viewfinderCropped;
 
   _ScanItem copyWith({
     _ScanItemStatus? status,
+    ScanCardType? cardType,
     _ScanMatch? match,
     Uint8List? imageBytes,
     Uint8List? displayImageBytes,
     String? imageFileName,
     bool? retainOnQuotaExhausted,
+    bool? viewfinderCropped,
   }) {
     return _ScanItem(
       id: id,
       pictureLabel: pictureLabel,
       status: status ?? this.status,
       usesCameraFeedback: usesCameraFeedback,
+      cardType: cardType ?? this.cardType,
       match: match ?? this.match,
       imageBytes: imageBytes ?? this.imageBytes,
       displayImageBytes: displayImageBytes ?? this.displayImageBytes,
       imageFileName: imageFileName ?? this.imageFileName,
       retainOnQuotaExhausted:
           retainOnQuotaExhausted ?? this.retainOnQuotaExhausted,
+      viewfinderCropped: viewfinderCropped ?? this.viewfinderCropped,
     );
   }
 }
@@ -350,7 +358,7 @@ class _PendingScan {
   final int token;
   final int? quotaPromptBatchId;
   ScanResolution? resolution;
-  var revealTimelineFinished = false;
+  var minimumDurationFinished = false;
   var removedFromUi = false;
   AnimationController? revealController;
 }
@@ -365,7 +373,10 @@ class ScanPage extends ConsumerStatefulWidget {
 class _ScanPageState extends ConsumerState<ScanPage>
     with TickerProviderStateMixin, WidgetsBindingObserver {
   static const _maxQueueItems = 10;
-  static const _revealTimelineDuration = Duration(microseconds: 1529856);
+  static const _minimumRecognitionDuration = Duration(seconds: 1);
+  static const _recognizingDelay = Duration(milliseconds: 500);
+  static const _revealDelay = Duration(milliseconds: 250);
+  static const _revealTimelineDuration = Duration(milliseconds: 250);
   static const _captureAnimationDuration = Duration(milliseconds: 500);
   static const _galleryCameraWarmupDuration = Duration(milliseconds: 500);
 
@@ -374,8 +385,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   final Map<int, _PendingScan> _pendingScans = {};
   final Map<int, Stopwatch> _scanStopwatches = {};
   final Map<int, Duration> _scanDurations = {};
-  final Map<int, String> _scanResultValues = {};
-  final Set<int> _reportedScanResultIds = {};
+  final Map<int, int> _reportedScanResultTokens = {};
   final Set<int> _quotaPromptedBatchIds = {};
   late final AnimationController _captureController;
   ScanCameraSession? _cameraSession;
@@ -400,6 +410,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   var _entitlementRefreshInFlight = false;
   Timer? _entitlementRefreshTimer;
   Completer<void>? _entitlementRefreshDelay;
+  var _selectedCardType = ScanCardType.tcg;
   int? _selectedReviewItemId;
   ScanReviewTarget? _reviewTarget;
   Map<String, ScanReviewCard> _reviewCards = const {};
@@ -622,6 +633,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       return;
     }
     final source = ref.read(scanResultSourceProvider);
+    final cardType = _selectedCardType;
     final camera = _cameraSession;
     if (camera == null) {
       if (_openingCamera) return;
@@ -630,7 +642,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
         return;
       }
       ref.read(analyticsProvider).track(AnalyticsEvent.cameraClick);
-      _addScan(Future.sync(source.photo));
+      _addScan(
+        Future.sync(() => source.photo(cardType: cardType)),
+        cardType: cardType,
+      );
       return;
     }
     if (_photoRecognitionItemId != null) return;
@@ -645,10 +660,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
       itemId,
       camera,
       source,
+      cardType: cardType,
       onCaptured: (image) => _attachScanImage(itemId, image),
       onDisplayImageReady: (bytes) => _attachScanDisplayImage(itemId, bytes),
     );
-    final addedItemId = _addScan(result);
+    final addedItemId = _addScan(result, cardType: cardType);
     assert(addedItemId == itemId);
     unawaited(_finishPhotoRecognition(itemId, result));
   }
@@ -657,6 +673,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     int itemId,
     ScanCameraSession camera,
     ScanResultSource source, {
+    required ScanCardType cardType,
     required ValueChanged<ScanImage> onCaptured,
     required ValueChanged<Uint8List> onDisplayImageReady,
   }) async {
@@ -664,10 +681,19 @@ class _ScanPageState extends ConsumerState<ScanPage>
       setState(() => _captureFeedbackItemId = itemId);
       await _captureController.forward(from: 0).orCancel;
       if (!mounted) return const ScanResolution.failed();
-      final image = await camera.takePhoto();
+      final viewport = MediaQuery.sizeOf(context);
+      final viewfinder = _scanViewfinderGeometry(
+        viewport,
+        MediaQuery.paddingOf(context),
+      ).rect;
+      final image = await camera.takePhoto(
+        viewfinder: viewfinder,
+        viewport: viewport,
+      );
       onCaptured(image);
       return await source.recognize(
-        ScanImage(bytes: image.bytes, fileName: image.fileName),
+        image,
+        cardType: cardType,
         onDisplayImageReady: onDisplayImageReady,
       );
     } catch (_) {
@@ -710,6 +736,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       return;
     }
     final remainingQueueCapacity = _maxQueueItems - _pendingScanCount;
+    final cardType = _selectedCardType;
     ref.read(analyticsProvider).track(AnalyticsEvent.imageClick);
     setState(() => _librarySelectionInFlight = true);
     try {
@@ -730,6 +757,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
           .read(scanResultSourceProvider)
           .library(
             maxItems: remainingQueueCapacity,
+            cardType: cardType,
             onSelected: (image, resolution) {
               selectedCount += 1;
               if (mounted) {
@@ -741,6 +769,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
                   imageFileName: image.fileName,
                   retainOnQuotaExhausted: true,
                   quotaPromptBatchId: quotaPromptBatchId,
+                  cardType: cardType,
                 );
               }
             },
@@ -753,6 +782,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
             usesCameraFeedback: false,
             retainOnQuotaExhausted: true,
             quotaPromptBatchId: quotaPromptBatchId,
+            cardType: cardType,
           );
         }
       }
@@ -761,6 +791,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
         _addScan(
           Future.value(const ScanResolution.failed()),
           usesCameraFeedback: false,
+          cardType: cardType,
         );
       }
     } finally {
@@ -785,9 +816,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
       return false;
     }
     return quota.isServerAuthoritative &&
-        quota.remainingScans == 0 &&
-        quota.displayRemainingScans > 0 &&
-        _pendingScans.isNotEmpty;
+        (quota.isLoading ||
+            (quota.remainingScans == 0 &&
+                quota.displayRemainingScans > 0 &&
+                _pendingScans.isNotEmpty));
   }
 
   void _showScanQuotaAwaitingSettlement() {
@@ -959,6 +991,12 @@ class _ScanPageState extends ConsumerState<ScanPage>
         item.status == _ScanItemStatus.entitlementSync;
   }
 
+  void _refreshQuotaAfterSettledBatch() {
+    if (!mounted) return;
+    if (_pendingScans.isNotEmpty) return;
+    unawaited(_refreshQuotaAndResumeWaiting());
+  }
+
   void _resumeWaitingFromServerQuota() {
     if (!mounted) return;
     final quota = ref.read(scanQuotaControllerProvider);
@@ -1085,10 +1123,13 @@ class _ScanPageState extends ConsumerState<ScanPage>
       unawaited(_openQuotaPaywall());
       return;
     }
-    _restartScan(item);
+    _restartScan(item, startsNewAttempt: true);
   }
 
-  void _restartScan(_ScanItem item) {
+  void _restartScan(_ScanItem item, {bool startsNewAttempt = false}) {
+    if (startsNewAttempt) {
+      _scanDurations.remove(item.id);
+    }
     _scanStopwatches[item.id] = Stopwatch()..start();
     _replaceItem(
       item.copyWith(
@@ -1101,7 +1142,12 @@ class _ScanPageState extends ConsumerState<ScanPage>
       Future.sync(
         () => ref
             .read(scanResultSourceProvider)
-            .retry(imageBytes: item.imageBytes, fileName: item.imageFileName),
+            .retry(
+              imageBytes: item.imageBytes,
+              fileName: item.imageFileName,
+              cardType: item.cardType,
+              viewfinderCropped: item.viewfinderCropped,
+            ),
       ),
     );
   }
@@ -1140,13 +1186,12 @@ class _ScanPageState extends ConsumerState<ScanPage>
         item.status == _ScanItemStatus.recognizing ||
         item.status == _ScanItemStatus.revealing;
     if (processing) {
-      ref.read(analyticsProvider).track(AnalyticsEvent.cancelClick);
-      final stopwatch = _scanStopwatches.remove(item.id);
-      stopwatch?.stop();
-      _scanDurations[item.id] =
-          (_scanDurations[item.id] ?? Duration.zero) +
-          (stopwatch?.elapsed ?? Duration.zero);
-      _scanResultValues[item.id] = AnalyticsValue.scanFailed;
+      final analytics = ref.read(analyticsProvider);
+      analytics.track(AnalyticsEvent.cancelClick);
+      final token = _pendingScans[item.id]?.token;
+      if (token != null) {
+        _reportScanResult(item.id, token, AnalyticsValue.scanFailed, analytics);
+      }
     } else {
       ref.read(analyticsProvider).track(AnalyticsEvent.deleteClick);
     }
@@ -1182,6 +1227,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   int _addScan(
     Future<ScanResolution> resultFuture, {
     bool usesCameraFeedback = true,
+    ScanCardType cardType = ScanCardType.tcg,
     Uint8List? imageBytes,
     Uint8List? displayImageBytes,
     String? imageFileName,
@@ -1199,6 +1245,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
           pictureLabel: 'Scan $id',
           status: _ScanItemStatus.scanning,
           usesCameraFeedback: usesCameraFeedback,
+          cardType: cardType,
           imageBytes: imageBytes,
           displayImageBytes: displayImageBytes,
           imageFileName: imageFileName,
@@ -1220,7 +1267,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
         .firstOrNull;
     if (item == null) return;
     _replaceItem(
-      item.copyWith(imageBytes: image.bytes, imageFileName: image.fileName),
+      item.copyWith(
+        imageBytes: image.bytes,
+        imageFileName: image.fileName,
+        viewfinderCropped: image.viewfinderCropped,
+      ),
     );
   }
 
@@ -1245,7 +1296,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     );
     _watchScanResolution(itemId, token, resultFuture);
 
-    final timer = Timer(const Duration(seconds: 1), () {
+    final recognizingTimer = Timer(_recognizingDelay, () {
       final existing = _currentItem(
         itemId,
         token,
@@ -1257,11 +1308,22 @@ class _ScanPageState extends ConsumerState<ScanPage>
       _replaceItem(existing.copyWith(status: _ScanItemStatus.recognizing));
       _scheduleReveal(itemId, token);
     });
-    _scanTimers.add(timer);
+    final minimumDurationTimer = Timer(_minimumRecognitionDuration, () {
+      final pending = _pendingScans[itemId];
+      if (pending == null || pending.token != token) {
+        return;
+      }
+      pending.minimumDurationFinished = true;
+      _completeScanIfReady(itemId, token);
+      _refreshQuotaAfterSettledBatch();
+    });
+    _scanTimers
+      ..add(recognizingTimer)
+      ..add(minimumDurationTimer);
   }
 
   void _scheduleReveal(int itemId, int token) {
-    final timer = Timer(const Duration(seconds: 1), () {
+    final timer = Timer(_revealDelay, () {
       final existing = _currentItem(
         itemId,
         token,
@@ -1289,40 +1351,17 @@ class _ScanPageState extends ConsumerState<ScanPage>
     final disableAnimations = MediaQuery.of(context).disableAnimations;
     if (disableAnimations) {
       controller.value = 1;
-      _markRevealTimelineFinished(itemId, token);
     } else {
-      unawaited(_waitForRevealTimeline(itemId, token, controller));
+      unawaited(_waitForRevealTimeline(controller));
     }
   }
 
-  Future<void> _waitForRevealTimeline(
-    int itemId,
-    int token,
-    AnimationController controller,
-  ) async {
+  Future<void> _waitForRevealTimeline(AnimationController controller) async {
     try {
       await controller.forward(from: 0).orCancel;
     } on TickerCanceled {
       return;
     }
-    _markRevealTimelineFinished(itemId, token);
-  }
-
-  void _markRevealTimelineFinished(int itemId, int token) {
-    final existing = _currentItem(
-      itemId,
-      token,
-      expectedStatus: _ScanItemStatus.revealing,
-    );
-    if (existing == null) {
-      return;
-    }
-    final pending = _pendingScans[itemId];
-    if (pending == null || pending.token != token) {
-      return;
-    }
-    pending.revealTimelineFinished = true;
-    _completeScanIfReady(itemId, token);
   }
 
   Future<void> _watchScanResolution(
@@ -1341,19 +1380,37 @@ class _ScanPageState extends ConsumerState<ScanPage>
       return;
     }
     if (!pending.removedFromUi) {
-      final stopwatch = _scanStopwatches.remove(itemId);
-      stopwatch?.stop();
-      _scanDurations[itemId] =
-          (_scanDurations[itemId] ?? Duration.zero) +
-          (stopwatch?.elapsed ?? Duration.zero);
-      _scanResultValues[itemId] = switch (resolution.kind) {
-        ScanResolutionKind.matched => AnalyticsValue.scanSuccess,
-        ScanResolutionKind.noMatch => AnalyticsValue.scanNotFound,
-        ScanResolutionKind.failed ||
-        ScanResolutionKind.cancelled ||
-        ScanResolutionKind.quotaExhausted ||
-        ScanResolutionKind.entitlementSyncRequired => AnalyticsValue.scanFailed,
-      };
+      final analytics = ref.read(analyticsProvider);
+      switch (resolution.kind) {
+        case ScanResolutionKind.matched:
+          if (resolution.scanId == null ||
+              resolution.cardRef == null ||
+              resolution.matchName == null) {
+            _reportScanResult(
+              itemId,
+              token,
+              AnalyticsValue.scanFailed,
+              analytics,
+            );
+          }
+        case ScanResolutionKind.noMatch:
+          _reportScanResult(
+            itemId,
+            token,
+            AnalyticsValue.scanNotFound,
+            analytics,
+          );
+        case ScanResolutionKind.failed || ScanResolutionKind.cancelled:
+          _reportScanResult(
+            itemId,
+            token,
+            AnalyticsValue.scanFailed,
+            analytics,
+          );
+        case ScanResolutionKind.quotaExhausted ||
+            ScanResolutionKind.entitlementSyncRequired:
+          _pauseScanResultTiming(itemId);
+      }
     }
 
     if (!mounted) {
@@ -1377,11 +1434,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
             .revealSuccessfulScanInDisplay();
       }
       _pendingScans.remove(itemId)?.revealController?.dispose();
-      if (serverQuota != null) {
-        _resumeWaitingFromServerQuota();
-      } else {
-        unawaited(_refreshQuotaAndResumeWaiting());
-      }
+      _refreshQuotaAfterSettledBatch();
       return;
     }
     if (resolution.kind == ScanResolutionKind.cancelled) {
@@ -1412,6 +1465,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       if (shouldOpenQuotaPaywall) {
         unawaited(_openQuotaPaywall());
       }
+      _refreshQuotaAfterSettledBatch();
       return;
     }
     if (resolution.kind == ScanResolutionKind.entitlementSyncRequired) {
@@ -1432,11 +1486,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     }
     pending.resolution = resolution;
     _completeScanIfReady(itemId, token);
-    if (serverQuota != null) {
-      _resumeWaitingFromServerQuota();
-    } else if (resolution.kind == ScanResolutionKind.failed) {
-      unawaited(_refreshQuotaAndResumeWaiting());
-    }
+    _refreshQuotaAfterSettledBatch();
   }
 
   _ScanItem? _currentItem(
@@ -1460,16 +1510,12 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   void _completeScanIfReady(int itemId, int token) {
-    final item = _currentItem(
-      itemId,
-      token,
-      expectedStatus: _ScanItemStatus.revealing,
-    );
+    final item = _currentItem(itemId, token);
     final pending = _pendingScans[itemId];
     if (item == null ||
         pending == null ||
         pending.token != token ||
-        !pending.revealTimelineFinished ||
+        !pending.minimumDurationFinished ||
         pending.resolution == null) {
       return;
     }
@@ -1546,19 +1592,29 @@ class _ScanPageState extends ConsumerState<ScanPage>
       ref
           .read(scanQuotaControllerProvider.notifier)
           .revealSuccessfulScanInDisplay();
-      unawaited(_loadScanCards(match));
+      unawaited(_loadScanCards(itemId, token, match));
     }
     completedPending?.revealController?.dispose();
   }
 
-  Future<void> _loadScanCards(_ScanMatch match) async {
+  Future<void> _loadScanCards(int itemId, int token, _ScanMatch match) async {
+    final analytics = ref.read(analyticsProvider);
     try {
       final cards = await ref.read(scanReviewRepositoryProvider).loadCards([
         for (final candidate in match.candidates) candidate.cardRef,
       ]);
+      _reportScanResult(
+        itemId,
+        token,
+        cards.containsKey(match.cardRef)
+            ? AnalyticsValue.scanSuccess
+            : AnalyticsValue.scanFailed,
+        analytics,
+      );
       if (!mounted) return;
       setState(() => _reviewCards = _mergeScanCards(_reviewCards, cards));
     } on Exception {
+      _reportScanResult(itemId, token, AnalyticsValue.scanFailed, analytics);
       // Price metadata is supplemental; review retries the same load explicitly.
     }
   }
@@ -1686,7 +1742,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
       return;
     }
     _trackCollectionItemAdd(item);
-    _reportScanResult(item.id);
 
     final input = _reviewInputFor(item);
     if (input == null) {
@@ -1758,7 +1813,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
     for (final item in matchedItems) {
       _trackCollectionItemAdd(item);
-      _reportScanResult(item.id);
     }
 
     final inputs = <int, ScanCollectionItemInput>{};
@@ -2012,7 +2066,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
     }
     if (!_hasUnsavedScanResults) {
       if (mounted) {
-        _reportAllScanResults();
         context.go('/home');
       }
       return;
@@ -2047,7 +2100,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
       ),
     );
     if (mounted && shouldExit == true) {
-      _reportAllScanResults();
       context.go('/home');
     }
   }
@@ -2075,36 +2127,34 @@ class _ScanPageState extends ConsumerState<ScanPage>
         );
   }
 
-  void _reportAllScanResults() {
-    final itemIds = <int>{
-      ..._scanDurations.keys,
-      ..._scanStopwatches.keys,
-      ..._scanResultValues.keys,
-    };
-    for (final itemId in itemIds) {
-      _reportScanResult(itemId);
-    }
+  void _pauseScanResultTiming(int itemId) {
+    final stopwatch = _scanStopwatches.remove(itemId);
+    stopwatch?.stop();
+    _scanDurations[itemId] =
+        (_scanDurations[itemId] ?? Duration.zero) +
+        (stopwatch?.elapsed ?? Duration.zero);
   }
 
-  void _reportScanResult(int itemId) {
-    if (!_reportedScanResultIds.add(itemId)) return;
-    final duration =
-        _scanDurations[itemId] ??
-        _scanStopwatches[itemId]?.elapsed ??
-        Duration.zero;
+  void _reportScanResult(
+    int itemId,
+    int token,
+    String result,
+    AppAnalytics analytics,
+  ) {
+    if (_reportedScanResultTokens[itemId] == token) return;
+    _reportedScanResultTokens[itemId] = token;
+    _pauseScanResultTiming(itemId);
+    final duration = _scanDurations[itemId] ?? Duration.zero;
     final wholeSeconds = duration.inMilliseconds <= 0
         ? 0
         : (duration.inMilliseconds / 1000).ceil();
-    ref
-        .read(analyticsProvider)
-        .track(
-          AnalyticsEvent.scanResults,
-          properties: {
-            AnalyticsProperty.timing: '${wholeSeconds}s',
-            AnalyticsProperty.scanResults:
-                _scanResultValues[itemId] ?? AnalyticsValue.scanFailed,
-          },
-        );
+    analytics.track(
+      AnalyticsEvent.scanResults,
+      properties: {
+        AnalyticsProperty.timing: '${wholeSeconds}s',
+        AnalyticsProperty.scanResults: result,
+      },
+    );
   }
 
   @override
@@ -2197,6 +2247,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
                     captureAnimation: _captureController,
                     cards: _reviewCards,
                     currency: currency,
+                    selectedCardType: _selectedCardType,
                     remainingScans: hasPremiumAccess
                         ? null
                         : quota.displayRemainingScans,
@@ -2205,6 +2256,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
                         ? null
                         : _toggleFlash,
                     onSearchPressed: () => context.go('/search'),
+                    onCardTypeChanged: (cardType) {
+                      if (mounted) setState(() => _selectedCardType = cardType);
+                    },
                     onUpgradePressed: () async {
                       final result = await context
                           .push<SubscriptionPaywallResult>(
@@ -2272,10 +2326,12 @@ class _ScanCameraView extends StatelessWidget {
     required this.captureAnimation,
     required this.cards,
     required this.currency,
+    required this.selectedCardType,
     required this.remainingScans,
     required this.onClosePressed,
     required this.onFlashPressed,
     required this.onSearchPressed,
+    required this.onCardTypeChanged,
     required this.onUpgradePressed,
     required this.onPhotoPressed,
     required this.onLibraryPressed,
@@ -2299,10 +2355,12 @@ class _ScanCameraView extends StatelessWidget {
   final Animation<double> captureAnimation;
   final Map<String, ScanReviewCard> cards;
   final AppCurrency currency;
+  final ScanCardType selectedCardType;
   final int? remainingScans;
   final VoidCallback onClosePressed;
   final VoidCallback? onFlashPressed;
   final VoidCallback onSearchPressed;
+  final ValueChanged<ScanCardType> onCardTypeChanged;
   final VoidCallback onUpgradePressed;
   final VoidCallback onPhotoPressed;
   final VoidCallback onLibraryPressed;
@@ -2372,6 +2430,22 @@ class _ScanCameraView extends StatelessWidget {
             focusFrameShadow: recognizing || revealing,
           ),
         ),
+        Positioned.fromRect(
+          rect: geometry.rect,
+          child: const IgnorePointer(
+            child: Center(
+              child: Text(
+                'ALIGN CARD HERE',
+                key: Key('scan-figma-align-hint'),
+                style: TextStyle(
+                  color: Color(0xFFE4E3D3),
+                  fontSize: 15,
+                  height: 16 / 15,
+                ),
+              ),
+            ),
+          ),
+        ),
         if (capturingPhoto) ...[
           Positioned.fromRect(
             rect: geometry.rect,
@@ -2427,7 +2501,15 @@ class _ScanCameraView extends StatelessWidget {
                 onSearchPressed: onSearchPressed,
               ),
               const SizedBox(height: 2),
-              const _AlignCardPill(),
+              SizedBox(
+                height: 34,
+                child: Center(
+                  child: _ScanCardTypeSelector(
+                    selected: selectedCardType,
+                    onChanged: onCardTypeChanged,
+                  ),
+                ),
+              ),
               if (remainingScans != null) ...[
                 const SizedBox(height: 6),
                 _ScanQuotaPill(
@@ -2539,45 +2621,77 @@ class _ScanTopBar extends StatelessWidget {
   }
 }
 
-class _AlignCardPill extends StatelessWidget {
-  const _AlignCardPill();
+class _ScanCardTypeSelector extends StatelessWidget {
+  const _ScanCardTypeSelector({
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final ScanCardType selected;
+  final ValueChanged<ScanCardType> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 34,
-      padding: const EdgeInsets.symmetric(horizontal: 17),
-      decoration: BoxDecoration(
-        color: const Color(0xFF222222).withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0x1A394E2C)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x33000000),
-            blurRadius: 15,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SvgPicture.asset(
-            'assets/scan/align.svg',
-            key: const Key('scan-figma-align-icon'),
-            width: 15,
-            height: 15,
-          ),
-          const SizedBox(width: 12),
-          const Text(
-            'ALIGN CARD HERE',
-            style: TextStyle(
-              color: Color(0xFFE4E3D3),
-              fontSize: 13,
-              height: 16 / 13,
+    return PopupMenuButton<ScanCardType>(
+      key: const Key('scan-card-type-selector'),
+      tooltip: 'Select card type',
+      onSelected: onChanged,
+      color: const Color(0xFF222222),
+      surfaceTintColor: Colors.transparent,
+      elevation: 8,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      offset: const Offset(0, 8),
+      padding: EdgeInsets.zero,
+      itemBuilder: (context) => [
+        for (final type in ScanCardType.values)
+          PopupMenuItem<ScanCardType>(
+            key: Key('scan-card-type-option-${type.name}'),
+            value: type,
+            height: 44,
+            child: Text(
+              type.label,
+              style: const TextStyle(
+                color: KandoColors.text,
+                fontSize: 14,
+                height: 20 / 14,
+              ),
             ),
           ),
-        ],
+      ],
+      child: Container(
+        height: 32,
+        padding: const EdgeInsets.symmetric(horizontal: 17),
+        decoration: BoxDecoration(
+          color: const Color(0xFF222222).withValues(alpha: 0.92),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: const Color(0x1A394E2C)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x33000000),
+              blurRadius: 15,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              selected.label,
+              style: const TextStyle(
+                color: KandoColors.accent,
+                fontSize: 14,
+                height: 24 / 14,
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: 18,
+              color: KandoColors.accent,
+            ),
+          ],
+        ),
       ),
     );
   }

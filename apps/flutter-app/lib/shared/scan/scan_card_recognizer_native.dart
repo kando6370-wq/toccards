@@ -29,11 +29,14 @@ class _NativeScanCardRecognizer implements ScanCardRecognizer {
   Future<void> _tail = Future.value();
 
   @override
-  Future<ScanCardEmbedding> process(Uint8List imageBytes) {
+  Future<ScanCardEmbedding> process(
+    Uint8List imageBytes, {
+    bool allowCropFallback = false,
+  }) {
     final result = Completer<ScanCardEmbedding>();
     _tail = _tail.then((_) async {
       try {
-        result.complete(await _process(imageBytes));
+        result.complete(await _process(imageBytes, allowCropFallback));
       } catch (error, stackTrace) {
         result.completeError(error, stackTrace);
       }
@@ -41,26 +44,45 @@ class _NativeScanCardRecognizer implements ScanCardRecognizer {
     return result.future;
   }
 
-  Future<ScanCardEmbedding> _process(Uint8List imageBytes) async {
+  Future<ScanCardEmbedding> _process(
+    Uint8List imageBytes,
+    bool allowCropFallback,
+  ) async {
     try {
       final totalTimer = Stopwatch()..start();
       final detectionTimer = Stopwatch()..start();
-      final nativeImage = await _imageProcessor.prepareDetection(
-        imageBytes,
-        maximumSize: _detectionInputSize,
-      );
-      final prepared = await Isolate.run(() => _prepareDetection(nativeImage));
-      final detectionOutputs = await _runDetection(prepared.tensor);
-      final selected = await Isolate.run(
-        () => _extractCardGeometry(prepared, detectionOutputs),
-      );
-      final rectified = await _imageProcessor.rectifyCard(
-        imageBytes,
-        selected.points,
-        cardWidth: _cardWidth,
-        cardHeight: _cardHeight,
-        embeddingSize: _embeddingInputSize,
-      );
+      _SelectedCard? selected;
+      late final ScanNativeRectifiedCard rectified;
+      try {
+        final nativeImage = await _imageProcessor.prepareDetection(
+          imageBytes,
+          maximumSize: _detectionInputSize,
+        );
+        final prepared = await Isolate.run(
+          () => _prepareDetection(nativeImage),
+        );
+        final detectionOutputs = await _runDetection(prepared.tensor);
+        final detected = await Isolate.run(
+          () => _extractCardGeometry(prepared, detectionOutputs),
+        );
+        selected = detected;
+        rectified = await _imageProcessor.rectifyCard(
+          imageBytes,
+          detected.points,
+          cardWidth: _cardWidth,
+          cardHeight: _cardHeight,
+          embeddingSize: _embeddingInputSize,
+        );
+      } on ScanImageProcessingException {
+        if (!allowCropFallback) rethrow;
+        rectified = await _imageProcessor.prepareFallbackCard(
+          imageBytes,
+          cardWidth: _cardWidth,
+          cardHeight: _cardHeight,
+          embeddingSize: _embeddingInputSize,
+        );
+        selected = null;
+      }
       final embeddingTensor = await Isolate.run(
         () => _prepareEmbeddingTensor(rectified.embeddingRgbBytes),
       );
@@ -75,9 +97,12 @@ class _NativeScanCardRecognizer implements ScanCardRecognizer {
         vector: vector,
         cardImageBytes: rectified.cardImageBytes,
         diagnostics: {
-          'detection_score': selected.score,
-          'card_area_ratio': selected.areaRatio,
-          'quad_min_area_rect': selected.usedMinimumAreaRectangle ? 1.0 : 0.0,
+          if (selected != null) ...{
+            'detection_score': selected.score,
+            'card_area_ratio': selected.areaRatio,
+            'quad_min_area_rect': selected.usedMinimumAreaRectangle ? 1.0 : 0.0,
+          } else
+            'crop_fallback': 1.0,
           'detection_ms': detectionTimer.elapsedMilliseconds.toDouble(),
           'embedding_ms': embeddingTimer.elapsedMilliseconds.toDouble(),
           'total_ms': totalTimer.elapsedMilliseconds.toDouble(),

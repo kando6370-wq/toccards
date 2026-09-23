@@ -72,7 +72,7 @@ void main() {
     expect(portfolio.options.receiveTimeout, const Duration(seconds: 15));
     expect(portfolioRequestDeadline, const Duration(seconds: 25));
     expect(scan.options.connectTimeout, const Duration(seconds: 10));
-    expect(scan.options.receiveTimeout, const Duration(seconds: 12));
+    expect(scan.options.receiveTimeout, isNull);
     expect(scanRequestDeadline, const Duration(seconds: 25));
     expect(currencyRateRequestDeadline, const Duration(seconds: 25));
     expect(subscriptionEntitlementRequestDeadline, const Duration(seconds: 25));
@@ -86,6 +86,7 @@ void main() {
 
   test('app environment is one of the supported build values', () {
     expect(AppConfig.environmentName, anyOf('test', 'production'));
+    expect(AppConfig.httpTransportName, anyOf('native', 'io'));
     expect(() => AppConfig.validate(), returnsNormally);
   });
 }

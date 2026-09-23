@@ -4,7 +4,14 @@
 
 2026-09-18 回读：watcher 已自动发布 `dev@bfbb61d`，`current`、manifest 与 `last-deployed-sha` 一致；`0013` 目录搜索索引已登记且有效，API/DB healthy。发布前备份与单次只读查询计划见[验证记录](VERIFICATION.md)；这不代表 prod 已部署或真实客户端扫描已验收。
 
-2026-09-20 当前检查点：watcher 已发布 API 性能提交 `dev@9488a15`，release 为 `branch-dev-9488a15f01b0-20260920111505`。`current`、manifest 与 `last-deployed-sha` 一致；API/DB healthy、Web running、migration exited/0，ledger 14 项。发布前 1,120,850,087 字节备份通过 `pg_restore --list`。后续至 `dev@ad88ee9` 的提交仅改 Flutter/文档，不需要替换 Linux API release；最后一次实际回读仍为 `last-seen=35c7f87`、`last-deployed=9488a15`、失败标记为空。prod 按独立发布记录判断。
+2026-09-20 历史检查点：watcher 已发布 API 性能提交 `dev@9488a15`，release 为 `branch-dev-9488a15f01b0-20260920111505`。`current`、manifest 与 `last-deployed-sha` 一致；API/DB healthy、Web running、migration exited/0，ledger 14 项。发布前 1,120,850,087 字节备份通过 `pg_restore --list`。后续至 `dev@ad88ee9` 的提交仅改 Flutter/文档，不需要替换 Linux API release；最后一次实际回读仍为 `last-seen=35c7f87`、`last-deployed=9488a15`、失败标记为空。prod 按独立发布记录判断。
+2026-09-21 历史检查点：watcher 已发布扫描 Free 额度整改 `dev@baf0d7b`，release 为 `branch-dev-baf0d7b53681-20260921151308`。`current`、manifest 与 `last-deployed-sha` 一致；API/DB healthy、Web running、migration exited/0，ledger 14 项且最新为 `0013`，失败标记为空。发布前 1,121,082,954 字节备份通过 PostgreSQL 18 容器 `pg_restore --list`；运行 API bundle 与 release 文件 SHA-256 一致。后续仅含文档/Agent 规则的提交可前移 `last-seen-sha`，不会替换该 release；本次 dev 发布未处理 prod。
+
+同日请求关联提交 `dev@7d9b0ca` 推送后，dev HTTP 回读已出现新 `X-Request-ID` 行为和对应 Admin 主资源，证明相关 API/Admin 版本对外生效。当前机器的非交互 SSH 以 `publickey,password` 被拒绝，因此没有重新读取 watcher 状态、release manifest、备份、容器和 ledger；`baf0d7b` 保留为最近一次完整基础设施检查点。详细烟测和边界见[验证记录](VERIFICATION.md#全业务-api-请求关联-id2026-09-21已部署-dev)。
+
+2026-09-22 历史检查点：按用户要求强制重新部署后，又发布 Admin 内网 HTTP 请求 ID 修复 `dev@c0dd7a2`。当前 release 为 `branch-dev-c0dd7a2ffa30-20260922215028`，`current`、manifest、`last-seen-sha` 与 `last-deployed-sha` 一致，失败标记为空；API/DB healthy、Web running、migration exited/0、ledger 14 项。发布前 1,135,142,872 字节备份通过 PostgreSQL 18 `pg_restore --list`，运行与 release bundle 摘要一致；浏览器非安全上下文回归见[验证记录](VERIFICATION.md#admin-内网-http-请求-id-兼容修复2026-09-22已部署-dev)。本次 dev 发布未处理 prod。
+
+2026-09-23 最近一次已回读检查点：watcher 已发布 Sports Shop `dev@f9feac7`，当前 release 为 `branch-dev-f9feac7b16b5-20260923103511`；manifest、`current`、`last-deployed-sha` 一致，失败标记为空。后续 Flutter/文档提交 `d8f0aa2` 仅前移 `last-seen-sha`，未重新发布 Linux。API/DB healthy、Web running、migration exited/0、ledger 14 项；1,135,250,246 字节发布前备份通过 PostgreSQL 18 `pg_restore --list`，运行和 release bundle 摘要一致。体育卡 eBay 与 TCGplayer 对照已在内网只读验证；范围和未执行项见[验证记录](VERIFICATION.md#sports-shop-linux-dev-自动发布回读2026-09-23)。本次 dev 发布未部署 prod。
 
 ## 目标
 
@@ -12,7 +19,7 @@
 
 测试地址：`http://192.168.50.201:8080`
 
-2026-09-16 已将 `dev-inner` 整改与 dev 原有后台筛选改动合并为 `75c0ec4` 并推送。现有 cron 于 15:08 自动发现该提交，运行检查、构建、数据库备份与发布脚本；当时 release 为 `branch-dev-75c0ec4f991d-20260916151043`，运行 bundle 含 HTTP 向量适配，扫描、额度与本地收藏写库复验通过。此前 `a419415` 自动发布缺少整改的状态已解除，当前 release 以上述 2026-09-20 检查点为准，完整证据见[验证记录](VERIFICATION.md)。
+2026-09-16 已将 `dev-inner` 整改与 dev 原有后台筛选改动合并为 `75c0ec4` 并推送。现有 cron 于 15:08 自动发现该提交，运行检查、构建、数据库备份与发布脚本；当时 release 为 `branch-dev-75c0ec4f991d-20260916151043`，运行 bundle 含 HTTP 向量适配，扫描、额度与本地收藏写库复验通过。此前 `a419415` 自动发布缺少整改的状态已解除，当前 release 以上述最新检查点为准，完整证据见[验证记录](VERIFICATION.md)。
 
 `deploy:dev` 使用 Linux SSH 发布，`deploy:dry-run:dev` 仅生成发布包；`build:dev` 构建 Linux API 与 Admin development，旧 `build:linux` 为兼容别名。自动监听已更新为合并版本的脚本，仍以 dev 为来源，crontab 周期保持不变；`watcher.env` 单独配置了已验证的局域网 HTTP/HTTPS 代理、NO_PROXY 和 NODE_USE_ENV_PROXY，避免依赖 GitHub 直连。更新前脚本/配置备份后缀为 `before-20260916-150706`。旧 CF dev 已于 2026-09-17 退役，Linux watcher 继续负责自动部署。
 
@@ -191,7 +198,7 @@ printf '%s\n' '<previous-release-id>' \
 - 监听器只检出受信任的 `dev` 分支，不执行 Pull Request head commit。
 - 本地 Artifact 不包含 `.env`、数据库备份、扫描图片或第三方凭证。
 - 监听器目录权限为 `700`，配置和状态仅属于服务器 `user` 账号。
-- Linux 使用独立测试数据库、JWT 和文件卷；部署前须配置 `VECTOR_RECOGNITION_BASE_URL`，仅向已授权复用的 CF 识别服务发送向量。旧 OCR 键不被新代码读取，不能代替新配置；服务器与设备扫描需单独验收。
+- Linux 使用独立测试数据库、JWT 和文件卷；部署前须配置 `VECTOR_RECOGNITION_BASE_URL`，仅向已授权复用的 CF 识别服务发送向量和 `card_type`（`0=TCG`、`1=Sports Card`，缺省为 `0`）。旧 OCR 键不被新代码读取，不能代替新配置；服务器与设备扫描需单独验收。
 - `kd201` PostgreSQL 仅通过 `192.168.50.201:15432` 提供可信局域网访问，不映射公网；自动发布继续复用服务器私有 `.env` 中的该配置。
 - 正式 Cloudflare 部署仍由其原工作流或 Cloudflare 平台配置管理。
 

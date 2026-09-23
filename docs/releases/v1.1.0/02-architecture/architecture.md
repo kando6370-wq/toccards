@@ -17,7 +17,7 @@ Marketing Web -----------------------> 独立 Cloudflare 静态站点
 
 dev 的 Linux Node 入口 `src/linux/server.ts` 复用相同 Hono 应用和 `PostgresDatabase`：从 `DATABASE_URL` 连接独立 PostgreSQL，使用带 TTL 的内存 KV 与本地图片卷；标准部署由 Caddy 托管 Admin 并反向代理 API/share，离线模式使用 Node 静态服务。App `APP_ENV=test` 与 Admin development 默认请求此 Linux 入口；API 使用 `APP_ENVIRONMENT=development`，经 HTTP 复用独立 CF 向量识别服务。旧 CF dev 不再运行或发布，见[Linux 测试环境](linux-test-environment.md)。
 
-dev 扫描识别使用端侧 RTMDet-Ins 与 PE-Core-T16，Linux API 通过 HTTP 向 `recognize-vec` 只发送向量；候选补全、Queue、额度、目录、资产和图片读写留在 Linux PostgreSQL/本地卷。上图仅描述 prod，其运行协议与仓库配置的区别按实际部署版本核验；详见[扫描识别链路](../01-flows/scan-recognition.md)。
+dev 扫描识别使用端侧 RTMDet-Ins 与 PE-Core-T16，Linux API 通过 HTTP 向 `recognize-vec` 发送向量和 `card_type`；候选补全、Queue、额度、目录、资产和图片读写留在 Linux PostgreSQL/本地卷。上图仅描述 prod，其运行协议与仓库配置的区别按实际部署版本核验；详见[扫描识别链路](../01-flows/scan-recognition.md)。
 
 ## 2. 客户端与页面边界
 
@@ -45,6 +45,8 @@ dev 扫描识别使用端侧 RTMDet-Ins 与 PE-Core-T16，Linux API 通过 HTTP 
 | `/entitlements/apple` | 生命周期查询、Fresh Purchase、App Attest 与 Restore | `src/entitlements/routes.ts`、`restore-routes.ts` |
 | `/apple/notifications/v2` | Apple 通知原文接收、验签、归约与补偿 | `src/entitlements/apple-notification-routes.ts` |
 | `/admin` | 独立 Admin 鉴权、查询、运营配置和 XLSX | `src/admin/routes.ts` |
+
+共享 Hono 边界为全部 `/api/v1/*` 请求校验或生成 UUID v4 `X-Request-ID`，在响应 Header 回显，并以路由模板记录不含 query、真实路径参数、身份和正文的结构化完成日志。Flutter/Admin 的每次物理 HTTP 尝试使用新 ID；业务 `request_id`/`Idempotency-Key` 继续按各自幂等规则复用。`/share/*`、静态资源、第三方调用及主 API 到 `recognize-vec` 的内部请求不传播该 Header。完整契约见[契约变化](../03-data-api/contract-changes.md#api-请求关联)。
 
 prod Cloudflare Worker 的 5 分钟 cron 调用共享 `runScheduledTasks`，执行通知 inbox 和 Apple Server API 校正重试。dev Linux 单进程 interval 默认同为 300 秒，可通过 `SCHEDULED_TASK_INTERVAL_SECONDS` 设置；前一次任务未完成时跳过本次触发，退出时等待定时任务和后台请求完成后关闭数据库。通知请求先持久化并按 payload/notification UUID 幂等，再异步归约交易和购买链状态。旧 CF dev 的 cron 已退役。
 
@@ -86,16 +88,16 @@ PostgreSQL 结构以 `src/db/postgres/migrations/` 中的顺序 migration 为准
 
 ## 6. 环境与部署
 
-表中 prod 行来自 2026-09-21 Cloudflare 发布回读，dev 行来自 2026-09-20 Linux watcher 回读。`wrangler.toml` 仅保留 prod 业务 Worker；dev Linux 通过 HTTP 适配复用独立 CF 向量服务，不再使用旧 CF dev 的 Service Binding。
+表中 prod 行来自 2026-09-21 Cloudflare 发布回读，dev 行来自 2026-09-23 Linux watcher 回读。`wrangler.toml` 仅保留 prod 业务 Worker；dev Linux 通过 HTTP 适配复用独立 CF 向量服务，不再使用旧 CF dev 的 Service Binding。
 
 | 环境 | 运行入口 | 地址 | 数据资源 |
 |---|---|---|---|
-| prod | `toccards-api-prod` | `api.tcgcard.fun` | 2026-09-21 从 `main@2cfdea8` 重新发布 version `c612c8a6-4873-4760-b435-3c4db27d14e6` 并承载 100% 流量；PostgreSQL ledger 14 项且最新为 `0013`，Hyperdrive、`VECTOR_RECOGNITION`、prod KV/R2、production Apple 配置、Admin assets、Custom Domain、5 分钟 Cron 与 Observability 齐备，无 D1/旧 OCR 地址。PlanetScale 当前未启用 High Availability，自动备份每 12 小时一次且保留 2 天；上一版迁移前另有 3.2 GB 手工备份 |
-| dev | Linux Node / `src/linux/server.ts` | `http://192.168.50.201:8080` | 独立 PostgreSQL、内存 KV、本地图片卷、`APP_ENVIRONMENT=development`；2026-09-20 watcher 运行 API release `dev@9488a15`，ledger 14 项，客户端既有路径由用户确认已验收，本次性能发布未独立重跑真机 |
+| prod | `toccards-api-prod` | `api.tcgcard.fun` | 2026-09-21 从 `main@2cfdea8` 重新发布 version `c612c8a6-4873-4760-b435-3c4db27d14e6` 并承载 100% 流量；PostgreSQL ledger 14 项且最新为 `0013`，Hyperdrive、`VECTOR_RECOGNITION`、prod KV/R2、production Apple 配置、Admin assets、Custom Domain、5 分钟 Cron 与 Observability 齐备，无 D1/旧 OCR 地址。PlanetScale 当时未启用 High Availability，自动备份每 12 小时一次且保留 2 天；上一版迁移前另有 3.2 GB 手工备份。本次合入的 dev 新代码未另行发布 prod |
+| dev | Linux Node / `src/linux/server.ts` | `http://192.168.50.201:8080` | 独立 PostgreSQL、内存 KV、本地图片卷、`APP_ENVIRONMENT=development`；2026-09-23 watcher 运行 `dev@f9feac7`，release/manifest/部署状态一致，API/DB healthy、Web running、migration exited/0、ledger 14 项；Sports Shop eBay 与 TCGplayer 对照已通过内网只读回归 |
 
 旧 CF dev 的 `toccards-api-dev`、`api-dev.tcgcard.fun` 与 cron 已退役，不属于当前环境表，也不得重新发布；其历史测试数据和旧 KV/R2 保留。Wrangler vars 和 Worker secrets 现在仅用于 prod，密钥不进入仓库。prod 保持原数据库、Apple、KV、R2、域名和部署方式；仓库 prod 配置显式固定 Observability、Cache、workers.dev/Preview、Custom Domain 元数据和向量 production 环境，配置文件仍不能替代现网版本核验，见[发布与验证](../05-delivery/VERIFICATION.md)。dev 的密钥保存在 Linux 私有环境文件，发布不使用 Wrangler。D1 不作为新迁移或回滚目标。
 
-Linux 的真实配置仅保存在服务器 `.env`。分支监听器默认每两分钟检查 `dev`，相关路径变化才执行定向检查、构建、数据库备份和版本化发布；GitHub Linux workflow 仅为手动触发选项。2026-09-20 当前 release 为 `branch-dev-9488a15f01b0-20260920111505`，manifest、`current` 和 `last-deployed-sha` 一致；API/DB healthy、Web running、migration 容器退出 0，ledger 14 项。API 与 watcher 分别使用自身环境文件中的代理配置；Git 合并到 main 不代表该提交已部署到任何环境，发布 SHA、备份与未验收边界见[验证记录](../05-delivery/VERIFICATION.md)。
+Linux 的真实配置仅保存在服务器 `.env`。分支监听器默认每两分钟检查 `dev`，相关路径变化才执行定向检查、构建、数据库备份和版本化发布；GitHub Linux workflow 仅为手动触发选项。2026-09-23 最近一次已回读的 release 为 `branch-dev-f9feac7b16b5-20260923103511`，manifest、`current` 和 `last-deployed-sha` 一致；后续仅修改 Flutter/文档的 `d8f0aa2` 更新了 `last-seen-sha`，未替换 Linux release。API/DB healthy、Web running、migration 容器退出 0，ledger 14 项。发布前 1,135,250,246 字节备份通过 PostgreSQL 18 `pg_restore --list`，运行容器与 release 的 API bundle SHA-256 一致。API 与 watcher 分别使用自身环境文件中的代理配置；Git 合并到 main 不代表该提交已部署到任何环境，发布 SHA、备份与未验收边界见[验证记录](../05-delivery/VERIFICATION.md#sports-shop-linux-dev-自动发布回读2026-09-23)。
 
 当前源码将 `deploy:dev` 改为 Linux 发布包 + SSH，`deploy:dry-run:dev` 只构建归档。手工、监听器与 Runner 均复用同一个发布脚本，在备份前核对本地数据库凭据/18 大版本、待执行 migration 和 CF 识别契约；已有库不会因 `current` 链接缺失而跳过备份。标准与离线 PostgreSQL 默认均为 18，并保留原卷路径。旧 CF dev 已退役，prod 发布入口保持原状。
 

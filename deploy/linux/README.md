@@ -4,7 +4,7 @@
 
 Linux 部署资产已通过 `19a6ac4` 合入；2026-09-15 已将 `dev-inner` 整改发布到 kd201 现有实例，复用原目录与数据卷。HTTP 适配固定请求 `VECTOR_RECOGNITION_BASE_URL` origin 下的 `/recognize`，10 秒超时覆盖响应体读取；服务器受控扫描、额度与收藏写库已验证，设备与真实图片识别仍需验收。发布清单与回滚位置见[验证记录](../../docs/releases/v1.1.0/05-delivery/VERIFICATION.md)，架构边界见[Linux 兼容缺口](../../docs/releases/v1.1.0/02-architecture/linux-test-environment.md#扫描兼容缺口)。
 
-2026-09-20 当前运行检查点：kd201 watcher 已发布 API 性能提交 `dev@9488a15`，release 为 `branch-dev-9488a15f01b0-20260920111505`。manifest、`current` 与 `last-deployed-sha` 一致；API/DB healthy、Web running、migration exited/0，ledger 为 14 项且最新为 `0013`。发布前 custom-format 备份约 1.12 GB 并通过 `pg_restore --list`；prod 未部署。后续仅含 Flutter/文档的 `dev` 提交不会触发 Linux 重建，watcher 的 `last-seen` 可领先 `last-deployed`。
+2026-09-21 当前运行检查点：kd201 watcher 已发布扫描 Free 额度整改 `dev@baf0d7b`，release 为 `branch-dev-baf0d7b53681-20260921151308`。manifest、`current` 与 `last-deployed-sha` 一致；API/DB healthy、Web running、migration exited/0，ledger 为 14 项且最新为 `0013`。发布前 1,121,082,954 字节 custom-format 备份已由 PostgreSQL 18 容器通过 `pg_restore --list`；运行 API bundle 与 release 文件 SHA-256 一致，prod 未部署。后续仅含 Flutter/文档/Agent 规则的 `dev` 提交不会触发 Linux 重建，watcher 的 `last-seen` 可领先 `last-deployed`。
 
 ## 前置条件
 

@@ -3,11 +3,15 @@
 ## 状态
 
 - 当前业务环境只有 prod 与 dev：prod 沿用 Cloudflare，dev 专指 kd201 Linux。独立的 CF 向量识别与 Apple Sandbox 回调服务不构成第三套业务环境；已退役的旧 CF dev 不再发布。
-- 当前源码已到 `dev@ad88ee9`，客户端版本 `1.0.3+150`；Linux API 实际运行 `dev@9488a15`，其后提交只影响 Flutter/文档。`dev-inner@b941a3f` 与 `dev@8e22c1d` 分别保留为 2026-09-15 整改和 2026-08-26 原始设计基线。
+- 当前代码与部署基线：合并源 `dev@b75d81c` 的客户端版本为 `1.0.3+160`；2026-09-23 Linux API/Admin 最近一次回读运行 `dev@f9feac7`，包含请求关联、Admin 内网 HTTP UUID fallback 和 Sports Shop eBay 入口。后续 Flutter/文档提交只更新客户端源码和 `last-seen-sha`，未替换 Linux release；已构建的测试包 160 也不能替代 iOS/Android 真机业务验收。`dev-inner@b941a3f` 与 `dev@8e22c1d` 分别保留为 2026-09-15 整改和 2026-08-26 原始设计基线。prod 按独立的 2026-09-21 Cloudflare 发布记录判断。
 - 合并状态：`19a6ac4` 引入 Linux 基础部署；2026-09-16 的 `75c0ec4` 已将 HTTP 向量、App/Admin 内网入口和发布预检整改合入 dev，并保留原后台筛选增量。
 - 2026-09-17 回读 kd201：watcher 发布的 `dev@4d5d66f` 正在运行，manifest、部署状态和 API/Admin 实际产物一致；PostgreSQL 18.6 的 ledger 为 13 项，发布前备份目录可读取，未做恢复演练。此前手工 ESM 修复现已包含在自动发布版本中，详见[退役验证](../05-delivery/VERIFICATION.md#旧-cloudflare-dev-业务退役2026-09-17)。
 - 2026-09-18 回读 kd201：watcher 已发布 `dev@bfbb61d`，manifest、`current` 与部署 SHA 一致；PostgreSQL ledger 已登记 `0013`，`pg_trgm` 索引有效并被单次 Search 查询计划命中，API/Web/DB 健康。发布前备份可列出内容，未演练整库恢复；prod 未迁移或发布，见[验证记录](../05-delivery/VERIFICATION.md)。
 - 2026-09-20 回读 kd201：watcher 已发布性能提交 `dev@9488a15`，release 为 `branch-dev-9488a15f01b0-20260920111505`；manifest、`current` 和 `last-deployed-sha` 一致。API/DB healthy、Web running、migration exited/0，ledger 为 14 项且最新为 `0013`。发布前 1,120,850,087 字节 custom-format 备份通过 `pg_restore --list`，未执行恢复；prod 未处理。
+- 2026-09-21 回读 kd201：watcher 已发布 `dev@baf0d7b`，release 为 `branch-dev-baf0d7b53681-20260921151308`；manifest、`current`、`last-seen-sha` 与 `last-deployed-sha` 一致。API/DB healthy、Web running、migration exited/0，ledger 仍为 14 项且最新为 `0013`；运行容器 `/app/server.mjs` 与 release 文件 SHA-256 均为 `1e8db34a5352c9e2bf22ff00182df0f32fa161acf3fdf309e255371d72bd827f`。发布前 1,121,082,954 字节 custom-format 备份经 PostgreSQL 18 容器 `pg_restore --list` 读取成功，未执行恢复；prod 未处理。
+- 同日推送 `dev@7d9b0ca` 后，17:06（UTC+8）内网 health 已返回 UUID v4 `X-Request-ID`，Admin HTML 已引用该提交本地 development build 的主资源；后续只读烟测覆盖 ID 唯一性、合法/非法输入、CORS、404/401 与静态排除。非交互 SSH 被拒绝，未重新读取 release ID、manifest、状态文件、备份、容器和 ledger；上条 `baf0d7b` 仍是最近一次完整基础设施检查点，prod 未部署。
+- 2026-09-22 watcher 发布 `dev@c0dd7a2` 为 `branch-dev-c0dd7a2ffa30-20260922215028`；manifest、`current`、`last-seen-sha` 与 `last-deployed-sha` 一致，失败标记为空。API/DB healthy、Web running、migration exited/0、ledger 14 项；1,135,142,872 字节发布前备份通过 PostgreSQL 18 `pg_restore --list`。运行容器与 release 的 API bundle SHA-256 均为 `2f2c46505a70b1731ca8f3ed9c57ae83834b9dc00e22446b68649877d8a4a3c2`；Admin 资源为 `index-Dpcx4bfa.js`，内网非安全上下文登录回归不再抛 `randomUUID` 异常。prod 未部署。
+- 2026-09-23 watcher 发布 `dev@f9feac7` 为 `branch-dev-f9feac7b16b5-20260923103511`；manifest、`current` 与 `last-deployed-sha` 一致，失败标记为空。后续只含 Flutter/文档的 `d8f0aa2` 仅更新 `last-seen-sha`。API/DB healthy、Web running、migration exited/0、ledger 14 项；1,135,250,246 字节发布前备份通过 PostgreSQL 18 `pg_restore --list`，运行容器与 release 的 API bundle SHA-256 均为 `b624ce820804431e78962666335e2033bc2950874c5ef1111fb8edc56f23006a`。Sports Shop 的 eBay 与 TCGplayer 对照已在内网只读回归，未构建本轮移动端测试包或部署 prod；详见[发布验证](../05-delivery/VERIFICATION.md#sports-shop-linux-dev-自动发布回读2026-09-23)。
 - 受控扫描、幂等扣次与本地收藏/初始价格事件写入均通过；App test/Admin development 和 `deploy:dev` 已统一到 Linux。Apple Sandbox 官方 TEST 已经由独立公网回调进入 Linux 并成功处理。用户确认两端客户端路径已测试无问题，本次未独立重跑真机；指定交易的统计后台收件和完整生命周期矩阵仍单独验收。
 - 2026-09-17 已删除旧 `toccards-api-dev` Worker、`api-dev.tcgcard.fun` 自定义域名及唯一 cron；旧测试数据和包保留。正式 API、共享 CF 向量识别和独立 Apple 回调保持运行。
 - 2026-09-16 配置增量：原 CF dev 的 Google/App Attest/邮件公开配置及 Apple 官方根证书已落入 Linux；API 通过 Node 22.22.1 原生环境代理访问外网，Google 网络验证通过，CF 向量服务和内网仍直连。私密凭据、公网通知入口与真机缺项集中维护在[开发计划](../05-delivery/development-plan.md#linux-dev-集中处理清单2026-09-16)。
@@ -95,7 +99,7 @@ Linux 使用本地文件目录代替 R2，实现当前使用的 `put/get/delete`
 
 ### 扫描兼容缺口
 
-`src/scan/routes.ts` 只接受 512 维 `vector`，并通过 `Env.VECTOR_RECOGNITION.fetch()` 调用检索服务。prod 仓库配置使用 Cloudflare Service Binding，现网协议仍按其原部署版本判断；dev Linux 的 `src/linux/config.ts` 通过 `vector-recognition.ts` 构造 HTTP 适配，目标为 `VECTOR_RECOGNITION_BASE_URL` origin 下的 `/recognize`。共享路由只发送 `{vector}`，不向识别服务转发图片、用户 token 或业务数据库请求；dev 的候选资料、游戏过滤、额度与扫描记录使用 Linux 的 `DB`。
+`src/scan/routes.ts` 接受 512 维 `vector` 和 `card_type`（`0=TCG`、`1=Sports Card`，缺省为 `0`），并通过 `Env.VECTOR_RECOGNITION.fetch()` 调用检索服务。prod 仓库配置使用 Cloudflare Service Binding，现网协议仍按其原部署版本判断；dev Linux 的 `src/linux/config.ts` 通过 `vector-recognition.ts` 构造 HTTP 适配，目标为 `VECTOR_RECOGNITION_BASE_URL` origin 下的 `/recognize`。共享路由只发送 `{vector, card_type}`，不向识别服务转发图片、用户 token 或业务数据库请求；dev 的候选资料、游戏过滤、额度与扫描记录使用 Linux 的 `DB`。
 
 HTTP 适配的 10 秒超时持续覆盖响应正文，并保留调用方取消，不重试或跟随重定向。上游 HTTP 失败、无效 JSON 或超时沿用共享路由的 `502 VECTOR_RECOGNITION_UNAVAILABLE`、审计失败记录与释放额度；无匹配或本地目录不可用不错误扣次。缺少 binding 的既有受控 `503` 分支保留。旧 `OCR_SERVICE_BASE_URL` 已从运行时配置和 `Env` 移除，不再作为回退。
 
@@ -117,6 +121,8 @@ Admin 继续构建同一份 React/Vite 应用：
 ### App 测试入口与平台网络策略
 
 Flutter 继续以 `APP_ENV=test` 代表现有 dev，默认业务 origin 为 `http://192.168.50.201:8080`，API 路径为 `/api/v1`；`APP_ENV=production` 和未配置值维持原生产 HTTPS API。测试分享由相同 origin 派生 `/share/cards`，即使复制的数据库下发生产分享地址，测试 App 也使用内网地址；production 继续优先采用服务端分享配置。目录卡牌图片仍由原 `image.tcgcard.fun` 提供。
+
+test App 与 production App 都使用应用级 Native Dio Adapter：iOS 复用单一 `URLSession`，Android 复用显式开启 HTTP/2/QUIC 的 embedded Cronet；API、启动配置、分享缩略图与目录图片共享该连接池。Linux dev 的业务入口是明文 HTTP，因此这里只验证 Native transport 的业务兼容和超时/取消语义，不能据此认定 HTTP/2 或 HTTP/3 已协商；协议验收必须针对支持对应协议的 HTTPS origin 在真机执行。扫描仍由现有 25 秒整体 Deadline 与 `CancelToken` 控制，Native transport 不叠加原 Adapter 级 10 秒响应头超时；客户端不对失败 POST 自动换协议重试。
 
 Android 从 Flutter 传给 Gradle 的 `APP_ENV` 参数选择 network security config，仅 test 对 `192.168.50.201` 允许 HTTP，其他目标禁止明文。iOS 的三个既有 test flavor 配置使用独立 `Info-test.plist`，仅添加该 IP 的 ATS 例外及局域网权限说明，生产 plist 不变；测试保护两个 plist 的其他字段一致。iOS 17+ 的 ATS IP exception 和 iOS 16 的 IP 直连规则不同，需在对应设备验证；本机源码检查不能代替签名 IPA 与真机权限验收。
 

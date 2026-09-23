@@ -3,12 +3,16 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../shared/scan/scan_native_image_processor.dart';
 import 'scan_result_source.dart';
 
 abstract interface class ScanCameraSession {
   Widget buildPreview();
   bool get flashEnabled;
-  Future<ScanImage> takePhoto();
+  Future<ScanImage> takePhoto({
+    required Rect viewfinder,
+    required Size viewport,
+  });
   Future<bool> toggleFlash();
   Future<void> pausePreview();
   Future<void> resumePreview();
@@ -79,9 +83,26 @@ class PluginScanCameraSession implements ScanCameraSession {
   }
 
   @override
-  Future<ScanImage> takePhoto() async {
+  Future<ScanImage> takePhoto({
+    required Rect viewfinder,
+    required Size viewport,
+  }) async {
+    final previewSize = _controller.value.previewSize;
+    if (previewSize == null) {
+      throw StateError('Camera preview dimensions are unavailable.');
+    }
     final image = await _controller.takePicture();
-    return ScanImage(bytes: await image.readAsBytes(), fileName: image.name);
+    final bytes = await const ScanNativeImageProcessor().cropViewfinder(
+      await image.readAsBytes(),
+      viewfinder: viewfinder,
+      viewport: viewport,
+      previewSize: Size(previewSize.height, previewSize.width),
+    );
+    return ScanImage(
+      bytes: bytes,
+      fileName: image.name,
+      viewfinderCropped: true,
+    );
   }
 
   @override

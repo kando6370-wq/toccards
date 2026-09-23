@@ -10,6 +10,18 @@ import 'package:kando_app/shared/scan/scan_card_recognizer.dart';
 
 void main() {
   test(
+    'scan transport keeps the full operation deadline because an early receive timeout can hide a server-side quota settlement',
+    () {
+      final dio = createScanDio(baseUrl: 'https://api.example.test/api/v1');
+      addTearDown(dio.close);
+
+      expect(dio.options.connectTimeout, const Duration(seconds: 10));
+      expect(dio.options.receiveTimeout, isNull);
+      expect(scanRequestDeadline, const Duration(seconds: 25));
+    },
+  );
+
+  test(
     'quota rejects missing entitlement fields instead of downgrading to Free',
     () {
       expect(
@@ -76,6 +88,7 @@ void main() {
           'app_version': '1.0.0',
           'request_id': '123e4567-e89b-42d3-a456-426614174000',
           'card_number': '018/066',
+          'card_type': '1',
         });
         expect(form.files, hasLength(1));
         expect(form.files.single.key, 'image');
@@ -136,6 +149,7 @@ void main() {
         appVersion: '1.0.0',
         requestId: '123e4567-e89b-42d3-a456-426614174000',
         cardNumber: '018/066',
+        cardType: ScanCardType.sports,
       );
 
       expect(result.scanId, 'scan-1');
@@ -147,6 +161,46 @@ void main() {
       expect(result.results.single.candidates.last.confidence, 80.729);
     },
   );
+
+  test('recognizeImage sends TCG as the default card type', () async {
+    final adapter = _RecordingAdapter((request) {
+      final form = request.body as FormData;
+      final fields = Map<String, String>.fromEntries(form.fields);
+      expect(fields['card_type'], '0');
+      return _json(200, {
+        'success': true,
+        'data': {
+          'scan_id': 'scan-default-tcg',
+          'recognition_status': 'no_match',
+          'quota': {
+            'access': 'free',
+            'limit': 10,
+            'reserved': 0,
+            'consumed': 0,
+            'remaining': 10,
+            'unlimited': false,
+          },
+          'results': [
+            {'index': 1, 'matched': false, 'candidates': <Object?>[]},
+          ],
+        },
+      });
+    });
+
+    final result = await ScanApiClient(_dio(adapter)).recognizeImage(
+      _session,
+      embedding: ScanCardEmbedding(
+        vector: _vector,
+        cardImageBytes: Uint8List.fromList([1, 2, 3, 4]),
+      ),
+      fileName: 'scan.jpg',
+      platform: 'iOS',
+      appVersion: '1.0.0',
+      requestId: '123e4567-e89b-42d3-a456-426614174000',
+    );
+
+    expect(result.recognitionStatus, 'no_match');
+  });
 
   test('recognition rejects confidence outside 0 to 100', () async {
     final adapter = _RecordingAdapter(

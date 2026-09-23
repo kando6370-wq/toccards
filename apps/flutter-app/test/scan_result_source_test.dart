@@ -5,23 +5,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/scan/scan_result_source.dart';
 import 'package:kando_app/shared/scan/scan_api_client.dart';
-import 'package:kando_app/shared/scan/scan_card_number_reader.dart';
 import 'package:kando_app/shared/scan/scan_card_recognizer.dart';
 
 void main() {
   test(
-    'photo uses recognition API because scan matches must come from card data',
+    'photo uses vector recognition without a device OCR card-number hint',
     () async {
       final api = _FakeScanApi(_matchedRecognition);
       final picker = _FakeScanImagePicker();
       final cardRecognizer = _FakeScanCardRecognizer();
-      final cardNumberReader = _FakeCardNumberReader('018/066');
       final source = ApiScanResultSource(
         api: api,
         session: () => _session,
         imagePicker: picker,
         cardRecognizer: cardRecognizer,
-        cardNumberReader: cardNumberReader,
         appInfo: () async =>
             const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
       );
@@ -41,11 +38,56 @@ void main() {
       expect(cardRecognizer.lastBytes, Uint8List.fromList([1, 2, 3]));
       expect(api.lastEmbedding?.cardImageBytes, Uint8List.fromList([4, 5, 6]));
       expect(api.lastPlatform, 'iOS');
-      expect(api.lastCardNumber, '018/066');
-      expect(cardNumberReader.lastBytes, Uint8List.fromList([4, 5, 6]));
+      expect(api.lastCardNumber, isNull);
       expect(picker.sources, [ScanImageSource.camera]);
+      expect(cardRecognizer.lastAllowCropFallback, isFalse);
     },
   );
+
+  test(
+    'only a viewfinder-cropped photo can use the detector fallback on retry',
+    () async {
+      final recognizer = _FakeScanCardRecognizer();
+      final source = ApiScanResultSource(
+        api: _FakeScanApi(_matchedRecognition),
+        session: () => _session,
+        imagePicker: _FakeScanImagePicker(),
+        cardRecognizer: recognizer,
+        appInfo: () async =>
+            const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
+      );
+      final crop = Uint8List.fromList([1, 2, 3]);
+      await source.recognize(
+        ScanImage(bytes: crop, fileName: 'camera.jpg', viewfinderCropped: true),
+      );
+      expect(recognizer.lastBytes, same(crop));
+      expect(recognizer.lastAllowCropFallback, isTrue);
+      await source.retry(
+        imageBytes: crop,
+        fileName: 'camera.jpg',
+        viewfinderCropped: true,
+      );
+      expect(recognizer.lastAllowCropFallback, isTrue);
+      await source.recognize(ScanImage(bytes: crop, fileName: 'gallery.jpg'));
+      expect(recognizer.lastAllowCropFallback, isFalse);
+    },
+  );
+
+  test('selected Sports Card type reaches the scan API', () async {
+    final api = _FakeScanApi(_matchedRecognition);
+    final source = ApiScanResultSource(
+      api: api,
+      session: () => _session,
+      imagePicker: _FakeScanImagePicker(),
+      cardRecognizer: _FakeScanCardRecognizer(),
+      appInfo: () async =>
+          const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
+    );
+
+    await source.photo(cardType: ScanCardType.sports);
+
+    expect(api.lastCardType, ScanCardType.sports);
+  });
 
   test(
     'recognize uses the model-corrected card while preserving the original photo for retry',
@@ -195,6 +237,68 @@ void main() {
       );
 
       final failed = await source.photo();
+      await source.retry(
+        imageBytes: failed.imageBytes,
+        fileName: failed.imageFileName,
+      );
+
+      expect(api.requestIds, hasLength(2));
+      expect(api.requestIds[1], api.requestIds[0]);
+    },
+  );
+
+  test(
+    'retry reuses the request id when a consumed success has no usable result because a new id would double charge',
+    () async {
+      final api = _FakeScanApi(
+        const ScanRecognitionDto(
+          scanId: 'scan-inconsistent',
+          recognitionStatus: 'success',
+          results: [],
+          quota: _freeQuota,
+        ),
+      );
+      final source = ApiScanResultSource(
+        api: api,
+        session: () => _session,
+        imagePicker: _FakeScanImagePicker(),
+        cardRecognizer: _FakeScanCardRecognizer(),
+        appInfo: () async =>
+            const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
+      );
+
+      final failed = await source.photo();
+      expect(failed.kind, ScanResolutionKind.failed);
+      await source.retry(
+        imageBytes: failed.imageBytes,
+        fileName: failed.imageFileName,
+      );
+
+      expect(api.requestIds, hasLength(2));
+      expect(api.requestIds[1], api.requestIds[0]);
+    },
+  );
+
+  test(
+    'retry reuses the request id when a success response cannot be parsed because the server may already have charged it',
+    () async {
+      final api = _FakeScanApi(
+        _matchedRecognition,
+        failures: const [
+          ScanApiException('Invalid success response.', statusCode: 200),
+        ],
+      );
+      final source = ApiScanResultSource(
+        api: api,
+        session: () => _session,
+        imagePicker: _FakeScanImagePicker(),
+        cardRecognizer: _FakeScanCardRecognizer(),
+        appInfo: () async =>
+            const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
+      );
+
+      final failed = await source.photo();
+      expect(failed.kind, ScanResolutionKind.failed);
       await source.retry(
         imageBytes: failed.imageBytes,
         fileName: failed.imageFileName,
@@ -417,6 +521,7 @@ class _FakeScanApi implements ScanApi, ScanQuotaReservationApi {
   ScanCardEmbedding? lastEmbedding;
   String? lastPlatform;
   String? lastCardNumber;
+  ScanCardType? lastCardType;
   final requestIds = <String>[];
   final fileNames = <String>[];
   var callCount = 0;
@@ -459,6 +564,7 @@ class _FakeScanApi implements ScanApi, ScanQuotaReservationApi {
     String? cardNumber,
     String? deviceModel,
     String? osVersion,
+    ScanCardType cardType = ScanCardType.tcg,
   }) async {
     callCount += 1;
     requestIds.add(requestId);
@@ -466,6 +572,7 @@ class _FakeScanApi implements ScanApi, ScanQuotaReservationApi {
     lastEmbedding = embedding;
     lastPlatform = platform;
     lastCardNumber = cardNumber;
+    lastCardType = cardType;
     if (callCount <= failures.length) throw failures[callCount - 1];
     final failure = this.failure;
     if (failure != null) throw failure;
@@ -479,7 +586,10 @@ class _OrderedScanCardRecognizer implements ScanCardRecognizer {
   final Future<void> firstReady;
 
   @override
-  Future<ScanCardEmbedding> process(Uint8List imageBytes) async {
+  Future<ScanCardEmbedding> process(
+    Uint8List imageBytes, {
+    bool allowCropFallback = false,
+  }) async {
     if (imageBytes.single == 1) await firstReady;
     return ScanCardEmbedding(
       vector: List<double>.filled(512, 0.25),
@@ -488,25 +598,17 @@ class _OrderedScanCardRecognizer implements ScanCardRecognizer {
   }
 }
 
-class _FakeCardNumberReader implements ScanCardNumberReader {
-  _FakeCardNumberReader(this.result);
-
-  final String? result;
-  Uint8List? lastBytes;
-
-  @override
-  Future<String?> read(Uint8List cardImageBytes) async {
-    lastBytes = cardImageBytes;
-    return result;
-  }
-}
-
 class _FakeScanCardRecognizer implements ScanCardRecognizer {
   Uint8List? lastBytes;
+  bool? lastAllowCropFallback;
 
   @override
-  Future<ScanCardEmbedding> process(Uint8List imageBytes) async {
+  Future<ScanCardEmbedding> process(
+    Uint8List imageBytes, {
+    bool allowCropFallback = false,
+  }) async {
     lastBytes = imageBytes;
+    lastAllowCropFallback = allowCropFallback;
     return ScanCardEmbedding(
       vector: List<double>.filled(512, 0.25),
       cardImageBytes: Uint8List.fromList([4, 5, 6]),
