@@ -2,6 +2,16 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## 正式配置的 iOS 开发签名内部包 1.0.3 (158)（2026-09-23）
+
+按用户澄清的目标，从干净的 `dev@817213ce` 生成可供已登记设备内部安装的开发签名 IPA，运行配置全部取正式环境：Bundle ID `com.cardai.tcg`、正式 Firebase `tcg-card-2072d`、生产 API `https://api.tcgcard.fun/api/v1`、正式订阅 Product IDs `CardAi.weekly` / `CardAi.yearly` / `CardAi.lifetime`、App Attest `production`。它不是测试环境 beta Bundle ID，也不是 App Store Connect 上传包。生产 API `/health` 返回 HTTP 200、`status=ok`。以 `config/production.json` 执行 `release_config_test.dart` 与 `api_environment_test.dart` 共 13/13 通过、退出 0。
+
+先执行 `./tool/release_ios.sh --env production --build-number 158`，依赖解析、`flutter analyze`、清理和 Xcode Release Archive 均通过；导出商店 IPA 时用户明确要求开发测试包，立即中断该导出，脚本退出 1，未执行其保存、上传或安装分支。随后直接使用同一 Archive 内的 Apple Development 签名 `Runner.app` 封装 `Payload/Runner.app` 为 `Card AI Development.ipa`，ZIP 完整性通过；重新解包最终 IPA 验证 `com.cardai.tcg / 1.0.3 (158)`、签名完整性、Apple Development 证书、`get-task-allow=true`、App Attest `production`、正式 Firebase 文件逐字节一致和 App.framework 内正式 API 地址。embedded provisioning profile 含已登记设备（包括 `00008030-001C08311E28802E`），到期时间为 2027-08-25；42 个 Mach-O UUID 全部匹配 Archive dSYM。该开发包只适用于描述文件包含的设备，不能作为商店上传包。
+
+IPA 为 39,781,295 字节，SHA-256 `1326bf4ad42adb2abec9568caa985c63feb1c67451db3d293dd95e7f402aa7e5`；`dSYMs.zip` 为 60,932,180 字节，SHA-256 `f5d74f1f75f1ac0a1eca25eebe81a4e574d72097f441b1387018637cb1ab9137`。使用既有保存脚本归档于 `~/Downloads/CardAI-Packages/com.cardai.tcg/CardAI-Prod-1.0.3-158/`，`Prod` 表示包内生产环境配置，不代表本文件是商店签名；保存副本与校验源 IPA 一致。该 Bundle ID 下目前共有 5 个保存版本，未超过正式目录的 7 个保留上限，没有移除旧包；Xcode Archive 保留在 `apps/flutter-app/build/ios/archive/Runner.xcarchive`。Dart 和 CocoaPods 锁文件未变化，源码版本同步为 `1.0.3+158`。
+
+随后按用户要求把上述已保存的 IPA 解包，再次核验 Apple Development 签名、App Attest `production` 和 embedded profile 包含设备 UDID，并通过 `xcrun devicectl device install app` 安装到数据线连接、已配对且开启开发者模式的 iPhone 11（iOS 18.7.8，UDID `00008030-001C08311E28802E`）。安装命令退出 0，设备应用列表回读 `Card AI / com.cardai.tcg / 1.0.3 / 158`。未自动启动 App，也未进行登录、购买、扫描或网络真机业务验收；这些仍需客户端测试人员补验。未运行完整 Flutter 测试、Android 构建/真机验证。本次没有上传蒲公英或 App Store Connect、Git push、服务端部署、生产配置写入或远程数据库操作。
+
 ## iOS 测试内部包 1.0.3 (157)（2026-09-22）
 
 按用户要求从干净的 `dev@f0eca6af` 重新构建测试环境内部包。源码版本为 `1.0.3+156`，同一测试 Bundle ID 已保存构建号 156，因此使用 157，避免覆盖既有产物。测试配置为 `com.kando.kandoApp.beta`、App Attest `development`、测试 Firebase 和 `http://192.168.50.201:8080/api/v1`；构建前 Linux dev `/health` 返回 HTTP 200、`status=ok`。
