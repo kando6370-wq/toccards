@@ -10,6 +10,8 @@
 
 2026-09-22 当前检查点：按用户要求强制重新部署后，又发布 Admin 内网 HTTP 请求 ID 修复 `dev@c0dd7a2`。当前 release 为 `branch-dev-c0dd7a2ffa30-20260922215028`，`current`、manifest、`last-seen-sha` 与 `last-deployed-sha` 一致，失败标记为空；API/DB healthy、Web running、migration exited/0、ledger 14 项。发布前 1,135,142,872 字节备份通过 PostgreSQL 18 `pg_restore --list`，运行与 release bundle 摘要一致；浏览器非安全上下文回归见[验证记录](VERIFICATION.md#admin-内网-http-请求-id-兼容修复2026-09-22已部署-dev)。prod 未处理。
 
+2026-09-23 当前检查点：watcher 已发布 Sports Shop `dev@f9feac7`，当前 release 为 `branch-dev-f9feac7b16b5-20260923103511`；manifest、`current`、`last-deployed-sha` 一致，失败标记为空。后续 Flutter/文档提交 `d8f0aa2` 仅前移 `last-seen-sha`，未重新发布 Linux。API/DB healthy、Web running、migration exited/0、ledger 14 项；1,135,250,246 字节发布前备份通过 PostgreSQL 18 `pg_restore --list`，运行和 release bundle 摘要一致。体育卡 eBay 与 TCGplayer 对照已在内网只读验证；范围和未执行项见[验证记录](VERIFICATION.md#sports-shop-linux-dev-自动发布回读2026-09-23)。prod 未部署。
+
 ## 目标
 
 当 GitHub `dev` 分支出现影响 API、Admin、共享包或 Linux 部署配置的新提交时，由 `kd201` 本机定时监听、构建同一套业务代码并发布到测试环境。Cloudflare 正式环境的构建、绑定和部署流程不由该监听器触发。

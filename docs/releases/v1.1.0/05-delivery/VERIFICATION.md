@@ -2,6 +2,14 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
+## Sports Shop Linux dev 自动发布回读（2026-09-23）
+
+用户要求部署 Sports Card Shop 后，kd201 watcher 已在 10:35 自动发布 `dev@f9feac7b16b564a579412367b116f9d69e5c3d65`，release 为 `branch-dev-f9feac7b16b5-20260923103511`。服务器只读回读确认：`current`、`shared/current-release`、manifest `sha` 与 `last-deployed-sha` 指向该版本，`failed-sha` 不存在；后续仅修改 Flutter 版本和文档的 `dev@d8f0aa2` 已前移 `last-seen-sha`，watcher 日志明确判定它无 Linux 发布影响，未替换当前 release。没有再强制手工发布。
+
+watcher 日志显示发布前环境、PostgreSQL 18、CF 识别服务预检通过，`pendingMigrations=[]`；发布前备份 `toccards-test-20260923-103512-before-branch-dev-f9feac7b16b5-20260923103511.dump` 为 1,135,250,246 字节，已通过 PostgreSQL 18 容器 `pg_restore --list`，未执行恢复。数据库和 API 容器 healthy、Web running、migration exited/0；ledger 14 项，最新为 `0013_cards_all_search_trgm.sql`。运行容器 `/app/server.mjs` 与 release bundle 的 SHA-256 均为 `b624ce820804431e78962666335e2033bc2950874c5ef1111fb8edc56f23006a`。服务器回环 health 返回 `{"status":"ok"}`，开发机访问内网 API/Admin 均为 HTTP 200。
+
+只读业务回归：Basketball 目录卡 `t9937559` 的 Shop 返回单条 eBay 在售搜索链接，`date/price=null`；Pokemon 目录卡 `659612` 仍返回四条 TCGplayer 商品链接和价格，接口为 `no-store`。本地从干净 `f9feac7` 执行 `pnpm --filter @kando/workers-api deploy:dry-run:dev` 退出 0，Admin development 与 Linux API bundle 构建成功，bundle 启动/Apple SDK 两项回归 2/2；dry-run 本身未连接 SSH、迁移或部署。未运行真实移动端 Shop 点击、eBay 网站搜索结果质量、iOS/Android 新测试包构建、真机扫描或整库恢复；Flutter App 不由 Linux watcher 自动安装，prod 未部署。
+
 ## 正式配置的 iOS 开发签名内部包 1.0.3 (158)（2026-09-23）
 
 按用户澄清的目标，从干净的 `dev@817213ce` 生成可供已登记设备内部安装的开发签名 IPA，运行配置全部取正式环境：Bundle ID `com.cardai.tcg`、正式 Firebase `tcg-card-2072d`、生产 API `https://api.tcgcard.fun/api/v1`、正式订阅 Product IDs `CardAi.weekly` / `CardAi.yearly` / `CardAi.lifetime`、App Attest `production`。它不是测试环境 beta Bundle ID，也不是 App Store Connect 上传包。生产 API `/health` 返回 HTTP 200、`status=ok`。以 `config/production.json` 执行 `release_config_test.dart` 与 `api_environment_test.dart` 共 13/13 通过、退出 0。

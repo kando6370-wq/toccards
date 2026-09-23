@@ -91,11 +91,11 @@ PostgreSQL 结构以 `src/db/postgres/migrations/` 中的顺序 migration 为准
 | 环境 | 运行入口 | 地址 | 数据资源 |
 |---|---|---|---|
 | prod | `toccards-api-prod` | `api.tcgcard.fun` | PostgreSQL/Hyperdrive，无 D1；仓库配置通过 `VECTOR_RECOGNITION` Service Binding 调用 `recognize-vec`，prod KV/R2、production Apple 配置和 `APP_ENVIRONMENT=production` 独立。本轮未部署性能提交或 `0013`，现网协议仍需按独立 release 验证 |
-| dev | Linux Node / `src/linux/server.ts` | `http://192.168.50.201:8080` | 独立 PostgreSQL、内存 KV、本地图片卷、`APP_ENVIRONMENT=development`；2026-09-22 运行 `dev@c0dd7a2`，release/manifest/状态文件一致，API/DB healthy、Web running、migration exited/0、ledger 14 项；Admin 内网 HTTP 请求 ID fallback 已通过浏览器回归 |
+| dev | Linux Node / `src/linux/server.ts` | `http://192.168.50.201:8080` | 独立 PostgreSQL、内存 KV、本地图片卷、`APP_ENVIRONMENT=development`；2026-09-23 运行 `dev@f9feac7`，release/manifest/部署状态一致，API/DB healthy、Web running、migration exited/0、ledger 14 项；Sports Shop eBay 与 TCGplayer 对照已通过内网只读回归 |
 
 旧 CF dev 的 `toccards-api-dev`、`api-dev.tcgcard.fun` 与 cron 已退役，不属于当前环境表，也不得重新发布；其历史测试数据和旧 KV/R2 保留。Wrangler vars 和 Worker secrets 现在仅用于 prod，密钥不进入仓库。prod 保持原数据库、Apple、KV、R2、域名和部署方式；仓库 prod 配置包含向量绑定，但配置文件不能替代现网版本核验，见[发布与验证](../05-delivery/VERIFICATION.md)。dev 的密钥保存在 Linux 私有环境文件，发布不使用 Wrangler。D1 不作为新迁移或回滚目标。
 
-Linux 的真实配置仅保存在服务器 `.env`。分支监听器默认每两分钟检查 `dev`，相关路径变化才执行定向检查、构建、数据库备份和版本化发布；GitHub Linux workflow 仅为手动触发选项。2026-09-22 当前 release 为 `branch-dev-c0dd7a2ffa30-20260922215028`，manifest、`current`、`last-seen-sha` 和 `last-deployed-sha` 一致；API/DB healthy、Web running、migration 容器退出 0，ledger 14 项。发布前 1,135,142,872 字节备份通过 `pg_restore --list`，运行容器与 release 的 API bundle SHA-256 一致。API 与 watcher 分别使用自身环境文件中的代理配置；发布 SHA、备份与未验收边界见[验证记录](../05-delivery/VERIFICATION.md)。
+Linux 的真实配置仅保存在服务器 `.env`。分支监听器默认每两分钟检查 `dev`，相关路径变化才执行定向检查、构建、数据库备份和版本化发布；GitHub Linux workflow 仅为手动触发选项。2026-09-23 当前 release 为 `branch-dev-f9feac7b16b5-20260923103511`，manifest、`current` 和 `last-deployed-sha` 一致；后续仅修改 Flutter/文档的 `d8f0aa2` 更新了 `last-seen-sha`，未替换 Linux release。API/DB healthy、Web running、migration 容器退出 0，ledger 14 项。发布前 1,135,250,246 字节备份通过 PostgreSQL 18 `pg_restore --list`，运行容器与 release 的 API bundle SHA-256 一致。API 与 watcher 分别使用自身环境文件中的代理配置；发布 SHA、备份与未验收边界见[验证记录](../05-delivery/VERIFICATION.md#sports-shop-linux-dev-自动发布回读2026-09-23)。
 
 当前源码将 `deploy:dev` 改为 Linux 发布包 + SSH，`deploy:dry-run:dev` 只构建归档。手工、监听器与 Runner 均复用同一个发布脚本，在备份前核对本地数据库凭据/18 大版本、待执行 migration 和 CF 识别契约；已有库不会因 `current` 链接缺失而跳过备份。标准与离线 PostgreSQL 默认均为 18，并保留原卷路径。旧 CF dev 已退役，prod 发布入口保持原状。
 
