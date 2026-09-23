@@ -1,6 +1,6 @@
 # 扫描识别向量链路
 
-本次合并源 `dev@b75d81c` 的 App 源码版本为 `1.0.3+160`。prod Cloudflare 通过 Service Binding、dev Linux 通过 HTTP 适配调用 `recognize-vec`；最近一次已记录的 prod 发布为 2026-09-21 从 `main@2cfdea8` 发布 version `c612c8a6-4873-4760-b435-3c4db27d14e6`，dev Linux API 于 2026-09-23 最近一次回读运行 `dev@f9feac7`。新合并的扫描增量尚未独立发布 prod。下方来源提交和历史版本保留原日期，不能据此推断客户端或 Linux release 随 Git 合并改变。
+本次合并源 `dev@b75d81c` 的 App 版本当时为 `1.0.3+160`；当前源码为 `1.0.4+161`，正式 IPA 于 2026-09-23 上传 App Store Connect，但真机扫描及与旧 prod 服务端的端到端兼容仍未因上传而验证。prod Cloudflare 通过 Service Binding、dev Linux 通过 HTTP 适配调用 `recognize-vec`；最近一次已记录的 prod 发布为 2026-09-21 从 `main@2cfdea8` 发布 version `c612c8a6-4873-4760-b435-3c4db27d14e6`，dev Linux API 于 2026-09-23 最近一次回读运行 `dev@f9feac7`。新合并的扫描增量尚未独立发布 prod。下方来源提交和历史版本保留原日期，不能据此推断客户端或 Linux release 随 Git 合并改变。
 
 本实现从历史提交 `dev-xiangyang@ceef1af` 按识别代码段移植为 `e18543a`，基线为 `7451382`，于 2026-09-09 经 `f38ef98` 合入 `dev` 并推送远程。`dev-wxy`、`dev-xiangyang` 等来源分支已清理，旧分支名只用于追溯，不再作为检出或发布目标。保留当前 Queue、Quota、候选资料与确认入库逻辑，包括 Scan confirm 初始估值事件的购买价格、币种和可靠历史起点修复。
 
@@ -13,6 +13,8 @@
 5. PE-Core-T16 使用 RGB/CHW、`value / 127.5 - 1` 的输入，生成 512 维有限、非零向量。同一识别器串行推理，图像张量与几何计算使用 Dart isolate。
 6. App 不再运行 ML Kit Latin OCR，也不从矫正卡面读取或提交卡号提示；它向 `/api/v1/scan/recognize` 提交处理后的 JPEG（透视矫正图或取景框裁图回退）、JSON `vector`、`card_type`（`0=TCG`、`1=Sports Card`，默认 `0`）、业务 `request_id`/`Idempotency-Key` UUID 和原有审计字段。用户在扫描页切换类型后，每个扫描项记录拍摄时的类型，重试和 Gallery 队列继续使用该类型。每次物理 HTTP 尝试另用新的 `X-Request-ID` 做链路关联，不替代或复用业务幂等键。
 7. dev Linux API 通过 HTTP `VECTOR_RECOGNITION` 调用 `recognize-vec`，只发送 `{vector, card_type}`，不转发主 API 的 `X-Request-ID`。返回候选继续经过 Linux PostgreSQL 完整目录校验和游戏过滤，然后进入原有额度结算、Review 与确认入库；服务端仍兼容可选 `card_number` 字段，但当前 App 不再提供，prod 的 Service Binding 配置和运行版本独立。
+
+当前 `card_type=1` 只影响向量检索请求。共享路由仅把目录 `product_type_name=Cards` 的完整候选映射为 `object_type=tcg`，`/scan/:scan_id/confirm` 也沿用 TCG Collection Item 契约；没有独立的 Sports 资产类型。扫描类型选择与体育卡详情 Shop 的 eBay 入口不能据此推断体育卡完整入库链路已实现或经真机验收。
 
 ## 扫描页布局
 

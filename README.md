@@ -2,7 +2,7 @@
 
 Kando 是 Card AI 的 monorepo，包含 Flutter 客户端、Cloudflare Workers API、React 管理后台、营销站点及共享包。产品主线是卡牌搜索、扫描识别、收藏与估值；v1.1 在此基础上增加 Apple 订阅、Premium 权益、服务端扫描额度、Performance 和订单/通知后台。
 
-本次合并源为 `dev@b75d81c`；Flutter 客户端源码版本为 `1.0.3+160`，以 `apps/flutter-app/pubspec.yaml` 为准。最近一次已记录的 prod 发布是 2026-09-21 从 `main@2cfdea8` 发布 Worker/Admin version `c612c8a6-4873-4760-b435-3c4db27d14e6`，prod PostgreSQL `0012/0013` 已完成；2026-09-23 kd201 Linux API 最近一次回读运行 `dev@f9feac7`。本次合入的新业务代码并未因此发布 prod。`docs/releases/v1.1.0` 是产品迭代文档目录，不代表安装包版本或商店发布状态；Git 合并、服务端发布和客户端发布分别记录。
+本次合并源为 `dev@b75d81c`；当前 Flutter 客户端源码版本以 `apps/flutter-app/pubspec.yaml` 为准，为 `1.0.4+161`。2026-09-23 正式 IPA 已上传 App Store Connect，上传时返回 processing，后台处理、审核与面向用户发布尚未据此确认。最近一次已记录的 prod 发布是 2026-09-21 从 `main@2cfdea8` 发布 Worker/Admin version `c612c8a6-4873-4760-b435-3c4db27d14e6`，prod PostgreSQL `0012/0013` 已完成；2026-09-23 kd201 Linux API 最近一次回读运行 `dev@f9feac7`。本次合入的新业务代码并未因此发布 prod。`docs/releases/v1.1.0` 是产品迭代文档目录，不代表安装包版本或商店发布状态；Git 合并、服务端发布和客户端发布分别记录。
 
 ## 系统概览
 

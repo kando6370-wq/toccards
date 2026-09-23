@@ -2,7 +2,7 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
-当前业务环境只有 prod（Cloudflare）与 dev（kd201 Linux）。最近一次已记录的 prod 发布为 2026-09-21 从 `main@2cfdea8` 发布 Worker/Admin version `c612c8a6-4873-4760-b435-3c4db27d14e6`，deployment `d30f6111-8ab4-41a9-bd1f-2d93be41b210` 当时承载 100% 流量；prod PostgreSQL ledger 保持 14 项且最新为 `0013`。最近一次已记录的 dev API 发布回读为 2026-09-23 watcher 的 `dev@f9feac7`，API/DB healthy、Web running、migration exited/0、ledger 同为 14 项；两套数据库分别验证，不能相互外推。合并源 `dev@b75d81c` 的 Flutter 源码版本为 `1.0.3+160`，dev 测试包与此前上传 App Store Connect 的正式包分别记录，不能视为新业务代码已部署 prod。旧 CF dev 业务 Worker 已退役，Apple 回调与向量服务独立保留。
+当前业务环境只有 prod（Cloudflare）与 dev（kd201 Linux）。最近一次已记录的 prod 发布为 2026-09-21 从 `main@2cfdea8` 发布 Worker/Admin version `c612c8a6-4873-4760-b435-3c4db27d14e6`，deployment `d30f6111-8ab4-41a9-bd1f-2d93be41b210` 当时承载 100% 流量；prod PostgreSQL ledger 保持 14 项且最新为 `0013`。最近一次已记录的 dev API 发布回读为 2026-09-23 watcher 的 `dev@f9feac7`，API/DB healthy、Web running、migration exited/0、ledger 同为 14 项；两套数据库分别验证，不能相互外推。合并源 `dev@b75d81c` 的 Flutter 版本当时为 `1.0.3+160`；当前源码已是 `1.0.4+161`，2026-09-23 正式 IPA 已上传 App Store Connect（上传时返回 processing，后台完成未回读）。dev 测试包、正式包上传与 prod 服务端新业务部署分别记录，不能互相替代。旧 CF dev 业务 Worker 已退役，Apple 回调与向量服务独立保留。
 
 ## iOS 正式包 1.0.4 (161) 上传 App Store Connect（2026-09-23）
 
@@ -254,7 +254,7 @@ Code Review 核对了两侧提交边界、冲突裁决、非文档 tree、prod �
 
 ## 当前代码与交付边界
 
-prod 最近一次已记录的发布为 2026-09-21 从 `main@2cfdea8` 发布 Worker/Admin version `c612c8a6-4873-4760-b435-3c4db27d14e6`，当时承载 100% 流量；本次合并源 `dev@b75d81c` 的 Flutter 源码 `pubspec.yaml` 为 `1.0.3+160`。此前 `1.0.3 (150)` 正式包已上传 App Store Connect 但未提交审核，后续 dev 内部测试包也不能视为新业务代码已向正式用户发布。dev Linux 于 2026-09-23 最近一次回读的 API release 为 `dev@f9feac7`；旧 CF dev 已退役。本次本地合并不改变任一远端环境。下方原始测试、部署和迁移证据保留各自日期，不代表相应历史检查在本轮重新运行。
+prod 最近一次已记录的发布为 2026-09-21 从 `main@2cfdea8` 发布 Worker/Admin version `c612c8a6-4873-4760-b435-3c4db27d14e6`，当时承载 100% 流量；本次合并源 `dev@b75d81c` 的 Flutter 源码当时为 `1.0.3+160`，当前 `pubspec.yaml` 为 `1.0.4+161`。该正式 IPA 已于 2026-09-23 上传 App Store Connect，但后台处理完成、审核与面向用户发布未证实；此前 `1.0.3 (150)` 正式上传和 dev 内部测试包仅是各自历史交付证据，不能替代本包与正式服务端的业务验收。dev Linux 于 2026-09-23 最近一次回读的 API release 为 `dev@f9feac7`；旧 CF dev 已退役。本次本地合并不改变任一远端环境。下方原始测试、部署和迁移证据保留各自日期，不代表相应历史检查在本轮重新运行。
 
 | 增量 | 当前实现 | 验证与交付边界 |
 |---|---|---|
