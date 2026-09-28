@@ -89,7 +89,7 @@ GitLab Flutter CI 使用 3.44.0，GitHub iOS CI 使用 3.44.7。涉及工具链�
 - `docs/releases/v1.0.0/01-flows` 至 `04-admin`：v1.0.0 实际业务与工程基线。
 - `docs/releases/v1.1.0/00-product`：三份初始 PRD、两份订阅升级降级补充和一份收藏待编辑/卡牌详情改版 PRD，共六份产品输入，只读保留。
 - `docs/releases/v1.1.0/01-flows` 至 `05-delivery`：相对 v1.0.0 的开发归档、架构、数据/API、Admin 和交付证据；未验证边界按原记录保留。
-- `docs/releases/v1.1.1/README.md`：当前增量开发文档入口；具体分类在需求确定后按需创建。
+- `docs/releases/v1.1.1/README.md`：当前增量开发入口；`docs/releases/v1.1.1/03-data-api/app-compatibility-contract.md` 和 `docs/releases/v1.1.1/05-delivery/app-compatibility-acceptance.md` 定义从 App 1.0.4 起的服务端兼容目标与待执行门禁，尚非已验证实现。其他分类按需求创建。
 
 `docs/releases/v1.0.0` 是已发布冻结基线，后续迭代不得回写；若需修正已经确认的文档错误，必须先说明原因并获得用户明确授权。11 份原始 PRD 包括 `glossary.md`、`overview.md`、`ui-design-system.md` 和 `00-product/modules/` 下的 8 份模块文档，必须保持字节不变，不得因当前实现或后续需求而修订。
 
