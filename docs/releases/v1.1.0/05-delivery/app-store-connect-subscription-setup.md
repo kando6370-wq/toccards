@@ -16,7 +16,7 @@
 >
 > **后端历史检查点（2026-09-09）**：上述旧 D1、待部署 Root CA 和待发布 Singular 配置不再代表该日运行事实。旧 CF dev/prod 当时均已绑定 PostgreSQL/Hyperdrive 与 Apple Secret 名称，prod `/app-config` 已返回非空 Singular SDK 配置；旧 CF dev 使用向量识别，prod 当时尚未切换该协议。2026-09-07 的 Production/Sandbox Apple TEST 成功属于历史证据，本次没有重放通知或核验实单。
 >
-> **当前后端边界（2026-09-21）**：prod 已从 `main@2cfdea8` 重新发布 Worker/Admin version `c612c8a6-4873-4760-b435-3c4db27d14e6`，保持 Cloudflare 正式环境；prod PostgreSQL `0012/0013` 已完成且 ledger 为 14 项，本次未重复迁移。dev 已迁至 Linux 独立 PostgreSQL，当前 API release 为 `dev@9488a15`、ledger 同为 14 项。Sandbox 通知经独立 CF 回调入口进入 Linux，旧 CF dev 业务 Worker/域名/cron 已退役。历史数据保留，prod 和 dev 的数据库与发布分别核验，见[发布与验证](VERIFICATION.md)及[数据迁移](../03-data-api/migration.md)。
+> **后端最近一次发布回读（2026-09-28）**：prod 从 `main@7868f4c` 发布 Worker/Admin version `6be8c5f9-60dd-499b-b19f-23d4fa6ac7c4` 并回读为 100% 流量；生产绑定及 10 个 Secret 名称保留。本轮未运行 migration，prod PostgreSQL ledger 上次独立回读（2026-09-21）为 14 项、最新 `0013`，未重查。dev 使用 Linux 独立 PostgreSQL，API/Admin 最近一次有据可查的 release 为 2026-09-23 的 `dev@f9feac7`，ledger 当时为 14 项。Sandbox 通知仍由独立 CF 回调入口转入 Linux；旧 CF dev 业务 Worker/域名/cron 已退役。本轮未重新登录 App Store Connect 或执行真实购买验收，见[发布与验证](VERIFICATION.md)及[数据迁移](../03-data-api/migration.md)。
 >
 > **客户端交付增量（2026-09-20）**：production `1.0.3 (150)` 已完成 App Store 签名、IPA/dSYM 校验并上传 App Store Connect，源码版本为 `1.0.3+150`。Apple 返回上传成功和后台处理中；本轮未回读处理完成/TestFlight 可选状态，也未提交审核，不能写成商店已发布。完整产物摘要与未执行项见[发布与验证](VERIFICATION.md#ios-正式包-103-150-上传-app-store-connect2026-09-20)。
 

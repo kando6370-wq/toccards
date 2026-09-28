@@ -2,7 +2,7 @@
 
 ## 1. 运行与身份边界
 
-Admin 是 `apps/admin-web` 构建的 React SPA；prod Cloudflare 使用 Workers assets，dev Linux 使用 Caddy 或离线 Node 静态服务托管，旧 CF dev 不再发布。它使用独立 `admin_user`、Access/Refresh Token 和 `/api/v1/admin` API，不复用 App 用户会话。prod 最近一次已记录的发布证据对应 2026-09-21 `main@2cfdea8`/version `c612c8a6`；dev 最近一次回读对应 2026-09-23 API/Admin release `dev@f9feac7`，不能把此次合并视为 prod 已发布。
+Admin 是 `apps/admin-web` 构建的 React SPA；prod Cloudflare 使用 Workers assets，dev Linux 使用 Caddy 或离线 Node 静态服务托管，旧 CF dev 不再发布。它使用独立 `admin_user`、Access/Refresh Token 和 `/api/v1/admin` API，不复用 App 用户会话。prod 最近一次有据可查的发布对应 2026-09-28 `main@7868f4c`/version `6be8c5f9`；dev 最近一次回读对应 2026-09-23 API/Admin release `dev@f9feac7`，不能把任一部署视为登录态 Admin 业务验收。
 
 - `admin_user.status` 必须为 `active`。
 - 角色为 `operator` 或 `super_admin`。

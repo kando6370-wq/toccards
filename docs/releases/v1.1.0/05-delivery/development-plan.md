@@ -1,8 +1,10 @@
 # v1.1.0 开发计划
 
+> 归档说明（2026-09-28）：用户确认本版本开发阶段完成；下列计划、检查点和待决/未验证项保留其原始时间与证据，不因归档自动转为验收通过。后续新增开发范围见 [v1.1.1 文档入口](../../v1.1.1/README.md)。
+
 ## 1. 依据与优先级
 
-本计划以三份初始 v1.1 PRD 及后续订阅、收藏/卡牌详情补充输入定义业务目标和验收行为；本次合并源为 `dev@b75d81c`，2026-09-23 Linux API 最近一次回读运行 `dev@f9feac7`；最近一次已记录的 prod 服务端发布为 2026-09-21 从 `main@2cfdea8` 发布 Worker/Admin version `c612c8a6-4873-4760-b435-3c4db27d14e6`。本次合并不代表 prod 已发布新增业务代码。远程运行证据仍保留原核验日期及各历史检查点的 P0/P1 结论。App 业务不得因为当前代码尚未实现而缩减、改写或降级 PRD；发现不一致时必须记录为待实现差距并按 PRD 收口。
+本计划以三份初始 v1.1 PRD 及后续订阅、收藏/卡牌详情补充输入定义业务目标和验收行为；本次合并源为 `dev@b75d81c`，2026-09-23 Linux API 最近一次回读运行 `dev@f9feac7`；最近一次有据可查的 prod 服务端发布为 2026-09-28 从 `main@7868f4c` 发布 Worker/Admin version `6be8c5f9-60dd-499b-b19f-23d4fa6ac7c4`；该部署不等于真机、真实购买或登录态业务验收通过。远程运行证据仍保留原核验日期及各历史检查点的 P0/P1 结论。App 业务不得因为当前代码尚未实现而缩减、改写或降级 PRD；发现不一致时必须记录为待实现差距并按 PRD 收口。
 
 发生冲突时按以下顺序裁决：
 
@@ -19,7 +21,7 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 
 2026-09-21 prod 交付增量：首次从 `main@870a34c` 发布并完成 PostgreSQL `0012/0013`；随后从 `main@2cfdea8` 重新发布相同 WorkAPI/Admin 内容为 version `c612c8a6-4873-4760-b435-3c4db27d14e6`，PostgreSQL ledger 保持 14 项且未重复迁移。production 版本键、向量绑定、Admin assets、Custom Domain、Cron、Cache 与 Observability 均已回读，见[发布记录](VERIFICATION.md)。
 
-当前代码已包含向量识别、Scan confirm 购买价格事件修复、Card Detail 编辑、订阅/归因、Linux 测试入口、Home 版本静默复查、三页 Onboarding、25 秒客户端总 Deadline、API 慢请求收敛、请求关联、原生 HTTP 传输和 Sports Shop 入口。客户端源码版本为 `1.0.4+161`；该正式 IPA 已于 2026-09-23 上传 App Store Connect、等待 Apple 后台处理，尚未提交审核或对用户发布；此前 `1.0.3 (150)` 也是历史已上传构建，新 dev 测试包不能视为正式发布。2026-09-23 Linux API `dev@f9feac7` 最近一次已回读，2026-09-21 prod 服务端已从 `main@2cfdea8` 独立发布；两套 PostgreSQL ledger 均为 14 项且最新为 `0013`。prod 发布前 Workers `src` 76 文件 646/646、Admin 22/22；dev 请求关联后 Workers 650/650、Admin 修复后 24/24，均为对应历史检查点，本轮验证另行记录。
+当前代码已包含向量识别、Scan confirm 购买价格事件修复、Card Detail 编辑、订阅/归因、Linux 测试入口、Home 版本静默复查、三页 Onboarding、25 秒客户端总 Deadline、API 慢请求收敛、请求关联、原生 HTTP 传输和 Sports Shop 入口。客户端源码版本为 `1.0.4+161`；该正式 IPA 已于 2026-09-23 上传 App Store Connect、等待 Apple 后台处理，尚未提交审核或对用户发布；此前 `1.0.3 (150)` 也是历史已上传构建，新 dev 测试包不能视为正式发布。2026-09-23 Linux API `dev@f9feac7` 最近一次已回读，2026-09-28 prod 服务端已从 `main@7868f4c` 独立发布，未在该轮重查 PostgreSQL ledger；两套 PostgreSQL ledger 均为 14 项且最新为 `0013`。2026-09-21 prod 发布前 Workers `src` 76 文件 646/646、Admin 22/22；dev 请求关联后 Workers 650/650、Admin 修复后 24/24；2026-09-28 prod 发布前 Workers `src` 77 文件 656/656、Admin 24/24，均为对应日期的检查点，完整失败/重跑边界见[发布记录](VERIFICATION.md)。
 
 2026-09-20 Deadline 冲突明确选择当前可执行代码与已更新契约：Auth、Card Data、Currency、Portfolio、Scan、订阅 Workers HTTP、StoreKit 商品加载、权益读取/刷新、Performance 与 1Y 数据请求的整体边界均为 25 秒；Apple Purchase Sheet、`AppStore.sync()` 和原生 App Attest 计算不强制终止。下文出现的 15 秒若属于冻结 PRD 或带日期的旧验证则保留为历史，任何未注明日期的旧实现描述均由本段和[契约变更](../03-data-api/contract-changes.md)取代。
 
@@ -28,7 +30,7 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 | 范围 | 当前代码事实 | v1.1 差距 |
 |---|---|---|
 | 安装统计环境口径 | 安装总量、国家/平台、趋势和分页已实现；安装行尚无来源字段 | 旧 CF dev 与 prod 共用 PostgreSQL 时产生的历史安装行仍无法按来源可靠区分；当前 Linux dev 使用独立库，不混入新 prod 写入。历史口径与采集修复须另行确定，见[Admin 说明](../04-admin/admin.md#安装统计环境口径) |
-| dev 迁往 Linux | 2026-09-20 kd201 watcher 运行 API release `dev@9488a15`，API/DB healthy、Web running、ledger 14 项；旧 CF dev Worker、域名和 cron 已退役，Linux 原卷、Apple 回调和向量识别保留 | 用户确认客户端既有路径已测无问题；本次性能发布未独立重跑设备，统计后台收件及完整订阅生命周期仍按[集中处理清单](#linux-dev-集中处理清单2026-09-16)分别验收 |
+| dev 迁往 Linux | 2026-09-23 kd201 watcher 最近一次回读运行 API release `dev@f9feac7`，API/DB healthy、Web running、ledger 14 项；旧 CF dev Worker、域名和 cron 已退役，Linux 原卷、Apple 回调和向量识别保留 | 用户确认客户端既有路径已测无问题；本次性能发布未独立重跑设备，统计后台收件及完整订阅生命周期仍按[集中处理清单](#linux-dev-集中处理清单2026-09-16)分别验收 |
 | API 慢请求 | 鉴权 owner 校验合并为单次 SQL；Quota 排除无关账本、queued reserve 与 settlement 减少冗余读取；估值只为当前持仓加载目录详情；Scan 阶段日志阈值对齐 Worker 1 秒。Search Raw 下推与 `0013` 已在 dev 生效 | dev 代码、644 项测试和部署通过；真实登录态重度数据、扫描阶段分布及 prod 前后对照仍待完成，不能宣称 prod 已低于 1 秒 |
 | App 版本与交付 | 实际 Home 首帧激活版本检查，后续 Home 复查静默进行，已确认强更继续全局拦截；iOS 校验后保存 IPA/dSYM，按 Bundle ID 保留测试 3 个/正式 7 个版本 | 新包安装、升级/商店往返和真机验收待完成；本轮未在 macOS 执行保存脚本或签名构建 |
 | App 订阅体验 | 已有 Subscription Page、Paywall、Success、StoreKit 2 Fresh Purchase verifier、Secure Storage 补偿队列、本机 Restore 结果分流、App Attest 原生桥接，以及 Performance/1Y/Folder/Scan Waiting 的来源动作恢复；Home/Search/Collection/Profile 顶部入口、Profile Banner 和 Scan 顶部 Pro 次数卡均已接入完整 Subscription Page，功能卡点仍使用 Functional Paywall Bottom Sheet；Profile 顶部及升级 Banner 已同步 Figma `2129:5678` 并按左右 20px 响应式布局，Search/Collection 顶部已同步 Figma `2070:9663` 的标题与皇冠 PRO 胶囊，Search 顶部搜索框、游戏选择框及 Cards/Sets 切换框和 Collection 顶部 Tab、搜索框均已统一为 44px，Collection Portfolio 摘要已同步 Figma `2070:9486` 的 110px 紧凑布局，Home 顶部订阅入口及 Overview/Performance Tab 已同步 Figma `2181:12864`，模式切换器使用固定外框宽度以保持皇冠入口位置稳定；商品局部缺失、25 秒重载、Purchase 状态、首次/冷启动 Premium 三态分流、ATT/Singular 启动顺序及 v1.1 PRD 视觉 Golden 已实现 | 前后台完整矩阵、Singular 收入后台收件及 iOS 真机验收不完整 |
@@ -60,7 +62,7 @@ PRD 条款、实现文件、数据库迁移、自动化测试及外部验收边�
 | Apple 公网通知 | DNS-only A 与 Sandbox URL 已保存，Linux 自动发布版本已处理原 TEST 和真实订阅。2026-09-17 网络回源调整期间公网曾返回 502、多条 TEST 投递超时并触发 Apple 429；网络恢复后新 TEST 与 `DID_CHANGE_RENEWAL_STATUS` 均处理成功。kd201 宿主机已将公网回源隔离到仅允许 Sandbox POST 的入口；上线后再次只发一条官方 TEST，Apple 状态回读 `SUCCESS`，Linux UUID/摘要一致且 `processed`，交易数未因 TEST 增加 | 当前公网接收/验签与源站路径隔离已实测；后续用 Sandbox/TestFlight 验证 Restore 与其余生命周期。未来 NAT 源地址或公网 IPv6 变化需复验主机规则 | 对外完整 URL 为 `https://dev-callback.tcgcard.fun/api/v1/apple/notifications/v2/sandbox`；新 TEST 和真实订阅通知已入 Linux，公网其他路径及真正的公网 Host 伪造被拒绝。CF→origin 仍为 HTTP，宿主机策略未随 watcher 自动发布 |
 | 统计与归因 | 2026-09-17 Linux 已同步原 CF dev 公共 `/app-config` 中的 Mixpanel Project Token 和 Singular API Key/Secret Key；两平台下发值逐项相等。用户提供的 Mixpanel API Secret 也已写入私有配置，未向客户端公开，当前源码没有使用路径。Linux 容器用该 Secret 只读导出返回 200，当天项目中有已知 App 类事件 | 用指定测试用户/交易时间核对 Mixpanel 的业务事件；在 Singular 后台或具备报表权限的 API 核对安装、事件及收入。若后续新增服务端 Mixpanel 查询，应使用官方推荐的 Service Account | 四项环境变量已配置；Mixpanel 凭据通过导出认证且项目有事件，但未关联本次订阅，也未验证 `sub_success`/收入。Singular SDK 配置下发通过，后台收件与金额/币种仍待验收 |
 | iOS / Android 真机 | 2026-09-17 用户确认 Linux 客户端业务路径已测试无问题；本次退役未独立取得设备日志或逐项重跑 | 后续涉及真机回归时仍保留平台、签名包和测试账号的原验收要求 | 用户确认与本次服务端只读检查为不同证据，不外推为完整订阅生命周期或统计后台收件通过 |
-| 自动发布与 dev 收口 | `dev@9488a15` 已由 kd201 watcher 自动发布，API/DB healthy、Web running、migration exited/0、14 项 ledger，release 与运行 manifest 一致；旧 CF dev Worker、域名与 cron 已删除 | 保留 Linux watcher、独立 Apple 回调、CF 向量与 prod，旧测试数据/包不清理；后续源码变更仍按 Linux 触发规则发布，Flutter/文档提交只前移 `last-seen` | 2026-09-20 发布、备份和 SHA 回读见[验证记录](VERIFICATION.md#生产慢接口二次诊断与认证额度收敛2026-09-20prod-未部署) |
+| 自动发布与 dev 收口 | `dev@f9feac7` 已由 kd201 watcher 自动发布，API/DB healthy、Web running、migration exited/0、14 项 ledger，release 与运行 manifest 一致；旧 CF dev Worker、域名与 cron 已删除 | 保留 Linux watcher、独立 Apple 回调、CF 向量与 prod，旧测试数据/包不清理；后续源码变更仍按 Linux 触发规则发布，Flutter/文档提交只前移 `last-seen` | 2026-09-23 发布、备份和 SHA 回读见[验证记录](VERIFICATION.md#sports-shop-linux-dev-自动发布回读2026-09-23) |
 
 部署分支与 watcher 运行版本已对齐，公网 Sandbox TEST 已走通，旧 CF dev 业务入口已退役。用户确认客户端业务路径通过；本次未复验设备、指定交易的统计后台收件或完整订阅生命周期。管理员登录、Google 代理、邮件收件和 Apple Server API 凭据鉴权已有独立证据。当前 Sandbox 验签不要求 `APPLE_IAP_APP_ID`，不得为填满配置而使用正式 App ID。旧测试数据和包按用户要求保留，退役详情见[验证记录](VERIFICATION.md#旧-cloudflare-dev-业务退役2026-09-17)。
 

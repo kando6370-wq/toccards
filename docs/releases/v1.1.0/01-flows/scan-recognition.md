@@ -1,6 +1,6 @@
 # 扫描识别向量链路
 
-本次合并源 `dev@b75d81c` 的 App 版本当时为 `1.0.3+160`；当前源码为 `1.0.4+161`，正式 IPA 于 2026-09-23 上传 App Store Connect，但真机扫描及与旧 prod 服务端的端到端兼容仍未因上传而验证。prod Cloudflare 通过 Service Binding、dev Linux 通过 HTTP 适配调用 `recognize-vec`；最近一次已记录的 prod 发布为 2026-09-21 从 `main@2cfdea8` 发布 version `c612c8a6-4873-4760-b435-3c4db27d14e6`，dev Linux API 于 2026-09-23 最近一次回读运行 `dev@f9feac7`。新合并的扫描增量尚未独立发布 prod。下方来源提交和历史版本保留原日期，不能据此推断客户端或 Linux release 随 Git 合并改变。
+本次合并源 `dev@b75d81c` 的 App 版本当时为 `1.0.3+160`；当前源码为 `1.0.4+161`，正式 IPA 于 2026-09-23 上传 App Store Connect，但真机扫描及与正式服务端的端到端兼容仍未因上传或服务端部署而验证。prod Cloudflare 通过 Service Binding、dev Linux 通过 HTTP 适配调用 `recognize-vec`；最近一次有据可查的 prod 发布为 2026-09-28 从 `main@7868f4c` 发布 version `6be8c5f9-60dd-499b-b19f-23d4fa6ac7c4`，dev Linux API 于 2026-09-23 最近一次回读运行 `dev@f9feac7`。服务端扫描增量已随该版本部署 prod，但真实图片、额度和客户端闭环仍待独立验收。下方来源提交和历史版本保留原日期，不能据此推断客户端或 Linux release 随 Git 合并改变。
 
 本实现从历史提交 `dev-xiangyang@ceef1af` 按识别代码段移植为 `e18543a`，基线为 `7451382`，于 2026-09-09 经 `f38ef98` 合入 `dev` 并推送远程。`dev-wxy`、`dev-xiangyang` 等来源分支已清理，旧分支名只用于追溯，不再作为检出或发布目标。保留当前 Queue、Quota、候选资料与确认入库逻辑，包括 Scan confirm 初始估值事件的购买价格、币种和可靠历史起点修复。
 

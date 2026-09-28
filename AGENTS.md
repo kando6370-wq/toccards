@@ -88,13 +88,14 @@ GitLab Flutter CI 使用 3.44.0，GitHub iOS CI 使用 3.44.7。涉及工具链�
 - `docs/releases/v1.0.0/00-product`：11 份原始 PRD，只读保留。
 - `docs/releases/v1.0.0/01-flows` 至 `04-admin`：v1.0.0 实际业务与工程基线。
 - `docs/releases/v1.1.0/00-product`：三份初始 PRD、两份订阅升级降级补充和一份收藏待编辑/卡牌详情改版 PRD，共六份产品输入，只读保留。
-- `docs/releases/v1.1.0/01-flows` 至 `05-delivery`：相对 v1.0.0 的当前业务、架构、数据/API、Admin 和交付文档。
+- `docs/releases/v1.1.0/01-flows` 至 `05-delivery`：相对 v1.0.0 的开发归档、架构、数据/API、Admin 和交付证据；未验证边界按原记录保留。
+- `docs/releases/v1.1.1/README.md`：当前增量开发文档入口；具体分类在需求确定后按需创建。
 
-`docs/releases/v1.0.0` 是已发布冻结基线，后续 v1.1.0 开发不得回写；若需修正已经确认的文档错误，必须先说明原因并获得用户明确授权。11 份原始 PRD 包括 `glossary.md`、`overview.md`、`ui-design-system.md` 和 `00-product/modules/` 下的 8 份模块文档，必须保持字节不变，不得因当前实现或后续需求而修订。
+`docs/releases/v1.0.0` 是已发布冻结基线，后续迭代不得回写；若需修正已经确认的文档错误，必须先说明原因并获得用户明确授权。11 份原始 PRD 包括 `glossary.md`、`overview.md`、`ui-design-system.md` 和 `00-product/modules/` 下的 8 份模块文档，必须保持字节不变，不得因当前实现或后续需求而修订。
 
-实现文档以对应版本代码、迁移和运行配置为准。v1.1.0 的新增、变更、移除及实现结果只写入 `docs/releases/v1.1.0/01-flows` 至 `05-delivery`；未变化部分引用 v1.0.0。不要新增执行日志、任务状态快照、交接文档、生成截图或原始设计素材到 `docs/`。
+实现文档以对应版本代码、迁移和运行配置为准。v1.1.0 开发记录已原位归档；后续 v1.1.1 的新增、变更、移除及实现结果按需写入 `docs/releases/v1.1.1/`，未变化部分引用 v1.1.0 或 v1.0.0。v1.1.0 的补充验收只按日期补证，不覆盖历史检查点；归档不等于外部验收通过。不要新增执行日志、任务状态快照、交接文档、生成截图或原始设计素材到 `docs/`。
 
-Flutter UI 变更前必须阅读 `docs/releases/v1.0.0/00-product/ui-design-system.md`，并优先复用现有组件、颜色、间距和交互模式；若 v1.1.0 有明确增量契约，同时读取该版本文档。
+Flutter UI 变更前必须阅读 `docs/releases/v1.0.0/00-product/ui-design-system.md`，并优先复用现有组件、颜色、间距和交互模式；若 v1.1.0 基线或 v1.1.1 有明确增量契约，同时读取对应版本文档。
 
 ## 安全边界
 
