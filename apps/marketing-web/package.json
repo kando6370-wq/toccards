@@ -4,11 +4,13 @@
   "private": true,
   "scripts": {
     "generate:legal": "node scripts/generate-legal-pages.mjs",
+    "pretest": "pnpm generate:legal && pnpm generate:content",
     "test": "node --test test/*.test.mjs",
-    "predev": "pnpm generate:legal",
+    "predev": "pnpm generate:legal && pnpm generate:content",
     "dev": "wrangler dev",
-    "predeploy": "pnpm generate:legal",
-    "deploy": "wrangler deploy"
+    "predeploy": "pnpm generate:legal && pnpm generate:content",
+    "deploy": "wrangler deploy",
+    "generate:content": "node scripts/generate-content.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.106.0"
