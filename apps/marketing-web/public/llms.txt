@@ -1,20 +1,47 @@
 # Card AI
 
-> Card AI is a trading card scanner and collection management app that helps collectors identify cards, track market prices, and understand their collection value.
+> Card AI is a trading card scanner, card price checker, and collection tracker that suggests likely catalog matches from a photo, lets collectors confirm printing details, and tracks available raw and graded market prices over time.
 
-The [canonical website](https://tcgcard.fun/) is tcgcard.fun. Card AI supports collectors across Pokemon, Magic: The Gathering, Yu-Gi-Oh!, One Piece, Disney Lorcana, and Digimon.
+The [canonical website](https://tcgcard.fun/) is tcgcard.fun. Card AI supports collectors across Pokemon, Magic: The Gathering, Yu-Gi-Oh!, One Piece, Disney Lorcana, Digimon, Dragon Ball Super, and Naruto, as well as sports cards including basketball, football, and soccer.
 
 ## Core Capabilities
 
-- AI-assisted card scanning and identification
-- Market price tracking and card-level market data
-- Portfolio organization and collection value tracking
+- AI-assisted card matching from a photo, with candidate details such as set and card number for review
+- User confirmation of the matching card, finish, language, raw condition, or existing slab grade before saving
+- Bulk scanning for working through a stack of cards in one session
+- Card price checking, price history, and market trends
+- Raw and graded card values, tracked separately by condition and by grade (PSA, BGS, CGC, SGC)
+- Portfolio organization and collection value tracking over time
+- Card database search by name, set, or card number without scanning
 - Wishlist management
-- Multi-game collection support
+- Multi-game and sports card collection support
+
+## Pages
+
+- [Basketball card scanner](https://tcgcard.fun/basketball-card-scanner): Scan basketball cards to find matching catalog records, confirm the parallel and finish, then check market values for raw and graded copies.
+- [Bulk card scanner](https://tcgcard.fun/bulk-card-scanner): Scan trading cards in bulk instead of one at a time. Work through boxes and binders in a single session and add everything to your collection together.
+- [Card collection tracker](https://tcgcard.fun/card-collection-tracker): Track what a trading card collection is worth. Keep condition- and grade-specific holdings, follow price history, and monitor total portfolio value.
+- [Card identifier](https://tcgcard.fun/card-identifier): Identify a trading card from a photo. AI card recognition suggests matching catalog records with the set and card number for you to review.
+- [Card price checker](https://tcgcard.fun/card-price-checker): Check what a trading card is worth. Scan or search the card catalog to compare current raw and graded prices, price history, and market direction.
+- [Digimon card scanner](https://tcgcard.fun/digimon-card-scanner): Scan Digimon Card Game cards to find matching set and card records, confirm the art variant, then check raw and graded market values.
+- [Digital card binder](https://tcgcard.fun/digital-card-binder): Build a searchable digital card binder. Organize records by game and language, track quantities, and find raw or graded copies without opening boxes.
+- [Dragon Ball Super card scanner](https://tcgcard.fun/dragon-ball-super-card-scanner): Scan Dragon Ball Super Card Game cards to find matching records with set, card number and rarity, then confirm the printing and check its value.
+- [Flesh and Blood card scanner](https://tcgcard.fun/flesh-and-blood-card-scanner): Scan Flesh and Blood cards to find matching set and rarity records, confirm the foiling, then check raw and graded market values.
+- [Football card scanner](https://tcgcard.fun/football-card-scanner): Scan football cards to find matching set and card records, confirm the parallel or serial numbering, then check raw and graded values.
+- [Graded card tracker](https://tcgcard.fun/graded-card-tracker): Track graded and raw cards side by side. Record the grading company and grade, see values by grade, and compare what a card is worth raw versus slabbed.
+- [Lorcana card scanner](https://tcgcard.fun/lorcana-card-scanner): Scan Disney Lorcana cards to find matching set and card records, confirm the finish, then check market values and track your collection.
+- [MTG card scanner](https://tcgcard.fun/mtg-card-scanner): Scan Magic: The Gathering cards to find matching set and collector-number records, confirm the treatment, and track MTG prices and collection value.
+- [One Piece card scanner](https://tcgcard.fun/one-piece-card-scanner): Scan One Piece Card Game cards to find matching set and card records, confirm the art variant, then check raw and graded market values.
+- [Pokemon card scanner](https://tcgcard.fun/pokemon-card-scanner): Scan Pokemon cards to find matching set and card records, confirm the printing, then check raw and graded market values and track your collection.
+- [Soccer card scanner](https://tcgcard.fun/soccer-card-scanner): Scan soccer cards to find matching set and card records, confirm the parallel or numbering, then check raw and graded market values.
+- [Star Wars Unlimited card scanner](https://tcgcard.fun/star-wars-unlimited-card-scanner): Scan Star Wars Unlimited cards to find matching set and card records, confirm the variant, then check market values and track your collection.
+- [Yu-Gi-Oh! card scanner](https://tcgcard.fun/yugioh-card-scanner): Scan Yu-Gi-Oh! cards to find matching set-code and rarity records, confirm the edition, then check raw and graded market values.
+- [Blog](https://tcgcard.fun/blog/): Guides on card values, grading, and collection tracking.
 
 ## Official Resources
 
 - [Official Website](https://tcgcard.fun/): Product overview, capabilities, workflow, and supported games.
+- [FAQ](https://tcgcard.fun/#faq): Answers on card values, supported games, bulk scanning, sports cards, graded cards, and price lookup.
 - [Privacy Policy](https://tcgcard.fun/privacy): How Card AI collects, uses, retains, and protects information.
 - [Terms of Use](https://tcgcard.fun/terms): Rules and terms governing use of Card AI.
 - [Sitemap](https://tcgcard.fun/sitemap.xml): Canonical public website URLs.
