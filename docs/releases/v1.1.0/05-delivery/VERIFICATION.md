@@ -2,7 +2,17 @@
 
 本页维护版本管理、向量识别、Singular 收入及 dev 合并发布的验证证据。代码与本地验证、服务端部署、客户端发布和真机验收分别记录，不能互相替代；下文每次测试与发布结果只对应其注明的提交、日期和环境。
 
-当前业务环境只有 prod（Cloudflare）与 dev（kd201 Linux）。最近一次已记录的 prod 发布为 2026-09-21 从 `main@2cfdea8` 发布 Worker/Admin version `c612c8a6-4873-4760-b435-3c4db27d14e6`，deployment `d30f6111-8ab4-41a9-bd1f-2d93be41b210` 当时承载 100% 流量；prod PostgreSQL ledger 保持 14 项且最新为 `0013`。最近一次已记录的 dev API 发布回读为 2026-09-23 watcher 的 `dev@f9feac7`，API/DB healthy、Web running、migration exited/0、ledger 同为 14 项；两套数据库分别验证，不能相互外推。合并源 `dev@b75d81c` 的 Flutter 版本当时为 `1.0.3+160`；当前源码已是 `1.0.4+161`，2026-09-23 正式 IPA 已上传 App Store Connect（上传时返回 processing，后台完成未回读）。dev 测试包、正式包上传与 prod 服务端新业务部署分别记录，不能互相替代。旧 CF dev 业务 Worker 已退役，Apple 回调与向量服务独立保留。
+当前业务环境只有 prod（Cloudflare）与 dev（kd201 Linux）。最近一次已记录的 prod 发布为 2026-09-28 从 `main@7868f4c` 发布 Worker/Admin version `6be8c5f9-60dd-499b-b19f-23d4fa6ac7c4`，deployment `35134321-a835-405d-8558-893dab13d0f5` 回读承载 100% 流量；本次未执行 migration，prod PostgreSQL ledger 上次独立回读（2026-09-21）为 14 项、最新 `0013`，本轮未重查。最近一次已记录的 dev API 发布回读为 2026-09-23 watcher 的 `dev@f9feac7`，API/DB healthy、Web running、migration exited/0、ledger 同为 14 项；两套数据库分别验证，不能相互外推。合并源 `dev@b75d81c` 的 Flutter 版本当时为 `1.0.3+160`；当前源码已是 `1.0.4+161`，2026-09-23 正式 IPA 已上传 App Store Connect（上传时返回 processing，后台完成未回读）。dev 测试包、正式包上传与 prod 服务端部署分别记录，不能互相替代；本次 prod 发布不代表移动端完整端到端验收通过。旧 CF dev 业务 Worker 已退役，Apple 回调与向量服务独立保留。
+
+## prod Workers API 与 Admin 发布（2026-09-28）
+
+发布源是与 `github/main` 一致、工作区干净的 `main@7868f4cbcd725a4a68be731240782bed955f5617`。相对上一轮 prod 发布源 `2cfdea8`，PostgreSQL migration 文件无差异；本次只执行仓库标准 `pnpm --filter @kando/workers-api run deploy:prod`，没有执行数据库 migration、Git push 或 dev 部署。发布前 prod 仍为 version `c612c8a6-4873-4760-b435-3c4db27d14e6`（100%），公网 health 200、Admin 200、未授权管理入口 401。
+
+Windows / Node 22.20.0 / pnpm 11.9.0：Admin 测试 24/24、Admin 与 Workers type-check、`pnpm lint`、prod dry-run 均退出 0。无参数 Workers `vitest run` 错误收集了现存 `.wrangler/` 历史临时测试，已中止，不计为通过；限定 `src` 的首轮 655/656，一项扫描路由用例在并发负载下超出默认 5 秒，单文件重跑 42/42；限制 `--maxWorkers=4` 后完整 `src` 集 77 文件、656/656 通过。发布命令使用 Wrangler 4.106.0，退出 0，上传 2 个新/变化的 Admin 静态文件并部署 `toccards-api-prod`、Custom Domain 与 `*/5 * * * *` Cron。
+
+2026-09-28 09:13:45 +08:00（01:13:45Z）回读 deployment `35134321-a835-405d-8558-893dab13d0f5`，version `6be8c5f9-60dd-499b-b19f-23d4fa6ac7c4` 为 100% 流量；10 个 Secret、prod Hyperdrive/KV/R2、`VECTOR_RECOGNITION=recognize-vec@production`、`APP_ENVIRONMENT=production`、Cache 与 SPA assets 保留。公网 `/health`、games、iOS/Google app-config、Search 均 200 且有 `X-Request-ID`，未授权 Admin/Quota 均 401；Admin HTML 与其中 10 个 JS/CSS 文件全部 200，逐一 SHA-256 与本地 production 构建一致。回退点为此前 version `c612c8a6-4873-4760-b435-3c4db27d14e6`，本次没有执行回退。
+
+未验证：prod 数据库 ledger 本轮未重查、现网 Observability 开关未独立回读、真实 Cron 一次完整执行、登录态 Admin/Quota/Scan、Apple 真实购买/通知、Flutter 全仓测试和 iOS/Android 真机业务闭环。Search GET 可能写入常规 KV 缓存；未发起认证业务写请求或生产数据库迁移。上述只读烟测和构建哈希不能替代这些验证。
 
 ## iOS 正式包 1.0.4 (161) 上传 App Store Connect（2026-09-23）
 

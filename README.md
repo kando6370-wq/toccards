@@ -2,7 +2,7 @@
 
 Kando 是 Card AI 的 monorepo，包含 Flutter 客户端、Cloudflare Workers API、React 管理后台、营销站点及共享包。产品主线是卡牌搜索、扫描识别、收藏与估值；v1.1 在此基础上增加 Apple 订阅、Premium 权益、服务端扫描额度、Performance 和订单/通知后台。
 
-本次合并源为 `dev@b75d81c`；当前 Flutter 客户端源码版本以 `apps/flutter-app/pubspec.yaml` 为准，为 `1.0.4+161`。2026-09-23 正式 IPA 已上传 App Store Connect，上传时返回 processing，后台处理、审核与面向用户发布尚未据此确认。最近一次已记录的 prod 发布是 2026-09-21 从 `main@2cfdea8` 发布 Worker/Admin version `c612c8a6-4873-4760-b435-3c4db27d14e6`，prod PostgreSQL `0012/0013` 已完成；2026-09-23 kd201 Linux API 最近一次回读运行 `dev@f9feac7`。本次合入的新业务代码并未因此发布 prod。`docs/releases/v1.1.0` 是产品迭代文档目录，不代表安装包版本或商店发布状态；Git 合并、服务端发布和客户端发布分别记录。
+本次合并源为 `dev@b75d81c`；当前 Flutter 客户端源码版本以 `apps/flutter-app/pubspec.yaml` 为准，为 `1.0.4+161`。2026-09-23 正式 IPA 已上传 App Store Connect，上传时返回 processing，后台处理、审核与面向用户发布尚未据此确认。最近一次已记录的 prod 发布是 2026-09-28 从 `main@7868f4c` 发布 Worker/Admin version `6be8c5f9-60dd-499b-b19f-23d4fa6ac7c4`；prod PostgreSQL `0012/0013` 已在上一轮完成，本轮未运行 migration 或重查 ledger。2026-09-23 kd201 Linux API 最近一次回读运行 `dev@f9feac7`。本次服务端发布不代表客户端真机业务闭环已验收。`docs/releases/v1.1.0` 是产品迭代文档目录，不代表安装包版本或商店发布状态；Git 合并、服务端发布和客户端发布分别记录。
 
 ## 系统概览
 
@@ -96,7 +96,7 @@ dart run melos run test
 
 ## 部署边界
 
-2026-09-21 已从 `main@2cfdea8` 重新发布 prod Workers 与配套 Admin，version `c612c8a6-4873-4760-b435-3c4db27d14e6` 承载 100% 流量；PostgreSQL ledger 保持 14 项，`0012/0013` 未重复执行。当前发布、上一版迁移/备份、配置、流量和资源摘要见[发布与验证](docs/releases/v1.1.0/05-delivery/VERIFICATION.md)。
+2026-09-28 已从 `main@7868f4c` 发布 prod Workers 与配套 Admin，version `6be8c5f9-60dd-499b-b19f-23d4fa6ac7c4` 回读承载 100% 流量；本轮未执行 migration，PostgreSQL ledger 上次回读（2026-09-21）为 14 项，本轮未重查。当前发布、上一版迁移/备份、配置、流量和资源摘要见[发布与验证](docs/releases/v1.1.0/05-delivery/VERIFICATION.md)。
 
 - Linux dev：配置已验证的 SSH 目标 `TOCCARDS_SSH_TARGET` 后运行 `pnpm --filter @kando/workers-api run deploy:dev`；预检环境、PostgreSQL 18 和 CF 识别后，先备份再发布，不调用 Wrangler dev 部署。
 - Workers 与 Admin prod：`pnpm --filter @kando/workers-api run deploy:prod`。

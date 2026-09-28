@@ -88,11 +88,11 @@ PostgreSQL 结构以 `src/db/postgres/migrations/` 中的顺序 migration 为准
 
 ## 6. 环境与部署
 
-表中 prod 行来自 2026-09-21 Cloudflare 发布回读，dev 行来自 2026-09-23 Linux watcher 回读。`wrangler.toml` 仅保留 prod 业务 Worker；dev Linux 通过 HTTP 适配复用独立 CF 向量服务，不再使用旧 CF dev 的 Service Binding。
+表中 prod 行来自 2026-09-28 Cloudflare 发布回读，dev 行来自 2026-09-23 Linux watcher 回读。`wrangler.toml` 仅保留 prod 业务 Worker；dev Linux 通过 HTTP 适配复用独立 CF 向量服务，不再使用旧 CF dev 的 Service Binding。
 
 | 环境 | 运行入口 | 地址 | 数据资源 |
 |---|---|---|---|
-| prod | `toccards-api-prod` | `api.tcgcard.fun` | 2026-09-21 从 `main@2cfdea8` 重新发布 version `c612c8a6-4873-4760-b435-3c4db27d14e6` 并承载 100% 流量；PostgreSQL ledger 14 项且最新为 `0013`，Hyperdrive、`VECTOR_RECOGNITION`、prod KV/R2、production Apple 配置、Admin assets、Custom Domain、5 分钟 Cron 与 Observability 齐备，无 D1/旧 OCR 地址。PlanetScale 当时未启用 High Availability，自动备份每 12 小时一次且保留 2 天；上一版迁移前另有 3.2 GB 手工备份。本次合入的 dev 新代码未另行发布 prod |
+| prod | `toccards-api-prod` | `api.tcgcard.fun` | 2026-09-28 从 `main@7868f4c` 发布 version `6be8c5f9-60dd-499b-b19f-23d4fa6ac7c4`，回读承载 100% 流量；Hyperdrive、`VECTOR_RECOGNITION=recognize-vec@production`、prod KV/R2、10 个 Secret、Admin assets、Custom Domain 与 5 分钟 Cron 已回读。本次无 migration，PostgreSQL ledger 上次回读（2026-09-21）为 14 项、最新 `0013`；Observability 配置由仓库固定，本轮未独立回读现网开关。PlanetScale 高可用与备份配置仅有 2026-09-21 的历史快照，未在本轮重查 |
 | dev | Linux Node / `src/linux/server.ts` | `http://192.168.50.201:8080` | 独立 PostgreSQL、内存 KV、本地图片卷、`APP_ENVIRONMENT=development`；2026-09-23 watcher 运行 `dev@f9feac7`，release/manifest/部署状态一致，API/DB healthy、Web running、migration exited/0、ledger 14 项；Sports Shop eBay 与 TCGplayer 对照已通过内网只读回归 |
 
 旧 CF dev 的 `toccards-api-dev`、`api-dev.tcgcard.fun` 与 cron 已退役，不属于当前环境表，也不得重新发布；其历史测试数据和旧 KV/R2 保留。Wrangler vars 和 Worker secrets 现在仅用于 prod，密钥不进入仓库。prod 保持原数据库、Apple、KV、R2、域名和部署方式；仓库 prod 配置显式固定 Observability、Cache、workers.dev/Preview、Custom Domain 元数据和向量 production 环境，配置文件仍不能替代现网版本核验，见[发布与验证](../05-delivery/VERIFICATION.md)。dev 的密钥保存在 Linux 私有环境文件，发布不使用 Wrangler。D1 不作为新迁移或回滚目标。
