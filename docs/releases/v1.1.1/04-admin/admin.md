@@ -12,4 +12,4 @@
 - 扫描列表图片和详情中的私有扫描原图维持原行为，仍由 `AuthenticatedScanImage` 携带 Admin Token 获取 Blob；此次不扩展其预览能力。
 - 仅修改 Admin 前端，无数据库、权限、服务端或 Flutter 变更。
 
-本地验证与未执行边界见 [实际验证记录](../05-delivery/VERIFICATION.md)。未经部署不能视为已在 dev/prod 生效。
+2026-09-29 17:03 已回读确认 watcher 发布 Linux dev `c9f950e`，17:04 核对 Admin 入口引用的 10 个资源均与本地 dev 构建哈希一致；prod 未发布，真实登录态扫描详情点击仍需补验。本地交互验证、部署证据与未执行边界见 [实际验证记录](../05-delivery/VERIFICATION.md)。

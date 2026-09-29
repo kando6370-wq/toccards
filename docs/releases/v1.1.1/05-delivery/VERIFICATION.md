@@ -514,3 +514,38 @@ Android 门禁 BUG 已有修复前失败、修复后同路径设备成功、平�
 用户随后明确授权将本次修改提交并推送到当前分支。已回读当前分支为 `dev`、上游为 `github/dev`，fetch 后两端基线一致；只纳入本次 Admin 图片预览、回归检查及当前版本文档，共 6 个文件。重新运行 Admin 全部测试（26 项，无跳过）、`type-check` 和 `build:prod`，均退出 0；最终差异再次自审，无新增业务代码变动或阻断项。
 
 本次授权为 Git 提交/推送，不包含人工部署或数据库操作；远端 CI、Linux watcher 自动发布和真实环境验收结果需分别核验，不预填为已通过。
+
+
+## 2026-09-29 17:03–17:04：候选图片预览已发布 Linux dev
+
+用户明确要求部署 dev，目标为 kd201 / 192.168.50.201，提交为 `c9f950ef5f77d1ee00e7de825d0d3802a7c76686`。此前 Git 推送已触发现有 watcher；本轮确认其自行完成目标版本发布，没有并发启动人工发布、强制重建或重启，也未触碰 Cloudflare prod。
+
+### 准备与时序
+
+- 初次 SSH 非交互密钥认证被拒绝，不能据此读取服务器发布状态。HTTP health/Admin 当时均为 200，但主入口仍为旧 `index-Dpcx4bfa.js`。用户随后提供 SSH 认证方式，通过交互式密码认证成功登录，主机回读为 `srs-node-test1`；密码未写入脚本、配置文件或文档，未读取服务器私有 .env / watcher.env。
+- `pnpm --filter @kando/workers-api deploy:dry-run:dev` 退出 0：Admin development 构建、Linux bundle 的 2 项检查及打包通过。发布包 manifest 为该完整 SHA、branch=dev、working_tree_dirty=false；仅生成本地包，dry-run 未连接服务器或部署。
+- 最初 150 秒 HTTP 观察窗口未等到新入口，该等待超时不代表 watcher 发布失败。17:01 SSH 回读确认 watcher 已完成测试和构建，正在为目标 release 创建 PostgreSQL 备份；原 release 仍服务请求，没有失败标记。
+- 17:03:44 SSH 回读确认目标版本已切换，watcher 日志明确记录 Deployment completed。日志中的服务端验证为 9 个文件 / 94 项通过，发布门禁 Node 检查 12 项、Linux bundle 检查 2 项通过；实际发布预检为 PostgreSQL 18、识别服务可达、pendingMigrations=[]，不是测试样例中的模拟待迁移列表。
+
+### 发布一致性与健康
+
+| 检查 | 实际回读 |
+|---|---|
+| current / shared current-release | `branch-dev-c9f950ef5f77-20260929165952` |
+| manifest | branch=dev，sha=`c9f950ef5f77d1ee00e7de825d0d3802a7c76686`，built_at=2026-09-29T08:59:52Z，source=kd201-branch-watcher |
+| last-seen-sha / last-deployed-sha | 均与目标完整 SHA 一致 |
+| failed-sha / failed-at | 均不存在 |
+| API / DB / Web | API、DB running / healthy；Web running，未配置独立 Docker healthcheck |
+| migration 容器 / ledger | exited / 0；只读回查 toccards_test，PostgreSQL 18.6，14 项，最新 `0013_cards_all_search_trgm.sql` |
+| release / 运行容器 API bundle SHA-256 | 均为 `d502d6db74c3f0c99c872a62aa7001c0eeb04d78987ef0a6b1e519235b0f02bb` |
+| health | 服务器回环与 17:04:40 本机内网 GET 均 200，body=`{"status":"ok"}` |
+| Admin 静态产物 | 入口 200，主资源 `index-yAJ8wPto.js`；HTML 引用的 10 个 JS/CSS 资源均与干净 c9f950e 的本地 development 构建 SHA-256 一致 |
+| 本次预览代码 / 鉴权边界 | 主资源包含候选图“点击放大”和预览配置；未登录 GET `/api/v1/admin/scans` 返回 401 |
+
+发布前备份为 `toccards-test-20260929-165953-before-branch-dev-c9f950ef5f77-20260929165952.dump`，大小 1,135,376,623 字节，mtime=2026-09-29 17:02:28+08:00，对应 .tmp 不存在。通过现有 PostgreSQL 18 容器运行 `pg_restore --list` 退出 0；仅证明备份目录可读取，未执行数据库恢复演练。
+
+### 验证边界
+
+- 两次经认证的 SSH 检查均退出 0；本机静态资源哈希、健康和未登录鉴权检查退出 0。远端操作限于部署状态/文件元数据/容器状态读取、schema_migrations 只读查询及备份目录解析；发布、备份和容器切换由已在运行的 watcher 完成，实际预检无待执行 migration。
+- 本轮未登录 Admin 打开真实扫描记录，不把产物哈希一致写成真实记录交互已验收；本地模拟图片的点击、缩放、关闭和缺图检查仍以此前记录为证据。未执行真实扫描、购买或业务数据写入，也未运行恢复演练或 prod 发布。
+- 本轮只补记当前版本及根入口文档，不回写 v1.0.0 / v1.1.0 冻结与归档内容；用户随后明确授权提交并推送这 5 份文档，本次 Git 交付不另行发布或部署。
