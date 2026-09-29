@@ -2,7 +2,7 @@
 
 Kando 是 Card AI 的 monorepo，包含 Flutter 客户端、Cloudflare Workers API、React 管理后台、营销站点及共享包。产品主线是卡牌搜索、扫描识别、收藏与估值；v1.1 在此基础上增加 Apple 订阅、Premium 权益、服务端扫描额度、Performance 和订单/通知后台。
 
-本次合并源为 `dev@b75d81c`；当前 Flutter 客户端源码版本以 `apps/flutter-app/pubspec.yaml` 为准，为 `1.0.4+161`。2026-09-23 正式 IPA 上传时返回 processing；2026-09-28 美国区 App Store 公开页已显示 1.0.4，App Store Connect 后台处理详情与其他地区状态本轮未回读。最近一次已记录的 prod 发布是 2026-09-28 从 `main@7868f4c` 发布 Worker/Admin version `6be8c5f9-60dd-499b-b19f-23d4fa6ac7c4`；prod PostgreSQL `0012/0013` 已在上一轮完成，本轮未运行 migration 或重查 ledger。2026-09-23 kd201 Linux API 最近一次回读运行 `dev@f9feac7`。本次服务端发布不代表客户端真机业务闭环已验收。2026-09-28 用户确认 v1.1.0 开发阶段完成，开发记录已原位归档；v1.1.1 已明确从 App 1.0.4 起的服务端兼容方向，契约和验收矩阵仍属设计、未实施；其他需求未定义。产品迭代、Git 合并、服务端部署、安装包和商店发布分别记录。
+本次合并源为 `dev@b75d81c`；当前 Flutter 客户端源码版本以 `apps/flutter-app/pubspec.yaml` 为准，为 `1.0.4+161`。2026-09-23 正式 IPA 上传时返回 processing；2026-09-28 美国区 App Store 公开页已显示 1.0.4，App Store Connect 后台处理详情与其他地区状态本轮未回读。最近一次已记录的 prod 发布是 2026-09-28 17:41 的 Smart Placement 有限样本试运行：保持原 `main@7868f4c` 业务源码不变，仅增加生产 Placement 配置，version `3ecee0b5-20e6-47a3-86f5-34f65f1d5465` 回读为 100% 流量；17:51 又按用户要求恢复现有 Hyperdrive 查询缓存，尚未完成性能或缓存一致性验收；prod PostgreSQL `0012/0013` 已在上一轮完成，本轮未运行 migration 或重查 ledger。2026-09-23 kd201 Linux API 最近一次回读运行 `dev@f9feac7`。本次服务端发布不代表客户端真机业务闭环已验收。2026-09-28 用户确认 v1.1.0 开发阶段完成，开发记录已原位归档；v1.1.1 已明确从 App 1.0.4 起的服务端兼容方向，契约和验收矩阵仍属设计、未验收；2026-09-29 扫描 R2/向量并行增量已完成本地相关验证，尚未部署，见当前版本扫描流程及验证记录。产品迭代、Git 合并、服务端部署、安装包和商店发布分别记录。
 
 ## 系统概览
 
@@ -96,7 +96,7 @@ dart run melos run test
 
 ## 部署边界
 
-2026-09-28 已从 `main@7868f4c` 发布 prod Workers 与配套 Admin，version `6be8c5f9-60dd-499b-b19f-23d4fa6ac7c4` 回读承载 100% 流量；本轮未执行 migration，PostgreSQL ledger 上次回读（2026-09-21）为 14 项，本轮未重查。当前发布、上一版迁移/备份、配置、流量和资源摘要见[发布与验证](docs/releases/v1.1.0/05-delivery/VERIFICATION.md)。
+2026-09-28 17:41 已发布 prod Smart Placement 有限样本试运行，version `3ecee0b5-20e6-47a3-86f5-34f65f1d5465` 回读为 100% 流量；业务源码与原生产基线不变，Admin assets 未变化。17:51 按用户要求恢复现有 Hyperdrive 查询缓存，当前为 Smart 与查询缓存同时开启，未宣称性能或缓存一致性验收通过。本轮未执行 migration，PostgreSQL ledger 上次回读（2026-09-21）为 14 项，本轮未重查。当前运行配置与验证边界见 [v1.1.1 验证记录](docs/releases/v1.1.1/05-delivery/VERIFICATION.md)；此前发布、迁移/备份与资源证据见 [v1.1.0 发布与验证](docs/releases/v1.1.0/05-delivery/VERIFICATION.md)。
 
 - Linux dev：配置已验证的 SSH 目标 `TOCCARDS_SSH_TARGET` 后运行 `pnpm --filter @kando/workers-api run deploy:dev`；预检环境、PostgreSQL 18 和 CF 识别后，先备份再发布，不调用 Wrangler dev 部署。
 - Workers 与 Admin prod：`pnpm --filter @kando/workers-api run deploy:prod`。

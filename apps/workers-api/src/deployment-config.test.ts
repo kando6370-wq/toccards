@@ -18,6 +18,11 @@ describe("production Worker deployment configuration", () => {
     );
   });
 
+  it("uses Smart Placement only for production because database round trips should not retarget Linux dev", () => {
+    expect(config).toMatch(/\[env\.prod\.placement\]\s+mode = "smart"/);
+    expect(config).not.toMatch(/^\[placement\]/m);
+  });
+
   it("cannot restore retired Cloudflare dev or D1 deployment targets", () => {
     expect(config).not.toContain("[env.dev]");
     expect(config).not.toContain("d1_databases");
