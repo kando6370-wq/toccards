@@ -252,3 +252,240 @@ PostgreSQL 镜像为 postgres:18.6-alpine，拉取 digest sha256:77f585114c32fbc
 未运行全仓 Workers、Admin 测试、Flutter 全量 analyze/test 或 iOS/Android 真机；仅对识别相关调用方做了上述验证。没有修改 Flutter 源码，不把 Flutter 单测或 Linux 打包冒充真实移动端/生产环境验收。未改写 v1.0.0/v1.1.0 归档，未提交、推送、部署、迁移或发送真实识别请求。
 
 最终文档交付检查：git diff --check 退出 0（仅提示既有 LF/CRLF 转换）；5 份当前文档的 UTF-8、末尾换行、行尾空白与 37 个本地链接检查通过；再次确认 quota SQL、数据库适配器、Flutter 源码及 v1.0.0/v1.1.0 归档无改动。
+
+## 2026-09-29 10:07：Linux dev 自动部署完成回读
+
+用户先授权通过 SSH 只读核对 kd201，随后提出重新部署 dev。检查过程中原有 watcher 已自动完成目标提交发布，因此没有再执行强制部署、重启或数据库命令，避免重复同一版本的备份和容器重建；这不是一次额外手工发布。
+
+### 目标与时序
+
+- 目标为部署文档中的 kd201 / 192.168.50.201，SSH 返回主机名 srs-node-test1、用户 user；使用本地既有主机密钥严格校验。密码未写入脚本、环境文件或文档；未读取服务器私有 .env / watcher.env。
+- 10:04:19 回读时仍运行旧 release branch-dev-15228be54603-20260928100313；watcher 已构建 dab850f 的发布包并正在执行发布前备份，未看到失败标记。
+- 10:07:07 第二次只读检查发现部署已完成。watch.log 显示 Deployment completed for dab850f85778c2dd4a39b32183c35cdb91904eb7；10:06 的后续定时检查已报告 No new commit。没有重发或并发启动部署命令。
+
+### 一致性与健康证据
+
+| 检查 | 结果 |
+|---|---|
+| current / shared current-release | branch-dev-dab850f85778-20260929100150 |
+| release manifest | branch=dev，sha=dab850f85778c2dd4a39b32183c35cdb91904eb7，built_at=2026-09-29T02:01:50Z，source=kd201-branch-watcher |
+| last-seen-sha / last-deployed-sha | 均为 dab850f85778c2dd4a39b32183c35cdb91904eb7 |
+| failed-sha / failed-at | 均不存在 |
+| API / DB | running / healthy |
+| Web | running；未配置独立容器 healthcheck，不写为 Docker healthy |
+| migration 容器 | exited / 0；本轮未查询 migration ledger |
+| release 文件 / 运行容器 API SHA-256 | 均为 d502d6db74c3f0c99c872a62aa7001c0eeb04d78987ef0a6b1e519235b0f02bb |
+| HTTP 健康 | 服务器 localhost 与 10:08:54 本机经内网访问 /api/v1/health 均 200，body={"status":"ok"} |
+| Admin 静态入口 | 10:08:54 经内网访问 / 为 200，title=Kando Admin |
+
+部署前备份文件为 toccards-test-20260929-100152-before-branch-dev-dab850f85778-20260929100150.dump，大小 1,135,365,150 字节，mtime=2026-09-29 10:04:28+08:00；对应 .tmp 已不存在。只核查文件元数据，没有执行 pg_restore --list 或恢复演练，不宣称该备份已通过可恢复性验收。
+
+### 操作与未验证边界
+
+两次 SSH 只读检查均退出 0，未使用 sudo、未执行服务器文件写入、部署脚本、重启、migration 或 SQL；部署/备份/容器切换由此前已经运行的 watcher 完成。本地 HTTP 检查首轮 PowerShell 命令解析失败，未发送请求；改用 Node 的只读 GET 后成功，未重试任何超时远程命令。没有查询业务表或执行真实识别、购买及账号写入。
+
+确认的是目标版本已在 Linux dev 运行且基础服务健康，不是用户批量识别、额度账本、Hyperdrive 缓存一致性或旧包双端端到端通过。本轮未触碰 Cloudflare prod。当前部署事实只更新当前版本与根入口文档，不回写 v1.0.0/v1.1.0 历史归档；本轮文档尚未提交或推送。
+
+## 2026-09-29：Pixel_8 真实 Gallery 验收被 Android 权益门禁阻断
+
+用户授权在 Pixel_8 Android 模拟器新建测试 UID，并使用 D:\Downloads\bug 的卡牌图片验证 dev Gallery 与额度。**结果为 BLOCKED：客户端未打开选图器，尚未发起任何扫描预占/识别；不得把环境准备、额度初始值或本地回归写成真实 Gallery 批量识别通过。**
+
+### 测试环境与隔离
+
+- Pixel_8 / emulator-5554，Android 16、x86_64。发现原有 com.cardai.tcg 1.0.3 (157) 已安装，因此不清除或覆盖其数据。
+- 使用未改动的 dab850f App 业务源码、config/test.json 和本次临时 Gradle init 脚本构建独立包名 com.cardai.tcg.gallerytest；APP_ENV=test，版本 1.0.4 (161)。init 只覆盖 applicationId/version 元数据，未修改任何已跟踪 Flutter/Android 源码，未安装插件或绕过构建检查。
+- 构建成功（Gradle 8.12 / AGP 8.9.1 的未来兼容性及依赖编译警告保留，不在验收任务中升级工具链）。APK 大小 140,664,814 字节，SHA-256=ac91e5b648adf1452fa8503e95f3ab91ca8d04e40de12d3f55c1811ad8bbaa61。安装后原包版本与最后更新时间保持原样。此隔离 debug APK 不是原生产分发 APK，不能用来宣称正式包兼容验收。
+- 用户目录共 49 张图片，生成了本地输入哈希清单。将其中 A 组 8 张、B 组 6 张复制到新建的 CodexGallery_20260929_A/B 相册；原始图片未修改、未删除。A 组拟覆盖首批识别，B 组拟覆盖剩余额度与混合图片；这两组只是准备好的输入，未上传到扫描 API。
+- 初次检查模拟器时钟停在 2026-09-07；仅通过 Android alarm 服务同步到当前 2026-09-29 UTC 时间，并回读确认，再执行 Gallery 点击。未修改 Windows 或服务器时钟。
+- 截图、输入清单与脱敏 App 诊断保存在本机 visualizations 的 gallery-dev-20260929 目录；临时构建/只读诊断脚本在忽略目录 .dart_tool/gallery_dev_20260929，不加入 docs、Git 或发布包源代码。
+
+### 实际身份、请求与账本证据
+
+- 新 UID / anonymous owner_id 为 100044，dev 创建时间 2026-09-29T02:31:47.449Z。未创建 Premium grant，也未修改真实用户账号。
+- 仅对隔离测试 App 使用 Dart VM 只读对象检查，提取身份、配额和已有请求日志；未提取、输出或保存 access/refresh token，未设置 Provider 状态或替换 API/模型。静态环境常量在 VM 对象接口中显示未初始化，因此不用它们作运行环境证据。
+- 脱敏 App 请求记录中 20 条已记录请求均指向 http://192.168.50.201:8080，其中 /auth/anonymous 与多个 /scan/quota 均为 200。示例：创建会话 X-Request-ID=5bd518cb-c466-4c58-b954-17a578f653a1；quota X-Request-ID=5708306c-f031-4979-92ef-a8909f4819cb。没有 /scan/quota/reserve 或 /scan/recognize 请求记录。
+- App 扫描页显示 10 scans remaining；配额状态可见 isServerAuthoritative=true、unlimited=false、consumed=0、remaining=10。
+- 10:44:59 SSH 核对 dev release 仍为 dab850f，仅在 BEGIN READ ONLY / ROLLBACK 中按 owner_type=anonymous、owner_id=100044 查询：账号存在、session 1 个、consumed=0、有效 reserved=0、released=0、scan_record=0。
+- 10:52:43 同样的限定 UID 只读回查：scan_quota_request 总数=0、Free consumed=0、有效 reserved=0、scan_record=0、关联 grant 行数=0。因此只能确认“未发起扫描、未扣额度”，不能声称扣费正确性场景已执行。
+
+### 阻断复现与代码路径
+
+输入：隔离的新 Android 安装、无本地权益缓存、已取得有效 dev 匿名 session 与服务端 Free 额度。操作：进入 Scan，点击 GALLERY。实际结果：顶部显示 Unable to verify Premium access. Please try again.，没有打开系统选图器；10:56 再次从同一 Scan 页面点击 Gallery 复现相同提示，并取得包含提示的截图。预期：有效 Free 用户在额度允许时可以进入 Gallery，最终授权和扣费仍由服务端决定。
+
+根因证据：
+
+1. [订阅控制器](../../../../apps/flutter-app/lib/features/subscription/subscription_controller.dart) 的 AppSubscriptionConfiguration.fromEnvironment 仅为 iOS 配置 appStore；Android 返回 store=null、空 productIds，与临时包名无关。
+2. 新的 SubscriptionState 默认 premiumState=unknown；未配置平台的 build 直接返回该状态。_refreshEntitlement 在 store 非 appStore 时返回现有状态、wasVerified=false，并没有取得可用于继续的 Free/Premium 结论。
+3. [Scan 入口](../../../../apps/flutter-app/lib/features/scan/scan_page.dart) 的 _resolvePremiumBeforeScan 只在 Premium/unlimited 或本地已确认 Free 时直接放行；刷新仍为 unknown 就提示失败。已有的服务端权威 Free quota 不会在该路径解除阻断。
+4. 因而这次真实测试被 Flutter 前置门禁拦住，尚未触及 R2 并行实现。不能归因为 PostgreSQL、R2 或向量服务慢，也不能用修改本地权益状态或手工向量 HTTP 请求冒充 Gallery 成功。
+
+### 处置与未执行项
+
+- 未实施客户端修复，未给测试 UID 授予 Premium，未伪造 Free 状态，未绕过图片处理/门禁，未通过 SQL 插入配额或扫描数据。
+- 新 UID、隔离测试 App、测试相册保留，供取得修复授权后继续；原 App 和原图片保留。未触碰 prod、未部署服务端、未提交或推送文档。
+- 尚未执行 A/B 批量识别、成功与失败扣费核对、超额排队、重复请求重放、弱网或双端真机验收。下一步需独立确认 Android Free 用户入口修复范围；不能把 unknown 无条件当作 Free，必须保持可信服务端权益/额度校验。
+- 诊断工具中的首次 UI dump 在 Splash 阶段未生成 XML、首次 getInstances 使用错误参数、静态常量 evaluate 编译失败均未改变业务状态；后续使用已安装 VM 服务定义与只读对象读取取得以上证据，不将失败步骤标为通过。
+
+## 2026-09-29：Android unknown 权益门禁修复，保留 iOS 业务
+
+用户明确授权修复，并要求不要改变 iOS 业务。实际生产代码范围仅为 ScanPage._resolvePremiumBeforeScan 新增 14 行原生 Android 专属条件分支，不修改 SubscriptionController、StoreKit、订阅缓存、额度 controller、服务端、SQL 或 iOS 原生工程。
+
+### 根因与回归意图
+
+根因与模拟器失败截图、UID 100044 的零扣费账本见上一节。修复利用已有 ScanQuotaController.refresh 的成功/失败结果和 isServerAuthoritative 标识，只有 Android 未配置本地订阅商店且本地刷新仍 unknown 时允许向服务端确认；不是无条件将 unknown 解释为 Free，也不跳过后续额度为 0 的检查。
+
+原 widget “unknown 刷新失败就阻断”用例未指定平台，默认 Android；本轮显式保留为 iOS 用例，断言完全保留，并增加 Android/ iOS 的 Photo、Gallery 对照测试。新增用例覆盖失败请求仍有旧额度、非权威本地额度、权威耗尽结果和刷新期间重复点击。
+
+- 修改前原 unknown 定向 3 项通过；新增测试在修复前运行，校正测试提示框观察时间后，6 项 Android 场景按预期失败、3 项 iOS 场景通过。
+- 首轮新增 iOS 对照测试把时间推进至提示消失后才查找提示，导致 2 项测试夹具失败；改为在提示有效窗口内断言，未修改业务或放宽断言。修复后的初次成功路径测试还把正常结算后的额外 quota 刷新计入“入口刷新”次数；改用结果屏障在识别完成前核对入口次数，保留结算后刷新，不删检查。
+- 修复后定向 9 项全部通过。全局订阅状态仍为 unknown，不被局部 fallback 改成 Free/Premium；iOS 不增加此服务端 fallback 请求。
+
+### 已执行检查
+
+- flutter test --no-pub test/widget/scan_page_test.dart test/scan_quota_controller_test.dart test/scan_api_client_test.dart test/scan_result_source_test.dart test/subscription_entitlement_cache_test.dart test/subscription_entitlement_lifecycle_test.dart test/subscription_server_entitlement_sync_test.dart test/apple_current_entitlements_test.dart：193 项全部通过，包括整份 Scan widget、iOS 权益/StoreKit 相关 mock 场景和原有 Gallery 额度状态机。
+- flutter analyze --no-pub：退出 0，No issues found。
+- 运行源文件 dart format 检查通过。整份 scan_page_test.dart 的格式检查仍报告既有的其他区块格式差异；仅修正本次新增块，不顺手格式化旧测试，不把整文件检查报告为通过。
+- 本次未运行 iOS 真机、Xcode 构建、真实 StoreKit 购买/Restore、服务端部署或数据库变更；Windows 平台 widget/单元测试不能代替这些外部验收。
+- 正在重建同一隔离 dev 测试包，保留 UID 100044；App 源码修复未提交或推送。Code Review 与修复后的同路径设备验证结果待实际执行后补记。
+
+### Android 修复最终审查与模拟器回归（2026-09-29）
+
+- 本地 Code Review 检查后补充 !kIsWeb 限制，最终生产逻辑新增 14 行，只作用于原生 Android，避免 Android 浏览器误入分支。iOS 原生目录、整个订阅实现目录、quota controller 和服务端 diff 均为空。
+- 显式给原“Free 刷新为 Premium”“unknown 刷新为 Premium”“unknown 刷新为 Free”测试增加 iOS/Android 平台对照，未放宽原断言。最终定向 15 项通过；完整上述 8 文件回归最终为 196 项全部通过，未跳过；flutter analyze --no-pub 无问题。
+- 最终隔离 APK 仍为 com.cardai.tcg.gallerytest / 1.0.4 (161) / APP_ENV=test，SHA-256=fe8663bc40c2f0e668a58dc7dc30e31bf5368427103c4328a7ccdc401a9cb897。仅对该测试包执行覆盖安装，UID 100044 保留；原 com.cardai.tcg 仍为 1.0.3 (157)，最后更新时间未变。
+- 使用与修复前相同 Pixel_8、UID 和 Gallery 按钮复测，原 Premium 校验错误已消失，正常进入 Android 照片权限及选图器。选择“有限访问”，只授权测试图片，没有开放所有原有照片。
+- 本次选择器初次进入时仍使用旧图片索引视图；确认 MediaStore 已存在 14 张指定副本，只更新 A 组副本的时间戳并重新索引后，按系统 Photos → Browse → Images → CodexGallery_20260929_A 精确选择 8 张。原始 D:\Downloads\bug 文件未改，未选取原有 Camera 图片。所有扫描均由真实 App 的选图、端侧模型与既有 API 发起，没有提交手工向量、替换模型或伪造识别结果。
+
+### A 组真实 Gallery 与额度核对：通过该组正常成功场景
+
+实际提交时间 11:46:40（北京时间）。App 先显示 Scanned: 0/8，完成后显示 Scanned: 8/8、2 scans remaining。通过只读 SQL 按 owner_type=anonymous、owner_id=100044 回读，并将请求、审计和图片文件名对照：
+
+| 文件 | 服务端匹配名 | 账本状态 / attempts / HTTP |
+|---|---|---|
+| 07-107055.jpg | Pikachu | consumed / 1 / 200 |
+| 08-cards_107056.jpg | Poliwag | consumed / 1 / 200 |
+| 03-516694.jpg | Lapras | consumed / 1 / 200 |
+| 04-516695.jpg | Ditto | consumed / 1 / 200 |
+| 05-516696.jpg | Eevee | consumed / 1 / 200 |
+| 06-516697.jpg | Vaporeon | consumed / 1 / 200 |
+| 01-516674.jpg | Marowak | consumed / 1 / 200 |
+| 02-516684.jpg | Starmie | consumed / 1 / 200 |
+
+11:50:01 回读：quota_total=8、free_consumed=8、reserved=0、released=0、scan_records=8、success_records=8，每行有图片引用，8 个不同业务请求 ID。首个为 2d280fe9-0bb3-4f32-8a35-3abd8830ab02（03:46:57.254Z 预占，03:47:00.733Z 结算）；末个为 4c92b939-457e-4694-884f-23301cd82792（03:47:36.863Z 预占，03:47:39.422Z 结算）。不能把逐张预占到结算的时间当作端侧处理总时长或并行性能 A/B 结论。
+
+退出 A 组扫描页时仅确认退出未收藏的本地结果队列，没有删除服务端扫描审计、退款或调整额度。重新进入 Scan 仍显示剩余 2 次。
+
+### 独立环境问题与 B 组边界
+
+- 初次 A 组选择期间，Android 在 03:36:00.304Z 以 LOW_MEMORY 回收测试 App pid=7056，后台 RSS=507 MB；在 11:39 点击选图完成时进程已不存在，系统重新创建 App，选择未进入识别链路。因此这次不能记作 A 组识别通过或失败返还。确认无扫描请求后快速重走已准备好的相同选择流程，才取得上述 11:46 的真实 A 组结果。
+- B 组准备了 6 张图片，拟在剩余 2 次时验证超额与混合结果。选图过程中系统再次于 03:53:44.212Z 以 LOW_MEMORY 回收 pid=10273，后台 RSS=709 MB；点击最终 Select 前通过 pidof 发现进程已不存在，没有提交该组，并取消了 6 张选择。
+- guest MemTotal 回读为 2,531,824 kB；仅凭该瞬时内存与退出原因，不能断言具体内存泄漏、R2 问题或确定扩容收益。没有更改模拟器内存、重启模拟器、改超时/重试，或继续反复提交 B 组来掩盖环境问题。
+- 11:59:07 最终只读回查仍为 quota_rows=8、distinct_request_ids=8、consumed=8、active_reserved=0、released=0、attempts_above_one=0、scan_success=8、scan_other=0。与 App 的剩余 2 次相符，没有因选图取消或进程回收增加消费。
+
+### 最终结论与未验证项
+
+Android 门禁 BUG 已有修复前失败、修复后同路径设备成功、平台定向测试和 Code Review 证据；iOS 业务代码及原分支没有修改。A 组真实 Gallery 的 8 次正常成功消费与账本一致，可作为该场景通过；不能扩写成 B 组超额/失败返还、真实多用户并发、弱网重放、低内存恢复或 iOS 真机全量通过。
+
+后续应在合适的模拟器资源或真机环境补完 B 组，并单独评估 Android 进程被回收后的选择恢复。该问题未混入当前门禁修复。当前源代码、测试和本轮文档均未提交/推送；未部署 prod、未修改 iOS、未手工修改配额/权益或服务器配置。截图与原始诊断继续留在本地证据目录，不加入 docs。
+
+## 2026-09-29 13:39：B 组剩余 2 次选择 6 张，额度未超扣但发生 Android OOM
+
+用户要求继续同一 B 组。只执行真实 Gallery 验收及只读诊断，没有修改应用/服务器代码、重置额度、授予权益、调整模拟器 RAM/堆限制、部署或推送。上午 B 组“选图前进程被 LOW_MEMORY 回收、未提交”的记录保留；本节是下午确实提交后的新结果，不能混为同一次失败。
+
+### 提交前状态与输入
+
+- 13:36:53 通过 SSH 对 dev 做 BEGIN READ ONLY / ROLLBACK，确认 release 仍为 dab850f，UID 100044 账本为 8 个独立请求、8 次 Free consumed、active_reserved=0、released=0、8 条成功扫描，attempts_above_one=0。
+- Pixel_8 / emulator-5554 的隔离 App 仍为 com.cardai.tcg.gallerytest，读取到相同 UID 100044。首次进入 Scan 出现加载期间的默认 10 次显示；等待服务端刷新后已确认 2 scans remaining，再打开 Gallery，未以本地默认值授权扫描。
+- 通过系统 Photos → Browse → Images → CodexGallery_20260929_B 选择既定 6 张：01-516674.jpg、02-516684.jpg、03-IMG_3784.jpg、04-IMG_3778.jpg、05-227.PNG、06-cards_100022.jpg。截图明确显示 6 selected；没有使用 Camera 原有照片或修改输入。
+- 13:39:35.837（宿主机北京时间）点击一次最终 Select，点击前确认 App pid=13364 仍存活；返回 App 后出现 Scanned: 0/6 与 Scanning。没有在崩溃后再次提交这组图片。
+
+### 已发生的结果与额度证据
+
+13:42:34 和 13:45:48 的两次限定 UID 只读回读均确认：总账本 10 行、10 个独立 request_id、Free consumed=10、reserved=0、released=0、attempts_above_one=0；scan_record=10 且全部 success。相对于 A 组只新增以下两项，均有图片引用：
+
+| B 组文件 | 业务请求 ID | 匹配结果 | 状态 / attempts / HTTP |
+|---|---|---|---|
+| 06-cards_100022.jpg | 501b3932-0bb2-4fae-8071-e78709969860 | Checklist Card - Magic Origins (Planeswalker) | consumed / 1 / 200 |
+| 01-516674.jpg | 11bd3d2c-9775-495f-b1d2-3e83a8f5c851 | Marowak | consumed / 1 / 200 |
+
+服务器预占/结算时间分别为 05:39:45.374Z → 05:39:46.892Z、05:39:47.681Z → 05:39:48.186Z。这里直接记录各设备/服务器时间，不将模拟器时钟与服务器时钟当作毫秒级同步因果证据。
+
+可以确认这次 B 组只新增 2 次成功消费、没有第 11 次消费或遗留预占；**不能确认剩余 4 张已正常得到拒绝响应并稳定显示 Waiting**，因为客户端发生了下面的崩溃，队列没有完成预期生命周期。
+
+### 新发现的前台崩溃：不是上午的后台回收
+
+- Android exit-info 报告 pid=13364 在设备时间 2026-09-29T05:39:47.315Z 退出，reason=4 APP CRASH(EXCEPTION)、importance=100、RSS 530 MB。此前上午的两次是 reason=3 LOW_MEMORY、importance=400，必须区别。
+- AndroidRuntime 堆栈为主线程 java.lang.OutOfMemoryError：申请 134,217,744 字节（约 128 MiB）失败，growth limit=201,326,592 字节（192 MiB）；只读 getprop 也返回 dalvik.vm.heapgrowthlimit=192m、heapsize=576m。未调整这些值。
+- 已确认失败发生在模型结果返回的序列化阶段：Arrays.copyOf → ByteArrayOutputStream.grow/write → StandardMessageCodec.writeInt/writeFloat/writeValue → StandardMethodCodec.encodeSuccessEnvelope → MethodChannel.result.success → [ScanModelRuntime.kt:42](../../../../apps/flutter-app/android/app/src/main/kotlin/com/cardai/tcg/ScanModelRuntime.kt)。该行是 mainHandler.post { result.success(output) }，**不是 createSession 的模型文件读取位置**；初步按类名称作“模型加载问题”的说法以这份完整堆栈为准纠正。
+- 当前证据只足以定位主线程 MethodChannel 模型输出编码的内存分配失败；未进一步实测确定具体输出张量尺寸、是哪张图片触发、是否存在跨任务输出堆积或泄漏，不把这些推测写成根因已完全证实。
+- 没有在本轮扩大为原生内存修复、使用 largeHeap 掩盖问题、吞异常或注入简化模型输出。iOS、StoreKit、权益/额度及后端实现均保持本轮开始时的状态。
+
+### 重开后的恢复与耗尽门禁
+
+崩溃后只重开同一测试 App，不清数据、不重交图片。再次确认 UID 为 100044，Scan 显示 0 scans remaining。点击 Gallery 进入 Choose Your Plan 订阅提示，没有打开选图器；没有点击购买或 Restore，随后关闭提示返回 Scan。
+
+13:46 的脱敏调试快照记录权威 quota 状态 consumed=10、remaining=0、unlimited=false、isServerAuthoritative=true；新进程仅观察到 GET /scan/quota=200，示例 X-Request-ID=1893ee50-4368-49d5-a365-16c724fab40d、4ce04f5d-78bd-49ce-b509-6fd406a217ba。快照中还存在加载期间旧状态对象，不以旧对象覆盖屏幕和服务端最终值；未提取、输出或保存令牌，调试转发已清理。
+
+截图及脱敏堆栈保留在本地 gallery-dev-20260929 证据目录：b2-current-quota、b2-six-selected、b2-submitted、b2-final-zero、b2-zero-quota-gate 和 b2-android-runtime-crash.txt；不加入 docs 或 Git。
+
+### 本轮结论
+
+- **通过的局部检查**：起始剩余 2 次，B 组新增 2 个成功结果恰好消费 2 次；最终总消费 10、预占 0；重开显示 0，耗尽时不再打开 Gallery。
+- **整体验收不通过**：App 在处理六张图片时发生前台 OOM，剩余四张 Waiting/队列稳定性与结果可达性未完成，不能称为“B 组全部通过”或“无漏扣/多扣的全场景保证”。
+- 需要独立确认 Android 模型输出桥接的内存修复范围，然后在明确的测试身份/额度条件下复验。UID 100044 当前已用完 10 次，本轮没有重置其账本，也不会以重复选择同样图片来规避额度上限。
+- 本轮仅更新当前版本文档，不重新运行无代码变更的应用测试，不把前轮 196 项结果写成本轮真实 B 组通过；未提交、推送、部署或触碰 prod。
+
+## 2026-09-29 13:52–14:20：卸载重装后复测，B 组仍出现相同输出编码 OOM
+
+用户明确要求卸载 App 后重新安装再试。本轮只卸载 Pixel_8 上本任务的 com.cardai.tcg.gallerytest，并安装同一 APK；未卸载原 com.cardai.tcg，未清相册、改代码或调整 Android 堆/模拟器内存。**结论：干净重装未解决 B 组崩溃。**
+
+### 安装隔离与额度基线
+
+- 卸载前核对设备仍为 Pixel_8 / emulator-5554，APK 包名是 com.cardai.tcg.gallerytest，版本 1.0.4 (161)，SHA-256 仍为 fe8663bc40c2f0e668a58dc7dc30e31bf5368427103c4328a7ccdc401a9cb897；没有重建或改变测试二进制。
+- adb uninstall 精确测试包返回 Success，确认包不存在后再 install -t 返回 Success。新 firstInstallTime/lastUpdateTime 为设备时间 2026-09-29 05:52:18；原 com.cardai.tcg 仍为 1.0.3 (157)、lastUpdateTime=2026-09-07 07:01:40，不受影响。
+- App 正常创建新 dev 匿名 UID 100045，创建时间 2026-09-29T05:52:43.592Z。13:54:21 只读 SQL 确认新 UID 的 quota/consumed/reserved/scan_record 均为 0；旧 UID 100044 仍为 consumed=10、reserved=0、scan_record=10。卸载只清本地测试安装，不重置服务端旧账本。
+- 有限照片授权仅选择已有 A 组测试副本；A/B 文件和原始 D:\Downloads\bug 文件均保持不变，没有为了复验写 SQL 增减额度或授予 Premium。
+
+### 授权/后台中断与实际提交分开记录
+
+1. 干净安装后首次进入选图器，系统在设备时间 06:01:11.965Z 以 PERMISSION CHANGE / one-time permission revoked 终止 pid=19409；最终提交前检查发现进程不存在，未提交 A 组，并取消选中状态。该事件不是 OOM，也不是识别失败返还。
+2. 回到同一 App/UID 后实际提交 A 组一次，宿主机时间 14:08:55；页面从 Scanned: 0/8 变为 8/8，显示剩余 2 次。14:10:58 账本回读为 8 个不同请求、8 次 consumed、reserved=0、released=0、attempts_above_one=0、8 条成功扫描，文件清单与原 A 组相同。
+3. A 组结束后首次准备 B 时，设备时间 06:13:00.397Z 系统以 LOW_MEMORY 回收后台 pid=22389，RSS 707 MB。最终提交前发现进程不存在，没有提交该次选择，也没有重新卸载或创建另一个 UID。
+4. 取消未提交的选择后，只重开现有测试 App（pid=24033、UID 仍为 100045），快速走同一 Gallery → Browse → B 相册流程。每步都从当前 UI 树确认按钮及 B 组 6 个文件，最终截图为 6 selected，提交前再次确认同一进程存活。14:17:53 实际提交 B 组一次，返回 App 显示 Scanned: 0/6 和剩余 2 次。未进行模型/HTTP 重放或篡改识别状态。
+
+### 干净安装复现了同一个前台 OOM
+
+- 新进程在设备时间 06:18:01.205Z 退出，reason=4 APP CRASH(EXCEPTION)、importance=100、RSS 528 MB。
+- AndroidRuntime 堆栈仍是主线程 OutOfMemoryError：申请 134,217,744 字节失败，growth limit=201,326,592；调用链同上一轮为 ByteArrayOutputStream.grow → StandardMessageCodec.writeFloat/writeValue → StandardMethodCodec.encodeSuccessEnvelope → MethodChannel.result.success → ScanModelRuntime.kt:42。
+- 堆配置始终 heapgrowthlimit=192m、heapsize=576m；没有使用 largeHeap、增大 RAM、捕获吞掉 OOM 或裁剪模型输出来让试验通过。相同 APK、同一组 B 图片、新安装数据下仍可复现，说明本环境中仅靠卸载重装不足以解决，不得声称已排除所有模型尺寸、内存峰值或进程调度因素。
+
+### B 组最终账本
+
+14:20:06 限定 UID 100045 的只读事务回读：quota_rows=10、distinct_request_ids=10、consumed=10、reserved=0、released=0、attempts_above_one=0、scan_records=10、scan_success=10；旧 UID 100044 的 consumed 仍为 10。B 组恰好新增两条：
+
+| 文件 | request_id | 结果 / 状态 / attempts / HTTP |
+|---|---|---|
+| 06-cards_100022.jpg | 88482d2f-649f-48fa-9325-147fcb89ebf5 | Checklist Card - Magic Origins (Planeswalker) / consumed / 1 / 200 |
+| 01-516674.jpg | 044d8021-2933-4a15-89d2-e441ee40edcb | Marowak / consumed / 1 / 200 |
+
+两次结算分别为服务器时间 06:18:04.452Z 和 06:18:05.581Z。端侧与服务器时钟不是逐毫秒同步测量，不能据时间差假称“进程退出后才开始所有操作”；成功记录与消费状态以服务端实际回读为准。
+
+最后只重开 App 查看额度，不重新选图；读取到 UID 100045，页面 0 scans remaining，与权威配额 consumed=10、remaining=0 一致，调试转发已清理。只能确认两个成功请求各消费一次、没有第11次消费或遗留预占，不能确认其余 4 张已经正常变为 Waiting 或批量结果可恢复。
+
+### 结果与后续边界
+
+- **卸载/同包重装完成，原 App/相册保留；A 组通过；B 组整体仍不通过。**没有复用 UID 100044 的旧本地状态，也没有为两次测试重置任何服务端额度。
+- 不再继续重装或提交 B。需要在独立授权范围内处理 Android 模型输出桥接的内存峰值，然后用明确的测试身份与额度条件复验，iOS 和服务端扣费规则不应随之改变。
+- 本轮无新的源码修改、单元测试执行、Git 提交/推送、服务器部署、SQL 写入或 prod 操作；只更新当前验证事实。截图、重装前后安装信息和脱敏堆栈留在本地 gallery-dev-20260929 证据目录，未放入 docs。
+
+## 2026-09-29：用户反馈手动测试通过
+
+用户在本聊天反馈“我自己手动测试通过”，记录为用户提供的手工验收通过反馈。本次未提供设备、安装包、UID、图片组合及逐项结果，也未重新回读账本，因此不将其扩写为已独立复验“剩余 2 次选 6 张、2 张成功/4 张 Waiting”或双端完整验收通过。
+
+此前代理在隔离 Pixel_8 环境取得的 OOM 堆栈及配额回读保留为历史证据；本次用户反馈不等同于 OOM 已由代码修复，也不据此否定用户的手工测试结果。不再自行推进额外内存修复；本轮仅补记反馈，未运行新测试、修改应用代码、提交/推送或部署。后续操作仍按单独授权范围执行。
+
+### 2026-09-29 Git 交付前复验
+
+用户另行授权提交并推送后，在当前 dev 工作区重新执行上述 8 个 Flutter 测试文件（--no-pub）：196 项全部通过、退出 0；flutter analyze --no-pub 退出 0、No issues found。再次审查最终 diff，确认运行逻辑仅增加原生 Android 条件分支，iOS 原生、StoreKit/订阅、quota controller、服务端和历史归档未改。文档本地链接及 git diff --check 通过（保留 LF/CRLF 提示）。
+
+本次 Git 交付包括 Android 入口修复、平台回归测试、dev 部署回读及用户手工测试反馈；不将模拟器历史 OOM 标记为已修复。Git 推送、远端 CI、正式包发布和生产部署分别核验，本次提交/推送授权不触发人工部署或数据库操作。

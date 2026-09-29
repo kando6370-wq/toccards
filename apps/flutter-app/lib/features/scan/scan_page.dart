@@ -855,6 +855,20 @@ class _ScanPageState extends ConsumerState<ScanPage>
           .read(subscriptionControllerProvider.notifier)
           .refreshEntitlement();
       if (!mounted) return false;
+      if (resolved == AppPremiumState.unknown &&
+          !kIsWeb &&
+          defaultTargetPlatform == TargetPlatform.android &&
+          !ref.read(appSubscriptionConfigurationProvider).isConfigured) {
+        // Android has no local store verifier; require a fresh server decision.
+        final refreshed = await ref
+            .read(scanQuotaControllerProvider.notifier)
+            .refresh();
+        if (!mounted) return false;
+        if (refreshed &&
+            ref.read(scanQuotaControllerProvider).isServerAuthoritative) {
+          return true;
+        }
+      }
       if (resolved == AppPremiumState.unknown) {
         showKandoTopToast(
           context,
