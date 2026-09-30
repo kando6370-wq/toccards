@@ -549,3 +549,88 @@ Android 门禁 BUG 已有修复前失败、修复后同路径设备成功、平�
 - 两次经认证的 SSH 检查均退出 0；本机静态资源哈希、健康和未登录鉴权检查退出 0。远端操作限于部署状态/文件元数据/容器状态读取、schema_migrations 只读查询及备份目录解析；发布、备份和容器切换由已在运行的 watcher 完成，实际预检无待执行 migration。
 - 本轮未登录 Admin 打开真实扫描记录，不把产物哈希一致写成真实记录交互已验收；本地模拟图片的点击、缩放、关闭和缺图检查仍以此前记录为证据。未执行真实扫描、购买或业务数据写入，也未运行恢复演练或 prod 发布。
 - 本轮只补记当前版本及根入口文档，不回写 v1.0.0 / v1.1.0 冻结与归档内容；用户随后明确授权提交并推送这 5 份文档，本次 Git 交付不另行发布或部署。
+
+
+## 2026-09-29 17:37–17:39：prod 仅发布 Admin 候选图片预览
+
+用户明确授权“部署 prod，只发布 Admin 改动”。本次没有从当前 dev 整包发布；生产后端保留原逻辑，扫描 R2/向量并行增量仍仅在 Linux dev。
+
+### 发布隔离与准备
+
+- 发布前回读现网 deployment=`39820d69-049f-4234-ad8c-1a1393d8afa8`、version=`3ecee0b5-20e6-47a3-86f5-34f65f1d5465`、100% 流量，Smart Placement=smart，Hyperdrive caching.disabled=false、连接上限 100。保存脱敏配置指纹，并从 Cloudflare 读取现网 Worker 的唯一 `index.js` 模块。
+- 以生产发布记录对应的 `7868f4cbcd725a4a68be731240782bed955f5617` 创建隔离工作树，仅应用 `c9f950e` 的 Admin `App.tsx`、`App.css` 和 `scans-intent.test.mjs`；另补齐现网已启用的 `[env.prod.placement] mode="smart"`。Workers 业务源码、packages、锁文件及 migration 相对该基线无差异。
+- 隔离目录重建的 Worker 与下载的现网脚本逐字节一致：2,105,784 字节，SHA-256=`ffbc5a386743ee927368d4bb390ab54d84b5ba5e72349c277af779c3aeb0afd6`。最终上传还直接复用下载的现网脚本，采用 `--no-bundle`，避免把 dev 后端或其他编译差异带入。
+
+### 本地验证及实际失败记录
+
+- `pnpm install --frozen-lockfile --offline` 首次退出 1：缓存缺少 turbo 2.10.0 tarball。随后 `pnpm install --frozen-lockfile` 退出 0，按现有锁文件下载固定版本；没有修改依赖或锁文件。
+- 首次 Workers `type-check` 在共享包产物尚未生成时退出 2，提示找不到 `@kando/auth-core` 声明；该次串联的 Workers 测试未执行。显式完成 `pnpm --filter @kando/auth-core build` 后重跑类型检查退出 0，再执行后述测试通过，不把首轮失败记为通过。
+- Admin 全部测试 26 项通过、无跳过；Admin `type-check`、根 `pnpm lint` 均退出 0。
+- Workers `src/deployment-config.test.ts src/index-postgres-runtime.test.ts src/entitlements/node-fetch-worker-shim.test.ts`：3 个文件、10 项通过、退出 0。这里是生产基线的针对性检查，不是含扫描并行的 dev 测试集，也不是全仓测试。
+- 隔离目录执行 `deploy:dry-run:prod` 退出 0；再对实际上传入口运行 `wrangler versions upload .wrangler/admin-only-worker/index.js --env prod --no-bundle --keep-vars --strict --tag admin-preview-c9f950e --message "Admin preview only; preserve backend from version 3ecee0b5" --dry-run`，退出 0。两次均明确 dry-run，未切流。
+- 最终发布范围自审通过：3 个 Admin 文件及现网 Placement 配置对齐，没有后端业务、SQL、环境绑定、Flutter 或营销站变更。
+
+### 上传、切流与发布后回读
+
+1. 使用上述 `versions upload` 命令去掉 `--dry-run`，仅上传候选，得到 version=`1b806fe1-7516-4749-ac87-77c3c6c29deb`、tag=`admin-preview-c9f950e`。实际新增/变化的静态资源为首页、主 JS/CSS 和 Ant Design 两个 vendor 文件，共 5 个文件；此时生产流量仍在旧版本。
+2. 17:37:00 切流前比对 11 项全部通过：当前 deployment 未变，候选后端 ETag/handlers/Placement/运行配置/绑定与旧版一致，现网 settings、绑定、Hyperdrive、定时任务和 subdomain 开关保持原值。
+3. 执行 `wrangler versions deploy 1b806fe1-7516-4749-ac87-77c3c6c29deb@100% --env prod --yes --message "Admin-only image preview; backend byte-identical to 3ecee0b5"`，退出 0。CLI 重新同步现有 logpush/observability 值；17:39 全量受检 settings 指纹与发布前一致，未产生配置值变化。
+
+| 检查 | 17:39 实际回读 |
+|---|---|
+| deployment | `3e36d169-fc11-45e8-8077-0b1bab8656d5`，created_on=2026-09-29T09:37:42.767884Z |
+| version / 流量 | `1b806fe1-7516-4749-ac87-77c3c6c29deb` / 100% |
+| 实际生产 Worker 内容 | 再次下载 `index.js`，与发布前逐字节相同；2,105,784 字节，SHA-256 仍为 `ffbc5a386743ee927368d4bb390ab54d84b5ba5e72349c277af779c3aeb0afd6` |
+| 后端 ETag | 仍为 `a1471312d4ca175f8457d1ea7f11fc6c268e7c607fda0f4c53a503266c34fee0` |
+| 配置/资源 | Placement、兼容日期/flags、运行配置、完整变量/绑定指纹、settings 均与发布前相同 |
+| Hyperdrive / cron / subdomain | Hyperdrive 完整配置指纹及 modified_on 均不变，缓存仍开启；cron、workers.dev 与预览开关不变 |
+| Admin | 首页字节匹配；主资源 `index-Cplutb86.js`，10 个 JS/CSS 入口资源全部与隔离目录的 production 构建逐字节一致，包含候选图点击预览代码 |
+| 只读烟测 | `/api/v1/health` 为 200 / status=ok；未登录访问 Admin scans、portfolio folders 均为 401 |
+
+发布后 11 项版本/后端/配置比对以及静态产物和只读烟测均退出 0。脱敏指纹、前后 Worker、构建一致性和 HTTP 结果留在本地忽略目录 `apps/workers-api/.wrangler/prod-admin-preview-20260929`，不加入 docs 或 Git。
+
+### 回退点及未执行边界
+
+- 本次回退点为原 version `3ecee0b5-20e6-47a3-86f5-34f65f1d5465`；未执行回退。不能把这次 Admin 发布当作整个 dev 已部署 prod，扫描并行依然未上线生产。
+- 未执行数据库 migration、生产 SQL、真实扫描/扣次、购买或其他业务写入；没有修改 Hyperdrive、KV/R2 绑定或营销站，也没有发布 Flutter 包或重新部署 Linux dev。生产 ledger 未在本轮重查。
+- 未使用生产 Admin 账号打开真实扫描记录，本次部署验收是后端不变、正确静态产物生效及只读接口边界；交互行为沿用此前已通过的本地模拟图片验证，不宣称生产登录态端到端已验收。
+- 本轮没有 Git 提交或推送；当前版本及根入口文档按实际生产状态补证，不修改 v1.0.0 / v1.1.0 冻结与归档内容。隔离发布工作树保留，便于追溯。
+
+
+## 2026-09-29 17:46–17:52：双 prod Admin 域名版本不一致，前轮验收范围更正
+
+用户反馈 `admin.tcgcard.fun` 仍不能放大，而 `api.tcgcard.fun` 已更新，并确认两者都属于 prod Admin。前轮仅验证了 API 域名的 Worker assets，遗漏实际 Admin 域名；“prod Admin 已全部完成”的结论应收窄为“API 域名副本已更新”，本问题尚未修复。
+
+- 无登录态、带 Cache-Control: no-cache 的新请求稳定复现。Admin 域名 HTML 返回 DYNAMIC、public/max-age=0/must-revalidate，并引用旧 `index-BUAPc0VN.js`；其中候选图仍是原生 img，没有预览配置。API 域名引用新 `index-Cplutb86.js`，含点击放大及 Image 预览配置。这不是仅限用户浏览器的本地缓存现象。
+- 在本地忽略目录增加可重复的双入口产物检查，运行 `node apps/workers-api/.wrangler/prod-admin-preview-20260929/check-admin-origins.mjs before` 退出 1：Admin 入口失败、API 入口通过；两端 HTML/JS 均为 200。旧主 JS SHA-256 为 `6aa9151c3ce60d4e24972fc0fe4812392e425e674d9d09998df4f9641554d36a`，新主 JS 为 `f78445917b2a1ff4263ec65f59a7a3b4021afde431f00218d698aec9728aff89`。该失败是修复前证据，未改断言或伪装通过。
+- 只读 Cloudflare Workers 自定义域名列表中，API 域名绑定 toccards-api-prod；没有 Admin 域名条目。zone Workers route 仅看到营销站根域名路由。尚不能由此断定 Admin 域名的具体源站，不能猜测性改绑或改重定向。
+- Pages 项目列表 GET 返回 403；现有 Wrangler OAuth scopes 只有 user/account/Workers/zone 权限，没有 pages:write。浏览器连接当前不可用，无法通过已登录控制台补查。需要用户补充相应授权后继续确认 Admin 实际发布目标；未绕过权限或扩大授权。
+- 本轮未执行新的生产部署、DNS/route 修改、缓存清理、后端代码变更或业务数据写入。需在目标资源确认、发布完成后用同一双域名检查复验，再完成影响面与最终审查，不把当前调查标为已修复。
+
+
+## 2026-09-30 09:03–09:09：补齐 Pages Admin 发布并完成双入口产物复验
+
+### 根因与修复前证据
+
+- 用户同意补充 Cloudflare Pages 权限；实际重新授权保留原 8 项 OAuth scope，仅增加 `pages:write`。首次把 `offline_access` 作为显式 CLI scope 时参数校验失败，没有启动授权；读取当前 Wrangler 实现后确认该项自动附加，移除显式参数后浏览器授权成功，`whoami --json` 核对最终权限集合恰好为原范围加 Pages。没有申请 DNS 写权限，也未保存/输出 token。
+- 当前云端回读证实 `admin.tcgcard.fun` 属于独立 Pages 项目 `toccards-admin`，默认域 `toccards2.pages.dev`，生产分支 main，构建根目录 `apps/admin-web`、命令 `npm run build`、输出 `dist`；生产 VITE_API_BASE_URL 指向 `https://api.tcgcard.fun/api/v1/admin`。旧 canonical deployment=`c0c4ac81-3cd7-4fca-bfe6-2f91d1c70f29`，源提交 `e9e7578`，2026-09-28 成功，无 Pages Functions。
+- 因此根因是遗漏独立 Pages 发布，而非 Admin 图片代码修复无效，也不是用户浏览器局部缓存。仓库先前“Admin 不是独立部署目标”的描述与现网冲突；按现网证据修正当前 AGENTS、README 和 v1.1.1 Admin 文档，v1.0.0/v1.1.0 历史归档不回写。
+- 09:05 运行原双域名脚本 `node apps/workers-api/.wrangler/prod-admin-preview-20260929/check-admin-origins.mjs before-pages` 退出 1：Admin 仍为旧 `index-BUAPc0VN.js`、preview=false；API 为新 `index-Cplutb86.js`、preview=true。与 9 月 29 日的原复现一致，作为本轮修复前失败证据。
+
+### 最小发布及验证
+
+- 复用既有隔离工作树的批准产物，先比对其 10 个 JS/CSS 哈希与 9 月 29 日生产 Worker Admin 相同；dist 仅有首页和资源共 11 个静态文件，没有 Functions、`_worker.js`、`_headers` 或 `_redirects`。Admin `test` 再次 26 项通过、无跳过，`type-check` 退出 0；未修改或重建应用源码。
+- 在隔离工作树 `apps/admin-web` 目录，通过已安装 Wrangler 4.106.0 执行 `pages deploy <该目录/dist> --project-name toccards-admin --branch main --commit-hash c9f950ef5f77d1ee00e7de825d0d3802a7c76686 --commit-message "Admin candidate image preview only; match approved prod Worker assets" --commit-dirty=true`，退出 0。metadata 的 commit 指批准的 Admin 来源；main 是 Pages 生产通道而非本轮 Git 合并，dirty=true 如实反映隔离补丁工作树。
+- 新 canonical deployment=`038a65be-4858-4e31-89d1-fa67bf4ff559`，environment=production，created_on=2026-09-30T01:07:55.595025Z，deploy success=01:07:57Z。域名继续 active，未修改 DNS、路由、域名绑定、Pages 构建配置、环境变量或 GitHub 自动部署设置。
+- 09:09 同一脚本 `check-admin-origins.mjs after-pages` 退出 0；两域名 HTML/JS 均为 200，主资源同为 `index-Cplutb86.js`，SHA-256 同为 `f78445917b2a1ff4263ec65f59a7a3b4021afde431f00218d698aec9728aff89`，preview=true。未放宽或修改原验收断言。
+- 扩展比对两端 HTML 与各自全部 10 个入口 JS/CSS，均与批准构建逐字节一致；HTML SHA-256 同为 `729d63b2610847594f40064b37ce94fad87de8671fa974c082bc016732ea55e0`。生产 health=200/status=ok，未登录 scans/folders=401；以 Origin=`https://admin.tcgcard.fun` 发登录 OPTIONS 预检返回 204，Allow-Origin 正确、允许 POST。
+- 云端发布前后 8 项检查全部通过：预期生产 Pages 部署及 active 域名、Pages 配置指纹不变、API deployment/resource/settings 不变、Hyperdrive 与 cron 不变。Worker 仍是 deployment `3e36d169-fc11-45e8-8077-0b1bab8656d5` / version `1b806fe1-7516-4749-ac87-77c3c6c29deb` 100%，没有再次上传后端。
+
+### 影响面、审查与剩余边界
+
+- 隔离目录补跑 `src/admin/cors-preflight.test.ts src/cors.test.ts`：2 个文件、9 项通过、退出 0，无跳过；文档本地链接和 `git diff --check` 通过，仅保留 Git 的 LF/CRLF 提示。
+- 修复只更新原 Pages 项目的静态资源；另一 prod Admin 入口、生产 API、跨域/鉴权、变量/绑定和 Hyperdrive 均已检查不回退。没有部署 dev、营销站或手机安装包，没有 SQL/migration、账户、扫描或购买写入。旧 Pages deployment 保留为回退点，未执行回退。
+- Code Review（部署方案、证据与文档自审）：根因、发布目标和失败转通过证据对应，未越过只发布 Admin 的范围；没有更改构建配置或以重定向绕开旧入口。历史“只有 Worker assets”描述已在当前文档明确纠正。
+- 真实生产登录态的图片点击未执行，未使用用户会话或账号；本轮确认的是交付产物及入口/CORS/鉴权一致，交互行为仍引用已通过的本地模拟图片测试，不扩写为生产端到端全验收。
+- `git ls-remote` 回读 main 仍为 `e9e7578`、dev 为 `10b5c55`。Pages main 自动部署仍开启，后续构建覆盖当前手动产物的风险存在，需另行授权将仅 Admin 的改动同步 main。未擅自提交、推送、合并或禁用自动部署。
+- 脱敏前后快照与双域名检查结果留在本地忽略目录 `apps/workers-api/.wrangler/prod-admin-preview-20260929`，不加入 docs/Git；用户随后明确授权提交并推送这 5 份文档到当前 dev 分支。Git 交付前再次通过 43 处本地链接检查、diff 检查及文档自审；本轮仅文档，不重复运行应用测试，不合并 main 或另行部署。

@@ -36,7 +36,7 @@ Node workspace 由 `pnpm-workspace.yaml` 管理；Dart workspace 由根 `pubspec
 ```text
 Flutter App ───────────────┐
                           ├─> Cloudflare Workers API (`/api/v1`)
-React Admin ── Worker ─────┘          ├─> PlanetScale PostgreSQL（经 Hyperdrive）：业务与目录真源
+React Admin ── HTTPS ──────┘          ├─> PlanetScale PostgreSQL（经 Hyperdrive）：业务与目录真源
                                      ├─> KV：目录与汇率缓存
                                      ├─> R2：扫描图片
                                      ├─> recognize-vec：Service Binding 向量检索
@@ -46,12 +46,12 @@ Marketing Web ──> 独立的营销与法律页面
 ```
 
 - Flutter App 只通过 API 访问服务端数据，不直接连接 PostgreSQL、KV 或 R2。
-- Admin 是独立 React SPA；Cloudflare 构建产物由 Workers assets 托管，Linux 测试环境由 Caddy 或离线 Node 静态服务托管，与对应环境的 API 一起部署。
+- Admin 是独立 React SPA；prod 的 `admin.tcgcard.fun` 由 Cloudflare Pages 项目 `toccards-admin` 托管，`api.tcgcard.fun` 的后台副本由 `toccards-api-prod` Workers assets 托管，两者均调用生产 API，必须分别发布并同时验收。Linux dev 仍由 Caddy 或离线 Node 静态服务托管，与对应 API 一起部署。
 - 共享 Hono API 是鉴权、账号归属、资产隔离、卡牌查询、扫描识别和 Admin 操作的服务端边界。`src/app.ts` 组合业务路由；`src/index.ts` 和 `src/linux/server.ts` 分别适配 Cloudflare 与 Linux。
 - D1 已废弃；旧 CF dev/test 与 prod 曾通过同一 Hyperdrive 使用 PlanetScale PostgreSQL，2026-09-09 回读时均无 D1 binding。2026-09-07 prod 直接使用共享 PostgreSQL，没有复制旧 D1 数据或执行冲突合并；旧 D1 不得重新绑定、读写或用于回滚，删除资源另需明确授权。2026-09-17 旧 CF dev Worker、域名和 cron 已退役，历史测试数据保留；当前 dev 使用 Linux 独立 PostgreSQL，prod 保持 Cloudflare/Hyperdrive。后续发布不再包含 D1 迁移、冲突审计或 D1 回滚前置任务。
 - dev/prod 的 PostgreSQL 迁移均已完成。后续 v1.1 开发不得新增或恢复 D1 binding、schema、migration、类型依赖、测试基座、读写路径、数据补全、回退或灾备方案；旧 prod D1 仅作为历史资源，不得成为新实现或回退依据。仓库中仍存在的 `D1Database` 兼容类型、Miniflare 测试和退役迁移工具属于待清理债务，只能在明确授权的清理任务中收敛，任何新功能或 BUG 修复不得复制、扩展或继续维护。`docs/releases/v1.0.0` 冻结内容仍按文档规则原样保留。
 - dev 扫描使用 Flutter 编排的端侧模型和 iOS/Android 原生推理桥接，经 `VECTOR_RECOGNITION` 调用 `recognize-vec`。prod Cloudflare 通过 Service Binding；Linux 源码通过必填 `VECTOR_RECOGNITION_BASE_URL` 的 HTTP 适配只发送向量和 `card_type`，候选补全、额度和扫描记录仍使用本地 PostgreSQL。旧 OpenCV/pHash 请求及 `OCR_SERVICE_BASE_URL` 运行时字段已移除。平台范围为 iOS 16+、Android API 24+，Web 扫描暂不支持；后续变更须保持两端兼容。旧来源分支已清理，后续从含向量合并的 `dev` 开发与部署。
-- Linux 入口仅允许 `APP_ENVIRONMENT=development`，通过 `DATABASE_URL` 使用独立 PostgreSQL，配合进程内 KV 与本地图片卷。2026-09-15 用户明确这是现有 dev 环境迁至 Linux 的整改，CF 只读向量识别继续复用，prod 保持 Cloudflare。源码中 App `test` 默认请求 `http://192.168.50.201:8080/api/v1`，Admin development 使用同源 API/本机 Vite 内网代理；测试分享与移动端指定 IP 的网络策略一并隔离。2026-09-29 17:03 回读确认 Linux watcher 已自动发布 `dev@c9f950e`，包含扫描并行增量及 Admin 候选图放大；API/DB healthy、Web running、migration exited/0，失败标记为空。实际发布预检 pendingMigrations 为空，PostgreSQL ledger 只读回查为 14 项、最新 `0013`。2026-09-28 17:41 prod 在原 `main@7868f4c` 业务源码基础上启用 Smart Placement 有限样本试运行，version `3ecee0b5-20e6-47a3-86f5-34f65f1d5465` 回读为 100% 流量，Admin assets 未变化；17:51 按用户要求恢复现有 Hyperdrive 查询缓存，当前为两者同时开启，性能及缓存一致性未验收，详见 [v1.1.1 验证记录](docs/releases/v1.1.1/05-delivery/VERIFICATION.md)；本次没有执行 migration，prod PostgreSQL ledger 的上次独立回读仍为 2026-09-21 的 14 项，未在本轮重查。旧 CF dev 业务入口和 cron 已退役，见 [Linux 测试环境](docs/releases/v1.1.0/02-architecture/linux-test-environment.md)。
+- Linux 入口仅允许 `APP_ENVIRONMENT=development`，通过 `DATABASE_URL` 使用独立 PostgreSQL，配合进程内 KV 与本地图片卷。2026-09-15 用户明确这是现有 dev 环境迁至 Linux 的整改，CF 只读向量识别继续复用，prod 保持 Cloudflare。源码中 App `test` 默认请求 `http://192.168.50.201:8080/api/v1`，Admin development 使用同源 API/本机 Vite 内网代理；测试分享与移动端指定 IP 的网络策略一并隔离。2026-09-29 17:03 回读确认 Linux watcher 已自动发布 `dev@c9f950e`，包含扫描并行增量及 Admin 候选图放大；API/DB healthy、Web running、migration exited/0，失败标记为空。实际发布预检 pendingMigrations 为空，PostgreSQL ledger 只读回查为 14 项、最新 `0013`。2026-09-29 17:37 仅更新 `api.tcgcard.fun` 所在 prod Worker 的 Admin 候选图放大副本，version `1b806fe1-7516-4749-ac87-77c3c6c29deb` 回读为 100% 流量；发布前后 Worker 脚本逐字节一致，后端业务仍为原 `main@7868f4c` 对应逻辑，未上线 dev 的扫描并行增量。既有 Smart Placement 和 Hyperdrive 查询缓存均保留开启，17:39 回读绑定、变量、运行配置和定时任务均未变；17:46 补验发现另一 prod Admin 入口 `admin.tcgcard.fun` 仍返回旧版；2026-09-30 补齐 Pages 授权后确认它由独立项目 `toccards-admin` 托管，09:07 发布同一批准产物为 deployment `038a65be-4858-4e31-89d1-fa67bf4ff559`，09:09 两个入口的 HTML 和各 10 个 JS/CSS 资源均与批准构建一致。Pages 构建配置与域名、API Worker、Hyperdrive 和 cron 未变。Pages 仍跟踪 main 自动发布，而 main 尚无本次 Admin 改动，后续自动构建覆盖风险待另行授权同步 main 解决。今后 Admin 发布必须同时核验这两个 prod 入口，不能以 API 域名副本替代实际 Admin 域名验收；原性能及缓存一致性验收缺口不因本次 Admin 发布而关闭，详见 [v1.1.1 验证记录](docs/releases/v1.1.1/05-delivery/VERIFICATION.md)；本次没有执行 migration，prod PostgreSQL ledger 的上次独立回读仍为 2026-09-21 的 14 项，未在本轮重查。旧 CF dev 业务入口和 cron 已退役，见 [Linux 测试环境](docs/releases/v1.1.0/02-architecture/linux-test-environment.md)。
 - `deploy:dev` 构建 Linux 发布包并通过显式 SSH 目标发布，`deploy:dry-run:dev` 仅打包，不连接服务器；prod 继续使用原 Wrangler 发布入口。Linux 发布须先通过环境/数据库/识别预检，再备份已有数据库；标准与离线 Compose 均以 PostgreSQL 18 和原有 `PGDATA=/var/lib/postgresql/data` 为契约，不自动进行大版本升级。最近一次已回读的 Linux release 为 `branch-dev-c9f950ef5f77-20260929165952`，2026-09-29 17:03 确认 manifest、`current`、`last-seen-sha` 与 `last-deployed-sha` 一致，失败标记为空。发布前备份为 1,135,376,623 字节，临时文件已不存在，已通过 `pg_restore --list`；未执行恢复演练。17:04 内网 Admin 入口引用的 10 个 JS/CSS 资源与该提交本地 dev 构建哈希一致。运行容器与 release 的 API bundle SHA-256 均为 `d502d6db74c3f0c99c872a62aa7001c0eeb04d78987ef0a6b1e519235b0f02bb`。Apple 官方 Sandbox TEST 已经独立公网回调处理成功。旧 CF dev 的 Worker、域名和 cron 已退役，旧测试数据和包保留；API 与 watcher 的代理配置仍分别存放在各自私有环境文件。验证范围与未执行项见当前版本 `VERIFICATION.md`。
 - `packages/*` 只承载跨应用共享能力，应用之间通过包依赖或 HTTP 契约协作。
 
@@ -74,7 +74,7 @@ GitLab Flutter CI 使用 3.44.0，GitHub iOS CI 使用 3.44.7。涉及工具链�
 
 - `apps/` 可以依赖 `packages/`，`packages/` 不得反向依赖 `apps/`；`pnpm lint` 强制检查此规则。
 - 共享 API 路由组合位于 `apps/workers-api/src/app.ts`，业务路由统一挂载在 `/api/v1`；Cloudflare 入口是 `src/index.ts`，Linux 入口是 `src/linux/server.ts`。
-- Cloudflare Admin 构建产物由 Workers 的 assets 配置托管，不是独立部署目标；Linux 托管方式见 `deploy/linux/`。
+- Cloudflare prod Admin 有两个独立静态发布目标：Pages `toccards-admin`（`admin.tcgcard.fun`，production branch=main）与 Workers assets 副本（`api.tcgcard.fun`）。只运行 Workers 的 `deploy:prod` 不会更新 Pages；只发 Admin 时不得夹带当前 dev 的后端增量。两端均须核对产物哈希及对生产 API 的跨域/鉴权边界。Linux 托管方式见 `deploy/linux/`。
 - PostgreSQL schema/migration 与 Hyperdrive binding 是数据库产品和基础设施契约；新增 schema 变更只允许写入 `apps/workers-api/src/db/postgres/migrations/`。修改前必须读取相关实现和文档，并先向用户说明影响。
 - 服务端授权、账号归属、资产隔离和购买权益必须由可信服务端数据验证，不能信任客户端自报状态。
 - 后续app所有轻提示框不在使用底部提示框，使用项目组件中的顶部提示框组件；项目组件中有不同类型的顶部提示组件，使用时需区分使用类型。
