@@ -643,6 +643,16 @@ Android 门禁 BUG 已有修复前失败、修复后同路径设备成功、平�
 
 未运行全量 Flutter/Android 测试、iOS 真机登录/购买/扫描验收；本次只构建 iOS 内部测试包，未安装设备、上传蒲公英或 App Store Connect，也未提交/推送 Git 或部署服务端。
 
+## 2026-09-30：iOS 正式包 1.0.5 (163) 上传 App Store Connect
+
+按用户要求从 `main@e930b72f160a7c6a9e22eada65ceb48b774a81f6` 构建并上传正式环境包。由于构建号 162 已用于测试包，本次将营销版本更新为 `1.0.5`、构建号更新为 163。生产配置为 Bundle ID `com.cardai.tcg`、Firebase 项目 `tcg-card-2072d`、API `https://api.tcgcard.fun/api/v1`、App Attest `production`，生产健康接口返回 HTTP 200 / `status=ok`。相对上次正式包 1.0.4 (161) 的源码提交，Flutter 直接依赖声明、根 `pubspec.lock` 和 iOS `Podfile.lock` 均无新增、删除或版本变化；构建前后两份锁文件 SHA-256 保持为 `0d85580159d1c598b6a61e32f9ad77c6a5013eaeb586ac29d9836d8b7e379021` 与 `d0879ca1f7222cbc2de5bd0d33a414c834eaec2235f469322ffd171ab0f75793`。依赖工具提示存在可升级版本，但本次没有升级依赖。
+
+以 `config/production.json` 运行环境相关 Flutter 测试 13 项全部通过；执行 `./tool/release_ios.sh --env production --build-number 163`，依赖解析、`flutter analyze`、清理、Xcode Archive、App Store IPA 导出、签名/生产 Firebase/API 校验及 42 个 Mach-O UUID 的 dSYM 覆盖全部通过。另行解包保存的最终 IPA，确认 `com.cardai.tcg / 1.0.5 (163)`、Apple Distribution、`get-task-allow=false`、`beta-reports-active=true`、App Attest `production`，且描述文件没有设备列表。IPA 为 55,478,693 字节，SHA-256 `edf2bfd653ebb0efddae2a71c3a0d4f6e579179723e05e13597d7303a0a1cd32`；`dSYMs.zip` 为 60,940,339 字节，SHA-256 `1eaf58254be968c830251f3d39143a6c74cb594c8a4e711334a3bf905bd3176b`。两份 ZIP 完整性检查通过并保存于 `~/Downloads/CardAI-Packages/com.cardai.tcg/CardAI-Prod-1.0.5-163/`，源码版本同步为 `1.0.5+163`。
+
+上传使用同一 Archive，Xcode 导出选项明确设置 `method=app-store-connect`、`destination=upload`、`uploadSymbols=true` 和 `manageAppVersionAndBuildNumber=false`。2026-09-30 14:16:38 +08:00，Apple 明确返回 `Uploaded package is processing.`、`Upload succeeded.` 与 `** EXPORT SUCCEEDED **`；这证明 IPA 与 Archive 中符号已提交给 Apple，不等于 App Store Connect 后台处理或符号处理最终完成，也不等于已提交审核或上架。用户说明上一版 1.0.4 (161) 未提交审核，本轮没有修改或提交该旧构建。
+
+未运行完整 Flutter 全仓测试、Android 构建、iOS/Android 真机登录/购买/扫描验收、App Store Connect 后台处理完成与符号可用状态回读。当前 prod 服务端没有随本次客户端上传重新部署；本次也未安装设备、提交审核、Git commit/push、执行数据库操作或生产服务端写入。
+
 ## 2026-09-30：请求放置日志本地整改与两轮 Placement 验收边界
 
 ### 定位、根因与修改范围
