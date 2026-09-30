@@ -674,3 +674,38 @@ Android 门禁 BUG 已有修复前失败、修复后同路径设备成功、平�
 - 未执行：Git commit/push、Linux dev/prod 部署、生产版本/绑定/缓存回读、全量生产日志采集、生产数据库操作、真实扫描扣次、iOS/Android 客户端计时和登录/Search/Portfolio 的生产回归。发布执行者需先确认批准的源码/产物及版本，再按两轮流程采集包含快请求和失败请求的同口径样本；设备持有者补客户端端到端验证。这些缺口使本轮只能证明本地观测实现，不能证明性能改善。
 - 未运行全仓测试、Flutter 构建/真机验收或独立 PostgreSQL 多连接复验：本轮未改变 App、扫描/配额 SQL 或并发控制，已运行与新增日志及双运行入口相关的本地检查；不将这些未运行项标为通过。
 - AU 108 次、P50 1.707 秒、P95 6.643 秒、超过 5 秒 45 次（41.7%）仅为用户提供的历史样本，本轮未重新查询或复算；P95 <3 秒、超过 5 秒占比 <5% 仍为待验收目标。未将 `scan_recognize_timing` 慢日志用作全量分布，也未关闭既有 Hyperdrive 缓存一致性验收缺口。
+
+## 2026-09-30 11:09–11:13：请求放置日志已自动发布 Linux dev
+
+### 发布方式与权限边界
+
+用户要求重新部署 dev，目标明确为 kd201 Linux，不是 Cloudflare prod。核查时既有 watcher 已在处理此前推送的 `dev@7516cfd2a06a77c9a3a8ed5e94c1a3d6e909d876`；本轮没有重复启动发布、终止 watcher 或更改自动部署配置。DBX 的 SSH 状态查询及 SFTP 下载因 `MCP_READ_ONLY` 被拒绝，连接认证本身可用；后续仅使用允许的 SFTP 文本读取/元数据接口及内网 HTTP GET 跟进，没有改用其他通道绕过策略。用户提供的登录密码未写入仓库、脚本、证据文件或日志。
+
+### 自动发布及状态回读
+
+- watcher 日志确认 9 个 Vitest 文件共 94 项通过，Admin 环境/预检/离线 Web 校验 12 项通过，Linux bundle 启动与 Apple 依赖校验 2 项通过；随后 Admin development 与 Linux API 构建成功。此处是既有发布程序的日志证据，不声称本轮通过 MCP 手动执行了这些远端命令。
+- 实际发布预检输出 `database=toccards_test`、`postgresMajor=18`、`recognition=reachable`、`pendingMigrations=[]`。前面的预检单元测试曾打印模拟的 `0013` 待执行列表，不能将其误当成实际发布结果。
+- 发布前备份：`/home/user/apps/toccards-test/backups/toccards-test-20260930-110551-before-branch-dev-7516cfd2a06a-20260930110549.dump`，SFTP stat 回读为 **1,135,397,728 字节**，同名 `.tmp` 不存在。仅确认文件落盘及脚本 `pg_dump` 阶段已通过；本轮未运行 `pg_restore --list` 或整库恢复，不能把文件大小当作可恢复性验收。
+- watcher 于约 11:09 完成发布，日志输出 `Linux test deployment completed` 及目标完整 SHA。新 release 为 `branch-dev-7516cfd2a06a-20260930110549`，上一 release 为 `branch-dev-c9f950ef5f77-20260929165952`；未执行回退。
+- 11:10 SFTP 回读 `current/release-manifest.txt` 的 SHA、`shared/current-release`、`watcher/state/last-seen-sha` 与 `last-deployed-sha` 全部对应新 release / `7516cfd`；state 目录仅有两个正常 SHA 文件，无 `failed-sha` / `failed-at`。11:10 watcher 后续检查已报告同一 SHA 无新提交。
+- 发布日志显示 DB/API Healthy、Web Started；已读取本次 release 的部署脚本，确认脚本只有在 API 健康、migration 容器退出 0、ledger 读取有效以及本机 health/Admin 检查成功后才切换 current；末尾 ledger 计数为 **14**。这些是发布程序的容器/数据库检查证据，不是本轮独立执行 docker inspect 或 SQL；未回读最新 migration 名称。migrate 服务照常运行，但实际预检没有待执行项，本轮未安排新增 migration 或数据修复。
+
+### 独立只读 HTTP 与本地检查
+
+| 检查 | 实际结果 |
+|---|---|
+| `GET http://192.168.50.201:8080/api/v1/health` | 11:13 返回 200 / `{"status":"ok"}`，带合法 UUID v4 `X-Request-ID` |
+| 未登录 `GET /api/v1/auth/me` | 401，并带合法 UUID v4 请求 ID；未使用真实用户会话 |
+| `GET /` 与页面引用的 10 个 JS/CSS | Admin 200，标题正确；10 个资源均 200，逐项 SHA-256 / 字节与本地同提交的 dev 构建一致 |
+| HTML 交付差异核对 | 首次探针退出 1：HTML 原始字节及普通 CRLF 转换比较均不一致；逐行定位为 Windows 本地 HTML 多 12 个 CR 字符，其中一处为额外 CR。仅去除 CR 后其余内容完全相同，资源本身不受影响；11:13 按明确的跨平台换行口径重跑退出 0，不宣称 HTML 原始字节一致 |
+| `pnpm --filter @kando/workers-api deploy:dry-run:dev` | 本地退出 0；Admin dev / Linux API 构建和 2 项 bundle 测试通过，生成的本地包未上传或部署。清单如实标记 `working_tree_dirty=true`，原有未提交文档不属于部署输入，未伪装为 clean 构建 |
+| 本地发布包范围 | 64 个归档条目中没有 .env、Git 目录或数据库/图片卷；运行代码输入相对 HEAD 无差异，原有两项文档 SHA-256 不变 |
+
+最终服务端 HTML SHA-256 为 `7a3e56b633f7679b4d9581ecb4217360ca7ab9c34df4f6105ceca8631fee2e35`，主资源为 `index-yAJ8wPto.js`。初次失败及最终通过的脱敏 HTTP 检查结果保存在本地忽略目录 `apps/workers-api/.wrangler/dev-deploy-7516cfd-20260930/`，不加入 docs/Git。
+
+### 未验证及未执行项
+
+- SSH 与 SFTP 产物下载均被 MCP 只读策略阻断；没有独立核对运行容器与 release API bundle 的 SHA-256，也没有独立读取运行容器里的新增 `api_request` 字段。新字段的源码、回归测试及发布版本已确认，不扩大为运行日志逐条验收。
+- 未执行 iOS/Android 真机扫描、真实扣次/购买、生产业务请求、数据库写入或恢复演练；Linux dev 的基础发布检查不等于扫描业务闭环或性能验收。
+- Cloudflare prod、Placement 与 Hyperdrive 配置未操作；生产“扫描并行 + 新日志”基线及随后单独切换 `aws:us-east-1` 的两轮试验仍未执行。
+- 本轮仅补充部署事实及文档入口，不修改业务代码，不自动提交或推送这些文档；保留用户原有版本入口修改及 Portfolio 调研文档。
