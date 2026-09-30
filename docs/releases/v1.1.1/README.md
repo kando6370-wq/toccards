@@ -17,6 +17,7 @@
 - [管理后台候选卡牌图片预览](04-admin/admin.md)：扫描详情中的候选缩略图支持点击放大；仅涉及 Admin 前端，2026-09-29 已发布 Linux dev `c9f950e`，17:37 又单独发布 prod `1b806fe1`；API 域名入口的基础服务、静态产物与生产后端字节一致性核验通过，2026-09-30 又补发独立 Pages `toccards-admin` 为 `038a65be`，双入口产物一致；Pages 自动跟踪 main 的后续覆盖风险待单独处理。
 - [扫描 R2/向量并行](01-flows/scan-recognition.md)：先领取每张额度，再并行 I/O；失败补偿、批量隔离及计时语义；已部署 Linux dev，prod 与真机批量验收仍待执行。
 
+- [Portfolio 长区间估值链路调研](03-data-api/valuation-history-latency-analysis.md)：区分 >90 天 Premium 查询与长历史全序列读取放大；包含隔离实测，生产根因尚待真实慢请求证据，本轮未修改实现。
 - [App 1.0.4+ 服务端兼容契约](03-data-api/app-compatibility-contract.md)：支持窗口、旧包业务语义、新版写入数据的旧版可读性与破坏性变更边界。
 - [App 1.0.4+ 兼容验收矩阵](05-delivery/app-compatibility-acceptance.md)：版本登记、冻结合同、新写旧读、旧包关键路径及 dev/prod 分层放行门禁；目前均为待执行。
 - [实际验证记录](05-delivery/VERIFICATION.md)：2026-09-28 17:41 已发布 Smart Placement 有限样本试运行并回读 100% 流量；17:51 按用户新要求恢复现有 Hyperdrive 查询缓存。当前两者同时开启，性能、扫描及缓存一致性仍未验收；2026-09-29 17:37 的 Admin-only prod 发布保留后端脚本与配置，扫描并行未随之上线；2026-09-30 补发 Pages 后双 prod Admin 入口资源一致，未改后端与基础设施配置，各时间窗分开记录。
