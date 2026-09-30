@@ -49,6 +49,42 @@ Gallery 仍为每张图片一个 request_id / Idempotency-Key，不是整批一�
 
 响应 elapsed 仍以秒表示，从向量分支开始到组装结果；现在包含两路汇合所需等待，而不再发生在图片上传之后。它不是客户端网络端到端耗时。
 
+## 请求执行位置观测（2026-09-30，本地实现，未发布）
+
+在共享请求中间件的既有 `api_request` 完成日志中增加三个字段，不另建请求关联，也不改响应、扫描业务逻辑或慢请求计时阈值：
+
+| 字段 | 来源 | 含义与缺失规则 |
+|---|---|---|
+| `placement` | 请求头 `cf-placement` | 原样记录运行环境提供的放置标记；缺失为 `null`，不写死 `remote-IAD`，不解析或限制标记格式 |
+| `ingress_colo` | `request.cf?.colo` | Cloudflare 入口节点；缺失为 `null`，不能当作 Worker 实际执行节点 |
+| `country` | `request.cf?.country` | Cloudflare 提供的请求国家/地区代码；缺失为 `null`，不是用户国籍 |
+
+沿用项目已有 Cloudflare Request 类型和可选链；Linux/Node 没有上述请求头与 CF 元数据时三个字段均为 `null`，不为 Linux 伪造地域。只选择这三个字段，不输出完整 `cf` 对象、城市、坐标或其他请求头；成功与错误响应都通过同一个完成日志出口。`null` 只表示未拿到标记，不证明请求没有远程放置。Cloudflare 仍将 `cf-placement` 视为可能移除的 beta 观测字段，不能依赖其格式实现业务路由或鉴权。
+
+首轮 prod 发布并确认版本后，在 `toccards-api-prod → Observability → Events` 搜索 `api_request`，筛选 `POST /api/v1/scan/recognize`。从同一 invocation/trace 查看 `scan_recognize_timing`，结合 `audit_ms`、`catalog_ms`、`settlement_ms` 分析等待。沿用 `api_request.request_id` / `X-Request-ID` 的传输关联；扫描请求体的 `request_id` / Idempotency-Key 是另一业务契约，不混为同一标识。快请求以及未走到分段计时出口的失败可能没有 `scan_recognize_timing`，不能据此从统计中丢弃。
+
+## Placement 两轮对照（待生产执行）
+
+本轮保持 `[env.prod.placement]` 的 `mode = "smart"` 不变。直接同时发布扫描并行、新日志和定向 Placement 会混淆因果，不符合单变量对照：
+
+1. **首轮：并行扫描 + 新日志 + 既有 Smart Placement。** 确认批准的业务源码、产物、生产版本及流量后发布并采集稳定基线。Hyperdrive 缓存策略保持不变；Linux dev 的验证不能替代生产地域基线。
+2. **第二轮：仅替换 Placement。** 首轮样本与回退点确认后，保持相同 Worker 业务脚本及静态产物，只将下面的生产配置替换到原段落，并同步原有部署配置测试；不得同时保留 `mode = "smart"`：
+
+   ```toml
+   [env.prod.placement]
+   region = "aws:us-east-1"
+   ```
+
+   这是待执行配置，不是本轮已经修改或发布的状态。发布前复核源数据库区域；历史 Hyperdrive 主机名给出 us-east-1 线索，不替代源数据库区域元数据确认。Placement 调整 Worker 执行位置，不迁移数据库、不换 App API 域名，也不要求实际节点必须名为 IAD。两轮之间不调整 Hyperdrive 缓存、连接上限、SQL、超时、重试或其他业务行为。若需调整，必须另开测量窗口。
+3. **配置与回退核验。** 只读回读现网 Placement 区域、deployment/version/流量、Worker 脚本及绑定/缓存配置，确认请求属于本次版本；同时核验两个 prod Admin 入口，不能以 API 域名副本替代 Pages 入口。保留首轮 Smart Placement 的生产版本及配置快照；发生回归时按批准的回退流程恢复首轮状态，回读配置后单独划分回退时间窗。
+4. **效果对照。** 同接口、地区、状态口径和采集方式比较完整请求样本，包含快请求及失败请求；按 invocation 去重，记录时间窗、版本、样本数及日志采样/缺失情况。分别报告成功、失败和总量，避免快速失败制造“延迟改善”；分别查看 AU 的 SYD/ADL 入口及其他国家，补验登录、Search、Portfolio。分段慢日志仅用于诊断；P50/P95、`duration_ms > 5000` 占比需使用全量 `api_request` 或同口径平台数据，不能混用计时来源，也不能把慢日志作为分母。客户端完整请求耗时需要真实客户端独立测量。
+
+用户提供的历史基线为 AU 108 次、Worker P50 1.707 秒、P95 6.643 秒、超过 5 秒 45 次（41.7%）；本轮未取得原始全量样本、时间窗或对应版本，未独立复算，不能直接视作首轮发布后的控制组。目标可设为同口径 P95 <3 秒、超过 5 秒占比 <5%，这是待验收目标而非收益承诺。
+
+主库附近执行可能减少多次串行跨区域数据库往返，但现有四百多毫秒分段并非地域根因的充分证据。若配置与请求放置证据已表明靠近主库，`audit_ms` 等仍高，应继续检查连接池等待、数据库执行及其他链路；不靠再次改变地域猜测修复。原有缓存一致性验收缺口不因增加日志或切换 Placement 自动关闭。
+
+参考：2026-09-30 核对 Cloudflare 官方 [Placement](https://developers.cloudflare.com/workers/configuration/placement/) 文档及仓库安装的 Wrangler placement schema；文档定义区域提示与 Smart Placement 的互斥选择，并说明放置标记的观测限制。
+
 ## Android 新账号扫描入口修复（2026-09-29，隔离测试包已验证）
 
 Pixel_8 新 UID 100044 已取得服务端 Free 额度，但 Android 当前未配置本地订阅商店，本地权益保持 unknown，原 Scan 入口因此拒绝打开 Gallery。修复限定为：仅在 Android、本地订阅商店未配置、刷新本地权益仍 unknown 时，额外刷新一次服务端 quota；只有请求成功且结果是服务端权威状态才继续原有额度检查。失败、非权威初始值或陈旧缓存不放行，额度为 0 时仍执行原有等待/付费提示逻辑。

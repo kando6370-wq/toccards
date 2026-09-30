@@ -28,8 +28,71 @@ describe("API request correlation", () => {
       method: "GET",
       path: "/api/v1/health",
       status: 200,
+      placement: null,
+      ingress_colo: null,
+      country: null,
     });
     expect(JSON.parse(String(entry?.[1])).duration_ms).toEqual(expect.any(Number));
+  });
+
+  it.each([
+    { placement: "remote-IAD", colo: "SYD", country: "AU" },
+    { placement: "local-ADL", colo: "ADL", country: "AU" },
+    { placement: "future-placement-marker", colo: "FRA", country: "DE" },
+  ])("records runtime placement $placement and ingress $colo without assuming an execution region", async ({ placement, colo, country }) => {
+    const logs = vi.spyOn(console, "info").mockImplementation(() => {});
+    const request = new Request("https://api.example.com/api/v1/health", {
+      headers: {
+        [REQUEST_ID_HEADER]: CLIENT_REQUEST_ID,
+        "cf-placement": placement,
+        "CF-IPCountry": "US",
+        "CF-Ray": "untrusted-ray-LAX",
+      },
+    });
+    Object.defineProperty(request, "cf", {
+      value: { colo, country, city: "sensitive-city", latitude: "-33.86" },
+    });
+
+    const response = await app.request(request, undefined, {} as Env);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get(REQUEST_ID_HEADER)).toBe(CLIENT_REQUEST_ID);
+    const entries = logs.mock.calls.filter(([event]) => event === "api_request");
+    expect(entries).toHaveLength(1);
+    expect(JSON.parse(String(entries[0]?.[1]))).toEqual({
+      request_id: CLIENT_REQUEST_ID,
+      method: "GET",
+      path: "/api/v1/health",
+      status: 200,
+      duration_ms: expect.any(Number),
+      placement,
+      ingress_colo: colo,
+      country,
+    });
+  });
+
+  it.each([
+    { cf: undefined, ingress_colo: null, country: null },
+    { cf: {}, ingress_colo: null, country: null },
+    { cf: { colo: "SYD" }, ingress_colo: "SYD", country: null },
+    { cf: { country: "AU" }, ingress_colo: null, country: "AU" },
+    { cf: { colo: "SYD", country: "AU" }, ingress_colo: "SYD", country: "AU" },
+  ])("keeps missing runtime metadata null instead of inferring placement or trusting geo headers: $cf", async ({ cf, ingress_colo, country }) => {
+    const logs = vi.spyOn(console, "info").mockImplementation(() => {});
+    const request = new Request("https://api.example.com/api/v1/health", {
+      headers: { "CF-IPCountry": "US", "CF-Ray": "untrusted-ray-IAD" },
+    });
+    if (cf !== undefined) Object.defineProperty(request, "cf", { value: cf });
+
+    const response = await app.request(request, undefined, {} as Env);
+
+    expect(response.status).toBe(200);
+    const entry = logs.mock.calls.find(([event]) => event === "api_request");
+    expect(JSON.parse(String(entry?.[1]))).toMatchObject({
+      placement: null,
+      ingress_colo,
+      country,
+    });
   });
 
   it("generates distinct UUID v4 ids when the caller id is missing or invalid", async () => {
@@ -88,12 +151,21 @@ describe("API request correlation", () => {
     });
     failingApp.onError((_error, context) => context.json({ error: "FAILED" }, 500));
 
-    const response = await failingApp.request("/api/v1/failure");
+    const request = new Request("https://api.example.com/api/v1/failure", {
+      headers: { "cf-placement": "remote-IAD" },
+    });
+    Object.defineProperty(request, "cf", { value: { colo: "SYD", country: "AU" } });
+    const response = await failingApp.request(request);
 
     expect(response.status).toBe(500);
     expect(response.headers.get(REQUEST_ID_HEADER)).toMatch(REQUEST_ID_PATTERN);
     const entry = logs.mock.calls.find(([event]) => event === "api_request");
-    expect(JSON.parse(String(entry?.[1]))).toMatchObject({ status: 500 });
+    expect(JSON.parse(String(entry?.[1]))).toMatchObject({
+      status: 500,
+      placement: "remote-IAD",
+      ingress_colo: "SYD",
+      country: "AU",
+    });
   });
 
   it("logs the route template instead of user identifiers from path parameters", async () => {

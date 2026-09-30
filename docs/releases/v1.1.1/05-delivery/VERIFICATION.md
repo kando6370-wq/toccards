@@ -634,3 +634,35 @@ Android 门禁 BUG 已有修复前失败、修复后同路径设备成功、平�
 - 真实生产登录态的图片点击未执行，未使用用户会话或账号；本轮确认的是交付产物及入口/CORS/鉴权一致，交互行为仍引用已通过的本地模拟图片测试，不扩写为生产端到端全验收。
 - `git ls-remote` 回读 main 仍为 `e9e7578`、dev 为 `10b5c55`。Pages main 自动部署仍开启，后续构建覆盖当前手动产物的风险存在，需另行授权将仅 Admin 的改动同步 main。未擅自提交、推送、合并或禁用自动部署。
 - 脱敏前后快照与双域名检查结果留在本地忽略目录 `apps/workers-api/.wrangler/prod-admin-preview-20260929`，不加入 docs/Git；用户随后明确授权提交并推送这 5 份文档到当前 dev 分支。Git 交付前再次通过 43 处本地链接检查、diff 检查及文档自审；本轮仅文档，不重复运行应用测试，不合并 main 或另行部署。
+
+## 2026-09-30：请求放置日志本地整改与两轮 Placement 验收边界
+
+### 定位、根因与修改范围
+
+- 本地环境：Windows / Node 22.20.0 / pnpm 11.9.0 / Vitest 4.1.9 / Wrangler 4.106.0；起点为 `dev@d96042d`。本地落后已存在的 `github/dev` 跟踪引用一项内部包版本/文档提交；未执行拉取、合并或重新发布该包。
+- 问题：已有 `api_request` 包含传输 `request_id`、路由模板、状态及耗时，却丢弃运行时放置/入口/国家信息；无法仅凭既有日志区分入口节点与执行位置。这是观测缺口，不是已经证实的扫描延迟根因。
+- 稳定复现：在 Node 测试中给请求注入 `cf-placement` 与 `request.cf`，既有日志仍只有原五个字段。先补回归断言，在未修改实现时请求日志测试 10 失败 / 4 通过；失败均为新增字段缺失，包括不带 CF 元数据的请求应输出显式 `null` 的断言。
+- 最小修复：仅在 `src/request-id.ts` 的既有日志对象增加三行读取；沿用现有 Request 类型和可选链，不增加强制类型转换、环境分支或新请求 ID。测试覆盖 remote/local/未来格式标记、入口与执行位置不同、缺失/部分 CF 信息、错误响应、保留请求关联以及不泄露完整 CF 元数据。
+- 影响面：共享中间件覆盖的全部 `/api/v1/*` 完成日志，包括 Cloudflare prod 与 Linux dev；响应契约、CORS、鉴权、计费、SQL、扫描并行逻辑、分段计时阈值均不变，非业务 API 路径仍无该日志。没有改动数据库 migration、依赖、绑定或缓存配置；未复制或扩展 D1 测试路径。
+- 实现说明及待执行试验流程已同步到[扫描流程](../01-flows/scan-recognition.md)。用户原有版本入口修改与未跟踪的 Portfolio 调研文件保持不动；不修改 v1.0.0 冻结内容及 v1.1.0 归档。
+
+### 实际验证
+
+| 命令 / 检查 | 退出状态与结果 |
+|---|---|
+| 基线：`pnpm --filter @kando/workers-api exec vitest run src/request-id.test.ts src/deployment-config.test.ts` | 0；原有 9/9 通过 |
+| 修复前：`pnpm --filter @kando/workers-api exec vitest run src/request-id.test.ts` | 1；10 失败、4 通过，确认旧实现不能满足新增观测契约，不是跳过或放宽断言 |
+| 修复后：`pnpm --filter @kando/workers-api exec vitest run src/request-id.test.ts src/deployment-config.test.ts` | 0；17/17 通过 |
+| 扩展回归：`pnpm --filter @kando/workers-api exec vitest run src/scan/routes.test.ts src/request-id.test.ts src/deployment-config.test.ts` | 0；70/70 通过（扫描路由 53、请求日志 14、部署配置 3）；扫描使用既有本地 PGlite 基座，未连生产数据库 |
+| `pnpm --filter @kando/workers-api exec vitest run src/linux/config.test.ts src/linux/execution-context.test.ts src/linux/filesystem-r2.test.ts src/linux/in-memory-kv.test.ts src/linux/vector-recognition.test.ts` | 0；Linux 适配相关 20/20 通过；仍是本地测试，不代表 Linux 服务器部署验收 |
+| `pnpm --filter @kando/workers-api type-check` | 0；Workers TypeScript 检查通过 |
+| `pnpm --filter @kando/workers-api deploy:dry-run:prod` | 0；auth-core / Admin prod 构建及 Worker 打包通过，明确以 `--dry-run: exiting now` 结束；本地 Worker 产物含新增日志字段，未上传或部署 |
+| 文档链接 / `git diff --check` | 本次两份文档的本地链接、UTF-8/末尾换行检查通过；初次 diff 检查发现本轮追加记录多一个 EOF 空行，已修正并重跑通过 |
+
+### Code Review 与未验收事项
+
+- 本轮执行主代理 Code Review 自审：复核中间件直接调用方、Cloudflare/Linux 入口、扫描计时契约、最终差异与回归结果；未发现阻断项。审查确认运行时代码仅增加三个日志字段，不以 `CF-Ray` / `CF-IPCountry` 替代 `request.cf`，不把 `ingress_colo` 当作实际执行节点，不改变 500 响应或既有请求关联。未进行独立第二审查人评审。
+- 当前代码配置仍是 `[env.prod.placement] mode = "smart"`；本轮未改为 `region = "aws:us-east-1"`，因为用户要求先稳定运行“扫描并行 + 新日志”再只改 Placement。第二轮配置、指标口径和回退边界见扫描流程；本轮没有把待执行配置写成已部署状态。
+- 未执行：Git commit/push、Linux dev/prod 部署、生产版本/绑定/缓存回读、全量生产日志采集、生产数据库操作、真实扫描扣次、iOS/Android 客户端计时和登录/Search/Portfolio 的生产回归。发布执行者需先确认批准的源码/产物及版本，再按两轮流程采集包含快请求和失败请求的同口径样本；设备持有者补客户端端到端验证。这些缺口使本轮只能证明本地观测实现，不能证明性能改善。
+- 未运行全仓测试、Flutter 构建/真机验收或独立 PostgreSQL 多连接复验：本轮未改变 App、扫描/配额 SQL 或并发控制，已运行与新增日志及双运行入口相关的本地检查；不将这些未运行项标为通过。
+- AU 108 次、P50 1.707 秒、P95 6.643 秒、超过 5 秒 45 次（41.7%）仅为用户提供的历史样本，本轮未重新查询或复算；P95 <3 秒、超过 5 秒占比 <5% 仍为待验收目标。未将 `scan_recognize_timing` 慢日志用作全量分布，也未关闭既有 Hyperdrive 缓存一致性验收缺口。
