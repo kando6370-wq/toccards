@@ -229,6 +229,7 @@ type ScanRecognitionCheckpoints = {
   authenticated: number;
   reserved: number;
   imageStored: number;
+  recognitionStarted: number;
   recognized: number;
   catalogLoaded: number;
   auditStored: number;
@@ -248,9 +249,9 @@ function logSlowScanRecognitionTiming(
     auth_ms: duration(checkpoints.started, checkpoints.authenticated),
     preflight_ms: duration(checkpoints.authenticated, checkpoints.reserved),
     image_ms: duration(checkpoints.reserved, checkpoints.imageStored),
-    recognition_ms: duration(checkpoints.imageStored, checkpoints.recognized),
+    recognition_ms: duration(checkpoints.recognitionStarted, checkpoints.recognized),
     catalog_ms: duration(checkpoints.recognized, checkpoints.catalogLoaded),
-    audit_ms: duration(checkpoints.catalogLoaded, checkpoints.auditStored),
+    audit_ms: duration(Math.max(checkpoints.imageStored, checkpoints.catalogLoaded), checkpoints.auditStored),
     settlement_ms: duration(checkpoints.auditStored, completed),
   }));
 }
@@ -470,28 +471,28 @@ export function createScanRoutes() {
       image,
       createdAt,
     );
-    try {
-      await imageBucket.put(imageKey, image.bytes, {
-        httpMetadata: { contentType: image.contentType },
-        customMetadata: {
-          scanId,
-          ownerType: auth.owner.owner_type,
-          ownerId: auth.owner.owner_id,
-        },
-      });
-    } catch (error) {
-      console.error("Failed to store scan image.", error);
-      await settleScanQuota(c.env.DB, auth.owner, requestId, "released", null, {
-        body: INTERNAL_ERROR_RESPONSE,
-        status: 500,
-      });
-      return c.json(INTERNAL_ERROR_RESPONSE, 500);
-    }
-    const imageStoredAt = performance.now();
+    // Handle upload rejection immediately, but drain both branches before settling quota.
+    const imageUpload = (async () => {
+      try {
+        await imageBucket.put(imageKey, image.bytes, {
+          httpMetadata: { contentType: image.contentType },
+          customMetadata: {
+            scanId,
+            ownerType: auth.owner.owner_type,
+            ownerId: auth.owner.owner_id,
+          },
+        });
+        return performance.now();
+      } catch (error) {
+        console.error("Failed to store scan image.", error);
+        return null;
+      }
+    })();
 
     let recognitionPayload: unknown = null;
     let upstreamFailed = false;
     const startedAt = Date.now();
+    const recognitionStartedAt = performance.now();
     try {
       const response = await vectorRecognition.fetch("https://recognize-vec.internal/recognize", {
         method: "POST",
@@ -538,6 +539,16 @@ export function createScanRoutes() {
       }
     }
     const catalogLoadedAt = performance.now();
+    const imageStoredAt = await imageUpload;
+    if (imageStoredAt === null) {
+      // A failed acknowledgement can still leave a stored image; no audit owns it yet.
+      await deleteUploadedImage(imageBucket, imageKey);
+      await settleScanQuota(c.env.DB, auth.owner, requestId, "released", null, {
+        body: INTERNAL_ERROR_RESPONSE,
+        status: 500,
+      });
+      return c.json(INTERNAL_ERROR_RESPONSE, 500);
+    }
     const results: ScanResult[] = [
       { index: 1, matched: candidates.length > 0, candidates },
     ];
@@ -605,6 +616,7 @@ export function createScanRoutes() {
       authenticated: authenticatedAt,
       reserved: reservedAt,
       imageStored: imageStoredAt,
+      recognitionStarted: recognitionStartedAt,
       recognized: recognizedAt,
       catalogLoaded: catalogLoadedAt,
       auditStored: auditStoredAt,

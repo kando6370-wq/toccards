@@ -606,6 +606,7 @@ void main() {
       expect(subscription.refreshCount, 1);
       expect(source.photoCallCount, 1);
     },
+    variant: TargetPlatformVariant({TargetPlatform.android, TargetPlatform.iOS}),
   );
 
   testWidgets(
@@ -628,6 +629,7 @@ void main() {
       expect(source.photoCallCount, 1);
       expect(find.text('Subscription'), findsNothing);
     },
+    variant: TargetPlatformVariant({TargetPlatform.android, TargetPlatform.iOS}),
   );
 
   testWidgets(
@@ -650,10 +652,11 @@ void main() {
       expect(source.photoCallCount, 0);
       expect(find.text('Subscription'), findsOneWidget);
     },
+    variant: TargetPlatformVariant({TargetPlatform.android, TargetPlatform.iOS}),
   );
 
   testWidgets(
-    'unknown entitlement refresh failure neither scans nor shows a free paywall',
+    'iOS unknown entitlement refresh failure neither scans nor shows a free paywall',
     (tester) async {
       final source = _TestScanResultSource(
         photoResult: Future.value(const ScanResolution.noMatch()),
@@ -677,6 +680,161 @@ void main() {
       );
       await tester.pump(kandoTopToastDuration);
     },
+    variant: TargetPlatformVariant({TargetPlatform.iOS}),
+  );
+
+  for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+    for (final gallery in [false, true]) {
+      testWidgets(
+        '${platform.name} server quota fallback for ${gallery ? 'Gallery' : 'Photo'} keeps iOS entitlement verification unchanged',
+        (tester) async {
+          final result = Completer<ScanResolution>();
+          final source = _TestScanResultSource(
+            photoResult: result.future,
+            libraryResult: result.future,
+          );
+          final subscription = _ResolvingScanSubscriptionController(
+            AppPremiumState.unknown,
+          );
+          final quota = _TestScanQuotaController(_availableQuota);
+          await _pumpScanTestApp(
+            tester,
+            scanResultSource: source,
+            scanQuotaController: quota,
+            subscriptionController: () => subscription,
+          );
+          expect(quota.refreshCount, 1);
+          await tester.tap(
+            find.byTooltip(gallery ? 'Choose from Library' : 'Take Photo'),
+          );
+          await tester.pump();
+          final android = platform == TargetPlatform.android;
+          if (!android) await tester.pumpAndSettle();
+
+          expect(
+            gallery ? source.libraryCallCount : source.photoCallCount,
+            android ? 1 : 0,
+          );
+          expect(quota.refreshCount, android ? 2 : 1);
+          expect(subscription.state.premiumState, AppPremiumState.unknown);
+          expect(subscription.state.isPro, isFalse);
+          expect(find.text('Subscription'), findsNothing);
+          if (!android) {
+            expect(
+              find.text('Unable to verify Premium access. Please try again.'),
+              findsOneWidget,
+            );
+          }
+          result.complete(const ScanResolution.noMatch());
+          await tester.pump(const Duration(seconds: 3));
+          await tester.pumpAndSettle();
+          await tester.pump(kandoTopToastDuration);
+        },
+        variant: TargetPlatformVariant({platform}),
+      );
+    }
+  }
+
+  for (final refreshFails in [true, false]) {
+    testWidgets(
+      'Android server quota fallback rejects ${refreshFails ? 'failed refresh despite cached quota' : 'non-authoritative local quota'}',
+      (tester) async {
+        final source = _TestScanResultSource(
+          photoResult: Future.value(const ScanResolution.noMatch()),
+        );
+        final quota = _TestScanQuotaController(
+          _availableQuota,
+          refreshSucceeds: !refreshFails,
+          serverAuthoritative: refreshFails,
+        );
+        await _pumpScanTestApp(
+          tester,
+          scanResultSource: source,
+          scanQuotaController: quota,
+          subscriptionController: () =>
+              _ResolvingScanSubscriptionController(AppPremiumState.unknown),
+        );
+        await tester.tap(find.byTooltip('Choose from Library'));
+        await tester.pumpAndSettle();
+
+        expect(source.libraryCallCount, 0);
+        expect(quota.refreshCount, 2);
+        expect(find.text('Subscription'), findsNothing);
+        expect(
+          find.text('Unable to verify Premium access. Please try again.'),
+          findsOneWidget,
+        );
+        await tester.pump(kandoTopToastDuration);
+      },
+      variant: TargetPlatformVariant({TargetPlatform.android}),
+    );
+  }
+
+  testWidgets(
+    'Android server quota fallback keeps exhausted Free users out of the picker',
+    (tester) async {
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.noMatch()),
+      );
+      final quota = _TestScanQuotaController(
+        _availableQuota,
+        refreshQuotas: const [_availableQuota, _exhaustedQuota],
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanQuotaController: quota,
+        subscriptionController: () =>
+            _ResolvingScanSubscriptionController(AppPremiumState.unknown),
+      );
+      await tester.tap(find.byTooltip('Choose from Library'));
+      await tester.pumpAndSettle();
+
+      expect(quota.refreshCount, 2);
+      expect(source.libraryCallCount, 0);
+      expect(find.text('Subscription'), findsOneWidget);
+    },
+    variant: TargetPlatformVariant({TargetPlatform.android}),
+  );
+
+  testWidgets(
+    'Android server quota fallback coalesces taps until the authoritative refresh completes',
+    (tester) async {
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.noMatch()),
+      );
+      final gate = Completer<void>();
+      final quota = _TestScanQuotaController(
+        _availableQuota,
+        refreshQuotas: const [_availableQuota, _availableQuota],
+        refreshGates: [Future<void>.value(), gate.future],
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanQuotaController: quota,
+        subscriptionController: () =>
+            _ResolvingScanSubscriptionController(AppPremiumState.unknown),
+      );
+      try {
+        await tester.tap(find.byTooltip('Choose from Library'));
+        await tester.pump();
+        await tester.tap(find.byTooltip('Choose from Library'));
+        await tester.pump();
+        expect(quota.refreshCount, 2);
+        expect(source.libraryCallCount, 0);
+
+        gate.complete();
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 3));
+        await tester.pumpAndSettle();
+        expect(source.libraryCallCount, 1);
+      } finally {
+        if (!gate.isCompleted) gate.complete();
+        await tester.pump(kandoTopToastDuration);
+      }
+    },
+    variant: TargetPlatformVariant({TargetPlatform.android}),
   );
 
   testWidgets('Scan requests camera access before opening the camera', (
@@ -4868,12 +5026,16 @@ class _TestScanQuotaController extends ScanQuotaController {
     this.refreshQuotas = const [],
     this.refreshGates = const [],
     this.loadingRefreshIndexes = const {},
+    this.refreshSucceeds = true,
+    this.serverAuthoritative = true,
   });
 
   final ScanQuotaDto quota;
   final List<ScanQuotaDto> refreshQuotas;
   final List<Future<void>> refreshGates;
   final Set<int> loadingRefreshIndexes;
+  final bool refreshSucceeds;
+  final bool serverAuthoritative;
   var _refreshIndex = 0;
   var refreshCount = 0;
 
@@ -4882,12 +5044,13 @@ class _TestScanQuotaController extends ScanQuotaController {
     limit: quota.limit,
     remainingScans: quota.remaining,
     unlimited: quota.unlimited,
-    isServerAuthoritative: true,
+    isServerAuthoritative: serverAuthoritative,
   );
 
   @override
   Future<bool> refresh() async {
     refreshCount += 1;
+    if (!refreshSucceeds) return false;
     if (loadingRefreshIndexes.contains(_refreshIndex)) {
       state = state.copyWith(isLoading: true);
     }

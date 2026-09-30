@@ -5,6 +5,7 @@ import {
   DatePicker,
   Drawer,
   Form,
+  Image,
   Input,
   Layout,
   Menu,
@@ -1145,11 +1146,14 @@ function ScanDetailDrawer({ scan, session, onClose }: { scan: ScanDetail | null;
                 <div className="candidate-card" key={index}>
                   <span className="candidate-thumb">
                     {typeof candidate.image_url === "string" && candidate.image_url && (
-                      <img
+                      <Image
                         src={candidate.image_url}
                         alt={String(candidate.name ?? "候选卡牌")}
+                        title="点击放大"
+                        width="100%"
+                        height="100%"
                         loading="lazy"
-                        onError={(event) => { event.currentTarget.style.display = "none"; }}
+                        preview={{ mask: false }}
                       />
                     )}
                   </span>

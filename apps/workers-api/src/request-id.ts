@@ -28,6 +28,9 @@ export function apiRequestId(): MiddlewareHandler {
         path: completionPath(context),
         status: failed ? 500 : context.res.status,
         duration_ms: Math.max(0, Math.round(performance.now() - startedAt)),
+        placement: context.req.header("cf-placement") ?? null,
+        ingress_colo: context.req.raw.cf?.colo ?? null,
+        country: context.req.raw.cf?.country ?? null,
       }));
     }
   };

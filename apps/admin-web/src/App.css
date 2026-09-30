@@ -716,7 +716,7 @@ body {
   padding: 10px;
 }
 
-.scan-detail-drawer .candidate-card div {
+.scan-detail-drawer .candidate-card > div {
   display: grid;
   gap: 3px;
 }
@@ -730,7 +730,12 @@ body {
   overflow: hidden;
 }
 
+.scan-detail-drawer .candidate-thumb .ant-image-error {
+  display: none;
+}
+
 .scan-detail-drawer .candidate-thumb img {
+  cursor: zoom-in;
   display: block;
   height: 100%;
   object-fit: contain;
