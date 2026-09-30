@@ -634,3 +634,11 @@ Android 门禁 BUG 已有修复前失败、修复后同路径设备成功、平�
 - 真实生产登录态的图片点击未执行，未使用用户会话或账号；本轮确认的是交付产物及入口/CORS/鉴权一致，交互行为仍引用已通过的本地模拟图片测试，不扩写为生产端到端全验收。
 - `git ls-remote` 回读 main 仍为 `e9e7578`、dev 为 `10b5c55`。Pages main 自动部署仍开启，后续构建覆盖当前手动产物的风险存在，需另行授权将仅 Admin 的改动同步 main。未擅自提交、推送、合并或禁用自动部署。
 - 脱敏前后快照与双域名检查结果留在本地忽略目录 `apps/workers-api/.wrangler/prod-admin-preview-20260929`，不加入 docs/Git；用户随后明确授权提交并推送这 5 份文档到当前 dev 分支。Git 交付前再次通过 43 处本地链接检查、diff 检查及文档自审；本轮仅文档，不重复运行应用测试，不合并 main 或另行部署。
+
+## 2026-09-29：iOS 测试环境内部安装包 1.0.4 (162)
+
+从干净的 `dev@10b5c553d2331b2e13075b697694f6def5051b50` 构建，仅交付内部安装包，不安装或上传。`config/test.json` 校验通过，目标 dev API `http://192.168.50.201:8080/api/v1/health` 返回 HTTP 200；环境相关 Flutter 测试 13 项通过。执行 `./tool/release_ios.sh --env test --pgy` 退出 0，依赖解析、`flutter analyze`、清理构建、Xcode 归档与导出通过；`pubspec.yaml` 由 `1.0.4+161` 更新为 `1.0.4+162`，Dart/CocoaPods 锁文件未变化。
+
+最终内部 IPA 解包校验为 `com.kando.kandoApp.beta`、Apple Development 签名、App Attest `development`、测试 Firebase 及上述内网 API；42 个 Mach-O UUID 均有匹配 dSYM。保存的 IPA 为 39,921,830 字节，SHA-256 `4c0314bc0508177b707f310fff1d56e53a7a0b55b1f4ae46cd708b77493df4c4`，与导出源一致；`dSYMs.zip` 为 61,004,904 字节，SHA-256 `4655b6075d9a5f605d17698f625225923f4575186fd87d4dd204af978870d0f9`。两份 ZIP 完整性检查通过，保存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.4-162/`。按测试包保留 3 版规则，旧 157 版移入废纸篓，当前保留 159、160、162；正式包及 Xcode Archives 不受影响。
+
+未运行全量 Flutter/Android 测试、iOS 真机登录/购买/扫描验收；本次只构建 iOS 内部测试包，未安装设备、上传蒲公英或 App Store Connect，也未提交/推送 Git 或部署服务端。
