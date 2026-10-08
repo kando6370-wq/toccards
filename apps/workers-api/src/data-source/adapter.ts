@@ -71,9 +71,9 @@ export type MarketPrice = {
 };
 
 export type SoldListing = {
-  date: string;
+  date: string | null;
   title: string;
-  price: number;
+  price: number | null;
   platform: string;
   url: string | null;
 };

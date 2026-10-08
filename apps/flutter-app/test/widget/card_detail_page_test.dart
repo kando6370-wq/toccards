@@ -875,6 +875,37 @@ void main() {
   );
 
   testWidgets(
+    'Sports Shop opens eBay without presenting a made-up price or date',
+    (tester) async {
+      final actions = _RecordingCardDetailActions();
+      await tester.pumpWidget(
+        _CardDetailTestApp(
+          cardId: 'sports-rookie',
+          repository: const _SportsShopCardDetailRepository(),
+          actions: actions,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(find.text('Shop'), 400);
+      await tester.ensureVisible(
+        find.text('Alex Rookie / Rookie Debut / 14/100'),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('eBay'), findsOneWidget);
+      expect(find.text('TCGplayer'), findsNothing);
+      expect(find.text(r'$0.00'), findsNothing);
+      await tester.tap(find.text('Alex Rookie / Rookie Debut / 14/100'));
+      await tester.pumpAndSettle();
+
+      expect(
+        actions.marketplaceUrl,
+        'https://www.ebay.com/sch/i.html?_nkw=Alex+Rookie',
+      );
+    },
+  );
+
+  testWidgets(
     'sold listings action uses the real card identity because the external query must match the detail',
     (tester) async {
       final actions = _RecordingCardDetailActions();
@@ -3436,5 +3467,35 @@ class _FailingSectionCardDetailRepository extends MockCardDetailRepository
   @override
   Future<List<CardSoldListing>> loadSoldListings(String cardId) {
     throw StateError('sold listings unavailable');
+  }
+}
+
+class _SportsShopCardDetailRepository extends MockCardDetailRepository {
+  const _SportsShopCardDetailRepository();
+
+  @override
+  Future<CardDetail> loadDetail(AuthSession session, String cardId) async {
+    return const CardDetail(
+      id: 'sports-rookie',
+      type: CardDetailType.sports,
+      name: 'Alex Rookie',
+      game: 'Basketball',
+      setName: 'Rookie Debut',
+      identityLine: '#14/100',
+      finish: 'Normal',
+      language: 'English',
+      quantity: 0,
+      isWishlisted: false,
+      marketPrices: [],
+      soldListings: [
+        CardSoldListing(
+          dateText: null,
+          title: 'Alex Rookie / Rookie Debut / 14/100',
+          priceUsd: null,
+          platform: 'eBay',
+          url: 'https://www.ebay.com/sch/i.html?_nkw=Alex+Rookie',
+        ),
+      ],
+    );
   }
 }

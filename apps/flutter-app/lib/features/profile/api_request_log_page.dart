@@ -218,6 +218,15 @@ class _ApiRequestLogTile extends StatelessWidget {
                 height: 18 / 13,
               ),
             ),
+            const SizedBox(height: 6),
+            SelectableText(
+              'Request ID: ${entry.requestId}',
+              style: TextStyle(
+                color: KandoColors.mutedText.withValues(alpha: 0.85),
+                fontSize: 12,
+                height: 16 / 12,
+              ),
+            ),
             const SizedBox(height: 10),
             Row(
               children: [

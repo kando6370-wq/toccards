@@ -44,18 +44,37 @@ describe("scan routes", () => {
     expect((env.SCAN_IMAGES as unknown as FakeR2).objects.size).toBe(0);
   });
 
-  it("passes game_id to pHash retrieval and still filters the local catalog", async () => {
+  it("rejects unsupported card types before recognition because the upstream contract is binary", async () => {
+    const env = await createRecognitionEnv();
+    const token = await recognitionToken(env);
+    const upstream = vi.fn();
+    stubVectorRecognition(env, upstream);
+
+    const response = await recognize(env, token, {
+      vector: VECTOR,
+      card_type: 2,
+    });
+
+    expect(response.status).toBe(422);
+    expect(upstream).not.toHaveBeenCalled();
+  });
+
+  it("keeps the game filter in the catalog boundary because vector search receives no game or owner information", async () => {
     const env = await createRecognitionEnv();
     await insertRows(env.DB, "cards_all",
       { product_id: "same-game", game_id: 1, game: "Pokemon", name: "Wanted Card", set_name: "Set A", product_type_name: "Cards" },
       { product_id: "other-game", game_id: 2, game: "Magic", name: "Other Card", set_name: "Set B", product_type_name: "Cards" },
     );
     const upstream = vi.fn(async (_url, init) => {
-      expect(JSON.parse(init.body)).toEqual({ ...HASHES, game_id: 1 });
+      expect(JSON.parse(init.body)).toEqual({ vector: VECTOR, card_type: 1 });
       return Response.json({ candidates: [{ product_id: "other-game", confidence: 99 }, { product_id: "same-game", confidence: 90 }] });
     });
-    stubPhashRecognition(env, upstream);
-    const response = await recognize(env, await recognitionToken(env), { ...HASHES, game_id: 1 });
+    stubVectorRecognition(env, upstream);
+    const response = await recognize(env, await recognitionToken(env), {
+      vector: VECTOR,
+      game_id: 1,
+      card_type: 1,
+    });
     expect(response.status).toBe(200);
     const body = await response.json() as { data: { results: Array<{ candidates: Array<{ card_ref: string }> }> } };
     expect(body.data.results[0].candidates.map((candidate) => candidate.card_ref)).toEqual(["same-game"]);
@@ -66,7 +85,7 @@ describe("scan routes", () => {
     await Promise.all(databases.splice(0).map((db) => db.close()));
   });
 
-  it("keeps Linux catalog, records and quota local while sending only hashes and game_id upstream", async () => {
+  it("keeps Linux catalog reads, scan records and quota local while sending vector and card type to CF recognition", async () => {
     const env = await createRecognitionEnv();
     await insertRows(env.DB, "cards_all", {
       product_id: "linux-card",
@@ -95,7 +114,7 @@ describe("scan routes", () => {
       expect.objectContaining({
         method: "POST",
         headers: { Accept: "application/json", "Content-Type": "application/json" },
-        body: JSON.stringify({ ...HASHES, game_id: 1 }),
+        body: JSON.stringify({ vector: VECTOR, card_type: 0 }),
       }),
     );
     expect(response.status).toBe(200);
@@ -223,7 +242,7 @@ describe("scan routes", () => {
         Accept: "application/json",
         "Content-Type": "application/json",
       });
-      expect(JSON.parse(String(init.body))).toEqual(HASHES);
+      expect(JSON.parse(String(init.body))).toEqual({ vector: VECTOR, card_type: 0 });
       return Response.json({
         candidates: [
           { product_id: 10738, confidence: 80.99 },
@@ -237,7 +256,11 @@ describe("scan routes", () => {
       "/api/v1/scan/recognize",
       {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Idempotency-Key": requestId },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Idempotency-Key": requestId,
+          "X-Request-ID": "123e4567-e89b-42d3-a456-426614174000",
+        },
         body: recognitionForm({
           request_id: requestId,
           ...HASHES, filename: "scan.jpg",
@@ -734,8 +757,8 @@ describe("scan routes", () => {
       },
     );
     const token = await recognitionToken(env);
-    stubPhashRecognition(env, async (_url: string, init: RequestInit) => {
-      expect(JSON.parse(String(init.body))).toEqual({ ...HASHES });
+    stubVectorRecognition(env, async (_url: string, init: RequestInit) => {
+      expect(JSON.parse(String(init.body))).toEqual({ vector: VECTOR, card_type: 0 });
       return Response.json({
         candidates: [
           { product_id: 610499, confidence: 84.1 },
@@ -1082,6 +1105,112 @@ describe("scan routes", () => {
     ]);
   });
 
+  it("returns authoritative quota after concurrent Gallery settlements because completion order must not hide a returned Free slot", async () => {
+    const env = await createRecognitionEnv();
+    const token = await recognitionToken(env);
+    await insertRows(env.DB, "cards_all", {
+      product_id: "gallery-valid",
+      game_id: 1,
+      game: "Pokemon",
+      set_name: "Gallery Set",
+      set_code: "GAL",
+      name: "Gallery Card",
+      rarity: "Rare",
+      product_type_name: "Cards",
+      image_url: null,
+      number: "001/100",
+    });
+    for (let index = 0; index < 8; index += 1) {
+      await insertRows(env.DB, "scan_quota_request", {
+        request_id: crypto.randomUUID(),
+        owner_type: "anonymous",
+        owner_id: "anon-1",
+        session_id: "session-1",
+        access_mode: "free",
+        status: "consumed",
+        processing_expires_at: null,
+        response_json: null,
+        http_status: null,
+      });
+    }
+
+    const successRequestId = crypto.randomUUID();
+    const noMatchRequestId = crypto.randomUUID();
+    for (const requestId of [successRequestId, noMatchRequestId]) {
+      const response = await app.request(
+        "/api/v1/scan/quota/reserve",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            "Idempotency-Key": requestId,
+          },
+          body: JSON.stringify({ request_id: requestId }),
+        },
+        env,
+      );
+      expect(response.status).toBe(200);
+    }
+
+    let releaseSuccess!: () => void;
+    let releaseNoMatch!: () => void;
+    let markFirstStarted!: () => void;
+    let markBothStarted!: () => void;
+    const successGate = new Promise<void>((resolve) => { releaseSuccess = resolve; });
+    const noMatchGate = new Promise<void>((resolve) => { releaseNoMatch = resolve; });
+    const firstStarted = new Promise<void>((resolve) => { markFirstStarted = resolve; });
+    const bothStarted = new Promise<void>((resolve) => { markBothStarted = resolve; });
+    const fetchMock = vi.fn(async () => {
+      const callIndex = fetchMock.mock.calls.length - 1;
+      if (callIndex === 0) markFirstStarted();
+      if (callIndex === 1) markBothStarted();
+      await (callIndex === 0 ? successGate : noMatchGate);
+      return callIndex === 0
+        ? Response.json({ candidates: [{ product_id: "gallery-valid", confidence: 96 }] })
+        : Response.json({ candidates: [] });
+    });
+    stubVectorRecognition(env, fetchMock);
+
+    const successPending = recognize(env, token, {
+      request_id: successRequestId,
+      vector: VECTOR,
+    });
+    await firstStarted;
+    const noMatchPending = recognize(env, token, {
+      request_id: noMatchRequestId,
+      vector: VECTOR,
+    });
+    await bothStarted;
+
+    releaseNoMatch();
+    const noMatch = await noMatchPending;
+    expect(await noMatch.json()).toMatchObject({
+      data: {
+        recognition_status: "no_match",
+        quota: { reserved: 1, consumed: 8, remaining: 1 },
+      },
+    });
+
+    releaseSuccess();
+    const success = await successPending;
+    expect(await success.json()).toMatchObject({
+      data: {
+        recognition_status: "success",
+        quota: { reserved: 0, consumed: 9, remaining: 1 },
+      },
+    });
+
+    const replay = await recognize(env, token, {
+      request_id: successRequestId,
+      vector: VECTOR,
+    });
+    expect(await replay.json()).toMatchObject({
+      data: { quota: { reserved: 0, consumed: 9, remaining: 1 } },
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("rejects the eleventh Free scan before R2 and vector search because the server quota is authoritative", async () => {
     const env = await createRecognitionEnv();
     const token = await recognitionToken(env);
@@ -1208,6 +1337,422 @@ describe("scan routes", () => {
     expect((env.SCAN_IMAGES as unknown as FakeR2).objects.size).toBe(0);
     expect((await readRows(env.DB, "scan_record"))).toEqual([]);
   });
+
+  it("isolates two concurrent Gallery batches at the Free limit because failures may return only their own slot", async () => {
+    const env = await createRecognitionEnv();
+    await insertParallelScanCard(env.DB);
+    await insertRows(env.DB, "anonymous_account", { id: "anon-2", upgraded_user_id: null });
+    await insertRows(env.DB, "session", {
+      id: "session-2", owner_type: "anonymous", owner_id: "anon-2",
+      expires_at: "2099-01-01T00:00:00.000Z", revoked_at: null,
+    });
+    const owners = await Promise.all([1, 2].map(async (index) => ({
+      ownerId: `anon-${index}`,
+      sessionId: `session-${index}`,
+      token: await signAccessToken({ owner_type: "anonymous", owner_id: `anon-${index}`, session_id: `session-${index}` }, env.JWT_SECRET),
+    })));
+    for (const owner of owners) {
+      for (let index = 0; index < 8; index += 1) {
+        await insertRows(env.DB, "scan_quota_request", {
+          request_id: crypto.randomUUID(), owner_type: "anonymous", owner_id: owner.ownerId,
+          session_id: owner.sessionId, access_mode: "free", status: "consumed", processing_expires_at: null,
+        });
+      }
+    }
+    const batches = await Promise.all(owners.map(async (owner) => {
+      const reservations = await Promise.all(Array.from({ length: 3 }, async () => {
+        const requestId = crypto.randomUUID();
+        const response = await reserveParallelScan(env, owner.token, requestId);
+        return { requestId, status: response.status };
+      }));
+      expect(reservations.map((r) => r.status).sort()).toEqual([200, 200, 403]);
+      return { ...owner, accepted: reservations.filter((r) => r.status === 200) };
+    }));
+    const items = batches.flatMap((batch, ownerIndex) => batch.accepted.map((reservation, index) => ({
+      ...reservation, ...owners[ownerIndex]!, marker: ownerIndex * 2 + index + 1,
+      outcome: index === 0 ? "success" : ownerIndex === 0 ? "no_match" : "image_failure",
+      uploadGate: scanGate(), recognitionGate: scanGate(),
+    })));
+    const bucket = env.SCAN_IMAGES as unknown as FakeR2;
+    const put = bucket.put.bind(bucket);
+    const upload = vi.spyOn(bucket, "put").mockImplementation(async (key, bytes) => {
+      const item = items.find((candidate) => key.includes(candidate.requestId));
+      if (item) {
+        await item.uploadGate.promise;
+        if (item.outcome === "image_failure") throw new Error("test Gallery image failure");
+      }
+      return put(key, bytes);
+    });
+    const upstream = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const marker = (JSON.parse(String(init?.body)) as { vector: number[] }).vector[0];
+      const item = items.find((candidate) => candidate.marker === marker);
+      if (item) await item.recognitionGate.promise;
+      return Response.json({ candidates: item?.outcome === "no_match" ? [] : [
+        { product_id: "parallel-card", confidence: 96 },
+      ] });
+    });
+    stubVectorRecognition(env, upstream);
+    const pending = items.map((item) => recognize(env, item.token, {
+      request_id: item.requestId, vector: [item.marker, ...VECTOR.slice(1)],
+    }));
+    try {
+      await vi.waitFor(() => {
+        expect(upload).toHaveBeenCalledTimes(4);
+        expect(upstream).toHaveBeenCalledTimes(4);
+      });
+      for (const item of items) {
+        expect((await recognize(env, item.token, { request_id: item.requestId, vector: VECTOR })).status).toBe(409);
+      }
+      // Another owner must not claim or replay a batch item's reservation.
+      expect((await recognize(env, owners[1]!.token, { request_id: items[0]!.requestId, vector: VECTOR })).status).toBe(409);
+      for (const owner of owners) {
+        expect((await recognize(env, owner.token, { vector: VECTOR })).status).toBe(403);
+      }
+      expect(upload).toHaveBeenCalledTimes(4);
+      expect(upstream).toHaveBeenCalledTimes(4);
+
+      // Failures finish first while both successful items are still in flight.
+      for (const index of [1, 3]) {
+        const item = items[index]!;
+        item.recognitionGate.release();
+        item.uploadGate.release();
+        expect((await pending[index]!).status).toBe(item.outcome === "image_failure" ? 500 : 200);
+        const quota = await app.request("/api/v1/scan/quota", { headers: { Authorization: `Bearer ${item.token}` } }, env);
+        expect(await quota.json()).toMatchObject({ data: { consumed: 8, reserved: 1, remaining: 1 } });
+      }
+      // Each returned slot can be reused once; the original successes still reserve the last slots.
+      for (const owner of owners) {
+        const requestId = crypto.randomUUID();
+        expect((await reserveParallelScan(env, owner.token, requestId)).status).toBe(200);
+        const refill = await recognize(env, owner.token, { request_id: requestId, vector: VECTOR });
+        expect(await refill.json()).toMatchObject({ data: { quota: { consumed: 9, reserved: 1, remaining: 0 } } });
+        expect((await recognize(env, owner.token, { vector: VECTOR })).status).toBe(403);
+      }
+      // Complete the two owners in reverse order; neither may spend the other's allowance.
+      for (const index of [2, 0]) {
+        const item = items[index]!;
+        item.uploadGate.release();
+        item.recognitionGate.release();
+        expect(await (await pending[index]!).json()).toMatchObject({ data: { quota: { consumed: 10, reserved: 0, remaining: 0 } } });
+      }
+      for (const item of items) {
+        const replay = await recognize(env, item.token, { request_id: item.requestId, vector: VECTOR });
+        expect(replay.status).toBe(item.outcome === "image_failure" ? 500 : 200);
+      }
+      expect(upload).toHaveBeenCalledTimes(6);
+      expect(upstream).toHaveBeenCalledTimes(6);
+      const ledger = await readRows(env.DB, "scan_quota_request");
+      for (const owner of owners) {
+        const own = ledger.filter((r) => r.owner_id === owner.ownerId);
+        expect(own.filter((r) => r.status === "consumed")).toHaveLength(10);
+        expect(own.filter((r) => r.status === "released")).toHaveLength(1);
+        expect(own.filter((r) => r.status === "reserved")).toHaveLength(0);
+      }
+      expect((await readRows(env.DB, "scan_record")).filter((r) => r.recognition_status === "success")).toHaveLength(4);
+      expect(bucket.objects.size).toBe(5); // Four successes and the retained no-match audit image.
+    } finally {
+      for (const item of items) {
+        item.uploadGate.release();
+        item.recognitionGate.release();
+      }
+      await Promise.all(pending);
+    }
+  });
+
+  it("shares the final Free slot across sessions because parallel devices must not each get a ten-scan allowance", async () => {
+    const env = await createRecognitionEnv();
+    await insertParallelScanCard(env.DB);
+    await insertRows(env.DB, "session", {
+      id: "session-peer", owner_type: "anonymous", owner_id: "anon-1",
+      expires_at: "2099-01-01T00:00:00.000Z", revoked_at: null,
+    });
+    const tokens = [await recognitionToken(env), await signAccessToken({
+      owner_type: "anonymous", owner_id: "anon-1", session_id: "session-peer",
+    }, env.JWT_SECRET)];
+    for (let index = 0; index < 9; index += 1) {
+      await insertRows(env.DB, "scan_quota_request", {
+        request_id: crypto.randomUUID(), owner_type: "anonymous", owner_id: "anon-1",
+        session_id: "session-1", access_mode: "free", status: "consumed", processing_expires_at: null,
+      });
+    }
+    const gate = scanGate();
+    const bucket = env.SCAN_IMAGES as unknown as FakeR2;
+    const put = bucket.put.bind(bucket);
+    const upload = vi.spyOn(bucket, "put").mockImplementation(async (key, bytes) => {
+      await gate.promise;
+      return put(key, bytes);
+    });
+    const upstream = vi.fn(async () => Response.json({ candidates: [{ product_id: "parallel-card", confidence: 96 }] }));
+    stubVectorRecognition(env, upstream);
+    const completed: number[] = [];
+    const pending = tokens.map((token) => recognize(env, token!, { vector: VECTOR }).then((response) => {
+      completed.push(response.status);
+      return response;
+    }));
+    try {
+      await vi.waitFor(() => {
+        expect(upstream).toHaveBeenCalledOnce();
+        expect(completed).toEqual([403]);
+      });
+      expect(upload).toHaveBeenCalledOnce();
+      gate.release();
+      const responses = await Promise.all(pending);
+      expect(responses.map((r) => r.status).sort()).toEqual([200, 403]);
+      const ledger = await readRows(env.DB, "scan_quota_request");
+      expect(ledger).toHaveLength(10);
+      expect(ledger.every((row) => row.status === "consumed")).toBe(true);
+      expect(await readRows(env.DB, "scan_record")).toHaveLength(1);
+    } finally {
+      gate.release();
+      await Promise.all(pending);
+    }
+  });
+
+  it("replays a committed settlement after its quota read fails because an uncertain response must not spend a second slot", async () => {
+    const env = await createRecognitionEnv();
+    const token = await recognitionToken(env);
+    const requestId = crypto.randomUUID();
+    await insertParallelScanCard(env.DB);
+    const upstream = vi.fn(async () => Response.json({ candidates: [{ product_id: "parallel-card", confidence: 96 }] }));
+    stubVectorRecognition(env, upstream);
+    const bucket = env.SCAN_IMAGES as unknown as FakeR2;
+    const upload = vi.spyOn(bucket, "put");
+    const query = env.DB.query.bind(env.DB);
+    let settled = false;
+    let failedRead = false;
+    vi.spyOn(env.DB, "query").mockImplementation(async (sql, values) => {
+      if (settled && !failedRead && sql.includes("AS reserved_count")) {
+        failedRead = true;
+        throw new Error("test response lost after settlement commit");
+      }
+      const result = await query(sql, values);
+      if (sql.includes("UPDATE scan_quota_request") && values?.[0] === "consumed") settled = true;
+      return result;
+    });
+    const response = await recognize(env, token, { request_id: requestId, vector: VECTOR });
+    expect(response.status).toBe(500);
+    expect(failedRead).toBe(true);
+    const replay = await recognize(env, token, { request_id: requestId, vector: VECTOR });
+    expect(replay.status).toBe(200);
+    expect(await replay.json()).toMatchObject({ data: {
+      recognition_status: "success", quota: { consumed: 1, reserved: 0, remaining: 9 },
+    } });
+    expect(await readRows(env.DB, "scan_quota_request")).toEqual([
+      expect.objectContaining({ request_id: requestId, status: "consumed", attempts: 1 }),
+    ]);
+    expect(upstream).toHaveBeenCalledOnce();
+    expect(upload).toHaveBeenCalledOnce();
+  });
+
+  it("times overlapping branches independently because a slow upload must not hide vector time or inflate audit time", async () => {
+    const env = await createRecognitionEnv();
+    const token = await recognitionToken(env);
+    const uploadGate = scanGate();
+    const bucket = env.SCAN_IMAGES as unknown as FakeR2;
+    const put = bucket.put.bind(bucket);
+    vi.spyOn(bucket, "put").mockImplementation(async (key, bytes) => {
+      await uploadGate.promise;
+      return put(key, bytes);
+    });
+    let clock = 0;
+    const timing = vi.spyOn(performance, "now").mockImplementation(() => clock);
+    const logs = vi.spyOn(console, "info").mockImplementation(() => {});
+    const upstream = vi.fn(async () => {
+      clock = 1200;
+      return Response.json({ candidates: [] });
+    });
+    stubVectorRecognition(env, upstream);
+    const pending = recognize(env, token, { vector: VECTOR });
+    try {
+      await vi.waitFor(() => expect(upstream).toHaveBeenCalledOnce());
+      clock = 5000;
+      uploadGate.release();
+      expect((await pending).status).toBe(200);
+      const entry = logs.mock.calls.find(([event]) => event === "scan_recognize_timing");
+      expect(JSON.parse(String(entry?.[1]))).toMatchObject({
+        image_ms: 5000, recognition_ms: 1200, catalog_ms: 0, audit_ms: 0, total_ms: 5000,
+      });
+    } finally {
+      uploadGate.release();
+      await pending;
+      timing.mockRestore();
+      logs.mockRestore();
+    }
+  });
+
+  it("keeps a Premium batch independent of Free allowance because unlimited recognition must never charge the ten Free slots", async () => {
+    const env = await createRecognitionEnv();
+    const token = await recognitionToken(env);
+    await grantPremium(env.DB);
+    await insertParallelScanCard(env.DB);
+    const gate = scanGate();
+    const bucket = env.SCAN_IMAGES as unknown as FakeR2;
+    const put = bucket.put.bind(bucket);
+    const upload = vi.spyOn(bucket, "put").mockImplementation(async (key, bytes) => {
+      await gate.promise;
+      return put(key, bytes);
+    });
+    const upstream = vi.fn(async () => Response.json({ candidates: [{ product_id: "parallel-card", confidence: 96 }] }));
+    stubVectorRecognition(env, upstream);
+    const requestIds = Array.from({ length: 11 }, () => crypto.randomUUID());
+    const pending = requestIds.map((requestId) => recognize(env, token, { request_id: requestId, vector: VECTOR }));
+    try {
+      await vi.waitFor(() => {
+        expect(upload).toHaveBeenCalledTimes(11);
+        expect(upstream).toHaveBeenCalledTimes(11);
+      });
+      expect(await readRows(env.DB, "scan_record")).toEqual([]);
+      gate.release();
+      for (const response of await Promise.all(pending)) {
+        expect(response.status).toBe(200);
+        expect(await response.json()).toMatchObject({ data: {
+          recognition_status: "success", quota: { access: "premium", unlimited: true, consumed: 0, reserved: 0, remaining: 10 },
+        } });
+      }
+      const ledger = await readRows(env.DB, "scan_quota_request");
+      expect(ledger).toHaveLength(11);
+      expect(ledger.every((r) => r.access_mode === "premium" && r.status === "consumed")).toBe(true);
+      await recognize(env, token, { request_id: requestIds[0], vector: VECTOR });
+      expect(upstream).toHaveBeenCalledTimes(11);
+      expect(bucket.objects.size).toBe(11);
+    } finally {
+      gate.release();
+      await Promise.all(pending);
+    }
+  });
+
+  it.each(["success", "no_match", "upstream_failure", "audit_failure"] as const)(
+    "overlaps R2 with recognition for %s because batch items must settle once only after both branches finish",
+    async (outcome) => {
+      const env = await createRecognitionEnv();
+      const token = await recognitionToken(env);
+      const requestId = crypto.randomUUID();
+      await insertParallelScanCard(env.DB);
+      if (outcome === "audit_failure") {
+        await env.DB.exec("CREATE FUNCTION fail_scan_insert() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'test scan insert failure'; END $$; CREATE TRIGGER fail_scan_insert BEFORE INSERT ON scan_record FOR EACH ROW EXECUTE FUNCTION fail_scan_insert();");
+      }
+      const uploadStarted = scanGate();
+      const uploadGate = scanGate();
+      const bucket = env.SCAN_IMAGES as unknown as FakeR2;
+      const put = bucket.put.bind(bucket);
+      const upload = vi.spyOn(bucket, "put").mockImplementation(async (key, bytes) => {
+        uploadStarted.release();
+        await uploadGate.promise;
+        return put(key, bytes);
+      });
+      const upstream = vi.fn(async () => {
+        if (outcome === "upstream_failure") throw new Error("test upstream failure");
+        return Response.json({ candidates: outcome === "no_match" ? [] : [
+          { product_id: "parallel-card", confidence: 96 },
+        ] });
+      });
+      stubVectorRecognition(env, upstream);
+      let completed = false;
+      const pending = recognize(env, token, { request_id: requestId, vector: VECTOR })
+        .then((response) => { completed = true; return response; });
+      try {
+        await uploadStarted.promise;
+        await vi.waitFor(() => {
+          expect(upstream).toHaveBeenCalledOnce();
+          if (outcome === "success" || outcome === "audit_failure") {
+            expect(env.queries.some((sql) => sql.includes("FROM cards_all"))).toBe(true);
+          }
+        });
+        expect(completed).toBe(false);
+        expect(await readRows(env.DB, "scan_record")).toEqual([]);
+        expect(await readRows(env.DB, "scan_quota_request")).toEqual([
+          expect.objectContaining({ request_id: requestId, status: "reserved", attempts: 1 }),
+        ]);
+        const duplicate = await recognize(env, token, { request_id: requestId, vector: VECTOR });
+        expect(duplicate.status).toBe(409);
+        expect(upstream).toHaveBeenCalledOnce();
+        expect(upload).toHaveBeenCalledOnce();
+
+        uploadGate.release();
+        const response = await pending;
+        const body = await response.json();
+        const consumed = outcome === "success" ? 1 : 0;
+        expect(response.status).toBe(outcome === "upstream_failure" ? 502 : outcome === "audit_failure" ? 500 : 200);
+        expect(await readRows(env.DB, "scan_quota_request")).toEqual([
+          expect.objectContaining({ request_id: requestId, status: consumed ? "consumed" : "released", attempts: 1 }),
+        ]);
+        expect(bucket.objects.size).toBe(outcome === "audit_failure" ? 0 : 1);
+        const records = await readRows(env.DB, "scan_record");
+        if (outcome === "audit_failure") expect(records).toEqual([]);
+        else expect(records).toEqual([
+          expect.objectContaining({ id: requestId, recognition_status: outcome === "upstream_failure" ? "failed" : outcome }),
+        ]);
+        const quota = await app.request("/api/v1/scan/quota", { headers: { Authorization: `Bearer ${token}` } }, env);
+        expect(await quota.json()).toMatchObject({ data: { reserved: 0, consumed, remaining: 10 - consumed } });
+        const replay = await recognize(env, token, { request_id: requestId, vector: VECTOR });
+        expect(replay.status).toBe(response.status);
+        expect(await replay.json()).toEqual(body);
+        expect(upstream).toHaveBeenCalledOnce();
+        expect(upload).toHaveBeenCalledOnce();
+      } finally {
+        uploadGate.release();
+        await pending;
+      }
+    },
+  );
+
+  it.each([false, true])(
+    "drains both branches after R2 failure (upstream also fails: %s) because a late result must not charge or leave an image",
+    async (upstreamFails) => {
+      const env = await createRecognitionEnv();
+      const token = await recognitionToken(env);
+      const requestId = crypto.randomUUID();
+      const uploadStarted = scanGate();
+      const uploadGate = scanGate();
+      const recognitionGate = scanGate();
+      const bucket = env.SCAN_IMAGES as unknown as FakeR2;
+      const put = bucket.put.bind(bucket);
+      vi.spyOn(bucket, "put").mockImplementation(async (key, bytes) => {
+        uploadStarted.release();
+        await uploadGate.promise;
+        await put(key, bytes);
+        throw new Error("test upload acknowledgement failure");
+      });
+      const upstream = vi.fn(async () => {
+        await recognitionGate.promise;
+        if (upstreamFails) throw new Error("test late upstream failure");
+        return Response.json({ candidates: [] });
+      });
+      stubVectorRecognition(env, upstream);
+      const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+      let completed = false;
+      const pending = recognize(env, token, { request_id: requestId, vector: VECTOR })
+        .then((response) => { completed = true; return response; });
+      try {
+        await uploadStarted.promise;
+        await vi.waitFor(() => expect(upstream).toHaveBeenCalledOnce());
+        uploadGate.release();
+        await vi.waitFor(() => expect(errors).toHaveBeenCalledWith("Failed to store scan image.", expect.any(Error)));
+        expect(completed).toBe(false);
+        expect(await readRows(env.DB, "scan_quota_request")).toEqual([
+          expect.objectContaining({ request_id: requestId, status: "reserved" }),
+        ]);
+        recognitionGate.release();
+        const response = await pending;
+        expect(response.status).toBe(500);
+        expect(await response.json()).toMatchObject({ error: { code: "INTERNAL_ERROR" } });
+        expect(bucket.objects.size).toBe(0);
+        expect(await readRows(env.DB, "scan_record")).toEqual([]);
+        expect(await readRows(env.DB, "scan_quota_request")).toEqual([
+          expect.objectContaining({ request_id: requestId, status: "released" }),
+        ]);
+        const replay = await recognize(env, token, { request_id: requestId, vector: VECTOR });
+        expect(replay.status).toBe(500);
+        expect(upstream).toHaveBeenCalledOnce();
+        expect(bucket.put).toHaveBeenCalledOnce();
+      } finally {
+        uploadGate.release();
+        recognitionGate.release();
+        await pending;
+        errors.mockRestore();
+      }
+    },
+  );
 
   it("confirms a stored candidate with its purchase price event because Scan additions must reach Collection and Performance", async () => {
     const env = await createTestEnv();
@@ -1514,6 +2059,27 @@ async function grantPremium(db: PGliteDatabase) {
     VALUES ('scan-premium-grant', 'session-1', 'scan-premium-chain', 'performance_pro', 'verified', 'active', '2026-09-08', '2026-09-08', '2026-09-08');
   `);
 }
+function scanGate(): { promise: Promise<void>; release: () => void } {
+  let release!: () => void;
+  const promise = new Promise<void>((resolve) => { release = resolve; });
+  return { promise, release };
+}
+
+async function reserveParallelScan(env: TestEnvWithPostgres, token: string, requestId: string): Promise<Response> {
+  return app.request("/api/v1/scan/quota/reserve", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", "Idempotency-Key": requestId },
+    body: JSON.stringify({ request_id: requestId }),
+  }, env);
+}
+
+async function insertParallelScanCard(db: PGliteDatabase): Promise<void> {
+  await insertRows(db, "cards_all", {
+    product_id: "parallel-card", game_id: 1, game: "Pokemon", set_name: "Parallel Set",
+    set_code: "PAR", name: "Parallel Card", rarity: "Rare", product_type_name: "Cards", number: "001/100",
+  });
+}
+
 async function createRecognitionEnv(): Promise<TestEnvWithPostgres> {
   const env = await createTestEnv();
   await insertRows(env.DB, "session", {

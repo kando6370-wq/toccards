@@ -457,6 +457,92 @@ void main() {
       );
     },
   );
+
+  test(
+    'Shop parses an eBay search link without inventing a listing price or date',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        expect(request.path, '/cards/sports%3Arookie-14/sold-listings');
+        return _json(200, {
+          'success': true,
+          'data': {
+            'items': [
+              {
+                'date': null,
+                'title': 'Alex Rookie / Rookie Debut / 14/100',
+                'price': null,
+                'platform': 'eBay',
+                'url': 'https://www.ebay.com/sch/i.html?_nkw=Alex+Rookie',
+              },
+            ],
+          },
+        });
+      });
+
+      final row = (await CardDataApiClient(
+        _dio(adapter),
+      ).getSoldListings('sports:rookie-14')).single;
+
+      expect(row.date, isNull);
+      expect(row.price, isNull);
+      expect(row.platform, 'eBay');
+      expect(row.url, startsWith('https://www.ebay.com/sch/i.html'));
+    },
+  );
+
+  test(
+    'Shop rejects a missing price and date without a usable marketplace link',
+    () async {
+      final adapter = _RecordingAdapter(
+        (_) => _json(200, {
+          'success': true,
+          'data': {
+            'items': [
+              {
+                'date': null,
+                'title': 'Unpriced card',
+                'price': null,
+                'platform': 'eBay',
+                'url': null,
+              },
+            ],
+          },
+        }),
+      );
+
+      await expectLater(
+        CardDataApiClient(_dio(adapter)).getSoldListings('missing-link'),
+        throwsA(isA<CardDataApiException>()),
+      );
+    },
+  );
+
+  test(
+    'Shop keeps TCGplayer product prices mandatory despite an external URL',
+    () async {
+      final adapter = _RecordingAdapter(
+        (_) => _json(200, {
+          'success': true,
+          'data': {
+            'items': [
+              {
+                'date': null,
+                'title': 'Incomplete TCG product',
+                'price': null,
+                'platform': 'TCGplayer',
+                'url': 'https://www.tcgplayer.com/product/100',
+              },
+            ],
+          },
+        }),
+      );
+
+      await expectLater(
+        CardDataApiClient(_dio(adapter)).getSoldListings('100'),
+        throwsA(isA<CardDataApiException>()),
+      );
+    },
+  );
 }
 
 Dio _dio(_RecordingAdapter adapter) {

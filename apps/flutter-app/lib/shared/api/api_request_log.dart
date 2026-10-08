@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../analytics/analytics_events.dart';
 import '../analytics/app_analytics.dart';
+import 'api_request_id.dart';
 
 const apiRequestLogRetention = Duration(hours: 1);
 const apiTimingReportThreshold = Duration(seconds: 3);
@@ -21,6 +22,7 @@ class ApiRequestLogEntry {
     required this.url,
     required this.durationMs,
     required this.succeeded,
+    required this.requestId,
     this.statusCode,
     this.errorSummary,
     this.errorDetails,
@@ -32,6 +34,7 @@ class ApiRequestLogEntry {
   final Uri url;
   final int durationMs;
   final bool succeeded;
+  final String requestId;
   final int? statusCode;
   final String? errorSummary;
   final String? errorDetails;
@@ -59,6 +62,7 @@ class ApiRequestLogController extends Notifier<List<ApiRequestLogEntry>> {
         AnalyticsEvent.apiTiming,
         properties: {
           AnalyticsProperty.apiName: apiName,
+          AnalyticsProperty.requestId: entry.requestId,
           AnalyticsProperty.timing: entry.durationMs / 1000,
         },
       );
@@ -68,6 +72,7 @@ class ApiRequestLogController extends Notifier<List<ApiRequestLogEntry>> {
         AnalyticsEvent.apiError,
         properties: {
           AnalyticsProperty.apiName: apiName,
+          AnalyticsProperty.requestId: entry.requestId,
           AnalyticsProperty.apiMessage:
               entry.errorDetails ?? entry.errorSummary ?? '',
           AnalyticsProperty.apiParams: entry.apiParams,
@@ -99,6 +104,7 @@ class ApiRequestTimingInterceptor extends Interceptor {
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    ensureApiRequestId(options);
     options.extra[_startedAtKey] = DateTime.now();
     options.extra[_stopwatchKey] = Stopwatch()..start();
     handler.next(options);
@@ -160,6 +166,7 @@ class ApiRequestTimingInterceptor extends Interceptor {
         url: options.uri,
         durationMs: durationMs < 0 ? 0 : durationMs,
         succeeded: succeeded,
+        requestId: ensureApiRequestId(options),
         statusCode: statusCode,
         errorSummary: errorSummary,
         errorDetails: errorDetails,

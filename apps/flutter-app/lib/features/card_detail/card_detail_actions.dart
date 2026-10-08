@@ -7,12 +7,17 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../shared/api/api_environment.dart';
+import '../../shared/api/app_http_transport.dart';
 import '../../shared/card_image/card_image_url.dart';
 import '../app_upgrade/app_upgrade_models.dart';
 import '../app_upgrade/app_upgrade_repository.dart';
 
 final cardDetailActionsProvider = Provider<CardDetailActions>((ref) {
-  return PluginCardDetailActions(ref.watch(appUpgradeRepositoryProvider));
+  final dio = ref.watch(appImageDioProvider);
+  return PluginCardDetailActions(
+    ref.watch(appUpgradeRepositoryProvider),
+    loadThumbnail: (imageUrl) => _loadCardShareThumbnail(dio, imageUrl),
+  );
 });
 
 typedef CardShareLauncher = Future<void> Function(ShareParams params);
@@ -24,8 +29,8 @@ Future<void> _shareCard(ShareParams params) async {
   await SharePlus.instance.share(params);
 }
 
-Future<XFile?> _loadCardShareThumbnail(String imageUrl) async {
-  final response = await Dio().get<List<int>>(
+Future<XFile?> _loadCardShareThumbnail(Dio dio, String imageUrl) async {
+  final response = await dio.get<List<int>>(
     imageUrl,
     options: Options(responseType: ResponseType.bytes),
   );
@@ -59,7 +64,7 @@ class PluginCardDetailActions implements CardDetailActions {
   PluginCardDetailActions(
     this._configRepository, {
     CardShareLauncher share = _shareCard,
-    CardShareThumbnailLoader loadThumbnail = _loadCardShareThumbnail,
+    CardShareThumbnailLoader loadThumbnail = _unavailableThumbnailLoader,
     TargetPlatform? platform,
   }) : _share = share,
        _loadThumbnail = loadThumbnail,
@@ -165,4 +170,8 @@ class PluginCardDetailActions implements CardDetailActions {
       throw StateError('Could not open marketplace.');
     }
   }
+}
+
+Future<XFile?> _unavailableThumbnailLoader(String _) {
+  throw StateError('Card share thumbnail loader is unavailable.');
 }

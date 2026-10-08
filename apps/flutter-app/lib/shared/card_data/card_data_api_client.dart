@@ -4,6 +4,8 @@ import 'package:dio/dio.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/shared/pagination/pagination.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
+import 'package:kando_app/shared/api/app_http_transport.dart';
+import 'package:kando_app/shared/api/api_request_id.dart';
 
 const cardDataApiBaseUrl = authApiBaseUrl;
 const cardDataResponseVersion = '2';
@@ -11,14 +13,19 @@ const cardDataRequestDeadline = Duration(seconds: 25);
 const cardDataRequestTimeoutCode = 'REQUEST_TIMEOUT';
 const cardDataRequestTimeoutMessage = 'Request timed out. Please try again.';
 
-Dio createCardDataDio({String baseUrl = cardDataApiBaseUrl}) {
-  return Dio(
+Dio createCardDataDio({
+  String baseUrl = cardDataApiBaseUrl,
+  AppHttpTransport? transport,
+}) {
+  final dio = Dio(
     BaseOptions(
       baseUrl: baseUrl,
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
     ),
   );
+  addApiRequestIdInterceptor(dio);
+  return transport?.bind(dio) ?? dio;
 }
 
 class CardDataApiException implements Exception {
@@ -250,18 +257,24 @@ class CardDataSoldListingDto {
     this.url,
   });
 
-  final String date;
+  final String? date;
   final String title;
-  final double price;
+  final double? price;
   final String platform;
   final String? url;
 
   factory CardDataSoldListingDto.fromJson(Map<String, Object?> json) {
+    final platform = _requiredString(json['platform']);
+    final searchLink =
+        platform == 'eBay' &&
+        json['date'] == null &&
+        json['price'] == null &&
+        _nullableString(json['url']) != null;
     return CardDataSoldListingDto(
-      date: _requiredString(json['date']),
+      date: searchLink ? null : _requiredString(json['date']),
       title: _requiredString(json['title']),
-      price: _requiredDouble(json['price']),
-      platform: _requiredString(json['platform']),
+      price: searchLink ? null : _requiredDouble(json['price']),
+      platform: platform,
       url: _nullableString(json['url']),
     );
   }

@@ -15,6 +15,8 @@ import io.flutter.plugin.common.MethodChannel
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.Executors
+import kotlin.math.ceil
+import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 
@@ -34,11 +36,13 @@ class MainActivity : FlutterActivity() {
             "com.cardai.tcg/scan-image-processor",
         ).setMethodCallHandler { call, result ->
             when (call.method) {
-                "prepareDetection", "rectifyCard" -> imageExecutor.execute {
+                "prepareDetection", "rectifyCard", "cropViewfinder", "prepareFallbackCard" -> imageExecutor.execute {
                     try {
                         val value = when (call.method) {
                             "prepareDetection" -> prepareDetection(call)
-                            else -> rectifyCard(call)
+                            "rectifyCard" -> rectifyCard(call)
+                            "cropViewfinder" -> cropViewfinder(call)
+                            else -> prepareFallbackCard(call)
                         }
                         mainHandler.post { result.success(value) }
                     } catch (error: Throwable) {
@@ -90,6 +94,94 @@ class MainActivity : FlutterActivity() {
                     resizedHeight,
                 ),
             )
+        } finally {
+            source.recycle()
+        }
+    }
+
+    private fun cropViewfinder(call: MethodCall): ByteArray {
+        val bytes = call.argument<ByteArray>("image")
+            ?: throw IllegalArgumentException("Image bytes are required.")
+        val frame = call.argument<List<Number>>("frame")
+            ?: throw IllegalArgumentException("Viewfinder bounds are required.")
+        val previewWidth = call.argument<Double>("preview_width")
+            ?: throw IllegalArgumentException("Preview width is required.")
+        val previewHeight = call.argument<Double>("preview_height")
+            ?: throw IllegalArgumentException("Preview height is required.")
+        val jpegQuality = call.argument<Int>("jpeg_quality") ?: 85
+        require(frame.size == 4 && frame.all { it.toDouble().isFinite() }) {
+            "Invalid viewfinder bounds."
+        }
+        val left = frame[0].toDouble()
+        val top = frame[1].toDouble()
+        val right = frame[2].toDouble()
+        val bottom = frame[3].toDouble()
+        require(left >= 0 && top >= 0 && right <= 1 && bottom <= 1 &&
+            left < right && top < bottom && previewWidth.isFinite() &&
+            previewHeight.isFinite() && previewWidth > 0 && previewHeight > 0) {
+            "Invalid viewfinder bounds."
+        }
+
+        val source = decodeNormalized(bytes)
+        try {
+            val previewAspect = previewWidth / previewHeight
+            val visibleWidth = min(source.width.toDouble(), source.height * previewAspect)
+            val visibleHeight = min(source.height.toDouble(), source.width / previewAspect)
+            val visibleLeft = (source.width - visibleWidth) / 2
+            val visibleTop = (source.height - visibleHeight) / 2
+            val x1 = floor(visibleLeft + visibleWidth * left).toInt().coerceIn(0, source.width)
+            val y1 = floor(visibleTop + visibleHeight * top).toInt().coerceIn(0, source.height)
+            val x2 = ceil(visibleLeft + visibleWidth * right).toInt().coerceIn(0, source.width)
+            val y2 = ceil(visibleTop + visibleHeight * bottom).toInt().coerceIn(0, source.height)
+            require(x2 > x1 && y2 > y1) { "The viewfinder crop is empty." }
+            val crop = Bitmap.createBitmap(source, x1, y1, x2 - x1, y2 - y1)
+            try {
+                val encoded = ByteArrayOutputStream()
+                check(crop.compress(Bitmap.CompressFormat.JPEG, jpegQuality, encoded)) {
+                    "The viewfinder crop could not be encoded."
+                }
+                return encoded.toByteArray()
+            } finally {
+                if (crop !== source) crop.recycle()
+            }
+        } finally {
+            source.recycle()
+        }
+    }
+
+    private fun prepareFallbackCard(call: MethodCall): Map<String, Any> {
+        val bytes = call.argument<ByteArray>("image")
+            ?: throw IllegalArgumentException("Image bytes are required.")
+        val cardWidth = call.argument<Int>("card_width")
+            ?: throw IllegalArgumentException("Card width is required.")
+        val cardHeight = call.argument<Int>("card_height")
+            ?: throw IllegalArgumentException("Card height is required.")
+        val embeddingSize = call.argument<Int>("embedding_size")
+            ?: throw IllegalArgumentException("Embedding size is required.")
+        val jpegQuality = call.argument<Int>("jpeg_quality") ?: 85
+        require(cardWidth > 0 && cardHeight > 0 && embeddingSize > 0) {
+            "Image dimensions must be positive."
+        }
+        val source = decodeNormalized(bytes)
+        try {
+            val card = Bitmap.createScaledBitmap(source, cardWidth, cardHeight, true)
+            try {
+                val encoded = ByteArrayOutputStream()
+                check(card.compress(Bitmap.CompressFormat.JPEG, jpegQuality, encoded)) {
+                    "The camera crop could not be encoded."
+                }
+                val embedding = Bitmap.createScaledBitmap(card, embeddingSize, embeddingSize, true)
+                try {
+                    return mapOf(
+                        "card_image_bytes" to encoded.toByteArray(),
+                        "embedding_rgb_bytes" to rgbBytes(embedding),
+                    )
+                } finally {
+                    if (embedding !== card) embedding.recycle()
+                }
+            } finally {
+                if (card !== source) card.recycle()
+            }
         } finally {
             source.recycle()
         }

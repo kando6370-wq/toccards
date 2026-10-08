@@ -3,7 +3,7 @@
 ## 0. 文档说明
 
 - 分析范围：全项目业务主线，重点记录 v1.1 相对 v1.0 的订阅、额度、Performance 和 Admin 增量。
-- 当前核对基线：`dev@35c7f87`，2026-09-20；客户端版本 `1.0.2+149`，Linux API 实际运行 `dev@9488a15`，后续提交只影响 Flutter/文档。原始分析起点为 2026-08-14，历史环境结果保留其检查日期。
+- 本次合并源为 `dev@b75d81c`（当时客户端 `1.0.3+160`）；当前客户端源码为 `1.0.4+161`，2026-09-23 正式 IPA 上传 App Store Connect，但未确认审核或用户发布；Linux API 最近一次回读运行 `dev@f9feac7`。最近一次有据可查的 prod 发布是 2026-09-28 从 `main@7868f4c` 发布 Worker/Admin version `6be8c5f9-60dd-499b-b19f-23d4fa6ac7c4`；这不等于客户端真机和登录态业务验收完成；原始分析起点为 2026-08-14，历史环境结果保留其检查日期。
 - 范围边界：当前检出代码、Schema/迁移、运行配置和测试；不把远程环境历史证据外推为当前实时状态。
 - 上一版本未变化流程继续参考 [v1.0.0 业务流程](../../v1.0.0/01-flows/flows.md)。
 
@@ -45,7 +45,7 @@ Card AI 面向交易卡牌用户提供目录搜索、图片识别、Wishlist/Col
 | 扫描 | 相机/相册识别、候选 Review、确认入库 | Scan | `src/scan/routes.ts`、`scan_page.dart` | 代码明确体现 |
 | Portfolio | Folder、Collection、Wishlist、估值与历史 | Collection、Card Detail | `src/portfolio/routes.ts` | 代码明确体现 |
 | Subscription | 商品、Purchase、Restore、本机三态 | Subscription/Paywall | `subscription_controller.dart`、`subscription-core` | 代码明确体现 |
-| Apple 生命周期 | 购买链、session grant、通知、校正 | 无直接用户页面 | `src/entitlements/`、迁移 `0025-0029` | 代码明确体现 |
+| Apple 生命周期 | 购买链、session grant、通知、校正 | 无直接用户页面 | `src/entitlements/`、PostgreSQL `0000/0002/0007/0009` | 代码明确体现 |
 | Performance | Home/单 Item 的自然时间范围表现 | Home、Card Detail | `src/portfolio/performance.ts` | 代码明确体现 |
 | Admin | 查询、排障、权限和版本运营 | React Admin | `apps/admin-web/src/App.tsx`、`src/admin/routes.ts` | 代码明确体现 |
 | Marketing | 产品、法律、搜索发现 | `tcgcard.fun` | `apps/marketing-web/` | 代码明确体现 |
@@ -79,6 +79,7 @@ Card AI 面向交易卡牌用户提供目录搜索、图片识别、Wishlist/Col
 - Access Token 同时携带可信 `session_id`；Premium 服务端授权读取该 session 的 active grant，而不是只按 UID 查询。
 - Sandbox 与 Production 通过 purchase chain 的 `environment` 隔离。
 - Admin 使用独立 `admin_user` 和 Admin Token，不复用 App session。
+- 安装统计尚无安装来源环境字段，当前按处理请求的 Worker 环境筛选并标记结果，不能区分共享数据库中的 dev/prod 安装；详见[安装统计环境口径](../04-admin/admin.md#安装统计环境口径)。该缺口不改变资产的 owner 隔离契约。
 - R2 扫描图片读取需要有效 Admin 身份，响应使用私有缓存策略。
 
 证据：`apps/workers-api/src/owner-auth.ts`、`src/entitlements/premium-access.ts`、`src/admin/routes.ts`。
@@ -104,7 +105,7 @@ Card AI 面向交易卡牌用户提供目录搜索、图片识别、Wishlist/Col
 ### 3.2 搜索、Wishlist 与 Collection
 
 1. 用户按游戏搜索 Card 或 Set，并进入卡牌详情。
-2. 详情加载图片、市场价、价格历史和 TCGplayer 商品外链；已成交记录继续通过独立入口查询。同一详情加载期间，Price 材质首次选中时读取对应市场价和图表，切回已成功加载的材质直接恢复其数据，不重复请求或展示加载态；显式刷新或详情重新加载后重新获取数据。
+2. 详情加载图片、市场价和价格历史；Shop 对 `game_id < 50000` 的 TCG 卡读取已发布 TCGplayer 当前价格快照，最多展示 4 条商品外链；对 `game_id >= 50000` 的体育卡，按名称、系列、编号构造一条 eBay 在售搜索链接，价格和日期均为空，不将搜索结果当作真实成交或单一商品。已成交记录继续通过独立入口查询；见[Shop 数据契约](../03-data-api/contract-changes.md#postgresql-查询切换)。同一详情加载期间，Price 材质首次选中时读取对应市场价和图表，切回已成功加载的材质直接恢复其数据，不重复请求或展示加载态；显式刷新或详情重新加载后重新获取数据。
 3. Search、Wishlist、Home Trending 等只携带 `card_id` 的入口进入通用 Card Detail，不因卡牌已收藏而猜测某条 Item；Collection、Most Valuable、Top Performers 等携带 `collection_item_id` 的入口继续进入具体 Item 详情和 Performance。通用详情在当前选中 Folder 有正式 Item 时展示 `In Your Portfolio`，逐条显示评级、材质和 SKU 单价，点击整行打开该 Item 编辑 Sheet；其他 Folder 和待编辑 Item 不进入该模块。具体 Item 详情不展示 `In Your Portfolio`，卡图右上角固定使用分享图标并调用既有卡牌分享业务；通用详情右上角使用收藏图标。具体 Item 的 Collection Item 编辑态只属于该 Tab；切换到 Performance 或 Price 时丢弃未保存草稿并退出编辑态，返回 Collection Item 时展示摘要态。
 4. Search Cards 与 Sets 卡牌列表的收藏按钮先建立同一全局本地待编辑 Item：按钮显示亮黄色但正式 Qty 不变；无论卡牌是否已收藏，每点击一次 `+` 都追加一个独立、默认 `Quantity=1` 的待编辑 Item，不合并数量，也不执行快捷删除。全局最多保留 20 条，第 21 次点击不新增并显示 `You can add up to 20 cards at a time.`。Sets 收藏必须使用当前 Set 的 Game，不继承无关的 Search 选择；Sets 下拉刷新同时刷新 Set 卡牌和收藏/Wishlist 资产快照，保证 Qty 与互斥按钮和 Search Cards 一致。待编辑提示持续显示在 Home、Search、Collection、Profile 以及当前 Sets 卡牌列表底部并按 Item 条数计数，Scan 不显示；Sets 点击后必须在当前页面立即显示，不要求先返回 Search。单 Item 进入单卡编辑样式，多个 Item（包括同卡重复点击）进入带顶部条和批量操作的 Review 样式；`ADD ALL CARDS` 全部成功后先关闭 Review，再由返回页面按成功 Item 数显示居中 Success Toast，避免弹层退场吞掉反馈。通用 Card Detail 的右上收藏按钮不静默追加待编辑队列，而是直接打开该卡牌的新增 Collection Item 编辑 Sheet；关闭未保存时不改变正式 Qty、持仓或待编辑队列，保存成功后再按既有完整 Item Create 流程刷新资产。
 5. 用户可分别为每个待编辑 Item 选择 Folder、数量、Raw/评级、品相、评级机构/分数、语言、工艺和购买价；每条使用独立 UUID 作为创建请求的幂等键，保存才逐条创建 Collection Item 并增加 Qty。成功条目从队列移除；批量部分失败时保留失败草稿并继续显示 Review。单条和批量全成功使用 Figma 居中 Success Toast，部分成功使用顶部 warning Toast。只有在 Review 中删除待编辑 Item 才取消该条待收藏。
@@ -116,9 +117,9 @@ Card AI 面向交易卡牌用户提供目录搜索、图片识别、Wishlist/Col
 
 ### 3.3 扫描与服务端额度
 
-1. App 拍照或选图，经端侧模型检测和原生透视矫正生成 RGB 三通道 pHash，提交矫正图片、`r/g/b`、`request_id` 和同值 `Idempotency-Key`；见[扫描识别链路](scan-recognition.md)。
+1. 内置相机拍照先按取景框裁剪，再进行端侧模型检测和原生透视矫正；检测或矫正失败时可用该裁图继续生成 512 维向量。相册及系统相机仍按原图走原链路。提交处理后图片、`vector`、`card_type`（默认 `0`）、`request_id` 和同值 `Idempotency-Key`；见[扫描识别链路](scan-recognition.md)。
 2. Workers 先按当前 session grant 判断 Premium；Free 请求以一条条件 INSERT 原子预占额度。
-3. 矫正图片写入私有 R2，Workers 经 `VECTOR_RECOGNITION` 识别边界仅发送 `{r,g,b,game_id?}`，返回成功候选、无匹配或失败。
+3. 服务端按环境存储处理后图片：prod 使用私有 R2，经 `VECTOR_RECOGNITION` Service Binding；dev Linux 使用本地图片卷，经必填地址的 HTTP 适配向独立 `recognize-vec` 发送 `{vector, card_type}`。候选经当前环境的 PostgreSQL 目录校验，再归约为 Matched、No Match 或失败；选择 Sports Card 只改变识别类型；当前确认入库仍复用 `object_type=tcg`，没有独立 Sports 资产类型，不能把类型选择或 Shop 入口等同于体育卡完整资产链路已实现和验收。
 4. 仅完整可用 Matched 消费 Free 额度；No Match、目录不完整及技术失败释放预占，并返回最新 Quota。
 5. 用户在 Review 选择结果，调用 `/scan/:scan_id/confirm` 创建收藏记录。
 
@@ -209,8 +210,8 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 | Session | issued -> refreshed -> revoked/expired | `auth/session.ts` |
 | 本机 Premium | `unknown/free/premium` | `subscription_entitlement_cache.dart` |
 | Purchase chain | `TRIAL/ACTIVE/GRACE_PERIOD/LIFETIME/BILLING_RETRY/EXPIRED/REVOKED` | `apple-notification-routes.ts` |
-| Session grant | `active/expired/revoked` | migration `0026`、`premium-access.ts` |
-| Notification inbox | pending/processing/processed 与各类失败/校正状态 | migration `0029` |
+| Session grant | `active/expired/revoked` | PostgreSQL `0000` 的 `billing_session_entitlement_grant`、`premium-access.ts` |
+| Notification inbox | pending/processing/processed 与各类失败/校正状态 | PostgreSQL `0000/0002/0009` 的 `apple_notification_inbox` |
 | Scan | processing -> success/no_match/failed；pending -> confirmed | `scan/routes.ts` |
 | Scan Quota request | reserved -> consumed/released | `scan/quota.ts` |
 | Collection Item | 创建 -> 编辑/移动/增减 -> 删除；事件为 upsert/delete | `portfolio/routes.ts` |
@@ -257,7 +258,7 @@ Notifications V2 先进入 inbox，再验签、解析和按 `(signedDate, notifi
 | pHash 识别服务 | 内部识别服务 | RGB pHash 检索候选 | Scan 失败并释放 Free 预占 |
 | PlanetScale PostgreSQL / Hyperdrive | 核心真源与连接边界 | 参数化 PostgreSQL SQL | 账号、资产、额度、订阅和 Admin 不可用 |
 | KV | 缓存 | 目录/汇率快照 | 可回源或显式失败，不能改变授权真值 |
-| R2 | 对象存储 | 受保护的矫正卡面图片 | 缺少 binding 或上传失败时识别失败并释放预占；Admin 读取仍需授权 |
+| R2 | 对象存储 | 受保护的处理后卡面图片 | 缺少 binding 或上传失败时识别失败并释放预占；Admin 读取仍需授权 |
 | 邮件/OAuth | 身份上游 | 验证码和第三方登录 | 注册、找回或 OAuth 登录受阻 |
 | Analytics/Attribution | 下游 | Firebase/Mixpanel/Singular | 统计缺失，不应阻断授权或购买 |
 | Admin | 下游运营 | 查询、排障、配置 | 不影响 Apple 最终真值；不能人工改 Premium |

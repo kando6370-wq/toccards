@@ -15,6 +15,12 @@ List<String> validateReleaseConfig(
   if (config['APP_ENV'] != environment) {
     errors.add('APP_ENV must equal $environment.');
   }
+  if (config['APP_HTTP_TRANSPORT'] != 'native') {
+    errors.add('APP_HTTP_TRANSPORT must equal native.');
+  }
+  if (config['cronetHttpNoPlay'] != true) {
+    errors.add('cronetHttpNoPlay must equal true.');
+  }
   for (final key in requiredSubscriptionKeys) {
     final value = config[key];
     if (value is! String || value.trim().isEmpty) {

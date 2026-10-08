@@ -218,8 +218,10 @@ WHERE id = ? AND owner_type = ? AND owner_id = ?
   AND user_confirmation_status = 'pending'
 `;
 
-const RECOGNITION_ALGORITHM = "rgb-phash-16-v1";
-const PHASH_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+const RECOGNITION_ALGORITHM = "pe-core-t16-384-cosine-v1";
+const EMBEDDING_DIMENSIONS = 512;
+const MAX_VECTOR_JSON_BYTES = 32 * 1024;
+const DEFAULT_CARD_TYPE = 0;
 const CARD_NUMBER_PATTERN = /^(?:\d{1,4}\/(?:\d{1,4}|[A-Z]{1,5}-P)|[A-Z]{1,5}-P)$/;
 
 type ScanRecognitionCheckpoints = {
@@ -227,6 +229,7 @@ type ScanRecognitionCheckpoints = {
   authenticated: number;
   reserved: number;
   imageStored: number;
+  recognitionStarted: number;
   recognized: number;
   catalogLoaded: number;
   auditStored: number;
@@ -246,9 +249,9 @@ function logSlowScanRecognitionTiming(
     auth_ms: duration(checkpoints.started, checkpoints.authenticated),
     preflight_ms: duration(checkpoints.authenticated, checkpoints.reserved),
     image_ms: duration(checkpoints.reserved, checkpoints.imageStored),
-    recognition_ms: duration(checkpoints.imageStored, checkpoints.recognized),
+    recognition_ms: duration(checkpoints.recognitionStarted, checkpoints.recognized),
     catalog_ms: duration(checkpoints.recognized, checkpoints.catalogLoaded),
-    audit_ms: duration(checkpoints.catalogLoaded, checkpoints.auditStored),
+    audit_ms: duration(Math.max(checkpoints.imageStored, checkpoints.catalogLoaded), checkpoints.auditStored),
     settlement_ms: duration(checkpoints.auditStored, completed),
   }));
 }
@@ -261,6 +264,24 @@ function scanQuotaPayload(
     access,
     unlimited: access === "premium",
     ...quota,
+  };
+}
+
+function withCurrentScanQuota(
+  body: unknown,
+  quota: ScanQuotaSnapshot,
+  access: "free" | "premium",
+): unknown {
+  if (!isRecord(body) || body.success !== true || !isRecord(body.data)) {
+    return body;
+  }
+  if (!("quota" in body.data)) return body;
+  return {
+    ...body,
+    data: {
+      ...body.data,
+      quota: scanQuotaPayload(quota, access),
+    },
   };
 }
 
@@ -382,13 +403,12 @@ export function createScanRoutes() {
       );
       return c.json(INTERNAL_ERROR_RESPONSE, 503);
     }
-    const r = readPhash(body.get("r"));
-    const g = readPhash(body.get("g"));
-    const b = readPhash(body.get("b"));
+    const vector = readEmbeddingVector(body.get("vector"));
+    const cardType = readCardType(body.get("card_type"));
     const gameId = readOptionalGameId(body.get("game_id"));
     const cardNumber = readOptionalCardNumber(body.get("card_number"));
     const image = await validateScanImage(body.get("image"));
-    if (!r || !g || !b || gameId === null || cardNumber === null || !image) {
+    if (!vector || cardType === null || gameId === null || cardNumber === null || !image) {
       await releaseQueuedScanQuota(
         c.env.DB,
         auth.owner,
@@ -425,7 +445,12 @@ export function createScanRoutes() {
       }, 403);
     }
     if (reservation.status === "existing" && reservation.response !== null) {
-      return new Response(JSON.stringify(reservation.response.body), {
+      const responseBody = withCurrentScanQuota(
+        reservation.response.body,
+        reservation.quota,
+        reservation.accessMode,
+      );
+      return new Response(JSON.stringify(responseBody), {
         status: reservation.response.status,
         headers: { "Content-Type": "application/json" },
       });
@@ -435,7 +460,7 @@ export function createScanRoutes() {
     }
     const reservedAt = performance.now();
 
-    const outbound = { r, g, b, ...(gameId === undefined ? {} : { game_id: gameId }) };
+    const outbound = { vector, card_type: cardType };
 
     const scanId = requestId;
     const createdAt = new Date();
@@ -446,28 +471,28 @@ export function createScanRoutes() {
       image,
       createdAt,
     );
-    try {
-      await imageBucket.put(imageKey, image.bytes, {
-        httpMetadata: { contentType: image.contentType },
-        customMetadata: {
-          scanId,
-          ownerType: auth.owner.owner_type,
-          ownerId: auth.owner.owner_id,
-        },
-      });
-    } catch (error) {
-      console.error("Failed to store scan image.", error);
-      await settleScanQuota(c.env.DB, auth.owner, requestId, "released", null, {
-        body: INTERNAL_ERROR_RESPONSE,
-        status: 500,
-      });
-      return c.json(INTERNAL_ERROR_RESPONSE, 500);
-    }
-    const imageStoredAt = performance.now();
+    // Handle upload rejection immediately, but drain both branches before settling quota.
+    const imageUpload = (async () => {
+      try {
+        await imageBucket.put(imageKey, image.bytes, {
+          httpMetadata: { contentType: image.contentType },
+          customMetadata: {
+            scanId,
+            ownerType: auth.owner.owner_type,
+            ownerId: auth.owner.owner_id,
+          },
+        });
+        return performance.now();
+      } catch (error) {
+        console.error("Failed to store scan image.", error);
+        return null;
+      }
+    })();
 
     let recognitionPayload: unknown = null;
     let upstreamFailed = false;
     const startedAt = Date.now();
+    const recognitionStartedAt = performance.now();
     try {
       const response = await vectorRecognition.fetch("https://recognize.tcgcard.fun/recognize", {
         method: "POST",
@@ -514,6 +539,16 @@ export function createScanRoutes() {
       }
     }
     const catalogLoadedAt = performance.now();
+    const imageStoredAt = await imageUpload;
+    if (imageStoredAt === null) {
+      // A failed acknowledgement can still leave a stored image; no audit owns it yet.
+      await deleteUploadedImage(imageBucket, imageKey);
+      await settleScanQuota(c.env.DB, auth.owner, requestId, "released", null, {
+        body: INTERNAL_ERROR_RESPONSE,
+        status: 500,
+      });
+      return c.json(INTERNAL_ERROR_RESPONSE, 500);
+    }
     const results: ScanResult[] = [
       { index: 1, matched: candidates.length > 0, candidates },
     ];
@@ -581,6 +616,7 @@ export function createScanRoutes() {
       authenticated: authenticatedAt,
       reserved: reservedAt,
       imageStored: imageStoredAt,
+      recognitionStarted: recognitionStartedAt,
       recognized: recognizedAt,
       catalogLoaded: catalogLoadedAt,
       auditStored: auditStoredAt,
@@ -597,7 +633,7 @@ export function createScanRoutes() {
     }
 
     const quotaOutcome = recognitionStatus === "success" ? "consumed" : "released";
-    const quota = reservation.accessMode === "free"
+    const predictedQuota = reservation.accessMode === "free"
       ? {
           ...reservation.quota,
           reserved: Math.max(0, reservation.quota.reserved - 1),
@@ -614,14 +650,14 @@ export function createScanRoutes() {
         recognition_status: recognitionStatus,
         cards_detected: candidates.length > 0 ? 1 : 0,
         elapsed: (Date.now() - startedAt) / 1000,
-        quota: scanQuotaPayload(quota, reservation.accessMode),
+        quota: scanQuotaPayload(predictedQuota, reservation.accessMode),
         warnings: recognized?.length === candidates.length
           ? []
           : ["Some recognized cards are missing from the catalog."],
         results,
       },
     };
-    await settleScanQuota(
+    const settledQuota = await settleScanQuota(
       c.env.DB,
       auth.owner,
       requestId,
@@ -629,8 +665,18 @@ export function createScanRoutes() {
       scanId,
       { body: responseBody, status: 200 },
     );
+    const currentResponseBody = {
+      ...responseBody,
+      data: {
+        ...responseBody.data,
+        quota: scanQuotaPayload(
+          settledQuota ?? predictedQuota,
+          reservation.accessMode,
+        ),
+      },
+    };
     logSlowScanRecognitionTiming(timingCheckpoints, recognitionStatus);
-    return c.json(responseBody);
+    return c.json(currentResponseBody);
   });
 
   routes.post("/scan/:scan_id/confirm", async (c) => {
@@ -940,6 +986,12 @@ function buildSystemResult(
 
 function readPhash(value: string | File | null): string | null {
   return typeof value === "string" && PHASH_PATTERN.test(value) ? value : null;
+}
+
+function readCardType(value: string | File | null): 0 | 1 | null {
+  if (value === null || value === "") return DEFAULT_CARD_TYPE;
+  if (typeof value !== "string" || !/^[01]$/.test(value)) return null;
+  return value === "1" ? 1 : 0;
 }
 
 function readOptionalGameId(value: string | File | null): number | undefined | null {

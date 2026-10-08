@@ -5,6 +5,7 @@ import {
   DatePicker,
   Drawer,
   Form,
+  Image,
   Input,
   Layout,
   Menu,
@@ -24,6 +25,7 @@ import type { ColumnsType } from "antd/es/table";
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { resolveAdminApiBase } from "./api-base";
+import { createAdminRequestHeaders } from "./request-id";
 import { appleNotificationStatusName } from "./apple-notification-status";
 import { countryName } from "./country-name";
 import {
@@ -1144,11 +1146,14 @@ function ScanDetailDrawer({ scan, session, onClose }: { scan: ScanDetail | null;
                 <div className="candidate-card" key={index}>
                   <span className="candidate-thumb">
                     {typeof candidate.image_url === "string" && candidate.image_url && (
-                      <img
+                      <Image
                         src={candidate.image_url}
                         alt={String(candidate.name ?? "候选卡牌")}
+                        title="点击放大"
+                        width="100%"
+                        height="100%"
                         loading="lazy"
-                        onError={(event) => { event.currentTarget.style.display = "none"; }}
+                        preview={{ mask: false }}
                       />
                     )}
                   </span>
@@ -1175,7 +1180,9 @@ function AuthenticatedScanImage({ path, session, className }: { path: string; se
     }
     let active = true;
     let objectUrl: string | null = null;
-    fetch(`${API_BASE}${path}`, { headers: { Authorization: `Bearer ${session.accessToken}` } })
+    fetch(`${API_BASE}${path}`, {
+      headers: createAdminRequestHeaders({ Authorization: `Bearer ${session.accessToken}` }),
+    })
       .then((response) => {
         dispatchSessionExpiredOnUnauthorized(response, session.accessToken);
         if (!response.ok) throw new Error("Scan image unavailable");
@@ -1348,7 +1355,7 @@ function mutate(session: AdminSession, path: string, init: AdminRequestInit) {
 }
 
 async function adminRequest<T>(path: string, init: AdminRequestInit = {}): Promise<T> {
-  const headers = new Headers(init.headers);
+  const headers = createAdminRequestHeaders(init.headers);
   if (init.token) headers.set("Authorization", `Bearer ${init.token}`);
   if (init.body !== undefined) headers.set("Content-Type", "application/json");
 
@@ -1368,7 +1375,7 @@ async function adminRequest<T>(path: string, init: AdminRequestInit = {}): Promi
 
 async function downloadAdminFile(path: string, session: AdminSession, fallbackName: string) {
   const response = await fetch(`${API_BASE}${path}`, {
-    headers: { Authorization: `Bearer ${session.accessToken}` },
+    headers: createAdminRequestHeaders({ Authorization: `Bearer ${session.accessToken}` }),
   });
   dispatchSessionExpiredOnUnauthorized(response, session.accessToken);
   if (!response.ok) {

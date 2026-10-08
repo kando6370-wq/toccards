@@ -1,24 +1,36 @@
 # v1.1.0 契约变化
 
-## 扫描 pHash 协议
+## API 请求关联
 
-`POST /api/v1/scan/recognize` 保持 multipart 图片、UUID/Idempotency-Key、平台信息、可选卡号兼容字段和审计字段，使用必填的 `r/g/b` 代替 `vector`。每项必须是编码 32 字节哈希的 43 字符无填充 Base64URL；图片仍为端侧模型检测、原生透视矫正后的 JPEG。当前 App 已移除 ML Kit Latin OCR，不再生成或提交端侧卡号提示；旧 `vector` 请求返回 422，App 与 API 必须配套切换。
+所有 `/api/v1/*` 请求统一使用 `X-Request-ID` 作为传输层关联 ID，覆盖 Flutter、Admin、认证、公共配置、法律、Health 与 Apple 回调。调用方提供合法 UUID v4 时 Workers 保留该值；缺失或非法时由 Workers 生成。所有成功、业务失败、未匹配路由和未处理异常响应都回显同一 Header，CORS 同时允许请求并向浏览器暴露该 Header。响应 JSON body 不增加字段。
 
-主 API 经保留名称的 `VECTOR_RECOGNITION` 注入边界，只把 `{r,g,b,game_id?}` 作为 JSON POST 交给识别服务；可选 `game_id` 同时用于本地 PostgreSQL 目录过滤。缺少 binding 为 `503 VECTOR_RECOGNITION_UNAVAILABLE`，上游失败为 `502` 并释放 Free 预占；服务端继续兼容旧客户端的可选卡号消歧，候选顺序、No Match/目录不完整不扣次数及确认入库语义不变。审计算法标识为 `rgb-phash-16-v1`，没有新增数据库迁移。详见[扫描识别链路](../01-flows/scan-recognition.md)。
+Flutter 与 Admin 在每次实际 HTTP 尝试开始时生成新的 UUID v4。Flutter 的请求日志、`api_timing` 与 `api_err` 使用该次实际发送的同一 ID；401 刷新后的透明重试必须换新 ID。Admin 的 JSON 请求、XLSX 下载与受保护扫描图片请求使用同一生成规则；HTTPS 安全上下文优先使用原生 `crypto.randomUUID()`，Linux dev 的局域网 HTTP 在该 API 不可用时使用仍允许于非安全上下文的 `crypto.getRandomValues()` 生成 UUID v4。Workers 每个业务 API 请求输出一条 `api_request` 完成日志，仅包含 `request_id/method/path/status/duration_ms`，其中 `path` 使用不含真实路径参数或 query 的路由模板，日志不记录 token、用户、请求正文或响应正文。
 
-Linux 入口以必填 `VECTOR_RECOGNITION_BASE_URL` 构造 HTTP 适配器，当前 pHash 地址为 `https://recognize.tcgcard.fun`，10 秒超时覆盖正文读取；候选补全、额度与扫描记录使用本地 PostgreSQL。旧 `OCR_SERVICE_BASE_URL` 已退出运行路径。当前 pHash 代码尚未部署到 dev Linux，prod Service Binding 的协议兼容性也尚未核验；不得把此前 `dev@9488a15` 的向量链路验证外推为当前 pHash 验收。
+`X-Request-ID` 只用于一次物理 HTTP 尝试，与扫描、Portfolio 和 Apple proof 等业务 body 中的 `request_id` 及 `Idempotency-Key` 完全独立。业务幂等键在超时或不确定提交后的重试中按原规则复用，传输层请求 ID 每次换新。`/share/*`、静态资源和第三方请求不加该 Header；主 API 调用内部 `recognize-vec` 时也不转发该 Header，只发送既有向量协议字段及 `card_type`。该变更不涉及数据库 Schema 或 migration。
+
+## 扫描向量协议
+
+`POST /api/v1/scan/recognize` 将 multipart `r/g/b` 替换为 JSON `vector`，并新增 `card_type` 字段（`0=TCG`、`1=Sports Card`，缺省为 `0`）；`vector` 要求 512 个有限数值且至少一个非零分量，最大 32 KiB；图片为端侧模型检测、原生透视矫正后的 JPEG。该变更于 2026-09-09 从 `dev-wxy` 合入 `dev`，请求路径、UUID/Idempotency-Key、平台信息、返回候选完整资料、业务状态与 Quota 保持原契约；服务端仍兼容可选卡号字段，但当前 App 已移除 ML Kit Latin OCR，不再提交端侧卡号提示。确认入库保留 `dev` 已有的初始事件购买价格、币种及可靠历史起点修复。旧 pHash 请求不兼容新接口，需协调 App 与 API 发布。
+
+主 Worker 只经 `VECTOR_RECOGNITION` Service Binding 向内部 `recognize-vec` 发送 `{vector, card_type}`，Cloudflare 配置和扫描请求路径不再使用 `OCR_SERVICE_BASE_URL`；缺少 binding 为 `503 VECTOR_RECOGNITION_UNAVAILABLE`，内部失败为 `502` 并释放 Free 预占。`game_id` 改在主 Worker 的 PostgreSQL 目录层过滤；可选卡号消歧能力与候选顺序仍兼容旧客户端，当前 App 不再生成该提示。算法标识为 `pe-core-t16-384-cosine-v1`，未增加数据库迁移。下文历史契约中的 OCR 识别上游在本分支由向量服务承担，端侧 ML Kit 卡号 OCR 已移除；No Match/目录不完整不扣次数等规则仍有效。详见[扫描识别链路](../01-flows/scan-recognition.md)。
+
+Linux 入口共用上述路由，以必填 `VECTOR_RECOGNITION_BASE_URL` 构造 HTTP `VECTOR_RECOGNITION`。适配器只把 `{vector, card_type}` 交给现有 CF 识别服务，缺省类型为 `0`，10 秒超时覆盖正文读取；候选补全、额度与扫描记录使用本地 PostgreSQL。旧 OCR 配置已退出运行路径，缺 binding 的 503 和上游失败的 502/释放额度语义保持不变。包含 `card_type` 的服务端实现最近一次随 `dev@f9feac7` 发布到 Linux；设备扫描、真实阶段耗时和 prod 独立协议边界见[Linux 兼容缺口](../02-architecture/linux-test-environment.md#扫描兼容缺口)及[验证记录](../05-delivery/VERIFICATION.md)。
 
 ## App 版本控制环境隔离
 
 当前 Flutter 升级门禁只在实际 Home 首帧后开始检查，不覆盖此前的 Splash、Onboarding 或启动订阅页。首次 Home 检查保留 Loading/失败重试；已有成功决策后，从其他路由返回 Home 或 Home 回前台时静默复查，失败保留原决策。新可选提示只在 Home 展示，离开 Home 后才返回的结果不在其他页新增提示；已确认强更继续全局拦截，并可在其他页回前台时重新验证，成功确认解除后才放行。同一次运行对同建议版本的“稍后”去重、版本比较及服务端响应契约不变。
 
-2026-09-20 起，Flutter 主要业务 HTTP 请求的整体 Deadline 由 15 秒调整为 25 秒；Auth、Card Data、Currency 和 Portfolio 的连接超时统一为 10 秒，Scan 连接超时也由 4 秒调整为 10 秒。Auth、Card Data 和 Currency 的接收超时由 5 秒调整为 10 秒；Portfolio 接收超时保持 15 秒，Scan 接收超时保持 12 秒。订阅 Workers HTTP、StoreKit 商品加载、权益读取/刷新、Performance 与 1Y 数据请求使用 25 秒整体边界。App Upgrade 的连接/接收超时均为 10 秒，Mixpanel 与 Singular 配置请求的连接/接收超时均为 6 秒。该运行时调整覆盖冻结产品输入中的 15 秒默认值，不改变请求、重试、幂等、错误或迟到响应隔离语义。
+2026-09-20 起，Flutter 主要业务 HTTP 请求的整体 Deadline 由 15 秒调整为 25 秒；Auth、Card Data、Currency 和 Portfolio 的连接超时统一为 10 秒，Scan 连接超时也由 4 秒调整为 10 秒。Auth、Card Data 和 Currency 的接收超时由 5 秒调整为 10 秒；Portfolio 接收超时保持 15 秒。2026-09-21 修正 Scan 当时仍保留 12 秒接收超时的冲突：Scan 不再设置短于整体 Deadline 的独立接收超时，避免服务端在 12 至 25 秒内完成识别并结算额度时，客户端提前显示失败；其连接阶段仍受 10 秒边界约束，完整识别操作仍受 25 秒总 Deadline 约束。订阅 Workers HTTP、StoreKit 商品加载、权益读取/刷新、Performance 与 1Y 数据请求使用 25 秒整体边界。App Upgrade 的连接/接收超时均为 10 秒，Mixpanel 与 Singular 配置请求的连接/接收超时均为 6 秒。该运行时调整覆盖冻结产品输入中的 15 秒默认值，不改变请求、重试、幂等、错误或迟到响应隔离语义。
 
 2026-09-08 更新弹窗按 Figma `736:13370` 使用固定提示语，Admin 版本结构移除 `recommended_update_message` / `forced_update_message`。读取存量配置时忽略这两个字段，写入时不再保存，即使旧后台请求仍携带也不会恢复。公共 `upgrade_prompt.title/message/forced_message` 为旧客户端保留兼容，分别固定为 `Update Now` / `New update available! Tap to upgrade` / `New update available! Tap to upgrade`。新 App 界面不依赖历史文案，不新增数据库迁移或修改已执行迁移。
 
-版本规则由可信 Worker `APP_ENVIRONMENT` 选择 `app_config` 中的 `admin.app_version.<development|production>.<ios|google>`。`GET /admin/app-versions` 新增 `data.environment`；版本 PATCH 仅写当前环境。通用 App Config PATCH 禁止写版本键和旧共用升级键，返回 `422`。启用规则必须有有效 HTTP(S) 商店地址、布尔强更标志、合法状态和三段版本号，建议版本必须大于等于最低版本。
+版本规则由可信服务端 `APP_ENVIRONMENT` 选择所在数据库 `app_config` 中的 `admin.app_version.<development|production>.<ios|google>`：prod 为 Cloudflare，dev 为 Linux。`GET /admin/app-versions` 新增 `data.environment`；版本 PATCH 仅写当前环境。通用 App Config PATCH 禁止写版本键和旧共用升级键，返回 `422`。启用规则必须有有效 HTTP(S) 商店地址、布尔强更标志、合法状态和三段版本号，建议版本必须大于等于最低版本。
 
-公共 `GET /app-config?platform=ios|google` 保持 `upgrade_prompt`、`app_store_url`、法律及 SDK 配置响应字段，增加 `Cache-Control: no-store`。环境或平台规则缺失/损坏返回 `503 APP_VERSION_CONFIG_UNAVAILABLE`；明确停用的规则才返回 `upgrade_prompt: null`。不再读取共用版本键或用共用商店地址兜底。部署前须准备 `0011_app_version_environment.sql` 对应环境键；2026-09-08 仅初始化 development 两条键并发布 dev，完整 `0011` 未登记完成。prod 的较早 Worker 仍读取旧规则，升级前须执行完整迁移并核验，详见[版本控制验收](../05-delivery/VERIFICATION.md)。
+公共 `GET /app-config?platform=ios|google` 保持 `upgrade_prompt`、`app_store_url`、法律及 SDK 配置响应字段，增加 `Cache-Control: no-store`。环境或平台规则缺失/损坏返回 `503 APP_VERSION_CONFIG_UNAVAILABLE`；明确停用的规则才返回 `upgrade_prompt: null`。不再读取共用版本键或用共用商店地址兜底。部署前须准备 `0011_app_version_environment.sql` 对应环境键；2026-09-11 `0011` 已完整执行并登记，production 两条键已补齐，已有 development 与旧共用配置不变；prod 新 Worker 已读取独立键，公共配置返回 `200/no-store`，详见[版本控制验收](../05-delivery/VERIFICATION.md)。
+
+## 安装统计环境筛选缺口
+
+当前 `GET /api/v1/admin/analytics/installations` 的 `environment` 只用于匹配处理请求的服务端，未参与安装行 SQL 过滤；返回行的环境也是服务端标签。`app_installation` 未持久化来源，因此旧 CF dev/prod 共库时期的安装无法按来源拆分；当前 Linux dev 使用独立数据库，新行不混入 prod。历史行的汇总、趋势和明细仍受影响，日期、平台、国家、排序和分页规则保持原样；实现证据见[Admin 环境口径](../04-admin/admin.md#安装统计环境口径)。
 
 ## 订阅与内购数据骨架
 
@@ -38,7 +50,7 @@ Linux 入口以必填 `VECTOR_RECOGNITION_BASE_URL` 构造 HTTP 适配器，当�
 | `billing_apple_app_attest_key` | 保存 Apple 验证后的安装级公钥、receipt、环境和递增 assertion counter。 |
 | `apple_notification_inbox` | 在验签前保存完整 Apple 请求和 `signedPayload`，承载处理租约、失败终态与重试。 |
 
-`billing_purchase_chain` 在 `0027` 增加 `state_effective_at`，防止较旧的客户端同步覆盖较新的 Apple 生命周期状态。
+当前 PostgreSQL `0000_business_schema.sql` 的 `billing_purchase_chain` 已包含 `state_effective_at`，防止较旧的客户端同步覆盖较新的 Apple 生命周期状态。
 
 ## Apple Fresh Purchase API
 
@@ -68,7 +80,7 @@ Apple Revenue 只消费 `status=purchased`、本机验证后已激活且 StoreKi
 
 App 本机 Premium 使用 `Unknown/Free/Premium` 三态，不把尚未读取、读取超时或读取失败降级为 Free。启动读取已验证缓存后，通过 Apple verified `Transaction.currentEntitlements` 静默刷新并读取当前 session 已证明购买链的服务端 lifecycle 校正，不调用 `AppStore.sync()`；只有用户主动 Restore 才调用 `AppStore.sync()`。明确且不旧于 JWS 的失效校正只剔除匹配链，再用剩余全部 Apple entitlement 重算；服务端 active 不能单独授予，接口不可用不直接降级。自动续订缓存只有在 `expiresAt` 未过期时可临时授予本机 Premium，Lifetime 缓存可持续有效；过期缓存且刷新失败保持 Unknown。受限动作遇 Unknown 必须先刷新：刷新为 Premium 才执行，刷新为 Free 才显示 Functional Paywall，刷新仍失败则保持原页面且不发受限请求。该本机状态只用于 App 即时体验和向服务端表达同步需要，不能替代 session grant 授权。
 
-Scan API 的 Quota 查询、识别提交和确认写入统一从请求发起时计算 25 秒总 Deadline，不再把 Dio 连接和响应阶段分别累计。Deadline 到达后客户端取消本次等待并返回 `REQUEST_TIMEOUT`；迟到成功响应不能更新当前操作。识别重试继续复用服务端 `request_id` / `Idempotency-Key`，因此客户端 Timeout 不改变服务端额度预占、最终结算和响应重放契约。
+Scan API 的 Quota 查询、识别提交和确认写入统一从请求发起时计算 25 秒总 Deadline，不再把 Dio 连接和响应阶段分别累计，也不使用更短的独立接收超时截断仍在总预算内的响应。Deadline 到达后客户端取消本次等待并返回 `REQUEST_TIMEOUT`；迟到成功响应不能更新当前操作。Timeout、无错误码失败、HTTP 2xx 但成功 DTO 不可解析，以及 `success` 缺少可用 Matched 的不确定结果继续复用原 `request_id` / `Idempotency-Key`，避免服务端可能已 consumed 后用新 ID 重复扣次。幂等重放保持原识别业务结果，Quota 字段按当前服务端账本刷新；同批 Processing 全部结束后 App 再合并读取一次权威 Quota，刷新期间不按旧额度发起新的 Capture/Gallery。
 
 Portfolio API 的 Folder、Collection Item、Wishlist、Dashboard 与估值历史请求同样统一使用从调用发起计时的 25 秒总 Deadline；到期取消客户端等待并返回通用 Timeout 文案，迟到响应不能完成已经过期的保存或覆盖当前读取状态。Create Folder、Quick Collect、完整 Collection Item Create 与 Add Wishlist 均发送 UUID `Idempotency-Key`；Timeout 后按稳定 owner、创建入口及规范化名称、完整 Item 草稿或 card ref 复用该 Key，即使 access token 已刷新也不改变。服务端以 Key 作为新资源 ID，同 Key/相同语义返回原资源，同 Key/不同字段返回 `409`，非法 Key 返回 `422`。网络失败、客户端 Deadline、HTTP `408`/`5xx` 或成功响应 DTO 无法解析等无法确定服务端是否已提交的结果均保留原 Key；成功或 `401`、`403`、`409`、`422` 等明确终态响应后清除，后续主动创建才是新操作。Quick Collect 与完整 Create 使用不同操作域，不会互相重放。旧客户端不带 Key 时继续兼容。该客户端边界不拆分 Folder Move 与字段编辑的原子 `PATCH`。
 
@@ -94,13 +106,13 @@ Home/Search/Collection/Profile 顶部入口仅在本机权益明确为 Free 时�
 
 ## Admin 订单与通知契约
 
-`0032_billing_order_facts.sql` 为 `billing_transaction` 增加 `business_status`、`charge_count` 和 `source_notification_uuid`。Fresh Purchase、Restore 与 Notifications V2 都可保存服务端验签通过的 Apple 交易证据并维护即时权益，但 Admin 订单真值只读取 `source_notification_uuid IS NOT NULL` 的通知确认记录；客户端路径写入的暂存交易不进入订单列表、动态筛选选项或 XLSX，也不参与扣款序号。建单类通知命中已有 `environment + transactionId` 时用通知解码字段晋升该记录。免费试用固定为 0；通知确认且 `amount_micros > 0` 的交易按同一 `environment + originalTransactionId` 内的 `purchase_at + transactionId` 排序并增加扣款次数；重复通知不增加次数；退款不减序号、不重排。只有存在更早通知确认试用且尚无通知确认正金额付费时才标记 `trial_conversion`，不从单独一条历史 `RENEWAL` 猜测试用转换。
+当前 PostgreSQL `0000_business_schema.sql` 的 `billing_transaction` 已包含 `business_status`、`charge_count` 和 `source_notification_uuid`。Fresh Purchase、Restore 与 Notifications V2 都可保存服务端验签通过的 Apple 交易证据并维护即时权益，但 Admin 订单真值只读取 `source_notification_uuid IS NOT NULL` 的通知确认记录；客户端路径写入的暂存交易不进入订单列表、动态筛选选项或 XLSX，也不参与扣款序号。建单类通知命中已有 `environment + transactionId` 时用通知解码字段晋升该记录。免费试用固定为 0；通知确认且 `amount_micros > 0` 的交易按同一 `environment + originalTransactionId` 内的 `purchase_at + transactionId` 排序并增加扣款次数；重复通知不增加次数；退款不减序号、不重排。只有存在更早通知确认试用且尚无通知确认正金额付费时才标记 `trial_conversion`，不从单独一条历史 `RENEWAL` 猜测试用转换。
 
 `DID_CHANGE_RENEWAL_PREF + UPGRADE` 在已验签交易携带当前周/年方案的新 `transactionId` 时，按实际 `productId`、`purchaseDate`、`price` 和 `currency` 创建 `upgrade` 订单；同一交易重复通知保持幂等。`DOWNGRADE` 只更新购买链的 `next_product_id`，不创建未来订单；降级方案实际续订后由携带新 `transactionId` 的 `DID_RENEW` 建单。subtype 为空时，已有交易只更新计划状态，新 `transactionId` 作为遗漏的真实交易补录。所有订单只在 `price > 0` 时增加扣款次数，`price = 0` 保持原扣款次数，`price` 缺失则扣款次数为 `null`、记录异常并进入 Apple Server API 校正，不使用 `renewalPrice`。`SUBSCRIBED + RESUBSCRIBE` 使用新的 `originalTransactionId` 时是该链首次付费，业务状态为 `initial_purchase`；沿用已有 `originalTransactionId` 时视为同链续费。确定性重算保证同链只有第一笔有正金额证据的实际付费保留 `initial_purchase`。
 
-`0033_billing_exchange_rate_snapshot.sql` 为订单增加可审计的 USD 汇率快照。现有汇率服务口径为 `1 USD = rate × 原币种`，换算使用整数 micros 的除法与 half-away-from-zero 舍入；USD 使用 rate 1。快照固化 rate、base/quote、来源、生效/抓取时间、陈旧标记、换算版本和舍入模式。汇率不可用或币种不支持时订单照常入库，USD 及快照保持空，不以 0 或最新汇率猜测；已固化订单不随未来汇率变化重算。
+订单的可审计 USD 汇率快照字段已定义在 PostgreSQL `0000_business_schema.sql` 的 `billing_transaction` 中。现有汇率服务口径为 `1 USD = rate × 原币种`，换算使用整数 micros 的除法与 half-away-from-zero 舍入；USD 使用 rate 1。快照固化 rate、base/quote、来源、生效/抓取时间、陈旧标记、换算版本和舍入模式。汇率不可用或币种不支持时订单照常入库，USD 及快照保持空，不以 0 或最新汇率猜测；已固化订单不随未来汇率变化重算。
 
-`0034_billing_auto_renew_snapshot.sql` 为订单增加 nullable `auto_renew_snapshot`。Admin 展示、筛选和导出只读取订单事件快照，不读取 purchase chain 当前 `auto_renew`。Notifications V2 只有在当次已验签续订信息提供 `autoRenewStatus` 时写 `0/1`；Lifetime 固定写 `0`；Fresh Purchase、Restore 及历史订阅订单无法从交易 JWS 证明该值时保持 `NULL` 并显示 `--`，不以当前状态反向覆盖历史。
+PostgreSQL `0000_business_schema.sql` 的订单表已包含 nullable `auto_renew_snapshot`。Admin 展示、筛选和导出只读取订单事件快照，不读取 purchase chain 当前 `auto_renew`。Notifications V2 只有在当次已验签续订信息提供 `autoRenewStatus` 时写 `0/1`；Lifetime 固定写 `0`；Fresh Purchase、Restore 及历史订阅订单无法从交易 JWS 证明该值时保持 `NULL` 并显示 `--`，不以当前状态反向覆盖历史。
 
 PostgreSQL `0007_billing_refund_status.sql` 为 `billing_transaction` 增加 nullable `business_status_before_refund`。`REFUND` 首次落地时保存退款前业务状态；重复退款保持原值。`REFUND_REVERSED` 只有在 Apple Server API 校正证明对应链路 active 后才恢复该状态并清空退款事实；历史已退款记录不猜测回填，退款前业务状态缺失时恢复为 `NULL`，不得继续标记为 `refunded` 或推断为其他订单类型。新 Worker 依赖该列，发布顺序必须为先迁移共享 PostgreSQL Schema、后部署 Worker；共享 Schema 已于 2026-08-19 应用 `0007` 并完成幂等复核，同日完成 dev Worker 与 Admin assets 部署。
 
@@ -135,13 +147,13 @@ Collection Item 编辑与 Folder Move 继续使用单次 `PATCH /api/v1/portfoli
 |---|---|
 | `GET /api/v1/scan/quota` | 返回当前 owner 的终身 10 次 Free quota；有效当前 session grant 返回 `access=premium`、`unlimited=true`，本机 Premium 同步中返回 `ENTITLEMENT_SYNC_REQUIRED`。 |
 | `POST /api/v1/scan/quota/reserve` | 要求 JSON `request_id` 与 `Idempotency-Key` 为同一 UUID；按 owner 原子预占并立即返回完整 quota。App 按 Queue 顺序逐张调用，因此有限 Free 额度固定由更早 Item 获得；本机 Premium 同步中返回 `ENTITLEMENT_SYNC_REQUIRED`，额度不足返回 `SCAN_QUOTA_EXHAUSTED`。 |
-| `POST /api/v1/scan/recognize` | 要求 body `request_id` 与 `Idempotency-Key` 为同一 UUID；领取同 request 的预占后再进入 R2/OCR，兼容未预占的旧客户端原子创建并领取。只有目录 `card_ref/name/set_name` 完整且可映射为 `object_type=tcg` 的 Matched 结果消耗额度；No Match、目录详情不完整和技术失败均释放，Premium 不消耗 Free quota。Matched 候选返回详情必填的 `card_ref/name/set_name/object_type`，价格不参与成功判定。成功及额度耗尽响应中的 quota 均包含 `access`、`unlimited`、`limit`、`reserved`、`consumed`、`remaining`，完成响应可用原 request ID 重放且只结算一次。 |
+| `POST /api/v1/scan/recognize` | 要求 body `request_id` 与 `Idempotency-Key` 为同一 UUID；领取同 request 的预占后再进入 图片存储/向量检索，兼容未预占的旧客户端原子创建并领取。只有目录 `card_ref/name/set_name` 完整且可映射为 `object_type=tcg` 的 Matched 结果消耗额度；No Match、目录详情不完整和技术失败均释放，Premium 不消耗 Free quota。Matched 候选返回详情必填的 `card_ref/name/set_name/object_type`，价格不参与成功判定。成功及额度耗尽响应中的 quota 均包含 `access`、`unlimited`、`limit`、`reserved`、`consumed`、`remaining`，完成响应可用原 request ID 重放且只结算一次。 |
 
-v1.1 的卡牌目录标识统一为字符串：`cards_all.product_id`、内部 `card_ref`、OCR 候选 `product_id`、Scan 响应与审计候选均不得按数值解析、比较或重建。Workers 接受非空且无首尾空白的字符串 OCR `product_id`；为兼容既有识别服务，也接受原有 1 至 `4294967295` 整数并在进入目录查询前立即转换为十进制字符串。卡号消歧补回目录卡时直接透传 `card_ref`，包含字母、冒号或其他非数字字符的体育卡标识不得丢失。PostgreSQL 相关列已经是 `text`，本次不新增 Schema、migration 或数据回填；该兼容改动也不代表 Sports 搜索与 UI 已开放。
+v1.1 的卡牌目录标识统一为字符串：`cards_all.product_id`、内部 `card_ref`、向量候选 `product_id`、Scan 响应与审计候选均不得按数值解析、比较或重建。Workers 接受非空且无首尾空白的字符串向量候选 `product_id`；为兼容既有识别服务，也接受原有 1 至 `4294967295` 整数并在进入目录查询前立即转换为十进制字符串。旧客户端可选卡号消歧补回目录卡时仍直接透传 `card_ref`，包含字母、冒号或其他非数字字符的体育卡标识不得丢失；当前 dev App 已移除 ML Kit Latin OCR，不再提交端侧卡号提示。PostgreSQL 相关列已经是 `text`，本次不新增 Schema、migration 或数据回填；Sports 搜索与目录 UI 仍是独立范围，扫描页类型选择、识别参数和 Sports Shop 入口分别按各自增量验收。
 
-`scan_quota_request` 同时是额度账本和请求幂等真源。Free 的有效 `reserved + consumed` 最多 10；Free 预占按 owner 摘要锁串行，同 owner 多 session 并发不能预占同一最后额度。Premium 不取得 Free 配额锁，也不消耗 Free 次数。`attempts=0` 表示额度已预占但 OCR 尚未领取；识别请求按同一 request ID 原子领取并更新处理 lease，若配置、payload 或权益同步状态使 OCR 无法启动，则仅释放该 `attempts=0` reservation。处理中租约为 60 秒；Quota 统计忽略过期 reservation，迟到 Worker 不能再结算消费，同一过期 lease 的并发接管仍只有一个请求获得处理权，避免中断永久占用。游客注册为新用户时只迁移已经结算为 `free/consumed` 的额度记录；`reserved` 保持原 session 结算边界，`released` 与 Premium 请求不改变新用户 Free Remaining，登录已有用户不合并游客额度。Flutter 严格解析完整 quota，不再把缺失权益字段静默降级为 Free；Scan 以本机 Premium 或服务端 `unlimited=true` 的合并结果更新展示、额度拦截和请求同步保护，并在本机为 Free 时于页面生命周期内至少复核一次 StoreKit 权益。客户端在哈希完成后按 Queue 顺序等待服务端预占，预占响应立即更新内部可用额度，并继续用于 Capture 拦截、批量容量和 Waiting 调度，随后各 Item 的 OCR 可并发；顶部 Free 提示不因 `reserved` 减少，只在完整可用结果从 Loading/Revealing 切换为 Matched 时按 Item 显示 `consumed` 变化，且不等待异步价格。当本页存在 Processing、内部 Remaining 因 reservation 暂时为 0 而展示次数仍大于 0 时，Capture、Gallery 和 Retry 不再发出新识别请求，也不打开 Free Quota Paywall，而是等待现有请求结算；Processing 结算且展示次数归 0 后才进入已耗尽路径。预占与识别共享原单次 25 秒网络 Deadline。客户端 Timeout 或传输结果不确定时保留原 request ID，Failed Retry 复用该 ID，已经收到明确服务端终态响应后的普通 Retry 使用新 ID。普通可见 Processing 与已删除 Processing 的技术失败都会刷新 Quota 并按原 Queue 顺序递补 Waiting。Unknown 主动刷新失败使用顶部失败提示，不扫描也不弹 Free Paywall；Premium Scan 显示非升级入口的 `Unlimited scans` 状态。同一次 Gallery 选择中若多张图片因 Free 额度不足先后返回，App 只自动打开一次 Quota Paywall，其余图片继续保留为 Waiting；用户仍可主动点击 Waiting 卡片再次打开 Paywall。Quota Paywall 或 Scan Pro 返回 typed Purchase/Restore success 后，Scan 在路由返回的同一帧先把 Waiting Item 转为不可点击的 `Premium Syncing`，再提交当前 StoreKit entitlement 并至少刷新一次服务端 Quota；收到 `ENTITLEMENT_SYNC_REQUIRED` 时复用同一个单任务同步周期，保留原图并在最多 25 秒的 Quota 确认窗口内等待。只有服务端确认 `unlimited=true` 后，Waiting 与普通权益同步 Item 才按 Queue 顺序自动递补；若本页已明确观察到 Premium 降级为 Free，或服务端 quota 已从 Unlimited 收敛为 Free，则恢复原 Free Remaining，并按 Free quota 处理该降级期间的同步 Item。Capture 与 Gallery 统一在创建前检查 10 张 Queue 上限。Processing 删除立即移除 UI，但保留原请求的后台观察；最终响应继续更新 Quota，缺少 Quota 时刷新服务端真值，且迟到结果不得重插卡片。Scan 页面并发发出的 Quota refresh 使用本地版本门禁；等待期间若预占或识别终态已更新 Quota，较早 refresh 的迟到响应不得覆盖较新的额度状态。
+`scan_quota_request` 同时是额度账本和请求幂等真源。Free 的有效 `reserved + consumed` 最多 10；Free 预占按 owner 摘要锁串行，同 owner 多 session 并发不能预占同一最后额度。Premium 不取得 Free 配额锁，也不消耗 Free 次数。`attempts=0` 表示额度已预占但识别尚未领取；识别请求按同一 request ID 原子领取并更新处理 lease，若配置、payload 或权益同步状态使向量检索无法启动，则仅释放该 `attempts=0` reservation。处理中租约为 60 秒；Quota 统计忽略过期 reservation，迟到 Worker 不能再结算消费，同一过期 lease 的并发接管仍只有一个请求获得处理权，避免中断永久占用。游客注册为新用户时只迁移已经结算为 `free/consumed` 的额度记录；`reserved` 保持原 session 结算边界，`released` 与 Premium 请求不改变新用户 Free Remaining，登录已有用户不合并游客额度。Flutter 严格解析完整 quota，不再把缺失权益字段静默降级为 Free；Scan 以本机 Premium 或服务端 `unlimited=true` 的合并结果更新展示、额度拦截和请求同步保护，并在本机为 Free 时于页面生命周期内至少复核一次 StoreKit 权益。客户端在端侧向量化与可选卡号读取完成后按 Queue 顺序等待服务端预占，预占响应立即更新内部可用额度，并继续用于 Capture 拦截、批量容量和 Waiting 调度，随后各 Item 的向量检索请求可并发；顶部 Free 提示不因 `reserved` 减少，只在完整可用结果从 Loading/Revealing 切换为 Matched 时按 Item 显示 `consumed` 变化，且不等待异步价格。当本页存在 Processing、内部 Remaining 因 reservation 暂时为 0 而展示次数仍大于 0 时，Capture、Gallery 和 Retry 不再发出新识别请求，也不打开 Free Quota Paywall，而是等待现有请求结算；Processing 结算且展示次数归 0 后才进入已耗尽路径。预占与识别共享原单次 25 秒网络 Deadline。客户端 Timeout 或传输结果不确定时保留原 request ID，Failed Retry 复用该 ID，已经收到明确服务端终态响应后的普通 Retry 使用新 ID。普通可见 Processing 与已删除 Processing 的技术失败都会刷新 Quota 并按原 Queue 顺序递补 Waiting。Unknown 主动刷新失败使用顶部失败提示，不扫描也不弹 Free Paywall；Premium Scan 显示非升级入口的 `Unlimited scans` 状态。同一次 Gallery 选择中若多张图片因 Free 额度不足先后返回，App 只自动打开一次 Quota Paywall，其余图片继续保留为 Waiting；用户仍可主动点击 Waiting 卡片再次打开 Paywall。Quota Paywall 或 Scan Pro 返回 typed Purchase/Restore success 后，Scan 在路由返回的同一帧先把 Waiting Item 转为不可点击的 `Premium Syncing`，再提交当前 StoreKit entitlement 并至少刷新一次服务端 Quota；收到 `ENTITLEMENT_SYNC_REQUIRED` 时复用同一个单任务同步周期，保留原图并在最多 25 秒的 Quota 确认窗口内等待。只有服务端确认 `unlimited=true` 后，Waiting 与普通权益同步 Item 才按 Queue 顺序自动递补；若本页已明确观察到 Premium 降级为 Free，或服务端 quota 已从 Unlimited 收敛为 Free，则恢复原 Free Remaining，并按 Free quota 处理该降级期间的同步 Item。Capture 与 Gallery 统一在创建前检查 10 张 Queue 上限。Processing 删除立即移除 UI，但保留原请求的后台观察；最终响应继续更新 Quota，缺少 Quota 时刷新服务端真值，且迟到结果不得重插卡片。Scan 页面并发发出的 Quota refresh 使用本地版本门禁；等待期间若预占或识别终态已更新 Quota，较早 refresh 的迟到响应不得覆盖较新的额度状态。
 
-OCR 候选返回后，Scan 只读取识别响应需要的 `product_id`、游戏、名称、Set、卡号和稀有度；全部候选通过一条 `cards_all WHERE product_id IN (...)` 轻量 SQL 批量归约，并按 OCR 原顺序重建 matched/unresolved 审计结果。识别阶段不得逐候选调用完整 `getCard()`，也不得加载 published price、语言或 finish；Review 继续按原流程加载完整卡牌与价格。该约束使 30 个候选仍保持 1 条目录 SQL、0 条价格 SQL。
+向量候选返回后，Scan 只读取识别响应需要的 `product_id`、游戏、名称、Set、卡号和稀有度；全部候选通过一条 `cards_all WHERE product_id IN (...)` 轻量 SQL 批量归约，并按向量服务的原始候选顺序重建 matched/unresolved 审计结果。识别阶段不得逐候选调用完整 `getCard()`，也不得加载 published price、语言或 finish；Review 继续按原流程加载完整卡牌与价格。该约束使 30 个候选仍保持 1 条目录 SQL、0 条价格 SQL。
 
 Functional Paywall 只在 typed Purchase/Restore success 后启动上述服务端权益同步；quota=0 且图片未入 Queue 时仍只返回 Scan，不自动打开相机或图库。Scan Pro Card 使用完整 Subscription Page：Purchase Success 经 Success Page 返回原 Scan 页面实例，Restore/外部解锁直接返回，因此当前 Queue 不会因重新创建路由而丢失。首次 quota 刷新延后到首帧，避免路由切换构建期修改 Riverpod provider。
 
@@ -196,7 +208,7 @@ PostgreSQL 追加 `0006_mutation_lock.sql`。`mutation_lock` 仅以主键 `lock_
 
 部署顺序必须先执行 expand migration `0006`，再部署依赖锁表的新 Worker。旧 Worker 会忽略新增表，可在 migration 后继续运行；新 Worker 在表不存在时显式失败，不允许先部署代码。PostgreSQL migration manifest 按完整有序名称校验 ledger；runner 在计算 checksum 与执行前统一把 CRLF 和孤立 CR 规范为 LF，因此同一 migration 不会因 Windows Text loader 换行差异与远程 LF ledger 产生伪冲突，规范化之外的 SQL 内容变化仍必须显式失败。2026-08-19 已按该顺序执行共享 PostgreSQL `0006` 并部署依赖锁表的 dev Worker；该 schema 变更对共用数据库的 dev/prod 同时生效，prod Worker 部署仍是独立发布动作。执行、复核和回滚边界见 [migration.md](migration.md)；本次 Git 交付不重复执行迁移、部署或数据写入。
 
-旧 `tcg_price` 不参与运行时查询。Search、卡片详情、市场价、Price Series、Trending 和 Portfolio 估值统一读取 `price_source`、`price_series`、`price_ingest_batch`、`price_current_snapshot`、`current_price_pointer`、`price_history_month` 与 `card_trending_snapshot`。当前价只读取 `status=published` 且被 `current:%` pointer 指向的批次；月历史只读取同来源、同 scope 的 `published/superseded` lineage，并要求该来源和 scope 仍有已发布 current pointer。不同 scope 不能互相授权历史可见性；任何月块内容或 checksum 变化都必须记录新的 batch lineage，不能保留旧 `last_batch_id` 原地改写。PostgreSQL 的通用评级 `grader_code=GENERIC` 在 API 边界继续显示为既有 `Grade` 桶，Price Series 查询同时接受 `GENERIC` 与 `Grade`，避免数据库代码变化破坏收藏编辑和扫描确认的 PSA/BGS 共享等级估值。收藏编辑页打开已有 Item 时按该 Item 的 language 与 finish 重新加载市场价，后续切换语言或版本也只展示对应价格维度。七张新价格表为空时，市场价和 Trending 返回空集合，不回退旧价格结果或旧 KV Trending 缓存。Card Detail 的 Shop 从已发布 current snapshot 中只选择 `source_code=tcgplayer` 的 Raw 商品，按品相生成最多 4 条 TCGplayer 商品外链；`date` 与 `price` 表示当前商品价格快照，不得解释为已成交记录。其他价格来源不得混入 Shop，独立的 View Sold Listings 成交查询入口不受此映射影响。
+旧 `tcg_price` 不参与运行时查询。Search、卡片详情、市场价、Price Series、Trending 和 Portfolio 估值统一读取 `price_source`、`price_series`、`price_ingest_batch`、`price_current_snapshot`、`current_price_pointer`、`price_history_month` 与 `card_trending_snapshot`。当前价只读取 `status=published` 且被 `current:%` pointer 指向的批次；月历史只读取同来源、同 scope 的 `published/superseded` lineage，并要求该来源和 scope 仍有已发布 current pointer。不同 scope 不能互相授权历史可见性；任何月块内容或 checksum 变化都必须记录新的 batch lineage，不能保留旧 `last_batch_id` 原地改写。PostgreSQL 的通用评级 `grader_code=GENERIC` 在 API 边界继续显示为既有 `Grade` 桶，Price Series 查询同时接受 `GENERIC` 与 `Grade`，避免数据库代码变化破坏收藏编辑和扫描确认的 PSA/BGS 共享等级估值。收藏编辑页打开已有 Item 时按该 Item 的 language 与 finish 重新加载市场价，后续切换语言或版本也只展示对应价格维度。七张新价格表为空时，市场价和 Trending 返回空集合，不回退旧价格结果或旧 KV Trending 缓存。Card Detail 的 Shop 以目录 `game_id` 判断入口：`< 50000` 的 TCG 沿用已发布 current snapshot 中 `source_code=tcgplayer` 的 Raw 商品，按品相生成最多 4 条 TCGplayer 商品外链，`date` 与 `price` 是当前商品价格快照而非成交记录；`>= 50000` 的体育卡用名称、系列和编号生成一条 eBay 在售搜索链接，`date`、`price` 为 `null`，页面不展示虚构的商品价格或日期。体育卡没有 eBay 商品 ID，搜索结果不代表单一商品或已验证卖家。独立的 View Sold Listings 成交查询入口不受此映射影响。
 
 公共数据接口必须区分 PostgreSQL 成功返回零行与查询失败：前者按既有契约返回正常空集合或 `404 NOT_FOUND`，后者返回非 2xx，使 Flutter 进入整页或局部失败态。Search、Sets、卡片详情、Market Prices、Price Series 与 Shop 不得捕获数据库异常后伪装为成功空数据或不存在。Flutter Trending Today 对成功空集合显示正常空态，仅在查询失败时显示失败重试；后续分页失败保留已加载卡片并提供局部重试。Flutter Search 的追加页失败同样保留已加载卡片和当前页码，停止滚动触发的自动重试，并通过列表底部操作重试同一下一页；成功后才推进页码和继续分页。缓存只可复用 PostgreSQL 切换后产生的有效响应，不得成为迁移前价格结果的回退通道。
 
@@ -208,7 +220,7 @@ Home Most Valuable 与 Portfolio 总资产使用不同金额口径：`current_va
 
 Hyperdrive 查询边界固定如下：当前价格先按最多 40 个 card ref 分块，单次查询最多接收 1,000 行；多卡分块达到 1,001 行探测值时按 card ref 顺序二分并分别重查，直到各次查询均回到边界内，单卡仍超限时显式失败。历史按最多 100 个 series 分块，单块最多接收 1,600 个自然月块；数据库把每个月块的 JSONB 文本限制为 24 KiB，因此一批历史 JSON 理论上限为 39,321,600 bytes（37.5 MiB），并为 50 MB 响应边界中的其他列与协议开销保留余量；单次历史范围最多 400 天；Portfolio 估值事件一次最多接收 10,000 行。不可继续拆分的当前价格查询或其他查询超出行数、月块字节上限时均显式失败，不截断后继续返回不完整业务结果。`POST /api/v1/cards/:card_ref/price-series/batch` 继续最多接收 100 项，但默认 PostgreSQL 实现改为当前快照集合查询加历史集合查询，不再对 100 项执行 `Promise.all` 查询扇出。Admin 安装分析不再读取完整 `app_installation` 后由 Worker 过滤：日期、平台与国家筛选在 SQL 执行，summary 固定返回一行、trend 只返回按日聚合行，分组明细在数据库 `LIMIT/OFFSET` 且 `page_size` 最大 100；环境筛选不匹配当前 Worker 时直接返回空统计，不查询共享数据库。
 
-价格金额在 PostgreSQL 使用整数 `amount_micros`，API 边界转换为美元数值；月度 JSONB 同时支持紧凑 `{d,a}` 与既有 `{date,price}` 点位格式。空点数组是正常无历史数据；顶层非数组、非法日期、非法金额或不完整点位必须显式失败，不得过滤后返回空历史或部分历史。Search、Trending、Price Series 与 Market Prices 的缓存版本已分别提升，防止迁移前价格结果跨切换复用；Search 规范 SKU 选价修复使用 `v12` 响应缓存命名空间，不能继续读取按旧“30D 涨幅优先”口径生成的 `v11` 结果。Shop 使用的 `GET /api/v1/cards/:card_ref/sold-listings` 保持 `no-store`，只读取已发布 PostgreSQL TCGplayer current snapshot，不使用其他数据库来源。
+价格金额在 PostgreSQL 使用整数 `amount_micros`，API 边界转换为美元数值；月度 JSONB 同时支持紧凑 `{d,a}` 与既有 `{date,price}` 点位格式。空点数组是正常无历史数据；顶层非数组、非法日期、非法金额或不完整点位必须显式失败，不得过滤后返回空历史或部分历史。Search、Trending、Price Series 与 Market Prices 的缓存版本已分别提升，防止迁移前价格结果跨切换复用；Search 规范 SKU 选价修复使用 `v12` 响应缓存命名空间，不能继续读取按旧“30D 涨幅优先”口径生成的 `v11` 结果。Shop 使用的 `GET /api/v1/cards/:card_ref/sold-listings` 保持 `no-store`；TCG 商品仍只读取已发布 PostgreSQL TCGplayer current snapshot，体育卡 eBay 搜索入口使用 `cards_all` 中该卡的目录信息，不将其他价格来源伪装成 eBay 报价。
 
 ## Apple Notifications V2
 
@@ -230,7 +242,8 @@ Apple 官方 Node SDK 的证书吊销检查和 Server API 请求依赖 `node-fet
 
 - 客户端已在 Fresh Purchase 前尽力申请 challenge，并仅将 StoreKit 2 signed transaction 作为即时 Premium 证据异步上传；业务接口失败不反向覆盖本机购买成功。
 - App 已将静默权益读取与主动 Restore 分离：启动只读取 Apple verified `Transaction.currentEntitlements`，用户主动 Restore 才调用 `AppStore.sync()`；Restore 实现 Success/Not Found/Cancelled/Failed/25 秒 Timeout 分流。`AppStore.sync()` 的用户取消及其他同步错误均停止本次流程且不读取设备残留 entitlement；Cancelled 只结束 Loading、保持操作前权益且不显示结果反馈，真实错误继续进入 Failed。Success 不进入 Purchase Success，并在后台尽力完成 App Attest proof，不以 proof 同步失败覆盖本机成功。
-- Workers 已有 Fresh Purchase、Restore、Notifications V2 与 Apple Server API 校正链；production/TestFlight 双 verifier、Bundle 隔离 inbox 与双环境校正代码已经完成，2026-09-07 的数据库证据覆盖 `0000` 至 `0010`。2026-09-09 回读确认 dev/prod 均已运行 PostgreSQL Worker，但 prod 尚未部署当前 dev 的向量协议与独立版本配置。Apple 真机、真实交易和 Server API 验收按[发布与验证](../05-delivery/VERIFICATION.md)的具体证据范围判断。
+- Workers 已有 Fresh Purchase、Restore、Notifications V2 与 Apple Server API 校正链；production/TestFlight 双 verifier、Bundle 隔离 inbox 与双环境校正代码已经完成，2026-09-07 的数据库证据覆盖 `0000` 至 `0010`。2026-09-09 历史回读确认 dev/prod 均已运行 PostgreSQL Worker；当时 prod 尚未切换向量协议与独立版本配置，本轮不据此判断合并后的线上版本。Apple 真机、真实交易和 Server API 验收按[发布与验证](../05-delivery/VERIFICATION.md)的具体证据范围判断。
+- 2026-09-07 生产发布证据：PostgreSQL-only Worker `934506ae-d433-4a38-ae40-6d07b109d50e` 已处理 Production/Sandbox 两条官方 `TEST` 通知，Apple 请求为 `SUCCESS`，回调 JWS 验签并入库为 `processed`。这证明当时的通知 API 凭据、URL 与签名链可用，不替代真实交易状态查询或当前环境复查；完整历史证据见[Apple 配置与验收](../05-delivery/app-store-connect-subscription-setup.md)。
 - `billing_entitlement_grant` 旧 owner 关联只兼容保留，不参与授权。
 - Scan Quota 与 Folder 限制已由服务端基于可信 grant 原子执行；Waiting/自动递补、Processing 删除后的后台结算和 `blocked_action=create_folder` 已按页面内最小上下文实现，非成功或目标失效不执行旧动作。
 - Admin 已可查询原始收件箱失败记录；完整 Decoded Payload 只在授权用户主动打开详情时加载，`signedPayload` 默认不返回，复制 JSON 只由用户主动触发。最新 Admin PRD 未定义额外查看/复制审计表或审计查询功能，本版本不猜测新增该范围。
@@ -242,4 +255,4 @@ Singular 配置失败后的恢复不再依赖进程重启：只缓存有效配�
 
 联网授权弹窗结束后的及时恢复依赖 Flutter 活动状态信号：收到 `inactive → resumed` 时同样立即尝试配置恢复，不需要先进入 `paused` 或等待退避计时；初始化仍等待既有 ATT 顺序。项目没有独立的系统“允许联网”按钮回调，不能将 `resumed` 等同于用户已授权或网络已可用，实际配置请求仍决定能否继续。系统未发出该信号或请求继续失败时由前台退避重试兜底。
 
-订阅权益上线前必须以最新 v1.1 PRD 评审结论补齐服务端可信证据、会话级 grant、通知状态归约、幂等和异常处理，并完成 Sandbox、TestFlight 及服务端集成验收。
+订阅权益正式验收前仍须完成 App Attest 真机、Sandbox/TestFlight 购买与生命周期、真实 Server API 状态/交易查询、会话切换、多设备和离线补偿矩阵；服务端可信证据、会话级 grant、通知状态归约、幂等和异常处理已有代码及自动化保护。

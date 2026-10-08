@@ -17,6 +17,7 @@ import type { Env } from "./env";
 import { createFeedbackRoutes } from "./feedback/routes";
 import { createLegalRoutes } from "./legal/routes";
 import { createPortfolioRoutes } from "./portfolio/routes";
+import { apiRequestId, REQUEST_ID_HEADER } from "./request-id";
 import { createScanRoutes } from "./scan/routes";
 
 const DEFAULT_ALLOWED_ORIGINS = [
@@ -30,6 +31,7 @@ const DEFAULT_ALLOWED_ORIGINS = [
 
 export const app = new Hono<{ Bindings: Env }>();
 
+app.use("/api/v1/*", apiRequestId());
 app.use(
   "/api/*",
   cors({
@@ -39,8 +41,10 @@ app.use(
       "Authorization",
       "Content-Type",
       "Idempotency-Key",
+      REQUEST_ID_HEADER,
       "X-Local-Premium-State",
     ],
+    exposeHeaders: [REQUEST_ID_HEADER],
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     maxAge: 86400,
   }),

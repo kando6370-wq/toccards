@@ -120,6 +120,7 @@ abstract final class AnalyticsProperty {
   static const timing = 'timing';
   static const scanResults = 'scan results';
   static const apiName = 'api_name';
+  static const requestId = 'request_id';
   static const apiMessage = 'api_messsage';
   static const apiParams = 'api_params';
 }

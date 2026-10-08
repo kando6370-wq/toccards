@@ -2,10 +2,13 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/auth_session_interceptor.dart';
 import 'package:kando_app/features/auth/auth_storage.dart';
+import 'package:kando_app/shared/api/api_request_id.dart';
+import 'package:kando_app/shared/api/api_request_log.dart';
 
 void main() {
   test(
@@ -34,6 +37,8 @@ void main() {
         null,
         'Bearer refreshed-access',
       ]);
+      expect(adapter.requestIds, hasLength(3));
+      expect(adapter.requestIds.toSet(), hasLength(3));
       expect(storage.session?.accessToken, 'refreshed-access');
     },
   );
@@ -56,6 +61,40 @@ void main() {
       expect(response.statusCode, 401);
       expect(adapter.paths, ['/api/v1/wishlist', '/api/v1/auth/token/refresh']);
       expect(storage.session?.accessToken, 'expired-access');
+    },
+  );
+
+  test(
+    'logs the id of each physical request because a refresh retry must remain traceable across monitoring systems',
+    () async {
+      final storage = _MemoryAuthStorage(_session('expired-access'));
+      final adapter = _AuthRetryAdapter(refreshSucceeds: true);
+      final container = ProviderContainer();
+      final dio = _dio(
+        adapter,
+        storage,
+        requestLog: container.read(apiRequestLogProvider.notifier),
+      );
+      addTearDown(container.dispose);
+      addTearDown(dio.close);
+
+      final response = await dio.get<Object?>(
+        '/portfolio/items',
+        options: Options(
+          headers: {'Authorization': 'Bearer expired-access'},
+          validateStatus: (_) => true,
+        ),
+      );
+
+      final sentRequestIds = adapter.requestIds.whereType<String>().toList();
+      final loggedRequestIds = container
+          .read(apiRequestLogProvider)
+          .map((entry) => entry.requestId)
+          .toList();
+      expect(response.statusCode, 200);
+      expect(sentRequestIds, hasLength(3));
+      expect(loggedRequestIds, hasLength(3));
+      expect(loggedRequestIds.toSet(), sentRequestIds.toSet());
     },
   );
 
@@ -120,9 +159,17 @@ void main() {
   );
 }
 
-Dio _dio(_AuthRetryAdapter adapter, AuthStorage storage) {
+Dio _dio(
+  _AuthRetryAdapter adapter,
+  AuthStorage storage, {
+  ApiRequestLogController? requestLog,
+}) {
   final dio = Dio(BaseOptions(baseUrl: 'https://api.example.test/api/v1'));
   dio.httpClientAdapter = adapter;
+  addApiRequestIdInterceptor(dio);
+  if (requestLog != null) {
+    dio.interceptors.add(ApiRequestTimingInterceptor(requestLog));
+  }
   dio.interceptors.add(AuthSessionInterceptor(dio: dio, storage: storage));
   return dio;
 }
@@ -176,6 +223,7 @@ class _AuthRetryAdapter implements HttpClientAdapter {
   final String acceptedAccessToken;
   final List<String> paths = [];
   final List<String?> authorizationHeaders = [];
+  final List<String?> requestIds = [];
 
   @override
   Future<ResponseBody> fetch(
@@ -185,6 +233,7 @@ class _AuthRetryAdapter implements HttpClientAdapter {
   ) async {
     paths.add(options.uri.path);
     authorizationHeaders.add(options.headers['Authorization'] as String?);
+    requestIds.add(options.headers[apiRequestIdHeader] as String?);
 
     if (options.uri.path.endsWith('/auth/token/refresh')) {
       return _json(

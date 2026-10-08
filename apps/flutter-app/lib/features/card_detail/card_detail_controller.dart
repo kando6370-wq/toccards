@@ -263,9 +263,9 @@ class CardSoldListingRow {
     required this.url,
   });
 
-  final String dateText;
+  final String? dateText;
   final String title;
-  final String priceText;
+  final String? priceText;
   final String platform;
   final String? url;
 }
@@ -622,13 +622,16 @@ class CardDetailState {
   List<CardSoldListingRow> get soldListingRows {
     final listings = [...detail.soldListings]
       ..sort(
-        (left, right) => _compareListingDates(right.dateText, left.dateText),
+        (left, right) =>
+            _compareListingDates(right.dateText ?? '', left.dateText ?? ''),
       );
     return listings.map((listing) {
       return CardSoldListingRow(
         dateText: listing.dateText,
         title: listing.title,
-        priceText: _formatter.formatUsd(listing.priceUsd),
+        priceText: listing.priceUsd == null
+            ? null
+            : _formatter.formatUsd(listing.priceUsd),
         platform: listing.platform,
         url: listing.url,
       );

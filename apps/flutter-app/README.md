@@ -18,6 +18,21 @@ Linux 新后端已部署或手机链路已验收。
 分享配置把测试用户带到生产环境；生产分享继续优先采用服务端配置。
 目录卡牌图片仍使用 `https://image.tcgcard.fun`，不属于本次 API 入口迁移。
 
+## Network transport
+
+移动端 API、运行时配置、分享缩略图和目录图片共用一个应用级原生连接池。
+正式 `test` / `production` 配置均固定 `APP_HTTP_TRANSPORT=native`：iOS 使用
+`URLSession`，可协商 HTTP/2，并在 HTTPS 服务通过 `Alt-Svc` 宣告支持时使用
+HTTP/3；Android 使用 embedded Cronet，并显式启用 HTTP/2 和 QUIC。协议由客户端、
+系统和服务端共同协商，不保证每个请求固定使用 HTTP/3，协商失败会正常降级。
+
+Android 仅在 Cronet provider 明确不可用时按进程回退到 Dart IO transport；连接、
+TLS、超时和响应错误不会触发换协议自动重试，避免重复提交扫描、收藏或购买同步。
+诊断或紧急回退构建可将 `APP_HTTP_TRANSPORT` 设为 `io`；正式配置校验拒绝该值。
+扫描继续使用已有 25 秒整体 Deadline 和 `CancelToken`，Native transport 下不再叠加
+Adapter 级 10 秒响应头超时。test API 是内网明文 HTTP，只能验证功能兼容，不能
+用于验收 HTTP/2 或 HTTP/3；协议验收必须使用支持对应协议的 HTTPS 服务和真机。
+
 From the repository root, run the web app with:
 
 ```bash

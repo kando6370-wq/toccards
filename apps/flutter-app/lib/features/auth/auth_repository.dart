@@ -4,6 +4,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../shared/api/api_environment.dart';
+import '../../shared/api/app_http_transport.dart';
+import '../../shared/api/api_request_id.dart';
 import 'auth_models.dart';
 import 'auth_storage.dart';
 
@@ -12,14 +14,19 @@ const oauthAuthorizationFailedMessage =
 const authApiBaseUrl = kandoApiBaseUrl;
 const authRequestDeadline = Duration(seconds: 25);
 
-Dio createAuthDio({String baseUrl = authApiBaseUrl}) {
-  return Dio(
+Dio createAuthDio({
+  String baseUrl = authApiBaseUrl,
+  AppHttpTransport? transport,
+}) {
+  final dio = Dio(
     BaseOptions(
       baseUrl: baseUrl,
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
     ),
   );
+  addApiRequestIdInterceptor(dio);
+  return transport?.bind(dio) ?? dio;
 }
 
 class OAuthAuthorizationException implements Exception {

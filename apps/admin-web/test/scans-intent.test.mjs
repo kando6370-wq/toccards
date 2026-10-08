@@ -42,3 +42,20 @@ test("scan records expose and filter the persisted app environment", () => {
   assert.match(app, /<ScanFilterField label="环境">[\s\S]*?draft\.environment/);
   assert.match(app, /title: "环境", dataIndex: "environment"/);
 });
+
+test("candidate artwork opens a preview because reviewers need to inspect details without leaving the scan", () => {
+  const drawer = app.slice(app.indexOf("function ScanDetailDrawer("), app.indexOf("function AuthenticatedScanImage("));
+  const thumbnail = drawer.match(/<span className="candidate-thumb">([\s\S]*?)<\/span>/)?.[1] ?? "";
+  assert.match(thumbnail, /typeof candidate\.image_url === "string" && candidate\.image_url/);
+  assert.match(thumbnail, /<Image\b/);
+  assert.match(thumbnail, /src=\{candidate\.image_url\}/);
+  assert.match(thumbnail, /preview=\{\{ mask: false \}\}/);
+  assert.match(thumbnail, /width="100%"[\s\S]*?height="100%"/);
+  assert.match(drawer, /<AuthenticatedScanImage path=\{scan\.image_url\} session=\{session\}/);
+});
+
+test("candidate preview wrappers keep the thumbnail layout and failed artwork has no empty preview target", () => {
+  assert.match(css, /\.scan-detail-drawer \.candidate-card > div\s*\{/);
+  assert.doesNotMatch(css, /\.scan-detail-drawer \.candidate-card div\s*\{/);
+  assert.match(css, /\.scan-detail-drawer \.candidate-thumb \.ant-image-error\s*\{\s*display: none;/);
+});

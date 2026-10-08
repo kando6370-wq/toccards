@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kando_app/shared/api/app_http_transport.dart';
 import 'package:kando_app/shared/card_image/kando_card_image.dart';
+import 'package:kando_app/shared/card_image/kando_network_image.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/pending_collection.dart';
@@ -2730,7 +2732,14 @@ class _QuickCollectionReviewPageState
         final imageUrl = item.card.imageUrl?.trim();
         if (imageUrl != null && imageUrl.isNotEmpty) {
           unawaited(
-            precacheImage(NetworkImage(imageUrl), context, onError: (_, _) {}),
+            precacheImage(
+              createKandoNetworkImage(
+                imageUrl,
+                dio: ref.read(appImageDioProvider),
+              ),
+              context,
+              onError: (_, _) {},
+            ),
           );
         }
       }
@@ -6027,7 +6036,9 @@ class _ShopTile extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                key: Key('card-detail-shop-image-${row.dateText}-${row.title}'),
+                key: Key(
+                  'card-detail-shop-image-${row.dateText ?? 'search'}-${row.title}',
+                ),
                 width: 64,
                 height: 64,
                 decoration: BoxDecoration(
@@ -6042,28 +6053,31 @@ class _ShopTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            row.dateText,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: KandoColors.mutedText,
+                    if (row.dateText != null || row.priceText != null) ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              row.dateText ?? '',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: KandoColors.mutedText,
+                              ),
                             ),
                           ),
-                        ),
-                        Text(
-                          row.priceText,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFFFFF6AF),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
+                          if (row.priceText != null)
+                            Text(
+                              row.priceText!,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFFFFF6AF),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                    ],
                     Text(
                       row.title,
                       maxLines: 1,

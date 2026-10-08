@@ -8,6 +8,8 @@ import '../tool/validate_release_config.dart';
 void main() {
   test('production release requires every subscription product ID', () {
     expect(validateReleaseConfig({'APP_ENV': 'production'}, 'production'), [
+      'APP_HTTP_TRANSPORT must equal native.',
+      'cronetHttpNoPlay must equal true.',
       'SUBSCRIPTION_APP_STORE_WEEKLY_ID must be a non-empty string.',
       'SUBSCRIPTION_APP_STORE_YEARLY_ID must be a non-empty string.',
       'SUBSCRIPTION_APP_STORE_LIFETIME_ID must be a non-empty string.',
@@ -77,7 +79,12 @@ void main() {
       containsPair('SUBSCRIPTION_APP_STORE_LIFETIME_ID', 'CardAi.lifetime'),
     );
     expect(
-      productionConfig.values.toSet().intersection(testConfig.values.toSet()),
+      requiredSubscriptionKeys
+          .map((key) => productionConfig[key])
+          .toSet()
+          .intersection(
+            requiredSubscriptionKeys.map((key) => testConfig[key]).toSet(),
+          ),
       isEmpty,
       reason: 'dev Product IDs must not authorize production purchases',
     );
@@ -224,6 +231,8 @@ void main() {
 
 Map<String, Object?> validConfig() => {
   'APP_ENV': 'production',
+  'APP_HTTP_TRANSPORT': 'native',
+  'cronetHttpNoPlay': true,
   'SUBSCRIPTION_APP_STORE_WEEKLY_ID': 'example.weekly',
   'SUBSCRIPTION_APP_STORE_YEARLY_ID': 'example.yearly',
   'SUBSCRIPTION_APP_STORE_LIFETIME_ID': 'example.lifetime',

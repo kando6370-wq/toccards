@@ -1,7 +1,11 @@
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/shared/analytics/analytics_events.dart';
 import 'package:kando_app/shared/analytics/app_analytics.dart';
+import 'package:kando_app/shared/api/api_request_id.dart';
 import 'package:kando_app/shared/api/api_request_log.dart';
 
 void main() {
@@ -21,6 +25,7 @@ void main() {
           url: url,
           durationMs: 11,
           succeeded: true,
+          requestId: '123e4567-e89b-42d3-a456-426614174000',
           statusCode: 200,
         ),
       )
@@ -31,6 +36,7 @@ void main() {
           url: url,
           durationMs: 20,
           succeeded: true,
+          requestId: '123e4567-e89b-42d3-a456-426614174001',
           statusCode: 200,
         ),
       )
@@ -41,6 +47,7 @@ void main() {
           url: url,
           durationMs: 35,
           succeeded: true,
+          requestId: '123e4567-e89b-42d3-a456-426614174002',
           statusCode: 200,
         ),
       );
@@ -59,6 +66,7 @@ void main() {
       url: Uri.parse('https://api.example.test/auth/login'),
       durationMs: 48,
       succeeded: false,
+      requestId: '123e4567-e89b-42d3-a456-426614174003',
       statusCode: 500,
       errorSummary: 'badResponse | HTTP 500',
       errorDetails: 'response: {"error":"server failed"}',
@@ -68,6 +76,30 @@ void main() {
     expect(entry.errorSummary, contains('HTTP 500'));
     expect(entry.errorDetails, contains('server failed'));
   });
+
+  test(
+    'request log keeps the id sent on the physical request so client and server diagnostics can be joined',
+    () async {
+      const requestId = '123e4567-e89b-42d3-a456-426614174006';
+      final container = ProviderContainer();
+      final adapter = _RequestIdRecordingAdapter();
+      final dio = Dio(BaseOptions(baseUrl: 'https://api.example.test/api/v1'));
+      addTearDown(container.dispose);
+      addTearDown(dio.close);
+      addApiRequestIdInterceptor(dio, requestIdFactory: () => requestId);
+      dio.interceptors.add(
+        ApiRequestTimingInterceptor(
+          container.read(apiRequestLogProvider.notifier),
+        ),
+      );
+      dio.httpClientAdapter = adapter;
+
+      await dio.get<Object?>('/cards');
+
+      expect(adapter.requestId, requestId);
+      expect(container.read(apiRequestLogProvider).single.requestId, requestId);
+    },
+  );
 
   test('api timing reports requests taking at least 3 seconds', () {
     final events = <(String, Map<String, Object?>)>[];
@@ -94,6 +126,7 @@ void main() {
           url: url,
           durationMs: durationMs,
           succeeded: true,
+          requestId: '123e4567-e89b-42d3-a456-426614174004',
           statusCode: 200,
         ),
       );
@@ -107,6 +140,10 @@ void main() {
       timingEvents.map((entry) => entry.$2[AnalyticsProperty.apiName]),
       everyElement('GET /cards'),
     );
+    expect(
+      timingEvents.map((entry) => entry.$2[AnalyticsProperty.requestId]),
+      everyElement('123e4567-e89b-42d3-a456-426614174004'),
+    );
     expect(timingEvents.map((entry) => entry.$2[AnalyticsProperty.timing]), [
       3.0,
       closeTo(3.001, 0.000001),
@@ -114,11 +151,13 @@ void main() {
   });
 
   test('fast request failures still report api errors', () {
-    final events = <String>[];
+    final events = <(String, Map<String, Object?>)>[];
     final container = ProviderContainer(
       overrides: [
         analyticsProvider.overrideWithValue(
-          AppAnalytics.recording((event, _) => events.add(event)),
+          AppAnalytics.recording(
+            (event, properties) => events.add((event, properties)),
+          ),
         ),
       ],
     );
@@ -133,11 +172,39 @@ void main() {
             url: Uri.parse('https://api.example.test/auth/login'),
             durationMs: 500,
             succeeded: false,
+            requestId: '123e4567-e89b-42d3-a456-426614174005',
             statusCode: 500,
             errorSummary: 'HTTP 500',
           ),
         );
 
-    expect(events, [AnalyticsEvent.apiError]);
+    expect(events.single.$1, AnalyticsEvent.apiError);
+    expect(
+      events.single.$2[AnalyticsProperty.requestId],
+      '123e4567-e89b-42d3-a456-426614174005',
+    );
   });
+}
+
+class _RequestIdRecordingAdapter implements HttpClientAdapter {
+  String? requestId;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    requestId = options.headers[apiRequestIdHeader] as String?;
+    return ResponseBody.fromString(
+      '{"success":true,"data":{}}',
+      200,
+      headers: {
+        Headers.contentTypeHeader: [Headers.jsonContentType],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
 }

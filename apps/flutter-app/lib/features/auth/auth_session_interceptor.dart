@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
+import '../../shared/api/api_request_id.dart';
 import 'auth_models.dart';
 import 'auth_storage.dart';
 
@@ -77,6 +78,7 @@ class AuthSessionInterceptor extends Interceptor {
 
     options.extra[_retriedKey] = true;
     options.headers['Authorization'] = 'Bearer ${session.accessToken}';
+    assignNewApiRequestId(options);
     try {
       handler.resolve(await _dio.fetch<dynamic>(options));
     } on DioException catch (error) {

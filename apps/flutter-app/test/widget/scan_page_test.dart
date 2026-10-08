@@ -130,6 +130,32 @@ const _unlimitedQuota = ScanQuotaDto(
 );
 
 void main() {
+  testWidgets('scan type selector defaults to TCG and offers Sports Card', (
+    tester,
+  ) async {
+    final source = _defaultTestScanResultSource() as _TestScanResultSource;
+    await _pumpScanTestApp(tester, scanResultSource: source);
+
+    expect(find.byKey(const Key('scan-card-type-selector')), findsOneWidget);
+    expect(find.text('TCG'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('scan-card-type-selector')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('scan-card-type-option-sports')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('scan-card-type-option-sports')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sports Card'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Take Photo'));
+    await tester.pump();
+    expect(source.photoCardTypes, [ScanCardType.sports]);
+  });
+
   testWidgets(
     'free scanning shows the configured allowance because upgrade urgency depends on the remaining count',
     (tester) async {
@@ -339,6 +365,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Subscription'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pump();
     },
   );
 
@@ -578,6 +606,7 @@ void main() {
       expect(subscription.refreshCount, 1);
       expect(source.photoCallCount, 1);
     },
+    variant: TargetPlatformVariant({TargetPlatform.android, TargetPlatform.iOS}),
   );
 
   testWidgets(
@@ -600,6 +629,7 @@ void main() {
       expect(source.photoCallCount, 1);
       expect(find.text('Subscription'), findsNothing);
     },
+    variant: TargetPlatformVariant({TargetPlatform.android, TargetPlatform.iOS}),
   );
 
   testWidgets(
@@ -622,10 +652,11 @@ void main() {
       expect(source.photoCallCount, 0);
       expect(find.text('Subscription'), findsOneWidget);
     },
+    variant: TargetPlatformVariant({TargetPlatform.android, TargetPlatform.iOS}),
   );
 
   testWidgets(
-    'unknown entitlement refresh failure neither scans nor shows a free paywall',
+    'iOS unknown entitlement refresh failure neither scans nor shows a free paywall',
     (tester) async {
       final source = _TestScanResultSource(
         photoResult: Future.value(const ScanResolution.noMatch()),
@@ -649,6 +680,161 @@ void main() {
       );
       await tester.pump(kandoTopToastDuration);
     },
+    variant: TargetPlatformVariant({TargetPlatform.iOS}),
+  );
+
+  for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+    for (final gallery in [false, true]) {
+      testWidgets(
+        '${platform.name} server quota fallback for ${gallery ? 'Gallery' : 'Photo'} keeps iOS entitlement verification unchanged',
+        (tester) async {
+          final result = Completer<ScanResolution>();
+          final source = _TestScanResultSource(
+            photoResult: result.future,
+            libraryResult: result.future,
+          );
+          final subscription = _ResolvingScanSubscriptionController(
+            AppPremiumState.unknown,
+          );
+          final quota = _TestScanQuotaController(_availableQuota);
+          await _pumpScanTestApp(
+            tester,
+            scanResultSource: source,
+            scanQuotaController: quota,
+            subscriptionController: () => subscription,
+          );
+          expect(quota.refreshCount, 1);
+          await tester.tap(
+            find.byTooltip(gallery ? 'Choose from Library' : 'Take Photo'),
+          );
+          await tester.pump();
+          final android = platform == TargetPlatform.android;
+          if (!android) await tester.pumpAndSettle();
+
+          expect(
+            gallery ? source.libraryCallCount : source.photoCallCount,
+            android ? 1 : 0,
+          );
+          expect(quota.refreshCount, android ? 2 : 1);
+          expect(subscription.state.premiumState, AppPremiumState.unknown);
+          expect(subscription.state.isPro, isFalse);
+          expect(find.text('Subscription'), findsNothing);
+          if (!android) {
+            expect(
+              find.text('Unable to verify Premium access. Please try again.'),
+              findsOneWidget,
+            );
+          }
+          result.complete(const ScanResolution.noMatch());
+          await tester.pump(const Duration(seconds: 3));
+          await tester.pumpAndSettle();
+          await tester.pump(kandoTopToastDuration);
+        },
+        variant: TargetPlatformVariant({platform}),
+      );
+    }
+  }
+
+  for (final refreshFails in [true, false]) {
+    testWidgets(
+      'Android server quota fallback rejects ${refreshFails ? 'failed refresh despite cached quota' : 'non-authoritative local quota'}',
+      (tester) async {
+        final source = _TestScanResultSource(
+          photoResult: Future.value(const ScanResolution.noMatch()),
+        );
+        final quota = _TestScanQuotaController(
+          _availableQuota,
+          refreshSucceeds: !refreshFails,
+          serverAuthoritative: refreshFails,
+        );
+        await _pumpScanTestApp(
+          tester,
+          scanResultSource: source,
+          scanQuotaController: quota,
+          subscriptionController: () =>
+              _ResolvingScanSubscriptionController(AppPremiumState.unknown),
+        );
+        await tester.tap(find.byTooltip('Choose from Library'));
+        await tester.pumpAndSettle();
+
+        expect(source.libraryCallCount, 0);
+        expect(quota.refreshCount, 2);
+        expect(find.text('Subscription'), findsNothing);
+        expect(
+          find.text('Unable to verify Premium access. Please try again.'),
+          findsOneWidget,
+        );
+        await tester.pump(kandoTopToastDuration);
+      },
+      variant: TargetPlatformVariant({TargetPlatform.android}),
+    );
+  }
+
+  testWidgets(
+    'Android server quota fallback keeps exhausted Free users out of the picker',
+    (tester) async {
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.noMatch()),
+      );
+      final quota = _TestScanQuotaController(
+        _availableQuota,
+        refreshQuotas: const [_availableQuota, _exhaustedQuota],
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanQuotaController: quota,
+        subscriptionController: () =>
+            _ResolvingScanSubscriptionController(AppPremiumState.unknown),
+      );
+      await tester.tap(find.byTooltip('Choose from Library'));
+      await tester.pumpAndSettle();
+
+      expect(quota.refreshCount, 2);
+      expect(source.libraryCallCount, 0);
+      expect(find.text('Subscription'), findsOneWidget);
+    },
+    variant: TargetPlatformVariant({TargetPlatform.android}),
+  );
+
+  testWidgets(
+    'Android server quota fallback coalesces taps until the authoritative refresh completes',
+    (tester) async {
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.noMatch()),
+      );
+      final gate = Completer<void>();
+      final quota = _TestScanQuotaController(
+        _availableQuota,
+        refreshQuotas: const [_availableQuota, _availableQuota],
+        refreshGates: [Future<void>.value(), gate.future],
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanQuotaController: quota,
+        subscriptionController: () =>
+            _ResolvingScanSubscriptionController(AppPremiumState.unknown),
+      );
+      try {
+        await tester.tap(find.byTooltip('Choose from Library'));
+        await tester.pump();
+        await tester.tap(find.byTooltip('Choose from Library'));
+        await tester.pump();
+        expect(quota.refreshCount, 2);
+        expect(source.libraryCallCount, 0);
+
+        gate.complete();
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 3));
+        await tester.pumpAndSettle();
+        expect(source.libraryCallCount, 1);
+      } finally {
+        if (!gate.isCompleted) gate.complete();
+        await tester.pump(kandoTopToastDuration);
+      }
+    },
+    variant: TargetPlatformVariant({TargetPlatform.android}),
   );
 
   testWidgets('Scan requests camera access before opening the camera', (
@@ -859,14 +1045,14 @@ void main() {
   );
 
   testWidgets(
-    'Camera recognition sends the full photo to model-based card detection',
+    'Camera recognition submits the viewfinder crop to model-based detection',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(360, 800);
       addTearDown(tester.view.reset);
       final source = _TestScanResultSource(
         photoResult: Future.value(const ScanResolution.failed()),
-        recognizeResult: Future.value(const ScanResolution.noMatch()),
+        recognizeResult: Future.value(const ScanResolution.failed()),
       );
       final camera = _TestScanCameraSession();
       await _pumpScanTestApp(
@@ -880,10 +1066,15 @@ void main() {
       await tester.pump(const Duration(milliseconds: 501));
 
       expect(source.recognizedImages, hasLength(1));
+      expect(source.recognizedImages.single.viewfinderCropped, isTrue);
       expect(
         source.recognizedImages.single.bytes,
         Uint8List.fromList(_transparentPngBytes),
       );
+      await _completeFigmaScan(tester);
+      await tester.tap(find.byTooltip('Retry scan'));
+      await tester.pump();
+      expect(source.lastRetryViewfinderCropped, isTrue);
     },
   );
 
@@ -1077,11 +1268,13 @@ void main() {
           }
 
           await tester.tap(find.byTooltip('Take Photo'));
+          await _pumpUntilScanStarts(tester, 1);
           await _completeFigmaScan(tester);
           expect(find.text('Scanned: 1/1'), findsOneWidget);
           expectClearTargetingFrame();
 
           await tester.tap(find.byTooltip('Take Photo'));
+          await _pumpUntilScanStarts(tester, 2);
           await tester.pump(const Duration(milliseconds: 250));
           expectClearTargetingFrame();
           await _completeFigmaScan(tester);
@@ -1101,7 +1294,7 @@ void main() {
   }
 
   testWidgets(
-    'capture forwards the full photo when the viewport changes during feedback',
+    'capture uses the current visible frame when the viewport changes during feedback',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(390, 844);
@@ -1121,10 +1314,17 @@ void main() {
       await tester.pump(const Duration(milliseconds: 250));
       tester.view.physicalSize = const Size(375, 667);
       tester.view.padding = const FakeViewPadding(top: 20);
+      await tester.pump();
       await tester.pump(const Duration(milliseconds: 501));
 
       expect(camera.takePhotoCount, 1);
+      expect(camera.lastViewport, const Size(375, 667));
+      expect(
+        camera.lastViewfinder,
+        tester.getRect(find.byKey(const Key('scan-figma-viewfinder'))),
+      );
       expect(source.recognizedImages, hasLength(1));
+      expect(source.recognizedImages.single.viewfinderCropped, isTrue);
       expect(
         source.recognizedImages.single.bytes,
         Uint8List.fromList(_transparentPngBytes),
@@ -1510,6 +1710,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Take Photo'));
+    await _pumpUntilScanStarts(tester, 1);
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(
@@ -1595,11 +1796,11 @@ void main() {
     expect(tester.getTopLeft(find.byTooltip('Choose from Library')).dx, 28);
     expect(tester.getTopLeft(find.byTooltip('Choose from Library')).dy, 750);
 
-    expect(
-      find.text('10 scans remaining'),
-      findsOneWidget,
-      reason: 'The one-second minimum must finish before the result appears.',
-    );
+      expect(
+        find.text('10 scans remaining'),
+        findsOneWidget,
+        reason: 'The one-second minimum must finish before the result appears.',
+      );
     await expectLater(
       find.byKey(const Key('scan-revealing-figma-golden')),
       matchesGoldenFile(
@@ -1663,14 +1864,16 @@ void main() {
       );
 
       await tester.tap(find.byTooltip('Take Photo'));
+      await _pumpUntilScanStarts(tester, 1);
       await tester.pump(const Duration(milliseconds: 999));
 
       expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
-      expect(find.text('Matched'), findsNothing);
+      expect(find.text('Mega Lucario ex'), findsNothing);
 
       await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump();
 
-      expect(find.text('Matched'), findsOneWidget);
+      expect(find.text('Mega Lucario ex'), findsOneWidget);
     },
   );
 
@@ -1684,10 +1887,11 @@ void main() {
       );
 
       await tester.tap(find.byTooltip('Take Photo'));
+      await _pumpUntilScanStarts(tester, 1);
       await tester.pump(const Duration(milliseconds: 1500));
 
       expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
-      expect(find.text('Matched'), findsNothing);
+      expect(find.text('Mega Lucario ex'), findsNothing);
 
       result.complete(
         const ScanResolution.matched(
@@ -1699,7 +1903,7 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('Matched'), findsOneWidget);
+      expect(find.text('Mega Lucario ex'), findsOneWidget);
     },
   );
 
@@ -2104,6 +2308,7 @@ void main() {
   testWidgets('Figma scan failure retries through the existing scan flow', (
     tester,
   ) async {
+    final analytics = _AnalyticsRecorder();
     final source = _TestScanResultSource(
       photoResult: Future.value(
         ScanResolution.failed(
@@ -2120,10 +2325,20 @@ void main() {
         ),
       ),
     );
-    await _pumpScanTestApp(tester, scanResultSource: source);
+    await _pumpScanTestApp(
+      tester,
+      scanResultSource: source,
+      analytics: analytics.client,
+    );
 
     await tester.tap(find.byTooltip('Take Photo'));
     await _completeFigmaScan(tester);
+    expect(analytics.count(AnalyticsEvent.scanResults), 1);
+    expect(
+      analytics.propertiesFor(AnalyticsEvent.scanResults).single,
+      containsPair(AnalyticsProperty.scanResults, AnalyticsValue.scanFailed),
+    );
+
     await tester.tap(find.byTooltip('Retry scan'));
     await tester.pump();
 
@@ -2134,7 +2349,155 @@ void main() {
 
     await _completeFigmaScan(tester);
     expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
+    expect(analytics.count(AnalyticsEvent.scanResults), 2);
+    expect(
+      analytics.propertiesFor(AnalyticsEvent.scanResults).last,
+      containsPair(AnalyticsProperty.scanResults, AnalyticsValue.scanSuccess),
+    );
   });
+
+  testWidgets(
+    'scan result analytics waits for price completion and accepts no price data',
+    (tester) async {
+      final analytics = _AnalyticsRecorder();
+      final repository = _StaleScanCardsRepository();
+      await _pumpScanTestApp(
+        tester,
+        scanReviewRepository: repository,
+        analytics: analytics.client,
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+
+      expect(find.text('Mega Lucario ex'), findsOneWidget);
+      expect(repository.loadCardsCount, 1);
+      expect(analytics.count(AnalyticsEvent.scanResults), 0);
+
+      await tester.pump(const Duration(seconds: 1));
+      repository.completeBackgroundLoadWithEmptyPrices();
+      await tester.pump();
+
+      expect(analytics.count(AnalyticsEvent.scanResults), 1);
+      expect(
+        analytics.propertiesFor(AnalyticsEvent.scanResults).single,
+        containsPair(AnalyticsProperty.scanResults, AnalyticsValue.scanSuccess),
+      );
+      expect(
+        analytics.propertiesFor(AnalyticsEvent.scanResults).single,
+        containsPair(
+          AnalyticsProperty.timing,
+          matches(RegExp(r'^\d+s$')),
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Review completed scan'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('scan-review-quantity-1')),
+        '0',
+      );
+      await tester.tap(find.text('Add this card'));
+      await tester.pump();
+
+      expect(analytics.count(AnalyticsEvent.scanResults), 1);
+      await tester.pump(kandoTopToastDuration);
+      await tester.pump();
+    },
+  );
+
+  testWidgets(
+    'leaving scan does not report before the pending price load completes',
+    (tester) async {
+      final analytics = _AnalyticsRecorder();
+      final repository = _StaleScanCardsRepository();
+      await _pumpScanTestApp(
+        tester,
+        scanReviewRepository: repository,
+        analytics: analytics.client,
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      expect(analytics.count(AnalyticsEvent.scanResults), 0);
+
+      await tester.tap(find.byTooltip('Close Scan'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('EXIT'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Overview'), findsOneWidget);
+      expect(analytics.count(AnalyticsEvent.scanResults), 0);
+
+      repository.completeBackgroundLoadWithEmptyPrices();
+      await tester.pump();
+
+      expect(analytics.count(AnalyticsEvent.scanResults), 1);
+      expect(
+        analytics.propertiesFor(AnalyticsEvent.scanResults).single,
+        containsPair(AnalyticsProperty.scanResults, AnalyticsValue.scanSuccess),
+      );
+    },
+  );
+
+  testWidgets(
+    'scan result analytics reports failed when complete card data is missing',
+    (tester) async {
+      final analytics = _AnalyticsRecorder();
+      await _pumpScanTestApp(
+        tester,
+        scanReviewRepository: _MissingCurrentScanReviewRepository(),
+        analytics: analytics.client,
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.pump();
+
+      expect(analytics.count(AnalyticsEvent.scanResults), 1);
+      expect(
+        analytics.propertiesFor(AnalyticsEvent.scanResults).single,
+        containsPair(AnalyticsProperty.scanResults, AnalyticsValue.scanFailed),
+      );
+    },
+  );
+
+  testWidgets(
+    'scan result analytics reports no match and failure immediately',
+    (tester) async {
+      final analytics = _AnalyticsRecorder();
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.noMatch()),
+        subsequentPhotoResults: [Future.value(const ScanResolution.failed())],
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        analytics: analytics.client,
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+
+      expect(analytics.count(AnalyticsEvent.scanResults), 1);
+      expect(
+        analytics.propertiesFor(AnalyticsEvent.scanResults).single,
+        containsPair(
+          AnalyticsProperty.scanResults,
+          AnalyticsValue.scanNotFound,
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+
+      expect(analytics.count(AnalyticsEvent.scanResults), 2);
+      expect(
+        analytics.propertiesFor(AnalyticsEvent.scanResults).last,
+        containsPair(AnalyticsProperty.scanResults, AnalyticsValue.scanFailed),
+      );
+    },
+  );
 
   testWidgets(
     'Figma failure returns to generic results after an earlier match is added',
@@ -2228,7 +2591,7 @@ void main() {
   });
 
   testWidgets(
-    'Figma scan pre-scan uses exported icons without Material glyph fallback',
+    'Figma scan pre-scan uses the type selector and exported controls',
     (tester) async {
       tester.view.padding = const FakeViewPadding(top: 37);
       addTearDown(tester.view.resetPadding);
@@ -2237,7 +2600,8 @@ void main() {
       expect(find.byKey(const Key('scan-figma-close-icon')), findsOneWidget);
       expect(find.byKey(const Key('scan-figma-flash-icon')), findsOneWidget);
       expect(find.byKey(const Key('scan-figma-search-icon')), findsOneWidget);
-      expect(find.byKey(const Key('scan-figma-align-icon')), findsOneWidget);
+      expect(find.byKey(const Key('scan-card-type-selector')), findsOneWidget);
+      expect(find.byKey(const Key('scan-figma-align-hint')), findsOneWidget);
       expect(find.byKey(const Key('scan-figma-gallery-icon')), findsOneWidget);
       expect(find.byKey(const Key('scan-figma-done-icon')), findsOneWidget);
 
@@ -3510,6 +3874,116 @@ void main() {
   );
 
   testWidgets(
+    'a concurrent Gallery batch refreshes authoritative quota before the next capture gate',
+    (tester) async {
+      const initialQuota = ScanQuotaDto(
+        access: ScanQuotaAccess.free,
+        limit: 10,
+        reserved: 0,
+        consumed: 8,
+        remaining: 2,
+        unlimited: false,
+      );
+      const finalQuota = ScanQuotaDto(
+        access: ScanQuotaAccess.free,
+        limit: 10,
+        reserved: 0,
+        consumed: 9,
+        remaining: 1,
+        unlimited: false,
+      );
+      const staleMatchedQuota = ScanQuotaDto(
+        access: ScanQuotaAccess.free,
+        limit: 10,
+        reserved: 1,
+        consumed: 9,
+        remaining: 0,
+        unlimited: false,
+      );
+      final bytes = Uint8List.fromList(_transparentPngBytes);
+      final noMatch = Completer<ScanResolution>();
+      final matched = Completer<ScanResolution>();
+      final finalRefresh = Completer<void>();
+      final quotaController = _TestScanQuotaController(
+        initialQuota,
+        refreshQuotas: const [initialQuota, finalQuota],
+        refreshGates: [Future<void>.value(), finalRefresh.future],
+        loadingRefreshIndexes: const {1},
+      );
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.noMatch()),
+        libraryImages: [
+          ScanImage(bytes: bytes, fileName: 'no-match.png'),
+          ScanImage(bytes: bytes, fileName: 'matched.png'),
+        ],
+        libraryResults: [noMatch.future, matched.future],
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanQuotaController: quotaController,
+        scanResultSource: source,
+      );
+      expect(quotaController.refreshCount, 1);
+
+      await tester.tap(find.byTooltip('Choose from Library'));
+      await tester.pump();
+      noMatch.complete(
+        ScanResolution.noMatch(
+          imageBytes: bytes,
+          imageFileName: 'no-match.png',
+          quota: const ScanQuotaDto(
+            access: ScanQuotaAccess.free,
+            limit: 10,
+            reserved: 1,
+            consumed: 8,
+            remaining: 1,
+            unlimited: false,
+          ),
+        ),
+      );
+      await tester.pump();
+      matched.complete(
+        ScanResolution.matched(
+          scanId: 'gallery-match',
+          cardRef: 'gallery-card',
+          matchName: 'Gallery Card',
+          candidates: const ['Gallery Card'],
+          candidateCardRefs: const ['gallery-card'],
+          imageBytes: bytes,
+          displayImageBytes: bytes,
+          imageFileName: 'matched.png',
+          quota: staleMatchedQuota,
+        ),
+      );
+      await _completeFigmaScan(tester);
+      await tester.pump();
+
+      expect(quotaController.refreshCount, 2);
+      expect(quotaController.state.isLoading, isTrue);
+      expect(quotaController.state.remainingScans, 0);
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+      expect(source.photoCallCount, 0);
+      expect(
+        find.text('Please wait for current scans to finish'),
+        findsOneWidget,
+      );
+      expect(find.text('Subscription'), findsNothing);
+
+      finalRefresh.complete();
+      await tester.pump();
+      await tester.pump();
+      expect(quotaController.state.remainingScans, 1);
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+      expect(source.photoCallCount, 1);
+      expect(find.text('Subscription'), findsNothing);
+      await tester.pump(kandoTopToastDuration);
+      await tester.pump();
+    },
+  );
+
+  testWidgets(
     'one gallery batch opens the quota paywall once when multiple images exceed the remaining allowance',
     (tester) async {
       final bytes = Uint8List.fromList(_transparentPngBytes);
@@ -3697,6 +4171,8 @@ void main() {
       expect(source.lastRetryFileName, 'waiting.png');
       expect(quotaController.state.unlimited, isTrue);
       expect(subscription.synchronizeCount, 1);
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pump();
     },
   );
 
@@ -4346,6 +4822,14 @@ Future<void> _completeFigmaScan(WidgetTester tester) async {
   await tester.pump();
 }
 
+Future<void> _pumpUntilScanStarts(WidgetTester tester, int itemId) async {
+  final item = find.byKey(Key('scan-active-item-$itemId'));
+  for (var attempt = 0; attempt < 10 && item.evaluate().isEmpty; attempt += 1) {
+    await tester.pump();
+  }
+  expect(item, findsOneWidget);
+}
+
 Future<void> _pumpScanTestApp(
   WidgetTester tester, {
   ScanResultSource? scanResultSource,
@@ -4536,23 +5020,44 @@ class _ResolvingScanSubscriptionController extends SubscriptionController {
 }
 
 class _TestScanQuotaController extends ScanQuotaController {
-  _TestScanQuotaController(this.quota, {this.refreshQuotas = const []});
+  _TestScanQuotaController(
+    this.quota, {
+    this.refreshQuotas = const [],
+    this.refreshGates = const [],
+    this.loadingRefreshIndexes = const {},
+    this.refreshSucceeds = true,
+    this.serverAuthoritative = true,
+  });
 
   final ScanQuotaDto quota;
   final List<ScanQuotaDto> refreshQuotas;
+  final List<Future<void>> refreshGates;
+  final Set<int> loadingRefreshIndexes;
+  final bool refreshSucceeds;
+  final bool serverAuthoritative;
   var _refreshIndex = 0;
+  var refreshCount = 0;
 
   @override
   ScanQuotaState build() => ScanQuotaState(
     limit: quota.limit,
     remainingScans: quota.remaining,
     unlimited: quota.unlimited,
-    isServerAuthoritative: true,
+    isServerAuthoritative: serverAuthoritative,
   );
 
   @override
   Future<bool> refresh() async {
-    await Future<void>.value();
+    refreshCount += 1;
+    if (!refreshSucceeds) return false;
+    if (loadingRefreshIndexes.contains(_refreshIndex)) {
+      state = state.copyWith(isLoading: true);
+    }
+    if (_refreshIndex < refreshGates.length) {
+      await refreshGates[_refreshIndex];
+    } else {
+      await Future<void>.value();
+    }
     if (_refreshIndex < refreshQuotas.length) {
       applyServerQuota(refreshQuotas[_refreshIndex]);
       _refreshIndex += 1;
@@ -4806,8 +5311,12 @@ class _TestScanResultSource implements ScanResultSource {
   var retryCallCount = 0;
   var _nextPhotoResult = 0;
   var _nextRecognizeResult = 0;
+  final photoCardTypes = <ScanCardType>[];
+  final libraryCardTypes = <ScanCardType>[];
+  final retryCardTypes = <ScanCardType>[];
   Uint8List? lastRetryBytes;
   String? lastRetryFileName;
+  bool? lastRetryViewfinderCropped;
   final recognizedImages = <ScanImage>[];
 
   @override
@@ -4815,8 +5324,10 @@ class _TestScanResultSource implements ScanResultSource {
     int maxItems = 10,
     void Function(ScanImage image, Future<ScanResolution> resolution)?
     onSelected,
+    ScanCardType cardType = ScanCardType.tcg,
   }) async {
     libraryCallCount += 1;
+    libraryCardTypes.add(cardType);
     await libraryGate;
     for (
       var index = 0;
@@ -4829,8 +5340,9 @@ class _TestScanResultSource implements ScanResultSource {
   }
 
   @override
-  Future<ScanResolution> photo() {
+  Future<ScanResolution> photo({ScanCardType cardType = ScanCardType.tcg}) {
     photoCallCount += 1;
+    photoCardTypes.add(cardType);
     final resultIndex = _nextPhotoResult < _photoResults.length
         ? _nextPhotoResult
         : _photoResults.length - 1;
@@ -4842,6 +5354,7 @@ class _TestScanResultSource implements ScanResultSource {
   Future<ScanResolution> recognize(
     ScanImage image, {
     ValueChanged<Uint8List>? onDisplayImageReady,
+    ScanCardType cardType = ScanCardType.tcg,
   }) async {
     recognizedImages.add(image);
     final resultIndex = _nextRecognizeResult < _recognizeResults.length
@@ -4857,8 +5370,15 @@ class _TestScanResultSource implements ScanResultSource {
   }
 
   @override
-  Future<ScanResolution> retry({Uint8List? imageBytes, String? fileName}) {
+  Future<ScanResolution> retry({
+    Uint8List? imageBytes,
+    String? fileName,
+    ScanCardType cardType = ScanCardType.tcg,
+    bool viewfinderCropped = false,
+  }) {
     retryCallCount += 1;
+    lastRetryViewfinderCropped = viewfinderCropped;
+    retryCardTypes.add(cardType);
     lastRetryBytes = imageBytes;
     lastRetryFileName = fileName;
     return _retryResult;
@@ -4948,6 +5468,8 @@ class _PermissionDelayedScanCameraFactory implements ScanCameraFactory {
 class _TestScanCameraSession implements ScanCameraSession {
   var _flashEnabled = false;
   var takePhotoCount = 0;
+  Rect? lastViewfinder;
+  Size? lastViewport;
   var pausePreviewCount = 0;
   var resumePreviewCount = 0;
   var disposed = false;
@@ -4964,11 +5486,17 @@ class _TestScanCameraSession implements ScanCameraSession {
   }
 
   @override
-  Future<ScanImage> takePhoto() async {
+  Future<ScanImage> takePhoto({
+    required Rect viewfinder,
+    required Size viewport,
+  }) async {
     takePhotoCount += 1;
+    lastViewfinder = viewfinder;
+    lastViewport = viewport;
     return ScanImage(
       bytes: Uint8List.fromList(_transparentPngBytes),
       fileName: 'live-camera.jpg',
+      viewfinderCropped: true,
     );
   }
 

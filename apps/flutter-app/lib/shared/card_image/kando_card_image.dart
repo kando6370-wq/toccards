@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../api/app_http_transport.dart';
+import 'kando_network_image.dart';
 
 const _placeholderAsset = 'assets/home/trend_placeholder.png';
 
-class KandoCardImage extends StatelessWidget {
+class KandoCardImage extends ConsumerWidget {
   const KandoCardImage({
     super.key,
     required this.imageUrl,
@@ -25,16 +29,21 @@ class KandoCardImage extends StatelessWidget {
   final Key? placeholderKey;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final url = imageUrl?.trim();
     if (url == null || url.isEmpty) return _placeholder();
 
-    return Image.network(
-      url,
+    return Image(
+      image: createKandoNetworkImage(
+        url,
+        dio: supportsNativeAppHttpTransport
+            ? ref.watch(appImageDioProvider)
+            : null,
+        webHtmlElementStrategy: webHtmlElementStrategy,
+      ),
       width: width ?? double.infinity,
       height: height ?? double.infinity,
       fit: fit,
-      webHtmlElementStrategy: webHtmlElementStrategy,
       filterQuality: filterQuality,
       semanticLabel: semanticLabel,
       errorBuilder: (_, _, _) => _placeholder(),

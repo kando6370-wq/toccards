@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
+import 'package:kando_app/shared/api/app_http_transport.dart';
+import 'package:kando_app/shared/api/api_request_id.dart';
 
 import 'scan_card_recognizer_contract.dart';
 
@@ -11,14 +13,30 @@ const scanRequestDeadline = Duration(seconds: 25);
 const scanRequestTimeoutCode = 'REQUEST_TIMEOUT';
 const scanRequestTimeoutMessage = 'Request timed out. Please try again.';
 
-Dio createScanDio({String baseUrl = scanApiBaseUrl}) {
-  return Dio(
+enum ScanCardType {
+  tcg(0, 'TCG'),
+  sports(1, 'Sports Card');
+
+  const ScanCardType(this.value, this.label);
+
+  final int value;
+  final String label;
+}
+
+Dio createScanDio({
+  String baseUrl = scanApiBaseUrl,
+  AppHttpTransport? transport,
+}) {
+  final dio = Dio(
     BaseOptions(
       baseUrl: baseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 12),
+      connectTimeout: transport?.usesNativeTransport == true
+          ? null
+          : const Duration(seconds: 10),
     ),
   );
+  addApiRequestIdInterceptor(dio);
+  return transport?.bind(dio) ?? dio;
 }
 
 class ScanApiException implements Exception {
@@ -235,6 +253,7 @@ abstract interface class ScanApi {
     String? cardNumber,
     String? deviceModel,
     String? osVersion,
+    ScanCardType cardType = ScanCardType.tcg,
   });
   Future<ScanConfirmationDto> confirmMatch(
     AuthSession session, {
@@ -309,6 +328,7 @@ class ScanApiClient implements ScanApi, ScanQuotaReservationApi {
     String? cardNumber,
     String? deviceModel,
     String? osVersion,
+    ScanCardType cardType = ScanCardType.tcg,
   }) async {
     final body = FormData.fromMap(<String, Object?>{
       'r': hashes.r,
@@ -318,6 +338,7 @@ class ScanApiClient implements ScanApi, ScanQuotaReservationApi {
       'platform': platform,
       'app_version': appVersion,
       'request_id': requestId,
+      'card_type': cardType.value.toString(),
       if (cardNumber != null) 'card_number': cardNumber,
       if (deviceModel != null) 'device_model': deviceModel,
       if (osVersion != null) 'os_version': osVersion,

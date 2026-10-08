@@ -2,7 +2,7 @@
 
 ## 1. 运行与身份边界
 
-Admin 是 `apps/admin-web` 构建的 React SPA，静态产物由 Workers assets 托管。它使用独立 `admin_user`、Access/Refresh Token 和 `/api/v1/admin` API，不复用 App 用户会话。
+Admin 是 `apps/admin-web` 构建的 React SPA；prod Cloudflare 使用 Workers assets，dev Linux 使用 Caddy 或离线 Node 静态服务托管，旧 CF dev 不再发布。它使用独立 `admin_user`、Access/Refresh Token 和 `/api/v1/admin` API，不复用 App 用户会话。prod 最近一次有据可查的发布对应 2026-09-28 `main@7868f4c`/version `6be8c5f9`；dev 最近一次回读对应 2026-09-23 API/Admin release `dev@f9feac7`，不能把任一部署视为登录态 Admin 业务验收。
 
 - `admin_user.status` 必须为 `active`。
 - 角色为 `operator` 或 `super_admin`。
@@ -25,6 +25,12 @@ Admin 是 `apps/admin-web` 构建的 React SPA，静态产物由 Workers assets 
 安装统计的趋势数据按日期正序返回，保证图表时间轴从左到右；明细列表在数据库分页前按首次安装日期倒序，同日期按 UID、国家和平台稳定排序，优先展示最近安装且避免跨页顺序漂移。
 
 Workers 还实现通用 App Config 和 Card Override API，但当前 `App.tsx` 的 `MenuKey` 与 `menuGroups` 没有对应页面。这些是后端能力，不是当前可从 Admin UI 操作的页面。旧 Trending Pin API 已废弃，不再属于 Admin 能力。
+
+### 安装统计环境口径
+
+安装统计尚未持久化每条安装的来源。`/analytics/installations` 只把请求的 `environment` 与处理请求的服务端 `APP_ENVIRONMENT` 比较：不一致时返回空结果；一致或未传时，SQL 仅按日期、平台和国家过滤当前数据库的 `app_installation`，并把所有返回行标记为该服务端环境。当前 dev Linux 与 prod 使用独立数据库，新数据不会跨库混入；但 prod 所用共享库仍保留旧 CF dev 的历史安装行，汇总、趋势和明细不能凭环境标签可靠区分这部分来源。
+
+根因证据：PostgreSQL `0000_business_schema.sql` 的 `app_installation` 无 `environment` 列，后续 migration 未补充该列；`auth/anonymous.ts` 的安装 upsert 不记录来源，`admin/routes.ts` 的 `INSTALLATION_FILTER_SQL` 不含环境条件。旧共库数据的归属缺口仍未修复，不能由 Admin 域名、历史 Worker binding 或页面环境标签推断来源；它与已持久化 `scan_record.environment` 的扫描统计、按 Bundle/Apple environment 隔离的订单通知是不同契约。
 
 ## 3. 角色权限
 
@@ -119,6 +125,10 @@ Admin 页面是只读排障层，不提供重放通知、改订单、改 lifecyc
 
 ## 6. 其他运营页面
 
+本节按 main 源码描述运营能力；历史部署记录不代表当前目标环境已经升级到同一代码版本。
+
+2026-09-21 prod 已从 `main@2cfdea8` 重新发布配套 Admin 与 Worker，PostgreSQL ledger 保持至 `0013`；Admin HTML 和 10 个 JS/CSS 资源与本地 production 构建摘要一致，两平台公共配置与未授权边界均已复核。安装来源环境缺口仍未修复，登录态版本编辑和真实业务操作未在本次烟测中覆盖，见[发布记录](../05-delivery/VERIFICATION.md)。
+
 ### 用户与反馈
 
 - 用户列表覆盖正式与匿名身份，详情路径带 `accountType` 和 ID。
@@ -141,7 +151,7 @@ Admin 页面是只读排障层，不提供重放通知、改订单、改 lifecyc
 - 通用 `/admin/app-config` 不列出版本配置，通用 PATCH 禁止写入版本及旧共用升级键，避免绕过环境隔离或校验。版本修改统一通过 `/admin/app-versions/:platform`。
 - 启用更新必须提供有效 HTTP(S) 下载地址；建议版本不得低于最低支持版本。强制更新只作用于低于最低版本的 App；达到最低版本但低于建议版本时可稍后更新，构建号不参与比较。
 - App 首次进入 Home 时检查规则；普通复查仅在回到 Home 或当前 Home 返回前台时触发，可选提示只在 Home 展示。首次检查失败显示 Home 阻断式重试界面；已有成功决策后的复查静默进行，失败不覆盖现有页面。已确认强更仍由路由上方的全局界面拦截，点击遮罩、返回、页面跳转和商店返回均不解除，其他页返回前台仍允许重查此强更要求。只有成功检查确认当前安装版本已被支持或运营已解除要求，才取消强更拦截。
-- 旧 CF dev/prod 共库阶段的 `0011_app_version_environment.sql` 执行顺序为：先将既有规则一次性复制为独立配置，已有独立配置不覆盖；仅发布当时的 dev Worker 时可先初始化 development 两条键，prod 继续读取旧键。2026-09-08 已完成该历史 dev 阶段。迁移与对应 Worker 切换期间暂停该环境版本配置编辑；新 Worker 不回退旧键，回滚只能使用支持独立键的 Worker。后续 prod 迁移与 Worker 切换需独立核验，不得把现有 Linux dev 的独立数据库当作共库迁移目标；详见[版本控制验收](../05-delivery/VERIFICATION.md)。
+- 旧 CF dev/prod 共库阶段的 `0011_app_version_environment.sql` 将既有规则一次性复制为独立配置，已有独立配置不覆盖。2026-09-08 分步发布时只初始化 development 两条键，较早的 prod Worker 当时继续读取旧键；2026-09-11 prod 已完成完整 `0011` 并切换到独立 production 版本键。当前 prod 与 dev Linux 均按各自可信环境读取独立键，缺失或损坏返回 503；两套数据库的迁移状态分别核验。迁移与对应服务端切换期间暂停该环境版本配置编辑；新代码不回退旧键，回滚只能使用支持独立键的版本。详见[版本控制验收](../05-delivery/VERIFICATION.md)。
 
 ## 7. API 与前端契约
 
@@ -154,6 +164,7 @@ Admin 页面是只读排障层，不提供重放通知、改订单、改 lifecyc
 | 错误 | 查询失败显示固定业务文案；不得用空列表掩盖服务端错误 |
 | 导出 | 与列表筛选一致；上限和空结果显式失败 |
 | Payload | 仅详情按需加载 decoded payload；不返回 signed JWS |
+| 请求关联 | JSON、XLSX 下载和受保护扫描图片的每次 fetch 都生成 UUID v4 `X-Request-ID`；HTTPS 优先使用原生 `randomUUID`，局域网 HTTP 缺少该 API 时使用 `getRandomValues` 生成；服务端响应回显且 CORS 暴露 |
 
 ## 8. 部署与验证边界
 

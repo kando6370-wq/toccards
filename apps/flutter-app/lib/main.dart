@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'app/app.dart';
 import 'features/auth/auth_storage.dart';
 import 'shared/analytics/app_analytics.dart';
+import 'shared/analytics/mixpanel_bootstrap.dart';
+import 'shared/api/app_http_transport.dart';
 import 'shared/api/api_environment.dart';
 import 'shared/debug/app_debug_overlay.dart';
 import 'shared/firebase/app_firebase.dart';
@@ -38,10 +40,19 @@ Future<void> main() async {
   final firebase = await AppFirebase.initialize();
   firebase?.installGlobalErrorHandlers();
   installAppDebugErrorHandlers();
-  final analytics = AppAnalytics.initialize(firebase: firebase);
+  final httpTransport = AppHttpTransport.fromEnvironment();
+  final mixpanelDio = createMixpanelDio(transport: httpTransport);
+  final analytics = AppAnalytics.initialize(
+    firebase: firebase,
+    loadMixpanelToken: () => loadMixpanelProjectToken(dio: mixpanelDio),
+  );
   runApp(
     ProviderScope(
       overrides: [
+        appHttpTransportProvider.overrideWith((ref) {
+          ref.onDispose(httpTransport.close);
+          return httpTransport;
+        }),
         analyticsProvider.overrideWithValue(analytics),
         portfolioAmountHiddenStorageProvider.overrideWithValue(
           amountHiddenStorage,

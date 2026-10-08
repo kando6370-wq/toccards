@@ -999,7 +999,7 @@ describe("PostgreSQL card data source adapter", () => {
 
   it("builds Shop rows from published TCGplayer products because Card Detail must expose real marketplace links", async () => {
     const db = new FakeCardDatabase(
-      [card({ product_id: "100", name: "Charizard" })],
+      [card({ product_id: "100", game_id: 49_999, name: "Charizard" })],
       [
         sku({
           condition_name: "Near Mint",
@@ -1050,6 +1050,36 @@ describe("PostgreSQL card data source adapter", () => {
         platform: "TCGplayer",
         url: "https://www.tcgplayer.com/product/100",
       },
+    ]);
+  });
+
+  it.each([false, true])("uses eBay search for game_id 50000 sports cards with price rows=%s because TCGplayer is not their marketplace", async (hasTcgplayerPrice) => {
+    const db = new FakeCardDatabase(
+      [card({
+        product_id: "sports:rookie-14",
+        game_id: 50_000,
+        game: "Basketball",
+        name: "Alex Rookie",
+        set_name: "Rookie Debut",
+        number: "14/100",
+      })],
+      hasTcgplayerPrice ? [sku({ product_id: "sports:rookie-14" })] : [],
+    );
+    const adapter = createLocalDbDataSourceAdapter(db as unknown as D1Database);
+
+    const listings = await adapter.getSoldListings("sports:rookie-14");
+
+    expect(listings).toEqual([{
+      date: null,
+      title: "Alex Rookie / Rookie Debut / 14/100",
+      price: null,
+      platform: "eBay",
+      url: expect.any(String),
+    }]);
+    const url = new URL(listings[0]!.url!);
+    expect(`${url.origin}${url.pathname}`).toBe("https://www.ebay.com/sch/i.html");
+    expect([...url.searchParams.entries()]).toEqual([
+      ["_nkw", "Alex Rookie Rookie Debut 14/100"],
     ]);
   });
 

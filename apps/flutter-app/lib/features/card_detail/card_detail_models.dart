@@ -115,7 +115,7 @@ class CardSoldListing {
     this.url,
   });
 
-  final String dateText;
+  final String? dateText;
   final String title;
   final double? priceUsd;
   final String platform;
