@@ -36,4 +36,13 @@
 3. 用新请求分别获取两个域名的 HTML 及其引用资源，比对批准构建的字节/哈希和预览代码；同时检查生产 API 健康、未登录 401 及来自 Admin 域名的登录 OPTIONS 预检。不把产物一致替代真实登录态点击验收。
 4. 回退须按目标分别选择：Pages 本次回退点是 `c0c4ac81-3cd7-4fca-bfe6-2f91d1c70f29`；本次未回退，Worker 也未再切流。
 
-**剩余风险**：Pages 的 GitHub main 自动构建仍开启，main 最新仍为 `e9e7578`，没有本次图片预览变更。后续 main 自动发布可能把手动上传版本覆盖回旧代码。需要另行授权将 Admin 专属改动同步 main，并再次执行双入口验收；本轮没有合并/推送 main，也没有关闭自动部署。真实生产账号点击仍需补验。
+**该历史检查点的剩余风险（2026-09-30）**：Pages 的 GitHub main 自动构建仍开启，main 最新仍为 `e9e7578`，没有本次图片预览变更。后续 main 自动发布可能把手动上传版本覆盖回旧代码。需要另行授权将 Admin 专属改动同步 main，并再次执行双入口验收；本轮没有合并/推送 main，也没有关闭自动部署。真实生产账号点击仍需补验。
+
+## 2026-10-08：从 main 重新发布两个 prod Admin 入口
+
+- 干净源提交为 `main@61b5420`；候选图片预览已包含在 main。发布前回读发现 Pages 已在 9 月 30 日由 GitHub 自动发布同一提交，原“main 未含预览改动”的历史缺口已不适用于本次输入。
+- 09:27 发布完整生产 API 及 Worker assets，version `4adbd0b7-3c67-4795-8ad0-c39795dc4be6` / 100%；09:29 使用同一批准的 11 文件 production 构建重发 Pages `toccards-admin`，deployment `39154bee-45d6-429d-8118-dfafed526ab7` / production / success，metadata 为 main、完整源 SHA 和 dirty=false。
+- 09:36 两入口 HTML 及各 10 个 JS/CSS 均与批准构建逐字节一致，共 22 项通过。主资源仍为 `index-Cplutb86.js`；Pages 发布前 HTML 原始字节与本地不同，本次没有放宽断言，重新发布后原始字节全量匹配。
+- Pages 构建配置、生产变量、GitHub main 自动部署及 active 域名不变；Worker 的运行变量/绑定、Smart Placement、Hyperdrive 查询缓存、cron、域名及预览开关不变。
+- 新请求只读检查：health 200/status=ok，未登录 auth/me、Admin scans、portfolio folders 均 401，Admin 登录 OPTIONS 204 且 Allow-Origin/POST 正确；iOS/Google 公开 App 配置与发布前指纹相同。
+- 本次同时发布了 API 的扫描并行和放置日志，不属于 Admin-only 发布。未运行数据库迁移、生产登录/扫描/购买写入、营销站或手机安装包发布；真实账号预览点击仍未补验。命令、回退点与验证边界见 [验证记录](../05-delivery/VERIFICATION.md)。

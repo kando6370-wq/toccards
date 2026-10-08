@@ -719,3 +719,58 @@ Android 门禁 BUG 已有修复前失败、修复后同路径设备成功、平�
 - 未执行 iOS/Android 真机扫描、真实扣次/购买、生产业务请求、数据库写入或恢复演练；Linux dev 的基础发布检查不等于扫描业务闭环或性能验收。
 - Cloudflare prod、Placement 与 Hyperdrive 配置未操作；生产“扫描并行 + 新日志”基线及随后单独切换 `aws:us-east-1` 的两轮试验仍未执行。
 - 本轮仅补充部署事实及文档入口，不修改业务代码，不自动提交或推送这些文档；保留用户原有版本入口修改及 Portfolio 调研文档。
+
+## 2026-10-08 09:27–09:36：从 main 重新发布 prod API 与双 Admin
+
+### 授权、输入与影响范围
+
+- 用户明确授权重新部署 prod。发布输入为干净的 `main@61b542063c72a47f6f46fc375b64786333e19b0f`，本地与 GitHub 远端一致，已包含 `dev@cd34e89`；正式发布前再次检查 HEAD、分支、工作区及远端，未混入未提交代码。文档在发布验收后才更新，不属于本次部署输入。
+- 发布目标仅为 `toccards-api-prod`（API 和 API 域名的 Admin assets）与独立 Pages `toccards-admin`（`admin.tcgcard.fun`）。营销站、Flutter/iOS/Android 制品、Linux dev 不在本次范围。
+- 相对原生产后端 `main@7868f4c`，本次带入扫描 R2/向量并行、失败补偿计时和请求放置日志；Admin 候选图片预览保留。PostgreSQL migration/schema 无源码增量；本任务没有直接执行 SQL/migration、修改 Hyperdrive/KV/R2 binding，也没有发起生产账号、资产、扫描或购买写请求。
+- Node 22.20.0、pnpm 11.9.0、Wrangler 4.106.0。既有 OAuth 已具备 Workers/Routes/Pages 所需写权限，whoami 退出 0；CLI 仍提示其他未使用资源的缺失 scope，没有执行 `wrangler login`、扩大 scope 或升级工具链。
+
+### 本地门禁：首轮失败与复验分列
+
+| 实际命令 | 退出及结果 |
+|---|---|
+| `pnpm lint` | 0；4 个共享包依赖方向通过。 |
+| `pnpm type-check` | 0；Turbo 7/7 成功，其中 5 项复用缓存，Workers/Admin 类型检查实际执行。 |
+| `pnpm --filter @kando/admin-web test` | 0；26/26，无跳过。 |
+| `pnpm --filter @kando/workers-api exec vitest run src --exclude "**/.wrangler/**"` | **1；77 文件中 76 通过、1 失败，676 测试中 675 通过、1 因原 5 秒上限超时。**失败为扫描拒绝退役 hash/无效向量的测试；不把该首轮记为通过。 |
+| `pnpm --filter @kando/workers-api exec vitest run src/scan/routes.test.ts --exclude "**/.wrangler/**" --maxWorkers 1` | 0；53/53，测试代码、原超时与断言未改。 |
+| `pnpm --filter @kando/workers-api exec vitest run src --exclude "**/.wrangler/**" --maxWorkers 2` | 0；77 文件、676/676 全部通过，无跳过；只降低进程并发，未修改业务或测试行为，不把初次超时归因为已证实的业务 BUG。 |
+| `pnpm --filter @kando/workers-api run deploy:dry-run:prod` | 0；auth-core、Admin production 和 Worker 打包成功，没有远程发布。 |
+
+测试明确排除既有忽略目录 `.wrangler/` 中的发布包/临时测试复制件，执行正式 `src` 测试；没有通过排除正常业务测试或放宽断言让检查变绿。
+
+### 正式发布与控制面回读
+
+- Worker 命令：`pnpm --filter @kando/workers-api run deploy:prod --keep-vars --message "Redeploy main 61b5420: parallel scan I/O and request placement logging; preserve production bindings"`，退出 0。09:27 创建 version `4adbd0b7-3c67-4795-8ad0-c39795dc4be6`；09:28 独立 API 回读及 09:36 复核均为唯一版本、100% 流量，deployment `02bcb7e4-7b11-49aa-a267-4378b8c56e25`。
+- Pages 命令：在 Workers workspace 使用 Wrangler 4.106.0，`pages deploy <同一批准的 Admin dist> --project-name toccards-admin --branch main --commit-hash 61b542063c72a47f6f46fc375b64786333e19b0f --commit-message "Redeploy approved Admin production assets from main 61b5420; match API Worker assets" --commit-dirty=false`，退出 0。CLI 如实提示并忽略不含 Pages 输出配置的 Workers wrangler.toml，使用已有 Pages 项目配置；09:29 deployment `39154bee-45d6-429d-8118-dfafed526ab7` 为 production/success，metadata 的源 SHA、main 与 dirty=false 均由 API 回读确认。
+- 发布前及实际切流前均保存旧版本与脱敏指纹，确认期间没有其他发布或资源配置变化。回退点：Worker `1b806fe1-7516-4749-ac87-77c3c6c29deb`；Pages `4186ccd0-0c7f-44fc-98a7-897e86fe2cd8`（GitHub main 自动构建于 9 月 30 日发布），本轮没有执行回退。
+
+| 回读项 | 实际结果 |
+|---|---|
+| Worker 内容 | 再次读取现网 `index.js`，2,106,326 字节，SHA-256 `32e8c52e147502affcfbd824ac606cf1e8b6fd4114991fc3ebb86eaf08d8beb0`，与批准的 main prod dry-run 构建逐字节一致。 |
+| 运行配置 | compatibility_date、flags、usage_model、logpush、observability、cache_options、变量/完整绑定与发布前指纹一致；仅版本发布 annotations 更新为本轮说明，不宣称读取或比较了 secret 明文。 |
+| Placement / Hyperdrive | Smart mode 保留；Hyperdrive 完整配置指纹及 modified_on 不变，`caching.disabled=false`，未切定向 region 或修改连接/缓存配置。 |
+| cron / 域名 / 预览 | cron 仍 `*/5 * * * *`；实际 Worker 自定义域名配置不变，workers.dev 与 previews 仍关闭。 |
+| Pages 配置 | production branch、GitHub 自动发布、构建/环境配置和域名不变；`admin.tcgcard.fun` 仍 active。发布 Pages 后再次确认 API deployment/settings 未变。 |
+| 双 Admin 产物 | 两入口各自 HTML 和全部 10 个 JS/CSS 均 200，22/22 与同一批准产物原始字节/SHA-256 完全一致；未把换行归一化冒充字节一致。 |
+
+HTML SHA-256 为 `729d63b2610847594f40064b37ce94fad87de8671fa974c082bc016732ea55e0`；主 JS `index-Cplutb86.js` 的 SHA-256 为 `f78445917b2a1ff4263ec65f59a7a3b4021afde431f00218d698aec9728aff89`。发布前 Pages HTML 有字节差异，但 10 个 JS/CSS 已匹配；重新发布后原始 HTML 断言也通过，没有删除或放宽检查。
+
+### 新请求烟测、缓存样本及运行日志
+
+- 最终只读检查使用唯一查询参数，避免固定 URL 的 HTTP 缓存响应冒充当前 Worker 执行：health 200 / status=ok / CF-Cache-Status=MISS；未登录 auth/me、Admin scans、portfolio folders 均 401 / BYPASS；iOS/Google app-config 200 / BYPASS，完整响应指纹与发布前相同；Admin 登录 OPTIONS 204，Allow-Origin 为正式 Admin origin 且允许 POST。7 项全部通过，合法 UUID v4 请求 ID 全部正确回传。
+- 初次固定 health URL 的日志探针未取得发送 ID 的回传，随后独立确认同一 URL 为 HTTP 缓存 HIT、Age=348，返回缓存中的旧请求 ID；带新查询参数则 MISS 并保留发送 ID。本轮只更换验证请求，不改 CDN 或 Hyperdrive 缓存策略；该现象不用于推断业务缓存一致性已验收。
+- `wrangler tail --env prod --format json --search <专用 request-id>` 仅观察本轮唯一 health 请求，回读 scriptVersion=`4adbd0b7-3c67-4795-8ad0-c39795dc4be6`、outcome=ok、status=200；`api_request` 中实际出现 `placement=null`、`ingress_colo=SJC`、`country=US`。这只证明该请求的新日志字段，null 不代表 Smart Placement 未启用，也不证明扫描分段、扫描成功或任何延迟收益；监听已结束。
+- 原始构建、前后版本/配置指纹与脱敏 HTTP 结果保存在本地忽略目录 `apps/workers-api/.wrangler/prod-redeploy-20261008/`；没有把 JSON、运行代码或原始日志素材加入 docs/Git。
+
+### 自审及未执行边界
+
+- 部署方案与证据自审：源码/远端/构建/现网版本对应，双 Admin 独立发布没有遗漏；无 migration 或资源配置越界，未以只读 HTTP 代替登录态或旧包兼容验收。不存在本轮业务代码修复，BUG Code Review 不适用；文档检查：六份更新文档的 49 个本地链接均存在；`git diff --check` 退出 0（只有既有 LF/CRLF 提示），差异仅为六份本次选定的当前文档，业务源码、发布脚本以及 v1.0.0/v1.1.0 归档无变更。
+- 未执行 Flutter analyze/测试/构建、iOS/Android 真机或正式旧包冻结合同、新写旧读、生产登录/预览点击、真实批量扫描与账本、Apple 交易/外部写入；客户端本轮未改动，设备、真实制品、账号与专项生产写入授权未提供。由产品/发布负责人安排补验或明确接受相应未验证风险，不将该平台兼容或业务闭环标为通过。
+- 未执行生产 PostgreSQL ledger 独立回查、迁移、备份/恢复演练；源 diff 无 migration/schema 增量，不宣称实时 pending migrations 为零。ledger 上次独立回读仍是 2026-09-21 的 14 项。
+- 未执行生产 P50/P95、扫描耗时对照、Hyperdrive/CDN 缓存一致性验收或定向 Placement 第二轮；本次没有改变 Placement/缓存，也不承诺性能收益。
+- 未发布营销站、Linux dev 或手机安装包；未触发 Git 合并、commit 或 push。仅更新本文档和相关当前入口，冻结 v1.0.0 内容不动。

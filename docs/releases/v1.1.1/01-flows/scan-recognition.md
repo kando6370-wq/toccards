@@ -1,6 +1,6 @@
 # 扫描 R2 与向量识别并行
 
-2026-09-29 增量实现已由 kd201 watcher 自动发布 Linux dev（`dab850f`，10:07 回读确认）；尚未部署 prod，真实 iOS/Android 批量识别与额度闭环仍待验收。基础请求、候选及确认入库契约沿用 [v1.1.0 扫描流程](../../v1.1.0/01-flows/scan-recognition.md)；本次只调整共享 API 的 I/O 顺序及相应计时，不改 Flutter 队列、SQL、配额锁、超时、重试、数据库结构或 Hyperdrive 配置。实际验证范围见 [本版本验证记录](../05-delivery/VERIFICATION.md)。
+2026-09-29 增量实现已由 kd201 watcher 自动发布 Linux dev（`dab850f`，10:07 回读确认）；2026-10-08 09:27 随 `main@61b5420` 发布 prod Worker `4adbd0b7-3c67-4795-8ad0-c39795dc4be6`，回读 100% 流量。真实 iOS/Android 批量识别、旧包兼容、额度闭环与性能仍待验收。基础请求、候选及确认入库契约沿用 [v1.1.0 扫描流程](../../v1.1.0/01-flows/scan-recognition.md)；本次只调整共享 API 的 I/O 顺序及相应计时，不改 Flutter 队列、SQL、配额锁、超时、重试、数据库结构或 Hyperdrive 配置。实际验证范围见 [本版本验证记录](../05-delivery/VERIFICATION.md)。
 
 ## 执行顺序
 
