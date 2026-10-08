@@ -9,7 +9,7 @@ import 'package:kando_app/shared/scan/scan_card_recognizer.dart';
 
 void main() {
   test(
-    'photo uses vector recognition without a device OCR card-number hint',
+    'photo uses pHash recognition without a device OCR card-number hint',
     () async {
       final api = _FakeScanApi(_matchedRecognition);
       final picker = _FakeScanImagePicker();
@@ -588,7 +588,7 @@ class _OrderedScanCardRecognizer implements ScanCardRecognizer {
   final Future<void> firstReady;
 
   @override
-  Future<ScanCardEmbedding> process(
+  Future<ScanCardHashes> process(
     Uint8List imageBytes, {
     bool allowCropFallback = false,
   }) async {
@@ -605,14 +605,16 @@ class _FakeScanCardRecognizer implements ScanCardRecognizer {
   bool? lastAllowCropFallback;
 
   @override
-  Future<ScanCardEmbedding> process(
+  Future<ScanCardHashes> process(
     Uint8List imageBytes, {
     bool allowCropFallback = false,
   }) async {
     lastBytes = imageBytes;
     lastAllowCropFallback = allowCropFallback;
-    return ScanCardEmbedding(
-      vector: List<double>.filled(512, 0.25),
+    return ScanCardHashes(
+      r: _hash,
+      g: _hash,
+      b: _hash,
       cardImageBytes: Uint8List.fromList([4, 5, 6]),
     );
   }

@@ -218,9 +218,8 @@ WHERE id = ? AND owner_type = ? AND owner_id = ?
   AND user_confirmation_status = 'pending'
 `;
 
-const RECOGNITION_ALGORITHM = "pe-core-t16-384-cosine-v1";
-const EMBEDDING_DIMENSIONS = 512;
-const MAX_VECTOR_JSON_BYTES = 32 * 1024;
+const RECOGNITION_ALGORITHM = "rgb-phash-16-v1";
+const PHASH_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const DEFAULT_CARD_TYPE = 0;
 const CARD_NUMBER_PATTERN = /^(?:\d{1,4}\/(?:\d{1,4}|[A-Z]{1,5}-P)|[A-Z]{1,5}-P)$/;
 
@@ -403,12 +402,17 @@ export function createScanRoutes() {
       );
       return c.json(INTERNAL_ERROR_RESPONSE, 503);
     }
-    const vector = readEmbeddingVector(body.get("vector"));
+    const r = readPhash(body.get("r"));
+    const g = readPhash(body.get("g"));
+    const b = readPhash(body.get("b"));
     const cardType = readCardType(body.get("card_type"));
     const gameId = readOptionalGameId(body.get("game_id"));
     const cardNumber = readOptionalCardNumber(body.get("card_number"));
     const image = await validateScanImage(body.get("image"));
-    if (!vector || cardType === null || gameId === null || cardNumber === null || !image) {
+    if (
+      !r || !g || !b || cardType === null || gameId === null ||
+      cardNumber === null || !image
+    ) {
       await releaseQueuedScanQuota(
         c.env.DB,
         auth.owner,
@@ -460,7 +464,7 @@ export function createScanRoutes() {
     }
     const reservedAt = performance.now();
 
-    const outbound = { vector, card_type: cardType };
+    const outbound = { r, g, b, ...(gameId === undefined ? {} : { game_id: gameId }) };
 
     const scanId = requestId;
     const createdAt = new Date();

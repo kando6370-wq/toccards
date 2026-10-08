@@ -16,7 +16,7 @@ const environment = {
   APP_ENVIRONMENT: "development", POSTGRES_DB: "toccards_test", POSTGRES_USER: "toccards",
   POSTGRES_PASSWORD: "test-password", DATABASE_URL: "postgres://toccards:test-password@db:5432/toccards_test",
   JWT_SECRET: "independent-test-secret", OBJECT_STORAGE_PATH: "/data/scan-images",
-  ALLOWED_ORIGINS: "http://192.168.50.201:8080", VECTOR_RECOGNITION_BASE_URL: "https://recognize-vec.tcgcard.fun",
+  ALLOWED_ORIGINS: "http://192.168.50.201:8080", VECTOR_RECOGNITION_BASE_URL: "https://recognize.tcgcard.fun",
 };
 
 test("dev deployment rejects cloud database URLs before any process can change containers", () => {
@@ -33,7 +33,7 @@ test("preflight lists missing migrations and checks the recognition contract usi
     assert.equal(request.method, "GET");
     assert.equal(request.url, "/health");
     response.setHeader("Content-Type", "application/json");
-    response.end(JSON.stringify({ ok: true, dimensions: 512, metric: "cosine", top_k: 5 }));
+    response.end(JSON.stringify({ ok: true, dimensions: 768, metric: "euclidean", top_k: 5, index: "cards_phash" }));
   });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -65,7 +65,7 @@ test("an unrelated healthy HTTP service cannot satisfy the CF recognition prefli
   t.after(() => { server.closeAllConnections(); server.close(); });
   await assert.rejects(runPreflight(root, {
     ...environment, VECTOR_RECOGNITION_BASE_URL: `http://127.0.0.1:${server.address().port}`,
-  }, databaseCommand), /512-dimensional cosine contract/);
+  }, databaseCommand), /RGB pHash contract/);
 });
 
 test("manual deployment requires an explicit SSH destination before building or touching a server", () => {

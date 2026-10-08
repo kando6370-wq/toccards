@@ -12,14 +12,12 @@ void main() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
   late List<String> calls;
   late double score;
-  late Float32List embedding;
   late bool failCorrection;
 
   setUp(() {
     calls = [];
     score = 0.9;
     failCorrection = false;
-    embedding = Float32List.fromList(List.filled(512, 0.25));
     messenger.setMockMethodCallHandler(imageChannel, (call) async {
       calls.add(call.method);
       final args = call.arguments as Map;
@@ -39,11 +37,10 @@ void main() {
         expect(args['image'], [1, 2, 3]);
         expect(args['card_width'], 745);
         expect(args['card_height'], 1043);
-        expect(args['embedding_size'], 384);
         return {
           'card_image_bytes': Uint8List.fromList([7, 8, 9]),
-          'embedding_rgb_bytes': Uint8List.fromList(
-            List.generate(384 * 384 * 3, (index) => [0, 127, 255][index % 3]),
+          'card_rgb_bytes': Uint8List.fromList(
+            List.generate(745 * 1043 * 3, (index) => [0, 127, 255][index % 3]),
           ),
         };
       }
@@ -133,19 +130,20 @@ void main() {
     },
   );
 
-  test('camera crop falls back to PE-Core when detection misses', () async {
+  test('camera crop falls back to hashing the prepared crop when detection misses', () async {
     score = 0.1;
     final result = await createScanCardRecognizer().process(
       Uint8List.fromList([1, 2, 3]),
       allowCropFallback: true,
     );
-    expect(result.vector, hasLength(512));
+    expect(result.r, matches(RegExp(r'^[A-Za-z0-9_-]{43}$')));
+    expect(result.g, matches(RegExp(r'^[A-Za-z0-9_-]{43}$')));
+    expect(result.b, matches(RegExp(r'^[A-Za-z0-9_-]{43}$')));
     expect(result.cardImageBytes, [7, 8, 9]);
     expect(calls, [
       'prepareDetection',
       'runDetection',
       'prepareFallbackCard',
-      'runEmbedding',
     ]);
   });
 
@@ -160,36 +158,6 @@ void main() {
       'runDetection',
       'rectifyCard',
       'prepareFallbackCard',
-      'runEmbedding',
     ]);
   });
-
-  test('PE-Core failure cannot be bypassed by the camera crop', () async {
-    score = 0.1;
-    embedding[0] = double.nan;
-    await expectLater(
-      createScanCardRecognizer().process(
-        Uint8List.fromList([1, 2, 3]),
-        allowCropFallback: true,
-      ),
-      throwsA(isA<ScanImageProcessingException>()),
-    );
-    expect(calls, [
-      'prepareDetection',
-      'runDetection',
-      'prepareFallbackCard',
-      'runEmbedding',
-    ]);
-  });
-
-  test(
-    'invalid embedding values fail instead of submitting an unusable vector',
-    () async {
-      embedding[0] = double.nan;
-      await expectLater(
-        createScanCardRecognizer().process(Uint8List(3)),
-        throwsA(isA<ScanImageProcessingException>()),
-      );
-    },
-  );
 }

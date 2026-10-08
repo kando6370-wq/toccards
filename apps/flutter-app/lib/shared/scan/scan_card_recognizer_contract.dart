@@ -26,7 +26,7 @@ class ScanImageProcessingException implements Exception {
 }
 
 abstract interface class ScanCardRecognizer {
-  Future<ScanCardEmbedding> process(
+  Future<ScanCardHashes> process(
     Uint8List imageBytes, {
     bool allowCropFallback = false,
   });

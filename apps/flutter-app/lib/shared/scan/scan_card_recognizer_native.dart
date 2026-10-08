@@ -28,11 +28,11 @@ class _NativeScanCardRecognizer implements ScanCardRecognizer {
   Future<void> _tail = Future.value();
 
   @override
-  Future<ScanCardEmbedding> process(
+  Future<ScanCardHashes> process(
     Uint8List imageBytes, {
     bool allowCropFallback = false,
   }) {
-    final result = Completer<ScanCardEmbedding>();
+    final result = Completer<ScanCardHashes>();
     _tail = _tail.then((_) async {
       try {
         result.complete(await _process(imageBytes, allowCropFallback));
@@ -43,7 +43,7 @@ class _NativeScanCardRecognizer implements ScanCardRecognizer {
     return result.future;
   }
 
-  Future<ScanCardEmbedding> _process(
+  Future<ScanCardHashes> _process(
     Uint8List imageBytes,
     bool allowCropFallback,
   ) async {
@@ -70,7 +70,6 @@ class _NativeScanCardRecognizer implements ScanCardRecognizer {
           detected.points,
           cardWidth: _cardWidth,
           cardHeight: _cardHeight,
-          embeddingSize: _embeddingInputSize,
         );
       } on ScanImageProcessingException {
         if (!allowCropFallback) rethrow;
@@ -78,13 +77,9 @@ class _NativeScanCardRecognizer implements ScanCardRecognizer {
           imageBytes,
           cardWidth: _cardWidth,
           cardHeight: _cardHeight,
-          embeddingSize: _embeddingInputSize,
         );
         selected = null;
       }
-      final embeddingTensor = await Isolate.run(
-        () => _prepareEmbeddingTensor(rectified.embeddingRgbBytes),
-      );
       detectionTimer.stop();
 
       final hashTimer = Stopwatch()..start();

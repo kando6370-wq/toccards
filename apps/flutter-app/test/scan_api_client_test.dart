@@ -191,8 +191,10 @@ void main() {
 
     final result = await ScanApiClient(_dio(adapter)).recognizeImage(
       _session,
-      embedding: ScanCardEmbedding(
-        vector: _vector,
+      hashes: ScanCardHashes(
+        r: _hash,
+        g: _hash,
+        b: _hash,
         cardImageBytes: Uint8List.fromList([1, 2, 3, 4]),
       ),
       fileName: 'scan.jpg',

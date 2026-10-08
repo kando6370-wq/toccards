@@ -8,6 +8,10 @@ import { createHttpVectorRecognition } from "../linux/vector-recognition";
 
 type TestEnvWithPostgres = Omit<AppEnv, "DB"> & { DB: PGliteDatabase; queries: string[]; VECTOR_RECOGNITION?: Fetcher };
 const HASHES = { r: "A".repeat(43), g: "B".repeat(43), b: "C".repeat(43) };
+const hashesForMarker = (marker: number) => ({
+  ...HASHES,
+  r: String(marker).repeat(43),
+});
 const databases: PGliteDatabase[] = [];
 class FakeR2 {
   readonly objects = new Map<string, Uint8Array>();
@@ -48,10 +52,10 @@ describe("scan routes", () => {
     const env = await createRecognitionEnv();
     const token = await recognitionToken(env);
     const upstream = vi.fn();
-    stubVectorRecognition(env, upstream);
+    stubPhashRecognition(env, upstream);
 
     const response = await recognize(env, token, {
-      vector: VECTOR,
+      ...HASHES,
       card_type: 2,
     });
 
@@ -59,19 +63,19 @@ describe("scan routes", () => {
     expect(upstream).not.toHaveBeenCalled();
   });
 
-  it("keeps the game filter in the catalog boundary because vector search receives no game or owner information", async () => {
+  it("sends the optional game filter to pHash and keeps it at the catalog boundary", async () => {
     const env = await createRecognitionEnv();
     await insertRows(env.DB, "cards_all",
       { product_id: "same-game", game_id: 1, game: "Pokemon", name: "Wanted Card", set_name: "Set A", product_type_name: "Cards" },
       { product_id: "other-game", game_id: 2, game: "Magic", name: "Other Card", set_name: "Set B", product_type_name: "Cards" },
     );
     const upstream = vi.fn(async (_url, init) => {
-      expect(JSON.parse(init.body)).toEqual({ vector: VECTOR, card_type: 1 });
+      expect(JSON.parse(init.body)).toEqual({ ...HASHES, game_id: 1 });
       return Response.json({ candidates: [{ product_id: "other-game", confidence: 99 }, { product_id: "same-game", confidence: 90 }] });
     });
-    stubVectorRecognition(env, upstream);
+    stubPhashRecognition(env, upstream);
     const response = await recognize(env, await recognitionToken(env), {
-      vector: VECTOR,
+      ...HASHES,
       game_id: 1,
       card_type: 1,
     });
@@ -85,7 +89,7 @@ describe("scan routes", () => {
     await Promise.all(databases.splice(0).map((db) => db.close()));
   });
 
-  it("keeps Linux catalog reads, scan records and quota local while sending vector and card type to CF recognition", async () => {
+  it("keeps Linux catalog reads, scan records and quota local while sending hashes to CF recognition", async () => {
     const env = await createRecognitionEnv();
     await insertRows(env.DB, "cards_all", {
       product_id: "linux-card",
@@ -114,7 +118,7 @@ describe("scan routes", () => {
       expect.objectContaining({
         method: "POST",
         headers: { Accept: "application/json", "Content-Type": "application/json" },
-        body: JSON.stringify({ vector: VECTOR, card_type: 0 }),
+        body: JSON.stringify({ ...HASHES, game_id: 1 }),
       }),
     );
     expect(response.status).toBe(200);
@@ -242,7 +246,7 @@ describe("scan routes", () => {
         Accept: "application/json",
         "Content-Type": "application/json",
       });
-      expect(JSON.parse(String(init.body))).toEqual({ vector: VECTOR, card_type: 0 });
+      expect(JSON.parse(String(init.body))).toEqual(HASHES);
       return Response.json({
         candidates: [
           { product_id: 10738, confidence: 80.99 },
@@ -355,7 +359,7 @@ describe("scan routes", () => {
     );
   });
 
-  it("resolves thirty vector search candidates with one catalog query and no price query because Scan must not amplify latency per candidate", async () => {
+  it("resolves thirty pHash candidates with one catalog query and no price query because Scan must not amplify latency per candidate", async () => {
     const env = await createRecognitionEnv();
     const recognized = Array.from({ length: 30 }, (_, index) => ({
       product_id: `scan-card-${index}`,
@@ -427,7 +431,7 @@ describe("scan routes", () => {
     ]);
   });
 
-  it("returns the server reservation before vector search because Processing must show the current remaining quota", async () => {
+  it("returns the server reservation before pHash search because Processing must show the current remaining quota", async () => {
     const env = await createRecognitionEnv();
     const token = await recognitionToken(env);
     const requestId = crypto.randomUUID();
@@ -728,7 +732,7 @@ describe("scan routes", () => {
     expect((env.SCAN_IMAGES as unknown as FakeR2).objects.size).toBe(0);
   });
 
-  it("promotes an exact printed number because vector alone cannot distinguish cards with identical artwork", async () => {
+  it("promotes an exact printed number because pHash alone cannot distinguish cards with identical artwork", async () => {
     const env = await createRecognitionEnv();
     await insertRows(env.DB, "cards_all",
       {
@@ -757,8 +761,8 @@ describe("scan routes", () => {
       },
     );
     const token = await recognitionToken(env);
-    stubVectorRecognition(env, async (_url: string, init: RequestInit) => {
-      expect(JSON.parse(String(init.body))).toEqual({ vector: VECTOR, card_type: 0 });
+    stubPhashRecognition(env, async (_url: string, init: RequestInit) => {
+      expect(JSON.parse(String(init.body))).toEqual(HASHES);
       return Response.json({
         candidates: [
           { product_id: 610499, confidence: 84.1 },
@@ -792,7 +796,7 @@ describe("scan routes", () => {
     expect((await readRows(env.DB, "scan_record"))[0]?.system_result).toContain('"number":"200/187"');
   });
 
-  it("recovers an exact catalog printing because the correct version may fall outside the vector candidate limit", async () => {
+  it("recovers an exact catalog printing because the correct version may fall outside the pHash candidate limit", async () => {
     const env = await createRecognitionEnv();
     await insertRows(env.DB, "cards_all",
       {
@@ -938,7 +942,7 @@ describe("scan routes", () => {
     ]);
   });
 
-  it("releases Free quota when vector search resolves only an incomplete catalog card because unusable details are not a successful scan", async () => {
+  it("releases Free quota when pHash resolves only an incomplete catalog card because unusable details are not a successful scan", async () => {
     const env = await createRecognitionEnv();
     const token = await recognitionToken(env);
     const requestId = crypto.randomUUID();
@@ -1170,16 +1174,16 @@ describe("scan routes", () => {
         ? Response.json({ candidates: [{ product_id: "gallery-valid", confidence: 96 }] })
         : Response.json({ candidates: [] });
     });
-    stubVectorRecognition(env, fetchMock);
+    stubPhashRecognition(env, fetchMock);
 
     const successPending = recognize(env, token, {
       request_id: successRequestId,
-      vector: VECTOR,
+      ...HASHES,
     });
     await firstStarted;
     const noMatchPending = recognize(env, token, {
       request_id: noMatchRequestId,
-      vector: VECTOR,
+      ...HASHES,
     });
     await bothStarted;
 
@@ -1203,7 +1207,7 @@ describe("scan routes", () => {
 
     const replay = await recognize(env, token, {
       request_id: successRequestId,
-      vector: VECTOR,
+      ...HASHES,
     });
     expect(await replay.json()).toMatchObject({
       data: { quota: { reserved: 0, consumed: 9, remaining: 1 } },
@@ -1211,7 +1215,7 @@ describe("scan routes", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("rejects the eleventh Free scan before R2 and vector search because the server quota is authoritative", async () => {
+  it("rejects the eleventh Free scan before R2 and pHash search because the server quota is authoritative", async () => {
     const env = await createRecognitionEnv();
     const token = await recognitionToken(env);
     for (let index = 0; index < 10; index += 1) {
@@ -1248,7 +1252,7 @@ describe("scan routes", () => {
     expect((env.SCAN_IMAGES as unknown as FakeR2).objects.size).toBe(0);
   });
 
-  it("replays a completed request because a lost response must not consume quota or vector search twice", async () => {
+  it("replays a completed request because a lost response must not consume quota or pHash search twice", async () => {
     const env = await createRecognitionEnv();
     const token = await recognitionToken(env);
     const requestId = crypto.randomUUID();
@@ -1384,16 +1388,16 @@ describe("scan routes", () => {
       return put(key, bytes);
     });
     const upstream = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
-      const marker = (JSON.parse(String(init?.body)) as { vector: number[] }).vector[0];
+      const marker = Number((JSON.parse(String(init?.body)) as { r: string }).r[0]);
       const item = items.find((candidate) => candidate.marker === marker);
       if (item) await item.recognitionGate.promise;
       return Response.json({ candidates: item?.outcome === "no_match" ? [] : [
         { product_id: "parallel-card", confidence: 96 },
       ] });
     });
-    stubVectorRecognition(env, upstream);
+    stubPhashRecognition(env, upstream);
     const pending = items.map((item) => recognize(env, item.token, {
-      request_id: item.requestId, vector: [item.marker, ...VECTOR.slice(1)],
+      request_id: item.requestId, ...hashesForMarker(item.marker),
     }));
     try {
       await vi.waitFor(() => {
@@ -1401,12 +1405,12 @@ describe("scan routes", () => {
         expect(upstream).toHaveBeenCalledTimes(4);
       });
       for (const item of items) {
-        expect((await recognize(env, item.token, { request_id: item.requestId, vector: VECTOR })).status).toBe(409);
+        expect((await recognize(env, item.token, { request_id: item.requestId, ...HASHES })).status).toBe(409);
       }
       // Another owner must not claim or replay a batch item's reservation.
-      expect((await recognize(env, owners[1]!.token, { request_id: items[0]!.requestId, vector: VECTOR })).status).toBe(409);
+      expect((await recognize(env, owners[1]!.token, { request_id: items[0]!.requestId, ...HASHES })).status).toBe(409);
       for (const owner of owners) {
-        expect((await recognize(env, owner.token, { vector: VECTOR })).status).toBe(403);
+        expect((await recognize(env, owner.token, { ...HASHES })).status).toBe(403);
       }
       expect(upload).toHaveBeenCalledTimes(4);
       expect(upstream).toHaveBeenCalledTimes(4);
@@ -1424,9 +1428,9 @@ describe("scan routes", () => {
       for (const owner of owners) {
         const requestId = crypto.randomUUID();
         expect((await reserveParallelScan(env, owner.token, requestId)).status).toBe(200);
-        const refill = await recognize(env, owner.token, { request_id: requestId, vector: VECTOR });
+        const refill = await recognize(env, owner.token, { request_id: requestId, ...HASHES });
         expect(await refill.json()).toMatchObject({ data: { quota: { consumed: 9, reserved: 1, remaining: 0 } } });
-        expect((await recognize(env, owner.token, { vector: VECTOR })).status).toBe(403);
+        expect((await recognize(env, owner.token, { ...HASHES })).status).toBe(403);
       }
       // Complete the two owners in reverse order; neither may spend the other's allowance.
       for (const index of [2, 0]) {
@@ -1436,7 +1440,7 @@ describe("scan routes", () => {
         expect(await (await pending[index]!).json()).toMatchObject({ data: { quota: { consumed: 10, reserved: 0, remaining: 0 } } });
       }
       for (const item of items) {
-        const replay = await recognize(env, item.token, { request_id: item.requestId, vector: VECTOR });
+        const replay = await recognize(env, item.token, { request_id: item.requestId, ...HASHES });
         expect(replay.status).toBe(item.outcome === "image_failure" ? 500 : 200);
       }
       expect(upload).toHaveBeenCalledTimes(6);
@@ -1483,9 +1487,9 @@ describe("scan routes", () => {
       return put(key, bytes);
     });
     const upstream = vi.fn(async () => Response.json({ candidates: [{ product_id: "parallel-card", confidence: 96 }] }));
-    stubVectorRecognition(env, upstream);
+    stubPhashRecognition(env, upstream);
     const completed: number[] = [];
-    const pending = tokens.map((token) => recognize(env, token!, { vector: VECTOR }).then((response) => {
+    const pending = tokens.map((token) => recognize(env, token!, { ...HASHES }).then((response) => {
       completed.push(response.status);
       return response;
     }));
@@ -1514,7 +1518,7 @@ describe("scan routes", () => {
     const requestId = crypto.randomUUID();
     await insertParallelScanCard(env.DB);
     const upstream = vi.fn(async () => Response.json({ candidates: [{ product_id: "parallel-card", confidence: 96 }] }));
-    stubVectorRecognition(env, upstream);
+    stubPhashRecognition(env, upstream);
     const bucket = env.SCAN_IMAGES as unknown as FakeR2;
     const upload = vi.spyOn(bucket, "put");
     const query = env.DB.query.bind(env.DB);
@@ -1529,10 +1533,10 @@ describe("scan routes", () => {
       if (sql.includes("UPDATE scan_quota_request") && values?.[0] === "consumed") settled = true;
       return result;
     });
-    const response = await recognize(env, token, { request_id: requestId, vector: VECTOR });
+    const response = await recognize(env, token, { request_id: requestId, ...HASHES });
     expect(response.status).toBe(500);
     expect(failedRead).toBe(true);
-    const replay = await recognize(env, token, { request_id: requestId, vector: VECTOR });
+    const replay = await recognize(env, token, { request_id: requestId, ...HASHES });
     expect(replay.status).toBe(200);
     expect(await replay.json()).toMatchObject({ data: {
       recognition_status: "success", quota: { consumed: 1, reserved: 0, remaining: 9 },
@@ -1544,7 +1548,7 @@ describe("scan routes", () => {
     expect(upload).toHaveBeenCalledOnce();
   });
 
-  it("times overlapping branches independently because a slow upload must not hide vector time or inflate audit time", async () => {
+  it("times overlapping branches independently because a slow upload must not hide recognition time or inflate audit time", async () => {
     const env = await createRecognitionEnv();
     const token = await recognitionToken(env);
     const uploadGate = scanGate();
@@ -1561,8 +1565,8 @@ describe("scan routes", () => {
       clock = 1200;
       return Response.json({ candidates: [] });
     });
-    stubVectorRecognition(env, upstream);
-    const pending = recognize(env, token, { vector: VECTOR });
+    stubPhashRecognition(env, upstream);
+    const pending = recognize(env, token, { ...HASHES });
     try {
       await vi.waitFor(() => expect(upstream).toHaveBeenCalledOnce());
       clock = 5000;
@@ -1593,9 +1597,9 @@ describe("scan routes", () => {
       return put(key, bytes);
     });
     const upstream = vi.fn(async () => Response.json({ candidates: [{ product_id: "parallel-card", confidence: 96 }] }));
-    stubVectorRecognition(env, upstream);
+    stubPhashRecognition(env, upstream);
     const requestIds = Array.from({ length: 11 }, () => crypto.randomUUID());
-    const pending = requestIds.map((requestId) => recognize(env, token, { request_id: requestId, vector: VECTOR }));
+    const pending = requestIds.map((requestId) => recognize(env, token, { request_id: requestId, ...HASHES }));
     try {
       await vi.waitFor(() => {
         expect(upload).toHaveBeenCalledTimes(11);
@@ -1612,7 +1616,7 @@ describe("scan routes", () => {
       const ledger = await readRows(env.DB, "scan_quota_request");
       expect(ledger).toHaveLength(11);
       expect(ledger.every((r) => r.access_mode === "premium" && r.status === "consumed")).toBe(true);
-      await recognize(env, token, { request_id: requestIds[0], vector: VECTOR });
+      await recognize(env, token, { request_id: requestIds[0], ...HASHES });
       expect(upstream).toHaveBeenCalledTimes(11);
       expect(bucket.objects.size).toBe(11);
     } finally {
@@ -1646,9 +1650,9 @@ describe("scan routes", () => {
           { product_id: "parallel-card", confidence: 96 },
         ] });
       });
-      stubVectorRecognition(env, upstream);
+      stubPhashRecognition(env, upstream);
       let completed = false;
-      const pending = recognize(env, token, { request_id: requestId, vector: VECTOR })
+      const pending = recognize(env, token, { request_id: requestId, ...HASHES })
         .then((response) => { completed = true; return response; });
       try {
         await uploadStarted.promise;
@@ -1663,7 +1667,7 @@ describe("scan routes", () => {
         expect(await readRows(env.DB, "scan_quota_request")).toEqual([
           expect.objectContaining({ request_id: requestId, status: "reserved", attempts: 1 }),
         ]);
-        const duplicate = await recognize(env, token, { request_id: requestId, vector: VECTOR });
+        const duplicate = await recognize(env, token, { request_id: requestId, ...HASHES });
         expect(duplicate.status).toBe(409);
         expect(upstream).toHaveBeenCalledOnce();
         expect(upload).toHaveBeenCalledOnce();
@@ -1684,7 +1688,7 @@ describe("scan routes", () => {
         ]);
         const quota = await app.request("/api/v1/scan/quota", { headers: { Authorization: `Bearer ${token}` } }, env);
         expect(await quota.json()).toMatchObject({ data: { reserved: 0, consumed, remaining: 10 - consumed } });
-        const replay = await recognize(env, token, { request_id: requestId, vector: VECTOR });
+        const replay = await recognize(env, token, { request_id: requestId, ...HASHES });
         expect(replay.status).toBe(response.status);
         expect(await replay.json()).toEqual(body);
         expect(upstream).toHaveBeenCalledOnce();
@@ -1718,10 +1722,10 @@ describe("scan routes", () => {
         if (upstreamFails) throw new Error("test late upstream failure");
         return Response.json({ candidates: [] });
       });
-      stubVectorRecognition(env, upstream);
+      stubPhashRecognition(env, upstream);
       const errors = vi.spyOn(console, "error").mockImplementation(() => {});
       let completed = false;
-      const pending = recognize(env, token, { request_id: requestId, vector: VECTOR })
+      const pending = recognize(env, token, { request_id: requestId, ...HASHES })
         .then((response) => { completed = true; return response; });
       try {
         await uploadStarted.promise;
@@ -1741,7 +1745,7 @@ describe("scan routes", () => {
         expect(await readRows(env.DB, "scan_quota_request")).toEqual([
           expect.objectContaining({ request_id: requestId, status: "released" }),
         ]);
-        const replay = await recognize(env, token, { request_id: requestId, vector: VECTOR });
+        const replay = await recognize(env, token, { request_id: requestId, ...HASHES });
         expect(replay.status).toBe(500);
         expect(upstream).toHaveBeenCalledOnce();
         expect(bucket.put).toHaveBeenCalledOnce();

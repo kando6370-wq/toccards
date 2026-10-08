@@ -9,7 +9,7 @@ class _UnsupportedScanCardRecognizer implements ScanCardRecognizer {
   const _UnsupportedScanCardRecognizer();
 
   @override
-  Future<ScanCardEmbedding> process(
+  Future<ScanCardHashes> process(
     Uint8List imageBytes, {
     bool allowCropFallback = false,
   }) {

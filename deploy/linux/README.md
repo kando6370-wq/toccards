@@ -128,7 +128,7 @@ docker compose logs --tail=100 migrate api web
 
 仓库同时保留 `.github/workflows/linux-test-deploy.yml` 作为未来可选的 GitHub 自托管 Runner 方案。当前安装方法、触发规则、失败处理和接手步骤见 [`Linux 测试环境自动部署手册`](../../docs/releases/v1.1.0/05-delivery/linux-test-auto-deployment.md)。自动部署不会读取或修改 Cloudflare 正式环境。
 
-发布脚本调用 `preflight.mjs`，要求 `APP_ENVIRONMENT=development`，数据库 URL 指向 Compose `db:5432` 且与 POSTGRES_DB/USER/PASSWORD 一致，图片目录为挂载的 `/data/scan-images`。存在数据库容器时，使用拟发布的凭据通过 TCP 执行只读查询，核对数据库身份、PostgreSQL 18 和 migration 文件名；列出待执行 migration，拒绝数据库版本领先于发布文件的情况。CF `/health` 必须符合 512 维、cosine、Top 5 契约。预检失败不备份或更新容器；已有库即使缺少 `current` 链接也仍须备份。
+发布脚本调用 `preflight.mjs`，要求 `APP_ENVIRONMENT=development`，数据库 URL 指向 Compose `db:5432` 且与 POSTGRES_DB/USER/PASSWORD 一致，图片目录为挂载的 `/data/scan-images`。存在数据库容器时，使用拟发布的凭据通过 TCP 执行只读查询，核对数据库身份、PostgreSQL 18 和 migration 文件名；列出待执行 migration，拒绝数据库版本领先于发布文件的情况。CF `/health` 必须符合 RGB pHash 的 768 维、euclidean、Top 5、`cards_phash` 契约。预检失败不备份或更新容器；已有库即使缺少 `current` 链接也仍须备份。
 
 预检不替代 migration SQL 审核，不执行数据回填，也不验证真实图片识别。2026-09-15 的 kd201 发布已在备份后执行 `0012`，结果为 `UPDATE 0`，ledger 共 13 项；此事实只适用于 Linux `toccards_test`。备份和应用回退不会自动逆向 migration。候选分支手工发布前，应确认与 `dev` 监听器的运行计划协调，避免验收期间被另一轮正常 dev 发布接替。
 

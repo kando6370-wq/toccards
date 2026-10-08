@@ -86,8 +86,12 @@ export async function runPreflight(artifactRoot, env = process.env, runDocker = 
     signal: AbortSignal.timeout(10_000), redirect: "error",
   });
   const health = await response.json();
-  if (!response.ok || health.ok !== true || health.dimensions !== 512 || health.metric !== "cosine" || health.top_k !== 5) {
-    throw new Error("CF recognition health does not match the 512-dimensional cosine contract");
+  if (
+    !response.ok || health.ok !== true || health.dimensions !== 768 ||
+    health.metric !== "euclidean" || health.top_k !== 5 ||
+    health.index !== "cards_phash"
+  ) {
+    throw new Error("CF recognition health does not match the RGB pHash contract");
   }
   const result = { database: config.database, postgresMajor: 18, recognition: "reachable", pendingMigrations: files.filter((name) => !applied.includes(name)) };
   console.log(JSON.stringify(result));
