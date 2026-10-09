@@ -92,6 +92,8 @@ Linux dev API 与 Admin 构建使用 `pnpm --filter @kando/workers-api build:dev
 pnpm build
 pnpm type-check
 pnpm lint
+# 固定旧客户端源码与当前 API 的首批兼容回归（不是正式包/真机验收）
+pnpm test:app-compatibility
 pnpm --filter @kando/workers-api test
 pnpm --filter @kando/admin-web test
 

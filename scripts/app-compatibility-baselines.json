@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "evidence": "git-source-contracts-only",
+  "baselines": [
+    {
+      "version": "1.0.4",
+      "build": "161",
+      "tag": "v1.0.4",
+      "commit": "77d55c10dac74668e23d835952a7e153f89714aa"
+    },
+    {
+      "version": "1.0.5",
+      "build": "163",
+      "tag": "v1.0.5",
+      "commit": "ca5aa552f0e29a9f421c542d15cf271c4bdaae7f"
+    }
+  ]
+}

@@ -69,6 +69,7 @@ Marketing Web ──> 独立的营销与法律页面
 - 安装 Node 依赖：`pnpm install --frozen-lockfile`
 - TypeScript 全仓构建：`pnpm build`
 - TypeScript 类型检查：`pnpm type-check`
+- App 兼容源码回归：`pnpm test:app-compatibility`；固定 v1.0.4/v1.0.5 提交，在本地内存 PostgreSQL 跑当前 API，再使用旧 Dart 客户端处理真实测试响应。仅覆盖首批场景，不能替代正式制品/真机或完整 C01–C13 验收；命令不触发远程部署/迁移。
 - 依赖方向检查：`pnpm lint`
 - Workers 测试：`pnpm --filter @kando/workers-api test`；默认命令仅追加 `**/.wrangler/**` 排除规则，避免生成的发布包/诊断被误扫，不删除历史材料、不缩减其他既有测试范围。
 - Admin 测试：`pnpm --filter @kando/admin-web test`
@@ -98,7 +99,7 @@ GitLab Flutter CI 使用 3.44.0，GitHub iOS CI 使用 3.44.7。涉及工具链�
 - `docs/releases/v1.1.0/00-product`：三份初始 PRD、两份订阅升级降级补充和一份收藏待编辑/卡牌详情改版 PRD，共六份产品输入，只读保留。
 - `docs/releases/v1.1.0/01-flows` 至 `05-delivery`：相对 v1.0.0 的开发归档、架构、数据/API、Admin 和交付证据；未验证边界按原记录保留。
 - `docs/releases/v1.1.1/README.md`：2026-10-09 起的开发归档入口；`docs/releases/v1.1.1/03-data-api/app-compatibility-contract.md` 和 `docs/releases/v1.1.1/05-delivery/app-compatibility-acceptance.md` 定义从 App 1.0.4 起的服务端兼容目标与待执行门禁，尚非已验证实现。`docs/releases/v1.1.1/01-flows/scan-recognition.md` 记录 2026-09-29 扫描 R2/向量并行的本地实现、失败补偿及批量额度边界，已通过相关本地与 PostgreSQL 多连接验证，2026-09-29 已自动发布 Linux dev，2026-10-08 随 `main@61b5420` 部署 prod；真机批量验收仍未完成。历史契约、故障与发布证据保留原路径及未验收边界。
-- `docs/releases/v1.1.2/README.md`：当前增量开发入口；新业务范围尚未定义。后续新增、变更、移除、实现结果及验收证据按实际需求写入 v1.1.2，未变化内容引用 v1.1.1/v1.1.0/v1.0.0，不复制整套基线或创建空分类。
+- `docs/releases/v1.1.2/README.md`：当前增量开发入口；`03-data-api/app-compatibility.md` 和 `05-delivery/VERIFICATION.md` 记录首批源码兼容回归及未覆盖矩阵，正式制品/真机与完整兼容验收仍待执行。新业务功能范围尚未定义。后续新增、变更、移除、实现结果及验收证据按实际需求写入 v1.1.2，未变化内容引用 v1.1.1/v1.1.0/v1.0.0，不复制整套基线或创建空分类。
 
 `docs/releases/v1.0.0` 是已发布冻结基线，后续迭代不得回写；若需修正已经确认的文档错误，必须先说明原因并获得用户明确授权。11 份原始 PRD 包括 `glossary.md`、`overview.md`、`ui-design-system.md` 和 `00-product/modules/` 下的 8 份模块文档，必须保持字节不变，不得因当前实现或后续需求而修订。
 
