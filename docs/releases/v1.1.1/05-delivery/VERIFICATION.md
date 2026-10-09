@@ -1057,3 +1057,11 @@ Workers 的默认 `test` 原为 `vitest run`，未排除 `.wrangler`。Linux 发
 - 本轮只审查发布范围、现网差异、回退点、配置保留和验收脚本，非外部独立 Code Review；无业务代码修复。原始产物、前后脱敏控制面、HTTP 结果与日志保存在本地忽略目录 `apps/workers-api/.wrangler/prod-extension-20261009-1791528849713/`，没有加入 docs/Git。后续仅更新本次相关文档和 AGENTS，尚未提交。
 
 收尾复核（15:11:39）：Worker 仍为上述单一版本、100% 流量，Pages production 仍为上述 deployment；配置、Hyperdrive、cron、域名与验收时一致。额外确认 Admin OPTIONS 允许 POST，未触发其他发布。6 份文档/Agent 规则的 56 处本地链接检查与 `git diff --check` 均通过，改动仅本次文档，无业务代码或冻结基线修改。
+
+## 2026-10-09：main 提交推送后的文档补证
+
+- 上轮按用户授权提交并推送：`dbc2091a16f943903e3db3ea9b5314a52f47d730`，提交时间为北京时间 15:16:13，说明为 `docs: record production extension deployment verification`。远端 main 从 `f952e50` 快进到 `dbc2091`，连同此前本地已合入的 `b621d76` 插件业务和 `c253647` dev 发布记录，共交付 3 个提交；没有强制推送。
+- 本次只读复核 `git ls-remote --heads github refs/heads/main refs/heads/dev`：远端 main 为 `dbc2091a16f943903e3db3ea9b5314a52f47d730`，远端 dev 为 `c253647ad56b097529bf1d2884d8fead89874c36`，均与本地分支一致。`git merge-base --is-ancestor dev main` 退出 0，main 包含全部 dev 提交；文档编辑前工作区干净。
+- `git diff --name-only c253647..dbc2091` 只有已提交的 6 份文档/Agent 规则；`git diff --exit-code c253647..dbc2091 -- apps packages deploy .github` 退出 0。因此最近已验收的 prod 发布源仍是 `c253647`（Worker `e8c5d1fb`、Pages `cda22b78`），不能把文档提交 `dbc2091` 写成又一次已验收的运行发布。Linux dev 最近已验收源仍为 `b621d76`，不因远端 dev 变为 `c253647` 而推断其已再次部署。
+- 本地分支、远端跟踪引用及 `git ls-remote --heads github "refs/heads/dev-ext*"` 均无匹配；`dev-extension` 已不再是工作分支。旧 release、dirty 工作区及其分支名保留为历史证据，未清理历史产物。
+- 上文 14:59–15:11 发布记录中的“尚未提交/没有推送”描述该阶段的事实，原样保留；这次补证说明后续提交推送结果。此轮仅同步文档，没有再次 commit/push、部署或查询 Cloudflare/SSH 运行状态；推送触发的 CI/自动发布未验收，生产正确 Key 的识别/详情/限频、真实插件与真机等未验边界保持。

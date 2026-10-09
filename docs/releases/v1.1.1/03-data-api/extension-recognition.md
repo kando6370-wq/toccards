@@ -136,7 +136,7 @@ Linux dev 已发布 `manual-extension-f952e50-dirty-20261009-1791513409974`，�
 
 生产入口缺少 Key、错误 Key、错误认证格式均返回 401 `UNAUTHORIZED` 且 `Cache-Control: no-store`。本轮只有 Secret 名称/类型可核对，没有正确 Key 明文，因此未执行生产有效认证后的 422/429、合成向量、真实候选详情或浏览器插件测试；不复用 dev Key、不临时改生产 Key、不以此前 dev 的 5 候选结果冒充 prod 验收。插件发布负责人需用现有生产 Key 补齐该链路，并验证实际图片及识别效果。
 
-Admin 业务代码无增量，仍单独对齐 Pages `toccards-admin` 为 `cda22b78-846e-4b91-b6fc-7a69a022c768`；两个生产入口共 22 个静态文件与批准构建一致。完整证据、回退版本和未验边界见 [验证记录](../05-delivery/VERIFICATION.md)。本轮未推送 Git main。
+Admin 业务代码无增量，仍单独对齐 Pages `toccards-admin` 为 `cda22b78-846e-4b91-b6fc-7a69a022c768`；两个生产入口共 22 个静态文件与批准构建一致。完整证据、回退版本和未验边界见 [验证记录](../05-delivery/VERIFICATION.md)。该生产发布阶段未推送 Git main；随后 prod 发布记录已提交为 `dbc2091` 并推送 `github/main`，本地/远端 main 一致且包含 `dev@c253647`。这次文档提交不改变上述已验收的发布源，也不关闭正确 Key 的生产识别/详情/限频待验项；推送后的自动发布状态未复验。
 
 ## 启用、回退与验证
 

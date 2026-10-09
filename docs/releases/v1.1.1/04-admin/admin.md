@@ -52,4 +52,4 @@
 - 本轮源为干净的本地 `main@c253647`，Admin 源码相对上一生产基线无变化。API 插件版本 `e8c5d1fb-0e4d-4eb0-8483-3a77a4ba08fb` 在 15:01 切到 100%；Worker assets 沿用同一批准产物，上传器确认无更新的静态文件。
 - 发布前 API 域名的 11 个文件已匹配；独立 Pages 的 10 个 JS/CSS 匹配，HTML 原始字节不一致。15:03 单独将相同批准产物发布到 `toccards-admin`，deployment `cda22b78-846e-4b91-b6fc-7a69a022c768` 为 production/success，metadata 为 main、完整源 SHA、dirty=false。
 - 15:05 两入口 HTML 及各 10 个 JS/CSS 共 22 项原始字节/SHA256 全部匹配，未归一化 HTML 后宣称原始字节一致；Pages 构建/环境/自动部署配置及域名保持不变，API 鉴权及 Admin 登录 CORS 烟测通过。
-- 本轮没有推送 main；远端 main 仍是 `f952e50`，但 Admin 业务源码与此次产物对应源码无差异。发布前实际 Pages production 回退点为 `a3da17af-9579-4243-ad1a-c98c17fe0897`，本轮未回退。真实生产账号登录/候选图点击仍未补验，具体命令与插件未验项见 [验证记录](../05-delivery/VERIFICATION.md)。
+- 该生产发布阶段没有推送 main，当时远端 main 为 `f952e50`，Admin 业务源码与此次产物对应源码无差异。随后发布记录提交 `dbc2091` 已推送 `github/main`，相对发布源 `c253647` 仅有文档变化；推送后的 Pages 自动发布未重新回读，不以 Git 同步替代双入口运行验收。发布前实际 Pages production 回退点为 `a3da17af-9579-4243-ad1a-c98c17fe0897`，本轮未回退。真实生产账号登录/候选图点击仍未补验，具体命令与插件未验项见 [验证记录](../05-delivery/VERIFICATION.md)。
