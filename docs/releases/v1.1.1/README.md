@@ -17,6 +17,7 @@
 - [管理后台候选卡牌图片预览](04-admin/admin.md)：扫描详情中的候选缩略图支持点击放大；仅涉及 Admin 前端，2026-09-29 已发布 Linux dev `c9f950e`，17:37 又单独发布 prod `1b806fe1`；API 域名入口的基础服务、静态产物与生产后端字节一致性核验通过，2026-09-30 又补发独立 Pages `toccards-admin` 为 `038a65be`，双入口产物一致；2026-10-08 按已含预览改动的 `main@61b5420` 重新发布两个入口，Pages `39154bee` production/success，双入口产物一致；旧 main 缺少该改动的历史风险不再适用于本次源提交，自动部署仍开启。
 - [扫描 R2/向量并行](01-flows/scan-recognition.md)：先领取每张额度，再并行 I/O；失败补偿、批量隔离及计时语义；已部署 Linux dev，2026-10-08 又随 `main@61b5420` 部署 prod；真机批量、旧包业务闭环及性能验收仍待执行。
 
+- [插件免登录识别接口](03-data-api/extension-recognition.md)：独立访问 Key、按 IP 短时间防刷和现有向量协议；2026-10-09 增加完整卡牌详情补全，复用原详情的图片、价格及运营修正口径，不接入 App 登录/扫描额度；2026-10-09 以 dirty 工作区包手工部署 Linux dev 并完成合成向量/鉴权/限频验收，未部署 prod，真实图片/插件验收仍待执行。
 - [Portfolio 长区间估值链路调研](03-data-api/valuation-history-latency-analysis.md)：区分 >90 天 Premium 查询与长历史全序列读取放大；包含隔离实测，生产根因尚待真实慢请求证据，本轮未修改实现。
 - [App 1.0.4+ 服务端兼容契约](03-data-api/app-compatibility-contract.md)：支持窗口、旧包业务语义、新版写入数据的旧版可读性与破坏性变更边界。
 - [App 1.0.4+ 兼容验收矩阵](05-delivery/app-compatibility-acceptance.md)：版本登记、冻结合同、新写旧读、旧包关键路径及 dev/prod 分层放行门禁；目前均为待执行。

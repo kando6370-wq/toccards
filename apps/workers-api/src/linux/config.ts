@@ -1,5 +1,6 @@
 import type { Env } from "../env";
 import { createPostgresDatabase, type PostgresDatabase } from "../db/postgres-database";
+import { createExtensionRateLimiter } from "./extension-rate-limiter";
 import { createFilesystemR2Bucket } from "./filesystem-r2";
 import { createInMemoryKv } from "./in-memory-kv";
 import { createHttpVectorRecognition } from "./vector-recognition";
@@ -10,6 +11,7 @@ export type LinuxRuntime = {
   hostname: string;
   port: number;
   scheduledTaskIntervalMs: number;
+  extensionTrustProxy: boolean;
 };
 
 export function loadLinuxRuntime(source: NodeJS.ProcessEnv = process.env): LinuxRuntime {
@@ -18,6 +20,11 @@ export function loadLinuxRuntime(source: NodeJS.ProcessEnv = process.env): Linux
     throw new Error("Linux test runtime requires APP_ENVIRONMENT=development");
   }
 
+  const trustProxy = optional(source, "EXTENSION_TRUST_PROXY");
+  if (trustProxy && trustProxy !== "true" && trustProxy !== "false") {
+    throw new Error("EXTENSION_TRUST_PROXY must be true or false");
+  }
+  const requestsPerMinute = positiveInteger(source, "EXTENSION_RECOGNITION_REQUESTS_PER_MINUTE", 60);
   const vectorRecognition = createHttpVectorRecognition(
     required(source, "VECTOR_RECOGNITION_BASE_URL"),
   );
@@ -29,6 +36,8 @@ export function loadLinuxRuntime(source: NodeJS.ProcessEnv = process.env): Linux
     SCAN_IMAGES: createFilesystemR2Bucket(objectStoragePath),
     JWT_SECRET: required(source, "JWT_SECRET"),
     VECTOR_RECOGNITION: vectorRecognition,
+    EXTENSION_RECOGNITION_KEY: optional(source, "EXTENSION_RECOGNITION_KEY"),
+    EXTENSION_RECOGNITION_RATE_LIMITER: createExtensionRateLimiter(requestsPerMinute),
     ALLOWED_ORIGINS: required(source, "ALLOWED_ORIGINS"),
     APP_ENVIRONMENT: "development",
     GOOGLE_CLIENT_ID: optional(source, "GOOGLE_CLIENT_ID"),
@@ -55,6 +64,7 @@ export function loadLinuxRuntime(source: NodeJS.ProcessEnv = process.env): Linux
   return {
     env,
     database,
+    extensionTrustProxy: trustProxy === "true",
     hostname: optional(source, "HOST") ?? "0.0.0.0",
     port: positiveInteger(source, "PORT", 3000),
     scheduledTaskIntervalMs:

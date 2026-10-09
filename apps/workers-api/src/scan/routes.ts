@@ -1094,7 +1094,7 @@ function normalizeCardNumber(value: string | null): string | null {
   return value?.toUpperCase().replace(/\s+/g, "") ?? null;
 }
 
-function readRecognitionCandidates(value: unknown): RecognitionCandidate[] | null {
+export function readRecognitionCandidates(value: unknown): RecognitionCandidate[] | null {
   if (!Array.isArray(value)) return null;
   const candidates: RecognitionCandidate[] = [];
   const seen = new Set<string>();

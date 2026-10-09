@@ -18,7 +18,7 @@
     "deploy:prod": "pnpm run build:assets:prod && wrangler deploy --env prod",
     "deploy:dev": "node ../../deploy/linux/deploy-dev.mjs",
     "type-check": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run",
+    "test": "vitest run --exclude \"**/.wrangler/**\"",
     "admin:init": "node scripts/create-admin.mjs"
   },
   "dependencies": {

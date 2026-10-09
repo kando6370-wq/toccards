@@ -774,3 +774,179 @@ HTML SHA-256 为 `729d63b2610847594f40064b37ce94fad87de8671fa974c082bc016732ea55
 - 未执行生产 PostgreSQL ledger 独立回查、迁移、备份/恢复演练；源 diff 无 migration/schema 增量，不宣称实时 pending migrations 为零。ledger 上次独立回读仍是 2026-09-21 的 14 项。
 - 未执行生产 P50/P95、扫描耗时对照、Hyperdrive/CDN 缓存一致性验收或定向 Placement 第二轮；本次没有改变 Placement/缓存，也不承诺性能收益。
 - 未发布营销站、Linux dev 或手机安装包；未触发 Git 合并、commit 或 push。仅更新本文档和相关当前入口，冻结 v1.0.0 内容不动。
+
+## 2026-10-08：插件免登录识别接口本地交付
+
+### 范围与当前状态
+
+从本地 `dev@f952e50bd688e07f6d2650dcc02359069707f747` 创建并切换到用户指定的 `dev-extension`。起始工作区干净，本轮代码仍为未提交改动；没有提交、推送、SSH、远程数据库写入、migration 或 dev/prod 部署。
+
+新增 `POST /api/v1/extension/recognize`：独立插件 Key 校验、按可信来源 IP 的短时间防刷、32 KiB JSON/512 维有限非零向量校验，转发现有 `{vector, card_type}` 并透传成功 JSON。免登录，不访问 App 账号、扫描额度、图片/KV 或扫描记录；不做卡牌目录/价格补全。prod 仅新增原生限频 binding 声明；Linux 使用单进程内存限频和显式可信代理开关。实际边界与配置见 [插件接口契约](../03-data-api/extension-recognition.md)。
+
+原 App 扫描和认证实现、共享 auth-core、冻结的 `docs/releases/v1.0.0` 与 dev 的差异检查为空。现有数据库 schema、migration、Hyperdrive/KV/R2/向量 binding、prod 缓存/Smart Placement/cron 未修改；没有为新功能复制或维护旧 D1 路径。
+
+### 本地证据
+
+环境：Windows / PowerShell、Node 22.20.0、pnpm 11.9.0、Wrangler 4.106.0。
+
+| 实际命令 | 退出状态与结果 |
+|---|---|
+| `pnpm --filter @kando/workers-api exec vitest run src/extension/routes.test.ts --reporter=dot`（实现前） | 1；35 项中 34 项因新接口尚为 404 失败、1 项既有 App 凭据拒绝测试通过；实现后原测试转绿 |
+| `pnpm --filter @kando/workers-api exec vitest run src/extension src/linux/extension-client-ip.test.ts src/linux/extension-rate-limiter.test.ts src/linux/config.test.ts src/deployment-config.test.ts --reporter=dot`（最终） | 0；6 文件 / 64 项通过，含无登录转发、拒绝无效 Key/超频/无配置、IP 头伪造、数值溢出、UTF-8 字节边界、上游异常/正文 deadline，不读取业务存储 |
+| `node --test deploy/linux/offline/web-server.test.mjs`（修复后） | 0；2 项通过，含原分享 Host 契约，以及普通/编码等价识别路径的转发头覆盖 |
+| `pnpm --filter @kando/workers-api type-check`（最终） | 0；Workers 类型检查通过 |
+| `pnpm lint` | 0；4 个共享包的依赖方向检查通过 |
+| `pnpm type-check` | 0；7 个包成功，6 项使用有效缓存，Workers 本轮执行 |
+| `pnpm --filter @kando/workers-api build:linux:api` | 0；独立 API bundle 构建及 2 项打包测试通过；真实本机 HTTP 进程验证 health、401、识别成功、伪造不同 IP 头仍为 429、上游仅收到原协议且无插件 Authorization；数据库地址不可达但该路径无 SQL 访问 |
+| `pnpm --filter @kando/workers-api deploy:dry-run:prod` | 0；Admin production assets 和 Worker 构建通过，Wrangler 识别独立 `60 requests/60s` Rate Limit binding；`--dry-run` 退出，未发布 |
+| `pnpm --filter @kando/workers-api deploy:dry-run:dev` | 0；Admin development、Linux API/打包测试及本地发布包生成通过；dirty 包未作为纯提交版本交付；无 SSH、迁移或部署 |
+| `pnpm --filter @kando/workers-api exec vitest run src --maxWorkers=2 --reporter=dot`（最终） | 0；81 文件 / 734 项全部通过，未跳过，未放宽测试超时或断言 |
+| `git diff --check` 与文档相对链接检查 | 0；无差异空白错误，新增/更新文档的本地链接有效 |
+
+### 必须保留的失败记录
+
+- 初次 `pnpm --filter @kando/workers-api test`（默认扫描）退出 1：99 文件中 18 失败、81 通过；748 项中 4 失败、744 通过。包含既有 `.wrangler/linux-release-*` 中 `node:test` 文件被 Vitest 判为无 suite、历史安装环境诊断 3 项断言失败，以及扫描测试 1 项 5 秒超时。未删除这些产物/诊断，未更改 Vitest 排除规则。
+- `vitest run src --reporter=dot` 默认并发退出 1：81 文件中 2 失败、79 通过；731 项中 2 失败、729 通过，均为扫描/价格存储测试 5 秒超时。
+- `vitest run src --maxWorkers=1 --reporter=dot` 退出 1：81 文件中 1 失败、80 通过；731 项中 1 失败、730 通过，为既有 Admin 账单测试的 `Undici: bad port`。本轮没有修改其实现或测试基座，不将该现象的根因推断写成已证实事实。
+- 最终增加边界用例后，完整源码集在 2 个 worker 下 734 项通过；这是限定源码范围及测试运行并发的复验，不代表最初默认 `pnpm test` 已通过，也不代表历史诊断问题已修复。
+
+### Code Review
+
+已完成本地代码自审，非外部独立审查。检查鉴权及限频拒绝发生在上游调用之前、来源 IP 的运行入口信任边界、并发计数与内存容量、参数/响应契约、凭据与业务数据隔离、正文大小与 deadline、CORS/旧 App 路由以及配置/文档一致性。
+
+自审发现并修复离线代理的新路径判断问题：代理比较原始 URL，而 Hono 解码 URI，导致 `/api/v1/extension/%72ecognize` 可绕过新接口转发头覆盖。先补测试，确认 `node --test deploy/linux/offline/web-server.test.mjs` 为 1 通过 / 1 失败；随后按解码路径判断，仅对识别路径覆盖来源头。同一普通/编码输入复验为 2 项通过，原分享 Host 行为保持不变，打包与源码回归亦通过。修复后再次自审，未发现其他阻断性代码问题；保留以下外部验收边界。
+
+### 未执行及需要补验
+
+- 没有真实插件源码，本轮未修改/构建插件；自动携带 Key 的后台请求方式已给出。插件工程负责人需对接并实测 Chrome/目标浏览器 host permissions、网络权限、429 暂停及真实识别结果。
+- 没有设置真实 dev/prod Key 或发布接口；仅本地声明新的 Cloudflare 限频 binding，账户内 namespace 唯一性、真实 location 近似限频及 Service Binding deadline 尚未在线验收，需要发布人员按环境授权后补验。
+- 未运行真实 Caddy/Compose 容器及 kd201 网络验证；显式信任代理时必须确认 API 3000 不对公网/用户网段开放，否则转发头可被伪造。离线代理及直连 Node 只进行了本机 HTTP 验证。
+- 未验证独立识别服务的公网访问控制；新增入口不能自动封堵其既有直连旁路，需要识别服务运维在启用前核对。
+- 无 Flutter 代码变化，未运行 Flutter 分析、真机、旧包或商店验收；不将本轮服务端源码回归当作这些外部验收通过。
+
+## 2026-10-09：插件候选补全完整卡牌详情
+
+### 范围与契约选择
+
+用户明确要求图片、价格等完整卡牌详情。本轮在 `dev-extension` 保留既有未提交改动，并将插件成功响应从内部识别 JSON 透传升级为 `{candidates: [...]}`：每项等于现有 `GET /api/v1/cards/:card_ref` 的 `data`，再附规范化的 `product_id` 与首次识别 `confidence`。此处选择卡牌详情业务，而不是 App 扫码候选的严格目录过滤规则；运营补录、图片规范化、价格及字段缺失行为以原详情接口为准。
+
+调用链直接复用 `createDefaultAdapter → resolveCard → withCardImageUrl("detail")`，没有复制或修改卡牌查询、价格选取/换算、运营修正或图片规则。原扫描文件仅把既有纯函数 `readRecognitionCandidates` 改为导出，函数体和其他扫描逻辑不变；插件复用其 ID/置信度校验、数字 ID 规范化及首项去重规则。
+
+保持免登录、Key 与短时间防刷、不扣 App 扫描额度、不创建扫描/收藏记录、不上传图片。新增仅是卡牌/运营修正/已发布价格的只读查询；没有 schema/migration、真实 Key、部署配置或业务数据写入。详情不存在的候选省略，空识别不查询数据库，缺失价格不填 0，任一详情查询异常返回 500 `INTERNAL_ERROR`，不伪装成空匹配或向量服务错误。详情顺序沿用识别列表，原上游 10 秒 deadline 不宣称覆盖整条数据库详情查询链路。
+
+当前契约见 [插件接口](../03-data-api/extension-recognition.md)。2026-10-08 的无业务数据库读取/原始响应透传检查点只描述当时版本，不能作为本轮新需求的当前契约；历史证据原样保留。
+
+### 实际验证
+
+环境：Windows / PowerShell、Node 22.20.0、pnpm 11.9.0、Wrangler 4.106.0。本轮没有 Git 提交/推送、SSH、远程迁移或 dev/prod 发布。
+
+| 实际命令 | 退出状态与结果 |
+|---|---|
+| `pnpm --filter @kando/workers-api exec vitest run src/extension/routes.test.ts --reporter=dot`（实现前） | 1；55 项中 17 失败、38 通过，原实现不能补全详情、处理缺失 ID 或拒绝无效识别结果；这是新契约的先失败证据 |
+| `pnpm --filter @kando/workers-api exec vitest run src/extension --maxWorkers=2 --reporter=dot`（最终） | 0；3 文件 / 62 项通过，含完整字段、顺序/置信度、重复/数字 ID、运营修正/补录、无价格/无匹配、数据库异常和原 Key/限频/参数拒绝 |
+| `pnpm --filter @kando/workers-api type-check` | 0；Workers 类型检查通过 |
+| `pnpm lint` | 0；依赖方向检查通过 |
+| `pnpm type-check` | 0；7 个包成功，6 项使用有效缓存，Workers 本轮执行 |
+| `pnpm --filter @kando/workers-api build:linux:api` | 0；Linux API 构建及 3 项独立打包测试通过：真实本机 HTTP 的 health/免登录无匹配/Key/防伪造 IP、原 Apple SDK 打包、编译后候选的完整详情与图片/价格/运营修正 |
+| `pnpm --filter @kando/workers-api deploy:dry-run:prod` | 0；Worker/Admin 构建通过并以 `--dry-run` 退出，未发布 |
+| `pnpm --filter @kando/workers-api deploy:dry-run:dev` | 0；Linux 发布包构建通过，3 项打包测试复验通过；dirty 本地包保留，无 SSH、迁移或部署 |
+| `pnpm --filter @kando/workers-api exec vitest run src --maxWorkers=2 --reporter=dot` | 0；82 文件 / 756 项全部通过，未跳过或放宽测试断言/超时 |
+| `git diff --check`、文档链接检查、无关业务差异检查 | 0；文档路径有效；现有详情/价格/auth-core/认证、PostgreSQL migrations 及冻结 v1.0.0 文档均未改动；原扫描只改一个导出声明 |
+
+新增 PostgreSQL（PGlite）对照测试与原详情端点逐字段比较，覆盖已发布 Raw 价格优先于其他语言/版本/评级报价、1/7/30 天基准与涨跌幅、图片、语言/版本、运营修正、手工补录及无价格情况。另验证带 SQL 片段的 `product_id` 仍作为绑定值，不扩大查询范围。测试数据库仅为内存夹具；没有改动已有 PostgreSQL/D1 兼容门面，未新增或维护 D1/Miniflare 类型、binding、schema、迁移或测试基座。
+
+旧打包用例的“识别有候选但数据库不可达仍成功”前提不再符合新业务，已改为真实空识别不访问数据库，并另增完整详情的独立打包断言；没有跳过旧用例或降低新业务验证要求。完整数据库业务一致性由真实 PostgreSQL 引擎的内存对照测试补证，打包内的非空详情测试使用受控只读 SQL 回应，不冒充远端数据库验收。
+
+### Code Review 与未验证边界
+
+已完成本地代码自审，非外部独立审查。检查现有详情 helper 的直接复用、上游数据不覆盖可信价格/名称、原识别顺序与去重、无资料/无价格/查询失败的区分、只读数据边界、Key/防刷拒绝前置、原 App/API 不变、依赖及文档一致性。最终未发现阻断性代码问题；审查后仅补证文档，没有再修改业务代码。
+
+- 本轮没有新的未解决测试失败；实现前失败已在实现后转绿。没有复跑会扫描历史 `.wrangler` 产物的默认 `pnpm test`，2026-10-08 的相关失败未修复、未删产物或改排除规则；不将源码范围通过写成默认命令通过。
+- 未修改/构建真实插件（源码不在本仓），未验证实际图片加载或真实识别准确率；现有插件负责人需要按新字段契约补验。
+- 未部署或改动真实环境 Key，未实测 kd201/Cloudflare 与真实价格数据、代理边界或识别服务公网直连控制；这些外部验收仍需环境授权后执行。
+- 未进行线上性能/并发测试。每个去重候选依次复用详情查询，10 秒只覆盖上游识别 I/O，不保证详情补全总耗时；不新增猜测性缓存或批量价格口径。
+- 没有 Flutter 变更，未执行 Flutter 分析/真机/旧包验收，不把服务端源码回归写成移动端外部验收通过。
+
+## 2026-10-09：kd201 Linux dev 手工部署与上线验收
+
+### 授权、目标与来源
+
+用户明确授权部署到 kd201 的 dev，并确认已在服务器私有 `.env` 配置插件 Key 与频率。本轮只操作项目记录的 `192.168.50.201`，系统 hostname 为 `srs-node-test1`，部署账号为 user；既有 SSH 主机密钥严格匹配，指纹为 `SHA256:YZP844Gs0a2P9Bk1/A4XQuJnSVcrSxrtvu6xi1TgqQ8`。本机无法解析 kd201 名称，使用已记录 IP；本机无 SSH key/agent 登录，临时 SSH 客户端仅在内存使用用户提供的认证，运行原发布脚本，不改 SSH 配置、项目依赖或登录凭据，不记录密码。
+
+发布 ID：`manual-extension-f952e50-dirty-20261009-1791513409974`。manifest：`branch=dev-extension`、`sha=f952e50bd688e07f6d2650dcc02359069707f747`、`working_tree_dirty=true`、`built_at=2026-10-09T02:35:40.949Z`；这是未提交工作区构建，不能标为纯提交发布。没有 Git 提交/推送或 prod 操作。
+
+前一 release 为 `branch-dev-7516cfd2a06a-20260930110549`，保留未删除。最终独立回读时间为 2026-10-09 10:58:03（北京时间）。
+
+### 发布门禁、备份和运行回读
+
+- 重新执行 `pnpm --filter @kando/workers-api deploy:dry-run:dev`，退出 0，包含 3 项独立 Linux 打包测试通过。仅上传白名单发布包；64 个归档条目通过路径与私有环境/数据文件检查，未包含真实 `.env`、登录凭据、数据库或图片卷。
+- 归档 2,078,636 字节；本地/远端 SHA256 均为 `19dbaf4fb62d4b65c623048428b36a10a18beff8f6c921f6b1bd2e3bccad83c3`。
+- 远端原 `preflight.mjs` 独立运行退出 0：`APP_ENVIRONMENT=development`、数据库为本地 `db`/toccards_test、PostgreSQL major 18、识别 health 符合 512/cosine/top_k=5，`pendingMigrations=[]`。只读 ledger 发布前为 `14|0013_cards_all_search_trgm.sql`。
+- 使用已鉴权连接执行原 `deploy/linux/ci/deploy-release.sh`，退出 0：先数据库备份，再离线运行镜像/Compose 构建、健康验收和 current 切换；未因密码认证另写应用发布逻辑。
+- 数据库备份保留在 `/home/user/apps/toccards-test/backups/toccards-test-20261009-104004-before-manual-extension-f952e50-dirty-20261009-1791513409974.dump`，1,135,397,964 字节，临时 `.tmp` 不存在。`docker exec -i ... pg_restore --list` 退出 0，324 个条目；没有执行恢复演练。
+- current symlink 与 shared/current-release 均指向此 release。API/DB healthy、Web running、migration 检查容器 exited/0；没有待执行或新增 migration，ledger 发布后仍为 14 项、最新 `0013`。
+- 实际数据库 `server_version_num=180006`，保持 major 18；原卷 `toccards-linux-test_postgres-data:/var/lib/postgresql/data` 保留。没有 SQL 业务写操作或重置用户数据。
+- API `/app/server.mjs` 的运行 SHA256 与批准产物一致：`68a3410d018ae4c5a18b7ca6322ce6088e7affd22ed670fd94246a87d28d4df0`；Web `/app/web-server.mjs` 为 `94152704c4d0e728e60fc36d98152b36c9698d7cbcfd9cc359d099af2c37bc99`，亦一致。
+
+### 私有环境配置
+
+用户已配置的 Key 与频率 60 没有覆盖或回显。核对 API 端口绑定为空、API/Web 在同一私有 Compose 网络，Web 为离线 Node 代理；先发布并核对新版代理，再备份私有 `.env`（备份模式 600），仅追加 `EXTENSION_TRUST_PROXY=true` 并重建 API，未重建数据库。运行进程确认 development、Key 存在、频率 60、trustProxy=true；逐字节确认当前私有配置严格等于原备份加这一行，因此 Key/频率和所有原字段保留。失败回退保护未触发，配置备份保留在 shared 目录，不上传或记录内容。
+
+### 上线验收
+
+| 实际检查 | 结果 |
+|---|---|
+| 内网 `GET /api/v1/health`、未登录 `GET /api/v1/auth/me` | 200 / 401，原 App 鉴权未开放 |
+| 插件未带 Key / 错误认证格式 | 401 / 401 |
+| 正确 Key + 无效参数 `{}` | 422，无识别调用 |
+| 一次合成 512 维非零向量、card_type=0 | 200，5 个候选；不上传图片，不代表真实卡牌识别准确率 |
+| 逐个候选与原 `GET /cards/:card_ref` 对照 | 5/5 完整详情一致，5 个均有价格，均返回规范化图片 URL；不回显实际 Key 或卡牌/价格原始数据 |
+| 一条真实新 API 日志 | request_id=`7c2e310a-1a2b-4ba3-8cdf-28be55a73261`，POST 新识别路径，200，duration_ms=2949 |
+| 63 次正确 Key + 无效参数，同时不断伪造 X-Forwarded-For/CF-Connecting-IP | 60 次 422、3 次 429，`Retry-After=60`；来源头伪造未绕过；这批请求不触发识别查询，仅验证本机来源窗口 |
+| Admin HTML 与 10 个 JS/CSS，从内网入口读取 | 11/11 与批准 dev 构建原始字节 SHA256 一致 |
+| 最终容器/产物/ledger/私有配置回读 | 通过；SSH 会话关闭，临时会话内存清理 |
+
+### 保留边界与风险
+
+- 仅完成一次合成向量的真实链路与详情一致性冒烟，不是实际照片、端侧模型、真实浏览器插件、图片资源可加载性或识别准确率验收；没有运行 iOS/Android 真机、订阅/收藏写入或全面压力测试。
+- 当前额外配置仅 dev 的代理信任标志；prod API/Pages/营销站、Cloudflare bindings/Secret、prod 数据库均未修改或发布。dev 对既有 CF 只读识别服务进行了 health 和一次向量检索，不更改该服务配置或索引。
+- watcher 仍跟踪 `dev`，last-seen 为 `f952e50`、last-deployed 为 `7516cfd`，未改其分支、状态或自动发布规则；此手工 dirty release 与 watcher 来源不同，未来 dev 自动发布可能覆盖它。后续应在明确授权后完成源码合并/提交/推送，不把手工部署等同于 Git 发布。
+- 原应用 release、数据库备份、私有环境备份和本地/远端发布材料均保留，没有清理历史数据；备份只做可读取校验，没有恢复演练。
+- 独立识别服务既有公网直连访问控制未在本轮整改或验证，新入口防刷不等于已封堵其所有旁路，也不证明分布式防刷能力。
+
+## 2026-10-09：BUGFIX 默认 Workers 测试误扫历史产物
+
+### 根因、修改范围与影响
+
+Workers 的默认 `test` 原为 `vitest run`，未排除 `.wrangler`。Linux 发布打包会复制 security 目录中的 Node 测试到历史 release；测试文件名符合 Vitest 默认匹配规则，但 `.gitignore` 不控制 Vitest 发现范围。默认因此同时发现历史 Node 测试副本和旧诊断，前者会触发 `No test suite`，后者可能执行不属于当前源码回归范围的历史断言。
+
+本轮仅把 `apps/workers-api/package.json` 的 `test` 改为 `vitest run --exclude "**/.wrangler/**"`，CLI 规则为追加排除，不覆盖既有默认项。不把范围缩成 src，不修改断言/超时/并发，不删历史材料，不修改或继续维护退役迁移测试、旧 D1/Miniflare 基座。原有 83 个非产物测试文件全部保留；新增一个轻量测试命令回归断言，保护“发布历史不影响测试范围，且不悄悄排除 src 外既有测试”的意图。
+
+直接调用方仍使用原 Workers `pnpm test` 入口，未变更 CI、依赖、构建/部署脚本或应用代码。root AGENTS 的命令说明已同步；这只影响本地测试工具，不需要重新发布，已上线 dev 的运行产物未改动，prod 亦未操作。
+
+### 先失败、复验与实际结果
+
+环境：Windows / PowerShell、Node 22.20.0、pnpm 11.9.0、Vitest 4.1.9。
+
+| 实际检查/命令 | 退出状态与证据 |
+|---|---|
+| 修改前 `vitest list --filesOnly --json` 及发现范围断言 | 列表退出 0，断言退出 1；103 文件中有 20 个 `.wrangler` 文件，不满足无历史产物验收条件；只列路径，不执行模块 |
+| 修改前 `vitest run src/test-discovery.test.ts --reporter=dot` | 1；新增命令断言失败，实际为原 `vitest run`，先失败证据确认 |
+| 修改后同一针对性命令 | 0；1 项通过，断言转绿 |
+| 修改后 `vitest list --filesOnly --json --exclude "**/.wrangler/**"` 及集合对比 | 0；84 文件，历史文件为 0；原 83 文件全部保留，只新增本轮的 1 个回归测试文件。退役迁移工具测试保留原状，未执行或修改其基座 |
+| 第一次 `pnpm --filter @kando/workers-api test` | 1；84 文件中 83 通过、1 失败，771 项中 770 通过、1 失败；历史 `No test suite` 与诊断错误均不再出现，但既有扫描用例超时 |
+| 新断言初次类型检查 | 2；Workers 全局 URL 与 Node 文件接口类型不兼容；已按仓库的 dirname/join/fileURLToPath 风格修正，仅修复新增测试代码 |
+| 修正后 `pnpm --filter @kando/workers-api type-check` | 0；通过 |
+| 最终默认 `pnpm --filter @kando/workers-api test` | 1；仍为 83 文件/770 项通过，1 文件/1 项失败，同一既有扫描用例 5 秒超时；未通过，不能标为全量绿色 |
+| `pnpm --filter @kando/workers-api test src/test-discovery.test.ts src/scan/routes.test.ts` | 0；2 文件/54 项全部通过，无跳过；原超时用例在仅运行此范围时通过，不将此结果替代完整默认命令 |
+| `git diff --check`、更新文档链接检查 | 0；通过 |
+
+新增断言代码修正后重新执行了针对性测试、类型检查、原默认入口及窄范围复验。扫描误发现集合的修复前后对比保持同一当前环境与路径规则，没有删除产物或绕过正式测试。
+
+### Code Review 与未完成项
+
+已执行本地代码自审，非外部独立评审：package diff 仅一行，确认 glob 引号在实际默认入口生效、只排除生成目录、未覆盖默认排除项、src 及原脚本测试仍保留；新断言不执行历史产物，使用现有 Node 文件路径风格；用户此前未提交改动与历史目录均保留。修正新测试的类型问题后已复验并再次审查，未发现本次扫描修复的阻断问题。
+
+**本次历史产物扫描问题已验证修复，但默认测试整体仍未通过。**唯一未解决项为 `src/scan/routes.test.ts` 的 `rejects retired hashes and invalid vectors before storage or quota consumption`：两次完整默认运行均报 `Test timed out in 5000ms`，窄范围运行通过。该现象与历史目录扫描是不同问题；未证明其根因，也未修改旧测试/测试基座、放宽超时或改变默认并发。若继续处理，需单独定位，不能把这次排除规则修复宣称为所有默认测试已绿。
+
+没有执行新构建、服务部署、Git 提交/推送或远程变更；未进行本任务不涉及的 Flutter/真实设备验证。

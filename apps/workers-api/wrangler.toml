@@ -60,6 +60,11 @@ id = "c90e2c87b2c042ea93c58d38095973c7" # Cloudflare KV: CACHE_KV
 binding = "SCAN_IMAGES"
 bucket_name = "toccards-scan-images"
 
+[[env.prod.ratelimits]]
+name = "EXTENSION_RECOGNITION_RATE_LIMITER"
+namespace_id = "2026100801"
+simple = { limit = 60, period = 60 }
+
 [[env.prod.services]]
 binding = "VECTOR_RECOGNITION"
 service = "recognize-vec"

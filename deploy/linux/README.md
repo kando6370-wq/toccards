@@ -14,6 +14,12 @@ Linux 部署资产已通过 `19a6ac4` 合入；2026-09-15 已将 `dev-inner` 整
 - 若启用 `.env.example` 中的 `NODE_USE_ENV_PROXY`，API 容器需使用 Node 22.21.0+；HTTP(S) 代理和 `NO_PROXY` 的当前配置见[外部服务配置与代理](../../docs/linux-test-environment/README.md#外部服务配置与代理)。
 - PostgreSQL 使用 18；标准镜像默认 `postgres:18-alpine`，离线镜像安装 `postgresql-18`。两种方式均显式保留 `PGDATA=/var/lib/postgresql/data` 与现有 `postgres-data` 卷，避免因 18 镜像默认目录变化读到空目录。
 
+## 可选插件免登录识别
+
+插件入口 `/api/v1/extension/recognize` 需要独立 `EXTENSION_RECOGNITION_KEY`；不配置时仅该入口返回 503，不影响既有 API。`EXTENSION_RECOGNITION_REQUESTS_PER_MINUTE` 默认 60，仅控制每 IP 的短时间请求，不扣 App 扫描额度。`EXTENSION_TRUST_PROXY` 默认 false；只有 Node API 不对外直连、请求经仓库私有 Caddy/离线代理时才能显式设为 true，否则必须忽略外部转发头。内存限频只在单进程有效，重启清零。
+
+完整请求、代理边界、停用方式与未发布状态见 [插件接口契约](../../docs/releases/v1.1.1/03-data-api/extension-recognition.md)。不要复用 JWT Secret 或把真实插件 Key 提交到仓库。
+
 ## 日常 dev 发布命令
 
 在开发机仓库根生成可检查的发布包：

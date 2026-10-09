@@ -23,6 +23,13 @@ describe("production Worker deployment configuration", () => {
     expect(config).not.toMatch(/^\[placement\]/m);
   });
 
+  it("uses a separate native plugin limiter so Workers isolates do not each get an unlimited local counter", () => {
+    expect(config).toMatch(/\[\[env\.prod\.ratelimits\]\][\s\S]*?name = "EXTENSION_RECOGNITION_RATE_LIMITER"/);
+    expect(config).toContain('namespace_id = "2026100801"');
+    expect(config).toContain("simple = { limit = 60, period = 60 }");
+    expect(config).not.toContain("EXTENSION_RECOGNITION_KEY");
+  });
+
   it("cannot restore retired Cloudflare dev or D1 deployment targets", () => {
     expect(config).not.toContain("[env.dev]");
     expect(config).not.toContain("d1_databases");
