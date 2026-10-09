@@ -76,7 +76,7 @@ describe("anonymous plugin recognition", () => {
       headers: { Accept: "application/json", "Content-Type": "application/json" },
       body: JSON.stringify(input),
       signal: expect.any(AbortSignal),
-      redirect: "error",
+      redirect: "manual",
     });
   });
 
@@ -313,6 +313,23 @@ describe("anonymous plugin recognition", () => {
     expect(response.status).toBe(502);
     expect(await response.json()).toMatchObject({ error: { code: "VECTOR_RECOGNITION_UNAVAILABLE" } });
     expect(upstream).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([null, JSON.stringify({ candidates: [] })])("rejects redirects without forwarding vectors because Workers require manual redirect handling: %j", async (body) => {
+    const { request, upstream, getCard, readOverride } = setup();
+    upstream.mockResolvedValue(new Response(body, {
+      status: 307,
+      headers: { Location: "https://untrusted.example/recognize", "Content-Type": "application/json" },
+    }));
+    const response = await request();
+    expect(response.status).toBe(502);
+    expect(await response.json()).toMatchObject({ error: { code: "VECTOR_RECOGNITION_UNAVAILABLE" } });
+    expect(upstream).toHaveBeenCalledExactlyOnceWith("https://recognize-vec.internal/recognize", expect.objectContaining({
+      redirect: "manual",
+      body: JSON.stringify(input),
+    }));
+    expect(getCard).not.toHaveBeenCalled();
+    expect(readOverride).not.toHaveBeenCalled();
   });
 
   it("does not report malformed upstream JSON as a successful identification", async () => {

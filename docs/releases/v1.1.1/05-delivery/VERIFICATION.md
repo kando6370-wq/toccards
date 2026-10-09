@@ -1065,3 +1065,68 @@ Workers 的默认 `test` 原为 `vitest run`，未排除 `.wrangler`。Linux 发
 - `git diff --name-only c253647..dbc2091` 只有已提交的 6 份文档/Agent 规则；`git diff --exit-code c253647..dbc2091 -- apps packages deploy .github` 退出 0。因此最近已验收的 prod 发布源仍是 `c253647`（Worker `e8c5d1fb`、Pages `cda22b78`），不能把文档提交 `dbc2091` 写成又一次已验收的运行发布。Linux dev 最近已验收源仍为 `b621d76`，不因远端 dev 变为 `c253647` 而推断其已再次部署。
 - 本地分支、远端跟踪引用及 `git ls-remote --heads github "refs/heads/dev-ext*"` 均无匹配；`dev-extension` 已不再是工作分支。旧 release、dirty 工作区及其分支名保留为历史证据，未清理历史产物。
 - 上文 14:59–15:11 发布记录中的“尚未提交/没有推送”描述该阶段的事实，原样保留；这次补证说明后续提交推送结果。此轮仅同步文档，没有再次 commit/push、部署或查询 Cloudflare/SSH 运行状态；推送触发的 CI/自动发布未验收，生产正确 Key 的识别/详情/限频、真实插件与真机等未验边界保持。
+
+## 2026-10-09：BUGFIX 插件 prod 502 与 Workers 重定向模式不兼容（仅本地修复）
+
+### 问题、输入与根因证据
+
+- 用户报告生产 `POST /api/v1/extension/recognize` 返回 `VECTOR_RECOGNITION_UNAVAILABLE`。附件请求 `card_type=0`，向量 512 维、有限且非零，重编码正文 9,617 字节，满足当前参数约束。原 `X-Request-ID=4b60a874-215a-454a-b8e7-62ec0fe08304`；未将向量原文、附件认证头或凭据写入仓库/日志。用户明确附件 Key 已替换为脱敏值，因此一次附件重放的 401 不用于判定原请求鉴权错误或复现了原 502。
+- 只读回查 prod 仍为 `e8c5d1fb-0e4d-4eb0-8483-3a77a4ba08fb` / 100%，绑定 `recognize-vec@production` 存在。15:49 回读实际部署脚本 SHA256 `63342d0e6fe6569c4758ffef3de5ed3634fbc99c194e8a9e866ce8d883850be3`，与先前批准构建一致；线上实际 `createExtensionRoutes` 含 `redirect: "error"`。识别 Worker 源码的输入约束与当前参数匹配，不据此宣称其 Vectorize 服务健康或证明原历史请求已到达上游。
+- 本地使用现有 workerd 1.20260630.1 / Miniflare 4.20260630.0、与 prod 相同的 compatibility_date=2024-11-01 和 nodejs_compat，调用两个纯 Worker 的 Service Binding：App 原调用与仅增加 signal 都成功；加入插件的 redirect=error 时稳定抛出 `TypeError: Invalid redirect value, must be one of "follow" or "manual"`，改为 manual 则成功。诊断不配置任何 D1、数据库、KV 或 R2，不复用或扩展退役 D1/Miniflare 数据库测试基座，也不访问外部识别索引。
+- 进一步以实际 `src/extension/routes.ts` 打包同一路由，使用固定测试 Key 与受控空候选上游：修复前合法请求返回与用户一致的 502 错误正文，上游调用计数为 0。根因是 Workers 校验不支持的 fetch 选项，在上游调用前抛错后被 catch 包装；该错误码本身不能区分运行时选项、网络、非 2xx、JSON 或候选格式问题。
+- 历史日志查询被 Cloudflare 返回 HTTP 403，未绕过权限；原请求没有取得独立历史 trace。首次实时日志命令重复附加 prod 名称而失败，改正后短时窗口未捕获原 502。结论依据线上代码与实际 Workers 运行时的确定性复现，不伪称从原请求日志读取到异常堆栈。此前模拟 fetch 测试不会执行 Workers 的 RequestInit 校验，且 Node 支持 error 模式，解释了为什么已有单测/Linux 验收不能发现这一生产运行时差异。
+
+### 最小修复与影响范围
+
+- `src/extension/routes.ts` 仅将 redirect 从 error 改为 manual，并说明运行时约束；原有非 2xx/解析错误仍返回 502，不跟随 Location、不重试，不把异常伪装成成功空候选。Key、IP 限频、10 秒 deadline、向量/card_type、候选详情及数据库只读契约均不变。
+- 现有 `src/extension/routes.test.ts` 更新请求选项断言，并加入空正文/JSON 正文的 307 响应回归，保护“不将向量转发到跳转地址、不返回成功候选、不进入卡牌详情查询”的意图。没有新增依赖、生产配置、Schema/migration 或维护旧 D1 基座。
+- App 扫描调用未设置这个 error 选项，源码不变；Linux `createHttpVectorRecognition` 在 Node 中仍显式覆盖为其支持的 error 模式，继续拒绝跳转。仅修复共享插件路由的跨运行时选项，不删除 Linux 已有防重定向保护。
+
+### 先失败、复验与反向验证
+
+环境：Windows/PowerShell、Node 22.20.0、pnpm 11.9.0、Vitest 4.1.9、Wrangler 4.106.0；无远程写操作。临时诊断脚本与日志保存在忽略目录 `apps/workers-api/.wrangler/diagnostics/extension-redirect-20261009-1791532153769/`，不把脚本或原始日志加入 docs/Git。
+
+| 实际检查 | 退出状态与结果 |
+|---|---|
+| 修复前 `pnpm --filter @kando/workers-api test src/extension/routes.test.ts --reporter=dot` | 1；59 项中 3 失败、56 通过，选项回归明确失败 |
+| 修复前 `node <diagnostics>/runtime-repro.mjs` | 1；实际路由应成功的断言得到 502，上游调用 0 次 |
+| 修复后同一运行时诊断 | 0；同样请求为 200/空候选，上游 1 次；上游 307 仍返回 502，跳转目标调用 0 次 |
+| 同一诊断 `--restore-error-in-memory` | 1（预期失败）；仅在内存构建恢复旧选项，重新得到 502/上游 0 次，证明撤去修复就会回归；未回退源码或修改生产 |
+| 修复后同一窄范围测试 | 0；59/59 通过 |
+| `pnpm --filter @kando/workers-api type-check` | 0 |
+| `pnpm --filter @kando/workers-api test src/extension src/linux src/scan/routes.test.ts src/cors.test.ts src/index-postgres-runtime.test.ts src/test-discovery.test.ts src/deployment-config.test.ts --maxWorkers=2 --reporter=dot` | 0；15 文件、170 项，无跳过 |
+| `pnpm --filter @kando/workers-api build:linux:api` | 0；3 项完整 Linux 打包测试通过并成功构建 |
+| `pnpm --filter @kando/workers-api deploy:dry-run:prod` | 0；仅本地 Worker/Admin 构建，没有发布 |
+
+实际路由诊断的首次 esbuild 配置未处理间接 Node 内置依赖，构建失败，没有执行路由；补齐诊断用 Node 兼容打包后，才取得上表的失败/成功/反向验证，未修改业务依赖来迁就诊断。
+
+### Code Review 与未完成项
+
+- 已执行本地代码自审（非外部独立评审）：确认生产只改一个选项，manual 不会自动跟随重定向，JSON 与空正文非 2xx 均维持原错误语义；既有超时、认证、限频、详情逻辑不变，Linux 自身传输选项保留，回归保护业务意图且有撤销修复反证。未发现本次局部修复的阻断问题；自审后未再修改业务代码。
+- 状态为本地根因和修复验证完成，**不是生产故障已解决**。没有提交/推送/部署、替换生产 Key 或改任何云端服务/绑定；用户需明确授权修复发布，再用正确生产 Key 复测原参数、真实候选详情、拒绝/限频分支及相关旧 App 基础行为。当前附件只有脱敏 Key，不尝试猜测或复用 dev 凭据。
+- 未获得原请求历史日志，未验证真实生产 Vectorize 查询/候选返回或端侧图片效果；本地真实 Worker 上游为空候选夹具，不冒充生产数据链路。未重跑全部 Workers 测试、Flutter/真机或生产性能/缓存验收；本次 170 项相关回归和构建成功不能替代这些待验项。
+
+收尾检查：直接控制面 API 一次回读返回 401，未将失败当作成功；随后使用已有 Wrangler 登录的 `wrangler deployments list --env prod` 只读查询退出 0，确认仍为 `e8c5d1fb` / 100%，未发布本地修复。5 个变更文件范围检查、21 处本地文档链接、历史验证记录只追加不改写检查及 `git diff --check` 均通过；业务源码差异断言仅一个 redirect 选项和解释性注释。
+
+## 2026-10-09 16:08–16:09：插件 redirect 最小修复发布 prod，用户反馈恢复
+
+### 发布范围与输入
+
+- 用户明确回复“是部署到prod”，授权仅发布已验证的最小修复；没有授权本轮 Git commit/push。输入为本地 `main@4b31cba53f1fd86deddc0951c0cf16353c53f9b5` 加未提交的路由修复、回归测试和文档，必须标记 workingTreeDirty=true，不写成纯提交发布。
+- 候选 Worker 与回读旧生产 `e8c5d1fb` 的完整脚本逐字节比较：唯一差异是 redirect 的 error→manual 和对应说明注释，无其他应用代码增量。批准脚本 2,111,806 字节，SHA256 `5f06923d59993df0d8b310c1e2657c12719042d3e0f9677a2f41529c250f4af6`；未改生产绑定、变量、限频、Secret、数据库或识别服务。
+- 发布前复跑实际路由 Workers 运行时诊断，退出 0：合法请求 200/上游 1 次，307 仍被拒绝且跳转目标 0 次；`pnpm --filter @kando/workers-api test src/extension src/linux/vector-recognition.test.ts --maxWorkers=2 --reporter=dot` 为 4 文件/76 项通过，类型检查、差异检查、prod dry-run 构建退出 0。前一定位阶段的 170 项回归、Linux 3 项打包和自审证据仍有效，期间业务代码未再改动；本轮未重跑全部 Workers/Flutter 测试。
+
+### 上传、切流与回读
+
+- `wrangler versions upload --env prod --keep-vars --tag fix-redirect-4b31cba-dirty --message <本次 dirty 修复候选说明>` 退出 0，16:06:38 创建 version `ac0654e0-5b71-457f-9ddf-6f478995e6d9`。独立回读候选 bytes/SHA256、全部 binding 描述符、runtime/cache/placement，确认保留现有配置；上传阶段旧版本仍承接 100%。
+- `wrangler versions deploy ac0654e0-5b71-457f-9ddf-6f478995e6d9@100 --env prod --yes --message <本次 dirty 修复切流说明>` 退出 0，16:08:45 创建 deployment `317beb8f-ca11-4e7e-8b22-34488f13ec5d`。16:09:35 独立回读新版本为唯一活动版本、100% 流量；现网代码与批准候选逐字节一致。未执行 triggers deploy 或 Pages 发布。
+- 完整变量/binding 描述符、插件 60/60 秒 limiter、Hyperdrive 指纹、运行缓存、Smart Placement、cron、域名/预览状态与发布前一致。未读取或更换 Secret 明文；只允许本次版本标签/说明 annotations 变化。旧版本 `e8c5d1fb` 保留但包含本次已确认 BUG，回退会恢复该问题，本轮未回退。
+- Pages 既有自动发布 `a17f8f12-5e12-4eba-a206-d48be3c45313` 的源提交为 `4b31cba`、production/success，本轮未改其配置、版本或域名。双 Admin 共 22 个文件发布前后各自原始哈希全部不变；与 Windows 批准构建比较为 21/22 一致，仅 Pages HTML 存在先前已发现的 CR 字符差异。没有归一化后宣称原始字节完全一致。
+- 前后 HTTP 烟测：health 200（MISS），未登录 auth/me、Admin scans、portfolio folders 401，iOS/Android app-config 200，六份响应正文指纹不变；Admin OPTIONS 204/允许正式来源和 POST。新插件缺失 Key、错误 Key、错误认证格式均 401/UNAUTHORIZED/no-store；这些请求不是有效认证后的识别或限频验收。
+
+### 门禁差异、自审及用户反馈
+
+- 初次候选差异断言只计入字符串变更，因构建保留说明注释而失败；读取完整 diff 后只接受已审查的选项与该注释。切流前配置全等断言也因 upload 更新 version tag/message annotations 失败；逐字段证明只有本次已知发布说明变化，所有功能配置保持后才放行，没有把其他差异静默忽略。
+- 完成部署前后自审：源/产物/现网对应、明确 dirty、最小变更、配置保留、旧版本参考、双入口检查和未验证项均有证据；非外部独立 Code Review。源码未在审查后修改，不新增测试跳过、重试或异常兜底。原始证据存于本地忽略目录 `apps/workers-api/.wrangler/prod-redirect-fix-20261009-1791532929740/`，不将原始素材加入 docs/Git。
+- **用户发布后回复“可以了”**，按该接口复测恢复的用户反馈记录。未获得新的完整响应、状态码、请求 ID 或详情对照结果，因此不声称 Agent 已独立验证生产正确 Key 下的原始请求、具体候选/价格、触发限频、真实图片或整个浏览器插件。此前附件为脱敏 Key，Agent 没有绕过鉴权、尝试 dev Key 或替换生产 Key。
+- 本轮没有数据库迁移/业务写请求、dev/营销站/Flutter 发布、Git commit/push 或历史材料清理；修复代码、测试及补证文档仍未提交。后续正常源码发布可能覆盖未提交修复，需在明确授权后完成 Git 交付。真机、性能、缓存一致性及其他原待验项仍保留。

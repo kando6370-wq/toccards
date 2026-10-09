@@ -57,7 +57,8 @@ export function createExtensionRoutes(): Hono<{ Bindings: Env }> {
         headers: { Accept: "application/json", "Content-Type": "application/json" },
         body: JSON.stringify(input),
         signal,
-        redirect: "error",
+        // Workers reject "error" mode; keep redirects visible so they fail below.
+        redirect: "manual",
       });
       const payload = await response.json();
       if (!response.ok) {
