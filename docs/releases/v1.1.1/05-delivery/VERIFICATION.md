@@ -1002,3 +1002,58 @@ Workers 的默认 `test` 原为 `vitest run`，未排除 `.wrangler`。Linux 发
 - 仅进行了发布脚本/配置与文档的本地自审，非外部独立 Code Review；未修改业务、测试或部署脚本。部署后只更新本次相关文档和 AGENTS，尚未提交或推送这些记录。
 - 未重跑默认完整 Workers 测试；此前默认命令中的扫描用例全量超时记录仍保留，不能以本轮 168 项通过声称全量问题已修复。没有运行 Flutter 分析、iOS/Android 真机、旧包业务闭环、真实照片/浏览器插件、图片加载、63 次限频压测、完整恢复演练或性能/缓存一致性验收。
 - 未手工启动第二轮发布、修改 watcher 分支/自动化、清理历史 release/备份/产物、执行 SQL 业务写操作或 Git 推送；prod API/双 Admin、营销站、Flutter 与外部识别服务配置均未发布或修改。开发环境本轮仅对既有识别服务做 health 和一次向量查询。
+
+## 2026-10-09 14:59–15:11：插件业务发布 prod，授权识别链路待补验
+
+### 授权、输入、影响与回退点
+
+- 用户明确要求将新增插件业务部署 prod。输入是干净的本地 `main@c253647ad56b097529bf1d2884d8fead89874c36`，与 GitHub dev 一致；GitHub main 仍为 `f952e50`，本轮没有 push。先完成对现网源码、完整配置、回退版本与双 Admin 的只读快照，再上传候选和切流；文档补证在部署后进行，不属于批准的发布输入。
+- 现网发布前 `index.js` 为 2,106,326 字节、SHA256 `32e8c52e147502affcfbd824ac606cf1e8b6fd4114991fc3ebb86eaf08d8beb0`，与先前批准的 `main@61b5420` 生产构建逐字节一致。相对该源码，后端业务增量仅插件入口、共享候选解析导出及入口 IP/限频适配；没有 Admin/营销站/共享包/migration 源码增量。
+- 仅新增生产 `EXTENSION_RECOGNITION_RATE_LIMITER`：type=ratelimit、namespace_id=2026100801、limit=60、period=60。既有 `EXTENSION_RECOGNITION_KEY` 已在 prod Secret 列表及 binding 中，未生成、替换或读取明文。用户的现有业务数据、数据库资源、其他变量/绑定、缓存及调度均保留。
+- 回退参考：Worker `4adbd0b7-3c67-4795-8ad0-c39795dc4be6`；发布前实际 Pages production deployment `a3da17af-9579-4243-ad1a-c98c17fe0897`。原快照与代码保留；本轮没有回退、删除版本或执行数据库恢复。
+
+### 本地门禁与版本候选
+
+环境：Windows/PowerShell、Node 22.20.0、pnpm 11.9.0、Wrangler 4.106.0。既有 OAuth 具备 Workers/Pages 发布权限；CLI 提示的其他未使用 scope 没有扩权或补登录，工具链没有升级。
+
+| 实际命令 | 退出状态与结果 |
+|---|---|
+| `pnpm lint` | 0；依赖方向通过 |
+| `pnpm type-check` | 0；7 项成功，本轮 7 项缓存命中 |
+| `pnpm --filter @kando/admin-web test` | 0；26/26，无跳过 |
+| `pnpm --filter @kando/workers-api test --maxWorkers=2 --reporter=dot` | 0；完整默认发现范围 84 文件、771/771，通过且无跳过；仅限制进程并发，不修改断言/超时，不新增排除项 |
+| `pnpm --filter @kando/workers-api deploy:dry-run:prod` | 0；Admin production、Worker 构建通过，未发布 |
+
+历史无并发限制的默认测试曾发生 5 秒超时，本轮未重跑该并发配置，不宣称已经定位或修复那个超时根因。完整发现范围通过与默认并发通过严格区分。
+
+批准 Worker 为 2,111,722 字节，SHA256 `63342d0e6fe6569c4758ffef3de5ed3634fbc99c194e8a9e866ce8d883850be3`。批准的 Admin 原始产物另存只读用途副本；源 HEAD/分支/clean 状态与所有产物字节在上传前再次断言。
+
+### 上传、切流及双 Admin 同步
+
+- `pnpm --filter @kando/workers-api exec wrangler versions upload --env prod --keep-vars --tag prod-plugin-c253647 --message <本次插件候选说明>`：退出 0，14:59:51 创建 `e8c5d1fb-0e4d-4eb0-8483-3a77a4ba08fb`。上传后旧 Worker 仍 100% 接流；候选代码经 `content/v2?version=...` 回读与批准字节一致，除了新增限频 binding，原 binding/变量描述符、script_runtime 与 placement 全部一致。静态资产上传器报告没有变更文件。
+- `pnpm --filter @kando/workers-api exec wrangler versions deploy e8c5d1fb-0e4d-4eb0-8483-3a77a4ba08fb@100 --env prod --yes --message <本次插件切流说明>`：退出 0，15:01:08 创建 deployment `188b72b5-68a8-473d-9a8e-45019547f663`，新版本为唯一版本、100% 流量。未运行 triggers deploy；既有路由/域名/cron 没有改动。
+- `pnpm --filter @kando/workers-api exec wrangler pages deploy <同一批准的 approved-admin-dist> --project-name toccards-admin --branch main --commit-hash c253647ad56b097529bf1d2884d8fead89874c36 --commit-message <双入口产物对齐说明> --commit-dirty=false`：退出 0，15:03:32 Pages `cda22b78-846e-4b91-b6fc-7a69a022c768` 为 production/success；真实 metadata 的 branch/hash/dirty 由 API 回读。CLI 提示并忽略不适用的 Worker wrangler.toml，沿用已有 Pages 项目配置，没有新增 Pages 配置文件。
+
+### 独立生产回读
+
+| 项目 | 实际结果 |
+|---|---|
+| Worker 代码 | 切流后再次从现网获取脚本，原始字节与批准构建一致，SHA256 同上 |
+| 配置/绑定 | 原有变量/Secret binding 描述符、Hyperdrive/KV/R2/Service Binding 保留；只有新插件限频 binding 增加。Secret 明文不可读，未声称逐字节比较 Secret 值 |
+| 运行参数/缓存 | compatibility_date/flags、usage_model、observability、logpush 等原值一致；Smart Placement 保持；活动版本 runtime 的 cache_options 仍 enabled=true、cross_version_cache=false；Hyperdrive 完整指纹未变、caching.disabled=false |
+| 入口/调度 | 自定义域名、workers.dev/preview 关闭状态、cron `*/5 * * * *` 保持 |
+| Pages 项目 | production branch=main、源码/自动发布/构建/环境配置与 active 域名不变；后续 API deployment 仍为本次版本 |
+| 双 Admin | 发布前 API 11/11 匹配，Pages 10 个 JS/CSS 匹配但 HTML 不同；独立 Pages 发布后，两入口各 11 个文件共 22/22 原始字节/SHA256 全部匹配。HTML SHA256 `729d63b2610847594f40064b37ce94fad87de8671fa974c082bc016732ea55e0` |
+
+现网 `/settings` 回读省略了 cache_options，本轮使用活动版本的 script_runtime 独立核对，不把省略字段当成缓存关闭。读取 multipart 脚本时，首轮本地断言误将字符串分片当作缺失 Blob；修正验收读取逻辑后完成前后字节对照，未改生产代码或放宽一致性断言。
+
+### HTTP 验证及明确未完成项
+
+- 发布前后均用唯一查询参数执行新请求：health 200/status=ok（MISS）、未登录 auth/me、Admin scans、portfolio folders 均 401；iOS/Android 公开 app-config 均 200；六个响应正文指纹前后一致。Admin 登录 OPTIONS 为 204，允许来源仍为正式 Admin 域名。
+- 新插件入口无 Key、错误 Key、错误认证格式均为 401 `UNAUTHORIZED`、`Cache-Control: no-store`；请求 ID 回传正常。未用这些拒绝请求冒充成功识别或限频调用验证。
+- **正确 Key 的生产业务链路未验收**：当前只有生产 Secret 的名称/类型可核对，明文不可用。没有借用 dev Key、尝试绕过鉴权或临时改生产 Key；没有执行有效 Key 下的参数 422、触发 429、合成/真实向量识别及候选详情比较。插件发布负责人需提供受控生产调用凭据后补验，不能拿上午 dev 的 5 候选结果替代生产验收。
+- 未进行真实浏览器插件、图片加载、iOS/Android 真机、旧 App 完整兼容/登录态/扫描/购买闭环、性能与缓存一致性验收；未重新验证外部识别服务公网旁路限制。没有迁移/schema 增量，因此本轮未执行生产数据库迁移、业务写请求、备份恢复或独立 ledger 回查，不宣称实时 pending migrations 为零。
+- 没有 Git commit/push、Linux dev/营销站/Flutter 发布，也未修改 Pages 自动部署、外部识别服务配置或清理历史材料。原 `toccards-website` 远端构建失败不属于本次部署目标，未在本轮整改或判定其根因。
+- 本轮只审查发布范围、现网差异、回退点、配置保留和验收脚本，非外部独立 Code Review；无业务代码修复。原始产物、前后脱敏控制面、HTTP 结果与日志保存在本地忽略目录 `apps/workers-api/.wrangler/prod-extension-20261009-1791528849713/`，没有加入 docs/Git。后续仅更新本次相关文档和 AGENTS，尚未提交。
+
+收尾复核（15:11:39）：Worker 仍为上述单一版本、100% 流量，Pages production 仍为上述 deployment；配置、Hyperdrive、cron、域名与验收时一致。额外确认 Admin OPTIONS 允许 POST，未触发其他发布。6 份文档/Agent 规则的 56 处本地链接检查与 `git diff --check` 均通过，改动仅本次文档，无业务代码或冻结基线修改。

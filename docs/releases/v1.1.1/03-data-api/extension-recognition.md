@@ -130,6 +130,14 @@ Linux dev 已发布 `manual-extension-f952e50-dirty-20261009-1791513409974`，�
 
 私有环境文件完整哈希发布前后相同，Key、频率 60 与 `EXTENSION_TRUST_PROXY=true` 保留，API 仍无宿主端口绑定。独立回查插件未带 Key 为 401、正确 Key 加无效参数为 422；一次合成向量请求返回 5 个候选，其详情均与原卡牌详情接口一致，均有价格与图片 URL。该轮未重复 63 次限频压测，未验证真实照片、浏览器插件、图片加载或识别准确率；prod 未发布。备份、产物与完整边界见 [验证记录](../05-delivery/VERIFICATION.md)。
 
+## 2026-10-09 15:05 prod 发布检查点
+
+插件后端已从干净的本地 `main@c253647` 发布至 `toccards-api-prod`，version `e8c5d1fb-0e4d-4eb0-8483-3a77a4ba08fb` 为 100% 流量。生产地址为 `https://api.tcgcard.fun/api/v1/extension/recognize`。先上传无流量候选并核对代码字节及绑定，再切流；仅新增原生 `EXTENSION_RECOGNITION_RATE_LIMITER`，namespace `2026100801`、60 次/60 秒。既有 `EXTENSION_RECOGNITION_KEY` Secret 未替换，其他变量、绑定、缓存、cron、域名均保留；未执行 migration 或生产业务数据写请求。
+
+生产入口缺少 Key、错误 Key、错误认证格式均返回 401 `UNAUTHORIZED` 且 `Cache-Control: no-store`。本轮只有 Secret 名称/类型可核对，没有正确 Key 明文，因此未执行生产有效认证后的 422/429、合成向量、真实候选详情或浏览器插件测试；不复用 dev Key、不临时改生产 Key、不以此前 dev 的 5 候选结果冒充 prod 验收。插件发布负责人需用现有生产 Key 补齐该链路，并验证实际图片及识别效果。
+
+Admin 业务代码无增量，仍单独对齐 Pages `toccards-admin` 为 `cda22b78-846e-4b91-b6fc-7a69a022c768`；两个生产入口共 22 个静态文件与批准构建一致。完整证据、回退版本和未验边界见 [验证记录](../05-delivery/VERIFICATION.md)。本轮未推送 Git main。
+
 ## 启用、回退与验证
 
 本地代码完成不等于 dev/prod 已发布。发布前需独立配置环境 Key、限频及可信代理边界，并核对内部 `/recognize` 的公网访问控制，避免绕过新入口；本仓无法单独证明外部识别服务已关闭未鉴权直连。

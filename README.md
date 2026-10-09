@@ -4,7 +4,9 @@ Kando 是 Card AI 的 monorepo，包含 Flutter 客户端、Cloudflare Workers A
 
 当前生产发布源为 `main@61b5420`，已包含 `dev@cd34e89`。Flutter 客户端源码版本为 `1.0.5+163`，以 `apps/flutter-app/pubspec.yaml` 为准；本轮没有重新发布手机安装包或回读商店状态。
 
-2026-10-08 已按干净的 `main@61b5420` 发布生产 API 和两个 Admin 入口。Worker version `4adbd0b7-3c67-4795-8ad0-c39795dc4be6` 回读为 100% 流量；独立 Pages `toccards-admin` deployment `39154bee-45d6-429d-8118-dfafed526ab7` 成功，两个入口的 HTML 与各 10 个 JS/CSS 均与同一批准构建逐字节一致。扫描 R2/向量并行和请求放置日志已上线 prod；Smart Placement、Hyperdrive 查询缓存、变量/绑定、cron、域名及 Pages 构建与自动部署配置保留原值。没有执行 migration、数据库业务写入或 Flutter/营销站发布；未独立重查生产 PostgreSQL ledger。旧 App 真机、真实扫描/登录态、性能与缓存一致性仍未验收。实际命令、初轮测试超时及复验、回退点和未执行项见 [v1.1.1 验证记录](docs/releases/v1.1.1/05-delivery/VERIFICATION.md)。
+2026-10-09 15:05 已从干净的本地 `main@c253647` 发布插件识别到 prod。Worker `e8c5d1fb-0e4d-4eb0-8483-3a77a4ba08fb` 为 100% 流量，独立 Pages Admin `cda22b78-846e-4b91-b6fc-7a69a022c768` 为 production/success；双入口 22 个静态文件与批准产物一致。仅新增插件专用 60 次/60 秒限频绑定，保留现有生产 Key、变量、数据库资源、缓存与调度配置；无 migration 或 SQL 业务写请求。缺失 Key/错误认证拒绝验证已通过，正确 Key 下的生产识别、详情及限频仍待补验，不能用 dev 合成向量结果替代。本轮未推送 main；完整命令、测试和未验项见 [v1.1.1 验证记录](docs/releases/v1.1.1/05-delivery/VERIFICATION.md)。
+
+历史检查点：2026-10-08 已按干净的 `main@61b5420` 发布生产 API 和两个 Admin 入口。Worker version `4adbd0b7-3c67-4795-8ad0-c39795dc4be6` 回读为 100% 流量；独立 Pages `toccards-admin` deployment `39154bee-45d6-429d-8118-dfafed526ab7` 成功，两个入口的 HTML 与各 10 个 JS/CSS 均与同一批准构建逐字节一致。扫描 R2/向量并行和请求放置日志已上线 prod；Smart Placement、Hyperdrive 查询缓存、变量/绑定、cron、域名及 Pages 构建与自动部署配置保留原值。没有执行 migration、数据库业务写入或 Flutter/营销站发布；未独立重查生产 PostgreSQL ledger。旧 App 真机、真实扫描/登录态、性能与缓存一致性仍未验收。实际命令、初轮测试超时及复验、回退点和未执行项见 [v1.1.1 验证记录](docs/releases/v1.1.1/05-delivery/VERIFICATION.md)。
 
 Linux dev 的上次已记录检查点为 2026-09-30 watcher 发布 `dev@7516cfd`，本轮未操作或重新回读 Linux 环境。v1.1.0 开发记录已原位归档；v1.1.1 的 App 1.0.4+ 兼容契约与验收矩阵仍是未完成验收的设计稿，部署事实不替代真机业务闭环或性能验收。历史发布、数据库迁移与资源证据继续保留在对应版本的交付记录。
 
@@ -100,7 +102,7 @@ dart run melos run test
 
 ## 部署边界
 
-2026-10-08 09:27 已从 `main@61b5420` 重新发布 prod API，version `4adbd0b7-3c67-4795-8ad0-c39795dc4be6` 回读为 100% 流量；09:29 同步重新发布独立 Pages Admin，deployment `39154bee-45d6-429d-8118-dfafed526ab7`。09:36 的新请求只读烟测、两个 Admin 入口的逐文件核验及控制面回读通过。Smart Placement 与 Hyperdrive 查询缓存仍同时开启，未切换定向 Placement，也不宣称性能或缓存一致性验收通过。本轮无 migration/schema 源码增量，未执行迁移、备份/恢复或重查 PostgreSQL ledger。当前证据见 [v1.1.1 验证记录](docs/releases/v1.1.1/05-delivery/VERIFICATION.md)；此前检查点见 [v1.1.0 发布与验证](docs/releases/v1.1.0/05-delivery/VERIFICATION.md)。
+最新插件生产发布为 2026-10-09 的 `main@c253647`：Worker `e8c5d1fb`、Pages `cda22b78`，详见本页开头及当前版本验证记录。以下为历史回读：2026-10-08 09:27 已从 `main@61b5420` 重新发布 prod API，version `4adbd0b7-3c67-4795-8ad0-c39795dc4be6` 回读为 100% 流量；09:29 同步重新发布独立 Pages Admin，deployment `39154bee-45d6-429d-8118-dfafed526ab7`。09:36 的新请求只读烟测、两个 Admin 入口的逐文件核验及控制面回读通过。Smart Placement 与 Hyperdrive 查询缓存仍同时开启，未切换定向 Placement，也不宣称性能或缓存一致性验收通过。本轮无 migration/schema 源码增量，未执行迁移、备份/恢复或重查 PostgreSQL ledger。当前证据见 [v1.1.1 验证记录](docs/releases/v1.1.1/05-delivery/VERIFICATION.md)；此前检查点见 [v1.1.0 发布与验证](docs/releases/v1.1.0/05-delivery/VERIFICATION.md)。
 
 - Linux dev：配置已验证的 SSH 目标 `TOCCARDS_SSH_TARGET` 后运行 `pnpm --filter @kando/workers-api run deploy:dev`；预检环境、PostgreSQL 18 和 CF 识别后，先备份再发布，不调用 Wrangler dev 部署。
 - Workers API 与 API 域名下的 Admin 副本：`pnpm --filter @kando/workers-api run deploy:prod`，会一并发布当前工作区后端代码；仅发 Admin 时须沿用已核验的生产后端，不得直接打包 dev 的其他后端改动。
