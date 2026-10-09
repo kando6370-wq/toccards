@@ -950,3 +950,55 @@ Workers 的默认 `test` 原为 `vitest run`，未排除 `.wrangler`。Linux 发
 **本次历史产物扫描问题已验证修复，但默认测试整体仍未通过。**唯一未解决项为 `src/scan/routes.test.ts` 的 `rejects retired hashes and invalid vectors before storage or quota consumption`：两次完整默认运行均报 `Test timed out in 5000ms`，窄范围运行通过。该现象与历史目录扫描是不同问题；未证明其根因，也未修改旧测试/测试基座、放宽超时或改变默认并发。若继续处理，需单独定位，不能把这次排除规则修复宣称为所有默认测试已绿。
 
 没有执行新构建、服务部署、Git 提交/推送或远程变更；未进行本任务不涉及的 Flutter/真实设备验证。
+
+
+## 2026-10-09 14:13–14:19：dev 分支 Linux 发布完成及独立验收
+
+### 授权、来源与执行方式
+
+用户要求将已推送的 dev 重新部署到 kd201，范围仅 Linux dev。此前 DBX MCP 全局只读策略拒绝 SSH 执行；没有用另一路径绕过。权限恢复且用户要求继续后，14:11 实际连接成功，确认本地 dev 与 GitHub dev 均为 b621d76501e67ecc22fa6888c7bd6bdc3c2dba34，工作区干净。
+
+复查时既有 watcher 已持有 watch/deploy 锁，正在为同一提交备份数据库；因此没有并发启动第二轮手工部署。跟进原发布脚本，14:13:43 回读确认完成；14:19:27 最终核验 release 为 branch-dev-b621d76501e6-20261009140959，manifest 的 branch=dev、source=kd201-branch-watcher、built_at=2026-10-09T06:09:59Z。服务器 watcher/source 的 HEAD 等于该 SHA 且工作区干净；current、shared/current-release、last-seen-sha、last-deployed-sha 一致，failed-sha/failed-at 不存在。后续 watcher 已记录 No new commit，没有手改其配置或状态。
+
+前一 release manual-extension-f952e50-dirty-20261009-1791513409974 保留，是应用回退参考；本轮未执行回退。源码已进入 dev 并发布，不再把新环境标成上午的 dirty 工作区版本。
+
+### 本地检查与对照构建
+
+环境为 Windows/PowerShell、Node 22.20.0、pnpm 11.9.0；远端 Node 为 22.22.1。以下命令均退出 0：
+
+| 检查/命令 | 实际结果 |
+|---|---|
+| pnpm --filter @kando/workers-api deploy:dry-run:dev | Admin development 与 Linux API 构建通过，含 3 项独立 Linux 打包测试；生成干净 dev@b621d76 的 linux-release-whaxbm.tar.gz，只作本地对照，没有上传或执行第二次部署 |
+| node --test apps/admin-web/test/api-environment-intent.test.mjs deploy/linux/preflight.test.mjs deploy/linux/offline/web-server.test.mjs | 13 项通过，无跳过 |
+| pnpm lint | 依赖方向检查通过 |
+| pnpm type-check | 7 项成功，6 项命中缓存，Workers 本轮执行 |
+| pnpm --filter @kando/workers-api exec vitest run src/extension src/linux src/scan/routes.test.ts src/cors.test.ts src/index-postgres-runtime.test.ts src/test-discovery.test.ts src/deployment-config.test.ts --maxWorkers=2 --reporter=dot | 15 文件、168 项通过，无跳过；包含此前全量环境中超时的扫描用例，但不能替代默认全量命令 |
+
+文档补证后，`git diff --check` 与 5 个相关文件的 Markdown 本地链接检查均退出 0，37 处链接有效；改动范围仅下述发布记录与相关文档入口，未改业务代码或冻结基线。
+
+### 数据保护、配置与运行一致性
+
+- 原发布日志的前置预检通过；发布后独立再运行原 preflight.mjs 也退出 0：development、本地 toccards_test、PostgreSQL major 18、CF 识别 health 契约可达，pendingMigrations=[]。
+- 发布前备份为 /home/user/apps/toccards-test/backups/toccards-test-20261009-141000-before-branch-dev-b621d76501e6-20261009140959.dump，1,135,398,457 字节，临时 .tmp 不存在；独立 pg_restore --list 退出 0 并列出 324 项。未做恢复演练，不把目录可读性等同于完整恢复成功。
+- API/DB running/healthy、Web running、migration 检查容器 exited/0。只读 SQL 回查 server_version_num=180006、ledger 为 14 项、最新 0013_cards_all_search_trgm.sql；本轮没有待执行的 migration SQL。原 toccards-linux-test_postgres-data:/var/lib/postgresql/data 卷保留，发布目录的 migrations 与该 dev 源码逐文件一致。
+- 私有环境文件整体 SHA256 在部署前后完全一致，不记录或回显密钥；Key 保留、限频 60、trustProxy=true，API HostConfig.PortBindings={}。没有修改数据库凭据、代理配置或业务数据；验证仅执行只读卡牌查询，不上传图片、不调用 App 扫描写入。
+- API 运行文件 /app/server.mjs、Linux release 与同提交 Windows 本地对照构建 SHA256 均为 68a3410d018ae4c5a18b7ca6322ce6088e7affd22ed670fd94246a87d28d4df0；Web /app/web-server.mjs 的三方 SHA256 均为 94152704c4d0e728e60fc36d98152b36c9698d7cbcfd9cc359d099af2c37bc99。
+- Admin 入口返回的 HTML 与 10 个 JS/CSS 共 11 个文件，和 Linux 发布目录原始字节全部一致，根路径 HTML 亦一致。Linux HTML SHA256 为 7a3e56b633f7679b4d9581ecb4217360ca7ab9c34df4f6105ceca8631fee2e35。跨 Windows 本地构建的 10 个 JS/CSS 字节一致，HTML 不一致，差异仅为本地多 12 个 CR 字节（包括 CRCRLF）；不宣称跨平台 HTML 原始字节一致。
+
+### HTTP 与插件详情冒烟
+
+| 实际请求 | 结果 |
+|---|---|
+| GET /api/v1/health、未登录 GET /api/v1/auth/me | 200/status=ok、401，原 App 鉴权保持 |
+| 插件未带 Key、正确 Key 加无效参数 | 401、422 |
+| 一次合成 512 维非零向量、card_type=0 | 200、5 个候选、Cache-Control=no-store |
+| 候选详情与原 GET /api/v1/cards/:card_ref | 5/5 逐字段一致，均有价格和 HTTPS 图片 URL；未下载图片 |
+| 新 API 日志独立回读 | request_id=d3607ad9-b160-4b11-ad45-e7269f93645f，POST /api/v1/extension/recognize，200，duration_ms=907；仅单次冒烟，不是性能验收 |
+
+### 失败记录、自审与未验证边界
+
+- 首次 Windows/Linux HTML 对照检查失败；进一步逐字节定位发现除 CRLF 外还存在 CRCRLF，差异仅 12 个 CR。未修改应用产物或放宽发布目录与线上字节断言；Linux release 对线上 11/11 原始字节检查独立通过，跨平台差异如实保留。
+- 首轮两个后台验收命令的 heredoc 结束标记被 DBX 后台包装尾缀连在同一行，Node 语法错误，相关 Node 验收未运行；备份/ledger 前置查询已成功。修正本次命令封装后原验收重跑退出 0，备份校验也单独复跑退出 0。没有因此重跑部署或修改服务代码。
+- 仅进行了发布脚本/配置与文档的本地自审，非外部独立 Code Review；未修改业务、测试或部署脚本。部署后只更新本次相关文档和 AGENTS，尚未提交或推送这些记录。
+- 未重跑默认完整 Workers 测试；此前默认命令中的扫描用例全量超时记录仍保留，不能以本轮 168 项通过声称全量问题已修复。没有运行 Flutter 分析、iOS/Android 真机、旧包业务闭环、真实照片/浏览器插件、图片加载、63 次限频压测、完整恢复演练或性能/缓存一致性验收。
+- 未手工启动第二轮发布、修改 watcher 分支/自动化、清理历史 release/备份/产物、执行 SQL 业务写操作或 Git 推送；prod API/双 Admin、营销站、Flutter 与外部识别服务配置均未发布或修改。开发环境本轮仅对既有识别服务做 health 和一次向量查询。
