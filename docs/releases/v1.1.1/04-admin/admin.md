@@ -46,3 +46,16 @@
 - Pages 构建配置、生产变量、GitHub main 自动部署及 active 域名不变；Worker 的运行变量/绑定、Smart Placement、Hyperdrive 查询缓存、cron、域名及预览开关不变。
 - 新请求只读检查：health 200/status=ok，未登录 auth/me、Admin scans、portfolio folders 均 401，Admin 登录 OPTIONS 204 且 Allow-Origin/POST 正确；iOS/Google 公开 App 配置与发布前指纹相同。
 - 本次同时发布了 API 的扫描并行和放置日志，不属于 Admin-only 发布。未运行数据库迁移、生产登录/扫描/购买写入、营销站或手机安装包发布；真实账号预览点击仍未补验。命令、回退点与验证边界见 [验证记录](../05-delivery/VERIFICATION.md)。
+
+## 2026-10-09：插件 API 发布时同步双 prod Admin
+
+- 本轮源为干净的本地 `main@c253647`，Admin 源码相对上一生产基线无变化。API 插件版本 `e8c5d1fb-0e4d-4eb0-8483-3a77a4ba08fb` 在 15:01 切到 100%；Worker assets 沿用同一批准产物，上传器确认无更新的静态文件。
+- 发布前 API 域名的 11 个文件已匹配；独立 Pages 的 10 个 JS/CSS 匹配，HTML 原始字节不一致。15:03 单独将相同批准产物发布到 `toccards-admin`，deployment `cda22b78-846e-4b91-b6fc-7a69a022c768` 为 production/success，metadata 为 main、完整源 SHA、dirty=false。
+- 15:05 两入口 HTML 及各 10 个 JS/CSS 共 22 项原始字节/SHA256 全部匹配，未归一化 HTML 后宣称原始字节一致；Pages 构建/环境/自动部署配置及域名保持不变，API 鉴权及 Admin 登录 CORS 烟测通过。
+- 该生产发布阶段没有推送 main，当时远端 main 为 `f952e50`，Admin 业务源码与此次产物对应源码无差异。随后发布记录提交 `dbc2091` 已推送 `github/main`，相对发布源 `c253647` 仅有文档变化；推送后的 Pages 自动发布未重新回读，不以 Git 同步替代双入口运行验收。发布前实际 Pages production 回退点为 `a3da17af-9579-4243-ad1a-c98c17fe0897`，本轮未回退。真实生产账号登录/候选图点击仍未补验，具体命令与插件未验项见 [验证记录](../05-delivery/VERIFICATION.md)。
+
+## 2026-10-09 16:09：插件 redirect 修复只发布 API
+
+- Worker 切换为 `ac0654e0-5b71-457f-9ddf-6f478995e6d9` / 100%，Admin 代码未变；本轮未重新发布 Pages。发布前已存在的 Pages production 为 `a17f8f12-5e12-4eba-a206-d48be3c45313`，来源 `4b31cba`、status=success，发布后保持。
+- 两个入口共 22 个 HTML/JS/CSS 原始文件哈希均与各自发布前一致。API 入口 11/11 匹配 Windows 批准构建；Pages 10 个 JS/CSS 匹配，HTML 仅有发布前已存在的 CR 字符差异，不称双入口 22/22 与 Windows 构建原始字节一致，也没有借 API 修复重发无关静态内容。
+- Pages 项目/域名与 API 鉴权、Admin 登录 CORS 保持，真实账号登录/候选图点击仍未补验；插件接口用户复测反馈与详细发布证据见 [验证记录](../05-delivery/VERIFICATION.md)。

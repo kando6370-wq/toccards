@@ -14,6 +14,7 @@ import { retryAppleServerApiCorrections } from "./entitlements/apple-server-api-
 import { createAppleRestoreRoutes } from "./entitlements/restore-routes";
 import { createEntitlementRoutes } from "./entitlements/routes";
 import type { Env } from "./env";
+import { createExtensionRoutes } from "./extension/routes";
 import { createFeedbackRoutes } from "./feedback/routes";
 import { createLegalRoutes } from "./legal/routes";
 import { createPortfolioRoutes } from "./portfolio/routes";
@@ -56,6 +57,7 @@ const api = app.basePath("/api/v1");
 api.route("/admin", adminRoutes);
 api.get("/health", (context) => context.json({ status: "ok" }));
 api.route("/auth", authRoutes);
+api.route("/", createExtensionRoutes());
 api.route("/", createAppConfigRoutes());
 api.route("/", createDataSourceRoutes());
 api.route("/", createFeedbackRoutes());

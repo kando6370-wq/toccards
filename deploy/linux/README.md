@@ -4,7 +4,9 @@
 
 Linux 部署资产已通过 `19a6ac4` 合入；2026-09-15 已将 `dev-inner` 整改发布到 kd201 现有实例，复用原目录与数据卷。HTTP 适配固定请求 `VECTOR_RECOGNITION_BASE_URL` origin 下的 `/recognize`，10 秒超时覆盖响应体读取；服务器受控扫描、额度与收藏写库已验证，设备与真实图片识别仍需验收。发布清单与回滚位置见[验证记录](../../docs/releases/v1.1.0/05-delivery/VERIFICATION.md)，架构边界见[Linux 兼容缺口](../../docs/releases/v1.1.0/02-architecture/linux-test-environment.md#扫描兼容缺口)。
 
-2026-09-21 当前运行检查点：kd201 watcher 已发布扫描 Free 额度整改 `dev@baf0d7b`，release 为 `branch-dev-baf0d7b53681-20260921151308`。manifest、`current` 与 `last-deployed-sha` 一致；API/DB healthy、Web running、migration exited/0，ledger 为 14 项且最新为 `0013`。发布前 1,121,082,954 字节 custom-format 备份已由 PostgreSQL 18 容器通过 `pg_restore --list`；运行 API bundle 与 release 文件 SHA-256 一致，prod 未部署。后续仅含 Flutter/文档/Agent 规则的 `dev` 提交不会触发 Linux 重建，watcher 的 `last-seen` 可领先 `last-deployed`。
+2026-09-21 历史运行检查点：kd201 watcher 已发布扫描 Free 额度整改 `dev@baf0d7b`，release 为 `branch-dev-baf0d7b53681-20260921151308`。manifest、`current` 与 `last-deployed-sha` 一致；API/DB healthy、Web running、migration exited/0，ledger 为 14 项且最新为 `0013`。发布前 1,121,082,954 字节 custom-format 备份已由 PostgreSQL 18 容器通过 `pg_restore --list`；运行 API bundle 与 release 文件 SHA-256 一致，prod 未部署。后续仅含 Flutter/文档/Agent 规则的 `dev` 提交不会触发 Linux 重建，watcher 的 `last-seen` 可领先 `last-deployed`。
+
+2026-10-09 14:19 最新回读：既有 watcher 已发布干净的 `dev@b621d76`，release 为 `branch-dev-b621d76501e6-20261009140959`；current、manifest、last-seen 与 last-deployed 一致，失败标记不存在。原 PostgreSQL 18 数据卷与私有环境文件保留，无待执行 migration；1,135,398,457 字节备份通过目录可读性检查，API/DB healthy、Web running，插件合成向量与详情对照通过，prod 未改动。Windows/Linux HTML 的 CR 差异及其他未验项见 [v1.1.1 验证记录](../../docs/releases/v1.1.1/05-delivery/VERIFICATION.md)。
 
 ## 前置条件
 
@@ -13,6 +15,12 @@ Linux 部署资产已通过 `19a6ac4` 合入；2026-09-15 已将 `dev-inner` 整
 - 已准备独立测试 JWT secret、CF 识别 origin 和需要启用的 OAuth/Apple/邮件测试配置。
 - 若启用 `.env.example` 中的 `NODE_USE_ENV_PROXY`，API 容器需使用 Node 22.21.0+；HTTP(S) 代理和 `NO_PROXY` 的当前配置见[外部服务配置与代理](../../docs/linux-test-environment/README.md#外部服务配置与代理)。
 - PostgreSQL 使用 18；标准镜像默认 `postgres:18-alpine`，离线镜像安装 `postgresql-18`。两种方式均显式保留 `PGDATA=/var/lib/postgresql/data` 与现有 `postgres-data` 卷，避免因 18 镜像默认目录变化读到空目录。
+
+## 可选插件免登录识别
+
+插件入口 `/api/v1/extension/recognize` 需要独立 `EXTENSION_RECOGNITION_KEY`；不配置时仅该入口返回 503，不影响既有 API。`EXTENSION_RECOGNITION_REQUESTS_PER_MINUTE` 默认 60，仅控制每 IP 的短时间请求，不扣 App 扫描额度。`EXTENSION_TRUST_PROXY` 默认 false；只有 Node API 不对外直连、请求经仓库私有 Caddy/离线代理时才能显式设为 true，否则必须忽略外部转发头。内存限频只在单进程有效，重启清零。
+
+完整请求、代理边界、停用方式与发布状态见 [插件接口契约](../../docs/releases/v1.1.1/03-data-api/extension-recognition.md)。不要复用 JWT Secret 或把真实插件 Key 提交到仓库。
 
 ## 日常 dev 发布命令
 

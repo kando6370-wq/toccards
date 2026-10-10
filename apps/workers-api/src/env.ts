@@ -27,6 +27,9 @@ export interface Env {
   SINGULAR_SECRET_KEY?: string;
   ALLOWED_ORIGINS?: string;
   VECTOR_RECOGNITION?: Fetcher;
+  EXTENSION_RECOGNITION_KEY?: string;
+  EXTENSION_RECOGNITION_RATE_LIMITER?: RateLimit;
+  EXTENSION_CLIENT_IP?: string;
   APP_ENVIRONMENT?: "production" | "development";
 }
 

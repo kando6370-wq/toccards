@@ -2,6 +2,7 @@ import { serve } from "@hono/node-server";
 
 import { app, runScheduledTasks } from "../app";
 import { loadLinuxRuntime } from "./config";
+import { extensionClientIp } from "./extension-client-ip";
 import { BackgroundTaskRegistry } from "./execution-context";
 
 const runtime = loadLinuxRuntime();
@@ -11,8 +12,13 @@ let shuttingDown = false;
 
 const server = serve(
   {
-    fetch: (request) =>
-      app.fetch(request, runtime.env, backgroundTasks.createExecutionContext()),
+    fetch: (request, bindings) =>
+      app.fetch(request, {
+        ...runtime.env,
+        EXTENSION_CLIENT_IP: extensionClientIp(
+          request, bindings.incoming.socket.remoteAddress, runtime.extensionTrustProxy,
+        ),
+      }, backgroundTasks.createExecutionContext()),
     hostname: runtime.hostname,
     port: runtime.port,
   },

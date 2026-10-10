@@ -36,7 +36,7 @@ server.listen(webPort, "0.0.0.0", () => {
 async function handleRequest(request, response) {
   const requestUrl = new URL(request.url || "/", "http://localhost");
   if (isApiPath(requestUrl.pathname)) {
-    proxyRequest(request, response);
+    proxyRequest(request, response, requestUrl.pathname);
     return;
   }
 
@@ -64,14 +64,22 @@ async function handleRequest(request, response) {
   createReadStream(filePath).pipe(response);
 }
 
-function proxyRequest(request, response) {
+function proxyRequest(request, response, pathname) {
+  let isExtensionRecognition = false;
+  try {
+    isExtensionRecognition = decodeURI(pathname) === "/api/v1/extension/recognize";
+  } catch {
+    // Malformed encodings cannot match the fixed recognition route.
+  }
   const upstream = http.request(
     {
       hostname: apiOrigin.hostname,
       port: apiOrigin.port || 80,
       method: request.method,
       path: request.url,
-      headers: request.headers,
+      headers: isExtensionRecognition
+        ? { ...request.headers, "x-forwarded-for": request.socket.remoteAddress }
+        : request.headers,
     },
     (upstreamResponse) => {
       response.writeHead(upstreamResponse.statusCode || 502, upstreamResponse.headers);

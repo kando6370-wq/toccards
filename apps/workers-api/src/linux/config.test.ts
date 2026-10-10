@@ -30,6 +30,9 @@ describe("Linux runtime configuration", () => {
     expect(runtime.env.HYPERDRIVE).toBeUndefined();
     expect(runtime.env.APP_ENVIRONMENT).toBe("development");
     expect(runtime.env.VECTOR_RECOGNITION?.fetch).toBeTypeOf("function");
+    expect(runtime.env.EXTENSION_RECOGNITION_KEY).toBeUndefined();
+    expect(runtime.env.EXTENSION_RECOGNITION_RATE_LIMITER?.limit).toBeTypeOf("function");
+    expect(runtime.extensionTrustProxy).toBe(false);
   });
 
   it("rejects an old OCR-only configuration instead of starting dev with no usable recognition service", () => {
@@ -41,6 +44,32 @@ describe("Linux runtime configuration", () => {
       VECTOR_RECOGNITION_BASE_URL: undefined,
       OCR_SERVICE_BASE_URL: "https://retired-ocr.invalid",
     })).toThrow("VECTOR_RECOGNITION_BASE_URL is required");
+  });
+
+  it("loads an independent plugin key and explicit proxy trust without requiring user login", async () => {
+    vi.spyOn(postgresDatabase, "createPostgresDatabase")
+      .mockReturnValue({} as postgresDatabase.PostgresDatabase);
+    const runtime = loadLinuxRuntime({
+      ...source,
+      EXTENSION_RECOGNITION_KEY: "plugin-test-only",
+      EXTENSION_RECOGNITION_REQUESTS_PER_MINUTE: "1",
+      EXTENSION_TRUST_PROXY: "true",
+    });
+    expect(runtime.env.EXTENSION_RECOGNITION_KEY).toBe("plugin-test-only");
+    expect(runtime.extensionTrustProxy).toBe(true);
+    const limiter = runtime.env.EXTENSION_RECOGNITION_RATE_LIMITER!;
+    expect(await limiter.limit({ key: "192.0.2.1" })).toEqual({ success: true });
+    expect(await limiter.limit({ key: "192.0.2.1" })).toEqual({ success: false });
+  });
+
+  it.each(["0", "-1", "1.5", "not-a-number"])("rejects invalid burst limits %s rather than silently removing protection", (value) => {
+    expect(() => loadLinuxRuntime({ ...source, EXTENSION_RECOGNITION_REQUESTS_PER_MINUTE: value }))
+      .toThrow("EXTENSION_RECOGNITION_REQUESTS_PER_MINUTE must be a positive integer");
+  });
+
+  it("rejects ambiguous proxy trust configuration instead of accepting forged forwarding headers", () => {
+    expect(() => loadLinuxRuntime({ ...source, EXTENSION_TRUST_PROXY: "yes" }))
+      .toThrow("EXTENSION_TRUST_PROXY must be true or false");
   });
 
   it("rejects production configuration because this entry point only hosts dev", () => {

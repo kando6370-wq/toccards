@@ -14,7 +14,11 @@ async function fetch(
   if (!env?.HYPERDRIVE) throw new Error("HYPERDRIVE binding is required");
   if (!ctx) throw new Error("ExecutionContext is required for PostgreSQL requests");
   const database = createPostgresDatabase(env.HYPERDRIVE.connectionString);
-  const requestEnv = { ...env, DB: database } as Env;
+  const requestEnv = {
+    ...env,
+    DB: database,
+    EXTENSION_CLIENT_IP: request.headers.get("CF-Connecting-IP") ?? undefined,
+  } as Env;
   return runWithDatabaseLifecycle(database, ctx, (trackedContext) =>
     Promise.resolve(honoFetch(request, requestEnv, trackedContext)));
 }
