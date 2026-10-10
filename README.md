@@ -28,7 +28,7 @@ Marketing Web -----------------> 独立 Cloudflare 静态站点
 
 `dev` 已合入 Linux 入口 `src/linux/server.ts`，复用同一 Hono 应用与 PostgreSQL migration，使用独立 PostgreSQL、进程内 KV 和本地图片卷；Admin 由 Caddy 托管，离线模式使用 Node 静态服务。App `test` 默认 API 为 `http://192.168.50.201:8080/api/v1`，Admin development 使用同源相对 API，本机开发由 Vite 代理到 Linux，识别请求经 HTTP 复用 CF 服务。2026-09-30 11:10 回读确认 kd201 watcher 已自动发布 `dev@7516cfd`，release 为 `branch-dev-7516cfd2a06a-20260930110549`：current 指向的 manifest、current-release、last-seen/last-deployed 一致，失败标记不存在；发布日志报告 API/DB healthy、Web started、migration 检查成功、无待执行 migration，ledger 14 项。发布前备份 1,135,397,728 字节且临时文件已移除；受 DBX MCP 只读策略限制，本轮未独立运行容器/数据库检查、`pg_restore --list` 或恢复演练；11:13 内网只读烟测通过，HTML 与本地构建仅 CR 字符不同，验证边界见当前版本记录。1,135,376,623 字节发布前备份通过 `pg_restore --list`，未执行恢复演练。17:04 内网 Admin 入口引用的 10 个 JS/CSS 资源与该提交本地 dev 构建哈希一致，候选图预览代码已交付；真实登录态交互仍需补验。旧 CF dev 的业务 Worker、域名入口和 cron 已退役；独立 Apple Sandbox 回调、CF 识别服务和正式环境保留。验收与未执行项见 [Linux 测试环境](docs/releases/v1.1.0/02-architecture/linux-test-environment.md)及[当前验证记录](docs/releases/v1.1.1/05-delivery/VERIFICATION.md)。
 
-`dev-xiangyang` 当前扫描代码使用 RTMDet-Ins 裁剪卡面并计算 RGB 三通道 pHash；业务 API 经保留名称的 `VECTOR_RECOGNITION` 边界发送 `{r,g,b,game_id?}`，不运行或打包 PE-Core-T16 与 ML Kit Latin OCR。当前 App 要求 iOS 16+ 或 Android API 24+；Flutter Web 可用于其他页面开发，暂不支持扫描。扫描协议、平台资源及合并边界见 [扫描识别链路](docs/releases/v1.1.1/01-flows/scan-recognition.md)。
+`dev-xiangyang` 当前扫描代码使用 RTMDet-Ins 裁剪卡面，裁剪后并行计算 RGB 三通道 pHash 与 ML Kit Latin OCR；OCR 成功时业务 API 经保留名称的 `VECTOR_RECOGNITION` 边界发送 `{r,g,b,ocr_text,card_type}`，OCR 失败时省略 `ocr_text` 并继续发送 `card_type` 做哈希检索，不运行或打包 PE-Core-T16。`game_id` 不发送给识别服务。当前 App 要求 iOS 16+ 或 Android API 24+；Flutter Web 可用于其他页面开发，暂不支持扫描。扫描协议、平台资源及合并边界见 [扫描识别链路](docs/releases/v1.1.1/01-flows/scan-recognition.md)。
 
 ## 仓库结构
 

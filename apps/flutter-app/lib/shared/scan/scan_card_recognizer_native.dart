@@ -8,6 +8,7 @@ import 'scan_mask_geometry.dart';
 import 'scan_model_runtime.dart';
 import 'scan_native_image_processor.dart';
 import 'scan_phash.dart';
+import 'scan_text_recognizer.dart';
 
 const _detectionInputSize = 640;
 const _cardWidth = 745;
@@ -19,12 +20,19 @@ const _landscapeEdgeRatioThreshold = 1.15;
 const _detectionMean = [103.53, 116.28, 123.675];
 const _detectionStd = [57.375, 57.12, 58.395];
 
-ScanCardRecognizer createScanCardRecognizer() => _NativeScanCardRecognizer();
+ScanCardRecognizer createScanCardRecognizer({ScanTextRecognizer? textRecognizer}) =>
+    _NativeScanCardRecognizer(
+      textRecognizer: textRecognizer ?? createScanTextRecognizer(),
+    );
 
 class _NativeScanCardRecognizer implements ScanCardRecognizer {
+  _NativeScanCardRecognizer({required ScanTextRecognizer textRecognizer})
+    : _textRecognizer = textRecognizer;
+
   final ScanModelRuntime _runtime = const ScanModelRuntime();
   final ScanNativeImageProcessor _imageProcessor =
       const ScanNativeImageProcessor();
+  final ScanTextRecognizer _textRecognizer;
   Future<void> _tail = Future.value();
 
   @override
@@ -83,20 +91,34 @@ class _NativeScanCardRecognizer implements ScanCardRecognizer {
       detectionTimer.stop();
 
       final hashTimer = Stopwatch()..start();
-      final hashes = await Isolate.run(
+      final hashesFuture = Isolate.run(
         () => hashScanCardRgb(
           rectified.cardRgbBytes,
           width: _cardWidth,
           height: _cardHeight,
         ),
       );
-      hashTimer.stop();
+      final ocrTimer = Stopwatch()..start();
+      final ocrFuture = _recognizeTextOrNull(rectified.cardImageBytes);
+      late ({String r, String g, String b}) hashes;
+      late String? ocrText;
+      await Future.wait<void>([
+        hashesFuture.then((value) {
+          hashes = value;
+          hashTimer.stop();
+        }),
+        ocrFuture.then((value) {
+          ocrText = value;
+          ocrTimer.stop();
+        }),
+      ]);
       totalTimer.stop();
 
       return ScanCardHashes(
         r: hashes.r,
         g: hashes.g,
         b: hashes.b,
+        ocrText: ocrText,
         cardImageBytes: rectified.cardImageBytes,
         diagnostics: {
           if (selected != null) ...{
@@ -107,6 +129,7 @@ class _NativeScanCardRecognizer implements ScanCardRecognizer {
             'crop_fallback': 1.0,
           'detection_ms': detectionTimer.elapsedMilliseconds.toDouble(),
           'hash_ms': hashTimer.elapsedMilliseconds.toDouble(),
+          'ocr_ms': ocrTimer.elapsedMilliseconds.toDouble(),
           'total_ms': totalTimer.elapsedMilliseconds.toDouble(),
         },
       );
@@ -127,6 +150,14 @@ class _NativeScanCardRecognizer implements ScanCardRecognizer {
       masks: outputs.masks,
       maskShape: outputs.maskShape,
     );
+  }
+
+  Future<String?> _recognizeTextOrNull(Uint8List cardImageBytes) async {
+    try {
+      return await _textRecognizer.recognize(cardImageBytes);
+    } on Object {
+      return null;
+    }
   }
 }
 

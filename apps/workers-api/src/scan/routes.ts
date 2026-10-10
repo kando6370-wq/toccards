@@ -220,6 +220,7 @@ WHERE id = ? AND owner_type = ? AND owner_id = ?
 
 const RECOGNITION_ALGORITHM = "rgb-phash-16-v1";
 const PHASH_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+const MAX_OCR_TEXT_BYTES = 16 * 1024;
 const DEFAULT_CARD_TYPE = 0;
 const CARD_NUMBER_PATTERN = /^(?:\d{1,4}\/(?:\d{1,4}|[A-Z]{1,5}-P)|[A-Z]{1,5}-P)$/;
 
@@ -405,12 +406,13 @@ export function createScanRoutes() {
     const r = readPhash(body.get("r"));
     const g = readPhash(body.get("g"));
     const b = readPhash(body.get("b"));
+    const ocrText = readOptionalOcrText(body.get("ocr_text"));
     const cardType = readCardType(body.get("card_type"));
     const gameId = readOptionalGameId(body.get("game_id"));
     const cardNumber = readOptionalCardNumber(body.get("card_number"));
     const image = await validateScanImage(body.get("image"));
     if (
-      !r || !g || !b || cardType === null || gameId === null ||
+      !r || !g || !b || ocrText === null || cardType === null || gameId === null ||
       cardNumber === null || !image
     ) {
       await releaseQueuedScanQuota(
@@ -464,7 +466,13 @@ export function createScanRoutes() {
     }
     const reservedAt = performance.now();
 
-    const outbound = { r, g, b, ...(gameId === undefined ? {} : { game_id: gameId }) };
+    const outbound = {
+      r,
+      g,
+      b,
+      ...(ocrText === undefined ? {} : { ocr_text: ocrText }),
+      card_type: cardType,
+    };
 
     const scanId = requestId;
     const createdAt = new Date();
@@ -990,6 +998,15 @@ function buildSystemResult(
 
 function readPhash(value: string | File | null): string | null {
   return typeof value === "string" && PHASH_PATTERN.test(value) ? value : null;
+}
+
+function readOptionalOcrText(value: string | File | null): string | undefined | null {
+  if (value === null) return undefined;
+  if (typeof value !== "string") return null;
+  const normalized = value.replace(/\r\n?/g, "\n").trim();
+  return new TextEncoder().encode(normalized).byteLength <= MAX_OCR_TEXT_BYTES
+    ? normalized
+    : null;
 }
 
 function readCardType(value: string | File | null): 0 | 1 | null {

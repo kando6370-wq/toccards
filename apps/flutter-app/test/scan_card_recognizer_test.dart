@@ -13,11 +13,13 @@ void main() {
   late List<String> calls;
   late double score;
   late bool failCorrection;
+  late _FakeScanTextRecognizer textRecognizer;
 
   setUp(() {
     calls = [];
     score = 0.9;
     failCorrection = false;
+    textRecognizer = _FakeScanTextRecognizer();
     messenger.setMockMethodCallHandler(imageChannel, (call) async {
       calls.add(call.method);
       final args = call.arguments as Map;
@@ -103,13 +105,17 @@ void main() {
   test(
     'the recognition pipeline hashes the corrected card without embedding inference',
     () async {
-      final result = await createScanCardRecognizer().process(
+      final result = await createScanCardRecognizer(
+        textRecognizer: textRecognizer,
+      ).process(
         Uint8List.fromList([1, 2, 3]),
       );
       expect(result.r, matches(RegExp(r'^[A-Za-z0-9_-]{43}$')));
       expect(result.g, matches(RegExp(r'^[A-Za-z0-9_-]{43}$')));
       expect(result.b, matches(RegExp(r'^[A-Za-z0-9_-]{43}$')));
       expect(result.cardImageBytes, [7, 8, 9]);
+      expect(result.ocrText, 'LEAFEON EX\n200/187');
+      expect(textRecognizer.lastBytes, [7, 8, 9]);
       expect(calls, [
         'prepareDetection',
         'runDetection',
@@ -123,16 +129,34 @@ void main() {
     () async {
       score = 0.1;
       await expectLater(
-        createScanCardRecognizer().process(Uint8List(3)),
+        createScanCardRecognizer(
+          textRecognizer: textRecognizer,
+        ).process(Uint8List(3)),
         throwsA(isA<ScanImageProcessingException>()),
       );
       expect(calls, ['prepareDetection', 'runDetection']);
     },
   );
 
+  test('OCR failure keeps the pHash result and omits OCR text', () async {
+    textRecognizer.failure = StateError('OCR unavailable');
+
+    final result = await createScanCardRecognizer(
+      textRecognizer: textRecognizer,
+    ).process(Uint8List.fromList([1, 2, 3]));
+
+    expect(result.r, matches(RegExp(r'^[A-Za-z0-9_-]{43}$')));
+    expect(result.g, matches(RegExp(r'^[A-Za-z0-9_-]{43}$')));
+    expect(result.b, matches(RegExp(r'^[A-Za-z0-9_-]{43}$')));
+    expect(result.ocrText, isNull);
+    expect(textRecognizer.lastBytes, [7, 8, 9]);
+  });
+
   test('camera crop falls back to hashing the prepared crop when detection misses', () async {
     score = 0.1;
-    final result = await createScanCardRecognizer().process(
+    final result = await createScanCardRecognizer(
+      textRecognizer: textRecognizer,
+    ).process(
       Uint8List.fromList([1, 2, 3]),
       allowCropFallback: true,
     );
@@ -149,7 +173,9 @@ void main() {
 
   test('camera crop falls back when perspective correction fails', () async {
     failCorrection = true;
-    await createScanCardRecognizer().process(
+    await createScanCardRecognizer(
+      textRecognizer: textRecognizer,
+    ).process(
       Uint8List.fromList([1, 2, 3]),
       allowCropFallback: true,
     );
@@ -160,4 +186,17 @@ void main() {
       'prepareFallbackCard',
     ]);
   });
+}
+
+class _FakeScanTextRecognizer implements ScanTextRecognizer {
+  Uint8List? lastBytes;
+  Object? failure;
+
+  @override
+  Future<String> recognize(Uint8List cardImageBytes) async {
+    lastBytes = cardImageBytes;
+    final failure = this.failure;
+    if (failure != null) throw failure;
+    return 'LEAFEON EX\n200/187';
+  }
 }

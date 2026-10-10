@@ -84,6 +84,7 @@ void main() {
         expect(fields.remove('r'), _hash);
         expect(fields.remove('g'), _hash);
         expect(fields.remove('b'), _hash);
+        expect(fields.remove('ocr_text'), 'LEAFEON EX\n200/187');
         expect(fields, {
           'filename': 'scan.jpg',
           'platform': 'iOS',
@@ -144,6 +145,7 @@ void main() {
         _session,
         hashes: ScanCardHashes(
           r: _hash, g: _hash, b: _hash,
+          ocrText: 'LEAFEON EX\n200/187',
           cardImageBytes: Uint8List.fromList([1, 2, 3, 4]),
         ),
         fileName: 'scan.jpg',
@@ -164,11 +166,13 @@ void main() {
     },
   );
 
-  test('recognizeImage sends TCG as the default card type', () async {
+  test('recognizeImage sends TCG by default and preserves empty OCR text', () async {
     final adapter = _RecordingAdapter((request) {
       final form = request.body as FormData;
       final fields = Map<String, String>.fromEntries(form.fields);
       expect(fields['card_type'], '0');
+      expect(fields.containsKey('ocr_text'), isTrue);
+      expect(fields['ocr_text'], '');
       return _json(200, {
         'success': true,
         'data': {
@@ -195,6 +199,7 @@ void main() {
         r: _hash,
         g: _hash,
         b: _hash,
+        ocrText: '',
         cardImageBytes: Uint8List.fromList([1, 2, 3, 4]),
       ),
       fileName: 'scan.jpg',

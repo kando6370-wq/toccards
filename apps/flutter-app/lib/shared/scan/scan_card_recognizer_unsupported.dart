@@ -1,8 +1,9 @@
 import 'dart:typed_data';
 
 import 'scan_card_recognizer_contract.dart';
+import 'scan_text_recognizer_contract.dart';
 
-ScanCardRecognizer createScanCardRecognizer() =>
+ScanCardRecognizer createScanCardRecognizer({ScanTextRecognizer? textRecognizer}) =>
     const _UnsupportedScanCardRecognizer();
 
 class _UnsupportedScanCardRecognizer implements ScanCardRecognizer {

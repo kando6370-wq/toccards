@@ -5,6 +5,7 @@ class ScanCardHashes {
     required this.r,
     required this.g,
     required this.b,
+    this.ocrText,
     required this.cardImageBytes,
     this.diagnostics = const {},
   });
@@ -12,6 +13,7 @@ class ScanCardHashes {
   final String r;
   final String g;
   final String b;
+  final String? ocrText;
   final Uint8List cardImageBytes;
   final Map<String, double> diagnostics;
 }

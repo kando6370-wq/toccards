@@ -8,6 +8,7 @@ import { createHttpVectorRecognition } from "../linux/vector-recognition";
 
 type TestEnvWithPostgres = Omit<AppEnv, "DB"> & { DB: PGliteDatabase; queries: string[]; VECTOR_RECOGNITION?: Fetcher };
 const HASHES = { r: "A".repeat(43), g: "B".repeat(43), b: "C".repeat(43) };
+const OCR_TEXT = "LEAFEON EX\n200/187";
 const hashesForMarker = (marker: number) => ({
   ...HASHES,
   r: String(marker).repeat(43),
@@ -28,7 +29,7 @@ class FakeR2 {
 
 
 describe("scan routes", () => {
-  it("rejects missing and malformed RGB hashes before storage or quota consumption", async () => {
+  it("rejects malformed hashes or oversized OCR text before storage or quota consumption", async () => {
     const env = await createRecognitionEnv();
     const token = await recognitionToken(env);
     const upstream = vi.fn();
@@ -39,6 +40,7 @@ describe("scan routes", () => {
       { ...HASHES, g: "A".repeat(44) },
       { ...HASHES, b: "!".repeat(43) },
       { r: HASHES.r, g: HASHES.g },
+      { ...HASHES, ocr_text: "x".repeat(16 * 1024 + 1) },
     ]) {
       expect((await recognize(env, token, body)).status).toBe(422);
     }
@@ -46,6 +48,36 @@ describe("scan routes", () => {
     expect(await readRows(env.DB, "scan_record")).toEqual([]);
     expect(await readRows(env.DB, "scan_quota_request")).toEqual([]);
     expect((env.SCAN_IMAGES as unknown as FakeR2).objects.size).toBe(0);
+  });
+
+  it("omits OCR text upstream when on-device OCR fails", async () => {
+    const env = await createRecognitionEnv();
+    const token = await recognitionToken(env);
+    const upstream = vi.fn(async (_url, init) => {
+      expect(JSON.parse(init.body)).toEqual({ ...HASHES, card_type: 0 });
+      return Response.json({ candidates: [] });
+    });
+    stubPhashRecognition(env, upstream);
+
+    const response = await recognize(env, token, { ...HASHES, ocr_text: null });
+
+    expect(response.status).toBe(200);
+    expect(upstream).toHaveBeenCalledOnce();
+  });
+
+  it("forwards empty OCR text when on-device OCR completes without text", async () => {
+    const env = await createRecognitionEnv();
+    const token = await recognitionToken(env);
+    const upstream = vi.fn(async (_url, init) => {
+      expect(JSON.parse(init.body)).toEqual({ ...HASHES, ocr_text: "", card_type: 0 });
+      return Response.json({ candidates: [] });
+    });
+    stubPhashRecognition(env, upstream);
+
+    const response = await recognize(env, token, { ...HASHES, ocr_text: "" });
+
+    expect(response.status).toBe(200);
+    expect(upstream).toHaveBeenCalledOnce();
   });
 
   it("rejects unsupported card types before recognition because the upstream contract is binary", async () => {
@@ -63,14 +95,14 @@ describe("scan routes", () => {
     expect(upstream).not.toHaveBeenCalled();
   });
 
-  it("sends the optional game filter to pHash and keeps it at the catalog boundary", async () => {
+  it("keeps the optional game filter at the catalog boundary and sends card type to pHash", async () => {
     const env = await createRecognitionEnv();
     await insertRows(env.DB, "cards_all",
       { product_id: "same-game", game_id: 1, game: "Pokemon", name: "Wanted Card", set_name: "Set A", product_type_name: "Cards" },
       { product_id: "other-game", game_id: 2, game: "Magic", name: "Other Card", set_name: "Set B", product_type_name: "Cards" },
     );
     const upstream = vi.fn(async (_url, init) => {
-      expect(JSON.parse(init.body)).toEqual({ ...HASHES, game_id: 1 });
+      expect(JSON.parse(init.body)).toEqual({ ...HASHES, ocr_text: OCR_TEXT, card_type: 1 });
       return Response.json({ candidates: [{ product_id: "other-game", confidence: 99 }, { product_id: "same-game", confidence: 90 }] });
     });
     stubPhashRecognition(env, upstream);
@@ -118,7 +150,7 @@ describe("scan routes", () => {
       expect.objectContaining({
         method: "POST",
         headers: { Accept: "application/json", "Content-Type": "application/json" },
-        body: JSON.stringify({ ...HASHES, game_id: 1 }),
+        body: JSON.stringify({ ...HASHES, ocr_text: OCR_TEXT, card_type: 0 }),
       }),
     );
     expect(response.status).toBe(200);
@@ -246,7 +278,7 @@ describe("scan routes", () => {
         Accept: "application/json",
         "Content-Type": "application/json",
       });
-      expect(JSON.parse(String(init.body))).toEqual(HASHES);
+      expect(JSON.parse(String(init.body))).toEqual({ ...HASHES, ocr_text: OCR_TEXT, card_type: 0 });
       return Response.json({
         candidates: [
           { product_id: 10738, confidence: 80.99 },
@@ -762,7 +794,7 @@ describe("scan routes", () => {
     );
     const token = await recognitionToken(env);
     stubPhashRecognition(env, async (_url: string, init: RequestInit) => {
-      expect(JSON.parse(String(init.body))).toEqual(HASHES);
+      expect(JSON.parse(String(init.body))).toEqual({ ...HASHES, ocr_text: OCR_TEXT, card_type: 0 });
       return Response.json({
         candidates: [
           { product_id: 610499, confidence: 84.1 },
@@ -2124,7 +2156,7 @@ async function recognize(
 
 function recognitionForm(body: Record<string, unknown>): FormData {
   const form = new FormData();
-  for (const [key, value] of Object.entries(body)) {
+  for (const [key, value] of Object.entries({ ocr_text: OCR_TEXT, ...body })) {
     if (value !== undefined && value !== null) form.set(key, String(value));
   }
   form.set(

@@ -334,6 +334,7 @@ class ScanApiClient implements ScanApi, ScanQuotaReservationApi {
       'r': hashes.r,
       'g': hashes.g,
       'b': hashes.b,
+      if (hashes.ocrText != null) 'ocr_text': hashes.ocrText!,
       'filename': fileName,
       'platform': platform,
       'app_version': appVersion,
