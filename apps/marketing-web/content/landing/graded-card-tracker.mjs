@@ -6,7 +6,7 @@ export default {
   "description": "Track graded and raw cards side by side. Record the grading company and grade, see values by grade, and compare what a card is worth raw versus slabbed.",
   "eyebrow": "Graded cards",
   "h1": "Graded and raw card tracker.",
-  "lede": "A slab and a raw copy of the same card are different assets. Track them as different assets.",
+  "lede": "Use one graded card value tracker for slabs and raw copies without treating them as the same asset.",
   "proof": {
     "kind": "prices",
     "title": "Compare raw and graded markets without predicting a grade.",
@@ -28,6 +28,10 @@ export default {
     }
   ],
   "faq": [
+    {
+      "q": "Can I use Card AI as a PSA card value tracker?",
+      "a": "Yes, for cards that are already graded. Record PSA as the grading company and enter the grade printed on the slab to see available grade-specific values. Card AI does not connect to PSA or predict the grade of a raw card."
+    },
     {
       "q": "Which grading companies are supported?",
       "a": "Graded cards are recorded with the grading company and grade, covering PSA, BGS, CGC and SGC."

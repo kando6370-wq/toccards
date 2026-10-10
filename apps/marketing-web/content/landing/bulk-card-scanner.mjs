@@ -6,7 +6,7 @@ export default {
   "description": "Scan trading cards in bulk instead of one at a time. Work through boxes and binders in a single session and add everything to your collection together.",
   "eyebrow": "Bulk scanning",
   "h1": "Bulk card scanner.",
-  "lede": "Cataloging a collection card by card never finishes. Scanning a stack in one sitting does.",
+  "lede": "A bulk card scanner app should reduce repeated entry without hiding review. Card AI keeps up to 10 camera or gallery items in one queue before you confirm them.",
   "proof": {
     "kind": "scan",
     "title": "Review a batch before it reaches your collection.",
@@ -16,7 +16,7 @@ export default {
   "sections": [
     {
       "h2": "The bottleneck is entry, not identification",
-      "body": "Looking up a single card is easy and always has been. What defeats people is volume: a few thousand cards, most of them low value, with the ones that matter buried somewhere inside.\n\nA batch card scanner is built for that shape of problem. You work through a stack in one session and add the results together, rather than deciding card by card whether it is worth the effort of looking up."
+      "body": "Looking up a single card is easy and always has been. What defeats people is volume: a few thousand cards, most of them low value, with the ones that matter buried somewhere inside.\n\nA batch card scanner is built for that shape of problem. Add up to 10 camera captures or gallery selections to the current queue, review each suggested match, then continue with the next batch. It does not continuously auto-capture cards or read an entire binder page in one shot."
     },
     {
       "h2": "Find the keepers inside the bulk",
@@ -29,8 +29,8 @@ export default {
   ],
   "faq": [
     {
-      "q": "How many cards can I scan in one session?",
-      "a": "The current Scan queue holds up to 10 cards across camera captures and gallery selections. Confirm or remove those results, then continue with the next batch in the same session."
+      "q": "Can I scan multiple cards at once?",
+      "a": "Yes. The current Scan queue holds up to 10 camera captures or gallery selections together. Confirm or remove those results, then continue with the next batch in the same session."
     },
     {
       "q": "Do I have to confirm each card?",

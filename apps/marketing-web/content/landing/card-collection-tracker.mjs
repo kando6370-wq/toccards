@@ -6,7 +6,7 @@ export default {
   "description": "Track what a trading card collection is worth. Keep condition- and grade-specific holdings, follow price history, and monitor total portfolio value.",
   "eyebrow": "Collection",
   "h1": "Trading card collection tracker.",
-  "lede": "See what the collection is worth now, which holdings carry the value, and how those prices move over time.",
+  "lede": "Use one TCG collection tracker to see what the portfolio is worth now, which holdings carry the value, and how those prices move over time.",
   "proof": {
     "kind": "portfolio",
     "title": "See holdings and current value in one portfolio.",
@@ -16,7 +16,7 @@ export default {
   "sections": [
     {
       "h2": "A collection becomes useful when it becomes a portfolio",
-      "body": "A list can tell you that a card exists in a box. A collection tracker answers the financial question behind that list: what the confirmed holdings are worth together.\n\nCards enter through scan or catalog search, then contribute their available current price to the portfolio total after you confirm the relevant printing and grading state."
+      "body": "A list can tell you that a card exists in a box. A collection tracker answers the financial question behind that list: what the confirmed holdings are worth together.\n\nCards enter through scan or catalog search, then contribute their available current price to the portfolio total after you confirm the relevant printing and grading state. That makes the same page a trading card portfolio tracker without turning inventory organization into a second competing owner."
     },
     {
       "h2": "Valuation keeps each holding distinct",
@@ -28,6 +28,10 @@ export default {
     }
   ],
   "faq": [
+    {
+      "q": "What should a card collection tracker app keep separate?",
+      "a": "It should keep distinct printings, finishes, languages, raw conditions and existing slab grades as distinct holdings. Card AI links each entry to a confirmed catalog record, while the digital card binder handles inventory search and organization."
+    },
     {
       "q": "Can I track duplicates of the same card?",
       "a": "Yes. Copies are stored as separate entries, distinguished by condition, finish, language and grade, so two copies of the same card in different states are tracked and valued independently."

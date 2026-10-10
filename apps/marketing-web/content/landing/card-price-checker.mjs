@@ -6,7 +6,7 @@ export default {
   "description": "Check what a trading card is worth. Scan or search the card catalog to compare current raw and graded prices, price history, and market direction.",
   "eyebrow": "Prices",
   "h1": "Trading card price checker.",
-  "lede": "Find out what a card is actually selling for, by condition and by grade, with the price history behind the number.",
+  "lede": "Card AI combines a card price scanner app with catalog search: find the copy, confirm its condition or existing grade, and see the available price history behind the number.",
   "proof": {
     "kind": "prices",
     "title": "Inspect the price behind the card record.",
@@ -23,8 +23,8 @@ export default {
       "body": "A single current price tells you what the market thinks today. It does not tell you whether that price has doubled over six months or is sliding after a reprint announcement.\n\nCard AI keeps price history and market trends on individual cards, which is what you need to decide between selling now, holding, or buying more."
     },
     {
-      "h2": "Two ways to check a card price",
-      "body": "- Scan the card with your camera, review the suggested catalog matches, and confirm the printing details\n- Run a card price lookup by name, set or card number when you do not have the card in hand\n\nBoth routes land on the same catalog record with the same pricing and history."
+      "h2": "Two ways to use the card price scanner",
+      "body": "- Scan the card with your camera, review the suggested catalog matches, and confirm the printing details\n- Run a card price lookup by name, set or card number when you do not have the card in hand\n\nBoth routes land on the same catalog record with the same pricing and history. That makes the trading card value app useful whether the copy is on the table or only on your want list."
     },
     {
       "h2": "From price check to portfolio",
@@ -40,6 +40,10 @@ export default {
     }
   ],
   "faq": [
+    {
+      "q": "How is a card price scanner app different from a price lookup?",
+      "a": "Scanning starts from a photo and suggests likely catalog matches for you to confirm. A price lookup starts from a name, set or card number. Both routes open the same confirmed card record with the same available current price and history."
+    },
     {
       "q": "What is my card worth?",
       "a": "Select the matching catalog record, confirm its finish and language, and choose a raw condition or existing slab grade. Card AI then shows the relevant market price and available price history."

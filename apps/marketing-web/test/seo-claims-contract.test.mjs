@@ -46,6 +46,10 @@ function normalizedWords(value) {
     .filter(Boolean);
 }
 
+function occurrences(value, needle) {
+  return value.split(needle).length - 1;
+}
+
 test('homepage describes the verified free install without unsupported sports claims', async () => {
   const html = await readFile(indexPath, 'utf8');
   const seoSurface = html.slice(0, html.indexOf('</main>') + '</main>'.length);
@@ -117,6 +121,132 @@ test('GEO summary keeps recognition and pricing claims within verified capabilit
   assert.match(llms, /suggests likely catalog matches/i);
   assert.doesNotMatch(pricePage, /Card AI works from the second and third/i);
   assert.match(pricePage, /does not calculate its market price from visible sold-listing comps/i);
+});
+
+test('approved keyword clusters stay with one truthful owner', async () => {
+  const pages = Object.fromEntries(
+    await Promise.all(
+      [
+        'card-identifier.html',
+        'card-price-checker.html',
+        'pokemon-card-scanner.html',
+        'card-collection-tracker.html',
+        'bulk-card-scanner.html',
+        'graded-card-tracker.html',
+      ].map(async (name) => [name, await readFile(fileURLToPath(new URL(name, publicUrl)), 'utf8')]),
+    ),
+  );
+
+  assert.match(pages['card-identifier.html'], /trading card scanner app/i);
+  assert.match(pages['card-identifier.html'], /identify a trading card from a photo/i);
+  assert.match(pages['card-identifier.html'], /TCG card scanner/i);
+  assert.match(pages['card-identifier.html'], /does not guarantee an exact printing/i);
+
+  assert.match(pages['card-price-checker.html'], /card price scanner app/i);
+  assert.match(pages['card-price-checker.html'], /trading card value app/i);
+  assert.match(pages['card-price-checker.html'], /same confirmed card record/i);
+
+  assert.match(pages['pokemon-card-scanner.html'], /Pokemon card value scanner/i);
+  assert.match(pages['pokemon-card-scanner.html'], /best Pokemon card scanner app/i);
+  assert.match(pages['pokemon-card-scanner.html'], /free to install/i);
+  assert.match(pages['pokemon-card-scanner.html'], /does not authenticate cards or predict grades/i);
+
+  assert.match(pages['card-collection-tracker.html'], /TCG collection tracker/i);
+  assert.match(pages['card-collection-tracker.html'], /trading card portfolio tracker/i);
+  assert.match(pages['card-collection-tracker.html'], /raw conditions and existing slab grades as distinct holdings/i);
+
+  assert.match(pages['bulk-card-scanner.html'], /bulk card scanner app/i);
+  assert.match(pages['bulk-card-scanner.html'], /up to 10 camera captures or gallery selections/i);
+  assert.match(pages['bulk-card-scanner.html'], /does not continuously auto-capture cards or read an entire binder page/i);
+
+  assert.match(pages['graded-card-tracker.html'], /graded card value tracker/i);
+  assert.match(pages['graded-card-tracker.html'], /PSA card value tracker/i);
+  assert.match(pages['graded-card-tracker.html'], /does not connect to PSA or predict the grade/i);
+});
+
+test('homepage scanner-app guidance is visible and matches FAQ schema', async () => {
+  const html = await readFile(indexPath, 'utf8');
+  const faq = jsonLdObjects(html).find((value) => value['@type'] === 'FAQPage');
+  const question = faq?.mainEntity?.find(
+    (entry) => entry.name === 'What should I look for in a trading card scanner app?',
+  );
+  const expectedAnswer =
+    'A useful trading card scanner app should show likely catalog matches for review, keep the set and card number visible, separate raw condition from existing slab grades, and connect confirmed cards to price history and a collection tracker. Card AI does not authenticate cards or predict grades from a photo.';
+
+  assert.equal(question?.acceptedAnswer?.text, expectedAnswer);
+  assert.match(
+    html,
+    /<summary>What should I look for in a trading card scanner app\?<\/summary>\s*<p>A useful trading card scanner app should show likely catalog matches for review,[\s\S]*?does not authenticate cards or predict grades from a photo\.<\/p>/,
+  );
+});
+
+test('30th Celebration guide keeps dated facts, article metadata, links, and discovery surfaces aligned', async () => {
+  const slug = 'pokemon-tcg-30th-celebration-card-prices';
+  const canonical = `https://tcgcard.fun/blog/${slug}`;
+  const articlePath = fileURLToPath(new URL(`blog/${slug}.html`, publicUrl));
+  const [articleHtml, pokemonHtml, homepageHtml, blogIndexHtml, llms, sitemap] =
+    await Promise.all([
+      readFile(articlePath, 'utf8'),
+      readFile(fileURLToPath(new URL('pokemon-card-scanner.html', publicUrl)), 'utf8'),
+      readFile(indexPath, 'utf8'),
+      readFile(fileURLToPath(new URL('blog/index.html', publicUrl)), 'utf8'),
+      readFile(llmsPath, 'utf8'),
+      readFile(sitemapPath, 'utf8'),
+    ]);
+  const article = jsonLdObjects(articleHtml).find((value) => value['@type'] === 'Article');
+
+  assert.match(articleHtml, /<h1>Pokemon TCG 30th Celebration card prices and set guide<\/h1>/);
+  assert.match(articleHtml, /30C main set with 202 card records/i);
+  assert.match(articleHtml, /30C-CC Classic Collection with 30 card records/i);
+  assert.match(articleHtml, /Price snapshot observed October 10, 2026 \(USD\)/);
+  assert.match(
+    articleHtml,
+    /Illustrative Card AI screen composite\. Values shown in the image are examples, not the dated 30th Celebration snapshot below\./,
+  );
+  assert.match(articleHtml, /Lugia 149\/147[^<]*\$192\.93/);
+  assert.match(articleHtml, /Charizard 4\/102[^<]*\$142\.32/);
+  assert.match(articleHtml, /Mew ex 158\/128[^<]*\$62\.33/);
+  assert.match(articleHtml, /Gengar \(Prime\) 94\/102[^<]*\$54\.29/);
+  assert.match(articleHtml, /Mewtwo ex 157\/128[^<]*\$45\.75/);
+  assert.match(
+    articleHtml,
+    /dated market snapshots, not offers, appraisals, or guaranteed sale prices/i,
+  );
+  assert.match(articleHtml, /does not authenticate a card or guarantee the exact printing/i);
+  assert.match(articleHtml, /Card AI does not predict a grade/i);
+  assert.match(articleHtml, /href="\/pokemon-card-scanner"/);
+  assert.match(articleHtml, /href="\/card-price-checker"/);
+  assert.match(pokemonHtml, new RegExp(`href="/blog/${slug}"`));
+
+  assert.equal(article?.headline, 'Pokemon TCG 30th Celebration card prices and set guide');
+  assert.equal(article?.datePublished, '2026-10-10');
+  assert.equal(article?.dateModified, '2026-10-10');
+  assert.equal(article?.mainEntityOfPage, canonical);
+  assert.equal(article?.image, 'https://tcgcard.fun/assets/showcase-analysis.png');
+  assert.match(articleHtml, new RegExp(`<link rel="canonical" href="${canonical}">`));
+  assert.match(articleHtml, /<meta property="og:type" content="article">/);
+  assert.match(
+    articleHtml,
+    /<meta property="og:image" content="https:\/\/tcgcard\.fun\/assets\/showcase-analysis\.png">/,
+  );
+
+  assert.equal(occurrences(sitemap, `<loc>${canonical}</loc>`), 1);
+  assert.equal(occurrences(llms, `](${canonical})`), 1);
+  assert.equal(occurrences(homepageHtml, `href="/blog/${slug}"`), 1);
+  assert.equal(occurrences(blogIndexHtml, `href="/blog/${slug}"`), 1);
+  assert.equal(occurrences(sitemap, '<url>'), 25);
+});
+
+test('llms inventory includes every generated blog article exactly once', async () => {
+  const blogUrl = new URL('blog/', publicUrl);
+  const llms = await readFile(llmsPath, 'utf8');
+  const articleNames = (await readdir(blogUrl, { withFileTypes: true }))
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.html') && entry.name !== 'index.html')
+    .map((entry) => entry.name.replace(/\.html$/, ''));
+
+  for (const slug of articleNames) {
+    assert.equal(occurrences(llms, `](https://tcgcard.fun/blog/${slug})`), 1, slug);
+  }
 });
 
 test('marketing composites are disclosed as illustrative examples', async () => {

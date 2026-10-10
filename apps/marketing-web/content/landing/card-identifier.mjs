@@ -6,7 +6,7 @@ export default {
   "description": "Identify a trading card from a photo. AI card recognition suggests matching catalog records with the set and card number for you to review.",
   "eyebrow": "Identification",
   "h1": "Trading card identifier.",
-  "lede": "Knowing the card name is not knowing the card. The identifier narrows the catalog; you confirm the printing that decides the price.",
+  "lede": "Use Card AI as a trading card scanner app when the card is in front of you: it narrows the catalog to likely matches, and you confirm the printing that decides the price.",
   "proof": {
     "kind": "scan",
     "title": "See the candidate before you confirm the card.",
@@ -24,7 +24,7 @@ export default {
     },
     {
       "h2": "Card search by photo, or by text",
-      "body": "Camera scanning and text search reach the same catalog. Point the camera at a card for AI-assisted matching, or search by name, set or card number when the card is not in front of you.\n\nOpen the matching card record to review its available details and market prices before adding it to your collection."
+      "body": "When you need to identify a trading card from a photo, camera scanning narrows the same catalog used by text search. Point the camera at the card for AI-assisted matching, or search by name, set or card number when the card is not in front of you.\n\nOpen the matching card record to review its available details and market prices before adding it to your collection."
     },
     {
       "h2": "Where image recognition struggles, and what to do",
@@ -32,6 +32,10 @@ export default {
     }
   ],
   "faq": [
+    {
+      "q": "What does a TCG card scanner identify?",
+      "a": "It suggests likely catalog records from the card photo, including details such as set and card number when available. You confirm the matching record, finish and language before saving; it does not guarantee an exact printing from the image alone."
+    },
     {
       "q": "How does the AI card identifier tell near-identical printings apart?",
       "a": "It compares the photo with the card catalog and suggests likely matches with details such as set and card number. You review the candidates and confirm the matching card, finish and language before adding it."

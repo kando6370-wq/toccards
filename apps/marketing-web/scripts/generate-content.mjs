@@ -86,7 +86,16 @@ const PROOF_ASSETS = {
   },
 };
 
-function renderShell({ url, title, description, jsonLd, body, indexable = true }) {
+function renderShell({
+  url,
+  title,
+  description,
+  jsonLd,
+  body,
+  indexable = true,
+  ogType = 'website',
+  image = '/assets/hero-phones.png',
+}) {
   const blocks = jsonLd
     .map((entry) => `  <script type="application/ld+json">\n${JSON.stringify(entry, null, 2)}\n  </script>`)
     .join('\n');
@@ -98,16 +107,16 @@ function renderShell({ url, title, description, jsonLd, body, indexable = true }
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="${escapeHtml(description)}">
 ${indexable ? `  <link rel="canonical" href="${ORIGIN}${url}">` : '  <meta name="robots" content="noindex,follow">'}
-  <meta property="og:type" content="website">
+  <meta property="og:type" content="${escapeHtml(ogType)}">
   <meta property="og:site_name" content="Card AI">
   <meta property="og:title" content="${escapeHtml(title)}">
   <meta property="og:description" content="${escapeHtml(description)}">
 ${indexable ? `  <meta property="og:url" content="${ORIGIN}${url}">` : ''}
-  <meta property="og:image" content="${ORIGIN}/assets/hero-phones.png">
+  <meta property="og:image" content="${ORIGIN}${image}">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="${escapeHtml(title)}">
   <meta name="twitter:description" content="${escapeHtml(description)}">
-  <meta name="twitter:image" content="${ORIGIN}/assets/hero-phones.png">
+  <meta name="twitter:image" content="${ORIGIN}${image}">
   <link rel="icon" type="image/png" href="/assets/card-ai-logo.png">
   <link rel="apple-touch-icon" href="/assets/card-ai-logo.png">
 ${blocks}
@@ -285,6 +294,8 @@ ${figure}
     description: post.meta.description,
     jsonLd,
     body,
+    ogType: 'article',
+    image: post.meta.image,
   });
 }
 
@@ -463,6 +474,7 @@ let llms = await readFile(llmsPath, 'utf8');
 const llmsList = [
   ...landing.map((page) => `- [${page.linkLabel ?? page.h1}](${ORIGIN}/${page.slug}): ${page.description}`),
   `- [Blog](${ORIGIN}/blog/): Guides on card values, grading, and collection tracking.`,
+  ...posts.map((post) => `- [${post.meta.h1}](${ORIGIN}/blog/${post.slug}): ${post.meta.description}`),
 ].join('\n');
 llms = llms.replace(
   /(## Pages\n\n)[\s\S]*?(\n\n## )/,

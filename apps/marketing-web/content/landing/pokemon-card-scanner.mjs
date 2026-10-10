@@ -6,7 +6,7 @@ export default {
   "description": "Scan Pokemon cards to find matching set and card records, confirm the printing, then check raw and graded market values and track your collection.",
   "eyebrow": "Pokemon",
   "h1": "Pokemon card scanner and value checker.",
-  "lede": "Point your camera at a Pokemon card. Card AI suggests likely catalog matches for you to confirm before checking the price.",
+  "lede": "Point your camera at a Pokemon card. The Pokemon card value scanner suggests likely catalog matches for you to confirm before checking available prices.",
   "proof": {
     "kind": "scan",
     "title": "Review the printing before checking its value.",
@@ -16,7 +16,7 @@ export default {
   "sections": [
     {
       "h2": "Why the exact printing decides the price",
-      "body": "Two Pokemon cards can show the same artwork and the same name and be worth very different amounts. What separates them is the printing: the set, the card number, whether it is a first edition or unlimited run, and whether the card is holo, reverse holo, or non-holo.\n\nCard AI compares the photo with its catalog and suggests likely records with the set and card number. Review the result and confirm the edition, variant and finish before using that printing's market price."
+      "body": "Two Pokemon cards can show the same artwork and the same name and be worth very different amounts. What separates them is the printing: the set, the card number, whether it is a first edition or unlimited run, and whether the card is holo, reverse holo, or non-holo.\n\nCard AI compares the photo with its catalog and suggests likely records with the set and card number. Review the result and confirm the edition, variant and finish before using that printing's market price.\n\nFor a current set example, use the [Pokemon TCG 30th Celebration price guide](/blog/pokemon-tcg-30th-celebration-card-prices) to compare 30C and 30C-CC records before you confirm a scan."
     },
     {
       "h2": "Raw and graded Pokemon cards are priced separately",
@@ -24,7 +24,7 @@ export default {
     },
     {
       "h2": "Scan a stack, not one card at a time",
-      "body": "Most Pokemon collections are not one rare card, they are boxes of bulk with a few keepers inside. Bulk scanning lets you work through a stack in a single session and add everything to your collection together, which is the difference between cataloging a shoebox in an evening and never starting."
+      "body": "Most Pokemon collections are not one rare card, they are boxes of bulk with a few keepers inside. The current Scan queue keeps up to 10 camera captures or gallery selections together for review, so you can work through a stack in batches and add confirmed cards to the same collection."
     },
     {
       "h2": "Watch your Pokemon collection value move",
@@ -32,6 +32,14 @@ export default {
     }
   ],
   "faq": [
+    {
+      "q": "What should I look for in the best Pokemon card scanner app?",
+      "a": "Look for a workflow that shows likely set and card-number matches, lets you confirm edition, finish and language, separates raw condition from an existing slab grade, and keeps available price history with the saved card. Card AI does not authenticate cards or predict grades."
+    },
+    {
+      "q": "Is the Pokemon card scanner free to install?",
+      "a": "Card AI is free to install from its currently available store listing. Scan allowances and Premium features vary by access level, so check the app before working through a large collection."
+    },
     {
       "q": "Can Card AI tell a first edition Pokemon card from an unlimited print?",
       "a": "The scan suggests likely catalog records, but you should check the edition marking and confirm the matching record and finish in Review because they materially change the value."

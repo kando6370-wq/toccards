@@ -37,6 +37,9 @@ The [canonical website](https://tcgcard.fun/) is tcgcard.fun. Card AI supports c
 - [Star Wars Unlimited card scanner](https://tcgcard.fun/star-wars-unlimited-card-scanner): Scan Star Wars Unlimited cards to find matching set and card records, confirm the variant, then check market values and track your collection.
 - [Yu-Gi-Oh! card scanner](https://tcgcard.fun/yugioh-card-scanner): Scan Yu-Gi-Oh! cards to find matching set-code and rarity records, confirm the edition, then check raw and graded market values.
 - [Blog](https://tcgcard.fun/blog/): Guides on card values, grading, and collection tracking.
+- [Pokemon TCG 30th Celebration card prices and set guide](https://tcgcard.fun/blog/pokemon-tcg-30th-celebration-card-prices): Check a dated Pokemon TCG 30th Celebration price snapshot, learn the 30C and 30C-CC set codes, and confirm a card in Card AI.
+- [What is my trading card worth?](https://tcgcard.fun/blog/what-is-my-trading-card-worth): A practical guide to checking what a trading card is worth, why the same card has several different prices, and which number actually applies to your copy.
+- [Raw vs graded cards, and what grading does to value](https://tcgcard.fun/blog/raw-vs-graded-card-values): Why graded cards trade at a premium over raw copies, how the gap between grades works, and when grading a card is worth the cost and the wait.
 
 ## Official Resources
 
