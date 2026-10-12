@@ -14,7 +14,7 @@
 
 ## GitHub CI 检查（2026-10-12）
 
-[App compatibility 工作流](../../../../.github/workflows/app-compatibility.yml)已在 `codex/v1.1.2-dev@eee77abc7321a3aa324aa4260ec4d2eabe64b4df` 的 [GitHub push 运行](https://github.com/kando6370-wq/toccards/actions/runs/38192725017)通过。已下载 artifact 核对 API 4/4、旧 1.0.4 与 1.0.5 各 13/13，以及 `report.json` 的固定提交、干净工作区和 `git-source-contracts-only` 证据类型；[PR #3](https://github.com/kando6370-wq/toccards/pull/3)的 [pull_request 运行](https://github.com/kando6370-wq/toccards/actions/runs/38194094012)也已通过。PR 报告独立确认同样的测试数量、20 份响应及干净工作区；实际测试提交为 GitHub 合并引用 `f623de578d877e596d8bb3b4468000c1ba37b1ec`，不是直接使用 head `eee77ab`，不代表 PR 已合并。2026-10-12 10:39 已配置分支必需检查并分别回读 `main`/`dev` 的生效规则；非草稿 PR #4/#5 的正反例已实测：兼容失败时两者均为 MERGEABLE（无代码冲突）但 BLOCKED；恢复后必需检查全部通过，两者变为 UNSTABLE，保留非必需营销站预览失败。验收 PR 已关闭且未合并，未调用 merge API；这不代表全部 CI 或完整 App 兼容矩阵通过。
+[App compatibility 工作流](../../../../.github/workflows/app-compatibility.yml)已在 `codex/v1.1.2-dev@eee77abc7321a3aa324aa4260ec4d2eabe64b4df` 的 [GitHub push 运行](https://github.com/kando6370-wq/toccards/actions/runs/38192725017)通过。已下载 artifact 核对 API 4/4、旧 1.0.4 与 1.0.5 各 13/13，以及 `report.json` 的固定提交、干净工作区和 `git-source-contracts-only` 证据类型；[PR #3](https://github.com/kando6370-wq/toccards/pull/3)的 [pull_request 运行](https://github.com/kando6370-wq/toccards/actions/runs/38194094012)也已通过。PR 报告独立确认同样的测试数量、20 份响应及干净工作区；实际测试提交为 GitHub 合并引用 `f623de578d877e596d8bb3b4468000c1ba37b1ec`，不是直接使用 head `eee77ab`，不代表 PR 已合并。2026-10-12 10:39 已配置分支必需检查并分别回读 `main`/`dev` 的生效规则；非草稿 PR #4/#5 的正反例已实测：兼容失败时两者均为 MERGEABLE（无代码冲突）但 BLOCKED；恢复后必需检查全部通过，两者变为 UNSTABLE，保留非必需营销站预览失败。该轮门禁验收结束时，验收 PR 已关闭且未合并，未调用 merge API；这不代表全部 CI 或完整 App 兼容矩阵通过。
 
 - 检查名称固定为 `App compatibility (Windows)`，运行器为 `windows-2022`；PR 目标为 `dev`/`main`，同时响应 `dev`/`main`/`codex/**` 的 push，保留手工触发入口。PR 不使用 paths/paths-ignore，避免检查因文件过滤而缺席。
 - 使用 Node 22、pnpm 11.9.0、Flutter 3.44.7；Flutter 与当前 GitHub iOS 流水线版本一致，不改 GitLab 的独立工具链约束。checkout 获取完整历史和标签，已有基线仍按完整提交 SHA 校验。
@@ -23,11 +23,11 @@
 - 测试输出通过 PowerShell Tee 写入 `ci.log` 后，显式将原生进程的非零退出码返回给 job；没有 continue-on-error 或失败后无条件成功。
 - 成功和失败均尝试上传 `ci.log`、每次运行的 `report.json` 与受控测试 `server-responses.json`，保留 7 天并允许选定的隐藏目录；不上传源码归档、整个 .dart_tool、依赖缓存或生产凭据。依赖初始化失败而尚无报告时，上传步骤允许缺少文件，但初始化步骤本身仍失败。
 
-门禁接入状态：基础合同的首次 push 与 PR #3 的 pull_request 托管运行均已通过并核验报告；PR #3 已于 2026-10-12 合入 dev@e8d1dd9，该合并提交的兼容 CI 与 iOS unsigned build 也通过；同日 14:22–14:26 已独立回读 dev watcher、release、容器、备份与迁移台账，确认实际运行 e8d1dd9。main 尚未同步，C03 的 Draft PR #6 尚未合入 dev。2026-10-12 经用户完成本机设备授权后，指定仓库所有者账号核验 `admin=true`；管理员回读确认此前 `main`/`dev` 均为 Branch not protected、规则集为空。已新增 [规则集 24904725](https://github.com/kando6370-wq/toccards/rules/24904725)，名称 `App compatibility required checks`、enforcement=active，只匹配 `refs/heads/main` 与 `refs/heads/dev`。
+门禁接入状态：基础合同的首次 push 与 PR #3 的 pull_request 托管运行均已通过并核验报告；PR #3 已于 2026-10-12 合入 dev@e8d1dd9，该合并提交的兼容 CI 与 iOS unsigned build 也通过；同日 14:22–14:26 已独立回读 dev watcher、release、容器、备份与迁移台账，确认实际运行 e8d1dd9。main 尚未同步，C03 增量由 PR #6 交付；14:22–14:26 的 dev 运行检查点只覆盖 PR #3。2026-10-12 经用户完成本机设备授权后，指定仓库所有者账号核验 `admin=true`；管理员回读确认此前 `main`/`dev` 均为 Branch not protected、规则集为空。已新增 [规则集 24904725](https://github.com/kando6370-wq/toccards/rules/24904725)，名称 `App compatibility required checks`、enforcement=active，只匹配 `refs/heads/main` 与 `refs/heads/dev`。
 
 规则只要求 `App compatibility (Windows)`，来源限定为 GitHub Actions（integration ID `15368`），没有 bypass actors。`strict_required_status_checks_policy=false`，不额外要求分支必须先同步最新 base；`do_not_enforce_on_create=false`。已通过有效分支规则 API 分别确认 `main`、`dev` 都应用同一规则集；`codex/v1.1.2-dev` 的有效规则为空，该次规则配置时两个目标分支提交未变；PR #3 后续合入 dev 的证据另见验证记录。
 
-隔离正反例验收已完成：[PR #4](https://github.com/kando6370-wq/toccards/pull/4) 目标 dev，[PR #5](https://github.com/kando6370-wq/toccards/pull/5) 目标 main；两者均为非草稿，使用独立分支 codex/compatibility-gate-probe-20261012，只在测试 fixture 中注入已本地验证的错误字段类型。已核对两条 PR 均为非草稿、MERGEABLE（无代码冲突）但合并状态 BLOCKED，唯一必需的 App compatibility 检查均为 FAILURE；营销站和 iOS 检查的 isRequired=false。同一分支恢复提交 3b26ed5 的文件树与 eee77ab 完全相同，push 及两条 PR 的兼容运行全部通过，并逐份下载核对 API 4/4、两组旧端各 13/13、固定基线、干净工作区和实际 merge ref。两条 PR 均从 BLOCKED 变为 UNSTABLE；随后关闭且未合并，验收分支保留为已恢复状态。正式工作流源码已通过 PR #3 合入 dev；main 尚未同步，C03 扩展在独立分支验证。
+隔离正反例验收已完成：[PR #4](https://github.com/kando6370-wq/toccards/pull/4) 目标 dev，[PR #5](https://github.com/kando6370-wq/toccards/pull/5) 目标 main；两者均为非草稿，使用独立分支 codex/compatibility-gate-probe-20261012，只在测试 fixture 中注入已本地验证的错误字段类型。已核对两条 PR 均为非草稿、MERGEABLE（无代码冲突）但合并状态 BLOCKED，唯一必需的 App compatibility 检查均为 FAILURE；营销站和 iOS 检查的 isRequired=false。同一分支恢复提交 3b26ed5 的文件树与 eee77ab 完全相同，push 及两条 PR 的兼容运行全部通过，并逐份下载核对 API 4/4、两组旧端各 13/13、固定基线、干净工作区和实际 merge ref。两条 PR 均从 BLOCKED 变为 UNSTABLE；该轮验收随后关闭两条 PR 且未合并，验收分支当时保留为已恢复状态；2026-10-12 后续分支整理按用户授权由 PR #4 的合并记录跟踪，不改写原正反例证据。正式工作流源码已通过 PR #3 合入 dev；main 尚未同步，C03 的后续交付由 PR #6 跟踪。
 
 已知非阻塞警告：该次运行提示 `actions/checkout@v4`、`actions/setup-node@v4` 和 `actions/upload-artifact@v4` 面向 Node.js 20，托管运行器强制以 Node.js 24 运行；实际步骤成功。本轮保留 action 版本，后续升级需单独验证，不将 action 运行时与测试使用的 Node 22 混为一谈。
 
@@ -77,6 +77,6 @@ PR 另有独立的 iOS unsigned build 检查；兼容 job 成功不等于所有�
 - PostgreSQL 使用实际 price domain、发布指针及历史可见性约束；已发布零价保留为 0，只有未发布报价的卡牌在旧 DTO 中仍为 null，缺失历史不补造日期或零值。只覆盖 Raw/Near Mint/English/Normal 样本，不宣称所有价格维度通过。
 - KV 仅使用内存 Map，fetch 默认拒绝。汇率成功用受控上游输入经实际 loader/Hono 输出；无缓存的失败输出 502。数据库故障输出真实 text/plain 500，旧端必须抛错，不能变成成功空列表。没有请求真实汇率源或远端业务 API。
 - 新增数值 card_ref、缺少 items、汇率 base 错误三个解析反例，并保留显式 null/可选字段添加的兼容正例。另以临时故障注入将合法零价改为 null，确认旧端业务断言失败，恢复后全量通过；它是验证测试意图的人工反证，不是生产 BUG。
-- 当前规模为 API 8 项、39 份响应、每个固定旧源码 24 项；保留原来的所有合同。提交 `7516c43` 的 GitHub push 和 Draft PR #6 的 pull_request 报告均已下载核验，均为干净工作区；PR 测试使用合并引用 `9deda2a`，不是 head 本身，PR 仍未合并。历史原始报告和旧版本文档不覆盖、不重写，C12/C13 其余场景及完整真机矩阵继续待验。
+- 当前规模为 API 8 项、39 份响应、每个固定旧源码 24 项；保留原来的所有合同。提交 `7516c43` 的 GitHub push 和 Draft PR #6 的 pull_request 报告均已下载核验，均为干净工作区；PR 测试使用合并引用 `9deda2a`，不是 head 本身；该份报告回读时 PR 尚未合并，后续合并状态不改变这份历史报告的证据范围。历史原始报告和旧版本文档不覆盖、不重写，C12/C13 其余场景及完整真机矩阵继续待验。
 
 实际命令、失败排查、审查及结果见 [v1.1.2 验证记录](../05-delivery/VERIFICATION.md)。
