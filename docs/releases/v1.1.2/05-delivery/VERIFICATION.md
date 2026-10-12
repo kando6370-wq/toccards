@@ -171,3 +171,44 @@
 - 验收后已关闭 PR #4/#5，API 回读 state=closed、merged=false，head 均为恢复提交；未调用 merge API，未删除审计分支或历史提交。PR #3 保持正式交付草稿，未合入 dev/main。
 - 北京时间 11:42:02 回读 main/dev 的完整提交 SHA 与推送前一致；营销站与生产 API 的 deployment 列表（含版本/流量信息）逐项未变，Admin Pages canonical deployment 仍为 `4e41a946-7112-4d07-8881-961b3b128d82`。本轮只有既有非生产分支构建被触发，没有生产切流、人工部署或数据库操作；不会把预览构建失败判作生产发布失败或把其根因写成已查明。
 - 正式交付范围仅为三份 v1.1.2 文档补证；既有业务代码、工作流、锁文件、旧版本归档及用户材料均未更改。已检查 25 处本地链接、原有验收内容的字节前缀和变更路径，`git diff --check` 通过；本地自审核对了截图证据与 API 回读、push/head 与 PR merge ref、必需/非必需检查、失败阻断/恢复及未合并边界。C03/C12/C13 扩展与正式旧包/真机仍待后续执行。
+
+## 2026-10-12：PR #3 审查、dev 合入与 C03 合同扩展
+
+### 已完成的审查和 Git 交付
+
+- 用户授权按“完整审查 PR #3 → dev 交付及验收 → C03 扩展”的建议继续。本轮对 fbf7382 的完整 13 文件变更进行 Codex 审查，检查固定源码/包映射、实际 Hono 请求与旧 DTO、错误/退出码、只读 CI 权限和产物范围，未发现当前范围的阻断项。GitHub review `5486708864` 为 COMMENTED，明确为 Codex 审查，不冒充独立人工审批。
+- PR #3 转为 ready 后，核验精确 head、dev base 和两项必需兼容检查 SUCCESS，再按用户授权通过 GitHub 合并；北京时间 13:07:20 回读为 merged/closed，dev=`e8d1dd952f05b1f5d7a438ccc68c6f45e5fa1351`，合并树与审查过的 fbf7382 相同，main 仍为 `7ac984ecd604b9fc483bf02c1bf0dded37651034`。没有绕过状态检查或修改合并规则。
+- dev 合并提交的 [兼容运行 38206582264](https://github.com/kando6370-wq/toccards/actions/runs/38206582264) 与 [iOS unsigned build 38206582275](https://github.com/kando6370-wq/toccards/actions/runs/38206582275) 均 completed/success。13:19:56 内网回读 health=200、未登录 auth/me=401、Admin 首页=200；这些响应不包含 release SHA，不能证明运行版本已切换到该提交。
+- **dev 运行验收未闭合**：本机 kd201 别名不能解析；文档示例 user@192.168.50.201 的 BatchMode/StrictHostKeyChecking SSH 被拒绝。未读取 watcher current/last-deployed、发布日志、容器、备份或 ledger。合并会命中仓库中的监听路径规则，但未取得远端证据，不能宣布 watcher 实际发布完成；没有并发启动手工部署、修改服务器凭据或进行远程迁移。需要维护者提供本机可用的已验证 SSH 目标及密钥/agent，以便补只读回查。
+
+### C03 实现范围与本地进展
+
+- 从已合入的 dev 创建独立分支 `codex/c03-app-compatibility-20261012`。只扩展既有 API/旧 Dart 合同测试和当前版本文档，不修改业务路由、价格规则、客户端运行代码、依赖、版本门禁或生产 Schema。
+- 使用既有 PostgreSQL 迁移 0000/0001/0003/0004/0006，在本地 PGlite 内存库建立目录、价格及读取场景；测试分区仅服务于该内存库，不新增迁移或连接远程数据库，也不增加/维护 D1 基座。
+- 41 张 TCG 样本覆盖目录可见性、字符串/前导零 ID、40+1+0 分页和按 set_id 查询；价格样本按 validated→published→pointer 的实际约束入库，确认零价为 0、只有未发布报价的卡牌仍未知、历史仅保留真实观察点。另覆盖空结果、422、404、数据库异常 500，以及 USD 汇率和无可用缓存时的上游 502。
+- KV 使用本地 Map，外部 fetch 默认拒绝；汇率成功只注入受控上游样本，经实际 loader/Hono 生成响应，未调用真实汇率源。响应样本增加可选 Content-Type 元数据，使实际纯文本 500 不被改写为 JSON 成功包；旧 JSON 默认值保留。公共目录/汇率无 Bearer，原 portfolio/scan 的 Bearer 和幂等键断言保持。
+- 旧 1.0.4/1.0.5 分别使用同样的新增合同；保留数值 card_ref、缺少 items、错误汇率 base 三种反例，以及显式未知价格/新增可选字段的兼容正例。当前只是 C03 首批源码合同，不能推断完整价格维度、其他游戏/数据源、实际目录抽样或正式包/真机通过。
+- 首轮 API 用例因新增夹具误用 product_type_name=Card 而失败；当前实现要求 Cards，已只修正夹具，没有修改业务过滤或放宽断言。随后首次完整运行 `run-tWRpmy` 为 API 8/8、两个旧源码各 24/24，无跳过。初轮类型检查因新文本响应推导为 unknown 失败；为助手保留默认 JSON 类型并给文本调用显式泛型后，根类型检查 7/7 通过（6 项缓存、Workers 实跑）；依赖方向检查、基线守卫 2/2 和 `flutter analyze --no-pub tool/compatibility` 均通过。
+- 已完成零价被误写为缺价的故障注入反证：在 API 断言完成后，临时将导出的 card-zero.price_usd 从 0 改为 null。API 8/8 仍通过，但旧 1.0.4 的“零价不是未知价”断言失败（期望 0、实际 null），runner 退出 1 / report=failed；按既有失败即停逻辑，负例未继续 1.0.5，未将其记为通过。负例为 run-yR6UhZ，恢复按原字节完成，run-EkThOn 复验 API 8/8、两组各 24/24。
+- 最终审查补齐旧 searchSets 不发送 page 的请求形式，与显式 page 的 searchCatalogSets 分列；最终 run-0bnsT6 为 API 8/8、39 份实际响应、两组各 24/24，无跳过。补齐后再次运行根类型检查 7/7（6 项缓存、Workers 实跑）和目标 Flutter analyze，均通过。所有本地报告均正确标记 workingTreeDirty=true；不把它们冒充已提交源码或托管 CI。
+- C03 本轮 Code Review（Codex 自审，非独立人工评审）检查了 PostgreSQL 真实读取与发布可见性、无外部 HTTP、前导零 ID、分页、零价/缺价区分、历史点、JSON/文本错误回放及旧鉴权断言；没有放宽既有断言或删除失败检查。日志中的 Contract database unavailable 是明确注入并断言 500 的预期场景，未屏蔽该日志。
+- 范围仅为测试和当前文档，未修改业务代码、迁移/Schema 文件、锁文件、工作流或旧版本归档；未重跑无关全量业务测试、产品打包、真机/正式制品与生产写入。C03 新代码尚未合入 dev，C12/C13 扩展留待后续。dev watcher release、备份、容器和 ledger 仍需可用 SSH 目标补验，不能用合并或 HTTP 200 关闭这些待验项。
+
+
+## 2026-10-12 C03 托管结果与 dev SSH 补验
+
+### C03 提交与托管检查
+
+- 提交 `7516c438c2f77d2fa5c7ca24146eb5806c44bf11` 已推送至 `codex/c03-app-compatibility-20261012`，建立 [Draft PR #6](https://github.com/kando6370-wq/toccards/pull/6)，目标为 dev，保持未合并。变更为两个合同测试文件、当前版本文档及 Agent 范围说明，不含业务运行代码或 Schema/migration 变更。
+- 13:58–14:10 独立回读 [push 兼容运行 38209819070](https://github.com/kando6370-wq/toccards/actions/runs/38209819070)、[PR 兼容运行 38209949303](https://github.com/kando6370-wq/toccards/actions/runs/38209949303) 和 [PR iOS unsigned build 38209949305](https://github.com/kando6370-wq/toccards/actions/runs/38209949305)，均为 completed/success。两个兼容 artifact 已下载，均核对为 API 8/8、旧 1.0.4/1.0.5 各 24/24、39 份实际响应、固定旧源码提交、workingTreeDirty=false，包含真实 text/plain 500 的失败语义。
+- push 报告源码为 `7516c43`，PR 报告源码为合并引用 `9deda2a2e68318caaf3d7eb5e596a9811601d7b3`；不把 merge ref 写成 head，也不把 CI 通过写成 PR 已合并。独立的 `Workers Builds: toccards-website` 预览检查仍失败，构建日志权限缺失，根因未确认；不纳入兼容测试通过的结论。
+
+### PR #3 合并后的 Linux dev 独立运行验收
+
+- 14:22–14:26 使用用户提供的 SSH 登录完成 `192.168.50.201` 只读补验，主机为 srs-node-test1；凭据未写入文件、命令参数或记录。此前 SSH 不可用的检查点按原时刻保留，本节关闭其中 watcher/release、容器、备份与 ledger 的待验项。没有启动第二次部署或修改 watcher/私有环境配置。
+- `readlink -f current`、`release-manifest.txt`、`shared/current-release`、`watcher/state/last-seen-sha` 与 `last-deployed-sha` 一致：release 为 `branch-dev-e8d1dd952f05-20261012131153`，源码为 `e8d1dd952f05b1f5d7a438ccc68c6f45e5fa1351`，来源为 kd201-branch-watcher。watcher 源码 checkout 为同一提交且 `git status --porcelain` 为空，failed-sha/failed-at 不存在；cron 保持每 2 分钟检查，14:18/14:20/14:22 的日志均报告没有新提交，核查时未见持锁部署进程。
+- `docker inspect` 只读取所需状态：API/DB 为 running/healthy，Web running，migration exited/0，Compose 工作目录均指向该 release，API 没有宿主端口绑定。PostgreSQL 实际为 18.6，PGDATA/data_directory 为 `/var/lib/postgresql/data`，数据卷为既有名称 `toccards-linux-test_postgres-data`。
+- 在 `BEGIN READ ONLY` 事务中查询 `schema_migrations`，共 14 项，最新 `0013_cards_all_search_trgm.sql`，该项 applied_at 为 2026-09-18T06:22:09.363963+00:00。与当前 release 的 14 个迁移文件对照，pendingMigrations 为空；实际预检日志同样为空，迁移容器日志逐项跳过已有 14 项，没有本轮新增迁移。核验未执行 migration、SQL 业务写入或恢复。
+- 发布前备份 `toccards-test-20261012-131155-before-branch-dev-e8d1dd952f05-20261012131153.dump` 为 1,135,398,457 字节，临时文件不存在。通过当前 PostgreSQL 18 容器只读执行 `pg_restore --list`，退出 0、列出 324 条非注释目录记录；归档头的 TOC Entries 为 328，两者口径不同。未做恢复演练，不据此宣称可恢复性已完整验收。
+- 通过 SHA-256 对照，容器中的 API bundle/source map 与 Web server 文件均匹配当前 release；Admin 全部 11 个 HTML/JS/CSS 文件同时在容器和 HTTP 响应中与 Linux release 原始字节一致。本轮未另做同提交 Windows 重建，不宣称跨平台构建逐字节一致。服务器本机和 Windows 内网请求均为 health 200（status=ok）、未登录 auth/me 401、Admin 首页 200 且标题正确；发布身份另由 manifest、watcher 和运行文件证明。
+- 14:28 GitHub 回读 dev 仍为 e8d1dd9，main 仍为 `7ac984ecd604b9fc483bf02c1bf0dded37651034`，PR #6 仍 Draft/未合并。因此 dev 验收对象为已合入的基础兼容改动，C03 增量尚未部署。正式旧包/真机、真实账号业务闭环、多游戏/完整价格维度、C12/C13 其余合同及全量兼容矩阵继续待验；本轮未执行生产发布。
