@@ -23,7 +23,7 @@
 - 测试输出通过 PowerShell Tee 写入 `ci.log` 后，显式将原生进程的非零退出码返回给 job；没有 continue-on-error 或失败后无条件成功。
 - 成功和失败均尝试上传 `ci.log`、每次运行的 `report.json` 与受控测试 `server-responses.json`，保留 7 天并允许选定的隐藏目录；不上传源码归档、整个 .dart_tool、依赖缓存或生产凭据。依赖初始化失败而尚无报告时，上传步骤允许缺少文件，但初始化步骤本身仍失败。
 
-门禁接入状态：基础合同的首次 push 与 PR #3 的 pull_request 托管运行均已通过并核验报告；PR #3 已于 2026-10-12 合入 dev@e8d1dd9，该合并提交的兼容 CI 与 iOS unsigned build 也通过，main 尚未同步。2026-10-12 经用户完成本机设备授权后，指定仓库所有者账号核验 `admin=true`；管理员回读确认此前 `main`/`dev` 均为 Branch not protected、规则集为空。已新增 [规则集 24904725](https://github.com/kando6370-wq/toccards/rules/24904725)，名称 `App compatibility required checks`、enforcement=active，只匹配 `refs/heads/main` 与 `refs/heads/dev`。
+门禁接入状态：基础合同的首次 push 与 PR #3 的 pull_request 托管运行均已通过并核验报告；PR #3 已于 2026-10-12 合入 dev@e8d1dd9，该合并提交的兼容 CI 与 iOS unsigned build 也通过；同日 14:22–14:26 已独立回读 dev watcher、release、容器、备份与迁移台账，确认实际运行 e8d1dd9。main 尚未同步，C03 的 Draft PR #6 尚未合入 dev。2026-10-12 经用户完成本机设备授权后，指定仓库所有者账号核验 `admin=true`；管理员回读确认此前 `main`/`dev` 均为 Branch not protected、规则集为空。已新增 [规则集 24904725](https://github.com/kando6370-wq/toccards/rules/24904725)，名称 `App compatibility required checks`、enforcement=active，只匹配 `refs/heads/main` 与 `refs/heads/dev`。
 
 规则只要求 `App compatibility (Windows)`，来源限定为 GitHub Actions（integration ID `15368`），没有 bypass actors。`strict_required_status_checks_policy=false`，不额外要求分支必须先同步最新 base；`do_not_enforce_on_create=false`。已通过有效分支规则 API 分别确认 `main`、`dev` 都应用同一规则集；`codex/v1.1.2-dev` 的有效规则为空，该次规则配置时两个目标分支提交未变；PR #3 后续合入 dev 的证据另见验证记录。
 
@@ -59,7 +59,7 @@ PR 另有独立的 iOS unsigned build 检查；兼容 job 成功不等于所有�
 | C07 | 未执行购买/恢复合同 | Apple 验证、Sandbox/TestFlight、真实 session proof 生命周期；Android 销售范围仍待决 |
 | C08 | 未执行 | 图片、分享、传输和弱网/内存 |
 | C09 | 无/非法/合法 X-Request-ID 不改变 401 包络，合法 ID 回传 | 401 刷新后的传输 ID、业务幂等键及实际网络重试 |
-| C10 | 基础合同及 C03 在本地内存 PostgreSQL 的选定既有迁移上验证；基础 GitHub push/PR 检查、main/dev 规则及双分支正反例阻断通过 | 全部目标 schema、缓存/滚动/回退兼容；正式工作流已合入 dev，main 未同步；未接入部署脚本，dev watcher release 未独立回读 |
+| C10 | 基础合同及 C03 在本地内存 PostgreSQL 的选定既有迁移上验证；基础 GitHub push/PR 检查、main/dev 规则及双分支正反例阻断通过；dev@e8d1dd9 的 watcher release 已独立回读 | 全部目标 schema、缓存/滚动/回退兼容；正式工作流已合入 dev，main 未同步；兼容合同未接入部署脚本 |
 | C11 | 两组不可变源码提交及版本/构建号登记 | iOS 1.0.4 正式 IPA 的可获取性、Android 实际分发制品、设备和渠道证据 |
 | C12 | 未新增冻结合同 | 估值/Performance、缺价/零价、部分历史和服务错误 |
 | C13 | 文件夹的当前 API 写入/旧端原有操作及再次读取 | 卡牌资产/Wishlist/扫描/价格新写旧读与真实设备 |
@@ -77,6 +77,6 @@ PR 另有独立的 iOS unsigned build 检查；兼容 job 成功不等于所有�
 - PostgreSQL 使用实际 price domain、发布指针及历史可见性约束；已发布零价保留为 0，只有未发布报价的卡牌在旧 DTO 中仍为 null，缺失历史不补造日期或零值。只覆盖 Raw/Near Mint/English/Normal 样本，不宣称所有价格维度通过。
 - KV 仅使用内存 Map，fetch 默认拒绝。汇率成功用受控上游输入经实际 loader/Hono 输出；无缓存的失败输出 502。数据库故障输出真实 text/plain 500，旧端必须抛错，不能变成成功空列表。没有请求真实汇率源或远端业务 API。
 - 新增数值 card_ref、缺少 items、汇率 base 错误三个解析反例，并保留显式 null/可选字段添加的兼容正例。另以临时故障注入将合法零价改为 null，确认旧端业务断言失败，恢复后全量通过；它是验证测试意图的人工反证，不是生产 BUG。
-- 当前规模为 API 8 项、39 份响应、每个固定旧源码 24 项；保留原来的所有合同。历史原始报告和旧版本文档不覆盖、不重写，C12/C13 其余场景及完整真机矩阵继续待验。
+- 当前规模为 API 8 项、39 份响应、每个固定旧源码 24 项；保留原来的所有合同。提交 `7516c43` 的 GitHub push 和 Draft PR #6 的 pull_request 报告均已下载核验，均为干净工作区；PR 测试使用合并引用 `9deda2a`，不是 head 本身，PR 仍未合并。历史原始报告和旧版本文档不覆盖、不重写，C12/C13 其余场景及完整真机矩阵继续待验。
 
 实际命令、失败排查、审查及结果见 [v1.1.2 验证记录](../05-delivery/VERIFICATION.md)。

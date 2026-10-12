@@ -193,3 +193,22 @@
 - 最终审查补齐旧 searchSets 不发送 page 的请求形式，与显式 page 的 searchCatalogSets 分列；最终 run-0bnsT6 为 API 8/8、39 份实际响应、两组各 24/24，无跳过。补齐后再次运行根类型检查 7/7（6 项缓存、Workers 实跑）和目标 Flutter analyze，均通过。所有本地报告均正确标记 workingTreeDirty=true；不把它们冒充已提交源码或托管 CI。
 - C03 本轮 Code Review（Codex 自审，非独立人工评审）检查了 PostgreSQL 真实读取与发布可见性、无外部 HTTP、前导零 ID、分页、零价/缺价区分、历史点、JSON/文本错误回放及旧鉴权断言；没有放宽既有断言或删除失败检查。日志中的 Contract database unavailable 是明确注入并断言 500 的预期场景，未屏蔽该日志。
 - 范围仅为测试和当前文档，未修改业务代码、迁移/Schema 文件、锁文件、工作流或旧版本归档；未重跑无关全量业务测试、产品打包、真机/正式制品与生产写入。C03 新代码尚未合入 dev，C12/C13 扩展留待后续。dev watcher release、备份、容器和 ledger 仍需可用 SSH 目标补验，不能用合并或 HTTP 200 关闭这些待验项。
+
+
+## 2026-10-12 C03 托管结果与 dev SSH 补验
+
+### C03 提交与托管检查
+
+- 提交 `7516c438c2f77d2fa5c7ca24146eb5806c44bf11` 已推送至 `codex/c03-app-compatibility-20261012`，建立 [Draft PR #6](https://github.com/kando6370-wq/toccards/pull/6)，目标为 dev，保持未合并。变更为两个合同测试文件、当前版本文档及 Agent 范围说明，不含业务运行代码或 Schema/migration 变更。
+- 13:58–14:10 独立回读 [push 兼容运行 38209819070](https://github.com/kando6370-wq/toccards/actions/runs/38209819070)、[PR 兼容运行 38209949303](https://github.com/kando6370-wq/toccards/actions/runs/38209949303) 和 [PR iOS unsigned build 38209949305](https://github.com/kando6370-wq/toccards/actions/runs/38209949305)，均为 completed/success。两个兼容 artifact 已下载，均核对为 API 8/8、旧 1.0.4/1.0.5 各 24/24、39 份实际响应、固定旧源码提交、workingTreeDirty=false，包含真实 text/plain 500 的失败语义。
+- push 报告源码为 `7516c43`，PR 报告源码为合并引用 `9deda2a2e68318caaf3d7eb5e596a9811601d7b3`；不把 merge ref 写成 head，也不把 CI 通过写成 PR 已合并。独立的 `Workers Builds: toccards-website` 预览检查仍失败，构建日志权限缺失，根因未确认；不纳入兼容测试通过的结论。
+
+### PR #3 合并后的 Linux dev 独立运行验收
+
+- 14:22–14:26 使用用户提供的 SSH 登录完成 `192.168.50.201` 只读补验，主机为 srs-node-test1；凭据未写入文件、命令参数或记录。此前 SSH 不可用的检查点按原时刻保留，本节关闭其中 watcher/release、容器、备份与 ledger 的待验项。没有启动第二次部署或修改 watcher/私有环境配置。
+- `readlink -f current`、`release-manifest.txt`、`shared/current-release`、`watcher/state/last-seen-sha` 与 `last-deployed-sha` 一致：release 为 `branch-dev-e8d1dd952f05-20261012131153`，源码为 `e8d1dd952f05b1f5d7a438ccc68c6f45e5fa1351`，来源为 kd201-branch-watcher。watcher 源码 checkout 为同一提交且 `git status --porcelain` 为空，failed-sha/failed-at 不存在；cron 保持每 2 分钟检查，14:18/14:20/14:22 的日志均报告没有新提交，核查时未见持锁部署进程。
+- `docker inspect` 只读取所需状态：API/DB 为 running/healthy，Web running，migration exited/0，Compose 工作目录均指向该 release，API 没有宿主端口绑定。PostgreSQL 实际为 18.6，PGDATA/data_directory 为 `/var/lib/postgresql/data`，数据卷为既有名称 `toccards-linux-test_postgres-data`。
+- 在 `BEGIN READ ONLY` 事务中查询 `schema_migrations`，共 14 项，最新 `0013_cards_all_search_trgm.sql`，该项 applied_at 为 2026-09-18T06:22:09.363963+00:00。与当前 release 的 14 个迁移文件对照，pendingMigrations 为空；实际预检日志同样为空，迁移容器日志逐项跳过已有 14 项，没有本轮新增迁移。核验未执行 migration、SQL 业务写入或恢复。
+- 发布前备份 `toccards-test-20261012-131155-before-branch-dev-e8d1dd952f05-20261012131153.dump` 为 1,135,398,457 字节，临时文件不存在。通过当前 PostgreSQL 18 容器只读执行 `pg_restore --list`，退出 0、列出 324 条非注释目录记录；归档头的 TOC Entries 为 328，两者口径不同。未做恢复演练，不据此宣称可恢复性已完整验收。
+- 通过 SHA-256 对照，容器中的 API bundle/source map 与 Web server 文件均匹配当前 release；Admin 全部 11 个 HTML/JS/CSS 文件同时在容器和 HTTP 响应中与 Linux release 原始字节一致。本轮未另做同提交 Windows 重建，不宣称跨平台构建逐字节一致。服务器本机和 Windows 内网请求均为 health 200（status=ok）、未登录 auth/me 401、Admin 首页 200 且标题正确；发布身份另由 manifest、watcher 和运行文件证明。
+- 14:28 GitHub 回读 dev 仍为 e8d1dd9，main 仍为 `7ac984ecd604b9fc483bf02c1bf0dded37651034`，PR #6 仍 Draft/未合并。因此 dev 验收对象为已合入的基础兼容改动，C03 增量尚未部署。正式旧包/真机、真实账号业务闭环、多游戏/完整价格维度、C12/C13 其余合同及全量兼容矩阵继续待验；本轮未执行生产发布。
