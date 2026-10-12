@@ -1,6 +1,6 @@
 # v1.1.2 开发文档
 
-状态：当前增量开发入口，2026-10-09 建立。新增业务需求、实现变化与验收范围尚未定义；本次仅切换文档版本，不代表 v1.1.2 已实现、部署或发布。
+状态：当前增量开发入口。2026-10-09 已落地首批 App 1.0.4/1.0.5 源码与当前 API 的兼容回归入口，覆盖配置、文件夹、额度及错误/关联的部分场景；完整兼容矩阵、正式旧包/真机及远程环境验收仍未完成，不代表 v1.1.2 已全面实现或发布。2026-10-12 [GitHub 兼容检查](../../../.github/workflows/app-compatibility.yml)已在 `eee77ab` 的 [push 运行](https://github.com/kando6370-wq/toccards/actions/runs/38192725017)通过，并已下载报告核验；[Draft PR #3](https://github.com/kando6370-wq/toccards/pull/3)指向 `dev`，其 [pull_request 运行](https://github.com/kando6370-wq/toccards/actions/runs/38194094012)也已通过，并独立核对合并引用的报告。同日 10:39 已使用仓库所有者授权配置必需检查，规则集 `24904725` 在 `main`/`dev` 的生效规则回读通过；用户随后补齐 Production/Previews Base 截图，已核对构建链与生产发布边界；隔离验收 PR #4/#5 均在兼容失败时被 GitHub 判为 BLOCKED，恢复后必需检查全部通过并解除该阻断；两条验收 PR 已关闭且未合并。生产发布标识回读未变，正式源码交付仍为 Draft PR #3；营销站预览失败继续单列，详见[兼容回归说明](03-data-api/app-compatibility.md)。
 
 ## 基线与版本边界
 
@@ -15,7 +15,7 @@
 
 | 范围 | 原文档 | 延续边界 |
 |---|---|---|
-| App 兼容 | [1.0.4+ 服务端契约](../v1.1.1/03-data-api/app-compatibility-contract.md)、[验收矩阵](../v1.1.1/05-delivery/app-compatibility-acceptance.md) | 仍为设计目标与待执行门禁，不能因归档标记为已验证实现。 |
+| App 兼容 | [本版本源码合同回归](03-data-api/app-compatibility.md)、[实际结果](05-delivery/VERIFICATION.md)；继承 [原契约](../v1.1.1/03-data-api/app-compatibility-contract.md)与[原矩阵](../v1.1.1/05-delivery/app-compatibility-acceptance.md) | 首批部分源码合同已执行，正式制品/真机及未覆盖业务仍待验，不等于全量兼容通过。 |
 | 扫描与移动端 | [扫描识别增量](../v1.1.1/01-flows/scan-recognition.md) | 保留真机批量、旧包业务闭环及性能/缓存一致性等未验项，按原日期记录判断。 |
 | 插件识别 | [接口契约](../v1.1.1/03-data-api/extension-recognition.md) | 保留 prod redirect 修复与用户调用恢复反馈；候选详情逐字段对照、限频触发、真实插件等独立专项验收未完成。 |
 | Admin | [后台增量及双 prod 入口](../v1.1.1/04-admin/admin.md) | 继续区分 Pages 与 Workers assets；静态产物检查不替代真实账号和页面交互验收。 |
@@ -33,7 +33,7 @@
 | `04-admin/` | 后台功能、权限和交互增量 | 有 Admin 变化时 |
 | `05-delivery/` | 验收、配置、发布和故障修复证据 | 有实际交付或补验证据时 |
 
-当前只建立本 README，不创建空目录、占位 PRD 或空验收记录，也不复制历史版本。
+当前已有本 README、`03-data-api/app-compatibility.md` 和 `05-delivery/VERIFICATION.md`；其他分类按实际需求创建，不复制历史版本或创建空占位。
 
 ## 维护规则
 
