@@ -78,3 +78,96 @@
 - 本轮未重跑所有 Workers/Flutter 业务测试、产品构建、正式旧包/真机或远端环境；原 C01–C13 尚未覆盖的业务与制品验收缺口继续保留。下一阶段资产/价格合同扩展尚未开始，不因本次 CI 定义完成而关闭。
 
 收尾文档检查：当前变更仅新工作流及 4 份相关文档/Agent 规则，27 处本地链接目标有效，`git diff --check` 通过；既有验证记录前缀、运行源码、兼容测试脚本、锁文件、旧工作流和 v1.0.0/v1.1.0/v1.1.1 归档均未改动。
+
+## 2026-10-12：GitHub push 托管验收与 PR 门禁接入
+
+### 已确认的 push 运行
+
+- 用户要求按下一步建议推进。当前工作区从干净的 `codex/v1.1.2-dev@eee77abc7321a3aa324aa4260ec4d2eabe64b4df` 开始；只读 Git 远端回查确认同名远端分支一致，`dev` 为 `d0ac970`、`main` 为 `7ac984e`。前述“尚未提交/推送”属于早前检查点，不覆盖本次新证据。
+- [GitHub Actions run 38192725017](https://github.com/kando6370-wq/toccards/actions/runs/38192725017)，event=push，head=`eee77abc7321a3aa324aa4260ec4d2eabe64b4df`，北京时间 2026-10-12 09:39–09:43，status=completed / conclusion=success。job/check `114628747612` 名称为 `App compatibility (Windows)`，来源为 GitHub Actions（app ID `15368`）。
+- 官方 API 回读的每个步骤均为 success，包括 Node/Flutter 安装、锁定依赖、auth-core build、基线守卫、兼容合同以及 artifact 上传；这是托管执行结果，不再只是本地冷检出结果。
+- 已下载 artifact `11722272010`（`app-compatibility-38192725017-1`），内含 `ci.log`、`run-yPwUYb/report.json` 和 `server-responses.json`。日志确认 API 4/4、旧 1.0.4 (161) 与 1.0.5 (163) 各 13/13，无跳过。报告为 passed，`serverCommit=eee77abc7321a3aa324aa4260ec4d2eabe64b4df`、`serverWorkingTreeDirty=false`，两组固定基线通过，证据仍为 `git-source-contracts-only`。
+- 原始 API 回读和 artifact 保留在本地忽略目录 `.dart_tool/compatibility-gate/20261012/`，不纳入 docs/Git。托管 artifact 保留 7 天，当前到期时间为北京时间 2026-10-19 09:43:22，链接过期后不能把无法下载当作重新验收通过。
+
+### PR、权限与合并门禁
+
+- 已创建 [Draft PR #3](https://github.com/kando6370-wq/toccards/pull/3)，`codex/v1.1.2-dev` → `dev`；创建时 head=`eee77ab`、base=`d0ac970`。该 PR 交付远端已有源码合同与 CI 增量；本轮三份文档补证仍是本地修改，尚未进入 PR。
+- [PR Actions run 38194094012](https://github.com/kando6370-wq/toccards/actions/runs/38194094012)，event=pull_request，关联 PR #3、head=`eee77ab`，北京时间 2026-10-12 10:00–10:04，completed/success；job/check `114632858918` 的所有步骤均为 success。已下载 artifact `11722134545`（`app-compatibility-38194094012-1`），日志确认 API 4/4、旧 1.0.4 和 1.0.5 各 13/13，无跳过，响应文件包含 20 个 cases。
+- PR 的 `run-G4RzmW/report.json` 为 passed、`serverWorkingTreeDirty=false`，两组固定旧源码通过；`serverCommit=f623de578d877e596d8bb3b4468000c1ba37b1ec` 与 PR API 的 `merge_commit_sha` 一致，是 GitHub 合并引用的测试结果，不能写成直接运行 head 或 PR 已合并。
+- 使用 Git 已配置的凭据请求仓库权限，API 返回 push=true、admin=false、maintain=false；凭据仅在进程内构造认证请求，未打印或落盘。规则集列表返回 200/空数组；经典 `main`/`dev` 分支保护详情返回 404。无管理员权限且保护配置不可确认，本轮未尝试写规则，也没有把 404 解释为必需检查必然不存在。
+- 待仓库管理员保留既有保护规则，在 `main`/`dev` 要求 GitHub Actions 的 `App compatibility (Windows)`，随后回读生效配置并用隔离失败 PR 验证阻断。当前 Draft PR 的不可合并不构成必需检查生效证据；因权限前置条件未满足，本轮未创建故意失败的远端 PR，未把本地失败反证等同于远端阻断。
+- Code Review 连接器返回需要登录 ChatGPT 才能连接 GitHub；本轮继续使用 GitHub 官方 REST API 核查 CI，不将 API 状态回读算作独立 Code Review。
+
+### 警告与验证边界
+
+- 该 push run 仅有一条 warning：`actions/checkout@v4`、`actions/setup-node@v4`、`actions/upload-artifact@v4` 面向 Node.js 20，被运行器强制以 Node.js 24 执行。实际步骤全部成功，本轮不升级 action；action 的内部运行时与应用测试使用的 Node 22 是不同层级。
+- PR 同时启动既有 [iOS build run 38194094128](https://github.com/kando6370-wq/toccards/actions/runs/38194094128)，北京时间 2026-10-12 10:10 回查 job `114632858896` 为 completed/success，所有步骤成功，包含 CocoaPods、锁文件检查和 unsigned release build；这是无签名编译通过，不代表签名包、TestFlight 或真机验收，也不覆盖下述独立营销站失败。
+- 既有 head 检查 `114628996073`（`Workers Builds: toccards-website`）在北京时间 09:40 已失败，早于本轮 PR 创建；它与 App compatibility 分属不同检查。使用既有 Wrangler 登录只读查询该 Cloudflare build `eaa9adab-070a-4359-b002-1ac64c6f4ac3` 返回 HTTP 403 / code 12004 Forbidden，因此没有获得根因、分支触发条件或 deploy command，也不据此断言已部署或绝不会部署生产。后续 push 的营销站影响尚未确认，本轮文档不提交/推送，未修改/绕过该集成。
+- 本轮文件改动仅为 v1.1.2 的三份文档补证；业务代码、兼容断言、工作流、锁文件、版本与历史归档不变。本地文档自审核对了 run/commit/事件、artifact 与权限证据，保留本地验证、push、PR 合并引用及必需检查的区别；没有新增业务修复，未进行独立代码评审。
+- 文档检查：`git diff --check` 退出 0；25 处本地链接目标有效；原 VERIFICATION 内容按 Git 规范化行尾逐字节前缀对照未变，修改路径严格限于本版本三份文档。
+- 没有 Git commit/push、合并 PR、手工部署、迁移或生产业务写入；创建 PR 仅启动上述 GitHub 测试/编译，未调用发布工作流。完整 C01–C13、C03/C12/C13 后续合同扩展、正式旧包/真机、Android 分发基线与生产插件专项仍按原记录待验；本轮没有重新运行本地全仓业务测试或产品构建。
+
+## 2026-10-12 10:39：管理员授权与必需检查规则生效
+
+- 用户完成 Git Credential Manager 的设备授权后，指定仓库所有者账号认证。设备授权命令退出 0，GitHub 身份回读符合目标账号，仓库权限为 admin=true / maintain=true / push=true；凭据仅在请求进程内使用，未打印、写入证据文件或修改 Git 作者配置。
+- 管理员写入前回读：规则集列表为 200/空数组，经典 `main`/`dev` 分支保护均为 404 / Branch not protected。此前低权限账号的 404 只代表当时无法确认，本条是本次管理员身份取得的新证据，不回写前述历史结论。
+- 已创建 [规则集 24904725](https://github.com/kando6370-wq/toccards/rules/24904725)，API 返回 201。名称 `App compatibility required checks`，target=branch、enforcement=active，只匹配 `refs/heads/main` 和 `refs/heads/dev`；唯一规则为 required_status_checks，要求 `App compatibility (Windows)`，integration_id=15368（GitHub Actions），bypass_actors 为空。
+- 配置保留最小范围：`strict_required_status_checks_policy=false`，不另外要求每次合并前同步 base；`do_not_enforce_on_create=false`。没有新增审批人数、部署要求或其他规则，未覆盖已有保护配置（写入前规则集与经典保护均为空）。
+- 北京时间 10:39:40 独立回读规则详情与两条分支的有效规则，均确认 active、相同规则 ID/检查名/来源；开发分支 `codex/v1.1.2-dev` 的有效规则仍为空。写入前后 `main=7ac984ecd604b9fc483bf02c1bf0dded37651034`、`dev=d0ac9708754d8c2d835e4a503bed2ad874aa92d3` 均未变；PR #3 保持 open/draft、merged=false。
+- 已完成本地配置审查与回读断言：两个精确分支、单一检查、可信来源、无绕过角色、其他分支不受影响、Git refs 不变。原始请求方案及脱敏回读保留在忽略目录 `.dart_tool/compatibility-gate/20261012/admin/`；不把权限凭据保存到文件。
+- **尚未执行失败 PR 阻断实测**：需要新增隔离远端提交，而前述 Cloudflare build 详情仍为 403，未确认推送的营销站发布影响；没有为了测试门禁而推送，也没有把 active 配置、成功检查或草稿状态写成失败阻断已验收。待确认发布边界后再补该项。
+- 本轮仅新增远端 GitHub 规则集并同步当前三份 v1.1.2 本地文档，继续保留前述历史验收内容；没有 Git commit/push、PR 合并、部署、迁移或业务写入。规则变更未改测试/工作流源码，本轮不重复运行此前已经通过的业务测试和构建。GitHub 管理权限已解决，Cloudflare 查询权限及发布边界仍是独立待办。 文档复验：`git diff --check` 退出 0，25 处本地链接有效，授权前的全部 VERIFICATION 内容按原始字节前缀保留，修改范围仍严格限于三份 v1.1.2 文档。
+
+## 2026-10-12 10:51：Cloudflare Builds 只读权限与发布边界补查
+
+- GitHub 管理员再次读取营销站失败 check `114628996073`：output 只有 Build ID/Cloudflare Dashboard 链接，text=null、annotations_count=0，annotations 为空；GitHub 侧没有该次构建日志或 deploy command，不能据此判断失败根因或非生产分支是否会切流。
+- 使用现有 Wrangler OAuth 凭据读取 Workers scripts API，返回 200，确认 `toccards-website` 与其 script tag；再按该 tag 请求 Builds triggers API，返回 HTTP 403、code 10000 / Authentication error。原始脱敏结果保留在 `.dart_tool/compatibility-gate/20261012/admin/cloudflare-trigger-access.json`。本轮只读取元数据，没有调用部署、构建重试或配置修改接口。
+- [Cloudflare Builds GET API](https://developers.cloudflare.com/api/resources/workers_builds/subresources/builds/methods/get/) 列出的接受权限为 Workers CI Read/Write；当前已授权的 OAuth scopes 不包含该权限。`wrangler login --scopes-list` 列出的 25 项命名权限中也未提供 CI/Builds scope，没有通过重新登录扩大 Workers、D1 或其他无关资源权限。Workers 元数据可读与 Builds 不可读属于不同权限边界，不把 GitHub admin 授权视为 Cloudflare 授权。
+- [Cloudflare Builds 配置说明](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/)区分 production branch、deploy command 与可配置的非生产分支发布命令；默认命令不能证明本项目云端实际配置。本轮仍未取得该 Worker 的生产分支、build command、deploy command、non-production branch deploy command 和 branch include/exclude 配置，需要有权限的维护者提供这页当前值或只读访问，且无需传递密码或 Token 到聊天。
+- 未新增远端提交、失败 PR 或文档推送；现有必需检查规则保持不变，失败 PR 阻断仍未验收。仅在本版本追加本次读权限与证据不足的结论，不修改营销站实现、构建集成或历史记录。
+
+## 2026-10-12：Production 设置截图与最小失败用例准备
+
+- 用户提供四张 Cloudflare Dashboard 截图。Production 页显示仓库 `kando6370-wq/toccards`、生产分支 `main`、Disable builds 开关关闭；构建命令显示 None，发布命令为 `pnpm run deploy`，根目录 `/apps/marketing-web`，Include paths 为 `apps/marketing-web/*`。Exclude paths 中灰色文本不能可靠区分占位提示与保存值，不把它记录成已确认排除规则；也未取得 Previews Base 页内容。
+- 截图原件及 SHA-256 清单保存在本地忽略目录 `.dart_tool/compatibility-gate/20261012/cloudflare-screenshots/`，没有加入 docs/Git。结论仅限用户提供的当前页面状态，不宣称取得 Cloudflare API 控制面回读或解释历史失败根因。
+- [Cloudflare 构建分支说明](https://developers.cloudflare.com/workers/ci-cd/builds/build-branches/)区分生产部署、当前预览部署与 legacy 非生产分支命令；未展示的预览配置不能从生产命令或默认值推断。历史 `eee77ab` 仅改 CI/文档，却有营销站失败 check，因此仍需确认 Previews Base，或取得当前配置的等价只读证据；本轮不新增远端提交。
+- 为后续远端故障注入准备了一处最小测试补丁：在兼容 API fixture 捕获 `folders-new-write` 后，将该响应首项 `sort_order` 从数字转成字符串；只改变将交给旧客户端的测试样本，不修改业务路由、数据库数据模型或断言，也不把这次人工注入称为生产 BUG。
+- 本地负例执行原 `pnpm test:app-compatibility`，退出 1：API 4/4 仍通过，旧 App 1.0.4 在 C04/C13 文件夹读取和可选字段兼容两项失败（11 通过、2 失败），堆栈包含 `_requiredInt` / `PortfolioFolderDto.fromJson`。runner report=failed；按既有失败即停逻辑，负例没有继续运行 1.0.5，不将其记为通过。证据目录 `.dart_tool/app-compatibility/run-3dQiDO/`。
+- 用 finally 按原始字节恢复测试源码，再执行同一命令，退出 0：API 4/4，旧 1.0.4 与 1.0.5 各 13/13，无跳过。复验目录 `.dart_tool/app-compatibility/run-vpdHJg/`；两次报告均标记工作区 dirty，因为已有未提交文档，不能写成干净提交构建。临时改动已恢复，源码与操作前逐字节一致。
+- 负例补丁、原始测试源码、两次命令日志及退出状态保存在忽略目录 `.dart_tool/compatibility-gate/20261012/probe-ff81d11f/`。本地自审核对了单点注入、旧端真实解析失败、失败非零退出和字节恢复；未创建负例 Git commit/分支、远端 PR、部署或迁移。此处只证明拟用负例有效，不能替代 GitHub 合并阻断实测。
+
+## 2026-10-12：Previews Base 补证与双分支门禁实测
+
+### 发布边界与验收输入
+
+- 用户补充三张 Previews Base 截图，显示 Builds for Preview branches 开启，Preview URLs 禁用但构建继续运行；build command=`pnpm run build`、preview command=`npx wrangler preview`、root directory=`/`、include paths=`*`，无显式构建变量/Secret。排除路径仍显示灰色提示，不判定为已保存规则。截图和 SHA-256 清单保留在忽略目录 `.dart_tool/compatibility-gate/20261012/cloudflare-screenshots/`。
+- 预览监听 `*` 与 Production 监听营销站目录是两组配置，能解释非营销站提交也出现构建检查；没有取得旧失败日志，因此不声称确认历史失败根因。按[预览部署说明](https://developers.cloudflare.com/workers/previews/)及当前源码核对，`wrangler preview` 创建预览；根 `turbo build` 仅编译、静态构建和 dry-run 打包，Linux dry-run 在 SSH 前返回，不会调用业务部署。没有修改构建命令、资源绑定、Token、Preview URLs 或生产配置。
+- 推送前已只读保存生产快照：main=`7ac984ecd604b9fc483bf02c1bf0dded37651034`，dev=`d0ac9708754d8c2d835e4a503bed2ad874aa92d3`；营销站最新 deployment=`af4eba2d-d4bf-4679-b6a2-253f6160585a`，API 最新 deployment=`317beb8f-ca11-4e7e-8b22-34488f13ec5d`，Admin Pages canonical deployment=`4e41a946-7112-4d07-8881-961b3b128d82`（来源 main 的 7ac984e）。最初直接回读使用的 OAuth access token 返回 401，经既有 Wrangler whoami 自动刷新后成功；未重新申请权限，Builds CI Read 缺口仍保留。
+- 建立隔离分支 `codex/compatibility-gate-probe-20261012`，从 eee77ab 生成负例提交 `5cb7c1535cddbe8843fb1e4740d975a9057bdb28`，仅改变测试 fixture 的一行 sort_order 类型。使用独立 Git index 生成提交，当前开发工作区及三份文档未切换/覆盖，未将故意失败代码加入 PR #3。
+- 已推送该隔离分支，创建非草稿 [PR #4 → dev](https://github.com/kando6370-wq/toccards/pull/4) 与 [PR #5 → main](https://github.com/kando6370-wq/toccards/pull/5)，标题标明禁止合并。远端负例、恢复复验及生产回读结果见下文，不以已创建 PR 冒充门禁验收通过。
+
+### GitHub 负例与合并资格回读
+
+- 负例 head=`5cb7c1535cddbe8843fb1e4740d975a9057bdb28` 的三个兼容运行均 completed/failure：push run `38199854960`；PR #4 → dev run `38199860315`；PR #5 → main run `38199862129`。下载 artifact 分别为 `11724884112`、`11725215392`、`11724704487`；全部报告为 failed、工作区干净，API 4/4 通过，旧 1.0.4 在文件夹 DTO 的 `_requiredInt` / `PortfolioFolderDto.fromJson` 失败，负例按 runner 约定不继续 1.0.5。
+- 逐份报告匹配实际被测试的提交：push=`5cb7c15`，PR #4 merge ref=`949b916badcbd493ed3f680215080f70863bedf8`，PR #5 merge ref=`edaf348c2a69e8b326cececf384dee44a02b52c7`。没有用 GitHub runs API 中“同 SHA 关联到两个 PR”的列表猜测运行目标，而是将报告 serverCommit 与各 PR 的 merge_commit_sha 对照。
+- GraphQL 对 PR #4/#5 分别返回 isDraft=false、mergeable=MERGEABLE、mergeStateStatus=BLOCKED；同一 head 上的兼容 check 均来自 GitHub Actions、isRequired=true、conclusion=FAILURE。营销站与 iOS check 均 isRequired=false，排除了草稿、代码冲突或非必需营销站失败充当本次门禁证据的情况。
+- 此处验收的是 GitHub 服务端报告的合并资格阻断，未调用实际 merge 接口；没有为了取得拒绝响应而冒险合并故意损坏的提交。没有取消、放宽或跳过任何必需检查。
+- artifact 日志带有 ANSI 颜色控制码，首次数量提取断言被其打断；确认原始日志仍为 API 4/4 后，仅对副本使用 Node 标准 stripVTControlCharacters，再运行同一数量断言通过；原始 ZIP/日志未改，测试和 CI 没有重写以适配解析器。
+- 负例回读保存在忽略目录 `.dart_tool/compatibility-gate/20261012/remote-execution/negative-proof.json` 及三个 artifact ZIP。
+
+### 恢复提交
+
+- 已在同一隔离分支以正常快进推送恢复提交 `3b26ed524435fd74d5c85f0b8fecabe2c10adc18`，其完整 Git tree 与 `eee77ab` 相同，保留负例提交用于审计。恢复后的实际检查及合并资格结果如下。
+
+- 恢复 head=`3b26ed524435fd74d5c85f0b8fecabe2c10adc18` 的三个兼容运行全部 completed/success；逐份下载报告均为 passed、干净工作区，API 4/4、旧 1.0.4 和 1.0.5 各 13/13，无跳过：
+
+| 事件/目标 | GitHub run | Artifact | 实际测试提交 |
+|---|---|---|---|
+| push | [38200396462](https://github.com/kando6370-wq/toccards/actions/runs/38200396462) | 11724254957 | 3b26ed524435fd74d5c85f0b8fecabe2c10adc18 |
+| PR #4 → dev | [38200400198](https://github.com/kando6370-wq/toccards/actions/runs/38200400198) | 11724849946 | 2c98fcaaabd51e38d6f96b36dc8d3ae6123f554e（merge ref） |
+| PR #5 → main | [38200400209](https://github.com/kando6370-wq/toccards/actions/runs/38200400209) | 11725266572 | 9fee4cabba53e2fcafec5e969601156bc15053eb（merge ref） |
+
+- GraphQL 确认两条非草稿 PR 的所有必需兼容 check 均 SUCCESS，mergeable=MERGEABLE，mergeStateStatus 从 BLOCKED 变为 UNSTABLE。营销站预览仍为非必需 FAILURE，因此只宣布兼容门禁解除阻断，不称全部检查通过。正例证据保留于忽略目录的 `positive-proof.json` 与三个 artifact ZIP。
+- 验收后已关闭 PR #4/#5，API 回读 state=closed、merged=false，head 均为恢复提交；未调用 merge API，未删除审计分支或历史提交。PR #3 保持正式交付草稿，未合入 dev/main。
+- 北京时间 11:42:02 回读 main/dev 的完整提交 SHA 与推送前一致；营销站与生产 API 的 deployment 列表（含版本/流量信息）逐项未变，Admin Pages canonical deployment 仍为 `4e41a946-7112-4d07-8881-961b3b128d82`。本轮只有既有非生产分支构建被触发，没有生产切流、人工部署或数据库操作；不会把预览构建失败判作生产发布失败或把其根因写成已查明。
+- 正式交付范围仅为三份 v1.1.2 文档补证；既有业务代码、工作流、锁文件、旧版本归档及用户材料均未更改。已检查 25 处本地链接、原有验收内容的字节前缀和变更路径，`git diff --check` 通过；本地自审核对了截图证据与 API 回读、push/head 与 PR merge ref、必需/非必需检查、失败阻断/恢复及未合并边界。C03/C12/C13 扩展与正式旧包/真机仍待后续执行。

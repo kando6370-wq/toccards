@@ -12,9 +12,9 @@
 - [编排脚本](../../../../scripts/check-app-compatibility.mjs)：先运行 API 合同，再从固定 Git 提交导出 App/订阅包源码到独立目录，为每个基线生成包映射并运行同一合同。冻结包的专用编译标记避免误用当前源码；未修改旧源码文件，不将最新客户端通过冒充旧包通过。
 - 原始样本、源码归档、依赖映射和 `report.json` 保留在忽略目录 `.dart_tool/app-compatibility/run-*/`，不进入正式 docs/Git；不同运行不覆盖旧证据。脚本只读取本机已有依赖映射/graph，在新目录内生成测试文件，不清理用户目录。
 
-## GitHub CI 检查（2026-10-12 新增定义）
+## GitHub CI 检查（2026-10-12）
 
-[App compatibility 工作流](../../../../.github/workflows/app-compatibility.yml)已新增到工作区。本轮先验证本地独立新检出目录，GitHub 托管执行和分支必需状态检查仍待后续完成；不能把本地命令通过写成远端 CI 已通过或仓库已禁止失败合并。
+[App compatibility 工作流](../../../../.github/workflows/app-compatibility.yml)已在 `codex/v1.1.2-dev@eee77abc7321a3aa324aa4260ec4d2eabe64b4df` 的 [GitHub push 运行](https://github.com/kando6370-wq/toccards/actions/runs/38192725017)通过。已下载 artifact 核对 API 4/4、旧 1.0.4 与 1.0.5 各 13/13，以及 `report.json` 的固定提交、干净工作区和 `git-source-contracts-only` 证据类型；[Draft PR #3](https://github.com/kando6370-wq/toccards/pull/3)的 [pull_request 运行](https://github.com/kando6370-wq/toccards/actions/runs/38194094012)也已通过。PR 报告独立确认同样的测试数量、20 份响应及干净工作区；实际测试提交为 GitHub 合并引用 `f623de578d877e596d8bb3b4468000c1ba37b1ec`，不是直接使用 head `eee77ab`，不代表 PR 已合并。2026-10-12 10:39 已配置分支必需检查并分别回读 `main`/`dev` 的生效规则；非草稿 PR #4/#5 的正反例已实测：兼容失败时两者均为 MERGEABLE（无代码冲突）但 BLOCKED；恢复后必需检查全部通过，两者变为 UNSTABLE，保留非必需营销站预览失败。验收 PR 已关闭且未合并，未调用 merge API；这不代表全部 CI 或完整 App 兼容矩阵通过。
 
 - 检查名称固定为 `App compatibility (Windows)`，运行器为 `windows-2022`；PR 目标为 `dev`/`main`，同时响应 `dev`/`main`/`codex/**` 的 push，保留手工触发入口。PR 不使用 paths/paths-ignore，避免检查因文件过滤而缺席。
 - 使用 Node 22、pnpm 11.9.0、Flutter 3.44.7；Flutter 与当前 GitHub iOS 流水线版本一致，不改 GitLab 的独立工具链约束。checkout 获取完整历史和标签，已有基线仍按完整提交 SHA 校验。
@@ -23,7 +23,18 @@
 - 测试输出通过 PowerShell Tee 写入 `ci.log` 后，显式将原生进程的非零退出码返回给 job；没有 continue-on-error 或失败后无条件成功。
 - 成功和失败均尝试上传 `ci.log`、每次运行的 `report.json` 与受控测试 `server-responses.json`，保留 7 天并允许选定的隐藏目录；不上传源码归档、整个 .dart_tool、依赖缓存或生产凭据。依赖初始化失败而尚无报告时，上传步骤允许缺少文件，但初始化步骤本身仍失败。
 
-远端接入顺序：先提交/推送本工作流，让 GitHub 上的实际运行通过，再由有权限的维护者在 main/dev 的分支规则中将首次运行确认的 `App compatibility (Windows)` 设为必需检查。测试失败会令该 job 失败；是否真正阻止合并还取决于分支规则，工作流文件本身不能证明规则已生效。本轮不修改分支保护，也没有接入部署脚本。
+门禁接入状态：首次 push 与 Draft PR #3 的 pull_request 托管运行均已通过并核验报告，PR 目标为 `dev`。2026-10-12 经用户完成本机设备授权后，指定仓库所有者账号核验 `admin=true`；管理员回读确认此前 `main`/`dev` 均为 Branch not protected、规则集为空。已新增 [规则集 24904725](https://github.com/kando6370-wq/toccards/rules/24904725)，名称 `App compatibility required checks`、enforcement=active，只匹配 `refs/heads/main` 与 `refs/heads/dev`。
+
+规则只要求 `App compatibility (Windows)`，来源限定为 GitHub Actions（integration ID `15368`），没有 bypass actors。`strict_required_status_checks_policy=false`，不额外要求分支必须先同步最新 base；`do_not_enforce_on_create=false`。已通过有效分支规则 API 分别确认 `main`、`dev` 都应用同一规则集；`codex/v1.1.2-dev` 的有效规则为空，两个目标分支提交未变，PR #3 仍未合并。
+
+隔离正反例验收已完成：[PR #4](https://github.com/kando6370-wq/toccards/pull/4) 目标 dev，[PR #5](https://github.com/kando6370-wq/toccards/pull/5) 目标 main；两者均为非草稿，使用独立分支 codex/compatibility-gate-probe-20261012，只在测试 fixture 中注入已本地验证的错误字段类型。已核对两条 PR 均为非草稿、MERGEABLE（无代码冲突）但合并状态 BLOCKED，唯一必需的 App compatibility 检查均为 FAILURE；营销站和 iOS 检查的 isRequired=false。同一分支恢复提交 3b26ed5 的文件树与 eee77ab 完全相同，push 及两条 PR 的兼容运行全部通过，并逐份下载核对 API 4/4、两组旧端各 13/13、固定基线、干净工作区和实际 merge ref。两条 PR 均从 BLOCKED 变为 UNSTABLE；随后关闭且未合并，验收分支保留为已恢复状态。正式工作流源码仍由 Draft PR #3 交付，尚未合入 dev/main。
+
+已知非阻塞警告：该次运行提示 `actions/checkout@v4`、`actions/setup-node@v4` 和 `actions/upload-artifact@v4` 面向 Node.js 20，托管运行器强制以 Node.js 24 运行；实际步骤成功。本轮保留 action 版本，后续升级需单独验证，不将 action 运行时与测试使用的 Node 22 混为一谈。
+
+PR 另有独立的 iOS unsigned build 检查；兼容 job 成功不等于所有检查通过。用户于 2026-10-12 提供的 Production 截图显示：生产分支 main、构建命令 None、发布命令 pnpm run deploy、根目录 /apps/marketing-web、监听路径 apps/marketing-web/*。随后补充的 Previews Base 截图显示：预览构建开启，Preview URLs 关闭但构建仍会执行；构建命令 pnpm run build、预览命令 npx wrangler preview、根目录 /、监听路径 *。这些是用户提供的页面证据，不冒充 Builds API 回读；灰色排除路径提示不记为已保存配置。
+
+预览监听范围能解释非营销站提交也触发构建，但不能据此确定历史构建失败根因。已读取根构建链：turbo build 只执行编译/静态构建及 Workers dry-run，Linux dry-run 在 SSH 前返回；预览命令与生产部署命令分开。故本轮仅推送 codex 分支，允许既有预览检查运行，不修改 Cloudflare 设置或推送 main/dev；推送前后另行对照生产 Worker deployments 和 Pages canonical deployment。既有 Cloudflare 失败继续作为独立检查记录，详见本版本[验证记录](../05-delivery/VERIFICATION.md)。
+
 ## 基线及证明范围
 
 | 源码基线 | 固定提交 | 证据边界 |
@@ -48,7 +59,7 @@
 | C07 | 未执行购买/恢复合同 | Apple 验证、Sandbox/TestFlight、真实 session proof 生命周期；Android 销售范围仍待决 |
 | C08 | 未执行 | 图片、分享、传输和弱网/内存 |
 | C09 | 无/非法/合法 X-Request-ID 不改变 401 包络，合法 ID 回传 | 401 刷新后的传输 ID、业务幂等键及实际网络重试 |
-| C10 | 本地内存 PostgreSQL 的两个既有迁移支持本轮场景 | 全部目标 schema、缓存/滚动/回退兼容；已有 CI 工作流定义，托管运行及必需检查未验证，未接入部署脚本 |
+| C10 | 本地内存 PostgreSQL 的两个既有迁移支持本轮场景；GitHub push/PR 检查通过；main/dev 规则回读及双分支正反例阻断实测通过 | 全部目标 schema、缓存/滚动/回退兼容；正式工作流待 PR #3 合入，未接入部署脚本 |
 | C11 | 两组不可变源码提交及版本/构建号登记 | iOS 1.0.4 正式 IPA 的可获取性、Android 实际分发制品、设备和渠道证据 |
 | C12 | 未新增冻结合同 | 估值/Performance、缺价/零价、部分历史和服务错误 |
 | C13 | 文件夹的当前 API 写入/旧端原有操作及再次读取 | 卡牌资产/Wishlist/扫描/价格新写旧读与真实设备 |
@@ -57,7 +68,7 @@
 
 - 合同包含三个反例：升级字段改成错误类型、额度字段缺失、额度 access 枚举未知，旧客户端必须报错；另验证添加可选响应字段仍可读取；不能以“没有崩溃”或空数据作为成功。
 - 使用当前包映射而非冻结源码会因专用 marker 缺失而编译失败；不会静默降级成只测最新客户端。注册表也拒绝空集合、非固定 SHA、标签不匹配及用构建号重复计营销版本。
-- 该命令已配置为新 GitHub CI job 的检查入口；远端运行、分支必需检查及部署门禁不能由本地结果代替。部署、签名包安装、真实账号/生产写入及外部购买调用仍需单独授权。
+- 该命令已在 GitHub push 和 pull_request job 分别实跑通过，main/dev 必需检查配置、失败阻断及恢复正例已分别验收；正式工作流尚待 PR #3 合入，部署门禁未接入，不将源码合同门禁写成真机或发布验收通过。部署、签名包安装、真实账号/生产写入及外部购买调用仍需单独授权。
 - 设备补验需产品/发布负责人提供可获取的 iOS 1.0.4 正式制品及授权账号；Android 需先确定实际分发基线。取得后按原 C01–C13 场景补证，不能仅凭源码版本或本轮测试推断平台通过。
 
 实际命令、失败排查、审查及结果见 [v1.1.2 验证记录](../05-delivery/VERIFICATION.md)。
