@@ -171,3 +171,25 @@
 - 验收后已关闭 PR #4/#5，API 回读 state=closed、merged=false，head 均为恢复提交；未调用 merge API，未删除审计分支或历史提交。PR #3 保持正式交付草稿，未合入 dev/main。
 - 北京时间 11:42:02 回读 main/dev 的完整提交 SHA 与推送前一致；营销站与生产 API 的 deployment 列表（含版本/流量信息）逐项未变，Admin Pages canonical deployment 仍为 `4e41a946-7112-4d07-8881-961b3b128d82`。本轮只有既有非生产分支构建被触发，没有生产切流、人工部署或数据库操作；不会把预览构建失败判作生产发布失败或把其根因写成已查明。
 - 正式交付范围仅为三份 v1.1.2 文档补证；既有业务代码、工作流、锁文件、旧版本归档及用户材料均未更改。已检查 25 处本地链接、原有验收内容的字节前缀和变更路径，`git diff --check` 通过；本地自审核对了截图证据与 API 回读、push/head 与 PR merge ref、必需/非必需检查、失败阻断/恢复及未合并边界。C03/C12/C13 扩展与正式旧包/真机仍待后续执行。
+
+## 2026-10-12：PR #3 审查、dev 合入与 C03 合同扩展
+
+### 已完成的审查和 Git 交付
+
+- 用户授权按“完整审查 PR #3 → dev 交付及验收 → C03 扩展”的建议继续。本轮对 fbf7382 的完整 13 文件变更进行 Codex 审查，检查固定源码/包映射、实际 Hono 请求与旧 DTO、错误/退出码、只读 CI 权限和产物范围，未发现当前范围的阻断项。GitHub review `5486708864` 为 COMMENTED，明确为 Codex 审查，不冒充独立人工审批。
+- PR #3 转为 ready 后，核验精确 head、dev base 和两项必需兼容检查 SUCCESS，再按用户授权通过 GitHub 合并；北京时间 13:07:20 回读为 merged/closed，dev=`e8d1dd952f05b1f5d7a438ccc68c6f45e5fa1351`，合并树与审查过的 fbf7382 相同，main 仍为 `7ac984ecd604b9fc483bf02c1bf0dded37651034`。没有绕过状态检查或修改合并规则。
+- dev 合并提交的 [兼容运行 38206582264](https://github.com/kando6370-wq/toccards/actions/runs/38206582264) 与 [iOS unsigned build 38206582275](https://github.com/kando6370-wq/toccards/actions/runs/38206582275) 均 completed/success。13:19:56 内网回读 health=200、未登录 auth/me=401、Admin 首页=200；这些响应不包含 release SHA，不能证明运行版本已切换到该提交。
+- **dev 运行验收未闭合**：本机 kd201 别名不能解析；文档示例 user@192.168.50.201 的 BatchMode/StrictHostKeyChecking SSH 被拒绝。未读取 watcher current/last-deployed、发布日志、容器、备份或 ledger。合并会命中仓库中的监听路径规则，但未取得远端证据，不能宣布 watcher 实际发布完成；没有并发启动手工部署、修改服务器凭据或进行远程迁移。需要维护者提供本机可用的已验证 SSH 目标及密钥/agent，以便补只读回查。
+
+### C03 实现范围与本地进展
+
+- 从已合入的 dev 创建独立分支 `codex/c03-app-compatibility-20261012`。只扩展既有 API/旧 Dart 合同测试和当前版本文档，不修改业务路由、价格规则、客户端运行代码、依赖、版本门禁或生产 Schema。
+- 使用既有 PostgreSQL 迁移 0000/0001/0003/0004/0006，在本地 PGlite 内存库建立目录、价格及读取场景；测试分区仅服务于该内存库，不新增迁移或连接远程数据库，也不增加/维护 D1 基座。
+- 41 张 TCG 样本覆盖目录可见性、字符串/前导零 ID、40+1+0 分页和按 set_id 查询；价格样本按 validated→published→pointer 的实际约束入库，确认零价为 0、只有未发布报价的卡牌仍未知、历史仅保留真实观察点。另覆盖空结果、422、404、数据库异常 500，以及 USD 汇率和无可用缓存时的上游 502。
+- KV 使用本地 Map，外部 fetch 默认拒绝；汇率成功只注入受控上游样本，经实际 loader/Hono 生成响应，未调用真实汇率源。响应样本增加可选 Content-Type 元数据，使实际纯文本 500 不被改写为 JSON 成功包；旧 JSON 默认值保留。公共目录/汇率无 Bearer，原 portfolio/scan 的 Bearer 和幂等键断言保持。
+- 旧 1.0.4/1.0.5 分别使用同样的新增合同；保留数值 card_ref、缺少 items、错误汇率 base 三种反例，以及显式未知价格/新增可选字段的兼容正例。当前只是 C03 首批源码合同，不能推断完整价格维度、其他游戏/数据源、实际目录抽样或正式包/真机通过。
+- 首轮 API 用例因新增夹具误用 product_type_name=Card 而失败；当前实现要求 Cards，已只修正夹具，没有修改业务过滤或放宽断言。随后首次完整运行 `run-tWRpmy` 为 API 8/8、两个旧源码各 24/24，无跳过。初轮类型检查因新文本响应推导为 unknown 失败；为助手保留默认 JSON 类型并给文本调用显式泛型后，根类型检查 7/7 通过（6 项缓存、Workers 实跑）；依赖方向检查、基线守卫 2/2 和 `flutter analyze --no-pub tool/compatibility` 均通过。
+- 已完成零价被误写为缺价的故障注入反证：在 API 断言完成后，临时将导出的 card-zero.price_usd 从 0 改为 null。API 8/8 仍通过，但旧 1.0.4 的“零价不是未知价”断言失败（期望 0、实际 null），runner 退出 1 / report=failed；按既有失败即停逻辑，负例未继续 1.0.5，未将其记为通过。负例为 run-yR6UhZ，恢复按原字节完成，run-EkThOn 复验 API 8/8、两组各 24/24。
+- 最终审查补齐旧 searchSets 不发送 page 的请求形式，与显式 page 的 searchCatalogSets 分列；最终 run-0bnsT6 为 API 8/8、39 份实际响应、两组各 24/24，无跳过。补齐后再次运行根类型检查 7/7（6 项缓存、Workers 实跑）和目标 Flutter analyze，均通过。所有本地报告均正确标记 workingTreeDirty=true；不把它们冒充已提交源码或托管 CI。
+- C03 本轮 Code Review（Codex 自审，非独立人工评审）检查了 PostgreSQL 真实读取与发布可见性、无外部 HTTP、前导零 ID、分页、零价/缺价区分、历史点、JSON/文本错误回放及旧鉴权断言；没有放宽既有断言或删除失败检查。日志中的 Contract database unavailable 是明确注入并断言 500 的预期场景，未屏蔽该日志。
+- 范围仅为测试和当前文档，未修改业务代码、迁移/Schema 文件、锁文件、工作流或旧版本归档；未重跑无关全量业务测试、产品打包、真机/正式制品与生产写入。C03 新代码尚未合入 dev，C12/C13 扩展留待后续。dev watcher release、备份、容器和 ledger 仍需可用 SSH 目标补验，不能用合并或 HTTP 200 关闭这些待验项。

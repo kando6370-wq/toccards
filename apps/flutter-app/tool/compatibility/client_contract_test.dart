@@ -8,6 +8,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/app_upgrade/app_upgrade_models.dart';
 import 'package:kando_app/features/app_upgrade/app_upgrade_repository.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/shared/card_data/card_data_api_client.dart';
+import 'package:kando_app/shared/currency/currency_rate_api.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/scan/scan_api_client.dart';
 
@@ -134,6 +136,243 @@ void runClientContracts(String actualSourceCommit) {
                 .having((e) => e.statusCode, 'status', 401)
                 .having((e) => e.code, 'code', 'UNAUTHORIZED'),
           ),
+        );
+      },
+    );
+    test(
+      'C03 public game and set IDs remain strings usable by old navigation',
+      () async {
+        final games = await CardDataApiClient(
+          replay('catalog-games'),
+        ).listGames();
+        expect(games.map((game) => game.id).toList(), ['25']);
+        expect(games.single.name, 'Pokemon');
+        final sets = await CardDataApiClient(
+          replay('catalog-sets'),
+        ).searchCatalogSets('', game: 'Pokemon');
+        expect(sets.single.setId, '0010');
+        expect(sets.single.setCode, 'C03');
+        expect(sets.single.cardCount, 41);
+        expect(sets.single.imageUrl, endsWith('/cards/0001.jpg'));
+        final legacySets = await CardDataApiClient(
+          replay('catalog-sets-legacy'),
+        ).searchSets('Contract', game: 'Pokemon');
+        expect(legacySets.single.setId, '0010');
+        expect(legacySets.single.cardCount, 41);
+      },
+    );
+    test(
+      'C03 pagination reaches the last card without repeating the first page',
+      () async {
+        final first = await CardDataApiClient(
+          replay('catalog-page-1'),
+        ).searchCardPage('Contract Card', game: 'Pokemon', page: 1);
+        final second = await CardDataApiClient(
+          replay('catalog-page-2'),
+        ).searchCardPage('Contract Card', game: 'Pokemon', page: 2);
+        expect(first.length, 40);
+        expect(first.first.cardRef, '0001');
+        expect(first.last.cardRef, '0040');
+        expect(first.first.priceUsd, 0);
+        expect(first[1].priceUsd, isNull);
+        expect(second.single.cardRef, '0041');
+        expect(
+          {
+            ...first.map((card) => card.cardRef),
+            ...second.map((card) => card.cardRef),
+          }.length,
+          41,
+        );
+        expect(
+          await CardDataApiClient(
+            replay('catalog-page-3'),
+          ).searchCardPage('Contract Card', game: 'Pokemon', page: 3),
+          isEmpty,
+        );
+        final setCards = await CardDataApiClient(
+          replay('catalog-set-page-2'),
+        ).cardsForSet('0010', game: 'Pokemon', page: 2);
+        expect(setCards.single.cardRef, '0041');
+      },
+    );
+    test(
+      'C03 a published zero price is not unknown and a pending import is not a quote',
+      () async {
+        final zero = await CardDataApiClient(
+          replay('card-zero'),
+        ).getCard('0001');
+        final unknown = await CardDataApiClient(
+          replay('card-unknown'),
+        ).getCard('0002');
+        expect(zero.cardRef, '0001');
+        expect(zero.cardNumber, '01');
+        expect(zero.priceUsd, 0);
+        expect(zero.previous7dPriceUsd, 1.5);
+        expect(zero.priceAsOf, '2026-10-12');
+        expect(zero.availableFinishes, contains('Normal'));
+        expect(zero.imageUrl, endsWith('/cards/0001.jpg'));
+        expect(unknown.cardRef, '0002');
+        expect(unknown.priceUsd, isNull);
+      },
+    );
+    test(
+      'C03 market prices and partial history preserve USD zeroes without invented dates',
+      () async {
+        final prices = await CardDataApiClient(
+          replay('prices-zero'),
+        ).getMarketPrices('0001', finish: 'Normal', language: 'English');
+        expect(prices.single.grader, 'Raw');
+        expect(prices.single.grade, isNull);
+        expect(prices.single.condition, 'Near Mint');
+        expect(prices.single.price, 0);
+        expect(prices.single.previous7dPriceUsd, 1.5);
+        final history = await CardDataApiClient(replay('history-zero'))
+            .getPriceSeries(
+              '0001',
+              days: 30,
+              condition: 'Near Mint',
+              finish: 'Normal',
+            );
+        expect(history.map((point) => point.date).toList(), [
+          '2026-10-01',
+          '2026-10-05',
+          '2026-10-12',
+        ]);
+        expect(history.map((point) => point.price).toList(), [2, 1.5, 0]);
+        expect(
+          await CardDataApiClient(
+            replay('prices-unknown'),
+          ).getMarketPrices('0002'),
+          isEmpty,
+        );
+        expect(
+          await CardDataApiClient(
+            replay('history-unknown'),
+          ).getPriceSeries('0002', days: 30),
+          isEmpty,
+        );
+      },
+    );
+    test(
+      'C03 empty search stays distinct from validation, not-found and database errors',
+      () async {
+        expect(
+          await CardDataApiClient(
+            replay('catalog-empty'),
+          ).searchCardPage('No matching contract', page: 1),
+          isEmpty,
+        );
+        await expectLater(
+          CardDataApiClient(
+            replay('catalog-invalid'),
+          ).searchCardPage('', page: 1),
+          throwsA(
+            isA<CardDataApiException>()
+                .having((error) => error.statusCode, 'status', 422)
+                .having((error) => error.code, 'code', 'VALIDATION_ERROR'),
+          ),
+        );
+        await expectLater(
+          CardDataApiClient(replay('card-not-found')).getCard('missing'),
+          throwsA(
+            isA<CardDataApiException>()
+                .having((error) => error.statusCode, 'status', 404)
+                .having((error) => error.code, 'code', 'NOT_FOUND'),
+          ),
+        );
+        await expectLater(
+          CardDataApiClient(
+            replay('catalog-unavailable'),
+          ).searchCardPage('Unavailable contract', page: 1),
+          throwsA(
+            isA<CardDataApiException>().having(
+              (error) => error.statusCode,
+              'status',
+              500,
+            ),
+          ),
+        );
+      },
+    );
+    test(
+      'C03 old currency requests keep USD conversion and reuse one valid response',
+      () async {
+        final rates = HttpCurrencyRateApi(replay('rates-available'));
+        expect(await rates.loadUsdRate('EUR'), 0.92);
+        expect(await rates.loadUsdRate('JPY'), 150);
+        expect(await rates.loadUsdRate('USD'), 1);
+      },
+    );
+    test(
+      'C03 an unavailable rate must not become a successful zero conversion',
+      () async {
+        await expectLater(
+          HttpCurrencyRateApi(replay('rates-unavailable')).loadUsdRate('EUR'),
+          throwsA(isA<CurrencyRateApiException>()),
+        );
+      },
+    );
+    test(
+      'C03 explicit unknown prices and optional additions stay readable',
+      () async {
+        final card = await CardDataApiClient(
+          replay(
+            'card-unknown',
+            mutate: (sample) {
+              sample['body']['data']['price_usd'] = null;
+              sample['body']['data']['future_optional_field'] = 'added';
+            },
+          ),
+        ).getCard('0002');
+        expect(card.cardRef, '0002');
+        expect(card.priceUsd, isNull);
+      },
+    );
+    test(
+      'negative C03 contract: numeric card refs cannot silently lose leading zeroes',
+      () async {
+        await expectLater(
+          CardDataApiClient(
+            replay(
+              'card-zero',
+              mutate: (sample) {
+                sample['body']['data']['card_ref'] = 1;
+              },
+            ),
+          ).getCard('0001'),
+          throwsA(isA<CardDataApiException>()),
+        );
+      },
+    );
+    test(
+      'negative C03 contract: absent items cannot become an empty catalog',
+      () async {
+        await expectLater(
+          CardDataApiClient(
+            replay(
+              'catalog-page-1',
+              mutate: (sample) {
+                (sample['body']['data'] as Map).remove('items');
+              },
+            ),
+          ).searchCardPage('Contract Card', game: 'Pokemon', page: 1),
+          throwsA(isA<CardDataApiException>()),
+        );
+      },
+    );
+    test(
+      'negative C03 contract: a foreign base must not be interpreted as a USD rate',
+      () async {
+        await expectLater(
+          HttpCurrencyRateApi(
+            replay(
+              'rates-available',
+              mutate: (sample) {
+                sample['body']['data']['base'] = 'EUR';
+              },
+            ),
+          ).loadUsdRate('EUR'),
+          throwsA(isA<CurrencyRateApiException>()),
         );
       },
     );
@@ -315,17 +554,29 @@ class _ContractAdapter implements HttpClientAdapter {
       if (bytes.isNotEmpty) body = jsonDecode(utf8.decode(bytes));
     }
     expect(body, sample['requestBody']);
-    if (expected.path != '/app-config') {
+    if (expected.path.startsWith('/portfolio/') ||
+        expected.path.startsWith('/scan/')) {
       expect(options.headers['Authorization'], 'Bearer contract-access');
+    } else {
+      expect(
+        options.headers['Authorization'],
+        isNull,
+        reason:
+            'Public catalog, rates and configuration work without a session',
+      );
     }
     if (expected.path == '/scan/quota/reserve') {
       expect(options.headers['Idempotency-Key'], reservationId);
     }
+    final contentType =
+        sample['contentType'] as String? ?? Headers.jsonContentType;
     return ResponseBody.fromString(
-      jsonEncode(sample['body']),
+      contentType.contains(Headers.jsonContentType)
+          ? jsonEncode(sample['body'])
+          : sample['body'] as String,
       sample['status'] as int,
       headers: {
-        Headers.contentTypeHeader: [Headers.jsonContentType],
+        Headers.contentTypeHeader: [contentType],
       },
     );
   }
