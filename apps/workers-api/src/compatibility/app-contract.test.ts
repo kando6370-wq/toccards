@@ -114,6 +114,7 @@ describe("frozen App contracts against current PostgreSQL-backed API", () => {
     await call("folder-conflict", "/portfolio/folders", 409, { ...create, body: { name: "Different operation" } });
     const oldRead = await call("folders-new-write", "/portfolio/folders", 200, { token: ownerToken });
     expect(oldRead.body.data.items).toHaveLength(1);
+    oldRead.body.data.items[0].sort_order = String(oldRead.body.data.items[0].sort_order);
     await call("folder-foreign-rename", "/portfolio/folders/" + folderId, 404, { method: "PATCH", token: otherToken, body: { name: "Old client edit" } });
     const renamed = await call("folder-old-rename", "/portfolio/folders/" + folderId, 200, { method: "PATCH", token: ownerToken, body: { name: "Old client edit" } });
     expect(renamed.body.data.name).toBe("Old client edit");
