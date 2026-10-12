@@ -12,6 +12,18 @@
 - [编排脚本](../../../../scripts/check-app-compatibility.mjs)：先运行 API 合同，再从固定 Git 提交导出 App/订阅包源码到独立目录，为每个基线生成包映射并运行同一合同。冻结包的专用编译标记避免误用当前源码；未修改旧源码文件，不将最新客户端通过冒充旧包通过。
 - 原始样本、源码归档、依赖映射和 `report.json` 保留在忽略目录 `.dart_tool/app-compatibility/run-*/`，不进入正式 docs/Git；不同运行不覆盖旧证据。脚本只读取本机已有依赖映射/graph，在新目录内生成测试文件，不清理用户目录。
 
+## GitHub CI 检查（2026-10-12 新增定义）
+
+[App compatibility 工作流](../../../../.github/workflows/app-compatibility.yml)已新增到工作区。本轮先验证本地独立新检出目录，GitHub 托管执行和分支必需状态检查仍待后续完成；不能把本地命令通过写成远端 CI 已通过或仓库已禁止失败合并。
+
+- 检查名称固定为 `App compatibility (Windows)`，运行器为 `windows-2022`；PR 目标为 `dev`/`main`，同时响应 `dev`/`main`/`codex/**` 的 push，保留手工触发入口。PR 不使用 paths/paths-ignore，避免检查因文件过滤而缺席。
+- 使用 Node 22、pnpm 11.9.0、Flutter 3.44.7；Flutter 与当前 GitHub iOS 流水线版本一致，不改 GitLab 的独立工具链约束。checkout 获取完整历史和标签，已有基线仍按完整提交 SHA 校验。
+- 按顺序执行 `pnpm install --frozen-lockfile`、`flutter pub get --enforce-lockfile`、`pnpm --filter @kando/auth-core build`、基线校验测试，再运行 `pnpm test:app-compatibility`；不依赖开发机现有 node_modules、Dart 映射或 auth-core 编译产物。
+- 工作流只有 `contents: read` 权限，checkout 不保留凭据，不传入业务环境 Secret，不运行部署/迁移。应用目录、用户数据和远端环境不作为测试对象。
+- 测试输出通过 PowerShell Tee 写入 `ci.log` 后，显式将原生进程的非零退出码返回给 job；没有 continue-on-error 或失败后无条件成功。
+- 成功和失败均尝试上传 `ci.log`、每次运行的 `report.json` 与受控测试 `server-responses.json`，保留 7 天并允许选定的隐藏目录；不上传源码归档、整个 .dart_tool、依赖缓存或生产凭据。依赖初始化失败而尚无报告时，上传步骤允许缺少文件，但初始化步骤本身仍失败。
+
+远端接入顺序：先提交/推送本工作流，让 GitHub 上的实际运行通过，再由有权限的维护者在 main/dev 的分支规则中将首次运行确认的 `App compatibility (Windows)` 设为必需检查。测试失败会令该 job 失败；是否真正阻止合并还取决于分支规则，工作流文件本身不能证明规则已生效。本轮不修改分支保护，也没有接入部署脚本。
 ## 基线及证明范围
 
 | 源码基线 | 固定提交 | 证据边界 |
@@ -36,7 +48,7 @@
 | C07 | 未执行购买/恢复合同 | Apple 验证、Sandbox/TestFlight、真实 session proof 生命周期；Android 销售范围仍待决 |
 | C08 | 未执行 | 图片、分享、传输和弱网/内存 |
 | C09 | 无/非法/合法 X-Request-ID 不改变 401 包络，合法 ID 回传 | 401 刷新后的传输 ID、业务幂等键及实际网络重试 |
-| C10 | 本地内存 PostgreSQL 的两个既有迁移支持本轮场景 | 全部目标 schema、缓存/滚动/回退兼容；尚未强制接入 CI 或部署脚本 |
+| C10 | 本地内存 PostgreSQL 的两个既有迁移支持本轮场景 | 全部目标 schema、缓存/滚动/回退兼容；已有 CI 工作流定义，托管运行及必需检查未验证，未接入部署脚本 |
 | C11 | 两组不可变源码提交及版本/构建号登记 | iOS 1.0.4 正式 IPA 的可获取性、Android 实际分发制品、设备和渠道证据 |
 | C12 | 未新增冻结合同 | 估值/Performance、缺价/零价、部分历史和服务错误 |
 | C13 | 文件夹的当前 API 写入/旧端原有操作及再次读取 | 卡牌资产/Wishlist/扫描/价格新写旧读与真实设备 |
@@ -45,7 +57,7 @@
 
 - 合同包含三个反例：升级字段改成错误类型、额度字段缺失、额度 access 枚举未知，旧客户端必须报错；另验证添加可选响应字段仍可读取；不能以“没有崩溃”或空数据作为成功。
 - 使用当前包映射而非冻结源码会因专用 marker 缺失而编译失败；不会静默降级成只测最新客户端。注册表也拒绝空集合、非固定 SHA、标签不匹配及用构建号重复计营销版本。
-- 该命令是可执行的本地回归入口，尚未成为远端 CI/发布脚本的强制门禁；部署、签名包安装、真实账号/生产写入及外部购买调用仍需单独授权。
+- 该命令已配置为新 GitHub CI job 的检查入口；远端运行、分支必需检查及部署门禁不能由本地结果代替。部署、签名包安装、真实账号/生产写入及外部购买调用仍需单独授权。
 - 设备补验需产品/发布负责人提供可获取的 iOS 1.0.4 正式制品及授权账号；Android 需先确定实际分发基线。取得后按原 C01–C13 场景补证，不能仅凭源码版本或本轮测试推断平台通过。
 
 实际命令、失败排查、审查及结果见 [v1.1.2 验证记录](../05-delivery/VERIFICATION.md)。

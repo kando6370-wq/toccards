@@ -70,6 +70,7 @@ Marketing Web ──> 独立的营销与法律页面
 - TypeScript 全仓构建：`pnpm build`
 - TypeScript 类型检查：`pnpm type-check`
 - App 兼容源码回归：`pnpm test:app-compatibility`；固定 v1.0.4/v1.0.5 提交，在本地内存 PostgreSQL 跑当前 API，再使用旧 Dart 客户端处理真实测试响应。仅覆盖首批场景，不能替代正式制品/真机或完整 C01–C13 验收；命令不触发远程部署/迁移。
+- App 兼容 CI 定义：`.github/workflows/app-compatibility.yml`，固定检查名 `App compatibility (Windows)`；Windows/Node 22/pnpm 11.9.0/Flutter 3.44.7，完整获取标签、锁定安装依赖并构建 auth-core 后执行源码合同。覆盖目标 dev/main 的 PR 和 dev/main/codex/** push，不设 PR 路径过滤；无部署权限或业务 Secret。工作流定义、本地冷启动通过、GitHub 托管运行通过和分支 required check 生效是独立状态，不得混报；见 v1.1.2 兼容文档。
 - 依赖方向检查：`pnpm lint`
 - Workers 测试：`pnpm --filter @kando/workers-api test`；默认命令仅追加 `**/.wrangler/**` 排除规则，避免生成的发布包/诊断被误扫，不删除历史材料、不缩减其他既有测试范围。
 - Admin 测试：`pnpm --filter @kando/admin-web test`

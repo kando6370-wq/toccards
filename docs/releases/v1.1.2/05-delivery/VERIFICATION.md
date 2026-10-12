@@ -39,3 +39,42 @@
 最终兼容运行证据位于本地 `.dart_tool/app-compatibility/run-2NJwKQ/`，两组 baseline 的 report 状态均为 passed；错包映射反证保留在 `run-oGViZI/wrong-package-negative.log`。未运行全仓 Workers/Flutter 测试、产品构建、iOS/Android 真机或远端环境验证；POSIX 主机上的编排分支本轮未实测，当前只验证 Windows 主机命令。
 
 本地 Code Review（非外部独立评审）已完成：检查固定提交/营销版本/构建号、旧包映射与编译标记、失败即停且无替代响应、当前 API 实跑与旧端请求匹配、owner/幂等/额度与错误断言、负例和可选字段兼容、只写新测试目录及拒绝覆盖样本。没有用修改业务逻辑、跳过检查或放宽解析器掩盖测试问题；测试代码最后一轮调整后已重新执行上述回归与静态检查。
+
+## 2026-10-12：App 兼容 CI 定义与独立冷检出验证
+
+### 目标、范围与工作流
+
+- 用户要求按下一步建议执行，先将已有源码兼容入口接入 CI。新增 `.github/workflows/app-compatibility.yml`，固定 job 名称 `App compatibility (Windows)`，Windows 2022 / Node 22 / pnpm 11.9.0 / Flutter 3.44.7。PR 目标 dev/main 不设路径过滤，同时响应 dev/main/codex/** push，并提供手工入口。
+- 完整获取 Git 历史和标签；冻结安装 Node/Dart 依赖，构建 auth-core，再运行基线守卫测试及原 `pnpm test:app-compatibility`。没有修改运行代码、原兼容脚本/样本断言、锁文件、历史文档或已有 iOS/Linux 发布工作流。
+- Token 只给 contents:read，checkout 不保留凭据，不使用业务环境 Secret，不调用部署/迁移。Tee 保存日志后显式传递原生命令退出码，没有 continue-on-error；always 上传仅列出的 ci.log/report.json/server-responses.json，允许选定的隐藏目录，保留 7 天，不上传源码快照或依赖缓存。
+
+### 干净依赖和执行环境
+
+- 在主工作区的忽略目录 `.dart_tool/compatibility-ci/run-izGTf3/` 内，用 `git clone --no-local --no-checkout` 建立独立 Git 检出并定位到 `46ed5c918976334a0b039ac46c66692a2c5cd4f9`；复制的候选工作流是唯一未跟踪源文件。开始时没有 node_modules、Dart 解析目录或 auth-core dist，不改动原工作区和其他 worktree。
+- Node 依赖使用新建的专用 pnpm store，Dart 使用新建的专用 PUB_CACHE；分别执行 `pnpm install --frozen-lockfile --store-dir <本次隔离 store>` 与 `flutter pub get --enforce-lockfile`，均退出 0。前后 pnpm-lock.yaml/pubspec.lock 没有变化。
+- 使用本机现有 Node 22.20.0、pnpm 11.9.0、Flutter 3.44.7/Dart 3.12.2；这是依赖/检出状态隔离的本地 Windows 验证，不是 GitHub windows-2022 镜像或 setup action 的托管执行。Corepack/Node/Flutter 的 GitHub 安装动作、artifact 上传动作尚未在 GitHub 实跑。
+- 从 YAML 解析提取原始 run 步骤，在独立检出目录用 pwsh 执行 auth-core build、脚本守卫测试和含 Tee/exit 判断的兼容测试步骤；未把它替换成一个忽略退出码的简化命令。
+
+### 实际结果与失败反证
+
+| 检查 | 退出状态与实际结果 |
+|---|---|
+| YAML 解析及关键配置断言 | 0；PR 分支/无路径过滤、完整标签、只读权限、步骤顺序、原生失败传递、always 和有限产物路径均符合预期；不是 GitHub 服务端 schema/执行验收 |
+| 新目录安装 Node/Dart 依赖 | 0 / 0；使用新 store/cache，锁文件未变 |
+| `pnpm --filter @kando/auth-core build` | 0；从无 dist 开始生成依赖构建 |
+| `node --test scripts/check-app-compatibility.test.mjs` | 0；2/2 通过 |
+| 工作流原始兼容测试步骤（首次冷检出） | 0；API 4/4，旧 1.0.4 与 1.0.5 各 13/13，无跳过 |
+| 故意破坏隔离副本的文件夹响应 | 1（预期失败）；仅将 folderResponse 的 sort_order 数字转成字符串。API 4 项仍通过，但旧 1.0.4 的文件夹读取和可选字段兼容两项失败，Dart _requiredInt/PortfolioFolderDto.fromJson 报错；runner report.status=failed，同一 pwsh CI 步骤退出 1，没有被 Tee 掩盖 |
+| 还原后重跑同一工作流测试步骤 | 0；源文件字节恢复原样，API 4/4、两组各 13/13 再次通过 |
+| 独立检出目录的 `pnpm lint` / `pnpm type-check` | 0 / 0；4 个共享包依赖方向通过，类型检查 7/7，本轮 0 项缓存命中 |
+
+故意破坏只发生在本次新建的隔离副本，最终已按原字节恢复并通过 Git diff 断言；主工作区业务文件没有被修改。首次正例、负例、还原复验、安装和静态检查日志及工作流步骤摘录均保留在上述忽略目录，不纳入正式 docs/Git。
+
+### 审查、远端状态与未完成项
+
+- 已进行本地自审：保持既有 action 主版本风格和 GitHub Flutter 约束；检查 PR 不会因路径过滤缺席、固定标签完整、auth-core 在测试前构建、失败非零退出不会被日志收集变绿、上传范围不含冻结源码/缓存，以及本地冷检出与托管执行的区别。无运行代码修复，不创建新的业务 BUG 或迁移。
+- 2026-10-12 首次只读 GitHub Git 分支查询连接失败（无法连接 github.com:443）；后续再次只读查询成功，远端当前开发分支仍为 `46ed5c9`。没有把连接恢复或分支回读记为 CI 结果。npm/pub 依赖源可访问，本地验证据此完成。本轮尚未提交/推送工作流，也没有创建 PR、触发远端 workflow 或修改分支规则。
+- **待完成**：获得 Git 提交/推送授权后，在当前开发分支首次运行该工作流；核验真正的 GitHub check 和报告。之后才能配置 main/dev 的必需状态检查，确认失败 PR 实际被阻止合并。当前只证明本地相同测试命令会失败，不宣称仓库合并保护已经生效。
+- 本轮未重跑所有 Workers/Flutter 业务测试、产品构建、正式旧包/真机或远端环境；原 C01–C13 尚未覆盖的业务与制品验收缺口继续保留。下一阶段资产/价格合同扩展尚未开始，不因本次 CI 定义完成而关闭。
+
+收尾文档检查：当前变更仅新工作流及 4 份相关文档/Agent 规则，27 处本地链接目标有效，`git diff --check` 通过；既有验证记录前缀、运行源码、兼容测试脚本、锁文件、旧工作流和 v1.0.0/v1.1.0/v1.1.1 归档均未改动。
