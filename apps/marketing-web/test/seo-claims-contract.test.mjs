@@ -9,6 +9,8 @@ const indexPath = fileURLToPath(new URL('index.html', publicUrl));
 const notFoundPath = fileURLToPath(new URL('404.html', publicUrl));
 const llmsPath = fileURLToPath(new URL('llms.txt', publicUrl));
 const sitemapPath = fileURLToPath(new URL('sitemap.xml', publicUrl));
+const minimalSitemapPath = fileURLToPath(new URL('sitemap-minimal.xml', publicUrl));
+const robotsPath = fileURLToPath(new URL('robots.txt', publicUrl));
 const cssPath = fileURLToPath(new URL('site.css', publicUrl));
 const nonLandingRootPages = new Set([
   '404.html',
@@ -263,6 +265,34 @@ test('sitemap avoids synthetic build-date lastmod values', async () => {
   const sitemap = await readFile(sitemapPath, 'utf8');
 
   assert.doesNotMatch(sitemap, /<lastmod>/);
+});
+
+test('minimal diagnostic sitemap isolates Google processing without changing discovery signals', async () => {
+  const [minimalSitemap, sitemap, robots] = await Promise.all([
+    readFile(minimalSitemapPath, 'utf8'),
+    readFile(sitemapPath, 'utf8'),
+    readFile(robotsPath, 'utf8'),
+  ]);
+  const expected = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://tcgcard.fun/</loc>
+  </url>
+  <url>
+    <loc>https://tcgcard.fun/pokemon-card-scanner</loc>
+  </url>
+  <url>
+    <loc>https://tcgcard.fun/card-price-checker</loc>
+  </url>
+</urlset>
+`;
+
+  assert.equal(minimalSitemap, expected);
+  assert.equal(occurrences(minimalSitemap, '<url>'), 3);
+  assert.doesNotMatch(minimalSitemap, /<!--|<priority>|<lastmod>|<changefreq>|xhtml:/);
+  assert.doesNotMatch(sitemap, /sitemap-minimal\.xml/);
+  assert.doesNotMatch(robots, /sitemap-minimal\.xml/);
+  assert.match(robots, /Sitemap: https:\/\/tcgcard\.fun\/sitemap\.xml/);
 });
 
 test('FAQ switches to one column at tablet widths', async () => {
