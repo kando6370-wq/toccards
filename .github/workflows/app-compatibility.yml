@@ -9,7 +9,6 @@ on:
     branches:
       - dev
       - main
-      - "codex/**"
   workflow_dispatch:
 
 permissions:

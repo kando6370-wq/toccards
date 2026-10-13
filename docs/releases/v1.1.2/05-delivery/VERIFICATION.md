@@ -220,3 +220,21 @@
 - 最小修复：共享选择变更时，先用 Home 已缓存的目标文件夹更新 ID 和图表周期，再刷新 Home；刷新失败仍保留正确的文件夹上下文和原有失败提示。未修改服务端接口、偏好持久化语义、Collection 切换逻辑、Schema 或部署配置。v1.0.0 已有 Home/Collection 同步切换契约，本轮不改冻结文档。
 - 影响与验证：对 Home/Collection 共用选择、失败后重试、图表周期和偏好写入回退作代码审查；目标测试修复前失败、修复后通过。`flutter test --no-pub test/home_controller_test.dart test/collection_controller_test.dart test/widget/home_page_test.dart test/widget/collection_page_test.dart` 退出 0，共 170 项；`flutter analyze --no-pub lib/features/home/home_controller.dart test/widget/home_page_test.dart` 退出 0；`git diff --check` 退出 0。Code Review 未发现当前变更的阻断项。
 - 未验：未持有录屏设备与其 API 日志，未以相同真实账号在 iOS/Android 真机重放，也未定位 Home 请求失败的独立原因；若文件夹创建后 Home 从未成功获取该文件夹，且后续刷新持续失败，Home 无法仅凭旧缓存显示新文件夹的名称/估值，此边界未作为本次已修复范围。未执行远端部署、数据库操作或发布。
+
+## 2026-10-13 App 兼容 CI 开发分支触发调整（本地）
+
+- 根据用户确认的开发流程，工作流仅删除 `push.branches` 中的 `codex/**`，保留目标 `dev`/`main` 的 PR、`dev`/`main` push 和手工触发；固定检查名、测试步骤、权限、并发取消策略和工具链均保持不变。远端规则集 `24904725` 本轮没有修改，`dev`/`main` 仍保留兼容必需检查。
+- 日常提交推送到 `codex/**` 开发分支，完成一批改动后通过 PR 合入目标分支。没有 PR 的开发分支 push 不启动此兼容工作流；已有 PR 的后续提交仍触发 PR 检查，但不阻止开发分支推送。直接推送尚未通过检查的新提交到 `dev`/`main` 仍可能收到 GH013。
+- 同步更新根 `AGENTS.md` 与[兼容回归说明](../03-data-api/app-compatibility.md)中的当前触发策略，既有托管运行、规则配置和门禁正反例的历史记录保持原样。
+- 本地验证：`pnpm lint` 退出 0；`pnpm type-check` 退出 0，7 项成功，其中 6 项为 Turbo 缓存、Workers 类型检查实际执行。Python/PyYAML 结构断言退出 0，覆盖 7 种分支过滤场景及手工入口，并确认 YAML 相对 HEAD 仅删除该分支条目，PR 无路径过滤、检查名/权限/全部测试步骤不变。
+- 文档与差异复验：`git diff --check` 退出 0，16 处本地 Markdown 链接有效；当前说明中的旧触发范围已移除，历史验证内容保持原前缀，改动仅涉及工作流、根规则及当前版本两份文档。差异自审未发现阻断项，未修改测试断言、运行步骤或远端保护规则。
+- 未运行：GitHub 托管事件触发及 PR 门禁复验，因为本轮未提交或推送；完整 App 兼容业务回归及应用构建未重跑，因为测试实现、步骤和应用代码均未修改。本条仅记录本地配置验证，不宣称远端新触发策略已验收；没有部署、迁移或业务写入。
+
+## 2026-10-13 App 兼容必需检查规则删除
+
+- 用户明确要求删除 `App compatibility (Windows)` 对推送/合并的强制限制，并完成管理员浏览器登录。管理员页面与删除前 API 共同确认目标为规则集 `24904725`（`App compatibility required checks`），仅匹配 `refs/heads/main`、`refs/heads/dev`，唯一规则为 GitHub Actions（integration ID `15368`）的同名 required status check，bypass list 为空。
+- 通过 GitHub 管理员界面删除该规则集；页面返回 `You haven't created any rulesets`。本次没有修改工作流、测试步骤、Git 凭据、其他仓库设置或分支内容；前一阶段取消 `codex/**` push 触发的本地改动继续保留。
+- 独立 API 回读：规则集列表返回 200 / 空数组；旧规则集详情返回 404；`main`、`dev` 的有效规则分别返回 200 / 空数组，分支详情均为 `protected=false`。据此确认该兼容检查已不再阻止两个分支的推送或合并；兼容工作流继续作为异步检查运行，不把规则删除等同于测试通过。
+- 删除前配置及可重建的请求体、删除后只读响应和页面截图保留在忽略目录 `.dart_tool/compatibility-gate/20261013/ruleset-removal-1791870080283/`，没有保存认证凭据。同步更新根 `AGENTS.md` 与[兼容回归说明](../03-data-api/app-compatibility.md)的当前状态，前一阶段与 2026-10-12 的配置/验收记录按历史证据保留。
+- 复验：6 个远端只读端点的状态/内容断言通过；`git diff --check` 退出 0，17 处本地 Markdown 链接有效。当前说明已取消强制门槛表述，历史段落已明确标注；验证记录原有字节前缀及工作流文件与本轮开始时一致。差异自审未发现阻断项。
+- 未执行实际 push、PR 合并、部署或数据库操作，因此没有触发自动发布来测试解除阻断。此前本地 CI 触发调整及本次文档修改仍未提交/推送；远端规则删除已经生效，这两种交付状态分别记录。业务代码与测试实现未改，本轮不重复运行完整兼容回归或应用构建。
