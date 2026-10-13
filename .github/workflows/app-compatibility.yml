@@ -1,0 +1,85 @@
+name: App compatibility
+
+on:
+  pull_request:
+    branches:
+      - dev
+      - main
+  push:
+    branches:
+      - dev
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-compatibility-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compatibility:
+    name: App compatibility (Windows)
+    runs-on: windows-2022
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Check out repository and pinned client tags
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Enable pinned pnpm
+        run: |
+          corepack enable
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          corepack prepare pnpm@11.9.0 --activate
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: "3.44.7"
+          cache: false
+
+      - name: Install Node dependencies from lockfile
+        run: pnpm install --frozen-lockfile
+
+      - name: Resolve Flutter workspace from lockfile
+        run: flutter pub get --enforce-lockfile
+
+      - name: Build shared authentication package
+        run: pnpm --filter @kando/auth-core build
+
+      - name: Verify baseline guards
+        run: node --test scripts/check-app-compatibility.test.mjs
+
+      - name: Verify version-pinned App contracts
+        run: |
+          New-Item -ItemType Directory -Force -Path .dart_tool/app-compatibility | Out-Null
+          pnpm test:app-compatibility 2>&1 | Tee-Object -FilePath .dart_tool/app-compatibility/ci.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Preserve compatibility reports on success or failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-compatibility-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .dart_tool/app-compatibility/ci.log
+            .dart_tool/app-compatibility/run-*/report.json
+            .dart_tool/app-compatibility/run-*/server-responses.json
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7

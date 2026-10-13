@@ -10,6 +10,7 @@
     "build": "turbo build",
     "type-check": "turbo type-check",
     "lint": "node scripts/check-dep-direction.mjs",
+    "test:app-compatibility": "node scripts/check-app-compatibility.mjs",
     "app:chrome:dev": "cd apps/flutter-app && flutter run -d chrome --web-port=3000 --dart-define-from-file=config/test.json",
     "app:chrome:prod": "cd apps/flutter-app && flutter run -d chrome --web-port=3000 --dart-define-from-file=config/production.json"
   },
