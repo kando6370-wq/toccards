@@ -775,10 +775,25 @@ adminRoutes.get("/billing/transactions", async (c) => {
     `${BILLING_TRANSACTION_SELECT_SQL} ${BILLING_TRANSACTION_FROM_SQL} ${query.where}
       ORDER BY order_time DESC, t.created_at DESC, t.id ASC LIMIT ? OFFSET ?`,
     [...query.bindings, pageSize, (page - 1) * pageSize]).all();
-  const count = await bindAdminQuery(c.env.DB,
-    `SELECT COUNT(*) AS total ${BILLING_TRANSACTION_FROM_SQL} ${query.where}`, query.bindings)
-    .first<{ total: number }>();
-  return c.json({ success: true, data: { items: rows.results ?? [], total: count?.total ?? 0, page, page_size: pageSize } });
+  const totals = await bindAdminQuery(c.env.DB,
+    `SELECT COUNT(*) AS total,
+      CAST(SUM(t.amount_usd_micros) FILTER (WHERE t.business_status IS DISTINCT FROM 'refunded') AS bigint) AS amount_usd_micros,
+      CAST(SUM(t.amount_usd_micros) FILTER (WHERE t.business_status = 'refunded') AS bigint) AS refunded_amount_usd_micros,
+      COUNT(*) FILTER (WHERE t.business_status IS DISTINCT FROM 'refunded' AND t.amount_usd_micros IS NULL) AS missing_amount_count,
+      COUNT(*) FILTER (WHERE t.business_status = 'refunded' AND t.amount_usd_micros IS NULL) AS missing_refunded_amount_count
+      ${BILLING_TRANSACTION_FROM_SQL} ${query.where}`, query.bindings)
+    .first<{ total: number; amount_usd_micros: number | null; refunded_amount_usd_micros: number | null;
+      missing_amount_count: number; missing_refunded_amount_count: number }>();
+  if (!totals) return c.json(INTERNAL_ERROR_RESPONSE, 500);
+  return c.json({ success: true, data: {
+    items: rows.results ?? [], total: totals.total, page, page_size: pageSize,
+    summary: {
+      amount_usd_micros: totals.amount_usd_micros ?? (totals.missing_amount_count ? null : 0),
+      refunded_amount_usd_micros: totals.refunded_amount_usd_micros ?? (totals.missing_refunded_amount_count ? null : 0),
+      missing_amount_count: totals.missing_amount_count,
+      missing_refunded_amount_count: totals.missing_refunded_amount_count,
+    },
+  } });
 });
 
 adminRoutes.get("/apple-notifications", async (c) => {

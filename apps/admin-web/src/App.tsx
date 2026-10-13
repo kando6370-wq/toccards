@@ -87,6 +87,15 @@ type BillingTransactionRow = {
   charge_count: number | null;
 };
 
+type BillingOrdersResponse = PagedResponse<BillingTransactionRow> & {
+  summary: {
+    amount_usd_micros: number | null;
+    refunded_amount_usd_micros: number | null;
+    missing_amount_count: number;
+    missing_refunded_amount_count: number;
+  };
+};
+
 type BillingOptions = { countries: string[]; skus: string[] };
 
 type AppleNotificationRow = {
@@ -518,7 +527,8 @@ function BillingOrdersPage({ session }: { session: AdminSession }) {
   const [filters, setFilters] = useState<Record<string, string>>({ environment: DEFAULT_BILLING_ENVIRONMENT });
   const [exporting, setExporting] = useState(false);
   const path = useMemo(() => queryPath("/billing/transactions", page, filters), [filters, page]);
-  const { data, loading, reload, error } = useAdminData<PagedResponse<BillingTransactionRow>>(path, session);
+  const { data, loading, reload, error } = useAdminData<BillingOrdersResponse>(path, session);
+  const summary = loading || error ? undefined : data?.summary;
   const { data: options } = useAdminData<BillingOptions>("/billing/transactions/options", session);
   useEffect(() => {
     if (loading || !data) return;
@@ -575,6 +585,27 @@ function BillingOrdersPage({ session }: { session: AdminSession }) {
       <ScanFilterField label="环境"><Select allowClear placeholder="全部" value={draft.environment || undefined} options={billingEnvironmentOptions} onChange={(v) => setDraft({ ...draft, environment: v ?? "" })} /></ScanFilterField>
       <ScanFilterField label="扣款次数"><Select allowClear placeholder="全部" value={draft.charge_count || undefined} options={billingChargeCountOptions} onChange={(v) => setDraft({ ...draft, charge_count: v ?? "" })} /></ScanFilterField>
       <div className="scans-filter-actions"><Button disabled={loading} onClick={() => { setDraft({ environment: DEFAULT_BILLING_ENVIRONMENT }); setFilters({ environment: DEFAULT_BILLING_ENVIRONMENT }); setPage(1); setDateKey((v) => v + 1); }}>重置</Button><Button className="cyan-button" disabled={loading} loading={loading} onClick={applyFilters}>查询</Button></div>
+    </section>
+    <section aria-label="筛选结果汇总">
+      <div className="stats-row">
+        <div className="metric-box">
+          <Text>筛选结果订单数</Text>
+          <strong>{summary ? data?.total.toLocaleString() : "--"}</strong>
+          <Text type="secondary">当前筛选条件下的全部订单</Text>
+        </div>
+        <div className="metric-box">
+          <Text>订单金额合计（USD）</Text>
+          <strong>{summary ? billingAmount(summary.amount_usd_micros, "USD") : "--"}</strong>
+          <Text type="secondary">不含已退款订单</Text>
+          {!!summary?.missing_amount_count && <Text type="warning">有 {summary.missing_amount_count} 笔订单缺少 USD 金额，未计入合计</Text>}
+        </div>
+        <div className="metric-box">
+          <Text>退款金额合计（USD）</Text>
+          <strong>{summary ? billingAmount(summary.refunded_amount_usd_micros, "USD") : "--"}</strong>
+          <Text type="secondary">仅统计已退款订单</Text>
+          {!!summary?.missing_refunded_amount_count && <Text type="warning">有 {summary.missing_refunded_amount_count} 笔退款订单缺少 USD 金额，未计入合计</Text>}
+        </div>
+      </div>
     </section>
     <section className="scans-table-panel"><div className="billing-table-actions"><Title level={4}>订单列表</Title><Space><Button disabled={loading} loading={loading} onClick={reload}>刷新</Button><Button disabled={!data?.total || loading || exporting} loading={exporting} onClick={exportOrders}>导出</Button></Space></div><Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} locale={{ emptyText: "暂无符合条件的订单" }} pagination={false} scroll={{ x: 1650 }} />
       <div className="scans-pagination"><Text>{rangeSummaryPage(page, data?.page_size ?? 20, data?.total ?? 0)}</Text><Pagination disabled={loading} current={page} pageSize={data?.page_size ?? 20} total={data?.total ?? 0} showQuickJumper showSizeChanger={false} onChange={setPage} /></div>

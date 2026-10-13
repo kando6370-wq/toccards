@@ -9,16 +9,16 @@
 - 本入口建立时的本地源码基线为 `main@ca5aa552f0e29a9f421c542d15cf271c4bdaae7f`，既有 Git tag `v1.0.5` 指向同一提交。文档迭代 `v1.1.2`、Git tag、App 营销/构建版本和运行环境版本不是同一概念；本次不修改版本文件，不新建标签，不执行 Git push 或部署，也未重新回读远端运行状态。
 - 归档不等于开发承诺、外部验收或商店发布完成；既有失败、未执行项、用户反馈和独立验证必须保留各自证据层级。
 
-## 延续的契约与未完成验收
+## 契约与未完成验收
 
-以下是既有基线和待验边界的导航，不是本版本新增功能或已批准的实现计划。
+以下列出本版本实际增量、延续基线和待验边界；实现与验证状态以关联文档为准。
 
 | 范围 | 原文档 | 延续边界 |
 |---|---|---|
 | App 兼容 | [本版本源码合同回归](03-data-api/app-compatibility.md)、[实际结果](05-delivery/VERIFICATION.md)；继承 [原契约](../v1.1.1/03-data-api/app-compatibility-contract.md)与[原矩阵](../v1.1.1/05-delivery/app-compatibility-acceptance.md) | 首批部分源码合同已执行，正式制品/真机及未覆盖业务仍待验，不等于全量兼容通过。 |
 | 扫描与移动端 | [扫描识别增量](../v1.1.1/01-flows/scan-recognition.md) | 保留真机批量、旧包业务闭环及性能/缓存一致性等未验项，按原日期记录判断。 |
 | 插件识别 | [接口契约](../v1.1.1/03-data-api/extension-recognition.md) | 保留 prod redirect 修复与用户调用恢复反馈；候选详情逐字段对照、限频触发、真实插件等独立专项验收未完成。 |
-| Admin | [后台增量及双 prod 入口](../v1.1.1/04-admin/admin.md) | 继续区分 Pages 与 Workers assets；静态产物检查不替代真实账号和页面交互验收。 |
+| Admin | [本版本订单金额与退款汇总](04-admin/admin.md)、[后台基线及双 prod 入口](../v1.1.1/04-admin/admin.md) | 继续区分 Pages 与 Workers assets；静态产物检查不替代真实账号和页面交互验收。 |
 | 估值历史调研 | [长区间估值链路](../v1.1.1/03-data-api/valuation-history-latency-analysis.md) | 沿用原调研与决策状态，不将建议或局部样本写成已确认的生产根因。 |
 | 发布与故障证据 | [v1.1.1 验证记录](../v1.1.1/05-delivery/VERIFICATION.md) | 按原版本、环境、时间和实际测试范围引用，不把历史检查冒充当前环境复验。 |
 
@@ -33,7 +33,7 @@
 | `04-admin/` | 后台功能、权限和交互增量 | 有 Admin 变化时 |
 | `05-delivery/` | 验收、配置、发布和故障修复证据 | 有实际交付或补验证据时 |
 
-当前已有本 README、`03-data-api/app-compatibility.md` 和 `05-delivery/VERIFICATION.md`；其他分类按实际需求创建，不复制历史版本或创建空占位。
+当前已有本 README、`03-data-api/app-compatibility.md`、`04-admin/admin.md` 和 `05-delivery/VERIFICATION.md`；其他分类按实际需求创建，不复制历史版本或创建空占位。
 
 ## 维护规则
 
