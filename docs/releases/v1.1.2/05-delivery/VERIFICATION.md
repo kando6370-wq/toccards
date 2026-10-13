@@ -212,3 +212,11 @@
 - 发布前备份 `toccards-test-20261012-131155-before-branch-dev-e8d1dd952f05-20261012131153.dump` 为 1,135,398,457 字节，临时文件不存在。通过当前 PostgreSQL 18 容器只读执行 `pg_restore --list`，退出 0、列出 324 条非注释目录记录；归档头的 TOC Entries 为 328，两者口径不同。未做恢复演练，不据此宣称可恢复性已完整验收。
 - 通过 SHA-256 对照，容器中的 API bundle/source map 与 Web server 文件均匹配当前 release；Admin 全部 11 个 HTML/JS/CSS 文件同时在容器和 HTTP 响应中与 Linux release 原始字节一致。本轮未另做同提交 Windows 重建，不宣称跨平台构建逐字节一致。服务器本机和 Windows 内网请求均为 health 200（status=ok）、未登录 auth/me 401、Admin 首页 200 且标题正确；发布身份另由 manifest、watcher 和运行文件证明。
 - 14:28 GitHub 回读 dev 仍为 e8d1dd9，main 仍为 `7ac984ecd604b9fc483bf02c1bf0dded37651034`，PR #6 仍 Draft/未合并。因此 dev 验收对象为已合入的基础兼容改动，C03 增量尚未部署。正式旧包/真机、真实账号业务闭环、多游戏/完整价格维度、C12/C13 其余合同及全量兼容矩阵继续待验；本轮未执行生产发布。
+
+## 2026-10-12 Home 文件夹切换 BUGFIX（本地）
+
+- 用户 iOS 录屏：Home 显示 Main 和旧金额，页面出现两个 `No content available`；从共用弹窗选择其他文件夹后，Collection 已切换，返回 Home 仍显示 Main。录屏没有网络日志，不能据此确定 Home 数据请求失败的服务端原因。
+- 根因：Home 的全局 `selectedPortfolioFolderProvider` 监听在 `isUnavailable` 时直接跳过；即使 Collection 已更新共享选择，Home 仍保留失败前的文件夹 ID。修复前使用“首次加载成功、随后 Home 刷新持续失败、通过共用弹窗切换文件夹”的 widget 测试复现，退出 1，断言 Home 为 `sealed` 时实际仍为 `main`。
+- 最小修复：共享选择变更时，先用 Home 已缓存的目标文件夹更新 ID 和图表周期，再刷新 Home；刷新失败仍保留正确的文件夹上下文和原有失败提示。未修改服务端接口、偏好持久化语义、Collection 切换逻辑、Schema 或部署配置。v1.0.0 已有 Home/Collection 同步切换契约，本轮不改冻结文档。
+- 影响与验证：对 Home/Collection 共用选择、失败后重试、图表周期和偏好写入回退作代码审查；目标测试修复前失败、修复后通过。`flutter test --no-pub test/home_controller_test.dart test/collection_controller_test.dart test/widget/home_page_test.dart test/widget/collection_page_test.dart` 退出 0，共 170 项；`flutter analyze --no-pub lib/features/home/home_controller.dart test/widget/home_page_test.dart` 退出 0；`git diff --check` 退出 0。Code Review 未发现当前变更的阻断项。
+- 未验：未持有录屏设备与其 API 日志，未以相同真实账号在 iOS/Android 真机重放，也未定位 Home 请求失败的独立原因；若文件夹创建后 Home 从未成功获取该文件夹，且后续刷新持续失败，Home 无法仅凭旧缓存显示新文件夹的名称/估值，此边界未作为本次已修复范围。未执行远端部署、数据库操作或发布。
