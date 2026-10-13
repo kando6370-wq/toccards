@@ -114,7 +114,7 @@ void main() {
       expect(result.g, matches(RegExp(r'^[A-Za-z0-9_-]{43}$')));
       expect(result.b, matches(RegExp(r'^[A-Za-z0-9_-]{43}$')));
       expect(result.cardImageBytes, [7, 8, 9]);
-      expect(result.ocrText, 'LEAFEON EX\n200/187');
+      expect(result.ocrText, 'LEAFEON EX 200/187');
       expect(textRecognizer.lastBytes, [7, 8, 9]);
       expect(calls, [
         'prepareDetection',

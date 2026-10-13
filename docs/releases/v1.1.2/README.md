@@ -1,6 +1,6 @@
 # v1.1.2 开发文档
 
-状态：当前增量开发入口，2026-10-09 建立。新增业务需求、实现变化与验收范围尚未定义；本次仅切换文档版本，不代表 v1.1.2 已实现、部署或发布。
+状态：当前增量开发入口，2026-10-09 建立。`dev-xiangyang` 的首个本地增量为端侧 OCR 文本轻量规则化；尚未部署或发布。
 
 ## 基线与版本边界
 
@@ -17,6 +17,7 @@
 |---|---|---|
 | App 兼容 | [1.0.4+ 服务端契约](../v1.1.1/03-data-api/app-compatibility-contract.md)、[验收矩阵](../v1.1.1/05-delivery/app-compatibility-acceptance.md) | 仍为设计目标与待执行门禁，不能因归档标记为已验证实现。 |
 | 扫描与移动端 | [扫描识别增量](../v1.1.1/01-flows/scan-recognition.md) | 保留真机批量、旧包业务闭环及性能/缓存一致性等未验项，按原日期记录判断。 |
+| OCR 文本规则化 | [扫描 OCR 规则化](01-flows/scan-recognition.md) | ML Kit 成功文本在写入 `ocr_text` 前执行端侧规则化；OCR 失败与空文本契约不变。 |
 | 插件识别 | [接口契约](../v1.1.1/03-data-api/extension-recognition.md) | 保留 prod redirect 修复与用户调用恢复反馈；候选详情逐字段对照、限频触发、真实插件等独立专项验收未完成。 |
 | Admin | [后台增量及双 prod 入口](../v1.1.1/04-admin/admin.md) | 继续区分 Pages 与 Workers assets；静态产物检查不替代真实账号和页面交互验收。 |
 | 估值历史调研 | [长区间估值链路](../v1.1.1/03-data-api/valuation-history-latency-analysis.md) | 沿用原调研与决策状态，不将建议或局部样本写成已确认的生产根因。 |
