@@ -315,8 +315,16 @@ class HomeController extends Notifier<HomeState> {
       state = state.copyWith(currency: next);
     });
     ref.listen<String?>(selectedPortfolioFolderProvider, (previous, next) {
-      if (next == null || state.isLoading || state.isUnavailable) return;
-      if (next == state.selectedFolderId) return;
+      if (next == null || next == state.selectedFolderId) return;
+      final portfolio = state.dashboard.portfoliosByFolderId[next];
+      if (portfolio != null) {
+        _chartRangeGeneration++;
+        state = state.copyWith(
+          selectedFolderId: next,
+          chartRange: _bestChartRange(portfolio, preferred: state.chartRange),
+          isChartRangeLoading: false,
+        );
+      }
       unawaited(refresh());
     });
     ref.listen<bool?>(portfolioAmountHiddenProvider, (previous, next) {

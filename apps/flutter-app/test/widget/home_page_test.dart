@@ -2423,6 +2423,44 @@ void main() {
   );
 
   testWidgets(
+    'folder selection stays app-wide while Home dashboard is unavailable',
+    (tester) async {
+      final preferences = _TestPortfolioManagementApi();
+      final homeRepository = _UnavailableAfterSuccessHomeRepository();
+      await tester.pumpWidget(
+        _mockHomeApp(preferences, const _TestCurrencyRateApi(), homeRepository),
+      );
+      await _waitForHomeAuth(tester);
+
+      _refreshHome(tester);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('home-failure-chart')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('home-overview-folder')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('collection-folder-select-sealed')),
+      );
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(HomePage)),
+      );
+      expect(container.read(selectedPortfolioFolderProvider), 'sealed');
+      expect(
+        container.read(collectionControllerProvider).selectedFolderId,
+        'sealed',
+      );
+      expect(container.read(homeControllerProvider).selectedFolderId, 'sealed');
+      expect(find.text('Sealed'), findsOneWidget);
+      expect(find.text(r'$8,640.00'), findsOneWidget);
+      expect(find.text(r'$12,450.80'), findsNothing);
+      expect(find.byKey(const Key('home-failure-chart')), findsOneWidget);
+      expect(preferences.selectedFolderIds, ['sealed']);
+    },
+  );
+
+  testWidgets(
     'renaming a folder keeps Home loaded because the selected portfolio did not change',
     (tester) async {
       final homeRepository = _CountingHomeRepository();
@@ -3963,6 +4001,16 @@ class _SuccessfulThenFailingHomeRepository implements HomeRepository {
     if (calls == 2) {
       throw StateError('mock home unavailable');
     }
+    return const MockHomeRepository().loadDashboard();
+  }
+}
+
+class _UnavailableAfterSuccessHomeRepository implements HomeRepository {
+  var calls = 0;
+
+  @override
+  HomeDashboard loadDashboard() {
+    if (++calls > 1) throw StateError('mock home unavailable');
     return const MockHomeRepository().loadDashboard();
   }
 }
