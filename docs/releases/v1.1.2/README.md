@@ -2,6 +2,8 @@
 
 状态：当前增量开发入口。2026-10-09 已落地首批 App 1.0.4/1.0.5 源码与当前 API 的兼容回归入口，覆盖配置、文件夹、额度及错误/关联的部分场景；完整兼容矩阵、正式旧包/真机及远程环境验收仍未完成，不代表 v1.1.2 已全面实现或发布。2026-10-12 [GitHub 兼容检查](../../../.github/workflows/app-compatibility.yml)已在 `eee77ab` 的 [push 运行](https://github.com/kando6370-wq/toccards/actions/runs/38192725017)通过，并已下载报告核验；[PR #3](https://github.com/kando6370-wq/toccards/pull/3)指向 `dev`，其 [pull_request 运行](https://github.com/kando6370-wq/toccards/actions/runs/38194094012)也已通过，并独立核对合并引用的报告。同日 10:39 已使用仓库所有者授权配置必需检查，规则集 `24904725` 在 `main`/`dev` 的生效规则回读通过；用户随后补齐 Production/Previews Base 截图，已核对构建链与生产发布边界；隔离验收 PR #4/#5 均在兼容失败时被 GitHub 判为 BLOCKED，恢复后必需检查全部通过并解除该阻断；该轮门禁验收结束时，两条验收 PR 均已关闭且未合并；后续分支整理由 PR #4 的合并记录跟踪。生产发布标识回读未变，PR #3 已于同日 13:07 经审查合入 dev（e8d1dd9），该提交的兼容/iOS CI 与 HTTP 烟测通过；14:22–14:26 已通过 SSH 独立确认 watcher 发布该提交、容器健康、14 项迁移台账、备份目录可读及运行文件/11 个 Admin 静态文件与 release 一致。随后在独立分支增加 C03 目录、价格、历史和汇率合同，本地为 API 8/8、两组旧端各 24/24，并通过零价误写为缺价的失败反证；提交 `7516c43` 的 push/PR 兼容 CI 报告和 iOS unsigned build 已通过并回读，[PR #6](https://github.com/kando6370-wq/toccards/pull/6)交付该增量，其合并记录与部署验收分别跟踪。营销站预览失败继续单列，详见[兼容回归说明](03-data-api/app-compatibility.md)。
 
+2026-10-13 新增 [App 向后兼容整改开发计划](05-delivery/app-backward-compatibility-plan.md)，明确旧客户端合同、数据兼容、发布前检查、正式旧包验收及并行开发安排。该文档是后续实施方案，不代表整改或发布验收已经完成；继续保留兼容 CI 异步反馈，不恢复已取消的推送／合并强制检查。
+
 ## 基线与版本边界
 
 - [v1.1.1 开发归档](../v1.1.1/README.md)是直接增量基线，保留扫描、插件识别、Admin、兼容设计、研究及发布/故障证据；历史文件原位保留，未变化部分直接引用。
@@ -31,9 +33,9 @@
 | `02-architecture/` | 架构、运行边界和决策增量 | 基线不能覆盖当前变化时 |
 | `03-data-api/` | 数据、API、迁移、契约和技术研究增量 | 涉及对应变化或专项研究时 |
 | `04-admin/` | 后台功能、权限和交互增量 | 有 Admin 变化时 |
-| `05-delivery/` | 验收、配置、发布和故障修复证据 | 有实际交付或补验证据时 |
+| `05-delivery/` | 开发计划、验收、配置、发布和故障修复证据 | 有明确开发计划、实际交付或补验证据时 |
 
-当前已有本 README、`03-data-api/app-compatibility.md` 和 `05-delivery/VERIFICATION.md`；其他分类按实际需求创建，不复制历史版本或创建空占位。
+当前已有本 README、`03-data-api/app-compatibility.md`、`05-delivery/app-backward-compatibility-plan.md` 和 `05-delivery/VERIFICATION.md`；其他分类按实际需求创建，不复制历史版本或创建空占位。
 
 ## 维护规则
 
