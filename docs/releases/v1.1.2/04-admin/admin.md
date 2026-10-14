@@ -13,6 +13,8 @@
 
 2026-10-14 已基于 dev 当时实际运行的 `dev-xiangyang@2c56e9f` 发布 Linux dev，release 为 `manual-admin-scan-image-2c56e9f-dirty-20261014151507`。发布源只移植本节 Admin 三文件增量，明确标记 dirty；API bundle 与上一 release 逐字节一致，11 个 Admin 静态文件与批准构建一致。真实 Admin 登录态点击仍待补验，完整发布证据与边界见 [本版本验证记录](../05-delivery/VERIFICATION.md)。
 
+同日从干净的 `main@0a167e6` 发布至 prod 的两个 Admin 入口：Worker version `b3bba43e-79d9-41bc-a354-a03720b5b129` 和 Pages deployment `51a036ba-baec-42ed-b27f-02bd891682ef`。双入口 22 个静态文件与批准构建逐字节一致，Worker API 脚本与发布前一致。用户随后反馈已在 prod 登录并点击扫描原图，预览正常；此为用户实测反馈，未由 Agent 独立重放，详见[本版本验证记录](../05-delivery/VERIFICATION.md)。
+
 ## 2026-10-13 订单筛选结果金额汇总
 
 订单统计页在筛选区与订单列表之间展示三项汇总：

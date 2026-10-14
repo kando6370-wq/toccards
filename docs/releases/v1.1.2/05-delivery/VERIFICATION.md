@@ -2,6 +2,15 @@
 
 本文件保留 Admin、营销站等其他业务的实际验证。App 兼容规则、源码合同证据及 Home 文件夹切换历史记录见 [AI 执行版](../03-data-api/app-backward-compatibility-ai-guide.md)；历史版本记录见 [v1.1.1](../../v1.1.1/05-delivery/VERIFICATION.md)。未运行或只有部分证据的事项不得标记为完整验收通过。
 
+## 2026-10-14：prod Admin 扫描详情预览双入口发布
+
+- 授权与基线：用户要求部署 prod 管理后台。发布前本地干净的 `main@0a167e64cb7d17e0765c6f3e305cd431755757d3` 与远端 main 一致；Pages 已自动部署同一提交 `d0612a87-20bf-4e72-83ff-cda27d4eff2d`，API 域名的 Worker 仍为 `3345b389-2501-4dd2-8f30-f85c03c87949` / 100%，使用上午的 Admin 静态资源。相对上午批准的 `ee3f298`，可执行代码仅变更 Admin 扫描详情原图预览，Workers API 与共享包无差异；回退参考为旧 Worker `3345b389` 和 Pages 自动部署 `d0612a87`，本轮未回退或删除旧版本。
+- 本地门禁：`pnpm --filter @kando/admin-web test` 27/27，无失败/跳过；Admin 和 Workers 各自 `type-check`、`pnpm lint`、`pnpm --filter @kando/workers-api deploy:dry-run:prod` 均退出 0。冻结 production Admin 的 11 个文件；dry-run Worker 脚本为 2,112,768 字节、SHA-256 `715af5c24f4f8ef1b1e3f9f9c635139588bf13d7e94b2802a937d9d62a9108e9`，与上午保存的线上完整脚本逐字节一致。发布前 Pages 的 10 个 JS/CSS 与该构建一致，HTML 仅有自动 Linux 构建和本机 Windows 构建的 12 个 CR 字节差异；API 域名仍返回旧入口资源。
+- Worker 候选与切流：使用 `wrangler versions upload --env prod --keep-vars --strict --assets <冻结 Admin dist>` 上传候选 `b3bba43e-79d9-41bc-a354-a03720b5b129`，确认候选编译脚本字节、远端脚本 etag、27 个绑定描述符、运行时、处理器和 Smart Placement 均与旧活动版本一致，且上传时旧版仍为 100%。随后以 `wrangler versions deploy b3bba43e-79d9-41bc-a354-a03720b5b129@100 --env prod --yes` 切流，独立回读确认新版本为唯一 100% 活动版本；CLI 同步 `logpush=false` 和已开启的 observability，未执行 triggers deploy。
+- Pages 与双入口：为与同一冻结产物原始字节一致，使用 `wrangler pages deploy <冻结 Admin dist> --project-name toccards-admin --branch main --commit-hash 0a167e64cb7d17e0765c6f3e305cd431755757d3 --commit-dirty=false` 重发；新 deployment 为 `51a036ba-baec-42ed-b27f-02bd891682ef`，CLI 列表显示 Production/main/`0a167e6`，独立部署域名及正式域名的 HTML 均为 200 且与产物字节一致。Workers 域名与 Pages 域名各 11 个 HTML/JS/CSS 共 22/22 文件原始字节及 SHA-256 全部匹配。Wrangler 提示忽略不适用于 Pages 的 Worker wrangler.toml，沿用现有 Pages 项目配置。
+- API 烟测与发布阶段边界：Worker 切流后 9 项请求通过，health 200 且新查询参数为 MISS，未登录 auth/me、Admin 订单、Admin 扫描、文件夹均 401，iOS/google 配置 200，正式 Admin Origin 的登录 OPTIONS 为 204 且允许 POST，插件缺失 Key 为 401；9 份正文指纹与上午发布前记录一致。发布阶段没有执行 migration、生产 SQL 业务写入、Git push、Linux dev/营销站/Flutter 发布；没有读取 Secret 明文，也未独立回查生产 ledger、cron/域名配置或执行备份恢复。完整 Workers 全套、真机及历史专项验收未运行；发布阶段未使用真实 Admin 登录态点击原图，后续用户反馈见下条。冻结产物和版本回读证据保留在忽略目录 `apps/workers-api/.wrangler/prod-admin-0a167e6-20261014154849/`。
+- 用户登录态补验（2026-10-14）：用户确认已在 prod 管理后台登录并点击扫描原图，预览正常。此结论是用户实测反馈；Agent 未取得该登录会话、截图或请求记录，未独立重放，不扩展为订单统计、插件、真机或其他历史待验项已通过。
+
 ## 2026-10-14：管理后台扫描详情原图放大
 
 - 问题定位：扫描详情顶部原图与列表缩略图共用 `AuthenticatedScanImage`，私有图片已通过 Admin Token 获取 Blob，但组件固定渲染原生 `img`；候选卡牌图片使用 Ant Design `Image`，因此只有候选图具备预览和缩放能力。
