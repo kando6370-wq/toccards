@@ -16,6 +16,7 @@ import {
 import { getBearerToken, hasSigningSecret } from "../auth/http-auth";
 import { cardImageUrl } from "../card-image-url";
 import { createId } from "../id";
+import { createSubscriptionConfigAdminRoutes } from "../subscription-config/routes";
 import { countryDisplayName } from "./country-name";
 import { createXlsx } from "./xlsx";
 import {
@@ -135,7 +136,7 @@ type AdminJwtPayload = {
   exp: number;
 };
 
-type AdminBindings = { Bindings: Env; Variables: { admin: AdminPrincipal } };
+export type AdminBindings = { Bindings: Env; Variables: { admin: AdminPrincipal } };
 type AdminContext = Context<AdminBindings>;
 
 const EMAIL_MAX_LENGTH = 254;
@@ -628,6 +629,7 @@ adminRoutes.post("/auth/refresh", async (c) => {
 });
 
 adminRoutes.use("*", requireAdmin);
+adminRoutes.route("/", createSubscriptionConfigAdminRoutes());
 
 adminRoutes.post("/auth/logout", async (c) => {
   const refreshToken = await readRefreshToken(c.req);

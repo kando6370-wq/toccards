@@ -132,6 +132,7 @@ dart run melos run test
 - [v1.1.0 开发归档](docs/releases/v1.1.0/README.md)
 - [v1.1.1 开发归档](docs/releases/v1.1.1/README.md)
 - [v1.1.2 当前开发文档入口](docs/releases/v1.1.2/README.md)
-- [App 1.0.6 订阅配置需求、商品映射与实施草案（待开发）](docs/releases/v1.1.2/00-product/admin-subscription-config-prd.md)
+- [App 1.0.6 订阅配置需求、商品映射与实施草案](docs/releases/v1.1.2/00-product/admin-subscription-config-prd.md)
+- [订阅展示配置与商品准入：第一阶段服务端](docs/releases/v1.1.2/03-data-api/subscription-display-config.md)
 - [v1.1.0 系统架构](docs/releases/v1.1.0/02-architecture/architecture.md)
 - [v1.1.0 业务上下文](docs/releases/v1.1.0/01-flows/business-context.md)

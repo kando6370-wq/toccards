@@ -53,3 +53,16 @@
 - 历史本地原型证据：此前已对完整内嵌脚本完成语法解析，并从 HTML 原样抽取纯逻辑在隔离 JavaScript 上下文验证；按钮回退 13/13、保存校验 22/22，通过。对保存的 1.13 原始脚本进行同输入反证：12 种按钮占位符输入全部被放行，1.14 全部拒绝；缺字段恢复保持原试用文案。DOM 错误渲染由空操作替代，因此不是浏览器端到端或真实 API 测试；反证在修订完成后运行，不记为修改前已经实测。
 - 归档的 [HTML 原型](../../../../prototypes/admin-subscription-config-standalone.html) 与上述已验证版本原始字节一致，SHA-256 为 `aff5bc3a7a7a0f20458ea8cce8cdd59e221b8619ef495dd1f7b7c681937aa37e`。本次只整理文档位置与链接，没有改写或重跑原型逻辑。
 - 浏览器视觉检查未完成：当时电脑操作工具无法可靠确认当前浏览器地址而停止。未完成后台真实接口、Flutter／真机、Apple 私有目录、真实购买／恢复、收入平台及完整兼容验收；业务源码未随这些材料实现或发布。原始商品和价格是演示数据，不能当作真实接入证据。
+
+<a id="subscription-config-server"></a>
+
+## 2026-10-14：订阅展示配置与商品准入第一阶段
+
+- 源码基线为 codex/dev-1.0.6@8751b7e 加本轮未提交改动；环境为 Windows、Node 22.20.0、pnpm 11.9.0。新接口／数据／环境合同见 [服务端文档](../03-data-api/subscription-display-config.md)。PostgreSQL 0014 仅新增三表，复用现有管理员鉴权；原购买、Restore 和 app-config 合同不改。Admin 页面与 Flutter 消费仍待后续阶段。
+- 本地功能／回归：`pnpm --filter @kando/workers-api exec vitest run src/subscription-config/model.test.ts src/subscription-config/catalog.test.ts src/subscription-config/routes.postgres.test.ts src/linux/config.test.ts src/admin/billing-summary.postgres.test.ts src/app-config/routes.test.ts src/app-config/version-control.integration.test.ts src/compatibility/app-contract.test.ts --maxWorkers=2` 退出 0，8 文件／89 项通过，未跳过测试。覆盖 Apple 只读目录分页、作用域与失败／空值、签名、优惠事实，配置校验、管理员权限、两类页面、冲突／幂等／回滚、失效准入及旧 Admin/API 边界；App 兼容的证据限制另见 AI 执行版。
+- 类型与依赖：pnpm lint、pnpm type-check 最终均退出 0。首轮类型检查发现测试中的 WebCrypto 联合返回类型和 Node／Workers URL 类型冲突，已通过类型收窄及显式 node:url 导入修正，没有放宽断言；最终全仓类型检查 7 个任务成功，其中 6 个未改包命中缓存。
+- 真实 PostgreSQL 补验：使用既有本地 postgres:18.6-alpine 镜像创建仅绑定 loopback 的独立临时容器，数据库名 subscription_config_test，无既有业务表。显式设置 SUBSCRIPTION_TEST_DATABASE_URL 后运行 pnpm --filter @kando/workers-api test:subscription-config:postgres，最终退出 0；5 个独立连接场景通过（TAP 含父项显示 6/6），没有 skipped/cancelled。通过 pg_stat_activity 确认两个独立写连接等待 scope 行锁，以及撤销映射的连接在生效提交前等待 FOR SHARE 行锁；覆盖重复创建、竞争启用、并发编辑、商品准入稳定性及真实事务回滚。测试后两个任务自建容器均停止并自动移除，标签回查无残留，没有修改既有容器或业务数据库。
+- 补验发现与修复：最初真实 PostgreSQL 创建因 body 的 object CHECK 失败。最小只读查询证明，对已序列化的同一 JSON，直接参数 ::jsonb 得到 jsonb_typeof=string，先 ::text::jsonb 得到 object；根因是 postgres.js 按 JSON OID 再次序列化字符串，而 PGlite 不表现相同行为。仅修正新 store.ts 的 6 处 JSON 参数转换，未修改共享数据库适配；同一原始创建／并发路径在新隔离数据库重跑通过。验证脚本另有顶层 after 过早关闭连接的问题，改为一个父测试管理生命周期，后续 5 个场景均实际执行。
+- 打包：最终 pnpm --filter @kando/workers-api build:linux:api 退出 0，包含 3/3 真实 Node bundle 子测试；pnpm --filter @kando/workers-api deploy:dry-run:prod 退出 0，包含已有 Admin production 构建和 Worker dry-run。仅生成本地忽略产物，没有上传版本、切流或部署。
+- Code Review：本轮自审覆盖管理员中间件作用范围、公开响应裁剪、scope 与复合外键、事务快照、幂等操作者／指纹、商品行锁及 JSON 驱动边界；补验修复后重新运行受影响回归、类型与两端构建并复审，未发现当前改动的阻断项。不是独立人员审查。
+- 未验／未执行：真实 Apple 私有目录权限、正式组／新 SKU／优惠地区、已批准准入列表和线上 billing_product 映射仍待接入负责人核对；未做真机购买、恢复、收入平台、真实旧包或完整客户端兼容编排，未重跑全量 Workers／Admin／Flutter 测试。没有远程迁移、业务数据写入、Git commit/push 或 dev/prod 部署。真实 PostgreSQL 的本地多连接结果不代表生产延迟、连接池／Hyperdrive 或性能验收。

@@ -20,6 +20,7 @@ import { createLegalRoutes } from "./legal/routes";
 import { createPortfolioRoutes } from "./portfolio/routes";
 import { apiRequestId, REQUEST_ID_HEADER } from "./request-id";
 import { createScanRoutes } from "./scan/routes";
+import { createSubscriptionDisplayRoutes } from "./subscription-config/routes";
 
 const DEFAULT_ALLOWED_ORIGINS = [
   "https://admin.tcgcard.fun",
@@ -59,6 +60,7 @@ api.get("/health", (context) => context.json({ status: "ok" }));
 api.route("/auth", authRoutes);
 api.route("/", createExtensionRoutes());
 api.route("/", createAppConfigRoutes());
+api.route("/", createSubscriptionDisplayRoutes());
 api.route("/", createDataSourceRoutes());
 api.route("/", createFeedbackRoutes());
 api.route("/", createLegalRoutes());

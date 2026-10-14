@@ -31,8 +31,8 @@
 
 2026-10-14 已从干净的 `main@ee3f298` 配套发布至 prod API 与 `admin.tcgcard.fun` / `api.tcgcard.fun` 两个 Admin 入口；双入口静态产物及基础 HTTP 已独立验收，真实 Admin 登录态下的订单金额、筛选和页面交互仍待补验。详细版本与边界见 [本版本验证记录](../05-delivery/VERIFICATION.md)。
 
-## App 1.0.6 订阅配置（待开发）
+## App 1.0.6 订阅配置（服务端已新增，页面待开发）
 
 本次新增的订阅配置管理、Page／Modal 独立生效、SKU 与试用关系、纯文本按钮及真实计费说明，以 [PRD 1.14](../00-product/admin-subscription-config-prd.md) 为需求输入；[商品接入映射](../00-product/admin-subscription-config-prd.md#product-mapping)和[接口／数据实施草案](../00-product/admin-subscription-config-prd.md#implementation-plan)集中在同一文档。
 
-当前只有需求与[离线 HTML 原型](../../../../prototypes/admin-subscription-config-standalone.html)，尚无对应 Admin 页面、服务端配置 API 或 Flutter 动态配置实现，也未执行订阅配置数据库迁移或部署。本文前述订单金额汇总的实现／发布结论不适用于该新功能。原型验证边界见 [本版本验证记录](../05-delivery/VERIFICATION.md#subscription-config-prototype)。
+当前服务端已新增目录、准入、配置读写／生效及结果核对接口，具体合同见 [服务端订阅配置](../03-data-api/subscription-display-config.md)。管理页仍为[离线 HTML 原型](../../../../prototypes/admin-subscription-config-standalone.html)，Admin 页面和 Flutter 消费尚未开发；新增迁移已在本地内存 PostgreSQL 和临时真实 PostgreSQL 中验证，没有远程迁移或部署。本文前述订单金额汇总的实现／发布结论不适用于该新功能。原型验证边界见 [本版本验证记录](../05-delivery/VERIFICATION.md#subscription-config-prototype)。

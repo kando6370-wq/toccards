@@ -19,6 +19,7 @@
     "deploy:dev": "node ../../deploy/linux/deploy-dev.mjs",
     "type-check": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run --exclude \"**/.wrangler/**\"",
+    "test:subscription-config:postgres": "node scripts/check-subscription-config-postgres.mjs",
     "admin:init": "node scripts/create-admin.mjs"
   },
   "dependencies": {
