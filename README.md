@@ -48,6 +48,7 @@ Marketing Web -----------------> 独立 Cloudflare 静态站点
 | `packages/*` | TypeScript 共享认证、API、UI 和 Workers 能力 |
 | `deploy/linux` | Linux 测试环境 Compose、离线镜像、迁移与分支监听发布脚本 |
 | `docs/releases` | 按版本冻结的产品输入与实现文档 |
+| `prototypes` | 离线交互原型，仅供需求与设计核对，不参与应用构建或发布 |
 
 完整边界见 [v1.1 Monorepo 文档](docs/releases/v1.1.0/02-architecture/monorepo.md)。
 
@@ -131,5 +132,6 @@ dart run melos run test
 - [v1.1.0 开发归档](docs/releases/v1.1.0/README.md)
 - [v1.1.1 开发归档](docs/releases/v1.1.1/README.md)
 - [v1.1.2 当前开发文档入口](docs/releases/v1.1.2/README.md)
+- [App 1.0.6 订阅配置需求、商品映射与实施草案（待开发）](docs/releases/v1.1.2/00-product/admin-subscription-config-prd.md)
 - [v1.1.0 系统架构](docs/releases/v1.1.0/02-architecture/architecture.md)
 - [v1.1.0 业务上下文](docs/releases/v1.1.0/01-flows/business-context.md)

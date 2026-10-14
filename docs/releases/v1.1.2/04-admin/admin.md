@@ -30,3 +30,9 @@
 列表和汇总使用同一筛选构造器；原有数量查询扩展为数量及金额聚合，不新增独立网络请求。订单明细、排序、XLSX 导出和 Admin 鉴权保持原契约。无数据库 schema/migration、App API 或 Flutter 变更。
 
 2026-10-14 已从干净的 `main@ee3f298` 配套发布至 prod API 与 `admin.tcgcard.fun` / `api.tcgcard.fun` 两个 Admin 入口；双入口静态产物及基础 HTTP 已独立验收，真实 Admin 登录态下的订单金额、筛选和页面交互仍待补验。详细版本与边界见 [本版本验证记录](../05-delivery/VERIFICATION.md)。
+
+## App 1.0.6 订阅配置（待开发）
+
+本次新增的订阅配置管理、Page／Modal 独立生效、SKU 与试用关系、纯文本按钮及真实计费说明，以 [PRD 1.14](../00-product/admin-subscription-config-prd.md) 为需求输入；[商品接入映射](../00-product/admin-subscription-config-prd.md#product-mapping)和[接口／数据实施草案](../00-product/admin-subscription-config-prd.md#implementation-plan)集中在同一文档。
+
+当前只有需求与[离线 HTML 原型](../../../../prototypes/admin-subscription-config-standalone.html)，尚无对应 Admin 页面、服务端配置 API 或 Flutter 动态配置实现，也未执行订阅配置数据库迁移或部署。本文前述订单金额汇总的实现／发布结论不适用于该新功能。原型验证边界见 [本版本验证记录](../05-delivery/VERIFICATION.md#subscription-config-prototype)。
