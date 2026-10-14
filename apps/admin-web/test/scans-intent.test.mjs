@@ -54,6 +54,16 @@ test("candidate artwork opens a preview because reviewers need to inspect detail
   assert.match(drawer, /<AuthenticatedScanImage path=\{scan\.image_url\} session=\{session\}/);
 });
 
+test("scan detail image opens an authenticated preview while list thumbnails keep their existing behavior", () => {
+  const drawer = app.slice(app.indexOf("function ScanDetailDrawer("), app.indexOf("function AuthenticatedScanImage("));
+  const authenticatedImage = app.slice(app.indexOf("function AuthenticatedScanImage("), app.indexOf("function DetailSection("));
+
+  assert.match(drawer, /<AuthenticatedScanImage path=\{scan\.image_url\} session=\{session\} className="scan-preview" preview \/>/);
+  assert.match(authenticatedImage, /preview = false/);
+  assert.match(authenticatedImage, /return source[\s\S]*?preview[\s\S]*?<Image[\s\S]*?src=\{source\}[\s\S]*?title="点击放大"[\s\S]*?preview=\{\{ mask: false \}\}/);
+  assert.match(authenticatedImage, /<img className=\{className\} src=\{source\} alt="扫描卡牌" \/>/);
+});
+
 test("candidate preview wrappers keep the thumbnail layout and failed artwork has no empty preview target", () => {
   assert.match(css, /\.scan-detail-drawer \.candidate-card > div\s*\{/);
   assert.doesNotMatch(css, /\.scan-detail-drawer \.candidate-card div\s*\{/);
