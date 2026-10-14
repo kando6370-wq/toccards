@@ -29,4 +29,4 @@
 
 列表和汇总使用同一筛选构造器；原有数量查询扩展为数量及金额聚合，不新增独立网络请求。订单明细、排序、XLSX 导出和 Admin 鉴权保持原契约。无数据库 schema/migration、App API 或 Flutter 变更。
 
-当前为本地实现；验证和发布状态见 [本版本验证记录](../05-delivery/VERIFICATION.md)。
+2026-10-14 已从干净的 `main@ee3f298` 配套发布至 prod API 与 `admin.tcgcard.fun` / `api.tcgcard.fun` 两个 Admin 入口；双入口静态产物及基础 HTTP 已独立验收，真实 Admin 登录态下的订单金额、筛选和页面交互仍待补验。详细版本与边界见 [本版本验证记录](../05-delivery/VERIFICATION.md)。

@@ -4,7 +4,9 @@ Kando 是 Card AI 的 monorepo，包含 Flutter 客户端、Cloudflare Workers A
 
 当前增量文档入口为 [v1.1.2](docs/releases/v1.1.2/README.md)；[v1.1.1](docs/releases/v1.1.1/README.md) 已于 2026-10-09 原位归档，v1.1.0 开发归档与 v1.0.0 冻结基线保持不变。文档版本切换不修改 App 版本、Git tag 或生产环境，原有待验项继续保留。
 
-最近一次生产修复来自 `main@4b31cba` 加未提交的插件 redirect 修复（dirty），不是纯提交构建。2026-10-09 16:08 发布 Worker `ac0654e0-5b71-457f-9ddf-6f478995e6d9`，16:09 回读为 100% 流量；现网代码与批准产物一致，原配置保留，用户随后反馈接口调用“可以了”。正确 Key 的候选详情逐字段对照、限频触发及真机等专项验收仍未独立完成。本轮未提交/推送或重新发布手机安装包；Flutter 源码版本仍为 `1.0.5+163`。详见 [v1.1.1 验证记录](docs/releases/v1.1.1/05-delivery/VERIFICATION.md)。
+最新 prod Admin 发布为 2026-10-14 09:12–09:15：从干净的 `main@ee3f298` 配套发布订单金额/退款汇总 API 与两个后台入口。Worker `3345b389` 承接 100% 流量，Pages `2c600e3e` 为 production/success；两个入口共 22 个静态文件与批准构建逐字节一致，9 项 HTTP 烟测通过。生产绑定、变量、缓存、Smart Placement、cron、域名和 Pages 配置保留；没有数据库迁移、Git push 或其他应用发布。真实 Admin 登录业务与原有专项验收仍待完成，详见 [v1.1.2 验证记录](docs/releases/v1.1.2/05-delivery/VERIFICATION.md)。
+
+历史生产修复来自 `main@4b31cba` 加未提交的插件 redirect 修复（dirty），不是纯提交构建。2026-10-09 16:08 发布 Worker `ac0654e0-5b71-457f-9ddf-6f478995e6d9`，16:09 回读为 100% 流量；现网代码与批准产物一致，原配置保留，用户随后反馈接口调用“可以了”。正确 Key 的候选详情逐字段对照、限频触发及真机等专项验收仍未独立完成。本轮未提交/推送或重新发布手机安装包；Flutter 源码版本仍为 `1.0.5+163`。详见 [v1.1.1 验证记录](docs/releases/v1.1.1/05-delivery/VERIFICATION.md)。
 
 历史检查点：2026-10-09 15:05 已从干净的本地 `main@c253647` 发布插件识别到 prod。Worker `e8c5d1fb-0e4d-4eb0-8483-3a77a4ba08fb` 为 100% 流量，独立 Pages Admin `cda22b78-846e-4b91-b6fc-7a69a022c768` 为 production/success；双入口 22 个静态文件与批准产物一致。仅新增插件专用 60 次/60 秒限频绑定，保留现有生产 Key、变量、数据库资源、缓存与调度配置；无 migration 或 SQL 业务写请求。缺失 Key/错误认证拒绝验证已通过，正确 Key 下的生产识别、详情及限频仍待补验，不能用 dev 合成向量结果替代。该生产发布阶段未推送 main；随后发布记录已提交为 `dbc2091` 并推送 `github/main`，不代表新增一次已验收部署。完整命令、测试和未验项见 [v1.1.1 验证记录](docs/releases/v1.1.1/05-delivery/VERIFICATION.md)。
 
@@ -106,7 +108,9 @@ dart run melos run test
 
 ## 部署边界
 
-最近一次插件生产修复为 2026-10-09 的 `main@4b31cba` 加未提交修复：Worker `ac0654e0`。Pages 保持已有 `a17f8f12`，双 Admin 静态文件发布前后未变；正确 Key 调用由用户反馈恢复，独立专项验收边界见本页开头及 v1.1.1 历史验证记录。以下为历史回读：2026-10-08 09:27 已从 `main@61b5420` 重新发布 prod API，version `4adbd0b7-3c67-4795-8ad0-c39795dc4be6` 回读为 100% 流量；09:29 同步重新发布独立 Pages Admin，deployment `39154bee-45d6-429d-8118-dfafed526ab7`。09:36 的新请求只读烟测、两个 Admin 入口的逐文件核验及控制面回读通过。Smart Placement 与 Hyperdrive 查询缓存仍同时开启，未切换定向 Placement，也不宣称性能或缓存一致性验收通过。本轮无 migration/schema 源码增量，未执行迁移、备份/恢复或重查 PostgreSQL ledger。当前证据见 [v1.1.1 验证记录](docs/releases/v1.1.1/05-delivery/VERIFICATION.md)；此前检查点见 [v1.1.0 发布与验证](docs/releases/v1.1.0/05-delivery/VERIFICATION.md)。
+当前 prod API 与双 Admin 已于 2026-10-14 从 `main@ee3f298` 配套发布，详情及未验边界见 [v1.1.2 验证记录](docs/releases/v1.1.2/05-delivery/VERIFICATION.md)。
+
+历史插件生产修复为 2026-10-09 的 `main@4b31cba` 加未提交修复：Worker `ac0654e0`。Pages 保持已有 `a17f8f12`，双 Admin 静态文件发布前后未变；正确 Key 调用由用户反馈恢复，独立专项验收边界见本页开头及 v1.1.1 历史验证记录。以下为历史回读：2026-10-08 09:27 已从 `main@61b5420` 重新发布 prod API，version `4adbd0b7-3c67-4795-8ad0-c39795dc4be6` 回读为 100% 流量；09:29 同步重新发布独立 Pages Admin，deployment `39154bee-45d6-429d-8118-dfafed526ab7`。09:36 的新请求只读烟测、两个 Admin 入口的逐文件核验及控制面回读通过。Smart Placement 与 Hyperdrive 查询缓存仍同时开启，未切换定向 Placement，也不宣称性能或缓存一致性验收通过。本轮无 migration/schema 源码增量，未执行迁移、备份/恢复或重查 PostgreSQL ledger。该历史证据见 [v1.1.1 验证记录](docs/releases/v1.1.1/05-delivery/VERIFICATION.md)；此前检查点见 [v1.1.0 发布与验证](docs/releases/v1.1.0/05-delivery/VERIFICATION.md)。
 
 - Linux dev：配置已验证的 SSH 目标 `TOCCARDS_SSH_TARGET` 后运行 `pnpm --filter @kando/workers-api run deploy:dev`；预检环境、PostgreSQL 18 和 CF 识别后，先备份再发布，不调用 Wrangler dev 部署。
 - Workers API 与 API 域名下的 Admin 副本：`pnpm --filter @kando/workers-api run deploy:prod`，会一并发布当前工作区后端代码；仅发 Admin 时须沿用已核验的生产后端，不得直接打包 dev 的其他后端改动。
@@ -116,7 +120,7 @@ dart run melos run test
 - Linux 分支监听脚本默认每两分钟检查 `dev`，仅在相关路径变化时构建并部署 kd201；GitHub Linux workflow 仅支持手动触发。服务器安装与最近部署证据见 [自动部署手册](docs/releases/v1.1.0/05-delivery/linux-test-auto-deployment.md)，合入代码不代表服务器已运行该提交。
 - iOS 发布脚本校验 IPA 后自动保存 IPA/dSYM，按 Bundle ID 分目录，测试保留最近 3 个版本、正式保留 7 个版本；具体命令与保留规则见 [Flutter 交付说明](apps/flutter-app/README.md#ipa-与符号文件保存)。
 
-2026-10-09 已确认本地与远端 `main@dbc2091` 一致，已包含 `dev@c253647`；此前推送包含插件业务 `b621d76`、dev 发布记录 `c253647` 和 prod 发布记录 `dbc2091`。本地与远端均无 `dev-ext*` 分支，旧 `dev-extension` 名称仅作为历史发布来源保留。Git 提交号不代表对应 Worker、App 包或目标环境已完成发布或复验。`dev-wxy`、`dev-xiangyang`、`dev-update-dio`、`dev-scan-page-update-ui` 已于 2026-09-09 清理，本地与远程均不再作为工作分支；文档中带提交号的旧分支名仅保留来源追踪含义。最近已验收的运行版本与未验范围见 [v1.1.1 验证记录](docs/releases/v1.1.1/05-delivery/VERIFICATION.md)。
+2026-10-09 已确认本地与远端 `main@dbc2091` 一致，已包含 `dev@c253647`；此前推送包含插件业务 `b621d76`、dev 发布记录 `c253647` 和 prod 发布记录 `dbc2091`。本地与远端均无 `dev-ext*` 分支，旧 `dev-extension` 名称仅作为历史发布来源保留。Git 提交号不代表对应 Worker、App 包或目标环境已完成发布或复验。`dev-wxy`、`dev-xiangyang`、`dev-update-dio`、`dev-scan-page-update-ui` 已于 2026-09-09 清理，本地与远程均不再作为工作分支；文档中带提交号的旧分支名仅保留来源追踪含义。最近 prod 检查点见 [v1.1.2 验证记录](docs/releases/v1.1.2/05-delivery/VERIFICATION.md)，历史运行版本与未验边界按对应日期记录保留。
 
 部署、远程迁移、生产写入和发布都需要单独明确授权；Git push 不会自动代表这些操作已获授权。
 
