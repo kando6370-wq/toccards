@@ -12,7 +12,7 @@ Kando 是 Card AI 的 monorepo，包含 Flutter 客户端、Cloudflare Workers A
 
 历史检查点：2026-10-08 已按干净的 `main@61b5420` 发布生产 API 和两个 Admin 入口。Worker version `4adbd0b7-3c67-4795-8ad0-c39795dc4be6` 回读为 100% 流量；独立 Pages `toccards-admin` deployment `39154bee-45d6-429d-8118-dfafed526ab7` 成功，两个入口的 HTML 与各 10 个 JS/CSS 均与同一批准构建逐字节一致。扫描 R2/向量并行和请求放置日志已上线 prod；Smart Placement、Hyperdrive 查询缓存、变量/绑定、cron、域名及 Pages 构建与自动部署配置保留原值。没有执行 migration、数据库业务写入或 Flutter/营销站发布；未独立重查生产 PostgreSQL ledger。旧 App 真机、真实扫描/登录态、性能与缓存一致性仍未验收。实际命令、初轮测试超时及复验、回退点和未执行项见 [v1.1.1 验证记录](docs/releases/v1.1.1/05-delivery/VERIFICATION.md)。
 
-Linux dev 最近已验收检查点为 2026-10-09 14:19：watcher 发布 `dev@b621d76`，release 为 `branch-dev-b621d76501e6-20261009140959`。后续 Git `dev@c253647` 不自动等同于已验收的运行版本；本次文档同步未重新回读 Linux 环境。v1.1.0 开发记录已原位归档；v1.1.1 的 App 1.0.4+ 兼容契约与验收矩阵仍是未完成验收的设计稿，部署事实不替代真机业务闭环或性能验收。历史发布、数据库迁移与资源证据继续保留在对应版本的交付记录。
+仓库最近保留的 Linux dev 验收记录为 2026-10-12 的 `dev@e8d1dd9`：watcher／release 与运行文件一致，API／DB healthy、Web running、migration exited/0，PostgreSQL ledger 14 项／最新 `0013`，Admin 11 个静态文件匹配。该历史检查点早于 C03 后续整理；当前服务器运行版本需另行回读，不能由 Git 分支或源码推断。详情见 [v1.1.2 历史证据摘要](docs/releases/v1.1.2/03-data-api/app-backward-compatibility-ai-guide.md#63-保留的历史证据摘要)。v1.1.0／v1.1.1 的原始验收记录继续按日期保留，完整兼容、正式旧包／真机和性能验收仍未完成。
 
 ## 系统概览
 
@@ -32,7 +32,7 @@ Marketing Web -----------------> 独立 Cloudflare 静态站点
 
 共享 Hono API 是 App 与 Admin 的服务端安全边界，路由组合位于 `apps/workers-api/src/app.ts`，Cloudflare 入口为 `src/index.ts`。客户端不得直连数据库或对象存储；Cloudflare 正式环境的 Admin 有两个入口：`admin.tcgcard.fun` 由 Pages 项目 `toccards-admin` 托管，`api.tcgcard.fun` 的副本由 Workers assets 托管；二者调用同一生产 API，但静态资源须分别发布和验收。营销站点独立部署。旧 Cloudflare dev/test 与正式环境 prod 均已完成 PostgreSQL 迁移，D1 已废弃；2026-09-09 用户确认与 Cloudflare 回读一致，两环境当时绑定同一个 PlanetScale PostgreSQL/Hyperdrive，回读版本均无 D1 binding。2026-09-17 旧 dev 业务 Worker 退役，但共享数据库及旧测试数据未删除；正式环境继续使用原资源。后续数据库变更仅涉及 PostgreSQL schema 和业务数据修复，见 [数据迁移](docs/releases/v1.1.0/03-data-api/migration.md)，不再安排 D1 移库任务。
 
-`dev` 已合入 Linux 入口 `src/linux/server.ts`，复用同一 Hono 应用与 PostgreSQL migration，使用独立 PostgreSQL、进程内 KV 和本地图片卷；Admin 由 Caddy 托管，离线模式使用 Node 静态服务。App `test` 默认 API 为 `http://192.168.50.201:8080/api/v1`，Admin development 使用同源相对 API，本机开发由 Vite 代理到 Linux，向量检索经 HTTP 复用 CF。2026-09-30 11:10 回读确认 kd201 watcher 已自动发布 `dev@7516cfd`，release 为 `branch-dev-7516cfd2a06a-20260930110549`：current 指向的 manifest、current-release、last-seen/last-deployed 一致，失败标记不存在；发布日志报告 API/DB healthy、Web started、migration 检查成功、无待执行 migration，ledger 14 项。发布前备份 1,135,397,728 字节且临时文件已移除；受 DBX MCP 只读策略限制，本轮未独立运行容器/数据库检查、`pg_restore --list` 或恢复演练；11:13 内网只读烟测通过，HTML 与本地构建仅 CR 字符不同，验证边界见当前版本记录。1,135,376,623 字节发布前备份通过 `pg_restore --list`，未执行恢复演练。17:04 内网 Admin 入口引用的 10 个 JS/CSS 资源与该提交本地 dev 构建哈希一致，候选图预览代码已交付；真实登录态交互仍需补验。旧 CF dev 的业务 Worker、域名入口和 cron 已退役；独立 Apple Sandbox 回调、CF 向量识别和正式环境保留。验收与未执行项见 [Linux 测试环境](docs/releases/v1.1.0/02-architecture/linux-test-environment.md)及[当前验证记录](docs/releases/v1.1.1/05-delivery/VERIFICATION.md)。
+`dev` 已合入 Linux 入口 `src/linux/server.ts`，复用同一 Hono 应用与 PostgreSQL migration，使用独立 PostgreSQL、进程内 KV 和本地图片卷；Admin 由 Caddy 托管，离线模式使用 Node 静态服务。App `test` 默认 API 为 `http://192.168.50.201:8080/api/v1`，Admin development 使用同源相对 API，本机开发由 Vite 代理到 Linux，向量检索经 HTTP 复用 CF。2026-09-30 11:10 回读确认 kd201 watcher 已自动发布 `dev@7516cfd`，release 为 `branch-dev-7516cfd2a06a-20260930110549`：current 指向的 manifest、current-release、last-seen/last-deployed 一致，失败标记不存在；发布日志报告 API/DB healthy、Web started、migration 检查成功、无待执行 migration，ledger 14 项。发布前备份 1,135,397,728 字节且临时文件已移除；受 DBX MCP 只读策略限制，本轮未独立运行容器/数据库检查、`pg_restore --list` 或恢复演练；11:13 内网只读烟测通过，HTML 与本地构建仅 CR 字符不同，验证边界见 v1.1.1 历史记录。另一个历史检查点是 2026-09-29 17:03–17:04 的 `dev@c9f950e`：1,135,376,623 字节发布前备份通过 `pg_restore --list`，未执行恢复演练。17:04 内网 Admin 入口引用的 10 个 JS/CSS 资源与该提交本地 dev 构建哈希一致，候选图预览代码已交付；真实登录态交互仍需补验。旧 CF dev 的业务 Worker、域名入口和 cron 已退役；独立 Apple Sandbox 回调、CF 向量识别和正式环境保留。验收与未执行项见 [Linux 测试环境](docs/releases/v1.1.0/02-architecture/linux-test-environment.md)及 [v1.1.1 历史验证记录](docs/releases/v1.1.1/05-delivery/VERIFICATION.md)。
 
 当前代码包含端侧模型与 512 维向量识别；dev Linux 经 HTTP、prod Cloudflare 经 Service Binding 调用 `recognize-vec`。当前 App 要求 iOS 16+ 或 Android API 24+；Flutter Web 可用于其他页面开发，暂不支持扫描。扫描协议、平台资源及新旧 App 兼容边界见 [扫描识别链路](docs/releases/v1.1.0/01-flows/scan-recognition.md)。
 
@@ -73,7 +73,7 @@ flutter pub get
 # Flutter Web，使用测试环境配置
 pnpm app:chrome:dev
 
-# Workers API
+# Linux dev API（共享 Hono 业务）
 pnpm --filter @kando/workers-api dev
 
 # React Admin
@@ -83,7 +83,7 @@ pnpm --filter @kando/admin-web dev
 pnpm --filter @kando/marketing-web dev
 ```
 
-各进程仍需要其目标环境可用的配置和本地/远程 Cloudflare 资源；启动命令成功不等于 Apple、向量识别服务、邮件或生产资源已配置。
+Workers 包的 `dev` 命令实际编译并启动本机 Linux/Node 入口，需要通过进程环境提供独立 PostgreSQL、JWT 和 `VECTOR_RECOGNITION_BASE_URL` 等配置；它不启动或部署旧 Cloudflare dev Worker。Admin 本机开发使用 Vite 代理，Marketing 使用 Wrangler 本地开发。启动命令成功不等于 Apple、向量识别、邮件等外部服务已完成配置或验收。
 
 Linux dev API 与 Admin 构建使用 `pnpm --filter @kando/workers-api build:dev`，原 `build:linux` 为兼容别名。`deploy:dry-run:dev` 构建并生成不含私有配置的 Linux 发布包；`deploy:dev` 使用显式 `TOCCARDS_SSH_TARGET` 经 SSH 调用服务器发布脚本。直接运行 Node API 的 `dev`/`start:linux` 从进程环境读取配置，开发机需使用可达的本地 PostgreSQL 地址，不能直接使用 Compose 内部主机名 `db`。详见 [Linux 运维手册](docs/linux-test-environment/README.md)。
 
@@ -117,7 +117,7 @@ dart run melos run test
 - Pages Admin prod：现有项目 `toccards-admin`，生产分支 `main`，域名 `admin.tcgcard.fun`；使用批准的 production 静态产物单独发布，不能以 Worker 副本更新替代。具体命令和双入口验收见 [Admin 增量](docs/releases/v1.1.1/04-admin/admin.md)。Pages 仍开启 main 自动部署；2026-10-08 回读确认既有自动构建和本轮批准产物均来自 `main@61b5420`，该提交已包含候选图片预览，不再存在本次改动尚未进入 main 的历史覆盖缺口。未来 main 变更及 Git 推送仍需独立授权。
 - Marketing：`pnpm --filter @kando/marketing-web run deploy`。
 - iOS GitHub Actions 的 push 触发仅覆盖 dev 的相关路径，另支持 PR 与手动触发；main 推送不代表该任务已执行。任务只执行 unsigned release compile gate，不等于签名、TestFlight 或真机验收。
-- Linux 分支监听脚本默认每两分钟检查 `dev`，仅在相关路径变化时构建并部署 kd201；GitHub Linux workflow 仅支持手动触发。服务器安装与最近部署证据见 [自动部署手册](docs/releases/v1.1.0/05-delivery/linux-test-auto-deployment.md)，合入代码不代表服务器已运行该提交。
+- Linux 分支监听脚本默认每两分钟检查 `dev`，仅在相关路径变化时构建并部署 kd201；GitHub Linux workflow 仅支持手动触发。服务器安装、运行说明与已记录的验收入口见 [Linux 运维手册](docs/linux-test-environment/README.md)，合入代码不代表服务器已运行该提交。
 - iOS 发布脚本校验 IPA 后自动保存 IPA/dSYM，按 Bundle ID 分目录，测试保留最近 3 个版本、正式保留 7 个版本；具体命令与保留规则见 [Flutter 交付说明](apps/flutter-app/README.md#ipa-与符号文件保存)。
 
 2026-10-09 已确认本地与远端 `main@dbc2091` 一致，已包含 `dev@c253647`；此前推送包含插件业务 `b621d76`、dev 发布记录 `c253647` 和 prod 发布记录 `dbc2091`。本地与远端均无 `dev-ext*` 分支，旧 `dev-extension` 名称仅作为历史发布来源保留。Git 提交号不代表对应 Worker、App 包或目标环境已完成发布或复验。`dev-wxy`、`dev-xiangyang`、`dev-update-dio`、`dev-scan-page-update-ui` 已于 2026-09-09 清理，本地与远程均不再作为工作分支；文档中带提交号的旧分支名仅保留来源追踪含义。最近 prod 检查点见 [v1.1.2 验证记录](docs/releases/v1.1.2/05-delivery/VERIFICATION.md)，历史运行版本与未验边界按对应日期记录保留。

@@ -2,7 +2,7 @@
 
 当前 `dev` 即本手册的 Linux 环境，`prod` 保持原 Cloudflare 运行与发布方式；已退役的旧 CF dev 不是第三个业务环境或后续发布目标。
 
-2026-09-23 最近回读状态：kd201 watcher 已自动发布 Sports Shop 提交 `dev@f9feac7`，API/DB healthy、Web running、migration exited/0，ledger 为 14 项且最新为 `0013`。旧 CF dev 业务 Worker、域名和 cron 已退役；独立 Apple 回调和 CF 向量服务保留，旧测试数据与包不清理。下方 2026-09-16 基线按原日期保留，最新证据见[验证记录](../releases/v1.1.0/05-delivery/VERIFICATION.md)。
+仓库最近保留的独立验收记录为 2026-10-12 的 `dev@e8d1dd9`：watcher／release 与运行文件一致，API／DB healthy、Web running、migration exited/0，PostgreSQL ledger 14 项／最新 `0013`，Admin 11 个静态文件匹配。见 [v1.1.2 历史证据摘要](../releases/v1.1.2/03-data-api/app-backward-compatibility-ai-guide.md#63-保留的历史证据摘要)。该记录早于 C03 后续整理；当前服务器运行版本需另行回读，不能由源码推断。下方 2026-09-15 至 2026-09-23 的配置与发布情况按原日期保留。
 
 > 适用项目：`toccards`
 >
@@ -12,13 +12,13 @@
 >
 > 自动部署分支：`dev`
 >
-> 最近一次已回读发布基线：2026-09-23，watcher 自动发布 API/Admin release `dev@f9feac7`
+> 最近一条已记录的独立验收：2026-10-12，`dev@e8d1dd9`（历史证据，当前运行状态需另行回读）
 >
-> 服务器核验：2026-09-23，manifest/current/last-deployed 一致，14 项 ledger、发布前备份、health 与 Admin 通过；Sports Shop 的 eBay 与 TCGplayer 对照已回读，既有向量扫描、扣次和本地收藏历史证据保留
+> 验收边界：已记录运行文件、容器状态、migration ledger 和 Admin 静态文件核对；未完成数据库恢复、正式旧包／真机或生产验收
 
-Linux 整改已通过 `75c0ec4` 合入 dev，保留该分支原有的后台筛选改动；该提交及 `a419415` release 现在都是历史检查点。当前 release 为 `branch-dev-f9feac7b16b5-20260923103511`，运行 bundle 包含 HTTP 向量适配与 Sports Shop eBay 入口；原数据库及图片卷保留，ledger 为 14 项。发布前 1,135,250,246 字节 custom-format 备份通过 PostgreSQL 18 `pg_restore --list`，未执行恢复。日常手工 SSH 发布仍需配置非交互 key/agent；本次通过交互 SSH 只读核验已由服务器 watcher 完成的自动发布，没有执行手工重发。后续只改 Flutter/文档的 `d8f0aa2` 仅更新 `last-seen-sha`，没有替换 Linux release。完整证据见[验证记录](../releases/v1.1.0/05-delivery/VERIFICATION.md#sports-shop-linux-dev-自动发布回读2026-09-23)。
+Linux 整改已通过 `75c0ec4` 合入 dev，保留该分支原有的后台筛选改动；该提交及 `a419415` release 现在都是历史检查点。2026-09-23 的历史 release 为 `branch-dev-f9feac7b16b5-20260923103511`，运行 bundle 包含 HTTP 向量适配与 Sports Shop eBay 入口；原数据库及图片卷保留，ledger 为 14 项。发布前 1,135,250,246 字节 custom-format 备份通过 PostgreSQL 18 `pg_restore --list`，未执行恢复。日常手工 SSH 发布仍需配置非交互 key/agent；本次通过交互 SSH 只读核验已由服务器 watcher 完成的自动发布，没有执行手工重发。后续只改 Flutter/文档的 `d8f0aa2` 仅更新 `last-seen-sha`，没有替换 Linux release。完整证据见[验证记录](../releases/v1.1.0/05-delivery/VERIFICATION.md#sports-shop-linux-dev-自动发布回读2026-09-23)。
 
-2026-09-16 已在共享 `shared/.env` 补齐 dev 公开配置、Apple 官方根证书、API 出站代理、ZeptoMail Token 和用户确认的 Apple Server API 凭据；这些配置随 release 保留。配置更新只重建 API，单封注册验证码邮件由用户确认收到，管理员登录与 Apple Sandbox 只读 API 鉴权均通过。当前源码版本对齐、第三方真实登录、Apple 购买/回调等剩余项见[集中处理清单](../releases/v1.1.0/05-delivery/development-plan.md#linux-dev-集中处理清单2026-09-16)。
+2026-09-16 已在共享 `shared/.env` 补齐 dev 公开配置、Apple 官方根证书、API 出站代理、ZeptoMail Token 和用户确认的 Apple Server API 凭据；这些配置随 release 保留。配置更新只重建 API，单封注册验证码邮件由用户确认收到，管理员登录与 Apple Sandbox 只读 API 鉴权均通过。该时点的源码版本对齐、第三方真实登录、Apple 购买/回调等待验项见[集中处理清单](../releases/v1.1.0/05-delivery/development-plan.md#linux-dev-集中处理清单2026-09-16)。
 
 ## 1. 目标与原则
 
@@ -116,11 +116,11 @@ POSTGRES_LISTEN_ADDRESS=192.168.50.201
 POSTGRES_HOST_PORT=15432
 ```
 
-升级本次后端适配前，先补齐 `VECTOR_RECOGNITION_BASE_URL` 并从服务器验证出站连通性。新版本忽略旧 `OCR_SERVICE_BASE_URL`，仅有旧键时拒绝启动；过渡期可保留旧键供旧版本回滚，或恢复对应版本的 `.env`。kd201 已于 2026-09-15 完成该升级，客户端真机切换仍待验收。
+当前 Linux 入口通过 `loadLinuxRuntime` 强制读取 `VECTOR_RECOGNITION_BASE_URL`；仅有旧 `OCR_SERVICE_BASE_URL` 时拒绝启动。旧 OCR 键不再参与扫描，也不能作为当前版本的回退配置。应用回退须选择兼容当前 PostgreSQL schema 和向量协议的已验证版本，并核对对应私有配置。2026-09-15 的迁移过程保留在历史验证记录中。
 
 ### 外部服务配置与代理
 
-2026-09-15 已从 CF `toccards-api-dev` 在线配置核对 Google Client ID、beta Bundle、App Attest 标识、商品白名单与邮件发件人；值与仓库 `wrangler.toml` 的 `env.dev.vars` 一致。Linux 已补齐缺失的公开值。Apple 根证书从[官方证书页面](https://www.apple.com/certificateauthority/)下载，验证 CA 属性、自签名和有效期后，按现有契约将 3 张 DER 证书编码为逗号分隔的 `APPLE_ROOT_CERTIFICATES_BASE64`。ZeptoMail Token 已于 2026-09-16 按用户文件配置并完成单封真实收件验收；统计密钥仍待提供。`ZEPTOMAIL_TOKEN` 只保存原始值，代码会添加 `Zoho-enczapikey ` 前缀，不能在配置中重复保存该前缀。CF Secret 列表不返回明文。
+2026-09-15 已从 CF `toccards-api-dev` 在线配置核对 Google Client ID、beta Bundle、App Attest 标识、商品白名单与邮件发件人；值与当时版本 `wrangler.toml` 的 `env.dev.vars` 一致。当前 Wrangler 配置仅保留 prod；Linux 配置以 [`loadLinuxRuntime`](../../apps/workers-api/src/linux/config.ts)和 [`.env.example`](../../deploy/linux/.env.example)为准。Linux 已补齐缺失的公开值。Apple 根证书从[官方证书页面](https://www.apple.com/certificateauthority/)下载，验证 CA 属性、自签名和有效期后，按现有契约将 3 张 DER 证书编码为逗号分隔的 `APPLE_ROOT_CERTIFICATES_BASE64`。ZeptoMail Token 已于 2026-09-16 按用户文件配置并完成单封真实收件验收；统计密钥仍待提供。`ZEPTOMAIL_TOKEN` 只保存原始值，代码会添加 `Zoho-enczapikey ` 前缀，不能在配置中重复保存该前缀。CF Secret 列表不返回明文。
 
 同日已按用户确认的 `A2Q978K984` 配置 `APPLE_IAP_ISSUER_ID`、`APPLE_IAP_KEY_ID`、`APPLE_IAP_PRIVATE_KEY`。私钥是完整 PEM 内容，不是文件路径或根证书的 base64；本次使用 dotenv 双引号与转义换行存储，Node 与 Compose 解析后均恢复真实换行，并通过运行容器内的签名及 Sandbox API 鉴权。真实 Issuer ID/PEM 只保存在服务器私有配置，旧配置备份权限为 600。`APP_ENVIRONMENT=development`、beta Bundle、`cardx.*` 商品及 App Attest development 保留；仅只读查询最近一分钟的通知历史，没有触发 Apple TEST 通知、购买或生产请求。
 
@@ -133,7 +133,7 @@ HTTPS_PROXY=http://192.168.48.10:7890
 NO_PROXY=localhost,127.0.0.1,::1,db,api,192.168.50.201,192.168.48.10,recognize-vec.tcgcard.fun
 ```
 
-此方式要求实际 API 运行时为 Node 22.21.0+；kd201 当前为 22.22.1。`NODE_USE_ENV_PROXY` 是 Node 启动配置，不由 `loadLinuxRuntime` 转换；仅设置 `HTTPS_PROXY` 无法保证旧版 Node 的原生 `fetch` 使用代理。Node 原生代理配置接受 HTTP(S) URL，不能把此处改成 `socks5://`。2026-09-16 自动发布整改时，另外将相同 HTTP/HTTPS/NO_PROXY/NODE_USE_ENV_PROXY 设置加入 `watcher/watcher.env`，使监听器的 Git/Node/pnpm 使用已验证的出口；API 环境和 watcher 环境各自维护，不会自动互相继承。宿主机全局代理、Docker daemon 和其他项目未修改；数据库为直连 TCP，内网与 CF 向量服务通过 `NO_PROXY` 直连，TLS 校验保持开启。
+此方式要求实际 API 运行时为 Node 22.21.0+；2026-09-16 记录中的 kd201 为 22.22.1，当前版本需另行回读。`NODE_USE_ENV_PROXY` 是 Node 启动配置，不由 `loadLinuxRuntime` 转换；仅设置 `HTTPS_PROXY` 无法保证旧版 Node 的原生 `fetch` 使用代理。Node 原生代理配置接受 HTTP(S) URL，不能把此处改成 `socks5://`。2026-09-16 自动发布整改时，另外将相同 HTTP/HTTPS/NO_PROXY/NODE_USE_ENV_PROXY 设置加入 `watcher/watcher.env`，使监听器的 Git/Node/pnpm 使用已验证的出口；API 环境和 watcher 环境各自维护，不会自动互相继承。宿主机全局代理、Docker daemon 和其他项目未修改；数据库为直连 TCP，内网与 CF 向量服务通过 `NO_PROXY` 直连，TLS 校验保持开启。
 
 变更前备份 `shared/.env`，持有 watcher/deploy 锁后，在 `current/deploy/linux` 使用既有两份 Compose 配置执行 `up -d --no-deps api`；仅重建 API。回退时恢复对应 `.env` 备份并执行同一命令。Google 返回 `400 invalid_token`（未传真实令牌）只证明网络可达；真实账号登录仍需测试包及用户授权令牌。
 
@@ -214,14 +214,14 @@ bash deploy/linux/ci/install-branch-watcher.sh \
 
 ## 5. 日常发布步骤
 
-正常情况下只需要：
+在获得 dev 合并和推送授权后，开发机使用实际配置的远端名；当前仓库远端为 `github`，服务器 watcher 的独立检出由脚本使用 `origin`：
 
 ```bash
 git checkout dev
-git pull --ff-only origin dev
+git pull --ff-only github dev
 # 合并已经验证的功能分支
 git merge <feature-branch>
-git push origin dev
+git push github dev
 ```
 
 之后观察 kd201：
