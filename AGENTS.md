@@ -61,7 +61,7 @@ Marketing Web ──> 独立的营销与法律页面
 - `deploy:dev` 构建 Linux 发布包并通过显式 SSH 目标发布，`deploy:dry-run:dev` 仅打包，不连接服务器；prod 继续使用原 Wrangler 发布入口。Linux 发布须先通过环境/数据库/识别预检，再备份已有数据库；标准与离线 Compose 均以 PostgreSQL 18 和原有 `PGDATA=/var/lib/postgresql/data` 为契约，不自动进行大版本升级。2026-09-30 历史 dev 检查点的 Linux release 为 `branch-dev-7516cfd2a06a-20260930110549`，2026-09-30 11:10 确认 manifest、`current-release`、`last-seen-sha` 与 `last-deployed-sha` 一致，失败标记不存在；既有 watcher 已自动发布请求放置日志增量。发布日志显示 API/DB healthy、Web started、migration 检查成功且 ledger 为 14 项，实际预检无待执行 migration；这些容器/数据库结果来自发布脚本，未另行通过 SSH 独立回查。发布前备份为 1,135,397,728 字节，临时文件已不存在；本轮未执行 `pg_restore --list` 或恢复演练。11:13 内网 health 200、未登录 auth/me 401、Admin 200；10 个 JS/CSS 资源与本地 dev 构建字节一致，HTML 仅 CR 字符有差异，不宣称原始字节一致。DBX MCP 只读策略阻止了手动 SSH 和产物下载，本轮没有绕过策略；运行容器 API bundle 哈希与新增字段的运行日志未独立回读。Apple 官方 Sandbox TEST 已经独立公网回调处理成功。旧 CF dev 的 Worker、域名和 cron 已退役，旧测试数据和包保留；API 与 watcher 的代理配置仍分别存放在各自私有环境文件。验证范围与未执行项见`docs/releases/v1.1.1/05-delivery/VERIFICATION.md`。
 - 历史 Linux dev 检查点（2026-10-09 10:58）：手工发布 `manual-extension-f952e50-dirty-20261009-1791513409974`，来源为未提交的 `dev-extension` 工作区，不能标记为纯 `f952e50` 提交。API/DB healthy、Web running、migration 检查 exited/0，ledger 仍为 14 项且最新 `0013`，无待执行 migration；原 PostgreSQL 18 数据卷保留。发布前数据库备份 1,135,397,964 字节，`pg_restore --list` 成功列出 324 项，未做恢复演练；API/Web 运行文件与批准产物 SHA256 一致，Admin 的 11 个 HTML/JS/CSS 字节全量匹配。插件 Key、频率 60 原字节保留，仅追加 `EXTENSION_TRUST_PROXY=true` 并备份私有环境文件；确认 API 没有宿主端口绑定，更新后的离线代理覆盖来源头。鉴权、参数拒绝、合成向量 5 个完整详情对照与防刷验收通过，不代表真实图片识别准确率。watcher 仍跟踪 `dev`，其 last-deployed 保持 `7516cfd`；后续 dev 自动发布可能覆盖此手工版本，未擅自修改 watcher 或 Git 推送。prod 未改动，详见`docs/releases/v1.1.1/05-delivery/VERIFICATION.md`。
 - 历史 Linux dev 检查点（2026-10-09 14:19）：既有 watcher 已发布干净的 `dev@b621d76501e67ecc22fa6888c7bd6bdc3c2dba34`，release 为 `branch-dev-b621d76501e6-20261009140959`。manifest、current、last-seen 与 last-deployed 一致，失败标记不存在；本轮接续正在执行的发布并独立验收，没有并发启动第二次部署或手改 watcher。API/DB healthy、Web running、migration 检查 exited/0，PostgreSQL 18 原卷保留，ledger 14 项且最新 `0013`，无待执行 migration。发布前备份 1,135,398,457 字节，`pg_restore --list` 通过并列出 324 项，未做恢复演练。API/Web 运行文件与同提交本地构建 SHA256 一致；Admin 11 个文件与 Linux release 原始字节一致，跨 Windows 构建对照的 10 个 JS/CSS 一致，HTML 仅有 12 个 CR 字符差异，不称跨平台 HTML 字节一致。私有环境文件完整哈希未变，插件 Key 保留、频率 60、trustProxy=true，API 无宿主端口绑定；合成向量 5 个详情与原接口一致。未部署 prod；完整默认 Workers 测试未重跑，既有全量超时记录与真机/真实插件待验边界仍保留，详见`docs/releases/v1.1.1/05-delivery/VERIFICATION.md`。
-- 最新 Linux dev 补验（2026-10-12 14:22–14:26）：PR #3 已合入 `dev@e8d1dd9`；SSH 独立回读确认 watcher/current/manifest 指向 `branch-dev-e8d1dd952f05-20261012131153`，失败标记不存在。API/DB healthy、Web running、migration exited/0；PostgreSQL 18、ledger 14 项/最新 `0013`、无待执行迁移。发布前备份 1,135,398,457 字节，`pg_restore --list` 成功列出 324 项，未做恢复演练。运行 API/Web 文件及 Admin 11 个静态文件与 Linux release 字节一致，基础 HTTP 烟测通过；本轮只读验收，未手工重发或迁移。该运行检查点早于 C03 的后续合并整理，C03 增量由 PR #6 跟踪；正式旧包/真机、完整兼容矩阵仍待验，见 `docs/releases/v1.1.2/05-delivery/VERIFICATION.md`。
+- 最新 Linux dev 补验（2026-10-12 14:22–14:26）：PR #3 已合入 `dev@e8d1dd9`；SSH 独立回读确认 watcher/current/manifest 指向 `branch-dev-e8d1dd952f05-20261012131153`，失败标记不存在。API/DB healthy、Web running、migration exited/0；PostgreSQL 18、ledger 14 项/最新 `0013`、无待执行迁移。发布前备份 1,135,398,457 字节，`pg_restore --list` 成功列出 324 项，未做恢复演练。运行 API/Web 文件及 Admin 11 个静态文件与 Linux release 字节一致，基础 HTTP 烟测通过；本轮只读验收，未手工重发或迁移。该运行检查点早于 C03 的后续合并整理，C03 增量由 PR #6 跟踪；正式旧包/真机、完整兼容矩阵仍待验，见 [AI 执行版的历史证据摘要](docs/releases/v1.1.2/03-data-api/app-backward-compatibility-ai-guide.md#63-保留的历史证据摘要)。
 - `packages/*` 只承载跨应用共享能力，应用之间通过包依赖或 HTTP 契约协作。
 
 ## 工具链与常用命令
@@ -84,13 +84,21 @@ GitLab Flutter CI 使用 3.44.0，GitHub iOS CI 使用 3.44.7。涉及工具链�
 ## 架构约束
 
 - `apps/` 可以依赖 `packages/`，`packages/` 不得反向依赖 `apps/`；`pnpm lint` 强制检查此规则。
-- 共享 API 路由组合位于 `apps/workers-api/src/app.ts`，业务路由统一挂载在 `/api/v1`；Cloudflare 入口是 `src/index.ts`，Linux 入口是 `src/linux/server.ts`。
+- 共享 API 路由组合位于 `apps/workers-api/src/app.ts`，当前业务路由挂载在 `/api/v1`；后续确需不兼容协议时只新增受影响的 `/api/v2` 接口，并保留 V1，具体遵循下述 App 兼容规则。Cloudflare 入口是 `src/index.ts`，Linux 入口是 `src/linux/server.ts`。
 - Cloudflare prod Admin 有两个独立静态发布目标：Pages `toccards-admin`（`admin.tcgcard.fun`，production branch=main）与 Workers assets 副本（`api.tcgcard.fun`）。只运行 Workers 的 `deploy:prod` 不会更新 Pages；只发 Admin 时不得夹带当前 dev 的后端增量。两端均须核对产物哈希及对生产 API 的跨域/鉴权边界。Linux 托管方式见 `deploy/linux/`。
 - PostgreSQL schema/migration 与 Hyperdrive binding 是数据库产品和基础设施契约；新增 schema 变更只允许写入 `apps/workers-api/src/db/postgres/migrations/`。修改前必须读取相关实现和文档，并先向用户说明影响。
 - 服务端授权、账号归属、资产隔离和购买权益必须由可信服务端数据验证，不能信任客户端自报状态。
 - 后续app所有轻提示框不在使用底部提示框，使用项目组件中的顶部提示框组件；项目组件中有不同类型的顶部提示组件，使用时需区分使用类型。
 - iOS 内部测试包使用 Bundle ID `com.kando.kandoApp.beta` 时，最终签名 entitlement 的 App Attest 环境必须为 `development`，不得交付 `production`；必须解包检查最终 IPA，不能只看 Xcode 工程设置或描述文件允许值。其他 Bundle ID 的 App Attest 环境暂不固定。
 - iOS IPA 和 dSYM 统一保存到 `~/Downloads/CardAI-Packages/<Bundle ID>/`，下面按 `CardAI-Test-<版本>-<构建号>` 或 `CardAI-Prod-<版本>-<构建号>` 建版本目录。测试包保留最近保存的 3 个版本，正式包保留 7 个版本；新版本完整保存并校验后，才将同一 Bundle ID 下超额的最旧版本移入废纸篓。使用发布脚本的自动保存流程；此保留规则不清理 Xcode Archives。
+
+## App 向后兼容
+
+- 本节约束后续开发；仅确认或落实规则时，只维护规则及文档入口，不修改业务代码或主动补测。具体功能需求、已证实且属于当前任务的兼容 BUG，或用户明确的补测要求，才触发相应开发与验证；覆盖缺口不等同 BUG 或自动整改清单。
+- 人员阅读入口：[App 向后兼容开发规则](docs/releases/v1.1.2/05-delivery/app-backward-compatibility-plan.md)；AI 涉及 App API、共享数据或协议修改前，必须读取 [AI 执行版](docs/releases/v1.1.2/03-data-api/app-backward-compatibility-ai-guide.md)及受影响业务契约。
+- 以现有 V1 对外约定为基础；新增请求字段可选且缺省保持旧行为，新增响应字段须能被旧 App 忽略。必须改变旧约定时局部新增 V2，同时保留 V1，不因新 App 发布而整体升级 API。
+- 旧 App 原有功能、账号隔离和权益保持正确；旧编辑不能清空未提交的新版属性。没有已证实兼容问题时，不批量重写旧接口或自行增加发布门禁。
+- 按用户要求完成开发和必要文档修改后再测试，只验证受影响功能及共享调用方；BUG 的定位证据和修复验证时序按 AI 执行版说明处理，未运行项不得记为通过。
 
 ## 文档真源
 
@@ -101,7 +109,7 @@ GitLab Flutter CI 使用 3.44.0，GitHub iOS CI 使用 3.44.7。涉及工具链�
 - `docs/releases/v1.1.0/00-product`：三份初始 PRD、两份订阅升级降级补充和一份收藏待编辑/卡牌详情改版 PRD，共六份产品输入，只读保留。
 - `docs/releases/v1.1.0/01-flows` 至 `05-delivery`：相对 v1.0.0 的开发归档、架构、数据/API、Admin 和交付证据；未验证边界按原记录保留。
 - `docs/releases/v1.1.1/README.md`：2026-10-09 起的开发归档入口；`docs/releases/v1.1.1/03-data-api/app-compatibility-contract.md` 和 `docs/releases/v1.1.1/05-delivery/app-compatibility-acceptance.md` 定义从 App 1.0.4 起的服务端兼容目标与待执行门禁，尚非已验证实现。`docs/releases/v1.1.1/01-flows/scan-recognition.md` 记录 2026-09-29 扫描 R2/向量并行的本地实现、失败补偿及批量额度边界，已通过相关本地与 PostgreSQL 多连接验证，2026-09-29 已自动发布 Linux dev，2026-10-08 随 `main@61b5420` 部署 prod；真机批量验收仍未完成。历史契约、故障与发布证据保留原路径及未验收边界。
-- `docs/releases/v1.1.2/README.md`：当前增量开发入口；`03-data-api/app-compatibility.md` 和 `05-delivery/VERIFICATION.md` 记录首批源码兼容回归及未覆盖矩阵，正式制品/真机与完整兼容验收仍待执行。Admin 订单统计新增按筛选结果汇总的 USD 金额，已退款订单不计入订单金额、单列退款金额，缺失金额分别提示；契约见 `docs/releases/v1.1.2/04-admin/admin.md`，本地验证与部署状态以本版本验证记录为准。后续新增、变更、移除、实现结果及验收证据按实际需求写入 v1.1.2，未变化内容引用 v1.1.1/v1.1.0/v1.0.0，不复制整套基线或创建空分类。
+- `docs/releases/v1.1.2/README.md`：当前增量开发入口；App 兼容只维护 `05-delivery/app-backward-compatibility-plan.md` 阅读版与 `03-data-api/app-backward-compatibility-ai-guide.md` AI 执行版。测试入口、覆盖缺口和必要证据摘要集中在 AI 执行版，不新增独立兼容说明／验证文件；正式制品/真机与完整兼容验收仍待执行。Admin 订单统计新增按筛选结果汇总的 USD 金额，已退款订单不计入订单金额、单列退款金额，缺失金额分别提示；契约见 `docs/releases/v1.1.2/04-admin/admin.md`，本地验证与部署状态以[其他业务验证记录](docs/releases/v1.1.2/05-delivery/VERIFICATION.md)为准。后续实际需求按版本目录维护，未变化内容引用历史基线。
 
 `docs/releases/v1.0.0` 是已发布冻结基线，后续迭代不得回写；若需修正已经确认的文档错误，必须先说明原因并获得用户明确授权。11 份原始 PRD 包括 `glossary.md`、`overview.md`、`ui-design-system.md` 和 `00-product/modules/` 下的 8 份模块文档，必须保持字节不变，不得因当前实现或后续需求而修订。
 
@@ -161,6 +169,6 @@ Flutter UI 变更前必须阅读 `docs/releases/v1.0.0/00-product/ui-design-syst
 #### 文档与记录
 
 - 修复导致接口、配置、行为、Schema、架构、部署、运维或用户操作方式变化时，必须在同一任务中更新 `docs` 下相关文档或项目既有等价位置；不得等全部编码结束后补写。
-- 每个 BUG 必须在 Issue、任务系统、提交说明或 `docs/work-items/<WORK-ID>/`/当前版本 `VERIFICATION.md` 中记录根因、证据、修复方式、影响范围、验证结果、Code Review 结论和未验证项，保证后续可追溯。
+- 每个 BUG 必须在 Issue、任务系统、提交说明或当前版本既有业务文档中记录根因、证据、修复方式、影响范围、验证结果、Code Review 结论和未验证项，保证后续可追溯。v1.1.2 的 App 兼容补证集中合入 AI 执行版，不再新建独立兼容验证文档。
 - 文档影响不存在时必须记录 `N/A` 及理由，不得为了满足流程创建无业务价值的重复文档。简单 BUG 若已由 Issue、提交和回归测试完整追踪，不强制新建独立工作项目录。
 - 文档只描述实际修复后的当前行为，不得把猜测根因、未执行验证或计划中的后续改进写成已确认事实。
