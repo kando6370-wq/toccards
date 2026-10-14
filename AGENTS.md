@@ -94,7 +94,8 @@ GitLab Flutter CI 使用 3.44.0，GitHub iOS CI 使用 3.44.7。涉及工具链�
 
 ## App 向后兼容
 
-- 人员阅读入口：[App 向后兼容规则与开发计划](docs/releases/v1.1.2/05-delivery/app-backward-compatibility-plan.md)；AI 涉及 App API、共享数据或协议修改前，必须读取 [AI 执行版](docs/releases/v1.1.2/03-data-api/app-backward-compatibility-ai-guide.md)及受影响业务契约。
+- 本节约束后续开发；仅确认或落实规则时，只维护规则及文档入口，不修改业务代码或主动补测。具体功能需求、已证实且属于当前任务的兼容 BUG，或用户明确的补测要求，才触发相应开发与验证；覆盖缺口不等同 BUG 或自动整改清单。
+- 人员阅读入口：[App 向后兼容开发规则](docs/releases/v1.1.2/05-delivery/app-backward-compatibility-plan.md)；AI 涉及 App API、共享数据或协议修改前，必须读取 [AI 执行版](docs/releases/v1.1.2/03-data-api/app-backward-compatibility-ai-guide.md)及受影响业务契约。
 - 以现有 V1 对外约定为基础；新增请求字段可选且缺省保持旧行为，新增响应字段须能被旧 App 忽略。必须改变旧约定时局部新增 V2，同时保留 V1，不因新 App 发布而整体升级 API。
 - 旧 App 原有功能、账号隔离和权益保持正确；旧编辑不能清空未提交的新版属性。没有已证实兼容问题时，不批量重写旧接口或自行增加发布门禁。
 - 按用户要求完成开发和必要文档修改后再测试，只验证受影响功能及共享调用方；BUG 的定位证据和修复验证时序按 AI 执行版说明处理，未运行项不得记为通过。
