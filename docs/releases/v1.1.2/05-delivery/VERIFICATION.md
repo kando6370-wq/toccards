@@ -2,6 +2,18 @@
 
 本文件保留 Admin、营销站等其他业务的实际验证。App 兼容规则、源码合同证据及 Home 文件夹切换历史记录见 [AI 执行版](../03-data-api/app-backward-compatibility-ai-guide.md)；历史版本记录见 [v1.1.1](../../v1.1.1/05-delivery/VERIFICATION.md)。未运行或只有部分证据的事项不得标记为完整验收通过。
 
+## 2026-10-14：管理后台扫描详情原图放大
+
+- 问题定位：扫描详情顶部原图与列表缩略图共用 `AuthenticatedScanImage`，私有图片已通过 Admin Token 获取 Blob，但组件固定渲染原生 `img`；候选卡牌图片使用 Ant Design `Image`，因此只有候选图具备预览和缩放能力。
+- 修复范围：为 `AuthenticatedScanImage` 增加默认关闭的预览开关，仅在扫描详情原图调用处开启；鉴权请求、Blob URL 创建/释放、失败占位及列表缩略图行为保持不变。详情图片增加放大光标，不修改 Admin API、数据库、权限或 Flutter。
+- 先失败证据：新增“详情原图开启鉴权预览且列表保持原行为”的回归测试，修复前该测试因详情调用未开启预览而按预期失败；修复后该文件 8/8 通过。
+- 发布基线冲突：准备发布时独立回读发现 Linux dev 实际运行 `dev-xiangyang@2c56e9f`，而开发 worktree 基于 `main@7811db0`；main 的 Admin 已包含订单金额汇总 UI，当前 dev-xiangyang API 没有对应增量。为避免把 dev API 回退或部署不匹配的订单页面，没有直接发布 main 构建，而是从运行提交 `2c56e9f` 建立临时 detached worktree，只移植本次 `App.tsx`、`App.css` 和 `scans-intent.test.mjs` 三文件改动。相对运行提交共 28 行新增、3 行替换，API、部署脚本、依赖和锁文件无差异。
+- 本地门禁：临时部署源的 `pnpm --filter @kando/admin-web test` 27/27 通过，Admin type-check 通过，Linux bundle 3/3 通过，`deploy:dry-run:dev` 成功生成 `sha=2c56e9f`、`branch=detached`、`working_tree_dirty=true` 的发布包。首次并行执行 Workers type-check 时，因 `auth-core` 尚未完成构建而报告模块缺失；dry-run 构建依赖后串行重跑通过，不将首次失败写成通过。
+- 远程预检与发布：发布前回读旧 release 为 `manual-2c56e9f12901-1791943069936`，API/DB healthy、Web running、migration exited/0、部署锁空闲。标准远程脚本确认数据库 `toccards_test`、PostgreSQL 18、CF 向量识别可达、`pendingMigrations=[]`，随后创建 1,135,406,873 字节 custom-format 备份并发布 `manual-admin-scan-image-2c56e9f-dirty-20261014151507`。备份由 PostgreSQL 18 镜像执行 `pg_restore --list` 成功列出 339 项，未做恢复演练。
+- 发布后独立回读：`current` 与 manifest 指向新 dirty release，共享 `.env` 链接仍指向原私有文件；API/DB healthy、Web running、migration exited/0，ledger 为 14 项且最新 `0013_cards_all_search_trgm.sql`。新旧 release 的 API bundle SHA-256 均为 `a2b6caf368362bdb60f3de10ad69b60fc17a3d3bdbb114b22147d2bfb435b67f`，确认本轮未改变 API 运行代码；失败标记不存在，上传 archive 已清理。
+- 静态与 HTTP 验收：从开发机逐个获取 Linux dev 的 HTML/JS/CSS，11 个文件与批准 development 构建 SHA-256 全部一致；`/api/v1/health` 返回 200/`status=ok`，未登录 `/api/v1/admin/scans` 返回 401。
+- 边界：未执行 Git commit/push、prod 部署、数据库业务写入或移动端验证；未使用真实 Admin 账号打开扫描详情并点击原图，因此线上 dev 的真实登录态交互仍待补验。后续其他手工发布或分支发布可能覆盖本次 dirty release。
+
 ## 2026-10-13：Google Sitemap 最小隔离实验
 
 ### 根因证据与实验边界
