@@ -6,7 +6,9 @@ Linux 部署资产已通过 `19a6ac4` 合入；2026-09-15 已将 `dev-inner` 整
 
 2026-09-21 历史运行检查点：kd201 watcher 已发布扫描 Free 额度整改 `dev@baf0d7b`，release 为 `branch-dev-baf0d7b53681-20260921151308`。manifest、`current` 与 `last-deployed-sha` 一致；API/DB healthy、Web running、migration exited/0，ledger 为 14 项且最新为 `0013`。发布前 1,121,082,954 字节 custom-format 备份已由 PostgreSQL 18 容器通过 `pg_restore --list`；运行 API bundle 与 release 文件 SHA-256 一致，prod 未部署。后续仅含 Flutter/文档/Agent 规则的 `dev` 提交不会触发 Linux 重建，watcher 的 `last-seen` 可领先 `last-deployed`。
 
-2026-10-09 14:19 最新回读：既有 watcher 已发布干净的 `dev@b621d76`，release 为 `branch-dev-b621d76501e6-20261009140959`；current、manifest、last-seen 与 last-deployed 一致，失败标记不存在。原 PostgreSQL 18 数据卷与私有环境文件保留，无待执行 migration；1,135,398,457 字节备份通过目录可读性检查，API/DB healthy、Web running，插件合成向量与详情对照通过，prod 未改动。Windows/Linux HTML 的 CR 差异及其他未验项见 [v1.1.1 验证记录](../../docs/releases/v1.1.1/05-delivery/VERIFICATION.md)。
+2026-10-09 14:19 历史回读：既有 watcher 已发布干净的 `dev@b621d76`，release 为 `branch-dev-b621d76501e6-20261009140959`；current、manifest、last-seen 与 last-deployed 一致，失败标记不存在。原 PostgreSQL 18 数据卷与私有环境文件保留，无待执行 migration；1,135,398,457 字节备份通过目录可读性检查，API/DB healthy、Web running，插件合成向量与详情对照通过，prod 未改动。Windows/Linux HTML 的 CR 差异及其他未验项见 [v1.1.1 验证记录](../../docs/releases/v1.1.1/05-delivery/VERIFICATION.md)。
+
+后续 2026-10-12 的 `dev@e8d1dd9` 独立验收见 [v1.1.2 历史证据摘要](../../docs/releases/v1.1.2/03-data-api/app-backward-compatibility-ai-guide.md#63-保留的历史证据摘要)。这些记录不代表当前服务器状态，源码或文档核对不能替代运行环境回读。
 
 ## 前置条件
 
@@ -128,13 +130,13 @@ docker compose logs --tail=100 migrate api web
 
 `migrate` 服务只执行 `schema_migrations` 中尚未记录的 PostgreSQL migration。API 只有在 migration 成功后才启动。
 
-升级本次后端适配前，需在服务器 `.env` 添加 `VECTOR_RECOGNITION_BASE_URL`；仅有旧 OCR 配置时，新版本会拒绝启动。新代码不读取 `OCR_SERVICE_BASE_URL`，过渡期可保留旧键供旧版本回滚，或同时备份并恢复对应版本的 `.env`。这不增加数据库 migration；现有 PostgreSQL 18 数据卷须继续使用兼容的 18 镜像，标准与离线配置现均以 18 为默认，旧 `.env` 中的镜像覆盖值需要一起核查。
+当前 Linux 入口要求 `.env` 提供 `VECTOR_RECOGNITION_BASE_URL`；仅有旧 OCR 配置时拒绝启动。`OCR_SERVICE_BASE_URL` 不再参与运行，也不能作为当前版本的回退配置。回退版本必须兼容当前 PostgreSQL schema 和向量协议，并核对其私有配置。现有 PostgreSQL 18 数据卷须继续使用兼容的 18 镜像，标准与离线配置均以 18 为默认；历史 `.env` 中的镜像覆盖值需要一起核查。
 
 ## 自动部署
 
 2026-09-15 回读确认 `kd201` 仍使用本机 `crontab` 每两分钟监控 `dev` 分支。此次手工升级期间持有现有 watcher 锁，沿用发布脚本的部署锁；完成后监听器恢复正常检查。本次未修改其安装脚本、来源分支或状态文件，后续相关 dev 提交仍可能替换手工版本，验收与合并需协调。
 
-仓库同时保留 `.github/workflows/linux-test-deploy.yml` 作为未来可选的 GitHub 自托管 Runner 方案。当前安装方法、触发规则、失败处理和接手步骤见 [`Linux 测试环境自动部署手册`](../../docs/releases/v1.1.0/05-delivery/linux-test-auto-deployment.md)。自动部署不会读取或修改 Cloudflare 正式环境。
+仓库同时保留 `.github/workflows/linux-test-deploy.yml` 作为未来可选的 GitHub 自托管 Runner 方案。当前安装方法、触发规则、失败处理和接手步骤见 [Linux 运维手册](../../docs/linux-test-environment/README.md#4-自动部署流程)；原自动部署设计按版本归档保留。自动部署不会读取或修改 Cloudflare 正式环境。
 
 发布脚本调用 `preflight.mjs`，要求 `APP_ENVIRONMENT=development`，数据库 URL 指向 Compose `db:5432` 且与 POSTGRES_DB/USER/PASSWORD 一致，图片目录为挂载的 `/data/scan-images`。存在数据库容器时，使用拟发布的凭据通过 TCP 执行只读查询，核对数据库身份、PostgreSQL 18 和 migration 文件名；列出待执行 migration，拒绝数据库版本领先于发布文件的情况。CF `/health` 必须符合 512 维、cosine、Top 5 契约。预检失败不备份或更新容器；已有库即使缺少 `current` 链接也仍须备份。
 
@@ -187,7 +189,7 @@ docker compose exec -T db pg_dump \
 
 1. 切换到上一个已验证 Git commit。
 2. 执行 `docker compose --env-file .env up -d --build`。
-3. 若新版本包含不可逆 migration，先从部署前数据库备份恢复，再启动旧版本。
+3. 发布脚本只自动尝试重建上一个应用 release，不逆向 migration 或恢复数据库。旧应用与当前 schema 不兼容时，先停止写入并单独确认恢复目标和备份，再由维护人员执行数据库恢复；不能把应用回退成功当作数据库已回滚。
 
 ## 安全边界
 

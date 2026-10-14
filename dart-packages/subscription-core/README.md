@@ -46,5 +46,17 @@ keep both product IDs in shared plan configuration while enabling App Store in
 the iOS build and Google Play in the Android build. The core also accepts
 multiple custom gateways; catalog and restore failures are returned per store.
 
-The verifier is mandatory. Client-side purchase data must not grant an
-entitlement without trusted server verification.
+The verifier is mandatory. `SubscriptionClient` passes purchased or restored
+evidence to it and emits the returned entitlement; this package does not make a
+backend verification request itself. The host must use a trusted verification
+flow and reject unverified purchase data.
+
+Card AI currently enables this package only for iOS. Its
+[`StoreKit2SubscriptionReceiptVerifier`](../../apps/flutter-app/lib/features/subscription/subscription_controller.dart)
+uses StoreKit 2 verified transactions for local Premium and queues Fresh
+Purchase evidence for backend synchronization. A synchronization failure does
+not invalidate verified local Premium. Server Premium operations still require
+a valid grant for the current live session; a client reporting local verified
+Premium without that grant receives `ENTITLEMENT_SYNC_REQUIRED`. See the
+[server authorization implementation](../../apps/workers-api/src/entitlements/premium-access.ts)
+and the [Premium contract](../../docs/releases/v1.1.0/03-data-api/entitlement-contract.md).

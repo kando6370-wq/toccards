@@ -1136,7 +1136,7 @@ function ScanDetailDrawer({ scan, session, onClose }: { scan: ScanDetail | null;
       {scan && (
         <Space direction="vertical" size={20} className="drawer-stack">
           <DetailSection title="扫描图片">
-            <AuthenticatedScanImage path={scan.image_url} session={session} className="scan-preview" />
+            <AuthenticatedScanImage path={scan.image_url} session={session} className="scan-preview" preview />
             <Input value={scan.image_url ? "Private R2 scan image" : "-"} readOnly addonAfter="受控访问" />
           </DetailSection>
           <DetailSection title="基础信息">
@@ -1202,7 +1202,7 @@ function ScanDetailDrawer({ scan, session, onClose }: { scan: ScanDetail | null;
   );
 }
 
-function AuthenticatedScanImage({ path, session, className }: { path: string; session: AdminSession; className: string }) {
+function AuthenticatedScanImage({ path, session, className, preview = false }: { path: string; session: AdminSession; className: string; preview?: boolean }) {
   const [source, setSource] = useState<string | null>(null);
   useEffect(() => {
     if (!path) {
@@ -1231,7 +1231,18 @@ function AuthenticatedScanImage({ path, session, className }: { path: string; se
     };
   }, [path, session.accessToken]);
   return source
-    ? <img className={className} src={source} alt="扫描卡牌" />
+    ? preview
+      ? (
+        <Image
+          className={className}
+          src={source}
+          alt="扫描卡牌"
+          title="点击放大"
+          width="100%"
+          preview={{ mask: false }}
+        />
+      )
+      : <img className={className} src={source} alt="扫描卡牌" />
     : <span className={`${className} scan-image-placeholder`} aria-label="图片未存储" />;
 }
 

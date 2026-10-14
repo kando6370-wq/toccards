@@ -661,6 +661,10 @@ body {
   border-radius: 6px;
 }
 
+.scan-detail-drawer img.scan-preview {
+  cursor: zoom-in;
+}
+
 .scan-detail-drawer .drawer-stack {
   width: 100%;
 }
