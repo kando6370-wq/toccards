@@ -382,3 +382,30 @@ billing_product 另外保留 3 条 prod_* 历史映射，但不在当前 dev 环
 - 从新 API 容器的实际环境读取向量 health，返回 200、512／cosine／Top 5。临时运行当前目录函数、仅使用持久环境配置进行 Apple GET，9 次均为 200，正确读取 beta App 6790245922／组 22251901 下的 5 个订阅与显式 Lifetime 商品。
 - 当时 watcher last-seen／last-deployed 均为 f8afca9，失败标记不存在。后续只含文档的提交可能仅推进 last-seen，部署源码仍以本条 manifest SHA 为准。
 - 未验范围：没有真实 Admin 登录态的新增／编辑／启用操作，没有真机扫描、StoreKit 价格／资格、购买／Restore／收入或旧包新增商品恢复；没有发布 Flutter 签名包、营销站或 prod。目录读取和健康响应不代表这些业务验收完成。本轮仅履行新模块 dev 部署且保持不生效的范围。
+
+<a id="subscription-config-sku-limit"></a>
+
+## 2026-10-15 页面展示 SKU 最多 3 个（本地验证）
+
+用户补充每组订阅配置最多 3 个页面展示 SKU。基于 `codex/dev-1.0.6@ca0180d` 加本轮未提交改动，在 Windows 本地实现并验证；本节仅描述数量上限增量，不替代此前的 dev 发布记录。
+
+- Admin 在 3 个及以上时禁用添加，删除后可恢复；保存校验同时拦截超限。组件静态渲染覆盖 Page／Modal、三卡禁用、删减后恢复和四卡存量仍完整显示，未将静态渲染记为浏览器点击验收。
+- 服务端共用校验器覆盖新增、保存、生效和公开读取。3 个展示项外可关联试用；独立试用与一次性商品计入展示数量。PGlite 内存 PostgreSQL 接口用例确认超限写入返回 422、失败结果可核对，原内容、版本和生效指针不变；超限存量仍可读取、关闭和修正，公开读取返回 503。
+- Flutter 拒绝整份超限远端配置，使用既有兜底，不截断商品列表。合法三卡的顺序、默认项和关联试用目标保留；购买／Restore 长期商品集合未改变。无 Schema、migration、原生平台或购买接口修改。
+
+| 实际命令 | 结果 |
+| --- | --- |
+| `pnpm --filter @kando/admin-web test` | 退出 0，61 项通过，0 跳过 |
+| `pnpm --filter @kando/workers-api test src/subscription-config/model.test.ts src/subscription-config/routes.postgres.test.ts src/subscription-config/catalog.test.ts --maxWorkers=2` | 退出 0，3 文件／54 项通过 |
+| Flutter 目录执行 `flutter test --no-pub --dart-define=APP_ENV=test test/subscription_display_test.dart test/subscription_restore_ui_test.dart` | 最终退出 0，59 项通过 |
+| Flutter 目录执行 `flutter analyze --no-pub lib/features/subscription/subscription_display_config.dart test/subscription_display_test.dart` | 退出 0，No issues found |
+| `pnpm type-check` | 退出 0，7 项任务成功；Admin／Workers 类型检查实际执行，其余 5 项命中缓存 |
+| `pnpm lint` | 退出 0，依赖方向通过 |
+| `dart format --output=none --set-exit-if-changed`（本轮两个 Dart 文件） | 退出 0，无格式变化 |
+| 文档相对路径检查／`git diff --check` | 4 份文档的 43 个相对链接可解析；差异检查通过 |
+
+Flutter 首次运行有 1 个新增用例失败：测试夹具的原始 List 在 addAll 时丢失泛型，与实际 Map 列表的运行时类型不匹配，业务断言尚未执行；补齐测试列表类型后用相同命令重跑，59 项全部通过。没有放宽断言或跳过测试。
+
+Code Review 自查覆盖计数口径、直接请求绕过、存量数据保留、默认项／顺序、幂等失败、公开读取兜底与 iOS／Android 边界，未发现本增量阻断项。相关规则已同步至服务端合同、Admin 文档与 Flutter 流程；原始 PRD 和原型保持原样。
+
+本轮未运行真实浏览器登录交互、远程 API、真机交易、新 iOS／Android 构建或完整旧包兼容矩阵；本地用例不替代这些验收。未执行 Git commit／push、远程数据库迁移或 dev／prod 发布。

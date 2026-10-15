@@ -58,6 +58,93 @@ void main() {
     },
   );
   test(
+    'page and modal accept three cards plus linked trials and count independent trial cards toward the limit',
+    () {
+      for (final type in SubscriptionPageType.values) {
+        final dto = displayDto()
+          ..['page_type'] = type.name
+          ..['trial_enabled'] = true
+          ..['trial_toggle_text'] = 'Enable trial';
+        final skus = dto['skus'] as List<Map<String, Object?>>;
+        final first = skus.first;
+        first['trial'] = {'product_id': 'linked.trial', ...displayCopyDto()};
+        skus.addAll([
+          {
+            ...first,
+            'product_id': 'second',
+            'is_default': false,
+            'trial': null,
+          },
+          {
+            ...first,
+            'product_id': 'independent.trial',
+            'is_default': false,
+            'trial': null,
+          },
+        ]);
+        final config = SubscriptionDisplayConfig.fromJson(dto, type);
+        expect(config.skus.map((sku) => sku.productId), [
+          'paid',
+          'second',
+          'independent.trial',
+        ]);
+        expect(
+          config.skus.singleWhere((sku) => sku.isDefault).productId,
+          'paid',
+        );
+        expect(config.productIds, {
+          'paid',
+          'second',
+          'independent.trial',
+          'linked.trial',
+        });
+        skus.add({
+          ...first,
+          'product_id': 'fourth',
+          'is_default': false,
+          'trial': null,
+        });
+        expect(
+          () => SubscriptionDisplayConfig.fromJson(dto, type),
+          throwsFormatException,
+        );
+        expect(skus, hasLength(4));
+      }
+    },
+  );
+  test(
+    'an oversized remote configuration uses the existing fallback without querying truncated remote purchase targets',
+    () async {
+      for (final type in SubscriptionPageType.values) {
+        final dto = displayDto()..['page_type'] = type.name;
+        final first = (dto['skus'] as List).first as Map<String, Object?>;
+        dto['skus'] = [
+          for (var i = 0; i < 4; i++)
+            {...first, 'product_id': 'remote-$i', 'is_default': i == 3},
+        ];
+        final fallback = displayConfig(type: type, trials: false);
+        final model = SubscriptionDisplayController(
+          fallback: fallback,
+          loadConfig: (type) async =>
+              SubscriptionDisplayConfig.fromJson(dto, type),
+          loadProducts: (ids) async {
+            expect(ids, fallback.productIds);
+            return [
+              displayProduct('paid'),
+              displayProduct('once', lifetime: true),
+            ];
+          },
+          loadEligibility: (_) async => TrialEligibility.unknown,
+        );
+        addTearDown(model.dispose);
+        await model.load();
+        expect(identical(model.config, fallback), isTrue);
+        expect(model.selectedId, 'once');
+        expect(model.canPurchase, isTrue);
+      }
+    },
+  );
+  test(
     'malformed defaults, duplicates and unsafe CTA cannot reach a purchase page',
     () {
       for (final edit in <void Function(Map<String, Object?>)>[

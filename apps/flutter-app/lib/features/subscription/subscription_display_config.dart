@@ -93,6 +93,9 @@ class SubscriptionDisplayConfig {
         json['skus'] is! List) {
       throw const FormatException('Unsupported subscription configuration');
     }
+    if ((json['skus'] as List).length > 3) {
+      throw const FormatException('At most 3 display SKUs are allowed');
+    }
     final delay = json['close_delay_seconds'];
     final revision = json['revision'];
     if (delay is! int ||

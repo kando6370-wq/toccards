@@ -14,6 +14,22 @@ test("new configurations start empty and cannot accidentally be enabled or defau
   assert.ok(issues.some((i) => i.path === "skus"));
 });
 
+test("page and modal allow three display SKUs plus linked trials but reject a fourth independent trial", () => {
+  for (const pageType of ["page", "modal"]) for (const enabled of [false, true]) {
+    const body = editorFixture().body;
+    body.page_type = pageType;
+    body.skus.push({ ...body.skus[0], key: "yearly-card", product_id: "paid.year", is_default: false,
+      trial: { ...body.skus[0].trial, product_id: "trial.year" } });
+    assert.deepEqual(validateEditor(body, catalogFixture(), enabled), []);
+    body.skus.push({ ...body.skus[0], key: "independent-card", product_id: "independent.trial", is_default: false, trial: null });
+    assert.deepEqual(validateEditor(body, catalogFixture(), enabled), [{ path: "skus", message: "页面展示 SKU 最多只能配置 3 个" }]);
+    const repaired = removeSku(body, "yearly-card");
+    assert.deepEqual(validateEditor(repaired, catalogFixture(), enabled), []);
+    assert.deepEqual(repaired.skus.map((sku) => sku.product_id), ["paid.week", "lifetime", "independent.trial"]);
+    assert.equal(repaired.skus[0].is_default, true);
+  }
+});
+
 test("source and trial targets occupy one configuration even when switching is disabled", () => {
   const body = editorFixture().body;
   body.trial_enabled = false;

@@ -3,7 +3,7 @@ import type { ColumnsType } from "antd/es/table";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRequestId } from "../request-id";
 import {
-  PAGE_LABELS, admissionMessage, availableProducts, blankSku, changeProduct, editorFromRecord, emptyCopy,
+  MAX_DISPLAY_SKUS, PAGE_LABELS, admissionMessage, availableProducts, blankSku, changeProduct, editorFromRecord, emptyCopy,
   moveSku, newEditor, productLabel, productMap, removeSku, subscriptionErrorMessage, toDisplayConfig,
   unlinkTrial, validateEditor,
 } from "./model";
@@ -242,8 +242,8 @@ export default function SubscriptionConfigPage({ request, accountKey, registerLe
           {editor.body.trial_enabled && <Field label="试用开关文案" path="trial_toggle_text" issues={issues} required><Input aria-label="试用开关文案" value={editor.body.trial_toggle_text} maxLength={100} showCount onChange={(event) => updateBody((body) => ({ ...body, trial_toggle_text: event.target.value }))} /></Field>}
           <Text type="secondary">客户端开关默认关闭。关系须同组、同周期、同等级；独立试用商品无需关联。实际资格由 Apple 确认，无资格或未知时不展示免费承诺。</Text>
         </section>
-        <section className="subscription-form-section"><div className="panel-heading"><Title level={5}>页面展示 SKU</Title><Button disabled={locked} onClick={() => updateBody((body) => ({ ...body, skus: [...body.skus, blankSku(createRequestId())] }))}>＋ 增加 SKU</Button></div>
-          <Field label="默认项与商品数量" path="skus" issues={issues}><Text type="secondary">至少一张卡片，必须且只能选择一个默认项；所有保留卡片均参与展示。</Text></Field>
+        <section className="subscription-form-section"><div className="panel-heading"><Title level={5}>页面展示 SKU</Title><Button disabled={locked || editor.body.skus.length >= MAX_DISPLAY_SKUS} onClick={() => updateBody((body) => body.skus.length >= MAX_DISPLAY_SKUS ? body : { ...body, skus: [...body.skus, blankSku(createRequestId())] })}>＋ 增加 SKU</Button></div>
+          <Field label="默认项与商品数量" path="skus" issues={issues}><Text type="secondary">页面展示 SKU 最少 1 个，最多 {MAX_DISPLAY_SKUS} 个，必须且只能选择一个默认项；关联试用 SKU 不占名额，独立展示的试用 SKU 计入数量。</Text></Field>
           {editor.body.skus.map((sku, index) => {
             const path = "skus." + index + ".";
             const product = products.get(sku.product_id);
@@ -337,6 +337,7 @@ function serverFieldMessage(value: string): string {
     "Weekly reference price is not defined for this period.": "该周期不支持折算周均参考价。",
     "Trial requires a non-trial source and free-trial target in the same group, period and level.": "试用关系不满足同组、同周期、同等级及免费试用条件。",
     "Display and trial Product IDs must be unique in this configuration.": "本组展示商品与试用目标不能重复。",
+    "At most 3 display SKUs are allowed.": `页面展示 SKU 最多只能配置 ${MAX_DISPLAY_SKUS} 个`,
     "Button text must be plain text without braces.": "按钮仅支持纯文本，不允许变量或花括号。",
   };
   return messages[value] ?? "服务端校验：" + value;

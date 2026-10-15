@@ -36,6 +36,7 @@ export type EditorConfig = Omit<DisplayConfig, "page_type" | "close_delay_second
 export type Editor = { id: string | null; revision: number; enabled: boolean; body: EditorConfig };
 export type SubscriptionRequest = <T>(path: string, init?: { method?: string; body?: unknown; signal?: AbortSignal }) => Promise<T>;
 
+export const MAX_DISPLAY_SKUS = 3;
 export const PAGE_LABELS: Record<PageType, string> = { page: "订阅页", modal: "订阅大弹窗" };
 export const emptyCopy = (name = ""): CopyFields => ({ name, subtitle: "", badge: "", price_note: "", cta: "", billing_note_mode: "custom", billing_note: "" });
 export const blankSku = (key: string): EditorSku => ({ ...emptyCopy(), key, needs_trial_repair: false,
@@ -132,6 +133,7 @@ export function validateEditor(body: EditorConfig, catalogs: Catalogs, enabled =
   cta(body.cta, "cta");
   if (!Number.isSafeInteger(body.close_delay_seconds) || (body.close_delay_seconds ?? -1) < 0) issue("close_delay_seconds", "关闭延迟必须是非负安全整数");
   if (!body.skus.length) issue("skus", "至少保留一个页面展示 SKU");
+  if (body.skus.length > MAX_DISPLAY_SKUS) issue("skus", `页面展示 SKU 最多只能配置 ${MAX_DISPLAY_SKUS} 个`);
   if (body.skus.filter((sku) => sku.is_default).length !== 1) issue("skus", "必须且只能指定一个默认 SKU");
   if (body.trial_enabled) {
     text(body.trial_toggle_text, "trial_toggle_text", "试用开关文案", 100, true);
