@@ -1,6 +1,6 @@
 # App 1.0.6 订阅展示配置消费
 
-需求输入：[PRD 1.14](../00-product/admin-subscription-config-prd.md)；接口：[第一阶段 V1 合同](../03-data-api/subscription-display-config.md)。本文件描述第三阶段本地源码，发布仍依赖独立兜底定稿、真实商品映射、原生编译与真机验收；不代表线上功能已启用。
+需求输入：[PRD 1.14](../00-product/admin-subscription-config-prd.md)；接口：[第一阶段 V1 合同](../03-data-api/subscription-display-config.md)。本文件描述第三阶段本地源码；`850e339` 已完成目标 iOS CI 的无签名 production Release 编译，发布仍依赖独立兜底定稿、真实商品映射、签名制品与真机验收，不代表线上功能已启用。
 
 ## 页面与加载
 
@@ -34,12 +34,12 @@ iOS 的 Page、Modal 各自创建配置快照与选择状态。配置接口按 t
 
 Page／Modal 的正式 1.0.6 兜底尚未定稿。代码为两类页面分别创建对象，暂保留当前客户端已有商品、顺序、Yearly 默认项与文案，仅展示真实加载成功的商品；这不是将旧三档或 HTML 示例批准为正式新设计。最终组合与文案需依各自设计定稿替换。
 
-页面复用既有颜色、卡片、顶部提示、成功页及来源返回。Apple 配置及商品 channel 仅在 iOS 调用；Android 维持既有行为，不加载或售卖 Apple SKU，不宣称接入 Google Play。Flutter 分析／测试不能证明 Swift 已在 Xcode 编译、真实地区优惠或真机购买恢复已验收。
+页面复用既有颜色、卡片、顶部提示、成功页及来源返回。Apple 配置及商品 channel 仅在 iOS 调用；Android 维持既有行为，不加载或售卖 Apple SKU，不宣称接入 Google Play。目标 Flutter 3.44.7／Xcode 16.4 已完成 Swift 无签名 Release 编译；该结果不能证明签名 entitlement、真实地区优惠或真机购买恢复已验收。
 
 ## 实现与验证入口
 
 - [配置模型](../../../../apps/flutter-app/lib/features/subscription/subscription_display_config.dart)、[页面状态机](../../../../apps/flutter-app/lib/features/subscription/subscription_display_controller.dart)、[接口适配](../../../../apps/flutter-app/lib/features/subscription/subscription_display_providers.dart)。
 - [购买与权益控制器](../../../../apps/flutter-app/lib/features/subscription/subscription_controller.dart)、[页面](../../../../apps/flutter-app/lib/features/subscription/subscription_page.dart)、[iOS 商品读取](../../../../apps/flutter-app/ios/Runner/AppDelegate.swift)。
-- [实际验证记录](../05-delivery/VERIFICATION.md#subscription-config-flutter)。
+- [Flutter 消费验证](../05-delivery/VERIFICATION.md#subscription-config-flutter)、[iOS 原生编译补验](../05-delivery/VERIFICATION.md#subscription-config-ios-compile)。
 
 Apple 字段已核对官方 Product.SubscriptionInfo、groupLevel、Product.priceFormatStyle 文档；groupLevel 从 iOS 16.4 可用。资格调用锁定的 in_app_purchase_storekit 0.4.11 SDK，未升级依赖。

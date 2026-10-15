@@ -95,3 +95,14 @@
 - Android：最终 `flutter build apk --debug --no-pub --dart-define-from-file=config/test.json` 退出 0，产物 `apps/flutter-app/build/app/outputs/flutter-apk/app-debug.apk` 为 225519078 字节，SHA-256 `2c4c654337fcd5a787ce06469aea182fda7574b35f56cf8e94a94c80f29593eb`。首轮构建出现 Kotlin 跨盘增量缓存异常日志但最终仍产包，后续完整命令复构成功；现有 Gradle／AGP／Kotlin 版本提示保留，未升级版本或跳过构建校验。没有安装到设备，也不是签名发布验收；工程版本号仍为原 1.0.5+163。
 - Code Review：本地自审复核公开接口解析、单次预算、配置快照、资格安全文案、明确商品对象、长期权益集合、原 Restore 时序、iOS 调用与 Android 隔离、关闭方式和文档边界；未发现当前本地范围的新增阻断项。不是独立人员审查，也不替代下面的原生与外部验收。
 - 未运行／待验：本机无 Swift／Xcode，新增 iOS channel 的原生编译、Decimal 真实币种格式及 iOS 16.0–16.3／16.4+ 分支须在 macOS 与相应设备补验；Android 只完成 debug 构建，未做真机支付／恢复。Page／Modal 最终兜底、新商品真实 ID／优惠／准入及收入映射、旧包新增商品支持仍待接入／产品负责人确认。没有真实 Apple 调用、正式旧包测试、远端 CI／dev/prod 验收、迁移、部署、提交或推送；未重跑全量 Workers／Admin 或固定旧 Dart 客户端兼容编排。
+
+<a id="subscription-config-ios-compile"></a>
+
+## 2026-10-15：订阅配置 iOS 原生编译补验
+
+- 输入与目标流水线：补验对象为远端与本地一致的干净提交 `codex/dev-1.0.6@850e3399e2bc0e07b1191d1747fbf22a73dc327d`。手动触发仓库既有 `iOS build` workflow，GitHub Actions run [#369](https://github.com/kando6370-wq/toccards/actions/runs/38669374723)／ID `38669374723` 于北京时间 10:08–10:15 完成，head SHA 与请求提交一致，job 及全部 step 结论均为 success。环境为 `macos-15-arm64`、macOS 15.7.9、Flutter 3.44.7、Xcode 16.4（16F6）、CocoaPods 1.17.0，符合仓库 iOS CI 固定工具链。
+- 原生编译：目标命令 `flutter build ios --release --no-codesign --no-pub` 退出 0，Xcode 编译 176.3 秒，生成 production Bundle `com.cardai.tcg` 的 `build/ios/iphoneos/Runner.app`（日志显示 64.9 MB）。这会编译提交中新增的 StoreKit 商品读取 channel、Decimal 周均价和 iOS 16.4 `groupLevel` 可用性分支；结论仅为默认 production scheme 的无签名 device Release compile gate 通过，不是 IPA、签名或运行时业务验收。
+- 依赖与锁文件：Fastlane 配置语法、workspace 依赖解析、CocoaPods 安装及 base configuration 门禁均通过；Pods 为 22 个直接依赖、49 个总 Pods。CI artifact `ios-release-lockfiles-850e3399e2bc0e07b1191d1747fbf22a73dc327d` 已下载并校验压缩包完整，`Gemfile.lock` SHA-256 `d190126a7d1e37a17e36c39e73702ad3356744b7fd77bbe7d7c849e44e01a60b`、`Podfile.lock` SHA-256 `d0879ca1f7222cbc2de5bd0d33a414c834eaec2235f469322ffd171ab0f75793`，均与当前提交逐字节一致；CI 的提交锁文件无漂移门禁同步通过。
+- 本机辅助补验：macOS 27.0.1／Xcode 27.0／CocoaPods 1.17.0 下，现有 Flutter 3.44.5 分别执行默认 production 命令和 `flutter build ios --release --flavor=test --dart-define-from-file=config/test.json --no-codesign --no-pub`，两次均退出 0，生成 64.7 MB／65.1 MB `Runner.app`。最终 test 产物回读为 Bundle `com.kando.kandoApp.beta`、版本 `1.0.5+163`、arm64、最低 iOS 16.0、SDK 27.0，且确认为未签名；因 Flutter patch 版本不等于目标 3.44.7，本机结果只补充覆盖 test scheme，不替代上述 CI 结论。
+- 非阻断提示：CI 保留 `sign_in_with_apple` 尚不支持 Swift Package Manager 的未来兼容提示，以及 FirebaseCore CocoaPods 将停止发布新版本的弃用提示；当前 workflow 显式关闭 SPM，Pod 安装和 Xcode 编译均成功，本轮未升级依赖或改换依赖管理方式。
+- 未运行／待验：未生成或检查签名 IPA、dSYM、最终 entitlements 与 beta Bundle 的 App Attest `development`，未安装真机，也未调用真实 StoreKit 商品、优惠资格、购买或 Restore；Decimal 真实币种输出和 iOS 16.0–16.3／16.4+ 运行时分支仍须对应真机补验。CI 默认 production scheme 不覆盖 test flavor；本机 test flavor 仅完成较低 Flutter patch 下的编译。Page／Modal 最终兜底、真实新 SKU／准入／收入映射、旧包新增商品支持、完整 Flutter／兼容测试及 dev/prod 部署均未在本轮执行；没有 Git commit/push、迁移、业务写入或发布。
