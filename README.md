@@ -48,6 +48,7 @@ Marketing Web -----------------> 独立 Cloudflare 静态站点
 | `packages/*` | TypeScript 共享认证、API、UI 和 Workers 能力 |
 | `deploy/linux` | Linux 测试环境 Compose、离线镜像、迁移与分支监听发布脚本 |
 | `docs/releases` | 按版本冻结的产品输入与实现文档 |
+| `prototypes` | 离线交互原型，仅供需求与设计核对，不参与应用构建或发布 |
 
 完整边界见 [v1.1 Monorepo 文档](docs/releases/v1.1.0/02-architecture/monorepo.md)。
 
@@ -116,7 +117,7 @@ dart run melos run test
 - Workers API 与 API 域名下的 Admin 副本：`pnpm --filter @kando/workers-api run deploy:prod`，会一并发布当前工作区后端代码；仅发 Admin 时须沿用已核验的生产后端，不得直接打包 dev 的其他后端改动。
 - Pages Admin prod：现有项目 `toccards-admin`，生产分支 `main`，域名 `admin.tcgcard.fun`；使用批准的 production 静态产物单独发布，不能以 Worker 副本更新替代。具体命令和双入口验收见 [Admin 增量](docs/releases/v1.1.1/04-admin/admin.md)。Pages 仍开启 main 自动部署；2026-10-08 回读确认既有自动构建和本轮批准产物均来自 `main@61b5420`，该提交已包含候选图片预览，不再存在本次改动尚未进入 main 的历史覆盖缺口。未来 main 变更及 Git 推送仍需独立授权。
 - Marketing：`pnpm --filter @kando/marketing-web run deploy`。
-- iOS GitHub Actions 的 push 触发仅覆盖 dev 的相关路径，另支持 PR 与手动触发；main 推送不代表该任务已执行。任务只执行 unsigned release compile gate，不等于签名、TestFlight 或真机验收。
+- iOS GitHub Actions 的 push 触发仅覆盖 dev 的相关路径，另支持 PR 与手动触发；main 推送不代表该任务已执行。2026-10-15 已手动触发 run [#369](https://github.com/kando6370-wq/toccards/actions/runs/38669374723)，确认 `850e339` 在固定 Flutter 3.44.7／Xcode 16.4 环境通过默认 production unsigned release compile gate，锁文件无漂移；这仍不等于签名 IPA、TestFlight、App Attest 或真机验收。
 - Linux 分支监听脚本默认每两分钟检查 `dev`，仅在相关路径变化时构建并部署 kd201；GitHub Linux workflow 仅支持手动触发。服务器安装、运行说明与已记录的验收入口见 [Linux 运维手册](docs/linux-test-environment/README.md)，合入代码不代表服务器已运行该提交。
 - iOS 发布脚本校验 IPA 后自动保存 IPA/dSYM，按 Bundle ID 分目录，测试保留最近 3 个版本、正式保留 7 个版本；具体命令与保留规则见 [Flutter 交付说明](apps/flutter-app/README.md#ipa-与符号文件保存)。
 
@@ -131,5 +132,7 @@ dart run melos run test
 - [v1.1.0 开发归档](docs/releases/v1.1.0/README.md)
 - [v1.1.1 开发归档](docs/releases/v1.1.1/README.md)
 - [v1.1.2 当前开发文档入口](docs/releases/v1.1.2/README.md)
+- [App 1.0.6 订阅配置需求、商品映射与实施草案](docs/releases/v1.1.2/00-product/admin-subscription-config-prd.md)
+- [订阅展示配置与商品准入：第一阶段服务端](docs/releases/v1.1.2/03-data-api/subscription-display-config.md)
 - [v1.1.0 系统架构](docs/releases/v1.1.0/02-architecture/architecture.md)
 - [v1.1.0 业务上下文](docs/releases/v1.1.0/01-flows/business-context.md)

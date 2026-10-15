@@ -16,6 +16,9 @@ import '../../shared/analytics/app_analytics.dart';
 import '../profile/profile_actions.dart';
 import 'subscription_analytics.dart';
 import 'subscription_controller.dart';
+import 'subscription_display_config.dart';
+import 'subscription_display_controller.dart';
+import 'subscription_display_providers.dart';
 
 const subscriptionSheetHeightFactor = 0.98;
 
@@ -69,6 +72,9 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
     with WidgetsBindingObserver {
   var _onboardingPurchaseSuccessNavigationStarted = false;
   late final String _analyticsScene;
+  SubscriptionDisplayController? _display;
+  String? _lastDisplayError;
+  double _sheetDragDistance = 0;
 
   @override
   void initState() {
@@ -78,6 +84,11 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
       entrySource: widget.entrySource,
       explicitScene: widget.analyticsScene,
     );
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      _display = ref.read(subscriptionDisplayFactoryProvider)(
+        widget.sheet ? SubscriptionPageType.modal : SubscriptionPageType.page,
+      )..addListener(_onDisplayChanged);
+    }
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -85,6 +96,10 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
     });
     Future<void>.microtask(() {
       if (!mounted) return;
+      if (_display != null) {
+        unawaited(_display!.load());
+        return;
+      }
       final controller = ref.read(subscriptionControllerProvider.notifier);
       controller.resetPlanSelectionForNewPresentation();
       unawaited(
@@ -96,12 +111,42 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _display?.dispose();
     super.dispose();
+  }
+
+  void _onDisplayChanged() {
+    if (!mounted) return;
+    setState(() {});
+    final error = _display?.errorMessage;
+    if (error != null && error != _lastDisplayError) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && ModalRoute.of(context)?.isCurrent == true) {
+          showKandoTopToast(
+            context,
+            message: error,
+            type: _subscriptionToastType(error),
+            duration: _subscriptionTopToastDuration,
+          );
+        }
+      });
+    }
+    _lastDisplayError = error;
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      if (_display != null) {
+        final purchase = ref.read(subscriptionControllerProvider);
+        if (!_display!.isLoading &&
+            !purchase.isPurchasing &&
+            !purchase.isRestoring &&
+            !purchase.isPurchasePending) {
+          unawaited(_display!.load());
+        }
+        return;
+      }
       unawaited(
         ref
             .read(subscriptionControllerProvider.notifier)
@@ -116,6 +161,10 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(subscriptionControllerProvider);
+    final display = _display;
+    final busy =
+        state.isPurchasing || state.isRestoring || state.isPurchasePending;
+    final loading = display?.isLoading ?? state.isLoading;
     final useUpdatedSkuUi = defaultTargetPlatform == TargetPlatform.iOS;
     final useUpdatedSheetUi = widget.sheet && useUpdatedSkuUi;
     ref.listen(subscriptionControllerProvider, (previous, next) {
@@ -194,7 +243,10 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
     });
 
     final content = PopScope(
-      canPop: !state.isRestoring && !state.isPurchasing,
+      canPop:
+          !state.isRestoring &&
+          !state.isPurchasing &&
+          (display?.closeAvailable ?? true),
       onPopInvokedWithResult: (didPop, _) {
         if (didPop && state.isPurchasePending) {
           ref
@@ -229,42 +281,126 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                       (entry) => _BenefitRow(entry.$2, index: entry.$1),
                     ),
                     const SizedBox(height: 18),
-                    ...subscriptionPlans.map(
-                      (plan) => Padding(
-                        padding: EdgeInsets.only(
-                          bottom:
-                              useUpdatedSkuUi &&
-                                  plan.id != subscriptionLifetimePlanId
-                              ? 22
-                              : 12,
+                    if (display != null) ...[
+                      for (final sku in display.availableSkus)
+                        if (display.card(sku) case final card?)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _ConfiguredPlanTile(
+                              card: card,
+                              selected: display.selectedId == sku.productId,
+                              enabled:
+                                  !loading && !busy && !display.isVerifying,
+                              onTap: () => display.select(sku.productId),
+                            ),
+                          ),
+                      if (display.showTrialSwitch)
+                        SwitchListTile.adaptive(
+                          key: const Key('subscription-trial-switch'),
+                          contentPadding: EdgeInsets.zero,
+                          activeThumbColor: KandoColors.accent,
+                          title: Text(display.config!.trialToggleText),
+                          value: display.trialOn,
+                          onChanged: loading || busy || display.isVerifying
+                              ? null
+                              : display.toggleTrial,
                         ),
-                        child: _PlanTile(
-                          plan: plan,
-                          price: state.displayPriceFor(plan.id),
-                          selected:
-                              state.selectedPlanId == plan.id &&
-                              state.availablePlanIds.contains(plan.id),
-                          enabled:
-                              state.availablePlanIds.contains(plan.id) &&
-                              !state.isLoading &&
-                              !state.isPurchasing &&
-                              !state.isPurchasePending,
-                          useUpdatedSheetUi: useUpdatedSkuUi,
-                          onTap: () => ref
-                              .read(subscriptionControllerProvider.notifier)
-                              .selectPlan(plan.id),
+                      if (!loading && display.availableSkus.isEmpty) ...[
+                        const Text(
+                          'Plans are currently unavailable.',
+                          textAlign: TextAlign.center,
+                        ),
+                        TextButton(
+                          key: const Key('subscription-products-retry'),
+                          onPressed: busy
+                              ? null
+                              : () => unawaited(display.load()),
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                      if (display.selectedCard case final current?) ...[
+                        if (current.billingNote.trim().isNotEmpty &&
+                            current.billingNote !=
+                                current.product.billingSummary)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Text(
+                              current.billingNote,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: KandoColors.mutedText,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Text(
+                            current.product.billingSummary,
+                            key: const Key('subscription-billing-summary'),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: KandoColors.text,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ] else
+                      ...subscriptionPlans.map(
+                        (plan) => Padding(
+                          padding: EdgeInsets.only(
+                            bottom:
+                                useUpdatedSkuUi &&
+                                    plan.id != subscriptionLifetimePlanId
+                                ? 22
+                                : 12,
+                          ),
+                          child: _PlanTile(
+                            plan: plan,
+                            price: state.displayPriceFor(plan.id),
+                            selected:
+                                state.selectedPlanId == plan.id &&
+                                state.availablePlanIds.contains(plan.id),
+                            enabled:
+                                state.availablePlanIds.contains(plan.id) &&
+                                !state.isLoading &&
+                                !state.isPurchasing &&
+                                !state.isPurchasePending,
+                            useUpdatedSheetUi: useUpdatedSkuUi,
+                            onTap: () => ref
+                                .read(subscriptionControllerProvider.notifier)
+                                .selectPlan(plan.id),
+                          ),
                         ),
                       ),
-                    ),
                     const SizedBox(height: 6),
                     SizedBox(
-                      height: 56,
+                      height: display == null ? 56 : null,
                       child: FilledButton(
                         key: const Key('subscription-purchase-button'),
-                        onPressed:
-                            state.isLoading ||
-                                state.isPurchasing ||
-                                state.isPurchasePending
+                        onPressed: display != null
+                            ? (!display.canPurchase || busy
+                                  ? null
+                                  : () {
+                                      final selected =
+                                          display.selectedCard!.product.product;
+                                      unawaited(
+                                        ref
+                                            .read(
+                                              subscriptionControllerProvider
+                                                  .notifier,
+                                            )
+                                            .purchaseDisplayProduct(
+                                              selected,
+                                              scene: _analyticsScene,
+                                              confirm: display.confirmPurchase,
+                                            ),
+                                      );
+                                    })
+                            : state.isLoading ||
+                                  state.isPurchasing ||
+                                  state.isPurchasePending
                             ? null
                             : () {
                                 final controller = ref.read(
@@ -281,8 +417,20 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                           disabledBackgroundColor: KandoColors.accent
                               .withValues(alpha: 0.45),
                           shape: const StadiumBorder(),
+                          minimumSize: display == null
+                              ? null
+                              : const Size.fromHeight(56),
+                          padding: display == null
+                              ? null
+                              : const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 16,
+                                ),
                         ),
-                        child: state.isLoading
+                        child:
+                            loading ||
+                                state.isPurchasing ||
+                                (display?.isVerifying ?? false)
                             ? const SizedBox.square(
                                 dimension: 22,
                                 child: CircularProgressIndicator(
@@ -290,7 +438,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                                   color: KandoColors.primaryOnDefault,
                                 ),
                               )
-                            : const Text('SUBSCRIBE'),
+                            : Text(display?.selectedCard?.cta ?? 'SUBSCRIBE'),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -329,26 +477,29 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
               ),
             ],
           ),
-          Positioned(
-            top: 12,
-            left: 20,
-            child: _CircleAction(
-              tooltip: 'Close',
-              icon: Icons.close,
-              onPressed: state.isPurchasing || state.isRestoring
-                  ? null
-                  : () {
-                      ref
-                          .read(subscriptionControllerProvider.notifier)
-                          .abandonPurchasePresentation();
-                      if (context.canPop()) {
-                        context.pop();
-                      } else {
-                        context.go(_subscriptionSourceLocation(widget.source));
-                      }
-                    },
+          if (display?.closeAvailable ?? true)
+            Positioned(
+              top: 12,
+              left: 20,
+              child: _CircleAction(
+                tooltip: 'Close',
+                icon: Icons.close,
+                onPressed: state.isPurchasing || state.isRestoring
+                    ? null
+                    : () {
+                        ref
+                            .read(subscriptionControllerProvider.notifier)
+                            .abandonPurchasePresentation();
+                        if (context.canPop()) {
+                          context.pop();
+                        } else {
+                          context.go(
+                            _subscriptionSourceLocation(widget.source),
+                          );
+                        }
+                      },
+              ),
             ),
-          ),
           Positioned(
             top: 12,
             right: 20,
@@ -411,17 +562,51 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                   child: content,
                 ),
                 Positioned(
-                  top: useUpdatedSheetUi ? 21 : 10,
+                  top: useUpdatedSheetUi ? 13 : 10,
                   left: 0,
                   right: 0,
                   child: Center(
-                    child: Container(
-                      key: const Key('subscription-sheet-handle'),
-                      width: 48,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF615D3B),
-                        borderRadius: BorderRadius.circular(999),
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onVerticalDragStart: display == null
+                          ? null
+                          : (_) => _sheetDragDistance = 0,
+                      onVerticalDragUpdate: display == null
+                          ? null
+                          : (details) => _sheetDragDistance += details.delta.dy,
+                      onVerticalDragEnd: display == null
+                          ? null
+                          : (_) {
+                              if (display.closeAvailable &&
+                                  !state.isPurchasing &&
+                                  !state.isRestoring &&
+                                  _sheetDragDistance > 60 &&
+                                  context.canPop()) {
+                                ref
+                                    .read(
+                                      subscriptionControllerProvider.notifier,
+                                    )
+                                    .abandonPurchasePresentation();
+                                context.pop();
+                              }
+                              _sheetDragDistance = 0;
+                            },
+                      child: Padding(
+                        padding: display == null
+                            ? EdgeInsets.zero
+                            : const EdgeInsets.symmetric(
+                                horizontal: 32,
+                                vertical: 8,
+                              ),
+                        child: Container(
+                          key: const Key('subscription-sheet-handle'),
+                          width: 48,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF615D3B),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -1575,6 +1760,130 @@ class _BenefitRow extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ConfiguredPlanTile extends StatelessWidget {
+  const _ConfiguredPlanTile({
+    required this.card,
+    required this.selected,
+    required this.enabled,
+    required this.onTap,
+  });
+  final SubscriptionDisplayCard card;
+  final bool selected, enabled;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) {
+    final product = card.product;
+    return Semantics(
+      selected: selected,
+      enabled: enabled,
+      child: InkWell(
+        key: Key('subscription-config-product-${card.sku.productId}'),
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(17),
+          decoration: BoxDecoration(
+            color: selected
+                ? _subscriptionSheetSelectedSurface
+                : KandoColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected ? KandoColors.accent : KandoColors.border,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  _SheetPlanRadio(selected: selected, enabled: enabled),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      card.copy.name,
+                      style: const TextStyle(
+                        color: KandoColors.text,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (card.subtitle.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    card.subtitle,
+                    style: const TextStyle(
+                      color: KandoColors.mutedText,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              if (card.badge.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    card.badge,
+                    style: const TextStyle(
+                      color: KandoColors.accent,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 12),
+              Text(
+                product.product.displayPrice,
+                style: const TextStyle(
+                  color: KandoColors.money,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                product.periodLabel,
+                style: const TextStyle(
+                  color: KandoColors.mutedText,
+                  fontSize: 12,
+                ),
+              ),
+              if (product.canUseTrial)
+                Text(
+                  product.billingSummary,
+                  style: const TextStyle(
+                    color: KandoColors.accent,
+                    fontSize: 12,
+                  ),
+                ),
+              if (card.sku.weeklyReference && product.weeklyPrice != null)
+                Text(
+                  'Approx. ${product.weeklyPrice} / week',
+                  style: const TextStyle(
+                    color: KandoColors.mutedText,
+                    fontSize: 12,
+                  ),
+                ),
+              if (card.priceNote.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    card.priceNote,
+                    style: const TextStyle(
+                      color: KandoColors.mutedText,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),

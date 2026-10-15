@@ -136,6 +136,7 @@ pnpm test:app-compatibility
 | 2026-10-12 C03 `7516c43` | API 8/8、39 份响应、两组旧源码各 24/24；push [38209819070](https://github.com/kando6370-wq/toccards/actions/runs/38209819070)与 PR [38209949303](https://github.com/kando6370-wq/toccards/actions/runs/38209949303)报告已下载核对；PR 实际测试提交为合并引用 `9deda2a`。 | 不等于 PR 合并或 C03 已部署；受控价格／汇率样本，真实包与未覆盖范围仍待验。 |
 | 2026-10-12 Linux dev `e8d1dd9` | 独立回读 watcher／release 与运行文件一致，API／DB healthy、Web running、migration exited/0，PostgreSQL ledger 14 项／最新 0013；备份目录可读，Admin 11 文件匹配。 | 该时点早于 C03 整理；未做数据库恢复、正式旧包／真机／生产验收，不推断今天运行版本。 |
 | 2026-10-13 CI 与强制规则 | 仓库工作流响应目标 dev/main 的 PR、dev/main push 和手工入口，开发分支 push 不触发；检查名为 `App compatibility (Windows)`。原强制规则集 24904725 已按用户授权删除，兼容 CI 保留为异步反馈。 | 工作流定义可由源码核对；远端规则删除是当日回读记录，本次未重新验远端。后续不得自行恢复强制规则。 |
+| 2026-10-14 订阅配置 V1 增量 | 基线 8751b7e 加本地未提交改动；新订阅路径独立接入，Windows 上将 `src/compatibility/app-contract.test.ts` 与本次及现有 Admin／app-config 回归一并执行，8 文件／89 项通过。迁移仅新增展示配置表，不改旧购买、Restore 或 app-config 响应。 | 本轮只复验 API 合同及受影响调用边界；未运行 `pnpm test:app-compatibility` 的旧 Dart 解析编排、正式包／真机、新 SKU 旧包恢复或生产验收，不推断完整兼容已通过。 |
 
 仅兼容任务的新增实际结果，合入本节简短摘要，记录日期／提交／环境／命令／结果／未验范围；不要重新创建独立兼容测试说明、VERIFICATION 文件或过程日志。
 

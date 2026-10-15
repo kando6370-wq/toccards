@@ -4,6 +4,66 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:subscription_core/subscription_core.dart';
 
 void main() {
+  test(
+    'a late catalog cannot replace the exact product whose price was confirmed',
+    () async {
+      final gateway = _FakeGateway(SubscriptionStore.appStore);
+      final client = _client(
+        enabledStores: {SubscriptionStore.appStore},
+        gateways: [gateway],
+      );
+      addTearDown(() async {
+        await client.dispose();
+        await gateway.dispose();
+      });
+      await client.initialize();
+      const confirmed = SubscriptionProduct(
+        store: SubscriptionStore.appStore,
+        storeProductId: 'ios.pro',
+        title: 'Confirmed',
+        description: '',
+        displayPrice: 'EUR 12.00',
+        rawPrice: 12,
+        currencyCode: 'EUR',
+      );
+      await client
+          .loadProducts(); // A different cached USD product must not be used.
+      await client.purchaseProduct(
+        confirmed,
+        applicationUserName: 'account-token',
+      );
+      expect(identical(gateway.lastProduct, confirmed), isTrue);
+      expect(gateway.lastApplicationUserName, 'account-token');
+      expect(gateway.hasPurchaseListener, isTrue);
+    },
+  );
+  test(
+    'display-only IDs cannot bypass the long-lived entitlement registry',
+    () async {
+      final gateway = _FakeGateway(SubscriptionStore.appStore);
+      final client = _client(
+        enabledStores: {SubscriptionStore.appStore},
+        gateways: [gateway],
+      );
+      addTearDown(() async {
+        await client.dispose();
+        await gateway.dispose();
+      });
+      await client.initialize();
+      const unknown = SubscriptionProduct(
+        store: SubscriptionStore.appStore,
+        storeProductId: 'unapproved',
+        title: 'Unknown',
+        description: '',
+        displayPrice: 'USD 12.00',
+        rawPrice: 12,
+        currencyCode: 'USD',
+      );
+      await expectLater(client.purchaseProduct(unknown), throwsStateError);
+      expect(gateway.lastProduct, isNull);
+    },
+  );
+
   group('configuration protects store independence', () {
     test('requires a product id for every enabled store', () {
       expect(
@@ -272,6 +332,7 @@ class _FakeGateway implements SubscriptionStoreGateway {
   int restoreCalls = 0;
   int completeCalls = 0;
   String? lastApplicationUserName;
+  SubscriptionProduct? lastProduct;
 
   bool get hasPurchaseListener => _updates.hasListener;
 
@@ -308,6 +369,7 @@ class _FakeGateway implements SubscriptionStoreGateway {
     String? applicationUserName,
   }) async {
     lastApplicationUserName = applicationUserName;
+    lastProduct = product;
   }
 
   @override

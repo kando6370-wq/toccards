@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>TCG Admin · 订阅配置 · PRD 1.14</title>
+  <style>
+:root {
+  color-scheme: light;
+  --admin-navy: #111c2c;
+  --admin-navy-2: #1a2639;
+  --admin-cyan: #35bdd1;
+  --admin-bg: #f2f5f7;
+  --admin-line: #d8e0e6;
+  --admin-text: #1e2732;
+  --admin-muted: #73849a;
+  --admin-green: #15a67a;
+  --admin-orange: #c9801d;
+  --admin-red: #d85d65;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--admin-bg); color: var(--admin-text); font-family: Inter, Arial, "PingFang SC", "Microsoft YaHei", sans-serif; }
+button, input, select, textarea { font: inherit; }
+button { cursor: pointer; }
+[hidden] { display: none !important; }
+
+.admin-app { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 100vh; }
+.admin-sidebar { position: sticky; top: 0; display: flex; height: 100vh; flex-direction: column; background: var(--admin-navy); color: #d8e2ef; }
+.admin-brand { display: grid; padding: 17px 20px 23px; }
+.admin-brand strong { color: #fff; font-size: 19px; }
+.admin-brand span { color: #92a4bb; font-size: 12px; }
+.admin-sidebar nav { display: grid; gap: 4px; }
+.admin-sidebar nav section { display: grid; }
+.admin-sidebar nav h2 { margin: 0; padding: 13px 20px; color: #c7d2df; font-size: 13px; }
+.admin-sidebar nav h2::after { float: right; content: "⌄"; color: #8192a8; }
+.admin-sidebar nav span,
+.admin-sidebar nav button { min-height: 42px; padding: 0 20px 0 42px; border: 0; background: transparent; color: #aebdce; text-align: left; font-size: 13px; }
+.admin-sidebar nav button.is-active { border-left: 4px solid var(--admin-cyan); background: #344057; color: #fff; padding-left: 38px; }
+.admin-sidebar footer { display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 10px; align-items: center; margin-top: auto; padding: 18px 16px; color: #dce4ec; }
+.admin-sidebar footer div { min-width: 0; }
+.admin-sidebar footer strong,
+.admin-sidebar footer small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-sidebar footer small { color: #9aaabd; font-size: 11px; }
+.admin-sidebar footer > button { grid-column: 1 / -1; justify-self: start; padding: 4px 0; border: 0; background: none; color: #99aabd; }
+.admin-avatar { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--admin-cyan); color: white; font-size: 11px; }
+
+.admin-main { min-width: 0; }
+.admin-topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; min-height: 86px; padding: 17px 30px; border-bottom: 1px solid #ccd6de; }
+.admin-topbar h1 { margin: 0; font-size: 25px; }
+.admin-topbar p { margin: 7px 0 0; color: #7790ab; font-size: 12px; }
+.admin-topbar time { color: #7890aa; font-size: 12px; }
+.admin-view { padding: 22px 30px 42px; }
+.admin-section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 16px; }
+.admin-section-head h2 { margin: 0; font-size: 20px; }
+.admin-section-head p { margin: 6px 0 0; color: var(--admin-muted); font-size: 12px; }
+.admin-primary { border-color: var(--admin-cyan) !important; background: var(--admin-cyan) !important; color: #062c34 !important; font-weight: 700; }
+.admin-section-head button,
+.admin-head-actions button,
+.admin-card-head button { min-height: 34px; padding: 0 16px; border: 1px solid #c7d1d9; border-radius: 5px; background: white; color: #354253; }
+.admin-back { padding: 0 !important; border: 0 !important; background: none !important; color: #198fc0 !important; }
+.editor-page-head h2 { margin-top: 7px; }
+.admin-head-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+
+.admin-table-wrap { overflow-x: auto; border: 1px solid #ced8df; border-radius: 7px; background: white; }
+.admin-table { width: 100%; border-collapse: collapse; min-width: 900px; }
+.admin-table th { padding: 12px 14px; background: #eaf0f3; color: #2a3746; text-align: left; font-size: 11px; white-space: nowrap; }
+.admin-table td { padding: 14px; border-top: 1px solid #e5eaee; vertical-align: middle; font-size: 12px; }
+.admin-table tbody tr:hover { background: #f8fbfc; }
+.admin-table input[type="text"] { width: 170px; padding: 8px 9px; border: 1px solid #d5dde3; border-radius: 5px; }
+.admin-table code { color: #305f82; font-size: 11px; }
+.admin-table .product-ids { display: flex; max-width: 350px; flex-wrap: wrap; gap: 4px; }
+.admin-table .product-ids code { padding: 3px 5px; border-radius: 4px; background: #edf3f6; }
+.trial-summary { display: inline-block; max-width: 220px; color: #217188; font-size: 10px; line-height: 1.45; }
+.trial-summary small { display: block; margin-top: 2px; color: #657689; font-size: 9px; }
+.trial-summary.is-off { color: var(--admin-muted); }
+.trial-summary.is-pending { color: var(--admin-orange); }
+.table-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.table-actions button { padding: 3px 0; border: 0; background: none; color: #087aca; font-size: 11px; }
+.status-tag { display: inline-flex; padding: 4px 8px; border-radius: 999px; border: 1px solid; font-size: 10px; white-space: nowrap; }
+.status-tag.is-published { border-color: #6bcab0; color: #0c8d69; background: #ecfbf6; }
+.status-tag.is-draft { border-color: #e0b66d; color: #aa6810; background: #fff8e9; }
+.status-tag.is-disabled { border-color: #abb5bd; color: #667582; background: #f1f4f5; }
+.admin-switch { position: relative; display: inline-flex; width: 38px; height: 22px; }
+.admin-switch input { position: absolute; opacity: 0; }
+.admin-switch span { width: 100%; border-radius: 999px; background: #aab7c1; transition: .15s; }
+.admin-switch span::after { display: block; width: 18px; height: 18px; margin: 2px; border-radius: 50%; background: white; box-shadow: 0 1px 3px #0004; content: ""; transition: .15s; }
+.admin-switch input:checked + span { background: var(--admin-cyan); }
+.admin-switch input:checked + span::after { transform: translateX(16px); }
+.config-enabled { display: flex; align-items: center; gap: 8px; }
+.config-enabled > span { min-width: 36px; color: #657689; font-size: 10px; }
+.editor-layout { display: block; }
+.config-form { display: grid; gap: 16px; width: min(100%, 980px); min-width: 0; }
+.admin-preview-mode { padding: 11px 13px; border: 1px solid #83c5d0; border-radius: 6px; background: #edfafd; color: #277485; font-size: 11px; }
+.config-form.is-readonly .admin-card { opacity: .82; }
+.config-form.is-readonly .admin-card input,
+.config-form.is-readonly .admin-card select,
+.config-form.is-readonly .admin-card textarea,
+.config-form.is-readonly [data-add-sku],
+.config-form.is-readonly [data-sku-action] { pointer-events: none; }
+.admin-card { padding: 18px; border: 1px solid var(--admin-line); border-radius: 7px; background: white; }
+.admin-card h3 { margin: 0 0 15px; font-size: 15px; }
+.admin-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.admin-card-head h3 { margin-bottom: 4px; }
+.admin-card-head p { margin: 0; color: var(--admin-muted); font-size: 11px; }
+.admin-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.admin-card label { display: grid; gap: 6px; min-width: 0; color: #435165; font-size: 11px; }
+.admin-card input,
+.admin-card select,
+.admin-card textarea { width: 100%; min-height: 37px; padding: 8px 9px; border: 1px solid #ccd6dd; border-radius: 5px; background: white; color: #263345; }
+.admin-card input:disabled,
+.admin-card select:disabled,
+.admin-card textarea:disabled { cursor: not-allowed; background: #f1f4f6; color: #718092; }
+.admin-card input.is-invalid,
+.admin-card select.is-invalid,
+.admin-card textarea.is-invalid { border-color: var(--admin-red); background: #fff5f5; }
+.admin-card textarea { min-height: 60px; resize: vertical; }
+.field-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.field-label small,
+.field-label small { color: #8291a1; font-size: 10px; font-weight: 400; white-space: nowrap; }
+.field-label small.is-over { color: var(--admin-red); font-weight: 700; }
+.admin-inline-error { color: var(--admin-red); font-size: 10px; line-height: 1.4; }
+.sku-list-error { margin: 10px 0 0; }
+.admin-field-help { margin: 10px 0 0; color: var(--admin-muted); font-size: 10px; }
+.sku-list { display: grid; gap: 12px; margin-top: 15px; }
+.sku-editor { border: 1px solid #d7e0e6; border-radius: 7px; background: #fbfcfd; }
+.sku-editor-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border-bottom: 1px solid #e1e7eb; }
+.sku-editor-head strong { color: #2f465b; font-size: 12px; }
+.sku-editor-actions { display: flex; gap: 5px; }
+.sku-editor-actions button { width: 28px; height: 28px; padding: 0; border: 1px solid #ccd5dc; border-radius: 4px; background: white; color: #53677c; }
+.sku-editor-actions button:disabled { cursor: not-allowed; opacity: .4; }
+.sku-editor-actions button:last-child { color: var(--admin-red); }
+.sku-editor-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; padding: 12px; }
+.sku-product-picker { display: grid; gap: 11px; grid-column: 1 / -1; padding: 12px; border: 1px solid #dbe4e9; border-radius: 6px; background: #f4f8fa; }
+.sku-product-picker > p { margin: 0; color: var(--admin-muted); font-size: 10px; line-height: 1.45; }
+.product-type-fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.product-type-fieldset legend { margin-bottom: 7px; color: #435165; font-size: 11px; }
+.product-type-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.product-type-options label { display: flex; grid-auto-flow: column; align-items: center; width: auto; min-height: 34px; padding: 0 12px; border: 1px solid #ccd6dd; border-radius: 5px; background: white; }
+.product-type-options label:has(input:checked) { border-color: #38aabd; background: #ebf9fb; color: #176e7b; }
+.product-type-options input { width: auto; min-height: 0; margin: 0; accent-color: var(--admin-cyan); }
+.sku-product-selection { display: grid; grid-template-columns: 1fr; gap: 11px; }
+.sku-picker-help,
+.catalog-state { color: var(--admin-muted); font-size: 10px; line-height: 1.45; }
+.catalog-state.is-loading { color: #24748a; }
+.catalog-state.is-error { color: var(--admin-red); }
+.catalog-state button { margin-left: 6px; padding: 0; border: 0; background: transparent; color: #087aca; font-size: 10px; }
+.sku-editor-flags { display: flex; gap: 16px; grid-column: 1 / -1; }
+.sku-editor-flags label { display: flex; grid-auto-flow: column; align-items: center; gap: 6px; }
+.sku-editor-flags input { width: auto; min-height: 0; accent-color: var(--admin-cyan); }
+.billing-note-config { display: grid; grid-template-columns: minmax(0, .7fr) minmax(0, 1.3fr); gap: 11px; grid-column: 1 / -1; }
+.billing-note-config > label { min-width: 0; }
+.auto-billing-note { padding: 9px 11px; border: 1px solid #d8e2e7; border-radius: 5px; background: #f4f8fa; }
+.auto-billing-note strong,
+.auto-billing-note small { display: block; }
+.auto-billing-note strong { color: #3e566a; font-size: 11px; }
+.auto-billing-note small { margin-top: 4px; color: var(--admin-muted); font-size: 10px; line-height: 1.55; }
+.trial-settings-card { display: grid; gap: 14px; }
+.trial-settings-card h3 { margin-bottom: 0; }
+.trial-enabled-control { display: flex !important; grid-auto-flow: column; align-items: flex-start; justify-content: flex-start; gap: 9px !important; }
+.trial-enabled-control > input { width: auto; min-height: 0; margin-top: 3px; accent-color: var(--admin-cyan); }
+.trial-enabled-control strong,
+.trial-enabled-control small { display: block; }
+.trial-enabled-control small,
+.trial-settings-card > p { color: var(--admin-muted); font-size: 10px; line-height: 1.5; }
+.trial-settings-card > p { margin: 0; }
+.trial-settings-card [data-trial-toggle-copy] { max-width: 470px; }
+.sku-trial-section { display: grid; gap: 11px; padding: 13px 12px 14px; border-top: 1px solid #dfe7eb; background: #f5f9fa; }
+.sku-trial-section h4 { margin: 0; color: #315164; font-size: 12px; }
+.sku-trial-section > div:first-child > p { margin: 4px 0 0; color: var(--admin-muted); font-size: 10px; }
+.sku-trial-section > label { display: grid; gap: 6px; color: #435165; font-size: 11px; }
+.trial-product-picker { display: grid; grid-template-columns: 1fr; gap: 11px; }
+.trial-product-picker label { display: grid; gap: 6px; min-width: 0; color: #435165; font-size: 11px; }
+.sku-trial-helper { margin: 0; color: var(--admin-muted); font-size: 10px; line-height: 1.45; }
+.sku-trial-retained { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border-top: 1px solid #dfe7eb; background: #f5f7f8; }
+.sku-trial-retained strong,
+.sku-trial-retained small { display: block; }
+.sku-trial-retained strong { color: #516376; font-size: 11px; }
+.sku-trial-retained small { margin-top: 4px; color: var(--admin-muted); font-size: 10px; line-height: 1.45; }
+.sku-trial-retained button { flex: none; min-height: 32px; padding: 0 12px; border: 1px solid #d19a55; border-radius: 5px; background: white; color: #9a5d12; font-size: 10px; }
+.trial-copy-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; padding-top: 11px; border-top: 1px solid #dce6ea; }
+.trial-copy-fields h5,
+.trial-copy-fields > p { grid-column: 1 / -1; }
+.trial-copy-fields h5 { margin: 0; color: #315164; font-size: 11px; }
+.trial-copy-fields label { display: grid; gap: 6px; min-width: 0; color: #435165; font-size: 11px; }
+.trial-copy-fields .trial-copy-note { grid-column: 1 / -1; }
+.trial-copy-fields > p { margin: 0; color: var(--admin-muted); font-size: 10px; line-height: 1.5; }
+.sku-validation { margin: 0; padding: 0 12px 12px 29px; color: var(--admin-red); font-size: 10px; line-height: 1.5; }
+.variable-card { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 8px 12px; }
+.variable-card h3,
+.variable-card p { grid-column: 1 / -1; }
+.variable-card code { padding: 4px 6px; border-radius: 4px; background: #eaf3f7; color: #157c9c; }
+.variable-card span,
+.variable-card p { color: var(--admin-muted); font-size: 11px; }
+.validation-panel { padding: 13px 15px; border: 1px solid #e58d93; border-radius: 6px; background: #fff0f1; color: #a83740; font-size: 12px; }
+.validation-panel ul { margin: 8px 0 0; padding-left: 18px; }
+
+.preview-column { position: sticky; top: 16px; }
+.preview-label { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.preview-label strong,
+.preview-label small { display: block; }
+.preview-label small { color: var(--admin-muted); font-size: 10px; }
+.preview-label a { color: #148ab4; font-size: 10px; text-decoration: none; }
+.phone-frame { overflow: hidden; width: 370px; height: 760px; margin: auto; border: 10px solid #17202c; border-radius: 36px; background: #090a06; box-shadow: 0 18px 45px #24364a33; }
+.phone-status { position: relative; z-index: 3; display: flex; align-items: center; justify-content: space-between; height: 42px; padding: 7px 18px 0; background: #090a06; color: white; font-size: 11px; }
+.phone-status > span { position: absolute; top: 7px; left: 50%; width: 105px; height: 27px; border-radius: 18px; background: black; transform: translateX(-50%); }
+.preview-paywall { height: calc(100% - 42px); overflow-y: auto; scrollbar-width: none; color: #f2f1de; background: radial-gradient(circle at 50% 0, #38401966, transparent 28%), #090a06; font-family: Arial, sans-serif; }
+.preview-paywall::-webkit-scrollbar { display: none; }
+.preview-header { position: sticky; z-index: 4; top: 0; display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 7px; min-height: 58px; padding: 8px 14px; background: #0b0c08e8; }
+.preview-header button { border: 0; background: none; color: #eaff51; }
+.preview-close { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50% !important; background: #30351f !important; color: white !important; font-size: 20px; }
+.preview-header h2 { min-width: 0; margin: 0; overflow: hidden; text-align: center; font-family: Georgia, serif; font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
+.preview-header .preview-restore { font-size: 10px; }
+.preview-body { padding: 9px 16px 0; }
+.preview-media { height: 92px; border: 1px solid #4d5728; border-radius: 17px; background: radial-gradient(circle at 72% 22%, #dff34a1c, transparent 30%), linear-gradient(145deg, #292e17, #15180e 58%, #0e100a); }
+.preview-benefits { display: grid; gap: 6px; margin: 10px 0 20px; padding: 0; list-style: none; }
+.preview-benefits li { display: flex; gap: 8px; align-items: center; min-height: 34px; padding: 6px 9px; border: 1px solid #4a522b55; border-radius: 10px; background: #242815aa; color: #dedfca; font-size: 10px; }
+.preview-benefits span { display: grid; place-items: center; width: 21px; height: 21px; border-radius: 7px; background: #313817; color: #eaff51; }
+.preview-plans { display: grid; gap: 10px; }
+.preview-plan { position: relative; display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 9px; align-items: center; width: 100%; min-height: 63px; padding: 10px; border: 1px solid #4e572c; border-radius: 13px; background: #171b10; color: #f2f1de; text-align: left; }
+.preview-plan.is-selected { border-color: #dff34a; background: #303718; }
+.preview-radio { width: 18px; height: 18px; border: 2px solid #6d7158; border-radius: 50%; }
+.preview-plan.is-selected .preview-radio { border: 5px solid #eaff51; }
+.preview-plan-copy strong,
+.preview-plan-copy small,
+.preview-price strong,
+.preview-price small { display: block; }
+.preview-plan-copy strong { font-size: 11px; }
+.preview-plan-copy small { margin-top: 4px; color: #aeb099; font-size: 8px; line-height: 1.25; }
+.preview-price { text-align: right; }
+.preview-price strong { color: #f4f3c1; font-size: 14px; }
+.preview-price small { margin-top: 4px; color: #b4b69e; font-size: 8px; }
+.preview-badge { position: absolute; top: -7px; right: 9px; padding: 3px 6px; border: 1px solid #eaff5177; border-radius: 99px; background: #313817; color: #eaff51; font-size: 7px; }
+.preview-actions { position: sticky; bottom: 0; margin: 17px -16px 0; padding: 9px 16px 12px; border-top: 1px solid #4a522b55; background: #090a06f5; text-align: center; }
+.preview-billing-note { margin: 0 auto 7px; max-width: 290px; color: #c3c6ad; font-size: 9px; line-height: 1.35; }
+.preview-actions > button { width: 100%; height: 46px; border: 0; border-radius: 24px; background: #eaff51; color: #111307; font-size: 12px; font-weight: 850; }
+.preview-actions > p { margin: 8px 0 0; color: #a8aa95; font-size: 9px; }
+.preview-actions a { color: #c4c6b1; text-decoration: underline; }
+.preview-empty { padding: 30px 15px; color: #ffb1b7; text-align: center; font-size: 11px; }
+
+.admin-toast { position: fixed; z-index: 70; right: 25px; bottom: 25px; padding: 11px 15px; border-radius: 5px; background: #24384c; color: white; font-size: 12px; opacity: 0; transform: translateY(10px); transition: .18s; pointer-events: none; }
+.admin-toast.is-visible { opacity: 1; transform: none; }
+
+@media (max-width: 1050px) {
+  .editor-layout { grid-template-columns: 1fr; }
+  .preview-column { position: static; }
+}
+
+@media (max-width: 760px) {
+  .admin-app { grid-template-columns: 1fr; }
+  .admin-sidebar { position: static; height: auto; }
+  .admin-sidebar nav { grid-template-columns: repeat(2, 1fr); }
+  .admin-sidebar footer { display: none; }
+  .admin-main { overflow: hidden; }
+  .admin-topbar, .admin-view { padding-inline: 16px; }
+  .admin-section-head, .editor-page-head { align-items: stretch; flex-direction: column; }
+  .admin-card-head { align-items: stretch; flex-direction: column; }
+  .admin-card-head button { align-self: stretch; }
+  .sku-trial-retained { align-items: stretch; flex-direction: column; }
+  .sku-trial-retained button { align-self: flex-start; }
+  .admin-form-grid, .sku-editor-fields, .sku-product-selection, .trial-product-picker, .trial-copy-fields, .billing-note-config { grid-template-columns: 1fr; }
+  .trial-copy-fields h5,
+  .trial-copy-fields > p,
+  .trial-copy-fields .trial-copy-note { grid-column: 1; }
+  .phone-frame { width: min(370px, 100%); }
+}
+  </style>
+</head>
+<body>
+  <main class="admin-app">
+    <aside class="admin-sidebar">
+      <div class="admin-brand"><strong>TCG Admin</strong><span>Backend Portal</span></div>
+      <nav aria-label="后台菜单">
+        <section><h2>数据统计</h2><span>安装统计</span><span>订单统计</span></section>
+        <section><h2>用户管理</h2><span>用户列表</span></section>
+        <section><h2>卡牌管理</h2><span>扫描记录管理</span></section>
+        <section class="is-open"><h2>订阅配置</h2><button class="is-active" type="button" data-admin-view="configs">订阅页配置</button></section>
+        <section><h2>App 版本管理</h2></section>
+      </nav>
+      <footer><span class="admin-avatar">KA</span><div><strong>kandotgc@gmail.com</strong><small>超级管理员</small></div><button type="button">Logout</button></footer>
+    </aside>
+
+    <section class="admin-main">
+      <header class="admin-topbar"><div><h1 data-page-title>订阅页配置</h1><p data-page-subtitle>管理订阅页和订阅大弹窗当前生效的商品组合。</p></div><time>2026/09/30</time></header>
+
+      <section class="admin-view is-active" data-view="configs">
+        <div class="admin-section-head"><div><h2>订阅页配置</h2><p>订阅页和订阅大弹窗各自最多一组生效配置；也可全部关闭。</p></div><button class="admin-primary" type="button" data-add-config>新增</button></div>
+        <div class="admin-notice" data-config-notice hidden role="status"></div>
+        <div class="admin-table-wrap"><table class="admin-table config-table"><thead><tr><th>配置名称</th><th>页面类型</th><th>商品信息</th><th>试用配置</th><th>生效状态</th><th>更新时间</th><th>操作</th></tr></thead><tbody data-config-rows></tbody></table></div>
+      </section>
+
+      <section class="admin-view editor-view" data-view="editor" hidden>
+        <div class="admin-section-head editor-page-head"><div><button class="admin-back" type="button" data-back-configs>‹ 返回配置列表</button><h2 data-editor-heading>编辑配置</h2><p>保存只更新配置内容，不改变该配置的生效状态。</p></div><div class="admin-head-actions"><button type="button" data-cancel-config>取消</button><button class="admin-primary" type="button" data-save-config>保存</button></div></div>
+        <form class="config-form" data-config-form novalidate>
+          <section class="admin-card"><h3>基础信息</h3><div class="admin-form-grid"><label><span class="field-label">配置名称 * <small data-count-for="configName"></small></span><input name="configName" maxlength="100" required><small class="admin-inline-error" data-config-error="configName" hidden></small></label><label><span>页面类型 *</span><select name="type" required><option value="">请选择</option><option value="page">订阅页</option><option value="modal">订阅大弹窗</option></select><small class="admin-inline-error" data-config-error="type" hidden></small></label></div></section>
+          <section class="admin-card trial-settings-card"><h3>试用切换设置</h3><label class="trial-enabled-control"><input name="trialEnabled" type="checkbox"><span><strong>启用试用切换开关</strong><small>客户端开关默认关闭。</small></span></label><div data-trial-toggle-copy hidden><label><span class="field-label">试用开关文案 * <small data-count-for="trialToggleText"></small></span><input name="trialToggleText" maxlength="100" placeholder="Enable free trial"><small class="admin-inline-error" data-config-error="trialToggleText" hidden></small></label></div><p>开启后，每个不带试用的订阅 SKU 均可关联项目指定订阅组内同周期、同等级的试用 SKU；试用目标不得重复。关闭时隐藏关系编辑，已保留关系可分别解除。</p><p>客户端仍使用一个试用开关：优先切换当前选中档位；当前档位无有效关系时，按展示顺序切换到第一张可用关联卡片。</p><p>独立试用商品不依赖此开关。只有资格已确认可用时才展示免费承诺；无资格或未知时保留商品，使用中性名称、SUBSCRIBE 与标准价格说明。</p><p>用户选择其他商品时关闭关联试用开关。提交前优惠失效须阻止本次提交，不能在同一次点击中静默转为收费购买。</p><p>实际试用时长、价格、续订周期和用户资格由客户端结合 Apple 商品信息确认；后台文案不能替代真实交易信息。</p><p class="admin-inline-error" data-config-error="trial" hidden></p></section>
+          <section class="admin-card sku-section"><div class="admin-card-head"><div><h3>页面展示 SKU 选项</h3><p>按商品类型从 Apple 商品下拉选择具体 Product ID；订阅商品来自项目指定订阅组。</p></div><button type="button" data-add-sku>＋ 增加 SKU</button></div><div class="sku-list" data-sku-list></div><p class="admin-inline-error sku-list-error" data-config-error="skus" hidden></p></section>
+          <section class="admin-card"><h3>页面统一配置</h3><div class="admin-form-grid"><label><span class="field-label">组级订阅按钮兜底文案 <small data-count-for="cta"></small></span><input name="cta" maxlength="100"><small class="admin-inline-error" data-config-error="cta" hidden></small></label><label><span>关闭按钮延迟显示秒数 *</span><input name="closeDelay" type="number" min="0" step="1" value="0" required><small class="admin-inline-error" data-config-error="closeDelay" hidden></small></label></div><p class="admin-field-help">当前 SKU 的按钮文案为空时使用组级兜底，再为空时使用 SUBSCRIBE。三处按钮文案仅支持纯文本，不支持变量或花括号。自本次订阅页或订阅大弹窗进入时开始计时，经过配置的秒数后显示关闭按钮；0 秒表示立即显示。仅接受非负整数，不设置业务时长上限。</p></section>
+          <section class="admin-card variable-card"><h3>按钮上方说明</h3><code>{price}</code><span>自定义说明可使用当前购买目标的实际周期本地化价格；试用状态下表示试用结束后的正常价格</span><p>真实扣费金额与周期始终展示。自动说明根据当前商品和资格生成，不读取自定义文本；营销说明留空不移除真实摘要，按钮内不支持 {price}。</p></section>
+          <div class="validation-panel" data-validation hidden><strong>请修正以下内容：</strong><ul data-validation-list></ul></div>
+        </form>
+      </section>
+    </section>
+  </main>
+
+  <div class="admin-toast" data-admin-toast role="status" aria-live="polite"></div>
+  <script>
+(() => {
+  // Prototype-only catalog scope. The production group ID is supplied by project integration.
+  const specifiedSubscriptionGroup = { id:'prototype.subscription.group', referenceName:'原型指定订阅组' };
+  const products = [
+    { id:'com.tcg.premium.weekly', referenceName:'Premium 周订阅', purchaseType:'subscription', groupId:specifiedSubscriptionGroup.id, subscriptionLevel:'premium', type:'自动续期订阅', cycle:'周', price:4.99, currency:'USD', weeks:1, period:'per week', hasFreeTrial:false },
+    { id:'com.tcg.premium.weekly.trial', referenceName:'Premium 周试用', purchaseType:'subscription', groupId:specifiedSubscriptionGroup.id, subscriptionLevel:'premium', type:'自动续期订阅', cycle:'周', price:4.99, currency:'USD', weeks:1, period:'per week', hasFreeTrial:true },
+    { id:'com.tcg.premium.monthly', referenceName:'Premium 月订阅', purchaseType:'subscription', groupId:specifiedSubscriptionGroup.id, subscriptionLevel:'premium', type:'自动续期订阅', cycle:'月', price:14.99, currency:'USD', months:1, period:'per month', hasFreeTrial:false },
+    { id:'com.tcg.premium.yearly', referenceName:'Premium 年订阅', purchaseType:'subscription', groupId:specifiedSubscriptionGroup.id, subscriptionLevel:'premium', type:'自动续期订阅', cycle:'年', price:49.99, currency:'USD', years:1, period:'per year', hasFreeTrial:false },
+    { id:'com.tcg.premium.yearly.trial', referenceName:'Premium 年试用', purchaseType:'subscription', groupId:specifiedSubscriptionGroup.id, subscriptionLevel:'premium', type:'自动续期订阅', cycle:'年', price:49.99, currency:'USD', years:1, period:'per year', hasFreeTrial:true },
+    { id:'com.tcg.premium.lifetime', referenceName:'Premium Lifetime', purchaseType:'oneTime', groupId:'', subscriptionLevel:'', type:'一次性购买（非消耗型）', cycle:'一次性', price:79.99, currency:'USD', lifetime:true, period:'one-time purchase', hasFreeTrial:false }
+  ];
+  const configTypeLabels = { page:'订阅页', modal:'订阅大弹窗' };
+  const limits = { configName:100, name:100, subtitle:300, badge:100, periodText:200, billingNote:500, cta:100, trialToggleText:100 };
+  const productById=id=>products.find(product=>product.id===id);
+  const selectionForProduct=productId=>({ productType:productById(productId)?.purchaseType||'subscription' });
+  const emptyTrial = (extras={}) => ({ productId:'',name:'',subtitle:'',badge:'',periodText:'',cta:'',billingNoteMode:'custom',billingNote:'',...extras });
+  const sku = (productId='',name='',extras={}) => {
+    const { trial={},...rest }=extras;
+    return { uid:`sku-${Math.random().toString(36).slice(2,8)}`,...selectionForProduct(productId),productId,default:false,name,subtitle:'',badge:'',priceMode:'actual',periodText:'',cta:'',billingNoteMode:'custom',billingNote:'',...rest,trial:emptyTrial(trial) };
+  };
+  const blankSku = () => sku();
+  const pageSkus = () => [
+    sku('com.tcg.premium.weekly','Unlimited Weekly',{periodText:'per week',trial:{productId:'com.tcg.premium.weekly.trial',name:'Weekly Free Trial',subtitle:'Try premium collection tools',badge:'Free trial',periodText:'Then {price} per week',cta:'START FREE TRIAL',billingNote:'Free trial, then {price} per week.'}}),
+    sku('com.tcg.premium.yearly','Unlimited Annually',{default:true,subtitle:'Best for regular collectors',badge:'Best value',priceMode:'weekly',periodText:'per week',billingNote:'Billed annually at {price}.',trial:{productId:'com.tcg.premium.yearly.trial',name:'Annual Free Trial',subtitle:'Try premium collection tools',badge:'Free trial',periodText:'Then {price} per year',cta:'START FREE TRIAL',billingNote:'Free trial, then {price} per year.'}}),
+    sku('com.tcg.premium.lifetime','Lifetime Access',{badge:'One-time',periodText:'one-time purchase'})
+  ];
+  const modalSkus = () => [
+    sku('com.tcg.premium.weekly','Unlimited Weekly',{periodText:'per week'}),
+    sku('com.tcg.premium.yearly','Unlimited Annually',{default:true,subtitle:'Best for regular collectors',badge:'Best value',priceMode:'weekly',periodText:'per week',billingNote:'Billed annually at {price}.'})
+  ];
+  let configs = [
+    { id:'page', name:'默认订阅页配置', type:'page', enabled:true, trialEnabled:true, trialToggleText:'Enable free trial', updatedAt:'2026-09-30 10:20', cta:'SUBSCRIBE', closeDelay:0, skus:pageSkus() },
+    { id:'modal', name:'默认订阅大弹窗配置', type:'modal', enabled:false, trialEnabled:false, trialToggleText:'', updatedAt:'2026-09-30 09:45', cta:'CONTINUE', closeDelay:0, skus:modalSkus() }
+  ];
+
+  const qs=(selector,scope=document)=>scope.querySelector(selector);
+  const qsa=(selector,scope=document)=>[...scope.querySelectorAll(selector)];
+  const previewParams=new URLSearchParams(window.location.search);
+  const clone=value=>JSON.parse(JSON.stringify(value));
+  const escapeHTML=value=>String(value??'').replace(/[&<>"']/g,char=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[char]));
+  const now=()=> '2026-09-30 11:10';
+  let editor=null;
+  let editorMode='edit';
+  let editorDirty=false;
+  let validationActive=false;
+  let currentView='configs';
+  let nextConfigId=1;
+  let failNextSave=previewParams.get('saveFail')==='1';
+  let failNextToggle=previewParams.get('toggleFail')==='1';
+  let toastTimer;
+  let nextCatalogToken=1;
+  const catalogLoads=new Map();
+  const failNextCatalogLoads=new Set();
+
+  const showToast=message=>{const toast=qs('[data-admin-toast]');toast.textContent=message;toast.classList.add('is-visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove('is-visible'),2400)};
+  const showView=view=>{
+    currentView=view;
+    qsa('[data-view]').forEach(panel=>{panel.hidden=panel.dataset.view!==view;panel.classList.toggle('is-active',panel.dataset.view===view)});
+    qsa('[data-admin-view]').forEach(button=>button.classList.toggle('is-active',button.dataset.adminView===view));
+    const titles={configs:['订阅页配置','管理订阅页和订阅大弹窗的商品组合。'],editor:['配置编辑','保存只更新配置内容，不改变生效状态。']};
+    qs('[data-page-title]').textContent=titles[view][0];qs('[data-page-subtitle]').textContent=titles[view][1];
+  };
+
+  const productReference=product=>product?.referenceName||'';
+  const productLabel=product=>product?`${product.id}${productReference(product)?` · ${productReference(product)}`:''}${product.hasFreeTrial?' · 带免费试用':''}`:'';
+  const productName=product=>productReference(product)||product?.id||'';
+  const resolveSubscriptionButtonText=(config,item,{trialActive=false,clientDefault='SUBSCRIBE'}={})=>{
+    const configuredText=trialActive?item?.trial?.cta:item?.cta;
+    const skuText=String(configuredText||'').trim();
+    const groupText=String(config?.cta||'').trim();
+    return skuText||groupText||String(clientDefault||'').trim()||'SUBSCRIBE';
+  };
+  const countMarkup=(value,max,attr='')=>`<small ${attr}>${String(value).length}/${max}</small>`;
+  const independentTrialSummary=config=>{
+    const count=config.skus.filter(item=>productById(item.productId)?.hasFreeTrial).length;
+    return count?`<small>含 ${count} 个独立试用商品</small>`:'';
+  };
+  const trialSummary=config=>{
+    const independent=independentTrialSummary(config);
+    const relationships=config.skus.filter(item=>item.trial?.productId);
+    const relationshipSummaries=relationships.map(item=>`${escapeHTML(productName(productById(item.productId))||item.productId)} → ${escapeHTML(productName(productById(item.trial.productId))||item.trial.productId)}`).join('；');
+    if(!config.trialEnabled){
+      const retained=relationships.length?`<small>已保留关联：${relationshipSummaries}（未使用）</small>`:'';
+      return `<span class="trial-summary is-off">试用切换未启用${retained}${independent}</span>`;
+    }
+    if(!relationships.length)return '<span class="trial-summary is-pending">待完善</span>';
+    return `<span class="trial-summary">${relationshipSummaries}${independent}</span>`;
+  };
+  const renderConfigs=()=>{
+    qs('[data-config-rows]').innerHTML=configs.map(config=>`<tr><td><strong>${escapeHTML(config.name)}</strong></td><td>${configTypeLabels[config.type]}</td><td><div class="product-ids">${config.skus.map(item=>`<code>${escapeHTML(item.productId)}</code>`).join('')}</div></td><td>${trialSummary(config)}</td><td><div class="config-enabled"><label class="admin-switch"><input type="checkbox" data-config-enabled="${escapeHTML(config.id)}" ${config.enabled?'checked':''}><span></span></label><span>${config.enabled?'生效':'不生效'}</span></div></td><td>${config.updatedAt}</td><td><div class="table-actions"><button type="button" data-edit-config="${escapeHTML(config.id)}">编辑</button></div></td></tr>`).join('');
+  };
+
+  const catalogKey=(item,scope)=>`${item.uid}:${scope}`;
+  const catalogContext=(item,scope)=>`${item.productType}:${scope}`;
+  const catalogStatus=(item,scope)=>{
+    const state=catalogLoads.get(catalogKey(item,scope));
+    return state&&state.context===catalogContext(item,scope)?state.status:'loaded';
+  };
+  const beginCatalogLoad=(item,scope)=>{
+    const token=nextCatalogToken++;const context=catalogContext(item,scope);const key=catalogKey(item,scope);
+    catalogLoads.set(key,{token,context,status:'loading'});renderEditor();
+    window.setTimeout(()=>{
+      const liveItem=editor?.skus.find(candidate=>candidate.uid===item.uid);const state=catalogLoads.get(key);
+      if(!liveItem||!state||state.token!==token||state.context!==context||catalogContext(liveItem,scope)!==context)return;
+      const failed=failNextCatalogLoads.delete(scope);
+      catalogLoads.set(key,{token,context,status:failed?'error':'loaded'});
+      renderEditor();
+    },220);
+  };
+  const relationTargetIds=()=>new Set(editor.skus.map(item=>item.trial.productId).filter(Boolean));
+  const scopedDisplayProducts=item=>{
+    const occupied=relationTargetIds();
+    return products.filter(product=>{
+      if(product.purchaseType!==item.productType)return false;
+      if(item.productType==='subscription'&&product.groupId!==specifiedSubscriptionGroup.id)return false;
+      return !occupied.has(product.id)||product.id===item.productId;
+    });
+  };
+  const displayProductOptions=item=>{
+    const scope=item.productType==='oneTime'?'oneTimeProducts':'subscriptionProducts';const status=catalogStatus(item,scope);
+    if(status==='loading')return '<option value="">商品加载中…</option>';
+    if(status==='error')return '<option value="">商品加载失败，请重试</option>';
+    const scoped=scopedDisplayProducts(item);
+    const savedUnknown=item.productId&&!productById(item.productId)?`<option value="${escapeHTML(item.productId)}" selected>${escapeHTML(item.productId)} · 已保存，待商品信息恢复</option>`:'';
+    const prompt=scoped.length?'请选择商品':(item.productType==='oneTime'?'当前 App 暂无可配置的一次性购买商品':'项目指定订阅组暂无可配置商品');
+    return `<option value="">${escapeHTML(prompt)}</option>${savedUnknown}${scoped.map(product=>`<option value="${escapeHTML(product.id)}" ${product.id===item.productId?'selected':''}>${escapeHTML(productLabel(product))}</option>`).join('')}`;
+  };
+  const catalogFeedback=(item,scope,empty)=>{
+    const status=catalogStatus(item,scope);
+    if(status==='loading')return '<span class="catalog-state is-loading">正在读取商品…</span>';
+    if(status==='error')return `<span class="catalog-state is-error">读取失败。<button type="button" data-retry-catalog="${scope}">重试</button></span>`;
+    if(empty)return '<span class="catalog-state">成功读取，但当前范围没有商品。</span>';
+    return '';
+  };
+  const renderProductPicker=item=>{
+    const productScope=item.productType==='oneTime'?'oneTimeProducts':'subscriptionProducts';const productStatus=catalogStatus(item,productScope);
+    const scopedProducts=scopedDisplayProducts(item);const productDisabled=productStatus!=='loaded'||!scopedProducts.length;
+    const productHelp=catalogFeedback(item,productScope,productStatus==='loaded'&&!scopedProducts.length);
+    return `<div class="sku-product-picker"><fieldset class="product-type-fieldset"><legend>商品类型 *</legend><div class="product-type-options"><label><input type="radio" name="product-type-${escapeHTML(item.uid)}" value="subscription" data-sku-product-type data-sku-field="productType" ${item.productType==='subscription'?'checked':''}> 订阅</label><label><input type="radio" name="product-type-${escapeHTML(item.uid)}" value="oneTime" data-sku-product-type data-sku-field="productType" ${item.productType==='oneTime'?'checked':''}> 一次性购买</label></div></fieldset><div class="sku-product-selection"><label class="product-id-field"><span>Product ID *</span><select data-sku-field="productId" ${productDisabled?'disabled':''}>${displayProductOptions(item)}</select>${productHelp}</label></div><p>${item.productType==='subscription'?'订阅商品直接读取项目指定订阅组；':'一次性购买商品按本次可配置范围读取；'}后台仅保存具体 Product ID。</p></div>`;
+  };
+  const availableTrialProducts=item=>{
+    const source=productById(item.productId);if(!source||source.purchaseType!=='subscription'||source.hasFreeTrial)return [];
+    const displayIds=new Set(editor.skus.map(skuItem=>skuItem.productId).filter(Boolean));
+    const usedByOtherSources=new Set(editor.skus.filter(skuItem=>skuItem.uid!==item.uid).map(skuItem=>skuItem.trial.productId).filter(Boolean));
+    return products.filter(product=>product.purchaseType==='subscription'&&product.hasFreeTrial&&product.groupId===source.groupId&&product.cycle===source.cycle&&product.subscriptionLevel===source.subscriptionLevel&&(!displayIds.has(product.id)||product.id===item.trial.productId)&&(!usedByOtherSources.has(product.id)||product.id===item.trial.productId));
+  };
+  const trialProductOptions=item=>{
+    const candidates=availableTrialProducts(item);
+    return `<option value="">不关联试用 SKU</option>${candidates.map(product=>`<option value="${escapeHTML(product.id)}" ${product.id===item.trial.productId?'selected':''}>${escapeHTML(productLabel(product))}</option>`).join('')}`;
+  };
+  const fieldLabel=(label,key,value,required=false)=>`<span class="field-label">${label}${required?' *':''} ${countMarkup(value,limits[key],`data-sku-count="${key}"`)}</span>`;
+  const trialFieldLabel=(label,key,value,required=false)=>`<span class="field-label">${label}${required?' *':''} ${countMarkup(value,limits[key],`data-trial-count="${key}"`)}</span>`;
+  const billingNoteModeOptions=mode=>`<option value="custom" ${mode==='custom'?'selected':''}>自定义文本</option><option value="auto" ${mode==='auto'?'selected':''}>自动商品说明</option>`;
+  const automaticBillingHelp=()=>`<div class="auto-billing-note"><strong>真实计费信息由客户端生成</strong><small>有试用资格：真实试用期限，之后按完整周期金额续订。<br>无资格：标准周期价格；资格未知：标准价格及优惠待确认，不承诺免费。<br>一次性购买：真实一次性金额。<br>完整扣费金额与周期始终展示；周均价仅为辅助。必要计费事实不足时不可购买。</small></div>`;
+  const renderBillingNoteConfig=item=>`<div class="billing-note-config"><label><span>购买按钮正上方说明方式</span><select data-sku-field="billingNoteMode">${billingNoteModeOptions(item.billingNoteMode)}</select></label>${item.billingNoteMode==='auto'?automaticBillingHelp():`<label>${fieldLabel('自定义说明文案','billingNote',item.billingNote)}<textarea data-sku-field="billingNote" maxlength="${limits.billingNote}">${escapeHTML(item.billingNote)}</textarea></label>`}</div>`;
+  const renderTrialBillingNoteConfig=trial=>`<div class="billing-note-config"><label><span>购买按钮正上方说明方式</span><select data-trial-field="billingNoteMode">${billingNoteModeOptions(trial.billingNoteMode)}</select></label>${trial.billingNoteMode==='auto'?automaticBillingHelp():`<label>${trialFieldLabel('自定义说明文案','billingNote',trial.billingNote)}<textarea data-trial-field="billingNote" maxlength="${limits.billingNote}">${escapeHTML(trial.billingNote)}</textarea></label>`}</div>`;
+  const trialControlState=item=>{
+    const source=productById(item.productId);
+    if(!source)return {disabled:true,reason:'请先选择页面展示 Product ID。'};
+    if(source.purchaseType==='oneTime')return {disabled:true,reason:'一次性商品不支持建立试用切换关系。'};
+    if(source.hasFreeTrial)return {disabled:true,reason:'独立试用商品使用自身 Product ID，不支持再关联试用目标。'};
+    if(!availableTrialProducts(item).length&&!item.trial.productId)return {disabled:true,reason:'所属订阅组内没有同周期、同等级且未被占用的试用商品。'};
+    return {disabled:false,reason:'仅显示当前订阅组内同周期、同等级、带免费试用且未被本组其他卡片占用的商品。'};
+  };
+  const renderTrialCopy=trial=>`<div class="trial-copy-fields" data-trial-copy><h5>试用开启时的展示内容</h5><label>${trialFieldLabel('试用商品展示名称','name',trial.name,true)}<input data-trial-field="name" value="${escapeHTML(trial.name)}" maxlength="${limits.name}"></label><label>${trialFieldLabel('名称下方副文案','subtitle',trial.subtitle)}<input data-trial-field="subtitle" value="${escapeHTML(trial.subtitle)}" maxlength="${limits.subtitle}"></label><label>${trialFieldLabel('右上角角标文案','badge',trial.badge)}<input data-trial-field="badge" value="${escapeHTML(trial.badge)}" maxlength="${limits.badge}"></label><label>${trialFieldLabel('价格下方说明文案','periodText',trial.periodText)}<input data-trial-field="periodText" value="${escapeHTML(trial.periodText)}" maxlength="${limits.periodText}"></label><label>${trialFieldLabel('订阅按钮文案','cta',trial.cta)}<input data-trial-field="cta" value="${escapeHTML(trial.cta)}" maxlength="${limits.cta}"></label>${renderTrialBillingNoteConfig(trial)}<p>选填营销字段为空时不展示，也不继承普通文案；按钮仅支持纯文本，为空时依次使用组级文案和 SUBSCRIBE。自定义说明可使用 {price}，但不能替代始终展示的真实扣费金额与周期。</p></div>`;
+  const renderRetainedTrialRelation=(item,index)=>{
+    if(!item.trial.productId)return '';
+    const source=productById(item.productId);const target=productById(item.trial.productId);
+    return `<section class="sku-trial-retained" data-retained-trial-relation><div><strong>试用关联已保留但未启用</strong><small>${escapeHTML(productName(source)||item.productId)} → ${escapeHTML(productName(target)||item.trial.productId)}。客户端仅使用该卡片自身的普通付费 SKU。</small></div><button type="button" data-unlink-trial="${index}">解除试用关联</button></section>`;
+  };
+  const renderTrialSection=(item,index)=>{
+    if(!editor.trialEnabled)return renderRetainedTrialRelation(item,index);
+    const product=productById(item.productId);
+    if(item.productType==='oneTime'||product?.hasFreeTrial)return '';
+    const trialState=trialControlState(item);
+    const trialControl=`<div class="trial-product-picker"><label><span>关联试用 SKU</span><select data-trial-product ${trialState.disabled?'disabled':''}>${trialProductOptions(item)}</select><small class="sku-trial-helper">${trialState.reason}</small></label></div>`;
+    return `<section class="sku-trial-section"><div><h4>试用切换对应关系</h4><p>试用目标从当前普通付费商品所属订阅组中选择，与源商品共用此卡片，不额外生成卡片。</p></div>${trialControl}${item.trial.productId?renderTrialCopy(item.trial):''}</section>`;
+  };
+  const renderSkuEditors=()=>{
+    qs('[data-sku-list]').innerHTML=editor.skus.map((item,index)=>{
+      const product=productById(item.productId);const lifetime=product?.purchaseType==='oneTime';
+      return `<article class="sku-editor" data-sku-index="${index}"><header class="sku-editor-head"><strong>页面展示 SKU ${index+1} · ${escapeHTML(productName(product)||'请选择商品')}</strong><div class="sku-editor-actions"><button type="button" data-sku-action="up" title="上移" aria-label="上移 SKU ${index+1}" ${index===0?'disabled':''}>↑</button><button type="button" data-sku-action="down" title="下移" aria-label="下移 SKU ${index+1}" ${index===editor.skus.length-1?'disabled':''}>↓</button><button type="button" data-sku-action="remove" title="移除" aria-label="移除 SKU ${index+1}">×</button></div></header><div class="sku-editor-fields">${renderProductPicker(item)}<label><span>价格展示方式</span><select data-sku-field="priceMode" ${lifetime?'disabled':''}><option value="actual" ${item.priceMode==='actual'?'selected':''}>实际周期价格</option>${lifetime?'':`<option value="weekly" ${item.priceMode==='weekly'?'selected':''}>实际周期价格 + 折算周均参考价</option>`}</select></label><div class="sku-editor-flags"><label><input type="checkbox" data-sku-field="default" ${item.default?'checked':''}> 默认选中</label></div><label>${fieldLabel('商品展示名称','name',item.name,true)}<input data-sku-field="name" value="${escapeHTML(item.name)}" maxlength="${limits.name}"></label><label>${fieldLabel('名称下方副文案','subtitle',item.subtitle)}<input data-sku-field="subtitle" value="${escapeHTML(item.subtitle)}" maxlength="${limits.subtitle}"></label><label>${fieldLabel('右上角角标文案','badge',item.badge)}<input data-sku-field="badge" value="${escapeHTML(item.badge)}" maxlength="${limits.badge}"></label><label>${fieldLabel('价格下方说明文案','periodText',item.periodText)}<input data-sku-field="periodText" value="${escapeHTML(item.periodText)}" maxlength="${limits.periodText}"></label><label>${fieldLabel('订阅按钮文案','cta',item.cta)}<input data-sku-field="cta" value="${escapeHTML(item.cta)}" maxlength="${limits.cta}"></label>${renderBillingNoteConfig(item)}<p class="admin-field-help">按钮仅支持纯文本；实际周期金额与周期始终展示。周均价是辅助参考，自定义说明可留空但不移除真实计费摘要。</p></div>${renderTrialSection(item,index)}<ul class="sku-validation" data-sku-errors="${index}" hidden></ul></article>`;
+    }).join('');
+  };
+
+  const knownVariables=new Set(['price']);
+  const hasButtonPlaceholder=value=>/[{}]/.test(String(value??''));
+  const billingNoteModes=new Set(['custom','auto']);
+  const productTypes=new Set(['subscription','oneTime']);
+  const textVariables=text=>[...String(text||'').matchAll(/\{([^}]+)\}/g)].map(match=>match[1]);
+  const tooLong=(value,key)=>String(value||'').length>limits[key];
+  const emptyConfigErrors=()=>({configName:[],type:[],trialToggleText:[],trial:[],cta:[],closeDelay:[],skus:[]});
+  const clearValidation=()=>{
+    qsa('[data-config-error]').forEach(node=>{node.textContent='';node.hidden=true});
+    qsa('[data-config-form] .is-invalid').forEach(node=>node.classList.remove('is-invalid'));
+    qsa('[data-sku-errors]').forEach(node=>{node.innerHTML='';node.hidden=true});
+    qs('[data-validation]').hidden=true;qs('[data-validation-list]').innerHTML='';
+  };
+  const renderValidation=(result,show)=>{
+    clearValidation();if(!show)return;
+    const form=qs('[data-config-form]');
+    for(const key of ['configName','type','trialToggleText','cta','closeDelay']){
+      const messages=result.configErrors[key];const errorNode=qs(`[data-config-error="${key}"]`);
+      errorNode.textContent=messages.join(' ');errorNode.hidden=!messages.length;form.elements[key].classList.toggle('is-invalid',Boolean(messages.length));
+    }
+    for(const key of ['trial','skus']){const node=qs(`[data-config-error="${key}"]`);node.textContent=result.configErrors[key].join(' ');node.hidden=!result.configErrors[key].length;}
+    result.skuErrors.forEach((issues,index)=>{
+      const article=qs(`[data-sku-index="${index}"]`);if(!article)return;
+      const list=qs(`[data-sku-errors="${index}"]`);list.innerHTML=issues.map(issue=>`<li>${escapeHTML(issue.message)}</li>`).join('');list.hidden=!issues.length;
+      issues.forEach(issue=>{
+        if(!issue.field)return;
+        const selector=issue.scope==='trial'?(issue.field==='productId'?'[data-trial-product]':`[data-trial-field="${issue.field}"]`):`[data-sku-field="${issue.field}"]`;
+        qs(selector,article)?.classList.add('is-invalid');
+      });
+    });
+    const panel=qs('[data-validation]');panel.hidden=!result.messages.length;qs('[data-validation-list]').innerHTML=result.messages.map(message=>`<li>${escapeHTML(message)}</li>`).join('');
+  };
+  const validate=({show=validationActive}={})=>{
+    const configErrors=emptyConfigErrors();const skuErrors=editor.skus.map(()=>[]);
+    if(!editor.name.trim())configErrors.configName.push('配置名称不能为空。');
+    else if(tooLong(editor.name,'configName'))configErrors.configName.push(`配置名称不能超过 ${limits.configName} 字符。`);
+    if(!editor.type)configErrors.type.push('请选择页面类型。');
+    if(editor.enabled&&editor.type&&configs.some(config=>config.id!==editor.id&&config.type===editor.type&&config.enabled))configErrors.type.push('该页面类型已有生效配置，请先调整生效状态。');
+    if(tooLong(editor.cta,'cta'))configErrors.cta.push(`组级订阅按钮兜底文案不能超过 ${limits.cta} 字符。`);
+    if(hasButtonPlaceholder(editor.cta))configErrors.cta.push('订阅按钮文案仅支持纯文本，不允许变量或花括号。');
+    const delayText=String(editor.closeDelay??'').trim();const delay=Number(delayText);if(!delayText||!Number.isInteger(delay)||delay<0)configErrors.closeDelay.push('关闭按钮延迟必须为非负整数。');
+    if(!editor.skus.length)configErrors.skus.push('页面展示 SKU 列表至少需要保留一个商品。');
+    const defaults=editor.skus.filter(item=>item.default);if(defaults.length!==1)configErrors.skus.push('默认选中项必须且只能有一个。');
+    const displayIds=editor.skus.map(item=>item.productId).filter(Boolean);const idCounts=displayIds.reduce((counts,id)=>{counts[id]=(counts[id]||0)+1;return counts},{});
+    editor.skus.forEach((item,index)=>{
+      const issues=skuErrors[index];const product=productById(item.productId);
+      if(!productTypes.has(item.productType))issues.push({field:'productType',message:`页面展示 SKU ${index+1} 请选择商品类型。`});
+      if(!item.productId||!product)issues.push({field:'productId',message:`页面展示 SKU ${index+1} 请选择具体 Product ID。`});
+      else {
+        if(product.purchaseType!==item.productType)issues.push({field:'productId',message:`页面展示 SKU ${index+1} 的 Product ID 与商品类型不匹配。`});
+        if(item.productType==='subscription'&&product.groupId!==specifiedSubscriptionGroup.id)issues.push({field:'productId',message:`页面展示 SKU ${index+1} 的 Product ID 不属于项目指定订阅组。`});
+        if(idCounts[item.productId]>1)issues.push({field:'productId',message:`页面展示 SKU ${index+1} 的 Product ID 与其他卡片重复。`});
+      }
+      if(!item.name.trim())issues.push({field:'name',message:`页面展示 SKU ${index+1} 的商品展示名称不能为空。`});
+      if(hasButtonPlaceholder(item.cta))issues.push({field:'cta',message:`页面展示 SKU ${index+1} 的订阅按钮文案仅支持纯文本，不允许变量或花括号。`});
+      if(!billingNoteModes.has(item.billingNoteMode))issues.push({field:'billingNoteMode',message:`页面展示 SKU ${index+1} 请选择按钮上方说明方式。`});
+      for(const key of ['name','subtitle','badge','periodText','cta'])if(tooLong(item[key],key))issues.push({field:key,message:`页面展示 SKU ${index+1} 的${({name:'展示名称',subtitle:'副文案',badge:'角标',periodText:'价格说明',cta:'订阅按钮文案'})[key]}不能超过 ${limits[key]} 字符。`});
+      if(item.billingNoteMode==='custom'&&tooLong(item.billingNote,'billingNote'))issues.push({field:'billingNote',message:`页面展示 SKU ${index+1} 的按钮上方说明不能超过 ${limits.billingNote} 字符。`});
+      for(const key of ['subtitle','badge','periodText']){
+        const unknown=textVariables(item[key]).filter(name=>!knownVariables.has(name));
+        if(unknown.length)issues.push({field:key,message:`页面展示 SKU ${index+1} 包含未知变量：${[...new Set(unknown)].map(name=>`{${name}}`).join('、')}。`});
+      }
+      if(item.billingNoteMode==='custom'){
+        const unknown=textVariables(item.billingNote).filter(name=>!knownVariables.has(name));
+        if(unknown.length)issues.push({field:'billingNote',message:`页面展示 SKU ${index+1} 包含未知变量：${[...new Set(unknown)].map(name=>`{${name}}`).join('、')}。`});
+      }
+      if(product?.purchaseType==='oneTime'&&item.priceMode!=='actual')issues.push({field:'priceMode',message:`页面展示 SKU ${index+1} 的一次性商品仅支持实际周期价格。`});
+    });
+    const relations=editor.skus.map((item,index)=>({item,index})).filter(entry=>entry.item.trial.productId);
+    const trialTargetCounts=relations.reduce((counts,{item})=>{counts[item.trial.productId]=(counts[item.trial.productId]||0)+1;return counts},{});
+    relations.forEach(({item,index})=>{
+      const issues=skuErrors[index];const source=productById(item.productId);const target=productById(item.trial.productId);
+      if(!source||source.purchaseType!=='subscription'||source.hasFreeTrial)issues.push({field:'productId',message:`页面展示 SKU ${index+1} 不是可建立关系的普通付费订阅商品。`});
+      if(!target||target.purchaseType!=='subscription'||!target.hasFreeTrial)issues.push({scope:'trial',field:'productId',message:`页面展示 SKU ${index+1} 请选择带免费试用信息的订阅商品作为试用目标。`});
+      if(item.productId===item.trial.productId)issues.push({scope:'trial',field:'productId',message:`页面展示 SKU ${index+1} 的关系源与试用目标 Product ID 不能相同。`});
+      if(source&&target&&source.groupId!==target.groupId)issues.push({scope:'trial',field:'productId',message:`页面展示 SKU ${index+1} 的试用目标必须属于源商品所在订阅组。`});
+      if(source&&target&&source.cycle!==target.cycle)issues.push({scope:'trial',field:'productId',message:`页面展示 SKU ${index+1} 的关系源与试用目标周期必须一致。`});
+      if(source&&target&&source.subscriptionLevel!==target.subscriptionLevel)issues.push({scope:'trial',field:'productId',message:`页面展示 SKU ${index+1} 的关系源与试用目标订阅等级必须一致。`});
+      if(displayIds.includes(item.trial.productId))issues.push({scope:'trial',field:'productId',message:`页面展示 SKU ${index+1} 的试用目标已作为本组独立展示卡片，请先解除关系或移除独立卡片。`});
+      if(trialTargetCounts[item.trial.productId]>1)issues.push({scope:'trial',field:'productId',message:`页面展示 SKU ${index+1} 的试用目标与本组其他关系重复。`});
+    });
+    if(editor.trialEnabled){
+      if(!editor.trialToggleText.trim())configErrors.trialToggleText.push('试用开关文案不能为空。');
+      else if(tooLong(editor.trialToggleText,'trialToggleText'))configErrors.trialToggleText.push(`试用开关文案不能超过 ${limits.trialToggleText} 字符。`);
+      if(!relations.length)configErrors.trial.push('启用试用切换开关时，至少配置一组有效的普通付费 SKU → 试用 SKU 关系。');
+      relations.forEach(({item,index})=>{
+        const issues=skuErrors[index];
+        if(!item.trial.name.trim())issues.push({scope:'trial',field:'name',message:`页面展示 SKU ${index+1} 的试用商品展示名称不能为空。`});
+        if(hasButtonPlaceholder(item.trial.cta))issues.push({scope:'trial',field:'cta',message:`页面展示 SKU ${index+1} 的关联试用按钮文案仅支持纯文本，不允许变量或花括号。`});
+        if(!billingNoteModes.has(item.trial.billingNoteMode))issues.push({scope:'trial',field:'billingNoteMode',message:`页面展示 SKU ${index+1} 请选择试用按钮上方说明方式。`});
+        for(const key of ['name','subtitle','badge','periodText','cta'])if(tooLong(item.trial[key],key))issues.push({scope:'trial',field:key,message:`页面展示 SKU ${index+1} 的试用${({name:'展示名称',subtitle:'副文案',badge:'角标',periodText:'价格说明',cta:'订阅按钮文案'})[key]}不能超过 ${limits[key]} 字符。`});
+        if(item.trial.billingNoteMode==='custom'&&tooLong(item.trial.billingNote,'billingNote'))issues.push({scope:'trial',field:'billingNote',message:`页面展示 SKU ${index+1} 的试用按钮上方说明不能超过 ${limits.billingNote} 字符。`});
+        for(const key of ['subtitle','badge','periodText']){
+          const unknown=textVariables(item.trial[key]).filter(name=>!knownVariables.has(name));
+          if(unknown.length)issues.push({scope:'trial',field:key,message:`页面展示 SKU ${index+1} 的试用文案包含未知变量：${[...new Set(unknown)].map(name=>`{${name}}`).join('、')}。`});
+        }
+        if(item.trial.billingNoteMode==='custom'){
+          const unknown=textVariables(item.trial.billingNote).filter(name=>!knownVariables.has(name));
+          if(unknown.length)issues.push({scope:'trial',field:'billingNote',message:`页面展示 SKU ${index+1} 的试用文案包含未知变量：${[...new Set(unknown)].map(name=>`{${name}}`).join('、')}。`});
+        }
+      });
+    }
+    const messages=[...Object.values(configErrors).flat(),...skuErrors.flatMap(issues=>issues.map(issue=>issue.message))];
+    const result={configErrors,skuErrors,messages};renderValidation(result,show);return result;
+  };
+
+  const updateCount=(node,value,max)=>{if(!node)return;node.textContent=`${String(value||'').length}/${max}`;node.classList.toggle('is-over',String(value||'').length>max)};
+  const updateEditorCounts=()=>{
+    updateCount(qs('[data-count-for="configName"]'),editor.name,limits.configName);updateCount(qs('[data-count-for="cta"]'),editor.cta,limits.cta);updateCount(qs('[data-count-for="trialToggleText"]'),editor.trialToggleText,limits.trialToggleText);
+    qsa('[data-sku-index]').forEach(article=>{
+      const index=Number(article.dataset.skuIndex);
+      qsa('[data-sku-count]',article).forEach(counter=>updateCount(counter,editor.skus[index][counter.dataset.skuCount],limits[counter.dataset.skuCount]));
+      qsa('[data-trial-count]',article).forEach(counter=>updateCount(counter,editor.skus[index].trial[counter.dataset.trialCount],limits[counter.dataset.trialCount]));
+    });
+  };
+  const renderEditor=()=>{
+    const actionLabel=editorMode==='create'?'新增配置':'编辑配置';qs('[data-editor-heading]').textContent=actionLabel;qs('[data-page-title]').textContent=actionLabel;qs('[data-page-subtitle]').textContent='保存只更新配置内容，不改变该配置的生效状态。';
+    const form=qs('[data-config-form]');form.elements.configName.value=editor.name;form.elements.type.value=editor.type;form.elements.type.disabled=Boolean(editor.enabled);form.elements.trialEnabled.checked=editor.trialEnabled;form.elements.trialToggleText.value=editor.trialToggleText;form.elements.cta.value=editor.cta;form.elements.closeDelay.value=editor.closeDelay;qs('[data-trial-toggle-copy]').hidden=!editor.trialEnabled;
+    renderSkuEditors();updateEditorCounts();if(validationActive)validate({show:true});else clearValidation();
+  };
+  const normalizeSkuContext=item=>{
+    const product=productById(item.productId);item.trial=emptyTrial(item.trial);item.billingNoteMode=item.billingNoteMode==='auto'?'auto':'custom';item.trial.billingNoteMode=item.trial.billingNoteMode==='auto'?'auto':'custom';
+    item.cta=typeof item.cta==='string'?item.cta:'';
+    item.productType=product?.purchaseType||item.productType||'subscription';
+  };
+  const resetTransientEditorState=()=>{catalogLoads.clear()};
+  const openEditor=config=>{editorMode='edit';editor=clone(config);editor.cta=typeof editor.cta==='string'?editor.cta:'';editor.skus.forEach(normalizeSkuContext);resetTransientEditorState();editorDirty=false;validationActive=false;showView('editor');renderEditor()};
+  const openNewConfig=()=>{editorMode='create';editor={id:null,name:'',type:'',enabled:false,trialEnabled:false,trialToggleText:'',updatedAt:'-',cta:'',closeDelay:0,skus:[blankSku()]};resetTransientEditorState();editorDirty=false;validationActive=false;showView('editor');renderEditor()};
+  const requestLeaveEditor=(destination='configs')=>{if(editorDirty&&!window.confirm('确定放弃未保存的修改吗？'))return false;editor=null;resetTransientEditorState();editorDirty=false;validationActive=false;showView(destination);return true};
+  const saveConfig=()=>{
+    validationActive=true;const result=validate({show:true});if(result.messages.length){showToast('请先修正配置校验错误。');return;}
+    if(failNextSave){failNextSave=false;showToast('保存失败，当前输入已保留。');return;}
+    if(editorMode==='create'){editor.id=`config-${nextConfigId++}`;editor.enabled=false;editor.updatedAt=now();configs.push(clone(editor));}
+    else{const index=configs.findIndex(config=>config.id===editor.id);editor.updatedAt=now();editor.enabled=configs[index].enabled;configs[index]=clone(editor);}
+    const message=`${editor.name}已保存。`;editorDirty=false;validationActive=false;editor=null;resetTransientEditorState();renderConfigs();showView('configs');showToast(message);
+  };
+  const trialRelationshipValid=(item,sourceId)=>{
+    if(!item.trial.productId)return true;const source=productById(sourceId);const target=productById(item.trial.productId);const displayIds=new Set(editor.skus.map(skuItem=>skuItem.productId).filter(Boolean));
+    const usedByOtherSources=editor.skus.some(skuItem=>skuItem.uid!==item.uid&&skuItem.trial.productId===item.trial.productId);
+    return Boolean(source?.purchaseType==='subscription'&&!source.hasFreeTrial&&target?.purchaseType==='subscription'&&target.hasFreeTrial&&source.id!==target.id&&source.groupId===target.groupId&&source.cycle===target.cycle&&source.subscriptionLevel===target.subscriptionLevel&&!displayIds.has(target.id)&&!usedByOtherSources);
+  };
+  const hasOtherTrialRelation=index=>editor.skus.some((item,itemIndex)=>itemIndex!==index&&item.trial.productId);
+  const clearSkuProduct=item=>{
+    const hadRelation=Boolean(item.trial.productId);item.productId='';item.trial.productId='';
+    return hadRelation;
+  };
+
+  document.addEventListener('click',event=>{
+    const nav=event.target.closest('[data-admin-view]');if(nav){if(currentView==='editor')requestLeaveEditor(nav.dataset.adminView);else showView(nav.dataset.adminView);return;}
+    if(event.target.closest('[data-add-config]')){openNewConfig();return;}
+    if(event.target.closest('[data-back-configs], [data-cancel-config]')){requestLeaveEditor();return;}
+    const edit=event.target.closest('[data-edit-config]');if(edit){openEditor(configs.find(config=>config.id===edit.dataset.editConfig));return;}
+    const retry=event.target.closest('[data-retry-catalog]');if(retry){const article=retry.closest('[data-sku-index]');const item=editor.skus[Number(article.dataset.skuIndex)];beginCatalogLoad(item,retry.dataset.retryCatalog);return;}
+    const unlinkTrial=event.target.closest('[data-unlink-trial]');if(unlinkTrial){const index=Number(unlinkTrial.dataset.unlinkTrial);editor.skus[index].trial.productId='';editorDirty=true;renderEditor();showToast('试用关联已解除，原试用 SKU 现在可作为独立卡片选择。');return;}
+    const action=event.target.closest('[data-sku-action]');if(action){const index=Number(action.closest('[data-sku-index]').dataset.skuIndex);const kind=action.dataset.skuAction;if(kind==='remove'){const item=editor.skus[index];if(item.trial.productId){const closesSwitch=editor.trialEnabled&&!hasOtherTrialRelation(index);const message=closesSwitch?'移除此 SKU 将移除最后一组试用关系并关闭试用切换功能，是否继续？':'移除此 SKU 将同时移除该组试用关系，其他关系不受影响，是否继续？';if(!window.confirm(message))return;if(closesSwitch)editor.trialEnabled=false;}editor.skus.splice(index,1);}if(kind==='up'&&index>0)[editor.skus[index-1],editor.skus[index]]=[editor.skus[index],editor.skus[index-1]];if(kind==='down'&&index<editor.skus.length-1)[editor.skus[index+1],editor.skus[index]]=[editor.skus[index],editor.skus[index+1]];editorDirty=true;renderEditor();return;}
+    if(event.target.closest('[data-add-sku]')){editor.skus.push(blankSku());editorDirty=true;renderEditor();return;}
+    if(event.target.closest('[data-save-config]')){saveConfig();return;}
+  });
+  document.addEventListener('input',event=>{
+    const enabledToggle=event.target.closest('[data-config-enabled]');if(enabledToggle){const config=configs.find(item=>item.id===enabledToggle.dataset.configEnabled);const nextEnabled=enabledToggle.checked;if(failNextToggle){failNextToggle=false;renderConfigs();showToast('切换失败，已恢复原状态，请稍后重试。');return;}if(nextEnabled){const active=configs.find(item=>item.id!==config.id&&item.type===config.type&&item.enabled);if(active&&!window.confirm(`开启“${config.name}”将关闭同类型生效配置“${active.name}”，是否继续？`)){renderConfigs();return;}configs.forEach(item=>{if(item.type===config.type)item.enabled=false});}config.enabled=nextEnabled;renderConfigs();showToast(`${config.name}已${config.enabled?'生效':'设为不生效'}。`);return;}
+    if(!editor||!event.target.closest('[data-config-form]'))return;
+    editorDirty=true;
+    if(event.target.name==='configName')editor.name=event.target.value;
+    if(event.target.name==='type'&&!editor.enabled)editor.type=event.target.value;
+    if(event.target.name==='trialEnabled'){editor.trialEnabled=event.target.checked;renderEditor();return;}
+    if(event.target.name==='trialToggleText')editor.trialToggleText=event.target.value;
+    if(event.target.name==='cta')editor.cta=event.target.value;
+    if(event.target.name==='closeDelay')editor.closeDelay=event.target.value;
+    const field=event.target.closest('[data-sku-field]');if(field){const index=Number(field.closest('[data-sku-index]').dataset.skuIndex);const item=editor.skus[index];const key=field.dataset.skuField;const value=field.type==='checkbox'?field.checked:field.value;
+      if(key==='productType'){
+        const hadRelation=clearSkuProduct(item);item.productType=value;if(value==='oneTime')item.priceMode='actual';if(hadRelation)showToast('商品类型已切换，原试用关联已清除，请按需重新选择。');beginCatalogLoad(item,value==='subscription'?'subscriptionProducts':'oneTimeProducts');return;
+      }
+      item[key]=value;
+      if(key==='default'){if(value)editor.skus.forEach((skuItem,itemIndex)=>{skuItem.default=itemIndex===index});renderEditor();return;}
+      if(key==='billingNoteMode'){renderEditor();return;}
+      if(key==='productId'){const product=productById(value);if(product?.purchaseType==='oneTime')item.priceMode='actual';if(!trialRelationshipValid(item,value)){item.trial.productId='';showToast('商品已变更，原试用关联不再适用，请重新选择。');}renderEditor();return;}
+    }
+    const trialProduct=event.target.closest('[data-trial-product]');if(trialProduct){const index=Number(trialProduct.closest('[data-sku-index]').dataset.skuIndex);const item=editor.skus[index];const nextProductId=trialProduct.value;if(!nextProductId&&item.trial.productId&&editor.trialEnabled&&!hasOtherTrialRelation(index)){if(!window.confirm('解除最后一组试用关系将同时关闭试用切换功能，是否继续？')){renderEditor();return;}editor.trialEnabled=false;}item.trial.productId=nextProductId;renderEditor();return;}
+    const trialField=event.target.closest('[data-trial-field]');if(trialField){const index=Number(trialField.closest('[data-sku-index]').dataset.skuIndex);const key=trialField.dataset.trialField;editor.skus[index].trial[key]=trialField.value;if(key==='billingNoteMode'){renderEditor();return;}}
+    updateEditorCounts();if(validationActive)validate({show:true});
+  });
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&currentView==='editor')requestLeaveEditor()});
+
+  window.AdminSubscriptionPrototype={
+    failNextSave:()=>{failNextSave=true;return '下一次保存将失败'},
+    failNextToggle:()=>{failNextToggle=true;return '下一次生效开关切换将失败'},
+    failNextCatalogLoad:(scope='subscriptionProducts')=>{failNextCatalogLoads.add(scope);return `下一次 ${scope} 读取将失败`},
+    resolveButtonText:(configId,skuIndex,trialActive=false,clientDefault='SUBSCRIBE')=>{const config=configs.find(item=>item.id===configId);return config?resolveSubscriptionButtonText(config,config.skus[skuIndex],{trialActive,clientDefault}):clientDefault},
+    catalog:()=>clone({specifiedSubscriptionGroup,products})
+  };
+  renderConfigs();showView('configs');
+})();
+  </script>
+</body>
+</html>

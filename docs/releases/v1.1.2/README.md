@@ -11,6 +11,23 @@ App 向后兼容规则只维护以下两份；涉及 App API、共享业务数�
 
 现有源码回归只覆盖部分场景，正式旧包／真机与完整兼容验收仍未完成；文档整理不等于业务整改、V2 实现或发布验收通过。开发与文档修改完成后，只运行受影响范围验证，实际结果集中补入 AI 执行版。
 
+## App 1.0.6 订阅配置（服务端与 Admin 页面）
+
+本次产品输入为 PRD 1.14；App 目标版本 1.0.6 与工程文档版本 v1.1.2 分别管理。需求、商品映射和实施草案保留在同一份输入文档中，避免维护重复规则。
+
+| 材料 | 内容与边界 |
+|---|---|
+| [订阅配置 PRD 1.14](00-product/admin-subscription-config-prd.md) | 两类页面配置、商品与试用关系、纯文本按钮、真实计费说明、iOS 范围及验收规则；只读需求输入，实施状态以服务端合同和验证记录为准 |
+| [商品映射与待核验数据](00-product/admin-subscription-config-prd.md#product-mapping) | 源码已有商品、历史测试组与真实接入缺项分别标明；不能将示例 ID 作为真实商品 |
+| [最小实施方案](00-product/admin-subscription-config-prd.md#implementation-plan) | V1 增量接口、PostgreSQL 数据对象、原子启用、幂等及开发顺序；是设计草案，不是当前架构事实 |
+| [离线 HTML 原型](../../../prototypes/admin-subscription-config-standalone.html) | 本地演示配置编辑与校验；商品、金额与保存均为离线演示，不包含 Apple 或后台真实接入 |
+
+服务端第一阶段源码与接口合同见 [订阅展示配置与商品准入](03-data-api/subscription-display-config.md)，包括目录、配置 API、PostgreSQL 迁移及幂等；Admin 页面已接入第一阶段接口，见 [后台文档](04-admin/admin.md)；Flutter 消费已有本地源码，见 [客户端流程](01-flows/subscription-display.md)，`850e339` 的目标 iOS CI 无签名 production Release 编译已通过，独立兜底定稿、真实商品、签名制品与真机仍待验；尚未部署。服务端验证见 [验证记录](05-delivery/VERIFICATION.md#subscription-config-server)，编译证据见 [iOS 原生编译补验](05-delivery/VERIFICATION.md#subscription-config-ios-compile)。
+
+Linux dev 初次[服务器只读补验](05-delivery/VERIFICATION.md#subscription-config-dev-server)记录 0014 未执行、7 项新配置缺失；[扫描基线定位与候选整合](05-delivery/VERIFICATION.md#subscription-config-baseline-resolution)进一步确认运行包是 pHash／OCR，当前订阅候选是 512 维向量，两者各有正常响应的配套服务。候选已移植 dev 图片预览修复；用户已确认本次采用 512 维向量方案，pHash／OCR 是另一位同事的独立测试，见[方案确认](05-delivery/VERIFICATION.md#subscription-config-vector-decision)。本任务尚未切换服务器；原 APPLE_IAP 的 401 证据保留，新提供的[目录团队 Key 已通过真实读取](05-delivery/VERIFICATION.md#subscription-config-apple-catalog-live)，确认测试 App 6790245922／组 22251901 和指定范围内 6 个商品。用户调整后，[cardx.week → weekly.trial 同等级关联已只读复验通过](05-delivery/VERIFICATION.md#subscription-config-trial-level-recheck)。[dev 目录六项配置已落地并加载到运行容器](05-delivery/VERIFICATION.md#subscription-config-dev-catalog-env)，持久配置的真实目录读取通过；没有切换业务 release 或扫描方案，0014、商品展示准入、正式兜底与真机联调仍待完成。
+
+原型的已有本地验证及未验边界见 [实际验证记录](05-delivery/VERIFICATION.md#subscription-config-prototype)。原始输入归档后不随实现回写；实现后的接口和行为按本版本业务分类维护，App 兼容实际补证仍合入现有 AI 执行版。
+
 ## 其他业务与交付证据
 
 - [Admin 订单金额与退款汇总](04-admin/admin.md)：保留本版本后台功能契约与双 prod 入口的验收边界。

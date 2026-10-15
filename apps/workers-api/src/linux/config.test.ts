@@ -72,6 +72,27 @@ describe("Linux runtime configuration", () => {
       .toThrow("EXTENSION_TRUST_PROXY must be true or false");
   });
 
+  it("keeps the catalog optional and uses dedicated catalog credentials without changing purchase settings", () => {
+    vi.spyOn(postgresDatabase, "createPostgresDatabase")
+      .mockReturnValue({} as postgresDatabase.PostgresDatabase);
+    const optionalRuntime = loadLinuxRuntime(source);
+    expect(optionalRuntime.env.APP_STORE_CONNECT_PRIVATE_KEY).toBeUndefined();
+    const runtime = loadLinuxRuntime({ ...source,
+      APPLE_IAP_PRODUCT_IDS: "legacy.product", APPLE_IAP_PRIVATE_KEY: "existing-purchase-key",
+      APP_STORE_CONNECT_APP_ID: "123", APP_STORE_CONNECT_SUBSCRIPTION_GROUP_ID: "456",
+      APP_STORE_CONNECT_ISSUER_ID: "catalog-issuer", APP_STORE_CONNECT_KEY_ID: "catalog-key",
+      APP_STORE_CONNECT_PRIVATE_KEY: "catalog-private-key",
+      SUBSCRIPTION_LIFETIME_PRODUCT_IDS: "legacy.lifetime", SUBSCRIPTION_DISPLAY_PRODUCT_IDS: "legacy.product",
+    });
+    expect(runtime.env.APPLE_IAP_PRIVATE_KEY).toBe("existing-purchase-key");
+    expect(runtime.env.APPLE_IAP_PRODUCT_IDS).toBe("legacy.product");
+    expect(runtime.env.APP_STORE_CONNECT_PRIVATE_KEY).toBe("catalog-private-key");
+    expect(runtime.env.APP_STORE_CONNECT_APP_ID).toBe("123");
+    expect(runtime.env.APP_STORE_CONNECT_SUBSCRIPTION_GROUP_ID).toBe("456");
+    expect(runtime.env.SUBSCRIPTION_LIFETIME_PRODUCT_IDS).toBe("legacy.lifetime");
+    expect(runtime.env.SUBSCRIPTION_DISPLAY_PRODUCT_IDS).toBe("legacy.product");
+  });
+
   it("rejects production configuration because this entry point only hosts dev", () => {
     expect(() => loadLinuxRuntime({ ...source, APP_ENVIRONMENT: "production" }))
       .toThrow("APP_ENVIRONMENT=development");
