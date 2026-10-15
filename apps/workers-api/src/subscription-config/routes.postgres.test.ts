@@ -77,6 +77,58 @@ beforeEach(async () => {
 });
 
 describe("subscription configuration APIs on PostgreSQL", () => {
+  it.each(["page", "modal"] as const)("allows three %s cards including an independent trial and rejects over-limit writes atomically", async (pageType) => {
+    const config = displayFixture(); config.page_type = pageType; config.trial_enabled = false;
+    config.skus[0].trial = null;
+    config.skus.push({ ...config.skus[0], product_id: "trial.week", is_default: false });
+    const oversized = structuredClone(config);
+    oversized.skus.push({ ...config.skus[0], product_id: "paid.year", is_default: false });
+    const invalid = { status: 422, body: { error: { code: "VALIDATION_ERROR",
+      fields: [{ path: "skus", message: "At most 3 display SKUs are allowed." }] } } };
+    expect(await create(oversized)).toMatchObject(invalid);
+    expect((await call("/admin/subscription-configs")).body.data.items).toEqual([]);
+    expect(catalogLoader).not.toHaveBeenCalled();
+
+    const created = await create(config);
+    expect(created.status).toBe(201);
+    const id = created.body.data.id;
+    expect(created.body.data.body.skus).toEqual(config.skus);
+    expect((await enable(id, 0, 1, { page: pageType })).status).toBe(200);
+    const before = await publicConfig({ type: pageType });
+    expect(before.status).toBe(200);
+    expect(before.body.data.skus).toEqual(config.skus);
+    const list = (await call("/admin/subscription-configs")).body;
+    catalogLoader.mockClear();
+    const requestId = crypto.randomUUID();
+    expect(await update(id, oversized, 1, requestId)).toMatchObject(invalid);
+    expect((await call("/admin/subscription-config-mutations/" + requestId)).body.data).toMatchObject({ status: "failed", http_status: 422 });
+    expect(catalogLoader).not.toHaveBeenCalled();
+    expect((await call("/admin/subscription-configs")).body).toEqual(list);
+    expect((await publicConfig({ type: pageType })).body).toEqual(before.body);
+  });
+
+  it.each(["page", "modal"] as const)("keeps a legacy oversized %s configuration editable but blocks activation and public use until repaired", async (pageType) => {
+    const config = displayFixture(); config.page_type = pageType;
+    const id = (await create(config)).body.data.id;
+    expect((await enable(id, 0, 1, { page: pageType })).status).toBe(200);
+    const oversized = structuredClone(config);
+    oversized.skus.push(...["paid.year", "paid.month"].map((productId) => ({ ...config.skus[0], product_id: productId, is_default: false, trial: null })));
+    await db.prepare("UPDATE subscription_display_config SET body = CAST(? AS text)::jsonb WHERE id = ?").bind(JSON.stringify(oversized), id).run();
+    expect((await call("/admin/subscription-configs/" + id)).body.data.body).toEqual(oversized);
+    const list = (await call("/admin/subscription-configs")).body;
+    catalogLoader.mockClear();
+    expect(await enable(id, 1, 1, { page: pageType })).toMatchObject({ status: 422,
+      body: { error: { code: "VALIDATION_ERROR", fields: [{ path: "skus", message: "At most 3 display SKUs are allowed." }] } } });
+    expect(catalogLoader).not.toHaveBeenCalled();
+    expect((await call("/admin/subscription-configs")).body).toEqual(list);
+    expect(await publicConfig({ type: pageType })).toMatchObject({ status: 503, body: { error: { code: "SUBSCRIPTION_CONFIG_UNAVAILABLE" } } });
+    expect((await enable(null, 1, null, { page: pageType })).status).toBe(200);
+    expect((await publicConfig({ type: pageType })).body.data).toBeNull();
+    expect((await update(id, config)).status).toBe(200);
+    expect((await enable(id, 2, 2, { page: pageType })).status).toBe(200);
+    expect((await publicConfig({ type: pageType })).body.data.skus).toEqual(config.skus);
+  });
+
   it("uses existing live Admin auth for both roles and never opens writes to an App user", async () => {
     expect((await create(displayFixture(), crypto.randomUUID(), { token: null })).status).toBe(401);
     expect((await create(displayFixture(), crypto.randomUUID(), { token: "invalid" })).status).toBe(401);

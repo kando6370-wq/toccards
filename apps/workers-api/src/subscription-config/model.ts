@@ -143,6 +143,7 @@ export function parseDisplayConfig(input: unknown): { config: DisplayConfig | nu
     skus: [],
   };
   if (!Array.isArray(input.skus) || input.skus.length === 0) issue("skus", "At least one SKU is required.");
+  if (Array.isArray(input.skus) && input.skus.length > 3) issue("skus", "At most 3 display SKUs are allowed.");
   for (const [index, value] of (Array.isArray(input.skus) ? input.skus : []).entries()) {
     const path = "skus." + index + ".";
     if (!isRecord(value)) { issue(path, "SKU must be an object."); continue; }

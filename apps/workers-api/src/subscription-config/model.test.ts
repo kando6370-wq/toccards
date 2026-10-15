@@ -4,6 +4,18 @@ import { validateCatalogReferences } from "./catalog";
 import { displayFixture, catalogFixture } from "./test-fixtures";
 
 describe("subscription display contract", () => {
+  it.each(["page", "modal"] as const)("allows three %s display SKUs with linked trials and rejects a fourth without truncation", (pageType) => {
+    const config = displayFixture(); config.page_type = pageType;
+    config.skus.push({ ...config.skus[0], product_id: "paid.year", is_default: false, trial: null });
+    expect(parseDisplayConfig(config)).toEqual({ config, issues: [] });
+    config.skus.push({ ...config.skus[0], product_id: "independent.trial", is_default: false, trial: null });
+    expect(parseDisplayConfig(config)).toEqual({ config: null,
+      issues: [{ path: "skus", message: "At most 3 display SKUs are allowed." }] });
+    expect(config.skus).toHaveLength(4);
+    config.skus.splice(2, 1);
+    expect(parseDisplayConfig(config)).toEqual({ config, issues: [] });
+  });
+
   it("preserves optional CTA values and retained trial copy instead of copying group text", () => {
     const input = displayFixture();
     delete (input.skus[0] as Partial<typeof input.skus[0]>).cta;
