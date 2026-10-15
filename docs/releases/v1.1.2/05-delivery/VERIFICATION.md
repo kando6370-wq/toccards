@@ -351,3 +351,34 @@ billing_product 另外保留 3 条 prod_* 历史映射，但不在当前 dev 环
 - SUBSCRIPTION_DISPLAY_PRODUCT_IDS 仍未设置；APPLE_IAP_PRODUCT_IDS 仍为原三个 cardx 商品，billing_product 未改。没有启用任何配置或批准新 SKU。本轮目录配置完成，不包含商品准入、真实 StoreKit 可售／资格、购买／Restore、收入、正式兜底或生产验收。
 
 失败回退预案为恢复同权限原文件备份并以原镜像重新加载 API；本轮执行成功，未触发回退，不宣称完成回退演练。没有 Git commit／push 或业务源码变更；本地仅补充实际操作记录及入口，验证文档链接／锚点和 git diff --check，没有重复运行无代码变化的全量测试。
+
+<a id="subscription-config-dev-release"></a>
+
+## 2026-10-15：订阅模块整合 dev、0014 迁移与 512 维向量配套发布
+
+### 发布来源与验证
+
+- 用户明确授权整合并推送 dev、协调 watcher、备份与迁移 0014、发布 API／Admin 和切换 512 维向量；新配置保持不生效，prod 不操作。本地 dev 从 8a00619 合入 codex/dev-1.0.6@ca0180d，无冲突，合并树与 ca0180d 完全一致；保留 dev 的扫描原图预览修复。干净合并提交 f8afca9f401e785a586194637f02cab23016f35c 已推送 github/dev 并回读一致。
+- 本地发布检查：Workers 9 文件／101 项、Admin 59 项、Linux 预检与 Web 服务合同 10 项、Linux bundle 3 项均退出 0，无跳过。Workers 范围包括 subscription-config、Linux config／vector adapter、Admin billing summary、app-config／version-control 和 App contract；pnpm lint、pnpm type-check 通过，7 个类型任务成功、6 个命中缓存。合并树未改变 Flutter 代码，没有重跑之前的完整 Dart 回归。
+- 同一 f8afca9 的远端 [App compatibility run 38696980247](https://github.com/kando6370-wq/toccards/actions/runs/38696980247) 与 [iOS build run 38696980522](https://github.com/kando6370-wq/toccards/actions/runs/38696980522) 经 GitHub API 回读为 completed／success、head SHA 一致；本机没有 gh，使用官方 REST 只读取得结果。此为工作流结果，不等于签名包、真机或完整兼容矩阵通过。
+- 本地 deploy:dry-run:dev 生成 linux-release-Nfqv5A.tar.gz，2,128,446 字节、SHA-256 411a4da12e8fd31a9cac385ddddf57f9a335edce411a498a6014d111c82c81b7；manifest 为 branch=dev、sha=f8afca9、working_tree_dirty=false。上传后 archive 哈希一致，包不包含 .env、.dev.vars 或 .p8 私钥。
+
+### 备份、发布与配置切换
+
+- 先持有既有 watcher/watch.lock，确保 push、环境准备和发布期间不会并发自动发布；标准 deploy-release.sh 自行持有 shared/deploy.lock。远端预检确认独立 toccards_test／PostgreSQL 18、向量健康 512／cosine／Top 5，唯一 pending migration 为 0014_subscription_display_config.sql。
+- 为避免发布失败时旧 pHash API 被错误地址破坏，先在 shared 下生成权限 600 的私有候选环境文件，仅改变 VECTOR_RECOGNITION_BASE_URL 为 https://recognize-vec.tcgcard.fun；正式 shared/.env 在新应用验收前保持原字节。使用既有 TOCCARDS_ENV_FILE 参数把候选交给标准发布脚本，未修改脚本或放宽门禁。
+- 迁移前独立验证备份：toccards-test-20261015T071446Z-verified-before-manual-dev-f8afca9f401e-20261015T071443Z.dump，1,135,406,947 字节，pg_restore --list 成功读取 324 项。此备份先于标准脚本的数据库／容器变更完成，确保存在已验证的恢复材料。
+- 标准脚本另生成发布前备份：toccards-test-20261015-152057-before-manual-dev-f8afca9f401e-20261015T071443Z.dump，1,135,407,026 字节；发布后 pg_restore --list 同样成功读取 324 项。两份备份均保留于 /home/user/apps/toccards-test/backups/，没有执行恢复演练。
+- 标准脚本发布 release manual-dev-f8afca9f401e-20261015T071443Z，退出 0；迁移容器退出 0，ledger 从 14 项到 15 项，新增唯一为 0014。原 PostgreSQL 18 数据卷 toccards-linux-test_postgres-data 保留，旧 billing_product 的 6 条映射前后相同，没有注册新权益商品。
+- 新应用验证后，把候选内容原子保存到 shared/.env，并将新 release 的 .env 链接指回该共享文件。环境哈希从 062e06594191a9125081a9f595a23f9fa13c4798280f86a9b582c4f920847b6e 变为 19496cce4b00b2bbfabb7af8330b7075ba86c23a86d83ac3c8d4b2ccb3d0048f，完整解析比较仅向量服务地址不同；目录／验单 Key、数据库、JWT、代理、插件等原值全部保留，权限仍为 600。
+- 原私有环境备份为 shared/.env.before-manual-dev-f8afca9f401e-20261015T071443Z；临时候选文件在确认共享配置和链接正确后移除。若要回退到旧 pHash release，必须先恢复对应原环境并重新加载旧应用，不能只回退代码而留下向量地址；新增三表及历史权益不自动逆向迁移或删除。本轮未触发回退。
+- 经独立确认发布 SHA、产物、数据库与空生效状态后，备份 watcher 原状态到 shared/watcher-state.before-manual-dev-f8afca9f401e-20261015T071443Z.json，将 last-seen／last-deployed 对齐已验收手工发布的 f8afca9，并清除旧 8a00619 失败标记。此为人工协调后让 watcher 接手，不伪称 watcher 自己构建了本次 release；cron、跟踪分支和脚本未修改。发布锁随后释放。
+
+### 15:38 独立验收
+
+- current、manifest、current-release 指向该干净 f8afca9 release；API／DB healthy、Web running、migrate exited/0。运行 API SHA-256 为 9c1018d6d9b07647163b446a094f75a65d7dd282c8087ed330d1a48566b06902，与批准构建一致。运行容器与 HTTP 实际返回的全部 11 个 Admin HTML／JS／CSS 文件分别逐字节匹配批准构建。
+- SQL 通过只读会话确认 PostgreSQL 18.6、ledger 15 项／最新 0014；subscription_display_config、subscription_display_active 中的非空生效指针、subscription_display_mutation 计数均为 0。没有创建草稿或启用 Page／Modal 配置，SUBSCRIPTION_DISPLAY_PRODUCT_IDS 仍未设置，APPLE_IAP_PRODUCT_IDS 仍为原三个 cardx 商品。
+- HTTP：health、Admin 首页为 200；未认证 auth/me 与 Admin 商品目录为 401；Page／Modal 的 ios 读取和 google 读取均为 200、success=true、data=null，响应 no-store；非法页面类型为 422。新路由已从先前的 404 变为正确空生效响应。
+- 从新 API 容器的实际环境读取向量 health，返回 200、512／cosine／Top 5。临时运行当前目录函数、仅使用持久环境配置进行 Apple GET，9 次均为 200，正确读取 beta App 6790245922／组 22251901 下的 5 个订阅与显式 Lifetime 商品。
+- 当时 watcher last-seen／last-deployed 均为 f8afca9，失败标记不存在。后续只含文档的提交可能仅推进 last-seen，部署源码仍以本条 manifest SHA 为准。
+- 未验范围：没有真实 Admin 登录态的新增／编辑／启用操作，没有真机扫描、StoreKit 价格／资格、购买／Restore／收入或旧包新增商品恢复；没有发布 Flutter 签名包、营销站或 prod。目录读取和健康响应不代表这些业务验收完成。本轮仅履行新模块 dev 部署且保持不生效的范围。

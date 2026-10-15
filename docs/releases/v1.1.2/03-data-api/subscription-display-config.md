@@ -16,7 +16,7 @@
 
 上述新配置均可缺省，不阻止已有 Linux API 启动或旧购买接口工作。Cloudflare 通过同名变量／Secrets 注入；Linux 通过现有 `.env` 注入，示例不包含真实 ID 或密钥。没有凭据时新目录及需要重新校验目录的写入返回 503；已有配置读取、结果核对和关闭配置不访问 Apple。
 
-2026-10-15 dev 已[落地并加载目录配置](../05-delivery/VERIFICATION.md#subscription-config-dev-catalog-env)：测试 App 6790245922、组 22251901、新团队 Key 和 Lifetime 范围 cardx.lifetime 的实际目录读取通过。SUBSCRIPTION_DISPLAY_PRODUCT_IDS 尚未设置，0014 与新订阅业务路由未发布；配置完成不代表商品已准入或后台功能已上线。
+2026-10-15 dev 已[落地并加载目录配置](../05-delivery/VERIFICATION.md#subscription-config-dev-catalog-env)：测试 App 6790245922、组 22251901、新团队 Key 和 Lifetime 范围 cardx.lifetime 的实际目录读取通过。后续已随 [dev@f8afca9](../05-delivery/VERIFICATION.md#subscription-config-dev-release) 完成 0014 及 API／Admin 发布；SUBSCRIPTION_DISPLAY_PRODUCT_IDS 尚未设置，当前没有生效配置，目录可读不代表商品已准入。
 
 有效商品还必须同时属于既有 `APPLE_IAP_PRODUCT_IDS`，且 `billing_product` 为 active、类型匹配、权益为 `performance_pro`。目录接口返回每项 `admission.admitted/reasons`；未准入商品允许保存在不生效配置，启用和保存已生效配置时拒绝。保留但未启用的试用目标仍校验关系结构；它不参与本次生效购买的准入集合。
 
@@ -105,7 +105,7 @@
 
 ## 环境影响、回退及验证
 
-部署前分别在 dev／prod 应用新增 PostgreSQL 迁移，再配置目录凭据和已审核商品范围；本任务没有执行远程迁移、环境改写或发布。缺少新表时仅新模块失败，不重绑定旧 D1。回退代码保留新增表和历史权益数据；关闭生效配置或回退使用原接口的客户端，不删除账单／映射，也不让展示列表收窄恢复集合。
+dev 已在 2026-10-15 备份后应用 0014，并完成目录凭据与 512 维服务配套发布；prod 尚未执行本模块迁移或发布，后续按环境分别处理，已审核商品范围仍需明确准入。缺少新表时仅新模块失败，不重绑定旧 D1。回退代码保留新增表和历史权益数据；关闭生效配置或回退使用原接口的客户端，不删除账单／映射，也不让展示列表收窄恢复集合。
 
 独立多连接检查使用 `pnpm --filter @kando/workers-api test:subscription-config:postgres`，要求显式设置 `SUBSCRIPTION_TEST_DATABASE_URL`。脚本仅接受 loopback 的空 `subscription_config_test` 数据库，拒绝其他地址、数据库名或非空库；不进入默认测试命令，也不会静默跳过。它使用两组真实 PostgresDatabase 连接和独立锁持有／观察连接，以 `pg_stat_activity` 确认实际锁等待，覆盖重复创建、并发生效、并发编辑、准入行锁及事务回滚。临时数据库和容器的创建／清理由调用方负责，不连接既有业务数据库。
 

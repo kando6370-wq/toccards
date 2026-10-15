@@ -73,4 +73,4 @@
 
 ### 验证与交付边界
 
-源码与测试见 [订阅配置页面](../../../../apps/admin-web/src/subscription-config/SubscriptionConfigPage.tsx)、[表单模型](../../../../apps/admin-web/src/subscription-config/model.ts)、[写入状态处理](../../../../apps/admin-web/src/subscription-config/mutation.ts)。验证见[本版本记录](../05-delivery/VERIFICATION.md#subscription-config-admin)。本阶段不包含 Flutter 实现、数据库迁移或 dev/prod 发布；真实 Apple 权限、新商品与旧包支持待验边界继续保留。
+源码与测试见 [订阅配置页面](../../../../apps/admin-web/src/subscription-config/SubscriptionConfigPage.tsx)、[表单模型](../../../../apps/admin-web/src/subscription-config/model.ts)、[写入状态处理](../../../../apps/admin-web/src/subscription-config/mutation.ts)。验证见[本版本记录](../05-delivery/VERIFICATION.md#subscription-config-admin)。本节第二阶段开发当时不包含发布；后续已完成[真实目录读取及 Linux dev API／Admin 发布](../05-delivery/VERIFICATION.md#subscription-config-dev-release)，0014 已执行且配置保持不生效。真实登录态操作、新商品与旧包支持仍待验，prod 未发布。
