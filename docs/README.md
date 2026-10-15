@@ -2,7 +2,7 @@
 
 文档按发布版本归档。产品原件、实现事实、历史环境证据和未来技术建议分开维护，避免把需求、现状与计划混成同一层。
 
-2026-10-09 起，当前增量开发入口为 [v1.1.2](releases/v1.1.2/README.md)，当前已包含 App 向后兼容规则与部分源码回归、Admin 订单金额／退款汇总、[App 1.0.6 订阅配置需求与实施草案](releases/v1.1.2/00-product/admin-subscription-config-prd.md)、营销内容和 Sitemap 隔离实验。订阅配置已有 [第一阶段服务端源码与合同](releases/v1.1.2/03-data-api/subscription-display-config.md)，[Admin 配置页面](releases/v1.1.2/04-admin/admin.md)已接入服务端，Flutter 消费待开发，未部署。[v1.1.1](releases/v1.1.1/README.md) 按用户要求原位归档，保留扫描、插件接口、Admin、兼容设计、研究与交付证据；[v1.1.0](releases/v1.1.0/README.md) 继续开发归档，[v1.0.0](releases/v1.0.0/README.md) 继续冻结。归档不等于未完成的设计、外部验收或商店发布已经通过；部署和客户端状态仍以各历史记录标注的日期为准，本次不重新回读环境或变更软件版本。
+2026-10-09 起，当前增量开发入口为 [v1.1.2](releases/v1.1.2/README.md)，当前已包含 App 向后兼容规则与部分源码回归、Admin 订单金额／退款汇总、[App 1.0.6 订阅配置需求与实施草案](releases/v1.1.2/00-product/admin-subscription-config-prd.md)、营销内容和 Sitemap 隔离实验。订阅配置已有 [第一阶段服务端源码与合同](releases/v1.1.2/03-data-api/subscription-display-config.md)，[Admin 配置页面](releases/v1.1.2/04-admin/admin.md)已接入服务端，[Flutter 消费](releases/v1.1.2/01-flows/subscription-display.md)已有本地源码，兜底定稿、原生编译与真机仍待验，未部署。[v1.1.1](releases/v1.1.1/README.md) 按用户要求原位归档，保留扫描、插件接口、Admin、兼容设计、研究与交付证据；[v1.1.0](releases/v1.1.0/README.md) 继续开发归档，[v1.0.0](releases/v1.0.0/README.md) 继续冻结。归档不等于未完成的设计、外部验收或商店发布已经通过；部署和客户端状态仍以各历史记录标注的日期为准，本次不重新回读环境或变更软件版本。
 
 ## 阅读入口
 
@@ -12,7 +12,7 @@
 | [`v1.0.0`](releases/v1.0.0/README.md) | 已发布冻结 | 原始产品文档、业务流程、架构、数据/API 与 Admin 基线 |
 | [`v1.1.0`](releases/v1.1.0/README.md) | 开发归档 | 原始 PRD、实现、迁移、研究及按日期保留的交付证据与未验收项 |
 | [`v1.1.1`](releases/v1.1.1/README.md) | 开发归档 | 扫描与插件增量、Admin、兼容设计、研究及发布/故障证据；未验收项原样保留 |
-| [`v1.1.2`](releases/v1.1.2/README.md) | 当前开发入口 | App 兼容规则与部分源码回归、Admin 金额汇总、App 1.0.6 订阅配置需求／方案、营销内容与 Sitemap 实验；订阅配置已有服务端与 Admin 页面，Flutter、完整兼容和正式制品验收仍待完成 |
+| [`v1.1.2`](releases/v1.1.2/README.md) | 当前开发入口 | App 兼容规则与部分源码回归、Admin 金额汇总、App 1.0.6 订阅配置需求／方案、营销内容与 Sitemap 实验；订阅配置已有服务端、Admin 与 Flutter 消费源码；兜底定稿、原生编译、完整兼容和正式制品验收仍待完成 |
 
 ## 版本目录规范
 

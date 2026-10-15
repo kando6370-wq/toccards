@@ -122,6 +122,22 @@ class SubscriptionClient {
     await gateway.purchase(product, applicationUserName: applicationUserName);
   }
 
+  /// Purchase the exact StoreKit product whose terms the user just confirmed.
+  /// A late catalog load must not replace it with a different cached snapshot.
+  Future<void> purchaseProduct(
+    SubscriptionProduct product, {
+    String? applicationUserName,
+  }) async {
+    _ensureReady();
+    if (!config.enabledStores.contains(product.store) ||
+        config.planByProductId(product.store, product.storeProductId) == null) {
+      throw StateError('Product is not in the supported purchase registry.');
+    }
+    await _requireGateway(
+      product.store,
+    ).purchase(product, applicationUserName: applicationUserName);
+  }
+
   Future<List<SubscriptionFailure>> restore({SubscriptionStore? store}) async {
     _ensureReady();
     final stores = store == null ? config.enabledStores : {store};

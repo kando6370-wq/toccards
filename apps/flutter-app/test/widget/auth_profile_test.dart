@@ -27,6 +27,8 @@ import 'package:kando_app/features/profile/profile_page.dart';
 import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/features/subscription/subscription_page.dart';
+import 'package:kando_app/features/subscription/subscription_display_providers.dart';
+import '../subscription_display_fixtures.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/kando_modal.dart';
 
@@ -3082,7 +3084,7 @@ void main() {
   for (final goldenCase in [
     (
       name: 'bottom sheet',
-      file: 'figma_subscription_sheet_1651_9467_390x844.png',
+      file: 'subscription_config_sheet_390x844.png',
       child: const SubscriptionPage(sheet: true),
     ),
     (
@@ -3091,40 +3093,39 @@ void main() {
       child: const SubscriptionSuccessPage(),
     ),
   ]) {
-    testWidgets(
-      'v1.1 PRD subscription ${goldenCase.name} keeps the 390x844 baseline',
-      (tester) async {
-        final overridesPlatform = goldenCase.name == 'bottom sheet';
+    testWidgets('subscription ${goldenCase.name} renders the 390x844 fixture', (
+      tester,
+    ) async {
+      final overridesPlatform = goldenCase.name == 'bottom sheet';
+      if (overridesPlatform) {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      }
+      try {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        if (goldenCase.name == 'success page') {
+          tester.view.padding = const FakeViewPadding(top: 59);
+          addTearDown(tester.view.resetPadding);
+        }
+
+        await tester.pumpWidget(_subscriptionGoldenApp(goldenCase.child));
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 100)),
+        );
+        await tester.pumpAndSettle();
+
+        await expectLater(
+          find.byKey(const Key('subscription-golden-boundary')),
+          matchesGoldenFile('goldens/rendered/${goldenCase.file}'),
+        );
+      } finally {
         if (overridesPlatform) {
-          debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+          debugDefaultTargetPlatformOverride = null;
         }
-        try {
-          tester.view.physicalSize = const Size(390, 844);
-          tester.view.devicePixelRatio = 1;
-          addTearDown(tester.view.resetPhysicalSize);
-          addTearDown(tester.view.resetDevicePixelRatio);
-          if (goldenCase.name == 'success page') {
-            tester.view.padding = const FakeViewPadding(top: 59);
-            addTearDown(tester.view.resetPadding);
-          }
-
-          await tester.pumpWidget(_subscriptionGoldenApp(goldenCase.child));
-          await tester.runAsync(
-            () => Future<void>.delayed(const Duration(milliseconds: 100)),
-          );
-          await tester.pumpAndSettle();
-
-          await expectLater(
-            find.byKey(const Key('subscription-golden-boundary')),
-            matchesGoldenFile('goldens/rendered/${goldenCase.file}'),
-          );
-        } finally {
-          if (overridesPlatform) {
-            debugDefaultTargetPlatformOverride = null;
-          }
-        }
-      },
-    );
+      }
+    });
   }
 
   testWidgets('subscription video background follows the available width', (
@@ -3632,6 +3633,7 @@ ProviderScope _testApp(
       subscriptionControllerProvider.overrideWith(
         subscriptionController ?? _FreeSubscriptionController.new,
       ),
+      subscriptionDisplayFactoryProvider.overrideWithValue(displayPageFixture),
       authDeviceIdProvider.overrideWithValue('widget-test-device'),
       onboardingRepositoryProvider.overrideWithValue(
         LocalOnboardingRepository(storage),
@@ -3703,6 +3705,7 @@ ProviderScope _subscriptionGoldenApp(
       subscriptionControllerProvider.overrideWith(
         _FreeSubscriptionController.new,
       ),
+      subscriptionDisplayFactoryProvider.overrideWithValue(displayPageFixture),
     ],
     child: MaterialApp(
       theme: buildKandoTheme(),

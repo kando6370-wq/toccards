@@ -1,6 +1,6 @@
 # 订阅展示配置与商品准入（第一阶段）
 
-需求输入：[PRD 1.14](../00-product/admin-subscription-config-prd.md)。本文件描述服务端第一阶段源码，Admin 第二阶段页面见 [后台文档](../04-admin/admin.md)，Flutter 配置消费尚未开发，真实 Apple 目录、商品售卖和旧包新增 SKU 恢复仍未验收。接口均为 V1 兼容新增，原 app-config、购买、Restore 与权益接口保持不变。
+需求输入：[PRD 1.14](../00-product/admin-subscription-config-prd.md)。本文件描述服务端第一阶段源码，Admin 第二阶段页面见 [后台文档](../04-admin/admin.md)，Flutter 消费源码见 [客户端流程](../01-flows/subscription-display.md)，真实 Apple 目录、商品售卖和旧包新增 SKU 恢复仍未验收。接口均为 V1 兼容新增，原 app-config、购买、Restore 与权益接口保持不变。
 
 ## 环境与商品准入
 
@@ -99,7 +99,7 @@
 
 成功 data 包含 schema_version=1、config_id、revision、page_type、关闭延迟、CTA、开关和有序 skus；不返回内部配置名称、管理员、scope、凭据或准入理由。关闭关联功能时输出空开关文案及 null trial，不将保留目标暴露为可购买卡片。每次读取验证当前环境准入／权益映射；已撤销准入的生效配置返回 503，让新客户端走独立兜底，不更改其历史购买。
 
-旧客户端仍走原接口，不要求增加请求字段，也没有向已有枚举塞入新状态。该兼容新增不证明新 SKU 能在旧包 Restore；其支持范围仍须按原 PRD 接入核对。Flutter 实际资格三态、真实计费展示、15 秒预算与 CTA 回退属于后续阶段，服务端不伪造资格或价格。
+旧客户端仍走原接口，不要求增加请求字段，也没有向已有枚举塞入新状态。该兼容新增不证明新 SKU 能在旧包 Restore；其支持范围仍须按原 PRD 接入核对。Flutter 实际资格三态、真实计费展示、15 秒预算与 CTA 回退的本地实现见 [客户端流程](../01-flows/subscription-display.md)，服务端不伪造资格或价格；原生与真机验收独立记录。
 
 ## 环境影响、回退及验证
 

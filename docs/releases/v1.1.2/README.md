@@ -22,7 +22,7 @@ App 向后兼容规则只维护以下两份；涉及 App API、共享业务数�
 | [最小实施方案](00-product/admin-subscription-config-prd.md#implementation-plan) | V1 增量接口、PostgreSQL 数据对象、原子启用、幂等及开发顺序；是设计草案，不是当前架构事实 |
 | [离线 HTML 原型](../../../prototypes/admin-subscription-config-standalone.html) | 本地演示配置编辑与校验；商品、金额与保存均为离线演示，不包含 Apple 或后台真实接入 |
 
-服务端第一阶段源码与接口合同见 [订阅展示配置与商品准入](03-data-api/subscription-display-config.md)，包括目录、配置 API、PostgreSQL 迁移及幂等；Admin 页面已接入第一阶段接口，见 [后台文档](04-admin/admin.md)；Flutter 消费尚未开发，尚未部署。服务端验证见 [验证记录](05-delivery/VERIFICATION.md#subscription-config-server)。
+服务端第一阶段源码与接口合同见 [订阅展示配置与商品准入](03-data-api/subscription-display-config.md)，包括目录、配置 API、PostgreSQL 迁移及幂等；Admin 页面已接入第一阶段接口，见 [后台文档](04-admin/admin.md)；Flutter 消费已有本地源码，见 [客户端流程](01-flows/subscription-display.md)，其独立兜底定稿、真实商品、原生编译与真机仍待验；尚未部署。服务端验证见 [验证记录](05-delivery/VERIFICATION.md#subscription-config-server)。
 
 原型的已有本地验证及未验边界见 [实际验证记录](05-delivery/VERIFICATION.md#subscription-config-prototype)。原始输入归档后不随实现回写；实现后的接口和行为按本版本业务分类维护，App 兼容实际补证仍合入现有 AI 执行版。
 

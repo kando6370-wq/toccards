@@ -22,6 +22,9 @@ import UIKit
     ScanModelRuntime.register(
       messenger: engineBridge.applicationRegistrar.messenger()
     )
+    Self.registerSubscriptionProductReader(
+      messenger: engineBridge.applicationRegistrar.messenger()
+    )
     let channel = FlutterMethodChannel(
       name: "com.cardai.tcg/apple-current-entitlements",
       binaryMessenger: engineBridge.applicationRegistrar.messenger()
@@ -596,6 +599,80 @@ private enum ScanNativeImageError: LocalizedError {
       return "The corrected card image could not be encoded."
     case .renderingFailed:
       return "The image could not be rendered."
+    }
+  }
+}
+
+// Product facts are read separately from eligibility so an eligibility lookup
+// cannot hold up normal-price purchases. Existing entitlement channels are unchanged.
+extension AppDelegate {
+  private static func registerSubscriptionProductReader(messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: "com.cardai.tcg/subscription-products", binaryMessenger: messenger)
+    channel.setMethodCallHandler { call, result in
+      guard call.method == "read" else { result(FlutterMethodNotImplemented); return }
+      guard let arguments = call.arguments as? [String: Any],
+            let ids = arguments["product_ids"] as? [String] else {
+        result(FlutterError(code: "invalid_product_request", message: "Product IDs are required.", details: nil))
+        return
+      }
+      Task {
+        do {
+          let products = try await Product.products(for: ids)
+          let facts = products.compactMap { product -> [String: Any]? in
+            guard product.type == .autoRenewable || product.type == .nonConsumable else { return nil }
+            var value: [String: Any] = [
+              "product_id": product.id,
+              "product_type": product.type == .autoRenewable ? "subscription" : "non_consumable",
+              "price_decimal": NSDecimalNumber(decimal: product.price).stringValue,
+              "display_price": product.displayPrice,
+              "currency_code": product.priceFormatStyle.currencyCode,
+            ]
+            if let subscription = product.subscription {
+              let period = subscription.subscriptionPeriod
+              guard let unit = subscriptionPeriodUnit(period.unit) else { return nil }
+              value["period_unit"] = unit
+              value["period_value"] = period.value
+              value["group_id"] = subscription.subscriptionGroupID
+              if #available(iOS 16.4, *) { value["group_level"] = subscription.groupLevel }
+              if let offer = subscription.introductoryOffer, offer.paymentMode == .freeTrial,
+                 let trialUnit = subscriptionPeriodUnit(offer.period.unit) {
+                value["trial_unit"] = trialUnit
+                value["trial_value"] = offer.period.value * offer.periodCount
+              }
+              // Keep decimal arithmetic until the single, final half-up rounding.
+              var weekly: Decimal?
+              switch (unit, period.value) {
+              case ("week", 1): weekly = product.price
+              case ("month", 1): weekly = product.price * 12 / 52
+              case ("month", 3): weekly = product.price * 4 / 52
+              case ("year", 1): weekly = product.price / 52
+              default: break
+              }
+              if var amount = weekly {
+                var rounded = Decimal()
+                NSDecimalRound(&rounded, &amount, 2, .plain)
+                value["weekly_price"] = rounded.formatted(product.priceFormatStyle.precision(.fractionLength(2)))
+              }
+            }
+            return value
+          }
+          await MainActor.run { result(facts) }
+        } catch {
+          await MainActor.run {
+            result(FlutterError(code: "subscription_products_unavailable", message: "Unable to read StoreKit products.", details: nil))
+          }
+        }
+      }
+    }
+  }
+
+  private static func subscriptionPeriodUnit(_ unit: Product.SubscriptionPeriod.Unit) -> String? {
+    switch unit {
+    case .day: return "day"
+    case .week: return "week"
+    case .month: return "month"
+    case .year: return "year"
+    @unknown default: return nil
     }
   }
 }

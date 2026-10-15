@@ -80,3 +80,18 @@
 - 视觉与生命周期：桌面和 780px 窄屏完成实际浏览器检查；窄屏文档宽度等于视口、表单单列、保存可达、收起侧栏账号区不遮挡。所读取的浏览器控制台无 error。临时测试页已关闭，任务自建 Vite／API 已停止，5173／6966 端口回查均无监听。截图和测试服务仅保留在本地忽略目录 `apps/workers-api/.wrangler/admin-subscription-ui-20261014170612/`，未纳入 docs 或交付源码。
 - Code Review：本轮自审覆盖请求／鉴权兼容、关系保留与解除、离开保护、原请求持久化与重放预算、服务端错误映射及页面样式作用范围。联调与审查中修正了一次性商品的关系解除入口、手动重试的额外等待窗口、登录失效时原操作保留及窄屏账号遮挡；修正后完成上述最终回归、构建与对应浏览器复验，未发现当前范围的阻断项。此为本地自审，不是独立人员审查。
 - 未验／未执行：真实 Apple 账号权限、正式订阅组／SKU／优惠及准入映射仍需接入负责人核验，本轮测试目录不能替代这些事实；Flutter 配置消费尚待下一阶段开发，真机购买／恢复、真实旧包新增商品支持、收入平台和线上环境未验收。未重跑全量 Workers、Flutter 或完整 App 兼容编排，服务端证据保留于上一阶段。本轮没有 Git commit/push、远程业务写入、迁移或 dev/prod 部署。
+
+<a id="subscription-config-flutter"></a>
+
+## 2026-10-15：订阅配置第三阶段 Flutter 消费（本地）
+
+- 基线 codex/dev-1.0.6@fb2b274 加本轮未提交改动。配置读取、单次预算、Page／Modal 快照、SKU／试用选择、计费摘要、购买前确认和独立权益支持集合已实现；合同见[客户端流程](../01-flows/subscription-display.md)。未修改 API／数据库，Restore 既有阶段及超时保持。
+- 环境：Windows、Flutter 3.44.7、Dart 3.12.2。本次没有升级依赖或工具链。最终根 Melos 执行 `dart run melos exec --scope=kando_app -- flutter test --no-pub --dart-define=APP_ENV=test <受影响测试文件> --reporter expanded` 退出 0，25 文件／644 项通过，无跳过／失败及点击未命中警告。范围为所有 subscription 命名测试、apple_current_entitlements，以及实际引用 SubscriptionPage／subscriptionControllerProvider／AppSubscriptionConfiguration 等入口的直接调用方；包含认证、启动、Profile、Home、Collection、卡牌详情和扫描页面。
+- 核心包：根 `dart run melos exec --scope=subscription_core -- flutter test --no-pub --reporter expanded` 退出 0，11/11 通过。新增断言保护刚确认的实际商品对象不被旧缓存替换，以及展示 ID 不能绕过长期权益注册；既有两商店隔离、验证后完成交易和恢复失败分支继续通过。
+- 静态检查：最终 `dart run melos exec -- flutter analyze --no-pub` 退出 0，App 与 subscription_core 两包均 No issues found；pnpm lint 和 pnpm type-check 退出 0，TypeScript 7 个任务成功、6 个命中缓存。首次分析发现新增代码的括号／导入规范问题，已修正且没有放宽检查。
+- 自动化重点：真实 V1 响应形状解析、page/modal 查询、配置与商品共用预算、迟到结果及卸载隔离、前台刷新保持已展示快照、默认降级、关联与独立试用三态、计费条件变化需再次点击、长期支持列表、实际购买目标和 Purchase／Restore／来源返回。新 SKU／StoreKit 响应与资格在这些测试中使用明确夹具，不能当作真实 Apple 商品事实。
+- UI：360px 宽度长名称／说明／100 字符 CTA 的换行和点击可达验证通过，关闭延迟同时限制按钮与 iOS 手柄拖动；Android 原行为回归通过。新增 `test/widget/goldens/rendered/subscription_config_sheet_390x844.png` 作为配置页面的结构回归基线并回读检查，使用 Flutter 测试字体，不等于真实字体／Figma 定稿或真机视觉验收。历史 v1.1 图像原字节保留；旧 iOS 固定布局用例改为动态 SKU、金额摘要、购买时冻结选择的业务断言。
+- 验证中修正：初次 widget 测试有平台变量复位／滚动未完成的问题；扩大回归后，认证夹具未隔离新增配置依赖，导致真实测试 HTTP 失败、关闭按钮等待及遗留提示定时器，已补齐确定性配置夹具。受动态 UI 影响的 iOS 图像改用上述新基线；未重录历史快照。一次带空格的 Melos 测试筛选参数转发失败，不能计为通过；最终完整 25 文件回归未使用该筛选且退出 0。
+- Android：最终 `flutter build apk --debug --no-pub --dart-define-from-file=config/test.json` 退出 0，产物 `apps/flutter-app/build/app/outputs/flutter-apk/app-debug.apk` 为 225519078 字节，SHA-256 `2c4c654337fcd5a787ce06469aea182fda7574b35f56cf8e94a94c80f29593eb`。首轮构建出现 Kotlin 跨盘增量缓存异常日志但最终仍产包，后续完整命令复构成功；现有 Gradle／AGP／Kotlin 版本提示保留，未升级版本或跳过构建校验。没有安装到设备，也不是签名发布验收；工程版本号仍为原 1.0.5+163。
+- Code Review：本地自审复核公开接口解析、单次预算、配置快照、资格安全文案、明确商品对象、长期权益集合、原 Restore 时序、iOS 调用与 Android 隔离、关闭方式和文档边界；未发现当前本地范围的新增阻断项。不是独立人员审查，也不替代下面的原生与外部验收。
+- 未运行／待验：本机无 Swift／Xcode，新增 iOS channel 的原生编译、Decimal 真实币种格式及 iOS 16.0–16.3／16.4+ 分支须在 macOS 与相应设备补验；Android 只完成 debug 构建，未做真机支付／恢复。Page／Modal 最终兜底、新商品真实 ID／优惠／准入及收入映射、旧包新增商品支持仍待接入／产品负责人确认。没有真实 Apple 调用、正式旧包测试、远端 CI／dev/prod 验收、迁移、部署、提交或推送；未重跑全量 Workers／Admin 或固定旧 Dart 客户端兼容编排。
