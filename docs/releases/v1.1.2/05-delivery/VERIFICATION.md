@@ -2,6 +2,18 @@
 
 本文件保留 Admin、营销站等其他业务的实际验证。App 兼容规则、源码合同证据及 Home 文件夹切换历史记录见 [AI 执行版](../03-data-api/app-backward-compatibility-ai-guide.md)；历史版本记录见 [v1.1.1](../../v1.1.1/05-delivery/VERIFICATION.md)。未运行或只有部分证据的事项不得标记为完整验收通过。
 
+## 2026-10-14：管理后台扫描详情原图放大
+
+- 问题定位：扫描详情顶部原图与列表缩略图共用 `AuthenticatedScanImage`，私有图片已通过 Admin Token 获取 Blob，但组件固定渲染原生 `img`；候选卡牌图片使用 Ant Design `Image`，因此只有候选图具备预览和缩放能力。
+- 修复范围：为 `AuthenticatedScanImage` 增加默认关闭的预览开关，仅在扫描详情原图调用处开启；鉴权请求、Blob URL 创建/释放、失败占位及列表缩略图行为保持不变。详情图片增加放大光标，不修改 Admin API、数据库、权限或 Flutter。
+- 先失败证据：新增“详情原图开启鉴权预览且列表保持原行为”的回归测试，修复前该测试因详情调用未开启预览而按预期失败；修复后该文件 8/8 通过。
+- 发布基线冲突：准备发布时独立回读发现 Linux dev 实际运行 `dev-xiangyang@2c56e9f`，而开发 worktree 基于 `main@7811db0`；main 的 Admin 已包含订单金额汇总 UI，当前 dev-xiangyang API 没有对应增量。为避免把 dev API 回退或部署不匹配的订单页面，没有直接发布 main 构建，而是从运行提交 `2c56e9f` 建立临时 detached worktree，只移植本次 `App.tsx`、`App.css` 和 `scans-intent.test.mjs` 三文件改动。相对运行提交共 28 行新增、3 行替换，API、部署脚本、依赖和锁文件无差异。
+- 本地门禁：临时部署源的 `pnpm --filter @kando/admin-web test` 27/27 通过，Admin type-check 通过，Linux bundle 3/3 通过，`deploy:dry-run:dev` 成功生成 `sha=2c56e9f`、`branch=detached`、`working_tree_dirty=true` 的发布包。首次并行执行 Workers type-check 时，因 `auth-core` 尚未完成构建而报告模块缺失；dry-run 构建依赖后串行重跑通过，不将首次失败写成通过。
+- 远程预检与发布：发布前回读旧 release 为 `manual-2c56e9f12901-1791943069936`，API/DB healthy、Web running、migration exited/0、部署锁空闲。标准远程脚本确认数据库 `toccards_test`、PostgreSQL 18、CF 向量识别可达、`pendingMigrations=[]`，随后创建 1,135,406,873 字节 custom-format 备份并发布 `manual-admin-scan-image-2c56e9f-dirty-20261014151507`。备份由 PostgreSQL 18 镜像执行 `pg_restore --list` 成功列出 339 项，未做恢复演练。
+- 发布后独立回读：`current` 与 manifest 指向新 dirty release，共享 `.env` 链接仍指向原私有文件；API/DB healthy、Web running、migration exited/0，ledger 为 14 项且最新 `0013_cards_all_search_trgm.sql`。新旧 release 的 API bundle SHA-256 均为 `a2b6caf368362bdb60f3de10ad69b60fc17a3d3bdbb114b22147d2bfb435b67f`，确认本轮未改变 API 运行代码；失败标记不存在，上传 archive 已清理。
+- 静态与 HTTP 验收：从开发机逐个获取 Linux dev 的 HTML/JS/CSS，11 个文件与批准 development 构建 SHA-256 全部一致；`/api/v1/health` 返回 200/`status=ok`，未登录 `/api/v1/admin/scans` 返回 401。
+- 边界：未执行 Git commit/push、prod 部署、数据库业务写入或移动端验证；未使用真实 Admin 账号打开扫描详情并点击原图，因此线上 dev 的真实登录态交互仍待补验。后续其他手工发布或分支发布可能覆盖本次 dirty release。
+
 ## 2026-10-13：Google Sitemap 最小隔离实验
 
 ### 根因证据与实验边界
@@ -106,3 +118,236 @@
 - 本机辅助补验：macOS 27.0.1／Xcode 27.0／CocoaPods 1.17.0 下，现有 Flutter 3.44.5 分别执行默认 production 命令和 `flutter build ios --release --flavor=test --dart-define-from-file=config/test.json --no-codesign --no-pub`，两次均退出 0，生成 64.7 MB／65.1 MB `Runner.app`。最终 test 产物回读为 Bundle `com.kando.kandoApp.beta`、版本 `1.0.5+163`、arm64、最低 iOS 16.0、SDK 27.0，且确认为未签名；因 Flutter patch 版本不等于目标 3.44.7，本机结果只补充覆盖 test scheme，不替代上述 CI 结论。
 - 非阻断提示：CI 保留 `sign_in_with_apple` 尚不支持 Swift Package Manager 的未来兼容提示，以及 FirebaseCore CocoaPods 将停止发布新版本的弃用提示；当前 workflow 显式关闭 SPM，Pod 安装和 Xcode 编译均成功，本轮未升级依赖或改换依赖管理方式。
 - 未运行／待验：未生成或检查签名 IPA、dSYM、最终 entitlements 与 beta Bundle 的 App Attest `development`，未安装真机，也未调用真实 StoreKit 商品、优惠资格、购买或 Restore；Decimal 真实币种输出和 iOS 16.0–16.3／16.4+ 运行时分支仍须对应真机补验。CI 默认 production scheme 不覆盖 test flavor；本机 test flavor 仅完成较低 Flutter patch 下的编译。Page／Modal 最终兜底、真实新 SKU／准入／收入映射、旧包新增商品支持、完整 Flutter／兼容测试及 dev/prod 部署均未在本轮执行；没有 Git commit/push、迁移、业务写入或发布。
+
+<a id="subscription-config-dev-preflight"></a>
+
+## 2026-10-15：Linux dev 订阅配置接入只读预检（部分完成）
+
+本条保留首次尚未取得服务器身份时的结论；用户随后提供访问凭据后的结果见[服务器只读补验](#subscription-config-dev-server)，不再把 SSH 不可用作为当前阻塞项。
+
+### 已取得的证据
+
+- 本地候选为干净的 codex/dev-1.0.6@808eb1797bdc2b02835892622b47c412ff83b09a；仅同步读取远端引用，没有切换分支、合并或推送。2026-10-15 检查 Linux dev 内网 HTTP，并核对接入源码及既有部署流程。
+- HTTP 健康与后台可达：GET /api/v1/health 返回 200、body 为 {"status":"ok"}；GET / 返回 200、Kando Admin HTML。这个 health 不返回运行 SHA，不能据此确认实际发布版本或数据库状态。
+- 新读取接口尚不可用：GET /api/v1/subscription-display-config 的 page/ios、modal/ios、page/google 三个请求均返回 404、body 为 {"error":"NOT_FOUND"}。源码中 google 分支应在访问数据库前返回成功空配置，因此本轮不能将这些 404 简单解释为“没有生效配置”或确认是迁移未执行。
+- 后台当前主包为 /assets/index-DJUOEcjk.js，200、66663 字节，SHA-256 为 9d829e0119c49c7cc90c8b2e573412c3489b44339eece02fc751104efc80c552；全文未包含 subscription-configs、subscription-products 或“订阅配置”入口。该事实与公开新接口 404 一起证明当前 HTTP 入口不能开展本次配置联调；不据此推断运行文件对应的精确 Git SHA。
+- 未登录 GET /api/v1/admin/subscription-products?type=subscription 返回 401 UNAUTHORIZED。鉴权中间件可以先于路由匹配返回 401，所以该响应不能证明新目录路由存在、Apple 凭据齐备或目录权限已通过；没有创建管理员登录会话或发起配置写入。
+- 远端 dev 为 8a00619fa0cf30d369ffc4b9f959cacb5714e45e，与本地候选相对独有提交数为 dev 3／候选 5；共同基线为 8ecc02577d8daf2d280233ac26d67edfd63c3006。远端 dev 不包含第一阶段提交 cef51ec，也不存在新订阅服务端／Admin 目录和 0014 迁移文件。dev 独有业务修复 0691a72 为扫描详情图片放大，当前候选尚未包含；发布候选须先整合并保留该修复。远端 Git 分支状态不等于服务器已经部署该 SHA。
+
+### 未核验项与阻塞原因
+
+| 项目 | 当前结论 | 继续核验所需证据 |
+| --- | --- | --- |
+| 服务器访问 | Windows 默认 .ssh 目录只有 known_hosts；无 SSH config、无可用 agent 身份，TOCCARDS_SSH_TARGET 未设置。本地 deploy/linux/.env 也不存在。使用项目文档中的 user@192.168.50.201、BatchMode=yes、StrictHostKeyChecking=yes 执行只读 id -un，返回 Permission denied (publickey,password)，退出 255；既有主机记录存在。 | 可用的 SSH 配置／密钥路径或已配置 kd201 的 Mac 执行环境；不将密钥或密码写入文档、聊天或仓库。 |
+| 实际部署与 watcher | 未能读取 current、release-manifest、current-release、容器运行文件或 watcher 状态。 | 确认实际 SHA、容器健康与退出码、last-seen／last-deployed、失败标记及是否正在部署。 |
+| 数据库迁移 | 本地候选包含 0014_subscription_display_config.sql；仅新增配置、active 指针和幂等结果三表。远端 ledger／表是否存在未知，不能沿用历史 0013 记录判定。 | 在 development 数据库只读查询 schema_migrations、三表存在性及 PostgreSQL 版本；按实际 ledger 得出 pending migrations。 |
+| Apple 目录与作用域 | APP_STORE_CONNECT_* 是否齐备、实际 Bundle／App／组归属、目录读取权限均未核验。没有调用 Apple 私有 API。 | 只报告凭据存在性；使用服务端已有凭据只读核对 App／组／商品／优惠，不输出私钥或 JWT。 |
+| 商品准入 | 服务端 APPLE_IAP_PRODUCT_IDS、SUBSCRIPTION_DISPLAY_PRODUCT_IDS、SUBSCRIPTION_LIFETIME_PRODUCT_IDS 和 active billing_product 映射均未回读。 | 按 Product ID 对照环境允许范围、active 状态、商品类型及 performance_pro 权益映射，不读取用户订单或购买明细。 |
+| 客户端与新商品 | 当前 test.json 仍只有 cardx.week、cardx.year、cardx.lifetime，未填新增长期支持清单；Singular 仍仅映射 weekly／yearly／lifetime。 | 新商品真实 ID、试用角色、长期支持注册、收入命名及旧包支持口径；当前代码中的 ID 不等于已核验 Apple 事实。 |
+| Page／Modal 兜底 | 正式两套商品组合、默认项与文案未在本轮取得定稿。 | 产品／设计确认各自节点和分环境映射；已有三档仅作为当前保留行为。 |
+
+### 后续部署方案（尚未执行）
+
+1. 恢复服务器只读访问，补齐上表的实际运行 SHA、ledger、环境作用域、目录及商品映射。数据库查询使用只读事务／default_transaction_read_only=on 和查询超时；不运行 migrate.sh、deploy-release.sh 或 watcher，因为这些入口会产生写入。
+2. 在候选代码中整合当前 dev 的扫描图片预览修复，完成必要冲突处理与受影响验证，固定唯一发布 SHA。源码 watcher 默认跟踪 dev；先回读远端 watcher 状态，再协调合并推送与发布时序，避免手工发布被其他 dev 提交接替或并发执行。此处不自动合并或推送。
+3. 补齐真实商品与 Page／Modal 定稿，形成明确的环境变量／商品映射变更清单。先选一个经核验的既有商品做首条闭环；新 SKU 在旧包支持和收入映射未闭合前保持未准入。已有秘密值原字节保留，仅新增已确认的必要配置。
+4. 经部署与远程变更授权后，从已整合的干净 SHA 生成 Linux 包并检查 manifest；按既有流程执行环境／数据库预检、备份并验证备份可读性，再应用实际未执行的 PostgreSQL 迁移、发布 API 与 Admin。不重绑 D1，不处理 prod。
+5. 发布后独立核对运行 SHA、容器、数据库 ledger 和静态产物；再以真实管理员读取 Apple 目录、保存不生效配置、启用／替换 page 与 modal，并用签名测试 IPA 完成购买／Restore／收入去重。配置为 null、读取失败与 404 必须分别验收，不能混为兜底成功。
+6. 回退采用已知版本的应用代码／关闭新配置入口，保留新增三表与既有权益、账单数据；不删除商品映射或自动逆向 migration。
+
+本轮没有执行远程迁移、环境改写、部署、备份、业务配置写入、Git merge／commit／push，也没有重跑无实现变更的业务测试；仅新增本条证据与方案并执行文档检查。服务器侧检查因访问条件不足未完成，不能将本次预检标为通过或已具备发布条件。
+
+<a id="subscription-config-dev-server"></a>
+
+## 2026-10-15：Linux dev 订阅配置服务器只读补验
+
+### 访问与实际运行版本
+
+用户提供服务器访问凭据后，沿用已有 known_hosts 并启用 StrictHostKeyChecking=yes，通过交互密码输入建立 SSH；凭据未写入项目文件、进程命令参数或本记录。北京时间 10:49–10:59 的补验仅执行文件／容器检查、只读 SQL 和向量服务 GET health，没有调用部署脚本、修改环境或发起业务写入。
+
+- 宿主机 Node v22.22.1。current 与 shared/current-release 指向 manual-admin-scan-image-2c56e9f-dirty-20261014151507，manifest 的 sha 为 2c56e9f12901c33d22684c869ac29d42f3ee77c3、branch=detached、working_tree_dirty=true、source=deploy-dev。必须记录为手工 dirty 发布包，不能将远端 dev@8a00619 或该基线提交单独视为实际运行源码。
+- API／DB 为 running、healthy，Web 为 running，migration 容器 exited/0。数据库继续使用 PostgreSQL 18 的既有 postgres-data 卷，没有创建新容器或数据卷。
+- API 运行文件与当前 release 文件 SHA-256 均为 a2b6caf368362bdb60f3de10ad69b60fc17a3d3bdbb114b22147d2bfb435b67f，均未包含新 subscription-display-config 路由；Admin 运行容器与该 release 的 11 个 HTML／JS／CSS 文件全量匹配。结合首次 HTTP 的 404／旧后台入口，确认本次订阅模块尚未在该运行包中提供。
+- shared/.env 与 API 运行环境的本次相关字段一致；10:49、10:54、10:56 回读文件 SHA-256 都为 68e7190776e49b623f86ae42b703af5be27088a00479ec0537e6ece33e2b32c8。只输出新目录凭据是否存在及必要的非敏感业务配置，没有输出私钥、数据库密码或 JWT。
+
+### 数据库、作用域和商品准入
+
+数据库通过容器内 TCP psql -X -w 读取，设置 default_transaction_read_only=on、statement_timeout=10000，并从查询结果确认 transaction_read_only=on。实际数据库为 toccards_test，用户 toccards，server_version_num=180006（PostgreSQL 18.6）。ledger 为 14 项，0000–0013 齐全；subscription_display_config、subscription_display_active、subscription_display_mutation 三表均不存在。相对当前候选的明确待执行迁移只有 0014_subscription_display_config.sql，本轮未执行。
+
+运行环境为 APP_ENVIRONMENT=development、APPLE_IAP_BUNDLE_ID=com.kando.kandoApp.beta；DATABASE_URL 指向 Compose db:5432/toccards_test，与 POSTGRES_DB／USER／PASSWORD 一致。现有 APPLE_IAP_PRODUCT_IDS 为 cardx.week、cardx.year、cardx.lifetime，与客户端 test.json 内置三个 ID 相同。
+
+| 测试 Product ID | plan_id | 数据库类型 | active／权益映射 |
+| --- | --- | --- | --- |
+| cardx.week | weekly | subscription | 1／performance_pro |
+| cardx.year | yearly | subscription | 1／performance_pro |
+| cardx.lifetime | lifetime | non_consumable | 1／performance_pro |
+
+billing_product 另外保留 3 条 prod_* 历史映射，但不在当前 dev 环境允许列表中，不能据其 active=1 就将其当作 dev 可启用商品。本轮没有查询用户订单或购买链明细，也没有修改任何商品映射。
+
+共享环境文件及运行容器中，下列 **7 项新配置均未设置**：
+
+- APP_STORE_CONNECT_APP_ID、APP_STORE_CONNECT_SUBSCRIPTION_GROUP_ID。
+- APP_STORE_CONNECT_ISSUER_ID、APP_STORE_CONNECT_KEY_ID、APP_STORE_CONNECT_PRIVATE_KEY。
+- SUBSCRIPTION_DISPLAY_PRODUCT_IDS、SUBSCRIPTION_LIFETIME_PRODUCT_IDS。
+
+因此旧测试商品虽具有既有权益映射，仍缺新展示准入；一次性目录也缺显式商品范围。目录读取的五项必要配置缺失，本轮没有请求 Apple 私有 API，不能宣称目录权限、真实订阅组／周期／等级／地区优惠已验证，也没有自动借用既有验单凭据。上述测试商品只能作为后续待核验候选，不能自动填入已审核展示列表。
+
+### watcher 的实际发布阻塞
+
+- 10:56 回读：cron 仍配置 watcher，目标分支为 dev；last-seen=f9d04a6238bc9af7512e025f556633b89b76429b、last-deployed=841db2792e485333fd1d052f21c3f49c8dafecb7。failed-sha 为 8a00619fa0cf30d369ffc4b9f959cacb5714e45e，failed-at 对应北京时间 2026-10-15 10:41:52；最近几轮处于重试冷却。手工 current release 与 watcher 的历史已部署指针不同，不能混报。
+- 限量读取 watcher 日志尾部确认：该轮相关测试报告 11 个文件通过、TAP fail 0，随后失败于 Linux preflight 的 CF recognition health 契约检查。这里的测试日志属于 watcher 自己此前执行的发布尝试，不是本轮主动运行或重新验证的测试。
+- 10:59 从正在运行的 API 容器、使用既有网络／代理配置发出一次 GET health：上游 HTTP 200，ok=true、dimensions=768、metric=euclidean、top_k=5。当前发布检查明确要求 512／cosine／5，候选 API 与 iOS 向量源码也仍固定 512；这是实际契约差异，不是 HTTP 连通失败或单纯缺字段。
+- 本轮只证实健康契约不匹配以及它触发发布失败，未发送向量识别请求、未读取上游服务源码，也未判定应调整服务地址、模型还是业务协议；不能把检查直接改成 768／euclidean 或据此宣称所有实际扫描已经失败。未停止 watcher、改写失败标记、修改识别服务或触发重试。
+- 最近备份文件为 toccards-test-20261014-151712-before-manual-admin-scan-image-2c56e9f-dirty-20261014151507.dump，1,135,406,873 字节。仅核对存在性和元数据，未运行 pg_restore --list 或恢复演练；后续部署仍须按流程创建并验证新的发布前备份。
+
+### 当前结论与修订后的执行顺序
+
+服务器访问条件已经解除，本轮已完成运行包、容器、ledger、环境配置及本地商品映射的只读核验；**预检结论为尚不具备订阅配置联调发布条件**。真实 Apple 权限／商品事实、两套兜底定稿、新 SKU 收入与旧包支持仍待完成。
+
+1. 先核对 dev 配置的向量服务与当前 512 维模型／cosine 协议，确认兼容方案并完成独立修复验证；保留有效部署门禁，不仅为通过发布而放宽检查。原始服务地址／模型是否变更的根因仍待定位。
+2. 在候选中整合 dev 的 0691a72 扫描详情图片预览修复，固定唯一可验收 SHA；协调仍在运行的 watcher，避免自动重试、合并推送与手工发布并发。当前没有执行 Git 合并或推送。
+3. 安全补齐上述 Apple App／组／团队 Key，并完成真实目录只读核验；经审核后确定 Lifetime 范围、展示准入、Page／Modal 兜底和新 SKU 支持／收入映射。保留已有环境值与历史商品支持，不以本地或数据库存在 ID 代替 Apple 核验。
+4. 获得实际远程变更授权后，按既有流程预检、备份并检查可读性、应用唯一待执行的 0014、发布 API／Admin，再独立核验实际 SHA、ledger、产物及目录。随后用已核验的既有商品开启首条 Sandbox 真机购买／恢复／收入闭环。
+
+本轮仅更新预检文档和索引；未执行业务代码修改、Git commit／push、远程迁移、环境改写、备份、部署或配置启用，也未操作 prod。已有密码登录成功不等于后续非交互发布已具备密钥／agent 配置；自动化发布的 SSH 登录方式仍须按发布入口准备。
+
+<a id="subscription-config-baseline-resolution"></a>
+
+## 2026-10-15：订阅发布候选的扫描基线定位与 Admin 修复整合
+
+### 根因与协议冲突
+
+本条补充前述健康检查差异的根因证据。11:10 从 Linux dev 的实际共享配置和运行容器回读，VECTOR_RECOGNITION_BASE_URL 均为 https://recognize.tcgcard.fun。该服务自报 recognize-phash-vector，使用 cards_phash、768／euclidean／Top 5，输入为 Base64URL 的 r／g／b 和可选 ocr_text，不是当前候选的 vector 数组协议。
+
+运行 manifest 指向的 dev-xiangyang@2c56e9f 源码使用 rgb-phash-16-v1；其 preflight 也明确校验 768／euclidean／5 和 cards_phash。因此不能把原问题概括为“原向量服务突然改了参数”，也不能仅修改当前候选的健康检查数字。当前 dev 手工运行基线和 watcher 跟踪的 dev／订阅候选属于两套协议。
+
+当前订阅候选继续使用 PE Core T16 512 维向量：共享 Flutter 检查 embedding 长度为 512，API 校验 512，部署门禁校验 512／cosine／5；仓库默认 URL 为 https://recognize-vec.tcgcard.fun。11:15 从正在运行的 dev API 容器，以相同网络／代理环境只读访问此候选 URL，返回 200、ok=true、dimensions=512、metric=cosine、top_k=5，输入声明为 JSON vector:number[512]。无需为了通过发布放宽现有检查。
+
+| 基线 | API／客户端协议 | 配套服务 | 已确认边界 |
+| --- | --- | --- | --- |
+| 当前 Linux 手工运行包 | 2c56e9f 对应 pHash／OCR，r／g／b／ocr_text | recognize.tcgcard.fun，768／euclidean | manifest、源码、实际环境与 health 可对应；未发送实际识别请求。 |
+| 当前订阅候选 808eb17 + 本地增量 | 512 维向量，vector／card_type | recognize-vec.tcgcard.fun，512／cosine | iOS／Android 共享长度校验、API 与 health 契约一致，dev 网络可达；未切换服务器。 |
+
+后续若采用当前候选，应将 API／测试 App 与 VECTOR_RECOGNITION_BASE_URL 一起按向量基线安排切换。单独改正在运行的 pHash API 地址会令输入协议不匹配；将候选改成 pHash 则需要移植另一分支的扫描业务，并与当前仓库的向量约束冲突。此项会改变 dev 正在运行的扫描基线，需要明确确认后执行，不能在订阅功能发布中静默夹带。 用户随后已确认本次采用 512 维向量，见下文[方案确认](#subscription-config-vector-decision)。环境文件回读 SHA-256 仍为 68e7190776e49b623f86ae42b703af5be27088a00479ec0537e6ece33e2b32c8，本轮没有修改环境、部署门禁或任何扫描实现。
+
+### 已完成的独立整合
+
+将 dev 中 0691a72 的三个 Admin 文件补丁精确移植到当前工作区，并合入其两份既有业务／历史验证文档；原来的两份未提交预检文档内容保留。扫描详情原图继续走鉴权 Blob，仅详情开启 Ant Design 图片预览，列表缩略图、候选图和失败占位沿用原行为。订阅配置页面及服务端源码没有改动。
+
+这是工作区内容整合，尚未执行 Git merge／cherry-pick 提交或推送，也没有把当前分支描述为已经在提交历史上包含全部 dev。原修复的历史失败证据保留；本轮将从整合前 HEAD 提取原实现，在本地隔离目录使用相同用例补做失败反证，再对最终工作区执行回归。
+
+### Apple 接入准备与仍缺的输入
+
+- 当前服务端七项新增配置仍缺失；没有新增或复用其他验单凭据，没有请求 Apple 私有目录，也没有批准任何新商品。
+- 历史[Apple 设置文档](../../v1.1.0/05-delivery/app-store-connect-subscription-setup.md#86-weekly-与-yearly-查询前置检查)记录测试 Bundle com.kando.kandoApp.beta、Performance Pro 组 22251901 和三个 cardx 商品。该组 ID 仅是历史核验候选，不代表今天的 App／组归属、销售范围或免费优惠已确认，不自动写入服务器。
+- 需要提供具备本 App 目录读取权限的团队 Key 的安全配置位置，并确认 App 数字资源 ID；随后才能通过 Apple 只读 API 核验组和商品、填写展示准入。Page／Modal 定稿、新 SKU 及收入／旧包支持缺项保持原记录。
+
+### 本地验证与交付边界
+
+- 隔离反证：从整合前 HEAD（808eb17）提取 App.tsx／App.css，使用最终 scans-intent.test.mjs 在忽略目录执行 node --test，退出 1；原有 7 项通过，新增“详情原图鉴权预览”用例唯一失败，无跳过。该反证在补丁移植后对旧源码执行，不记为修改前已经实测。
+- 最终 Admin：pnpm --filter @kando/admin-web test 退出 0，59/59 通过；pnpm --filter @kando/admin-web type-check 退出 0。既有订阅配置、鉴权、请求 ID、列表与原图占位行为继续通过相关回归；没有复验真实远端 Admin 登录态点击。
+- 部署合同：node --test deploy/linux/preflight.test.mjs 退出 0，8/8 通过。代码和门禁未变；检查继续拒绝不匹配的识别健康协议并在失败时阻止备份／容器变更。
+- 本地候选打包：pnpm --filter @kando/workers-api deploy:dry-run:dev 退出 0，包含 Admin development 构建及 Linux bundle 3/3；包为 apps/workers-api/.wrangler/linux-release-YUrUIp.tar.gz，2128463 字节，SHA-256 dd7ac1e7d9001c8b8a0b9cc63b6c57555a8ec5b4eee2496664178daeded1e774。manifest 为 sha=808eb1797bdc2b02835892622b47c412ff83b09a、branch=codex/dev-1.0.6、working_tree_dirty=true；因此不是纯提交发布包。含 15 份 PostgreSQL migration（包括 0014），目录检查未包含 .env、.dev.vars 或 .p8 私钥。
+- 本地 Code Review：原图预览三个文件可以对 0691a72 原补丁完整反向检查，确认移植内容没有另起实现；复核列表默认关闭、详情显式开启、Blob 鉴权与生命周期、样式作用域以及订阅入口共存。未发现本地源码阻断项；这是自审，不是独立人员审查或真机／线上验收。
+- 未运行／未执行：没有变更 Flutter／扫描协议或预检门禁，未重跑完整 Workers／Flutter／固定旧客户端编排；所有远端探针只发 GET health，没有识别或购买请求。没有远程环境改写、迁移、部署、配置启用、Git merge／commit／push。扫描基线切换与真实 Apple 目录／商品准入仍待确认和接入，不能把打包成功作为发布验收通过。
+
+<a id="subscription-config-vector-decision"></a>
+
+## 2026-10-15：订阅联调采用 512 维向量方案的用户确认
+
+- 用户明确 pHash／OCR 是另一位同事的测试，本次业务采用 512 维向量方案。该业务选择已经确认，后续不再重复询问，也不将另一分支的 pHash／OCR 实现移植进本次订阅候选。
+- 本次配套合同固定为：Flutter 端侧 PE Core T16 512 维输出、API 的 vector／card_type 请求、recognize-vec.tcgcard.fun 的 512／cosine／Top 5；VECTOR_RECOGNITION_BASE_URL 的候选值为 https://recognize-vec.tcgcard.fun。当前源码、模板和门禁已经符合此选择，无需修改扫描算法或放宽检查。
+- 前述 Linux 运行包／环境回读仍是历史实测证据，用户选择不代表已经执行服务器切换。后续按同一候选版本安排 API、环境地址和测试 App 配套，协调同事的独立测试；本轮没有覆盖或停止其运行包，也没有修改 watcher。
+- 独立的 Apple 目录前置条件仍未完成：目录团队 Key 的安全配置位置、App 数字资源 ID及组归属／商品事实需通过受权的 Apple 只读访问核验。历史组 22251901 继续只是核验候选；其余展示准入、Lifetime 范围、正式兜底和新 SKU 收入／旧包支持保持既有要求，不自动填入猜测值。
+- 本轮仅更新规则与文档，沿用上一轮业务验证，不重复运行业务测试；执行文档链接／锚点和 git diff --check 检查。没有新增业务代码变更、Git commit／push、远程迁移、环境改写、部署或配置启用。
+
+<a id="subscription-config-apple-env"></a>
+
+## 2026-10-15：指定测试环境文件与已有 Apple Key 的目录认证核验
+
+本条是原 APPLE_IAP 凭据的失败证据；随后用户提供的新目录团队 Key 已通过真实目录读取，见[新 Key 与商品目录补验](#subscription-config-apple-catalog-live)。
+
+用户指定 /home/user/apps/toccards-test/current/deploy/linux/.env 为测试配置入口。11:39 实际 lstat／readlink／realpath 确认该文件为符号链接，目标就是 /home/user/apps/toccards-test/shared/.env，与此前检查的是同一文件、相同字节；没有遗漏另一份独立配置。
+
+- 文件中已有 APPLE_IAP_ISSUER_ID、APPLE_IAP_KEY_ID、APPLE_IAP_PRIVATE_KEY。私钥可由 Node 解析为 EC／prime256v1（P-256）；只检查格式和存在性，没有输出任何凭据值。APPLE_IAP_APP_ID 为空，Bundle 为 com.kando.kandoApp.beta，产品允许列表仍为三个 cardx 商品。
+- APP_STORE_CONNECT_APP_ID、APP_STORE_CONNECT_SUBSCRIPTION_GROUP_ID、APP_STORE_CONNECT_ISSUER_ID、APP_STORE_CONNECT_KEY_ID、APP_STORE_CONNECT_PRIVATE_KEY、SUBSCRIPTION_LIFETIME_PRODUCT_IDS、SUBSCRIPTION_DISPLAY_PRODUCT_IDS 七项仍未设置。此前“新目录配置缺失”指这些新模块字段，不表示服务器完全没有 Apple 签名配置。
+- 按用户指明的凭据位置，在确认文件与 API 容器的相关值一致后，仅在运行容器进程内使用已有 APPLE_IAP Key，向官方 App Store Connect API 发出两次按 beta Bundle 过滤的 GET /v1/apps。没有请求其他 App 的目录、读取用户交易或进行业务写入；诊断中的内存字段映射不是新模块的自动凭据回退实现，也没有复制／改写任何环境字段。
+- 11:43 首次请求使用 ES256、64 字节原始签名和 120 秒有效期，并限制可选 scope；本地签名自检通过，Apple 响应时间与宿主时钟相差小于 1 秒，响应为 401 NOT_AUTHORIZED，标题为 Authentication credentials are missing or invalid。
+- 11:47 使用当前 catalog.ts 的 createCatalogToken 原始实现，在内存中打包并执行，按新模块实际 claims（不带可选 scope）复核同一只读请求，仍返回 401 NOT_AUTHORIZED；响应时间差仍小于 1 秒。不能将失败仅归因于首次探针的可选 scope，也不能认为将变量改名为 APP_STORE_CONNECT_* 就能恢复目录访问。
+- 结论：指定配置路径和已有签名材料已找到；现有这组凭据目前未通过目录 API 认证。其是否属于目录可用的团队 Key、是否已撤销／失效，或者 Issuer ID／Key ID／私钥是否正确配对，当前证据尚不能唯一判定。私钥能解析／本地签名正确不等于 Apple 接受认证，本轮也没有验证这组凭据的既有 App Store Server API 能力。
+- 仍需在 Apple 后台核对该 Key 的类型、状态和配对信息，或提供可用于目录读取的团队 Key 安全配置；获得成功的只读目录响应后，再确认 App 数字资源 ID、历史组 22251901 的实际归属及商品事实。不写入猜测的 App／组 ID，不批准新 SKU。
+- 两次请求前后的环境文件 SHA-256 保持 68e7190776e49b623f86ae42b703af5be27088a00479ec0537e6ece33e2b32c8；密码、私钥、Issuer／Key ID 和 JWT 均未输出或写入项目记录。没有代码变更、远程环境修改、部署、迁移、商品启用或 Git commit／push；仅更新文档并执行链接／差异检查。
+
+<a id="subscription-config-apple-catalog-live"></a>
+
+## 2026-10-15：新目录团队 Key 与真实测试商品目录补验
+
+用户提供新下载的 .p8 路径和 Issuer ID，Key ID 从下载文件名取得；不再沿用旧 APPLE_IAP 的签名材料。私钥在本地解析为 EC／prime256v1，通过 SSH 标准输入传给 dev 容器内存中的诊断进程；没有复制到项目、远端文件或进程命令参数，也未输出私钥、Issuer ID 或 JWT。
+
+14:00 起，从 dev API 容器使用当前 catalog.ts 的 createCatalogToken／createAppleCatalogLoader 实际实现，以 GET 查询指定 beta Bundle。发现 App 和组的 2 次请求、正式目录读取的 9 次请求共 11 次均返回 200；当前实现的 10 秒目录预算内成功完成 App 归属、指定组、5 个订阅及各自介绍性优惠、显式 Lifetime 范围读取，未重试或请求无关 App。鉴权与目录权限已验证，不代表商店交易和商品准入完成。
+
+- 测试 Bundle：com.kando.kandoApp.beta；App 数字资源 ID：6790245922；当前 Apple 名称：Kando KP App。
+- 订阅组 ID：22251901，已由目标 App 的实际组列表确认归属；当前 referenceName 为 card ai。历史文档里的 Performance Pro 是当时记录，不回写历史，也不把名称当作 ID 判断依据。
+- 一次性读取的诊断范围仅包含已有配置中的 cardx.lifetime，已确认 Apple 返回的类型为 NON_CONSUMABLE；该临时只读范围不等于已向服务器写入 Lifetime 配置或批准展示。
+
+| Product ID | Apple 参考名 | 类型／周期 | group_level | 当前免费试用目录事实 |
+| --- | --- | --- | --- | --- |
+| cardx.week | weekly | subscription／ONE_WEEK | 2 | 无介绍性优惠记录 |
+| cardx.year | yearly | subscription／ONE_YEAR | 1 | 无介绍性优惠记录 |
+| weekly.trial | 周试用 | subscription／ONE_WEEK | 3 | 175 个地区记录，FREE_TRIAL／THREE_DAYS／1 期，2026-10-12 起、无结束日期 |
+| yearly.pro | 年订阅 | subscription／ONE_YEAR | 5 | 无介绍性优惠记录 |
+| cardx.month | 月订阅 | subscription／ONE_MONTH | 4 | 无介绍性优惠记录 |
+| cardx.lifetime | lifetime | non_consumable | 不适用 | 不适用 |
+
+- 六个返回商品的 state 均为 MISSING_METADATA。这是实际目录状态，不能把 HTTP 200 或目录存在当作商品元数据齐备、正式可售、Sandbox 可购买或已审核通过；没有查询个人 StoreKit storefront 或实际发起交易。
+- cardx.week 与 weekly.trial 同组／同周期但等级分别为 2 和 3。使用真实目录结果在本地执行当前 validateCatalogReferences，拟关联卡片准确返回 skus.0.trial.product_id 错误；因此按现有合同不能建立这组关联。weekly.trial 作为独立 SKU 的方案仍需商品准入、客户端注册及收入／旧包支持核验，不自动调整 Apple 等级或放宽服务端规则。
+- 新发现的 weekly.trial、yearly.pro、cardx.month 不在此前回读的 dev APPLE_IAP_PRODUCT_IDS／billing_product 测试映射及客户端长期支持注册中；需要明确接入后才能启用。原三个 cardx 商品的历史映射证据保留，本轮未重查或写入数据库。
+- 原有 401 只适用于旧 APPLE_IAP 凭据；新 Key 已通过当前目录实现验证，目录认证阻塞解除。App ID／组 ID 现在来自实际返回值，后续部署可据此准备配置；服务器 APP_STORE_CONNECT_*、展示准入和 Lifetime 环境项本轮仍未写入。
+- 环境文件读取前后字节一致，SHA-256 仍为 68e7190776e49b623f86ae42b703af5be27088a00479ec0537e6ece33e2b32c8。没有配置替换、Apple 管理写操作、商品启用、远程数据库迁移、部署、Git commit／push；仅新增验证摘要和更新文档入口，执行文档链接／差异检查，不重跑无源码变更的业务测试。剩余边界为商品元数据、试用关联等级、准入／收入／旧包支持、独立兜底定稿及真机联调。
+
+<a id="subscription-config-trial-level-recheck"></a>
+
+## 2026-10-15 14:20：周订阅与周试用的等级调整复验
+
+用户告知已在 Apple 后台将 cardx.week 和 weekly.trial 设为同等级后，使用同一新目录团队 Key、当前 catalog.ts 实现，从 dev 容器重新只读拉取 beta App 的实际目录。共 11 次 GET 全部 200；App 6790245922、Bundle com.kando.kandoApp.beta、订阅组 22251901 的归属不变。
+
+| Product ID | 实际 group_level | 周期 | 免费试用目录事实 |
+| --- | --- | --- | --- |
+| cardx.week | 2 | ONE_WEEK | 无介绍性优惠记录，has_free_trial=false |
+| weekly.trial | 2 | ONE_WEEK | 175 个地区，FREE_TRIAL／THREE_DAYS／1 期，2026-10-12 起、无结束日期 |
+
+- 使用相同拟关联配置，调用当前 parseDisplayConfig 与 validateCatalogReferences：配置结构无错误；14:00 旧目录仍复现 skus.0.trial.product_id 错误，14:20 新目录返回空 issues。确认等级不一致的关联阻塞已解除，无需修改 PRD 或放宽校验；本轮没有保存／启用该拟配置。
+- 两个商品当前 state 仍为 MISSING_METADATA；目录关系有效不等于用户具有试用资格、商品已经正式可售、已完成 Sandbox 购买或系统商品准入。weekly.trial 的服务端允许列表／active 权益映射、客户端长期支持及收入／旧包支持仍需后续接入。
+- 本次 Apple 商品等级修改由用户完成；本轮工具只读取目录。远端环境文件前后字节一致，SHA-256 仍为 68e7190776e49b623f86ae42b703af5be27088a00479ec0537e6ece33e2b32c8。没有改写 .env、数据库、Apple 商品、部署或 Git 提交推送；仅更新文档并检查链接及 git diff --check，不重跑无业务源码变更的测试。
+
+<a id="subscription-config-dev-catalog-env"></a>
+
+## 2026-10-15 14:37–14:40：dev 目录配置落地与运行环境验证
+
+按用户“继续完成 dev 目录配置落地”的明确授权，仅更新 Linux dev 的目录读取配置并让现有 API 容器加载。目标 /home/user/apps/toccards-test/current/deploy/linux/.env 仍链接到 shared/.env；先核对 development／beta Bundle、current release、运行镜像、Compose 环境一致性及原文件哈希，再持有既有 watcher／deploy 两把锁实施变更。
+
+| 本轮新增环境字段 | 落地值／验证方式 |
+| --- | --- |
+| APP_STORE_CONNECT_APP_ID | 6790245922 |
+| APP_STORE_CONNECT_SUBSCRIPTION_GROUP_ID | 22251901 |
+| APP_STORE_CONNECT_ISSUER_ID | 用户提供的团队 Issuer，文件与运行容器一致；不记录原值 |
+| APP_STORE_CONNECT_KEY_ID | 已验证的新目录团队 Key，文件与运行容器一致 |
+| APP_STORE_CONNECT_PRIVATE_KEY | 用户提供的新 P-256 私钥，多行原文只存入私有环境配置，不进入项目或诊断输出 |
+| SUBSCRIPTION_LIFETIME_PRODUCT_IDS | cardx.lifetime，仅限定非消耗型目录读取范围，不代表商品展示准入 |
+
+### 配置保存与运行加载
+
+- 修改前独立快照确认原 .env 权限 600、属主／组均为部署用户，Compose 2.40.3+ds1-0ubuntu1 解析的现有 API 环境与运行容器完全一致。原镜像 tag 指向当前运行 image ID，没有镜像漂移。
+- 原文件逐字节备份到 /home/user/apps/toccards-test/shared/.env.before-catalog-20261015T063719787Z.bak，权限 600；采用同目录临时文件＋原子 rename 更新真实 shared/.env，保留用户访问的符号链接、属主／组及 600 权限。旧文件全部原始字节保留为新文件前缀，只追加上述 6 项。Node 与 Compose 对多行私钥的解析均与期望一致，其余配置及服务定义全量对照未变。
+- 原 .env SHA-256 为 68e7190776e49b623f86ae42b703af5be27088a00479ec0537e6ece33e2b32c8，新值为 062e06594191a9125081a9f595a23f9fa13c4798280f86a9b582c4f920847b6e。已有 APPLE_IAP_*、数据库／JWT、代理、插件及其他环境项原值全部保留；没有自动复用或替换旧验单 Key。
+- 使用当前 release 的两份 Compose 文件执行仅 api 的 up -d --no-deps --no-build --pull never。API 容器重建后 healthy，image ID 仍为 sha256:1a559fcbff112c2c2f9e8b04c6f2cbccbf27323a0e4838b723598708ff71e805，API bundle SHA-256 仍为 a2b6caf368362bdb60f3de10ad69b60fc17a3d3bdbb114b22147d2bfb435b67f。DB／Web／migrate 的容器 ID、镜像、启动时间与状态对照均不变，未运行 build、pull、migrate、完整发布脚本或 watcher。
+- current／manifest 仍为 manual-admin-scan-image-2c56e9f-dirty-20261014151507，VECTOR_RECOGNITION_BASE_URL 未改，未切换同事的 pHash／OCR 运行包。两把锁仅在本操作期间持有，结束后释放；14:40 回读时既有 watcher 按 cron 自行运行，未改其分支、计划或状态文件。
+
+### 实际验证
+
+- 从重建后的 API 容器直接读取 process.env，临时运行当前 catalog.ts 的目录读取实现；本次没有再从开发机注入凭据。App／组／5 个订阅及介绍性优惠／Lifetime 共 9 次 GET 全部 200，返回 cardx.week、cardx.year、weekly.trial、yearly.pro、cardx.month、cardx.lifetime。测试 App 6790245922、Bundle com.kando.kandoApp.beta、组 22251901 正确；周普通与试用的等级均为 2。
+- 独立第二次 SSH 回读确认：shared/.env 与运行容器的目录字段一致、三项凭据均存在，新文件哈希匹配，API／DB healthy、Web running。数据库只读查询仍为 PostgreSQL 18.6、ledger 14 项／最新 0013；新增订阅三表仍不存在，没有执行 0014。
+- 外部 HTTP 烟测：health 200／status=ok，Admin 首页 200；无认证 auth/me 与 admin/scans 均为 401。新 subscription-display-config 接口仍返回 404，符合当前运行包尚无新订阅路由的事实；目录函数的临时真实读取通过不等于新业务接口或 Admin 订阅菜单已上线。
+- SUBSCRIPTION_DISPLAY_PRODUCT_IDS 仍未设置；APPLE_IAP_PRODUCT_IDS 仍为原三个 cardx 商品，billing_product 未改。没有启用任何配置或批准新 SKU。本轮目录配置完成，不包含商品准入、真实 StoreKit 可售／资格、购买／Restore、收入、正式兜底或生产验收。
+
+失败回退预案为恢复同权限原文件备份并以原镜像重新加载 API；本轮执行成功，未触发回退，不宣称完成回退演练。没有 Git commit／push 或业务源码变更；本地仅补充实际操作记录及入口，验证文档链接／锚点和 git diff --check，没有重复运行无代码变化的全量测试。

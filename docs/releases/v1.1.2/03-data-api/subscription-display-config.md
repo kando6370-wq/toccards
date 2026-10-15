@@ -1,6 +1,6 @@
 # 订阅展示配置与商品准入（第一阶段）
 
-需求输入：[PRD 1.14](../00-product/admin-subscription-config-prd.md)。本文件描述服务端第一阶段源码，Admin 第二阶段页面见 [后台文档](../04-admin/admin.md)，Flutter 消费源码见 [客户端流程](../01-flows/subscription-display.md)，真实 Apple 目录、商品售卖和旧包新增 SKU 恢复仍未验收。接口均为 V1 兼容新增，原 app-config、购买、Restore 与权益接口保持不变。
+需求输入：[PRD 1.14](../00-product/admin-subscription-config-prd.md)。本文件描述服务端第一阶段源码，Admin 第二阶段页面见 [后台文档](../04-admin/admin.md)，Flutter 消费源码见 [客户端流程](../01-flows/subscription-display.md)，测试 App 的[真实 Apple 目录读取](../05-delivery/VERIFICATION.md#subscription-config-apple-catalog-live)已通过，商品售卖、展示准入和旧包新增 SKU 恢复仍未验收。接口均为 V1 兼容新增，原 app-config、购买、Restore 与权益接口保持不变。
 
 ## 环境与商品准入
 
@@ -15,6 +15,8 @@
 | `SUBSCRIPTION_DISPLAY_PRODUCT_IDS` | 已完成展示接入审核的 Product ID 集合，逗号分隔；新 SKU 的旧包支持／收入等事项未闭合时不得加入 |
 
 上述新配置均可缺省，不阻止已有 Linux API 启动或旧购买接口工作。Cloudflare 通过同名变量／Secrets 注入；Linux 通过现有 `.env` 注入，示例不包含真实 ID 或密钥。没有凭据时新目录及需要重新校验目录的写入返回 503；已有配置读取、结果核对和关闭配置不访问 Apple。
+
+2026-10-15 dev 已[落地并加载目录配置](../05-delivery/VERIFICATION.md#subscription-config-dev-catalog-env)：测试 App 6790245922、组 22251901、新团队 Key 和 Lifetime 范围 cardx.lifetime 的实际目录读取通过。SUBSCRIPTION_DISPLAY_PRODUCT_IDS 尚未设置，0014 与新订阅业务路由未发布；配置完成不代表商品已准入或后台功能已上线。
 
 有效商品还必须同时属于既有 `APPLE_IAP_PRODUCT_IDS`，且 `billing_product` 为 active、类型匹配、权益为 `performance_pro`。目录接口返回每项 `admission.admitted/reasons`；未准入商品允许保存在不生效配置，启用和保存已生效配置时拒绝。保留但未启用的试用目标仍校验关系结构；它不参与本次生效购买的准入集合。
 
@@ -107,7 +109,7 @@
 
 独立多连接检查使用 `pnpm --filter @kando/workers-api test:subscription-config:postgres`，要求显式设置 `SUBSCRIPTION_TEST_DATABASE_URL`。脚本仅接受 loopback 的空 `subscription_config_test` 数据库，拒绝其他地址、数据库名或非空库；不进入默认测试命令，也不会静默跳过。它使用两组真实 PostgresDatabase 连接和独立锁持有／观察连接，以 `pg_stat_activity` 确认实际锁等待，覆盖重复创建、并发生效、并发编辑、准入行锁及事务回滚。临时数据库和容器的创建／清理由调用方负责，不连接既有业务数据库。
 
-相关测试与实际执行结果见 [验证记录](../05-delivery/VERIFICATION.md#subscription-config-server)。真实 Apple API 权限、销售范围、生产数据库、新旧包和收入平台仍需独立核验。目录测试只使用注入的假响应，运行时代码没有演示数据或假目录回退。
+相关测试与实际执行结果见 [验证记录](../05-delivery/VERIFICATION.md#subscription-config-server)。测试 App 的目录权限已有真实只读补验证据；销售范围、StoreKit 可购买状态、生产目录权限／数据库、新旧包和收入平台仍需独立核验。自动化目录测试仍使用注入响应，与真实只读补验分开记录；运行时代码没有演示数据或假目录回退。
 
 主要实现：[路由](../../../../apps/workers-api/src/subscription-config/routes.ts)、[事务存储](../../../../apps/workers-api/src/subscription-config/store.ts)、[目录](../../../../apps/workers-api/src/subscription-config/catalog.ts)、[模型校验](../../../../apps/workers-api/src/subscription-config/model.ts)。Apple 接口字段和 JWT 合同已查阅官方 App Store Connect 文档：
 
