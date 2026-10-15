@@ -1,6 +1,6 @@
 # 订阅展示配置与商品准入（第一阶段）
 
-需求输入：[PRD 1.14](../00-product/admin-subscription-config-prd.md)。本文件描述服务端第一阶段源码，Admin 页面和 Flutter 配置消费尚未开发，真实 Apple 目录、商品售卖和旧包新增 SKU 恢复仍未验收。接口均为 V1 兼容新增，原 app-config、购买、Restore 与权益接口保持不变。
+需求输入：[PRD 1.14](../00-product/admin-subscription-config-prd.md)。本文件描述服务端第一阶段源码，Admin 第二阶段页面见 [后台文档](../04-admin/admin.md)，Flutter 配置消费尚未开发，真实 Apple 目录、商品售卖和旧包新增 SKU 恢复仍未验收。接口均为 V1 兼容新增，原 app-config、购买、Restore 与权益接口保持不变。
 
 ## 环境与商品准入
 

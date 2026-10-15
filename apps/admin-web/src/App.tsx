@@ -22,7 +22,9 @@ import {
   message,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import SubscriptionConfigPage from "./subscription-config/SubscriptionConfigPage";
+import type { SubscriptionRequest } from "./subscription-config/model";
 import "./App.css";
 import { resolveAdminApiBase } from "./api-base";
 import { createAdminRequestHeaders } from "./request-id";
@@ -35,7 +37,7 @@ import {
 } from "./installation-analytics";
 
 type AdminRole = "super_admin" | "operator";
-type MenuKey = "installations" | "billing-orders" | "apple-notifications" | "users" | "feedbacks" | "scans" | "permissions" | "app-versions";
+type MenuKey = "installations" | "billing-orders" | "apple-notifications" | "users" | "feedbacks" | "scans" | "permissions" | "app-versions" | "subscription-configs";
 type FeedbackStatus = "pending" | "processed" | "ignored";
 type PermissionStatus = "active" | "disabled";
 type AppVersionStatus = "enabled" | "disabled";
@@ -49,7 +51,7 @@ type AdminSession = {
 };
 
 type ApiSuccess<T> = { success: true; data: T };
-type ApiFailure = { success: false; error: { code: string; message: string } };
+type ApiFailure = { success: false; error: { code: string; message: string; fields?: Array<{ path: string; message: string }> } };
 type ApiResponse<T> = ApiSuccess<T> | ApiFailure;
 type AdminRequestInit = Omit<RequestInit, "body"> & {
   body?: unknown;
@@ -214,6 +216,7 @@ const menuGroups: Array<{ title: string; items: Array<{ key: MenuKey; label: str
   },
   { title: "卡牌管理", items: [{ key: "scans", label: "扫描记录管理" }] },
   { title: "App 版本管理", items: [{ key: "app-versions", label: "版本管理" }] },
+  { title: "订阅配置", items: [{ key: "subscription-configs", label: "订阅页配置" }] },
 ];
 
 const pageMeta: Record<MenuKey, { title: string; description: string }> = {
@@ -225,6 +228,7 @@ const pageMeta: Record<MenuKey, { title: string; description: string }> = {
   scans: { title: "扫描记录管理", description: "查看用户扫描图片、系统识别结果和用户最终确认结果。" },
   permissions: { title: "权限管理", description: "管理允许访问后台的邮箱账号。" },
   "app-versions": { title: "版本管理", description: "管理 iOS 与 Google 端最低支持版本和更新提示。" },
+  "subscription-configs": { title: "订阅配置", description: "管理订阅页与订阅大弹窗的商品组合、试用关系和生效状态。" },
 };
 
 export default function App() {
@@ -399,9 +403,19 @@ function AccessDeniedView({ onBack }: { onBack: () => void }) {
 function AdminShell({ session, onLogout }: { session: AdminSession; onLogout: () => void }) {
   const [selected, setSelected] = useState<MenuKey>("installations");
   const selectedMeta = pageMeta[selected];
+  const leaveGuard = useRef<(() => Promise<boolean>) | null>(null);
+  const registerLeaveGuard = useCallback((guard: (() => Promise<boolean>) | null) => { leaveGuard.current = guard; }, []);
+  const subscriptionRequest = useMemo<SubscriptionRequest>(() => (path, init) => adminRequest(path, { ...init, token: session.accessToken }), [session.accessToken]);
+  async function selectMenu(key: MenuKey) {
+    if (key === selected) return;
+    if (!leaveGuard.current || await leaveGuard.current()) setSelected(key);
+  }
+  async function logout() {
+    if (!leaveGuard.current || await leaveGuard.current()) onLogout();
+  }
 
   return (
-    <Layout className="admin-layout">
+    <Layout className={selected === "subscription-configs" ? "admin-layout subscription-config-layout" : "admin-layout"}>
       <Sider width={186} breakpoint="lg" collapsedWidth={0} className="admin-sider">
         <div className="sidebar-brand">
           <strong>TCG Admin</strong>
@@ -410,12 +424,10 @@ function AdminShell({ session, onLogout }: { session: AdminSession; onLogout: ()
         <Menu
           mode="inline"
           selectedKeys={[selected]}
-          onClick={(item) => setSelected(item.key as MenuKey)}
-          items={menuGroups.map((group) => ({
-            key: group.title,
-            label: group.title,
-            children: group.items,
-          }))}
+          onClick={(item) => void selectMenu(item.key as MenuKey)}
+          items={menuGroups.map((group) => group.title === "订阅配置"
+            ? { key: "subscription-configs", label: group.title }
+            : { key: group.title, label: group.title, children: group.items })}
         />
         <div className="sidebar-account">
           <span className="avatar">{session.email.slice(0, 2).toUpperCase()}</span>
@@ -423,7 +435,7 @@ function AdminShell({ session, onLogout }: { session: AdminSession; onLogout: ()
             <strong>{session.email}</strong>
             <span>{session.role === "super_admin" ? "超级管理员" : "运营管理员"}</span>
           </div>
-          <Button type="link" danger onClick={onLogout}>
+          <Button type="link" danger onClick={() => void logout()}>
             Logout
           </Button>
         </div>
@@ -445,6 +457,7 @@ function AdminShell({ session, onLogout }: { session: AdminSession; onLogout: ()
           {selected === "scans" && <ScansPage session={session} />}
           {selected === "permissions" && <PermissionsPage session={session} />}
           {selected === "app-versions" && <AppVersionsPage session={session} />}
+          {selected === "subscription-configs" && <SubscriptionConfigPage request={subscriptionRequest} accountKey={`${window.location.origin}|${API_BASE}|${session.adminId}`} registerLeaveGuard={registerLeaveGuard} />}
         </Content>
       </Layout>
     </Layout>
@@ -1399,7 +1412,7 @@ async function adminRequest<T>(path: string, init: AdminRequestInit = {}): Promi
   const payload = (await response.json()) as ApiResponse<T>;
   if (!response.ok || !payload.success) {
     if (payload.success) throw new AdminApiError("REQUEST_FAILED", "请求失败");
-    throw new AdminApiError(payload.error.code, payload.error.message);
+    throw new AdminApiError(payload.error.code, payload.error.message, response.status, payload.error.fields);
   }
   return payload.data;
 }
@@ -1437,7 +1450,7 @@ function dispatchSessionExpiredOnUnauthorized(response: Response, token?: string
 }
 
 class AdminApiError extends Error {
-  constructor(readonly code: string, messageText: string) {
+  constructor(readonly code: string, messageText: string, readonly status?: number, readonly fields?: Array<{ path: string; message: string }>) {
     super(messageText);
   }
 }

@@ -6,7 +6,7 @@ export function createAdminRequestHeaders(init?: HeadersInit): Headers {
   return headers;
 }
 
-function createRequestId(): string {
+export function createRequestId(): string {
   if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
 
   const bytes = crypto.getRandomValues(new Uint8Array(16));
