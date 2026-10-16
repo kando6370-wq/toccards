@@ -527,3 +527,15 @@ Code Review 自查覆盖计数口径、直接请求绕过、存量数据保留�
 - 未运行 Linux／macOS／远端 CI；本机结果仅证明 Windows 11／Node 22.20.0 下的本地回归。生产适配器与 App 代码未变，本轮没有部署或设备交易验收。
 
 详细对照输出位于忽略目录 apps/workers-api/.wrangler/pglite-lifetime/；没有把原始日志或基线源码快照加入 docs。上述定位与验证阶段未执行远端部署、数据库业务操作、依赖升级或 Git commit／push。
+
+<a id="subscription-store-price-rounding"></a>
+
+## 2026-10-16 StoreKit 价格浮点表示导致周卡被过滤
+
+本次从 `codex/dev-1.0.6@e6f986f1` 的干净工作区定位并修复 Flutter 客户端问题。原 test 调试包在 iPhone 13 的完整订阅页与弹窗入口均缺少周卡关联试用；真机读取确认插件和原生 StoreKit 都返回 `cardx.week`，但插件 `rawPrice=3.9899999999999998`，原生 `price_decimal="3.99"`。锁定的 `in_app_purchase_storekit 0.4.11` 将 StoreKit Decimal 经 `NSDecimalNumber.doubleValue` 转为插件金额，原生只读桥接将同一 Decimal 转为字符串；Swift 最小复现显示两种路径落在相邻的 double 值。原 Dart 严格相等校验因此丢弃周卡，关联 `weekly.trial` 的资格虽为 eligible，也无法显示试用切换。这是修复前的真机与转换证据，未将另一路未返回的 `yearly.pro` 归因为同一问题。
+
+修复仅限 iOS 商品事实与插件商品的金额比较：有限、非负价格最多允许 1 ULP 的二进制表示差异，零价还须确认原生十进制字符串确实为零；超过 1 ULP 的差异继续拒绝。Product ID、币种、格式化展示价、类型和周期的校验保留，购买前 `sameTerms` 的十进制金额与资格二次确认没有放宽。Flutter 的 Android 既有隔离路径、原生桥接、API、schema 和商品配置均未改。
+
+验证：`flutter test --no-pub --dart-define-from-file=config/test.json test/subscription_display_test.dart` 退出 0，25 项通过，覆盖真机观测价格、Page／Modal 的关联试用开关、真实差价拒绝、零价下溢拒绝及已有购买前金额变化二次确认；`flutter analyze --no-pub` 退出 0、无问题，`git diff --check` 退出 0。最初一次分析指出新增 `dart:typed_data` 导入多余，移除后重新分析通过。目标本机 Flutter 为 3.44.5，设备为 iPhone 13／iOS 26.6.2。更新后的 `1.0.5+163` test Debug 包通过 `flutter run --no-pub --flavor test --debug -d 00008110-000A242A01A2801E --dart-define-from-file=config/test.json` 在同一设备构建、安装并启动。独立抓屏确认完整页与弹窗均显示 `US$3.99` 普通周卡；完整页下半部抓屏还可见试用开关开启、`START FREE TRIAL`、年订阅和终身商品。试用商品的续费文案为 `US$4.99/周`，与普通周卡当前价格不同，此为两个 StoreKit 商品的实测展示，需按业务预期核对，不属于本次浮点校验修复。弹窗试用开关位于当前抓屏视口以下，未单独看到其实际控件；年商品当前可见不能归因于本次金额修复。
+
+真机调试日志还出现 Firebase Installations 与 Logging 请求超时；App 仍启动并显示订阅页，本轮未排查该独立网络问题。未执行真实购买、Restore、弹窗试用开关的独立真机视口检查、Android 真机或商店签名包验证；本次也未执行 Git push、服务端发布、远程数据库写入或 prod 操作。独立 Code Review 检查了浮点位序、零价、周卡与试用控制器路径、购买前 `sameTerms` 及文档；无阻断性问题。审查建议已收窄上述金额差异表述。

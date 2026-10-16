@@ -339,6 +339,124 @@ void main() {
     },
   );
   test(
+    'StoreKit rounding keeps the weekly trial switch on both pages',
+    () async {
+      const product = SubscriptionProduct(
+        store: SubscriptionStore.appStore,
+        storeProductId: 'cardx.week',
+        title: 'Weekly',
+        description: '',
+        displayPrice: r'$3.99',
+        rawPrice: 3.9899999999999998,
+        currencyCode: 'USD',
+      );
+      final facts = <String, Object?>{
+        'product_id': 'cardx.week',
+        'product_type': 'subscription',
+        'price_decimal': '3.99',
+        'display_price': r'$3.99',
+        'currency_code': 'USD',
+        'period_unit': 'week',
+        'period_value': 1,
+        'group_id': 'weekly-group',
+        'group_level': 2,
+      };
+      final weekly = SubscriptionStoreProduct.fromStore(
+        product,
+        facts,
+        knownTrialProduct: false,
+      );
+      expect(weekly, isNotNull);
+      for (final decimal in ['3.98', '4.00', '3.990000000000001']) {
+        expect(
+          SubscriptionStoreProduct.fromStore(product, {
+            ...facts,
+            'price_decimal': decimal,
+          }, knownTrialProduct: false),
+          isNull,
+        );
+      }
+      const trialProduct = SubscriptionProduct(
+        store: SubscriptionStore.appStore,
+        storeProductId: 'weekly.trial',
+        title: 'Weekly Trial',
+        description: '',
+        displayPrice: r'$3.99',
+        rawPrice: 3.9899999999999998,
+        currencyCode: 'USD',
+      );
+      final trial = SubscriptionStoreProduct.fromStore(trialProduct, {
+        ...facts,
+        'product_id': 'weekly.trial',
+        'trial_unit': 'day',
+        'trial_value': 3,
+      }, knownTrialProduct: true);
+      expect(trial, isNotNull);
+      for (final type in SubscriptionPageType.values) {
+        final model = _model(
+          config: SubscriptionDisplayConfig(
+            pageType: type,
+            trialEnabled: true,
+            trialToggleText: 'Enable trial',
+            skus: [
+              const SubscriptionDisplaySku(
+                productId: 'cardx.week',
+                type: DisplayProductType.subscription,
+                isDefault: true,
+                copy: SubscriptionCopy(name: 'Weekly'),
+                trial: SubscriptionTrial(
+                  productId: 'weekly.trial',
+                  copy: SubscriptionCopy(name: 'Weekly Trial'),
+                ),
+              ),
+            ],
+          ),
+          products: [weekly!, trial!],
+        );
+        addTearDown(model.dispose);
+        await model.load();
+        await Future<void>.delayed(Duration.zero);
+        expect(model.availableSkus.map((sku) => sku.productId), ['cardx.week']);
+        expect(model.showTrialSwitch, isTrue);
+        model.toggleTrial(true);
+        expect(model.selectedCard!.product.id, 'weekly.trial');
+      }
+    },
+  );
+  test('zero price cannot match a nonzero decimal rounded to zero', () {
+    const product = SubscriptionProduct(
+      store: SubscriptionStore.appStore,
+      storeProductId: 'free',
+      title: 'Free',
+      description: '',
+      displayPrice: r'$0.00',
+      rawPrice: 0,
+      currencyCode: 'USD',
+    );
+    final facts = <String, Object?>{
+      'product_id': 'free',
+      'product_type': 'non_consumable',
+      'price_decimal': '0.00',
+      'display_price': r'$0.00',
+      'currency_code': 'USD',
+    };
+    expect(
+      SubscriptionStoreProduct.fromStore(
+        product,
+        facts,
+        knownTrialProduct: false,
+      ),
+      isNotNull,
+    );
+    expect(
+      SubscriptionStoreProduct.fromStore(product, {
+        ...facts,
+        'price_decimal': '0.${'0' * 350}1',
+      }, knownTrialProduct: false),
+      isNull,
+    );
+  });
+  test(
     'native bridge passes exact supported IDs and retains independent trial role when offer disappears',
     () async {
       const channel = MethodChannel('fixture/subscription-products');
