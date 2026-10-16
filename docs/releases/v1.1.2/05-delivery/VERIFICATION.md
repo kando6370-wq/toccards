@@ -383,6 +383,15 @@ billing_product 另外保留 3 条 prod_* 历史映射，但不在当前 dev 环
 - 当时 watcher last-seen／last-deployed 均为 f8afca9，失败标记不存在。后续只含文档的提交可能仅推进 last-seen，部署源码仍以本条 manifest SHA 为准。
 - 未验范围：没有真实 Admin 登录态的新增／编辑／启用操作，没有真机扫描、StoreKit 价格／资格、购买／Restore／收入或旧包新增商品恢复；没有发布 Flutter 签名包、营销站或 prod。目录读取和健康响应不代表这些业务验收完成。本轮仅履行新模块 dev 部署且保持不生效的范围。
 
+## 2026-10-15：iOS 测试环境内部安装包 1.0.5 (166)
+
+- 构建输入：从构建前干净且与远端一致的 `dev@7dc6a1bd2557f505f1efd01c53a0c536165d90f9` 构建。源码版本为 `1.0.5+163`，但测试包保存目录已有 164、165，因此显式执行 `./tool/release_ios.sh --env test --pgy --build-number 166`，避免默认构建号碰撞。脚本在全部制品门禁通过后将 `apps/flutter-app/pubspec.yaml` 同步为 `1.0.5+166`。
+- 环境与依赖：`config/test.json` 校验通过，dev health `http://192.168.50.201:8080/api/v1/health` 返回 `status=ok`。`flutter pub get` 没有改变锁定依赖；根 `pubspec.lock` 与 iOS `Podfile.lock` 构建前后 SHA-256 分别保持为 `0d85580159d1c598b6a61e32f9ad77c6a5013eaeb586ac29d9836d8b7e379021` 和 `d0879ca1f7222cbc2de5bd0d33a414c834eaec2235f469322ffd171ab0f75793`。当前清理构建没有 Google ML Kit Pods 或对应模拟器架构提示；`sign_in_with_apple` 尚未支持 Swift Package Manager 的工具链提示不阻断本次 CocoaPods 真机 IPA。
+- 本地验证：Flutter 3.44.5／Dart 3.12.2。`flutter analyze` 与发布脚本内第二次分析均通过；共享 `subscription-core` 使用 `flutter test` 运行 11 项全部通过。App 的发布配置、环境、订阅展示／恢复／启动与 Profile 相关 8 个测试文件共 216 项，其中 212 项通过；4 项 Golden 像素对比失败，分别为 Profile 升级横幅 3.48%、订阅成功 300ms 帧 0.04%、订阅配置底部页 2.36%、订阅成功页 1.54%，本轮没有擅自更新 Golden。最初误用 `dart test` 运行依赖 `flutter_test` 的共享包时因缺少 `dart:ui` 无法加载，已改用正确的 `flutter test` 并通过，不把前一次无效调用记为业务测试通过。
+- 构建结果：依赖解析、清理、Xcode Archive、IPA 导出、签名校验与保存流程均退出 0。对保存产物的独立只读审计确认 `com.kando.kandoApp.beta / 1.0.5 (166)`、最低 iOS 16、Apple Development 签名、`get-task-allow=true`、App Attest `development`，包含测试 Firebase `card-ai---test` 与 dev API `http://192.168.50.201:8080/api/v1`；描述文件包含 6 台设备。IPA 的 42 个唯一 Mach-O UUID 均有匹配 dSYM，缺失和额外 UUID 均为 0；压缩包内两个完全重复的 dSYM 条目不影响 42/42 覆盖或符号化。
+- 保存与保留：IPA 为 39,936,383 字节，SHA-256 `468605552ee72703ee09c9803a9575547f9c75be263ae6f1494ba407b3962d7c`；`dSYMs.zip` 为 61,179,019 字节，SHA-256 `d24d0c9ff709de866a5f6fee4be87ff8ce2ec409b0cf6ddb6a7eb61a10a1afec`。两份 ZIP 完整性检查通过，保存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.5-166/`。新版本完整保存后，旧 162 版移入废纸篓；当前保留 164、165、166，正式包及 Xcode Archives 不受影响。
+- 边界：本次没有安装设备、上传蒲公英／TestFlight／App Store Connect、提交或推送 Git，也没有部署或修改服务端。没有运行全量 Flutter／Android 测试，未执行 iOS 真机登录、订阅价格／资格、购买／Restore、扫描或崩溃上报端到端验收；4 项 Golden 失败仍是明确的未关闭验证项。
+
 <a id="subscription-config-sku-limit"></a>
 
 ## 2026-10-15 页面展示 SKU 最多 3 个（本地验证）
