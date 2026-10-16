@@ -1,10 +1,10 @@
+import { allowedAppleProductIds, approvedAppleProducts } from "./apple-product-policy";
 import { Hono, type Context } from "hono";
 import type { Env } from "../env";
 import { createId } from "../id";
 import {
   classifyAppleVerificationFailure,
   appleDatabaseEnvironments,
-  configuredProductIds,
   createAppleNotificationVerifier,
   Environment,
   type AppleNotificationVerifierConfiguration,
@@ -265,7 +265,16 @@ export async function processAppleNotificationInbox(
 
   const originalTransactionId = transaction?.originalTransactionId ?? renewal?.originalTransactionId ?? null;
   const transactionId = transaction?.transactionId ?? null;
-  const productId = notificationProductId(env, envelope, transaction, renewal);
+  let allowed: ReadonlySet<string> | null;
+  const subscriptions = new Set(PLAN_CHANGE_PRODUCT_IDS[env.APP_ENVIRONMENT === "production" ? "production" : "development"]);
+  try {
+    allowed = await allowedAppleProductIds(env);
+    for (const p of await approvedAppleProducts(env)) if (p.product_type === "subscription") subscriptions.add(p.product_id);
+  } catch {
+    await failInbox(env.DB, inboxId, environment, "processing_failed", "PRODUCT_POLICY_UNAVAILABLE");
+    return;
+  }
+  const productId = notificationProductId(envelope, transaction, renewal, subscriptions, allowed);
   const decodedPayload = JSON.stringify({ notification, transaction, renewal_info: renewal });
   try {
     await env.DB.prepare(`
@@ -285,7 +294,11 @@ export async function processAppleNotificationInbox(
       inboxId, appBundleId, environment,
     ).run();
 
-    const createsTransactionOrder = createsOrder(envelope, transaction, renewal);
+    if (transaction?.productId && !allowed?.has(transaction.productId)) {
+      await completeInbox(env.DB, inboxId, environment, envelope.notificationUuid, "correction_required", now);
+      return;
+    }
+    const createsTransactionOrder = createsOrder(envelope, transaction, renewal, subscriptions);
     const amountMicros = applePriceMicros(transaction?.price);
     if (createsTransactionOrder && transaction?.transactionId && transaction.price === undefined) {
       console.warn("Apple transaction price is missing", {
@@ -307,6 +320,7 @@ export async function processAppleNotificationInbox(
       notification.data?.signedTransactionInfo ?? null,
       now,
       usd,
+      subscriptions,
     );
     await completeInbox(env.DB, inboxId, environment, envelope.notificationUuid, outcome, now);
   } catch {
@@ -321,10 +335,10 @@ export async function processAppleNotificationInbox(
 }
 
 function notificationProductId(
-  env: Pick<Env, "APP_ENVIRONMENT" | "APPLE_IAP_PRODUCT_IDS">,
   envelope: Envelope,
   transaction: JWSTransactionDecodedPayload | null,
   renewal: JWSRenewalInfoDecodedPayload | null,
+  subscriptions: ReadonlySet<string>, allowed: ReadonlySet<string> | null,
 ): string | null {
   const sourceProductId = transaction?.productId ?? renewal?.productId ?? null;
   if (
@@ -335,10 +349,7 @@ function notificationProductId(
 
   const targetProductId = renewal?.autoRenewProductId;
   if (!targetProductId) return sourceProductId;
-  const environment = env.APP_ENVIRONMENT === "production" ? "production" : "development";
-  const configuredProducts = configuredProductIds(env.APPLE_IAP_PRODUCT_IDS);
-  return PLAN_CHANGE_PRODUCT_IDS[environment].has(targetProductId) &&
-      configuredProducts?.has(targetProductId)
+  return subscriptions.has(targetProductId) && allowed?.has(targetProductId)
     ? targetProductId
     : sourceProductId;
 }
@@ -393,10 +404,11 @@ async function consumeNotification(
   signedTransaction: string | null,
   now: Date,
   usd: BillingUsdSnapshot | null,
+  subscriptions: ReadonlySet<string>,
 ): Promise<ConsumptionOutcome> {
   const originalTransactionId = transaction?.originalTransactionId ?? renewal?.originalTransactionId;
   const lifecycle = lifecycleFor(envelope, transaction, renewal);
-  const createsTransactionOrder = createsOrder(envelope, transaction, renewal);
+  const createsTransactionOrder = createsOrder(envelope, transaction, renewal, subscriptions);
   const updatesRenewal = envelope.notificationType === "DID_CHANGE_RENEWAL_STATUS";
   const updatesPlan = envelope.notificationType === "DID_CHANGE_RENEWAL_PREF";
   const expiredBillingRetryAutoRenew = envelope.notificationType === "EXPIRED" &&
@@ -734,6 +746,7 @@ function createsOrder(
   envelope: Envelope,
   transaction: JWSTransactionDecodedPayload | null,
   renewal: JWSRenewalInfoDecodedPayload | null,
+  subscriptions: ReadonlySet<string>,
 ): boolean {
   if (
     envelope.notificationType === "SUBSCRIBED" ||
@@ -744,10 +757,8 @@ function createsOrder(
     envelope.notificationType !== "DID_CHANGE_RENEWAL_PREF" ||
     envelope.subtype !== "UPGRADE" && envelope.subtype !== null && envelope.subtype !== ""
   ) return false;
-  return Object.values(PLAN_CHANGE_PRODUCT_IDS).some((products) =>
-    !!transaction?.productId && !!renewal?.autoRenewProductId &&
-    products.has(transaction.productId) && products.has(renewal.autoRenewProductId)
-  );
+  return !!transaction?.productId && !!renewal?.autoRenewProductId &&
+    subscriptions.has(transaction.productId) && subscriptions.has(renewal.autoRenewProductId);
 }
 
 function validTransaction(

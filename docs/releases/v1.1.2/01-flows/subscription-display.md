@@ -30,7 +30,18 @@ iOS 的 Page、Modal 各自创建配置快照与选择状态。配置接口按 t
 
 购买监听、启动权益读取、当前会话同步及 Restore 使用完整长期集合；页面只加载其中当前展示所需的商品。关闭配置、删除卡片不缩小权益支持集合。新非消耗型按明确注册类型判断永久权益，不解析 ID 名称。Restore 现有阶段与局部 25 秒超时保持，没有新增端到端 Restore deadline。
 
-本轮没有填写任何新真实 ID、改写 test／production 构建参数或扩展 Singular 映射。新商品需补齐 Apple、服务端准入、客户端长期注册、收入命名和旧包支持口径后再发布。既有验证交易、权益和收入处理仍复用，Restore 不计新收入。
+第三阶段最初未填写新真实 ID；2026-10-15 用户确认 dev 接入 weekly.trial 与 yearly.pro，并授权按现有惯例生成周试用的 test 收入事件名。test.json 的长期注册增加如下映射，原 cardx.week／cardx.year／cardx.lifetime 继续保留：
+
+| Product ID | plan_id | 类型 | is_trial_product | dev Singular 收入事件 |
+| --- | --- | --- | --- | --- |
+| weekly.trial | weekly_trial | subscription | true | card_weekly_trialtest |
+| yearly.pro | yearly_pro | subscription | false | yearly_cardtest |
+
+长期支持集合包含五个商品，页面仍按后台最多三张卡片展示；关联试用不变成第四张卡片。Page／Modal 的现有兜底继续使用原三商品、原顺序和 Yearly 默认项。production 构建参数未改，Android 仍不消费 Apple 配置。
+
+新增 dev 收入事件按确认成功交易的实际 Product ID 匹配；weekly.trial 使用 card_weekly_trialtest，yearly.pro 沿用年订阅的 yearly_cardtest，原三档事件不变。生产尚未注册这两个新 ID，不自动套用 dev 映射。收入金额仍来自已确认交易的 JWS，零元试用按 0 上报；重试队列接受 weekly_trial／yearly_pro，保留原有交易去重、失败后重启重试与 Restore 不计新收入的规则。Firebase 沿用原事件与真实交易字段。
+
+上述是客户端实现与接入契约，dev 环境落地、商品准入及实际验证见[本版本记录](../05-delivery/VERIFICATION.md#dev-subscription-product-onboarding)。旧包新增商品支持、签名测试包、真机购买／恢复及外部平台实际收到收入仍需独立验收。
 
 ## 兜底与平台边界
 
@@ -45,3 +56,12 @@ Page／Modal 的正式 1.0.6 兜底尚未定稿。代码为两类页面分别创
 - [Flutter 消费验证](../05-delivery/VERIFICATION.md#subscription-config-flutter)、[iOS 原生编译补验](../05-delivery/VERIFICATION.md#subscription-config-ios-compile)。
 
 Apple 字段已核对官方 Product.SubscriptionInfo、groupLevel、Product.priceFormatStyle 文档；groupLevel 从 iOS 16.4 可用。资格调用锁定的 in_app_purchase_storekit 0.4.11 SDK，未升级依赖。
+
+
+## 2026-10-16 动态商品注册增量（本地源码）
+
+新增长期注册表接口由超级管理员逐个审批产生，iOS 在初始化、展示未知商品和 Restore 时读取。缓存键包含 API 地址、development／production 和实际 Bundle ID；响应 scope 不匹配或内容无效时拒绝，网络失败保留此前同 scope 的批准缓存及包内商品。已批准商品不会随页面删除而移出恢复集合。新版客户端需随本次实现更新一次，之后新增受支持的订阅 SKU 无需逐次改 dart-define 或重发包；现有包内注册和 Page／Modal 原兜底保持。
+
+购买客户端采用追加注册，保留既有购买监听、历史计划和事件处理；同 Product ID 的包内计划标识保持稳定，冲突类型／重复计划拒绝整次更新。新 SKU 的 Singular 事件名由当前环境审批确认，并随收入交易记录持久化，离线／重启重试不重新猜测名称；金额、交易去重及 Restore 不计新增收入保持原规则。Firebase 保留原事件结构。Android 不读取 Apple 注册表，不新增 Google 售卖。
+
+1.0.4／1.0.5 原商品继续使用原 V1；它们原生桥接会过滤包内未知 Product ID，因此新 SKU 回到旧包后的 Restore 无法通过服务端单独修复。该限制须由产品／超级管理员在启用新 SKU 前确认，源码测试不替代真实旧包和 StoreKit 验收。

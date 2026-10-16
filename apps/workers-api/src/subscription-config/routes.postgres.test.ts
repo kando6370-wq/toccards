@@ -67,7 +67,7 @@ beforeAll(async () => {
 }, 30_000);
 afterAll(async () => { info?.mockRestore(); await db?.close(); });
 beforeEach(async () => {
-  await db.exec("DELETE FROM subscription_display_active; DELETE FROM subscription_display_config; DELETE FROM subscription_display_mutation; DELETE FROM billing_product;");
+  await db.exec("DELETE FROM subscription_display_active; DELETE FROM subscription_display_config; DELETE FROM subscription_display_mutation; DELETE FROM billing_product; DELETE FROM app_config;");
   for (const [productId, type] of [["paid.week", "subscription"], ["trial.week", "subscription"], ["lifetime", "non_consumable"]]) {
     await db.prepare("INSERT INTO billing_product (id, store, product_id, plan_id, entitlement_id, product_type, active, created_at, updated_at) VALUES (?, 'app_store', ?, ?, 'performance_pro', ?, 1, ?, ?)")
       .bind(productId, productId, productId, type, "2026-10-14", "2026-10-14").run();
@@ -353,5 +353,66 @@ describe("subscription configuration APIs on PostgreSQL", () => {
     expect(response.status).toBe(413);
     expect((await publicConfig({ type: "invalid" })).status).toBe(422);
     expect((await call("/admin/subscription-products?type=bad")).status).toBe(422);
+  });
+});
+
+
+describe("super-admin product onboarding", () => {
+  const scopedEnv = () => ({ ...env, APP_STORE_CONNECT_APP_ID: "456" });
+  const admission = (overrides: Record<string, unknown> = {}) => ({
+    request_id: crypto.randomUUID(), product_id: "cardx.month", product_type: "subscription",
+    expected_scope: "development:example.app", singular_event_name: "card_monthlytest",
+    acknowledge_legacy_restore_limit: true, ...overrides,
+  });
+  const admit = (body = admission(), options = {}) => call("/admin/subscription-products/admit", "POST", body,
+    { env: scopedEnv(), token: supervisor, ...options });
+  beforeEach(() => {
+    const catalog = catalogFixture();
+    catalog.products.push({ ...catalog.products[0], product_id: "cardx.month", period: "ONE_MONTH" });
+    catalogLoader.mockResolvedValue(catalog);
+  });
+  it("registers an Apple SKU without editing environment lists and retains it after hiding the paywall", async () => {
+    const e = scopedEnv();
+    const config = displayFixture(); config.trial_enabled = false;
+    config.skus = [{ ...config.skus[0], product_id: "cardx.month", trial: null }];
+    const created = await create(config, crypto.randomUUID(), { env: e });
+    expect((await enable(created.body.data.id, 0, 1, { env: e })).body.error?.code).toBe("PRODUCT_NOT_ADMITTED");
+    const approved = await admit();
+    expect(approved.status).toBe(200);
+    expect(e.APPLE_IAP_PRODUCT_IDS).not.toContain("cardx.month");
+    expect((await enable(created.body.data.id, 0, 1, { env: e })).status).toBe(200);
+    expect((await publicConfig({ env: e })).body.data.skus[0].product_id).toBe("cardx.month");
+    await enable(null, 1, null, { env: e });
+    const registry = await call("/subscription-supported-products?platform=ios", "GET", undefined, { env: e, token: null });
+    expect(registry.body.data.products).toContainEqual(expect.objectContaining({ product_id: "cardx.month", singular_event_name: "card_monthlytest" }));
+    expect(await db.prepare("SELECT active, entitlement_id, product_type FROM billing_product WHERE product_id = 'cardx.month'").first())
+      .toEqual({ active: 1, entitlement_id: "performance_pro", product_type: "subscription" });
+  });
+  it("requires super-admin, explicit scope and legacy acknowledgement before any billing write", async () => {
+    expect((await admit(admission(), { token: operator })).status).toBe(403);
+    expect((await admit(admission({ expected_scope: "production:example.app" }))).status).toBe(409);
+    expect((await admit(admission({ acknowledge_legacy_restore_limit: false }))).status).toBe(422);
+    expect((await admit(admission({ product_id: "not.in.apple" }))).status).toBe(422);
+    expect(await db.prepare("SELECT id FROM billing_product WHERE product_id = 'cardx.month'").first()).toBeNull();
+  });
+  it("does not copy dev approvals into prod or another Bundle, including shared PostgreSQL and Sandbox", async () => {
+    expect((await admit()).status).toBe(200);
+    for (const other of [{ ...scopedEnv(), APP_ENVIRONMENT: "production" as const }, { ...scopedEnv(), APPLE_IAP_BUNDLE_ID: "other.app" }]) {
+      const response = await call("/subscription-supported-products?platform=ios", "GET", undefined, { env: other, token: null });
+      expect(response.body.data.products).toEqual([]);
+      const catalog = await call("/admin/subscription-products?type=subscription", "GET", undefined, { env: other });
+      expect(catalog.body.data.products.find((p: any) => p.product_id === "cardx.month").admission.admitted).toBe(false);
+    }
+    expect((await call("/subscription-supported-products?platform=google", "GET", undefined, { env: scopedEnv(), token: null })).body.data.products).toEqual([]);
+  });
+  it("replays the same approval and rejects conflicting mappings without overwriting them", async () => {
+    const body = admission();
+    const result = await admit(body);
+    expect(result.status).toBe(200);
+    expect((await admit(body)).body).toEqual(result.body);
+    expect((await admit({ ...body, singular_event_name: "changed" })).status).toBe(409);
+    await db.exec("UPDATE billing_product SET entitlement_id = 'other' WHERE product_id = 'cardx.month'");
+    expect((await admit(admission())).body.error?.code).toBe("PRODUCT_MAPPING_CONFLICT");
+    expect(await db.prepare("SELECT entitlement_id FROM billing_product WHERE product_id = 'cardx.month'").first("entitlement_id")).toBe("other");
   });
 });

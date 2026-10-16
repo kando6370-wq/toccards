@@ -140,6 +140,14 @@ pnpm test:app-compatibility
 
 仅兼容任务的新增实际结果，合入本节简短摘要，记录日期／提交／环境／命令／结果／未验范围；不要重新创建独立兼容测试说明、VERIFICATION 文件或过程日志。
 
+### 2026-10-16 动态商品准入的兼容补证
+
+基线为 codex/dev-1.0.6@67387fc 加本地未提交改动。新增审批／长期注册接口采用 V1 兼容增量，原购买、Restore、生命周期与 app-config 请求字段保持；旧 APPLE_IAP_PRODUCT_IDS 作为兼容集合，与当前环境／Bundle 的审批集合合并，不按展示列表移除历史权益。
+
+Windows 本地执行 pnpm test:app-compatibility 退出 0：当前 PostgreSQL API 合同 8 项，固定 1.0.4+161 与 1.0.5+163 的 Dart 合同各 24 项通过，证据位于忽略目录 .dart_tool/app-compatibility/run-l8jJ82。此编排覆盖既有配置、目录／价格、文件夹与额度等源码场景，不覆盖正式包 StoreKit 交易。新增 PostgreSQL 合同测试另验证 V1 格式的新 SKU Fresh Purchase、App Attest Restore、session／环境隔离和升级通知，Apple 验签器为注入测试替身，不能记为真实 Apple 签名或真机验收。
+
+固定旧源码仍以包内 Product ID 过滤 current entitlements；服务端升级无法使 1.0.4／1.0.5 恢复未知的新 SKU。超级管理员审批必须明确确认这一支持边界；新客户端完成一次含动态注册能力的更新后，后续批准的订阅可无需逐 SKU 重发包。未执行真实旧包、签名 IPA、真机、StoreKit 购买／恢复及生产验收；本轮未部署 dev/prod。
+
 ## 7. 完成标准与交付说明
 
 一项具体兼容开发完成，应满足：

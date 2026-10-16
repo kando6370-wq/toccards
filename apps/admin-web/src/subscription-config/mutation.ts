@@ -1,7 +1,7 @@
 import type { Editor, FieldIssue, SubscriptionRequest } from "./model";
 
 export type PendingOperation = {
-  version: 1; kind: "create" | "save" | "activate"; path: string; method: "POST" | "PUT";
+  version: 1; kind: "create" | "save" | "activate" | "admit"; path: string; method: "POST" | "PUT";
   body: Record<string, unknown> & { request_id: string }; editor: Editor | null; baseline: string;
 };
 export type MutationFailure = { code: string; message: string; status?: number; fields?: FieldIssue[] };
@@ -24,13 +24,13 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{1
 export function parsePendingOperation(value: string | null): PendingOperation | null {
   if (value === null) return null;
   const op = JSON.parse(value) as PendingOperation;
-  const pathValid = (op.kind === "create" && op.method === "POST" && op.path === "/subscription-configs") ||
+  const pathValid = (op.kind === "admit" && op.method === "POST" && op.path === "/subscription-products/admit") || (op.kind === "create" && op.method === "POST" && op.path === "/subscription-configs") ||
     (op.kind === "save" && op.method === "PUT" && /^\/subscription-configs\/[0-9A-HJKMNP-TV-Z]{26}$/.test(op.path)) ||
     (op.kind === "activate" && op.method === "PUT" && /^\/subscription-configs\/active\/(page|modal)$/.test(op.path));
   if (op.version !== 1 || !pathValid || !op.body || !UUID.test(op.body.request_id) || typeof op.baseline !== "string") {
     throw new Error("无法读取原操作记录，请保留当前页面并联系支持，勿重复提交。");
   }
-  if (op.kind !== "activate" && (!op.editor || !op.editor.body || !Array.isArray(op.editor.body.skus) ||
+  if (((op.kind !== "activate" && op.kind !== "admit") || op.editor != null) && (!op.editor || !op.editor.body || !Array.isArray(op.editor.body.skus) ||
       typeof op.editor.body.name !== "string" || op.editor.body.schema_version !== 1)) {
     throw new Error("原操作的编辑记录不完整，请保留记录并联系支持。");
   }

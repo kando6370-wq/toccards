@@ -409,3 +409,152 @@ Flutter 首次运行有 1 个新增用例失败：测试夹具的原始 List 在
 Code Review 自查覆盖计数口径、直接请求绕过、存量数据保留、默认项／顺序、幂等失败、公开读取兜底与 iOS／Android 边界，未发现本增量阻断项。相关规则已同步至服务端合同、Admin 文档与 Flutter 流程；原始 PRD 和原型保持原样。
 
 本轮未运行真实浏览器登录交互、远程 API、真机交易、新 iOS／Android 构建或完整旧包兼容矩阵；本地用例不替代这些验收。未执行 Git commit／push、远程数据库迁移或 dev／prod 发布。
+
+<a id="weekly-trial-admission-preparation"></a>
+
+## 2026-10-15 周试用商品准入核查与客户端注册准备
+
+本地来源为 `codex/dev-1.0.6@a522668` 加本轮未提交改动。按用户授权，先核查 dev，再准备 `cardx.week → weekly.trial` 接入；没有把目录可读、客户端注册或本地测试写成已可购买。
+
+### dev 只读核查
+
+- 17:00 SSH 回读：current 指向 `branch-dev-e53f75c30ffc-20261015163152`，manifest／watcher last-seen／last-deployed 均为 `e53f75c30ffc3004e4e9d7b7436f862fccd1ccca`，失败标记不存在；API／DB healthy、Web running、migrate exited/0。此次只是回读既有 watcher 发布结果，未手工重发，也未逐字节核对全部运行产物。
+- PostgreSQL 查询显式使用只读事务和只读会话，确认独立 toccards_test／PostgreSQL 18.6，ledger 15 项、最新 0014。billing_product 仍为原 6 条 App Store 映射，weekly.trial、yearly.pro 均无映射；没有读取用户订单、购买明细或执行写库。
+- 实际 API 容器的 APPLE_IAP_PRODUCT_IDS 仍为 cardx.week、cardx.year、cardx.lifetime，SUBSCRIPTION_DISPLAY_PRODUCT_IDS 未设置。shared/.env 权限 600；17:16 回读 release 未变，环境文件 SHA-256 仍为 19496cce4b00b2bbfabb7af8330b7075ba86c23a86d83ac3c8d4b2ccb3d0048f。凭据只在服务器原有环境内使用，没有输出私钥、Issuer、Key 或 JWT。
+- 从实际 API 容器以当前源码 createAppleCatalogLoader 做只读诊断，App／组／订阅／优惠／Lifetime 共 9 次 GET 全部 200；未修改 Apple 商品。App 6790245922、Bundle com.kando.kandoApp.beta、组 22251901。cardx.week 与 weekly.trial 均为 ONE_WEEK、等级 2；后者有 175 个地区的 FREE_TRIAL／THREE_DAYS／1 期，起始 2026-10-12、无结束日期，当前 validateCatalogReferences 返回空问题列表。yearly.pro 当前为 ONE_YEAR／等级 4。返回商品状态仍为 MISSING_METADATA；未以真实 StoreKit 查询当前账户资格、价格或可购买性。
+- 当前 Page 草稿 id 为 01M4ZAZ65YY55VJNH8XTM73AQ3、revision=2、不生效；三张卡片为 cardx.week（关联 weekly.trial）、yearly.pro、cardx.lifetime。该年商品与既定周试用接入范围不同，本轮保留用户选择，未替换为 cardx.year、注册额外商品或启用草稿。
+
+按当前运行配置、数据库与源码准入条件逐项核对：
+
+| 草稿涉及商品 | 购买白名单 | active Premium 映射 | 展示准入名单 |
+| --- | --- | --- | --- |
+| cardx.week | 已有 | 已有，plan_id=weekly | 未配置 |
+| weekly.trial | 缺少 | 缺少 | 未配置 |
+| yearly.pro | 缺少 | 缺少 | 未配置 |
+| cardx.lifetime | 已有 | 已有，plan_id=lifetime | 未配置 |
+
+局域网 HTTP 独立回读：health 200／status=ok；Page／Modal 均为 200、success=true、data=null，且 no-store。该结果确认没有生效配置，不表示新商品购买已验收。
+
+### 本地准备及验证
+
+- test.json 增加长期注册 weekly_trial → weekly.trial，product_type=subscription、is_trial_product=true；保留原三个商品。使用既有注册能力，不扩展展示卡片、不改 production 配置、不增加接口或 migration。新增回归读取实际 test 构建文件，验证四个长期支持商品、独立 plan_id、试用身份、三卡兜底顺序及 Yearly 默认项。
+- Flutter 目录执行 `flutter test --no-pub --dart-define-from-file=config/test.json test/subscription_display_test.dart test/subscription_restore_ui_test.dart test/subscription_singular_events_test.dart`，退出 0，68 项通过；现有 Android 隔离与原收入事件回归包含在内，不代表新增收入映射已完成。
+- `flutter analyze --no-pub test/subscription_display_test.dart` 退出 0，No issues found。未修改服务端代码，因此未重复执行服务端全量测试。
+- 当前 Singular 仅按 weekly／yearly／lifetime 映射事件；本轮没有猜测新 test 事件名称或借用原 weekly 档位。新商品收入命名仍按 PRD 10.7 等待确认。
+
+待明确：yearly.pro 是否一并接入；weekly.trial 的 dev 收入事件名称。确认后再完成对应收入映射、dev 白名单／权益映射／展示准入和测试配置启用。旧包新增商品支持、Mac 签名测试包与真机 Sandbox 购买／恢复仍待验；本轮没有远端配置或业务数据写入、Git commit／push、iOS／Android 构建、App 发布或 prod 操作。
+
+<a id="dev-subscription-product-onboarding"></a>
+
+## 2026-10-15 周试用与新年订阅的 dev 接入
+
+用户明确将 yearly.pro 纳入本轮，并授权生成 weekly.trial 的 dev 收入事件名称。按既有 test 后缀约定采用 card_weekly_trialtest；yearly.pro 沿用年订阅事件 yearly_cardtest，以实际 Product ID 区分商品。前一节待确认事项已由本次授权解除；旧包新增商品支持和真机验收边界继续保留。
+
+### 本地实现与验证
+
+- 来源为 codex/dev-1.0.6@a522668 加本轮未提交改动；test.json 长期支持集合追加 weekly_trial → weekly.trial（试用商品）和 yearly_pro → yearly.pro（普通年订阅），原三商品保持。两个新 plan_id 独立且不占用 weekly／yearly。Page／Modal 兜底仍为原三卡、原顺序和 Yearly 默认项；正式配置仍遵守最多三张展示卡片。
+- Singular 的两个新 dev 映射按实际成交 Product ID 分支，生产未注册这两个新 ID，原三档事件不变。Firebase／Singular 共用收入记录反序列化补入两个 plan_id，避免 SDK 发送失败后新档位记录在重启时被丢弃；交易 JWS 金额、零值、币种、去重和 Restore 不计新收入保持原规则。
+- Flutter 目录执行 `flutter test --no-pub --dart-define-from-file=config/test.json test/subscription_display_test.dart test/subscription_restore_ui_test.dart test/subscription_singular_events_test.dart test/subscription_singular_revenue_test.dart test/subscription_revenue_reporter_test.dart test/subscription_analytics_test.dart`，退出 0，101 项通过。新增用例覆盖实际商品 ID 选事件、dev／prod 隔离、零元试用、两个新档位的持久化与重启重试、重复回调只上报一次、Restore 不新增收入以及原商品／Android 行为。
+- `flutter analyze --no-pub` 针对 subscription_singular_events.dart、subscription_revenue_reporter.dart 及四个受影响测试文件，退出 0，No issues found。根 `pnpm lint`、`pnpm type-check` 均退出 0；类型任务 7 项成功，其中 5 项命中缓存、Admin／Workers 实际执行。六个 Dart 文件格式检查及 `git diff --check` 通过。本轮注册、事件映射及重试队列修改的 Code Review 自查通过；联查发现的新 SKU 订阅切换限制单列于下文，不将其记为已支持。无原生工程、API 协议、schema 或 migration 源码变化；未重复运行服务端全量或完整旧包兼容矩阵。
+
+### 17:50–17:51 dev 数据与配置落地
+
+- 17:30 回读并在 17:43 用当前服务端实现再次核查：current／manifest 仍为 branch-dev-e53f75c30ffc-20261015163152；PostgreSQL 会话明确 read-only=on，Apple 目录 9 次 GET 均为 200，草稿结构与商品关系校验通过。两个新商品的三项准入当时均未满足。
+- 变更时持有 watcher/watch.lock 与 shared/deploy.lock；先确认目标为独立 toccards_test、development／com.kando.kandoApp.beta，环境文件和 API 运行配置一致、当前镜像 tag 没有漂移。未改 watcher 分支、计划或状态文件。
+- 私有环境逐字节备份至 `/home/user/apps/toccards-test/shared/.env.before-product-onboarding-20261015T095058Z`，权限 600。目标 billing_product 表另以 pg_dump custom／data-only 备份至 `/home/user/apps/toccards-test/backups/billing-product-before-onboarding-20261015T095058Z.dump`，1417 字节、SHA-256 b492be719a55e48e804d2c5b888ef2c94a392c5ac12f33c5bedbf5c2af1ae260；pg_restore --list 成功确认 TABLE DATA public billing_product。另保留同名前缀 JSON 原记录快照。此为目标表定向备份，不是全库备份，未做恢复演练。
+- 在显式事务和表锁下确认备份后的原记录未变，再 INSERT 两条 App Store 商品映射：weekly.trial／weekly_trial 与 yearly.pro／yearly_pro；两者均为 subscription、active=1、entitlement_id=performance_pro。原六条记录逐字段保持，表记录数变为八条。没有改订单、已有购买权益或迁移 ledger。
+- 仅把 APPLE_IAP_PRODUCT_IDS 扩为 cardx.week,cardx.year,cardx.lifetime,weekly.trial,yearly.pro，并新增相同集合的 SUBSCRIPTION_DISPLAY_PRODUCT_IDS。候选 Compose 解析与原配置全量比较，仅 API 的这两项环境值变化，其他环境及服务定义不变。原凭据保留、权限／属主／组保留，原子替换 shared/.env；文件 SHA-256 从 19496cce4b00b2bbfabb7af8330b7075ba86c23a86d83ac3c8d4b2ccb3d0048f 变为 aa18acda180ef63978529f52f36bd03a10434d36f344308f9444db45d7963346。
+- 使用现有两份 Compose 文件执行仅 api 的 `up -d --no-deps --no-build --pull never api`，API 恢复 healthy。镜像 ID 与原值相同，运行 /app/server.mjs 的 SHA-256 仍为 6cc72299a50fbf77d8af7d64d37b5eb60ac8e4ff243a3de667133beed7d2b7f7；DB／Web／migrate 容器 ID 未变，未 build／pull／migrate 或发布新 API／Admin 产物。锁在操作结束后释放。失败预案可恢复原环境并按原镜像重载，本轮未触发；不自动删除已经新增的商品映射以免破坏后续购买引用。
+
+### 独立回读与待验边界
+
+- 17:53 从新 API 容器再次运行当前目录／productAdmission／配置校验实现，使用实际 PostgreSQL 只读连接，Apple 9 次 GET 均为 200。原三个商品与 weekly.trial／yearly.pro 五项均 admitted=true、reasons=[]；草稿实际引用的四个购买商品均通过准入，catalogIssues=[]。本轮未纳入的 cardx.month 仍未准入。此项是容器内实际函数与真实数据库验证，不冒充已通过登录态的 Admin HTTP 请求。
+- 17:59 独立 SSH 回读：环境哈希及 600 权限正确；release／watcher last-seen／last-deployed 仍为 e53f75c，failed-sha／failed-at 均不存在。API／DB healthy、Web running、migrate exited/0；ledger 仍为 15 项、最新 0014，billing_product 八条，生效配置数 0，原 Page 草稿 revision 仍为 2。局域网 health、Page／Modal 读取均为 200，两个展示接口仍 success=true、data=null。
+- 使用已有 Chrome 后台标签页刷新商品目录时，页面转至登录界面，当前没有可用 Admin 登录态；未填写或猜测后台密码，未通过 SQL 绕过配置启用流程。原草稿仍不生效，待重新登录后继续页面提示和启用验收。浏览器中旧警告的消失尚未取得登录态 UI 证据，不用后端函数检查代替该验收。
+- 联查当前回调源码：独立 Cloudflare relay 只转发签名原文，没有另一份 Product ID 白名单；Linux 的普通 SUBSCRIBED／DID_RENEW 建单复用配置和权益映射。但 apple-notification-routes.ts 的 PLAN_CHANGE_PRODUCT_IDS 仍仅包含既有周／年商品，DID_CHANGE_RENEWAL_PREF 的目标识别和升级补单分支尚未扩展到 weekly.trial／yearly.pro。本轮未改动该服务端生命周期分支，不能把准入通过视为新 SKU 升级／降级通知支持完成；完整订阅切换验收前须补齐对应实现与回归。
+- Apple 商品目录仍显示 MISSING_METADATA，真实 StoreKit 地区价格、资格、购买／恢复和 Singular／Firebase 平台实际接收未验。当前为 Windows 环境，尚未构建新的 Mac 签名测试包或做真机验证；本地代码尚未 Git commit／push。未操作 prod、营销站、Apple 商品设置或发布 Flutter App。
+
+
+<a id="subscription-dynamic-admission"></a>
+
+## 2026-10-16 动态商品准入（本地实现与验证）
+
+### 需求与定位
+
+基线为干净的 codex/dev-1.0.6@67387fc，以下验证结果在提交前的增量工作区取得。用户确认 weekly.trial／yearly.pro 已在上一轮 dev 接入后恢复；当前未准入对象为 cardx.month，并明确采用“超级管理员逐 SKU 审批”，要求区分 dev/prod。原提示来自购买环境名单、展示审批名单和 active billing_product 三重条件，缺少后台接入流程；客户端还只消费构建时注册集合，通知升降级分支也有固定商品范围。此项按用户确认的功能迭代补齐准入能力，不将原先的审批拦截简单删除。
+
+### 实现与审查
+
+- 新增超级管理员审批 API，重新校验 Apple 目录，核对 expected_scope、Premium 类型、收入事件和旧包限制确认；使用现有 request_id 与结果核对，审批与商品映射同事务提交。保留既有兼容映射，冲突显式失败。
+- PostgreSQL app_config 按 APP_ENVIRONMENT:APPLE_IAP_BUNDLE_ID 保存动态记录；复用现有 billing_product、mutation_lock 和订阅 mutation 表，没有新 schema／migration。原环境名单保留；Fresh Purchase、Restore、Premium／生命周期、通知、校正及 Admin 账单读取当前 scope 的动态并集。
+- 同库同名动态 Product ID 跨 scope 审批会令未带 Bundle 的历史账单映射产生歧义。审查新增回归修复前得到 200（期望 409），修复后返回 PRODUCT_SCOPE_CONFLICT；同一商品锁覆盖检查及写入，真实 PostgreSQL 两连接并发也只允许一个 scope 成功。
+- Flutter 的注册表读取／缓存按 API、环境及实际 Bundle 隔离；启动、前台权益同步、未知展示 SKU 和 Restore 可更新长期集合，追加到现有购买客户端而不重启监听。页面移除不撤历史恢复支持。收入事件随交易持久化，重启重试保留原映射及去重。
+- Code Review 已完成变更及直接调用链自审，处理了损坏的审批编辑快照、审批弹窗遮挡 unknown 结果核对、销毁后的迟到响应、前台长期集合刷新及同库跨 scope 重复商品问题；最后复验后未发现本次范围内的阻断项。没有声称第三方独立审查或远端验收。
+
+### 实际验证
+
+环境：Windows／Node 22.20.0、本地 Flutter 工具链及隔离的 PostgreSQL 18.6-alpine 测试容器。新增审批回归先运行得到 4 项失败（缺少审批路径、返回 404），实现后通过；共享 scope 拒绝回归也先失败后通过。Apple 目录、JWS 与 App Attest 在自动化测试中使用显式注入响应／验证器，不冒充真实签名交易。
+
+| 检查 | 实际结果与范围 |
+| --- | --- |
+| Workers 受影响测试 | 41 个文件的唯一用例去重共 451 项通过。39 文件／393 项分独立进程退出 0；动态购买／Restore／升级／scope 合同最终 5 项退出 0；扫描全部 53 项按清单分组退出 0。最终另运行订阅配置与动态权益 2 文件／35 项退出 0，其中已有 30 项不重复计数。覆盖 entitlements、subscription-config、Admin billing、scan、portfolio、data-source。 |
+| Admin | pnpm --filter @kando/admin-web test：63 项通过，退出 0，含审批恢复快照；不是登录态浏览器实机验收。 |
+| Flutter | 根 Melos 对 kando_app 执行 16 个订阅／当前权益／启动门禁相关测试文件，165 项通过，退出 0；包含真实 SubscriptionController 的注册追加和销毁后迟到响应、动态收入重启去重。 |
+| 共享 Dart 包 | 根 Melos 对 subscription_core 执行测试，12 项通过、退出 0，包含追加计划后保持购买监听和拒绝历史映射替换。 |
+| 静态与依赖 | pnpm lint、pnpm type-check、根 Melos 两包 analyze（最终带 --no-pub）均退出 0；未升级依赖，锁文件无改动。 |
+| 真 PostgreSQL | test:subscription-config:postgres 在独立 loopback 空测试库执行 8 个子场景（TAP 含外层共 9 项），全部退出 0。验证真实锁等待、幂等、并发生效／审批、同库跨 scope 商品竞争、原子回滚；临时容器及其匿名卷已移除。没有接入既有业务数据库。 |
+| 构建 | 最终 deploy:dry-run:dev 与 deploy:dry-run:prod 均退出 0，包括对应 Admin 构建、Linux 完整 bundle 的 3 项测试及 Cloudflare 打包。dev 只生成本地 tar.gz，prod 仅 dry-run；没有 SSH／上传／发布。 |
+| 旧版源码合同 | pnpm test:app-compatibility 退出 0；当前 API 8 项，固定 1.0.4+161、1.0.5+163 各 24 项。覆盖及限制集中见 [AI 执行版](../03-data-api/app-backward-compatibility-ai-guide.md#2026-10-16-动态商品准入的兼容补证)。 |
+
+批量运行限制必须保留：两次大批量 Workers 命令以及单独扫描整文件命令出现 Windows 进程异常退出 3221226505，未记为通过。对同一 HEAD 的独立源码快照运行扫描文件得到 41 通过／12 失败，失败为 PGlite 初始化的 Array buffer allocation failed，证明基线也存在单进程资源限制；没有据此断言当前异常退出的完整底层根因。随后用 vitest list 枚举 53 个唯一测试名，按 8／8／8／8／8／8／5 分进程全部执行，并核对每组通过数；分组之外的过滤项由其他组覆盖，没有删测试或放宽断言。原始输出保留在忽略的 apps/workers-api/.wrangler/subscription-admission-* 与 subscription-scan-* 文件中，不纳入 docs 原始日志。
+
+上述扫描测试异常的后续定位与修复见[关闭后引擎引用保留补证](#pglite-closed-engine-retention)，原阶段失败及分组结果仍按历史证据保留。
+
+### 交付边界与下一步使用
+
+上述实现与验证阶段未执行 Git commit／push、远程业务数据写入、dev/prod 部署或新 App 签名打包。没有实际在 dev 审批 cardx.month；当前线上状态仍以之前已验收记录为准。发布本次 API＋Admin 并安装含动态注册能力的新测试 App 后，超级管理员在 dev 选择 cardx.month，点击“审核商品准入”，填写经确认的 dev 收入事件名、核对环境和旧包限制，再保存／启用配置。prod 必须使用自己的 App／目录配置并独立审批，不能直接复用 dev 批准状态。
+
+1.0.4／1.0.5 原有商品和 V1 仍保留，但它们无法恢复包内未知的新 SKU；相关源码结论与待验项见 AI 执行版。真实 Apple 可售／资格／购买／Restore、旧签名包／真机、iOS 签名与 App Attest entitlement、平台实际收入接收、远端 CI 均未执行，不能记为通过。没有修改 iOS／Android 原生工程；Android 继续不消费 Apple 售卖配置。生产首次接入仍需核对既有 0014 等前置条件；“本次无新迁移”不代表可以跳过已有迁移检查。回退应保留商品与审批数据；新 SKU 已售卖后，旧服务代码不读动态准入，回退前须安排持续的购买／恢复支持。
+
+
+<a id="pglite-closed-engine-retention"></a>
+
+## 2026-10-16 扫描测试进程退出与 PGlite 内存保留
+
+本轮从干净的 codex/dev-1.0.6@3c7f9e5 排查上条记录中的两个本地异常：当前扫描测试进程退出 3221226505，以及 67387fc 基线扫描测试在 initdb 的 HEAPU8.slice 分配处报 Array buffer allocation failed。原异常记录保留；以下是新的定位与修复证据，不把历史失败改写为通过。
+
+### 根因与边界
+
+扫描测试每个 fixture 都对 PGliteDatabase.prepare 安装 spy，用于 SQL 次数／并行行为断言。安装的 @vitest/spy 4.1.9 使用强引用集合保留注册的 mock；spy 的恢复闭包、调用上下文或实现可继续引用数据库包装对象。原包装层 close() 仅调用底层 PGlite.close()，没有解除 wrapper.client，因此已关闭引擎及其 WASM／内存文件系统仍可达。扫描文件连续创建多个数据库时，该保留跨用例累积；失败堆栈位于后续 PostgreSQL 初始化的内存分配步骤。
+
+在同一 Windows／Node 22.20.0／PGlite 0.5.7 环境，独立进程连续创建、查询并关闭 8 个实例，用 WeakRef 和显式 GC 观测回收性，结果如下。数值是该小实验的本地测量，不是线上 API 内存或通用容量结论；普通扫描测试没有增加 GC 或内存参数。
+
+| 对照模式 | 第 8 轮仍可达引擎 | external MiB | RSS MiB |
+| --- | ---: | ---: | ---: |
+| 无 spy | 1 | 236 | 322 |
+| 原包装层＋spy | 8 | 1872 | 1778 |
+| 原包装层＋spy，调用 restoreAllMocks | 8 | 1872 | 1775 |
+| 关闭后手动解除 client 的诊断对照 | 1 | 236 | 363 |
+| 修复后的包装层＋spy | 1 | 236 | 362 |
+
+该实验中每实例 WASM 线性内存约 189 MiB；外部内存还包含内存文件系统等数据。恢复 spy 本身不能解决当前保留链。PGlite 可能保留最新模块，关键回归是更早的已关闭引擎不随 fixture 数量持续累积。
+
+3221226505 对应 0xC0000409，是 Windows 快速失败退出通道；仅凭退出码不能断言具体原生子码或栈。本轮未取得历史进程的原生崩溃栈，也未从应用事件记录取得进一步证据。因此，内存引用保留及分配失败已被对照实验确认；当前进程退出的更细原生触发点仍不作无证据推断。
+
+### 修复与回归设计
+
+仅修改测试辅助层 [PGliteDatabase](../../../../apps/workers-api/src/test-support/pglite-database.ts)：close() 先解除包装对象对底层引擎的持有，再等待原关闭操作；关闭错误继续传播，已关闭对象的数据库操作明确失败。生产 PostgresDatabase、API、扫描业务、schema、依赖版本、Vitest worker／堆上限及扫描断言均未修改。
+
+在[已有辅助层测试](../../../../apps/workers-api/src/test-support/pglite-database.test.ts)增加独立 Node 子进程回归，保留 4 个已关闭包装对象，通过公共 PGlite.create 观测它们拥有的引擎，并验证更早的 3 个引擎可被回收。修复前该断言稳定得到 3（期望 0）、退出 1；修复后为 0。--expose-gc 只用于此观测子进程，默认测试命令和实际扫描运行不靠强制 GC 维持通过。
+
+### 已取得的验证
+
+- pnpm --filter @kando/workers-api test src/test-support/pglite-database.test.ts --maxWorkers=1：3 项通过，退出 0。
+- 当前分支原扫描文件 --maxWorkers=1 --reporter=verbose：53 项全部通过、无跳过，退出 0，105.90 秒；未使用 testNamePattern 或分组。
+- 旧 67387fc 基线副本：保留原扫描测试字节和原业务源码，只替换本轮 PGliteDatabase 辅助文件，53 项全部通过、无跳过，退出 0，50.72 秒。此前该基线同文件为 41 通过／12 内存分配失败；此结果应标为“基线＋测试辅助层修复”，不是未经修改的旧提交突然通过。
+- pnpm lint、pnpm type-check：退出 0。
+- pnpm --filter @kando/workers-api test --maxWorkers=2 --reporter=verbose：标准完整 Workers 范围 90 文件／854 项全部通过，无失败、无跳过，退出 0，161.17 秒；未按文件或用例拆分，没有修改 worker／堆上限或配置全局 GC。该运行覆盖共享 PGlite 辅助层的其他调用方。
+- Code Review：完成变更及调用方自审，检查关闭前后的所有权、关闭失败继续传播、关闭后显式失败、正常查询／batch 语义，以及回归对真实底层引擎的观测范围；最后验证后无阻断项。没有声称第三方独立审查。
+- 未运行 Linux／macOS／远端 CI；本机结果仅证明 Windows 11／Node 22.20.0 下的本地回归。生产适配器与 App 代码未变，本轮没有部署或设备交易验收。
+
+详细对照输出位于忽略目录 apps/workers-api/.wrangler/pglite-lifetime/；没有把原始日志或基线源码快照加入 docs。上述定位与验证阶段未执行远端部署、数据库业务操作、依赖升级或 Git commit／push。

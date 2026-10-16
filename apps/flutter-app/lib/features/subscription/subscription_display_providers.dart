@@ -92,7 +92,13 @@ final subscriptionDisplayFactoryProvider =
           if (configuration.store != SubscriptionStore.appStore) {
             return const [];
           }
-          final ids = requested.intersection(configuration.supportedProductIds);
+          final currentConfiguration = await ref
+              .read(subscriptionControllerProvider.notifier)
+              .supportedConfiguration(requested: requested);
+          if (!ref.mounted) return const [];
+          final ids = requested.intersection(
+            currentConfiguration.supportedProductIds,
+          );
           if (ids.isEmpty) return const [];
           final results = await Future.wait<Object>([
             ref
@@ -103,7 +109,8 @@ final subscriptionDisplayFactoryProvider =
           final details = results[0] as List<SubscriptionProduct>;
           final facts = results[1] as Map<String, Map<String, Object?>>;
           final supported = {
-            for (final p in configuration.supportedProducts) p.productId: p,
+            for (final p in currentConfiguration.supportedProducts)
+              p.productId: p,
           };
           return [
                 for (final product in details)

@@ -1,3 +1,4 @@
+import { allowedAppleProductIds } from "./apple-product-policy";
 import { Hono, type Context } from "hono";
 import type { Env } from "../env";
 import { createId } from "../id";
@@ -5,7 +6,6 @@ import { authenticateOwner } from "../owner-auth";
 import { appleAppAttestVerifier, sha256Bytes, type AppleAppAttestVerifier } from "./apple-app-attest";
 import {
   asVerifierConfigurations,
-  configuredProductIds,
   createAppleVerifiers,
   Environment,
   type AppleVerifierFactoryResult,
@@ -168,7 +168,7 @@ export function createAppleRestoreRoutes(dependencies: Dependencies = {}): Hono<
     const appleVerifiers = asVerifierConfigurations(
       await appleVerifierFactory(c.env),
     );
-    const products = configuredProductIds(c.env.APPLE_IAP_PRODUCT_IDS);
+    const products = await allowedAppleProductIds(c.env);
     if (!config || appleVerifiers.length === 0 || !products) {
       return c.json(unavailable, 503);
     }

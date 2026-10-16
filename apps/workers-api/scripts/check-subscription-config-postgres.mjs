@@ -26,12 +26,14 @@ await build({
     export { createPostgresDatabase } from './src/db/postgres-database.ts';
     export { mutationLockKey } from './src/db/mutation-lock.ts';
     export { writeMutation, readConfig, readConfigList, readMutation, productAdmission } from './src/subscription-config/store.ts';
+    export { writeProductAdmission } from './src/subscription-config/product-admission.ts';
+    export { approvedAppleProducts } from './src/entitlements/apple-product-policy.ts';
     export { payloadHash } from './src/subscription-config/model.ts';
     export { displayFixture } from './src/subscription-config/test-fixtures.ts';
   `, resolveDir: root, loader: "ts" },
   outfile: bundle, bundle: true, platform: "node", format: "esm", target: "node22", external: ["postgres"], logLevel: "silent",
 });
-const { createPostgresDatabase, mutationLockKey, writeMutation, readConfig, readConfigList, readMutation, productAdmission, payloadHash, displayFixture } = await import(pathToFileURL(bundle).href);
+const { createPostgresDatabase, mutationLockKey, writeMutation, readConfig, readConfigList, readMutation, productAdmission, writeProductAdmission, approvedAppleProducts, payloadHash, displayFixture } = await import(pathToFileURL(bundle).href);
 const sql = postgres(connectionString, { max: 1 });
 const control = postgres(connectionString, { max: 1 });
 const observer = postgres(connectionString, { max: 1 });
@@ -175,6 +177,50 @@ await test("subscription configuration on independent PostgreSQL connections", a
       await sql.unsafe("DROP TRIGGER test_subscription_result_failure ON subscription_display_mutation; DROP FUNCTION test_subscription_result_failure();");
     }
     assert.equal((await mutate(second, scope, { kind: "create", config: displayFixture() }, id)).status, 201);
+  });
+
+  await suite.test("concurrent approval is idempotent and never loses a second new product", async () => {
+    const scope = "development:native-products";
+    const e = (DB) => ({ ...settings, DB, APPLE_IAP_BUNDLE_ID: "native-products", APP_STORE_CONNECT_APP_ID: "456" });
+    const approve = (DB, productId, requestId = crypto.randomUUID()) => writeProductAdmission(e(DB), scope, "super-admin", requestId, productId,
+      { product_id: productId, product_type: "subscription", has_free_trial: false }, "card_monthlytest", null);
+    const requestId = crypto.randomUUID();
+    await withScopeLock(scope, async (release) => {
+      const pending = [approve(first, "native.month", requestId), approve(second, "native.month", requestId)];
+      try { await waitForLocks("INSERT INTO mutation_lock", 2); } finally { release(); }
+      const results = await Promise.all(pending);
+      assert.deepEqual(results[0], results[1]); assert.equal(results[0].status, 200);
+    });
+    const results = await Promise.all([approve(first, "native.week"), approve(second, "native.year")]);
+    assert.deepEqual(results.map((r) => r.status), [200, 200]);
+    assert.equal((await approvedAppleProducts(e(first))).length, 3);
+    assert.equal((await approvedAppleProducts({ ...e(second), APP_ENVIRONMENT: "production" })).length, 0);
+    assert.equal(Number((await sql`SELECT COUNT(*) AS count FROM billing_product WHERE product_id = 'native.month'`)[0].count), 1);
+  });
+  await suite.test("shared database approvals cannot race the same Product ID into two scopes", async () => {
+    const approve = (DB, scope) => writeProductAdmission({ ...settings, DB }, scope, "super-admin", crypto.randomUUID(), scope,
+      { product_id: "native.cross-scope", product_type: "subscription", has_free_trial: false }, "card_monthlytest", null);
+    const results = await Promise.all([approve(first, "development:beta"), approve(second, "production:prod")]);
+    assert.deepEqual(results.map((r) => r.status).sort(), [200, 409]);
+    assert.equal(results.find((r) => r.status === 409).body.error.code, "PRODUCT_SCOPE_CONFLICT");
+  });
+  await suite.test("registry storage failure rolls back the product and approval result together", async () => {
+    const scope = "development:native-product-rollback";
+    const e = { ...settings, DB: first, APPLE_IAP_BUNDLE_ID: "native-product-rollback", APP_STORE_CONNECT_APP_ID: "456" };
+    await sql.unsafe(`CREATE FUNCTION test_admission_failure() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN RAISE EXCEPTION 'intentional registry failure'; END $$;
+      CREATE TRIGGER test_admission_failure BEFORE INSERT ON app_config FOR EACH ROW EXECUTE FUNCTION test_admission_failure();`);
+    const requestId = crypto.randomUUID();
+    try {
+      await assert.rejects(writeProductAdmission(e, scope, "super-admin", requestId, "rollback", {
+        product_id: "native.rollback", product_type: "subscription", has_free_trial: false,
+      }, "card_monthlytest", null), /intentional registry failure/);
+      assert.equal(await readMutation(second, scope, requestId), null);
+      assert.equal((await approvedAppleProducts({ ...e, DB: second })).length, 0);
+      assert.equal(Number((await sql`SELECT COUNT(*) AS count FROM billing_product WHERE product_id = 'native.rollback'`)[0].count), 0);
+    } finally {
+      await sql.unsafe("DROP TRIGGER test_admission_failure ON app_config; DROP FUNCTION test_admission_failure();");
+    }
   });
 
 });

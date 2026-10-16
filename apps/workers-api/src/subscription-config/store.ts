@@ -1,3 +1,4 @@
+import { appleAdmissionKey, appleAdmissionScope, approvedAppleProducts } from "../entitlements/apple-product-policy";
 import type { Env } from "../env";
 import type { Database } from "../db/database";
 import { mutationLockKey } from "../db/mutation-lock";
@@ -78,6 +79,7 @@ export async function productAdmission(env: Env, products: Array<{ product_id: s
   `).bind(...ids).all<{ product_id: string; product_type: string; active: number; entitlement_id: string }>();
   const allowed = configuredIds(env.APPLE_IAP_PRODUCT_IDS);
   const approved = configuredIds(env.SUBSCRIPTION_DISPLAY_PRODUCT_IDS);
+  for (const p of await approvedAppleProducts(env)) { allowed.add(p.product_id); approved.add(p.product_id); }
   return products.map((p) => {
     const row = rows.find((r) => r.product_id === p.product_id);
     const reasons: string[] = [];
@@ -153,9 +155,12 @@ export async function writeMutation(
     failWhen(`${needsAdmission} AND EXISTS (
       SELECT 1 FROM jsonb_to_recordset(?::text::jsonb) AS p(product_id text, product_type text, allowed boolean, approved boolean)
       LEFT JOIN billing_product b ON b.store = 'app_store' AND b.product_id = p.product_id
-      WHERE NOT p.allowed OR NOT p.approved OR b.id IS NULL OR b.active <> 1
+      WHERE ((NOT p.allowed OR NOT p.approved) AND NOT EXISTS (
+        SELECT 1 FROM app_config a WHERE a.key = ? AND ?::boolean
+          AND jsonb_extract_path_text(a.value::jsonb, p.product_id, 'product_type') = p.product_type
+      )) OR b.id IS NULL OR b.active <> 1
         OR b.entitlement_id <> 'performance_pro' OR b.product_type <> p.product_type
-    )`, [...(command.kind === "save" ? [scope, command.id] : []), JSON.stringify(required)],
+    )`, [...(command.kind === "save" ? [scope, command.id] : []), JSON.stringify(required), appleAdmissionKey(scope), appleAdmissionScope(env) !== null],
     errorOutcome("PRODUCT_NOT_ADMITTED", "Every effective product must have display approval, entitlement allowlisting and an active matching Premium mapping.", 422));
   }
 

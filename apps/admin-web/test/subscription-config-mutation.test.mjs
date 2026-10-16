@@ -217,3 +217,22 @@ test("an initial authentication rejection retains the pending snapshot for recon
   assert.equal(JSON.parse(storage.getItem(key)).editor.body.name, "订阅页标准配置");
   assert.equal(mutation.state.result, null);
 });
+
+
+test("product approval retains scope and the exact request across reload/reconciliation", async () => {
+  const input = { ...operationFixture(), kind: "admit", method: "POST", path: "/subscription-products/admit",
+    body: { request_id: REQUEST_ID, product_id: "cardx.month", product_type: "subscription",
+      expected_scope: "development:beta.app", singular_event_name: "card_monthlytest", acknowledge_legacy_restore_limit: true } };
+  assert.deepEqual(parsePendingOperation(JSON.stringify(input)), input);
+  const storage = memoryStorage();
+  const machine = coordinator(async (_path, init) => { assert.equal(init.body.expected_scope, "development:beta.app"); return { product_id: "cardx.month" }; }, storage).mutation;
+  await machine.start(input);
+  assert.equal(machine.state.phase, "succeeded");
+  assert.equal(machine.state.result.operation.kind, "admit");
+});
+
+
+test("damaged retained approval editors cannot crash the recovery page or replay a new write", () => {
+  const input = { ...operationFixture(), kind: "admit", method: "POST", path: "/subscription-products/admit", editor: {} };
+  assert.throws(() => parsePendingOperation(JSON.stringify(input)), /编辑记录不完整/);
+});

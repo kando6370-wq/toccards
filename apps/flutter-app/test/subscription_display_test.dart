@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -241,6 +242,63 @@ void main() {
         () => SupportedSubscriptionProduct.parse('[{"plan_id":"x"}]'),
         throwsFormatException,
       );
+    },
+  );
+  test(
+    'dev retains both new products for purchase and restore without expanding fallback cards',
+    () {
+      final defines =
+          jsonDecode(File('config/test.json').readAsStringSync())
+              as Map<String, Object?>;
+      final configuration = AppSubscriptionConfiguration(
+        store: SubscriptionStore.appStore,
+        productIds: {
+          subscriptionWeeklyPlanId:
+              defines['SUBSCRIPTION_APP_STORE_WEEKLY_ID'] as String,
+          subscriptionYearlyPlanId:
+              defines['SUBSCRIPTION_APP_STORE_YEARLY_ID'] as String,
+          subscriptionLifetimePlanId:
+              defines['SUBSCRIPTION_APP_STORE_LIFETIME_ID'] as String,
+        },
+        additionalProducts: SupportedSubscriptionProduct.parse(
+          defines['SUBSCRIPTION_APP_STORE_SUPPORTED_PRODUCTS'] as String,
+        ),
+      );
+      expect(configuration.supportedProductIds, {
+        'cardx.week',
+        'cardx.year',
+        'cardx.lifetime',
+        'weekly.trial',
+        'yearly.pro',
+      });
+      final yearly = configuration.supportedProducts.singleWhere(
+        (p) => p.productId == 'yearly.pro',
+      );
+      expect(yearly.planId, 'yearly_pro');
+      expect(yearly.type, DisplayProductType.subscription);
+      expect(yearly.isTrialProduct, isFalse);
+      final trial = configuration.supportedProducts.singleWhere(
+        (p) => p.productId == 'weekly.trial',
+      );
+      expect(trial.planId, 'weekly_trial');
+      expect(trial.type, DisplayProductType.subscription);
+      expect(trial.isTrialProduct, isTrue);
+      for (final type in SubscriptionPageType.values) {
+        final fallback = legacySubscriptionFallback(configuration, type);
+        expect(fallback.skus.map((sku) => sku.productId), [
+          'cardx.week',
+          'cardx.year',
+          'cardx.lifetime',
+        ]);
+        expect(
+          fallback.skus.singleWhere((sku) => sku.isDefault).productId,
+          'cardx.year',
+        );
+        expect(
+          configuration.supportedProductIds,
+          containsAll(['weekly.trial', 'yearly.pro']),
+        );
+      }
     },
   );
   test(

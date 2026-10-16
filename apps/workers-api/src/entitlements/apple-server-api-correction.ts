@@ -1,3 +1,4 @@
+import { allowedAppleProductIds } from "./apple-product-policy";
 import type {
   AppStoreServerAPIClient,
   StatusResponse,
@@ -6,7 +7,6 @@ import type {
 import type { Env } from "../env";
 import {
   appleDatabaseEnvironments,
-  configuredProductIds,
   createAppleNotificationVerifier,
   Environment,
   type AppleNotificationVerifier,
@@ -142,7 +142,7 @@ async function correctApplePurchaseChain(
   const configuredVerifier = await (
     dependencies.createVerifier ?? createAppleNotificationVerifier
   )(env, appleEnvironment);
-  const allowedProducts = configuredProductIds(env.APPLE_IAP_PRODUCT_IDS);
+  const allowedProducts = await allowedAppleProductIds(env);
   if (!client || !configuredVerifier) {
     await deferCorrection(env.DB, row, "SERVER_API_NOT_CONFIGURED", now);
     return;

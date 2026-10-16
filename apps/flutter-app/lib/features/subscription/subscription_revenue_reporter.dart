@@ -12,6 +12,7 @@ class SubscriptionRevenueRecord {
     required this.planType,
     required this.value,
     required this.currency,
+    this.singularEventName,
   });
 
   final String transactionId;
@@ -19,6 +20,7 @@ class SubscriptionRevenueRecord {
   final String planType;
   final double value;
   final String currency;
+  final String? singularEventName;
 
   Map<String, Object> toJson() => {
     'transaction_id': transactionId,
@@ -26,6 +28,7 @@ class SubscriptionRevenueRecord {
     'plan_type': planType,
     'value': value,
     'currency': currency,
+    if (singularEventName != null) 'singular_event_name': singularEventName!,
   };
 
   static SubscriptionRevenueRecord? fromJson(Object? value) {
@@ -35,6 +38,12 @@ class SubscriptionRevenueRecord {
     final planType = value['plan_type'];
     final amount = value['value'];
     final currency = value['currency'];
+    final eventName = value['singular_event_name'];
+    if (eventName != null &&
+        (eventName is! String ||
+            !RegExp(r'^[A-Za-z][A-Za-z0-9_]{0,99}$').hasMatch(eventName))) {
+      return null;
+    }
     if (transactionId is! String ||
         transactionId.isEmpty ||
         transactionId != transactionId.trim() ||
@@ -42,7 +51,16 @@ class SubscriptionRevenueRecord {
         productId.isEmpty ||
         productId != productId.trim() ||
         planType is! String ||
-        !const {'weekly', 'yearly', 'lifetime'}.contains(planType) ||
+        planType.trim().isEmpty ||
+        planType != planType.trim() ||
+        (!const {
+              'weekly',
+              'yearly',
+              'lifetime',
+              'weekly_trial',
+              'yearly_pro',
+            }.contains(planType) &&
+            eventName == null) ||
         amount is! num ||
         !amount.isFinite ||
         amount < 0 ||
@@ -56,6 +74,7 @@ class SubscriptionRevenueRecord {
       planType: planType,
       value: amount.toDouble(),
       currency: currency,
+      singularEventName: eventName as String?,
     );
   }
 }
@@ -161,8 +180,11 @@ class SubscriptionRevenueReporter {
   final SubscriptionRevenueSink _sink;
   Future<void> _tail = Future.value();
 
-  Future<void> enqueueVerifiedPurchase(SubscriptionEvent event) {
-    final record = _recordFromEvent(event);
+  Future<void> enqueueVerifiedPurchase(
+    SubscriptionEvent event, {
+    String? singularEventName,
+  }) {
+    final record = _recordFromEvent(event, singularEventName);
     if (record == null) return Future.value();
     return _serial(() async {
       final reported = await _storage.readReportedTransactionIds();
@@ -212,7 +234,10 @@ class SubscriptionRevenueReporter {
     return result;
   }
 
-  static SubscriptionRevenueRecord? _recordFromEvent(SubscriptionEvent event) {
+  static SubscriptionRevenueRecord? _recordFromEvent(
+    SubscriptionEvent event,
+    String? singularEventName,
+  ) {
     final purchase = event.purchase;
     final plan = event.plan;
     if (purchase == null ||
@@ -247,6 +272,7 @@ class SubscriptionRevenueReporter {
       transactionId: transactionId,
       productId: productId,
       planType: plan.id,
+      singularEventName: singularEventName,
       value: price.toDouble() / 1000,
       currency: currency.toUpperCase(),
     );
