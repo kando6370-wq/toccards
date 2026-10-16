@@ -42,7 +42,13 @@ class SubscriptionRevenueRecord {
         productId.isEmpty ||
         productId != productId.trim() ||
         planType is! String ||
-        !const {'weekly', 'yearly', 'lifetime'}.contains(planType) ||
+        !const {
+          'weekly',
+          'yearly',
+          'lifetime',
+          'weekly_trial',
+          'yearly_pro',
+        }.contains(planType) ||
         amount is! num ||
         !amount.isFinite ||
         amount < 0 ||

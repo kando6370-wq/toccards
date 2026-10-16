@@ -215,6 +215,76 @@ void main() {
     }
   }
 
+  for (final item in [
+    (
+      plan: 'weekly_trial',
+      product: 'weekly.trial',
+      name: 'card_weekly_trialtest',
+      price: 0,
+    ),
+    (
+      plan: 'yearly_pro',
+      product: 'yearly.pro',
+      name: 'yearly_cardtest',
+      price: 5490,
+    ),
+  ]) {
+    test(
+      '${item.product} keeps signed revenue pending across restart and reports it once',
+      () async {
+        final sdk = _RecordingAttribution()..fail = true;
+        final event = _event(
+          plan: item.plan,
+          productId: item.product,
+          fields: {'price': item.price},
+        );
+        SingularSubscriptionRevenueReporter createReporter() =>
+            SingularSubscriptionRevenueReporter(
+              environment: AppEnvironment.test,
+              attribution: sdk,
+            );
+        await expectLater(
+          createReporter().enqueueVerifiedPurchase(
+            event,
+            isFreshPurchase: true,
+          ),
+          throwsStateError,
+        );
+        const storage = PreferencesSubscriptionRevenueStorage(
+          keyPrefix: 'subscription.singular_revenue.test',
+        );
+        final pending = await storage.readPending();
+        expect(pending['transaction-1']?.planType, item.plan);
+        expect(pending['transaction-1']?.value, item.price / 1000);
+        sdk.fail = false;
+        final restarted = createReporter();
+        await restarted.flush();
+        await restarted.flush();
+        await restarted.enqueueVerifiedPurchase(event, isFreshPurchase: true);
+        await restarted.enqueueVerifiedPurchase(
+          _event(
+            plan: item.plan,
+            productId: item.product,
+            transactionId: 'restore-1',
+            status: SubscriptionPurchaseStatus.restored,
+          ),
+          isFreshPurchase: true,
+        );
+        expect(sdk.records, [
+          {
+            'eventName': item.name,
+            'currency': 'CAD',
+            'value': item.price / 1000,
+            'transactionId': 'transaction-1',
+            'productId': item.product,
+          },
+        ]);
+        expect(await storage.readPending(), isEmpty);
+        expect(await storage.readReportedTransactionIds(), {'transaction-1'});
+      },
+    );
+  }
+
   test(
     'concurrent callbacks and reporter recreation do not repeat revenue or touch Firebase storage',
     () async {
@@ -347,15 +417,17 @@ void main() {
 
 SubscriptionEvent _event({
   String plan = 'weekly',
+  String? productId,
   String transactionId = 'transaction-1',
   SubscriptionPurchaseStatus status = SubscriptionPurchaseStatus.purchased,
   bool failed = false,
   bool active = true,
   Map<String, Object?> fields = const {},
 }) {
+  final resolvedProductId = productId ?? 'apple.$plan';
   final payload = {
     'transactionId': transactionId,
-    'productId': 'apple.$plan',
+    'productId': resolvedProductId,
     'price': 5490,
     'currency': 'cad',
     ...fields,
@@ -364,7 +436,7 @@ SubscriptionEvent _event({
   return SubscriptionEvent(
     purchase: SubscriptionPurchase(
       store: SubscriptionStore.appStore,
-      storeProductId: 'apple.$plan',
+      storeProductId: resolvedProductId,
       status: status,
       verificationData: 'header.$encoded.signature',
       transactionId: transactionId,
@@ -372,7 +444,7 @@ SubscriptionEvent _event({
     plan: SubscriptionPlanConfig(
       id: plan,
       entitlementId: 'performance_pro',
-      productIds: {SubscriptionStore.appStore: 'apple.$plan'},
+      productIds: {SubscriptionStore.appStore: resolvedProductId},
     ),
     entitlement: SubscriptionEntitlement(
       planId: plan,

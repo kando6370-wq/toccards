@@ -378,3 +378,67 @@ Flutter 首次运行有 1 个新增用例失败：测试夹具的原始 List 在
 Code Review 自查覆盖计数口径、直接请求绕过、存量数据保留、默认项／顺序、幂等失败、公开读取兜底与 iOS／Android 边界，未发现本增量阻断项。相关规则已同步至服务端合同、Admin 文档与 Flutter 流程；原始 PRD 和原型保持原样。
 
 本轮未运行真实浏览器登录交互、远程 API、真机交易、新 iOS／Android 构建或完整旧包兼容矩阵；本地用例不替代这些验收。未执行 Git commit／push、远程数据库迁移或 dev／prod 发布。
+
+<a id="weekly-trial-admission-preparation"></a>
+
+## 2026-10-15 周试用商品准入核查与客户端注册准备
+
+本地来源为 `codex/dev-1.0.6@a522668` 加本轮未提交改动。按用户授权，先核查 dev，再准备 `cardx.week → weekly.trial` 接入；没有把目录可读、客户端注册或本地测试写成已可购买。
+
+### dev 只读核查
+
+- 17:00 SSH 回读：current 指向 `branch-dev-e53f75c30ffc-20261015163152`，manifest／watcher last-seen／last-deployed 均为 `e53f75c30ffc3004e4e9d7b7436f862fccd1ccca`，失败标记不存在；API／DB healthy、Web running、migrate exited/0。此次只是回读既有 watcher 发布结果，未手工重发，也未逐字节核对全部运行产物。
+- PostgreSQL 查询显式使用只读事务和只读会话，确认独立 toccards_test／PostgreSQL 18.6，ledger 15 项、最新 0014。billing_product 仍为原 6 条 App Store 映射，weekly.trial、yearly.pro 均无映射；没有读取用户订单、购买明细或执行写库。
+- 实际 API 容器的 APPLE_IAP_PRODUCT_IDS 仍为 cardx.week、cardx.year、cardx.lifetime，SUBSCRIPTION_DISPLAY_PRODUCT_IDS 未设置。shared/.env 权限 600；17:16 回读 release 未变，环境文件 SHA-256 仍为 19496cce4b00b2bbfabb7af8330b7075ba86c23a86d83ac3c8d4b2ccb3d0048f。凭据只在服务器原有环境内使用，没有输出私钥、Issuer、Key 或 JWT。
+- 从实际 API 容器以当前源码 createAppleCatalogLoader 做只读诊断，App／组／订阅／优惠／Lifetime 共 9 次 GET 全部 200；未修改 Apple 商品。App 6790245922、Bundle com.kando.kandoApp.beta、组 22251901。cardx.week 与 weekly.trial 均为 ONE_WEEK、等级 2；后者有 175 个地区的 FREE_TRIAL／THREE_DAYS／1 期，起始 2026-10-12、无结束日期，当前 validateCatalogReferences 返回空问题列表。yearly.pro 当前为 ONE_YEAR／等级 4。返回商品状态仍为 MISSING_METADATA；未以真实 StoreKit 查询当前账户资格、价格或可购买性。
+- 当前 Page 草稿 id 为 01M4ZAZ65YY55VJNH8XTM73AQ3、revision=2、不生效；三张卡片为 cardx.week（关联 weekly.trial）、yearly.pro、cardx.lifetime。该年商品与既定周试用接入范围不同，本轮保留用户选择，未替换为 cardx.year、注册额外商品或启用草稿。
+
+按当前运行配置、数据库与源码准入条件逐项核对：
+
+| 草稿涉及商品 | 购买白名单 | active Premium 映射 | 展示准入名单 |
+| --- | --- | --- | --- |
+| cardx.week | 已有 | 已有，plan_id=weekly | 未配置 |
+| weekly.trial | 缺少 | 缺少 | 未配置 |
+| yearly.pro | 缺少 | 缺少 | 未配置 |
+| cardx.lifetime | 已有 | 已有，plan_id=lifetime | 未配置 |
+
+局域网 HTTP 独立回读：health 200／status=ok；Page／Modal 均为 200、success=true、data=null，且 no-store。该结果确认没有生效配置，不表示新商品购买已验收。
+
+### 本地准备及验证
+
+- test.json 增加长期注册 weekly_trial → weekly.trial，product_type=subscription、is_trial_product=true；保留原三个商品。使用既有注册能力，不扩展展示卡片、不改 production 配置、不增加接口或 migration。新增回归读取实际 test 构建文件，验证四个长期支持商品、独立 plan_id、试用身份、三卡兜底顺序及 Yearly 默认项。
+- Flutter 目录执行 `flutter test --no-pub --dart-define-from-file=config/test.json test/subscription_display_test.dart test/subscription_restore_ui_test.dart test/subscription_singular_events_test.dart`，退出 0，68 项通过；现有 Android 隔离与原收入事件回归包含在内，不代表新增收入映射已完成。
+- `flutter analyze --no-pub test/subscription_display_test.dart` 退出 0，No issues found。未修改服务端代码，因此未重复执行服务端全量测试。
+- 当前 Singular 仅按 weekly／yearly／lifetime 映射事件；本轮没有猜测新 test 事件名称或借用原 weekly 档位。新商品收入命名仍按 PRD 10.7 等待确认。
+
+待明确：yearly.pro 是否一并接入；weekly.trial 的 dev 收入事件名称。确认后再完成对应收入映射、dev 白名单／权益映射／展示准入和测试配置启用。旧包新增商品支持、Mac 签名测试包与真机 Sandbox 购买／恢复仍待验；本轮没有远端配置或业务数据写入、Git commit／push、iOS／Android 构建、App 发布或 prod 操作。
+
+<a id="dev-subscription-product-onboarding"></a>
+
+## 2026-10-15 周试用与新年订阅的 dev 接入
+
+用户明确将 yearly.pro 纳入本轮，并授权生成 weekly.trial 的 dev 收入事件名称。按既有 test 后缀约定采用 card_weekly_trialtest；yearly.pro 沿用年订阅事件 yearly_cardtest，以实际 Product ID 区分商品。前一节待确认事项已由本次授权解除；旧包新增商品支持和真机验收边界继续保留。
+
+### 本地实现与验证
+
+- 来源为 codex/dev-1.0.6@a522668 加本轮未提交改动；test.json 长期支持集合追加 weekly_trial → weekly.trial（试用商品）和 yearly_pro → yearly.pro（普通年订阅），原三商品保持。两个新 plan_id 独立且不占用 weekly／yearly。Page／Modal 兜底仍为原三卡、原顺序和 Yearly 默认项；正式配置仍遵守最多三张展示卡片。
+- Singular 的两个新 dev 映射按实际成交 Product ID 分支，生产未注册这两个新 ID，原三档事件不变。Firebase／Singular 共用收入记录反序列化补入两个 plan_id，避免 SDK 发送失败后新档位记录在重启时被丢弃；交易 JWS 金额、零值、币种、去重和 Restore 不计新收入保持原规则。
+- Flutter 目录执行 `flutter test --no-pub --dart-define-from-file=config/test.json test/subscription_display_test.dart test/subscription_restore_ui_test.dart test/subscription_singular_events_test.dart test/subscription_singular_revenue_test.dart test/subscription_revenue_reporter_test.dart test/subscription_analytics_test.dart`，退出 0，101 项通过。新增用例覆盖实际商品 ID 选事件、dev／prod 隔离、零元试用、两个新档位的持久化与重启重试、重复回调只上报一次、Restore 不新增收入以及原商品／Android 行为。
+- `flutter analyze --no-pub` 针对 subscription_singular_events.dart、subscription_revenue_reporter.dart 及四个受影响测试文件，退出 0，No issues found。根 `pnpm lint`、`pnpm type-check` 均退出 0；类型任务 7 项成功，其中 5 项命中缓存、Admin／Workers 实际执行。六个 Dart 文件格式检查及 `git diff --check` 通过。本轮注册、事件映射及重试队列修改的 Code Review 自查通过；联查发现的新 SKU 订阅切换限制单列于下文，不将其记为已支持。无原生工程、API 协议、schema 或 migration 源码变化；未重复运行服务端全量或完整旧包兼容矩阵。
+
+### 17:50–17:51 dev 数据与配置落地
+
+- 17:30 回读并在 17:43 用当前服务端实现再次核查：current／manifest 仍为 branch-dev-e53f75c30ffc-20261015163152；PostgreSQL 会话明确 read-only=on，Apple 目录 9 次 GET 均为 200，草稿结构与商品关系校验通过。两个新商品的三项准入当时均未满足。
+- 变更时持有 watcher/watch.lock 与 shared/deploy.lock；先确认目标为独立 toccards_test、development／com.kando.kandoApp.beta，环境文件和 API 运行配置一致、当前镜像 tag 没有漂移。未改 watcher 分支、计划或状态文件。
+- 私有环境逐字节备份至 `/home/user/apps/toccards-test/shared/.env.before-product-onboarding-20261015T095058Z`，权限 600。目标 billing_product 表另以 pg_dump custom／data-only 备份至 `/home/user/apps/toccards-test/backups/billing-product-before-onboarding-20261015T095058Z.dump`，1417 字节、SHA-256 b492be719a55e48e804d2c5b888ef2c94a392c5ac12f33c5bedbf5c2af1ae260；pg_restore --list 成功确认 TABLE DATA public billing_product。另保留同名前缀 JSON 原记录快照。此为目标表定向备份，不是全库备份，未做恢复演练。
+- 在显式事务和表锁下确认备份后的原记录未变，再 INSERT 两条 App Store 商品映射：weekly.trial／weekly_trial 与 yearly.pro／yearly_pro；两者均为 subscription、active=1、entitlement_id=performance_pro。原六条记录逐字段保持，表记录数变为八条。没有改订单、已有购买权益或迁移 ledger。
+- 仅把 APPLE_IAP_PRODUCT_IDS 扩为 cardx.week,cardx.year,cardx.lifetime,weekly.trial,yearly.pro，并新增相同集合的 SUBSCRIPTION_DISPLAY_PRODUCT_IDS。候选 Compose 解析与原配置全量比较，仅 API 的这两项环境值变化，其他环境及服务定义不变。原凭据保留、权限／属主／组保留，原子替换 shared/.env；文件 SHA-256 从 19496cce4b00b2bbfabb7af8330b7075ba86c23a86d83ac3c8d4b2ccb3d0048f 变为 aa18acda180ef63978529f52f36bd03a10434d36f344308f9444db45d7963346。
+- 使用现有两份 Compose 文件执行仅 api 的 `up -d --no-deps --no-build --pull never api`，API 恢复 healthy。镜像 ID 与原值相同，运行 /app/server.mjs 的 SHA-256 仍为 6cc72299a50fbf77d8af7d64d37b5eb60ac8e4ff243a3de667133beed7d2b7f7；DB／Web／migrate 容器 ID 未变，未 build／pull／migrate 或发布新 API／Admin 产物。锁在操作结束后释放。失败预案可恢复原环境并按原镜像重载，本轮未触发；不自动删除已经新增的商品映射以免破坏后续购买引用。
+
+### 独立回读与待验边界
+
+- 17:53 从新 API 容器再次运行当前目录／productAdmission／配置校验实现，使用实际 PostgreSQL 只读连接，Apple 9 次 GET 均为 200。原三个商品与 weekly.trial／yearly.pro 五项均 admitted=true、reasons=[]；草稿实际引用的四个购买商品均通过准入，catalogIssues=[]。本轮未纳入的 cardx.month 仍未准入。此项是容器内实际函数与真实数据库验证，不冒充已通过登录态的 Admin HTTP 请求。
+- 17:59 独立 SSH 回读：环境哈希及 600 权限正确；release／watcher last-seen／last-deployed 仍为 e53f75c，failed-sha／failed-at 均不存在。API／DB healthy、Web running、migrate exited/0；ledger 仍为 15 项、最新 0014，billing_product 八条，生效配置数 0，原 Page 草稿 revision 仍为 2。局域网 health、Page／Modal 读取均为 200，两个展示接口仍 success=true、data=null。
+- 使用已有 Chrome 后台标签页刷新商品目录时，页面转至登录界面，当前没有可用 Admin 登录态；未填写或猜测后台密码，未通过 SQL 绕过配置启用流程。原草稿仍不生效，待重新登录后继续页面提示和启用验收。浏览器中旧警告的消失尚未取得登录态 UI 证据，不用后端函数检查代替该验收。
+- 联查当前回调源码：独立 Cloudflare relay 只转发签名原文，没有另一份 Product ID 白名单；Linux 的普通 SUBSCRIBED／DID_RENEW 建单复用配置和权益映射。但 apple-notification-routes.ts 的 PLAN_CHANGE_PRODUCT_IDS 仍仅包含既有周／年商品，DID_CHANGE_RENEWAL_PREF 的目标识别和升级补单分支尚未扩展到 weekly.trial／yearly.pro。本轮未改动该服务端生命周期分支，不能把准入通过视为新 SKU 升级／降级通知支持完成；完整订阅切换验收前须补齐对应实现与回归。
+- Apple 商品目录仍显示 MISSING_METADATA，真实 StoreKit 地区价格、资格、购买／恢复和 Singular／Firebase 平台实际接收未验。当前为 Windows 环境，尚未构建新的 Mac 签名测试包或做真机验证；本地代码尚未 Git commit／push。未操作 prod、营销站、Apple 商品设置或发布 Flutter App。

@@ -30,7 +30,18 @@ iOS 的 Page、Modal 各自创建配置快照与选择状态。配置接口按 t
 
 购买监听、启动权益读取、当前会话同步及 Restore 使用完整长期集合；页面只加载其中当前展示所需的商品。关闭配置、删除卡片不缩小权益支持集合。新非消耗型按明确注册类型判断永久权益，不解析 ID 名称。Restore 现有阶段与局部 25 秒超时保持，没有新增端到端 Restore deadline。
 
-本轮没有填写任何新真实 ID、改写 test／production 构建参数或扩展 Singular 映射。新商品需补齐 Apple、服务端准入、客户端长期注册、收入命名和旧包支持口径后再发布。既有验证交易、权益和收入处理仍复用，Restore 不计新收入。
+第三阶段最初未填写新真实 ID；2026-10-15 用户确认 dev 接入 weekly.trial 与 yearly.pro，并授权按现有惯例生成周试用的 test 收入事件名。test.json 的长期注册增加如下映射，原 cardx.week／cardx.year／cardx.lifetime 继续保留：
+
+| Product ID | plan_id | 类型 | is_trial_product | dev Singular 收入事件 |
+| --- | --- | --- | --- | --- |
+| weekly.trial | weekly_trial | subscription | true | card_weekly_trialtest |
+| yearly.pro | yearly_pro | subscription | false | yearly_cardtest |
+
+长期支持集合包含五个商品，页面仍按后台最多三张卡片展示；关联试用不变成第四张卡片。Page／Modal 的现有兜底继续使用原三商品、原顺序和 Yearly 默认项。production 构建参数未改，Android 仍不消费 Apple 配置。
+
+新增 dev 收入事件按确认成功交易的实际 Product ID 匹配；weekly.trial 使用 card_weekly_trialtest，yearly.pro 沿用年订阅的 yearly_cardtest，原三档事件不变。生产尚未注册这两个新 ID，不自动套用 dev 映射。收入金额仍来自已确认交易的 JWS，零元试用按 0 上报；重试队列接受 weekly_trial／yearly_pro，保留原有交易去重、失败后重启重试与 Restore 不计新收入的规则。Firebase 沿用原事件与真实交易字段。
+
+上述是客户端实现与接入契约，dev 环境落地、商品准入及实际验证见[本版本记录](../05-delivery/VERIFICATION.md#dev-subscription-product-onboarding)。旧包新增商品支持、签名测试包、真机购买／恢复及外部平台实际收到收入仍需独立验收。
 
 ## 兜底与平台边界
 

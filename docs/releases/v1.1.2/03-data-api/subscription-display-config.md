@@ -16,11 +16,19 @@
 
 上述新配置均可缺省，不阻止已有 Linux API 启动或旧购买接口工作。Cloudflare 通过同名变量／Secrets 注入；Linux 通过现有 `.env` 注入，示例不包含真实 ID 或密钥。没有凭据时新目录及需要重新校验目录的写入返回 503；已有配置读取、结果核对和关闭配置不访问 Apple。
 
-2026-10-15 dev 已[落地并加载目录配置](../05-delivery/VERIFICATION.md#subscription-config-dev-catalog-env)：测试 App 6790245922、组 22251901、新团队 Key 和 Lifetime 范围 cardx.lifetime 的实际目录读取通过。SUBSCRIPTION_DISPLAY_PRODUCT_IDS 尚未设置，0014 与新订阅业务路由未发布；配置完成不代表商品已准入或后台功能已上线。
+dev 已[落地并加载目录配置](../05-delivery/VERIFICATION.md#subscription-config-dev-catalog-env)。2026-10-15 17:59 回读当前 release 为 dev@e53f75c，PostgreSQL ledger 包含 0014；原三个 cardx 商品与 weekly.trial／yearly.pro 共五项已完成本轮 dev 服务端准入。Page／Modal 仍无生效配置，真实 StoreKit 购买／恢复及平台收入接收未验，详见[商品接入结果](../05-delivery/VERIFICATION.md#dev-subscription-product-onboarding)。
 
 有效商品还必须同时属于既有 `APPLE_IAP_PRODUCT_IDS`，且 `billing_product` 为 active、类型匹配、权益为 `performance_pro`。目录接口返回每项 `admission.admitted/reasons`；未准入商品允许保存在不生效配置，启用和保存已生效配置时拒绝。保留但未启用的试用目标仍校验关系结构；它不参与本次生效购买的准入集合。
 
 **展示列表不负责注册或删除权益商品。** 新模块不写 `billing_product`、购买链或 session grant；移除卡片与关闭配置不会影响已有购买。展示准入列表是明确的环境配置，不是对旧包兼容已完成的自动判断。
+
+## dev 商品接入映射（2026-10-15）
+
+用户确认在独立 dev 环境接入 weekly.trial 与 yearly.pro。两者均为自动续期订阅、授予既有 performance_pro 权益，分别使用独立 plan_id=weekly_trial 与 yearly_pro；不复用原 weekly／yearly，也不修改原六条 billing_product 映射。仅新增商品数据与环境允许范围，不新增 schema 或 migration。
+
+购买白名单保留 cardx.week、cardx.year、cardx.lifetime，并追加 weekly.trial、yearly.pro；本次展示准入对应这五个已注册 dev 商品。实际配置仍最多三张展示卡片，关联目标另计购买准入。更新前备份私有环境与目标商品表数据，按原 watcher／deploy 锁串行操作；环境更新仅涉及 APPLE_IAP_PRODUCT_IDS 和 SUBSCRIPTION_DISPLAY_PRODUCT_IDS，API 重载沿用原镜像及业务产物。
+
+环境变更的实际结果以[商品接入验证](../05-delivery/VERIFICATION.md#dev-subscription-product-onboarding)为准，原凭据、Apple 商品设置、原有交易／权益及生产配置保持原边界；商品准入不等于真实 StoreKit 资格、可售、购买／恢复或收入验收。当前新 SKU 的升级／降级通知目标识别与升级补单仍受旧 PLAN_CHANGE_PRODUCT_IDS 范围限制，需在完整订阅切换验收前另行补齐，见同一验证记录。
 
 ## Apple 目录读取
 
@@ -106,7 +114,7 @@
 
 ## 环境影响、回退及验证
 
-部署前分别在 dev／prod 应用新增 PostgreSQL 迁移，再配置目录凭据和已审核商品范围；本任务没有执行远程迁移、环境改写或发布。缺少新表时仅新模块失败，不重绑定旧 D1。回退代码保留新增表和历史权益数据；关闭生效配置或回退使用原接口的客户端，不删除账单／映射，也不让展示列表收窄恢复集合。
+部署前按目标环境核对 PostgreSQL ledger、目录凭据与已审核商品范围。2026-10-15 dev 已回读到既有 0014，本轮仅新增两条商品映射、更新两个环境字段并重载同镜像 API，没有新增或执行 migration；prod 未操作。缺少新表时仅新模块失败，不重绑定旧 D1。回退代码保留新增表和历史权益数据；关闭生效配置或回退使用原接口的客户端，不删除账单／映射，也不让展示列表收窄恢复集合。
 
 独立多连接检查使用 `pnpm --filter @kando/workers-api test:subscription-config:postgres`，要求显式设置 `SUBSCRIPTION_TEST_DATABASE_URL`。脚本仅接受 loopback 的空 `subscription_config_test` 数据库，拒绝其他地址、数据库名或非空库；不进入默认测试命令，也不会静默跳过。它使用两组真实 PostgresDatabase 连接和独立锁持有／观察连接，以 `pg_stat_activity` 确认实际锁等待，覆盖重复创建、并发生效、并发编辑、准入行锁及事务回滚。临时数据库和容器的创建／清理由调用方负责，不连接既有业务数据库。
 
