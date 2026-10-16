@@ -600,3 +600,12 @@ Code Review 自查覆盖计数口径、直接请求绕过、存量数据保留�
 本轮完成的是 dev 的 API／Admin 重新部署及上述运行核对；未发布 prod、营销站或 Flutter 签名包。真实 Admin 登录态审批／启用、StoreKit 价格／资格／购买／Restore、收入平台实际接收和正式旧包／真机仍待验。1.0.4／1.0.5 恢复新 SKU 的限制不因本次服务端发布而消失，见 [兼容 AI 执行版](../03-data-api/app-backward-compatibility-ai-guide.md)。本轮没有回查 GitHub 托管 CI，不将服务器 watcher 的测试结果写成 GitHub CI 已通过。
 
 精简运行回读、批准构建哈希和 HTTP 结果保留在忽略目录 apps/workers-api/.wrangler/dev-deploy-06f420a-20261016/；原始日志、基线副本和任何凭据均不加入 docs。
+
+## 2026-10-16：iOS 测试环境内部安装包 1.0.5 (167)
+
+- 构建输入：从构建前干净且与远端一致的 `dev@d1ec5928f7722597288b2871c249624edc9491e8` 构建。源码版本为 `1.0.5+166`，执行 `./tool/release_ios.sh --env test --pgy`；脚本完整退出 0，并在全部制品门禁通过后将 `apps/flutter-app/pubspec.yaml` 同步为 `1.0.5+167`。这是首个包含动态订阅商品注册能力的签名测试包，包含 `weekly.trial`、`yearly.pro`，注册表按 API、环境与 Bundle ID 隔离。
+- 环境与依赖：`config/test.json` 校验通过，dev health `http://192.168.50.201:8080/api/v1/health` 返回 `status=ok`。依赖解析没有改变锁定依赖；根 `pubspec.lock` 与 iOS `Podfile.lock` 的 SHA-256 分别保持为 `0d85580159d1c598b6a61e32f9ad77c6a5013eaeb586ac29d9836d8b7e379021` 和 `d0879ca1f7222cbc2de5bd0d33a414c834eaec2235f469322ffd171ab0f75793`，与 166 构建一致，没有依赖更新。
+- 本地验证：`flutter analyze` 通过；共享 `subscription-core` 12 项通过，App 发布配置、环境及订阅相关 8 个定向测试文件 116 项通过。构建后补跑当前 16 个订阅／权益／启动门禁测试文件，165 项全部通过。这些范围不包含此前失败的 4 项 Golden；Profile 升级横幅、订阅成功 300ms 帧、订阅配置底部页和订阅成功页的像素差异本轮没有重录或关闭，仍是明确待验项。
+- 构建结果：依赖解析、Xcode Archive、IPA 导出、签名校验、dSYM 覆盖与保存流程均退出 0。保存制品的独立只读审计确认 `com.kando.kandoApp.beta / 1.0.5 (167)`、最低 iOS 16、Apple Development 签名、`get-task-allow=true`、App Attest `development`，包含测试 Firebase `card-ai---test` 与 dev API `http://192.168.50.201:8080/api/v1`，未命中生产 API。描述文件包含 6 台设备。IPA 的 42 个唯一 Mach-O UUID 均有匹配 dSYM，缺失和额外 UUID 均为 0；压缩包内 `cupertino_http` 与 `objective_c` 各有一份 UUID 相同的重复 dSYM，不影响覆盖或符号化。
+- 保存与保留：IPA 为 39,946,633 字节，SHA-256 `9394ee5ff84c1dade39cf294cb575b6be588ae1823870b0bc5451b29c2014277`；`dSYMs.zip` 为 61,233,095 字节，SHA-256 `38bc3b024815b316118f66b690c07b6b4b9fa77105be9176f522cdaca8bce84a`。两份 ZIP 完整性检查通过，保存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.5-167/`。新版本完整保存后，旧 164 版移入废纸篓；当前保留 165、166、167，正式包及 Xcode Archives 不受影响。
+- 边界：本次没有安装设备、上传蒲公英／TestFlight／App Store Connect、提交或推送 Git，也没有部署或修改服务端。4 项 Golden 差异仍未关闭；没有完成真实 Sandbox 购买、Restore、动态新 SKU、收入平台实际接收或真机端到端验收。
