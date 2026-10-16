@@ -94,6 +94,8 @@ GitLab Flutter CI 使用 3.44.0，GitHub iOS CI 使用 3.44.7。涉及工具链�
 - iOS 内部测试包使用 Bundle ID `com.kando.kandoApp.beta` 时，最终签名 entitlement 的 App Attest 环境必须为 `development`，不得交付 `production`；必须解包检查最终 IPA，不能只看 Xcode 工程设置或描述文件允许值。其他 Bundle ID 的 App Attest 环境暂不固定。
 - iOS IPA 和 dSYM 统一保存到 `~/Downloads/CardAI-Packages/<Bundle ID>/`，下面按 `CardAI-Test-<版本>-<构建号>` 或 `CardAI-Prod-<版本>-<构建号>` 建版本目录。测试包保留最近保存的 3 个版本，正式包保留 7 个版本；新版本完整保存并校验后，才将同一 Bundle ID 下超额的最旧版本移入废纸篓。使用发布脚本的自动保存流程；此保留规则不清理 Xcode Archives。
 
+- 2026-10-16 动态订阅准入本地增量：超级管理员按 APP_ENVIRONMENT:APPLE_IAP_BUNDLE_ID 审批，复用 PostgreSQL app_config 保存长期准入并事务注册 billing_product；旧环境名单保留为兼容基线。新增商品不得自动跨 dev/prod 批准，不把 Apple Sandbox 当作业务环境。Flutter 读取按 API／环境／Bundle 隔离的长期注册表；旧包恢复新 SKU 的限制仍须明确确认。无新增 migration，本地实现不代表 dev/prod 已发布或真实交易已验收，见 docs/releases/v1.1.2/03-data-api/subscription-display-config.md。
+
 ## App 向后兼容
 
 - 本节约束后续开发；仅确认或落实规则时，只维护规则及文档入口，不修改业务代码或主动补测。具体功能需求、已证实且属于当前任务的兼容 BUG，或用户明确的补测要求，才触发相应开发与验证；覆盖缺口不等同 BUG 或自动整改清单。

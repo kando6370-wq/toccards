@@ -1,3 +1,5 @@
+import { approvedAppleProducts } from "../entitlements/apple-product-policy";
+import { writeProductAdmission } from "./product-admission";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import type { Context } from "hono";
@@ -24,7 +26,7 @@ export function createSubscriptionConfigAdminRoutes(dependencies: Dependencies =
   const routes = new Hono<AdminBindings>();
   const loadCatalog = dependencies.loadCatalog ?? createAppleCatalogLoader();
   // Child wildcard middleware must not change unrelated /admin endpoints.
-  for (const path of ["/subscription-products", "/subscription-configs", "/subscription-configs/*", "/subscription-config-mutations/*"]) {
+  for (const path of ["/subscription-products", "/subscription-products/*", "/subscription-configs", "/subscription-configs/*", "/subscription-config-mutations/*"]) {
     routes.use(path, async (c, next) => {
       c.header("Cache-Control", "no-store");
       if (!c.get("admin")) return send(c, errorOutcome("UNAUTHORIZED", "Unauthorized.", 401));
@@ -41,9 +43,40 @@ export function createSubscriptionConfigAdminRoutes(dependencies: Dependencies =
     if (type !== "subscription" && type !== "non_consumable") return send(c, errorOutcome("VALIDATION_ERROR", "Choose a product type.", 422));
     const catalog = await loadCatalog(c.env, new Set([type]));
     const admission = await productAdmission(c.env, catalog.products);
-    return c.json({ success: true, data: { ...catalog, products: catalog.products.map((product, i) => ({
+    return c.json({ success: true, data: { ...catalog, scope: subscriptionScope(c.env), environment: c.env.APP_ENVIRONMENT, can_approve: c.get("admin").role === "super_admin", products: catalog.products.map((product, i) => ({
       ...product, admission: { admitted: admission[i].admitted, reasons: admission[i].reasons },
     })) } });
+  });
+  routes.post("/subscription-products/admit", async (c) => {
+    if (c.get("admin").role !== "super_admin") return send(c, errorOutcome("FORBIDDEN", "Only a super administrator can admit products.", 403));
+    const scope = subscriptionScope(c.env);
+    let input: unknown;
+    try { input = await c.req.json(); } catch { return send(c, errorOutcome("VALIDATION_ERROR", "Invalid JSON.", 422)); }
+    if (!isRecord(input) || typeof input.request_id !== "string" || !REQUEST_ID.test(input.request_id)) {
+      return send(c, errorOutcome("VALIDATION_ERROR", "A UUID v4 request_id is required.", 422));
+    }
+    const requestId = input.request_id.toLowerCase();
+    const adminId = c.get("admin").admin_id;
+    const hash = await payloadHash({ kind: "admit", input: { ...input, request_id: requestId } });
+    const previous = await readMutation(c.env.DB, scope, requestId);
+    if (previous) return send(c, replayOutcome(previous, adminId, hash));
+    let failure: Outcome | null = null;
+    let product = null;
+    const type = input.product_type;
+    const eventName = typeof input.singular_event_name === "string" ? input.singular_event_name : "";
+    if (input.expected_scope !== scope) failure = errorOutcome("ADMISSION_SCOPE_CONFLICT", "The selected environment or App changed. Reload the catalog.", 409);
+    else if (typeof input.product_id !== "string" || input.product_id.length > 200 ||
+        !["subscription", "non_consumable"].includes(type as string) ||
+        !/^[A-Za-z][A-Za-z0-9_]{0,99}$/.test(eventName) || input.acknowledge_legacy_restore_limit !== true) {
+      failure = errorOutcome("VALIDATION_ERROR", "Product, revenue mapping and explicit legacy restore acknowledgement are required.", 422);
+    } else {
+      try {
+        const catalog = await loadCatalog(c.env, new Set([type as ProductType]));
+        product = catalog.products.find((p) => p.product_id === input.product_id && p.product_type === type) ?? null;
+        if (!product) failure = errorOutcome("VALIDATION_ERROR", "Product is not in this App's approved catalog scope.", 422);
+      } catch (error) { failure = unavailable(error); }
+    }
+    return send(c, await writeProductAdmission(c.env, scope, adminId, requestId, hash, product, eventName, failure));
   });
   routes.get("/subscription-configs", async (c) => c.json({ success: true,
     data: await readConfigList(c.env.DB, subscriptionScope(c.env)) }));
@@ -133,6 +166,14 @@ export function createSubscriptionConfigAdminRoutes(dependencies: Dependencies =
 export function createSubscriptionDisplayRoutes(): Hono<{ Bindings: Env }> {
   const routes = new Hono<{ Bindings: Env }>();
   routes.onError((error, c) => send(c, unavailable(error)));
+  routes.get("/subscription-supported-products", async (c) => {
+    c.header("Cache-Control", "no-store");
+    const platform = c.req.query("platform") ?? "ios";
+    if (!["ios", "google"].includes(platform)) return send(c, errorOutcome("VALIDATION_ERROR", "Invalid platform.", 422));
+    if (platform === "google") return c.json({ success: true, data: { products: [] } });
+    return c.json({ success: true, data: { scope: subscriptionScope(c.env), products: (await approvedAppleProducts(c.env))
+      .map(({ approved_by: _by, approved_at: _at, ...p }) => p) } });
+  });
   routes.get("/subscription-display-config", async (c) => {
     c.header("Cache-Control", "no-store");
     const type = c.req.query("type");

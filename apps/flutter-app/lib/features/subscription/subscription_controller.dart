@@ -24,6 +24,7 @@ import 'subscription_singular_events.dart';
 import 'subscription_sync_queue.dart';
 import 'subscription_display_config.dart';
 import 'subscription_product_support.dart';
+import 'subscription_product_registry.dart';
 
 const subscriptionWeeklyPlanId = 'weekly';
 const subscriptionYearlyPlanId = 'yearly';
@@ -360,6 +361,36 @@ class AppSubscriptionConfiguration {
     ),
   );
 
+  AppSubscriptionConfiguration withApprovedProducts(
+    List<SupportedSubscriptionProduct> approved,
+  ) {
+    final products = {for (final p in supportedProducts) p.productId: p};
+    for (final p in approved) {
+      final previous = products[p.productId];
+      if (previous != null && previous.type != p.type) {
+        throw const FormatException('Product type changed');
+      }
+      products[p.productId] = SupportedSubscriptionProduct(
+        productId: p.productId,
+        planId: previous?.planId ?? p.planId,
+        type: p.type,
+        isTrialProduct: p.isTrialProduct,
+        singularEventName: p.singularEventName,
+      );
+    }
+    // Original display/fallback plans remain fixed; the purchase registry can grow.
+    final merged = AppSubscriptionConfiguration(
+      store: store,
+      productIds: productIds,
+      additionalProducts: products.values
+          .where((p) => !configuredProductIds.values.contains(p.productId))
+          .toList(),
+    );
+    // Validate collisions before replacing the current registry.
+    merged.supportedProducts;
+    return merged;
+  }
+
   bool get isConfigured => store != null && supportedProducts.isNotEmpty;
 }
 
@@ -690,6 +721,55 @@ class SubscriptionState {
 }
 
 class SubscriptionController extends Notifier<SubscriptionState> {
+  AppSubscriptionConfiguration? _approvedConfiguration;
+  AppSubscriptionConfiguration get _configuration =>
+      _approvedConfiguration ?? ref.read(appSubscriptionConfigurationProvider);
+  Future<void>? _registryRefresh;
+
+  Future<void> _refreshProductRegistry(
+    AppSubscriptionConfiguration base,
+  ) async {
+    if (base.store != SubscriptionStore.appStore) return;
+    try {
+      final products = await ref
+          .read(subscriptionProductRegistryProvider)
+          .load();
+      if (!ref.mounted) return;
+      final merged = (_approvedConfiguration ?? base).withApprovedProducts(
+        products,
+      );
+      _client?.registerPlans(
+        merged.supportedProducts.map(
+          (p) => SubscriptionPlanConfig(
+            id: p.planId,
+            entitlementId: 'performance_pro',
+            productIds: {SubscriptionStore.appStore: p.productId},
+          ),
+        ),
+      );
+      _approvedConfiguration = merged;
+    } on Object catch (error) {
+      debugPrint('Unable to update approved products: $error');
+    }
+  }
+
+  Future<AppSubscriptionConfiguration> supportedConfiguration({
+    Set<String>? requested,
+    bool refresh = false,
+  }) async {
+    final previous = _configuration;
+    await _initialization;
+    if (!ref.mounted) return _approvedConfiguration ?? previous;
+    if (refresh ||
+        (requested != null &&
+            !requested.every(_configuration.supportedProductIds.contains))) {
+      await (_registryRefresh ??= _refreshProductRegistry(
+        _configuration,
+      ).whenComplete(() => _registryRefresh = null));
+    }
+    return _approvedConfiguration ?? previous;
+  }
+
   SubscriptionClient? _client;
   StreamSubscription<SubscriptionEvent>? _eventSubscription;
   SubscriptionStore? _store;
@@ -808,7 +888,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
     bool force = false,
     bool showLoading = true,
   }) async {
-    final configuration = ref.read(appSubscriptionConfigurationProvider);
+    final configuration = _configuration;
     if (!state.isConfigured ||
         state.isLoading ||
         state.isPurchasing ||
@@ -865,7 +945,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
     );
     _purchasePresentationActive = true;
     try {
-      final configuration = ref.read(appSubscriptionConfigurationProvider);
+      final configuration = _configuration;
       final currentPurchaseEnvironment = await _readPurchaseEnvironment(store);
       final environmentChanged = subscriptionPurchaseEnvironmentChanged(
         loaded: _loadedPurchaseEnvironment,
@@ -1006,7 +1086,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
 
   Future<bool> _synchronizeServerEntitlement() async {
     final session = ref.read(authControllerProvider).session;
-    final configuration = ref.read(appSubscriptionConfigurationProvider);
+    final configuration = _configuration;
     final productIds = configuration.supportedProductIds;
     if (session == null ||
         configuration.store != SubscriptionStore.appStore ||
@@ -1078,7 +1158,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
   }) async {
     try {
       return await _refreshEntitlement(
-        ref.read(appSubscriptionConfigurationProvider),
+        _configuration,
         showFailure: showFailure,
       );
     } finally {
@@ -1091,7 +1171,6 @@ class SubscriptionController extends Notifier<SubscriptionState> {
         SubscriptionRestoreSource.subscriptionPage,
   }) async {
     if (state.isLoading || state.isPurchasePending) return;
-    final configuration = ref.read(appSubscriptionConfigurationProvider);
     if (_client == null || _store != SubscriptionStore.appStore) {
       debugPrint(
         'Unable to restore Apple subscription: StoreKit client is not ready '
@@ -1117,9 +1196,11 @@ class SubscriptionController extends Notifier<SubscriptionState> {
       clearResult: true,
     );
     try {
+      final currentConfiguration = await supportedConfiguration(refresh: true);
+      if (!ref.mounted || attempt != _restoreAttempt) return;
       final result = await ref
           .read(appleSubscriptionRestorerProvider)
-          .restore(configuration.supportedProductIds);
+          .restore(currentConfiguration.supportedProductIds);
       if (attempt != _restoreAttempt) return;
       if (result.isSuccess) {
         final session = ref.read(authControllerProvider).session;
@@ -1200,6 +1281,9 @@ class SubscriptionController extends Notifier<SubscriptionState> {
   }
 
   Future<void> _initialize(AppSubscriptionConfiguration configuration) async {
+    await _refreshProductRegistry(configuration);
+    if (!ref.mounted) return;
+    configuration = _configuration;
     final store = configuration.store!;
     final config = SubscriptionConfig(
       enabledStores: {store},
@@ -1238,7 +1322,8 @@ class SubscriptionController extends Notifier<SubscriptionState> {
   Future<List<SubscriptionProduct>> loadDisplayProducts(Set<String> ids) async {
     await _initialization;
     if (!ref.mounted) return const [];
-    final configuration = ref.read(appSubscriptionConfigurationProvider);
+    final configuration = await supportedConfiguration(requested: ids);
+    if (!ref.mounted) return const [];
     final allowed = ids.intersection(configuration.supportedProductIds);
     final gateway = ref.read(subscriptionStoreGatewayProvider);
     if (allowed.isEmpty || gateway == null || !await gateway.isAvailable()) {
@@ -1338,6 +1423,15 @@ class SubscriptionController extends Notifier<SubscriptionState> {
     AppSubscriptionConfiguration configuration, {
     bool showFailure = false,
   }) async {
+    final previousState = state.premiumState;
+    // Startup already loads the registry; later foreground reconciliation refreshes it.
+    configuration = await supportedConfiguration(refresh: _client != null);
+    if (!ref.mounted) {
+      return _EntitlementRefreshResult(
+        state: previousState,
+        wasVerified: false,
+      );
+    }
     final storage = ref.read(subscriptionEntitlementCacheStorageProvider);
     final cached = await storage.read();
     final cachedState = cached?.effectiveState(DateTime.now().toUtc());
@@ -1501,7 +1595,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
     if (payload == null || payload['productId'] != productId) return null;
     final originalTransactionId = payload['originalTransactionId'];
     final expiresDate = payload['expiresDate'];
-    final configuration = ref.read(appSubscriptionConfigurationProvider);
+    final configuration = _configuration;
     return VerifiedEntitlementCache(
       state: AppPremiumState.premium,
       verifiedAt: DateTime.now().toUtc(),
@@ -1657,6 +1751,10 @@ class SubscriptionController extends Notifier<SubscriptionState> {
               .read(singularSubscriptionRevenueReporterProvider)
               .enqueueVerifiedPurchase(
                 event,
+                eventName: _configuration.supportedProducts
+                    .where((p) => p.productId == event.purchase?.storeProductId)
+                    .firstOrNull
+                    ?.singularEventName,
                 isFreshPurchase:
                     resultEvent == SubscriptionResultEvent.purchaseSuccess,
               )
@@ -1678,7 +1776,13 @@ class SubscriptionController extends Notifier<SubscriptionState> {
         unawaited(
           ref
               .read(subscriptionRevenueReporterProvider)
-              .enqueueVerifiedPurchase(event)
+              .enqueueVerifiedPurchase(
+                event,
+                singularEventName: _configuration.supportedProducts
+                    .where((p) => p.productId == event.purchase?.storeProductId)
+                    .firstOrNull
+                    ?.singularEventName,
+              )
               .catchError((Object error, StackTrace stackTrace) {
                 debugPrint(
                   'Unable to report subscription revenue: $error\n$stackTrace',

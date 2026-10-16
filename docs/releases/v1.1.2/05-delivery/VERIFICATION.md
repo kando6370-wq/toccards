@@ -442,3 +442,43 @@ Code Review 自查覆盖计数口径、直接请求绕过、存量数据保留�
 - 使用已有 Chrome 后台标签页刷新商品目录时，页面转至登录界面，当前没有可用 Admin 登录态；未填写或猜测后台密码，未通过 SQL 绕过配置启用流程。原草稿仍不生效，待重新登录后继续页面提示和启用验收。浏览器中旧警告的消失尚未取得登录态 UI 证据，不用后端函数检查代替该验收。
 - 联查当前回调源码：独立 Cloudflare relay 只转发签名原文，没有另一份 Product ID 白名单；Linux 的普通 SUBSCRIBED／DID_RENEW 建单复用配置和权益映射。但 apple-notification-routes.ts 的 PLAN_CHANGE_PRODUCT_IDS 仍仅包含既有周／年商品，DID_CHANGE_RENEWAL_PREF 的目标识别和升级补单分支尚未扩展到 weekly.trial／yearly.pro。本轮未改动该服务端生命周期分支，不能把准入通过视为新 SKU 升级／降级通知支持完成；完整订阅切换验收前须补齐对应实现与回归。
 - Apple 商品目录仍显示 MISSING_METADATA，真实 StoreKit 地区价格、资格、购买／恢复和 Singular／Firebase 平台实际接收未验。当前为 Windows 环境，尚未构建新的 Mac 签名测试包或做真机验证；本地代码尚未 Git commit／push。未操作 prod、营销站、Apple 商品设置或发布 Flutter App。
+
+
+<a id="subscription-dynamic-admission"></a>
+
+## 2026-10-16 动态商品准入（本地实现与验证）
+
+### 需求与定位
+
+基线为干净的 codex/dev-1.0.6@67387fc，以下验证结果在提交前的增量工作区取得。用户确认 weekly.trial／yearly.pro 已在上一轮 dev 接入后恢复；当前未准入对象为 cardx.month，并明确采用“超级管理员逐 SKU 审批”，要求区分 dev/prod。原提示来自购买环境名单、展示审批名单和 active billing_product 三重条件，缺少后台接入流程；客户端还只消费构建时注册集合，通知升降级分支也有固定商品范围。此项按用户确认的功能迭代补齐准入能力，不将原先的审批拦截简单删除。
+
+### 实现与审查
+
+- 新增超级管理员审批 API，重新校验 Apple 目录，核对 expected_scope、Premium 类型、收入事件和旧包限制确认；使用现有 request_id 与结果核对，审批与商品映射同事务提交。保留既有兼容映射，冲突显式失败。
+- PostgreSQL app_config 按 APP_ENVIRONMENT:APPLE_IAP_BUNDLE_ID 保存动态记录；复用现有 billing_product、mutation_lock 和订阅 mutation 表，没有新 schema／migration。原环境名单保留；Fresh Purchase、Restore、Premium／生命周期、通知、校正及 Admin 账单读取当前 scope 的动态并集。
+- 同库同名动态 Product ID 跨 scope 审批会令未带 Bundle 的历史账单映射产生歧义。审查新增回归修复前得到 200（期望 409），修复后返回 PRODUCT_SCOPE_CONFLICT；同一商品锁覆盖检查及写入，真实 PostgreSQL 两连接并发也只允许一个 scope 成功。
+- Flutter 的注册表读取／缓存按 API、环境及实际 Bundle 隔离；启动、前台权益同步、未知展示 SKU 和 Restore 可更新长期集合，追加到现有购买客户端而不重启监听。页面移除不撤历史恢复支持。收入事件随交易持久化，重启重试保留原映射及去重。
+- Code Review 已完成变更及直接调用链自审，处理了损坏的审批编辑快照、审批弹窗遮挡 unknown 结果核对、销毁后的迟到响应、前台长期集合刷新及同库跨 scope 重复商品问题；最后复验后未发现本次范围内的阻断项。没有声称第三方独立审查或远端验收。
+
+### 实际验证
+
+环境：Windows／Node 22.20.0、本地 Flutter 工具链及隔离的 PostgreSQL 18.6-alpine 测试容器。新增审批回归先运行得到 4 项失败（缺少审批路径、返回 404），实现后通过；共享 scope 拒绝回归也先失败后通过。Apple 目录、JWS 与 App Attest 在自动化测试中使用显式注入响应／验证器，不冒充真实签名交易。
+
+| 检查 | 实际结果与范围 |
+| --- | --- |
+| Workers 受影响测试 | 41 个文件的唯一用例去重共 451 项通过。39 文件／393 项分独立进程退出 0；动态购买／Restore／升级／scope 合同最终 5 项退出 0；扫描全部 53 项按清单分组退出 0。最终另运行订阅配置与动态权益 2 文件／35 项退出 0，其中已有 30 项不重复计数。覆盖 entitlements、subscription-config、Admin billing、scan、portfolio、data-source。 |
+| Admin | pnpm --filter @kando/admin-web test：63 项通过，退出 0，含审批恢复快照；不是登录态浏览器实机验收。 |
+| Flutter | 根 Melos 对 kando_app 执行 16 个订阅／当前权益／启动门禁相关测试文件，165 项通过，退出 0；包含真实 SubscriptionController 的注册追加和销毁后迟到响应、动态收入重启去重。 |
+| 共享 Dart 包 | 根 Melos 对 subscription_core 执行测试，12 项通过、退出 0，包含追加计划后保持购买监听和拒绝历史映射替换。 |
+| 静态与依赖 | pnpm lint、pnpm type-check、根 Melos 两包 analyze（最终带 --no-pub）均退出 0；未升级依赖，锁文件无改动。 |
+| 真 PostgreSQL | test:subscription-config:postgres 在独立 loopback 空测试库执行 8 个子场景（TAP 含外层共 9 项），全部退出 0。验证真实锁等待、幂等、并发生效／审批、同库跨 scope 商品竞争、原子回滚；临时容器及其匿名卷已移除。没有接入既有业务数据库。 |
+| 构建 | 最终 deploy:dry-run:dev 与 deploy:dry-run:prod 均退出 0，包括对应 Admin 构建、Linux 完整 bundle 的 3 项测试及 Cloudflare 打包。dev 只生成本地 tar.gz，prod 仅 dry-run；没有 SSH／上传／发布。 |
+| 旧版源码合同 | pnpm test:app-compatibility 退出 0；当前 API 8 项，固定 1.0.4+161、1.0.5+163 各 24 项。覆盖及限制集中见 [AI 执行版](../03-data-api/app-backward-compatibility-ai-guide.md#2026-10-16-动态商品准入的兼容补证)。 |
+
+批量运行限制必须保留：两次大批量 Workers 命令以及单独扫描整文件命令出现 Windows 进程异常退出 3221226505，未记为通过。对同一 HEAD 的独立源码快照运行扫描文件得到 41 通过／12 失败，失败为 PGlite 初始化的 Array buffer allocation failed，证明基线也存在单进程资源限制；没有据此断言当前异常退出的完整底层根因。随后用 vitest list 枚举 53 个唯一测试名，按 8／8／8／8／8／8／5 分进程全部执行，并核对每组通过数；分组之外的过滤项由其他组覆盖，没有删测试或放宽断言。原始输出保留在忽略的 apps/workers-api/.wrangler/subscription-admission-* 与 subscription-scan-* 文件中，不纳入 docs 原始日志。
+
+### 交付边界与下一步使用
+
+上述实现与验证阶段未执行 Git commit／push、远程业务数据写入、dev/prod 部署或新 App 签名打包。没有实际在 dev 审批 cardx.month；当前线上状态仍以之前已验收记录为准。发布本次 API＋Admin 并安装含动态注册能力的新测试 App 后，超级管理员在 dev 选择 cardx.month，点击“审核商品准入”，填写经确认的 dev 收入事件名、核对环境和旧包限制，再保存／启用配置。prod 必须使用自己的 App／目录配置并独立审批，不能直接复用 dev 批准状态。
+
+1.0.4／1.0.5 原有商品和 V1 仍保留，但它们无法恢复包内未知的新 SKU；相关源码结论与待验项见 AI 执行版。真实 Apple 可售／资格／购买／Restore、旧签名包／真机、iOS 签名与 App Attest entitlement、平台实际收入接收、远端 CI 均未执行，不能记为通过。没有修改 iOS／Android 原生工程；Android 继续不消费 Apple 售卖配置。生产首次接入仍需核对既有 0014 等前置条件；“本次无新迁移”不代表可以跳过已有迁移检查。回退应保留商品与审批数据；新 SKU 已售卖后，旧服务代码不读动态准入，回退前须安排持续的购买／恢复支持。

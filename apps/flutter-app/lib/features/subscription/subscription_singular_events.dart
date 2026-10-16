@@ -8,6 +8,7 @@ String? singularSubscriptionSuccessEventName({
   required SubscriptionEvent event,
   required AppEnvironment environment,
   required bool isFreshPurchase,
+  String? eventName,
 }) {
   if (!isFreshPurchase ||
       event.purchase?.status != SubscriptionPurchaseStatus.purchased ||
@@ -16,11 +17,12 @@ String? singularSubscriptionSuccessEventName({
     return null;
   }
 
-  return _eventName(
-    event.entitlement!.planId,
-    environment,
-    productId: event.purchase!.storeProductId,
-  );
+  return eventName ??
+      _eventName(
+        event.entitlement!.planId,
+        environment,
+        productId: event.purchase!.storeProductId,
+      );
 }
 
 String? _eventName(
@@ -63,17 +65,22 @@ class SingularSubscriptionRevenueReporter {
   Future<void> enqueueVerifiedPurchase(
     SubscriptionEvent event, {
     required bool isFreshPurchase,
+    String? eventName,
   }) {
     if (singularSubscriptionSuccessEventName(
               event: event,
               environment: _environment,
               isFreshPurchase: isFreshPurchase,
+              eventName: eventName,
             ) ==
             null ||
         event.plan?.id != event.entitlement?.planId) {
       return Future.value();
     }
-    return _reporter.enqueueVerifiedPurchase(event);
+    return _reporter.enqueueVerifiedPurchase(
+      event,
+      singularEventName: eventName,
+    );
   }
 
   Future<void> flush() => _reporter.flush();
@@ -87,11 +94,9 @@ class _SingularRevenueSink implements SubscriptionRevenueSink {
 
   @override
   Future<void> report(SubscriptionRevenueRecord record) {
-    final eventName = _eventName(
-      record.planType,
-      environment,
-      productId: record.productId,
-    );
+    final eventName =
+        record.singularEventName ??
+        _eventName(record.planType, environment, productId: record.productId);
     if (eventName == null) throw StateError('Unknown Singular revenue plan.');
     return attribution.trackRevenue(
       eventName: eventName,

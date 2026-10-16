@@ -1,6 +1,6 @@
 # 订阅展示配置与商品准入（第一阶段）
 
-需求输入：[PRD 1.14](../00-product/admin-subscription-config-prd.md)。本文件描述服务端第一阶段源码，Admin 第二阶段页面见 [后台文档](../04-admin/admin.md)，Flutter 消费源码见 [客户端流程](../01-flows/subscription-display.md)，测试 App 的[真实 Apple 目录读取](../05-delivery/VERIFICATION.md#subscription-config-apple-catalog-live)已通过，商品售卖、展示准入和旧包新增 SKU 恢复仍未验收。接口均为 V1 兼容新增，原 app-config、购买、Restore 与权益接口保持不变。
+需求输入：[PRD 1.14](../00-product/admin-subscription-config-prd.md)。本文件描述服务端第一阶段源码，Admin 第二阶段页面见 [后台文档](../04-admin/admin.md)，Flutter 消费源码见 [客户端流程](../01-flows/subscription-display.md)，测试 App 的[真实 Apple 目录读取](../05-delivery/VERIFICATION.md#subscription-config-apple-catalog-live)已通过，商品售卖、展示准入和旧包新增 SKU 恢复仍未验收。接口均为 V1 兼容新增，原 app-config、购买、Restore 与权益接口的 V1 请求／响应合同保持不变；动态商品扩展其受控准入来源。
 
 ## 环境与商品准入
 
@@ -12,15 +12,29 @@
 | `APP_STORE_CONNECT_SUBSCRIPTION_GROUP_ID` | 当前 App 所属的唯一指定订阅组，读取 App 的完整组列表验证归属 |
 | `APP_STORE_CONNECT_ISSUER_ID` / `APP_STORE_CONNECT_KEY_ID` / `APP_STORE_CONNECT_PRIVATE_KEY` | 具备本 App 目录读取权限的团队 API Key，ES256 JWT，有效期 5 分钟；服务端专用，不复用或自动回退到现有验单凭据 |
 | `SUBSCRIPTION_LIFETIME_PRODUCT_IDS` | 允许配置的非消耗型永久 Premium 商品范围；缺失时一次性目录不可用，不把任意非消耗型商品当作 Lifetime |
-| `SUBSCRIPTION_DISPLAY_PRODUCT_IDS` | 已完成展示接入审核的 Product ID 集合，逗号分隔；新 SKU 的旧包支持／收入等事项未闭合时不得加入 |
+| `SUBSCRIPTION_DISPLAY_PRODUCT_IDS` | 旧部署已经批准的展示商品集合，逗号分隔；保留兼容，新 SKU 改走超级管理员动态审批，不再逐项改此变量 |
 
 上述新配置均可缺省，不阻止已有 Linux API 启动或旧购买接口工作。Cloudflare 通过同名变量／Secrets 注入；Linux 通过现有 `.env` 注入，示例不包含真实 ID 或密钥。没有凭据时新目录及需要重新校验目录的写入返回 503；已有配置读取、结果核对和关闭配置不访问 Apple。
 
 dev 已[落地并加载目录配置](../05-delivery/VERIFICATION.md#subscription-config-dev-catalog-env)。2026-10-15 17:59 回读当前 release 为 dev@e53f75c，PostgreSQL ledger 包含 0014；原三个 cardx 商品与 weekly.trial／yearly.pro 共五项已完成本轮 dev 服务端准入。Page／Modal 仍无生效配置，真实 StoreKit 购买／恢复及平台收入接收未验，详见[商品接入结果](../05-delivery/VERIFICATION.md#dev-subscription-product-onboarding)。
 
-有效商品还必须同时属于既有 `APPLE_IAP_PRODUCT_IDS`，且 `billing_product` 为 active、类型匹配、权益为 `performance_pro`。目录接口返回每项 `admission.admitted/reasons`；未准入商品允许保存在不生效配置，启用和保存已生效配置时拒绝。保留但未启用的试用目标仍校验关系结构；它不参与本次生效购买的准入集合。
+有效商品须通过旧环境名单（`APPLE_IAP_PRODUCT_IDS` 与 `SUBSCRIPTION_DISPLAY_PRODUCT_IDS`）或下述动态审批，且 `billing_product` 为 active、类型匹配、权益为 `performance_pro`。目录接口返回每项 `admission.admitted/reasons`；未准入商品允许保存在不生效配置，启用和保存已生效配置时拒绝。保留但未启用的试用目标仍校验关系结构；它不参与本次生效购买的准入集合。
 
-**展示列表不负责注册或删除权益商品。** 新模块不写 `billing_product`、购买链或 session grant；移除卡片与关闭配置不会影响已有购买。展示准入列表是明确的环境配置，不是对旧包兼容已完成的自动判断。
+**展示编辑不注册或删除权益商品。** 独立的超级管理员审批操作可以注册商品；移除卡片与关闭配置不删除准入、映射、购买链或 session grant。
+
+## 动态商品准入（2026-10-16 本地增量）
+
+管理员在目录选择商品后，超级管理员通过 `POST /api/v1/admin/subscription-products/admit` 审批。请求包括 UUID v4 request_id、product_id、product_type、expected_scope、singular_event_name，以及 acknowledge_legacy_restore_limit=true。系统重新读取真实 Apple 目录，验证当前 App／订阅组／类型，确认目标 scope 与运行环境完全一致；普通 operator 返回 403、环境不符返回 409。收入事件名由审批人按当前 dev/prod 确认，不自动猜测 test 后缀。
+
+审批使用现有 subscription_display_mutation 的幂等和结果核对机制。scope 锁与商品锁下，事务新增缺失的 billing_product（稳定 plan_id 为 apple:ProductID、performance_pro、active=1），保留已有兼容映射；已有 inactive、不同类型／权益或计划冲突返回 PRODUCT_MAPPING_CONFLICT，不覆盖旧数据。审批记录写入现有 PostgreSQL app_config 的 billing.apple.admission:环境:Bundle 键，记录商品类型、试用分类、计划、收入映射、审批人和时间。没有新增 schema／migration，不使用 D1；目标环境仍须已安装订阅配置原有的 0006／0014 迁移，不能将“本次无新迁移”理解为 prod 首次接入无需核对 ledger。
+
+运行期购买白名单是旧环境名单与当前 scope 审批记录的并集。Fresh Purchase、Restore、Premium／生命周期、通知补单／Server API 校正及 Admin 订单范围使用这一来源；升降级通知保留旧商品基线并接受当前 scope 已批准的订阅。购买仍验证 Apple 签名、Bundle／环境、session challenge 或 App Attest，以及 active 权益映射。审批不跳过 Apple 可售和真实交易验证，不直接发放权益。
+
+动态模块要求保留 APP_STORE_CONNECT_APP_ID 及环境／Bundle 配置；没有配置该可选模块的旧环境继续使用原名单。目录私钥不参与日常购买白名单读取。启用动态商品后不得删除模块 App ID，否则动态商品不再被运行期接受。dev 与 prod 独立审批，即使共用数据库或都接收 Sandbox 交易，也不跨 scope 共享。现有账单表不以 Bundle 分行，因此同一数据库内同一个动态 Product ID 只能属于一个 scope；跨 scope 重复审批返回 PRODUCT_SCOPE_CONFLICT，并由商品锁保护并发检查。历史环境名单保留，不再为每个新 SKU 修改环境变量或源码。
+
+新增 GET /api/v1/subscription-supported-products?platform=ios|google 返回当前 scope 的长期已批准商品及收入映射，不受 Page／Modal 是否启用影响、不暴露管理员信息；Google 返回空集合。新客户端读取此接口并按 API／环境／Bundle 隔离缓存，用于购买监听、展示加载和 Restore；旧包继续原 V1。1.0.4／1.0.5 无法识别包内未登记的新 SKU，审批须明确确认此支持边界，不将其记作旧包恢复已验收。非消耗型仍受 SUBSCRIPTION_LIFETIME_PRODUCT_IDS 的明确 Premium 范围约束；本次不开放任意一次性商品。
+
+代码回退须保留新增 app_config 键及 billing_product；旧代码不会读取动态名单，因此已有新 SKU 开始售卖后，不得仅回退代码而不同时安排这些商品的购买／恢复支持。本文为本地源码契约，远端部署和真实商品批准以验证记录为准。
 
 ## dev 商品接入映射（2026-10-15）
 
@@ -28,7 +42,7 @@ dev 已[落地并加载目录配置](../05-delivery/VERIFICATION.md#subscription
 
 购买白名单保留 cardx.week、cardx.year、cardx.lifetime，并追加 weekly.trial、yearly.pro；本次展示准入对应这五个已注册 dev 商品。实际配置仍最多三张展示卡片，关联目标另计购买准入。更新前备份私有环境与目标商品表数据，按原 watcher／deploy 锁串行操作；环境更新仅涉及 APPLE_IAP_PRODUCT_IDS 和 SUBSCRIPTION_DISPLAY_PRODUCT_IDS，API 重载沿用原镜像及业务产物。
 
-环境变更的实际结果以[商品接入验证](../05-delivery/VERIFICATION.md#dev-subscription-product-onboarding)为准，原凭据、Apple 商品设置、原有交易／权益及生产配置保持原边界；商品准入不等于真实 StoreKit 资格、可售、购买／恢复或收入验收。当前新 SKU 的升级／降级通知目标识别与升级补单仍受旧 PLAN_CHANGE_PRODUCT_IDS 范围限制，需在完整订阅切换验收前另行补齐，见同一验证记录。
+环境变更的实际结果以[商品接入验证](../05-delivery/VERIFICATION.md#dev-subscription-product-onboarding)为准，原凭据、Apple 商品设置、原有交易／权益及生产配置保持原边界；商品准入不等于真实 StoreKit 资格、可售、购买／恢复或收入验收。该历史接入点的新 SKU 升降级识别仍受旧 PLAN_CHANGE_PRODUCT_IDS 限制；2026-10-16 本地增量允许经动态审批登记的订阅参与该分支，尚未发布，不能据此改写历史运行状态。
 
 ## Apple 目录读取
 
@@ -40,11 +54,12 @@ dev 已[落地并加载目录配置](../05-delivery/VERIFICATION.md#subscription
 
 ## 管理端 API
 
-所有路径位于 `/api/v1/admin`，复用当前活跃管理员和会话验证，`super_admin`、`operator` 可操作。新增中间件仅覆盖本模块路径，不改变其他 Admin 上传、缓存或请求大小行为。本模块 JSON 请求技术上限 256 KiB，不设置 30 秒关闭延迟业务上限。
+所有路径位于 `/api/v1/admin`，复用当前活跃管理员和会话验证，配置编辑与生效允许 `super_admin`、`operator`；商品审批仅允许 `super_admin`。新增中间件仅覆盖本模块路径，不改变其他 Admin 上传、缓存或请求大小行为。本模块 JSON 请求技术上限 256 KiB，不设置 30 秒关闭延迟业务上限。
 
 | 方法与路径 | 合同 |
 |---|---|
 | `GET /subscription-products?type=subscription` 或 `non_consumable` | 读取该类型的目录与准入状态，两类读取相互独立 |
+| `POST /subscription-products/admit` | 超级管理员按当前 scope 审批，原子注册商品与准入，使用同一 request_id 结果核对机制 |
 | `GET /subscription-configs` | `{items, active}`；items 与 page/modal 生效指针及 active_revision 在同一 PostgreSQL 语句快照中读取 |
 | `GET /subscription-configs/:id` | 本作用域详情，包含 body、revision、enabled、更新时间及管理员 ID |
 | `POST /subscription-configs` | `{request_id, config}`；201，新配置永远不生效 |

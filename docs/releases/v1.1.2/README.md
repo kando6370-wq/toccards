@@ -13,6 +13,8 @@ App 向后兼容规则只维护以下两份；涉及 App API、共享业务数�
 
 ## App 1.0.6 订阅配置（服务端与 Admin 页面）
 
+2026-10-16 本地增量：新增超级管理员逐商品审批，dev/prod 与 Bundle 隔离；运行期白名单与 Flutter 长期商品集合可接收已批准 SKU，无需逐商品改代码。复用 PostgreSQL 现有表，无新 migration。当前分支尚未发布此增量，具体行为见[动态准入合同](03-data-api/subscription-display-config.md)、[后台操作](04-admin/admin.md)和[客户端注册](01-flows/subscription-display.md)，验证见[记录](05-delivery/VERIFICATION.md#subscription-dynamic-admission)。
+
 本次产品输入为 PRD 1.14；App 目标版本 1.0.6 与工程文档版本 v1.1.2 分别管理。需求、商品映射和实施草案保留在同一份输入文档中，避免维护重复规则。
 
 | 材料 | 内容与边界 |
@@ -22,7 +24,9 @@ App 向后兼容规则只维护以下两份；涉及 App API、共享业务数�
 | [最小实施方案](00-product/admin-subscription-config-prd.md#implementation-plan) | V1 增量接口、PostgreSQL 数据对象、原子启用、幂等及开发顺序；是设计草案，不是当前架构事实 |
 | [离线 HTML 原型](../../../prototypes/admin-subscription-config-standalone.html) | 本地演示配置编辑与校验；商品、金额与保存均为离线演示，不包含 Apple 或后台真实接入 |
 
-服务端第一阶段源码与接口合同见 [订阅展示配置与商品准入](03-data-api/subscription-display-config.md)，包括目录、配置 API、PostgreSQL 迁移及幂等；Admin 页面已接入第一阶段接口，见 [后台文档](04-admin/admin.md)；Flutter 消费已有本地源码，见 [客户端流程](01-flows/subscription-display.md)，`850e339` 的目标 iOS CI 无签名 production Release 编译已通过，独立兜底定稿、真实商品、签名制品与真机仍待验；尚未部署。服务端验证见 [验证记录](05-delivery/VERIFICATION.md#subscription-config-server)，编译证据见 [iOS 原生编译补验](05-delivery/VERIFICATION.md#subscription-config-ios-compile)。
+服务端第一阶段源码与接口合同见 [订阅展示配置与商品准入](03-data-api/subscription-display-config.md)，包括目录、配置 API、PostgreSQL 迁移及幂等；Admin 页面已接入第一阶段接口，见 [后台文档](04-admin/admin.md)；Flutter 消费已有本地源码，见 [客户端流程](01-flows/subscription-display.md)，`850e339` 的目标 iOS CI 无签名 production Release 编译已通过，独立兜底定稿、真实商品、签名制品与真机仍待验；2026-10-15 dev 已有基线部署及五项商品准入，本次动态准入增量尚未部署。服务端验证见 [验证记录](05-delivery/VERIFICATION.md#subscription-config-server)，编译证据见 [iOS 原生编译补验](05-delivery/VERIFICATION.md#subscription-config-ios-compile)。
+
+以下为初次联调历史记录，后续 dev 发布及五项商品准入见[2026-10-15 补证](05-delivery/VERIFICATION.md#dev-subscription-product-onboarding)，本次动态准入增量仍未发布。
 
 Linux dev 初次[服务器只读补验](05-delivery/VERIFICATION.md#subscription-config-dev-server)记录 0014 未执行、7 项新配置缺失；[扫描基线定位与候选整合](05-delivery/VERIFICATION.md#subscription-config-baseline-resolution)进一步确认运行包是 pHash／OCR，当前订阅候选是 512 维向量，两者各有正常响应的配套服务。候选已移植 dev 图片预览修复；用户已确认本次采用 512 维向量方案，pHash／OCR 是另一位同事的独立测试，见[方案确认](05-delivery/VERIFICATION.md#subscription-config-vector-decision)。本任务尚未切换服务器；原 APPLE_IAP 的 401 证据保留，新提供的[目录团队 Key 已通过真实读取](05-delivery/VERIFICATION.md#subscription-config-apple-catalog-live)，确认测试 App 6790245922／组 22251901 和指定范围内 6 个商品。用户调整后，[cardx.week → weekly.trial 同等级关联已只读复验通过](05-delivery/VERIFICATION.md#subscription-config-trial-level-recheck)。[dev 目录六项配置已落地并加载到运行容器](05-delivery/VERIFICATION.md#subscription-config-dev-catalog-env)，持久配置的真实目录读取通过；没有切换业务 release 或扫描方案，0014、商品展示准入、正式兜底与真机联调仍待完成。
 

@@ -56,3 +56,12 @@ Page／Modal 的正式 1.0.6 兜底尚未定稿。代码为两类页面分别创
 - [Flutter 消费验证](../05-delivery/VERIFICATION.md#subscription-config-flutter)、[iOS 原生编译补验](../05-delivery/VERIFICATION.md#subscription-config-ios-compile)。
 
 Apple 字段已核对官方 Product.SubscriptionInfo、groupLevel、Product.priceFormatStyle 文档；groupLevel 从 iOS 16.4 可用。资格调用锁定的 in_app_purchase_storekit 0.4.11 SDK，未升级依赖。
+
+
+## 2026-10-16 动态商品注册增量（本地源码）
+
+新增长期注册表接口由超级管理员逐个审批产生，iOS 在初始化、展示未知商品和 Restore 时读取。缓存键包含 API 地址、development／production 和实际 Bundle ID；响应 scope 不匹配或内容无效时拒绝，网络失败保留此前同 scope 的批准缓存及包内商品。已批准商品不会随页面删除而移出恢复集合。新版客户端需随本次实现更新一次，之后新增受支持的订阅 SKU 无需逐次改 dart-define 或重发包；现有包内注册和 Page／Modal 原兜底保持。
+
+购买客户端采用追加注册，保留既有购买监听、历史计划和事件处理；同 Product ID 的包内计划标识保持稳定，冲突类型／重复计划拒绝整次更新。新 SKU 的 Singular 事件名由当前环境审批确认，并随收入交易记录持久化，离线／重启重试不重新猜测名称；金额、交易去重及 Restore 不计新增收入保持原规则。Firebase 保留原事件结构。Android 不读取 Apple 注册表，不新增 Google 售卖。
+
+1.0.4／1.0.5 原商品继续使用原 V1；它们原生桥接会过滤包内未知 Product ID，因此新 SKU 回到旧包后的 Restore 无法通过服务端单独修复。该限制须由产品／超级管理员在启用新 SKU 前确认，源码测试不替代真实旧包和 StoreKit 验收。

@@ -5,6 +5,53 @@ import 'package:subscription_core/subscription_core.dart';
 
 void main() {
   test(
+    'approved registry additions preserve the live listener and reject historical remapping atomically',
+    () async {
+      final gateway = _FakeGateway(SubscriptionStore.appStore);
+      final client = _client(
+        enabledStores: {SubscriptionStore.appStore},
+        gateways: [gateway],
+      );
+      addTearDown(() async {
+        await client.dispose();
+        await gateway.dispose();
+      });
+      await client.initialize();
+      final originalPlans = client.config.plans.length;
+      final addition = SubscriptionPlanConfig(
+        id: 'apple:month',
+        entitlementId: 'premium',
+        productIds: {SubscriptionStore.appStore: 'ios.month'},
+      );
+      client.registerPlans([addition]);
+      client.registerPlans([addition]);
+      expect(client.config.plans.length, originalPlans + 1);
+      final selected = SubscriptionProduct(
+        store: SubscriptionStore.appStore,
+        storeProductId: 'ios.month',
+        title: 'Month',
+        description: '',
+        displayPrice: 'USD 1',
+        rawPrice: 1,
+        currencyCode: 'USD',
+      );
+      await client.purchaseProduct(selected);
+      expect(identical(gateway.lastProduct, selected), isTrue);
+      expect(gateway.hasPurchaseListener, isTrue);
+      expect(
+        () => client.registerPlans([
+          SubscriptionPlanConfig(
+            id: 'apple:month',
+            entitlementId: 'different',
+            productIds: {SubscriptionStore.appStore: 'ios.month'},
+          ),
+        ]),
+        throwsArgumentError,
+      );
+      expect(client.config.planById('apple:month').entitlementId, 'premium');
+    },
+  );
+  test(
     'a late catalog cannot replace the exact product whose price was confirmed',
     () async {
       final gateway = _FakeGateway(SubscriptionStore.appStore);

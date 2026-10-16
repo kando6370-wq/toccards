@@ -1,3 +1,4 @@
+import { allowedAppleProductIds } from "../entitlements/apple-product-policy";
 import {
   ACCESS_TOKEN_EXPIRES_IN_SECONDS,
   createRefreshToken,
@@ -11,7 +12,6 @@ import type { Context, Next } from "hono";
 import type { Env } from "../env";
 import {
   appleDatabaseEnvironments,
-  configuredProductIds,
 } from "../entitlements/apple-signed-data";
 import { getBearerToken, hasSigningSecret } from "../auth/http-auth";
 import { cardImageUrl } from "../card-image-url";
@@ -717,7 +717,7 @@ adminRoutes.get("/analytics/installations", async (c) => {
 });
 
 adminRoutes.get("/billing/transactions/options", async (c) => {
-  const scope = appleBillingAdminScope(c.env);
+  const scope = await appleBillingAdminScope(c.env);
   if (!scope) return c.json(INTERNAL_ERROR_RESPONSE, 500);
   const [countries, skus] = await Promise.all([
     bindAdminQuery(c.env.DB, `SELECT DISTINCT storefront_country_code AS value FROM billing_transaction
@@ -736,7 +736,7 @@ adminRoutes.get("/billing/transactions/options", async (c) => {
 });
 
 adminRoutes.get("/billing/transactions/export", async (c) => {
-  const scope = appleBillingAdminScope(c.env, "t");
+  const scope = await appleBillingAdminScope(c.env, "t");
   if (!scope) return c.json(INTERNAL_ERROR_RESPONSE, 500);
   const query = billingTransactionQuery((name) => c.req.query(name), scope);
   if (query.error) return c.json(VALIDATION_ERROR_RESPONSE, 422);
@@ -769,7 +769,7 @@ adminRoutes.get("/billing/transactions/export", async (c) => {
 adminRoutes.get("/billing/transactions", async (c) => {
   const page = readPositiveInt(c.req.query("page"), 1);
   const pageSize = Math.min(readPositiveInt(c.req.query("page_size"), 20), 100);
-  const scope = appleBillingAdminScope(c.env, "t");
+  const scope = await appleBillingAdminScope(c.env, "t");
   if (!scope) return c.json(INTERNAL_ERROR_RESPONSE, 500);
   const query = billingTransactionQuery((name) => c.req.query(name), scope);
   if (query.error) return c.json(VALIDATION_ERROR_RESPONSE, 422);
@@ -1447,11 +1447,11 @@ function appleNotificationAdminScope(
   };
 }
 
-function appleBillingAdminScope(
-  env: Pick<Env, "APP_ENVIRONMENT" | "APPLE_IAP_PRODUCT_IDS">,
+async function appleBillingAdminScope(
+  env: Env,
   alias?: string,
-): { sql: string; bindings: string[] } | null {
-  const products = configuredProductIds(env.APPLE_IAP_PRODUCT_IDS);
+): Promise<{ sql: string; bindings: string[] } | null> {
+  const products = await allowedAppleProductIds(env);
   if (!products) return null;
   const environments = appleDatabaseEnvironments(env);
   const column = (name: string) => alias ? `${alias}.${name}` : name;

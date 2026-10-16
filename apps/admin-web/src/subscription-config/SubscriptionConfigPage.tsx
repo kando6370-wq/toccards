@@ -30,6 +30,9 @@ export default function SubscriptionConfigPage({ request, accountKey, registerLe
   const [listError, setListError] = useState<string | null>(null);
   const [detail, setDetail] = useState<{ id: string; state: "loading" | "error"; message?: string } | null>(null);
   const [catalogs, setCatalogs] = useState<Catalogs>(emptyCatalogs);
+  const [approval, setApproval] = useState<CatalogProduct | null>(null);
+  const [approvalEvent, setApprovalEvent] = useState("");
+  const [approvalAcknowledged, setApprovalAcknowledged] = useState(false);
   const [validationActive, setValidationActive] = useState(false);
   const [serverIssues, setServerIssues] = useState<FieldIssue[]>([]);
   const [operationError, setOperationError] = useState<MutationFailure | null>(null);
@@ -75,7 +78,7 @@ export default function SubscriptionConfigPage({ request, accountKey, registerLe
       const data = await request<Catalog>("/subscription-products?type=" + type, { signal: state.controller.signal });
       if (!alive.current || version !== state.version) return;
       if (!Array.isArray(data?.products)) throw new Error("商品目录格式异常");
-      setCatalogs((current) => ({ ...current, [type]: { status: "loaded", products: data.products } }));
+      setCatalogs((current) => ({ ...current, [type]: { status: "loaded", products: data.products, scope: data.scope, environment: data.environment, can_approve: data.can_approve } }));
     } catch (error) {
       if (!alive.current || version !== state.version || state.controller.signal.aborted) return;
       setCatalogs((current) => ({ ...current, [type]: { ...current[type], status: "error", error: subscriptionErrorMessage(error) } }));
@@ -109,12 +112,16 @@ export default function SubscriptionConfigPage({ request, accountKey, registerLe
       if (result.operation.editor && !editor) { setEditor(result.operation.editor); baseline.current = result.operation.baseline; }
     } else {
       setOperationError(null); setServerIssues([]); setValidationActive(false); setDetail(null);
-      if (result.operation.kind !== "activate") { setEditor(null); baseline.current = ""; }
-      message.success(result.operation.kind === "activate" ? "生效状态已更新" : "配置已保存");
+      if (result.operation.kind !== "activate" && result.operation.kind !== "admit") { setEditor(null); baseline.current = ""; }
+      if (result.operation.kind === "admit") {
+        setApproval(null);
+        void loadCatalog(result.operation.body.product_type as ProductType);
+      }
+      message.success(result.operation.kind === "admit" ? "商品已准入，可保存并启用配置" : result.operation.kind === "activate" ? "生效状态已更新" : "配置已保存");
       requestAnimationFrame(() => { if (panel.current) panel.current.scrollTop = listScroll.current; });
     }
     void loadList();
-  }, [mutation.result, editor, loadList]);
+  }, [mutation.result, editor, loadList, loadCatalog]);
 
   const canLeave = useCallback(async (): Promise<boolean> => {
     if (coordinator.busy) { message.info("正在提交或核对结果，请等待本次操作结束。"); return false; }
@@ -155,6 +162,19 @@ export default function SubscriptionConfigPage({ request, accountKey, registerLe
     if (locked) return;
     setEditor((current) => current ? { ...current, body: transform(current.body) } : current);
     setServerIssues([]); setOperationError(null);
+  };
+  const openApproval = (product: CatalogProduct) => {
+    setApproval(product); setApprovalEvent(""); setApprovalAcknowledged(false);
+  };
+  const approveProduct = async () => {
+    if (!approval || !approvalAcknowledged || locked) return;
+    const catalog = catalogs[approval.product_type];
+    if (!catalog.can_approve || !catalog.scope || !/^[A-Za-z][A-Za-z0-9_]{0,99}$/.test(approvalEvent)) return;
+    setApproval(null);
+    await coordinator.start({ version: 1, kind: "admit", path: "/subscription-products/admit", method: "POST",
+      body: { request_id: createRequestId(), product_id: approval.product_id, product_type: approval.product_type,
+        expected_scope: catalog.scope, singular_event_name: approvalEvent, acknowledge_legacy_restore_limit: true },
+      editor, baseline: baseline.current });
   };
   const updateSku = (index: number, transform: (sku: EditorConfig["skus"][number]) => EditorConfig["skus"][number]) => {
     updateBody((body) => ({ ...body, skus: body.skus.map((sku, i) => i === index ? transform(sku) : sku) }));
@@ -212,6 +232,25 @@ export default function SubscriptionConfigPage({ request, accountKey, registerLe
 
   return <section ref={panel} className="page-panel subscription-config-page" aria-label="订阅页配置">
     {modalContext}
+    <Modal title="审核商品准入" open={!!approval} onCancel={() => { if (!locked) setApproval(null); }}
+      confirmLoading={busy} closable={!locked} maskClosable={!locked} cancelButtonProps={{ disabled: locked }}
+      okText="确认当前环境准入" onOk={() => void approveProduct()}
+      okButtonProps={{ disabled: locked || !approvalAcknowledged || !/^[A-Za-z][A-Za-z0-9_]{0,99}$/.test(approvalEvent) }}>
+      {approval && <Space direction="vertical" style={{ width: "100%" }}>
+        <Alert type={catalogs[approval.product_type].environment === "production" ? "error" : "info"} showIcon
+          message={catalogs[approval.product_type].environment === "production" ? "目标：生产环境 prod" : "目标：开发环境 dev"}
+          description={catalogs[approval.product_type].scope} />
+        <Text strong>{approval.product_id}</Text>
+        <Text>类型：{approval.product_type === "subscription" ? "自动续期订阅" : "永久权益"}；权益：Premium；Apple 状态：{approval.state}</Text>
+        <Text>审批会注册服务端购买与展示准入，页面仍需单独启用。App 需安装支持动态商品注册表的版本；Apple 可售状态和真实购买仍需测试。</Text>
+        <Form.Item label="当前环境的 Singular 收入事件名" required help="由数据负责人确认；只允许英文字母开头及字母、数字、下划线。">
+          <Input aria-label="准入收入事件名" value={approvalEvent} maxLength={100} disabled={locked} onChange={(e) => setApprovalEvent(e.target.value)} />
+        </Form.Item>
+        <Checkbox checked={approvalAcknowledged} disabled={locked} onChange={(e) => setApprovalAcknowledged(e.target.checked)}>
+          已核对当前环境、Premium 权益及收入事件，并确认新 SKU 在 1.0.4／1.0.5 中无法恢复的支持边界。
+        </Checkbox>
+      </Space>}
+    </Modal>
     {mutation.phase === "submitting" && <Alert type="info" showIcon message="正在提交，请勿重复操作" />}
     {mutation.phase === "checking" && <Alert type="info" showIcon message="正在核对原操作结果，请稍候" description="暂不判断成功或失败，相关写入已锁定。" />}
     {mutation.warning && <Alert type="warning" showIcon message={mutation.warning} />}
@@ -262,6 +301,7 @@ export default function SubscriptionConfigPage({ request, accountKey, registerLe
               <Field label="Product ID" path={path + "product_id"} issues={issues} required><Select aria-label={`SKU ${index + 1} Product ID`} className="subscription-product-select" value={sku.product_id || undefined} placeholder="请选择商品" disabled={locked || catalog.status !== "loaded"} options={productOptions(displayOptions, sku.product_id, products)} onChange={(value) => updateSku(index, (item) => changeProduct(item, value, products))} /></Field>
               <CatalogFeedback state={catalog} type={sku.product_type} disabled={locked} reload={() => void loadCatalog(sku.product_type)} />
               {product && !product.admission.admitted && <Alert type="warning" showIcon message="该商品尚未完成系统准入" description={admissionMessage(product.admission.reasons) + "。可准备不生效配置，不能启用。"} />}
+              {product && catalog.can_approve && <Button disabled={locked || catalog.status !== "loaded"} onClick={() => openApproval(product)}>审核商品准入</Button>}
               <div className="subscription-field-grid">
                 <Field label="价格展示方式" path={path + "price_mode"} issues={issues}><Select aria-label={`SKU ${index + 1} 价格展示方式`} value={sku.price_mode} options={[{ value: "actual", label: "实际周期价格" }, { value: "weekly", label: "实际周期价格 + 周均参考价", disabled: sku.product_type === "non_consumable" || !!product && !["ONE_WEEK", "ONE_MONTH", "THREE_MONTHS", "ONE_YEAR"].includes(product.period ?? "") }]} onChange={(value) => updateSku(index, (item) => ({ ...item, price_mode: value }))} /></Field>
                 <Field label="默认选中" path={path + "is_default"} issues={issues}><Checkbox checked={sku.is_default} onChange={(event) => updateBody((body) => ({ ...body, skus: body.skus.map((item) => ({ ...item, is_default: item.key === sku.key ? event.target.checked : event.target.checked ? false : item.is_default })) }))}>将此卡片设为默认</Checkbox></Field>
@@ -276,6 +316,7 @@ export default function SubscriptionConfigPage({ request, accountKey, registerLe
                 {sku.needs_trial_repair && <Alert type="warning" message="商品已变化，请重新关联或明确解除原关系。" action={<Button disabled={locked} onClick={() => void removeRelation(index)}>解除原关系</Button>} />}
                 {catalogs.subscription.status === "loaded" && !trialOptions.length && !trial.product_id && <Text type="secondary">没有同周期、同等级且未占用的免费试用商品。</Text>}
                 {trial.product_id && <><Text type="secondary">开启试用时只替换当前卡片。试用按钮为空时回退组级文案，不继承基础按钮。</Text><MarketingFields value={trial} prefix={path + "trial."} issues={issues} trial onChange={(value) => updateSku(index, (item) => ({ ...item, trial: { ...trial, ...value } }))} />
+                  {products.get(trial.product_id) && catalogs.subscription.can_approve && <Button disabled={locked} onClick={() => openApproval(products.get(trial.product_id)!)}>审核试用商品准入</Button>}
                   {products.get(trial.product_id)?.admission.admitted === false && <Alert type="warning" showIcon message="试用目标尚未完成系统准入，不能作为生效购买商品。" />}</>}
               </div>}
             </article>;

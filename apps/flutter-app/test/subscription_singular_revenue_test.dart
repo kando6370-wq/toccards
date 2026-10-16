@@ -14,6 +14,41 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:subscription_core/subscription_core.dart';
 
 void main() {
+  test(
+    'a dynamically approved revenue event survives restart and never duplicates a transaction',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final sdk = _RecordingAttribution()..fail = true;
+      final event = _event(plan: 'apple:cardx.month', productId: 'cardx.month');
+      final first = SingularSubscriptionRevenueReporter(
+        environment: AppEnvironment.test,
+        attribution: sdk,
+      );
+      await expectLater(
+        first.enqueueVerifiedPurchase(
+          event,
+          isFreshPurchase: true,
+          eventName: 'approved_month_event',
+        ),
+        throwsStateError,
+      );
+      sdk.fail = false;
+      final restarted = SingularSubscriptionRevenueReporter(
+        environment: AppEnvironment.test,
+        attribution: sdk,
+      );
+      await restarted.flush();
+      await restarted.enqueueVerifiedPurchase(
+        event,
+        isFreshPurchase: true,
+        eventName: 'changed_after_purchase',
+      );
+      expect(sdk.records, hasLength(1));
+      expect(sdk.records.single['eventName'], 'approved_month_event');
+      expect(sdk.records.single['productId'], 'cardx.month');
+      expect(sdk.records.single['value'], 5.49);
+    },
+  );
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 

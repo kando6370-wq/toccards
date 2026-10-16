@@ -25,8 +25,8 @@ export type CatalogProduct = {
   has_free_trial: boolean; state: string;
   admission: { admitted: boolean; reasons: string[] };
 };
-export type Catalog = { products: CatalogProduct[]; subscription_group_id: string | null };
-export type CatalogState = { status: "idle" | "loading" | "loaded" | "error"; products: CatalogProduct[]; error?: string };
+export type Catalog = { products: CatalogProduct[]; subscription_group_id: string | null; scope?: string; environment?: "development" | "production"; can_approve?: boolean };
+export type CatalogState = { status: "idle" | "loading" | "loaded" | "error"; products: CatalogProduct[]; error?: string; scope?: string; environment?: "development" | "production"; can_approve?: boolean };
 export type Catalogs = Record<ProductType, CatalogState>;
 export type FieldIssue = { path: string; message: string };
 export type EditorSku = DisplaySku & { key: string; needs_trial_repair: boolean };
@@ -177,6 +177,9 @@ export function subscriptionErrorMessage(error: unknown): string {
   const labels: Record<string, string> = {
     CONFIG_CONFLICT: "配置或生效状态已被其他人修改。请重新读取后再操作，当前输入已保留。",
     ACTIVE_PAGE_TYPE_IMMUTABLE: "该配置已经生效，请先在列表关闭后再修改页面类型。",
+    ADMISSION_SCOPE_CONFLICT: "目标环境或 App 已变化，请刷新商品后重新审批。",
+    PRODUCT_SCOPE_CONFLICT: "该商品已属于同一数据库中的另一环境或 App，不能重复准入。",
+    PRODUCT_MAPPING_CONFLICT: "该商品已有冲突的权益映射，请核对后处理；原映射未被覆盖。",
     PRODUCT_NOT_ADMITTED: "商品尚未完成系统准入，不能启用或保存到生效配置。",
     CATALOG_NOT_CONFIGURED: "Apple 商品目录尚未配置，请联系接入负责人。",
     CATALOG_UNAVAILABLE: "Apple 商品读取失败，请稍后重试。",
