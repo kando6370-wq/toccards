@@ -4,7 +4,7 @@ Kando 是 Card AI 的 monorepo，包含 Flutter 客户端、Cloudflare Workers A
 
 当前增量文档入口为 [v1.1.2](docs/releases/v1.1.2/README.md)；[v1.1.1](docs/releases/v1.1.1/README.md) 已于 2026-10-09 原位归档，v1.1.0 开发归档与 v1.0.0 冻结基线保持不变。文档版本切换不修改 App 版本、Git tag 或生产环境，原有待验项继续保留。
 
-2026-10-15 Linux dev 已从干净的 `dev@f8afca9` 发布订阅配置 API／Admin，备份后执行 PostgreSQL `0014` 并配套切换至 512 维向量服务。运行产物、数据库及真实目录读取通过独立核验；Page／Modal 均无生效配置，商品准入与真机购买恢复仍待完成，prod 未操作。详见 [dev 发布验收](docs/releases/v1.1.2/05-delivery/VERIFICATION.md#subscription-config-dev-release)。
+2026-10-16 Linux dev 已由既有 watcher 发布干净的 `dev@06f420a`，包含动态商品审批 API／Admin 与 PGlite 测试内存修复。运行产物、私有配置保留、数据库与 HTTP 已独立核对；迁移记录仍为 15 项／最新 `0014`，本轮无待执行迁移。Page／Modal 均未启用，`cardx.month` 仍需超级管理员审批，真实购买／恢复和新客户端签名包待验；prod 未修改。详见 [本次 dev 发布验收](docs/releases/v1.1.2/05-delivery/VERIFICATION.md#subscription-dynamic-dev-release)。
 
 最新 prod Admin 发布为 2026-10-14 09:12–09:15：从干净的 `main@ee3f298` 配套发布订单金额/退款汇总 API 与两个后台入口。Worker `3345b389` 承接 100% 流量，Pages `2c600e3e` 为 production/success；两个入口共 22 个静态文件与批准构建逐字节一致，9 项 HTTP 烟测通过。生产绑定、变量、缓存、Smart Placement、cron、域名和 Pages 配置保留；没有数据库迁移、Git push 或其他应用发布。真实 Admin 登录业务与原有专项验收仍待完成，详见 [v1.1.2 验证记录](docs/releases/v1.1.2/05-delivery/VERIFICATION.md)。
 

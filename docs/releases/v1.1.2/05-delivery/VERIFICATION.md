@@ -558,3 +558,36 @@ Code Review 自查覆盖计数口径、直接请求绕过、存量数据保留�
 - 未运行 Linux／macOS／远端 CI；本机结果仅证明 Windows 11／Node 22.20.0 下的本地回归。生产适配器与 App 代码未变，本轮没有部署或设备交易验收。
 
 详细对照输出位于忽略目录 apps/workers-api/.wrangler/pglite-lifetime/；没有把原始日志或基线源码快照加入 docs。上述定位与验证阶段未执行远端部署、数据库业务操作、依赖升级或 Git commit／push。
+
+
+<a id="subscription-dynamic-dev-release"></a>
+
+## 2026-10-16 动态商品准入 Git 交付与 Linux dev 发布
+
+### 来源与部署
+
+- 用户明确授权提交推送并重新部署 dev。原合并提交 06f420a072463454d8eda21c9fd09bf18768eda5 已推送 github/dev，本地与远端 SHA 核对一致，工作区干净；源功能分支 e6f986f 的代码／配置／测试文件在合并中保持，文档冲突按历史检查点解决。
+- 登录目标为 kd201（192.168.50.201，系统 hostname=srs-node-test1）。独立回读发现既有 watcher 已取得该提交并持有 watch.lock，因此接续等待该轮自动发布，没有并发启动第二次部署、修改 watcher 配置或手工覆盖状态。
+- watcher 采用 Node 22.22.1／pnpm 11.9.0，远端 11 个 Vitest 文件／112 项通过，包含完整扫描文件；后续既有脚本检查与 Linux API／Admin 构建完成。实际发布预检确认 toccards_test／PostgreSQL 18／识别服务可达，pendingMigrations=[]；测试夹具输出的 pending 列表不作为实际迁移结果。
+- 发布 release 为 branch-dev-06f420a07246-20261016105341。10:59 已独立回读到新 current；11:04–11:22 进一步核对 manifest、运行文件和来源检出。manifest source=kd201-branch-watcher，sha 为完整 06f420a；watcher 来源检出 clean，安装的 watcher 脚本与该提交版本一致。
+
+### 数据库、备份与配置保留
+
+- 只读 PostgreSQL 会话确认 default_transaction_read_only=on、数据库 toccards_test、版本 18.6；ledger 仍为 15 项，最新 0014_subscription_display_config.sql。迁移容器 exited/0，日志逐项跳过已有 0000–0014，没有执行新 migration。原卷 toccards-linux-test_postgres-data 保留，挂载点仍为 /var/lib/postgresql/data。
+- 发布前备份：toccards-test-20261016-105343-before-branch-dev-06f420a07246-20261016105341.dump，1,135,415,530 字节；独立 pg_restore --list 退出 0，列出 336 项，临时 .tmp 文件不存在。未执行恢复演练。
+- shared/.env 权限仍为 600，完整 SHA-256 仍为 aa18acda180ef63978529f52f36bd03a10434d36f344308f9444db45d7963346，与发布前一致；API、DB、Web 容器环境数组的排序哈希也与发布前分别一致。没有更换目录／验单 Key、插件 Key、数据库密码或代理设置；记录仅保存哈希与存在性，不保存凭据明文。
+- API／DB healthy，Web running，migrate exited/0；API 无宿主端口绑定。既有 billing_product 8 条、展示配置 1 条、非空生效指针 0 条、动态商品审批 scope 记录 0 条。本轮未审批 cardx.month、未启用 Page／Modal、未进行用户订单或权益业务写操作。
+
+### 产物与 HTTP 独立核对
+
+- 本地从同一干净提交执行 build:dev，Linux bundle 的 3 项检查及 Admin development 构建退出 0。API 运行 /app/server.mjs、Linux release 文件与本地批准构建三者 SHA-256 均为 4cb4348eabed004a2094e61e070c4413f27a22375e934635353a2d8e36c95bf0。Web 运行代理脚本与 release 文件匹配。
+- Admin 容器内 11 个文件与 Linux release 原始字节全部匹配；HTTP 的 10 个 JS／CSS 文件与本地同提交构建原始字节一致。HTTP HTML 与 Linux release 一致，跨 Windows 构建仅有 12 个 CR 字符差异：HTTP 为 1048 字节，本地为 1060 字节，去 CR 后 SHA-256 同为 dea8227c2992991902bc7d4991c077bc9cde81f01fdf5e24357e8425d2ff11bf。不将该结果描述为跨平台 HTML 原始字节一致。
+- 10 项 HTTP 检查通过：health／Admin 首页 200；未认证 auth/me、Admin 商品目录和审批 POST 均 401；新增长期注册表 iOS 200、scope=development:com.kando.kandoApp.beta、products=[]、no-store；Google 注册表为空，非法平台 422；Page／Modal 均 200 且 data=null。
+- 在 API 容器实际环境中，用本提交目录实现执行只读 Apple 目录探测，9 次 GET 均为 200，读取 beta App 6790245922／组 22251901 的 5 个订阅及 cardx.lifetime。cardx.month 可见，但仍未审批；目录商品仍显示 MISSING_METADATA，不据目录读取推断 StoreKit 可售、资格或购买成功。
+- 完成时 current／manifest／last-deployed 均指向 06f420a，失败标记不存在，watcher 与 deploy 锁均空闲。后续文档补证提交可以只推进 last-seen；运行源码 SHA 与 Git 文档提交须分别报告。
+
+### 验收边界
+
+本轮完成的是 dev 的 API／Admin 重新部署及上述运行核对；未发布 prod、营销站或 Flutter 签名包。真实 Admin 登录态审批／启用、StoreKit 价格／资格／购买／Restore、收入平台实际接收和正式旧包／真机仍待验。1.0.4／1.0.5 恢复新 SKU 的限制不因本次服务端发布而消失，见 [兼容 AI 执行版](../03-data-api/app-backward-compatibility-ai-guide.md)。本轮没有回查 GitHub 托管 CI，不将服务器 watcher 的测试结果写成 GitHub CI 已通过。
+
+精简运行回读、批准构建哈希和 HTTP 结果保留在忽略目录 apps/workers-api/.wrangler/dev-deploy-06f420a-20261016/；原始日志、基线副本和任何凭据均不加入 docs。

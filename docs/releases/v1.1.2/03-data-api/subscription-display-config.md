@@ -22,7 +22,9 @@
 
 **展示编辑不注册或删除权益商品。** 独立的超级管理员审批操作可以注册商品；移除卡片与关闭配置不删除准入、映射、购买链或 session grant。
 
-## 动态商品准入（2026-10-16 本地增量）
+## 动态商品准入（2026-10-16 源码与 dev 发布）
+
+API／Admin 已由既有 watcher 发布干净的 `dev@06f420a`；独立回读确认新注册表接口、鉴权边界及实际运行产物。动态审批记录仍为空，`cardx.month` 没有被自动批准，Page／Modal 均不生效；新客户端签名包和真实购买仍待验。部署证据见 [dev 发布验收](../05-delivery/VERIFICATION.md#subscription-dynamic-dev-release)，prod 未发布。
 
 管理员在目录选择商品后，超级管理员通过 `POST /api/v1/admin/subscription-products/admit` 审批。请求包括 UUID v4 request_id、product_id、product_type、expected_scope、singular_event_name，以及 acknowledge_legacy_restore_limit=true。系统重新读取真实 Apple 目录，验证当前 App／订阅组／类型，确认目标 scope 与运行环境完全一致；普通 operator 返回 403、环境不符返回 409。收入事件名由审批人按当前 dev/prod 确认，不自动猜测 test 后缀。
 
@@ -42,7 +44,7 @@
 
 购买白名单保留 cardx.week、cardx.year、cardx.lifetime，并追加 weekly.trial、yearly.pro；本次展示准入对应这五个已注册 dev 商品。实际配置仍最多三张展示卡片，关联目标另计购买准入。更新前备份私有环境与目标商品表数据，按原 watcher／deploy 锁串行操作；环境更新仅涉及 APPLE_IAP_PRODUCT_IDS 和 SUBSCRIPTION_DISPLAY_PRODUCT_IDS，API 重载沿用原镜像及业务产物。
 
-环境变更的实际结果以[商品接入验证](../05-delivery/VERIFICATION.md#dev-subscription-product-onboarding)为准，原凭据、Apple 商品设置、原有交易／权益及生产配置保持原边界；商品准入不等于真实 StoreKit 资格、可售、购买／恢复或收入验收。该历史接入点的新 SKU 升降级识别仍受旧 PLAN_CHANGE_PRODUCT_IDS 限制；2026-10-16 本地增量允许经动态审批登记的订阅参与该分支，尚未发布，不能据此改写历史运行状态。
+环境变更的实际结果以[商品接入验证](../05-delivery/VERIFICATION.md#dev-subscription-product-onboarding)为准，原凭据、Apple 商品设置、原有交易／权益及生产配置保持原边界；商品准入不等于真实 StoreKit 资格、可售、购买／恢复或收入验收。该历史接入点的新 SKU 升降级识别仍受旧 PLAN_CHANGE_PRODUCT_IDS 限制；2026-10-16 增量允许经动态审批登记的订阅参与该分支，并已随 dev@06f420a 发布；该源码／部署结果不改写历史检查点，也不代表真实订阅切换已验收。
 
 ## Apple 目录读取
 

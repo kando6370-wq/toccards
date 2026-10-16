@@ -13,7 +13,7 @@ App 向后兼容规则只维护以下两份；涉及 App API、共享业务数�
 
 ## App 1.0.6 订阅配置（服务端与 Admin 页面）
 
-2026-10-16 本地增量：新增超级管理员逐商品审批，dev/prod 与 Bundle 隔离；运行期白名单与 Flutter 长期商品集合可接收已批准 SKU，无需逐商品改代码。复用 PostgreSQL 现有表，无新 migration。当前分支尚未发布此增量，具体行为见[动态准入合同](03-data-api/subscription-display-config.md)、[后台操作](04-admin/admin.md)和[客户端注册](01-flows/subscription-display.md)，验证见[记录](05-delivery/VERIFICATION.md#subscription-dynamic-admission)。
+2026-10-16 动态商品准入：超级管理员逐商品审批，dev/prod 与 Bundle 隔离；运行期白名单与 Flutter 长期商品集合可接收已批准 SKU，无需逐商品改代码。复用 PostgreSQL 现有表，无新 migration。API／Admin 已随干净的 `dev@06f420a` 发布并完成运行产物／数据库／HTTP 核对；Flutter 仍需包含本次能力的新测试包，prod 未发布。行为见[动态准入合同](03-data-api/subscription-display-config.md)、[后台操作](04-admin/admin.md)和[客户端注册](01-flows/subscription-display.md)，证据见[本地验证](05-delivery/VERIFICATION.md#subscription-dynamic-admission)与[dev 发布验收](05-delivery/VERIFICATION.md#subscription-dynamic-dev-release)。
 
 本次产品输入为 PRD 1.14；App 目标版本 1.0.6 与工程文档版本 v1.1.2 分别管理。需求、商品映射和实施草案保留在同一份输入文档中，避免维护重复规则。
 
@@ -24,7 +24,7 @@ App 向后兼容规则只维护以下两份；涉及 App API、共享业务数�
 | [最小实施方案](00-product/admin-subscription-config-prd.md#implementation-plan) | V1 增量接口、PostgreSQL 数据对象、原子启用、幂等及开发顺序；是设计草案，不是当前架构事实 |
 | [离线 HTML 原型](../../../prototypes/admin-subscription-config-standalone.html) | 本地演示配置编辑与校验；商品、金额与保存均为离线演示，不包含 Apple 或后台真实接入 |
 
-服务端第一阶段源码与接口合同见 [订阅展示配置与商品准入](03-data-api/subscription-display-config.md)，包括目录、配置 API、PostgreSQL 迁移及幂等；Admin 页面见 [后台文档](04-admin/admin.md)，Flutter 消费见 [客户端流程](01-flows/subscription-display.md)。服务端与 Admin 已随 [dev@f8afca9 首次发布](05-delivery/VERIFICATION.md#subscription-config-dev-release)，2026-10-15 17:59 的 [dev@e53f75c 回读及五项商品准入](05-delivery/VERIFICATION.md#dev-subscription-product-onboarding)保留后续结果；Page／Modal 在该检查点仍不生效，prod 未发布。本次动态准入增量尚未部署。`850e339` 的目标 iOS CI 无签名 production Release 编译已通过，独立兜底定稿、真实商品交易、签名制品与真机仍待验。服务端验证见 [验证记录](05-delivery/VERIFICATION.md#subscription-config-server)，编译证据见 [iOS 原生编译补验](05-delivery/VERIFICATION.md#subscription-config-ios-compile)。
+服务端第一阶段源码与接口合同见 [订阅展示配置与商品准入](03-data-api/subscription-display-config.md)，包括目录、配置 API、PostgreSQL 迁移及幂等；Admin 页面见 [后台文档](04-admin/admin.md)，Flutter 消费见 [客户端流程](01-flows/subscription-display.md)。服务端与 Admin 已随 [dev@f8afca9 首次发布](05-delivery/VERIFICATION.md#subscription-config-dev-release)，2026-10-15 17:59 的 [dev@e53f75c 回读及五项商品准入](05-delivery/VERIFICATION.md#dev-subscription-product-onboarding)保留后续结果；Page／Modal 在该检查点仍不生效，prod 未发布。2026-10-16 的动态准入 API／Admin 增量已部署 dev，见[最新发布补证](05-delivery/VERIFICATION.md#subscription-dynamic-dev-release)。`850e339` 的目标 iOS CI 无签名 production Release 编译已通过，独立兜底定稿、真实商品交易、签名制品与真机仍待验。服务端验证见 [验证记录](05-delivery/VERIFICATION.md#subscription-config-server)，编译证据见 [iOS 原生编译补验](05-delivery/VERIFICATION.md#subscription-config-ios-compile)。
 
 以下为初次联调及首次发布的历史记录，后续五项商品准入以 [2026-10-15 17:59 补证](05-delivery/VERIFICATION.md#dev-subscription-product-onboarding)为准。
 

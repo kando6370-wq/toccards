@@ -94,7 +94,7 @@ GitLab Flutter CI 使用 3.44.0，GitHub iOS CI 使用 3.44.7。涉及工具链�
 - iOS 内部测试包使用 Bundle ID `com.kando.kandoApp.beta` 时，最终签名 entitlement 的 App Attest 环境必须为 `development`，不得交付 `production`；必须解包检查最终 IPA，不能只看 Xcode 工程设置或描述文件允许值。其他 Bundle ID 的 App Attest 环境暂不固定。
 - iOS IPA 和 dSYM 统一保存到 `~/Downloads/CardAI-Packages/<Bundle ID>/`，下面按 `CardAI-Test-<版本>-<构建号>` 或 `CardAI-Prod-<版本>-<构建号>` 建版本目录。测试包保留最近保存的 3 个版本，正式包保留 7 个版本；新版本完整保存并校验后，才将同一 Bundle ID 下超额的最旧版本移入废纸篓。使用发布脚本的自动保存流程；此保留规则不清理 Xcode Archives。
 
-- 2026-10-16 动态订阅准入本地增量：超级管理员按 APP_ENVIRONMENT:APPLE_IAP_BUNDLE_ID 审批，复用 PostgreSQL app_config 保存长期准入并事务注册 billing_product；旧环境名单保留为兼容基线。新增商品不得自动跨 dev/prod 批准，不把 Apple Sandbox 当作业务环境。Flutter 读取按 API／环境／Bundle 隔离的长期注册表；旧包恢复新 SKU 的限制仍须明确确认。无新增 migration，本地实现不代表 dev/prod 已发布或真实交易已验收，见 docs/releases/v1.1.2/03-data-api/subscription-display-config.md。
+- 2026-10-16 动态订阅准入：超级管理员按 APP_ENVIRONMENT:APPLE_IAP_BUNDLE_ID 审批，复用 PostgreSQL app_config 保存长期准入并事务注册 billing_product；旧环境名单保留为兼容基线。新增商品不得自动跨 dev/prod 批准，不把 Apple Sandbox 当作业务环境。API／Admin 已由既有 watcher 发布干净的 dev@06f420a，并独立核对运行文件、数据库和 HTTP；私有配置与原 PostgreSQL 18 卷保留，ledger 15 项／最新 0014，无待执行迁移。Page／Modal 未启用，cardx.month 仍待超级管理员审批。Flutter 动态注册源码需新的测试包；旧包恢复新 SKU 的限制、真实交易与真机验收边界保留，prod 未修改。详见 docs/releases/v1.1.2/05-delivery/VERIFICATION.md#subscription-dynamic-dev-release。
 
 ## App 向后兼容
 
