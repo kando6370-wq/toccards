@@ -49,6 +49,10 @@ Page／Modal 的正式 1.0.6 兜底尚未定稿。代码为两类页面分别创
 
 页面复用既有颜色、卡片、顶部提示、成功页及来源返回。Apple 配置及商品 channel 仅在 iOS 调用；Android 维持既有行为，不加载或售卖 Apple SKU，不宣称接入 Google Play。目标 Flutter 3.44.7／Xcode 16.4 已完成 Swift 无签名 Release 编译；该结果不能证明签名 entitlement、真实地区优惠或真机购买恢复已验收。
 
+## 订阅页面视觉增量
+
+2026-10-16 的本地 Flutter 布局按 Figma `3465:8694` 及同组两／三商品、试用开关状态还原：350 宽内容边距、四行 50 高权益项、上置的 62 高试用开关、74 高基础商品卡片、选中态描边与角标，以及贴底的账期摘要、44 高 CTA 和条款入口。选中卡片按本轮真机反馈移除背景填充和面阴影，保留描边与单选标记。完整页使用既有视频背景；iOS 弹窗复用同一商品内容，并保留弹窗手柄、背景和关闭延迟。Figma 的商品金额、节省比例、试用 CTA 为示例，实际页面继续使用已通过校验的 StoreKit 商品价格、后台文案、试用资格及购买前复核。价格说明位于价格栏下方，与原生周期标签完全相同的说明不重复显示；周均价等附加内容使卡片增高时，商品区独立滚动，购买区固定在安全区上方。常规高度的标题固定在商品区上方，紧凑视口的标题随内容滚动；关闭和恢复入口始终固定。Android 保留原商品读取与购买分支。
+
 ## 实现与验证入口
 
 - [配置模型](../../../../apps/flutter-app/lib/features/subscription/subscription_display_config.dart)、[页面状态机](../../../../apps/flutter-app/lib/features/subscription/subscription_display_controller.dart)、[接口适配](../../../../apps/flutter-app/lib/features/subscription/subscription_display_providers.dart)。

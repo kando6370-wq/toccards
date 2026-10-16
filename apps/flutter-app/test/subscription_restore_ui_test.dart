@@ -16,6 +16,7 @@ import 'package:kando_app/features/subscription/subscription_page.dart';
 import 'package:kando_app/features/subscription/subscription_display_controller.dart';
 import 'package:kando_app/features/subscription/subscription_display_config.dart';
 import 'package:kando_app/features/subscription/subscription_display_providers.dart';
+import 'package:kando_app/features/subscription/subscription_store_product.dart';
 import 'subscription_display_fixtures.dart';
 import 'package:kando_app/shared/analytics/app_analytics.dart';
 import 'package:kando_app/shared/ui/kando_bottom_sheet_page.dart';
@@ -745,11 +746,22 @@ void main() {
         host.router.push('/subscription');
         await tester.pumpAndSettle();
         expect(host.display!.selectedId, 'yearly.product');
+        final scrollable = find
+            .descendant(
+              of: find.byType(CustomScrollView).last,
+              matching: find.byType(Scrollable),
+            )
+            .last;
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('subscription-config-product-yearly.product')),
+          160,
+          scrollable: scrollable,
+        );
         expect(find.text('Yearly'), findsOneWidget);
         final weekly = find.byKey(
           const Key('subscription-config-product-weekly.product'),
         );
-        await tester.ensureVisible(weekly);
+        await tester.scrollUntilVisible(weekly, -160, scrollable: scrollable);
         await tester.tap(weekly);
         await tester.pumpAndSettle();
         expect(host.display!.selectedId, 'weekly.product');
@@ -769,6 +781,206 @@ void main() {
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
       } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
+
+  testWidgets('configured paywall follows the Figma two-plan layout', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    try {
+      final host = _RestoreTestHost(
+        displayConfiguration: SubscriptionDisplayConfig(
+          pageType: SubscriptionPageType.page,
+          skus: [
+            SubscriptionDisplaySku(
+              productId: 'weekly.product',
+              type: DisplayProductType.subscription,
+              copy: SubscriptionCopy(name: 'Weekly', subtitle: 'Every week'),
+            ),
+            SubscriptionDisplaySku(
+              productId: 'yearly.product',
+              type: DisplayProductType.subscription,
+              isDefault: true,
+              weeklyReference: true,
+              copy: SubscriptionCopy(
+                name: 'Yearly',
+                subtitle: 'Every year',
+                priceNote: 'per week',
+              ),
+            ),
+          ],
+        ),
+      );
+      await tester.pumpWidget(host.app);
+      await tester.pumpAndSettle();
+      host.router.push('/subscription');
+      await tester.pumpAndSettle();
+
+      final weekly = find.byKey(
+        const Key('subscription-config-product-weekly.product'),
+      );
+      final yearly = find.byKey(
+        const Key('subscription-config-product-yearly.product'),
+      );
+      expect(tester.getSize(weekly).height, 74);
+      expect(tester.getSize(yearly).height, 74);
+      expect(tester.getRect(yearly).top - tester.getRect(weekly).bottom, 9);
+      expect(find.byKey(const Key('subscription-trial-switch')), findsNothing);
+      expect(tester.getRect(find.text('Terms of Use')).bottom, closeTo(814, 1));
+      expect(tester.takeException(), isNull);
+    } finally {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  testWidgets('trial switch precedes plans and changes the selected product', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    try {
+      final host = _RestoreTestHost(
+        includeTrial: true,
+        displayConfiguration: SubscriptionDisplayConfig(
+          pageType: SubscriptionPageType.page,
+          trialEnabled: true,
+          trialToggleText: 'Enable Free Trial',
+          skus: [
+            SubscriptionDisplaySku(
+              productId: 'weekly.product',
+              type: DisplayProductType.subscription,
+              copy: SubscriptionCopy(name: 'Weekly'),
+              trial: SubscriptionTrial(
+                productId: 'weekly.trial',
+                copy: SubscriptionCopy(name: 'Weekly', cta: 'Try for Free'),
+              ),
+            ),
+            SubscriptionDisplaySku(
+              productId: 'yearly.product',
+              type: DisplayProductType.subscription,
+              isDefault: true,
+              copy: SubscriptionCopy(name: 'Yearly'),
+            ),
+          ],
+        ),
+      );
+      await tester.pumpWidget(host.app);
+      await tester.pumpAndSettle();
+      host.router.push('/subscription');
+      await tester.pumpAndSettle();
+
+      final trialSwitch = find.byKey(const Key('subscription-trial-switch'));
+      final weekly = find.byKey(
+        const Key('subscription-config-product-weekly.product'),
+      );
+      expect(
+        tester.getRect(trialSwitch).bottom,
+        lessThan(tester.getRect(weekly).top),
+      );
+      await tester.tap(trialSwitch);
+      await tester.pumpAndSettle();
+      expect(host.display!.trialOn, isTrue);
+      expect(host.display!.selectedCard!.product.id, 'weekly.trial');
+      expect(find.text('Try for Free'), findsOneWidget);
+      expect(tester.getSize(weekly).height, 74);
+      expect(tester.takeException(), isNull);
+    } finally {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  testWidgets(
+    'three plans with trial keep purchase visible above the safe area',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
+      try {
+        final host = _RestoreTestHost(
+          includeTrial: true,
+          displayConfiguration: SubscriptionDisplayConfig(
+            pageType: SubscriptionPageType.page,
+            trialEnabled: true,
+            trialToggleText: 'Enable Free Trial',
+            skus: [
+              SubscriptionDisplaySku(
+                productId: 'weekly.product',
+                type: DisplayProductType.subscription,
+                copy: SubscriptionCopy(name: 'Weekly'),
+                trial: SubscriptionTrial(
+                  productId: 'weekly.trial',
+                  copy: SubscriptionCopy(name: 'Weekly', cta: 'Try for Free'),
+                ),
+              ),
+              SubscriptionDisplaySku(
+                productId: 'yearly.product',
+                type: DisplayProductType.subscription,
+                isDefault: true,
+                copy: SubscriptionCopy(name: 'Yearly'),
+              ),
+              SubscriptionDisplaySku(
+                productId: 'lifetime.product',
+                type: DisplayProductType.nonConsumable,
+                copy: SubscriptionCopy(
+                  name: 'Lifetime',
+                  priceNote: 'one-time purchase',
+                ),
+              ),
+            ],
+          ),
+        );
+        await tester.pumpWidget(host.app);
+        await tester.pumpAndSettle();
+        host.router.push('/subscription');
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const Key('subscription-trial-switch')),
+          findsOneWidget,
+        );
+        expect(host.display!.availableSkus, hasLength(3));
+        final purchase = find.byKey(const Key('subscription-purchase-button'));
+        final initialPurchaseRect = tester.getRect(purchase);
+        expect(initialPurchaseRect.top, greaterThanOrEqualTo(47));
+        expect(initialPurchaseRect.bottom, lessThanOrEqualTo(810));
+        expect(tester.widget<FilledButton>(purchase).onPressed, isNotNull);
+
+        await tester.drag(
+          find.byType(CustomScrollView).last,
+          const Offset(0, -500),
+        );
+        await tester.pumpAndSettle();
+
+        final lifetime = find.byKey(
+          const Key('subscription-config-product-lifetime.product'),
+        );
+        expect(lifetime, findsOneWidget);
+        expect(find.text('one-time purchase'), findsOneWidget);
+        expect(tester.getRect(lifetime).top, greaterThanOrEqualTo(47));
+        expect(
+          tester.getRect(lifetime).bottom,
+          lessThanOrEqualTo(tester.getRect(purchase).top),
+        );
+        expect(tester.getRect(purchase), initialPurchaseRect);
+        await tester.tap(lifetime);
+        await tester.pumpAndSettle();
+        expect(host.display!.selectedId, 'lifetime.product');
+        expect(tester.takeException(), isNull);
+      } finally {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+        tester.view.resetPadding();
         debugDefaultTargetPlatformOverride = null;
       }
     },
@@ -832,6 +1044,80 @@ void main() {
       }
     },
   );
+
+  testWidgets('three-plan sheet keeps purchase clear of the safe area', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
+    try {
+      final host = _RestoreTestHost(
+        includeTrial: true,
+        displayConfiguration: SubscriptionDisplayConfig(
+          pageType: SubscriptionPageType.modal,
+          trialEnabled: true,
+          trialToggleText: 'Enable Free Trial',
+          skus: [
+            SubscriptionDisplaySku(
+              productId: 'weekly.product',
+              type: DisplayProductType.subscription,
+              copy: SubscriptionCopy(name: 'Weekly'),
+              trial: SubscriptionTrial(
+                productId: 'weekly.trial',
+                copy: SubscriptionCopy(name: 'Weekly'),
+              ),
+            ),
+            SubscriptionDisplaySku(
+              productId: 'yearly.product',
+              type: DisplayProductType.subscription,
+              isDefault: true,
+              copy: SubscriptionCopy(name: 'Yearly'),
+            ),
+            SubscriptionDisplaySku(
+              productId: 'lifetime.product',
+              type: DisplayProductType.nonConsumable,
+              copy: SubscriptionCopy(name: 'Lifetime'),
+            ),
+          ],
+        ),
+      );
+      await tester.pumpWidget(host.app);
+      await tester.pumpAndSettle();
+      host.router.push('/subscription?sheet=true');
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('subscription-trial-switch')),
+        findsOneWidget,
+      );
+      final purchase = find.byKey(const Key('subscription-purchase-button'));
+      final initialPurchaseRect = tester.getRect(purchase);
+      expect(initialPurchaseRect.bottom, lessThanOrEqualTo(810));
+
+      await tester.drag(
+        find.byType(CustomScrollView).last,
+        const Offset(0, -500),
+      );
+      await tester.pumpAndSettle();
+      final lifetime = find.byKey(
+        const Key('subscription-config-product-lifetime.product'),
+      );
+      expect(lifetime, findsOneWidget);
+      expect(
+        tester.getRect(lifetime).bottom,
+        lessThanOrEqualTo(tester.getRect(purchase).top),
+      );
+      expect(tester.getRect(purchase), initialPurchaseRect);
+      expect(tester.takeException(), isNull);
+    } finally {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      tester.view.resetPadding();
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
 
   testWidgets('Android full page keeps the existing SKU presentation', (
     tester,
@@ -1167,6 +1453,7 @@ class _RestoreTestHost {
     AppAnalytics? analytics,
     String initialLocation = '/source',
     SubscriptionDisplayConfig? displayConfiguration,
+    bool includeTrial = false,
   }) : controller = controller ?? _RestoreTestController() {
     router = GoRouter(
       initialLocation: initialLocation,
@@ -1246,6 +1533,14 @@ class _RestoreTestHost {
             fallback: config,
             loadConfig: (_) async => config,
             loadProducts: (ids) async => [
+              if (includeTrial && ids.contains('weekly.trial'))
+                displayProduct(
+                  'weekly.trial',
+                  trial: true,
+                  eligibility: TrialEligibility.eligible,
+                  unit: 'week',
+                  amount: 3.99,
+                ),
               for (final entry
                   in _testSubscriptionConfiguration.productIds.entries)
                 if (ids.contains(entry.value))
@@ -1262,8 +1557,9 @@ class _RestoreTestHost {
                         : 79.99,
                   ),
             ],
-            loadEligibility: (_) async =>
-                throw StateError('These fixture products have no trial'),
+            loadEligibility: (_) async => includeTrial
+                ? TrialEligibility.eligible
+                : throw StateError('These fixture products have no trial'),
           );
           return display!;
         }),

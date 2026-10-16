@@ -539,3 +539,13 @@ Code Review 自查覆盖计数口径、直接请求绕过、存量数据保留�
 验证：`flutter test --no-pub --dart-define-from-file=config/test.json test/subscription_display_test.dart` 退出 0，25 项通过，覆盖真机观测价格、Page／Modal 的关联试用开关、真实差价拒绝、零价下溢拒绝及已有购买前金额变化二次确认；`flutter analyze --no-pub` 退出 0、无问题，`git diff --check` 退出 0。最初一次分析指出新增 `dart:typed_data` 导入多余，移除后重新分析通过。目标本机 Flutter 为 3.44.5，设备为 iPhone 13／iOS 26.6.2。更新后的 `1.0.5+163` test Debug 包通过 `flutter run --no-pub --flavor test --debug -d 00008110-000A242A01A2801E --dart-define-from-file=config/test.json` 在同一设备构建、安装并启动。独立抓屏确认完整页与弹窗均显示 `US$3.99` 普通周卡；完整页下半部抓屏还可见试用开关开启、`START FREE TRIAL`、年订阅和终身商品。试用商品的续费文案为 `US$4.99/周`，与普通周卡当前价格不同，此为两个 StoreKit 商品的实测展示，需按业务预期核对，不属于本次浮点校验修复。弹窗试用开关位于当前抓屏视口以下，未单独看到其实际控件；年商品当前可见不能归因于本次金额修复。
 
 真机调试日志还出现 Firebase Installations 与 Logging 请求超时；App 仍启动并显示订阅页，本轮未排查该独立网络问题。未执行真实购买、Restore、弹窗试用开关的独立真机视口检查、Android 真机或商店签名包验证；本次也未执行 Git push、服务端发布、远程数据库写入或 prod 操作。独立 Code Review 检查了浮点位序、零价、周卡与试用控制器路径、购买前 `sameTerms` 及文档；无阻断性问题。审查建议已收窄上述金额差异表述。
+
+<a id="subscription-figma-ui"></a>
+
+## 2026-10-16 订阅页面 Figma 视觉增量
+
+通过 Figma 插件读取完整画板 `3465:8692`、内容节点 `3465:8694` 及同组两／三商品和试用状态。iOS 完整页与弹窗复用配置商品布局：试用开关位于卡片上方，价格和运营价格说明在右侧，折算周均价保持辅助信息；计费摘要、CTA 和条款固定在底部安全区，商品列表独立滚动。常规高度标题固定，紧凑视口标题随内容滚动，关闭／恢复入口始终固定。背景继续使用原视频，未添加全屏遮罩；选中商品的背景填充和面阴影按用户真机反馈移除，仍保留描边和单选标记。完全重复的价格说明已去重。Figma 中的金额和试用按钮文字仅作视觉示例，实际内容来自已校验的 StoreKit 商品及后台配置；购买前复核和 Android 原商品逻辑未改。代码和页面契约见[客户端订阅展示](../01-flows/subscription-display.md#订阅页面视觉增量)。
+
+本地执行 `flutter test --no-pub --dart-define-from-file=config/test.json` 的订阅展示与恢复 UI 两文件，66 项通过；新增用例覆盖两商品、试用切换、带安全区的三商品页面／弹窗滚动、重复价格说明去重和 CTA 固定。更新现有 390×844 订阅弹窗 golden 后，单独复跑对应截图用例通过；`flutter analyze --no-pub` 无问题。iPhone 13 重新构建、安装 test Debug 包并热重载最终选中态；真机抓屏确认完整页首屏出现三档商品、真实价格、试用开关和底部按钮，未执行购买或 Restore。
+
+`test/widget/auth_profile_test.dart` 全文件运行有 3 项旧截图失败，分别为未订阅 Profile banner 和订阅成功页的静态、动效 golden；本次只更新了订阅弹窗 golden，没有改这三个图像或其页面实现，也不将全文件记为通过。未运行 Android 真机、签名 IPA／App Attest、真实交易和弹窗入口的本轮独立真机抓屏；未 Git push、部署或改动远端配置。
