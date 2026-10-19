@@ -625,3 +625,17 @@ Code Review 自查覆盖计数口径、直接请求绕过、存量数据保留�
 本地环境为 macOS、Node 22.23.1、pnpm 11.25.0、Flutter 3.44.5／Dart 3.12.2。`pnpm --filter @kando/admin-web test` 67/67、Workers 订阅配置 3 文件 62/62、`flutter test test/subscription_display_test.dart test/subscription_restore_ui_test.dart` 80/80 均退出 0；`pnpm lint`、`pnpm type-check`（7/7 任务）、`flutter analyze`、`pnpm --filter @kando/admin-web build:dev`、`git diff --check` 均退出 0。Admin 测试覆盖旧配置继承、两处回显和字段顺序；API 测试覆盖字段保存／公开读取及旧 payload；Flutter 测试覆盖 Page／Modal 的隐藏、试用独立覆盖和购买摘要保留。只读跨模块审查未发现阻断项；依赖锁文件未修改。
 
 以上是本地源码与测试结果，未执行真实后台登录编辑、真实 Apple 目录／StoreKit、iPhone／Android 真机、签名构建、旧版 App 实机兼容、dev/prod 部署、远程配置写入、数据库迁移或 Git commit／push。旧版 App 对隐藏字段的忽略是代码合同结论，不代表已做正式旧包验收。
+
+## 2026-10-19 iPhone 13 安装价格展示增量 Debug 包
+
+从干净的 `codex/dev-1.0.6@eb365651` 在 macOS／Flutter 3.44.5／Xcode 27.1 上执行 `flutter run --no-pub --flavor test --debug -d 00008110-000A242A01A2801E --dart-define-from-file=config/test.json`，Xcode 构建成功，Debug-test App 已安装并启动在 `kando的iPhone13`（iOS 26.6.2），Dart VM Service 建立；随后 detach 调试器，使用 `devicectl` 再次启动成功。设备安装列表回读为 `Card AI`、Bundle `com.kando.kandoApp.beta`、版本 `1.0.5 (171)`。对实际签名的 `build/ios/iphoneos/Runner.app` 回读确认 Bundle 一致、`get-task-allow=true`、App Attest entitlement 为 `development`；未制作或保存新 IPA。
+
+设备运行日志报告 Internet offline，测试 API `192.168.50.201:8080`、Firebase 和 Singular 请求失败；开发机同一 API 的 health 请求正常。这说明本轮仅验收安装、签名和启动，未验收设备上的订阅配置读取、隐藏价格显示、登录、StoreKit 购买／恢复或外部埋点。前述本地服务端价格字段增量仍未部署到 dev；本轮无远端配置写入、数据库操作或 Git push。
+
+## 2026-10-19 iOS 测试环境 Release 内部安装包 1.0.5 (172)
+
+- 构建输入：从 `codex/dev-1.0.6@eb365651af68cbcddafd00b1f88e5bec2506e29b` 构建；构建前 App 源码与该提交一致，工作区仅有既存验证文档记录，构建期间 `git diff HEAD --binary` 的 SHA-256 保持为 `c4ed4e20ddf49d10aafba7ae86dff72fd57c4d4c2b4bc060c832010fa4549d55`。构建前版本为 `1.0.5+171`，本次使用 `1.0.5 (172)`；制品完整保存并校验后将 `pubspec.yaml` 同步为 `1.0.5+172`。工具链为 Flutter 3.44.5／Dart 3.12.2／Xcode 27.1。
+- 环境与依赖：`config/test.json` 发布配置与 dev health 校验通过，最终 App 为 `com.kando.kandoApp.beta`，测试 API `http://192.168.50.201:8080/api/v1` 已嵌入且未发现生产 API，Firebase 项目为 `card-ai---test`。`pubspec.lock` 与 `ios/Podfile.lock` 的 SHA-256 分别保持为 `0d85580159d1c598b6a61e32f9ad77c6a5013eaeb586ac29d9836d8b7e379021`、`d0879ca1f7222cbc2de5bd0d33a414c834eaec2235f469322ffd171ab0f75793`，没有依赖锁更新。
+- 验证与构建：`flutter analyze --no-pub` 通过；订阅展示、恢复、OAuth authorizer 与发布配置相关测试共 92 项通过。执行 `flutter clean` 后构建 Release-test 原生产物并创建 Xcode archive。最终 IPA 从归档内已签名 App 原样封装，373 个文件逐字节一致；严格签名检查通过，Apple Development 签名、`get-task-allow=true`、App Attest `development`，描述文件有效至 2027-09-07，包含 6 台登记设备。归档退出 0，仅保留第三方弃用、Swift 6 前置兼容和 `in_app_review` 隐私清单处理等非阻断警告。
+- 符号与完整性：`Card AI Test.ipa` 为 39,927,489 字节，SHA-256 `15a683cf03eb27af8023d7aa06e2d036ba8dad9303f3b0a6f3c305241702f71a`；`dSYMs.zip` 为 61,217,958 字节，SHA-256 `dc63ffff7f7f6ae7337532fbb9808967e696a5ac9120a2acce8e67b26f4e36f4`。两份 ZIP 完整性检查通过，42/42 个唯一 Mach-O UUID 有对应 dSYM，缺失／额外均为 0。44 个 dSYM bundle 中 43 个通过 `dwarfdump --verify`；`App.framework.dSYM` 有 169 个 Flutter AOT DWARF range 实际错误，命令输出包含 2 条汇总后共 171 条 `error:`，不能声称全部 dSYM 深度校验通过。
+- 保存与边界：制品保存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.5-172/`；新版本完整保存后将旧 169 版移入废纸篓，当前保留 170、171、172。本次未安装设备、上传蒲公英／TestFlight／App Store Connect，也未执行真实登录、扫描、购买、Restore、崩溃上报或真机启动验收；未部署、迁移数据库、提交或推送 Git。
