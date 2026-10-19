@@ -522,113 +522,125 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    final tabs = _HomeModeTabs(
+      performanceSelected: performanceSelected,
+      onOverviewPressed: onOverviewPressed,
+      onPerformancePressed: onPerformancePressed,
+    );
+    final currencyControl = SizedBox(
+      width: 98,
       height: 42,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Flexible(
-            child: _HomeModeTabs(
-              performanceSelected: performanceSelected,
-              onOverviewPressed: onOverviewPressed,
-              onPerformancePressed: onPerformancePressed,
-            ),
-          ),
-          SizedBox(
-            width: 98,
-            height: 42,
-            child: ClipRRect(
-              key: const Key('home-currency-control'),
-              borderRadius: BorderRadius.circular(9999),
-              child: BackdropFilter(
-                key: const Key('home-currency-blur'),
-                filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: Material(
-                  color: KandoColors.accentGlow10,
-                  child: InkWell(
-                    onTap: onCurrencyPressed,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SizedBox.square(
-                                key: const Key('home-currency-icon'),
-                                dimension: 16,
-                                child: DecoratedBox(
-                                  decoration: const BoxDecoration(
-                                    color: Color(0x33F0FE6F),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(2),
-                                    child: FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      child: Text(
-                                        currencySymbol,
-                                        key: const Key('home-currency-symbol'),
-                                        maxLines: 1,
-                                        style: const TextStyle(
-                                          color: KandoColors.accent,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w400,
-                                          height: 1,
-                                        ),
-                                      ),
-                                    ),
+      child: ClipRRect(
+        key: const Key('home-currency-control'),
+        borderRadius: BorderRadius.circular(9999),
+        child: BackdropFilter(
+          key: const Key('home-currency-blur'),
+          filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Material(
+            color: KandoColors.accentGlow10,
+            child: InkWell(
+              onTap: onCurrencyPressed,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox.square(
+                          key: const Key('home-currency-icon'),
+                          dimension: 16,
+                          child: DecoratedBox(
+                            decoration: const BoxDecoration(
+                              color: Color(0x33F0FE6F),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(2),
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  currencySymbol,
+                                  key: const Key('home-currency-symbol'),
+                                  maxLines: 1,
+                                  style: const TextStyle(
+                                    color: KandoColors.accent,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w400,
+                                    height: 1,
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 4),
-                              SizedBox(
-                                width: 34,
-                                height: 24,
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(
-                                    currencyCode,
-                                    maxLines: 1,
-                                    style: const TextStyle(
-                                      color: KandoColors.accent,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w400,
-                                      height: 24 / 16,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(width: 4),
-                          const SizedBox.square(
-                            dimension: 12,
-                            child: OverflowBox(
-                              maxWidth: 30,
-                              maxHeight: 30,
-                              child: Image(
-                                key: Key('home-currency-chevron'),
-                                image: AssetImage(
-                                  'assets/home/currency_chevron.png',
-                                ),
-                                width: 30,
-                                height: 30,
                               ),
                             ),
                           ),
-                        ],
+                        ),
+                        const SizedBox(width: 4),
+                        SizedBox(
+                          width: 34,
+                          height: 24,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              currencyCode,
+                              maxLines: 1,
+                              style: const TextStyle(
+                                color: KandoColors.accent,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w400,
+                                height: 24 / 16,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 4),
+                    const SizedBox.square(
+                      dimension: 12,
+                      child: OverflowBox(
+                        maxWidth: 30,
+                        maxHeight: 30,
+                        child: Image(
+                          key: Key('home-currency-chevron'),
+                          image: AssetImage('assets/home/currency_chevron.png'),
+                          width: 30,
+                          height: 30,
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
               ),
             ),
           ),
-        ],
+        ),
       ),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // The two rows preserve full-size tab labels on compact screens.
+        const minSingleRowWidth = 200.0 + 8 + 32 + 98;
+        if (constraints.maxWidth < minSingleRowWidth) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              tabs,
+              const SizedBox(height: 8),
+              Align(alignment: Alignment.centerRight, child: currencyControl),
+            ],
+          );
+        }
+        return SizedBox(
+          height: 42,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [tabs, currencyControl],
+          ),
+        );
+      },
     );
   }
 }
@@ -646,52 +658,36 @@ class _HomeModeTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final desiredOverviewWidth = performanceSelected ? 69.0 : 92.0;
-        final desiredPerformanceWidth = performanceSelected ? 115.0 : 92.0;
-        const desiredTabsWidth = 194.0;
-        final availableTabsWidth = (constraints.maxWidth - 40).clamp(
-          0.0,
-          desiredTabsWidth,
-        );
-        final widthScale = availableTabsWidth / desiredTabsWidth;
-
-        return Row(
-          children: [
-            Container(
-              key: const Key('home-mode-tabs'),
-              width: availableTabsWidth,
-              height: 42,
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(9999),
-                border: Border.all(color: KandoColors.borderFocus),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          key: const Key('home-mode-tabs'),
+          width: 200,
+          height: 42,
+          child: Row(
+            children: [
+              _HomeModeSegment(
+                key: const Key('home-overview-tab'),
+                width: 86,
+                selected: !performanceSelected,
+                label: 'Overview',
+                onTap: onOverviewPressed,
               ),
-              child: Row(
-                children: [
-                  _HomeModeSegment(
-                    key: const Key('home-overview-tab'),
-                    width: desiredOverviewWidth * widthScale,
-                    selected: !performanceSelected,
-                    label: 'Overview',
-                    onTap: onOverviewPressed,
-                  ),
-                  _HomeModeSegment(
-                    key: const Key('home-performance-tab'),
-                    width: desiredPerformanceWidth * widthScale,
-                    selected: performanceSelected,
-                    label: 'Performance',
-                    onTap: onPerformancePressed,
-                  ),
-                ],
+              const SizedBox(width: 8),
+              _HomeModeSegment(
+                key: const Key('home-performance-tab'),
+                width: 106,
+                selected: performanceSelected,
+                label: 'Performance',
+                onTap: onPerformancePressed,
               ),
-            ),
-            const SizedBox(width: 8),
-            const PremiumTopEntry(source: 'home'),
-          ],
-        );
-      },
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        const PremiumTopEntry(source: 'home'),
+      ],
     );
   }
 }
@@ -713,32 +709,40 @@ class _HomeModeSegment extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final foreground = selected
-        ? KandoColors.primaryOnDefault
-        : const Color(0xFF615D3B);
-    return Material(
-      color: selected ? KandoColors.accent : Colors.transparent,
-      borderRadius: BorderRadius.circular(9999),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(9999),
-        child: SizedBox(
-          width: width,
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: selected ? 9 : 8),
-            child: Center(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
+        ? KandoColors.accent
+        : KandoColors.accent.withValues(alpha: 0.45);
+    return Semantics(
+      selected: selected,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          splashFactory: NoSplash.splashFactory,
+          child: SizedBox(
+            width: width,
+            height: 42,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text(
                   label,
                   maxLines: 1,
                   style: TextStyle(
                     color: foreground,
-                    fontSize: selected ? 16 : 12,
-                    fontWeight: FontWeight.w400,
-                    height: selected ? 24 / 16 : 16 / 12,
+                    fontSize: 16,
+                    fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+                    height: 24 / 16,
                   ),
                 ),
-              ),
+                const SizedBox(height: 8),
+                Container(
+                  key: Key('home-${label.toLowerCase()}-indicator'),
+                  height: 2,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  color: selected ? KandoColors.accent : Colors.transparent,
+                ),
+              ],
             ),
           ),
         ),

@@ -639,3 +639,11 @@ Code Review 自查覆盖计数口径、直接请求绕过、存量数据保留�
 - 验证与构建：`flutter analyze --no-pub` 通过；订阅展示、恢复、OAuth authorizer 与发布配置相关测试共 92 项通过。执行 `flutter clean` 后构建 Release-test 原生产物并创建 Xcode archive。最终 IPA 从归档内已签名 App 原样封装，373 个文件逐字节一致；严格签名检查通过，Apple Development 签名、`get-task-allow=true`、App Attest `development`，描述文件有效至 2027-09-07，包含 6 台登记设备。归档退出 0，仅保留第三方弃用、Swift 6 前置兼容和 `in_app_review` 隐私清单处理等非阻断警告。
 - 符号与完整性：`Card AI Test.ipa` 为 39,927,489 字节，SHA-256 `15a683cf03eb27af8023d7aa06e2d036ba8dad9303f3b0a6f3c305241702f71a`；`dSYMs.zip` 为 61,217,958 字节，SHA-256 `dc63ffff7f7f6ae7337532fbb9808967e696a5ac9120a2acce8e67b26f4e36f4`。两份 ZIP 完整性检查通过，42/42 个唯一 Mach-O UUID 有对应 dSYM，缺失／额外均为 0。44 个 dSYM bundle 中 43 个通过 `dwarfdump --verify`；`App.framework.dSYM` 有 169 个 Flutter AOT DWARF range 实际错误，命令输出包含 2 条汇总后共 171 条 `error:`，不能声称全部 dSYM 深度校验通过。
 - 保存与边界：制品保存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.5-172/`；新版本完整保存后将旧 169 版移入废纸篓，当前保留 170、171、172。本次未安装设备、上传蒲公英／TestFlight／App Store Connect，也未执行真实登录、扫描、购买、Restore、崩溃上报或真机启动验收；未部署、迁移数据库、提交或推送 Git。
+
+## 2026-10-19 Home 顶部模式 Tab 视觉调整
+
+按用户截图将 Home 的 Overview／Performance 从描边胶囊改为纯文字与选中下划线：两项均为 16px，选中项文字和 2px 底线使用 `KandoColors.accent`，未选中项使用同一主色的 45% 不透明度。点击时不显示默认按压覆盖或水波纹。Tab 宽度在切换时不变；窄屏空间不足时货币控件换到下一行，保留完整字号。原 Tab 状态、埋点、Free 顶部订阅入口和货币选择逻辑不变。
+
+本地 Tab 切换、埋点、返回 Home、文字与底线样式及 360px 紧凑布局的 5 项定向 Widget 测试通过，`flutter analyze --no-pub` 无问题。Home 全文件 Widget 测试为 75 项通过、4 项 Golden 失败：两张整页 Golden 包含本次改动的顶部，另两张为独立 Performance 区域；整页对比还存在未改动内容的像素差异，因此未批量重录基线。320px 全页测试另暴露图表时间按钮和下方卡片已有的横向溢出，本次未修改这些模块。
+
+同日以 `test` Debug flavor 在已连接的 iPhone 13 构建、安装并启动当前工作区，Dart VM Service 和 DevTools 已连接；实际签名 Bundle 为 `com.kando.kandoApp.beta`，App Attest 为 `development`。首张真机截图发现 `Overview` 被固定宽度裁掉末字，增加标签宽度并缩小间隔后热重载，复抓画面确认两个标签完整，`Performance` 选中态的主色文字和底线正常；随后关闭 Tab 默认按压覆盖和水波纹并再次热重载。最终宽度与按压反馈修正尚未重新构建独立安装包；Android 真机未验，未发布或上传商店。
