@@ -263,6 +263,12 @@ void main() {
       name: 'yearly_cardtest',
       price: 5490,
     ),
+    (
+      plan: 'monthly',
+      product: 'cardx.month',
+      name: 'card_monthlytest',
+      price: 1299,
+    ),
   ]) {
     test(
       '${item.product} keeps signed revenue pending across restart and reports it once',

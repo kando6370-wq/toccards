@@ -36,6 +36,15 @@ String? _eventName(
         return 'card_weekly_trialtest';
       case 'yearly.pro':
         return 'yearly_cardtest';
+      case 'cardx.month':
+        return 'card_monthlytest';
+    }
+  } else {
+    switch (productId) {
+      case 'CardAi.weekly.trial':
+        return 'card_weekly_trial';
+      case 'CardAi.monthly':
+        return 'card_monthly';
     }
   }
   final suffix = environment == AppEnvironment.test ? 'test' : '';

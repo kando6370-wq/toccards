@@ -643,6 +643,7 @@ extension AppDelegate {
               var weekly: Decimal?
               switch (unit, period.value) {
               case ("week", 1): weekly = product.price
+              case ("day", 7): weekly = product.price
               case ("month", 1): weekly = product.price * 12 / 52
               case ("month", 3): weekly = product.price * 4 / 52
               case ("year", 1): weekly = product.price / 52
@@ -652,6 +653,12 @@ extension AppDelegate {
                 var rounded = Decimal()
                 NSDecimalRound(&rounded, &amount, 2, .plain)
                 value["weekly_price"] = rounded.formatted(product.priceFormatStyle.precision(.fractionLength(2)))
+              }
+              if unit == "month" && period.value == 1 {
+                var amount = product.price / 4
+                var rounded = Decimal()
+                NSDecimalRound(&rounded, &amount, 2, .plain)
+                value["four_week_price"] = rounded.formatted(product.priceFormatStyle.precision(.fractionLength(2)))
               }
             }
             return value

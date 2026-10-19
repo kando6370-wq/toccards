@@ -568,7 +568,6 @@ Code Review 自查覆盖计数口径、直接请求绕过、存量数据保留�
 
 详细对照输出位于忽略目录 apps/workers-api/.wrangler/pglite-lifetime/；没有把原始日志或基线源码快照加入 docs。上述定位与验证阶段未执行远端部署、数据库业务操作、依赖升级或 Git commit／push。
 
-
 <a id="subscription-dynamic-dev-release"></a>
 
 ## 2026-10-16 动态商品准入 Git 交付与 Linux dev 发布
@@ -609,3 +608,100 @@ Code Review 自查覆盖计数口径、直接请求绕过、存量数据保留�
 - 构建结果：依赖解析、Xcode Archive、IPA 导出、签名校验、dSYM 覆盖与保存流程均退出 0。保存制品的独立只读审计确认 `com.kando.kandoApp.beta / 1.0.5 (167)`、最低 iOS 16、Apple Development 签名、`get-task-allow=true`、App Attest `development`，包含测试 Firebase `card-ai---test` 与 dev API `http://192.168.50.201:8080/api/v1`，未命中生产 API。描述文件包含 6 台设备。IPA 的 42 个唯一 Mach-O UUID 均有匹配 dSYM，缺失和额外 UUID 均为 0；压缩包内 `cupertino_http` 与 `objective_c` 各有一份 UUID 相同的重复 dSYM，不影响覆盖或符号化。
 - 保存与保留：IPA 为 39,946,633 字节，SHA-256 `9394ee5ff84c1dade39cf294cb575b6be588ae1823870b0bc5451b29c2014277`；`dSYMs.zip` 为 61,233,095 字节，SHA-256 `38bc3b024815b316118f66b690c07b6b4b9fa77105be9176f522cdaca8bce84a`。两份 ZIP 完整性检查通过，保存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.5-167/`。新版本完整保存后，旧 164 版移入废纸篓；当前保留 165、166、167，正式包及 Xcode Archives 不受影响。
 - 边界：本次没有安装设备、上传蒲公英／TestFlight／App Store Connect、提交或推送 Git，也没有部署或修改服务端。4 项 Golden 差异仍未关闭；没有完成真实 Sandbox 购买、Restore、动态新 SKU、收入平台实际接收或真机端到端验收。
+<a id="subscription-store-price-rounding"></a>
+
+## 2026-10-16 StoreKit 价格浮点表示导致周卡被过滤
+
+本次从 `codex/dev-1.0.6@e6f986f1` 的干净工作区定位并修复 Flutter 客户端问题。原 test 调试包在 iPhone 13 的完整订阅页与弹窗入口均缺少周卡关联试用；真机读取确认插件和原生 StoreKit 都返回 `cardx.week`，但插件 `rawPrice=3.9899999999999998`，原生 `price_decimal="3.99"`。锁定的 `in_app_purchase_storekit 0.4.11` 将 StoreKit Decimal 经 `NSDecimalNumber.doubleValue` 转为插件金额，原生只读桥接将同一 Decimal 转为字符串；Swift 最小复现显示两种路径落在相邻的 double 值。原 Dart 严格相等校验因此丢弃周卡，关联 `weekly.trial` 的资格虽为 eligible，也无法显示试用切换。这是修复前的真机与转换证据，未将另一路未返回的 `yearly.pro` 归因为同一问题。
+
+修复仅限 iOS 商品事实与插件商品的金额比较：有限、非负价格最多允许 1 ULP 的二进制表示差异，零价还须确认原生十进制字符串确实为零；超过 1 ULP 的差异继续拒绝。Product ID、币种、格式化展示价、类型和周期的校验保留，购买前 `sameTerms` 的十进制金额与资格二次确认没有放宽。Flutter 的 Android 既有隔离路径、原生桥接、API、schema 和商品配置均未改。
+
+验证：`flutter test --no-pub --dart-define-from-file=config/test.json test/subscription_display_test.dart` 退出 0，25 项通过，覆盖真机观测价格、Page／Modal 的关联试用开关、真实差价拒绝、零价下溢拒绝及已有购买前金额变化二次确认；`flutter analyze --no-pub` 退出 0、无问题，`git diff --check` 退出 0。最初一次分析指出新增 `dart:typed_data` 导入多余，移除后重新分析通过。目标本机 Flutter 为 3.44.5，设备为 iPhone 13／iOS 26.6.2。更新后的 `1.0.5+163` test Debug 包通过 `flutter run --no-pub --flavor test --debug -d 00008110-000A242A01A2801E --dart-define-from-file=config/test.json` 在同一设备构建、安装并启动。独立抓屏确认完整页与弹窗均显示 `US$3.99` 普通周卡；完整页下半部抓屏还可见试用开关开启、`START FREE TRIAL`、年订阅和终身商品。试用商品的续费文案为 `US$4.99/周`，与普通周卡当前价格不同，此为两个 StoreKit 商品的实测展示，需按业务预期核对，不属于本次浮点校验修复。弹窗试用开关位于当前抓屏视口以下，未单独看到其实际控件；年商品当前可见不能归因于本次金额修复。
+
+真机调试日志还出现 Firebase Installations 与 Logging 请求超时；App 仍启动并显示订阅页，本轮未排查该独立网络问题。未执行真实购买、Restore、弹窗试用开关的独立真机视口检查、Android 真机或商店签名包验证；本次也未执行 Git push、服务端发布、远程数据库写入或 prod 操作。独立 Code Review 检查了浮点位序、零价、周卡与试用控制器路径、购买前 `sameTerms` 及文档；无阻断性问题。审查建议已收窄上述金额差异表述。
+
+<a id="subscription-figma-ui"></a>
+
+## 2026-10-16 订阅页面 Figma 视觉增量
+
+通过 Figma 插件读取完整画板 `3465:8692`、内容节点 `3465:8694` 及同组两／三商品和试用状态。iOS 完整页与弹窗复用配置商品布局：试用开关位于卡片上方，价格和运营价格说明在右侧，折算周均价保持辅助信息；计费摘要、CTA 和条款固定在底部安全区，商品列表独立滚动。常规高度标题固定，紧凑视口标题随内容滚动，关闭／恢复入口始终固定。背景继续使用原视频，未添加全屏遮罩；选中商品的背景填充和面阴影按用户真机反馈移除，仍保留描边和单选标记。完全重复的价格说明已去重。Figma 中的金额和试用按钮文字仅作视觉示例，实际内容来自已校验的 StoreKit 商品及后台配置；购买前复核和 Android 原商品逻辑未改。代码和页面契约见[客户端订阅展示](../01-flows/subscription-display.md#订阅页面视觉增量)。
+
+本地执行 `flutter test --no-pub --dart-define-from-file=config/test.json` 的订阅展示与恢复 UI 两文件，66 项通过；新增用例覆盖两商品、试用切换、带安全区的三商品页面／弹窗滚动、重复价格说明去重和 CTA 固定。更新现有 390×844 订阅弹窗 golden 后，单独复跑对应截图用例通过；`flutter analyze --no-pub` 无问题。iPhone 13 重新构建、安装 test Debug 包并热重载最终选中态；真机抓屏确认完整页首屏出现三档商品、真实价格、试用开关和底部按钮，未执行购买或 Restore。
+
+`test/widget/auth_profile_test.dart` 全文件运行有 3 项旧截图失败，分别为未订阅 Profile banner 和订阅成功页的静态、动效 golden；本次只更新了订阅弹窗 golden，没有改这三个图像或其页面实现，也不将全文件记为通过。未运行 Android 真机、签名 IPA／App Attest、真实交易和弹窗入口的本轮独立真机抓屏；未 Git push、部署或改动远端配置。
+
+## 2026-10-19 iOS 测试环境 Debug 安装包 1.0.5 (168)
+
+- 构建输入：从构建前干净且与跟踪分支一致的 `codex/dev-1.0.6@325ad38068257e2cb15cead9f3b6b5fce094b614` 构建。源码声明版本为 `1.0.5+163`，但本机已保存 165、166、167，因此本次显式使用 `1.0.5 (168)`，制品完整保存后再将 `apps/flutter-app/pubspec.yaml` 同步为 `1.0.5+168`。本机工具链为 Flutter 3.44.5／Dart 3.12.2／Xcode 27.1，与 GitHub iOS CI 的 Flutter 3.44.7／Xcode 16.4 不同。
+- 环境与验证：`config/test.json` 发布配置校验通过，`http://192.168.50.201:8080/api/v1/health` 返回 `status=ok`；`flutter analyze` 通过。测试构建的 `DART_DEFINES` 回读为 `APP_ENV=test`、`APP_HTTP_TRANSPORT=native`、`FLUTTER_APP_FLAVOR=test`，API 环境与 Debug Overlay 两个测试文件共 6 项通过。根 `pubspec.lock` 与 iOS `Podfile.lock` 的 SHA-256 分别保持为 `0d85580159d1c598b6a61e32f9ad77c6a5013eaeb586ac29d9836d8b7e379021`、`d0879ca1f7222cbc2de5bd0d33a414c834eaec2235f469322ffd171ab0f75793`，没有依赖锁更新。
+- 构建与签名：现有 `release_ios.sh` 固定构建 Release，故本次先用 Flutter 的 `--debug --flavor=test` 生成 Debug archive。Flutter 自带的 debugging 导出把归档中原为 `development` 的 App Attest 重签为 `production`，该首个导出包被门禁拒绝且未保存。随后使用同一 Debug-test 配置直接生成 Xcode archive，显式保持 `APP_ATTEST_ENVIRONMENT=development`，并从归档内已签名 App 原样封装 IPA，不经过导出重签。最终 IPA 解包确认 `com.kando.kandoApp.beta / 1.0.5 (168)`、最低 iOS 16、Apple Development 签名、`get-task-allow=true`、App Attest `development`、测试 Firebase `card-ai---test`；`kernel_blob.bin`、`vm_snapshot_data` 和 `isolate_snapshot_data` 均存在，确认是 Flutter Debug JIT 制品而非 Development 签名的 Release 包。描述文件有效至 2027-09-07，包含 6 台设备。
+- 符号边界：Debug archive 原生生成 38 个 dSYM；使用最终二进制经 `dsymutil` 补齐 `objective_c`、`cupertino_http`、`Flutter`、`App` 四个 UUID 后，最终 42 个 Mach-O UUID 与 42 个 dSYM UUID 集合一致，缺失／额外均为 0。`cupertino_http` 与 `App` 报告无调试符号，Flutter engine 因上游构建机对象路径不可用仅能生成现有二进制可恢复的符号；因此 42/42 表示 UUID 结构覆盖，不宣称这三个预编译 Debug 框架具备完整源码行级符号。App 自身 Runner 及其余 37 个框架 dSYM 由本次归档原生生成。
+- 保存与边界：`Card AI Debug.ipa` 为 76,731,403 字节，SHA-256 `1aaa6a0925fe81aeda2780c07f61b380b196034f43ab538ae73cd7a235630bf3`；`dSYMs.zip` 为 23,118,505 字节，SHA-256 `e0c0a0277eef8542815feb8c1ed2761f3a8dcf67caa5d84ac7a4639415195058`。两份 ZIP 完整性检查通过，保存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.5-168/`；完整保存后旧 165 版移入废纸篓，当前保留 166、167、168。Debug JIT 未做 Release tree shaking，包内同时保留未选环境的常量字符串；运行选择以 `APP_ENV=test` 和环境测试为证据。本次未安装设备、上传蒲公英／TestFlight／App Store Connect、提交或推送 Git，也未执行真实登录、扫描、购买、Restore、崩溃上报或真机启动验收。
+
+## 2026-10-19 iOS 测试环境 Release 内部安装包 1.0.5 (169)
+
+- 构建输入：从 `codex/dev-1.0.6@325ad38068257e2cb15cead9f3b6b5fce094b614` 的当前工作区重新构建；源码构建前版本为 `1.0.5+168`，本次使用 `1.0.5 (169)`，制品完整保存并校验后将 `apps/flutter-app/pubspec.yaml` 同步为 `1.0.5+169`。工具链为 Flutter 3.44.5／Dart 3.12.2／Xcode 27.1。
+- 环境与依赖：`config/test.json` 校验通过，测试 API 为 `http://192.168.50.201:8080/api/v1`，Firebase 项目为 `card-ai---test`；`pubspec.lock` SHA-256 为 `0d85580159d1c598b6a61e32f9ad77c6a5013eaeb586ac29d9836d8b7e379021`，`ios/Podfile.lock` SHA-256 为 `d0879ca1f7222cbc2de5bd0d33a414c834eaec2235f469322ffd171ab0f75793`，本次没有依赖锁更新。
+- 构建与签名：使用 `flutter build ios --release --flavor=test --dart-define-from-file=config/test.json --build-name=1.0.5 --build-number=169 --no-codesign` 后，以 `Release-test` 配置创建 Xcode archive。最终 IPA 从归档内已签名 App 原样封装，未经过会改变 App Attest 的导出重签。解包确认 Bundle ID `com.kando.kandoApp.beta`、Apple Development 签名、`get-task-allow=true`、App Attest `development`，描述文件包含 6 台登记设备。
+- 符号与完整性：IPA 为 39,926,111 字节，SHA-256 `c9bb165187d1eda72f33229defb05f8dd42d21dc91e68314475fcb3b153ad95e`；`dSYMs.zip` 为 61,217,810 字节，SHA-256 `59d39cf9505bd7d3bedceb1fafb50f42b5f22ab70ca86df613d33853b6502324`。IPA 与 dSYM ZIP 完整性检查通过，42/42 个 Mach-O UUID 有对应 dSYM，签名严格校验通过。
+- 保存与边界：制品保存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.5-169/`，当前测试包保留 167、168、169；旧 166 版在新版本完整保存后移入废纸篓。本次未安装设备、上传蒲公英／TestFlight／App Store Connect，也未执行真实登录、扫描、购买、Restore、崩溃上报或真机启动验收。
+
+<a id="subscription-trial-selection-state"></a>
+
+## 2026-10-19 试用开启后切换商品导致列表恢复
+
+本次从 `codex/dev-1.0.6@d575ec87` 的干净基线修复 Flutter 订阅展示状态。原控制器把“当前选中商品”和“试用替换位置”作为同一状态处理：选择其他商品时会直接关闭 `trialOn`，商品卡又以当前选中项判断是否显示关联试用，购买前复核也会把普通商品错误纳入试用关系校验。因此，用户开启试用后选择年卡或终身商品，会同时关闭开关并把列表中的试用商品恢复为基础商品。
+
+修复增加页面实例内的试用替换位置状态。开启试用时记录当时生效的关联位置；之后选择其他普通商品只更新选中项，开关和开启后形成的商品列表保持不变，再次选择该关联位置仍显示试用商品。只有用户主动关闭开关时才清除替换位置并恢复基础列表。购买普通商品不校验另一位置的试用资格；实际购买关联试用商品时仍执行原有资格和条款复核。多组有效试用关系仍只替换开启开关时选定的一组。API、后台配置、StoreKit 商品校验及 iOS／Android 原生代码均未修改。
+
+修复前，控制器与页面点击两条新增回归均稳定复现，失败值为 `trialOn=false`、期望 `true`。首轮 Code Review 发现商品重载后的资格短暂为 `unknown` 时，换回关联位置可能遗留 `trialInvalid` 并无提示禁用购买；换选现在只清除既有失效标记，实际试用购买继续由提交前强制复核拦截失效资格。修复后，`flutter test --no-pub --dart-define-from-file=config/test.json test/subscription_display_test.dart test/subscription_restore_ui_test.dart` 退出 0，两个文件共 69 项通过；覆盖试用列表保持、切回关联位置、主动关闭恢复基础列表、普通商品购买复核、多关联仅替换一组、资格异步刷新及普通商品购买打断资格刷新。`flutter analyze --no-pub` 退出 0、无问题，`git diff --check` 退出 0。返工后的 Code Review 检查状态生命周期、页面调用、资格刷新及购买前复核后无阻断项。
+
+本轮未构建或安装新包，未执行真机交互、真实 Sandbox 购买、Restore、Android 真机、签名包、部署、远程配置或数据库操作，也未执行 Git commit／push。此前 1.0.5 (169) 包不包含本修复。
+
+<a id="subscription-config-copy-layout"></a>
+
+## 2026-10-19 订阅配置文案与商品布局修正
+
+本次在上一节试用状态修复的同一未提交工作区继续调整 Flutter 订阅页。有效后台配置现在显式标记为远端来源：配置商品价格下方只显示当前实际 SKU 的 `price_note`，字段为空时不展示；不再叠加 StoreKit 推导的 `per year`、`every 7 days` 或 `one-time purchase`。远端配置无法取得，或其中没有任何可展示商品而切入客户端兜底时，原 StoreKit 周期文案继续保留。试用目标沿用自己的配置文案，StoreKit 主价格、固定交易摘要和购买前复核没有改变。
+
+布局将试用开关到首张商品及相邻商品卡片间距统一为 20px，移除 Lifetime 额外顶距；带浮动角标的价格列下移 12px，避免角标遮挡本卡价格，20px 卡片间距使下一张角标与上一张商品之间仍保留 9px 净距。后台配置商品的角标选中颜色改为同帧更新，旧商品展示路径的既有选中动画保留。iOS 固定购买区的 Terms 下方间距统一改为 16px，包括底部安全区为 34px 的 iPhone 13 视口；CTA 继续固定在 Terms 上方，商品内容仍在独立滚动区。
+
+验证：`flutter test --no-pub --dart-define-from-file=config/test.json test/subscription_display_test.dart test/subscription_restore_ui_test.dart` 单独运行退出 0，共 72 项通过；覆盖远端文案完全替换、空值不回退、兜底周期保留、价格与角标不重叠、卡片间距 20px、角标与上一项保留 9px 净距、Footer 底部空白及角标背景／边框在切换首帧和 70ms 均无中间色。更新 `test/widget/goldens/rendered/subscription_config_sheet_390x844.png` 后，定向 golden 用例单独复跑通过；`flutter analyze --no-pub` 退出 0、无问题。首次并行运行三个 Flutter 命令时，订阅测试因共享 `build/native_assets` 临时文件竞争退出 1；改为单独运行后通过，不把首次运行记为业务测试通过。
+
+本节后续记录的 1.0.5 (170) IPA 于 11:03 保存；20px 商品间距与 16px Footer 底距在 11:15 完成，因而该制品包含此前的订阅状态、配置文案及角标修正，但不包含这两项最终尺寸。最终尺寸修改后未重新构建或安装新包，也未执行 iPhone／Android 真机视觉与交互、真实 Sandbox 购买、Restore、部署、远程配置、数据库操作或 Git commit／push。
+
+## 2026-10-19 iOS 测试环境 Release 内部安装包 1.0.5 (170)
+
+- 构建输入：从 `codex/dev-1.0.6@d575ec872ae2dfdf71f8d46c5a0190e1da2b9c22` 加当前未提交的订阅状态、文案和布局工作区构建，必须标记为 dirty，不能写成纯提交制品。构建前版本为 `1.0.5+169`，本次使用 `1.0.5 (170)`；制品完整保存并校验后将 `apps/flutter-app/pubspec.yaml` 同步为 `1.0.5+170`。工具链为 Flutter 3.44.5／Dart 3.12.2／Xcode 27.1。
+- 环境与依赖：`config/test.json` 校验通过，最终 App 的 Bundle ID 为 `com.kando.kandoApp.beta`，测试 API `http://192.168.50.201:8080/api/v1` 已嵌入，Firebase 项目为 `card-ai---test`。`pubspec.lock` 与 `ios/Podfile.lock` 的 SHA-256 分别保持为 `0d85580159d1c598b6a61e32f9ad77c6a5013eaeb586ac29d9836d8b7e379021`、`d0879ca1f7222cbc2de5bd0d33a414c834eaec2235f469322ffd171ab0f75793`，本次没有依赖锁更新。
+- 验证与构建：`flutter analyze --no-pub` 通过；测试环境订阅展示与恢复两个文件共 72 项通过，OAuth authorizer 与发布配置两个文件共 12 项通过。执行 `flutter clean` 后重新解析依赖并构建 Release-test 原生产物，再以 `Release-test` 配置创建 Xcode archive。最终 IPA 从归档内已签名 App 原样封装，未经过导出重签；解包确认 Apple Development 签名、`get-task-allow=true`、App Attest `development`，描述文件包含 6 台登记设备。Xcode 归档退出 0，保留第三方依赖弃用、`in_app_review` 隐私清单无处理规则等非阻断警告。
+- 符号与完整性：`Card AI Test.ipa` 为 39,925,934 字节，SHA-256 `ad1009d209b9eba925ecfc45a642156834246589f596c3b59003c8051e35c46c`；`dSYMs.zip` 为 61,217,309 字节，SHA-256 `b2617a0aac76c05c7fce404df60d66c0dd01cd7b48c8da2b2a3cb28d42e24e4c`。两份 ZIP 完整性、IPA 深度严格签名以及归档 App 逐文件一致性检查通过；42/42 个 Mach-O UUID 有对应 dSYM。44 个 dSYM bundle 中 43 个通过 `dwarfdump --verify`，`App.framework.dSYM` 报告 171 个 Dart／Flutter DIE range 错误；UUID 覆盖完整，但不能声称全部 dSYM 深度校验通过。
+- Google OAuth 边界：测试 Firebase plist 使用测试项目的 `490325688457...` Client ID，但最终 App `Info.plist`、URL Scheme 和 AOT 常量使用 `1030914046373...`。源码与测试明确要求使用后者作为 Workers 校验 token 的 iOS audience，因此这是当前有意的拆分，不是本次构建或签名阻断项；本次仍未做真机 Google 登录，不能把实际登录和回调记为通过。
+- 保存与边界：制品保存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.5-170/`；新版本完整保存后将旧 167 版移入废纸篓，当前保留 168、169、170。本次未安装设备、上传蒲公英／TestFlight／App Store Connect，也未执行真实登录、扫描、购买、Restore、崩溃上报或真机启动验收。
+
+## 2026-10-19 iOS 测试环境 Release 内部安装包 1.0.5 (171)
+
+- 构建输入：从 `codex/dev-1.0.6@d575ec872ae2dfdf71f8d46c5a0190e1da2b9c22` 加当前未提交的订阅工作区构建，必须标记为 dirty，不能写成纯提交制品；构建期间 `git diff HEAD --binary` 的 SHA-256 始终为 `8467c6a00667241b7bc20be61577ea71217d878dd3792a4cce068e6ba8cfe290`。相较 170，本包包含随后完成的 20px 商品间距和 16px Footer 底距。构建前版本为 `1.0.5+170`，本次使用 `1.0.5 (171)`；制品完整保存后将 `pubspec.yaml` 同步为 `1.0.5+171`。
+- 环境与依赖：`config/test.json` 校验通过，最终 App 为 `com.kando.kandoApp.beta`，测试 API `http://192.168.50.201:8080/api/v1` 已嵌入，Firebase 项目为 `card-ai---test`。`pubspec.lock` 与 `ios/Podfile.lock` 的 SHA-256 分别保持为 `0d85580159d1c598b6a61e32f9ad77c6a5013eaeb586ac29d9836d8b7e379021`、`d0879ca1f7222cbc2de5bd0d33a414c834eaec2235f469322ffd171ab0f75793`，没有依赖锁更新。
+- 验证与构建：`flutter analyze --no-pub` 通过；订阅展示、恢复、OAuth authorizer 与发布配置四个测试文件共 84 项通过。执行 `flutter clean` 后重新解析依赖并构建 Release-test 原生产物，再创建 Xcode archive。最终 IPA 从归档内已签名 App 原样封装；Apple Development 签名、`get-task-allow=true`、App Attest `development`，描述文件包含 6 台登记设备。Xcode 归档退出 0，保留第三方依赖弃用、Swift 6 前置兼容和 `in_app_review` 隐私清单无处理规则等非阻断警告。
+- 符号与完整性：`Card AI Test.ipa` 为 39,924,748 字节，SHA-256 `46d120b01dcb46888876f73f7c0a4032152332ed06905945f81fd585abe27477`；`dSYMs.zip` 为 61,217,698 字节，SHA-256 `c8f00f5e9c5d2ba50d2a5765f7a026e6d892120f8b86c8aca9110a6b6c8bff72`。两份 ZIP、IPA 深度严格签名以及 IPA App 与归档 373 个文件逐字节一致性检查通过；42/42 个 Mach-O UUID 有对应 dSYM。44 个 dSYM bundle 中 43 个通过 `dwarfdump --verify`，`App.framework.dSYM` 仍有 171 条 Dart／Flutter range 错误，不能声称全部 dSYM 深度校验通过。
+- Google OAuth 边界：测试 Firebase plist 使用测试项目，但最终 App 使用源码要求的生产 Google OAuth audience，供 Workers 校验 token；相关测试通过，但本次未做真机 Google 登录和回调验收。
+- 保存与边界：制品保存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.5-171/`；新版本完整保存后将旧 168 版移入废纸篓，当前保留 169、170、171。本次未安装设备、上传蒲公英／TestFlight／App Store Connect，也未执行真实登录、扫描、购买、Restore、崩溃上报或真机启动验收。
+
+## 2026-10-19 本地兜底每周价格修正与 iPhone 13 复测
+
+从 `codex/dev-1.0.6@42f4d7e4` 的未提交订阅工作区继续定位，未把此前未提交改动视为纯提交构建。用户在 test 真机看到周试用 `US$4.99` 无 `then`、年卡 `US$0.96`、月卡 `US$3.00`；同时确认年卡保持现状，月卡按月价除以 4 并标准四舍五入。test 的 Page／Modal 配置接口均返回 `data:null`，设备使用本地兜底。首次同机 Debug 抓屏确认试用标题已由 `Premium` 变成 `3-Day Free`，但周期仍写 `every 7 days`，周价无 `then`；这将问题定位到 StoreKit 返回的 7 天周期没有被现有一周价格分支识别，而非试用资格未通过。年卡由 `US$49.99÷52` 得 `US$0.96`，保持不变；原月卡 `US$12.99×12÷52` 得 `US$3.00`。
+
+修复在 iOS StoreKit 只读商品事实中将 7 天视为一周，月卡另给本地兜底提供 `月价÷4` 的本地化字段；Flutter 兜底周卡直接使用该 StoreKit 商品的正常周期金额，资格确认后加 `then`，月卡使用新字段。后台配置既有 `月价×12÷52` 周均参考口径、真实扣费金额和购买前复核均未改。`US$12.99÷4` 最终四舍五入为 `US$3.25`，图稿 `US$3.24` 不符合该规则。
+
+`flutter test --no-pub --dart-define-from-file=config/test.json test/subscription_display_test.dart test/subscription_restore_ui_test.dart` 退出 0，74 项通过，含 7 天周卡无派生周价、资格未知到可试用、月／年右侧金额及原生字段映射；`flutter analyze --no-pub` 退出 0。`flutter run --no-pub --flavor test --debug -d 00008110-000A242A01A2801E --dart-define-from-file=config/test.json` 在 iPhone 13 上完成 Xcode 编译、安装和启动；构建后签名 App 的 App Attest entitlement 回读为 `development`。修复后同机抓屏可见周试用的 `then` 和 `per week`、月卡 `US$3.25 / per week`、年卡 `US$0.96 / per week`、`TRY FOR FREE` 和 `NO PAYMENT NOW`。test 环境已有的右侧悬浮调试入口遮住了周价末尾；完整 `US$4.99` 金额以同机修复前显示、StoreKit 原价路径和页面测试交叉核对。只读 Code Review 未发现阻断问题。未制作新 IPA、未执行真实购买／Restore、Android 真机、远程配置修改、服务端部署、Git commit／push 或商店发布。
+
+<a id="subscription-price-visibility"></a>
+
+## 2026-10-19 订阅商品价格展示方式增量（本地）
+
+从 `codex/dev-1.0.6@235b7019` 的干净工作区开始，新增后台“价格展示方式”的“不展示”选项，并在关联试用 SKU 的“试用商品展示名称”上方增加同款独立下拉。V1 保留旧 `price_mode=actual|weekly`，用可选 `hide_price` 表示卡片隐藏；试用新增可选独立模式和隐藏字段，缺省继承源 SKU。配置仍存原 JSONB，无新 migration；旧客户端能忽略新增字段，但不会执行新隐藏效果。新版 iOS Page／Modal 仅隐藏商品卡金额、价格说明与辅助周均价，保留购买区真实计费摘要；Android 仍走原路径。详见[服务端合同](../03-data-api/subscription-display-config.md)、[后台页面](../04-admin/admin.md)和[客户端流程](../01-flows/subscription-display.md)。
+
+本地环境为 macOS、Node 22.23.1、pnpm 11.25.0、Flutter 3.44.5／Dart 3.12.2。`pnpm --filter @kando/admin-web test` 67/67、Workers 订阅配置 3 文件 62/62、`flutter test test/subscription_display_test.dart test/subscription_restore_ui_test.dart` 80/80 均退出 0；`pnpm lint`、`pnpm type-check`（7/7 任务）、`flutter analyze`、`pnpm --filter @kando/admin-web build:dev`、`git diff --check` 均退出 0。Admin 测试覆盖旧配置继承、两处回显和字段顺序；API 测试覆盖字段保存／公开读取及旧 payload；Flutter 测试覆盖 Page／Modal 的隐藏、试用独立覆盖和购买摘要保留。只读跨模块审查未发现阻断项；依赖锁文件未修改。
+
+以上是本地源码与测试结果，未执行真实后台登录编辑、真实 Apple 目录／StoreKit、iPhone／Android 真机、签名构建、旧版 App 实机兼容、dev/prod 部署、远程配置写入、数据库迁移或 Git commit／push。旧版 App 对隐藏字段的忽略是代码合同结论，不代表已做正式旧包验收。

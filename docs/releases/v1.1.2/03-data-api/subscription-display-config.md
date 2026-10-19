@@ -99,7 +99,8 @@ API／Admin 已由既有 watcher 发布干净的 `dev@06f420a`；独立回读确
 }
 ```
 
-- `product_type` 为 subscription／non_consumable；price_mode 为 actual／weekly；说明方式为 custom／auto。`trial` 可省略或 null，存在时为 `product_id` 加相同营销字段（不含默认项、价格模式）；空目标可保留替换文案。
+- `product_type` 为 subscription／non_consumable；`price_mode` 保持 actual／weekly；说明方式为 custom／auto。展示 SKU 可选 `hide_price: true`，仅表示新版 App 不渲染该商品卡片的价格区域，省略或 false 保持原行为。`trial` 可省略或 null；存在时除 `product_id` 和相同营销字段外，可选独立的 `price_mode`（actual／weekly）与 `hide_price`（boolean）。试用字段省略时分别继承源 SKU 的对应设置，显式 `hide_price: false` 可在源卡隐藏价格时继续显示试用价格；空目标可保留替换文案。
+- 2026-10-19 用户要求的“不展示”和试用独立价格方式覆盖原 PRD 1.14 的“主价始终展示／试用继承模式”展示规则，仅作用于商品卡片价格及辅助周均价，不隐藏购买区真实扣费摘要，不更改 StoreKit 价格、购买目标、权益或收入。新状态用可选字段表达，未扩充旧 `price_mode` 枚举：旧版 App 可忽略新增字段并继续读取配置，但不会执行隐藏或试用独立模式；新旧客户端的可见效果须分别验收。
 - 可选文案缺失补空，CTA 拒绝花括号，长度用 JavaScript UTF-16 单元。基础名称、唯一默认、1–3 张展示卡片始终校验。切换启用时要求开关文案、至少一组完整关系及试用名称；关闭时保留隐藏试用文本，不验证其必填／长度／CTA，但引用结构与去重继续验证。
 - 2026-10-15 用户补充规则：每组配置的页面展示 SKU 为 1–3 个，Page／Modal、未生效／已生效配置均适用。数量仅计算 `skus` 数组；关联试用目标不额外占名额，独立展示的试用商品和一次性商品各占一个。新增、保存与启用超限配置返回 `422 VALIDATION_ERROR`，字段路径为 `skus`，不改变原内容、版本或生效指针；保留失败幂等结果。存量超限数据不自动删减，Admin 仍可完整读取并修正；公开读取超限生效配置返回 `503 SUBSCRIPTION_CONFIG_UNAVAILABLE`，由 App 按既有规则兜底，不截取前三个商品。无需新增迁移或 V2。
 - 基础与所有保留关系目标在配置内共同去重；关系为非试用自动续期源→当前免费试用目标，同组同周期同等级。Lifetime 不可配试用，未定义周期不可配 weekly。

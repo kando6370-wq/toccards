@@ -21,11 +21,14 @@ class SubscriptionDisplayCard {
     required this.subtitle,
     required this.badge,
     required this.priceNote,
+    required this.weeklyReference,
+    required this.hidePrice,
   });
   final SubscriptionDisplaySku sku;
   final SubscriptionStoreProduct product;
   final SubscriptionCopy copy;
   final String cta, billingNote, subtitle, badge, priceNote;
+  final bool weeklyReference, hidePrice;
 }
 
 /// One instance per page/modal. It never owns or disposes the transaction listener.
@@ -55,6 +58,7 @@ class SubscriptionDisplayController extends ChangeNotifier {
   SubscriptionDisplayConfig? config;
   Map<String, SubscriptionStoreProduct> products = const {};
   String? selectedId, errorMessage;
+  String? _activeTrialSkuId;
   bool isLoading = true,
       isVerifying = false,
       trialOn = false,
@@ -65,6 +69,7 @@ class SubscriptionDisplayController extends ChangeNotifier {
 
   bool get closeAvailable =>
       config != null && _entered.elapsed >= config!.closeDelay;
+  bool get usesRemoteConfiguration => config != null && !_usedFallback;
   List<SubscriptionDisplaySku> get availableSkus =>
       config?.skus
           .where((sku) => products[sku.productId]?.type == sku.type)
@@ -97,7 +102,7 @@ class SubscriptionDisplayController extends ChangeNotifier {
       selectedSku == null ? null : card(selectedSku!);
 
   SubscriptionDisplayCard? card(SubscriptionDisplaySku sku) {
-    final linked = trialOn && selectedId == sku.productId;
+    final linked = trialOn && _activeTrialSkuId == sku.productId;
     final product = products[linked ? sku.trial?.productId : sku.productId];
     if (product == null || (!linked && product.type != sku.type)) return null;
     final copy = product.useNeutralCopy
@@ -122,6 +127,10 @@ class SubscriptionDisplayController extends ChangeNotifier {
       subtitle: expand(copy.subtitle),
       badge: expand(copy.badge),
       priceNote: expand(copy.priceNote),
+      weeklyReference: linked
+          ? sku.trial!.weeklyReference ?? sku.weeklyReference
+          : sku.weeklyReference,
+      hidePrice: linked ? sku.trial!.hidePrice ?? sku.hidePrice : sku.hidePrice,
       billingNote: copy.autoBillingNote ? '' : expand(copy.billingNote),
     );
   }
@@ -146,8 +155,8 @@ class SubscriptionDisplayController extends ChangeNotifier {
           /* Missing/invalid/failed configuration locks this page to fallback. */
         }
         if (!active()) return;
-        _useConfig(remote ?? fallback);
         _usedFallback = remote == null;
+        _useConfig(remote ?? fallback);
       }
       for (
         var attempt = 0;
@@ -276,7 +285,6 @@ class SubscriptionDisplayController extends ChangeNotifier {
       return;
     }
     selectedId = id;
-    trialOn = false;
     trialInvalid = false;
     errorMessage = null;
     _notify();
@@ -286,6 +294,7 @@ class SubscriptionDisplayController extends ChangeNotifier {
     if (isLoading || isVerifying) return;
     if (!value) {
       trialOn = false;
+      _activeTrialSkuId = null;
       trialInvalid = false;
       errorMessage = null;
       _notify();
@@ -297,12 +306,12 @@ class SubscriptionDisplayController extends ChangeNotifier {
       _notify();
       return;
     }
-    selectedId = candidates
-        .firstWhere(
-          (s) => s.productId == selectedId,
-          orElse: () => candidates.first,
-        )
-        .productId;
+    final candidate = candidates.firstWhere(
+      (s) => s.productId == selectedId,
+      orElse: () => candidates.first,
+    );
+    selectedId = candidate.productId;
+    _activeTrialSkuId = candidate.productId;
     trialOn = true;
     trialInvalid = false;
     errorMessage = null;
@@ -314,6 +323,10 @@ class SubscriptionDisplayController extends ChangeNotifier {
   Future<SubscriptionProduct?> confirmPurchase() async {
     final previous = selectedCard;
     if (!canPurchase || previous == null) return null;
+    final purchasingLinkedTrial =
+        trialOn &&
+        _activeTrialSkuId == previous.sku.productId &&
+        previous.sku.trial?.productId == previous.product.id;
     isVerifying = true;
     final cycle = ++_cycle;
     _notify();
@@ -347,7 +360,9 @@ class SubscriptionDisplayController extends ChangeNotifier {
           ..addAll(next),
       );
       final current = selectedCard;
-      if (trialOn && !_validTrial(previous.sku)) trialInvalid = true;
+      if (purchasingLinkedTrial && !_validTrial(previous.sku)) {
+        trialInvalid = true;
+      }
       if (current == null ||
           trialInvalid ||
           !previous.product.sameTerms(current.product)) {

@@ -59,6 +59,7 @@ class SubscriptionRevenueRecord {
               'lifetime',
               'weekly_trial',
               'yearly_pro',
+              'monthly',
             }.contains(planType) &&
             eventName == null) ||
         amount is! num ||

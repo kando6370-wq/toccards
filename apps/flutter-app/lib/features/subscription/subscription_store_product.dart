@@ -18,6 +18,7 @@ class SubscriptionStoreProduct {
     this.trialUnit,
     this.trialValue,
     this.weeklyPrice,
+    this.fourWeekPrice,
     this.isTrialProduct = false,
     this.eligibility = TrialEligibility.unknown,
   });
@@ -25,6 +26,7 @@ class SubscriptionStoreProduct {
   final DisplayProductType type;
   final String decimalPrice;
   final String? periodUnit, groupId, trialUnit, weeklyPrice;
+  final String? fourWeekPrice;
   final int? periodValue, groupLevel, trialValue;
   final bool isTrialProduct;
   final TrialEligibility eligibility;
@@ -76,6 +78,7 @@ class SubscriptionStoreProduct {
         trialUnit: trialUnit,
         trialValue: trialValue,
         weeklyPrice: weeklyPrice,
+        fourWeekPrice: fourWeekPrice,
         isTrialProduct: isTrialProduct,
         eligibility: value,
       );
@@ -111,7 +114,7 @@ class SubscriptionStoreProduct {
         !RegExp(r'^\d+(?:\.\d+)?$').hasMatch(decimal) ||
         !product.rawPrice.isFinite ||
         product.rawPrice < 0 ||
-        double.tryParse(decimal) != product.rawPrice ||
+        !_sameStorePrice(decimal, product.rawPrice) ||
         !RegExp(r'^[A-Z]{3}$').hasMatch(product.currencyCode) ||
         facts['currency_code'] != product.currencyCode ||
         facts['display_price'] != product.displayPrice ||
@@ -136,6 +139,9 @@ class SubscriptionStoreProduct {
       weeklyPrice: facts['weekly_price'] is String
           ? facts['weekly_price'] as String
           : null,
+      fourWeekPrice: facts['four_week_price'] is String
+          ? facts['four_week_price'] as String
+          : null,
       isTrialProduct: knownTrialProduct || hasFree,
     );
   }
@@ -146,6 +152,20 @@ String _period(int value, String unit) =>
 String? _periodUnit(Object? value) =>
     ['day', 'week', 'month', 'year'].contains(value) ? value as String : null;
 int? _positive(Object? value) => value is int && value > 0 ? value : null;
+
+bool _sameStorePrice(String decimal, double rawPrice) {
+  final parsed = double.tryParse(decimal);
+  if (parsed == null || !parsed.isFinite) return false;
+  if (parsed == 0 || rawPrice == 0) {
+    return parsed == 0 && rawPrice == 0 && !RegExp(r'[1-9]').hasMatch(decimal);
+  }
+  // Decimal string parsing and StoreKit's Decimal-to-double conversion can
+  // round the same price to adjacent binary values.
+  final bits = ByteData(8)..setFloat64(0, parsed);
+  final parsedBits = bits.getUint64(0);
+  bits.setFloat64(0, rawPrice);
+  return (parsedBits - bits.getUint64(0)).abs() <= 1;
+}
 
 class AppleSubscriptionProductReader {
   const AppleSubscriptionProductReader({

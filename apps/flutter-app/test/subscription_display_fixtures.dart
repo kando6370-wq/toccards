@@ -12,6 +12,10 @@ SubscriptionStoreProduct displayProduct(
   TrialEligibility eligibility = TrialEligibility.unknown,
   double amount = 12,
   String currency = 'USD',
+  String? displayPrice,
+  String? weeklyPrice,
+  String? fourWeekPrice,
+  bool omitWeeklyPrice = false,
   String unit = 'month',
   int value = 1,
   String group = 'test-group',
@@ -22,7 +26,7 @@ SubscriptionStoreProduct displayProduct(
     storeProductId: id,
     title: id,
     description: '',
-    displayPrice: '$currency $amount',
+    displayPrice: displayPrice ?? '$currency $amount',
     rawPrice: amount,
     currencyCode: currency,
   ),
@@ -38,7 +42,8 @@ SubscriptionStoreProduct displayProduct(
   trialValue: trial ? 3 : null,
   isTrialProduct: trial,
   eligibility: eligibility,
-  weeklyPrice: lifetime ? null : 'USD 2.77',
+  weeklyPrice: lifetime || omitWeeklyPrice ? null : weeklyPrice ?? 'USD 2.77',
+  fourWeekPrice: lifetime ? null : fourWeekPrice,
 );
 SubscriptionDisplayConfig displayConfig({
   SubscriptionPageType type = SubscriptionPageType.page,
@@ -129,7 +134,7 @@ SubscriptionDisplayController displayPageFixture(SubscriptionPageType type) {
   final config = legacySubscriptionFallback(configuration, type);
   return SubscriptionDisplayController(
     fallback: config,
-    loadConfig: (_) async => config,
+    loadConfig: (_) async => null,
     loadProducts: (ids) async => [
       if (ids.contains('weekly.product'))
         displayProduct('weekly.product', unit: 'week', amount: 3.99),

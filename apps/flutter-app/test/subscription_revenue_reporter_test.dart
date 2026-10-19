@@ -161,6 +161,7 @@ void main() {
   for (final item in [
     (plan: 'weekly_trial', product: 'weekly.trial', value: 0.0),
     (plan: 'yearly_pro', product: 'yearly.pro', value: 5.49),
+    (plan: 'monthly', product: 'cardx.month', value: 12.99),
   ]) {
     test(
       'Firebase pending revenue preserves the new ${item.plan} plan across restart',

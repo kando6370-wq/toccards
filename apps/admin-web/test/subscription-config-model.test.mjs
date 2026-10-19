@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { availableProducts, changeProduct, editorFromRecord, moveSku, newEditor, productMap, removeSku, toDisplayConfig, unlinkTrial, validateEditor } from "../src/subscription-config/model.ts";
+import { availableProducts, changeProduct, changeTrialProduct, editorFromRecord, moveSku, newEditor, priceDisplayMode, productMap, removeSku, toDisplayConfig, unlinkTrial, validateEditor } from "../src/subscription-config/model.ts";
 import { catalogFixture, CONFIG_ID, editorFixture } from "./subscription-fixtures.mjs";
 
 test("new configurations start empty and cannot accidentally be enabled or default a demo product", () => {
@@ -69,10 +69,25 @@ test("changing a product clears an invalid trial target but preserves marketing 
 });
 
 test("type switching resets Product IDs and weekly pricing without erasing copy", () => {
-  const sku = editorFixture().body.skus[0]; sku.price_mode = "weekly";
+  const sku = editorFixture().body.skus[0]; sku.price_mode = "weekly"; sku.hide_price = true;
   const changed = changeProduct(sku, "", productMap(catalogFixture()), "non_consumable");
   assert.equal(changed.product_id, ""); assert.equal(changed.trial.product_id, "");
   assert.equal(changed.price_mode, "actual"); assert.equal(changed.name, "Weekly");
+  assert.equal(changed.hide_price, true);
+  assert.equal(priceDisplayMode(changed), "hidden");
+});
+
+test("relinking a hidden trial resets unsupported weekly pricing but retains its hidden state", () => {
+  const trial = editorFixture().body.skus[0].trial;
+  trial.price_mode = "weekly"; trial.hide_price = true;
+  const catalogs = catalogFixture();
+  const target = { ...catalogs.subscription.products.find((product) => product.product_id === "trial.week"), product_id: "trial.day", period: "ONE_DAY" };
+  const products = productMap({ ...catalogs, subscription: { ...catalogs.subscription, products: [...catalogs.subscription.products, target] } });
+  const changed = changeTrialProduct(trial, "trial.day", products);
+  assert.equal(changed.product_id, "trial.day");
+  assert.equal(changed.price_mode, "actual");
+  assert.equal(changed.hide_price, true);
+  assert.equal(changed.name, "Weekly Trial");
 });
 
 test("reordering keeps the complete card and default, and removing the default requires reselection", () => {
@@ -133,6 +148,40 @@ test("optional button text stays empty on edit and UI-only state never reaches t
   const serialized = toDisplayConfig(editor.body);
   assert.ok(!("key" in serialized.skus[0]));
   assert.ok(!("needs_trial_repair" in serialized.skus[0]));
+});
+
+test("legacy trial pricing inherits the base mode until explicitly configured", () => {
+  const body = toDisplayConfig(editorFixture().body);
+  body.skus[0].price_mode = "weekly";
+  const editor = editorFromRecord({ id: CONFIG_ID, body, page_type: "page", revision: 2, enabled: false }, () => "key");
+  const sku = editor.body.skus[0];
+  assert.equal(priceDisplayMode(sku, sku.trial), "weekly");
+  sku.hide_price = true;
+  assert.equal(priceDisplayMode(sku, sku.trial), "hidden");
+  assert.ok(!("price_mode" in toDisplayConfig(editor.body).skus[0].trial));
+  assert.ok(!("hide_price" in toDisplayConfig(editor.body).skus[0].trial));
+  sku.trial.price_mode = "weekly";
+  assert.equal(priceDisplayMode(sku, sku.trial), "hidden");
+  sku.trial.hide_price = false;
+  assert.equal(priceDisplayMode(sku, sku.trial), "weekly");
+  sku.trial.price_mode = "actual";
+  assert.equal(priceDisplayMode(sku, sku.trial), "actual");
+  sku.trial.hide_price = true;
+  assert.equal(priceDisplayMode(sku, sku.trial), "hidden");
+  const saved = toDisplayConfig(editor.body).skus[0];
+  assert.equal(saved.hide_price, true);
+  assert.equal(saved.trial.price_mode, "actual");
+  assert.equal(saved.trial.hide_price, true);
+});
+
+test("retained trial weekly pricing must use a supported Apple period", () => {
+  const body = editorFixture().body;
+  body.trial_enabled = false;
+  body.skus[0].trial.price_mode = "weekly";
+  const catalogs = catalogFixture();
+  catalogs.subscription.products.find((product) => product.product_id === "paid.week").period = "ONE_DAY";
+  catalogs.subscription.products.find((product) => product.product_id === "trial.week").period = "ONE_DAY";
+  assert.ok(validateEditor(body, catalogs).some((issue) => issue.path === "skus.0.trial.price_mode"));
 });
 
 test("price modes, default count and safe delays prevent invalid writes without a 30-second cap", () => {

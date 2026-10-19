@@ -107,6 +107,7 @@ void main() {
       name: 'card_weekly_trialtest',
     ),
     (plan: 'yearly_pro', product: 'yearly.pro', name: 'yearly_cardtest'),
+    (plan: 'monthly', product: 'cardx.month', name: 'card_monthlytest'),
   ]) {
     test(
       'dev maps ${item.product} by actual Product ID without enabling it in production',
@@ -152,10 +153,30 @@ void main() {
     },
   );
 
+  for (final item in [
+    (
+      product: 'CardAi.weekly.trial',
+      plan: 'weekly_trial',
+      name: 'card_weekly_trial',
+    ),
+    (product: 'CardAi.monthly', plan: 'monthly', name: 'card_monthly'),
+  ]) {
+    test('production maps ${item.product} by actual Product ID', () {
+      expect(
+        singularSubscriptionSuccessEventName(
+          event: _event(planId: item.plan, productId: item.product),
+          environment: AppEnvironment.production,
+          isFreshPurchase: true,
+        ),
+        item.name,
+      );
+    });
+  }
+
   test('unknown plans never produce an event name', () {
     expect(
       singularSubscriptionSuccessEventName(
-        event: _event(planId: 'monthly'),
+        event: _event(planId: 'unrecognized'),
         environment: AppEnvironment.test,
         isFreshPurchase: true,
       ),
