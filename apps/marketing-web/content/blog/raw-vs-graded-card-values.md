@@ -23,6 +23,12 @@ On a card with strong demand, the step from a 9 to a 10 can be several multiples
 
 The practical consequence: the value of grading depends almost entirely on whether your card lands at the top of the scale. A card that grades 8 when you hoped for 10 will often not recover the submission cost.
 
+## How to price raw versus graded cards
+
+Start with the same card record, then split the question in two. A raw card needs a condition band such as near mint or lightly played. A graded card needs the grading company and the grade printed on the slab. PSA, BGS, CGC and SGC are not interchangeable labels, and a Gem Mint 10 is not a generic premium that can be applied to every raw copy.
+
+When you need more market context, compare the available price history with comparable sales you verify yourself. For supported sports cards, Card AI links to an eBay search. That link does not import sold transactions into the app, and a current listing is not proof that your copy will sell at its asking price.
+
 ## When grading is worth it
 
 Grading has a real cost in fees and turnaround time. A rough filter:

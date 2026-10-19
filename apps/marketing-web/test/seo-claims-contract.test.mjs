@@ -122,7 +122,28 @@ test('GEO summary keeps recognition and pricing claims within verified capabilit
   assert.doesNotMatch(llms, /including set, card number, edition, variant, and finish/i);
   assert.match(llms, /suggests likely catalog matches/i);
   assert.doesNotMatch(pricePage, /Card AI works from the second and third/i);
-  assert.match(pricePage, /does not calculate its market price from visible sold-listing comps/i);
+  assert.match(pricePage, /does not import eBay sold transactions or calculate the published market price from that search/i);
+});
+
+test('comparison pages cite product sources and avoid placeholder or untested winner claims', async () => {
+  const pages = await Promise.all(
+    ['card-scanner-comparison-2026', 'card-ai-vs-ludex', 'card-ai-vs-collx'].map((slug) =>
+      readFile(fileURLToPath(new URL(`${slug}.html`, publicUrl)), 'utf8'),
+    ),
+  );
+
+  for (const html of pages) {
+    assert.doesNotMatch(html, /Check the current (?:plan|catalog|app|scanner|category|grade|condition|price|portfolio)/i);
+    assert.doesNotMatch(html, /Card AI (?:is|was) (?:the )?(?:best|fastest|most accurate)/i);
+    assert.doesNotMatch(html, /Card AI (?:imports|syncs|shows) eBay sold transactions/i);
+    assert.match(html, /reviewed October 19, 2026/i);
+  }
+
+  assert.match(pages[0], /href="https:\/\/www\.ludex\.com\/scan-and-price\/"/);
+  assert.match(pages[0], /href="https:\/\/www\.collx\.app\/faq"/);
+  assert.match(pages[0], /not a hands-on accuracy or speed test/i);
+  assert.match(pages[1], /does not claim a winner for recognition speed or accuracy/i);
+  assert.match(pages[2], /not a synced feed of sold transactions/i);
 });
 
 test('approved keyword clusters stay with one truthful owner', async () => {
@@ -135,6 +156,9 @@ test('approved keyword clusters stay with one truthful owner', async () => {
         'card-collection-tracker.html',
         'bulk-card-scanner.html',
         'graded-card-tracker.html',
+        'card-scanner-comparison-2026.html',
+        'card-ai-vs-ludex.html',
+        'card-ai-vs-collx.html',
       ].map(async (name) => [name, await readFile(fileURLToPath(new URL(name, publicUrl)), 'utf8')]),
     ),
   );
@@ -164,6 +188,17 @@ test('approved keyword clusters stay with one truthful owner', async () => {
   assert.match(pages['graded-card-tracker.html'], /graded card value tracker/i);
   assert.match(pages['graded-card-tracker.html'], /PSA card value tracker/i);
   assert.match(pages['graded-card-tracker.html'], /does not connect to PSA or predict the grade/i);
+
+  assert.match(pages['card-scanner-comparison-2026.html'], /Trading Card Scanner Apps Compared in 2026/i);
+  assert.match(pages['card-scanner-comparison-2026.html'], /eBay search link/i);
+  assert.match(pages['card-scanner-comparison-2026.html'], /<table>/i);
+  assert.match(pages['card-scanner-comparison-2026.html'], /href="https:\/\/www\.pricecharting\.com\/page\/collection-tracker"/);
+  assert.match(pages['card-ai-vs-ludex.html'], /Card AI vs Ludex/i);
+  assert.match(pages['card-ai-vs-ludex.html'], /Ludex scan and price guide/i);
+  assert.match(pages['card-ai-vs-ludex.html'], /does not create an eBay listing/i);
+  assert.match(pages['card-ai-vs-collx.html'], /Card AI vs CollX/i);
+  assert.match(pages['card-ai-vs-collx.html'], /pricing FAQ/i);
+  assert.match(pages['card-ai-vs-collx.html'], /not a synced feed of sold transactions/i);
 });
 
 test('homepage scanner-app guidance is visible and matches FAQ schema', async () => {
@@ -239,7 +274,7 @@ test('30th Celebration guide keeps dated facts, article metadata, links, and dis
   assert.equal(occurrences(llms, `](${canonical})`), 1);
   assert.equal(occurrences(homepageHtml, `href="/blog/${slug}"`), 1);
   assert.equal(occurrences(blogIndexHtml, `href="/blog/${slug}"`), 1);
-  assert.equal(occurrences(sitemap, '<url>'), 25);
+  assert.equal(occurrences(sitemap, '<url>'), 28);
 });
 
 test('llms inventory includes every generated blog article exactly once', async () => {
@@ -309,7 +344,7 @@ test('FAQ switches to one column at tablet widths', async () => {
 
 test('every landing page shows product proof, contextual links, and an honest store state', async () => {
   const names = await landingPageNames();
-  assert.equal(names.length, 18);
+  assert.equal(names.length, 21);
 
   for (const name of names) {
     const html = await readFile(fileURLToPath(new URL(name, publicUrl)), 'utf8');

@@ -22,6 +22,16 @@ function renderMarkdown(source) {
   return blocks
     .map((block) => {
       const lines = block.split('\n');
+      if (
+        lines.length >= 2 &&
+        lines[0].includes('|') &&
+        /^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(lines[1])
+      ) {
+        const cells = (line) => line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((cell) => inline(cell.trim()));
+        const headers = cells(lines[0]).map((cell) => `<th scope="col">${cell}</th>`).join('');
+        const rows = lines.slice(2).map((line) => `<tr>${cells(line).map((cell) => `<td>${cell}</td>`).join('')}</tr>`).join('');
+        return `<div class="content-table-wrap"><table><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table></div>`;
+      }
       if (lines.every((line) => line.startsWith('- '))) {
         const items = lines.map((line) => `<li>${inline(line.slice(2))}</li>`).join('');
         return `<ul>${items}</ul>`;
