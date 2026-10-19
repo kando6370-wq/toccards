@@ -647,3 +647,9 @@ Code Review 自查覆盖计数口径、直接请求绕过、存量数据保留�
 本地 Tab 切换、埋点、返回 Home、文字与底线样式及 360px 紧凑布局的 5 项定向 Widget 测试通过，`flutter analyze --no-pub` 无问题。Home 全文件 Widget 测试为 75 项通过、4 项 Golden 失败：两张整页 Golden 包含本次改动的顶部，另两张为独立 Performance 区域；整页对比还存在未改动内容的像素差异，因此未批量重录基线。320px 全页测试另暴露图表时间按钮和下方卡片已有的横向溢出，本次未修改这些模块。
 
 同日以 `test` Debug flavor 在已连接的 iPhone 13 构建、安装并启动当前工作区，Dart VM Service 和 DevTools 已连接；实际签名 Bundle 为 `com.kando.kandoApp.beta`，App Attest 为 `development`。首张真机截图发现 `Overview` 被固定宽度裁掉末字，增加标签宽度并缩小间隔后热重载，复抓画面确认两个标签完整，`Performance` 选中态的主色文字和底线正常；随后关闭 Tab 默认按压覆盖和水波纹并再次热重载。最终宽度与按压反馈修正尚未重新构建独立安装包；Android 真机未验，未发布或上传商店。
+
+## 2026-10-19 购买按钮上方自定义说明互斥展示
+
+从 `codex/dev-1.0.6@6b9edc5d` 的干净工作区修改 iOS 订阅 Page／Modal 的共同购买区：有效后台配置为 `custom` 时只显示当前实际基础或关联试用 SKU 的自定义说明，空文本不显示说明；`auto` 时显示按 StoreKit 商品及资格生成的摘要，两者不再叠加。试用资格 unknown／ineligible 时沿用中性价格摘要，屏蔽可能误导的免费承诺。后台表单提示同步反映这一行为。原 PRD 1.14 要求固定摘要始终展示，当前用户指令已改变此规则；冻结 PRD 保留，实际消费规则更新至[客户端流程](../01-flows/subscription-display.md)与[服务端合同](../03-data-api/subscription-display-config.md)。未修改 V1 字段、服务端保存、StoreKit 价格校验、购买前复核、本地兜底或 Android 路径。
+
+本地 `flutter test --no-pub --dart-define-from-file=config/test.json test/subscription_display_test.dart test/subscription_restore_ui_test.dart` 86/86 通过，新增用例覆盖 Page／Modal 的基础与关联试用自定义文案、切换自动说明、空自定义及独立试用 eligible／unknown／ineligible 资格；`flutter analyze --no-pub` 无问题。`pnpm --filter @kando/admin-web test` 67/67、`pnpm --filter @kando/admin-web type-check`、`git diff --check` 均通过。未在真实 Admin 页面保存配置，也未以真机读取后台配置或执行购买／Restore；未构建、安装或发布包含本次改动的新 App 包，未部署服务端、迁移数据库或推送 Git。

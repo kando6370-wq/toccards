@@ -349,8 +349,8 @@ function MarketingFields({ value, prefix, issues, onChange, trial = false }: { v
       <Field key={key} label={label} path={prefix + key} issues={issues} required={key === "name"}><Input aria-label={prefix + label} value={value[key]} maxLength={max} showCount onChange={(event) => onChange({ [key]: event.target.value })} /></Field>)}
     <Field label="购买按钮上方说明方式" path={prefix + "billing_note_mode"} issues={issues}><Select aria-label={prefix + "说明方式"} value={value.billing_note_mode} options={[{ value: "custom", label: "自定义文本" }, { value: "auto", label: "自动商品说明" }]} onChange={(mode) => onChange({ billing_note_mode: mode })} /></Field>
     {value.billing_note_mode === "custom" ? <Field label="自定义按钮上方说明" path={prefix + "billing_note"} issues={issues}><Input.TextArea aria-label={prefix + "自定义说明"} value={value.billing_note} maxLength={500} showCount autoSize={{ minRows: 2, maxRows: 6 }} onChange={(event) => onChange({ billing_note: event.target.value })} /></Field>
-      : <Alert type="info" showIcon message="按实际商品和资格生成说明" description="购买区真实扣费金额与周期始终展示；免费期限只有资格确认后才展示。周均价仅作辅助。" />}
-    <Text type="secondary">按钮内不支持变量；说明可用 {"{price}"} 表示真实周期价格。营销说明留空不会隐藏真实计费摘要。</Text>
+      : <Alert type="info" showIcon message="按实际商品和资格生成说明" description="自动方式在购买按钮上方显示当前商品的真实金额与周期；免费期限只有资格确认后才展示。" />}
+    <Text type="secondary">按钮内不支持变量；自定义说明可用 {"{price}"} 表示真实周期价格。自定义文本留空时，按钮上方不显示说明；试用资格未知或无资格时显示中性标准价格说明。</Text>
   </>;
 }
 function CatalogFeedback({ state, type, disabled, reload }: { state: Catalogs[ProductType]; type: ProductType; disabled: boolean; reload: () => void }) {

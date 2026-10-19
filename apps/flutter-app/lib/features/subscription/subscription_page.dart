@@ -172,6 +172,12 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
     final pinTitle =
         useUpdatedSkuUi && MediaQuery.sizeOf(context).height >= 820;
     final useUpdatedSheetUi = widget.sheet && useUpdatedSkuUi;
+    final selectedCard = display?.selectedCard;
+    final billingNote = selectedCard == null
+        ? ''
+        : selectedCard.copy.autoBillingNote
+        ? selectedCard.product.billingSummary
+        : selectedCard.billingNote;
     ref.listen(subscriptionControllerProvider, (previous, next) {
       if (next.resultEventCount != previous?.resultEventCount &&
           !_onboardingPurchaseSuccessNavigationStarted &&
@@ -264,25 +270,13 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
         children: [
           if (display != null &&
               display.config?.isLocalFallback != true &&
-              display.selectedCard != null) ...[
-            if (display.selectedCard!.billingNote.trim().isNotEmpty &&
-                display.selectedCard!.billingNote !=
-                    display.selectedCard!.product.billingSummary)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(
-                  display.selectedCard!.billingNote,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: KandoColors.mutedText,
-                    fontSize: 12,
-                    height: 16 / 12,
-                  ),
-                ),
-              ),
+              selectedCard != null &&
+              billingNote.trim().isNotEmpty) ...[
             Text(
-              display.selectedCard!.product.billingSummary,
-              key: const Key('subscription-billing-summary'),
+              billingNote,
+              key: selectedCard.copy.autoBillingNote
+                  ? const Key('subscription-billing-summary')
+                  : const Key('subscription-billing-custom-note'),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: KandoColors.mutedText,
