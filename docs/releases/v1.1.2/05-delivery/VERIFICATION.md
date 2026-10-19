@@ -705,3 +705,13 @@ Code Review 自查覆盖计数口径、直接请求绕过、存量数据保留�
 本地环境为 macOS、Node 22.23.1、pnpm 11.25.0、Flutter 3.44.5／Dart 3.12.2。`pnpm --filter @kando/admin-web test` 67/67、Workers 订阅配置 3 文件 62/62、`flutter test test/subscription_display_test.dart test/subscription_restore_ui_test.dart` 80/80 均退出 0；`pnpm lint`、`pnpm type-check`（7/7 任务）、`flutter analyze`、`pnpm --filter @kando/admin-web build:dev`、`git diff --check` 均退出 0。Admin 测试覆盖旧配置继承、两处回显和字段顺序；API 测试覆盖字段保存／公开读取及旧 payload；Flutter 测试覆盖 Page／Modal 的隐藏、试用独立覆盖和购买摘要保留。只读跨模块审查未发现阻断项；依赖锁文件未修改。
 
 以上是本地源码与测试结果，未执行真实后台登录编辑、真实 Apple 目录／StoreKit、iPhone／Android 真机、签名构建、旧版 App 实机兼容、dev/prod 部署、远程配置写入、数据库迁移或 Git commit／push。旧版 App 对隐藏字段的忽略是代码合同结论，不代表已做正式旧包验收。
+
+<a id="linux-dev-manual-02b800e"></a>
+
+## 2026-10-19 Linux dev 手工发布 `02b800e`
+
+- 发布来源为本地干净 `dev@02b800e5bd6947c69d43b6fbbc1ab2dffea59e13`，执行 `pnpm --filter @kando/workers-api deploy:dev`，目标为 kd201 Linux dev；发布清单记录 `branch=dev`、`working_tree_dirty=false`、`source=deploy-dev`。release 为 `manual-02b800e5bd69-1792401770228`，`current` 与 `shared/current-release` 均指向该版本。
+- 发布前 Linux 预检通过：数据库 `toccards_test`、PostgreSQL 18、CF 识别服务可达、`pendingMigrations=[]`。发布前备份为 `toccards-test-20261019-172257-before-manual-02b800e5bd69-1792401770228.dump`，1,135,483,183 字节；备份临时文件已清理，未执行恢复演练。
+- 远端发布完成后，API／DB 容器分别为 healthy，Web 容器 running，migration 容器退出码 0；PostgreSQL ledger 为 15 项，最新 `0014_subscription_display_config.sql`。本次没有待执行 migration，也没有业务 SQL 写入。
+- 独立 HTTP 烟测：`GET /api/v1/health` 返回 200／`{"status":"ok"}`，Admin 首页返回 200，未登录 `/api/v1/auth/me` 返回 401，`GET /api/v1/subscription-display-config?type=page&platform=ios` 返回 200／`{"success":true,"data":null}`。current release 中 API bundle SHA-256 为 `a3d3b1fe5433d214ba2921355be480f9f8f0c4370c1ad6ebebbc025ec5c79138`，运行文件与 release 文件一致。
+- 本次为未推送本地提交的手工发布：watcher 的 `last-seen-sha` 仍为 `c23ae02`，`last-deployed-sha` 仍为 `06f420a`；未修改 watcher 状态、未执行 Git push。prod、旧 CF dev、营销站、Flutter 制品、真实登录、真实图片识别、购买／Restore 和完整真机验收均未执行。
