@@ -1910,7 +1910,9 @@ class _ConfiguredPlanTile extends StatelessWidget {
             product.periodValue == 1
         ? 'per ${product.periodUnit}'
         : product.periodLabel;
-    final priceCaption = usesLocalFallback
+    final priceCaption = card.hidePrice
+        ? ''
+        : usesLocalFallback
         ? weeklyPrice == null
               ? periodLabel
               : 'per week'
@@ -1922,9 +1924,11 @@ class _ConfiguredPlanTile extends StatelessWidget {
               ? 'Then $weeklyPrice'
               : weeklyPrice
         : product.product.displayPrice;
+    final showWeeklyReference =
+        !card.hidePrice && card.weeklyReference && product.weeklyPrice != null;
     final hasExtraLine =
         priceCaption.isNotEmpty ||
-        (card.sku.weeklyReference && product.weeklyPrice != null) ||
+        showWeeklyReference ||
         (card.badge.isNotEmpty && !compactBadge);
     return Semantics(
       selected: selected,
@@ -1973,6 +1977,8 @@ class _ConfiguredPlanTile extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (compactBadge && card.hidePrice)
+                          const SizedBox(height: 4),
                         Text(
                           card.copy.name,
                           style: const TextStyle(
@@ -2000,8 +2006,7 @@ class _ConfiguredPlanTile extends StatelessWidget {
                               height: 16 / 12,
                             ),
                           ),
-                        if (card.sku.weeklyReference &&
-                            product.weeklyPrice != null)
+                        if (showWeeklyReference)
                           SizedBox(
                             width: double.infinity,
                             height: 16,
@@ -2023,54 +2028,56 @@ class _ConfiguredPlanTile extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    width: 112,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        if (compactBadge) const SizedBox(height: 12),
-                        SizedBox(
-                          key: Key(
-                            'subscription-config-product-${card.sku.productId}-price',
-                          ),
-                          width: 112,
-                          height: 24,
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerRight,
-                            child: Text(
-                              price,
-                              maxLines: 1,
-                              softWrap: false,
-                              style: const TextStyle(
-                                color: KandoColors.text,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                height: 24 / 16,
-                              ),
-                            ),
-                          ),
-                        ),
-                        if (priceCaption.isNotEmpty)
+                  if (!card.hidePrice) ...[
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 112,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          if (compactBadge) const SizedBox(height: 12),
                           SizedBox(
                             key: Key(
-                              'subscription-config-product-${card.sku.productId}-price-caption',
+                              'subscription-config-product-${card.sku.productId}-price',
                             ),
                             width: 112,
-                            child: Text(
-                              priceCaption,
-                              textAlign: TextAlign.right,
-                              style: const TextStyle(
-                                color: _subscriptionSheetSecondaryText,
-                                fontSize: 12,
-                                height: 16 / 12,
+                            height: 24,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerRight,
+                              child: Text(
+                                price,
+                                maxLines: 1,
+                                softWrap: false,
+                                style: const TextStyle(
+                                  color: KandoColors.text,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  height: 24 / 16,
+                                ),
                               ),
                             ),
                           ),
-                      ],
+                          if (priceCaption.isNotEmpty)
+                            SizedBox(
+                              key: Key(
+                                'subscription-config-product-${card.sku.productId}-price-caption',
+                              ),
+                              width: 112,
+                              child: Text(
+                                priceCaption,
+                                textAlign: TextAlign.right,
+                                style: const TextStyle(
+                                  color: _subscriptionSheetSecondaryText,
+                                  fontSize: 12,
+                                  height: 16 / 12,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),

@@ -4,6 +4,42 @@ import { validateCatalogReferences } from "./catalog";
 import { displayFixture, catalogFixture } from "./test-fixtures";
 
 describe("subscription display contract", () => {
+  it("preserves optional price visibility and independent trial mode without changing legacy payloads", () => {
+    const legacy = displayFixture();
+    expect(parseDisplayConfig(legacy)).toEqual({ config: legacy, issues: [] });
+    expect(parseDisplayConfig(legacy).config?.skus[0]).not.toHaveProperty("hide_price");
+    expect(parseDisplayConfig(legacy).config?.skus[0].trial).not.toHaveProperty("price_mode");
+
+    const config = displayFixture();
+    config.skus[0].price_mode = "weekly";
+    config.skus[0].hide_price = true;
+    config.skus[0].trial!.price_mode = "actual";
+    config.skus[0].trial!.hide_price = false;
+    expect(parseDisplayConfig(config)).toEqual({ config, issues: [] });
+
+    config.trial_enabled = false;
+    expect(parseDisplayConfig(config)).toEqual({ config, issues: [] });
+  });
+
+  it("rejects invalid optional visibility and trial price modes without admitting a new base enum", () => {
+    for (const [field, value, path] of [
+      ["hide_price", "false", "skus.0.hide_price"],
+      ["price_mode", "none", "skus.0.price_mode"],
+    ] as const) {
+      const config = displayFixture();
+      (config.skus[0] as unknown as Record<string, unknown>)[field] = value;
+      expect(parseDisplayConfig(config).issues).toEqual(expect.arrayContaining([expect.objectContaining({ path })]));
+    }
+    for (const [field, value, path] of [
+      ["hide_price", 0, "skus.0.trial.hide_price"],
+      ["price_mode", "none", "skus.0.trial.price_mode"],
+    ] as const) {
+      const config = displayFixture();
+      (config.skus[0].trial as unknown as Record<string, unknown>)[field] = value;
+      expect(parseDisplayConfig(config).issues).toEqual(expect.arrayContaining([expect.objectContaining({ path })]));
+    }
+  });
+
   it.each(["page", "modal"] as const)("allows three %s display SKUs with linked trials and rejects a fourth without truncation", (pageType) => {
     const config = displayFixture(); config.page_type = pageType;
     config.skus.push({ ...config.skus[0], product_id: "paid.year", is_default: false, trial: null });
@@ -120,6 +156,17 @@ describe("subscription display contract", () => {
     expect(validateCatalogReferences(config, catalog)[0].path).toBe("skus.0.price_mode");
     config.skus[0].price_mode = "actual";
     expect(validateCatalogReferences(config, catalog)).toEqual([]);
+  });
+
+  it("checks a trial's independent weekly reference against its Apple period", () => {
+    const config = displayFixture();
+    config.skus[0].trial!.price_mode = "weekly";
+    const catalog = catalogFixture();
+    expect(validateCatalogReferences(config, catalog)).toEqual([]);
+    catalog.products[1].period = "SIX_MONTHS";
+    expect(validateCatalogReferences(config, catalog)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: "skus.0.trial.price_mode" }),
+    ]));
   });
 
   it("idempotency normalizes key ordering but preserves meaningful SKU order and null", () => {

@@ -21,11 +21,14 @@ class SubscriptionDisplayCard {
     required this.subtitle,
     required this.badge,
     required this.priceNote,
+    required this.weeklyReference,
+    required this.hidePrice,
   });
   final SubscriptionDisplaySku sku;
   final SubscriptionStoreProduct product;
   final SubscriptionCopy copy;
   final String cta, billingNote, subtitle, badge, priceNote;
+  final bool weeklyReference, hidePrice;
 }
 
 /// One instance per page/modal. It never owns or disposes the transaction listener.
@@ -124,6 +127,10 @@ class SubscriptionDisplayController extends ChangeNotifier {
       subtitle: expand(copy.subtitle),
       badge: expand(copy.badge),
       priceNote: expand(copy.priceNote),
+      weeklyReference: linked
+          ? sku.trial!.weeklyReference ?? sku.weeklyReference
+          : sku.weeklyReference,
+      hidePrice: linked ? sku.trial!.hidePrice ?? sku.hidePrice : sku.hidePrice,
       billingNote: copy.autoBillingNote ? '' : expand(copy.billingNote),
     );
   }

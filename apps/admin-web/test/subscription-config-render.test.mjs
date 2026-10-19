@@ -61,6 +61,22 @@ test("the editor blocks adding at three cards and permits adding after removal w
   }
 });
 
+test("base and linked trial show the hidden-price choice, with trial pricing before its name", () => {
+  const editor = editorFixture();
+  editor.body.skus[0].hide_price = true;
+  initialEditor = editor;
+  let html;
+  try {
+    html = renderToStaticMarkup(React.createElement(module.exports.default, {
+      request: async () => { throw new Error("Server rendering must not call the API"); }, accountKey: "local-test", registerLeaveGuard: () => {},
+    }));
+  } finally { initialEditor = null; }
+  assert.match(html, /SKU 1 价格展示方式/);
+  assert.match(html, /SKU 1 试用价格展示方式/);
+  assert.ok(html.indexOf("SKU 1 试用价格展示方式") < html.indexOf("试用商品展示名称"));
+  assert.ok((html.match(/不展示/g) ?? []).length >= 2);
+});
+
 test("the top-level menu uses real subscription APIs and guarded navigation, not an embedded prototype", () => {
   assert.match(app, /key: "subscription-configs", label: group\.title/);
   assert.match(app, /<SubscriptionConfigPage request=\{subscriptionRequest\}/);

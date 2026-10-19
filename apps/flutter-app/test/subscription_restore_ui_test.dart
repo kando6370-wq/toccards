@@ -862,6 +862,188 @@ void main() {
     }
   });
 
+  for (final sheet in [false, true]) {
+    testWidgets(
+      'hidden linked trial removes only card prices ${sheet ? 'modal' : 'page'}',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        try {
+          final host = _RestoreTestHost(
+            includeTrial: true,
+            displayConfiguration: SubscriptionDisplayConfig(
+              pageType: sheet
+                  ? SubscriptionPageType.modal
+                  : SubscriptionPageType.page,
+              trialEnabled: true,
+              trialToggleText: 'Enable Free Trial',
+              skus: const [
+                SubscriptionDisplaySku(
+                  productId: 'weekly.product',
+                  type: DisplayProductType.subscription,
+                  isDefault: true,
+                  weeklyReference: true,
+                  copy: SubscriptionCopy(
+                    name: 'Base',
+                    priceNote: 'Base price note',
+                  ),
+                  trial: SubscriptionTrial(
+                    productId: 'weekly.trial',
+                    weeklyReference: false,
+                    hidePrice: true,
+                    copy: SubscriptionCopy(
+                      name: 'Trial',
+                      badge: 'Free trial',
+                      priceNote: 'Trial price note',
+                      cta: 'TRY FREE',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+          await tester.pumpWidget(host.app);
+          await tester.pumpAndSettle();
+          host.router.push('/subscription${sheet ? '?sheet=true' : ''}');
+          await tester.pumpAndSettle();
+
+          final card = find.byKey(
+            const Key('subscription-config-product-weekly.product'),
+          );
+          const price = Key('subscription-config-product-weekly.product-price');
+          const caption = Key(
+            'subscription-config-product-weekly.product-price-caption',
+          );
+          expect(find.byKey(price), findsOneWidget);
+          expect(find.byKey(caption), findsOneWidget);
+          expect(
+            find.descendant(
+              of: card,
+              matching: find.text('Approx. USD 2.77 / week'),
+            ),
+            findsOneWidget,
+          );
+
+          await tester.tap(find.byKey(const Key('subscription-trial-switch')));
+          await tester.pumpAndSettle();
+          expect(host.display!.selectedCard!.product.id, 'weekly.trial');
+          expect(find.byKey(price), findsNothing);
+          expect(find.byKey(caption), findsNothing);
+          expect(
+            find.descendant(of: card, matching: find.textContaining('Approx.')),
+            findsNothing,
+          );
+          expect(find.text('Trial price note'), findsNothing);
+          expect(find.text('TRY FREE'), findsOneWidget);
+          expect(
+            find.byKey(const Key('subscription-billing-summary')),
+            findsOneWidget,
+          );
+          expect(
+            tester.getRect(find.text('Trial')).top,
+            greaterThanOrEqualTo(
+              tester
+                  .getRect(
+                    find.byKey(
+                      const Key(
+                        'subscription-plan-weekly.product-badge-surface',
+                      ),
+                    ),
+                  )
+                  .bottom,
+            ),
+          );
+          expect(tester.takeException(), isNull);
+        } finally {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
+
+    testWidgets(
+      'linked trial can restore card prices ${sheet ? 'modal' : 'page'}',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        try {
+          final host = _RestoreTestHost(
+            includeTrial: true,
+            displayConfiguration: SubscriptionDisplayConfig(
+              pageType: sheet
+                  ? SubscriptionPageType.modal
+                  : SubscriptionPageType.page,
+              trialEnabled: true,
+              trialToggleText: 'Enable Free Trial',
+              skus: const [
+                SubscriptionDisplaySku(
+                  productId: 'weekly.product',
+                  type: DisplayProductType.subscription,
+                  isDefault: true,
+                  weeklyReference: true,
+                  hidePrice: true,
+                  copy: SubscriptionCopy(
+                    name: 'Base',
+                    priceNote: 'Base price note',
+                  ),
+                  trial: SubscriptionTrial(
+                    productId: 'weekly.trial',
+                    weeklyReference: true,
+                    hidePrice: false,
+                    copy: SubscriptionCopy(
+                      name: 'Trial',
+                      priceNote: 'Trial price note',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+          await tester.pumpWidget(host.app);
+          await tester.pumpAndSettle();
+          host.router.push('/subscription${sheet ? '?sheet=true' : ''}');
+          await tester.pumpAndSettle();
+
+          final card = find.byKey(
+            const Key('subscription-config-product-weekly.product'),
+          );
+          const price = Key('subscription-config-product-weekly.product-price');
+          const caption = Key(
+            'subscription-config-product-weekly.product-price-caption',
+          );
+          expect(find.byKey(price), findsNothing);
+          expect(find.byKey(caption), findsNothing);
+          await tester.tap(find.byKey(const Key('subscription-trial-switch')));
+          await tester.pumpAndSettle();
+
+          expect(host.display!.selectedCard!.product.id, 'weekly.trial');
+          expect(find.byKey(price), findsOneWidget);
+          expect(find.byKey(caption), findsOneWidget);
+          expect(
+            find.descendant(of: card, matching: find.text('USD 3.99')),
+            findsOneWidget,
+          );
+          expect(find.text('Trial price note'), findsOneWidget);
+          expect(
+            find.descendant(
+              of: card,
+              matching: find.text('Approx. USD 2.77 / week'),
+            ),
+            findsOneWidget,
+          );
+          expect(tester.takeException(), isNull);
+        } finally {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
+  }
+
   testWidgets('fallback paywall keeps StoreKit period captions', (
     tester,
   ) async {

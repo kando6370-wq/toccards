@@ -3,11 +3,11 @@ import type { ColumnsType } from "antd/es/table";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRequestId } from "../request-id";
 import {
-  MAX_DISPLAY_SKUS, PAGE_LABELS, admissionMessage, availableProducts, blankSku, changeProduct, editorFromRecord, emptyCopy,
-  moveSku, newEditor, productLabel, productMap, removeSku, subscriptionErrorMessage, toDisplayConfig,
+  MAX_DISPLAY_SKUS, PAGE_LABELS, admissionMessage, availableProducts, blankSku, changeProduct, changeTrialProduct, editorFromRecord, emptyCopy,
+  moveSku, newEditor, priceDisplayMode, productLabel, productMap, removeSku, subscriptionErrorMessage, toDisplayConfig,
   unlinkTrial, validateEditor,
 } from "./model";
-import type { Catalog, CatalogProduct, Catalogs, ConfigList, ConfigRecord, CopyFields, Editor, EditorConfig, FieldIssue, ProductType, SubscriptionRequest } from "./model";
+import type { Catalog, CatalogProduct, Catalogs, ConfigList, ConfigRecord, CopyFields, Editor, EditorConfig, FieldIssue, PriceDisplayMode, ProductType, SubscriptionRequest } from "./model";
 import { SubscriptionMutation } from "./mutation";
 import type { MutationFailure, MutationState, PendingOperation } from "./mutation";
 import "./SubscriptionConfigPage.css";
@@ -303,7 +303,7 @@ export default function SubscriptionConfigPage({ request, accountKey, registerLe
               {product && !product.admission.admitted && <Alert type="warning" showIcon message="该商品尚未完成系统准入" description={admissionMessage(product.admission.reasons) + "。可准备不生效配置，不能启用。"} />}
               {product && catalog.can_approve && <Button disabled={locked || catalog.status !== "loaded"} onClick={() => openApproval(product)}>审核商品准入</Button>}
               <div className="subscription-field-grid">
-                <Field label="价格展示方式" path={path + "price_mode"} issues={issues}><Select aria-label={`SKU ${index + 1} 价格展示方式`} value={sku.price_mode} options={[{ value: "actual", label: "实际周期价格" }, { value: "weekly", label: "实际周期价格 + 周均参考价", disabled: sku.product_type === "non_consumable" || !!product && !["ONE_WEEK", "ONE_MONTH", "THREE_MONTHS", "ONE_YEAR"].includes(product.period ?? "") }]} onChange={(value) => updateSku(index, (item) => ({ ...item, price_mode: value }))} /></Field>
+                <Field label="价格展示方式" path={path + "price_mode"} issues={issues}><Select aria-label={`SKU ${index + 1} 价格展示方式`} value={priceDisplayMode(sku)} options={[{ value: "actual", label: "实际周期价格" }, { value: "weekly", label: "实际周期价格 + 周均参考价", disabled: sku.product_type === "non_consumable" || !!product && !["ONE_WEEK", "ONE_MONTH", "THREE_MONTHS", "ONE_YEAR"].includes(product.period ?? "") }, { value: "hidden", label: "不展示" }]} onChange={(value: PriceDisplayMode) => updateSku(index, (item) => ({ ...item, price_mode: value === "hidden" ? item.price_mode : value, hide_price: value === "hidden" }))} /></Field>
                 <Field label="默认选中" path={path + "is_default"} issues={issues}><Checkbox checked={sku.is_default} onChange={(event) => updateBody((body) => ({ ...body, skus: body.skus.map((item) => ({ ...item, is_default: item.key === sku.key ? event.target.checked : event.target.checked ? false : item.is_default })) }))}>将此卡片设为默认</Checkbox></Field>
               </div>
               <MarketingFields value={sku} prefix={path} issues={issues} onChange={(value) => updateSku(index, (item) => ({ ...item, ...value }))} />
@@ -311,11 +311,13 @@ export default function SubscriptionConfigPage({ request, accountKey, registerLe
               {!editor.body.trial_enabled && hasRelation && <div className="subscription-trial-section"><Tag>已保留但未启用</Tag><Text code>{trial.product_id || "原关系待调整"}</Text><Button disabled={locked} onClick={() => void removeRelation(index)}>解除试用关联</Button></div>}
               {editor.body.trial_enabled && sku.product_type === "subscription" && (!product?.has_free_trial || hasRelation) && <div className="subscription-trial-section"><Title level={5}>关联试用 SKU</Title>
                 <Field label="试用 Product ID" path={path + "trial.product_id"} issues={issues}><Select aria-label={`SKU ${index + 1} 试用 Product ID`} allowClear value={trial.product_id || undefined} placeholder="默认不关联" disabled={locked || catalogs.subscription.status !== "loaded" || !product || product.has_free_trial}
-                  options={productOptions(trialOptions, trial.product_id, products)} onChange={(value) => { if (!value) void removeRelation(index); else updateSku(index, (item) => ({ ...item, needs_trial_repair: false, trial: { ...trial, product_id: value } })); }} /></Field>
+                  options={productOptions(trialOptions, trial.product_id, products)} onChange={(value) => { if (!value) void removeRelation(index); else updateSku(index, (item) => ({ ...item, needs_trial_repair: false, trial: changeTrialProduct(trial, value, products) })); }} /></Field>
                 {trial.product_id && <Button disabled={locked} onClick={() => void removeRelation(index)}>解除试用关联</Button>}
                 {sku.needs_trial_repair && <Alert type="warning" message="商品已变化，请重新关联或明确解除原关系。" action={<Button disabled={locked} onClick={() => void removeRelation(index)}>解除原关系</Button>} />}
                 {catalogs.subscription.status === "loaded" && !trialOptions.length && !trial.product_id && <Text type="secondary">没有同周期、同等级且未占用的免费试用商品。</Text>}
-                {trial.product_id && <><Text type="secondary">开启试用时只替换当前卡片。试用按钮为空时回退组级文案，不继承基础按钮。</Text><MarketingFields value={trial} prefix={path + "trial."} issues={issues} trial onChange={(value) => updateSku(index, (item) => ({ ...item, trial: { ...trial, ...value } }))} />
+                {trial.product_id && <><Text type="secondary">开启试用时只替换当前卡片。试用按钮为空时回退组级文案，不继承基础按钮。</Text>
+                  <Field label="价格展示方式" path={path + "trial.price_mode"} issues={issues}><Select aria-label={`SKU ${index + 1} 试用价格展示方式`} value={priceDisplayMode(sku, trial)} options={[{ value: "actual", label: "实际周期价格" }, { value: "weekly", label: "实际周期价格 + 周均参考价", disabled: !!products.get(trial.product_id) && !["ONE_WEEK", "ONE_MONTH", "THREE_MONTHS", "ONE_YEAR"].includes(products.get(trial.product_id)?.period ?? "") }, { value: "hidden", label: "不展示" }]} onChange={(value: PriceDisplayMode) => updateSku(index, (item) => ({ ...item, trial: { ...trial, ...(value === "hidden" ? {} : { price_mode: value }), hide_price: value === "hidden" } }))} /></Field>
+                  <MarketingFields value={trial} prefix={path + "trial."} issues={issues} trial onChange={(value) => updateSku(index, (item) => ({ ...item, trial: { ...trial, ...value } }))} />
                   {products.get(trial.product_id) && catalogs.subscription.can_approve && <Button disabled={locked} onClick={() => openApproval(products.get(trial.product_id)!)}>审核试用商品准入</Button>}
                   {products.get(trial.product_id)?.admission.admitted === false && <Alert type="warning" showIcon message="试用目标尚未完成系统准入，不能作为生效购买商品。" />}</>}
               </div>}
@@ -347,7 +349,7 @@ function MarketingFields({ value, prefix, issues, onChange, trial = false }: { v
       <Field key={key} label={label} path={prefix + key} issues={issues} required={key === "name"}><Input aria-label={prefix + label} value={value[key]} maxLength={max} showCount onChange={(event) => onChange({ [key]: event.target.value })} /></Field>)}
     <Field label="购买按钮上方说明方式" path={prefix + "billing_note_mode"} issues={issues}><Select aria-label={prefix + "说明方式"} value={value.billing_note_mode} options={[{ value: "custom", label: "自定义文本" }, { value: "auto", label: "自动商品说明" }]} onChange={(mode) => onChange({ billing_note_mode: mode })} /></Field>
     {value.billing_note_mode === "custom" ? <Field label="自定义按钮上方说明" path={prefix + "billing_note"} issues={issues}><Input.TextArea aria-label={prefix + "自定义说明"} value={value.billing_note} maxLength={500} showCount autoSize={{ minRows: 2, maxRows: 6 }} onChange={(event) => onChange({ billing_note: event.target.value })} /></Field>
-      : <Alert type="info" showIcon message="按实际商品和资格生成说明" description="真实扣费金额与周期始终展示；免费期限只有资格确认后才展示。周均价仅作辅助。" />}
+      : <Alert type="info" showIcon message="按实际商品和资格生成说明" description="购买区真实扣费金额与周期始终展示；免费期限只有资格确认后才展示。周均价仅作辅助。" />}
     <Text type="secondary">按钮内不支持变量；说明可用 {"{price}"} 表示真实周期价格。营销说明留空不会隐藏真实计费摘要。</Text>
   </>;
 }

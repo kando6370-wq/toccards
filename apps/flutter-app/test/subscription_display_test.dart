@@ -115,6 +115,82 @@ void main() {
     },
   );
   test(
+    'trial price settings inherit when omitted and override when provided',
+    () async {
+      for (final type in SubscriptionPageType.values) {
+        final dto = displayDto()
+          ..['page_type'] = type.name
+          ..['trial_enabled'] = true
+          ..['trial_toggle_text'] = 'Enable trial';
+        final sku = (dto['skus'] as List).first as Map<String, Object?>;
+        sku['hide_price'] = true;
+        sku['trial'] = {'product_id': 'trial', ...displayCopyDto()};
+
+        final inherited = SubscriptionDisplayConfig.fromJson(dto, type);
+        expect(inherited.skus.single.hidePrice, isTrue);
+        expect(inherited.skus.single.trial!.hidePrice, isNull);
+        expect(inherited.skus.single.trial!.weeklyReference, isNull);
+        final inheritedModel = _model(config: inherited);
+        addTearDown(inheritedModel.dispose);
+        await inheritedModel.load();
+        await Future<void>.delayed(Duration.zero);
+        inheritedModel.toggleTrial(true);
+        expect(inheritedModel.selectedCard!.product.id, 'trial');
+        expect(inheritedModel.selectedCard!.hidePrice, isTrue);
+        expect(inheritedModel.selectedCard!.weeklyReference, isTrue);
+
+        sku['trial'] = {
+          'product_id': 'trial',
+          'price_mode': 'actual',
+          'hide_price': false,
+          ...displayCopyDto(),
+        };
+        final overridden = SubscriptionDisplayConfig.fromJson(dto, type);
+        final overriddenModel = _model(config: overridden);
+        addTearDown(overriddenModel.dispose);
+        await overriddenModel.load();
+        await Future<void>.delayed(Duration.zero);
+        overriddenModel.toggleTrial(true);
+        expect(overriddenModel.selectedCard!.hidePrice, isFalse);
+        expect(overriddenModel.selectedCard!.weeklyReference, isFalse);
+        expect(overriddenModel.selectedCard!.product.id, 'trial');
+      }
+    },
+  );
+  test('price display fields reject invalid types and modes', () {
+    for (final invalid in [null, 'true', 1]) {
+      final dto = displayDto();
+      final sku = (dto['skus'] as List).first as Map<String, Object?>;
+      sku['hide_price'] = invalid;
+      expect(
+        () =>
+            SubscriptionDisplayConfig.fromJson(dto, SubscriptionPageType.page),
+        throwsFormatException,
+      );
+    }
+    for (final field in ['price_mode', 'hide_price']) {
+      for (final invalid
+          in field == 'price_mode' ? [null, 'hide', true] : [null, 'true', 1]) {
+        final dto = displayDto()
+          ..['trial_enabled'] = true
+          ..['trial_toggle_text'] = 'Enable trial';
+        final sku = (dto['skus'] as List).first as Map<String, Object?>;
+        sku['trial'] = {
+          'product_id': 'trial',
+          field: invalid,
+          ...displayCopyDto(),
+        };
+        expect(
+          () => SubscriptionDisplayConfig.fromJson(
+            dto,
+            SubscriptionPageType.page,
+          ),
+          throwsFormatException,
+        );
+      }
+    }
+  });
+  test(
     'an oversized remote configuration uses the existing fallback without querying truncated remote purchase targets',
     () async {
       for (final type in SubscriptionPageType.values) {

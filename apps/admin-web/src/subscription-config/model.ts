@@ -1,12 +1,14 @@
 export type PageType = "page" | "modal";
 export type ProductType = "subscription" | "non_consumable";
+export type PriceMode = "actual" | "weekly";
+export type PriceDisplayMode = PriceMode | "hidden";
 export type CopyFields = {
   name: string; subtitle: string; badge: string; price_note: string;
   cta: string; billing_note_mode: "custom" | "auto"; billing_note: string;
 };
-export type TrialOverride = CopyFields & { product_id: string };
+export type TrialOverride = CopyFields & { product_id: string; price_mode?: PriceMode; hide_price?: boolean };
 export type DisplaySku = CopyFields & {
-  product_id: string; product_type: ProductType; price_mode: "actual" | "weekly";
+  product_id: string; product_type: ProductType; price_mode: PriceMode; hide_price?: boolean;
   is_default: boolean; trial: TrialOverride | null;
 };
 export type DisplayConfig = {
@@ -41,6 +43,9 @@ export const PAGE_LABELS: Record<PageType, string> = { page: "订阅页", modal:
 export const emptyCopy = (name = ""): CopyFields => ({ name, subtitle: "", badge: "", price_note: "", cta: "", billing_note_mode: "custom", billing_note: "" });
 export const blankSku = (key: string): EditorSku => ({ ...emptyCopy(), key, needs_trial_repair: false,
   product_id: "", product_type: "subscription", price_mode: "actual", is_default: false, trial: null });
+export function priceDisplayMode(sku: DisplaySku, trial?: TrialOverride): PriceDisplayMode {
+  return (trial?.hide_price ?? sku.hide_price) ? "hidden" : trial?.price_mode ?? sku.price_mode;
+}
 export function newEditor(key: string): Editor {
   return { id: null, revision: 0, enabled: false, body: { schema_version: 1, name: "", page_type: "",
     trial_enabled: false, trial_toggle_text: "", cta: "", close_delay_seconds: 0, skus: [blankSku(key)] } };
@@ -88,6 +93,11 @@ export function changeProduct(sku: EditorSku, productId: string, products: Map<s
     price_mode: type === "non_consumable" || (product && !["ONE_WEEK", "ONE_MONTH", "THREE_MONTHS", "ONE_YEAR"].includes(product.period ?? "")) ? "actual" : sku.price_mode,
     trial: invalidTrial && sku.trial ? { ...sku.trial, product_id: "" } : sku.trial,
     needs_trial_repair: sku.needs_trial_repair || (!!sku.trial?.product_id && invalidTrial) };
+}
+export function changeTrialProduct(trial: TrialOverride, productId: string, products: Map<string, CatalogProduct>): TrialOverride {
+  const product = products.get(productId);
+  const resetWeekly = trial.price_mode === "weekly" && product && !["ONE_WEEK", "ONE_MONTH", "THREE_MONTHS", "ONE_YEAR"].includes(product.period ?? "");
+  return { ...trial, product_id: productId, ...(resetWeekly ? { price_mode: "actual" as const } : {}) };
 }
 export function unlinkTrial(body: EditorConfig, key: string): EditorConfig {
   const removed = body.skus.find((sku) => sku.key === key);
@@ -159,6 +169,7 @@ export function validateEditor(body: EditorConfig, catalogs: Catalogs, enabled =
     if (sku.trial?.product_id) {
       const target = products.get(sku.trial.product_id);
       if (catalogs.subscription.status === "loaded" && !trialPairValid(product, target)) issue(path + "trial.product_id", "试用目标须同组、同周期、同等级，源不带试用且目标有免费试用");
+      if (sku.trial.price_mode === "weekly" && catalogs.subscription.status === "loaded" && !["ONE_WEEK", "ONE_MONTH", "THREE_MONTHS", "ONE_YEAR"].includes(target?.period ?? "")) issue(path + "trial.price_mode", "该商品周期不支持折算周均参考价");
       if (body.trial_enabled) {
         copy(sku.trial, path + "trial.");
         if (enabled && catalogs.subscription.status === "loaded" && target && !target.admission.admitted) issue(path + "trial.product_id", "试用目标未完成系统准入，不能保存到生效配置");

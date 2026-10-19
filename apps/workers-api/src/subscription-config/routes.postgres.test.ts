@@ -77,6 +77,28 @@ beforeEach(async () => {
 });
 
 describe("subscription configuration APIs on PostgreSQL", () => {
+  it("retains independent price visibility through Admin storage and the public display response", async () => {
+    const config = displayFixture();
+    config.skus[0].price_mode = "weekly";
+    config.skus[0].hide_price = true;
+    config.skus[0].trial!.price_mode = "actual";
+    config.skus[0].trial!.hide_price = false;
+
+    const created = await create(config);
+    expect(created.status).toBe(201);
+    const id = created.body.data.id;
+    expect(created.body.data.body.skus).toEqual(config.skus);
+    expect((await call("/admin/subscription-configs/" + id)).body.data.body.skus).toEqual(config.skus);
+    expect((await enable(id)).status).toBe(200);
+    expect((await publicConfig()).body.data.skus).toEqual(config.skus);
+
+    const legacy = displayFixture();
+    const updated = await update(id, legacy);
+    expect(updated.status).toBe(200);
+    expect((await publicConfig()).body.data.skus).toEqual(legacy.skus);
+    expect((await publicConfig()).body.data.skus[0].trial).not.toHaveProperty("price_mode");
+  });
+
   it.each(["page", "modal"] as const)("allows three %s cards including an independent trial and rejects over-limit writes atomically", async (pageType) => {
     const config = displayFixture(); config.page_type = pageType; config.trial_enabled = false;
     config.skus[0].trial = null;

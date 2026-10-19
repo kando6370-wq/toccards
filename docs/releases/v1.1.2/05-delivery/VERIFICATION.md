@@ -615,3 +615,13 @@ Code Review 自查覆盖计数口径、直接请求绕过、存量数据保留�
 修复在 iOS StoreKit 只读商品事实中将 7 天视为一周，月卡另给本地兜底提供 `月价÷4` 的本地化字段；Flutter 兜底周卡直接使用该 StoreKit 商品的正常周期金额，资格确认后加 `then`，月卡使用新字段。后台配置既有 `月价×12÷52` 周均参考口径、真实扣费金额和购买前复核均未改。`US$12.99÷4` 最终四舍五入为 `US$3.25`，图稿 `US$3.24` 不符合该规则。
 
 `flutter test --no-pub --dart-define-from-file=config/test.json test/subscription_display_test.dart test/subscription_restore_ui_test.dart` 退出 0，74 项通过，含 7 天周卡无派生周价、资格未知到可试用、月／年右侧金额及原生字段映射；`flutter analyze --no-pub` 退出 0。`flutter run --no-pub --flavor test --debug -d 00008110-000A242A01A2801E --dart-define-from-file=config/test.json` 在 iPhone 13 上完成 Xcode 编译、安装和启动；构建后签名 App 的 App Attest entitlement 回读为 `development`。修复后同机抓屏可见周试用的 `then` 和 `per week`、月卡 `US$3.25 / per week`、年卡 `US$0.96 / per week`、`TRY FOR FREE` 和 `NO PAYMENT NOW`。test 环境已有的右侧悬浮调试入口遮住了周价末尾；完整 `US$4.99` 金额以同机修复前显示、StoreKit 原价路径和页面测试交叉核对。只读 Code Review 未发现阻断问题。未制作新 IPA、未执行真实购买／Restore、Android 真机、远程配置修改、服务端部署、Git commit／push 或商店发布。
+
+<a id="subscription-price-visibility"></a>
+
+## 2026-10-19 订阅商品价格展示方式增量（本地）
+
+从 `codex/dev-1.0.6@235b7019` 的干净工作区开始，新增后台“价格展示方式”的“不展示”选项，并在关联试用 SKU 的“试用商品展示名称”上方增加同款独立下拉。V1 保留旧 `price_mode=actual|weekly`，用可选 `hide_price` 表示卡片隐藏；试用新增可选独立模式和隐藏字段，缺省继承源 SKU。配置仍存原 JSONB，无新 migration；旧客户端能忽略新增字段，但不会执行新隐藏效果。新版 iOS Page／Modal 仅隐藏商品卡金额、价格说明与辅助周均价，保留购买区真实计费摘要；Android 仍走原路径。详见[服务端合同](../03-data-api/subscription-display-config.md)、[后台页面](../04-admin/admin.md)和[客户端流程](../01-flows/subscription-display.md)。
+
+本地环境为 macOS、Node 22.23.1、pnpm 11.25.0、Flutter 3.44.5／Dart 3.12.2。`pnpm --filter @kando/admin-web test` 67/67、Workers 订阅配置 3 文件 62/62、`flutter test test/subscription_display_test.dart test/subscription_restore_ui_test.dart` 80/80 均退出 0；`pnpm lint`、`pnpm type-check`（7/7 任务）、`flutter analyze`、`pnpm --filter @kando/admin-web build:dev`、`git diff --check` 均退出 0。Admin 测试覆盖旧配置继承、两处回显和字段顺序；API 测试覆盖字段保存／公开读取及旧 payload；Flutter 测试覆盖 Page／Modal 的隐藏、试用独立覆盖和购买摘要保留。只读跨模块审查未发现阻断项；依赖锁文件未修改。
+
+以上是本地源码与测试结果，未执行真实后台登录编辑、真实 Apple 目录／StoreKit、iPhone／Android 真机、签名构建、旧版 App 实机兼容、dev/prod 部署、远程配置写入、数据库迁移或 Git commit／push。旧版 App 对隐藏字段的忽略是代码合同结论，不代表已做正式旧包验收。

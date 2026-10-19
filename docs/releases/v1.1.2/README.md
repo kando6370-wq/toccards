@@ -15,6 +15,8 @@ App 向后兼容规则只维护以下两份；涉及 App API、共享业务数�
 
 2026-10-16 本地增量：新增超级管理员逐商品审批，dev/prod 与 Bundle 隔离；运行期白名单与 Flutter 长期商品集合可接收已批准 SKU，无需逐商品改代码。复用 PostgreSQL 现有表，无新 migration。当前分支尚未发布此增量，具体行为见[动态准入合同](03-data-api/subscription-display-config.md)、[后台操作](04-admin/admin.md)和[客户端注册](01-flows/subscription-display.md)，验证见[记录](05-delivery/VERIFICATION.md#subscription-dynamic-admission)。
 
+2026-10-19 本地增量：订阅商品卡片可独立配置隐藏价格，关联试用 SKU 的价格方式在展示名称上方编辑；新旧客户端的可见边界及本地测试结果见[价格展示验证](05-delivery/VERIFICATION.md#subscription-price-visibility)。尚未部署或做本轮真机复测。
+
 本次产品输入为 PRD 1.14；App 目标版本 1.0.6 与工程文档版本 v1.1.2 分别管理。需求、商品映射和实施草案保留在同一份输入文档中，避免维护重复规则。
 
 | 材料 | 内容与边界 |

@@ -35,9 +35,15 @@ class SubscriptionCopy {
 }
 
 class SubscriptionTrial {
-  const SubscriptionTrial({required this.productId, required this.copy});
+  const SubscriptionTrial({
+    required this.productId,
+    required this.copy,
+    this.weeklyReference,
+    this.hidePrice,
+  });
   final String productId;
   final SubscriptionCopy copy;
+  final bool? weeklyReference, hidePrice;
 }
 
 class SubscriptionDisplaySku {
@@ -47,12 +53,13 @@ class SubscriptionDisplaySku {
     required this.copy,
     this.isDefault = false,
     this.weeklyReference = false,
+    this.hidePrice = false,
     this.trial,
   });
   final String productId;
   final DisplayProductType type;
   final SubscriptionCopy copy;
-  final bool isDefault, weeklyReference;
+  final bool isDefault, weeklyReference, hidePrice;
   final SubscriptionTrial? trial;
 }
 
@@ -122,7 +129,8 @@ class SubscriptionDisplayConfig {
       if (!ids.add(id) ||
           sku['is_default'] is! bool ||
           (priceMode != 'actual' && priceMode != 'weekly') ||
-          (type == DisplayProductType.nonConsumable && priceMode != 'actual')) {
+          (type == DisplayProductType.nonConsumable && priceMode != 'actual') ||
+          (sku.containsKey('hide_price') && sku['hide_price'] is! bool)) {
         throw const FormatException('Invalid display SKU');
       }
       SubscriptionTrial? trial;
@@ -132,9 +140,21 @@ class SubscriptionDisplayConfig {
         if (type != DisplayProductType.subscription || !ids.add(targetId)) {
           throw const FormatException('Invalid trial relationship');
         }
+        final trialPriceMode = target['price_mode'];
+        if ((target.containsKey('price_mode') &&
+                trialPriceMode != 'actual' &&
+                trialPriceMode != 'weekly') ||
+            (target.containsKey('hide_price') &&
+                target['hide_price'] is! bool)) {
+          throw const FormatException('Invalid trial price display');
+        }
         trial = SubscriptionTrial(
           productId: targetId,
           copy: SubscriptionCopy.fromJson(target),
+          weeklyReference: trialPriceMode == null
+              ? null
+              : trialPriceMode == 'weekly',
+          hidePrice: target['hide_price'] as bool?,
         );
       }
       skus.add(
@@ -144,6 +164,7 @@ class SubscriptionDisplayConfig {
           copy: SubscriptionCopy.fromJson(sku),
           isDefault: sku['is_default'] == true,
           weeklyReference: priceMode == 'weekly',
+          hidePrice: sku['hide_price'] == true,
           trial: trial,
         ),
       );
