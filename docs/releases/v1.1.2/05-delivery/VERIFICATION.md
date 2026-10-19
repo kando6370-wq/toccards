@@ -607,3 +607,11 @@ Code Review 自查覆盖计数口径、直接请求绕过、存量数据保留�
 - 符号与完整性：`Card AI Test.ipa` 为 39,924,748 字节，SHA-256 `46d120b01dcb46888876f73f7c0a4032152332ed06905945f81fd585abe27477`；`dSYMs.zip` 为 61,217,698 字节，SHA-256 `c8f00f5e9c5d2ba50d2a5765f7a026e6d892120f8b86c8aca9110a6b6c8bff72`。两份 ZIP、IPA 深度严格签名以及 IPA App 与归档 373 个文件逐字节一致性检查通过；42/42 个 Mach-O UUID 有对应 dSYM。44 个 dSYM bundle 中 43 个通过 `dwarfdump --verify`，`App.framework.dSYM` 仍有 171 条 Dart／Flutter range 错误，不能声称全部 dSYM 深度校验通过。
 - Google OAuth 边界：测试 Firebase plist 使用测试项目，但最终 App 使用源码要求的生产 Google OAuth audience，供 Workers 校验 token；相关测试通过，但本次未做真机 Google 登录和回调验收。
 - 保存与边界：制品保存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.5-171/`；新版本完整保存后将旧 168 版移入废纸篓，当前保留 169、170、171。本次未安装设备、上传蒲公英／TestFlight／App Store Connect，也未执行真实登录、扫描、购买、Restore、崩溃上报或真机启动验收。
+
+## 2026-10-19 本地兜底每周价格修正与 iPhone 13 复测
+
+从 `codex/dev-1.0.6@42f4d7e4` 的未提交订阅工作区继续定位，未把此前未提交改动视为纯提交构建。用户在 test 真机看到周试用 `US$4.99` 无 `then`、年卡 `US$0.96`、月卡 `US$3.00`；同时确认年卡保持现状，月卡按月价除以 4 并标准四舍五入。test 的 Page／Modal 配置接口均返回 `data:null`，设备使用本地兜底。首次同机 Debug 抓屏确认试用标题已由 `Premium` 变成 `3-Day Free`，但周期仍写 `every 7 days`，周价无 `then`；这将问题定位到 StoreKit 返回的 7 天周期没有被现有一周价格分支识别，而非试用资格未通过。年卡由 `US$49.99÷52` 得 `US$0.96`，保持不变；原月卡 `US$12.99×12÷52` 得 `US$3.00`。
+
+修复在 iOS StoreKit 只读商品事实中将 7 天视为一周，月卡另给本地兜底提供 `月价÷4` 的本地化字段；Flutter 兜底周卡直接使用该 StoreKit 商品的正常周期金额，资格确认后加 `then`，月卡使用新字段。后台配置既有 `月价×12÷52` 周均参考口径、真实扣费金额和购买前复核均未改。`US$12.99÷4` 最终四舍五入为 `US$3.25`，图稿 `US$3.24` 不符合该规则。
+
+`flutter test --no-pub --dart-define-from-file=config/test.json test/subscription_display_test.dart test/subscription_restore_ui_test.dart` 退出 0，74 项通过，含 7 天周卡无派生周价、资格未知到可试用、月／年右侧金额及原生字段映射；`flutter analyze --no-pub` 退出 0。`flutter run --no-pub --flavor test --debug -d 00008110-000A242A01A2801E --dart-define-from-file=config/test.json` 在 iPhone 13 上完成 Xcode 编译、安装和启动；构建后签名 App 的 App Attest entitlement 回读为 `development`。修复后同机抓屏可见周试用的 `then` 和 `per week`、月卡 `US$3.25 / per week`、年卡 `US$0.96 / per week`、`TRY FOR FREE` 和 `NO PAYMENT NOW`。test 环境已有的右侧悬浮调试入口遮住了周价末尾；完整 `US$4.99` 金额以同机修复前显示、StoreKit 原价路径和页面测试交叉核对。只读 Code Review 未发现阻断问题。未制作新 IPA、未执行真实购买／Restore、Android 真机、远程配置修改、服务端部署、Git commit／push 或商店发布。

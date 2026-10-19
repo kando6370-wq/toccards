@@ -18,6 +18,7 @@ class SubscriptionStoreProduct {
     this.trialUnit,
     this.trialValue,
     this.weeklyPrice,
+    this.fourWeekPrice,
     this.isTrialProduct = false,
     this.eligibility = TrialEligibility.unknown,
   });
@@ -25,6 +26,7 @@ class SubscriptionStoreProduct {
   final DisplayProductType type;
   final String decimalPrice;
   final String? periodUnit, groupId, trialUnit, weeklyPrice;
+  final String? fourWeekPrice;
   final int? periodValue, groupLevel, trialValue;
   final bool isTrialProduct;
   final TrialEligibility eligibility;
@@ -76,6 +78,7 @@ class SubscriptionStoreProduct {
         trialUnit: trialUnit,
         trialValue: trialValue,
         weeklyPrice: weeklyPrice,
+        fourWeekPrice: fourWeekPrice,
         isTrialProduct: isTrialProduct,
         eligibility: value,
       );
@@ -135,6 +138,9 @@ class SubscriptionStoreProduct {
       trialValue: trialValue,
       weeklyPrice: facts['weekly_price'] is String
           ? facts['weekly_price'] as String
+          : null,
+      fourWeekPrice: facts['four_week_price'] is String
+          ? facts['four_week_price'] as String
           : null,
       isTrialProduct: knownTrialProduct || hasFree,
     );

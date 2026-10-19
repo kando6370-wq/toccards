@@ -247,7 +247,7 @@ void main() {
     },
   );
   test(
-    'dev retains both new products for purchase and restore without expanding fallback cards',
+    'dev retains new products for purchase and restore while fallback uses the approved cards',
     () {
       final defines =
           jsonDecode(File('config/test.json').readAsStringSync())
@@ -272,6 +272,7 @@ void main() {
         'cardx.lifetime',
         'weekly.trial',
         'yearly.pro',
+        'cardx.month',
       });
       final yearly = configuration.supportedProducts.singleWhere(
         (p) => p.productId == 'yearly.pro',
@@ -288,19 +289,53 @@ void main() {
       for (final type in SubscriptionPageType.values) {
         final fallback = legacySubscriptionFallback(configuration, type);
         expect(fallback.skus.map((sku) => sku.productId), [
-          'cardx.week',
-          'cardx.year',
-          'cardx.lifetime',
+          'weekly.trial',
+          'yearly.pro',
+          'cardx.month',
         ]);
         expect(
           fallback.skus.singleWhere((sku) => sku.isDefault).productId,
-          'cardx.year',
+          'weekly.trial',
         );
+        expect(fallback.skus[0].copy.name, '3-Day Free');
+        expect(fallback.skus[0].copy.cta, 'TRY FOR FREE');
+        expect(fallback.skus[1].copy.name, 'Unlimited Yearly');
+        expect(fallback.skus[1].copy.subtitle, 'Only {price} per year');
+        expect(fallback.skus[1].copy.badge, 'save 81%');
+        expect(fallback.skus[2].copy.name, 'Unlimited Monthly');
+        expect(fallback.skus[2].copy.subtitle, 'Only {price} per month');
+        expect(fallback.skus[2].copy.badge, 'Most Popular');
         expect(
           configuration.supportedProductIds,
-          containsAll(['weekly.trial', 'yearly.pro']),
+          containsAll(['weekly.trial', 'yearly.pro', 'cardx.month']),
         );
       }
+
+      final productionDefines =
+          jsonDecode(File('config/production.json').readAsStringSync())
+              as Map<String, Object?>;
+      final productionConfiguration = AppSubscriptionConfiguration(
+        store: SubscriptionStore.appStore,
+        productIds: {
+          subscriptionWeeklyPlanId:
+              productionDefines['SUBSCRIPTION_APP_STORE_WEEKLY_ID'] as String,
+          subscriptionYearlyPlanId:
+              productionDefines['SUBSCRIPTION_APP_STORE_YEARLY_ID'] as String,
+          subscriptionLifetimePlanId:
+              productionDefines['SUBSCRIPTION_APP_STORE_LIFETIME_ID'] as String,
+        },
+        additionalProducts: SupportedSubscriptionProduct.parse(
+          productionDefines['SUBSCRIPTION_APP_STORE_SUPPORTED_PRODUCTS']
+              as String,
+        ),
+      );
+      expect(
+        legacySubscriptionFallback(
+          productionConfiguration,
+          SubscriptionPageType.page,
+        ).skus.map((sku) => sku.productId),
+        ['CardAi.weekly.trial', 'CardAi.yearly', 'CardAi.monthly'],
+      );
     },
   );
   test(
@@ -338,6 +373,29 @@ void main() {
           isNull,
         );
       }
+    },
+  );
+  test(
+    'monthly fallback price survives StoreKit mapping and eligibility update',
+    () {
+      final product = displayProduct('cardx.month', amount: 12.99).product;
+      final monthly = SubscriptionStoreProduct.fromStore(product, {
+        'product_id': 'cardx.month',
+        'product_type': 'subscription',
+        'price_decimal': '12.99',
+        'display_price': product.displayPrice,
+        'currency_code': 'USD',
+        'period_unit': 'month',
+        'period_value': 1,
+        'weekly_price': 'US\$3.00',
+        'four_week_price': 'US\$3.25',
+      }, knownTrialProduct: false);
+      expect(monthly?.weeklyPrice, 'US\$3.00');
+      expect(monthly?.fourWeekPrice, 'US\$3.25');
+      expect(
+        monthly?.withEligibility(TrialEligibility.eligible).fourWeekPrice,
+        'US\$3.25',
+      );
     },
   );
   test(

@@ -46,9 +46,84 @@ final subscriptionDisplayApiProvider = Provider(
   (ref) => SubscriptionDisplayApi(ref.watch(portfolioDioProvider)),
 );
 
-/// Existing page/modal defaults are retained until their separate 1.0.6 designs
-/// and real SKU mappings are approved. This is not a new production SKU list.
+const _fallbackWeeklyTrialPlanId = 'weekly_trial';
+const _fallbackYearlyPlanId = 'yearly_pro';
+const _fallbackMonthlyPlanId = 'monthly';
+
+/// Build the local Page/Modal fallback from the approved long-lived products.
+///
+/// The original weekly/yearly/lifetime entries remain in the purchase registry
+/// for older transactions and Restore. Only the additional display products
+/// participate in this three-card fallback. Production currently reuses its
+/// configured yearly product, so the yearly_pro entry is optional.
 SubscriptionDisplayConfig legacySubscriptionFallback(
+  AppSubscriptionConfiguration configuration,
+  SubscriptionPageType type,
+) {
+  final additional = {
+    for (final product in configuration.additionalProducts)
+      product.planId: product,
+  };
+  final trial = additional[_fallbackWeeklyTrialPlanId];
+  final monthly = additional[_fallbackMonthlyPlanId];
+  final yearlyAdditional = additional[_fallbackYearlyPlanId];
+  final configuredYearlyId =
+      configuration.configuredProductIds[subscriptionYearlyPlanId];
+  final configuredYearly = configuredYearlyId == null
+      ? null
+      : configuration.supportedProducts
+            .where((product) => product.productId == configuredYearlyId)
+            .firstOrNull;
+  final yearly = yearlyAdditional?.type == DisplayProductType.subscription
+      ? yearlyAdditional
+      : configuredYearly?.type == DisplayProductType.subscription
+      ? configuredYearly
+      : null;
+
+  // Keep old builds usable when the optional additions are not present yet.
+  // A partially registered new set must not produce a misleading mixed card
+  // list, so it falls back to the previous local configuration as a unit.
+  if (trial?.type != DisplayProductType.subscription ||
+      monthly?.type != DisplayProductType.subscription ||
+      yearly == null) {
+    return _legacySubscriptionFallback(configuration, type);
+  }
+
+  return SubscriptionDisplayConfig(
+    pageType: type,
+    isLocalFallback: true,
+    skus: [
+      SubscriptionDisplaySku(
+        productId: trial!.productId,
+        type: DisplayProductType.subscription,
+        isDefault: true,
+        copy: const SubscriptionCopy(name: '3-Day Free', cta: 'TRY FOR FREE'),
+      ),
+      SubscriptionDisplaySku(
+        productId: yearly.productId,
+        type: DisplayProductType.subscription,
+        copy: const SubscriptionCopy(
+          name: 'Unlimited Yearly',
+          subtitle: 'Only {price} per year',
+          badge: 'save 81%',
+          cta: 'SUBSCRIBE',
+        ),
+      ),
+      SubscriptionDisplaySku(
+        productId: monthly!.productId,
+        type: DisplayProductType.subscription,
+        copy: const SubscriptionCopy(
+          name: 'Unlimited Monthly',
+          subtitle: 'Only {price} per month',
+          badge: 'Most Popular',
+          cta: 'SUBSCRIBE',
+        ),
+      ),
+    ],
+  );
+}
+
+SubscriptionDisplayConfig _legacySubscriptionFallback(
   AppSubscriptionConfiguration configuration,
   SubscriptionPageType type,
 ) {

@@ -17,6 +17,7 @@ import 'package:kando_app/features/subscription/subscription_page.dart';
 import 'package:kando_app/features/subscription/subscription_display_controller.dart';
 import 'package:kando_app/features/subscription/subscription_display_config.dart';
 import 'package:kando_app/features/subscription/subscription_display_providers.dart';
+import 'package:kando_app/features/subscription/subscription_product_support.dart';
 import 'package:kando_app/features/subscription/subscription_store_product.dart';
 import 'subscription_display_fixtures.dart';
 import 'package:kando_app/shared/analytics/app_analytics.dart';
@@ -904,6 +905,103 @@ void main() {
     }
   });
 
+  testWidgets(
+    'local subscription fallback shows StoreKit prices and verified trial copy',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      tester.view.physicalSize = const Size(390, 1000);
+      tester.view.devicePixelRatio = 1;
+      try {
+        final trialEligibility = Completer<TrialEligibility>();
+        final host = _RestoreTestHost(
+          useNewFallback: true,
+          trialEligibility: trialEligibility.future,
+        );
+        await tester.pumpWidget(host.app);
+        await tester.pumpAndSettle();
+        host.router.push('/subscription');
+        await tester.pumpAndSettle();
+
+        expect(host.display!.selectedId, 'weekly.trial');
+        expect(find.text('Premium'), findsOneWidget);
+        expect(find.text('3-Day Free'), findsNothing);
+        expect(find.text('Unlimited Yearly'), findsOneWidget);
+        expect(find.text('Unlimited Monthly'), findsOneWidget);
+        expect(find.text('save 81%'), findsOneWidget);
+        expect(find.text('Most Popular'), findsOneWidget);
+        expect(find.text('SUBSCRIBE'), findsOneWidget);
+        expect(find.text('CANCEL ANYTIME'), findsOneWidget);
+        expect(find.text('NO PAYMENT NOW'), findsNothing);
+        expect(
+          find.byKey(const Key('subscription-billing-summary')),
+          findsNothing,
+        );
+
+        final cards = [
+          for (final id in ['weekly.trial', 'yearly.pro', 'cardx.month'])
+            find.byKey(Key('subscription-config-product-$id')),
+        ];
+        expect(
+          tester.getRect(cards[0]).top,
+          lessThan(tester.getRect(cards[1]).top),
+        );
+        expect(
+          tester.getRect(cards[1]).top,
+          lessThan(tester.getRect(cards[2]).top),
+        );
+        for (final id in ['weekly.trial', 'yearly.pro', 'cardx.month']) {
+          final card = find.byKey(Key('subscription-config-product-$id'));
+          expect(
+            find.descendant(of: card, matching: find.text('per week')),
+            findsOneWidget,
+          );
+        }
+        expect(find.text(r'Only US$49.99 per year'), findsOneWidget);
+        expect(find.text(r'Only US$12.99 per month'), findsOneWidget);
+        Finder price(String id) => find.descendant(
+          of: find.byKey(Key('subscription-config-product-$id-price')),
+          matching: find.byType(Text),
+        );
+        expect(tester.widget<Text>(price('weekly.trial')).data, r'US$4.99');
+        expect(tester.widget<Text>(price('yearly.pro')).data, r'US$0.96');
+        expect(tester.widget<Text>(price('cardx.month')).data, r'US$3.25');
+
+        trialEligibility.complete(TrialEligibility.eligible);
+        await tester.pumpAndSettle();
+        expect(find.text('Premium'), findsNothing);
+        expect(find.text('3-Day Free'), findsOneWidget);
+        expect(find.text('TRY FOR FREE'), findsOneWidget);
+        expect(find.text('NO PAYMENT NOW'), findsOneWidget);
+        expect(find.text('CANCEL ANYTIME'), findsNothing);
+        expect(
+          tester.widget<Text>(price('weekly.trial')).data,
+          r'Then US$4.99',
+        );
+
+        await tester.tap(
+          find.byKey(const Key('subscription-config-product-yearly.pro')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('SUBSCRIBE'), findsOneWidget);
+        expect(find.text('CANCEL ANYTIME'), findsOneWidget);
+        expect(find.text('NO PAYMENT NOW'), findsNothing);
+        expect(tester.widget<Text>(price('yearly.pro')).data, r'US$0.96');
+        await tester.tap(
+          find.byKey(const Key('subscription-config-product-cardx.month')),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.widget<Text>(price('cardx.month')).data, r'US$3.25');
+        expect(find.text('SUBSCRIBE'), findsOneWidget);
+        expect(find.text('CANCEL ANYTIME'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      } finally {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
+
   testWidgets('configured badges clear prices and previous rows', (
     tester,
   ) async {
@@ -1766,6 +1864,8 @@ class _RestoreTestHost {
     String initialLocation = '/source',
     SubscriptionDisplayConfig? displayConfiguration,
     bool includeTrial = false,
+    bool useNewFallback = false,
+    Future<TrialEligibility>? trialEligibility,
     bool? remoteDisplayConfiguration,
     bool disableAnimations = true,
   }) : controller = controller ?? _RestoreTestController() {
@@ -1842,14 +1942,54 @@ class _RestoreTestHost {
       overrides: [
         subscriptionControllerProvider.overrideWith(() => this.controller),
         subscriptionDisplayFactoryProvider.overrideWithValue((type) {
+          final configuration = useNewFallback
+              ? AppSubscriptionConfiguration(
+                  store: SubscriptionStore.appStore,
+                  productIds: const {
+                    subscriptionWeeklyPlanId: 'weekly.product',
+                    subscriptionYearlyPlanId: 'yearly.product',
+                    subscriptionLifetimePlanId: 'lifetime.product',
+                  },
+                  additionalProducts: SupportedSubscriptionProduct.parse(
+                    '[{"plan_id":"weekly_trial","product_id":"weekly.trial","product_type":"subscription","is_trial_product":true},{"plan_id":"yearly_pro","product_id":"yearly.pro","product_type":"subscription","is_trial_product":false},{"plan_id":"monthly","product_id":"cardx.month","product_type":"subscription","is_trial_product":false}]',
+                  ),
+                )
+              : _testSubscriptionConfiguration;
           final config =
               displayConfiguration ??
-              legacySubscriptionFallback(_testSubscriptionConfiguration, type);
+              legacySubscriptionFallback(configuration, type);
           display = SubscriptionDisplayController(
             fallback: config,
             loadConfig: (_) async =>
                 usesRemoteDisplayConfiguration ? config : null,
             loadProducts: (ids) async => [
+              if (useNewFallback && ids.contains('weekly.trial'))
+                displayProduct(
+                  'weekly.trial',
+                  trial: true,
+                  unit: 'day',
+                  value: 7,
+                  amount: 4.99,
+                  displayPrice: r'US$4.99',
+                  omitWeeklyPrice: true,
+                ),
+              if (useNewFallback && ids.contains('yearly.pro'))
+                displayProduct(
+                  'yearly.pro',
+                  unit: 'year',
+                  amount: 49.99,
+                  displayPrice: r'US$49.99',
+                  weeklyPrice: r'US$0.96',
+                ),
+              if (useNewFallback && ids.contains('cardx.month'))
+                displayProduct(
+                  'cardx.month',
+                  unit: 'month',
+                  amount: 12.99,
+                  displayPrice: r'US$12.99',
+                  weeklyPrice: r'US$3.00',
+                  fourWeekPrice: r'US$3.25',
+                ),
               if (includeTrial && ids.contains('weekly.trial'))
                 displayProduct(
                   'weekly.trial',
@@ -1874,7 +2014,9 @@ class _RestoreTestHost {
                         : 79.99,
                   ),
             ],
-            loadEligibility: (_) async => includeTrial
+            loadEligibility: (_) async => trialEligibility != null
+                ? await trialEligibility
+                : useNewFallback || includeTrial
                 ? TrialEligibility.eligible
                 : throw StateError('These fixture products have no trial'),
           );

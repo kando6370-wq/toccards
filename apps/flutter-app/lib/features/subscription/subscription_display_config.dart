@@ -66,6 +66,7 @@ class SubscriptionDisplayConfig {
     this.trialToggleText = '',
     this.cta = '',
     this.closeDelay = Duration.zero,
+    this.isLocalFallback = false,
   }) : skus = List.unmodifiable(skus);
   final SubscriptionPageType pageType;
   final String? configId;
@@ -74,6 +75,7 @@ class SubscriptionDisplayConfig {
   final bool trialEnabled;
   final String trialToggleText, cta;
   final Duration closeDelay;
+  final bool isLocalFallback;
 
   Set<String> get productIds => {
     for (final sku in skus) ...{

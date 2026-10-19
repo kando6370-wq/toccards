@@ -262,13 +262,16 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (display?.selectedCard case final current?) ...[
-            if (current.billingNote.trim().isNotEmpty &&
-                current.billingNote != current.product.billingSummary)
+          if (display != null &&
+              display.config?.isLocalFallback != true &&
+              display.selectedCard != null) ...[
+            if (display.selectedCard!.billingNote.trim().isNotEmpty &&
+                display.selectedCard!.billingNote !=
+                    display.selectedCard!.product.billingSummary)
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
-                  current.billingNote,
+                  display.selectedCard!.billingNote,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: KandoColors.mutedText,
@@ -278,7 +281,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                 ),
               ),
             Text(
-              current.product.billingSummary,
+              display.selectedCard!.product.billingSummary,
               key: const Key('subscription-billing-summary'),
               textAlign: TextAlign.center,
               style: const TextStyle(
@@ -386,6 +389,25 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
               ),
             ],
           ),
+          if (display != null &&
+              display.config?.isLocalFallback == true &&
+              display.selectedCard != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                display.selectedCard!.product.canUseTrial &&
+                        display.selectedCard!.product.isTrialProduct
+                    ? 'NO PAYMENT NOW'
+                    : 'CANCEL ANYTIME',
+                key: const Key('subscription-fallback-auxiliary-note'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: KandoColors.mutedText,
+                  fontSize: 12,
+                  height: 16 / 12,
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -487,6 +509,8 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                                         display.selectedId == sku.productId,
                                     usesRemoteConfiguration:
                                         display.usesRemoteConfiguration,
+                                    usesLocalFallback:
+                                        display.config?.isLocalFallback == true,
                                     enabled:
                                         !loading &&
                                         !busy &&
@@ -1856,26 +1880,48 @@ class _ConfiguredPlanTile extends StatelessWidget {
     required this.card,
     required this.selected,
     required this.usesRemoteConfiguration,
+    required this.usesLocalFallback,
     required this.enabled,
     required this.onTap,
   });
   final SubscriptionDisplayCard card;
   final bool selected, enabled;
   final bool usesRemoteConfiguration;
+  final bool usesLocalFallback;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final product = card.product;
     final compactBadge = card.badge.isNotEmpty && card.badge.length <= 18;
+    final isWeeklyPeriod =
+        (product.periodUnit == 'week' && product.periodValue == 1) ||
+        (product.periodUnit == 'day' && product.periodValue == 7);
+    final weeklyPrice =
+        usesLocalFallback &&
+            product.periodUnit == 'month' &&
+            product.periodValue == 1
+        ? product.fourWeekPrice
+        : usesLocalFallback && isWeeklyPeriod
+        ? product.product.displayPrice
+        : product.weeklyPrice;
     final periodLabel =
         product.type == DisplayProductType.subscription &&
             product.periodValue == 1
         ? 'per ${product.periodUnit}'
         : product.periodLabel;
-    final priceCaption = usesRemoteConfiguration
+    final priceCaption = usesLocalFallback
+        ? weeklyPrice == null
+              ? periodLabel
+              : 'per week'
+        : usesRemoteConfiguration
         ? card.priceNote.trim()
         : periodLabel;
+    final price = usesLocalFallback && weeklyPrice != null
+        ? product.isTrialProduct && product.canUseTrial
+              ? 'Then $weeklyPrice'
+              : weeklyPrice
+        : product.product.displayPrice;
     final hasExtraLine =
         priceCaption.isNotEmpty ||
         (card.sku.weeklyReference && product.weeklyPrice != null) ||
@@ -1994,7 +2040,7 @@ class _ConfiguredPlanTile extends StatelessWidget {
                             fit: BoxFit.scaleDown,
                             alignment: Alignment.centerRight,
                             child: Text(
-                              product.product.displayPrice,
+                              price,
                               maxLines: 1,
                               softWrap: false,
                               style: const TextStyle(
