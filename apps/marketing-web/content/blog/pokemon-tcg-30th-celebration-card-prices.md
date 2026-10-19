@@ -1,13 +1,20 @@
 ---
 title: Pokemon 30th Celebration Card Prices | Card AI
 h1: Pokemon TCG 30th Celebration card prices and set guide
-description: Check a dated Pokemon TCG 30th Celebration price snapshot, learn the 30C and 30C-CC set codes, and confirm a card in Card AI.
+description: Use the official Pokemon 30th Celebration card list, compare 30C and 30C-CC records, and check a dated price snapshot before valuing your copies.
 date: 2026-10-10
+updated: 2026-10-19
 image: /assets/showcase-analysis.png
 imageAlt: Card AI market prices and price history view
 imageCaption: Illustrative Card AI screen composite. Values shown in the image are examples, not the dated 30th Celebration snapshot below.
 ---
-On October 10, 2026, Card AI's published catalog separated ME: 30th Celebration into the 30C main set with 202 card records and the 30C-CC Classic Collection with 30 card records. Confirm the set code and collector number before using a price, because the same Pokemon can appear in both groups or in an older set.
+On October 10, 2026, Card AI's published catalog separated ME: 30th Celebration into the 30C main set with 202 card records and the 30C-CC Classic Collection with 30 card records. These are dated Card AI catalog record counts, not official checklist totals. Confirm the set code and collector number before using a price, because the same Pokemon can appear in both groups or in an older set.
+
+## Start with the official 30th Celebration card list
+
+If you are checking a Pokemon 30th anniversary card list, start with the [official 30th Celebration gallery and its full card checklist](https://tcg.pokemon.com/en-us/galleries/30th-celebration/). The gallery helps you identify artwork and variants; the checklist helps you check which cards belong to the expansion. Neither is a price for the copy in your hand.
+
+For a collection, we would record the set code and collector number first, then confirm the artwork, finish and language. Card AI's 30C and 30C-CC catalog groups should not be treated as the same printing. A card list answers what exists; a collection record answers which printing you own.
 
 ## 30th Celebration price snapshot
 
@@ -20,6 +27,12 @@ Price snapshot observed October 10, 2026 (USD):
 - Mewtwo ex 157/128 from 30C: $45.75
 
 These are dated market snapshots, not offers, appraisals, or guaranteed sale prices. Available values can change after publication, and the value that applies to a physical copy still depends on the confirmed printing, finish, language, and condition or existing slab grade.
+
+## Chase cards are a starting point, not a value guarantee
+
+Collectors often begin with a 30th anniversary Pokemon chase card list. That can help you choose what to look for, but it does not tell you what every copy is worth. The five records above are examples from one dated Card AI snapshot, not a complete card list or a ranking of the most valuable cards. A familiar character or popular artwork still needs the right set code, card number and finish before its price is useful.
+
+Our practical rule is to keep a want list separate from a portfolio. Add a card to your portfolio only after you confirm the physical copy and its condition or existing slab grade. Use the [card collection tracker](/card-collection-tracker) to follow the value of confirmed holdings over time.
 
 ## Confirm 30C or 30C-CC first
 

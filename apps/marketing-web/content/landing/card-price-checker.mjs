@@ -24,7 +24,7 @@ export default {
     },
     {
       "h2": "Two ways to use the card price scanner",
-      "body": "- Scan the card with your camera, review the suggested catalog matches, and confirm the printing details\n- Run a card price lookup by name, set or card number when you do not have the card in hand\n\nBoth routes land on the same catalog record with the same pricing and history. That makes the trading card value app useful whether the copy is on the table or only on your want list."
+      "body": "- Scan the card with your camera, review the suggested catalog matches, and confirm the printing details\n- Run a card price lookup by name, set or card number when you do not have the card in hand\n\nBoth routes land on the same catalog record with the same pricing and history. That makes the trading card value app useful whether the copy is on the table or only on your want list. For a Pokemon set example, see how the [30th Celebration price and set guide](/blog/pokemon-tcg-30th-celebration-card-prices) separates the official card list from a dated price snapshot."
     },
     {
       "h2": "From price check to portfolio",

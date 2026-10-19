@@ -3,6 +3,7 @@ title: What Is My Trading Card Worth? | Card AI
 h1: What is my trading card worth?
 description: A practical guide to checking what a trading card is worth, why the same card has several different prices, and which number actually applies to your copy.
 date: 2026-09-22
+updated: 2026-10-19
 image: /assets/showcase-analysis.png
 imageAlt: Card AI card market prices and trend analysis
 imageCaption: Confirm the matching card details before comparing the available price and history.
@@ -45,6 +46,12 @@ This is why raw and graded prices should never be blended into one figure. They 
 A current price is a snapshot. It cannot tell you whether the card has been climbing for six months or is falling after a reprint announcement, and that trend is usually what you actually want to know.
 
 Before you act on a valuation, look at where the price has been. A card that is worth the same today as it was last year is a different proposition from one that got there by halving.
+
+## Which Pokemon cards are worth money?
+
+There is no reliable answer based on the Pokemon's name alone. Pokemon card values vary across sets, printings and conditions. Start with the card number and set, then check the finish and language. Price the raw condition you actually have, or use the grade already printed on a slab. Finally, look at the available price history instead of treating one current number as a guaranteed sale price.
+
+The [Pokemon TCG 30th Celebration price and set guide](/blog/pokemon-tcg-30th-celebration-card-prices) shows why this matters: its 30C and 30C-CC records are separate, and its price examples are dated snapshots. The official set checklist can tell you which card to look for; your confirmed copy and market record tell you which value to inspect.
 
 ## Checking a card with Card AI
 

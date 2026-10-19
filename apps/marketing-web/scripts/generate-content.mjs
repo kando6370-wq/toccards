@@ -253,7 +253,7 @@ function renderPost(post) {
         <div class="site-container">
           <p class="content-eyebrow"><a href="/blog/">Blog</a></p>
           <h1>${escapeHtml(post.meta.h1)}</h1>
-          <p class="content-meta"><time datetime="${post.meta.date}">${post.meta.date}</time></p>
+          <p class="content-meta"><time datetime="${post.meta.date}">${post.meta.date}</time>${post.meta.updated ? ` · <time datetime="${post.meta.updated}">Updated ${post.meta.updated}</time>` : ''}</p>
 ${figure}
           <div class="content-prose">
           ${renderMarkdown(post.body)}
@@ -269,7 +269,7 @@ ${figure}
       description: post.meta.description,
       image: `${ORIGIN}${post.meta.image}`,
       datePublished: post.meta.date,
-      dateModified: post.meta.date,
+      dateModified: post.meta.updated ?? post.meta.date,
       mainEntityOfPage: `${ORIGIN}/blog/${post.slug}`,
       author: { '@type': 'Organization', name: 'Card AI', url: `${ORIGIN}/` },
       publisher: {

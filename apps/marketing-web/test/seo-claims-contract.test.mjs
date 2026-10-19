@@ -216,13 +216,16 @@ test('30th Celebration guide keeps dated facts, article metadata, links, and dis
   );
   assert.match(articleHtml, /does not authenticate a card or guarantee the exact printing/i);
   assert.match(articleHtml, /Card AI does not predict a grade/i);
+  assert.match(articleHtml, /official 30th Celebration gallery and its full card checklist/i);
+  assert.match(articleHtml, /not a complete card list or a ranking of the most valuable cards/i);
+  assert.match(articleHtml, /Updated 2026-10-19/);
   assert.match(articleHtml, /href="\/pokemon-card-scanner"/);
   assert.match(articleHtml, /href="\/card-price-checker"/);
   assert.match(pokemonHtml, new RegExp(`href="/blog/${slug}"`));
 
   assert.equal(article?.headline, 'Pokemon TCG 30th Celebration card prices and set guide');
   assert.equal(article?.datePublished, '2026-10-10');
-  assert.equal(article?.dateModified, '2026-10-10');
+  assert.equal(article?.dateModified, '2026-10-19');
   assert.equal(article?.mainEntityOfPage, canonical);
   assert.equal(article?.image, 'https://tcgcard.fun/assets/showcase-analysis.png');
   assert.match(articleHtml, new RegExp(`<link rel="canonical" href="${canonical}">`));
