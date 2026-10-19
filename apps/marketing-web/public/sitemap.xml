@@ -14,6 +14,14 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://tcgcard.fun/card-ai-vs-collx</loc>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://tcgcard.fun/card-ai-vs-ludex</loc>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://tcgcard.fun/card-collection-tracker</loc>
     <priority>0.8</priority>
   </url>
@@ -23,6 +31,10 @@
   </url>
   <url>
     <loc>https://tcgcard.fun/card-price-checker</loc>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://tcgcard.fun/card-scanner-comparison-2026</loc>
     <priority>0.8</priority>
   </url>
   <url>

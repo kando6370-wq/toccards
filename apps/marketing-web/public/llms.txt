@@ -20,9 +20,12 @@ The [canonical website](https://tcgcard.fun/) is tcgcard.fun. Card AI supports c
 
 - [Basketball card scanner](https://tcgcard.fun/basketball-card-scanner): Scan basketball cards to find matching catalog records, confirm the parallel and finish, then check market values for raw and graded copies.
 - [Bulk card scanner](https://tcgcard.fun/bulk-card-scanner): Scan trading cards in bulk instead of one at a time. Work through boxes and binders in a single session and add everything to your collection together.
+- [Card AI vs CollX](https://tcgcard.fun/card-ai-vs-collx): Compare how Card AI and CollX identify variants, handle card condition and grades, explain prices, and organize a collection.
+- [Card AI vs Ludex](https://tcgcard.fun/card-ai-vs-ludex): Compare the documented Card AI and Ludex workflows for reviewing card scans, researching prices, managing a collection, and listing on eBay.
 - [Card collection tracker](https://tcgcard.fun/card-collection-tracker): Track what a trading card collection is worth. Keep condition- and grade-specific holdings, follow price history, and monitor total portfolio value.
 - [Card identifier](https://tcgcard.fun/card-identifier): Identify a trading card from a photo. AI card recognition suggests matching catalog records with the set and card number for you to review.
-- [Card price checker](https://tcgcard.fun/card-price-checker): Check what a trading card is worth. Scan or search the card catalog to compare current raw and graded prices, price history, and market direction.
+- [Card price checker](https://tcgcard.fun/card-price-checker): Check a trading card's published raw or graded price and history. Supported sports cards also provide an eBay search link for separate market research.
+- [Card scanner app comparison 2026](https://tcgcard.fun/card-scanner-comparison-2026): A source-backed comparison of Card AI, Ludex, CollX, PriceCharting, and Center Stage for scanning, pricing, and managing cards.
 - [Digimon card scanner](https://tcgcard.fun/digimon-card-scanner): Scan Digimon Card Game cards to find matching set and card records, confirm the art variant, then check raw and graded market values.
 - [Digital card binder](https://tcgcard.fun/digital-card-binder): Build a searchable digital card binder. Organize records by game and language, track quantities, and find raw or graded copies without opening boxes.
 - [Dragon Ball Super card scanner](https://tcgcard.fun/dragon-ball-super-card-scanner): Scan Dragon Ball Super Card Game cards to find matching records with set, card number and rarity, then confirm the printing and check its value.
