@@ -129,7 +129,7 @@ SubscriptionDisplayController displayPageFixture(SubscriptionPageType type) {
   final config = legacySubscriptionFallback(configuration, type);
   return SubscriptionDisplayController(
     fallback: config,
-    loadConfig: (_) async => config,
+    loadConfig: (_) async => null,
     loadProducts: (ids) async => [
       if (ids.contains('weekly.product'))
         displayProduct('weekly.product', unit: 'week', amount: 3.99),

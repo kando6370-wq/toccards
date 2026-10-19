@@ -565,3 +565,45 @@ Code Review 自查覆盖计数口径、直接请求绕过、存量数据保留�
 - 构建与签名：使用 `flutter build ios --release --flavor=test --dart-define-from-file=config/test.json --build-name=1.0.5 --build-number=169 --no-codesign` 后，以 `Release-test` 配置创建 Xcode archive。最终 IPA 从归档内已签名 App 原样封装，未经过会改变 App Attest 的导出重签。解包确认 Bundle ID `com.kando.kandoApp.beta`、Apple Development 签名、`get-task-allow=true`、App Attest `development`，描述文件包含 6 台登记设备。
 - 符号与完整性：IPA 为 39,926,111 字节，SHA-256 `c9bb165187d1eda72f33229defb05f8dd42d21dc91e68314475fcb3b153ad95e`；`dSYMs.zip` 为 61,217,810 字节，SHA-256 `59d39cf9505bd7d3bedceb1fafb50f42b5f22ab70ca86df613d33853b6502324`。IPA 与 dSYM ZIP 完整性检查通过，42/42 个 Mach-O UUID 有对应 dSYM，签名严格校验通过。
 - 保存与边界：制品保存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.5-169/`，当前测试包保留 167、168、169；旧 166 版在新版本完整保存后移入废纸篓。本次未安装设备、上传蒲公英／TestFlight／App Store Connect，也未执行真实登录、扫描、购买、Restore、崩溃上报或真机启动验收。
+
+<a id="subscription-trial-selection-state"></a>
+
+## 2026-10-19 试用开启后切换商品导致列表恢复
+
+本次从 `codex/dev-1.0.6@d575ec87` 的干净基线修复 Flutter 订阅展示状态。原控制器把“当前选中商品”和“试用替换位置”作为同一状态处理：选择其他商品时会直接关闭 `trialOn`，商品卡又以当前选中项判断是否显示关联试用，购买前复核也会把普通商品错误纳入试用关系校验。因此，用户开启试用后选择年卡或终身商品，会同时关闭开关并把列表中的试用商品恢复为基础商品。
+
+修复增加页面实例内的试用替换位置状态。开启试用时记录当时生效的关联位置；之后选择其他普通商品只更新选中项，开关和开启后形成的商品列表保持不变，再次选择该关联位置仍显示试用商品。只有用户主动关闭开关时才清除替换位置并恢复基础列表。购买普通商品不校验另一位置的试用资格；实际购买关联试用商品时仍执行原有资格和条款复核。多组有效试用关系仍只替换开启开关时选定的一组。API、后台配置、StoreKit 商品校验及 iOS／Android 原生代码均未修改。
+
+修复前，控制器与页面点击两条新增回归均稳定复现，失败值为 `trialOn=false`、期望 `true`。首轮 Code Review 发现商品重载后的资格短暂为 `unknown` 时，换回关联位置可能遗留 `trialInvalid` 并无提示禁用购买；换选现在只清除既有失效标记，实际试用购买继续由提交前强制复核拦截失效资格。修复后，`flutter test --no-pub --dart-define-from-file=config/test.json test/subscription_display_test.dart test/subscription_restore_ui_test.dart` 退出 0，两个文件共 69 项通过；覆盖试用列表保持、切回关联位置、主动关闭恢复基础列表、普通商品购买复核、多关联仅替换一组、资格异步刷新及普通商品购买打断资格刷新。`flutter analyze --no-pub` 退出 0、无问题，`git diff --check` 退出 0。返工后的 Code Review 检查状态生命周期、页面调用、资格刷新及购买前复核后无阻断项。
+
+本轮未构建或安装新包，未执行真机交互、真实 Sandbox 购买、Restore、Android 真机、签名包、部署、远程配置或数据库操作，也未执行 Git commit／push。此前 1.0.5 (169) 包不包含本修复。
+
+<a id="subscription-config-copy-layout"></a>
+
+## 2026-10-19 订阅配置文案与商品布局修正
+
+本次在上一节试用状态修复的同一未提交工作区继续调整 Flutter 订阅页。有效后台配置现在显式标记为远端来源：配置商品价格下方只显示当前实际 SKU 的 `price_note`，字段为空时不展示；不再叠加 StoreKit 推导的 `per year`、`every 7 days` 或 `one-time purchase`。远端配置无法取得，或其中没有任何可展示商品而切入客户端兜底时，原 StoreKit 周期文案继续保留。试用目标沿用自己的配置文案，StoreKit 主价格、固定交易摘要和购买前复核没有改变。
+
+布局将试用开关到首张商品及相邻商品卡片间距统一为 20px，移除 Lifetime 额外顶距；带浮动角标的价格列下移 12px，避免角标遮挡本卡价格，20px 卡片间距使下一张角标与上一张商品之间仍保留 9px 净距。后台配置商品的角标选中颜色改为同帧更新，旧商品展示路径的既有选中动画保留。iOS 固定购买区的 Terms 下方间距统一改为 16px，包括底部安全区为 34px 的 iPhone 13 视口；CTA 继续固定在 Terms 上方，商品内容仍在独立滚动区。
+
+验证：`flutter test --no-pub --dart-define-from-file=config/test.json test/subscription_display_test.dart test/subscription_restore_ui_test.dart` 单独运行退出 0，共 72 项通过；覆盖远端文案完全替换、空值不回退、兜底周期保留、价格与角标不重叠、卡片间距 20px、角标与上一项保留 9px 净距、Footer 底部空白及角标背景／边框在切换首帧和 70ms 均无中间色。更新 `test/widget/goldens/rendered/subscription_config_sheet_390x844.png` 后，定向 golden 用例单独复跑通过；`flutter analyze --no-pub` 退出 0、无问题。首次并行运行三个 Flutter 命令时，订阅测试因共享 `build/native_assets` 临时文件竞争退出 1；改为单独运行后通过，不把首次运行记为业务测试通过。
+
+本节后续记录的 1.0.5 (170) IPA 于 11:03 保存；20px 商品间距与 16px Footer 底距在 11:15 完成，因而该制品包含此前的订阅状态、配置文案及角标修正，但不包含这两项最终尺寸。最终尺寸修改后未重新构建或安装新包，也未执行 iPhone／Android 真机视觉与交互、真实 Sandbox 购买、Restore、部署、远程配置、数据库操作或 Git commit／push。
+
+## 2026-10-19 iOS 测试环境 Release 内部安装包 1.0.5 (170)
+
+- 构建输入：从 `codex/dev-1.0.6@d575ec872ae2dfdf71f8d46c5a0190e1da2b9c22` 加当前未提交的订阅状态、文案和布局工作区构建，必须标记为 dirty，不能写成纯提交制品。构建前版本为 `1.0.5+169`，本次使用 `1.0.5 (170)`；制品完整保存并校验后将 `apps/flutter-app/pubspec.yaml` 同步为 `1.0.5+170`。工具链为 Flutter 3.44.5／Dart 3.12.2／Xcode 27.1。
+- 环境与依赖：`config/test.json` 校验通过，最终 App 的 Bundle ID 为 `com.kando.kandoApp.beta`，测试 API `http://192.168.50.201:8080/api/v1` 已嵌入，Firebase 项目为 `card-ai---test`。`pubspec.lock` 与 `ios/Podfile.lock` 的 SHA-256 分别保持为 `0d85580159d1c598b6a61e32f9ad77c6a5013eaeb586ac29d9836d8b7e379021`、`d0879ca1f7222cbc2de5bd0d33a414c834eaec2235f469322ffd171ab0f75793`，本次没有依赖锁更新。
+- 验证与构建：`flutter analyze --no-pub` 通过；测试环境订阅展示与恢复两个文件共 72 项通过，OAuth authorizer 与发布配置两个文件共 12 项通过。执行 `flutter clean` 后重新解析依赖并构建 Release-test 原生产物，再以 `Release-test` 配置创建 Xcode archive。最终 IPA 从归档内已签名 App 原样封装，未经过导出重签；解包确认 Apple Development 签名、`get-task-allow=true`、App Attest `development`，描述文件包含 6 台登记设备。Xcode 归档退出 0，保留第三方依赖弃用、`in_app_review` 隐私清单无处理规则等非阻断警告。
+- 符号与完整性：`Card AI Test.ipa` 为 39,925,934 字节，SHA-256 `ad1009d209b9eba925ecfc45a642156834246589f596c3b59003c8051e35c46c`；`dSYMs.zip` 为 61,217,309 字节，SHA-256 `b2617a0aac76c05c7fce404df60d66c0dd01cd7b48c8da2b2a3cb28d42e24e4c`。两份 ZIP 完整性、IPA 深度严格签名以及归档 App 逐文件一致性检查通过；42/42 个 Mach-O UUID 有对应 dSYM。44 个 dSYM bundle 中 43 个通过 `dwarfdump --verify`，`App.framework.dSYM` 报告 171 个 Dart／Flutter DIE range 错误；UUID 覆盖完整，但不能声称全部 dSYM 深度校验通过。
+- Google OAuth 边界：测试 Firebase plist 使用测试项目的 `490325688457...` Client ID，但最终 App `Info.plist`、URL Scheme 和 AOT 常量使用 `1030914046373...`。源码与测试明确要求使用后者作为 Workers 校验 token 的 iOS audience，因此这是当前有意的拆分，不是本次构建或签名阻断项；本次仍未做真机 Google 登录，不能把实际登录和回调记为通过。
+- 保存与边界：制品保存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.5-170/`；新版本完整保存后将旧 167 版移入废纸篓，当前保留 168、169、170。本次未安装设备、上传蒲公英／TestFlight／App Store Connect，也未执行真实登录、扫描、购买、Restore、崩溃上报或真机启动验收。
+
+## 2026-10-19 iOS 测试环境 Release 内部安装包 1.0.5 (171)
+
+- 构建输入：从 `codex/dev-1.0.6@d575ec872ae2dfdf71f8d46c5a0190e1da2b9c22` 加当前未提交的订阅工作区构建，必须标记为 dirty，不能写成纯提交制品；构建期间 `git diff HEAD --binary` 的 SHA-256 始终为 `8467c6a00667241b7bc20be61577ea71217d878dd3792a4cce068e6ba8cfe290`。相较 170，本包包含随后完成的 20px 商品间距和 16px Footer 底距。构建前版本为 `1.0.5+170`，本次使用 `1.0.5 (171)`；制品完整保存后将 `pubspec.yaml` 同步为 `1.0.5+171`。
+- 环境与依赖：`config/test.json` 校验通过，最终 App 为 `com.kando.kandoApp.beta`，测试 API `http://192.168.50.201:8080/api/v1` 已嵌入，Firebase 项目为 `card-ai---test`。`pubspec.lock` 与 `ios/Podfile.lock` 的 SHA-256 分别保持为 `0d85580159d1c598b6a61e32f9ad77c6a5013eaeb586ac29d9836d8b7e379021`、`d0879ca1f7222cbc2de5bd0d33a414c834eaec2235f469322ffd171ab0f75793`，没有依赖锁更新。
+- 验证与构建：`flutter analyze --no-pub` 通过；订阅展示、恢复、OAuth authorizer 与发布配置四个测试文件共 84 项通过。执行 `flutter clean` 后重新解析依赖并构建 Release-test 原生产物，再创建 Xcode archive。最终 IPA 从归档内已签名 App 原样封装；Apple Development 签名、`get-task-allow=true`、App Attest `development`，描述文件包含 6 台登记设备。Xcode 归档退出 0，保留第三方依赖弃用、Swift 6 前置兼容和 `in_app_review` 隐私清单无处理规则等非阻断警告。
+- 符号与完整性：`Card AI Test.ipa` 为 39,924,748 字节，SHA-256 `46d120b01dcb46888876f73f7c0a4032152332ed06905945f81fd585abe27477`；`dSYMs.zip` 为 61,217,698 字节，SHA-256 `c8f00f5e9c5d2ba50d2a5765f7a026e6d892120f8b86c8aca9110a6b6c8bff72`。两份 ZIP、IPA 深度严格签名以及 IPA App 与归档 373 个文件逐字节一致性检查通过；42/42 个 Mach-O UUID 有对应 dSYM。44 个 dSYM bundle 中 43 个通过 `dwarfdump --verify`，`App.framework.dSYM` 仍有 171 条 Dart／Flutter range 错误，不能声称全部 dSYM 深度校验通过。
+- Google OAuth 边界：测试 Firebase plist 使用测试项目，但最终 App 使用源码要求的生产 Google OAuth audience，供 Workers 校验 token；相关测试通过，但本次未做真机 Google 登录和回调验收。
+- 保存与边界：制品保存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.5-171/`；新版本完整保存后将旧 168 版移入废纸篓，当前保留 169、170、171。本次未安装设备、上传蒲公英／TestFlight／App Store Connect，也未执行真实登录、扫描、购买、Restore、崩溃上报或真机启动验收。

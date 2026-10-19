@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -800,7 +801,11 @@ void main() {
             SubscriptionDisplaySku(
               productId: 'weekly.product',
               type: DisplayProductType.subscription,
-              copy: SubscriptionCopy(name: 'Weekly', subtitle: 'Every week'),
+              copy: SubscriptionCopy(
+                name: 'Weekly',
+                subtitle: 'Every week',
+                priceNote: 'new per week',
+              ),
             ),
             SubscriptionDisplaySku(
               productId: 'yearly.product',
@@ -810,7 +815,7 @@ void main() {
               copy: SubscriptionCopy(
                 name: 'Yearly',
                 subtitle: 'Every year',
-                priceNote: 'per week',
+                priceNote: 'new per year',
               ),
             ),
           ],
@@ -829,9 +834,25 @@ void main() {
       );
       expect(tester.getSize(weekly).height, 74);
       expect(tester.getSize(yearly).height, 74);
-      expect(tester.getRect(yearly).top - tester.getRect(weekly).bottom, 9);
+      expect(tester.getRect(yearly).top - tester.getRect(weekly).bottom, 20);
+      expect(
+        find.descendant(of: weekly, matching: find.text('new per week')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: weekly, matching: find.text('per week')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: yearly, matching: find.text('new per year')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: yearly, matching: find.text('per year')),
+        findsNothing,
+      );
       expect(find.byKey(const Key('subscription-trial-switch')), findsNothing);
-      expect(tester.getRect(find.text('Terms of Use')).bottom, closeTo(814, 1));
+      expect(tester.getRect(find.text('Terms of Use')).bottom, closeTo(828, 1));
       expect(tester.takeException(), isNull);
     } finally {
       tester.view.resetPhysicalSize();
@@ -840,7 +861,265 @@ void main() {
     }
   });
 
-  testWidgets('trial switch precedes plans and changes the selected product', (
+  testWidgets('fallback paywall keeps StoreKit period captions', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    try {
+      final host = _RestoreTestHost(remoteDisplayConfiguration: false);
+      await tester.pumpWidget(host.app);
+      await tester.pumpAndSettle();
+      host.router.push('/subscription');
+      await tester.pumpAndSettle();
+
+      final weekly = find.byKey(
+        const Key('subscription-config-product-weekly.product'),
+      );
+      expect(
+        find.descendant(of: weekly, matching: find.text('per week')),
+        findsOneWidget,
+      );
+      final scrollable = find
+          .descendant(
+            of: find.byType(CustomScrollView).last,
+            matching: find.byType(Scrollable),
+          )
+          .last;
+      final lifetime = find.byKey(
+        const Key('subscription-config-product-lifetime.product'),
+      );
+      await tester.scrollUntilVisible(lifetime, 200, scrollable: scrollable);
+      expect(
+        find.descendant(of: lifetime, matching: find.text('one-time purchase')),
+        findsOneWidget,
+      );
+      expect(host.display!.usesRemoteConfiguration, isFalse);
+      expect(tester.takeException(), isNull);
+    } finally {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  testWidgets('configured badges clear prices and previous rows', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    tester.view.physicalSize = const Size(390, 1000);
+    tester.view.devicePixelRatio = 1;
+    try {
+      final host = _RestoreTestHost(
+        includeTrial: true,
+        displayConfiguration: SubscriptionDisplayConfig(
+          pageType: SubscriptionPageType.page,
+          trialEnabled: true,
+          trialToggleText: 'Enable Free Trial',
+          skus: const [
+            SubscriptionDisplaySku(
+              productId: 'weekly.product',
+              type: DisplayProductType.subscription,
+              isDefault: true,
+              copy: SubscriptionCopy(name: 'Weekly', badge: 'new Weekly'),
+              trial: SubscriptionTrial(
+                productId: 'weekly.trial',
+                copy: SubscriptionCopy(
+                  name: 'Weekly trial',
+                  badge: 'new Free trial',
+                  priceNote: 'new then per week',
+                ),
+              ),
+            ),
+            SubscriptionDisplaySku(
+              productId: 'yearly.product',
+              type: DisplayProductType.subscription,
+              copy: SubscriptionCopy(
+                name: 'Yearly',
+                badge: 'new Best value',
+                priceNote: 'per year',
+              ),
+            ),
+            SubscriptionDisplaySku(
+              productId: 'lifetime.product',
+              type: DisplayProductType.nonConsumable,
+              copy: SubscriptionCopy(
+                name: 'Lifetime',
+                badge: 'new One-time',
+                priceNote: 'new one-time purchase',
+              ),
+            ),
+          ],
+        ),
+      );
+      await tester.pumpWidget(host.app);
+      await tester.pumpAndSettle();
+      host.router.push('/subscription');
+      await tester.pumpAndSettle();
+
+      final trialSwitch = find.byKey(const Key('subscription-trial-switch'));
+      final cards = [
+        for (final id in [
+          'weekly.product',
+          'yearly.product',
+          'lifetime.product',
+        ])
+          find.byKey(Key('subscription-config-product-$id')),
+      ];
+      final badges = [
+        for (final id in [
+          'weekly.product',
+          'yearly.product',
+          'lifetime.product',
+        ])
+          find.byKey(Key('subscription-plan-$id-badge-surface')),
+      ];
+      final prices = [
+        for (final id in [
+          'weekly.product',
+          'yearly.product',
+          'lifetime.product',
+        ])
+          find.byKey(Key('subscription-config-product-$id-price')),
+      ];
+
+      expect(
+        find.byKey(
+          const Key('subscription-config-product-weekly.product-price-caption'),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: cards.first, matching: find.text('per week')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: cards[1], matching: find.text('per year')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: cards[2],
+          matching: find.text('new one-time purchase'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: cards[2], matching: find.text('one-time purchase')),
+        findsNothing,
+      );
+      expect(
+        tester.getRect(badges.first).top - tester.getRect(trialSwitch).bottom,
+        9,
+      );
+      for (var index = 0; index < cards.length; index++) {
+        expect(
+          tester.getRect(badges[index]).bottom,
+          lessThanOrEqualTo(tester.getRect(prices[index]).top),
+        );
+        if (index > 0) {
+          expect(
+            tester.getRect(cards[index]).top -
+                tester.getRect(cards[index - 1]).bottom,
+            20,
+          );
+          expect(
+            tester.getRect(badges[index]).top,
+            greaterThan(tester.getRect(cards[index - 1]).bottom),
+          );
+        }
+      }
+      expect(tester.takeException(), isNull);
+    } finally {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  testWidgets(
+    'configured badge selection changes without an intermediate tint',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      try {
+        final host = _RestoreTestHost(
+          disableAnimations: false,
+          displayConfiguration: SubscriptionDisplayConfig(
+            pageType: SubscriptionPageType.page,
+            skus: const [
+              SubscriptionDisplaySku(
+                productId: 'weekly.product',
+                type: DisplayProductType.subscription,
+                isDefault: true,
+                copy: SubscriptionCopy(name: 'Weekly', badge: 'Weekly'),
+              ),
+              SubscriptionDisplaySku(
+                productId: 'yearly.product',
+                type: DisplayProductType.subscription,
+                copy: SubscriptionCopy(name: 'Yearly', badge: 'Yearly'),
+              ),
+            ],
+          ),
+        );
+        await tester.pumpWidget(host.app);
+        await tester.pumpAndSettle();
+        host.router.push('/subscription');
+        await tester.pumpAndSettle();
+
+        final weeklyBadge = find.byKey(
+          const Key('subscription-plan-weekly.product-badge-surface'),
+        );
+        final yearlyBadge = find.byKey(
+          const Key('subscription-plan-yearly.product-badge-surface'),
+        );
+        (Color, Color) badgeColors(Finder finder) {
+          final decoration =
+              tester.widget<Container>(finder).decoration! as BoxDecoration;
+          return (decoration.color!, (decoration.border! as Border).top.color);
+        }
+
+        expect(badgeColors(weeklyBadge), (
+          const Color(0x33F1FE70),
+          const Color(0x4DF1FE70),
+        ));
+        expect(badgeColors(yearlyBadge), (
+          const Color(0xFF34362D),
+          const Color(0x4D474836),
+        ));
+        await tester.tap(
+          find.byKey(const Key('subscription-config-product-yearly.product')),
+        );
+        await tester.pump();
+        expect(badgeColors(weeklyBadge), (
+          const Color(0xFF34362D),
+          const Color(0x4D474836),
+        ));
+        expect(badgeColors(yearlyBadge), (
+          const Color(0x33F1FE70),
+          const Color(0x4DF1FE70),
+        ));
+        await tester.pump(const Duration(milliseconds: 70));
+        expect(badgeColors(weeklyBadge), (
+          const Color(0xFF34362D),
+          const Color(0x4D474836),
+        ));
+        expect(badgeColors(yearlyBadge), (
+          const Color(0x33F1FE70),
+          const Color(0x4DF1FE70),
+        ));
+        expect(tester.takeException(), isNull);
+      } finally {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
+
+  testWidgets('trial list stays active when another plan is selected', (
     tester,
   ) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
@@ -857,10 +1136,10 @@ void main() {
             SubscriptionDisplaySku(
               productId: 'weekly.product',
               type: DisplayProductType.subscription,
-              copy: SubscriptionCopy(name: 'Weekly'),
+              copy: SubscriptionCopy(name: 'Base'),
               trial: SubscriptionTrial(
                 productId: 'weekly.trial',
-                copy: SubscriptionCopy(name: 'Weekly', cta: 'Try for Free'),
+                copy: SubscriptionCopy(name: 'Trial', cta: 'Try for Free'),
               ),
             ),
             SubscriptionDisplaySku(
@@ -881,6 +1160,9 @@ void main() {
       final weekly = find.byKey(
         const Key('subscription-config-product-weekly.product'),
       );
+      final yearly = find.byKey(
+        const Key('subscription-config-product-yearly.product'),
+      );
       expect(
         tester.getRect(trialSwitch).bottom,
         lessThan(tester.getRect(weekly).top),
@@ -889,8 +1171,21 @@ void main() {
       await tester.pumpAndSettle();
       expect(host.display!.trialOn, isTrue);
       expect(host.display!.selectedCard!.product.id, 'weekly.trial');
+      expect(find.text('Trial'), findsOneWidget);
+      expect(find.text('Base'), findsNothing);
       expect(find.text('Try for Free'), findsOneWidget);
       expect(tester.getSize(weekly).height, 74);
+
+      await tester.tap(yearly);
+      await tester.pumpAndSettle();
+      expect(host.display!.trialOn, isTrue);
+      expect(host.display!.selectedId, 'yearly.product');
+      expect(find.text('Trial'), findsOneWidget);
+      expect(find.text('Base'), findsNothing);
+      expect(
+        tester.widget<CupertinoSwitch>(find.byType(CupertinoSwitch)).value,
+        isTrue,
+      );
       expect(tester.takeException(), isNull);
     } finally {
       tester.view.resetPhysicalSize();
@@ -934,7 +1229,7 @@ void main() {
                 type: DisplayProductType.nonConsumable,
                 copy: SubscriptionCopy(
                   name: 'Lifetime',
-                  priceNote: 'one-time purchase',
+                  priceNote: 'new one-time purchase',
                 ),
               ),
             ],
@@ -954,6 +1249,10 @@ void main() {
         final initialPurchaseRect = tester.getRect(purchase);
         expect(initialPurchaseRect.top, greaterThanOrEqualTo(47));
         expect(initialPurchaseRect.bottom, lessThanOrEqualTo(810));
+        expect(
+          tester.getRect(find.text('Terms of Use')).bottom,
+          closeTo(828, 1),
+        );
         expect(tester.widget<FilledButton>(purchase).onPressed, isNotNull);
 
         await tester.drag(
@@ -966,7 +1265,20 @@ void main() {
           const Key('subscription-config-product-lifetime.product'),
         );
         expect(lifetime, findsOneWidget);
-        expect(find.text('one-time purchase'), findsOneWidget);
+        expect(
+          find.descendant(
+            of: lifetime,
+            matching: find.text('new one-time purchase'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: lifetime,
+            matching: find.text('one-time purchase'),
+          ),
+          findsNothing,
+        );
         expect(tester.getRect(lifetime).top, greaterThanOrEqualTo(47));
         expect(
           tester.getRect(lifetime).bottom,
@@ -1454,7 +1766,11 @@ class _RestoreTestHost {
     String initialLocation = '/source',
     SubscriptionDisplayConfig? displayConfiguration,
     bool includeTrial = false,
+    bool? remoteDisplayConfiguration,
+    bool disableAnimations = true,
   }) : controller = controller ?? _RestoreTestController() {
+    final usesRemoteDisplayConfiguration =
+        remoteDisplayConfiguration ?? displayConfiguration != null;
     router = GoRouter(
       initialLocation: initialLocation,
       routes: [
@@ -1531,7 +1847,8 @@ class _RestoreTestHost {
               legacySubscriptionFallback(_testSubscriptionConfiguration, type);
           display = SubscriptionDisplayController(
             fallback: config,
-            loadConfig: (_) async => config,
+            loadConfig: (_) async =>
+                usesRemoteDisplayConfiguration ? config : null,
             loadProducts: (ids) async => [
               if (includeTrial && ids.contains('weekly.trial'))
                 displayProduct(
@@ -1570,7 +1887,9 @@ class _RestoreTestHost {
         theme: buildKandoTheme(),
         routerConfig: router,
         builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context).copyWith(disableAnimations: true),
+          data: MediaQuery.of(
+            context,
+          ).copyWith(disableAnimations: disableAnimations),
           child: child!,
         ),
       ),

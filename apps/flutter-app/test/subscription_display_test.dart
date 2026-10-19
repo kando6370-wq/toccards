@@ -25,6 +25,7 @@ void main() {
       );
       addTearDown(model.dispose);
       await model.load();
+      expect(model.usesRemoteConfiguration, isTrue);
       available = false;
       await model.load();
       expect(identical(model.config, remote), isTrue);
@@ -140,6 +141,7 @@ void main() {
         addTearDown(model.dispose);
         await model.load();
         expect(identical(model.config, fallback), isTrue);
+        expect(model.usesRemoteConfiguration, isFalse);
         expect(model.selectedId, 'once');
         expect(model.canPurchase, isTrue);
       }
@@ -512,7 +514,7 @@ void main() {
     },
   );
   test(
-    'linked trial switches only one position; selecting another position turns it off',
+    'linked trial list stays active while selecting and purchasing another position',
     () async {
       final model = _model();
       addTearDown(model.dispose);
@@ -524,15 +526,155 @@ void main() {
       expect(model.selectedId, 'paid');
       expect(model.selectedCard!.product.id, 'trial');
       expect(model.selectedCard!.cta, 'START TRIAL');
+      final trialProducts = [
+        for (final sku in model.availableSkus) model.card(sku)!.product.id,
+      ];
+      expect(trialProducts, ['trial', 'once', 'independent']);
+
+      model.select('once');
+      expect(model.trialOn, isTrue);
+      expect(model.selectedId, 'once');
+      expect(model.selectedCard!.product.id, 'once');
+      expect([
+        for (final sku in model.availableSkus) model.card(sku)!.product.id,
+      ], trialProducts);
+      expect(model.canPurchase, isTrue);
+      expect((await model.confirmPurchase())!.storeProductId, 'once');
+
       model.select('paid');
       expect(model.trialOn, isTrue);
+      expect(model.selectedCard!.product.id, 'trial');
       model.toggleTrial(false);
       expect(model.selectedId, 'paid');
+      expect(model.selectedCard!.product.id, 'paid');
       expect(model.selectedCard!.cta, 'BUY');
+    },
+  );
+  test('trial mode keeps only its activated relationship replaced', () async {
+    final config = SubscriptionDisplayConfig(
+      pageType: SubscriptionPageType.page,
+      trialEnabled: true,
+      trialToggleText: 'Enable trial',
+      skus: const [
+        SubscriptionDisplaySku(
+          productId: 'paid',
+          type: DisplayProductType.subscription,
+          copy: SubscriptionCopy(name: 'First'),
+          trial: SubscriptionTrial(
+            productId: 'trial',
+            copy: SubscriptionCopy(name: 'First trial'),
+          ),
+        ),
+        SubscriptionDisplaySku(
+          productId: 'second',
+          type: DisplayProductType.subscription,
+          copy: SubscriptionCopy(name: 'Second'),
+          trial: SubscriptionTrial(
+            productId: 'second-trial',
+            copy: SubscriptionCopy(name: 'Second trial'),
+          ),
+        ),
+        SubscriptionDisplaySku(
+          productId: 'once',
+          type: DisplayProductType.nonConsumable,
+          isDefault: true,
+          copy: SubscriptionCopy(name: 'Lifetime'),
+        ),
+      ],
+    );
+    final model = _model(
+      config: config,
+      products: [
+        displayProduct('paid'),
+        displayProduct('trial', trial: true),
+        displayProduct('second'),
+        displayProduct('second-trial', trial: true),
+        displayProduct('once', lifetime: true),
+      ],
+    );
+    addTearDown(model.dispose);
+    await model.load();
+    await Future<void>.delayed(Duration.zero);
+
+    model.toggleTrial(true);
+    expect(
+      [for (final sku in model.availableSkus) model.card(sku)!.product.id],
+      ['trial', 'second', 'once'],
+    );
+    model.select('second');
+    expect(model.trialOn, isTrue);
+    expect(model.selectedCard!.product.id, 'second');
+    expect(
+      [for (final sku in model.availableSkus) model.card(sku)!.product.id],
+      ['trial', 'second', 'once'],
+    );
+    expect((await model.confirmPurchase())!.storeProductId, 'second');
+  });
+  test(
+    'temporary unknown qualification does not lock the activated trial position',
+    () async {
+      for (final outcome in [
+        TrialEligibility.eligible,
+        TrialEligibility.ineligible,
+      ]) {
+        final pending = Completer<TrialEligibility>();
+        var qualificationCalls = 0;
+        final model = _model(
+          eligibility: (_) => ++qualificationCalls == 1
+              ? Future.value(TrialEligibility.eligible)
+              : pending.future,
+        );
+        addTearDown(model.dispose);
+        await model.load();
+        await Future<void>.delayed(Duration.zero);
+        model.toggleTrial(true);
+        model.select('once');
+
+        await model.load();
+        model.select('paid');
+        expect(model.trialOn, isTrue);
+        expect(model.trialInvalid, isFalse);
+        expect(model.canPurchase, isTrue);
+
+        pending.complete(outcome);
+        await Future<void>.delayed(Duration.zero);
+        expect(model.trialInvalid, isFalse);
+        if (outcome == TrialEligibility.eligible) {
+          expect((await model.confirmPurchase())!.storeProductId, 'trial');
+        } else {
+          expect(await model.confirmPurchase(), isNull);
+          expect(model.trialInvalid, isTrue);
+        }
+      }
+    },
+  );
+  test(
+    'pending trial qualification cannot block a different product purchase',
+    () async {
+      final pending = Completer<TrialEligibility>();
+      var qualificationCalls = 0;
+      final model = _model(
+        eligibility: (_) => ++qualificationCalls == 1
+            ? Future.value(TrialEligibility.eligible)
+            : pending.future,
+      );
+      addTearDown(model.dispose);
+      await model.load();
+      await Future<void>.delayed(Duration.zero);
       model.toggleTrial(true);
       model.select('once');
-      expect(model.trialOn, isFalse);
-      expect(model.selectedCard!.product.id, 'once');
+
+      await model.load();
+      expect((await model.confirmPurchase())!.storeProductId, 'once');
+      pending.complete(TrialEligibility.eligible);
+      await Future<void>.delayed(Duration.zero);
+
+      model.select('paid');
+      expect(model.trialOn, isTrue);
+      expect(model.trialInvalid, isFalse);
+      expect(await model.confirmPurchase(), isNull);
+      expect(model.trialInvalid, isFalse);
+      expect((await model.confirmPurchase())!.storeProductId, 'trial');
     },
   );
   test(

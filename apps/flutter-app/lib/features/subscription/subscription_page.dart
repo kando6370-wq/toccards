@@ -168,6 +168,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
         state.isPurchasing || state.isRestoring || state.isPurchasePending;
     final loading = display?.isLoading ?? state.isLoading;
     final useUpdatedSkuUi = defaultTargetPlatform == TargetPlatform.iOS;
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
     final pinTitle =
         useUpdatedSkuUi && MediaQuery.sizeOf(context).height >= 820;
     final useUpdatedSheetUi = widget.sheet && useUpdatedSkuUi;
@@ -247,12 +248,15 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
     });
 
     final purchaseFooter = Padding(
+      key: const Key('subscription-purchase-footer'),
       padding: EdgeInsets.fromLTRB(
         20,
         useUpdatedSkuUi ? 0 : 6,
         20,
-        MediaQuery.paddingOf(context).bottom > 30
-            ? MediaQuery.paddingOf(context).bottom
+        useUpdatedSkuUi
+            ? 16
+            : bottomInset > 30
+            ? bottomInset
             : 30,
       ),
       child: Column(
@@ -463,7 +467,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                           if (display != null) ...[
                             if (display.showTrialSwitch)
                               Padding(
-                                padding: const EdgeInsets.only(bottom: 9),
+                                padding: const EdgeInsets.only(bottom: 20),
                                 child: _TrialSwitchTile(
                                   label: display.config!.trialToggleText,
                                   value: display.trialOn,
@@ -473,27 +477,16 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                                       : display.toggleTrial,
                                 ),
                               ),
-                            for (final (index, sku)
-                                in display.availableSkus.indexed)
+                            for (final sku in display.availableSkus)
                               if (display.card(sku) case final card?)
                                 Padding(
-                                  padding: EdgeInsets.only(
-                                    top:
-                                        index > 0 &&
-                                            sku.type ==
-                                                DisplayProductType.nonConsumable
-                                        ? 8
-                                        : 0,
-                                    bottom:
-                                        index ==
-                                            display.availableSkus.length - 1
-                                        ? 0
-                                        : 9,
-                                  ),
+                                  padding: const EdgeInsets.only(bottom: 20),
                                   child: _ConfiguredPlanTile(
                                     card: card,
                                     selected:
                                         display.selectedId == sku.productId,
+                                    usesRemoteConfiguration:
+                                        display.usesRemoteConfiguration,
                                     enabled:
                                         !loading &&
                                         !busy &&
@@ -1862,11 +1855,13 @@ class _ConfiguredPlanTile extends StatelessWidget {
   const _ConfiguredPlanTile({
     required this.card,
     required this.selected,
+    required this.usesRemoteConfiguration,
     required this.enabled,
     required this.onTap,
   });
   final SubscriptionDisplayCard card;
   final bool selected, enabled;
+  final bool usesRemoteConfiguration;
   final VoidCallback onTap;
 
   @override
@@ -1878,12 +1873,11 @@ class _ConfiguredPlanTile extends StatelessWidget {
             product.periodValue == 1
         ? 'per ${product.periodUnit}'
         : product.periodLabel;
-    final priceNote = card.priceNote.trim();
-    final showPriceNote =
-        priceNote.isNotEmpty &&
-        priceNote.toLowerCase() != periodLabel.toLowerCase();
+    final priceCaption = usesRemoteConfiguration
+        ? card.priceNote.trim()
+        : periodLabel;
     final hasExtraLine =
-        showPriceNote ||
+        priceCaption.isNotEmpty ||
         (card.sku.weeklyReference && product.weeklyPrice != null) ||
         (card.badge.isNotEmpty && !compactBadge);
     return Semantics(
@@ -1989,7 +1983,11 @@ class _ConfiguredPlanTile extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
+                        if (compactBadge) const SizedBox(height: 12),
                         SizedBox(
+                          key: Key(
+                            'subscription-config-product-${card.sku.productId}-price',
+                          ),
                           width: 112,
                           height: 24,
                           child: FittedBox(
@@ -2008,29 +2006,14 @@ class _ConfiguredPlanTile extends StatelessWidget {
                             ),
                           ),
                         ),
-                        SizedBox(
-                          width: 112,
-                          height: 16,
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerRight,
-                            child: Text(
-                              periodLabel,
-                              maxLines: 1,
-                              softWrap: false,
-                              style: const TextStyle(
-                                color: _subscriptionSheetSecondaryText,
-                                fontSize: 12,
-                                height: 16 / 12,
-                              ),
-                            ),
-                          ),
-                        ),
-                        if (showPriceNote)
+                        if (priceCaption.isNotEmpty)
                           SizedBox(
+                            key: Key(
+                              'subscription-config-product-${card.sku.productId}-price-caption',
+                            ),
                             width: 112,
                             child: Text(
-                              priceNote,
+                              priceCaption,
                               textAlign: TextAlign.right,
                               style: const TextStyle(
                                 color: _subscriptionSheetSecondaryText,
@@ -2055,6 +2038,7 @@ class _ConfiguredPlanTile extends StatelessWidget {
                 label: card.badge,
                 selected: selected,
                 useUpdatedSheetUi: true,
+                animateSelection: false,
               ),
             ),
         ],
@@ -2351,6 +2335,7 @@ class _PlanTileState extends State<_PlanTile> {
               label: plan.badge!,
               selected: visualSelected,
               useUpdatedSheetUi: useUpdatedSheetUi,
+              animateSelection: useUpdatedSheetUi,
             ),
           ),
       ],
@@ -2364,12 +2349,14 @@ class _PlanBadge extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.useUpdatedSheetUi,
+    required this.animateSelection,
   });
 
   final String planId;
   final String label;
   final bool selected;
   final bool useUpdatedSheetUi;
+  final bool animateSelection;
 
   @override
   Widget build(BuildContext context) {
@@ -2408,16 +2395,25 @@ class _PlanBadge extends StatelessWidget {
         child: badgeChild,
       );
     }
-    final badge = AnimatedContainer(
-      key: Key('subscription-plan-$planId-badge-surface'),
-      duration: _subscriptionSheetSelectionPhaseDuration,
-      curve: Curves.easeOutCubic,
-      height: 29,
-      padding: const EdgeInsets.symmetric(horizontal: 9),
-      alignment: Alignment.center,
-      decoration: decoration,
-      child: badgeChild,
-    );
+    final badge = animateSelection
+        ? AnimatedContainer(
+            key: Key('subscription-plan-$planId-badge-surface'),
+            duration: _subscriptionSheetSelectionPhaseDuration,
+            curve: Curves.easeOutCubic,
+            height: 29,
+            padding: const EdgeInsets.symmetric(horizontal: 9),
+            alignment: Alignment.center,
+            decoration: decoration,
+            child: badgeChild,
+          )
+        : Container(
+            key: Key('subscription-plan-$planId-badge-surface'),
+            height: 29,
+            padding: const EdgeInsets.symmetric(horizontal: 9),
+            alignment: Alignment.center,
+            decoration: decoration,
+            child: badgeChild,
+          );
     return ClipRRect(
       borderRadius: BorderRadius.circular(999),
       child: BackdropFilter(
