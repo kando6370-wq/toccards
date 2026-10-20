@@ -1,5 +1,7 @@
 # Marketing GEO and SEO content
 
+Before choosing a keyword or writing a public capability claim, read [Card AI product positioning](../00-product/card-ai-product-positioning.md). Match the reader's task to the scan/search, collection, and market-data workflow. A marketplace can be a price source or an external research destination; its name does not by itself define a supported card category or a live sold-price feed.
+
 ## Scope
 
 The marketing site assigns a primary page to each approved intent cluster. The generated pages are sourced from `apps/marketing-web/content/landing/` and included in the generated homepage links, `llms.txt`, and sitemap.
@@ -17,6 +19,11 @@ The marketing site assigns a primary page to each approved intent cluster. The g
 | Minior physical card printings | `/blog/minior-pokemon-card-guide` |
 | Dungeon Crawler Carl collectible-card releases | `/blog/dungeon-crawler-carl-trading-cards` |
 | Scanning supported singles bought at WatsonTCG | `/blog/scanning-cards-from-watsontcg` |
+| Pokemon card price/value checker | `/card-price-checker` for valuation; `/pokemon-card-scanner` for the camera app workflow |
+| Free sports card scanner app | `/card-scanner-comparison-2026` for free quota and workflow limits |
+| Card Ladder feature comparison | `/card-scanner-comparison-2026`, based on its dated official pricing page |
+| Existing grading companies | `/blog/raw-vs-graded-card-values` for already graded cards |
+| 30th Celebration Ultra-Premium Collection | `/blog/pokemon-tcg-30th-celebration-card-prices` for official contents and single-card identification |
 
 ## Product facts used
 
@@ -30,6 +37,7 @@ The marketing site assigns a primary page to each approved intent cluster. The g
 - The Minior guide uses the `minior pokemon go` query only to clarify game encounters versus physical TCG cards. Its card facts link to official Pokemon TCG checklists; it does not publish live prices or game advice.
 - The Dungeon Crawler Carl guide separates Playmates trading cards, ShelfCare collector cards and Renegade's Unstoppable game. The product owner confirms Card AI scan support for cataloged collector cards. Public `/games` and title search did not independently expose those records on October 20, 2026; page copy therefore does not promise coverage or prices for every release.
 - WatsonTCG is a retailer. Its guide maps only supported singles to their actual games, excludes blanket coverage of Riftbound and sealed inventory, and states there is no partnership.
+- October 20, 2026: approved existing owners now distinguish free install, the server's 10 successful free scans, and the separate 10-image queue. The Card Ladder row uses its official free/Pro feature table and dated price. The 30th Celebration guide uses Pokemon's official Day & Night product description without claiming sealed-product valuation.
 
 ## Generation
 

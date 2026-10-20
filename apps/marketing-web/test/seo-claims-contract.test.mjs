@@ -138,7 +138,7 @@ test('comparison pages cite product sources and avoid placeholder or untested wi
     assert.doesNotMatch(html, /Check the current (?:plan|catalog|app|scanner|category|grade|condition|price|portfolio)/i);
     assert.doesNotMatch(html, /Card AI (?:is|was) (?:the )?(?:best|fastest|most accurate)/i);
     assert.doesNotMatch(html, /Card AI (?:imports|syncs|shows) eBay sold transactions/i);
-    assert.match(html, /reviewed October 19, 2026/i);
+    assert.match(html, /reviewed October 19(?:-20)?, 2026/i);
   }
 
   assert.match(pages[0], /href="https:\/\/www\.ludex\.com\/scan-and-price\/"/);
@@ -173,11 +173,15 @@ test('approved keyword clusters stay with one truthful owner', async () => {
   assert.match(pages['card-price-checker.html'], /card price scanner app/i);
   assert.match(pages['card-price-checker.html'], /trading card value app/i);
   assert.match(pages['card-price-checker.html'], /same confirmed card record/i);
+  assert.match(pages['card-price-checker.html'], /Pokemon card price checker and a Pokemon card value checker answer the same question/i);
+  assert.match(pages['card-price-checker.html'], /keep a missing price as missing/i);
 
   assert.match(pages['pokemon-card-scanner.html'], /Pokemon card value scanner/i);
   assert.match(pages['pokemon-card-scanner.html'], /best Pokemon card scanner app/i);
   assert.match(pages['pokemon-card-scanner.html'], /free to install/i);
   assert.match(pages['pokemon-card-scanner.html'], /does not authenticate cards or predict grades/i);
+  assert.match(pages['pokemon-card-scanner.html'], /server-managed limit of 10 successful scans/i);
+  assert.match(pages['pokemon-card-scanner.html'], /10-image queue is a separate batch limit/i);
 
   assert.match(pages['card-collection-tracker.html'], /TCG collection tracker/i);
   assert.match(pages['card-collection-tracker.html'], /trading card portfolio tracker/i);
@@ -195,12 +199,18 @@ test('approved keyword clusters stay with one truthful owner', async () => {
   assert.match(pages['card-scanner-comparison-2026.html'], /eBay search link/i);
   assert.match(pages['card-scanner-comparison-2026.html'], /<table>/i);
   assert.match(pages['card-scanner-comparison-2026.html'], /href="https:\/\/www\.pricecharting\.com\/page\/collection-tracker"/);
+  assert.match(pages['card-scanner-comparison-2026.html'], /href="https:\/\/www\.cardladder\.com\/pricing"/);
+  assert.match(pages['card-scanner-comparison-2026.html'], /free access currently allows 10 successful scans per account/i);
+  assert.match(pages['card-scanner-comparison-2026.html'], /Google Play store link on this website is still pending/i);
+  assert.match(pages['card-scanner-comparison-2026.html'], /Try the card scanner in Card AI/);
   assert.match(pages['card-ai-vs-ludex.html'], /Card AI vs Ludex/i);
   assert.match(pages['card-ai-vs-ludex.html'], /Ludex scan and price guide/i);
   assert.match(pages['card-ai-vs-ludex.html'], /does not create an eBay listing/i);
+  assert.match(pages['card-ai-vs-ludex.html'], /Try the card scanner in Card AI/);
   assert.match(pages['card-ai-vs-collx.html'], /Card AI vs CollX/i);
   assert.match(pages['card-ai-vs-collx.html'], /pricing FAQ/i);
   assert.match(pages['card-ai-vs-collx.html'], /not a synced feed of sold transactions/i);
+  assert.match(pages['card-ai-vs-collx.html'], /Try the collection tracker in Card AI/);
 });
 
 test('homepage scanner-app guidance is visible and matches FAQ schema', async () => {
@@ -255,14 +265,17 @@ test('30th Celebration guide keeps dated facts, article metadata, links, and dis
   assert.match(articleHtml, /Card AI does not predict a grade/i);
   assert.match(articleHtml, /official 30th Celebration gallery and its full card checklist/i);
   assert.match(articleHtml, /not a complete card list or a ranking of the most valuable cards/i);
-  assert.match(articleHtml, /Updated 2026-10-19/);
+  assert.match(articleHtml, /Updated 2026-10-20/);
+  assert.match(articleHtml, /30th Celebration Ultra-Premium Collection/);
+  assert.match(articleHtml, /29 30th Celebration booster packs and one Classic Collection booster pack/);
+  assert.match(articleHtml, /not a Card AI price for a sealed box/);
   assert.match(articleHtml, /href="\/pokemon-card-scanner"/);
   assert.match(articleHtml, /href="\/card-price-checker"/);
   assert.match(pokemonHtml, new RegExp(`href="/blog/${slug}"`));
 
   assert.equal(article?.headline, 'Pokemon TCG 30th Celebration card prices and set guide');
   assert.equal(article?.datePublished, '2026-10-10');
-  assert.equal(article?.dateModified, '2026-10-19');
+  assert.equal(article?.dateModified, '2026-10-20');
   assert.equal(article?.mainEntityOfPage, canonical);
   assert.equal(article?.image, 'https://tcgcard.fun/assets/showcase-analysis.png');
   assert.match(articleHtml, new RegExp(`<link rel="canonical" href="${canonical}">`));
@@ -300,6 +313,19 @@ test('Minior guide distinguishes Pokemon GO encounters from physical card printi
   assert.match(blogIndex, new RegExp(`href="/blog/${slug}"`));
   assert.equal(occurrences(llms, `](${canonical})`), 1);
   assert.equal(occurrences(sitemap, `<loc>${canonical}</loc>`), 1);
+});
+
+test('grading guide describes existing slab tracking without offering grading services', async () => {
+  const article = await readFile(
+    fileURLToPath(new URL('blog/raw-vs-graded-card-values.html', publicUrl)),
+    'utf8',
+  );
+  const metadata = jsonLdObjects(article).find((value) => value['@type'] === 'Article');
+
+  assert.match(article, /Which card grading companies can Card AI record/);
+  assert.match(article, /record PSA, BGS, CGC or SGC and the grade shown on its slab/);
+  assert.match(article, /does not submit cards to a grading company, authenticate a slab, or estimate what grade a raw card would receive/);
+  assert.equal(metadata?.dateModified, '2026-10-20');
 });
 
 test('new collector guides keep card releases and retailer names distinct', async () => {

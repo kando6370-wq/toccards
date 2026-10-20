@@ -3,6 +3,7 @@ title: Raw vs Graded Card Values: What Changes | Card AI
 h1: Raw vs graded cards, and what grading does to value
 description: Why graded cards trade at a premium over raw copies, how the gap between grades works, and when grading a card is worth the cost and the wait.
 date: 2026-09-21
+updated: 2026-10-20
 image: /assets/showcase-analysis.png
 imageAlt: Card AI market prices and price history view
 imageCaption: Card AI keeps raw and graded market views separate when data is available.
@@ -28,6 +29,12 @@ The practical consequence: the value of grading depends almost entirely on wheth
 Start with the same card record, then split the question in two. A raw card needs a condition band such as near mint or lightly played. A graded card needs the grading company and the grade printed on the slab. PSA, BGS, CGC and SGC are not interchangeable labels, and a Gem Mint 10 is not a generic premium that can be applied to every raw copy.
 
 When you need more market context, compare the available price history with comparable sales you verify yourself. For supported sports cards, Card AI links to an eBay search. That link does not import sold transactions into the app, and a current listing is not proof that your copy will sell at its asking price.
+
+## Which card grading companies can Card AI record?
+
+For an already graded card, Card AI can record PSA, BGS, CGC or SGC and the grade shown on its slab. Keep that copy separate from a raw card, even if both use the same catalog printing. Check whether a grade-specific market price is available for the selected record before using it in a collection estimate.
+
+This is a way to manage cards that have already been graded. Card AI does not submit cards to a grading company, authenticate a slab, or estimate what grade a raw card would receive. For the app workflow, see the [graded card tracker](/graded-card-tracker).
 
 ## When grading is worth it
 

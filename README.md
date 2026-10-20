@@ -2,6 +2,8 @@
 
 Kando 是 Card AI 的 monorepo，包含 Flutter 客户端、Cloudflare Workers API、React 管理后台、营销站点及共享包。产品主线是卡牌搜索、扫描识别、收藏与估值；v1.1 在此基础上增加 Apple 订阅、Premium 权益、服务端扫描额度、Performance 和订单/通知后台。
 
+当前产品定位、用户流程、交易市场数据口径及官网内容边界见 [Card AI 产品定位与内容边界](docs/releases/v1.1.2/00-product/card-ai-product-positioning.md)。
+
 当前增量文档入口为 [v1.1.2](docs/releases/v1.1.2/README.md)；[v1.1.1](docs/releases/v1.1.1/README.md) 已于 2026-10-09 原位归档，v1.1.0 开发归档与 v1.0.0 冻结基线保持不变。文档版本切换不修改 App 版本、Git tag 或生产环境，原有待验项继续保留。
 
 最新 prod Admin 发布为 2026-10-14 09:12–09:15：从干净的 `main@ee3f298` 配套发布订单金额/退款汇总 API 与两个后台入口。Worker `3345b389` 承接 100% 流量，Pages `2c600e3e` 为 production/success；两个入口共 22 个静态文件与批准构建逐字节一致，9 项 HTTP 烟测通过。生产绑定、变量、缓存、Smart Placement、cron、域名和 Pages 配置保留；没有数据库迁移、Git push 或其他应用发布。真实 Admin 登录业务与原有专项验收仍待完成，详见 [v1.1.2 验证记录](docs/releases/v1.1.2/05-delivery/VERIFICATION.md)。

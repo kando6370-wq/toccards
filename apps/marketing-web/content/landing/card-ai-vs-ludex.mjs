@@ -2,6 +2,7 @@ export default {
   slug: 'card-ai-vs-ludex',
   group: 'feature',
   linkLabel: 'Card AI vs Ludex',
+  ctaTarget: 'card scanner',
   title: 'Card AI vs Ludex: Scan, Price and List | Card AI',
   description: 'Compare the documented Card AI and Ludex workflows for reviewing card scans, researching prices, managing a collection, and listing on eBay.',
   eyebrow: 'Workflow comparison',

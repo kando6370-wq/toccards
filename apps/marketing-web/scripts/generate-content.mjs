@@ -188,7 +188,8 @@ function renderProductProof(page) {
 }
 
 function renderLanding(page, all) {
-  const ctaLabel = `${page.linkLabel.charAt(0).toLowerCase()}${page.linkLabel.slice(1)}`;
+  const ctaTarget = page.ctaTarget ?? page.linkLabel;
+  const ctaLabel = `${ctaTarget.charAt(0).toLowerCase()}${ctaTarget.slice(1)}`;
   const sections = page.sections
     .map(
       (section) => `          <section class="content-block">

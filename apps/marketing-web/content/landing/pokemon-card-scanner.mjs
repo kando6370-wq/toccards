@@ -27,6 +27,10 @@ export default {
       "body": "Most Pokemon collections are not one rare card, they are boxes of bulk with a few keepers inside. The current Scan queue keeps up to 10 camera captures or gallery selections together for review, so you can work through a stack in batches and add confirmed cards to the same collection."
     },
     {
+      "h2": "From a photo to a price and a collection record",
+      "body": "The Pokemon card price checker in Card AI starts with the catalog record you confirm, not the character name alone. Scan in the app or search by set and number, review the suggested printing, then open its available raw or graded prices and history. If you own that copy, save it to your collection; otherwise keep it on your wishlist.\n\nThe app does not guarantee a match from every photo or a published price for every record. A marketplace listing and the published price are different references, so check the price date before acting."
+    },
+    {
       "h2": "Watch your Pokemon collection value move",
       "body": "Once cards are in your collection they behave like a portfolio. Card AI totals what you own, keeps price history on individual cards, and updates as the market moves, so you can see whether a set is appreciating before you decide to sell or keep buying."
     }
@@ -38,7 +42,7 @@ export default {
     },
     {
       "q": "Is the Pokemon card scanner free to install?",
-      "a": "Card AI is free to install from its currently available store listing. Scan allowances and Premium features vary by access level, so check the app before working through a large collection."
+      "a": "Card AI is free to install from its current App Store listing. Free access has a server-managed limit of 10 successful scans; the 10-image queue is a separate batch limit. Premium access and store availability may change, so check the app before working through a large collection."
     },
     {
       "q": "Can Card AI tell a first edition Pokemon card from an unlimited print?",

@@ -2,6 +2,7 @@ export default {
   slug: 'card-ai-vs-collx',
   group: 'feature',
   linkLabel: 'Card AI vs CollX',
+  ctaTarget: 'collection tracker',
   title: 'Card AI vs CollX: Prices and Collection | Card AI',
   description: 'Compare how Card AI and CollX identify variants, handle card condition and grades, explain prices, and organize a collection.',
   eyebrow: 'Pricing comparison',

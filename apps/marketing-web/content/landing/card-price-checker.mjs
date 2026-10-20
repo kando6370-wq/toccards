@@ -27,6 +27,10 @@ export default {
       "body": "- Scan the card with your camera, review the suggested catalog matches, and confirm the printing details\n- Run a card price lookup by name, set or card number when you do not have the card in hand\n\nBoth routes land on the same catalog record with the same pricing and history. That makes the trading card value app useful whether the copy is on the table or only on your want list. For a Pokemon set example, see how the [30th Celebration price and set guide](/blog/pokemon-tcg-30th-celebration-card-prices) separates the official card list from a dated price snapshot."
     },
     {
+      "h2": "How to check a Pokemon card's value",
+      "body": "A Pokemon card price checker and a Pokemon card value checker answer the same question only after you identify the copy. Start with the set and collector number, then confirm the artwork, finish and language. Choose the raw condition you actually have, or enter the grade already printed on a slab.\n\nCard AI can start from a photo or a catalog search. Both paths open the selected card record with its available published price and history. Check the price date and keep a missing price as missing; another printing's value is not a substitute. See the [Pokemon card scanner](/pokemon-card-scanner) for the camera review flow."
+    },
+    {
       "h2": "From price check to portfolio",
       "body": "Checking one card is useful once. The value compounds when the cards you check become a tracked collection with a running total that updates as the market moves, so you know what the whole thing is worth without re-checking card by card.\n\nBecause the card price database sits behind every entry, a card price scanner result and a text lookup resolve to the same number."
     },

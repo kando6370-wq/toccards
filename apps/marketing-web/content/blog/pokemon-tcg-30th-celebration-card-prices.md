@@ -3,7 +3,7 @@ title: Pokemon 30th Celebration Card Prices | Card AI
 h1: Pokemon TCG 30th Celebration card prices and set guide
 description: Use the official Pokemon 30th Celebration card list, compare 30C and 30C-CC records, and check a dated price snapshot before valuing your copies.
 date: 2026-10-10
-updated: 2026-10-19
+updated: 2026-10-20
 image: /assets/showcase-analysis.png
 imageAlt: Card AI market prices and price history view
 imageCaption: Illustrative Card AI screen composite. Values shown in the image are examples, not the dated 30th Celebration snapshot below.
@@ -39,6 +39,12 @@ Our practical rule is to keep a want list separate from a portfolio. Add a card 
 The main 30C set and the 30C-CC Classic Collection are separate catalog groups. A familiar name or artwork is not enough to choose between them. Check the set code and collector number printed on the card, then compare the artwork and finish.
 
 This also keeps the new set separate from Pokemon Celebrations cards released in 2021. Similar anniversary wording does not make two printings interchangeable, and their prices should not be blended.
+
+## What is in the 30th Celebration Ultra-Premium Collection?
+
+Pokemon has announced two Day & Night versions for November 6, 2026. The Day version features Pikachu ex and Espeon ex; the Night version features Pikachu ex and Umbreon ex. According to the [official product showcase](https://www.pokemon.com/us/news/pokemon-tcg-30th-celebration-product-showcase), each collection includes 29 30th Celebration booster packs and one Classic Collection booster pack containing three Classic Collection cards, along with accessories.
+
+That is a product contents guide, not a Card AI price for a sealed box. After opening, confirm each physical card's set code, collector number, artwork and finish. The included Classic Collection cards belong to a different catalog group from main-set cards, and any available price applies to the confirmed single card and its condition or existing grade. Card AI does not predict the box's resale value or the cards inside unopened packs.
 
 ## Scan or search for the matching record
 
