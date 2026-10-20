@@ -14,6 +14,8 @@
 | [`v1.1.1`](releases/v1.1.1/README.md) | 开发归档 | 扫描与插件增量、Admin、兼容设计、研究及发布/故障证据；未验收项原样保留 |
 | [`v1.1.2`](releases/v1.1.2/README.md) | 当前开发入口 | App 兼容规则与部分源码回归、Admin 金额汇总、营销内容与 Sitemap 实验；完整兼容和正式制品验收仍待完成 |
 
+当前产品与官网内容判断先读 [Card AI 产品定位与内容边界](releases/v1.1.2/00-product/card-ai-product-positioning.md)。
+
 ## 版本目录规范
 
 ```text
