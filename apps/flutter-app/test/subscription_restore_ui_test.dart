@@ -788,6 +788,210 @@ void main() {
     },
   );
 
+  for (final sheet in [false, true]) {
+    testWidgets(
+      'custom billing copy replaces the summary above purchase ${sheet ? 'modal' : 'page'}',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        try {
+          final host = _RestoreTestHost(
+            includeTrial: true,
+            displayConfiguration: SubscriptionDisplayConfig(
+              pageType: sheet
+                  ? SubscriptionPageType.modal
+                  : SubscriptionPageType.page,
+              trialEnabled: true,
+              trialToggleText: 'Enable Free Trial',
+              skus: const [
+                SubscriptionDisplaySku(
+                  productId: 'weekly.product',
+                  type: DisplayProductType.subscription,
+                  isDefault: true,
+                  copy: SubscriptionCopy(
+                    name: 'Weekly',
+                    billingNote: 'Weekly charge: {price}',
+                    autoBillingNote: false,
+                  ),
+                  trial: SubscriptionTrial(
+                    productId: 'weekly.trial',
+                    copy: SubscriptionCopy(
+                      name: 'Weekly trial',
+                      billingNote: 'Trial first, then {price}',
+                      autoBillingNote: false,
+                    ),
+                  ),
+                ),
+                SubscriptionDisplaySku(
+                  productId: 'yearly.product',
+                  type: DisplayProductType.subscription,
+                  copy: SubscriptionCopy(name: 'Yearly'),
+                ),
+              ],
+            ),
+          );
+          await tester.pumpWidget(host.app);
+          await tester.pumpAndSettle();
+          host.router.push('/subscription${sheet ? '?sheet=true' : ''}');
+          await tester.pumpAndSettle();
+
+          final purchase = find.byKey(
+            const Key('subscription-purchase-button'),
+          );
+          final customNote = find.byKey(
+            const Key('subscription-billing-custom-note'),
+          );
+          final summary = find.byKey(const Key('subscription-billing-summary'));
+          expect(host.display!.selectedCard!.product.id, 'weekly.product');
+          expect(
+            tester.widget<Text>(customNote).data,
+            'Weekly charge: USD 3.99',
+          );
+          expect(summary, findsNothing);
+          expect(
+            tester.getRect(customNote).bottom,
+            lessThanOrEqualTo(tester.getRect(purchase).top),
+          );
+
+          await tester.tap(find.byKey(const Key('subscription-trial-switch')));
+          await tester.pumpAndSettle();
+          expect(host.display!.selectedCard!.product.id, 'weekly.trial');
+          expect(
+            tester.widget<Text>(customNote).data,
+            'Trial first, then USD 3.99',
+          );
+          expect(find.text('Weekly charge: USD 3.99'), findsNothing);
+          expect(summary, findsNothing);
+          expect(
+            tester.getRect(customNote).bottom,
+            lessThanOrEqualTo(tester.getRect(purchase).top),
+          );
+
+          final yearly = find.byKey(
+            const Key('subscription-config-product-yearly.product'),
+          );
+          await tester.ensureVisible(yearly);
+          await tester.tap(yearly);
+          await tester.pumpAndSettle();
+          expect(host.display!.selectedCard!.product.id, 'yearly.product');
+          expect(customNote, findsNothing);
+          expect(tester.widget<Text>(summary).data, contains('every 1 year'));
+          expect(
+            tester.getRect(summary).bottom,
+            lessThanOrEqualTo(tester.getRect(purchase).top),
+          );
+          expect(tester.takeException(), isNull);
+        } finally {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
+  }
+
+  testWidgets('empty custom billing copy leaves no note above purchase', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    try {
+      final host = _RestoreTestHost(
+        displayConfiguration: SubscriptionDisplayConfig(
+          pageType: SubscriptionPageType.page,
+          skus: const [
+            SubscriptionDisplaySku(
+              productId: 'weekly.product',
+              type: DisplayProductType.subscription,
+              isDefault: true,
+              copy: SubscriptionCopy(name: 'Weekly', autoBillingNote: false),
+            ),
+          ],
+        ),
+      );
+      await tester.pumpWidget(host.app);
+      await tester.pumpAndSettle();
+      host.router.push('/subscription');
+      await tester.pumpAndSettle();
+
+      expect(host.display!.selectedCard!.product.id, 'weekly.product');
+      expect(
+        find.byKey(const Key('subscription-billing-custom-note')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('subscription-billing-summary')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('subscription-purchase-button')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  for (final eligibility in TrialEligibility.values) {
+    testWidgets(
+      'independent trial custom copy respects $eligibility eligibility',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+        try {
+          final host = _RestoreTestHost(
+            includeTrial: true,
+            trialEligibility: Future<TrialEligibility>.value(eligibility),
+            displayConfiguration: SubscriptionDisplayConfig(
+              pageType: SubscriptionPageType.page,
+              skus: const [
+                SubscriptionDisplaySku(
+                  productId: 'weekly.trial',
+                  type: DisplayProductType.subscription,
+                  isDefault: true,
+                  copy: SubscriptionCopy(
+                    name: 'Trial',
+                    autoBillingNote: false,
+                    billingNote: 'Start free, then {price}',
+                  ),
+                ),
+              ],
+            ),
+          );
+          await tester.pumpWidget(host.app);
+          await tester.pumpAndSettle();
+          host.router.push('/subscription');
+          await tester.pumpAndSettle();
+
+          expect(host.display!.selectedCard!.product.id, 'weekly.trial');
+          final custom = find.byKey(
+            const Key('subscription-billing-custom-note'),
+          );
+          final summary = find.byKey(const Key('subscription-billing-summary'));
+          if (eligibility == TrialEligibility.eligible) {
+            expect(
+              tester.widget<Text>(custom).data,
+              'Start free, then USD 3.99',
+            );
+            expect(summary, findsNothing);
+          } else {
+            expect(custom, findsNothing);
+            expect(summary, findsOneWidget);
+            expect(
+              tester.widget<Text>(summary).data,
+              eligibility == TrialEligibility.unknown
+                  ? contains('Standard price:')
+                  : contains('Auto-renews until cancelled.'),
+            );
+          }
+          expect(tester.takeException(), isNull);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
+  }
+
   testWidgets('configured paywall follows the Figma two-plan layout', (
     tester,
   ) async {

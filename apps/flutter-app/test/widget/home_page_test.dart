@@ -428,12 +428,32 @@ void main() {
     expect(find.text('Overview'), findsOneWidget);
     final modeTabs = find.byKey(const Key('home-mode-tabs'));
     final premiumEntry = find.byKey(const Key('home-premium-top-entry'));
+    final overviewIndicator = find.byKey(const Key('home-overview-indicator'));
+    final performanceIndicator = find.byKey(
+      const Key('home-performance-indicator'),
+    );
     expect(tester.getSize(modeTabs).height, 42);
-    expect(tester.getSize(modeTabs).width, 194);
+    expect(tester.getSize(modeTabs).width, 200);
     expect(tester.getSize(premiumEntry), const Size(32, 32));
     expect(
       tester.getRect(premiumEntry).left - tester.getRect(modeTabs).right,
       8,
+    );
+    expect(
+      tester.widget<Container>(overviewIndicator).color,
+      KandoColors.accent,
+    );
+    expect(
+      tester.widget<Container>(performanceIndicator).color,
+      Colors.transparent,
+    );
+    expect(
+      tester.widget<Text>(find.text('Overview')).style?.color,
+      KandoColors.accent,
+    );
+    expect(
+      tester.widget<Text>(find.text('Performance')).style?.color,
+      KandoColors.accent.withValues(alpha: 0.45),
     );
     final modeTabsRect = tester.getRect(modeTabs);
     final premiumEntryRect = tester.getRect(premiumEntry);
@@ -441,14 +461,32 @@ void main() {
     await tester.pump();
     expect(tester.getRect(modeTabs), modeTabsRect);
     expect(tester.getRect(premiumEntry), premiumEntryRect);
+    expect(
+      tester.widget<Container>(overviewIndicator).color,
+      Colors.transparent,
+    );
+    expect(
+      tester.widget<Container>(performanceIndicator).color,
+      KandoColors.accent,
+    );
+    expect(
+      tester.widget<Text>(find.text('Performance')).style?.color,
+      KandoColors.accent,
+    );
     await tester.tap(find.text('Overview'));
     await tester.pump();
     expect(tester.widget<Text>(find.text('Overview')).style?.fontSize, 16);
     expect(tester.widget<Text>(find.text('Overview')).style?.height, 24 / 16);
-    expect(tester.widget<Text>(find.text('Performance')).style?.fontSize, 12);
+    expect(tester.widget<Text>(find.text('Performance')).style?.fontSize, 16);
     expect(
       tester.widget<Text>(find.text('Performance')).style?.height,
-      16 / 12,
+      24 / 16,
+    );
+    expect(tester.getSize(overviewIndicator).height, 2);
+    expect(tester.getSize(performanceIndicator).height, 2);
+    expect(
+      tester.getRect(overviewIndicator).top,
+      greaterThan(tester.getRect(find.text('Overview')).bottom),
     );
     expect(find.byKey(const Key('home-overview-icon')), findsNothing);
     expect(find.byIcon(Icons.workspace_premium_outlined), findsNothing);
@@ -517,8 +555,44 @@ void main() {
 
     await tester.tap(find.byKey(const Key('home-performance-tab')));
     await tester.pumpAndSettle();
-    expect(tester.widget<Text>(find.text('Overview')).style?.fontSize, 12);
+    expect(tester.widget<Text>(find.text('Overview')).style?.fontSize, 16);
     expect(tester.widget<Text>(find.text('Performance')).style?.fontSize, 16);
+  });
+
+  testWidgets('Home tabs remain readable on a compact screen', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(360, 844);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(_mockHomeApp());
+    await tester.pumpAndSettle();
+
+    final tabs = find.byKey(const Key('home-mode-tabs'));
+    final currency = find.byKey(const Key('home-currency-control'));
+    final premium = find.byKey(const Key('home-premium-top-entry'));
+    expect(
+      tester.getRect(currency).top,
+      greaterThan(tester.getRect(tabs).bottom),
+    );
+    expect(tester.getRect(currency).right, lessThanOrEqualTo(340));
+    expect(
+      tester.getRect(premium).bottom,
+      lessThan(tester.getRect(currency).top),
+    );
+    expect(tester.widget<Text>(find.text('Overview')).style?.fontSize, 16);
+    expect(tester.widget<Text>(find.text('Performance')).style?.fontSize, 16);
+
+    await tester.tap(find.byKey(const Key('home-performance-tab')));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<Container>(
+            find.byKey(const Key('home-performance-indicator')),
+          )
+          .color,
+      KandoColors.accent,
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(
@@ -2213,15 +2287,39 @@ void main() {
     );
   });
 
-  testWidgets('Home mode tabs use the Figma text-only states', (tester) async {
+  testWidgets('Home mode tabs use brand text and an active underline', (
+    tester,
+  ) async {
     await tester.pumpWidget(_mockHomeApp());
 
     final overview = tester.widget<Text>(find.text('Overview'));
     final performance = tester.widget<Text>(find.text('Performance'));
     expect(overview.style?.fontSize, 16);
-    expect(overview.style?.color, KandoColors.primaryOnDefault);
-    expect(performance.style?.fontSize, 12);
-    expect(performance.style?.color, const Color(0xFF615D3B));
+    expect(overview.style?.color, KandoColors.accent);
+    expect(performance.style?.fontSize, 16);
+    expect(
+      performance.style?.color,
+      KandoColors.accent.withValues(alpha: 0.45),
+    );
+    expect(
+      tester
+          .widget<Container>(find.byKey(const Key('home-overview-indicator')))
+          .color,
+      KandoColors.accent,
+    );
+    for (final tab in ['home-overview-tab', 'home-performance-tab']) {
+      final inkWell = tester.widget<InkWell>(
+        find.descendant(
+          of: find.byKey(Key(tab)),
+          matching: find.byType(InkWell),
+        ),
+      );
+      expect(
+        inkWell.overlayColor?.resolve({WidgetState.pressed}),
+        Colors.transparent,
+      );
+      expect(inkWell.splashFactory, NoSplash.splashFactory);
+    }
     expect(find.byKey(const Key('home-overview-icon')), findsNothing);
     expect(find.byIcon(Icons.workspace_premium_outlined), findsNothing);
   });

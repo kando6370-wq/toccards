@@ -706,6 +706,20 @@ Code Review 自查覆盖计数口径、直接请求绕过、存量数据保留�
 
 以上是本地源码与测试结果，未执行真实后台登录编辑、真实 Apple 目录／StoreKit、iPhone／Android 真机、签名构建、旧版 App 实机兼容、dev/prod 部署、远程配置写入、数据库迁移或 Git commit／push。旧版 App 对隐藏字段的忽略是代码合同结论，不代表已做正式旧包验收。
 
+## 2026-10-19 iPhone 13 安装价格展示增量 Debug 包
+
+从干净的 `codex/dev-1.0.6@eb365651` 在 macOS／Flutter 3.44.5／Xcode 27.1 上执行 `flutter run --no-pub --flavor test --debug -d 00008110-000A242A01A2801E --dart-define-from-file=config/test.json`，Xcode 构建成功，Debug-test App 已安装并启动在 `kando的iPhone13`（iOS 26.6.2），Dart VM Service 建立；随后 detach 调试器，使用 `devicectl` 再次启动成功。设备安装列表回读为 `Card AI`、Bundle `com.kando.kandoApp.beta`、版本 `1.0.5 (171)`。对实际签名的 `build/ios/iphoneos/Runner.app` 回读确认 Bundle 一致、`get-task-allow=true`、App Attest entitlement 为 `development`；未制作或保存新 IPA。
+
+设备运行日志报告 Internet offline，测试 API `192.168.50.201:8080`、Firebase 和 Singular 请求失败；开发机同一 API 的 health 请求正常。这说明本轮仅验收安装、签名和启动，未验收设备上的订阅配置读取、隐藏价格显示、登录、StoreKit 购买／恢复或外部埋点。前述本地服务端价格字段增量仍未部署到 dev；本轮无远端配置写入、数据库操作或 Git push。
+
+## 2026-10-19 iOS 测试环境 Release 内部安装包 1.0.5 (172)
+
+- 构建输入：从 `codex/dev-1.0.6@eb365651af68cbcddafd00b1f88e5bec2506e29b` 构建；构建前 App 源码与该提交一致，工作区仅有既存验证文档记录，构建期间 `git diff HEAD --binary` 的 SHA-256 保持为 `c4ed4e20ddf49d10aafba7ae86dff72fd57c4d4c2b4bc060c832010fa4549d55`。构建前版本为 `1.0.5+171`，本次使用 `1.0.5 (172)`；制品完整保存并校验后将 `pubspec.yaml` 同步为 `1.0.5+172`。工具链为 Flutter 3.44.5／Dart 3.12.2／Xcode 27.1。
+- 环境与依赖：`config/test.json` 发布配置与 dev health 校验通过，最终 App 为 `com.kando.kandoApp.beta`，测试 API `http://192.168.50.201:8080/api/v1` 已嵌入且未发现生产 API，Firebase 项目为 `card-ai---test`。`pubspec.lock` 与 `ios/Podfile.lock` 的 SHA-256 分别保持为 `0d85580159d1c598b6a61e32f9ad77c6a5013eaeb586ac29d9836d8b7e379021`、`d0879ca1f7222cbc2de5bd0d33a414c834eaec2235f469322ffd171ab0f75793`，没有依赖锁更新。
+- 验证与构建：`flutter analyze --no-pub` 通过；订阅展示、恢复、OAuth authorizer 与发布配置相关测试共 92 项通过。执行 `flutter clean` 后构建 Release-test 原生产物并创建 Xcode archive。最终 IPA 从归档内已签名 App 原样封装，373 个文件逐字节一致；严格签名检查通过，Apple Development 签名、`get-task-allow=true`、App Attest `development`，描述文件有效至 2027-09-07，包含 6 台登记设备。归档退出 0，仅保留第三方弃用、Swift 6 前置兼容和 `in_app_review` 隐私清单处理等非阻断警告。
+- 符号与完整性：`Card AI Test.ipa` 为 39,927,489 字节，SHA-256 `15a683cf03eb27af8023d7aa06e2d036ba8dad9303f3b0a6f3c305241702f71a`；`dSYMs.zip` 为 61,217,958 字节，SHA-256 `dc63ffff7f7f6ae7337532fbb9808967e696a5ac9120a2acce8e67b26f4e36f4`。两份 ZIP 完整性检查通过，42/42 个唯一 Mach-O UUID 有对应 dSYM，缺失／额外均为 0。44 个 dSYM bundle 中 43 个通过 `dwarfdump --verify`；`App.framework.dSYM` 有 169 个 Flutter AOT DWARF range 实际错误，命令输出包含 2 条汇总后共 171 条 `error:`，不能声称全部 dSYM 深度校验通过。
+- 保存与边界：制品保存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.5-172/`；新版本完整保存后将旧 169 版移入废纸篓，当前保留 170、171、172。本次未安装设备、上传蒲公英／TestFlight／App Store Connect，也未执行真实登录、扫描、购买、Restore、崩溃上报或真机启动验收；未部署、迁移数据库、提交或推送 Git。
+
 <a id="linux-dev-manual-02b800e"></a>
 
 ## 2026-10-19 Linux dev 手工发布 `02b800e`
@@ -715,3 +729,17 @@ Code Review 自查覆盖计数口径、直接请求绕过、存量数据保留�
 - 远端发布完成后，API／DB 容器分别为 healthy，Web 容器 running，migration 容器退出码 0；PostgreSQL ledger 为 15 项，最新 `0014_subscription_display_config.sql`。本次没有待执行 migration，也没有业务 SQL 写入。
 - 独立 HTTP 烟测：`GET /api/v1/health` 返回 200／`{"status":"ok"}`，Admin 首页返回 200，未登录 `/api/v1/auth/me` 返回 401，`GET /api/v1/subscription-display-config?type=page&platform=ios` 返回 200／`{"success":true,"data":null}`。current release 中 API bundle SHA-256 为 `a3d3b1fe5433d214ba2921355be480f9f8f0c4370c1ad6ebebbc025ec5c79138`，运行文件与 release 文件一致。
 - 本次为未推送本地提交的手工发布：watcher 的 `last-seen-sha` 仍为 `c23ae02`，`last-deployed-sha` 仍为 `06f420a`；未修改 watcher 状态、未执行 Git push。prod、旧 CF dev、营销站、Flutter 制品、真实登录、真实图片识别、购买／Restore 和完整真机验收均未执行。
+
+## 2026-10-19 Home 顶部模式 Tab 视觉调整
+
+按用户截图将 Home 的 Overview／Performance 从描边胶囊改为纯文字与选中下划线：两项均为 16px，选中项文字和 2px 底线使用 `KandoColors.accent`，未选中项使用同一主色的 45% 不透明度。点击时不显示默认按压覆盖或水波纹。Tab 宽度在切换时不变；窄屏空间不足时货币控件换到下一行，保留完整字号。原 Tab 状态、埋点、Free 顶部订阅入口和货币选择逻辑不变。
+
+本地 Tab 切换、埋点、返回 Home、文字与底线样式及 360px 紧凑布局的 5 项定向 Widget 测试通过，`flutter analyze --no-pub` 无问题。Home 全文件 Widget 测试为 75 项通过、4 项 Golden 失败：两张整页 Golden 包含本次改动的顶部，另两张为独立 Performance 区域；整页对比还存在未改动内容的像素差异，因此未批量重录基线。320px 全页测试另暴露图表时间按钮和下方卡片已有的横向溢出，本次未修改这些模块。
+
+同日以 `test` Debug flavor 在已连接的 iPhone 13 构建、安装并启动当前工作区，Dart VM Service 和 DevTools 已连接；实际签名 Bundle 为 `com.kando.kandoApp.beta`，App Attest 为 `development`。首张真机截图发现 `Overview` 被固定宽度裁掉末字，增加标签宽度并缩小间隔后热重载，复抓画面确认两个标签完整，`Performance` 选中态的主色文字和底线正常；随后关闭 Tab 默认按压覆盖和水波纹并再次热重载。最终宽度与按压反馈修正尚未重新构建独立安装包；Android 真机未验，未发布或上传商店。
+
+## 2026-10-19 购买按钮上方自定义说明互斥展示
+
+从 `codex/dev-1.0.6@6b9edc5d` 的干净工作区修改 iOS 订阅 Page／Modal 的共同购买区：有效后台配置为 `custom` 时只显示当前实际基础或关联试用 SKU 的自定义说明，空文本不显示说明；`auto` 时显示按 StoreKit 商品及资格生成的摘要，两者不再叠加。试用资格 unknown／ineligible 时沿用中性价格摘要，屏蔽可能误导的免费承诺。后台表单提示同步反映这一行为。原 PRD 1.14 要求固定摘要始终展示，当前用户指令已改变此规则；冻结 PRD 保留，实际消费规则更新至[客户端流程](../01-flows/subscription-display.md)与[服务端合同](../03-data-api/subscription-display-config.md)。未修改 V1 字段、服务端保存、StoreKit 价格校验、购买前复核、本地兜底或 Android 路径。
+
+本地 `flutter test --no-pub --dart-define-from-file=config/test.json test/subscription_display_test.dart test/subscription_restore_ui_test.dart` 86/86 通过，新增用例覆盖 Page／Modal 的基础与关联试用自定义文案、切换自动说明、空自定义及独立试用 eligible／unknown／ineligible 资格；`flutter analyze --no-pub` 无问题。`pnpm --filter @kando/admin-web test` 67/67、`pnpm --filter @kando/admin-web type-check`、`git diff --check` 均通过。未在真实 Admin 页面保存配置，也未以真机读取后台配置或执行购买／Restore；未构建、安装或发布包含本次改动的新 App 包，未部署服务端、迁移数据库或推送 Git。
