@@ -189,12 +189,14 @@ class SubscriptionDisplayController extends ChangeNotifier {
               .productId;
           isLoading = false;
           _notify();
-          // Qualification is optional for normal billing and never extends Loading.
-          for (final product in loaded.where((p) => p.hasFreeTrial)) {
-            if (remaining() > Duration.zero) {
-              unawaited(_qualify(product, cycle, remaining()));
-            }
-          }
+          // Account-level StoreKit eligibility is intentionally disabled for
+          // the current Apple-configured trial policy. Keep the old lookup
+          // available for a future re-enable without delaying this render:
+          // for (final product in loaded.where((p) => p.hasFreeTrial)) {
+          //   if (remaining() > Duration.zero) {
+          //     unawaited(_qualify(product, cycle, remaining()));
+          //   }
+          // }
           return;
         }
         if (!_usedFallback &&
@@ -220,11 +222,13 @@ class SubscriptionDisplayController extends ChangeNotifier {
                   .productId;
               isLoading = false;
               _notify();
-              for (final p in loaded.where((p) => p.hasFreeTrial)) {
-                if (remaining() > Duration.zero) {
-                  unawaited(_qualify(p, cycle, remaining()));
-                }
-              }
+              // Account-level StoreKit eligibility is intentionally disabled;
+              // retain the previous asynchronous lookup as commented code.
+              // for (final p in loaded.where((p) => p.hasFreeTrial)) {
+              //   if (remaining() > Duration.zero) {
+              //     unawaited(_qualify(p, cycle, remaining()));
+              //   }
+              // }
               return;
             }
           } on Object {
@@ -253,6 +257,8 @@ class SubscriptionDisplayController extends ChangeNotifier {
     _notify();
   }
 
+  // Retained for a future policy that needs account-level eligibility again.
+  // ignore: unused_element
   Future<void> _qualify(
     SubscriptionStoreProduct product,
     int cycle,
@@ -330,28 +336,31 @@ class SubscriptionDisplayController extends ChangeNotifier {
     isVerifying = true;
     final cycle = ++_cycle;
     _notify();
-    final clock = Stopwatch()..start();
     try {
+      // final clock = Stopwatch()..start();
       final ids = {previous.product.id, previous.sku.productId};
       final loaded = await _loadProducts(ids).timeout(loadBudget);
       final next = <String, SubscriptionStoreProduct>{};
       for (final product in loaded.where((p) => ids.contains(p.id))) {
-        var value = product;
-        if (product.hasFreeTrial) {
-          final remaining = loadBudget - clock.elapsed;
-          var eligibility = TrialEligibility.unknown;
-          if (remaining > Duration.zero) {
-            try {
-              eligibility = await _loadEligibility(
-                product.id,
-              ).timeout(remaining);
-            } on Object {
-              /* Keep unknown. */
-            }
-          }
-          value = product.withEligibility(eligibility);
-        }
-        next[product.id] = value;
+        // Account-level eligibility recheck is intentionally disabled for the
+        // current Apple-configured trial policy. The previous code is kept
+        // commented so the policy can be restored without reconstructing it:
+        // var value = product;
+        // if (product.hasFreeTrial) {
+        //   final remaining = loadBudget - clock.elapsed;
+        //   var eligibility = TrialEligibility.unknown;
+        //   if (remaining > Duration.zero) {
+        //     try {
+        //       eligibility = await _loadEligibility(
+        //         product.id,
+        //       ).timeout(remaining);
+        //     } on Object {
+        //       /* Keep unknown. */
+        //     }
+        //   }
+        //   value = product.withEligibility(eligibility);
+        // }
+        next[product.id] = product;
       }
       if (_disposed || cycle != _cycle) return null;
       products = Map.unmodifiable(

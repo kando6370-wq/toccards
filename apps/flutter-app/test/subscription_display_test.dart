@@ -745,74 +745,57 @@ void main() {
     expect((await model.confirmPurchase())!.storeProductId, 'second');
   });
   test(
-    'temporary unknown qualification does not lock the activated trial position',
+    'account qualification does not lock the activated trial position',
     () async {
-      for (final outcome in [
-        TrialEligibility.eligible,
-        TrialEligibility.ineligible,
-      ]) {
-        final pending = Completer<TrialEligibility>();
-        var qualificationCalls = 0;
-        final model = _model(
-          eligibility: (_) => ++qualificationCalls == 1
-              ? Future.value(TrialEligibility.eligible)
-              : pending.future,
-        );
-        addTearDown(model.dispose);
-        await model.load();
-        await Future<void>.delayed(Duration.zero);
-        model.toggleTrial(true);
-        model.select('once');
-
-        await model.load();
-        model.select('paid');
-        expect(model.trialOn, isTrue);
-        expect(model.trialInvalid, isFalse);
-        expect(model.canPurchase, isTrue);
-
-        pending.complete(outcome);
-        await Future<void>.delayed(Duration.zero);
-        expect(model.trialInvalid, isFalse);
-        if (outcome == TrialEligibility.eligible) {
-          expect((await model.confirmPurchase())!.storeProductId, 'trial');
-        } else {
-          expect(await model.confirmPurchase(), isNull);
-          expect(model.trialInvalid, isTrue);
-        }
-      }
-    },
-  );
-  test(
-    'pending trial qualification cannot block a different product purchase',
-    () async {
-      final pending = Completer<TrialEligibility>();
       var qualificationCalls = 0;
       final model = _model(
-        eligibility: (_) => ++qualificationCalls == 1
-            ? Future.value(TrialEligibility.eligible)
-            : pending.future,
+        eligibility: (_) async {
+          qualificationCalls++;
+          return TrialEligibility.ineligible;
+        },
       );
       addTearDown(model.dispose);
       await model.load();
-      await Future<void>.delayed(Duration.zero);
+      model.toggleTrial(true);
+      model.select('once');
+
+      await model.load();
+      model.select('paid');
+      expect(model.trialOn, isTrue);
+      expect(model.trialInvalid, isFalse);
+      expect(model.canPurchase, isTrue);
+      expect((await model.confirmPurchase())!.storeProductId, 'trial');
+      expect(qualificationCalls, 0);
+    },
+  );
+  test(
+    'account qualification is not queried during a different product purchase',
+    () async {
+      var qualificationCalls = 0;
+      final model = _model(
+        eligibility: (_) async {
+          qualificationCalls++;
+          return TrialEligibility.unknown;
+        },
+      );
+      addTearDown(model.dispose);
+      await model.load();
       model.toggleTrial(true);
       model.select('once');
 
       await model.load();
       expect((await model.confirmPurchase())!.storeProductId, 'once');
-      pending.complete(TrialEligibility.eligible);
-      await Future<void>.delayed(Duration.zero);
 
       model.select('paid');
       expect(model.trialOn, isTrue);
       expect(model.trialInvalid, isFalse);
-      expect(await model.confirmPurchase(), isNull);
-      expect(model.trialInvalid, isFalse);
       expect((await model.confirmPurchase())!.storeProductId, 'trial');
+      expect(model.trialInvalid, isFalse);
+      expect(qualificationCalls, 0);
     },
   );
   test(
-    'independent unknown/ineligible trial keeps identity without marketing promises',
+    'independent trial keeps configured copy without account qualification',
     () async {
       for (final eligibility in [
         TrialEligibility.unknown,
@@ -825,20 +808,17 @@ void main() {
         model.select('independent');
         final card = model.selectedCard!;
         expect(card.product.id, 'independent');
-        expect(card.copy.name, 'Premium');
-        expect(card.cta, 'SUBSCRIBE');
-        expect(card.badge, isEmpty);
-        expect(card.billingNote, isEmpty);
+        expect(card.copy.name, 'Free access');
+        expect(card.cta, 'FREE');
+        expect(card.badge, 'FREE');
+        expect(card.billingNote, 'FREE');
         expect(model.canPurchase, isTrue);
-        expect(
-          card.product.billingSummary.contains('Standard price'),
-          eligibility == TrialEligibility.unknown,
-        );
+        expect(card.product.billingSummary, isNot(contains('Standard price')));
       }
     },
   );
   test(
-    'unresolved qualification does not hold normal products in Loading',
+    'trial switch appears with products before account qualification returns',
     () async {
       final unknown = Completer<TrialEligibility>();
       final model = _model(eligibility: (_) => unknown.future);
@@ -846,8 +826,8 @@ void main() {
       await model.load();
       expect(model.isLoading, isFalse);
       expect(model.canPurchase, isTrue);
-      expect(model.showTrialSwitch, isFalse);
-      unknown.complete(TrialEligibility.eligible);
+      expect(model.showTrialSwitch, isTrue);
+      expect(model.selectedCard!.product.id, 'once');
     },
   );
   test(
@@ -945,22 +925,23 @@ void main() {
     model.dispose();
   });
   test(
-    'purchase recheck never converts lost linked-trial eligibility into a paid purchase',
+    'purchase recheck does not query account eligibility for a linked trial',
     () async {
-      var eligibility = TrialEligibility.eligible;
-      final model = _model(eligibility: (_) async => eligibility);
+      var qualificationCalls = 0;
+      final model = _model(
+        eligibility: (_) async {
+          qualificationCalls++;
+          return TrialEligibility.ineligible;
+        },
+      );
       addTearDown(model.dispose);
       await model.load();
-      await Future<void>.delayed(Duration.zero);
       model.toggleTrial(true);
-      eligibility = TrialEligibility.ineligible;
-      expect(await model.confirmPurchase(), isNull);
+      expect((await model.confirmPurchase())!.storeProductId, 'trial');
       expect(model.trialOn, isTrue);
-      expect(model.canPurchase, isFalse);
-      expect(model.selectedId, 'paid');
-      model.toggleTrial(false);
       expect(model.canPurchase, isTrue);
-      expect((await model.confirmPurchase())!.storeProductId, 'paid');
+      expect(model.selectedId, 'paid');
+      expect(qualificationCalls, 0);
     },
   );
   test(
@@ -979,18 +960,21 @@ void main() {
     },
   );
   test(
-    'independent trial losing eligibility updates neutral terms and requires a second click',
+    'independent trial purchase does not recheck account eligibility',
     () async {
-      var eligibility = TrialEligibility.eligible;
-      final model = _model(eligibility: (_) async => eligibility);
+      var qualificationCalls = 0;
+      final model = _model(
+        eligibility: (_) async {
+          qualificationCalls++;
+          return TrialEligibility.unknown;
+        },
+      );
       addTearDown(model.dispose);
       await model.load();
-      await Future<void>.delayed(Duration.zero);
       model.select('independent');
-      eligibility = TrialEligibility.unknown;
-      expect(await model.confirmPurchase(), isNull);
-      expect(model.selectedCard!.cta, 'SUBSCRIBE');
       expect((await model.confirmPurchase())!.storeProductId, 'independent');
+      expect(model.selectedCard!.cta, 'FREE');
+      expect(qualificationCalls, 0);
     },
   );
   test('retry does not reset the presentation close delay', () async {

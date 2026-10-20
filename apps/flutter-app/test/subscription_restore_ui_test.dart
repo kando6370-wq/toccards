@@ -935,7 +935,7 @@ void main() {
 
   for (final eligibility in TrialEligibility.values) {
     testWidgets(
-      'independent trial custom copy respects $eligibility eligibility',
+      'independent trial custom copy does not wait for $eligibility eligibility',
       (tester) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
         try {
@@ -967,23 +967,11 @@ void main() {
           final custom = find.byKey(
             const Key('subscription-billing-custom-note'),
           );
-          final summary = find.byKey(const Key('subscription-billing-summary'));
-          if (eligibility == TrialEligibility.eligible) {
-            expect(
-              tester.widget<Text>(custom).data,
-              'Start free, then USD 3.99',
-            );
-            expect(summary, findsNothing);
-          } else {
-            expect(custom, findsNothing);
-            expect(summary, findsOneWidget);
-            expect(
-              tester.widget<Text>(summary).data,
-              eligibility == TrialEligibility.unknown
-                  ? contains('Standard price:')
-                  : contains('Auto-renews until cancelled.'),
-            );
-          }
+          expect(tester.widget<Text>(custom).data, 'Start free, then USD 3.99');
+          expect(
+            find.byKey(const Key('subscription-billing-summary')),
+            findsNothing,
+          );
           expect(tester.takeException(), isNull);
         } finally {
           debugDefaultTargetPlatformOverride = null;
@@ -1309,15 +1297,15 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(host.display!.selectedId, 'weekly.trial');
-        expect(find.text('Premium'), findsOneWidget);
-        expect(find.text('3-Day Free'), findsNothing);
+        expect(find.text('Premium'), findsNothing);
+        expect(find.text('3-Day Free'), findsOneWidget);
         expect(find.text('Unlimited Yearly'), findsOneWidget);
         expect(find.text('Unlimited Monthly'), findsOneWidget);
         expect(find.text('save 81%'), findsOneWidget);
         expect(find.text('Most Popular'), findsOneWidget);
-        expect(find.text('SUBSCRIBE'), findsOneWidget);
-        expect(find.text('CANCEL ANYTIME'), findsOneWidget);
-        expect(find.text('NO PAYMENT NOW'), findsNothing);
+        expect(find.text('TRY FOR FREE'), findsOneWidget);
+        expect(find.text('CANCEL ANYTIME'), findsNothing);
+        expect(find.text('NO PAYMENT NOW'), findsOneWidget);
         expect(
           find.byKey(const Key('subscription-billing-summary')),
           findsNothing,
@@ -1348,11 +1336,14 @@ void main() {
           of: find.byKey(Key('subscription-config-product-$id-price')),
           matching: find.byType(Text),
         );
-        expect(tester.widget<Text>(price('weekly.trial')).data, r'US$4.99');
+        expect(
+          tester.widget<Text>(price('weekly.trial')).data,
+          r'Then US$4.99',
+        );
         expect(tester.widget<Text>(price('yearly.pro')).data, r'US$0.96');
         expect(tester.widget<Text>(price('cardx.month')).data, r'US$3.25');
 
-        trialEligibility.complete(TrialEligibility.eligible);
+        trialEligibility.complete(TrialEligibility.ineligible);
         await tester.pumpAndSettle();
         expect(find.text('Premium'), findsNothing);
         expect(find.text('3-Day Free'), findsOneWidget);

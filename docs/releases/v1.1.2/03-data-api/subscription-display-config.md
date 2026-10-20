@@ -44,14 +44,14 @@ API／Admin 已由既有 watcher 发布干净的 `dev@06f420a`；独立回读确
 
 购买白名单保留 cardx.week、cardx.year、cardx.lifetime，并追加 weekly.trial、yearly.pro；本次展示准入对应这五个已注册 dev 商品。实际配置仍最多三张展示卡片，关联目标另计购买准入。更新前备份私有环境与目标商品表数据，按原 watcher／deploy 锁串行操作；环境更新仅涉及 APPLE_IAP_PRODUCT_IDS 和 SUBSCRIPTION_DISPLAY_PRODUCT_IDS，API 重载沿用原镜像及业务产物。
 
-环境变更的实际结果以[商品接入验证](../05-delivery/VERIFICATION.md#dev-subscription-product-onboarding)为准，原凭据、Apple 商品设置、原有交易／权益及生产配置保持原边界；商品准入不等于真实 StoreKit 资格、可售、购买／恢复或收入验收。该历史接入点的新 SKU 升降级识别仍受旧 PLAN_CHANGE_PRODUCT_IDS 限制；2026-10-16 增量允许经动态审批登记的订阅参与该分支，并已随 dev@06f420a 发布；该源码／部署结果不改写历史检查点，也不代表真实订阅切换已验收。
+环境变更的实际结果以[商品接入验证](../05-delivery/VERIFICATION.md#dev-subscription-product-onboarding)为准，原凭据、Apple 商品设置、原有交易／权益及生产配置保持原边界；商品准入不等于 StoreKit 可售、购买／恢复或收入验收，当前 App 也不通过账号资格查询补充展示判断。该历史接入点的新 SKU 升降级识别仍受旧 PLAN_CHANGE_PRODUCT_IDS 限制；2026-10-16 增量允许经动态审批登记的订阅参与该分支，并已随 dev@06f420a 发布；该源码／部署结果不改写历史检查点，也不代表真实订阅切换已验收。
 
 ## Apple 目录读取
 
 - `GET /v1/apps/{id}` 核对 Bundle；订阅从 App 的组列表验证指定组后读取组内 subscriptions，并读取每个商品的 introductoryOffers／territory。
 - 一次性使用 `/v1/apps/{id}/inAppPurchasesV2`，仅选择显式范围内的 `NON_CONSUMABLE`。商品基本字段、周期与等级均取真实 Apple 响应，不根据 Product ID 命名猜测。
 - 列表全部翻页。后续 URL 只能保持 Apple HTTPS origin 和同一个资源列表路径；循环、跨来源／资源跳转、异常或缺失字段直接失败，不返回部分成功或假空数据。整次目录请求预算 10 秒，不跟随 HTTP 重定向。
-- 免费试用目录分类仅表示在检查日（UTC 日期）至少一个地区具有有效 `FREE_TRIAL` 介绍性优惠。返回原始地区、日期、duration、numberOfPeriods；未来／已过期／付费优惠保留事实但不计为当前免费优惠。该标记不是当前用户／storefront 的资格或可购买承诺，日期边界必须由 StoreKit 最终确认。
+- 免费试用目录分类仅表示在检查日（UTC 日期）至少一个地区具有有效 `FREE_TRIAL` 介绍性优惠。返回原始地区、日期、duration、numberOfPeriods；未来／已过期／付费优惠保留事实但不计为当前免费优惠。该标记描述商品事实，不代表当前用户的历史使用资格；当前 Flutter App 仅以 StoreKit 返回的商品自身免费试用事实同步展示，账号级资格查询已停用，实际交易仍由 StoreKit 处理。
 - Apple 401/403/429/网络失败返回 503；真正成功的空列表返回 200 和空 products。响应不回显 Apple 错误正文、JWT 或私钥。
 
 ## 管理端 API
@@ -101,7 +101,7 @@ API／Admin 已由既有 watcher 发布干净的 `dev@06f420a`；独立回读确
 
 - `product_type` 为 subscription／non_consumable；`price_mode` 保持 actual／weekly；说明方式为 custom／auto。展示 SKU 可选 `hide_price: true`，仅表示新版 App 不渲染该商品卡片的价格区域，省略或 false 保持原行为。`trial` 可省略或 null；存在时除 `product_id` 和相同营销字段外，可选独立的 `price_mode`（actual／weekly）与 `hide_price`（boolean）。试用字段省略时分别继承源 SKU 的对应设置，显式 `hide_price: false` 可在源卡隐藏价格时继续显示试用价格；空目标可保留替换文案。
 - 2026-10-19 用户要求的“不展示”和试用独立价格方式覆盖原 PRD 1.14 的“主价始终展示／试用继承模式”展示规则，仅作用于商品卡片价格及辅助周均价，不改变购买区的说明方式、StoreKit 价格、购买目标、权益或收入。新状态用可选字段表达，未扩充旧 `price_mode` 枚举：旧版 App 可忽略新增字段并继续读取配置，但不会执行隐藏或试用独立模式；新旧客户端的可见效果须分别验收。
-- 2026-10-19 按钮上方说明新增规则：当前实际 SKU 的 `billing_note_mode=custom` 时，仅显示其 `billing_note`（允许为空，`{price}` 用真实周期金额展开）；`auto` 时仅显示按商品和试用资格生成的摘要。基础与关联试用目标分别取自己的方式和文本；试用资格为 unknown／ineligible 时沿用既有中性价格摘要，屏蔽可能误导的自定义试用承诺。本次展示规则覆盖 PRD 1.14 的“固定真实交易摘要始终展示”要求，不修改 V1 字段、服务端保存结构或 StoreKit 交易事实；已发布旧 App 仍按旧客户端实现展示。
+- 2026-10-19 按钮上方说明新增规则：当前实际 SKU 的 `billing_note_mode=custom` 时，仅显示其 `billing_note`（允许为空，`{price}` 用真实周期金额展开）；`auto` 时仅显示按商品自身试用事实生成的摘要。基础与关联试用目标分别取自己的方式和文本；当前 App 不再使用账号级 `unknown`／`ineligible` 状态屏蔽试用承诺，商品事实加载完成后直接同步展示对应试用文案；商品事实没有免费试用时显示标准价格摘要。本次展示规则覆盖 PRD 1.14 的“固定真实交易摘要始终展示”要求，不修改 V1 字段、服务端保存结构或 StoreKit 交易事实；已发布旧 App 仍按旧客户端实现展示。
 - 可选文案缺失补空，CTA 拒绝花括号，长度用 JavaScript UTF-16 单元。基础名称、唯一默认、1–3 张展示卡片始终校验。切换启用时要求开关文案、至少一组完整关系及试用名称；关闭时保留隐藏试用文本，不验证其必填／长度／CTA，但引用结构与去重继续验证。
 - 2026-10-15 用户补充规则：每组配置的页面展示 SKU 为 1–3 个，Page／Modal、未生效／已生效配置均适用。数量仅计算 `skus` 数组；关联试用目标不额外占名额，独立展示的试用商品和一次性商品各占一个。新增、保存与启用超限配置返回 `422 VALIDATION_ERROR`，字段路径为 `skus`，不改变原内容、版本或生效指针；保留失败幂等结果。存量超限数据不自动删减，Admin 仍可完整读取并修正；公开读取超限生效配置返回 `503 SUBSCRIPTION_CONFIG_UNAVAILABLE`，由 App 按既有规则兜底，不截取前三个商品。无需新增迁移或 V2。
 - 基础与所有保留关系目标在配置内共同去重；关系为非试用自动续期源→当前免费试用目标，同组同周期同等级。Lifetime 不可配试用，未定义周期不可配 weekly。
@@ -129,7 +129,7 @@ API／Admin 已由既有 watcher 发布干净的 `dev@06f420a`；独立回读确
 
 成功 data 包含 schema_version=1、config_id、revision、page_type、关闭延迟、CTA、开关和有序 skus；不返回内部配置名称、管理员、scope、凭据或准入理由。关闭关联功能时输出空开关文案及 null trial，不将保留目标暴露为可购买卡片。每次读取验证当前环境准入／权益映射；已撤销准入的生效配置返回 503，让新客户端走独立兜底，不更改其历史购买。
 
-旧客户端仍走原接口，不要求增加请求字段，也没有向已有枚举塞入新状态。该兼容新增不证明新 SKU 能在旧包 Restore；其支持范围仍须按原 PRD 接入核对。Flutter 实际资格三态、真实计费展示、15 秒预算与 CTA 回退的本地实现见 [客户端流程](../01-flows/subscription-display.md)，服务端不伪造资格或价格；原生与真机验收独立记录。
+旧客户端仍走原接口，不要求增加请求字段，也没有向已有枚举塞入新状态。该兼容新增不证明新 SKU 能在旧包 Restore；其支持范围仍须按原 PRD 接入核对。Flutter 的商品自身试用事实、真实计费展示、15 秒预算与 CTA 回退的本地实现见 [客户端流程](../01-flows/subscription-display.md)；历史 `TrialEligibility` 三态和账号级资格查询代码保留但当前没有活动调用，服务端不伪造资格或价格；原生与真机验收独立记录。
 
 ## 环境影响、回退及验证
 

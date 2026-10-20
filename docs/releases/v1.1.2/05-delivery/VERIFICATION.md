@@ -758,3 +758,11 @@ Code Review 自查覆盖计数口径、直接请求绕过、存量数据保留�
 - 发布完成后 watcher 的 last-seen／last-deployed 均仍为 `be50921`，失败标记不存在，两把锁均空闲；未手改 watcher 状态或改变跟踪分支。后续远端 dev 的相关提交仍可能触发正常自动部署。证据保存在忽略目录 `apps/workers-api/.wrangler/dev-redeploy-4f1ded1-20261020/`，未把原始日志或凭据写入 docs。
 
 本轮未重新运行完整 Workers／Flutter／App 兼容矩阵或 GitHub CI，未制作或安装新 Flutter 包，未执行真实管理员登录交互、真机扫描、StoreKit 购买／Restore、旧正式包验收、prod／营销站发布或 Git push。合并阶段已完成的订阅 86 项、Admin 67 项及静态检查不记为本轮重跑；当时 Home 77 项通过、2 项整页 Golden 失败的边界仍保留，本次服务器部署不关闭这些视觉基线问题。
+
+## 2026-10-20 iOS 测试环境 Release 内部安装包 1.0.5 (173)
+
+- 构建输入：从干净且与跟踪分支一致的 `codex/dev-1.0.6@4e37c7aa5380ecf4e3869121ed8d15be640bf3fe` 构建，包含 172 之后的 Home Tab 视觉调整及购买按钮上方说明逻辑；构建期间 `git diff HEAD --binary` 为空。构建前版本为 `1.0.5+172`，本次使用 `1.0.5 (173)`；制品完整保存并校验后将 `pubspec.yaml` 同步为 `1.0.5+173`。工具链为 Flutter 3.44.5／Dart 3.12.2／Xcode 27.1。
+- 环境与依赖：`config/test.json` 发布配置校验通过，dev health 返回 `status=ok`。最终 App 为 `com.kando.kandoApp.beta`，测试 API `http://192.168.50.201:8080/api/v1` 已嵌入且未发现生产 API，Firebase 项目为 `card-ai---test`。根 `pubspec.lock` 与 `ios/Podfile.lock` 的 SHA-256 分别保持为 `0d85580159d1c598b6a61e32f9ad77c6a5013eaeb586ac29d9836d8b7e379021`、`d0879ca1f7222cbc2de5bd0d33a414c834eaec2235f469322ffd171ab0f75793`，没有依赖锁更新。
+- 验证与构建：`flutter analyze --no-pub` 通过；订阅展示、恢复、OAuth authorizer 与发布配置 98 项通过，Home Tab 两项定向测试通过。执行 `flutter clean` 后构建 Release-test 原生产物并创建 Xcode archive。最终 IPA 从归档内已签名 App 原样封装，373 个文件逐字节一致；严格签名检查通过，Apple Development 签名、`get-task-allow=true`、App Attest `development`，描述文件有效至 2027-09-07，包含 6 台登记设备。构建和归档退出 0；保留 `sign_in_with_apple` 尚未支持 Swift Package Manager、第三方 Swift 前置兼容、App Intents 无依赖以及 `in_app_review` 隐私清单无处理规则等非阻断提示。既有 Firebase Crashlytics 构建阶段验证成功并启动后台符号上传，本轮未独立确认远端处理完成。
+- 符号与完整性：`Card AI Test.ipa` 为 39,927,076 字节，SHA-256 `6af3598a1769159208e9e9031146b0868ab22deff568a95bc7c7cf2284b631c8`；`dSYMs.zip` 为 61,218,109 字节，SHA-256 `3cb3a7b394f15961df96f3d34a39bab1643eb08e55da2d01a9499a9da5cd764c`。两份 ZIP 完整性检查通过，42/42 个唯一 Mach-O UUID 有对应 dSYM，缺失／额外均为 0。44 个 dSYM bundle 中 43 个通过 `dwarfdump --verify`；`App.framework.dSYM` 有 169 个 Flutter AOT DWARF range 实际错误，命令输出包含 2 条汇总后共 171 条 `error:`，不能声称全部 dSYM 深度校验通过。
+- 保存与边界：制品保存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.5-173/`；新版本完整保存后将旧 170 版移入废纸篓，当前保留 171、172、173。本次未安装设备、上传蒲公英／TestFlight／App Store Connect，也未执行真实登录、扫描、购买、Restore、崩溃上报或真机启动验收；未部署、迁移数据库或推送 Git。
