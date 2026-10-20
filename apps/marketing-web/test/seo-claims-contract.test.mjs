@@ -274,7 +274,30 @@ test('30th Celebration guide keeps dated facts, article metadata, links, and dis
   assert.equal(occurrences(llms, `](${canonical})`), 1);
   assert.equal(occurrences(homepageHtml, `href="/blog/${slug}"`), 1);
   assert.equal(occurrences(blogIndexHtml, `href="/blog/${slug}"`), 1);
-  assert.equal(occurrences(sitemap, '<url>'), 28);
+  assert.equal(occurrences(sitemap, '<url>'), 29);
+});
+
+test('Minior guide distinguishes Pokemon GO encounters from physical card printings', async () => {
+  const slug = 'minior-pokemon-card-guide';
+  const canonical = `https://tcgcard.fun/blog/${slug}`;
+  const [article, pokemon, blogIndex, llms, sitemap] = await Promise.all([
+    readFile(fileURLToPath(new URL(`blog/${slug}.html`, publicUrl)), 'utf8'),
+    readFile(fileURLToPath(new URL('pokemon-card-scanner.html', publicUrl)), 'utf8'),
+    readFile(fileURLToPath(new URL('blog/index.html', publicUrl)), 'utf8'),
+    readFile(llmsPath, 'utf8'),
+    readFile(sitemapPath, 'utf8'),
+  ]);
+
+  assert.match(article, /Searching for &quot;Minior Pokemon GO&quot; usually means the Pokemon GO encounter event/);
+  assert.match(article, /Paradox Rift 099\/182/);
+  assert.match(article, /Paradox Rift 201\/182/);
+  assert.match(article, /Guardians Rising 77\/145/);
+  assert.match(article, /does not quote a live price or guarantee a sale amount/);
+  assert.match(article, /href="https:\/\/pokemongo\.com\/news\/minior-meteor-showers-2026"/);
+  assert.match(pokemon, new RegExp(`href="/blog/${slug}"`));
+  assert.match(blogIndex, new RegExp(`href="/blog/${slug}"`));
+  assert.equal(occurrences(llms, `](${canonical})`), 1);
+  assert.equal(occurrences(sitemap, `<loc>${canonical}</loc>`), 1);
 });
 
 test('llms inventory includes every generated blog article exactly once', async () => {

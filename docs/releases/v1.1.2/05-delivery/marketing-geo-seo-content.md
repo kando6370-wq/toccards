@@ -14,6 +14,7 @@ The marketing site assigns a primary page to each approved intent cluster. The g
 | Raw versus graded pricing guide | `/blog/raw-vs-graded-card-values` |
 | Graded holdings product workflow | `/graded-card-tracker` |
 | Card price and separate eBay search | `/card-price-checker` |
+| Minior physical card printings | `/blog/minior-pokemon-card-guide` |
 
 ## Product facts used
 
@@ -24,6 +25,7 @@ The marketing site assigns a primary page to each approved intent cluster. The g
 - Competitor claims are limited to linked first-party product pages reviewed on October 19, 2026. No controlled scan-speed or recognition-accuracy comparison was performed.
 - The comparison pages must be refreshed when competitor features or plans change. A dated source review does not substitute for a hands-on comparison.
 - `llms.txt` remains a public content inventory for other consumers. Google Search says it does not use this file for ranking, including its generative search features.
+- The Minior guide uses the `minior pokemon go` query only to clarify game encounters versus physical TCG cards. Its card facts link to official Pokemon TCG checklists; it does not publish live prices or game advice.
 
 ## Generation
 
