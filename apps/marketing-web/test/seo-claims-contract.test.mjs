@@ -274,7 +274,7 @@ test('30th Celebration guide keeps dated facts, article metadata, links, and dis
   assert.equal(occurrences(llms, `](${canonical})`), 1);
   assert.equal(occurrences(homepageHtml, `href="/blog/${slug}"`), 1);
   assert.equal(occurrences(blogIndexHtml, `href="/blog/${slug}"`), 1);
-  assert.equal(occurrences(sitemap, '<url>'), 29);
+  assert.equal(occurrences(sitemap, '<url>'), 31);
 });
 
 test('Minior guide distinguishes Pokemon GO encounters from physical card printings', async () => {
@@ -298,6 +298,33 @@ test('Minior guide distinguishes Pokemon GO encounters from physical card printi
   assert.match(blogIndex, new RegExp(`href="/blog/${slug}"`));
   assert.equal(occurrences(llms, `](${canonical})`), 1);
   assert.equal(occurrences(sitemap, `<loc>${canonical}</loc>`), 1);
+});
+
+test('new collector guides keep card releases and retailer names distinct', async () => {
+  const slugs = ['dungeon-crawler-carl-trading-cards', 'scanning-cards-from-watsontcg'];
+  const [dungeon, watson, blogIndex, llms, sitemap] = await Promise.all([
+    readFile(fileURLToPath(new URL(`blog/${slugs[0]}.html`, publicUrl)), 'utf8'),
+    readFile(fileURLToPath(new URL(`blog/${slugs[1]}.html`, publicUrl)), 'utf8'),
+    readFile(fileURLToPath(new URL('blog/index.html', publicUrl)), 'utf8'),
+    readFile(llmsPath, 'utf8'),
+    readFile(sitemapPath, 'utf8'),
+  ]);
+
+  assert.match(dungeon, /World Earth trading cards/);
+  assert.match(dungeon, /Character collector cards/);
+  assert.match(dungeon, /Unstoppable game cards/);
+  assert.match(dungeon, /supports scanning cataloged Dungeon Crawler Carl collectible cards/);
+  assert.match(dungeon, /Availability of a matching record, image and market price depends on the specific card/);
+  assert.match(watson, /WatsonTCG.*store, not a separate TCG/s);
+  assert.match(watson, /does not claim Card AI can identify every game, sealed product or item/);
+  assert.match(watson, /does not imply a partnership with WatsonTCG/);
+
+  for (const slug of slugs) {
+    const canonical = `https://tcgcard.fun/blog/${slug}`;
+    assert.match(blogIndex, new RegExp(`href="/blog/${slug}"`));
+    assert.equal(occurrences(llms, `](${canonical})`), 1);
+    assert.equal(occurrences(sitemap, `<loc>${canonical}</loc>`), 1);
+  }
 });
 
 test('llms inventory includes every generated blog article exactly once', async () => {

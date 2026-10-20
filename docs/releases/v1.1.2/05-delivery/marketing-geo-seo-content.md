@@ -15,6 +15,8 @@ The marketing site assigns a primary page to each approved intent cluster. The g
 | Graded holdings product workflow | `/graded-card-tracker` |
 | Card price and separate eBay search | `/card-price-checker` |
 | Minior physical card printings | `/blog/minior-pokemon-card-guide` |
+| Dungeon Crawler Carl collectible-card releases | `/blog/dungeon-crawler-carl-trading-cards` |
+| Scanning supported singles bought at WatsonTCG | `/blog/scanning-cards-from-watsontcg` |
 
 ## Product facts used
 
@@ -26,6 +28,8 @@ The marketing site assigns a primary page to each approved intent cluster. The g
 - The comparison pages must be refreshed when competitor features or plans change. A dated source review does not substitute for a hands-on comparison.
 - `llms.txt` remains a public content inventory for other consumers. Google Search says it does not use this file for ranking, including its generative search features.
 - The Minior guide uses the `minior pokemon go` query only to clarify game encounters versus physical TCG cards. Its card facts link to official Pokemon TCG checklists; it does not publish live prices or game advice.
+- The Dungeon Crawler Carl guide separates Playmates trading cards, ShelfCare collector cards and Renegade's Unstoppable game. The product owner confirms Card AI scan support for cataloged collector cards. Public `/games` and title search did not independently expose those records on October 20, 2026; page copy therefore does not promise coverage or prices for every release.
+- WatsonTCG is a retailer. Its guide maps only supported singles to their actual games, excludes blanket coverage of Riftbound and sealed inventory, and states there is no partnership.
 
 ## Generation
 
