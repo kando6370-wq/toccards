@@ -33,8 +33,15 @@ class SubscriptionStoreProduct {
   String get id => product.storeProductId;
   bool get hasFreeTrial =>
       trialValue != null && trialValue! > 0 && trialUnit != null;
-  bool get canUseTrial =>
-      hasFreeTrial && eligibility == TrialEligibility.eligible;
+  bool get canUseTrial {
+    // Account-level StoreKit eligibility is intentionally disabled for the
+    // current product policy: an Apple-configured trial SKU is shown with its
+    // trial terms as soon as its product facts contain a free-trial offer.
+    // Previous account validation is retained here for a future re-enable:
+    // return hasFreeTrial && eligibility == TrialEligibility.eligible;
+    return hasFreeTrial;
+  }
+
   bool get useNeutralCopy => isTrialProduct && !canUseTrial;
   String get periodLabel => type == DisplayProductType.nonConsumable
       ? 'one-time purchase'
