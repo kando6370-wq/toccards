@@ -743,3 +743,18 @@ Code Review 自查覆盖计数口径、直接请求绕过、存量数据保留�
 从 `codex/dev-1.0.6@6b9edc5d` 的干净工作区修改 iOS 订阅 Page／Modal 的共同购买区：有效后台配置为 `custom` 时只显示当前实际基础或关联试用 SKU 的自定义说明，空文本不显示说明；`auto` 时显示按 StoreKit 商品及资格生成的摘要，两者不再叠加。试用资格 unknown／ineligible 时沿用中性价格摘要，屏蔽可能误导的免费承诺。后台表单提示同步反映这一行为。原 PRD 1.14 要求固定摘要始终展示，当前用户指令已改变此规则；冻结 PRD 保留，实际消费规则更新至[客户端流程](../01-flows/subscription-display.md)与[服务端合同](../03-data-api/subscription-display-config.md)。未修改 V1 字段、服务端保存、StoreKit 价格校验、购买前复核、本地兜底或 Android 路径。
 
 本地 `flutter test --no-pub --dart-define-from-file=config/test.json test/subscription_display_test.dart test/subscription_restore_ui_test.dart` 86/86 通过，新增用例覆盖 Page／Modal 的基础与关联试用自定义文案、切换自动说明、空自定义及独立试用 eligible／unknown／ineligible 资格；`flutter analyze --no-pub` 无问题。`pnpm --filter @kando/admin-web test` 67/67、`pnpm --filter @kando/admin-web type-check`、`git diff --check` 均通过。未在真实 Admin 页面保存配置，也未以真机读取后台配置或执行购买／Restore；未构建、安装或发布包含本次改动的新 App 包，未部署服务端、迁移数据库或推送 Git。
+
+<a id="linux-dev-redeploy-4f1ded1"></a>
+
+## 2026-10-20 09:17–09:22 Linux dev 重新部署与独立验收
+
+- 来源为干净的本地 `dev@4f1ded10008edca6e3eb89ed472b8fda06c68988`，本轮未推送远端。发布前实际运行的是 watcher 于 2026-10-19 发布的 `dev@be50921`／`branch-dev-be5092129aab-20261019173745`，不是此前手工 release；该状态来自独立 SSH 回读。相对运行源码，Linux 范围仅修改 Admin 订阅表单说明提示，Workers、共享包、部署脚本和 migration 文件均未改变；Flutter 增量不属于本次服务器发布制品。
+- 本地执行 `pnpm --filter @kando/workers-api deploy:dry-run:dev`，Admin development／auth-core／Linux API 构建及 3 项独立 Linux bundle 检查退出 0。固定发布包 `linux-release-RuYmXd.tar.gz` 为 2,135,850 字节，SHA-256 `e4539426f5b57fb40fa6a8c68f11760ae4c16fa288d7f039974b010fad521e12`；65 个归档条目已检查，无私有环境文件、密钥或数据库备份。上传后校验同一归档哈希，再调用包内既有 `deploy/linux/ci/deploy-release.sh`，未修改或跳过发布门禁。
+- 手工发布期间持有既有 watcher 的 `watch.lock`，发布脚本自行持有 `shared/deploy.lock`；候选预检和标准发布预检均确认 `toccards_test`、PostgreSQL 18、512／cosine／Top 5 识别契约可达、`pendingMigrations=[]`，才继续备份与发布。新 release 为 `manual-dev-4f1ded10008e-20261020T091702`，`current`／`shared/current-release`／manifest 指向一致；manifest 为 `branch=dev`、`working_tree_dirty=false`、`source=deploy-dev`，完整源码 SHA 与上述提交一致。
+- 发布前备份 `toccards-test-20261020-091746-before-manual-dev-4f1ded10008e-20261020T091702.dump` 为 1,135,484,781 字节；发布后独立执行 PostgreSQL 18 `pg_restore --list` 退出 0，读取 336 项，临时文件不存在。未做恢复演练。独立只读 PostgreSQL 会话确认数据库为 `toccards_test`、版本 18.6、`default_transaction_read_only=on`；ledger 15 项／最新 `0014_subscription_display_config.sql`，与发布包 15 个 migration 文件一致，发布后预检无待执行项。migration 容器 exited/0，本次未执行新 migration 或业务数据写入。
+- API／DB healthy、Web running；API／DB／Web 的环境数组哈希、端口绑定和挂载卷身份与发布前一致，原 PostgreSQL 18 数据卷及挂载目录保留。共享 `.env` 完整哈希保持不变且权限仍为 600，watcher 配置和脚本哈希未变。Web 的 `docker inspect` 挂载列表只改变排列顺序，逐项核对卷名和挂载点一致，不据此误报为换卷。
+- 发布目录的 28 个 API／Admin／migration 文件与批准包 SHA-256 全部匹配；运行 API `/app/server.mjs`、Web 代理脚本和 Admin 容器内 11 个文件均与对应发布文件一致。API bundle SHA-256 仍为 `a3d3b1fe5433d214ba2921355be480f9f8f0c4370c1ad6ebebbc025ec5c79138`，与发布前相同。
+- 从开发机访问内网入口的 8 项 GET 烟测通过：health／Admin 首页 200，未登录 auth/me／Admin 订阅配置列表 401，iOS Page／Modal 及 Google 展示配置 200，非法页面类型 422；配置接口均为 `no-store`。HTTP 返回的全部 11 个 HTML／JS／CSS 文件与批准构建原始字节一致。当前 iOS Page／Modal 已有生效配置，分别返回 revision 9／4；Google 为 `data:null`。本轮仅只读核对，未创建、审批、保存或切换任何订阅配置；不沿用历史 `data:null` 作为当前运行结论。
+- 发布完成后 watcher 的 last-seen／last-deployed 均仍为 `be50921`，失败标记不存在，两把锁均空闲；未手改 watcher 状态或改变跟踪分支。后续远端 dev 的相关提交仍可能触发正常自动部署。证据保存在忽略目录 `apps/workers-api/.wrangler/dev-redeploy-4f1ded1-20261020/`，未把原始日志或凭据写入 docs。
+
+本轮未重新运行完整 Workers／Flutter／App 兼容矩阵或 GitHub CI，未制作或安装新 Flutter 包，未执行真实管理员登录交互、真机扫描、StoreKit 购买／Restore、旧正式包验收、prod／营销站发布或 Git push。合并阶段已完成的订阅 86 项、Admin 67 项及静态检查不记为本轮重跑；当时 Home 77 项通过、2 项整页 Golden 失败的边界仍保留，本次服务器部署不关闭这些视觉基线问题。
