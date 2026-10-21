@@ -267,9 +267,13 @@ export async function processAppleNotificationInbox(
   const transactionId = transaction?.transactionId ?? null;
   let allowed: ReadonlySet<string> | null;
   const subscriptions = new Set(PLAN_CHANGE_PRODUCT_IDS[env.APP_ENVIRONMENT === "production" ? "production" : "development"]);
+  const trialProducts = new Set<string>();
   try {
     allowed = await allowedAppleProductIds(env);
-    for (const p of await approvedAppleProducts(env)) if (p.product_type === "subscription") subscriptions.add(p.product_id);
+    for (const p of await approvedAppleProducts(env)) {
+      if (p.product_type === "subscription") subscriptions.add(p.product_id);
+      if (p.is_trial_product) trialProducts.add(p.product_id);
+    }
   } catch {
     await failInbox(env.DB, inboxId, environment, "processing_failed", "PRODUCT_POLICY_UNAVAILABLE");
     return;
@@ -321,6 +325,7 @@ export async function processAppleNotificationInbox(
       now,
       usd,
       subscriptions,
+      trialProducts,
     );
     await completeInbox(env.DB, inboxId, environment, envelope.notificationUuid, outcome, now);
   } catch {
@@ -405,6 +410,7 @@ async function consumeNotification(
   now: Date,
   usd: BillingUsdSnapshot | null,
   subscriptions: ReadonlySet<string>,
+  trialProducts: ReadonlySet<string>,
 ): Promise<ConsumptionOutcome> {
   const originalTransactionId = transaction?.originalTransactionId ?? renewal?.originalTransactionId;
   const lifecycle = lifecycleFor(envelope, transaction, renewal);
@@ -520,6 +526,7 @@ async function consumeNotification(
           envelope.notificationType,
           chain.status,
           transaction,
+          trialProducts.has(transaction.productId),
         );
     const autoRenewSnapshot = transaction.type === "Non-Consumable"
       ? 0
@@ -581,7 +588,12 @@ async function consumeNotification(
       toIso(transaction.purchaseDate), toNullableIso(transaction.expiresDate), signedTransaction,
       now.toISOString(), now.toISOString(),
     ));
-    statements.push(...billingOrderFactStatements(db, chain.id, envelope.environment));
+    statements.push(...billingOrderFactStatements(
+      db,
+      chain.id,
+      envelope.environment,
+      trialProducts,
+    ));
   }
 
   if (updatesPlan && (renewal?.autoRenewStatus === 0 || renewal?.autoRenewStatus === 1)) {
@@ -626,7 +638,12 @@ async function consumeNotification(
       toNullableIso(transaction.revocationDate) ?? envelope.signedAt,
       now.toISOString(), chain.id, envelope.environment, transaction.transactionId,
     ));
-    statements.push(...billingOrderFactStatements(db, chain.id, envelope.environment));
+    statements.push(...billingOrderFactStatements(
+      db,
+      chain.id,
+      envelope.environment,
+      trialProducts,
+    ));
   }
 
   const applyLifecycle = lifecycle && (

@@ -16,7 +16,7 @@ describe("billing order facts", () => {
     db = await mf.getD1Database("DB");
     await db.prepare(`CREATE TABLE billing_transaction (
       id TEXT PRIMARY KEY, purchase_chain_id TEXT NOT NULL, environment TEXT NOT NULL,
-      transaction_id TEXT NOT NULL, purchase_at TEXT NOT NULL,
+      transaction_id TEXT NOT NULL, product_id TEXT NOT NULL, purchase_at TEXT NOT NULL,
       business_status TEXT, charge_count INTEGER, source_notification_uuid TEXT,
       amount_micros INTEGER
     )`).run();
@@ -85,10 +85,39 @@ describe("billing order facts", () => {
     ]);
   });
 
-  it("does not infer trial conversion without a proven trial transaction", () => {
+  it("classifies only the first positive renewal of an approved trial SKU when the opening trial order is absent", async () => {
+    await insert("first-paid", "t-1", "2026-01-01T00:00:00.000Z", "renewal",
+      "notification-first-paid", 1_000_000, "weekly.trial");
+    await insert("second-paid", "t-2", "2026-02-01T00:00:00.000Z", "trial_conversion",
+      "notification-second-paid", 1_000_000, "weekly.trial");
+    await recalculate(new Set(["weekly.trial"]));
+
+    expect(await rows()).toEqual([
+      { transaction_id: "t-1", business_status: "trial_conversion", charge_count: 1 },
+      { transaction_id: "t-2", business_status: "renewal", charge_count: 2 },
+    ]);
+  });
+
+  it("does not treat a zero or missing amount as the first paid trial conversion", async () => {
+    await insert("free-renewal", "t-1", "2026-01-01T00:00:00.000Z", "trial_conversion",
+      "notification-free", 0, "weekly.trial");
+    await insert("missing-renewal", "t-2", "2026-02-01T00:00:00.000Z", "trial_conversion",
+      "notification-missing", null, "weekly.trial");
+    await recalculate(new Set(["weekly.trial"]));
+
+    expect(await rows()).toEqual([
+      { transaction_id: "t-1", business_status: "renewal", charge_count: 0 },
+      { transaction_id: "t-2", business_status: "renewal", charge_count: null },
+    ]);
+  });
+
+  it("requires either proven trial history or approved trial-product metadata", () => {
     expect(businessStatusForAppleTransaction("DID_RENEW", "ACTIVE", {
       transactionReason: "RENEWAL",
     })).toBe("renewal");
+    expect(businessStatusForAppleTransaction("DID_RENEW", "ACTIVE", {
+      transactionReason: "RENEWAL",
+    }, true)).toBe("trial_conversion");
     expect(businessStatusForAppleTransaction("SUBSCRIBED", "ACTIVE", {
       transactionReason: "PURCHASE",
       offerDiscountType: "FREE_TRIAL",
@@ -102,16 +131,17 @@ describe("billing order facts", () => {
     status: string,
     sourceNotificationUuid: string | null = `notification-${id}`,
     amountMicros: number | null = status === "trial" ? 0 : 1_000_000,
+    productId = "standard.product",
   ) {
     await db.prepare(`INSERT INTO billing_transaction
-      (id, purchase_chain_id, environment, transaction_id, purchase_at, business_status,
+      (id, purchase_chain_id, environment, transaction_id, product_id, purchase_at, business_status,
        source_notification_uuid, amount_micros)
-      VALUES (?, 'chain-1', 'Sandbox', ?, ?, ?, ?, ?)`)
-      .bind(id, transactionId, purchaseAt, status, sourceNotificationUuid, amountMicros).run();
+      VALUES (?, 'chain-1', 'Sandbox', ?, ?, ?, ?, ?, ?)`)
+      .bind(id, transactionId, productId, purchaseAt, status, sourceNotificationUuid, amountMicros).run();
   }
 
-  async function recalculate() {
-    await db.batch(billingOrderFactStatements(db, "chain-1", "Sandbox"));
+  async function recalculate(trialProductIds: ReadonlySet<string> = new Set()) {
+    await db.batch(billingOrderFactStatements(db, "chain-1", "Sandbox", trialProductIds));
   }
 
   async function rows() {

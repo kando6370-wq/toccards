@@ -46,6 +46,20 @@ dev 已[落地并加载目录配置](../05-delivery/VERIFICATION.md#subscription
 
 环境变更的实际结果以[商品接入验证](../05-delivery/VERIFICATION.md#dev-subscription-product-onboarding)为准，原凭据、Apple 商品设置、原有交易／权益及生产配置保持原边界；商品准入不等于 StoreKit 可售、购买／恢复或收入验收，当前 App 也不通过账号资格查询补充展示判断。该历史接入点的新 SKU 升降级识别仍受旧 PLAN_CHANGE_PRODUCT_IDS 限制；2026-10-16 本地增量允许经动态审批登记的订阅参与该分支，尚未发布，不能据此改写历史运行状态。
 
+<a id="trial-conversion-order-status"></a>
+
+## 试用 SKU 首扣订单分类（2026-10-21 本地增量）
+
+动态商品准入中的 `is_trial_product=true` 同时作为订单事实的试用 SKU 证明。Apple Notifications V2 确认的交易满足以下全部条件时，订单 `business_status` 为 `trial_conversion`，Admin 显示“试用转付费”：
+
+- `transaction_reason=RENEWAL`，且本次交易 `amount_micros > 0`；
+- 当前 SKU 在本环境／Bundle 的动态准入表中标记为试用商品；
+- 同一环境和购买链中不存在更早的 Apple 通知确认正金额付费订单。
+
+该规则用于补足“免费试用开始交易未进入订单真值，但试用 SKU 首扣已收到”的场景。原有更强证据仍保留：同链存在更早通知确认的 `trial` 交易时，首笔正金额续费继续归为 `trial_conversion`。第二笔及后续正金额续费仍为 `renewal`；零金额、金额缺失、非试用 SKU、直接首次购买、升级、宽限期恢复和账单重试恢复保持原分类，不把仅有 Product ID 的任意交易猜成试用转付费。
+
+PostgreSQL `0015_trial_conversion_status.sql` 按同一条件回填已经保存为 `renewal` 的历史订单，并同步修正已退款订单的 `business_status_before_refund`，以便退款撤销后恢复正确类型。迁移不新增或删除列、索引、表；旧代码已认识 `trial_conversion`，代码回退不会因枚举未知而失败，但回填结果不会自动改回 `renewal`。本地源码与迁移文件不代表 dev/prod 已执行 migration 或发布，实际状态见[验证记录](../05-delivery/VERIFICATION.md#trial-conversion-order-status)。
+
 ## Apple 目录读取
 
 - `GET /v1/apps/{id}` 核对 Bundle；订阅从 App 的组列表验证指定组后读取组内 subscriptions，并读取每个商品的 introductoryOffers／territory。
