@@ -720,3 +720,15 @@ Code Review 完成代码及调用方自查，无阻断项：新增字段只进�
 - 验证与构建：发布脚本执行 `flutter clean` 后重新解析锁定依赖，`flutter analyze` 通过；test 定义下的订阅展示、恢复结果／界面、OAuth authorizer 与发布配置 5 个测试文件共 106 项通过。Release-test Archive 与导出完成，最终内部 IPA 从归档内开发签名 App 原样封装；严格 codesign 通过，Apple Development 签名、`get-task-allow=true`、App Attest=`development`、Apple Sign In=`Default`，描述文件有效至 2027-09-07并包含 6 台登记设备。`sign_in_with_apple` 尚未支持 Swift Package Manager 的提示仍存在。
 - 符号与完整性：`Card AI Test.ipa` 为 39,926,843 字节，SHA-256 `525d53d9c615176dfbe82941559571e5d6473add81db6c64cc7a07d41e1dbf43`；`dSYMs.zip` 为 61,218,861 字节，SHA-256 `c3e6741e7765757f8b88a6c9c66601a328e93e244a9bf234e8158cf319bc7bf9`。两份 ZIP 完整性检查通过，IPA 的 42 个唯一 Mach-O UUID 均有 dSYM，缺失／额外 UUID 均为 0。44 个 dSYM bundle 中 43 个通过 `dwarfdump --verify`；仅 `App.framework.dSYM` 有 169 个 Flutter AOT parent-range 实际错误，另有 2 条汇总 error 行，不能声称全部 dSYM 深度校验通过。
 - 保存与边界：制品保存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.5-176/`；完整保存后将最旧的测试包 172 移入废纸篓，当前保留 173、174、176。本次未安装设备、上传蒲公英／TestFlight／App Store Connect，也未执行真实登录、扫描、StoreKit 商品读取、购买／Restore、崩溃上报或真机启动验收；未部署、迁移数据库、提交或推送 Git。
+
+<a id="collection-item-edit-duplicate"></a>
+
+## 2026-10-21 收藏编辑重复项 500 修复（本地）
+
+Mixpanel 中与 Crashlytics 时间一致的请求显示，App 1.0.5 (163) 编辑收藏时，`PATCH /api/v1/portfolio/items/:item_id` 连续返回裸 `500 Internal Server Error`。代码路径确认新增收藏已有完整收藏身份预查与 `409 DUPLICATE_COLLECTION_ITEM`，编辑接口此前直接执行 PostgreSQL 更新；编辑后撞上 `uq_collection_item_folder_card_variant` 唯一索引时，异常会穿透为 500。
+
+本地修复在编辑更新前查询完整收藏身份，仅当命中另一条 item 时返回既有 409；命中当前 item 不影响数量、备注等普通编辑。更新事务同时捕获 PostgreSQL `23505` 且约束名为 `uq_collection_item_folder_card_variant` 的并发冲突并返回同一 409，其他数据库错误保持内部错误。请求字段、成功响应、owner 隔离、数据库唯一索引和 schema 均不变，无 migration；现有 Flutter 已按 `DUPLICATE_COLLECTION_ITEM` 保留编辑输入并显示重复提示，无需客户端协议修改。
+
+基线为干净的 `codex/dev-1.0.6@fd7aefd3`。`pnpm --filter @kando/workers-api test src/portfolio/items.test.ts --maxWorkers=2` 退出 0，1 个文件／20 项全部通过；新增用例覆盖编辑后命中另一条收藏身份时更新与事件均不执行，以及预查后发生 PostgreSQL 命名唯一约束冲突时仍返回同一 409。既有普通字段编辑和编辑时移动收藏夹用例继续通过。`pnpm --filter @kando/workers-api type-check`、`git diff --check` 与文档路径／锚点检查均退出 0。
+
+Code Review 自查确认：预查命中当前 item 时继续保存；只有目标约束的 `23505` 或包含目标约束名的唯一冲突消息映射为重复收藏，其他数据库异常返回结构化 `500 INTERNAL_ERROR`；PostgreSQL batch 保持更新与事件写入的原事务边界。未运行完整 Workers、Flutter 或旧源码兼容编排，也未执行真实 PostgreSQL 并发、正式旧包／真机、远程数据库写入、migration、dev/prod 部署、Git commit 或 push。

@@ -148,6 +148,10 @@ Windows 本地执行 pnpm test:app-compatibility 退出 0：当前 PostgreSQL AP
 
 固定旧源码仍以包内 Product ID 过滤 current entitlements；服务端升级无法使 1.0.4／1.0.5 恢复未知的新 SKU。超级管理员审批必须明确确认这一支持边界；新客户端完成一次含动态注册能力的更新后，后续批准的订阅可无需逐 SKU 重发包。未执行真实旧包、签名 IPA、真机、StoreKit 购买／恢复及生产验收；本轮未部署 dev/prod。
 
+### 2026-10-21 收藏编辑重复项错误兼容补证
+
+基线为 `codex/dev-1.0.6@fd7aefd3` 加本地未提交增量。`PATCH /api/v1/portfolio/items/:item_id` 保留既有请求字段与成功响应，只把编辑后撞上另一条完整收藏身份的裸 500 修正为已有 `409 DUPLICATE_COLLECTION_ITEM`；当前 item 自身不判重，PostgreSQL `23505` 并发冲突仅在约束名为 `uq_collection_item_folder_card_variant` 时转换。`items.test.ts` 20/20 通过，覆盖普通编辑、自身排除、预查重复及约束异常转换；Workers TypeScript 检查通过。现有 Flutter 客户端已识别该错误码并保留编辑输入，本轮未修改客户端协议；未运行完整旧源码兼容编排、正式旧包／真机或远端环境，未部署 dev/prod。
+
 ## 7. 完成标准与交付说明
 
 一项具体兼容开发完成，应满足：
