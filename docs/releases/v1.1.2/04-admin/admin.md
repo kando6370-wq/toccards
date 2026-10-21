@@ -2,6 +2,14 @@
 
 未变化的菜单、权限、订单事实和导出规则沿用 [v1.1.0 后台基线](../../v1.1.0/04-admin/admin.md)；生产双入口与发布边界沿用 [v1.1.1 后台增量](../../v1.1.1/04-admin/admin.md)。
 
+<a id="trial-conversion-order-status"></a>
+
+## 2026-10-21 试用转付费订单状态
+
+订单统计页原有 `trial_conversion`／“试用转付费”展示、筛选、分页、汇总和 XLSX 导出入口保持不变；本次补齐服务端生成该状态的事实来源。动态准入中标记为试用商品的 SKU，其首笔 Apple 通知确认正金额续费显示为“试用转付费”，第二笔及后续续费显示为“续期付款”。
+
+该分类只作用于真实通知确认订单，并要求同一购买链没有更早正金额付费；零金额、金额缺失、非试用 SKU、升级、宽限期恢复、账单重试恢复和退款状态不改写。PostgreSQL `0015_trial_conversion_status.sql` 回填已误记为续期的历史首扣及退款前状态，不新增 schema。完整判定见[服务端合同](../03-data-api/subscription-display-config.md#trial-conversion-order-status)，本地验证及未发布边界见[验证记录](../05-delivery/VERIFICATION.md#trial-conversion-order-status)。
+
 ## 2026-10-14 扫描详情原图预览
 
 在“卡牌管理 → 扫描记录管理 → 查看详情”中，点击顶部扫描原图可打开图片预览，并使用现有预览工具缩放和关闭；关闭后继续停留在当前扫描详情。

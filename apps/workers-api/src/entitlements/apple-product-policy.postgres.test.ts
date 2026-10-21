@@ -23,9 +23,13 @@ beforeAll(async () => {
     APP_ENVIRONMENT: "development", APPLE_IAP_BUNDLE_ID: "example.app", APP_STORE_CONNECT_APP_ID: "456", APPLE_IAP_PRODUCT_IDS: "legacy.week" };
   await db.exec("INSERT INTO anonymous_account(id,device_id,created_at) VALUES('100000','test-device','2026-10-16'); INSERT INTO session(id,owner_type,owner_id,refresh_token,expires_at,created_at) VALUES('session-a','anonymous','100000','test-refresh','2099-01-01','2026-10-16');");
   authorization = { authorization: "Bearer " + await signAccessToken({ owner_type: "anonymous", owner_id: "100000", session_id: "session-a" }, env.JWT_SECRET), "content-type": "application/json" };
-  for (const id of ["cardx.month", "new.year"]) {
+  for (const [id, fixture] of [
+    ["cardx.month", catalogFixture().products[0]],
+    ["new.year", catalogFixture().products[0]],
+    ["trial.week", catalogFixture().products[1]],
+  ] as const) {
     const result = await writeProductAdmission(env, "development:example.app", "super-admin", crypto.randomUUID(), id,
-      { ...catalogFixture().products[0], product_id: id }, "card_monthlytest", null);
+      { ...fixture, product_id: id }, "card_monthlytest", null);
     expect(result.status).toBe(200);
   }
 }, 30_000);
@@ -33,7 +37,7 @@ afterAll(async () => { await db?.close(); });
 
 describe("approved Apple products through real PostgreSQL purchase boundaries", () => {
   it("combines original products with only the current environment and Bundle approvals", async () => {
-    expect(await allowedAppleProductIds(env)).toEqual(new Set(["legacy.week", "cardx.month", "new.year"]));
+    expect(await allowedAppleProductIds(env)).toEqual(new Set(["legacy.week", "cardx.month", "new.year", "trial.week"]));
     for (const other of [{ ...env, APP_ENVIRONMENT: "production" as const }, { ...env, APPLE_IAP_BUNDLE_ID: "other.app" }]) {
       expect(await allowedAppleProductIds(other)).toEqual(new Set(["legacy.week"]));
     }
@@ -92,6 +96,69 @@ describe("approved Apple products through real PostgreSQL purchase boundaries", 
       challenge: (await restoreChallenge.json() as any).data.challenge, assertion: "assertion-base64", signed_transaction_info: "restore.signed.payload" });
     expect(restored.status).toBe(200);
     expect(await db.prepare("SELECT g.session_id FROM billing_session_entitlement_grant g JOIN billing_purchase_chain c ON c.id = g.purchase_chain_id WHERE c.original_transaction_id = 'original-restore-month' AND g.status = 'active'").first("session_id")).toBe("session-a");
+  });
+  it("keeps only the first paid renewal of an approved trial SKU as trial conversion", async () => {
+    await db.prepare(`INSERT INTO billing_purchase_chain
+      (id, store, environment, original_transaction_id, product_id, entitlement_id,
+       original_owner_type, original_owner_id, status, auto_renew, created_at, updated_at)
+      VALUES ('trial-conversion-chain', 'app_store', 'Sandbox', 'original-trial-week',
+              'trial.week', 'performance_pro', 'anonymous', '100000', 'ACTIVE', 1, ?, ?)`)
+      .bind(NOW.toISOString(), NOW.toISOString()).run();
+    const firstAt = NOW.getTime();
+    const secondAt = firstAt + 86_400_000;
+    const refundAt = secondAt + 86_400_000;
+    expect((await postTrialNotification("trial-conversion-notification", "DID_RENEW",
+      "trial-conversion-transaction", firstAt, firstAt)).status).toBe(200);
+    expect((await postTrialNotification("trial-renewal-notification", "DID_RENEW",
+      "trial-renewal-transaction", secondAt, secondAt)).status).toBe(200);
+    expect((await postTrialNotification("trial-refund-notification", "REFUND",
+      "trial-renewal-transaction", secondAt, refundAt, refundAt)).status).toBe(200);
+
+    expect((await db.prepare(`SELECT transaction_id, business_status,
+      business_status_before_refund, charge_count FROM billing_transaction
+      WHERE purchase_chain_id = 'trial-conversion-chain' ORDER BY purchase_at`).all()).results).toEqual([
+      {
+        transaction_id: "trial-conversion-transaction", business_status: "trial_conversion",
+        business_status_before_refund: null, charge_count: 1,
+      },
+      {
+        transaction_id: "trial-renewal-transaction", business_status: "refunded",
+        business_status_before_refund: "renewal", charge_count: 2,
+      },
+    ]);
+
+    async function postTrialNotification(
+      notificationUuid: string,
+      notificationType: string,
+      transactionId: string,
+      purchaseDate: number,
+      signedDate: number,
+      revocationDate?: number,
+    ) {
+      const routes = createAppleNotificationRoutes({ now: () => new Date(signedDate), createVerifier: () => ({
+        environment: Environment.SANDBOX,
+        verifier: {
+          verifyAndDecodeNotification: async () => ({
+            notificationUUID: notificationUuid, notificationType, signedDate,
+            data: { environment: Environment.SANDBOX,
+              signedTransactionInfo: "trial-transaction", signedRenewalInfo: "trial-renewal" },
+          }),
+          verifyAndDecodeTransaction: async () => ({
+            originalTransactionId: "original-trial-week", transactionId, productId: "trial.week",
+            purchaseDate, expiresDate: purchaseDate + 86_400_000, signedDate,
+            revocationDate, environment: Environment.SANDBOX,
+            type: "Auto-Renewable Subscription", transactionReason: "RENEWAL", price: 9990, currency: "USD",
+          }),
+          verifyAndDecodeRenewalInfo: async () => ({
+            originalTransactionId: "original-trial-week", productId: "trial.week",
+            autoRenewProductId: "trial.week", autoRenewStatus: 1, environment: Environment.SANDBOX,
+          }),
+        },
+      }) });
+      return routes.request("/apple/notifications/v2", {
+        method: "POST", body: JSON.stringify({ signedPayload: `${notificationUuid}.jws` }),
+      }, env);
+    }
   });
   it("records an upgrade to an approved new SKU without adding another hardcoded ID", async () => {
     await db.prepare("INSERT INTO billing_purchase_chain (id, store, environment, original_transaction_id, product_id, entitlement_id, original_owner_type, original_owner_id, status, auto_renew, created_at, updated_at) VALUES ('upgrade-chain', 'app_store', 'Sandbox', 'original-upgrade-month', 'cardx.month', 'performance_pro', 'anonymous', '100000', 'ACTIVE', 1, ?, ?)").bind(NOW.toISOString(), NOW.toISOString()).run();

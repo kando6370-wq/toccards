@@ -13,6 +13,7 @@ export function businessStatusForAppleTransaction(
   notificationType: string,
   previousChainStatus: string,
   transaction: Pick<JWSTransactionDecodedPayload, "transactionReason" | "offerDiscountType">,
+  isTrialProduct = false,
 ): BillingBusinessStatus {
   if (transaction.offerDiscountType === "FREE_TRIAL") return "trial";
   if (notificationType === "DID_RENEW" && previousChainStatus === "GRACE_PERIOD") {
@@ -21,7 +22,9 @@ export function businessStatusForAppleTransaction(
   if (notificationType === "DID_RENEW" && previousChainStatus === "BILLING_RETRY") {
     return "billing_recovery";
   }
-  if (transaction.transactionReason === "RENEWAL") return "renewal";
+  if (transaction.transactionReason === "RENEWAL") {
+    return isTrialProduct ? "trial_conversion" : "renewal";
+  }
   return "initial_purchase";
 }
 
@@ -29,7 +32,12 @@ export function billingOrderFactStatements(
   db: D1Database,
   purchaseChainId: string,
   environment: "Production" | "Sandbox",
+  trialProductIds: ReadonlySet<string> = new Set(),
 ): D1PreparedStatement[] {
+  const trialProducts = [...trialProductIds];
+  const trialProductCondition = trialProducts.length
+    ? `current_transaction.product_id IN (${trialProducts.map(() => "?").join(", ")})`
+    : "FALSE";
   return [
     db.prepare(`
       UPDATE billing_transaction AS current_transaction
@@ -54,18 +62,20 @@ export function billingOrderFactStatements(
     `).bind(purchaseChainId, environment),
     db.prepare(`
       UPDATE billing_transaction AS current_transaction
-      SET business_status = CASE WHEN EXISTS (
-        SELECT 1 FROM billing_transaction AS trial_transaction
-        WHERE trial_transaction.purchase_chain_id = current_transaction.purchase_chain_id
-          AND trial_transaction.environment = current_transaction.environment
-          AND trial_transaction.business_status = 'trial'
-          AND trial_transaction.source_notification_uuid IS NOT NULL
-          AND (
-            trial_transaction.purchase_at < current_transaction.purchase_at
-            OR (trial_transaction.purchase_at = current_transaction.purchase_at
-              AND trial_transaction.transaction_id < current_transaction.transaction_id)
-          )
-      ) AND NOT EXISTS (
+      SET business_status = CASE WHEN (
+        EXISTS (
+          SELECT 1 FROM billing_transaction AS trial_transaction
+          WHERE trial_transaction.purchase_chain_id = current_transaction.purchase_chain_id
+            AND trial_transaction.environment = current_transaction.environment
+            AND trial_transaction.business_status = 'trial'
+            AND trial_transaction.source_notification_uuid IS NOT NULL
+            AND (
+              trial_transaction.purchase_at < current_transaction.purchase_at
+              OR (trial_transaction.purchase_at = current_transaction.purchase_at
+                AND trial_transaction.transaction_id < current_transaction.transaction_id)
+            )
+        ) OR ${trialProductCondition}
+      ) AND current_transaction.amount_micros > 0 AND NOT EXISTS (
         SELECT 1 FROM billing_transaction AS earlier_paid_transaction
         WHERE earlier_paid_transaction.purchase_chain_id = current_transaction.purchase_chain_id
           AND earlier_paid_transaction.environment = current_transaction.environment
@@ -82,7 +92,7 @@ export function billingOrderFactStatements(
       WHERE purchase_chain_id = ? AND environment = ?
         AND business_status IN ('trial_conversion', 'renewal')
         AND source_notification_uuid IS NOT NULL
-    `).bind(purchaseChainId, environment),
+    `).bind(...trialProducts, purchaseChainId, environment),
     db.prepare(`
       UPDATE billing_transaction AS current_transaction
       SET charge_count = CASE

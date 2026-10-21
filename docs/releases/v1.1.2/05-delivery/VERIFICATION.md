@@ -2,6 +2,18 @@
 
 本文件保留 Admin、营销站等其他业务的实际验证。App 兼容规则、源码合同证据及 Home 文件夹切换历史记录见 [AI 执行版](../03-data-api/app-backward-compatibility-ai-guide.md)；历史版本记录见 [v1.1.1](../../v1.1.1/05-delivery/VERIFICATION.md)。未运行或只有部分证据的事项不得标记为完整验收通过。
 
+<a id="trial-conversion-order-status"></a>
+
+## 2026-10-21：试用 SKU 首扣订单分类（本地）
+
+- 根因：Admin 已有 `trial_conversion`／“试用转付费”展示与筛选，但订单事实只在同链先存在一笔 Apple 通知确认的 `trial` 交易时才生成该状态。动态准入新增的 `is_trial_product` 没有参与订单分类，因此试用开始订单缺失时，试用 SKU 的首次正金额续费被保存为 `renewal`。
+- 修复：Notifications V2 读取当前环境／Bundle 的动态准入表，将 `is_trial_product=true` 的 SKU 传入订单事实重算。仅 `RENEWAL`、正金额、通知确认且同链无更早正金额付费的首扣生成 `trial_conversion`；第二次起恢复 `renewal`。既有试用交易证据继续生效，宽限期恢复、账单重试恢复、升级、退款、零金额和金额缺失保持原优先级及分类。
+- 历史数据：新增 PostgreSQL `0015_trial_conversion_status.sql`，按相同条件回填现有 `renewal`，并修正已退款订单的退款前状态。该 migration 只更新数据，不变更表、列或索引；重复执行结果稳定。旧代码已支持 `trial_conversion`，回退代码不会遇到未知状态，但数据不会自动反向恢复。
+- 本地验证：按仓库正式排除规则执行 `pnpm --filter @kando/workers-api exec vitest run src/entitlements/billing-order-facts.integration.test.ts src/entitlements/apple-notification-routes.integration.test.ts src/entitlements/apple-product-policy.postgres.test.ts src/db/postgres/trial-conversion-status-migration.test.ts --exclude "**/.wrangler/**" --maxWorkers=1 --no-file-parallelism`，最终退出 0，4 个真实源测试文件／72 项通过。覆盖缺失试用起始订单、首扣／后续续费、退款后重算、零金额／缺失金额、动态准入到 DID_RENEW 建单，以及历史 migration 的普通／试用 SKU、未确认交易、退款前状态和幂等重跑。`node --test deploy/linux/preflight.test.mjs` 8/8 通过，并明确报告待执行 `0015_trial_conversion_status.sql`。`pnpm --filter @kando/workers-api type-check`、`pnpm lint` 与 `git diff --check` 均退出 0。
+- 本地构建：`pnpm --filter @kando/workers-api build:linux:api` 退出 0，3/3 独立 Linux bundle 测试通过并生成本地 API bundle；`pnpm --filter @kando/workers-api deploy:dry-run:prod` 退出 0，Admin production 构建及 Wrangler prod dry-run 成功，仅生成本地忽略产物，没有上传 Worker 版本、切流或部署。
+- 首次测试异常：并行启动三组 Vitest 时，两个进程因 Windows/V8 Worker 内存不足退出；后续直接调用 Vitest 时一度漏带正式脚本的 `.wrangler` 排除规则，重复扫描 `subscription-baseline-*` 生成副本，分别出现一次 Undici `bad port` 和一次 5 秒超时。上述错误范围和重复生成目录结果均不计为通过；修正为单进程、单 Worker且显式排除 `.wrangler` 后，取得上述 4 文件／72 项退出 0 结果，没有跳过真实源测试。
+- 边界：未执行全量 Workers 测试、App 兼容编排、真实 Apple 通知、远程 migration、dev/prod 部署、生产数据库写入、Git commit 或 push。当前结论只证明本地分类和回填逻辑，不代表现有 dev/prod 订单已经改写或后台真实登录查询已验收。
+
 ## 2026-10-14：管理后台扫描详情原图放大
 
 - 问题定位：扫描详情顶部原图与列表缩略图共用 `AuthenticatedScanImage`，私有图片已通过 Admin Token 获取 Blob，但组件固定渲染原生 `img`；候选卡牌图片使用 Ant Design `Image`，因此只有候选图具备预览和缩放能力。
