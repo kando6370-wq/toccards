@@ -13,7 +13,7 @@ App 向后兼容规则只维护以下两份；涉及 App API、共享业务数�
 
 ## App 1.0.6 订阅配置（服务端与 Admin 页面）
 
-2026-10-21 本地增量：动态准入中标记为试用商品的 SKU，其首笔 Apple 通知确认正金额续费生成 `trial_conversion`（试用转付费），后续续费仍为 `renewal`；PostgreSQL `0015_trial_conversion_status.sql` 回填同口径历史订单，不新增 schema。当前分支尚未执行远程 migration 或部署，见[服务端合同](03-data-api/subscription-display-config.md#trial-conversion-order-status)、[后台口径](04-admin/admin.md#trial-conversion-order-status)和[本地验证](05-delivery/VERIFICATION.md#trial-conversion-order-status)。
+2026-10-21 源码与 dev 发布：动态准入中标记为试用商品的 SKU，其首笔 Apple 通知确认正金额续费生成 `trial_conversion`（试用转付费），后续续费仍为 `renewal`；PostgreSQL `0015_trial_conversion_status.sql` 回填同口径历史订单，不新增 schema。已按用户授权在 Linux dev 发布 `51323e7` 并应用 0015（实际 `UPDATE 0`、ledger 16 项），prod 未操作；真实通知与后台业务仍待验，见[服务端合同](03-data-api/subscription-display-config.md#trial-conversion-order-status)、[后台口径](04-admin/admin.md#trial-conversion-order-status)、[本地验证](05-delivery/VERIFICATION.md#trial-conversion-order-status)及[dev 发布验收](05-delivery/VERIFICATION.md#trial-conversion-dev-release-51323e7)。
 
 2026-10-16 动态商品准入：超级管理员逐商品审批，dev/prod 与 Bundle 隔离；运行期白名单与 Flutter 长期商品集合可接收已批准 SKU，无需逐商品改代码。复用 PostgreSQL 现有表，无新 migration。API／Admin 已随干净的 `dev@06f420a` 发布并完成运行产物／数据库／HTTP 核对；Flutter 仍需包含本次能力的新测试包，prod 未发布。行为见[动态准入合同](03-data-api/subscription-display-config.md)、[后台操作](04-admin/admin.md)和[客户端注册](01-flows/subscription-display.md)，证据见[本地验证](05-delivery/VERIFICATION.md#subscription-dynamic-admission)与[dev 发布验收](05-delivery/VERIFICATION.md#subscription-dynamic-dev-release)。
 

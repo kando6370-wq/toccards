@@ -8,7 +8,7 @@
 
 订单统计页原有 `trial_conversion`／“试用转付费”展示、筛选、分页、汇总和 XLSX 导出入口保持不变；本次补齐服务端生成该状态的事实来源。动态准入中标记为试用商品的 SKU，其首笔 Apple 通知确认正金额续费显示为“试用转付费”，第二笔及后续续费显示为“续期付款”。
 
-该分类只作用于真实通知确认订单，并要求同一购买链没有更早正金额付费；零金额、金额缺失、非试用 SKU、升级、宽限期恢复、账单重试恢复和退款状态不改写。PostgreSQL `0015_trial_conversion_status.sql` 回填已误记为续期的历史首扣及退款前状态，不新增 schema。完整判定见[服务端合同](../03-data-api/subscription-display-config.md#trial-conversion-order-status)，本地验证及未发布边界见[验证记录](../05-delivery/VERIFICATION.md#trial-conversion-order-status)。
+该分类只作用于真实通知确认订单，并要求同一购买链没有更早正金额付费；零金额、金额缺失、非试用 SKU、升级、宽限期恢复、账单重试恢复和退款状态不改写。PostgreSQL `0015_trial_conversion_status.sql` 回填已误记为续期的历史首扣及退款前状态，不新增 schema。完整判定见[服务端合同](../03-data-api/subscription-display-config.md#trial-conversion-order-status)，本地验证见[验证记录](../05-delivery/VERIFICATION.md#trial-conversion-order-status)。2026-10-21 Linux dev 已随 `51323e7` 发布，0015 更新 0 条历史订单；真实管理员统计／筛选／导出及真实通知仍待验，详见[dev 发布验收](../05-delivery/VERIFICATION.md#trial-conversion-dev-release-51323e7)，prod 未操作。
 
 ## 2026-10-14 扫描详情原图预览
 

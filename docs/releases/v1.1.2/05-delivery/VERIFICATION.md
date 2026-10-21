@@ -839,3 +839,18 @@ Code Review 完成代码及调用方自查，无阻断项：新增字段只进�
 - 12 项内网 GET 烟测通过：health／Admin 首页 200；未登录 auth/me、Admin 配置和商品目录 401；iOS Page／Modal 及 Google 展示读取 200，非法类型 422；iOS／Google 商品注册表 200，非法平台 422。公开订阅接口均为 `no-store`。Page／Modal 分别为 revision 10／4，iOS 注册表为当前 development／beta Bundle 作用域、4 个商品；这三份公开响应的原始字节哈希与发布前完全相同。未创建、审批、保存或切换订阅配置。
 
 本轮实际重跑的是发布构建和 3 项 bundle 检查、远端预检及上述运行验收；此前同源码合并阶段的 Admin 72 项、订阅 API 65 项、Flutter 订阅 86 项及类型／静态检查不是本轮重跑。32 字符与回显的组件／内存 PostgreSQL 反证和回归见[本地修复记录](#singular-admission-event-name)，新代码上线由产物匹配证明；未执行真实管理员登录态的审核回显、重新审批或超限提交，也未新增真实交易验证。未重新运行完整 Workers／Flutter／旧包兼容矩阵、GitHub CI、真机扫描、StoreKit 购买／Restore 或 Singular 平台接收；未发布 prod、营销站或 Flutter 制品，未执行 Git push。原始证据位于忽略目录 `apps/workers-api/.wrangler/dev-redeploy-f6f5ab3-20261021-xcxgcfis/`，未将原始日志或私有配置写入 docs。
+
+<a id="trial-conversion-dev-release-51323e7"></a>
+
+## 2026-10-21 16:28–16:33 Linux dev 发布试用转付费修复并应用 0015
+
+- 来源为干净的本地 `dev@51323e75a90e645512c08579c061f1b2736c4d3e`，包含 `fd7aefd` 的订单分类修复。本轮开始时实际运行 `dev@10ff05e`／`branch-dev-10ff05ece3be-20261021095942`，API／DB healthy、Web running。候选只新增 PostgreSQL `0015_trial_conversion_status.sql` 及对应 Notifications V2／订单事实逻辑；Admin 业务代码、依赖和部署脚本未改。
+- 先按实际 SQL 的 CTE 条件在 `default_transaction_read_only=on` 会话核查：16:07 及授权后 16:26 均为 0 条候选，ledger 仍为 15 项／最新 0014。发布准备阶段没有执行 migration 或切换应用；向用户明确说明历史订单回填及不可自动反向回退的边界，收到用户明确“允许”后才执行本次远程 0015 与部署。
+- 本轮本地执行 Workers 的 4 个实际源测试文件（billing-order-facts、apple-notification-routes、apple-product-policy、trial-conversion-status-migration），使用标准 `.wrangler` 排除、`--maxWorkers=1 --no-file-parallelism`，退出 0，72 项全部通过；Workers type-check 及预检测试 8/8 通过。`deploy:dry-run:dev` 完成 auth-core／Admin development／Linux API 构建，3 项 bundle 检查通过。固定包 `linux-release-FG8gq5.tar.gz` 为 2,137,372 字节，SHA-256 `9e00e9818e5576f07837a4ec3d472a2a84595695ff81df5a156a632665f36f18`；66 个条目无私有环境／密钥／数据库备份，上传后哈希一致，授权后再次校验并从同一归档重新解包。
+- 准备阶段备份 `toccards-test-20261021-161105-verified-before-candidate-dev-51323e75a90e-20261021T160943.dump` 为 1,135,597,657 字节，`pg_restore --list` 读取 336 项；授权后既有发布脚本另行生成最新发布前备份 `toccards-test-20261021-162819-before-manual-dev-51323e75a90e-20261021T162814.dump`，1,135,597,728 字节，独立目录读取同为 336 项，临时文件均不存在。两份备份均未做恢复演练。
+- 发布期间持有既有 watcher 的 `watch.lock`，由包内标准 `deploy-release.sh` 自行持有 `shared/deploy.lock`，未修改发布脚本。授权只允许候选的 `0015`：候选与标准预检均确认 `toccards_test`、PostgreSQL 18、向量 512／cosine／Top 5 可达，唯一待执行项为 0015。标准迁移容器逐项跳过 0000–0014，16:31:17（北京时间）提交 0015，日志明确 `UPDATE 0`、迁移记录插入及 `COMMIT`；历史订单实际更新 0 行。独立只读回查 ledger 为 16 项／最新 0015，发布后预检 `pendingMigrations=[]`；16:37 以同一 CTE 再核查待回填候选仍为 0。不能把迁移已执行写成历史订单已转换若干条，也不能因此声称真实 Apple 通知已验收。
+- 新 release 为 `manual-dev-51323e75a90e-20261021T162814`，current／shared current-release／manifest 一致，manifest 为 `branch=dev`、`working_tree_dirty=false`、完整源码 SHA 与上述提交一致。API／DB healthy、Web running、migration exited/0；PostgreSQL 18.6 原卷及图片卷保留。私有 `.env` 完整哈希和 600 权限、API／DB／Web 环境数组哈希、端口和挂载卷身份、watcher 配置／脚本均与发布前一致。watcher last-seen／last-deployed 仍为 `10ff05e`，失败标记不存在，完成时两把锁空闲；没有手写 watcher 状态或 Git push。
+- 发布目录 29 个 API／Admin／migration 文件均匹配批准包；API 运行 `/app/server.mjs` 的 SHA-256 为 `b813fc90f8793a69c96bc058bec88d18ba01502b58447b21f2e44b332f8909b2`，与发布文件一致，Web 代理脚本也匹配。Admin 容器内及 HTTP 取得的全部 11 个 HTML／JS／CSS 文件与批准构建原始字节一致。
+- 12 项 GET 烟测通过：health／Admin 首页 200；未登录 auth/me、Admin 配置和商品目录 401；iOS Page／Modal／Google 展示读取 200，非法页面 422；iOS／Google 商品注册表 200，非法平台 422。公开订阅接口 `no-store`；Page／Modal 当前 revision 1／4，iOS 当前作用域 7 个注册商品，这三份响应哈希与本轮发布前采样完全一致，未保存／审批／启用任何订阅配置。此处是本次 16:28 前采样，不沿用上午 release 的 Page revision 10 或 4 个注册商品结论。
+
+本次已完成 dev 的授权迁移及 API／Admin 发布，prod、旧 CF dev、营销站、Flutter 制品和 Git 远端均未操作。未跑完整 Workers／Flutter／旧包兼容矩阵或 GitHub CI；未做真实 Apple 通知、StoreKit 购买／Restore、真实管理员登录统计／筛选／导出、真机或收入平台端到端验收。应用回退不逆向迁移；本轮没有触发回退或进行数据库恢复。原始证据在忽略目录 `apps/workers-api/.wrangler/dev-redeploy-51323e7-20261021-rgbf580c/`，未把日志、数据库备份或私有配置加入 docs。

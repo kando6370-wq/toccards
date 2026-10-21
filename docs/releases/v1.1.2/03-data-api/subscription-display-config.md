@@ -50,7 +50,7 @@ API／Admin 已由既有 watcher 发布干净的 `dev@06f420a`；独立回读确
 
 <a id="trial-conversion-order-status"></a>
 
-## 试用 SKU 首扣订单分类（2026-10-21 本地增量）
+## 试用 SKU 首扣订单分类（2026-10-21 源码与 dev 发布）
 
 动态商品准入中的 `is_trial_product=true` 同时作为订单事实的试用 SKU 证明。Apple Notifications V2 确认的交易满足以下全部条件时，订单 `business_status` 为 `trial_conversion`，Admin 显示“试用转付费”：
 
@@ -60,7 +60,7 @@ API／Admin 已由既有 watcher 发布干净的 `dev@06f420a`；独立回读确
 
 该规则用于补足“免费试用开始交易未进入订单真值，但试用 SKU 首扣已收到”的场景。原有更强证据仍保留：同链存在更早通知确认的 `trial` 交易时，首笔正金额续费继续归为 `trial_conversion`。第二笔及后续正金额续费仍为 `renewal`；零金额、金额缺失、非试用 SKU、直接首次购买、升级、宽限期恢复和账单重试恢复保持原分类，不把仅有 Product ID 的任意交易猜成试用转付费。
 
-PostgreSQL `0015_trial_conversion_status.sql` 按同一条件回填已经保存为 `renewal` 的历史订单，并同步修正已退款订单的 `business_status_before_refund`，以便退款撤销后恢复正确类型。迁移不新增或删除列、索引、表；旧代码已认识 `trial_conversion`，代码回退不会因枚举未知而失败，但回填结果不会自动改回 `renewal`。本地源码与迁移文件不代表 dev/prod 已执行 migration 或发布，实际状态见[验证记录](../05-delivery/VERIFICATION.md#trial-conversion-order-status)。
+PostgreSQL `0015_trial_conversion_status.sql` 按同一条件回填已经保存为 `renewal` 的历史订单，并同步修正已退款订单的 `business_status_before_refund`，以便退款撤销后恢复正确类型。迁移不新增或删除列、索引、表；旧代码已认识 `trial_conversion`，代码回退不会因枚举未知而失败，但回填结果不会自动改回 `renewal`。2026-10-21 已按用户授权在 Linux dev 发布干净的 `dev@51323e7` 并应用 0015，实际 `UPDATE 0`、ledger 16 项；prod 本轮未迁移或发布。真实 Apple 通知及后台登录业务仍待验，本地验证与实际发布分别见[本地记录](../05-delivery/VERIFICATION.md#trial-conversion-order-status)和[dev 验收](../05-delivery/VERIFICATION.md#trial-conversion-dev-release-51323e7)。
 
 ## Apple 目录读取
 
