@@ -688,3 +688,15 @@ Code Review 自查覆盖计数口径、直接请求绕过、存量数据保留�
 Code Review 完成代码及调用方自查，无阻断项：新增字段只进入已鉴权后台目录，值取已有当前 scope 注册表；原 `admitted/reasons` 与公开 App 响应保持；未收紧历史注册表解析而破坏既有商品支持；32 字符校验覆盖 UI 与直接 API，且不改变幂等结果核对。两类审核入口共用打开逻辑，回显不自动勾选确认或提交，超长值不静默截断。审查后未修改业务代码，未声称独立人员审查。
 
 基线副本及定位材料保留在忽略目录 `apps/workers-api/.wrangler/singular-admission-fix-40tneg8a/`。本轮没有重跑完整 Workers／Flutter／旧包兼容矩阵，没有制作 Admin／Linux／Flutter 发布制品；未验证真实后台登录与浏览器交互、真机 StoreKit 交易或 Singular 平台接收。本轮以本地组件回调与内存 PostgreSQL 覆盖已定位路径；真实浏览器交互尚待补验，远端运行结果须另行部署后独立核对。未执行远程配置修改、数据库迁移、dev/prod 发布、Git commit 或 push。
+
+## 2026-10-20 iPhone 13 订阅商品名称居中 Debug 复测
+
+从 `codex/dev-1.0.6@5d277631` 加未提交的订阅商品布局、组件测试和客户端流程文档增量，执行 `flutter run --no-pub --flavor test --debug -d 00008110-000A242A01A2801E --dart-define-from-file=config/test.json`。Xcode 编译、安装、启动成功，Dart VM Service 与 DevTools 已连接；设备安装列表确认 `kando的iPhone13` 上的 `Card AI` 为 `com.kando.kandoApp.beta`、`1.0.5 (173)`。签名 App 的 `get-task-allow=true`，App Attest entitlement 为 `development`。随后从 Flutter 调试器 detach，App 保持运行。
+
+真机订阅完整页抓屏可见后台配置的 `Lifetime Access` 无副文案，右侧价格说明为两行；名称现在位于商品卡片垂直中部，选中态、价格和角标同时显示。设备画面是当前 Debug 构建，不等同于已保存的 173 Release IPA；本次未制作新 IPA，未检查弹窗、真实购买／Restore、Android 真机或服务端配置变更。此前本地订阅 UI 测试 55 项、`flutter analyze --no-pub` 和 `git diff --check` 均通过；本轮真机步骤没有重新运行这些检查。
+
+## 2026-10-20 iPhone 13 订阅商品单选圆圈居中
+
+配置商品的单选圆圈此前跟随文字行顶部定位。把周卡副文案扩成多行后，新增的中心点断言先复现圆圈比卡片中心高 32px；改为按卡片实际内容高度垂直居中后，周卡多行、年卡无副文案和一次性商品的圆圈均通过中心点断言，名称及价格的原有排布保持。`subscription_restore_ui_test.dart` 完整 55 项通过，`flutter analyze --no-pub` 与 `git diff --check` 通过。
+
+使用当前未提交工作区再次执行 test flavor `flutter run --no-pub --flavor test --debug -d 00008110-000A242A01A2801E --dart-define-from-file=config/test.json`，Xcode 构建、iPhone 13 安装与启动完成；设备应用列表回读为 `com.kando.kandoApp.beta`、`1.0.5 (173)`。真机订阅完整页抓屏显示后台配置的周卡多行副文案和年卡，两张卡的圆圈均位于卡片垂直中部。首次 Flutter 调试连接在启动后断开；第二次经无线连接启动后 Dart VM Service 未发现，`flutter run` 最终以 1 退出。因此本轮没有完成调试器附着或热重载，不把真机抓屏写成完整交互验收。未制作新 Release IPA、执行购买／Restore、Android 真机测试、服务端变更或 Git 提交／推送。
