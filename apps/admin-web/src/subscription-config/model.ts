@@ -25,7 +25,7 @@ export type CatalogProduct = {
   product_id: string; reference_name: string; product_type: ProductType;
   subscription_group_id: string | null; period: string | null; group_level: number | null;
   has_free_trial: boolean; state: string;
-  admission: { admitted: boolean; reasons: string[] };
+  admission: { admitted: boolean; reasons: string[]; singular_event_name?: string | null };
 };
 export type Catalog = { products: CatalogProduct[]; subscription_group_id: string | null; scope?: string; environment?: "development" | "production"; can_approve?: boolean };
 export type CatalogState = { status: "idle" | "loading" | "loaded" | "error"; products: CatalogProduct[]; error?: string; scope?: string; environment?: "development" | "production"; can_approve?: boolean };
@@ -39,6 +39,10 @@ export type Editor = { id: string | null; revision: number; enabled: boolean; bo
 export type SubscriptionRequest = <T>(path: string, init?: { method?: string; body?: unknown; signal?: AbortSignal }) => Promise<T>;
 
 export const MAX_DISPLAY_SKUS = 3;
+export const MAX_SINGULAR_EVENT_NAME_LENGTH = 32;
+export function isSingularEventName(value: string): boolean {
+  return value.length <= MAX_SINGULAR_EVENT_NAME_LENGTH && /^[A-Za-z][A-Za-z0-9_]*$/.test(value);
+}
 export const PAGE_LABELS: Record<PageType, string> = { page: "订阅页", modal: "订阅大弹窗" };
 export const emptyCopy = (name = ""): CopyFields => ({ name, subtitle: "", badge: "", price_note: "", cta: "", billing_note_mode: "custom", billing_note: "" });
 export const blankSku = (key: string): EditorSku => ({ ...emptyCopy(), key, needs_trial_repair: false,

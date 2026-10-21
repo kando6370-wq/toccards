@@ -1397,7 +1397,12 @@ void main() {
               productId: 'weekly.product',
               type: DisplayProductType.subscription,
               isDefault: true,
-              copy: SubscriptionCopy(name: 'Weekly', badge: 'new Weekly'),
+              copy: SubscriptionCopy(
+                name: 'Weekly',
+                subtitle:
+                    'Weekly detail wraps across multiple lines in this card',
+                badge: 'new Weekly',
+              ),
               trial: SubscriptionTrial(
                 productId: 'weekly.trial',
                 copy: SubscriptionCopy(
@@ -1421,6 +1426,7 @@ void main() {
               type: DisplayProductType.nonConsumable,
               copy: SubscriptionCopy(
                 name: 'Lifetime',
+                subtitle: '   ',
                 badge: 'new One-time',
                 priceNote: 'new one-time purchase',
               ),
@@ -1480,6 +1486,34 @@ void main() {
         ),
         findsOneWidget,
       );
+      expect(
+        tester.getRect(find.text('Yearly')).center.dy,
+        closeTo(tester.getRect(cards[1]).center.dy, 1),
+      );
+      expect(
+        tester.getRect(find.text('Lifetime')).center.dy,
+        closeTo(tester.getRect(cards[2]).center.dy, 1),
+      );
+      expect(find.text('   '), findsNothing);
+      for (final id in [
+        'weekly.product',
+        'yearly.product',
+        'lifetime.product',
+      ]) {
+        expect(
+          tester
+              .getRect(find.byKey(Key('subscription-config-product-$id-radio')))
+              .center
+              .dy,
+          closeTo(
+            tester
+                .getRect(find.byKey(Key('subscription-config-product-$id')))
+                .center
+                .dy,
+            1,
+          ),
+        );
+      }
       expect(
         find.descendant(of: cards[2], matching: find.text('one-time purchase')),
         findsNothing,

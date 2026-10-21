@@ -766,3 +766,42 @@ Code Review 自查覆盖计数口径、直接请求绕过、存量数据保留�
 - 验证与构建：`flutter analyze --no-pub` 通过；订阅展示、恢复、OAuth authorizer 与发布配置 98 项通过，Home Tab 两项定向测试通过。执行 `flutter clean` 后构建 Release-test 原生产物并创建 Xcode archive。最终 IPA 从归档内已签名 App 原样封装，373 个文件逐字节一致；严格签名检查通过，Apple Development 签名、`get-task-allow=true`、App Attest `development`，描述文件有效至 2027-09-07，包含 6 台登记设备。构建和归档退出 0；保留 `sign_in_with_apple` 尚未支持 Swift Package Manager、第三方 Swift 前置兼容、App Intents 无依赖以及 `in_app_review` 隐私清单无处理规则等非阻断提示。既有 Firebase Crashlytics 构建阶段验证成功并启动后台符号上传，本轮未独立确认远端处理完成。
 - 符号与完整性：`Card AI Test.ipa` 为 39,927,076 字节，SHA-256 `6af3598a1769159208e9e9031146b0868ab22deff568a95bc7c7cf2284b631c8`；`dSYMs.zip` 为 61,218,109 字节，SHA-256 `3cb3a7b394f15961df96f3d34a39bab1643eb08e55da2d01a9499a9da5cd764c`。两份 ZIP 完整性检查通过，42/42 个唯一 Mach-O UUID 有对应 dSYM，缺失／额外均为 0。44 个 dSYM bundle 中 43 个通过 `dwarfdump --verify`；`App.framework.dSYM` 有 169 个 Flutter AOT DWARF range 实际错误，命令输出包含 2 条汇总后共 171 条 `error:`，不能声称全部 dSYM 深度校验通过。
 - 保存与边界：制品保存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.5-173/`；新版本完整保存后将旧 170 版移入废纸篓，当前保留 171、172、173。本次未安装设备、上传蒲公英／TestFlight／App Store Connect，也未执行真实登录、扫描、购买、Restore、崩溃上报或真机启动验收；未部署、迁移数据库或推送 Git。
+
+<a id="singular-admission-event-name"></a>
+
+## 2026-10-20 Singular 商品准入事件名长度与回显修复（本地）
+
+基线为干净的 `codex/dev-1.0.6@5d277631f9482e62742e06c135a98e55e59a5ad7`，本节增量为本地未提交改动。用户截图显示商品再次审核时收入事件名为空；代码路径确认 Admin 的 `openApproval` 每次重置为空，目录接口又只返回准入状态／原因，没有当前 scope 的已保存名称。前后端新审批校验均允许最多 100 字符，与 Singular 自定义事件的 32 个 ASCII 字符要求不符。这些是定位证据，不把此前的 SDK 模拟测试称为真实平台接收验收。
+
+修复仅收紧新增／重新审批的事件名为 1–32 个字符，前端输入计数、按钮和提交函数以及 API 同步校验。后台目录增加当前环境／Bundle 的可选 `admission.singular_event_name`，普通商品和关联试用的审核弹窗按当前商品回显；未设置为空，切换商品不串值，确认勾选每次重置。已有长事件名仍完整读取与回显，纠正后才能重新审批；不截断、清空或批量改写历史映射／收入队列。App 公开注册表、购买／Restore、SDK 上报和 V1 原字段保持，无 schema／migration 或 Flutter 代码修改。
+
+按兼容 AI 执行版，先完成代码、回归用例与文档，再在隔离的原基线上执行相同用例取得反证，并验证当前修复。原基线副本保留 `5d27763` 业务代码，只复制本轮回归用例，未覆盖实际工作区；不是修复前已经运行过的新测试。
+
+- 隔离 UI 基线执行 `node --test .../apps/admin-web/test/subscription-config-approval.test.mjs`：依赖路径修正后退出 1，1 项通过／4 项失败；普通与关联试用名称均为空、输入上限为 100、旧长值也未回显。首次运行在加载 React 前失败，仅属隔离依赖解析问题，不作为 BUG 反证；补齐指向既有依赖的本地链接后才取得以上业务断言失败。
+- 隔离 API 基线执行 `pnpm --filter @kando/workers-api exec vitest run --root <baseline>/apps/workers-api src/subscription-config/routes.postgres.test.ts --maxWorkers=2 --reporter=verbose`：退出 1，32 项通过／2 项失败；已保存名称为 undefined（期望保存值），33 字符审批返回 200（期望 422）。长值旧读取的兼容用例在原基线也通过。
+
+| 当前修复的实际命令 | 结果 |
+| --- | --- |
+| `node --test apps/admin-web/test/subscription-config-approval.test.mjs` | 退出 0，5 项通过；调用真实页面回调，控制 hooks 与 AntD 渲染，验证回显、切换商品不串值、确认重置、32/33 边界及旧长值保留，不冒充真实浏览器验收 |
+| `pnpm --filter @kando/admin-web test` | 退出 0，72 项全部通过、无跳过，包含上述新增用例 |
+| `pnpm --filter @kando/workers-api test src/subscription-config/model.test.ts src/subscription-config/routes.postgres.test.ts src/subscription-config/catalog.test.ts --maxWorkers=2` | 退出 0，3 文件／65 项全部通过；含当前 scope 名称读取、跨环境／Bundle 不泄露、32 字符成功／超限拒绝且原映射不变、旧长值公开注册表读取，以及原鉴权／幂等／公开展示合同 |
+| `pnpm type-check` | 退出 0，7/7 任务成功；Admin 与 Workers 实际执行，另 5 项命中缓存 |
+| `pnpm lint` | 退出 0，依赖方向检查通过 |
+| Flutter 目录执行 `flutter test --no-pub --dart-define-from-file=config/test.json test/subscription_product_registry_test.dart test/subscription_singular_revenue_test.dart test/app_attribution_test.dart` | 退出 0，38 项通过；既有注册表、收入持久化／去重与 SDK 模拟调用回归，不等于真实平台接收 |
+| 文档相对路径／锚点检查、`git diff --check` | 65 个相对链接／锚点可解析，差异检查退出 0 |
+
+Code Review 完成代码及调用方自查，无阻断项：新增字段只进入已鉴权后台目录，值取已有当前 scope 注册表；原 `admitted/reasons` 与公开 App 响应保持；未收紧历史注册表解析而破坏既有商品支持；32 字符校验覆盖 UI 与直接 API，且不改变幂等结果核对。两类审核入口共用打开逻辑，回显不自动勾选确认或提交，超长值不静默截断。审查后未修改业务代码，未声称独立人员审查。
+
+基线副本及定位材料保留在忽略目录 `apps/workers-api/.wrangler/singular-admission-fix-40tneg8a/`。本轮没有重跑完整 Workers／Flutter／旧包兼容矩阵，没有制作 Admin／Linux／Flutter 发布制品；未验证真实后台登录与浏览器交互、真机 StoreKit 交易或 Singular 平台接收。本轮以本地组件回调与内存 PostgreSQL 覆盖已定位路径；真实浏览器交互尚待补验，远端运行结果须另行部署后独立核对。未执行远程配置修改、数据库迁移、dev/prod 发布、Git commit 或 push。
+
+## 2026-10-20 iPhone 13 订阅商品名称居中 Debug 复测
+
+从 `codex/dev-1.0.6@5d277631` 加未提交的订阅商品布局、组件测试和客户端流程文档增量，执行 `flutter run --no-pub --flavor test --debug -d 00008110-000A242A01A2801E --dart-define-from-file=config/test.json`。Xcode 编译、安装、启动成功，Dart VM Service 与 DevTools 已连接；设备安装列表确认 `kando的iPhone13` 上的 `Card AI` 为 `com.kando.kandoApp.beta`、`1.0.5 (173)`。签名 App 的 `get-task-allow=true`，App Attest entitlement 为 `development`。随后从 Flutter 调试器 detach，App 保持运行。
+
+真机订阅完整页抓屏可见后台配置的 `Lifetime Access` 无副文案，右侧价格说明为两行；名称现在位于商品卡片垂直中部，选中态、价格和角标同时显示。设备画面是当前 Debug 构建，不等同于已保存的 173 Release IPA；本次未制作新 IPA，未检查弹窗、真实购买／Restore、Android 真机或服务端配置变更。此前本地订阅 UI 测试 55 项、`flutter analyze --no-pub` 和 `git diff --check` 均通过；本轮真机步骤没有重新运行这些检查。
+
+## 2026-10-20 iPhone 13 订阅商品单选圆圈居中
+
+配置商品的单选圆圈此前跟随文字行顶部定位。把周卡副文案扩成多行后，新增的中心点断言先复现圆圈比卡片中心高 32px；改为按卡片实际内容高度垂直居中后，周卡多行、年卡无副文案和一次性商品的圆圈均通过中心点断言，名称及价格的原有排布保持。`subscription_restore_ui_test.dart` 完整 55 项通过，`flutter analyze --no-pub` 与 `git diff --check` 通过。
+
+使用当前未提交工作区再次执行 test flavor `flutter run --no-pub --flavor test --debug -d 00008110-000A242A01A2801E --dart-define-from-file=config/test.json`，Xcode 构建、iPhone 13 安装与启动完成；设备应用列表回读为 `com.kando.kandoApp.beta`、`1.0.5 (173)`。真机订阅完整页抓屏显示后台配置的周卡多行副文案和年卡，两张卡的圆圈均位于卡片垂直中部。首次 Flutter 调试连接在启动后断开；第二次经无线连接启动后 Dart VM Service 未发现，`flutter run` 最终以 1 退出。因此本轮没有完成调试器附着或热重载，不把真机抓屏写成完整交互验收。未制作新 Release IPA、执行购买／Restore、Android 真机测试、服务端变更或 Git 提交／推送。

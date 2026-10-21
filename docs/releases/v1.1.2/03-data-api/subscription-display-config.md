@@ -28,6 +28,8 @@ API／Admin 已由既有 watcher 发布干净的 `dev@06f420a`；独立回读确
 
 管理员在目录选择商品后，超级管理员通过 `POST /api/v1/admin/subscription-products/admit` 审批。请求包括 UUID v4 request_id、product_id、product_type、expected_scope、singular_event_name，以及 acknowledge_legacy_restore_limit=true。系统重新读取真实 Apple 目录，验证当前 App／订阅组／类型，确认目标 scope 与运行环境完全一致；普通 operator 返回 403、环境不符返回 409。收入事件名由审批人按当前 dev/prod 确认，不自动猜测 test 后缀。
 
+2026-10-20 本地修正：新增或重新审批时，`singular_event_name` 限 1–32 个 ASCII 字符，以英文字母开头，后续仅允许字母、数字、下划线；超过 32 个字符返回 422，不自动截断或改写名称。该上限依据 [Singular Flutter 自定义事件要求](https://support.singular.net/hc/en-us/articles/35833799752603-Flutter-SDK-Tracking-In-app-Events)。后台同时限制输入、显示计数并校验提交。历史已保存的较长事件名仍按既有格式读取，避免因展示字段收紧而关闭已有商品的购买／恢复准入；旧值回显完整，重新审批前需人工修正到 32 字符以内，历史收入队列不做批量改写。
+
 审批使用现有 subscription_display_mutation 的幂等和结果核对机制。scope 锁与商品锁下，事务新增缺失的 billing_product（稳定 plan_id 为 apple:ProductID、performance_pro、active=1），保留已有兼容映射；已有 inactive、不同类型／权益或计划冲突返回 PRODUCT_MAPPING_CONFLICT，不覆盖旧数据。审批记录写入现有 PostgreSQL app_config 的 billing.apple.admission:环境:Bundle 键，记录商品类型、试用分类、计划、收入映射、审批人和时间。没有新增 schema／migration，不使用 D1；目标环境仍须已安装订阅配置原有的 0006／0014 迁移，不能将“本次无新迁移”理解为 prod 首次接入无需核对 ledger。
 
 运行期购买白名单是旧环境名单与当前 scope 审批记录的并集。Fresh Purchase、Restore、Premium／生命周期、通知补单／Server API 校正及 Admin 订单范围使用这一来源；升降级通知保留旧商品基线并接受当前 scope 已批准的订阅。购买仍验证 Apple 签名、Bundle／环境、session challenge 或 App Attest，以及 active 权益映射。审批不跳过 Apple 可售和真实交易验证，不直接发放权益。
@@ -68,6 +70,8 @@ API／Admin 已由既有 watcher 发布干净的 `dev@06f420a`；独立回读确
 | `PUT /subscription-configs/:id` | `{request_id, expected_revision, config}`；200，保存完整编辑副本；保留启用归属，已启用配置不能直接变更类型 |
 | `PUT /subscription-configs/active/:page_type` | `{request_id, config_id, expected_active_revision, expected_config_revision}`；config_id=null 关闭，此时不需要目标内容版本；目标启用必须同时确认指针及内容版本 |
 | `GET /subscription-config-mutations/:request_id` | 仅原操作者可核对；无记录返回 `status=unknown`；有记录返回 succeeded/failed、http_status 与原 response |
+
+`GET /subscription-products?type=...` 的商品 `admission` 在 V1 原有 `admitted/reasons` 外增加可选 `singular_event_name: string | null`，取当前 `APP_ENVIRONMENT:APPLE_IAP_BUNDLE_ID` 的已保存审批注册表；未设置返回 null，不从其他环境／Bundle 或客户端草稿补值，也不推测源码默认事件名。Admin 打开普通商品和关联试用商品的审核弹窗时回显该值，未保存商品为空，切换商品不继承上次输入；确认勾选每次重置。旧 Admin 可忽略新增字段，新 Admin 遇到缺少字段的旧 API 按未设置处理。App 的公开注册表与购买／恢复接口格式保持不变，无新 migration。
 
 所有写入使用 UUID v4 `request_id`，编辑版本为正整数，初始生效指针版本 0。结果 HTTP 包络沿用 `{success,data}`／`{success:false,error:{code,message,fields?}}`。不允许通过客户端传入目录事实、准入结果、scope 或 enabled 绕过服务端判断。
 

@@ -427,6 +427,46 @@ describe("super-admin product onboarding", () => {
     }
     expect((await call("/subscription-supported-products?platform=google", "GET", undefined, { env: scopedEnv(), token: null })).body.data.products).toEqual([]);
   });
+  it("returns saved revenue names for each current-scope product without exposing another environment or Bundle", async () => {
+    const events = { "paid.week": "weekly_cardtest", "trial.week": "card_weekly_trialtest", lifetime: "lifetime_cardtest" };
+    for (const [id, eventName] of Object.entries(events)) {
+      expect((await admit(admission({ product_id: id, product_type: id === "lifetime" ? "non_consumable" : "subscription", singular_event_name: eventName }))).status).toBe(200);
+    }
+    for (const type of ["subscription", "non_consumable"]) {
+      const result = await call("/admin/subscription-products?type=" + type, "GET", undefined, { env: scopedEnv() });
+      expect(result.status).toBe(200);
+      for (const [id, name] of Object.entries(events)) {
+        expect(result.body.data.products.find((p: any) => p.product_id === id).admission.singular_event_name).toBe(name);
+      }
+      expect(result.body.data.products.find((p: any) => p.product_id === "cardx.month").admission.singular_event_name).toBeNull();
+    }
+    for (const other of [{ ...scopedEnv(), APP_ENVIRONMENT: "production" as const }, { ...scopedEnv(), APPLE_IAP_BUNDLE_ID: "other.app" }]) {
+      const result = await call("/admin/subscription-products?type=subscription", "GET", undefined, { env: other });
+      expect(result.status).toBe(200);
+      expect(result.body.data.products.every((p: any) => p.admission.singular_event_name === null)).toBe(true);
+    }
+  });
+  it("accepts 32-character Singular names and refuses longer reapprovals without overwriting the original mapping", async () => {
+    const eventName = "a".repeat(32);
+    expect((await admit(admission({ singular_event_name: eventName }))).status).toBe(200);
+    const before = await db.prepare("SELECT value FROM app_config WHERE key = 'billing.apple.admission:development:example.app'").first("value");
+    for (const invalid of ["a".repeat(33), "a".repeat(100), "事件", "1weekly", "weekly event", "weekly\n", ""]) {
+      expect((await admit(admission({ singular_event_name: invalid }))).status).toBe(422);
+      expect(await db.prepare("SELECT value FROM app_config WHERE key = 'billing.apple.admission:development:example.app'").first("value")).toBe(before);
+    }
+    const products = await call("/subscription-supported-products?platform=ios", "GET", undefined, { env: scopedEnv(), token: null });
+    expect(products.body.data.products.find((p: any) => p.product_id === "cardx.month").singular_event_name).toBe(eventName);
+  });
+  it("keeps legacy long mappings readable for existing clients while administrators prepare a correction", async () => {
+    expect((await admit()).status).toBe(200);
+    const row = await db.prepare("SELECT value FROM app_config WHERE key = 'billing.apple.admission:development:example.app'").first<{ value: string }>();
+    const registry = JSON.parse(row!.value);
+    registry["cardx.month"].singular_event_name = "legacy_" + "x".repeat(40);
+    await db.prepare("UPDATE app_config SET value = ? WHERE key = 'billing.apple.admission:development:example.app'").bind(JSON.stringify(registry)).run();
+    const result = await call("/subscription-supported-products?platform=ios", "GET", undefined, { env: scopedEnv(), token: null });
+    expect(result.status).toBe(200);
+    expect(result.body.data.products[0].singular_event_name).toBe(registry["cardx.month"].singular_event_name);
+  });
   it("replays the same approval and rejects conflicting mappings without overwriting them", async () => {
     const body = admission();
     const result = await admit(body);

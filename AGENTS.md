@@ -91,6 +91,7 @@ GitLab Flutter CI 使用 3.44.0，GitHub iOS CI 使用 3.44.7。涉及工具链�
 - Cloudflare prod Admin 有两个独立静态发布目标：Pages `toccards-admin`（`admin.tcgcard.fun`，production branch=main）与 Workers assets 副本（`api.tcgcard.fun`）。只运行 Workers 的 `deploy:prod` 不会更新 Pages；只发 Admin 时不得夹带当前 dev 的后端增量。两端均须核对产物哈希及对生产 API 的跨域/鉴权边界。Linux 托管方式见 `deploy/linux/`。
 - PostgreSQL schema/migration 与 Hyperdrive binding 是数据库产品和基础设施契约；新增 schema 变更只允许写入 `apps/workers-api/src/db/postgres/migrations/`。修改前必须读取相关实现和文档，并先向用户说明影响。
 - 服务端授权、账号归属、资产隔离和购买权益必须由可信服务端数据验证，不能信任客户端自报状态。
+- Singular 商品准入的新增／重新审批收入事件名最多 32 个 ASCII 字符，以英文字母开头，仅含字母、数字和下划线；后台回显当前环境／Bundle 已保存的名称，历史较长值保持可读且不自动截断。仅收紧新写入，不能因此破坏旧商品购买／恢复或清空历史收入映射，见 `docs/releases/v1.1.2/03-data-api/subscription-display-config.md`。
 - 后续app所有轻提示框不在使用底部提示框，使用项目组件中的顶部提示框组件；项目组件中有不同类型的顶部提示组件，使用时需区分使用类型。
 - iOS 内部测试包使用 Bundle ID `com.kando.kandoApp.beta` 时，最终签名 entitlement 的 App Attest 环境必须为 `development`，不得交付 `production`；必须解包检查最终 IPA，不能只看 Xcode 工程设置或描述文件允许值。其他 Bundle ID 的 App Attest 环境暂不固定。
 - iOS IPA 和 dSYM 统一保存到 `~/Downloads/CardAI-Packages/<Bundle ID>/`，下面按 `CardAI-Test-<版本>-<构建号>` 或 `CardAI-Prod-<版本>-<构建号>` 建版本目录。测试包保留最近保存的 3 个版本，正式包保留 7 个版本；新版本完整保存并校验后，才将同一 Bundle ID 下超额的最旧版本移入废纸篓。使用发布脚本的自动保存流程；此保留规则不清理 Xcode Archives。
