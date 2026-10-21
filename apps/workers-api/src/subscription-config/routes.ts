@@ -44,7 +44,7 @@ export function createSubscriptionConfigAdminRoutes(dependencies: Dependencies =
     const catalog = await loadCatalog(c.env, new Set([type]));
     const admission = await productAdmission(c.env, catalog.products);
     return c.json({ success: true, data: { ...catalog, scope: subscriptionScope(c.env), environment: c.env.APP_ENVIRONMENT, can_approve: c.get("admin").role === "super_admin", products: catalog.products.map((product, i) => ({
-      ...product, admission: { admitted: admission[i].admitted, reasons: admission[i].reasons },
+      ...product, admission: { admitted: admission[i].admitted, reasons: admission[i].reasons, singular_event_name: admission[i].singular_event_name },
     })) } });
   });
   routes.post("/subscription-products/admit", async (c) => {
@@ -67,8 +67,10 @@ export function createSubscriptionConfigAdminRoutes(dependencies: Dependencies =
     if (input.expected_scope !== scope) failure = errorOutcome("ADMISSION_SCOPE_CONFLICT", "The selected environment or App changed. Reload the catalog.", 409);
     else if (typeof input.product_id !== "string" || input.product_id.length > 200 ||
         !["subscription", "non_consumable"].includes(type as string) ||
-        !/^[A-Za-z][A-Za-z0-9_]{0,99}$/.test(eventName) || input.acknowledge_legacy_restore_limit !== true) {
+        input.acknowledge_legacy_restore_limit !== true) {
       failure = errorOutcome("VALIDATION_ERROR", "Product, revenue mapping and explicit legacy restore acknowledgement are required.", 422);
+    } else if (!/^[A-Za-z][A-Za-z0-9_]{0,31}$/.test(eventName)) {
+      failure = errorOutcome("VALIDATION_ERROR", "Singular revenue event names must be 1-32 characters, start with an ASCII letter and contain only letters, digits or underscores.", 422);
     } else {
       try {
         const catalog = await loadCatalog(c.env, new Set([type as ProductType]));

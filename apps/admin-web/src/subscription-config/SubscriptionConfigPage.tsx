@@ -3,7 +3,7 @@ import type { ColumnsType } from "antd/es/table";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRequestId } from "../request-id";
 import {
-  MAX_DISPLAY_SKUS, PAGE_LABELS, admissionMessage, availableProducts, blankSku, changeProduct, changeTrialProduct, editorFromRecord, emptyCopy,
+  MAX_DISPLAY_SKUS, MAX_SINGULAR_EVENT_NAME_LENGTH, PAGE_LABELS, admissionMessage, isSingularEventName, availableProducts, blankSku, changeProduct, changeTrialProduct, editorFromRecord, emptyCopy,
   moveSku, newEditor, priceDisplayMode, productLabel, productMap, removeSku, subscriptionErrorMessage, toDisplayConfig,
   unlinkTrial, validateEditor,
 } from "./model";
@@ -164,12 +164,12 @@ export default function SubscriptionConfigPage({ request, accountKey, registerLe
     setServerIssues([]); setOperationError(null);
   };
   const openApproval = (product: CatalogProduct) => {
-    setApproval(product); setApprovalEvent(""); setApprovalAcknowledged(false);
+    setApproval(product); setApprovalEvent(product.admission.singular_event_name ?? ""); setApprovalAcknowledged(false);
   };
   const approveProduct = async () => {
     if (!approval || !approvalAcknowledged || locked) return;
     const catalog = catalogs[approval.product_type];
-    if (!catalog.can_approve || !catalog.scope || !/^[A-Za-z][A-Za-z0-9_]{0,99}$/.test(approvalEvent)) return;
+    if (!catalog.can_approve || !catalog.scope || !isSingularEventName(approvalEvent)) return;
     setApproval(null);
     await coordinator.start({ version: 1, kind: "admit", path: "/subscription-products/admit", method: "POST",
       body: { request_id: createRequestId(), product_id: approval.product_id, product_type: approval.product_type,
@@ -235,7 +235,7 @@ export default function SubscriptionConfigPage({ request, accountKey, registerLe
     <Modal title="审核商品准入" open={!!approval} onCancel={() => { if (!locked) setApproval(null); }}
       confirmLoading={busy} closable={!locked} maskClosable={!locked} cancelButtonProps={{ disabled: locked }}
       okText="确认当前环境准入" onOk={() => void approveProduct()}
-      okButtonProps={{ disabled: locked || !approvalAcknowledged || !/^[A-Za-z][A-Za-z0-9_]{0,99}$/.test(approvalEvent) }}>
+      okButtonProps={{ disabled: locked || !approvalAcknowledged || !isSingularEventName(approvalEvent) }}>
       {approval && <Space direction="vertical" style={{ width: "100%" }}>
         <Alert type={catalogs[approval.product_type].environment === "production" ? "error" : "info"} showIcon
           message={catalogs[approval.product_type].environment === "production" ? "目标：生产环境 prod" : "目标：开发环境 dev"}
@@ -243,8 +243,9 @@ export default function SubscriptionConfigPage({ request, accountKey, registerLe
         <Text strong>{approval.product_id}</Text>
         <Text>类型：{approval.product_type === "subscription" ? "自动续期订阅" : "永久权益"}；权益：Premium；Apple 状态：{approval.state}</Text>
         <Text>审批会注册服务端购买与展示准入，页面仍需单独启用。App 需安装支持动态商品注册表的版本；Apple 可售状态和真实购买仍需测试。</Text>
-        <Form.Item label="当前环境的 Singular 收入事件名" required help="由数据负责人确认；只允许英文字母开头及字母、数字、下划线。">
-          <Input aria-label="准入收入事件名" value={approvalEvent} maxLength={100} disabled={locked} onChange={(e) => setApprovalEvent(e.target.value)} />
+        <Form.Item label="当前环境的 Singular 收入事件名" required validateStatus={approvalEvent && !isSingularEventName(approvalEvent) ? "error" : undefined}
+          help="由数据负责人确认；最多 32 个字符，以英文字母开头，仅含英文字母、数字、下划线。">
+          <Input aria-label="准入收入事件名" value={approvalEvent} maxLength={MAX_SINGULAR_EVENT_NAME_LENGTH} showCount disabled={locked} onChange={(e) => setApprovalEvent(e.target.value)} />
         </Form.Item>
         <Checkbox checked={approvalAcknowledged} disabled={locked} onChange={(e) => setApprovalAcknowledged(e.target.checked)}>
           已核对当前环境、Premium 权益及收入事件，并确认新 SKU 在 1.0.4／1.0.5 中无法恢复的支持边界。

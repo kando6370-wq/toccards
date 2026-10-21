@@ -79,14 +79,16 @@ export async function productAdmission(env: Env, products: Array<{ product_id: s
   `).bind(...ids).all<{ product_id: string; product_type: string; active: number; entitlement_id: string }>();
   const allowed = configuredIds(env.APPLE_IAP_PRODUCT_IDS);
   const approved = configuredIds(env.SUBSCRIPTION_DISPLAY_PRODUCT_IDS);
-  for (const p of await approvedAppleProducts(env)) { allowed.add(p.product_id); approved.add(p.product_id); }
+  const registered = await approvedAppleProducts(env);
+  for (const p of registered) { allowed.add(p.product_id); approved.add(p.product_id); }
   return products.map((p) => {
     const row = rows.find((r) => r.product_id === p.product_id);
     const reasons: string[] = [];
     if (!allowed.has(p.product_id)) reasons.push("NOT_IN_ENTITLEMENT_ALLOWLIST");
     if (!approved.has(p.product_id)) reasons.push("DISPLAY_APPROVAL_REQUIRED");
     if (!row || row.active !== 1 || row.entitlement_id !== "performance_pro" || row.product_type !== p.product_type) reasons.push("ENTITLEMENT_MAPPING_UNAVAILABLE");
-    return { product_id: p.product_id, admitted: !reasons.length, reasons };
+    return { product_id: p.product_id, admitted: !reasons.length, reasons,
+      singular_event_name: registered.find((item) => item.product_id === p.product_id)?.singular_event_name ?? null };
   });
 }
 
