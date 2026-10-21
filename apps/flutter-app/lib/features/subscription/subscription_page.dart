@@ -1920,6 +1920,11 @@ class _ConfiguredPlanTile extends StatelessWidget {
         : product.product.displayPrice;
     final showWeeklyReference =
         !card.hidePrice && card.weeklyReference && product.weeklyPrice != null;
+    final showSubtitle = card.subtitle.trim().isNotEmpty;
+    final hasNameDetails =
+        showSubtitle ||
+        (card.badge.isNotEmpty && !compactBadge) ||
+        showWeeklyReference;
     final hasExtraLine =
         priceCaption.isNotEmpty ||
         showWeeklyReference ||
@@ -1955,123 +1960,137 @@ class _ConfiguredPlanTile extends StatelessWidget {
                       : _subscriptionSheetItemBorder,
                 ),
               ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Stack(
+                fit: StackFit.passthrough,
                 children: [
-                  const SizedBox(height: 40),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: _SheetPlanRadio(
-                      selected: selected,
-                      enabled: enabled,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (compactBadge && card.hidePrice)
-                          const SizedBox(height: 4),
-                        Text(
-                          card.copy.name,
-                          style: const TextStyle(
-                            color: KandoColors.text,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            height: 24 / 16,
-                          ),
-                        ),
-                        if (card.subtitle.isNotEmpty)
-                          Text(
-                            card.subtitle,
-                            style: const TextStyle(
-                              color: KandoColors.text,
-                              fontSize: 12,
-                              height: 16 / 12,
-                            ),
-                          ),
-                        if (card.badge.isNotEmpty && !compactBadge)
-                          Text(
-                            card.badge,
-                            style: const TextStyle(
-                              color: KandoColors.accent,
-                              fontSize: 12,
-                              height: 16 / 12,
-                            ),
-                          ),
-                        if (showWeeklyReference)
-                          SizedBox(
-                            width: double.infinity,
-                            height: 16,
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                'Approx. ${product.weeklyPrice} / week',
-                                maxLines: 1,
-                                softWrap: false,
-                                style: const TextStyle(
-                                  color: _subscriptionSheetSecondaryText,
-                                  fontSize: 12,
-                                  height: 16 / 12,
-                                ),
+                  Row(
+                    crossAxisAlignment: hasNameDetails
+                        ? CrossAxisAlignment.start
+                        : CrossAxisAlignment.center,
+                    children: [
+                      const SizedBox(width: 20, height: 40),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (compactBadge &&
+                                card.hidePrice &&
+                                hasNameDetails)
+                              const SizedBox(height: 4),
+                            Text(
+                              card.copy.name,
+                              style: const TextStyle(
+                                color: KandoColors.text,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                height: 24 / 16,
                               ),
                             ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  if (!card.hidePrice) ...[
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 112,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          if (compactBadge) const SizedBox(height: 12),
-                          SizedBox(
-                            key: Key(
-                              'subscription-config-product-${card.sku.productId}-price',
-                            ),
-                            width: 112,
-                            height: 24,
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerRight,
-                              child: Text(
-                                price,
-                                maxLines: 1,
-                                softWrap: false,
+                            if (showSubtitle)
+                              Text(
+                                card.subtitle,
                                 style: const TextStyle(
                                   color: KandoColors.text,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  height: 24 / 16,
-                                ),
-                              ),
-                            ),
-                          ),
-                          if (priceCaption.isNotEmpty)
-                            SizedBox(
-                              key: Key(
-                                'subscription-config-product-${card.sku.productId}-price-caption',
-                              ),
-                              width: 112,
-                              child: Text(
-                                priceCaption,
-                                textAlign: TextAlign.right,
-                                style: const TextStyle(
-                                  color: _subscriptionSheetSecondaryText,
                                   fontSize: 12,
                                   height: 16 / 12,
                                 ),
                               ),
-                            ),
-                        ],
+                            if (card.badge.isNotEmpty && !compactBadge)
+                              Text(
+                                card.badge,
+                                style: const TextStyle(
+                                  color: KandoColors.accent,
+                                  fontSize: 12,
+                                  height: 16 / 12,
+                                ),
+                              ),
+                            if (showWeeklyReference)
+                              SizedBox(
+                                width: double.infinity,
+                                height: 16,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    'Approx. ${product.weeklyPrice} / week',
+                                    maxLines: 1,
+                                    softWrap: false,
+                                    style: const TextStyle(
+                                      color: _subscriptionSheetSecondaryText,
+                                      fontSize: 12,
+                                      height: 16 / 12,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      if (!card.hidePrice) ...[
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: 112,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              if (compactBadge) const SizedBox(height: 12),
+                              SizedBox(
+                                key: Key(
+                                  'subscription-config-product-${card.sku.productId}-price',
+                                ),
+                                width: 112,
+                                height: 24,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerRight,
+                                  child: Text(
+                                    price,
+                                    maxLines: 1,
+                                    softWrap: false,
+                                    style: const TextStyle(
+                                      color: KandoColors.text,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      height: 24 / 16,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              if (priceCaption.isNotEmpty)
+                                SizedBox(
+                                  key: Key(
+                                    'subscription-config-product-${card.sku.productId}-price-caption',
+                                  ),
+                                  width: 112,
+                                  child: Text(
+                                    priceCaption,
+                                    textAlign: TextAlign.right,
+                                    style: const TextStyle(
+                                      color: _subscriptionSheetSecondaryText,
+                                      fontSize: 12,
+                                      height: 16 / 12,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  Positioned.fill(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: _SheetPlanRadio(
+                        key: Key(
+                          'subscription-config-product-${card.sku.productId}-radio',
+                        ),
+                        selected: selected,
+                        enabled: enabled,
                       ),
                     ),
-                  ],
+                  ),
                 ],
               ),
             ),
@@ -2473,7 +2492,11 @@ class _PlanBadge extends StatelessWidget {
 }
 
 class _SheetPlanRadio extends StatelessWidget {
-  const _SheetPlanRadio({required this.selected, required this.enabled});
+  const _SheetPlanRadio({
+    super.key,
+    required this.selected,
+    required this.enabled,
+  });
 
   final bool selected;
   final bool enabled;

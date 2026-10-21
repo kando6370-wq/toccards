@@ -661,3 +661,15 @@ Code Review 自查覆盖计数口径、直接请求绕过、存量数据保留�
 - 验证与构建：`flutter analyze --no-pub` 通过；订阅展示、恢复、OAuth authorizer 与发布配置 98 项通过，Home Tab 两项定向测试通过。执行 `flutter clean` 后构建 Release-test 原生产物并创建 Xcode archive。最终 IPA 从归档内已签名 App 原样封装，373 个文件逐字节一致；严格签名检查通过，Apple Development 签名、`get-task-allow=true`、App Attest `development`，描述文件有效至 2027-09-07，包含 6 台登记设备。构建和归档退出 0；保留 `sign_in_with_apple` 尚未支持 Swift Package Manager、第三方 Swift 前置兼容、App Intents 无依赖以及 `in_app_review` 隐私清单无处理规则等非阻断提示。既有 Firebase Crashlytics 构建阶段验证成功并启动后台符号上传，本轮未独立确认远端处理完成。
 - 符号与完整性：`Card AI Test.ipa` 为 39,927,076 字节，SHA-256 `6af3598a1769159208e9e9031146b0868ab22deff568a95bc7c7cf2284b631c8`；`dSYMs.zip` 为 61,218,109 字节，SHA-256 `3cb3a7b394f15961df96f3d34a39bab1643eb08e55da2d01a9499a9da5cd764c`。两份 ZIP 完整性检查通过，42/42 个唯一 Mach-O UUID 有对应 dSYM，缺失／额外均为 0。44 个 dSYM bundle 中 43 个通过 `dwarfdump --verify`；`App.framework.dSYM` 有 169 个 Flutter AOT DWARF range 实际错误，命令输出包含 2 条汇总后共 171 条 `error:`，不能声称全部 dSYM 深度校验通过。
 - 保存与边界：制品保存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.5-173/`；新版本完整保存后将旧 170 版移入废纸篓，当前保留 171、172、173。本次未安装设备、上传蒲公英／TestFlight／App Store Connect，也未执行真实登录、扫描、购买、Restore、崩溃上报或真机启动验收；未部署、迁移数据库或推送 Git。
+
+## 2026-10-20 iPhone 13 订阅商品名称居中 Debug 复测
+
+从 `codex/dev-1.0.6@5d277631` 加未提交的订阅商品布局、组件测试和客户端流程文档增量，执行 `flutter run --no-pub --flavor test --debug -d 00008110-000A242A01A2801E --dart-define-from-file=config/test.json`。Xcode 编译、安装、启动成功，Dart VM Service 与 DevTools 已连接；设备安装列表确认 `kando的iPhone13` 上的 `Card AI` 为 `com.kando.kandoApp.beta`、`1.0.5 (173)`。签名 App 的 `get-task-allow=true`，App Attest entitlement 为 `development`。随后从 Flutter 调试器 detach，App 保持运行。
+
+真机订阅完整页抓屏可见后台配置的 `Lifetime Access` 无副文案，右侧价格说明为两行；名称现在位于商品卡片垂直中部，选中态、价格和角标同时显示。设备画面是当前 Debug 构建，不等同于已保存的 173 Release IPA；本次未制作新 IPA，未检查弹窗、真实购买／Restore、Android 真机或服务端配置变更。此前本地订阅 UI 测试 55 项、`flutter analyze --no-pub` 和 `git diff --check` 均通过；本轮真机步骤没有重新运行这些检查。
+
+## 2026-10-20 iPhone 13 订阅商品单选圆圈居中
+
+配置商品的单选圆圈此前跟随文字行顶部定位。把周卡副文案扩成多行后，新增的中心点断言先复现圆圈比卡片中心高 32px；改为按卡片实际内容高度垂直居中后，周卡多行、年卡无副文案和一次性商品的圆圈均通过中心点断言，名称及价格的原有排布保持。`subscription_restore_ui_test.dart` 完整 55 项通过，`flutter analyze --no-pub` 与 `git diff --check` 通过。
+
+使用当前未提交工作区再次执行 test flavor `flutter run --no-pub --flavor test --debug -d 00008110-000A242A01A2801E --dart-define-from-file=config/test.json`，Xcode 构建、iPhone 13 安装与启动完成；设备应用列表回读为 `com.kando.kandoApp.beta`、`1.0.5 (173)`。真机订阅完整页抓屏显示后台配置的周卡多行副文案和年卡，两张卡的圆圈均位于卡片垂直中部。首次 Flutter 调试连接在启动后断开；第二次经无线连接启动后 Dart VM Service 未发现，`flutter run` 最终以 1 退出。因此本轮没有完成调试器附着或热重载，不把真机抓屏写成完整交互验收。未制作新 Release IPA、执行购买／Restore、Android 真机测试、服务端变更或 Git 提交／推送。
