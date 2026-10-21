@@ -178,6 +178,14 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
         : selectedCard.copy.autoBillingNote
         ? selectedCard.product.billingSummary
         : selectedCard.billingNote;
+    final purchaseButtonTextStyle = useUpdatedSkuUi
+        ? const TextStyle(
+            fontFamily: 'CupertinoSystemText',
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            height: 24 / 16,
+          )
+        : null;
     ref.listen(subscriptionControllerProvider, (previous, next) {
       if (next.resultEventCount != previous?.resultEventCount &&
           !_onboardingPurchaseSuccessNavigationStarted &&
@@ -279,12 +287,13 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                   : const Key('subscription-billing-custom-note'),
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: KandoColors.mutedText,
+                color: KandoColors.text,
+                fontFamily: 'CupertinoSystemText',
                 fontSize: 12,
                 height: 16 / 12,
               ),
             ),
-            SizedBox(height: useUpdatedSkuUi ? 8 : 16),
+            const SizedBox(height: 16),
           ],
           SizedBox(
             height: display == null ? 56 : null,
@@ -324,7 +333,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                   alpha: 0.45,
                 ),
                 shape: const StadiumBorder(),
-                minimumSize: display == null ? null : const Size.fromHeight(44),
+                minimumSize: useUpdatedSkuUi ? const Size.fromHeight(56) : null,
                 padding: display == null
                     ? null
                     : const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
@@ -341,35 +350,35 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                       ),
                     )
                   : display == null
-                  ? const Text('SUBSCRIBE')
+                  ? Text('SUBSCRIBE', style: purchaseButtonTextStyle)
                   : Text(
                       display.selectedCard?.cta ?? 'SUBSCRIBE',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                        height: 16 / 13,
-                      ),
+                      style: purchaseButtonTextStyle,
                     ),
             ),
           ),
-          SizedBox(height: useUpdatedSkuUi ? 8 : 16),
+          const SizedBox(height: 16),
           Wrap(
             alignment: WrapAlignment.center,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               _LegalLink(
                 label: 'Terms of Use',
+                useUpdatedSkuUi: useUpdatedSkuUi,
                 onTap: state.isLoading || state.isPurchasing
                     ? null
                     : () => ref.read(profileActionsProvider).openTerms(),
               ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Text(
                   '·',
                   style: TextStyle(
-                    color: KandoColors.mutedText,
+                    color: useUpdatedSkuUi
+                        ? KandoColors.text
+                        : KandoColors.mutedText,
+                    fontFamily: useUpdatedSkuUi ? 'CupertinoSystemText' : null,
                     fontSize: 12,
                     height: 18 / 12,
                   ),
@@ -377,6 +386,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
               ),
               _LegalLink(
                 label: 'Privacy Policy',
+                useUpdatedSkuUi: useUpdatedSkuUi,
                 onTap: state.isLoading || state.isPurchasing
                     ? null
                     : () => ref.read(profileActionsProvider).openPrivacy(),
@@ -395,10 +405,11 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                     : 'CANCEL ANYTIME',
                 key: const Key('subscription-fallback-auxiliary-note'),
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: KandoColors.mutedText,
-                  fontSize: 12,
-                  height: 16 / 12,
+                style: TextStyle(
+                  color: useUpdatedSkuUi ? Colors.white : KandoColors.mutedText,
+                  fontFamily: useUpdatedSkuUi ? 'CupertinoSystemText' : null,
+                  fontSize: useUpdatedSkuUi ? 14 : 12,
+                  height: useUpdatedSkuUi ? 16 / 14 : 16 / 12,
                 ),
               ),
             ),
@@ -1904,6 +1915,15 @@ class _ConfiguredPlanTile extends StatelessWidget {
             product.periodValue == 1
         ? 'per ${product.periodUnit}'
         : product.periodLabel;
+    final showWeeklyOnly =
+        usesRemoteConfiguration &&
+        card.weeklyOnly &&
+        product.weeklyPrice != null;
+    final showWeeklyReference =
+        usesRemoteConfiguration &&
+        card.weeklyReference &&
+        !card.weeklyOnly &&
+        product.weeklyPrice != null;
     final priceCaption = card.hidePrice
         ? ''
         : usesLocalFallback
@@ -1911,24 +1931,26 @@ class _ConfiguredPlanTile extends StatelessWidget {
               ? periodLabel
               : 'per week'
         : usesRemoteConfiguration
-        ? card.priceNote.trim()
+        ? showWeeklyOnly
+              ? 'per week'
+              : showWeeklyReference
+              ? '${product.weeklyPrice} per week'
+              : card.priceNote.trim()
         : periodLabel;
-    final price = usesLocalFallback && weeklyPrice != null
+    final price = showWeeklyOnly
+        ? product.isTrialProduct && product.canUseTrial
+              ? 'Then ${product.weeklyPrice!}'
+              : product.weeklyPrice!
+        : usesLocalFallback && weeklyPrice != null
         ? product.isTrialProduct && product.canUseTrial
               ? 'Then $weeklyPrice'
               : weeklyPrice
         : product.product.displayPrice;
-    final showWeeklyReference =
-        !card.hidePrice && card.weeklyReference && product.weeklyPrice != null;
     final showSubtitle = card.subtitle.trim().isNotEmpty;
     final hasNameDetails =
-        showSubtitle ||
-        (card.badge.isNotEmpty && !compactBadge) ||
-        showWeeklyReference;
+        showSubtitle || (card.badge.isNotEmpty && !compactBadge);
     final hasExtraLine =
-        priceCaption.isNotEmpty ||
-        showWeeklyReference ||
-        (card.badge.isNotEmpty && !compactBadge);
+        priceCaption.isNotEmpty || (card.badge.isNotEmpty && !compactBadge);
     return Semantics(
       selected: selected,
       enabled: enabled,
@@ -2005,25 +2027,6 @@ class _ConfiguredPlanTile extends StatelessWidget {
                                   height: 16 / 12,
                                 ),
                               ),
-                            if (showWeeklyReference)
-                              SizedBox(
-                                width: double.infinity,
-                                height: 16,
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(
-                                    'Approx. ${product.weeklyPrice} / week',
-                                    maxLines: 1,
-                                    softWrap: false,
-                                    style: const TextStyle(
-                                      color: _subscriptionSheetSecondaryText,
-                                      fontSize: 12,
-                                      height: 16 / 12,
-                                    ),
-                                  ),
-                                ),
-                              ),
                           ],
                         ),
                       ),
@@ -2063,15 +2066,35 @@ class _ConfiguredPlanTile extends StatelessWidget {
                                     'subscription-config-product-${card.sku.productId}-price-caption',
                                   ),
                                   width: 112,
-                                  child: Text(
-                                    priceCaption,
-                                    textAlign: TextAlign.right,
-                                    style: const TextStyle(
-                                      color: _subscriptionSheetSecondaryText,
-                                      fontSize: 12,
-                                      height: 16 / 12,
-                                    ),
-                                  ),
+                                  child: showWeeklyReference
+                                      ? SizedBox(
+                                          height: 16,
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            alignment: Alignment.centerRight,
+                                            child: Text(
+                                              priceCaption,
+                                              maxLines: 1,
+                                              softWrap: false,
+                                              style: const TextStyle(
+                                                color:
+                                                    _subscriptionSheetSecondaryText,
+                                                fontSize: 12,
+                                                height: 16 / 12,
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                      : Text(
+                                          priceCaption,
+                                          textAlign: TextAlign.right,
+                                          style: const TextStyle(
+                                            color:
+                                                _subscriptionSheetSecondaryText,
+                                            fontSize: 12,
+                                            height: 16 / 12,
+                                          ),
+                                        ),
                                 ),
                             ],
                           ),
@@ -2565,10 +2588,15 @@ class _CircleAction extends StatelessWidget {
 }
 
 class _LegalLink extends StatelessWidget {
-  const _LegalLink({required this.label, required this.onTap});
+  const _LegalLink({
+    required this.label,
+    required this.onTap,
+    required this.useUpdatedSkuUi,
+  });
 
   final String label;
   final Future<void> Function()? onTap;
+  final bool useUpdatedSkuUi;
 
   @override
   Widget build(BuildContext context) {
@@ -2593,8 +2621,9 @@ class _LegalLink extends StatelessWidget {
         padding: EdgeInsets.zero,
         child: Text(
           label,
-          style: const TextStyle(
-            color: KandoColors.mutedText,
+          style: TextStyle(
+            color: useUpdatedSkuUi ? KandoColors.text : KandoColors.mutedText,
+            fontFamily: useUpdatedSkuUi ? 'CupertinoSystemText' : null,
             fontSize: 12,
             height: 16 / 12,
           ),

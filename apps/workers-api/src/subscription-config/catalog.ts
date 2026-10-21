@@ -163,7 +163,7 @@ export function validateCatalogReferences(config: DisplayConfig, catalog: Produc
     }
     if (sku.trial?.product_id) {
       const target = products.get(sku.trial.product_id);
-      if (sku.trial.price_mode === "weekly" && (!target?.period || !WEEKLY_PERIODS.has(target.period))) {
+      if ((sku.trial.price_mode ?? sku.price_mode) === "weekly" && (!target?.period || !WEEKLY_PERIODS.has(target.period))) {
         issues.push({ path: path + ".trial.price_mode", message: "Weekly reference price is not defined for this period." });
       }
       if (!source || !target || source.product_type !== "subscription" || source.has_free_trial ||
