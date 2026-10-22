@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { availableProducts, changeProduct, changeTrialProduct, editorFromRecord, moveSku, newEditor, priceDisplayMode, productMap, removeSku, toDisplayConfig, unlinkTrial, validateEditor } from "../src/subscription-config/model.ts";
+import { availableProducts, changePriceDisplayMode, changeProduct, changeTrialPriceDisplayMode, changeTrialProduct, editorFromRecord, moveSku, newEditor, priceDisplayMode, productMap, removeSku, toDisplayConfig, unlinkTrial, validateEditor } from "../src/subscription-config/model.ts";
 import { catalogFixture, CONFIG_ID, editorFixture } from "./subscription-fixtures.mjs";
 
 test("new configurations start empty and cannot accidentally be enabled or default a demo product", () => {
@@ -69,25 +69,42 @@ test("changing a product clears an invalid trial target but preserves marketing 
 });
 
 test("type switching resets Product IDs and weekly pricing without erasing copy", () => {
-  const sku = editorFixture().body.skus[0]; sku.price_mode = "weekly"; sku.hide_price = true;
+  const sku = editorFixture().body.skus[0]; sku.price_mode = "weekly"; sku.weekly_only = true; sku.hide_price = true;
   const changed = changeProduct(sku, "", productMap(catalogFixture()), "non_consumable");
   assert.equal(changed.product_id, ""); assert.equal(changed.trial.product_id, "");
   assert.equal(changed.price_mode, "actual"); assert.equal(changed.name, "Weekly");
+  assert.equal(changed.weekly_only, false);
   assert.equal(changed.hide_price, true);
   assert.equal(priceDisplayMode(changed), "hidden");
 });
 
 test("relinking a hidden trial resets unsupported weekly pricing but retains its hidden state", () => {
   const trial = editorFixture().body.skus[0].trial;
-  trial.price_mode = "weekly"; trial.hide_price = true;
+  trial.price_mode = "weekly"; trial.weekly_only = true; trial.hide_price = true;
   const catalogs = catalogFixture();
   const target = { ...catalogs.subscription.products.find((product) => product.product_id === "trial.week"), product_id: "trial.day", period: "ONE_DAY" };
   const products = productMap({ ...catalogs, subscription: { ...catalogs.subscription, products: [...catalogs.subscription.products, target] } });
   const changed = changeTrialProduct(trial, "trial.day", products);
   assert.equal(changed.product_id, "trial.day");
   assert.equal(changed.price_mode, "actual");
+  assert.equal(changed.weekly_only, false);
   assert.equal(changed.hide_price, true);
   assert.equal(changed.name, "Weekly Trial");
+});
+
+test("switching to an unsupported period clears inherited weekly-only trial pricing", () => {
+  const sku = editorFixture().body.skus[0];
+  sku.price_mode = "weekly";
+  sku.weekly_only = true;
+  sku.trial.weekly_only = true;
+  const catalogs = catalogFixture();
+  catalogs.subscription.products.find((product) => product.product_id === "paid.week").period = "ONE_DAY";
+  catalogs.subscription.products.find((product) => product.product_id === "trial.week").period = "ONE_DAY";
+  const changed = changeProduct(sku, "paid.week", productMap(catalogs));
+  assert.equal(changed.price_mode, "actual");
+  assert.equal(changed.weekly_only, false);
+  assert.equal(changed.trial.product_id, "trial.week");
+  assert.equal(changed.trial.weekly_only, false);
 });
 
 test("reordering keeps the complete card and default, and removing the default requires reselection", () => {
@@ -174,6 +191,48 @@ test("legacy trial pricing inherits the base mode until explicitly configured", 
   assert.equal(saved.trial.hide_price, true);
 });
 
+test("weekly-only pricing inherits to trials, supports explicit false, and stays hidden when requested", () => {
+  const body = editorFixture().body;
+  const sku = body.skus[0];
+  sku.price_mode = "weekly";
+  sku.weekly_only = true;
+  assert.equal(priceDisplayMode(sku), "weekly_only");
+  assert.equal(priceDisplayMode(sku, sku.trial), "weekly_only");
+  sku.trial.weekly_only = false;
+  assert.equal(priceDisplayMode(sku, sku.trial), "weekly");
+  sku.trial.price_mode = "actual";
+  assert.equal(priceDisplayMode(sku, sku.trial), "actual");
+  sku.trial.price_mode = "weekly";
+  sku.trial.weekly_only = true;
+  sku.hide_price = true;
+  assert.equal(priceDisplayMode(sku, sku.trial), "hidden");
+  sku.trial.hide_price = false;
+  assert.equal(priceDisplayMode(sku, sku.trial), "weekly_only");
+  assert.equal(toDisplayConfig(body).skus[0].trial.weekly_only, true);
+});
+
+test("price selections write compatible weekly mode and clear invalid inherited trial flags", () => {
+  const source = editorFixture().body.skus[0];
+  const weeklyOnly = changePriceDisplayMode(source, "weekly_only");
+  assert.equal(weeklyOnly.price_mode, "weekly");
+  assert.equal(weeklyOnly.weekly_only, true);
+  const regularTrial = changeTrialPriceDisplayMode(weeklyOnly.trial, "weekly");
+  assert.equal(regularTrial.price_mode, "weekly");
+  assert.equal(regularTrial.weekly_only, false);
+  const actualTrial = changeTrialPriceDisplayMode(regularTrial, "actual");
+  assert.equal(actualTrial.weekly_only, false);
+  assert.equal(actualTrial.price_mode, "actual");
+  const inheritedTrial = { ...weeklyOnly.trial, weekly_only: true, product_id: "" };
+  const actualBase = changePriceDisplayMode({ ...weeklyOnly, trial: inheritedTrial }, "actual");
+  assert.equal(actualBase.price_mode, "actual");
+  assert.equal(actualBase.weekly_only, false);
+  assert.equal(actualBase.trial.weekly_only, false);
+  const hidden = changePriceDisplayMode(weeklyOnly, "hidden");
+  assert.equal(hidden.weekly_only, true);
+  assert.equal(priceDisplayMode(hidden), "hidden");
+  assert.equal(changeTrialPriceDisplayMode(regularTrial, "hidden").weekly_only, false);
+});
+
 test("retained trial weekly pricing must use a supported Apple period", () => {
   const body = editorFixture().body;
   body.trial_enabled = false;
@@ -181,6 +240,23 @@ test("retained trial weekly pricing must use a supported Apple period", () => {
   const catalogs = catalogFixture();
   catalogs.subscription.products.find((product) => product.product_id === "paid.week").period = "ONE_DAY";
   catalogs.subscription.products.find((product) => product.product_id === "trial.week").period = "ONE_DAY";
+  assert.ok(validateEditor(body, catalogs).some((issue) => issue.path === "skus.0.trial.price_mode"));
+});
+
+test("weekly-only pricing requires a weekly mode and supported period", () => {
+  const body = editorFixture().body;
+  body.skus[0].weekly_only = true;
+  assert.ok(validateEditor(body, catalogFixture()).some((issue) => issue.path === "skus.0.price_mode"));
+  body.skus[0].price_mode = "weekly";
+  body.skus[0].trial.weekly_only = true;
+  assert.deepEqual(validateEditor(body, catalogFixture()), []);
+  body.skus[0].trial.price_mode = "actual";
+  assert.ok(validateEditor(body, catalogFixture()).some((issue) => issue.path === "skus.0.trial.price_mode"));
+  body.skus[0].trial.price_mode = "weekly";
+  const catalogs = catalogFixture();
+  catalogs.subscription.products.find((product) => product.product_id === "paid.week").period = "ONE_DAY";
+  catalogs.subscription.products.find((product) => product.product_id === "trial.week").period = "ONE_DAY";
+  assert.ok(validateEditor(body, catalogs).some((issue) => issue.path === "skus.0.price_mode"));
   assert.ok(validateEditor(body, catalogs).some((issue) => issue.path === "skus.0.trial.price_mode"));
 });
 

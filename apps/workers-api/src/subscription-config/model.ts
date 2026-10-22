@@ -14,12 +14,14 @@ export type MarketingCopy = {
 export type TrialOverride = MarketingCopy & {
   product_id: string;
   price_mode?: "actual" | "weekly";
+  weekly_only?: boolean;
   hide_price?: boolean;
 };
 export type DisplaySku = MarketingCopy & {
   product_id: string;
   product_type: ProductType;
   price_mode: "actual" | "weekly";
+  weekly_only?: boolean;
   hide_price?: boolean;
   is_default: boolean;
   trial: TrialOverride | null;
@@ -152,24 +154,32 @@ export function parseDisplayConfig(input: unknown): { config: DisplayConfig | nu
   for (const [index, value] of (Array.isArray(input.skus) ? input.skus : []).entries()) {
     const path = "skus." + index + ".";
     if (!isRecord(value)) { issue(path, "SKU must be an object."); continue; }
-    fields(value, [...copyKeys, "product_id", "product_type", "price_mode", "hide_price", "is_default", "trial"], path);
+    fields(value, [...copyKeys, "product_id", "product_type", "price_mode", "weekly_only", "hide_price", "is_default", "trial"], path);
     const productId = text(value.product_id, path + "product_id", 255, true);
     if (productId !== productId.trim()) issue(path + "product_id", "Product ID cannot contain surrounding whitespace.");
     if (!["subscription", "non_consumable"].includes(value.product_type as string)) issue(path + "product_type", "Unknown product type.");
     if (!["actual", "weekly"].includes(value.price_mode as string)) issue(path + "price_mode", "Unknown price mode.");
     if (value.product_type === "non_consumable" && value.price_mode !== "actual") issue(path + "price_mode", "One-time products require actual price.");
+    if (Object.hasOwn(value, "weekly_only") && typeof value.weekly_only !== "boolean") issue(path + "weekly_only", "Must be boolean.");
+    if (value.weekly_only === true && value.price_mode !== "weekly") issue(path + "weekly_only", "Weekly-only display requires weekly price mode.");
     if (Object.hasOwn(value, "hide_price") && typeof value.hide_price !== "boolean") issue(path + "hide_price", "Must be boolean.");
     if (typeof value.is_default !== "boolean") issue(path + "is_default", "Must be boolean.");
     let trial: TrialOverride | null = null;
     if (value.trial !== undefined && value.trial !== null) {
       if (!isRecord(value.trial)) issue(path + "trial", "Trial override must be an object or null.");
       else {
-        fields(value.trial, [...copyKeys, "product_id", "price_mode", "hide_price"], path + "trial.");
+        fields(value.trial, [...copyKeys, "product_id", "price_mode", "weekly_only", "hide_price"], path + "trial.");
         const target = text(value.trial.product_id, path + "trial.product_id", 255);
         if (target !== target.trim()) issue(path + "trial.product_id", "Invalid Product ID.");
         if (Object.hasOwn(value.trial, "price_mode") &&
             value.trial.price_mode !== "actual" && value.trial.price_mode !== "weekly") {
           issue(path + "trial.price_mode", "Unknown price mode.");
+        }
+        if (Object.hasOwn(value.trial, "weekly_only") && typeof value.trial.weekly_only !== "boolean") {
+          issue(path + "trial.weekly_only", "Must be boolean.");
+        }
+        if (value.trial.weekly_only === true && (value.trial.price_mode ?? value.price_mode) !== "weekly") {
+          issue(path + "trial.weekly_only", "Weekly-only display requires weekly price mode.");
         }
         if (Object.hasOwn(value.trial, "hide_price") && typeof value.trial.hide_price !== "boolean") {
           issue(path + "trial.hide_price", "Must be boolean.");
@@ -177,12 +187,14 @@ export function parseDisplayConfig(input: unknown): { config: DisplayConfig | nu
         trial = { product_id: target, ...copy(value.trial, path + "trial.", config.trial_enabled && !!target),
           ...(value.trial.price_mode === "actual" || value.trial.price_mode === "weekly"
             ? { price_mode: value.trial.price_mode } : {}),
+          ...(typeof value.trial.weekly_only === "boolean" ? { weekly_only: value.trial.weekly_only } : {}),
           ...(typeof value.trial.hide_price === "boolean" ? { hide_price: value.trial.hide_price } : {}) };
       }
     }
     config.skus.push({ ...copy(value, path), product_id: productId,
       product_type: value.product_type === "non_consumable" ? "non_consumable" : "subscription",
       price_mode: value.price_mode === "weekly" ? "weekly" : "actual",
+      ...(typeof value.weekly_only === "boolean" ? { weekly_only: value.weekly_only } : {}),
       ...(typeof value.hide_price === "boolean" ? { hide_price: value.hide_price } : {}),
       is_default: value.is_default === true, trial });
   }

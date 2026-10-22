@@ -77,6 +77,22 @@ test("base and linked trial show the hidden-price choice, with trial pricing bef
   assert.ok((html.match(/不展示/g) ?? []).length >= 2);
 });
 
+test("base and linked trial show the weekly-only selection", () => {
+  const editor = editorFixture();
+  editor.body.skus[0].price_mode = "weekly";
+  editor.body.skus[0].weekly_only = true;
+  editor.body.skus[0].trial.price_mode = "weekly";
+  editor.body.skus[0].trial.weekly_only = true;
+  initialEditor = editor;
+  let html;
+  try {
+    html = renderToStaticMarkup(React.createElement(module.exports.default, {
+      request: async () => { throw new Error("Server rendering must not call the API"); }, accountKey: "local-test", registerLeaveGuard: () => {},
+    }));
+  } finally { initialEditor = null; }
+  assert.ok((html.match(/只展示周均价/g) ?? []).length >= 2);
+});
+
 test("the top-level menu uses real subscription APIs and guarded navigation, not an embedded prototype", () => {
   assert.match(app, /key: "subscription-configs", label: group\.title/);
   assert.match(app, /<SubscriptionConfigPage request=\{subscriptionRequest\}/);

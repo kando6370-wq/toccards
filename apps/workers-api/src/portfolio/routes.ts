@@ -112,6 +112,9 @@ const DUPLICATE_COLLECTION_ITEM_RESPONSE = {
   },
 } as const;
 
+const COLLECTION_ITEM_DUPLICATE_CONSTRAINT =
+  "uq_collection_item_folder_card_variant";
+
 const INTERNAL_ERROR_RESPONSE = {
   success: false,
   error: {
@@ -1091,6 +1094,15 @@ export function createPortfolioRoutes(
       return c.json(NOT_FOUND_RESPONSE, 404);
     }
 
+    const duplicateItem = await findCollectionItemBySku(
+      c.env.DB,
+      auth.owner,
+      draft,
+    );
+    if (duplicateItem && duplicateItem.id !== item.id) {
+      return c.json(DUPLICATE_COLLECTION_ITEM_RESPONSE, 409);
+    }
+
     const now = new Date().toISOString();
     const folderJoinedAt =
       draft.folder_id === item.folder_id ? item.folder_joined_at : now;
@@ -1102,33 +1114,40 @@ export function createPortfolioRoutes(
       && draft.finish === item.finish
         ? item.price_series_id
         : null;
-    await c.env.DB.batch([
-      c.env.DB.prepare(UPDATE_COLLECTION_ITEM_SQL).bind(
-        draft.folder_id,
-        folderJoinedAt,
-        draft.grader,
-        draft.condition,
-        draft.grade,
-        draft.language,
-        draft.finish,
-        priceSeriesId,
-        draft.quantity,
-        draft.purchase_price,
-        draft.purchase_currency,
-        draft.notes,
-        now,
-        auth.owner.owner_type,
-        auth.owner.owner_id,
-        item.id,
-      ),
-      collectionItemEventStatement(
-        c.env.DB,
-        auth.owner,
-        { ...item, ...draft, price_series_id: priceSeriesId, updated_at: now },
-        "upsert",
-        now,
-      ),
-    ]);
+    try {
+      await c.env.DB.batch([
+        c.env.DB.prepare(UPDATE_COLLECTION_ITEM_SQL).bind(
+          draft.folder_id,
+          folderJoinedAt,
+          draft.grader,
+          draft.condition,
+          draft.grade,
+          draft.language,
+          draft.finish,
+          priceSeriesId,
+          draft.quantity,
+          draft.purchase_price,
+          draft.purchase_currency,
+          draft.notes,
+          now,
+          auth.owner.owner_type,
+          auth.owner.owner_id,
+          item.id,
+        ),
+        collectionItemEventStatement(
+          c.env.DB,
+          auth.owner,
+          { ...item, ...draft, price_series_id: priceSeriesId, updated_at: now },
+          "upsert",
+          now,
+        ),
+      ]);
+    } catch (error) {
+      if (isCollectionItemDuplicateConstraintError(error)) {
+        return c.json(DUPLICATE_COLLECTION_ITEM_RESPONSE, 409);
+      }
+      return c.json(INTERNAL_ERROR_RESPONSE, 500);
+    }
 
     const updatedItem = await findCollectionItem(c.env.DB, auth.owner, item.id);
 
@@ -1927,5 +1946,20 @@ function isUniqueConstraintError(error: unknown): boolean {
   return (
     error instanceof Error &&
     error.message.toLowerCase().includes("unique constraint")
+  );
+}
+
+function isCollectionItemDuplicateConstraintError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const postgresError = error as Error & {
+    code?: unknown;
+    constraint_name?: unknown;
+  };
+  return (
+    (postgresError.code === "23505" &&
+      postgresError.constraint_name === COLLECTION_ITEM_DUPLICATE_CONSTRAINT) ||
+    error.message.toLowerCase().includes(
+      `unique constraint "${COLLECTION_ITEM_DUPLICATE_CONSTRAINT}"`,
+    )
   );
 }

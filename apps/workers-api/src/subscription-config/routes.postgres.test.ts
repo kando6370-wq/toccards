@@ -97,6 +97,14 @@ describe("subscription configuration APIs on PostgreSQL", () => {
     expect(updated.status).toBe(200);
     expect((await publicConfig()).body.data.skus).toEqual(legacy.skus);
     expect((await publicConfig()).body.data.skus[0].trial).not.toHaveProperty("price_mode");
+
+    legacy.skus[0].price_mode = "weekly";
+    legacy.skus[0].weekly_only = true;
+    legacy.skus[0].trial!.weekly_only = false;
+    const weeklyOnly = await update(id, legacy, updated.body.data.revision);
+    expect(weeklyOnly.status).toBe(200);
+    expect(weeklyOnly.body.data.body.skus).toEqual(legacy.skus);
+    expect((await publicConfig()).body.data.skus).toEqual(legacy.skus);
   });
 
   it.each(["page", "modal"] as const)("allows three %s cards including an independent trial and rejects over-limit writes atomically", async (pageType) => {

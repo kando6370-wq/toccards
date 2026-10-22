@@ -39,11 +39,12 @@ class SubscriptionTrial {
     required this.productId,
     required this.copy,
     this.weeklyReference,
+    this.weeklyOnly,
     this.hidePrice,
   });
   final String productId;
   final SubscriptionCopy copy;
-  final bool? weeklyReference, hidePrice;
+  final bool? weeklyReference, weeklyOnly, hidePrice;
 }
 
 class SubscriptionDisplaySku {
@@ -53,13 +54,14 @@ class SubscriptionDisplaySku {
     required this.copy,
     this.isDefault = false,
     this.weeklyReference = false,
+    this.weeklyOnly = false,
     this.hidePrice = false,
     this.trial,
   });
   final String productId;
   final DisplayProductType type;
   final SubscriptionCopy copy;
-  final bool isDefault, weeklyReference, hidePrice;
+  final bool isDefault, weeklyReference, weeklyOnly, hidePrice;
   final SubscriptionTrial? trial;
 }
 
@@ -130,6 +132,8 @@ class SubscriptionDisplayConfig {
           sku['is_default'] is! bool ||
           (priceMode != 'actual' && priceMode != 'weekly') ||
           (type == DisplayProductType.nonConsumable && priceMode != 'actual') ||
+          (sku.containsKey('weekly_only') && sku['weekly_only'] is! bool) ||
+          (sku['weekly_only'] == true && priceMode != 'weekly') ||
           (sku.containsKey('hide_price') && sku['hide_price'] is! bool)) {
         throw const FormatException('Invalid display SKU');
       }
@@ -141,9 +145,14 @@ class SubscriptionDisplayConfig {
           throw const FormatException('Invalid trial relationship');
         }
         final trialPriceMode = target['price_mode'];
+        final effectiveTrialPriceMode = trialPriceMode ?? priceMode;
         if ((target.containsKey('price_mode') &&
                 trialPriceMode != 'actual' &&
                 trialPriceMode != 'weekly') ||
+            (target.containsKey('weekly_only') &&
+                target['weekly_only'] is! bool) ||
+            (target['weekly_only'] == true &&
+                effectiveTrialPriceMode != 'weekly') ||
             (target.containsKey('hide_price') &&
                 target['hide_price'] is! bool)) {
           throw const FormatException('Invalid trial price display');
@@ -154,6 +163,7 @@ class SubscriptionDisplayConfig {
           weeklyReference: trialPriceMode == null
               ? null
               : trialPriceMode == 'weekly',
+          weeklyOnly: target['weekly_only'] as bool?,
           hidePrice: target['hide_price'] as bool?,
         );
       }
@@ -164,6 +174,7 @@ class SubscriptionDisplayConfig {
           copy: SubscriptionCopy.fromJson(sku),
           isDefault: sku['is_default'] == true,
           weeklyReference: priceMode == 'weekly',
+          weeklyOnly: sku['weekly_only'] == true,
           hidePrice: sku['hide_price'] == true,
           trial: trial,
         ),

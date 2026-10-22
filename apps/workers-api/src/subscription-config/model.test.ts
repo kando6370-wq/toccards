@@ -21,10 +21,24 @@ describe("subscription display contract", () => {
     expect(parseDisplayConfig(config)).toEqual({ config, issues: [] });
   });
 
+  it("preserves optional weekly-only flags and accepts a trial's explicit false override", () => {
+    const config = displayFixture();
+    config.skus[0].price_mode = "weekly";
+    config.skus[0].weekly_only = true;
+    config.skus[0].trial!.weekly_only = false;
+    expect(parseDisplayConfig(config)).toEqual({ config, issues: [] });
+    delete config.skus[0].trial!.weekly_only;
+    expect(parseDisplayConfig(config).config?.skus[0].trial).not.toHaveProperty("weekly_only");
+    delete config.skus[0].weekly_only;
+    expect(parseDisplayConfig(config).config?.skus[0]).not.toHaveProperty("weekly_only");
+  });
+
   it("rejects invalid optional visibility and trial price modes without admitting a new base enum", () => {
     for (const [field, value, path] of [
       ["hide_price", "false", "skus.0.hide_price"],
       ["price_mode", "none", "skus.0.price_mode"],
+      ["price_mode", "weekly_only", "skus.0.price_mode"],
+      ["weekly_only", "true", "skus.0.weekly_only"],
     ] as const) {
       const config = displayFixture();
       (config.skus[0] as unknown as Record<string, unknown>)[field] = value;
@@ -33,11 +47,28 @@ describe("subscription display contract", () => {
     for (const [field, value, path] of [
       ["hide_price", 0, "skus.0.trial.hide_price"],
       ["price_mode", "none", "skus.0.trial.price_mode"],
+      ["price_mode", "weekly_only", "skus.0.trial.price_mode"],
+      ["weekly_only", 1, "skus.0.trial.weekly_only"],
     ] as const) {
       const config = displayFixture();
       (config.skus[0].trial as unknown as Record<string, unknown>)[field] = value;
       expect(parseDisplayConfig(config).issues).toEqual(expect.arrayContaining([expect.objectContaining({ path })]));
     }
+  });
+
+  it("requires weekly price mode when the weekly-only flag is true", () => {
+    const config = displayFixture();
+    config.skus[0].weekly_only = true;
+    expect(parseDisplayConfig(config).issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: "skus.0.weekly_only" }),
+    ]));
+    config.skus[0].price_mode = "weekly";
+    config.skus[0].trial!.weekly_only = true;
+    expect(parseDisplayConfig(config).issues).toEqual([]);
+    config.skus[0].trial!.price_mode = "actual";
+    expect(parseDisplayConfig(config).issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: "skus.0.trial.weekly_only" }),
+    ]));
   });
 
   it.each(["page", "modal"] as const)("allows three %s display SKUs with linked trials and rejects a fourth without truncation", (pageType) => {
@@ -165,6 +196,19 @@ describe("subscription display contract", () => {
     expect(validateCatalogReferences(config, catalog)).toEqual([]);
     catalog.products[1].period = "SIX_MONTHS";
     expect(validateCatalogReferences(config, catalog)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: "skus.0.trial.price_mode" }),
+    ]));
+  });
+
+  it("checks a trial's inherited weekly reference against its Apple period", () => {
+    const config = displayFixture();
+    config.skus[0].price_mode = "weekly";
+    config.skus[0].weekly_only = true;
+    const catalog = catalogFixture();
+    catalog.products[0].period = "SIX_MONTHS";
+    catalog.products[1].period = "SIX_MONTHS";
+    expect(validateCatalogReferences(config, catalog)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: "skus.0.price_mode" }),
       expect.objectContaining({ path: "skus.0.trial.price_mode" }),
     ]));
   });

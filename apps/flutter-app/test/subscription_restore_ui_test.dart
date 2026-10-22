@@ -1037,7 +1037,7 @@ void main() {
         findsNothing,
       );
       expect(
-        find.descendant(of: yearly, matching: find.text('new per year')),
+        find.descendant(of: yearly, matching: find.text('USD 2.77 per week')),
         findsOneWidget,
       );
       expect(
@@ -1045,7 +1045,194 @@ void main() {
         findsNothing,
       );
       expect(find.byKey(const Key('subscription-trial-switch')), findsNothing);
+      expect(find.text('NO PAYMENT NOW'), findsNothing);
+      expect(find.text('CANCEL ANYTIME'), findsNothing);
+      final purchase = find.byKey(const Key('subscription-purchase-button'));
+      expect(tester.getSize(purchase).width, 350);
+      expect(tester.getSize(purchase).height, 56);
+      final buttonText = tester.widget<Text>(
+        find.descendant(of: purchase, matching: find.byType(Text)),
+      );
+      expect(buttonText.style?.fontSize, 16);
+      expect(buttonText.style?.fontWeight, FontWeight.w600);
+      expect(buttonText.style?.height, 24 / 16);
+      expect(
+        tester.getRect(find.text('Terms of Use')).top -
+            tester.getRect(purchase).bottom,
+        closeTo(16, 1),
+      );
       expect(tester.getRect(find.text('Terms of Use')).bottom, closeTo(828, 1));
+      expect(tester.takeException(), isNull);
+    } finally {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  for (final sheet in [false, true]) {
+    for (final width in [390.0, 320.0]) {
+      testWidgets(
+        'configured actual, weekly and weekly-only prices fit ${sheet ? 'modal' : 'page'} at $width',
+        (tester) async {
+          debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+          tester.view.physicalSize = Size(width, 844);
+          tester.view.devicePixelRatio = 1;
+          try {
+            final host = _RestoreTestHost(
+              useNewFallback: true,
+              displayConfiguration: SubscriptionDisplayConfig(
+                pageType: sheet
+                    ? SubscriptionPageType.modal
+                    : SubscriptionPageType.page,
+                skus: const [
+                  SubscriptionDisplaySku(
+                    productId: 'weekly.trial',
+                    type: DisplayProductType.subscription,
+                    isDefault: true,
+                    copy: SubscriptionCopy(
+                      name: 'Weekly Trial',
+                      priceNote: 'Actual price note',
+                    ),
+                  ),
+                  SubscriptionDisplaySku(
+                    productId: 'yearly.pro',
+                    type: DisplayProductType.subscription,
+                    weeklyReference: true,
+                    weeklyOnly: true,
+                    copy: SubscriptionCopy(
+                      name: 'Unlimited Yearly',
+                      badge: 'SAVE 81%',
+                      priceNote: 'Ignored yearly note',
+                    ),
+                  ),
+                  SubscriptionDisplaySku(
+                    productId: 'cardx.month',
+                    type: DisplayProductType.subscription,
+                    weeklyReference: true,
+                    copy: SubscriptionCopy(
+                      name: 'Unlimited Monthly',
+                      badge: 'MOST POPULAR',
+                      priceNote: 'Ignored monthly note',
+                    ),
+                  ),
+                ],
+              ),
+            );
+            await tester.pumpWidget(host.app);
+            await tester.pumpAndSettle();
+            host.router.push('/subscription${sheet ? '?sheet=true' : ''}');
+            await tester.pumpAndSettle();
+
+            Finder price(String id) =>
+                find.byKey(Key('subscription-config-product-$id-price'));
+            Finder caption(String id) => find.byKey(
+              Key('subscription-config-product-$id-price-caption'),
+            );
+            for (final entry in [
+              ('weekly.trial', r'US$4.99', 'Actual price note'),
+              ('yearly.pro', r'US$0.96', 'per week'),
+              ('cardx.month', r'US$12.99', r'US$3.00 per week'),
+            ]) {
+              final id = entry.$1;
+              final card = find.byKey(Key('subscription-config-product-$id'));
+              await tester.scrollUntilVisible(
+                card,
+                150,
+                scrollable: find.descendant(
+                  of: find.byType(CustomScrollView).last,
+                  matching: find.byType(Scrollable),
+                ),
+              );
+              expect(
+                find.descendant(of: price(id), matching: find.text(entry.$2)),
+                findsOneWidget,
+              );
+              expect(
+                find.descendant(of: caption(id), matching: find.text(entry.$3)),
+                findsOneWidget,
+              );
+              final priceRect = tester.getRect(price(id));
+              final captionRect = tester.getRect(caption(id));
+              final cardRect = tester.getRect(card);
+              expect(captionRect.top, greaterThanOrEqualTo(priceRect.bottom));
+              expect(captionRect.left, greaterThanOrEqualTo(priceRect.left));
+              expect(captionRect.right, lessThanOrEqualTo(cardRect.right - 8));
+              if (id != 'weekly.trial') {
+                final badge = find.byKey(
+                  Key('subscription-plan-$id-badge-surface'),
+                );
+                expect(tester.getRect(badge).bottom, lessThan(priceRect.top));
+              }
+            }
+            expect(find.text('Ignored yearly note'), findsNothing);
+            expect(find.text('Ignored monthly note'), findsNothing);
+            expect(find.textContaining('Approx.'), findsNothing);
+            expect(tester.takeException(), isNull);
+          } finally {
+            tester.view.resetPhysicalSize();
+            tester.view.resetDevicePixelRatio();
+            debugDefaultTargetPlatformOverride = null;
+          }
+        },
+      );
+    }
+  }
+
+  testWidgets('weekly-only linked trial keeps Then on its weekly amount', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    try {
+      final host = _RestoreTestHost(
+        includeTrial: true,
+        displayConfiguration: SubscriptionDisplayConfig(
+          pageType: SubscriptionPageType.page,
+          trialEnabled: true,
+          trialToggleText: 'Enable Free Trial',
+          skus: const [
+            SubscriptionDisplaySku(
+              productId: 'weekly.product',
+              type: DisplayProductType.subscription,
+              isDefault: true,
+              weeklyReference: true,
+              weeklyOnly: true,
+              copy: SubscriptionCopy(name: 'Weekly'),
+              trial: SubscriptionTrial(
+                productId: 'weekly.trial',
+                copy: SubscriptionCopy(name: 'Weekly Trial'),
+              ),
+            ),
+          ],
+        ),
+      );
+      await tester.pumpWidget(host.app);
+      await tester.pumpAndSettle();
+      host.router.push('/subscription');
+      await tester.pumpAndSettle();
+      final price = find.byKey(
+        const Key('subscription-config-product-weekly.product-price'),
+      );
+      final caption = find.byKey(
+        const Key('subscription-config-product-weekly.product-price-caption'),
+      );
+      expect(
+        find.descendant(of: price, matching: find.text('USD 2.77')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const Key('subscription-trial-switch')));
+      await tester.pumpAndSettle();
+      expect(host.display!.selectedCard!.product.id, 'weekly.trial');
+      expect(
+        find.descendant(of: price, matching: find.text('Then USD 2.77')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: caption, matching: find.text('per week')),
+        findsOneWidget,
+      );
       expect(tester.takeException(), isNull);
     } finally {
       tester.view.resetPhysicalSize();
@@ -1110,10 +1297,7 @@ void main() {
           expect(find.byKey(price), findsOneWidget);
           expect(find.byKey(caption), findsOneWidget);
           expect(
-            find.descendant(
-              of: card,
-              matching: find.text('Approx. USD 2.77 / week'),
-            ),
+            find.descendant(of: card, matching: find.text('USD 2.77 per week')),
             findsOneWidget,
           );
 
@@ -1123,7 +1307,7 @@ void main() {
           expect(find.byKey(price), findsNothing);
           expect(find.byKey(caption), findsNothing);
           expect(
-            find.descendant(of: card, matching: find.textContaining('Approx.')),
+            find.descendant(of: card, matching: find.text('USD 2.77 per week')),
             findsNothing,
           );
           expect(find.text('Trial price note'), findsNothing);
@@ -1218,12 +1402,9 @@ void main() {
             find.descendant(of: card, matching: find.text('USD 3.99')),
             findsOneWidget,
           );
-          expect(find.text('Trial price note'), findsOneWidget);
+          expect(find.text('Trial price note'), findsNothing);
           expect(
-            find.descendant(
-              of: card,
-              matching: find.text('Approx. USD 2.77 / week'),
-            ),
+            find.descendant(of: card, matching: find.text('USD 2.77 per week')),
             findsOneWidget,
           );
           expect(tester.takeException(), isNull);
@@ -1306,6 +1487,14 @@ void main() {
         expect(find.text('TRY FOR FREE'), findsOneWidget);
         expect(find.text('CANCEL ANYTIME'), findsNothing);
         expect(find.text('NO PAYMENT NOW'), findsOneWidget);
+        final auxiliary = tester.widget<Text>(find.text('NO PAYMENT NOW'));
+        expect(auxiliary.style?.fontSize, 14);
+        expect(auxiliary.style?.color, Colors.white);
+        expect(
+          tester.getRect(find.text('NO PAYMENT NOW')).top -
+              tester.getRect(find.text('Terms of Use')).bottom,
+          closeTo(4, 1),
+        );
         expect(
           find.byKey(const Key('subscription-billing-summary')),
           findsNothing,

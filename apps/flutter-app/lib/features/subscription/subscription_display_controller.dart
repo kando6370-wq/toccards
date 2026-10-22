@@ -22,13 +22,14 @@ class SubscriptionDisplayCard {
     required this.badge,
     required this.priceNote,
     required this.weeklyReference,
+    required this.weeklyOnly,
     required this.hidePrice,
   });
   final SubscriptionDisplaySku sku;
   final SubscriptionStoreProduct product;
   final SubscriptionCopy copy;
   final String cta, billingNote, subtitle, badge, priceNote;
-  final bool weeklyReference, hidePrice;
+  final bool weeklyReference, weeklyOnly, hidePrice;
 }
 
 /// One instance per page/modal. It never owns or disposes the transaction listener.
@@ -110,6 +111,9 @@ class SubscriptionDisplayController extends ChangeNotifier {
         : linked
         ? sku.trial!.copy
         : sku.copy;
+    final weeklyReference = linked
+        ? sku.trial!.weeklyReference ?? sku.weeklyReference
+        : sku.weeklyReference;
     String expand(String value) =>
         value.replaceAll('{price}', product.product.displayPrice);
     final cta = product.useNeutralCopy
@@ -127,9 +131,10 @@ class SubscriptionDisplayController extends ChangeNotifier {
       subtitle: expand(copy.subtitle),
       badge: expand(copy.badge),
       priceNote: expand(copy.priceNote),
-      weeklyReference: linked
-          ? sku.trial!.weeklyReference ?? sku.weeklyReference
-          : sku.weeklyReference,
+      weeklyReference: weeklyReference,
+      weeklyOnly:
+          weeklyReference &&
+          (linked ? sku.trial!.weeklyOnly ?? sku.weeklyOnly : sku.weeklyOnly),
       hidePrice: linked ? sku.trial!.hidePrice ?? sku.hidePrice : sku.hidePrice,
       billingNote: copy.autoBillingNote ? '' : expand(copy.billingNote),
     );

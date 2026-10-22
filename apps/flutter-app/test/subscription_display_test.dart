@@ -124,12 +124,15 @@ void main() {
           ..['trial_toggle_text'] = 'Enable trial';
         final sku = (dto['skus'] as List).first as Map<String, Object?>;
         sku['hide_price'] = true;
+        sku['weekly_only'] = true;
         sku['trial'] = {'product_id': 'trial', ...displayCopyDto()};
 
         final inherited = SubscriptionDisplayConfig.fromJson(dto, type);
         expect(inherited.skus.single.hidePrice, isTrue);
+        expect(inherited.skus.single.weeklyOnly, isTrue);
         expect(inherited.skus.single.trial!.hidePrice, isNull);
         expect(inherited.skus.single.trial!.weeklyReference, isNull);
+        expect(inherited.skus.single.trial!.weeklyOnly, isNull);
         final inheritedModel = _model(config: inherited);
         addTearDown(inheritedModel.dispose);
         await inheritedModel.load();
@@ -138,6 +141,7 @@ void main() {
         expect(inheritedModel.selectedCard!.product.id, 'trial');
         expect(inheritedModel.selectedCard!.hidePrice, isTrue);
         expect(inheritedModel.selectedCard!.weeklyReference, isTrue);
+        expect(inheritedModel.selectedCard!.weeklyOnly, isTrue);
 
         sku['trial'] = {
           'product_id': 'trial',
@@ -153,7 +157,24 @@ void main() {
         overriddenModel.toggleTrial(true);
         expect(overriddenModel.selectedCard!.hidePrice, isFalse);
         expect(overriddenModel.selectedCard!.weeklyReference, isFalse);
+        expect(overriddenModel.selectedCard!.weeklyOnly, isFalse);
         expect(overriddenModel.selectedCard!.product.id, 'trial');
+
+        sku['trial'] = {
+          'product_id': 'trial',
+          'price_mode': 'weekly',
+          'weekly_only': false,
+          'hide_price': false,
+          ...displayCopyDto(),
+        };
+        final visible = SubscriptionDisplayConfig.fromJson(dto, type);
+        final visibleModel = _model(config: visible);
+        addTearDown(visibleModel.dispose);
+        await visibleModel.load();
+        await Future<void>.delayed(Duration.zero);
+        visibleModel.toggleTrial(true);
+        expect(visibleModel.selectedCard!.weeklyReference, isTrue);
+        expect(visibleModel.selectedCard!.weeklyOnly, isFalse);
       }
     },
   );
@@ -189,6 +210,51 @@ void main() {
         );
       }
     }
+    for (final invalid in [null, 'true', 1]) {
+      final dto = displayDto();
+      final sku = (dto['skus'] as List).first as Map<String, Object?>;
+      sku['weekly_only'] = invalid;
+      expect(
+        () =>
+            SubscriptionDisplayConfig.fromJson(dto, SubscriptionPageType.page),
+        throwsFormatException,
+      );
+      sku.remove('weekly_only');
+      dto['trial_enabled'] = true;
+      dto['trial_toggle_text'] = 'Enable trial';
+      sku['trial'] = {
+        'product_id': 'trial',
+        'weekly_only': invalid,
+        ...displayCopyDto(),
+      };
+      expect(
+        () =>
+            SubscriptionDisplayConfig.fromJson(dto, SubscriptionPageType.page),
+        throwsFormatException,
+      );
+    }
+    final actual = displayDto();
+    final actualSku = (actual['skus'] as List).first as Map<String, Object?>;
+    actualSku['price_mode'] = 'actual';
+    actualSku['weekly_only'] = true;
+    expect(
+      () =>
+          SubscriptionDisplayConfig.fromJson(actual, SubscriptionPageType.page),
+      throwsFormatException,
+    );
+    actualSku.remove('weekly_only');
+    actual['trial_enabled'] = true;
+    actual['trial_toggle_text'] = 'Enable trial';
+    actualSku['trial'] = {
+      'product_id': 'trial',
+      'weekly_only': true,
+      ...displayCopyDto(),
+    };
+    expect(
+      () =>
+          SubscriptionDisplayConfig.fromJson(actual, SubscriptionPageType.page),
+      throwsFormatException,
+    );
   });
   test(
     'an oversized remote configuration uses the existing fallback without querying truncated remote purchase targets',
