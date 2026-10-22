@@ -6,13 +6,15 @@ import 'subscription_models.dart';
 
 class SubscriptionClient {
   SubscriptionClient({
-    required this.config,
+    required SubscriptionConfig config,
     required Iterable<SubscriptionStoreGateway> gateways,
     required SubscriptionReceiptVerifier verifier,
-  }) : _verifier = verifier,
+  }) : _config = config,
+       _verifier = verifier,
        _gateways = _indexGateways(gateways);
 
-  final SubscriptionConfig config;
+  SubscriptionConfig _config;
+  SubscriptionConfig get config => _config;
   final SubscriptionReceiptVerifier _verifier;
   final Map<SubscriptionStore, SubscriptionStoreGateway> _gateways;
   final _events = StreamController<SubscriptionEvent>.broadcast();
@@ -22,6 +24,34 @@ class SubscriptionClient {
   bool _disposed = false;
 
   Stream<SubscriptionEvent> get events => _events.stream;
+
+  /// Append approved products without restarting purchase listeners or removing historical plans.
+  void registerPlans(Iterable<SubscriptionPlanConfig> additions) {
+    _ensureNotDisposed();
+    final plans = <String, SubscriptionPlanConfig>{
+      for (final p in config.plans) p.id: p,
+    };
+    for (final plan in additions) {
+      final previous = plans[plan.id];
+      if (previous != null) {
+        if (previous.entitlementId != plan.entitlementId ||
+            previous.productIds.length != plan.productIds.length ||
+            previous.productIds.entries.any(
+              (e) => plan.productIds[e.key] != e.value,
+            )) {
+          throw ArgumentError(
+            'A historical product mapping cannot be replaced',
+          );
+        }
+      } else {
+        plans[plan.id] = plan;
+      }
+    }
+    _config = SubscriptionConfig(
+      enabledStores: config.enabledStores,
+      plans: plans.values.toList(),
+    );
+  }
 
   Future<void> initialize() async {
     _ensureNotDisposed();
@@ -120,6 +150,22 @@ class SubscriptionClient {
       throw StateError('Product $productId has not been loaded.');
     }
     await gateway.purchase(product, applicationUserName: applicationUserName);
+  }
+
+  /// Purchase the exact StoreKit product whose terms the user just confirmed.
+  /// A late catalog load must not replace it with a different cached snapshot.
+  Future<void> purchaseProduct(
+    SubscriptionProduct product, {
+    String? applicationUserName,
+  }) async {
+    _ensureReady();
+    if (!config.enabledStores.contains(product.store) ||
+        config.planByProductId(product.store, product.storeProductId) == null) {
+      throw StateError('Product is not in the supported purchase registry.');
+    }
+    await _requireGateway(
+      product.store,
+    ).purchase(product, applicationUserName: applicationUserName);
   }
 
   Future<List<SubscriptionFailure>> restore({SubscriptionStore? store}) async {

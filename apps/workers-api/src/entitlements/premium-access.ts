@@ -1,7 +1,7 @@
+import { allowedAppleProductIds } from "./apple-product-policy";
 import type { Env } from "../env";
 import {
   appleDatabaseEnvironments,
-  configuredProductIds,
 } from "./apple-signed-data";
 
 export const PREMIUM_ENTITLEMENT_ID = "performance_pro";
@@ -34,12 +34,12 @@ WHERE grant_record.session_id = ?
 `;
 
 export async function hasActivePremiumGrant(
-  env: Pick<Env, "DB" | "APP_ENVIRONMENT" | "APPLE_IAP_PRODUCT_IDS">,
+  env: Pick<Env, "DB" | "APP_ENVIRONMENT" | "APPLE_IAP_PRODUCT_IDS" | "APPLE_IAP_BUNDLE_ID" | "APP_STORE_CONNECT_APP_ID">,
   sessionId: string,
   now = new Date(),
 ): Promise<boolean> {
   const timestamp = now.toISOString();
-  const products = configuredProductIds(env.APPLE_IAP_PRODUCT_IDS);
+  const products = await allowedAppleProductIds(env);
   if (!products) return false;
   const environments = new Set(appleDatabaseEnvironments(env));
   const result = await env.DB.prepare(SELECT_ACTIVE_SESSION_GRANT_SQL)
@@ -57,7 +57,7 @@ export async function hasActivePremiumGrant(
 }
 
 export async function resolvePremiumAccess(
-  env: Pick<Env, "DB" | "APP_ENVIRONMENT" | "APPLE_IAP_PRODUCT_IDS">,
+  env: Pick<Env, "DB" | "APP_ENVIRONMENT" | "APPLE_IAP_PRODUCT_IDS" | "APPLE_IAP_BUNDLE_ID" | "APP_STORE_CONNECT_APP_ID">,
   sessionId: string,
   localPremiumState: string | undefined,
   now = new Date(),

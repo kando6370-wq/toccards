@@ -13,7 +13,7 @@ import {
 type QueryExecutor = Pick<PGliteInterface, "query">;
 
 export class PGliteDatabase implements Database {
-  private constructor(private readonly client: PGlite) {}
+  private constructor(private client: PGlite | null) {}
 
   static async create(): Promise<PGliteDatabase> {
     return new PGliteDatabase(await PGlite.create({ dataDir: "memory://" }));
@@ -26,7 +26,7 @@ export class PGliteDatabase implements Database {
   async batch<T = unknown>(
     statements: D1PreparedStatement[],
   ): Promise<DatabaseResult<T>[]> {
-    return this.client.transaction(async (transaction) => {
+    return this.requireClient().transaction(async (transaction) => {
       const results: DatabaseResult<T>[] = [];
       for (const statement of statements) {
         if (!(statement instanceof PGliteStatement) || statement.database !== this) {
@@ -40,7 +40,7 @@ export class PGliteDatabase implements Database {
 
   async exec(query: string): Promise<D1ExecResult> {
     const startedAt = performance.now();
-    const results = await this.client.exec(query);
+    const results = await this.requireClient().exec(query);
     return { count: results.length, duration: performance.now() - startedAt };
   }
 
@@ -53,11 +53,19 @@ export class PGliteDatabase implements Database {
   }
 
   query<T>(query: string, values: unknown[] = []): Promise<Results<T>> {
-    return this.client.query<T>(query, values);
+    return this.requireClient().query<T>(query, values);
   }
 
-  close(): Promise<void> {
-    return this.client.close();
+  async close(): Promise<void> {
+    const client = this.client;
+    // Test spies can retain this wrapper; a closed WASM engine must not stay reachable through it.
+    this.client = null;
+    await client?.close();
+  }
+
+  private requireClient(): PGlite {
+    if (!this.client) throw new Error("PGlite test database is closed");
+    return this.client;
   }
 }
 

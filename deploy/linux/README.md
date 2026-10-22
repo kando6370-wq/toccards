@@ -24,6 +24,10 @@ Linux 部署资产已通过 `19a6ac4` 合入；2026-09-15 已将 `dev-inner` 整
 
 完整请求、代理边界、停用方式与发布状态见 [插件接口契约](../../docs/releases/v1.1.1/03-data-api/extension-recognition.md)。不要复用 JWT Secret 或把真实插件 Key 提交到仓库。
 
+## 可选订阅展示配置
+
+新模块使用 `.env.example` 中独立的 `APP_STORE_CONNECT_*` 团队 Key／App／组配置，以及显式 Lifetime 范围和展示准入列表；这些均可空，缺失只关闭新目录和相关配置写入，不修改既有 Apple 验单凭据。启用新模块前需应用 PostgreSQL `0014_subscription_display_config`，不涉及 D1。目录读取、三个准入条件、结果核对和回退边界见 [服务端合同](../../docs/releases/v1.1.2/03-data-api/subscription-display-config.md)；没有自动替换服务器私有环境值。
+
 ## 日常 dev 发布命令
 
 在开发机仓库根生成可检查的发布包：

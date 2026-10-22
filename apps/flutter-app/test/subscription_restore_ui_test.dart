@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,8 +14,13 @@ import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/features/subscription/subscription_analytics.dart';
 import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/features/subscription/subscription_page.dart';
+import 'package:kando_app/features/subscription/subscription_display_controller.dart';
+import 'package:kando_app/features/subscription/subscription_display_config.dart';
+import 'package:kando_app/features/subscription/subscription_display_providers.dart';
+import 'package:kando_app/features/subscription/subscription_product_support.dart';
+import 'package:kando_app/features/subscription/subscription_store_product.dart';
+import 'subscription_display_fixtures.dart';
 import 'package:kando_app/shared/analytics/app_analytics.dart';
-import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/kando_bottom_sheet_page.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 import 'package:subscription_core/subscription_core.dart';
@@ -732,96 +738,1396 @@ void main() {
   );
 
   testWidgets(
-    'iOS full page reuses the sheet SKU surfaces, spacing, badges, and transition',
+    'iOS configured page keeps actual price, selection and billing summary in sync',
     (tester) async {
-      final host = _RestoreTestHost();
       debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
       try {
+        final host = _RestoreTestHost();
         await tester.pumpWidget(host.app);
         await tester.pumpAndSettle();
         host.router.push('/subscription');
         await tester.pumpAndSettle();
-        await tester.drag(
-          find.byType(CustomScrollView).last,
-          const Offset(0, -120),
+        expect(host.display!.selectedId, 'yearly.product');
+        final scrollable = find
+            .descendant(
+              of: find.byType(CustomScrollView).last,
+              matching: find.byType(Scrollable),
+            )
+            .last;
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('subscription-config-product-yearly.product')),
+          160,
+          scrollable: scrollable,
+        );
+        expect(find.text('Yearly'), findsOneWidget);
+        final weekly = find.byKey(
+          const Key('subscription-config-product-weekly.product'),
+        );
+        await tester.scrollUntilVisible(weekly, -160, scrollable: scrollable);
+        await tester.tap(weekly);
+        await tester.pumpAndSettle();
+        expect(host.display!.selectedId, 'weekly.product');
+        expect(host.display!.selectedCard!.product.product.rawPrice, 3.99);
+        await tester.ensureVisible(
+          find.byKey(const Key('subscription-billing-summary')),
         );
         await tester.pumpAndSettle();
-
-        double selectedOpacity(String planId) {
-          final fade = tester.widget<FadeTransition>(
-            find
-                .descendant(
-                  of: find.byKey(
-                    Key('subscription-plan-$planId-selected-overlay'),
-                  ),
-                  matching: find.byType(FadeTransition),
-                )
-                .first,
-          );
-          return fade.opacity.value;
-        }
-
-        final weeklySurface = find.byKey(
-          const Key('subscription-plan-weekly-surface'),
-        );
-        final yearlySurface = find.byKey(
-          const Key('subscription-plan-yearly-surface'),
-        );
-        final lifetimeSurface = find.byKey(
-          const Key('subscription-plan-lifetime-surface'),
-        );
-        for (final surface in [weeklySurface, yearlySurface, lifetimeSurface]) {
-          expect(tester.getSize(surface).height, 74);
-        }
         expect(
-          tester.getRect(yearlySurface).top -
-              tester.getRect(weeklySurface).bottom,
-          22,
+          tester
+              .widget<Text>(
+                find.byKey(const Key('subscription-billing-summary')),
+              )
+              .data,
+          contains('every 1 week'),
         );
-        expect(
-          tester.getRect(lifetimeSurface).top -
-              tester.getRect(yearlySurface).bottom,
-          22,
-        );
-
-        final selectedSurface = tester.widget<DecoratedBox>(
-          find.byKey(const Key('subscription-plan-yearly-selected-surface')),
-        );
-        final selectedDecoration = selectedSurface.decoration as BoxDecoration;
-        expect(selectedDecoration.color, const Color(0xFF38372D));
-        expect(selectedDecoration.gradient, isNull);
-        expect(
-          (selectedDecoration.border! as Border).top.color,
-          KandoColors.accent,
-        );
-        expect(
-          find.byKey(const Key('subscription-plan-yearly-badge-blur')),
-          findsOneWidget,
-        );
-        expect(
-          find.byKey(const Key('subscription-plan-lifetime-badge-blur')),
-          findsOneWidget,
-        );
-
-        await tester.tap(find.byKey(const Key('subscription-plan-lifetime')));
-        await tester.pump();
-        expect(selectedOpacity(subscriptionYearlyPlanId), 1);
-        expect(selectedOpacity(subscriptionLifetimePlanId), 0);
-        await tester.pump(const Duration(milliseconds: 140));
-        expect(selectedOpacity(subscriptionYearlyPlanId), 0);
-        expect(selectedOpacity(subscriptionLifetimePlanId), 0);
-        await tester.pump(const Duration(milliseconds: 140));
-        expect(selectedOpacity(subscriptionYearlyPlanId), 0);
-        expect(selectedOpacity(subscriptionLifetimePlanId), 1);
-        expect(
-          host.controller.state.selectedPlanId,
-          subscriptionLifetimePlanId,
-        );
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
       } finally {
         debugDefaultTargetPlatformOverride = null;
       }
     },
   );
+
+  for (final sheet in [false, true]) {
+    testWidgets(
+      'custom billing copy replaces the summary above purchase ${sheet ? 'modal' : 'page'}',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        try {
+          final host = _RestoreTestHost(
+            includeTrial: true,
+            displayConfiguration: SubscriptionDisplayConfig(
+              pageType: sheet
+                  ? SubscriptionPageType.modal
+                  : SubscriptionPageType.page,
+              trialEnabled: true,
+              trialToggleText: 'Enable Free Trial',
+              skus: const [
+                SubscriptionDisplaySku(
+                  productId: 'weekly.product',
+                  type: DisplayProductType.subscription,
+                  isDefault: true,
+                  copy: SubscriptionCopy(
+                    name: 'Weekly',
+                    billingNote: 'Weekly charge: {price}',
+                    autoBillingNote: false,
+                  ),
+                  trial: SubscriptionTrial(
+                    productId: 'weekly.trial',
+                    copy: SubscriptionCopy(
+                      name: 'Weekly trial',
+                      billingNote: 'Trial first, then {price}',
+                      autoBillingNote: false,
+                    ),
+                  ),
+                ),
+                SubscriptionDisplaySku(
+                  productId: 'yearly.product',
+                  type: DisplayProductType.subscription,
+                  copy: SubscriptionCopy(name: 'Yearly'),
+                ),
+              ],
+            ),
+          );
+          await tester.pumpWidget(host.app);
+          await tester.pumpAndSettle();
+          host.router.push('/subscription${sheet ? '?sheet=true' : ''}');
+          await tester.pumpAndSettle();
+
+          final purchase = find.byKey(
+            const Key('subscription-purchase-button'),
+          );
+          final customNote = find.byKey(
+            const Key('subscription-billing-custom-note'),
+          );
+          final summary = find.byKey(const Key('subscription-billing-summary'));
+          expect(host.display!.selectedCard!.product.id, 'weekly.product');
+          expect(
+            tester.widget<Text>(customNote).data,
+            'Weekly charge: USD 3.99',
+          );
+          expect(summary, findsNothing);
+          expect(
+            tester.getRect(customNote).bottom,
+            lessThanOrEqualTo(tester.getRect(purchase).top),
+          );
+
+          await tester.tap(find.byKey(const Key('subscription-trial-switch')));
+          await tester.pumpAndSettle();
+          expect(host.display!.selectedCard!.product.id, 'weekly.trial');
+          expect(
+            tester.widget<Text>(customNote).data,
+            'Trial first, then USD 3.99',
+          );
+          expect(find.text('Weekly charge: USD 3.99'), findsNothing);
+          expect(summary, findsNothing);
+          expect(
+            tester.getRect(customNote).bottom,
+            lessThanOrEqualTo(tester.getRect(purchase).top),
+          );
+
+          final yearly = find.byKey(
+            const Key('subscription-config-product-yearly.product'),
+          );
+          await tester.ensureVisible(yearly);
+          await tester.tap(yearly);
+          await tester.pumpAndSettle();
+          expect(host.display!.selectedCard!.product.id, 'yearly.product');
+          expect(customNote, findsNothing);
+          expect(tester.widget<Text>(summary).data, contains('every 1 year'));
+          expect(
+            tester.getRect(summary).bottom,
+            lessThanOrEqualTo(tester.getRect(purchase).top),
+          );
+          expect(tester.takeException(), isNull);
+        } finally {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
+  }
+
+  testWidgets('empty custom billing copy leaves no note above purchase', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    try {
+      final host = _RestoreTestHost(
+        displayConfiguration: SubscriptionDisplayConfig(
+          pageType: SubscriptionPageType.page,
+          skus: const [
+            SubscriptionDisplaySku(
+              productId: 'weekly.product',
+              type: DisplayProductType.subscription,
+              isDefault: true,
+              copy: SubscriptionCopy(name: 'Weekly', autoBillingNote: false),
+            ),
+          ],
+        ),
+      );
+      await tester.pumpWidget(host.app);
+      await tester.pumpAndSettle();
+      host.router.push('/subscription');
+      await tester.pumpAndSettle();
+
+      expect(host.display!.selectedCard!.product.id, 'weekly.product');
+      expect(
+        find.byKey(const Key('subscription-billing-custom-note')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('subscription-billing-summary')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('subscription-purchase-button')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  for (final eligibility in TrialEligibility.values) {
+    testWidgets(
+      'independent trial custom copy does not wait for $eligibility eligibility',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+        try {
+          final host = _RestoreTestHost(
+            includeTrial: true,
+            trialEligibility: Future<TrialEligibility>.value(eligibility),
+            displayConfiguration: SubscriptionDisplayConfig(
+              pageType: SubscriptionPageType.page,
+              skus: const [
+                SubscriptionDisplaySku(
+                  productId: 'weekly.trial',
+                  type: DisplayProductType.subscription,
+                  isDefault: true,
+                  copy: SubscriptionCopy(
+                    name: 'Trial',
+                    autoBillingNote: false,
+                    billingNote: 'Start free, then {price}',
+                  ),
+                ),
+              ],
+            ),
+          );
+          await tester.pumpWidget(host.app);
+          await tester.pumpAndSettle();
+          host.router.push('/subscription');
+          await tester.pumpAndSettle();
+
+          expect(host.display!.selectedCard!.product.id, 'weekly.trial');
+          final custom = find.byKey(
+            const Key('subscription-billing-custom-note'),
+          );
+          expect(tester.widget<Text>(custom).data, 'Start free, then USD 3.99');
+          expect(
+            find.byKey(const Key('subscription-billing-summary')),
+            findsNothing,
+          );
+          expect(tester.takeException(), isNull);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
+  }
+
+  testWidgets('configured paywall follows the Figma two-plan layout', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    try {
+      final host = _RestoreTestHost(
+        displayConfiguration: SubscriptionDisplayConfig(
+          pageType: SubscriptionPageType.page,
+          skus: [
+            SubscriptionDisplaySku(
+              productId: 'weekly.product',
+              type: DisplayProductType.subscription,
+              copy: SubscriptionCopy(
+                name: 'Weekly',
+                subtitle: 'Every week',
+                priceNote: 'new per week',
+              ),
+            ),
+            SubscriptionDisplaySku(
+              productId: 'yearly.product',
+              type: DisplayProductType.subscription,
+              isDefault: true,
+              weeklyReference: true,
+              copy: SubscriptionCopy(
+                name: 'Yearly',
+                subtitle: 'Every year',
+                priceNote: 'new per year',
+              ),
+            ),
+          ],
+        ),
+      );
+      await tester.pumpWidget(host.app);
+      await tester.pumpAndSettle();
+      host.router.push('/subscription');
+      await tester.pumpAndSettle();
+
+      final weekly = find.byKey(
+        const Key('subscription-config-product-weekly.product'),
+      );
+      final yearly = find.byKey(
+        const Key('subscription-config-product-yearly.product'),
+      );
+      expect(tester.getSize(weekly).height, 74);
+      expect(tester.getSize(yearly).height, 74);
+      expect(tester.getRect(yearly).top - tester.getRect(weekly).bottom, 20);
+      expect(
+        find.descendant(of: weekly, matching: find.text('new per week')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: weekly, matching: find.text('per week')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: yearly, matching: find.text('USD 2.77 per week')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: yearly, matching: find.text('per year')),
+        findsNothing,
+      );
+      expect(find.byKey(const Key('subscription-trial-switch')), findsNothing);
+      expect(find.text('NO PAYMENT NOW'), findsNothing);
+      expect(find.text('CANCEL ANYTIME'), findsNothing);
+      final purchase = find.byKey(const Key('subscription-purchase-button'));
+      expect(tester.getSize(purchase).width, 350);
+      expect(tester.getSize(purchase).height, 56);
+      final buttonText = tester.widget<Text>(
+        find.descendant(of: purchase, matching: find.byType(Text)),
+      );
+      expect(buttonText.style?.fontSize, 16);
+      expect(buttonText.style?.fontWeight, FontWeight.w600);
+      expect(buttonText.style?.height, 24 / 16);
+      expect(
+        tester.getRect(find.text('Terms of Use')).top -
+            tester.getRect(purchase).bottom,
+        closeTo(16, 1),
+      );
+      expect(tester.getRect(find.text('Terms of Use')).bottom, closeTo(828, 1));
+      expect(tester.takeException(), isNull);
+    } finally {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  for (final sheet in [false, true]) {
+    for (final width in [390.0, 320.0]) {
+      testWidgets(
+        'configured actual, weekly and weekly-only prices fit ${sheet ? 'modal' : 'page'} at $width',
+        (tester) async {
+          debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+          tester.view.physicalSize = Size(width, 844);
+          tester.view.devicePixelRatio = 1;
+          try {
+            final host = _RestoreTestHost(
+              useNewFallback: true,
+              displayConfiguration: SubscriptionDisplayConfig(
+                pageType: sheet
+                    ? SubscriptionPageType.modal
+                    : SubscriptionPageType.page,
+                skus: const [
+                  SubscriptionDisplaySku(
+                    productId: 'weekly.trial',
+                    type: DisplayProductType.subscription,
+                    isDefault: true,
+                    copy: SubscriptionCopy(
+                      name: 'Weekly Trial',
+                      priceNote: 'Actual price note',
+                    ),
+                  ),
+                  SubscriptionDisplaySku(
+                    productId: 'yearly.pro',
+                    type: DisplayProductType.subscription,
+                    weeklyReference: true,
+                    weeklyOnly: true,
+                    copy: SubscriptionCopy(
+                      name: 'Unlimited Yearly',
+                      badge: 'SAVE 81%',
+                      priceNote: 'Ignored yearly note',
+                    ),
+                  ),
+                  SubscriptionDisplaySku(
+                    productId: 'cardx.month',
+                    type: DisplayProductType.subscription,
+                    weeklyReference: true,
+                    copy: SubscriptionCopy(
+                      name: 'Unlimited Monthly',
+                      badge: 'MOST POPULAR',
+                      priceNote: 'Ignored monthly note',
+                    ),
+                  ),
+                ],
+              ),
+            );
+            await tester.pumpWidget(host.app);
+            await tester.pumpAndSettle();
+            host.router.push('/subscription${sheet ? '?sheet=true' : ''}');
+            await tester.pumpAndSettle();
+
+            Finder price(String id) =>
+                find.byKey(Key('subscription-config-product-$id-price'));
+            Finder caption(String id) => find.byKey(
+              Key('subscription-config-product-$id-price-caption'),
+            );
+            for (final entry in [
+              ('weekly.trial', r'US$4.99', 'Actual price note'),
+              ('yearly.pro', r'US$0.96', 'per week'),
+              ('cardx.month', r'US$12.99', r'US$3.00 per week'),
+            ]) {
+              final id = entry.$1;
+              final card = find.byKey(Key('subscription-config-product-$id'));
+              await tester.scrollUntilVisible(
+                card,
+                150,
+                scrollable: find.descendant(
+                  of: find.byType(CustomScrollView).last,
+                  matching: find.byType(Scrollable),
+                ),
+              );
+              expect(
+                find.descendant(of: price(id), matching: find.text(entry.$2)),
+                findsOneWidget,
+              );
+              expect(
+                find.descendant(of: caption(id), matching: find.text(entry.$3)),
+                findsOneWidget,
+              );
+              final priceRect = tester.getRect(price(id));
+              final captionRect = tester.getRect(caption(id));
+              final cardRect = tester.getRect(card);
+              expect(captionRect.top, greaterThanOrEqualTo(priceRect.bottom));
+              expect(captionRect.left, greaterThanOrEqualTo(priceRect.left));
+              expect(captionRect.right, lessThanOrEqualTo(cardRect.right - 8));
+              if (id != 'weekly.trial') {
+                final badge = find.byKey(
+                  Key('subscription-plan-$id-badge-surface'),
+                );
+                expect(tester.getRect(badge).bottom, lessThan(priceRect.top));
+              }
+            }
+            expect(find.text('Ignored yearly note'), findsNothing);
+            expect(find.text('Ignored monthly note'), findsNothing);
+            expect(find.textContaining('Approx.'), findsNothing);
+            expect(tester.takeException(), isNull);
+          } finally {
+            tester.view.resetPhysicalSize();
+            tester.view.resetDevicePixelRatio();
+            debugDefaultTargetPlatformOverride = null;
+          }
+        },
+      );
+    }
+  }
+
+  testWidgets('weekly-only linked trial keeps Then on its weekly amount', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    try {
+      final host = _RestoreTestHost(
+        includeTrial: true,
+        displayConfiguration: SubscriptionDisplayConfig(
+          pageType: SubscriptionPageType.page,
+          trialEnabled: true,
+          trialToggleText: 'Enable Free Trial',
+          skus: const [
+            SubscriptionDisplaySku(
+              productId: 'weekly.product',
+              type: DisplayProductType.subscription,
+              isDefault: true,
+              weeklyReference: true,
+              weeklyOnly: true,
+              copy: SubscriptionCopy(name: 'Weekly'),
+              trial: SubscriptionTrial(
+                productId: 'weekly.trial',
+                copy: SubscriptionCopy(name: 'Weekly Trial'),
+              ),
+            ),
+          ],
+        ),
+      );
+      await tester.pumpWidget(host.app);
+      await tester.pumpAndSettle();
+      host.router.push('/subscription');
+      await tester.pumpAndSettle();
+      final price = find.byKey(
+        const Key('subscription-config-product-weekly.product-price'),
+      );
+      final caption = find.byKey(
+        const Key('subscription-config-product-weekly.product-price-caption'),
+      );
+      expect(
+        find.descendant(of: price, matching: find.text('USD 2.77')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const Key('subscription-trial-switch')));
+      await tester.pumpAndSettle();
+      expect(host.display!.selectedCard!.product.id, 'weekly.trial');
+      expect(
+        find.descendant(of: price, matching: find.text('Then USD 2.77')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: caption, matching: find.text('per week')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    } finally {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  for (final sheet in [false, true]) {
+    testWidgets(
+      'hidden linked trial removes only card prices ${sheet ? 'modal' : 'page'}',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        try {
+          final host = _RestoreTestHost(
+            includeTrial: true,
+            displayConfiguration: SubscriptionDisplayConfig(
+              pageType: sheet
+                  ? SubscriptionPageType.modal
+                  : SubscriptionPageType.page,
+              trialEnabled: true,
+              trialToggleText: 'Enable Free Trial',
+              skus: const [
+                SubscriptionDisplaySku(
+                  productId: 'weekly.product',
+                  type: DisplayProductType.subscription,
+                  isDefault: true,
+                  weeklyReference: true,
+                  copy: SubscriptionCopy(
+                    name: 'Base',
+                    priceNote: 'Base price note',
+                  ),
+                  trial: SubscriptionTrial(
+                    productId: 'weekly.trial',
+                    weeklyReference: false,
+                    hidePrice: true,
+                    copy: SubscriptionCopy(
+                      name: 'Trial',
+                      badge: 'Free trial',
+                      priceNote: 'Trial price note',
+                      cta: 'TRY FREE',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+          await tester.pumpWidget(host.app);
+          await tester.pumpAndSettle();
+          host.router.push('/subscription${sheet ? '?sheet=true' : ''}');
+          await tester.pumpAndSettle();
+
+          final card = find.byKey(
+            const Key('subscription-config-product-weekly.product'),
+          );
+          const price = Key('subscription-config-product-weekly.product-price');
+          const caption = Key(
+            'subscription-config-product-weekly.product-price-caption',
+          );
+          expect(find.byKey(price), findsOneWidget);
+          expect(find.byKey(caption), findsOneWidget);
+          expect(
+            find.descendant(of: card, matching: find.text('USD 2.77 per week')),
+            findsOneWidget,
+          );
+
+          await tester.tap(find.byKey(const Key('subscription-trial-switch')));
+          await tester.pumpAndSettle();
+          expect(host.display!.selectedCard!.product.id, 'weekly.trial');
+          expect(find.byKey(price), findsNothing);
+          expect(find.byKey(caption), findsNothing);
+          expect(
+            find.descendant(of: card, matching: find.text('USD 2.77 per week')),
+            findsNothing,
+          );
+          expect(find.text('Trial price note'), findsNothing);
+          expect(find.text('TRY FREE'), findsOneWidget);
+          expect(
+            find.byKey(const Key('subscription-billing-summary')),
+            findsOneWidget,
+          );
+          expect(
+            tester.getRect(find.text('Trial')).top,
+            greaterThanOrEqualTo(
+              tester
+                  .getRect(
+                    find.byKey(
+                      const Key(
+                        'subscription-plan-weekly.product-badge-surface',
+                      ),
+                    ),
+                  )
+                  .bottom,
+            ),
+          );
+          expect(tester.takeException(), isNull);
+        } finally {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
+
+    testWidgets(
+      'linked trial can restore card prices ${sheet ? 'modal' : 'page'}',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        try {
+          final host = _RestoreTestHost(
+            includeTrial: true,
+            displayConfiguration: SubscriptionDisplayConfig(
+              pageType: sheet
+                  ? SubscriptionPageType.modal
+                  : SubscriptionPageType.page,
+              trialEnabled: true,
+              trialToggleText: 'Enable Free Trial',
+              skus: const [
+                SubscriptionDisplaySku(
+                  productId: 'weekly.product',
+                  type: DisplayProductType.subscription,
+                  isDefault: true,
+                  weeklyReference: true,
+                  hidePrice: true,
+                  copy: SubscriptionCopy(
+                    name: 'Base',
+                    priceNote: 'Base price note',
+                  ),
+                  trial: SubscriptionTrial(
+                    productId: 'weekly.trial',
+                    weeklyReference: true,
+                    hidePrice: false,
+                    copy: SubscriptionCopy(
+                      name: 'Trial',
+                      priceNote: 'Trial price note',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+          await tester.pumpWidget(host.app);
+          await tester.pumpAndSettle();
+          host.router.push('/subscription${sheet ? '?sheet=true' : ''}');
+          await tester.pumpAndSettle();
+
+          final card = find.byKey(
+            const Key('subscription-config-product-weekly.product'),
+          );
+          const price = Key('subscription-config-product-weekly.product-price');
+          const caption = Key(
+            'subscription-config-product-weekly.product-price-caption',
+          );
+          expect(find.byKey(price), findsNothing);
+          expect(find.byKey(caption), findsNothing);
+          await tester.tap(find.byKey(const Key('subscription-trial-switch')));
+          await tester.pumpAndSettle();
+
+          expect(host.display!.selectedCard!.product.id, 'weekly.trial');
+          expect(find.byKey(price), findsOneWidget);
+          expect(find.byKey(caption), findsOneWidget);
+          expect(
+            find.descendant(of: card, matching: find.text('USD 3.99')),
+            findsOneWidget,
+          );
+          expect(find.text('Trial price note'), findsNothing);
+          expect(
+            find.descendant(of: card, matching: find.text('USD 2.77 per week')),
+            findsOneWidget,
+          );
+          expect(tester.takeException(), isNull);
+        } finally {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
+  }
+
+  testWidgets('fallback paywall keeps StoreKit period captions', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    try {
+      final host = _RestoreTestHost(remoteDisplayConfiguration: false);
+      await tester.pumpWidget(host.app);
+      await tester.pumpAndSettle();
+      host.router.push('/subscription');
+      await tester.pumpAndSettle();
+
+      final weekly = find.byKey(
+        const Key('subscription-config-product-weekly.product'),
+      );
+      expect(
+        find.descendant(of: weekly, matching: find.text('per week')),
+        findsOneWidget,
+      );
+      final scrollable = find
+          .descendant(
+            of: find.byType(CustomScrollView).last,
+            matching: find.byType(Scrollable),
+          )
+          .last;
+      final lifetime = find.byKey(
+        const Key('subscription-config-product-lifetime.product'),
+      );
+      await tester.scrollUntilVisible(lifetime, 200, scrollable: scrollable);
+      expect(
+        find.descendant(of: lifetime, matching: find.text('one-time purchase')),
+        findsOneWidget,
+      );
+      expect(host.display!.usesRemoteConfiguration, isFalse);
+      expect(tester.takeException(), isNull);
+    } finally {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  testWidgets(
+    'local subscription fallback shows StoreKit prices and verified trial copy',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      tester.view.physicalSize = const Size(390, 1000);
+      tester.view.devicePixelRatio = 1;
+      try {
+        final trialEligibility = Completer<TrialEligibility>();
+        final host = _RestoreTestHost(
+          useNewFallback: true,
+          trialEligibility: trialEligibility.future,
+        );
+        await tester.pumpWidget(host.app);
+        await tester.pumpAndSettle();
+        host.router.push('/subscription');
+        await tester.pumpAndSettle();
+
+        expect(host.display!.selectedId, 'weekly.trial');
+        expect(find.text('Premium'), findsNothing);
+        expect(find.text('3-Day Free'), findsOneWidget);
+        expect(find.text('Unlimited Yearly'), findsOneWidget);
+        expect(find.text('Unlimited Monthly'), findsOneWidget);
+        expect(find.text('save 81%'), findsOneWidget);
+        expect(find.text('Most Popular'), findsOneWidget);
+        expect(find.text('TRY FOR FREE'), findsOneWidget);
+        expect(find.text('CANCEL ANYTIME'), findsNothing);
+        expect(find.text('NO PAYMENT NOW'), findsOneWidget);
+        final auxiliary = tester.widget<Text>(find.text('NO PAYMENT NOW'));
+        expect(auxiliary.style?.fontSize, 14);
+        expect(auxiliary.style?.color, Colors.white);
+        expect(
+          tester.getRect(find.text('NO PAYMENT NOW')).top -
+              tester.getRect(find.text('Terms of Use')).bottom,
+          closeTo(4, 1),
+        );
+        expect(
+          find.byKey(const Key('subscription-billing-summary')),
+          findsNothing,
+        );
+
+        final cards = [
+          for (final id in ['weekly.trial', 'yearly.pro', 'cardx.month'])
+            find.byKey(Key('subscription-config-product-$id')),
+        ];
+        expect(
+          tester.getRect(cards[0]).top,
+          lessThan(tester.getRect(cards[1]).top),
+        );
+        expect(
+          tester.getRect(cards[1]).top,
+          lessThan(tester.getRect(cards[2]).top),
+        );
+        for (final id in ['weekly.trial', 'yearly.pro', 'cardx.month']) {
+          final card = find.byKey(Key('subscription-config-product-$id'));
+          expect(
+            find.descendant(of: card, matching: find.text('per week')),
+            findsOneWidget,
+          );
+        }
+        expect(find.text(r'Only US$49.99 per year'), findsOneWidget);
+        expect(find.text(r'Only US$12.99 per month'), findsOneWidget);
+        Finder price(String id) => find.descendant(
+          of: find.byKey(Key('subscription-config-product-$id-price')),
+          matching: find.byType(Text),
+        );
+        expect(
+          tester.widget<Text>(price('weekly.trial')).data,
+          r'Then US$4.99',
+        );
+        expect(tester.widget<Text>(price('yearly.pro')).data, r'US$0.96');
+        expect(tester.widget<Text>(price('cardx.month')).data, r'US$3.25');
+
+        trialEligibility.complete(TrialEligibility.ineligible);
+        await tester.pumpAndSettle();
+        expect(find.text('Premium'), findsNothing);
+        expect(find.text('3-Day Free'), findsOneWidget);
+        expect(find.text('TRY FOR FREE'), findsOneWidget);
+        expect(find.text('NO PAYMENT NOW'), findsOneWidget);
+        expect(find.text('CANCEL ANYTIME'), findsNothing);
+        expect(
+          tester.widget<Text>(price('weekly.trial')).data,
+          r'Then US$4.99',
+        );
+
+        await tester.tap(
+          find.byKey(const Key('subscription-config-product-yearly.pro')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('SUBSCRIBE'), findsOneWidget);
+        expect(find.text('CANCEL ANYTIME'), findsOneWidget);
+        expect(find.text('NO PAYMENT NOW'), findsNothing);
+        expect(tester.widget<Text>(price('yearly.pro')).data, r'US$0.96');
+        await tester.tap(
+          find.byKey(const Key('subscription-config-product-cardx.month')),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.widget<Text>(price('cardx.month')).data, r'US$3.25');
+        expect(find.text('SUBSCRIBE'), findsOneWidget);
+        expect(find.text('CANCEL ANYTIME'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      } finally {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
+
+  testWidgets('configured badges clear prices and previous rows', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    tester.view.physicalSize = const Size(390, 1000);
+    tester.view.devicePixelRatio = 1;
+    try {
+      final host = _RestoreTestHost(
+        includeTrial: true,
+        displayConfiguration: SubscriptionDisplayConfig(
+          pageType: SubscriptionPageType.page,
+          trialEnabled: true,
+          trialToggleText: 'Enable Free Trial',
+          skus: const [
+            SubscriptionDisplaySku(
+              productId: 'weekly.product',
+              type: DisplayProductType.subscription,
+              isDefault: true,
+              copy: SubscriptionCopy(
+                name: 'Weekly',
+                subtitle:
+                    'Weekly detail wraps across multiple lines in this card',
+                badge: 'new Weekly',
+              ),
+              trial: SubscriptionTrial(
+                productId: 'weekly.trial',
+                copy: SubscriptionCopy(
+                  name: 'Weekly trial',
+                  badge: 'new Free trial',
+                  priceNote: 'new then per week',
+                ),
+              ),
+            ),
+            SubscriptionDisplaySku(
+              productId: 'yearly.product',
+              type: DisplayProductType.subscription,
+              copy: SubscriptionCopy(
+                name: 'Yearly',
+                badge: 'new Best value',
+                priceNote: 'per year',
+              ),
+            ),
+            SubscriptionDisplaySku(
+              productId: 'lifetime.product',
+              type: DisplayProductType.nonConsumable,
+              copy: SubscriptionCopy(
+                name: 'Lifetime',
+                subtitle: '   ',
+                badge: 'new One-time',
+                priceNote: 'new one-time purchase',
+              ),
+            ),
+          ],
+        ),
+      );
+      await tester.pumpWidget(host.app);
+      await tester.pumpAndSettle();
+      host.router.push('/subscription');
+      await tester.pumpAndSettle();
+
+      final trialSwitch = find.byKey(const Key('subscription-trial-switch'));
+      final cards = [
+        for (final id in [
+          'weekly.product',
+          'yearly.product',
+          'lifetime.product',
+        ])
+          find.byKey(Key('subscription-config-product-$id')),
+      ];
+      final badges = [
+        for (final id in [
+          'weekly.product',
+          'yearly.product',
+          'lifetime.product',
+        ])
+          find.byKey(Key('subscription-plan-$id-badge-surface')),
+      ];
+      final prices = [
+        for (final id in [
+          'weekly.product',
+          'yearly.product',
+          'lifetime.product',
+        ])
+          find.byKey(Key('subscription-config-product-$id-price')),
+      ];
+
+      expect(
+        find.byKey(
+          const Key('subscription-config-product-weekly.product-price-caption'),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: cards.first, matching: find.text('per week')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: cards[1], matching: find.text('per year')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: cards[2],
+          matching: find.text('new one-time purchase'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester.getRect(find.text('Yearly')).center.dy,
+        closeTo(tester.getRect(cards[1]).center.dy, 1),
+      );
+      expect(
+        tester.getRect(find.text('Lifetime')).center.dy,
+        closeTo(tester.getRect(cards[2]).center.dy, 1),
+      );
+      expect(find.text('   '), findsNothing);
+      for (final id in [
+        'weekly.product',
+        'yearly.product',
+        'lifetime.product',
+      ]) {
+        expect(
+          tester
+              .getRect(find.byKey(Key('subscription-config-product-$id-radio')))
+              .center
+              .dy,
+          closeTo(
+            tester
+                .getRect(find.byKey(Key('subscription-config-product-$id')))
+                .center
+                .dy,
+            1,
+          ),
+        );
+      }
+      expect(
+        find.descendant(of: cards[2], matching: find.text('one-time purchase')),
+        findsNothing,
+      );
+      expect(
+        tester.getRect(badges.first).top - tester.getRect(trialSwitch).bottom,
+        9,
+      );
+      for (var index = 0; index < cards.length; index++) {
+        expect(
+          tester.getRect(badges[index]).bottom,
+          lessThanOrEqualTo(tester.getRect(prices[index]).top),
+        );
+        if (index > 0) {
+          expect(
+            tester.getRect(cards[index]).top -
+                tester.getRect(cards[index - 1]).bottom,
+            20,
+          );
+          expect(
+            tester.getRect(badges[index]).top,
+            greaterThan(tester.getRect(cards[index - 1]).bottom),
+          );
+        }
+      }
+      expect(tester.takeException(), isNull);
+    } finally {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  testWidgets(
+    'configured badge selection changes without an intermediate tint',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      try {
+        final host = _RestoreTestHost(
+          disableAnimations: false,
+          displayConfiguration: SubscriptionDisplayConfig(
+            pageType: SubscriptionPageType.page,
+            skus: const [
+              SubscriptionDisplaySku(
+                productId: 'weekly.product',
+                type: DisplayProductType.subscription,
+                isDefault: true,
+                copy: SubscriptionCopy(name: 'Weekly', badge: 'Weekly'),
+              ),
+              SubscriptionDisplaySku(
+                productId: 'yearly.product',
+                type: DisplayProductType.subscription,
+                copy: SubscriptionCopy(name: 'Yearly', badge: 'Yearly'),
+              ),
+            ],
+          ),
+        );
+        await tester.pumpWidget(host.app);
+        await tester.pumpAndSettle();
+        host.router.push('/subscription');
+        await tester.pumpAndSettle();
+
+        final weeklyBadge = find.byKey(
+          const Key('subscription-plan-weekly.product-badge-surface'),
+        );
+        final yearlyBadge = find.byKey(
+          const Key('subscription-plan-yearly.product-badge-surface'),
+        );
+        (Color, Color) badgeColors(Finder finder) {
+          final decoration =
+              tester.widget<Container>(finder).decoration! as BoxDecoration;
+          return (decoration.color!, (decoration.border! as Border).top.color);
+        }
+
+        expect(badgeColors(weeklyBadge), (
+          const Color(0x33F1FE70),
+          const Color(0x4DF1FE70),
+        ));
+        expect(badgeColors(yearlyBadge), (
+          const Color(0xFF34362D),
+          const Color(0x4D474836),
+        ));
+        await tester.tap(
+          find.byKey(const Key('subscription-config-product-yearly.product')),
+        );
+        await tester.pump();
+        expect(badgeColors(weeklyBadge), (
+          const Color(0xFF34362D),
+          const Color(0x4D474836),
+        ));
+        expect(badgeColors(yearlyBadge), (
+          const Color(0x33F1FE70),
+          const Color(0x4DF1FE70),
+        ));
+        await tester.pump(const Duration(milliseconds: 70));
+        expect(badgeColors(weeklyBadge), (
+          const Color(0xFF34362D),
+          const Color(0x4D474836),
+        ));
+        expect(badgeColors(yearlyBadge), (
+          const Color(0x33F1FE70),
+          const Color(0x4DF1FE70),
+        ));
+        expect(tester.takeException(), isNull);
+      } finally {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
+
+  testWidgets('trial list stays active when another plan is selected', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    try {
+      final host = _RestoreTestHost(
+        includeTrial: true,
+        displayConfiguration: SubscriptionDisplayConfig(
+          pageType: SubscriptionPageType.page,
+          trialEnabled: true,
+          trialToggleText: 'Enable Free Trial',
+          skus: [
+            SubscriptionDisplaySku(
+              productId: 'weekly.product',
+              type: DisplayProductType.subscription,
+              copy: SubscriptionCopy(name: 'Base'),
+              trial: SubscriptionTrial(
+                productId: 'weekly.trial',
+                copy: SubscriptionCopy(name: 'Trial', cta: 'Try for Free'),
+              ),
+            ),
+            SubscriptionDisplaySku(
+              productId: 'yearly.product',
+              type: DisplayProductType.subscription,
+              isDefault: true,
+              copy: SubscriptionCopy(name: 'Yearly'),
+            ),
+          ],
+        ),
+      );
+      await tester.pumpWidget(host.app);
+      await tester.pumpAndSettle();
+      host.router.push('/subscription');
+      await tester.pumpAndSettle();
+
+      final trialSwitch = find.byKey(const Key('subscription-trial-switch'));
+      final weekly = find.byKey(
+        const Key('subscription-config-product-weekly.product'),
+      );
+      final yearly = find.byKey(
+        const Key('subscription-config-product-yearly.product'),
+      );
+      expect(
+        tester.getRect(trialSwitch).bottom,
+        lessThan(tester.getRect(weekly).top),
+      );
+      await tester.tap(trialSwitch);
+      await tester.pumpAndSettle();
+      expect(host.display!.trialOn, isTrue);
+      expect(host.display!.selectedCard!.product.id, 'weekly.trial');
+      expect(find.text('Trial'), findsOneWidget);
+      expect(find.text('Base'), findsNothing);
+      expect(find.text('Try for Free'), findsOneWidget);
+      expect(tester.getSize(weekly).height, 74);
+
+      await tester.tap(yearly);
+      await tester.pumpAndSettle();
+      expect(host.display!.trialOn, isTrue);
+      expect(host.display!.selectedId, 'yearly.product');
+      expect(find.text('Trial'), findsOneWidget);
+      expect(find.text('Base'), findsNothing);
+      expect(
+        tester.widget<CupertinoSwitch>(find.byType(CupertinoSwitch)).value,
+        isTrue,
+      );
+      expect(tester.takeException(), isNull);
+    } finally {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  testWidgets(
+    'three plans with trial keep purchase visible above the safe area',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
+      try {
+        final host = _RestoreTestHost(
+          includeTrial: true,
+          displayConfiguration: SubscriptionDisplayConfig(
+            pageType: SubscriptionPageType.page,
+            trialEnabled: true,
+            trialToggleText: 'Enable Free Trial',
+            skus: [
+              SubscriptionDisplaySku(
+                productId: 'weekly.product',
+                type: DisplayProductType.subscription,
+                copy: SubscriptionCopy(name: 'Weekly'),
+                trial: SubscriptionTrial(
+                  productId: 'weekly.trial',
+                  copy: SubscriptionCopy(name: 'Weekly', cta: 'Try for Free'),
+                ),
+              ),
+              SubscriptionDisplaySku(
+                productId: 'yearly.product',
+                type: DisplayProductType.subscription,
+                isDefault: true,
+                copy: SubscriptionCopy(name: 'Yearly'),
+              ),
+              SubscriptionDisplaySku(
+                productId: 'lifetime.product',
+                type: DisplayProductType.nonConsumable,
+                copy: SubscriptionCopy(
+                  name: 'Lifetime',
+                  priceNote: 'new one-time purchase',
+                ),
+              ),
+            ],
+          ),
+        );
+        await tester.pumpWidget(host.app);
+        await tester.pumpAndSettle();
+        host.router.push('/subscription');
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const Key('subscription-trial-switch')),
+          findsOneWidget,
+        );
+        expect(host.display!.availableSkus, hasLength(3));
+        final purchase = find.byKey(const Key('subscription-purchase-button'));
+        final initialPurchaseRect = tester.getRect(purchase);
+        expect(initialPurchaseRect.top, greaterThanOrEqualTo(47));
+        expect(initialPurchaseRect.bottom, lessThanOrEqualTo(810));
+        expect(
+          tester.getRect(find.text('Terms of Use')).bottom,
+          closeTo(828, 1),
+        );
+        expect(tester.widget<FilledButton>(purchase).onPressed, isNotNull);
+
+        await tester.drag(
+          find.byType(CustomScrollView).last,
+          const Offset(0, -500),
+        );
+        await tester.pumpAndSettle();
+
+        final lifetime = find.byKey(
+          const Key('subscription-config-product-lifetime.product'),
+        );
+        expect(lifetime, findsOneWidget);
+        expect(
+          find.descendant(
+            of: lifetime,
+            matching: find.text('new one-time purchase'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: lifetime,
+            matching: find.text('one-time purchase'),
+          ),
+          findsNothing,
+        );
+        expect(tester.getRect(lifetime).top, greaterThanOrEqualTo(47));
+        expect(
+          tester.getRect(lifetime).bottom,
+          lessThanOrEqualTo(tester.getRect(purchase).top),
+        );
+        expect(tester.getRect(purchase), initialPurchaseRect);
+        await tester.tap(lifetime);
+        await tester.pumpAndSettle();
+        expect(host.display!.selectedId, 'lifetime.product');
+        expect(tester.takeException(), isNull);
+      } finally {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+        tester.view.resetPadding();
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
+
+  testWidgets(
+    'configured copy wraps and close delay also blocks sheet dragging',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      try {
+        tester.view.physicalSize = const Size(360, 780);
+        tester.view.devicePixelRatio = 1;
+        final config = SubscriptionDisplayConfig(
+          pageType: SubscriptionPageType.modal,
+          closeDelay: const Duration(seconds: 45),
+          skus: [
+            SubscriptionDisplaySku(
+              productId: 'yearly.product',
+              type: DisplayProductType.subscription,
+              isDefault: true,
+              copy: SubscriptionCopy(
+                name: '订阅' * 50,
+                subtitle: 'Details ' * 35,
+                cta: '订阅' * 50,
+                billingNote: 'Disclosure ' * 40,
+                autoBillingNote: false,
+              ),
+            ),
+          ],
+        );
+        final host = _RestoreTestHost(displayConfiguration: config);
+        await tester.pumpWidget(host.app);
+        await tester.pumpAndSettle();
+        host.router.push('/subscription?sheet=true');
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('Close'), findsNothing);
+        await tester.drag(
+          find.byKey(const Key('subscription-sheet-handle')),
+          const Offset(0, 150),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(SubscriptionPage), findsOneWidget);
+        final purchase = find.byKey(const Key('subscription-purchase-button'));
+        await tester.scrollUntilVisible(
+          purchase,
+          250,
+          scrollable: find
+              .descendant(
+                of: find.byType(CustomScrollView).last,
+                matching: find.byType(Scrollable),
+              )
+              .last,
+        );
+        expect(tester.getSize(purchase).height, greaterThan(56));
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      } finally {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
+
+  testWidgets('three-plan sheet keeps purchase clear of the safe area', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
+    try {
+      final host = _RestoreTestHost(
+        includeTrial: true,
+        displayConfiguration: SubscriptionDisplayConfig(
+          pageType: SubscriptionPageType.modal,
+          trialEnabled: true,
+          trialToggleText: 'Enable Free Trial',
+          skus: [
+            SubscriptionDisplaySku(
+              productId: 'weekly.product',
+              type: DisplayProductType.subscription,
+              copy: SubscriptionCopy(name: 'Weekly'),
+              trial: SubscriptionTrial(
+                productId: 'weekly.trial',
+                copy: SubscriptionCopy(name: 'Weekly'),
+              ),
+            ),
+            SubscriptionDisplaySku(
+              productId: 'yearly.product',
+              type: DisplayProductType.subscription,
+              isDefault: true,
+              copy: SubscriptionCopy(name: 'Yearly'),
+            ),
+            SubscriptionDisplaySku(
+              productId: 'lifetime.product',
+              type: DisplayProductType.nonConsumable,
+              copy: SubscriptionCopy(name: 'Lifetime'),
+            ),
+          ],
+        ),
+      );
+      await tester.pumpWidget(host.app);
+      await tester.pumpAndSettle();
+      host.router.push('/subscription?sheet=true');
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('subscription-trial-switch')),
+        findsOneWidget,
+      );
+      final purchase = find.byKey(const Key('subscription-purchase-button'));
+      final initialPurchaseRect = tester.getRect(purchase);
+      expect(initialPurchaseRect.bottom, lessThanOrEqualTo(810));
+
+      await tester.drag(
+        find.byType(CustomScrollView).last,
+        const Offset(0, -500),
+      );
+      await tester.pumpAndSettle();
+      final lifetime = find.byKey(
+        const Key('subscription-config-product-lifetime.product'),
+      );
+      expect(lifetime, findsOneWidget);
+      expect(
+        tester.getRect(lifetime).bottom,
+        lessThanOrEqualTo(tester.getRect(purchase).top),
+      );
+      expect(tester.getRect(purchase), initialPurchaseRect);
+      expect(tester.takeException(), isNull);
+    } finally {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      tester.view.resetPadding();
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
 
   testWidgets('Android full page keeps the existing SKU presentation', (
     tester,
@@ -876,174 +2182,71 @@ void main() {
   });
 
   testWidgets(
-    'iOS sheet synchronizes SKU selection transition and keeps it in flight',
+    'iOS configured sheet freezes selection and hands off the exact chosen product during purchase',
     (tester) async {
-      final controller = _InFlightPurchaseController();
-      final host = _RestoreTestHost(controller: controller);
       debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
       try {
+        final controller = _InFlightPurchaseController();
+        final host = _RestoreTestHost(controller: controller);
         await tester.pumpWidget(host.app);
         await tester.pumpAndSettle();
         host.router.push('/subscription?sheet=true');
         await tester.pumpAndSettle();
-        await tester.drag(
-          find.byType(CustomScrollView).last,
-          const Offset(0, -240),
+        final lifetime = find.byKey(
+          const Key('subscription-config-product-lifetime.product'),
         );
-        await tester.pumpAndSettle();
-
-        double selectedOpacity(String planId) {
-          final fade = tester.widget<FadeTransition>(
-            find
-                .descendant(
-                  of: find.byKey(
-                    Key('subscription-plan-$planId-selected-overlay'),
-                  ),
-                  matching: find.byType(FadeTransition),
-                )
-                .first,
-          );
-          return fade.opacity.value;
-        }
-
-        BoxDecoration selectedDecoration(String planId) {
-          final surface = tester.widget<DecoratedBox>(
-            find.byKey(Key('subscription-plan-$planId-selected-surface')),
-          );
-          return surface.decoration as BoxDecoration;
-        }
-
-        BoxDecoration badgeDecoration(String planId) {
-          final badge = tester.widget<AnimatedContainer>(
-            find.byKey(Key('subscription-plan-$planId-badge-surface')),
-          );
-          return badge.decoration! as BoxDecoration;
-        }
-
-        void expectBadgeState(String planId, {required bool selected}) {
-          final decoration = badgeDecoration(planId);
-          expect(
-            decoration.color,
-            selected ? const Color(0x33F1FE70) : const Color(0xFF34362D),
-          );
-          expect(
-            (decoration.border! as Border).top.color,
-            selected ? const Color(0x4DF1FE70) : const Color(0x4D474836),
-          );
-        }
-
-        final weeklySurface = find.byKey(
-          const Key('subscription-plan-weekly-surface'),
-        );
-        final yearlySurface = find.byKey(
-          const Key('subscription-plan-yearly-surface'),
-        );
-        final lifetimeSurface = find.byKey(
-          const Key('subscription-plan-lifetime-surface'),
-        );
-        final decoration = selectedDecoration(subscriptionYearlyPlanId);
-        expect((decoration.border! as Border).top.color, KandoColors.accent);
-        expect(decoration.color, const Color(0xFF38372D));
-        expect(decoration.gradient, isNull);
-        expect(selectedOpacity(subscriptionWeeklyPlanId), 0);
-        expect(selectedOpacity(subscriptionYearlyPlanId), 1);
-        expect(selectedOpacity(subscriptionLifetimePlanId), 0);
-        for (final surface in [weeklySurface, yearlySurface, lifetimeSurface]) {
-          expect(tester.getSize(surface).height, 74);
-        }
-        final weeklyRect = tester.getRect(weeklySurface);
-        final yearlyRect = tester.getRect(yearlySurface);
-        final lifetimeRect = tester.getRect(lifetimeSurface);
-        expect(yearlyRect.top - weeklyRect.bottom, 22);
-        expect(lifetimeRect.top - yearlyRect.bottom, 22);
-        expectBadgeState(subscriptionYearlyPlanId, selected: true);
-        expectBadgeState(subscriptionLifetimePlanId, selected: false);
-        expect(
-          find.byKey(const Key('subscription-plan-yearly-badge-blur')),
-          findsOneWidget,
-        );
-        expect(
-          find.byKey(const Key('subscription-plan-lifetime-badge-blur')),
-          findsOneWidget,
-        );
-
-        await tester.ensureVisible(
-          find.byKey(const Key('subscription-plan-lifetime')),
-        );
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const Key('subscription-plan-lifetime')));
-        await tester.pump();
-        expect(selectedOpacity(subscriptionYearlyPlanId), 1);
-        expect(selectedOpacity(subscriptionLifetimePlanId), 0);
-        await tester.pump(const Duration(milliseconds: 70));
-        final fadingYearlyOpacity = selectedOpacity(subscriptionYearlyPlanId);
-        expect(fadingYearlyOpacity, inExclusiveRange(0, 1));
-        expect(selectedOpacity(subscriptionLifetimePlanId), 0);
-        await tester.pump(const Duration(milliseconds: 70));
-        expect(selectedOpacity(subscriptionYearlyPlanId), 0);
-        expect(selectedOpacity(subscriptionLifetimePlanId), 0);
-        await tester.pump(const Duration(milliseconds: 70));
-        expect(selectedOpacity(subscriptionYearlyPlanId), 0);
-        expect(
-          selectedOpacity(subscriptionLifetimePlanId),
-          inExclusiveRange(0, 1),
-        );
-        await tester.pumpAndSettle();
-        expect(controller.state.selectedPlanId, subscriptionLifetimePlanId);
-        expect(selectedOpacity(subscriptionYearlyPlanId), 0);
-        expect(selectedOpacity(subscriptionLifetimePlanId), 1);
-        expectBadgeState(subscriptionYearlyPlanId, selected: false);
-        expectBadgeState(subscriptionLifetimePlanId, selected: true);
-
-        await tester.ensureVisible(
-          find.byKey(const Key('subscription-plan-yearly')),
-        );
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const Key('subscription-plan-yearly')));
-        await tester.pumpAndSettle();
-        expect(controller.state.selectedPlanId, subscriptionYearlyPlanId);
-        expect(selectedOpacity(subscriptionYearlyPlanId), 1);
-        expect(selectedOpacity(subscriptionLifetimePlanId), 0);
-        expectBadgeState(subscriptionYearlyPlanId, selected: true);
-        expectBadgeState(subscriptionLifetimePlanId, selected: false);
-        await tester.drag(
-          find.byType(CustomScrollView).last,
-          const Offset(0, -600),
-        );
-        await tester.pumpAndSettle();
-        await tester.ensureVisible(
-          find.byKey(const Key('subscription-purchase-button')),
-        );
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const Key('subscription-purchase-button')));
-        await tester.pump();
-
-        expect(controller.state.isPurchasing, isTrue);
-        expect(controller.state.selectedPlanId, subscriptionYearlyPlanId);
-        final purchasingDecoration = selectedDecoration(
-          subscriptionYearlyPlanId,
-        );
-        expect(
-          (purchasingDecoration.border! as Border).top.color,
-          KandoColors.accent,
-        );
-        expect(purchasingDecoration.color, const Color(0xFF38372D));
-        expect(purchasingDecoration.gradient, isNull);
-        expect(selectedOpacity(subscriptionYearlyPlanId), 1);
-        expect(selectedOpacity(subscriptionLifetimePlanId), 0);
-        expect(tester.getSize(yearlySurface).height, 74);
-        expectBadgeState(subscriptionYearlyPlanId, selected: true);
-        expectBadgeState(subscriptionLifetimePlanId, selected: false);
-        expect(
-          tester
-              .widget<InkWell>(
-                find.byKey(const Key('subscription-plan-yearly')),
+        await tester.scrollUntilVisible(
+          lifetime,
+          180,
+          scrollable: find
+              .descendant(
+                of: find.byType(CustomScrollView).last,
+                matching: find.byType(Scrollable),
               )
-              .onTap,
-          isNull,
+              .last,
         );
-      } finally {
+        await tester.pumpAndSettle();
+        await tester.tap(lifetime);
+        await tester.pumpAndSettle();
+        final purchase = find.byKey(const Key('subscription-purchase-button'));
+        await tester.scrollUntilVisible(
+          purchase,
+          180,
+          scrollable: find
+              .descendant(
+                of: find.byType(CustomScrollView).last,
+                matching: find.byType(Scrollable),
+              )
+              .last,
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(purchase);
+        await tester.pump();
+        await tester.pump();
+        expect(controller.state.isPurchasing, isTrue);
+        expect(controller.state.selectedPlanId, subscriptionLifetimePlanId);
+        expect(host.display!.selectedCard!.product.id, 'lifetime.product');
+        final weekly = find.byKey(
+          const Key('subscription-config-product-weekly.product'),
+        );
+        await tester.scrollUntilVisible(
+          weekly,
+          -180,
+          scrollable: find
+              .descendant(
+                of: find.byType(CustomScrollView).last,
+                matching: find.byType(Scrollable),
+              )
+              .last,
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.tap(weekly);
+        await tester.pump();
+        expect(host.display!.selectedId, 'lifetime.product');
         controller.completePurchase();
+        await tester.pump();
+        await tester.pumpWidget(const SizedBox.shrink());
+      } finally {
         debugDefaultTargetPlatformOverride = null;
       }
     },
@@ -1259,7 +2462,15 @@ class _RestoreTestHost {
     ProfileActions? actions,
     AppAnalytics? analytics,
     String initialLocation = '/source',
+    SubscriptionDisplayConfig? displayConfiguration,
+    bool includeTrial = false,
+    bool useNewFallback = false,
+    Future<TrialEligibility>? trialEligibility,
+    bool? remoteDisplayConfiguration,
+    bool disableAnimations = true,
   }) : controller = controller ?? _RestoreTestController() {
+    final usesRemoteDisplayConfiguration =
+        remoteDisplayConfiguration ?? displayConfiguration != null;
     router = GoRouter(
       initialLocation: initialLocation,
       routes: [
@@ -1289,6 +2500,7 @@ class _RestoreTestHost {
                 key: state.pageKey,
                 barrierColor: const Color(0x99000000),
                 isDismissible: false,
+                enableDrag: defaultTargetPlatform != TargetPlatform.iOS,
                 useSafeArea: true,
                 heightFactor: subscriptionSheetHeightFactor,
                 child: page,
@@ -1329,6 +2541,87 @@ class _RestoreTestHost {
     app = ProviderScope(
       overrides: [
         subscriptionControllerProvider.overrideWith(() => this.controller),
+        subscriptionDisplayFactoryProvider.overrideWithValue((type) {
+          final configuration = useNewFallback
+              ? AppSubscriptionConfiguration(
+                  store: SubscriptionStore.appStore,
+                  productIds: const {
+                    subscriptionWeeklyPlanId: 'weekly.product',
+                    subscriptionYearlyPlanId: 'yearly.product',
+                    subscriptionLifetimePlanId: 'lifetime.product',
+                  },
+                  additionalProducts: SupportedSubscriptionProduct.parse(
+                    '[{"plan_id":"weekly_trial","product_id":"weekly.trial","product_type":"subscription","is_trial_product":true},{"plan_id":"yearly_pro","product_id":"yearly.pro","product_type":"subscription","is_trial_product":false},{"plan_id":"monthly","product_id":"cardx.month","product_type":"subscription","is_trial_product":false}]',
+                  ),
+                )
+              : _testSubscriptionConfiguration;
+          final config =
+              displayConfiguration ??
+              legacySubscriptionFallback(configuration, type);
+          display = SubscriptionDisplayController(
+            fallback: config,
+            loadConfig: (_) async =>
+                usesRemoteDisplayConfiguration ? config : null,
+            loadProducts: (ids) async => [
+              if (useNewFallback && ids.contains('weekly.trial'))
+                displayProduct(
+                  'weekly.trial',
+                  trial: true,
+                  unit: 'day',
+                  value: 7,
+                  amount: 4.99,
+                  displayPrice: r'US$4.99',
+                  omitWeeklyPrice: true,
+                ),
+              if (useNewFallback && ids.contains('yearly.pro'))
+                displayProduct(
+                  'yearly.pro',
+                  unit: 'year',
+                  amount: 49.99,
+                  displayPrice: r'US$49.99',
+                  weeklyPrice: r'US$0.96',
+                ),
+              if (useNewFallback && ids.contains('cardx.month'))
+                displayProduct(
+                  'cardx.month',
+                  unit: 'month',
+                  amount: 12.99,
+                  displayPrice: r'US$12.99',
+                  weeklyPrice: r'US$3.00',
+                  fourWeekPrice: r'US$3.25',
+                ),
+              if (includeTrial && ids.contains('weekly.trial'))
+                displayProduct(
+                  'weekly.trial',
+                  trial: true,
+                  eligibility: TrialEligibility.eligible,
+                  unit: 'week',
+                  amount: 3.99,
+                ),
+              for (final entry
+                  in _testSubscriptionConfiguration.productIds.entries)
+                if (ids.contains(entry.value))
+                  displayProduct(
+                    entry.value,
+                    lifetime: entry.key == subscriptionLifetimePlanId,
+                    unit: entry.key == subscriptionWeeklyPlanId
+                        ? 'week'
+                        : 'year',
+                    amount: entry.key == subscriptionWeeklyPlanId
+                        ? 3.99
+                        : entry.key == subscriptionYearlyPlanId
+                        ? 49.99
+                        : 79.99,
+                  ),
+            ],
+            loadEligibility: (_) async => trialEligibility != null
+                ? await trialEligibility
+                : useNewFallback || includeTrial
+                ? TrialEligibility.eligible
+                : throw StateError('These fixture products have no trial'),
+          );
+          return display!;
+        }),
         if (actions != null) profileActionsProvider.overrideWithValue(actions),
         if (analytics != null) analyticsProvider.overrideWithValue(analytics),
       ],
@@ -1336,7 +2629,9 @@ class _RestoreTestHost {
         theme: buildKandoTheme(),
         routerConfig: router,
         builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context).copyWith(disableAnimations: true),
+          data: MediaQuery.of(
+            context,
+          ).copyWith(disableAnimations: disableAnimations),
           child: child!,
         ),
       ),
@@ -1344,6 +2639,7 @@ class _RestoreTestHost {
   }
 
   final _RestoreTestController controller;
+  SubscriptionDisplayController? display;
   late final GoRouter router;
   late final Widget app;
 }
@@ -1477,6 +2773,21 @@ class _ProductRefreshController extends _RestoreTestController {
 }
 
 class _RestoreTestController extends SubscriptionController {
+  @override
+  Future<void> purchaseDisplayProduct(
+    SubscriptionProduct selected, {
+    required String scene,
+    required Future<SubscriptionProduct?> Function() confirm,
+  }) async {
+    final product = await confirm();
+    if (product == null) return;
+    final planId = _testSubscriptionConfiguration.productIds.entries
+        .firstWhere((entry) => entry.value == product.storeProductId)
+        .key;
+    state = state.copyWith(selectedPlanId: planId);
+    await purchase();
+  }
+
   @override
   SubscriptionState build() => const SubscriptionState(
     isConfigured: true,

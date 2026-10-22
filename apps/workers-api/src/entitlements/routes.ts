@@ -1,3 +1,4 @@
+import { allowedAppleProductIds } from "./apple-product-policy";
 import { Hono, type Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { Env } from "../env";
@@ -6,7 +7,6 @@ import { authenticateOwner, type AuthenticatedOwner } from "../owner-auth";
 import {
   appleDatabaseEnvironments,
   asVerifierConfigurations,
-  configuredProductIds,
   createAppleVerifiers,
   Environment,
   type AppleVerifierFactoryResult,
@@ -102,7 +102,7 @@ export function createEntitlementRoutes(
     if (auth.status === "internal_error") return internalError(c);
     if (auth.status === "unauthorized") return c.json(UNAUTHORIZED, 401);
 
-    const allowedProducts = configuredProductIds(c.env.APPLE_IAP_PRODUCT_IDS);
+    const allowedProducts = await allowedAppleProductIds(c.env);
     if (!allowedProducts) return c.json(VERIFICATION_UNAVAILABLE, 503);
     const environments = new Set(appleDatabaseEnvironments(c.env));
     try {
@@ -157,7 +157,7 @@ export function createEntitlementRoutes(
       return c.json({ success: false, error: { code: "VALIDATION_ERROR", message: "Invalid request." } }, 422);
     }
 
-    const allowedProducts = configuredProductIds(c.env.APPLE_IAP_PRODUCT_IDS);
+    const allowedProducts = await allowedAppleProductIds(c.env);
     if (!allowedProducts || !allowedProducts.has(productId)) {
       return c.json(VERIFICATION_UNAVAILABLE, 503);
     }
@@ -236,7 +236,7 @@ export function createEntitlementRoutes(
     const configuredVerifiers = asVerifierConfigurations(
       await verifierFactory(c.env),
     );
-    const allowedProducts = configuredProductIds(c.env.APPLE_IAP_PRODUCT_IDS);
+    const allowedProducts = await allowedAppleProductIds(c.env);
     if (configuredVerifiers.length === 0 || !allowedProducts) {
       return await finishAttempt(c, auth.owner.session_id, body.requestId, "VERIFICATION_UNAVAILABLE", 503, VERIFICATION_UNAVAILABLE);
     }

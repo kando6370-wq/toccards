@@ -158,6 +158,44 @@ void main() {
     },
   );
 
+  for (final item in [
+    (plan: 'weekly_trial', product: 'weekly.trial', value: 0.0),
+    (plan: 'yearly_pro', product: 'yearly.pro', value: 5.49),
+    (plan: 'monthly', product: 'cardx.month', value: 12.99),
+  ]) {
+    test(
+      'Firebase pending revenue preserves the new ${item.plan} plan across restart',
+      () async {
+        const storage = PreferencesSubscriptionRevenueStorage();
+        await storage.write(
+          reportedTransactionIds: {},
+          pending: {
+            'transaction-new': SubscriptionRevenueRecord(
+              transactionId: 'transaction-new',
+              productId: item.product,
+              planType: item.plan,
+              value: item.value,
+              currency: 'USD',
+            ),
+          },
+        );
+        final sink = _RecordingRevenueSink();
+        final reporter = SubscriptionRevenueReporter(
+          storage: storage,
+          sink: sink,
+        );
+        await reporter.flush();
+        await reporter.flush();
+        expect(sink.records, hasLength(1));
+        expect(sink.records.single.planType, item.plan);
+        expect(sink.records.single.productId, item.product);
+        expect(sink.records.single.value, item.value);
+        expect(await storage.readPending(), isEmpty);
+        expect(await storage.readReportedTransactionIds(), {'transaction-new'});
+      },
+    );
+  }
+
   test(
     'corrupted Revenue storage cannot bypass transaction idempotency or report a non-finite amount',
     () async {

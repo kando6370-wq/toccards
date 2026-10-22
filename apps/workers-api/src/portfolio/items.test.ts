@@ -90,6 +90,7 @@ class FakeD1Database {
   itemEvents: CollectionItemEventRow[] = [];
   wishlist: WishlistRow[] = [];
   batchSizes: number[] = [];
+  nextBatchError: Error | null = null;
 
   prepare(sql: string): FakeD1Statement {
     return new FakeD1Statement(this, sql);
@@ -97,6 +98,11 @@ class FakeD1Database {
 
   async batch(statements: FakeD1Statement[]): Promise<unknown[]> {
     this.batchSizes.push(statements.length);
+    if (this.nextBatchError) {
+      const error = this.nextBatchError;
+      this.nextBatchError = null;
+      throw error;
+    }
     return Promise.all(statements.map((statement) => statement.run()));
   }
 }
@@ -920,6 +926,73 @@ describe("collection item routes", () => {
     expect(db.items[0].folder_joined_at).toBe(NOW);
     expect(db.items[0].updated_at).not.toBe(NOW);
     expect(db.itemEvents[0]?.price_series_id).toBe(7);
+  });
+
+  it("rejects an edit that would duplicate another collection item identity", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(folder({ id: "main" }));
+    db.items.push(
+      item({ id: "existing" }),
+      item({ id: "edited", condition: "Lightly Played (LP)" }),
+    );
+
+    const response = await app.request(
+      "/api/v1/portfolio/items/edited",
+      {
+        method: "PATCH",
+        headers: await authHeaders("anonymous", "anon-1"),
+        body: JSON.stringify({ condition: "Near Mint (NM)" }),
+      },
+      createTestEnv(db),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      success: false,
+      error: {
+        code: "DUPLICATE_COLLECTION_ITEM",
+        message:
+          "This card with the same finish, language, and grading is already in this portfolio.",
+      },
+    });
+    expect(db.batchSizes).toEqual([]);
+    expect(db.items.find((row) => row.id === "edited")?.condition).toBe(
+      "Lightly Played (LP)",
+    );
+    expect(db.itemEvents).toEqual([]);
+  });
+
+  it("maps a concurrent PostgreSQL duplicate during edit to the existing duplicate response", async () => {
+    const db = createDbForOwner("anonymous", "anon-1");
+    db.folders.push(folder({ id: "main" }));
+    db.items.push(item({ id: "edited", condition: "Lightly Played (LP)" }));
+    db.nextBatchError = Object.assign(
+      new Error(
+        'duplicate key value violates unique constraint "uq_collection_item_folder_card_variant"',
+      ),
+      {
+        code: "23505",
+        constraint_name: "uq_collection_item_folder_card_variant",
+      },
+    );
+
+    const response = await app.request(
+      "/api/v1/portfolio/items/edited",
+      {
+        method: "PATCH",
+        headers: await authHeaders("anonymous", "anon-1"),
+        body: JSON.stringify({ condition: "Near Mint (NM)" }),
+      },
+      createTestEnv(db),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      error: { code: "DUPLICATE_COLLECTION_ITEM" },
+    });
+    expect(db.batchSizes).toEqual([2]);
+    expect(db.items[0].condition).toBe("Lightly Played (LP)");
+    expect(db.itemEvents).toEqual([]);
   });
 
   it("edits fields and moves folders in one PATCH because edited moves must complete atomically", async () => {

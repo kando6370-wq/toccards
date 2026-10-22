@@ -4,5 +4,6 @@
   "cronetHttpNoPlay": true,
   "SUBSCRIPTION_APP_STORE_WEEKLY_ID": "CardAi.weekly",
   "SUBSCRIPTION_APP_STORE_YEARLY_ID": "CardAi.yearly",
-  "SUBSCRIPTION_APP_STORE_LIFETIME_ID": "CardAi.lifetime"
+  "SUBSCRIPTION_APP_STORE_LIFETIME_ID": "CardAi.lifetime",
+  "SUBSCRIPTION_APP_STORE_SUPPORTED_PRODUCTS": "[{\"plan_id\":\"weekly_trial\",\"product_id\":\"CardAi.weekly.trial\",\"product_type\":\"subscription\",\"is_trial_product\":true},{\"plan_id\":\"monthly\",\"product_id\":\"CardAi.monthly\",\"product_type\":\"subscription\",\"is_trial_product\":false}]"
 }

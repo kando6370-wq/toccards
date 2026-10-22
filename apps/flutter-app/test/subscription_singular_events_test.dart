@@ -100,10 +100,83 @@ void main() {
     },
   );
 
+  for (final item in [
+    (
+      plan: 'weekly_trial',
+      product: 'weekly.trial',
+      name: 'card_weekly_trialtest',
+    ),
+    (plan: 'yearly_pro', product: 'yearly.pro', name: 'yearly_cardtest'),
+    (plan: 'monthly', product: 'cardx.month', name: 'card_monthlytest'),
+  ]) {
+    test(
+      'dev maps ${item.product} by actual Product ID without enabling it in production',
+      () {
+        expect(
+          singularSubscriptionSuccessEventName(
+            event: _event(planId: item.plan, productId: item.product),
+            environment: AppEnvironment.test,
+            isFreshPurchase: true,
+          ),
+          item.name,
+        );
+        expect(
+          singularSubscriptionSuccessEventName(
+            event: _event(planId: item.plan, productId: item.product),
+            environment: AppEnvironment.production,
+            isFreshPurchase: true,
+          ),
+          isNull,
+        );
+        expect(
+          singularSubscriptionSuccessEventName(
+            event: _event(planId: item.plan, productId: 'unregistered.product'),
+            environment: AppEnvironment.test,
+            isFreshPurchase: true,
+          ),
+          isNull,
+        );
+      },
+    );
+  }
+  test(
+    'the trial Product ID determines its event even if a plan label is yearly',
+    () {
+      expect(
+        singularSubscriptionSuccessEventName(
+          event: _event(planId: 'yearly', productId: 'weekly.trial'),
+          environment: AppEnvironment.test,
+          isFreshPurchase: true,
+        ),
+        'card_weekly_trialtest',
+      );
+    },
+  );
+
+  for (final item in [
+    (
+      product: 'CardAi.weekly.trial',
+      plan: 'weekly_trial',
+      name: 'card_weekly_trial',
+    ),
+    (product: 'CardAi.monthly', plan: 'monthly', name: 'card_monthly'),
+  ]) {
+    test('production maps ${item.product} by actual Product ID', () {
+      expect(
+        singularSubscriptionSuccessEventName(
+          event: _event(planId: item.plan, productId: item.product),
+          environment: AppEnvironment.production,
+          isFreshPurchase: true,
+        ),
+        item.name,
+      );
+    });
+  }
+
   test('unknown plans never produce an event name', () {
     expect(
       singularSubscriptionSuccessEventName(
-        event: _event(planId: 'monthly'),
+        event: _event(planId: 'unrecognized'),
         environment: AppEnvironment.test,
         isFreshPurchase: true,
       ),
@@ -114,6 +187,7 @@ void main() {
 
 SubscriptionEvent _event({
   required String planId,
+  String? productId,
   SubscriptionPurchaseStatus status = SubscriptionPurchaseStatus.purchased,
   SubscriptionEntitlementStatus entitlementStatus =
       SubscriptionEntitlementStatus.active,
@@ -122,7 +196,7 @@ SubscriptionEvent _event({
   return SubscriptionEvent(
     purchase: SubscriptionPurchase(
       store: SubscriptionStore.appStore,
-      storeProductId: 'cardx.$planId',
+      storeProductId: productId ?? 'cardx.$planId',
       status: status,
       verificationData: 'verified-jws',
     ),

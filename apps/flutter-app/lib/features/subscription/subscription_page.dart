@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +17,9 @@ import '../../shared/analytics/app_analytics.dart';
 import '../profile/profile_actions.dart';
 import 'subscription_analytics.dart';
 import 'subscription_controller.dart';
+import 'subscription_display_config.dart';
+import 'subscription_display_controller.dart';
+import 'subscription_display_providers.dart';
 
 const subscriptionSheetHeightFactor = 0.98;
 
@@ -37,6 +41,7 @@ const _subscriptionSuccessTrophyAsset =
     'assets/subscription/success_trophy_2090_17166.svg';
 const _subscriptionBenefitCheckAsset =
     'assets/subscription/benefit_check_2090_17443.svg';
+const _subscriptionCloseAsset = 'assets/subscription/close_3465_8694.svg';
 // Figma 2090:17166 uses one shared normalized timeline for all 24 nodes.
 const _subscriptionSuccessMotionDuration = Duration(milliseconds: 2350);
 const _successRevealCurve = Cubic(0.22, 1, 0.36, 1);
@@ -69,6 +74,9 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
     with WidgetsBindingObserver {
   var _onboardingPurchaseSuccessNavigationStarted = false;
   late final String _analyticsScene;
+  SubscriptionDisplayController? _display;
+  String? _lastDisplayError;
+  double _sheetDragDistance = 0;
 
   @override
   void initState() {
@@ -78,6 +86,11 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
       entrySource: widget.entrySource,
       explicitScene: widget.analyticsScene,
     );
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      _display = ref.read(subscriptionDisplayFactoryProvider)(
+        widget.sheet ? SubscriptionPageType.modal : SubscriptionPageType.page,
+      )..addListener(_onDisplayChanged);
+    }
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -85,6 +98,10 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
     });
     Future<void>.microtask(() {
       if (!mounted) return;
+      if (_display != null) {
+        unawaited(_display!.load());
+        return;
+      }
       final controller = ref.read(subscriptionControllerProvider.notifier);
       controller.resetPlanSelectionForNewPresentation();
       unawaited(
@@ -96,12 +113,42 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _display?.dispose();
     super.dispose();
+  }
+
+  void _onDisplayChanged() {
+    if (!mounted) return;
+    setState(() {});
+    final error = _display?.errorMessage;
+    if (error != null && error != _lastDisplayError) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && ModalRoute.of(context)?.isCurrent == true) {
+          showKandoTopToast(
+            context,
+            message: error,
+            type: _subscriptionToastType(error),
+            duration: _subscriptionTopToastDuration,
+          );
+        }
+      });
+    }
+    _lastDisplayError = error;
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      if (_display != null) {
+        final purchase = ref.read(subscriptionControllerProvider);
+        if (!_display!.isLoading &&
+            !purchase.isPurchasing &&
+            !purchase.isRestoring &&
+            !purchase.isPurchasePending) {
+          unawaited(_display!.load());
+        }
+        return;
+      }
       unawaited(
         ref
             .read(subscriptionControllerProvider.notifier)
@@ -116,8 +163,29 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(subscriptionControllerProvider);
+    final display = _display;
+    final busy =
+        state.isPurchasing || state.isRestoring || state.isPurchasePending;
+    final loading = display?.isLoading ?? state.isLoading;
     final useUpdatedSkuUi = defaultTargetPlatform == TargetPlatform.iOS;
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final pinTitle =
+        useUpdatedSkuUi && MediaQuery.sizeOf(context).height >= 820;
     final useUpdatedSheetUi = widget.sheet && useUpdatedSkuUi;
+    final selectedCard = display?.selectedCard;
+    final billingNote = selectedCard == null
+        ? ''
+        : selectedCard.copy.autoBillingNote
+        ? selectedCard.product.billingSummary
+        : selectedCard.billingNote;
+    final purchaseButtonTextStyle = useUpdatedSkuUi
+        ? const TextStyle(
+            fontFamily: 'CupertinoSystemText',
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            height: 24 / 16,
+          )
+        : null;
     ref.listen(subscriptionControllerProvider, (previous, next) {
       if (next.resultEventCount != previous?.resultEventCount &&
           !_onboardingPurchaseSuccessNavigationStarted &&
@@ -193,8 +261,178 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
       }
     });
 
+    final purchaseFooter = Padding(
+      key: const Key('subscription-purchase-footer'),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        useUpdatedSkuUi ? 0 : 6,
+        20,
+        useUpdatedSkuUi
+            ? 16
+            : bottomInset > 30
+            ? bottomInset
+            : 30,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (display != null &&
+              display.config?.isLocalFallback != true &&
+              selectedCard != null &&
+              billingNote.trim().isNotEmpty) ...[
+            Text(
+              billingNote,
+              key: selectedCard.copy.autoBillingNote
+                  ? const Key('subscription-billing-summary')
+                  : const Key('subscription-billing-custom-note'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: KandoColors.text,
+                fontFamily: 'CupertinoSystemText',
+                fontSize: 12,
+                height: 16 / 12,
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          SizedBox(
+            height: display == null ? 56 : null,
+            child: FilledButton(
+              key: const Key('subscription-purchase-button'),
+              onPressed: display != null
+                  ? (!display.canPurchase || busy
+                        ? null
+                        : () {
+                            final selected =
+                                display.selectedCard!.product.product;
+                            unawaited(
+                              ref
+                                  .read(subscriptionControllerProvider.notifier)
+                                  .purchaseDisplayProduct(
+                                    selected,
+                                    scene: _analyticsScene,
+                                    confirm: display.confirmPurchase,
+                                  ),
+                            );
+                          })
+                  : state.isLoading ||
+                        state.isPurchasing ||
+                        state.isPurchasePending
+                  ? null
+                  : () {
+                      final controller = ref.read(
+                        subscriptionControllerProvider.notifier,
+                      );
+                      controller.beginPurchaseAnalytics(_analyticsScene);
+                      controller.purchase();
+                    },
+              style: FilledButton.styleFrom(
+                backgroundColor: KandoColors.accent,
+                foregroundColor: KandoColors.primaryOnDefault,
+                disabledBackgroundColor: KandoColors.accent.withValues(
+                  alpha: 0.45,
+                ),
+                shape: const StadiumBorder(),
+                minimumSize: useUpdatedSkuUi ? const Size.fromHeight(56) : null,
+                padding: display == null
+                    ? null
+                    : const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+              ),
+              child:
+                  loading ||
+                      state.isPurchasing ||
+                      (display?.isVerifying ?? false)
+                  ? const SizedBox.square(
+                      dimension: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: KandoColors.primaryOnDefault,
+                      ),
+                    )
+                  : display == null
+                  ? Text('SUBSCRIBE', style: purchaseButtonTextStyle)
+                  : Text(
+                      display.selectedCard?.cta ?? 'SUBSCRIBE',
+                      textAlign: TextAlign.center,
+                      style: purchaseButtonTextStyle,
+                    ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              _LegalLink(
+                label: 'Terms of Use',
+                useUpdatedSkuUi: useUpdatedSkuUi,
+                onTap: state.isLoading || state.isPurchasing
+                    ? null
+                    : () => ref.read(profileActionsProvider).openTerms(),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  '·',
+                  style: TextStyle(
+                    color: useUpdatedSkuUi
+                        ? KandoColors.text
+                        : KandoColors.mutedText,
+                    fontFamily: useUpdatedSkuUi ? 'CupertinoSystemText' : null,
+                    fontSize: 12,
+                    height: 18 / 12,
+                  ),
+                ),
+              ),
+              _LegalLink(
+                label: 'Privacy Policy',
+                useUpdatedSkuUi: useUpdatedSkuUi,
+                onTap: state.isLoading || state.isPurchasing
+                    ? null
+                    : () => ref.read(profileActionsProvider).openPrivacy(),
+              ),
+            ],
+          ),
+          if (display != null &&
+              display.config?.isLocalFallback == true &&
+              display.selectedCard != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                display.selectedCard!.product.canUseTrial &&
+                        display.selectedCard!.product.isTrialProduct
+                    ? 'NO PAYMENT NOW'
+                    : 'CANCEL ANYTIME',
+                key: const Key('subscription-fallback-auxiliary-note'),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: useUpdatedSkuUi ? Colors.white : KandoColors.mutedText,
+                  fontFamily: useUpdatedSkuUi ? 'CupertinoSystemText' : null,
+                  fontSize: useUpdatedSkuUi ? 14 : 12,
+                  height: useUpdatedSkuUi ? 16 / 14 : 16 / 12,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+
+    const planTitle = Text(
+      'Choose Your Plan',
+      style: TextStyle(
+        color: KandoColors.text,
+        fontFamily: 'Fraunces',
+        fontSize: 32,
+        fontWeight: FontWeight.w600,
+        height: 40 / 32,
+      ),
+    );
+
     final content = PopScope(
-      canPop: !state.isRestoring && !state.isPurchasing,
+      canPop:
+          !state.isRestoring &&
+          !state.isPurchasing &&
+          (display?.closeAvailable ?? true),
       onPopInvokedWithResult: (didPop, _) {
         if (didPop && state.isPurchasePending) {
           ref
@@ -208,151 +446,177 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
             Positioned.fill(
               child: _PaywallBackground(useUpdatedSheetUi: false),
             ),
-          CustomScrollView(
-            slivers: [
-              const SliverToBoxAdapter(child: SizedBox(height: 98)),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
-                sliver: SliverList.list(
-                  children: [
-                    const Text(
-                      'Choose Your Plan',
-                      style: TextStyle(
-                        color: KandoColors.text,
-                        fontFamily: 'Fraunces',
-                        fontSize: 32,
-                        fontWeight: FontWeight.w600,
+          Column(
+            children: [
+              if (pinTitle)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 40),
+                      planTitle,
+                      const SizedBox(height: 16),
+                    ],
+                  ),
+                ),
+              Expanded(
+                child: CustomScrollView(
+                  slivers: [
+                    if (!pinTitle)
+                      SliverToBoxAdapter(
+                        child: SizedBox(height: useUpdatedSkuUi ? 40 : 98),
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    ..._benefits.indexed.map(
-                      (entry) => _BenefitRow(entry.$2, index: entry.$1),
-                    ),
-                    const SizedBox(height: 18),
-                    ...subscriptionPlans.map(
-                      (plan) => Padding(
-                        padding: EdgeInsets.only(
-                          bottom:
-                              useUpdatedSkuUi &&
-                                  plan.id != subscriptionLifetimePlanId
-                              ? 22
-                              : 12,
-                        ),
-                        child: _PlanTile(
-                          plan: plan,
-                          price: state.displayPriceFor(plan.id),
-                          selected:
-                              state.selectedPlanId == plan.id &&
-                              state.availablePlanIds.contains(plan.id),
-                          enabled:
-                              state.availablePlanIds.contains(plan.id) &&
-                              !state.isLoading &&
-                              !state.isPurchasing &&
-                              !state.isPurchasePending,
-                          useUpdatedSheetUi: useUpdatedSkuUi,
-                          onTap: () => ref
-                              .read(subscriptionControllerProvider.notifier)
-                              .selectPlan(plan.id),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    SizedBox(
-                      height: 56,
-                      child: FilledButton(
-                        key: const Key('subscription-purchase-button'),
-                        onPressed:
-                            state.isLoading ||
-                                state.isPurchasing ||
-                                state.isPurchasePending
-                            ? null
-                            : () {
-                                final controller = ref.read(
-                                  subscriptionControllerProvider.notifier,
-                                );
-                                controller.beginPurchaseAnalytics(
-                                  _analyticsScene,
-                                );
-                                controller.purchase();
-                              },
-                        style: FilledButton.styleFrom(
-                          backgroundColor: KandoColors.accent,
-                          foregroundColor: KandoColors.primaryOnDefault,
-                          disabledBackgroundColor: KandoColors.accent
-                              .withValues(alpha: 0.45),
-                          shape: const StadiumBorder(),
-                        ),
-                        child: state.isLoading
-                            ? const SizedBox.square(
-                                dimension: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: KandoColors.primaryOnDefault,
-                                ),
-                              )
-                            : const Text('SUBSCRIBE'),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Wrap(
-                      alignment: WrapAlignment.center,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        _LegalLink(
-                          label: 'Terms of Use',
-                          onTap: state.isLoading || state.isPurchasing
-                              ? null
-                              : () => ref
-                                    .read(profileActionsProvider)
-                                    .openTerms(),
-                        ),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 10),
-                          child: Text(
-                            '·',
-                            style: TextStyle(color: KandoColors.mutedText),
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      sliver: SliverList.list(
+                        children: [
+                          if (!pinTitle) planTitle,
+                          if (!pinTitle)
+                            SizedBox(height: useUpdatedSkuUi ? 16 : 24),
+                          ..._benefits.indexed.map(
+                            (entry) => _BenefitRow(entry.$2, index: entry.$1),
                           ),
-                        ),
-                        _LegalLink(
-                          label: 'Privacy Policy',
-                          onTap: state.isLoading || state.isPurchasing
-                              ? null
-                              : () => ref
-                                    .read(profileActionsProvider)
-                                    .openPrivacy(),
-                        ),
-                      ],
+                          SizedBox(
+                            height: display == null
+                                ? 18
+                                : switch ((
+                                    display.availableSkus.length,
+                                    display.showTrialSwitch,
+                                  )) {
+                                    (3, true) => 5,
+                                    (3, false) => 62,
+                                    (2, true) => 56,
+                                    (2, false) => 100,
+                                    _ => 16,
+                                  },
+                          ),
+                          if (display != null) ...[
+                            if (display.showTrialSwitch)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 20),
+                                child: _TrialSwitchTile(
+                                  label: display.config!.trialToggleText,
+                                  value: display.trialOn,
+                                  onChanged:
+                                      loading || busy || display.isVerifying
+                                      ? null
+                                      : display.toggleTrial,
+                                ),
+                              ),
+                            for (final sku in display.availableSkus)
+                              if (display.card(sku) case final card?)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 20),
+                                  child: _ConfiguredPlanTile(
+                                    card: card,
+                                    selected:
+                                        display.selectedId == sku.productId,
+                                    usesRemoteConfiguration:
+                                        display.usesRemoteConfiguration,
+                                    usesLocalFallback:
+                                        display.config?.isLocalFallback == true,
+                                    enabled:
+                                        !loading &&
+                                        !busy &&
+                                        !display.isVerifying,
+                                    onTap: () => display.select(sku.productId),
+                                  ),
+                                ),
+                            if (!loading && display.availableSkus.isEmpty) ...[
+                              const Text(
+                                'Plans are currently unavailable.',
+                                textAlign: TextAlign.center,
+                              ),
+                              TextButton(
+                                key: const Key('subscription-products-retry'),
+                                onPressed: busy
+                                    ? null
+                                    : () => unawaited(display.load()),
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ] else
+                            ...subscriptionPlans.map(
+                              (plan) => Padding(
+                                padding: EdgeInsets.only(
+                                  bottom:
+                                      useUpdatedSkuUi &&
+                                          plan.id != subscriptionLifetimePlanId
+                                      ? 22
+                                      : 12,
+                                ),
+                                child: _PlanTile(
+                                  plan: plan,
+                                  price: state.displayPriceFor(plan.id),
+                                  selected:
+                                      state.selectedPlanId == plan.id &&
+                                      state.availablePlanIds.contains(plan.id),
+                                  enabled:
+                                      state.availablePlanIds.contains(
+                                        plan.id,
+                                      ) &&
+                                      !state.isLoading &&
+                                      !state.isPurchasing &&
+                                      !state.isPurchasePending,
+                                  useUpdatedSheetUi: useUpdatedSkuUi,
+                                  onTap: () => ref
+                                      .read(
+                                        subscriptionControllerProvider.notifier,
+                                      )
+                                      .selectPlan(plan.id),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 30),
+                    if (!useUpdatedSkuUi)
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Align(
+                          alignment: Alignment.bottomCenter,
+                          child: purchaseFooter,
+                        ),
+                      ),
                   ],
                 ),
               ),
+              if (useUpdatedSkuUi) purchaseFooter,
             ],
           ),
-          Positioned(
-            top: 12,
-            left: 20,
-            child: _CircleAction(
-              tooltip: 'Close',
-              icon: Icons.close,
-              onPressed: state.isPurchasing || state.isRestoring
-                  ? null
-                  : () {
-                      ref
-                          .read(subscriptionControllerProvider.notifier)
-                          .abandonPurchasePresentation();
-                      if (context.canPop()) {
-                        context.pop();
-                      } else {
-                        context.go(_subscriptionSourceLocation(widget.source));
-                      }
-                    },
+          if (display?.closeAvailable ?? true)
+            Positioned(
+              top: useUpdatedSkuUi ? 0 : 12,
+              left: 20,
+              child: _CircleAction(
+                tooltip: 'Close',
+                onPressed: state.isPurchasing || state.isRestoring
+                    ? null
+                    : () {
+                        ref
+                            .read(subscriptionControllerProvider.notifier)
+                            .abandonPurchasePresentation();
+                        if (context.canPop()) {
+                          context.pop();
+                        } else {
+                          context.go(
+                            _subscriptionSourceLocation(widget.source),
+                          );
+                        }
+                      },
+              ),
             ),
-          ),
           Positioned(
-            top: 12,
+            top: useUpdatedSkuUi ? 0 : 12,
             right: 20,
             child: TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: KandoColors.accent,
+                minimumSize: const Size(58, 40),
+                padding: EdgeInsets.zero,
+                textStyle: const TextStyle(fontSize: 16, height: 24 / 16),
+              ),
               onPressed:
                   state.isLoading ||
                       state.isPurchasing ||
@@ -411,17 +675,51 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                   child: content,
                 ),
                 Positioned(
-                  top: useUpdatedSheetUi ? 21 : 10,
+                  top: useUpdatedSheetUi ? 13 : 10,
                   left: 0,
                   right: 0,
                   child: Center(
-                    child: Container(
-                      key: const Key('subscription-sheet-handle'),
-                      width: 48,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF615D3B),
-                        borderRadius: BorderRadius.circular(999),
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onVerticalDragStart: display == null
+                          ? null
+                          : (_) => _sheetDragDistance = 0,
+                      onVerticalDragUpdate: display == null
+                          ? null
+                          : (details) => _sheetDragDistance += details.delta.dy,
+                      onVerticalDragEnd: display == null
+                          ? null
+                          : (_) {
+                              if (display.closeAvailable &&
+                                  !state.isPurchasing &&
+                                  !state.isRestoring &&
+                                  _sheetDragDistance > 60 &&
+                                  context.canPop()) {
+                                ref
+                                    .read(
+                                      subscriptionControllerProvider.notifier,
+                                    )
+                                    .abandonPurchasePresentation();
+                                context.pop();
+                              }
+                              _sheetDragDistance = 0;
+                            },
+                      child: Padding(
+                        padding: display == null
+                            ? EdgeInsets.zero
+                            : const EdgeInsets.symmetric(
+                                horizontal: 32,
+                                vertical: 8,
+                              ),
+                        child: Container(
+                          key: const Key('subscription-sheet-handle'),
+                          width: 48,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF615D3B),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -1520,7 +1818,7 @@ class _BenefitRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: EdgeInsets.only(bottom: index == _benefits.length - 1 ? 0 : 4),
       child: ClipRRect(
         key: Key('subscription-benefit-$index'),
         borderRadius: BorderRadius.circular(8),
@@ -1575,6 +1873,332 @@ class _BenefitRow extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ConfiguredPlanTile extends StatelessWidget {
+  const _ConfiguredPlanTile({
+    required this.card,
+    required this.selected,
+    required this.usesRemoteConfiguration,
+    required this.usesLocalFallback,
+    required this.enabled,
+    required this.onTap,
+  });
+  final SubscriptionDisplayCard card;
+  final bool selected, enabled;
+  final bool usesRemoteConfiguration;
+  final bool usesLocalFallback;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final product = card.product;
+    final compactBadge = card.badge.isNotEmpty && card.badge.length <= 18;
+    final isWeeklyPeriod =
+        (product.periodUnit == 'week' && product.periodValue == 1) ||
+        (product.periodUnit == 'day' && product.periodValue == 7);
+    final weeklyPrice =
+        usesLocalFallback &&
+            product.periodUnit == 'month' &&
+            product.periodValue == 1
+        ? product.fourWeekPrice
+        : usesLocalFallback && isWeeklyPeriod
+        ? product.product.displayPrice
+        : product.weeklyPrice;
+    final periodLabel =
+        product.type == DisplayProductType.subscription &&
+            product.periodValue == 1
+        ? 'per ${product.periodUnit}'
+        : product.periodLabel;
+    final showWeeklyOnly =
+        usesRemoteConfiguration &&
+        card.weeklyOnly &&
+        product.weeklyPrice != null;
+    final showWeeklyReference =
+        usesRemoteConfiguration &&
+        card.weeklyReference &&
+        !card.weeklyOnly &&
+        product.weeklyPrice != null;
+    final priceCaption = card.hidePrice
+        ? ''
+        : usesLocalFallback
+        ? weeklyPrice == null
+              ? periodLabel
+              : 'per week'
+        : usesRemoteConfiguration
+        ? showWeeklyOnly
+              ? 'per week'
+              : showWeeklyReference
+              ? '${product.weeklyPrice} per week'
+              : card.priceNote.trim()
+        : periodLabel;
+    final price = showWeeklyOnly
+        ? product.isTrialProduct && product.canUseTrial
+              ? 'Then ${product.weeklyPrice!}'
+              : product.weeklyPrice!
+        : usesLocalFallback && weeklyPrice != null
+        ? product.isTrialProduct && product.canUseTrial
+              ? 'Then $weeklyPrice'
+              : weeklyPrice
+        : product.product.displayPrice;
+    final showSubtitle = card.subtitle.trim().isNotEmpty;
+    final hasNameDetails =
+        showSubtitle || (card.badge.isNotEmpty && !compactBadge);
+    final hasExtraLine =
+        priceCaption.isNotEmpty || (card.badge.isNotEmpty && !compactBadge);
+    return Semantics(
+      selected: selected,
+      enabled: enabled,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          InkWell(
+            key: Key('subscription-config-product-${card.sku.productId}'),
+            onTap: enabled ? onTap : null,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 74),
+              padding: EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: hasExtraLine ? 8 : 16,
+              ),
+              decoration: BoxDecoration(
+                gradient: selected
+                    ? null
+                    : const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xFF1C1E15), Color(0xFF12140D)],
+                      ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: selected
+                      ? KandoColors.accent
+                      : _subscriptionSheetItemBorder,
+                ),
+              ),
+              child: Stack(
+                fit: StackFit.passthrough,
+                children: [
+                  Row(
+                    crossAxisAlignment: hasNameDetails
+                        ? CrossAxisAlignment.start
+                        : CrossAxisAlignment.center,
+                    children: [
+                      const SizedBox(width: 20, height: 40),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (compactBadge &&
+                                card.hidePrice &&
+                                hasNameDetails)
+                              const SizedBox(height: 4),
+                            Text(
+                              card.copy.name,
+                              style: const TextStyle(
+                                color: KandoColors.text,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                height: 24 / 16,
+                              ),
+                            ),
+                            if (showSubtitle)
+                              Text(
+                                card.subtitle,
+                                style: const TextStyle(
+                                  color: KandoColors.text,
+                                  fontSize: 12,
+                                  height: 16 / 12,
+                                ),
+                              ),
+                            if (card.badge.isNotEmpty && !compactBadge)
+                              Text(
+                                card.badge,
+                                style: const TextStyle(
+                                  color: KandoColors.accent,
+                                  fontSize: 12,
+                                  height: 16 / 12,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      if (!card.hidePrice) ...[
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: 112,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              if (compactBadge) const SizedBox(height: 12),
+                              SizedBox(
+                                key: Key(
+                                  'subscription-config-product-${card.sku.productId}-price',
+                                ),
+                                width: 112,
+                                height: 24,
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerRight,
+                                  child: Text(
+                                    price,
+                                    maxLines: 1,
+                                    softWrap: false,
+                                    style: const TextStyle(
+                                      color: KandoColors.text,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      height: 24 / 16,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              if (priceCaption.isNotEmpty)
+                                SizedBox(
+                                  key: Key(
+                                    'subscription-config-product-${card.sku.productId}-price-caption',
+                                  ),
+                                  width: 112,
+                                  child: showWeeklyReference
+                                      ? SizedBox(
+                                          height: 16,
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            alignment: Alignment.centerRight,
+                                            child: Text(
+                                              priceCaption,
+                                              maxLines: 1,
+                                              softWrap: false,
+                                              style: const TextStyle(
+                                                color:
+                                                    _subscriptionSheetSecondaryText,
+                                                fontSize: 12,
+                                                height: 16 / 12,
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                      : Text(
+                                          priceCaption,
+                                          textAlign: TextAlign.right,
+                                          style: const TextStyle(
+                                            color:
+                                                _subscriptionSheetSecondaryText,
+                                            fontSize: 12,
+                                            height: 16 / 12,
+                                          ),
+                                        ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  Positioned.fill(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: _SheetPlanRadio(
+                        key: Key(
+                          'subscription-config-product-${card.sku.productId}-radio',
+                        ),
+                        selected: selected,
+                        enabled: enabled,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (compactBadge)
+            Positioned(
+              top: -11,
+              right: 16,
+              child: _PlanBadge(
+                planId: card.sku.productId,
+                label: card.badge,
+                selected: selected,
+                useUpdatedSheetUi: true,
+                animateSelection: false,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrialSwitchTile extends StatelessWidget {
+  const _TrialSwitchTile({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: label,
+      toggled: value,
+      enabled: onChanged != null,
+      child: InkWell(
+        key: const Key('subscription-trial-switch'),
+        onTap: onChanged == null ? null : () => onChanged!(!value),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 62),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF1C1E15), Color(0xFF12140D)],
+            ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _subscriptionSheetItemBorder),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: KandoColors.text,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    height: 24 / 16,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 46,
+                height: 28,
+                child: FittedBox(
+                  fit: BoxFit.contain,
+                  child: ExcludeSemantics(
+                    child: CupertinoSwitch(
+                      value: value,
+                      onChanged: onChanged,
+                      activeTrackColor: KandoColors.accent,
+                      inactiveTrackColor: const Color(0xFF383838),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -1800,6 +2424,7 @@ class _PlanTileState extends State<_PlanTile> {
               label: plan.badge!,
               selected: visualSelected,
               useUpdatedSheetUi: useUpdatedSheetUi,
+              animateSelection: useUpdatedSheetUi,
             ),
           ),
       ],
@@ -1813,12 +2438,14 @@ class _PlanBadge extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.useUpdatedSheetUi,
+    required this.animateSelection,
   });
 
   final String planId;
   final String label;
   final bool selected;
   final bool useUpdatedSheetUi;
+  final bool animateSelection;
 
   @override
   Widget build(BuildContext context) {
@@ -1857,16 +2484,25 @@ class _PlanBadge extends StatelessWidget {
         child: badgeChild,
       );
     }
-    final badge = AnimatedContainer(
-      key: Key('subscription-plan-$planId-badge-surface'),
-      duration: _subscriptionSheetSelectionPhaseDuration,
-      curve: Curves.easeOutCubic,
-      height: 30,
-      padding: const EdgeInsets.symmetric(horizontal: 9),
-      alignment: Alignment.center,
-      decoration: decoration,
-      child: badgeChild,
-    );
+    final badge = animateSelection
+        ? AnimatedContainer(
+            key: Key('subscription-plan-$planId-badge-surface'),
+            duration: _subscriptionSheetSelectionPhaseDuration,
+            curve: Curves.easeOutCubic,
+            height: 29,
+            padding: const EdgeInsets.symmetric(horizontal: 9),
+            alignment: Alignment.center,
+            decoration: decoration,
+            child: badgeChild,
+          )
+        : Container(
+            key: Key('subscription-plan-$planId-badge-surface'),
+            height: 29,
+            padding: const EdgeInsets.symmetric(horizontal: 9),
+            alignment: Alignment.center,
+            decoration: decoration,
+            child: badgeChild,
+          );
     return ClipRRect(
       borderRadius: BorderRadius.circular(999),
       child: BackdropFilter(
@@ -1879,7 +2515,11 @@ class _PlanBadge extends StatelessWidget {
 }
 
 class _SheetPlanRadio extends StatelessWidget {
-  const _SheetPlanRadio({required this.selected, required this.enabled});
+  const _SheetPlanRadio({
+    super.key,
+    required this.selected,
+    required this.enabled,
+  });
 
   final bool selected;
   final bool enabled;
@@ -1919,14 +2559,9 @@ class _SheetPlanRadio extends StatelessWidget {
 }
 
 class _CircleAction extends StatelessWidget {
-  const _CircleAction({
-    required this.tooltip,
-    required this.icon,
-    required this.onPressed,
-  });
+  const _CircleAction({required this.tooltip, required this.onPressed});
 
   final String tooltip;
-  final IconData icon;
   final VoidCallback? onPressed;
 
   @override
@@ -1934,21 +2569,34 @@ class _CircleAction extends StatelessWidget {
     return IconButton(
       tooltip: tooltip,
       onPressed: onPressed,
-      icon: Icon(icon),
+      icon: SvgPicture.asset(
+        _subscriptionCloseAsset,
+        width: 14.5784,
+        height: 14.5785,
+        excludeFromSemantics: true,
+      ),
       style: IconButton.styleFrom(
-        backgroundColor: KandoColors.surface.withValues(alpha: 0.9),
+        backgroundColor: KandoColors.surface,
         foregroundColor: KandoColors.text,
-        side: const BorderSide(color: KandoColors.border),
+        side: const BorderSide(color: Color(0x1FFFFFFF), width: 0.5),
+        fixedSize: const Size(40, 40),
+        minimumSize: const Size(40, 40),
+        padding: EdgeInsets.zero,
       ),
     );
   }
 }
 
 class _LegalLink extends StatelessWidget {
-  const _LegalLink({required this.label, required this.onTap});
+  const _LegalLink({
+    required this.label,
+    required this.onTap,
+    required this.useUpdatedSkuUi,
+  });
 
   final String label;
   final Future<void> Function()? onTap;
+  final bool useUpdatedSkuUi;
 
   @override
   Widget build(BuildContext context) {
@@ -1970,10 +2618,15 @@ class _LegalLink extends StatelessWidget {
               }
             },
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: EdgeInsets.zero,
         child: Text(
           label,
-          style: const TextStyle(color: KandoColors.mutedText, fontSize: 12),
+          style: TextStyle(
+            color: useUpdatedSkuUi ? KandoColors.text : KandoColors.mutedText,
+            fontFamily: useUpdatedSkuUi ? 'CupertinoSystemText' : null,
+            fontSize: 12,
+            height: 16 / 12,
+          ),
         ),
       ),
     );

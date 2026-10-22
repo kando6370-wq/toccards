@@ -136,8 +136,21 @@ pnpm test:app-compatibility
 | 2026-10-12 C03 `7516c43` | API 8/8、39 份响应、两组旧源码各 24/24；push [38209819070](https://github.com/kando6370-wq/toccards/actions/runs/38209819070)与 PR [38209949303](https://github.com/kando6370-wq/toccards/actions/runs/38209949303)报告已下载核对；PR 实际测试提交为合并引用 `9deda2a`。 | 不等于 PR 合并或 C03 已部署；受控价格／汇率样本，真实包与未覆盖范围仍待验。 |
 | 2026-10-12 Linux dev `e8d1dd9` | 独立回读 watcher／release 与运行文件一致，API／DB healthy、Web running、migration exited/0，PostgreSQL ledger 14 项／最新 0013；备份目录可读，Admin 11 文件匹配。 | 该时点早于 C03 整理；未做数据库恢复、正式旧包／真机／生产验收，不推断今天运行版本。 |
 | 2026-10-13 CI 与强制规则 | 仓库工作流响应目标 dev/main 的 PR、dev/main push 和手工入口，开发分支 push 不触发；检查名为 `App compatibility (Windows)`。原强制规则集 24904725 已按用户授权删除，兼容 CI 保留为异步反馈。 | 工作流定义可由源码核对；远端规则删除是当日回读记录，本次未重新验远端。后续不得自行恢复强制规则。 |
+| 2026-10-14 订阅配置 V1 增量 | 基线 8751b7e 加本地未提交改动；新订阅路径独立接入，Windows 上将 `src/compatibility/app-contract.test.ts` 与本次及现有 Admin／app-config 回归一并执行，8 文件／89 项通过。迁移仅新增展示配置表，不改旧购买、Restore 或 app-config 响应。 | 本轮只复验 API 合同及受影响调用边界；未运行 `pnpm test:app-compatibility` 的旧 Dart 解析编排、正式包／真机、新 SKU 旧包恢复或生产验收，不推断完整兼容已通过。 |
 
 仅兼容任务的新增实际结果，合入本节简短摘要，记录日期／提交／环境／命令／结果／未验范围；不要重新创建独立兼容测试说明、VERIFICATION 文件或过程日志。
+
+### 2026-10-16 动态商品准入的兼容补证
+
+基线为 codex/dev-1.0.6@67387fc 加本地未提交改动。新增审批／长期注册接口采用 V1 兼容增量，原购买、Restore、生命周期与 app-config 请求字段保持；旧 APPLE_IAP_PRODUCT_IDS 作为兼容集合，与当前环境／Bundle 的审批集合合并，不按展示列表移除历史权益。
+
+Windows 本地执行 pnpm test:app-compatibility 退出 0：当前 PostgreSQL API 合同 8 项，固定 1.0.4+161 与 1.0.5+163 的 Dart 合同各 24 项通过，证据位于忽略目录 .dart_tool/app-compatibility/run-l8jJ82。此编排覆盖既有配置、目录／价格、文件夹与额度等源码场景，不覆盖正式包 StoreKit 交易。新增 PostgreSQL 合同测试另验证 V1 格式的新 SKU Fresh Purchase、App Attest Restore、session／环境隔离和升级通知，Apple 验签器为注入测试替身，不能记为真实 Apple 签名或真机验收。
+
+固定旧源码仍以包内 Product ID 过滤 current entitlements；服务端升级无法使 1.0.4／1.0.5 恢复未知的新 SKU。超级管理员审批必须明确确认这一支持边界；新客户端完成一次含动态注册能力的更新后，后续批准的订阅可无需逐 SKU 重发包。未执行真实旧包、签名 IPA、真机、StoreKit 购买／恢复及生产验收；本轮未部署 dev/prod。
+
+### 2026-10-21 收藏编辑重复项错误兼容补证
+
+基线为 `codex/dev-1.0.6@fd7aefd3` 加本地未提交增量。`PATCH /api/v1/portfolio/items/:item_id` 保留既有请求字段与成功响应，只把编辑后撞上另一条完整收藏身份的裸 500 修正为已有 `409 DUPLICATE_COLLECTION_ITEM`；当前 item 自身不判重，PostgreSQL `23505` 并发冲突仅在约束名为 `uq_collection_item_folder_card_variant` 时转换。`items.test.ts` 20/20 通过，覆盖普通编辑、自身排除、预查重复及约束异常转换；Workers TypeScript 检查通过。现有 Flutter 客户端已识别该错误码并保留编辑输入，本轮未修改客户端协议；未运行完整旧源码兼容编排、正式旧包／真机或远端环境，未部署 dev/prod。
 
 ## 7. 完成标准与交付说明
 

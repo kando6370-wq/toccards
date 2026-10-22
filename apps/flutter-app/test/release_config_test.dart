@@ -78,6 +78,25 @@ void main() {
       productionConfig,
       containsPair('SUBSCRIPTION_APP_STORE_LIFETIME_ID', 'CardAi.lifetime'),
     );
+    final testAdditional =
+        jsonDecode(
+              testConfig['SUBSCRIPTION_APP_STORE_SUPPORTED_PRODUCTS'] as String,
+            )
+            as List;
+    expect(
+      testAdditional.map((entry) => (entry as Map)['product_id']),
+      containsAll(['weekly.trial', 'cardx.month', 'yearly.pro']),
+    );
+    final productionAdditional =
+        jsonDecode(
+              productionConfig['SUBSCRIPTION_APP_STORE_SUPPORTED_PRODUCTS']
+                  as String,
+            )
+            as List;
+    expect(
+      productionAdditional.map((entry) => (entry as Map)['product_id']),
+      containsAll(['CardAi.weekly.trial', 'CardAi.monthly']),
+    );
     expect(
       requiredSubscriptionKeys
           .map((key) => productionConfig[key])

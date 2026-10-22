@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -160,6 +161,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               key: state.pageKey,
               barrierColor: const Color(0x99000000),
               isDismissible: false,
+              enableDrag: defaultTargetPlatform != TargetPlatform.iOS,
               useSafeArea: true,
               heightFactor: subscriptionSheetHeightFactor,
               sheetAnimationStyle: subscriptionSheetAnimationStyle,
