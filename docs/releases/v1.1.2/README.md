@@ -11,9 +11,11 @@ App 向后兼容规则只维护以下两份；涉及 App API、共享业务数�
 
 现有源码回归只覆盖部分场景，正式旧包／真机与完整兼容验收仍未完成；文档整理不等于业务整改、V2 实现或发布验收通过。开发与文档修改完成后，只运行受影响范围验证，实际结果集中补入 AI 执行版。
 
-2026-10-21 本地修复收藏编辑重复项错误：`PATCH /api/v1/portfolio/items/:item_id` 在编辑结果与同一收藏夹内另一条完整收藏身份重复时，复用既有 `409 DUPLICATE_COLLECTION_ITEM`，并将 PostgreSQL 唯一约束并发冲突转换为同一响应；请求字段、成功响应和数据库结构不变。当前增量尚未部署，验证边界见[收藏编辑重复项修复](05-delivery/VERIFICATION.md#collection-item-edit-duplicate)。
+2026-10-21 本地修复收藏编辑重复项错误：`PATCH /api/v1/portfolio/items/:item_id` 在编辑结果与同一收藏夹内另一条完整收藏身份重复时，复用既有 `409 DUPLICATE_COLLECTION_ITEM`，并将 PostgreSQL 唯一约束并发冲突转换为同一响应；请求字段、成功响应和数据库结构不变。2026-10-22 已随干净的 `dev@b0b6496` 部署 Linux dev，基础运行验收通过，真实收藏编辑冲突仍待补验；本地根因与回归见[收藏编辑重复项修复](05-delivery/VERIFICATION.md#collection-item-edit-duplicate)，部署证据见[本次 dev 验收](05-delivery/VERIFICATION.md#linux-dev-redeploy-b0b6496)。
 
 ## App 1.0.6 订阅配置（服务端与 Admin 页面）
+
+2026-10-22，“只展示周均价”的 API／Admin 增量已随 `dev@b0b6496` 发布 Linux dev，现有生效配置保持不变；本轮未发布 Flutter 制品或验收真实管理员保存／启用与真机展示，见[本次 dev 验收](05-delivery/VERIFICATION.md#linux-dev-redeploy-b0b6496)。
 
 2026-10-21 源码与 dev 发布：动态准入中标记为试用商品的 SKU，其首笔 Apple 通知确认正金额续费生成 `trial_conversion`（试用转付费），后续续费仍为 `renewal`；PostgreSQL `0015_trial_conversion_status.sql` 回填同口径历史订单，不新增 schema。已按用户授权在 Linux dev 发布 `51323e7` 并应用 0015（实际 `UPDATE 0`、ledger 16 项），prod 未操作；真实通知与后台业务仍待验，见[服务端合同](03-data-api/subscription-display-config.md#trial-conversion-order-status)、[后台口径](04-admin/admin.md#trial-conversion-order-status)、[本地验证](05-delivery/VERIFICATION.md#trial-conversion-order-status)及[dev 发布验收](05-delivery/VERIFICATION.md#trial-conversion-dev-release-51323e7)。
 
