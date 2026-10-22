@@ -1267,6 +1267,15 @@ void main() {
 
       expect(find.byKey(const Key('home-performance-empty')), findsOneWidget);
       expect(find.text('Add your first card'), findsOneWidget);
+      final emptyStateTitle = tester.widget<Text>(
+        find.text('Add your first card'),
+      );
+      expect(emptyStateTitle.style?.color, KandoColors.accent);
+      expect(emptyStateTitle.style?.fontFamily, 'Fraunces');
+      expect(emptyStateTitle.style?.fontSize, 20);
+      expect(emptyStateTitle.style?.fontWeight, FontWeight.w600);
+      expect(emptyStateTitle.style?.height, 20 / 20);
+      expect(emptyStateTitle.style?.letterSpacing, 0);
       expect(find.text('Scan Cards'), findsOneWidget);
       expect(find.text('Search Cards'), findsOneWidget);
       expect(find.text('Top Performers'), findsOneWidget);
@@ -2945,6 +2954,15 @@ void main() {
       expect(find.text('PORTDOLIO'), findsNothing);
       expect(find.text('PORTFOLIO'), findsOneWidget);
       expect(find.text('Add your first card'), findsOneWidget);
+      final emptyStateTitle = tester.widget<Text>(
+        find.text('Add your first card'),
+      );
+      expect(emptyStateTitle.style?.color, KandoColors.accent);
+      expect(emptyStateTitle.style?.fontFamily, 'Fraunces');
+      expect(emptyStateTitle.style?.fontSize, 20);
+      expect(emptyStateTitle.style?.fontWeight, FontWeight.w600);
+      expect(emptyStateTitle.style?.height, 20 / 20);
+      expect(emptyStateTitle.style?.letterSpacing, 0);
       expect(
         find.text(
           "Start tracking your collection's\nvalue,price trends, and top cards.",
