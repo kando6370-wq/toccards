@@ -2,6 +2,17 @@
 
 本文件保留 Admin、营销站等其他业务的实际验证。App 兼容规则、源码合同证据及 Home 文件夹切换历史记录见 [AI 执行版](../03-data-api/app-backward-compatibility-ai-guide.md)；历史版本记录见 [v1.1.1](../../v1.1.1/05-delivery/VERIFICATION.md)。未运行或只有部分证据的事项不得标记为完整验收通过。
 
+<a id="prod-subscription-preflight-rollback-20261022"></a>
+
+## 2026-10-22：prod Admin Pages 回退与订阅只读预检
+
+- 触发与授权：订阅分支合入并推送 `main@c701046` 后，Cloudflare Pages 自动将 `admin.tcgcard.fun` 发布为 deployment `76872494-d7ae-44bf-9288-34084b92caf5`，而生产 Worker 仍为 `b3bba43e-79d9-41bc-a354-a03720b5b129`／`main@0a167e6`。实际回读确认 Pages 主包 `index-BW2lPhdL.js` 已包含订阅配置菜单与新 API 路径，Worker assets 副本仍为不含订阅菜单的 `index-DMuLZiZY.js`，公开订阅配置接口返回 `404 NOT_FOUND`。用户明确确认先回退 Pages，待数据库、目录凭据及 Worker 配套就绪后再统一发布。
+- 回退执行：回退前确认历史 production deployment `0b48a48e-d234-441f-ac3b-738f0638ad70` 来源为干净的 `main@cbafc74`，其主 JS 为 67,872 字节、SHA-256 `5b4393514149c591d266f362ff652b007de3f1f39111b1c08857702a70546e17`，与 `api.tcgcard.fun` 当前 Worker assets 原始字节一致。使用 Wrangler OAuth 的 Pages write 权限调用 Cloudflare 官方 rollback API，原 deployment 返回 `production`／`deploy=success`，`modified_on=2026-10-22T07:39:00.109006Z`；未删除任何 deployment，也未创建新静态构建。
+- 回退后独立回读：`admin.tcgcard.fun` 与 `api.tcgcard.fun` 均返回 `index-DMuLZiZY.js`，字节数、SHA-256 及“不包含订阅配置路径”三项一致，双入口失配已解除。Worker 活动版本仍为原 `b3bba43e`／100%，变量、Secret、Hyperdrive、KV、R2、Service Binding、cron 和 API 代码未改；订阅配置接口继续为预期的 404。本轮没有回退 Git main，`github/main` 仍为 `c701046`。
+- 生产 PostgreSQL 只读预检：通过无域名、无路由、无 cron、仅绑定现有 Hyperdrive 的一次性 Wrangler remote preview，在 `BEGIN READ ONLY` 事务中回读 `postgres/public`、PostgreSQL 18.6，`transaction_read_only=on`。生产使用 `postgres_migration` ledger，精确包含 `0000`–`0013`；`0014_subscription_display_config` 三张表均不存在，生产动态商品准入记录为 0。`CardAi.weekly`、`CardAi.yearly`、`CardAi.lifetime` 三条 `billing_product` 均为 active、类型正确并映射 `performance_pro`；`CardAi.weekly.trial`、`CardAi.monthly` 尚无映射。按 `0015` 原始 CTE 计算的当前候选更新行为 0 行。前两次探针分别因目标数据库不支持 `jsonb_object_length` 及 postgres.js 数组编码失败，事务均回滚；改用 `jsonb_object_keys` 和固定 Product ID 后取得最终结果。preview 随后正常停止，本地临时探针文件已删除。
+- Apple 生产目录只读预检：在进程内复用已验证的 App Store Connect Team Key，只执行官方 GET；Issuer、Key ID、私钥与 JWT 未输出或落盘。生产 App 为 `6793017224`／`com.cardai.tcg`，唯一订阅组为 `22333203`／`Card Ai Pro`。`CardAi.weekly`、`CardAi.yearly` 为 `APPROVED`，`CardAi.lifetime` 为 `NON_CONSUMABLE/APPROVED`；`CardAi.weekly.trial` 与 `CardAi.monthly` 均为 `MISSING_METADATA`。两者各有 en-US 本地化、175 个地区价格及 `PREPARE_FOR_SUBMISSION` 版本；试用 SKU 与普通周卡同组、同周期、同等级并有 175 个地区的 FREE_TRIAL，但两款商品的 App Store review screenshot 与 subscription availability 关系均为空。
+- 门禁与边界：当前没有已验证的生产数据库新备份，本机也没有 `pscale`／`pg_dump`／`pg_restore`／`psql`；因此未执行 `0014`、`0015`、Secret／变量写入、Worker 上传／切流、商品审批、Page／Modal 配置或 Apple 后台写操作。后续须先在 App Store Connect 补齐两款商品的审核截图和可售范围并使状态脱离 `MISSING_METADATA`，同时通过 PlanetScale 现有备份能力创建并确认新的生产备份，才可再次申请生产迁移和发布授权。
+
 <a id="trial-conversion-order-status"></a>
 
 ## 2026-10-21：试用 SKU 首扣订单分类（本地）
