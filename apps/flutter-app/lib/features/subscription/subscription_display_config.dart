@@ -56,12 +56,16 @@ class SubscriptionDisplaySku {
     this.weeklyReference = false,
     this.weeklyOnly = false,
     this.hidePrice = false,
+    this.offlinePrice,
+    this.offlineFullPrice,
+    this.offlineTrial = false,
     this.trial,
   });
   final String productId;
   final DisplayProductType type;
   final SubscriptionCopy copy;
-  final bool isDefault, weeklyReference, weeklyOnly, hidePrice;
+  final bool isDefault, weeklyReference, weeklyOnly, hidePrice, offlineTrial;
+  final String? offlinePrice, offlineFullPrice;
   final SubscriptionTrial? trial;
 }
 
