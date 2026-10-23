@@ -827,7 +827,7 @@ void main() {
           'weekly.trial',
         );
         expect(fallback.skus[0].copy.name, '3-Day Free');
-        expect(fallback.skus[0].copy.cta, 'TRY FOR FREE');
+        expect(fallback.skus[0].copy.cta, 'Try For Free');
         expect(fallback.skus[1].copy.name, 'Unlimited Yearly');
         expect(fallback.skus[1].copy.subtitle, 'Only {price} per year');
         expect(fallback.skus[1].copy.badge, 'save 81%');

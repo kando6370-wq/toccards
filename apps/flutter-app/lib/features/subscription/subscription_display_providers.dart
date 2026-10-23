@@ -100,7 +100,7 @@ SubscriptionDisplayConfig legacySubscriptionFallback(
         offlinePrice: 'US\$4.99',
         offlineFullPrice: 'US\$4.99',
         offlineTrial: trial.isTrialProduct,
-        copy: const SubscriptionCopy(name: '3-Day Free', cta: 'TRY FOR FREE'),
+        copy: const SubscriptionCopy(name: '3-Day Free', cta: 'Try For Free'),
       ),
       SubscriptionDisplaySku(
         productId: yearly.productId,

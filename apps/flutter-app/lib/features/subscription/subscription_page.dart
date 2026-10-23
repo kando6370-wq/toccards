@@ -383,7 +383,9 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                   ? Text('SUBSCRIBE', style: purchaseButtonTextStyle)
                   : Text(
                       showOfflineFallback
-                          ? 'SUBSCRIBE'
+                          ? display.selectedSku?.offlineTrial == true
+                                ? 'Try For Free'
+                                : 'SUBSCRIBE'
                           : display.selectedCard?.cta ?? 'SUBSCRIBE',
                       textAlign: TextAlign.center,
                       style: purchaseButtonTextStyle,
