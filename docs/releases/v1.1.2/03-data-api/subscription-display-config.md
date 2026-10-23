@@ -150,7 +150,7 @@ PostgreSQL `0015_trial_conversion_status.sql` 按同一条件回填已经保存�
 
 ## 环境影响、回退及验证
 
-部署前按目标环境核对 PostgreSQL ledger、目录凭据与已审核商品范围。2026-10-15 dev 已回读到既有 0014，本轮仅新增两条商品映射、更新两个环境字段并重载同镜像 API，没有新增或执行 migration；prod 未操作。缺少新表时仅新模块失败，不重绑定旧 D1。回退代码保留新增表和历史权益数据；关闭生效配置或回退使用原接口的客户端，不删除账单／映射，也不让展示列表收窄恢复集合。
+部署前按目标环境核对 PostgreSQL ledger、目录凭据与已审核商品范围。2026-10-15 dev 已回读到既有 0014，本轮仅新增两条商品映射、更新两个环境字段并重载同镜像 API，没有新增或执行 migration。2026-10-23 prod 已在可恢复手工备份 `vd1ed3rj2awl` 后原子执行并登记 `0014/0015`，三张配置表为空，`0015 UPDATE 0`；随后活动 Worker 在保持旧代码和 assets 原始字节不变的前提下，通过 version-scoped Secrets 配置生产 App `6793017224`、组 `22333203`、Team Key 和 Lifetime 范围 `CardAi.lifetime`，真实目录读取成功。Monthly／Weekly Trial 为 READY_TO_SUBMIT，Weekly／Yearly／Lifetime 为 APPROVED；同日后续又从干净的 `main@557166b` 配套发布新业务 Worker 与两个 Admin 入口，公开 Page／Modal 接口已上线。生产商品动态准入和 Page／Modal 配置仍未创建或启用，因此 iOS supported-products 为空、Page／Modal 返回 `data:null`。缺少新表时仅新模块失败，不重绑定旧 D1。回退代码保留新增表和历史权益数据；关闭生效配置或回退使用原接口的客户端，不删除账单／映射，也不让展示列表收窄恢复集合。
 
 独立多连接检查使用 `pnpm --filter @kando/workers-api test:subscription-config:postgres`，要求显式设置 `SUBSCRIPTION_TEST_DATABASE_URL`。脚本仅接受 loopback 的空 `subscription_config_test` 数据库，拒绝其他地址、数据库名或非空库；不进入默认测试命令，也不会静默跳过。它使用两组真实 PostgresDatabase 连接和独立锁持有／观察连接，以 `pg_stat_activity` 确认实际锁等待，覆盖重复创建、并发生效、并发编辑、准入行锁及事务回滚。临时数据库和容器的创建／清理由调用方负责，不连接既有业务数据库。
 
