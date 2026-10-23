@@ -97,11 +97,16 @@ SubscriptionDisplayConfig legacySubscriptionFallback(
         productId: trial!.productId,
         type: DisplayProductType.subscription,
         isDefault: true,
-        copy: const SubscriptionCopy(name: '3-Day Free', cta: 'TRY FOR FREE'),
+        offlinePrice: 'US\$4.99',
+        offlineFullPrice: 'US\$4.99',
+        offlineTrial: trial.isTrialProduct,
+        copy: const SubscriptionCopy(name: '3-Day Free', cta: 'Try For Free'),
       ),
       SubscriptionDisplaySku(
         productId: yearly.productId,
         type: DisplayProductType.subscription,
+        offlinePrice: 'US\$0.96',
+        offlineFullPrice: 'US\$49.99',
         copy: const SubscriptionCopy(
           name: 'Unlimited Yearly',
           subtitle: 'Only {price} per year',
@@ -112,6 +117,8 @@ SubscriptionDisplayConfig legacySubscriptionFallback(
       SubscriptionDisplaySku(
         productId: monthly!.productId,
         type: DisplayProductType.subscription,
+        offlinePrice: 'US\$3.25',
+        offlineFullPrice: 'US\$12.99',
         copy: const SubscriptionCopy(
           name: 'Unlimited Monthly',
           subtitle: 'Only {price} per month',

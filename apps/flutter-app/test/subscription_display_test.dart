@@ -15,24 +15,411 @@ import 'subscription_display_fixtures.dart';
 
 void main() {
   test(
-    'a shown remote snapshot cannot turn into different fallback SKUs on foreground failure',
+    'a partial remote refresh selects the first remaining product',
     () async {
-      var available = true;
+      var partial = false;
       final remote = displayConfig();
       final model = _model(
         config: remote,
-        loader: (_) async => available ? [displayProduct('paid')] : [],
+        loader: (_) async => [
+          displayProduct('paid'),
+          if (!partial) displayProduct('once', lifetime: true),
+        ],
       );
       addTearDown(model.dispose);
       await model.load();
       expect(model.usesRemoteConfiguration, isTrue);
-      available = false;
+      expect(model.selectedId, 'once');
+
+      partial = true;
       await model.load();
       expect(identical(model.config, remote), isTrue);
       expect(model.selectedId, 'paid');
-      expect(model.canPurchase, isFalse);
+      expect(model.availableSkus.map((sku) => sku.productId), ['paid']);
+      expect(model.canPurchase, isTrue);
     },
   );
+
+  test(
+    'offline local fallback selects its default and allows another plan',
+    () async {
+      final fallback = _approvedLocalFallback();
+      final model = SubscriptionDisplayController(
+        fallback: fallback,
+        loadConfig: (_) async => throw const SocketException('Offline'),
+        loadProducts: (_) async => throw const SocketException('Offline'),
+        loadEligibility: (_) async => TrialEligibility.unknown,
+        retryDelays: const [],
+        offlineRetryDelay: const Duration(hours: 1),
+      );
+      addTearDown(model.dispose);
+
+      await model.load();
+
+      expect(fallback.isLocalFallback, isTrue);
+      expect(fallback.skus.map((sku) => sku.productId), [
+        'weekly.trial',
+        'yearly.pro',
+        'cardx.month',
+      ]);
+      expect(fallback.skus.map((sku) => sku.offlineFullPrice), [
+        'US\$4.99',
+        'US\$49.99',
+        'US\$12.99',
+      ]);
+      expect(fallback.skus.map((sku) => sku.offlinePrice), [
+        'US\$4.99',
+        'US\$0.96',
+        'US\$3.25',
+      ]);
+      expect(fallback.skus.map((sku) => sku.offlineTrial), [
+        true,
+        false,
+        false,
+      ]);
+      expect(model.config, same(fallback));
+      expect(model.showOfflineFallback, isTrue);
+      expect(model.availableSkus, isEmpty);
+      expect(model.selectedCard, isNull);
+      expect(model.selectedId, 'weekly.trial');
+      expect(model.canAttemptFallbackPurchase, isTrue);
+      model.select('yearly.pro');
+      expect(model.selectedId, 'yearly.pro');
+      model.select('unknown');
+      expect(model.selectedId, 'yearly.pro');
+      expect(model.canPurchase, isFalse);
+      expect(await model.confirmPurchase(), isNull);
+    },
+  );
+
+  test('local price preview waits for the first StoreKit failure', () async {
+    final started = Completer<void>();
+    final pending = Completer<List<SubscriptionStoreProduct>>();
+    final model = SubscriptionDisplayController(
+      fallback: _approvedLocalFallback(),
+      loadConfig: (_) async => null,
+      loadProducts: (_) {
+        started.complete();
+        return pending.future;
+      },
+      loadEligibility: (_) async => TrialEligibility.unknown,
+      retryDelays: const [],
+      offlineRetryDelay: const Duration(hours: 1),
+    );
+    addTearDown(model.dispose);
+
+    final loading = model.load();
+    await started.future;
+    expect(model.showOfflineFallback, isFalse);
+
+    pending.complete([]);
+    await loading;
+    expect(model.showOfflineFallback, isTrue);
+    expect(model.canPurchase, isFalse);
+    expect(model.canAttemptFallbackPurchase, isTrue);
+  });
+
+  test('StoreKit timeout still opens the local offline preview', () async {
+    final model = SubscriptionDisplayController(
+      fallback: _approvedLocalFallback(),
+      loadConfig: (_) async => displayConfig(),
+      loadProducts: (_) => Completer<List<SubscriptionStoreProduct>>().future,
+      loadEligibility: (_) async => TrialEligibility.unknown,
+      loadBudget: const Duration(milliseconds: 30),
+      retryDelays: const [],
+      offlineRetryDelay: const Duration(hours: 1),
+    );
+    addTearDown(model.dispose);
+
+    await model.load();
+
+    expect(model.showOfflineFallback, isTrue);
+    expect(model.config, same(model.fallback));
+    expect(model.availableSkus, isEmpty);
+    expect(model.canPurchase, isFalse);
+    expect(model.canAttemptFallbackPurchase, isTrue);
+  });
+
+  test(
+    'configuration timeout and StoreKit failure show selectable fallback',
+    () async {
+      final late = Completer<SubscriptionDisplayConfig?>();
+      final model = SubscriptionDisplayController(
+        fallback: _approvedLocalFallback(),
+        loadConfig: (_) => late.future,
+        loadProducts: (_) async =>
+            throw const SocketException('StoreKit offline'),
+        loadEligibility: (_) async => TrialEligibility.unknown,
+        configBudget: const Duration(milliseconds: 10),
+        loadBudget: const Duration(milliseconds: 80),
+        retryDelays: const [],
+        offlineRetryDelay: const Duration(hours: 1),
+      );
+      addTearDown(model.dispose);
+
+      await model.load();
+      expect(model.showOfflineFallback, isTrue);
+      expect(model.selectedId, 'weekly.trial');
+      expect(model.canAttemptFallbackPurchase, isTrue);
+      late.complete(displayConfig());
+      await Future<void>.delayed(Duration.zero);
+      expect(model.config, same(model.fallback));
+    },
+  );
+
+  test(
+    'fallback purchase checks only the selected StoreKit ID and can retry',
+    () async {
+      var attempts = 0;
+      final checked = <Set<String>>[];
+      final model = SubscriptionDisplayController(
+        fallback: _approvedLocalFallback(),
+        loadConfig: (_) async => null,
+        loadProducts: (ids) async {
+          if (ids.length != 1) throw const SocketException('StoreKit offline');
+          checked.add(ids);
+          if (++attempts == 1) throw const SocketException('Retry purchase');
+          return [displayProduct('cardx.month', amount: 12.99)];
+        },
+        loadEligibility: (_) async => TrialEligibility.unknown,
+        retryDelays: const [],
+        offlineRetryDelay: const Duration(hours: 1),
+      );
+      addTearDown(model.dispose);
+
+      await model.load();
+      model.select('cardx.month');
+      expect(await model.prepareFallbackPurchase(), isNull);
+      expect(model.canAttemptFallbackPurchase, isTrue);
+      expect(
+        (await model.prepareFallbackPurchase())?.storeProductId,
+        'cardx.month',
+      );
+      expect(checked, [
+        <String>{'cardx.month'},
+        <String>{'cardx.month'},
+      ]);
+    },
+  );
+
+  test(
+    'fallback purchase prevents duplicate taps while StoreKit is pending',
+    () async {
+      final pending = Completer<List<SubscriptionStoreProduct>>();
+      var checks = 0;
+      final model = SubscriptionDisplayController(
+        fallback: _approvedLocalFallback(),
+        loadConfig: (_) async => null,
+        loadProducts: (ids) {
+          if (ids.length != 1) throw const SocketException('StoreKit offline');
+          checks++;
+          expect(ids, {'yearly.pro'});
+          return pending.future;
+        },
+        loadEligibility: (_) async => TrialEligibility.unknown,
+        retryDelays: const [],
+        offlineRetryDelay: const Duration(hours: 1),
+      );
+      addTearDown(model.dispose);
+
+      await model.load();
+      model.select('yearly.pro');
+      final first = model.prepareFallbackPurchase();
+      expect(model.canAttemptFallbackPurchase, isFalse);
+      expect(await model.prepareFallbackPurchase(), isNull);
+      model.select('cardx.month');
+      expect(model.selectedId, 'yearly.pro');
+      pending.complete([displayProduct('yearly.pro', unit: 'year')]);
+      expect((await first)?.storeProductId, 'yearly.pro');
+      expect(checks, 1);
+    },
+  );
+
+  test(
+    'fallback purchase keeps the selected ID during a background retry',
+    () async {
+      final refreshing = Completer<void>();
+      final remote = Completer<SubscriptionDisplayConfig?>();
+      final purchase = Completer<List<SubscriptionStoreProduct>>();
+      var configCalls = 0;
+      final checked = <Set<String>>[];
+      final model = SubscriptionDisplayController(
+        fallback: _approvedLocalFallback(),
+        loadConfig: (_) {
+          if (++configCalls == 1) return Future.value(null);
+          refreshing.complete();
+          return remote.future;
+        },
+        loadProducts: (ids) {
+          if (ids.length == 1) {
+            checked.add(ids);
+            return purchase.future;
+          }
+          if (ids.contains('paid')) {
+            return Future.value([displayProduct('paid')]);
+          }
+          throw const SocketException('StoreKit offline');
+        },
+        loadEligibility: (_) async => TrialEligibility.unknown,
+        retryDelays: const [],
+        offlineRetryDelay: const Duration(hours: 1),
+      );
+      addTearDown(model.dispose);
+
+      await model.load();
+      model.select('yearly.pro');
+      final retry = model.load();
+      await refreshing.future;
+      final submitted = model.prepareFallbackPurchase();
+      expect(checked, [
+        <String>{'yearly.pro'},
+      ]);
+      remote.complete(displayConfig());
+      await retry;
+      purchase.complete([displayProduct('yearly.pro', unit: 'year')]);
+      expect((await submitted)?.storeProductId, 'yearly.pro');
+    },
+  );
+
+  test(
+    'failed configuration with StoreKit products keeps real cards',
+    () async {
+      final fallback = _approvedLocalFallback();
+      final model = SubscriptionDisplayController(
+        fallback: fallback,
+        loadConfig: (_) async => throw const SocketException('Offline API'),
+        loadProducts: (ids) async => [
+          displayProduct('weekly.trial', trial: true, amount: 4.99),
+          displayProduct('yearly.pro', unit: 'year', amount: 49.99),
+          displayProduct('cardx.month', amount: 12.99),
+        ].where((product) => ids.contains(product.id)).toList(),
+        loadEligibility: (_) async => TrialEligibility.unknown,
+        retryDelays: const [],
+      );
+      addTearDown(model.dispose);
+
+      await model.load();
+
+      expect(model.config, same(fallback));
+      expect(model.showOfflineFallback, isFalse);
+      expect(model.availableSkus, hasLength(3));
+      expect(model.canPurchase, isTrue);
+      expect(model.selectedCard!.product.product.rawPrice, 4.99);
+    },
+  );
+
+  test(
+    'shown remote products switch to local fallback when StoreKit fully fails',
+    () async {
+      final remote = displayConfig(closeDelay: const Duration(minutes: 1));
+      var available = true;
+      final model = SubscriptionDisplayController(
+        fallback: _approvedLocalFallback(),
+        loadConfig: (_) async => remote,
+        loadProducts: (_) async => available ? [displayProduct('paid')] : [],
+        loadEligibility: (_) async => TrialEligibility.unknown,
+        retryDelays: const [],
+        offlineRetryDelay: const Duration(hours: 1),
+      );
+      addTearDown(model.dispose);
+
+      await model.load();
+      expect(model.availableSkus.map((sku) => sku.productId), ['paid']);
+      expect(model.showOfflineFallback, isFalse);
+      expect(model.canPurchase, isTrue);
+      expect(model.closeAvailable, isFalse);
+
+      available = false;
+      await model.load();
+      expect(model.config, same(model.fallback));
+      expect(model.showOfflineFallback, isTrue);
+      expect(model.selectedId, 'weekly.trial');
+      expect(model.availableSkus, isEmpty);
+      expect(model.canPurchase, isFalse);
+      expect(model.canAttemptFallbackPurchase, isTrue);
+      expect(model.closeAvailable, isFalse);
+    },
+  );
+
+  test(
+    'offline fallback refreshes automatically when StoreKit recovers',
+    () async {
+      final restored = Completer<void>();
+      var productCalls = 0;
+      late final SubscriptionDisplayController model;
+      model = SubscriptionDisplayController(
+        fallback: _approvedLocalFallback(),
+        loadConfig: (_) async => null,
+        loadProducts: (ids) async {
+          productCalls++;
+          if (productCalls == 1) throw const SocketException('Offline');
+          return [displayProduct('weekly.trial', trial: true, amount: 4.99)];
+        },
+        loadEligibility: (_) async => TrialEligibility.unknown,
+        retryDelays: const [],
+        offlineRetryDelay: const Duration(milliseconds: 20),
+      );
+      addTearDown(model.dispose);
+      model.addListener(() {
+        if (!model.showOfflineFallback &&
+            model.canPurchase &&
+            !restored.isCompleted) {
+          restored.complete();
+        }
+      });
+
+      await model.load();
+      expect(model.showOfflineFallback, isTrue);
+      expect(model.canPurchase, isFalse);
+
+      await restored.future.timeout(const Duration(seconds: 1));
+      expect(productCalls, greaterThanOrEqualTo(2));
+      expect(model.showOfflineFallback, isFalse);
+      expect(model.availableSkus.map((sku) => sku.productId), ['weekly.trial']);
+      expect(model.selectedCard!.product.product.rawPrice, 4.99);
+      expect(model.canPurchase, isTrue);
+    },
+  );
+
+  test('offline retry prefers recovered backend configuration', () async {
+    final remote = displayConfig();
+    final restored = Completer<void>();
+    var configCalls = 0;
+    late final SubscriptionDisplayController model;
+    model = SubscriptionDisplayController(
+      fallback: _approvedLocalFallback(),
+      loadConfig: (_) async {
+        if (++configCalls == 1) throw const SocketException('Offline API');
+        return remote;
+      },
+      loadProducts: (ids) async {
+        if (!ids.contains('paid')) throw const SocketException('Offline');
+        return [displayProduct('paid', amount: 18)];
+      },
+      loadEligibility: (_) async => TrialEligibility.unknown,
+      retryDelays: const [],
+      offlineRetryDelay: const Duration(milliseconds: 20),
+    );
+    addTearDown(model.dispose);
+    model.addListener(() {
+      if (model.usesRemoteConfiguration &&
+          model.canPurchase &&
+          !restored.isCompleted) {
+        restored.complete();
+      }
+    });
+
+    await model.load();
+    expect(model.showOfflineFallback, isTrue);
+
+    await restored.future.timeout(const Duration(seconds: 1));
+    expect(configCalls, greaterThanOrEqualTo(2));
+    expect(model.config, same(remote));
+    expect(model.showOfflineFallback, isFalse);
+    expect(model.availableSkus.map((sku) => sku.productId), ['paid']);
+    expect(model.selectedCard!.product.product.rawPrice, 18);
+    expect(model.canPurchase, isTrue);
+  });
 
   TestWidgetsFlutterBinding.ensureInitialized();
   test(
@@ -440,7 +827,7 @@ void main() {
           'weekly.trial',
         );
         expect(fallback.skus[0].copy.name, '3-Day Free');
-        expect(fallback.skus[0].copy.cta, 'TRY FOR FREE');
+        expect(fallback.skus[0].copy.cta, 'Try For Free');
         expect(fallback.skus[1].copy.name, 'Unlimited Yearly');
         expect(fallback.skus[1].copy.subtitle, 'Only {price} per year');
         expect(fallback.skus[1].copy.badge, 'save 81%');
@@ -968,6 +1355,7 @@ void main() {
       await model.load();
       expect(calls, 2);
       expect(model.isLoading, isFalse);
+      expect(model.showOfflineFallback, isFalse);
       late.complete([displayProduct('fallback')]);
       await Future<void>.delayed(Duration.zero);
       expect(model.canPurchase, isFalse);
@@ -1008,6 +1396,36 @@ void main() {
       expect(model.canPurchase, isTrue);
       expect(model.selectedId, 'paid');
       expect(qualificationCalls, 0);
+    },
+  );
+  test(
+    'a failed purchase recheck restores selectable fallback cards',
+    () async {
+      for (final throwsError in [false, true]) {
+        var calls = 0;
+        final model = SubscriptionDisplayController(
+          fallback: _approvedLocalFallback(),
+          loadConfig: (_) async => displayConfig(),
+          loadProducts: (_) async {
+            if (++calls == 1) return [displayProduct('paid')];
+            if (throwsError) {
+              throw const SocketException('StoreKit unavailable');
+            }
+            return const [];
+          },
+          loadEligibility: (_) async => TrialEligibility.unknown,
+          retryDelays: const [],
+          offlineRetryDelay: const Duration(hours: 1),
+        );
+        addTearDown(model.dispose);
+
+        await model.load();
+        expect(model.canPurchase, isTrue);
+        expect(await model.confirmPurchase(), isNull);
+        expect(model.showOfflineFallback, isTrue);
+        expect(model.selectedId, 'weekly.trial');
+        expect(model.canAttemptFallbackPurchase, isTrue);
+      }
     },
   );
   test(
@@ -1054,6 +1472,27 @@ void main() {
     await model.load();
     expect(model.closeAvailable, isTrue);
   });
+}
+
+SubscriptionDisplayConfig _approvedLocalFallback() {
+  final defines =
+      jsonDecode(File('config/test.json').readAsStringSync())
+          as Map<String, Object?>;
+  final configuration = AppSubscriptionConfiguration(
+    store: SubscriptionStore.appStore,
+    productIds: {
+      subscriptionWeeklyPlanId:
+          defines['SUBSCRIPTION_APP_STORE_WEEKLY_ID'] as String,
+      subscriptionYearlyPlanId:
+          defines['SUBSCRIPTION_APP_STORE_YEARLY_ID'] as String,
+      subscriptionLifetimePlanId:
+          defines['SUBSCRIPTION_APP_STORE_LIFETIME_ID'] as String,
+    },
+    additionalProducts: SupportedSubscriptionProduct.parse(
+      defines['SUBSCRIPTION_APP_STORE_SUPPORTED_PRODUCTS'] as String,
+    ),
+  );
+  return legacySubscriptionFallback(configuration, SubscriptionPageType.page);
 }
 
 SubscriptionDisplayController _model({

@@ -76,6 +76,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
   late final String _analyticsScene;
   SubscriptionDisplayController? _display;
   String? _lastDisplayError;
+  bool _fallbackPurchaseAttempting = false;
   double _sheetDragDistance = 0;
 
   @override
@@ -121,7 +122,10 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
     if (!mounted) return;
     setState(() {});
     final error = _display?.errorMessage;
-    if (error != null && error != _lastDisplayError) {
+    if (error != null &&
+        error != _lastDisplayError &&
+        (!(_display?.showOfflineFallback ?? false) ||
+            _fallbackPurchaseAttempting)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && ModalRoute.of(context)?.isCurrent == true) {
           showKandoTopToast(
@@ -173,6 +177,15 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
         useUpdatedSkuUi && MediaQuery.sizeOf(context).height >= 820;
     final useUpdatedSheetUi = widget.sheet && useUpdatedSkuUi;
     final selectedCard = display?.selectedCard;
+    final showOfflineFallback = display?.showOfflineFallback ?? false;
+    final showFallbackAuxiliary =
+        display?.config?.isLocalFallback == true &&
+        display?.selectedSku != null &&
+        (showOfflineFallback || selectedCard != null);
+    final showFallbackTrialAuxiliary = showOfflineFallback
+        ? display?.selectedSku?.offlineTrial == true
+        : selectedCard?.product.canUseTrial == true &&
+              selectedCard?.product.isTrialProduct == true;
     final billingNote = selectedCard == null
         ? ''
         : selectedCard.copy.autoBillingNote
@@ -300,20 +313,34 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
             child: FilledButton(
               key: const Key('subscription-purchase-button'),
               onPressed: display != null
-                  ? (!display.canPurchase || busy
+                  ? (!(display.canPurchase ||
+                                display.canAttemptFallbackPurchase) ||
+                            busy
                         ? null
-                        : () {
-                            final selected =
-                                display.selectedCard!.product.product;
-                            unawaited(
-                              ref
-                                  .read(subscriptionControllerProvider.notifier)
-                                  .purchaseDisplayProduct(
-                                    selected,
-                                    scene: _analyticsScene,
-                                    confirm: display.confirmPurchase,
-                                  ),
-                            );
+                        : () async {
+                            final fallbackAttempt = display.showOfflineFallback;
+                            if (fallbackAttempt) {
+                              _fallbackPurchaseAttempting = true;
+                            }
+                            try {
+                              final selected = fallbackAttempt
+                                  ? await display.prepareFallbackPurchase()
+                                  : display.selectedCard?.product.product;
+                              if (!mounted || selected == null) return;
+                              unawaited(
+                                ref
+                                    .read(
+                                      subscriptionControllerProvider.notifier,
+                                    )
+                                    .purchaseDisplayProduct(
+                                      selected,
+                                      scene: _analyticsScene,
+                                      confirm: display.confirmPurchase,
+                                    ),
+                              );
+                            } finally {
+                              _fallbackPurchaseAttempting = false;
+                            }
                           })
                   : state.isLoading ||
                         state.isPurchasing ||
@@ -329,9 +356,12 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
               style: FilledButton.styleFrom(
                 backgroundColor: KandoColors.accent,
                 foregroundColor: KandoColors.primaryOnDefault,
-                disabledBackgroundColor: KandoColors.accent.withValues(
-                  alpha: 0.45,
-                ),
+                disabledBackgroundColor: showOfflineFallback
+                    ? KandoColors.elevatedSurface
+                    : KandoColors.accent.withValues(alpha: 0.45),
+                disabledForegroundColor: showOfflineFallback
+                    ? const Color(0xFF615D3B)
+                    : null,
                 shape: const StadiumBorder(),
                 minimumSize: useUpdatedSkuUi ? const Size.fromHeight(56) : null,
                 padding: display == null
@@ -339,7 +369,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                     : const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
               ),
               child:
-                  loading ||
+                  (!showOfflineFallback && loading) ||
                       state.isPurchasing ||
                       (display?.isVerifying ?? false)
                   ? const SizedBox.square(
@@ -352,7 +382,11 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                   : display == null
                   ? Text('SUBSCRIBE', style: purchaseButtonTextStyle)
                   : Text(
-                      display.selectedCard?.cta ?? 'SUBSCRIBE',
+                      showOfflineFallback
+                          ? display.selectedSku?.offlineTrial == true
+                                ? 'Try For Free'
+                                : 'SUBSCRIBE'
+                          : display.selectedCard?.cta ?? 'SUBSCRIBE',
                       textAlign: TextAlign.center,
                       style: purchaseButtonTextStyle,
                     ),
@@ -393,14 +427,11 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
               ),
             ],
           ),
-          if (display != null &&
-              display.config?.isLocalFallback == true &&
-              display.selectedCard != null)
+          if (showFallbackAuxiliary)
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
-                display.selectedCard!.product.canUseTrial &&
-                        display.selectedCard!.product.isTrialProduct
+                showFallbackTrialAuxiliary
                     ? 'NO PAYMENT NOW'
                     : 'CANCEL ANYTIME',
                 key: const Key('subscription-fallback-auxiliary-note'),
@@ -481,7 +512,9 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                             height: display == null
                                 ? 18
                                 : switch ((
-                                    display.availableSkus.length,
+                                    showOfflineFallback
+                                        ? display.config?.skus.length ?? 0
+                                        : display.availableSkus.length,
                                     display.showTrialSwitch,
                                   )) {
                                     (3, true) => 5,
@@ -523,7 +556,28 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                                     onTap: () => display.select(sku.productId),
                                   ),
                                 ),
-                            if (!loading && display.availableSkus.isEmpty) ...[
+                            if (showOfflineFallback) ...[
+                              for (final sku in display.config!.skus)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 20),
+                                  child: _OfflinePlanTile(
+                                    sku: sku,
+                                    selected:
+                                        display.selectedId == sku.productId,
+                                    enabled: !busy && !display.isVerifying,
+                                    onTap: () => display.select(sku.productId),
+                                  ),
+                                ),
+                              if (!loading)
+                                TextButton(
+                                  key: const Key('subscription-products-retry'),
+                                  onPressed: busy
+                                      ? null
+                                      : () => unawaited(display.load()),
+                                  child: const Text('Retry'),
+                                ),
+                            ] else if (!loading &&
+                                display.availableSkus.isEmpty) ...[
                               const Text(
                                 'Plans are currently unavailable.',
                                 textAlign: TextAlign.center,
@@ -1875,6 +1929,166 @@ class _BenefitRow extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _OfflinePlanTile extends StatelessWidget {
+  const _OfflinePlanTile({
+    required this.sku,
+    required this.selected,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final SubscriptionDisplaySku sku;
+  final bool selected, enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final subtitle = sku.copy.subtitle.replaceAll(
+      '{price}',
+      sku.offlineFullPrice ?? '',
+    );
+    final badge = sku.copy.badge;
+    final compactBadge = badge.isNotEmpty && badge.length <= 18;
+    final hasSubtitle = subtitle.trim().isNotEmpty;
+    final id = sku.productId;
+
+    return Semantics(
+      selected: selected,
+      enabled: enabled,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          InkWell(
+            key: Key('subscription-offline-product-$id'),
+            onTap: enabled ? onTap : null,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 74),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                gradient: selected
+                    ? null
+                    : const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xFF1C1E15), Color(0xFF12140D)],
+                      ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: selected
+                      ? KandoColors.accent
+                      : _subscriptionSheetItemBorder,
+                ),
+              ),
+              child: Stack(
+                fit: StackFit.passthrough,
+                children: [
+                  Row(
+                    crossAxisAlignment: hasSubtitle
+                        ? CrossAxisAlignment.start
+                        : CrossAxisAlignment.center,
+                    children: [
+                      const SizedBox(width: 20, height: 40),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              sku.copy.name,
+                              style: const TextStyle(
+                                color: KandoColors.text,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                height: 24 / 16,
+                              ),
+                            ),
+                            if (hasSubtitle)
+                              Text(
+                                subtitle,
+                                style: const TextStyle(
+                                  color: KandoColors.text,
+                                  fontSize: 12,
+                                  height: 16 / 12,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 112,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            if (compactBadge) const SizedBox(height: 12),
+                            SizedBox(
+                              key: Key(
+                                'subscription-offline-product-$id-price',
+                              ),
+                              width: 112,
+                              height: 24,
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerRight,
+                                child: Text(
+                                  sku.offlinePrice ?? '',
+                                  maxLines: 1,
+                                  softWrap: false,
+                                  style: const TextStyle(
+                                    color: KandoColors.text,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    height: 24 / 16,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const Text(
+                              'per week',
+                              textAlign: TextAlign.right,
+                              style: TextStyle(
+                                color: _subscriptionSheetSecondaryText,
+                                fontSize: 12,
+                                height: 16 / 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  Positioned.fill(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: _SheetPlanRadio(
+                        selected: selected,
+                        enabled: enabled,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (compactBadge)
+            Positioned(
+              top: -11,
+              right: 16,
+              child: _PlanBadge(
+                planId: id,
+                label: badge,
+                selected: selected,
+                useUpdatedSheetUi: true,
+                animateSelection: false,
+              ),
+            ),
+        ],
       ),
     );
   }

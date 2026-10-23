@@ -46,6 +46,7 @@ class SubscriptionDisplayController extends ChangeNotifier {
       Duration(seconds: 3),
       Duration(seconds: 8),
     ],
+    this.offlineRetryDelay = const Duration(seconds: 15),
   }) : _loadConfig = loadConfig,
        _loadProducts = loadProducts,
        _loadEligibility = loadEligibility;
@@ -55,7 +56,9 @@ class SubscriptionDisplayController extends ChangeNotifier {
   final TrialEligibilityLoader _loadEligibility;
   final Duration loadBudget, configBudget;
   final List<Duration> retryDelays;
+  final Duration offlineRetryDelay;
   final Stopwatch _entered = Stopwatch()..start();
+  Duration _closeDelay = Duration.zero;
   SubscriptionDisplayConfig? config;
   Map<String, SubscriptionStoreProduct> products = const {};
   String? selectedId, errorMessage;
@@ -64,13 +67,28 @@ class SubscriptionDisplayController extends ChangeNotifier {
       isVerifying = false,
       trialOn = false,
       trialInvalid = false;
-  bool _disposed = false, _usedFallback = false, _hasShownProducts = false;
+  bool _disposed = false,
+      _usedFallback = false,
+      _hasShownProducts = false,
+      _offlinePreviewActive = false;
   int _cycle = 0;
-  Timer? _closeTimer;
+  Timer? _closeTimer, _offlineRetryTimer;
 
   bool get closeAvailable =>
-      config != null && _entered.elapsed >= config!.closeDelay;
+      config != null && _entered.elapsed >= _closeDelay;
   bool get usesRemoteConfiguration => config != null && !_usedFallback;
+  bool get _supportsOfflineFallback =>
+      fallback.isLocalFallback &&
+      fallback.skus.length == 3 &&
+      fallback.skus.every(
+        (sku) => sku.offlinePrice != null && sku.offlineFullPrice != null,
+      );
+  bool get showOfflineFallback =>
+      _offlinePreviewActive &&
+      identical(config, fallback) &&
+      _supportsOfflineFallback &&
+      availableSkus.isEmpty &&
+      !_hasShownProducts;
   List<SubscriptionDisplaySku> get availableSkus =>
       config?.skus
           .where((sku) => products[sku.productId]?.type == sku.type)
@@ -99,6 +117,8 @@ class SubscriptionDisplayController extends ChangeNotifier {
       !isVerifying &&
       !trialInvalid &&
       selectedCard != null;
+  bool get canAttemptFallbackPurchase =>
+      !_disposed && showOfflineFallback && !isVerifying && selectedSku != null;
   SubscriptionDisplayCard? get selectedCard =>
       selectedSku == null ? null : card(selectedSku!);
 
@@ -142,6 +162,7 @@ class SubscriptionDisplayController extends ChangeNotifier {
 
   Future<void> load() async {
     if (_disposed || isVerifying) return;
+    _offlineRetryTimer?.cancel();
     final cycle = ++_cycle;
     final clock = Stopwatch()..start();
     Duration remaining() => loadBudget - clock.elapsed;
@@ -162,6 +183,42 @@ class SubscriptionDisplayController extends ChangeNotifier {
         if (!active()) return;
         _usedFallback = remote == null;
         _useConfig(remote ?? fallback);
+      } else if (showOfflineFallback && remaining() > Duration.zero) {
+        // An offline preview can pick up the backend configuration when the
+        // connection returns, before committing any different visible cards.
+        try {
+          final remote = await _loadConfig(
+            fallback.pageType,
+          ).timeout(configBudget < remaining() ? configBudget : remaining());
+          if (!active()) return;
+          if (remote != null && remaining() > Duration.zero) {
+            final loaded = await _loadProducts(
+              remote.productIds,
+            ).timeout(remaining());
+            if (!active()) return;
+            final next = {
+              for (final product in loaded)
+                if (remote.productIds.contains(product.id)) product.id: product,
+            };
+            final available = remote.skus
+                .where((sku) => next[sku.productId]?.type == sku.type)
+                .toList(growable: false);
+            if (available.isNotEmpty) {
+              _usedFallback = false;
+              _offlinePreviewActive = false;
+              products = Map.unmodifiable(next);
+              _hasShownProducts = true;
+              _selectAvailable(available);
+              _useConfig(remote);
+              isLoading = false;
+              _notify();
+              return;
+            }
+          }
+        } on Object {
+          /* Keep the local preview while either service remains unavailable. */
+        }
+        if (!active()) return;
       }
       for (
         var attempt = 0;
@@ -188,10 +245,9 @@ class SubscriptionDisplayController extends ChangeNotifier {
         if (config!.skus.any((sku) => next[sku.productId]?.type == sku.type)) {
           products = Map.unmodifiable(next);
           _hasShownProducts = true;
+          _offlinePreviewActive = false;
           final available = availableSkus;
-          selectedId ??= available
-              .firstWhere((sku) => sku.isDefault, orElse: () => available.first)
-              .productId;
+          _selectAvailable(available);
           isLoading = false;
           _notify();
           // Account-level StoreKit eligibility is intentionally disabled for
@@ -222,9 +278,8 @@ class SubscriptionDisplayController extends ChangeNotifier {
             final available = availableSkus;
             if (available.isNotEmpty) {
               _hasShownProducts = true;
-              selectedId = available
-                  .firstWhere((s) => s.isDefault, orElse: () => available.first)
-                  .productId;
+              _offlinePreviewActive = false;
+              _selectAvailable(available);
               isLoading = false;
               _notify();
               // Account-level StoreKit eligibility is intentionally disabled;
@@ -240,8 +295,17 @@ class SubscriptionDisplayController extends ChangeNotifier {
             /* Continue bounded fallback retries. */
           }
         }
+        if (_usedFallback && !_hasShownProducts && !_offlinePreviewActive) {
+          _activateOfflineFallback();
+        }
       }
       if (active()) {
+        if (_supportsOfflineFallback) {
+          _activateOfflineFallback();
+        } else if (!_usedFallback && !_hasShownProducts) {
+          _usedFallback = true;
+          _useConfig(fallback);
+        }
         products = const {};
         errorMessage =
             'Could not load plans from the App Store. Check your connection.';
@@ -250,14 +314,45 @@ class SubscriptionDisplayController extends ChangeNotifier {
       if (active()) {
         isLoading = false;
         _notify();
+        _scheduleOfflineRetry();
       }
     }
   }
 
+  void _selectAvailable(List<SubscriptionDisplaySku> skus) {
+    if (skus.any((sku) => sku.productId == selectedId)) return;
+    selectedId = skus
+        .firstWhere((sku) => sku.isDefault, orElse: () => skus.first)
+        .productId;
+  }
+
+  void _activateOfflineFallback() {
+    if (!_supportsOfflineFallback) return;
+    _usedFallback = true;
+    products = const {};
+    _hasShownProducts = false;
+    _offlinePreviewActive = true;
+    trialOn = false;
+    _activeTrialSkuId = null;
+    trialInvalid = false;
+    _selectAvailable(fallback.skus);
+    if (!identical(config, fallback)) _useConfig(fallback);
+    _notify();
+  }
+
+  void _scheduleOfflineRetry() {
+    _offlineRetryTimer?.cancel();
+    if (!showOfflineFallback) return;
+    _offlineRetryTimer = Timer(offlineRetryDelay, () {
+      if (!_disposed && !isLoading && !isVerifying) unawaited(load());
+    });
+  }
+
   void _useConfig(SubscriptionDisplayConfig value) {
     config = value;
+    if (value.closeDelay > _closeDelay) _closeDelay = value.closeDelay;
     _closeTimer?.cancel();
-    final remaining = value.closeDelay - _entered.elapsed;
+    final remaining = _closeDelay - _entered.elapsed;
     if (remaining > Duration.zero) _closeTimer = Timer(remaining, _notify);
     _notify();
   }
@@ -288,11 +383,53 @@ class SubscriptionDisplayController extends ChangeNotifier {
     _notify();
   }
 
+  Future<SubscriptionProduct?> prepareFallbackPurchase() async {
+    if (!canAttemptFallbackPurchase) return null;
+    final sku = selectedSku!;
+    final id = sku.productId;
+    _offlineRetryTimer?.cancel();
+    final cycle = ++_cycle;
+    isLoading = false;
+    isVerifying = true;
+    errorMessage = null;
+    _notify();
+    try {
+      final loaded = await _loadProducts({id}).timeout(loadBudget);
+      if (_disposed || cycle != _cycle || selectedId != id) return null;
+      final product = loaded
+          .where((value) => value.id == id && value.type == sku.type)
+          .firstOrNull;
+      if (product == null) {
+        errorMessage =
+            'Could not load this plan from the App Store. Check your connection.';
+        return null;
+      }
+      products = Map.unmodifiable({id: product});
+      _hasShownProducts = true;
+      _offlinePreviewActive = false;
+      return product.product;
+    } on Object {
+      if (!_disposed && cycle == _cycle) {
+        errorMessage =
+            'Could not load this plan from the App Store. Check your connection.';
+      }
+      return null;
+    } finally {
+      if (!_disposed && cycle == _cycle) {
+        isVerifying = false;
+        _notify();
+        _scheduleOfflineRetry();
+      }
+    }
+  }
+
   void select(String id) {
-    if (isLoading ||
+    if ((isLoading && !showOfflineFallback) ||
         isVerifying ||
         selectedId == id ||
-        !availableSkus.any((s) => s.productId == id)) {
+        !(showOfflineFallback ? config!.skus : availableSkus).any(
+          (sku) => sku.productId == id,
+        )) {
       return;
     }
     selectedId = id;
@@ -373,6 +510,12 @@ class SubscriptionDisplayController extends ChangeNotifier {
           ..removeWhere((id, _) => ids.contains(id))
           ..addAll(next),
       );
+      if (next.isEmpty && _supportsOfflineFallback) {
+        _activateOfflineFallback();
+        errorMessage =
+            'Could not verify current purchase conditions. Please retry.';
+        return null;
+      }
       final current = selectedCard;
       if (purchasingLinkedTrial && !_validTrial(previous.sku)) {
         trialInvalid = true;
@@ -388,6 +531,7 @@ class SubscriptionDisplayController extends ChangeNotifier {
       return current.product.product;
     } on Object {
       if (!_disposed) {
+        _activateOfflineFallback();
         errorMessage =
             'Could not verify current purchase conditions. Please retry.';
       }
@@ -396,6 +540,7 @@ class SubscriptionDisplayController extends ChangeNotifier {
       if (!_disposed && cycle == _cycle) {
         isVerifying = false;
         _notify();
+        _scheduleOfflineRetry();
       }
     }
   }
@@ -409,6 +554,7 @@ class SubscriptionDisplayController extends ChangeNotifier {
     _disposed = true;
     _cycle++;
     _closeTimer?.cancel();
+    _offlineRetryTimer?.cancel();
     super.dispose();
   }
 }

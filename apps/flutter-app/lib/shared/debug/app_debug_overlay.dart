@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_debug_overlay/flutter_debug_overlay.dart';
 
 import '../api/api_environment.dart';
-import '../ui/kando_style.dart';
 
 final appDebugLogBucket = LogBucket(
   maxStoredEntries: 200,
@@ -83,62 +82,18 @@ Widget buildAppDebugOverlay(Widget child) {
   return AppDebugOverlay(child: child);
 }
 
-class AppDebugOverlay extends StatefulWidget {
+class AppDebugOverlay extends StatelessWidget {
   const AppDebugOverlay({super.key, required this.child});
 
   final Widget child;
 
   @override
-  State<AppDebugOverlay> createState() => _AppDebugOverlayState();
-}
-
-class _AppDebugOverlayState extends State<AppDebugOverlay> {
-  final _overlayKey = GlobalKey<DebugOverlayState>();
-
-  @override
   Widget build(BuildContext context) {
     return DebugOverlay(
-      key: _overlayKey,
       hiddenFields: appDebugHiddenFields,
       logBucket: appDebugLogBucket,
       httpBucket: appDebugHttpBucket,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          widget.child,
-          Positioned(
-            right: 12,
-            top: 0,
-            bottom: 0,
-            child: SafeArea(
-              minimum: const EdgeInsets.symmetric(vertical: 12),
-              child: Center(
-                child: Material(
-                  color: KandoColors.ink.withValues(alpha: 0.92),
-                  shape: const CircleBorder(
-                    side: BorderSide(color: KandoColors.accent),
-                  ),
-                  elevation: 4,
-                  child: Semantics(
-                    label: 'Open debug tools',
-                    button: true,
-                    child: IconButton(
-                      key: const Key('app-debug-overlay-button'),
-                      onPressed: () =>
-                          _overlayKey.currentState?.toggleVisibility(),
-                      style: IconButton.styleFrom(
-                        fixedSize: const Size.square(44),
-                        foregroundColor: KandoColors.accent,
-                      ),
-                      icon: const Icon(Icons.bug_report_outlined, size: 21),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+      child: child,
     );
   }
 }
