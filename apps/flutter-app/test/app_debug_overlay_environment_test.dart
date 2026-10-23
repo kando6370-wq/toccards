@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_debug_overlay/flutter_debug_overlay.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -28,7 +29,7 @@ void main() {
     );
   });
 
-  testWidgets('test environment button opens the debug overlay', (
+  testWidgets('test environment uses the default two-finger detector', (
     tester,
   ) async {
     configureAppDebugOverlay();
@@ -36,7 +37,11 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(body: buildAppDebugOverlay(const SizedBox.expand())),
+        home: Scaffold(
+          body: buildAppDebugOverlay(
+            const ColoredBox(color: Colors.black, child: SizedBox.expand()),
+          ),
+        ),
       ),
     );
 
@@ -44,10 +49,15 @@ void main() {
       find.byType(DebugOverlay),
     );
     expect(overlayState.isVisible, isFalse);
-    expect(find.byKey(const Key('app-debug-overlay-button')), findsOneWidget);
+    expect(find.byType(DebugDetector), findsOneWidget);
+    expect(find.byKey(const Key('app-debug-overlay-button')), findsNothing);
 
-    await tester.tap(find.byKey(const Key('app-debug-overlay-button')));
+    final firstFinger = await tester.startGesture(const Offset(100, 100));
+    final secondFinger = await tester.startGesture(const Offset(140, 100));
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 100));
 
     expect(overlayState.isVisible, isTrue);
+    await firstFinger.up();
+    await secondFinger.up();
   });
 }

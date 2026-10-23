@@ -1485,7 +1485,7 @@ void main() {
         expect(find.text('Unlimited Monthly'), findsOneWidget);
         expect(find.text('save 81%'), findsOneWidget);
         expect(find.text('Most Popular'), findsOneWidget);
-        expect(find.text('TRY FOR FREE'), findsOneWidget);
+        expect(find.text('Try For Free'), findsOneWidget);
         expect(find.text('CANCEL ANYTIME'), findsNothing);
         expect(find.text('NO PAYMENT NOW'), findsOneWidget);
         final auxiliary = tester.widget<Text>(find.text('NO PAYMENT NOW'));
@@ -1537,7 +1537,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Premium'), findsNothing);
         expect(find.text('3-Day Free'), findsOneWidget);
-        expect(find.text('TRY FOR FREE'), findsOneWidget);
+        expect(find.text('Try For Free'), findsOneWidget);
         expect(find.text('NO PAYMENT NOW'), findsOneWidget);
         expect(find.text('CANCEL ANYTIME'), findsNothing);
         expect(
@@ -1656,6 +1656,7 @@ void main() {
           );
           expect(find.text(r'Then US$4.99'), findsNothing);
           expect(find.text('TRY FOR FREE'), findsNothing);
+          expect(find.text('Try For Free'), findsOneWidget);
           expect(find.text('NO PAYMENT NOW'), findsOneWidget);
           expect(find.text('CANCEL ANYTIME'), findsNothing);
           expect(
@@ -1671,7 +1672,7 @@ void main() {
                 .onPressed,
             isNotNull,
           );
-          expect(find.text('SUBSCRIBE'), findsOneWidget);
+          expect(find.text('SUBSCRIBE'), findsNothing);
           expect(find.byType(KandoTopToast), findsNothing);
 
           final monthly = find.byKey(
@@ -1681,6 +1682,8 @@ void main() {
           await tester.tap(monthly);
           await tester.pumpAndSettle();
           expect(host.display!.selectedId, 'cardx.month');
+          expect(find.text('SUBSCRIBE'), findsOneWidget);
+          expect(find.text('Try For Free'), findsNothing);
           expect(find.text('CANCEL ANYTIME'), findsOneWidget);
           expect(find.text('NO PAYMENT NOW'), findsNothing);
 
@@ -1691,6 +1694,8 @@ void main() {
           await tester.tap(yearly);
           await tester.pumpAndSettle();
           expect(host.display!.selectedId, 'yearly.pro');
+          expect(find.text('SUBSCRIBE'), findsOneWidget);
+          expect(find.text('Try For Free'), findsNothing);
           expect(find.text('CANCEL ANYTIME'), findsOneWidget);
           expect(find.text('NO PAYMENT NOW'), findsNothing);
           final yearlyTile = tester.widget<Container>(
