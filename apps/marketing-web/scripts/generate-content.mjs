@@ -96,7 +96,20 @@ const PROOF_ASSETS = {
     src: '/assets/showcase-portfolio.png',
     alt: 'Card AI collection value and portfolio screen',
   },
+  extension: {
+    src: '/assets/chrome-extension-recognition.png',
+    alt: 'Chrome extension recognition panel on a webpage with a sample card image',
+  },
 };
+
+function renderStoreAction(page) {
+  if (!page.storeUrl) return STORE_ROW;
+  const label = page.storeLabel ?? 'View in Chrome Web Store';
+  return `        <div class="cws-store-action-wrap">
+          <a class="cws-store-action" href="${escapeHtml(page.storeUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>
+          <p class="cws-store-note">${escapeHtml(page.storeNote ?? 'Opens the Chrome Web Store in a new tab.')}</p>
+        </div>`;
+}
 
 function renderShell({
   url,
@@ -182,7 +195,7 @@ function renderProductProof(page) {
           <div class="product-proof-copy">
             ${renderMarkdown(proof.body)}
           </div>
-          <p class="product-proof-note">Illustrative Card AI screen composite. Values shown are examples; market prices, history, and sold-listing availability depend on the selected card.</p>
+          <p class="product-proof-note">${escapeHtml(proof.note ?? 'Illustrative Card AI screen composite. Values shown are examples; market prices, history, and sold-listing availability depend on the selected card.')}</p>
         </figcaption>
       </figure>`;
 }
@@ -210,7 +223,7 @@ function renderLanding(page, all) {
           <p class="content-eyebrow">${escapeHtml(page.eyebrow)}</p>
           <h1>${escapeHtml(page.h1)}</h1>
           <p class="content-lede">${escapeHtml(page.lede)}</p>
-${STORE_ROW}
+${renderStoreAction(page)}
         </div>
       </section>
 
@@ -224,9 +237,9 @@ ${renderFaq(page.faq, `${page.linkLabel ?? page.h1} questions.`)}
 
       <section class="content-cta">
         <div class="site-container">
-          <h2>Try the ${escapeHtml(ctaLabel)} in Card AI.</h2>
+          <h2>${escapeHtml(page.ctaTitle ?? `Try the ${ctaLabel} in Card AI.`)}</h2>
           <p>${escapeHtml(page.cta)}</p>
-${STORE_ROW}
+${renderStoreAction(page)}
         </div>
       </section>`;
 
@@ -252,7 +265,14 @@ ${STORE_ROW}
       })),
     });
   }
-  return renderShell({ url: `/${page.slug}`, title: page.title, description: page.description, jsonLd, body });
+  return renderShell({
+    url: `/${page.slug}`,
+    title: page.title,
+    description: page.description,
+    jsonLd,
+    body,
+    image: page.socialImage ?? '/assets/hero-phones.png',
+  });
 }
 
 function renderPost(post) {

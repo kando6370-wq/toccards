@@ -25,6 +25,10 @@ App 向后兼容规则只维护以下两份；涉及 App API、共享业务数�
 
 2026-10-19 本地增量：订阅商品卡片可独立配置隐藏价格，关联试用 SKU 的价格方式在展示名称上方编辑；新旧客户端的可见边界及本地测试结果见[价格展示验证](05-delivery/VERIFICATION.md#subscription-price-visibility)。尚未部署或做本轮真机复测。
 
+## Chrome 扩展
+
+- [官网扩展介绍页](../../../apps/marketing-web/content/landing/chrome-extension.mjs)与 [Chrome Web Store 文案草稿](../../../apps/marketing-web/content/chrome-web-store-listing.md)：说明扩展与移动 App 的能力边界，包含 Pokémon 关键词、扩展官网入口和 UTM 参数。
+
 本次产品输入为 PRD 1.14；App 目标版本 1.0.6 与工程文档版本 v1.1.2 分别管理。需求、商品映射和实施草案保留在同一份输入文档中，避免维护重复规则。
 
 | 材料 | 内容与边界 |

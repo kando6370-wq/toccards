@@ -9,6 +9,7 @@ export default Object.freeze({
   '/card-identifier': '2026-10-10',
   '/card-price-checker': '2026-10-20',
   '/card-scanner-comparison-2026': '2026-10-20',
+  '/chrome-extension': '2026-10-23',
   '/digimon-card-scanner': '2026-09-28',
   '/digital-card-binder': '2026-09-28',
   '/dragon-ball-super-card-scanner': '2026-09-28',
