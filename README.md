@@ -2,11 +2,11 @@
 
 Kando 是 Card AI 的 monorepo，包含 Flutter 客户端、Cloudflare Workers API、React 管理后台、营销站点及共享包。产品主线是卡牌搜索、扫描识别、收藏与估值；v1.1 在此基础上增加 Apple 订阅、Premium 权益、服务端扫描额度、Performance 和订单/通知后台。
 
-当前增量文档入口为 [v1.1.2](docs/releases/v1.1.2/README.md)；[v1.1.1](docs/releases/v1.1.1/README.md) 已于 2026-10-09 原位归档，v1.1.0 开发归档与 v1.0.0 冻结基线保持不变。文档版本切换不修改 App 版本、Git tag 或生产环境，原有待验项继续保留。
+当前产品定位基线、用户流程、交易市场数据口径及官网内容边界见 [Card AI 产品定位与内容边界](docs/releases/v1.1.2/00-product/card-ai-product-positioning.md)。
 
-2026-10-16 Linux dev 已由既有 watcher 发布干净的 `dev@06f420a`，包含动态商品审批 API／Admin 与 PGlite 测试内存修复。运行产物、私有配置保留、数据库与 HTTP 已独立核对；迁移记录仍为 15 项／最新 `0014`，本轮无待执行迁移。Page／Modal 均未启用，`cardx.month` 仍需超级管理员审批，真实购买／恢复和新客户端签名包待验；prod 未修改。详见 [本次 dev 发布验收](docs/releases/v1.1.2/05-delivery/VERIFICATION.md#subscription-dynamic-dev-release)。
+当前增量文档入口为 [v1.1.3](docs/releases/v1.1.3/README.md)；[v1.1.2](docs/releases/v1.1.2/README.md) 已于 2026-10-26 原位归档，[v1.1.1](docs/releases/v1.1.1/README.md) 已于 2026-10-09 原位归档，v1.1.0 开发归档与 v1.0.0 冻结基线保持不变。文档版本切换不修改 App 版本、Git tag 或生产环境，原有待验项继续保留。
 
-最新 prod Admin 发布为 2026-10-14 09:12–09:15：从干净的 `main@ee3f298` 配套发布订单金额/退款汇总 API 与两个后台入口。Worker `3345b389` 承接 100% 流量，Pages `2c600e3e` 为 production/success；两个入口共 22 个静态文件与批准构建逐字节一致，9 项 HTTP 烟测通过。生产绑定、变量、缓存、Smart Placement、cron、域名和 Pages 配置保留；没有数据库迁移、Git push 或其他应用发布。真实 Admin 登录业务与原有专项验收仍待完成，详见 [v1.1.2 验证记录](docs/releases/v1.1.2/05-delivery/VERIFICATION.md)。
+最新 prod／App 收尾检查点为 2026-10-26：生产服务端与双 Admin 已于 2026-10-23 从 `main@557166b` 配套发布，App Store 已上架 1.0.6，Weekly Trial／Monthly 已完成生产动态准入；Page／Modal 保持未启用。用户确认相关实机交易链路目前无问题，Agent 未独立重放原始交易／平台记录。历史操作与证据边界见 [v1.1.2 生产收尾记录](docs/releases/v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)；v1.1.3 创建时没有新的代码或环境发布。
 
 历史生产修复来自 `main@4b31cba` 加未提交的插件 redirect 修复（dirty），不是纯提交构建。2026-10-09 16:08 发布 Worker `ac0654e0-5b71-457f-9ddf-6f478995e6d9`，16:09 回读为 100% 流量；现网代码与批准产物一致，原配置保留，用户随后反馈接口调用“可以了”。正确 Key 的候选详情逐字段对照、限频触发及真机等专项验收仍未独立完成。本轮未提交/推送或重新发布手机安装包；Flutter 源码版本仍为 `1.0.5+163`。详见 [v1.1.1 验证记录](docs/releases/v1.1.1/05-delivery/VERIFICATION.md)。
 
@@ -18,7 +18,7 @@ Kando 是 Card AI 的 monorepo，包含 Flutter 客户端、Cloudflare Workers A
 
 ## 系统概览
 
-当前业务环境只有 `prod` 和 `dev`：`prod` 保持原 Cloudflare 部署，`dev` 是 kd201 上的 Linux 环境。旧 Cloudflare dev 业务 Worker 已退役，不再是发布目标；保留的 CF 向量识别和独立 Apple 回调只是 dev 的外部依赖。下图为 prod；Linux dev 的部署与数据边界见图后说明。
+当前业务环境只有 `prod` 和 `dev`：`prod` 保持原 Cloudflare 部署，`dev` 是 kd201 上的 Linux 环境。旧 Cloudflare dev 业务 Worker 已退役，不再是发布目标；保留的 CF 识别服务和独立 Apple 回调只是 dev 的外部依赖。下图为 prod；Linux dev 的部署与数据边界见图后说明。
 
 ```text
 Flutter App ------------+
@@ -26,7 +26,8 @@ Flutter App ------------+
 React Admin -- HTTPS ----+        |-- PlanetScale PostgreSQL（经 Hyperdrive）: 业务与目录真源
                                   |-- KV: 可重建缓存
                                   |-- R2: 受保护的扫描卡面图片
-                                  |-- recognize-vec: Service Binding 向量检索
+                                  |-- recognize-vec: Service Binding 旧 App/插件向量检索
+                                  |-- recognize.tcgcard.fun: HTTPS pHash/OCR 检索
                                   +-- OAuth、邮件、汇率和 Apple 服务
 
 Marketing Web -----------------> 独立 Cloudflare 静态站点
@@ -36,7 +37,7 @@ Marketing Web -----------------> 独立 Cloudflare 静态站点
 
 `dev` 已合入 Linux 入口 `src/linux/server.ts`，复用同一 Hono 应用与 PostgreSQL migration，使用独立 PostgreSQL、进程内 KV 和本地图片卷；Admin 由 Caddy 托管，离线模式使用 Node 静态服务。App `test` 默认 API 为 `http://192.168.50.201:8080/api/v1`，Admin development 使用同源相对 API，本机开发由 Vite 代理到 Linux，向量检索经 HTTP 复用 CF。2026-09-30 11:10 回读确认 kd201 watcher 已自动发布 `dev@7516cfd`，release 为 `branch-dev-7516cfd2a06a-20260930110549`：current 指向的 manifest、current-release、last-seen/last-deployed 一致，失败标记不存在；发布日志报告 API/DB healthy、Web started、migration 检查成功、无待执行 migration，ledger 14 项。发布前备份 1,135,397,728 字节且临时文件已移除；受 DBX MCP 只读策略限制，本轮未独立运行容器/数据库检查、`pg_restore --list` 或恢复演练；11:13 内网只读烟测通过，HTML 与本地构建仅 CR 字符不同，验证边界见 v1.1.1 历史记录。另一个历史检查点是 2026-09-29 17:03–17:04 的 `dev@c9f950e`：1,135,376,623 字节发布前备份通过 `pg_restore --list`，未执行恢复演练。17:04 内网 Admin 入口引用的 10 个 JS/CSS 资源与该提交本地 dev 构建哈希一致，候选图预览代码已交付；真实登录态交互仍需补验。旧 CF dev 的业务 Worker、域名入口和 cron 已退役；独立 Apple Sandbox 回调、CF 向量识别和正式环境保留。验收与未执行项见 [Linux 测试环境](docs/releases/v1.1.0/02-architecture/linux-test-environment.md)及 [v1.1.1 历史验证记录](docs/releases/v1.1.1/05-delivery/VERIFICATION.md)。
 
-当前代码包含端侧模型与 512 维向量识别；dev Linux 经 HTTP、prod Cloudflare 经 Service Binding 调用 `recognize-vec`。当前 App 要求 iOS 16+ 或 Android API 24+；Flutter Web 可用于其他页面开发，暂不支持扫描。扫描协议、平台资源及新旧 App 兼容边界见 [扫描识别链路](docs/releases/v1.1.0/01-flows/scan-recognition.md)。
+当前 App 使用 RTMDet 矫正卡面，并行计算 RGB pHash 与 ML Kit Latin OCR，向原 `/api/v1/scan/recognize` 提交 pHash 请求并调用 `recognize.tcgcard.fun`；同一路径继续接受线上 App 1.0.4+ 的 512 维 `vector` 请求并调用 `recognize-vec`，当前 Flutter 源码不再构建旧向量识别。插件既有向量入口保持不变。当前 App 要求 iOS 16+ 或 Android API 24+；Flutter Web 可用于其他页面开发，暂不支持扫描。当前协议与兼容边界见 [v1.1.3 扫描识别链路](docs/releases/v1.1.3/01-flows/scan-recognition.md)。
 
 ## 仓库结构
 
@@ -86,7 +87,7 @@ pnpm --filter @kando/admin-web dev
 pnpm --filter @kando/marketing-web dev
 ```
 
-Workers 包的 `dev` 命令实际编译并启动本机 Linux/Node 入口，需要通过进程环境提供独立 PostgreSQL、JWT 和 `VECTOR_RECOGNITION_BASE_URL` 等配置；它不启动或部署旧 Cloudflare dev Worker。Admin 本机开发使用 Vite 代理，Marketing 使用 Wrangler 本地开发。启动命令成功不等于 Apple、向量识别、邮件等外部服务已完成配置或验收。
+Workers 包的 `dev` 命令实际编译并启动本机 Linux/Node 入口，需要通过进程环境提供独立 PostgreSQL、JWT、`VECTOR_RECOGNITION_BASE_URL` 和 `PHASH_RECOGNITION_BASE_URL` 等配置；它不启动或部署旧 Cloudflare dev Worker。Admin 本机开发使用 Vite 代理，Marketing 使用 Wrangler 本地开发。启动命令成功不等于 Apple、识别、邮件等外部服务已完成配置或验收。
 
 Linux dev API 与 Admin 构建使用 `pnpm --filter @kando/workers-api build:dev`，原 `build:linux` 为兼容别名。`deploy:dry-run:dev` 构建并生成不含私有配置的 Linux 发布包；`deploy:dev` 使用显式 `TOCCARDS_SSH_TARGET` 经 SSH 调用服务器发布脚本。直接运行 Node API 的 `dev`/`start:linux` 从进程环境读取配置，开发机需使用可达的本地 PostgreSQL 地址，不能直接使用 Compose 内部主机名 `db`。详见 [Linux 运维手册](docs/linux-test-environment/README.md)。
 
@@ -111,7 +112,7 @@ dart run melos run test
 
 ## 部署边界
 
-当前 prod API 与双 Admin 已于 2026-10-14 从 `main@ee3f298` 配套发布，详情及未验边界见 [v1.1.2 验证记录](docs/releases/v1.1.2/05-delivery/VERIFICATION.md)。
+当前 prod API 与双 Admin 已于 2026-10-23 从 `main@557166b` 配套发布，App 1.0.6 与后续商品准入的详情及未验边界见 [v1.1.2 生产收尾记录](docs/releases/v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。
 
 历史插件生产修复为 2026-10-09 的 `main@4b31cba` 加未提交修复：Worker `ac0654e0`。Pages 保持已有 `a17f8f12`，双 Admin 静态文件发布前后未变；正确 Key 调用由用户反馈恢复，独立专项验收边界见本页开头及 v1.1.1 历史验证记录。以下为历史回读：2026-10-08 09:27 已从 `main@61b5420` 重新发布 prod API，version `4adbd0b7-3c67-4795-8ad0-c39795dc4be6` 回读为 100% 流量；09:29 同步重新发布独立 Pages Admin，deployment `39154bee-45d6-429d-8118-dfafed526ab7`。09:36 的新请求只读烟测、两个 Admin 入口的逐文件核验及控制面回读通过。Smart Placement 与 Hyperdrive 查询缓存仍同时开启，未切换定向 Placement，也不宣称性能或缓存一致性验收通过。本轮无 migration/schema 源码增量，未执行迁移、备份/恢复或重查 PostgreSQL ledger。该历史证据见 [v1.1.1 验证记录](docs/releases/v1.1.1/05-delivery/VERIFICATION.md)；此前检查点见 [v1.1.0 发布与验证](docs/releases/v1.1.0/05-delivery/VERIFICATION.md)。
 
@@ -133,7 +134,8 @@ dart run melos run test
 - [v1.0.0 已发布冻结基线](docs/releases/v1.0.0/README.md)
 - [v1.1.0 开发归档](docs/releases/v1.1.0/README.md)
 - [v1.1.1 开发归档](docs/releases/v1.1.1/README.md)
-- [v1.1.2 当前开发文档入口](docs/releases/v1.1.2/README.md)
+- [v1.1.2 开发归档](docs/releases/v1.1.2/README.md)
+- [v1.1.3 当前开发文档入口](docs/releases/v1.1.3/README.md)
 - [App 1.0.6 订阅配置需求、商品映射与实施草案](docs/releases/v1.1.2/00-product/admin-subscription-config-prd.md)
 - [订阅展示配置与商品准入：第一阶段服务端](docs/releases/v1.1.2/03-data-api/subscription-display-config.md)
 - [v1.1.0 系统架构](docs/releases/v1.1.0/02-architecture/architecture.md)

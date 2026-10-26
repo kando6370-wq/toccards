@@ -2,7 +2,7 @@
 
 文档按发布版本归档。产品原件、实现事实、历史环境证据和未来技术建议分开维护，避免把需求、现状与计划混成同一层。
 
-2026-10-09 起，当前增量开发入口为 [v1.1.2](releases/v1.1.2/README.md)，当前已包含 App 向后兼容规则与部分源码回归、Admin 订单金额／退款汇总、[App 1.0.6 订阅配置需求与实施草案](releases/v1.1.2/00-product/admin-subscription-config-prd.md)、营销内容和 Sitemap 隔离实验。订阅配置已有 [第一阶段服务端源码与合同](releases/v1.1.2/03-data-api/subscription-display-config.md)，[Admin 配置页面](releases/v1.1.2/04-admin/admin.md)已接入服务端，[Flutter 消费](releases/v1.1.2/01-flows/subscription-display.md)已有本地源码；`850e339` 的目标 iOS CI 无签名 production Release 编译已通过，兜底定稿、签名制品与真机仍待验；API／Admin 的动态商品审批增量已于 2026-10-16 随 `dev@06f420a` [发布 Linux dev](releases/v1.1.2/05-delivery/VERIFICATION.md#subscription-dynamic-dev-release)，配置保持不生效，`cardx.month` 仍待审批，prod 未发布。[v1.1.1](releases/v1.1.1/README.md) 按用户要求原位归档，保留扫描、插件接口、Admin、兼容设计、研究与交付证据；[v1.1.0](releases/v1.1.0/README.md) 继续开发归档，[v1.0.0](releases/v1.0.0/README.md) 继续冻结。归档不等于未完成的设计、外部验收或商店发布已经通过；部署和客户端状态仍以各历史记录标注的日期为准，dev 运行补验按上述发布记录区分；本轮未回读 prod 或变更客户端版本。
+2026-10-26 起，当前增量开发入口为 [v1.1.3](releases/v1.1.3/README.md)。[v1.1.2](releases/v1.1.2/README.md) 已原位归档，保留 App 向后兼容规则、Admin、App 1.0.6 订阅配置、营销内容及生产交付证据；其生产收尾是 v1.1.3 的运行基线，不因切换文档版本重新记为发布或验收。v1.1.3 创建时没有新的业务代码、数据库或环境变更；后续只记录归档后的增量，未变化内容继续引用历史真源。[v1.1.1](releases/v1.1.1/README.md)、[v1.1.0](releases/v1.1.0/README.md)继续开发归档，[v1.0.0](releases/v1.0.0/README.md)继续冻结。
 
 ## 阅读入口
 
@@ -12,7 +12,10 @@
 | [`v1.0.0`](releases/v1.0.0/README.md) | 已发布冻结 | 原始产品文档、业务流程、架构、数据/API 与 Admin 基线 |
 | [`v1.1.0`](releases/v1.1.0/README.md) | 开发归档 | 原始 PRD、实现、迁移、研究及按日期保留的交付证据与未验收项 |
 | [`v1.1.1`](releases/v1.1.1/README.md) | 开发归档 | 扫描与插件增量、Admin、兼容设计、研究及发布/故障证据；未验收项原样保留 |
-| [`v1.1.2`](releases/v1.1.2/README.md) | 当前开发入口 | App 兼容规则与部分源码回归、Admin 金额汇总、App 1.0.6 订阅配置需求／方案、营销内容与 Sitemap 实验；订阅配置已有服务端、Admin、Flutter 消费源码及 iOS 无签名 production Release 编译证据；兜底定稿、完整兼容和正式制品／真机验收仍待完成 |
+| [`v1.1.2`](releases/v1.1.2/README.md) | 开发归档 | App 兼容规则、Admin 金额汇总、App 1.0.6 订阅配置、营销内容，以及按日期保留的生产发布和实机反馈边界 |
+| [`v1.1.3`](releases/v1.1.3/README.md) | 当前开发入口 | 2026-10-26 后的新增、变更、移除和实际验证；未变化内容引用 v1.1.2 或更早版本 |
+
+当前产品与官网内容判断先读 [Card AI 产品定位与内容边界](releases/v1.1.2/00-product/card-ai-product-positioning.md)。
 
 ## 版本目录规范
 
@@ -32,8 +35,8 @@ docs/releases/vX.Y.Z/
 ## 维护规则
 
 - `00-product` 保存评审后的原始输入，不随实现修订。
-- 已发布历史版本不得回写为后续现状。`docs/releases/v1.0.0` 整体冻结；v1.1.0/v1.1.1 开发记录原位归档，v1.1.2 的新变化不回写旧版本。
-- 后续增量写入 `docs/releases/v1.1.2/`；未变化内容直接引用旧版，保留原路径，避免复制整套基线。旧版待验项的新证据在当前版本按日期补证，并链接原记录，不覆盖旧结论。
+- 已发布历史版本不得回写为后续现状。`docs/releases/v1.0.0` 整体冻结；v1.1.0、v1.1.1、v1.1.2 开发记录原位归档，只有明确授权的事实错误修正可以回写。
+- 后续增量写入 `docs/releases/v1.1.3/`；未变化内容直接引用旧版，保留原路径，避免复制整套基线。旧版待验项的新证据在当前版本按日期补证，并链接原记录，不覆盖旧结论。
 - 实现类文档以对应版本的代码、Schema/迁移、运行配置和测试为主证据。
 - 远程环境、部署和数据规模结论必须保留检查日期；未重新验证时只能作为历史证据。
 - 架构建议和选型研究必须标明决策状态，未批准方案不能写成已实施架构。

@@ -1,4 +1,10 @@
-# v1.1.2 开发文档
+# v1.1.2 开发归档
+
+归档日期：2026-10-26（Asia/Shanghai）。当前开发入口已切换到 [v1.1.3](../v1.1.3/README.md)。本目录原位保留历史产品、实现和交付证据；后续新增功能、变更和验证记录不得继续写入 v1.1.2。只有明确授权的事实错误修正可以修改本目录，并须从 v1.1.3 留下引用。
+
+## 产品定位
+
+- [Card AI 产品定位与内容边界](00-product/card-ai-product-positioning.md)：先确认用户任务、实体卡牌范围、交易市场数据口径和已验证能力，再决定功能或官网内容。
 
 App 向后兼容规则只维护以下两份；涉及 App API、共享业务数据或客户端协议的开发前，必须阅读 AI 执行版及受影响业务契约。仅落实规则时执行文档检查，具体范围见两份正文。
 
@@ -11,17 +17,23 @@ App 向后兼容规则只维护以下两份；涉及 App API、共享业务数�
 
 现有源码回归只覆盖部分场景，正式旧包／真机与完整兼容验收仍未完成；文档整理不等于业务整改、V2 实现或发布验收通过。开发与文档修改完成后，只运行受影响范围验证，实际结果集中补入 AI 执行版。
 
-2026-10-21 本地修复收藏编辑重复项错误：`PATCH /api/v1/portfolio/items/:item_id` 在编辑结果与同一收藏夹内另一条完整收藏身份重复时，复用既有 `409 DUPLICATE_COLLECTION_ITEM`，并将 PostgreSQL 唯一约束并发冲突转换为同一响应；请求字段、成功响应和数据库结构不变。2026-10-22 已随干净的 `dev@b0b6496` 部署 Linux dev，基础运行验收通过，真实收藏编辑冲突仍待补验；本地根因与回归见[收藏编辑重复项修复](05-delivery/VERIFICATION.md#collection-item-edit-duplicate)，部署证据见[本次 dev 验收](05-delivery/VERIFICATION.md#linux-dev-redeploy-b0b6496)。
+2026-10-21 本地修复收藏编辑重复项错误：`PATCH /api/v1/portfolio/items/:item_id` 在编辑结果与同一收藏夹内另一条完整收藏身份重复时，复用既有 `409 DUPLICATE_COLLECTION_ITEM`，并将 PostgreSQL 唯一约束并发冲突转换为同一响应；请求字段、成功响应和数据库结构不变。2026-10-22 已随干净的 `dev@b0b6496` 部署 Linux dev，后续又随 `main@557166b` 的生产 Worker 发布；本版本记录未独立使用真实账号重放该冲突。本地根因与回归见[收藏编辑重复项修复](05-delivery/VERIFICATION.md#collection-item-edit-duplicate)，dev 部署证据见[本次 dev 验收](05-delivery/VERIFICATION.md#linux-dev-redeploy-b0b6496)。
 
 ## App 1.0.6 订阅配置（服务端与 Admin 页面）
 
+2026-10-26 生产收尾：App Store 已上架 `1.0.6`，生产 iOS 版本门禁为建议／最低 `1.0.6` 且强制更新；动态注册表现包含 Weekly／Yearly／Lifetime／Weekly Trial／Monthly 五项商品，其中 `CardAi.monthly` 使用 `card_monthly`。Page／Modal 仍未启用并返回 `data:null`。用户确认相关购买、权益、通知、收入及 Restore 已在实机测试且目前无问题；Agent 未独立重放原始交易或平台记录。此前迁移前手工备份已由用户确认删除，未独立回读，详见[生产收尾记录](05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。
+
 2026-10-22，“只展示周均价”的 API／Admin 增量已随 `dev@b0b6496` 发布 Linux dev，现有生效配置保持不变；本轮未发布 Flutter 制品或验收真实管理员保存／启用与真机展示，见[本次 dev 验收](05-delivery/VERIFICATION.md#linux-dev-redeploy-b0b6496)。
 
-2026-10-21 源码与 dev 发布：动态准入中标记为试用商品的 SKU，其首笔 Apple 通知确认正金额续费生成 `trial_conversion`（试用转付费），后续续费仍为 `renewal`；PostgreSQL `0015_trial_conversion_status.sql` 回填同口径历史订单，不新增 schema。已按用户授权在 Linux dev 发布 `51323e7` 并应用 0015（实际 `UPDATE 0`、ledger 16 项），prod 未操作；真实通知与后台业务仍待验，见[服务端合同](03-data-api/subscription-display-config.md#trial-conversion-order-status)、[后台口径](04-admin/admin.md#trial-conversion-order-status)、[本地验证](05-delivery/VERIFICATION.md#trial-conversion-order-status)及[dev 发布验收](05-delivery/VERIFICATION.md#trial-conversion-dev-release-51323e7)。
+2026-10-21 源码与 dev 发布：动态准入中标记为试用商品的 SKU，其首笔 Apple 通知确认正金额续费生成 `trial_conversion`（试用转付费），后续续费仍为 `renewal`；PostgreSQL `0015_trial_conversion_status.sql` 回填同口径历史订单，不新增 schema。已按用户授权在 Linux dev 发布 `51323e7` 并应用 0015（实际 `UPDATE 0`、ledger 16 项）；2026-10-23 prod 亦原子登记 0015（实际 `UPDATE 0`），并随 `main@557166b` 发布业务代码。真实通知与外部平台证据边界见上述生产收尾记录；本地和 dev 验证分别见[本地记录](05-delivery/VERIFICATION.md#trial-conversion-order-status)与[dev 验收](05-delivery/VERIFICATION.md#trial-conversion-dev-release-51323e7)。
 
-2026-10-16 动态商品准入：超级管理员逐商品审批，dev/prod 与 Bundle 隔离；运行期白名单与 Flutter 长期商品集合可接收已批准 SKU，无需逐商品改代码。复用 PostgreSQL 现有表，无新 migration。API／Admin 已随干净的 `dev@06f420a` 发布并完成运行产物／数据库／HTTP 核对；Flutter 仍需包含本次能力的新测试包，prod 未发布。行为见[动态准入合同](03-data-api/subscription-display-config.md)、[后台操作](04-admin/admin.md)和[客户端注册](01-flows/subscription-display.md)，证据见[本地验证](05-delivery/VERIFICATION.md#subscription-dynamic-admission)与[dev 发布验收](05-delivery/VERIFICATION.md#subscription-dynamic-dev-release)。
+2026-10-16 动态商品准入：超级管理员逐商品审批，dev/prod 与 Bundle 隔离；运行期白名单与 Flutter 长期商品集合可接收已批准 SKU，无需逐商品改代码。复用 PostgreSQL 现有表，无新 migration。API／Admin 已随干净的 `dev@06f420a` 发布并完成运行产物／数据库／HTTP 核对；后续生产发布与最终商品准入状态以上述 2026-10-26 收尾记录为准。行为见[动态准入合同](03-data-api/subscription-display-config.md)、[后台操作](04-admin/admin.md)和[客户端注册](01-flows/subscription-display.md)，证据见[本地验证](05-delivery/VERIFICATION.md#subscription-dynamic-admission)与[dev 发布验收](05-delivery/VERIFICATION.md#subscription-dynamic-dev-release)。
 
-2026-10-19 本地增量：订阅商品卡片可独立配置隐藏价格，关联试用 SKU 的价格方式在展示名称上方编辑；新旧客户端的可见边界及本地测试结果见[价格展示验证](05-delivery/VERIFICATION.md#subscription-price-visibility)。尚未部署或做本轮真机复测。
+2026-10-19 本地增量：订阅商品卡片可独立配置隐藏价格，关联试用 SKU 的价格方式在展示名称上方编辑；新旧客户端的可见边界及本地测试结果见[价格展示验证](05-delivery/VERIFICATION.md#subscription-price-visibility)。该检查点当时尚未部署或做本轮真机复测。
+
+## Chrome 扩展
+
+- [官网扩展介绍页](../../../apps/marketing-web/content/landing/chrome-extension.mjs)与 [Chrome Web Store 文案草稿](../../../apps/marketing-web/content/chrome-web-store-listing.md)：说明扩展与移动 App 的能力边界，包含 Pokémon 关键词、扩展官网入口和 UTM 参数。
 
 本次产品输入为 PRD 1.14；App 目标版本 1.0.6 与工程文档版本 v1.1.2 分别管理。需求、商品映射和实施草案保留在同一份输入文档中，避免维护重复规则。
 
@@ -32,7 +44,7 @@ App 向后兼容规则只维护以下两份；涉及 App API、共享业务数�
 | [最小实施方案](00-product/admin-subscription-config-prd.md#implementation-plan) | V1 增量接口、PostgreSQL 数据对象、原子启用、幂等及开发顺序；是设计草案，不是当前架构事实 |
 | [离线 HTML 原型](../../../prototypes/admin-subscription-config-standalone.html) | 本地演示配置编辑与校验；商品、金额与保存均为离线演示，不包含 Apple 或后台真实接入 |
 
-服务端第一阶段源码与接口合同见 [订阅展示配置与商品准入](03-data-api/subscription-display-config.md)，包括目录、配置 API、PostgreSQL 迁移及幂等；Admin 页面见 [后台文档](04-admin/admin.md)，Flutter 消费见 [客户端流程](01-flows/subscription-display.md)。服务端与 Admin 已随 [dev@f8afca9 首次发布](05-delivery/VERIFICATION.md#subscription-config-dev-release)，2026-10-15 17:59 的 [dev@e53f75c 回读及五项商品准入](05-delivery/VERIFICATION.md#dev-subscription-product-onboarding)保留后续结果；Page／Modal 在该检查点仍不生效，prod 未发布。2026-10-16 的动态准入 API／Admin 增量已部署 dev，见[最新发布补证](05-delivery/VERIFICATION.md#subscription-dynamic-dev-release)。`850e339` 的目标 iOS CI 无签名 production Release 编译已通过，独立兜底定稿、真实商品交易、签名制品与真机仍待验。服务端验证见 [验证记录](05-delivery/VERIFICATION.md#subscription-config-server)，编译证据见 [iOS 原生编译补验](05-delivery/VERIFICATION.md#subscription-config-ios-compile)。
+服务端第一阶段源码与接口合同见 [订阅展示配置与商品准入](03-data-api/subscription-display-config.md)，包括目录、配置 API、PostgreSQL 迁移及幂等；Admin 页面见 [后台文档](04-admin/admin.md)，Flutter 消费见 [客户端流程](01-flows/subscription-display.md)。2026-10-23 已发布生产服务端与双 Admin，2026-10-26 App 1.0.6 已上架且 Weekly Trial／Monthly 均完成生产动态准入；用户确认实机交易链路目前无问题，Agent 独立证据范围见[生产收尾记录](05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。Page／Modal 仍未启用，App 使用本地兜底；完整旧包／真机兼容矩阵仍按兼容文档保留边界。
 
 以下为初次联调及首次发布的历史记录，后续五项商品准入以 [2026-10-15 17:59 补证](05-delivery/VERIFICATION.md#dev-subscription-product-onboarding)为准。
 
@@ -44,19 +56,19 @@ Linux dev 初次[服务器只读补验](05-delivery/VERIFICATION.md#subscription
 
 - [Admin 订单金额与退款汇总](04-admin/admin.md)：保留本版本后台功能契约与双 prod 入口的验收边界。
 - [App 订阅接入](../../../apps/flutter-app/lib/features/subscription/subscription_controller.dart)与[共享包说明](../../../dart-packages/subscription-core/README.md)：当前 App 只启用 iOS StoreKit；本机 verified Premium 与服务端当前 session grant 分别验证，不把共享包的 Google Play 能力写成 App 已接入。
-- [营销内容源](../../../apps/marketing-web/content)与[内容生成器](../../../apps/marketing-web/scripts/generate-content.mjs)：当前生成 18 个落地页、3 篇博客及博客索引，并维护首页链接、`llms.txt` 和正式 Sitemap。最小诊断 Sitemap 独立生成，只含首页、Pokemon 扫描页、卡牌估价页，不加入 robots 或正式 Sitemap；源码和静态文件存在不等于部署或 Google 收录通过。
+- [营销内容源](../../../apps/marketing-web/content)与[内容生成器](../../../apps/marketing-web/scripts/generate-content.mjs)：当前生成 21 个落地页、6 篇博客及博客索引，并维护首页链接、`llms.txt` 和正式 Sitemap。正式 Sitemap 使用显式维护的真实 `lastmod` 日期，不使用构建日期。最小诊断 Sitemap 独立生成，只含首页、Pokemon 扫描页、卡牌估价页，不加入 robots 或正式 Sitemap；源码和静态文件存在不等于部署或 Google 收录通过。
 - [其他业务验证记录](05-delivery/VERIFICATION.md)：保留营销站 Sitemap 隔离实验、Admin 订单汇总等实际结果；App 兼容证据仍集中在 AI 执行版。
 
 ## 版本边界
 
-- [v1.1.1](../v1.1.1/README.md)是直接增量基线；[v1.1.0](../v1.1.0/README.md)与 [v1.0.0](../v1.0.0/README.md)按历史归档保留，冻结产品输入不回写。
+- [v1.1.3](../v1.1.3/README.md)是当前开发入口；[v1.1.1](../v1.1.1/README.md)是本版本的直接增量基线，[v1.1.0](../v1.1.0/README.md)与 [v1.0.0](../v1.0.0/README.md)按历史归档保留，冻结产品输入不回写。
 - 文档版本 v1.1.2、App 营销／构建版本、API 主版本与环境运行提交分别管理。
 - 本版本兼容相关待验项与历史结果见 AI 执行版；未变化的其他业务按需引用原版本文档。
 - 根 AGENTS.md 保留操作与安全边界；Git push、部署、远程迁移和生产写入遵循相应授权，不因生成文档而授权。
 
 ## 维护方式
 
-- 规则变化时同步更新阅读版与 AI 执行版，并核对核心原则、V1／V2 判断、支持范围、共享数据、测试时序和完成标准。
-- 测试命令、覆盖范围与兼容证据只在 AI 执行版维护，阅读版保留简明说明和链接；不新增第三份兼容说明或验证文档。
+- 本目录归档后不再承接新开发记录；规则变化、测试结果和新证据写入 v1.1.3，并引用本版本基线。
+- v1.1.2 的阅读版与 AI 执行版保持归档时内容；只有事实错误修正才同步修改两者，不新增第三份兼容说明。
 - 必要结果摘要区分本地源码、正式制品／真机、dev 与 prod；记录日期、提交、范围和未验项，不把历史结果冒充当前复验。
 - 不向正式 docs 写入执行日志、任务快照、截图或原始响应；使用既有忽略输出目录、受控 artifact 或提交／Issue 追踪。

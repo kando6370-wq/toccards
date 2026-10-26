@@ -8,6 +8,8 @@ import { createHttpVectorRecognition } from "../linux/vector-recognition";
 
 type TestEnvWithPostgres = Omit<AppEnv, "DB"> & { DB: PGliteDatabase; queries: string[]; VECTOR_RECOGNITION?: Fetcher };
 const VECTOR = Array.from({ length: 512 }, (_, index) => (index + 1) / 512);
+const PHASH = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+const PHASH_RECOGNITION_ALGORITHM_FOR_TEST = "rgb-phash-16-v1";
 const databases: PGliteDatabase[] = [];
 class FakeR2 {
   readonly objects = new Map<string, Uint8Array>();
@@ -24,7 +26,7 @@ class FakeR2 {
 
 
 describe("scan routes", () => {
-  it("rejects retired hashes and invalid vectors before storage or quota consumption", async () => {
+  it("rejects malformed or ambiguous recognition inputs before side effects", async () => {
     const env = await createRecognitionEnv();
     const token = await recognitionToken(env);
     const upstream = vi.fn();
@@ -39,10 +41,109 @@ describe("scan routes", () => {
     ]) {
       expect((await recognize(env, token, body)).status).toBe(422);
     }
+    for (const body of [
+      { r: PHASH, g: PHASH },
+      { r: "invalid", g: PHASH, b: PHASH },
+      { r: PHASH, g: PHASH, b: PHASH, ocr_text: "x".repeat(16 * 1024 + 1) },
+      { vector: VECTOR, r: PHASH, g: PHASH, b: PHASH },
+    ]) {
+      expect((await recognize(env, token, body)).status).toBe(422);
+    }
     expect(upstream).not.toHaveBeenCalled();
     expect(await readRows(env.DB, "scan_record")).toEqual([]);
     expect(await readRows(env.DB, "scan_quota_request")).toEqual([]);
     expect((env.SCAN_IMAGES as unknown as FakeR2).objects.size).toBe(0);
+  });
+
+  it("sends RGB pHash, normalized optional OCR text, and Sports card type to the new recognition service", async () => {
+    const env = await createRecognitionEnv();
+    await insertRows(env.DB, "cards_all", {
+      product_id: "phash-card",
+      game_id: 1,
+      game: "Sports",
+      name: "Recognized Sports Card",
+      set_name: "Test Set",
+      product_type_name: "Cards",
+    });
+    const upstream = vi.fn(async (url, init) => {
+      expect(url).toBe("https://recognize.tcgcard.fun/recognize");
+      expect(init?.redirect).toBe("manual");
+      expect(JSON.parse(String(init?.body))).toEqual({
+        r: PHASH,
+        g: PHASH,
+        b: PHASH,
+        ocr_text: "LEAFEON EX\n200/187",
+        card_type: 1,
+      });
+      return Response.json({
+        candidates: [{ product_id: "phash-card", confidence: 96.5 }],
+      });
+    });
+    vi.stubGlobal("fetch", upstream);
+
+    const response = await recognize(
+      env,
+      await recognitionToken(env),
+      {
+        r: PHASH,
+        g: PHASH,
+        b: PHASH,
+        ocr_text: "  LEAFEON EX\r\n200/187  ",
+        card_type: 1,
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: {
+        recognition_status: "success",
+        results: [{
+          candidates: [{
+            card_ref: "phash-card",
+            retrieval: PHASH_RECOGNITION_ALGORITHM_FOR_TEST,
+          }],
+        }],
+      },
+    });
+    const [record] = await readRows(env.DB, "scan_record");
+    expect(JSON.parse(record.system_result)).toMatchObject({
+      recognition_algorithm: PHASH_RECOGNITION_ALGORITHM_FOR_TEST,
+      ocr_text: "LEAFEON EX\n200/187",
+    });
+    expect(upstream).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    { scenario: "missing OCR", ocrText: undefined, expectedBody: {} },
+    { scenario: "empty OCR", ocrText: "", expectedBody: { ocr_text: "" } },
+  ])("accepts $scenario because OCR is optional for pHash lookup", async ({ ocrText, expectedBody }) => {
+    const env = await createRecognitionEnv();
+    const upstream = vi.fn(async (_url, init) => {
+      expect(JSON.parse(String(init?.body))).toEqual({
+        r: PHASH,
+        g: PHASH,
+        b: PHASH,
+        ...expectedBody,
+        card_type: 0,
+      });
+      return Response.json({ candidates: [] });
+    });
+    vi.stubGlobal("fetch", upstream);
+
+    const response = await recognize(
+      env,
+      await recognitionToken(env),
+      { r: PHASH, g: PHASH, b: PHASH, ocr_text: ocrText },
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: { recognition_status: "no_match" },
+    });
+    const [record] = await readRows(env.DB, "scan_record");
+    expect(JSON.parse(record.system_result)).toMatchObject({
+      ocr_text: ocrText === undefined ? null : "",
+    });
   });
 
   it("rejects unsupported card types before recognition because the upstream contract is binary", async () => {
@@ -126,9 +227,13 @@ describe("scan routes", () => {
         results: [{ candidates: [{ card_ref: "linux-card", name: "Card from the Linux catalog" }] }],
       },
     });
-    expect(await readRows(env.DB, "scan_record")).toEqual([
+    const scanRecords = await readRows(env.DB, "scan_record");
+    expect(scanRecords).toEqual([
       expect.objectContaining({ id: requestId, environment: "development", recognition_status: "success" }),
     ]);
+    expect(JSON.parse(scanRecords[0]!.system_result)).toMatchObject({
+      ocr_text: null,
+    });
     expect(await readRows(env.DB, "scan_quota_request")).toEqual([
       expect.objectContaining({ request_id: requestId, status: "consumed" }),
     ]);
@@ -690,6 +795,38 @@ describe("scan routes", () => {
       request_id: requestId,
       vector: VECTOR,
     });
+
+    expect(response.status).toBe(503);
+    expect((await readRows(env.DB, "scan_quota_request"))).toEqual([
+      expect.objectContaining({ status: "released" }),
+    ]);
+  });
+
+  it("releases a queued reservation when pHash recognition is not configured", async () => {
+    const env = await createRecognitionEnv();
+    const token = await recognitionToken(env);
+    const requestId = crypto.randomUUID();
+    const reservation = await app.request(
+      "/api/v1/scan/quota/reserve",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "Idempotency-Key": requestId,
+        },
+        body: JSON.stringify({ request_id: requestId }),
+      },
+      env,
+    );
+    expect(reservation.status).toBe(200);
+    env.PHASH_RECOGNITION_BASE_URL = undefined;
+
+    const response = await recognize(
+      env,
+      token,
+      { request_id: requestId, r: PHASH, g: PHASH, b: PHASH },
+    );
 
     expect(response.status).toBe(503);
     expect((await readRows(env.DB, "scan_quota_request"))).toEqual([
@@ -2023,6 +2160,7 @@ async function createTestEnv(): Promise<TestEnvWithPostgres> {
   vi.spyOn(db, "prepare").mockImplementation((sql) => { queries.push(sql.replace(/\s+/g, " ").trim()); return prepare(sql); });
   return { DB: db, queries, CACHE_KV: {} as KVNamespace, JWT_SECRET: "test-secret",
     VECTOR_RECOGNITION: { fetch: vi.fn() } as unknown as Fetcher, SCAN_IMAGES: new FakeR2() as unknown as R2Bucket,
+    PHASH_RECOGNITION_BASE_URL: "https://recognize.tcgcard.fun",
     APP_ENVIRONMENT: "development", APPLE_IAP_PRODUCT_IDS: "yearly" };
 }
 

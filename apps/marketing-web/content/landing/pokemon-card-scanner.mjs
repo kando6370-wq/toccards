@@ -16,7 +16,7 @@ export default {
   "sections": [
     {
       "h2": "Why the exact printing decides the price",
-      "body": "Two Pokemon cards can show the same artwork and the same name and be worth very different amounts. What separates them is the printing: the set, the card number, whether it is a first edition or unlimited run, and whether the card is holo, reverse holo, or non-holo.\n\nCard AI compares the photo with its catalog and suggests likely records with the set and card number. Review the result and confirm the edition, variant and finish before using that printing's market price.\n\nFor a current set example, use the [Pokemon TCG 30th Celebration price guide](/blog/pokemon-tcg-30th-celebration-card-prices) to compare 30C and 30C-CC records before you confirm a scan."
+      "body": "Two Pokemon cards can show the same artwork and the same name and be worth very different amounts. What separates them is the printing: the set, the card number, whether it is a first edition or unlimited run, and whether the card is holo, reverse holo, or non-holo.\n\nCard AI compares the photo with its catalog and suggests likely records with the set and card number. Review the result and confirm the edition, variant and finish before using that printing's market price.\n\nFor a current set example, use the [Pokemon TCG 30th Celebration price guide](/blog/pokemon-tcg-30th-celebration-card-prices) to compare 30C and 30C-CC records before you confirm a scan. For the same Pokemon across different sets, the [Minior card guide](/blog/minior-pokemon-card-guide) separates Paradox Rift printings from Guardians Rising and from the Pokemon GO game event."
     },
     {
       "h2": "Raw and graded Pokemon cards are priced separately",
@@ -25,6 +25,10 @@ export default {
     {
       "h2": "Scan a stack, not one card at a time",
       "body": "Most Pokemon collections are not one rare card, they are boxes of bulk with a few keepers inside. The current Scan queue keeps up to 10 camera captures or gallery selections together for review, so you can work through a stack in batches and add confirmed cards to the same collection."
+    },
+    {
+      "h2": "From a photo to a price and a collection record",
+      "body": "The Pokemon card price checker in Card AI starts with the catalog record you confirm, not the character name alone. Scan in the app or search by set and number, review the suggested printing, then open its available raw or graded prices and history. If you own that copy, save it to your collection; otherwise keep it on your wishlist.\n\nThe app does not guarantee a match from every photo or a published price for every record. A marketplace listing and the published price are different references, so check the price date before acting."
     },
     {
       "h2": "Watch your Pokemon collection value move",
@@ -38,7 +42,7 @@ export default {
     },
     {
       "q": "Is the Pokemon card scanner free to install?",
-      "a": "Card AI is free to install from its currently available store listing. Scan allowances and Premium features vary by access level, so check the app before working through a large collection."
+      "a": "Card AI is free to install from its current App Store listing. Free access has a server-managed limit of 10 successful scans; the 10-image queue is a separate batch limit. Premium access and store availability may change, so check the app before working through a large collection."
     },
     {
       "q": "Can Card AI tell a first edition Pokemon card from an unlimited print?",

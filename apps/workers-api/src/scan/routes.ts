@@ -218,9 +218,13 @@ WHERE id = ? AND owner_type = ? AND owner_id = ?
   AND user_confirmation_status = 'pending'
 `;
 
-const RECOGNITION_ALGORITHM = "pe-core-t16-384-cosine-v1";
+const VECTOR_RECOGNITION_ALGORITHM = "pe-core-t16-384-cosine-v1";
+const PHASH_RECOGNITION_ALGORITHM = "rgb-phash-16-v1";
 const EMBEDDING_DIMENSIONS = 512;
 const MAX_VECTOR_JSON_BYTES = 32 * 1024;
+const PHASH_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+const MAX_OCR_TEXT_BYTES = 16 * 1024;
+const PHASH_RECOGNITION_TIMEOUT_MS = 10_000;
 const DEFAULT_CARD_TYPE = 0;
 const CARD_NUMBER_PATTERN = /^(?:\d{1,4}\/(?:\d{1,4}|[A-Z]{1,5}-P)|[A-Z]{1,5}-P)$/;
 
@@ -383,16 +387,6 @@ export function createScanRoutes() {
       );
       return c.json(INTERNAL_ERROR_RESPONSE, 503);
     }
-    const vectorRecognition = c.env.VECTOR_RECOGNITION;
-    if (!vectorRecognition) {
-      await releaseQueuedScanQuota(
-        c.env.DB,
-        auth.owner,
-        requestId,
-        { body: VECTOR_RECOGNITION_UNAVAILABLE_RESPONSE, status: 503 },
-      );
-      return c.json(VECTOR_RECOGNITION_UNAVAILABLE_RESPONSE, 503);
-    }
     const imageBucket = c.env.SCAN_IMAGES;
     if (!imageBucket) {
       await releaseQueuedScanQuota(
@@ -403,12 +397,32 @@ export function createScanRoutes() {
       );
       return c.json(INTERNAL_ERROR_RESPONSE, 503);
     }
-    const vector = readEmbeddingVector(body.get("vector"));
+    const hasVectorInput = body.has("vector");
+    const hasPhashInput = ["r", "g", "b", "ocr_text"].some(
+      (field) => body.has(field),
+    );
+    const recognitionMode = hasVectorInput === hasPhashInput
+      ? null
+      : hasVectorInput ? "vector" : "phash";
+    const vector = hasVectorInput
+      ? readEmbeddingVector(body.get("vector"))
+      : null;
+    const r = hasPhashInput ? readPhash(body.get("r")) : null;
+    const g = hasPhashInput ? readPhash(body.get("g")) : null;
+    const b = hasPhashInput ? readPhash(body.get("b")) : null;
+    const ocrText = hasPhashInput
+      ? readOptionalOcrText(body.get("ocr_text"))
+      : undefined;
     const cardType = readCardType(body.get("card_type"));
     const gameId = readOptionalGameId(body.get("game_id"));
     const cardNumber = readOptionalCardNumber(body.get("card_number"));
     const image = await validateScanImage(body.get("image"));
-    if (!vector || cardType === null || gameId === null || cardNumber === null || !image) {
+    if (
+      recognitionMode === null ||
+      (recognitionMode === "vector" ? !vector : !r || !g || !b || ocrText === null) ||
+      cardType === null || gameId === null ||
+      cardNumber === null || !image
+    ) {
       await releaseQueuedScanQuota(
         c.env.DB,
         auth.owner,
@@ -416,6 +430,24 @@ export function createScanRoutes() {
         { body: VALIDATION_ERROR_RESPONSE, status: 422 },
       );
       return c.json(VALIDATION_ERROR_RESPONSE, 422);
+    }
+    const vectorRecognition = recognitionMode === "vector"
+      ? c.env.VECTOR_RECOGNITION
+      : undefined;
+    const phashRecognitionEndpoint = recognitionMode === "phash"
+      ? readRecognitionEndpoint(c.env.PHASH_RECOGNITION_BASE_URL)
+      : null;
+    if (
+      (recognitionMode === "vector" && !vectorRecognition) ||
+      (recognitionMode === "phash" && !phashRecognitionEndpoint)
+    ) {
+      await releaseQueuedScanQuota(
+        c.env.DB,
+        auth.owner,
+        requestId,
+        { body: VECTOR_RECOGNITION_UNAVAILABLE_RESPONSE, status: 503 },
+      );
+      return c.json(VECTOR_RECOGNITION_UNAVAILABLE_RESPONSE, 503);
     }
 
     const access = await resolvePremiumAccess(
@@ -460,7 +492,18 @@ export function createScanRoutes() {
     }
     const reservedAt = performance.now();
 
-    const outbound = { vector, card_type: cardType };
+    const recognitionAlgorithm = recognitionMode === "vector"
+      ? VECTOR_RECOGNITION_ALGORITHM
+      : PHASH_RECOGNITION_ALGORITHM;
+    const outbound = recognitionMode === "vector"
+      ? { vector: vector!, card_type: cardType }
+      : {
+          r: r!,
+          g: g!,
+          b: b!,
+          ...(ocrText === undefined ? {} : { ocr_text: ocrText }),
+          card_type: cardType,
+        };
 
     const scanId = requestId;
     const createdAt = new Date();
@@ -494,11 +537,21 @@ export function createScanRoutes() {
     const startedAt = Date.now();
     const recognitionStartedAt = performance.now();
     try {
-      const response = await vectorRecognition.fetch("https://recognize-vec.internal/recognize", {
+      const requestInit: RequestInit = {
         method: "POST",
         headers: { Accept: "application/json", "Content-Type": "application/json" },
         body: JSON.stringify(outbound),
-      });
+      };
+      const response = recognitionMode === "vector"
+        ? await vectorRecognition!.fetch(
+            "https://recognize-vec.internal/recognize",
+            requestInit,
+          )
+        : await fetch(phashRecognitionEndpoint!, {
+            ...requestInit,
+            redirect: "manual",
+            signal: AbortSignal.timeout(PHASH_RECOGNITION_TIMEOUT_MS),
+          });
       recognitionPayload = await response.json().catch(() => null);
       upstreamFailed = !response.ok;
     } catch (error) {
@@ -519,16 +572,31 @@ export function createScanRoutes() {
         const catalog = await loadScanCatalogCards(c.env.DB, recognized, gameId);
         auditCandidates = recognized.map((candidate, index) => {
           const row = catalog.get(candidate.productId);
-          if (!row) return toUnresolvedCandidate(candidate, index);
+          if (!row) {
+            return toUnresolvedCandidate(candidate, index, recognitionAlgorithm);
+          }
           const card = scanCatalogCardFromRow(row);
-          if (card) return toCatalogCandidate(card, candidate, index);
+          if (card) {
+            return toCatalogCandidate(
+              card,
+              candidate,
+              index,
+              recognitionAlgorithm,
+            );
+          }
           incompleteCatalogCandidateCount += 1;
-          return toIncompleteCatalogCandidate(row, candidate, index);
+          return toIncompleteCatalogCandidate(
+            row,
+            candidate,
+            index,
+            recognitionAlgorithm,
+          );
         });
         auditCandidates = await disambiguateByCardNumber(
           auditCandidates,
           cardNumber,
           adapter,
+          recognitionAlgorithm,
         );
         candidates = auditCandidates.filter((candidate) => candidate.catalog_matched);
       } catch (error) {
@@ -562,6 +630,8 @@ export function createScanRoutes() {
       recognitionStatus,
       candidates[0] ?? null,
       auditCandidates.length,
+      recognitionAlgorithm,
+      ocrText,
     );
     const userResult = {
       confirmation_status: "pending",
@@ -853,6 +923,7 @@ function toCatalogCandidate(
   card: ScanCatalogCard,
   recognized: RecognitionCandidate,
   index: number,
+  recognitionAlgorithm: string,
 ): ScanCandidate {
   const catalogMatched = card.object_type === "tcg" &&
     readString(card.card_ref) !== null &&
@@ -871,7 +942,7 @@ function toCatalogCandidate(
     rarity: card.rarity,
     object_type: card.object_type === "tcg" ? "tcg" : null,
     confidence: recognized.confidence,
-    retrieval: RECOGNITION_ALGORITHM,
+    retrieval: recognitionAlgorithm,
     distance: null,
   };
 }
@@ -917,6 +988,7 @@ function toIncompleteCatalogCandidate(
   row: ScanCatalogRow,
   recognized: RecognitionCandidate,
   index: number,
+  recognitionAlgorithm: string,
 ): ScanCandidate {
   return {
     rank: index + 1,
@@ -931,7 +1003,7 @@ function toIncompleteCatalogCandidate(
     rarity: row.rarity,
     object_type: row.product_type_name === "Cards" ? "tcg" : null,
     confidence: recognized.confidence,
-    retrieval: RECOGNITION_ALGORITHM,
+    retrieval: recognitionAlgorithm,
     distance: null,
   };
 }
@@ -939,6 +1011,7 @@ function toIncompleteCatalogCandidate(
 function toUnresolvedCandidate(
   recognized: RecognitionCandidate,
   index: number,
+  recognitionAlgorithm: string,
 ): ScanCandidate {
   return {
     rank: index + 1,
@@ -953,7 +1026,7 @@ function toUnresolvedCandidate(
     rarity: null,
     object_type: null,
     confidence: recognized.confidence,
-    retrieval: RECOGNITION_ALGORITHM,
+    retrieval: recognitionAlgorithm,
     distance: null,
   };
 }
@@ -970,6 +1043,8 @@ function buildSystemResult(
   status: string,
   candidate: ScanCandidate | null,
   candidateCount: number,
+  recognitionAlgorithm: string,
+  ocrText: string | null | undefined,
 ) {
   return {
     status,
@@ -980,8 +1055,41 @@ function buildSystemResult(
     rarity: candidate?.rarity ?? null,
     confidence: candidate?.confidence ?? null,
     candidate_count: candidateCount,
-    recognition_algorithm: RECOGNITION_ALGORITHM,
+    recognition_algorithm: recognitionAlgorithm,
+    ocr_text: ocrText ?? null,
   };
+}
+
+function readPhash(value: string | File | null): string | null {
+  return typeof value === "string" && PHASH_PATTERN.test(value) ? value : null;
+}
+
+function readOptionalOcrText(
+  value: string | File | null,
+): string | undefined | null {
+  if (value === null) return undefined;
+  if (typeof value !== "string") return null;
+  const normalized = value.replace(/\r\n?/g, "\n").trim();
+  return new TextEncoder().encode(normalized).byteLength <= MAX_OCR_TEXT_BYTES
+    ? normalized
+    : null;
+}
+
+function readRecognitionEndpoint(baseUrl: string | undefined): string | null {
+  if (!baseUrl) return null;
+  try {
+    const origin = new URL(baseUrl);
+    if (
+      !["http:", "https:"].includes(origin.protocol) ||
+      origin.username || origin.password || origin.pathname !== "/" ||
+      origin.search || origin.hash
+    ) {
+      return null;
+    }
+    return new URL("/recognize", origin).toString();
+  } catch {
+    return null;
+  }
 }
 
 function readEmbeddingVector(value: string | File | null): number[] | null {
@@ -1052,6 +1160,7 @@ async function disambiguateByCardNumber(
   candidates: ScanCandidate[],
   cardNumber: string | undefined,
   adapter: Pick<DataSourceAdapter, "searchCards">,
+  recognitionAlgorithm: string,
 ): Promise<ScanCandidate[]> {
   const prioritized = prioritizeByCardNumber(candidates, cardNumber);
   if (
@@ -1081,6 +1190,7 @@ async function disambiguateByCardNumber(
         card,
         { productId: card.card_ref, confidence: source.confidence ?? 0 },
         candidates.length,
+        recognitionAlgorithm,
       );
       return prioritizeByCardNumber([...candidates, recovered], cardNumber);
     } catch (error) {

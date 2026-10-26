@@ -69,3 +69,10 @@ test("candidate preview wrappers keep the thumbnail layout and failed artwork ha
   assert.doesNotMatch(css, /\.scan-detail-drawer \.candidate-card div\s*\{/);
   assert.match(css, /\.scan-detail-drawer \.candidate-thumb \.ant-image-error\s*\{\s*display: none;/);
 });
+
+test("scan detail shows persisted OCR text and leaves missing values blank", () => {
+  const drawer = app.slice(app.indexOf("function ScanDetailDrawer("), app.indexOf("function AuthenticatedScanImage("));
+
+  assert.match(drawer, /label: "OCR 文本", value: displayOptionalText\(scan\.system_result\.ocr_text\)/);
+  assert.match(app, /function displayOptionalText\(value: unknown\) \{\s*return typeof value === "string" \? value : "";\s*\}/);
+});

@@ -6,7 +6,8 @@ import { fileURLToPath } from "node:url";
 export function validateDeploymentEnvironment(env) {
   for (const key of [
     "POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD", "DATABASE_URL",
-    "JWT_SECRET", "OBJECT_STORAGE_PATH", "ALLOWED_ORIGINS", "VECTOR_RECOGNITION_BASE_URL",
+    "JWT_SECRET", "OBJECT_STORAGE_PATH", "ALLOWED_ORIGINS",
+    "VECTOR_RECOGNITION_BASE_URL", "PHASH_RECOGNITION_BASE_URL",
   ]) {
     if (!env[key]?.trim()) throw new Error(`${key} is required before Linux deployment`);
   }
@@ -14,12 +15,14 @@ export function validateDeploymentEnvironment(env) {
     throw new Error("Linux deployment requires APP_ENVIRONMENT=development");
   }
   let database;
-  let recognition;
+  let vectorRecognition;
+  let phashRecognition;
   try {
     database = new URL(env.DATABASE_URL);
-    recognition = new URL(env.VECTOR_RECOGNITION_BASE_URL);
+    vectorRecognition = new URL(env.VECTOR_RECOGNITION_BASE_URL);
+    phashRecognition = new URL(env.PHASH_RECOGNITION_BASE_URL);
   } catch {
-    throw new Error("DATABASE_URL and VECTOR_RECOGNITION_BASE_URL must be valid URLs");
+    throw new Error("DATABASE_URL and recognition base URLs must be valid URLs");
   }
   if (
     !["postgres:", "postgresql:"].includes(database.protocol) ||
@@ -34,14 +37,23 @@ export function validateDeploymentEnvironment(env) {
   if (env.OBJECT_STORAGE_PATH !== "/data/scan-images") {
     throw new Error("OBJECT_STORAGE_PATH must use the mounted /data/scan-images volume");
   }
-  if (
-    !["https:", "http:"].includes(recognition.protocol) ||
-    recognition.username || recognition.password || recognition.pathname !== "/" ||
-    recognition.search || recognition.hash
-  ) {
-    throw new Error("VECTOR_RECOGNITION_BASE_URL must be an HTTP(S) origin without credentials or paths");
+  for (const [name, recognition] of [
+    ["VECTOR_RECOGNITION_BASE_URL", vectorRecognition],
+    ["PHASH_RECOGNITION_BASE_URL", phashRecognition],
+  ]) {
+    if (
+      !["https:", "http:"].includes(recognition.protocol) ||
+      recognition.username || recognition.password || recognition.pathname !== "/" ||
+      recognition.search || recognition.hash
+    ) {
+      throw new Error(`${name} must be an HTTP(S) origin without credentials or paths`);
+    }
   }
-  return { database: env.POSTGRES_DB, recognitionOrigin: recognition.origin };
+  return {
+    database: env.POSTGRES_DB,
+    recognitionOrigin: vectorRecognition.origin,
+    phashRecognitionOrigin: phashRecognition.origin,
+  };
 }
 
 function docker(args, environment = {}) {
@@ -88,6 +100,17 @@ export async function runPreflight(artifactRoot, env = process.env, runDocker = 
   const health = await response.json();
   if (!response.ok || health.ok !== true || health.dimensions !== 512 || health.metric !== "cosine" || health.top_k !== 5) {
     throw new Error("CF recognition health does not match the 512-dimensional cosine contract");
+  }
+  const phashResponse = await fetch(`${config.phashRecognitionOrigin}/health`, {
+    signal: AbortSignal.timeout(10_000), redirect: "error",
+  });
+  const phashHealth = await phashResponse.json();
+  if (
+    !phashResponse.ok || phashHealth.ok !== true || phashHealth.dimensions !== 768 ||
+    phashHealth.metric !== "euclidean" || phashHealth.top_k !== 5 ||
+    phashHealth.index !== "cards_phash"
+  ) {
+    throw new Error("CF recognition health does not match the RGB pHash contract");
   }
   const result = { database: config.database, postgresMajor: 18, recognition: "reachable", pendingMigrations: files.filter((name) => !applied.includes(name)) };
   console.log(JSON.stringify(result));

@@ -1,8 +1,8 @@
 # Linux 测试环境部署
 
-本目录是当前 dev 业务环境，启动独立 PostgreSQL、Node API 和 Caddy/Admin；离线模式使用 Node 静态服务。prod 保持原 Cloudflare 部署，旧 CF dev 业务 Worker 不再发布。dev 业务数据和图片使用 Linux 本地资源；仅向量检索经 HTTP 复用独立 CF 识别服务，Apple Sandbox 通知经独立 CF 回调代理进入 Linux。
+本目录是当前 dev 业务环境，启动独立 PostgreSQL、Node API 和 Caddy/Admin；离线模式使用 Node 静态服务。prod 保持原 Cloudflare 部署，旧 CF dev 业务 Worker 不再发布。dev 业务数据和图片使用 Linux 本地资源；旧 App／插件向量检索与当前 App pHash/OCR 检索分别经 HTTP 复用独立 CF 识别服务，Apple Sandbox 通知经独立 CF 回调代理进入 Linux。
 
-Linux 部署资产已通过 `19a6ac4` 合入；2026-09-15 已将 `dev-inner` 整改发布到 kd201 现有实例，复用原目录与数据卷。HTTP 适配固定请求 `VECTOR_RECOGNITION_BASE_URL` origin 下的 `/recognize`，10 秒超时覆盖响应体读取；服务器受控扫描、额度与收藏写库已验证，设备与真实图片识别仍需验收。发布清单与回滚位置见[验证记录](../../docs/releases/v1.1.0/05-delivery/VERIFICATION.md)，架构边界见[Linux 兼容缺口](../../docs/releases/v1.1.0/02-architecture/linux-test-environment.md#扫描兼容缺口)。
+Linux 部署资产已通过 `19a6ac4` 合入；2026-09-15 已将 `dev-inner` 整改发布到 kd201 现有实例，复用原目录与数据卷。旧向量适配固定请求 `VECTOR_RECOGNITION_BASE_URL` origin 下的 `/recognize`；当前 App 的 pHash 路径请求 `PHASH_RECOGNITION_BASE_URL` origin 下的 `/recognize`。服务器受控扫描、额度与收藏写库的历史验证不自动覆盖新 pHash/OCR 真实图片链路。发布清单与回滚位置见[验证记录](../../docs/releases/v1.1.0/05-delivery/VERIFICATION.md)，当前识别增量见 [v1.1.3 扫描链路](../../docs/releases/v1.1.3/01-flows/scan-recognition.md)。
 
 2026-09-21 历史运行检查点：kd201 watcher 已发布扫描 Free 额度整改 `dev@baf0d7b`，release 为 `branch-dev-baf0d7b53681-20260921151308`。manifest、`current` 与 `last-deployed-sha` 一致；API/DB healthy、Web running、migration exited/0，ledger 为 14 项且最新为 `0013`。发布前 1,121,082,954 字节 custom-format 备份已由 PostgreSQL 18 容器通过 `pg_restore --list`；运行 API bundle 与 release 文件 SHA-256 一致，prod 未部署。后续仅含 Flutter/文档/Agent 规则的 `dev` 提交不会触发 Linux 重建，watcher 的 `last-seen` 可领先 `last-deployed`。
 
@@ -67,6 +67,7 @@ chmod 600 .env
 - `DATABASE_URL` 中对应密码
 - `JWT_SECRET`
 - `VECTOR_RECOGNITION_BASE_URL`：必填 HTTP(S) origin，例如 `https://recognize-vec.tcgcard.fun`，不包含路径、凭据、查询参数或 fragment。
+- `PHASH_RECOGNITION_BASE_URL`：必填 HTTP(S) origin，当前为 `https://recognize.tcgcard.fun`，不包含路径、凭据、查询参数或 fragment。
 - `LINUX_TEST_SITE_ADDRESS`
 - `ALLOWED_ORIGINS`
 
@@ -134,7 +135,7 @@ docker compose logs --tail=100 migrate api web
 
 `migrate` 服务只执行 `schema_migrations` 中尚未记录的 PostgreSQL migration。API 只有在 migration 成功后才启动。
 
-当前 Linux 入口要求 `.env` 提供 `VECTOR_RECOGNITION_BASE_URL`；仅有旧 OCR 配置时拒绝启动。`OCR_SERVICE_BASE_URL` 不再参与运行，也不能作为当前版本的回退配置。回退版本必须兼容当前 PostgreSQL schema 和向量协议，并核对其私有配置。现有 PostgreSQL 18 数据卷须继续使用兼容的 18 镜像，标准与离线配置均以 18 为默认；历史 `.env` 中的镜像覆盖值需要一起核查。
+当前 Linux 入口要求 `.env` 同时提供 `VECTOR_RECOGNITION_BASE_URL` 与 `PHASH_RECOGNITION_BASE_URL`；前者保留旧 App／插件向量协议，后者服务当前 App pHash/OCR 路径。`OCR_SERVICE_BASE_URL` 不参与运行。回退版本必须兼容当前 PostgreSQL schema 和对应识别协议，并核对其私有配置。现有 PostgreSQL 18 数据卷须继续使用兼容的 18 镜像，标准与离线配置均以 18 为默认；历史 `.env` 中的镜像覆盖值需要一起核查。
 
 ## 自动部署
 
@@ -142,7 +143,7 @@ docker compose logs --tail=100 migrate api web
 
 仓库同时保留 `.github/workflows/linux-test-deploy.yml` 作为未来可选的 GitHub 自托管 Runner 方案。当前安装方法、触发规则、失败处理和接手步骤见 [Linux 运维手册](../../docs/linux-test-environment/README.md#4-自动部署流程)；原自动部署设计按版本归档保留。自动部署不会读取或修改 Cloudflare 正式环境。
 
-发布脚本调用 `preflight.mjs`，要求 `APP_ENVIRONMENT=development`，数据库 URL 指向 Compose `db:5432` 且与 POSTGRES_DB/USER/PASSWORD 一致，图片目录为挂载的 `/data/scan-images`。存在数据库容器时，使用拟发布的凭据通过 TCP 执行只读查询，核对数据库身份、PostgreSQL 18 和 migration 文件名；列出待执行 migration，拒绝数据库版本领先于发布文件的情况。CF `/health` 必须符合 512 维、cosine、Top 5 契约。预检失败不备份或更新容器；已有库即使缺少 `current` 链接也仍须备份。
+发布脚本调用 `preflight.mjs`，要求 `APP_ENVIRONMENT=development`，数据库 URL 指向 Compose `db:5432` 且与 POSTGRES_DB/USER/PASSWORD 一致，图片目录为挂载的 `/data/scan-images`。存在数据库容器时，使用拟发布的凭据通过 TCP 执行只读查询，核对数据库身份、PostgreSQL 18 和 migration 文件名；列出待执行 migration，拒绝数据库版本领先于发布文件的情况。向量 `/health` 必须符合 512 维、cosine、Top 5 契约；pHash `/health` 必须符合 768 维、euclidean、Top 5、`cards_phash` 契约。预检失败不备份或更新容器；已有库即使缺少 `current` 链接也仍须备份。
 
 预检不替代 migration SQL 审核，不执行数据回填，也不验证真实图片识别。2026-09-15 的 kd201 发布已在备份后执行 `0012`，结果为 `UPDATE 0`，ledger 共 13 项；此事实只适用于 Linux `toccards_test`。备份和应用回退不会自动逆向 migration。候选分支手工发布前，应确认与 `dev` 监听器的运行计划协调，避免验收期间被另一轮正常 dev 发布接替。
 

@@ -8,41 +8,39 @@ import 'package:kando_app/shared/scan/scan_api_client.dart';
 import 'package:kando_app/shared/scan/scan_card_recognizer.dart';
 
 void main() {
-  test(
-    'photo uses vector recognition without a device OCR card-number hint',
-    () async {
-      final api = _FakeScanApi(_matchedRecognition);
-      final picker = _FakeScanImagePicker();
-      final cardRecognizer = _FakeScanCardRecognizer();
-      final source = ApiScanResultSource(
-        api: api,
-        session: () => _session,
-        imagePicker: picker,
-        cardRecognizer: cardRecognizer,
-        appInfo: () async =>
-            const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
-      );
+  test('photo sends the cropped-card OCR text with the pHash result', () async {
+    final api = _FakeScanApi(_matchedRecognition);
+    final picker = _FakeScanImagePicker();
+    final cardRecognizer = _FakeScanCardRecognizer();
+    final source = ApiScanResultSource(
+      api: api,
+      session: () => _session,
+      imagePicker: picker,
+      cardRecognizer: cardRecognizer,
+      appInfo: () async =>
+          const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
+    );
 
-      final result = await source.photo();
+    final result = await source.photo();
 
-      expect(result.kind, ScanResolutionKind.matched);
-      expect(result.scanId, 'scan-1');
-      expect(result.cardRef, '1');
-      expect(result.matchName, 'Bushi Tenderfoot');
-      expect(result.candidates, ['Bushi Tenderfoot', 'Devoted Retainer']);
-      expect(result.candidateCardRefs, ['1', '2']);
-      expect(result.candidateDetails.first.setName, 'Champions of Kamigawa');
-      expect(result.candidateDetails.first.objectType, 'tcg');
-      expect(result.imageBytes, Uint8List.fromList([1, 2, 3]));
-      expect(result.displayImageBytes, Uint8List.fromList([4, 5, 6]));
-      expect(cardRecognizer.lastBytes, Uint8List.fromList([1, 2, 3]));
-      expect(api.lastEmbedding?.cardImageBytes, Uint8List.fromList([4, 5, 6]));
-      expect(api.lastPlatform, 'iOS');
-      expect(api.lastCardNumber, isNull);
-      expect(picker.sources, [ScanImageSource.camera]);
-      expect(cardRecognizer.lastAllowCropFallback, isFalse);
-    },
-  );
+    expect(result.kind, ScanResolutionKind.matched);
+    expect(result.scanId, 'scan-1');
+    expect(result.cardRef, '1');
+    expect(result.matchName, 'Bushi Tenderfoot');
+    expect(result.candidates, ['Bushi Tenderfoot', 'Devoted Retainer']);
+    expect(result.candidateCardRefs, ['1', '2']);
+    expect(result.candidateDetails.first.setName, 'Champions of Kamigawa');
+    expect(result.candidateDetails.first.objectType, 'tcg');
+    expect(result.imageBytes, Uint8List.fromList([1, 2, 3]));
+    expect(result.displayImageBytes, Uint8List.fromList([4, 5, 6]));
+    expect(cardRecognizer.lastBytes, Uint8List.fromList([1, 2, 3]));
+    expect(api.lastHashes?.cardImageBytes, Uint8List.fromList([4, 5, 6]));
+    expect(api.lastHashes?.ocrText, 'LEAFEON EX\n200/187');
+    expect(api.lastPlatform, 'iOS');
+    expect(api.lastCardNumber, isNull);
+    expect(picker.sources, [ScanImageSource.camera]);
+    expect(cardRecognizer.lastAllowCropFallback, isFalse);
+  });
 
   test(
     'only a viewfinder-cropped photo can use the detector fallback on retry',
@@ -512,13 +510,15 @@ class _FakeScanImagePicker implements ScanImagePicker {
   }
 }
 
+const _hash = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+
 class _FakeScanApi implements ScanApi, ScanQuotaReservationApi {
   _FakeScanApi(this.result, {this.failure, this.failures = const []});
 
   final ScanRecognitionDto result;
   final Object? failure;
   final List<Object> failures;
-  ScanCardEmbedding? lastEmbedding;
+  ScanCardHashes? lastHashes;
   String? lastPlatform;
   String? lastCardNumber;
   ScanCardType? lastCardType;
@@ -555,7 +555,7 @@ class _FakeScanApi implements ScanApi, ScanQuotaReservationApi {
   @override
   Future<ScanRecognitionDto> recognizeImage(
     AuthSession session, {
-    required ScanCardEmbedding embedding,
+    required ScanCardHashes hashes,
     required String fileName,
     required String platform,
     required String appVersion,
@@ -569,7 +569,7 @@ class _FakeScanApi implements ScanApi, ScanQuotaReservationApi {
     callCount += 1;
     requestIds.add(requestId);
     fileNames.add(fileName);
-    lastEmbedding = embedding;
+    lastHashes = hashes;
     lastPlatform = platform;
     lastCardNumber = cardNumber;
     lastCardType = cardType;
@@ -586,13 +586,15 @@ class _OrderedScanCardRecognizer implements ScanCardRecognizer {
   final Future<void> firstReady;
 
   @override
-  Future<ScanCardEmbedding> process(
+  Future<ScanCardHashes> process(
     Uint8List imageBytes, {
     bool allowCropFallback = false,
   }) async {
     if (imageBytes.single == 1) await firstReady;
-    return ScanCardEmbedding(
-      vector: List<double>.filled(512, 0.25),
+    return ScanCardHashes(
+      r: _hash,
+      g: _hash,
+      b: _hash,
       cardImageBytes: Uint8List.fromList([4, 5, 6]),
     );
   }
@@ -603,14 +605,17 @@ class _FakeScanCardRecognizer implements ScanCardRecognizer {
   bool? lastAllowCropFallback;
 
   @override
-  Future<ScanCardEmbedding> process(
+  Future<ScanCardHashes> process(
     Uint8List imageBytes, {
     bool allowCropFallback = false,
   }) async {
     lastBytes = imageBytes;
     lastAllowCropFallback = allowCropFallback;
-    return ScanCardEmbedding(
-      vector: List<double>.filled(512, 0.25),
+    return ScanCardHashes(
+      r: _hash,
+      g: _hash,
+      b: _hash,
+      ocrText: 'LEAFEON EX\n200/187',
       cardImageBytes: Uint8List.fromList([4, 5, 6]),
     );
   }

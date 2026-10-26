@@ -3,10 +3,10 @@ export default {
   "group": "feature",
   "linkLabel": "Card price checker",
   "title": "Card Price Checker: What Is My Card Worth? | Card AI",
-  "description": "Check what a trading card is worth. Scan or search the card catalog to compare current raw and graded prices, price history, and market direction.",
+  "description": "Check a trading card's published raw or graded price and history. Supported sports cards also provide an eBay search link for separate market research.",
   "eyebrow": "Prices",
   "h1": "Trading card price checker.",
-  "lede": "Card AI combines a card price scanner app with catalog search: find the copy, confirm its condition or existing grade, and see the available price history behind the number.",
+  "lede": "Scan or search for a card, confirm its condition or existing grade, and inspect the available published price and history. Supported sports cards also link to eBay search.",
   "proof": {
     "kind": "prices",
     "title": "Inspect the price behind the card record.",
@@ -24,15 +24,19 @@ export default {
     },
     {
       "h2": "Two ways to use the card price scanner",
-      "body": "- Scan the card with your camera, review the suggested catalog matches, and confirm the printing details\n- Run a card price lookup by name, set or card number when you do not have the card in hand\n\nBoth routes land on the same catalog record with the same pricing and history. That makes the trading card value app useful whether the copy is on the table or only on your want list."
+      "body": "- Scan the card with your camera, review the suggested catalog matches, and confirm the printing details\n- Run a card price lookup by name, set or card number when you do not have the card in hand\n\nBoth routes land on the same catalog record with the same pricing and history. That makes the trading card value app useful whether the copy is on the table or only on your want list. For a Pokemon set example, see how the [30th Celebration price and set guide](/blog/pokemon-tcg-30th-celebration-card-prices) separates the official card list from a dated price snapshot."
+    },
+    {
+      "h2": "How to check a Pokemon card's value",
+      "body": "A Pokemon card price checker and a Pokemon card value checker answer the same question only after you identify the copy. Start with the set and collector number, then confirm the artwork, finish and language. Choose the raw condition you actually have, or enter the grade already printed on a slab.\n\nCard AI can start from a photo or a catalog search. Both paths open the selected card record with its available published price and history. Check the price date and keep a missing price as missing; another printing's value is not a substitute. See the [Pokemon card scanner](/pokemon-card-scanner) for the camera review flow."
     },
     {
       "h2": "From price check to portfolio",
       "body": "Checking one card is useful once. The value compounds when the cards you check become a tracked collection with a running total that updates as the market moves, so you know what the whole thing is worth without re-checking card by card.\n\nBecause the card price database sits behind every entry, a card price scanner result and a text lookup resolve to the same number."
     },
     {
-      "h2": "Price guide, valuation, and sold-listing research",
-      "body": "These terms answer different questions, which is why market numbers can disagree.\n\n- A trading card price guide summarizes the available market price for a printing\n- A card valuation applies the matching raw condition or existing slab grade to the copy you own\n- Sold listings are separate comparable-sale research that collectors may inspect before acting\n\nCard AI shows published current prices and available price history for the selected card record. It does not calculate its market price from visible sold-listing comps."
+      "h2": "Published prices and marketplace research",
+      "body": "These are separate questions.\n\n- A price guide summarizes the available market price for a printing\n- A card valuation applies a raw condition or existing slab grade to the copy you own\n- A marketplace search helps you inspect listings and research comparable sales yourself\n\nCard AI shows published current prices and available price history for the selected card record. For supported sports cards, it provides a link to an eBay search using the card name, set and number. It does not import eBay sold transactions or calculate the published market price from that search."
     },
     {
       "h2": "Tracking prices after the check",
@@ -69,12 +73,13 @@ export default {
       "a": "Price history is kept per card and the collection total revalues as the market moves, so changes are visible when you open the collection. Card AI does not currently send automatic price-movement alerts."
     },
     {
-      "q": "Can I review sold listings as well as the market price?",
-      "a": "Card details show published current prices and available history. A separate sold-listings search can help you research comparable sales, but those visible results are not described as the input used to calculate Card AI's market price."
+      "q": "Can I search eBay from a sports card record?",
+      "a": "Yes, supported sports card records can link to an eBay search based on the card name, set and number. Check listings and any sold-item filters on eBay itself; Card AI does not import sold transactions into its price feed."
     }
   ],
   "related": [
     "card-identifier",
-    "graded-card-tracker"
+    "graded-card-tracker",
+    "card-scanner-comparison-2026"
   ]
 };

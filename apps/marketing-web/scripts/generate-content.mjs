@@ -2,6 +2,8 @@
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import sitemapLastmod from '../content/sitemap-lastmod.mjs';
+import { renderSitemap, sitemapEntries } from './sitemap.mjs';
 
 const appDirectory = dirname(dirname(fileURLToPath(import.meta.url)));
 const publicDirectory = join(appDirectory, 'public');
@@ -22,6 +24,16 @@ function renderMarkdown(source) {
   return blocks
     .map((block) => {
       const lines = block.split('\n');
+      if (
+        lines.length >= 2 &&
+        lines[0].includes('|') &&
+        /^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(lines[1])
+      ) {
+        const cells = (line) => line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((cell) => inline(cell.trim()));
+        const headers = cells(lines[0]).map((cell) => `<th scope="col">${cell}</th>`).join('');
+        const rows = lines.slice(2).map((line) => `<tr>${cells(line).map((cell) => `<td>${cell}</td>`).join('')}</tr>`).join('');
+        return `<div class="content-table-wrap"><table><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table></div>`;
+      }
       if (lines.every((line) => line.startsWith('- '))) {
         const items = lines.map((line) => `<li>${inline(line.slice(2))}</li>`).join('');
         return `<ul>${items}</ul>`;
@@ -34,7 +46,8 @@ function renderMarkdown(source) {
 }
 
 function parseFrontMatter(raw) {
-  const match = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+  const normalized = raw.replace(/\r\n/g, '\n');
+  const match = normalized.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
   if (!match) throw new Error('Missing front matter');
   const meta = {};
   for (const line of match[1].split('\n')) {
@@ -84,7 +97,20 @@ const PROOF_ASSETS = {
     src: '/assets/showcase-portfolio.png',
     alt: 'Card AI collection value and portfolio screen',
   },
+  extension: {
+    src: '/assets/chrome-extension-recognition.png',
+    alt: 'Chrome extension recognition panel on a webpage with a sample card image',
+  },
 };
+
+function renderStoreAction(page) {
+  if (!page.storeUrl) return STORE_ROW;
+  const label = page.storeLabel ?? 'View in Chrome Web Store';
+  return `        <div class="cws-store-action-wrap">
+          <a class="cws-store-action" href="${escapeHtml(page.storeUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>
+          <p class="cws-store-note">${escapeHtml(page.storeNote ?? 'Opens the Chrome Web Store in a new tab.')}</p>
+        </div>`;
+}
 
 function renderShell({
   url,
@@ -170,13 +196,14 @@ function renderProductProof(page) {
           <div class="product-proof-copy">
             ${renderMarkdown(proof.body)}
           </div>
-          <p class="product-proof-note">Illustrative Card AI screen composite. Values shown are examples; market prices, history, and sold-listing availability depend on the selected card.</p>
+          <p class="product-proof-note">${escapeHtml(proof.note ?? 'Illustrative Card AI screen composite. Values shown are examples; market prices, history, and sold-listing availability depend on the selected card.')}</p>
         </figcaption>
       </figure>`;
 }
 
 function renderLanding(page, all) {
-  const ctaLabel = `${page.linkLabel.charAt(0).toLowerCase()}${page.linkLabel.slice(1)}`;
+  const ctaTarget = page.ctaTarget ?? page.linkLabel;
+  const ctaLabel = `${ctaTarget.charAt(0).toLowerCase()}${ctaTarget.slice(1)}`;
   const sections = page.sections
     .map(
       (section) => `          <section class="content-block">
@@ -197,7 +224,7 @@ function renderLanding(page, all) {
           <p class="content-eyebrow">${escapeHtml(page.eyebrow)}</p>
           <h1>${escapeHtml(page.h1)}</h1>
           <p class="content-lede">${escapeHtml(page.lede)}</p>
-${STORE_ROW}
+${renderStoreAction(page)}
         </div>
       </section>
 
@@ -211,9 +238,9 @@ ${renderFaq(page.faq, `${page.linkLabel ?? page.h1} questions.`)}
 
       <section class="content-cta">
         <div class="site-container">
-          <h2>Try the ${escapeHtml(ctaLabel)} in Card AI.</h2>
+          <h2>${escapeHtml(page.ctaTitle ?? `Try the ${ctaLabel} in Card AI.`)}</h2>
           <p>${escapeHtml(page.cta)}</p>
-${STORE_ROW}
+${renderStoreAction(page)}
         </div>
       </section>`;
 
@@ -239,7 +266,14 @@ ${STORE_ROW}
       })),
     });
   }
-  return renderShell({ url: `/${page.slug}`, title: page.title, description: page.description, jsonLd, body });
+  return renderShell({
+    url: `/${page.slug}`,
+    title: page.title,
+    description: page.description,
+    jsonLd,
+    body,
+    image: page.socialImage ?? '/assets/hero-phones.png',
+  });
 }
 
 function renderPost(post) {
@@ -253,7 +287,7 @@ function renderPost(post) {
         <div class="site-container">
           <p class="content-eyebrow"><a href="/blog/">Blog</a></p>
           <h1>${escapeHtml(post.meta.h1)}</h1>
-          <p class="content-meta"><time datetime="${post.meta.date}">${post.meta.date}</time></p>
+          <p class="content-meta"><time datetime="${post.meta.date}">${post.meta.date}</time>${post.meta.updated ? ` · <time datetime="${post.meta.updated}">Updated ${post.meta.updated}</time>` : ''}</p>
 ${figure}
           <div class="content-prose">
           ${renderMarkdown(post.body)}
@@ -269,7 +303,7 @@ ${figure}
       description: post.meta.description,
       image: `${ORIGIN}${post.meta.image}`,
       datePublished: post.meta.date,
-      dateModified: post.meta.date,
+      dateModified: post.meta.updated ?? post.meta.date,
       mainEntityOfPage: `${ORIGIN}/blog/${post.slug}`,
       author: { '@type': 'Organization', name: 'Card AI', url: `${ORIGIN}/` },
       publisher: {
@@ -404,18 +438,6 @@ ${columns.join('\n')}
       </section>`;
 }
 
-function renderSitemap(urls) {
-  const entries = urls
-    .map(
-      ({ loc, priority }) => `  <url>
-    <loc>${ORIGIN}${loc}</loc>
-    <priority>${priority}</priority>
-  </url>`,
-    )
-    .join('\n');
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<!-- Generated by scripts/generate-content.mjs. -->\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries}\n</urlset>\n`;
-}
-
 function renderMinimalSitemap(urls) {
   const entries = urls
     .map(
@@ -444,6 +466,21 @@ for (const file of blogFiles) {
 }
 posts.sort((a, b) => b.meta.date.localeCompare(a.meta.date));
 
+const sitemap = renderSitemap(
+  ORIGIN,
+  sitemapEntries(
+    [
+      '/',
+      ...landing.map((page) => `/${page.slug}`),
+      '/blog/',
+      ...posts.map((post) => `/blog/${post.slug}`),
+      '/privacy',
+      '/terms',
+    ],
+    sitemapLastmod,
+  ),
+);
+
 for (const page of landing) {
   await writeFile(join(publicDirectory, `${page.slug}.html`), renderLanding(page, landing), 'utf8');
 }
@@ -458,14 +495,7 @@ await writeFile(join(publicDirectory, '404.html'), render404(landing), 'utf8');
 
 await writeFile(
   join(publicDirectory, 'sitemap.xml'),
-  renderSitemap([
-    { loc: '/', priority: '1.0' },
-    ...landing.map((page) => ({ loc: `/${page.slug}`, priority: '0.8' })),
-    { loc: '/blog/', priority: '0.6' },
-    ...posts.map((post) => ({ loc: `/blog/${post.slug}`, priority: '0.5' })),
-    { loc: '/privacy', priority: '0.3' },
-    { loc: '/terms', priority: '0.3' },
-  ]),
+  sitemap,
   'utf8',
 );
 

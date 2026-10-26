@@ -10,6 +10,7 @@ const source = {
   JWT_SECRET: "linux-test-secret",
   ALLOWED_ORIGINS: "http://localhost:8080",
   VECTOR_RECOGNITION_BASE_URL: "https://recognize-vec.tcgcard.fun",
+  PHASH_RECOGNITION_BASE_URL: "https://recognize.tcgcard.fun",
 };
 
 describe("Linux runtime configuration", () => {
@@ -17,7 +18,7 @@ describe("Linux runtime configuration", () => {
     vi.restoreAllMocks();
   });
 
-  it("binds the local business database and vector service without requiring retired OCR configuration", () => {
+  it("binds the local business database and keeps vector and pHash recognition separate", () => {
     const database = {} as postgresDatabase.PostgresDatabase;
     const createDatabase = vi.spyOn(postgresDatabase, "createPostgresDatabase")
       .mockReturnValue(database);
@@ -30,6 +31,7 @@ describe("Linux runtime configuration", () => {
     expect(runtime.env.HYPERDRIVE).toBeUndefined();
     expect(runtime.env.APP_ENVIRONMENT).toBe("development");
     expect(runtime.env.VECTOR_RECOGNITION?.fetch).toBeTypeOf("function");
+    expect(runtime.env.PHASH_RECOGNITION_BASE_URL).toBe(source.PHASH_RECOGNITION_BASE_URL);
     expect(runtime.env.EXTENSION_RECOGNITION_KEY).toBeUndefined();
     expect(runtime.env.EXTENSION_RECOGNITION_RATE_LIMITER?.limit).toBeTypeOf("function");
     expect(runtime.extensionTrustProxy).toBe(false);
@@ -44,6 +46,10 @@ describe("Linux runtime configuration", () => {
       VECTOR_RECOGNITION_BASE_URL: undefined,
       OCR_SERVICE_BASE_URL: "https://retired-ocr.invalid",
     })).toThrow("VECTOR_RECOGNITION_BASE_URL is required");
+    expect(() => loadLinuxRuntime({
+      ...source,
+      PHASH_RECOGNITION_BASE_URL: undefined,
+    })).toThrow("PHASH_RECOGNITION_BASE_URL is required");
   });
 
   it("loads an independent plugin key and explicit proxy trust without requiring user login", async () => {

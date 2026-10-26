@@ -20,9 +20,13 @@ The [canonical website](https://tcgcard.fun/) is tcgcard.fun. Card AI supports c
 
 - [Basketball card scanner](https://tcgcard.fun/basketball-card-scanner): Scan basketball cards to find matching catalog records, confirm the parallel and finish, then check market values for raw and graded copies.
 - [Bulk card scanner](https://tcgcard.fun/bulk-card-scanner): Scan trading cards in bulk instead of one at a time. Work through boxes and binders in a single session and add everything to your collection together.
+- [Card AI vs CollX](https://tcgcard.fun/card-ai-vs-collx): Compare how Card AI and CollX identify variants, handle card condition and grades, explain prices, and organize a collection.
+- [Card AI vs Ludex](https://tcgcard.fun/card-ai-vs-ludex): Compare the documented Card AI and Ludex workflows for reviewing card scans, researching prices, managing a collection, and listing on eBay.
 - [Card collection tracker](https://tcgcard.fun/card-collection-tracker): Track what a trading card collection is worth. Keep condition- and grade-specific holdings, follow price history, and monitor total portfolio value.
 - [Card identifier](https://tcgcard.fun/card-identifier): Identify a trading card from a photo. AI card recognition suggests matching catalog records with the set and card number for you to review.
-- [Card price checker](https://tcgcard.fun/card-price-checker): Check what a trading card is worth. Scan or search the card catalog to compare current raw and graded prices, price history, and market direction.
+- [Card price checker](https://tcgcard.fun/card-price-checker): Check a trading card's published raw or graded price and history. Supported sports cards also provide an eBay search link for separate market research.
+- [Card scanner app comparison 2026](https://tcgcard.fun/card-scanner-comparison-2026): A source-backed comparison of Card AI, Ludex, CollX, PriceCharting, Center Stage, and Card Ladder for scanning, pricing, and managing cards.
+- [Chrome card recognizer](https://tcgcard.fun/chrome-extension): Recognize supported Pokémon, TCG, and sports cards in web images. Adjust the crop, review likely matches, and check available card details and reference prices.
 - [Digimon card scanner](https://tcgcard.fun/digimon-card-scanner): Scan Digimon Card Game cards to find matching set and card records, confirm the art variant, then check raw and graded market values.
 - [Digital card binder](https://tcgcard.fun/digital-card-binder): Build a searchable digital card binder. Organize records by game and language, track quantities, and find raw or graded copies without opening boxes.
 - [Dragon Ball Super card scanner](https://tcgcard.fun/dragon-ball-super-card-scanner): Scan Dragon Ball Super Card Game cards to find matching records with set, card number and rarity, then confirm the printing and check its value.
@@ -37,7 +41,10 @@ The [canonical website](https://tcgcard.fun/) is tcgcard.fun. Card AI supports c
 - [Star Wars Unlimited card scanner](https://tcgcard.fun/star-wars-unlimited-card-scanner): Scan Star Wars Unlimited cards to find matching set and card records, confirm the variant, then check market values and track your collection.
 - [Yu-Gi-Oh! card scanner](https://tcgcard.fun/yugioh-card-scanner): Scan Yu-Gi-Oh! cards to find matching set-code and rarity records, confirm the edition, then check raw and graded market values.
 - [Blog](https://tcgcard.fun/blog/): Guides on card values, grading, and collection tracking.
-- [Pokemon TCG 30th Celebration card prices and set guide](https://tcgcard.fun/blog/pokemon-tcg-30th-celebration-card-prices): Check a dated Pokemon TCG 30th Celebration price snapshot, learn the 30C and 30C-CC set codes, and confirm a card in Card AI.
+- [Dungeon Crawler Carl trading cards: identify the release first](https://tcgcard.fun/blog/dungeon-crawler-carl-trading-cards): Distinguish Dungeon Crawler Carl collector cards from the Unstoppable card game, then check character, release and variant before scanning a card.
+- [Minior Pokemon cards: identify the printing before checking value](https://tcgcard.fun/blog/minior-pokemon-card-guide): Compare Minior cards from Paradox Rift and Guardians Rising by set and collector number. Keep Pokemon GO encounters separate from physical card prices.
+- [How to scan cards bought at WatsonTCG](https://tcgcard.fun/blog/scanning-cards-from-watsontcg): WatsonTCG is a card retailer, not a card game. Check which singles are in a supported Card AI catalog, then confirm set, number and variant after scanning.
+- [Pokemon TCG 30th Celebration card prices and set guide](https://tcgcard.fun/blog/pokemon-tcg-30th-celebration-card-prices): Use the official Pokemon 30th Celebration card list, compare 30C and 30C-CC records, and check a dated price snapshot before valuing your copies.
 - [What is my trading card worth?](https://tcgcard.fun/blog/what-is-my-trading-card-worth): A practical guide to checking what a trading card is worth, why the same card has several different prices, and which number actually applies to your copy.
 - [Raw vs graded cards, and what grading does to value](https://tcgcard.fun/blog/raw-vs-graded-card-values): Why graded cards trade at a premium over raw copies, how the gap between grades works, and when grading a card is worth the cost and the wait.
 

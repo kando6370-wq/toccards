@@ -66,7 +66,6 @@ final class ScanModelRuntime {
     qos: .userInitiated
   )
   private static var detectionModel: MLModel?
-  private static var embeddingModel: MLModel?
 
   static func register(messenger: FlutterBinaryMessenger) {
     let channel = FlutterMethodChannel(
@@ -74,18 +73,13 @@ final class ScanModelRuntime {
       binaryMessenger: messenger
     )
     channel.setMethodCallHandler { call, result in
-      guard call.method == "runDetection" || call.method == "runEmbedding" else {
+      guard call.method == "runDetection" else {
         result(FlutterMethodNotImplemented)
         return
       }
       queue.async {
         do {
-          let value: Any
-          if call.method == "runDetection" {
-            value = try runDetection(call.arguments)
-          } else {
-            value = try runEmbedding(call.arguments)
-          }
+          let value = try runDetection(call.arguments)
           DispatchQueue.main.async { result(value) }
         } catch {
           DispatchQueue.main.async {
@@ -125,24 +119,6 @@ final class ScanModelRuntime {
       "masks": typedFloats(mask),
       "masks_shape": [1, 1, 640, 640],
     ]
-  }
-
-  private static func runEmbedding(_ rawArguments: Any?) throws -> FlutterStandardTypedData {
-    let input = try inputArray(rawArguments, shape: [1, 3, 384, 384])
-    let model = try loadModel(named: "PECoreT16ImageFP16", cached: &embeddingModel)
-    let provider = try MLDictionaryFeatureProvider(dictionary: [
-      "image": MLFeatureValue(multiArray: input)
-    ])
-    let output = try model.prediction(from: provider)
-    guard
-      let embedding = output.featureValue(for: "embedding")?.multiArrayValue,
-      embedding.dataType == .float32,
-      embedding.count == 512
-    else {
-      throw ScanModelRuntimeError.invalidOutput("embedding")
-    }
-    let pointer = embedding.dataPointer.bindMemory(to: Float32.self, capacity: 512)
-    return typedFloats(Array(UnsafeBufferPointer(start: pointer, count: 512)))
   }
 
   private static func inputArray(

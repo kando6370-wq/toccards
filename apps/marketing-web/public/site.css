@@ -253,6 +253,24 @@
 .content-lede { max-width: 720px; margin: 24px 0 0; color: var(--site-muted); font-size: 20px; line-height: 32px; }
 .content-hero .store-buttons,
 .content-cta .store-buttons { justify-content: flex-start; flex-wrap: wrap; margin-top: 36px; padding-top: 0; }
+.content-hero .cws-store-action-wrap,
+.content-cta .cws-store-action-wrap { margin-top: 36px; }
+.cws-store-action {
+  min-height: 54px;
+  padding: 0 20px;
+  border: 1px solid var(--site-lime);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #17180f;
+  background: var(--site-lime);
+  font-size: 15px;
+  font-weight: 650;
+  text-decoration: none;
+}
+.cws-store-action:hover { background: #f7ff9b; border-color: #f7ff9b; }
+.cws-store-action:focus-visible { outline: 2px solid var(--site-lime); outline-offset: 4px; }
+.cws-store-note { margin: 10px 0 0; color: var(--site-faint); font-size: 13px; line-height: 20px; }
 .content-body { padding: 0 0 64px; }
 .content-block { max-width: 820px; margin-top: 56px; }
 .content-block h2 { margin: 0 0 16px; font-size: 28px; font-weight: 510; line-height: 38px; }
@@ -260,6 +278,11 @@
 .content-block p, .content-prose p { margin: 0 0 16px; color: var(--site-muted); font-size: 16px; line-height: 27px; }
 .content-block ul, .content-prose ul { margin: 0 0 16px; padding-left: 22px; color: var(--site-muted); font-size: 16px; line-height: 27px; }
 .content-block li, .content-prose li { margin-bottom: 10px; }
+.content-table-wrap { margin: 0 0 24px; overflow-x: auto; border: 1px solid var(--site-border); border-radius: 12px; }
+.content-table-wrap table { width: 100%; min-width: 760px; border-collapse: collapse; color: var(--site-muted); font-size: 14px; line-height: 21px; }
+.content-table-wrap th, .content-table-wrap td { padding: 13px 14px; border-bottom: 1px solid var(--site-border); text-align: left; vertical-align: top; }
+.content-table-wrap th { color: #fff; background: var(--site-panel); font-weight: 600; }
+.content-table-wrap tr:last-child td { border-bottom: 0; }
 .content-links { list-style: none; padding: 0; }
 .content-links li { margin-bottom: 10px; }
 a { color: var(--site-lime); }
@@ -279,6 +302,8 @@ a { color: var(--site-lime); }
 
 @media (max-width: 820px) {
   .content-hero { padding: 72px 20px 40px; }
+  .content-hero .site-container { width: 100%; }
+  .content-hero h1, .content-hero .content-lede { max-width: 100%; overflow-wrap: anywhere; }
   .content-hero h1 { font-size: 36px; line-height: 44px; }
   .content-lede { font-size: 17px; line-height: 28px; }
   .content-article { padding: 72px 20px; }

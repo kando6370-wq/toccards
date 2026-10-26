@@ -1173,6 +1173,7 @@ function ScanDetailDrawer({ scan, session, onClose }: { scan: ScanDetail | null;
               { label: "Number", value: displayValue(scan.system_result.number) },
               { label: "置信度", value: confidenceText(scan.system_result.confidence) },
               { label: "候选数量", value: displayValue(scan.system_result.candidate_count) },
+              { label: "OCR 文本", value: displayOptionalText(scan.system_result.ocr_text) },
             ]} />
           </DetailSection>
           <DetailSection title="用户确认结果">
@@ -1570,6 +1571,10 @@ function displayValue(value: unknown) {
   if (value === null || value === undefined || value === "") return "-";
   if (typeof value === "boolean") return value ? "是" : "否";
   return String(value);
+}
+
+function displayOptionalText(value: unknown) {
+  return typeof value === "string" ? value : "";
 }
 
 function confidenceText(value: unknown) {

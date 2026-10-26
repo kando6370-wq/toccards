@@ -73,7 +73,7 @@ void main() {
   );
 
   test(
-    'recognizeImage sends the embedding and corrected card to our API',
+    'recognizeImage sends RGB hashes, OCR text, and the corrected card to our API',
     () async {
       final adapter = _RecordingAdapter((request) {
         expect(request.method, 'POST');
@@ -81,7 +81,10 @@ void main() {
         expect(request.authorization, 'Bearer access-token');
         final form = request.body as FormData;
         final fields = Map<String, String>.fromEntries(form.fields);
-        expect(fields.remove('vector'), jsonEncode(_vector));
+        expect(fields.remove('r'), _hash);
+        expect(fields.remove('g'), _hash);
+        expect(fields.remove('b'), _hash);
+        expect(fields.remove('ocr_text'), 'LEAFEON EX\n200/187');
         expect(fields, {
           'filename': 'scan.jpg',
           'platform': 'iOS',
@@ -140,8 +143,11 @@ void main() {
 
       final result = await ScanApiClient(_dio(adapter)).recognizeImage(
         _session,
-        embedding: ScanCardEmbedding(
-          vector: _vector,
+        hashes: ScanCardHashes(
+          r: _hash,
+          g: _hash,
+          b: _hash,
+          ocrText: 'LEAFEON EX\n200/187',
           cardImageBytes: Uint8List.fromList([1, 2, 3, 4]),
         ),
         fileName: 'scan.jpg',
@@ -162,45 +168,53 @@ void main() {
     },
   );
 
-  test('recognizeImage sends TCG as the default card type', () async {
-    final adapter = _RecordingAdapter((request) {
-      final form = request.body as FormData;
-      final fields = Map<String, String>.fromEntries(form.fields);
-      expect(fields['card_type'], '0');
-      return _json(200, {
-        'success': true,
-        'data': {
-          'scan_id': 'scan-default-tcg',
-          'recognition_status': 'no_match',
-          'quota': {
-            'access': 'free',
-            'limit': 10,
-            'reserved': 0,
-            'consumed': 0,
-            'remaining': 10,
-            'unlimited': false,
+  test(
+    'recognizeImage sends TCG by default and preserves empty OCR text',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        final form = request.body as FormData;
+        final fields = Map<String, String>.fromEntries(form.fields);
+        expect(fields['card_type'], '0');
+        expect(fields.containsKey('ocr_text'), isTrue);
+        expect(fields['ocr_text'], '');
+        return _json(200, {
+          'success': true,
+          'data': {
+            'scan_id': 'scan-default-tcg',
+            'recognition_status': 'no_match',
+            'quota': {
+              'access': 'free',
+              'limit': 10,
+              'reserved': 0,
+              'consumed': 0,
+              'remaining': 10,
+              'unlimited': false,
+            },
+            'results': [
+              {'index': 1, 'matched': false, 'candidates': <Object?>[]},
+            ],
           },
-          'results': [
-            {'index': 1, 'matched': false, 'candidates': <Object?>[]},
-          ],
-        },
+        });
       });
-    });
 
-    final result = await ScanApiClient(_dio(adapter)).recognizeImage(
-      _session,
-      embedding: ScanCardEmbedding(
-        vector: _vector,
-        cardImageBytes: Uint8List.fromList([1, 2, 3, 4]),
-      ),
-      fileName: 'scan.jpg',
-      platform: 'iOS',
-      appVersion: '1.0.0',
-      requestId: '123e4567-e89b-42d3-a456-426614174000',
-    );
+      final result = await ScanApiClient(_dio(adapter)).recognizeImage(
+        _session,
+        hashes: ScanCardHashes(
+          r: _hash,
+          g: _hash,
+          b: _hash,
+          ocrText: '',
+          cardImageBytes: Uint8List.fromList([1, 2, 3, 4]),
+        ),
+        fileName: 'scan.jpg',
+        platform: 'iOS',
+        appVersion: '1.0.0',
+        requestId: '123e4567-e89b-42d3-a456-426614174000',
+      );
 
-    expect(result.recognitionStatus, 'no_match');
-  });
+      expect(result.recognitionStatus, 'no_match');
+    },
+  );
 
   test('recognition rejects confidence outside 0 to 100', () async {
     final adapter = _RecordingAdapter(
@@ -239,8 +253,10 @@ void main() {
     await expectLater(
       ScanApiClient(_dio(adapter)).recognizeImage(
         _session,
-        embedding: ScanCardEmbedding(
-          vector: _vector,
+        hashes: ScanCardHashes(
+          r: _hash,
+          g: _hash,
+          b: _hash,
           cardImageBytes: Uint8List.fromList([1, 2, 3, 4]),
         ),
         fileName: 'scan.jpg',
@@ -430,8 +446,10 @@ void main() {
       await expectLater(
         client.recognizeImage(
           _session,
-          embedding: ScanCardEmbedding(
-            vector: _vector,
+          hashes: ScanCardHashes(
+            r: _hash,
+            g: _hash,
+            b: _hash,
             cardImageBytes: Uint8List.fromList([1, 2, 3, 4]),
           ),
           fileName: 'scan.jpg',
@@ -459,7 +477,7 @@ const _session = AuthSession(
   anonymousId: 'anon-1',
 );
 
-final _vector = List<double>.filled(512, 0.25);
+const _hash = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 
 Dio _dio(_RecordingAdapter adapter) {
   final dio = Dio(BaseOptions(baseUrl: 'https://api.example.test/api/v1'));

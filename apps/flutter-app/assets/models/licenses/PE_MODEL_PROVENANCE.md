@@ -8,8 +8,9 @@
 
 This hash identifies the exact ONNX conversion input supplied by the
 workspace-sibling `real_time_recognition` repository. The ONNX file is not
-retained in this directory or packaged in the app; the app distributes derived
-ORT and Core ML artifacts documented in the parent `README.md`.
+retained in this directory or packaged in the app. The pHash scan build
+retains the derived ORT and Core ML files as unbundled repository
+sources documented in the parent `README.md`.
 
 ## Upstream model
 
