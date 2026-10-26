@@ -982,6 +982,7 @@ describe("admin routes", () => {
         number: "1",
         confidence: 86.2,
         candidate_count: 1,
+        ocr_text: "BUSHI TENDERFOOT CHK 1",
       }),
       user_result: JSON.stringify({
         confirmation_status: "confirmed",
@@ -1041,7 +1042,11 @@ describe("admin routes", () => {
       data: expect.objectContaining({
         scan_id: scanId,
         environment: "development",
-        system_result: expect.objectContaining({ name: "Bushi Tenderfoot", confidence: 86.2 }),
+        system_result: expect.objectContaining({
+          name: "Bushi Tenderfoot",
+          confidence: 86.2,
+          ocr_text: "BUSHI TENDERFOOT CHK 1",
+        }),
         user_result: expect.objectContaining({ added_to_inventory: expect.any(Boolean) }),
         candidates: [
           expect.objectContaining({

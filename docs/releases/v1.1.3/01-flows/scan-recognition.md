@@ -12,6 +12,7 @@
 4. 当前 App 继续调用 `POST /api/v1/scan/recognize`，multipart 请求包含矫正卡面图片、`r`、`g`、`b`、可选 `ocr_text` 和 `card_type`。体育卡固定发送 `card_type=1`，TCG 为 `0`。
 5. 业务 API 只向 `PHASH_RECOGNITION_BASE_URL` 的 `/recognize` 发送 `{r,g,b,ocr_text?,card_type}`，不发送卡面图片、账号、额度、`game_id` 或扫描记录。当前目标 origin 为 `https://recognize.tcgcard.fun`。
 6. 上游候选返回后，目录补全、R2 图片保存、Free/Premium 额度、幂等重放、审计记录及 confirm 流程继续使用现有服务端实现和响应包络。
+7. 服务端将校验后的 OCR 文本保存到扫描记录既有 `system_result.ocr_text`；OCR 缺失、空结果和旧向量请求分别保存为 `null`、空字符串和 `null`，不新增数据库字段或 migration。Admin 扫描详情在“系统识别结果”中展示“OCR 文本”，旧记录或无数据时保持空白。
 
 ## 向后兼容
 

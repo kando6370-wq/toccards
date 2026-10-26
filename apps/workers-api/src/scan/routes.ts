@@ -631,6 +631,7 @@ export function createScanRoutes() {
       candidates[0] ?? null,
       auditCandidates.length,
       recognitionAlgorithm,
+      ocrText,
     );
     const userResult = {
       confirmation_status: "pending",
@@ -1043,6 +1044,7 @@ function buildSystemResult(
   candidate: ScanCandidate | null,
   candidateCount: number,
   recognitionAlgorithm: string,
+  ocrText: string | null | undefined,
 ) {
   return {
     status,
@@ -1054,6 +1056,7 @@ function buildSystemResult(
     confidence: candidate?.confidence ?? null,
     candidate_count: candidateCount,
     recognition_algorithm: recognitionAlgorithm,
+    ocr_text: ocrText ?? null,
   };
 }
 

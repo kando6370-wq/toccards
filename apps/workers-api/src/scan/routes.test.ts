@@ -108,6 +108,7 @@ describe("scan routes", () => {
     const [record] = await readRows(env.DB, "scan_record");
     expect(JSON.parse(record.system_result)).toMatchObject({
       recognition_algorithm: PHASH_RECOGNITION_ALGORITHM_FOR_TEST,
+      ocr_text: "LEAFEON EX\n200/187",
     });
     expect(upstream).toHaveBeenCalledOnce();
   });
@@ -138,6 +139,10 @@ describe("scan routes", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       data: { recognition_status: "no_match" },
+    });
+    const [record] = await readRows(env.DB, "scan_record");
+    expect(JSON.parse(record.system_result)).toMatchObject({
+      ocr_text: ocrText === undefined ? null : "",
     });
   });
 
@@ -222,9 +227,13 @@ describe("scan routes", () => {
         results: [{ candidates: [{ card_ref: "linux-card", name: "Card from the Linux catalog" }] }],
       },
     });
-    expect(await readRows(env.DB, "scan_record")).toEqual([
+    const scanRecords = await readRows(env.DB, "scan_record");
+    expect(scanRecords).toEqual([
       expect.objectContaining({ id: requestId, environment: "development", recognition_status: "success" }),
     ]);
+    expect(JSON.parse(scanRecords[0]!.system_result)).toMatchObject({
+      ocr_text: null,
+    });
     expect(await readRows(env.DB, "scan_quota_request")).toEqual([
       expect.objectContaining({ request_id: requestId, status: "consumed" }),
     ]);
