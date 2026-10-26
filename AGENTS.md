@@ -118,14 +118,15 @@ GitLab Flutter CI 使用 3.44.0，GitHub iOS CI 使用 3.44.7。涉及工具链�
 - `docs/releases/v1.1.0/00-product`：三份初始 PRD、两份订阅升级降级补充和一份收藏待编辑/卡牌详情改版 PRD，共六份产品输入，只读保留。
 - `docs/releases/v1.1.0/01-flows` 至 `05-delivery`：相对 v1.0.0 的开发归档、架构、数据/API、Admin 和交付证据；未验证边界按原记录保留。
 - `docs/releases/v1.1.1/README.md`：2026-10-09 起的开发归档入口；`docs/releases/v1.1.1/03-data-api/app-compatibility-contract.md` 和 `docs/releases/v1.1.1/05-delivery/app-compatibility-acceptance.md` 定义从 App 1.0.4 起的服务端兼容目标与待执行门禁，尚非已验证实现。`docs/releases/v1.1.1/01-flows/scan-recognition.md` 记录 2026-09-29 扫描 R2/向量并行的本地实现、失败补偿及批量额度边界，已通过相关本地与 PostgreSQL 多连接验证，2026-09-29 已自动发布 Linux dev，2026-10-08 随 `main@61b5420` 部署 prod；真机批量验收仍未完成。历史契约、故障与发布证据保留原路径及未验收边界。
-- `docs/releases/v1.1.2/README.md`：当前增量开发入口；App 兼容只维护 `05-delivery/app-backward-compatibility-plan.md` 阅读版与 `03-data-api/app-backward-compatibility-ai-guide.md` AI 执行版。测试入口、覆盖缺口和必要证据摘要集中在 AI 执行版，不新增独立兼容说明／验证文件；正式制品/真机与完整兼容验收仍待执行。Admin 订单统计新增按筛选结果汇总的 USD 金额，已退款订单不计入订单金额、单列退款金额，缺失金额分别提示；契约见 `docs/releases/v1.1.2/04-admin/admin.md`，本地验证与部署状态以[其他业务验证记录](docs/releases/v1.1.2/05-delivery/VERIFICATION.md)为准。后续实际需求按版本目录维护，未变化内容引用历史基线。
+- `docs/releases/v1.1.2/README.md`：2026-10-26 原位归档；App 兼容阅读版与 AI 执行版、App 1.0.6 订阅配置、Admin 和生产交付证据按归档内容保留。不得继续向 v1.1.2 追加新开发或新日期检查点；只有明确授权的事实错误修正可以回写，并须从当前版本留下引用。
+- `docs/releases/v1.1.3/README.md`：当前增量开发入口。2026-10-26 之后的新增、变更、移除和实际验证写入 v1.1.3；未变化的产品、兼容、订阅、Admin 和交付合同继续引用 v1.1.2 或更早版本，不复制整套文档。当前验证记录入口为 `docs/releases/v1.1.3/05-delivery/VERIFICATION.md`。
 - App 1.0.6 订阅配置的 PRD 1.14、商品接入映射和最小实施草案见 [订阅配置产品输入](docs/releases/v1.1.2/00-product/admin-subscription-config-prd.md)；[离线原型](prototypes/admin-subscription-config-standalone.html)保留在正式 docs 之外。服务端第一阶段源码与环境／接口合同见 [订阅展示配置与商品准入](docs/releases/v1.1.2/03-data-api/subscription-display-config.md)。Admin 页面实现见 [当前后台文档](docs/releases/v1.1.2/04-admin/admin.md)，Flutter 消费源码与兜底／平台边界见 [客户端订阅展示](docs/releases/v1.1.2/01-flows/subscription-display.md)。2026-10-23 已发布生产服务端与双 Admin；2026-10-26 App 1.0.6 已上架，Weekly Trial／Monthly 已完成生产动态准入，用户确认相关实机交易链路目前无问题。Page／Modal 仍未启用，Agent 未独立重放原始交易／平台记录，完整旧包兼容矩阵继续按 AI 执行版保留证据边界。
 
 `docs/releases/v1.0.0` 是已发布冻结基线，后续迭代不得回写；若需修正已经确认的文档错误，必须先说明原因并获得用户明确授权。11 份原始 PRD 包括 `glossary.md`、`overview.md`、`ui-design-system.md` 和 `00-product/modules/` 下的 8 份模块文档，必须保持字节不变，不得因当前实现或后续需求而修订。
 
-实现文档以对应版本代码、迁移和运行配置为准。v1.1.0 与 v1.1.1 开发记录已原位归档；后续 v1.1.2 的新增、变更、移除及实现结果按需写入 `docs/releases/v1.1.2/`，未变化部分引用 v1.1.1、v1.1.0 或 v1.0.0。旧版本的补充验收在当前版本按新日期补证并链接原检查点，不覆盖历史结论；归档不等于设计实现、外部验收或商店发布通过。不要新增执行日志、任务状态快照、交接文档、生成截图或原始设计素材到 `docs/`。
+实现文档以对应版本代码、迁移和运行配置为准。v1.1.0、v1.1.1 与 v1.1.2 开发记录已原位归档；后续 v1.1.3 的新增、变更、移除及实现结果按需写入 `docs/releases/v1.1.3/`，未变化部分引用历史版本。旧版本的补充验收在当前版本按新日期补证并链接原检查点，不覆盖历史结论；归档不等于设计实现、外部验收或商店发布通过。不要新增执行日志、任务状态快照、交接文档、生成截图或原始设计素材到 `docs/`。
 
-Flutter UI 变更前必须阅读 `docs/releases/v1.0.0/00-product/ui-design-system.md`，并优先复用现有组件、颜色、间距和交互模式；若 v1.1.0/v1.1.1 基线或 v1.1.2 有明确增量契约，同时读取对应版本文档。
+Flutter UI 变更前必须阅读 `docs/releases/v1.0.0/00-product/ui-design-system.md`，并优先复用现有组件、颜色、间距和交互模式；若历史基线或 v1.1.3 有明确增量契约，同时读取对应版本文档。
 
 ## 安全边界
 
@@ -179,6 +180,6 @@ Flutter UI 变更前必须阅读 `docs/releases/v1.0.0/00-product/ui-design-syst
 #### 文档与记录
 
 - 修复导致接口、配置、行为、Schema、架构、部署、运维或用户操作方式变化时，必须在同一任务中更新 `docs` 下相关文档或项目既有等价位置；不得等全部编码结束后补写。
-- 每个 BUG 必须在 Issue、任务系统、提交说明或当前版本既有业务文档中记录根因、证据、修复方式、影响范围、验证结果、Code Review 结论和未验证项，保证后续可追溯。v1.1.2 的 App 兼容补证集中合入 AI 执行版，不再新建独立兼容验证文档。
+- 每个 BUG 必须在 Issue、任务系统、提交说明或当前版本既有业务文档中记录根因、证据、修复方式、影响范围、验证结果、Code Review 结论和未验证项，保证后续可追溯。v1.1.2 的 App 兼容规则与历史补证保留在归档 AI 执行版；v1.1.3 的新证据写入当前版本受影响业务文档或统一验证记录，不复制旧版规则文档。
 - 文档影响不存在时必须记录 `N/A` 及理由，不得为了满足流程创建无业务价值的重复文档。简单 BUG 若已由 Issue、提交和回归测试完整追踪，不强制新建独立工作项目录。
 - 文档只描述实际修复后的当前行为，不得把猜测根因、未执行验证或计划中的后续改进写成已确认事实。

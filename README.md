@@ -2,11 +2,11 @@
 
 Kando 是 Card AI 的 monorepo，包含 Flutter 客户端、Cloudflare Workers API、React 管理后台、营销站点及共享包。产品主线是卡牌搜索、扫描识别、收藏与估值；v1.1 在此基础上增加 Apple 订阅、Premium 权益、服务端扫描额度、Performance 和订单/通知后台。
 
-当前产品定位、用户流程、交易市场数据口径及官网内容边界见 [Card AI 产品定位与内容边界](docs/releases/v1.1.2/00-product/card-ai-product-positioning.md)。
+当前产品定位基线、用户流程、交易市场数据口径及官网内容边界见 [Card AI 产品定位与内容边界](docs/releases/v1.1.2/00-product/card-ai-product-positioning.md)。
 
-当前增量文档入口为 [v1.1.2](docs/releases/v1.1.2/README.md)；[v1.1.1](docs/releases/v1.1.1/README.md) 已于 2026-10-09 原位归档，v1.1.0 开发归档与 v1.0.0 冻结基线保持不变。文档版本切换不修改 App 版本、Git tag 或生产环境，原有待验项继续保留。
+当前增量文档入口为 [v1.1.3](docs/releases/v1.1.3/README.md)；[v1.1.2](docs/releases/v1.1.2/README.md) 已于 2026-10-26 原位归档，[v1.1.1](docs/releases/v1.1.1/README.md) 已于 2026-10-09 原位归档，v1.1.0 开发归档与 v1.0.0 冻结基线保持不变。文档版本切换不修改 App 版本、Git tag 或生产环境，原有待验项继续保留。
 
-最新 prod Admin 发布为 2026-10-14 09:12–09:15：从干净的 `main@ee3f298` 配套发布订单金额/退款汇总 API 与两个后台入口。Worker `3345b389` 承接 100% 流量，Pages `2c600e3e` 为 production/success；两个入口共 22 个静态文件与批准构建逐字节一致，9 项 HTTP 烟测通过。生产绑定、变量、缓存、Smart Placement、cron、域名和 Pages 配置保留；没有数据库迁移、Git push 或其他应用发布。真实 Admin 登录业务与原有专项验收仍待完成，详见 [v1.1.2 验证记录](docs/releases/v1.1.2/05-delivery/VERIFICATION.md)。
+最新 prod／App 收尾检查点为 2026-10-26：生产服务端与双 Admin 已于 2026-10-23 从 `main@557166b` 配套发布，App Store 已上架 1.0.6，Weekly Trial／Monthly 已完成生产动态准入；Page／Modal 保持未启用。用户确认相关实机交易链路目前无问题，Agent 未独立重放原始交易／平台记录。历史操作与证据边界见 [v1.1.2 生产收尾记录](docs/releases/v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)；v1.1.3 创建时没有新的代码或环境发布。
 
 历史生产修复来自 `main@4b31cba` 加未提交的插件 redirect 修复（dirty），不是纯提交构建。2026-10-09 16:08 发布 Worker `ac0654e0-5b71-457f-9ddf-6f478995e6d9`，16:09 回读为 100% 流量；现网代码与批准产物一致，原配置保留，用户随后反馈接口调用“可以了”。正确 Key 的候选详情逐字段对照、限频触发及真机等专项验收仍未独立完成。本轮未提交/推送或重新发布手机安装包；Flutter 源码版本仍为 `1.0.5+163`。详见 [v1.1.1 验证记录](docs/releases/v1.1.1/05-delivery/VERIFICATION.md)。
 
@@ -111,7 +111,7 @@ dart run melos run test
 
 ## 部署边界
 
-当前 prod API 与双 Admin 已于 2026-10-14 从 `main@ee3f298` 配套发布，详情及未验边界见 [v1.1.2 验证记录](docs/releases/v1.1.2/05-delivery/VERIFICATION.md)。
+当前 prod API 与双 Admin 已于 2026-10-23 从 `main@557166b` 配套发布，App 1.0.6 与后续商品准入的详情及未验边界见 [v1.1.2 生产收尾记录](docs/releases/v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。
 
 历史插件生产修复为 2026-10-09 的 `main@4b31cba` 加未提交修复：Worker `ac0654e0`。Pages 保持已有 `a17f8f12`，双 Admin 静态文件发布前后未变；正确 Key 调用由用户反馈恢复，独立专项验收边界见本页开头及 v1.1.1 历史验证记录。以下为历史回读：2026-10-08 09:27 已从 `main@61b5420` 重新发布 prod API，version `4adbd0b7-3c67-4795-8ad0-c39795dc4be6` 回读为 100% 流量；09:29 同步重新发布独立 Pages Admin，deployment `39154bee-45d6-429d-8118-dfafed526ab7`。09:36 的新请求只读烟测、两个 Admin 入口的逐文件核验及控制面回读通过。Smart Placement 与 Hyperdrive 查询缓存仍同时开启，未切换定向 Placement，也不宣称性能或缓存一致性验收通过。本轮无 migration/schema 源码增量，未执行迁移、备份/恢复或重查 PostgreSQL ledger。该历史证据见 [v1.1.1 验证记录](docs/releases/v1.1.1/05-delivery/VERIFICATION.md)；此前检查点见 [v1.1.0 发布与验证](docs/releases/v1.1.0/05-delivery/VERIFICATION.md)。
 
@@ -133,7 +133,8 @@ dart run melos run test
 - [v1.0.0 已发布冻结基线](docs/releases/v1.0.0/README.md)
 - [v1.1.0 开发归档](docs/releases/v1.1.0/README.md)
 - [v1.1.1 开发归档](docs/releases/v1.1.1/README.md)
-- [v1.1.2 当前开发文档入口](docs/releases/v1.1.2/README.md)
+- [v1.1.2 开发归档](docs/releases/v1.1.2/README.md)
+- [v1.1.3 当前开发文档入口](docs/releases/v1.1.3/README.md)
 - [App 1.0.6 订阅配置需求、商品映射与实施草案](docs/releases/v1.1.2/00-product/admin-subscription-config-prd.md)
 - [订阅展示配置与商品准入：第一阶段服务端](docs/releases/v1.1.2/03-data-api/subscription-display-config.md)
 - [v1.1.0 系统架构](docs/releases/v1.1.0/02-architecture/architecture.md)
