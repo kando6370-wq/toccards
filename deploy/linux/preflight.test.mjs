@@ -17,6 +17,7 @@ const environment = {
   POSTGRES_PASSWORD: "test-password", DATABASE_URL: "postgres://toccards:test-password@db:5432/toccards_test",
   JWT_SECRET: "independent-test-secret", OBJECT_STORAGE_PATH: "/data/scan-images",
   ALLOWED_ORIGINS: "http://192.168.50.201:8080", VECTOR_RECOGNITION_BASE_URL: "https://recognize-vec.tcgcard.fun",
+  PHASH_RECOGNITION_BASE_URL: "https://recognize.tcgcard.fun",
 };
 
 test("dev deployment rejects cloud database URLs before any process can change containers", () => {
@@ -26,21 +27,29 @@ test("dev deployment rejects cloud database URLs before any process can change c
   assert.throws(() => validateDeploymentEnvironment({ ...environment, APP_ENVIRONMENT: "production" }), /APP_ENVIRONMENT=development/);
   assert.throws(() => validateDeploymentEnvironment({ ...environment, POSTGRES_PASSWORD: "different-secret" }), /matching POSTGRES/);
   assert.throws(() => validateDeploymentEnvironment({ ...environment, VECTOR_RECOGNITION_BASE_URL: undefined }), /VECTOR_RECOGNITION_BASE_URL is required/);
+  assert.throws(() => validateDeploymentEnvironment({ ...environment, PHASH_RECOGNITION_BASE_URL: undefined }), /PHASH_RECOGNITION_BASE_URL is required/);
 });
 
 test("preflight lists missing migrations and checks the recognition contract using only read-only database commands", async (t) => {
+  let healthRequest = 0;
   const server = createServer((request, response) => {
     assert.equal(request.method, "GET");
     assert.equal(request.url, "/health");
     response.setHeader("Content-Type", "application/json");
-    response.end(JSON.stringify({ ok: true, dimensions: 512, metric: "cosine", top_k: 5 }));
+    response.end(JSON.stringify(
+      healthRequest++ === 0
+        ? { ok: true, dimensions: 512, metric: "cosine", top_k: 5 }
+        : { ok: true, dimensions: 768, metric: "euclidean", top_k: 5, index: "cards_phash" },
+    ));
   });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
   t.after(() => { server.closeAllConnections(); server.close(); });
   const commands = [];
   const result = await runPreflight(root, {
-    ...environment, VECTOR_RECOGNITION_BASE_URL: `http://127.0.0.1:${server.address().port}`,
+    ...environment,
+    VECTOR_RECOGNITION_BASE_URL: `http://127.0.0.1:${server.address().port}`,
+    PHASH_RECOGNITION_BASE_URL: `http://127.0.0.1:${server.address().port}`,
   }, (args) => {
     commands.push(args);
     return databaseCommand(args, { migrations: migrations.slice(0, -1) });
@@ -50,6 +59,7 @@ test("preflight lists missing migrations and checks the recognition contract usi
   assert.ok(commands[2].some((arg) => arg.includes("default_transaction_read_only=on")));
   assert.ok(commands[2].some((arg) => arg.includes("-h 127.0.0.1")));
   assert.ok(!commands[2].includes(environment.POSTGRES_PASSWORD));
+  assert.equal(healthRequest, 2);
 });
 
 test("preflight refuses a major-version mismatch, stopped database or schema newer than the release", async () => {

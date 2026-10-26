@@ -7,12 +7,13 @@ import 'scan_card_recognizer_contract.dart';
 import 'scan_mask_geometry.dart';
 import 'scan_model_runtime.dart';
 import 'scan_native_image_processor.dart';
+import 'scan_ocr_text_normalizer.dart';
+import 'scan_phash.dart';
+import 'scan_text_recognizer.dart';
 
 const _detectionInputSize = 640;
-const _embeddingInputSize = 384;
 const _cardWidth = 745;
 const _cardHeight = 1043;
-const _embeddingDimensions = 512;
 const _scoreThreshold = 0.35;
 const _maskThreshold = 0.5;
 const _minimumCardAreaFraction = 0.025;
@@ -20,20 +21,28 @@ const _landscapeEdgeRatioThreshold = 1.15;
 const _detectionMean = [103.53, 116.28, 123.675];
 const _detectionStd = [57.375, 57.12, 58.395];
 
-ScanCardRecognizer createScanCardRecognizer() => _NativeScanCardRecognizer();
+ScanCardRecognizer createScanCardRecognizer({
+  ScanTextRecognizer? textRecognizer,
+}) => _NativeScanCardRecognizer(
+  textRecognizer: textRecognizer ?? createScanTextRecognizer(),
+);
 
 class _NativeScanCardRecognizer implements ScanCardRecognizer {
+  _NativeScanCardRecognizer({required ScanTextRecognizer textRecognizer})
+    : _textRecognizer = textRecognizer;
+
   final ScanModelRuntime _runtime = const ScanModelRuntime();
   final ScanNativeImageProcessor _imageProcessor =
       const ScanNativeImageProcessor();
+  final ScanTextRecognizer _textRecognizer;
   Future<void> _tail = Future.value();
 
   @override
-  Future<ScanCardEmbedding> process(
+  Future<ScanCardHashes> process(
     Uint8List imageBytes, {
     bool allowCropFallback = false,
   }) {
-    final result = Completer<ScanCardEmbedding>();
+    final result = Completer<ScanCardHashes>();
     _tail = _tail.then((_) async {
       try {
         result.complete(await _process(imageBytes, allowCropFallback));
@@ -44,7 +53,7 @@ class _NativeScanCardRecognizer implements ScanCardRecognizer {
     return result.future;
   }
 
-  Future<ScanCardEmbedding> _process(
+  Future<ScanCardHashes> _process(
     Uint8List imageBytes,
     bool allowCropFallback,
   ) async {
@@ -71,7 +80,6 @@ class _NativeScanCardRecognizer implements ScanCardRecognizer {
           detected.points,
           cardWidth: _cardWidth,
           cardHeight: _cardHeight,
-          embeddingSize: _embeddingInputSize,
         );
       } on ScanImageProcessingException {
         if (!allowCropFallback) rethrow;
@@ -79,22 +87,40 @@ class _NativeScanCardRecognizer implements ScanCardRecognizer {
           imageBytes,
           cardWidth: _cardWidth,
           cardHeight: _cardHeight,
-          embeddingSize: _embeddingInputSize,
         );
         selected = null;
       }
-      final embeddingTensor = await Isolate.run(
-        () => _prepareEmbeddingTensor(rectified.embeddingRgbBytes),
-      );
       detectionTimer.stop();
 
-      final embeddingTimer = Stopwatch()..start();
-      final vector = await _runEmbedding(embeddingTensor);
-      embeddingTimer.stop();
+      final hashTimer = Stopwatch()..start();
+      final hashesFuture = Isolate.run(
+        () => hashScanCardRgb(
+          rectified.cardRgbBytes,
+          width: _cardWidth,
+          height: _cardHeight,
+        ),
+      );
+      final ocrTimer = Stopwatch()..start();
+      final ocrFuture = _recognizeTextOrNull(rectified.cardImageBytes);
+      late ({String r, String g, String b}) hashes;
+      late String? ocrText;
+      await Future.wait<void>([
+        hashesFuture.then((value) {
+          hashes = value;
+          hashTimer.stop();
+        }),
+        ocrFuture.then((value) {
+          ocrText = value;
+          ocrTimer.stop();
+        }),
+      ]);
       totalTimer.stop();
 
-      return ScanCardEmbedding(
-        vector: vector,
+      return ScanCardHashes(
+        r: hashes.r,
+        g: hashes.g,
+        b: hashes.b,
+        ocrText: ocrText,
         cardImageBytes: rectified.cardImageBytes,
         diagnostics: {
           if (selected != null) ...{
@@ -104,7 +130,8 @@ class _NativeScanCardRecognizer implements ScanCardRecognizer {
           } else
             'crop_fallback': 1.0,
           'detection_ms': detectionTimer.elapsedMilliseconds.toDouble(),
-          'embedding_ms': embeddingTimer.elapsedMilliseconds.toDouble(),
+          'hash_ms': hashTimer.elapsedMilliseconds.toDouble(),
+          'ocr_ms': ocrTimer.elapsedMilliseconds.toDouble(),
           'total_ms': totalTimer.elapsedMilliseconds.toDouble(),
         },
       );
@@ -127,31 +154,12 @@ class _NativeScanCardRecognizer implements ScanCardRecognizer {
     );
   }
 
-  Future<List<double>> _runEmbedding(Float32List tensor) async {
-    final values = await _runtime.runEmbedding(tensor);
-    if (values.length != _embeddingDimensions) {
-      throw const ScanImageProcessingException(
-        'The card embedding model returned an invalid result.',
-      );
+  Future<String?> _recognizeTextOrNull(Uint8List cardImageBytes) async {
+    try {
+      return normalizeOcrText(await _textRecognizer.recognize(cardImageBytes));
+    } on Object {
+      return null;
     }
-    var squaredNorm = 0.0;
-    final vector = List<double>.filled(_embeddingDimensions, 0);
-    for (var index = 0; index < values.length; index += 1) {
-      final value = values[index].toDouble();
-      if (!value.isFinite) {
-        throw const ScanImageProcessingException(
-          'The card embedding model returned an invalid result.',
-        );
-      }
-      vector[index] = value;
-      squaredNorm += value * value;
-    }
-    if (!squaredNorm.isFinite || squaredNorm <= 0) {
-      throw const ScanImageProcessingException(
-        'The card embedding model returned an invalid result.',
-      );
-    }
-    return vector;
   }
 }
 
@@ -254,24 +262,6 @@ _SelectedCard _extractCardGeometry(
   throw const ScanImageProcessingException(
     'Keep one card fully visible inside the frame and try again.',
   );
-}
-
-Float32List _prepareEmbeddingTensor(Uint8List rgbBytes) {
-  final planeSize = _embeddingInputSize * _embeddingInputSize;
-  if (rgbBytes.length != planeSize * 3) {
-    throw const ScanImageProcessingException(
-      'The corrected card image is invalid.',
-    );
-  }
-  final tensor = Float32List(planeSize * 3);
-  for (var index = 0; index < planeSize; index += 1) {
-    final pixelOffset = index * 3;
-    for (var channel = 0; channel < 3; channel += 1) {
-      tensor[channel * planeSize + index] =
-          rgbBytes[pixelOffset + channel] / 127.5 - 1.0;
-    }
-  }
-  return tensor;
 }
 
 double _distance(ScanImagePoint left, ScanImagePoint right) {

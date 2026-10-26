@@ -342,11 +342,11 @@ class ApiScanResultSource implements ScanResultSource {
         );
       }
       final info = await _appInfo();
-      final embedding = await _cardRecognizer.process(
+      final hashes = await _cardRecognizer.process(
         image.bytes,
         allowCropFallback: image.viewfinderCropped,
       );
-      displayImageBytes = embedding.cardImageBytes;
+      displayImageBytes = hashes.cardImageBytes;
       onDisplayImageReady?.call(displayImageBytes);
       await previousReservation;
       try {
@@ -366,7 +366,7 @@ class ApiScanResultSource implements ScanResultSource {
       }
       recognition = await _api.recognizeImage(
         session,
-        embedding: embedding,
+        hashes: hashes,
         fileName: image.fileName,
         platform: info.platform,
         appVersion: info.appVersion,

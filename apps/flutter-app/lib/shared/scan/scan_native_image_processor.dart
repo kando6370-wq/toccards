@@ -24,11 +24,11 @@ class ScanNativePreparedImage {
 class ScanNativeRectifiedCard {
   const ScanNativeRectifiedCard({
     required this.cardImageBytes,
-    required this.embeddingRgbBytes,
+    required this.cardRgbBytes,
   });
 
   final Uint8List cardImageBytes;
-  final Uint8List embeddingRgbBytes;
+  final Uint8List cardRgbBytes;
 }
 
 class ScanNativeImageProcessor {
@@ -141,7 +141,6 @@ class ScanNativeImageProcessor {
     Uint8List imageBytes, {
     required int cardWidth,
     required int cardHeight,
-    required int embeddingSize,
   }) async {
     try {
       final result = await _channel
@@ -149,10 +148,9 @@ class ScanNativeImageProcessor {
             'image': imageBytes,
             'card_width': cardWidth,
             'card_height': cardHeight,
-            'embedding_size': embeddingSize,
             'jpeg_quality': 85,
           });
-      return _readCardResult(result, embeddingSize);
+      return _readCardResult(result, cardWidth, cardHeight);
     } on PlatformException catch (error) {
       throw ScanImageProcessingException(
         error.message ?? 'The camera crop could not be prepared.',
@@ -169,7 +167,6 @@ class ScanNativeImageProcessor {
     List<ScanImagePoint> corners, {
     required int cardWidth,
     required int cardHeight,
-    required int embeddingSize,
   }) async {
     if (corners.length != 4 ||
         corners.any((point) => !point.x.isFinite || !point.y.isFinite)) {
@@ -187,11 +184,10 @@ class ScanNativeImageProcessor {
           ],
           'card_width': cardWidth,
           'card_height': cardHeight,
-          'embedding_size': embeddingSize,
           'jpeg_quality': 85,
         },
       );
-      return _readCardResult(result, embeddingSize);
+      return _readCardResult(result, cardWidth, cardHeight);
     } on PlatformException catch (error) {
       throw ScanImageProcessingException(
         error.message ?? 'The card image could not be corrected.',
@@ -205,20 +201,21 @@ class ScanNativeImageProcessor {
 
   static ScanNativeRectifiedCard _readCardResult(
     Map<Object?, Object?>? result,
-    int embeddingSize,
+    int cardWidth,
+    int cardHeight,
   ) {
     if (result == null) throw const FormatException();
     final cardImageBytes = result['card_image_bytes'];
-    final embeddingRgbBytes = result['embedding_rgb_bytes'];
+    final cardRgbBytes = result['card_rgb_bytes'];
     if (cardImageBytes is! Uint8List ||
         cardImageBytes.isEmpty ||
-        embeddingRgbBytes is! Uint8List ||
-        embeddingRgbBytes.length != embeddingSize * embeddingSize * 3) {
+        cardRgbBytes is! Uint8List ||
+        cardRgbBytes.length != cardWidth * cardHeight * 3) {
       throw const FormatException();
     }
     return ScanNativeRectifiedCard(
       cardImageBytes: cardImageBytes,
-      embeddingRgbBytes: embeddingRgbBytes,
+      cardRgbBytes: cardRgbBytes,
     );
   }
 }

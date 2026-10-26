@@ -57,27 +57,6 @@ class ScanModelRuntime {
     }
   }
 
-  Future<Float32List> runEmbedding(Float32List tensor) async {
-    try {
-      final result = await _channel.invokeMethod<Object?>('runEmbedding', {
-        'tensor': tensor,
-      });
-      if (result is! Float32List || result.length != 512) {
-        throw const FormatException();
-      }
-      return result;
-    } on PlatformException catch (error) {
-      throw ScanImageProcessingException(
-        error.message ??
-            'The card embedding model could not run on this device.',
-      );
-    } on FormatException {
-      throw const ScanImageProcessingException(
-        'The native card embedding model returned an invalid result.',
-      );
-    }
-  }
-
   static List<int> _shape(List<Object?> values) {
     final shape = <int>[];
     for (final value in values) {
