@@ -150,11 +150,13 @@ PostgreSQL `0015_trial_conversion_status.sql` 按同一条件回填已经保存�
 
 ## 环境影响、回退及验证
 
-部署前按目标环境核对 PostgreSQL ledger、目录凭据与已审核商品范围。2026-10-15 dev 已回读到既有 0014，本轮仅新增两条商品映射、更新两个环境字段并重载同镜像 API，没有新增或执行 migration。2026-10-23 prod 已在可恢复手工备份 `vd1ed3rj2awl` 后原子执行并登记 `0014/0015`，三张配置表为空，`0015 UPDATE 0`；随后活动 Worker 在保持旧代码和 assets 原始字节不变的前提下，通过 version-scoped Secrets 配置生产 App `6793017224`、组 `22333203`、Team Key 和 Lifetime 范围 `CardAi.lifetime`，真实目录读取成功。Monthly／Weekly Trial 为 READY_TO_SUBMIT，Weekly／Yearly／Lifetime 为 APPROVED；同日后续又从干净的 `main@557166b` 配套发布新业务 Worker 与两个 Admin 入口，公开 Page／Modal 接口已上线。生产商品动态准入和 Page／Modal 配置仍未创建或启用，因此 iOS supported-products 为空、Page／Modal 返回 `data:null`。缺少新表时仅新模块失败，不重绑定旧 D1。回退代码保留新增表和历史权益数据；关闭生效配置或回退使用原接口的客户端，不删除账单／映射，也不让展示列表收窄恢复集合。
+部署前按目标环境核对 PostgreSQL ledger、目录凭据与已审核商品范围。2026-10-15 dev 已回读到既有 0014，本轮仅新增两条商品映射、更新两个环境字段并重载同镜像 API，没有新增或执行 migration。2026-10-23 prod 已在可恢复手工备份 `vd1ed3rj2awl` 后原子执行并登记 `0014/0015`，三张配置表为空，`0015 UPDATE 0`；随后活动 Worker 在保持旧代码和 assets 原始字节不变的前提下，通过 version-scoped Secrets 配置生产 App `6793017224`、组 `22333203`、Team Key 和 Lifetime 范围 `CardAi.lifetime`，真实目录读取成功。Monthly／Weekly Trial 当时为 READY_TO_SUBMIT，Weekly／Yearly／Lifetime 为 APPROVED；同日后续又从干净的 `main@557166b` 配套发布新业务 Worker 与两个 Admin 入口，公开 Page／Modal 接口上线。
+
+2026-10-26 最终回读：App Store 已上架 1.0.6，生产版本门禁为建议／最低 1.0.6 且强制更新；当前 scope 的长期注册表包含 `CardAi.weekly`、`CardAi.yearly`、`CardAi.lifetime`、`CardAi.weekly.trial` 和 `CardAi.monthly`。Monthly 由 super_admin 按 `production:com.cardai.tcg` 审批为 subscription／Premium，稳定 plan_id 为 `apple:CardAi.monthly`，收入事件为 `card_monthly`；运营确认存量 Weekly／Yearly 使用当前 `card_weekly`／`card_yearly` 事件名。Page／Modal 仍未创建生效指针并返回 `data:null`，App 使用本地兜底。用户确认相关实机购买、权益、通知、收入与 Restore 目前无问题，Agent 未独立重放原始交易或平台记录；用户另确认手工备份 `vd1ed3rj2awl` 已删除，未独立回读。缺少新表时仅新模块失败，不重绑定旧 D1；回退代码须保留动态注册表、billing_product 与新 SKU 的购买／恢复支持，关闭生效配置不删除账单／映射或缩小恢复集合。
 
 独立多连接检查使用 `pnpm --filter @kando/workers-api test:subscription-config:postgres`，要求显式设置 `SUBSCRIPTION_TEST_DATABASE_URL`。脚本仅接受 loopback 的空 `subscription_config_test` 数据库，拒绝其他地址、数据库名或非空库；不进入默认测试命令，也不会静默跳过。它使用两组真实 PostgresDatabase 连接和独立锁持有／观察连接，以 `pg_stat_activity` 确认实际锁等待，覆盖重复创建、并发生效、并发编辑、准入行锁及事务回滚。临时数据库和容器的创建／清理由调用方负责，不连接既有业务数据库。
 
-相关测试与实际执行结果见 [验证记录](../05-delivery/VERIFICATION.md#subscription-config-server)。测试 App 的目录权限已有真实只读补验证据；销售范围、StoreKit 可购买状态、生产目录权限／数据库、新旧包和收入平台仍需独立核验。自动化目录测试仍使用注入响应，与真实只读补验分开记录；运行时代码没有演示数据或假目录回退。
+相关测试与实际执行结果见 [验证记录](../05-delivery/VERIFICATION.md#subscription-config-server)。测试 App 的目录权限已有真实只读补验证据；生产实机交易与收入平台结果当前仅有用户反馈，未由 Agent 独立读取原始记录，完整旧包兼容矩阵仍需按实际影响核验。自动化目录测试仍使用注入响应，与真实只读补验分开记录；运行时代码没有演示数据或假目录回退。
 
 主要实现：[路由](../../../../apps/workers-api/src/subscription-config/routes.ts)、[事务存储](../../../../apps/workers-api/src/subscription-config/store.ts)、[目录](../../../../apps/workers-api/src/subscription-config/catalog.ts)、[模型校验](../../../../apps/workers-api/src/subscription-config/model.ts)。Apple 接口字段和 JWT 合同已查阅官方 App Store Connect 文档：
 

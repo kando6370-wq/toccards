@@ -15,15 +15,17 @@ App 向后兼容规则只维护以下两份；涉及 App API、共享业务数�
 
 现有源码回归只覆盖部分场景，正式旧包／真机与完整兼容验收仍未完成；文档整理不等于业务整改、V2 实现或发布验收通过。开发与文档修改完成后，只运行受影响范围验证，实际结果集中补入 AI 执行版。
 
-2026-10-21 本地修复收藏编辑重复项错误：`PATCH /api/v1/portfolio/items/:item_id` 在编辑结果与同一收藏夹内另一条完整收藏身份重复时，复用既有 `409 DUPLICATE_COLLECTION_ITEM`，并将 PostgreSQL 唯一约束并发冲突转换为同一响应；请求字段、成功响应和数据库结构不变。当前增量尚未部署，验证边界见[收藏编辑重复项修复](05-delivery/VERIFICATION.md#collection-item-edit-duplicate)。
+2026-10-21 本地修复收藏编辑重复项错误：`PATCH /api/v1/portfolio/items/:item_id` 在编辑结果与同一收藏夹内另一条完整收藏身份重复时，复用既有 `409 DUPLICATE_COLLECTION_ITEM`，并将 PostgreSQL 唯一约束并发冲突转换为同一响应；请求字段、成功响应和数据库结构不变。该修复后续已随 `main@557166b` 的生产 Worker 发布；本版本记录未独立使用真实账号重放该冲突，原本地验证边界见[收藏编辑重复项修复](05-delivery/VERIFICATION.md#collection-item-edit-duplicate)。
 
 ## App 1.0.6 订阅配置（服务端与 Admin 页面）
 
-2026-10-21 本地增量：动态准入中标记为试用商品的 SKU，其首笔 Apple 通知确认正金额续费生成 `trial_conversion`（试用转付费），后续续费仍为 `renewal`；PostgreSQL `0015_trial_conversion_status.sql` 回填同口径历史订单，不新增 schema。当前分支尚未执行远程 migration 或部署，见[服务端合同](03-data-api/subscription-display-config.md#trial-conversion-order-status)、[后台口径](04-admin/admin.md#trial-conversion-order-status)和[本地验证](05-delivery/VERIFICATION.md#trial-conversion-order-status)。
+2026-10-26 生产收尾：App Store 已上架 `1.0.6`，生产 iOS 版本门禁为建议／最低 `1.0.6` 且强制更新；动态注册表现包含 Weekly／Yearly／Lifetime／Weekly Trial／Monthly 五项商品，其中 `CardAi.monthly` 使用 `card_monthly`。Page／Modal 仍未启用并返回 `data:null`。用户确认相关购买、权益、通知、收入及 Restore 已在实机测试且目前无问题；Agent 未独立重放原始交易或平台记录。此前迁移前手工备份已由用户确认删除，未独立回读，详见[生产收尾记录](05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。
 
-2026-10-16 本地增量：新增超级管理员逐商品审批，dev/prod 与 Bundle 隔离；运行期白名单与 Flutter 长期商品集合可接收已批准 SKU，无需逐商品改代码。复用 PostgreSQL 现有表，无新 migration。当前分支尚未发布此增量，具体行为见[动态准入合同](03-data-api/subscription-display-config.md)、[后台操作](04-admin/admin.md)和[客户端注册](01-flows/subscription-display.md)，验证见[记录](05-delivery/VERIFICATION.md#subscription-dynamic-admission)。
+2026-10-21 本地增量：动态准入中标记为试用商品的 SKU，其首笔 Apple 通知确认正金额续费生成 `trial_conversion`（试用转付费），后续续费仍为 `renewal`；PostgreSQL `0015_trial_conversion_status.sql` 回填同口径历史订单，不新增 schema。该检查点当时尚未执行远程 migration 或部署，见[服务端合同](03-data-api/subscription-display-config.md#trial-conversion-order-status)、[后台口径](04-admin/admin.md#trial-conversion-order-status)和[本地验证](05-delivery/VERIFICATION.md#trial-conversion-order-status)。
 
-2026-10-19 本地增量：订阅商品卡片可独立配置隐藏价格，关联试用 SKU 的价格方式在展示名称上方编辑；新旧客户端的可见边界及本地测试结果见[价格展示验证](05-delivery/VERIFICATION.md#subscription-price-visibility)。尚未部署或做本轮真机复测。
+2026-10-16 本地增量：新增超级管理员逐商品审批，dev/prod 与 Bundle 隔离；运行期白名单与 Flutter 长期商品集合可接收已批准 SKU，无需逐商品改代码。复用 PostgreSQL 现有表，无新 migration。该检查点当时尚未发布此增量，具体行为见[动态准入合同](03-data-api/subscription-display-config.md)、[后台操作](04-admin/admin.md)和[客户端注册](01-flows/subscription-display.md)，验证见[记录](05-delivery/VERIFICATION.md#subscription-dynamic-admission)。
+
+2026-10-19 本地增量：订阅商品卡片可独立配置隐藏价格，关联试用 SKU 的价格方式在展示名称上方编辑；新旧客户端的可见边界及本地测试结果见[价格展示验证](05-delivery/VERIFICATION.md#subscription-price-visibility)。该检查点当时尚未部署或做本轮真机复测。
 
 ## Chrome 扩展
 
@@ -38,7 +40,7 @@ App 向后兼容规则只维护以下两份；涉及 App API、共享业务数�
 | [最小实施方案](00-product/admin-subscription-config-prd.md#implementation-plan) | V1 增量接口、PostgreSQL 数据对象、原子启用、幂等及开发顺序；是设计草案，不是当前架构事实 |
 | [离线 HTML 原型](../../../prototypes/admin-subscription-config-standalone.html) | 本地演示配置编辑与校验；商品、金额与保存均为离线演示，不包含 Apple 或后台真实接入 |
 
-服务端第一阶段源码与接口合同见 [订阅展示配置与商品准入](03-data-api/subscription-display-config.md)，包括目录、配置 API、PostgreSQL 迁移及幂等；Admin 页面已接入第一阶段接口，见 [后台文档](04-admin/admin.md)；Flutter 消费已有本地源码，见 [客户端流程](01-flows/subscription-display.md)，`850e339` 的目标 iOS CI 无签名 production Release 编译已通过，独立兜底定稿、真实商品、签名制品与真机仍待验；2026-10-15 dev 已有基线部署及五项商品准入，本次动态准入增量尚未部署。服务端验证见 [验证记录](05-delivery/VERIFICATION.md#subscription-config-server)，编译证据见 [iOS 原生编译补验](05-delivery/VERIFICATION.md#subscription-config-ios-compile)。
+服务端第一阶段源码与接口合同见 [订阅展示配置与商品准入](03-data-api/subscription-display-config.md)，包括目录、配置 API、PostgreSQL 迁移及幂等；Admin 页面见 [后台文档](04-admin/admin.md)，Flutter 消费见 [客户端流程](01-flows/subscription-display.md)。2026-10-23 已发布生产服务端与双 Admin，2026-10-26 App 1.0.6 已上架且 Weekly Trial／Monthly 均完成生产动态准入；用户确认实机交易链路目前无问题，Agent 独立证据范围见[生产收尾记录](05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。Page／Modal 仍未启用，App 使用本地兜底；完整旧包／真机兼容矩阵仍按兼容文档保留边界。
 
 以下为初次联调历史记录，后续 dev 发布及五项商品准入见[2026-10-15 补证](05-delivery/VERIFICATION.md#dev-subscription-product-onboarding)，本次动态准入增量仍未发布。
 

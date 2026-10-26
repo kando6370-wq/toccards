@@ -2,6 +2,17 @@
 
 本文件保留 Admin、营销站等其他业务的实际验证。App 兼容规则、源码合同证据及 Home 文件夹切换历史记录见 [AI 执行版](../03-data-api/app-backward-compatibility-ai-guide.md)；历史版本记录见 [v1.1.1](../../v1.1.1/05-delivery/VERIFICATION.md)。未运行或只有部分证据的事项不得标记为完整验收通过。
 
+<a id="prod-app-1-0-6-monthly-admission-20261026"></a>
+
+## 2026-10-26：App 1.0.6 上架、月订阅准入与实机反馈
+
+- App 上架与版本门禁：Apple lookup API 在美国、新加坡、日本、英国、澳大利亚五个 storefront 均回读到 `1.0.6`，发布时间为 2026-10-26 01:02:52Z（北京时间 09:02:52）。生产 health 返回 200／`status=ok`；最终回读的 iOS app-config 为 `recommended_version=1.0.6`、`min_supported_version=1.0.6`、`force_update=true`。公开商店结果不提供构建号；仓库对应的正式上传制品仍记录为 `1.0.6 (182)`。
+- 准入前状态：生产公开 `subscription-supported-products` 已包含 Weekly／Yearly／Lifetime／Weekly Trial，未包含 `CardAi.monthly`；Page／Modal 均为 200／`data:null`。运营确认现有 Singular 事件 `card_weekly`／`card_yearly` 按运营迁移后的名称继续使用，不按仓库早期默认名称回改。
+- 月订阅准入：经用户明确授权，仅通过 `api.tcgcard.fun` 的已登录 super_admin 会话审批 `production:com.cardai.tcg` 下的 `CardAi.monthly`。弹窗实时目录事实为自动续期订阅、Apple 状态 `APPROVED`、Premium 权益；收入事件填写 `card_monthly`，并确认 1.0.4／1.0.5 无法恢复新 SKU 的边界。未保存配置编辑器中的临时商品选择。
+- 独立回读：北京时间 09:42:59，公开注册表新增且仅新增 `apple:CardAi.monthly`／subscription／`is_trial_product=false`／`card_monthly`；原 `CardAi.weekly`、`CardAi.yearly`、`CardAi.lifetime`、`CardAi.weekly.trial` 四项及事件名未变。Admin 不再显示该商品未准入警告；Page／Modal 仍为 `data:null`，两份既有配置内容、更新时间与“不生效”状态未变。
+- 实机与外部平台边界：用户随后确认相关流程已在实机测试且目前无问题，包括版本更新、月订阅购买、Premium 权益、订单／Apple 通知、Singular／Firebase 收入和 Restore。该结论记录为用户验收反馈；Agent 未独立重放交易、读取原始交易／通知／收入平台记录或确认线上构建号，不将其扩展为 Agent 独立专项验收。
+- 备份与操作范围：用户确认 2026-10-23 创建的手工备份 `vd1ed3rj2awl` 已删除，Agent 未独立回读 PlanetScale。除上述单一商品准入外，本轮未保存／启用 Page 或 Modal、修改其他商品、执行 migration、部署代码、改 Worker／Pages／Secret／变量、提交 Apple 写操作或发起真实交易。
+
 <a id="prod-subscription-release-20261023"></a>
 
 ## 2026-10-23：prod 订阅业务代码与双 Admin 配套发布
