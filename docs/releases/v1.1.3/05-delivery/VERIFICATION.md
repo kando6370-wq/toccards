@@ -6,6 +6,17 @@
 
 当前运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下记录只代表 v1.1.3 本地增量及实际执行的验证，不改变远端运行状态。
 
+## Linux dev 重新部署（2026-10-26）
+
+- 来源与授权：用户明确要求重新部署 kd201 dev。发布源为已推送且工作区干净的 `dev@19fd9e1fe853da33205e9df7e4274e49030eab61`；该提交是 `codex/dev-1.0.7scan` 合入 dev 的 merge commit。prod 未操作。
+- 首次失败与保护边界：既有 watcher 获取目标提交并完成定向检查、Admin development 构建及 Linux API 打包，但发布预检因服务器私有 `shared/.env` 缺少新版本必需的 `PHASH_RECOGNITION_BASE_URL` 明确失败。失败发生在数据库备份、migration、容器重建和 `current` 切换之前；旧 release `branch-dev-675034ac3de6-20261022101743` 继续运行，不能把首次尝试写成部署成功。
+- 配置补齐：在 watcher 锁保护下先备份私有配置为 `.env.20261026-161724.pre-phash`，权限保持 `600`，随后只补充仓库合同规定的非敏感 origin `PHASH_RECOGNITION_BASE_URL=https://recognize.tcgcard.fun`。原 `VECTOR_RECOGNITION_BASE_URL`、旧兼容键及其他私有值未改写，密码、Secret 和完整 `.env` 未写入日志或仓库。
+- 发布结果：使用 `TOCCARDS_FORCE_DEPLOY=1` 复用现有 watcher、发布锁、预检、备份和应用回退流程。预检回读独立 `toccards_test`、PostgreSQL 18、两套识别服务可达且 `pendingMigrations=[]`；最终 release 为 `branch-dev-19fd9e1fe853-20261026162214`，manifest、`current`、`shared/current-release`、`last-seen-sha` 和 `last-deployed-sha` 均与目标提交一致，失败标记已清除。后续 cron 回读为同一 SHA 且 `No new commit`。
+- 数据与备份：发布前 custom-format 备份 `toccards-test-20261026-162217-before-branch-dev-19fd9e1fe853-20261026162214.dump` 为 1,136,064,025 字节；独立 `pg_restore --list` 退出 0 并输出 351 行，未执行恢复演练。migrate 容器 exited/0；ledger 保持 16 项，最新为 `0015_trial_conversion_status.sql`，本轮没有新增或执行 migration。
+- 运行产物与容器：DB、API 均为 running/healthy，Web running，三者重启计数均为 0。release 与运行容器的 API `server.mjs` SHA-256 同为 `1dd2f32060f49f38a7b255af100c7a425609239003264bdcc96f1dce97e9cdb8`；Admin `index.html` SHA-256 同为 `6dcb9513f6a21f0abe77f689000bbaabd78d32ce1be67037cd72ef2459ef0f14`。
+- HTTP 与识别健康：服务器本机及开发机分别回读 `http://192.168.50.201:8080/api/v1/health` 为 200／`status=ok`，Admin 首页为 200 且包含 `Kando Admin` 标题，未登录 `auth/me` 为 401。API 容器只读回查向量 health 为 512／cosine／Top 5，pHash health 为 768／euclidean／Top 5／`cards_phash`，两者均返回 200；最近十分钟 API 日志未匹配 error、fatal、uncaught 或 unhandled。
+- 验收边界：本轮未使用真实账号登录 Admin，未发送真实或合成识别请求，未验证扫描写库、额度、OCR 命中率、真实图片准确率、旧 App 安装包、iOS／Android 真机、外部回调或数据库恢复；没有执行 Git 业务代码修改、prod 部署、商店发布或生产数据操作。health、产物哈希和容器状态不等于上述业务闭环已经验收。
+
 ## 扫描记录 OCR 文本展示（2026-10-26）
 
 基线为 `codex/dev-1.0.7scan@8f4763a4567b30d0f9964bfb3b1054e4cd420b9f` 加本地未提交增量。pHash/OCR 扫描把经过请求校验的文本写入既有 `scan_record.system_result.ocr_text`：有文本保存字符串，OCR 成功但无文本保存空字符串，OCR 缺失及旧向量请求保存 `null`。没有新增数据库字段或 migration；既有 Admin 扫描详情 API 原样解析 `system_result`，旧记录缺少该键时仍可读取。
