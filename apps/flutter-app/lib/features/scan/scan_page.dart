@@ -54,8 +54,11 @@ const _viewfinderBaseWidth = 280.0;
 const _viewfinderBaseHeight = 400.0;
 const _viewfinderHorizontalMargin = 24.0;
 const _viewfinderControlGap = 16.0;
+const _scanTopNavigationGap = 24.0;
+const _scanTopBarHeight = 42.0;
 // Reserve the full Free chrome so unlocking Premium never moves the frame.
-const _viewfinderTopChromeHeight = 10 + 32 + 2 + 34 + 6 + 48;
+const _viewfinderTopChromeHeight =
+    _scanTopNavigationGap + _scanTopBarHeight + 6 + 48;
 const _scanResultsBottom = 126.0;
 const _scanResultsHeaderHeight = 16.0;
 const _scanResultsGap = 8.0;
@@ -2391,7 +2394,8 @@ class _ScanCameraView extends StatelessWidget {
     final padding = MediaQuery.paddingOf(context);
     final geometry = _scanViewfinderGeometry(viewport, padding);
     final safeTop = padding.top;
-    final topInset = safeTop + 10;
+    final topNavigationHeight =
+        safeTop + _scanTopNavigationGap + _scanTopBarHeight;
     return Stack(
       children: [
         if (cameraPreview != null)
@@ -2428,13 +2432,52 @@ class _ScanCameraView extends StatelessWidget {
           ),
         ],
         Positioned(
+          key: const Key('scan-figma-top-controls'),
           top: 0,
           left: 0,
           right: 0,
-          height: safeTop,
-          child: const ColoredBox(
-            key: Key('scan-figma-top-safe-band'),
-            color: Color(0xFF10100B),
+          height: topNavigationHeight,
+          child: ClipRect(
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              child: DecoratedBox(
+                key: const Key('scan-figma-top-navigation-surface'),
+                decoration: const BoxDecoration(
+                  color: Color(0x6610100B),
+                  border: Border(
+                    bottom: BorderSide(color: Color(0x1FFFFFFF), width: 0.5),
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: safeTop,
+                      child: const ColoredBox(
+                        key: Key('scan-figma-top-safe-band'),
+                        color: Color(0xFF10100B),
+                      ),
+                    ),
+                    Positioned(
+                      top: safeTop + _scanTopNavigationGap,
+                      left: 16,
+                      right: 16,
+                      height: _scanTopBarHeight,
+                      child: _ScanTopBar(
+                        onClosePressed: onClosePressed,
+                        onFlashPressed: onFlashPressed,
+                        flashEnabled: flashEnabled,
+                        onSearchPressed: onSearchPressed,
+                        selectedCardType: selectedCardType,
+                        onCardTypeChanged: onCardTypeChanged,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
         Positioned.fromRect(
@@ -2500,40 +2543,18 @@ class _ScanCameraView extends StatelessWidget {
             ),
           ),
         ),
-        Positioned(
-          key: const Key('scan-figma-top-controls'),
-          top: topInset,
-          left: 8,
-          right: 8,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _ScanTopBar(
-                onClosePressed: onClosePressed,
-                onFlashPressed: onFlashPressed,
-                flashEnabled: flashEnabled,
-                onSearchPressed: onSearchPressed,
+        if (remainingScans != null)
+          Positioned(
+            top: topNavigationHeight + 6,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: _ScanQuotaPill(
+                remainingScans: remainingScans!,
+                onPressed: onUpgradePressed,
               ),
-              const SizedBox(height: 2),
-              SizedBox(
-                height: 34,
-                child: Center(
-                  child: _ScanCardTypeSelector(
-                    selected: selectedCardType,
-                    onChanged: onCardTypeChanged,
-                  ),
-                ),
-              ),
-              if (remainingScans != null) ...[
-                const SizedBox(height: 6),
-                _ScanQuotaPill(
-                  remainingScans: remainingScans!,
-                  onPressed: onUpgradePressed,
-                ),
-              ],
-            ],
+            ),
           ),
-        ),
       ],
     );
   }
@@ -2545,91 +2566,133 @@ class _ScanTopBar extends StatelessWidget {
     required this.onFlashPressed,
     required this.flashEnabled,
     required this.onSearchPressed,
+    required this.selectedCardType,
+    required this.onCardTypeChanged,
   });
 
   final VoidCallback onClosePressed;
   final VoidCallback? onFlashPressed;
   final bool flashEnabled;
   final VoidCallback onSearchPressed;
+  final ScanCardType selectedCardType;
+  final ValueChanged<ScanCardType> onCardTypeChanged;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       key: const Key('scan-figma-top-bar'),
-      height: 32,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: IconButton(
-              key: const Key('scan-figma-close-button'),
-              tooltip: 'Close Scan',
-              onPressed: onClosePressed,
-              constraints: const BoxConstraints.tightFor(width: 30, height: 30),
-              padding: EdgeInsets.zero,
-              style: IconButton.styleFrom(
-                minimumSize: const Size(30, 30),
-                maximumSize: const Size(30, 30),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      height: _scanTopBarHeight,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final selectorWidth = math.min(
+            204.0,
+            math.max(144.0, constraints.maxWidth - 134),
+          );
+          return Stack(
+            alignment: Alignment.center,
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: IconButton(
+                  key: const Key('scan-figma-close-button'),
+                  tooltip: 'Close Scan',
+                  onPressed: onClosePressed,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 42,
+                    height: 42,
+                  ),
+                  padding: EdgeInsets.zero,
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size(42, 42),
+                    maximumSize: const Size(42, 42),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    backgroundColor: const Color(
+                      0xFF222222,
+                    ).withValues(alpha: 0.82),
+                  ),
+                  icon: SvgPicture.asset(
+                    'assets/scan/close.svg',
+                    key: const Key('scan-figma-close-icon'),
+                    width: 14,
+                    height: 14,
+                  ),
+                ),
               ),
-              icon: SvgPicture.asset(
-                'assets/scan/close.svg',
-                key: const Key('scan-figma-close-icon'),
-                width: 14,
-                height: 14,
+              SizedBox(
+                width: selectorWidth,
+                child: _ScanCardTypeSelector(
+                  selected: selectedCardType,
+                  onChanged: onCardTypeChanged,
+                ),
               ),
-            ),
-          ),
-          IconButton(
-            key: const Key('scan-figma-flash-button'),
-            tooltip: flashEnabled ? 'Turn flash off' : 'Turn flash on',
-            onPressed: onFlashPressed,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 25, height: 25),
-            style: IconButton.styleFrom(
-              minimumSize: const Size(25, 25),
-              maximumSize: const Size(25, 25),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              backgroundColor: flashEnabled
-                  ? const Color(0xFFF0FE6F)
-                  : const Color(0xFF222222).withValues(alpha: 0.82),
-              disabledBackgroundColor: const Color(
-                0xFF222222,
-              ).withValues(alpha: 0.82),
-            ),
-            icon: SvgPicture.asset(
-              'assets/scan/flash.svg',
-              key: const Key('scan-figma-flash-icon'),
-              width: 9,
-              height: 15,
-              colorFilter: flashEnabled
-                  ? const ColorFilter.mode(Color(0xFF10100B), BlendMode.srcIn)
-                  : null,
-            ),
-          ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: IconButton(
-              key: const Key('scan-figma-search-button'),
-              tooltip: 'Search Cards',
-              onPressed: onSearchPressed,
-              constraints: const BoxConstraints.tightFor(width: 30, height: 30),
-              padding: EdgeInsets.zero,
-              style: IconButton.styleFrom(
-                minimumSize: const Size(30, 30),
-                maximumSize: const Size(30, 30),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              Align(
+                alignment: Alignment.centerRight,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      key: const Key('scan-figma-search-button'),
+                      tooltip: 'Search Cards',
+                      onPressed: onSearchPressed,
+                      constraints: const BoxConstraints.tightFor(
+                        width: 30,
+                        height: 42,
+                      ),
+                      padding: EdgeInsets.zero,
+                      style: IconButton.styleFrom(
+                        minimumSize: const Size(30, 42),
+                        maximumSize: const Size(30, 42),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      icon: SvgPicture.asset(
+                        'assets/scan/search.svg',
+                        key: const Key('scan-figma-search-icon'),
+                        width: 18,
+                        height: 18,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      key: const Key('scan-figma-flash-button'),
+                      tooltip: flashEnabled
+                          ? 'Turn flash off'
+                          : 'Turn flash on',
+                      onPressed: onFlashPressed,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints.tightFor(
+                        width: 42,
+                        height: 42,
+                      ),
+                      style: IconButton.styleFrom(
+                        minimumSize: const Size(42, 42),
+                        maximumSize: const Size(42, 42),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        backgroundColor: flashEnabled
+                            ? KandoColors.accent
+                            : const Color(0xFF222222).withValues(alpha: 0.82),
+                        disabledBackgroundColor: const Color(
+                          0xFF222222,
+                        ).withValues(alpha: 0.82),
+                      ),
+                      icon: SvgPicture.asset(
+                        'assets/scan/flash.svg',
+                        key: const Key('scan-figma-flash-icon'),
+                        width: 9,
+                        height: 15,
+                        colorFilter: flashEnabled
+                            ? const ColorFilter.mode(
+                                Color(0xFF10100B),
+                                BlendMode.srcIn,
+                              )
+                            : null,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              icon: SvgPicture.asset(
-                'assets/scan/search.svg',
-                key: const Key('scan-figma-search-icon'),
-                width: 18,
-                height: 18,
-              ),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -2673,12 +2736,14 @@ class _ScanCardTypeSelector extends StatelessWidget {
           ),
       ],
       child: Container(
-        height: 32,
-        padding: const EdgeInsets.symmetric(horizontal: 17),
+        key: const Key('scan-card-type-selector-surface'),
+        width: double.infinity,
+        height: _scanTopBarHeight,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         decoration: BoxDecoration(
           color: const Color(0xFF222222).withValues(alpha: 0.92),
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: const Color(0x1A394E2C)),
+          border: Border.all(color: KandoColors.borderSubtle),
           boxShadow: const [
             BoxShadow(
               color: Color(0x33000000),
@@ -2687,24 +2752,30 @@ class _ScanCardTypeSelector extends StatelessWidget {
             ),
           ],
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              selected.label,
-              style: const TextStyle(
-                color: KandoColors.accent,
-                fontSize: 14,
-                height: 24 / 14,
-              ),
+        child: Center(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  selected.label,
+                  style: const TextStyle(
+                    color: KandoColors.accent,
+                    fontSize: 14,
+                    height: 20 / 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  size: 18,
+                  color: KandoColors.accent,
+                ),
+              ],
             ),
-            const SizedBox(width: 4),
-            const Icon(
-              Icons.keyboard_arrow_down_rounded,
-              size: 18,
-              color: KandoColors.accent,
-            ),
-          ],
+          ),
         ),
       ),
     );
