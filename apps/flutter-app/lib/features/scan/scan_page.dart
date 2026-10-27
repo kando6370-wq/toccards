@@ -54,7 +54,7 @@ const _viewfinderBaseWidth = 254.0;
 const _viewfinderBaseHeight = 363.0;
 const _viewfinderHorizontalMargin = 24.0;
 const _viewfinderControlGap = 29.0;
-const _scanTopNavigationGap = 36.0;
+const _scanTopNavigationGap = 16.0;
 const _scanTopBarHeight = 42.0;
 const _viewfinderTopChromeHeight = _scanTopNavigationGap + _scanTopBarHeight;
 const _scanResultsBottom = 134.0;
@@ -2433,46 +2433,22 @@ class _ScanCameraView extends StatelessWidget {
           left: 0,
           right: 0,
           height: topNavigationHeight,
-          child: ClipRect(
-            child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-              child: DecoratedBox(
-                key: const Key('scan-figma-top-navigation-surface'),
-                decoration: const BoxDecoration(
-                  color: Color(0x6610100B),
-                  border: Border(
-                    bottom: BorderSide(color: Color(0x1FFFFFFF), width: 0.5),
-                  ),
-                ),
-                child: Stack(
-                  children: [
-                    Positioned(
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      height: safeTop,
-                      child: const ColoredBox(
-                        key: Key('scan-figma-top-safe-band'),
-                        color: Color(0xFF10100B),
-                      ),
-                    ),
-                    Positioned(
-                      top: safeTop + _scanTopNavigationGap,
-                      left: 16,
-                      right: 16,
-                      height: _scanTopBarHeight,
-                      child: _ScanTopBar(
-                        onClosePressed: onClosePressed,
-                        onFlashPressed: onFlashPressed,
-                        flashEnabled: flashEnabled,
-                        selectedCardType: selectedCardType,
-                        onCardTypeChanged: onCardTypeChanged,
-                      ),
-                    ),
-                  ],
+          child: Stack(
+            children: [
+              Positioned(
+                top: safeTop + _scanTopNavigationGap,
+                left: 16,
+                right: 16,
+                height: _scanTopBarHeight,
+                child: _ScanTopBar(
+                  onClosePressed: onClosePressed,
+                  onFlashPressed: onFlashPressed,
+                  flashEnabled: flashEnabled,
+                  selectedCardType: selectedCardType,
+                  onCardTypeChanged: onCardTypeChanged,
                 ),
               ),
-            ),
+            ],
           ),
         ),
         Positioned.fromRect(
@@ -2825,8 +2801,25 @@ class _ScanQuotaPill extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(width: 4),
-                              const Text(
-                                'Tap to get unlimited scans',
+                              const Text.rich(
+                                TextSpan(
+                                  children: [
+                                    TextSpan(
+                                      text: 'Tap to',
+                                      style: TextStyle(
+                                        color: KandoColors.accent,
+                                        decoration: TextDecoration.underline,
+                                        decorationColor: KandoColors.accent,
+                                      ),
+                                    ),
+                                    TextSpan(
+                                      text: ' get unlimited scans',
+                                      style: TextStyle(
+                                        color: Color(0xFFE4E3D3),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                                 maxLines: 1,
                                 style: TextStyle(
                                   color: Color(0xFFE4E3D3),
@@ -2834,8 +2827,6 @@ class _ScanQuotaPill extends StatelessWidget {
                                   fontWeight: FontWeight.w400,
                                   height: 16 / 13,
                                   letterSpacing: 0,
-                                  decoration: TextDecoration.underline,
-                                  decorationColor: Color(0xFFE4E3D3),
                                 ),
                               ),
                             ],
@@ -3406,16 +3397,6 @@ class _ViewfinderPainter extends CustomPainter {
       );
     }
 
-    final borderPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..shader = const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Colors.white, Color(0xFF9C9C58)],
-      ).createShader(frameRect);
-    canvas.drawRRect(frame, borderPaint);
-
     canvas.save();
     canvas.clipRRect(frame);
     canvas.drawRRect(
@@ -3430,6 +3411,45 @@ class _ViewfinderPainter extends CustomPainter {
         ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 3.63),
     );
     canvas.restore();
+
+    const cornerLength = 36.0;
+    const cornerRadius = 11.0;
+    const cornerStrokeWidth = 4.0;
+    const cornerInset = cornerStrokeWidth / 2;
+    final left = cornerInset;
+    final top = cornerInset;
+    final right = size.width - cornerInset;
+    final bottom = size.height - cornerInset;
+    final cornerPath = Path()
+      ..moveTo(left, top + cornerLength)
+      ..lineTo(left, top + cornerRadius)
+      ..quadraticBezierTo(left, top, left + cornerRadius, top)
+      ..lineTo(left + cornerLength, top)
+      ..moveTo(right - cornerLength, top)
+      ..lineTo(right - cornerRadius, top)
+      ..quadraticBezierTo(right, top, right, top + cornerRadius)
+      ..lineTo(right, top + cornerLength)
+      ..moveTo(left, bottom - cornerLength)
+      ..lineTo(left, bottom - cornerRadius)
+      ..quadraticBezierTo(left, bottom, left + cornerRadius, bottom)
+      ..lineTo(left + cornerLength, bottom)
+      ..moveTo(right - cornerLength, bottom)
+      ..lineTo(right - cornerRadius, bottom)
+      ..quadraticBezierTo(
+        right,
+        bottom,
+        right,
+        bottom - cornerRadius,
+      )
+      ..lineTo(right, bottom - cornerLength);
+    canvas.drawPath(
+      cornerPath,
+      Paint()
+        ..color = KandoColors.accent
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = cornerStrokeWidth
+        ..strokeCap = StrokeCap.square,
+    );
   }
 
   @override

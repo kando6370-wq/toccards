@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
@@ -1105,10 +1106,10 @@ void main() {
       );
       final shutter = tester.getRect(find.byTooltip('Take Photo'));
 
-      expect(viewfinder.left, closeTo(112.28, 0.01));
-      expect(viewfinder.top, closeTo(127, 0.01));
-      expect(viewfinder.width, closeTo(150.44, 0.01));
-      expect(viewfinder.height, closeTo(215, 0.01));
+      expect(viewfinder.left, closeTo(105.28, 0.01));
+      expect(viewfinder.top, closeTo(107, 0.01));
+      expect(viewfinder.width, closeTo(164.44, 0.01));
+      expect(viewfinder.height, closeTo(235, 0.01));
       expect(viewfinder.width / viewfinder.height, closeTo(254 / 363, 0.0001));
       expect(viewfinder.bottom, lessThanOrEqualTo(quota.top - 29));
       expect(viewfinder.bottom, lessThanOrEqualTo(shutter.top - 29));
@@ -1149,10 +1150,10 @@ void main() {
       );
       final shutter = tester.getRect(find.byTooltip('Take Photo'));
 
-      expect(viewfinder.left, closeTo(115.63, 0.01));
-      expect(viewfinder.top, closeTo(131, 0.01));
-      expect(viewfinder.width, closeTo(128.75, 0.01));
-      expect(viewfinder.height, closeTo(184, 0.01));
+      expect(viewfinder.left, closeTo(108.63, 0.01));
+      expect(viewfinder.top, closeTo(111, 0.01));
+      expect(viewfinder.width, closeTo(142.74, 0.01));
+      expect(viewfinder.height, closeTo(204, 0.01));
       expect(viewfinder.bottom, lessThanOrEqualTo(quota.top - 29));
       expect(viewfinder.bottom, lessThanOrEqualTo(shutter.top - 29));
     },
@@ -2610,9 +2611,6 @@ void main() {
       expect(find.byKey(const Key('scan-figma-gallery-icon')), findsOneWidget);
       expect(find.byKey(const Key('scan-figma-done-icon')), findsOneWidget);
 
-      final topBand = tester.getRect(
-        find.byKey(const Key('scan-figma-top-safe-band')),
-      );
       final topControls = tester.getRect(
         find.byKey(const Key('scan-figma-top-controls')),
       );
@@ -2645,10 +2643,9 @@ void main() {
       final safeTop = MediaQuery.paddingOf(
         tester.element(find.byType(ScanPage)),
       ).top;
-      expect(topBand.height, safeTop);
       expect(topControls.top, 0);
-      expect(topControls.height, closeTo(safeTop + 78, 0.01));
-      expect(topBar.top, closeTo(safeTop + 36, 0.01));
+      expect(topControls.height, closeTo(safeTop + 58, 0.01));
+      expect(topBar.top, closeTo(safeTop + 16, 0.01));
       expect(topBar.height, closeTo(42, 0.01));
       expect(closeButton.width, closeTo(42, 0.01));
       expect(closeButton.height, closeTo(42, 0.01));
@@ -2661,25 +2658,67 @@ void main() {
       expect(cardTypeSelector.center.dx, closeTo(topBar.center.dx, 0.01));
       expect(cardTypeSelector.center.dy, closeTo(topBar.center.dy, 0.01));
       expect(viewfinder, const Rect.fromLTWH(68, 154, 254, 363));
+      final viewfinderPaint = tester.widget<CustomPaint>(
+        find.descendant(
+          of: find.byKey(const Key('scan-figma-viewfinder')),
+          matching: find.byType(CustomPaint),
+        ),
+      );
+      final viewfinderAlpha = await tester.runAsync(() async {
+        final recorder = ui.PictureRecorder();
+        viewfinderPaint.painter!.paint(
+          Canvas(recorder),
+          const Size(254, 363),
+        );
+        final image = await recorder.endRecording().toImage(254, 363);
+        final pixels = await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        );
+        image.dispose();
+        int alphaAt(int x, int y) =>
+            pixels!.getUint8(((y * 254) + x) * 4 + 3);
+        return (
+          corners: [
+            alphaAt(1, 20),
+            alphaAt(20, 1),
+            alphaAt(252, 20),
+            alphaAt(233, 1),
+            alphaAt(1, 342),
+            alphaAt(20, 361),
+            alphaAt(252, 342),
+            alphaAt(233, 361),
+          ],
+          topEdge: alphaAt(127, 1),
+          leftEdge: alphaAt(1, 181),
+        );
+      });
+      expect(
+        viewfinderAlpha!.corners,
+        everyElement(greaterThan(220)),
+        reason: 'Each viewfinder corner must include both legs of its turn.',
+      );
+      expect(
+        viewfinderAlpha.topEdge,
+        lessThan(80),
+        reason: 'The top edge must remain a glow without a visible solid line.',
+      );
+      expect(
+        viewfinderAlpha.leftEdge,
+        lessThan(80),
+        reason: 'The side edge must remain a glow without a visible solid line.',
+      );
       expect(
         find.descendant(
           of: find.byKey(const Key('scan-figma-top-controls')),
           matching: find.byType(BackdropFilter),
         ),
-        findsNWidgets(2),
+        findsOneWidget,
       );
-      final topNavigationDecoration =
-          tester
-                  .widget<DecoratedBox>(
-                    find.byKey(const Key('scan-figma-top-navigation-surface')),
-                  )
-                  .decoration
-              as BoxDecoration;
-      expect(topNavigationDecoration.color, const Color(0x6610100B));
       expect(
-        (topNavigationDecoration.border! as Border).bottom,
-        const BorderSide(color: Color(0x1FFFFFFF), width: 0.5),
+        find.byKey(const Key('scan-figma-top-navigation-surface')),
+        findsNothing,
       );
+      expect(find.byKey(const Key('scan-figma-top-safe-band')), findsNothing);
       final cardTypeDecoration =
           tester.widget<Container>(cardTypeSurfaceFinder).decoration
               as BoxDecoration;
@@ -2739,7 +2778,19 @@ void main() {
         expect(text.style?.height, 16 / 13);
         expect(text.style?.letterSpacing, 0);
       }
-      expect(quotaSubtitle.style?.decoration, TextDecoration.underline);
+      expect(quotaSubtitle.style?.decoration, isNull);
+      final quotaSubtitleSpan = quotaSubtitle.textSpan! as TextSpan;
+      final quotaSubtitleChildren = quotaSubtitleSpan.children!;
+      expect(quotaSubtitleChildren, hasLength(2));
+      final quotaAction = quotaSubtitleChildren[0] as TextSpan;
+      final quotaRemainder = quotaSubtitleChildren[1] as TextSpan;
+      expect(quotaAction.text, 'Tap to');
+      expect(quotaAction.style?.color, KandoColors.accent);
+      expect(quotaAction.style?.decoration, TextDecoration.underline);
+      expect(quotaAction.style?.decorationColor, KandoColors.accent);
+      expect(quotaRemainder.text, ' get unlimited scans');
+      expect(quotaRemainder.style?.color, const Color(0xFFE4E3D3));
+      expect(quotaRemainder.style?.decoration, isNull);
       expect(
         find.descendant(
           of: quotaPillFinder,
