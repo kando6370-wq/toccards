@@ -6,6 +6,14 @@
 
 当前运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下记录只代表 v1.1.3 本地增量及实际执行的验证，不改变远端运行状态。
 
+## iOS 测试环境内部安装包 1.0.6 (186)（2026-10-27）
+
+- 构建输入：从构建前干净且与实时同名远端一致的 `codex/dev-1.0.7scan@83836efd003723d4715bc66d4e9a43f7a418adf0` 原样重打；该提交只归档 185 的版本号和验证记录，185 后没有业务源码或依赖变化。本分支不是 `origin/dev` 最新状态，本包只代表当前 `codex/dev-1.0.7scan`。脚本从 `1.0.6+185` 显式选择 `1.0.6 (186)`，dev health 返回 `{"status":"ok"}`；成功后仅将 `pubspec.yaml` 同步为 `1.0.6+186`。
+- 工具链与依赖：使用 Flutter 3.44.5／Dart 3.12.2／Xcode 27.1。构建前 `flutter pub get --enforce-lockfile`、脚本内依赖解析及完整 `flutter analyze` 均退出 0；根 `pubspec.lock` 与 iOS `Podfile.lock` SHA-256 保持 `612f006776860e3a61f083bf27283a73ec1c22b95dd8d318b06533d8fed46183`、`14216d83bfc80fdb98860bf1d624e528f35878242513a14ac6a41b3bf61ff685`，没有依赖锁更新。Swift Package Manager 与 ML Kit Apple Silicon iOS 26+ 模拟器提示同 185，本轮 CocoaPods、真机 Release Archive 和 IPA 导出成功，不把未来／模拟器兼容提示记为已解决。
+- 环境与签名：最终内部 IPA 为 `com.kando.kandoApp.beta`、`1.0.6 (186)`、MinimumOSVersion 16.0；测试 API `http://192.168.50.201:8080/api/v1` 存在且生产 API 不存在。`GoogleService-Info.plist` 与仓库 test 文件逐字节一致，Firebase project 为 `card-ai---test`，生产 Firebase project／app ID／storage bucket 均不存在；生产 Google OAuth audience 仍是既有 Workers 验签合同例外，本轮未做真机 Google 登录。Runner 与 42 个 Framework 共 43 个 Mach-O 均通过严格签名校验，全部为 Apple Development `kancloud cq (578WZAD3DU)`、Team `B95U3272HR`；最终 `get-task-allow=true`、App Attest=`development`、Apple Sign In=`Default`。profile UUID `b38a6512-5b51-4f36-ab2d-757de0582e7b`，有效至 2027-09-07，包含 6 台设备。
+- 符号：IPA 的 43 个唯一 Mach-O UUID 与 dSYM 的 43 个唯一 UUID 精确一致，missing／extra 均为 0；45 条 DWARF 中两组为 `cupertino_http` 与 `objective_c` 的重复 UUID 副本。逐 bundle `dwarfdump --verify` 为 44／45 通过；只有 `App.framework.dSYM` 退出 1，包含 169 次 Flutter AOT address range 错误及两条汇总。排除临时路径后，其输出与保存的 185 对应文件逐字节一致，确认不是 186 新增；UUID 覆盖完整，但仍不能写成全部 dSYM 深检通过。
+- 制品与边界：`Card AI Test.ipa` 为 42,974,357 字节，SHA-256 `87f9fcd9dd32669eee58cfdda7bb0c218eda5779cdb2eb0f03b61c7773a57aca`；`dSYMs.zip` 为 63,896,975 字节，SHA-256 `b714c900b19f67c5d034dbd0d37b3a06082cb9523db7cd042d2853d398eb0c5e`。两份 ZIP 完整性通过，保存 IPA 与构建输出逐字节一致；独立展开比对确认 IPA 的 384 个文件及 dSYM 的 134 个文件均与当前 xcarchive 一致。制品位于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.6-186/`；完整保存后最旧的 183 已移入废纸篓，当前保留 184、185、186。本次未安装真机、上传蒲公英／TestFlight／App Store Connect／Firebase，也未执行远程部署、数据库写入、Git commit 或 push；未重跑全量 Flutter 测试、扫描 Golden 或真机 OCR／pHash。
+
 ## iOS 测试环境内部安装包 1.0.6 (185)（2026-10-27）
 
 - 构建输入：构建前本地与实时远端均为干净的 `codex/dev-1.0.7scan@32afefb521177b316f7280018e0083afbe866116`，包含年试用 SKU 及重新对齐的扫描页 Figma 样式。脚本从工程 `1.0.6+184` 显式选择 `1.0.6 (185)`；dev health 返回 `{"status":"ok"}`。成功构建后只将 `pubspec.yaml` 同步为 `1.0.6+185`。
