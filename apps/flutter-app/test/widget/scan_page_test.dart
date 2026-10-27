@@ -27,6 +27,7 @@ import 'package:kando_app/features/subscription/subscription_entitlement_cache.d
 import 'package:kando_app/shared/analytics/analytics_events.dart';
 import 'package:kando_app/shared/analytics/app_analytics.dart';
 import 'package:kando_app/shared/scan/scan_api_client.dart';
+import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
 import '../support/mock_home_repository.dart';
@@ -1104,9 +1105,9 @@ void main() {
       );
       final shutter = tester.getRect(find.byTooltip('Take Photo'));
 
-      expect(viewfinder.top, closeTo(168, 0.01));
-      expect(viewfinder.width, closeTo(175.7, 0.01));
-      expect(viewfinder.height, closeTo(251, 0.01));
+      expect(viewfinder.top, closeTo(156, 0.01));
+      expect(viewfinder.width, closeTo(184.1, 0.01));
+      expect(viewfinder.height, closeTo(263, 0.01));
       expect(viewfinder.width / viewfinder.height, closeTo(0.7, 0.0001));
       expect(viewfinder.top, greaterThanOrEqualTo(quota.bottom + 16));
       expect(viewfinder.bottom, lessThanOrEqualTo(shutter.top - 16));
@@ -1147,10 +1148,10 @@ void main() {
       );
       final shutter = tester.getRect(find.byTooltip('Take Photo'));
 
-      expect(viewfinder.left, closeTo(111.4, 0.01));
-      expect(viewfinder.top, closeTo(172, 0.01));
-      expect(viewfinder.width, closeTo(137.2, 0.01));
-      expect(viewfinder.height, closeTo(196, 0.01));
+      expect(viewfinder.left, closeTo(107.2, 0.01));
+      expect(viewfinder.top, closeTo(160, 0.01));
+      expect(viewfinder.width, closeTo(145.6, 0.01));
+      expect(viewfinder.height, closeTo(208, 0.01));
       expect(viewfinder.top, greaterThanOrEqualTo(quota.bottom + 16));
       expect(viewfinder.bottom, lessThanOrEqualTo(shutter.top - 16));
     },
@@ -2624,6 +2625,12 @@ void main() {
       final searchButton = tester.getRect(
         find.byKey(const Key('scan-figma-search-button')),
       );
+      final cardTypeSelector = tester.getRect(
+        find.byKey(const Key('scan-card-type-selector')),
+      );
+      final cardTypeSurfaceFinder = find.byKey(
+        const Key('scan-card-type-selector-surface'),
+      );
       final quotaPillFinder = find.byKey(const Key('scan-free-quota-pill'));
       final quotaPill = tester.getRect(quotaPillFinder);
       final quotaBadge = tester.getRect(
@@ -2636,14 +2643,66 @@ void main() {
         tester.element(find.byType(ScanPage)),
       ).top;
       expect(topBand.height, safeTop);
-      expect(topControls.top, topBand.bottom + 10);
-      expect(topBar.height, 32);
-      expect(closeButton.size, const Size(30, 30));
-      expect(flashButton.size, const Size(25, 25));
-      expect(searchButton.size, const Size(30, 30));
+      expect(topControls.top, 0);
+      expect(topControls.height, closeTo(safeTop + 66, 0.01));
+      expect(topBar.top, closeTo(safeTop + 24, 0.01));
+      expect(topBar.height, closeTo(42, 0.01));
+      expect(closeButton.width, closeTo(42, 0.01));
+      expect(closeButton.height, closeTo(42, 0.01));
+      expect(flashButton.width, closeTo(42, 0.01));
+      expect(flashButton.height, closeTo(42, 0.01));
+      expect(searchButton.width, closeTo(30, 0.01));
+      expect(searchButton.height, closeTo(42, 0.01));
+      expect(cardTypeSelector.width, closeTo(204, 0.01));
+      expect(cardTypeSelector.height, closeTo(42, 0.01));
       expect(closeButton.center.dy, topBar.center.dy);
       expect(flashButton.center.dy, topBar.center.dy);
       expect(searchButton.center.dy, topBar.center.dy);
+      expect(cardTypeSelector.center.dx, closeTo(topBar.center.dx, 0.01));
+      expect(cardTypeSelector.center.dy, closeTo(topBar.center.dy, 0.01));
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('scan-figma-top-controls')),
+          matching: find.byType(BackdropFilter),
+        ),
+        findsOneWidget,
+      );
+      final topNavigationDecoration =
+          tester
+                  .widget<DecoratedBox>(
+                    find.byKey(const Key('scan-figma-top-navigation-surface')),
+                  )
+                  .decoration
+              as BoxDecoration;
+      expect(topNavigationDecoration.color, const Color(0x6610100B));
+      expect(
+        (topNavigationDecoration.border! as Border).bottom,
+        const BorderSide(color: Color(0x1FFFFFFF), width: 0.5),
+      );
+      final cardTypeDecoration =
+          tester.widget<Container>(cardTypeSurfaceFinder).decoration
+              as BoxDecoration;
+      expect(
+        cardTypeDecoration.color,
+        const Color(0xFF222222).withValues(alpha: 0.92),
+      );
+      expect(cardTypeDecoration.borderRadius, BorderRadius.circular(999));
+      expect(
+        cardTypeDecoration.border,
+        Border.all(color: KandoColors.borderSubtle),
+      );
+      final selectedTypeLabel = tester.widget<Text>(find.text('TCG'));
+      expect(selectedTypeLabel.style?.color, KandoColors.accent);
+      expect(selectedTypeLabel.style?.fontSize, 14);
+      expect(selectedTypeLabel.style?.fontWeight, FontWeight.w500);
+      final selectorArrow = tester.widget<Icon>(
+        find.descendant(
+          of: cardTypeSurfaceFinder,
+          matching: find.byIcon(Icons.keyboard_arrow_down_rounded),
+        ),
+      );
+      expect(selectorArrow.size, 18);
+      expect(selectorArrow.color, KandoColors.accent);
       expect(quotaPill.height, 48);
       expect(quotaPill.width, 209);
       expect(quotaBadge.size, const Size(24, 24));

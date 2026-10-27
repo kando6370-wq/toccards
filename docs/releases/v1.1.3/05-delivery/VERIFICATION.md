@@ -6,6 +6,22 @@
 
 当前运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下记录只代表 v1.1.3 本地增量及实际执行的验证，不改变远端运行状态。
 
+## 扫描卡牌类型顶部提示样式（2026-10-27）
+
+- 设计与范围：按 Figma `卡牌app` 节点 `3305:21640`／顶部控制栏 `3305:21718` 调整 Flutter 扫描页。关闭按钮、卡牌类型选择器、搜索入口和闪光灯现在位于同一条 42px 顶部控制栏；类型胶囊在 390px 基线宽 204px，使用品牌强调色文字和下拉箭头。顶部区域增加 20px 背景模糊、半透明暗面及 0.5px 底部分隔，关闭和闪光灯触控区统一为 42px。搜索入口因“只改样式、不改业务”要求保留在右侧。
+- 业务边界：继续复用原 `_selectedCardType`、`ScanCardType.tcg/sports`、PopupMenu、`onCardTypeChanged` 及相机／相册／重试调用链；没有修改 `card_type=0/1`、扫描接口、识别、额度、订阅、候选、确认入库、Analytics、路由或权限。文字缩放较大或屏幕较窄时仅对类型标签与箭头做 `scaleDown`，不改变选择值。
+- 布局兼容：顶部栏较旧布局减少 12px 垂直占用，自适应取景框按既有安全区公式获得更多空间；iPhone 8 与 compact Android 的精确布局预期同步更新，仍分别断言取景框位于额度提示下方 16px、快门上方 16px。结果栏不覆盖取景框的全部既有 iOS／Android 变体继续通过。
+- 本地验证：`flutter test --no-pub --concurrency=1 --no-track-widget-creation test/widget/scan_page_test.dart` 最终 135 项通过；四张受顶部栏影响的 390x844 Golden 已更新并原样回读通过。`flutter analyze --no-pub` 无问题，`git diff --check` 通过。早期定向测试曾依次暴露测试缺少 `KandoColors` 导入、放大字体下 `Sports Card` 溢出及两个旧坐标预期；修正后均以原测试范围重跑通过。两次默认 Windows JIT 测试因内存耗尽崩溃，改用单并发并关闭 widget creation tracking 后完成上述验证，不将 OOM 轮次记为通过。
+- 未执行：未制作 APK／IPA、未运行 iOS 原生编译或真机视觉验收，未执行 Git commit／push、dev/prod 部署、数据库或远程配置操作。本地 Golden 证明布局输出，不证明真实相机画面、设备字体或系统安全区在所有机型上已由人工验收。
+
+## iOS 测试环境内部安装包 1.0.6 (183)（2026-10-26）
+
+- 构建输入：从构建前干净且与实时远端一致的 `codex/dev-1.0.7scan@fc7073fd747c97391cab8556d02df7f99a961ed5` 构建。分支名不会自动改变 App 营销版本；脚本按 `pubspec.yaml` 的 `1.0.6+182` 选择 `1.0.6 (183)`，完整保存后仅将工程版本同步为 `1.0.6+183`。dev health 在构建前返回 `{"status":"ok"}`。
+- 环境与构建：最终内部 IPA 为 `com.kando.kandoApp.beta`，只包含测试 API `http://192.168.50.201:8080/api/v1` 与 Firebase `card-ai---test`，生产 API／Firebase 字符串不存在。Flutter 3.44.5／Dart 3.12.2／Xcode 27.1 下，发布脚本完成配置校验、锁定依赖解析、`flutter analyze`、`flutter clean`、test flavor Release Archive、App Store 基础 IPA 与内部 IPA 校验；analyze 无问题。根 `pubspec.lock` 与 iOS `Podfile.lock` 的 SHA-256 保持 `612f006776860e3a61f083bf27283a73ec1c22b95dd8d318b06533d8fed46183`、`14216d83bfc80fdb98860bf1d624e528f35878242513a14ac6a41b3bf61ff685`，没有依赖锁漂移。构建仅提示 `google_mlkit_commons`、`google_mlkit_text_recognition`、`sign_in_with_apple` 尚不支持 iOS Swift Package Manager；本轮 CocoaPods 安装和 Xcode 构建成功，未把未来兼容提示写成已解决。
+- 签名与符号：IPA 的 Runner 与 42 个 Framework 共 43 个组件逐个严格签名校验通过，均为 `Apple Development: kancloud cq (578WZAD3DU)`；最终 `get-task-allow=true`、App Attest=`development`、Apple Sign In=`Default`。profile UUID 为 `b38a6512-5b51-4f36-ab2d-757de0582e7b`，有效至 2027-09-07，包含 6 台设备。IPA 的 43 个唯一 arm64 Mach-O UUID 与 dSYM 的 43 个唯一 UUID 精确一致，缺失／额外均为 0；45 个 DWARF 条目中两个是同 UUID 副本，不影响覆盖。
+- 测试：首次运行扫描相关单元／组件完整集合时，179 项通过、5 个 390x844 Golden 像素比较失败；失败项均为 macOS 与现有图像基线差异，未修改或重录 Golden。明确排除这 5 个 Golden 后，以相同测试文件和 test 配置重跑其余 179/179 项通过。该结果不能写成完整集合全通过，真机 OCR／pHash 与真实识别服务仍未验收。
+- 制品与边界：`Card AI Test.ipa` 为 42,972,634 字节，SHA-256 `056f20185ba55731e9f48bc937243114c83fae691cebd8336b48f67294dde156`；`dSYMs.zip` 为 63,896,903 字节，SHA-256 `c0e988e6bccf8d4ede7ca01f42aebf3b8798bfa6f26611db687cb6e0ef2127f2`，两份 ZIP 完整性通过。制品保存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.6-183/`；完整保存后才将 179 移入废纸篓，当前保留 180、181、183。本次未安装真机、上传蒲公英／TestFlight／App Store Connect／Firebase，也未执行远程部署、数据库写入、Git commit 或 push。
+
 ## Linux dev 重新部署（2026-10-26）
 
 - 来源与授权：用户明确要求重新部署 kd201 dev。发布源为已推送且工作区干净的 `dev@19fd9e1fe853da33205e9df7e4274e49030eab61`；该提交是 `codex/dev-1.0.7scan` 合入 dev 的 merge commit。prod 未操作。
