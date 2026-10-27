@@ -49,26 +49,28 @@ class _ScanReviewLoadException implements Exception {
   const _ScanReviewLoadException();
 }
 
-const _viewfinderBaseTop = 213.0;
-const _viewfinderBaseWidth = 280.0;
-const _viewfinderBaseHeight = 400.0;
+const _viewfinderBaseTop = 154.0;
+const _viewfinderBaseWidth = 254.0;
+const _viewfinderBaseHeight = 363.0;
 const _viewfinderHorizontalMargin = 24.0;
-const _viewfinderControlGap = 16.0;
-const _scanTopNavigationGap = 24.0;
+const _viewfinderControlGap = 29.0;
+const _scanTopNavigationGap = 36.0;
 const _scanTopBarHeight = 42.0;
-// Reserve the full Free chrome so unlocking Premium never moves the frame.
-const _viewfinderTopChromeHeight =
-    _scanTopNavigationGap + _scanTopBarHeight + 6 + 48;
-const _scanResultsBottom = 126.0;
+const _viewfinderTopChromeHeight = _scanTopNavigationGap + _scanTopBarHeight;
+const _scanResultsBottom = 134.0;
 const _scanResultsHeaderHeight = 16.0;
-const _scanResultsGap = 8.0;
-const _scanResultsRailHeight = 82.0;
-// Reserve results before capture so arriving cards never move or cover the frame.
-const _viewfinderBottomChromeHeight =
-    _scanResultsBottom +
+const _scanHeaderQuotaGap = 9.0;
+const _scanQuotaHeight = 42.0;
+const _scanQuotaResultsGap = 3.0;
+const _scanResultsRailHeight = 92.0;
+const _scanLowerStatusHeight =
     _scanResultsHeaderHeight +
-    _scanResultsGap +
+    _scanHeaderQuotaGap +
+    _scanQuotaHeight +
+    _scanQuotaResultsGap +
     _scanResultsRailHeight;
+const _viewfinderBottomChromeHeight =
+    _scanResultsBottom + _scanLowerStatusHeight;
 
 class _ScanViewfinderGeometry {
   const _ScanViewfinderGeometry(this.rect);
@@ -106,10 +108,7 @@ _ScanViewfinderGeometry _scanViewfinderGeometry(
         viewport.height,
       );
   final bottomLimit =
-      (viewport.height -
-              padding.bottom -
-              _viewfinderBottomChromeHeight -
-              _viewfinderControlGap)
+      (viewport.height - _viewfinderBottomChromeHeight - _viewfinderControlGap)
           .clamp(topLimit, viewport.height);
   final widthScale = (rightLimit - leftLimit) / _viewfinderBaseWidth;
   final heightScale = (bottomLimit - topLimit) / _viewfinderBaseHeight;
@@ -2272,7 +2271,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
                     onFlashPressed: _cameraSession == null
                         ? null
                         : _toggleFlash,
-                    onSearchPressed: () => context.go('/search'),
                     onCardTypeChanged: (cardType) {
                       if (mounted) setState(() => _selectedCardType = cardType);
                     },
@@ -2347,7 +2345,6 @@ class _ScanCameraView extends StatelessWidget {
     required this.remainingScans,
     required this.onClosePressed,
     required this.onFlashPressed,
-    required this.onSearchPressed,
     required this.onCardTypeChanged,
     required this.onUpgradePressed,
     required this.onPhotoPressed,
@@ -2376,7 +2373,6 @@ class _ScanCameraView extends StatelessWidget {
   final int? remainingScans;
   final VoidCallback onClosePressed;
   final VoidCallback? onFlashPressed;
-  final VoidCallback onSearchPressed;
   final ValueChanged<ScanCardType> onCardTypeChanged;
   final VoidCallback onUpgradePressed;
   final VoidCallback onPhotoPressed;
@@ -2469,7 +2465,6 @@ class _ScanCameraView extends StatelessWidget {
                         onClosePressed: onClosePressed,
                         onFlashPressed: onFlashPressed,
                         flashEnabled: flashEnabled,
-                        onSearchPressed: onSearchPressed,
                         selectedCardType: selectedCardType,
                         onCardTypeChanged: onCardTypeChanged,
                       ),
@@ -2512,27 +2507,28 @@ class _ScanCameraView extends StatelessWidget {
             ),
           ),
         ],
-        if (items.isNotEmpty)
-          Positioned(
-            left: 16,
-            right: 16,
-            bottom: _scanResultsBottom + padding.bottom,
-            child: _ScanResults(
-              items: items,
-              cards: cards,
-              currency: currency,
-              showRevealingFeedback: showRevealingFeedback,
-              onDismissRevealing: onDismissScanFeedback,
-              onReviewItem: onReviewItem,
-              onRetryItem: onRetryItem,
-              onDeleteItem: onDeleteItem,
-              onSearchPressed: onSearchItem,
-            ),
-          ),
         Positioned(
           left: 16,
           right: 16,
-          bottom: 22,
+          bottom: _scanResultsBottom,
+          child: _ScanResults(
+            items: items,
+            cards: cards,
+            currency: currency,
+            remainingScans: remainingScans,
+            showRevealingFeedback: showRevealingFeedback,
+            onUpgradePressed: onUpgradePressed,
+            onDismissRevealing: onDismissScanFeedback,
+            onReviewItem: onReviewItem,
+            onRetryItem: onRetryItem,
+            onDeleteItem: onDeleteItem,
+            onSearchPressed: onSearchItem,
+          ),
+        ),
+        Positioned(
+          left: 16,
+          right: 16,
+          bottom: math.max(0, 22 - padding.bottom),
           child: SafeArea(
             top: false,
             child: _ScanBottomControls(
@@ -2543,18 +2539,6 @@ class _ScanCameraView extends StatelessWidget {
             ),
           ),
         ),
-        if (remainingScans != null)
-          Positioned(
-            top: topNavigationHeight + 6,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: _ScanQuotaPill(
-                remainingScans: remainingScans!,
-                onPressed: onUpgradePressed,
-              ),
-            ),
-          ),
       ],
     );
   }
@@ -2565,7 +2549,6 @@ class _ScanTopBar extends StatelessWidget {
     required this.onClosePressed,
     required this.onFlashPressed,
     required this.flashEnabled,
-    required this.onSearchPressed,
     required this.selectedCardType,
     required this.onCardTypeChanged,
   });
@@ -2573,7 +2556,6 @@ class _ScanTopBar extends StatelessWidget {
   final VoidCallback onClosePressed;
   final VoidCallback? onFlashPressed;
   final bool flashEnabled;
-  final VoidCallback onSearchPressed;
   final ScanCardType selectedCardType;
   final ValueChanged<ScanCardType> onCardTypeChanged;
 
@@ -2585,8 +2567,8 @@ class _ScanTopBar extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final selectorWidth = math.min(
-            204.0,
-            math.max(144.0, constraints.maxWidth - 134),
+            209.0,
+            math.max(144.0, constraints.maxWidth - 96),
           );
           return Stack(
             alignment: Alignment.center,
@@ -2627,67 +2609,38 @@ class _ScanTopBar extends StatelessWidget {
               ),
               Align(
                 alignment: Alignment.centerRight,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      key: const Key('scan-figma-search-button'),
-                      tooltip: 'Search Cards',
-                      onPressed: onSearchPressed,
-                      constraints: const BoxConstraints.tightFor(
-                        width: 30,
-                        height: 42,
-                      ),
-                      padding: EdgeInsets.zero,
-                      style: IconButton.styleFrom(
-                        minimumSize: const Size(30, 42),
-                        maximumSize: const Size(30, 42),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      icon: SvgPicture.asset(
-                        'assets/scan/search.svg',
-                        key: const Key('scan-figma-search-icon'),
-                        width: 18,
-                        height: 18,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    IconButton(
-                      key: const Key('scan-figma-flash-button'),
-                      tooltip: flashEnabled
-                          ? 'Turn flash off'
-                          : 'Turn flash on',
-                      onPressed: onFlashPressed,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints.tightFor(
-                        width: 42,
-                        height: 42,
-                      ),
-                      style: IconButton.styleFrom(
-                        minimumSize: const Size(42, 42),
-                        maximumSize: const Size(42, 42),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        backgroundColor: flashEnabled
-                            ? KandoColors.accent
-                            : const Color(0xFF222222).withValues(alpha: 0.82),
-                        disabledBackgroundColor: const Color(
-                          0xFF222222,
-                        ).withValues(alpha: 0.82),
-                      ),
-                      icon: SvgPicture.asset(
-                        'assets/scan/flash.svg',
-                        key: const Key('scan-figma-flash-icon'),
-                        width: 9,
-                        height: 15,
-                        colorFilter: flashEnabled
-                            ? const ColorFilter.mode(
-                                Color(0xFF10100B),
-                                BlendMode.srcIn,
-                              )
-                            : null,
-                      ),
-                    ),
-                  ],
+                child: IconButton(
+                  key: const Key('scan-figma-flash-button'),
+                  tooltip: flashEnabled ? 'Turn flash off' : 'Turn flash on',
+                  onPressed: onFlashPressed,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 42,
+                    height: 42,
+                  ),
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size(42, 42),
+                    maximumSize: const Size(42, 42),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    backgroundColor: flashEnabled
+                        ? KandoColors.accent
+                        : const Color(0xFF222222).withValues(alpha: 0.82),
+                    disabledBackgroundColor: const Color(
+                      0xFF222222,
+                    ).withValues(alpha: 0.82),
+                  ),
+                  icon: SvgPicture.asset(
+                    'assets/scan/flash.svg',
+                    key: const Key('scan-figma-flash-icon'),
+                    width: 9,
+                    height: 15,
+                    colorFilter: flashEnabled
+                        ? const ColorFilter.mode(
+                            Color(0xFF10100B),
+                            BlendMode.srcIn,
+                          )
+                        : null,
+                  ),
                 ),
               ),
             ],
@@ -2735,45 +2688,44 @@ class _ScanCardTypeSelector extends StatelessWidget {
             ),
           ),
       ],
-      child: Container(
-        key: const Key('scan-card-type-selector-surface'),
-        width: double.infinity,
-        height: _scanTopBarHeight,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        decoration: BoxDecoration(
-          color: const Color(0xFF222222).withValues(alpha: 0.92),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: KandoColors.borderSubtle),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x33000000),
-              blurRadius: 15,
-              offset: Offset(0, 8),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(999),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            key: const Key('scan-card-type-selector-surface'),
+            width: double.infinity,
+            height: _scanTopBarHeight,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF222222),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: const Color(0x1A90927C)),
             ),
-          ],
-        ),
-        child: Center(
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  selected.label,
-                  style: const TextStyle(
-                    color: KandoColors.accent,
-                    fontSize: 14,
-                    height: 20 / 14,
-                    fontWeight: FontWeight.w500,
-                  ),
+            child: Center(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      selected.label,
+                      style: const TextStyle(
+                        color: KandoColors.accent,
+                        fontSize: 16,
+                        height: 24 / 16,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      size: 18,
+                      color: KandoColors.accent,
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 4),
-                const Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  size: 18,
-                  color: KandoColors.accent,
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -2790,91 +2742,110 @@ class _ScanQuotaPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
+    return SizedBox(
       key: const Key('scan-free-quota-pill'),
-      decoration: BoxDecoration(
-        color: const Color(0xFF222222),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x40000000),
-            offset: Offset(0, 23.585),
-            blurRadius: 23.585,
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onPressed,
-          child: Padding(
-            padding: const EdgeInsets.all(8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox.square(
-                  key: const Key('scan-free-quota-pro-badge'),
-                  dimension: 24,
-                  child: Stack(
-                    alignment: Alignment.center,
+      width: double.infinity,
+      height: _scanQuotaHeight,
+      child: DecoratedBox(
+        key: const Key('scan-free-quota-surface'),
+        decoration: BoxDecoration(
+          color: const Color(0xFF222222),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0x1A90927C)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x40000000),
+              offset: Offset(0, 23.585),
+              blurRadius: 47.17,
+              spreadRadius: -11.32,
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onPressed,
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final copyWidth = math.max(
+                    0.0,
+                    math.min(276.0, constraints.maxWidth - 32),
+                  );
+                  return Row(
                     children: [
-                      SvgPicture.asset(
-                        'assets/scan/pro_badge.svg',
-                        width: 24,
+                      SizedBox.square(
+                        key: const Key('scan-free-quota-pro-badge'),
+                        dimension: 24,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            SvgPicture.asset(
+                              'assets/scan/pro_badge.svg',
+                              width: 24,
+                              height: 24,
+                            ),
+                            const Text(
+                              'PRO',
+                              style: TextStyle(
+                                color: KandoColors.elevatedSurface,
+                                fontFamily: 'Fraunces',
+                                fontSize: 7,
+                                fontWeight: FontWeight.w600,
+                                height: 20 / 7,
+                                letterSpacing: 0,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        key: const Key('scan-free-quota-copy'),
+                        width: copyWidth,
                         height: 24,
-                      ),
-                      const Text(
-                        'PRO',
-                        style: TextStyle(
-                          color: KandoColors.elevatedSurface,
-                          fontFamily: 'Fraunces',
-                          fontSize: 7,
-                          fontWeight: FontWeight.w600,
-                          height: 20 / 7,
-                          letterSpacing: 0,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '$remainingScans scans remaining',
+                                maxLines: 1,
+                                style: const TextStyle(
+                                  color: Color(0xFFE4E3D3),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w400,
+                                  height: 16 / 13,
+                                  letterSpacing: 0,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Text(
+                                'Tap to get unlimited scans',
+                                maxLines: 1,
+                                style: TextStyle(
+                                  color: Color(0xFFE4E3D3),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w400,
+                                  height: 16 / 13,
+                                  letterSpacing: 0,
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: Color(0xFFE4E3D3),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                SizedBox(
-                  key: const Key('scan-free-quota-copy'),
-                  width: 161,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '$remainingScans scans remaining',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFFE4E3D3),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          height: 16 / 13,
-                          letterSpacing: 0,
-                        ),
-                      ),
-                      const Text(
-                        'Tap to get unlimited scans',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Color(0xFFE4E3D3),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          height: 16 / 13,
-                          letterSpacing: 0,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+                  );
+                },
+              ),
             ),
           ),
         ),
@@ -3000,7 +2971,10 @@ class _ScanBottomControls extends StatelessWidget {
         _ScanDoneAction(enabled: canReview, onPressed: onReviewPressed),
       ],
     );
-    return Padding(padding: EdgeInsets.zero, child: controls);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: controls,
+    );
   }
 }
 
@@ -3187,7 +3161,7 @@ class _FigmaRecognizingOverlayPainter extends CustomPainter {
       ..fillType = PathFillType.evenOdd
       ..addRect(Offset.zero & size)
       ..addRRect(
-        RRect.fromRectAndRadius(viewfinderRect, const Radius.circular(16)),
+        RRect.fromRectAndRadius(viewfinderRect, const Radius.circular(11)),
       );
     canvas.drawPath(
       dimOutsideViewfinder,
@@ -3246,7 +3220,7 @@ class _FigmaRevealingOverlayPainter extends CustomPainter {
       ..fillType = PathFillType.evenOdd
       ..addRect(Offset.zero & size)
       ..addRRect(
-        RRect.fromRectAndRadius(viewfinderRect, const Radius.circular(16)),
+        RRect.fromRectAndRadius(viewfinderRect, const Radius.circular(11)),
       );
     canvas.drawPath(
       dimOutsideViewfinder,
@@ -3272,94 +3246,103 @@ class _ScanRevealingToast extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 218,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: const Color(0xFF222222),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0x1A90927C)),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x40000000),
-                  blurRadius: 50,
-                  spreadRadius: -12,
-                  offset: Offset(0, 25),
-                ),
-              ],
-            ),
-            child: Stack(
-              children: [
-                const Positioned.fill(
-                  child: IgnorePointer(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(color: Color(0x1AF0FE6F)),
+    return Align(
+      alignment: Alignment.topLeft,
+      child: SizedBox(
+        width: 202,
+        height: 76,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: 22.64, sigmaY: 22.64),
+            child: DecoratedBox(
+              key: Key('scan-item-surface-${item.id}'),
+              decoration: BoxDecoration(
+                color: const Color(0xFF222222),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0x1A90927C)),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x40000000),
+                    blurRadius: 47.17,
+                    spreadRadius: -11.32,
+                    offset: Offset(0, 23.585),
+                  ),
+                ],
+              ),
+              child: Stack(
+                children: [
+                  const Positioned.fill(
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(color: Color(0x1AF0FE6F)),
+                      ),
                     ),
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(17),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _ScanResultThumbnail(
-                        item: item,
-                        width: 48,
-                        height: 48,
-                        imageWidth: 30,
-                        imageHeight: 40,
-                      ),
-                      const SizedBox(width: 16),
-                      SizedBox(
-                        width: 120,
-                        height: 48,
-                        child: Stack(
-                          children: [
-                            const Positioned(
-                              left: 0,
-                              top: 0,
-                              child: Text(
-                                'Scanning...',
-                                style: TextStyle(
-                                  color: Color(0xFFEEECD8),
-                                  fontSize: 16,
-                                  height: 24 / 16,
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              right: -8,
-                              top: -8,
-                              child: _ScanDeleteButton(
-                                itemId: item.id,
-                                onPressed: onClosePressed,
-                              ),
-                            ),
-                            const Positioned(
-                              left: 0,
-                              bottom: 0,
-                              child: SizedBox.square(
-                                dimension: 16,
-                                child: CircularProgressIndicator(
-                                  key: Key('scan-recognition-progress'),
-                                  strokeWidth: 2,
-                                  strokeAlign: CircularProgressIndicator
-                                      .strokeAlignInside,
-                                  color: Color(0xFFF0FE6F),
-                                ),
-                              ),
-                            ),
-                          ],
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _ScanResultThumbnail(
+                          item: item,
+                          width: 48,
+                          height: 48,
+                          imageWidth: 30,
+                          imageHeight: 40,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 15.09),
+                        Expanded(
+                          child: SizedBox(
+                            height: 60,
+                            child: Stack(
+                              children: [
+                                const Positioned(
+                                  left: 0,
+                                  top: 0,
+                                  child: Text(
+                                    'Scanning...',
+                                    style: TextStyle(
+                                      color: Color(0xFFEEECD8),
+                                      fontSize: 16,
+                                      height: 24 / 16,
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  right: -8,
+                                  top: -8,
+                                  child: _ScanDeleteButton(
+                                    itemId: item.id,
+                                    onPressed: onClosePressed,
+                                  ),
+                                ),
+                                const Positioned(
+                                  left: 0,
+                                  bottom: 0,
+                                  child: SizedBox.square(
+                                    dimension: 16,
+                                    child: CircularProgressIndicator(
+                                      key: Key('scan-recognition-progress'),
+                                      strokeWidth: 2,
+                                      strokeAlign: CircularProgressIndicator
+                                          .strokeAlignInside,
+                                      color: Color(0xFFF0FE6F),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -3394,52 +3377,59 @@ class _ViewfinderPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (focusFrameShadow) {
-      final focusFramePaint = Paint()
-        ..color = Colors.white
+    const strokeWidth = 0.91;
+    final frameRect = Rect.fromLTWH(
+      strokeWidth / 2,
+      strokeWidth / 2,
+      math.max(0, size.width - strokeWidth),
+      math.max(0, size.height - strokeWidth),
+    );
+    final frame = RRect.fromRectAndRadius(frameRect, const Radius.circular(11));
+
+    canvas.drawRRect(
+      frame,
+      Paint()
+        ..color = KandoColors.accent
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
-        ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 5.1);
+        ..strokeWidth = strokeWidth
+        ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 9.25),
+    );
+
+    if (focusFrameShadow) {
       canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(
-            0.5,
-            1.5,
-            math.max(0, size.width - 1),
-            math.max(0, size.height - 3),
-          ),
-          const Radius.circular(16),
-        ),
-        focusFramePaint,
+        frame,
+        Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeWidth
+          ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 5.1),
       );
     }
 
-    final paint = Paint()
-      ..color = const Color(0xFFF0FE6F)
-      ..strokeWidth = 4
+    final borderPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.square;
+      ..strokeWidth = strokeWidth
+      ..shader = const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Colors.white, Color(0xFF9C9C58)],
+      ).createShader(frameRect);
+    canvas.drawRRect(frame, borderPaint);
 
-    const corner = 40.0;
-    final path = Path()
-      ..moveTo(0, corner)
-      ..lineTo(0, 12)
-      ..quadraticBezierTo(0, 0, 12, 0)
-      ..lineTo(corner, 0)
-      ..moveTo(size.width - corner, 0)
-      ..lineTo(size.width - 12, 0)
-      ..quadraticBezierTo(size.width, 0, size.width, 12)
-      ..lineTo(size.width, corner)
-      ..moveTo(0, size.height - corner)
-      ..lineTo(0, size.height - 12)
-      ..quadraticBezierTo(0, size.height, 12, size.height)
-      ..lineTo(corner, size.height)
-      ..moveTo(size.width - corner, size.height)
-      ..lineTo(size.width - 12, size.height)
-      ..quadraticBezierTo(size.width, size.height, size.width, size.height - 12)
-      ..lineTo(size.width, size.height - corner);
-
-    canvas.drawPath(path, paint);
+    canvas.save();
+    canvas.clipRRect(frame);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        frameRect.deflate(strokeWidth).shift(const Offset(0, 3.63)),
+        const Radius.circular(10),
+      ),
+      Paint()
+        ..color = KandoColors.accent
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 3.63),
+    );
+    canvas.restore();
   }
 
   @override
@@ -3501,7 +3491,9 @@ class _ScanResults extends StatelessWidget {
     required this.items,
     required this.cards,
     required this.currency,
+    required this.remainingScans,
     required this.showRevealingFeedback,
+    required this.onUpgradePressed,
     required this.onDismissRevealing,
     required this.onReviewItem,
     required this.onRetryItem,
@@ -3512,7 +3504,9 @@ class _ScanResults extends StatelessWidget {
   final List<_ScanItem> items;
   final Map<String, ScanReviewCard> cards;
   final AppCurrency currency;
+  final int? remainingScans;
   final bool showRevealingFeedback;
+  final VoidCallback onUpgradePressed;
   final VoidCallback onDismissRevealing;
   final ValueChanged<int?> onReviewItem;
   final ValueChanged<_ScanItem> onRetryItem;
@@ -3529,9 +3523,6 @@ class _ScanResults extends StatelessWidget {
         .toList()
         .reversed
         .toList();
-    if (visibleItems.isEmpty) {
-      return const SizedBox.shrink();
-    }
     final completedCount = items.where((item) {
       return item.status == _ScanItemStatus.matched ||
           item.status == _ScanItemStatus.failed ||
@@ -3547,61 +3538,78 @@ class _ScanResults extends StatelessWidget {
       return sum + (_selectedReviewPrice(card, draft) ?? 0);
     });
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          height: _scanResultsHeaderHeight,
-          child: Row(
-            children: [
-              Text(
-                'Scanned: $completedCount/${items.length}',
-                style: const TextStyle(
-                  color: Color(0xFFEEECD8),
-                  fontSize: 13,
-                  height: 16 / 13,
-                ),
-              ),
-              const Spacer(),
-              if (hasValuedCards && total > 0)
-                Text(
-                  'Total: ${CurrencyFormatter(currency: currency).formatUsd(total)}',
-                  style: const TextStyle(
-                    color: Color(0xFFFFF6AF),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    height: 15 / 13,
+    return SizedBox(
+      height: _scanLowerStatusHeight,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: _scanResultsHeaderHeight,
+            child: visibleItems.isEmpty
+                ? null
+                : Row(
+                    children: [
+                      Text(
+                        'Scanned: $completedCount/${items.length}',
+                        style: const TextStyle(
+                          color: Color(0xFFEEECD8),
+                          fontSize: 13,
+                          height: 16 / 13,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (hasValuedCards && total > 0)
+                        Text(
+                          'Total: ${CurrencyFormatter(currency: currency).formatUsd(total)}',
+                          style: const TextStyle(
+                            color: Color(0xFFFFF6AF),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            height: 15 / 13,
+                          ),
+                        ),
+                    ],
                   ),
-                ),
-            ],
           ),
-        ),
-        const SizedBox(height: _scanResultsGap),
-        SizedBox(
-          height: _scanResultsRailHeight,
-          child: ListView.separated(
-            key: const Key('scan-figma-result-rail'),
-            scrollDirection: Axis.horizontal,
-            clipBehavior: Clip.none,
-            itemCount: visibleItems.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 12),
-            itemBuilder: (context, index) {
-              final item = visibleItems[index];
-              return _ScanItemCard(
-                key: Key('scan-active-item-${item.id}'),
-                item: item,
-                card: cards[item.match?.cardRef],
-                currency: currency,
-                onReview: () => onReviewItem(item.id),
-                onRetry: () => onRetryItem(item),
-                onDelete: () => onDeleteItem(item),
-                onDismissRevealing: onDismissRevealing,
-                onSearch: () => onSearchPressed(item),
-              );
-            },
+          const SizedBox(height: _scanHeaderQuotaGap),
+          SizedBox(
+            height: _scanQuotaHeight,
+            child: remainingScans == null
+                ? null
+                : _ScanQuotaPill(
+                    remainingScans: remainingScans!,
+                    onPressed: onUpgradePressed,
+                  ),
           ),
-        ),
-      ],
+          const SizedBox(height: _scanQuotaResultsGap),
+          SizedBox(
+            height: _scanResultsRailHeight,
+            child: visibleItems.isEmpty
+                ? null
+                : ListView.separated(
+                    key: const Key('scan-figma-result-rail'),
+                    scrollDirection: Axis.horizontal,
+                    clipBehavior: Clip.none,
+                    itemCount: visibleItems.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 12),
+                    itemBuilder: (context, index) {
+                      final item = visibleItems[index];
+                      return _ScanItemCard(
+                        key: Key('scan-active-item-${item.id}'),
+                        item: item,
+                        card: cards[item.match?.cardRef],
+                        currency: currency,
+                        onReview: () => onReviewItem(item.id),
+                        onRetry: () => onRetryItem(item),
+                        onDelete: () => onDeleteItem(item),
+                        onDismissRevealing: onDismissRevealing,
+                        onSearch: () => onSearchPressed(item),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -3644,11 +3652,6 @@ class _ScanItemCard extends StatelessWidget {
     final failed = item.status == _ScanItemStatus.failed;
     final waiting = item.status == _ScanItemStatus.waiting;
     final entitlementSync = item.status == _ScanItemStatus.entitlementSync;
-    final width = matched
-        ? 240.0
-        : waiting
-        ? 208.0
-        : 176.0;
     final title = matched
         ? item.match?.name ?? item.pictureLabel
         : failed
@@ -3682,153 +3685,175 @@ class _ScanItemCard extends StatelessWidget {
           : 'Search manually',
       child: InkWell(
         onTap: action,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          width: width,
-          height: 82,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: const Color(0xFF292B20),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: failed ? const Color(0x668C5260) : const Color(0x1A90927C),
-            ),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x40000000),
-                blurRadius: 50,
-                spreadRadius: -12,
-                offset: Offset(0, 25),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              _ScanResultThumbnail(item: item),
-              const SizedBox(width: 16),
-              Expanded(
-                child: waiting
-                    ? Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          const Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              'Waiting to scan',
-                              maxLines: 1,
-                              style: TextStyle(
-                                color: Color(0xFFF0FE6F),
-                                fontSize: 13,
-                                height: 16 / 13,
-                                decoration: TextDecoration.underline,
-                                decorationColor: Color(0xFFF0FE6F),
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            top: 0,
-                            right: 0,
-                            child: _ScanDeleteButton(
-                              itemId: item.id,
-                              onPressed: onDelete,
-                            ),
-                          ),
-                        ],
-                      )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: failed
-                                        ? const Color(0xFFFF8493)
-                                        : const Color(0xFFEEECD8),
-                                    fontSize: 16,
-                                    height: 24 / 16,
-                                  ),
-                                ),
-                              ),
-                              _ScanDeleteButton(
-                                itemId: item.id,
-                                onPressed: onDelete,
-                              ),
-                            ],
-                          ),
-                          if (matched)
-                            Row(
-                              children: [
-                                Flexible(
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0x33F0FE6F),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      previewDraft?.condition.toUpperCase() ??
-                                          'RAW',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: Color(0xFFF0FE6F),
-                                        fontSize: 11,
-                                        height: 16 / 11,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: FittedBox(
-                                    key: Key('scan-item-price-${item.id}'),
-                                    fit: BoxFit.scaleDown,
+        borderRadius: BorderRadius.circular(12),
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: SizedBox(
+            width: 202,
+            height: 76,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(sigmaX: 22.64, sigmaY: 22.64),
+                child: Container(
+                  key: Key('scan-item-surface-${item.id}'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF222222),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: failed
+                          ? const Color(0x668C5260)
+                          : const Color(0x1A90927C),
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x40000000),
+                        blurRadius: 47.17,
+                        spreadRadius: -11.32,
+                        offset: Offset(0, 23.585),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      _ScanResultThumbnail(item: item),
+                      const SizedBox(width: 15.09),
+                      Expanded(
+                        child: waiting
+                            ? Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  const Align(
                                     alignment: Alignment.centerLeft,
                                     child: Text(
-                                      price == null
-                                          ? '--'
-                                          : CurrencyFormatter(
-                                              currency: currency,
-                                            ).formatUsd(price),
+                                      'Waiting to scan',
                                       maxLines: 1,
                                       style: TextStyle(
-                                        color: Color(0xFFFFF6AF),
+                                        color: Color(0xFFF0FE6F),
                                         fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        height: 15 / 13,
+                                        height: 16 / 13,
+                                        decoration: TextDecoration.underline,
+                                        decorationColor: Color(0xFFF0FE6F),
                                       ),
                                     ),
                                   ),
-                                ),
-                              ],
-                            )
-                          else
-                            Text(
-                              failed
-                                  ? 'Tap to retry'
-                                  : entitlementSync
-                                  ? 'Syncing Premium'
-                                  : 'Search Manually',
-                              maxLines: 1,
-                              style: const TextStyle(
-                                color: Color(0xFFF0FE6F),
-                                fontSize: 13,
-                                height: 16 / 13,
+                                  Positioned(
+                                    top: 0,
+                                    right: 0,
+                                    child: _ScanDeleteButton(
+                                      itemId: item.id,
+                                      onPressed: onDelete,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          title,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: failed
+                                                ? const Color(0xFFFF8493)
+                                                : const Color(0xFFEEECD8),
+                                            fontSize: 16,
+                                            height: 24 / 16,
+                                          ),
+                                        ),
+                                      ),
+                                      _ScanDeleteButton(
+                                        itemId: item.id,
+                                        onPressed: onDelete,
+                                      ),
+                                    ],
+                                  ),
+                                  if (matched)
+                                    Row(
+                                      children: [
+                                        Flexible(
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0x33F0FE6F),
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              previewDraft?.condition
+                                                      .toUpperCase() ??
+                                                  'RAW',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                color: Color(0xFFF0FE6F),
+                                                fontSize: 11,
+                                                height: 16 / 11,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: FittedBox(
+                                            key: Key(
+                                              'scan-item-price-${item.id}',
+                                            ),
+                                            fit: BoxFit.scaleDown,
+                                            alignment: Alignment.centerLeft,
+                                            child: Text(
+                                              price == null
+                                                  ? '--'
+                                                  : CurrencyFormatter(
+                                                      currency: currency,
+                                                    ).formatUsd(price),
+                                              maxLines: 1,
+                                              style: TextStyle(
+                                                color: Color(0xFFFFF6AF),
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600,
+                                                height: 15 / 13,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  else
+                                    Text(
+                                      failed
+                                          ? 'Tap to retry'
+                                          : entitlementSync
+                                          ? 'Syncing Premium'
+                                          : 'Search Manually',
+                                      maxLines: 1,
+                                      style: const TextStyle(
+                                        color: Color(0xFFF0FE6F),
+                                        fontSize: 13,
+                                        height: 16 / 13,
+                                      ),
+                                    ),
+                                ],
                               ),
-                            ),
-                        ],
                       ),
+                    ],
+                  ),
+                ),
               ),
-            ],
+            ),
           ),
         ),
       ),

@@ -25,11 +25,11 @@
 
 ## 扫描卡牌类型顶部提示样式（2026-10-27）
 
-- 设计与范围：按 Figma `卡牌app` 节点 `3305:21640`／顶部控制栏 `3305:21718` 调整 Flutter 扫描页。关闭按钮、卡牌类型选择器、搜索入口和闪光灯现在位于同一条 42px 顶部控制栏；类型胶囊在 390px 基线宽 204px，使用品牌强调色文字和下拉箭头。顶部区域增加 20px 背景模糊、半透明暗面及 0.5px 底部分隔，关闭和闪光灯触控区统一为 42px。搜索入口因“只改样式、不改业务”要求保留在右侧。
-- 业务边界：继续复用原 `_selectedCardType`、`ScanCardType.tcg/sports`、PopupMenu、`onCardTypeChanged` 及相机／相册／重试调用链；没有修改 `card_type=0/1`、扫描接口、识别、额度、订阅、候选、确认入库、Analytics、路由或权限。文字缩放较大或屏幕较窄时仅对类型标签与箭头做 `scaleDown`，不改变选择值。
-- 布局兼容：顶部栏较旧布局减少 12px 垂直占用，自适应取景框按既有安全区公式获得更多空间；iPhone 8 与 compact Android 的精确布局预期同步更新，仍分别断言取景框位于额度提示下方 16px、快门上方 16px。结果栏不覆盖取景框的全部既有 iOS／Android 变体继续通过。
-- 本地验证：`flutter test --no-pub --concurrency=1 --no-track-widget-creation test/widget/scan_page_test.dart` 最终 135 项通过；四张受顶部栏影响的 390x844 Golden 已更新并原样回读通过。`flutter analyze --no-pub` 无问题，`git diff --check` 通过。早期定向测试曾依次暴露测试缺少 `KandoColors` 导入、放大字体下 `Sports Card` 溢出及两个旧坐标预期；修正后均以原测试范围重跑通过。两次默认 Windows JIT 测试因内存耗尽崩溃，改用单并发并关闭 widget creation tracking 后完成上述验证，不将 OOM 轮次记为通过。
-- 未执行：未制作 APK／IPA、未运行 iOS 原生编译或真机视觉验收，未执行 Git commit／push、dev/prod 部署、数据库或远程配置操作。本地 Golden 证明布局输出，不证明真实相机画面、设备字体或系统安全区在所有机型上已由人工验收。
+- 设计与范围：按 Figma 完整扫描页 `3305:21640` 重做 Flutter 扫描页样式，并以类型胶囊 `3305:21722`、取景框 `3305:21737`、额度提示 `3305:22294`、结果区 `3305:22304`、底部快门区 `3305:22349` 的属性为准。390×844 基线下，类型胶囊为 209×42px；取景框为 `x=68, y=154, 254×363px`、11px 圆角、0.91px 渐变边框及品牌色阴影；额度提示为 `x=16, y=573, 358×42px` 单行文案；结果轨道从 `y=618` 开始，卡片可见面板约 202×76px；底部控制区增加 8px 水平内边距。顶部仍保留 20px 背景模糊和 0.5px 底部分隔，控制项按设计只显示关闭、卡牌类型和闪光灯。
+- 业务边界：继续复用 `_selectedCardType`、`ScanCardType.tcg/sports`、PopupMenu、`onCardTypeChanged` 及既有拍照／相册／重试／额度升级／结果操作调用链；没有修改 `card_type=0/1`、扫描接口、OCR／pHash、额度计算、订阅、候选、确认入库、Analytics、权限或路由。Figma 顶部没有搜索图标，因此仅移除该视觉快捷入口；既有 `/search` 路由及 No Match 卡片的 `Search Manually` 入口保持并由原测试继续覆盖。
+- 布局兼容：扫描计数、额度提示和结果轨道使用固定 162px 下部状态槽，Free／Premium、扫描前／结果出现后均不移动取景框；底部安全区由快门区吸收，不再重复压缩取景框。iPhone 8、iPhone 12、大小屏 iOS 与 compact／small／large Android 的 Free／Premium 变体继续断言取景框、结果轨道和快门互不覆盖；取景框比例按设计精确使用 `254/363`。
+- 本地验证：更新四张受扫描页样式影响的 390×844 Golden 后，`flutter test --no-pub --concurrency=1 --no-track-widget-creation test/widget/scan_page_test.dart` 在不更新 Golden 的复跑中 135/135 通过；四张图已逐张原样回读，未重录 Review Golden。显式使用当前 Flutter SDK 运行全量 `analyze --no-pub` 返回 `No issues found`。首次默认 `flutter analyze --no-pub` 约三分钟无任何输出后被主动终止，不计为通过；随后显式入口验证成功。
+- 未执行：未制作 APK／IPA、未运行 iOS／Android 原生编译、模拟器或真机视觉验收，未执行 Git commit／push、dev/prod 部署、数据库或远程配置操作。本地 Golden 证明当前测试字体和 390×844 渲染输出，不证明真实相机画面、设备字体或所有系统安全区已由人工验收。
 
 ## iOS 测试环境内部安装包 1.0.6 (183)（2026-10-26）
 

@@ -1012,7 +1012,7 @@ void main() {
       final scanningLine = find.byKey(
         const Key('scan-figma-scanning-line-canvas'),
       );
-      expect(tester.getSize(scanningLine), const Size(280, 4));
+      expect(tester.getSize(scanningLine), const Size(254, 4));
       final start = tester.getTopLeft(scanningLine).dy;
       await tester.pump(const Duration(milliseconds: 250));
       expect(camera.takePhotoCount, 0);
@@ -1105,12 +1105,13 @@ void main() {
       );
       final shutter = tester.getRect(find.byTooltip('Take Photo'));
 
-      expect(viewfinder.top, closeTo(156, 0.01));
-      expect(viewfinder.width, closeTo(184.1, 0.01));
-      expect(viewfinder.height, closeTo(263, 0.01));
-      expect(viewfinder.width / viewfinder.height, closeTo(0.7, 0.0001));
-      expect(viewfinder.top, greaterThanOrEqualTo(quota.bottom + 16));
-      expect(viewfinder.bottom, lessThanOrEqualTo(shutter.top - 16));
+      expect(viewfinder.left, closeTo(112.28, 0.01));
+      expect(viewfinder.top, closeTo(127, 0.01));
+      expect(viewfinder.width, closeTo(150.44, 0.01));
+      expect(viewfinder.height, closeTo(215, 0.01));
+      expect(viewfinder.width / viewfinder.height, closeTo(254 / 363, 0.0001));
+      expect(viewfinder.bottom, lessThanOrEqualTo(quota.top - 29));
+      expect(viewfinder.bottom, lessThanOrEqualTo(shutter.top - 29));
 
       await tester.tap(find.byTooltip('Take Photo'));
       await tester.pump(const Duration(milliseconds: 250));
@@ -1148,12 +1149,12 @@ void main() {
       );
       final shutter = tester.getRect(find.byTooltip('Take Photo'));
 
-      expect(viewfinder.left, closeTo(107.2, 0.01));
-      expect(viewfinder.top, closeTo(160, 0.01));
-      expect(viewfinder.width, closeTo(145.6, 0.01));
-      expect(viewfinder.height, closeTo(208, 0.01));
-      expect(viewfinder.top, greaterThanOrEqualTo(quota.bottom + 16));
-      expect(viewfinder.bottom, lessThanOrEqualTo(shutter.top - 16));
+      expect(viewfinder.left, closeTo(115.63, 0.01));
+      expect(viewfinder.top, closeTo(131, 0.01));
+      expect(viewfinder.width, closeTo(128.75, 0.01));
+      expect(viewfinder.height, closeTo(184, 0.01));
+      expect(viewfinder.bottom, lessThanOrEqualTo(quota.top - 29));
+      expect(viewfinder.bottom, lessThanOrEqualTo(shutter.top - 29));
     },
   );
 
@@ -1245,12 +1246,12 @@ void main() {
             );
             expect(
               frame.bottom,
-              lessThanOrEqualTo(resultsTop.dy - 16),
+              lessThanOrEqualTo(resultsTop.dy - 29),
               reason:
                   'The next card must remain fully visible above the scan count and results.',
             );
-            expect(frame.top, greaterThanOrEqualTo(topControls.bottom + 16));
-            expect(frame.width / frame.height, closeTo(0.7, 0.0001));
+            expect(frame.top, greaterThanOrEqualTo(topControls.bottom + 29));
+            expect(frame.width / frame.height, closeTo(254 / 363, 0.0001));
             expect(
               frame,
               initialFrame,
@@ -1259,7 +1260,7 @@ void main() {
             );
             expect(
               resultRail.bottom,
-              lessThanOrEqualTo(initialShutter.top - 16),
+              lessThanOrEqualTo(initialShutter.top - 12),
             );
             expect(
               tester.getRect(find.byTooltip('Take Photo')),
@@ -1596,7 +1597,7 @@ void main() {
       expect(find.byKey(const Key('scan-figma-scanning-line')), findsNothing);
       expect(find.text('CANCEL'), findsNothing);
       expect(find.byTooltip('Close Scan'), findsOneWidget);
-      expect(find.byTooltip('Search Cards'), findsOneWidget);
+      expect(find.byTooltip('Search Cards'), findsNothing);
       expect(find.text('ALIGN CARD HERE'), findsOneWidget);
       expect(find.byTooltip('Take Photo'), findsOneWidget);
       expect(find.byTooltip('Choose from Library'), findsOneWidget);
@@ -1794,7 +1795,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 250));
     await tester.pump(const Duration(milliseconds: 245));
 
-    expect(tester.getTopLeft(find.byTooltip('Choose from Library')).dx, 28);
+    expect(tester.getTopLeft(find.byTooltip('Choose from Library')).dx, 36);
     expect(tester.getTopLeft(find.byTooltip('Choose from Library')).dy, 750);
 
       expect(
@@ -2595,13 +2596,15 @@ void main() {
   testWidgets(
     'Figma scan pre-scan uses the type selector and exported controls',
     (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
       tester.view.padding = const FakeViewPadding(top: 37);
-      addTearDown(tester.view.resetPadding);
+      addTearDown(tester.view.reset);
       await _pumpScanTestApp(tester);
 
       expect(find.byKey(const Key('scan-figma-close-icon')), findsOneWidget);
       expect(find.byKey(const Key('scan-figma-flash-icon')), findsOneWidget);
-      expect(find.byKey(const Key('scan-figma-search-icon')), findsOneWidget);
+      expect(find.byKey(const Key('scan-figma-search-icon')), findsNothing);
       expect(find.byKey(const Key('scan-card-type-selector')), findsOneWidget);
       expect(find.byKey(const Key('scan-figma-align-hint')), findsOneWidget);
       expect(find.byKey(const Key('scan-figma-gallery-icon')), findsOneWidget);
@@ -2622,9 +2625,6 @@ void main() {
       final flashButton = tester.getRect(
         find.byKey(const Key('scan-figma-flash-button')),
       );
-      final searchButton = tester.getRect(
-        find.byKey(const Key('scan-figma-search-button')),
-      );
       final cardTypeSelector = tester.getRect(
         find.byKey(const Key('scan-card-type-selector')),
       );
@@ -2639,33 +2639,34 @@ void main() {
       final quotaCopy = tester.getRect(
         find.byKey(const Key('scan-free-quota-copy')),
       );
+      final viewfinder = tester.getRect(
+        find.byKey(const Key('scan-figma-viewfinder')),
+      );
       final safeTop = MediaQuery.paddingOf(
         tester.element(find.byType(ScanPage)),
       ).top;
       expect(topBand.height, safeTop);
       expect(topControls.top, 0);
-      expect(topControls.height, closeTo(safeTop + 66, 0.01));
-      expect(topBar.top, closeTo(safeTop + 24, 0.01));
+      expect(topControls.height, closeTo(safeTop + 78, 0.01));
+      expect(topBar.top, closeTo(safeTop + 36, 0.01));
       expect(topBar.height, closeTo(42, 0.01));
       expect(closeButton.width, closeTo(42, 0.01));
       expect(closeButton.height, closeTo(42, 0.01));
       expect(flashButton.width, closeTo(42, 0.01));
       expect(flashButton.height, closeTo(42, 0.01));
-      expect(searchButton.width, closeTo(30, 0.01));
-      expect(searchButton.height, closeTo(42, 0.01));
-      expect(cardTypeSelector.width, closeTo(204, 0.01));
+      expect(cardTypeSelector.width, closeTo(209, 0.01));
       expect(cardTypeSelector.height, closeTo(42, 0.01));
       expect(closeButton.center.dy, topBar.center.dy);
       expect(flashButton.center.dy, topBar.center.dy);
-      expect(searchButton.center.dy, topBar.center.dy);
       expect(cardTypeSelector.center.dx, closeTo(topBar.center.dx, 0.01));
       expect(cardTypeSelector.center.dy, closeTo(topBar.center.dy, 0.01));
+      expect(viewfinder, const Rect.fromLTWH(68, 154, 254, 363));
       expect(
         find.descendant(
           of: find.byKey(const Key('scan-figma-top-controls')),
           matching: find.byType(BackdropFilter),
         ),
-        findsOneWidget,
+        findsNWidgets(2),
       );
       final topNavigationDecoration =
           tester
@@ -2682,19 +2683,16 @@ void main() {
       final cardTypeDecoration =
           tester.widget<Container>(cardTypeSurfaceFinder).decoration
               as BoxDecoration;
-      expect(
-        cardTypeDecoration.color,
-        const Color(0xFF222222).withValues(alpha: 0.92),
-      );
+      expect(cardTypeDecoration.color, const Color(0xFF222222));
       expect(cardTypeDecoration.borderRadius, BorderRadius.circular(999));
       expect(
         cardTypeDecoration.border,
-        Border.all(color: KandoColors.borderSubtle),
+        Border.all(color: const Color(0x1A90927C)),
       );
       final selectedTypeLabel = tester.widget<Text>(find.text('TCG'));
       expect(selectedTypeLabel.style?.color, KandoColors.accent);
-      expect(selectedTypeLabel.style?.fontSize, 14);
-      expect(selectedTypeLabel.style?.fontWeight, FontWeight.w500);
+      expect(selectedTypeLabel.style?.fontSize, 16);
+      expect(selectedTypeLabel.style?.fontWeight, FontWeight.w400);
       final selectorArrow = tester.widget<Icon>(
         find.descendant(
           of: cardTypeSurfaceFinder,
@@ -2703,25 +2701,32 @@ void main() {
       );
       expect(selectorArrow.size, 18);
       expect(selectorArrow.color, KandoColors.accent);
-      expect(quotaPill.height, 48);
-      expect(quotaPill.width, 209);
+      expect(quotaPill, const Rect.fromLTWH(16, 573, 358, 42));
       expect(quotaBadge.size, const Size(24, 24));
       expect(quotaBadge.left, quotaPill.left + 8);
       expect(quotaBadge.center.dy, quotaPill.center.dy);
       expect(quotaCopy.left, quotaBadge.right + 8);
-      expect(quotaCopy.width, 161);
-      expect(quotaCopy.height, 32);
-      expect(quotaCopy.right, quotaPill.right - 8);
+      expect(quotaCopy.width, 276);
+      expect(quotaCopy.height, 24);
       final quotaDecoration =
-          tester.widget<DecoratedBox>(quotaPillFinder).decoration
+          tester
+                  .widget<DecoratedBox>(
+                    find.byKey(const Key('scan-free-quota-surface')),
+                  )
+                  .decoration
               as BoxDecoration;
       expect(quotaDecoration.color, const Color(0xFF222222));
       expect(quotaDecoration.borderRadius, BorderRadius.circular(12));
+      expect(
+        quotaDecoration.border,
+        Border.all(color: const Color(0x1A90927C)),
+      );
       expect(quotaDecoration.boxShadow, const [
         BoxShadow(
           color: Color(0x40000000),
           offset: Offset(0, 23.585),
-          blurRadius: 23.585,
+          blurRadius: 47.17,
+          spreadRadius: -11.32,
         ),
       ]);
       final quotaTitle = tester.widget<Text>(find.text('10 scans remaining'));
@@ -2734,6 +2739,7 @@ void main() {
         expect(text.style?.height, 16 / 13);
         expect(text.style?.letterSpacing, 0);
       }
+      expect(quotaSubtitle.style?.decoration, TextDecoration.underline);
       expect(
         find.descendant(
           of: quotaPillFinder,
@@ -3915,7 +3921,11 @@ void main() {
       await tester.pumpAndSettle();
       final waitingItem = find.byKey(const Key('scan-active-item-2'));
       expect(waitingItem, findsOneWidget);
-      expect(tester.getSize(waitingItem), const Size(208, 82));
+      expect(tester.getSize(waitingItem), const Size(202, 92));
+      expect(
+        tester.getSize(find.byKey(const Key('scan-item-surface-2'))),
+        const Size(202, 76),
+      );
       final waitingLabel = find.descendant(
         of: waitingItem,
         matching: find.text('Waiting to scan'),
@@ -4739,9 +4749,17 @@ void main() {
     final secondResult = tester.getRect(
       find.byKey(const Key('scan-active-item-2')),
     );
-    expect(resultRail.height, 82);
-    expect(firstResult.height, 82);
-    expect(secondResult.height, 82);
+    expect(resultRail.height, 92);
+    expect(firstResult.height, 92);
+    expect(secondResult.height, 92);
+    expect(
+      tester.getSize(find.byKey(const Key('scan-item-surface-1'))),
+      const Size(202, 76),
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('scan-item-surface-2'))),
+      const Size(202, 76),
+    );
     expect(secondResult.left, lessThan(firstResult.left));
     expect(secondResult.top, firstResult.top);
 
@@ -4801,19 +4819,16 @@ void main() {
     expect(repository.confirmedItems.map((item) => item.quantity), [2, 3]);
   });
 
-  testWidgets('Scan camera chrome can exit and open manual Search', (
-    tester,
-  ) async {
-    await _pumpScanTestApp(tester);
-    await tester.tap(find.byTooltip('Close Scan'));
-    await tester.pumpAndSettle();
-    expect(find.text('Overview'), findsOneWidget);
-
-    await _pumpScanTestApp(tester);
-    await tester.tap(find.byTooltip('Search Cards'));
-    await tester.pumpAndSettle();
-    expect(find.text('Squirtle'), findsOneWidget);
-  });
+  testWidgets(
+    'Scan camera chrome exits without adding a non-Figma Search action',
+    (tester) async {
+      await _pumpScanTestApp(tester);
+      expect(find.byTooltip('Search Cards'), findsNothing);
+      await tester.tap(find.byTooltip('Close Scan'));
+      await tester.pumpAndSettle();
+      expect(find.text('Overview'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'Scan asks before discarding an unmatched portfolio result because scan results are not auto-saved',
