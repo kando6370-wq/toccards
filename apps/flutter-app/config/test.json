@@ -5,5 +5,5 @@
   "SUBSCRIPTION_APP_STORE_WEEKLY_ID": "cardx.week",
   "SUBSCRIPTION_APP_STORE_YEARLY_ID": "cardx.year",
   "SUBSCRIPTION_APP_STORE_LIFETIME_ID": "cardx.lifetime",
-  "SUBSCRIPTION_APP_STORE_SUPPORTED_PRODUCTS": "[{\"plan_id\":\"weekly_trial\",\"product_id\":\"weekly.trial\",\"product_type\":\"subscription\",\"is_trial_product\":true},{\"plan_id\":\"yearly_pro\",\"product_id\":\"yearly.pro\",\"product_type\":\"subscription\",\"is_trial_product\":false},{\"plan_id\":\"monthly\",\"product_id\":\"cardx.month\",\"product_type\":\"subscription\",\"is_trial_product\":false}]"
+  "SUBSCRIPTION_APP_STORE_SUPPORTED_PRODUCTS": "[{\"plan_id\":\"weekly_trial\",\"product_id\":\"weekly.trial\",\"product_type\":\"subscription\",\"is_trial_product\":true},{\"plan_id\":\"yearly_pro\",\"product_id\":\"yearly.pro\",\"product_type\":\"subscription\",\"is_trial_product\":false},{\"plan_id\":\"monthly\",\"product_id\":\"cardx.month\",\"product_type\":\"subscription\",\"is_trial_product\":false},{\"plan_id\":\"yearly_trial\",\"product_id\":\"cardx.year.trial\",\"product_type\":\"subscription\",\"is_trial_product\":true}]"
 }

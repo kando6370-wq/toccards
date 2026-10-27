@@ -58,35 +58,40 @@ void main() {
 
       expect(fallback.isLocalFallback, isTrue);
       expect(fallback.skus.map((sku) => sku.productId), [
-        'weekly.trial',
-        'yearly.pro',
-        'cardx.month',
+        'cardx.week',
+        'cardx.year.trial',
+        'cardx.lifetime',
       ]);
       expect(fallback.skus.map((sku) => sku.offlineFullPrice), [
         'US\$4.99',
         'US\$49.99',
-        'US\$12.99',
+        'US\$79.99',
       ]);
       expect(fallback.skus.map((sku) => sku.offlinePrice), [
         'US\$4.99',
-        'US\$0.96',
-        'US\$3.25',
+        'US\$49.99',
+        'US\$79.99',
+      ]);
+      expect(fallback.skus.map((sku) => sku.copy.priceNote), [
+        'per week',
+        'per year',
+        '',
       ]);
       expect(fallback.skus.map((sku) => sku.offlineTrial), [
-        true,
         false,
+        true,
         false,
       ]);
       expect(model.config, same(fallback));
       expect(model.showOfflineFallback, isTrue);
       expect(model.availableSkus, isEmpty);
       expect(model.selectedCard, isNull);
-      expect(model.selectedId, 'weekly.trial');
+      expect(model.selectedId, 'cardx.year.trial');
       expect(model.canAttemptFallbackPurchase, isTrue);
-      model.select('yearly.pro');
-      expect(model.selectedId, 'yearly.pro');
+      model.select('cardx.lifetime');
+      expect(model.selectedId, 'cardx.lifetime');
       model.select('unknown');
-      expect(model.selectedId, 'yearly.pro');
+      expect(model.selectedId, 'cardx.lifetime');
       expect(model.canPurchase, isFalse);
       expect(await model.confirmPurchase(), isNull);
     },
@@ -159,7 +164,7 @@ void main() {
 
       await model.load();
       expect(model.showOfflineFallback, isTrue);
-      expect(model.selectedId, 'weekly.trial');
+      expect(model.selectedId, 'cardx.year.trial');
       expect(model.canAttemptFallbackPurchase, isTrue);
       late.complete(displayConfig());
       await Future<void>.delayed(Duration.zero);
@@ -179,7 +184,14 @@ void main() {
           if (ids.length != 1) throw const SocketException('StoreKit offline');
           checked.add(ids);
           if (++attempts == 1) throw const SocketException('Retry purchase');
-          return [displayProduct('cardx.month', amount: 12.99)];
+          return [
+            displayProduct(
+              'cardx.year.trial',
+              trial: true,
+              unit: 'year',
+              amount: 49.99,
+            ),
+          ];
         },
         loadEligibility: (_) async => TrialEligibility.unknown,
         retryDelays: const [],
@@ -188,17 +200,65 @@ void main() {
       addTearDown(model.dispose);
 
       await model.load();
-      model.select('cardx.month');
       expect(await model.prepareFallbackPurchase(), isNull);
       expect(model.canAttemptFallbackPurchase, isTrue);
       expect(
         (await model.prepareFallbackPurchase())?.storeProductId,
-        'cardx.month',
+        'cardx.year.trial',
       );
       expect(checked, [
-        <String>{'cardx.month'},
-        <String>{'cardx.month'},
+        <String>{'cardx.year.trial'},
+        <String>{'cardx.year.trial'},
       ]);
+    },
+  );
+
+  test(
+    'a trial preview cannot start a paid year when StoreKit no longer offers free days',
+    () async {
+      final checked = <Set<String>>[];
+      final model = SubscriptionDisplayController(
+        fallback: _approvedLocalFallback(),
+        loadConfig: (_) async => null,
+        loadProducts: (ids) async {
+          if (ids.length != 1) throw const SocketException('StoreKit offline');
+          checked.add(ids);
+          final paidYear = displayProduct(
+            'cardx.year.trial',
+            unit: 'year',
+            amount: 49.99,
+          );
+          return [
+            SubscriptionStoreProduct(
+              product: paidYear.product,
+              type: paidYear.type,
+              decimalPrice: paidYear.decimalPrice,
+              periodUnit: paidYear.periodUnit,
+              periodValue: paidYear.periodValue,
+              isTrialProduct: true,
+            ),
+          ];
+        },
+        loadEligibility: (_) async => TrialEligibility.unknown,
+        retryDelays: const [],
+        offlineRetryDelay: const Duration(hours: 1),
+      );
+      addTearDown(model.dispose);
+
+      await model.load();
+      expect(model.showOfflineFallback, isTrue);
+      expect(await model.prepareFallbackPurchase(), isNull);
+      expect(checked, [
+        <String>{'cardx.year.trial'},
+      ]);
+      expect(model.showOfflineFallback, isFalse);
+      expect(model.selectedCard!.cta, 'SUBSCRIBE');
+      expect(model.selectedCard!.copy.name, 'Premium');
+      expect(model.errorMessage, isNotNull);
+      expect(
+        (await model.confirmPurchase())?.storeProductId,
+        'cardx.year.trial',
+      );
     },
   );
 
@@ -213,7 +273,7 @@ void main() {
         loadProducts: (ids) {
           if (ids.length != 1) throw const SocketException('StoreKit offline');
           checks++;
-          expect(ids, {'yearly.pro'});
+          expect(ids, {'cardx.year.trial'});
           return pending.future;
         },
         loadEligibility: (_) async => TrialEligibility.unknown,
@@ -223,14 +283,15 @@ void main() {
       addTearDown(model.dispose);
 
       await model.load();
-      model.select('yearly.pro');
       final first = model.prepareFallbackPurchase();
       expect(model.canAttemptFallbackPurchase, isFalse);
       expect(await model.prepareFallbackPurchase(), isNull);
-      model.select('cardx.month');
-      expect(model.selectedId, 'yearly.pro');
-      pending.complete([displayProduct('yearly.pro', unit: 'year')]);
-      expect((await first)?.storeProductId, 'yearly.pro');
+      model.select('cardx.lifetime');
+      expect(model.selectedId, 'cardx.year.trial');
+      pending.complete([
+        displayProduct('cardx.year.trial', trial: true, unit: 'year'),
+      ]);
+      expect((await first)?.storeProductId, 'cardx.year.trial');
       expect(checks, 1);
     },
   );
@@ -267,17 +328,18 @@ void main() {
       addTearDown(model.dispose);
 
       await model.load();
-      model.select('yearly.pro');
       final retry = model.load();
       await refreshing.future;
       final submitted = model.prepareFallbackPurchase();
       expect(checked, [
-        <String>{'yearly.pro'},
+        <String>{'cardx.year.trial'},
       ]);
       remote.complete(displayConfig());
       await retry;
-      purchase.complete([displayProduct('yearly.pro', unit: 'year')]);
-      expect((await submitted)?.storeProductId, 'yearly.pro');
+      purchase.complete([
+        displayProduct('cardx.year.trial', trial: true, unit: 'year'),
+      ]);
+      expect((await submitted)?.storeProductId, 'cardx.year.trial');
     },
   );
 
@@ -289,9 +351,14 @@ void main() {
         fallback: fallback,
         loadConfig: (_) async => throw const SocketException('Offline API'),
         loadProducts: (ids) async => [
-          displayProduct('weekly.trial', trial: true, amount: 4.99),
-          displayProduct('yearly.pro', unit: 'year', amount: 49.99),
-          displayProduct('cardx.month', amount: 12.99),
+          displayProduct('cardx.week', unit: 'week', amount: 4.99),
+          displayProduct(
+            'cardx.year.trial',
+            trial: true,
+            unit: 'year',
+            amount: 49.99,
+          ),
+          displayProduct('cardx.lifetime', lifetime: true, amount: 79.99),
         ].where((product) => ids.contains(product.id)).toList(),
         loadEligibility: (_) async => TrialEligibility.unknown,
         retryDelays: const [],
@@ -304,7 +371,9 @@ void main() {
       expect(model.showOfflineFallback, isFalse);
       expect(model.availableSkus, hasLength(3));
       expect(model.canPurchase, isTrue);
-      expect(model.selectedCard!.product.product.rawPrice, 4.99);
+      expect(model.selectedCard!.product.product.rawPrice, 49.99);
+      expect(model.selectedCard!.product.id, 'cardx.year.trial');
+      expect(model.selectedCard!.cta, 'TRY FOR FREE');
     },
   );
 
@@ -333,7 +402,7 @@ void main() {
       await model.load();
       expect(model.config, same(model.fallback));
       expect(model.showOfflineFallback, isTrue);
-      expect(model.selectedId, 'weekly.trial');
+      expect(model.selectedId, 'cardx.year.trial');
       expect(model.availableSkus, isEmpty);
       expect(model.canPurchase, isFalse);
       expect(model.canAttemptFallbackPurchase, isTrue);
@@ -353,7 +422,14 @@ void main() {
         loadProducts: (ids) async {
           productCalls++;
           if (productCalls == 1) throw const SocketException('Offline');
-          return [displayProduct('weekly.trial', trial: true, amount: 4.99)];
+          return [
+            displayProduct(
+              'cardx.year.trial',
+              trial: true,
+              unit: 'year',
+              amount: 49.99,
+            ),
+          ];
         },
         loadEligibility: (_) async => TrialEligibility.unknown,
         retryDelays: const [],
@@ -375,8 +451,10 @@ void main() {
       await restored.future.timeout(const Duration(seconds: 1));
       expect(productCalls, greaterThanOrEqualTo(2));
       expect(model.showOfflineFallback, isFalse);
-      expect(model.availableSkus.map((sku) => sku.productId), ['weekly.trial']);
-      expect(model.selectedCard!.product.product.rawPrice, 4.99);
+      expect(model.availableSkus.map((sku) => sku.productId), [
+        'cardx.year.trial',
+      ]);
+      expect(model.selectedCard!.product.product.rawPrice, 49.99);
       expect(model.canPurchase, isTrue);
     },
   );
@@ -802,6 +880,7 @@ void main() {
         'weekly.trial',
         'yearly.pro',
         'cardx.month',
+        'cardx.year.trial',
       });
       final yearly = configuration.supportedProducts.singleWhere(
         (p) => p.productId == 'yearly.pro',
@@ -815,28 +894,40 @@ void main() {
       expect(trial.planId, 'weekly_trial');
       expect(trial.type, DisplayProductType.subscription);
       expect(trial.isTrialProduct, isTrue);
+      final yearlyTrial = configuration.supportedProducts.singleWhere(
+        (p) => p.productId == 'cardx.year.trial',
+      );
+      expect(yearlyTrial.planId, 'yearly_trial');
+      expect(yearlyTrial.type, DisplayProductType.subscription);
+      expect(yearlyTrial.isTrialProduct, isTrue);
       for (final type in SubscriptionPageType.values) {
         final fallback = legacySubscriptionFallback(configuration, type);
         expect(fallback.skus.map((sku) => sku.productId), [
-          'weekly.trial',
-          'yearly.pro',
-          'cardx.month',
+          'cardx.week',
+          'cardx.year.trial',
+          'cardx.lifetime',
         ]);
         expect(
           fallback.skus.singleWhere((sku) => sku.isDefault).productId,
-          'weekly.trial',
+          'cardx.year.trial',
         );
-        expect(fallback.skus[0].copy.name, '3-Day Free');
-        expect(fallback.skus[0].copy.cta, 'Try For Free');
-        expect(fallback.skus[1].copy.name, 'Unlimited Yearly');
-        expect(fallback.skus[1].copy.subtitle, 'Only {price} per year');
-        expect(fallback.skus[1].copy.badge, 'save 81%');
-        expect(fallback.skus[2].copy.name, 'Unlimited Monthly');
-        expect(fallback.skus[2].copy.subtitle, 'Only {price} per month');
-        expect(fallback.skus[2].copy.badge, 'Most Popular');
+        expect(fallback.skus[0].copy.name, 'Unlimited Weekly');
+        expect(fallback.skus[0].copy.priceNote, 'per week');
+        expect(fallback.skus[1].copy.name, '3-Day Free');
+        expect(fallback.skus[1].copy.priceNote, 'per year');
+        expect(fallback.skus[1].copy.badge, 'SAVE 81%');
+        expect(fallback.skus[1].copy.cta, 'TRY FOR FREE');
+        expect(fallback.skus[2].copy.name, 'Lifetime Access');
+        expect(fallback.skus[2].copy.badge, 'Best Offer');
+        expect(fallback.skus[2].copy.priceNote, isEmpty);
         expect(
           configuration.supportedProductIds,
-          containsAll(['weekly.trial', 'yearly.pro', 'cardx.month']),
+          containsAll([
+            'weekly.trial',
+            'yearly.pro',
+            'cardx.month',
+            'cardx.year.trial',
+          ]),
         );
       }
 
@@ -863,7 +954,7 @@ void main() {
           productionConfiguration,
           SubscriptionPageType.page,
         ).skus.map((sku) => sku.productId),
-        ['CardAi.weekly.trial', 'CardAi.yearly', 'CardAi.monthly'],
+        ['CardAi.weekly', 'CardAi.yearly.trial', 'CardAi.lifetime'],
       );
     },
   );
@@ -1423,7 +1514,7 @@ void main() {
         expect(model.canPurchase, isTrue);
         expect(await model.confirmPurchase(), isNull);
         expect(model.showOfflineFallback, isTrue);
-        expect(model.selectedId, 'weekly.trial');
+        expect(model.selectedId, 'cardx.year.trial');
         expect(model.canAttemptFallbackPurchase, isTrue);
       }
     },

@@ -1461,120 +1461,158 @@ void main() {
     }
   });
 
-  testWidgets(
-    'local subscription fallback shows StoreKit prices and verified trial copy',
-    (tester) async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
-      tester.view.physicalSize = const Size(390, 1000);
-      tester.view.devicePixelRatio = 1;
-      try {
-        final trialEligibility = Completer<TrialEligibility>();
-        final host = _RestoreTestHost(
-          useNewFallback: true,
-          trialEligibility: trialEligibility.future,
-        );
-        await tester.pumpWidget(host.app);
-        await tester.pumpAndSettle();
-        host.router.push('/subscription');
-        await tester.pumpAndSettle();
+  for (final sheet in [false, true]) {
+    testWidgets(
+      'local ${sheet ? 'modal' : 'page'} fallback keeps annual trial price and selected copy',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        try {
+          final trialEligibility = Completer<TrialEligibility>();
+          final host = _RestoreTestHost(
+            useNewFallback: true,
+            trialEligibility: trialEligibility.future,
+          );
+          await tester.pumpWidget(host.app);
+          await tester.pumpAndSettle();
+          host.router.push('/subscription${sheet ? '?sheet=true' : ''}');
+          await tester.pumpAndSettle();
 
-        expect(host.display!.selectedId, 'weekly.trial');
-        expect(find.text('Premium'), findsNothing);
-        expect(find.text('3-Day Free'), findsOneWidget);
-        expect(find.text('Unlimited Yearly'), findsOneWidget);
-        expect(find.text('Unlimited Monthly'), findsOneWidget);
-        expect(find.text('save 81%'), findsOneWidget);
-        expect(find.text('Most Popular'), findsOneWidget);
-        expect(find.text('Try For Free'), findsOneWidget);
-        expect(find.text('CANCEL ANYTIME'), findsNothing);
-        expect(find.text('NO PAYMENT NOW'), findsOneWidget);
-        final auxiliary = tester.widget<Text>(find.text('NO PAYMENT NOW'));
-        expect(auxiliary.style?.fontSize, 14);
-        expect(auxiliary.style?.color, Colors.white);
-        expect(
-          tester.getRect(find.text('NO PAYMENT NOW')).top -
-              tester.getRect(find.text('Terms of Use')).bottom,
-          closeTo(4, 1),
-        );
-        expect(
-          find.byKey(const Key('subscription-billing-summary')),
-          findsNothing,
-        );
-
-        final cards = [
-          for (final id in ['weekly.trial', 'yearly.pro', 'cardx.month'])
-            find.byKey(Key('subscription-config-product-$id')),
-        ];
-        expect(
-          tester.getRect(cards[0]).top,
-          lessThan(tester.getRect(cards[1]).top),
-        );
-        expect(
-          tester.getRect(cards[1]).top,
-          lessThan(tester.getRect(cards[2]).top),
-        );
-        for (final id in ['weekly.trial', 'yearly.pro', 'cardx.month']) {
-          final card = find.byKey(Key('subscription-config-product-$id'));
+          expect(host.display!.selectedId, 'cardx.year.trial');
+          expect(find.text('Premium'), findsNothing);
+          expect(find.text('3-Day Free'), findsOneWidget);
+          expect(find.text('Unlimited Weekly'), findsOneWidget);
+          expect(find.text('Lifetime Access'), findsOneWidget);
+          expect(find.text('SAVE 81%'), findsOneWidget);
+          expect(find.text('Best Offer'), findsOneWidget);
+          expect(find.text('TRY FOR FREE'), findsOneWidget);
+          expect(find.text('CANCEL ANYTIME'), findsNothing);
+          expect(find.text('NO PAYMENT NOW'), findsOneWidget);
+          final auxiliary = tester.widget<Text>(find.text('NO PAYMENT NOW'));
+          expect(auxiliary.style?.fontSize, 14);
+          expect(auxiliary.style?.color, Colors.white);
           expect(
-            find.descendant(of: card, matching: find.text('per week')),
+            tester.getRect(find.text('NO PAYMENT NOW')).top -
+                tester.getRect(find.text('Terms of Use')).bottom,
+            closeTo(4, 1),
+          );
+          expect(
+            find.byKey(const Key('subscription-billing-summary')),
+            findsNothing,
+          );
+
+          final cards = [
+            for (final id in [
+              'weekly.product',
+              'cardx.year.trial',
+              'lifetime.product',
+            ])
+              find.byKey(Key('subscription-config-product-$id')),
+          ];
+          expect(
+            tester.getRect(cards[0]).top,
+            lessThan(tester.getRect(cards[1]).top),
+          );
+          expect(
+            tester.getRect(cards[1]).top,
+            lessThan(tester.getRect(cards[2]).top),
+          );
+          expect(
+            find.descendant(of: cards[0], matching: find.text('per week')),
             findsOneWidget,
           );
+          expect(
+            find.descendant(of: cards[1], matching: find.text('per year')),
+            findsOneWidget,
+          );
+          expect(
+            find.descendant(of: cards[2], matching: find.text('per week')),
+            findsNothing,
+          );
+          expect(
+            find.descendant(
+              of: cards[2],
+              matching: find.text('one-time purchase'),
+            ),
+            findsNothing,
+          );
+          Finder price(String id) => find.descendant(
+            of: find.byKey(Key('subscription-config-product-$id-price')),
+            matching: find.byType(Text),
+          );
+          expect(
+            tester.widget<Text>(price('weekly.product')).data,
+            r'USD 4.99',
+          );
+          expect(
+            tester.widget<Text>(price('cardx.year.trial')).data,
+            r'Then US$49.99',
+          );
+          expect(
+            tester.widget<Text>(price('lifetime.product')).data,
+            r'USD 79.99',
+          );
+
+          trialEligibility.complete(TrialEligibility.ineligible);
+          await tester.pumpAndSettle();
+          expect(find.text('Premium'), findsNothing);
+          expect(find.text('3-Day Free'), findsOneWidget);
+          expect(find.text('TRY FOR FREE'), findsOneWidget);
+          expect(find.text('NO PAYMENT NOW'), findsOneWidget);
+          expect(find.text('CANCEL ANYTIME'), findsNothing);
+          expect(
+            tester.widget<Text>(price('cardx.year.trial')).data,
+            r'Then US$49.99',
+          );
+
+          await tester.ensureVisible(
+            find.byKey(const Key('subscription-config-product-weekly.product')),
+          );
+          await tester.tap(
+            find.byKey(const Key('subscription-config-product-weekly.product')),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('SUBSCRIBE'), findsOneWidget);
+          expect(find.text('CANCEL ANYTIME'), findsOneWidget);
+          expect(find.text('NO PAYMENT NOW'), findsNothing);
+          expect(
+            tester.widget<Text>(price('weekly.product')).data,
+            r'USD 4.99',
+          );
+          await tester.ensureVisible(
+            find.byKey(
+              const Key('subscription-config-product-lifetime.product'),
+            ),
+          );
+          await tester.tap(
+            find.byKey(
+              const Key('subscription-config-product-lifetime.product'),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(
+            tester.widget<Text>(price('lifetime.product')).data,
+            r'USD 79.99',
+          );
+          expect(find.text('SUBSCRIBE'), findsOneWidget);
+          expect(find.text('CANCEL ANYTIME'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        } finally {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+          debugDefaultTargetPlatformOverride = null;
         }
-        expect(find.text(r'Only US$49.99 per year'), findsOneWidget);
-        expect(find.text(r'Only US$12.99 per month'), findsOneWidget);
-        Finder price(String id) => find.descendant(
-          of: find.byKey(Key('subscription-config-product-$id-price')),
-          matching: find.byType(Text),
-        );
-        expect(
-          tester.widget<Text>(price('weekly.trial')).data,
-          r'Then US$4.99',
-        );
-        expect(tester.widget<Text>(price('yearly.pro')).data, r'US$0.96');
-        expect(tester.widget<Text>(price('cardx.month')).data, r'US$3.25');
-
-        trialEligibility.complete(TrialEligibility.ineligible);
-        await tester.pumpAndSettle();
-        expect(find.text('Premium'), findsNothing);
-        expect(find.text('3-Day Free'), findsOneWidget);
-        expect(find.text('Try For Free'), findsOneWidget);
-        expect(find.text('NO PAYMENT NOW'), findsOneWidget);
-        expect(find.text('CANCEL ANYTIME'), findsNothing);
-        expect(
-          tester.widget<Text>(price('weekly.trial')).data,
-          r'Then US$4.99',
-        );
-
-        await tester.tap(
-          find.byKey(const Key('subscription-config-product-yearly.pro')),
-        );
-        await tester.pumpAndSettle();
-        expect(find.text('SUBSCRIBE'), findsOneWidget);
-        expect(find.text('CANCEL ANYTIME'), findsOneWidget);
-        expect(find.text('NO PAYMENT NOW'), findsNothing);
-        expect(tester.widget<Text>(price('yearly.pro')).data, r'US$0.96');
-        await tester.tap(
-          find.byKey(const Key('subscription-config-product-cardx.month')),
-        );
-        await tester.pumpAndSettle();
-        expect(tester.widget<Text>(price('cardx.month')).data, r'US$3.25');
-        expect(find.text('SUBSCRIBE'), findsOneWidget);
-        expect(find.text('CANCEL ANYTIME'), findsOneWidget);
-        expect(tester.takeException(), isNull);
-      } finally {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-        debugDefaultTargetPlatformOverride = null;
-      }
-    },
-  );
+      },
+    );
+  }
 
   for (final sheet in [false, true]) {
     testWidgets(
       'offline ${sheet ? 'modal' : 'page'} can select and submit a plan',
       (tester) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
-        tester.view.physicalSize = const Size(390, 1000);
+        tester.view.physicalSize = const Size(390, 844);
         tester.view.devicePixelRatio = 1;
         try {
           var connected = false;
@@ -1588,32 +1626,28 @@ void main() {
               productRequests.add(ids);
               if (!connected) return const [];
               return [
-                if (ids.contains('weekly.trial'))
+                if (ids.contains('weekly.product'))
                   displayProduct(
-                    'weekly.trial',
-                    trial: true,
-                    unit: 'day',
-                    value: 7,
+                    'weekly.product',
+                    unit: 'week',
                     amount: 5.99,
                     displayPrice: r'US$5.99',
-                    omitWeeklyPrice: true,
                   ),
-                if (ids.contains('yearly.pro'))
+                if (ids.contains('cardx.year.trial'))
                   displayProduct(
-                    'yearly.pro',
+                    'cardx.year.trial',
+                    trial: true,
                     unit: 'year',
                     amount: 59.99,
                     displayPrice: r'US$59.99',
                     weeklyPrice: r'US$1.15',
                   ),
-                if (ids.contains('cardx.month'))
+                if (ids.contains('lifetime.product'))
                   displayProduct(
-                    'cardx.month',
-                    unit: 'month',
-                    amount: 13.99,
-                    displayPrice: r'US$13.99',
-                    weeklyPrice: r'US$3.23',
-                    fourWeekPrice: r'US$3.50',
+                    'lifetime.product',
+                    lifetime: true,
+                    amount: 79.99,
+                    displayPrice: r'US$79.99',
                   ),
               ];
             },
@@ -1626,12 +1660,12 @@ void main() {
           expect(host.display!.showOfflineFallback, isTrue);
           expect(host.display!.canPurchase, isFalse);
           expect(host.display!.canAttemptFallbackPurchase, isTrue);
-          expect(host.display!.selectedId, 'weekly.trial');
+          expect(host.display!.selectedId, 'cardx.year.trial');
           expect(host.display!.products, isEmpty);
           for (final entry in [
-            ('weekly.trial', r'US$4.99'),
-            ('yearly.pro', r'US$0.96'),
-            ('cardx.month', r'US$3.25'),
+            ('weekly.product', r'US$4.99', 'per week'),
+            ('cardx.year.trial', r'Then US$49.99', 'per year'),
+            ('lifetime.product', r'US$79.99', ''),
           ]) {
             final card = find.byKey(
               Key('subscription-offline-product-${entry.$1}'),
@@ -1641,22 +1675,30 @@ void main() {
               find.descendant(of: card, matching: find.text(entry.$2)),
               findsOneWidget,
             );
-            expect(
-              find.descendant(of: card, matching: find.text('per week')),
-              findsOneWidget,
-            );
+            if (entry.$3.isEmpty) {
+              expect(
+                find.descendant(of: card, matching: find.text('per week')),
+                findsNothing,
+              );
+              expect(
+                find.descendant(of: card, matching: find.text('per year')),
+                findsNothing,
+              );
+            } else {
+              expect(
+                find.descendant(of: card, matching: find.text(entry.$3)),
+                findsOneWidget,
+              );
+            }
           }
-          expect(find.text(r'Only US$49.99 per year'), findsOneWidget);
-          expect(find.text(r'Only US$12.99 per month'), findsOneWidget);
-          expect(find.text('save 81%'), findsOneWidget);
-          expect(find.text('Most Popular'), findsOneWidget);
+          expect(find.text('SAVE 81%'), findsOneWidget);
+          expect(find.text('Best Offer'), findsOneWidget);
           expect(
             find.byKey(const Key('subscription-offline-price-notice')),
             findsNothing,
           );
-          expect(find.text(r'Then US$4.99'), findsNothing);
-          expect(find.text('TRY FOR FREE'), findsNothing);
-          expect(find.text('Try For Free'), findsOneWidget);
+          expect(find.text(r'Then US$49.99'), findsOneWidget);
+          expect(find.text('TRY FOR FREE'), findsOneWidget);
           expect(find.text('NO PAYMENT NOW'), findsOneWidget);
           expect(find.text('CANCEL ANYTIME'), findsNothing);
           expect(
@@ -1675,43 +1717,56 @@ void main() {
           expect(find.text('SUBSCRIBE'), findsNothing);
           expect(find.byType(KandoTopToast), findsNothing);
 
-          final monthly = find.byKey(
-            const Key('subscription-offline-product-cardx.month'),
+          final weekly = find.byKey(
+            const Key('subscription-offline-product-weekly.product'),
           );
-          await tester.ensureVisible(monthly);
-          await tester.tap(monthly);
+          await tester.ensureVisible(weekly);
+          await tester.tap(weekly);
           await tester.pumpAndSettle();
-          expect(host.display!.selectedId, 'cardx.month');
+          expect(host.display!.selectedId, 'weekly.product');
           expect(find.text('SUBSCRIBE'), findsOneWidget);
-          expect(find.text('Try For Free'), findsNothing);
+          expect(find.text('TRY FOR FREE'), findsNothing);
           expect(find.text('CANCEL ANYTIME'), findsOneWidget);
           expect(find.text('NO PAYMENT NOW'), findsNothing);
 
-          final yearly = find.byKey(
-            const Key('subscription-offline-product-yearly.pro'),
+          final lifetime = find.byKey(
+            const Key('subscription-offline-product-lifetime.product'),
           );
-          await tester.ensureVisible(yearly);
-          await tester.tap(yearly);
+          await tester.ensureVisible(lifetime);
+          await tester.tap(lifetime);
           await tester.pumpAndSettle();
-          expect(host.display!.selectedId, 'yearly.pro');
+          expect(host.display!.selectedId, 'lifetime.product');
           expect(find.text('SUBSCRIBE'), findsOneWidget);
-          expect(find.text('Try For Free'), findsNothing);
+          expect(find.text('TRY FOR FREE'), findsNothing);
           expect(find.text('CANCEL ANYTIME'), findsOneWidget);
           expect(find.text('NO PAYMENT NOW'), findsNothing);
-          final yearlyTile = tester.widget<Container>(
-            find.descendant(of: yearly, matching: find.byType(Container)).first,
+          final lifetimeTile = tester.widget<Container>(
+            find
+                .descendant(of: lifetime, matching: find.byType(Container))
+                .first,
           );
           expect(
-            (yearlyTile.decoration as BoxDecoration).border!.top.color,
+            (lifetimeTile.decoration as BoxDecoration).border!.top.color,
             KandoColors.accent,
           );
+
+          final yearlyTrial = find.byKey(
+            const Key('subscription-offline-product-cardx.year.trial'),
+          );
+          await tester.ensureVisible(yearlyTrial);
+          await tester.tap(yearlyTrial);
+          await tester.pumpAndSettle();
+          expect(host.display!.selectedId, 'cardx.year.trial');
+          expect(find.text('TRY FOR FREE'), findsOneWidget);
+          expect(find.text('NO PAYMENT NOW'), findsOneWidget);
+          expect(find.text('CANCEL ANYTIME'), findsNothing);
 
           final purchase = find.byKey(
             const Key('subscription-purchase-button'),
           );
           await tester.tap(purchase);
           await tester.pumpAndSettle();
-          expect(productRequests.last, {'yearly.pro'});
+          expect(productRequests.last, {'cardx.year.trial'});
           expect(purchaseController.submittedIds, isEmpty);
           expect(host.display!.showOfflineFallback, isTrue);
           expect(find.byType(KandoTopToast), findsOneWidget);
@@ -1719,9 +1774,9 @@ void main() {
           connected = true;
           await tester.tap(purchase);
           await tester.pumpAndSettle();
-          expect(productRequests.last, {'yearly.pro'});
-          expect(purchaseController.submittedIds, ['yearly.pro']);
-          expect(purchaseController.confirmedIds, ['yearly.pro']);
+          expect(productRequests.last, {'cardx.year.trial'});
+          expect(purchaseController.submittedIds, ['cardx.year.trial']);
+          expect(purchaseController.confirmedIds, ['cardx.year.trial']);
 
           expect(host.display!.showOfflineFallback, isFalse);
           expect(host.display!.canPurchase, isTrue);
@@ -1730,18 +1785,26 @@ void main() {
             findsNothing,
           );
           expect(
-            find.byKey(const Key('subscription-offline-product-weekly.trial')),
+            find.byKey(
+              const Key('subscription-offline-product-cardx.year.trial'),
+            ),
             findsNothing,
           );
           final realYearly = find.byKey(
-            const Key('subscription-config-product-yearly.pro'),
+            const Key('subscription-config-product-cardx.year.trial'),
           );
           await tester.ensureVisible(realYearly);
           expect(
-            find.descendant(of: realYearly, matching: find.text(r'US$1.15')),
+            find.descendant(
+              of: realYearly,
+              matching: find.text(r'Then US$59.99'),
+            ),
             findsOneWidget,
           );
-          expect(find.text(r'Only US$59.99 per year'), findsOneWidget);
+          expect(
+            find.descendant(of: realYearly, matching: find.text('per year')),
+            findsOneWidget,
+          );
           await tester.pump(const Duration(seconds: 5));
           expect(find.byType(KandoTopToast), findsNothing);
           expect(tester.takeException(), isNull);
@@ -2739,7 +2802,7 @@ class _RestoreTestHost {
                     subscriptionLifetimePlanId: 'lifetime.product',
                   },
                   additionalProducts: SupportedSubscriptionProduct.parse(
-                    '[{"plan_id":"weekly_trial","product_id":"weekly.trial","product_type":"subscription","is_trial_product":true},{"plan_id":"yearly_pro","product_id":"yearly.pro","product_type":"subscription","is_trial_product":false},{"plan_id":"monthly","product_id":"cardx.month","product_type":"subscription","is_trial_product":false}]',
+                    '[{"plan_id":"weekly_trial","product_id":"weekly.trial","product_type":"subscription","is_trial_product":true},{"plan_id":"yearly_pro","product_id":"yearly.pro","product_type":"subscription","is_trial_product":false},{"plan_id":"monthly","product_id":"cardx.month","product_type":"subscription","is_trial_product":false},{"plan_id":"yearly_trial","product_id":"cardx.year.trial","product_type":"subscription","is_trial_product":true}]',
                   ),
                 )
               : _testSubscriptionConfiguration;
@@ -2760,6 +2823,14 @@ class _RestoreTestHost {
             loadProducts:
                 productLoader ??
                 (ids) async => [
+                  if (useNewFallback && ids.contains('cardx.year.trial'))
+                    displayProduct(
+                      'cardx.year.trial',
+                      trial: true,
+                      unit: 'year',
+                      amount: 49.99,
+                      displayPrice: r'US$49.99',
+                    ),
                   if (useNewFallback && ids.contains('weekly.trial'))
                     displayProduct(
                       'weekly.trial',
@@ -2805,7 +2876,9 @@ class _RestoreTestHost {
                             ? 'week'
                             : 'year',
                         amount: entry.key == subscriptionWeeklyPlanId
-                            ? 3.99
+                            ? useNewFallback
+                                  ? 4.99
+                                  : 3.99
                             : entry.key == subscriptionYearlyPlanId
                             ? 49.99
                             : 79.99,
