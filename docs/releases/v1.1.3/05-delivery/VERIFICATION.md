@@ -6,6 +6,14 @@
 
 当前运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下记录只代表 v1.1.3 本地增量及实际执行的验证，不改变远端运行状态。
 
+## Admin 扫描记录卡牌类型筛选（2026-10-28）
+
+- 基线与范围：从干净的 `codex/dev-1.0.7scan@c13cb90f4207d8b65545b471986829645f2bfd14` 开始本地修改。“卡牌管理 → 扫描记录管理”新增 TCG／SPORTS 类型筛选，选择后点击查询生效，分页保留类型，清除／重置恢复全部。用户已明确确认历史缺类型记录只在“全部”中显示，不推断回填；完整规则见[扫描识别链路](../01-flows/scan-recognition.md#管理后台按卡牌类型筛选2026-10-28)。
+- 实现：复用 `GET /api/v1/admin/scans`，可选 `card_type=0|1` 同时参与 PostgreSQL 列表与总数查询，其他条件和 Admin 鉴权保持。扫描请求中的已校验类型保存到既有 `system_result.card_type`，成功、未命中和上游失败的审计记录均覆盖；兼容向量与 pHash 路径共用该写入点，不修改 App 扫描响应，无新增数据库列、migration 或 D1 路径。
+- 前端验证：`pnpm --filter @kando/admin-web test` 最终 79／79 通过，新增测试执行真实页面处理函数，覆盖草稿／查询时机、TCG 的字符串 `0`、SPORTS、UID 组合、分页、清除和重置。首轮 78 项通过、1 项因测试夹具未提供 CommonJS `exports` 而失败；补齐夹具后同范围重跑全通过，未调整生产逻辑或放宽断言。Admin `type-check`、`pnpm lint` 通过；`pnpm --filter @kando/admin-web run build:dev` 成功构建 1,526 个模块。首次省略 `run` 的构建调用退出 1 且无输出，不记为通过。
+- 后端验证：在 `apps/workers-api` 使用本机 Node 执行 Vitest，按标准参数 `--exclude "**/.wrangler/**" --pool=threads --maxWorkers=1` 分别运行当前源码的 `src/scan/routes.test.ts`（57／57）、`src/admin/routes.test.ts`（19／19）及新增 `src/admin/scan-card-type.postgres.test.ts`（3／3），合计 3 文件／79 项通过。新增测试使用 PGlite 和既有 PostgreSQL 迁移，覆盖旧记录、类型、分页总数、组合条件、非法枚举和鉴权；既有扫描测试补充持久化断言，包括无候选的失败记录。Workers `type-check` 通过。早期直接 Vitest 调用遗漏既有 `.wrangler` 排除项，混入生成副本并出现 Windows 进程异常 `3221226505`；这些轮次不作为当前源码通过证据。
+- 审查与边界：独立 Code Review 未发现需返工问题，`git diff --check` 通过。未运行全仓 Workers／Flutter 测试、真实后台登录交互或线上数据库性能验收；未提交／推送 Git、部署 dev/prod、执行远端迁移或历史数据回填。类型保存从目标环境部署此服务端代码后的新扫描开始生效，本地测试不代表线上已出现该筛选。
+
 ## 订阅兜底三卡下移（2026-10-28）
 
 - 根据用户提供的 iPhone 截图，仅将 iOS 本地三卡且无试用开关时，权益区与首张商品之间的间距从 62 调至 86 逻辑像素。三张商品整体下移 24 像素；卡间 20 像素、固定购买区、远端后台配置和 Android 分支不变。初始 414×896 Widget 几何测量中，真实商品兜底的末卡到按钮上沿为 43px；调整后该测试通过。最终新增回归改为商品全量失败的固定参考价分支，确认首卡距权益区 86px、末卡与按钮仍有间隔，并断言实际进入离线兜底；原 62px 布局无法满足首卡断言。

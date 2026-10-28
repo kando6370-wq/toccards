@@ -914,6 +914,9 @@ function ScansPage({ session }: { session: AdminSession }) {
         <ScanFilterField label="UID">
           <Input placeholder="输入用户 ID" value={draft.uid ?? ""} onChange={(event) => setDraft((current) => ({ ...current, uid: event.target.value }))} />
         </ScanFilterField>
+        <ScanFilterField label="卡牌类型">
+          <Select placeholder="全部" allowClear value={draft.card_type || undefined} options={scanCardTypeOptions} onChange={(value) => setDraft((current) => ({ ...current, card_type: value ?? "" }))} />
+        </ScanFilterField>
         <ScanFilterField label="平台">
           <Select placeholder="全部" allowClear value={draft.platform || undefined} options={scanPlatformOptions} onChange={(value) => setDraft((current) => ({ ...current, platform: value ?? "" }))} />
         </ScanFilterField>
@@ -1634,6 +1637,7 @@ const recognitionOptions = [
   { value: "failed", label: "识别失败" },
 ];
 const scanPlatformOptions = ["iOS", "Android", "web"].map((value) => ({ value, label: value }));
+const scanCardTypeOptions = [{ value: "0", label: "TCG" }, { value: "1", label: "SPORTS" }];
 const confirmationOptions = [{ value: "confirmed", label: "已确认" }, { value: "pending", label: "待确认" }];
 const billingStatusOptions = [
   ["trial", "试用期"], ["initial_purchase", "首次付款"], ["trial_conversion", "试用转付费"], ["upgrade", "升级付款"],
