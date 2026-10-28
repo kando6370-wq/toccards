@@ -6,6 +6,14 @@
 
 当前运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下记录只代表 v1.1.3 本地增量及实际执行的验证，不改变远端运行状态。
 
+## Linux dev 手工重新部署（2026-10-28 15:57–16:10）
+
+- 来源与路径：从干净的本地 `dev@239a8955fd72ec23b1efcbd6a59740f6a86fe54c` 手工发布，release 为 `manual-dev-239a8955-20261028155740`，manifest 记录 `branch=dev`、`working_tree_dirty=false`、`source=deploy-dev`。当时本地 `dev` 比 `github/dev@b08d02f2` 领先 9 个提交，未擅自 push；部署前确认 watcher 与 deploy 锁均空闲，发布期间持有 watcher 锁，现有 watcher 配置和状态文件未修改。
+- 构建与预检：`deploy:dry-run:dev` 完成 Admin development 构建（1,526 个模块）、Linux API bundle 及 bundle 测试 3／3。上传包为 2,141,339 字节，SHA-256 `7ae8be36a6452cfd211d68ed9f292adb63b94d71a440ab688aa8d21afbef6c18`，服务器逐字节哈希一致后解包。服务器预检确认数据库 `toccards_test`、PostgreSQL 18、向量与 pHash 两套识别服务可达、`pendingMigrations=[]`。
+- 数据与运行：发布前 custom-format 备份 `toccards-test-20261028-155743-before-manual-dev-239a8955-20261028155740.dump` 为 1,136,296,495 字节；独立 `pg_restore --list` 成功读取 351 项，未执行恢复演练。migration 容器退出 0，ledger 数量保持 16；DB／API 均为 running/healthy，Web running。`current` 与 `shared/current-release` 均指向本次 manual release，失败标记为空；运行 `/app/server.mjs` 与 release 文件 SHA-256 同为 `4d2d81d9ae4792c454928233dd0e73b86b08917abb2f400513faef65a990179f`。
+- 独立烟测与稳定性：开发机访问 `http://192.168.50.201:8080/api/v1/health` 返回 200／`{"status":"ok"}`，Admin 根路径返回 200，未登录 `/api/v1/auth/me` 返回 401。16:06、16:08、16:10 三个 watcher 周期均确认远端仍为 `b08d02f2` 且没有新提交，当前 manual release 未被覆盖；watcher 的 `last-seen`／`last-deployed` 保持 `b08d02f2`，这是手工发布未改状态文件的预期结果，后续远端 `dev` 新提交仍可能替换当前运行版本。
+- 边界：prod、Cloudflare、数据库 schema、私有环境值和 watcher 配置未修改；未执行真实 Admin 登录、真实图片识别、真机扫描、备份恢复或业务验收。本轮没有重跑完整 Admin／Workers／Flutter 测试，部署前验证仅为上述构建和 Linux bundle 3／3；当前源码既有四张相机 Golden 差异没有因部署而关闭。部署执行阶段未夹带 Git commit／push，本记录的 Git 交付由后续独立提交完成。
+
 ## Review 偶发图片与价格丢失修复（2026-10-28）
 
 - 基线与证据：基于本地 `codex/dev-1.0.7scan@94b7f79e38408ae673405d1bdb82c6d0249b7b74`。用户反馈 production App `1.0.6 (182)` 偶发进入 Review 后有候选名称但图片占位、价格为 `--`。调查已核对该包发布源 `557166b` 的相关加载函数与本地一致，并在修复前用临时 Widget 测试稳定复现：后台详情先成功，随后 `loadTarget` 完成，打开 Review 的旧缓存快照把图片覆盖回 `null`。截图对应三张候选的公开生产详情、主要行情请求与 JPEG 图片在调查时均正常；这些只读检查不代表取得了用户当次手机请求日志。
