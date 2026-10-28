@@ -891,6 +891,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     final hasUnusedScanAccess =
         ref.read(subscriptionControllerProvider).isPro ||
         quota.unlimited ||
+        quota.displayRemainingScans > 0 ||
         (quota.isServerAuthoritative && quota.remainingScans > 0);
     showKandoTopToast(
       context,
@@ -2469,7 +2470,7 @@ class _ScanCameraView extends StatelessWidget {
           Positioned.fill(
             child: ColoredBox(
               key: const Key('scan-figma-camera-overlay'),
-              color: const Color(0x1A0D0F08),
+              color: const Color(0x120D0F08),
             ),
           ),
           Positioned.fill(
@@ -2480,7 +2481,7 @@ class _ScanCameraView extends StatelessWidget {
                   radius: 0.86,
                   colors: [
                     Colors.transparent,
-                    const Color(0xFF0D0F08).withValues(alpha: 0.85),
+                    const Color(0xFF0D0F08).withValues(alpha: 0.75),
                   ],
                 ),
               ),

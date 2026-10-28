@@ -2913,7 +2913,7 @@ void main() {
 
       final overlay = find.byKey(const Key('scan-figma-camera-overlay'));
       expect(overlay, findsOneWidget);
-      expect(tester.widget<ColoredBox>(overlay).color, const Color(0x1A0D0F08));
+      expect(tester.widget<ColoredBox>(overlay).color, const Color(0x120D0F08));
       expect(
         tester.widget<Text>(find.text('GALLERY')).style?.fontFamily,
         isNull,
@@ -3985,10 +3985,28 @@ void main() {
   );
 
   testWidgets(
-    'Free gallery asks users to collect or remove cards when failures leave quota after ten completed scans',
+    'Free capture and gallery use displayed quota after ten failed reserved scans',
     (tester) async {
       final source = _TestScanResultSource(
         photoResult: Future.value(const ScanResolution.failed()),
+        subsequentPhotoResults: [
+          ...List.generate(
+            8,
+            (_) => Future.value(const ScanResolution.failed()),
+          ),
+          Future.value(
+            const ScanResolution.failed(
+              quota: ScanQuotaDto(
+                access: ScanQuotaAccess.free,
+                limit: 10,
+                reserved: 10,
+                consumed: 0,
+                remaining: 0,
+                unlimited: false,
+              ),
+            ),
+          ),
+        ],
       );
       await _pumpScanTestApp(
         tester,
@@ -4011,12 +4029,25 @@ void main() {
         find.text('Collect or remove cards to scan more'),
         findsOneWidget,
       );
+      expect(find.text('Scan queue is full'), findsNothing);
       await tester.pump(kandoTopToastDuration);
       await tester.pump();
       expect(
         find.text('Collect or remove cards to scan more'),
         findsNothing,
       );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+
+      expect(source.photoCallCount, 10);
+      expect(
+        find.text('Collect or remove cards to scan more'),
+        findsOneWidget,
+      );
+      expect(find.text('Scan queue is full'), findsNothing);
+      await tester.pump(kandoTopToastDuration);
+      await tester.pump();
     },
   );
 
