@@ -90,7 +90,7 @@ ${objectTypeClause}
 ${gameClause}
 ${setIdClause}
 ${setClause}
-ORDER BY updated_at DESC NULLS LAST, product_id ASC
+ORDER BY created_at DESC NULLS LAST, product_id DESC
 LIMIT ? OFFSET ?`,
       ).bind(...bindings).all<CardCatalogRow>();
 

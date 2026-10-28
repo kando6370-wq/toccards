@@ -14,6 +14,17 @@
 - 独立烟测与稳定性：开发机访问 `http://192.168.50.201:8080/api/v1/health` 返回 200／`{"status":"ok"}`，Admin 根路径返回 200，未登录 `/api/v1/auth/me` 返回 401。16:06、16:08、16:10 三个 watcher 周期均确认远端仍为 `b08d02f2` 且没有新提交，当前 manual release 未被覆盖；watcher 的 `last-seen`／`last-deployed` 保持 `b08d02f2`，这是手工发布未改状态文件的预期结果，后续远端 `dev` 新提交仍可能替换当前运行版本。
 - 边界：prod、Cloudflare、数据库 schema、私有环境值和 watcher 配置未修改；未执行真实 Admin 登录、真实图片识别、真机扫描、备份恢复或业务验收。本轮没有重跑完整 Admin／Workers／Flutter 测试，部署前验证仅为上述构建和 Linux bundle 3／3；当前源码既有四张相机 Golden 差异没有因部署而关闭。部署执行阶段未夹带 Git commit／push，本记录的 Git 交付由后续独立提交完成。
 
+<a id="cards-search-order-indexes-20261028"></a>
+## Cards 创建时间排序与索引替换（2026-10-28）
+
+- 范围：本地 `codex/dev-1.0.7scan` 的排序修改开始于 `eb281316cba82bcf05929fc2b1b796846c6ce2ca`，验证时基线为包含并行 Admin 提交的 `eafeeb6a4a5fa17563c903d42eab9741a1579b4b`，叠加本次未提交改动。按最终要求将 Cards 查询改为 `created_at DESC NULLS LAST, product_id DESC`，KV 搜索缓存使用 `v14`；用户明确旧索引删除范围不包含 `updated_at` 字段。
+- 实现：新增 PostgreSQL `0016_cards_all_created_order_indexes.sql`，先创建全目录／Game／Game＋SetCode 三个创建时间排序索引，再删除对应的三个旧更新时间排序索引。新索引保留旧的筛选前导列；未修改其他索引、字段、数据、已执行迁移或退役 D1 实现。仓库活跃 SQL 审计未发现旧排序依赖，外部采集和临时 SQL 尚未核查。行为、执行方式与回退见 [Cards 排序与索引](../03-data-api/cards-search-order.md)。
+- 本地 PostgreSQL 与查询验证：`pnpm --filter @kando/workers-api test src/db/postgres/cards-created-order-indexes.test.ts src/data-source/local-db-adapter.test.ts src/data-source/kv-cache.test.ts src/data-source/routes.test.ts --maxWorkers=1` 为 4 文件／55 项通过。新增 PGlite 用例验证事务内重复迁移仅替换指定三组索引，保留其他索引、字段与数据；真实适配器验证创建时间、ID 降序、空时间置后及跨页结果。6,000 条合成数据经 `ANALYZE` 后，空关键词的全目录／Game／Game＋SetCode 三种查询计划分别采用对应新索引，均无额外 Sort；不据此推断关键词检索的计划或线上耗时。
+- 静态与旧端验证：Workers `type-check`、Dart 格式检查及兼容测试文件的 `flutter analyze --no-pub` 通过。完整 `pnpm test:app-compatibility` 通过：当前 Hono API 合同 8 项，固定 App 1.0.4+161 与 1.0.5+163 源码各 24 项；源码基线及旧客户端保持不变，只按已批准的新排序更新当前测试的页序与零价／缺价所在位置。结果保存在忽略目录 `.dart_tool/app-compatibility/run-gXMuPG/report.json`，证据类型为 `git-source-contracts-only`，不代表签名制品或真机验收。
+- 首轮失败与修正：初版计划测试使用关键词 `card`，规划器估算选择性后采用 Seq Scan＋Sort，因此该轮为 54 项通过／1 项失败；改为实际首屏的空关键词验证索引有序输出，未禁用顺序扫描或更改业务 SQL。新测试漏导入 Node `URL` 引发类型检查失败，显式导入后复跑通过。前述失败不记为通过；最终定向测试与类型检查均已重跑。
+- 最终审查：独立 Code Review 无阻断发现，`git diff --check` 及新文档入口／相对路径检查通过；前面误写入 v1.1.0 的本次排序说明已移至 v1.1.3，归档文件恢复为无差异。
+- 环境边界：尚未执行 dev/prod 迁移、远端索引统计／`EXPLAIN ANALYZE`、真实规模锁等待／耗时验证或部署；本地索引与合成数据验证不代表线上性能或外部查询兼容性已确认。本次仅覆盖查询、迁移和直接兼容调用方，未运行全量 Workers／Flutter 测试或打包；并行 Admin 变更不属于本记录。
+
 ## Review 偶发图片与价格丢失修复（2026-10-28）
 
 - 基线与证据：基于本地 `codex/dev-1.0.7scan@94b7f79e38408ae673405d1bdb82c6d0249b7b74`。用户反馈 production App `1.0.6 (182)` 偶发进入 Review 后有候选名称但图片占位、价格为 `--`。调查已核对该包发布源 `557166b` 的相关加载函数与本地一致，并在修复前用临时 Widget 测试稳定复现：后台详情先成功，随后 `loadTarget` 完成，打开 Review 的旧缓存快照把图片覆盖回 `null`。截图对应三张候选的公开生产详情、主要行情请求与 JPEG 图片在调查时均正常；这些只读检查不代表取得了用户当次手机请求日志。
@@ -29,6 +40,13 @@
 - 环境与签名：最终内部 IPA 为 `com.kando.kandoApp.beta`、`1.0.6 (189)`、MinimumOSVersion 16.0；测试 API `http://192.168.50.201:8080/api/v1` 命中一次且生产 API 不存在。内置 `GoogleService-Info.plist` 与仓库 test 文件逐字节一致，Firebase project 为 `card-ai---test`、Google App ID 为 `1:490325688457:ios:923f77a6242705bc0f8658`。Runner 与 42 个 Framework 共 43 个组件逐个通过严格签名校验，全部为 Apple Development `kancloud cq (578WZAD3DU)`、Team `B95U3272HR`；最终 `get-task-allow=true`、App Attest=`development`、Apple Sign In=`Default`，application identifier 为 `B95U3272HR.com.kando.kandoApp.beta`。profile UUID `b38a6512-5b51-4f36-ab2d-757de0582e7b`，有效至 2027-09-07，包含 6 台设备。
 - 符号：IPA 的 43 个唯一 Mach-O UUID 与 dSYM 的 43 个唯一 UUID 精确一致，missing／extra 均为 0；45 条 DWARF 中两组为重复 UUID 副本。逐个验证 45 个实际 DWARF 二进制后为 44／45 通过；只有 `App.framework.dSYM` 退出 1，包含 169 次既有 Flutter AOT address range 错误及两条汇总。UUID 覆盖完整，但不能写成全部 dSYM 深检通过。
 - 制品与边界：`Card AI Test.ipa` 为 42,977,376 字节，SHA-256 `897971ed7f82fa9f5e72ebf5a061546cabea7bd393ebd0f62b75d2b51847e09a`；`dSYMs.zip` 为 63,897,276 字节，SHA-256 `ef32dc8af9d5ca0cf06db67b18fff614982e58a9e61be8d5c989cb62b109e19a`。两份 ZIP 完整性通过，保存 IPA 与构建输出逐字节一致；独立展开比对确认 IPA 的 384 个文件及 dSYM 的 134 个文件均与当前 xcarchive 一致。制品位于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.6-189/`；完整保存后当前保留 187、188、189，并经 Finder 独立回读确认 186 已移入废纸篓。本次未安装真机、上传蒲公英／TestFlight／App Store Connect／Firebase，也未执行远程部署、数据库写入、Git commit 或 push；未执行真实扫描、扫描 Golden 或真机 OCR／pHash。
+
+## Admin 苹果通知消息 SKU 下拉选项（2026-10-28）
+
+- 范围：基于本地 `codex/dev-1.0.7scan@eb281316cba82bcf05929fc2b1b796846c6ce2ca`，按用户确认将 SKU 输入框改为可搜索、可清空的单选下拉，选项取当前后台可见的全部通知记录，跨分页去重。选择后点击查询生效，保留既有完整匹配、组合条件、分页和重置行为；刷新同步更新列表与选项，选项加载失败明确提示。合同见[后台增量](../04-admin/admin.md#苹果通知消息-sku-筛选2026-10-28)。
+- 接口：既有 V1 `GET /api/v1/admin/apple-notifications/options` 保留 `items`，新增 `skus`，从 `product_id` 排序去重并排除无值项，沿用列表的 Bundle／业务环境隔离，不按页面筛选条件收缩。该接口仅供 Admin 使用，可兼容增加独立字段，无需 V2；没有修改 App API、通知处理、共享数据写入、schema 或 migration。
+- 验证：开发与必要文档完成后，`pnpm --filter @kando/admin-web test` 为 80／80 通过；新增行为测试执行真实页面函数，覆盖当前页外 SKU、查询草稿、UID 组合、分页、清空、重置、列表／选项同时刷新和失败重试入口。`pnpm --filter @kando/workers-api test src/admin/apple-notification-sku.postgres.test.ts src/admin/routes.test.ts --pool=threads --maxWorkers=1` 沿用既有 `.wrangler` 排除项，2 文件／22 项通过；PostgreSQL/PGlite 覆盖去重、空值、跨分页、Bundle／环境隔离及原 SKU 精确匹配。Admin 与 Workers 的 `type-check`、`pnpm lint` 均通过；Admin `run build:dev` 成功构建 1,526 个模块。上述命令均退出 0。
+- 审查与边界：独立 Code Review 未发现阻断问题，本次范围的 `git diff --check` 通过。未进行真实 Admin 登录浏览器交互或线上数据库性能验收；因改动仅涉及 Admin 只读接口与页面，未运行全量 Workers、Flutter 或旧 App 源码兼容编排。开发验证阶段未连接 dev／prod 数据库，未执行部署、远端 migration、Git commit／push 或远程配置写入。上线需要配套发布 Admin 与 API；仅发布前端而旧 API 未返回 `skus` 时下拉选项为空。其他并行任务的改动不属于本次 SKU 下拉交付。
 
 ## Admin 苹果通知消息 SKU 筛选（2026-10-28）
 

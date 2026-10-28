@@ -869,14 +869,23 @@ adminRoutes.get("/apple-notifications", async (c) => {
 adminRoutes.get("/apple-notifications/options", async (c) => {
   const scope = appleNotificationAdminScope(c.env);
   if (!scope) return c.json(INTERNAL_ERROR_RESPONSE, 500);
-  const rows = await c.env.DB.prepare(`SELECT DISTINCT n.notification_type, n.subtype
-    FROM apple_server_notification n
-    JOIN apple_notification_inbox inbox ON inbox.id = n.inbox_id
-    WHERE ${scope.sql}
-    ORDER BY n.notification_type, n.subtype`).bind(...scope.bindings).all<{
-      notification_type: string; subtype: string | null;
-    }>();
-  return c.json({ success: true, data: { items: rows.results ?? [] } });
+  const [rows, skus] = await Promise.all([
+    c.env.DB.prepare(`SELECT DISTINCT n.notification_type, n.subtype
+      FROM apple_server_notification n
+      JOIN apple_notification_inbox inbox ON inbox.id = n.inbox_id
+      WHERE ${scope.sql}
+      ORDER BY n.notification_type, n.subtype`).bind(...scope.bindings).all<{
+        notification_type: string; subtype: string | null;
+      }>(),
+    c.env.DB.prepare(`SELECT DISTINCT n.product_id AS sku
+      FROM apple_server_notification n
+      JOIN apple_notification_inbox inbox ON inbox.id = n.inbox_id
+      WHERE ${scope.sql} AND NULLIF(TRIM(n.product_id), '') IS NOT NULL
+      ORDER BY sku`).bind(...scope.bindings).all<{ sku: string }>(),
+  ]);
+  return c.json({ success: true, data: {
+    items: rows.results ?? [], skus: (skus.results ?? []).map((row) => row.sku),
+  } });
 });
 
 adminRoutes.get("/apple-notifications/:detailId", async (c) => {

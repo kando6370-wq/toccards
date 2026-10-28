@@ -182,15 +182,14 @@ describe("frozen App contracts against current PostgreSQL-backed API", () => {
     expect(legacySets.body.data.items).toMatchObject([{ set_id: "0010", set_code: "C03", card_count: 41 }]);
     const first = await call("catalog-page-1", "/cards/search?q=Contract%20Card&game=Pokemon&page=1&page_size=40", 200);
     expect(first.body.data.items.map((item: { card_ref: string }) => item.card_ref))
-      .toEqual(Array.from({ length: 40 }, (_, index) => String(index + 1).padStart(4, "0")));
-    expect(first.body.data.items[0].price_usd).toBe(0);
-    expect(first.body.data.items[1].price_usd).toBeUndefined();
+      .toEqual(Array.from({ length: 40 }, (_, index) => String(41 - index).padStart(4, "0")));
+    expect(first.body.data.items[39].price_usd).toBeUndefined();
     const second = await call("catalog-page-2", "/cards/search?q=Contract%20Card&game=Pokemon&page=2&page_size=40", 200);
-    expect(second.body.data).toMatchObject({ page: 2, page_size: 40, items: [{ card_ref: "0041" }] });
+    expect(second.body.data).toMatchObject({ page: 2, page_size: 40, items: [{ card_ref: "0001", price_usd: 0 }] });
     const end = await call("catalog-page-3", "/cards/search?q=Contract%20Card&game=Pokemon&page=3&page_size=40", 200);
     expect(end.body.data.items).toEqual([]);
     const setCards = await call("catalog-set-page-2", "/cards/search?game=Pokemon&set_id=0010&page=2&page_size=40", 200);
-    expect(setCards.body.data.items.map((item: { card_ref: string }) => item.card_ref)).toEqual(["0041"]);
+    expect(setCards.body.data.items.map((item: { card_ref: string }) => item.card_ref)).toEqual(["0001"]);
   });
 
   it("C03 exposes published zero prices and real history points without publishing pending imports", async () => {
