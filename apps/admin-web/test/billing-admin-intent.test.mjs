@@ -56,7 +56,7 @@ test("Apple notification payload stays out of list responses and is copied only 
   assert.match(styles, /@media \(max-width: 991px\) \{[^}]*\.admin-sider \{[^}]*overflow: visible;[^}]*z-index: 10;/s);
   assert.match(app, /description: "查询并查看 Apple App Store Server Notifications V2 订阅通知消息及完整通知内容，用于排查掉单、订单状态异常等问题。"/);
   assert.match(app, /<ScanFilterField label="环境">.*<ScanFilterField label="主通知类型">.*<ScanFilterField label="子通知类型">/s);
-  assert.match(app, /<ScanFilterField label="SKU"><Input value=\{draft\.sku \?\? ""\} placeholder="请输入 SKU。"/);
+  assert.match(app, /<ScanFilterField label="SKU"><Select showSearch allowClear placeholder="全部" value=\{draft\.sku \|\| undefined\} options=\{skuOptions\}/);
   assert.match(app, /sku: draft\.sku\?\.trim\(\) \?\? ""/);
   assert.match(app, /<ScanFilterField className="apple-notification-created-at" label="创建时间（UTC\+0）"><DatePicker\.RangePicker key=\{dateKey\} format="YYYY-MM-DD"/);
   assert.match(app, /<section className="scans-filter-panel apple-notifications-filter-panel">/);
@@ -70,9 +70,9 @@ test("Apple notification payload stays out of list responses and is copied only 
   assert.match(app, /const lastPage = Math\.max\(1, Math\.ceil\(data\.total \/ data\.page_size\)\).*if \(page > lastPage\) setPage\(lastPage\)/s);
   assert.match(app, /<Button disabled=\{loading\} onClick=\{resetNotificationFilters\}>重置<\/Button>/);
   assert.match(app, /<Button className="cyan-button" disabled=\{loading\} loading=\{loading\} onClick=\{applyNotificationFilters\}>查询<\/Button>/);
-  assert.match(app, /<Title level=\{4\}>通知消息列表<\/Title><Button disabled=\{loading\} loading=\{loading\} onClick=\{reload\}>刷新<\/Button>/);
+  assert.match(app, /<Title level=\{4\}>通知消息列表<\/Title><Button disabled=\{loading \|\| optionsLoading\} loading=\{loading \|\| optionsLoading\} onClick=\{refreshNotifications\}>刷新<\/Button>/);
   assert.match(app, /locale=\{\{ emptyText: "暂无符合条件的通知消息" \}\}/);
-  assert.match(app, /error=\{error \? "通知消息加载失败，请稍后重试" : null\}/);
+  assert.match(app, /error=\{error \? "通知消息加载失败，请稍后重试" : optionsError \? "筛选选项加载失败，请点击刷新重试" : null\}/);
   assert.match(app, /<Pagination disabled=\{loading\} current=\{page\}/);
   assert.match(app, /<Drawer className="notification-detail-drawer" rootClassName="notification-detail-drawer-root" title="通知消息详情" width="55%"/);
   assert.match(styles, /\.notification-detail-drawer \.info-grid \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/s);

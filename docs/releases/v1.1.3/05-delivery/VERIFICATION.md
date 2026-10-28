@@ -22,6 +22,13 @@
 - 符号：IPA 的 43 个唯一 Mach-O UUID 与 dSYM 的 43 个唯一 UUID 精确一致，missing／extra 均为 0；45 条 DWARF 中两组为重复 UUID 副本。逐个验证 45 个实际 DWARF 二进制后为 44／45 通过；只有 `App.framework.dSYM` 退出 1，包含 169 次既有 Flutter AOT address range 错误及两条汇总。UUID 覆盖完整，但不能写成全部 dSYM 深检通过。
 - 制品与边界：`Card AI Test.ipa` 为 42,977,376 字节，SHA-256 `897971ed7f82fa9f5e72ebf5a061546cabea7bd393ebd0f62b75d2b51847e09a`；`dSYMs.zip` 为 63,897,276 字节，SHA-256 `ef32dc8af9d5ca0cf06db67b18fff614982e58a9e61be8d5c989cb62b109e19a`。两份 ZIP 完整性通过，保存 IPA 与构建输出逐字节一致；独立展开比对确认 IPA 的 384 个文件及 dSYM 的 134 个文件均与当前 xcarchive 一致。制品位于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.6-189/`；完整保存后当前保留 187、188、189，并经 Finder 独立回读确认 186 已移入废纸篓。本次未安装真机、上传蒲公英／TestFlight／App Store Connect／Firebase，也未执行远程部署、数据库写入、Git commit 或 push；未执行真实扫描、扫描 Golden 或真机 OCR／pHash。
 
+## Admin 苹果通知消息 SKU 下拉选项（2026-10-28）
+
+- 范围：基于本地 `codex/dev-1.0.7scan@eb281316cba82bcf05929fc2b1b796846c6ce2ca`，按用户确认将 SKU 输入框改为可搜索、可清空的单选下拉，选项取当前后台可见的全部通知记录，跨分页去重。选择后点击查询生效，保留既有完整匹配、组合条件、分页和重置行为；刷新同步更新列表与选项，选项加载失败明确提示。合同见[后台增量](../04-admin/admin.md#苹果通知消息-sku-筛选2026-10-28)。
+- 接口：既有 V1 `GET /api/v1/admin/apple-notifications/options` 保留 `items`，新增 `skus`，从 `product_id` 排序去重并排除无值项，沿用列表的 Bundle／业务环境隔离，不按页面筛选条件收缩。该接口仅供 Admin 使用，可兼容增加独立字段，无需 V2；没有修改 App API、通知处理、共享数据写入、schema 或 migration。
+- 验证：开发与必要文档完成后，`pnpm --filter @kando/admin-web test` 为 80／80 通过；新增行为测试执行真实页面函数，覆盖当前页外 SKU、查询草稿、UID 组合、分页、清空、重置、列表／选项同时刷新和失败重试入口。`pnpm --filter @kando/workers-api test src/admin/apple-notification-sku.postgres.test.ts src/admin/routes.test.ts --pool=threads --maxWorkers=1` 沿用既有 `.wrangler` 排除项，2 文件／22 项通过；PostgreSQL/PGlite 覆盖去重、空值、跨分页、Bundle／环境隔离及原 SKU 精确匹配。Admin 与 Workers 的 `type-check`、`pnpm lint` 均通过；Admin `run build:dev` 成功构建 1,526 个模块。上述命令均退出 0。
+- 审查与边界：独立 Code Review 未发现阻断问题，本次范围的 `git diff --check` 通过。未进行真实 Admin 登录浏览器交互或线上数据库性能验收；因改动仅涉及 Admin 只读接口与页面，未运行全量 Workers、Flutter 或旧 App 源码兼容编排。开发验证阶段未连接 dev／prod 数据库，未执行部署、远端 migration、Git commit／push 或远程配置写入。上线需要配套发布 Admin 与 API；仅发布前端而旧 API 未返回 `skus` 时下拉选项为空。其他并行任务的改动不属于本次 SKU 下拉交付。
+
 ## Admin 苹果通知消息 SKU 筛选（2026-10-28）
 
 - 范围：基于本地 `codex/dev-1.0.7scan@94b7f79e38408ae673405d1bdb82c6d0249b7b74`，在“数据统计 → 苹果通知消息”增加 SKU 输入筛选。前端查询时去除首尾空格，分页／刷新保留当前值，重置清空 SKU；桌面宽屏使用五列并让创建时间跨两列，中等宽度三列、小屏两列且操作区占满一行。完整合同见[后台增量](../04-admin/admin.md#苹果通知消息-sku-筛选2026-10-28)。

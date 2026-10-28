@@ -107,4 +107,38 @@ describe("Admin Apple notification SKU filter on PostgreSQL", () => {
     expect(unfiltered.total).toBe(2);
     expect(unfiltered.items.map((item) => item.processing_status)).toContain("verification_failed");
   });
+
+  it("offers every distinct notification SKU across pages without blank or out-of-scope values", async () => {
+    for (const [id, sku, bundle, environment] of [
+      ["monthly", "CardAi.monthly", "com.kando.kandoApp.beta", "Sandbox"],
+      ["duplicate", "CardAi.yearly", "com.kando.kandoApp.beta", "Sandbox"],
+      ["blank", "   ", "com.kando.kandoApp.beta", "Sandbox"],
+      ["empty", "", "com.kando.kandoApp.beta", "Sandbox"],
+      ["null", null, "com.kando.kandoApp.beta", "Sandbox"],
+      ["other-bundle", "Other.product", "com.example.other", "Sandbox"],
+      ["production", "Production.product", "com.kando.kandoApp.beta", "Production"],
+    ] as const) {
+      await db.prepare(`INSERT INTO apple_notification_inbox
+        (id, payload_sha256, request_json, signed_payload, processing_status, attempts,
+         notification_uuid, received_at, processed_at, environment, app_bundle_id)
+        VALUES (?, ?, '{}', 'signed', 'processed', 1, ?, ?, ?, ?, ?)`)
+        .bind(`inbox-${id}`, `hash-${id}`, `notification-${id}`, NOW, NOW, environment, bundle).run();
+      await db.prepare(`INSERT INTO apple_server_notification
+        (id, notification_uuid, notification_type, environment, product_id, signed_payload,
+         decoded_payload, processing_status, attempts, received_at, processed_at, inbox_id)
+        VALUES (?, ?, 'DID_RENEW', ?, ?, 'signed', '{}', 'processed', 1, ?, ?, ?)`)
+        .bind(`row-${id}`, `notification-${id}`, environment, sku, NOW, NOW, `inbox-${id}`).run();
+    }
+
+    const list = await get("page=1&page_size=1");
+    expect(list).toMatchObject({ total: 7, page_size: 1 });
+    const response = await app.request("/admin/apple-notifications/options?sku=CardAi.yearly&page=1&page_size=1", {
+      headers: { Authorization: `Bearer ${token}` },
+    }, env);
+    expect(response.status).toBe(200);
+    expect((await response.json() as { data: { items: unknown[]; skus: string[] } }).data).toMatchObject({
+      items: [{ notification_type: "DID_RENEW", subtype: null }],
+      skus: ["CardAi.monthly", "CardAi.yearly"],
+    });
+  });
 });

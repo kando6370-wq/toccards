@@ -106,7 +106,7 @@ type AppleNotificationRow = {
   sku: string | null; processing_status: string; received_at: string; uids: string | null;
 };
 
-type AppleNotificationOptions = { items: Array<{ notification_type: string; subtype: string | null }> };
+type AppleNotificationOptions = { items: Array<{ notification_type: string; subtype: string | null }>; skus: string[] };
 type AppleNotificationDetail = AppleNotificationRow & {
   decoded_payload: string | null;
   last_error: string | null;
@@ -638,12 +638,13 @@ function AppleNotificationsPage({ session }: { session: AdminSession }) {
   const detailRequestVersion = useRef(0);
   const path = useMemo(() => queryPath("/apple-notifications", page, filters), [filters, page]);
   const { data, loading, reload, error } = useAdminData<PagedResponse<AppleNotificationRow>>(path, session);
-  const { data: optionData } = useAdminData<AppleNotificationOptions>("/apple-notifications/options", session);
+  const { data: optionData, loading: optionsLoading, reload: reloadOptions, error: optionsError } = useAdminData<AppleNotificationOptions>("/apple-notifications/options", session);
   useEffect(() => {
     if (loading || !data) return;
     const lastPage = Math.max(1, Math.ceil(data.total / data.page_size));
     if (page > lastPage) setPage(lastPage);
   }, [data, loading, page]);
+  const skuOptions = (optionData?.skus ?? []).map((value) => ({ value, label: value }));
   const notificationTypes = [...new Set((optionData?.items ?? []).map((item) => item.notification_type))];
   const notificationTypeOptions = notificationTypes.map((value) => ({ value, label: value }));
   const selectedType = draft.notification_type || undefined;
@@ -668,6 +669,10 @@ function AppleNotificationsPage({ session }: { session: AdminSession }) {
     setFilters({ environment: DEFAULT_BILLING_ENVIRONMENT });
     setPage(1);
     setDateKey((value) => value + 1);
+  }
+  function refreshNotifications() {
+    reload();
+    reloadOptions();
   }
   async function openDetail(id: string) {
     const requestVersion = ++detailRequestVersion.current;
@@ -714,19 +719,19 @@ function AppleNotificationsPage({ session }: { session: AdminSession }) {
     { title: "创建时间（UTC+0）", dataIndex: "received_at", width: 170, render: notificationUtcTime },
     { title: "操作", width: 90, render: (_, row) => <Button type="link" onClick={() => openDetail(row.detail_id)}>查看详情</Button> },
   ];
-  return <PagePanel error={error ? "通知消息加载失败，请稍后重试" : null} onRefresh={reload} refreshing={loading} showRefresh={false}>
+  return <PagePanel error={error ? "通知消息加载失败，请稍后重试" : optionsError ? "筛选选项加载失败，请点击刷新重试" : null} onRefresh={refreshNotifications} refreshing={loading || optionsLoading} showRefresh={false}>
     <section className="scans-filter-panel apple-notifications-filter-panel">
       <ScanFilterField label="UID"><Input value={draft.uid ?? ""} placeholder="请输入用户 ID。" onChange={(e) => setDraft({ ...draft, uid: e.target.value })} /></ScanFilterField>
       <ScanFilterField label="原始交易 ID"><Input value={draft.original_transaction_id ?? ""} placeholder="请输入原始交易 ID。" onChange={(e) => setDraft({ ...draft, original_transaction_id: e.target.value })} /></ScanFilterField>
       <ScanFilterField label="订单 ID"><Input value={draft.order_id ?? ""} placeholder="请输入订单 ID。" onChange={(e) => setDraft({ ...draft, order_id: e.target.value })} /></ScanFilterField>
-      <ScanFilterField label="SKU"><Input value={draft.sku ?? ""} placeholder="请输入 SKU。" onChange={(e) => setDraft({ ...draft, sku: e.target.value })} /></ScanFilterField>
+      <ScanFilterField label="SKU"><Select showSearch allowClear placeholder="全部" value={draft.sku || undefined} options={skuOptions} loading={optionsLoading} onChange={(v) => setDraft({ ...draft, sku: v ?? "" })} /></ScanFilterField>
       <ScanFilterField label="环境"><Select allowClear placeholder="全部" value={draft.environment || undefined} options={billingEnvironmentOptions} onChange={(v) => setDraft({ ...draft, environment: v ?? "" })} /></ScanFilterField>
       <ScanFilterField label="主通知类型"><Select showSearch allowClear placeholder="全部" value={selectedType} options={notificationTypeOptions} onChange={(v) => setDraft({ ...draft, notification_type: v ?? "", subtype: "" })} /></ScanFilterField>
       <ScanFilterField label="子通知类型"><Select showSearch allowClear placeholder="全部" value={draft.subtype || undefined} options={subtypeOptions} onChange={(v) => setDraft({ ...draft, subtype: v ?? "" })} /></ScanFilterField>
       <ScanFilterField className="apple-notification-created-at" label="创建时间（UTC+0）"><DatePicker.RangePicker key={dateKey} format="YYYY-MM-DD" onChange={(_, v) => setDraft({ ...draft, created_from: v[0], created_to: v[1] })} /></ScanFilterField>
       <div className="scans-filter-actions"><Button disabled={loading} onClick={resetNotificationFilters}>重置</Button><Button className="cyan-button" disabled={loading} loading={loading} onClick={applyNotificationFilters}>查询</Button></div>
     </section>
-    <section className="scans-table-panel"><div className="billing-table-actions"><Title level={4}>通知消息列表</Title><Button disabled={loading} loading={loading} onClick={reload}>刷新</Button></div><Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} locale={{ emptyText: "暂无符合条件的通知消息" }} pagination={false} scroll={{ x: 1510 }} />
+    <section className="scans-table-panel"><div className="billing-table-actions"><Title level={4}>通知消息列表</Title><Button disabled={loading || optionsLoading} loading={loading || optionsLoading} onClick={refreshNotifications}>刷新</Button></div><Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} locale={{ emptyText: "暂无符合条件的通知消息" }} pagination={false} scroll={{ x: 1510 }} />
       <div className="scans-pagination"><Text>{rangeSummaryPage(page, data?.page_size ?? 20, data?.total ?? 0)}</Text><Pagination disabled={loading} current={page} pageSize={data?.page_size ?? 20} total={data?.total ?? 0} showSizeChanger={false} onChange={setPage} /></div>
     </section>
     <Drawer className="notification-detail-drawer" rootClassName="notification-detail-drawer-root" title="通知消息详情" width="55%" open={detailId !== null} onClose={closeDetail}>
