@@ -6,6 +6,14 @@
 
 当前运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下记录只代表 v1.1.3 本地增量及实际执行的验证，不改变远端运行状态。
 
+## iOS 测试环境内部安装包 1.0.6 (189)（2026-10-28）
+
+- 构建输入：从构建前干净且与实时同名远端一致的 `codex/dev-1.0.7scan@885a78c54c43a2f9705dbc544be21cbf650bf2b6` 构建；相对 188 新增扫描汇总／额度提示与结果卡间距、大屏定位框等比放大、相机画面提亮及失败预留时的队列满提示校正，没有依赖、iOS 工程或环境配置变化。当前分支与 `origin/dev` 已分叉，本包只代表当前功能分支，未擅自切换或合并 dev。脚本从 `1.0.6+188` 显式选择 `1.0.6 (189)`，构建前 dev health 返回 `{"status":"ok"}`；成功后仅将 `pubspec.yaml` 同步为 `1.0.6+189`。
+- 工具链与依赖：使用 Flutter 3.44.5／Dart 3.12.2／Xcode 27.1。构建前 `flutter pub get --enforce-lockfile`、脚本内依赖解析及完整 `flutter analyze` 均退出 0；根 `pubspec.lock` 与 iOS `Podfile.lock` SHA-256 保持 `612f006776860e3a61f083bf27283a73ec1c22b95dd8d318b06533d8fed46183`、`14216d83bfc80fdb98860bf1d624e528f35878242513a14ac6a41b3bf61ff685`，没有依赖锁更新。Swift Package Manager 与 ML Kit Apple Silicon iOS 26+ 模拟器提示仍存在，本轮 CocoaPods、真机 Release Archive 和 IPA 导出成功，不把未来／模拟器兼容提示记为已解决。新提交对应的定向组件、布局和静态检查结果见本文件下方各功能记录；本轮未重跑完整 Widget 或 Flutter 测试。
+- 环境与签名：最终内部 IPA 为 `com.kando.kandoApp.beta`、`1.0.6 (189)`、MinimumOSVersion 16.0；测试 API `http://192.168.50.201:8080/api/v1` 命中一次且生产 API 不存在。内置 `GoogleService-Info.plist` 与仓库 test 文件逐字节一致，Firebase project 为 `card-ai---test`、Google App ID 为 `1:490325688457:ios:923f77a6242705bc0f8658`。Runner 与 42 个 Framework 共 43 个组件逐个通过严格签名校验，全部为 Apple Development `kancloud cq (578WZAD3DU)`、Team `B95U3272HR`；最终 `get-task-allow=true`、App Attest=`development`、Apple Sign In=`Default`，application identifier 为 `B95U3272HR.com.kando.kandoApp.beta`。profile UUID `b38a6512-5b51-4f36-ab2d-757de0582e7b`，有效至 2027-09-07，包含 6 台设备。
+- 符号：IPA 的 43 个唯一 Mach-O UUID 与 dSYM 的 43 个唯一 UUID 精确一致，missing／extra 均为 0；45 条 DWARF 中两组为重复 UUID 副本。逐个验证 45 个实际 DWARF 二进制后为 44／45 通过；只有 `App.framework.dSYM` 退出 1，包含 169 次既有 Flutter AOT address range 错误及两条汇总。UUID 覆盖完整，但不能写成全部 dSYM 深检通过。
+- 制品与边界：`Card AI Test.ipa` 为 42,977,376 字节，SHA-256 `897971ed7f82fa9f5e72ebf5a061546cabea7bd393ebd0f62b75d2b51847e09a`；`dSYMs.zip` 为 63,897,276 字节，SHA-256 `ef32dc8af9d5ca0cf06db67b18fff614982e58a9e61be8d5c989cb62b109e19a`。两份 ZIP 完整性通过，保存 IPA 与构建输出逐字节一致；独立展开比对确认 IPA 的 384 个文件及 dSYM 的 134 个文件均与当前 xcarchive 一致。制品位于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.6-189/`；完整保存后当前保留 187、188、189，并经 Finder 独立回读确认 186 已移入废纸篓。本次未安装真机、上传蒲公英／TestFlight／App Store Connect／Firebase，也未执行远程部署、数据库写入、Git commit 或 push；未执行真实扫描、扫描 Golden 或真机 OCR／pHash。
+
 ## Admin 扫描记录卡牌类型筛选（2026-10-28）
 
 - 基线与范围：从干净的 `codex/dev-1.0.7scan@c13cb90f4207d8b65545b471986829645f2bfd14` 开始本地修改。“卡牌管理 → 扫描记录管理”新增 TCG／SPORTS 类型筛选，选择后点击查询生效，分页保留类型，清除／重置恢复全部。用户已明确确认历史缺类型记录只在“全部”中显示，不推断回填；完整规则见[扫描识别链路](../01-flows/scan-recognition.md#管理后台按卡牌类型筛选2026-10-28)。
