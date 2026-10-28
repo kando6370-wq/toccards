@@ -1218,6 +1218,37 @@ void main() {
     },
   );
 
+  testWidgets(
+    'iPhone 11 enlarges the viewfinder within 35 pixel content boundaries',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(414, 896);
+      tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+      addTearDown(tester.view.reset);
+      await _pumpScanTestApp(tester);
+
+      final viewfinder = tester.getRect(
+        find.byKey(const Key('scan-figma-viewfinder')),
+      );
+      final topControls = tester.getRect(
+        find.byKey(const Key('scan-figma-top-controls')),
+      );
+      final summary = tester.getRect(
+        find.byKey(const Key('scan-results-summary')),
+      );
+
+      expect(viewfinder.left, closeTo(61.46, 0.01));
+      expect(viewfinder.top, closeTo(137, 0.01));
+      expect(viewfinder.width, closeTo(291.09, 0.01));
+      expect(viewfinder.height, closeTo(416, 0.01));
+      expect(viewfinder.width / viewfinder.height, closeTo(254 / 363, 0.0001));
+      expect(viewfinder.left, greaterThanOrEqualTo(35));
+      expect(viewfinder.right, lessThanOrEqualTo(414 - 35));
+      expect(viewfinder.top - topControls.bottom, closeTo(35, 0.01));
+      expect(summary.top - viewfinder.bottom, closeTo(35, 0.01));
+    },
+  );
+
   for (final device in [
     (
       name: 'iPhone 12',

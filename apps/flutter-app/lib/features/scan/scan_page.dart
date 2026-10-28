@@ -55,8 +55,11 @@ class _ScanReviewLoadException implements Exception {
 const _viewfinderBaseTop = 154.0;
 const _viewfinderBaseWidth = 254.0;
 const _viewfinderBaseHeight = 363.0;
+const _viewfinderBaseViewportWidth = 390.0;
+const _viewfinderBaseViewportHeight = 844.0;
 const _viewfinderHorizontalMargin = 24.0;
 const _viewfinderControlGap = 29.0;
+const _viewfinderUpscalePadding = 35.0;
 const _scanTopNavigationGap = 16.0;
 const _scanTopBarHeight = 42.0;
 const _viewfinderTopChromeHeight = _scanTopNavigationGap + _scanTopBarHeight;
@@ -116,12 +119,58 @@ _ScanViewfinderGeometry _scanViewfinderGeometry(
           .clamp(topLimit, viewport.height);
   final widthScale = (rightLimit - leftLimit) / _viewfinderBaseWidth;
   final heightScale = (bottomLimit - topLimit) / _viewfinderBaseHeight;
-  final scale = math.max(0.0, math.min(1.0, math.min(widthScale, heightScale)));
+  var scale = math.max(0.0, math.min(1.0, math.min(widthScale, heightScale)));
+  var layoutLeftLimit = leftLimit;
+  var layoutRightLimit = rightLimit;
+  var layoutTopLimit = topLimit;
+  var layoutBottomLimit = bottomLimit;
+
+  final largerThanBaseViewport =
+      viewport.width > _viewfinderBaseViewportWidth ||
+      viewport.height > _viewfinderBaseViewportHeight;
+  if (scale == 1 && largerThanBaseViewport) {
+    final upscaleLeftLimit =
+        (padding.left + _viewfinderUpscalePadding).clamp(
+          0.0,
+          viewport.width,
+        );
+    final upscaleRightLimit =
+        (viewport.width - padding.right - _viewfinderUpscalePadding).clamp(
+          upscaleLeftLimit,
+          viewport.width,
+        );
+    final upscaleTopLimit =
+        (padding.top + _viewfinderTopChromeHeight + _viewfinderUpscalePadding)
+            .clamp(0.0, viewport.height);
+    final upscaleBottomLimit =
+        (viewport.height -
+                _scanResultsBottom -
+                _scanLowerStatusHeight -
+                _viewfinderUpscalePadding)
+            .clamp(upscaleTopLimit, viewport.height);
+    final upscaleWidthScale =
+        (upscaleRightLimit - upscaleLeftLimit) / _viewfinderBaseWidth;
+    final upscaleHeightScale =
+        (upscaleBottomLimit - upscaleTopLimit) / _viewfinderBaseHeight;
+    final upscaleScale = math.min(upscaleWidthScale, upscaleHeightScale);
+    if (upscaleScale > 1) {
+      scale = upscaleScale;
+      layoutLeftLimit = upscaleLeftLimit;
+      layoutRightLimit = upscaleRightLimit;
+      layoutTopLimit = upscaleTopLimit;
+      layoutBottomLimit = upscaleBottomLimit;
+    }
+  }
   final width = _viewfinderBaseWidth * scale;
   final height = _viewfinderBaseHeight * scale;
-  final left = leftLimit + ((rightLimit - leftLimit - width) / 2);
-  final maxTop = math.max(topLimit, bottomLimit - height);
-  final top = _viewfinderBaseTop.clamp(topLimit, maxTop);
+  final left =
+      layoutLeftLimit +
+      ((layoutRightLimit - layoutLeftLimit - width) / 2);
+  final maxTop = math.max(
+    layoutTopLimit,
+    layoutBottomLimit - height,
+  );
+  final top = _viewfinderBaseTop.clamp(layoutTopLimit, maxTop);
   return _ScanViewfinderGeometry(Rect.fromLTWH(left, top, width, height));
 }
 
