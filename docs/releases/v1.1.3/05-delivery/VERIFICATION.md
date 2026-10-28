@@ -6,6 +6,17 @@
 
 当前运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下记录只代表 v1.1.3 本地增量及实际执行的验证，不改变远端运行状态。
 
+<a id="dev-cards-index-deployment-20261028"></a>
+## Linux dev 合并发布与 Cards 索引替换（2026-10-28 18:03–18:21）
+
+- Git 与范围：按用户授权将 `codex/dev-1.0.7scan@6a1f053dfc73a299f786ef71a9d77e00b6f07282` 合入 `dev@5cc5ae0ab204af287065a28071dc585eb50e4cad`，合并提交 `b9702b81c4cdf13ad5b420994f70db273a6cd2df` 已推送 `github/dev` 并回读一致。唯一冲突为本验证文件顶部的独立记录，保留两边历史；业务代码无冲突。发布包含 Cards 排序／缓存／索引和 Admin 苹果通知 SKU 下拉筛选，不包含生产或 Flutter 制品发布。
+- 合并后验证：Workers 定向 5 文件／58 项、Admin 80／80、根 `pnpm type-check` 和 `pnpm lint` 通过；兼容源码合同为服务端 8 项、固定 App 1.0.4／1.0.5 各 24 项，证据位于忽略目录 `.dart_tool/app-compatibility/run-5ZTd5C/`。干净 dev 的 `deploy:dry-run:dev` 完成 Admin 和 Linux API 构建，bundle 测试 3／3；watcher 随后独立通过 Workers 11 文件／116 项、Node 预检／静态服务 13／13、bundle 3／3，再构建发布。
+- 索引预建：发布前独立确认 kd201 为 `toccards_test`、PostgreSQL 18.6、ledger 16 项至 `0015`，目录估计 2,405,301 行，磁盘剩余 319 GB，无活跃锁等待。旧 Game 更新时间索引有历史扫描记录，另两旧排序索引统计为 0；仓库已无相应排序读取，预检时无活跃外部 `cards_all.updated_at` 查询，未安装 `pg_stat_statements`，因此不宣称核实了全部外部历史 SQL。持有既有 watcher／deploy 锁，先生成 `toccards-test-20261028-180641-before-created-indexes-6a1f053d.dump`，1,136,430,871 字节、`pg_restore --list` 读取 336 个非注释条目。18:10:29–18:10:59 依次 `CREATE INDEX CONCURRENTLY` 建立三个新索引，各约 9–10 秒；完整定义及 `indisvalid/indisready=true` 回读通过，旧索引此时保留，ledger 未提前登记。
+- watcher 发布：既有每两分钟 watcher 自动接收新 dev，无手工并发发布或强制重发；release 为 `branch-dev-b9702b81c4cd-20261028181556`。实际预检仅待执行 `0016`，发布前备份 `toccards-test-20261028-181558-before-branch-dev-b9702b81c4cd-20261028181556.dump` 为 1,136,440,496 字节，独立 `pg_restore --list` 读取 339 个非注释条目。migration 事务跳过已存在的新索引、删除指定三个旧索引并登记 `0016` 后提交；ledger 变为 17 项，最新为 `0016_cards_all_created_order_indexes.sql`，后续预检无待迁移。两个备份均保留，未做恢复演练。
+- 运行验收：`current`／manifest／`last-seen-sha`／`last-deployed-sha` 在发布后均指向 `b9702b81`，失败标记不存在；DB／API healthy、Web running、migration exited/0。原 PostgreSQL 数据卷与私有 `.env` 保留，环境文件前后 SHA-256 一致。API 运行文件、Linux release 与同提交 Windows 本地构建 SHA-256 均为 `74b0259cb127a641b5a4013fc28b36842e71543c5db340206497bdc1e97fef71`；0016 运行文件与 Git 原始 LF 字节 SHA-256 同为 `530cfbdc0f9979a5212bc0c1d8179720b893a3766cf3348ede3cff52368268aa`。Admin 全部 11 个 HTML／JS／CSS 的 release、容器和 HTTP 原始字节一致。
+- 业务只读验收：开发机 health／Admin 返回 200，未登录 auth/me 和 Admin 苹果通知 options 均为 401。默认 Pokemon 的 Cards 第 1、2 页共 80 条，以及 Set `23881` 的第 1、2 页共 80 条，均与数据库按 `created_at DESC NULLS LAST, product_id DESC` 查询的 ID 顺序逐项一致；Cards 两页无重复。新三索引均有效、旧三索引已不存在、`updated_at` 字段保留。发布后真实全字段首屏 SQL 使用 `idx_cards_all_game_created_product`，无额外 Sort，单次执行 0.153 ms、规划 1.585 ms；不代表一般 P95、价格查询或 App 端到端耗时。
+- 边界：本轮只修改 dev，prod／Cloudflare、Secret、watcher 配置和业务数据未主动改写；公开 GET 会按既有逻辑回填 dev 内存缓存。未执行真实 Admin 登录／SKU 下拉操作、真实图片识别、iOS／Android 真机、备份恢复或全部业务验收。上述运行提交与后续仅补充本文档的 dev 提交分别记录，不因文档提交强制重复部署。
+
 ## Linux dev 手工重新部署（2026-10-28 15:57–16:10）
 
 - 来源与路径：从干净的本地 `dev@239a8955fd72ec23b1efcbd6a59740f6a86fe54c` 手工发布，release 为 `manual-dev-239a8955-20261028155740`，manifest 记录 `branch=dev`、`working_tree_dirty=false`、`source=deploy-dev`。当时本地 `dev` 比 `github/dev@b08d02f2` 领先 9 个提交，未擅自 push；部署前确认 watcher 与 deploy 锁均空闲，发布期间持有 watcher 锁，现有 watcher 配置和状态文件未修改。

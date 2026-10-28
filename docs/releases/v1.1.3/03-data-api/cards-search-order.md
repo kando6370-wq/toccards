@@ -1,6 +1,6 @@
 # Cards 创建时间排序与索引
 
-更新日期：2026-10-28（Asia/Shanghai）。本地实现，尚未执行 dev/prod 迁移或发布。
+更新日期：2026-10-28（Asia/Shanghai）。已随 `dev@b9702b81` 发布 kd201，PostgreSQL `0016` 已登记并独立验收；prod 尚未执行本次迁移或发布。运行证据见[dev 发布记录](../05-delivery/VERIFICATION.md#dev-cards-index-deployment-20261028)。
 
 ## 查询与缓存
 
@@ -28,7 +28,7 @@ ORDER BY created_at DESC NULLS LAST, product_id DESC
 
 三个索引的排序尾列均为 `created_at DESC NULLS LAST, product_id DESC`；后两者分别保留 `lower(game)` 与 `lower(game), lower(set_code)` 前导表达式，使原有 Game／SetCode 筛选能力继续存在。Set ID 筛选仍复用 Game 索引，不额外新增与本次替换无关的索引。
 
-仓库审计未发现活跃查询继续按 `cards_all.updated_at` 排序或筛选：卡牌详情、Scan 候选和 Portfolio 目录补全按 `product_id` 查询，Trending 通过 `product_id` 关联并按榜单 rank 排序。Admin 的 `ORDER BY updated_at` 属于 `card_override` 表，不属于本次删除范围。此结论仅覆盖仓库代码，未检查外部采集程序、临时 SQL 或远端索引使用统计。
+仓库审计未发现活跃查询继续按 `cards_all.updated_at` 排序或筛选：卡牌详情、Scan 候选和 Portfolio 目录补全按 `product_id` 查询，Trending 通过 `product_id` 关联并按榜单 rank 排序。Admin 的 `ORDER BY updated_at` 属于 `card_override` 表，不属于本次删除范围。dev 发布前已检查索引使用统计和当时的活跃查询，但未安装 `pg_stat_statements`，未取得全部外部采集程序或临时 SQL 历史；prod 的使用情况仍须独立核查。
 
 按用户确认，仅删除上述三组旧排序索引，保留 `updated_at` 字段、其他列、业务数据、主键、其他索引及 trigram 索引。迁移使用 `IF NOT EXISTS`／`IF EXISTS` 支持重复执行；不修改已执行的 `0000`，也不修改退役 D1 schema、迁移或工具。
 
