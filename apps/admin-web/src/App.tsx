@@ -657,6 +657,7 @@ function AppleNotificationsPage({ session }: { session: AdminSession }) {
       uid: draft.uid?.trim() ?? "",
       original_transaction_id: draft.original_transaction_id?.trim() ?? "",
       order_id: draft.order_id?.trim() ?? "",
+      sku: draft.sku?.trim() ?? "",
     };
     setDraft(nextFilters);
     setFilters(nextFilters);
@@ -714,14 +715,15 @@ function AppleNotificationsPage({ session }: { session: AdminSession }) {
     { title: "操作", width: 90, render: (_, row) => <Button type="link" onClick={() => openDetail(row.detail_id)}>查看详情</Button> },
   ];
   return <PagePanel error={error ? "通知消息加载失败，请稍后重试" : null} onRefresh={reload} refreshing={loading} showRefresh={false}>
-    <section className="scans-filter-panel">
+    <section className="scans-filter-panel apple-notifications-filter-panel">
       <ScanFilterField label="UID"><Input value={draft.uid ?? ""} placeholder="请输入用户 ID。" onChange={(e) => setDraft({ ...draft, uid: e.target.value })} /></ScanFilterField>
       <ScanFilterField label="原始交易 ID"><Input value={draft.original_transaction_id ?? ""} placeholder="请输入原始交易 ID。" onChange={(e) => setDraft({ ...draft, original_transaction_id: e.target.value })} /></ScanFilterField>
       <ScanFilterField label="订单 ID"><Input value={draft.order_id ?? ""} placeholder="请输入订单 ID。" onChange={(e) => setDraft({ ...draft, order_id: e.target.value })} /></ScanFilterField>
+      <ScanFilterField label="SKU"><Input value={draft.sku ?? ""} placeholder="请输入 SKU。" onChange={(e) => setDraft({ ...draft, sku: e.target.value })} /></ScanFilterField>
       <ScanFilterField label="环境"><Select allowClear placeholder="全部" value={draft.environment || undefined} options={billingEnvironmentOptions} onChange={(v) => setDraft({ ...draft, environment: v ?? "" })} /></ScanFilterField>
       <ScanFilterField label="主通知类型"><Select showSearch allowClear placeholder="全部" value={selectedType} options={notificationTypeOptions} onChange={(v) => setDraft({ ...draft, notification_type: v ?? "", subtype: "" })} /></ScanFilterField>
       <ScanFilterField label="子通知类型"><Select showSearch allowClear placeholder="全部" value={draft.subtype || undefined} options={subtypeOptions} onChange={(v) => setDraft({ ...draft, subtype: v ?? "" })} /></ScanFilterField>
-      <ScanFilterField label="创建时间（UTC+0）"><DatePicker.RangePicker key={dateKey} format="YYYY-MM-DD" onChange={(_, v) => setDraft({ ...draft, created_from: v[0], created_to: v[1] })} /></ScanFilterField>
+      <ScanFilterField className="apple-notification-created-at" label="创建时间（UTC+0）"><DatePicker.RangePicker key={dateKey} format="YYYY-MM-DD" onChange={(_, v) => setDraft({ ...draft, created_from: v[0], created_to: v[1] })} /></ScanFilterField>
       <div className="scans-filter-actions"><Button disabled={loading} onClick={resetNotificationFilters}>重置</Button><Button className="cyan-button" disabled={loading} loading={loading} onClick={applyNotificationFilters}>查询</Button></div>
     </section>
     <section className="scans-table-panel"><div className="billing-table-actions"><Title level={4}>通知消息列表</Title><Button disabled={loading} loading={loading} onClick={reload}>刷新</Button></div><Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} locale={{ emptyText: "暂无符合条件的通知消息" }} pagination={false} scroll={{ x: 1510 }} />
@@ -953,8 +955,8 @@ function ScansPage({ session }: { session: AdminSession }) {
   );
 }
 
-function ScanFilterField({ label, children }: { label: string; children: React.ReactNode }) {
-  return <label className="scan-filter-field"><span>{label}</span>{children}</label>;
+function ScanFilterField({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
+  return <label className={`scan-filter-field${className ? ` ${className}` : ""}`}><span>{label}</span>{children}</label>;
 }
 
 function PermissionsPage({ session }: { session: AdminSession }) {

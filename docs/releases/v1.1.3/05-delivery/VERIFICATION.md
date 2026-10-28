@@ -14,6 +14,14 @@
 - 符号：IPA 的 43 个唯一 Mach-O UUID 与 dSYM 的 43 个唯一 UUID 精确一致，missing／extra 均为 0；45 条 DWARF 中两组为重复 UUID 副本。逐个验证 45 个实际 DWARF 二进制后为 44／45 通过；只有 `App.framework.dSYM` 退出 1，包含 169 次既有 Flutter AOT address range 错误及两条汇总。UUID 覆盖完整，但不能写成全部 dSYM 深检通过。
 - 制品与边界：`Card AI Test.ipa` 为 42,977,376 字节，SHA-256 `897971ed7f82fa9f5e72ebf5a061546cabea7bd393ebd0f62b75d2b51847e09a`；`dSYMs.zip` 为 63,897,276 字节，SHA-256 `ef32dc8af9d5ca0cf06db67b18fff614982e58a9e61be8d5c989cb62b109e19a`。两份 ZIP 完整性通过，保存 IPA 与构建输出逐字节一致；独立展开比对确认 IPA 的 384 个文件及 dSYM 的 134 个文件均与当前 xcarchive 一致。制品位于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.6-189/`；完整保存后当前保留 187、188、189，并经 Finder 独立回读确认 186 已移入废纸篓。本次未安装真机、上传蒲公英／TestFlight／App Store Connect／Firebase，也未执行远程部署、数据库写入、Git commit 或 push；未执行真实扫描、扫描 Golden 或真机 OCR／pHash。
 
+## Admin 苹果通知消息 SKU 筛选（2026-10-28）
+
+- 范围：基于本地 `codex/dev-1.0.7scan@94b7f79e38408ae673405d1bdb82c6d0249b7b74`，在“数据统计 → 苹果通知消息”增加 SKU 输入筛选。前端查询时去除首尾空格，分页／刷新保留当前值，重置清空 SKU；桌面宽屏使用五列并让创建时间跨两列，中等宽度三列、小屏两列且操作区占满一行。完整合同见[后台增量](../04-admin/admin.md#苹果通知消息-sku-筛选2026-10-28)。
+- 服务端：`GET /api/v1/admin/apple-notifications` 新增可选 `sku` 参数，按 `apple_server_notification.product_id` 大小写敏感完整匹配，并与现有条件使用 AND 语义；列表和总数复用同一 where。未传 SKU 时，没有结构化行／SKU 的失败 inbox 继续可见。没有新增数据库字段、migration、写入路径、D1 实现或通知处理变化。
+- 验证：Admin 全量 Node 测试 79／79 通过；Workers 使用 PostgreSQL/PGlite 的新增测试与既有 Admin 路由测试共 2 文件／21 项通过，覆盖 SKU 命中、前缀不命中、大小写不同不命中、列表／总数一致及无筛选时失败 inbox 保留。`pnpm --filter @kando/admin-web run build:dev` 成功转换 1,526 个模块；`pnpm lint` 通过；根 `pnpm type-check` 的 7 个 TypeScript package 全部通过。
+- 失败与审查：首次 Workers 类型检查因新增测试使用了 DOM `URL` 类型而退出 2；显式导入 `node:url` 的 `URL` 后，同一类型检查及定向测试通过。首次只读 Code Review 指出普通文本的 `LOWER(...)` 会破坏 Product ID 大小写语义；改为参数化原值匹配并补隔离测试后，复审未发现遗留问题。
+- 边界：本轮未使用真实 Admin 登录态进行浏览器查询，未连接 dev／prod 数据库，未运行完整 Workers 测试、部署、migration、Git commit／push 或远程配置写入。本地源码和构建通过不代表 dev／prod 已上线该筛选。
+
 ## Admin 扫描记录卡牌类型筛选（2026-10-28）
 
 - 基线与范围：从干净的 `codex/dev-1.0.7scan@c13cb90f4207d8b65545b471986829645f2bfd14` 开始本地修改。“卡牌管理 → 扫描记录管理”新增 TCG／SPORTS 类型筛选，选择后点击查询生效，分页保留类型，清除／重置恢复全部。用户已明确确认历史缺类型记录只在“全部”中显示，不推断回填；完整规则见[扫描识别链路](../01-flows/scan-recognition.md#管理后台按卡牌类型筛选2026-10-28)。
