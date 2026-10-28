@@ -12,6 +12,7 @@ v1.1.2 已原位归档，不复制其产品、流程、架构、数据/API、Adm
 - Flutter UI 继续遵循 [v1.0.0 UI 设计系统](../v1.0.0/00-product/ui-design-system.md)及后续已生效的增量合同。
 - 当前扫描识别增量见 [RGB pHash + Latin OCR 链路](01-flows/scan-recognition.md)：当前 App 与线上低版本 App 共用原识别路径，服务端按互斥请求字段兼容 pHash 与旧向量协议。
 - Admin 扫描记录按 TCG／SPORTS 筛选及历史缺类型记录的边界见[扫描记录类型筛选](01-flows/scan-recognition.md#管理后台按卡牌类型筛选2026-10-28)。
+- Admin 苹果通知消息新增 SKU 完整匹配筛选，接口、无 SKU 失败记录和部署边界见[后台增量](04-admin/admin.md#苹果通知消息-sku-筛选2026-10-28)。
 - 当前订阅本地三卡兜底增量见 [订阅本地兜底页](01-flows/subscription-display.md)：普通周、独立年试用和终身商品；远端配置与 Android 原分支继续沿用 v1.1.2 合同。
 
 ## 文档路由

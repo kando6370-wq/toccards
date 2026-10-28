@@ -811,6 +811,11 @@ adminRoutes.get("/apple-notifications", async (c) => {
   const bindings: unknown[] = [...scope.bindings];
   addExactCondition(conditions, bindings, "n.original_transaction_id", c.req.query("original_transaction_id"));
   addExactCondition(conditions, bindings, "n.transaction_id", c.req.query("order_id"));
+  const sku = c.req.query("sku")?.trim();
+  if (sku) {
+    conditions.push("n.product_id = ?");
+    bindings.push(sku);
+  }
   const uid = normalizeQuery(c.req.query("uid"));
   if (uid) {
     conditions.push(`EXISTS (SELECT 1 FROM billing_purchase_chain matched_chain

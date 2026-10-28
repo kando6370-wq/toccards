@@ -55,8 +55,11 @@ class _ScanReviewLoadException implements Exception {
 const _viewfinderBaseTop = 154.0;
 const _viewfinderBaseWidth = 254.0;
 const _viewfinderBaseHeight = 363.0;
+const _viewfinderBaseViewportWidth = 390.0;
+const _viewfinderBaseViewportHeight = 844.0;
 const _viewfinderHorizontalMargin = 24.0;
 const _viewfinderControlGap = 29.0;
+const _viewfinderUpscalePadding = 35.0;
 const _scanTopNavigationGap = 16.0;
 const _scanTopBarHeight = 42.0;
 const _viewfinderTopChromeHeight = _scanTopNavigationGap + _scanTopBarHeight;
@@ -116,12 +119,58 @@ _ScanViewfinderGeometry _scanViewfinderGeometry(
           .clamp(topLimit, viewport.height);
   final widthScale = (rightLimit - leftLimit) / _viewfinderBaseWidth;
   final heightScale = (bottomLimit - topLimit) / _viewfinderBaseHeight;
-  final scale = math.max(0.0, math.min(1.0, math.min(widthScale, heightScale)));
+  var scale = math.max(0.0, math.min(1.0, math.min(widthScale, heightScale)));
+  var layoutLeftLimit = leftLimit;
+  var layoutRightLimit = rightLimit;
+  var layoutTopLimit = topLimit;
+  var layoutBottomLimit = bottomLimit;
+
+  final largerThanBaseViewport =
+      viewport.width > _viewfinderBaseViewportWidth ||
+      viewport.height > _viewfinderBaseViewportHeight;
+  if (scale == 1 && largerThanBaseViewport) {
+    final upscaleLeftLimit =
+        (padding.left + _viewfinderUpscalePadding).clamp(
+          0.0,
+          viewport.width,
+        );
+    final upscaleRightLimit =
+        (viewport.width - padding.right - _viewfinderUpscalePadding).clamp(
+          upscaleLeftLimit,
+          viewport.width,
+        );
+    final upscaleTopLimit =
+        (padding.top + _viewfinderTopChromeHeight + _viewfinderUpscalePadding)
+            .clamp(0.0, viewport.height);
+    final upscaleBottomLimit =
+        (viewport.height -
+                _scanResultsBottom -
+                _scanLowerStatusHeight -
+                _viewfinderUpscalePadding)
+            .clamp(upscaleTopLimit, viewport.height);
+    final upscaleWidthScale =
+        (upscaleRightLimit - upscaleLeftLimit) / _viewfinderBaseWidth;
+    final upscaleHeightScale =
+        (upscaleBottomLimit - upscaleTopLimit) / _viewfinderBaseHeight;
+    final upscaleScale = math.min(upscaleWidthScale, upscaleHeightScale);
+    if (upscaleScale > 1) {
+      scale = upscaleScale;
+      layoutLeftLimit = upscaleLeftLimit;
+      layoutRightLimit = upscaleRightLimit;
+      layoutTopLimit = upscaleTopLimit;
+      layoutBottomLimit = upscaleBottomLimit;
+    }
+  }
   final width = _viewfinderBaseWidth * scale;
   final height = _viewfinderBaseHeight * scale;
-  final left = leftLimit + ((rightLimit - leftLimit - width) / 2);
-  final maxTop = math.max(topLimit, bottomLimit - height);
-  final top = _viewfinderBaseTop.clamp(topLimit, maxTop);
+  final left =
+      layoutLeftLimit +
+      ((layoutRightLimit - layoutLeftLimit - width) / 2);
+  final maxTop = math.max(
+    layoutTopLimit,
+    layoutBottomLimit - height,
+  );
+  final top = _viewfinderBaseTop.clamp(layoutTopLimit, maxTop);
   return _ScanViewfinderGeometry(Rect.fromLTWH(left, top, width, height));
 }
 
@@ -842,6 +891,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     final hasUnusedScanAccess =
         ref.read(subscriptionControllerProvider).isPro ||
         quota.unlimited ||
+        quota.displayRemainingScans > 0 ||
         (quota.isServerAuthoritative && quota.remainingScans > 0);
     showKandoTopToast(
       context,
@@ -1662,13 +1712,13 @@ class _ScanPageState extends ConsumerState<ScanPage>
       return;
     }
     final items = _matchedItems;
-    final cachedCards = Map<String, ScanReviewCard>.from(_reviewCards);
     final cardRefs = [
       for (final item in items)
         for (final candidate in item.match!.candidates) candidate.cardRef,
     ];
+    // Recognition basics have no image URL until card details are loaded.
     final missingCardRefs = cardRefs
-        .where((cardRef) => !cachedCards.containsKey(cardRef))
+        .where((cardRef) => _reviewCards[cardRef]?.imageUrl == null)
         .toList();
     setState(() => _openingReview = true);
     try {
@@ -1682,8 +1732,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
             : repository.loadCards(missingCardRefs),
       ]);
       final target = results[0] as ScanReviewTarget;
+      // Background details may finish while the Review target is loading.
       final cards = _mergeScanCards(
-        cachedCards,
+        _reviewCards,
         results[1] as Map<String, ScanReviewCard>,
       );
       final selectedReviewItemId = itemId ?? items.firstOrNull?.id;
@@ -2420,7 +2471,7 @@ class _ScanCameraView extends StatelessWidget {
           Positioned.fill(
             child: ColoredBox(
               key: const Key('scan-figma-camera-overlay'),
-              color: const Color(0x1A0D0F08),
+              color: const Color(0x120D0F08),
             ),
           ),
           Positioned.fill(
@@ -2431,7 +2482,7 @@ class _ScanCameraView extends StatelessWidget {
                   radius: 0.86,
                   colors: [
                     Colors.transparent,
-                    const Color(0xFF0D0F08).withValues(alpha: 0.85),
+                    const Color(0xFF0D0F08).withValues(alpha: 0.75),
                   ],
                 ),
               ),
@@ -3616,7 +3667,10 @@ class _ScanResults extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (remainingScans == null)
+            const SizedBox(height: _scanHeaderQuotaGap + _scanQuotaHeight),
           SizedBox(
+            key: const Key('scan-results-summary'),
             height: _scanResultsHeaderHeight,
             child: visibleItems.isEmpty
                 ? null
@@ -3644,16 +3698,16 @@ class _ScanResults extends StatelessWidget {
                     ],
                   ),
           ),
-          const SizedBox(height: _scanHeaderQuotaGap),
-          SizedBox(
-            height: _scanQuotaHeight,
-            child: remainingScans == null
-                ? null
-                : _ScanQuotaPill(
-                    remainingScans: remainingScans!,
-                    onPressed: onUpgradePressed,
-                  ),
-          ),
+          if (remainingScans != null) ...[
+            const SizedBox(height: _scanHeaderQuotaGap),
+            SizedBox(
+              height: _scanQuotaHeight,
+              child: _ScanQuotaPill(
+                remainingScans: remainingScans!,
+                onPressed: onUpgradePressed,
+              ),
+            ),
+          ],
           const SizedBox(height: _scanQuotaResultsGap),
           SizedBox(
             height: _scanResultsRailHeight,
