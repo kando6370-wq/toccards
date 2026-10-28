@@ -6,6 +6,17 @@
 
 当前运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下记录只代表 v1.1.3 本地增量及实际执行的验证，不改变远端运行状态。
 
+<a id="cards-search-order-indexes-20261028"></a>
+## Cards 创建时间排序与索引替换（2026-10-28）
+
+- 范围：本地 `codex/dev-1.0.7scan` 的排序修改开始于 `eb281316cba82bcf05929fc2b1b796846c6ce2ca`，验证时基线为包含并行 Admin 提交的 `eafeeb6a4a5fa17563c903d42eab9741a1579b4b`，叠加本次未提交改动。按最终要求将 Cards 查询改为 `created_at DESC NULLS LAST, product_id DESC`，KV 搜索缓存使用 `v14`；用户明确旧索引删除范围不包含 `updated_at` 字段。
+- 实现：新增 PostgreSQL `0016_cards_all_created_order_indexes.sql`，先创建全目录／Game／Game＋SetCode 三个创建时间排序索引，再删除对应的三个旧更新时间排序索引。新索引保留旧的筛选前导列；未修改其他索引、字段、数据、已执行迁移或退役 D1 实现。仓库活跃 SQL 审计未发现旧排序依赖，外部采集和临时 SQL 尚未核查。行为、执行方式与回退见 [Cards 排序与索引](../03-data-api/cards-search-order.md)。
+- 本地 PostgreSQL 与查询验证：`pnpm --filter @kando/workers-api test src/db/postgres/cards-created-order-indexes.test.ts src/data-source/local-db-adapter.test.ts src/data-source/kv-cache.test.ts src/data-source/routes.test.ts --maxWorkers=1` 为 4 文件／55 项通过。新增 PGlite 用例验证事务内重复迁移仅替换指定三组索引，保留其他索引、字段与数据；真实适配器验证创建时间、ID 降序、空时间置后及跨页结果。6,000 条合成数据经 `ANALYZE` 后，空关键词的全目录／Game／Game＋SetCode 三种查询计划分别采用对应新索引，均无额外 Sort；不据此推断关键词检索的计划或线上耗时。
+- 静态与旧端验证：Workers `type-check`、Dart 格式检查及兼容测试文件的 `flutter analyze --no-pub` 通过。完整 `pnpm test:app-compatibility` 通过：当前 Hono API 合同 8 项，固定 App 1.0.4+161 与 1.0.5+163 源码各 24 项；源码基线及旧客户端保持不变，只按已批准的新排序更新当前测试的页序与零价／缺价所在位置。结果保存在忽略目录 `.dart_tool/app-compatibility/run-gXMuPG/report.json`，证据类型为 `git-source-contracts-only`，不代表签名制品或真机验收。
+- 首轮失败与修正：初版计划测试使用关键词 `card`，规划器估算选择性后采用 Seq Scan＋Sort，因此该轮为 54 项通过／1 项失败；改为实际首屏的空关键词验证索引有序输出，未禁用顺序扫描或更改业务 SQL。新测试漏导入 Node `URL` 引发类型检查失败，显式导入后复跑通过。前述失败不记为通过；最终定向测试与类型检查均已重跑。
+- 最终审查：独立 Code Review 无阻断发现，`git diff --check` 及新文档入口／相对路径检查通过；前面误写入 v1.1.0 的本次排序说明已移至 v1.1.3，归档文件恢复为无差异。
+- 环境边界：尚未执行 dev/prod 迁移、远端索引统计／`EXPLAIN ANALYZE`、真实规模锁等待／耗时验证或部署；本地索引与合成数据验证不代表线上性能或外部查询兼容性已确认。本次仅覆盖查询、迁移和直接兼容调用方，未运行全量 Workers／Flutter 测试或打包；并行 Admin 变更不属于本记录。
+
 ## Review 偶发图片与价格丢失修复（2026-10-28）
 
 - 基线与证据：基于本地 `codex/dev-1.0.7scan@94b7f79e38408ae673405d1bdb82c6d0249b7b74`。用户反馈 production App `1.0.6 (182)` 偶发进入 Review 后有候选名称但图片占位、价格为 `--`。调查已核对该包发布源 `557166b` 的相关加载函数与本地一致，并在修复前用临时 Widget 测试稳定复现：后台详情先成功，随后 `loadTarget` 完成，打开 Review 的旧缓存快照把图片覆盖回 `null`。截图对应三张候选的公开生产详情、主要行情请求与 JPEG 图片在调查时均正常；这些只读检查不代表取得了用户当次手机请求日志。

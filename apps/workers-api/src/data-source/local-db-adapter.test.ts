@@ -814,7 +814,7 @@ describe("PostgreSQL card data source adapter", () => {
     ).resolves.toHaveLength(2);
   });
 
-  it("uses PostgreSQL-stable catalog ordering because equal sort keys must not move cards or sets between pages", async () => {
+  it("orders cards by creation time and descending IDs because updates must not promote older cards or move tied rows between pages", async () => {
     const db = new FakeCardDatabase([], []);
     const adapter = createLocalDbDataSourceAdapter(db as unknown as D1Database);
 
@@ -826,7 +826,7 @@ describe("PostgreSQL card data source adapter", () => {
     );
     const setSearchSql = db.preparedSql.find((sql) => sql.includes("FROM sets s"));
     expect(cardSearchSql).toContain(
-      "ORDER BY updated_at DESC NULLS LAST, product_id ASC",
+      "ORDER BY created_at DESC NULLS LAST, product_id DESC",
     );
     expect(setSearchSql).toContain("ORDER BY s.name ASC, s.set_id ASC");
   });
