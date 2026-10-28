@@ -56,7 +56,12 @@ test("Apple notification payload stays out of list responses and is copied only 
   assert.match(styles, /@media \(max-width: 991px\) \{[^}]*\.admin-sider \{[^}]*overflow: visible;[^}]*z-index: 10;/s);
   assert.match(app, /description: "查询并查看 Apple App Store Server Notifications V2 订阅通知消息及完整通知内容，用于排查掉单、订单状态异常等问题。"/);
   assert.match(app, /<ScanFilterField label="环境">.*<ScanFilterField label="主通知类型">.*<ScanFilterField label="子通知类型">/s);
-  assert.match(app, /<ScanFilterField label="创建时间（UTC\+0）"><DatePicker\.RangePicker key=\{dateKey\} format="YYYY-MM-DD"/);
+  assert.match(app, /<ScanFilterField label="SKU"><Input value=\{draft\.sku \?\? ""\} placeholder="请输入 SKU。"/);
+  assert.match(app, /sku: draft\.sku\?\.trim\(\) \?\? ""/);
+  assert.match(app, /<ScanFilterField className="apple-notification-created-at" label="创建时间（UTC\+0）"><DatePicker\.RangePicker key=\{dateKey\} format="YYYY-MM-DD"/);
+  assert.match(app, /<section className="scans-filter-panel apple-notifications-filter-panel">/);
+  assert.match(styles, /\.apple-notifications-filter-panel \{[^}]*grid-template-columns: repeat\(5, minmax\(0, 1fr\)\)/s);
+  assert.match(styles, /\.apple-notification-created-at \{[^}]*grid-column: span 2/s);
   assert.match(app, /<Title level=\{4\}>通知消息列表<\/Title>/);
   assert.match(app, /const selectedType = draft\.notification_type \|\| undefined/);
   assert.match(app, /<ScanFilterField label="主通知类型"><Select showSearch allowClear[^>]*value=\{selectedType\}/);
@@ -83,5 +88,6 @@ test("Apple notification payload stays out of list responses and is copied only 
   assert.match(app, /navigator\.clipboard\.writeText\(prettyJson\(detail\.decoded_payload\)\)/);
   assert.match(app, /message\.success\("已复制通知内容"\)/);
   assert.match(routes, /adminRoutes\.get\("\/apple-notifications\/:detailId"/);
+  assert.match(routes, /const sku = c\.req\.query\("sku"\)\?\.trim\(\).*conditions\.push\("n\.product_id = \?"\).*bindings\.push\(sku\)/s);
   assert.doesNotMatch(routes, /SELECT[^;]*signed_payload[^;]*FROM apple_notification_inbox/s);
 });
