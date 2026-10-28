@@ -6,6 +6,21 @@
 
 当前运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下记录只代表 v1.1.3 本地增量及实际执行的验证，不改变远端运行状态。
 
+## 订阅兜底三卡下移（2026-10-28）
+
+- 根据用户提供的 iPhone 截图，仅将 iOS 本地三卡且无试用开关时，权益区与首张商品之间的间距从 62 调至 86 逻辑像素。三张商品整体下移 24 像素；卡间 20 像素、固定购买区、远端后台配置和 Android 分支不变。初始 414×896 Widget 几何测量中，真实商品兜底的末卡到按钮上沿为 43px；调整后该测试通过。最终新增回归改为商品全量失败的固定参考价分支，确认首卡距权益区 86px、末卡与按钮仍有间隔，并断言实际进入离线兜底；原 62px 布局无法满足首卡断言。
+- 最终 `flutter test --no-pub --concurrency=1 --no-track-widget-creation test/subscription_display_test.dart test/subscription_restore_ui_test.dart` 退出 0，108／108 通过，涵盖 Page／Modal 兜底、远端商品和 Android 既有路径；`flutter analyze --no-pub` 退出 0。独立只读 Code Review 未发现阻断问题。
+- 根据用户后续指定，使用 `flutter run --no-pub --flavor test --debug -d 00008030-001C08311E28802E --dart-define-from-file=config/test.json` 在有线 iPhone 11（iOS 18.7.8）完成 Debug 构建、安装和启动，Flutter VM Service 已连接。设备当前断网，测试 API 的订阅展示配置请求失败；828×1792 截图确认页面进入本地兜底，三张商品卡、Retry 和购买按钮均可见，末卡与按钮无重叠。随后 detach 调试连接并再次抓屏，App 仍保持在该页面。此画面验证的是断网固定参考价分支，不代表联网 StoreKit 报价或远端配置布局已在真机验收。
+- 用户更改目标设备前，iPhone 13 已通过 `devicectl` 安装过同一 Debug 包；其后续 `flutter run` 在安装启动阶段按用户指示停止，未做真机布局验收，也未卸载已有应用以免影响设备数据。
+
+## iOS 测试环境内部安装包 1.0.6 (187)（2026-10-28）
+
+- 构建输入：从构建前干净且与实时同名远端一致的 `codex/dev-1.0.7scan@c13cb90f4207d8b65545b471986829645f2bfd14` 构建；该提交在 186 后新增扫描页顶部间距、额度提示文字和定位框四角等视觉调整及对应测试，没有依赖、iOS 工程或环境配置变化。当前分支与 `origin/dev` 已分叉，本包只代表当前功能分支，未擅自切换或合并 dev。脚本从 `1.0.6+186` 显式选择 `1.0.6 (187)`，构建前 dev health 返回 `{"status":"ok"}`；成功后仅将 `pubspec.yaml` 同步为 `1.0.6+187`。
+- 工具链与依赖：使用 Flutter 3.44.5／Dart 3.12.2／Xcode 27.1。构建前 `flutter pub get --enforce-lockfile`、脚本内依赖解析及完整 `flutter analyze` 均退出 0；根 `pubspec.lock` 与 iOS `Podfile.lock` SHA-256 保持 `612f006776860e3a61f083bf27283a73ec1c22b95dd8d318b06533d8fed46183`、`14216d83bfc80fdb98860bf1d624e528f35878242513a14ac6a41b3bf61ff685`，没有依赖锁更新。Swift Package Manager 与 ML Kit Apple Silicon iOS 26+ 模拟器提示仍存在，本轮 CocoaPods、真机 Release Archive 和 IPA 导出成功，不把未来／模拟器兼容提示记为已解决。
+- 环境与签名：最终内部 IPA 为 `com.kando.kandoApp.beta`、`1.0.6 (187)`、MinimumOSVersion 16.0；测试 API `http://192.168.50.201:8080/api/v1` 存在且生产 API 不存在。内置 `GoogleService-Info.plist` 与仓库 test 文件逐字节一致，Firebase project 为 `card-ai---test`。Runner 与 42 个 Framework 共 43 个组件逐个通过严格签名校验，全部为 Apple Development `kancloud cq (578WZAD3DU)`、Team `B95U3272HR`；最终 `get-task-allow=true`、App Attest=`development`、Apple Sign In=`Default`，application identifier 为 `B95U3272HR.com.kando.kandoApp.beta`。profile UUID `b38a6512-5b51-4f36-ab2d-757de0582e7b`，有效至 2027-09-07，包含 6 台设备。
+- 符号：IPA 的 43 个唯一 Mach-O UUID 与 dSYM 的 43 个唯一 UUID 精确一致，missing／extra 均为 0；45 条 DWARF 中两组为重复 UUID 副本。直接对展开后的 dSYM bundle 深检时，ZIP 中的 `._*` AppleDouble 资源辅助文件使 45 个 bundle 都误报非目标文件，不能记为有效检查；改为逐个验证 45 个实际 DWARF 二进制后为 44／45 通过。只有 `App.framework.dSYM` 退出 1，包含 169 次既有 Flutter AOT address range 错误及两条汇总；UUID 覆盖完整，但不能写成全部 dSYM 深检通过。
+- 制品与边界：`Card AI Test.ipa` 为 42,974,722 字节，SHA-256 `6cc5f73ebce54e4ff1d6ce567d77a5993041d5e56f87fe0866a29589382faa4f`；`dSYMs.zip` 为 63,897,049 字节，SHA-256 `77bd0479136380f3cd6ee00a22bb06dc6c68572ed69e77e36ddd07991b1f7bb0`。两份 ZIP 完整性通过，保存 IPA 与构建输出逐字节一致；独立展开比对确认 IPA 的 384 个文件及 dSYM 的 134 个文件均与当前 xcarchive 一致。制品位于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.6-187/`；完整保存后当前保留 185、186、187，并经 Finder 独立回读确认 184 已移入废纸篓。本次未安装真机、上传蒲公英／TestFlight／App Store Connect／Firebase，也未执行远程部署、数据库写入、Git commit 或 push；未重跑全量 Flutter 测试、扫描 Golden 或真机 OCR／pHash。
+
 ## 扫描页顶部操作区间距收紧（2026-10-27）
 
 - 将系统顶部安全区与关闭／卡牌类型／闪光灯操作行之间的固定间距从 36px 缩小 20px 至 16px；按钮尺寸、横向位置、顶部背景透明状态及点击逻辑不变。取景框继续通过共享几何与顶部操作区保留 29px 最小间距，并按安全区和可用高度自适应。
@@ -64,6 +79,18 @@
 - 制品与边界：`Card AI Test.ipa` 为 42,974,836 字节，SHA-256 `d89708a5e579f43d433d002034587a11d155e24d36f3faeb6c6e2601b2863cec`；`dSYMs.zip` 为 63,896,828 字节，SHA-256 `50d398a1cd73a0fbf533ca8ea110d7a8fe38b5a50be3009302dc8c1b3155e269`。两份 ZIP 完整性通过，保存 IPA 与构建输出逐字节一致；制品位于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.6-184/`。新版本完整保存后才将 180 移入废纸篓，当前保留 181、183、184。本次未安装真机、上传蒲公英／TestFlight／App Store Connect／Firebase，也未执行远程部署、数据库写入、Git commit 或 push。
 
 ## 扫描卡牌类型顶部提示样式（2026-10-27）
+
+### 下拉菜单对齐与选中态（2026-10-28）
+
+- 扫描页 TCG／Sports Card 菜单改为顶部类型胶囊实际宽度的 `2/3` 并水平居中，总高度为外部 42px 类型胶囊的两倍（84px），两项各 42px 且取消额外上下留白。菜单外框顶部向上覆盖胶囊底边 2px 以遮住相交处边框；左上／右上角为直角，底部继续保留 12px 圆角。窄屏下继续跟随胶囊的实际自适应宽度，没有修改顶部关闭／闪光灯布局。
+- 展开菜单内当前类型使用品牌黄色 `KandoColors.accent`，另一项保留普通文字色；切换后高亮随 `_selectedCardType` 更新。仅调整 Flutter 弹层布局与视觉状态，没有修改 `card_type=0/1`、扫描接口或识别调用链。
+- 定向组件测试 1／1 通过，实际断言菜单项为胶囊宽度的 `2/3`、菜单总高度为胶囊的两倍、中心线一致、菜单外框顶部向上覆盖胶囊底边 2px、顶部直角／底部 12px 圆角，以及 TCG／Sports Card 切换后的品牌黄色选中态；扫描页实现与测试文件的 `flutter analyze --no-pub` 无问题，`git diff --check` 通过。当前工作区以 test flavor 和 `config/test.json` 在有线 iPhone 11（iOS 18.7.8，`00008030-001C08311E28802E`）完成 Debug 重构建、安装、启动及 Dart VM Service 连接；设备上的 Firebase 外网请求曾出现超时，不影响本地 UI 调试，也不记为网络验收通过。尚未收到用户对菜单视觉结果的确认，不把启动成功扩展为真机视觉验收或扫描识别通过。
+
+### 扫描汇总与结果卡间距（2026-10-28）
+
+- 对照用户提供的 UI 图与 iPhone 11 真机图，将额度提示条与下方扫描结果卡轨道的间距从原 3px 增至 15px；结果卡轨道和底部快门保持原位，因此 `Scanned / Total` 行与额度提示条整体上移 12px。取景框继续使用原 `254×363` 最大基准及既有自适应几何，没有随本次底部间距调整移动。
+- 结果卡横向 `ListView` 继续复用与上方额度提示条相同的左右 16px 边界，但将绘制裁切从 `Clip.none` 收紧为 `Clip.hardEdge`；横向滚动中的卡牌不会再绘制到提示条宽度之外，卡片尺寸、间距、顺序和滚动物理保持不变。
+- 390×844 精确布局测试 1／1、iPhone 12／8／大屏 iPhone及紧凑／小屏／大屏 Android 的 Free／Premium 连续扫描布局测试 12／12 通过；覆盖取景框不移动、汇总区与取景框不重叠、结果卡轨道与快门不重叠。扫描页实现及测试文件的定向 `flutter analyze --no-pub` 无问题，`git diff --check` 通过；修改已热重载至有线 iPhone 11，Firebase／Google 外网请求仍有超时，不记为网络或真实识别验收通过。
 
 - 设计与范围：按 Figma 完整扫描页 `3305:21640` 重做 Flutter 扫描页样式，并以类型胶囊 `3305:21722`、取景框 `3305:21737`、额度提示 `3305:22294`、结果区 `3305:22304`、底部快门区 `3305:22349` 的属性为准。390×844 基线下，类型胶囊为 209×42px；取景框为 `x=68, y=154, 254×363px`、11px 圆角、0.91px 渐变边框及品牌色阴影；额度提示为 `x=16, y=573, 358×42px` 单行文案；结果轨道从 `y=618` 开始，卡片可见面板约 202×76px；底部控制区增加 8px 水平内边距。顶部仍保留 20px 背景模糊和 0.5px 底部分隔，控制项按设计只显示关闭、卡牌类型和闪光灯。
 - 业务边界：继续复用 `_selectedCardType`、`ScanCardType.tcg/sports`、PopupMenu、`onCardTypeChanged` 及既有拍照／相册／重试／额度升级／结果操作调用链；没有修改 `card_type=0/1`、扫描接口、OCR／pHash、额度计算、订阅、候选、确认入库、Analytics、权限或路由。Figma 顶部没有搜索图标，因此仅移除该视觉快捷入口；既有 `/search` 路由及 No Match 卡片的 `Search Manually` 入口保持并由原测试继续覆盖。

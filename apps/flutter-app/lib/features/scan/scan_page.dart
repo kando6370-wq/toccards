@@ -61,7 +61,8 @@ const _scanResultsBottom = 134.0;
 const _scanResultsHeaderHeight = 16.0;
 const _scanHeaderQuotaGap = 9.0;
 const _scanQuotaHeight = 42.0;
-const _scanQuotaResultsGap = 3.0;
+const _scanResultsSummaryLift = 12.0;
+const _scanQuotaResultsGap = 3.0 + _scanResultsSummaryLift;
 const _scanResultsRailHeight = 92.0;
 const _scanLowerStatusHeight =
     _scanResultsHeaderHeight +
@@ -70,7 +71,7 @@ const _scanLowerStatusHeight =
     _scanQuotaResultsGap +
     _scanResultsRailHeight;
 const _viewfinderBottomChromeHeight =
-    _scanResultsBottom + _scanLowerStatusHeight;
+    _scanResultsBottom + _scanLowerStatusHeight - _scanResultsSummaryLift;
 
 class _ScanViewfinderGeometry {
   const _ScanViewfinderGeometry(this.rect);
@@ -2579,6 +2580,7 @@ class _ScanTopBar extends StatelessWidget {
               SizedBox(
                 width: selectorWidth,
                 child: _ScanCardTypeSelector(
+                  width: selectorWidth,
                   selected: selectedCardType,
                   onChanged: onCardTypeChanged,
                 ),
@@ -2629,77 +2631,118 @@ class _ScanTopBar extends StatelessWidget {
 
 class _ScanCardTypeSelector extends StatelessWidget {
   const _ScanCardTypeSelector({
+    required this.width,
     required this.selected,
     required this.onChanged,
   });
 
+  final double width;
   final ScanCardType selected;
   final ValueChanged<ScanCardType> onChanged;
 
-  @override
-  Widget build(BuildContext context) {
-    return PopupMenuButton<ScanCardType>(
-      key: const Key('scan-card-type-selector'),
-      tooltip: 'Select card type',
-      onSelected: onChanged,
+  Future<void> _showOptions(BuildContext context) async {
+    final button = context.findRenderObject() as RenderBox;
+    final overlay = Navigator.of(context).overlay!.context.findRenderObject()
+        as RenderBox;
+    final buttonTopLeft = button.localToGlobal(
+      Offset.zero,
+      ancestor: overlay,
+    );
+    final menuWidth = width * 2 / 3;
+    final menuLeft = buttonTopLeft.dx + (button.size.width - menuWidth) / 2;
+    final menuTop = buttonTopLeft.dy + button.size.height - 2;
+    final result = await showMenu<ScanCardType>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        menuLeft,
+        menuTop,
+        overlay.size.width - menuLeft - menuWidth,
+        overlay.size.height - menuTop,
+      ),
       color: const Color(0xFF222222),
       surfaceTintColor: Colors.transparent,
       elevation: 8,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      offset: const Offset(0, 8),
-      padding: EdgeInsets.zero,
-      itemBuilder: (context) => [
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(12),
+          bottomRight: Radius.circular(12),
+        ),
+      ),
+      menuPadding: EdgeInsets.zero,
+      constraints: BoxConstraints.tightFor(width: menuWidth),
+      items: [
         for (final type in ScanCardType.values)
           PopupMenuItem<ScanCardType>(
             key: Key('scan-card-type-option-${type.name}'),
             value: type,
-            height: 44,
+            height: _scanTopBarHeight,
             child: Text(
               type.label,
-              style: const TextStyle(
-                color: KandoColors.text,
+              style: TextStyle(
+                color: type == selected
+                    ? KandoColors.accent
+                    : KandoColors.text,
                 fontSize: 14,
                 height: 20 / 14,
               ),
             ),
           ),
       ],
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(999),
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: Container(
-            key: const Key('scan-card-type-selector-surface'),
-            width: double.infinity,
-            height: _scanTopBarHeight,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFF222222),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: const Color(0x1A90927C)),
-            ),
-            child: Center(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      selected.label,
-                      style: const TextStyle(
-                        color: KandoColors.accent,
-                        fontSize: 16,
-                        height: 24 / 16,
-                        fontWeight: FontWeight.w400,
-                      ),
+    );
+    if (result != null && context.mounted) onChanged(result);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Select card type',
+      child: Semantics(
+        button: true,
+        child: InkWell(
+          key: const Key('scan-card-type-selector'),
+          customBorder: const StadiumBorder(),
+          onTap: () => _showOptions(context),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: Container(
+                key: const Key('scan-card-type-selector-surface'),
+                width: double.infinity,
+                height: _scanTopBarHeight,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF222222),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: const Color(0x1A90927C)),
+                ),
+                child: Center(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          selected.label,
+                          style: const TextStyle(
+                            color: KandoColors.accent,
+                            fontSize: 16,
+                            height: 24 / 16,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 18,
+                          color: KandoColors.accent,
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    const Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      size: 18,
-                      color: KandoColors.accent,
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -3609,7 +3652,7 @@ class _ScanResults extends StatelessWidget {
                 : ListView.separated(
                     key: const Key('scan-figma-result-rail'),
                     scrollDirection: Axis.horizontal,
-                    clipBehavior: Clip.none,
+                    clipBehavior: Clip.hardEdge,
                     itemCount: visibleItems.length,
                     separatorBuilder: (_, _) => const SizedBox(width: 12),
                     itemBuilder: (context, index) {

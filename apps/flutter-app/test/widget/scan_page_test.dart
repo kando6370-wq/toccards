@@ -144,14 +144,73 @@ void main() {
     await tester.tap(find.byKey(const Key('scan-card-type-selector')));
     await tester.pumpAndSettle();
 
-    expect(
-      find.byKey(const Key('scan-card-type-option-sports')),
-      findsOneWidget,
+    final selector = tester.getRect(
+      find.byKey(const Key('scan-card-type-selector')),
     );
-    await tester.tap(find.byKey(const Key('scan-card-type-option-sports')));
+    final tcgOption = find.byKey(const Key('scan-card-type-option-tcg'));
+    final sportsOption = find.byKey(const Key('scan-card-type-option-sports'));
+    final tcgOptionRect = tester.getRect(tcgOption);
+    final menuMaterial = tester
+        .widgetList<Material>(
+          find.ancestor(of: tcgOption, matching: find.byType(Material)),
+        )
+        .singleWhere((material) => material.type == MaterialType.card);
+    final menuMaterialRect = tester.getRect(find.byWidget(menuMaterial));
+    final menuShape = menuMaterial.shape! as RoundedRectangleBorder;
+    expect(tcgOptionRect.width, closeTo(selector.width * 2 / 3, 0.01));
+    expect(tcgOptionRect.center.dx, closeTo(selector.center.dx, 0.01));
+    expect(tcgOptionRect.top, closeTo(selector.bottom - 2, 0.01));
+    expect(menuMaterialRect.height, closeTo(selector.height * 2, 0.01));
+    expect(
+      menuShape.borderRadius,
+      const BorderRadius.only(
+        bottomLeft: Radius.circular(12),
+        bottomRight: Radius.circular(12),
+      ),
+    );
+    expect(
+      tester
+          .widget<Text>(
+            find.descendant(of: tcgOption, matching: find.text('TCG')),
+          )
+          .style
+          ?.color,
+      KandoColors.accent,
+    );
+    expect(
+      tester
+          .widget<Text>(
+            find.descendant(
+              of: sportsOption,
+              matching: find.text('Sports Card'),
+            ),
+          )
+          .style
+          ?.color,
+      KandoColors.text,
+    );
+    expect(sportsOption, findsOneWidget);
+    await tester.tap(sportsOption);
     await tester.pumpAndSettle();
 
     expect(find.text('Sports Card'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('scan-card-type-selector')));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<Text>(
+            find.descendant(
+              of: find.byKey(const Key('scan-card-type-option-sports')),
+              matching: find.text('Sports Card'),
+            ),
+          )
+          .style
+          ?.color,
+      KandoColors.accent,
+    );
+    await tester.tapAt(const Offset(8, 400));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('Take Photo'));
     await tester.pump();
@@ -1242,12 +1301,15 @@ void main() {
             final resultRail = tester.getRect(
               find.byKey(const Key('scan-figma-result-rail')),
             );
+            final resultList = tester.widget<ListView>(
+              find.byKey(const Key('scan-figma-result-rail')),
+            );
             final topControls = tester.getRect(
               find.byKey(const Key('scan-figma-top-controls')),
             );
             expect(
               frame.bottom,
-              lessThanOrEqualTo(resultsTop.dy - 29),
+              lessThanOrEqualTo(resultsTop.dy - 14),
               reason:
                   'The next card must remain fully visible above the scan count and results.',
             );
@@ -1263,6 +1325,7 @@ void main() {
               resultRail.bottom,
               lessThanOrEqualTo(initialShutter.top - 12),
             );
+            expect(resultList.clipBehavior, Clip.hardEdge);
             expect(
               tester.getRect(find.byTooltip('Take Photo')),
               initialShutter,
@@ -2740,7 +2803,7 @@ void main() {
       );
       expect(selectorArrow.size, 18);
       expect(selectorArrow.color, KandoColors.accent);
-      expect(quotaPill, const Rect.fromLTWH(16, 573, 358, 42));
+      expect(quotaPill, const Rect.fromLTWH(16, 561, 358, 42));
       expect(quotaBadge.size, const Size(24, 24));
       expect(quotaBadge.left, quotaPill.left + 8);
       expect(quotaBadge.center.dy, quotaPill.center.dy);

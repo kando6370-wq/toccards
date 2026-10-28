@@ -1461,6 +1461,49 @@ void main() {
     }
   });
 
+  testWidgets('offline fallback plans sit near the purchase footer', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    tester.view.physicalSize = const Size(414, 896);
+    tester.view.devicePixelRatio = 1;
+    tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
+    try {
+      final host = _RestoreTestHost(
+        useNewFallback: true,
+        displayRetryDelays: const [],
+        productLoader: (_) async => const [],
+      );
+      await tester.pumpWidget(host.app);
+      await tester.pumpAndSettle();
+      host.router.push('/subscription');
+      await tester.pumpAndSettle();
+
+      expect(host.display!.showOfflineFallback, isTrue);
+      final firstPlan = find.byKey(
+        const Key('subscription-offline-product-weekly.product'),
+      );
+      final lastPlan = find.byKey(
+        const Key('subscription-offline-product-lifetime.product'),
+      );
+      final purchase = find.byKey(const Key('subscription-purchase-button'));
+      final benefitsBottom = tester
+          .getRect(find.byKey(const Key('subscription-benefit-3')))
+          .bottom;
+      expect(tester.getRect(firstPlan).top - benefitsBottom, 86);
+      final gap =
+          tester.getRect(purchase).top - tester.getRect(lastPlan).bottom;
+      expect(gap, greaterThan(16));
+      expect(gap, lessThan(70));
+      expect(tester.takeException(), isNull);
+    } finally {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      tester.view.resetPadding();
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
   for (final sheet in [false, true]) {
     testWidgets(
       'local ${sheet ? 'modal' : 'page'} fallback keeps annual trial price and selected copy',

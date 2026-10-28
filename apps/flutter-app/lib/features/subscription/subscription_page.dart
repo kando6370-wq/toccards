@@ -518,7 +518,10 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                                     display.showTrialSwitch,
                                   )) {
                                     (3, true) => 5,
-                                    (3, false) => 62,
+                                    (3, false) =>
+                                      display.config?.isLocalFallback == true
+                                          ? 86
+                                          : 62,
                                     (2, true) => 56,
                                     (2, false) => 100,
                                     _ => 16,
