@@ -1301,6 +1301,9 @@ void main() {
             final resultRail = tester.getRect(
               find.byKey(const Key('scan-figma-result-rail')),
             );
+            final summary = tester.getRect(
+              find.byKey(const Key('scan-results-summary')),
+            );
             final resultList = tester.widget<ListView>(
               find.byKey(const Key('scan-figma-result-rail')),
             );
@@ -1325,6 +1328,14 @@ void main() {
               resultRail.bottom,
               lessThanOrEqualTo(initialShutter.top - 12),
             );
+            if (premium) {
+              expect(resultRail.top - summary.bottom, closeTo(15, 0.01));
+            } else {
+              final quotaPill = tester.getRect(
+                find.byKey(const Key('scan-free-quota-pill')),
+              );
+              expect(resultRail.top - quotaPill.bottom, closeTo(15, 0.01));
+            }
             expect(resultList.clipBehavior, Clip.hardEdge);
             expect(
               tester.getRect(find.byTooltip('Take Photo')),

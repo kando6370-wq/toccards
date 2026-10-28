@@ -3616,7 +3616,10 @@ class _ScanResults extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (remainingScans == null)
+            const SizedBox(height: _scanHeaderQuotaGap + _scanQuotaHeight),
           SizedBox(
+            key: const Key('scan-results-summary'),
             height: _scanResultsHeaderHeight,
             child: visibleItems.isEmpty
                 ? null
@@ -3644,16 +3647,16 @@ class _ScanResults extends StatelessWidget {
                     ],
                   ),
           ),
-          const SizedBox(height: _scanHeaderQuotaGap),
-          SizedBox(
-            height: _scanQuotaHeight,
-            child: remainingScans == null
-                ? null
-                : _ScanQuotaPill(
-                    remainingScans: remainingScans!,
-                    onPressed: onUpgradePressed,
-                  ),
-          ),
+          if (remainingScans != null) ...[
+            const SizedBox(height: _scanHeaderQuotaGap),
+            SizedBox(
+              height: _scanQuotaHeight,
+              child: _ScanQuotaPill(
+                remainingScans: remainingScans!,
+                onPressed: onUpgradePressed,
+              ),
+            ),
+          ],
           const SizedBox(height: _scanQuotaResultsGap),
           SizedBox(
             height: _scanResultsRailHeight,
