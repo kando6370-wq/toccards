@@ -6,6 +6,14 @@
 
 当前运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下记录只代表 v1.1.3 本地增量及实际执行的验证，不改变远端运行状态。
 
+## Linux dev 手工重新部署（2026-10-28 11:09–11:16）
+
+- 来源与发布路径：从干净的本地 `dev@81559fcd21776d62609e93651eab30b5239a1467` 手工发布，release 为 `manual-dev-81559fcd-20261028110937`，manifest 明确记录 `branch=dev`、`working_tree_dirty=false`、`source=deploy-dev`。当时本地 `dev` 比 `github/dev@550de72` 领先 10 个提交；本轮没有擅自 push，现有 watcher 仍跟踪远端 `dev`。部署前确认 watcher 与 deploy 锁均空闲，发布期间持有 watcher 锁，11:10／11:12 的 cron 仅记录已有检查正在执行，没有并发启动第二轮发布。
+- 构建与预检：本地 `deploy:dry-run:dev` 完成 Admin development 构建（1,526 个模块）、Linux API bundle 及 bundle 测试 3／3；上传包为 2,141,192 字节，SHA-256 `2bbc022e1fc533467639b699030a926ed29dabfb905db79a7836598478332ed2`，服务器回读一致后才解包。服务器预检确认独立数据库 `toccards_test`、PostgreSQL 18、向量与 pHash 两套识别服务可达、`pendingMigrations=[]`。
+- 数据与运行状态：发布前 custom-format 备份为 `toccards-test-20261028-110941-before-manual-dev-81559fcd-20261028110937.dump`，1,136,224,507 字节；独立 `pg_restore --list` 成功读取 351 项，未执行恢复演练。migration 容器退出 0，ledger 数量保持 16；DB／API 均为 running/healthy，Web running。`current` 与 `shared/current-release` 均指向本次 manual release，失败标记为空；运行 `/app/server.mjs` 与 release 文件 SHA-256 同为 `e371d20c6302fa53d53189889a5c4623d85b6cb6491ca2ecf901f654df8460ca`。
+- 独立烟测与 watcher：开发机访问 `http://192.168.50.201:8080/api/v1/health` 返回 200／`{"status":"ok"}`，Admin 根路径返回 200，未登录 `/api/v1/auth/me` 返回 401。11:14 与 11:16 两个 watcher 周期均确认远端仍为 `550de72` 且没有新提交，当前 manual release 未被覆盖；watcher 的 `last-seen` 保持 `550de72`、`last-deployed` 保持历史 `6709b47`，这是手工发布未改 watcher 状态文件的预期结果，后续远端 `dev` 新提交仍可能由 watcher 替换当前运行版本。
+- 合并前后验证与边界：Admin 全量 79／79、Workers 扫描／类型筛选定向 60／60、两端 TypeScript 检查及 Flutter 全量 analyze 通过；Flutter 扫描／订阅定向集合 245 项通过，4 张扫描页 390×844 Golden 与当前渲染存在 13.81%～15.19% 差异，未重录掩盖。prod、Cloudflare、数据库 schema、私有环境值和 watcher 配置未修改；未执行真实账号登录、真实图片识别、真机扫描、备份恢复或业务验收。部署执行阶段未夹带 Git commit／push，本记录的 Git 交付由后续独立提交完成。
+
 ## Admin 扫描记录卡牌类型筛选（2026-10-28）
 
 - 基线与范围：从干净的 `codex/dev-1.0.7scan@c13cb90f4207d8b65545b471986829645f2bfd14` 开始本地修改。“卡牌管理 → 扫描记录管理”新增 TCG／SPORTS 类型筛选，选择后点击查询生效，分页保留类型，清除／重置恢复全部。用户已明确确认历史缺类型记录只在“全部”中显示，不推断回填；完整规则见[扫描识别链路](../01-flows/scan-recognition.md#管理后台按卡牌类型筛选2026-10-28)。
