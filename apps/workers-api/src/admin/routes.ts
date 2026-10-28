@@ -400,7 +400,9 @@ const SELECT_APP_CONFIG_SQL = `
   ORDER BY key ASC
 `;
 
-const SELECT_SCAN_RECORDS_SQL = `
+const SCAN_CARD_TYPE_FILTER_SQL = "AND system_result::jsonb -> 'card_type' = to_jsonb(CAST(? AS integer))";
+
+const SELECT_SCAN_RECORDS_SQL = (cardType: string | null) => `
   SELECT id, environment, owner_type, owner_id, image_url, filename, platform, app_version,
     device_model, os_version, recognition_status, user_confirmation_status,
     modified_result, system_result, user_result, candidates, created_at
@@ -414,11 +416,12 @@ const SELECT_SCAN_RECORDS_SQL = `
     AND (CAST(? AS integer) IS NULL OR modified_result = ?)
     AND (CAST(? AS text) IS NULL OR created_at >= ?)
     AND (CAST(? AS text) IS NULL OR created_at <= ?)
+    ${cardType === null ? "" : SCAN_CARD_TYPE_FILTER_SQL}
   ORDER BY created_at DESC, id ASC
   LIMIT ? OFFSET ?
 `;
 
-const COUNT_SCAN_RECORDS_SQL = `
+const COUNT_SCAN_RECORDS_SQL = (cardType: string | null) => `
   SELECT COUNT(*) AS total
   FROM scan_record
   WHERE (CAST(? AS text) IS NULL OR lower(owner_id) LIKE '%' || ? || '%')
@@ -430,6 +433,7 @@ const COUNT_SCAN_RECORDS_SQL = `
     AND (CAST(? AS integer) IS NULL OR modified_result = ?)
     AND (CAST(? AS text) IS NULL OR created_at >= ?)
     AND (CAST(? AS text) IS NULL OR created_at <= ?)
+    ${cardType === null ? "" : SCAN_CARD_TYPE_FILTER_SQL}
 `;
 
 const SELECT_SCAN_RECORD_BY_ID_SQL = `
@@ -1014,6 +1018,7 @@ adminRoutes.get("/scans", async (c) => {
   const uid = normalizeQuery(c.req.query("uid"));
   const platform = normalizeQuery(c.req.query("platform"));
   const appVersion = normalizeQuery(c.req.query("app_version"));
+  const cardType = normalizeQuery(c.req.query("card_type"));
   const environment = normalizeQuery(c.req.query("environment"));
   const recognitionStatus = normalizeQuery(c.req.query("recognition_status"));
   const confirmationStatus = normalizeQuery(c.req.query("user_confirmation_status"));
@@ -1023,6 +1028,7 @@ adminRoutes.get("/scans", async (c) => {
   if (
     dateFrom === "invalid"
     || dateTo === "invalid"
+    || (cardType !== null && cardType !== "0" && cardType !== "1")
     || (environment !== null && !VALID_APP_ENVIRONMENTS.has(environment))
   ) {
     return c.json(VALIDATION_ERROR_RESPONSE, 422);
@@ -1049,16 +1055,18 @@ adminRoutes.get("/scans", async (c) => {
       dateTo,
       dateTo,
   ] as const;
+  const cardTypeBindings = cardType === null ? [] : [Number(cardType)];
   const [{ results = [] }, count] = await Promise.all([
-    c.env.DB.prepare(SELECT_SCAN_RECORDS_SQL)
+    c.env.DB.prepare(SELECT_SCAN_RECORDS_SQL(cardType))
       .bind(
         ...filterBindings,
+        ...cardTypeBindings,
       pageSize,
       offset,
       )
       .all<ScanRecordRow>(),
-    c.env.DB.prepare(COUNT_SCAN_RECORDS_SQL)
-      .bind(...filterBindings)
+    c.env.DB.prepare(COUNT_SCAN_RECORDS_SQL(cardType))
+      .bind(...filterBindings, ...cardTypeBindings)
       .first<{ total: number }>(),
   ]);
   const items = results.map(toScanListItem);

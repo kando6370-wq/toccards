@@ -126,6 +126,8 @@ GitLab Flutter CI 使用 3.44.0，GitHub iOS CI 使用 3.44.7。涉及工具链�
 - `docs/releases/v1.1.2/README.md`：2026-10-26 原位归档；App 兼容阅读版与 AI 执行版、App 1.0.6 订阅配置、Admin 和生产交付证据按归档内容保留。不得继续向 v1.1.2 追加新开发或新日期检查点；只有明确授权的事实错误修正可以回写，并须从当前版本留下引用。
 - `docs/releases/v1.1.3/README.md`：当前增量开发入口。2026-10-26 之后的新增、变更、移除和实际验证写入 v1.1.3；未变化的产品、兼容、订阅、Admin 和交付合同继续引用 v1.1.2 或更早版本，不复制整套文档。当前验证记录入口为 `docs/releases/v1.1.3/05-delivery/VERIFICATION.md`。
 - App 1.0.6 订阅配置的 PRD 1.14、商品接入映射和最小实施草案见 [订阅配置产品输入](docs/releases/v1.1.2/00-product/admin-subscription-config-prd.md)；[离线原型](prototypes/admin-subscription-config-standalone.html)保留在正式 docs 之外。服务端第一阶段源码与环境／接口合同见 [订阅展示配置与商品准入](docs/releases/v1.1.2/03-data-api/subscription-display-config.md)。Admin 页面实现见 [当前后台文档](docs/releases/v1.1.2/04-admin/admin.md)，Flutter 消费源码与兜底／平台边界见 [客户端订阅展示](docs/releases/v1.1.2/01-flows/subscription-display.md)。2026-10-23 已发布生产服务端与双 Admin；2026-10-26 App 1.0.6 已上架，Weekly Trial／Monthly 已完成生产动态准入，用户确认相关实机交易链路目前无问题。Page／Modal 仍未启用，Agent 未独立重放原始交易／平台记录，完整旧包兼容矩阵继续按 AI 执行版保留证据边界。
+- 2026-10-27 订阅本地兜底页的新三卡与年试用 SKU 增量见 [v1.1.3 订阅本地兜底页](docs/releases/v1.1.3/01-flows/subscription-display.md)；本地构建注册不代表新 SKU 已完成测试／正式环境准入或交易验收。
+- 2026-10-28 Admin 扫描记录新增 TCG／SPORTS 类型筛选；新扫描审计保存 `system_result.card_type`，历史缺类型记录仅在“全部”中出现，不推断回填。实现与部署边界见 [v1.1.3 扫描识别链路](docs/releases/v1.1.3/01-flows/scan-recognition.md)。
 
 `docs/releases/v1.0.0` 是已发布冻结基线，后续迭代不得回写；若需修正已经确认的文档错误，必须先说明原因并获得用户明确授权。11 份原始 PRD 包括 `glossary.md`、`overview.md`、`ui-design-system.md` 和 `00-product/modules/` 下的 8 份模块文档，必须保持字节不变，不得因当前实现或后续需求而修订。
 

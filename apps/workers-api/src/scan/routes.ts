@@ -632,6 +632,7 @@ export function createScanRoutes() {
       auditCandidates.length,
       recognitionAlgorithm,
       ocrText,
+      cardType,
     );
     const userResult = {
       confirmation_status: "pending",
@@ -1045,9 +1046,11 @@ function buildSystemResult(
   candidateCount: number,
   recognitionAlgorithm: string,
   ocrText: string | null | undefined,
+  cardType: number,
 ) {
   return {
     status,
+    card_type: cardType,
     name: candidate?.name ?? null,
     ip_game: candidate?.game ?? null,
     set: candidate?.set_code ?? null,

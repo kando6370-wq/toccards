@@ -107,6 +107,7 @@ describe("scan routes", () => {
     });
     const [record] = await readRows(env.DB, "scan_record");
     expect(JSON.parse(record.system_result)).toMatchObject({
+      card_type: 1,
       recognition_algorithm: PHASH_RECOGNITION_ALGORITHM_FOR_TEST,
       ocr_text: "LEAFEON EX\n200/187",
     });
@@ -142,6 +143,7 @@ describe("scan routes", () => {
     });
     const [record] = await readRows(env.DB, "scan_record");
     expect(JSON.parse(record.system_result)).toMatchObject({
+      card_type: 0,
       ocr_text: ocrText === undefined ? null : "",
     });
   });
@@ -232,6 +234,7 @@ describe("scan routes", () => {
       expect.objectContaining({ id: requestId, environment: "development", recognition_status: "success" }),
     ]);
     expect(JSON.parse(scanRecords[0]!.system_result)).toMatchObject({
+      card_type: 0,
       ocr_text: null,
     });
     expect(await readRows(env.DB, "scan_quota_request")).toEqual([
@@ -1426,17 +1429,19 @@ describe("scan routes", () => {
       { status: 500 },
     )));
 
-    const response = await recognize(env, token, { vector: VECTOR });
+    const response = await recognize(env, token, { vector: VECTOR, card_type: 1 });
     const body = await response.json() as { scan_id?: unknown };
 
     expect(response.status).toBe(502);
     expect(body.scan_id).toEqual(expect.any(String));
-    expect((await readRows(env.DB, "scan_record"))).toEqual([
+    const records = await readRows(env.DB, "scan_record");
+    expect(records).toEqual([
       expect.objectContaining({
         recognition_status: "failed",
         candidates: "[]",
       }),
     ]);
+    expect(JSON.parse(records[0]!.system_result)).toMatchObject({ card_type: 1 });
   });
 
   it("rejects the retired product_ids response as an upstream failure because clients must not silently lose production confidence", async () => {
