@@ -6,6 +6,14 @@
 
 当前运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下记录只代表 v1.1.3 本地增量及实际执行的验证，不改变远端运行状态。
 
+## Review 偶发图片与价格丢失修复（2026-10-28）
+
+- 基线与证据：基于本地 `codex/dev-1.0.7scan@94b7f79e38408ae673405d1bdb82c6d0249b7b74`。用户反馈 production App `1.0.6 (182)` 偶发进入 Review 后有候选名称但图片占位、价格为 `--`。调查已核对该包发布源 `557166b` 的相关加载函数与本地一致，并在修复前用临时 Widget 测试稳定复现：后台详情先成功，随后 `loadTarget` 完成，打开 Review 的旧缓存快照把图片覆盖回 `null`。截图对应三张候选的公开生产详情、主要行情请求与 JPEG 图片在调查时均正常；这些只读检查不代表取得了用户当次手机请求日志。
+- 最小修复：只修改 `scan_page.dart` 的 `_openReview`。图片地址为 `null` 的临时候选仍需补取详情；等待结束后与实时 `_reviewCards` 合并，保留此间后台已完成的图片和价格。详情成功但无行情仍有图片地址，不重复请求。原候选基本资料降级、选卡顺序、收藏确认、扫描识别／额度、图片传输及其他页面不变，未改 API、仓库或数据模型。实际行为见[扫描识别链路](../01-flows/scan-recognition.md#review-图片与详情加载修正2026-10-28)。并行 Admin／Workers 工作不属于本修复。
+- 回归：Windows Flutter 3.44.7／Dart 3.12.2 下，新增四个 Widget 用例 4／4 通过，覆盖占位补取、后台先成功后的数据保留、首轮详情失败后重试，以及图片有效但价格为空时不重复读取。`flutter analyze --no-pub lib/features/scan/scan_page.dart test/widget/scan_page_test.dart` 无问题。完整 `flutter test --no-pub --concurrency=1 --no-track-widget-creation test/widget/scan_page_test.dart test/scan_review_repository_test.dart` 为 137 项通过、4 项相机阶段 Golden 失败；Review Golden、候选选择、收藏确认、失败降级及 iOS／Android 既有行为测试均通过，不能将完整集合记为全通过。
+- Golden 与反证：四个失败项为 pre-scan／scanning／recognition／reveal 的 390×844 截图，差异依次为 13.81%、14.28%、15.19%、14.93%。使用原 HEAD 源码的隔离副本重跑，四张实际输出 PNG 的 SHA-256 与修复后逐一相同，确认是本次修改前已有差异，未修改或重录 Golden。原源码跑新增用例时前三项按预期失败；仅恢复旧快照合并时，时序用例仍以 `Expected 图片 URL / Actual null` 失败。隔离文件均已清理。最终使用 `--name '^(?!Figma (?:scan pre-scan|scan scanning|recognition|scan reveal) renders at the 390x844 baseline$)'` 明确排除这四项，原两文件其余 137／137 通过；首次使用不支持的 `--exclude-name` 参数退出 64，未运行测试，不记为通过。
+- 审查与边界：独立 Code Review 及补测后的复审均无阻断发现，`git diff --check` 通过。未修改相机／Review 布局、版本号或依赖，未做 iOS／Android 真机、APK／IPA 构建、正式包重测、Git commit／push 或远端部署。本次是客户端本地修复，生产 `1.0.6 (182)` 不会因此自动更新；线上生效仍需后续客户端打包与发布。
+
 ## iOS 测试环境内部安装包 1.0.6 (189)（2026-10-28）
 
 - 构建输入：从构建前干净且与实时同名远端一致的 `codex/dev-1.0.7scan@885a78c54c43a2f9705dbc544be21cbf650bf2b6` 构建；相对 188 新增扫描汇总／额度提示与结果卡间距、大屏定位框等比放大、相机画面提亮及失败预留时的队列满提示校正，没有依赖、iOS 工程或环境配置变化。当前分支与 `origin/dev` 已分叉，本包只代表当前功能分支，未擅自切换或合并 dev。脚本从 `1.0.6+188` 显式选择 `1.0.6 (189)`，构建前 dev health 返回 `{"status":"ok"}`；成功后仅将 `pubspec.yaml` 同步为 `1.0.6+189`。

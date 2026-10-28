@@ -1712,13 +1712,13 @@ class _ScanPageState extends ConsumerState<ScanPage>
       return;
     }
     final items = _matchedItems;
-    final cachedCards = Map<String, ScanReviewCard>.from(_reviewCards);
     final cardRefs = [
       for (final item in items)
         for (final candidate in item.match!.candidates) candidate.cardRef,
     ];
+    // Recognition basics have no image URL until card details are loaded.
     final missingCardRefs = cardRefs
-        .where((cardRef) => !cachedCards.containsKey(cardRef))
+        .where((cardRef) => _reviewCards[cardRef]?.imageUrl == null)
         .toList();
     setState(() => _openingReview = true);
     try {
@@ -1732,8 +1732,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
             : repository.loadCards(missingCardRefs),
       ]);
       final target = results[0] as ScanReviewTarget;
+      // Background details may finish while the Review target is loading.
       final cards = _mergeScanCards(
-        cachedCards,
+        _reviewCards,
         results[1] as Map<String, ScanReviewCard>,
       );
       final selectedReviewItemId = itemId ?? items.firstOrNull?.id;

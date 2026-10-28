@@ -27,6 +27,7 @@ import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/shared/analytics/analytics_events.dart';
 import 'package:kando_app/shared/analytics/app_analytics.dart';
+import 'package:kando_app/shared/card_image/kando_card_image.dart';
 import 'package:kando_app/shared/scan/scan_api_client.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/toast.dart';
@@ -2282,6 +2283,114 @@ void main() {
       await tester.tap(find.byTooltip('Back to Scan'));
       await tester.pumpAndSettle();
       expect(find.text(r'$25.00'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Review fetches card art when recognition has only candidate metadata',
+    (tester) async {
+      final repository = _ReviewImageLoadRepository(firstLoadPending: true);
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: _verifiedScanWithCardMetadata(),
+        scanReviewRepository: repository,
+      );
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      expect(repository.loadCardsCount, 1);
+
+      await tester.tap(find.byTooltip('Review scan result'));
+      await tester.pumpAndSettle();
+      expect(repository.loadCardsCount, 2);
+      _expectVerifiedReviewImageAndPrice(tester);
+
+      repository.completeFirstLoadWithIncompleteCard();
+      await tester.pump();
+      _expectVerifiedReviewImageAndPrice(tester);
+    },
+  );
+
+  testWidgets(
+    'Review keeps background card art when its target resolves after detail loading',
+    (tester) async {
+      final repository = _ReviewImageLoadRepository(
+        firstLoadPending: true,
+        waitForTarget: true,
+        reviewLoadIncomplete: true,
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: _verifiedScanWithCardMetadata(),
+        scanReviewRepository: repository,
+      );
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.tap(find.byTooltip('Review scan result'));
+      await tester.pump();
+      expect(repository.loadCardsCount, 2);
+      expect(repository.loadTargetCount, 1);
+
+      repository.completeFirstLoadWithCard();
+      await tester.pump();
+      expect(find.text(r'$25.00'), findsOneWidget);
+
+      repository.completeTarget();
+      await tester.pumpAndSettle();
+      _expectVerifiedReviewImageAndPrice(tester);
+    },
+  );
+
+  testWidgets(
+    'Review retries card art after the recognition detail request fails',
+    (tester) async {
+      final repository = _ReviewImageLoadRepository(firstLoadFails: true);
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: _verifiedScanWithCardMetadata(),
+        scanReviewRepository: repository,
+      );
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      expect(repository.loadCardsCount, 1);
+
+      await tester.tap(find.byTooltip('Review scan result'));
+      await tester.pumpAndSettle();
+      expect(repository.loadCardsCount, 2);
+      _expectVerifiedReviewImageAndPrice(tester);
+    },
+  );
+
+  testWidgets(
+    'Review reuses complete card art without another detail request',
+    (tester) async {
+      final repository = _ReviewImageLoadRepository(includePrices: false);
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: _verifiedScanWithCardMetadata(),
+        scanReviewRepository: repository,
+      );
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.pump();
+      expect(repository.loadCardsCount, 1);
+
+      await tester.tap(find.byTooltip('Review scan result'));
+      await tester.pumpAndSettle();
+      expect(repository.loadCardsCount, 1);
+      final candidate = find.byKey(
+        const Key('scan-review-candidate-verified-card'),
+      );
+      final image = tester.widget<KandoCardImage>(
+        find.descendant(of: candidate, matching: find.byType(KandoCardImage)),
+      );
+      expect(
+        image.imageUrl,
+        'https://image.tcgcard.fun/cards/verified-card.jpg',
+      );
+      expect(
+        tester.widget<Text>(find.byKey(const Key('scan-review-total'))).data,
+        '--',
+      );
     },
   );
 
@@ -5135,6 +5244,43 @@ void main() {
   );
 }
 
+_TestScanResultSource _verifiedScanWithCardMetadata() {
+  return _TestScanResultSource(
+    photoResult: Future.value(
+      const ScanResolution.matched(
+        scanId: 'scan-verified-image',
+        cardRef: 'verified-card',
+        matchName: 'Verified Card',
+        candidates: ['Verified Card'],
+        candidateCardRefs: ['verified-card'],
+        candidateDetails: [
+          ScanCandidateDto(
+            cardRef: 'verified-card',
+            name: 'Verified Card',
+            setName: 'Verified Set',
+            objectType: 'tcg',
+            setCode: 'VER',
+            cardNumber: '001/100',
+            confidence: 95,
+            game: 'Pokemon',
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+void _expectVerifiedReviewImageAndPrice(WidgetTester tester) {
+  final candidate = find.byKey(
+    const Key('scan-review-candidate-verified-card'),
+  );
+  final image = tester.widget<KandoCardImage>(
+    find.descendant(of: candidate, matching: find.byType(KandoCardImage)),
+  );
+  expect(image.imageUrl, 'https://image.tcgcard.fun/cards/verified-card.jpg');
+  expect(find.text(r'$25.00'), findsWidgets);
+}
+
 Future<void> _completeFigmaScan(WidgetTester tester) async {
   await tester.pump(const Duration(seconds: 1));
   await tester.pump();
@@ -5469,6 +5615,85 @@ class _FakeScanReviewRepository implements ScanReviewRepository {
       folderId: item.folderId,
     );
   }
+}
+
+class _ReviewImageLoadRepository extends _FakeScanReviewRepository {
+  _ReviewImageLoadRepository({
+    this.firstLoadPending = false,
+    this.firstLoadFails = false,
+    this.waitForTarget = false,
+    this.reviewLoadIncomplete = false,
+    this.includePrices = true,
+  });
+
+  final bool firstLoadPending, firstLoadFails, waitForTarget;
+  final bool reviewLoadIncomplete, includePrices;
+  final _firstLoad = Completer<Map<String, ScanReviewCard>>();
+  final _target = Completer<ScanReviewTarget>();
+  var loadCardsCount = 0;
+  var loadTargetCount = 0;
+
+  ScanReviewCard get completeCard => ScanReviewCard(
+    cardRef: 'verified-card',
+    name: 'Verified Card',
+    setName: 'Verified Set',
+    cardNumber: '001/100',
+    game: 'Pokemon',
+    imageUrl: 'https://image.tcgcard.fun/cards/verified-card.jpg',
+    language: 'English',
+    finish: 'Holofoil',
+    prices: includePrices
+        ? const [
+            ScanReviewPrice(
+              grader: 'Raw',
+              grade: null,
+              condition: 'Near Mint',
+              price: 25,
+            ),
+          ]
+        : const [],
+  );
+  static const incompleteCard = ScanReviewCard(
+    cardRef: 'verified-card',
+    name: 'Verified Card',
+    setName: 'Verified Set',
+    cardNumber: '001/100',
+    game: 'Pokemon',
+    imageUrl: null,
+    language: 'English',
+    finish: 'Holofoil',
+    prices: [],
+  );
+
+  @override
+  Future<ScanReviewTarget> loadTarget({String? preferredFolderId}) {
+    loadTargetCount += 1;
+    return waitForTarget
+        ? _target.future
+        : super.loadTarget(preferredFolderId: preferredFolderId);
+  }
+
+  @override
+  Future<Map<String, ScanReviewCard>> loadCards(List<String> cardRefs) async {
+    loadCardsCount += 1;
+    if (loadCardsCount == 1 && firstLoadFails) {
+      throw Exception('First card detail lookup failed');
+    }
+    if (loadCardsCount == 1 && firstLoadPending) return _firstLoad.future;
+    return {
+      'verified-card': reviewLoadIncomplete ? incompleteCard : completeCard,
+    };
+  }
+
+  void completeFirstLoadWithCard() {
+    _firstLoad.complete({'verified-card': completeCard});
+  }
+
+  void completeFirstLoadWithIncompleteCard() {
+    _firstLoad.complete({'verified-card': incompleteCard});
+  }
+
+  void completeTarget() => _target.complete(_FakeScanReviewRepository.target);
 }
 
 class _StaleScanCardsRepository extends _FakeScanReviewRepository {
