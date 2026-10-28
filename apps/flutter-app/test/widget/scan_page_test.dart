@@ -3900,25 +3900,81 @@ void main() {
   });
 
   testWidgets(
-    'Capture refuses an eleventh item because Waiting and results share the ten-card queue limit',
+    'Premium capture asks users to collect or remove cards after ten completed scans',
     (tester) async {
-      final pending = Completer<ScanResolution>();
-      final source = _TestScanResultSource(photoResult: pending.future);
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.failed()),
+      );
       await _pumpScanTestApp(
         tester,
         scanResultSource: source,
         subscriptionController: _ProScanSubscriptionController.new,
       );
 
-      for (var index = 0; index < 11; index += 1) {
+      for (var index = 0; index < 10; index += 1) {
         await tester.tap(find.byTooltip('Take Photo'));
-        await tester.pump();
+        await _completeFigmaScan(tester);
       }
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
 
       expect(source.photoCallCount, 10);
-      expect(find.text('Scanned: 0/10'), findsOneWidget);
-      expect(find.text('Scan queue is full'), findsOneWidget);
-      await tester.pump(const Duration(seconds: 3));
+      expect(find.text('Scanned: 10/10'), findsOneWidget);
+      expect(
+        find.text('Collect or remove cards to scan more'),
+        findsOneWidget,
+      );
+      expect(
+        tester.widget<KandoTopToast>(find.byType(KandoTopToast)).type,
+        KandoTopToastType.info,
+      );
+      await tester.pump(const Duration(milliseconds: 2999));
+      expect(
+        find.text('Collect or remove cards to scan more'),
+        findsOneWidget,
+      );
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump();
+      expect(
+        find.text('Collect or remove cards to scan more'),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets(
+    'Free gallery asks users to collect or remove cards when failures leave quota after ten completed scans',
+    (tester) async {
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.failed()),
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanQuota: _availableQuota,
+      );
+
+      for (var index = 0; index < 10; index += 1) {
+        await tester.tap(find.byTooltip('Take Photo'));
+        await _completeFigmaScan(tester);
+      }
+      await tester.tap(find.byTooltip('Choose from Library'));
+      await tester.pump();
+
+      expect(source.photoCallCount, 10);
+      expect(source.libraryCallCount, 0);
+      expect(find.text('Scanned: 10/10'), findsOneWidget);
+      expect(find.text('10 scans remaining'), findsOneWidget);
+      expect(
+        find.text('Collect or remove cards to scan more'),
+        findsOneWidget,
+      );
+      await tester.pump(kandoTopToastDuration);
+      await tester.pump();
+      expect(
+        find.text('Collect or remove cards to scan more'),
+        findsNothing,
+      );
     },
   );
 

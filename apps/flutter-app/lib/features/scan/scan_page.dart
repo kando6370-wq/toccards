@@ -45,6 +45,9 @@ enum _ScanItemStatus {
 
 enum _ScanReviewSaveAction { single, all }
 
+const _scanQueueCapacityToastText =
+    'Collect or remove cards to scan more';
+
 class _ScanReviewLoadException implements Exception {
   const _ScanReviewLoadException();
 }
@@ -835,9 +838,16 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   bool _hasScanQueueCapacity() {
     if (_pendingScanCount < _maxQueueItems) return true;
+    final quota = ref.read(scanQuotaControllerProvider);
+    final hasUnusedScanAccess =
+        ref.read(subscriptionControllerProvider).isPro ||
+        quota.unlimited ||
+        (quota.isServerAuthoritative && quota.remainingScans > 0);
     showKandoTopToast(
       context,
-      message: 'Scan queue is full',
+      message: hasUnusedScanAccess
+          ? _scanQueueCapacityToastText
+          : 'Scan queue is full',
       type: KandoTopToastType.info,
     );
     return false;
