@@ -23,6 +23,10 @@ export default {
       "body": "Leaders, parallels and the standard run of a card each trade separately. Recording them as one line item hides what your collection is actually worth.\n\nCard AI stores the set, card number, variant and finish per card, so every printing you own sits in the collection as a distinct position with its own price."
     },
     {
+      "h2": "One Piece TCG card list: verify the set and number",
+      "body": "Use the [official One Piece Card Game card list](https://en.onepiece-cardgame.com/cardlist/) to find the set code, printed card number and artwork. The publisher maintains the complete list; Card AI does not reproduce it.\n\nSearch Card AI's One Piece catalog for the matching card, then compare standard and alternate artwork before checking an available price or saving the copy. If a printing is missing from the catalog, do not substitute another version's value."
+    },
+    {
       "h2": "Japanese and English copies are separate markets",
       "body": "One Piece runs parallel Japanese and English releases, and the same card frequently trades at different prices in each. Language is part of every card record, so the two are tracked and valued independently rather than blended."
     }

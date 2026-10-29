@@ -10,6 +10,7 @@ v1.1.2 已原位归档，不复制其产品、流程、架构、数据/API、Adm
 - v1.1.2 的[生产收尾记录](../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)是本版本的运行起点，不因创建 v1.1.3 重新记为部署或验收。
 - App 向后兼容原则继续以 v1.1.2 的[人员阅读版](../v1.1.2/05-delivery/app-backward-compatibility-plan.md)和[AI 执行版](../v1.1.2/03-data-api/app-backward-compatibility-ai-guide.md)为规则真源；v1.1.3 的新增兼容证据写入本版本受影响业务文档或[验证记录](05-delivery/VERIFICATION.md)，不回写归档版本。
 - Flutter UI 继续遵循 [v1.0.0 UI 设计系统](../v1.0.0/00-product/ui-design-system.md)及后续已生效的增量合同。
+- 官网关键词与页面归属增量见[营销内容记录](05-delivery/marketing-keyword-content.md)；未变化的能力边界继续引用 v1.1.2 的产品定位和营销内容文档。
 
 ## 文档路由
 
