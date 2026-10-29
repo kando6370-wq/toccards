@@ -106,6 +106,31 @@ describe("PostgreSQL Cards creation-order indexes", () => {
     })).map((card) => card.card_ref)).toEqual(["other-set"]);
   });
 
+  it("excludes cards without a publishable image from the Search Cards catalog", async () => {
+    for (const [id, hasImage, createdAt] of [
+      ["visible-card", 2, "2026-10-28 00:00:00"],
+      ["missing-image", 1, "2026-10-30 00:00:00"],
+      ["unsupported-image-state", 3, "2026-10-29 00:00:00"],
+    ] as const) {
+      await db.prepare(`INSERT INTO cards_all
+        (product_id, game_id, game, product_type_name, has_image, created_at)
+        VALUES (?, 1, 'Pokemon', 'Cards', ?, ?)`).bind(id, hasImage, createdAt).run();
+    }
+    await db.exec(readFileSync(new URL("0001_price_domain.sql", migrations), "utf8"));
+
+    const adapter = createLocalDbDataSourceAdapter(db);
+    const cards = await adapter.searchCards("", {
+      game: "Pokemon", object_type: "tcg", has_image: 2, page: 1, page_size: 40,
+    });
+
+    expect(cards.map((card) => card.card_ref)).toEqual(["visible-card"]);
+    expect((await adapter.searchCards("", {
+      game: "Pokemon", object_type: "tcg", page: 1, page_size: 40,
+    })).map((card) => card.card_ref)).toEqual([
+      "missing-image", "unsupported-image-state", "visible-card",
+    ]);
+  });
+
   it("can use the created-time index prefix for empty-query browse ranges", async () => {
     await db.exec(`INSERT INTO cards_all
       (product_id, game_id, game, set_code, product_type_name, name, created_at)
@@ -121,9 +146,9 @@ describe("PostgreSQL Cards creation-order indexes", () => {
 
     const adapter = createLocalDbDataSourceAdapter(db);
     for (const [options, indexName] of [
-      [{ object_type: "tcg", page_size: 40 }, newIndexes[0]],
-      [{ object_type: "tcg", game: "Pokemon", page_size: 40 }, newIndexes[1]],
-      [{ object_type: "tcg", game: "Pokemon", set_code: "SET1", page_size: 40 }, newIndexes[2]],
+      [{ object_type: "tcg", has_image: 2, page_size: 40 }, newIndexes[0]],
+      [{ object_type: "tcg", has_image: 2, game: "Pokemon", page_size: 40 }, newIndexes[1]],
+      [{ object_type: "tcg", has_image: 2, game: "Pokemon", set_code: "SET1", page_size: 40 }, newIndexes[2]],
     ] as const) {
       const querySpy = vi.spyOn(db, "query");
       await adapter.searchCards("", options);

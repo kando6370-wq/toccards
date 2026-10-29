@@ -42,6 +42,7 @@ type CardCatalogRow = {
   name: string | null;
   rarity: string | null;
   product_type_name: string | null;
+  has_image?: number;
   image_url: string | null;
 };
 
@@ -211,9 +212,12 @@ class FakeD1BoundStatement {
     const filterCount = Number(hasGameFilter) + Number(hasSetIdFilter) + Number(hasSetFilter);
     const limit = Number(this.values[1 + filterCount]);
     const offset = Number(this.values[2 + filterCount]);
-    const catalogCards = this.sql.includes("product_type_name = 'Cards'")
-      ? this.cards.filter((card) => card.product_type_name === "Cards")
+    const imageCards = this.sql.includes("cards_all.has_image = 2")
+      ? this.cards.filter((card) => (card.has_image ?? 2) === 2)
       : this.cards;
+    const catalogCards = this.sql.includes("product_type_name = 'Cards'")
+      ? imageCards.filter((card) => card.product_type_name === "Cards")
+      : imageCards;
     const gameCards = catalogCards.filter(
       (card) =>
         (game === null || card.game?.toLowerCase() === game) &&
@@ -381,7 +385,7 @@ describe("data source routes", () => {
     });
   });
 
-  it("returns only Cards products because the app card grid must exclude sealed products", async () => {
+  it("returns only Cards with catalog images because the app grid must not render unavailable products", async () => {
     const response = await app.request(
       "/api/v1/cards/search?q=charizard",
       {},
@@ -395,6 +399,18 @@ describe("data source routes", () => {
           name: "Charizard",
           rarity: "Rare",
           product_type_name: "Cards",
+          image_url: null,
+        },
+        {
+          product_id: "missing-image-card",
+          game_id: 3,
+          game: "Pokemon",
+          set_name: "Base Set",
+          set_code: "BS",
+          name: "Charizard without image",
+          rarity: "Rare",
+          product_type_name: "Cards",
+          has_image: 1,
           image_url: null,
         },
         {
@@ -805,7 +821,7 @@ describe("data source routes", () => {
     });
   });
 
-  it("filters set cards by set id because one game can reuse a display code", async () => {
+  it("filters set cards by set id and image availability because the page must not mix or render unavailable cards", async () => {
     const env = createTestEnv(
       [],
       [
@@ -831,6 +847,19 @@ describe("data source routes", () => {
           name: "Deck Exclusive Card",
           rarity: "Promo",
           product_type_name: "Cards",
+          image_url: null,
+        },
+        {
+          product_id: "best-no-image",
+          game_id: 3,
+          game: "Pokemon",
+          set_id: "1455",
+          set_name: "Best of Promos",
+          set_code: "PR",
+          name: "Best Promo Card without image",
+          rarity: "Promo",
+          product_type_name: "Cards",
+          has_image: 1,
           image_url: null,
         },
       ],

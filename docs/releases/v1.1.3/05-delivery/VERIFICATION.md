@@ -6,6 +6,15 @@
 
 当前运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下记录只代表 v1.1.3 本地增量及实际执行的验证，不改变远端运行状态。
 
+<a id="cards-has-image-filter-20261029"></a>
+## Cards 目录仅返回可用图片记录（2026-10-29）
+
+- 范围：基于干净的 `codex/dev-1.0.7scan@695ee659` 加本地未提交增量，按用户最终确认只修改 `GET /api/v1/cards/search`，固定向 PostgreSQL Cards 查询传入 `has_image = 2`。该入口覆盖 Search Cards 的空词首屏、关键词、分页及从 Sets 进入单个 Set 后的卡牌分页；独立 `GET /api/v1/sets/search` 仍只查询 `sets`，不增加图片条件。Scan 的卡号消歧直接调用适配器且未传图片条件，保持原查询范围。
+- 实现与缓存：`CardSearchOptions` 增加仅供服务端内部使用的字面量选项 `has_image?: 2`，客户端请求没有新增字段，V1 路径、参数、响应结构和分页格式不变。Cards SQL 仅在该选项存在时追加 `cards_all.has_image = 2`；搜索 KV 提升到 `v17` 并把图片条件纳入键，避免过滤前的 `v16` 页面或无图片条件的内部查询复用。未修改 schema、migration、索引、图片状态或业务数据。
+- 查询回归：`pnpm --filter @kando/workers-api test src/db/postgres/cards-created-order-indexes.test.ts src/data-source/local-db-adapter.test.ts src/data-source/kv-cache.test.ts src/data-source/routes.test.ts --maxWorkers=1` 最终为 4 文件／57 项通过。PGlite 用例以 `has_image=1/2/3` 验证只有精确值 2 进入目录，同时确认未传内部选项的适配器调用保持原范围；路由用例覆盖 Search Cards 与 Set 内分页排除无图记录；KV 用例确认 `v16` 不会绕过新条件，且过滤查询不会与内部未过滤查询复用键。三个索引计划用例使用实际含图片条件的空词 SQL，三种范围仍采用既有创建时间索引前缀；该合成计划不代表目标环境耗时。
+- 静态与旧端：Workers `type-check` 通过。完整 `pnpm test:app-compatibility` 退出 0：当前 API 合同 8／8、固定 App 1.0.4+161 与 1.0.5+163 各 24／24，通过证据在忽略目录 `.dart_tool/app-compatibility/run-XMGnej/`，报告状态为 `passed`、证据类型为 `git-source-contracts-only`。旧客户端仍发送原请求并解析原 DTO；这只证明受控源码合同，不代表签名包、真机或真实目录数据。
+- 边界：本次未运行全量 Workers／Flutter 测试或制品构建，未查询 dev/prod 的 `has_image` 分布、真实分页结果或线上执行计划，未执行数据库写入、迁移、Git 提交／推送或任何部署。当前源码与文档不能当作 dev/prod 已生效。
+
 <a id="sets-numeric-id-order-20261029"></a>
 ## Sets 系列列表按纯数字 ID 倒序（2026-10-29）
 
