@@ -1,20 +1,45 @@
-# Cards 创建时间排序与索引
+# Cards 与 Sets 排序及索引
 
-更新日期：2026-10-28（Asia/Shanghai）。已随 `dev@b9702b81` 发布 kd201，PostgreSQL `0016` 已登记并独立验收；prod 尚未执行本次迁移或发布。运行证据见[dev 发布记录](../05-delivery/VERIFICATION.md#dev-cards-index-deployment-20261028)。
+更新日期：2026-10-29（Asia/Shanghai）。Cards 增加同创建时间内的纯数字 ID 数值排序，Sets 系列列表改为纯数字 `set_id` 数值倒序，本轮新规则尚未部署。2026-10-28 已随 `dev@b9702b81` 在 kd201 执行的索引迁移 `0016` 保持原样，历史证据见[dev 发布记录](../05-delivery/VERIFICATION.md#dev-cards-index-deployment-20261028)；prod 尚未执行本次迁移或发布。
 
 ## 查询与缓存
 
-`GET /api/v1/cards/search` 按最终产品要求使用：
+`GET /api/v1/cards/search` 按 2026-10-29 确认的规则使用：
 
 ```sql
-ORDER BY created_at DESC NULLS LAST, product_id DESC
+ORDER BY created_at DESC NULLS LAST,
+  CASE WHEN product_id ~ '^[0-9]+$'
+    THEN product_id::numeric ELSE NULL
+  END DESC NULLS LAST,
+  product_id DESC
 ```
 
-卡牌按目录创建时间倒序，空创建时间置后；相同创建时间按字符串商品 ID 降序，保证同一数据快照内分页顺序确定。后续更新卡牌不再提升其排序。此规则覆盖 Search Cards 首屏、关键词搜索及共用该接口的 Sets 内卡牌列表；独立 Sets 系列列表仍使用 `s.name ASC, s.set_id ASC`。
+卡牌先按目录创建时间倒序，空创建时间置后。在同一创建时间组内（含同时为空），只将完全由 ASCII 数字组成的 ID 转为 `numeric` 排序键并降序排列，例如 `700 > 80 > 9`；非纯数字 ID 的排序键为 NULL，排在该时间组的纯数字 ID 后。数值相同或均为非数字时，按原字符串 `product_id DESC` 决定先后，为同一数据快照内的分页提供唯一稳定键。较新创建的非数字卡牌仍排在较旧创建的数字卡牌前，不按数值 ID 改写创建时间的主顺序。
 
-首次加载继续先取 `/games` 返回的首个 Game，再以空关键词、`page=1`、`page_size=40` 查询。筛选、分页参数、响应字段、价格选择和客户端解析不变，继续使用 V1。搜索 KV 命名空间改为 `v14`，避开按创建时间倒序、ID 升序生成的 `v13` 及按更新时间排序的 `v12` 缓存；TTL 仍为 1 小时。
+`product_id` 的存储、关联与 API `card_ref` 保持原字符串，不裁剪、提取或重建标识；`0010` 和 `10` 均保留，数值键相同后由原字符串兜底，`A12`、`sports:12` 不提取为 `12`。只有列表排序派生键使用数值，其他标识契约不变。使用 `numeric` 而非 `bigint`，支持超过 64 位整数范围的数字 ID；并未定义无限长度数字的准入规则，目标数据库上线前仍须核查实际数字长度。
 
-本节替代归档[数据契约](../../v1.1.0/03-data-api/contract-changes.md#postgresql-查询切换)中 Card Search 的更新时间排序及搜索缓存版本说明，其他契约不变。实现见[查询适配器](../../../../apps/workers-api/src/data-source/local-db-adapter.ts)及[搜索缓存](../../../../apps/workers-api/src/data-source/kv-cache.ts)。
+后续更新卡牌不提升其创建时间排序。此规则覆盖 Search Cards 首屏、关键词搜索及共用该接口的 Sets 内卡牌列表；独立 Sets 系列列表按下节的 `set_id` 规则排序。
+
+首次加载继续先取 `/games` 返回的首个 Game，再以空关键词、`page=1`、`page_size=40` 查询。筛选、分页参数、响应字段、价格选择和客户端解析不变，继续使用 V1。搜索 KV 命名空间改为 `v16`，不复用仅按创建时间查询生成的 `v15` 缓存；TTL 仍为 1 小时。
+
+本文替代归档[数据契约](../../v1.1.0/03-data-api/contract-changes.md#postgresql-查询切换)中 Cards／Sets 的排序及 Card Search 缓存版本约定，其他接口的稳定排序规则保持不变。实现见[查询适配器](../../../../apps/workers-api/src/data-source/local-db-adapter.ts)及[搜索缓存](../../../../apps/workers-api/src/data-source/kv-cache.ts)。
+
+## Sets 系列列表
+
+`GET /api/v1/sets/search` 移除名称升序，改为：
+
+```sql
+ORDER BY CASE WHEN s.set_id ~ '^[0-9]+$'
+  THEN s.set_id::numeric ELSE NULL
+END DESC NULLS LAST,
+s.set_id DESC
+```
+
+纯数字系列 ID 按数值降序，非纯数字排在其后；数值相同或均非数字时按原始字符串 ID 降序。`0010` 与 `10` 保持不同标识，`A12` 等不提取数字。名称只参与搜索匹配，不参与排序；这里没有创建时间主排序。转换仅产生排序键，数据库和 API 中的 `set_id` 继续为原字符串，并继承 `numeric` 的范围边界。
+
+Game、关键词匹配、非空 `set_code` 过滤、响应字段和分页参数保持不变。Search 初始预载第 1 页 40 条；正常加载后首次切换到 Sets，客户端从第 1 页重新按每页 40 条加载到末页，保持服务端顺序。Sets 查询不经过现有 KV／Cache API 结果缓存，本次无需增加 Sets 缓存版本；Cards 的 `v16` 不因本改动再次升级。
+
+2026-10-29 dev 只读检查确认 `sets` 共 2,978 条，其中纯数字 ID 2,078 条、最长 7 位，非纯数字最长 5 字符。Pokemon 新排序首屏在单次样本中使用原 Game 索引筛选后 Sort，执行 1.768 ms。本次不增加索引或 migration；该样本不代表一般性能或 prod 验收。行为与测试见[Sets 验证记录](../05-delivery/VERIFICATION.md#sets-numeric-id-order-20261029)。
 
 ## PostgreSQL 0016 索引替换
 
@@ -26,9 +51,11 @@ ORDER BY created_at DESC NULLS LAST, product_id DESC
 | Game | `idx_cards_all_game_created_product` | `idx_cards_all_game_updated_product` |
 | Game＋SetCode | `idx_cards_all_game_set_created_product` | `idx_cards_all_game_set_updated_product` |
 
-三个索引的排序尾列均为 `created_at DESC NULLS LAST, product_id DESC`；后两者分别保留 `lower(game)` 与 `lower(game), lower(set_code)` 前导表达式，使原有 Game／SetCode 筛选能力继续存在。Set ID 筛选仍复用 Game 索引，不额外新增与本次替换无关的索引。
+三个索引的排序尾列仍为 `created_at DESC NULLS LAST, product_id DESC`；后两者分别保留 `lower(game)` 与 `lower(game), lower(set_code)` 前导表达式，使原有 Game／SetCode 筛选能力继续存在。本次数值排序实现不修改 `0016`、不新增迁移，也不删除字段或索引。现有索引可提供创建时间前缀，但不能直接满足新增的 `CASE ... ::numeric` 次级排序；同时间记录可能需要 Incremental Sort，Set 筛选也可能使用 Bitmap Scan＋Sort，不能继续承诺无额外排序。
 
-仓库审计未发现活跃查询继续按 `cards_all.updated_at` 排序或筛选：卡牌详情、Scan 候选和 Portfolio 目录补全按 `product_id` 查询，Trending 通过 `product_id` 关联并按榜单 rank 排序。Admin 的 `ORDER BY updated_at` 属于 `card_override` 表，不属于本次删除范围。dev 发布前已检查索引使用统计和当时的活跃查询，但未安装 `pg_stat_statements`，未取得全部外部采集程序或临时 SQL 历史；prod 的使用情况仍须独立核查。
+2026-10-29 对 kd201 dev 进行只读候选 SQL 检查：2,405,301 条目录记录中纯数字 ID 为 268,639 条，最长 8 位；非纯数字 ID 最长 9 字符。Pokemon 最大同时间组有 29,684 张卡，空关键词首屏使用 Game 索引＋Incremental Sort，单次执行 81.133 ms；Set `23881` 使用 Game Bitmap Scan＋Sort，单次执行 26.783 ms。本次保留现有索引完成业务规则，后续若需消除额外排序，可依据目标环境负载另行增加匹配的表达式索引；不把上述 dev 单次样本当作正式性能指标或 prod 已验证结果。
+
+仓库审计未发现活跃查询继续按 `cards_all.updated_at` 排序或筛选：卡牌详情、Scan 候选和 Portfolio 目录补全按 `product_id` 查询，Trending 通过 `product_id` 关联并按榜单 rank 排序。Admin 的 `ORDER BY updated_at` 属于 `card_override` 表，不属于旧索引删除范围。2026-10-28 dev 发布前已检查索引使用统计和当时的活跃查询，但未安装 `pg_stat_statements`，未取得全部外部采集程序或临时 SQL 历史；prod 及后续目标环境的索引使用与查询计划仍须独立核查。
 
 按用户确认，仅删除上述三组旧排序索引，保留 `updated_at` 字段、其他列、业务数据、主键、其他索引及 trigram 索引。迁移使用 `IF NOT EXISTS`／`IF EXISTS` 支持重复执行；不修改已执行的 `0000`，也不修改退役 D1 schema、迁移或工具。
 
@@ -40,4 +67,4 @@ Linux 发布包、预检和迁移脚本会自动发现新增的 PostgreSQL SQL �
 
 应用代码回退不会改变数据兼容性，但旧更新时间查询可能失去排序索引；如需恢复旧查询性能，使用新的 PostgreSQL 迁移或经授权的并发建索引步骤恢复 [0000 中的三个原索引定义](../../../../apps/workers-api/src/db/postgres/migrations/0000_business_schema.sql)，无需删除新索引或回填数据。不得回写已执行迁移文件。
 
-本地验证及未执行项记录在[当前版本验证记录](../05-delivery/VERIFICATION.md#cards-search-order-indexes-20261028)。
+2026-10-28 索引实现的历史验证见[原记录](../05-delivery/VERIFICATION.md#cards-search-order-indexes-20261028)；此前仅按创建时间排序的验证见[对应历史记录](../05-delivery/VERIFICATION.md#cards-created-only-order-20261029)。本次数值次级排序的验证见[当前记录](../05-delivery/VERIFICATION.md#cards-numeric-id-order-20261029)。

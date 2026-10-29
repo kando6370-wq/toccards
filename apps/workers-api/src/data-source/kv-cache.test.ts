@@ -93,13 +93,14 @@ const card: CardSearchResult = {
 };
 
 describe("KV cached data source adapter", () => {
-  it("refreshes the previous ordering once because cached ascending-ID pages must not override descending-ID ordering", async () => {
+  it("refreshes the previous ordering once because creation-only cached pages must not replace numeric-ID ordering", async () => {
     const kv = new FakeKvNamespace();
-    const higherIdCard = { ...card, card_ref: "mock:tcg:charizard-base-5" };
-    const cards = [higherIdCard, card];
+    const higherIdCard = { ...card, card_ref: "80" };
+    const lowerIdCard = { ...card, card_ref: "9" };
+    const cards = [higherIdCard, lowerIdCard];
     kv.values.set(
-      "v13:searchCards:charizard%20gx:tcg:all:all:all:1:20",
-      JSON.stringify([card, higherIdCard]),
+      "v15:searchCards:charizard%20gx:tcg:all:all:all:1:20",
+      JSON.stringify([lowerIdCard, higherIdCard]),
     );
     const source = new CountingDataSourceAdapter(cards);
     const adapter = createKvCachedDataSourceAdapter(source, kv);
@@ -120,7 +121,7 @@ describe("KV cached data source adapter", () => {
     expect(source.searchCalls).toBe(1);
     expect(kv.puts).toEqual([
       {
-        key: "v14:searchCards:charizard%20gx:tcg:all:all:all:1:20",
+        key: "v16:searchCards:charizard%20gx:tcg:all:all:all:1:20",
         value: JSON.stringify(cards),
         options: { expirationTtl: 3600 },
       },
@@ -149,8 +150,8 @@ describe("KV cached data source adapter", () => {
 
     expect(source.searchCalls).toBe(2);
     expect(kv.puts.map((put) => put.key)).toEqual([
-      "v14:searchCards::all:pokemon:1455:pr:1:40",
-      "v14:searchCards::all:pokemon:1840:pr:1:40",
+      "v16:searchCards::all:pokemon:1455:pr:1:40",
+      "v16:searchCards::all:pokemon:1840:pr:1:40",
     ]);
   });
 

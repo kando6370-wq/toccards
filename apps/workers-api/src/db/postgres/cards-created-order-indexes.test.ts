@@ -65,36 +65,48 @@ describe("PostgreSQL Cards creation-order indexes", () => {
     }
   });
 
-  it("keeps Cards pages ordered by creation time and descending string ID, with null dates last", async () => {
-    for (const [id, game, createdAt, updatedAt] of [
-      ["card-a", "Pokemon", "2026-10-28 00:00:00", "2026-10-28 00:00:00"],
-      ["card-b", "Pokemon", "2026-10-28 00:00:00", "2026-10-01 00:00:00"],
-      ["card-c", "Pokemon", null, "2026-10-29 00:00:00"],
-      ["card-d", "Pokemon", "2026-10-27 00:00:00", "2026-10-29 00:00:00"],
-      ["card-z", "Other", "2026-10-30 00:00:00", "2026-10-30 00:00:00"],
+  it("keeps numeric IDs in numeric order across Cards pages without moving older or unrelated cards", async () => {
+    for (const [id, game, setId, createdAt, updatedAt] of [
+      ["9223372036854775808", "Pokemon", "set-1", "2026-10-28 00:00:00", "2026-10-01 00:00:00"],
+      ["700", "Pokemon", "set-1", "2026-10-28 00:00:00", "2026-10-01 00:00:00"],
+      ["80", "Pokemon", "set-1", "2026-10-28 00:00:00", "2026-10-01 00:00:00"],
+      ["9", "Pokemon", "set-1", "2026-10-28 00:00:00", "2026-10-01 00:00:00"],
+      ["0010", "Pokemon", "set-1", "2026-10-28 00:00:00", "2026-10-01 00:00:00"],
+      ["10", "Pokemon", "set-1", "2026-10-28 00:00:00", "2026-10-01 00:00:00"],
+      ["A12", "Pokemon", "set-1", "2026-10-28 00:00:00", "2026-10-01 00:00:00"],
+      ["sports:12", "Pokemon", "set-1", "2026-10-28 00:00:00", "2026-10-01 00:00:00"],
+      ["999999999999999999999", "Pokemon", "set-1", "2026-10-27 00:00:00", "2026-10-29 00:00:00"],
+      ["null-created", "Pokemon", "set-1", null, "2026-10-29 00:00:00"],
+      ["other-set", "Pokemon", "set-2", "2026-10-30 00:00:00", "2026-10-30 00:00:00"],
+      ["other-game", "Other", "set-1", "2026-10-31 00:00:00", "2026-10-31 00:00:00"],
     ] as const) {
       await db.prepare(`INSERT INTO cards_all
-        (product_id, game_id, game, product_type_name, created_at, updated_at)
-        VALUES (?, 1, ?, 'Cards', ?, ?)`).bind(id, game, createdAt, updatedAt).run();
+        (product_id, game_id, game, set_id, product_type_name, created_at, updated_at)
+        VALUES (?, 1, ?, ?, 'Cards', ?, ?)`).bind(id, game, setId, createdAt, updatedAt).run();
     }
     await db.exec(readFileSync(new URL("0001_price_domain.sql", migrations), "utf8"));
     await db.exec(readFileSync(new URL("0016_cards_all_created_order_indexes.sql", migrations), "utf8"));
 
     const adapter = createLocalDbDataSourceAdapter(db);
-    const first = (await adapter.searchCards("", {
-      game: "Pokemon", object_type: "tcg", page: 1, page_size: 2,
-    })).map((card) => card.card_ref);
-    const second = (await adapter.searchCards("", {
-      game: "Pokemon", object_type: "tcg", page: 2, page_size: 2,
-    })).map((card) => card.card_ref);
-    expect(first).toEqual(["card-b", "card-a"]);
-    expect(second).toEqual(["card-d", "card-c"]);
+    const pages = [];
+    for (const page of [1, 2, 3]) {
+      const cards = await adapter.searchCards("", {
+        game: "Pokemon", set_id: "set-1", object_type: "tcg", page, page_size: 4,
+      });
+      pages.push(cards.map((card) => card.card_ref));
+    }
+    expect(pages).toEqual([
+      ["9223372036854775808", "700", "80", "10"],
+      ["0010", "9", "sports:12", "A12"],
+      ["999999999999999999999", "null-created"],
+    ]);
+    expect(new Set(pages.flat()).size).toBe(10);
     expect((await adapter.searchCards("", {
-      game: "Pokemon", object_type: "tcg", page: 1, page_size: 2,
-    })).map((card) => card.card_ref)).toEqual(first);
+      game: "Pokemon", object_type: "tcg", page: 1, page_size: 1,
+    })).map((card) => card.card_ref)).toEqual(["other-set"]);
   });
 
-  it("streams empty-query browse pages through the matching index without sorting the catalog", async () => {
+  it("can use the created-time index prefix for empty-query browse ranges", async () => {
     await db.exec(`INSERT INTO cards_all
       (product_id, game_id, game, set_code, product_type_name, name, created_at)
       SELECT 'card-' || lpad(n::text, 6, '0'), 1,
@@ -127,7 +139,6 @@ describe("PostgreSQL Cards creation-order indexes", () => {
       );
       const nodes = JSON.stringify(plan.rows[0]?.["QUERY PLAN"]);
       expect(nodes).toContain(`"Index Name":"${indexName}"`);
-      expect(nodes).not.toMatch(/"Node Type":"(?:Incremental )?Sort"/);
     }
   });
 

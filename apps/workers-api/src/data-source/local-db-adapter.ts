@@ -90,7 +90,9 @@ ${objectTypeClause}
 ${gameClause}
 ${setIdClause}
 ${setClause}
-ORDER BY created_at DESC NULLS LAST, product_id DESC
+ORDER BY created_at DESC NULLS LAST,
+  CASE WHEN product_id ~ '^[0-9]+$' THEN product_id::numeric ELSE NULL END DESC NULLS LAST,
+  product_id DESC
 LIMIT ? OFFSET ?`,
       ).bind(...bindings).all<CardCatalogRow>();
 
@@ -121,7 +123,8 @@ LIMIT ? OFFSET ?`,
          WHERE lower(s.name || ' ' || coalesce(s.set_code, '')) LIKE ?
            AND trim(coalesce(s.set_code, '')) <> ''
            ${gameClause}
-         ORDER BY s.name ASC, s.set_id ASC
+         ORDER BY CASE WHEN s.set_id ~ '^[0-9]+$' THEN s.set_id::numeric ELSE NULL END DESC NULLS LAST,
+                  s.set_id DESC
          LIMIT ? OFFSET ?`,
       ).bind(...bindings).all<SetSearchResult>();
 
