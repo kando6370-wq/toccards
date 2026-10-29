@@ -6,6 +6,26 @@
 
 当前运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下记录只代表 v1.1.3 本地增量及实际执行的验证，不改变远端运行状态。
 
+<a id="sets-numeric-id-order-20261029"></a>
+## Sets 系列列表按纯数字 ID 倒序（2026-10-29）
+
+- 范围：在 `codex/dev-1.0.7scan@80740bbd` 加前述未提交 Cards 数值排序改动的工作区中，按用户要求将 `GET /api/v1/sets/search` 从 `s.name ASC, s.set_id ASC` 改为纯数字 `set_id::numeric DESC NULLS LAST`、原字符串 `set_id DESC`。只有完全匹配 `^[0-9]+$` 的 ID 转换；非数字置后，前导零与 API 原字符串身份保持。该系列列表不增加创建时间主键，Game／关键词／非空 set_code 过滤不变。
+- 只读预检：kd201 dev `sets` 为 2,978 条、纯数字 2,078 条且最长 7 位，非数字最长 5 字符；Pokemon 首屏候选 SQL 使用 `idx_sets_game_name_search` 做 Bitmap Scan 后 Sort，单次执行 1.768 ms、规划 0.471 ms、共享缓存命中 43 块。只执行只读事务，没有替换运行代码、数据库写入或缓存回填；prod 未查。
+- 验证：`pnpm --filter @kando/workers-api test src/data-source/set-search.postgres.test.ts src/db/postgres/cards-created-order-indexes.test.ts src/data-source/local-db-adapter.test.ts src/data-source/kv-cache.test.ts src/data-source/routes.test.ts --maxWorkers=1` 最终 5 文件／57 项通过，Workers `type-check` 通过。真实 PostgreSQL 适配器覆盖数字／非数字／前导零／超 bigint 范围 ID 的 4／4／2 三页排序，名称不影响顺序，原 Game、set_code 和关键词过滤保留；SQL 断言明确没有 name 排序。
+- 首轮修正与旧端：首轮 56 项通过／1 项失败，原因是测试将数值同为 0 的 `0`／`000` 文本倒序期望写反；正确次序为 `000` 在前，修正测试后整组重跑 57／57，业务 SQL 未因测试失败调整。完整 `pnpm test:app-compatibility` 通过，当前服务端 8 项、固定 App 1.0.4／1.0.5 各 24 项，证据目录 `.dart_tool/app-compatibility/run-3bxrmo/`；旧客户端源码、基线及合同断言不变，不代表真机验收。
+- 审查：独立 Code Review 未发现代码阻断；现行合同已移除 Sets 名称排序，历史记录保留，`git diff --check` 通过。
+- 边界：无新增 migration 或索引；Sets 查询原本不走结果缓存，Cards `v16` 保持。本次尚未合并 dev 或部署；未运行全量 Workers／Flutter 测试或打包，只验证受影响查询和兼容调用方。原有 Cards 排序改动继续保留，不修改已执行的 `0016` 或固定旧端基线。
+
+<a id="cards-numeric-id-order-20261029"></a>
+## Cards 同创建时间内按纯数字 ID 排序（2026-10-29）
+
+- 范围：基于 `codex/dev-1.0.7scan@80740bbd`，按用户确认的新规则依次排序 `created_at DESC NULLS LAST`、纯数字 ID 的 `numeric` 值降序／非数字置后、原字符串 ID 降序。只用派生值排序，原 ID、API 字段、查询过滤、价格与鉴权边界不变；Search Cards 和 Sets 内卡牌列表共用规则，搜索缓存改为 `v16`。
+- 只读预检：kd201 `toccards_test`／PostgreSQL 18.6 的只读事务确认目录 2,405,301 行，纯数字 ID 268,639 行、最长 8 位，非数字最长 9 字符。Pokemon 最大同创建时间组 29,684 张；候选 SQL 的首屏 Game 索引＋Incremental Sort 样本为 81.133 ms、共享缓存命中 3,851 块，Set `23881` 的 Bitmap Scan＋Sort 为 26.783 ms、命中 6,445 块。该检查未替换运行代码、建立索引、写入业务数据或回填 HTTP 缓存；不能代表一般 P95／P99、端到端耗时或 prod。
+- 索引决策：本次保持最小业务改动，不修改已执行的 `0016`，不新增排序列、migration 或表达式索引。现有索引不能完整覆盖新增的数值排序，需要额外排序；这项性能代价已明确记录，不把 SQL 正确性等同于无性能变化。
+- 本地验证：`pnpm --filter @kando/workers-api test src/db/postgres/cards-created-order-indexes.test.ts src/data-source/local-db-adapter.test.ts src/data-source/kv-cache.test.ts src/data-source/routes.test.ts --maxWorkers=1` 为 4 文件／55 项通过，Workers `type-check` 通过。真实 PostgreSQL 适配器覆盖混合 ID、前导零、超 `bigint` 范围数字、时间主顺序、NULLS LAST、Game／Set 隔离和三页 10 张卡不重不漏；缓存测试确认旧 `v15` 结果不会替代新规则。6,000 条合成数据的三个浏览查询仍可用既有创建时间前缀索引，不再要求无 Sort。
+- 旧端与审查：完整 `pnpm test:app-compatibility` 通过，服务端 8 项、固定 App 1.0.4／1.0.5 各 24 项，证据目录 `.dart_tool/app-compatibility/run-kdCIDt/`；旧端基线、源码和客户端断言未改，继续验证字符串 ID、分页、零价／缺价。独立 Code Review 无正确性阻断，`git diff --check` 通过；当前排序变更不将 ID 的身份判断或传输转为数值。
+- 边界：本次尚未合并 dev、执行迁移或部署；未运行全量 Workers／Flutter 测试、制品构建、真机或生产数据验证，仅覆盖受影响查询与旧端源码合同。此前创建时间单键排序的记录保留为历史，不作为本次验证结果。
+
 <a id="cards-created-only-order-20261029"></a>
 ## Cards 仅按创建时间排序（2026-10-29）
 

@@ -814,7 +814,7 @@ describe("PostgreSQL card data source adapter", () => {
     ).resolves.toHaveLength(2);
   });
 
-  it("orders cards only by creation time because product IDs must not define a secondary display order", async () => {
+  it("orders numeric card and set IDs without converting their stored identities", async () => {
     const db = new FakeCardDatabase([], []);
     const adapter = createLocalDbDataSourceAdapter(db as unknown as D1Database);
 
@@ -825,9 +825,10 @@ describe("PostgreSQL card data source adapter", () => {
       sql.includes("FROM cards_all") && sql.includes("LIMIT ? OFFSET ?")
     );
     const setSearchSql = db.preparedSql.find((sql) => sql.includes("FROM sets s"));
-    expect(cardSearchSql?.match(/ORDER BY\s+([\s\S]*?)\s+LIMIT/)?.[1])
-      .toBe("created_at DESC NULLS LAST");
-    expect(setSearchSql).toContain("ORDER BY s.name ASC, s.set_id ASC");
+    expect(cardSearchSql?.match(/ORDER BY\s+([\s\S]*?)\s+LIMIT/)?.[1]?.replace(/\s+/g, " "))
+      .toBe("created_at DESC NULLS LAST, CASE WHEN product_id ~ '^[0-9]+$' THEN product_id::numeric ELSE NULL END DESC NULLS LAST, product_id DESC");
+    expect(setSearchSql?.match(/ORDER BY\s+([\s\S]*?)\s+LIMIT/)?.[1]?.replace(/\s+/g, " "))
+      .toBe("CASE WHEN s.set_id ~ '^[0-9]+$' THEN s.set_id::numeric ELSE NULL END DESC NULLS LAST, s.set_id DESC");
   });
 
   it("adds the canonical Normal SKU price because Search must show one stable market reference without per-card HTTP requests", async () => {

@@ -81,7 +81,7 @@ describe("frozen App contracts against current PostgreSQL-backed API", () => {
         (25, 'Pokemon', 1, 1), (26, 'Hidden game', 0, 0), (27, ' ', 1, 0);
       INSERT INTO sets (set_id, game, name, set_code, total_cards, set_image_id)
         VALUES ('0010', 'Pokemon', 'Contract Set', 'C03', 41, '0001');
-      -- Distinct creation times make page boundaries explicit without an ID tie-breaker.
+      -- Distinct creation times keep these page boundaries independent of ID tie-breakers.
       INSERT INTO cards_all (product_id, game_id, game, set_name, set_code, set_id, name, number, product_type_name, created_at, updated_at)
         SELECT lpad(value::text, 4, '0'), 25, 'Pokemon', 'Contract Set', 'C03', '0010',
           'Contract Card ' || lpad(value::text, 2, '0'), lpad(value::text, 2, '0'), 'Cards',
