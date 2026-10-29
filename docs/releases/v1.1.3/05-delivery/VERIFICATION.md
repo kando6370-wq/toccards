@@ -6,6 +6,13 @@
 
 本版本初始运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下按时间分别记录本地增量、实际部署与运行验证；历史记录不替代当前远端状态回读。
 
+<a id="local-dev-japanese-ocr-cards-filter-merge-20261029"></a>
+## 本地 dev 合并日文 OCR 与 Cards 图片过滤（2026-10-29 17:40–17:51）
+
+- Git 与范围：刷新远端后本地 `dev@28568a0d` 与 `github/dev` 一致，来源 `codex/dev-1.0.7scan@fd74b7bb` 与同名远端一致；来源分支相对 dev 包含 `b6505c76` 的 Cards `has_image = 2` 过滤和 `fd74b7bb` 的 Latin／Japanese OCR 两个提交。双方为 38／2 分叉，使用非快进 merge 生成本地 `dev@32cbf499191b68d7179ce58df62b12e892c62f6c`。唯一冲突为 Cards／Sets 说明文档，保留已发布的数值排序事实，同时明确图片过滤仅完成本地合并；代码无冲突，仓库无残留冲突标记，`git diff --cached --check` 通过。
+- 合并后验证：Workers Cards 查询／缓存定向 4 文件／57 项通过；Flutter 扫描定向 8 文件／49 项及相关 9 文件 analyze 通过；根 `pnpm lint`、7 个 TypeScript package 的 `pnpm type-check` 通过。完整 `pnpm test:app-compatibility` 退出 0：当前 PostgreSQL API 合同 8／8、固定 App 1.0.4+161 与 1.0.5+163 各 24／24，证据目录为忽略路径 `.dart_tool/app-compatibility/run-03hEAD/`。测试 stderr 中受控的 `Contract database unavailable` 是 C03 错误边界用例输入，测试文件仍为 8／8 通过。
+- 边界：本轮只完成本地分支合并，未推送 `github/dev`，因此没有触发 kd201 watcher、Linux 构建／备份／迁移／容器更新或运行验收；远端 dev 仍为 `28568a0d`，本地合并后相对远端领先来源两提交及 merge commit。未修改 prod／Cloudflare、数据库、Secret、远程配置或商店制品；本文档后续提交仅记录本地合并，不构成业务部署。
+
 <a id="dev-numeric-search-deployment-20261029"></a>
 ## Linux dev 数值排序合并发布（2026-10-29 11:37–11:54）
 
