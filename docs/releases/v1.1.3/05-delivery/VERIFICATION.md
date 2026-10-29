@@ -6,6 +6,16 @@
 
 本版本初始运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下按时间分别记录本地增量、实际部署与运行验证；历史记录不替代当前远端状态回读。
 
+<a id="dev-numeric-search-deployment-20261029"></a>
+## Linux dev 数值排序合并发布（2026-10-29 11:37–11:54）
+
+- Git 与范围：按用户授权将 `codex/dev-1.0.7scan@695ee6597547c8bb5d4d6aad19d790196c99bb80` 合入 `dev@afca10dcf4557bfee87ef53444a4d8d1eff7b618`，生成并推送合并提交 `867c6fd84ddaacdaf7523402b0ab8bd70feb56ab`，远端回读一致。唯一冲突文件为 Cards／Sets 说明文档，保留昨天的 `0016` 部署事实与今天的新规则；API、客户端与测试代码均与来源分支一致。本轮只发布数值排序和 Cards 缓存 `v16`，没有 schema、migration、部署脚本、Admin 业务或 Flutter 制品变更。
+- 合并后检查：5 个 Workers 定向文件／57 项、根 `pnpm type-check` 与 `pnpm lint` 通过；完整旧 App 源码合同为服务端 8 项、固定 1.0.4／1.0.5 各 24 项通过，证据目录 `.dart_tool/app-compatibility/run-B17Z6Q/`。干净合并提交的 `deploy:dry-run:dev` 完成 API／Admin 构建与 bundle 3／3；watcher 独立通过 Workers 11 文件／116 项、Node 预检／静态服务 13／13 及 bundle 3／3。
+- 发布与备份：推送后既有 watcher 自动发布 `branch-dev-867c6fd84dda-20261029114956`，未并发手工发布或设置强制重发。发布前后实际预检 `pendingMigrations=[]`，原 17 项 `0000–0016` 均显示已应用并跳过，migration 容器退出 0，无新迁移登记。发布前 custom-format 备份 `toccards-test-20261029-114959-before-branch-dev-867c6fd84dda-20261029114956.dump` 为 1,136,738,709 字节，独立 `pg_restore --list` 读取 336 个非注释条目，未做恢复演练。
+- 运行与产物：11:54 独立回读 `current`、manifest、`shared/current-release`、watcher `last-seen`／`last-deployed` 指向本次合并版本，失败标记不存在。API／DB healthy、Web running，原 PostgreSQL 数据卷与私有 `.env` 完整哈希保持。运行 API、Linux release 与同提交本地构建 SHA-256 均为 `336dbb68104cc6f7ed28740eb1f3476847a0ba36d769c09dec9ef32861971ba2`；Admin 11 个 HTML／JS／CSS 的 release、容器和 HTTP 原始字节全部一致。ledger 仍为 17 项／最新 `0016`，既有三个创建时间索引 valid/ready，旧更新时间排序索引仍不存在，`updated_at` 字段保留。
+- 排序与 HTTP：默认 Pokemon Cards 前两页共 80 条、Set `2282` 内卡牌前两页共 80 条，都与数据库按创建时间／纯数字 ID 数值／原字符串 ID 的顺序逐项一致；Cards 两页无重复。Sets 从第 1 页按 40 条加载至第 17 页，共 663 条，与数据库按纯数字 `set_id` 数值降序、原字符串降序的完整结果一致且无重复；该真实 Pokemon 样本中的 Set ID 均为纯数字，混合非数字／前导零／超 bigint 场景仍以本地 PostgreSQL 回归为证据。开发机 health 和 Admin 返回 200，未登录 auth/me 与 Admin 苹果通知 options 返回 401。
+- 边界：prod／Cloudflare、Secret、watcher 配置和业务数据未主动改写；公开 GET 仅按既有逻辑回填 dev 内存缓存。未进行真实登录态 Admin、真实图片识别、真机扫描、备份恢复、完整 Workers／Flutter 测试或生产性能验收。既有数值排序的额外 Sort 成本仍存在，不把本轮功能验收扩展为性能提升；此前 81.133 ms／1.768 ms 等只读计划样本保持其单次证据边界。后续仅记录本文档的 dev 提交不强制重建，运行提交与 Git 文档提交分别说明。
+
 <a id="dev-cards-index-deployment-20261028"></a>
 ## Linux dev 合并发布与 Cards 索引替换（2026-10-28 18:03–18:21）
 

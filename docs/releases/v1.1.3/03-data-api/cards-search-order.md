@@ -1,6 +1,6 @@
 # Cards 与 Sets 排序及索引
 
-更新日期：2026-10-29（Asia/Shanghai）。Cards 增加同创建时间内的纯数字 ID 数值排序，Sets 系列列表改为纯数字 `set_id` 数值倒序，本轮新规则尚未部署。2026-10-28 已随 `dev@b9702b81` 在 kd201 执行的索引迁移 `0016` 保持原样，历史证据见[dev 发布记录](../05-delivery/VERIFICATION.md#dev-cards-index-deployment-20261028)；prod 尚未执行本次迁移或发布。
+更新日期：2026-10-29（Asia/Shanghai）。Cards 与 Sets 数值排序已随 `dev@867c6fd8` 发布 kd201 并独立验收，见[本次 dev 发布记录](../05-delivery/VERIFICATION.md#dev-numeric-search-deployment-20261029)。本轮无新增 migration，2026-10-28 已随 `dev@b9702b81` 执行的 `0016` 保持原样，历史证据见[索引发布记录](../05-delivery/VERIFICATION.md#dev-cards-index-deployment-20261028)；prod 尚未执行本次数值排序发布或该索引迁移。
 
 ## 查询与缓存
 
