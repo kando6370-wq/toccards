@@ -6,6 +6,15 @@
 
 当前运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下记录只代表 v1.1.3 本地增量及实际执行的验证，不改变远端运行状态。
 
+<a id="scan-japanese-ocr-20261029"></a>
+## 扫描 Latin／Japanese OCR 并行识别（2026-10-29）
+
+- 范围：本轮开始于 `codex/dev-1.0.7scan@695ee659` 加工作区既有 Cards Search 未提交增量；执行期间该并行增量已独立提交并推送为当前基线 `b6505c76`。本任务仅修改 Flutter 扫描 OCR、Android／iOS 日文模型依赖、对应测试与当前版本文档，未修改 Cards Search 源码。RTMDet、RGB pHash、`POST /api/v1/scan/recognize`、单个 `ocr_text` 字段、服务端校验、额度、审计、数据库和 confirm 均保持。
+- 实现：同一张矫正卡图只写入一个临时 JPEG，ML Kit Latin 与 Japanese `TextRecognizer` 使用 `Future.wait` 并行执行。Latin 使用原轻量标准化；Japanese 先 NFKC，将六种破折号替为空格，仅保留 Han／Hiragana／Katakana／`ー`，其余字符均视为空格，折叠空白；日文字符总数少于 3 时置空。最终 Latin 在前、Japanese 在后，以单个半角空格合并并再次折叠空白。任一路 OCR 抛错仍沿用原整体 OCR 降级，省略 `ocr_text` 并继续 pHash。
+- 平台依赖：Android 增加 `com.google.mlkit:text-recognition-japanese:16.0.1`；iOS Podfile 增加 `GoogleMLKit/TextRecognitionJapanese ~> 9.0.0`。使用隔离的 Linux Ruby 容器及仓库锁定的 CocoaPods 1.17.0 完成真实 `pod install`，`Podfile.lock` 只新增 `GoogleMLKit/TextRecognitionJapanese 9.0.0`、`MLKitTextRecognitionJapanese 6.0.0`、对应依赖／spec checksum 和 Podfile checksum，既有 Pod 没有升降级。Google 的 iOS 指南建议避免同时使用不同脚本的多个 recognizer，本次按用户明确要求选择并行，风险不做静默串行折中。
+- 验证：扫描定向 Flutter 测试 8 文件／49 项通过，覆盖 Latin 既有规则、日文 NFKC、全角英数删除、Han／Hiragana／Katakana／`ー` 保留、非日文字符空格隔断、少于 3 个日文字符置空、两段空值组合、并行启动、合并文本经 ScanResultSource／multipart 原样透传及原 OCR 失败降级。相关 9 个实现／测试文件的 `flutter analyze --no-pub` 无问题。Android `flutter build apk --debug --no-pub` 退出 0，生成 228,273,379 字节 APK，SHA-256 `2812d88b72d13f47eb005d1b99de64818cba21b06939c0b2fee04040232dea6c`；包内回读存在 Japanese+Latin 模型及 `text-recognition-japanese` 资源。构建仅出现仓库既有 Gradle 8.12、AGP 8.9.1、Kotlin 2.1.0 的未来弃用警告。
+- 边界：Windows 主机没有 Xcode，容器内 CocoaPods 解析只能证明依赖与锁文件可解析，不能替代 iOS 编译、签名、IPA 解包或真机并行 OCR。Android 只完成 Debug 构建和包资源检查，未做 Android 真机；两端真实日文卡图命中率、并行稳定性、耗时、峰值内存和外部 pHash 检索效果均未验。临时解析目录 `.dart_tool/pod-lock-resolve-20261029/` 约 236 MB、已被 Git 忽略；递归删除被当前执行策略阻止，未静默写成已清理。未执行 Git commit／push、dev/prod 部署、数据库或远程配置操作。
+
 <a id="cards-has-image-filter-20261029"></a>
 ## Cards 目录仅返回可用图片记录（2026-10-29）
 

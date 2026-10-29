@@ -7,7 +7,6 @@ import 'scan_card_recognizer_contract.dart';
 import 'scan_mask_geometry.dart';
 import 'scan_model_runtime.dart';
 import 'scan_native_image_processor.dart';
-import 'scan_ocr_text_normalizer.dart';
 import 'scan_phash.dart';
 import 'scan_text_recognizer.dart';
 
@@ -156,7 +155,7 @@ class _NativeScanCardRecognizer implements ScanCardRecognizer {
 
   Future<String?> _recognizeTextOrNull(Uint8List cardImageBytes) async {
     try {
-      return normalizeOcrText(await _textRecognizer.recognize(cardImageBytes));
+      return await _textRecognizer.recognize(cardImageBytes);
     } on Object {
       return null;
     }

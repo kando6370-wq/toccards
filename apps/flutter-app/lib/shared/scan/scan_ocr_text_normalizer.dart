@@ -8,8 +8,12 @@ final _combiningMarks = RegExp(
 final _unsupportedOcrCharacters = RegExp(r'[^A-Z0-9/]+');
 final _slashWhitespace = RegExp(r'\s*/\s*');
 final _whitespace = RegExp(r'\s+');
+final _japaneseCharacter = RegExp(
+  r'^(?:\p{Script=Han}|\p{Script=Hiragana}|\p{Script=Katakana}|\u30FC)$',
+  unicode: true,
+);
 
-String normalizeOcrText(String? raw) {
+String normalizeLatinOcrText(String? raw) {
   final compatibilityNormalized = unorm
       .nfkc(raw ?? '')
       .replaceAll('\u0131', 'i')
@@ -24,4 +28,34 @@ String normalizeOcrText(String? raw) {
       .replaceAll(_slashWhitespace, '/')
       .replaceAll(_whitespace, ' ')
       .trim();
+}
+
+String normalizeOcrText(String? raw) => normalizeLatinOcrText(raw);
+
+String normalizeJapaneseOcrText(String? raw) {
+  final compatibilityNormalized = unorm
+      .nfkc(raw ?? '')
+      .replaceAll(_dashVariants, ' ');
+  final output = StringBuffer();
+  var japaneseCharacterCount = 0;
+
+  for (final rune in compatibilityNormalized.runes) {
+    final character = String.fromCharCode(rune);
+    if (_japaneseCharacter.hasMatch(character)) {
+      output.write(character);
+      japaneseCharacterCount += 1;
+    } else {
+      output.write(' ');
+    }
+  }
+
+  if (japaneseCharacterCount < 3) return '';
+  return output.toString().replaceAll(_whitespace, ' ').trim();
+}
+
+String mergeOcrText({
+  required String latinOcrText,
+  required String japaneseOcrText,
+}) {
+  return '$latinOcrText $japaneseOcrText'.replaceAll(_whitespace, ' ').trim();
 }
