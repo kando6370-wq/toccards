@@ -1,6 +1,6 @@
 # App 向后兼容开发规则（v1.1.2，AI 执行版）
 
-更新日期：2026-10-14（Asia/Shanghai）。适用于后续涉及 App API、共享业务数据或客户端协议的开发与修改。产品意图见 [阅读版](../05-delivery/app-backward-compatibility-plan.md)，操作与安全边界见[根 AGENTS.md](../../../../AGENTS.md)。
+更新日期：2026-10-29（Asia/Shanghai）。适用于后续涉及 App API、共享业务数据或客户端协议的开发与修改。产品意图见 [阅读版](../05-delivery/app-backward-compatibility-plan.md)，操作与安全边界见[根 AGENTS.md](../../../../AGENTS.md)。
 
 本版本的 App 兼容资料只维护[阅读版](../05-delivery/app-backward-compatibility-plan.md)与本文两份；测试入口、覆盖缺口和必要证据摘要合并在本文，不另建兼容说明或验证文档。本文把已确认的兼容原则转成开发约束，不授权自行开展全部整改、创建 V2、改动远端规则或发布。开发时只执行用户当前明确的需求；文档规则不等于实现或验收结果。
 
@@ -139,6 +139,12 @@ pnpm test:app-compatibility
 | 2026-10-14 订阅配置 V1 增量 | 基线 8751b7e 加本地未提交改动；新订阅路径独立接入，Windows 上将 `src/compatibility/app-contract.test.ts` 与本次及现有 Admin／app-config 回归一并执行，8 文件／89 项通过。迁移仅新增展示配置表，不改旧购买、Restore 或 app-config 响应。 | 本轮只复验 API 合同及受影响调用边界；未运行 `pnpm test:app-compatibility` 的旧 Dart 解析编排、正式包／真机、新 SKU 旧包恢复或生产验收，不推断完整兼容已通过。 |
 
 仅兼容任务的新增实际结果，合入本节简短摘要，记录日期／提交／环境／命令／结果／未验范围；不要重新创建独立兼容测试说明、VERIFICATION 文件或过程日志。
+
+### 2026-10-29 Cards 图片目录过滤兼容补证
+
+基线为 `codex/dev-1.0.7scan@695ee659` 加本地未提交增量。`GET /api/v1/cards/search` 在服务端内部固定使用 `cards_all.has_image = 2`，覆盖 Search Cards 与 Set 内卡牌分页；客户端请求未增加字段，V1 路径、错误包络、响应字段、字符串 ID 和分页格式保持。独立 Sets 列表与 Scan 内部适配器查询不增加该条件，搜索 KV 使用 `v17` 隔离旧结果。
+
+Windows 本地执行 `pnpm test:app-compatibility` 退出 0：当前 PostgreSQL API 合同 8／8，固定 App 1.0.4+161 与 1.0.5+163 的 Dart 合同各 24／24 通过，证据位于忽略目录 `.dart_tool/app-compatibility/run-XMGnej/`，报告证据类型为 `git-source-contracts-only`。相关 Workers 定向回归最终为 4 文件／57 项，类型检查通过；含图片条件的三个空词范围继续使用既有创建时间索引前缀。未运行正式旧包、iOS／Android 真机、完整 Workers／Flutter 测试或远端 dev/prod 目录验收，未部署。
 
 ### 2026-10-16 动态商品准入的兼容补证
 

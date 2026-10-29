@@ -5,6 +5,7 @@ export type CardSearchOptions = {
   game?: string;
   set_id?: string;
   set_code?: string;
+  has_image?: 2;
   page?: number;
   page_size?: number;
 };

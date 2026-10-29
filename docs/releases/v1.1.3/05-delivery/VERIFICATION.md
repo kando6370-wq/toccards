@@ -35,6 +35,24 @@
 - 独立烟测与稳定性：开发机访问 `http://192.168.50.201:8080/api/v1/health` 返回 200／`{"status":"ok"}`，Admin 根路径返回 200，未登录 `/api/v1/auth/me` 返回 401。16:06、16:08、16:10 三个 watcher 周期均确认远端仍为 `b08d02f2` 且没有新提交，当前 manual release 未被覆盖；watcher 的 `last-seen`／`last-deployed` 保持 `b08d02f2`，这是手工发布未改状态文件的预期结果，后续远端 `dev` 新提交仍可能替换当前运行版本。
 - 边界：prod、Cloudflare、数据库 schema、私有环境值和 watcher 配置未修改；未执行真实 Admin 登录、真实图片识别、真机扫描、备份恢复或业务验收。本轮没有重跑完整 Admin／Workers／Flutter 测试，部署前验证仅为上述构建和 Linux bundle 3／3；当前源码既有四张相机 Golden 差异没有因部署而关闭。部署执行阶段未夹带 Git commit／push，本记录的 Git 交付由后续独立提交完成。
 
+<a id="scan-japanese-ocr-20261029"></a>
+## 扫描 Latin／Japanese OCR 并行识别（2026-10-29）
+
+- 范围：本轮开始于 `codex/dev-1.0.7scan@695ee659` 加工作区既有 Cards Search 未提交增量；执行期间该并行增量已独立提交并推送为当前基线 `b6505c76`。本任务仅修改 Flutter 扫描 OCR、Android／iOS 日文模型依赖、对应测试与当前版本文档，未修改 Cards Search 源码。RTMDet、RGB pHash、`POST /api/v1/scan/recognize`、单个 `ocr_text` 字段、服务端校验、额度、审计、数据库和 confirm 均保持。
+- 实现：同一张矫正卡图只写入一个临时 JPEG，ML Kit Latin 与 Japanese `TextRecognizer` 使用 `Future.wait` 并行执行。Latin 使用原轻量标准化；Japanese 先 NFKC，将六种破折号替为空格，仅保留 Han／Hiragana／Katakana／`ー`，其余字符均视为空格，折叠空白；日文字符总数少于 3 时置空。最终 Latin 在前、Japanese 在后，以单个半角空格合并并再次折叠空白。任一路 OCR 抛错仍沿用原整体 OCR 降级，省略 `ocr_text` 并继续 pHash。
+- 平台依赖：Android 增加 `com.google.mlkit:text-recognition-japanese:16.0.1`；iOS Podfile 增加 `GoogleMLKit/TextRecognitionJapanese ~> 9.0.0`。使用隔离的 Linux Ruby 容器及仓库锁定的 CocoaPods 1.17.0 完成真实 `pod install`，`Podfile.lock` 只新增 `GoogleMLKit/TextRecognitionJapanese 9.0.0`、`MLKitTextRecognitionJapanese 6.0.0`、对应依赖／spec checksum 和 Podfile checksum，既有 Pod 没有升降级。Google 的 iOS 指南建议避免同时使用不同脚本的多个 recognizer，本次按用户明确要求选择并行，风险不做静默串行折中。
+- 验证：扫描定向 Flutter 测试 8 文件／49 项通过，覆盖 Latin 既有规则、日文 NFKC、全角英数删除、Han／Hiragana／Katakana／`ー` 保留、非日文字符空格隔断、少于 3 个日文字符置空、两段空值组合、并行启动、合并文本经 ScanResultSource／multipart 原样透传及原 OCR 失败降级。相关 9 个实现／测试文件的 `flutter analyze --no-pub` 无问题。Android `flutter build apk --debug --no-pub` 退出 0，生成 228,273,379 字节 APK，SHA-256 `2812d88b72d13f47eb005d1b99de64818cba21b06939c0b2fee04040232dea6c`；包内回读存在 Japanese+Latin 模型及 `text-recognition-japanese` 资源。构建仅出现仓库既有 Gradle 8.12、AGP 8.9.1、Kotlin 2.1.0 的未来弃用警告。
+- 边界：Windows 主机没有 Xcode，容器内 CocoaPods 解析只能证明依赖与锁文件可解析，不能替代 iOS 编译、签名、IPA 解包或真机并行 OCR。Android 只完成 Debug 构建和包资源检查，未做 Android 真机；两端真实日文卡图命中率、并行稳定性、耗时、峰值内存和外部 pHash 检索效果均未验。临时解析目录 `.dart_tool/pod-lock-resolve-20261029/` 约 236 MB、已被 Git 忽略；递归删除被当前执行策略阻止，未静默写成已清理。未执行 Git commit／push、dev/prod 部署、数据库或远程配置操作。
+
+<a id="cards-has-image-filter-20261029"></a>
+## Cards 目录仅返回可用图片记录（2026-10-29）
+
+- 范围：基于干净的 `codex/dev-1.0.7scan@695ee659` 加本地未提交增量，按用户最终确认只修改 `GET /api/v1/cards/search`，固定向 PostgreSQL Cards 查询传入 `has_image = 2`。该入口覆盖 Search Cards 的空词首屏、关键词、分页及从 Sets 进入单个 Set 后的卡牌分页；独立 `GET /api/v1/sets/search` 仍只查询 `sets`，不增加图片条件。Scan 的卡号消歧直接调用适配器且未传图片条件，保持原查询范围。
+- 实现与缓存：`CardSearchOptions` 增加仅供服务端内部使用的字面量选项 `has_image?: 2`，客户端请求没有新增字段，V1 路径、参数、响应结构和分页格式不变。Cards SQL 仅在该选项存在时追加 `cards_all.has_image = 2`；搜索 KV 提升到 `v17` 并把图片条件纳入键，避免过滤前的 `v16` 页面或无图片条件的内部查询复用。未修改 schema、migration、索引、图片状态或业务数据。
+- 查询回归：`pnpm --filter @kando/workers-api test src/db/postgres/cards-created-order-indexes.test.ts src/data-source/local-db-adapter.test.ts src/data-source/kv-cache.test.ts src/data-source/routes.test.ts --maxWorkers=1` 最终为 4 文件／57 项通过。PGlite 用例以 `has_image=1/2/3` 验证只有精确值 2 进入目录，同时确认未传内部选项的适配器调用保持原范围；路由用例覆盖 Search Cards 与 Set 内分页排除无图记录；KV 用例确认 `v16` 不会绕过新条件，且过滤查询不会与内部未过滤查询复用键。三个索引计划用例使用实际含图片条件的空词 SQL，三种范围仍采用既有创建时间索引前缀；该合成计划不代表目标环境耗时。
+- 静态与旧端：Workers `type-check` 通过。完整 `pnpm test:app-compatibility` 退出 0：当前 API 合同 8／8、固定 App 1.0.4+161 与 1.0.5+163 各 24／24，通过证据在忽略目录 `.dart_tool/app-compatibility/run-XMGnej/`，报告状态为 `passed`、证据类型为 `git-source-contracts-only`。旧客户端仍发送原请求并解析原 DTO；这只证明受控源码合同，不代表签名包、真机或真实目录数据。
+- 边界：本次未运行全量 Workers／Flutter 测试或制品构建，未查询 dev/prod 的 `has_image` 分布、真实分页结果或线上执行计划，未执行数据库写入、迁移、Git 提交／推送或任何部署。当前源码与文档不能当作 dev/prod 已生效。
+
 <a id="sets-numeric-id-order-20261029"></a>
 ## Sets 系列列表按纯数字 ID 倒序（2026-10-29）
 

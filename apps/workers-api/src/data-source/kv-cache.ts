@@ -13,7 +13,7 @@ export type DataSourceKvNamespace = {
 };
 
 const SEARCH_CARDS_TTL_SECONDS = 60 * 60;
-const CARD_RESPONSE_CACHE_VERSION = "v16";
+const CARD_RESPONSE_CACHE_VERSION = "v17";
 const DEFAULT_SEARCH_PAGE = 1;
 const DEFAULT_SEARCH_PAGE_SIZE = 20;
 
@@ -132,6 +132,7 @@ function searchCardsCacheKey(
   const game = options?.game ?? "all";
   const setId = options?.set_id ?? "all";
   const setCode = options?.set_code ?? "all";
+  const hasImage = options?.has_image ?? "all";
 
   return [
     CARD_RESPONSE_CACHE_VERSION,
@@ -141,6 +142,7 @@ function searchCardsCacheKey(
     cacheKeyPart(game),
     cacheKeyPart(setId),
     cacheKeyPart(setCode),
+    String(hasImage),
     String(page),
     String(pageSize),
   ].join(":");

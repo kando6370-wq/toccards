@@ -35,7 +35,10 @@ void main() {
     expect(result.displayImageBytes, Uint8List.fromList([4, 5, 6]));
     expect(cardRecognizer.lastBytes, Uint8List.fromList([1, 2, 3]));
     expect(api.lastHashes?.cardImageBytes, Uint8List.fromList([4, 5, 6]));
-    expect(api.lastHashes?.ocrText, 'LEAFEON EX\n200/187');
+    expect(
+      api.lastHashes?.ocrText,
+      'LEAFEON EX 200/187 \u30EA\u30FC\u30D5\u30A3\u30A2',
+    );
     expect(api.lastPlatform, 'iOS');
     expect(api.lastCardNumber, isNull);
     expect(picker.sources, [ScanImageSource.camera]);
@@ -615,7 +618,7 @@ class _FakeScanCardRecognizer implements ScanCardRecognizer {
       r: _hash,
       g: _hash,
       b: _hash,
-      ocrText: 'LEAFEON EX\n200/187',
+      ocrText: 'LEAFEON EX 200/187 \u30EA\u30FC\u30D5\u30A3\u30A2',
       cardImageBytes: Uint8List.fromList([4, 5, 6]),
     );
   }

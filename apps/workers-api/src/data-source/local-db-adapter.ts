@@ -63,6 +63,9 @@ export function createLocalDbDataSourceAdapter(db: D1Database): DataSourceAdapte
       const pageSize = positiveIntegerOrDefault(options.page_size, 40);
       const offset = (page - 1) * pageSize;
       const objectTypeClause = objectTypeWhereClause(options.object_type);
+      const imageClause = options.has_image === 2
+        ? "AND cards_all.has_image = 2"
+        : "";
       const gameClause = options.game ? "AND lower(game) = lower(?)" : "";
       const setIdClause = options.set_id ? "AND set_id = ?" : "";
       const setClause = options.set_code ? "AND lower(set_code) = lower(?)" : "";
@@ -86,6 +89,7 @@ WHERE ${effectiveSearchTerms.map(
   coalesce(game, '')
 ) LIKE ?`,
 ).join("\nAND ")}
+${imageClause}
 ${objectTypeClause}
 ${gameClause}
 ${setIdClause}

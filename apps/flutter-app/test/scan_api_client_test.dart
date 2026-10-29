@@ -84,7 +84,10 @@ void main() {
         expect(fields.remove('r'), _hash);
         expect(fields.remove('g'), _hash);
         expect(fields.remove('b'), _hash);
-        expect(fields.remove('ocr_text'), 'LEAFEON EX\n200/187');
+        expect(
+          fields.remove('ocr_text'),
+          'LEAFEON EX 200/187 \u30EA\u30FC\u30D5\u30A3\u30A2',
+        );
         expect(fields, {
           'filename': 'scan.jpg',
           'platform': 'iOS',
@@ -147,7 +150,7 @@ void main() {
           r: _hash,
           g: _hash,
           b: _hash,
-          ocrText: 'LEAFEON EX\n200/187',
+          ocrText: 'LEAFEON EX 200/187 \u30EA\u30FC\u30D5\u30A3\u30A2',
           cardImageBytes: Uint8List.fromList([1, 2, 3, 4]),
         ),
         fileName: 'scan.jpg',

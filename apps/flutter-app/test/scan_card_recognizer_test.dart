@@ -113,7 +113,10 @@ void main() {
       expect(result.g, matches(RegExp(r'^[A-Za-z0-9_-]{43}$')));
       expect(result.b, matches(RegExp(r'^[A-Za-z0-9_-]{43}$')));
       expect(result.cardImageBytes, [7, 8, 9]);
-      expect(result.ocrText, 'LEAFEON EX 200/187');
+      expect(
+        result.ocrText,
+        'LEAFEON EX 200/187 \u30EA\u30FC\u30D5\u30A3\u30A2',
+      );
       expect(textRecognizer.lastBytes, [7, 8, 9]);
       expect(calls, ['prepareDetection', 'runDetection', 'rectifyCard']);
     },
@@ -189,6 +192,6 @@ class _FakeScanTextRecognizer implements ScanTextRecognizer {
     lastBytes = cardImageBytes;
     final failure = this.failure;
     if (failure != null) throw failure;
-    return 'LEAFEON EX\n200/187';
+    return 'LEAFEON EX 200/187 \u30EA\u30FC\u30D5\u30A3\u30A2';
   }
 }
