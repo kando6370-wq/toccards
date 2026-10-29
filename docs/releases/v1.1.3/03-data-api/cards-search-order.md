@@ -1,6 +1,6 @@
 # Cards 与 Sets 排序及索引
 
-更新日期：2026-10-29（Asia/Shanghai）。Cards 与 Sets 数值排序已随 `dev@867c6fd8` 发布 kd201 并独立验收，见[本次 dev 发布记录](../05-delivery/VERIFICATION.md#dev-numeric-search-deployment-20261029)。Cards 固定过滤 `has_image = 2` 的增量已随本地 `dev@32cbf499` 合并，尚未推送或部署；Sets 不增加图片条件。本轮无新增 migration，2026-10-28 已随 `dev@b9702b81` 执行的 `0016` 保持原样，历史证据见[索引发布记录](../05-delivery/VERIFICATION.md#dev-cards-index-deployment-20261028)；prod 尚未执行本次数值排序发布、图片过滤增量或该索引迁移。
+更新日期：2026-10-29（Asia/Shanghai）。Cards 与 Sets 数值排序已随 `dev@867c6fd8` 发布 kd201 并独立验收，见[数值排序发布记录](../05-delivery/VERIFICATION.md#dev-numeric-search-deployment-20261029)；Cards 固定过滤 `has_image = 2` 已随 `dev@9365f16d` 由 watcher 发布并完成数据库逐项对照，见[图片过滤发布记录](../05-delivery/VERIFICATION.md#dev-japanese-ocr-cards-filter-release-20261029)。Sets 不增加图片条件。本轮无新增 migration，2026-10-28 已随 `dev@b9702b81` 执行的 `0016` 保持原样，历史证据见[索引发布记录](../05-delivery/VERIFICATION.md#dev-cards-index-deployment-20261028)；prod 尚未执行本次数值排序发布、图片过滤增量或该索引迁移。
 
 ## 查询与缓存
 

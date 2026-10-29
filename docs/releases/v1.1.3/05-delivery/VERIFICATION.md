@@ -6,6 +6,16 @@
 
 本版本初始运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下按时间分别记录本地增量、实际部署与运行验证；历史记录不替代当前远端状态回读。
 
+<a id="dev-japanese-ocr-cards-filter-release-20261029"></a>
+## Linux dev Cards 图片过滤发布与 Japanese OCR Git 交付（2026-10-29 18:05–18:31）
+
+- Git 与顺序：本地 `dev@9365f16ddc0d98c2af1700366f0553390561e820` 为干净工作区，包含 merge `32cbf499` 和本地合并记录 `9365f16d`。按用户明确要求先部署、验收，再普通推送 `github/dev`；推送后本地／远端完整 SHA 一致。因为手工 `deploy:dev` 不更新 watcher 状态，而本次范围包含 Workers 代码，严格遵循该顺序会触发 watcher 对同一 SHA 再发布一次；本轮没有手改 last-seen／last-deployed，也未使用 `TOCCARDS_FORCE_DEPLOY`。
+- 合并与构建验证：合并后 Workers Cards 定向 4 文件／57 项、Flutter 扫描 8 文件／49 项、相关 Flutter analyze、根 `pnpm lint`、7 个 TypeScript package type-check 均通过；完整旧 App 源码合同为当前 API 8／8、固定 App 1.0.4／1.0.5 各 24／24，证据目录 `.dart_tool/app-compatibility/run-03hEAD/`。标准 `deploy:dry-run:dev` 完成 Admin 1,526 模块构建、Linux bundle 3／3；发布包为 2,141,706 字节，SHA-256 `b8e34dee076c7e3444f54f24dddc765dae6944d8299cd3eaeeabd65c1f9fcd8e`，manifest 为 `sha=9365f16d...`、`branch=dev`、`working_tree_dirty=false`。
+- 手工发布：交互密码只用于 SSH 提示，未写入命令、环境、仓库或日志。上传包远端哈希与本地一致，并在 watcher 锁内执行仓库同一 `deploy-release.sh`；release 为 `manual-dev-9365f16ddc0d-202610291806`。预检确认 `toccards_test`、PostgreSQL 18、向量／pHash 两套识别服务可达、`pendingMigrations=[]`。发布前备份 `toccards-test-20261029-181002-before-manual-dev-9365f16ddc0d-202610291806.dump` 为 1,137,075,122 字节，主机没有 `pg_restore` 的首次检查明确失败；随后改用 PostgreSQL 18 数据库容器成功读取 336 个非注释目录项，未做恢复演练。发布完成时 migration exited/0、ledger 17 项／最新 `0016`，API／DB healthy、Web running。
+- 手工发布独立验收：release manifest 指向干净 `dev@9365f16d`；release 与 API 容器 `/app/server.mjs` SHA-256 均为 `9eededf5e392a75d4efd1de7368bf83d18f7b04a5cf1a0de4a248c1998386eea`，与本地批准构建一致。Admin 11 个 HTML／JS／CSS 的 release、容器和 HTTP 原始字节逐项一致；health／Admin 为 200，未登录 auth/me 与 Admin scans 为 401。Pokemon Cards 空词首屏 40 条与数据库按 `has_image=2`、Cards 类型、Game 及当前三段排序的查询逐项一致且无重复。
+- watcher 最终发布：推送后 watcher 自身通过 Workers 11 文件／116 项、Node 13／13、Linux bundle 3／3，实际预检仍为 `pendingMigrations=[]`；发布前第二份备份 `toccards-test-20261029-182757-before-branch-dev-9365f16ddc0d-20261029182755.dump` 同为 1,137,075,122 字节且容器 `pg_restore --list` 读取 336 项。最终 release 为 `branch-dev-9365f16ddc0d-20261029182755`；watcher source 干净且 HEAD、current、manifest、last-seen、last-deployed 均为 `9365f16d`，失败标记不存在、watcher／deploy 锁均空闲。API hash、Admin 11／11、HTTP 状态、ledger 与 Cards 数据库对照复验均保持上述结果；另一个 cron 周期在锁占用时正确退出，没有并发第三次部署。
+- 边界：Linux 发布目标只包含 API／Admin，不分发 Flutter App；因此 Japanese OCR 虽已合并并推送 dev，其 iOS／Android 客户端仍未形成或安装新的测试包，真实日文卡图命中率、并行稳定性、耗时与峰值内存仍未验。两份备份均保留且未做恢复；没有新增或执行 migration，没有修改私有环境文件、watcher 配置、prod／Cloudflare、Secret、商店或业务数据。真实登录态 Admin、真机扫描和端到端用户验收仍待完成。
+
 <a id="local-dev-japanese-ocr-cards-filter-merge-20261029"></a>
 ## 本地 dev 合并日文 OCR 与 Cards 图片过滤（2026-10-29 17:40–17:51）
 
