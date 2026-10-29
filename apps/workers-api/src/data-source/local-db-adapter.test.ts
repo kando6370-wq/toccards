@@ -814,7 +814,7 @@ describe("PostgreSQL card data source adapter", () => {
     ).resolves.toHaveLength(2);
   });
 
-  it("orders cards by creation time and descending IDs because updates must not promote older cards or move tied rows between pages", async () => {
+  it("orders cards only by creation time because product IDs must not define a secondary display order", async () => {
     const db = new FakeCardDatabase([], []);
     const adapter = createLocalDbDataSourceAdapter(db as unknown as D1Database);
 
@@ -825,9 +825,8 @@ describe("PostgreSQL card data source adapter", () => {
       sql.includes("FROM cards_all") && sql.includes("LIMIT ? OFFSET ?")
     );
     const setSearchSql = db.preparedSql.find((sql) => sql.includes("FROM sets s"));
-    expect(cardSearchSql).toContain(
-      "ORDER BY created_at DESC NULLS LAST, product_id DESC",
-    );
+    expect(cardSearchSql?.match(/ORDER BY\s+([\s\S]*?)\s+LIMIT/)?.[1])
+      .toBe("created_at DESC NULLS LAST");
     expect(setSearchSql).toContain("ORDER BY s.name ASC, s.set_id ASC");
   });
 

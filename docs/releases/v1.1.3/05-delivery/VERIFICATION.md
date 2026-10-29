@@ -6,6 +6,16 @@
 
 当前运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下记录只代表 v1.1.3 本地增量及实际执行的验证，不改变远端运行状态。
 
+<a id="cards-created-only-order-20261029"></a>
+## Cards 仅按创建时间排序（2026-10-29）
+
+- 范围：在 `codex/dev-1.0.7scan@6a1f053d` 上按用户新要求，将共享 Cards SQL 改为仅 `ORDER BY created_at DESC NULLS LAST`，移除 `product_id DESC`，搜索缓存提升为 `v15`。Search Cards 与 Sets 内卡牌列表共用此规则；请求／响应、价格和权限边界保持。
+- 索引与分页：保留已执行的 PostgreSQL `0016` 和三个组合索引，本次无新增 migration；索引前缀继续支持创建时间排序。相同时间记录不规定先后，不再保证这些记录跨页时的稳定边界；现有索引可能仍返回 ID 降序，不能将其视为接口契约。
+- 验证：`pnpm --filter @kando/workers-api test src/db/postgres/cards-created-order-indexes.test.ts src/data-source/local-db-adapter.test.ts src/data-source/kv-cache.test.ts src/data-source/routes.test.ts --maxWorkers=1` 为 4 文件／55 项通过，Workers `type-check` 通过。SQL 断言精确限制仅有创建时间排序；PostgreSQL 用例验证时间顺序、NULLS LAST，并对同时间记录仅校验集合；6,000 条合成数据的三种空词查询仍采用既有索引、无额外 Sort，不据此保证线上耗时。
+- 旧端验证：完整 `pnpm test:app-compatibility` 通过，服务端 8 项、固定 App 1.0.4／1.0.5 各 24 项，证据目录为 `.dart_tool/app-compatibility/run-faY91C/`。当前合同使用明确不同创建时间的目录样本验证分页与零价／缺价，固定旧端基线、源码和客户端合同断言不变；这不能证明同时间记录跨页时不重复或遗漏，也不代表真机或正式制品验收。
+- 审查：独立 Code Review 未发现代码阻断问题，文档明确本次规则替代 Card Search 原有的 ID 唯一稳定键约定；`git diff --check` 通过，`0016` 迁移及固定旧端基线无改动。
+- 边界：本次尚未合并 dev、执行远端查询、迁移或部署；未运行全量 Workers／Flutter 测试或打包，仅验证受影响查询与兼容调用方。2026-10-28 的开发和验收记录保留历史含义，不作为本次改动的验证结果。
+
 <a id="cards-search-order-indexes-20261028"></a>
 ## Cards 创建时间排序与索引替换（2026-10-28）
 
