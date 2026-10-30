@@ -1,4 +1,5 @@
 import postgres from "postgres";
+import { recordSqlQuery } from "../request-performance";
 
 import type {
   Database,
@@ -133,12 +134,19 @@ class PostgresStatement implements DatabaseStatement {
       );
     }
     const startedAt = performance.now();
-    const result = await (executor ?? this.database.executor()).unsafe<Record<string, unknown>[]>(
-      converted.sql,
-      this.values.map(normalizeBinding) as never[],
-    );
+    let result;
+    try {
+      result = await (executor ?? this.database.executor()).unsafe<Record<string, unknown>[]>(
+        converted.sql,
+        this.values.map(normalizeBinding) as never[],
+      );
+    } catch (error) {
+      recordSqlQuery(converted.sql, performance.now() - startedAt, 0, true);
+      throw error;
+    }
     const duration = performance.now() - startedAt;
     const rows = Array.from(result) as T[];
+    recordSqlQuery(converted.sql, duration, rows.length, false);
     const command = result.command?.toUpperCase() ?? "";
     const changedDb = !["SELECT", "SHOW", "EXPLAIN"].includes(command);
     const changes = changedDb ? result.count ?? rows.length : 0;

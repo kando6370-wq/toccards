@@ -16,6 +16,7 @@ v1.1.2 已原位归档，不复制其产品、流程、架构、数据/API、Adm
 - 当前订阅本地三卡兜底增量见 [订阅本地兜底页](01-flows/subscription-display.md)：普通周、独立年试用和终身商品；远端配置与 Android 原分支继续沿用 v1.1.2 合同。
 - Cards 查询仅返回 `has_image = 2` 的目录记录，并按创建时间倒序；同时间内纯数字 ID 按数值降序、非数字 ID 置后，再按原字符串 ID 稳定排序。缓存与索引边界见 [Cards 排序与索引](03-data-api/cards-search-order.md)。
 - Sets 系列列表按纯数字 `set_id` 数值倒序、非数字置后，再按原字符串 ID 倒序；名称不再参与排序，见 [Sets 排序规则](03-data-api/cards-search-order.md#sets-系列列表)。
+- 查询性能、请求级 SQL/缓存观测、Linux 缓存回收及客户端/后台列表优化见 [性能说明](02-architecture/performance.md)；Cards 新增 `0017` 索引的执行与回退边界见 [Cards 排序与索引](03-data-api/cards-search-order.md#postgresql-0017-可见卡牌数值排序索引)。
 
 ## 文档路由
 

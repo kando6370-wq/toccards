@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,6 +17,42 @@ import 'package:kando_app/shared/ui/load_state.dart';
 import 'support/mock_search_repository.dart';
 
 void main() {
+  test(
+    'visible Cards keeps filtered order and collection overrides without rereading every card for each result',
+    () {
+      final cards = _CountingCardList(
+        List.generate(
+          40,
+          (index) => _PaginatedSearchRepository._card(index + 1),
+        ),
+      );
+      final state = SearchState(
+        catalog: SearchCatalog(
+          games: const [SearchGame(id: 'pokemon', label: 'Pokemon')],
+          cards: cards,
+          sets: const [],
+        ),
+        selectedTab: SearchTab.cards,
+        selectedGameId: 'pokemon',
+        searchByTab: const {SearchTab.cards: 'Card 4'},
+        cardOverrides: {'card-4': cards[3].copyWith(quantity: 2)},
+      );
+      cards.reads = 0;
+
+      final visible = state.visibleCards;
+
+      expect(visible.map((card) => card.id), [
+        'card-4',
+        'card-14',
+        'card-24',
+        'card-34',
+        'card-40',
+      ]);
+      expect(visible.first.quantity, 2);
+      expect(cards.reads, lessThanOrEqualTo(cards.length * 2));
+    },
+  );
+
   test(
     'collection display uses condition for Raw and grader plus grade for graded cards because Search must show saved user data',
     () {
@@ -1422,6 +1459,29 @@ class _PaginatedSearchRepository
       changePercent: null,
     );
   }
+}
+
+class _CountingCardList extends ListBase<SearchCard> {
+  _CountingCardList(this._cards);
+
+  final List<SearchCard> _cards;
+  int reads = 0;
+
+  @override
+  int get length => _cards.length;
+
+  @override
+  set length(int value) => throw UnsupportedError('read-only test list');
+
+  @override
+  SearchCard operator [](int index) {
+    reads += 1;
+    return _cards[index];
+  }
+
+  @override
+  void operator []=(int index, SearchCard value) =>
+      throw UnsupportedError('read-only test list');
 }
 
 class _RecordingSearchRepository implements SearchRepository {

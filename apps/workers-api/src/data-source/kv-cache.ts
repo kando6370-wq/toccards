@@ -2,6 +2,7 @@ import type {
   CardSearchOptions,
   DataSourceAdapter,
 } from "./adapter";
+import { recordCacheRead } from "../request-performance";
 
 export type DataSourceKvNamespace = {
   get(key: string): Promise<string | null>;
@@ -100,8 +101,11 @@ async function readCachedValue<T>(
   try {
     const rawValue = await kv.get(key);
 
-    return rawValue === null ? null : (JSON.parse(rawValue) as T);
+    const cached = rawValue === null ? null : (JSON.parse(rawValue) as T);
+    recordCacheRead("kv", cached === null ? "miss" : "hit");
+    return cached;
   } catch {
+    recordCacheRead("kv", "error");
     return null;
   }
 }

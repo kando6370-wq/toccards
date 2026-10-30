@@ -1,6 +1,6 @@
 # Cards 与 Sets 排序及索引
 
-更新日期：2026-10-29（Asia/Shanghai）。Cards 与 Sets 数值排序已随 `dev@867c6fd8` 发布 kd201 并独立验收，见[数值排序发布记录](../05-delivery/VERIFICATION.md#dev-numeric-search-deployment-20261029)；Cards 固定过滤 `has_image = 2` 已随 `dev@9365f16d` 由 watcher 发布并完成数据库逐项对照，见[图片过滤发布记录](../05-delivery/VERIFICATION.md#dev-japanese-ocr-cards-filter-release-20261029)。Sets 不增加图片条件。本轮无新增 migration，2026-10-28 已随 `dev@b9702b81` 执行的 `0016` 保持原样，历史证据见[索引发布记录](../05-delivery/VERIFICATION.md#dev-cards-index-deployment-20261028)；prod 尚未执行本次数值排序发布、图片过滤增量或该索引迁移。
+更新日期：2026-10-30（Asia/Shanghai）。Cards 与 Sets 数值排序已随 `dev@867c6fd8` 发布 kd201 并独立验收，见[数值排序发布记录](../05-delivery/VERIFICATION.md#dev-numeric-search-deployment-20261029)；Cards 固定过滤 `has_image = 2` 已随 `dev@9365f16d` 由 watcher 发布并完成数据库逐项对照，见[图片过滤发布记录](../05-delivery/VERIFICATION.md#dev-japanese-ocr-cards-filter-release-20261029)。Sets 不增加图片条件。2026-10-28 已随 `dev@b9702b81` 执行的 `0016` 保持原样，历史证据见[索引发布记录](../05-delivery/VERIFICATION.md#dev-cards-index-deployment-20261028)；2026-10-30 新增的性能优化与 `0017` 部分索引当前仅完成本地合并，尚未部署或执行，具体执行边界见下文。prod 尚未执行上述 dev 数值排序、图片过滤或索引增量。
 
 ## 查询与缓存
 
@@ -54,7 +54,7 @@ Game、关键词匹配、非空 `set_code` 过滤、响应字段和分页参数�
 | Game | `idx_cards_all_game_created_product` | `idx_cards_all_game_updated_product` |
 | Game＋SetCode | `idx_cards_all_game_set_created_product` | `idx_cards_all_game_set_updated_product` |
 
-三个索引的排序尾列仍为 `created_at DESC NULLS LAST, product_id DESC`；后两者分别保留 `lower(game)` 与 `lower(game), lower(set_code)` 前导表达式，使原有 Game／SetCode 筛选能力继续存在。本次数值排序实现不修改 `0016`、不新增迁移，也不删除字段或索引。现有索引可提供创建时间前缀，但不能直接满足新增的 `CASE ... ::numeric` 次级排序；同时间记录可能需要 Incremental Sort，Set 筛选也可能使用 Bitmap Scan＋Sort，不能继续承诺无额外排序。
+三个索引的排序尾列仍为 `created_at DESC NULLS LAST, product_id DESC`；后两者分别保留 `lower(game)` 与 `lower(game), lower(set_code)` 前导表达式，使原有 Game／SetCode 筛选能力继续存在。2026-10-29 的数值排序实现没有修改 `0016`、新增迁移或删除字段／索引。当时的索引可提供创建时间前缀，但不能直接满足新增的 `CASE ... ::numeric` 次级排序；同时间记录可能需要 Incremental Sort，Set 筛选也可能使用 Bitmap Scan＋Sort。2026-10-30 新增的索引见下文 `0017`，其覆盖范围以对应说明为准。
 
 2026-10-29 对 kd201 dev 进行只读候选 SQL 检查：2,405,301 条目录记录中纯数字 ID 为 268,639 条，最长 8 位；非纯数字 ID 最长 9 字符。Pokemon 最大同时间组有 29,684 张卡，空关键词首屏使用 Game 索引＋Incremental Sort，单次执行 81.133 ms；Set `23881` 使用 Game Bitmap Scan＋Sort，单次执行 26.783 ms。本次保留现有索引完成业务规则，后续若需消除额外排序，可依据目标环境负载另行增加匹配的表达式索引；不把上述 dev 单次样本当作正式性能指标或 prod 已验证结果。
 
@@ -64,10 +64,20 @@ Game、关键词匹配、非空 `set_code` 过滤、响应字段和分页参数�
 
 ## 应用与回退边界
 
-Linux 发布包、预检和迁移脚本会自动发现新增的 PostgreSQL SQL 文件，无需更改迁移清单。`migrate.sh` 在事务内执行迁移：新索引建立失败会回滚，旧索引删除安排在新索引创建之后。普通建索引会影响目录写入，删除索引还可能等待表锁；执行前必须按目标环境确认备份、空间、写入负载、锁等待和发布窗口。dev/prod 使用独立数据库，须分别核验和授权执行。
+### PostgreSQL 0017 可见卡牌数值排序索引
 
-大表线上应用沿用[既有索引迁移方式](../../v1.1.0/03-data-api/migration.md#目录搜索-trigram-索引0013devprod-已分别执行)：在事务外按同一定义用 `CREATE INDEX CONCURRENTLY` 预建新索引，回读完整索引定义及 `indisvalid/indisready`，确认查询计划；同名索引存在并不代表定义正确或可用。确认新查询已切换、外部 SQL 无旧排序需求后，可在事务外逐个 `DROP INDEX CONCURRENTLY` 删除旧索引，再由幂等迁移登记目标环境 ledger。不得将 `CONCURRENTLY` 放入现有事务式迁移，也不把单次本地计划当作线上耗时保证。
+2026-10-30 新增 [0017_cards_visible_numeric_order_indexes.sql](../../../../apps/workers-api/src/db/postgres/migrations/0017_cards_visible_numeric_order_indexes.sql)，在 `has_image = 2` 的部分索引中完整保留当前查询的三个排序键：`created_at DESC NULLS LAST`、纯数字 `product_id::numeric DESC NULLS LAST`、原字符串 `product_id DESC`。三个索引分别覆盖全目录、`lower(game)`、`lower(game) + set_id`，最后一项对应 Flutter Set 详情的实际参数。
 
-应用代码回退不会改变数据兼容性，但旧更新时间查询可能失去排序索引；如需恢复旧查询性能，使用新的 PostgreSQL 迁移或经授权的并发建索引步骤恢复 [0000 中的三个原索引定义](../../../../apps/workers-api/src/db/postgres/migrations/0000_business_schema.sql)，无需删除新索引或回填数据。不得回写已执行迁移文件。
+本迁移只新增索引，不改 `0016`、数据列、查询 SQL、缓存版本或 API 行为，也不删除旧索引。旧索引继续服务未指定图片过滤的调用和既有 `set_code` 路径；`set_code` 筛选没有新增专用数值排序索引，不承诺该路径无额外排序。应用回退可保留新索引，数据与旧代码兼容；如需回收新增索引的存储，通过后续迁移或经授权的并发删索引操作处理，不回写已执行迁移。
+
+新增索引增加数据库存储及目录写入维护成本。目标大表不能把普通事务内建索引视为已验证的低风险发布：须先检查空间、写入负载、纯数字 ID 长度与 B-tree 项大小，在事务外用相同名称及定义 `CREATE INDEX CONCURRENTLY` 逐个预建，回读完整定义与 `indisvalid/indisready`，再让幂等迁移登记 ledger。仅同名索引存在不证明定义正确。迁移自身保留事务兼容的普通 `CREATE INDEX IF NOT EXISTS`，未预建时自动发布会实际建索引并影响目录写入，必须在发布前识别该状态。
+
+本地 PGlite 用实际适配器 SQL 和同创建时间数据验证迁移前后计划及结果；合成数据消除 Sort 不等于 dev/prod 的实际 P95 改善。尚未执行远程迁移或目标环境的空间、构建耗时、锁等待与计划验收。
+
+Linux 发布包、预检和迁移脚本会自动发现新增的 PostgreSQL SQL 文件，无需更改迁移清单。`migrate.sh` 在事务内执行迁移，新索引建立失败会回滚；`0016` 的旧索引删除安排在新索引创建之后，`0017` 不删除索引。普通建索引会影响目录写入，删除索引还可能等待表锁；执行前必须按目标环境确认备份、空间、写入负载、锁等待和发布窗口。dev/prod 使用独立数据库，须分别核验和授权执行。
+
+`0016` 的既有索引替换流程沿用[历史索引迁移方式](../../v1.1.0/03-data-api/migration.md#目录搜索-trigram-索引0013devprod-已分别执行)：在事务外按同一定义用 `CREATE INDEX CONCURRENTLY` 预建新索引，回读完整索引定义及 `indisvalid/indisready`，确认查询计划；同名索引存在并不代表定义正确或可用。仅对 `0016` 明确列出的三个旧更新时间索引，在确认新查询已切换、外部 SQL 无旧排序需求后，才可在事务外逐个 `DROP INDEX CONCURRENTLY` 删除，再由幂等迁移登记目标环境 ledger。`0017` 上线保留全部既有索引，只执行前述预建和核验。不得将 `CONCURRENTLY` 放入现有事务式迁移，也不把单次本地计划当作线上耗时保证。
+
+`0016` 执行后，应用代码回退不会改变数据兼容性，但旧更新时间查询可能失去排序索引；如需恢复旧查询性能，使用新的 PostgreSQL 迁移或经授权的并发建索引步骤恢复 [0000 中的三个原索引定义](../../../../apps/workers-api/src/db/postgres/migrations/0000_business_schema.sql)，无需删除新索引或回填数据。不得回写已执行迁移文件。
 
 2026-10-28 索引实现的历史验证见[原记录](../05-delivery/VERIFICATION.md#cards-search-order-indexes-20261028)；此前仅按创建时间排序的验证见[对应历史记录](../05-delivery/VERIFICATION.md#cards-created-only-order-20261029)。本次数值次级排序的验证见[当前记录](../05-delivery/VERIFICATION.md#cards-numeric-id-order-20261029)，`has_image = 2` 目录过滤及兼容结果见[图片条件验证](../05-delivery/VERIFICATION.md#cards-has-image-filter-20261029)。

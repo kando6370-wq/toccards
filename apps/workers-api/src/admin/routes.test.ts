@@ -931,7 +931,7 @@ describe("admin routes", () => {
       sql.startsWith("SELECT id, uid, email, types") && sql.includes("LIMIT ? OFFSET ?")
     );
     const scansSql = env.DB.preparedSql.find((sql) =>
-      sql.startsWith("SELECT id, environment, owner_type, owner_id, image_url")
+      sql.startsWith("SELECT id, environment, owner_id, image_url")
         && sql.includes("LIMIT ? OFFSET ?")
     );
     const overridesSql = env.DB.preparedSql.find((sql) =>
