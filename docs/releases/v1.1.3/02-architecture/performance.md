@@ -1,6 +1,6 @@
 # 查询、缓存与列表性能
 
-更新日期：2026-10-30（Asia/Shanghai）。本文描述本地源码的性能优化及观测口径；不代表 dev/prod 已部署或真实流量验收通过。
+更新日期：2026-10-30（Asia/Shanghai）。本文描述性能优化及观测口径；当前增量已随 `dev@c5908c32` 发布 Linux dev，prod 尚未部署。dev 的单次计划与冷／热烟测不代表真实流量 P50/P95 或 prod 验收通过。
 
 ## 请求级观测
 
@@ -31,4 +31,4 @@ Linux 的进程内 KV 为带 TTL 的条目维护一个 60 秒清扫计时器，�
 - Admin 列表和详情通过现有 TanStack Query 共享同一 token/path 的在途请求与 Blob。最后一个使用者卸载后不保留缓存，未完成请求可取消；各组件分别创建和撤销自己的 Object URL。继续使用 Bearer 鉴权、401 会话过期通知及 `private, no-store`，没有浏览器持久缓存或公共图片缓存。
 - 图片复用减少列表已加载原图后打开详情的重复请求；列表首次加载仍下载原图。生成专用缩略图需要真实图片大小与网络基准，未在本次引入新的图片处理服务、存储格式或回填任务。
 
-Cards 数据库优化见 [Cards 与 Sets 排序及索引](../03-data-api/cards-search-order.md#postgresql-0017-可见卡牌数值排序索引)。本地测试和未验边界见 [验证记录](../05-delivery/VERIFICATION.md)。
+Cards 数据库优化见 [Cards 与 Sets 排序及索引](../03-data-api/cards-search-order.md#postgresql-0017-可见卡牌数值排序索引)。dev 发布证据、本地测试和未验边界见 [验证记录](../05-delivery/VERIFICATION.md#dev-performance-release-20261030)。

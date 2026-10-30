@@ -6,6 +6,18 @@
 
 本版本初始运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下按时间分别记录本地增量、实际部署与运行验证；历史记录不替代当前远端状态回读。
 
+<a id="dev-performance-release-20261030"></a>
+## Linux dev 查询性能优化、0017 与日志热修复发布（2026-10-30 13:19–13:55）
+
+- Git 与本地门槛：从已完成验证的本地 `dev@8a8b5c17dfd5a3d04fcff7d9ec049d305bf83d03` 开始发布。合并阶段已通过 Flutter Search 84／84、Admin 83／83、Workers 单进程 97 文件／901 项、旧 App 当前 API 8／8及固定 1.0.4／1.0.5 各 24／24、Linux bundle 3／3、依赖与类型检查。标准 `deploy:dry-run:dev` 完成 Admin 1,526 模块和 Linux bundle，发布包为 2,149,040 字节、SHA-256 `d8fdbb7bf9d4c321ba5332e7b3bcaf0dfbc8b314b1216f7ce8e3d013368fd63f`；该步骤未连接服务器。
+- 数据库预检：kd201 为 `toccards_test`／PostgreSQL 18.6，发布前 ledger 17 项／最新 `0016`，三个 `0017` 目标索引均不存在；`cards_all` 为 2,408,723 行，表 537 MB、既有索引 806 MB，`has_image=2` 为 2,390,278 行，数字／非数字 `product_id` 最长 8／9 字符。磁盘剩余 333,597,847,552 字节，无活动事务和等待锁。预建前真实只读样本中，全目录为 Incremental Sort／197.172 ms，Pokemon 为 Incremental Sort／0.463 ms，Pokemon＋Set `2282` 为 Bitmap Scan＋Sort／33.159 ms；均为单次缓存状态样本，不代表 P95。
+- 备份失败与恢复：首次在 watcher／deploy 双锁内生成 `toccards-test-20261030-132418-before-0017-prebuild-8a8b5c17.dump` 后，严格 `pipefail` 下使用 `cat` 的目录校验管道退出 1，未进入索引创建。随后独立确认备份已完整落盘，大小 1,137,121,675 字节，PostgreSQL 18 `pg_restore --list` 读取 336 项；ledger 仍为 17／`0016`、目标索引仍为 0、两把锁均已释放。修正为输入重定向后复验通过，复用该备份，没有静默将首轮失败写成成功，也没有重复生成无必要备份。
+- 0017 预建与计划：重新取得双锁，按 migration 完整定义依次 `CREATE INDEX CONCURRENTLY`，三个索引耗时 9／11／11 秒，大小 141,017,088／164,667,392／185,425,920 字节；完整定义回读一致，均为 `indisvalid=true`、`indisready=true`，ledger 在预建阶段仍为 17／`0016`。预建后同三类查询直接命中对应索引且无 Sort，执行样本为 0.327／0.209／0.357 ms；这证明目标计划形状，不外推为一般延迟收益。
+- 首次标准发布：推送 `github/dev@8a8b5c17` 后由既有 watcher 发布，远端 Workers 定向 11 文件／122 项、Node 13／13、Linux bundle 3／3 通过，预检只待 `0017`。标准发布前备份 `toccards-test-20261030-133511-before-branch-dev-8a8b5c17dfd5-20261030133508.dump` 为 1,137,123,422 字节、目录 339 项；migration 复用已预建索引并登记 ledger 为 18 项／最新 `0017_cards_visible_numeric_order_indexes.sql`。release `branch-dev-8a8b5c17dfd5-20261030133508` 完成后 API／DB healthy、Web running。
+- 运行日志缺陷与修复：首次发布后的冷／热 Cards Search 都返回 200，分别记录 1 SQL＋KV miss 与 0 SQL＋KV hit，但实际 `/api/v1/cards/search` 被错误记为 `/api/v1/cards/:card_ref`。根因是观测中间件使用 `routePath(context, -1)` 取最后匹配项，在静态路由与后续参数路由共同进入 Hono 匹配集合时选错模板。最小修复改用请求执行完成后的当前 `routeIndex`，新增静态兄弟路由回归；请求观测相关 5 文件／62 项、Workers type-check、差异检查通过，提交并推送 `dev@c5908c320503fd9ffa9261e57cb4839fefa10d8b`。热修复 dry-run 发布包为 2,149,039 字节、SHA-256 `23b17137a33d153bfd5ec1521aceda95f70d9c2415d7fa71486a0853db48d231`。
+- 最终发布与独立验收：watcher 再次通过 11 文件／122 项、Node 13／13、bundle 3／3，预检 `pendingMigrations=[]`；发布前备份 `toccards-test-20261030-134919-before-branch-dev-c5908c320503-20261030134917.dump` 为 1,137,123,448 字节、目录 339 项。最终 release 为 `branch-dev-c5908c320503-20261030134917`；`current`、manifest、`current-release`、`last-seen`、`last-deployed` 均为 `c5908c32`，失败标记为空，API／DB healthy、Web running，ledger 保持 18／`0017`，三个索引保持 3／3 valid／ready。release 与 API 容器 SHA-256 均为 `90754f3b694798693e2bc75f86c18a42da92f82861c416439494d807f1e7e27f`；Admin release／容器聚合 SHA-256 均为 `9d03c720c4238729d81309fab1ede351cbd9e1d86310f45eaae0502a743fc02d`。health／Admin 为 200，未登录 auth/me 为 401，10 个静态资源与冷／热搜索均为 200；最终日志路径均为 `/api/v1/cards/search`，查询字符串未进入日志，冷请求 1 SQL＋KV miss，热请求 0 SQL＋KV hit。
+- 边界：本轮只发布 Linux dev API／Admin 与 dev PostgreSQL `0017`，未修改 prod／Cloudflare、Secret、私有环境、watcher 配置或业务数据。三份备份均保留但未做恢复演练；索引新增约 491 MB 存储并增加目录写入维护成本。没有执行真实登录态 Admin 浏览器图片复用、真实用户流量 P50/P95、iOS／Android 真机或 Flutter 制品发布；上述单次计划、合成测试和冷／热烟测不能替代长期负载与最终用户验收。
+
 <a id="local-dev-performance-merge-20261030"></a>
 ## 本地 dev 合并查询与列表性能优化（2026-10-30 13:00–13:14）
 
