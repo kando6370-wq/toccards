@@ -6,6 +6,13 @@
 
 本版本初始运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下按时间分别记录本地增量、实际部署与运行验证；历史记录不替代当前远端状态回读。
 
+<a id="local-dev-performance-merge-20261030"></a>
+## 本地 dev 合并查询与列表性能优化（2026-10-30 13:00–13:14）
+
+- Git 与冲突：从干净且与 `github/dev` 一致的 `dev@a23c1ab419cf4926e27a72baa834189e1e7903b7` 非快进合入 `codex/dev-1.0.7scan@b9c1051fae15f7bd7e8a42f6a1c9afc32133fbcd`，生成本地 merge `dev@4952b3c9428df39f24bc3a8f0ad07edd86f2ad15`。业务代码和 `0017` 自动合并；唯一冲突为 Cards／Sets 索引说明，保留 dev 已发布的数值排序、图片过滤及 `0016` 事实，同时明确本次性能增量与 `0017` 尚未部署或执行。仓库无残留冲突标记，`git diff --cached --check` 通过。
+- 合并后验证：Flutter Search 2 文件／84 项和相关 4 文件 analyze 通过；Admin 83／83、依赖方向检查、7 个 TypeScript package type-check 通过。Workers 使用单进程完整运行 97 文件／901 项全部通过，退出 0、用时 373.20 秒；未重启或缩减范围。旧 App 源码兼容合同为当前 API 8／8、固定 App 1.0.4／1.0.5 各 24／24，受控的 `Contract database unavailable` stderr 属于 C03 错误边界输入；Linux bundle 3／3 通过。
+- 边界：本轮只完成本地 `dev` 合并，未推送 `github/dev`，未触发 kd201 watcher、Linux 构建／备份／migration／容器更新，也未修改 prod／Cloudflare、Secret、私有配置或业务数据。`0017_cards_visible_numeric_order_indexes.sql` 尚未应用到 dev/prod PostgreSQL；大表发布前仍须按索引文档在事务外并发预建、核验定义及 `indisvalid/indisready`，再由 migration 登记 ledger。当前 kd201 运行提交仍为 `dad3f3a1`，不能把本地合并写成已部署性能收益。
+
 <a id="dev-scan-portrait-redeploy-20261030"></a>
 ## Linux dev 扫描竖屏修复合并与强制重部署（2026-10-30 09:50–10:02）
 
