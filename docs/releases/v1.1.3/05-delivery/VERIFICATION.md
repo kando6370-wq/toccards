@@ -15,6 +15,12 @@
 - 最终本地验证：生产 SystemChrome gateway、扫描页非既有相机阶段 Golden 集合及原生裁剪共 3 文件／143 项通过，包含方向锁失败仍上报并继续打开相机的回归；相关 6 个实现／测试文件 `flutter analyze --no-pub` 无问题。Android `flutter build apk --debug --no-pub` 成功，APK 为 257,932,317 字节，SHA-256 `d98a8d20987a679c7babb82a3bf6224f001a8d26c24407d3511955d8272b717b`；仅出现仓库既有 Gradle 8.12、AGP 8.9.1、Kotlin 2.1.0 的未来弃用警告。四项既有相机阶段 390×844 Golden 明确排除，Review Golden 在本次集合中通过，未修改或重录任何 Golden。
 - 边界：当前 Windows 主机未运行 Xcode／CocoaPods／iOS 构建，也未安装 Android APK 或进行 iOS／Android 真机横拿测试；因此源码和 Android 编译通过不能替代真实设备旋转、相机预览及照片方向验收。上述验证阶段未执行 Git push、dev／prod 部署、数据库或远程配置操作；本地分支提交另见后续 Git 交付记录。
 
+<a id="scan-portrait-orientation-lock-local-git-20261030"></a>
+## 扫描页竖屏方向修复本地 Git 交付（2026-10-30）
+
+- Git：在 `codex/dev-1.0.7scan@fd74b7bbb44e` 上应用本次方向修复并解决验证文档冲突，功能提交为 `3d61d3e956a6170101501316b1fd51f682a6383a`（`fix(scan): 锁定扫描页竖屏方向`）。冲突处理只保留目标分支原运行基线与本次修复记录，没有带入 `dev` 的 Linux 发布、Cards 过滤或后续合并历史；提交前无残留冲突标记，`git diff --cached --check` 通过。
+- 边界：该提交仅存在于本地 `codex/dev-1.0.7scan`；本轮未推送 `github/codex/dev-1.0.7scan`，未切换或改写 `dev`，也未触发 Linux watcher、移动端发布、数据库、prod／Cloudflare 或远程配置操作。
+
 <a id="scan-japanese-ocr-20261029"></a>
 ## 扫描 Latin／Japanese OCR 并行识别（2026-10-29）
 
