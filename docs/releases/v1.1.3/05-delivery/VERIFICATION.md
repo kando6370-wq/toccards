@@ -52,6 +52,21 @@
 - 独立烟测与稳定性：开发机访问 `http://192.168.50.201:8080/api/v1/health` 返回 200／`{"status":"ok"}`，Admin 根路径返回 200，未登录 `/api/v1/auth/me` 返回 401。16:06、16:08、16:10 三个 watcher 周期均确认远端仍为 `b08d02f2` 且没有新提交，当前 manual release 未被覆盖；watcher 的 `last-seen`／`last-deployed` 保持 `b08d02f2`，这是手工发布未改状态文件的预期结果，后续远端 `dev` 新提交仍可能替换当前运行版本。
 - 边界：prod、Cloudflare、数据库 schema、私有环境值和 watcher 配置未修改；未执行真实 Admin 登录、真实图片识别、真机扫描、备份恢复或业务验收。本轮没有重跑完整 Admin／Workers／Flutter 测试，部署前验证仅为上述构建和 Linux bundle 3／3；当前源码既有四张相机 Golden 差异没有因部署而关闭。部署执行阶段未夹带 Git commit／push，本记录的 Git 交付由后续独立提交完成。
 
+<a id="scan-portrait-orientation-lock-20261030"></a>
+## 扫描页横拿设备画面错位修复（2026-10-30）
+
+- 定位与选择：用户反馈竖拿手机扫描正常，横拿后相机画面与识别区域异常。当前 Scan 的取景框、顶部控件、结果轨道和快门使用纵向视口约束，Camera 预览及裁剪又固定按 `previewSize.height／width` 映射；iPhone `Info.plist` 已限制竖屏，但 Android 与 iPad 仍可能发生方向变化。本次选择保持 Scan 为竖屏专用页面，而不是新增一套未经设计和验证的横屏布局。
+- 实现：新增 `ScanOrientationGateway`，进入 Scan 时先请求 `portraitUp`，完成后才请求权限并打开相机；页面销毁时传入空方向列表，恢复 OS／应用原方向策略。`CameraController` 初始化后同步锁定 capture orientation 为 `portraitUp`，避免设备横拿时预览、拍照结果和裁剪坐标采用不同方向。页面方向锁或 Camera capture 锁失败都会通过 `FlutterError.reportError` 显式上报；页面锁失败仍继续打开相机，capture 锁失败也不把已初始化相机关闭。未修改取景框尺寸、原生裁剪、RTMDet、pHash/OCR、API、额度或 Review。
+- 测试失败与修正：首个定向方向生命周期用例 1／1 通过；随后第一次扫描页非 Golden 回归出现 129 项通过／12 项失败。根因是该测试直接替换并清除了全局 `SystemChannels.platform` handler，污染后续相机权限与预览用例，而非业务相机流程本身。按仓库 Camera／Permission provider 模式改为 gateway 注入后，方向锁先于相机打开、退出恢复、相机权限、真实取景框裁剪调用均通过；没有把首轮失败写成通过。
+- 最终本地验证：生产 SystemChrome gateway、扫描页非既有相机阶段 Golden 集合及原生裁剪共 3 文件／143 项通过，包含方向锁失败仍上报并继续打开相机的回归；相关 6 个实现／测试文件 `flutter analyze --no-pub` 无问题。Android `flutter build apk --debug --no-pub` 成功，APK 为 257,932,317 字节，SHA-256 `d98a8d20987a679c7babb82a3bf6224f001a8d26c24407d3511955d8272b717b`；仅出现仓库既有 Gradle 8.12、AGP 8.9.1、Kotlin 2.1.0 的未来弃用警告。四项既有相机阶段 390×844 Golden 明确排除，Review Golden 在本次集合中通过，未修改或重录任何 Golden。
+- 边界：当前 Windows 主机未运行 Xcode／CocoaPods／iOS 构建，也未安装 Android APK 或进行 iOS／Android 真机横拿测试；因此源码和 Android 编译通过不能替代真实设备旋转、相机预览及照片方向验收。上述验证阶段未执行 Git push、dev／prod 部署、数据库或远程配置操作；本地分支提交另见后续 Git 交付记录。
+
+<a id="scan-portrait-orientation-lock-local-git-20261030"></a>
+## 扫描页竖屏方向修复本地 Git 交付（2026-10-30）
+
+- Git：在 `codex/dev-1.0.7scan@fd74b7bbb44e` 上应用本次方向修复并解决验证文档冲突，功能提交为 `3d61d3e956a6170101501316b1fd51f682a6383a`（`fix(scan): 锁定扫描页竖屏方向`）。冲突处理只保留目标分支原运行基线与本次修复记录，没有带入 `dev` 的 Linux 发布、Cards 过滤或后续合并历史；提交前无残留冲突标记，`git diff --cached --check` 通过。
+- 边界：该提交仅存在于本地 `codex/dev-1.0.7scan`；本轮未推送 `github/codex/dev-1.0.7scan`，未切换或改写 `dev`，也未触发 Linux watcher、移动端发布、数据库、prod／Cloudflare 或远程配置操作。
+
 <a id="scan-japanese-ocr-20261029"></a>
 ## 扫描 Latin／Japanese OCR 并行识别（2026-10-29）
 
