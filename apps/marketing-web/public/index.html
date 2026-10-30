@@ -565,9 +565,22 @@ h1 { max-width: 660px; margin-bottom: 0; font-size: clamp(56px, 5.15vw, 78px); l
           <article class="detail-row">
             <div class="detail-visual scan-visual">
               <img class="scan-composite" src="/assets/showcase-scan.png" alt="AI card scanning and recognition preview">
-              <span class="scan-card-layer" aria-hidden="true">
-                <img class="scan-card-motion" src="/assets/showcase-scan-card.png" alt="">
-              </span>
+              <button class="scan-card-layer" type="button" aria-label="Show Card AI side of sample card" aria-pressed="false" disabled>
+                <span class="scan-card-tilt" aria-hidden="true">
+                  <span class="scan-card-flip">
+                    <span class="scan-card-face scan-card-front">
+                      <img src="/assets/showcase-scan-card.png" alt="">
+                    </span>
+                    <span class="scan-card-face scan-card-back">
+                      <span class="scan-card-back-frame">
+                        <img src="/assets/card-ai-logo.png" alt="">
+                        <strong>Card AI</strong>
+                        <span>Scan / Review / Collect</span>
+                      </span>
+                    </span>
+                  </span>
+                </span>
+              </button>
             </div>
             <div class="detail-copy">
               <h2>Identify Cards as You Scan.</h2>
@@ -1626,8 +1639,34 @@ class="uri">https://tcgcard.fun/terms</a></p>
   <script>
 'use strict';
 
-// This marketing page intentionally has no scripted interaction.
+const scanCard = document.querySelector('.scan-card-layer');
+if (scanCard) {
+  scanCard.disabled = false;
 
+  scanCard.addEventListener('pointermove', (event) => {
+    if (event.pointerType === 'touch' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const bounds = scanCard.getBoundingClientRect();
+    const x = (event.clientX - bounds.left) / bounds.width - 0.5;
+    const y = (event.clientY - bounds.top) / bounds.height - 0.5;
+    scanCard.style.setProperty('--scan-tilt-x', `${(-y * 12).toFixed(2)}deg`);
+    scanCard.style.setProperty('--scan-tilt-y', `${(x * 16).toFixed(2)}deg`);
+    scanCard.style.setProperty('--scan-light-x', `${((x + 0.5) * 100).toFixed(1)}%`);
+    scanCard.style.setProperty('--scan-light-y', `${((y + 0.5) * 100).toFixed(1)}%`);
+  });
+
+  scanCard.addEventListener('pointerleave', () => {
+    scanCard.style.removeProperty('--scan-tilt-x');
+    scanCard.style.removeProperty('--scan-tilt-y');
+    scanCard.style.removeProperty('--scan-light-x');
+    scanCard.style.removeProperty('--scan-light-y');
+  });
+
+  scanCard.addEventListener('click', () => {
+    const flipped = scanCard.getAttribute('aria-pressed') !== 'true';
+    scanCard.setAttribute('aria-pressed', String(flipped));
+    scanCard.setAttribute('aria-label', flipped ? 'Show sample card front' : 'Show Card AI side of sample card');
+  });
+}
 
 const modalTriggers = document.querySelectorAll('[data-modal-target]');
 const modalCloseControls = document.querySelectorAll('[data-modal-close]');

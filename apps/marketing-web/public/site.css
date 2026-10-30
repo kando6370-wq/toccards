@@ -85,41 +85,24 @@
 .detail-copy li { margin: 0; color: #fff; font-size: 14px; line-height: 20px; }
 .detail-copy li::before { content: "\2713"; margin-right: 12px; color: var(--site-lime); }
 .detail-row:nth-child(2) .detail-copy { order: -1; }
-.scan-visual { position: relative; overflow: hidden; }
-.scan-composite { position: relative; z-index: 0; }
-.scan-card-layer { position: absolute; z-index: 2; top: 18.95%; left: 40.74%; width: 18.52%; height: 55.4%; overflow: visible; }
-.scan-card-layer::before { content: ""; position: absolute; z-index: 0; inset: -10px; background: rgba(11,11,7,.34); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); -webkit-mask-image: radial-gradient(ellipse, #000 58%, transparent 100%); mask-image: radial-gradient(ellipse, #000 58%, transparent 100%); }
-.scan-card-layer::after { content: ""; position: absolute; z-index: 2; top: 42.1%; right: -14%; left: -14%; height: 2px; background: linear-gradient(90deg, transparent, rgba(240,254,111,.42) 22%, rgba(255,255,255,.82) 50%, rgba(240,254,111,.42) 78%, transparent); box-shadow: 0 0 18px 7px rgba(240,254,111,.2); }
-.scan-card-motion { animation: scan-card-float 2.5s linear infinite; }
-.scan-card-layer .scan-card-motion { position: absolute; z-index: 1; top: 0; left: 1.45%; width: 97.1%; height: 100%; max-height: none; border: .3px solid var(--site-lime); border-radius: 8px; object-fit: cover; box-shadow: 0 4px 25.2px rgba(255,255,66,.33); transform: skewX(1.25deg); }
-@keyframes scan-card-float {
-  0%, 100% { translate: 0 0; }
-  4% { translate: -.738px -.155px; }
-  8% { translate: -1.356px -.609px; }
-  12% { translate: -1.806px -1.338px; }
-  16% { translate: -1.998px -2.301px; }
-  20% { translate: -1.616px -3.44px; }
-  24% { translate: -.364px -4.683px; }
-  28% { translate: 1.094px -5.946px; }
-  32% { translate: 1.943px -7.147px; }
-  36% { translate: 1.936px -8.206px; }
-  40% { translate: 1.62px -9.059px; }
-  44% { translate: 1.076px -9.655px; }
-  48% { translate: .377px -9.961px; }
-  52% { translate: -.377px -9.961px; }
-  56% { translate: -1.076px -9.655px; }
-  60% { translate: -1.62px -9.059px; }
-  64% { translate: -1.936px -8.206px; }
-  68% { translate: -1.943px -7.147px; }
-  72% { translate: -1.094px -5.946px; }
-  76% { translate: .364px -4.683px; }
-  80% { translate: 1.616px -3.44px; }
-  84% { translate: 1.998px -2.301px; }
-  88% { translate: 1.806px -1.338px; }
-  92% { translate: 1.356px -.609px; }
-  96% { translate: .738px -.155px; }
-}
-
+.scan-visual { position: relative; display: grid; align-items: center; min-height: 310px; overflow: visible; isolation: isolate; }
+.scan-composite { position: relative; z-index: 0; width: 100%; }
+.scan-card-layer { position: absolute; z-index: 2; top: 50%; left: 56%; width: clamp(185px, 48%, 245px); aspect-ratio: 736 / 1024; padding: 0; border: 0; border-radius: 8px; background: transparent; perspective: 900px; transform: translate(-50%, -50%); cursor: pointer; touch-action: pan-y; }
+.scan-card-layer:disabled { cursor: default; }
+.scan-card-layer:focus-visible { outline: 2px solid var(--site-lime); outline-offset: 5px; }
+.scan-card-tilt, .scan-card-flip, .scan-card-face { display: block; width: 100%; height: 100%; }
+.scan-card-tilt { transform: rotateX(var(--scan-tilt-x, 3deg)) rotateY(var(--scan-tilt-y, -7deg)); transform-style: preserve-3d; transition: transform .35s cubic-bezier(.2,.8,.2,1); filter: drop-shadow(0 18px 18px rgba(0,0,0,.72)); }
+.scan-card-flip { position: relative; transform-style: preserve-3d; transition: transform .7s cubic-bezier(.2,.8,.2,1); }
+.scan-card-layer[aria-pressed="true"] .scan-card-flip { transform: rotateY(180deg); }
+.scan-card-face { position: absolute; inset: 0; overflow: hidden; border: 1px solid rgba(255,255,255,.55); border-radius: 8px; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.scan-card-front img { width: 100%; height: 100%; max-height: none; object-fit: cover; }
+.scan-card-front::after { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at var(--scan-light-x, 50%) var(--scan-light-y, 50%), rgba(255,255,255,.48), transparent 38%), linear-gradient(115deg, transparent 22%, rgba(92,207,220,.15) 38%, rgba(255,244,151,.2) 52%, rgba(234,123,201,.14) 65%, transparent 82%); mix-blend-mode: screen; opacity: .62; pointer-events: none; }
+.scan-card-back { transform: rotateY(180deg); background: #151810; color: #f0fe6f; }
+.scan-card-back-frame { position: absolute; inset: 6%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; border: 1px solid rgba(240,254,111,.55); border-radius: 5px; background: repeating-linear-gradient(135deg, transparent 0 10px, rgba(240,254,111,.035) 10px 11px); text-align: center; }
+.scan-card-back-frame::before { content: ""; position: absolute; inset: 5px; border: 1px solid rgba(240,254,111,.16); border-radius: 3px; }
+.scan-card-back-frame img { width: 42px; height: 42px; max-height: none; object-fit: contain; }
+.scan-card-back-frame strong { font-size: 20px; line-height: 1.1; }
+.scan-card-back-frame > span { color: #c7c8b0; font-size: 9px; text-transform: uppercase; }
 .games-section { min-height: 438px; display: flex; align-items: center; padding: 156px 120px; }
 .games-layout { display: grid; grid-template-columns: 520px 1fr; align-items: center; gap: 80px; }
 .games-layout h2 { font-size: 36px; font-weight: 510; line-height: 57px; }
@@ -197,6 +180,12 @@
   .detail-copy h2 { margin: 0; font-size: 34px; line-height: 42px; }
   .detail-copy > p { font-size: 15px; }
   .detail-copy ul { gap: 12px; padding-top: 4px; }
+  .scan-visual { min-height: 260px; }
+  .scan-card-layer { width: clamp(145px, 50%, 200px); }
+  .scan-card-back-frame { gap: 5px; }
+  .scan-card-back-frame img { width: 30px; height: 30px; }
+  .scan-card-back-frame strong { font-size: 14px; }
+  .scan-card-back-frame > span { font-size: 7px; }
   .games-layout { grid-template-columns: 1fr; gap: 36px; }
   .game-tags { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .new-cta { height: auto; min-height: 560px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; padding: 80px 20px; }
@@ -220,7 +209,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .scan-card-layer { display: none; }
+  .scan-card-tilt { transform: none; transition: none; }
+  .scan-card-flip { transition: none; }
+  .scan-card-front::after { opacity: .18; }
 }
 
 .faq-section { display: flex; align-items: center; padding: 156px 120px; background: #000; }
