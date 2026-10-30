@@ -2,6 +2,7 @@ import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 
 import '../../shared/scan/scan_native_image_processor.dart';
 import 'scan_result_source.dart';
@@ -48,6 +49,18 @@ class PluginScanCameraFactory implements ScanCameraFactory {
             : ImageFormatGroup.yuv420,
       );
       await controller.initialize();
+      try {
+        await controller.lockCaptureOrientation(DeviceOrientation.portraitUp);
+      } on CameraException catch (error, stackTrace) {
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: error,
+            stack: stackTrace,
+            library: 'scan camera',
+            context: ErrorDescription('while locking portrait capture'),
+          ),
+        );
+      }
       await controller.setFlashMode(FlashMode.off);
       return PluginScanCameraSession(controller);
     } catch (_) {

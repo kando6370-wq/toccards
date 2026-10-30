@@ -15,6 +15,7 @@ import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/features/home/home_page.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
 import 'package:kando_app/features/scan/scan_camera.dart';
+import 'package:kando_app/features/scan/scan_orientation.dart';
 import 'package:kando_app/features/scan/scan_page.dart';
 import 'package:kando_app/features/scan/scan_permissions.dart';
 import 'package:kando_app/shared/currency/currency.dart';
@@ -133,6 +134,60 @@ const _unlimitedQuota = ScanQuotaDto(
 );
 
 void main() {
+  testWidgets(
+    'Scan locks portrait before opening the camera and restores app orientation on exit',
+    (tester) async {
+      final events = <String>[];
+      final orientation = _TestScanOrientationGateway(events);
+      final cameraFactory = _TestScanCameraFactory(
+        _TestScanCameraSession(),
+        onOpen: () => events.add('camera-open'),
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanCameraFactory: cameraFactory,
+        orientation: orientation,
+      );
+
+      expect(cameraFactory.openCount, 1);
+      expect(
+        events.take(2),
+        ['orientation-lock', 'camera-open'],
+        reason: 'The portrait coordinate system must be fixed before preview.',
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+
+      expect(
+        events.last,
+        'orientation-restore',
+        reason: 'Leaving Scan must restore the app and OS orientation policy.',
+      );
+    },
+  );
+
+  testWidgets(
+    'Scan reports an orientation failure without disabling the camera',
+    (tester) async {
+      final previousOnError = FlutterError.onError;
+      FlutterErrorDetails? reportedError;
+      FlutterError.onError = (details) => reportedError = details;
+      addTearDown(() => FlutterError.onError = previousOnError);
+      final cameraFactory = _TestScanCameraFactory(_TestScanCameraSession());
+
+      await _pumpScanTestApp(
+        tester,
+        scanCameraFactory: cameraFactory,
+        orientation: const _FailingScanOrientationGateway(),
+      );
+
+      expect(cameraFactory.openCount, 1);
+      expect(reportedError?.library, 'scan orientation');
+      expect(reportedError?.exception, isA<StateError>());
+    },
+  );
+
   testWidgets('scan type selector defaults to TCG and offers Sports Card', (
     tester,
   ) async {
@@ -5299,6 +5354,7 @@ Future<void> _pumpScanTestApp(
   ScanResultSource? scanResultSource,
   ScanReviewRepository? scanReviewRepository,
   ScanCameraFactory scanCameraFactory = const _DisabledScanCameraFactory(),
+  ScanOrientationGateway orientation = const _ImmediateScanOrientationGateway(),
   ScanPermissionGateway permissions = const _GrantedScanPermissionGateway(),
   AppAnalytics? analytics,
   ScanQuotaDto? scanQuota,
@@ -5321,6 +5377,7 @@ Future<void> _pumpScanTestApp(
           scanResultSource ?? _defaultTestScanResultSource(),
         ),
         scanCameraFactoryProvider.overrideWithValue(scanCameraFactory),
+        scanOrientationGatewayProvider.overrideWithValue(orientation),
         scanPermissionGatewayProvider.overrideWithValue(permissions),
         scanQuotaControllerProvider.overrideWith(
           () =>
@@ -5936,16 +5993,50 @@ class _DisabledScanCameraFactory implements ScanCameraFactory {
 }
 
 class _TestScanCameraFactory implements ScanCameraFactory {
-  _TestScanCameraFactory(this.session);
+  _TestScanCameraFactory(this.session, {this.onOpen});
 
   _TestScanCameraSession session;
+  final VoidCallback? onOpen;
   var openCount = 0;
 
   @override
   Future<ScanCameraSession?> open() async {
     openCount += 1;
+    onOpen?.call();
     return session;
   }
+}
+
+class _ImmediateScanOrientationGateway implements ScanOrientationGateway {
+  const _ImmediateScanOrientationGateway();
+
+  @override
+  Future<void> lockPortrait() async {}
+
+  @override
+  Future<void> restore() async {}
+}
+
+class _TestScanOrientationGateway implements ScanOrientationGateway {
+  _TestScanOrientationGateway(this.events);
+
+  final List<String> events;
+
+  @override
+  Future<void> lockPortrait() async => events.add('orientation-lock');
+
+  @override
+  Future<void> restore() async => events.add('orientation-restore');
+}
+
+class _FailingScanOrientationGateway implements ScanOrientationGateway {
+  const _FailingScanOrientationGateway();
+
+  @override
+  Future<void> lockPortrait() => Future.error(StateError('lock failed'));
+
+  @override
+  Future<void> restore() async {}
 }
 
 class _GrantedScanPermissionGateway implements ScanPermissionGateway {

@@ -29,6 +29,7 @@ import '../subscription/scan_quota_controller.dart';
 import '../subscription/subscription_controller.dart';
 import '../subscription/subscription_entitlement_cache.dart';
 import 'scan_camera.dart';
+import 'scan_orientation.dart';
 import 'scan_permissions.dart';
 import 'scan_review_repository.dart';
 
@@ -443,6 +444,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   final Map<int, int> _reportedScanResultTokens = {};
   final Set<int> _quotaPromptedBatchIds = {};
   late final AnimationController _captureController;
+  late final ScanOrientationGateway _orientationGateway;
   ScanCameraSession? _cameraSession;
 
   var _nextScanId = 1;
@@ -526,13 +528,14 @@ class _ScanPageState extends ConsumerState<ScanPage>
       vsync: this,
       duration: _captureAnimationDuration,
     );
+    _orientationGateway = ref.read(scanOrientationGatewayProvider);
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         unawaited(ref.read(scanQuotaControllerProvider.notifier).refresh());
       }
     });
-    unawaited(_openCamera());
+    unawaited(_lockOrientationAndOpenCamera());
   }
 
   @override
@@ -569,7 +572,44 @@ class _ScanPageState extends ConsumerState<ScanPage>
       entitlementRefreshDelay!.complete();
     }
     _pendingScans.clear();
+    unawaited(_restoreOrientation());
     super.dispose();
+  }
+
+  Future<void> _lockOrientationAndOpenCamera() async {
+    try {
+      await _orientationGateway.lockPortrait();
+    } on Object catch (error, stackTrace) {
+      _reportOrientationError(error, stackTrace, 'while locking Scan portrait');
+    }
+    if (!mounted) {
+      await _restoreOrientation();
+      return;
+    }
+    await _openCamera();
+  }
+
+  Future<void> _restoreOrientation() async {
+    try {
+      await _orientationGateway.restore();
+    } on Object catch (error, stackTrace) {
+      _reportOrientationError(error, stackTrace, 'while leaving Scan');
+    }
+  }
+
+  void _reportOrientationError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'scan orientation',
+        context: ErrorDescription(context),
+      ),
+    );
   }
 
   Future<void> _openCamera({Duration previewDelay = Duration.zero}) async {
