@@ -102,6 +102,10 @@ type ScanRecordRow = {
   created_at: string;
 };
 
+type ScanListRow = Pick<ScanRecordRow,
+  "id" | "environment" | "owner_id" | "image_url" | "platform" | "app_version"
+  | "recognition_status" | "user_confirmation_status" | "modified_result" | "created_at">;
+
 type AppConfigRow = {
   key: string;
   value: string;
@@ -403,9 +407,8 @@ const SELECT_APP_CONFIG_SQL = `
 const SCAN_CARD_TYPE_FILTER_SQL = "AND system_result::jsonb -> 'card_type' = to_jsonb(CAST(? AS integer))";
 
 const SELECT_SCAN_RECORDS_SQL = (cardType: string | null) => `
-  SELECT id, environment, owner_type, owner_id, image_url, filename, platform, app_version,
-    device_model, os_version, recognition_status, user_confirmation_status,
-    modified_result, system_result, user_result, candidates, created_at
+  SELECT id, environment, owner_id, image_url, platform, app_version,
+    recognition_status, user_confirmation_status, modified_result, created_at
   FROM scan_record
   WHERE (CAST(? AS text) IS NULL OR lower(owner_id) LIKE '%' || ? || '%')
     AND (CAST(? AS text) IS NULL OR lower(platform) = ?)
@@ -440,6 +443,13 @@ const SELECT_SCAN_RECORD_BY_ID_SQL = `
   SELECT id, environment, owner_type, owner_id, image_url, filename, platform, app_version,
     device_model, os_version, recognition_status, user_confirmation_status,
     modified_result, system_result, user_result, candidates, created_at
+  FROM scan_record
+  WHERE id = ?
+  LIMIT 1
+`;
+
+const SELECT_SCAN_IMAGE_BY_ID_SQL = `
+  SELECT image_url
   FROM scan_record
   WHERE id = ?
   LIMIT 1
@@ -1078,7 +1088,7 @@ adminRoutes.get("/scans", async (c) => {
       pageSize,
       offset,
       )
-      .all<ScanRecordRow>(),
+      .all<ScanListRow>(),
     c.env.DB.prepare(COUNT_SCAN_RECORDS_SQL(cardType))
       .bind(...filterBindings, ...cardTypeBindings)
       .first<{ total: number }>(),
@@ -1094,9 +1104,9 @@ adminRoutes.get("/scans", async (c) => {
 adminRoutes.get("/scans/:scanId/image", async (c) => {
   const bucket = c.env.SCAN_IMAGES;
   if (!bucket) return c.json(INTERNAL_ERROR_RESPONSE, 503);
-  const row = await c.env.DB.prepare(SELECT_SCAN_RECORD_BY_ID_SQL)
+  const row = await c.env.DB.prepare(SELECT_SCAN_IMAGE_BY_ID_SQL)
     .bind(c.req.param("scanId"))
-    .first<ScanRecordRow>();
+    .first<Pick<ScanRecordRow, "image_url">>();
   if (!row?.image_url) return c.json(NOT_FOUND_RESPONSE, 404);
   const object = await bucket.get(row.image_url);
   if (!object) return c.json(NOT_FOUND_RESPONSE, 404);
@@ -1621,7 +1631,7 @@ function toAdminFeedbackTicket(row: FeedbackTicketRow) {
   };
 }
 
-function toScanListItem(row: ScanRecordRow) {
+function toScanListItem(row: ScanListRow) {
   return {
     scan_id: row.id,
     environment: row.environment,

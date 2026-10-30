@@ -137,7 +137,7 @@ class SearchState {
 
   List<SearchCard> get visibleCards {
     return catalog.cards
-        .map((card) => cardById(card.id))
+        .map((card) => cardOverrides[card.id] ?? card)
         .where(_matchesCard)
         .toList();
   }

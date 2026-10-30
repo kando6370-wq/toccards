@@ -6,6 +6,19 @@
 
 当前运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下记录只代表 v1.1.3 本地增量及实际执行的验证，不改变远端运行状态。
 
+<a id="performance-optimization-20261030"></a>
+## 查询、缓存与列表性能优化（2026-10-30）
+
+- 来源与范围：干净的 `codex/dev-1.0.7scan@8d4f9ae2daf5fe6278cb142f8e4368a64e8133a3` 加本轮未提交增量。用户在只读审查后要求根据建议修改。修改覆盖 Flutter Search 列表计算、Admin 扫描投影与图片请求复用、Linux dev 进程内缓存、Cards `0017` 部分索引，以及共享 API 的 SQL/缓存完成日志；合同与边界见[性能说明](../02-architecture/performance.md)和[索引说明](../03-data-api/cards-search-order.md#postgresql-0017-可见卡牌数值排序索引)。
+- 定位证据：原 `visibleCards` 对每张卡线性回查目录，40 张卡的计数测试读取 856 次，超过线性上界 80，修复前失败。原 Linux KV 只在访问对应键时惰性清理，无活动时资源清理与容量测试失败；新增定时清扫保留无 TTL 汇率兜底。原 Admin 查询带入列表不用的 JSON 大字段，PGlite 投影用例在修复前失败；图片接口也改为只读图片键，详情保持完整记录。后端修复后发现既有分页测试硬编码旧 SELECT 前缀，首轮为 22/23；同步该查询识别断言后 23/23 通过，未扩大旧 FakeD1 测试基座。
+- SQL 实现与验证：新增 `0017_cards_visible_numeric_order_indexes.sql`，只增加三个 `has_image=2` 部分索引，覆盖全目录、Game、Game＋Set ID 的完整创建时间／数值 ID／字符串 ID 排序。保留 `0016` 和其他索引。PGlite 6000 条同时间合成数据使用实际适配器 SQL，迁移前三个范围都有 Sort/Incremental Sort，迁移后分别选中对应新索引且没有 Sort；另验证重复迁移、原索引定义保留、过滤、前导零、超过 bigint 的数字 ID、非数字 ID、NULL 时间和跨页结果不变。两个索引测试文件共 6 项通过；不将该计划证据换算成真实数据库的延迟收益。
+- 客户端验证：`flutter test --no-pub test/search_controller_test.dart test/widget/search_page_test.dart` 84/84 通过；相关两个实现文件及控制器测试的 `flutter analyze --no-pub`、格式检查通过。独立复审另行验证控制器 35 项及页面 49 项。Admin 全量 `pnpm --filter @kando/admin-web test` 83/83 通过，新增测试使用实际组件提取的 Query 配置和真实 QueryClient/QueryObserver，验证并发共享一次带 Bearer 的请求、token 隔离、最后卸载取消、401 会话过期通知；不是实际浏览器的完整图片生命周期验收。
+- 服务端验证：请求观测、request-id、PostgreSQL 适配器及两种目录缓存定向 5 文件/42 项通过，覆盖冷/热缓存、SQL 失败、并发请求隔离、指纹不输出绑定值、缓存错误回源、20 种指纹上限和响应后后台记录不串入。Linux KV 最终 8 项通过，其共享缓存/汇率调用方也通过。最终 `pnpm --filter @kando/workers-api test --maxWorkers=1` 完整运行 97 文件/901 项全部通过，退出 0，用时 334.27 秒；运行期间只有启动输出，最终已取得完成结果，没有重启、删减测试或把等待状态当作通过。
+- 运行时与构建：`pnpm lint` 通过；根 `pnpm type-check` 7 个任务成功，其中 5 个沿用 Turbo 缓存，改动的 Admin/Workers 为实际重新检查。`node --test apps/workers-api/scripts/test-linux-bundle.mjs` 3 项通过。`pnpm --filter @kando/workers-api run deploy:dry-run:prod` 退出 0，包含 Admin production 构建，未上传或切流。额外本地 workerd 探针使用实际 `apiRequestId` 中间件与 Hono，保持 `compatibility_date=2024-11-01` 和 `nodejs_compat`；两个并发合成请求的完成日志分别归属 1/3 次 SQL 记录和各 1 次 KV hit，request_id 不同、路由模板正确。探针没有数据库 binding 或外部调用，证明当前运行时的 ALS/哈希/日志路径，不证明真实 PostgreSQL 往返性能。
+- 旧 App 源码兼容：`pnpm test:app-compatibility` 退出 0，当前 PostgreSQL API 合同 8/8，固定 App 1.0.4+161 与 1.0.5+163 的 Dart 合同各 24/24；证据目录 `.dart_tool/app-compatibility/run-zPFhiP/` 为忽略目录。该结果仅覆盖既有源码合同，不是正式旧包或真机验收。
+- Code Review：Flutter 列表、Linux KV、Admin 投影和图片复用、`0017` 迁移及测试、共享观测均经独立复审。旧 Admin 测试前缀问题修正后重新验证及复审通过，未遗留阻断项。`git diff --check` 通过。
+- 未验与交付边界：本轮没有 Git commit/push、dev/prod 部署、远程迁移或业务写入。前一轮只读审查中，dev SSH 别名无法解析，直连认证失败；本轮没有尝试绕过或将历史查询耗时当成实测。目标 PostgreSQL 的索引空间、构建耗时、锁等待、数据长度、真实计划与 P95，Admin 浏览器、iOS/Android 真机与完整 Flutter 测试均未验。大表发布前须按索引文档并发预建并验证 `0017`，避免自动事务内普通建索引阻塞写入。生成专用缩略图、扫描多变体行情请求合并、大收藏状态接口和安装统计 SQL 合并仍是待真实负载验证的候选，本次通过请求级观测提供后续判断依据，未改变这些业务协议或结果。
+
 <a id="scan-portrait-orientation-lock-20261030"></a>
 ## 扫描页横拿设备画面错位修复（2026-10-30）
 

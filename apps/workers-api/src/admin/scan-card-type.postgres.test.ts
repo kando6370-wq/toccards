@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { URL } from "node:url";
 import { hashPassword } from "@kando/auth-core";
 import { Hono } from "hono";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { Env } from "../env";
 import { PGliteDatabase } from "../test-support/pglite-database";
 import { adminRoutes } from "./routes";
@@ -104,5 +104,46 @@ describe("Admin scan card type filter on PostgreSQL", () => {
     }
     const withoutAdminToken = await app.request("/admin/scans?card_type=1", {}, env);
     expect(withoutAdminToken.status).toBe(401);
+  });
+
+  it("reads only scan list and image fields because audit payloads belong to detail requests", async () => {
+    const imageKey = "scans/user/user-1/tcg-dev.jpg";
+    await db.prepare("UPDATE scan_record SET image_url = ? WHERE id = ?")
+      .bind(imageKey, "tcg-dev").run();
+    env.SCAN_IMAGES = {
+      get: async (key: string) => key === imageKey ? {
+        body: new Blob([new Uint8Array([1, 2, 3])]).stream(),
+        httpMetadata: { contentType: "image/jpeg" },
+      } as R2ObjectBody : null,
+    } as R2Bucket;
+
+    const querySpy = vi.spyOn(db, "query");
+    try {
+      const page = await list("?environment=development");
+      expect(page.items.find((item) => item.scan_id === "tcg-dev")).toMatchObject({
+        scan_id: "tcg-dev",
+      });
+      const listSql = querySpy.mock.calls.map(([sql]) => sql).find((sql) =>
+        sql.includes("FROM scan_record") && sql.includes("LIMIT") && sql.includes("OFFSET")
+      );
+      expect(listSql).toBeDefined();
+      expect(listSql?.slice(0, listSql.indexOf("FROM scan_record")))
+        .not.toMatch(/\b(?:system_result|user_result|candidates|device_model|os_version)\b/);
+
+      const unauthorized = await app.request("/admin/scans/tcg-dev/image", {}, env);
+      expect(unauthorized.status).toBe(401);
+      const image = await app.request("/admin/scans/tcg-dev/image", {
+        headers: { Authorization: `Bearer ${token}` },
+      }, env);
+      expect(image.status).toBe(200);
+      expect(image.headers.get("cache-control")).toBe("private, no-store");
+      expect(new Uint8Array(await image.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3]));
+      const imageSql = querySpy.mock.calls.map(([sql]) => sql).find((sql) =>
+        sql.includes("FROM scan_record") && sql.includes("WHERE id =")
+      );
+      expect(imageSql?.trim()).toMatch(/^SELECT image_url\s+FROM scan_record\s+WHERE id = \$1\s+LIMIT 1$/);
+    } finally {
+      querySpy.mockRestore();
+    }
   });
 });

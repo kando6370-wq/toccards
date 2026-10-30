@@ -1,5 +1,6 @@
 import type { MiddlewareHandler } from "hono";
 import { routePath } from "hono/route";
+import { RequestPerformance } from "./request-performance";
 
 export const REQUEST_ID_HEADER = "X-Request-ID";
 
@@ -13,15 +14,17 @@ export function apiRequestId(): MiddlewareHandler {
       ? supplied
       : crypto.randomUUID();
     const startedAt = performance.now();
+    const performanceMetrics = new RequestPerformance();
     let failed = false;
 
     try {
-      await next();
+      await performanceMetrics.run(next);
     } catch (error) {
       failed = true;
       throw error;
     } finally {
       context.header(REQUEST_ID_HEADER, requestId);
+      const metrics = performanceMetrics.snapshot();
       console.info("api_request", JSON.stringify({
         request_id: requestId,
         method: context.req.method,
@@ -31,6 +34,7 @@ export function apiRequestId(): MiddlewareHandler {
         placement: context.req.header("cf-placement") ?? null,
         ingress_colo: context.req.raw.cf?.colo ?? null,
         country: context.req.raw.cf?.country ?? null,
+        ...(metrics ? { performance: metrics } : {}),
       }));
     }
   };

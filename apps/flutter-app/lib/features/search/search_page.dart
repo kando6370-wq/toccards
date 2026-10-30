@@ -579,15 +579,20 @@ class _SearchResults extends ConsumerWidget {
       );
     }
 
-    if (state.isNoMatch) {
+    final visibleCards = state.selectedTab == SearchTab.cards
+        ? state.visibleCards
+        : const <SearchCard>[];
+    final visibleSets = state.selectedTab == SearchTab.sets
+        ? state.visibleSets
+        : const <SearchSet>[];
+    if (visibleCards.isEmpty && visibleSets.isEmpty) {
       return const SliverToBoxAdapter(child: _SearchNoResultsState());
     }
 
     if (state.selectedTab == SearchTab.sets) {
       return SliverList.builder(
-        itemCount: state.visibleSets.length,
-        itemBuilder: (context, index) =>
-            _SearchSetRow(set: state.visibleSets[index]),
+        itemCount: visibleSets.length,
+        itemBuilder: (context, index) => _SearchSetRow(set: visibleSets[index]),
       );
     }
 
@@ -601,9 +606,9 @@ class _SearchResults extends ConsumerWidget {
             crossAxisSpacing: 10,
             mainAxisExtent: 378,
           ),
-          itemCount: state.visibleCards.length,
+          itemCount: visibleCards.length,
           itemBuilder: (context, index) => SearchCardTile(
-            card: state.visibleCards[index],
+            card: visibleCards[index],
             actionsEnabled: state.assetStatus == KandoLoadStatus.content,
             showSearchMetadata: true,
           ),

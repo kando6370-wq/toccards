@@ -22,6 +22,7 @@ import {
   message,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
+import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import SubscriptionConfigPage from "./subscription-config/SubscriptionConfigPage";
 import type { SubscriptionRequest } from "./subscription-config/model";
@@ -1228,32 +1229,36 @@ function ScanDetailDrawer({ scan, session, onClose }: { scan: ScanDetail | null;
 
 function AuthenticatedScanImage({ path, session, className, preview = false }: { path: string; session: AdminSession; className: string; preview?: boolean }) {
   const [source, setSource] = useState<string | null>(null);
+  const { data: blob } = useQuery({
+    queryKey: ["admin-scan-image", session.accessToken, path],
+    queryFn: async ({ signal }) => {
+      const response = await fetch(`${API_BASE}${path}`, {
+        headers: createAdminRequestHeaders({ Authorization: `Bearer ${session.accessToken}` }),
+        signal,
+      });
+      dispatchSessionExpiredOnUnauthorized(response, session.accessToken);
+      if (!response.ok) throw new Error("Scan image unavailable");
+      return response.blob();
+    },
+    enabled: Boolean(path),
+    staleTime: Infinity,
+    gcTime: 0,
+    retry: false,
+    retryOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
   useEffect(() => {
-    if (!path) {
+    if (!blob) {
       setSource(null);
       return;
     }
-    let active = true;
-    let objectUrl: string | null = null;
-    fetch(`${API_BASE}${path}`, {
-      headers: createAdminRequestHeaders({ Authorization: `Bearer ${session.accessToken}` }),
-    })
-      .then((response) => {
-        dispatchSessionExpiredOnUnauthorized(response, session.accessToken);
-        if (!response.ok) throw new Error("Scan image unavailable");
-        return response.blob();
-      })
-      .then((blob) => {
-        if (!active) return;
-        objectUrl = URL.createObjectURL(blob);
-        setSource(objectUrl);
-      })
-      .catch(() => { if (active) setSource(null); });
+    const objectUrl = URL.createObjectURL(blob);
+    setSource(objectUrl);
     return () => {
-      active = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      URL.revokeObjectURL(objectUrl);
     };
-  }, [path, session.accessToken]);
+  }, [blob]);
   return source
     ? preview
       ? (
