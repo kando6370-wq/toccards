@@ -171,6 +171,9 @@ test('approved keyword clusters stay with one truthful owner', async () => {
   assert.match(pages['card-identifier.html'], /does not guarantee an exact printing/i);
 
   assert.match(pages['card-price-checker.html'], /card price scanner app/i);
+  assert.match(pages['card-price-checker.html'], /<title>How Much Is This Card Worth\? Card Price Checker \| Card AI<\/title>/);
+  assert.match(pages['card-price-checker.html'], /<h1>How much is this trading card worth\?<\/h1>/);
+  assert.match(pages['card-price-checker.html'], /Scan or search a physical card in the Card AI app/);
   assert.match(pages['card-price-checker.html'], /trading card value app/i);
   assert.match(pages['card-price-checker.html'], /same confirmed card record/i);
   assert.match(pages['card-price-checker.html'], /Pokemon card price checker and a Pokemon card value checker answer the same question/i);
@@ -338,11 +341,17 @@ test('new collector guides keep card releases and retailer names distinct', asyn
     readFile(sitemapPath, 'utf8'),
   ]);
 
-  assert.match(dungeon, /World Earth trading cards/);
-  assert.match(dungeon, /Character collector cards/);
+  assert.match(dungeon, /<title>Dungeon Crawler Carl Trading Cards: Series 1 Guide \| Card AI<\/title>/);
+  assert.match(dungeon, /<h1>Dungeon Crawler Carl trading cards: Series 1 cards and packs<\/h1>/);
+  assert.match(dungeon, /Is there a Dungeon Crawler Carl Series 1 card list\?/);
+  assert.match(dungeon, /we have not verified a card-by-card checklist from the Series 1 issuer/);
+  assert.match(dungeon, /CardBox shows a third-party Series One checklist/);
+  assert.match(dungeon, /no cards with a value when checked/);
+  assert.match(dungeon, /Hot Topic.*out of stock when checked on October 30, 2026/s);
   assert.match(dungeon, /Unstoppable game cards/);
-  assert.match(dungeon, /supports scanning cataloged Dungeon Crawler Carl collectible cards/);
-  assert.match(dungeon, /Availability of a matching record, image and market price depends on the specific card/);
+  assert.doesNotMatch(dungeon, /supports scanning cataloged Dungeon Crawler Carl collectible cards/);
+  assert.match(dungeon, /not guaranteed to have a matching record or price/);
+  assert.match(dungeon, /Updated 2026-10-30/);
   assert.match(watson, /WatsonTCG.*store, not a separate TCG/s);
   assert.match(watson, /does not claim Card AI can identify every game, sealed product or item/);
   assert.match(watson, /does not imply a partnership with WatsonTCG/);
@@ -624,7 +633,7 @@ test('task navigation leads to existing app workflows with clear app-only copy',
     assert.ok(nav, `${slug} has task navigation`);
     for (const route of routes) assert.ok(nav.includes(`href="${route}"`), `${slug} links to ${route}`);
     if (slug !== 'index') {
-      assert.match(html, /<p class="content-lede">In the Card AI app,/);
+      assert.match(html, /<p class="content-lede">[^<]*Card AI app/);
       assert.match(html, /<h2>[^<]+ in the Card AI app\.<\/h2>/);
     }
   }
