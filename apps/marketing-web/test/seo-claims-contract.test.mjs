@@ -467,6 +467,12 @@ test('FAQ switches to one column at tablet widths', async () => {
 
 test('every landing page shows product proof, contextual links, and an honest store state', async () => {
   const names = await landingPageNames();
+  const appOnlyOwners = new Set([
+    'card-identifier.html',
+    'card-price-checker.html',
+    'card-collection-tracker.html',
+    'pokemon-card-scanner.html',
+  ]);
   assert.equal(names.length, 22);
 
   for (const name of names) {
@@ -490,7 +496,11 @@ test('every landing page shows product proof, contextual links, and an honest st
       assert.match(html, /class="cws-store-action"/);
       assert.doesNotMatch(html, /App Store|Google Play/);
     } else {
-      assert.match(html, /<h2>Try [^<]+ in Card AI\.<\/h2>/);
+      if (appOnlyOwners.has(name)) {
+        assert.match(html, /<h2>[^<]+ in the Card AI app\.<\/h2>/);
+      } else {
+        assert.match(html, /<h2>Try [^<]+ in Card AI\.<\/h2>/);
+      }
     }
     assert.doesNotMatch(html, /<h2>Start tracking your collection\.<\/h2>/);
     if (name !== 'chrome-extension.html') {
@@ -594,4 +604,31 @@ test('Chrome extension page and store copy stay accurate and discoverable', asyn
   assert.equal(screenshot.readUInt32BE(20), 800);
   assert.equal(promoTile.readUInt32BE(16), 440);
   assert.equal(promoTile.readUInt32BE(20), 280);
+});
+
+test('task navigation leads to existing app workflows with clear app-only copy', async () => {
+  const routes = [
+    '/card-identifier',
+    '/card-price-checker',
+    '/card-collection-tracker',
+    '/card-scanner-comparison-2026',
+  ];
+  const pages = await Promise.all(
+    ['index', 'card-identifier', 'card-price-checker', 'card-collection-tracker', 'pokemon-card-scanner'].map(
+      async (slug) => [slug, await readFile(fileURLToPath(new URL(`${slug}.html`, publicUrl)), 'utf8')],
+    ),
+  );
+
+  for (const [slug, html] of pages) {
+    const nav = html.match(/<nav class="primary-nav" aria-label="Card AI tasks">([\s\S]*?)<\/nav>/)?.[1];
+    assert.ok(nav, `${slug} has task navigation`);
+    for (const route of routes) assert.ok(nav.includes(`href="${route}"`), `${slug} links to ${route}`);
+    if (slug !== 'index') {
+      assert.match(html, /<p class="content-lede">In the Card AI app,/);
+      assert.match(html, /<h2>[^<]+ in the Card AI app\.<\/h2>/);
+    }
+  }
+
+  assert.match(pages[0][1], /<h1>Card AI\.<\/h1>/);
+  assert.match(pages[0][1], /Identify a card from a photo, check the available price/);
 });

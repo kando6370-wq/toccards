@@ -3,10 +3,11 @@ export default {
   "group": "feature",
   "linkLabel": "Card identifier",
   "title": "Trading Card Identifier From a Photo | Card AI",
-  "description": "Identify a trading card from a photo. AI card recognition suggests matching catalog records with the set and card number for you to review.",
+  "description": "Identify a card from a photo with the Card AI trading card scanner app. Review likely catalog matches by set and card number before checking available prices.",
   "eyebrow": "Identification",
   "h1": "Trading card identifier.",
-  "lede": "Use Card AI as a trading card scanner app when the card is in front of you: it narrows the catalog to likely matches, and you confirm the printing that decides the price.",
+  "lede": "In the Card AI app, photograph a card to find likely catalog matches. Review the set and card number, then confirm the printing before checking its available price.",
+  "ctaTitle": "Identify a card in the Card AI app.",
   "proof": {
     "kind": "scan",
     "title": "See the candidate before you confirm the card.",

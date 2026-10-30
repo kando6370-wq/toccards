@@ -6,7 +6,8 @@ export default {
   "description": "Scan Pokemon cards to find matching set and card records, confirm the printing, then check raw and graded market values and track your collection.",
   "eyebrow": "Pokemon",
   "h1": "Pokemon card scanner and value checker.",
-  "lede": "Point your camera at a Pokemon card. The Pokemon card value scanner suggests likely catalog matches for you to confirm before checking available prices.",
+  "lede": "In the Card AI app, photograph a Pokemon card to find likely catalog matches. Confirm its printing before checking available prices or adding it to your collection.",
+  "ctaTitle": "Scan Pokemon cards in the Card AI app.",
   "proof": {
     "kind": "scan",
     "title": "Review the printing before checking its value.",

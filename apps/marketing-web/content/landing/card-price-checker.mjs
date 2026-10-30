@@ -3,10 +3,11 @@ export default {
   "group": "feature",
   "linkLabel": "Card price checker",
   "title": "Card Price Checker: What Is My Card Worth? | Card AI",
-  "description": "Check a trading card's published raw or graded price and history. Supported sports cards also provide an eBay search link for separate market research.",
+  "description": "Use the Card AI app to check a trading card's available published raw or graded price and history after confirming the exact printing.",
   "eyebrow": "Prices",
   "h1": "Trading card price checker.",
-  "lede": "Scan or search for a card, confirm its condition or existing grade, and inspect the available published price and history. Supported sports cards also link to eBay search.",
+  "lede": "In the Card AI app, scan or search for a card, confirm its printing and condition or existing grade, then inspect its available published price and history.",
+  "ctaTitle": "Check card prices in the Card AI app.",
   "proof": {
     "kind": "prices",
     "title": "Inspect the price behind the card record.",
