@@ -2,7 +2,7 @@
 
 当前 `dev` 即本手册的 Linux 环境，`prod` 保持原 Cloudflare 运行与发布方式；已退役的旧 CF dev 不是第三个业务环境或后续发布目标。
 
-仓库最近保留的独立验收记录为 2026-10-12 的 `dev@e8d1dd9`：watcher／release 与运行文件一致，API／DB healthy、Web running、migration exited/0，PostgreSQL ledger 14 项／最新 `0013`，Admin 11 个静态文件匹配。见 [v1.1.2 历史证据摘要](../releases/v1.1.2/03-data-api/app-backward-compatibility-ai-guide.md#63-保留的历史证据摘要)。该记录早于 C03 后续整理；当前服务器运行版本需另行回读，不能由源码推断。下方 2026-09-15 至 2026-09-23 的配置与发布情况按原日期保留。
+最近一次独立验收为 2026-10-30 的 `dev@dad3f3a1`：用户授权强制重部署仅含 Flutter／文档增量的同一 dev SHA，release 为 `branch-dev-dad3f3a1faf4-20261030095548`；watcher／current／manifest／运行文件一致，API／DB healthy、Web running，PostgreSQL ledger 17 项／最新 `0016`，Admin 11 个静态文件匹配。见 [v1.1.3 验证记录](../releases/v1.1.3/05-delivery/VERIFICATION.md#dev-scan-portrait-redeploy-20261030)。源码或历史文档仍不能替代当前服务器回读；下方 2026-09-15 至 2026-09-23 的配置与发布情况按原日期保留。
 
 > 适用项目：`toccards`
 >
@@ -12,9 +12,9 @@
 >
 > 自动部署分支：`dev`
 >
-> 最近一条已记录的独立验收：2026-10-12，`dev@e8d1dd9`（历史证据，当前运行状态需另行回读）
+> 最近一条已记录的独立验收：2026-10-30，`dev@dad3f3a1`／`branch-dev-dad3f3a1faf4-20261030095548`
 >
-> 验收边界：已记录运行文件、容器状态、migration ledger 和 Admin 静态文件核对；未完成数据库恢复、正式旧包／真机或生产验收
+> 验收边界：已记录运行文件、容器状态、migration ledger、备份目录可读性和 Admin 静态文件核对；未完成数据库恢复、Flutter 真机或生产验收
 
 Linux 整改已通过 `75c0ec4` 合入 dev，保留该分支原有的后台筛选改动；该提交及 `a419415` release 现在都是历史检查点。2026-09-23 的历史 release 为 `branch-dev-f9feac7b16b5-20260923103511`，运行 bundle 包含 HTTP 向量适配与 Sports Shop eBay 入口；原数据库及图片卷保留，ledger 为 14 项。发布前 1,135,250,246 字节 custom-format 备份通过 PostgreSQL 18 `pg_restore --list`，未执行恢复。日常手工 SSH 发布仍需配置非交互 key/agent；本次通过交互 SSH 只读核验已由服务器 watcher 完成的自动发布，没有执行手工重发。后续只改 Flutter/文档的 `d8f0aa2` 仅更新 `last-seen-sha`，没有替换 Linux release。完整证据见[验证记录](../releases/v1.1.0/05-delivery/VERIFICATION.md#sports-shop-linux-dev-自动发布回读2026-09-23)。
 

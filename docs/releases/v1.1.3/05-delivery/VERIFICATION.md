@@ -6,6 +6,17 @@
 
 本版本初始运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下按时间分别记录本地增量、实际部署与运行验证；历史记录不替代当前远端状态回读。
 
+<a id="dev-scan-portrait-redeploy-20261030"></a>
+## Linux dev 扫描竖屏修复合并与强制重部署（2026-10-30 09:50–10:02）
+
+- Git 与合并：用户在明确得知 Linux 发布不分发 Flutter App、功能分支直接部署会回退 dev 后选择“先合并并推送 dev，再部署 API／Admin，同时构建 Android dev 测试包”。从干净且与 `github/dev` 一致的 `dev@a0bcf80d89f03e14e63bf3f31213dedb55d475a7` 非快进合入 `codex/dev-1.0.7scan@8d4f9ae2daf5fe6278cb142f8e4368a64e8133a3`，生成 `dev@dad3f3a1faf464f40d3fe7d0d93f6c82f80ab52d`；合并无冲突，保留 dev 独有 42 个提交，只带入方向修复的两个来源提交。随后普通推送 `github/dev`，远端完整 SHA 回读一致。
+- Flutter 验证与制品：生产 SystemChrome gateway、Scan 页面非既有相机阶段 Golden 集合及原生裁剪共 3 文件／143 项通过；四项既有相机阶段 390×844 Golden 明确排除，Review Golden 通过。相关 6 个实现／测试文件 analyze 无问题；使用 `config/test.json` 的环境定向 2 文件／6 项通过。执行 `flutter build apk --debug --no-pub --dart-define-from-file=config/test.json` 成功，保留 `build/app/outputs/flutter-apk/kando-dev-dad3f3a1-debug.apk`，大小 296,764,943 字节，SHA-256 `6e0f5f8a69fb8f4eab2b5be16ea8e5b6a95e49e2daea0a88e76ef2a6ea1bde3d`；该包使用 `APP_ENV=test`，业务 API 为 `http://192.168.50.201:8080/api/v1`。
+- Linux 本地预检：标准 `deploy:dry-run:dev` 完成 Admin development 1,526 模块构建和 Linux bundle 3／3；发布包为 2,141,704 字节，SHA-256 `98249bbcc96146759bfaf7c287a1a3c4a319a79ba347853fcfbf37a548cc1f0f`。该步骤没有连接服务器、迁移或部署。
+- watcher 发布：推送后的普通 watcher 检查正确判定本次只有 Flutter／文档／Agent 规则变化，无 Linux 影响，仅把 `last-seen` 推进到 `dad3f3a1`，运行版本仍为 `9365f16d`。为落实用户已确认的 API／Admin 重部署，随后通过同一 watcher 执行 `TOCCARDS_FORCE_DEPLOY=1`；发布锁生效，两个 cron 周期检测到占用后退出，没有并发启动第二次部署。远端 Workers 定向 11 文件／116 项、Node 预检／静态服务 13／13、Linux bundle 3／3 通过；实际预检确认 `toccards_test`、PostgreSQL 18、识别服务可达、`pendingMigrations=[]`。
+- 备份与运行：发布前备份 `toccards-test-20261030-095551-before-branch-dev-dad3f3a1faf4-20261030095548.dump` 为 1,137,119,430 字节，PostgreSQL 18 容器 `pg_restore --list` 读取 336 个非注释目录项，未做恢复演练。release 为 `branch-dev-dad3f3a1faf4-20261030095548`；发布完成时 `current`、manifest、`current-release`、`last-seen`、`last-deployed` 均指向 `dad3f3a1`，失败标记不存在。API／DB healthy、Web running，ledger 保持 17 项／最新 `0016_cards_all_created_order_indexes.sql`，没有执行新 migration。
+- 独立验收：release 与 API 容器 `/app/server.mjs` SHA-256 均为 `9eededf5e392a75d4efd1de7368bf83d18f7b04a5cf1a0de4a248c1998386eea`；Admin release 与容器均为 11 个文件，聚合 SHA-256 均为 `364968e5ce38344ce940787e981a95cfc920019d7bf6e314112619686bd1f045`。开发机 health 返回 200／`{"status":"ok"}`，Admin 返回 200，未登录 auth/me 返回 401，10 个 JS／CSS 资源均返回 200。
+- 边界：Linux 重部署只更新 API／Admin，不会把 Flutter 修复安装到手机；上述 Android dev APK 仅完成构建和留存，未安装或执行 Android 真机横拿验收。Windows 主机未执行 iOS 构建、签名或真机测试；未修改 prod／Cloudflare、数据库 schema／业务数据、Secret、私有环境或 watcher 配置。备份保留但未恢复演练，真实扫描准确率、方向切换、相机预览与照片裁剪仍需测试设备验收。后续仅记录本次验收的纯文档提交不构成再次发布，watcher 可只推进 `last-seen`，运行 `current`／`last-deployed` 继续以 `dad3f3a1` 为准。
+
 <a id="dev-japanese-ocr-cards-filter-release-20261029"></a>
 ## Linux dev Cards 图片过滤发布与 Japanese OCR Git 交付（2026-10-29 18:05–18:31）
 
