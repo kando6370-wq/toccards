@@ -6,6 +6,17 @@
 
 本版本初始运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下按时间分别记录本地增量、实际部署与运行验证；历史记录不替代当前远端状态回读。
 
+<a id="dev-ux-loading-release-20261102"></a>
+## Linux dev 合并与重新部署（2026-11-02 14:07–14:16）
+
+- 授权与 Git：用户要求将当前分支合入 dev 并重新部署 kd201。起始工作区干净；fetch 后 `codex/dev-1.0.7scan@1cd9e04c` 与其远端一致，`dev/github/dev` 均为 `fb06460f`。将功能分支独有的 `c325876a`、`d19e52d6`、`1cd9e04c` 通过非快进合并提交 `fe5e319ff051fe2bd297c3789c6fe9b25ebf21ba` 合入并推送 dev，独立回读远端 SHA 一致。两处文档冲突保留 2026-10-30 已发布事实并区分 11-02 新增范围；业务代码无冲突，dev 原有营销站改动与 `routePath(context)` 热修保留。本轮没有新增 schema 或 migration。
+- 合并后本地验证：`pnpm --filter @kando/workers-api test src/portfolio src/admin/feedback-pagination.postgres.test.ts src/admin/routes.test.ts src/request-id.test.ts src/request-performance.test.ts --maxWorkers=1` 为 18 文件／154 项通过；`pnpm --filter @kando/admin-web test` 为 85／85，Admin `type-check`、根 `pnpm lint`、`pnpm type-check --force` 均退出 0，7 个任务实际执行、无缓存复用。合并索引无未解决条目，`git diff --cached --check` 通过；独立审查确认功能分支改动及 dev 既有代码均保留。
+- 发布：SSH 回读原运行版本为 `c5908c32`，API／DB healthy、Web running，watcher／deploy 锁空闲。使用既有 `TOCCARDS_FORCE_DEPLOY=1 watcher/watch-branch.sh`，沿用两级锁、冻结依赖安装和标准发布脚本；定时 watcher 遇锁退出，没有并发发布。服务器 Workers 定向 11 文件／122 项、Node 部署检查 13／13、Linux bundle 3／3 通过，Admin development 与 Linux API 构建成功。实际发布预检确认 PostgreSQL 18、两种识别服务可达且 `pendingMigrations=[]`。
+- 发布前备份：`toccards-test-20261102-141150-before-branch-dev-fe5e319ff051-20261102141148.dump` 为 1,137,126,970 字节；独立使用 PostgreSQL 18 容器 `pg_restore --list` 成功读取 339 个非注释目录项。备份保留，未执行恢复演练。
+- 版本与运行：release 为 `branch-dev-fe5e319ff051-20261102141148`，`current`、`current-release`、manifest、watcher `last-seen` 与 `last-deployed` 均对应 `fe5e319f`，失败标记不存在。API／DB healthy、Web running、migration exited/0；独立只读查询确认数据库 `toccards_test`、PostgreSQL 18.6、ledger 18 项／最新 `0017_cards_visible_numeric_order_indexes.sql`，本轮未执行新增 SQL migration。私有环境文件、watcher 配置与入口脚本发布前后 SHA-256 均一致。
+- 产物与 HTTP：API bundle、source map 及 Web 服务脚本与 release 哈希一致；Admin 11 个文件在 release、运行容器及 HTTP 返回间逐字节一致。13 项服务器 HTTP 检查通过：Admin／health／iOS App 配置／Games／Pokemon Cards 与 Sets 搜索为 200，原 auth/me、Admin 反馈／扫描、旧 portfolio/items 及新 collection/items、collection/summary、单卡 assets 的未登录请求均为 401。另从 Windows 内网独立访问 health 与 Admin，均为 200 且内容符合预期。以上鉴权烟测不代表真实账号的收藏／反馈业务验收。
+- 边界：仅部署 Linux dev API／Admin，未发布 Flutter APK／IPA、营销站或 prod，未修改 Secret／私有配置或执行业务写入。未重跑完整 Workers、Flutter workspace 或旧 App 源码兼容编排，未回查托管 CI；本轮验证合并后的受影响服务端与后台范围，已记录的 Flutter 421 项等仍属功能分支历史证据。真机扫描、登录态后台交互、真实账号性能与 P50/P95 未验，历史 Golden 未通过／未运行边界不因本次部署关闭。后续仅补充文档的 dev 提交不改变本检查点实际运行的代码版本。
+
 <a id="dev-performance-release-20261030"></a>
 ## Linux dev 查询性能优化、0017 与日志热修复发布（2026-10-30 13:19–13:55）
 

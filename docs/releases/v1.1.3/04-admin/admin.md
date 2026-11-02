@@ -16,7 +16,7 @@ UID、问题类型、处理状态及开始／结束日期先保留为草稿，�
 
 扫描详情点击后立即打开加载状态；切换记录会取消旧请求并更新请求序号，关闭抽屉或离开页面使旧响应失效。即使取消未被底层请求执行，晚到结果也不能覆盖新选择或重新打开已关闭的抽屉。当前请求失败在抽屉显示错误并可重试；原鉴权、401 处理、详情内容和私有图片访问保持。
 
-本轮为配套 API／Admin 本地修改，远端需另行授权发布；实际验证与未验项见[验证记录](../05-delivery/VERIFICATION.md#project-optimization-20261102)。
+配套 API／Admin 已于 2026-11-02 随 `dev@fe5e319f` 发布 Linux dev，prod 未发布本增量；开发验证见[本地记录](../05-delivery/VERIFICATION.md#project-optimization-20261102)，部署及真实登录态交互未验边界见[发布记录](../05-delivery/VERIFICATION.md#dev-ux-loading-release-20261102)。
 
 ## 扫描列表读取与图片复用（2026-10-30）
 
@@ -36,4 +36,4 @@ SKU 与 UID、原始交易 ID、订单 ID、环境、主／子通知类型和创
 
 不传 SKU 时保持原行为，包括继续显示尚未产生结构化通知、因而没有 SKU 的验签／处理失败 inbox；传入 SKU 时，这类无 SKU 记录自然不匹配。该增量复用既有 `apple_server_notification.product_id`，不新增数据库字段、migration、写入路径或通知处理逻辑。
 
-本文件描述当前本地源码合同，不代表 dev／prod 已部署或真实后台交互已验收；上线需要配套更新 Admin 与 API，旧 API 尚不返回 `skus`。实际验证边界见[验证记录](../05-delivery/VERIFICATION.md)。
+本文件描述当前源码合同；Linux dev 已配套发布 Admin 与 API，见[2026-11-02 发布记录](../05-delivery/VERIFICATION.md#dev-ux-loading-release-20261102)，不代表 prod 发布或真实后台交互已验收。其他环境上线仍需配套更新 Admin 与 API，旧 API 不返回 `skus`。

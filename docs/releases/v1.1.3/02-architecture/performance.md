@@ -1,6 +1,6 @@
 # 查询、缓存与列表性能
 
-更新日期：2026-11-02（Asia/Shanghai）。2026-10-30 的查询、缓存、索引与日志热修已随 `dev@c5908c32` 发布 Linux dev，见[性能发布记录](../05-delivery/VERIFICATION.md#dev-performance-release-20261030)。本文新增的 2026-11-02 收藏 API、客户端加载与扫描体验优化在合并时尚未部署；后续交付以[实际验证记录](../05-delivery/VERIFICATION.md)为准。prod 尚未部署上述增量；dev 的单次计划与冷／热烟测不代表真实流量 P50/P95 或 prod 验收通过。
+更新日期：2026-11-02（Asia/Shanghai）。2026-10-30 的查询、缓存、索引与日志热修已随 `dev@c5908c32` 发布 Linux dev，见[性能发布记录](../05-delivery/VERIFICATION.md#dev-performance-release-20261030)。2026-11-02 收藏 API 与后台增量已随 `dev@fe5e319f` 配套发布 Linux dev，见[本次发布记录](../05-delivery/VERIFICATION.md#dev-ux-loading-release-20261102)；客户端加载与扫描体验优化已合入 dev，本次没有发布 Flutter 制品。prod 尚未部署上述增量；dev 的单次计划与冷／热烟测不代表真实流量 P50/P95 或 prod 验收通过。
 
 ## 请求级观测
 

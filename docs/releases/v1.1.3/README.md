@@ -6,6 +6,7 @@ v1.1.2 已原位归档，不复制其产品、流程、架构、数据/API、Adm
 
 ## 当前基线
 
+- Linux dev 于 2026-11-02 发布 `dev@fe5e319f` 的 API／Admin，包含收藏分页／摘要／单卡资产接口及后台修复；运行版本、备份、产物和未验边界见[发布记录](05-delivery/VERIFICATION.md#dev-ux-loading-release-20261102)。Flutter 制品与 prod 未在本次发布。
 - [v1.1.2 开发归档](../v1.1.2/README.md)保留 App 1.0.6、订阅展示配置、动态商品准入、Admin、兼容规则及生产交付历史。
 - v1.1.2 的[生产收尾记录](../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)是本版本的运行起点，不因创建 v1.1.3 重新记为部署或验收。
 - App 向后兼容原则继续以 v1.1.2 的[人员阅读版](../v1.1.2/05-delivery/app-backward-compatibility-plan.md)和[AI 执行版](../v1.1.2/03-data-api/app-backward-compatibility-ai-guide.md)为规则真源；v1.1.3 的新增兼容证据写入本版本受影响业务文档或[验证记录](05-delivery/VERIFICATION.md)，不回写归档版本。
