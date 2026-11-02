@@ -389,6 +389,183 @@ export function createPortfolioRoutes(
     });
   });
 
+  routes.get("/collection/summary", async (c) => {
+    const auth = await authenticateOwner(c.env, c.req.header("Authorization"));
+    if (auth.status === "internal_error") return c.json(INTERNAL_ERROR_RESPONSE, 500);
+    if (auth.status === "unauthorized") return c.json(UNAUTHORIZED_RESPONSE, 401);
+    const [folders, portfolio, wishlist] = await Promise.all([
+      listFolders(c.env.DB, auth.owner),
+      listCollectionItems(c.env.DB, auth.owner),
+      listWishlistItems(c.env.DB, auth.owner),
+    ]);
+    const enriched = await enrichCollectionDashboard(c.env.DB, portfolio, wishlist);
+    const prices = new Map(enriched.portfolio_items.map((item) => [item.id, item.market_price_usd]));
+    const languages = new Map(enriched.portfolio_items.map((item) => [item.id, item.market_language]));
+    return c.json({
+      success: true,
+      data: {
+        folders: folders.map((folder) => {
+          const items = portfolio.filter((item) => item.folder_id === folder.id);
+          const priced = items.filter((item) => prices.get(item.id) != null);
+          return {
+            folder_id: folder.id,
+            card_count: items.reduce((sum, item) => sum + item.quantity, 0),
+            graded_count: items.filter((item) => item.grader !== "Raw")
+              .reduce((sum, item) => sum + item.quantity, 0),
+            total_value_usd: items.length > 0 && priced.length === 0
+              ? null
+              : priced.reduce((sum, item) => sum + prices.get(item.id)! * item.quantity, 0),
+            languages: [...new Set(items.map((item) => collectionDisplayLanguage(item.language, languages.get(item.id))))].sort(),
+            item_count: items.length,
+          };
+        }),
+        wishlist_count: enriched.wishlist_items.length,
+        games: [...new Set([
+          ...enriched.portfolio_items.map((item) => item.game.trim()),
+          ...enriched.wishlist_items.map((item) => item.game.trim()),
+        ])].sort(),
+        wishlist_languages: [...new Set(enriched.wishlist_items
+          .map((item) => collectionDisplayLanguage(null, item.market_language)))].sort(),
+      },
+    });
+  });
+
+  routes.get("/collection/items", async (c) => {
+    const auth = await authenticateOwner(c.env, c.req.header("Authorization"));
+    if (auth.status === "internal_error") return c.json(INTERNAL_ERROR_RESPONSE, 500);
+    if (auth.status === "unauthorized") return c.json(UNAUTHORIZED_RESPONSE, 401);
+    const tab = c.req.query("tab") ?? "portfolio";
+    const sort = c.req.query("sort") ?? "newest";
+    if ((tab !== "portfolio" && tab !== "wishlist") ||
+        !["newest", "value_desc", "value_asc", "change_desc", "name_asc", "performance_desc"].includes(sort)) {
+      return c.json(VALIDATION_ERROR_RESPONSE, 422);
+    }
+    const page = positiveIntegerOrDefault(c.req.query("page"), 1);
+    const pageSize = positiveIntegerOrDefault(c.req.query("page_size"), 40, 100);
+    const query = (c.req.query("q") ?? "").trim().toLowerCase();
+    const games = new Set(c.req.queries("game") ?? []);
+    const languages = new Set(c.req.queries("language") ?? []);
+    const performanceIds = c.req.queries("performance_id") ?? [];
+    const [folders, preference] = await Promise.all([
+      listFolders(c.env.DB, auth.owner),
+      findUserPreference(c.env.DB, auth.owner),
+    ]);
+    if (!preference) return c.json(NOT_FOUND_RESPONSE, 404);
+    const folderId = c.req.query("folder_id") ?? folders.find((folder) => folder.is_default)?.id ?? folders[0]?.id;
+    if (tab === "portfolio" && !folders.some((folder) => folder.id === folderId)) {
+      return c.json(NOT_FOUND_RESPONSE, 404);
+    }
+    const offset = (page - 1) * pageSize;
+    const directPage = sort === "newest" && !query && games.size === 0 && languages.size === 0;
+    if (directPage) {
+      const ownerBindings = [auth.owner.owner_type, auth.owner.owner_id];
+      const selected = tab === "portfolio"
+        ? { sql: `${SELECT_COLLECTION_ITEMS_SQL} AND folder_id = ?`, bindings: [...ownerBindings, folderId], order: "folder_joined_at" }
+        : { sql: SELECT_WISHLIST_ITEMS_SQL, bindings: ownerBindings, order: "created_at" };
+      const table = tab === "portfolio" ? "collection_item" : "wishlist_item";
+      const folderCondition = tab === "portfolio" ? " AND folder_id = ?" : "";
+      const { results = [] } = await c.env.DB.prepare(`
+        WITH total AS (
+          SELECT COUNT(*) AS total FROM ${table}
+          WHERE owner_type = ? AND owner_id = ?${folderCondition}
+        ), page AS (
+          ${selected.sql}
+          ORDER BY ${tab === "portfolio" ? "COALESCE(folder_joined_at, created_at)" : "created_at"} DESC, id ASC
+          LIMIT ? OFFSET ?
+        )
+        SELECT total.total, page.* FROM total LEFT JOIN page ON TRUE
+        ORDER BY page.${selected.order} DESC NULLS LAST, page.id ASC
+      `).bind(...selected.bindings, ...selected.bindings, pageSize, offset)
+        .all<(CollectionItemRow | WishlistItemRow) & { total: number }>();
+      const total = Number(results[0]?.total ?? 0);
+      const rows = results.filter((row) => row.id !== null);
+      const enriched = tab === "portfolio"
+        ? await enrichCollectionDashboard(c.env.DB, rows as CollectionItemRow[], [])
+        : await enrichCollectionDashboard(c.env.DB, [], rows as WishlistItemRow[]);
+      return c.json({ success: true, data: {
+        folders: folders.map(folderResponse), preference: userPreferenceResponse(preference),
+        folder_id: folderId, items: tab === "portfolio" ? enriched.portfolio_items : enriched.wishlist_items,
+        total, base_count: total, page, page_size: pageSize,
+      } });
+    }
+
+    const [portfolio, wishlist] = await Promise.all([
+      tab === "portfolio" ? listCollectionItems(c.env.DB, auth.owner) : Promise.resolve([]),
+      tab === "wishlist" ? listWishlistItems(c.env.DB, auth.owner) : Promise.resolve([]),
+    ]);
+    const enriched = await enrichCollectionDashboard(c.env.DB, portfolio, wishlist);
+    const scopedItems = (tab === "portfolio" ? enriched.portfolio_items : enriched.wishlist_items as typeof enriched.portfolio_items)
+      .map((item) => item as typeof item & { folder_id?: string; language?: string | null; folder_joined_at?: string })
+      .filter((item) => tab === "wishlist" || item.folder_id === folderId);
+    const items = scopedItems
+      .filter((item) => !query || `${item.name.trim()} ${item.set_name.trim()} ${item.card_number.trim() ? `#${item.card_number.trim()}` : "--"} ${item.game.trim()}`.toLowerCase().includes(query))
+      .filter((item) => games.size === 0 || games.has(item.game.trim()))
+      .filter((item) => languages.size === 0 || languages.has(collectionDisplayLanguage(item.language, item.market_language)));
+    const ranks = new Map(performanceIds.map((id, index) => [id, index]));
+    items.sort((left, right) => {
+      if (sort === "value_desc" || sort === "value_asc") {
+        const a = left.market_price_usd;
+        const b = right.market_price_usd;
+        if (a === null) return b === null ? 0 : 1;
+        if (b === null) return -1;
+        return sort === "value_desc" ? b - a : a - b;
+      }
+      if (sort === "change_desc") {
+        const a = left.increase_percent;
+        const b = right.increase_percent;
+        if (a === null) return b === null ? 0 : 1;
+        if (b === null) return -1;
+        return b - a;
+      }
+      if (sort === "name_asc") {
+        const leftName = left.name.trim();
+        const rightName = right.name.trim();
+        return leftName < rightName ? -1 : leftName > rightName ? 1 : 0;
+      }
+      if (sort === "performance_desc") {
+        const a = ranks.get(left.id);
+        const b = ranks.get(right.id);
+        if (a !== undefined && b !== undefined) return a - b;
+        if (a !== undefined) return -1;
+        if (b !== undefined) return 1;
+      }
+      const leftTime = left.folder_joined_at ?? left.created_at;
+      const rightTime = right.folder_joined_at ?? right.created_at;
+      return rightTime < leftTime ? -1 : rightTime > leftTime ? 1 : 0;
+    });
+    return c.json({ success: true, data: {
+      folders: folders.map(folderResponse), preference: userPreferenceResponse(preference),
+      folder_id: folderId, items: items.slice(offset, offset + pageSize),
+      total: items.length, base_count: scopedItems.length, page, page_size: pageSize,
+    } });
+  });
+
+  routes.get("/portfolio/cards/:card_ref/assets", async (c) => {
+    const auth = await authenticateOwner(c.env, c.req.header("Authorization"));
+    if (auth.status === "internal_error") return c.json(INTERNAL_ERROR_RESPONSE, 500);
+    if (auth.status === "unauthorized") return c.json(UNAUTHORIZED_RESPONSE, 401);
+
+    const cardRef = requiredString(c.req.param("card_ref"));
+    if (!cardRef) return c.json(VALIDATION_ERROR_RESPONSE, 422);
+    const [folders, items, wishlist] = await Promise.all([
+      listFolders(c.env.DB, auth.owner),
+      c.env.DB.prepare(`${SELECT_COLLECTION_ITEMS_SQL} AND card_ref = ?`)
+        .bind(auth.owner.owner_type, auth.owner.owner_id, cardRef)
+        .all<CollectionItemRow>(),
+      c.env.DB.prepare(`${SELECT_WISHLIST_ITEMS_SQL} AND card_ref = ?`)
+        .bind(auth.owner.owner_type, auth.owner.owner_id, cardRef)
+        .all<WishlistItemRow>(),
+    ]);
+    return c.json({
+      success: true,
+      data: {
+        folders: folders.map(folderResponse),
+        items: (items.results ?? []).map(collectionItemResponse),
+        wishlist_items: (wishlist.results ?? []).map(wishlistItemResponse),
+      },
+    });
+  });
+
   routes.get("/portfolio/valuation-history", async (c) => {
     const auth = await authenticateOwner(
       c.env,
@@ -1765,6 +1942,13 @@ function itemSortBy(
   return ITEM_SORT_FIELDS.has(value ?? "")
     ? (value as "folder_joined_at" | "created_at" | "updated_at" | "card_ref")
     : "folder_joined_at";
+}
+
+function collectionDisplayLanguage(
+  language: string | null | undefined,
+  marketLanguage: string | null | undefined,
+): string {
+  return language?.trim() || marketLanguage?.trim() || "Unknown";
 }
 
 function sortWishlistItems(

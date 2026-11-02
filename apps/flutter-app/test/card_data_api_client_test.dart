@@ -352,6 +352,45 @@ void main() {
   );
 
   test(
+    'searchSetPage reads one requested page so browsing does not wait for the whole game catalog',
+    () async {
+      var calls = 0;
+      final adapter = _RecordingAdapter((request) {
+        calls += 1;
+        expect(request.path, '/sets/search');
+        expect(request.queryParameters, {
+          'q': 'Base',
+          'game': 'Pokemon',
+          'page': '2',
+          'page_size': '40',
+        });
+        return _json(200, {
+          'success': true,
+          'data': {
+            'items': [
+              {
+                'set_id': 'base-2',
+                'set_code': 'BS2',
+                'set_name': 'Base Set 2',
+                'game': 'Pokemon',
+                'image_url': null,
+                'card_count': 1,
+              },
+            ],
+          },
+        });
+      });
+
+      final sets = await CardDataApiClient(
+        _dio(adapter),
+      ).searchSetPage('Base', game: 'Pokemon', page: 2);
+
+      expect(calls, 1);
+      expect(sets.single.setId, 'base-2');
+    },
+  );
+
+  test(
     'cardsForSet sends the unique set id because one game can reuse a set code',
     () async {
       final adapter = _RecordingAdapter((request) {

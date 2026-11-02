@@ -805,13 +805,15 @@ class CardDetailController extends Notifier<CardDetailState> {
     if (!state.isLoading && !state.isUnavailable) {
       _priceDataBySelection.remove((state.priceFinish, state.detail.language));
     }
+    final priceGeneration = _priceLoadGeneration;
+    final finish = state.priceFinish;
     return _refreshSection(
+      stillCurrent: () =>
+          priceGeneration == _priceLoadGeneration &&
+          finish == state.priceFinish,
       status: (value) => state = state.copyWith(priceSeriesStatus: value),
       load: (repository, isCurrent) async {
-        final data = await repository.loadPriceSeries(
-          cardId,
-          finish: state.priceFinish,
-        );
+        final data = await repository.loadPriceSeries(cardId, finish: finish);
         if (!isCurrent()) return;
         state = state.copyWith(
           detail: state.detail.copyWith(
@@ -846,12 +848,17 @@ class CardDetailController extends Notifier<CardDetailState> {
     if (!state.isLoading && !state.isUnavailable) {
       _priceDataBySelection.remove((state.priceFinish, state.detail.language));
     }
+    final priceGeneration = _priceLoadGeneration;
+    final finish = state.priceFinish;
     return _refreshSection(
+      stillCurrent: () =>
+          priceGeneration == _priceLoadGeneration &&
+          finish == state.priceFinish,
       status: (value) => state = state.copyWith(marketPricesStatus: value),
       load: (repository, isCurrent) async {
         final data = await repository.loadMarketPrices(
           cardId,
-          finish: state.priceFinish,
+          finish: finish,
           language:
               state.collectionItemDraft?.language ?? state.detail.language,
         );
@@ -1820,13 +1827,15 @@ class CardDetailController extends Notifier<CardDetailState> {
       bool Function() isCurrent,
     )
     load,
+    bool Function()? stillCurrent,
   }) async {
     if (state.isUnavailable || state.isLoading) return;
     final repository = _repository;
     if (repository is! CardDetailSectionRepository) return;
     final sectionRepository = repository as CardDetailSectionRepository;
     final generation = _loadGeneration;
-    bool isCurrent() => generation == _loadGeneration;
+    bool isCurrent() =>
+        generation == _loadGeneration && (stillCurrent?.call() ?? true);
     status(KandoLoadStatus.loading);
     try {
       await load(sectionRepository, isCurrent);

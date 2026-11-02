@@ -20,14 +20,24 @@ class SearchCatalogLoadResult {
   const SearchCatalogLoadResult({
     required this.catalog,
     this.failedSearchTabs = const {},
+    this.pendingSets,
   });
 
   final SearchCatalog catalog;
   final Set<SearchTab> failedSearchTabs;
+  final Future<List<SearchSet>?>? pendingSets;
 }
 
 abstract interface class PaginatedSearchRepository {
   Future<List<SearchCard>> searchCardPage(
+    String query, {
+    String? game,
+    required int page,
+  });
+}
+
+abstract interface class PaginatedSetSearchRepository {
+  Future<List<SearchSet>> searchSetPage(
     String query, {
     String? game,
     required int page,
@@ -71,6 +81,7 @@ class HttpSearchRepository
     implements
         SearchCatalogLoadRepository,
         PaginatedSearchRepository,
+        PaginatedSetSearchRepository,
         SearchAssetRepository {
   const HttpSearchRepository(
     this._api, {
@@ -88,7 +99,16 @@ class HttpSearchRepository
 
   @override
   Future<SearchCatalog> loadCatalog() async {
-    return (await loadCatalogResult()).catalog;
+    final result = await loadCatalogResult();
+    final pendingSets = result.pendingSets;
+    if (pendingSets == null) return result.catalog;
+    final sets = await pendingSets;
+    if (sets == null) return result.catalog;
+    return SearchCatalog(
+      games: result.catalog.games,
+      cards: result.catalog.cards,
+      sets: sets,
+    );
   }
 
   @override
@@ -121,20 +141,30 @@ class HttpSearchRepository
       );
       final setsFuture = _settle(_api.searchSets('', game: setQuery));
       final cards = await cardsFuture;
-      final sets = await setsFuture;
-      if (cards.failed && sets.failed) {
-        Error.throwWithStackTrace(cards.error!, cards.stackTrace!);
+      if (cards.failed) {
+        final sets = await setsFuture;
+        if (sets.failed) {
+          Error.throwWithStackTrace(cards.error!, cards.stackTrace!);
+        }
+        return SearchCatalogLoadResult(
+          catalog: SearchCatalog(
+            games: games,
+            cards: const [],
+            sets: sets.value?.map(_setFromDto).toList() ?? const [],
+          ),
+          failedSearchTabs: const {SearchTab.cards},
+        );
       }
       return SearchCatalogLoadResult(
         catalog: SearchCatalog(
           games: games,
           cards: cards.value ?? const [],
-          sets: sets.value?.map(_setFromDto).toList() ?? const [],
+          sets: const [],
         ),
-        failedSearchTabs: {
-          if (cards.failed) SearchTab.cards,
-          if (sets.failed) SearchTab.sets,
-        },
+        pendingSets: setsFuture.then((sets) {
+          if (sets.failed) return null;
+          return sets.value?.map(_setFromDto).toList() ?? const <SearchSet>[];
+        }),
       );
     }
   }
@@ -168,6 +198,24 @@ class HttpSearchRepository
         ? await _api.searchSets(query, game: game)
         : await _setCatalogApi.searchCatalogSets(query, game: game);
     return sets.map(_setFromDto).toList();
+  }
+
+  @override
+  Future<List<SearchSet>> searchSetPage(
+    String query, {
+    String? game,
+    required int page,
+  }) async {
+    final api = _setCatalogApi;
+    if (api is PaginatedSetCatalogApi) {
+      final sets = await (api as PaginatedSetCatalogApi).searchSetPage(
+        query,
+        game: game,
+        page: page,
+      );
+      return sets.map(_setFromDto).toList();
+    }
+    return page == 1 ? searchSets(query, game: game) : const [];
   }
 
   @override

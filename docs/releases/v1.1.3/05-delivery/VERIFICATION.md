@@ -6,6 +6,23 @@
 
 当前运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下记录只代表 v1.1.3 本地增量及实际执行的验证，不改变远端运行状态。
 
+<a id="ux-loading-optimization-20261102"></a>
+## 保持布局的用户体验与加载优化（2026-11-02）
+
+- 来源与授权：本段记录实现与验证阶段，来源为 `codex/dev-1.0.7scan@d19e52d6` 加当时未提交的修改，后续 Git 交付不改变下述验证边界。用户要求按后续体验／性能检查优化，并明确保留启动固定展示时长、首次引导与订阅门禁，以及整批扫描完成后才进入 Review。页面字体、颜色、卡片尺寸、间距与按钮位置保持；不修改 Golden 基线。新接口与成本边界见[收藏读模型](../03-data-api/collection-read-model.md)，图片及预热见[性能说明](../02-architecture/performance.md#用户体验与图片加载2026-11-02-后续增量)，候选与重试见[扫描流程](../01-flows/scan-recognition.md#候选就绪相册导入与弱网重试2026-11-02-后续增量)。
+- 竞态修复证据：Set 详情的旧分页成功／失败会在刷新后写回，两个新增 widget 用例先失败；卡详情材质切换期间，旧重试曾把新材质的 25 美元覆盖成测试中的 999 美元，旧图表错误也会覆盖新材质状态，两项先失败。分别补加载代次及价格选择代次校验后通过；Set 详情文件 10/10、卡详情控制器当时 47/47。后续包含单卡资产仓库路径的卡详情测试与客户端测试合跑 80/80，未把这些不同阶段的重叠计数相加。
+- Search：Cards 首批成功后先发布内容，Sets 独立完成／失败；Sets 宽查询改为每页 40 条滚动续载，保持服务端排序与原系列行布局。Search controller 39/39、Search page 52/52、Card Data 原 18 项及新增分页 1 项通过。覆盖慢 Sets、查询／Game 换代、后续页失败重试、末页空结果和行尺寸。审查核实初始 `searchSets` 原本只取一页，真正的旧全量循环是 `searchCatalogSets`，不混淆两者。
+- 图片与启动：用实际 Flutter codec 对同一 1400×2000 合成 PNG 验证常用移动端档位解码为 538×768、比例保持，而无尺寸限制的预览仍为 1400×2000。显示框 125×174 不变；缓存键区分解码尺寸。跨 Home／Search 预热最多 3 个并发、在途同 URL 复用、失败释放及销毁后不启动排队项有用例覆盖。图片网络 25 秒超时会取消原请求并显示原失败占位，不限制后续解码时间。
+- 首屏卡图预热：保持 Search `loadComplete` 原语义，只监听可用 Cards 状态启动图片预热；慢 Sets 或已被新刷新替代的旧 load 完成，都不能阻塞或提前结束当前 Cards 的预热等待。provider 销毁时解除等待并关闭监听。最终 `flutter test --no-pub test/app_startup_preloader_test.dart test/widget/kando_card_image_test.dart test/onboarding_gate_test.dart test/startup_subscription_gate_test.dart test/portfolio_api_client_test.dart` 61/61 通过，包含启动固定流程、Free／Premium／Unknown 门禁、图片及单卡资产／分页 DTO。图片首次尺寸测试因失败占位形成两个 Image 而使用了不唯一 finder，修正为检查外层显示框后通过，未修改产品布局。
+- 扫描：逐候选返回即合入缓存，Review 不等未选备选；实际确认门禁仍等待全部扫描和相册读取结束。候选读取中表单和 footer 保留原位置且禁用提交，晚到结果按 item/token/Review 会话隔离。相册先限数量再逐张读取入队；网络重试复用端侧处理，成功／删除及明确业务结果后释放，晚到失败不重新挂回缓存。source 17/17、新增慢备选／切回／读图门禁三个 widget 各 1/1、Review 19/19、gallery 4/4、batch 6/6、retry 1/1，以及 `Figma review renders at the 390x844 baseline` Golden 1/1 通过。筛选组存在重叠，不作为不重复总数；旧预载调用次数断言随逐候选调用从 1 调整为 3，价格晚到不得覆盖的核心断言保留。没有更新 Golden。
+- 服务端与静态检查：增加当前卡 owner 资产接口及分页／摘要接口，原 dashboard 和 V1 列表保留。PGlite 覆盖默认 SQL 限页、空页、owner 隔离、合法零价与缺价、全局排序／筛选／总值，以及 `base_count` 区分空收藏与无匹配。根 `pnpm lint` 通过；`pnpm type-check --force` 7 个任务实际执行成功、无缓存复用。
+- 收藏交互验证：controller／page 最终 85/85 通过，覆盖首批 40 条先于摘要显示、45 条滚动续页、全局统计／合法零价／缺价、Wishlist 分页、`base_count` 的立即空态、初始绩效排序、文件夹创建／删除及旧保存失败、旧币种／旧账号结果失效、打开筛选后补齐元数据及目录失败的 owned-games 兜底。摘要提供 `games` 复用已有补全数据，不增加 SQL；客户端另外验证实际 URI 的重复 `game/language/performance_id` 参数。审查中发现并修正：刷新期间旧列表续页抢走代次（修前请求 `[1,1,2]`，修后刷新未结束时仅 `[1,1]`，之后可继续第二页）；首次认证已 ready 时未初始化 state 被读取；筛选弹层遇到 loading／unavailable 的 dashboard 访问；新摘要失败挡住已有正确空态。新增反证在修后重新通过，未放宽业务断言。
+- 最终服务端完整回归：`pnpm --filter @kando/workers-api test --maxWorkers=1` 退出 0，101 文件／919 项通过，用时 352.63 秒，包含最终 `base_count/games` 字段；执行前记录的 portfolio 路由 SHA-256 与完成后源码一致。一次较早回归会话失去句柄且进程已不存在，无法取得退出结果，未计为通过；核实结束后重新运行并把输出／退出状态留在忽略目录 `.dart_tool/`，没有重启活跃任务或缩减测试范围。
+- 最终 Flutter 综合回归：`flutter test --no-pub --concurrency=2` 加 `app_startup_preloader_test.dart`、`widget/kando_card_image_test.dart`、`onboarding_gate_test.dart`、`startup_subscription_gate_test.dart`、`portfolio_api_client_test.dart`、`card_detail_controller_test.dart`、`card_data_api_client_test.dart`、`search_controller_test.dart`、`widget/search_page_test.dart`、`widget/set_detail_page_test.dart`、`collection_controller_test.dart`、`widget/collection_page_test.dart`、`scan_result_source_test.dart`、`home_controller_test.dart` 和 `widget/card_detail_page_test.dart` 共 15 文件／421 项通过，退出 0。上述分块验证是阶段证据，不与本次 421 项相加成全仓总数。复验保留原启动门禁、收藏管理、卡牌详情操作和共享图片调用方。
+- Code Review：图片／预热、Search／详情竞态、扫描候选／流式导入／重试和 Collection 新读模型／界面接线均经独立审查；已发现的请求代次、空态、元数据、布局和批次门禁问题完成最小返工并复验。最后源码已冻结，未遗留阻断项；静态分析、链接及范围检查以本轮最终记录为准。
+- 最终静态与范围核验：`flutter analyze --no-pub` 整个 App 无问题；根 `pnpm lint` 与 `pnpm type-check --force` 再次通过，7 个任务实际重跑。`git diff --check` 通过，受改文档的 54 个相对文件链接及 4 个新增／修改锚点有效。启动固定时长代码、订阅启动门禁、原卡图 URL、冻结 v1.0.0／v1.1.2 及 Golden 文件均没有差异。测试原始输出留在忽略目录，不纳入正式 docs 或提交产物。
+- 未验边界：实现与验证阶段没有执行 Git commit/push、dev/prod 部署、远程迁移、商店／签名制品或真机验收。没有测量实际账号 P50/P95、移动端低内存和真实弱网，也没有新增缩略图服务或磁盘缓存。完整旧 App 源码编排和完整 Flutter workspace 未运行；四个历史 camera-stage 390×844 Golden 未运行，本轮只证明实际执行的 Review Golden 和控件尺寸。复杂价格排序、全量摘要仍需精确的全量计算，不能把客户端分页和首屏更早呈现写成全服务端恒定成本。
+
 <a id="project-optimization-20261102"></a>
 ## 项目检查后的八项修复与优化（2026-11-02）
 

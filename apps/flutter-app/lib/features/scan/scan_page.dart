@@ -471,7 +471,12 @@ class _ScanPageState extends ConsumerState<ScanPage>
   int? _selectedReviewItemId;
   ScanReviewTarget? _reviewTarget;
   Map<String, ScanReviewCard> _reviewCards = const {};
+  final Set<String> _loadedReviewCardRefs = {};
   final Map<int, _ScanCollectionDraft> _reviewDrafts = {};
+  final Set<int> _loadingReviewCandidateIds = {};
+  final Map<int, int> _candidateLoadTokens = {};
+  var _nextCandidateLoadToken = 0;
+  var _reviewSession = 0;
   String? _reviewFormError;
   _ScanReviewSaveAction? _savingReviewAction;
   var _finishingReview = false;
@@ -510,6 +515,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   int get _pendingScanCount => _items.length;
 
   bool get _canReview {
+    if (_librarySelectionInFlight) return false;
     final processing = _items.any(
       (item) =>
           item.status == _ScanItemStatus.scanning ||
@@ -1280,6 +1286,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   void _removeScan(_ScanItem item, {bool settleInBackground = false}) {
+    _releaseScanImage(item);
+    _candidateLoadTokens.remove(item.id);
+    _loadingReviewCandidateIds.remove(item.id);
     final pending = _pendingScans[item.id];
     if (settleInBackground && pending != null) {
       pending
@@ -1295,6 +1304,14 @@ class _ScanPageState extends ConsumerState<ScanPage>
         _selectedReviewItemId = _matchedItems.firstOrNull?.id;
       }
     });
+  }
+
+  void _releaseScanImage(_ScanItem item) {
+    final bytes = item.imageBytes;
+    final source = ref.read(scanResultSourceProvider);
+    if (bytes != null && source is ReleasableScanResultSource) {
+      (source as ReleasableScanResultSource).releaseImage(bytes);
+    }
   }
 
   void _removeScanFromUser(_ScanItem item) {
@@ -1716,24 +1733,34 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   Future<void> _loadScanCards(int itemId, int token, _ScanMatch match) async {
     final analytics = ref.read(analyticsProvider);
-    try {
-      final cards = await ref.read(scanReviewRepositoryProvider).loadCards([
-        for (final candidate in match.candidates) candidate.cardRef,
-      ]);
-      _reportScanResult(
-        itemId,
-        token,
-        cards.containsKey(match.cardRef)
-            ? AnalyticsValue.scanSuccess
-            : AnalyticsValue.scanFailed,
-        analytics,
-      );
-      if (!mounted) return;
-      setState(() => _reviewCards = _mergeScanCards(_reviewCards, cards));
-    } on Exception {
-      _reportScanResult(itemId, token, AnalyticsValue.scanFailed, analytics);
-      // Price metadata is supplemental; review retries the same load explicitly.
-    }
+    final repository = ref.read(scanReviewRepositoryProvider);
+    final groups = await Future.wait([
+      for (final cardRef in {for (final candidate in match.candidates) candidate.cardRef})
+        () async {
+          try {
+            final cards = await repository.loadCards([cardRef]);
+            if (mounted &&
+                _items.any((item) =>
+                    item.id == itemId && item.match?.scanId == match.scanId)) {
+              setState(() {
+                _loadedReviewCardRefs.addAll(cards.keys);
+                _reviewCards = _mergeScanCards(_reviewCards, cards);
+              });
+            }
+            return cards;
+          } on Exception {
+            return <String, ScanReviewCard>{};
+          }
+        }(),
+    ]);
+    _reportScanResult(
+      itemId,
+      token,
+      groups.any((cards) => cards.containsKey(match.cardRef))
+          ? AnalyticsValue.scanSuccess
+          : AnalyticsValue.scanFailed,
+      analytics,
+    );
   }
 
   void _replaceItem(_ScanItem next) {
@@ -1752,15 +1779,13 @@ class _ScanPageState extends ConsumerState<ScanPage>
       return;
     }
     final items = _matchedItems;
-    final cardRefs = [
-      for (final item in items)
-        for (final candidate in item.match!.candidates) candidate.cardRef,
-    ];
+    final cardRefs = [for (final item in items) item.match!.cardRef];
     // Recognition basics have no image URL until card details are loaded.
     final missingCardRefs = cardRefs
         .where((cardRef) => _reviewCards[cardRef]?.imageUrl == null)
         .toList();
     setState(() => _openingReview = true);
+    _reviewSession += 1;
     try {
       final repository = ref.read(scanReviewRepositoryProvider);
       final results = await Future.wait<Object>([
@@ -1796,6 +1821,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
           _reviewing = true;
           _selectedReviewItemId = selectedReviewItemId;
           _reviewTarget = target;
+          _loadedReviewCardRefs.addAll(
+            (results[1] as Map<String, ScanReviewCard>).keys,
+          );
           _reviewCards = cards;
           _reviewFormError = null;
           _reviewDrafts
@@ -1831,8 +1859,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   void _closeReview() {
     if (_savingReview || !_reviewing) return;
+    _reviewSession += 1;
     setState(() {
       _reviewing = false;
+      _loadingReviewCandidateIds.clear();
       _reviewFormError = null;
     });
     unawaited(_openCamera());
@@ -1840,9 +1870,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   void _failReviewLoad() {
     if (!mounted) return;
+    _reviewSession += 1;
     setState(() {
       _openingReview = false;
       _reviewing = false;
+      _loadingReviewCandidateIds.clear();
       _selectedReviewItemId = null;
       _reviewTarget = null;
       _reviewDrafts.clear();
@@ -1856,7 +1888,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
     final item = _matchedItems
         .where((candidate) => candidate.id == selectedId)
         .firstOrNull;
-    if (item == null || _reviewTarget == null || _savingReview) {
+    if (item == null ||
+        _reviewTarget == null ||
+        _savingReview ||
+        _loadingReviewCandidateIds.contains(item.id)) {
       return;
     }
     _trackCollectionItemAdd(item);
@@ -1925,7 +1960,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   Future<void> _addAllMatchedItems() async {
     final matchedItems = _matchedItems;
-    if (matchedItems.isEmpty || _reviewTarget == null || _savingReview) {
+    if (matchedItems.isEmpty ||
+        _reviewTarget == null ||
+        _savingReview ||
+        _loadingReviewCandidateIds.isNotEmpty) {
       return;
     }
 
@@ -2017,32 +2055,114 @@ class _ScanPageState extends ConsumerState<ScanPage>
     });
   }
 
-  void _selectReviewCandidate(_ScanItem item, _ScanCandidate candidate) {
+  Future<void> _selectReviewCandidate(
+    _ScanItem item,
+    _ScanCandidate candidate,
+  ) async {
+    if (candidate.cardRef == item.match?.cardRef) return;
     final card = _reviewCards[candidate.cardRef];
-    if (card == null || candidate.cardRef == item.match?.cardRef) return;
+    final hadFallback = card != null;
+    final previousMatch = item.match!;
+    final previousDraft = _reviewDrafts[item.id];
+    final token = ++_nextCandidateLoadToken;
+    final reviewSession = _reviewSession;
+    _candidateLoadTokens[item.id] = token;
     ref.read(analyticsProvider).track(AnalyticsEvent.topMatchesClick);
     setState(() {
+      if (card == null) {
+        _reviewCards = {
+          ..._reviewCards,
+          candidate.cardRef: ScanReviewCard(
+            cardRef: candidate.cardRef,
+            name: candidate.name,
+            setName: '',
+            cardNumber: '',
+            game: null,
+            imageUrl: null,
+            language: null,
+            finish: null,
+            prices: const [],
+          ),
+        };
+      }
       for (var index = 0; index < _items.length; index += 1) {
         if (_items[index].id == item.id) {
           _items[index] = item.copyWith(match: item.match!.select(candidate));
           break;
         }
       }
-      final draft = _reviewDrafts[item.id];
-      if (draft != null) {
-        _reviewDrafts[item.id] = draft.copyWith(
-          language: _reviewOptionOrDefault(
-            card.language,
-            card.collectionLanguageOptions,
-          ),
-          finish: _reviewOptionOrDefault(
-            card.finish,
-            card.collectionFinishOptions,
-          ),
-        );
+      if (card != null && _loadedReviewCardRefs.contains(candidate.cardRef)) {
+        if (previousDraft != null) {
+          _reviewDrafts[item.id] = previousDraft.copyWith(
+            language: _reviewOptionOrDefault(
+              card.language,
+              card.collectionLanguageOptions,
+            ),
+            finish: _reviewOptionOrDefault(
+              card.finish,
+              card.collectionFinishOptions,
+            ),
+          );
+        }
+        _loadingReviewCandidateIds.remove(item.id);
+      } else {
+        _loadingReviewCandidateIds.add(item.id);
       }
       _reviewFormError = null;
     });
+    if (card != null && _loadedReviewCardRefs.contains(candidate.cardRef)) {
+      return;
+    }
+    Map<String, ScanReviewCard> loaded = const {};
+    try {
+      loaded = await ref.read(scanReviewRepositoryProvider).loadCards([
+        candidate.cardRef,
+      ]);
+    } on Exception {
+      // Keep the candidate metadata fallback if detail loading fails.
+    }
+    if (!mounted ||
+        !_reviewing ||
+        _reviewSession != reviewSession ||
+        _candidateLoadTokens[item.id] != token) {
+      return;
+    }
+    final current = _items.where((entry) => entry.id == item.id).firstOrNull;
+    if (current?.match?.cardRef != candidate.cardRef) return;
+    final resolved =
+        loaded[candidate.cardRef] ?? _reviewCards[candidate.cardRef];
+    setState(() {
+      _loadingReviewCandidateIds.remove(item.id);
+      _loadedReviewCardRefs.addAll(loaded.keys);
+      _reviewCards = _mergeScanCards(_reviewCards, loaded);
+      if (loaded[candidate.cardRef] == null &&
+          !hadFallback &&
+          !_loadedReviewCardRefs.contains(candidate.cardRef)) {
+        _reviewCards = {..._reviewCards}..remove(candidate.cardRef);
+        for (var index = 0; index < _items.length; index += 1) {
+          if (_items[index].id == item.id) {
+            _items[index] = _items[index].copyWith(match: previousMatch);
+            break;
+          }
+        }
+      } else if (resolved != null) {
+        final draft =
+            previousDraft ?? _initialReviewDraft(_reviewTarget!, resolved);
+        _reviewDrafts[item.id] = draft.copyWith(
+          language: _reviewOptionOrDefault(
+            resolved.language,
+            resolved.collectionLanguageOptions,
+          ),
+          finish: _reviewOptionOrDefault(
+            resolved.finish,
+            resolved.collectionFinishOptions,
+          ),
+        );
+      }
+    });
+    if (!_loadedReviewCardRefs.contains(candidate.cardRef)) {
+      showKandoTopFailureToast(context);
+    }
   }
 
   void _updateReviewDraft(int itemId, _ScanCollectionDraft draft) {
@@ -2147,10 +2267,15 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   void _removeReviewItems(Set<int> itemIds) {
+    for (final item in _items.where((item) => itemIds.contains(item.id))) {
+      _releaseScanImage(item);
+    }
     setState(() {
       _items.removeWhere((item) => itemIds.contains(item.id));
       for (final itemId in itemIds) {
         _reviewDrafts.remove(itemId);
+        _loadingReviewCandidateIds.remove(itemId);
+        _candidateLoadTokens.remove(itemId);
       }
       final remaining = _matchedItems;
       _selectedReviewItemId = remaining.firstOrNull?.id;
@@ -2160,6 +2285,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
         _reviewTarget = null;
         if (_items.isEmpty) {
           _reviewCards = const {};
+          _loadedReviewCardRefs.clear();
         }
       }
     });
@@ -2167,7 +2293,14 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   void _removeAddedItems(Set<int> itemIds) {
+    for (final item in _items.where((item) => itemIds.contains(item.id))) {
+      _releaseScanImage(item);
+    }
     _items.removeWhere((item) => itemIds.contains(item.id));
+    _loadingReviewCandidateIds.removeAll(itemIds);
+    for (final itemId in itemIds) {
+      _candidateLoadTokens.remove(itemId);
+    }
   }
 
   void _refreshPortfolioSurfaces() {
@@ -2321,6 +2454,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
                           target: _reviewTarget,
                           cards: _reviewCards,
                           drafts: _reviewDrafts,
+                          loadingCandidateIds: _loadingReviewCandidateIds,
                           formError: _reviewFormError,
                           saving: _savingReview,
                           savingAction: _savingReviewAction,
@@ -2328,7 +2462,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
                           currency: currency,
                           onCollapse: _closeReview,
                           onSelectItem: _selectReviewItem,
-                          onSelectCandidate: _selectReviewCandidate,
+                          onSelectCandidate: (item, candidate) => unawaited(
+                            _selectReviewCandidate(item, candidate),
+                          ),
                           onUpdateDraft: _updateReviewDraft,
                           onAddThisCard: _addSelectedItem,
                           onAddAllCards: _addAllMatchedItems,
@@ -4118,6 +4254,7 @@ class _ReviewMatches extends StatelessWidget {
     required this.target,
     required this.cards,
     required this.drafts,
+    required this.loadingCandidateIds,
     required this.formError,
     required this.saving,
     required this.savingAction,
@@ -4138,6 +4275,7 @@ class _ReviewMatches extends StatelessWidget {
   final ScanReviewTarget? target;
   final Map<String, ScanReviewCard> cards;
   final Map<int, _ScanCollectionDraft> drafts;
+  final Set<int> loadingCandidateIds;
   final String? formError;
   final bool saving;
   final _ScanReviewSaveAction? savingAction;
@@ -4162,6 +4300,7 @@ class _ReviewMatches extends StatelessWidget {
     final card = cards[match.cardRef];
     final draft = drafts[selected.id];
     final ready = target != null && card != null && draft != null;
+    final candidateLoading = loadingCandidateIds.contains(selected.id);
 
     return Stack(
       children: [
@@ -4279,21 +4418,29 @@ class _ReviewMatches extends StatelessWidget {
                           child: CircularProgressIndicator(),
                         ),
                       )
-                    else
-                      KeyedSubtree(
-                        key: ValueKey(
-                          'scan-review-form-${selected.id}-${match.cardRef}',
+                      else
+                        Stack(
+                          children: [
+                            KeyedSubtree(
+                              key: ValueKey(
+                                'scan-review-form-${selected.id}-${match.cardRef}',
+                              ),
+                              child: _ReviewCollectionItem(
+                                itemId: selected.id,
+                                target: target!,
+                                card: card,
+                                draft: draft,
+                                formError: formError,
+                                enabled: !saving && !candidateLoading,
+                                onChanged: (next) => onUpdateDraft(selected.id, next),
+                              ),
+                            ),
+                            if (candidateLoading)
+                              const Positioned.fill(
+                                child: Center(child: CircularProgressIndicator()),
+                              ),
+                          ],
                         ),
-                        child: _ReviewCollectionItem(
-                          itemId: selected.id,
-                          target: target!,
-                          card: card,
-                          draft: draft,
-                          formError: formError,
-                          enabled: !saving,
-                          onChanged: (next) => onUpdateDraft(selected.id, next),
-                        ),
-                      ),
                   ],
                 ),
               ),
@@ -4306,6 +4453,8 @@ class _ReviewMatches extends StatelessWidget {
             child: _ReviewFooter(
               totalText: _reviewTotalText(card, draft, currency),
               showBulkActions: items.length > 1,
+              singleReady: !candidateLoading,
+              bulkReady: loadingCandidateIds.isEmpty,
               saving: saving,
               savingAction: savingAction,
               onAddThisCard: onAddThisCard,
@@ -5542,6 +5691,8 @@ class _ReviewFooter extends StatelessWidget {
   const _ReviewFooter({
     required this.totalText,
     required this.showBulkActions,
+    required this.singleReady,
+    required this.bulkReady,
     required this.saving,
     required this.savingAction,
     required this.onAddThisCard,
@@ -5552,6 +5703,8 @@ class _ReviewFooter extends StatelessWidget {
 
   final String totalText;
   final bool showBulkActions;
+  final bool singleReady;
+  final bool bulkReady;
   final bool saving;
   final _ScanReviewSaveAction? savingAction;
   final VoidCallback onAddThisCard;
@@ -5598,7 +5751,7 @@ class _ReviewFooter extends StatelessWidget {
                       height: 56,
                       child: FilledButton.icon(
                         key: const Key('scan-review-add-one'),
-                        onPressed: saving ? null : onAddThisCard,
+                        onPressed: saving || !singleReady ? null : onAddThisCard,
                         icon: addingSingle
                             ? const SizedBox(
                                 key: Key('scan-review-add-one-loading'),
@@ -5645,7 +5798,7 @@ class _ReviewFooter extends StatelessWidget {
                     Expanded(
                       child: OutlinedButton(
                         key: const Key('scan-review-add-all'),
-                        onPressed: saving ? null : onAddAllCards,
+                        onPressed: saving || !bulkReady ? null : onAddAllCards,
                         child: addingAll
                             ? const SizedBox(
                                 key: Key('scan-review-add-all-loading'),

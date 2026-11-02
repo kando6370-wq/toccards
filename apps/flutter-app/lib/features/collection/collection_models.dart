@@ -142,3 +142,53 @@ class CollectionDashboard {
     );
   }
 }
+
+class CollectionPageResult {
+  const CollectionPageResult({
+    required this.dashboard,
+    required this.folderId,
+    required this.total,
+    this.baseCount,
+    required this.page,
+    required this.pageSize,
+  });
+
+  final CollectionDashboard dashboard;
+  final String? folderId;
+  final int total;
+  final int? baseCount;
+  final int page;
+  final int pageSize;
+}
+
+class CollectionFolderTotals {
+  const CollectionFolderTotals({
+    required this.folderId,
+    required this.itemCount,
+    required this.cardCount,
+    required this.gradedCount,
+    required this.totalValueUsd,
+    required this.languages,
+  });
+
+  final String folderId;
+  final int itemCount;
+  final int cardCount;
+  final int gradedCount;
+  final double? totalValueUsd;
+  final List<String> languages;
+}
+
+class CollectionSummaryResult {
+  const CollectionSummaryResult({
+    required this.folders,
+    required this.wishlistCount,
+    required this.wishlistLanguages,
+    this.games = const [],
+  });
+
+  final Map<String, CollectionFolderTotals> folders;
+  final int wishlistCount;
+  final List<String> wishlistLanguages;
+  final List<String> games;
+}

@@ -11,12 +11,141 @@ import 'package:kando_app/features/home/home_models.dart';
 import 'package:kando_app/features/home/home_repository.dart';
 import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/features/search/search_models.dart';
+import 'package:kando_app/features/search/search_repository.dart';
 
 import 'support/mock_home_repository.dart';
 import 'support/mock_collection_repository.dart';
 import 'support/mock_search_repository.dart';
 
 void main() {
+  test(
+    'image warming follows the current Cards load after a refresh replaces startup',
+    () async {
+      final repository = _ReplacingCatalogRepository();
+      final warmed = <String>[];
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith(_ReadyAuthController.new),
+          homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
+          collectionRepositoryProvider.overrideWithValue(
+            const MockCollectionRepository(),
+          ),
+          searchRepositoryProvider.overrideWithValue(repository),
+          networkImagePreloaderProvider.overrideWithValue(
+            (urls) async => warmed.addAll(urls),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(appStartupPreloaderProvider.future);
+      final refresh = container
+          .read(searchControllerProvider.notifier)
+          .refresh();
+      expect(repository.loads, hasLength(2));
+      final catalog = await _SearchImageCatalogRepository(
+        cardCount: 1,
+      ).loadCatalog();
+      repository.loads.first.complete(catalog);
+      await Future<void>.delayed(Duration.zero);
+      expect(warmed, isEmpty);
+      repository.loads.last.complete(catalog);
+      await refresh;
+      await Future<void>.delayed(Duration.zero);
+      expect(warmed, ['https://img.example/card-0.jpg']);
+    },
+  );
+
+  test(
+    'Search image warming starts before unrelated Sets finish loading',
+    () async {
+      final repository = _PendingSetsRepository();
+      final warmed = <String>[];
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith(_ReadyAuthController.new),
+          homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
+          collectionRepositoryProvider.overrideWithValue(
+            const MockCollectionRepository(),
+          ),
+          searchRepositoryProvider.overrideWithValue(repository),
+          networkImagePreloaderProvider.overrideWithValue(
+            (urls) async => warmed.addAll(urls),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(appStartupPreloaderProvider.future);
+      var fullSearchFinished = false;
+      final fullSearch = container
+          .read(searchControllerProvider.notifier)
+          .loadComplete
+          .then((_) => fullSearchFinished = true);
+      for (var i = 0; i < 10 && warmed.isEmpty; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      expect(fullSearchFinished, isFalse);
+      expect(warmed, ['https://img.example/card-0.jpg']);
+      repository.sets.complete(const []);
+      await fullSearch;
+    },
+  );
+
+  test('image warming bounds all batches and shares pending URLs', () async {
+    final loads = <String, Completer<void>>{};
+    var active = 0;
+    var peak = 0;
+    final preload = createNetworkImagePreloader((url) async {
+      active++;
+      if (active > peak) peak = active;
+      final completion = Completer<void>();
+      loads[url] = completion;
+      try {
+        await completion.future;
+      } finally {
+        active--;
+      }
+    });
+    final home = preload(['a', 'b', 'c', 'd']);
+    final search = preload(['b', 'e', 'f']);
+    expect(loads.keys, ['a', 'b', 'c']);
+    loads['b']!.completeError(Exception('art unavailable'));
+    await Future<void>.delayed(Duration.zero);
+    expect(loads.keys, ['a', 'b', 'c', 'd']);
+    loads['a']!.complete();
+    loads['c']!.complete();
+    loads['d']!.complete();
+    await Future<void>.delayed(Duration.zero);
+    expect(loads.keys, ['a', 'b', 'c', 'd', 'e', 'f']);
+    loads['e']!.complete();
+    loads['f']!.complete();
+    await Future.wait([home, search]);
+    expect(
+      peak,
+      3,
+      reason:
+          'secondary image warming must leave capacity for interactive work',
+    );
+    expect(active, 0);
+    final retry = preload(['b']);
+    loads['b']!.complete();
+    await retry;
+  });
+
+  test('disposed startup warming does not start queued images', () async {
+    var active = true;
+    final pending = Completer<void>();
+    final urls = <String>[];
+    final preload = createNetworkImagePreloader((url) {
+      urls.add(url);
+      return pending.future;
+    }, isActive: () => active);
+    final result = preload(['a', 'b', 'c', 'd', 'e']);
+    active = false;
+    pending.complete();
+    await result;
+    expect(urls, ['a', 'b', 'c']);
+  });
+
   test('startup preloader initializes all data-backed main tabs', () async {
     final container = ProviderContainer(
       overrides: [
@@ -357,6 +486,29 @@ class _HomeImageRepository implements ProgressiveHomeRepository {
     final dashboard = await loadCoreDashboard();
     return dashboard.copyWith(trending: await loadTrending());
   }
+}
+
+class _ReplacingCatalogRepository extends MockSearchRepository {
+  final loads = <Completer<SearchCatalog>>[];
+  @override
+  Future<SearchCatalog> loadCatalog() {
+    final result = Completer<SearchCatalog>();
+    loads.add(result);
+    return result.future;
+  }
+}
+
+class _PendingSetsRepository extends _SearchImageCatalogRepository
+    implements SearchCatalogLoadRepository {
+  _PendingSetsRepository() : super(cardCount: 1);
+  final sets = Completer<List<SearchSet>>();
+
+  @override
+  Future<SearchCatalogLoadResult> loadCatalogResult() async =>
+      SearchCatalogLoadResult(
+        catalog: await loadCatalog(),
+        pendingSets: sets.future,
+      );
 }
 
 class _SearchImageCatalogRepository extends MockSearchRepository {

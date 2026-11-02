@@ -42,6 +42,7 @@ class _SetDetailPageState extends ConsumerState<SetDetailPage> {
   var _loading = true;
   var _failed = false;
   var _hasMore = false;
+  var _loadGeneration = 0;
 
   @override
   void initState() {
@@ -79,6 +80,7 @@ class _SetDetailPageState extends ConsumerState<SetDetailPage> {
   }
 
   Future<void> _load({required bool reset}) async {
+    final generation = reset ? ++_loadGeneration : _loadGeneration;
     final requestedPage = reset ? 1 : _page + 1;
     setState(() {
       _loading = true;
@@ -89,7 +91,7 @@ class _SetDetailPageState extends ConsumerState<SetDetailPage> {
           .read(setCatalogApiClientProvider)
           .cardsForSet(widget.setId, game: widget.game, page: requestedPage);
       final items = rows.map(searchCardFromDto).toList();
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         if (reset) _cards.clear();
         _cards.addAll(items);
@@ -98,7 +100,7 @@ class _SetDetailPageState extends ConsumerState<SetDetailPage> {
         _loading = false;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _loading = false;
         _failed = true;

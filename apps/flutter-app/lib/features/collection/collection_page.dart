@@ -55,76 +55,88 @@ class _CollectionPageState extends ConsumerState<CollectionPage> {
               ),
             ),
             Expanded(
-              child: RefreshIndicator(
-                key: const Key('collection-pull-to-refresh'),
-                onRefresh: () => _refresh(controller, preserveContent: true),
-                child: CustomScrollView(
-                  key: const Key('collection-content-list'),
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [
-                    SliverPersistentHeader(
-                      pinned: true,
-                      delegate: _CollectionControlsHeaderDelegate(
-                        extent: state.loadStatus == KandoLoadStatus.content
-                            ? state.selectedTab == CollectionTab.portfolio
-                                  ? _CollectionControlsHeader.portfolioExtent
-                                  : _CollectionControlsHeader.wishlistExtent
-                            : _CollectionControlsHeader.loadingExtent,
-                        child: _CollectionControlsHeader(
-                          state: state,
-                          onSelectTab: controller.selectTab,
-                          onSearchChanged: controller.updateSearch,
-                          filterEnabled:
-                              state.loadStatus == KandoLoadStatus.content,
-                          onFilterPressed: () {
-                            FocusManager.instance.primaryFocus?.unfocus();
-                            _showFilterSheet(context, ref);
-                          },
-                          onFolderPressed: () {
-                            ref
-                                .read(analyticsProvider)
-                                .track(AnalyticsEvent.folderClick);
-                            showPortfolioFolderSheet(context, ref);
-                          },
-                          onHidePressed: () async {
-                            if (!await controller.toggleAmountHidden() &&
-                                context.mounted) {
-                              showKandoTopFailureToast(context);
-                            }
-                          },
-                        ),
-                      ),
-                    ),
-                    if (state.isUnavailable)
-                      SliverPadding(
-                        key: const Key('collection-results-failure'),
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 124),
-                        sliver: SliverToBoxAdapter(
-                          child: KandoNoContentBlock(
-                            illustrationKey: const Key(
-                              'collection-failure-illustration',
-                            ),
-                            refreshButtonKey: const Key(
-                              'collection-failure-refresh',
-                            ),
-                            onRefresh: () => _refresh(controller),
+              child: NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  if (notification.depth == 0 &&
+                      notification.metrics.extentAfter <= 320) {
+                    controller.loadNextPage();
+                  }
+                  return false;
+                },
+                child: RefreshIndicator(
+                  key: const Key('collection-pull-to-refresh'),
+                  onRefresh: () => _refresh(controller, preserveContent: true),
+                  child: CustomScrollView(
+                    key: const Key('collection-content-list'),
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      SliverPersistentHeader(
+                        pinned: true,
+                        delegate: _CollectionControlsHeaderDelegate(
+                          extent: state.loadStatus == KandoLoadStatus.content
+                              ? state.selectedTab == CollectionTab.portfolio
+                                    ? _CollectionControlsHeader.portfolioExtent
+                                    : _CollectionControlsHeader.wishlistExtent
+                              : _CollectionControlsHeader.loadingExtent,
+                          child: _CollectionControlsHeader(
+                            state: state,
+                            onSelectTab: controller.selectTab,
+                            onSearchChanged: controller.updateSearch,
+                            filterEnabled:
+                                state.loadStatus == KandoLoadStatus.content,
+                            onFilterPressed: () {
+                              FocusManager.instance.primaryFocus?.unfocus();
+                              _showFilterSheet(context, ref);
+                            },
+                            onFolderPressed: () {
+                              ref
+                                  .read(analyticsProvider)
+                                  .track(AnalyticsEvent.folderClick);
+                              showPortfolioFolderSheet(context, ref);
+                            },
+                            onHidePressed: () async {
+                              if (!await controller.toggleAmountHidden() &&
+                                  context.mounted) {
+                                showKandoTopFailureToast(context);
+                              }
+                            },
                           ),
                         ),
-                      )
-                    else
-                      SliverPadding(
-                        key: const Key('collection-content-padding'),
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                        sliver: SliverMainAxisGroup(
-                          slivers: [
-                            _CollectionContent(state: state),
-                            const SliverToBoxAdapter(
-                              child: SizedBox(height: 100),
-                            ),
-                          ],
-                        ),
                       ),
-                  ],
+                      if (state.isUnavailable)
+                        SliverPadding(
+                          key: const Key('collection-results-failure'),
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 124),
+                          sliver: SliverToBoxAdapter(
+                            child: KandoNoContentBlock(
+                              illustrationKey: const Key(
+                                'collection-failure-illustration',
+                              ),
+                              refreshButtonKey: const Key(
+                                'collection-failure-refresh',
+                              ),
+                              onRefresh: () => _refresh(controller),
+                            ),
+                          ),
+                        )
+                      else
+                        SliverPadding(
+                          key: const Key('collection-content-padding'),
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                          sliver: SliverMainAxisGroup(
+                            slivers: [
+                              _CollectionContent(
+                                state: state,
+                                controller: controller,
+                              ),
+                              const SliverToBoxAdapter(
+                                child: SizedBox(height: 100),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -475,7 +487,7 @@ class _PortfolioSummaryCard extends StatelessWidget {
                     child: Row(
                       children: [
                         Text(
-                          '${summary.cardCount} cards',
+                          '${summary.cardCount ?? '--'} cards',
                           style: const TextStyle(
                             fontSize: 13,
                             height: 16 / 13,
@@ -494,7 +506,7 @@ class _PortfolioSummaryCard extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          '${summary.gradedCount} graded',
+                          '${summary.gradedCount ?? '--'} graded',
                           style: const TextStyle(
                             fontSize: 13,
                             height: 16 / 13,
@@ -609,18 +621,37 @@ class _HideAmountButton extends StatelessWidget {
 }
 
 class _CollectionContent extends StatelessWidget {
-  const _CollectionContent({required this.state});
+  const _CollectionContent({required this.state, required this.controller});
 
   final CollectionState state;
+  final CollectionController controller;
 
   @override
   Widget build(BuildContext context) {
-    if (state.isLoading) {
+    if (state.isLoading ||
+        state.isLoadingPage ||
+        (state.isPaged &&
+            state.total == 0 &&
+            state.baseCount == null &&
+            !state.hasPageFailure &&
+            state.summaryStatus == KandoLoadStatus.loading)) {
       return const SliverToBoxAdapter(
         child: SizedBox(
           key: Key('collection-results-loading'),
           height: 160,
           child: KandoLoadingBlock(),
+        ),
+      );
+    }
+
+    if (state.isPaged &&
+        ((state.hasPageFailure && state.page == 0) ||
+            (state.total == 0 &&
+                state.baseCount == null &&
+                state.summaryStatus == KandoLoadStatus.failure))) {
+      return SliverToBoxAdapter(
+        child: KandoFailureBlock(
+          onRefresh: controller.refreshPreservingContent,
         ),
       );
     }
@@ -667,9 +698,34 @@ class _CollectionContent extends StatelessWidget {
       );
     }
 
-    return _CollectionGrid(
-      items: visibleItems,
-      showQuantity: state.selectedTab == CollectionTab.portfolio,
+    return SliverMainAxisGroup(
+      slivers: [
+        _CollectionGrid(
+          items: visibleItems,
+          showQuantity: state.selectedTab == CollectionTab.portfolio,
+        ),
+        if (state.isLoadingMore)
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.only(top: 12),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          )
+        else if (state.hasPageFailure)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Center(
+                child: IconButton(
+                  key: const Key('collection-retry-page'),
+                  tooltip: 'Retry loading cards',
+                  onPressed: controller.retryNextPage,
+                  icon: const Icon(Icons.refresh),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -1831,14 +1887,6 @@ Future<void> _showFilterSheet(BuildContext context, WidgetRef ref) {
       : CollectionSort.valueDesc;
   final games = {...state.selectedGames};
   final languages = {...state.selectedLanguages};
-  final languageOptions = <String>{
-    'English',
-    'Japanese',
-    'Chinese',
-    ...state.availableLanguages,
-  }.toList();
-  final gameOptions = state.availableGames;
-
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -1861,158 +1909,175 @@ Future<void> _showFilterSheet(BuildContext context, WidgetRef ref) {
             });
           }
 
-          return FractionallySizedBox(
-            heightFactor: 0.75,
-            child: DecoratedBox(
-              key: const Key('collection-filter-sheet-background'),
-              decoration: const BoxDecoration(
-                color: KandoColors.surface,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-              ),
-              child: SafeArea(
-                top: false,
-                child: Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(top: 18),
-                      child: Container(
-                        key: const Key('collection-filter-sheet-handle'),
-                        width: 48,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF6C6945),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                      ),
+          return Consumer(
+            builder: (context, modalRef, _) {
+              final current = modalRef.watch(collectionControllerProvider);
+              final languageOptions = <String>{
+                'English',
+                'Japanese',
+                'Chinese',
+                if (current.loadStatus == KandoLoadStatus.content)
+                  ...current.availableLanguages,
+              }.toList();
+              final gameOptions = current.availableGames;
+              return FractionallySizedBox(
+                heightFactor: 0.75,
+                child: DecoratedBox(
+                  key: const Key('collection-filter-sheet-background'),
+                  decoration: const BoxDecoration(
+                    color: KandoColors.surface,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(22),
                     ),
-                    const SizedBox(height: 18),
-                    Expanded(
-                      child: ListView(
-                        key: const Key('collection-filter-sheet'),
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                        children: [
-                          Row(
-                            children: [
-                              const Expanded(
-                                child: Text(
-                                  'Filter',
-                                  style: TextStyle(
-                                    fontFamily: 'Fraunces',
-                                    fontSize: 32,
-                                    height: 40 / 32,
-                                    fontWeight: FontWeight.w600,
-                                    color: KandoColors.text,
-                                  ),
-                                ),
-                              ),
-                              TextButton(
-                                key: const Key('collection-filter-clear'),
-                                onPressed: () {
-                                  setModalState(() {
-                                    sort = CollectionSort.valueDesc;
-                                    games.clear();
-                                    languages.clear();
-                                  });
-                                },
-                                child: const Text(
-                                  'CLEAR',
-                                  style: TextStyle(
-                                    color: KandoColors.accent,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const _FilterSectionLabel('SORT'),
-                          for (final option in const [
-                            CollectionSort.valueDesc,
-                            CollectionSort.valueAsc,
-                          ])
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: _FilterSortOption(
-                                label: _sortLabel(option),
-                                selected: sort == option,
-                                onTap: () => setModalState(() => sort = option),
-                              ),
+                  ),
+                  child: SafeArea(
+                    top: false,
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(top: 18),
+                          child: Container(
+                            key: const Key('collection-filter-sheet-handle'),
+                            width: 48,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF6C6945),
+                              borderRadius: BorderRadius.circular(999),
                             ),
-                          const _FilterSectionLabel('LANGUAGE'),
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 10,
-                            children: [
-                              for (final language in languageOptions)
-                                _FilterChip(
-                                  label: language,
-                                  selected: languages.contains(language),
-                                  onTap: () => toggle(languages, language),
-                                ),
-                            ],
                           ),
-                          const _FilterSectionLabel('GAME / IP'),
-                          LayoutBuilder(
-                            builder: (context, constraints) {
-                              const gap = 10.0;
-                              final width = (constraints.maxWidth - gap) / 2;
-                              return Wrap(
-                                spacing: gap,
-                                runSpacing: 10,
+                        ),
+                        const SizedBox(height: 18),
+                        Expanded(
+                          child: ListView(
+                            key: const Key('collection-filter-sheet'),
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                            children: [
+                              Row(
                                 children: [
-                                  for (final game in gameOptions)
-                                    SizedBox(
-                                      width: width,
-                                      child: _FilterChip(
-                                        label: game,
-                                        selected: games.contains(game),
-                                        onTap: () => toggle(games, game),
-                                        expanded: true,
+                                  const Expanded(
+                                    child: Text(
+                                      'Filter',
+                                      style: TextStyle(
+                                        fontFamily: 'Fraunces',
+                                        fontSize: 32,
+                                        height: 40 / 32,
+                                        fontWeight: FontWeight.w600,
+                                        color: KandoColors.text,
                                       ),
                                     ),
+                                  ),
+                                  TextButton(
+                                    key: const Key('collection-filter-clear'),
+                                    onPressed: () {
+                                      setModalState(() {
+                                        sort = CollectionSort.valueDesc;
+                                        games.clear();
+                                        languages.clear();
+                                      });
+                                    },
+                                    child: const Text(
+                                      'CLEAR',
+                                      style: TextStyle(
+                                        color: KandoColors.accent,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
                                 ],
-                              );
-                            },
+                              ),
+                              const _FilterSectionLabel('SORT'),
+                              for (final option in const [
+                                CollectionSort.valueDesc,
+                                CollectionSort.valueAsc,
+                              ])
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: _FilterSortOption(
+                                    label: _sortLabel(option),
+                                    selected: sort == option,
+                                    onTap: () =>
+                                        setModalState(() => sort = option),
+                                  ),
+                                ),
+                              const _FilterSectionLabel('LANGUAGE'),
+                              Wrap(
+                                spacing: 10,
+                                runSpacing: 10,
+                                children: [
+                                  for (final language in languageOptions)
+                                    _FilterChip(
+                                      label: language,
+                                      selected: languages.contains(language),
+                                      onTap: () => toggle(languages, language),
+                                    ),
+                                ],
+                              ),
+                              const _FilterSectionLabel('GAME / IP'),
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  const gap = 10.0;
+                                  final width =
+                                      (constraints.maxWidth - gap) / 2;
+                                  return Wrap(
+                                    spacing: gap,
+                                    runSpacing: 10,
+                                    children: [
+                                      for (final game in gameOptions)
+                                        SizedBox(
+                                          width: width,
+                                          child: _FilterChip(
+                                            label: game,
+                                            selected: games.contains(game),
+                                            onTap: () => toggle(games, game),
+                                            expanded: true,
+                                          ),
+                                        ),
+                                    ],
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 18),
+                            ],
                           ),
-                          const SizedBox(height: 18),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-                      child: SizedBox(
-                        width: double.infinity,
-                        height: 56,
-                        child: FilledButton(
-                          key: const Key('collection-filter-apply'),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: KandoColors.accent,
-                            foregroundColor: KandoColors.ink,
-                            shape: const StadiumBorder(),
-                          ),
-                          onPressed: () {
-                            ref
-                                .read(collectionControllerProvider.notifier)
-                                .applySortAndFilters(
-                                  sort: sort,
-                                  games: games,
-                                  languages: languages,
-                                );
-                            Navigator.of(context).pop();
-                          },
-                          child: const Text(
-                            'APPLY FILTERS',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                          child: SizedBox(
+                            width: double.infinity,
+                            height: 56,
+                            child: FilledButton(
+                              key: const Key('collection-filter-apply'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: KandoColors.accent,
+                                foregroundColor: KandoColors.ink,
+                                shape: const StadiumBorder(),
+                              ),
+                              onPressed: () {
+                                ref
+                                    .read(collectionControllerProvider.notifier)
+                                    .applySortAndFilters(
+                                      sort: sort,
+                                      games: games,
+                                      languages: languages,
+                                    );
+                                Navigator.of(context).pop();
+                              },
+                              child: const Text(
+                                'APPLY FILTERS',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
+              );
+            },
           );
         },
       );

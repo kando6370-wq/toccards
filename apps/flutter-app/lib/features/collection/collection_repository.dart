@@ -32,8 +32,25 @@ abstract interface class CollectionGameCatalogRepository {
   Future<List<String>> loadGameOptions();
 }
 
+abstract interface class CollectionPagedRepository {
+  bool get supportsPaging;
+
+  Future<CollectionPageResult> loadPage(
+    AuthSession session, {
+    required CollectionTab tab,
+    String? folderId,
+    String query = '',
+    CollectionSort sort = CollectionSort.newest,
+    int page = 1,
+    Set<String> games = const {},
+    Set<String> languages = const {},
+    List<String> performanceItemIds = const [],
+  });
+  Future<CollectionSummaryResult> loadSummary(AuthSession session);
+}
+
 class HttpCollectionRepository
-    implements CollectionRepository, CollectionGameCatalogRepository {
+    implements CollectionRepository, CollectionGameCatalogRepository, CollectionPagedRepository {
   const HttpCollectionRepository(
     this._api, {
     required PortfolioManagementApi managementApi,
@@ -44,6 +61,9 @@ class HttpCollectionRepository
   final CollectionDashboardApi _api;
   final PortfolioManagementApi _managementApi;
   final SetCatalogApi? _gameCatalogApi;
+
+  @override
+  bool get supportsPaging => _api is CollectionPagedApi;
 
   @override
   Future<List<String>> loadGameOptions() async {
@@ -65,6 +85,75 @@ class HttpCollectionRepository
           .toList(),
       currencyCode: dashboard.preference.currency,
       amountHidden: dashboard.preference.amountHidden,
+    );
+  }
+
+  @override
+  Future<CollectionPageResult> loadPage(
+    AuthSession session, {
+    required CollectionTab tab,
+    String? folderId,
+    String query = '',
+    CollectionSort sort = CollectionSort.newest,
+    int page = 1,
+    Set<String> games = const {},
+    Set<String> languages = const {},
+    List<String> performanceItemIds = const [],
+  }) async {
+    final api = _api as CollectionPagedApi;
+    final result = await api.getCollectionPage(
+      session,
+      tab: tab.name,
+      folderId: folderId,
+      query: query,
+      sort: switch (sort) {
+        CollectionSort.newest => 'newest',
+        CollectionSort.valueDesc => 'value_desc',
+        CollectionSort.valueAsc => 'value_asc',
+        CollectionSort.changeDesc => 'change_desc',
+        CollectionSort.nameAsc => 'name_asc',
+        CollectionSort.performanceDesc => 'performance_desc',
+      },
+      page: page,
+      games: games.toList()..sort(),
+      languages: languages.toList()..sort(),
+      performanceItemIds: performanceItemIds,
+    );
+    final items = result.items.map(_collectionItemFromDto).toList();
+    return CollectionPageResult(
+      dashboard: CollectionDashboard(
+        folders: result.folders.map(_folderFromDto).toList(),
+        portfolioItems: tab == CollectionTab.portfolio ? items : const [],
+        wishlistItems: tab == CollectionTab.wishlist ? items : const [],
+        currencyCode: result.preference.currency,
+        amountHidden: result.preference.amountHidden,
+      ),
+      folderId: result.folderId,
+      total: result.total,
+      baseCount: result.baseCount,
+      page: result.page,
+      pageSize: result.pageSize,
+    );
+  }
+
+  @override
+  Future<CollectionSummaryResult> loadSummary(AuthSession session) async {
+    final result = await (_api as CollectionPagedApi).getCollectionSummary(session);
+    return CollectionSummaryResult(
+      folders: {
+        for (final folder in result.folders)
+          folder.folderId: CollectionFolderTotals(
+            folderId: folder.folderId,
+            itemCount: folder.itemCount,
+            cardCount: folder.cardCount,
+            gradedCount: folder.gradedCount,
+            totalValueUsd: folder.totalValueUsd,
+            languages: folder.languages,
+          ),
+      },
+      wishlistCount: result.wishlistCount,
+      wishlistLanguages: result.wishlistLanguages,
+      games: result.games,
     );
   }
 

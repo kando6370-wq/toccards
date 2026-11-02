@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/widgets.dart';
@@ -19,8 +20,56 @@ typedef NetworkImagePreloader = Future<void> Function(List<String> imageUrls);
 
 final networkImagePreloaderProvider = Provider<NetworkImagePreloader>((ref) {
   final dio = ref.watch(appImageDioProvider);
-  return (imageUrls) => _preloadNetworkImages(dio, imageUrls);
+  var active = true;
+  ref.onDispose(() => active = false);
+  return createNetworkImagePreloader(
+    (url) => _preloadNetworkImage(dio, url),
+    isActive: () => active,
+  );
 });
+
+NetworkImagePreloader createNetworkImagePreloader(
+  Future<void> Function(String url) load, {
+  bool Function()? isActive,
+}) {
+  const concurrency = 3;
+  final waiting = Queue<(String, Completer<void>)>();
+  final pending = <String, Future<void>>{};
+  var running = 0;
+  late void Function() pump;
+  Future<void> run(String url, Completer<void> completed) async {
+    try {
+      if (isActive?.call() ?? true) await load(url);
+    } catch (_) {
+      // A failed image must not prevent the remaining visible art from warming.
+    } finally {
+      pending.remove(url);
+      completed.complete();
+      running--;
+      pump();
+    }
+  }
+
+  pump = () {
+    while (running < concurrency && waiting.isNotEmpty) {
+      final (url, completed) = waiting.removeFirst();
+      running++;
+      unawaited(run(url, completed));
+    }
+  };
+  return (urls) {
+    final requests = [
+      for (final url in urls)
+        pending.putIfAbsent(url, () {
+          final completed = Completer<void>();
+          waiting.add((url, completed));
+          return completed.future;
+        }),
+    ];
+    pump();
+    return Future.wait(requests).then((_) {});
+  };
+}
 
 final appStartupPreloaderProvider = FutureProvider<void>((ref) async {
   var initialPreloadPending = true;
@@ -111,19 +160,31 @@ Future<void> _preloadHomeTrendingImages(
 void _startSecondaryTabPreload(Ref ref) {
   if (!ref.mounted) return;
   final collection = ref.read(collectionControllerProvider.notifier);
-  final search = ref.read(searchControllerProvider.notifier);
 
   // These loads warm secondary tabs but never delay entry into Home.
   unawaited(
-    Future.wait<void>([
-      collection.loadComplete,
-      _preloadSearchImages(ref, search.loadComplete),
-    ]),
+    Future.wait<void>([collection.loadComplete, _preloadSearchImages(ref)]),
   );
 }
 
-Future<void> _preloadSearchImages(Ref ref, Future<void> searchLoad) async {
-  await searchLoad;
+Future<void> _preloadSearchImages(Ref ref) async {
+  if (!ref.mounted) return;
+  if (ref.read(searchControllerProvider).isLoading) {
+    final cardsReady = Completer<void>();
+    void complete() {
+      if (!cardsReady.isCompleted) cardsReady.complete();
+    }
+
+    final subscription = ref.listen(searchControllerProvider, (_, next) {
+      if (!next.isLoading) complete();
+    });
+    ref.onDispose(complete);
+    try {
+      await cardsReady.future;
+    } finally {
+      subscription.close();
+    }
+  }
   if (!ref.mounted) return;
   final state = ref.read(searchControllerProvider);
   if (state.isLoading || state.isUnavailable) return;
@@ -154,17 +215,12 @@ Future<void> _preloadImageUrls(
   }
 }
 
-Future<void> _preloadNetworkImages(Dio dio, List<String> imageUrls) {
-  return Future.wait<void>(
-    imageUrls.map((imageUrl) => _preloadNetworkImage(dio, imageUrl)),
-  );
-}
-
 Future<void> _preloadNetworkImage(Dio dio, String imageUrl) {
   final completer = Completer<void>();
   final stream = createKandoNetworkImage(
     imageUrl,
     dio: dio,
+    decodeSize: cardImagePreloadSize,
   ).resolve(ImageConfiguration.empty);
   late final ImageStreamListener listener;
   listener = ImageStreamListener(
