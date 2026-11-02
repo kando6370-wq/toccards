@@ -301,6 +301,130 @@ void main() {
   );
 
   test(
+    'card assets use one scoped request because opening detail must not load every owned page',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        expect(request.method, 'GET');
+        expect(request.path, '/portfolio/cards/card%2F1/assets');
+        expect(request.authorization, 'Bearer owner-access');
+        return _json(200, {
+          'success': true,
+          'data': {
+            'folders': [_folderJson(id: 'main', name: 'Main', sortOrder: 100)],
+            'items': [_portfolioItemJson(id: 'owned-1', cardRef: 'card/1')],
+            'wishlist_items': [
+              {
+                'id': 'wish-1',
+                'card_ref': 'card/1',
+                'created_at': '2026-01-03T00:00:00.000Z',
+              },
+            ],
+          },
+        });
+      });
+      final assets = await PortfolioApiClient(
+        _dio(adapter),
+      ).getCardAssets(_session, 'card/1');
+      expect(adapter.requests, hasLength(1));
+      expect(assets.folders.single.id, 'main');
+      expect(assets.items.single.id, 'owned-1');
+      expect(assets.wishlistItems.single.id, 'wish-1');
+    },
+  );
+
+  test(
+    'collection page and summary stay separate so paging does not replace all-folder totals',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        expect(request.authorization, 'Bearer owner-access');
+        if (request.path == '/collection/items') {
+          expect(request.queryParameters['tab'], 'portfolio');
+          expect(request.queryParameters['folder_id'], 'main');
+          expect(request.queryParameters['sort'], 'value_desc');
+          expect(request.queryParameters['page'], '2');
+          expect(request.queryParameters['page_size'], '40');
+          expect(request.queryParameters['q'], 'Pikachu');
+          expect(request.uri.queryParametersAll['game'], ['Pokemon', 'Sports']);
+          expect(request.uri.queryParametersAll['language'], ['English', 'Japanese']);
+          expect(request.uri.queryParametersAll['performance_id'], ['owned-2', 'owned-1']);
+          return _json(200, {
+            'success': true,
+            'data': {
+              'folders': [
+                _folderJson(
+                  id: 'main', name: 'Main', isDefault: true, sortOrder: 100,
+                ),
+              ],
+              'preference': {
+                'currency': 'EUR',
+                'amount_hidden': false,
+                'last_selected_folder_id': 'main',
+              },
+              'folder_id': 'main',
+              'items': [
+                {
+                  'id': 'owned-2',
+                  'folder_id': 'main',
+                  'card_ref': '100',
+                  'name': 'Pikachu',
+                  'set_name': 'Base Set',
+                  'game': 'Pokemon',
+                  'created_at': '2026-07-01T00:00:00.000Z',
+                },
+              ],
+              'total': 41,
+              'base_count': 45,
+              'page': 2,
+              'page_size': 40,
+            },
+          });
+        }
+        expect(request.path, '/collection/summary');
+        return _json(200, {
+          'success': true,
+          'data': {
+            'folders': [
+              {
+                'folder_id': 'main',
+                'item_count': 41,
+                'card_count': 45,
+                'graded_count': 3,
+                'total_value_usd': 100,
+                'languages': ['English', 'Japanese'],
+              },
+            ],
+            'wishlist_count': 2,
+            'wishlist_languages': ['English'],
+            'games': ['Pokemon', 'Sports'],
+          },
+        });
+      });
+      final api = PortfolioApiClient(_dio(adapter));
+      final page = await api.getCollectionPage(
+        _session,
+        tab: 'portfolio',
+        folderId: 'main',
+        query: 'Pikachu',
+        sort: 'value_desc',
+        page: 2,
+        games: ['Pokemon', 'Sports'],
+        languages: ['English', 'Japanese'],
+        performanceItemIds: ['owned-2', 'owned-1'],
+      );
+      final summary = await api.getCollectionSummary(_session);
+      expect(page.total, 41);
+      expect(page.baseCount, 45);
+      expect(page.items.single.id, 'owned-2');
+      expect(page.preference.currency, 'EUR');
+      expect(summary.folders.single.cardCount, 45);
+      expect(summary.folders.single.totalValueUsd, 100);
+      expect(summary.wishlistCount, 2);
+      expect(summary.games, ['Pokemon', 'Sports']);
+      expect(adapter.requests, hasLength(2));
+    },
+  );
+
+  test(
     'asset lists request every 40-row page because pagination must not truncate ownership state',
     () async {
       final adapter = _RecordingAdapter((request) {
@@ -1382,6 +1506,7 @@ class _RecordingAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     final request = _RecordedRequest(
+      uri: options.uri,
       method: options.method,
       path: options.path,
       queryParameters: options.queryParameters.map(
@@ -1412,6 +1537,7 @@ Future<Object?> _decodeBody(Stream<Uint8List>? requestStream) async {
 
 class _RecordedRequest {
   const _RecordedRequest({
+    required this.uri,
     required this.method,
     required this.path,
     required this.queryParameters,
@@ -1422,6 +1548,7 @@ class _RecordedRequest {
   });
 
   final String method;
+  final Uri uri;
   final String path;
   final Map<String, String> queryParameters;
   final String? authorization;

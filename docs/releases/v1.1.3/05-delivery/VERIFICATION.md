@@ -82,6 +82,44 @@
 - 独立烟测与稳定性：开发机访问 `http://192.168.50.201:8080/api/v1/health` 返回 200／`{"status":"ok"}`，Admin 根路径返回 200，未登录 `/api/v1/auth/me` 返回 401。16:06、16:08、16:10 三个 watcher 周期均确认远端仍为 `b08d02f2` 且没有新提交，当前 manual release 未被覆盖；watcher 的 `last-seen`／`last-deployed` 保持 `b08d02f2`，这是手工发布未改状态文件的预期结果，后续远端 `dev` 新提交仍可能替换当前运行版本。
 - 边界：prod、Cloudflare、数据库 schema、私有环境值和 watcher 配置未修改；未执行真实 Admin 登录、真实图片识别、真机扫描、备份恢复或业务验收。本轮没有重跑完整 Admin／Workers／Flutter 测试，部署前验证仅为上述构建和 Linux bundle 3／3；当前源码既有四张相机 Golden 差异没有因部署而关闭。部署执行阶段未夹带 Git commit／push，本记录的 Git 交付由后续独立提交完成。
 
+<a id="ux-loading-optimization-20261102"></a>
+## 保持布局的用户体验与加载优化（2026-11-02）
+
+- 来源与授权：本段记录实现与验证阶段，来源为 `codex/dev-1.0.7scan@d19e52d6` 加当时未提交的修改，后续 Git 交付不改变下述验证边界。用户要求按后续体验／性能检查优化，并明确保留启动固定展示时长、首次引导与订阅门禁，以及整批扫描完成后才进入 Review。页面字体、颜色、卡片尺寸、间距与按钮位置保持；不修改 Golden 基线。新接口与成本边界见[收藏读模型](../03-data-api/collection-read-model.md)，图片及预热见[性能说明](../02-architecture/performance.md#用户体验与图片加载2026-11-02-后续增量)，候选与重试见[扫描流程](../01-flows/scan-recognition.md#候选就绪相册导入与弱网重试2026-11-02-后续增量)。
+- 竞态修复证据：Set 详情的旧分页成功／失败会在刷新后写回，两个新增 widget 用例先失败；卡详情材质切换期间，旧重试曾把新材质的 25 美元覆盖成测试中的 999 美元，旧图表错误也会覆盖新材质状态，两项先失败。分别补加载代次及价格选择代次校验后通过；Set 详情文件 10/10、卡详情控制器当时 47/47。后续包含单卡资产仓库路径的卡详情测试与客户端测试合跑 80/80，未把这些不同阶段的重叠计数相加。
+- Search：Cards 首批成功后先发布内容，Sets 独立完成／失败；Sets 宽查询改为每页 40 条滚动续载，保持服务端排序与原系列行布局。Search controller 39/39、Search page 52/52、Card Data 原 18 项及新增分页 1 项通过。覆盖慢 Sets、查询／Game 换代、后续页失败重试、末页空结果和行尺寸。审查核实初始 `searchSets` 原本只取一页，真正的旧全量循环是 `searchCatalogSets`，不混淆两者。
+- 图片与启动：用实际 Flutter codec 对同一 1400×2000 合成 PNG 验证常用移动端档位解码为 538×768、比例保持，而无尺寸限制的预览仍为 1400×2000。显示框 125×174 不变；缓存键区分解码尺寸。跨 Home／Search 预热最多 3 个并发、在途同 URL 复用、失败释放及销毁后不启动排队项有用例覆盖。图片网络 25 秒超时会取消原请求并显示原失败占位，不限制后续解码时间。
+- 首屏卡图预热：保持 Search `loadComplete` 原语义，只监听可用 Cards 状态启动图片预热；慢 Sets 或已被新刷新替代的旧 load 完成，都不能阻塞或提前结束当前 Cards 的预热等待。provider 销毁时解除等待并关闭监听。最终 `flutter test --no-pub test/app_startup_preloader_test.dart test/widget/kando_card_image_test.dart test/onboarding_gate_test.dart test/startup_subscription_gate_test.dart test/portfolio_api_client_test.dart` 61/61 通过，包含启动固定流程、Free／Premium／Unknown 门禁、图片及单卡资产／分页 DTO。图片首次尺寸测试因失败占位形成两个 Image 而使用了不唯一 finder，修正为检查外层显示框后通过，未修改产品布局。
+- 扫描：逐候选返回即合入缓存，Review 不等未选备选；实际确认门禁仍等待全部扫描和相册读取结束。候选读取中表单和 footer 保留原位置且禁用提交，晚到结果按 item/token/Review 会话隔离。相册先限数量再逐张读取入队；网络重试复用端侧处理，成功／删除及明确业务结果后释放，晚到失败不重新挂回缓存。source 17/17、新增慢备选／切回／读图门禁三个 widget 各 1/1、Review 19/19、gallery 4/4、batch 6/6、retry 1/1，以及 `Figma review renders at the 390x844 baseline` Golden 1/1 通过。筛选组存在重叠，不作为不重复总数；旧预载调用次数断言随逐候选调用从 1 调整为 3，价格晚到不得覆盖的核心断言保留。没有更新 Golden。
+- 服务端与静态检查：增加当前卡 owner 资产接口及分页／摘要接口，原 dashboard 和 V1 列表保留。PGlite 覆盖默认 SQL 限页、空页、owner 隔离、合法零价与缺价、全局排序／筛选／总值，以及 `base_count` 区分空收藏与无匹配。根 `pnpm lint` 通过；`pnpm type-check --force` 7 个任务实际执行成功、无缓存复用。
+- 收藏交互验证：controller／page 最终 85/85 通过，覆盖首批 40 条先于摘要显示、45 条滚动续页、全局统计／合法零价／缺价、Wishlist 分页、`base_count` 的立即空态、初始绩效排序、文件夹创建／删除及旧保存失败、旧币种／旧账号结果失效、打开筛选后补齐元数据及目录失败的 owned-games 兜底。摘要提供 `games` 复用已有补全数据，不增加 SQL；客户端另外验证实际 URI 的重复 `game/language/performance_id` 参数。审查中发现并修正：刷新期间旧列表续页抢走代次（修前请求 `[1,1,2]`，修后刷新未结束时仅 `[1,1]`，之后可继续第二页）；首次认证已 ready 时未初始化 state 被读取；筛选弹层遇到 loading／unavailable 的 dashboard 访问；新摘要失败挡住已有正确空态。新增反证在修后重新通过，未放宽业务断言。
+- 最终服务端完整回归：`pnpm --filter @kando/workers-api test --maxWorkers=1` 退出 0，101 文件／919 项通过，用时 352.63 秒，包含最终 `base_count/games` 字段；执行前记录的 portfolio 路由 SHA-256 与完成后源码一致。一次较早回归会话失去句柄且进程已不存在，无法取得退出结果，未计为通过；核实结束后重新运行并把输出／退出状态留在忽略目录 `.dart_tool/`，没有重启活跃任务或缩减测试范围。
+- 最终 Flutter 综合回归：`flutter test --no-pub --concurrency=2` 加 `app_startup_preloader_test.dart`、`widget/kando_card_image_test.dart`、`onboarding_gate_test.dart`、`startup_subscription_gate_test.dart`、`portfolio_api_client_test.dart`、`card_detail_controller_test.dart`、`card_data_api_client_test.dart`、`search_controller_test.dart`、`widget/search_page_test.dart`、`widget/set_detail_page_test.dart`、`collection_controller_test.dart`、`widget/collection_page_test.dart`、`scan_result_source_test.dart`、`home_controller_test.dart` 和 `widget/card_detail_page_test.dart` 共 15 文件／421 项通过，退出 0。上述分块验证是阶段证据，不与本次 421 项相加成全仓总数。复验保留原启动门禁、收藏管理、卡牌详情操作和共享图片调用方。
+- Code Review：图片／预热、Search／详情竞态、扫描候选／流式导入／重试和 Collection 新读模型／界面接线均经独立审查；已发现的请求代次、空态、元数据、布局和批次门禁问题完成最小返工并复验。最后源码已冻结，未遗留阻断项；静态分析、链接及范围检查以本轮最终记录为准。
+- 最终静态与范围核验：`flutter analyze --no-pub` 整个 App 无问题；根 `pnpm lint` 与 `pnpm type-check --force` 再次通过，7 个任务实际重跑。`git diff --check` 通过，受改文档的 54 个相对文件链接及 4 个新增／修改锚点有效。启动固定时长代码、订阅启动门禁、原卡图 URL、冻结 v1.0.0／v1.1.2 及 Golden 文件均没有差异。测试原始输出留在忽略目录，不纳入正式 docs 或提交产物。
+- 未验边界：实现与验证阶段没有执行 Git commit/push、dev/prod 部署、远程迁移、商店／签名制品或真机验收。没有测量实际账号 P50/P95、移动端低内存和真实弱网，也没有新增缩略图服务或磁盘缓存。完整旧 App 源码编排和完整 Flutter workspace 未运行；四个历史 camera-stage 390×844 Golden 未运行，本轮只证明实际执行的 Review Golden 和控件尺寸。复杂价格排序、全量摘要仍需精确的全量计算，不能把客户端分页和首屏更早呈现写成全服务端恒定成本。
+
+<a id="project-optimization-20261102"></a>
+## 项目检查后的八项修复与优化（2026-11-02）
+
+- 来源与范围：本段记录实现与验证阶段，来源为 `codex/dev-1.0.7scan@c325876a` 加当时未提交的修改。用户授权修复只读检查提出的七项问题及 iOS CI 路径遗漏；该阶段未执行 Git 提交／推送、环境发布、远程迁移或业务写入，后续 Git 交付不改变下述测试与未验边界。
+- 明确选择：反馈平台没有存储真源，用户选择显示“未知”并禁用平台筛选，不增加平台采集；收藏分页文本顺序由用户批准固定为 PostgreSQL `COLLATE "C"`，接受大小写／重音／非 ASCII 边界与旧默认 locale 排序的差异。这一排序调整按迭代记录，不声称与旧文本排序逐项等价。其余 V1 请求、响应字段、账号隔离及价格口径保持。实现见[后台增量](../04-admin/admin.md#反馈分页与扫描详情竞态修复2026-11-02)、[性能说明](../02-architecture/performance.md)和[扫描链路](../01-flows/scan-recognition.md#review-请求共享与并发控制2026-11-02)。
+- 反馈分页及筛选：修前 PostgreSQL 用例缺 `total`／日期校验失败，页面源码执行确认分页无 `onChange`；修后验证 106 条记录的后续页、UID／类型／状态／UTC 日期的分页前组合筛选、稳定排序、鉴权与非法日期。原 D1 混合用例中的两处反馈 GET 断言迁到 PGlite，无筛选和同时间戳意图保留，没有扩展旧 D1 替身。
+- 扫描详情竞态：修前执行真实组件源码，点击 A 后 B、B 先返回 A 后返回，最终错误显示 A；修后验证 B 保留、关闭后旧请求不能重开、错误可重试。组件增加取消及请求序号，原私有图片与 401 处理保持。
+- 日志路由：先加入本地 dev 已有的兄弟路由回归，修前实际 `/cards/search` 被记成 `/cards/:card_ref`，目标用例退出 1；同步 `routePath(context)` 后，最终使用 `pnpm --filter @kando/workers-api test src/request-id.test.ts src/request-performance.test.ts --maxWorkers=1` 验证当前源码 2 文件、20 项通过。初次直接 `exec vitest` 的 5 文件／62 项包含 `.wrangler` 中 3 份历史 request-id 测试副本，因此不作为当前源码用例数；重跑沿用标准脚本的既有排除规则，没有删除历史材料或缩减正式测试范围。
+- 收藏 UI：修前 40 卡页面构建全部 40 个卡片，按需构建断言失败；修后使用 SliverGrid、同次构建复用可见列表。`flutter test --no-pub test/widget/collection_page_test.dart` 38/38 通过，保留列数、尺寸、间距、空态、筛选与滚动行为。
+- 收藏 API：修前新增 PostgreSQL 用例证实读取全量收藏后应用分页；修后单条 CTE 查询在同一语句快照中返回总数及当前页，空页不输出外连接哨兵，内外排序一致。旧 `items.test.ts` 三项 GET 测试迁入 `items-pagination.postgres.test.ts`，保留账号隔离、同时间戳跨页、移动后的加入时间意图，并增强同 ID 不同 owner_type、非 ASCII／大小写、空页总数和实际数据库返回行数检查。定向 2 文件／26 项、portfolio 全目录 12 文件／104 项通过，命令分别为 `pnpm --filter @kando/workers-api test src/portfolio/items-pagination.postgres.test.ts src/portfolio/items.test.ts --maxWorkers=1` 和 `pnpm --filter @kando/workers-api test src/portfolio --maxWorkers=1`；未执行新 migration。
+- Trending：旧第二页晚于刷新第一页成功或失败时，修前两项用例均停在请求序列 `[1,2,1]`；修后旧代次不污染页码／错误状态，可继续请求新第二页。`flutter test --no-pub test/widget/home_page_test.dart --plain-name Trending` 9/9 通过。
+- Review 请求：修前 10 卡 × 6 价格组合的受控用例峰值 60 个并发，重叠预加载／Review 各重复请求同一卡片；修后合计最多 4 个目录／行情请求，在途卡片加载共享、完成后可重取，全部价格组合与合法零价保留。`flutter test --no-pub test/scan_review_repository_test.dart` 4/4 通过；Scan 页面按 `^(?!Figma).*(Review|review|price|metadata|candidate|preload)` 筛选 33/33 通过，包含图片／价格补取、失败重试、确认与返回。Windows bat 首次将正则分隔符解释为命令，未执行测试；改用同一 Flutter SDK 的 Dart `flutter_tools.snapshot test` 后取得上述有效结果。
+- iOS CI：使用 YAML 解析及路径匹配对比 HEAD／当前配置，`dart-packages/subscription-core/lib/subscription_core.dart` 在 push／PR 两个入口均由不匹配变为匹配；push 的 dev 分支约束和手动入口保留。这是本地配置验证，未触发 GitHub 托管构建。
+- 审查返工：独立审查发现新反馈类型筛选会对历史坏 JSON 执行强制转换。补充真实 PostgreSQL 路由用例后先复现 `22P02`／HTTP 500，再用 `IS JSON ARRAY` 的 CASE 分支保护转换；非法 JSON 和合法非数组值无筛选仍可展示，类型筛选安全排除，列表与 COUNT 一致。最终相关 Workers 3 文件／28 项通过，Workers 类型检查通过。旧状态映射和鉴权未改，没有增加 schema 或 D1 路径。
+- 服务端完整回归：最终 `pnpm --filter @kando/workers-api test --maxWorkers=1` 退出 0，99 文件／913 项全部通过，用时 380.45 秒。沿用默认 `.wrangler` 产物排除规则；运行过程保持同一测试会话，没有因长时间无输出重启或删减用例。此结果包含最终单语句收藏分页、坏 JSON 保护及日志修复。
+- 其他本地验证：Admin 全量 `pnpm --filter @kando/admin-web test` 85/85；直接调用方 `flutter test --no-pub test/portfolio_api_client_test.dart` 30/30，包含逐页加载与字段解析。根 `pnpm lint` 通过，`pnpm type-check --force` 7 个任务均实际执行成功、无缓存复用；修正新增扫描测试的两条 lint 后，`flutter analyze --no-pub` 通过。Flutter 首轮并行测试曾发生共享 test_cache 冲突，后续串行复验；无效执行未计为通过。
+- Home Golden 失败边界：Collection 与 Home 两文件完整合跑为 117 通过、2 失败。失败项为 `v1.1 PRD normal Home renders at the 390x844 baseline` 与 `v1.1 PRD partial Home failure renders at the 390x844 baseline`，均为 1.57%／5167 像素差异，集中顶部导航。当前测试和从 HEAD 提取的原版测试同目录临时副本单独重跑时，各自实际渲染 PNG 的 SHA-256 完全相同；本轮 Home 渲染源码未变，Collection／Trending 不参与这两个截图场景。该对照使用当前源码和相同 Windows 工具链，未运行完整 HEAD 源码隔离基线；因此只能确认新增测试未引入差异，不能把这两项写成通过。临时测试已删除，Golden 未更新。
+- Code Review：后台由另一代理独立审查，坏 JSON 返工后重新验证并复审通过；收藏 SQL／测试、Flutter 三处实现、日志及 CI 均经独立复审，未遗留阻断项。评审期间对收藏外层排序的初步疑问经核对内层 COALESCE 投影和实际测试撤回，没有据此引入无必要改动。
+- 文档检查：`git diff --check` 通过，受改 Markdown 中 40 个相对文件链接及本轮新增／修改的 7 个锚点链接有效；冻结的 v1.0.0／v1.1.2 没有改动。
+- 未验与交付边界：未运行 iOS／Android 真机、完整 Flutter workspace 测试、真实浏览器后台验收、真实 PostgreSQL EXPLAIN／负载 P50/P95、完整旧 App 源码编排或签名制品；没有安装包、dev／prod 发布及远程数据写入。受控并发、构建数量和分页返回行数证明本地行为，不等于真实用户耗时收益，不修改历史归档结论。
+
 <a id="performance-optimization-20261030"></a>
 ## 查询、缓存与列表性能优化（2026-10-30）
 

@@ -2321,7 +2321,7 @@ void main() {
       await tester.tap(find.byTooltip('Take Photo'));
       await _completeFigmaScan(tester);
       await tester.pump();
-      expect(repository.loadCardsCount, 1);
+      expect(repository.loadCardsCount, 3);
 
       await tester.tap(find.byTooltip('Review completed scan'));
       await tester.pumpAndSettle();
@@ -2338,6 +2338,77 @@ void main() {
       await tester.tap(find.byTooltip('Back to Scan'));
       await tester.pumpAndSettle();
       expect(find.text(r'$25.00'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Review opens with the primary card while an alternate remains slow',
+    (tester) async {
+      final repository = _SlowAlternateReviewRepository();
+      await _pumpScanTestApp(tester, scanReviewRepository: repository);
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      expect(repository.requestedRefs.take(3), [
+        ['card-mega'],
+        ['card-lucario'],
+        ['card-riolu'],
+      ]);
+
+      await tester.tap(find.byTooltip('Review completed scan'));
+      await tester.pumpAndSettle();
+      final addButton = find.byKey(const Key('scan-review-add-one'));
+      expect(addButton, findsOneWidget);
+      final footerRect = tester.getRect(addButton);
+      expect(repository.requestedRefs.where((refs) => refs.single == 'card-mega'),
+          hasLength(1));
+
+      await tester.drag(
+        find.byKey(const Key('scan-review-list')),
+        const Offset(0, -260),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('scan-review-candidate-card-lucario')),
+      );
+      await tester.pump();
+      expect(addButton, findsOneWidget);
+      expect(tester.getRect(addButton), footerRect);
+      expect(tester.widget<FilledButton>(addButton).onPressed, isNull);
+      expect(find.byKey(const Key('scan-review-form-1-card-lucario')),
+          findsOneWidget);
+      repository.completeAlternate();
+      await tester.pumpAndSettle();
+      expect(addButton, findsOneWidget);
+      expect(tester.widget<FilledButton>(addButton).onPressed, isNotNull);
+    },
+  );
+
+  testWidgets(
+    'late alternate detail cannot replace the candidate selected afterward',
+    (tester) async {
+      final repository = _SlowAlternateReviewRepository();
+      await _pumpScanTestApp(tester, scanReviewRepository: repository);
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.tap(find.byTooltip('Review completed scan'));
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byKey(const Key('scan-review-list')),
+        const Offset(0, -260),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('scan-review-candidate-card-lucario')),
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('scan-review-candidate-card-mega')));
+      repository.completeAlternate();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('scan-review-add-one')));
+      await tester.pump();
+      expect(repository.confirmedItems.single.cardRef, 'card-mega');
+      await tester.pump(kandoCenteredSuccessToastDuration);
+      await tester.pumpAndSettle();
     },
   );
 
@@ -4935,6 +5006,33 @@ void main() {
   );
 
   testWidgets(
+    'Gallery keeps Done disabled until every selected image has entered and finished the queue',
+    (tester) async {
+      final source = _ProgressiveGalleryResultSource();
+      await _pumpScanTestApp(tester, scanResultSource: source);
+      await tester.tap(find.byTooltip('Choose from Library'));
+      await tester.pump();
+      expect(source.firstSelected.isCompleted, isTrue);
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
+      expect(find.byTooltip('Review scan result'), findsOneWidget);
+      expect(
+        tester.widget<InkWell>(find.byKey(const Key('scan-done-action'))).onTap,
+        isNull,
+      );
+
+      source.releaseSecond.complete();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
+      expect(
+        tester.widget<InkWell>(find.byKey(const Key('scan-done-action'))).onTap,
+        isNotNull,
+      );
+    },
+  );
+
+  testWidgets(
     'Gallery shows the selected thumbnail immediately without shutter feedback because recognition must not hide the uploaded image',
     (tester) async {
       final pending = Completer<ScanResolution>();
@@ -5781,6 +5879,48 @@ class _StaleScanCardsRepository extends _FakeScanReviewRepository {
   }
 }
 
+class _SlowAlternateReviewRepository extends _FakeScanReviewRepository {
+  final _background = Completer<Map<String, ScanReviewCard>>();
+  final _alternate = Completer<Map<String, ScanReviewCard>>();
+  final requestedRefs = <List<String>>[];
+
+  @override
+  Future<Map<String, ScanReviewCard>> loadCards(List<String> cardRefs) {
+    requestedRefs.add(cardRefs);
+    if (cardRefs.length == 1 && cardRefs.single == 'card-lucario') {
+      return _alternate.future;
+    }
+    if (cardRefs.length == 1 && cardRefs.single == 'card-riolu') {
+      return _background.future;
+    }
+    if (cardRefs.length == 1 && cardRefs.single == 'card-mega') {
+      return super.loadCards(cardRefs).then((cards) {
+        final card = cards['card-mega']!;
+        return {
+          'card-mega': ScanReviewCard(
+            cardRef: card.cardRef,
+            name: card.name,
+            setName: card.setName,
+            cardNumber: card.cardNumber,
+            game: card.game,
+            imageUrl: 'https://image.tcgcard.fun/cards/card-mega.jpg',
+            language: card.language,
+            finish: card.finish,
+            availableLanguages: card.availableLanguages,
+            availableFinishes: card.availableFinishes,
+            prices: card.prices,
+          ),
+        };
+      });
+    }
+    return super.loadCards(cardRefs);
+  }
+
+  Future<void> completeAlternate() async {
+    _alternate.complete(await super.loadCards(['card-lucario']));
+  }
+}
+
 class _DelayedScanReviewRepository extends _FakeScanReviewRepository {
   _DelayedScanReviewRepository(this.targetFuture);
 
@@ -5982,6 +6122,43 @@ class _TestScanResultSource implements ScanResultSource {
     lastRetryBytes = imageBytes;
     lastRetryFileName = fileName;
     return _retryResult;
+  }
+}
+
+class _ProgressiveGalleryResultSource extends _TestScanResultSource {
+  _ProgressiveGalleryResultSource()
+    : super(photoResult: Future.value(const ScanResolution.failed()));
+
+  final firstSelected = Completer<void>();
+  final releaseSecond = Completer<void>();
+
+  @override
+  Future<List<Future<ScanResolution>>> library({
+    int maxItems = 10,
+    void Function(ScanImage image, Future<ScanResolution> resolution)? onSelected,
+    ScanCardType cardType = ScanCardType.tcg,
+  }) async {
+    final bytes = Uint8List.fromList(_transparentPngBytes);
+    final first = Future.value(ScanResolution.matched(
+      scanId: 'first-gallery-scan',
+      cardRef: 'first-gallery-card',
+      matchName: 'First gallery card',
+      candidates: const ['First gallery card'],
+      candidateCardRefs: const ['first-gallery-card'],
+      imageBytes: bytes,
+      displayImageBytes: bytes,
+      imageFileName: 'first.png',
+    ));
+    onSelected?.call(ScanImage(bytes: bytes, fileName: 'first.png'), first);
+    firstSelected.complete();
+    await releaseSecond.future;
+    final second = Future.value(ScanResolution.noMatch(
+      imageBytes: bytes,
+      displayImageBytes: bytes,
+      imageFileName: 'second.png',
+    ));
+    onSelected?.call(ScanImage(bytes: bytes, fileName: 'second.png'), second);
+    return [first, second];
   }
 }
 

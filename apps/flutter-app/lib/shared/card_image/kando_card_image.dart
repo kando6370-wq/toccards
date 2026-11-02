@@ -33,20 +33,31 @@ class KandoCardImage extends ConsumerWidget {
     final url = imageUrl?.trim();
     if (url == null || url.isEmpty) return _placeholder();
 
-    return Image(
-      image: createKandoNetworkImage(
-        url,
-        dio: supportsNativeAppHttpTransport
-            ? ref.watch(appImageDioProvider)
-            : null,
-        webHtmlElementStrategy: webHtmlElementStrategy,
+    final dio = supportsNativeAppHttpTransport
+        ? ref.watch(appImageDioProvider)
+        : null;
+    final pixelRatio = MediaQuery.devicePixelRatioOf(context);
+    return LayoutBuilder(
+      builder: (context, constraints) => Image(
+        image: createKandoNetworkImage(
+          url,
+          dio: dio,
+          decodeSize: cardImageDecodeSize(
+            Size(
+              width?.isFinite == true ? width! : constraints.maxWidth,
+              height?.isFinite == true ? height! : constraints.maxHeight,
+            ),
+            pixelRatio,
+          ),
+          webHtmlElementStrategy: webHtmlElementStrategy,
+        ),
+        width: width ?? double.infinity,
+        height: height ?? double.infinity,
+        fit: fit,
+        filterQuality: filterQuality,
+        semanticLabel: semanticLabel,
+        errorBuilder: (_, _, _) => _placeholder(),
       ),
-      width: width ?? double.infinity,
-      height: height ?? double.infinity,
-      fit: fit,
-      filterQuality: filterQuality,
-      semanticLabel: semanticLabel,
-      errorBuilder: (_, _, _) => _placeholder(),
     );
   }
 

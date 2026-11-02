@@ -228,11 +228,12 @@ void main() {
           ),
         ],
       );
+      final recognizer = _FakeScanCardRecognizer();
       final source = ApiScanResultSource(
         api: api,
         session: () => _session,
         imagePicker: _FakeScanImagePicker(),
-        cardRecognizer: _FakeScanCardRecognizer(),
+        cardRecognizer: recognizer,
         appInfo: () async =>
             const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
       );
@@ -245,8 +246,51 @@ void main() {
 
       expect(api.requestIds, hasLength(2));
       expect(api.requestIds[1], api.requestIds[0]);
+      expect(
+        recognizer.processCount,
+        1,
+        reason: 'Network retry reuses completed local recognition.',
+      );
+      await source.retry(
+        imageBytes: failed.imageBytes,
+        fileName: failed.imageFileName,
+      );
+      expect(recognizer.processCount, 2, reason: 'Successful recognition releases retry work.');
+      expect(api.requestIds[2], isNot(api.requestIds[1]));
     },
   );
+
+  test('removing an in-flight image prevents a late failure from retaining retry work', () async {
+    final gate = Completer<void>();
+    final api = _FakeScanApi(
+      _matchedRecognition,
+      failures: const [
+        ScanApiException(scanRequestTimeoutMessage, code: scanRequestTimeoutCode),
+      ],
+      beforeResult: gate.future,
+    );
+    final recognizer = _FakeScanCardRecognizer();
+    final source = ApiScanResultSource(
+      api: api,
+      session: () => _session,
+      imagePicker: _FakeScanImagePicker(),
+      cardRecognizer: recognizer,
+      appInfo: () async => const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
+    );
+    final image = ScanImage(bytes: Uint8List.fromList([1, 2, 3]), fileName: 'removed.jpg');
+
+    final first = source.recognize(image);
+    while (api.callCount == 0) {
+      await Future<void>.delayed(Duration.zero);
+    }
+    source.releaseImage(image.bytes);
+    gate.complete();
+    expect((await first).kind, ScanResolutionKind.failed);
+    expect((await source.retry(imageBytes: image.bytes, fileName: image.fileName)).kind,
+        ScanResolutionKind.matched);
+    expect(recognizer.processCount, 2);
+    expect(api.requestIds[1], isNot(api.requestIds[0]));
+  });
 
   test(
     'retry reuses the request id when a consumed success has no usable result because a new id would double charge',
@@ -372,6 +416,33 @@ void main() {
         isTrue,
       );
       expect(api.callCount, 10);
+    },
+  );
+
+  test(
+    'gallery queues the first photo before the next selected photo finishes reading',
+    () async {
+      final picker = _ProgressiveScanImagePicker();
+      final selected = <String>[];
+      final source = ApiScanResultSource(
+        api: _FakeScanApi(_matchedRecognition),
+        session: () => _session,
+        imagePicker: picker,
+        cardRecognizer: _FakeScanCardRecognizer(),
+        appInfo: () async =>
+            const ScanAppInfo(platform: 'iOS', appVersion: '1.0.0'),
+      );
+
+      final library = source.library(
+        maxItems: 2,
+        onSelected: (image, _) => selected.add(image.fileName),
+      );
+      await picker.firstDelivered.future;
+      expect(selected, ['scan-0.jpg']);
+      picker.releaseSecond.complete();
+      final pending = await library;
+      expect(selected, ['scan-0.jpg', 'scan-1.jpg']);
+      expect(await Future.wait(pending), hasLength(2));
     },
   );
 
@@ -513,14 +584,43 @@ class _FakeScanImagePicker implements ScanImagePicker {
   }
 }
 
+class _ProgressiveScanImagePicker extends _FakeScanImagePicker
+    implements StreamingScanImagePicker {
+  _ProgressiveScanImagePicker() : super(batchCount: 2);
+
+  final firstDelivered = Completer<void>();
+  final releaseSecond = Completer<void>();
+
+  @override
+  Future<void> pickManyStreaming(
+    ScanImageSource source, {
+    required int limit,
+    required void Function(ScanImage image) onImage,
+  }) async {
+    final first = ScanImage(
+      bytes: Uint8List.fromList([1]),
+      fileName: 'scan-0.jpg',
+    );
+    onImage(first);
+    firstDelivered.complete();
+    await releaseSecond.future;
+    if (limit > 1) {
+      onImage(
+        ScanImage(bytes: Uint8List.fromList([2]), fileName: 'scan-1.jpg'),
+      );
+    }
+  }
+}
+
 const _hash = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 
 class _FakeScanApi implements ScanApi, ScanQuotaReservationApi {
-  _FakeScanApi(this.result, {this.failure, this.failures = const []});
+  _FakeScanApi(this.result, {this.failure, this.failures = const [], this.beforeResult});
 
   final ScanRecognitionDto result;
   final Object? failure;
   final List<Object> failures;
+  final Future<void>? beforeResult;
   ScanCardHashes? lastHashes;
   String? lastPlatform;
   String? lastCardNumber;
@@ -576,6 +676,7 @@ class _FakeScanApi implements ScanApi, ScanQuotaReservationApi {
     lastPlatform = platform;
     lastCardNumber = cardNumber;
     lastCardType = cardType;
+    await beforeResult;
     if (callCount <= failures.length) throw failures[callCount - 1];
     final failure = this.failure;
     if (failure != null) throw failure;
@@ -606,12 +707,14 @@ class _OrderedScanCardRecognizer implements ScanCardRecognizer {
 class _FakeScanCardRecognizer implements ScanCardRecognizer {
   Uint8List? lastBytes;
   bool? lastAllowCropFallback;
+  var processCount = 0;
 
   @override
   Future<ScanCardHashes> process(
     Uint8List imageBytes, {
     bool allowCropFallback = false,
   }) async {
+    processCount += 1;
     lastBytes = imageBytes;
     lastAllowCropFallback = allowCropFallback;
     return ScanCardHashes(

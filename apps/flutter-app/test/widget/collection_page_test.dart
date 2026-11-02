@@ -114,6 +114,117 @@ void main() {
   });
 
   testWidgets(
+    'Collection filter gains global options after opening without losing the chosen sort',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 884);
+      addTearDown(tester.view.reset);
+      final repository = _PendingPagedCollectionMetadataRepository();
+      await _pumpCollection(tester, repository: repository);
+
+      await tester.tap(find.byKey(const Key('collection-filter-button')));
+      await tester.pumpAndSettle();
+      expect(find.text('Magic: The Gathering'), findsNothing);
+      expect(find.text('French'), findsNothing);
+      await tester.tap(find.text('Price: Low to High'));
+      await tester.pump();
+
+      repository.completeMetadata();
+      await tester.pumpAndSettle();
+      expect(find.text('Magic: The Gathering'), findsOneWidget);
+      expect(find.text('French'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('collection-filter-apply')));
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CollectionPage)),
+      );
+      expect(
+        container.read(collectionControllerProvider).selectedSort,
+        CollectionSort.valueAsc,
+      );
+    },
+  );
+
+  testWidgets(
+    'Collection filter stays open while a full refresh temporarily reloads its page',
+    (tester) async {
+      final repository = _PendingPagedCollectionMetadataRepository();
+      await _pumpCollection(tester, repository: repository);
+      repository.completeMetadata();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('collection-filter-button')));
+      await tester.pumpAndSettle();
+
+      repository.blockNextPage();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CollectionPage)),
+      );
+      final refresh = container
+          .read(collectionControllerProvider.notifier)
+          .refresh();
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(
+        find.byKey(const Key('collection-filter-sheet-background')),
+        findsOneWidget,
+      );
+
+      repository.releaseNextPage();
+      await refresh;
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Collection filter still shows owned Games from summary when the catalog request fails',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 884);
+      addTearDown(tester.view.reset);
+      final repository = _PendingPagedCollectionMetadataRepository(
+        catalogFails: true,
+      );
+      await _pumpCollection(tester, repository: repository);
+      repository.completeMetadata();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('collection-filter-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Magic: The Gathering'), findsOneWidget);
+      expect(find.text('French'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Collection keeps the empty action when totals fail but base count is zero',
+    (tester) async {
+      final empty = _PendingPagedCollectionMetadataRepository(
+        total: 0,
+        baseCount: 0,
+        summaryFails: true,
+      );
+      await _pumpCollection(tester, repository: empty);
+      expect(find.text('Start your portfolio'), findsOneWidget);
+      expect(find.text('No matching cards found.'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Collection keeps no-match when totals fail but the folder owns cards',
+    (tester) async {
+      final noMatch = _PendingPagedCollectionMetadataRepository(
+        total: 0,
+        baseCount: 3,
+        summaryFails: true,
+      );
+      await _pumpCollection(tester, repository: noMatch);
+      expect(find.text('Start your portfolio'), findsNothing);
+      expect(find.text('No matching cards found.'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'Collection filter keeps its handle and Apply fixed while options scroll',
     (tester) async {
       tester.view.devicePixelRatio = 1;
@@ -475,6 +586,79 @@ void main() {
         const EdgeInsets.fromLTRB(20, KandoLayout.mainTabTopPadding, 20, 16),
       );
       expect(contentPadding.padding, const EdgeInsets.fromLTRB(20, 0, 20, 24));
+    },
+  );
+
+  testWidgets(
+    'Collection builds only nearby cards so a large portfolio remains scrollable',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 884);
+      addTearDown(tester.view.reset);
+
+      await _pumpCollection(
+        tester,
+        repository: const _LargeCollectionRepository(),
+      );
+
+      expect(find.byType(SearchCardTile).evaluate().length, lessThan(20));
+      _expectCollectionCardRowMatchesSearchField(
+        tester,
+        leftCardId: 'bulk-0',
+        rightCardId: 'bulk-1',
+      );
+
+      await tester.drag(
+        find.byKey(const Key('collection-content-list')),
+        const Offset(0, -10000),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('search-card-bulk-39')), findsOneWidget);
+      expect(
+        find.byKey(const Key('collection-controls-header')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'paged Collection keeps the two-column card geometry while loading more on scroll',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 884);
+      addTearDown(tester.view.reset);
+      final repository = _PagedCollectionGridRepository();
+      await _pumpCollection(tester, repository: repository);
+      repository.completeMetadata();
+      await tester.pumpAndSettle();
+
+      _expectCollectionCardRowMatchesSearchField(
+        tester,
+        leftCardId: 'paged-0',
+        rightCardId: 'paged-1',
+      );
+      expect(
+        tester.getSize(find.byKey(const Key('search-card-paged-0'))).height,
+        378,
+      );
+      await tester.drag(
+        find.byKey(const Key('collection-content-list')),
+        const Offset(0, -10000),
+      );
+      await tester.pumpAndSettle();
+
+      expect(repository.requestedPages, [1, 2]);
+      await tester.drag(
+        find.byKey(const Key('collection-content-list')),
+        const Offset(0, -10000),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('search-card-paged-44')), findsOneWidget);
+      expect(
+        find.byKey(const Key('collection-controls-header')),
+        findsOneWidget,
+      );
     },
   );
 
@@ -1616,6 +1800,190 @@ class _LongFolderCollectionRepository extends MockCollectionRepository {
         for (final folder in dashboard.folders)
           folder.id == 'main' ? folder.copyWith(name: _longFolderName) : folder,
       ],
+    );
+  }
+}
+
+class _LargeCollectionRepository extends MockCollectionRepository {
+  const _LargeCollectionRepository();
+
+  @override
+  Future<CollectionDashboard> loadDashboard(AuthSession session) async {
+    final dashboard = await super.loadDashboard(session);
+    return dashboard.copyWith(
+      portfolioItems: [
+        for (var index = 0; index < 40; index++)
+          CollectionItem(
+            id: 'bulk-$index',
+            cardRef: 'bulk-$index',
+            folderId: 'main',
+            name: 'Bulk Card $index',
+            setName: 'Bulk Set',
+            number: '#$index',
+            rarity: 'Rare',
+            game: 'Pokemon',
+            language: 'English',
+            finish: 'Normal',
+            grader: 'Raw',
+            condition: 'Near Mint',
+            grade: null,
+            quantity: 1,
+            marketValueUsd: 1,
+            previous30dPriceUsd: 1,
+            addedAtSort: 40 - index,
+          ),
+      ],
+    );
+  }
+}
+
+class _PendingPagedCollectionMetadataRepository extends MockCollectionRepository
+    implements CollectionPagedRepository, CollectionGameCatalogRepository {
+  _PendingPagedCollectionMetadataRepository({
+    this.total = 3,
+    this.baseCount = 3,
+    this.summaryFails = false,
+    this.catalogFails = false,
+  });
+
+  final int total;
+  final int baseCount;
+  final bool summaryFails;
+  final bool catalogFails;
+  final _summary = Completer<CollectionSummaryResult>();
+  final _games = Completer<List<String>>();
+  Completer<void>? _nextPage;
+
+  @override
+  bool get supportsPaging => true;
+
+  @override
+  Future<CollectionPageResult> loadPage(
+    AuthSession session, {
+    required CollectionTab tab,
+    String? folderId,
+    String query = '',
+    CollectionSort sort = CollectionSort.newest,
+    int page = 1,
+    Set<String> games = const {},
+    Set<String> languages = const {},
+    List<String> performanceItemIds = const [],
+  }) async {
+    await _nextPage?.future;
+    final source = await super.loadDashboard(session);
+    return CollectionPageResult(
+      dashboard: source.copyWith(
+        portfolioItems: total == 0
+            ? const []
+            : source.portfolioItems
+                  .where((item) => item.folderId == 'main')
+                  .toList(),
+        wishlistItems: const [],
+      ),
+      folderId: folderId ?? 'main',
+      total: total,
+      baseCount: baseCount,
+      page: page,
+      pageSize: 40,
+    );
+  }
+
+  @override
+  Future<CollectionSummaryResult> loadSummary(AuthSession session) =>
+      summaryFails
+      ? Future.error(StateError('summary unavailable'))
+      : _summary.future;
+
+  @override
+  Future<List<String>> loadGameOptions() => catalogFails
+      ? Future.error(StateError('games unavailable'))
+      : _games.future;
+
+  void completeMetadata() {
+    _summary.complete(
+      const CollectionSummaryResult(
+        folders: {
+          'main': CollectionFolderTotals(
+            folderId: 'main',
+            itemCount: 3,
+            cardCount: 4,
+            gradedCount: 2,
+            totalValueUsd: 1245,
+            languages: ['English', 'French'],
+          ),
+        },
+        wishlistCount: 0,
+        wishlistLanguages: [],
+        games: ['Pokemon', 'Magic: The Gathering'],
+      ),
+    );
+    _games.complete(const ['Pokemon', 'Magic: The Gathering']);
+  }
+
+  void blockNextPage() => _nextPage = Completer<void>();
+
+  void releaseNextPage() {
+    _nextPage?.complete();
+    _nextPage = null;
+  }
+}
+
+class _PagedCollectionGridRepository
+    extends _PendingPagedCollectionMetadataRepository {
+  final requestedPages = <int>[];
+
+  @override
+  Future<CollectionPageResult> loadPage(
+    AuthSession session, {
+    required CollectionTab tab,
+    String? folderId,
+    String query = '',
+    CollectionSort sort = CollectionSort.newest,
+    int page = 1,
+    Set<String> games = const {},
+    Set<String> languages = const {},
+    List<String> performanceItemIds = const [],
+  }) async {
+    requestedPages.add(page);
+    final source = await const MockCollectionRepository().loadDashboard(
+      session,
+    );
+    final items = [
+      for (
+        var index = (page - 1) * 40;
+        index < page * 40 && index < 45;
+        index++
+      )
+        CollectionItem(
+          id: 'paged-$index',
+          cardRef: 'paged-$index',
+          folderId: 'main',
+          name: 'Paged $index',
+          setName: 'Set',
+          number: '#$index',
+          rarity: 'Rare',
+          game: 'Pokemon',
+          language: 'English',
+          finish: 'Normal',
+          grader: 'Raw',
+          condition: 'Near Mint',
+          grade: null,
+          quantity: 1,
+          marketValueUsd: 1,
+          previous30dPriceUsd: 1,
+          addedAtSort: 45 - index,
+        ),
+    ];
+    return CollectionPageResult(
+      dashboard: source.copyWith(
+        portfolioItems: items,
+        wishlistItems: const [],
+      ),
+      folderId: folderId ?? 'main',
+      total: 45,
+      baseCount: 45,
+      page: page,
+      pageSize: 40,
     );
   }
 }

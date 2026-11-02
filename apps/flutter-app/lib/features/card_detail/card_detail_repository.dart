@@ -133,6 +133,18 @@ class HttpCardDetailRepository
     AuthSession session,
     CardDetail detail,
   ) async {
+    if (_api is PortfolioCardAssetsApi) {
+      final assets = await (_api as PortfolioCardAssetsApi).getCardAssets(
+        session,
+        detail.id,
+      );
+      return _mergeAssetState(
+        detail,
+        assets.folders,
+        assets.items,
+        assets.wishlistItems,
+      );
+    }
     final results = await Future.wait([
       _api.listFolders(session),
       _api.listCollectionItems(session),

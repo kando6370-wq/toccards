@@ -309,6 +309,14 @@ abstract interface class PaginatedCardDataApi {
   });
 }
 
+abstract interface class PaginatedSetCatalogApi {
+  Future<List<CardDataSetDto>> searchSetPage(
+    String query, {
+    String? game,
+    required int page,
+  });
+}
+
 abstract interface class PaginatedTrendingCardDataApi {
   Future<List<CardDataCardDto>> trendingCardPage({required int page});
 }
@@ -333,6 +341,7 @@ class CardDataApiClient
     implements
         CardDataApi,
         PaginatedCardDataApi,
+        PaginatedSetCatalogApi,
         PaginatedTrendingCardDataApi,
         SetCatalogApi,
         BatchCardDataApi,
@@ -396,20 +405,29 @@ class CardDataApiClient
   }) async {
     final result = <CardDataSetDto>[];
     for (var page = 1; ; page += 1) {
-      final data = await _requestData(
-        'GET',
-        '/sets/search',
-        queryParameters: {
-          'q': query,
-          if (game != null) 'game': game,
-          'page': page,
-          'page_size': kandoPageSize,
-        },
-      );
-      final items = _items(data).map(CardDataSetDto.fromJson).toList();
+      final items = await searchSetPage(query, game: game, page: page);
       result.addAll(items);
       if (items.length < kandoPageSize) return result;
     }
+  }
+
+  @override
+  Future<List<CardDataSetDto>> searchSetPage(
+    String query, {
+    String? game,
+    required int page,
+  }) async {
+    final data = await _requestData(
+      'GET',
+      '/sets/search',
+      queryParameters: {
+        'q': query,
+        if (game != null) 'game': game,
+        'page': page,
+        'page_size': kandoPageSize,
+      },
+    );
+    return _items(data).map(CardDataSetDto.fromJson).toList();
   }
 
   @override

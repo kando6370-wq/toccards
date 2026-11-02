@@ -1,6 +1,6 @@
 # Cards 与 Sets 排序及索引
 
-更新日期：2026-10-30（Asia/Shanghai）。Cards 与 Sets 数值排序已随 `dev@867c6fd8` 发布 kd201 并独立验收，见[数值排序发布记录](../05-delivery/VERIFICATION.md#dev-numeric-search-deployment-20261029)；Cards 固定过滤 `has_image = 2` 已随 `dev@9365f16d` 发布并完成数据库逐项对照，见[图片过滤发布记录](../05-delivery/VERIFICATION.md#dev-japanese-ocr-cards-filter-release-20261029)。Sets 不增加图片条件。`0016` 已随 `dev@b9702b81` 执行，`0017` 已在事务外并发预建并随 `dev@8a8b5c17` 登记，最终 Linux dev 运行提交为日志热修复后的 `c5908c32`，见[性能发布记录](../05-delivery/VERIFICATION.md#dev-performance-release-20261030)。prod 尚未执行上述 dev 数值排序、图片过滤或索引增量。
+更新日期：2026-11-02（Asia/Shanghai）。Cards 与 Sets 数值排序已随 `dev@867c6fd8` 发布 kd201 并独立验收，见[数值排序发布记录](../05-delivery/VERIFICATION.md#dev-numeric-search-deployment-20261029)；Cards 固定过滤 `has_image = 2` 已随 `dev@9365f16d` 发布并完成数据库逐项对照，见[图片过滤发布记录](../05-delivery/VERIFICATION.md#dev-japanese-ocr-cards-filter-release-20261029)。Sets 不增加图片条件。`0016` 已随 `dev@b9702b81` 执行，`0017` 已在事务外并发预建并随 `dev@8a8b5c17` 登记，2026-10-30 最终 Linux dev 运行提交为日志热修复后的 `c5908c32`，见[性能发布记录](../05-delivery/VERIFICATION.md#dev-performance-release-20261030)。2026-11-02 新增的 Sets 客户端渐进加载尚未发布；本轮保持既有索引迁移原样。prod 尚未执行上述 dev 数值排序、图片过滤或索引增量。
 
 ## 查询与缓存
 
@@ -40,7 +40,9 @@ s.set_id DESC
 
 纯数字系列 ID 按数值降序，非纯数字排在其后；数值相同或均非数字时按原始字符串 ID 降序。`0010` 与 `10` 保持不同标识，`A12` 等不提取数字。名称只参与搜索匹配，不参与排序；这里没有创建时间主排序。转换仅产生排序键，数据库和 API 中的 `set_id` 继续为原字符串，并继承 `numeric` 的范围边界。
 
-Game、关键词匹配、非空 `set_code` 过滤、响应字段和分页参数保持不变。Search 初始预载第 1 页 40 条；正常加载后首次切换到 Sets，客户端从第 1 页重新按每页 40 条加载到末页，保持服务端顺序。Sets 查询仍只读取 `sets` 表，不关联 `cards_all`，也不增加 `has_image` 条件。Sets 查询不经过现有 KV／Cache API 结果缓存，本次无需增加 Sets 缓存版本；从单个 Set 进入后的卡牌分页复用 `/cards/search`，因此使用 Cards 的 `has_image = 2` 与 `v17` 规则。
+Game、关键词匹配、非空 `set_code` 过滤、响应字段和分页参数保持不变。2026-11-02 客户端改为渐进加载：Search 初始预载第 1 页 40 条，Cards 可以先于慢 Sets 显示；首次切换到 Sets 复用相同 Game 已加载的第一页，滚动接近底部时再取下一页，不再为宽查询先串行拉到末页。关键词或 Game 变更重新从第一页加载，旧查询的迟到结果不能混入；后续页失败保留已加载结果并使用列表尾部的现有重试样式。列表行布局和服务端排序保持。
+
+Sets 查询仍只读取 `sets` 表，不关联 `cards_all`，也不增加 `has_image` 条件。Sets 查询不经过现有 KV／Cache API 结果缓存，本次无需增加 Sets 缓存版本；从单个 Set 进入后的卡牌分页复用 `/cards/search`，因此使用 Cards 的 `has_image = 2` 与 `v17` 规则。
 
 2026-10-29 dev 只读检查确认 `sets` 共 2,978 条，其中纯数字 ID 2,078 条、最长 7 位，非纯数字最长 5 字符。Pokemon 新排序首屏在单次样本中使用原 Game 索引筛选后 Sort，执行 1.768 ms。本次不增加索引或 migration；该样本不代表一般性能或 prod 验收。行为与测试见[Sets 验证记录](../05-delivery/VERIFICATION.md#sets-numeric-id-order-20261029)。
 
