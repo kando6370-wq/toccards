@@ -378,13 +378,28 @@ const DISABLE_USER_SQL = `
   WHERE id = ? AND status = 'active'
 `;
 
+const FEEDBACK_FILTER_SQL = `
+  FROM feedback_ticket
+  WHERE (CAST(? AS text) IS NULL OR uid = ?)
+    AND (CAST(? AS text) IS NULL OR
+      CASE WHEN types IS JSON ARRAY THEN types::jsonb @> CAST(? AS jsonb)
+           ELSE FALSE END)
+    AND (CAST(? AS text) IS NULL OR
+      CASE WHEN status IN ('processed', 'closed') THEN 'processed'
+           WHEN status = 'ignored' THEN 'ignored'
+           ELSE 'pending' END = ?)
+    AND (CAST(? AS text) IS NULL OR created_at >= ?)
+    AND (CAST(? AS text) IS NULL OR created_at <= ?)
+`;
+
 const SELECT_FEEDBACKS_SQL = `
   SELECT id, uid, email, types, functions, message, status, created_at, updated_at
-  FROM feedback_ticket
-  WHERE (CAST(? AS text) IS NULL OR status = ?)
+  ${FEEDBACK_FILTER_SQL}
   ORDER BY created_at DESC, id ASC
   LIMIT ? OFFSET ?
 `;
+
+const COUNT_FEEDBACKS_SQL = `SELECT COUNT(*) AS total ${FEEDBACK_FILTER_SQL}`;
 
 const SELECT_FEEDBACK_BY_ID_SQL = `
   SELECT id, uid, email, types, functions, message, status, created_at, updated_at
@@ -1004,15 +1019,32 @@ adminRoutes.get("/feedbacks", async (c) => {
   const page = readPositiveInt(c.req.query("page"), 1);
   const pageSize = Math.min(readPositiveInt(c.req.query("page_size"), 20), 100);
   const status = readFeedbackStatus(c.req.query("status"));
+  const uid = readRequiredString(c.req.query("uid"));
+  const issueType = readRequiredString(c.req.query("issue_type"));
+  const dateFrom = readDateBoundary(c.req.query("date_from"), false);
+  const dateTo = readDateBoundary(c.req.query("date_to"), true);
+  if (dateFrom === "invalid" || dateTo === "invalid") {
+    return c.json(VALIDATION_ERROR_RESPONSE, 422);
+  }
   const offset = (page - 1) * pageSize;
-  const { results = [] } = await c.env.DB.prepare(SELECT_FEEDBACKS_SQL)
-    .bind(null, null, pageSize, offset)
-    .all<FeedbackTicketRow>();
-  const items = results
-    .map(toAdminFeedbackTicket)
-    .filter((item) => !status || item.status === status);
+  const filterBindings = [
+    uid, uid,
+    issueType, issueType ? JSON.stringify([issueType]) : null,
+    status, status,
+    dateFrom, dateFrom,
+    dateTo, dateTo,
+  ] as const;
+  const [{ results = [] }, count] = await Promise.all([
+    c.env.DB.prepare(SELECT_FEEDBACKS_SQL)
+      .bind(...filterBindings, pageSize, offset)
+      .all<FeedbackTicketRow>(),
+    c.env.DB.prepare(COUNT_FEEDBACKS_SQL)
+      .bind(...filterBindings)
+      .first<{ total: number }>(),
+  ]);
+  const items = results.map(toAdminFeedbackTicket);
 
-  return c.json({ success: true, data: { items, page, page_size: pageSize } });
+  return c.json({ success: true, data: { items, total: count?.total ?? 0, page, page_size: pageSize } });
 });
 
 adminRoutes.get("/feedbacks/:ticketId", async (c) => {
@@ -1623,7 +1655,7 @@ function toAdminFeedbackTicket(row: FeedbackTicketRow) {
     issue_type: types[0] ?? "其他",
     module: functions[0] ?? "App",
     uid: row.uid,
-    platform: "iOS",
+    platform: "未知",
     app_version: "1.9.0",
     device_model: "Unknown",
     os_version: "Unknown",

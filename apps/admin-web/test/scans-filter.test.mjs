@@ -26,6 +26,8 @@ function scanPageHarness() {
       if (!(index in state)) state[index] = initial;
       return [state[index], (next) => { state[index] = typeof next === "function" ? next(state[index]) : next; }];
     },
+    useRef: (initial) => ({ current: initial }),
+    useEffect: () => {},
     useMemo: (make) => make(),
     useAdminData(path) {
       requestedPath = path;

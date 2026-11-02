@@ -479,6 +479,39 @@ void main() {
   );
 
   testWidgets(
+    'Collection builds only nearby cards so a large portfolio remains scrollable',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 884);
+      addTearDown(tester.view.reset);
+
+      await _pumpCollection(
+        tester,
+        repository: const _LargeCollectionRepository(),
+      );
+
+      expect(find.byType(SearchCardTile).evaluate().length, lessThan(20));
+      _expectCollectionCardRowMatchesSearchField(
+        tester,
+        leftCardId: 'bulk-0',
+        rightCardId: 'bulk-1',
+      );
+
+      await tester.drag(
+        find.byKey(const Key('collection-content-list')),
+        const Offset(0, -10000),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('search-card-bulk-39')), findsOneWidget);
+      expect(
+        find.byKey(const Key('collection-controls-header')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
     'Free Folder limit opens Paywall without showing the create form',
     (tester) async {
       await _pumpCollection(tester, useRoutes: true);
@@ -1615,6 +1648,39 @@ class _LongFolderCollectionRepository extends MockCollectionRepository {
       folders: [
         for (final folder in dashboard.folders)
           folder.id == 'main' ? folder.copyWith(name: _longFolderName) : folder,
+      ],
+    );
+  }
+}
+
+class _LargeCollectionRepository extends MockCollectionRepository {
+  const _LargeCollectionRepository();
+
+  @override
+  Future<CollectionDashboard> loadDashboard(AuthSession session) async {
+    final dashboard = await super.loadDashboard(session);
+    return dashboard.copyWith(
+      portfolioItems: [
+        for (var index = 0; index < 40; index++)
+          CollectionItem(
+            id: 'bulk-$index',
+            cardRef: 'bulk-$index',
+            folderId: 'main',
+            name: 'Bulk Card $index',
+            setName: 'Bulk Set',
+            number: '#$index',
+            rarity: 'Rare',
+            game: 'Pokemon',
+            language: 'English',
+            finish: 'Normal',
+            grader: 'Raw',
+            condition: 'Near Mint',
+            grade: null,
+            quantity: 1,
+            marketValueUsd: 1,
+            previous30dPriceUsd: 1,
+            addedAtSort: 40 - index,
+          ),
       ],
     );
   }

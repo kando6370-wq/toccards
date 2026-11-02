@@ -183,6 +183,23 @@ describe("API request correlation", () => {
     expect(String(entry?.[1])).not.toContain("include=orders");
   });
 
+  it("keeps a static route distinct from a later sibling parameter route", async () => {
+    const logs = vi.spyOn(console, "info").mockImplementation(() => {});
+    const tracedApp = new Hono();
+    tracedApp.use("/api/v1/*", apiRequestId());
+    tracedApp.get("/api/v1/cards/search", (context) => context.json({ items: [] }));
+    tracedApp.get("/api/v1/cards/:card_ref", (context) =>
+      context.json({ card_ref: context.req.param("card_ref") })
+    );
+
+    await tracedApp.request("/api/v1/cards/search?q=sensitive-search");
+
+    const entry = logs.mock.calls.find(([event]) => event === "api_request");
+    const completion = JSON.parse(String(entry?.[1]));
+    expect(completion.path).toBe("/api/v1/cards/search");
+    expect(String(entry?.[1])).not.toContain("sensitive-search");
+  });
+
   it("does not add request correlation outside the business API", async () => {
     const logs = vi.spyOn(console, "info").mockImplementation(() => {});
 

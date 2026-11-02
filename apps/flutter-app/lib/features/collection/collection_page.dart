@@ -115,13 +115,13 @@ class _CollectionPageState extends ConsumerState<CollectionPage> {
                       SliverPadding(
                         key: const Key('collection-content-padding'),
                         padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                        sliver: SliverToBoxAdapter(
-                          child: Column(
-                            children: [
-                              _CollectionContent(state: state),
-                              const SizedBox(height: 100),
-                            ],
-                          ),
+                        sliver: SliverMainAxisGroup(
+                          slivers: [
+                            _CollectionContent(state: state),
+                            const SliverToBoxAdapter(
+                              child: SizedBox(height: 100),
+                            ),
+                          ],
                         ),
                       ),
                   ],
@@ -616,51 +616,59 @@ class _CollectionContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (state.isLoading) {
-      return const SizedBox(
-        key: Key('collection-results-loading'),
-        height: 160,
-        child: KandoLoadingBlock(),
+      return const SliverToBoxAdapter(
+        child: SizedBox(
+          key: Key('collection-results-loading'),
+          height: 160,
+          child: KandoLoadingBlock(),
+        ),
       );
     }
 
-    if (state.isNoMatch) {
-      return const _CollectionNoMatchState();
+    final visibleItems = state.visibleItems;
+    final isEmpty = state.isEmpty;
+    if (!isEmpty && visibleItems.isEmpty) {
+      return const SliverToBoxAdapter(child: _CollectionNoMatchState());
     }
-    if (state.isEmpty && state.selectedTab == CollectionTab.portfolio) {
-      return _CollectionEmptyState(
-        illustration: 'assets/collection/portfolio_empty_figma.png',
-        illustrationKey: const Key('collection-portfolio-empty-illustration'),
-        illustrationWidth: 83,
-        illustrationHeight: 90,
-        title: 'Start your portfolio',
-        body: 'Scan or search cards to track value',
-        primaryLabel: 'SCAN A CARD',
-        primaryIconAssetPath: 'assets/home/empty_action_camera.svg',
-        primaryIconSize: const Size(16.0417, 14.5417),
-        onPrimary: () => context.go('/scan'),
-        secondaryLabel: 'SEARCH A CARD',
-        secondaryIconAssetPath: 'assets/home/empty_action_search.svg',
-        secondaryIconSize: const Size(15.2707, 15.8891),
-        onSecondary: () => context.go('/search'),
+    if (isEmpty && state.selectedTab == CollectionTab.portfolio) {
+      return SliverToBoxAdapter(
+        child: _CollectionEmptyState(
+          illustration: 'assets/collection/portfolio_empty_figma.png',
+          illustrationKey: const Key('collection-portfolio-empty-illustration'),
+          illustrationWidth: 83,
+          illustrationHeight: 90,
+          title: 'Start your portfolio',
+          body: 'Scan or search cards to track value',
+          primaryLabel: 'SCAN A CARD',
+          primaryIconAssetPath: 'assets/home/empty_action_camera.svg',
+          primaryIconSize: const Size(16.0417, 14.5417),
+          onPrimary: () => context.go('/scan'),
+          secondaryLabel: 'SEARCH A CARD',
+          secondaryIconAssetPath: 'assets/home/empty_action_search.svg',
+          secondaryIconSize: const Size(15.2707, 15.8891),
+          onSecondary: () => context.go('/search'),
+        ),
       );
     }
-    if (state.isEmpty) {
-      return _CollectionEmptyState(
-        illustration: 'assets/collection/wishlist_empty_figma.png',
-        illustrationKey: const Key('collection-wishlist-empty-illustration'),
-        illustrationWidth: 170,
-        illustrationHeight: 100,
-        title: 'Your wishlist is empty',
-        body: 'Add cards you want to collect later',
-        primaryLabel: 'SEARCH CARDS',
-        primaryIconAssetPath: 'assets/home/empty_action_search.svg',
-        primaryIconSize: const Size(15.2707, 15.8891),
-        onPrimary: () => context.go('/search'),
+    if (isEmpty) {
+      return SliverToBoxAdapter(
+        child: _CollectionEmptyState(
+          illustration: 'assets/collection/wishlist_empty_figma.png',
+          illustrationKey: const Key('collection-wishlist-empty-illustration'),
+          illustrationWidth: 170,
+          illustrationHeight: 100,
+          title: 'Your wishlist is empty',
+          body: 'Add cards you want to collect later',
+          primaryLabel: 'SEARCH CARDS',
+          primaryIconAssetPath: 'assets/home/empty_action_search.svg',
+          primaryIconSize: const Size(15.2707, 15.8891),
+          onPrimary: () => context.go('/search'),
+        ),
       );
     }
 
     return _CollectionGrid(
-      items: state.visibleItems,
+      items: visibleItems,
       showQuantity: state.selectedTab == CollectionTab.portfolio,
     );
   }
@@ -860,37 +868,22 @@ class _CollectionGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        const spacing = 10.0;
-        final gridWidth = constraints.maxWidth;
-        final tileWidth = (gridWidth - spacing) / 2;
-        return Align(
-          alignment: Alignment.topCenter,
-          child: SizedBox(
-            width: gridWidth,
-            child: Wrap(
-              spacing: spacing,
-              runSpacing: spacing,
-              children: [
-                for (final item in items)
-                  SizedBox(
-                    width: tileWidth,
-                    height: 378,
-                    child: SearchCardTile(
-                      card: _asSearchCard(item, showQuantity: showQuantity),
-                      actionsEnabled: false,
-                      showActions: false,
-                      showSearchMetadata: true,
-                      showQuantity: showQuantity,
-                      entrySource: AnalyticsValue.sourceEdit,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
+    return SliverGrid.builder(
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+        mainAxisExtent: 378,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, index) => SearchCardTile(
+        card: _asSearchCard(items[index], showQuantity: showQuantity),
+        actionsEnabled: false,
+        showActions: false,
+        showSearchMetadata: true,
+        showQuantity: showQuantity,
+        entrySource: AnalyticsValue.sourceEdit,
+      ),
     );
   }
 }

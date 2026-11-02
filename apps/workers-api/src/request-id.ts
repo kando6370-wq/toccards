@@ -41,7 +41,7 @@ export function apiRequestId(): MiddlewareHandler {
 }
 
 function completionPath(context: Parameters<MiddlewareHandler>[0]): string {
-  const matchedPath = routePath(context, -1);
+  const matchedPath = routePath(context);
   return matchedPath && !matchedPath.endsWith("*")
     ? matchedPath
     : "/api/v1/*";

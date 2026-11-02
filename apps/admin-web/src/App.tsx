@@ -813,8 +813,38 @@ function UsersPage({ session }: { session: AdminSession }) {
 }
 
 function FeedbackPage({ session }: { session: AdminSession }) {
-  const { data, loading, reload, error } = useAdminData<{ items: FeedbackTicket[] }>("/feedbacks?page_size=100", session);
+  const [page, setPage] = useState(1);
+  const [dateKey, setDateKey] = useState(0);
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const path = useMemo(() => {
+    const params = new URLSearchParams({ page: String(page), page_size: "5" });
+    Object.entries(filters).forEach(([key, value]) => value && params.set(key, value));
+    return `/feedbacks?${params.toString()}`;
+  }, [filters, page]);
+  const { data, loading, reload, error } = useAdminData<{ items: FeedbackTicket[]; total: number; page_size: number }>(path, session);
   const tickets = data?.items ?? [];
+
+  useEffect(() => {
+    if (loading || !data) return;
+    const lastPage = Math.max(1, Math.ceil(data.total / data.page_size));
+    if (page > lastPage) setPage(lastPage);
+  }, [data, loading, page]);
+
+  function applyFilters() {
+    const nextFilters = { ...draft, uid: draft.uid?.trim() ?? "" };
+    setDraft(nextFilters);
+    setFilters(nextFilters);
+    setPage(1);
+    reload();
+  }
+
+  function resetFilters() {
+    setDraft({});
+    setFilters({});
+    setPage(1);
+    setDateKey((value) => value + 1);
+  }
 
   async function updateStatus(ticket: FeedbackTicket, status: FeedbackStatus) {
     await mutate(session, `/feedbacks/${ticket.id}/status`, { method: "PATCH", body: { status } });
@@ -825,14 +855,14 @@ function FeedbackPage({ session }: { session: AdminSession }) {
   return (
     <PagePanel error={error} onRefresh={reload}>
       <FilterBar>
-        <DatePicker placeholder="开始时间" />
-        <DatePicker placeholder="结束时间" />
-        <Select placeholder="平台" className="filter-control" options={platformOptions} />
-        <Select placeholder="问题类型" className="filter-control" options={feedbackTypeOptions} />
-        <Select placeholder="处理状态" className="filter-control" options={feedbackStatusOptions} />
-        <Input placeholder="UID 搜索" className="filter-control" />
-        <Button className="cyan-button">查询</Button>
-        <Button>重置</Button>
+        <DatePicker key={`from-${dateKey}`} placeholder="开始时间" onChange={(_, value) => setDraft((current) => ({ ...current, date_from: typeof value === "string" ? value : "" }))} />
+        <DatePicker key={`to-${dateKey}`} placeholder="结束时间" onChange={(_, value) => setDraft((current) => ({ ...current, date_to: typeof value === "string" ? value : "" }))} />
+        <Select placeholder="平台未知" className="filter-control" disabled />
+        <Select placeholder="问题类型" className="filter-control" allowClear value={draft.issue_type || undefined} onChange={(value) => setDraft((current) => ({ ...current, issue_type: value ?? "" }))} options={feedbackTypeOptions} />
+        <Select placeholder="处理状态" className="filter-control" allowClear value={draft.status || undefined} onChange={(value) => setDraft((current) => ({ ...current, status: value ?? "" }))} options={feedbackStatusOptions} />
+        <Input placeholder="UID 搜索" className="filter-control" value={draft.uid ?? ""} onChange={(event) => setDraft((current) => ({ ...current, uid: event.target.value }))} onPressEnter={applyFilters} />
+        <Button className="cyan-button" onClick={applyFilters}>查询</Button>
+        <Button onClick={resetFilters}>重置</Button>
       </FilterBar>
       {loading && <Alert message="正在加载反馈" type="info" showIcon />}
       <div className="feedback-list">
@@ -867,8 +897,8 @@ function FeedbackPage({ session }: { session: AdminSession }) {
         ))}
       </div>
       <div className="feedback-footer">
-        <Text>{rangeSummary(tickets.length, "条反馈")}</Text>
-        <Pagination size="small" current={1} pageSize={5} total={tickets.length} showSizeChanger={false} />
+        <Text>{rangeSummaryPage(page, data?.page_size ?? 5, data?.total ?? 0)}</Text>
+        <Pagination size="small" current={page} pageSize={data?.page_size ?? 5} total={data?.total ?? 0} showSizeChanger={false} onChange={setPage} />
       </div>
     </PagePanel>
   );
@@ -876,6 +906,10 @@ function FeedbackPage({ session }: { session: AdminSession }) {
 
 function ScansPage({ session }: { session: AdminSession }) {
   const [selected, setSelected] = useState<ScanDetail | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const detailRequest = useRef({ version: 0, controller: null as AbortController | null });
   const [page, setPage] = useState(1);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [filters, setFilters] = useState<Record<string, string>>({});
@@ -889,9 +923,37 @@ function ScansPage({ session }: { session: AdminSession }) {
   const { data, loading, reload, error } = useAdminData<ScanListResponse>(queryPath, session);
   const scans = data?.items ?? [];
 
+  useEffect(() => () => {
+    detailRequest.current.version += 1;
+    detailRequest.current.controller?.abort();
+  }, []);
+
   async function openDetail(scanId: string) {
-    const detail = await adminRequest<ScanDetail>(`/scans/${scanId}`, { token: session.accessToken });
-    setSelected(detail);
+    const request = detailRequest.current;
+    request.controller?.abort();
+    request.controller = new AbortController();
+    const version = ++request.version;
+    setDetailId(scanId);
+    setSelected(null);
+    setDetailError(null);
+    setDetailLoading(true);
+    try {
+      const detail = await adminRequest<ScanDetail>(`/scans/${scanId}`, { token: session.accessToken, signal: request.controller.signal });
+      if (version === request.version) setSelected(detail);
+    } catch (requestError) {
+      if (version === request.version && !request.controller.signal.aborted) setDetailError(errorMessage(requestError));
+    } finally {
+      if (version === request.version) setDetailLoading(false);
+    }
+  }
+
+  function closeDetail() {
+    detailRequest.current.version += 1;
+    detailRequest.current.controller?.abort();
+    setDetailId(null);
+    setSelected(null);
+    setDetailError(null);
+    setDetailLoading(false);
   }
 
   function applyScanFilters() {
@@ -909,7 +971,7 @@ function ScansPage({ session }: { session: AdminSession }) {
     { title: "扫描时间", dataIndex: "scan_time", render: formatTime },
     { title: "识别状态", dataIndex: "recognition_status", render: renderRecognitionStatus },
     { title: "是否修改结果", dataIndex: "modified_result", render: (value: boolean) => (value ? "是" : "否") },
-    { title: "操作", render: (_, row) => <Button type="link" onClick={() => openDetail(row.scan_id)}>查看详情</Button> },
+    { title: "操作", render: (_, row) => <Button type="link" onClick={() => void openDetail(row.scan_id)}>查看详情</Button> },
   ];
 
   return (
@@ -956,7 +1018,7 @@ function ScansPage({ session }: { session: AdminSession }) {
         </div>
       </section>
       <p className="scans-data-note">ⓘ 数据用途说明：扫描图片和识别结果仅用于问题排查、支持与识别质量审计。</p>
-      <ScanDetailDrawer scan={selected} session={session} onClose={() => setSelected(null)} />
+      <ScanDetailDrawer scan={selected} session={session} open={detailId !== null} loading={detailLoading} error={detailError} onRetry={() => detailId && void openDetail(detailId)} onClose={closeDetail} />
     </div>
   );
 }
@@ -1154,9 +1216,19 @@ function AppVersionsPage({ session }: { session: AdminSession }) {
   );
 }
 
-function ScanDetailDrawer({ scan, session, onClose }: { scan: ScanDetail | null; session: AdminSession; onClose: () => void }) {
+function ScanDetailDrawer({ scan, session, open, loading, error, onRetry, onClose }: {
+  scan: ScanDetail | null;
+  session: AdminSession;
+  open: boolean;
+  loading: boolean;
+  error: string | null;
+  onRetry: () => void;
+  onClose: () => void;
+}) {
   return (
-    <Drawer open={!!scan} onClose={onClose} title="扫描详情" width={560} className="scan-detail-drawer">
+    <Drawer open={open} onClose={onClose} title="扫描详情" width={560} className="scan-detail-drawer">
+      {loading && <Spin size="large" />}
+      {error && <Alert type="error" showIcon message={error} action={<Button onClick={onRetry}>重试</Button>} />}
       {scan && (
         <Space direction="vertical" size={20} className="drawer-stack">
           <DetailSection title="扫描图片">
@@ -1621,23 +1693,17 @@ function formatMicros(value: number | null, currency: string | null): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(value / 1000000);
 }
 
-function rangeSummary(count: number, unit: string) {
-  if (count === 0) return `显示 0 条，共 0 ${unit}`;
-  return `显示 1 到 ${count} 条，共 ${count.toLocaleString()} ${unit}`;
-}
-
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "请求失败，请稍后重试";
 }
 
-const platformOptions = ["iOS", "Google"].map((value) => ({ value, label: value }));
 const environmentOptions = [{ value: "production", label: "Production" }, { value: "development", label: "Development" }];
 const userPlatformOptions = ["iOS", "Android", "web"].map((value) => ({ value, label: value }));
 const identityOptions = [
   { value: "google", label: "Google" }, { value: "anonymous", label: "游客" },
   { value: "apple", label: "Apple" }, { value: "email", label: "邮箱" },
 ];
-const feedbackTypeOptions = ["Bug Report", "Feature Request", "Account", "Other"].map((value) => ({ value, label: value }));
+const feedbackTypeOptions = ["Bug Report", "Feature Request", "Improvement", "Other"].map((value) => ({ value, label: value }));
 const feedbackStatusOptions = [
   { value: "pending", label: "待处理" },
   { value: "processed", label: "已处理" },

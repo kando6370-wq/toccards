@@ -855,20 +855,38 @@ export function createPortfolioRoutes(
     const pageSize = positiveIntegerOrDefault(c.req.query("page_size"), 20, 100);
     const sortBy = itemSortBy(c.req.query("sort_by"));
     const sortOrder = c.req.query("sort_order") === "asc" ? "asc" : "desc";
-    const allItems = await listCollectionItems(c.env.DB, auth.owner);
-    const filteredItems = folderId
-      ? allItems.filter((item) => item.folder_id === folderId)
-      : allItems;
-    const sortedItems = sortCollectionItems(filteredItems, sortBy, sortOrder);
     const startIndex = (page - 1) * pageSize;
+    const folderFilter = folderId ? " AND folder_id = ?" : "";
+    const bindings = [auth.owner.owner_type, auth.owner.owner_id];
+    if (folderId) bindings.push(folderId);
+    const orderColumn = sortBy === "folder_joined_at"
+      ? "COALESCE(folder_joined_at, created_at)"
+      : sortBy;
+    const { results = [] } = await c.env.DB.prepare(`
+      WITH total AS (
+        SELECT COUNT(*) AS total FROM collection_item
+        WHERE owner_type = ? AND owner_id = ?${folderFilter}
+      ), page AS (
+        ${SELECT_COLLECTION_ITEMS_SQL}${folderFilter}
+        ORDER BY ${orderColumn} COLLATE "C" ${sortOrder}, id COLLATE "C" ASC
+        LIMIT ? OFFSET ?
+      )
+      SELECT total.total, page.* FROM total LEFT JOIN page ON TRUE
+      ORDER BY page.${sortBy} COLLATE "C" ${sortOrder}, page.id COLLATE "C" ASC
+    `).bind(...bindings, ...bindings, pageSize, startIndex)
+      .all<CollectionItemRow & { total: number }>();
+    const count = results[0]?.total;
+    if (count === undefined) {
+      throw new Error("Collection item pagination query returned no results");
+    }
+    const items = results.filter((row) => row.id !== null);
+    const total = Number(count);
 
     return c.json({
       success: true,
       data: {
-        items: sortedItems
-          .slice(startIndex, startIndex + pageSize)
-          .map(collectionItemResponse),
-        total: sortedItems.length,
+        items: items.map(collectionItemResponse),
+        total,
         page,
         page_size: pageSize,
       },
@@ -1736,22 +1754,6 @@ function collectionItemEventStatement(
     eventType,
     effectiveAt,
   );
-}
-
-function sortCollectionItems(
-  items: CollectionItemRow[],
-  sortBy: keyof Pick<
-    CollectionItemRow,
-    "folder_joined_at" | "created_at" | "updated_at" | "card_ref"
-  >,
-  sortOrder: "asc" | "desc",
-): CollectionItemRow[] {
-  return [...items].sort((left, right) => {
-    const direction = sortOrder === "asc" ? 1 : -1;
-
-    return String(left[sortBy]).localeCompare(String(right[sortBy])) * direction
-      || left.id.localeCompare(right.id);
-  });
 }
 
 function itemSortBy(

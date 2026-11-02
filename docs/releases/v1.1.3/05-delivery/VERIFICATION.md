@@ -6,6 +6,27 @@
 
 当前运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下记录只代表 v1.1.3 本地增量及实际执行的验证，不改变远端运行状态。
 
+<a id="project-optimization-20261102"></a>
+## 项目检查后的八项修复与优化（2026-11-02）
+
+- 来源与范围：本段记录实现与验证阶段，来源为 `codex/dev-1.0.7scan@c325876a` 加当时未提交的修改。用户授权修复只读检查提出的七项问题及 iOS CI 路径遗漏；该阶段未执行 Git 提交／推送、环境发布、远程迁移或业务写入，后续 Git 交付不改变下述测试与未验边界。
+- 明确选择：反馈平台没有存储真源，用户选择显示“未知”并禁用平台筛选，不增加平台采集；收藏分页文本顺序由用户批准固定为 PostgreSQL `COLLATE "C"`，接受大小写／重音／非 ASCII 边界与旧默认 locale 排序的差异。这一排序调整按迭代记录，不声称与旧文本排序逐项等价。其余 V1 请求、响应字段、账号隔离及价格口径保持。实现见[后台增量](../04-admin/admin.md#反馈分页与扫描详情竞态修复2026-11-02)、[性能说明](../02-architecture/performance.md)和[扫描链路](../01-flows/scan-recognition.md#review-请求共享与并发控制2026-11-02)。
+- 反馈分页及筛选：修前 PostgreSQL 用例缺 `total`／日期校验失败，页面源码执行确认分页无 `onChange`；修后验证 106 条记录的后续页、UID／类型／状态／UTC 日期的分页前组合筛选、稳定排序、鉴权与非法日期。原 D1 混合用例中的两处反馈 GET 断言迁到 PGlite，无筛选和同时间戳意图保留，没有扩展旧 D1 替身。
+- 扫描详情竞态：修前执行真实组件源码，点击 A 后 B、B 先返回 A 后返回，最终错误显示 A；修后验证 B 保留、关闭后旧请求不能重开、错误可重试。组件增加取消及请求序号，原私有图片与 401 处理保持。
+- 日志路由：先加入本地 dev 已有的兄弟路由回归，修前实际 `/cards/search` 被记成 `/cards/:card_ref`，目标用例退出 1；同步 `routePath(context)` 后，最终使用 `pnpm --filter @kando/workers-api test src/request-id.test.ts src/request-performance.test.ts --maxWorkers=1` 验证当前源码 2 文件、20 项通过。初次直接 `exec vitest` 的 5 文件／62 项包含 `.wrangler` 中 3 份历史 request-id 测试副本，因此不作为当前源码用例数；重跑沿用标准脚本的既有排除规则，没有删除历史材料或缩减正式测试范围。
+- 收藏 UI：修前 40 卡页面构建全部 40 个卡片，按需构建断言失败；修后使用 SliverGrid、同次构建复用可见列表。`flutter test --no-pub test/widget/collection_page_test.dart` 38/38 通过，保留列数、尺寸、间距、空态、筛选与滚动行为。
+- 收藏 API：修前新增 PostgreSQL 用例证实读取全量收藏后应用分页；修后单条 CTE 查询在同一语句快照中返回总数及当前页，空页不输出外连接哨兵，内外排序一致。旧 `items.test.ts` 三项 GET 测试迁入 `items-pagination.postgres.test.ts`，保留账号隔离、同时间戳跨页、移动后的加入时间意图，并增强同 ID 不同 owner_type、非 ASCII／大小写、空页总数和实际数据库返回行数检查。定向 2 文件／26 项、portfolio 全目录 12 文件／104 项通过，命令分别为 `pnpm --filter @kando/workers-api test src/portfolio/items-pagination.postgres.test.ts src/portfolio/items.test.ts --maxWorkers=1` 和 `pnpm --filter @kando/workers-api test src/portfolio --maxWorkers=1`；未执行新 migration。
+- Trending：旧第二页晚于刷新第一页成功或失败时，修前两项用例均停在请求序列 `[1,2,1]`；修后旧代次不污染页码／错误状态，可继续请求新第二页。`flutter test --no-pub test/widget/home_page_test.dart --plain-name Trending` 9/9 通过。
+- Review 请求：修前 10 卡 × 6 价格组合的受控用例峰值 60 个并发，重叠预加载／Review 各重复请求同一卡片；修后合计最多 4 个目录／行情请求，在途卡片加载共享、完成后可重取，全部价格组合与合法零价保留。`flutter test --no-pub test/scan_review_repository_test.dart` 4/4 通过；Scan 页面按 `^(?!Figma).*(Review|review|price|metadata|candidate|preload)` 筛选 33/33 通过，包含图片／价格补取、失败重试、确认与返回。Windows bat 首次将正则分隔符解释为命令，未执行测试；改用同一 Flutter SDK 的 Dart `flutter_tools.snapshot test` 后取得上述有效结果。
+- iOS CI：使用 YAML 解析及路径匹配对比 HEAD／当前配置，`dart-packages/subscription-core/lib/subscription_core.dart` 在 push／PR 两个入口均由不匹配变为匹配；push 的 dev 分支约束和手动入口保留。这是本地配置验证，未触发 GitHub 托管构建。
+- 审查返工：独立审查发现新反馈类型筛选会对历史坏 JSON 执行强制转换。补充真实 PostgreSQL 路由用例后先复现 `22P02`／HTTP 500，再用 `IS JSON ARRAY` 的 CASE 分支保护转换；非法 JSON 和合法非数组值无筛选仍可展示，类型筛选安全排除，列表与 COUNT 一致。最终相关 Workers 3 文件／28 项通过，Workers 类型检查通过。旧状态映射和鉴权未改，没有增加 schema 或 D1 路径。
+- 服务端完整回归：最终 `pnpm --filter @kando/workers-api test --maxWorkers=1` 退出 0，99 文件／913 项全部通过，用时 380.45 秒。沿用默认 `.wrangler` 产物排除规则；运行过程保持同一测试会话，没有因长时间无输出重启或删减用例。此结果包含最终单语句收藏分页、坏 JSON 保护及日志修复。
+- 其他本地验证：Admin 全量 `pnpm --filter @kando/admin-web test` 85/85；直接调用方 `flutter test --no-pub test/portfolio_api_client_test.dart` 30/30，包含逐页加载与字段解析。根 `pnpm lint` 通过，`pnpm type-check --force` 7 个任务均实际执行成功、无缓存复用；修正新增扫描测试的两条 lint 后，`flutter analyze --no-pub` 通过。Flutter 首轮并行测试曾发生共享 test_cache 冲突，后续串行复验；无效执行未计为通过。
+- Home Golden 失败边界：Collection 与 Home 两文件完整合跑为 117 通过、2 失败。失败项为 `v1.1 PRD normal Home renders at the 390x844 baseline` 与 `v1.1 PRD partial Home failure renders at the 390x844 baseline`，均为 1.57%／5167 像素差异，集中顶部导航。当前测试和从 HEAD 提取的原版测试同目录临时副本单独重跑时，各自实际渲染 PNG 的 SHA-256 完全相同；本轮 Home 渲染源码未变，Collection／Trending 不参与这两个截图场景。该对照使用当前源码和相同 Windows 工具链，未运行完整 HEAD 源码隔离基线；因此只能确认新增测试未引入差异，不能把这两项写成通过。临时测试已删除，Golden 未更新。
+- Code Review：后台由另一代理独立审查，坏 JSON 返工后重新验证并复审通过；收藏 SQL／测试、Flutter 三处实现、日志及 CI 均经独立复审，未遗留阻断项。评审期间对收藏外层排序的初步疑问经核对内层 COALESCE 投影和实际测试撤回，没有据此引入无必要改动。
+- 文档检查：`git diff --check` 通过，受改 Markdown 中 40 个相对文件链接及本轮新增／修改的 7 个锚点链接有效；冻结的 v1.0.0／v1.1.2 没有改动。
+- 未验与交付边界：未运行 iOS／Android 真机、完整 Flutter workspace 测试、真实浏览器后台验收、真实 PostgreSQL EXPLAIN／负载 P50/P95、完整旧 App 源码编排或签名制品；没有安装包、dev／prod 发布及远程数据写入。受控并发、构建数量和分页返回行数证明本地行为，不等于真实用户耗时收益，不修改历史归档结论。
+
 <a id="performance-optimization-20261030"></a>
 ## 查询、缓存与列表性能优化（2026-10-30）
 
