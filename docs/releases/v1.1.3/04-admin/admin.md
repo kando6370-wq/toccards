@@ -10,7 +10,7 @@
 
 编辑复用既有 `PATCH /api/v1/admin/permissions/:id`，只修改角色和状态，邮箱只读；不新增邮箱或密码修改能力。新增、编辑、启用／停用仅对 `super_admin` 开放，普通运营角色的按钮在原位置禁用，服务端继续强制校验权限。页面主体、筛选区和表格布局保持。既有接口的 `updated_at` 仍映射创建时间，本轮没有新增持久化字段，不能把编辑后该列视为真实修改时间。
 
-实际本地验证、模拟环境和未发布边界见[验证记录](../05-delivery/VERIFICATION.md)。
+实际本地验证与模拟环境见[开发记录](../05-delivery/VERIFICATION.md#owner-assets-admin-emulator-20261103)；配套 API／Admin 已随 `dev@399f4066` 发布 Linux dev，真实登录态未验边界见[发布记录](../05-delivery/VERIFICATION.md#dev-owner-assets-release-20261103)。prod 未发布本增量。
 
 ## 反馈分页与扫描详情竞态修复（2026-11-02）
 

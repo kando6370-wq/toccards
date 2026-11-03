@@ -49,7 +49,7 @@ Search 先呈现目录，按当前目录页的卡号补资产；后续页只补�
 - 摘要保持全量精确计算，并与列表读取分开。普通翻页不要求重复请求摘要；首次摘要和当前页并行可能增加一次重叠计算，不能用首屏更早出现推断数据库总工作已减少。
 - 2026-11-03 起按文件夹对收藏项一次分组，避免每个文件夹重复扫描全部收藏；缺价、合法零价、数量及语言统计口径保持。
 
-2026-11-02 的单卡资产、分页列表及摘要接口已随 `dev@fe5e319f` 发布 Linux dev，见[历史发布记录](../05-delivery/VERIFICATION.md#dev-ux-loading-release-20261102)。2026-11-03 批量资产接口、补全范围及摘要分组优化的本地验证见[本轮记录](../05-delivery/VERIFICATION.md#owner-assets-admin-emulator-20261103)；本次合并未执行部署或回读远端运行状态，不能由 Git 合并推断这些增量已发布。移动端和 API 应配套交付；prod 与 Flutter 制品未在本次发布。
+2026-11-02 的单卡资产、分页列表及摘要接口已随 `dev@fe5e319f` 发布 Linux dev，见[历史发布记录](../05-delivery/VERIFICATION.md#dev-ux-loading-release-20261102)。2026-11-03 批量资产接口、补全范围及摘要分组优化已随 `dev@399f4066` 发布 Linux dev，见[发布记录](../05-delivery/VERIFICATION.md#dev-owner-assets-release-20261103)；本地功能验证见[本轮记录](../05-delivery/VERIFICATION.md#owner-assets-admin-emulator-20261103)。移动端和 API 应配套交付；prod 与 Flutter 制品未在本次发布。
 
 ## 客户端加载与交互
 

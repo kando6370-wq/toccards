@@ -6,6 +6,7 @@ v1.1.2 已原位归档，不复制其产品、流程、架构、数据/API、Adm
 
 ## 当前基线
 
+- Linux dev 于 2026-11-03 发布 `dev@399f4066` 的 API／Admin，包含批量 owner 资产读取、收藏补全／摘要优化及后台权限管理接线；运行版本、备份、产物与未验边界见[发布记录](05-delivery/VERIFICATION.md#dev-owner-assets-release-20261103)。本次未发布 Flutter 制品或 prod。
 - Linux dev 于 2026-11-02 发布 `dev@fe5e319f` 的 API／Admin，包含收藏分页／摘要／单卡资产接口及后台修复；运行版本、备份、产物和未验边界见[发布记录](05-delivery/VERIFICATION.md#dev-ux-loading-release-20261102)。Flutter 制品与 prod 未在本次发布。
 - [v1.1.2 开发归档](../v1.1.2/README.md)保留 App 1.0.6、订阅展示配置、动态商品准入、Admin、兼容规则及生产交付历史。
 - v1.1.2 的[生产收尾记录](../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)是本版本的运行起点，不因创建 v1.1.3 重新记为部署或验收。

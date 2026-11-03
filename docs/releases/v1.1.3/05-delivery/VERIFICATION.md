@@ -6,6 +6,16 @@
 
 本版本初始运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下按时间分别记录本地增量、实际部署与运行验证；历史记录不替代当前远端状态回读。
 
+<a id="dev-owner-assets-release-20261103"></a>
+## Linux dev 账号隔离、批量资产与权限管理发布（2026-11-03 13:40–13:45）
+
+- 来源与接续：本地与 `github/dev` 均为干净的 `399f40664d79f2a3168b0cc804687d7cdd90b8b1`。连接 kd201 时既有 watcher 已在发布且持有锁，本轮接续观察及独立验收，没有另行启动 `TOCCARDS_FORCE_DEPLOY` 或第二次发布。release 为 `branch-dev-399f40664d79-20261103133956`，上一运行 release 为 `branch-dev-fe5e319ff051-20261102141148`。
+- 发布门槛：服务器 Workers 定向 11 文件／122 项、Node 部署检查 13／13、Linux bundle 3／3 通过，API 与 Admin development 构建成功。实际预检确认数据库 `toccards_test`、PostgreSQL 18、向量与 pHash 两套识别服务可达、`pendingMigrations=[]`。本轮发布批量 owner 资产接口、收藏补全／摘要优化及 Admin 列表隔离和权限分页／筛选／编辑配套 API／Admin；Flutter 账号状态隔离仍仅为源码交付，没有新增 migration 或私有配置要求。
+- 备份与数据库：发布前 custom-format 备份 `toccards-test-20261103-134000-before-branch-dev-399f40664d79-20261103133956.dump` 为 1,137,128,320 字节；独立 `pg_restore --list` 成功读取 339 个非注释目录项，未执行恢复演练。migration 容器 exited/0；独立只读查询确认 PostgreSQL 18.6、ledger 18 项／最新 `0017_cards_visible_numeric_order_indexes.sql`，本轮没有新增迁移或业务写入。
+- 版本与产物：`current`、`shared/current-release`、manifest、watcher `last-seen` 与 `last-deployed` 均对应 `399f4066`，失败标记不存在。API／DB healthy、Web running；API `server.mjs`／source map、Web server 与 release 哈希一致，Admin 11 个文件在 release、运行容器和 HTTP 返回间逐字节一致。`shared/.env`、`watcher.env` 与 watcher 脚本发布前后哈希一致。
+- HTTP 验收：服务器 15 项检查符合预期：Admin 根路径、health、iOS App 配置、Games、Pokemon Cards 与 Sets 搜索为 200；未登录 auth/me、Admin permissions／feedbacks／scans、collection items／summary、新批量 `/portfolio/cards/assets?card_ref=deployment-probe`、单卡 assets 及旧 portfolio/items 均为 401。Windows 内网另行访问 health 与 Admin 均为 200 且内容符合预期。未登录鉴权烟测不等于真实账号业务验收。
+- 最终状态与边界：13:44:58 回读 watcher／deploy 锁均空闲，服务器 watcher source 工作区干净，last-deployed 保持 `399f4066`，随后退出 SSH。仅发布 Linux dev API／Admin；未发布 Flutter 制品、营销站或 prod，未修改 Secret／私有配置，未回查托管 CI。部署阶段未重跑历史完整 Workers 102 文件／927 项、Admin 87／87、Flutter 10 文件／308 项或旧 App 合同，这些仍是[本地开发证据](#owner-assets-admin-emulator-20261103)。远端真实登录业务、真机、真实弱网／性能及备份恢复未验。
+
 <a id="dev-ux-loading-release-20261102"></a>
 ## Linux dev 合并与重新部署（2026-11-02 14:07–14:16）
 
