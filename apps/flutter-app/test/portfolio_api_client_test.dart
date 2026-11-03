@@ -333,6 +333,42 @@ void main() {
   );
 
   test(
+    'Search requests only visible card refs with repeated query keys and parses the existing asset DTO',
+    () async {
+      final adapter = _RecordingAdapter((request) {
+        expect(request.method, 'GET');
+        expect(request.path, '/portfolio/cards/assets');
+        expect(request.uri.queryParametersAll['card_ref'], [
+          'card/1',
+          'card-2',
+        ]);
+        expect(request.authorization, 'Bearer owner-access');
+        return _json(200, {
+          'success': true,
+          'data': {
+            'folders': [_folderJson(id: 'main', name: 'Main', sortOrder: 100)],
+            'items': [_portfolioItemJson(id: 'owned-1', cardRef: 'card/1')],
+            'wishlist_items': [
+              {
+                'id': 'wish-2',
+                'card_ref': 'card-2',
+                'created_at': '2026-01-03T00:00:00.000Z',
+              },
+            ],
+          },
+        });
+      });
+      final assets = await PortfolioApiClient(
+        _dio(adapter),
+      ).getCardAssetsBatch(_session, ['card/1', 'card-2', 'card/1']);
+
+      expect(adapter.requests, hasLength(1));
+      expect(assets.items.single.cardRef, 'card/1');
+      expect(assets.wishlistItems.single.cardRef, 'card-2');
+    },
+  );
+
+  test(
     'collection page and summary stay separate so paging does not replace all-folder totals',
     () async {
       final adapter = _RecordingAdapter((request) {
@@ -345,14 +381,23 @@ void main() {
           expect(request.queryParameters['page_size'], '40');
           expect(request.queryParameters['q'], 'Pikachu');
           expect(request.uri.queryParametersAll['game'], ['Pokemon', 'Sports']);
-          expect(request.uri.queryParametersAll['language'], ['English', 'Japanese']);
-          expect(request.uri.queryParametersAll['performance_id'], ['owned-2', 'owned-1']);
+          expect(request.uri.queryParametersAll['language'], [
+            'English',
+            'Japanese',
+          ]);
+          expect(request.uri.queryParametersAll['performance_id'], [
+            'owned-2',
+            'owned-1',
+          ]);
           return _json(200, {
             'success': true,
             'data': {
               'folders': [
                 _folderJson(
-                  id: 'main', name: 'Main', isDefault: true, sortOrder: 100,
+                  id: 'main',
+                  name: 'Main',
+                  isDefault: true,
+                  sortOrder: 100,
                 ),
               ],
               'preference': {

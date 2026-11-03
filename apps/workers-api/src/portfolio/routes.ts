@@ -401,11 +401,17 @@ export function createPortfolioRoutes(
     const enriched = await enrichCollectionDashboard(c.env.DB, portfolio, wishlist);
     const prices = new Map(enriched.portfolio_items.map((item) => [item.id, item.market_price_usd]));
     const languages = new Map(enriched.portfolio_items.map((item) => [item.id, item.market_language]));
+    const portfolioByFolder = new Map<string, CollectionItemRow[]>();
+    for (const item of portfolio) {
+      const items = portfolioByFolder.get(item.folder_id) ?? [];
+      items.push(item);
+      portfolioByFolder.set(item.folder_id, items);
+    }
     return c.json({
       success: true,
       data: {
         folders: folders.map((folder) => {
-          const items = portfolio.filter((item) => item.folder_id === folder.id);
+          const items = portfolioByFolder.get(folder.id) ?? [];
           const priced = items.filter((item) => prices.get(item.id) != null);
           return {
             folder_id: folder.id,
@@ -490,10 +496,15 @@ export function createPortfolioRoutes(
     }
 
     const [portfolio, wishlist] = await Promise.all([
-      tab === "portfolio" ? listCollectionItems(c.env.DB, auth.owner) : Promise.resolve([]),
+      tab === "portfolio" ? listCollectionItems(c.env.DB, auth.owner, folderId) : Promise.resolve([]),
       tab === "wishlist" ? listWishlistItems(c.env.DB, auth.owner) : Promise.resolve([]),
     ]);
-    const enriched = await enrichCollectionDashboard(c.env.DB, portfolio, wishlist);
+    const baseCount = tab === "portfolio" ? portfolio.length : wishlist.length;
+    const priceCandidates = languages.size === 0 ? portfolio : portfolio.filter((item) => {
+      const language = item.language?.trim();
+      return !language || languages.has(language);
+    });
+    const enriched = await enrichCollectionDashboard(c.env.DB, priceCandidates, wishlist);
     const scopedItems = (tab === "portfolio" ? enriched.portfolio_items : enriched.wishlist_items as typeof enriched.portfolio_items)
       .map((item) => item as typeof item & { folder_id?: string; language?: string | null; folder_joined_at?: string })
       .filter((item) => tab === "wishlist" || item.folder_id === folderId);
@@ -536,8 +547,37 @@ export function createPortfolioRoutes(
     return c.json({ success: true, data: {
       folders: folders.map(folderResponse), preference: userPreferenceResponse(preference),
       folder_id: folderId, items: items.slice(offset, offset + pageSize),
-      total: items.length, base_count: scopedItems.length, page, page_size: pageSize,
+      total: items.length, base_count: baseCount, page, page_size: pageSize,
     } });
+  });
+
+  routes.get("/portfolio/cards/assets", async (c) => {
+    const auth = await authenticateOwner(c.env, c.req.header("Authorization"));
+    if (auth.status === "internal_error") return c.json(INTERNAL_ERROR_RESPONSE, 500);
+    if (auth.status === "unauthorized") return c.json(UNAUTHORIZED_RESPONSE, 401);
+
+    const cardRefs = [...new Set((c.req.queries("card_ref") ?? []).map((ref) => ref.trim()))];
+    if (cardRefs.length === 0 || cardRefs.length > 100 || cardRefs.includes("")) {
+      return c.json(VALIDATION_ERROR_RESPONSE, 422);
+    }
+    const placeholders = cardRefs.map(() => "?").join(", ");
+    const [folders, items, wishlist] = await Promise.all([
+      listFolders(c.env.DB, auth.owner),
+      c.env.DB.prepare(`${SELECT_COLLECTION_ITEMS_SQL} AND card_ref IN (${placeholders})`)
+        .bind(auth.owner.owner_type, auth.owner.owner_id, ...cardRefs)
+        .all<CollectionItemRow>(),
+      c.env.DB.prepare(`${SELECT_WISHLIST_ITEMS_SQL} AND card_ref IN (${placeholders})`)
+        .bind(auth.owner.owner_type, auth.owner.owner_id, ...cardRefs)
+        .all<WishlistItemRow>(),
+    ]);
+    return c.json({
+      success: true,
+      data: {
+        folders: folders.map(folderResponse),
+        items: (items.results ?? []).map(collectionItemResponse),
+        wishlist_items: (wishlist.results ?? []).map(wishlistItemResponse),
+      },
+    });
   });
 
   routes.get("/portfolio/cards/:card_ref/assets", async (c) => {
@@ -1740,10 +1780,11 @@ function folderResponse(folder: PortfolioFolderRow): {
 async function listCollectionItems(
   db: D1Database,
   owner: AuthenticatedOwner,
+  folderId?: string,
 ): Promise<CollectionItemRow[]> {
   const result = await db
-    .prepare(SELECT_COLLECTION_ITEMS_SQL)
-    .bind(owner.owner_type, owner.owner_id)
+    .prepare(`${SELECT_COLLECTION_ITEMS_SQL}${folderId ? " AND folder_id = ?" : ""}`)
+    .bind(owner.owner_type, owner.owner_id, ...(folderId ? [folderId] : []))
     .all<CollectionItemRow>();
 
   return result.results ?? [];

@@ -77,4 +77,47 @@ describe("card-scoped owner assets on PostgreSQL", () => {
       .toMatchObject({ items: [], wishlist_items: [] });
     expect((await route.request("/portfolio/cards/card-a/assets", {}, env)).status).toBe(401);
   });
+
+  it("reads only requested cards for the authenticated owner in one batch", async () => {
+    const query = vi.spyOn(db, "query");
+    const route = createPortfolioRoutes();
+    const response = await route.request(
+      "/portfolio/cards/assets?card_ref=card-a&card_ref=card-b&card_ref=card-a&card_ref=card-missing",
+      { headers: { Authorization: `Bearer ${token}` } },
+      env,
+    );
+    expect(response.status).toBe(200);
+    const body = await response.json() as {
+      data: {
+        folders: Array<{ id: string }>;
+        items: Array<{ id: string; card_ref: string; quantity: number }>;
+        wishlist_items: Array<{ id: string; card_ref: string }>;
+      };
+    };
+    expect(body.data.folders.map((row) => row.id)).toEqual(["main"]);
+    expect(body.data.items.map((row) => [row.id, row.card_ref, row.quantity]).sort())
+      .toEqual([["owned-a", "card-a", 1], ["owned-b", "card-b", 1]]);
+    expect(body.data.wishlist_items.map((row) => [row.id, row.card_ref]).sort())
+      .toEqual([["wish-a", "card-a"], ["wish-b", "card-b"]]);
+    const collectionQueries = query.mock.calls.filter(([sql]) => sql.includes("FROM collection_item"));
+    const wishlistQueries = query.mock.calls.filter(([sql]) => sql.includes("FROM wishlist_item"));
+    expect(collectionQueries).toHaveLength(1);
+    expect(wishlistQueries).toHaveLength(1);
+    expect(collectionQueries[0]?.[1]).toEqual(["user", "owner-1", "card-a", "card-b", "card-missing"]);
+    expect(wishlistQueries[0]?.[1]).toEqual(["user", "owner-1", "card-a", "card-b", "card-missing"]);
+  });
+
+  it("rejects missing, blank and oversized batches without reading assets", async () => {
+    const route = createPortfolioRoutes();
+    const headers = { Authorization: `Bearer ${token}` };
+    const overLimit = Array.from({ length: 101 }, (_, index) => `card_ref=card-${index}`).join("&");
+    for (const path of [
+      "/portfolio/cards/assets",
+      "/portfolio/cards/assets?card_ref=%20",
+      `/portfolio/cards/assets?${overLimit}`,
+    ]) {
+      expect((await route.request(path, { headers }, env)).status).toBe(422);
+    }
+    expect((await route.request("/portfolio/cards/assets?card_ref=card-a", {}, env)).status).toBe(401);
+  });
 });

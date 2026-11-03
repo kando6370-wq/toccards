@@ -53,6 +53,15 @@ abstract interface class SearchAssetRepository implements SearchRepository {
   Future<void> deleteWishlist(AuthSession session, String itemId);
 }
 
+abstract interface class SearchVisibleAssetRepository
+    implements SearchAssetRepository {
+  Future<SearchAssetSnapshot> loadVisibleAssets(
+    AuthSession session,
+    Iterable<String> cardRefs, {
+    String? selectedFolderId,
+  });
+}
+
 class SearchAssetSnapshot {
   const SearchAssetSnapshot({
     required this.folderId,
@@ -82,7 +91,7 @@ class HttpSearchRepository
         SearchCatalogLoadRepository,
         PaginatedSearchRepository,
         PaginatedSetSearchRepository,
-        SearchAssetRepository {
+        SearchVisibleAssetRepository {
   const HttpSearchRepository(
     this._api, {
     SetCatalogApi? setCatalogApi,
@@ -232,6 +241,54 @@ class HttpSearchRepository
     final folders = results[0] as List<PortfolioFolderDto>;
     final items = results[1] as List<PortfolioItemDto>;
     final wishlist = results[2] as List<WishlistItemDto>;
+    return _assetSnapshotFromRows(
+      folders,
+      items,
+      wishlist,
+      selectedFolderId: selectedFolderId,
+    );
+  }
+
+  @override
+  Future<SearchAssetSnapshot> loadVisibleAssets(
+    AuthSession session,
+    Iterable<String> cardRefs, {
+    String? selectedFolderId,
+  }) async {
+    final requested = cardRefs.toSet();
+    final api = _requiredPortfolioApi;
+    if (api is! PortfolioCardAssetsBatchApi) {
+      final full = await loadAssets(
+        session,
+        selectedFolderId: selectedFolderId,
+      );
+      return SearchAssetSnapshot(
+        folderId: full.folderId,
+        statesByCardRef: {
+          for (final cardRef in requested)
+            if (full.statesByCardRef[cardRef] case final assets?)
+              cardRef: assets,
+        },
+      );
+    }
+    final result = await (api as PortfolioCardAssetsBatchApi)
+        .getCardAssetsBatch(session, requested);
+    return _assetSnapshotFromRows(
+      result.folders,
+      result.items.where((item) => requested.contains(item.cardRef)).toList(),
+      result.wishlistItems
+          .where((item) => requested.contains(item.cardRef))
+          .toList(),
+      selectedFolderId: selectedFolderId,
+    );
+  }
+
+  SearchAssetSnapshot _assetSnapshotFromRows(
+    List<PortfolioFolderDto> folders,
+    List<PortfolioItemDto> items,
+    List<WishlistItemDto> wishlist, {
+    String? selectedFolderId,
+  }) {
     if (folders.isEmpty) {
       throw StateError('Search requires at least one portfolio folder.');
     }

@@ -99,6 +99,9 @@ class _SetDetailPageState extends ConsumerState<SetDetailPage> {
         _hasMore = items.length == kandoPageSize;
         _loading = false;
       });
+      await ref
+          .read(searchControllerProvider.notifier)
+          .ensureCardAssets(items.map((card) => card.id));
     } catch (_) {
       if (!mounted || generation != _loadGeneration) return;
       setState(() {
@@ -219,7 +222,7 @@ class _SetDetailPageState extends ConsumerState<SetDetailPage> {
                 actionsEnabled:
                     !searchState.isLoading &&
                     !searchState.isUnavailable &&
-                    searchState.assetStatus == KandoLoadStatus.content,
+                    searchState.isAssetReady(card.id),
                 showSearchMetadata: true,
                 collectGame: widget.game,
               );

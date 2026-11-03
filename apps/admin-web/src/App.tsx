@@ -1028,15 +1028,58 @@ function ScanFilterField({ label, children, className }: { label: string; childr
 }
 
 function PermissionsPage({ session }: { session: AdminSession }) {
+  const canManage = session.role === "super_admin";
   const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<PermissionItem | null>(null);
+  const [page, setPage] = useState(1);
+  const [draft, setDraft] = useState({ q: "", status: "" });
+  const [filters, setFilters] = useState(draft);
   const [form] = Form.useForm();
-  const { data, loading, reload, error } = useAdminData<{ items: PermissionItem[] }>("/permissions?page_size=100", session);
+  const [editForm] = Form.useForm<{ role: AdminRole; status: PermissionStatus }>();
+  const path = useMemo(() => {
+    const params = new URLSearchParams({ page: String(page), page_size: "8" });
+    if (filters.q) params.set("q", filters.q);
+    if (filters.status) params.set("status", filters.status);
+    return `/permissions?${params.toString()}`;
+  }, [filters, page]);
+  const { data, loading, reload, error } = useAdminData<PagedResponse<PermissionItem>>(path, session);
   const permissions = data?.items ?? [];
 
+  useEffect(() => {
+    if (loading || !data) return;
+    const lastPage = Math.max(1, Math.ceil(data.total / data.page_size));
+    if (page > lastPage) setPage(lastPage);
+  }, [data, loading, page]);
+  useEffect(() => {
+    if (editing) editForm.setFieldsValue({ role: editing.role, status: editing.permission_status });
+  }, [editing, editForm]);
+
+  function applyFilters() {
+    const next = { ...draft, q: draft.q.trim() };
+    setDraft(next);
+    setFilters(next);
+    setPage(1);
+    reload();
+  }
+  function resetFilters() {
+    const empty = { q: "", status: "" };
+    setDraft(empty);
+    setFilters(empty);
+    setPage(1);
+    reload();
+  }
   async function savePermission(values: { email: string; role: AdminRole; password: string }) {
     await mutate(session, "/permissions", { method: "POST", body: values });
     setModalOpen(false);
     form.resetFields();
+    setPage(1);
+    reload();
+  }
+  async function saveEditedPermission(values: { role: AdminRole; status: PermissionStatus }) {
+    if (!editing) return;
+    await mutate(session, `/permissions/${editing.id}`, { method: "PATCH", body: values });
+    setEditing(null);
+    editForm.resetFields();
     reload();
   }
 
@@ -1057,8 +1100,8 @@ function PermissionsPage({ session }: { session: AdminSession }) {
       title: "操作",
       render: (_, row) => (
         <Space>
-          <Button type="link">编辑</Button>
-          <Button type="link" danger={row.permission_status === "active"} onClick={() => togglePermission(row)}>
+          <Button type="link" disabled={!canManage} onClick={() => setEditing(row)}>编辑</Button>
+          <Button type="link" disabled={!canManage} danger={row.permission_status === "active"} onClick={() => togglePermission(row)}>
             {row.permission_status === "active" ? "停用" : "启用"}
           </Button>
         </Space>
@@ -1074,17 +1117,17 @@ function PermissionsPage({ session }: { session: AdminSession }) {
       </section>
       <div className="toolbar-row">
         <FilterBar>
-          <Input placeholder="邮箱账号" className="filter-control" />
-          <Select placeholder="权限状态" className="filter-control" options={permissionStatusOptions} />
-          <Button className="cyan-button">查询</Button>
-          <Button>重置</Button>
+          <Input placeholder="邮箱账号" className="filter-control" value={draft.q} onChange={(event) => setDraft((current) => ({ ...current, q: event.target.value }))} onPressEnter={applyFilters} />
+          <Select placeholder="权限状态" className="filter-control" allowClear value={draft.status || undefined} onChange={(status) => setDraft((current) => ({ ...current, status: status ?? "" }))} options={permissionStatusOptions} />
+          <Button className="cyan-button" onClick={applyFilters}>查询</Button>
+          <Button onClick={resetFilters}>重置</Button>
         </FilterBar>
-        <Button className="cyan-button" onClick={() => setModalOpen(true)}>
+        <Button className="cyan-button" disabled={!canManage} onClick={() => setModalOpen(true)}>
           新增授权账号
         </Button>
       </div>
-      <DataPanel title="授权账号" count={permissions.length}>
-        <Table rowKey="id" columns={columns} dataSource={permissions} loading={loading} pagination={{ pageSize: 8 }} />
+      <DataPanel title="授权账号" count={data?.total ?? 0}>
+        <Table rowKey="id" columns={columns} dataSource={permissions} loading={loading} pagination={{ current: page, pageSize: 8, total: data?.total ?? 0, showSizeChanger: false, onChange: setPage }} />
       </DataPanel>
       <Modal open={modalOpen} title="新增授权账号" onCancel={() => setModalOpen(false)} onOk={form.submit}>
         <Form form={form} layout="vertical" onFinish={savePermission} initialValues={{ role: "operator" }}>
@@ -1096,6 +1139,17 @@ function PermissionsPage({ session }: { session: AdminSession }) {
           </Form.Item>
           <Form.Item name="password" label="初始密码" rules={[{ required: true }]}>
             <Input.Password />
+          </Form.Item>
+        </Form>
+      </Modal>
+      <Modal open={editing !== null} title="编辑授权账号" onCancel={() => setEditing(null)} onOk={editForm.submit}>
+        <Form form={editForm} layout="vertical" onFinish={saveEditedPermission}>
+          <Form.Item label="邮箱账号"><Text>{editing?.email}</Text></Form.Item>
+          <Form.Item name="role" label="账号角色" rules={[{ required: true }]}>
+            <Select options={[{ value: "operator", label: "运营管理员" }, { value: "super_admin", label: "超级管理员" }]} />
+          </Form.Item>
+          <Form.Item name="status" label="权限状态" rules={[{ required: true }]}>
+            <Select options={permissionStatusOptions} />
           </Form.Item>
         </Form>
       </Modal>
@@ -1466,31 +1520,29 @@ function LineChart({ data }: { data: Array<{ date: string; total: number }> }) {
 }
 
 function useAdminData<T>(path: string, session: AdminSession) {
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const key = `${session.accessToken}\0${path}`;
+  const [result, setResult] = useState<{ key: string; data: T | null; loading: boolean; error: string | null }>({ key, data: null, loading: true, error: null });
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
     let alive = true;
-    setLoading(true);
-    setError(null);
-    adminRequest<T>(path, { token: session.accessToken })
+    const controller = new AbortController();
+    setResult((current) => ({ key, data: current.key === key ? current.data : null, loading: true, error: null }));
+    adminRequest<T>(path, { token: session.accessToken, signal: controller.signal })
       .then((nextData) => {
-        if (alive) setData(nextData);
+        if (alive) setResult({ key, data: nextData, loading: false, error: null });
       })
       .catch((requestError) => {
-        if (alive) setError(errorMessage(requestError));
-      })
-      .finally(() => {
-        if (alive) setLoading(false);
+        if (alive) setResult((current) => ({ key, data: current.key === key ? current.data : null, loading: false, error: errorMessage(requestError) }));
       });
     return () => {
       alive = false;
+      controller.abort();
     };
-  }, [path, session.accessToken, version]);
+  }, [key, path, session.accessToken, version]);
 
-  return useMemo(() => ({ data, loading, error, reload: () => setVersion((value) => value + 1) }), [data, error, loading]);
+  const current = result.key === key ? result : { data: null, loading: true, error: null };
+  return useMemo(() => ({ data: current.data, loading: current.loading, error: current.error, reload: () => setVersion((value) => value + 1) }), [key, current.data, current.loading, current.error]);
 }
 
 function mutate(session: AdminSession, path: string, init: AdminRequestInit) {

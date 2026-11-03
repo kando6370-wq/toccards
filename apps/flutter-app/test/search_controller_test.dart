@@ -907,6 +907,8 @@ void main() {
       expect(card.quantity, 2);
       expect(card.collectionItemId, 'item-1');
       expect(card.collectionInfo, 'Near Mint (NM)');
+      expect(portfolioApi.batchReads, 1);
+      expect(portfolioApi.fullItemsReads, 0);
 
       controller.updateSearch('escape');
       await Future<void>.delayed(searchDebounceDuration * 2);
@@ -1965,7 +1967,8 @@ const _session = AuthSession(
   refreshToken: 'refresh-search',
 );
 
-class _FakePortfolioApi extends Fake implements PortfolioApi {
+class _FakePortfolioApi extends Fake
+    implements PortfolioApi, PortfolioCardAssetsBatchApi {
   _FakePortfolioApi({
     List<PortfolioItemDto> items = const [],
     this.conflictOnWishlist = false,
@@ -1979,6 +1982,8 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
   final List<WishlistItemDto> wishlistItems = [];
   final List<String> deletedCollectionItemIds = [];
   final List<String> deletedWishlistItemIds = [];
+  int batchReads = 0;
+  int fullItemsReads = 0;
   PortfolioItemDraftDto? lastCollectedDraft;
   final bool conflictOnWishlist;
   final bool conflictOnCollect;
@@ -2002,6 +2007,7 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
   Future<List<PortfolioItemDto>> listCollectionItems(
     AuthSession session,
   ) async {
+    fullItemsReads += 1;
     await assetLoadGate?.future;
     if (failAssetLoad) throw StateError('asset state unavailable');
     return [...collectionItems];
@@ -2010,6 +2016,26 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
   @override
   Future<List<WishlistItemDto>> listWishlistItems(AuthSession session) async {
     return [...wishlistItems];
+  }
+
+  @override
+  Future<PortfolioCardAssetsDto> getCardAssetsBatch(
+    AuthSession session,
+    Iterable<String> cardRefs,
+  ) async {
+    batchReads += 1;
+    await assetLoadGate?.future;
+    if (failAssetLoad) throw StateError('asset state unavailable');
+    final requested = cardRefs.toSet();
+    return PortfolioCardAssetsDto(
+      folders: await listFolders(session),
+      items: collectionItems
+          .where((item) => requested.contains(item.cardRef))
+          .toList(),
+      wishlistItems: wishlistItems
+          .where((item) => requested.contains(item.cardRef))
+          .toList(),
+    );
   }
 
   @override
