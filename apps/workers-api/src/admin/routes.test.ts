@@ -901,12 +901,11 @@ describe("admin routes", () => {
     const responses = await Promise.all([
       "/users",
       "/scans",
-      "/permissions",
       "/card-overrides",
       "/analytics/installations",
     ].map((path) => requestAdmin(env, path, "GET", undefined, login.data.access_token)));
 
-    expect(responses.map((response) => response.status)).toEqual([200, 200, 200, 200, 200]);
+    expect(responses.map((response) => response.status)).toEqual([200, 200, 200, 200]);
   });
 
   it("adds unique tie-breakers to the remaining Admin offset queries because equal timestamps must not move records between pages", async () => {
@@ -917,14 +916,10 @@ describe("admin routes", () => {
     await Promise.all([
       "/users",
       "/scans",
-      "/permissions",
       "/card-overrides",
     ].map((path) => requestAdmin(env, path, "GET", undefined, login.data.access_token)));
 
     const usersSql = env.DB.preparedSql.find((sql) => sql.includes("WITH accounts AS"));
-    const permissionsSql = env.DB.preparedSql.find((sql) =>
-      sql.startsWith("SELECT id, email, password_hash") && sql.includes("LIMIT ? OFFSET ?")
-    );
     const scansSql = env.DB.preparedSql.find((sql) =>
       sql.startsWith("SELECT id, environment, owner_id, image_url")
         && sql.includes("LIMIT ? OFFSET ?")
@@ -946,9 +941,7 @@ describe("admin routes", () => {
     expect(usersSql).toContain(
       "ORDER BY install.last_seen_at DESC, install.first_seen_at DESC, install.installation_id ASC LIMIT 1",
     );
-    for (const sql of [permissionsSql, scansSql]) {
-      expect(sql).toContain("ORDER BY created_at DESC, id ASC");
-    }
+    expect(scansSql).toContain("ORDER BY created_at DESC, id ASC");
     expect(overridesSql).toContain("ORDER BY updated_at DESC, id ASC");
   });
 
@@ -1074,35 +1067,6 @@ describe("admin routes", () => {
       login.data.access_token,
     );
     expect(invalidDate.status).toBe(422);
-  });
-
-  it("manages permission records through admin users because only authorized emails may enter the console", async () => {
-    const env = createTestEnv();
-    await seedAdmin(env, "super-permission", "permission@example.com", "correct-password", "super_admin");
-    await seedAdmin(env, "operator-permission", "ops-permission@example.com", "correct-password", "operator");
-    const login = await loginAdmin(env, "permission@example.com", "correct-password");
-
-    const listResponse = await requestAdmin(env, "/permissions", "GET", undefined, login.data.access_token);
-    const patchResponse = await requestAdmin(
-      env,
-      "/permissions/operator-permission",
-      "PATCH",
-      { status: "disabled" },
-      login.data.access_token,
-    );
-    const patchBody = await patchResponse.json();
-
-    expect(listResponse.status).toBe(200);
-    expect(patchResponse.status).toBe(200);
-    expect(patchBody).toEqual({
-      success: true,
-      data: expect.objectContaining({
-        id: "operator-permission",
-        email: "ops-permission@example.com",
-        permission_status: "disabled",
-      }),
-    });
-    expect(env.DB.adminUsers.find((row) => row.id === "operator-permission")?.status).toBe("disabled");
   });
 
   it("returns 404 for every removed Trending Pin endpoint because the obsolete API must stay retired", async () => {

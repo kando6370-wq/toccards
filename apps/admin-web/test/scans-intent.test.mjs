@@ -18,7 +18,7 @@ test("admin runtime has no demo session or static data fallback because API fail
   assert.doesNotMatch(app, /demoInstallationAnalytics|demoUsers|demoFeedbacks|demoPermissions|demoAppVersions/);
   assert.doesNotMatch(app, /images\.pokemontcg\.io/);
   assert.match(app, /\.catch\(\(requestError\) => \{/);
-  assert.match(app, /setError\(errorMessage\(requestError\)\)/);
+  assert.match(app, /setResult\(\(current\) => \(\{ key, data: current\.key === key \? current\.data : null, loading: false, error: errorMessage\(requestError\) \}\)\)/);
 });
 
 test("scan visual rules are page-scoped because other admin modules must not change", () => {

@@ -790,6 +790,13 @@ abstract interface class PortfolioCardAssetsApi {
   );
 }
 
+abstract interface class PortfolioCardAssetsBatchApi {
+  Future<PortfolioCardAssetsDto> getCardAssetsBatch(
+    AuthSession session,
+    Iterable<String> cardRefs,
+  );
+}
+
 abstract interface class CollectionDashboardApi {
   Future<CollectionDashboardDto> getCollectionDashboard(AuthSession session);
 }
@@ -836,7 +843,13 @@ abstract interface class PortfolioManagementApi {
 }
 
 class PortfolioApiClient
-    implements PortfolioApi, PortfolioManagementApi, CollectionDashboardApi, PortfolioCardAssetsApi, CollectionPagedApi {
+    implements
+        PortfolioApi,
+        PortfolioManagementApi,
+        CollectionDashboardApi,
+        PortfolioCardAssetsApi,
+        PortfolioCardAssetsBatchApi,
+        CollectionPagedApi {
   PortfolioApiClient(
     this._dio, {
     this.requestDeadline = portfolioRequestDeadline,
@@ -865,6 +878,20 @@ class PortfolioApiClient
       'GET',
       '/portfolio/cards/${Uri.encodeComponent(cardRef)}/assets',
       session,
+    );
+    return PortfolioCardAssetsDto.fromJson(data);
+  }
+
+  @override
+  Future<PortfolioCardAssetsDto> getCardAssetsBatch(
+    AuthSession session,
+    Iterable<String> cardRefs,
+  ) async {
+    final data = await _requestData(
+      'GET',
+      '/portfolio/cards/assets',
+      session,
+      queryParameters: {'card_ref': cardRefs.toSet().toList()},
     );
     return PortfolioCardAssetsDto.fromJson(data);
   }

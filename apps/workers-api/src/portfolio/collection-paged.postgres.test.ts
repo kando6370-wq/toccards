@@ -160,6 +160,62 @@ describe("collection paged read model", () => {
     expect(summaryData.games).toEqual(["Pokemon", "Sports"]);
   });
 
+  it("scopes priced sorting to the selected folder before catalog and price enrichment", async () => {
+    await db.exec(`
+      INSERT INTO portfolio_folder (id, owner_type, owner_id, name, is_default, sort_order, created_at, updated_at)
+      VALUES ('side', 'user', 'owner-1', 'Side', 0, 1, '${NOW}', '${NOW}');
+      INSERT INTO collection_item (id, owner_type, owner_id, folder_id, card_ref, object_type,
+        grader, quantity, created_at, updated_at)
+      VALUES ('side-item', 'user', 'owner-1', 'side', 'card-side', 'tcg', 'Raw', 1, '${NOW}', '${NOW}');
+    `);
+    const query = vi.spyOn(db, "query");
+    const response = await request("/collection/items?sort=value_desc&page_size=1");
+    expect(response.status).toBe(200);
+    const data = (await response.json() as {
+      data: { items: Array<{ id: string }>; total: number; base_count: number };
+    }).data;
+    expect(data).toMatchObject({ total: 2, base_count: 2 });
+    expect(data.items).toHaveLength(1);
+    const collectionQuery = query.mock.calls.find(([sql]) => sql.includes("FROM collection_item") && !sql.includes("WITH total AS"));
+    expect(collectionQuery?.[0]).toContain("AND folder_id = $3");
+    expect(collectionQuery?.[1]).toEqual(["user", "owner-1", "main"]);
+    const catalogQuery = query.mock.calls.find(([sql]) => sql.includes("FROM cards_all WHERE product_id IN"));
+    expect(catalogQuery?.[1]).toEqual(["card-a", "card-b"]);
+  });
+
+  it("skips a known language mismatch before price reads but keeps fallback and base count", async () => {
+    const query = vi.spyOn(db, "query");
+    const response = await request("/collection/items?language=Japanese&sort=value_asc");
+    expect(response.status).toBe(200);
+    const data = (await response.json() as {
+      data: { items: Array<{ id: string }>; total: number; base_count: number };
+    }).data;
+    expect(data).toMatchObject({ items: [], total: 0, base_count: 2 });
+    const catalogQuery = query.mock.calls.find(([sql]) => sql.includes("FROM cards_all WHERE product_id IN"));
+    expect(catalogQuery?.[1]).toEqual(["card-b"]);
+  });
+
+  it("keeps each folder's summary independent when the owner has multiple folders", async () => {
+    await db.exec(`
+      INSERT INTO portfolio_folder (id, owner_type, owner_id, name, is_default, sort_order, created_at, updated_at)
+      VALUES ('side', 'user', 'owner-1', 'Side', 0, 1, '${NOW}', '${NOW}');
+      INSERT INTO collection_item (id, owner_type, owner_id, folder_id, card_ref, object_type,
+        grader, quantity, language, created_at, updated_at)
+      VALUES ('side-item', 'user', 'owner-1', 'side', 'card-side', 'tcg', 'Raw', 3, 'French', '${NOW}', '${NOW}');
+    `);
+    const response = await request("/collection/summary");
+    expect(response.status).toBe(200);
+    const data = (await response.json() as {
+      data: { folders: Array<Record<string, unknown>> };
+    }).data;
+    expect(data.folders).toMatchObject([
+      { folder_id: "main", item_count: 2, card_count: 3, graded_count: 1, total_value_usd: null,
+        languages: ["English", "Unknown"] },
+      { folder_id: "side", item_count: 1, card_count: 3, graded_count: 0, total_value_usd: null,
+        languages: ["French"] },
+    ]);
+  });
+
   it("rejects unknown sort and tab instead of silently changing the requested list", async () => {
     expect((await request("/collection/items?sort=unknown")).status).toBe(422);
     expect((await request("/collection/items?tab=unknown")).status).toBe(422);

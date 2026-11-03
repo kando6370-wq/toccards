@@ -227,14 +227,18 @@ const SELECT_ADMIN_BY_ID_SQL = `
   LIMIT 1
 `;
 
-const SELECT_ADMIN_PERMISSIONS_SQL = `
-  SELECT id, email, password_hash, role, status, created_at
+const ADMIN_PERMISSIONS_FILTER_SQL = `
   FROM admin_user
   WHERE (CAST(? AS text) IS NULL OR lower(email) LIKE '%' || ? || '%')
     AND (CAST(? AS text) IS NULL OR status = ?)
+`;
+const SELECT_ADMIN_PERMISSIONS_SQL = `
+  SELECT id, email, password_hash, role, status, created_at
+  ${ADMIN_PERMISSIONS_FILTER_SQL}
   ORDER BY created_at DESC, id ASC
   LIMIT ? OFFSET ?
 `;
+const COUNT_ADMIN_PERMISSIONS_SQL = `SELECT COUNT(*) AS total ${ADMIN_PERMISSIONS_FILTER_SQL}`;
 
 const INSERT_ADMIN_PERMISSION_SQL = `
   INSERT INTO admin_user (id, email, password_hash, role, status, created_at)
@@ -1166,10 +1170,13 @@ adminRoutes.get("/permissions", async (c) => {
   const { results = [] } = await c.env.DB.prepare(SELECT_ADMIN_PERMISSIONS_SQL)
     .bind(q, q, status, status, pageSize, offset)
     .all<AdminUserRow>();
+  const count = await c.env.DB.prepare(COUNT_ADMIN_PERMISSIONS_SQL)
+    .bind(q, q, status, status)
+    .first<{ total: number }>();
 
   return c.json({
     success: true,
-    data: { items: results.map(toPermissionRecord), page, page_size: pageSize },
+    data: { items: results.map(toPermissionRecord), total: count?.total ?? 0, page, page_size: pageSize },
   });
 });
 

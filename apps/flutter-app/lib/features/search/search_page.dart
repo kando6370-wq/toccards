@@ -647,7 +647,7 @@ class _SearchResults extends ConsumerWidget {
           itemCount: visibleCards.length,
           itemBuilder: (context, index) => SearchCardTile(
             card: visibleCards[index],
-            actionsEnabled: state.assetStatus == KandoLoadStatus.content,
+            actionsEnabled: state.isAssetReady(visibleCards[index].id),
             showSearchMetadata: true,
           ),
         ),

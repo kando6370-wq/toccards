@@ -54,6 +54,7 @@ class SearchState {
     this.isLoadingMoreSets = false,
     this.hasSetPageFailure = false,
     this.assetStatus = KandoLoadStatus.content,
+    this.readyAssetCardRefs,
   }) : _catalog = catalog,
        loadStatus = KandoLoadStatus.content;
 
@@ -75,6 +76,7 @@ class SearchState {
       isLoadingMoreSets = false,
       hasSetPageFailure = false,
       assetStatus = KandoLoadStatus.failure,
+      readyAssetCardRefs = null,
       loadStatus = KandoLoadStatus.failure;
 
   const SearchState.loading()
@@ -95,6 +97,7 @@ class SearchState {
       isLoadingMoreSets = false,
       hasSetPageFailure = false,
       assetStatus = KandoLoadStatus.loading,
+      readyAssetCardRefs = null,
       loadStatus = KandoLoadStatus.loading;
 
   const SearchState._({
@@ -115,6 +118,7 @@ class SearchState {
     required this.isLoadingMoreSets,
     required this.hasSetPageFailure,
     required this.assetStatus,
+    required this.readyAssetCardRefs,
     required this.loadStatus,
   }) : _catalog = catalog;
 
@@ -135,7 +139,12 @@ class SearchState {
   final bool isLoadingMoreSets;
   final bool hasSetPageFailure;
   final KandoLoadStatus assetStatus;
+  final Set<String>? readyAssetCardRefs;
   final KandoLoadStatus loadStatus;
+
+  bool isAssetReady(String cardRef) =>
+      readyAssetCardRefs?.contains(cardRef) ??
+      assetStatus == KandoLoadStatus.content;
 
   SearchCatalog get catalog {
     final catalog = _catalog;
@@ -201,6 +210,7 @@ class SearchState {
     bool? isLoadingMoreSets,
     bool? hasSetPageFailure,
     KandoLoadStatus? assetStatus,
+    Set<String>? readyAssetCardRefs,
   }) {
     return SearchState._(
       catalog: _catalog,
@@ -220,6 +230,7 @@ class SearchState {
       isLoadingMoreSets: isLoadingMoreSets ?? this.isLoadingMoreSets,
       hasSetPageFailure: hasSetPageFailure ?? this.hasSetPageFailure,
       assetStatus: assetStatus ?? this.assetStatus,
+      readyAssetCardRefs: readyAssetCardRefs ?? this.readyAssetCardRefs,
       loadStatus: loadStatus,
     );
   }
@@ -257,6 +268,8 @@ class SearchController extends Notifier<SearchState> {
   SearchAssetSnapshot? _assetSnapshot;
   Future<SearchAssetSnapshot>? _assetLoad;
   var _assetGeneration = 0;
+  Object? _assetOwnerKey;
+  final _loadedAssetCardRefs = <String>{};
   final _loadedGameByTab = <SearchTab, String>{};
   final _pendingCardMutations = <String>{};
 
@@ -284,6 +297,10 @@ class SearchController extends Notifier<SearchState> {
     final session = repository is SearchAssetRepository
         ? ref.watch(searchSessionProvider)
         : null;
+    final ownerKey = _searchOwnerKey(session);
+    if (_assetOwnerKey != ownerKey) _pendingCardMutations.clear();
+    _resetAssets();
+    _assetOwnerKey = ownerKey;
     if (repository is SearchAssetRepository && session == null) {
       return const SearchState.loading();
     }
@@ -336,7 +353,8 @@ class SearchController extends Notifier<SearchState> {
       final repository = ref.read(searchRepositoryProvider);
       final loadsAssets =
           repository is SearchAssetRepository && session != null;
-      final Future<SearchAssetSnapshot?>? assetsFuture = loadsAssets
+      final Future<SearchAssetSnapshot?>? earlyAssetsFuture =
+          loadsAssets && repository is! SearchVisibleAssetRepository
           ? _loadAssetSnapshot(repository, session).then<SearchAssetSnapshot?>(
               (snapshot) => snapshot,
               onError: (Object error, StackTrace stackTrace) => null,
@@ -347,6 +365,17 @@ class SearchController extends Notifier<SearchState> {
           : SearchCatalogLoadResult(catalog: await repository.loadCatalog());
       var catalog = catalogLoad.catalog;
       if (!ref.mounted) return;
+      final Future<SearchAssetSnapshot?>? assetsFuture =
+          loadsAssets && repository is SearchVisibleAssetRepository
+          ? _loadAssetSnapshot(
+              repository,
+              session,
+              cardRefs: catalog.cards.map((card) => card.id),
+            ).then<SearchAssetSnapshot?>(
+              (snapshot) => snapshot,
+              onError: (Object error, StackTrace stackTrace) => null,
+            )
+          : earlyAssetsFuture;
       if (catalog.games.isEmpty) {
         throw StateError('Search catalog needs at least one game.');
       }
@@ -554,10 +583,22 @@ class SearchController extends Notifier<SearchState> {
         for (final card in items) card.id: card,
       };
       var catalog = _catalogWithCards(state.catalog, cardsById.values.toList());
-      catalog = await _withAssets(repository, catalog, _assetSession);
-      if (!ref.mounted || generation != _loadGeneration) return;
-      state = _stateForCatalog(
+      final assetResult = await _withAssets(
+        repository,
         catalog,
+        _assetSession,
+        cardRefs: items.map((item) => item.id),
+      );
+      if (!ref.mounted || generation != _loadGeneration) return;
+      if (!assetResult.assetsReady) {
+        state = state.copyWith(
+          isLoadingMoreCards: false,
+          hasCardPageFailure: true,
+        );
+        return;
+      }
+      state = _stateForCatalog(
+        assetResult.catalog,
         preserveState: state,
         failedSearchTabs: state.failedSearchTabs,
         cardPage: requestedPage,
@@ -651,7 +692,7 @@ class SearchController extends Notifier<SearchState> {
   }) async {
     if (state.isUnavailable ||
         state.isLoading ||
-        state.assetStatus != KandoLoadStatus.content ||
+        !state.isAssetReady(card.id) ||
         !_pendingCardMutations.add(card.id)) {
       return SearchCollectAction.ignored;
     }
@@ -695,7 +736,7 @@ class SearchController extends Notifier<SearchState> {
   Future<bool> toggleWishlistCard(SearchCard card) async {
     if (state.isUnavailable ||
         state.isLoading ||
-        state.assetStatus != KandoLoadStatus.content ||
+        !state.isAssetReady(card.id) ||
         !_pendingCardMutations.add(card.id)) {
       return false;
     }
@@ -712,6 +753,7 @@ class SearchController extends Notifier<SearchState> {
       if (card.isCollected) return true;
       final session = ref.read(searchSessionProvider);
       if (session == null) return false;
+      final ownerKey = _searchOwnerKey(session);
       try {
         if (card.wishlistItemId == null) {
           _replaceCard(
@@ -721,6 +763,11 @@ class SearchController extends Notifier<SearchState> {
             ),
           );
           final item = await repository.addWishlist(session, card.id);
+          if (!ref.mounted ||
+              _assetOwnerKey != ownerKey ||
+              _searchOwnerKey(ref.read(searchSessionProvider)) != ownerKey) {
+            return false;
+          }
           _replaceCard(
             card.copyWith(isWishlisted: true, wishlistItemId: item.id),
           );
@@ -729,12 +776,22 @@ class SearchController extends Notifier<SearchState> {
             card.copyWith(isWishlisted: false, wishlistItemId: null),
           );
           await repository.deleteWishlist(session, card.wishlistItemId!);
+          if (!ref.mounted ||
+              _assetOwnerKey != ownerKey ||
+              _searchOwnerKey(ref.read(searchSessionProvider)) != ownerKey) {
+            return false;
+          }
         }
-        _resetAssets();
+        _invalidateAssetCard(card.id);
         _invalidateAssetConsumers(card.id);
         return true;
       } catch (_) {
-        _resetAssets();
+        if (!ref.mounted ||
+            _assetOwnerKey != ownerKey ||
+            _searchOwnerKey(ref.read(searchSessionProvider)) != ownerKey) {
+          return false;
+        }
+        _invalidateAssetCard(card.id);
         final desiredWishlisted = card.wishlistItemId == null;
         final synced = await _reloadAssetsAfterMutation(
           card.id,
@@ -768,6 +825,22 @@ class SearchController extends Notifier<SearchState> {
 
     final assets = _assetSnapshot?.statesByCardRef[card.id];
     return assets == null ? card : _cardWithAssets(card, assets);
+  }
+
+  Future<void> ensureCardAssets(Iterable<String> cardRefs) async {
+    final repository = ref.read(searchRepositoryProvider);
+    final session = _assetSession;
+    if (repository is! SearchVisibleAssetRepository || session == null) return;
+    try {
+      await _loadAssetSnapshot(repository, session, cardRefs: cardRefs);
+      if (!ref.mounted ||
+          _assetOwnerKey != _searchOwnerKey(ref.read(searchSessionProvider))) {
+        return;
+      }
+      state = state.copyWith(readyAssetCardRefs: {..._loadedAssetCardRefs});
+    } catch (_) {
+      // The current page remains visible; its actions stay disabled.
+    }
   }
 
   void applySavedCollectionItems(Iterable<CardCollectionItem> savedItems) {
@@ -899,7 +972,8 @@ class SearchController extends Notifier<SearchState> {
               : await repository.searchSets(query, game: game),
         ),
       };
-      catalog = await _withAssets(repository, catalog, _assetSession);
+      final assetResult = await _withAssets(repository, catalog, _assetSession);
+      catalog = assetResult.catalog;
       if (!ref.mounted) return;
       if (generation == _loadGeneration) {
         _loadedGameByTab[tab] = state.selectedGame.id;
@@ -908,6 +982,9 @@ class SearchController extends Notifier<SearchState> {
           catalog,
           preserveState: state,
           clearOverrides: repository is SearchAssetRepository,
+          assetStatus: assetResult.assetsReady
+              ? KandoLoadStatus.content
+              : KandoLoadStatus.failure,
           failedSearchTabs: failedSearchTabs,
           cardPage: tab == SearchTab.cards ? 1 : state.cardPage,
           hasMoreCards: tab == SearchTab.cards
@@ -978,6 +1055,10 @@ class SearchController extends Notifier<SearchState> {
       hasSetPageFailure: hasSetPageFailure,
       assetStatus:
           assetStatus ?? preserveState?.assetStatus ?? KandoLoadStatus.content,
+      readyAssetCardRefs:
+          ref.read(searchRepositoryProvider) is SearchVisibleAssetRepository
+          ? {..._loadedAssetCardRefs}
+          : null,
     );
   }
 
@@ -1012,24 +1093,35 @@ class SearchController extends Notifier<SearchState> {
     );
   }
 
-  Future<SearchCatalog> _withAssets(
+  Future<({SearchCatalog catalog, bool assetsReady})> _withAssets(
     SearchRepository repository,
     SearchCatalog catalog,
-    AuthSession? session,
-  ) async {
+    AuthSession? session, {
+    Iterable<String>? cardRefs,
+  }) async {
     if (repository is! SearchAssetRepository || session == null) {
-      return catalog;
+      return (catalog: catalog, assetsReady: true);
     }
     try {
-      final snapshot = await _loadAssetSnapshot(repository, session);
-      return _catalogWithAssets(catalog, snapshot);
+      final snapshot = await _loadAssetSnapshot(
+        repository,
+        session,
+        cardRefs: cardRefs ?? catalog.cards.map((card) => card.id),
+      );
+      return (
+        catalog: _catalogWithAssets(catalog, snapshot),
+        assetsReady: true,
+      );
     } catch (_) {
-      return SearchCatalog(
-        games: catalog.games,
-        cards: [
-          for (final card in catalog.cards) _cardWithRetainedAssets(card),
-        ],
-        sets: catalog.sets,
+      return (
+        catalog: SearchCatalog(
+          games: catalog.games,
+          cards: [
+            for (final card in catalog.cards) _cardWithRetainedAssets(card),
+          ],
+          sets: catalog.sets,
+        ),
+        assetsReady: false,
       );
     }
   }
@@ -1052,43 +1144,111 @@ class SearchController extends Notifier<SearchState> {
 
   Future<SearchAssetSnapshot> _loadAssetSnapshot(
     SearchAssetRepository repository,
-    AuthSession session,
-  ) {
-    final cached = _assetSnapshot;
-    if (cached != null) return Future.value(cached);
-    final loading = _assetLoad;
-    if (loading != null) return loading;
-    final future = repository.loadAssets(
-      session,
-      selectedFolderId: ref.read(selectedPortfolioFolderProvider),
-    );
-    final generation = _assetGeneration;
-    _assetLoad = () async {
-      try {
-        final snapshot = await future;
-        if (generation == _assetGeneration) {
-          _assetSnapshot = snapshot;
-        }
-        if (ref.mounted && ref.read(selectedPortfolioFolderProvider) == null) {
-          ref
-              .read(selectedPortfolioFolderProvider.notifier)
-              .select(snapshot.folderId);
-        }
-        return snapshot;
-      } catch (error, stackTrace) {
-        if (generation == _assetGeneration) {
-          _assetLoad = null;
-        }
-        Error.throwWithStackTrace(error, stackTrace);
+    AuthSession session, {
+    Iterable<String> cardRefs = const [],
+  }) async {
+    final ownerKey = _searchOwnerKey(session);
+    if (_assetOwnerKey != ownerKey) {
+      throw StateError('Search asset owner changed.');
+    }
+    final requested = cardRefs.toSet();
+    while (true) {
+      if (!ref.mounted ||
+          _assetOwnerKey != ownerKey ||
+          _searchOwnerKey(ref.read(searchSessionProvider)) != ownerKey) {
+        throw StateError('Search asset owner changed.');
       }
-    }();
-    return _assetLoad!;
+      final cached = _assetSnapshot;
+      if (repository is SearchVisibleAssetRepository) {
+        if (requested.isEmpty) {
+          return cached ??
+              SearchAssetSnapshot(
+                folderId: ref.read(selectedPortfolioFolderProvider) ?? '',
+                statesByCardRef: const {},
+              );
+        }
+        if (cached != null && _loadedAssetCardRefs.containsAll(requested)) {
+          return cached;
+        }
+      } else if (cached != null) {
+        return cached;
+      }
+      final loading = _assetLoad;
+      if (loading != null) {
+        await loading;
+        continue;
+      }
+      final missing = requested
+          .difference(_loadedAssetCardRefs)
+          .take(100)
+          .toSet();
+      final generation = _assetGeneration;
+      final future = repository is SearchVisibleAssetRepository
+          ? repository.loadVisibleAssets(
+              session,
+              missing,
+              selectedFolderId: ref.read(selectedPortfolioFolderProvider),
+            )
+          : repository.loadAssets(
+              session,
+              selectedFolderId: ref.read(selectedPortfolioFolderProvider),
+            );
+      _assetLoad = () async {
+        try {
+          final next = await future;
+          if (!ref.mounted ||
+              generation != _assetGeneration ||
+              _assetOwnerKey != ownerKey) {
+            throw StateError('Search asset request is stale.');
+          }
+          final snapshot = repository is SearchVisibleAssetRepository
+              ? SearchAssetSnapshot(
+                  folderId: next.folderId,
+                  statesByCardRef: {
+                    ...?(_assetSnapshot?.statesByCardRef),
+                    for (final entry in next.statesByCardRef.entries)
+                      if (missing.contains(entry.key)) entry.key: entry.value,
+                  },
+                )
+              : next;
+          _assetSnapshot = snapshot;
+          _loadedAssetCardRefs.addAll(missing);
+          if (ref.read(selectedPortfolioFolderProvider) == null &&
+              snapshot.folderId.isNotEmpty) {
+            ref
+                .read(selectedPortfolioFolderProvider.notifier)
+                .select(snapshot.folderId);
+          }
+          return snapshot;
+        } finally {
+          if (generation == _assetGeneration) _assetLoad = null;
+        }
+      }();
+      await _assetLoad!;
+    }
   }
 
   void _resetAssets() {
     _assetGeneration += 1;
     _assetSnapshot = null;
     _assetLoad = null;
+    _loadedAssetCardRefs.clear();
+  }
+
+  void _invalidateAssetCard(String cardRef) {
+    if (ref.read(searchRepositoryProvider) is! SearchVisibleAssetRepository) {
+      _resetAssets();
+      return;
+    }
+    _assetGeneration += 1;
+    _assetLoad = null;
+    _loadedAssetCardRefs.remove(cardRef);
+    final snapshot = _assetSnapshot;
+    if (snapshot == null) return;
+    _assetSnapshot = SearchAssetSnapshot(
+      folderId: snapshot.folderId,
+      statesByCardRef: {...snapshot.statesByCardRef}..remove(cardRef),
+    );
   }
 
   SearchCatalog _catalogWithAssets(
@@ -1125,13 +1285,26 @@ class SearchController extends Notifier<SearchState> {
     final repository = ref.read(searchRepositoryProvider);
     final session = _assetSession;
     if (repository is! SearchAssetRepository || session == null) return null;
+    final ownerKey = _searchOwnerKey(session);
     try {
-      final catalog = await _withAssets(repository, state.catalog, session);
-      if (!ref.mounted) return null;
+      final result = await _withAssets(
+        repository,
+        state.catalog,
+        session,
+        cardRefs: [cardId],
+      );
+      if (!ref.mounted ||
+          _assetOwnerKey != ownerKey ||
+          _searchOwnerKey(ref.read(searchSessionProvider)) != ownerKey) {
+        return null;
+      }
       state = _stateForCatalog(
-        catalog,
+        result.catalog,
         preserveState: state,
         clearOverrides: true,
+        assetStatus: result.assetsReady
+            ? KandoLoadStatus.content
+            : KandoLoadStatus.failure,
         failedSearchTabs: state.failedSearchTabs,
         cardPage: state.cardPage,
         hasMoreCards: state.hasMoreCards,
@@ -1157,6 +1330,10 @@ class SearchController extends Notifier<SearchState> {
         : null;
   }
 }
+
+Object? _searchOwnerKey(AuthSession? session) => session == null
+    ? null
+    : (session.ownerType, session.userId, session.anonymousId);
 
 String? _collectionInfoWithSavedItems(
   String? current,
