@@ -4,7 +4,17 @@
 
 本文件只记录 v1.1.3 启用后的代码、配置、数据、构建、部署和业务验收结果。创建版本目录本身没有修改业务代码、数据库、远程配置或运行环境，也不构成新的验证通过。
 
-当前运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下记录只代表 v1.1.3 本地增量及实际执行的验证，不改变远端运行状态。
+本版本初始运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下按时间分别记录本地增量、实际部署与运行验证；历史记录不替代当前远端状态回读。
+
+<a id="prod-business-release-20261104"></a>
+## 生产 API／双 Admin 与 Cards 索引发布（2026-11-04 16:37–17:30）
+
+- 来源与本地门槛：批准源为干净且与当时远端一致的 `main@944179837235b1d539933dc0a0d97dbec1ab845b`，不是后续仅增加 Flutter `1.0.7+193` 与 iOS 上传记录的 `eda1293d`。冻结 Worker 为 2,195,210 字节、SHA-256 `4c8c98c7e74e99a73402c46c33c5133dd735d798c928209963d2862238ba1751`，Admin 为 11 个文件。本地 Workers 102 文件／927 项、Admin 87／87、根依赖检查、7 个强制类型检查任务、当前 API 8／8及固定 App 1.0.4／1.0.5 各 24／24、prod dry-run 均退出 0；分块检查与完整回归不重复累计。
+- 生产预检与备份：只读事务确认目标为 `postgres/public`、PostgreSQL 18.6、`transaction_read_only=on`，原 ledger 16 项且 checksum 全部匹配。`cards_all` 为 2,413,255 行，其中 `has_image=2` 为 2,393,906 行，纯数字 ID 最长 8 位；表约 961 MB、含索引约 2.59 GB，50 GB 存储已用约 28.13 GB，无活动事务或等待锁。用户在数据库控制台创建备份 `835yaldvcyjv`（`prod-main-94417983-predeploy-20261104`），5.38 GB、未压缩 22.15 GB，16:37 回读完成且可恢复；保留期由用户设置，本轮未读取具体到期时分、未恢复或删除。
+- 索引与迁移：在 API 切流前按固定 SQL 逐个执行 6 次 `CREATE INDEX CONCURRENTLY`，完整定义及 `indisvalid/indisready` 全部通过。第二个索引首次操作后的回读因 Hyperdrive 复用旧快照未看到新索引，脚本明确失败并停止；随后使用独立 `READ ONLY` 事务取得新快照，确认前两个索引实际均已成功，再幂等继续，其余四项通过，首次失败未计为通过。API 100% 切流及 live 烟测通过后，逐个 `DROP INDEX CONCURRENTLY` 删除 `0016` 指定的 3 个旧 `updated_at` 索引；最后在 advisory transaction lock 下登记 `0016/0017`。17:30:04.600 两条 ledger 同事务提交，独立只读回查为 18 项且 checksum 精确匹配，6 个新索引 valid／ready、3 个旧索引不存在。三个实际 `EXPLAIN (ANALYZE, BUFFERS)` 样本分别命中对应 visible 索引且无 Sort，执行 0.183／0.183／0.172 ms；单次样本不代表真实 P50/P95 或端到端收益。
+- Worker 发布：原线上版本为 `687f4810-bb8d-4147-baaf-37e91caf0616`。候选 `a31cd853-63cb-482a-b4f5-d9f2bf276761` 先由 deployment `0a5c4674-b886-4a0e-9847-0dd08cab7e99` 以 0% 配合版本覆盖完成 17 项只读烟测及 11 个 Admin 文件比对；索引完成且候选通过后，由 deployment `481eeda4-9d84-4818-a539-1cf2b6abb964` 于 17:24:47（Asia/Shanghai）切至 100%。live 及迁移后烟测均通过。原 33 个 binding、17 个 Secret 名称、runtime、Smart Placement、observability、logpush、Hyperdrive 缓存、`*/5 * * * *` cron 与自定义域名保持，仅新增公开变量 `PHASH_RECOGNITION_BASE_URL=https://recognize.tcgcard.fun`；未读取或替换 Secret 明文。
+- 双 Admin：Pages `toccards-admin` deployment `9a4ba485-d241-40ae-ae05-ea67e48dbc0b` 为 production／main／success，source 为完整 `94417983` 且 dirty=false。`api.tcgcard.fun` 与 `admin.tcgcard.fun` 共 22 个 HTML／JS／CSS 文件、固定 deployment 入口 11 个文件均与同一冻结构建逐字节一致；Pages 域名与项目配置保持。本轮修复了 main 自动发布新 Admin 后、旧 API 尚未配套时的短暂失配。
+- 最终验收与边界：health、原鉴权、iOS／Google App 配置、Admin permissions／feedbacks／scans／Apple options、collection items／summary、批量与单卡 assets、旧 portfolio items、Games、Pokemon Cards／Sets 搜索及 Admin CORS 共 17 项在候选与 live 均符合预期；pHash 健康合同回读为 768/euclidean、Top 5、`cards_phash`。临时固定写操作经独立审查后才执行，写路由随后移除并改为只读后验，remote preview 全部停止，临时 token 配置已删除。仅发布生产 API／双 Admin 并执行 `0016/0017`；未发布 Flutter、Marketing 或 Linux dev，未修改业务数据、商品准入、订阅配置、Apple 后台或 Secret。真实管理员登录、真实扫描、插件正确 Key／限频、真机、备份恢复演练及真实流量 P95 未验。应用回退必须配套使用与旧 Worker 兼容的历史 Admin；3 个旧索引已有固定并发恢复动作但未演练。
 
 <a id="ios-prod-193-20261104"></a>
 ## iOS production App Store 包 1.0.7 (193) 与符号上传（2026-11-04）
