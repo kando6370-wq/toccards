@@ -46,6 +46,10 @@ export default {
       "a": "Yes. Search the card catalog by name, set or card number and add a matching record directly."
     },
     {
+      "q": "Can I use this as a Pokemon card collection tracker?",
+      "a": "Yes. Filter the collection to Pokemon, keep each confirmed printing and condition or grade distinct, and follow the available price history and portfolio value for the cards you own."
+    },
+    {
       "q": "Is this a card collection app or a collection manager?",
       "a": "Both descriptions fit. As a card collector app it catalogs what you own; as a collection manager it tracks condition, grade, quantity and value per entry. The distinction matters less than whether the records are tied to real printings, which they are."
     },

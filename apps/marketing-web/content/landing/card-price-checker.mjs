@@ -54,6 +54,10 @@ export default {
       "a": "Select the matching catalog record, confirm its finish and language, and choose a raw condition or existing slab grade. Card AI then shows the relevant market price and available price history."
     },
     {
+      "q": "Can I use Card AI as a Pokemon card value checker?",
+      "a": "Yes. Search by Pokemon name, set or card number, confirm the exact printing, then choose the raw condition or existing slab grade. Card AI shows the selected record's available published price and history."
+    },
+    {
       "q": "Why is the graded price so different from the raw price?",
       "a": "Grading removes uncertainty about condition and caps supply at each grade level, so graded copies trade in a different market from raw ones. Card AI tracks them separately rather than blending them into one average."
     },

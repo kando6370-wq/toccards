@@ -178,8 +178,11 @@ test('approved keyword clusters stay with one truthful owner', async () => {
   assert.match(pages['card-price-checker.html'], /same confirmed card record/i);
   assert.match(pages['card-price-checker.html'], /Pokemon card price checker and a Pokemon card value checker answer the same question/i);
   assert.match(pages['card-price-checker.html'], /keep a missing price as missing/i);
+  assert.match(pages['card-price-checker.html'], /<summary>Can I use Card AI as a Pokemon card value checker\?<\/summary>/);
 
+  assert.match(pages['pokemon-card-scanner.html'], /<title>Pokemon Card Scanner App &amp; Value Checker \| Card AI<\/title>/);
   assert.match(pages['pokemon-card-scanner.html'], /Pokemon card value scanner/i);
+  assert.match(pages['pokemon-card-scanner.html'], /<summary>Can I use Card AI as a Pokemon card value scanner\?<\/summary>/);
   assert.match(pages['pokemon-card-scanner.html'], /best Pokemon card scanner app/i);
   assert.match(pages['pokemon-card-scanner.html'], /free to install/i);
   assert.match(pages['pokemon-card-scanner.html'], /does not authenticate cards or predict grades/i);
@@ -188,6 +191,7 @@ test('approved keyword clusters stay with one truthful owner', async () => {
 
   assert.match(pages['card-collection-tracker.html'], /TCG collection tracker/i);
   assert.match(pages['card-collection-tracker.html'], /trading card portfolio tracker/i);
+  assert.match(pages['card-collection-tracker.html'], /<summary>Can I use this as a Pokemon card collection tracker\?<\/summary>/);
   assert.match(pages['card-collection-tracker.html'], /raw conditions and existing slab grades as distinct holdings/i);
 
   assert.match(pages['bulk-card-scanner.html'], /bulk card scanner app/i);
@@ -260,6 +264,12 @@ test('30th Celebration guide keeps dated facts, article metadata, links, and dis
   assert.match(articleHtml, /Mew ex 158\/128[^<]*\$62\.33/);
   assert.match(articleHtml, /Gengar \(Prime\) 94\/102[^<]*\$54\.29/);
   assert.match(articleHtml, /Mewtwo ex 157\/128[^<]*\$45\.75/);
+  assert.match(articleHtml, /RGB Mew: match the color and language before checking a price/);
+  assert.match(articleHtml, /<li>R\/RGB, English 30C: \$4,824\.92<\/li>/);
+  assert.match(articleHtml, /<li>G\/RGB, English 30C: \$3,550\.78<\/li>/);
+  assert.match(articleHtml, /<li>B\/RGB, English 30C: \$4,152\.80<\/li>/);
+  assert.match(articleHtml, /Do not use an English 30C price for a Japanese m6a card/);
+  assert.match(articleHtml, /not the time of the underlying market observation/);
   assert.match(
     articleHtml,
     /dated market snapshots, not offers, appraisals, or guaranteed sale prices/i,
@@ -268,7 +278,7 @@ test('30th Celebration guide keeps dated facts, article metadata, links, and dis
   assert.match(articleHtml, /Card AI does not predict a grade/i);
   assert.match(articleHtml, /official 30th Celebration gallery and its full card checklist/i);
   assert.match(articleHtml, /not a complete card list or a ranking of the most valuable cards/i);
-  assert.match(articleHtml, /Updated 2026-10-20/);
+  assert.match(articleHtml, /Updated 2026-11-04/);
   assert.match(articleHtml, /30th Celebration Ultra-Premium Collection/);
   assert.match(articleHtml, /29 30th Celebration booster packs and one Classic Collection booster pack/);
   assert.match(articleHtml, /not a Card AI price for a sealed box/);
@@ -278,7 +288,7 @@ test('30th Celebration guide keeps dated facts, article metadata, links, and dis
 
   assert.equal(article?.headline, 'Pokemon TCG 30th Celebration card prices and set guide');
   assert.equal(article?.datePublished, '2026-10-10');
-  assert.equal(article?.dateModified, '2026-10-20');
+  assert.equal(article?.dateModified, '2026-11-04');
   assert.equal(article?.mainEntityOfPage, canonical);
   assert.equal(article?.image, 'https://tcgcard.fun/assets/showcase-analysis.png');
   assert.match(articleHtml, new RegExp(`<link rel="canonical" href="${canonical}">`));
