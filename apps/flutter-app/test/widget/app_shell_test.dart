@@ -5,7 +5,9 @@ import 'package:go_router/go_router.dart';
 import 'package:kando_app/app/theme.dart';
 import 'package:kando_app/shared/portfolio/pending_collection.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
+import 'package:kando_app/shared/ui/kando_liquid_glass.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 void main() {
   test('Kando color scheme is reused across scaffold rebuilds', () {
@@ -38,6 +40,20 @@ void main() {
       final profile = find.byKey(const Key('kando-tab-profile'));
 
       expect(tester.getSize(bar), const Size(350, 62));
+      expect(find.byKey(const Key('kando-tab-liquid-glass')), findsOneWidget);
+      expect(
+        tester.widget(find.byKey(const Key('kando-tab-liquid-glass'))),
+        isA<GlassContainer>(),
+      );
+      expect(
+        find.byKey(const Key('kando-tab-selected-liquid-glass')),
+        findsOneWidget,
+      );
+      expect(
+        tester.widget(find.byKey(const Key('kando-tab-selected-liquid-glass'))),
+        isA<GlassContainer>(),
+      );
+      expect(kandoLiquidGlassQuality, GlassQuality.minimal);
       expect(tester.getBottomRight(bar), const Offset(370, 822));
       expect(tester.getSize(scan), const Size.square(64));
       expect(

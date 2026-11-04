@@ -192,6 +192,8 @@ PODS:
   - json-enum (1.2.3)
   - jsonlogic (1.2.4):
     - json-enum (~> 1.2.3)
+  - liquid_glass_widgets (0.0.1):
+    - Flutter
   - Mixpanel-swift (6.5.1):
     - jsonlogic (~> 1.2.0)
     - Mixpanel-swift/Complete (= 6.5.1)
@@ -280,6 +282,7 @@ DEPENDENCIES:
   - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
   - in_app_purchase_storekit (from `.symlinks/plugins/in_app_purchase_storekit/darwin`)
   - in_app_review (from `.symlinks/plugins/in_app_review/ios`)
+  - liquid_glass_widgets (from `.symlinks/plugins/liquid_glass_widgets/ios`)
   - mixpanel_flutter (from `.symlinks/plugins/mixpanel_flutter/ios`)
   - package_info_plus (from `.symlinks/plugins/package_info_plus/ios`)
   - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
@@ -358,6 +361,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/in_app_purchase_storekit/darwin"
   in_app_review:
     :path: ".symlinks/plugins/in_app_review/ios"
+  liquid_glass_widgets:
+    :path: ".symlinks/plugins/liquid_glass_widgets/ios"
   mixpanel_flutter:
     :path: ".symlinks/plugins/mixpanel_flutter/ios"
   package_info_plus:
@@ -416,6 +421,7 @@ SPEC CHECKSUMS:
   in_app_review: 7dd1ea365263f834b8464673f9df72c80c17c937
   json-enum: 57ad746d2f0d7852796e9aa50267bd84a778222e
   jsonlogic: 006f892470384401b8ca5b5d8d4cdadb3a0d5c9b
+  liquid_glass_widgets: b18ae3ebb4ddb3c58b0b8552566362fcc9791e22
   Mixpanel-swift: 7b6cea07c32e688c90442b83f4ecfd79a9332d00
   mixpanel_flutter: a64a13a53f121b338365611d994ba24344b19555
   MixpanelSwiftCommon: 6fc461403945422a2e1d0989d712c0db2c26ecdb

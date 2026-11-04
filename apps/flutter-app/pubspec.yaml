@@ -72,6 +72,7 @@ dependencies:
   subscription_core: ^0.1.0
   in_app_purchase_storekit: 0.4.11
   uuid: 4.5.3
+  liquid_glass_widgets: ^1.16.1
 
 dev_dependencies:
   flutter_test:

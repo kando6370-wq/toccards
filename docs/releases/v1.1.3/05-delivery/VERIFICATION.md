@@ -6,6 +6,15 @@
 
 当前运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下记录只代表 v1.1.3 本地增量及实际执行的验证，不改变远端运行状态。
 
+<a id="liquid-glass-preview-20261104"></a>
+## 底部导航与顶部提示 Liquid Glass 本地预览（2026-11-04）
+
+- 来源与范围：从当时干净的 `codex/dev-1.0.7scan@5d674a0` 创建本地 `codex/liquid-glass-nav-toast-preview`，未推送。仅增加 `liquid_glass_widgets 1.16.1`，初始化其 Flutter Shader 运行环境，并将共享 350×62 底栏表面与 `KandoTopToast` 表面换成 `GlassContainer` premium 渲染；保留五个 Tab 顺序、中央扫描按钮及溢出点击区、路由、高亮动画、提示类型、全局替换、3 秒自动关闭、关闭按钮和上滑关闭。其他 Toast、弹窗、页面和业务逻辑未改。
+- 跨端策略：支持 Flutter ShaderFilter 的 Android／iOS Impeller 运行包使用 premium 质量；软件渲染测试、Web 或旧渲染器使用 minimal，并为低端／减少透明度／无法采样背景的路径保留形状一致的暗色 backer。`flutter test` 的软件渲染器对强制 premium 的异步路径输出不稳定，因此共享 helper 按渲染能力选择质量，而不是读取平台名或维护两套 UI。依赖为纯 Flutter 视觉路径，没有引入 Compose。
+- 本地验证：目标实现与测试的 `flutter analyze --no-pub` 无问题，Dart workspace `dart run melos run analyze` 最终两个 package 均无问题、退出 0；Toast 与 App Shell 两文件合跑 17/17 通过，三个主页面的底部导航路由筛选 9/9 通过，覆盖底栏 350×62 几何、Tab／Scan 点击、跨路由高亮、提示替换／关闭／上滑以及两处确实使用 `GlassContainer`。更新一张属于本次预期视觉变化的底栏 Golden；整组稳定性修正前的页面级回归曾出现 10 个 Golden 失败，包含既有独立组件／扫描背景差异，未据此重录无关基线；质量分流后目标两文件复跑通过。
+- 构建与资产：最终工作树的 `flutter build apk --debug --no-pub` 成功，APK 为 278,200,427 字节，SHA-256 `956ede43198eca1c8c8b9c9814605b609fe8d42a8b7a8a5c20536346af6ac9ac`；`flutter build ios --debug --no-codesign --no-pub` 成功生成 device `Runner.app`。两端产物均回读到该库的 `interactive_indicator`、`lightweight_glass`、`liquid_glass_geometry_blended`、`liquid_glass_render` 和 `progressive_blur` 五个 Shader。Android 只出现仓库既有 Gradle 8.12／AGP 8.9.1／Kotlin 2.1.0 未来支持警告；iOS 只出现既有三个插件尚未支持 Swift Package Manager 的提示。
+- 未验边界：iOS Simulator 构建被既有 Google ML Kit／MLImage／MLKitVision 不支持 Apple Silicon iOS 26+ Simulator arm64 阻断，不能记为模拟器通过；设备无签名编译不等于安装或视觉验收。当前仅发现无线 iPhone，未擅自安装；本机无 Android Emulator。未运行完整 Flutter workspace／全部 Golden、真机帧率、相机纹理背后的实际折射、低端 Android GLES 或 Reduce Transparency 视觉验收，也未执行 Git commit／push、远端部署、签名制品、数据库或配置写入。
+
 <a id="owner-assets-admin-emulator-20261103"></a>
 ## 账号隔离、批量资产与本地模拟器验证（2026-11-03）
 

@@ -1,11 +1,11 @@
-import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:kando_app/shared/portfolio/pending_collection.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
+import 'kando_liquid_glass.dart';
 import 'kando_style.dart';
 import 'toast.dart';
 
@@ -295,27 +295,32 @@ class _FigmaTabBarState extends State<_FigmaTabBar> {
               children: [
                 Positioned.fill(
                   child: IgnorePointer(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(31),
-                      child: BackdropFilter(
-                        filter: ui.ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: const Color(0x3310100B),
-                            border: Border.all(color: const Color(0x1FFFFFFF)),
-                            borderRadius: BorderRadius.circular(31),
-                          ),
-                        ),
+                    child: GlassContainer(
+                      key: const Key('kando-tab-liquid-glass'),
+                      useOwnLayer: true,
+                      quality: kandoLiquidGlassQuality,
+                      clipBehavior: Clip.antiAlias,
+                      shape: const LiquidRoundedSuperellipse(
+                        borderRadius: 31,
+                        side: BorderSide(color: Color(0x33FFFFFF)),
                       ),
-                    ),
-                  ),
-                ),
-                const Positioned.fill(
-                  child: IgnorePointer(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Color(0x1FFFFFFF),
-                        borderRadius: BorderRadius.all(Radius.circular(31)),
+                      settings: const LiquidGlassSettings(
+                        glassColor: Color(0x1FFFFFFF),
+                        thickness: 22,
+                        blur: 8,
+                        chromaticAberration: 0.018,
+                        lightIntensity: 0.85,
+                        ambientStrength: 0.12,
+                        refractiveIndex: 1.18,
+                        saturation: 1.4,
+                        glowIntensity: 0.85,
+                        shadow: [
+                          BoxShadow(
+                            color: Color(0x26000000),
+                            blurRadius: 18,
+                            offset: Offset(0, 7),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -329,11 +334,33 @@ class _FigmaTabBarState extends State<_FigmaTabBar> {
                     top: (_barHeight - _highlightHeight) / 2,
                     width: highlightWidth,
                     height: _highlightHeight,
-                    child: const IgnorePointer(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: Color(0x1FFFFFFF),
-                          borderRadius: BorderRadius.all(Radius.circular(27)),
+                    child: IgnorePointer(
+                      child: GlassContainer(
+                        key: const Key('kando-tab-selected-liquid-glass'),
+                        useOwnLayer: true,
+                        quality: kandoLiquidGlassQuality,
+                        clipBehavior: Clip.antiAlias,
+                        shape: const LiquidRoundedSuperellipse(
+                          borderRadius: 27,
+                          side: BorderSide(color: Color(0x66FFFFFF)),
+                        ),
+                        settings: const LiquidGlassSettings(
+                          glassColor: Color(0x3DFFFFFF),
+                          thickness: 34,
+                          blur: 6,
+                          chromaticAberration: 0.022,
+                          lightIntensity: 0.95,
+                          ambientStrength: 0.18,
+                          refractiveIndex: 1.24,
+                          saturation: 1.5,
+                          glowIntensity: 1,
+                          shadow: [
+                            BoxShadow(
+                              color: Color(0x30000000),
+                              blurRadius: 12,
+                              offset: Offset(0, 4),
+                            ),
+                          ],
                         ),
                       ),
                     ),

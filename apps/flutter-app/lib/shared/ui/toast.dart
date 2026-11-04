@@ -4,7 +4,9 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
+import 'kando_liquid_glass.dart';
 import 'kando_style.dart';
 
 const genericFailureToastText = 'Something went wrong. Please try again.';
@@ -573,19 +575,32 @@ class KandoTopToast extends StatelessWidget {
             onClose?.call();
           }
         },
-        child: Container(
+        child: GlassContainer(
           key: const Key('kando-top-toast'),
           width: 350,
           height: 74,
-          decoration: BoxDecoration(
-            color: KandoColors.surface,
-            border: Border.all(color: KandoColors.borderSubtle),
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: const [
+          useOwnLayer: true,
+          quality: kandoLiquidGlassQuality,
+          clipBehavior: Clip.antiAlias,
+          shape: const LiquidRoundedSuperellipse(
+            borderRadius: 12,
+            side: BorderSide(color: Color(0x40FFFFFF)),
+          ),
+          settings: const LiquidGlassSettings(
+            glassColor: Color(0x2EFFFFFF),
+            thickness: 26,
+            blur: 12,
+            chromaticAberration: 0.016,
+            lightIntensity: 0.85,
+            ambientStrength: 0.14,
+            refractiveIndex: 1.2,
+            saturation: 1.4,
+            glowIntensity: 0.85,
+            shadow: [
               BoxShadow(
-                color: Color(0x66000000),
-                blurRadius: 24,
-                offset: Offset(0, 12),
+                color: Color(0x30000000),
+                blurRadius: 18,
+                offset: Offset(0, 8),
               ),
             ],
           ),
@@ -611,6 +626,7 @@ class KandoTopToast extends StatelessWidget {
                     color: KandoColors.text,
                     fontSize: 13,
                     height: 20 / 13,
+                    shadows: [Shadow(color: Color(0x80000000), blurRadius: 8)],
                   ),
                 ),
               ),
