@@ -39,7 +39,16 @@ class HomePerformanceController extends Notifier<HomePerformanceState> {
   var _generation = 0;
 
   @override
-  HomePerformanceState build() => const HomePerformanceState();
+  HomePerformanceState build() {
+    ref.watch(
+      authControllerProvider.select((auth) {
+        final session = auth.session;
+        return (session?.ownerType, session?.userId, session?.anonymousId);
+      }),
+    );
+    _generation += 1;
+    return const HomePerformanceState();
+  }
 
   Future<void> load({
     required String folderId,

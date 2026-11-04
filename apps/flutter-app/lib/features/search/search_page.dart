@@ -65,7 +65,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 onNotification: (notification) {
                   if (notification.depth == 0 &&
                       notification.metrics.extentAfter <= 320) {
-                    controller.loadNextCardPage();
+                    if (state.selectedTab == SearchTab.cards) {
+                      controller.loadNextCardPage();
+                    } else {
+                      controller.loadNextSetPage();
+                    }
                   }
                   return false;
                 },
@@ -555,7 +559,8 @@ class _SearchResults extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (state.isSearching) {
+    if (state.isSearching ||
+        (state.selectedTab == SearchTab.sets && state.isLoadingSets)) {
       return const SliverToBoxAdapter(
         child: SizedBox(
           key: Key('search-results-loading'),
@@ -579,15 +584,53 @@ class _SearchResults extends ConsumerWidget {
       );
     }
 
-    if (state.isNoMatch) {
+    final visibleCards = state.selectedTab == SearchTab.cards
+        ? state.visibleCards
+        : const <SearchCard>[];
+    final visibleSets = state.selectedTab == SearchTab.sets
+        ? state.visibleSets
+        : const <SearchSet>[];
+    if (visibleCards.isEmpty && visibleSets.isEmpty) {
       return const SliverToBoxAdapter(child: _SearchNoResultsState());
     }
 
     if (state.selectedTab == SearchTab.sets) {
-      return SliverList.builder(
-        itemCount: state.visibleSets.length,
-        itemBuilder: (context, index) =>
-            _SearchSetRow(set: state.visibleSets[index]),
+      return SliverMainAxisGroup(
+        slivers: [
+          SliverList.builder(
+            itemCount: visibleSets.length,
+            itemBuilder: (context, index) =>
+                _SearchSetRow(set: visibleSets[index]),
+          ),
+          if (state.isLoadingMoreSets)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.only(top: 12),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            )
+          else if (state.hasSetPageFailure)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Center(
+                  child: IconButton(
+                    key: const Key('search-retry-set-page'),
+                    tooltip: 'Retry loading sets',
+                    onPressed: () {
+                      ref
+                          .read(analyticsProvider)
+                          .track(AnalyticsEvent.refreshClick);
+                      ref
+                          .read(searchControllerProvider.notifier)
+                          .retryNextSetPage();
+                    },
+                    icon: const Icon(Icons.refresh),
+                  ),
+                ),
+              ),
+            ),
+        ],
       );
     }
 
@@ -601,10 +644,10 @@ class _SearchResults extends ConsumerWidget {
             crossAxisSpacing: 10,
             mainAxisExtent: 378,
           ),
-          itemCount: state.visibleCards.length,
+          itemCount: visibleCards.length,
           itemBuilder: (context, index) => SearchCardTile(
-            card: state.visibleCards[index],
-            actionsEnabled: state.assetStatus == KandoLoadStatus.content,
+            card: visibleCards[index],
+            actionsEnabled: state.isAssetReady(visibleCards[index].id),
             showSearchMetadata: true,
           ),
         ),

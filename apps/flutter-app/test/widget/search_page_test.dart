@@ -650,6 +650,99 @@ void main() {
     expect(find.text('Charizard ex'), findsOneWidget);
   });
 
+  testWidgets(
+    'Sets keeps its rows and spacing while scrolling loads the next page',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+      final repository = _PagedSetsSearchRepository();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+          child: const _SearchTestApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sets'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('search-set-set-0')), findsOneWidget);
+      expect(
+        tester.getSize(find.byKey(const Key('search-set-set-0'))).width,
+        350,
+      );
+      await tester.drag(
+        find.byKey(const Key('search-content-scroll')),
+        const Offset(0, -10000),
+      );
+      await tester.pumpAndSettle();
+
+      expect(repository.requestedPages, [2]);
+      expect(find.text('Extra Set'), findsOneWidget);
+    },
+  );
+
+  testWidgets('Cards remain browsable while the initial Sets page is slow', (
+    tester,
+  ) async {
+    final repository = _SlowSetsSearchRepository();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+        child: const _SearchTestApp(),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Squirtle'), findsOneWidget);
+    expect(find.byKey(const Key('search-results-loading')), findsNothing);
+    await tester.tap(find.text('Sets'));
+    await tester.pump();
+    expect(find.byKey(const Key('search-results-loading')), findsOneWidget);
+
+    repository.completeSets();
+    await tester.pumpAndSettle();
+    expect(find.text('Mega Evolution Promos'), findsOneWidget);
+  });
+
+  testWidgets(
+    'Sets page failure keeps loaded rows and offers retry in the same list',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+      final repository = _PagedSetsSearchRepository(failPageTwoOnce: true);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+          child: const _SearchTestApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sets'));
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byKey(const Key('search-content-scroll')),
+        const Offset(0, -10000),
+      );
+      await tester.pumpAndSettle();
+
+      expect(repository.requestedPages, [2]);
+      expect(find.byKey(const Key('search-retry-set-page')), findsOneWidget);
+      await tester.ensureVisible(
+        find.byKey(const Key('search-retry-set-page')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('search-retry-set-page')));
+      await tester.pumpAndSettle();
+      expect(repository.requestedPages, [2, 2]);
+      expect(find.text('Extra Set'), findsOneWidget);
+      expect(find.byKey(const Key('search-retry-set-page')), findsNothing);
+    },
+  );
+
   testWidgets('Game selector refreshes cards', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(390, 844);
@@ -2712,6 +2805,89 @@ class _FailingPaginatedSearchRepository
       changePercent: null,
     );
   }
+}
+
+class _PagedSetsSearchRepository extends MockSearchRepository
+    implements PaginatedSetSearchRepository {
+  _PagedSetsSearchRepository({this.failPageTwoOnce = false});
+
+  final bool failPageTwoOnce;
+  final requestedPages = <int>[];
+  var _failedPageTwo = false;
+
+  @override
+  Future<SearchCatalog> loadCatalog() async {
+    final catalog = await super.loadCatalog();
+    return SearchCatalog(
+      games: catalog.games,
+      cards: catalog.cards,
+      sets: List.generate(
+        40,
+        (index) => SearchSet(
+          id: 'set-$index',
+          gameId: 'pokemon',
+          name: 'Set $index',
+          subtitle: 'Pokemon',
+          releaseText: 'S$index',
+          cardCountText: '1 card',
+        ),
+      ),
+    );
+  }
+
+  @override
+  Future<List<SearchSet>> searchSetPage(
+    String query, {
+    String? game,
+    required int page,
+  }) async {
+    requestedPages.add(page);
+    if (page == 2 && failPageTwoOnce && !_failedPageTwo) {
+      _failedPageTwo = true;
+      throw StateError('set page unavailable');
+    }
+    return page == 2
+        ? const [
+            SearchSet(
+              id: 'extra',
+              gameId: 'pokemon',
+              name: 'Extra Set',
+              subtitle: 'Pokemon',
+              releaseText: 'EXTRA',
+              cardCountText: '1 card',
+            ),
+          ]
+        : const [];
+  }
+}
+
+class _SlowSetsSearchRepository extends MockSearchRepository
+    implements SearchCatalogLoadRepository {
+  final _sets = Completer<List<SearchSet>?>();
+
+  @override
+  Future<SearchCatalogLoadResult> loadCatalogResult() async {
+    final catalog = await super.loadCatalog();
+    return SearchCatalogLoadResult(
+      catalog: SearchCatalog(
+        games: catalog.games,
+        cards: catalog.cards,
+        sets: const [],
+      ),
+      pendingSets: _sets.future,
+    );
+  }
+
+  void completeSets() => _sets.complete(const [
+    SearchSet(
+      id: 'mega-evolution-promos',
+      gameId: 'pokemon',
+      name: 'Mega Evolution Promos',
+      subtitle: 'Pokemon promotional cards',
+      releaseText: '2025',
+      cardCountText: '124 cards',
+    ),
+  ]);
 }
 
 class _TrackingSearchRepository implements SearchRepository {

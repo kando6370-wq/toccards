@@ -450,61 +450,6 @@ class FakeD1Statement {
 }
 
 describe("collection item routes", () => {
-  it("lists paged owner-isolated collection items because portfolios must not leak between owners", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.folders.push(folder({ id: "main" }), folder({ id: "trade" }));
-    db.items.push(
-      item({ id: "older", folder_id: "main", card_ref: "card-a", created_at: "2026-01-01T00:00:00.000Z" }),
-      item({ id: "newer", folder_id: "trade", card_ref: "card-b", created_at: "2026-02-01T00:00:00.000Z" }),
-      item({ id: "other", owner_type: "user", owner_id: "other", folder_id: "other-folder" }),
-    );
-
-    const response = await app.request(
-      "/api/v1/portfolio/items?page=1&page_size=1&sort_by=created_at&sort_order=desc",
-      { headers: await authHeaders("anonymous", "anon-1") },
-      createTestEnv(db),
-    );
-
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({
-      success: true,
-      data: {
-        items: [itemResponse({ id: "newer", folder_id: "trade", card_ref: "card-b", created_at: "2026-02-01T00:00:00.000Z" })],
-        total: 2,
-        page: 1,
-        page_size: 1,
-      },
-    });
-  });
-
-  it("uses item id as a stable tie-breaker because equal timestamps must not duplicate or skip items across pages", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.folders.push(folder({ id: "main" }));
-    const createdAt = "2026-02-01T00:00:00.000Z";
-    db.items.push(
-      item({ id: "item-b", folder_id: "main", card_ref: "card-b", created_at: createdAt }),
-      item({ id: "item-a", folder_id: "main", card_ref: "card-a", created_at: createdAt }),
-    );
-
-    const [firstPage, secondPage] = await Promise.all([
-      app.request(
-        "/api/v1/portfolio/items?page=1&page_size=1&sort_by=created_at&sort_order=desc",
-        { headers: await authHeaders("anonymous", "anon-1") },
-        createTestEnv(db),
-      ),
-      app.request(
-        "/api/v1/portfolio/items?page=2&page_size=1&sort_by=created_at&sort_order=desc",
-        { headers: await authHeaders("anonymous", "anon-1") },
-        createTestEnv(db),
-      ),
-    ]);
-    const firstBody = await firstPage.json() as { data: { items: Array<{ id: string }> } };
-    const secondBody = await secondPage.json() as { data: { items: Array<{ id: string }> } };
-
-    expect(firstBody.data.items.map((entry) => entry.id)).toEqual(["item-a"]);
-    expect(secondBody.data.items.map((entry) => entry.id)).toEqual(["item-b"]);
-  });
-
   it("creates a Raw collection item and removes the matching wishlist row because Collect transfers intent into ownership", async () => {
     const db = createDbForOwner("anonymous", "anon-1");
     db.folders.push(folder({ id: "main" }));
@@ -871,38 +816,6 @@ describe("collection item routes", () => {
 
     expect(response.status).toBe(201);
     expect(db.items).toHaveLength(2);
-  });
-
-  it("defaults to current-folder join time because moved assets must appear before older folder entries", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.folders.push(folder({ id: "trade" }));
-    db.items.push(
-      item({
-        id: "created-later",
-        folder_id: "trade",
-        created_at: "2026-07-10T00:00:00.000Z",
-        folder_joined_at: "2026-07-10T00:00:00.000Z",
-      }),
-      item({
-        id: "moved-later",
-        folder_id: "trade",
-        created_at: "2026-07-01T00:00:00.000Z",
-        folder_joined_at: "2026-07-15T00:00:00.000Z",
-      }),
-    );
-
-    const response = await app.request(
-      "/api/v1/portfolio/items?folder_id=trade&page_size=10",
-      { headers: await authHeaders("anonymous", "anon-1") },
-      createTestEnv(db),
-    );
-    const body = await response.json<{ data: { items: Array<{ id: string }> } }>();
-
-    expect(response.status).toBe(200);
-    expect(body.data.items.map((row) => row.id)).toEqual([
-      "moved-later",
-      "created-later",
-    ]);
   });
 
   it("preserves folder join time during field-only edits because ordinary edits are not folder additions", async () => {

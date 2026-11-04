@@ -144,6 +144,7 @@ export function createDataSourceRoutes(
     const adapter = createAdapter(c.env);
     const items = await adapter.searchCards(query, {
       object_type: "tcg",
+      has_image: 2,
       game,
       set_id: setId,
       set_code: setCode,

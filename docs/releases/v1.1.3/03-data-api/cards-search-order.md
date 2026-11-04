@@ -1,0 +1,85 @@
+# Cards 与 Sets 排序及索引
+
+更新日期：2026-11-02（Asia/Shanghai）。Cards 仅返回 `has_image = 2` 的目录记录，并增加同创建时间内的纯数字 ID 数值排序；Sets 系列列表按纯数字 `set_id` 数值倒序且不增加图片条件。本文描述当前源码；历史部署以对应验证记录为准，本轮 Sets 客户端渐进加载尚未发布。2026-10-28 的索引迁移 `0016` 保持原样，2026-10-30 新增的 `0017` 部分索引及执行边界见下文。
+
+## 查询与缓存
+
+`GET /api/v1/cards/search` 按 2026-10-29 确认的规则使用：
+
+```sql
+AND cards_all.has_image = 2
+ORDER BY created_at DESC NULLS LAST,
+  CASE WHEN product_id ~ '^[0-9]+$'
+    THEN product_id::numeric ELSE NULL
+  END DESC NULLS LAST,
+  product_id DESC
+```
+
+`has_image = 2` 是共享 Cards 查询的固定目录条件：无论空关键词首屏、关键词搜索、后续分页，还是 Sets 内复用 `/cards/search` 的卡牌列表，都不返回其他图片状态的记录。该条件不改变卡牌详情、Trending、Scan 或 Portfolio 的独立 SQL；`has_image` 的存储值不随查询修改。
+
+卡牌先按目录创建时间倒序，空创建时间置后。在同一创建时间组内（含同时为空），只将完全由 ASCII 数字组成的 ID 转为 `numeric` 排序键并降序排列，例如 `700 > 80 > 9`；非纯数字 ID 的排序键为 NULL，排在该时间组的纯数字 ID 后。数值相同或均为非数字时，按原字符串 `product_id DESC` 决定先后，为同一数据快照内的分页提供唯一稳定键。较新创建的非数字卡牌仍排在较旧创建的数字卡牌前，不按数值 ID 改写创建时间的主顺序。
+
+`product_id` 的存储、关联与 API `card_ref` 保持原字符串，不裁剪、提取或重建标识；`0010` 和 `10` 均保留，数值键相同后由原字符串兜底，`A12`、`sports:12` 不提取为 `12`。只有列表排序派生键使用数值，其他标识契约不变。使用 `numeric` 而非 `bigint`，支持超过 64 位整数范围的数字 ID；并未定义无限长度数字的准入规则，目标数据库上线前仍须核查实际数字长度。
+
+后续更新卡牌不提升其创建时间排序。此规则覆盖 Search Cards 首屏、关键词搜索及共用该接口的 Sets 内卡牌列表；独立 Sets 系列列表按下节的 `set_id` 规则排序。
+
+首次加载继续先取 `/games` 返回的首个 Game，再以空关键词、`page=1`、`page_size=40` 查询；服务端同时应用 `cards_all.has_image = 2`。请求参数、响应字段、价格选择和客户端解析不变，继续使用 V1。搜索 KV 命名空间改为 `v17`，缓存键加入图片条件，不复用过滤前的 `v16` 响应；TTL 仍为 1 小时。
+
+本文替代归档[数据契约](../../v1.1.0/03-data-api/contract-changes.md#postgresql-查询切换)中 Cards／Sets 的排序及 Card Search 缓存版本约定，其他接口的稳定排序规则保持不变。实现见[查询适配器](../../../../apps/workers-api/src/data-source/local-db-adapter.ts)及[搜索缓存](../../../../apps/workers-api/src/data-source/kv-cache.ts)。
+
+## Sets 系列列表
+
+`GET /api/v1/sets/search` 移除名称升序，改为：
+
+```sql
+ORDER BY CASE WHEN s.set_id ~ '^[0-9]+$'
+  THEN s.set_id::numeric ELSE NULL
+END DESC NULLS LAST,
+s.set_id DESC
+```
+
+纯数字系列 ID 按数值降序，非纯数字排在其后；数值相同或均非数字时按原始字符串 ID 降序。`0010` 与 `10` 保持不同标识，`A12` 等不提取数字。名称只参与搜索匹配，不参与排序；这里没有创建时间主排序。转换仅产生排序键，数据库和 API 中的 `set_id` 继续为原字符串，并继承 `numeric` 的范围边界。
+
+Game、关键词匹配、非空 `set_code` 过滤、响应字段和分页参数保持不变。2026-11-02 客户端改为渐进加载：Search 初始预载第 1 页 40 条，Cards 可以先于慢 Sets 显示；首次切换到 Sets 复用相同 Game 已加载的第一页，滚动接近底部时再取下一页，不再为宽查询先串行拉到末页。关键词或 Game 变更重新从第一页加载，旧查询的迟到结果不能混入；后续页失败保留已加载结果并使用列表尾部的现有重试样式。列表行布局和服务端排序保持。
+
+Sets 查询仍只读取 `sets` 表，不关联 `cards_all`，也不增加 `has_image` 条件。Sets 查询不经过现有 KV／Cache API 结果缓存，本次无需增加 Sets 缓存版本；从单个 Set 进入后的卡牌分页复用 `/cards/search`，因此使用 Cards 的 `has_image = 2` 与 `v17` 规则。
+
+2026-10-29 dev 只读检查确认 `sets` 共 2,978 条，其中纯数字 ID 2,078 条、最长 7 位，非纯数字最长 5 字符。Pokemon 新排序首屏在单次样本中使用原 Game 索引筛选后 Sort，执行 1.768 ms。本次不增加索引或 migration；该样本不代表一般性能或 prod 验收。行为与测试见[Sets 验证记录](../05-delivery/VERIFICATION.md#sets-numeric-id-order-20261029)。
+
+## PostgreSQL 0016 索引替换
+
+[0016_cards_all_created_order_indexes.sql](../../../../apps/workers-api/src/db/postgres/migrations/0016_cards_all_created_order_indexes.sql)先创建新索引，再删除对应旧索引：
+
+| 查询范围 | 新索引 | 替换的旧索引 |
+|---|---|---|
+| 全目录 | `idx_cards_all_created_product` | `idx_cards_all_updated_product` |
+| Game | `idx_cards_all_game_created_product` | `idx_cards_all_game_updated_product` |
+| Game＋SetCode | `idx_cards_all_game_set_created_product` | `idx_cards_all_game_set_updated_product` |
+
+三个索引的排序尾列仍为 `created_at DESC NULLS LAST, product_id DESC`；后两者分别保留 `lower(game)` 与 `lower(game), lower(set_code)` 前导表达式，使原有 Game／SetCode 筛选能力继续存在。2026-10-29 的数值排序实现没有修改 `0016`、新增迁移或删除字段／索引。当时的索引可提供创建时间前缀，但不能直接满足新增的 `CASE ... ::numeric` 次级排序；同时间记录可能需要 Incremental Sort，Set 筛选也可能使用 Bitmap Scan＋Sort。2026-10-30 新增的索引见下文 `0017`，其覆盖范围以对应说明为准。
+
+2026-10-29 对 kd201 dev 进行只读候选 SQL 检查：2,405,301 条目录记录中纯数字 ID 为 268,639 条，最长 8 位；非纯数字 ID 最长 9 字符。Pokemon 最大同时间组有 29,684 张卡，空关键词首屏使用 Game 索引＋Incremental Sort，单次执行 81.133 ms；Set `23881` 使用 Game Bitmap Scan＋Sort，单次执行 26.783 ms。本次保留现有索引完成业务规则，后续若需消除额外排序，可依据目标环境负载另行增加匹配的表达式索引；不把上述 dev 单次样本当作正式性能指标或 prod 已验证结果。
+
+仓库审计未发现活跃查询继续按 `cards_all.updated_at` 排序或筛选：卡牌详情、Scan 候选和 Portfolio 目录补全按 `product_id` 查询，Trending 通过 `product_id` 关联并按榜单 rank 排序。Admin 的 `ORDER BY updated_at` 属于 `card_override` 表，不属于旧索引删除范围。该结论不覆盖仓库外采集程序或临时 SQL 的全部历史；目标环境的索引使用与查询计划仍须按部署时独立核验。
+
+按用户确认，仅删除上述三组旧排序索引，保留 `updated_at` 字段、其他列、业务数据、主键、其他索引及 trigram 索引。迁移使用 `IF NOT EXISTS`／`IF EXISTS` 支持重复执行；不修改已执行的 `0000`，也不修改退役 D1 schema、迁移或工具。
+
+## 应用与回退边界
+
+### PostgreSQL 0017 可见卡牌数值排序索引
+
+2026-10-30 新增 [0017_cards_visible_numeric_order_indexes.sql](../../../../apps/workers-api/src/db/postgres/migrations/0017_cards_visible_numeric_order_indexes.sql)，在 `has_image = 2` 的部分索引中完整保留当前查询的三个排序键：`created_at DESC NULLS LAST`、纯数字 `product_id::numeric DESC NULLS LAST`、原字符串 `product_id DESC`。三个索引分别覆盖全目录、`lower(game)`、`lower(game) + set_id`，最后一项对应 Flutter Set 详情的实际参数。
+
+本迁移只新增索引，不改 `0016`、数据列、查询 SQL、缓存版本或 API 行为，也不删除旧索引。旧索引继续服务未指定图片过滤的调用和既有 `set_code` 路径；`set_code` 筛选没有新增专用数值排序索引，不承诺该路径无额外排序。应用回退可保留新索引，数据与旧代码兼容；如需回收新增索引的存储，通过后续迁移或经授权的并发删索引操作处理，不回写已执行迁移。
+
+新增索引增加数据库存储及目录写入维护成本。目标大表不能把普通事务内建索引视为已验证的低风险发布：须先检查空间、写入负载、纯数字 ID 长度与 B-tree 项大小，在事务外用相同名称及定义 `CREATE INDEX CONCURRENTLY` 逐个预建，回读完整定义与 `indisvalid/indisready`，再让幂等迁移登记 ledger。仅同名索引存在不证明定义正确。迁移自身保留事务兼容的普通 `CREATE INDEX IF NOT EXISTS`，未预建时自动发布会实际建索引并影响目录写入，必须在发布前识别该状态。
+
+本地 PGlite 用实际适配器 SQL 和同创建时间数据验证迁移前后计划及结果；合成数据消除 Sort 不等于 dev/prod 的实际 P95 改善。尚未执行远程迁移或目标环境的空间、构建耗时、锁等待与计划验收。
+
+Linux 发布包、预检和迁移脚本会自动发现新增的 PostgreSQL SQL 文件，无需更改迁移清单。`migrate.sh` 在事务内执行迁移，新索引建立失败会回滚；`0016` 的旧索引删除安排在新索引创建之后，`0017` 不删除索引。普通建索引会影响目录写入，删除索引还可能等待表锁；执行前必须按目标环境确认备份、空间、写入负载、锁等待和发布窗口。dev/prod 使用独立数据库，须分别核验和授权执行。
+
+`0016` 的既有索引替换流程沿用[历史索引迁移方式](../../v1.1.0/03-data-api/migration.md#目录搜索-trigram-索引0013devprod-已分别执行)：在事务外按同一定义用 `CREATE INDEX CONCURRENTLY` 预建新索引，回读完整索引定义及 `indisvalid/indisready`，确认查询计划；同名索引存在并不代表定义正确或可用。仅对 `0016` 明确列出的三个旧更新时间索引，在确认新查询已切换、外部 SQL 无旧排序需求后，才可在事务外逐个 `DROP INDEX CONCURRENTLY` 删除，再由幂等迁移登记目标环境 ledger。`0017` 上线保留全部既有索引，只执行前述预建和核验。不得将 `CONCURRENTLY` 放入现有事务式迁移，也不把单次本地计划当作线上耗时保证。
+
+`0016` 执行后，应用代码回退不会改变数据兼容性，但旧更新时间查询可能失去排序索引；如需恢复旧查询性能，使用新的 PostgreSQL 迁移或经授权的并发建索引步骤恢复 [0000 中的三个原索引定义](../../../../apps/workers-api/src/db/postgres/migrations/0000_business_schema.sql)，无需删除新索引或回填数据。不得回写已执行迁移文件。
+
+2026-10-28 索引实现的历史验证见[原记录](../05-delivery/VERIFICATION.md#cards-search-order-indexes-20261028)；此前仅按创建时间排序的验证见[对应历史记录](../05-delivery/VERIFICATION.md#cards-created-only-order-20261029)。本次数值次级排序的验证见[当前记录](../05-delivery/VERIFICATION.md#cards-numeric-id-order-20261029)，`has_image = 2` 目录过滤及兼容结果见[图片条件验证](../05-delivery/VERIFICATION.md#cards-has-image-filter-20261029)。

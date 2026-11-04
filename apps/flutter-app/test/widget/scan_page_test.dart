@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
@@ -14,6 +15,7 @@ import 'package:kando_app/features/home/home_controller.dart';
 import 'package:kando_app/features/home/home_page.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
 import 'package:kando_app/features/scan/scan_camera.dart';
+import 'package:kando_app/features/scan/scan_orientation.dart';
 import 'package:kando_app/features/scan/scan_page.dart';
 import 'package:kando_app/features/scan/scan_permissions.dart';
 import 'package:kando_app/shared/currency/currency.dart';
@@ -26,7 +28,9 @@ import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/shared/analytics/analytics_events.dart';
 import 'package:kando_app/shared/analytics/app_analytics.dart';
+import 'package:kando_app/shared/card_image/kando_card_image.dart';
 import 'package:kando_app/shared/scan/scan_api_client.dart';
+import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
 import '../support/mock_home_repository.dart';
@@ -130,6 +134,60 @@ const _unlimitedQuota = ScanQuotaDto(
 );
 
 void main() {
+  testWidgets(
+    'Scan locks portrait before opening the camera and restores app orientation on exit',
+    (tester) async {
+      final events = <String>[];
+      final orientation = _TestScanOrientationGateway(events);
+      final cameraFactory = _TestScanCameraFactory(
+        _TestScanCameraSession(),
+        onOpen: () => events.add('camera-open'),
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanCameraFactory: cameraFactory,
+        orientation: orientation,
+      );
+
+      expect(cameraFactory.openCount, 1);
+      expect(
+        events.take(2),
+        ['orientation-lock', 'camera-open'],
+        reason: 'The portrait coordinate system must be fixed before preview.',
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+
+      expect(
+        events.last,
+        'orientation-restore',
+        reason: 'Leaving Scan must restore the app and OS orientation policy.',
+      );
+    },
+  );
+
+  testWidgets(
+    'Scan reports an orientation failure without disabling the camera',
+    (tester) async {
+      final previousOnError = FlutterError.onError;
+      FlutterErrorDetails? reportedError;
+      FlutterError.onError = (details) => reportedError = details;
+      addTearDown(() => FlutterError.onError = previousOnError);
+      final cameraFactory = _TestScanCameraFactory(_TestScanCameraSession());
+
+      await _pumpScanTestApp(
+        tester,
+        scanCameraFactory: cameraFactory,
+        orientation: const _FailingScanOrientationGateway(),
+      );
+
+      expect(cameraFactory.openCount, 1);
+      expect(reportedError?.library, 'scan orientation');
+      expect(reportedError?.exception, isA<StateError>());
+    },
+  );
+
   testWidgets('scan type selector defaults to TCG and offers Sports Card', (
     tester,
   ) async {
@@ -142,14 +200,73 @@ void main() {
     await tester.tap(find.byKey(const Key('scan-card-type-selector')));
     await tester.pumpAndSettle();
 
-    expect(
-      find.byKey(const Key('scan-card-type-option-sports')),
-      findsOneWidget,
+    final selector = tester.getRect(
+      find.byKey(const Key('scan-card-type-selector')),
     );
-    await tester.tap(find.byKey(const Key('scan-card-type-option-sports')));
+    final tcgOption = find.byKey(const Key('scan-card-type-option-tcg'));
+    final sportsOption = find.byKey(const Key('scan-card-type-option-sports'));
+    final tcgOptionRect = tester.getRect(tcgOption);
+    final menuMaterial = tester
+        .widgetList<Material>(
+          find.ancestor(of: tcgOption, matching: find.byType(Material)),
+        )
+        .singleWhere((material) => material.type == MaterialType.card);
+    final menuMaterialRect = tester.getRect(find.byWidget(menuMaterial));
+    final menuShape = menuMaterial.shape! as RoundedRectangleBorder;
+    expect(tcgOptionRect.width, closeTo(selector.width * 2 / 3, 0.01));
+    expect(tcgOptionRect.center.dx, closeTo(selector.center.dx, 0.01));
+    expect(tcgOptionRect.top, closeTo(selector.bottom - 2, 0.01));
+    expect(menuMaterialRect.height, closeTo(selector.height * 2, 0.01));
+    expect(
+      menuShape.borderRadius,
+      const BorderRadius.only(
+        bottomLeft: Radius.circular(12),
+        bottomRight: Radius.circular(12),
+      ),
+    );
+    expect(
+      tester
+          .widget<Text>(
+            find.descendant(of: tcgOption, matching: find.text('TCG')),
+          )
+          .style
+          ?.color,
+      KandoColors.accent,
+    );
+    expect(
+      tester
+          .widget<Text>(
+            find.descendant(
+              of: sportsOption,
+              matching: find.text('Sports Card'),
+            ),
+          )
+          .style
+          ?.color,
+      KandoColors.text,
+    );
+    expect(sportsOption, findsOneWidget);
+    await tester.tap(sportsOption);
     await tester.pumpAndSettle();
 
     expect(find.text('Sports Card'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('scan-card-type-selector')));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<Text>(
+            find.descendant(
+              of: find.byKey(const Key('scan-card-type-option-sports')),
+              matching: find.text('Sports Card'),
+            ),
+          )
+          .style
+          ?.color,
+      KandoColors.accent,
+    );
+    await tester.tapAt(const Offset(8, 400));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byTooltip('Take Photo'));
     await tester.pump();
@@ -1011,7 +1128,7 @@ void main() {
       final scanningLine = find.byKey(
         const Key('scan-figma-scanning-line-canvas'),
       );
-      expect(tester.getSize(scanningLine), const Size(280, 4));
+      expect(tester.getSize(scanningLine), const Size(254, 4));
       final start = tester.getTopLeft(scanningLine).dy;
       await tester.pump(const Duration(milliseconds: 250));
       expect(camera.takePhotoCount, 0);
@@ -1104,12 +1221,13 @@ void main() {
       );
       final shutter = tester.getRect(find.byTooltip('Take Photo'));
 
-      expect(viewfinder.top, closeTo(168, 0.01));
-      expect(viewfinder.width, closeTo(175.7, 0.01));
-      expect(viewfinder.height, closeTo(251, 0.01));
-      expect(viewfinder.width / viewfinder.height, closeTo(0.7, 0.0001));
-      expect(viewfinder.top, greaterThanOrEqualTo(quota.bottom + 16));
-      expect(viewfinder.bottom, lessThanOrEqualTo(shutter.top - 16));
+      expect(viewfinder.left, closeTo(105.28, 0.01));
+      expect(viewfinder.top, closeTo(107, 0.01));
+      expect(viewfinder.width, closeTo(164.44, 0.01));
+      expect(viewfinder.height, closeTo(235, 0.01));
+      expect(viewfinder.width / viewfinder.height, closeTo(254 / 363, 0.0001));
+      expect(viewfinder.bottom, lessThanOrEqualTo(quota.top - 29));
+      expect(viewfinder.bottom, lessThanOrEqualTo(shutter.top - 29));
 
       await tester.tap(find.byTooltip('Take Photo'));
       await tester.pump(const Duration(milliseconds: 250));
@@ -1147,12 +1265,43 @@ void main() {
       );
       final shutter = tester.getRect(find.byTooltip('Take Photo'));
 
-      expect(viewfinder.left, closeTo(111.4, 0.01));
-      expect(viewfinder.top, closeTo(172, 0.01));
-      expect(viewfinder.width, closeTo(137.2, 0.01));
-      expect(viewfinder.height, closeTo(196, 0.01));
-      expect(viewfinder.top, greaterThanOrEqualTo(quota.bottom + 16));
-      expect(viewfinder.bottom, lessThanOrEqualTo(shutter.top - 16));
+      expect(viewfinder.left, closeTo(108.63, 0.01));
+      expect(viewfinder.top, closeTo(111, 0.01));
+      expect(viewfinder.width, closeTo(142.74, 0.01));
+      expect(viewfinder.height, closeTo(204, 0.01));
+      expect(viewfinder.bottom, lessThanOrEqualTo(quota.top - 29));
+      expect(viewfinder.bottom, lessThanOrEqualTo(shutter.top - 29));
+    },
+  );
+
+  testWidgets(
+    'iPhone 11 enlarges the viewfinder within 35 pixel content boundaries',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(414, 896);
+      tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+      addTearDown(tester.view.reset);
+      await _pumpScanTestApp(tester);
+
+      final viewfinder = tester.getRect(
+        find.byKey(const Key('scan-figma-viewfinder')),
+      );
+      final topControls = tester.getRect(
+        find.byKey(const Key('scan-figma-top-controls')),
+      );
+      final summary = tester.getRect(
+        find.byKey(const Key('scan-results-summary')),
+      );
+
+      expect(viewfinder.left, closeTo(61.46, 0.01));
+      expect(viewfinder.top, closeTo(137, 0.01));
+      expect(viewfinder.width, closeTo(291.09, 0.01));
+      expect(viewfinder.height, closeTo(416, 0.01));
+      expect(viewfinder.width / viewfinder.height, closeTo(254 / 363, 0.0001));
+      expect(viewfinder.left, greaterThanOrEqualTo(35));
+      expect(viewfinder.right, lessThanOrEqualTo(414 - 35));
+      expect(viewfinder.top - topControls.bottom, closeTo(35, 0.01));
+      expect(summary.top - viewfinder.bottom, closeTo(35, 0.01));
     },
   );
 
@@ -1239,17 +1388,23 @@ void main() {
             final resultRail = tester.getRect(
               find.byKey(const Key('scan-figma-result-rail')),
             );
+            final summary = tester.getRect(
+              find.byKey(const Key('scan-results-summary')),
+            );
+            final resultList = tester.widget<ListView>(
+              find.byKey(const Key('scan-figma-result-rail')),
+            );
             final topControls = tester.getRect(
               find.byKey(const Key('scan-figma-top-controls')),
             );
             expect(
               frame.bottom,
-              lessThanOrEqualTo(resultsTop.dy - 16),
+              lessThanOrEqualTo(resultsTop.dy - 14),
               reason:
                   'The next card must remain fully visible above the scan count and results.',
             );
-            expect(frame.top, greaterThanOrEqualTo(topControls.bottom + 16));
-            expect(frame.width / frame.height, closeTo(0.7, 0.0001));
+            expect(frame.top, greaterThanOrEqualTo(topControls.bottom + 29));
+            expect(frame.width / frame.height, closeTo(254 / 363, 0.0001));
             expect(
               frame,
               initialFrame,
@@ -1258,8 +1413,17 @@ void main() {
             );
             expect(
               resultRail.bottom,
-              lessThanOrEqualTo(initialShutter.top - 16),
+              lessThanOrEqualTo(initialShutter.top - 12),
             );
+            if (premium) {
+              expect(resultRail.top - summary.bottom, closeTo(15, 0.01));
+            } else {
+              final quotaPill = tester.getRect(
+                find.byKey(const Key('scan-free-quota-pill')),
+              );
+              expect(resultRail.top - quotaPill.bottom, closeTo(15, 0.01));
+            }
+            expect(resultList.clipBehavior, Clip.hardEdge);
             expect(
               tester.getRect(find.byTooltip('Take Photo')),
               initialShutter,
@@ -1595,7 +1759,7 @@ void main() {
       expect(find.byKey(const Key('scan-figma-scanning-line')), findsNothing);
       expect(find.text('CANCEL'), findsNothing);
       expect(find.byTooltip('Close Scan'), findsOneWidget);
-      expect(find.byTooltip('Search Cards'), findsOneWidget);
+      expect(find.byTooltip('Search Cards'), findsNothing);
       expect(find.text('ALIGN CARD HERE'), findsOneWidget);
       expect(find.byTooltip('Take Photo'), findsOneWidget);
       expect(find.byTooltip('Choose from Library'), findsOneWidget);
@@ -1793,7 +1957,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 250));
     await tester.pump(const Duration(milliseconds: 245));
 
-    expect(tester.getTopLeft(find.byTooltip('Choose from Library')).dx, 28);
+    expect(tester.getTopLeft(find.byTooltip('Choose from Library')).dx, 36);
     expect(tester.getTopLeft(find.byTooltip('Choose from Library')).dy, 750);
 
       expect(
@@ -2157,7 +2321,7 @@ void main() {
       await tester.tap(find.byTooltip('Take Photo'));
       await _completeFigmaScan(tester);
       await tester.pump();
-      expect(repository.loadCardsCount, 1);
+      expect(repository.loadCardsCount, 3);
 
       await tester.tap(find.byTooltip('Review completed scan'));
       await tester.pumpAndSettle();
@@ -2174,6 +2338,185 @@ void main() {
       await tester.tap(find.byTooltip('Back to Scan'));
       await tester.pumpAndSettle();
       expect(find.text(r'$25.00'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Review opens with the primary card while an alternate remains slow',
+    (tester) async {
+      final repository = _SlowAlternateReviewRepository();
+      await _pumpScanTestApp(tester, scanReviewRepository: repository);
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      expect(repository.requestedRefs.take(3), [
+        ['card-mega'],
+        ['card-lucario'],
+        ['card-riolu'],
+      ]);
+
+      await tester.tap(find.byTooltip('Review completed scan'));
+      await tester.pumpAndSettle();
+      final addButton = find.byKey(const Key('scan-review-add-one'));
+      expect(addButton, findsOneWidget);
+      final footerRect = tester.getRect(addButton);
+      expect(repository.requestedRefs.where((refs) => refs.single == 'card-mega'),
+          hasLength(1));
+
+      await tester.drag(
+        find.byKey(const Key('scan-review-list')),
+        const Offset(0, -260),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('scan-review-candidate-card-lucario')),
+      );
+      await tester.pump();
+      expect(addButton, findsOneWidget);
+      expect(tester.getRect(addButton), footerRect);
+      expect(tester.widget<FilledButton>(addButton).onPressed, isNull);
+      expect(find.byKey(const Key('scan-review-form-1-card-lucario')),
+          findsOneWidget);
+      repository.completeAlternate();
+      await tester.pumpAndSettle();
+      expect(addButton, findsOneWidget);
+      expect(tester.widget<FilledButton>(addButton).onPressed, isNotNull);
+    },
+  );
+
+  testWidgets(
+    'late alternate detail cannot replace the candidate selected afterward',
+    (tester) async {
+      final repository = _SlowAlternateReviewRepository();
+      await _pumpScanTestApp(tester, scanReviewRepository: repository);
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.tap(find.byTooltip('Review completed scan'));
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byKey(const Key('scan-review-list')),
+        const Offset(0, -260),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('scan-review-candidate-card-lucario')),
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('scan-review-candidate-card-mega')));
+      repository.completeAlternate();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('scan-review-add-one')));
+      await tester.pump();
+      expect(repository.confirmedItems.single.cardRef, 'card-mega');
+      await tester.pump(kandoCenteredSuccessToastDuration);
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets(
+    'Review fetches card art when recognition has only candidate metadata',
+    (tester) async {
+      final repository = _ReviewImageLoadRepository(firstLoadPending: true);
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: _verifiedScanWithCardMetadata(),
+        scanReviewRepository: repository,
+      );
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      expect(repository.loadCardsCount, 1);
+
+      await tester.tap(find.byTooltip('Review scan result'));
+      await tester.pumpAndSettle();
+      expect(repository.loadCardsCount, 2);
+      _expectVerifiedReviewImageAndPrice(tester);
+
+      repository.completeFirstLoadWithIncompleteCard();
+      await tester.pump();
+      _expectVerifiedReviewImageAndPrice(tester);
+    },
+  );
+
+  testWidgets(
+    'Review keeps background card art when its target resolves after detail loading',
+    (tester) async {
+      final repository = _ReviewImageLoadRepository(
+        firstLoadPending: true,
+        waitForTarget: true,
+        reviewLoadIncomplete: true,
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: _verifiedScanWithCardMetadata(),
+        scanReviewRepository: repository,
+      );
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.tap(find.byTooltip('Review scan result'));
+      await tester.pump();
+      expect(repository.loadCardsCount, 2);
+      expect(repository.loadTargetCount, 1);
+
+      repository.completeFirstLoadWithCard();
+      await tester.pump();
+      expect(find.text(r'$25.00'), findsOneWidget);
+
+      repository.completeTarget();
+      await tester.pumpAndSettle();
+      _expectVerifiedReviewImageAndPrice(tester);
+    },
+  );
+
+  testWidgets(
+    'Review retries card art after the recognition detail request fails',
+    (tester) async {
+      final repository = _ReviewImageLoadRepository(firstLoadFails: true);
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: _verifiedScanWithCardMetadata(),
+        scanReviewRepository: repository,
+      );
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      expect(repository.loadCardsCount, 1);
+
+      await tester.tap(find.byTooltip('Review scan result'));
+      await tester.pumpAndSettle();
+      expect(repository.loadCardsCount, 2);
+      _expectVerifiedReviewImageAndPrice(tester);
+    },
+  );
+
+  testWidgets(
+    'Review reuses complete card art without another detail request',
+    (tester) async {
+      final repository = _ReviewImageLoadRepository(includePrices: false);
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: _verifiedScanWithCardMetadata(),
+        scanReviewRepository: repository,
+      );
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.pump();
+      expect(repository.loadCardsCount, 1);
+
+      await tester.tap(find.byTooltip('Review scan result'));
+      await tester.pumpAndSettle();
+      expect(repository.loadCardsCount, 1);
+      final candidate = find.byKey(
+        const Key('scan-review-candidate-verified-card'),
+      );
+      final image = tester.widget<KandoCardImage>(
+        find.descendant(of: candidate, matching: find.byType(KandoCardImage)),
+      );
+      expect(
+        image.imageUrl,
+        'https://image.tcgcard.fun/cards/verified-card.jpg',
+      );
+      expect(
+        tester.widget<Text>(find.byKey(const Key('scan-review-total'))).data,
+        '--',
+      );
     },
   );
 
@@ -2594,21 +2937,20 @@ void main() {
   testWidgets(
     'Figma scan pre-scan uses the type selector and exported controls',
     (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
       tester.view.padding = const FakeViewPadding(top: 37);
-      addTearDown(tester.view.resetPadding);
+      addTearDown(tester.view.reset);
       await _pumpScanTestApp(tester);
 
       expect(find.byKey(const Key('scan-figma-close-icon')), findsOneWidget);
       expect(find.byKey(const Key('scan-figma-flash-icon')), findsOneWidget);
-      expect(find.byKey(const Key('scan-figma-search-icon')), findsOneWidget);
+      expect(find.byKey(const Key('scan-figma-search-icon')), findsNothing);
       expect(find.byKey(const Key('scan-card-type-selector')), findsOneWidget);
       expect(find.byKey(const Key('scan-figma-align-hint')), findsOneWidget);
       expect(find.byKey(const Key('scan-figma-gallery-icon')), findsOneWidget);
       expect(find.byKey(const Key('scan-figma-done-icon')), findsOneWidget);
 
-      final topBand = tester.getRect(
-        find.byKey(const Key('scan-figma-top-safe-band')),
-      );
       final topControls = tester.getRect(
         find.byKey(const Key('scan-figma-top-controls')),
       );
@@ -2621,8 +2963,11 @@ void main() {
       final flashButton = tester.getRect(
         find.byKey(const Key('scan-figma-flash-button')),
       );
-      final searchButton = tester.getRect(
-        find.byKey(const Key('scan-figma-search-button')),
+      final cardTypeSelector = tester.getRect(
+        find.byKey(const Key('scan-card-type-selector')),
+      );
+      final cardTypeSurfaceFinder = find.byKey(
+        const Key('scan-card-type-selector-surface'),
       );
       final quotaPillFinder = find.byKey(const Key('scan-free-quota-pill'));
       final quotaPill = tester.getRect(quotaPillFinder);
@@ -2632,37 +2977,135 @@ void main() {
       final quotaCopy = tester.getRect(
         find.byKey(const Key('scan-free-quota-copy')),
       );
+      final viewfinder = tester.getRect(
+        find.byKey(const Key('scan-figma-viewfinder')),
+      );
       final safeTop = MediaQuery.paddingOf(
         tester.element(find.byType(ScanPage)),
       ).top;
-      expect(topBand.height, safeTop);
-      expect(topControls.top, topBand.bottom + 10);
-      expect(topBar.height, 32);
-      expect(closeButton.size, const Size(30, 30));
-      expect(flashButton.size, const Size(25, 25));
-      expect(searchButton.size, const Size(30, 30));
+      expect(topControls.top, 0);
+      expect(topControls.height, closeTo(safeTop + 58, 0.01));
+      expect(topBar.top, closeTo(safeTop + 16, 0.01));
+      expect(topBar.height, closeTo(42, 0.01));
+      expect(closeButton.width, closeTo(42, 0.01));
+      expect(closeButton.height, closeTo(42, 0.01));
+      expect(flashButton.width, closeTo(42, 0.01));
+      expect(flashButton.height, closeTo(42, 0.01));
+      expect(cardTypeSelector.width, closeTo(209, 0.01));
+      expect(cardTypeSelector.height, closeTo(42, 0.01));
       expect(closeButton.center.dy, topBar.center.dy);
       expect(flashButton.center.dy, topBar.center.dy);
-      expect(searchButton.center.dy, topBar.center.dy);
-      expect(quotaPill.height, 48);
-      expect(quotaPill.width, 209);
+      expect(cardTypeSelector.center.dx, closeTo(topBar.center.dx, 0.01));
+      expect(cardTypeSelector.center.dy, closeTo(topBar.center.dy, 0.01));
+      expect(viewfinder, const Rect.fromLTWH(68, 154, 254, 363));
+      final viewfinderPaint = tester.widget<CustomPaint>(
+        find.descendant(
+          of: find.byKey(const Key('scan-figma-viewfinder')),
+          matching: find.byType(CustomPaint),
+        ),
+      );
+      final viewfinderAlpha = await tester.runAsync(() async {
+        final recorder = ui.PictureRecorder();
+        viewfinderPaint.painter!.paint(
+          Canvas(recorder),
+          const Size(254, 363),
+        );
+        final image = await recorder.endRecording().toImage(254, 363);
+        final pixels = await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        );
+        image.dispose();
+        int alphaAt(int x, int y) =>
+            pixels!.getUint8(((y * 254) + x) * 4 + 3);
+        return (
+          corners: [
+            alphaAt(1, 20),
+            alphaAt(20, 1),
+            alphaAt(252, 20),
+            alphaAt(233, 1),
+            alphaAt(1, 342),
+            alphaAt(20, 361),
+            alphaAt(252, 342),
+            alphaAt(233, 361),
+          ],
+          topEdge: alphaAt(127, 1),
+          leftEdge: alphaAt(1, 181),
+        );
+      });
+      expect(
+        viewfinderAlpha!.corners,
+        everyElement(greaterThan(220)),
+        reason: 'Each viewfinder corner must include both legs of its turn.',
+      );
+      expect(
+        viewfinderAlpha.topEdge,
+        lessThan(80),
+        reason: 'The top edge must remain a glow without a visible solid line.',
+      );
+      expect(
+        viewfinderAlpha.leftEdge,
+        lessThan(80),
+        reason: 'The side edge must remain a glow without a visible solid line.',
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('scan-figma-top-controls')),
+          matching: find.byType(BackdropFilter),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('scan-figma-top-navigation-surface')),
+        findsNothing,
+      );
+      expect(find.byKey(const Key('scan-figma-top-safe-band')), findsNothing);
+      final cardTypeDecoration =
+          tester.widget<Container>(cardTypeSurfaceFinder).decoration
+              as BoxDecoration;
+      expect(cardTypeDecoration.color, const Color(0xFF222222));
+      expect(cardTypeDecoration.borderRadius, BorderRadius.circular(999));
+      expect(
+        cardTypeDecoration.border,
+        Border.all(color: const Color(0x1A90927C)),
+      );
+      final selectedTypeLabel = tester.widget<Text>(find.text('TCG'));
+      expect(selectedTypeLabel.style?.color, KandoColors.accent);
+      expect(selectedTypeLabel.style?.fontSize, 16);
+      expect(selectedTypeLabel.style?.fontWeight, FontWeight.w400);
+      final selectorArrow = tester.widget<Icon>(
+        find.descendant(
+          of: cardTypeSurfaceFinder,
+          matching: find.byIcon(Icons.keyboard_arrow_down_rounded),
+        ),
+      );
+      expect(selectorArrow.size, 18);
+      expect(selectorArrow.color, KandoColors.accent);
+      expect(quotaPill, const Rect.fromLTWH(16, 561, 358, 42));
       expect(quotaBadge.size, const Size(24, 24));
       expect(quotaBadge.left, quotaPill.left + 8);
       expect(quotaBadge.center.dy, quotaPill.center.dy);
       expect(quotaCopy.left, quotaBadge.right + 8);
-      expect(quotaCopy.width, 161);
-      expect(quotaCopy.height, 32);
-      expect(quotaCopy.right, quotaPill.right - 8);
+      expect(quotaCopy.width, 276);
+      expect(quotaCopy.height, 24);
       final quotaDecoration =
-          tester.widget<DecoratedBox>(quotaPillFinder).decoration
+          tester
+                  .widget<DecoratedBox>(
+                    find.byKey(const Key('scan-free-quota-surface')),
+                  )
+                  .decoration
               as BoxDecoration;
       expect(quotaDecoration.color, const Color(0xFF222222));
       expect(quotaDecoration.borderRadius, BorderRadius.circular(12));
+      expect(
+        quotaDecoration.border,
+        Border.all(color: const Color(0x1A90927C)),
+      );
       expect(quotaDecoration.boxShadow, const [
         BoxShadow(
           color: Color(0x40000000),
           offset: Offset(0, 23.585),
-          blurRadius: 23.585,
+          blurRadius: 47.17,
+          spreadRadius: -11.32,
         ),
       ]);
       final quotaTitle = tester.widget<Text>(find.text('10 scans remaining'));
@@ -2675,6 +3118,19 @@ void main() {
         expect(text.style?.height, 16 / 13);
         expect(text.style?.letterSpacing, 0);
       }
+      expect(quotaSubtitle.style?.decoration, isNull);
+      final quotaSubtitleSpan = quotaSubtitle.textSpan! as TextSpan;
+      final quotaSubtitleChildren = quotaSubtitleSpan.children!;
+      expect(quotaSubtitleChildren, hasLength(2));
+      final quotaAction = quotaSubtitleChildren[0] as TextSpan;
+      final quotaRemainder = quotaSubtitleChildren[1] as TextSpan;
+      expect(quotaAction.text, 'Tap to');
+      expect(quotaAction.style?.color, KandoColors.accent);
+      expect(quotaAction.style?.decoration, TextDecoration.underline);
+      expect(quotaAction.style?.decorationColor, KandoColors.accent);
+      expect(quotaRemainder.text, ' get unlimited scans');
+      expect(quotaRemainder.style?.color, const Color(0xFFE4E3D3));
+      expect(quotaRemainder.style?.decoration, isNull);
       expect(
         find.descendant(
           of: quotaPillFinder,
@@ -2692,7 +3148,7 @@ void main() {
 
       final overlay = find.byKey(const Key('scan-figma-camera-overlay'));
       expect(overlay, findsOneWidget);
-      expect(tester.widget<ColoredBox>(overlay).color, const Color(0x1A0D0F08));
+      expect(tester.widget<ColoredBox>(overlay).color, const Color(0x120D0F08));
       expect(
         tester.widget<Text>(find.text('GALLERY')).style?.fontFamily,
         isNull,
@@ -3721,25 +4177,112 @@ void main() {
   });
 
   testWidgets(
-    'Capture refuses an eleventh item because Waiting and results share the ten-card queue limit',
+    'Premium capture asks users to collect or remove cards after ten completed scans',
     (tester) async {
-      final pending = Completer<ScanResolution>();
-      final source = _TestScanResultSource(photoResult: pending.future);
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.failed()),
+      );
       await _pumpScanTestApp(
         tester,
         scanResultSource: source,
         subscriptionController: _ProScanSubscriptionController.new,
       );
 
-      for (var index = 0; index < 11; index += 1) {
+      for (var index = 0; index < 10; index += 1) {
         await tester.tap(find.byTooltip('Take Photo'));
-        await tester.pump();
+        await _completeFigmaScan(tester);
       }
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
 
       expect(source.photoCallCount, 10);
-      expect(find.text('Scanned: 0/10'), findsOneWidget);
-      expect(find.text('Scan queue is full'), findsOneWidget);
-      await tester.pump(const Duration(seconds: 3));
+      expect(find.text('Scanned: 10/10'), findsOneWidget);
+      expect(
+        find.text('Collect or remove cards to scan more'),
+        findsOneWidget,
+      );
+      expect(
+        tester.widget<KandoTopToast>(find.byType(KandoTopToast)).type,
+        KandoTopToastType.info,
+      );
+      await tester.pump(const Duration(milliseconds: 2999));
+      expect(
+        find.text('Collect or remove cards to scan more'),
+        findsOneWidget,
+      );
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump();
+      expect(
+        find.text('Collect or remove cards to scan more'),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets(
+    'Free capture and gallery use displayed quota after ten failed reserved scans',
+    (tester) async {
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.failed()),
+        subsequentPhotoResults: [
+          ...List.generate(
+            8,
+            (_) => Future.value(const ScanResolution.failed()),
+          ),
+          Future.value(
+            const ScanResolution.failed(
+              quota: ScanQuotaDto(
+                access: ScanQuotaAccess.free,
+                limit: 10,
+                reserved: 10,
+                consumed: 0,
+                remaining: 0,
+                unlimited: false,
+              ),
+            ),
+          ),
+        ],
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanQuota: _availableQuota,
+      );
+
+      for (var index = 0; index < 10; index += 1) {
+        await tester.tap(find.byTooltip('Take Photo'));
+        await _completeFigmaScan(tester);
+      }
+      await tester.tap(find.byTooltip('Choose from Library'));
+      await tester.pump();
+
+      expect(source.photoCallCount, 10);
+      expect(source.libraryCallCount, 0);
+      expect(find.text('Scanned: 10/10'), findsOneWidget);
+      expect(find.text('10 scans remaining'), findsOneWidget);
+      expect(
+        find.text('Collect or remove cards to scan more'),
+        findsOneWidget,
+      );
+      expect(find.text('Scan queue is full'), findsNothing);
+      await tester.pump(kandoTopToastDuration);
+      await tester.pump();
+      expect(
+        find.text('Collect or remove cards to scan more'),
+        findsNothing,
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+
+      expect(source.photoCallCount, 10);
+      expect(
+        find.text('Collect or remove cards to scan more'),
+        findsOneWidget,
+      );
+      expect(find.text('Scan queue is full'), findsNothing);
+      await tester.pump(kandoTopToastDuration);
+      await tester.pump();
     },
   );
 
@@ -3856,7 +4399,11 @@ void main() {
       await tester.pumpAndSettle();
       final waitingItem = find.byKey(const Key('scan-active-item-2'));
       expect(waitingItem, findsOneWidget);
-      expect(tester.getSize(waitingItem), const Size(208, 82));
+      expect(tester.getSize(waitingItem), const Size(202, 92));
+      expect(
+        tester.getSize(find.byKey(const Key('scan-item-surface-2'))),
+        const Size(202, 76),
+      );
       final waitingLabel = find.descendant(
         of: waitingItem,
         matching: find.text('Waiting to scan'),
@@ -4459,6 +5006,33 @@ void main() {
   );
 
   testWidgets(
+    'Gallery keeps Done disabled until every selected image has entered and finished the queue',
+    (tester) async {
+      final source = _ProgressiveGalleryResultSource();
+      await _pumpScanTestApp(tester, scanResultSource: source);
+      await tester.tap(find.byTooltip('Choose from Library'));
+      await tester.pump();
+      expect(source.firstSelected.isCompleted, isTrue);
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
+      expect(find.byTooltip('Review scan result'), findsOneWidget);
+      expect(
+        tester.widget<InkWell>(find.byKey(const Key('scan-done-action'))).onTap,
+        isNull,
+      );
+
+      source.releaseSecond.complete();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
+      expect(
+        tester.widget<InkWell>(find.byKey(const Key('scan-done-action'))).onTap,
+        isNotNull,
+      );
+    },
+  );
+
+  testWidgets(
     'Gallery shows the selected thumbnail immediately without shutter feedback because recognition must not hide the uploaded image',
     (tester) async {
       final pending = Completer<ScanResolution>();
@@ -4680,9 +5254,17 @@ void main() {
     final secondResult = tester.getRect(
       find.byKey(const Key('scan-active-item-2')),
     );
-    expect(resultRail.height, 82);
-    expect(firstResult.height, 82);
-    expect(secondResult.height, 82);
+    expect(resultRail.height, 92);
+    expect(firstResult.height, 92);
+    expect(secondResult.height, 92);
+    expect(
+      tester.getSize(find.byKey(const Key('scan-item-surface-1'))),
+      const Size(202, 76),
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('scan-item-surface-2'))),
+      const Size(202, 76),
+    );
     expect(secondResult.left, lessThan(firstResult.left));
     expect(secondResult.top, firstResult.top);
 
@@ -4742,19 +5324,16 @@ void main() {
     expect(repository.confirmedItems.map((item) => item.quantity), [2, 3]);
   });
 
-  testWidgets('Scan camera chrome can exit and open manual Search', (
-    tester,
-  ) async {
-    await _pumpScanTestApp(tester);
-    await tester.tap(find.byTooltip('Close Scan'));
-    await tester.pumpAndSettle();
-    expect(find.text('Overview'), findsOneWidget);
-
-    await _pumpScanTestApp(tester);
-    await tester.tap(find.byTooltip('Search Cards'));
-    await tester.pumpAndSettle();
-    expect(find.text('Squirtle'), findsOneWidget);
-  });
+  testWidgets(
+    'Scan camera chrome exits without adding a non-Figma Search action',
+    (tester) async {
+      await _pumpScanTestApp(tester);
+      expect(find.byTooltip('Search Cards'), findsNothing);
+      await tester.tap(find.byTooltip('Close Scan'));
+      await tester.pumpAndSettle();
+      expect(find.text('Overview'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'Scan asks before discarding an unmatched portfolio result because scan results are not auto-saved',
@@ -4818,6 +5397,43 @@ void main() {
   );
 }
 
+_TestScanResultSource _verifiedScanWithCardMetadata() {
+  return _TestScanResultSource(
+    photoResult: Future.value(
+      const ScanResolution.matched(
+        scanId: 'scan-verified-image',
+        cardRef: 'verified-card',
+        matchName: 'Verified Card',
+        candidates: ['Verified Card'],
+        candidateCardRefs: ['verified-card'],
+        candidateDetails: [
+          ScanCandidateDto(
+            cardRef: 'verified-card',
+            name: 'Verified Card',
+            setName: 'Verified Set',
+            objectType: 'tcg',
+            setCode: 'VER',
+            cardNumber: '001/100',
+            confidence: 95,
+            game: 'Pokemon',
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+void _expectVerifiedReviewImageAndPrice(WidgetTester tester) {
+  final candidate = find.byKey(
+    const Key('scan-review-candidate-verified-card'),
+  );
+  final image = tester.widget<KandoCardImage>(
+    find.descendant(of: candidate, matching: find.byType(KandoCardImage)),
+  );
+  expect(image.imageUrl, 'https://image.tcgcard.fun/cards/verified-card.jpg');
+  expect(find.text(r'$25.00'), findsWidgets);
+}
+
 Future<void> _completeFigmaScan(WidgetTester tester) async {
   await tester.pump(const Duration(seconds: 1));
   await tester.pump();
@@ -4836,6 +5452,7 @@ Future<void> _pumpScanTestApp(
   ScanResultSource? scanResultSource,
   ScanReviewRepository? scanReviewRepository,
   ScanCameraFactory scanCameraFactory = const _DisabledScanCameraFactory(),
+  ScanOrientationGateway orientation = const _ImmediateScanOrientationGateway(),
   ScanPermissionGateway permissions = const _GrantedScanPermissionGateway(),
   AppAnalytics? analytics,
   ScanQuotaDto? scanQuota,
@@ -4858,6 +5475,7 @@ Future<void> _pumpScanTestApp(
           scanResultSource ?? _defaultTestScanResultSource(),
         ),
         scanCameraFactoryProvider.overrideWithValue(scanCameraFactory),
+        scanOrientationGatewayProvider.overrideWithValue(orientation),
         scanPermissionGatewayProvider.overrideWithValue(permissions),
         scanQuotaControllerProvider.overrideWith(
           () =>
@@ -5154,6 +5772,85 @@ class _FakeScanReviewRepository implements ScanReviewRepository {
   }
 }
 
+class _ReviewImageLoadRepository extends _FakeScanReviewRepository {
+  _ReviewImageLoadRepository({
+    this.firstLoadPending = false,
+    this.firstLoadFails = false,
+    this.waitForTarget = false,
+    this.reviewLoadIncomplete = false,
+    this.includePrices = true,
+  });
+
+  final bool firstLoadPending, firstLoadFails, waitForTarget;
+  final bool reviewLoadIncomplete, includePrices;
+  final _firstLoad = Completer<Map<String, ScanReviewCard>>();
+  final _target = Completer<ScanReviewTarget>();
+  var loadCardsCount = 0;
+  var loadTargetCount = 0;
+
+  ScanReviewCard get completeCard => ScanReviewCard(
+    cardRef: 'verified-card',
+    name: 'Verified Card',
+    setName: 'Verified Set',
+    cardNumber: '001/100',
+    game: 'Pokemon',
+    imageUrl: 'https://image.tcgcard.fun/cards/verified-card.jpg',
+    language: 'English',
+    finish: 'Holofoil',
+    prices: includePrices
+        ? const [
+            ScanReviewPrice(
+              grader: 'Raw',
+              grade: null,
+              condition: 'Near Mint',
+              price: 25,
+            ),
+          ]
+        : const [],
+  );
+  static const incompleteCard = ScanReviewCard(
+    cardRef: 'verified-card',
+    name: 'Verified Card',
+    setName: 'Verified Set',
+    cardNumber: '001/100',
+    game: 'Pokemon',
+    imageUrl: null,
+    language: 'English',
+    finish: 'Holofoil',
+    prices: [],
+  );
+
+  @override
+  Future<ScanReviewTarget> loadTarget({String? preferredFolderId}) {
+    loadTargetCount += 1;
+    return waitForTarget
+        ? _target.future
+        : super.loadTarget(preferredFolderId: preferredFolderId);
+  }
+
+  @override
+  Future<Map<String, ScanReviewCard>> loadCards(List<String> cardRefs) async {
+    loadCardsCount += 1;
+    if (loadCardsCount == 1 && firstLoadFails) {
+      throw Exception('First card detail lookup failed');
+    }
+    if (loadCardsCount == 1 && firstLoadPending) return _firstLoad.future;
+    return {
+      'verified-card': reviewLoadIncomplete ? incompleteCard : completeCard,
+    };
+  }
+
+  void completeFirstLoadWithCard() {
+    _firstLoad.complete({'verified-card': completeCard});
+  }
+
+  void completeFirstLoadWithIncompleteCard() {
+    _firstLoad.complete({'verified-card': incompleteCard});
+  }
+
+  void completeTarget() => _target.complete(_FakeScanReviewRepository.target);
+}
+
 class _StaleScanCardsRepository extends _FakeScanReviewRepository {
   final _backgroundLoad = Completer<Map<String, ScanReviewCard>>();
   var loadCardsCount = 0;
@@ -5179,6 +5876,48 @@ class _StaleScanCardsRepository extends _FakeScanReviewRepository {
         prices: [],
       ),
     });
+  }
+}
+
+class _SlowAlternateReviewRepository extends _FakeScanReviewRepository {
+  final _background = Completer<Map<String, ScanReviewCard>>();
+  final _alternate = Completer<Map<String, ScanReviewCard>>();
+  final requestedRefs = <List<String>>[];
+
+  @override
+  Future<Map<String, ScanReviewCard>> loadCards(List<String> cardRefs) {
+    requestedRefs.add(cardRefs);
+    if (cardRefs.length == 1 && cardRefs.single == 'card-lucario') {
+      return _alternate.future;
+    }
+    if (cardRefs.length == 1 && cardRefs.single == 'card-riolu') {
+      return _background.future;
+    }
+    if (cardRefs.length == 1 && cardRefs.single == 'card-mega') {
+      return super.loadCards(cardRefs).then((cards) {
+        final card = cards['card-mega']!;
+        return {
+          'card-mega': ScanReviewCard(
+            cardRef: card.cardRef,
+            name: card.name,
+            setName: card.setName,
+            cardNumber: card.cardNumber,
+            game: card.game,
+            imageUrl: 'https://image.tcgcard.fun/cards/card-mega.jpg',
+            language: card.language,
+            finish: card.finish,
+            availableLanguages: card.availableLanguages,
+            availableFinishes: card.availableFinishes,
+            prices: card.prices,
+          ),
+        };
+      });
+    }
+    return super.loadCards(cardRefs);
+  }
+
+  Future<void> completeAlternate() async {
+    _alternate.complete(await super.loadCards(['card-lucario']));
   }
 }
 
@@ -5386,6 +6125,43 @@ class _TestScanResultSource implements ScanResultSource {
   }
 }
 
+class _ProgressiveGalleryResultSource extends _TestScanResultSource {
+  _ProgressiveGalleryResultSource()
+    : super(photoResult: Future.value(const ScanResolution.failed()));
+
+  final firstSelected = Completer<void>();
+  final releaseSecond = Completer<void>();
+
+  @override
+  Future<List<Future<ScanResolution>>> library({
+    int maxItems = 10,
+    void Function(ScanImage image, Future<ScanResolution> resolution)? onSelected,
+    ScanCardType cardType = ScanCardType.tcg,
+  }) async {
+    final bytes = Uint8List.fromList(_transparentPngBytes);
+    final first = Future.value(ScanResolution.matched(
+      scanId: 'first-gallery-scan',
+      cardRef: 'first-gallery-card',
+      matchName: 'First gallery card',
+      candidates: const ['First gallery card'],
+      candidateCardRefs: const ['first-gallery-card'],
+      imageBytes: bytes,
+      displayImageBytes: bytes,
+      imageFileName: 'first.png',
+    ));
+    onSelected?.call(ScanImage(bytes: bytes, fileName: 'first.png'), first);
+    firstSelected.complete();
+    await releaseSecond.future;
+    final second = Future.value(ScanResolution.noMatch(
+      imageBytes: bytes,
+      displayImageBytes: bytes,
+      imageFileName: 'second.png',
+    ));
+    onSelected?.call(ScanImage(bytes: bytes, fileName: 'second.png'), second);
+    return [first, second];
+  }
+}
+
 class _DisabledScanCameraFactory implements ScanCameraFactory {
   const _DisabledScanCameraFactory();
 
@@ -5394,16 +6170,50 @@ class _DisabledScanCameraFactory implements ScanCameraFactory {
 }
 
 class _TestScanCameraFactory implements ScanCameraFactory {
-  _TestScanCameraFactory(this.session);
+  _TestScanCameraFactory(this.session, {this.onOpen});
 
   _TestScanCameraSession session;
+  final VoidCallback? onOpen;
   var openCount = 0;
 
   @override
   Future<ScanCameraSession?> open() async {
     openCount += 1;
+    onOpen?.call();
     return session;
   }
+}
+
+class _ImmediateScanOrientationGateway implements ScanOrientationGateway {
+  const _ImmediateScanOrientationGateway();
+
+  @override
+  Future<void> lockPortrait() async {}
+
+  @override
+  Future<void> restore() async {}
+}
+
+class _TestScanOrientationGateway implements ScanOrientationGateway {
+  _TestScanOrientationGateway(this.events);
+
+  final List<String> events;
+
+  @override
+  Future<void> lockPortrait() async => events.add('orientation-lock');
+
+  @override
+  Future<void> restore() async => events.add('orientation-restore');
+}
+
+class _FailingScanOrientationGateway implements ScanOrientationGateway {
+  const _FailingScanOrientationGateway();
+
+  @override
+  Future<void> lockPortrait() => Future.error(StateError('lock failed'));
+
+  @override
+  Future<void> restore() async {}
 }
 
 class _GrantedScanPermissionGateway implements ScanPermissionGateway {

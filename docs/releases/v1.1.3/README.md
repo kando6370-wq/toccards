@@ -11,6 +11,17 @@ v1.1.2 已原位归档，不复制其产品、流程、架构、数据/API、Adm
 - App 向后兼容原则继续以 v1.1.2 的[人员阅读版](../v1.1.2/05-delivery/app-backward-compatibility-plan.md)和[AI 执行版](../v1.1.2/03-data-api/app-backward-compatibility-ai-guide.md)为规则真源；v1.1.3 的新增兼容证据写入本版本受影响业务文档或[验证记录](05-delivery/VERIFICATION.md)，不回写归档版本。
 - Flutter UI 继续遵循 [v1.0.0 UI 设计系统](../v1.0.0/00-product/ui-design-system.md)及后续已生效的增量合同。
 - 官网关键词与页面归属增量见[营销内容记录](05-delivery/marketing-keyword-content.md)；未变化的能力边界继续引用 v1.1.2 的产品定位和营销内容文档。
+- 当前扫描识别增量见 [RGB pHash + Latin／Japanese OCR 链路](01-flows/scan-recognition.md)：当前 App 与线上低版本 App 共用原识别路径，服务端按互斥请求字段兼容 pHash 与旧向量协议。
+- Admin 扫描记录按 TCG／SPORTS 筛选及历史缺类型记录的边界见[扫描记录类型筛选](01-flows/scan-recognition.md#管理后台按卡牌类型筛选2026-10-28)。
+- Admin 苹果通知消息使用 SKU 下拉完整匹配筛选，选项来自可见全部通知记录的去重 Product ID；接口、无 SKU 失败记录和部署边界见[后台增量](04-admin/admin.md#苹果通知消息-sku-筛选2026-10-28)。
+- 当前订阅本地三卡兜底增量见 [订阅本地兜底页](01-flows/subscription-display.md)：普通周、独立年试用和终身商品；远端配置与 Android 原分支继续沿用 v1.1.2 合同。
+- Cards 查询仅返回 `has_image = 2` 的目录记录，并按创建时间倒序；同时间内纯数字 ID 按数值降序、非数字 ID 置后，再按原字符串 ID 稳定排序。缓存与索引边界见 [Cards 排序与索引](03-data-api/cards-search-order.md)。
+- Sets 系列列表按纯数字 `set_id` 数值倒序、非数字置后，再按原字符串 ID 倒序；名称不再参与排序，见 [Sets 排序规则](03-data-api/cards-search-order.md#sets-系列列表)。
+- 查询性能、请求级 SQL/缓存观测、Linux 缓存回收及客户端/后台列表优化见 [性能说明](02-architecture/performance.md)；Cards 新增 `0017` 索引的执行与回退边界见 [Cards 排序与索引](03-data-api/cards-search-order.md#postgresql-0017-可见卡牌数值排序索引)。
+- 2026-11-02 收藏 SQL 分页与固定文本排序、Review 请求共享及并发控制见[性能说明](02-architecture/performance.md#收藏分页与扫描-review2026-11-02)。iOS 构建的 push／PR 路径已包含 `dart-packages/subscription-core/**`，共享订阅包单独变更也会触发对应构建；push 仍仅限 dev，不能把本地配置验证当作托管 CI 已运行。
+- 2026-11-02 反馈真分页／组合筛选、平台未知处理及扫描详情请求竞态修复见[后台增量](04-admin/admin.md#反馈分页与扫描详情竞态修复2026-11-02)；Collection 按需构建与 Trending 刷新隔离见[性能说明](02-architecture/performance.md#客户端与后台)。
+- 2026-11-02 后续用户体验优化新增[收藏分页、摘要与单卡资产读取](03-data-api/collection-read-model.md)，原 V1 全量接口保留；图片解码及后台预热调整见[性能说明](02-architecture/performance.md#用户体验与图片加载2026-11-02-后续增量)。启动固定时长和整批扫描 Review 门禁按用户选择保留，页面布局不改。
+- 2026-11-03 Home Performance 账号隔离、Search 批量资产及收藏补全范围调整见[性能说明](02-architecture/performance.md#账号隔离与大收藏读取2026-11-03)和[收藏读模型](03-data-api/collection-read-model.md#批量卡牌资产状态2026-11-03)；后台列表条件隔离、权限分页／筛选／编辑见[后台增量](04-admin/admin.md#列表条件隔离与权限管理接线2026-11-03)。
 
 ## 文档路由
 

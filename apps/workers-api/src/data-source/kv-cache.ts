@@ -2,6 +2,7 @@ import type {
   CardSearchOptions,
   DataSourceAdapter,
 } from "./adapter";
+import { recordCacheRead } from "../request-performance";
 
 export type DataSourceKvNamespace = {
   get(key: string): Promise<string | null>;
@@ -13,7 +14,7 @@ export type DataSourceKvNamespace = {
 };
 
 const SEARCH_CARDS_TTL_SECONDS = 60 * 60;
-const CARD_RESPONSE_CACHE_VERSION = "v12";
+const CARD_RESPONSE_CACHE_VERSION = "v17";
 const DEFAULT_SEARCH_PAGE = 1;
 const DEFAULT_SEARCH_PAGE_SIZE = 20;
 
@@ -100,8 +101,11 @@ async function readCachedValue<T>(
   try {
     const rawValue = await kv.get(key);
 
-    return rawValue === null ? null : (JSON.parse(rawValue) as T);
+    const cached = rawValue === null ? null : (JSON.parse(rawValue) as T);
+    recordCacheRead("kv", cached === null ? "miss" : "hit");
+    return cached;
   } catch {
+    recordCacheRead("kv", "error");
     return null;
   }
 }
@@ -132,6 +136,7 @@ function searchCardsCacheKey(
   const game = options?.game ?? "all";
   const setId = options?.set_id ?? "all";
   const setCode = options?.set_code ?? "all";
+  const hasImage = options?.has_image ?? "all";
 
   return [
     CARD_RESPONSE_CACHE_VERSION,
@@ -141,6 +146,7 @@ function searchCardsCacheKey(
     cacheKeyPart(game),
     cacheKeyPart(setId),
     cacheKeyPart(setCode),
+    String(hasImage),
     String(page),
     String(pageSize),
   ].join(":");

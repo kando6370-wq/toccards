@@ -29,6 +29,7 @@ import '../subscription/scan_quota_controller.dart';
 import '../subscription/subscription_controller.dart';
 import '../subscription/subscription_entitlement_cache.dart';
 import 'scan_camera.dart';
+import 'scan_orientation.dart';
 import 'scan_permissions.dart';
 import 'scan_review_repository.dart';
 
@@ -45,27 +46,39 @@ enum _ScanItemStatus {
 
 enum _ScanReviewSaveAction { single, all }
 
+const _scanQueueCapacityToastText =
+    'Collect or remove cards to scan more';
+
 class _ScanReviewLoadException implements Exception {
   const _ScanReviewLoadException();
 }
 
-const _viewfinderBaseTop = 213.0;
-const _viewfinderBaseWidth = 280.0;
-const _viewfinderBaseHeight = 400.0;
+const _viewfinderBaseTop = 154.0;
+const _viewfinderBaseWidth = 254.0;
+const _viewfinderBaseHeight = 363.0;
+const _viewfinderBaseViewportWidth = 390.0;
+const _viewfinderBaseViewportHeight = 844.0;
 const _viewfinderHorizontalMargin = 24.0;
-const _viewfinderControlGap = 16.0;
-// Reserve the full Free chrome so unlocking Premium never moves the frame.
-const _viewfinderTopChromeHeight = 10 + 32 + 2 + 34 + 6 + 48;
-const _scanResultsBottom = 126.0;
+const _viewfinderControlGap = 29.0;
+const _viewfinderUpscalePadding = 35.0;
+const _scanTopNavigationGap = 16.0;
+const _scanTopBarHeight = 42.0;
+const _viewfinderTopChromeHeight = _scanTopNavigationGap + _scanTopBarHeight;
+const _scanResultsBottom = 134.0;
 const _scanResultsHeaderHeight = 16.0;
-const _scanResultsGap = 8.0;
-const _scanResultsRailHeight = 82.0;
-// Reserve results before capture so arriving cards never move or cover the frame.
-const _viewfinderBottomChromeHeight =
-    _scanResultsBottom +
+const _scanHeaderQuotaGap = 9.0;
+const _scanQuotaHeight = 42.0;
+const _scanResultsSummaryLift = 12.0;
+const _scanQuotaResultsGap = 3.0 + _scanResultsSummaryLift;
+const _scanResultsRailHeight = 92.0;
+const _scanLowerStatusHeight =
     _scanResultsHeaderHeight +
-    _scanResultsGap +
+    _scanHeaderQuotaGap +
+    _scanQuotaHeight +
+    _scanQuotaResultsGap +
     _scanResultsRailHeight;
+const _viewfinderBottomChromeHeight =
+    _scanResultsBottom + _scanLowerStatusHeight - _scanResultsSummaryLift;
 
 class _ScanViewfinderGeometry {
   const _ScanViewfinderGeometry(this.rect);
@@ -103,19 +116,62 @@ _ScanViewfinderGeometry _scanViewfinderGeometry(
         viewport.height,
       );
   final bottomLimit =
-      (viewport.height -
-              padding.bottom -
-              _viewfinderBottomChromeHeight -
-              _viewfinderControlGap)
+      (viewport.height - _viewfinderBottomChromeHeight - _viewfinderControlGap)
           .clamp(topLimit, viewport.height);
   final widthScale = (rightLimit - leftLimit) / _viewfinderBaseWidth;
   final heightScale = (bottomLimit - topLimit) / _viewfinderBaseHeight;
-  final scale = math.max(0.0, math.min(1.0, math.min(widthScale, heightScale)));
+  var scale = math.max(0.0, math.min(1.0, math.min(widthScale, heightScale)));
+  var layoutLeftLimit = leftLimit;
+  var layoutRightLimit = rightLimit;
+  var layoutTopLimit = topLimit;
+  var layoutBottomLimit = bottomLimit;
+
+  final largerThanBaseViewport =
+      viewport.width > _viewfinderBaseViewportWidth ||
+      viewport.height > _viewfinderBaseViewportHeight;
+  if (scale == 1 && largerThanBaseViewport) {
+    final upscaleLeftLimit =
+        (padding.left + _viewfinderUpscalePadding).clamp(
+          0.0,
+          viewport.width,
+        );
+    final upscaleRightLimit =
+        (viewport.width - padding.right - _viewfinderUpscalePadding).clamp(
+          upscaleLeftLimit,
+          viewport.width,
+        );
+    final upscaleTopLimit =
+        (padding.top + _viewfinderTopChromeHeight + _viewfinderUpscalePadding)
+            .clamp(0.0, viewport.height);
+    final upscaleBottomLimit =
+        (viewport.height -
+                _scanResultsBottom -
+                _scanLowerStatusHeight -
+                _viewfinderUpscalePadding)
+            .clamp(upscaleTopLimit, viewport.height);
+    final upscaleWidthScale =
+        (upscaleRightLimit - upscaleLeftLimit) / _viewfinderBaseWidth;
+    final upscaleHeightScale =
+        (upscaleBottomLimit - upscaleTopLimit) / _viewfinderBaseHeight;
+    final upscaleScale = math.min(upscaleWidthScale, upscaleHeightScale);
+    if (upscaleScale > 1) {
+      scale = upscaleScale;
+      layoutLeftLimit = upscaleLeftLimit;
+      layoutRightLimit = upscaleRightLimit;
+      layoutTopLimit = upscaleTopLimit;
+      layoutBottomLimit = upscaleBottomLimit;
+    }
+  }
   final width = _viewfinderBaseWidth * scale;
   final height = _viewfinderBaseHeight * scale;
-  final left = leftLimit + ((rightLimit - leftLimit - width) / 2);
-  final maxTop = math.max(topLimit, bottomLimit - height);
-  final top = _viewfinderBaseTop.clamp(topLimit, maxTop);
+  final left =
+      layoutLeftLimit +
+      ((layoutRightLimit - layoutLeftLimit - width) / 2);
+  final maxTop = math.max(
+    layoutTopLimit,
+    layoutBottomLimit - height,
+  );
+  final top = _viewfinderBaseTop.clamp(layoutTopLimit, maxTop);
   return _ScanViewfinderGeometry(Rect.fromLTWH(left, top, width, height));
 }
 
@@ -388,6 +444,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   final Map<int, int> _reportedScanResultTokens = {};
   final Set<int> _quotaPromptedBatchIds = {};
   late final AnimationController _captureController;
+  late final ScanOrientationGateway _orientationGateway;
   ScanCameraSession? _cameraSession;
 
   var _nextScanId = 1;
@@ -414,7 +471,12 @@ class _ScanPageState extends ConsumerState<ScanPage>
   int? _selectedReviewItemId;
   ScanReviewTarget? _reviewTarget;
   Map<String, ScanReviewCard> _reviewCards = const {};
+  final Set<String> _loadedReviewCardRefs = {};
   final Map<int, _ScanCollectionDraft> _reviewDrafts = {};
+  final Set<int> _loadingReviewCandidateIds = {};
+  final Map<int, int> _candidateLoadTokens = {};
+  var _nextCandidateLoadToken = 0;
+  var _reviewSession = 0;
   String? _reviewFormError;
   _ScanReviewSaveAction? _savingReviewAction;
   var _finishingReview = false;
@@ -453,6 +515,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   int get _pendingScanCount => _items.length;
 
   bool get _canReview {
+    if (_librarySelectionInFlight) return false;
     final processing = _items.any(
       (item) =>
           item.status == _ScanItemStatus.scanning ||
@@ -471,13 +534,14 @@ class _ScanPageState extends ConsumerState<ScanPage>
       vsync: this,
       duration: _captureAnimationDuration,
     );
+    _orientationGateway = ref.read(scanOrientationGatewayProvider);
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         unawaited(ref.read(scanQuotaControllerProvider.notifier).refresh());
       }
     });
-    unawaited(_openCamera());
+    unawaited(_lockOrientationAndOpenCamera());
   }
 
   @override
@@ -514,7 +578,44 @@ class _ScanPageState extends ConsumerState<ScanPage>
       entitlementRefreshDelay!.complete();
     }
     _pendingScans.clear();
+    unawaited(_restoreOrientation());
     super.dispose();
+  }
+
+  Future<void> _lockOrientationAndOpenCamera() async {
+    try {
+      await _orientationGateway.lockPortrait();
+    } on Object catch (error, stackTrace) {
+      _reportOrientationError(error, stackTrace, 'while locking Scan portrait');
+    }
+    if (!mounted) {
+      await _restoreOrientation();
+      return;
+    }
+    await _openCamera();
+  }
+
+  Future<void> _restoreOrientation() async {
+    try {
+      await _orientationGateway.restore();
+    } on Object catch (error, stackTrace) {
+      _reportOrientationError(error, stackTrace, 'while leaving Scan');
+    }
+  }
+
+  void _reportOrientationError(
+    Object error,
+    StackTrace stackTrace,
+    String context,
+  ) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stackTrace,
+        library: 'scan orientation',
+        context: ErrorDescription(context),
+      ),
+    );
   }
 
   Future<void> _openCamera({Duration previewDelay = Duration.zero}) async {
@@ -832,9 +933,17 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   bool _hasScanQueueCapacity() {
     if (_pendingScanCount < _maxQueueItems) return true;
+    final quota = ref.read(scanQuotaControllerProvider);
+    final hasUnusedScanAccess =
+        ref.read(subscriptionControllerProvider).isPro ||
+        quota.unlimited ||
+        quota.displayRemainingScans > 0 ||
+        (quota.isServerAuthoritative && quota.remainingScans > 0);
     showKandoTopToast(
       context,
-      message: 'Scan queue is full',
+      message: hasUnusedScanAccess
+          ? _scanQueueCapacityToastText
+          : 'Scan queue is full',
       type: KandoTopToastType.info,
     );
     return false;
@@ -1177,6 +1286,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   void _removeScan(_ScanItem item, {bool settleInBackground = false}) {
+    _releaseScanImage(item);
+    _candidateLoadTokens.remove(item.id);
+    _loadingReviewCandidateIds.remove(item.id);
     final pending = _pendingScans[item.id];
     if (settleInBackground && pending != null) {
       pending
@@ -1192,6 +1304,14 @@ class _ScanPageState extends ConsumerState<ScanPage>
         _selectedReviewItemId = _matchedItems.firstOrNull?.id;
       }
     });
+  }
+
+  void _releaseScanImage(_ScanItem item) {
+    final bytes = item.imageBytes;
+    final source = ref.read(scanResultSourceProvider);
+    if (bytes != null && source is ReleasableScanResultSource) {
+      (source as ReleasableScanResultSource).releaseImage(bytes);
+    }
   }
 
   void _removeScanFromUser(_ScanItem item) {
@@ -1613,24 +1733,34 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   Future<void> _loadScanCards(int itemId, int token, _ScanMatch match) async {
     final analytics = ref.read(analyticsProvider);
-    try {
-      final cards = await ref.read(scanReviewRepositoryProvider).loadCards([
-        for (final candidate in match.candidates) candidate.cardRef,
-      ]);
-      _reportScanResult(
-        itemId,
-        token,
-        cards.containsKey(match.cardRef)
-            ? AnalyticsValue.scanSuccess
-            : AnalyticsValue.scanFailed,
-        analytics,
-      );
-      if (!mounted) return;
-      setState(() => _reviewCards = _mergeScanCards(_reviewCards, cards));
-    } on Exception {
-      _reportScanResult(itemId, token, AnalyticsValue.scanFailed, analytics);
-      // Price metadata is supplemental; review retries the same load explicitly.
-    }
+    final repository = ref.read(scanReviewRepositoryProvider);
+    final groups = await Future.wait([
+      for (final cardRef in {for (final candidate in match.candidates) candidate.cardRef})
+        () async {
+          try {
+            final cards = await repository.loadCards([cardRef]);
+            if (mounted &&
+                _items.any((item) =>
+                    item.id == itemId && item.match?.scanId == match.scanId)) {
+              setState(() {
+                _loadedReviewCardRefs.addAll(cards.keys);
+                _reviewCards = _mergeScanCards(_reviewCards, cards);
+              });
+            }
+            return cards;
+          } on Exception {
+            return <String, ScanReviewCard>{};
+          }
+        }(),
+    ]);
+    _reportScanResult(
+      itemId,
+      token,
+      groups.any((cards) => cards.containsKey(match.cardRef))
+          ? AnalyticsValue.scanSuccess
+          : AnalyticsValue.scanFailed,
+      analytics,
+    );
   }
 
   void _replaceItem(_ScanItem next) {
@@ -1649,15 +1779,13 @@ class _ScanPageState extends ConsumerState<ScanPage>
       return;
     }
     final items = _matchedItems;
-    final cachedCards = Map<String, ScanReviewCard>.from(_reviewCards);
-    final cardRefs = [
-      for (final item in items)
-        for (final candidate in item.match!.candidates) candidate.cardRef,
-    ];
+    final cardRefs = [for (final item in items) item.match!.cardRef];
+    // Recognition basics have no image URL until card details are loaded.
     final missingCardRefs = cardRefs
-        .where((cardRef) => !cachedCards.containsKey(cardRef))
+        .where((cardRef) => _reviewCards[cardRef]?.imageUrl == null)
         .toList();
     setState(() => _openingReview = true);
+    _reviewSession += 1;
     try {
       final repository = ref.read(scanReviewRepositoryProvider);
       final results = await Future.wait<Object>([
@@ -1669,8 +1797,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
             : repository.loadCards(missingCardRefs),
       ]);
       final target = results[0] as ScanReviewTarget;
+      // Background details may finish while the Review target is loading.
       final cards = _mergeScanCards(
-        cachedCards,
+        _reviewCards,
         results[1] as Map<String, ScanReviewCard>,
       );
       final selectedReviewItemId = itemId ?? items.firstOrNull?.id;
@@ -1692,6 +1821,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
           _reviewing = true;
           _selectedReviewItemId = selectedReviewItemId;
           _reviewTarget = target;
+          _loadedReviewCardRefs.addAll(
+            (results[1] as Map<String, ScanReviewCard>).keys,
+          );
           _reviewCards = cards;
           _reviewFormError = null;
           _reviewDrafts
@@ -1727,8 +1859,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   void _closeReview() {
     if (_savingReview || !_reviewing) return;
+    _reviewSession += 1;
     setState(() {
       _reviewing = false;
+      _loadingReviewCandidateIds.clear();
       _reviewFormError = null;
     });
     unawaited(_openCamera());
@@ -1736,9 +1870,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   void _failReviewLoad() {
     if (!mounted) return;
+    _reviewSession += 1;
     setState(() {
       _openingReview = false;
       _reviewing = false;
+      _loadingReviewCandidateIds.clear();
       _selectedReviewItemId = null;
       _reviewTarget = null;
       _reviewDrafts.clear();
@@ -1752,7 +1888,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
     final item = _matchedItems
         .where((candidate) => candidate.id == selectedId)
         .firstOrNull;
-    if (item == null || _reviewTarget == null || _savingReview) {
+    if (item == null ||
+        _reviewTarget == null ||
+        _savingReview ||
+        _loadingReviewCandidateIds.contains(item.id)) {
       return;
     }
     _trackCollectionItemAdd(item);
@@ -1821,7 +1960,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   Future<void> _addAllMatchedItems() async {
     final matchedItems = _matchedItems;
-    if (matchedItems.isEmpty || _reviewTarget == null || _savingReview) {
+    if (matchedItems.isEmpty ||
+        _reviewTarget == null ||
+        _savingReview ||
+        _loadingReviewCandidateIds.isNotEmpty) {
       return;
     }
 
@@ -1913,32 +2055,114 @@ class _ScanPageState extends ConsumerState<ScanPage>
     });
   }
 
-  void _selectReviewCandidate(_ScanItem item, _ScanCandidate candidate) {
+  Future<void> _selectReviewCandidate(
+    _ScanItem item,
+    _ScanCandidate candidate,
+  ) async {
+    if (candidate.cardRef == item.match?.cardRef) return;
     final card = _reviewCards[candidate.cardRef];
-    if (card == null || candidate.cardRef == item.match?.cardRef) return;
+    final hadFallback = card != null;
+    final previousMatch = item.match!;
+    final previousDraft = _reviewDrafts[item.id];
+    final token = ++_nextCandidateLoadToken;
+    final reviewSession = _reviewSession;
+    _candidateLoadTokens[item.id] = token;
     ref.read(analyticsProvider).track(AnalyticsEvent.topMatchesClick);
     setState(() {
+      if (card == null) {
+        _reviewCards = {
+          ..._reviewCards,
+          candidate.cardRef: ScanReviewCard(
+            cardRef: candidate.cardRef,
+            name: candidate.name,
+            setName: '',
+            cardNumber: '',
+            game: null,
+            imageUrl: null,
+            language: null,
+            finish: null,
+            prices: const [],
+          ),
+        };
+      }
       for (var index = 0; index < _items.length; index += 1) {
         if (_items[index].id == item.id) {
           _items[index] = item.copyWith(match: item.match!.select(candidate));
           break;
         }
       }
-      final draft = _reviewDrafts[item.id];
-      if (draft != null) {
-        _reviewDrafts[item.id] = draft.copyWith(
-          language: _reviewOptionOrDefault(
-            card.language,
-            card.collectionLanguageOptions,
-          ),
-          finish: _reviewOptionOrDefault(
-            card.finish,
-            card.collectionFinishOptions,
-          ),
-        );
+      if (card != null && _loadedReviewCardRefs.contains(candidate.cardRef)) {
+        if (previousDraft != null) {
+          _reviewDrafts[item.id] = previousDraft.copyWith(
+            language: _reviewOptionOrDefault(
+              card.language,
+              card.collectionLanguageOptions,
+            ),
+            finish: _reviewOptionOrDefault(
+              card.finish,
+              card.collectionFinishOptions,
+            ),
+          );
+        }
+        _loadingReviewCandidateIds.remove(item.id);
+      } else {
+        _loadingReviewCandidateIds.add(item.id);
       }
       _reviewFormError = null;
     });
+    if (card != null && _loadedReviewCardRefs.contains(candidate.cardRef)) {
+      return;
+    }
+    Map<String, ScanReviewCard> loaded = const {};
+    try {
+      loaded = await ref.read(scanReviewRepositoryProvider).loadCards([
+        candidate.cardRef,
+      ]);
+    } on Exception {
+      // Keep the candidate metadata fallback if detail loading fails.
+    }
+    if (!mounted ||
+        !_reviewing ||
+        _reviewSession != reviewSession ||
+        _candidateLoadTokens[item.id] != token) {
+      return;
+    }
+    final current = _items.where((entry) => entry.id == item.id).firstOrNull;
+    if (current?.match?.cardRef != candidate.cardRef) return;
+    final resolved =
+        loaded[candidate.cardRef] ?? _reviewCards[candidate.cardRef];
+    setState(() {
+      _loadingReviewCandidateIds.remove(item.id);
+      _loadedReviewCardRefs.addAll(loaded.keys);
+      _reviewCards = _mergeScanCards(_reviewCards, loaded);
+      if (loaded[candidate.cardRef] == null &&
+          !hadFallback &&
+          !_loadedReviewCardRefs.contains(candidate.cardRef)) {
+        _reviewCards = {..._reviewCards}..remove(candidate.cardRef);
+        for (var index = 0; index < _items.length; index += 1) {
+          if (_items[index].id == item.id) {
+            _items[index] = _items[index].copyWith(match: previousMatch);
+            break;
+          }
+        }
+      } else if (resolved != null) {
+        final draft =
+            previousDraft ?? _initialReviewDraft(_reviewTarget!, resolved);
+        _reviewDrafts[item.id] = draft.copyWith(
+          language: _reviewOptionOrDefault(
+            resolved.language,
+            resolved.collectionLanguageOptions,
+          ),
+          finish: _reviewOptionOrDefault(
+            resolved.finish,
+            resolved.collectionFinishOptions,
+          ),
+        );
+      }
+    });
+    if (!_loadedReviewCardRefs.contains(candidate.cardRef)) {
+      showKandoTopFailureToast(context);
+    }
   }
 
   void _updateReviewDraft(int itemId, _ScanCollectionDraft draft) {
@@ -2043,10 +2267,15 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   void _removeReviewItems(Set<int> itemIds) {
+    for (final item in _items.where((item) => itemIds.contains(item.id))) {
+      _releaseScanImage(item);
+    }
     setState(() {
       _items.removeWhere((item) => itemIds.contains(item.id));
       for (final itemId in itemIds) {
         _reviewDrafts.remove(itemId);
+        _loadingReviewCandidateIds.remove(itemId);
+        _candidateLoadTokens.remove(itemId);
       }
       final remaining = _matchedItems;
       _selectedReviewItemId = remaining.firstOrNull?.id;
@@ -2056,6 +2285,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
         _reviewTarget = null;
         if (_items.isEmpty) {
           _reviewCards = const {};
+          _loadedReviewCardRefs.clear();
         }
       }
     });
@@ -2063,7 +2293,14 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   void _removeAddedItems(Set<int> itemIds) {
+    for (final item in _items.where((item) => itemIds.contains(item.id))) {
+      _releaseScanImage(item);
+    }
     _items.removeWhere((item) => itemIds.contains(item.id));
+    _loadingReviewCandidateIds.removeAll(itemIds);
+    for (final itemId in itemIds) {
+      _candidateLoadTokens.remove(itemId);
+    }
   }
 
   void _refreshPortfolioSurfaces() {
@@ -2217,6 +2454,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
                           target: _reviewTarget,
                           cards: _reviewCards,
                           drafts: _reviewDrafts,
+                          loadingCandidateIds: _loadingReviewCandidateIds,
                           formError: _reviewFormError,
                           saving: _savingReview,
                           savingAction: _savingReviewAction,
@@ -2224,7 +2462,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
                           currency: currency,
                           onCollapse: _closeReview,
                           onSelectItem: _selectReviewItem,
-                          onSelectCandidate: _selectReviewCandidate,
+                          onSelectCandidate: (item, candidate) => unawaited(
+                            _selectReviewCandidate(item, candidate),
+                          ),
                           onUpdateDraft: _updateReviewDraft,
                           onAddThisCard: _addSelectedItem,
                           onAddAllCards: _addAllMatchedItems,
@@ -2269,7 +2509,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
                     onFlashPressed: _cameraSession == null
                         ? null
                         : _toggleFlash,
-                    onSearchPressed: () => context.go('/search'),
                     onCardTypeChanged: (cardType) {
                       if (mounted) setState(() => _selectedCardType = cardType);
                     },
@@ -2344,7 +2583,6 @@ class _ScanCameraView extends StatelessWidget {
     required this.remainingScans,
     required this.onClosePressed,
     required this.onFlashPressed,
-    required this.onSearchPressed,
     required this.onCardTypeChanged,
     required this.onUpgradePressed,
     required this.onPhotoPressed,
@@ -2373,7 +2611,6 @@ class _ScanCameraView extends StatelessWidget {
   final int? remainingScans;
   final VoidCallback onClosePressed;
   final VoidCallback? onFlashPressed;
-  final VoidCallback onSearchPressed;
   final ValueChanged<ScanCardType> onCardTypeChanged;
   final VoidCallback onUpgradePressed;
   final VoidCallback onPhotoPressed;
@@ -2391,7 +2628,8 @@ class _ScanCameraView extends StatelessWidget {
     final padding = MediaQuery.paddingOf(context);
     final geometry = _scanViewfinderGeometry(viewport, padding);
     final safeTop = padding.top;
-    final topInset = safeTop + 10;
+    final topNavigationHeight =
+        safeTop + _scanTopNavigationGap + _scanTopBarHeight;
     return Stack(
       children: [
         if (cameraPreview != null)
@@ -2409,7 +2647,7 @@ class _ScanCameraView extends StatelessWidget {
           Positioned.fill(
             child: ColoredBox(
               key: const Key('scan-figma-camera-overlay'),
-              color: const Color(0x1A0D0F08),
+              color: const Color(0x120D0F08),
             ),
           ),
           Positioned.fill(
@@ -2420,7 +2658,7 @@ class _ScanCameraView extends StatelessWidget {
                   radius: 0.86,
                   colors: [
                     Colors.transparent,
-                    const Color(0xFF0D0F08).withValues(alpha: 0.85),
+                    const Color(0xFF0D0F08).withValues(alpha: 0.75),
                   ],
                 ),
               ),
@@ -2428,13 +2666,27 @@ class _ScanCameraView extends StatelessWidget {
           ),
         ],
         Positioned(
+          key: const Key('scan-figma-top-controls'),
           top: 0,
           left: 0,
           right: 0,
-          height: safeTop,
-          child: const ColoredBox(
-            key: Key('scan-figma-top-safe-band'),
-            color: Color(0xFF10100B),
+          height: topNavigationHeight,
+          child: Stack(
+            children: [
+              Positioned(
+                top: safeTop + _scanTopNavigationGap,
+                left: 16,
+                right: 16,
+                height: _scanTopBarHeight,
+                child: _ScanTopBar(
+                  onClosePressed: onClosePressed,
+                  onFlashPressed: onFlashPressed,
+                  flashEnabled: flashEnabled,
+                  selectedCardType: selectedCardType,
+                  onCardTypeChanged: onCardTypeChanged,
+                ),
+              ),
+            ],
           ),
         ),
         Positioned.fromRect(
@@ -2469,27 +2721,28 @@ class _ScanCameraView extends StatelessWidget {
             ),
           ),
         ],
-        if (items.isNotEmpty)
-          Positioned(
-            left: 16,
-            right: 16,
-            bottom: _scanResultsBottom + padding.bottom,
-            child: _ScanResults(
-              items: items,
-              cards: cards,
-              currency: currency,
-              showRevealingFeedback: showRevealingFeedback,
-              onDismissRevealing: onDismissScanFeedback,
-              onReviewItem: onReviewItem,
-              onRetryItem: onRetryItem,
-              onDeleteItem: onDeleteItem,
-              onSearchPressed: onSearchItem,
-            ),
-          ),
         Positioned(
           left: 16,
           right: 16,
-          bottom: 22,
+          bottom: _scanResultsBottom,
+          child: _ScanResults(
+            items: items,
+            cards: cards,
+            currency: currency,
+            remainingScans: remainingScans,
+            showRevealingFeedback: showRevealingFeedback,
+            onUpgradePressed: onUpgradePressed,
+            onDismissRevealing: onDismissScanFeedback,
+            onReviewItem: onReviewItem,
+            onRetryItem: onRetryItem,
+            onDeleteItem: onDeleteItem,
+            onSearchPressed: onSearchItem,
+          ),
+        ),
+        Positioned(
+          left: 16,
+          right: 16,
+          bottom: math.max(0, 22 - padding.bottom),
           child: SafeArea(
             top: false,
             child: _ScanBottomControls(
@@ -2498,40 +2751,6 @@ class _ScanCameraView extends StatelessWidget {
               onLibraryPressed: onLibraryPressed,
               onReviewPressed: onReviewPressed,
             ),
-          ),
-        ),
-        Positioned(
-          key: const Key('scan-figma-top-controls'),
-          top: topInset,
-          left: 8,
-          right: 8,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _ScanTopBar(
-                onClosePressed: onClosePressed,
-                onFlashPressed: onFlashPressed,
-                flashEnabled: flashEnabled,
-                onSearchPressed: onSearchPressed,
-              ),
-              const SizedBox(height: 2),
-              SizedBox(
-                height: 34,
-                child: Center(
-                  child: _ScanCardTypeSelector(
-                    selected: selectedCardType,
-                    onChanged: onCardTypeChanged,
-                  ),
-                ),
-              ),
-              if (remainingScans != null) ...[
-                const SizedBox(height: 6),
-                _ScanQuotaPill(
-                  remainingScans: remainingScans!,
-                  onPressed: onUpgradePressed,
-                ),
-              ],
-            ],
           ),
         ),
       ],
@@ -2544,92 +2763,104 @@ class _ScanTopBar extends StatelessWidget {
     required this.onClosePressed,
     required this.onFlashPressed,
     required this.flashEnabled,
-    required this.onSearchPressed,
+    required this.selectedCardType,
+    required this.onCardTypeChanged,
   });
 
   final VoidCallback onClosePressed;
   final VoidCallback? onFlashPressed;
   final bool flashEnabled;
-  final VoidCallback onSearchPressed;
+  final ScanCardType selectedCardType;
+  final ValueChanged<ScanCardType> onCardTypeChanged;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       key: const Key('scan-figma-top-bar'),
-      height: 32,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: IconButton(
-              key: const Key('scan-figma-close-button'),
-              tooltip: 'Close Scan',
-              onPressed: onClosePressed,
-              constraints: const BoxConstraints.tightFor(width: 30, height: 30),
-              padding: EdgeInsets.zero,
-              style: IconButton.styleFrom(
-                minimumSize: const Size(30, 30),
-                maximumSize: const Size(30, 30),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      height: _scanTopBarHeight,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final selectorWidth = math.min(
+            209.0,
+            math.max(144.0, constraints.maxWidth - 96),
+          );
+          return Stack(
+            alignment: Alignment.center,
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: IconButton(
+                  key: const Key('scan-figma-close-button'),
+                  tooltip: 'Close Scan',
+                  onPressed: onClosePressed,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 42,
+                    height: 42,
+                  ),
+                  padding: EdgeInsets.zero,
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size(42, 42),
+                    maximumSize: const Size(42, 42),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    backgroundColor: const Color(
+                      0xFF222222,
+                    ).withValues(alpha: 0.82),
+                  ),
+                  icon: SvgPicture.asset(
+                    'assets/scan/close.svg',
+                    key: const Key('scan-figma-close-icon'),
+                    width: 14,
+                    height: 14,
+                  ),
+                ),
               ),
-              icon: SvgPicture.asset(
-                'assets/scan/close.svg',
-                key: const Key('scan-figma-close-icon'),
-                width: 14,
-                height: 14,
+              SizedBox(
+                width: selectorWidth,
+                child: _ScanCardTypeSelector(
+                  width: selectorWidth,
+                  selected: selectedCardType,
+                  onChanged: onCardTypeChanged,
+                ),
               ),
-            ),
-          ),
-          IconButton(
-            key: const Key('scan-figma-flash-button'),
-            tooltip: flashEnabled ? 'Turn flash off' : 'Turn flash on',
-            onPressed: onFlashPressed,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 25, height: 25),
-            style: IconButton.styleFrom(
-              minimumSize: const Size(25, 25),
-              maximumSize: const Size(25, 25),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              backgroundColor: flashEnabled
-                  ? const Color(0xFFF0FE6F)
-                  : const Color(0xFF222222).withValues(alpha: 0.82),
-              disabledBackgroundColor: const Color(
-                0xFF222222,
-              ).withValues(alpha: 0.82),
-            ),
-            icon: SvgPicture.asset(
-              'assets/scan/flash.svg',
-              key: const Key('scan-figma-flash-icon'),
-              width: 9,
-              height: 15,
-              colorFilter: flashEnabled
-                  ? const ColorFilter.mode(Color(0xFF10100B), BlendMode.srcIn)
-                  : null,
-            ),
-          ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: IconButton(
-              key: const Key('scan-figma-search-button'),
-              tooltip: 'Search Cards',
-              onPressed: onSearchPressed,
-              constraints: const BoxConstraints.tightFor(width: 30, height: 30),
-              padding: EdgeInsets.zero,
-              style: IconButton.styleFrom(
-                minimumSize: const Size(30, 30),
-                maximumSize: const Size(30, 30),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              Align(
+                alignment: Alignment.centerRight,
+                child: IconButton(
+                  key: const Key('scan-figma-flash-button'),
+                  tooltip: flashEnabled ? 'Turn flash off' : 'Turn flash on',
+                  onPressed: onFlashPressed,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 42,
+                    height: 42,
+                  ),
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size(42, 42),
+                    maximumSize: const Size(42, 42),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    backgroundColor: flashEnabled
+                        ? KandoColors.accent
+                        : const Color(0xFF222222).withValues(alpha: 0.82),
+                    disabledBackgroundColor: const Color(
+                      0xFF222222,
+                    ).withValues(alpha: 0.82),
+                  ),
+                  icon: SvgPicture.asset(
+                    'assets/scan/flash.svg',
+                    key: const Key('scan-figma-flash-icon'),
+                    width: 9,
+                    height: 15,
+                    colorFilter: flashEnabled
+                        ? const ColorFilter.mode(
+                            Color(0xFF10100B),
+                            BlendMode.srcIn,
+                          )
+                        : null,
+                  ),
+                ),
               ),
-              icon: SvgPicture.asset(
-                'assets/scan/search.svg',
-                key: const Key('scan-figma-search-icon'),
-                width: 18,
-                height: 18,
-              ),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -2637,74 +2868,122 @@ class _ScanTopBar extends StatelessWidget {
 
 class _ScanCardTypeSelector extends StatelessWidget {
   const _ScanCardTypeSelector({
+    required this.width,
     required this.selected,
     required this.onChanged,
   });
 
+  final double width;
   final ScanCardType selected;
   final ValueChanged<ScanCardType> onChanged;
 
-  @override
-  Widget build(BuildContext context) {
-    return PopupMenuButton<ScanCardType>(
-      key: const Key('scan-card-type-selector'),
-      tooltip: 'Select card type',
-      onSelected: onChanged,
+  Future<void> _showOptions(BuildContext context) async {
+    final button = context.findRenderObject() as RenderBox;
+    final overlay = Navigator.of(context).overlay!.context.findRenderObject()
+        as RenderBox;
+    final buttonTopLeft = button.localToGlobal(
+      Offset.zero,
+      ancestor: overlay,
+    );
+    final menuWidth = width * 2 / 3;
+    final menuLeft = buttonTopLeft.dx + (button.size.width - menuWidth) / 2;
+    final menuTop = buttonTopLeft.dy + button.size.height - 2;
+    final result = await showMenu<ScanCardType>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        menuLeft,
+        menuTop,
+        overlay.size.width - menuLeft - menuWidth,
+        overlay.size.height - menuTop,
+      ),
       color: const Color(0xFF222222),
       surfaceTintColor: Colors.transparent,
       elevation: 8,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      offset: const Offset(0, 8),
-      padding: EdgeInsets.zero,
-      itemBuilder: (context) => [
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(12),
+          bottomRight: Radius.circular(12),
+        ),
+      ),
+      menuPadding: EdgeInsets.zero,
+      constraints: BoxConstraints.tightFor(width: menuWidth),
+      items: [
         for (final type in ScanCardType.values)
           PopupMenuItem<ScanCardType>(
             key: Key('scan-card-type-option-${type.name}'),
             value: type,
-            height: 44,
+            height: _scanTopBarHeight,
             child: Text(
               type.label,
-              style: const TextStyle(
-                color: KandoColors.text,
+              style: TextStyle(
+                color: type == selected
+                    ? KandoColors.accent
+                    : KandoColors.text,
                 fontSize: 14,
                 height: 20 / 14,
               ),
             ),
           ),
       ],
-      child: Container(
-        height: 32,
-        padding: const EdgeInsets.symmetric(horizontal: 17),
-        decoration: BoxDecoration(
-          color: const Color(0xFF222222).withValues(alpha: 0.92),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: const Color(0x1A394E2C)),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x33000000),
-              blurRadius: 15,
-              offset: Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              selected.label,
-              style: const TextStyle(
-                color: KandoColors.accent,
-                fontSize: 14,
-                height: 24 / 14,
+    );
+    if (result != null && context.mounted) onChanged(result);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Select card type',
+      child: Semantics(
+        button: true,
+        child: InkWell(
+          key: const Key('scan-card-type-selector'),
+          customBorder: const StadiumBorder(),
+          onTap: () => _showOptions(context),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: Container(
+                key: const Key('scan-card-type-selector-surface'),
+                width: double.infinity,
+                height: _scanTopBarHeight,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF222222),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: const Color(0x1A90927C)),
+                ),
+                child: Center(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          selected.label,
+                          style: const TextStyle(
+                            color: KandoColors.accent,
+                            fontSize: 16,
+                            height: 24 / 16,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 18,
+                          color: KandoColors.accent,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
-            const SizedBox(width: 4),
-            const Icon(
-              Icons.keyboard_arrow_down_rounded,
-              size: 18,
-              color: KandoColors.accent,
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -2719,91 +2998,125 @@ class _ScanQuotaPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
+    return SizedBox(
       key: const Key('scan-free-quota-pill'),
-      decoration: BoxDecoration(
-        color: const Color(0xFF222222),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x40000000),
-            offset: Offset(0, 23.585),
-            blurRadius: 23.585,
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onPressed,
-          child: Padding(
-            padding: const EdgeInsets.all(8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox.square(
-                  key: const Key('scan-free-quota-pro-badge'),
-                  dimension: 24,
-                  child: Stack(
-                    alignment: Alignment.center,
+      width: double.infinity,
+      height: _scanQuotaHeight,
+      child: DecoratedBox(
+        key: const Key('scan-free-quota-surface'),
+        decoration: BoxDecoration(
+          color: const Color(0xFF222222),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0x1A90927C)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x40000000),
+              offset: Offset(0, 23.585),
+              blurRadius: 47.17,
+              spreadRadius: -11.32,
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onPressed,
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final copyWidth = math.max(
+                    0.0,
+                    math.min(276.0, constraints.maxWidth - 32),
+                  );
+                  return Row(
                     children: [
-                      SvgPicture.asset(
-                        'assets/scan/pro_badge.svg',
-                        width: 24,
+                      SizedBox.square(
+                        key: const Key('scan-free-quota-pro-badge'),
+                        dimension: 24,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            SvgPicture.asset(
+                              'assets/scan/pro_badge.svg',
+                              width: 24,
+                              height: 24,
+                            ),
+                            const Text(
+                              'PRO',
+                              style: TextStyle(
+                                color: KandoColors.elevatedSurface,
+                                fontFamily: 'Fraunces',
+                                fontSize: 7,
+                                fontWeight: FontWeight.w600,
+                                height: 20 / 7,
+                                letterSpacing: 0,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        key: const Key('scan-free-quota-copy'),
+                        width: copyWidth,
                         height: 24,
-                      ),
-                      const Text(
-                        'PRO',
-                        style: TextStyle(
-                          color: KandoColors.elevatedSurface,
-                          fontFamily: 'Fraunces',
-                          fontSize: 7,
-                          fontWeight: FontWeight.w600,
-                          height: 20 / 7,
-                          letterSpacing: 0,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '$remainingScans scans remaining',
+                                maxLines: 1,
+                                style: const TextStyle(
+                                  color: Color(0xFFE4E3D3),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w400,
+                                  height: 16 / 13,
+                                  letterSpacing: 0,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Text.rich(
+                                TextSpan(
+                                  children: [
+                                    TextSpan(
+                                      text: 'Tap to',
+                                      style: TextStyle(
+                                        color: KandoColors.accent,
+                                        decoration: TextDecoration.underline,
+                                        decorationColor: KandoColors.accent,
+                                      ),
+                                    ),
+                                    TextSpan(
+                                      text: ' get unlimited scans',
+                                      style: TextStyle(
+                                        color: Color(0xFFE4E3D3),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                maxLines: 1,
+                                style: TextStyle(
+                                  color: Color(0xFFE4E3D3),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w400,
+                                  height: 16 / 13,
+                                  letterSpacing: 0,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                SizedBox(
-                  key: const Key('scan-free-quota-copy'),
-                  width: 161,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '$remainingScans scans remaining',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFFE4E3D3),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          height: 16 / 13,
-                          letterSpacing: 0,
-                        ),
-                      ),
-                      const Text(
-                        'Tap to get unlimited scans',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Color(0xFFE4E3D3),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          height: 16 / 13,
-                          letterSpacing: 0,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+                  );
+                },
+              ),
             ),
           ),
         ),
@@ -2929,7 +3242,10 @@ class _ScanBottomControls extends StatelessWidget {
         _ScanDoneAction(enabled: canReview, onPressed: onReviewPressed),
       ],
     );
-    return Padding(padding: EdgeInsets.zero, child: controls);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: controls,
+    );
   }
 }
 
@@ -3116,7 +3432,7 @@ class _FigmaRecognizingOverlayPainter extends CustomPainter {
       ..fillType = PathFillType.evenOdd
       ..addRect(Offset.zero & size)
       ..addRRect(
-        RRect.fromRectAndRadius(viewfinderRect, const Radius.circular(16)),
+        RRect.fromRectAndRadius(viewfinderRect, const Radius.circular(11)),
       );
     canvas.drawPath(
       dimOutsideViewfinder,
@@ -3175,7 +3491,7 @@ class _FigmaRevealingOverlayPainter extends CustomPainter {
       ..fillType = PathFillType.evenOdd
       ..addRect(Offset.zero & size)
       ..addRRect(
-        RRect.fromRectAndRadius(viewfinderRect, const Radius.circular(16)),
+        RRect.fromRectAndRadius(viewfinderRect, const Radius.circular(11)),
       );
     canvas.drawPath(
       dimOutsideViewfinder,
@@ -3201,94 +3517,103 @@ class _ScanRevealingToast extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 218,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: const Color(0xFF222222),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0x1A90927C)),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x40000000),
-                  blurRadius: 50,
-                  spreadRadius: -12,
-                  offset: Offset(0, 25),
-                ),
-              ],
-            ),
-            child: Stack(
-              children: [
-                const Positioned.fill(
-                  child: IgnorePointer(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(color: Color(0x1AF0FE6F)),
+    return Align(
+      alignment: Alignment.topLeft,
+      child: SizedBox(
+        width: 202,
+        height: 76,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: 22.64, sigmaY: 22.64),
+            child: DecoratedBox(
+              key: Key('scan-item-surface-${item.id}'),
+              decoration: BoxDecoration(
+                color: const Color(0xFF222222),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0x1A90927C)),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x40000000),
+                    blurRadius: 47.17,
+                    spreadRadius: -11.32,
+                    offset: Offset(0, 23.585),
+                  ),
+                ],
+              ),
+              child: Stack(
+                children: [
+                  const Positioned.fill(
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(color: Color(0x1AF0FE6F)),
+                      ),
                     ),
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(17),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _ScanResultThumbnail(
-                        item: item,
-                        width: 48,
-                        height: 48,
-                        imageWidth: 30,
-                        imageHeight: 40,
-                      ),
-                      const SizedBox(width: 16),
-                      SizedBox(
-                        width: 120,
-                        height: 48,
-                        child: Stack(
-                          children: [
-                            const Positioned(
-                              left: 0,
-                              top: 0,
-                              child: Text(
-                                'Scanning...',
-                                style: TextStyle(
-                                  color: Color(0xFFEEECD8),
-                                  fontSize: 16,
-                                  height: 24 / 16,
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              right: -8,
-                              top: -8,
-                              child: _ScanDeleteButton(
-                                itemId: item.id,
-                                onPressed: onClosePressed,
-                              ),
-                            ),
-                            const Positioned(
-                              left: 0,
-                              bottom: 0,
-                              child: SizedBox.square(
-                                dimension: 16,
-                                child: CircularProgressIndicator(
-                                  key: Key('scan-recognition-progress'),
-                                  strokeWidth: 2,
-                                  strokeAlign: CircularProgressIndicator
-                                      .strokeAlignInside,
-                                  color: Color(0xFFF0FE6F),
-                                ),
-                              ),
-                            ),
-                          ],
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _ScanResultThumbnail(
+                          item: item,
+                          width: 48,
+                          height: 48,
+                          imageWidth: 30,
+                          imageHeight: 40,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 15.09),
+                        Expanded(
+                          child: SizedBox(
+                            height: 60,
+                            child: Stack(
+                              children: [
+                                const Positioned(
+                                  left: 0,
+                                  top: 0,
+                                  child: Text(
+                                    'Scanning...',
+                                    style: TextStyle(
+                                      color: Color(0xFFEEECD8),
+                                      fontSize: 16,
+                                      height: 24 / 16,
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  right: -8,
+                                  top: -8,
+                                  child: _ScanDeleteButton(
+                                    itemId: item.id,
+                                    onPressed: onClosePressed,
+                                  ),
+                                ),
+                                const Positioned(
+                                  left: 0,
+                                  bottom: 0,
+                                  child: SizedBox.square(
+                                    dimension: 16,
+                                    child: CircularProgressIndicator(
+                                      key: Key('scan-recognition-progress'),
+                                      strokeWidth: 2,
+                                      strokeAlign: CircularProgressIndicator
+                                          .strokeAlignInside,
+                                      color: Color(0xFFF0FE6F),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -3323,52 +3648,88 @@ class _ViewfinderPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (focusFrameShadow) {
-      final focusFramePaint = Paint()
-        ..color = Colors.white
+    const strokeWidth = 0.91;
+    final frameRect = Rect.fromLTWH(
+      strokeWidth / 2,
+      strokeWidth / 2,
+      math.max(0, size.width - strokeWidth),
+      math.max(0, size.height - strokeWidth),
+    );
+    final frame = RRect.fromRectAndRadius(frameRect, const Radius.circular(11));
+
+    canvas.drawRRect(
+      frame,
+      Paint()
+        ..color = KandoColors.accent
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
-        ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 5.1);
+        ..strokeWidth = strokeWidth
+        ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 9.25),
+    );
+
+    if (focusFrameShadow) {
       canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(
-            0.5,
-            1.5,
-            math.max(0, size.width - 1),
-            math.max(0, size.height - 3),
-          ),
-          const Radius.circular(16),
-        ),
-        focusFramePaint,
+        frame,
+        Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeWidth
+          ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 5.1),
       );
     }
 
-    final paint = Paint()
-      ..color = const Color(0xFFF0FE6F)
-      ..strokeWidth = 4
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.square;
+    canvas.save();
+    canvas.clipRRect(frame);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        frameRect.deflate(strokeWidth).shift(const Offset(0, 3.63)),
+        const Radius.circular(10),
+      ),
+      Paint()
+        ..color = KandoColors.accent
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..maskFilter = const ui.MaskFilter.blur(ui.BlurStyle.normal, 3.63),
+    );
+    canvas.restore();
 
-    const corner = 40.0;
-    final path = Path()
-      ..moveTo(0, corner)
-      ..lineTo(0, 12)
-      ..quadraticBezierTo(0, 0, 12, 0)
-      ..lineTo(corner, 0)
-      ..moveTo(size.width - corner, 0)
-      ..lineTo(size.width - 12, 0)
-      ..quadraticBezierTo(size.width, 0, size.width, 12)
-      ..lineTo(size.width, corner)
-      ..moveTo(0, size.height - corner)
-      ..lineTo(0, size.height - 12)
-      ..quadraticBezierTo(0, size.height, 12, size.height)
-      ..lineTo(corner, size.height)
-      ..moveTo(size.width - corner, size.height)
-      ..lineTo(size.width - 12, size.height)
-      ..quadraticBezierTo(size.width, size.height, size.width, size.height - 12)
-      ..lineTo(size.width, size.height - corner);
-
-    canvas.drawPath(path, paint);
+    const cornerLength = 36.0;
+    const cornerRadius = 11.0;
+    const cornerStrokeWidth = 4.0;
+    const cornerInset = cornerStrokeWidth / 2;
+    final left = cornerInset;
+    final top = cornerInset;
+    final right = size.width - cornerInset;
+    final bottom = size.height - cornerInset;
+    final cornerPath = Path()
+      ..moveTo(left, top + cornerLength)
+      ..lineTo(left, top + cornerRadius)
+      ..quadraticBezierTo(left, top, left + cornerRadius, top)
+      ..lineTo(left + cornerLength, top)
+      ..moveTo(right - cornerLength, top)
+      ..lineTo(right - cornerRadius, top)
+      ..quadraticBezierTo(right, top, right, top + cornerRadius)
+      ..lineTo(right, top + cornerLength)
+      ..moveTo(left, bottom - cornerLength)
+      ..lineTo(left, bottom - cornerRadius)
+      ..quadraticBezierTo(left, bottom, left + cornerRadius, bottom)
+      ..lineTo(left + cornerLength, bottom)
+      ..moveTo(right - cornerLength, bottom)
+      ..lineTo(right - cornerRadius, bottom)
+      ..quadraticBezierTo(
+        right,
+        bottom,
+        right,
+        bottom - cornerRadius,
+      )
+      ..lineTo(right, bottom - cornerLength);
+    canvas.drawPath(
+      cornerPath,
+      Paint()
+        ..color = KandoColors.accent
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = cornerStrokeWidth
+        ..strokeCap = StrokeCap.square,
+    );
   }
 
   @override
@@ -3430,7 +3791,9 @@ class _ScanResults extends StatelessWidget {
     required this.items,
     required this.cards,
     required this.currency,
+    required this.remainingScans,
     required this.showRevealingFeedback,
+    required this.onUpgradePressed,
     required this.onDismissRevealing,
     required this.onReviewItem,
     required this.onRetryItem,
@@ -3441,7 +3804,9 @@ class _ScanResults extends StatelessWidget {
   final List<_ScanItem> items;
   final Map<String, ScanReviewCard> cards;
   final AppCurrency currency;
+  final int? remainingScans;
   final bool showRevealingFeedback;
+  final VoidCallback onUpgradePressed;
   final VoidCallback onDismissRevealing;
   final ValueChanged<int?> onReviewItem;
   final ValueChanged<_ScanItem> onRetryItem;
@@ -3458,9 +3823,6 @@ class _ScanResults extends StatelessWidget {
         .toList()
         .reversed
         .toList();
-    if (visibleItems.isEmpty) {
-      return const SizedBox.shrink();
-    }
     final completedCount = items.where((item) {
       return item.status == _ScanItemStatus.matched ||
           item.status == _ScanItemStatus.failed ||
@@ -3476,61 +3838,81 @@ class _ScanResults extends StatelessWidget {
       return sum + (_selectedReviewPrice(card, draft) ?? 0);
     });
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          height: _scanResultsHeaderHeight,
-          child: Row(
-            children: [
-              Text(
-                'Scanned: $completedCount/${items.length}',
-                style: const TextStyle(
-                  color: Color(0xFFEEECD8),
-                  fontSize: 13,
-                  height: 16 / 13,
-                ),
-              ),
-              const Spacer(),
-              if (hasValuedCards && total > 0)
-                Text(
-                  'Total: ${CurrencyFormatter(currency: currency).formatUsd(total)}',
-                  style: const TextStyle(
-                    color: Color(0xFFFFF6AF),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    height: 15 / 13,
+    return SizedBox(
+      height: _scanLowerStatusHeight,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (remainingScans == null)
+            const SizedBox(height: _scanHeaderQuotaGap + _scanQuotaHeight),
+          SizedBox(
+            key: const Key('scan-results-summary'),
+            height: _scanResultsHeaderHeight,
+            child: visibleItems.isEmpty
+                ? null
+                : Row(
+                    children: [
+                      Text(
+                        'Scanned: $completedCount/${items.length}',
+                        style: const TextStyle(
+                          color: Color(0xFFEEECD8),
+                          fontSize: 13,
+                          height: 16 / 13,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (hasValuedCards && total > 0)
+                        Text(
+                          'Total: ${CurrencyFormatter(currency: currency).formatUsd(total)}',
+                          style: const TextStyle(
+                            color: Color(0xFFFFF6AF),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            height: 15 / 13,
+                          ),
+                        ),
+                    ],
                   ),
-                ),
-            ],
           ),
-        ),
-        const SizedBox(height: _scanResultsGap),
-        SizedBox(
-          height: _scanResultsRailHeight,
-          child: ListView.separated(
-            key: const Key('scan-figma-result-rail'),
-            scrollDirection: Axis.horizontal,
-            clipBehavior: Clip.none,
-            itemCount: visibleItems.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 12),
-            itemBuilder: (context, index) {
-              final item = visibleItems[index];
-              return _ScanItemCard(
-                key: Key('scan-active-item-${item.id}'),
-                item: item,
-                card: cards[item.match?.cardRef],
-                currency: currency,
-                onReview: () => onReviewItem(item.id),
-                onRetry: () => onRetryItem(item),
-                onDelete: () => onDeleteItem(item),
-                onDismissRevealing: onDismissRevealing,
-                onSearch: () => onSearchPressed(item),
-              );
-            },
+          if (remainingScans != null) ...[
+            const SizedBox(height: _scanHeaderQuotaGap),
+            SizedBox(
+              height: _scanQuotaHeight,
+              child: _ScanQuotaPill(
+                remainingScans: remainingScans!,
+                onPressed: onUpgradePressed,
+              ),
+            ),
+          ],
+          const SizedBox(height: _scanQuotaResultsGap),
+          SizedBox(
+            height: _scanResultsRailHeight,
+            child: visibleItems.isEmpty
+                ? null
+                : ListView.separated(
+                    key: const Key('scan-figma-result-rail'),
+                    scrollDirection: Axis.horizontal,
+                    clipBehavior: Clip.hardEdge,
+                    itemCount: visibleItems.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 12),
+                    itemBuilder: (context, index) {
+                      final item = visibleItems[index];
+                      return _ScanItemCard(
+                        key: Key('scan-active-item-${item.id}'),
+                        item: item,
+                        card: cards[item.match?.cardRef],
+                        currency: currency,
+                        onReview: () => onReviewItem(item.id),
+                        onRetry: () => onRetryItem(item),
+                        onDelete: () => onDeleteItem(item),
+                        onDismissRevealing: onDismissRevealing,
+                        onSearch: () => onSearchPressed(item),
+                      );
+                    },
+                  ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -3573,11 +3955,6 @@ class _ScanItemCard extends StatelessWidget {
     final failed = item.status == _ScanItemStatus.failed;
     final waiting = item.status == _ScanItemStatus.waiting;
     final entitlementSync = item.status == _ScanItemStatus.entitlementSync;
-    final width = matched
-        ? 240.0
-        : waiting
-        ? 208.0
-        : 176.0;
     final title = matched
         ? item.match?.name ?? item.pictureLabel
         : failed
@@ -3611,153 +3988,175 @@ class _ScanItemCard extends StatelessWidget {
           : 'Search manually',
       child: InkWell(
         onTap: action,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          width: width,
-          height: 82,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: const Color(0xFF292B20),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: failed ? const Color(0x668C5260) : const Color(0x1A90927C),
-            ),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x40000000),
-                blurRadius: 50,
-                spreadRadius: -12,
-                offset: Offset(0, 25),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              _ScanResultThumbnail(item: item),
-              const SizedBox(width: 16),
-              Expanded(
-                child: waiting
-                    ? Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          const Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              'Waiting to scan',
-                              maxLines: 1,
-                              style: TextStyle(
-                                color: Color(0xFFF0FE6F),
-                                fontSize: 13,
-                                height: 16 / 13,
-                                decoration: TextDecoration.underline,
-                                decorationColor: Color(0xFFF0FE6F),
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            top: 0,
-                            right: 0,
-                            child: _ScanDeleteButton(
-                              itemId: item.id,
-                              onPressed: onDelete,
-                            ),
-                          ),
-                        ],
-                      )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: failed
-                                        ? const Color(0xFFFF8493)
-                                        : const Color(0xFFEEECD8),
-                                    fontSize: 16,
-                                    height: 24 / 16,
-                                  ),
-                                ),
-                              ),
-                              _ScanDeleteButton(
-                                itemId: item.id,
-                                onPressed: onDelete,
-                              ),
-                            ],
-                          ),
-                          if (matched)
-                            Row(
-                              children: [
-                                Flexible(
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0x33F0FE6F),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      previewDraft?.condition.toUpperCase() ??
-                                          'RAW',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: Color(0xFFF0FE6F),
-                                        fontSize: 11,
-                                        height: 16 / 11,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: FittedBox(
-                                    key: Key('scan-item-price-${item.id}'),
-                                    fit: BoxFit.scaleDown,
+        borderRadius: BorderRadius.circular(12),
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: SizedBox(
+            width: 202,
+            height: 76,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(sigmaX: 22.64, sigmaY: 22.64),
+                child: Container(
+                  key: Key('scan-item-surface-${item.id}'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF222222),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: failed
+                          ? const Color(0x668C5260)
+                          : const Color(0x1A90927C),
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x40000000),
+                        blurRadius: 47.17,
+                        spreadRadius: -11.32,
+                        offset: Offset(0, 23.585),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      _ScanResultThumbnail(item: item),
+                      const SizedBox(width: 15.09),
+                      Expanded(
+                        child: waiting
+                            ? Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  const Align(
                                     alignment: Alignment.centerLeft,
                                     child: Text(
-                                      price == null
-                                          ? '--'
-                                          : CurrencyFormatter(
-                                              currency: currency,
-                                            ).formatUsd(price),
+                                      'Waiting to scan',
                                       maxLines: 1,
                                       style: TextStyle(
-                                        color: Color(0xFFFFF6AF),
+                                        color: Color(0xFFF0FE6F),
                                         fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        height: 15 / 13,
+                                        height: 16 / 13,
+                                        decoration: TextDecoration.underline,
+                                        decorationColor: Color(0xFFF0FE6F),
                                       ),
                                     ),
                                   ),
-                                ),
-                              ],
-                            )
-                          else
-                            Text(
-                              failed
-                                  ? 'Tap to retry'
-                                  : entitlementSync
-                                  ? 'Syncing Premium'
-                                  : 'Search Manually',
-                              maxLines: 1,
-                              style: const TextStyle(
-                                color: Color(0xFFF0FE6F),
-                                fontSize: 13,
-                                height: 16 / 13,
+                                  Positioned(
+                                    top: 0,
+                                    right: 0,
+                                    child: _ScanDeleteButton(
+                                      itemId: item.id,
+                                      onPressed: onDelete,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          title,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: failed
+                                                ? const Color(0xFFFF8493)
+                                                : const Color(0xFFEEECD8),
+                                            fontSize: 16,
+                                            height: 24 / 16,
+                                          ),
+                                        ),
+                                      ),
+                                      _ScanDeleteButton(
+                                        itemId: item.id,
+                                        onPressed: onDelete,
+                                      ),
+                                    ],
+                                  ),
+                                  if (matched)
+                                    Row(
+                                      children: [
+                                        Flexible(
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0x33F0FE6F),
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              previewDraft?.condition
+                                                      .toUpperCase() ??
+                                                  'RAW',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                color: Color(0xFFF0FE6F),
+                                                fontSize: 11,
+                                                height: 16 / 11,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: FittedBox(
+                                            key: Key(
+                                              'scan-item-price-${item.id}',
+                                            ),
+                                            fit: BoxFit.scaleDown,
+                                            alignment: Alignment.centerLeft,
+                                            child: Text(
+                                              price == null
+                                                  ? '--'
+                                                  : CurrencyFormatter(
+                                                      currency: currency,
+                                                    ).formatUsd(price),
+                                              maxLines: 1,
+                                              style: TextStyle(
+                                                color: Color(0xFFFFF6AF),
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w600,
+                                                height: 15 / 13,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  else
+                                    Text(
+                                      failed
+                                          ? 'Tap to retry'
+                                          : entitlementSync
+                                          ? 'Syncing Premium'
+                                          : 'Search Manually',
+                                      maxLines: 1,
+                                      style: const TextStyle(
+                                        color: Color(0xFFF0FE6F),
+                                        fontSize: 13,
+                                        height: 16 / 13,
+                                      ),
+                                    ),
+                                ],
                               ),
-                            ),
-                        ],
                       ),
+                    ],
+                  ),
+                ),
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -3855,6 +4254,7 @@ class _ReviewMatches extends StatelessWidget {
     required this.target,
     required this.cards,
     required this.drafts,
+    required this.loadingCandidateIds,
     required this.formError,
     required this.saving,
     required this.savingAction,
@@ -3875,6 +4275,7 @@ class _ReviewMatches extends StatelessWidget {
   final ScanReviewTarget? target;
   final Map<String, ScanReviewCard> cards;
   final Map<int, _ScanCollectionDraft> drafts;
+  final Set<int> loadingCandidateIds;
   final String? formError;
   final bool saving;
   final _ScanReviewSaveAction? savingAction;
@@ -3899,6 +4300,7 @@ class _ReviewMatches extends StatelessWidget {
     final card = cards[match.cardRef];
     final draft = drafts[selected.id];
     final ready = target != null && card != null && draft != null;
+    final candidateLoading = loadingCandidateIds.contains(selected.id);
 
     return Stack(
       children: [
@@ -4016,21 +4418,29 @@ class _ReviewMatches extends StatelessWidget {
                           child: CircularProgressIndicator(),
                         ),
                       )
-                    else
-                      KeyedSubtree(
-                        key: ValueKey(
-                          'scan-review-form-${selected.id}-${match.cardRef}',
+                      else
+                        Stack(
+                          children: [
+                            KeyedSubtree(
+                              key: ValueKey(
+                                'scan-review-form-${selected.id}-${match.cardRef}',
+                              ),
+                              child: _ReviewCollectionItem(
+                                itemId: selected.id,
+                                target: target!,
+                                card: card,
+                                draft: draft,
+                                formError: formError,
+                                enabled: !saving && !candidateLoading,
+                                onChanged: (next) => onUpdateDraft(selected.id, next),
+                              ),
+                            ),
+                            if (candidateLoading)
+                              const Positioned.fill(
+                                child: Center(child: CircularProgressIndicator()),
+                              ),
+                          ],
                         ),
-                        child: _ReviewCollectionItem(
-                          itemId: selected.id,
-                          target: target!,
-                          card: card,
-                          draft: draft,
-                          formError: formError,
-                          enabled: !saving,
-                          onChanged: (next) => onUpdateDraft(selected.id, next),
-                        ),
-                      ),
                   ],
                 ),
               ),
@@ -4043,6 +4453,8 @@ class _ReviewMatches extends StatelessWidget {
             child: _ReviewFooter(
               totalText: _reviewTotalText(card, draft, currency),
               showBulkActions: items.length > 1,
+              singleReady: !candidateLoading,
+              bulkReady: loadingCandidateIds.isEmpty,
               saving: saving,
               savingAction: savingAction,
               onAddThisCard: onAddThisCard,
@@ -5279,6 +5691,8 @@ class _ReviewFooter extends StatelessWidget {
   const _ReviewFooter({
     required this.totalText,
     required this.showBulkActions,
+    required this.singleReady,
+    required this.bulkReady,
     required this.saving,
     required this.savingAction,
     required this.onAddThisCard,
@@ -5289,6 +5703,8 @@ class _ReviewFooter extends StatelessWidget {
 
   final String totalText;
   final bool showBulkActions;
+  final bool singleReady;
+  final bool bulkReady;
   final bool saving;
   final _ScanReviewSaveAction? savingAction;
   final VoidCallback onAddThisCard;
@@ -5335,7 +5751,7 @@ class _ReviewFooter extends StatelessWidget {
                       height: 56,
                       child: FilledButton.icon(
                         key: const Key('scan-review-add-one'),
-                        onPressed: saving ? null : onAddThisCard,
+                        onPressed: saving || !singleReady ? null : onAddThisCard,
                         icon: addingSingle
                             ? const SizedBox(
                                 key: Key('scan-review-add-one-loading'),
@@ -5382,7 +5798,7 @@ class _ReviewFooter extends StatelessWidget {
                     Expanded(
                       child: OutlinedButton(
                         key: const Key('scan-review-add-all'),
-                        onPressed: saving ? null : onAddAllCards,
+                        onPressed: saving || !bulkReady ? null : onAddAllCards,
                         child: addingAll
                             ? const SizedBox(
                                 key: Key('scan-review-add-all-loading'),

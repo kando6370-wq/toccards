@@ -77,6 +77,7 @@ android {
 
 dependencies {
     implementation(files("libs/onnxruntime-minimal-1.23.0.aar"))
+    implementation("com.google.mlkit:text-recognition-japanese:16.0.1")
 }
 
 flutter {

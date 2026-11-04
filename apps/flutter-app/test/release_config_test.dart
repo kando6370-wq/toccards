@@ -85,8 +85,19 @@ void main() {
             as List;
     expect(
       testAdditional.map((entry) => (entry as Map)['product_id']),
-      containsAll(['weekly.trial', 'cardx.month', 'yearly.pro']),
+      containsAll([
+        'weekly.trial',
+        'cardx.month',
+        'yearly.pro',
+        'cardx.year.trial',
+      ]),
     );
+    final testYearlyTrial = testAdditional.singleWhere(
+      (entry) => (entry as Map)['product_id'] == 'cardx.year.trial',
+    ) as Map;
+    expect(testYearlyTrial['plan_id'], 'yearly_trial');
+    expect(testYearlyTrial['product_type'], 'subscription');
+    expect(testYearlyTrial['is_trial_product'], isTrue);
     final productionAdditional =
         jsonDecode(
               productionConfig['SUBSCRIPTION_APP_STORE_SUPPORTED_PRODUCTS']
@@ -95,8 +106,18 @@ void main() {
             as List;
     expect(
       productionAdditional.map((entry) => (entry as Map)['product_id']),
-      containsAll(['CardAi.weekly.trial', 'CardAi.monthly']),
+      containsAll([
+        'CardAi.weekly.trial',
+        'CardAi.monthly',
+        'CardAi.yearly.trial',
+      ]),
     );
+    final productionYearlyTrial = productionAdditional.singleWhere(
+      (entry) => (entry as Map)['product_id'] == 'CardAi.yearly.trial',
+    ) as Map;
+    expect(productionYearlyTrial['plan_id'], 'yearly_trial');
+    expect(productionYearlyTrial['product_type'], 'subscription');
+    expect(productionYearlyTrial['is_trial_product'], isTrue);
     expect(
       requiredSubscriptionKeys
           .map((key) => productionConfig[key])

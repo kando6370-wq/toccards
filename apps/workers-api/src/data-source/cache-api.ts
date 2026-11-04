@@ -1,4 +1,5 @@
 import type { DataSourceAdapter } from "./adapter";
+import { recordCacheRead } from "../request-performance";
 
 export type DataSourceCache = {
   match(request: Request): Promise<Response | undefined>;
@@ -92,8 +93,11 @@ async function readCachedResponse<T>(
   try {
     const response = await cache.match(request);
 
-    return response ? ((await response.clone().json()) as T) : null;
+    const cached = response ? ((await response.clone().json()) as T) : null;
+    recordCacheRead("cache_api", cached === null ? "miss" : "hit");
+    return cached;
   } catch {
+    recordCacheRead("cache_api", "error");
     return null;
   }
 }

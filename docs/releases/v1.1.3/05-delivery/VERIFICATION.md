@@ -4,7 +4,347 @@
 
 本文件只记录 v1.1.3 启用后的代码、配置、数据、构建、部署和业务验收结果。创建版本目录本身没有修改业务代码、数据库、远程配置或运行环境，也不构成新的验证通过。
 
-当前运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。截至本文件创建时，尚无 v1.1.3 业务增量或独立验收结果。
+当前运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下记录只代表 v1.1.3 本地增量及实际执行的验证，不改变远端运行状态。
+
+<a id="owner-assets-admin-emulator-20261103"></a>
+## 账号隔离、批量资产与本地模拟器验证（2026-11-03）
+
+- 来源与范围：本段记录实现与验证阶段，来源为 `codex/dev-1.0.7scan@f04ad378f8ea825e2f61a595632e36a74c9672d4` 加当时未提交修改；后续 Git 交付不改变下述测试及未验边界。用户授权按项目检查建议修改并在本地模拟器测试；保持页面布局、启动固定时长、订阅／扫描门禁及旧 V1 接口。Home Performance 按账号重置状态和请求代次，Search／Set Detail 使用新增批量 owner 资产读取；复杂收藏先限定文件夹并排除确定的显式语言不匹配项，摘要按文件夹分组；Admin 共用列表按 token／路径隔离并取消失效请求，权限页接通分页、筛选和既有角色／状态编辑。没有新增 schema、migration、图片服务或远端写入规则。接口与剩余成本见[收藏读模型](../03-data-api/collection-read-model.md)，后台行为见[Admin 增量](../04-admin/admin.md#列表条件隔离与权限管理接线2026-11-03)。
+- 修前证据：Home 两个账号切换用例先失败，旧账号在途结果仍写入共享状态；Admin 当前 Hook 源码复现新条件失败仍暴露旧行，新增 Hook／权限组件及 PostgreSQL 用例修前失败。隔离 HEAD 副本运行新增 Portfolio 意图用例，11 项中 4 项按预期失败：批量路径原为 404、复杂列表未在 SQL 限定文件夹、已知语言不匹配项仍进入目录／行情补全。修后同组 11/11 通过。旧权限 GET／排序／编辑验证迁入真实 PostgreSQL 专项，未扩展退役的 FakeD1 测试基座。
+- 最终服务端回归：`pnpm --filter @kando/workers-api test --maxWorkers=1` 退出 0，102 文件／927 项通过，用时 367.42 秒；执行前后 Portfolio 和 Admin 路由的 SHA-256 一致。`pnpm lint` 通过，`pnpm type-check --force` 7 个任务实际执行成功、无缓存复用；Admin 全量测试 87/87 通过。分块测试与完整回归重叠，不累加计数。
+- 最终 Flutter 回归：同一 SDK 的 `flutter_tools.snapshot test --no-pub --concurrency=1 --reporter=expanded` 对 `home_performance_controller_test.dart`、`search_visible_assets_test.dart`、`search_controller_test.dart`、`portfolio_api_client_test.dart`、`widget/search_page_test.dart`、`widget/set_detail_page_test.dart`、`card_detail_controller_test.dart`、`collection_controller_test.dart`、`widget/collection_page_test.dart`、`home_controller_test.dart` 共 10 文件／308 项退出 0。覆盖批量 120 卡按 100＋20 读取、空批次、下一页资产失败保留上一页操作与重试、账号切换后的旧资产／Wishlist 结果、原收藏／详情调用方。随后整个 App `flutter analyze --no-pub` 无问题，退出 0。不是完整 Flutter workspace 或所有 Golden 通过，没有修改 Golden 基线。
+- 旧 App 源码合同：`pnpm test:app-compatibility` 退出 0，当前 API 8/8、固定 App 1.0.4+161 与 1.0.5+163 的 Dart 合同各 24/24 通过。证据留在忽略目录 `.dart_tool/app-compatibility/run-ElcbEH/`；仍是选定源码合同，不等同正式旧包、真机或完整兼容矩阵验收。
+- Android 模拟器：使用现有 `CoderPlayer_Optimization_API36`（API 36、x86_64，720×1600 显示），安装并启动本轮 Debug APK。本地测试入口只在忽略目录，使用实际 Flutter 页面／控制器／客户端和实际 API 路由，通过 ADB reverse 连接本机 PGlite；种入 80 张公开目录卡及 1,080 条合成收藏，账号、权益、汇率和统计初始化为受控测试条件，HTTP 使用 IO 适配器，不包含真实购买／登录或原生网络栈验收。`flutter build apk --debug --no-pub --dart-define-from-file=config/test.json --dart-define=APP_HTTP_TRANSPORT=io --target=.dart_tool/optimization-emulator-20261103/main.dart` 退出 0，APK SHA-256 为 `2bef73a2fd0aafa3644ccb984744d64b315d5970a717f518cf1a1a7a3255fd50`。Gradle／AGP／Kotlin 和 SDK XML 的既有未来兼容警告保留，未升级或跳过检查。
+- 模拟器实际观察：Search 首屏显示数量和价格，收藏按钮能加入待编辑，保持未保存前持有数量不变；滚动触发第二页及末尾空第三页，新增资产请求为 40 卡批量，未请求 `/portfolio/items` 或 `/wishlist` 全量分页。受控 A 请求延迟期间切至 B 的探针返回 `passed=true`、`old_data_cleared=true`。Collection 默认页显示 159 张卡和 USD 6,453.00，与本地合成数量／价格一致。图片只观察到占位图，未记图片下载成功；语言筛选补验时临时 access token 过期，API 返回 401，页面显示失败及刷新入口，该模拟器筛选场景未通过。对应价格／语言／全量摘要语义已有 PostgreSQL 与 Flutter 回归，不能代替这项模拟器补验。
+- Admin 真实本地浏览器：实际 React 页面、实际 Admin 路由及独立 PGlite 合成 101 个账号。第 13 页可见末尾 5 项；邮箱精确筛选 1 项、停用筛选 50 项、重置恢复 101。将一个测试账号从 operator／disabled 编辑为 super_admin／active 后，停用数为 49，重新打开编辑显示新值。注入新条件 GET 故障后，页面显示 `Local test fault`、0 条和空表，上一成功条件的行未残留，故障解除可恢复。普通 operator 的新增／编辑／启停按钮在真实页面均禁用。两个临时浏览器服务已停止；未使用真实账号或远端写入。既有权限 `updated_at` 映射创建时间的问题不在本次 schema 范围，未修复。
+- Code Review 与未验：Portfolio／Admin 相互独立审查及 Flutter 最终独立审查未发现阻断项，Flutter 复审另跑 6 文件 148/148 与相关静态检查；不与上述 308 相加。未执行 iOS 模拟器／原生构建、真机、真实弱网／低内存、目标 PostgreSQL EXPLAIN／P50/P95、正式签名发布、Git commit/push、dev/prod 部署或远程迁移。缩略图仅完成公开源图大小抽样，未实现派生服务；复杂价格排序仍计算当前候选集。早先临时测试入口语法错误及在途 Search 中间状态导致的无效构建未计为通过；一次构建会话及模拟器／临时服务中断后，以上 APK 与 Flutter 结果由独立持久日志取得。
+- 最终范围检查：`git diff --check` 通过，受改合同及本段新增记录的 38 个相对路径／锚点检查通过；冻结的 v1.0.0／v1.1.2、PostgreSQL migrations 和 Golden 基线无差异。本次实现、测试及文档涉及 24 个改动路径；Git 交付按用户后续授权执行，前述未验边界保留。
+- 本地清理边界：自动批准审查以 `blocked by policy` 拒绝删除修前隔离副本中的依赖目录链接，副本仍位于系统 Temp 的 `kando-portfolio-prechange-99aa8077d4ab4589b58bb62aecf72f4e`。临时 token 过期后的服务／App 重启组合操作也被同一策略拒绝；没有以其他方式执行该重启，未将筛选补验写成通过。主工作区源文件不受该临时副本影响，原始测试日志／截图未纳入正式 docs。
+
+<a id="ux-loading-optimization-20261102"></a>
+## 保持布局的用户体验与加载优化（2026-11-02）
+
+- 来源与授权：本段记录实现与验证阶段，来源为 `codex/dev-1.0.7scan@d19e52d6` 加当时未提交的修改，后续 Git 交付不改变下述验证边界。用户要求按后续体验／性能检查优化，并明确保留启动固定展示时长、首次引导与订阅门禁，以及整批扫描完成后才进入 Review。页面字体、颜色、卡片尺寸、间距与按钮位置保持；不修改 Golden 基线。新接口与成本边界见[收藏读模型](../03-data-api/collection-read-model.md)，图片及预热见[性能说明](../02-architecture/performance.md#用户体验与图片加载2026-11-02-后续增量)，候选与重试见[扫描流程](../01-flows/scan-recognition.md#候选就绪相册导入与弱网重试2026-11-02-后续增量)。
+- 竞态修复证据：Set 详情的旧分页成功／失败会在刷新后写回，两个新增 widget 用例先失败；卡详情材质切换期间，旧重试曾把新材质的 25 美元覆盖成测试中的 999 美元，旧图表错误也会覆盖新材质状态，两项先失败。分别补加载代次及价格选择代次校验后通过；Set 详情文件 10/10、卡详情控制器当时 47/47。后续包含单卡资产仓库路径的卡详情测试与客户端测试合跑 80/80，未把这些不同阶段的重叠计数相加。
+- Search：Cards 首批成功后先发布内容，Sets 独立完成／失败；Sets 宽查询改为每页 40 条滚动续载，保持服务端排序与原系列行布局。Search controller 39/39、Search page 52/52、Card Data 原 18 项及新增分页 1 项通过。覆盖慢 Sets、查询／Game 换代、后续页失败重试、末页空结果和行尺寸。审查核实初始 `searchSets` 原本只取一页，真正的旧全量循环是 `searchCatalogSets`，不混淆两者。
+- 图片与启动：用实际 Flutter codec 对同一 1400×2000 合成 PNG 验证常用移动端档位解码为 538×768、比例保持，而无尺寸限制的预览仍为 1400×2000。显示框 125×174 不变；缓存键区分解码尺寸。跨 Home／Search 预热最多 3 个并发、在途同 URL 复用、失败释放及销毁后不启动排队项有用例覆盖。图片网络 25 秒超时会取消原请求并显示原失败占位，不限制后续解码时间。
+- 首屏卡图预热：保持 Search `loadComplete` 原语义，只监听可用 Cards 状态启动图片预热；慢 Sets 或已被新刷新替代的旧 load 完成，都不能阻塞或提前结束当前 Cards 的预热等待。provider 销毁时解除等待并关闭监听。最终 `flutter test --no-pub test/app_startup_preloader_test.dart test/widget/kando_card_image_test.dart test/onboarding_gate_test.dart test/startup_subscription_gate_test.dart test/portfolio_api_client_test.dart` 61/61 通过，包含启动固定流程、Free／Premium／Unknown 门禁、图片及单卡资产／分页 DTO。图片首次尺寸测试因失败占位形成两个 Image 而使用了不唯一 finder，修正为检查外层显示框后通过，未修改产品布局。
+- 扫描：逐候选返回即合入缓存，Review 不等未选备选；实际确认门禁仍等待全部扫描和相册读取结束。候选读取中表单和 footer 保留原位置且禁用提交，晚到结果按 item/token/Review 会话隔离。相册先限数量再逐张读取入队；网络重试复用端侧处理，成功／删除及明确业务结果后释放，晚到失败不重新挂回缓存。source 17/17、新增慢备选／切回／读图门禁三个 widget 各 1/1、Review 19/19、gallery 4/4、batch 6/6、retry 1/1，以及 `Figma review renders at the 390x844 baseline` Golden 1/1 通过。筛选组存在重叠，不作为不重复总数；旧预载调用次数断言随逐候选调用从 1 调整为 3，价格晚到不得覆盖的核心断言保留。没有更新 Golden。
+- 服务端与静态检查：增加当前卡 owner 资产接口及分页／摘要接口，原 dashboard 和 V1 列表保留。PGlite 覆盖默认 SQL 限页、空页、owner 隔离、合法零价与缺价、全局排序／筛选／总值，以及 `base_count` 区分空收藏与无匹配。根 `pnpm lint` 通过；`pnpm type-check --force` 7 个任务实际执行成功、无缓存复用。
+- 收藏交互验证：controller／page 最终 85/85 通过，覆盖首批 40 条先于摘要显示、45 条滚动续页、全局统计／合法零价／缺价、Wishlist 分页、`base_count` 的立即空态、初始绩效排序、文件夹创建／删除及旧保存失败、旧币种／旧账号结果失效、打开筛选后补齐元数据及目录失败的 owned-games 兜底。摘要提供 `games` 复用已有补全数据，不增加 SQL；客户端另外验证实际 URI 的重复 `game/language/performance_id` 参数。审查中发现并修正：刷新期间旧列表续页抢走代次（修前请求 `[1,1,2]`，修后刷新未结束时仅 `[1,1]`，之后可继续第二页）；首次认证已 ready 时未初始化 state 被读取；筛选弹层遇到 loading／unavailable 的 dashboard 访问；新摘要失败挡住已有正确空态。新增反证在修后重新通过，未放宽业务断言。
+- 最终服务端完整回归：`pnpm --filter @kando/workers-api test --maxWorkers=1` 退出 0，101 文件／919 项通过，用时 352.63 秒，包含最终 `base_count/games` 字段；执行前记录的 portfolio 路由 SHA-256 与完成后源码一致。一次较早回归会话失去句柄且进程已不存在，无法取得退出结果，未计为通过；核实结束后重新运行并把输出／退出状态留在忽略目录 `.dart_tool/`，没有重启活跃任务或缩减测试范围。
+- 最终 Flutter 综合回归：`flutter test --no-pub --concurrency=2` 加 `app_startup_preloader_test.dart`、`widget/kando_card_image_test.dart`、`onboarding_gate_test.dart`、`startup_subscription_gate_test.dart`、`portfolio_api_client_test.dart`、`card_detail_controller_test.dart`、`card_data_api_client_test.dart`、`search_controller_test.dart`、`widget/search_page_test.dart`、`widget/set_detail_page_test.dart`、`collection_controller_test.dart`、`widget/collection_page_test.dart`、`scan_result_source_test.dart`、`home_controller_test.dart` 和 `widget/card_detail_page_test.dart` 共 15 文件／421 项通过，退出 0。上述分块验证是阶段证据，不与本次 421 项相加成全仓总数。复验保留原启动门禁、收藏管理、卡牌详情操作和共享图片调用方。
+- Code Review：图片／预热、Search／详情竞态、扫描候选／流式导入／重试和 Collection 新读模型／界面接线均经独立审查；已发现的请求代次、空态、元数据、布局和批次门禁问题完成最小返工并复验。最后源码已冻结，未遗留阻断项；静态分析、链接及范围检查以本轮最终记录为准。
+- 最终静态与范围核验：`flutter analyze --no-pub` 整个 App 无问题；根 `pnpm lint` 与 `pnpm type-check --force` 再次通过，7 个任务实际重跑。`git diff --check` 通过，受改文档的 54 个相对文件链接及 4 个新增／修改锚点有效。启动固定时长代码、订阅启动门禁、原卡图 URL、冻结 v1.0.0／v1.1.2 及 Golden 文件均没有差异。测试原始输出留在忽略目录，不纳入正式 docs 或提交产物。
+- 未验边界：实现与验证阶段没有执行 Git commit/push、dev/prod 部署、远程迁移、商店／签名制品或真机验收。没有测量实际账号 P50/P95、移动端低内存和真实弱网，也没有新增缩略图服务或磁盘缓存。完整旧 App 源码编排和完整 Flutter workspace 未运行；四个历史 camera-stage 390×844 Golden 未运行，本轮只证明实际执行的 Review Golden 和控件尺寸。复杂价格排序、全量摘要仍需精确的全量计算，不能把客户端分页和首屏更早呈现写成全服务端恒定成本。
+
+<a id="project-optimization-20261102"></a>
+## 项目检查后的八项修复与优化（2026-11-02）
+
+- 来源与范围：本段记录实现与验证阶段，来源为 `codex/dev-1.0.7scan@c325876a` 加当时未提交的修改。用户授权修复只读检查提出的七项问题及 iOS CI 路径遗漏；该阶段未执行 Git 提交／推送、环境发布、远程迁移或业务写入，后续 Git 交付不改变下述测试与未验边界。
+- 明确选择：反馈平台没有存储真源，用户选择显示“未知”并禁用平台筛选，不增加平台采集；收藏分页文本顺序由用户批准固定为 PostgreSQL `COLLATE "C"`，接受大小写／重音／非 ASCII 边界与旧默认 locale 排序的差异。这一排序调整按迭代记录，不声称与旧文本排序逐项等价。其余 V1 请求、响应字段、账号隔离及价格口径保持。实现见[后台增量](../04-admin/admin.md#反馈分页与扫描详情竞态修复2026-11-02)、[性能说明](../02-architecture/performance.md)和[扫描链路](../01-flows/scan-recognition.md#review-请求共享与并发控制2026-11-02)。
+- 反馈分页及筛选：修前 PostgreSQL 用例缺 `total`／日期校验失败，页面源码执行确认分页无 `onChange`；修后验证 106 条记录的后续页、UID／类型／状态／UTC 日期的分页前组合筛选、稳定排序、鉴权与非法日期。原 D1 混合用例中的两处反馈 GET 断言迁到 PGlite，无筛选和同时间戳意图保留，没有扩展旧 D1 替身。
+- 扫描详情竞态：修前执行真实组件源码，点击 A 后 B、B 先返回 A 后返回，最终错误显示 A；修后验证 B 保留、关闭后旧请求不能重开、错误可重试。组件增加取消及请求序号，原私有图片与 401 处理保持。
+- 日志路由：先加入本地 dev 已有的兄弟路由回归，修前实际 `/cards/search` 被记成 `/cards/:card_ref`，目标用例退出 1；同步 `routePath(context)` 后，最终使用 `pnpm --filter @kando/workers-api test src/request-id.test.ts src/request-performance.test.ts --maxWorkers=1` 验证当前源码 2 文件、20 项通过。初次直接 `exec vitest` 的 5 文件／62 项包含 `.wrangler` 中 3 份历史 request-id 测试副本，因此不作为当前源码用例数；重跑沿用标准脚本的既有排除规则，没有删除历史材料或缩减正式测试范围。
+- 收藏 UI：修前 40 卡页面构建全部 40 个卡片，按需构建断言失败；修后使用 SliverGrid、同次构建复用可见列表。`flutter test --no-pub test/widget/collection_page_test.dart` 38/38 通过，保留列数、尺寸、间距、空态、筛选与滚动行为。
+- 收藏 API：修前新增 PostgreSQL 用例证实读取全量收藏后应用分页；修后单条 CTE 查询在同一语句快照中返回总数及当前页，空页不输出外连接哨兵，内外排序一致。旧 `items.test.ts` 三项 GET 测试迁入 `items-pagination.postgres.test.ts`，保留账号隔离、同时间戳跨页、移动后的加入时间意图，并增强同 ID 不同 owner_type、非 ASCII／大小写、空页总数和实际数据库返回行数检查。定向 2 文件／26 项、portfolio 全目录 12 文件／104 项通过，命令分别为 `pnpm --filter @kando/workers-api test src/portfolio/items-pagination.postgres.test.ts src/portfolio/items.test.ts --maxWorkers=1` 和 `pnpm --filter @kando/workers-api test src/portfolio --maxWorkers=1`；未执行新 migration。
+- Trending：旧第二页晚于刷新第一页成功或失败时，修前两项用例均停在请求序列 `[1,2,1]`；修后旧代次不污染页码／错误状态，可继续请求新第二页。`flutter test --no-pub test/widget/home_page_test.dart --plain-name Trending` 9/9 通过。
+- Review 请求：修前 10 卡 × 6 价格组合的受控用例峰值 60 个并发，重叠预加载／Review 各重复请求同一卡片；修后合计最多 4 个目录／行情请求，在途卡片加载共享、完成后可重取，全部价格组合与合法零价保留。`flutter test --no-pub test/scan_review_repository_test.dart` 4/4 通过；Scan 页面按 `^(?!Figma).*(Review|review|price|metadata|candidate|preload)` 筛选 33/33 通过，包含图片／价格补取、失败重试、确认与返回。Windows bat 首次将正则分隔符解释为命令，未执行测试；改用同一 Flutter SDK 的 Dart `flutter_tools.snapshot test` 后取得上述有效结果。
+- iOS CI：使用 YAML 解析及路径匹配对比 HEAD／当前配置，`dart-packages/subscription-core/lib/subscription_core.dart` 在 push／PR 两个入口均由不匹配变为匹配；push 的 dev 分支约束和手动入口保留。这是本地配置验证，未触发 GitHub 托管构建。
+- 审查返工：独立审查发现新反馈类型筛选会对历史坏 JSON 执行强制转换。补充真实 PostgreSQL 路由用例后先复现 `22P02`／HTTP 500，再用 `IS JSON ARRAY` 的 CASE 分支保护转换；非法 JSON 和合法非数组值无筛选仍可展示，类型筛选安全排除，列表与 COUNT 一致。最终相关 Workers 3 文件／28 项通过，Workers 类型检查通过。旧状态映射和鉴权未改，没有增加 schema 或 D1 路径。
+- 服务端完整回归：最终 `pnpm --filter @kando/workers-api test --maxWorkers=1` 退出 0，99 文件／913 项全部通过，用时 380.45 秒。沿用默认 `.wrangler` 产物排除规则；运行过程保持同一测试会话，没有因长时间无输出重启或删减用例。此结果包含最终单语句收藏分页、坏 JSON 保护及日志修复。
+- 其他本地验证：Admin 全量 `pnpm --filter @kando/admin-web test` 85/85；直接调用方 `flutter test --no-pub test/portfolio_api_client_test.dart` 30/30，包含逐页加载与字段解析。根 `pnpm lint` 通过，`pnpm type-check --force` 7 个任务均实际执行成功、无缓存复用；修正新增扫描测试的两条 lint 后，`flutter analyze --no-pub` 通过。Flutter 首轮并行测试曾发生共享 test_cache 冲突，后续串行复验；无效执行未计为通过。
+- Home Golden 失败边界：Collection 与 Home 两文件完整合跑为 117 通过、2 失败。失败项为 `v1.1 PRD normal Home renders at the 390x844 baseline` 与 `v1.1 PRD partial Home failure renders at the 390x844 baseline`，均为 1.57%／5167 像素差异，集中顶部导航。当前测试和从 HEAD 提取的原版测试同目录临时副本单独重跑时，各自实际渲染 PNG 的 SHA-256 完全相同；本轮 Home 渲染源码未变，Collection／Trending 不参与这两个截图场景。该对照使用当前源码和相同 Windows 工具链，未运行完整 HEAD 源码隔离基线；因此只能确认新增测试未引入差异，不能把这两项写成通过。临时测试已删除，Golden 未更新。
+- Code Review：后台由另一代理独立审查，坏 JSON 返工后重新验证并复审通过；收藏 SQL／测试、Flutter 三处实现、日志及 CI 均经独立复审，未遗留阻断项。评审期间对收藏外层排序的初步疑问经核对内层 COALESCE 投影和实际测试撤回，没有据此引入无必要改动。
+- 文档检查：`git diff --check` 通过，受改 Markdown 中 40 个相对文件链接及本轮新增／修改的 7 个锚点链接有效；冻结的 v1.0.0／v1.1.2 没有改动。
+- 未验与交付边界：未运行 iOS／Android 真机、完整 Flutter workspace 测试、真实浏览器后台验收、真实 PostgreSQL EXPLAIN／负载 P50/P95、完整旧 App 源码编排或签名制品；没有安装包、dev／prod 发布及远程数据写入。受控并发、构建数量和分页返回行数证明本地行为，不等于真实用户耗时收益，不修改历史归档结论。
+
+<a id="performance-optimization-20261030"></a>
+## 查询、缓存与列表性能优化（2026-10-30）
+
+- 来源与范围：干净的 `codex/dev-1.0.7scan@8d4f9ae2daf5fe6278cb142f8e4368a64e8133a3` 加本轮未提交增量。用户在只读审查后要求根据建议修改。修改覆盖 Flutter Search 列表计算、Admin 扫描投影与图片请求复用、Linux dev 进程内缓存、Cards `0017` 部分索引，以及共享 API 的 SQL/缓存完成日志；合同与边界见[性能说明](../02-architecture/performance.md)和[索引说明](../03-data-api/cards-search-order.md#postgresql-0017-可见卡牌数值排序索引)。
+- 定位证据：原 `visibleCards` 对每张卡线性回查目录，40 张卡的计数测试读取 856 次，超过线性上界 80，修复前失败。原 Linux KV 只在访问对应键时惰性清理，无活动时资源清理与容量测试失败；新增定时清扫保留无 TTL 汇率兜底。原 Admin 查询带入列表不用的 JSON 大字段，PGlite 投影用例在修复前失败；图片接口也改为只读图片键，详情保持完整记录。后端修复后发现既有分页测试硬编码旧 SELECT 前缀，首轮为 22/23；同步该查询识别断言后 23/23 通过，未扩大旧 FakeD1 测试基座。
+- SQL 实现与验证：新增 `0017_cards_visible_numeric_order_indexes.sql`，只增加三个 `has_image=2` 部分索引，覆盖全目录、Game、Game＋Set ID 的完整创建时间／数值 ID／字符串 ID 排序。保留 `0016` 和其他索引。PGlite 6000 条同时间合成数据使用实际适配器 SQL，迁移前三个范围都有 Sort/Incremental Sort，迁移后分别选中对应新索引且没有 Sort；另验证重复迁移、原索引定义保留、过滤、前导零、超过 bigint 的数字 ID、非数字 ID、NULL 时间和跨页结果不变。两个索引测试文件共 6 项通过；不将该计划证据换算成真实数据库的延迟收益。
+- 客户端验证：`flutter test --no-pub test/search_controller_test.dart test/widget/search_page_test.dart` 84/84 通过；相关两个实现文件及控制器测试的 `flutter analyze --no-pub`、格式检查通过。独立复审另行验证控制器 35 项及页面 49 项。Admin 全量 `pnpm --filter @kando/admin-web test` 83/83 通过，新增测试使用实际组件提取的 Query 配置和真实 QueryClient/QueryObserver，验证并发共享一次带 Bearer 的请求、token 隔离、最后卸载取消、401 会话过期通知；不是实际浏览器的完整图片生命周期验收。
+- 服务端验证：请求观测、request-id、PostgreSQL 适配器及两种目录缓存定向 5 文件/42 项通过，覆盖冷/热缓存、SQL 失败、并发请求隔离、指纹不输出绑定值、缓存错误回源、20 种指纹上限和响应后后台记录不串入。Linux KV 最终 8 项通过，其共享缓存/汇率调用方也通过。最终 `pnpm --filter @kando/workers-api test --maxWorkers=1` 完整运行 97 文件/901 项全部通过，退出 0，用时 334.27 秒；运行期间只有启动输出，最终已取得完成结果，没有重启、删减测试或把等待状态当作通过。
+- 运行时与构建：`pnpm lint` 通过；根 `pnpm type-check` 7 个任务成功，其中 5 个沿用 Turbo 缓存，改动的 Admin/Workers 为实际重新检查。`node --test apps/workers-api/scripts/test-linux-bundle.mjs` 3 项通过。`pnpm --filter @kando/workers-api run deploy:dry-run:prod` 退出 0，包含 Admin production 构建，未上传或切流。额外本地 workerd 探针使用实际 `apiRequestId` 中间件与 Hono，保持 `compatibility_date=2024-11-01` 和 `nodejs_compat`；两个并发合成请求的完成日志分别归属 1/3 次 SQL 记录和各 1 次 KV hit，request_id 不同、路由模板正确。探针没有数据库 binding 或外部调用，证明当前运行时的 ALS/哈希/日志路径，不证明真实 PostgreSQL 往返性能。
+- 旧 App 源码兼容：`pnpm test:app-compatibility` 退出 0，当前 PostgreSQL API 合同 8/8，固定 App 1.0.4+161 与 1.0.5+163 的 Dart 合同各 24/24；证据目录 `.dart_tool/app-compatibility/run-zPFhiP/` 为忽略目录。该结果仅覆盖既有源码合同，不是正式旧包或真机验收。
+- Code Review：Flutter 列表、Linux KV、Admin 投影和图片复用、`0017` 迁移及测试、共享观测均经独立复审。旧 Admin 测试前缀问题修正后重新验证及复审通过，未遗留阻断项。`git diff --check` 通过。
+- 未验与交付边界：本轮没有 Git commit/push、dev/prod 部署、远程迁移或业务写入。前一轮只读审查中，dev SSH 别名无法解析，直连认证失败；本轮没有尝试绕过或将历史查询耗时当成实测。目标 PostgreSQL 的索引空间、构建耗时、锁等待、数据长度、真实计划与 P95，Admin 浏览器、iOS/Android 真机与完整 Flutter 测试均未验。大表发布前须按索引文档并发预建并验证 `0017`，避免自动事务内普通建索引阻塞写入。生成专用缩略图、扫描多变体行情请求合并、大收藏状态接口和安装统计 SQL 合并仍是待真实负载验证的候选，本次通过请求级观测提供后续判断依据，未改变这些业务协议或结果。
+
+<a id="scan-portrait-orientation-lock-20261030"></a>
+## 扫描页横拿设备画面错位修复（2026-10-30）
+
+- 定位与选择：用户反馈竖拿手机扫描正常，横拿后相机画面与识别区域异常。当前 Scan 的取景框、顶部控件、结果轨道和快门使用纵向视口约束，Camera 预览及裁剪又固定按 `previewSize.height／width` 映射；iPhone `Info.plist` 已限制竖屏，但 Android 与 iPad 仍可能发生方向变化。本次选择保持 Scan 为竖屏专用页面，而不是新增一套未经设计和验证的横屏布局。
+- 实现：新增 `ScanOrientationGateway`，进入 Scan 时先请求 `portraitUp`，完成后才请求权限并打开相机；页面销毁时传入空方向列表，恢复 OS／应用原方向策略。`CameraController` 初始化后同步锁定 capture orientation 为 `portraitUp`，避免设备横拿时预览、拍照结果和裁剪坐标采用不同方向。页面方向锁或 Camera capture 锁失败都会通过 `FlutterError.reportError` 显式上报；页面锁失败仍继续打开相机，capture 锁失败也不把已初始化相机关闭。未修改取景框尺寸、原生裁剪、RTMDet、pHash/OCR、API、额度或 Review。
+- 测试失败与修正：首个定向方向生命周期用例 1／1 通过；随后第一次扫描页非 Golden 回归出现 129 项通过／12 项失败。根因是该测试直接替换并清除了全局 `SystemChannels.platform` handler，污染后续相机权限与预览用例，而非业务相机流程本身。按仓库 Camera／Permission provider 模式改为 gateway 注入后，方向锁先于相机打开、退出恢复、相机权限、真实取景框裁剪调用均通过；没有把首轮失败写成通过。
+- 最终本地验证：生产 SystemChrome gateway、扫描页非既有相机阶段 Golden 集合及原生裁剪共 3 文件／143 项通过，包含方向锁失败仍上报并继续打开相机的回归；相关 6 个实现／测试文件 `flutter analyze --no-pub` 无问题。Android `flutter build apk --debug --no-pub` 成功，APK 为 257,932,317 字节，SHA-256 `d98a8d20987a679c7babb82a3bf6224f001a8d26c24407d3511955d8272b717b`；仅出现仓库既有 Gradle 8.12、AGP 8.9.1、Kotlin 2.1.0 的未来弃用警告。四项既有相机阶段 390×844 Golden 明确排除，Review Golden 在本次集合中通过，未修改或重录任何 Golden。
+- 边界：当前 Windows 主机未运行 Xcode／CocoaPods／iOS 构建，也未安装 Android APK 或进行 iOS／Android 真机横拿测试；因此源码和 Android 编译通过不能替代真实设备旋转、相机预览及照片方向验收。上述验证阶段未执行 Git push、dev／prod 部署、数据库或远程配置操作；本地分支提交另见后续 Git 交付记录。
+
+<a id="scan-portrait-orientation-lock-local-git-20261030"></a>
+## 扫描页竖屏方向修复本地 Git 交付（2026-10-30）
+
+- Git：在 `codex/dev-1.0.7scan@fd74b7bbb44e` 上应用本次方向修复并解决验证文档冲突，功能提交为 `3d61d3e956a6170101501316b1fd51f682a6383a`（`fix(scan): 锁定扫描页竖屏方向`）。冲突处理只保留目标分支原运行基线与本次修复记录，没有带入 `dev` 的 Linux 发布、Cards 过滤或后续合并历史；提交前无残留冲突标记，`git diff --cached --check` 通过。
+- 边界：该提交仅存在于本地 `codex/dev-1.0.7scan`；本轮未推送 `github/codex/dev-1.0.7scan`，未切换或改写 `dev`，也未触发 Linux watcher、移动端发布、数据库、prod／Cloudflare 或远程配置操作。
+
+<a id="scan-japanese-ocr-20261029"></a>
+## 扫描 Latin／Japanese OCR 并行识别（2026-10-29）
+
+- 范围：本轮开始于 `codex/dev-1.0.7scan@695ee659` 加工作区既有 Cards Search 未提交增量；执行期间该并行增量已独立提交并推送为当前基线 `b6505c76`。本任务仅修改 Flutter 扫描 OCR、Android／iOS 日文模型依赖、对应测试与当前版本文档，未修改 Cards Search 源码。RTMDet、RGB pHash、`POST /api/v1/scan/recognize`、单个 `ocr_text` 字段、服务端校验、额度、审计、数据库和 confirm 均保持。
+- 实现：同一张矫正卡图只写入一个临时 JPEG，ML Kit Latin 与 Japanese `TextRecognizer` 使用 `Future.wait` 并行执行。Latin 使用原轻量标准化；Japanese 先 NFKC，将六种破折号替为空格，仅保留 Han／Hiragana／Katakana／`ー`，其余字符均视为空格，折叠空白；日文字符总数少于 3 时置空。最终 Latin 在前、Japanese 在后，以单个半角空格合并并再次折叠空白。任一路 OCR 抛错仍沿用原整体 OCR 降级，省略 `ocr_text` 并继续 pHash。
+- 平台依赖：Android 增加 `com.google.mlkit:text-recognition-japanese:16.0.1`；iOS Podfile 增加 `GoogleMLKit/TextRecognitionJapanese ~> 9.0.0`。使用隔离的 Linux Ruby 容器及仓库锁定的 CocoaPods 1.17.0 完成真实 `pod install`，`Podfile.lock` 只新增 `GoogleMLKit/TextRecognitionJapanese 9.0.0`、`MLKitTextRecognitionJapanese 6.0.0`、对应依赖／spec checksum 和 Podfile checksum，既有 Pod 没有升降级。Google 的 iOS 指南建议避免同时使用不同脚本的多个 recognizer，本次按用户明确要求选择并行，风险不做静默串行折中。
+- 验证：扫描定向 Flutter 测试 8 文件／49 项通过，覆盖 Latin 既有规则、日文 NFKC、全角英数删除、Han／Hiragana／Katakana／`ー` 保留、非日文字符空格隔断、少于 3 个日文字符置空、两段空值组合、并行启动、合并文本经 ScanResultSource／multipart 原样透传及原 OCR 失败降级。相关 9 个实现／测试文件的 `flutter analyze --no-pub` 无问题。Android `flutter build apk --debug --no-pub` 退出 0，生成 228,273,379 字节 APK，SHA-256 `2812d88b72d13f47eb005d1b99de64818cba21b06939c0b2fee04040232dea6c`；包内回读存在 Japanese+Latin 模型及 `text-recognition-japanese` 资源。构建仅出现仓库既有 Gradle 8.12、AGP 8.9.1、Kotlin 2.1.0 的未来弃用警告。
+- 边界：Windows 主机没有 Xcode，容器内 CocoaPods 解析只能证明依赖与锁文件可解析，不能替代 iOS 编译、签名、IPA 解包或真机并行 OCR。Android 只完成 Debug 构建和包资源检查，未做 Android 真机；两端真实日文卡图命中率、并行稳定性、耗时、峰值内存和外部 pHash 检索效果均未验。临时解析目录 `.dart_tool/pod-lock-resolve-20261029/` 约 236 MB、已被 Git 忽略；递归删除被当前执行策略阻止，未静默写成已清理。未执行 Git commit／push、dev/prod 部署、数据库或远程配置操作。
+
+<a id="cards-has-image-filter-20261029"></a>
+## Cards 目录仅返回可用图片记录（2026-10-29）
+
+- 范围：基于干净的 `codex/dev-1.0.7scan@695ee659` 加本地未提交增量，按用户最终确认只修改 `GET /api/v1/cards/search`，固定向 PostgreSQL Cards 查询传入 `has_image = 2`。该入口覆盖 Search Cards 的空词首屏、关键词、分页及从 Sets 进入单个 Set 后的卡牌分页；独立 `GET /api/v1/sets/search` 仍只查询 `sets`，不增加图片条件。Scan 的卡号消歧直接调用适配器且未传图片条件，保持原查询范围。
+- 实现与缓存：`CardSearchOptions` 增加仅供服务端内部使用的字面量选项 `has_image?: 2`，客户端请求没有新增字段，V1 路径、参数、响应结构和分页格式不变。Cards SQL 仅在该选项存在时追加 `cards_all.has_image = 2`；搜索 KV 提升到 `v17` 并把图片条件纳入键，避免过滤前的 `v16` 页面或无图片条件的内部查询复用。未修改 schema、migration、索引、图片状态或业务数据。
+- 查询回归：`pnpm --filter @kando/workers-api test src/db/postgres/cards-created-order-indexes.test.ts src/data-source/local-db-adapter.test.ts src/data-source/kv-cache.test.ts src/data-source/routes.test.ts --maxWorkers=1` 最终为 4 文件／57 项通过。PGlite 用例以 `has_image=1/2/3` 验证只有精确值 2 进入目录，同时确认未传内部选项的适配器调用保持原范围；路由用例覆盖 Search Cards 与 Set 内分页排除无图记录；KV 用例确认 `v16` 不会绕过新条件，且过滤查询不会与内部未过滤查询复用键。三个索引计划用例使用实际含图片条件的空词 SQL，三种范围仍采用既有创建时间索引前缀；该合成计划不代表目标环境耗时。
+- 静态与旧端：Workers `type-check` 通过。完整 `pnpm test:app-compatibility` 退出 0：当前 API 合同 8／8、固定 App 1.0.4+161 与 1.0.5+163 各 24／24，通过证据在忽略目录 `.dart_tool/app-compatibility/run-XMGnej/`，报告状态为 `passed`、证据类型为 `git-source-contracts-only`。旧客户端仍发送原请求并解析原 DTO；这只证明受控源码合同，不代表签名包、真机或真实目录数据。
+- 边界：本次未运行全量 Workers／Flutter 测试或制品构建，未查询 dev/prod 的 `has_image` 分布、真实分页结果或线上执行计划，未执行数据库写入、迁移、Git 提交／推送或任何部署。当前源码与文档不能当作 dev/prod 已生效。
+
+<a id="sets-numeric-id-order-20261029"></a>
+## Sets 系列列表按纯数字 ID 倒序（2026-10-29）
+
+- 范围：在 `codex/dev-1.0.7scan@80740bbd` 加前述未提交 Cards 数值排序改动的工作区中，按用户要求将 `GET /api/v1/sets/search` 从 `s.name ASC, s.set_id ASC` 改为纯数字 `set_id::numeric DESC NULLS LAST`、原字符串 `set_id DESC`。只有完全匹配 `^[0-9]+$` 的 ID 转换；非数字置后，前导零与 API 原字符串身份保持。该系列列表不增加创建时间主键，Game／关键词／非空 set_code 过滤不变。
+- 只读预检：kd201 dev `sets` 为 2,978 条、纯数字 2,078 条且最长 7 位，非数字最长 5 字符；Pokemon 首屏候选 SQL 使用 `idx_sets_game_name_search` 做 Bitmap Scan 后 Sort，单次执行 1.768 ms、规划 0.471 ms、共享缓存命中 43 块。只执行只读事务，没有替换运行代码、数据库写入或缓存回填；prod 未查。
+- 验证：`pnpm --filter @kando/workers-api test src/data-source/set-search.postgres.test.ts src/db/postgres/cards-created-order-indexes.test.ts src/data-source/local-db-adapter.test.ts src/data-source/kv-cache.test.ts src/data-source/routes.test.ts --maxWorkers=1` 最终 5 文件／57 项通过，Workers `type-check` 通过。真实 PostgreSQL 适配器覆盖数字／非数字／前导零／超 bigint 范围 ID 的 4／4／2 三页排序，名称不影响顺序，原 Game、set_code 和关键词过滤保留；SQL 断言明确没有 name 排序。
+- 首轮修正与旧端：首轮 56 项通过／1 项失败，原因是测试将数值同为 0 的 `0`／`000` 文本倒序期望写反；正确次序为 `000` 在前，修正测试后整组重跑 57／57，业务 SQL 未因测试失败调整。完整 `pnpm test:app-compatibility` 通过，当前服务端 8 项、固定 App 1.0.4／1.0.5 各 24 项，证据目录 `.dart_tool/app-compatibility/run-3bxrmo/`；旧客户端源码、基线及合同断言不变，不代表真机验收。
+- 审查：独立 Code Review 未发现代码阻断；现行合同已移除 Sets 名称排序，历史记录保留，`git diff --check` 通过。
+- 边界：无新增 migration 或索引；Sets 查询原本不走结果缓存，Cards `v16` 保持。本次尚未合并 dev 或部署；未运行全量 Workers／Flutter 测试或打包，只验证受影响查询和兼容调用方。原有 Cards 排序改动继续保留，不修改已执行的 `0016` 或固定旧端基线。
+
+<a id="cards-numeric-id-order-20261029"></a>
+## Cards 同创建时间内按纯数字 ID 排序（2026-10-29）
+
+- 范围：基于 `codex/dev-1.0.7scan@80740bbd`，按用户确认的新规则依次排序 `created_at DESC NULLS LAST`、纯数字 ID 的 `numeric` 值降序／非数字置后、原字符串 ID 降序。只用派生值排序，原 ID、API 字段、查询过滤、价格与鉴权边界不变；Search Cards 和 Sets 内卡牌列表共用规则，搜索缓存改为 `v16`。
+- 只读预检：kd201 `toccards_test`／PostgreSQL 18.6 的只读事务确认目录 2,405,301 行，纯数字 ID 268,639 行、最长 8 位，非数字最长 9 字符。Pokemon 最大同创建时间组 29,684 张；候选 SQL 的首屏 Game 索引＋Incremental Sort 样本为 81.133 ms、共享缓存命中 3,851 块，Set `23881` 的 Bitmap Scan＋Sort 为 26.783 ms、命中 6,445 块。该检查未替换运行代码、建立索引、写入业务数据或回填 HTTP 缓存；不能代表一般 P95／P99、端到端耗时或 prod。
+- 索引决策：本次保持最小业务改动，不修改已执行的 `0016`，不新增排序列、migration 或表达式索引。现有索引不能完整覆盖新增的数值排序，需要额外排序；这项性能代价已明确记录，不把 SQL 正确性等同于无性能变化。
+- 本地验证：`pnpm --filter @kando/workers-api test src/db/postgres/cards-created-order-indexes.test.ts src/data-source/local-db-adapter.test.ts src/data-source/kv-cache.test.ts src/data-source/routes.test.ts --maxWorkers=1` 为 4 文件／55 项通过，Workers `type-check` 通过。真实 PostgreSQL 适配器覆盖混合 ID、前导零、超 `bigint` 范围数字、时间主顺序、NULLS LAST、Game／Set 隔离和三页 10 张卡不重不漏；缓存测试确认旧 `v15` 结果不会替代新规则。6,000 条合成数据的三个浏览查询仍可用既有创建时间前缀索引，不再要求无 Sort。
+- 旧端与审查：完整 `pnpm test:app-compatibility` 通过，服务端 8 项、固定 App 1.0.4／1.0.5 各 24 项，证据目录 `.dart_tool/app-compatibility/run-kdCIDt/`；旧端基线、源码和客户端断言未改，继续验证字符串 ID、分页、零价／缺价。独立 Code Review 无正确性阻断，`git diff --check` 通过；当前排序变更不将 ID 的身份判断或传输转为数值。
+- 边界：本次尚未合并 dev、执行迁移或部署；未运行全量 Workers／Flutter 测试、制品构建、真机或生产数据验证，仅覆盖受影响查询与旧端源码合同。此前创建时间单键排序的记录保留为历史，不作为本次验证结果。
+
+<a id="cards-created-only-order-20261029"></a>
+## Cards 仅按创建时间排序（2026-10-29）
+
+- 范围：在 `codex/dev-1.0.7scan@6a1f053d` 上按用户新要求，将共享 Cards SQL 改为仅 `ORDER BY created_at DESC NULLS LAST`，移除 `product_id DESC`，搜索缓存提升为 `v15`。Search Cards 与 Sets 内卡牌列表共用此规则；请求／响应、价格和权限边界保持。
+- 索引与分页：保留已执行的 PostgreSQL `0016` 和三个组合索引，本次无新增 migration；索引前缀继续支持创建时间排序。相同时间记录不规定先后，不再保证这些记录跨页时的稳定边界；现有索引可能仍返回 ID 降序，不能将其视为接口契约。
+- 验证：`pnpm --filter @kando/workers-api test src/db/postgres/cards-created-order-indexes.test.ts src/data-source/local-db-adapter.test.ts src/data-source/kv-cache.test.ts src/data-source/routes.test.ts --maxWorkers=1` 为 4 文件／55 项通过，Workers `type-check` 通过。SQL 断言精确限制仅有创建时间排序；PostgreSQL 用例验证时间顺序、NULLS LAST，并对同时间记录仅校验集合；6,000 条合成数据的三种空词查询仍采用既有索引、无额外 Sort，不据此保证线上耗时。
+- 旧端验证：完整 `pnpm test:app-compatibility` 通过，服务端 8 项、固定 App 1.0.4／1.0.5 各 24 项，证据目录为 `.dart_tool/app-compatibility/run-faY91C/`。当前合同使用明确不同创建时间的目录样本验证分页与零价／缺价，固定旧端基线、源码和客户端合同断言不变；这不能证明同时间记录跨页时不重复或遗漏，也不代表真机或正式制品验收。
+- 审查：独立 Code Review 未发现代码阻断问题，文档明确本次规则替代 Card Search 原有的 ID 唯一稳定键约定；`git diff --check` 通过，`0016` 迁移及固定旧端基线无改动。
+- 边界：本次尚未合并 dev、执行远端查询、迁移或部署；未运行全量 Workers／Flutter 测试或打包，仅验证受影响查询与兼容调用方。2026-10-28 的开发和验收记录保留历史含义，不作为本次改动的验证结果。
+
+<a id="cards-search-order-indexes-20261028"></a>
+## Cards 创建时间排序与索引替换（2026-10-28）
+
+- 范围：本地 `codex/dev-1.0.7scan` 的排序修改开始于 `eb281316cba82bcf05929fc2b1b796846c6ce2ca`，验证时基线为包含并行 Admin 提交的 `eafeeb6a4a5fa17563c903d42eab9741a1579b4b`，叠加本次未提交改动。按最终要求将 Cards 查询改为 `created_at DESC NULLS LAST, product_id DESC`，KV 搜索缓存使用 `v14`；用户明确旧索引删除范围不包含 `updated_at` 字段。
+- 实现：新增 PostgreSQL `0016_cards_all_created_order_indexes.sql`，先创建全目录／Game／Game＋SetCode 三个创建时间排序索引，再删除对应的三个旧更新时间排序索引。新索引保留旧的筛选前导列；未修改其他索引、字段、数据、已执行迁移或退役 D1 实现。仓库活跃 SQL 审计未发现旧排序依赖，外部采集和临时 SQL 尚未核查。行为、执行方式与回退见 [Cards 排序与索引](../03-data-api/cards-search-order.md)。
+- 本地 PostgreSQL 与查询验证：`pnpm --filter @kando/workers-api test src/db/postgres/cards-created-order-indexes.test.ts src/data-source/local-db-adapter.test.ts src/data-source/kv-cache.test.ts src/data-source/routes.test.ts --maxWorkers=1` 为 4 文件／55 项通过。新增 PGlite 用例验证事务内重复迁移仅替换指定三组索引，保留其他索引、字段与数据；真实适配器验证创建时间、ID 降序、空时间置后及跨页结果。6,000 条合成数据经 `ANALYZE` 后，空关键词的全目录／Game／Game＋SetCode 三种查询计划分别采用对应新索引，均无额外 Sort；不据此推断关键词检索的计划或线上耗时。
+- 静态与旧端验证：Workers `type-check`、Dart 格式检查及兼容测试文件的 `flutter analyze --no-pub` 通过。完整 `pnpm test:app-compatibility` 通过：当前 Hono API 合同 8 项，固定 App 1.0.4+161 与 1.0.5+163 源码各 24 项；源码基线及旧客户端保持不变，只按已批准的新排序更新当前测试的页序与零价／缺价所在位置。结果保存在忽略目录 `.dart_tool/app-compatibility/run-gXMuPG/report.json`，证据类型为 `git-source-contracts-only`，不代表签名制品或真机验收。
+- 首轮失败与修正：初版计划测试使用关键词 `card`，规划器估算选择性后采用 Seq Scan＋Sort，因此该轮为 54 项通过／1 项失败；改为实际首屏的空关键词验证索引有序输出，未禁用顺序扫描或更改业务 SQL。新测试漏导入 Node `URL` 引发类型检查失败，显式导入后复跑通过。前述失败不记为通过；最终定向测试与类型检查均已重跑。
+- 最终审查：独立 Code Review 无阻断发现，`git diff --check` 及新文档入口／相对路径检查通过；前面误写入 v1.1.0 的本次排序说明已移至 v1.1.3，归档文件恢复为无差异。
+- 环境边界：尚未执行 dev/prod 迁移、远端索引统计／`EXPLAIN ANALYZE`、真实规模锁等待／耗时验证或部署；本地索引与合成数据验证不代表线上性能或外部查询兼容性已确认。本次仅覆盖查询、迁移和直接兼容调用方，未运行全量 Workers／Flutter 测试或打包；并行 Admin 变更不属于本记录。
+
+## Review 偶发图片与价格丢失修复（2026-10-28）
+
+- 基线与证据：基于本地 `codex/dev-1.0.7scan@94b7f79e38408ae673405d1bdb82c6d0249b7b74`。用户反馈 production App `1.0.6 (182)` 偶发进入 Review 后有候选名称但图片占位、价格为 `--`。调查已核对该包发布源 `557166b` 的相关加载函数与本地一致，并在修复前用临时 Widget 测试稳定复现：后台详情先成功，随后 `loadTarget` 完成，打开 Review 的旧缓存快照把图片覆盖回 `null`。截图对应三张候选的公开生产详情、主要行情请求与 JPEG 图片在调查时均正常；这些只读检查不代表取得了用户当次手机请求日志。
+- 最小修复：只修改 `scan_page.dart` 的 `_openReview`。图片地址为 `null` 的临时候选仍需补取详情；等待结束后与实时 `_reviewCards` 合并，保留此间后台已完成的图片和价格。详情成功但无行情仍有图片地址，不重复请求。原候选基本资料降级、选卡顺序、收藏确认、扫描识别／额度、图片传输及其他页面不变，未改 API、仓库或数据模型。实际行为见[扫描识别链路](../01-flows/scan-recognition.md#review-图片与详情加载修正2026-10-28)。并行 Admin／Workers 工作不属于本修复。
+- 回归：Windows Flutter 3.44.7／Dart 3.12.2 下，新增四个 Widget 用例 4／4 通过，覆盖占位补取、后台先成功后的数据保留、首轮详情失败后重试，以及图片有效但价格为空时不重复读取。`flutter analyze --no-pub lib/features/scan/scan_page.dart test/widget/scan_page_test.dart` 无问题。完整 `flutter test --no-pub --concurrency=1 --no-track-widget-creation test/widget/scan_page_test.dart test/scan_review_repository_test.dart` 为 137 项通过、4 项相机阶段 Golden 失败；Review Golden、候选选择、收藏确认、失败降级及 iOS／Android 既有行为测试均通过，不能将完整集合记为全通过。
+- Golden 与反证：四个失败项为 pre-scan／scanning／recognition／reveal 的 390×844 截图，差异依次为 13.81%、14.28%、15.19%、14.93%。使用原 HEAD 源码的隔离副本重跑，四张实际输出 PNG 的 SHA-256 与修复后逐一相同，确认是本次修改前已有差异，未修改或重录 Golden。原源码跑新增用例时前三项按预期失败；仅恢复旧快照合并时，时序用例仍以 `Expected 图片 URL / Actual null` 失败。隔离文件均已清理。最终使用 `--name '^(?!Figma (?:scan pre-scan|scan scanning|recognition|scan reveal) renders at the 390x844 baseline$)'` 明确排除这四项，原两文件其余 137／137 通过；首次使用不支持的 `--exclude-name` 参数退出 64，未运行测试，不记为通过。
+- 审查与边界：独立 Code Review 及补测后的复审均无阻断发现，`git diff --check` 通过。未修改相机／Review 布局、版本号或依赖，未做 iOS／Android 真机、APK／IPA 构建、正式包重测、Git commit／push 或远端部署。本次是客户端本地修复，生产 `1.0.6 (182)` 不会因此自动更新；线上生效仍需后续客户端打包与发布。
+
+## iOS 测试环境内部安装包 1.0.6 (189)（2026-10-28）
+
+- 构建输入：从构建前干净且与实时同名远端一致的 `codex/dev-1.0.7scan@885a78c54c43a2f9705dbc544be21cbf650bf2b6` 构建；相对 188 新增扫描汇总／额度提示与结果卡间距、大屏定位框等比放大、相机画面提亮及失败预留时的队列满提示校正，没有依赖、iOS 工程或环境配置变化。当前分支与 `origin/dev` 已分叉，本包只代表当前功能分支，未擅自切换或合并 dev。脚本从 `1.0.6+188` 显式选择 `1.0.6 (189)`，构建前 dev health 返回 `{"status":"ok"}`；成功后仅将 `pubspec.yaml` 同步为 `1.0.6+189`。
+- 工具链与依赖：使用 Flutter 3.44.5／Dart 3.12.2／Xcode 27.1。构建前 `flutter pub get --enforce-lockfile`、脚本内依赖解析及完整 `flutter analyze` 均退出 0；根 `pubspec.lock` 与 iOS `Podfile.lock` SHA-256 保持 `612f006776860e3a61f083bf27283a73ec1c22b95dd8d318b06533d8fed46183`、`14216d83bfc80fdb98860bf1d624e528f35878242513a14ac6a41b3bf61ff685`，没有依赖锁更新。Swift Package Manager 与 ML Kit Apple Silicon iOS 26+ 模拟器提示仍存在，本轮 CocoaPods、真机 Release Archive 和 IPA 导出成功，不把未来／模拟器兼容提示记为已解决。新提交对应的定向组件、布局和静态检查结果见本文件下方各功能记录；本轮未重跑完整 Widget 或 Flutter 测试。
+- 环境与签名：最终内部 IPA 为 `com.kando.kandoApp.beta`、`1.0.6 (189)`、MinimumOSVersion 16.0；测试 API `http://192.168.50.201:8080/api/v1` 命中一次且生产 API 不存在。内置 `GoogleService-Info.plist` 与仓库 test 文件逐字节一致，Firebase project 为 `card-ai---test`、Google App ID 为 `1:490325688457:ios:923f77a6242705bc0f8658`。Runner 与 42 个 Framework 共 43 个组件逐个通过严格签名校验，全部为 Apple Development `kancloud cq (578WZAD3DU)`、Team `B95U3272HR`；最终 `get-task-allow=true`、App Attest=`development`、Apple Sign In=`Default`，application identifier 为 `B95U3272HR.com.kando.kandoApp.beta`。profile UUID `b38a6512-5b51-4f36-ab2d-757de0582e7b`，有效至 2027-09-07，包含 6 台设备。
+- 符号：IPA 的 43 个唯一 Mach-O UUID 与 dSYM 的 43 个唯一 UUID 精确一致，missing／extra 均为 0；45 条 DWARF 中两组为重复 UUID 副本。逐个验证 45 个实际 DWARF 二进制后为 44／45 通过；只有 `App.framework.dSYM` 退出 1，包含 169 次既有 Flutter AOT address range 错误及两条汇总。UUID 覆盖完整，但不能写成全部 dSYM 深检通过。
+- 制品与边界：`Card AI Test.ipa` 为 42,977,376 字节，SHA-256 `897971ed7f82fa9f5e72ebf5a061546cabea7bd393ebd0f62b75d2b51847e09a`；`dSYMs.zip` 为 63,897,276 字节，SHA-256 `ef32dc8af9d5ca0cf06db67b18fff614982e58a9e61be8d5c989cb62b109e19a`。两份 ZIP 完整性通过，保存 IPA 与构建输出逐字节一致；独立展开比对确认 IPA 的 384 个文件及 dSYM 的 134 个文件均与当前 xcarchive 一致。制品位于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.6-189/`；完整保存后当前保留 187、188、189，并经 Finder 独立回读确认 186 已移入废纸篓。本次未安装真机、上传蒲公英／TestFlight／App Store Connect／Firebase，也未执行远程部署、数据库写入、Git commit 或 push；未执行真实扫描、扫描 Golden 或真机 OCR／pHash。
+
+## Admin 苹果通知消息 SKU 下拉选项（2026-10-28）
+
+- 范围：基于本地 `codex/dev-1.0.7scan@eb281316cba82bcf05929fc2b1b796846c6ce2ca`，按用户确认将 SKU 输入框改为可搜索、可清空的单选下拉，选项取当前后台可见的全部通知记录，跨分页去重。选择后点击查询生效，保留既有完整匹配、组合条件、分页和重置行为；刷新同步更新列表与选项，选项加载失败明确提示。合同见[后台增量](../04-admin/admin.md#苹果通知消息-sku-筛选2026-10-28)。
+- 接口：既有 V1 `GET /api/v1/admin/apple-notifications/options` 保留 `items`，新增 `skus`，从 `product_id` 排序去重并排除无值项，沿用列表的 Bundle／业务环境隔离，不按页面筛选条件收缩。该接口仅供 Admin 使用，可兼容增加独立字段，无需 V2；没有修改 App API、通知处理、共享数据写入、schema 或 migration。
+- 验证：开发与必要文档完成后，`pnpm --filter @kando/admin-web test` 为 80／80 通过；新增行为测试执行真实页面函数，覆盖当前页外 SKU、查询草稿、UID 组合、分页、清空、重置、列表／选项同时刷新和失败重试入口。`pnpm --filter @kando/workers-api test src/admin/apple-notification-sku.postgres.test.ts src/admin/routes.test.ts --pool=threads --maxWorkers=1` 沿用既有 `.wrangler` 排除项，2 文件／22 项通过；PostgreSQL/PGlite 覆盖去重、空值、跨分页、Bundle／环境隔离及原 SKU 精确匹配。Admin 与 Workers 的 `type-check`、`pnpm lint` 均通过；Admin `run build:dev` 成功构建 1,526 个模块。上述命令均退出 0。
+- 审查与边界：独立 Code Review 未发现阻断问题，本次范围的 `git diff --check` 通过。未进行真实 Admin 登录浏览器交互或线上数据库性能验收；因改动仅涉及 Admin 只读接口与页面，未运行全量 Workers、Flutter 或旧 App 源码兼容编排。开发验证阶段未连接 dev／prod 数据库，未执行部署、远端 migration、Git commit／push 或远程配置写入。上线需要配套发布 Admin 与 API；仅发布前端而旧 API 未返回 `skus` 时下拉选项为空。其他并行任务的改动不属于本次 SKU 下拉交付。
+
+## Admin 苹果通知消息 SKU 筛选（2026-10-28）
+
+- 范围：基于本地 `codex/dev-1.0.7scan@94b7f79e38408ae673405d1bdb82c6d0249b7b74`，在“数据统计 → 苹果通知消息”增加 SKU 输入筛选。前端查询时去除首尾空格，分页／刷新保留当前值，重置清空 SKU；桌面宽屏使用五列并让创建时间跨两列，中等宽度三列、小屏两列且操作区占满一行。完整合同见[后台增量](../04-admin/admin.md#苹果通知消息-sku-筛选2026-10-28)。
+- 服务端：`GET /api/v1/admin/apple-notifications` 新增可选 `sku` 参数，按 `apple_server_notification.product_id` 大小写敏感完整匹配，并与现有条件使用 AND 语义；列表和总数复用同一 where。未传 SKU 时，没有结构化行／SKU 的失败 inbox 继续可见。没有新增数据库字段、migration、写入路径、D1 实现或通知处理变化。
+- 验证：Admin 全量 Node 测试 79／79 通过；Workers 使用 PostgreSQL/PGlite 的新增测试与既有 Admin 路由测试共 2 文件／21 项通过，覆盖 SKU 命中、前缀不命中、大小写不同不命中、列表／总数一致及无筛选时失败 inbox 保留。`pnpm --filter @kando/admin-web run build:dev` 成功转换 1,526 个模块；`pnpm lint` 通过；根 `pnpm type-check` 的 7 个 TypeScript package 全部通过。
+- 失败与审查：首次 Workers 类型检查因新增测试使用了 DOM `URL` 类型而退出 2；显式导入 `node:url` 的 `URL` 后，同一类型检查及定向测试通过。首次只读 Code Review 指出普通文本的 `LOWER(...)` 会破坏 Product ID 大小写语义；改为参数化原值匹配并补隔离测试后，复审未发现遗留问题。
+- 边界：本轮未使用真实 Admin 登录态进行浏览器查询，未连接 dev／prod 数据库，未运行完整 Workers 测试、部署、migration、Git commit／push 或远程配置写入。本地源码和构建通过不代表 dev／prod 已上线该筛选。
+
+## Admin 扫描记录卡牌类型筛选（2026-10-28）
+
+- 基线与范围：从干净的 `codex/dev-1.0.7scan@c13cb90f4207d8b65545b471986829645f2bfd14` 开始本地修改。“卡牌管理 → 扫描记录管理”新增 TCG／SPORTS 类型筛选，选择后点击查询生效，分页保留类型，清除／重置恢复全部。用户已明确确认历史缺类型记录只在“全部”中显示，不推断回填；完整规则见[扫描识别链路](../01-flows/scan-recognition.md#管理后台按卡牌类型筛选2026-10-28)。
+- 实现：复用 `GET /api/v1/admin/scans`，可选 `card_type=0|1` 同时参与 PostgreSQL 列表与总数查询，其他条件和 Admin 鉴权保持。扫描请求中的已校验类型保存到既有 `system_result.card_type`，成功、未命中和上游失败的审计记录均覆盖；兼容向量与 pHash 路径共用该写入点，不修改 App 扫描响应，无新增数据库列、migration 或 D1 路径。
+- 前端验证：`pnpm --filter @kando/admin-web test` 最终 79／79 通过，新增测试执行真实页面处理函数，覆盖草稿／查询时机、TCG 的字符串 `0`、SPORTS、UID 组合、分页、清除和重置。首轮 78 项通过、1 项因测试夹具未提供 CommonJS `exports` 而失败；补齐夹具后同范围重跑全通过，未调整生产逻辑或放宽断言。Admin `type-check`、`pnpm lint` 通过；`pnpm --filter @kando/admin-web run build:dev` 成功构建 1,526 个模块。首次省略 `run` 的构建调用退出 1 且无输出，不记为通过。
+- 后端验证：在 `apps/workers-api` 使用本机 Node 执行 Vitest，按标准参数 `--exclude "**/.wrangler/**" --pool=threads --maxWorkers=1` 分别运行当前源码的 `src/scan/routes.test.ts`（57／57）、`src/admin/routes.test.ts`（19／19）及新增 `src/admin/scan-card-type.postgres.test.ts`（3／3），合计 3 文件／79 项通过。新增测试使用 PGlite 和既有 PostgreSQL 迁移，覆盖旧记录、类型、分页总数、组合条件、非法枚举和鉴权；既有扫描测试补充持久化断言，包括无候选的失败记录。Workers `type-check` 通过。早期直接 Vitest 调用遗漏既有 `.wrangler` 排除项，混入生成副本并出现 Windows 进程异常 `3221226505`；这些轮次不作为当前源码通过证据。
+- 审查与边界：独立 Code Review 未发现需返工问题，`git diff --check` 通过。未运行全仓 Workers／Flutter 测试、真实后台登录交互或线上数据库性能验收；未提交／推送 Git、部署 dev/prod、执行远端迁移或历史数据回填。类型保存从目标环境部署此服务端代码后的新扫描开始生效，本地测试不代表线上已出现该筛选。
+
+## iOS 测试环境内部安装包 1.0.6 (188)（2026-10-28）
+
+- 构建输入：从构建前干净且与实时同名远端一致的 `codex/dev-1.0.7scan@b1c37e7fa26e86747195ca62ec7d9b8ada8a6ff1` 构建；相对 187 新增十张活动卡牌队列容量顶部提示及测试、扫描链路与验证文档，没有依赖、iOS 工程或环境配置变化。当前分支与 `origin/dev` 已分叉，本包只代表当前功能分支，未擅自切换或合并 dev。脚本从 `1.0.6+187` 显式选择 `1.0.6 (188)`，构建前 dev health 返回 `{"status":"ok"}`；成功后仅将 `pubspec.yaml` 同步为 `1.0.6+188`。
+- 工具链与依赖：使用 Flutter 3.44.5／Dart 3.12.2／Xcode 27.1。构建前 `flutter pub get --enforce-lockfile`、脚本内依赖解析及完整 `flutter analyze` 均退出 0；根 `pubspec.lock` 与 iOS `Podfile.lock` SHA-256 保持 `612f006776860e3a61f083bf27283a73ec1c22b95dd8d318b06533d8fed46183`、`14216d83bfc80fdb98860bf1d624e528f35878242513a14ac6a41b3bf61ff685`，没有依赖锁更新。Swift Package Manager 与 ML Kit Apple Silicon iOS 26+ 模拟器提示仍存在，本轮 CocoaPods、真机 Release Archive 和 IPA 导出成功，不把未来／模拟器兼容提示记为已解决。新功能提交已有两项定向组件测试 2／2 记录，本轮未重跑 Widget 测试或完整 Flutter 测试。
+- 环境与签名：最终内部 IPA 为 `com.kando.kandoApp.beta`、`1.0.6 (188)`、MinimumOSVersion 16.0；测试 API `http://192.168.50.201:8080/api/v1` 命中一次且生产 API 不存在。内置 `GoogleService-Info.plist` 与仓库 test 文件逐字节一致，Firebase project 为 `card-ai---test`、Google App ID 为 `1:490325688457:ios:923f77a6242705bc0f8658`。Runner 与 42 个 Framework 共 43 个组件逐个通过严格签名校验，全部为 Apple Development `kancloud cq (578WZAD3DU)`、Team `B95U3272HR`；最终 `get-task-allow=true`、App Attest=`development`、Apple Sign In=`Default`，application identifier 为 `B95U3272HR.com.kando.kandoApp.beta`。profile UUID `b38a6512-5b51-4f36-ab2d-757de0582e7b`，有效至 2027-09-07，包含 6 台设备。
+- 符号：IPA 的 43 个唯一 Mach-O UUID 与 dSYM 的 43 个唯一 UUID 精确一致，missing／extra 均为 0；45 条 DWARF 中两组为重复 UUID 副本。逐个验证 45 个实际 DWARF 二进制后为 44／45 通过；只有 `App.framework.dSYM` 退出 1，包含 169 次既有 Flutter AOT address range 错误及两条汇总。UUID 覆盖完整，但不能写成全部 dSYM 深检通过。
+- 制品与边界：`Card AI Test.ipa` 为 42,976,855 字节，SHA-256 `db433e5b874c5ffc123807c2e4ae42cd8662309f7362ca61abb755458af7db62`；`dSYMs.zip` 为 63,897,278 字节，SHA-256 `68b632f8d22f3f64d635735deaba6fc1bba8481ead9730eb13dcd648da4d0a46`。两份 ZIP 完整性通过，保存 IPA 与构建输出逐字节一致；独立展开比对确认 IPA 的 384 个文件及 dSYM 的 134 个文件均与当前 xcarchive 一致。制品位于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.6-188/`；完整保存后当前保留 186、187、188，并经 Finder 独立回读确认 185 已移入废纸篓。本次未安装真机、上传蒲公英／TestFlight／App Store Connect／Firebase，也未执行远程部署、数据库写入、Git commit 或 push；未执行真实第 11 次扫描、扫描 Golden 或真机 OCR／pHash。
+
+## 订阅兜底三卡下移（2026-10-28）
+
+- 根据用户提供的 iPhone 截图，仅将 iOS 本地三卡且无试用开关时，权益区与首张商品之间的间距从 62 调至 86 逻辑像素。三张商品整体下移 24 像素；卡间 20 像素、固定购买区、远端后台配置和 Android 分支不变。初始 414×896 Widget 几何测量中，真实商品兜底的末卡到按钮上沿为 43px；调整后该测试通过。最终新增回归改为商品全量失败的固定参考价分支，确认首卡距权益区 86px、末卡与按钮仍有间隔，并断言实际进入离线兜底；原 62px 布局无法满足首卡断言。
+- 最终 `flutter test --no-pub --concurrency=1 --no-track-widget-creation test/subscription_display_test.dart test/subscription_restore_ui_test.dart` 退出 0，108／108 通过，涵盖 Page／Modal 兜底、远端商品和 Android 既有路径；`flutter analyze --no-pub` 退出 0。独立只读 Code Review 未发现阻断问题。
+- 根据用户后续指定，使用 `flutter run --no-pub --flavor test --debug -d 00008030-001C08311E28802E --dart-define-from-file=config/test.json` 在有线 iPhone 11（iOS 18.7.8）完成 Debug 构建、安装和启动，Flutter VM Service 已连接。设备当前断网，测试 API 的订阅展示配置请求失败；828×1792 截图确认页面进入本地兜底，三张商品卡、Retry 和购买按钮均可见，末卡与按钮无重叠。随后 detach 调试连接并再次抓屏，App 仍保持在该页面。此画面验证的是断网固定参考价分支，不代表联网 StoreKit 报价或远端配置布局已在真机验收。
+- 用户更改目标设备前，iPhone 13 已通过 `devicectl` 安装过同一 Debug 包；其后续 `flutter run` 在安装启动阶段按用户指示停止，未做真机布局验收，也未卸载已有应用以免影响设备数据。
+
+## iOS 测试环境内部安装包 1.0.6 (187)（2026-10-28）
+
+- 构建输入：从构建前干净且与实时同名远端一致的 `codex/dev-1.0.7scan@c13cb90f4207d8b65545b471986829645f2bfd14` 构建；该提交在 186 后新增扫描页顶部间距、额度提示文字和定位框四角等视觉调整及对应测试，没有依赖、iOS 工程或环境配置变化。当前分支与 `origin/dev` 已分叉，本包只代表当前功能分支，未擅自切换或合并 dev。脚本从 `1.0.6+186` 显式选择 `1.0.6 (187)`，构建前 dev health 返回 `{"status":"ok"}`；成功后仅将 `pubspec.yaml` 同步为 `1.0.6+187`。
+- 工具链与依赖：使用 Flutter 3.44.5／Dart 3.12.2／Xcode 27.1。构建前 `flutter pub get --enforce-lockfile`、脚本内依赖解析及完整 `flutter analyze` 均退出 0；根 `pubspec.lock` 与 iOS `Podfile.lock` SHA-256 保持 `612f006776860e3a61f083bf27283a73ec1c22b95dd8d318b06533d8fed46183`、`14216d83bfc80fdb98860bf1d624e528f35878242513a14ac6a41b3bf61ff685`，没有依赖锁更新。Swift Package Manager 与 ML Kit Apple Silicon iOS 26+ 模拟器提示仍存在，本轮 CocoaPods、真机 Release Archive 和 IPA 导出成功，不把未来／模拟器兼容提示记为已解决。
+- 环境与签名：最终内部 IPA 为 `com.kando.kandoApp.beta`、`1.0.6 (187)`、MinimumOSVersion 16.0；测试 API `http://192.168.50.201:8080/api/v1` 存在且生产 API 不存在。内置 `GoogleService-Info.plist` 与仓库 test 文件逐字节一致，Firebase project 为 `card-ai---test`。Runner 与 42 个 Framework 共 43 个组件逐个通过严格签名校验，全部为 Apple Development `kancloud cq (578WZAD3DU)`、Team `B95U3272HR`；最终 `get-task-allow=true`、App Attest=`development`、Apple Sign In=`Default`，application identifier 为 `B95U3272HR.com.kando.kandoApp.beta`。profile UUID `b38a6512-5b51-4f36-ab2d-757de0582e7b`，有效至 2027-09-07，包含 6 台设备。
+- 符号：IPA 的 43 个唯一 Mach-O UUID 与 dSYM 的 43 个唯一 UUID 精确一致，missing／extra 均为 0；45 条 DWARF 中两组为重复 UUID 副本。直接对展开后的 dSYM bundle 深检时，ZIP 中的 `._*` AppleDouble 资源辅助文件使 45 个 bundle 都误报非目标文件，不能记为有效检查；改为逐个验证 45 个实际 DWARF 二进制后为 44／45 通过。只有 `App.framework.dSYM` 退出 1，包含 169 次既有 Flutter AOT address range 错误及两条汇总；UUID 覆盖完整，但不能写成全部 dSYM 深检通过。
+- 制品与边界：`Card AI Test.ipa` 为 42,974,722 字节，SHA-256 `6cc5f73ebce54e4ff1d6ce567d77a5993041d5e56f87fe0866a29589382faa4f`；`dSYMs.zip` 为 63,897,049 字节，SHA-256 `77bd0479136380f3cd6ee00a22bb06dc6c68572ed69e77e36ddd07991b1f7bb0`。两份 ZIP 完整性通过，保存 IPA 与构建输出逐字节一致；独立展开比对确认 IPA 的 384 个文件及 dSYM 的 134 个文件均与当前 xcarchive 一致。制品位于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.6-187/`；完整保存后当前保留 185、186、187，并经 Finder 独立回读确认 184 已移入废纸篓。本次未安装真机、上传蒲公英／TestFlight／App Store Connect／Firebase，也未执行远程部署、数据库写入、Git commit 或 push；未重跑全量 Flutter 测试、扫描 Golden 或真机 OCR／pHash。
+
+## 扫描页顶部操作区间距收紧（2026-10-27）
+
+- 将系统顶部安全区与关闭／卡牌类型／闪光灯操作行之间的固定间距从 36px 缩小 20px 至 16px；按钮尺寸、横向位置、顶部背景透明状态及点击逻辑不变。取景框继续通过共享几何与顶部操作区保留 29px 最小间距，并按安全区和可用高度自适应。
+- 定向 390×844 布局测试 1/1 通过，操作行从 `safeTop+36` 精确上移到 `safeTop+16`，标准尺寸取景框保持 `x=68, y=154, 254×363`。首次非 Golden 集合有 128 项通过、2 项尺寸快照失败：顶部新增空间使 iPhone 8 取景框从约 150.44×215 扩为 164.44×235，紧凑 Android 从约 128.75×184 扩为 142.74×204；两者比例、29px 上下间距、扫描线和遮罩均保持。更新这两项预期后同一集合 130/130 通过，相关静态分析无问题。待扫描实际图人工回读确认按钮行上移；Golden 因当前累计视觉增量及既有 macOS 字体差异以 9.05% 失败且未重录。test flavor 已向有线 iOS 18.7.8 设备热重载成功，尚待用户真机确认。
+
+## 扫描额度提示文字样式校正（2026-10-27）
+
+- 对照用户提供的 UI 原图，将 `Tap to get unlimited scans` 从整句共用下划线拆为两个富文本片段：仅 `Tap to` 使用品牌黄色及同色下划线，` get unlimited scans` 显式使用 `#E4E3D3` 且不带下划线；前方额度文字同为 `#E4E3D3`，不使用默认纯白。额度数值、PRO 徽章、整条提示尺寸、点击区域及订阅入口逻辑不变。
+- 定向 Widget 测试 1/1 通过，逐段断言文字、显式颜色及下划线样式；排除 5 项 390×844 Golden 后，`scan_page_test.dart` 其余 130/130 项通过，相关源码与测试的 `flutter analyze --no-pub` 无问题。待扫描实际图人工回读确认仅 `Tap to` 变为品牌色，整行未换行或错位；该图包含当前未收口视觉增量及既有 macOS 字体差异，Golden 以 7.05% 失败且未重录。test flavor 已向有线 iOS 18.7.8 设备热重载成功，尚待用户真机确认。
+
+## 扫描页定位框四角补齐（2026-10-27）
+
+- 设计与范围：对照 Figma `3901:8241` 及用户提供的原始 UI 截图，在既有 254×363、11px 圆角光晕上补齐四个高亮 L 形转角；每个角段长 36px、转角半径 11px、品牌色描边 4px。进一步对照确认角与角之间只有低强度黄绿色光晕，因此移除整圈 0.91px 白色到橄榄色渐变实线；四个角的路径中心线统一向内偏移半个描边宽度 2px，使 4px 描边外沿与取景框四条边对齐且不再被边界裁切。取景框几何、相机裁剪、扫描线、识别遮罩、OCR／pHash、结果区和操作控件均未修改，iOS／Android 继续共用同一 Flutter painter。
+- 验证：顶部控件与定位框定向 Widget 测试 1/1 通过，新增离屏像素断言覆盖四个角各自的横／竖两段，并约束上边与左边中部透明度低于 80，防止光晕再次变成可见实线；排除 5 项 390×844 Golden 后，`scan_page_test.dart` 其余 130/130 项通过。相关源码与测试的 `flutter analyze --no-pub` 返回 `No issues found`。首次像素测试没有将 `PictureRecorder.toImage` 放入 `tester.runAsync`，运行 1 分 50 秒无结果后被主动中断，不计为通过；按仓库既有像素测试模式修正后同一用例退出 0。
+- 视觉与真机：重新生成但未接受的待扫描实际图已人工回读，确认四个粗高亮圆角段完整显示、描边外沿对齐四边且暗光晕中段没有实线；该 Golden 因本次定位框、上项顶部背景移除及既有 macOS 文字像素差异共计 7.00% 失败，未重录混合差异。test flavor 真机调试进程已向有线 iOS 18.7.8 设备再次热重载成功，尚待用户在真实相机画面确认视觉效果；测试 Firebase 外网请求出现超时日志，不影响本地热重载，不扩展为网络或识别验收。
+
+## 扫描页顶部操作区背景移除（2026-10-27）
+
+- 范围：基于 `codex/dev-1.0.7scan@d93d0be1` 的本地未提交增量，移除扫描页顶部操作区整块 20px 背景模糊、半透明底色、0.5px 底部分隔及安全区实色带，让相机画面直接延伸到屏幕顶部。关闭按钮、卡牌类型胶囊、闪光灯按钮各自的背景、尺寸、位置、点击和业务逻辑均保持不变。本项覆盖下方“扫描卡牌类型顶部提示样式”中“顶部仍保留背景模糊和底部分隔”的历史状态。
+- 验证：顶部控件样式与布局定向 Widget 测试 1/1 通过，明确断言整块 navigation surface 和 safe band 不存在、操作区内只剩卡牌类型胶囊自身的 `BackdropFilter`；排除 5 项 390×844 Golden 后，`scan_page_test.dart` 其余 130/130 项通过。对 `scan_page.dart` 和 `scan_page_test.dart` 的 `flutter analyze --no-pub` 返回 `No issues found`，`git diff --check` 通过。
+- Golden 与边界：4 项相机阶段 390×844 Golden 按预期失败，像素差异为 6.00%～9.38%；实际输出确认顶部整块遮罩已消失，但当前 macOS 渲染与仓库基线还包含既有页面文字像素差异，因此没有把无关跨平台差异一并重录。Review Golden 不受本次相机顶部区域修改影响，本轮未运行。
+- 真机调试：以 test flavor 和 `config/test.json` 在有线设备 `00008030-001C08311E28802E`（iOS 18.7.8）完成 Debug Xcode 构建、安装与启动，Flutter Dart VM Service 连接成功；目标 Bundle 与接口继续由既有 test 配置选择。构建只出现仓库已知的 Swift Package Manager／模拟器 arm64 兼容提示。本轮尚未收到用户对扫描页顶部视觉效果的确认，不把成功启动扩展为视觉验收、OCR／pHash 或真实识别通过；未执行 Git commit／push或远程部署。
+
+## iOS 测试环境内部安装包 1.0.6 (186)（2026-10-27）
+
+- 构建输入：从构建前干净且与实时同名远端一致的 `codex/dev-1.0.7scan@83836efd003723d4715bc66d4e9a43f7a418adf0` 原样重打；该提交只归档 185 的版本号和验证记录，185 后没有业务源码或依赖变化。本分支不是 `origin/dev` 最新状态，本包只代表当前 `codex/dev-1.0.7scan`。脚本从 `1.0.6+185` 显式选择 `1.0.6 (186)`，dev health 返回 `{"status":"ok"}`；成功后仅将 `pubspec.yaml` 同步为 `1.0.6+186`。
+- 工具链与依赖：使用 Flutter 3.44.5／Dart 3.12.2／Xcode 27.1。构建前 `flutter pub get --enforce-lockfile`、脚本内依赖解析及完整 `flutter analyze` 均退出 0；根 `pubspec.lock` 与 iOS `Podfile.lock` SHA-256 保持 `612f006776860e3a61f083bf27283a73ec1c22b95dd8d318b06533d8fed46183`、`14216d83bfc80fdb98860bf1d624e528f35878242513a14ac6a41b3bf61ff685`，没有依赖锁更新。Swift Package Manager 与 ML Kit Apple Silicon iOS 26+ 模拟器提示同 185，本轮 CocoaPods、真机 Release Archive 和 IPA 导出成功，不把未来／模拟器兼容提示记为已解决。
+- 环境与签名：最终内部 IPA 为 `com.kando.kandoApp.beta`、`1.0.6 (186)`、MinimumOSVersion 16.0；测试 API `http://192.168.50.201:8080/api/v1` 存在且生产 API 不存在。`GoogleService-Info.plist` 与仓库 test 文件逐字节一致，Firebase project 为 `card-ai---test`，生产 Firebase project／app ID／storage bucket 均不存在；生产 Google OAuth audience 仍是既有 Workers 验签合同例外，本轮未做真机 Google 登录。Runner 与 42 个 Framework 共 43 个 Mach-O 均通过严格签名校验，全部为 Apple Development `kancloud cq (578WZAD3DU)`、Team `B95U3272HR`；最终 `get-task-allow=true`、App Attest=`development`、Apple Sign In=`Default`。profile UUID `b38a6512-5b51-4f36-ab2d-757de0582e7b`，有效至 2027-09-07，包含 6 台设备。
+- 符号：IPA 的 43 个唯一 Mach-O UUID 与 dSYM 的 43 个唯一 UUID 精确一致，missing／extra 均为 0；45 条 DWARF 中两组为 `cupertino_http` 与 `objective_c` 的重复 UUID 副本。逐 bundle `dwarfdump --verify` 为 44／45 通过；只有 `App.framework.dSYM` 退出 1，包含 169 次 Flutter AOT address range 错误及两条汇总。排除临时路径后，其输出与保存的 185 对应文件逐字节一致，确认不是 186 新增；UUID 覆盖完整，但仍不能写成全部 dSYM 深检通过。
+- 制品与边界：`Card AI Test.ipa` 为 42,974,357 字节，SHA-256 `87f9fcd9dd32669eee58cfdda7bb0c218eda5779cdb2eb0f03b61c7773a57aca`；`dSYMs.zip` 为 63,896,975 字节，SHA-256 `b714c900b19f67c5d034dbd0d37b3a06082cb9523db7cd042d2853d398eb0c5e`。两份 ZIP 完整性通过，保存 IPA 与构建输出逐字节一致；独立展开比对确认 IPA 的 384 个文件及 dSYM 的 134 个文件均与当前 xcarchive 一致。制品位于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.6-186/`；完整保存后最旧的 183 已移入废纸篓，当前保留 184、185、186。本次未安装真机、上传蒲公英／TestFlight／App Store Connect／Firebase，也未执行远程部署、数据库写入、Git commit 或 push；未重跑全量 Flutter 测试、扫描 Golden 或真机 OCR／pHash。
+
+## iOS 测试环境内部安装包 1.0.6 (185)（2026-10-27）
+
+- 构建输入：构建前本地与实时远端均为干净的 `codex/dev-1.0.7scan@32afefb521177b316f7280018e0083afbe866116`，包含年试用 SKU 及重新对齐的扫描页 Figma 样式。脚本从工程 `1.0.6+184` 显式选择 `1.0.6 (185)`；dev health 返回 `{"status":"ok"}`。成功构建后只将 `pubspec.yaml` 同步为 `1.0.6+185`。
+- 工具链与失败处理：首次调用误用本机已升级的 Flutter 3.47.8／Dart 3.13.7，`pub get` 因 SDK 约束将 6 个传递依赖改为新版并由新迁移器改写两份 `analysis_options.yaml`，随后 `flutter analyze` 以 `unawaited_return_in_try_block` 退出 1；该轮没有生成 IPA，也没有更新版本。确认仓库 iOS 基线后，恢复全部工具生成变更及临时源码验证，使用独立的 Flutter 3.44.5／Dart 3.12.2／Xcode 27.1 重跑。`flutter pub get --enforce-lockfile`、图片组件定向测试 3／3、独立全量 `flutter analyze --no-pub` 及发布脚本内的全量 analyze 均退出 0。脚本更新版本后回查又发现根锁文件呈现同一组 3.47.8 自动重解结果，已再次精确恢复；最终根 `pubspec.lock` 与 iOS `Podfile.lock` SHA-256 保持 `612f006776860e3a61f083bf27283a73ec1c22b95dd8d318b06533d8fed46183`、`14216d83bfc80fdb98860bf1d624e528f35878242513a14ac6a41b3bf61ff685`，没有项目依赖锁更新。
+- 环境：最终内部 IPA 为 `com.kando.kandoApp.beta`，版本 `1.0.6 (185)`；测试 API `http://192.168.50.201:8080/api/v1` 存在，生产 API 不存在。内置 `GoogleService-Info.plist` 与仓库 test 文件逐字节一致，Firebase project 为 `card-ai---test`，生产 Firebase project／app ID／storage bucket 均不存在。Google OAuth audience 按既有 Workers 验签合同继续固定使用生产 Client ID，183／184／185 均相同，属于已知例外，不代表 Firebase SDK 串到生产；本轮未做真机 Google 登录验收。
+- 构建提示：`google_mlkit_commons`、`google_mlkit_text_recognition`、`sign_in_with_apple` 仍未支持 iOS Swift Package Manager；ML Kit 相关 Pod 仍提示 Apple Silicon iOS 26+ 模拟器 arm64 兼容性。本轮目标为真机 Release Archive，CocoaPods、Xcode Archive 和 IPA 导出均成功，不把上述未来／模拟器提示记为已解决。
+- 签名与符号：Runner 与 42 个 Framework 共 43 个 Mach-O 均通过严格签名校验，全部为 Apple Development `kancloud cq (578WZAD3DU)`、Team `B95U3272HR`；最终 `get-task-allow=true`、App Attest=`development`、Apple Sign In=`Default`，application identifier 为 `B95U3272HR.com.kando.kandoApp.beta`。profile UUID `b38a6512-5b51-4f36-ab2d-757de0582e7b`，有效至 2027-09-07，包含 6 台设备。IPA 的 43 个唯一 Mach-O UUID 与 dSYM 的 43 个唯一 UUID 精确一致，missing／extra 均为 0；45 条 DWARF 中两条为重复 UUID 副本。独立 `dwarfdump --verify` 深检有 44／45 个 bundle 通过，`App.framework.dSYM` 退出 1，并报告 169 次 Flutter AOT `DIE address ranges are not contained by parent ranges` 及两条汇总错误；保存的 184 对应文件同样为 171 条错误，确认不是 185 新增。UUID 覆盖完整，但不能写成全部 dSYM 深检通过。
+- 制品与边界：`Card AI Test.ipa` 为 42,974,353 字节，SHA-256 `3381891e492fbb3b03fd7d8ecbdb70c6e0ba11176a77bc3775e60319e7d14281`；`dSYMs.zip` 为 63,897,837 字节，SHA-256 `5e494bf4fecdef02e2970c31f4a961555a43cf5001b7be10c7d2e2c5ae887ebf`。两份 ZIP 完整性通过，保存 IPA 与构建输出逐字节一致；制品位于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.6-185/`。新版本完整保存后，最旧的 181 已移入废纸篓，当前保留 183、184、185。本次未安装真机、上传蒲公英／TestFlight／App Store Connect／Firebase，也未执行远程部署、数据库写入、Git commit 或 push；未重跑全量 Flutter 测试、扫描 Golden 或真机 OCR／pHash。
+
+## 订阅兜底页与年试用 SKU（2026-10-27）
+
+- 来源与范围：开始时基线为 `codex/dev-1.0.7scan@013a234f17ecf4a13ea507607b8ec4aa5dcac268` 加本地未提交修改；保留并行扫描页工作。按 Figma `3512:10546`／`3512:10763` 将本地 Page／Modal 兜底改为普通周、独立年试用、终身三卡，默认年试用；正式注册 `CardAi.yearly.trial`，测试注册 `cardx.year.trial`。原长期商品集合保留。具体价格、选中态文案和原型周期冲突取舍见[订阅本地兜底页](../01-flows/subscription-display.md)。没有修改服务端 V1、数据库、远端展示配置或 Android 购买分支。
+- 购买保护：代码路径审查发现离线 `TRY FOR FREE` 点击后，`prepareFallbackPurchase` 原先只核对真实商品 ID／类型；若免费优惠已消失，后续两次商品事实一致仍可能继续付费。现在先显示已加载商品的中性文案并停止此次购买，用户须再次确认。按先开发及文档、再测试的约定，未在修改前运行失败测试；完成后在隔离临时副本中仅移除新增保护，同一回归用例按预期失败（应返回 null，实际返回 SubscriptionProduct），真实源码用例通过。临时 Dart 文件已清理，未改工作区真实源码做反证。
+- 定向验证：`flutter test --no-pub --concurrency=1 --no-track-widget-creation test/subscription_display_test.dart test/subscription_restore_ui_test.dart test/release_config_test.dart test/subscription_product_registry_test.dart` 退出 0，122／122 通过。覆盖 390×844 下真实商品与离线 Page／Modal 三档、试用／非试用文案、完整年价与年周期、终身无周期、按精确年试用 SKU 重查、优惠消失阻止首次付费、原远端关联试用及长期注册／恢复边界。测试中的商店与注册表为受控替身，不代表真实 StoreKit 或服务端准入通过。
+- 静态与视觉检查：订阅模块及上述四个测试文件的 `flutter analyze --no-pub` 无问题。另通过两项临时渲染用例生成完整页／弹窗三种选择的六张 390×844 预览并检查试用、终身状态；输出位于忽略的 `apps/flutter-app/build/subscription-fallback-preview/`。预览使用 Windows 本机字体代替部分系统字体，完整页原生视频未播放，不能作为 iOS 像素级或真机视频验收。独立 Code Review 发现的优惠消失保护和周期归一化作用域问题均已修复并复核关闭；`git diff --check` 通过。
+- 工具与未验边界：首次沙箱内 Dart 格式化已写入文件，但写 SDK 外 telemetry session 失败而退出 1，不记为通过；后续受控 Flutter 检查通过。未运行全仓 Flutter／Workers 测试、APK／IPA 构建、CI、iOS／Android 真机或真实商店购买／Restore；未执行 Git commit／push、dev/prod 部署、后台商品审批、Apple 写操作、数据库迁移或业务写入。新年试用的 Apple 可售状态、实际三天免费优惠、各环境准入与 Singular 事件映射仍需在对应平台验证。
+
+## iOS 测试环境内部安装包 1.0.6 (184)（2026-10-27）
+
+- 构建输入：从构建前干净且与实时远端一致的 `codex/dev-1.0.7scan@76068ec82cb9674f4250e4a2bfe599e29561d033` 构建，包含扫描卡牌类型顶部提示样式提交。脚本按工程 `1.0.6+183` 显式选择 `1.0.6 (184)`，完整保存后仅将 `pubspec.yaml` 同步为 `1.0.6+184`；分支名不会自动改变营销版本。构建前 dev health 返回 `{"status":"ok"}`。
+- 环境与构建：最终内部 IPA 为 `com.kando.kandoApp.beta`，只包含测试 API `http://192.168.50.201:8080/api/v1`，Firebase plist 与仓库 test 文件逐字节一致，项目为 `card-ai---test`；生产 API、生产 Firebase project/app ID 不存在。Google OAuth audience 按既有 Workers 验签合同继续固定使用生产 Client ID，属于已知例外，不代表混入生产 Firebase。Flutter 3.44.5／Dart 3.12.2／Xcode 27.1 下，发布脚本完成配置校验、依赖解析、`flutter analyze`、`flutter clean`、test flavor Release Archive、基础 IPA 和内部 IPA 校验；analyze 无问题。根 `pubspec.lock` 与 iOS `Podfile.lock` 的 SHA-256 保持 `612f006776860e3a61f083bf27283a73ec1c22b95dd8d318b06533d8fed46183`、`14216d83bfc80fdb98860bf1d624e528f35878242513a14ac6a41b3bf61ff685`，没有依赖锁漂移。
+- 构建提示：`google_mlkit_commons`、`google_mlkit_text_recognition`、`sign_in_with_apple` 尚未支持 iOS Swift Package Manager；ML Kit 相关 Pod 另提示缺少 Apple Silicon iOS 26+ 模拟器 arm64 支持。本轮目标是真机 Release Archive，CocoaPods 和 Xcode 构建成功；这些未来／模拟器兼容提示未解决，也不扩展为真机 OCR 已验收。
+- 签名与符号：Runner 与 42 个 Framework 共 43 个组件逐个通过严格签名校验，均为 `Apple Development: kancloud cq (578WZAD3DU)`、Team `B95U3272HR`。最终 `get-task-allow=true`、App Attest=`development`、Apple Sign In=`Default`；profile UUID `b38a6512-5b51-4f36-ab2d-757de0582e7b`，有效至 2027-09-07，包含 6 台设备。IPA 的 43 个唯一 arm64 Mach-O UUID 与 dSYM 的 43 个唯一 UUID 精确一致，缺失／额外均为 0；45 个 DWARF 条目中两个为同 UUID 副本，45/45 均与当前 Archive 字节一致。
+- 测试：在 macOS 使用提交记录中的单并发、关闭 widget creation tracking 参数运行完整 `scan_page_test.dart`，130 项通过、5 个 390x844 Golden 像素比较失败，差异为 0.63%～3.85%；没有修改或重录 Golden。明确排除这 5 个 Golden 后，其余 130/130 项通过。该结果不能写成完整集合全通过；未执行真机相机、OCR／pHash、真实识别服务或人工视觉验收。
+- 制品与边界：`Card AI Test.ipa` 为 42,974,836 字节，SHA-256 `d89708a5e579f43d433d002034587a11d155e24d36f3faeb6c6e2601b2863cec`；`dSYMs.zip` 为 63,896,828 字节，SHA-256 `50d398a1cd73a0fbf533ca8ea110d7a8fe38b5a50be3009302dc8c1b3155e269`。两份 ZIP 完整性通过，保存 IPA 与构建输出逐字节一致；制品位于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.6-184/`。新版本完整保存后才将 180 移入废纸篓，当前保留 181、183、184。本次未安装真机、上传蒲公英／TestFlight／App Store Connect／Firebase，也未执行远程部署、数据库写入、Git commit 或 push。
+
+## 扫描卡牌类型顶部提示样式（2026-10-27）
+
+### 下拉菜单对齐与选中态（2026-10-28）
+
+- 扫描页 TCG／Sports Card 菜单改为顶部类型胶囊实际宽度的 `2/3` 并水平居中，总高度为外部 42px 类型胶囊的两倍（84px），两项各 42px 且取消额外上下留白。菜单外框顶部向上覆盖胶囊底边 2px 以遮住相交处边框；左上／右上角为直角，底部继续保留 12px 圆角。窄屏下继续跟随胶囊的实际自适应宽度，没有修改顶部关闭／闪光灯布局。
+- 展开菜单内当前类型使用品牌黄色 `KandoColors.accent`，另一项保留普通文字色；切换后高亮随 `_selectedCardType` 更新。仅调整 Flutter 弹层布局与视觉状态，没有修改 `card_type=0/1`、扫描接口或识别调用链。
+- 定向组件测试 1／1 通过，实际断言菜单项为胶囊宽度的 `2/3`、菜单总高度为胶囊的两倍、中心线一致、菜单外框顶部向上覆盖胶囊底边 2px、顶部直角／底部 12px 圆角，以及 TCG／Sports Card 切换后的品牌黄色选中态；扫描页实现与测试文件的 `flutter analyze --no-pub` 无问题，`git diff --check` 通过。当前工作区以 test flavor 和 `config/test.json` 在有线 iPhone 11（iOS 18.7.8，`00008030-001C08311E28802E`）完成 Debug 重构建、安装、启动及 Dart VM Service 连接；设备上的 Firebase 外网请求曾出现超时，不影响本地 UI 调试，也不记为网络验收通过。尚未收到用户对菜单视觉结果的确认，不把启动成功扩展为真机视觉验收或扫描识别通过。
+
+### 扫描汇总与结果卡间距（2026-10-28）
+
+- 对照用户提供的 UI 图与 iPhone 11 真机图，将额度提示条与下方扫描结果卡轨道的间距从原 3px 增至 15px；结果卡轨道和底部快门保持原位，因此 `Scanned / Total` 行与额度提示条整体上移 12px。取景框继续使用原 `254×363` 最大基准及既有自适应几何，没有随本次底部间距调整移动。
+- Premium／无限额度不显示额度提示条时，不再把原 42px 提示条和其上方 9px 间距留在汇总行下方；改为将这 51px 放到 `Scanned / Total` 上方，使汇总行下移且其底部到扫描结果卡轨道同样保持 15px。Free 布局不变，结果卡、取景框和快门位置不变。
+- 结果卡横向 `ListView` 继续复用与上方额度提示条相同的左右 16px 边界，但将绘制裁切从 `Clip.none` 收紧为 `Clip.hardEdge`；横向滚动中的卡牌不会再绘制到提示条宽度之外，卡片尺寸、间距、顺序和滚动物理保持不变。
+- 390×844 精确布局测试 1／1、iPhone 12／8／大屏 iPhone及紧凑／小屏／大屏 Android 的 Free／Premium 连续扫描布局测试 12／12 通过；新增逐变体断言确认 Free 提示条到结果卡、Premium 汇总行到结果卡均为 15px，并覆盖取景框不移动、汇总区与取景框不重叠、结果卡轨道与快门不重叠。扫描页实现及测试文件的定向 `flutter analyze --no-pub` 无问题，`git diff --check` 通过。首次真机热重载前连接丢失，未记为成功；随后同一工作区在有线 iPhone 11 完成 Debug 重构建、安装、启动及 Dart VM Service 连接。Firebase／Google 外网请求仍有超时，不记为网络或真实识别验收通过。
+
+### 大屏定位框等比放大（2026-10-28）
+
+- 保留现有 `254×363` 基准和小屏等比缩小分支；视口宽或高超过 `390×844` 时，才计算大屏放大候选。候选按 `254:363` 等比放大，并要求距离左右安全区、顶部操作区底边以及最早可能出现的底部汇总区均至少 35 个 Flutter 逻辑像素；任一方向空间不足时由更紧的方向限制比例。
+- Free／Premium 共用同一保守边界，权益变化不会导致定位框尺寸跳动。相机裁剪、扫描线、识别／揭示遮罩和四角 painter 继续读取同一 `_scanViewfinderGeometry`，未修改 OCR／pHash、扫描接口、额度或结果列表业务。
+- 新增 iPhone 11 `414×896`／顶部安全区 44 的公式回归，运行时按可用空间计算为约 `291.09×416`，与上下内容均保持 35px；该数值仅为测试期望，不作为运行时机型特判或固定尺寸。新增回归 1／1、原小屏自适应 2／2、连续扫描 Free／Premium 布局 12／12、Figma 基准布局 1／1 均通过；相关实现与测试的定向 `flutter analyze --no-pub` 无问题，`git diff --check` 通过。
+
+### 扫描相机画面提亮（2026-10-28）
+
+- 仅降低正常扫描状态下两层既有深色遮罩的不透明度：全屏 `0x0D0F08` 遮罩由约 10% 调整为约 7%（8-bit alpha `0x12`），同色径向暗角边缘由 85% 调整为 75%。颜色、暗角中心与半径、控件层级及识别／揭示状态遮罩均未修改。对应控件回归 1／1 通过，相关实现与测试的定向 `flutter analyze --no-pub` 无问题，`git diff --check` 通过；调亮版已重新构建、安装并启动到有线 iPhone 12 Pro Max，设备网络不可用导致 Firebase／测试 API 超时，不记为网络验收通过。
+
+### 十张活动卡牌顶部提示（2026-10-28）
+
+- 复用项目 `showKandoTopToast` 信息类型和默认 3 秒时长。当 Free 用户已有 10 张活动卡牌但服务端权威免费额度仍大于 0，或当前为 Premium／无限额度时，再次触发拍照或相册扫描显示 `Collect or remove cards to scan more`；不创建第 11 张卡、不调用识别源、不扣额度。Free 额度已耗尽时保留原 `Scan queue is full` 分支，避免错误提示用户仅需移除卡牌。
+- 2026-10-28 补充失败预留回归：服务端 `remainingScans` 包含活动预留，10 张均失败时可能暂时为 0，而用户可见的 `displayRemainingScans` 仍为 10，旧判断因此错误显示 `Scan queue is full`。队列满提示现以展示剩余额度补充判断，仅改变提示选择；拍照和相册仍拒绝创建第 11 项，服务端额度门禁、预留及扣减均未修改。新增 Free 失败预留拍照／相册回归 1／1、既有 Premium 队列满提示回归 1／1 通过；相关实现及测试的定向 `flutter analyze --no-pub` 无问题，`git diff --check` 通过。
+- 两项定向组件测试 2／2 通过：Free 场景使用 10 个失败结果保持 10 次剩余额度，并从相册入口验证未打开选择器；Premium 场景使用 10 个已完成结果并从拍照入口验证未发起第 11 次扫描。测试同时断言信息类型、2.999 秒仍显示、3 秒自动消失。扫描页实现及测试文件的 `flutter analyze --no-pub` 无问题，`git diff --check` 通过；修改已热重载至有线 iPhone 11。本轮未执行真实第 11 次真机扫描、服务端额度写入、完整 Flutter 测试、原生构建、Git commit／push 或远端部署。
+
+- 设计与范围：按 Figma 完整扫描页 `3305:21640` 重做 Flutter 扫描页样式，并以类型胶囊 `3305:21722`、取景框 `3305:21737`、额度提示 `3305:22294`、结果区 `3305:22304`、底部快门区 `3305:22349` 的属性为准。390×844 基线下，类型胶囊为 209×42px；取景框为 `x=68, y=154, 254×363px`、11px 圆角、0.91px 渐变边框及品牌色阴影；额度提示为 `x=16, y=573, 358×42px` 单行文案；结果轨道从 `y=618` 开始，卡片可见面板约 202×76px；底部控制区增加 8px 水平内边距。顶部仍保留 20px 背景模糊和 0.5px 底部分隔，控制项按设计只显示关闭、卡牌类型和闪光灯。
+- 业务边界：继续复用 `_selectedCardType`、`ScanCardType.tcg/sports`、PopupMenu、`onCardTypeChanged` 及既有拍照／相册／重试／额度升级／结果操作调用链；没有修改 `card_type=0/1`、扫描接口、OCR／pHash、额度计算、订阅、候选、确认入库、Analytics、权限或路由。Figma 顶部没有搜索图标，因此仅移除该视觉快捷入口；既有 `/search` 路由及 No Match 卡片的 `Search Manually` 入口保持并由原测试继续覆盖。
+- 布局兼容：扫描计数、额度提示和结果轨道使用固定 162px 下部状态槽，Free／Premium、扫描前／结果出现后均不移动取景框；底部安全区由快门区吸收，不再重复压缩取景框。iPhone 8、iPhone 12、大小屏 iOS 与 compact／small／large Android 的 Free／Premium 变体继续断言取景框、结果轨道和快门互不覆盖；取景框比例按设计精确使用 `254/363`。
+- 本地验证：更新四张受扫描页样式影响的 390×844 Golden 后，`flutter test --no-pub --concurrency=1 --no-track-widget-creation test/widget/scan_page_test.dart` 在不更新 Golden 的复跑中 135/135 通过；四张图已逐张原样回读，未重录 Review Golden。显式使用当前 Flutter SDK 运行全量 `analyze --no-pub` 返回 `No issues found`。首次默认 `flutter analyze --no-pub` 约三分钟无任何输出后被主动终止，不计为通过；随后显式入口验证成功。
+- 未执行：未制作 APK／IPA、未运行 iOS／Android 原生编译、模拟器或真机视觉验收，未执行 Git commit／push、dev/prod 部署、数据库或远程配置操作。本地 Golden 证明当前测试字体和 390×844 渲染输出，不证明真实相机画面、设备字体或所有系统安全区已由人工验收。
+
+## iOS 测试环境内部安装包 1.0.6 (183)（2026-10-26）
+
+- 构建输入：从构建前干净且与实时远端一致的 `codex/dev-1.0.7scan@fc7073fd747c97391cab8556d02df7f99a961ed5` 构建。分支名不会自动改变 App 营销版本；脚本按 `pubspec.yaml` 的 `1.0.6+182` 选择 `1.0.6 (183)`，完整保存后仅将工程版本同步为 `1.0.6+183`。dev health 在构建前返回 `{"status":"ok"}`。
+- 环境与构建：最终内部 IPA 为 `com.kando.kandoApp.beta`，只包含测试 API `http://192.168.50.201:8080/api/v1` 与 Firebase `card-ai---test`，生产 API／Firebase 字符串不存在。Flutter 3.44.5／Dart 3.12.2／Xcode 27.1 下，发布脚本完成配置校验、锁定依赖解析、`flutter analyze`、`flutter clean`、test flavor Release Archive、App Store 基础 IPA 与内部 IPA 校验；analyze 无问题。根 `pubspec.lock` 与 iOS `Podfile.lock` 的 SHA-256 保持 `612f006776860e3a61f083bf27283a73ec1c22b95dd8d318b06533d8fed46183`、`14216d83bfc80fdb98860bf1d624e528f35878242513a14ac6a41b3bf61ff685`，没有依赖锁漂移。构建仅提示 `google_mlkit_commons`、`google_mlkit_text_recognition`、`sign_in_with_apple` 尚不支持 iOS Swift Package Manager；本轮 CocoaPods 安装和 Xcode 构建成功，未把未来兼容提示写成已解决。
+- 签名与符号：IPA 的 Runner 与 42 个 Framework 共 43 个组件逐个严格签名校验通过，均为 `Apple Development: kancloud cq (578WZAD3DU)`；最终 `get-task-allow=true`、App Attest=`development`、Apple Sign In=`Default`。profile UUID 为 `b38a6512-5b51-4f36-ab2d-757de0582e7b`，有效至 2027-09-07，包含 6 台设备。IPA 的 43 个唯一 arm64 Mach-O UUID 与 dSYM 的 43 个唯一 UUID 精确一致，缺失／额外均为 0；45 个 DWARF 条目中两个是同 UUID 副本，不影响覆盖。
+- 测试：首次运行扫描相关单元／组件完整集合时，179 项通过、5 个 390x844 Golden 像素比较失败；失败项均为 macOS 与现有图像基线差异，未修改或重录 Golden。明确排除这 5 个 Golden 后，以相同测试文件和 test 配置重跑其余 179/179 项通过。该结果不能写成完整集合全通过，真机 OCR／pHash 与真实识别服务仍未验收。
+- 制品与边界：`Card AI Test.ipa` 为 42,972,634 字节，SHA-256 `056f20185ba55731e9f48bc937243114c83fae691cebd8336b48f67294dde156`；`dSYMs.zip` 为 63,896,903 字节，SHA-256 `c0e988e6bccf8d4ede7ca01f42aebf3b8798bfa6f26611db687cb6e0ef2127f2`，两份 ZIP 完整性通过。制品保存于 `~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.6-183/`；完整保存后才将 179 移入废纸篓，当前保留 180、181、183。本次未安装真机、上传蒲公英／TestFlight／App Store Connect／Firebase，也未执行远程部署、数据库写入、Git commit 或 push。
+
+## 扫描记录 OCR 文本展示（2026-10-26）
+
+基线为 `codex/dev-1.0.7scan@8f4763a4567b30d0f9964bfb3b1054e4cd420b9f` 加本地未提交增量。pHash/OCR 扫描把经过请求校验的文本写入既有 `scan_record.system_result.ocr_text`：有文本保存字符串，OCR 成功但无文本保存空字符串，OCR 缺失及旧向量请求保存 `null`。没有新增数据库字段或 migration；既有 Admin 扫描详情 API 原样解析 `system_result`，旧记录缺少该键时仍可读取。
+
+Admin “扫描详情 → 系统识别结果”在现有候选数量右侧增加“OCR 文本”。字符串原样展示；`null`、字段缺失及空字符串均展示为空白，不使用通用的 `-` 占位，也不改变列表、筛选、候选卡牌或其他 Admin 模块。
+
+实际本地验证：
+
+- Workers `src/scan/routes.test.ts` 与 `src/admin/routes.test.ts` 共 2 文件／76 项通过，覆盖 pHash 文本规范化后持久化、OCR 缺失／空字符串、旧向量 `null`、Admin 详情回传。
+- Admin 全量 Node 测试 78 项通过，其中新增意图测试约束 OCR 字段位置与空白展示；Admin TypeScript 检查通过。
+- Workers 首次 TypeScript 检查因 `buildSystemResult` 参数未显式包含运行时已排除的 `null` 类型而退出 2；仅修正参数类型为 `string | null | undefined` 后，同一类型检查退出 0，并重跑上述 76 项通过。
+- Admin development 构建通过：Vite 转换 1,526 个模块并生成静态产物。本轮未启动远端环境、未执行 migration／数据库写入、Git commit／push 或 dev/prod 部署；未以真实 Admin 登录态和现有扫描记录进行浏览器交互验收。
+
+## 扫描 pHash／OCR 选择性集成（2026-10-26）
+
+本地基线为 `codex/dev-1.0.7scan@8d8d2bb03e31af63b01e7f3e519fd3e6970e009b` 加未提交增量，来源为 `dev-xiangyang@2c56e9f12901c33d22684c869ac29d42f3ee77c3`。本轮未执行整分支 merge，只移植扫描识别、直接平台桥、依赖、双识别服务配置／预检及对应文档；版本号、订阅、Admin、历史归档回写和其他无关业务未引入。
+
+当前 App 使用 RTMDet 矫正卡面，并行计算 RGB pHash 与 ML Kit Latin OCR，OCR 经规则化后作为可选 `ocr_text`；体育卡发送 `card_type=1`。当前 App 与线上低版本 App 均调用 `POST /api/v1/scan/recognize`：服务端只收到 `r/g/b` 字段组时转发到 `PHASH_RECOGNITION_BASE_URL`，只收到 512 维 `vector` 时继续使用 `VECTOR_RECOGNITION`，两组同时出现或均缺失时返回 422。当前 Flutter 源码不再构建旧向量识别；插件向量入口、额度、R2、目录补全、扫描审计和 confirm 契约保持。PE-Core 转换产物保留在 source-only 模型目录，但已从 Android/iOS bundle 与原生运行入口移除。
+
+实际本地验证：
+
+- Flutter 扫描相关测试：`flutter test --no-pub ...` 退出 0，共 173 项；覆盖 pHash 位序／Pillow 对照、OCR 规则化、OCR 失败降级、RTMDet 裁剪、API multipart、Sports `card_type=1`、额度／重试及 Scan 页面共享流程。
+- 模型 bundle 清理后重跑核心 Flutter 测试，退出 0，共 23 项；针对性 `flutter analyze --no-pub` 退出 0。首次 analyze 因 `scan_text_recognizer_native.dart` 的冗余 `dart:typed_data` import 退出 1，删除该 import 后以相同范围重跑通过。
+- Workers 定向测试：`src/scan/routes.test.ts`、`src/legal/routes.test.ts`、`src/linux/config.test.ts` 共 3 文件／70 项通过；覆盖同一路径的旧向量与当前 pHash 分流、双字段歧义拒绝、OCR 缺失／空字符串、非法哈希、Sports 类型、配置缺失释放额度、目录／审计及隐私披露。
+- 按“当前源码只构建新协议、服务端兼容生产旧包”的边界将新旧请求收敛到原 `/scan/recognize` 后，重跑 Flutter API／编排 25 项、Workers 上述 70 项及 Workers TypeScript 检查，均退出 0；未新增第二条识别路由。
+- Workers TypeScript 检查通过；Linux bundle 与 preflight 的 Node 测试 11 项通过。随后 `deploy:dry-run:dev` 再运行 bundle 3 项并完成 Linux 打包，明确未连接 SSH、未执行 migration 或部署。
+- `pnpm test:app-compatibility` 退出 0：当前 PostgreSQL API 合同 8/8、固定 App 1.0.4+161 与 1.0.5+163 各 24/24。该编排不覆盖扫描；旧向量扫描兼容证据来自本轮 Workers 路由测试，不能把固定合同结果扩展为旧包真机扫描通过。
+- `pnpm lint` 通过。生产 Worker dry-run 通过，保留 `VECTOR_RECOGNITION` Service Binding，并加入 `PHASH_RECOGNITION_BASE_URL=https://recognize.tcgcard.fun`；没有上传、切流或修改远端配置。
+- Android test Debug APK 在接口收敛后重新构建通过：`apps/flutter-app/build/app/outputs/flutter-apk/app-debug.apk`，256,916,611 字节，SHA-256 `23f4448a1904e6758a6bd403eb17a082e896fddde36d4470db4c23c269ff8c8e`。包内断言确认 PE-Core 资源不存在、RTMDet 与 ML Kit OCR 资源存在。构建仅出现仓库既有 Gradle 8.12、AGP 8.9.1、Kotlin 2.1.0 的未来弃用警告，未在本任务升级工具链。
+
+未验证与边界：
+
+- Windows 无法执行 Xcode／CocoaPods／iOS 模拟器或真机构建；`Podfile.lock` 与 Xcode PE-Core 引用已按依赖和 bundle 变更更新，但 iOS 编译、签名、ML Kit Latin OCR、App Attest entitlement 和 IPA 解包仍待 macOS 补验。
+- 未向 `recognize.tcgcard.fun` 发送真实或合成识别请求，也未实时回读其公开 health；preflight 使用受控测试服务验证 768/euclidean/Top 5/`cards_phash` 合同。真实图片准确率、OCR 命中率、弱网／超时、真机性能和外部服务当前状态未验。
+- 未运行完整 Workers 默认测试、全仓 Flutter 测试、iOS 构建或真实旧 App 安装包扫描；未执行数据库 migration／业务写入、Git commit／push、dev/prod 部署或商店发布。
 
 后续记录按时间倒序追加，并明确以下信息：
 

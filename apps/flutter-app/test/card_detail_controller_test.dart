@@ -201,6 +201,24 @@ void main() {
   );
 
   test(
+    'detail asset overlay reads only its card because all-page portfolio scans grow with unrelated holdings',
+    () async {
+      final api = _ScopedPortfolioApiClient();
+      final repository = HttpCardDetailRepository(
+        api: api,
+        cardDataApi: _FakeCardDataApi(),
+      );
+      final core = await repository.loadCoreDetail('catalog:pikachu-025');
+      final detail = await repository.loadAssetState(_session, core);
+
+      expect(api.requestedCardRefs, ['catalog:pikachu-025']);
+      expect(detail.quantity, 2);
+      expect(detail.collectionItems.single.id, 'owned-pikachu');
+      expect(detail.portfolioFolders.single.name, 'Main');
+    },
+  );
+
+  test(
     'http detail repository isolates optional endpoint failures because the PRD keeps base card information available',
     () async {
       final failingOptionalApi = _FakeCardDataApi(
@@ -1638,6 +1656,84 @@ void main() {
       );
     },
   );
+
+  test(
+    'old market retry cannot replace prices after the selected finish changes',
+    () async {
+      final api = _DelayedMarketRefreshCardDataApi();
+      final repository = HttpCardDetailRepository(
+        api: _FakePortfolioApiClient(
+          folders: const [],
+          items: const [],
+          wishlist: const [],
+        ),
+        cardDataApi: api,
+      );
+      final container = _cardDetailContainer(repository: repository);
+      addTearDown(container.dispose);
+      final provider = cardDetailControllerProvider('catalog:pikachu-025');
+      final controller = container.read(provider.notifier);
+      await _loadedState(container, 'catalog:pikachu-025');
+      await _drainSectionLoads();
+
+      api.delayNextMarket = true;
+      final oldRetry = controller.refreshMarketPrices();
+      await controller.selectPriceFinish('Normal');
+      expect(
+        container.read(provider).priceTabMarketRows.first.priceText,
+        r'$25.00',
+      );
+
+      api.completeOldMarket();
+      await oldRetry;
+      expect(container.read(provider).priceFinish, 'Normal');
+      expect(
+        container.read(provider).priceTabMarketRows.first.priceText,
+        r'$25.00',
+      );
+      expect(
+        container.read(provider).marketPricesStatus,
+        KandoLoadStatus.content,
+      );
+    },
+  );
+
+  test(
+    'old chart retry failure cannot mark the newly selected finish as failed',
+    () async {
+      final api = _FinishSwitchingCardDataApi();
+      final repository = _DelayedSeriesRefreshRepository(
+        api: _FakePortfolioApiClient(
+          folders: const [],
+          items: const [],
+          wishlist: const [],
+        ),
+        cardDataApi: api,
+      );
+      final container = _cardDetailContainer(repository: repository);
+      addTearDown(container.dispose);
+      final provider = cardDetailControllerProvider('catalog:pikachu-025');
+      final controller = container.read(provider.notifier);
+      await _loadedState(container, 'catalog:pikachu-025');
+      await _drainSectionLoads();
+
+      repository.delayNextSeries = true;
+      final oldRetry = controller.refreshPriceSeries();
+      await controller.selectPriceFinish('Normal');
+      expect(
+        container.read(provider).priceSeriesStatus,
+        KandoLoadStatus.content,
+      );
+
+      repository.failOldSeries();
+      await oldRetry;
+      expect(container.read(provider).priceFinish, 'Normal');
+      expect(
+        container.read(provider).priceSeriesStatus,
+        KandoLoadStatus.content,
+      );
+    },
+  );
 }
 
 class _FailingThenSuccessfulCardDetailRepository
@@ -2205,6 +2301,49 @@ class _FakePortfolioApiClient implements PortfolioApi {
   Future<void> deleteWishlist(AuthSession session, String itemId) async {}
 }
 
+class _ScopedPortfolioApiClient extends _FakePortfolioApiClient
+    implements PortfolioCardAssetsApi {
+  _ScopedPortfolioApiClient()
+    : super(folders: const [], items: const [], wishlist: const []);
+
+  final requestedCardRefs = <String>[];
+
+  @override
+  Future<PortfolioCardAssetsDto> getCardAssets(
+    AuthSession session,
+    String cardRef,
+  ) async {
+    requestedCardRefs.add(cardRef);
+    return PortfolioCardAssetsDto(
+      folders: const [
+        PortfolioFolderDto(
+          id: 'main', name: 'Main', isDefault: true, sortOrder: 100,
+        ),
+      ],
+      items: [
+        _portfolioItem(
+          id: 'owned-pikachu',
+          cardRef: cardRef,
+          quantity: 2,
+        ),
+      ],
+      wishlistItems: const [],
+    );
+  }
+
+  @override
+  Future<List<PortfolioFolderDto>> listFolders(AuthSession session) =>
+      throw StateError('Unrelated folder list must not be requested');
+
+  @override
+  Future<List<PortfolioItemDto>> listCollectionItems(AuthSession session) =>
+      throw StateError('All collection pages must not be requested');
+
+  @override
+  Future<List<WishlistItemDto>> listWishlistItems(AuthSession session) =>
+      throw StateError('All wishlist pages must not be requested');
+}
+
 class _BlockingPortfolioApiClient extends _FakePortfolioApiClient {
   _BlockingPortfolioApiClient()
     : super(folders: const [], items: const [], wishlist: const []);
@@ -2453,6 +2592,73 @@ class _FinishSwitchingCardDataApi extends _FakeCardDataApi {
       CardDataPricePointDto(date: '2026-07-30', price: current),
     ];
   }
+}
+
+class _DelayedMarketRefreshCardDataApi extends _FinishSwitchingCardDataApi {
+  final _oldMarket = Completer<List<CardDataMarketPriceDto>>();
+  var delayNextMarket = false;
+
+  @override
+  Future<List<CardDataMarketPriceDto>> getMarketPrices(
+    String cardRef, {
+    String? finish,
+    String? language,
+  }) {
+    if (delayNextMarket) {
+      delayNextMarket = false;
+      return _oldMarket.future;
+    }
+    return super.getMarketPrices(cardRef, finish: finish, language: language);
+  }
+
+  void completeOldMarket() {
+    _oldMarket.complete(const [
+      CardDataMarketPriceDto(
+        grader: 'Raw',
+        grade: null,
+        condition: 'Near Mint',
+        price: 999,
+      ),
+    ]);
+  }
+}
+
+class _DelayedSeriesRefreshRepository extends HttpCardDetailRepository {
+  _DelayedSeriesRefreshRepository({
+    required super.api,
+    required super.cardDataApi,
+  });
+
+  final _oldSeries = Completer<CardDetailSeriesData>();
+  var delayNextSeries = false;
+
+  @override
+  Future<CardDetailSeriesData> loadPriceSeries(
+    String cardId, {
+    CardDetailMarketData? market,
+    String? finish,
+    Iterable<CardPriceRange> ranges = const [
+      CardPriceRange.oneDay,
+      CardPriceRange.sevenDays,
+      CardPriceRange.fifteenDays,
+      CardPriceRange.oneMonth,
+      CardPriceRange.threeMonths,
+    ],
+  }) {
+    if (delayNextSeries) {
+      delayNextSeries = false;
+      return _oldSeries.future;
+    }
+    return super.loadPriceSeries(
+      cardId,
+      market: market,
+      finish: finish,
+      ranges: ranges,
+    );
+  }
+
+  void failOldSeries() =>
+      _oldSeries.completeError(StateError('old chart failed'));
 }
 
 class _FailingFinishCardDataApi extends _FinishSwitchingCardDataApi {

@@ -74,8 +74,8 @@ class CollectionSummary {
   });
 
   final String totalValueText;
-  final int cardCount;
-  final int gradedCount;
+  final int? cardCount;
+  final int? gradedCount;
 }
 
 class CollectionViewItem {
@@ -114,6 +114,16 @@ class CollectionState {
     required this.languagesByTab,
     this.performanceItemIds = const [],
     this.gameOptions = const [],
+    this.isPaged = false,
+    this.summary,
+    this.summaryStatus = KandoLoadStatus.content,
+    this.page = 1,
+    this.total = 0,
+    this.baseCount,
+    this.pageSize = 40,
+    this.isLoadingPage = false,
+    this.isLoadingMore = false,
+    this.hasPageFailure = false,
   }) : _dashboard = dashboard,
        loadStatus = KandoLoadStatus.content;
 
@@ -140,6 +150,16 @@ class CollectionState {
       },
       performanceItemIds = const [],
       gameOptions = const [],
+      isPaged = false,
+      summary = null,
+      summaryStatus = KandoLoadStatus.failure,
+      page = 1,
+      total = 0,
+      baseCount = null,
+      pageSize = 40,
+      isLoadingPage = false,
+      isLoadingMore = false,
+      hasPageFailure = false,
       loadStatus = KandoLoadStatus.failure;
 
   const CollectionState.loading({required this.currency})
@@ -165,6 +185,16 @@ class CollectionState {
       },
       performanceItemIds = const [],
       gameOptions = const [],
+      isPaged = false,
+      summary = null,
+      summaryStatus = KandoLoadStatus.loading,
+      page = 1,
+      total = 0,
+      baseCount = null,
+      pageSize = 40,
+      isLoadingPage = false,
+      isLoadingMore = false,
+      hasPageFailure = false,
       loadStatus = KandoLoadStatus.loading;
 
   const CollectionState._({
@@ -179,6 +209,16 @@ class CollectionState {
     required this.languagesByTab,
     required this.performanceItemIds,
     required this.gameOptions,
+    required this.isPaged,
+    required this.summary,
+    required this.summaryStatus,
+    required this.page,
+    required this.total,
+    required this.baseCount,
+    required this.pageSize,
+    required this.isLoadingPage,
+    required this.isLoadingMore,
+    required this.hasPageFailure,
     required this.loadStatus,
   }) : _dashboard = dashboard;
 
@@ -193,7 +233,19 @@ class CollectionState {
   final Map<CollectionTab, Set<String>> languagesByTab;
   final List<String> performanceItemIds;
   final List<String> gameOptions;
+  final bool isPaged;
+  final CollectionSummaryResult? summary;
+  final KandoLoadStatus summaryStatus;
+  final int page;
+  final int total;
+  final int? baseCount;
+  final int pageSize;
+  final bool isLoadingPage;
+  final bool isLoadingMore;
+  final bool hasPageFailure;
   final KandoLoadStatus loadStatus;
+
+  bool get hasMore => isPaged && page * pageSize < total;
 
   CollectionDashboard get dashboard {
     final dashboard = _dashboard;
@@ -234,6 +286,16 @@ class CollectionState {
   }
 
   List<CollectionViewItem> get visibleItems {
+    if (isPaged) {
+      return [
+        for (final item in _baseItems)
+          CollectionViewItem(
+            source: item,
+            valueText: _formatMoney(item.marketValueUsd, item.quantity),
+            changeText: _formatChange(item),
+          ),
+      ];
+    }
     final query = searchText.trim().toLowerCase();
     final filtered = _baseItems.where((item) {
       final matchesSearch =
@@ -285,6 +347,16 @@ class CollectionState {
   }
 
   CollectionSummary get portfolioSummary {
+    if (isPaged) {
+      final totals = summary?.folders[selectedFolder.id];
+      return CollectionSummary(
+        totalValueText: totals?.totalValueUsd == null
+            ? '--'
+            : _formatPortfolioTotal(totals!.totalValueUsd!),
+        cardCount: totals?.cardCount,
+        gradedCount: totals?.gradedCount,
+      );
+    }
     final items = dashboard.portfolioItems
         .where((item) => item.folderId == selectedFolder.id)
         .toList();
@@ -300,22 +372,35 @@ class CollectionState {
       totalValueText: items.isNotEmpty && pricedItems.isEmpty
           ? '--'
           : _formatPortfolioTotal(total),
-      cardCount: items.fold(0, (sum, item) => sum + item.quantity),
+      cardCount: items.fold<int>(0, (sum, item) => sum + item.quantity),
       gradedCount: items
           .where((item) => item.isGraded)
-          .fold(0, (sum, item) => sum + item.quantity),
+          .fold<int>(0, (sum, item) => sum + item.quantity),
     );
   }
 
-  bool get isEmpty => _baseItems.isEmpty;
+  int? get _baseCount =>
+      baseCount ??
+      (selectedTab == CollectionTab.portfolio
+          ? summary?.folders[selectedFolder.id]?.itemCount
+          : summary?.wishlistCount);
 
-  bool get isNoMatch => _baseItems.isNotEmpty && visibleItems.isEmpty;
+  bool get isEmpty => isPaged ? _baseCount == 0 : _baseItems.isEmpty;
+
+  bool get isNoMatch => isPaged
+      ? _baseCount != null && _baseCount! > 0 && total == 0
+      : _baseItems.isNotEmpty && visibleItems.isEmpty;
 
   List<String> get availableGames {
     return gameOptions;
   }
 
   List<String> get availableLanguages {
+    if (isPaged) {
+      return selectedTab == CollectionTab.portfolio
+          ? summary?.folders[selectedFolder.id]?.languages ?? const []
+          : summary?.wishlistLanguages ?? const [];
+    }
     final values = _baseItems.map((item) => item.language).toSet().toList()
       ..sort();
     return values;
@@ -333,6 +418,16 @@ class CollectionState {
     Map<CollectionTab, Set<String>>? languagesByTab,
     List<String>? performanceItemIds,
     List<String>? gameOptions,
+    bool? isPaged,
+    CollectionSummaryResult? summary,
+    KandoLoadStatus? summaryStatus,
+    int? page,
+    int? total,
+    int? baseCount,
+    int? pageSize,
+    bool? isLoadingPage,
+    bool? isLoadingMore,
+    bool? hasPageFailure,
   }) {
     return CollectionState._(
       dashboard: dashboard ?? _dashboard,
@@ -346,6 +441,16 @@ class CollectionState {
       languagesByTab: languagesByTab ?? this.languagesByTab,
       performanceItemIds: performanceItemIds ?? this.performanceItemIds,
       gameOptions: gameOptions ?? this.gameOptions,
+      isPaged: isPaged ?? this.isPaged,
+      summary: summary ?? this.summary,
+      summaryStatus: summaryStatus ?? this.summaryStatus,
+      page: page ?? this.page,
+      total: total ?? this.total,
+      baseCount: baseCount ?? this.baseCount,
+      pageSize: pageSize ?? this.pageSize,
+      isLoadingPage: isLoadingPage ?? this.isLoadingPage,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      hasPageFailure: hasPageFailure ?? this.hasPageFailure,
       loadStatus: loadStatus,
     );
   }
@@ -417,7 +522,84 @@ class CollectionState {
 
 class CollectionController extends Notifier<CollectionState> {
   Completer<void>? _loadCompleter;
+  Timer? _searchDebounce;
   var _loadGeneration = 0;
+  var _pageGeneration = 0;
+
+  Future<void> loadNextPage() async {
+    if (!state.isPaged ||
+        state.isLoading ||
+        _loadCompleter?.isCompleted == false ||
+        state.isLoadingPage ||
+        state.isLoadingMore ||
+        state.hasPageFailure ||
+        !state.hasMore) {
+      return;
+    }
+    final repository = ref.read(collectionRepositoryProvider);
+    final session = ref.read(authControllerProvider).session;
+    if (repository is! CollectionPagedRepository || session == null) return;
+    final pagedRepository = repository as CollectionPagedRepository;
+    final loadGeneration = _loadGeneration;
+    final pageGeneration = ++_pageGeneration;
+    final nextPage = state.page + 1;
+    state = state.copyWith(isLoadingMore: true);
+    try {
+      final result = await pagedRepository.loadPage(
+        session,
+        tab: state.selectedTab,
+        folderId: state.selectedTab == CollectionTab.portfolio
+            ? state.selectedFolderId
+            : null,
+        query: state.searchText.trim(),
+        sort: state.selectedSort,
+        page: nextPage,
+        games: state.selectedGames,
+        languages: state.selectedLanguages,
+        performanceItemIds: state.performanceItemIds,
+      );
+      if (!ref.mounted ||
+          loadGeneration != _loadGeneration ||
+          pageGeneration != _pageGeneration) {
+        return;
+      }
+      final dashboard = state.dashboard;
+      state = state.copyWith(
+        dashboard: dashboard.copyWith(
+          portfolioItems: state.selectedTab == CollectionTab.portfolio
+              ? [
+                  ...dashboard.portfolioItems,
+                  ...result.dashboard.portfolioItems,
+                ]
+              : dashboard.portfolioItems,
+          wishlistItems: state.selectedTab == CollectionTab.wishlist
+              ? [...dashboard.wishlistItems, ...result.dashboard.wishlistItems]
+              : dashboard.wishlistItems,
+        ),
+        page: result.page,
+        total: result.total,
+        baseCount: result.baseCount,
+        pageSize: result.pageSize,
+        isLoadingMore: false,
+      );
+    } catch (_) {
+      if (ref.mounted &&
+          loadGeneration == _loadGeneration &&
+          pageGeneration == _pageGeneration) {
+        state = state.copyWith(isLoadingMore: false, hasPageFailure: true);
+      }
+    }
+  }
+
+  Future<void> retryNextPage() {
+    if (!state.hasPageFailure) return Future<void>.value();
+    if (state.page == 0) {
+      _scheduleFirstPage();
+      return Future<void>.value();
+    }
+    state = state.copyWith(hasPageFailure: false);
+    return loadNextPage();
+  }
 
   Future<void> get loadComplete {
     return _loadCompleter?.future ?? Future<void>.value();
@@ -425,13 +607,16 @@ class CollectionController extends Notifier<CollectionState> {
 
   @override
   CollectionState build() {
+    ref.onDispose(() => _searchDebounce?.cancel());
     ref.listen<AppCurrency>(selectedCurrencyProvider, (previous, next) {
       state = state.copyWith(currency: next);
     });
     ref.listen<String?>(selectedPortfolioFolderProvider, (previous, next) {
       if (next == null || state.isLoading || state.isUnavailable) return;
       if (state.dashboard.folders.any((folder) => folder.id == next)) {
+        if (state.selectedFolderId == next) return;
         state = state.copyWith(selectedFolderId: next);
+        _scheduleFirstPage();
       }
     });
     ref.listen<bool?>(portfolioAmountHiddenProvider, (previous, next) {
@@ -482,12 +667,259 @@ class CollectionController extends Notifier<CollectionState> {
     required AppCurrency currency,
     CollectionState? preserveState,
   }) {
+    _searchDebounce?.cancel();
     final completer = Completer<void>();
     final generation = ++_loadGeneration;
+    final pageGeneration = ++_pageGeneration;
     _loadCompleter = completer;
+    final repository = ref.read(collectionRepositoryProvider);
+    if (repository is CollectionPagedRepository &&
+        (repository as CollectionPagedRepository).supportsPaging) {
+      unawaited(
+        Future<void>.microtask(
+          () => _loadPagedDashboard(
+            repository as CollectionPagedRepository,
+            session,
+            currency,
+            generation,
+            pageGeneration,
+            completer,
+            preserveState,
+          ),
+        ),
+      );
+      return;
+    }
     unawaited(
       _loadDashboard(session, currency, generation, completer, preserveState),
     );
+  }
+
+  void _scheduleFirstPage({bool debounce = false}) {
+    if (!state.isPaged) return;
+    _searchDebounce?.cancel();
+    final generation = ++_pageGeneration;
+    state = state.copyWith(
+      isLoadingPage: true,
+      isLoadingMore: false,
+      hasPageFailure: false,
+    );
+    if (debounce) {
+      _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+        unawaited(_loadFirstPage(generation));
+      });
+    } else {
+      unawaited(_loadFirstPage(generation));
+    }
+  }
+
+  Future<void> _loadFirstPage(int generation) async {
+    final repository = ref.read(collectionRepositoryProvider);
+    final session = ref.read(authControllerProvider).session;
+    if (repository is! CollectionPagedRepository || session == null) return;
+    final pagedRepository = repository as CollectionPagedRepository;
+    final loadGeneration = _loadGeneration;
+    final tab = state.selectedTab;
+    final folderId = state.selectedFolderId;
+    final query = state.searchText.trim();
+    final sort = state.selectedSort;
+    final games = state.selectedGames;
+    final languages = state.selectedLanguages;
+    final performanceItemIds = state.performanceItemIds;
+    try {
+      final result = await pagedRepository.loadPage(
+        session,
+        tab: tab,
+        folderId: tab == CollectionTab.portfolio ? folderId : null,
+        query: query,
+        sort: sort,
+        games: games,
+        languages: languages,
+        performanceItemIds: performanceItemIds,
+      );
+      if (!ref.mounted ||
+          loadGeneration != _loadGeneration ||
+          generation != _pageGeneration) {
+        return;
+      }
+      state = state.copyWith(
+        dashboard: result.dashboard,
+        page: result.page,
+        total: result.total,
+        baseCount: result.baseCount,
+        pageSize: result.pageSize,
+        isLoadingPage: false,
+        hasPageFailure: false,
+      );
+    } catch (_) {
+      if (ref.mounted &&
+          loadGeneration == _loadGeneration &&
+          generation == _pageGeneration) {
+        state = state.copyWith(
+          dashboard: state.dashboard.copyWith(
+            portfolioItems: const [],
+            wishlistItems: const [],
+          ),
+          page: 0,
+          total: 0,
+          isLoadingPage: false,
+          hasPageFailure: true,
+        );
+      }
+    }
+  }
+
+  Future<void> _loadPagedDashboard(
+    CollectionPagedRepository repository,
+    AuthSession session,
+    AppCurrency currency,
+    int generation,
+    int pageGeneration,
+    Completer<void> completer,
+    CollectionState? preserveState,
+  ) async {
+    try {
+      final previous = preserveState ?? state;
+      final tab = previous.selectedTab;
+      final sharedFolderId = ref.read(selectedPortfolioFolderProvider);
+      final requestedFolderId =
+          sharedFolderId ??
+          (previous.selectedFolderId.isEmpty
+              ? null
+              : previous.selectedFolderId);
+      final initialSort = preserveState == null
+          ? ref.read(collectionInitialSortProvider) ?? CollectionSort.newest
+          : previous.selectedSort;
+      final initialPerformanceOrder = preserveState == null
+          ? ref.read(collectionPerformanceOrderProvider)
+          : previous.performanceItemIds;
+      final summaryFuture = repository
+          .loadSummary(session)
+          .then<CollectionSummaryResult?>(
+            (value) => value,
+            onError: (Object _, StackTrace __) => null,
+          );
+      final gameOptionsFuture = _loadGameOptions(
+        ref.read(collectionRepositoryProvider),
+      );
+      final result = await repository.loadPage(
+        session,
+        tab: tab,
+        folderId: tab == CollectionTab.portfolio ? requestedFolderId : null,
+        query: previous.searchByTab[tab] ?? '',
+        sort: preserveState == null
+            ? initialSort
+            : previous.sortByTab[tab] ?? initialSort,
+        games: previous.gamesByTab[tab] ?? const {},
+        languages: previous.languagesByTab[tab] ?? const {},
+        performanceItemIds: initialPerformanceOrder,
+      );
+      if (!ref.mounted ||
+          generation != _loadGeneration ||
+          pageGeneration != _pageGeneration) {
+        return;
+      }
+      final currencyMetadata = AppCurrency.fromCode(
+        result.dashboard.currencyCode,
+      );
+      var preferredCurrency = ref.read(selectedCurrencyProvider);
+      if (preferredCurrency.code != currencyMetadata.code ||
+          preferredCurrency.usdRate == null) {
+        preferredCurrency = currencyMetadata;
+      }
+      final selectedFolderId =
+          result.folderId ??
+          requestedFolderId ??
+          result.dashboard.defaultFolder.id;
+      final amountHidden = ref.read(portfolioAmountHiddenProvider) ?? false;
+      ref.read(selectedCurrencyProvider.notifier).select(preferredCurrency);
+      state = CollectionState(
+        dashboard: result.dashboard,
+        selectedTab: tab,
+        selectedFolderId: selectedFolderId,
+        currency: preferredCurrency,
+        amountHidden: amountHidden,
+        searchByTab: previous.searchByTab,
+        sortByTab:
+            preserveState?.sortByTab ??
+            {
+              CollectionTab.portfolio: initialSort,
+              CollectionTab.wishlist: CollectionSort.newest,
+            },
+        gamesByTab: previous.gamesByTab,
+        languagesByTab: previous.languagesByTab,
+        performanceItemIds: initialPerformanceOrder,
+        gameOptions: previous.gameOptions,
+        isPaged: true,
+        summary: null,
+        summaryStatus: KandoLoadStatus.loading,
+        page: result.page,
+        total: result.total,
+        baseCount: result.baseCount,
+        pageSize: result.pageSize,
+      );
+      if (preserveState == null) {
+        ref.read(collectionInitialSortProvider.notifier).clear();
+        ref.read(collectionPerformanceOrderProvider.notifier).clear();
+      }
+      if (sharedFolderId == null) {
+        ref
+            .read(selectedPortfolioFolderProvider.notifier)
+            .select(selectedFolderId);
+      }
+      if (ref.read(portfolioAmountHiddenProvider) == null) {
+        ref.read(portfolioAmountHiddenProvider.notifier).select(amountHidden);
+      }
+      final currentCurrency = preferredCurrency;
+      if (currentCurrency.usdRate == null) {
+        unawaited(() async {
+          try {
+            final rate = await ref
+                .read(currencyRateApiProvider)
+                .loadUsdRate(currentCurrency.code);
+            if (ref.mounted &&
+                generation == _loadGeneration &&
+                ref.read(selectedCurrencyProvider).code ==
+                    currentCurrency.code) {
+              final resolved = currentCurrency.withUsdRate(rate);
+              ref.read(selectedCurrencyProvider.notifier).select(resolved);
+              state = state.copyWith(currency: resolved);
+            }
+          } catch (_) {
+            // Keep prices unavailable until a conversion rate is known.
+          }
+        }());
+      }
+      unawaited(
+        summaryFuture.then((summary) {
+          if (!ref.mounted || generation != _loadGeneration) return;
+          state = state.copyWith(
+            summary: summary,
+            summaryStatus: summary == null
+                ? KandoLoadStatus.failure
+                : KandoLoadStatus.content,
+            gameOptions: state.gameOptions.isEmpty && summary != null
+                ? summary.games
+                : state.gameOptions,
+          );
+        }),
+      );
+      unawaited(
+        gameOptionsFuture.then((games) {
+          if (ref.mounted &&
+              generation == _loadGeneration &&
+              games.isNotEmpty) {
+            state = state.copyWith(gameOptions: games);
+          }
+        }),
+      );
+    } catch (_) {
+      if (ref.mounted && generation == _loadGeneration) {
+        state = CollectionState.unavailable(currency: currency);
+      }
+    } finally {
+      if (!completer.isCompleted) completer.complete();
+    }
   }
 
   Future<void> _loadDashboard(
@@ -511,17 +943,7 @@ class CollectionController extends Notifier<CollectionState> {
         var preferredCurrency = ref.read(selectedCurrencyProvider);
         if (preferredCurrency.code != currencyMetadata.code ||
             preferredCurrency.usdRate == null) {
-          preferredCurrency = AppCurrency.usd;
-          if (currencyMetadata.code != 'USD') {
-            try {
-              final rate = await ref
-                  .read(currencyRateApiProvider)
-                  .loadUsdRate(currencyMetadata.code);
-              preferredCurrency = currencyMetadata.withUsdRate(rate);
-            } catch (_) {
-              // Keep USD until the provider can prove a conversion rate.
-            }
-          }
+          preferredCurrency = currencyMetadata;
         }
         if (generation != _loadGeneration) return;
         final preservedState = preserveState ?? state;
@@ -573,6 +995,24 @@ class CollectionController extends Notifier<CollectionState> {
         if (ref.read(portfolioAmountHiddenProvider) == null) {
           ref.read(portfolioAmountHiddenProvider.notifier).select(amountHidden);
         }
+        if (preferredCurrency.usdRate == null) {
+          try {
+            final rate = await ref
+                .read(currencyRateApiProvider)
+                .loadUsdRate(preferredCurrency.code);
+            if (generation == _loadGeneration &&
+                ref.read(selectedCurrencyProvider).code ==
+                    preferredCurrency.code) {
+              preferredCurrency = preferredCurrency.withUsdRate(rate);
+              ref
+                  .read(selectedCurrencyProvider.notifier)
+                  .select(preferredCurrency);
+              state = state.copyWith(currency: preferredCurrency);
+            }
+          } catch (_) {
+            // Prices remain unavailable in the selected currency until a rate is known.
+          }
+        }
       }
       final catalogGames = await gameOptionsFuture;
       if (generation == _loadGeneration && catalogGames.isNotEmpty) {
@@ -615,14 +1055,15 @@ class CollectionController extends Notifier<CollectionState> {
       gamesByTab: {...state.gamesByTab, previousTab: <String>{}},
       languagesByTab: {...state.languagesByTab, previousTab: <String>{}},
     );
+    _scheduleFirstPage();
   }
 
   void showTopPerformers({
     required String folderId,
     required List<String> itemIds,
   }) {
-    ref.read(selectedPortfolioFolderProvider.notifier).select(folderId);
     if (state.isUnavailable || state.isLoading) {
+      ref.read(selectedPortfolioFolderProvider.notifier).select(folderId);
       ref
           .read(collectionInitialSortProvider.notifier)
           .select(CollectionSort.performanceDesc);
@@ -640,6 +1081,8 @@ class CollectionController extends Notifier<CollectionState> {
       },
       performanceItemIds: itemIds,
     );
+    ref.read(selectedPortfolioFolderProvider.notifier).select(folderId);
+    _scheduleFirstPage();
     ref.read(collectionInitialSortProvider.notifier).clear();
     ref.read(collectionPerformanceOrderProvider.notifier).clear();
   }
@@ -660,19 +1103,32 @@ class CollectionController extends Notifier<CollectionState> {
     }
 
     final previousFolderId = state.selectedFolderId;
-    state = state.copyWith(selectedFolderId: folderId);
+    state = state.copyWith(
+      selectedFolderId: folderId,
+      isLoadingPage: state.isPaged,
+    );
+    final pageGeneration = state.isPaged ? ++_pageGeneration : _pageGeneration;
     ref.read(selectedPortfolioFolderProvider.notifier).select(folderId);
     try {
       final session = ref.read(authControllerProvider).session!;
       await ref
           .read(collectionRepositoryProvider)
           .updatePreferences(session, lastSelectedFolderId: folderId);
+      if (state.isPaged && pageGeneration == _pageGeneration) {
+        await _loadFirstPage(pageGeneration);
+      }
       return true;
     } catch (_) {
-      state = state.copyWith(selectedFolderId: previousFolderId);
-      ref
-          .read(selectedPortfolioFolderProvider.notifier)
-          .select(previousFolderId);
+      if (pageGeneration == _pageGeneration &&
+          state.selectedFolderId == folderId) {
+        state = state.copyWith(
+          selectedFolderId: previousFolderId,
+          isLoadingPage: false,
+        );
+        ref
+            .read(selectedPortfolioFolderProvider.notifier)
+            .select(previousFolderId);
+      }
       return false;
     }
   }
@@ -700,6 +1156,7 @@ class CollectionController extends Notifier<CollectionState> {
         ),
       );
       _invalidateFolderDetails();
+      if (state.isPaged) unawaited(refreshPreservingContent());
       return CreateFolderResult(CreateFolderStatus.success, folder: folder);
     }
 
@@ -872,6 +1329,7 @@ class CollectionController extends Notifier<CollectionState> {
         ref.read(selectedPortfolioFolderProvider.notifier).select(fallbackId);
       }
       _invalidateFolderDetails();
+      if (state.isPaged) unawaited(refreshPreservingContent());
       return true;
     } catch (_) {
       return false;
@@ -886,6 +1344,7 @@ class CollectionController extends Notifier<CollectionState> {
     state = state.copyWith(
       searchByTab: {...state.searchByTab, state.selectedTab: value},
     );
+    _scheduleFirstPage(debounce: true);
   }
 
   void applySortAndFilters({
@@ -902,6 +1361,7 @@ class CollectionController extends Notifier<CollectionState> {
       gamesByTab: {...state.gamesByTab, state.selectedTab: games},
       languagesByTab: {...state.languagesByTab, state.selectedTab: languages},
     );
+    _scheduleFirstPage();
   }
 
   void clearFilters() {
@@ -914,6 +1374,7 @@ class CollectionController extends Notifier<CollectionState> {
       gamesByTab: {...state.gamesByTab, state.selectedTab: <String>{}},
       languagesByTab: {...state.languagesByTab, state.selectedTab: <String>{}},
     );
+    _scheduleFirstPage();
   }
 
   Future<bool> toggleAmountHidden() async {

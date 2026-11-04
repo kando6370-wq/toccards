@@ -136,6 +136,10 @@ abstract interface class ScanResultSource {
   });
 }
 
+abstract interface class ReleasableScanResultSource {
+  void releaseImage(Uint8List imageBytes);
+}
+
 final scanResultSourceProvider = Provider<ScanResultSource>(
   (ref) => ApiScanResultSource(
     api: ref.watch(scanApiClientProvider),
@@ -178,7 +182,15 @@ abstract interface class ScanImagePicker {
   });
 }
 
-class ImagePickerScanImagePicker implements ScanImagePicker {
+abstract interface class StreamingScanImagePicker implements ScanImagePicker {
+  Future<void> pickManyStreaming(
+    ScanImageSource source, {
+    required int limit,
+    required void Function(ScanImage image) onImage,
+  });
+}
+
+class ImagePickerScanImagePicker implements StreamingScanImagePicker {
   ImagePickerScanImagePicker({picker.ImagePicker? imagePicker})
     : _imagePicker = imagePicker ?? picker.ImagePicker();
 
@@ -201,6 +213,17 @@ class ImagePickerScanImagePicker implements ScanImagePicker {
     ScanImageSource source, {
     required int limit,
   }) async {
+    final selected = <ScanImage>[];
+    await pickManyStreaming(source, limit: limit, onImage: selected.add);
+    return selected;
+  }
+
+  @override
+  Future<void> pickManyStreaming(
+    ScanImageSource source, {
+    required int limit,
+    required void Function(ScanImage image) onImage,
+  }) async {
     if (source != ScanImageSource.gallery) {
       throw ArgumentError.value(
         source,
@@ -212,12 +235,11 @@ class ImagePickerScanImagePicker implements ScanImagePicker {
       requestFullMetadata: false,
       limit: limit,
     );
-    return Future.wait([
-      for (final image in images)
-        image.readAsBytes().then(
-          (bytes) => ScanImage(bytes: bytes, fileName: image.name),
-        ),
-    ]);
+    for (final image in images.take(limit)) {
+      onImage(
+        ScanImage(bytes: await image.readAsBytes(), fileName: image.name),
+      );
+    }
   }
 }
 
@@ -228,7 +250,8 @@ class ScanAppInfo {
   final String appVersion;
 }
 
-class ApiScanResultSource implements ScanResultSource {
+class ApiScanResultSource
+    implements ScanResultSource, ReleasableScanResultSource {
   ApiScanResultSource({
     required ScanApi api,
     required AuthSession? Function() session,
@@ -256,6 +279,18 @@ class ApiScanResultSource implements ScanResultSource {
   final Expando<String> _retryRequestIds = Expando<String>(
     'scanRetryRequestId',
   );
+  final Expando<ScanCardHashes> _retryHashes = Expando<ScanCardHashes>(
+    'scanRetryHashes',
+  );
+  final Expando<bool> _releasedImages = Expando<bool>('releasedScanImages');
+
+  @override
+  void releaseImage(Uint8List imageBytes) {
+    _releasedImages[imageBytes] = true;
+    _retryHashes[imageBytes] = null;
+    _retryRequestIds[imageBytes] = null;
+  }
+
   @override
   Future<ScanResolution> photo({ScanCardType cardType = ScanCardType.tcg}) =>
       _pickAndRecognize(ScanImageSource.camera, cardType: cardType);
@@ -268,6 +303,19 @@ class ApiScanResultSource implements ScanResultSource {
     ScanCardType cardType = ScanCardType.tcg,
   }) async {
     if (maxItems <= 0) return const [];
+    if (_imagePicker is StreamingScanImagePicker) {
+      final pending = <Future<ScanResolution>>[];
+      await _imagePicker.pickManyStreaming(
+        ScanImageSource.gallery,
+        limit: maxItems,
+        onImage: (image) {
+          final resolution = recognize(image, cardType: cardType);
+          pending.add(resolution);
+          onSelected?.call(image, resolution);
+        },
+      );
+      return pending;
+    }
     final images = await _imagePicker.pickMany(
       ScanImageSource.gallery,
       limit: maxItems,
@@ -319,6 +367,7 @@ class ApiScanResultSource implements ScanResultSource {
     ValueChanged<Uint8List>? onDisplayImageReady,
     ScanCardType cardType = ScanCardType.tcg,
   }) async {
+    _releasedImages[image.bytes] = null;
     final previousReservation = _reservationTail;
     final reservationFinished = Completer<void>();
     _reservationTail = reservationFinished.future;
@@ -331,6 +380,7 @@ class ApiScanResultSource implements ScanResultSource {
 
     Uint8List? displayImageBytes = image.bytes;
     final requestId = _retryRequestIds[image.bytes] ?? const Uuid().v4();
+    ScanCardHashes? processedHashes;
     final ScanRecognitionDto recognition;
     try {
       final session = _session();
@@ -342,11 +392,14 @@ class ApiScanResultSource implements ScanResultSource {
         );
       }
       final info = await _appInfo();
-      final embedding = await _cardRecognizer.process(
-        image.bytes,
-        allowCropFallback: image.viewfinderCropped,
-      );
-      displayImageBytes = embedding.cardImageBytes;
+      final hashes =
+          _retryHashes[image.bytes] ??
+          await _cardRecognizer.process(
+            image.bytes,
+            allowCropFallback: image.viewfinderCropped,
+          );
+      processedHashes = hashes;
+      displayImageBytes = hashes.cardImageBytes;
       onDisplayImageReady?.call(displayImageBytes);
       await previousReservation;
       try {
@@ -366,7 +419,7 @@ class ApiScanResultSource implements ScanResultSource {
       }
       recognition = await _api.recognizeImage(
         session,
-        embedding: embedding,
+        hashes: hashes,
         fileName: image.fileName,
         platform: info.platform,
         appVersion: info.appVersion,
@@ -376,7 +429,7 @@ class ApiScanResultSource implements ScanResultSource {
       );
     } on ScanApiException catch (error) {
       if (error.code == 'SCAN_QUOTA_EXHAUSTED' && error.quota != null) {
-        _retryRequestIds[image.bytes] = null;
+        releaseImage(image.bytes);
         return ScanResolution.quotaExhausted(
           imageBytes: image.bytes,
           displayImageBytes: displayImageBytes,
@@ -386,19 +439,22 @@ class ApiScanResultSource implements ScanResultSource {
       }
       if (error.statusCode == 409 &&
           error.code == 'ENTITLEMENT_SYNC_REQUIRED') {
-        _retryRequestIds[image.bytes] = null;
+        releaseImage(image.bytes);
         return ScanResolution.entitlementSyncRequired(
           imageBytes: image.bytes,
           displayImageBytes: displayImageBytes,
           imageFileName: image.fileName,
         );
       }
-      _retryRequestIds[image.bytes] =
-          error.code == scanRequestTimeoutCode ||
-              error.code == 'SCAN_REQUEST_CONFLICT' ||
-              error.code == null
-          ? requestId
-          : null;
+      if (_releasedImages[image.bytes] != true) {
+        _retryRequestIds[image.bytes] =
+            error.code == scanRequestTimeoutCode ||
+                error.code == 'SCAN_REQUEST_CONFLICT' ||
+                error.code == null
+            ? requestId
+            : null;
+        _retryHashes[image.bytes] = processedHashes;
+      }
       return ScanResolution.failed(
         imageBytes: image.bytes,
         displayImageBytes: displayImageBytes,
@@ -406,7 +462,10 @@ class ApiScanResultSource implements ScanResultSource {
         quota: error.quota,
       );
     } on Object {
-      _retryRequestIds[image.bytes] = requestId;
+      if (_releasedImages[image.bytes] != true) {
+        _retryRequestIds[image.bytes] = requestId;
+        _retryHashes[image.bytes] = processedHashes;
+      }
       return ScanResolution.failed(
         imageBytes: image.bytes,
         displayImageBytes: displayImageBytes,
@@ -419,7 +478,7 @@ class ApiScanResultSource implements ScanResultSource {
       }
     }
     if (recognition.recognitionStatus != 'success') {
-      _retryRequestIds[image.bytes] = null;
+      releaseImage(image.bytes);
       if (recognition.recognitionStatus == 'no_match') {
         return ScanResolution.noMatch(
           imageBytes: image.bytes,
@@ -439,7 +498,10 @@ class ApiScanResultSource implements ScanResultSource {
       (result) => result.matched && result.candidates.isNotEmpty,
     );
     if (matchedResults.isEmpty) {
-      _retryRequestIds[image.bytes] = requestId;
+      if (_releasedImages[image.bytes] != true) {
+        _retryRequestIds[image.bytes] = requestId;
+        _retryHashes[image.bytes] = processedHashes;
+      }
       return ScanResolution.failed(
         imageBytes: image.bytes,
         displayImageBytes: displayImageBytes,
@@ -447,7 +509,7 @@ class ApiScanResultSource implements ScanResultSource {
         quota: recognition.quota,
       );
     }
-    _retryRequestIds[image.bytes] = null;
+    releaseImage(image.bytes);
     final candidates = matchedResults.first.candidates;
     return ScanResolution.matched(
       scanId: recognition.scanId,

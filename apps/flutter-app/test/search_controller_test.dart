@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,6 +17,42 @@ import 'package:kando_app/shared/ui/load_state.dart';
 import 'support/mock_search_repository.dart';
 
 void main() {
+  test(
+    'visible Cards keeps filtered order and collection overrides without rereading every card for each result',
+    () {
+      final cards = _CountingCardList(
+        List.generate(
+          40,
+          (index) => _PaginatedSearchRepository._card(index + 1),
+        ),
+      );
+      final state = SearchState(
+        catalog: SearchCatalog(
+          games: const [SearchGame(id: 'pokemon', label: 'Pokemon')],
+          cards: cards,
+          sets: const [],
+        ),
+        selectedTab: SearchTab.cards,
+        selectedGameId: 'pokemon',
+        searchByTab: const {SearchTab.cards: 'Card 4'},
+        cardOverrides: {'card-4': cards[3].copyWith(quantity: 2)},
+      );
+      cards.reads = 0;
+
+      final visible = state.visibleCards;
+
+      expect(visible.map((card) => card.id), [
+        'card-4',
+        'card-14',
+        'card-24',
+        'card-34',
+        'card-40',
+      ]);
+      expect(visible.first.quantity, 2);
+      expect(cards.reads, lessThanOrEqualTo(cards.length * 2));
+    },
+  );
+
   test(
     'collection display uses condition for Raw and grader plus grade for graded cards because Search must show saved user data',
     () {
@@ -445,14 +482,14 @@ void main() {
   );
 
   test(
-    'opening Sets loads the complete catalog because the initial page is intentionally partial',
+    'opening Sets uses the first page already loaded without fetching the full catalog',
     () async {
       final setCatalogApi = _FakeSetCatalogApi();
       final repository = HttpSearchRepository(
         _FakeCardDataApi(
           trendingCardRows: const [],
           searchCardRows: const [],
-          sets: const [],
+          sets: const [_initialSearchSet],
         ),
         setCatalogApi: setCatalogApi,
       );
@@ -471,7 +508,205 @@ void main() {
       await Future<void>.delayed(searchDebounceDuration * 2);
       await controller.loadComplete;
 
-      expect(setCatalogApi.searchCalls, 1);
+      expect(setCatalogApi.searchCalls, 0);
+      expect(
+        container.read(searchControllerProvider).visibleSets.single.name,
+        'Silver Age Chapter 1',
+      );
+    },
+  );
+
+  test(
+    'Cards become usable before a slow initial Sets response and Sets shows its own loading state',
+    () async {
+      final api = _DelayedInitialSetsCardDataApi(
+        trendingCardRows: const [],
+        searchCardRows: const [_initialSearchCard],
+        sets: const [_initialSearchSet],
+      );
+      final container = ProviderContainer(
+        overrides: [
+          searchRepositoryProvider.overrideWithValue(
+            HttpSearchRepository(api, setCatalogApi: _FakeSetCatalogApi()),
+          ),
+          searchSessionProvider.overrideWithValue(_session),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(searchControllerProvider.notifier);
+      await api.setRequestStarted.future;
+      await Future<void>.delayed(Duration.zero);
+
+      expect(container.read(searchControllerProvider).isLoading, isFalse);
+      expect(
+        container.read(searchControllerProvider).visibleCards.single.name,
+        'Bravo, Flattering Showman',
+      );
+      controller.selectTab(SearchTab.sets);
+      expect(container.read(searchControllerProvider).isLoadingSets, isTrue);
+
+      api.completeSets();
+      await controller.loadComplete;
+      expect(
+        container.read(searchControllerProvider).visibleSets.single.name,
+        'Silver Age Chapter 1',
+      );
+    },
+  );
+
+  test(
+    'late initial Sets cannot replace results after the user changes game',
+    () async {
+      final api = _DelayedInitialSetsCardDataApi(
+        trendingCardRows: const [],
+        searchCardRows: const [_initialSearchCard],
+        sets: const [_initialSearchSet],
+      );
+      final container = ProviderContainer(
+        overrides: [
+          searchRepositoryProvider.overrideWithValue(
+            HttpSearchRepository(api, setCatalogApi: _FakeSetCatalogApi()),
+          ),
+          searchSessionProvider.overrideWithValue(_session),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(searchControllerProvider.notifier);
+      await api.setRequestStarted.future;
+      await Future<void>.delayed(Duration.zero);
+
+      controller.selectGame('pokemon');
+      await Future<void>.delayed(searchDebounceDuration * 2);
+      await controller.loadComplete;
+      api.completeSets();
+      await Future<void>.delayed(Duration.zero);
+
+      final state = container.read(searchControllerProvider);
+      expect(state.selectedGame.label, 'Pokemon');
+      expect(state.catalog.sets, isEmpty);
+      expect(state.isLoadingSets, isFalse);
+    },
+  );
+
+  test(
+    'Sets appends only the next page and retries a failed page without dropping the first forty',
+    () async {
+      final api = _FakeCardDataApi(
+        trendingCardRows: const [],
+        searchCardRows: const [_initialSearchCard],
+        sets: _fortySetDtos(),
+      );
+      final setApi = _PagedSetCatalogApi(failPageTwoOnce: true);
+      final container = ProviderContainer(
+        overrides: [
+          searchRepositoryProvider.overrideWithValue(
+            HttpSearchRepository(api, setCatalogApi: setApi),
+          ),
+          searchSessionProvider.overrideWithValue(_session),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(searchControllerProvider.notifier);
+      await controller.loadComplete;
+      controller.selectTab(SearchTab.sets);
+      expect(
+        container.read(searchControllerProvider).visibleSets,
+        hasLength(40),
+      );
+
+      await controller.loadNextSetPage();
+      var state = container.read(searchControllerProvider);
+      expect(state.hasSetPageFailure, isTrue);
+      expect(state.visibleSets, hasLength(40));
+      expect(state.setPage, 1);
+
+      await controller.retryNextSetPage();
+      state = container.read(searchControllerProvider);
+      expect(setApi.requestedPages, [2, 2]);
+      expect(state.visibleSets, hasLength(41));
+      expect(state.visibleSets.last.name, 'Extra Set');
+      expect(state.hasMoreSets, isFalse);
+      expect(state.hasSetPageFailure, isFalse);
+    },
+  );
+
+  test(
+    'Sets stops after an empty last page instead of repeatedly requesting the same end',
+    () async {
+      final setApi = _PagedSetCatalogApi(fullSecondPage: true);
+      final container = ProviderContainer(
+        overrides: [
+          searchRepositoryProvider.overrideWithValue(
+            HttpSearchRepository(
+              _FakeCardDataApi(
+                trendingCardRows: const [],
+                searchCardRows: const [_initialSearchCard],
+                sets: _fortySetDtos(),
+              ),
+              setCatalogApi: setApi,
+            ),
+          ),
+          searchSessionProvider.overrideWithValue(_session),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(searchControllerProvider.notifier);
+      await controller.loadComplete;
+      controller.selectTab(SearchTab.sets);
+
+      await controller.loadNextSetPage();
+      expect(
+        container.read(searchControllerProvider).visibleSets,
+        hasLength(80),
+      );
+      await controller.loadNextSetPage();
+      await controller.loadNextSetPage();
+
+      final state = container.read(searchControllerProvider);
+      expect(setApi.requestedPages, [2, 3]);
+      expect(state.visibleSets, hasLength(80));
+      expect(state.hasMoreSets, isFalse);
+    },
+  );
+
+  test(
+    'Sets ignores an old page when the user changes the search query',
+    () async {
+      final setApi = _PagedSetCatalogApi(delayFirstPageTwo: true);
+      final container = ProviderContainer(
+        overrides: [
+          searchRepositoryProvider.overrideWithValue(
+            HttpSearchRepository(
+              _FakeCardDataApi(
+                trendingCardRows: const [],
+                searchCardRows: const [_initialSearchCard],
+                sets: _fortySetDtos(),
+              ),
+              setCatalogApi: setApi,
+            ),
+          ),
+          searchSessionProvider.overrideWithValue(_session),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(searchControllerProvider.notifier);
+      await controller.loadComplete;
+      controller.selectTab(SearchTab.sets);
+      final oldPage = controller.loadNextSetPage();
+      controller.updateSearch('Fresh');
+      await Future<void>.delayed(searchDebounceDuration * 2);
+      await controller.loadComplete;
+      expect(
+        container.read(searchControllerProvider).visibleSets.single.name,
+        'Fresh Set',
+      );
+
+      setApi.completeOldPage();
+      await oldPage;
+      final state = container.read(searchControllerProvider);
+      expect(state.visibleSets.map((set) => set.name), ['Fresh Set']);
+      expect(state.setPage, 1);
+      expect(state.hasMoreSets, isFalse);
     },
   );
 
@@ -672,6 +907,8 @@ void main() {
       expect(card.quantity, 2);
       expect(card.collectionItemId, 'item-1');
       expect(card.collectionInfo, 'Near Mint (NM)');
+      expect(portfolioApi.batchReads, 1);
+      expect(portfolioApi.fullItemsReads, 0);
 
       controller.updateSearch('escape');
       await Future<void>.delayed(searchDebounceDuration * 2);
@@ -1424,6 +1661,29 @@ class _PaginatedSearchRepository
   }
 }
 
+class _CountingCardList extends ListBase<SearchCard> {
+  _CountingCardList(this._cards);
+
+  final List<SearchCard> _cards;
+  int reads = 0;
+
+  @override
+  int get length => _cards.length;
+
+  @override
+  set length(int value) => throw UnsupportedError('read-only test list');
+
+  @override
+  SearchCard operator [](int index) {
+    reads += 1;
+    return _cards[index];
+  }
+
+  @override
+  void operator []=(int index, SearchCard value) =>
+      throw UnsupportedError('read-only test list');
+}
+
 class _RecordingSearchRepository implements SearchRepository {
   const _RecordingSearchRepository({
     this.cardResults = const [],
@@ -1494,6 +1754,104 @@ class _FakeSetCatalogApi implements SetCatalogApi {
   }) async {
     return const [];
   }
+}
+
+CardDataSetDto _setDto(int index) => CardDataSetDto(
+  setId: 'set-$index',
+  setCode: 'S$index',
+  setName: 'Set $index',
+  game: 'Flesh and Blood TCG',
+  imageUrl: null,
+  cardCount: 1,
+);
+
+List<CardDataSetDto> _fortySetDtos() => List.generate(40, _setDto);
+
+class _DelayedInitialSetsCardDataApi extends _FakeCardDataApi {
+  _DelayedInitialSetsCardDataApi({
+    required super.trendingCardRows,
+    required super.searchCardRows,
+    required super.sets,
+  });
+
+  final setRequestStarted = Completer<void>();
+  final _pendingSets = Completer<List<CardDataSetDto>>();
+
+  @override
+  Future<List<CardDataSetDto>> searchSets(String query, {String? game}) {
+    if (!setRequestStarted.isCompleted) setRequestStarted.complete();
+    return _pendingSets.future;
+  }
+
+  void completeSets() => _pendingSets.complete(sets);
+}
+
+class _PagedSetCatalogApi extends _FakeSetCatalogApi
+    implements PaginatedSetCatalogApi {
+  _PagedSetCatalogApi({
+    this.failPageTwoOnce = false,
+    this.fullSecondPage = false,
+    this.delayFirstPageTwo = false,
+  });
+
+  final bool failPageTwoOnce;
+  final bool fullSecondPage;
+  final bool delayFirstPageTwo;
+  final requestedPages = <int>[];
+  final _oldPage = Completer<List<CardDataSetDto>>();
+  var _failedPageTwo = false;
+
+  @override
+  Future<List<CardDataSetDto>> searchSetPage(
+    String query, {
+    String? game,
+    required int page,
+  }) async {
+    requestedPages.add(page);
+    if (query == 'Fresh') {
+      return const [
+        CardDataSetDto(
+          setId: 'fresh',
+          setCode: 'FRESH',
+          setName: 'Fresh Set',
+          game: 'Flesh and Blood TCG',
+          imageUrl: null,
+          cardCount: 1,
+        ),
+      ];
+    }
+    if (page == 2 && delayFirstPageTwo) return _oldPage.future;
+    if (page == 2 && failPageTwoOnce && !_failedPageTwo) {
+      _failedPageTwo = true;
+      throw StateError('set page unavailable');
+    }
+    if (page == 3) return const [];
+    if (page != 2) return _fortySetDtos();
+    if (fullSecondPage) {
+      return List.generate(40, (index) => _setDto(index + 40));
+    }
+    return const [
+      CardDataSetDto(
+        setId: 'extra',
+        setCode: 'EXTRA',
+        setName: 'Extra Set',
+        game: 'Flesh and Blood TCG',
+        imageUrl: null,
+        cardCount: 1,
+      ),
+    ];
+  }
+
+  void completeOldPage() => _oldPage.complete(const [
+    CardDataSetDto(
+      setId: 'old',
+      setCode: 'OLD',
+      setName: 'Old Set',
+      game: 'Flesh and Blood TCG',
+      imageUrl: null,
+      cardCount: 1,
+    ),
+  ]);
 }
 
 class _FakeCardDataApi implements CardDataApi {
@@ -1609,7 +1967,8 @@ const _session = AuthSession(
   refreshToken: 'refresh-search',
 );
 
-class _FakePortfolioApi extends Fake implements PortfolioApi {
+class _FakePortfolioApi extends Fake
+    implements PortfolioApi, PortfolioCardAssetsBatchApi {
   _FakePortfolioApi({
     List<PortfolioItemDto> items = const [],
     this.conflictOnWishlist = false,
@@ -1623,6 +1982,8 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
   final List<WishlistItemDto> wishlistItems = [];
   final List<String> deletedCollectionItemIds = [];
   final List<String> deletedWishlistItemIds = [];
+  int batchReads = 0;
+  int fullItemsReads = 0;
   PortfolioItemDraftDto? lastCollectedDraft;
   final bool conflictOnWishlist;
   final bool conflictOnCollect;
@@ -1646,6 +2007,7 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
   Future<List<PortfolioItemDto>> listCollectionItems(
     AuthSession session,
   ) async {
+    fullItemsReads += 1;
     await assetLoadGate?.future;
     if (failAssetLoad) throw StateError('asset state unavailable');
     return [...collectionItems];
@@ -1654,6 +2016,26 @@ class _FakePortfolioApi extends Fake implements PortfolioApi {
   @override
   Future<List<WishlistItemDto>> listWishlistItems(AuthSession session) async {
     return [...wishlistItems];
+  }
+
+  @override
+  Future<PortfolioCardAssetsDto> getCardAssetsBatch(
+    AuthSession session,
+    Iterable<String> cardRefs,
+  ) async {
+    batchReads += 1;
+    await assetLoadGate?.future;
+    if (failAssetLoad) throw StateError('asset state unavailable');
+    final requested = cardRefs.toSet();
+    return PortfolioCardAssetsDto(
+      folders: await listFolders(session),
+      items: collectionItems
+          .where((item) => requested.contains(item.cardRef))
+          .toList(),
+      wishlistItems: wishlistItems
+          .where((item) => requested.contains(item.cardRef))
+          .toList(),
+    );
   }
 
   @override

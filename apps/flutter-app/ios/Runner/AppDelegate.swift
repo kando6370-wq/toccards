@@ -328,9 +328,8 @@ private enum ScanNativeImageProcessor {
       let typedData = arguments["image"] as? FlutterStandardTypedData,
       let cardWidth = arguments["card_width"] as? Int,
       let cardHeight = arguments["card_height"] as? Int,
-      let embeddingSize = arguments["embedding_size"] as? Int,
       let jpegQuality = arguments["jpeg_quality"] as? Int,
-      cardWidth > 0, cardHeight > 0, embeddingSize > 0,
+      cardWidth > 0, cardHeight > 0,
       let source = CIImage(data: typedData.data, options: [.applyOrientationProperty: true]),
       !source.extent.isEmpty, !source.extent.isInfinite
     else { throw ScanNativeImageError.invalidInput }
@@ -349,10 +348,10 @@ private enum ScanNativeImageProcessor {
     guard let jpeg = card.jpegData(compressionQuality: CGFloat(jpegQuality) / 100) else {
       throw ScanNativeImageError.encodingFailed
     }
-    let rgb = try rgbBytes(from: card, width: embeddingSize, height: embeddingSize)
+    let rgb = try rgbBytes(from: card, width: cardWidth, height: cardHeight)
     return [
       "card_image_bytes": FlutterStandardTypedData(bytes: jpeg),
-      "embedding_rgb_bytes": FlutterStandardTypedData(bytes: rgb),
+      "card_rgb_bytes": FlutterStandardTypedData(bytes: rgb),
     ]
   }
 
@@ -365,11 +364,9 @@ private enum ScanNativeImageProcessor {
       cornerNumbers.allSatisfy({ $0.doubleValue.isFinite }),
       let cardWidth = arguments["card_width"] as? Int,
       let cardHeight = arguments["card_height"] as? Int,
-      let embeddingSize = arguments["embedding_size"] as? Int,
       let jpegQuality = arguments["jpeg_quality"] as? Int,
       cardWidth > 0,
       cardHeight > 0,
-      embeddingSize > 0,
       let source = CIImage(
         data: typedData.data,
         options: [.applyOrientationProperty: true]
@@ -428,14 +425,11 @@ private enum ScanNativeImageProcessor {
     guard let jpeg = cardImage.jpegData(compressionQuality: CGFloat(jpegQuality) / 100) else {
       throw ScanNativeImageError.encodingFailed
     }
-    let embeddingRgb = try rgbBytes(
-      from: cardImage,
-      width: embeddingSize,
-      height: embeddingSize
-    )
     return [
       "card_image_bytes": FlutterStandardTypedData(bytes: jpeg),
-      "embedding_rgb_bytes": FlutterStandardTypedData(bytes: embeddingRgb),
+      "card_rgb_bytes": FlutterStandardTypedData(bytes: try rgbBytes(
+        from: cardImage, width: cardWidth, height: cardHeight
+      )),
     ]
   }
 

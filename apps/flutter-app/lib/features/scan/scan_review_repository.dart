@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:collection';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/portfolio/portfolio_api_client.dart';
@@ -102,7 +105,7 @@ abstract interface class ScanReviewRepository {
 }
 
 class ApiScanReviewRepository implements ScanReviewRepository {
-  const ApiScanReviewRepository({
+  ApiScanReviewRepository({
     required PortfolioApi portfolioApi,
     required CardDataApi cardDataApi,
     required ScanApi scanApi,
@@ -116,6 +119,10 @@ class ApiScanReviewRepository implements ScanReviewRepository {
   final CardDataApi _cardDataApi;
   final ScanApi _scanApi;
   final AuthSession? Function() _session;
+  final _pendingCards = <String, Future<MapEntry<String, ScanReviewCard>?>>{};
+  final _waitingRequests = Queue<Completer<void>>();
+  static const _maxConcurrentRequests = 4;
+  var _activeRequests = 0;
 
   @override
   Future<ScanReviewTarget> loadTarget({String? preferredFolderId}) async {
@@ -143,18 +150,45 @@ class ApiScanReviewRepository implements ScanReviewRepository {
   @override
   Future<Map<String, ScanReviewCard>> loadCards(List<String> cardRefs) async {
     final uniqueRefs = cardRefs.toSet();
-    final entries = await Future.wait(
-      uniqueRefs.map((cardRef) => _loadCard(cardRef)),
-    );
+    final entries = await Future.wait(uniqueRefs.map(_loadSharedCard));
     return Map.fromEntries(
       entries.whereType<MapEntry<String, ScanReviewCard>>(),
     );
   }
 
+  Future<MapEntry<String, ScanReviewCard>?> _loadSharedCard(String cardRef) {
+    return _pendingCards.putIfAbsent(
+      cardRef,
+      () => _loadCard(cardRef).whenComplete(() {
+        _pendingCards.remove(cardRef);
+      }),
+    );
+  }
+
+  Future<T> _withRequestSlot<T>(Future<T> Function() request) async {
+    if (_activeRequests == _maxConcurrentRequests) {
+      final ready = Completer<void>();
+      _waitingRequests.add(ready);
+      await ready.future;
+    } else {
+      _activeRequests++;
+    }
+    try {
+      return await request();
+    } finally {
+      if (_waitingRequests.isNotEmpty) {
+        // Transfer this slot to the oldest waiter without opening a fifth slot.
+        _waitingRequests.removeFirst().complete();
+      } else {
+        _activeRequests--;
+      }
+    }
+  }
+
   Future<MapEntry<String, ScanReviewCard>?> _loadCard(String cardRef) async {
     final CardDataCardDto card;
     try {
-      card = await _cardDataApi.getCard(cardRef);
+      card = await _withRequestSlot(() => _cardDataApi.getCard(cardRef));
     } on Exception {
       return null;
     }
@@ -171,10 +205,12 @@ class ApiScanReviewRepository implements ScanReviewRepository {
       ].map((selection) async {
         final (finish, language) = selection;
         try {
-          final rows = await _cardDataApi.getMarketPrices(
-            cardRef,
-            finish: finish,
-            language: language,
+          final rows = await _withRequestSlot(
+            () => _cardDataApi.getMarketPrices(
+              cardRef,
+              finish: finish,
+              language: language,
+            ),
           );
           return rows
               .map(

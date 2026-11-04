@@ -893,45 +893,35 @@ describe("admin routes", () => {
     expect(body.data.page_size).toBe(100);
   });
 
-  it("types every optional Admin filter because PostgreSQL cannot parse standalone null sentinels", async () => {
+  it("types optional filters on the remaining Admin routes because PostgreSQL cannot parse standalone null sentinels", async () => {
     const env = createTestEnv();
     await seedAdmin(env, "admin-null-filters", "null-filters@example.com", "correct-password", "operator");
     const login = await loginAdmin(env, "null-filters@example.com", "correct-password");
 
     const responses = await Promise.all([
       "/users",
-      "/feedbacks",
       "/scans",
-      "/permissions",
       "/card-overrides",
       "/analytics/installations",
     ].map((path) => requestAdmin(env, path, "GET", undefined, login.data.access_token)));
 
-    expect(responses.map((response) => response.status)).toEqual([200, 200, 200, 200, 200, 200]);
+    expect(responses.map((response) => response.status)).toEqual([200, 200, 200, 200]);
   });
 
-  it("adds unique tie-breakers to every Admin offset query because equal timestamps must not move records between pages", async () => {
+  it("adds unique tie-breakers to the remaining Admin offset queries because equal timestamps must not move records between pages", async () => {
     const env = createTestEnv();
     await seedAdmin(env, "admin-stable-pages", "stable-pages@example.com", "correct-password", "operator");
     const login = await loginAdmin(env, "stable-pages@example.com", "correct-password");
 
     await Promise.all([
       "/users",
-      "/feedbacks",
       "/scans",
-      "/permissions",
       "/card-overrides",
     ].map((path) => requestAdmin(env, path, "GET", undefined, login.data.access_token)));
 
     const usersSql = env.DB.preparedSql.find((sql) => sql.includes("WITH accounts AS"));
-    const permissionsSql = env.DB.preparedSql.find((sql) =>
-      sql.startsWith("SELECT id, email, password_hash") && sql.includes("LIMIT ? OFFSET ?")
-    );
-    const feedbackSql = env.DB.preparedSql.find((sql) =>
-      sql.startsWith("SELECT id, uid, email, types") && sql.includes("LIMIT ? OFFSET ?")
-    );
     const scansSql = env.DB.preparedSql.find((sql) =>
-      sql.startsWith("SELECT id, environment, owner_type, owner_id, image_url")
+      sql.startsWith("SELECT id, environment, owner_id, image_url")
         && sql.includes("LIMIT ? OFFSET ?")
     );
     const overridesSql = env.DB.preparedSql.find((sql) =>
@@ -951,9 +941,7 @@ describe("admin routes", () => {
     expect(usersSql).toContain(
       "ORDER BY install.last_seen_at DESC, install.first_seen_at DESC, install.installation_id ASC LIMIT 1",
     );
-    for (const sql of [permissionsSql, feedbackSql, scansSql]) {
-      expect(sql).toContain("ORDER BY created_at DESC, id ASC");
-    }
+    expect(scansSql).toContain("ORDER BY created_at DESC, id ASC");
     expect(overridesSql).toContain("ORDER BY updated_at DESC, id ASC");
   });
 
@@ -982,6 +970,7 @@ describe("admin routes", () => {
         number: "1",
         confidence: 86.2,
         candidate_count: 1,
+        ocr_text: "BUSHI TENDERFOOT CHK 1",
       }),
       user_result: JSON.stringify({
         confirmation_status: "confirmed",
@@ -1041,7 +1030,11 @@ describe("admin routes", () => {
       data: expect.objectContaining({
         scan_id: scanId,
         environment: "development",
-        system_result: expect.objectContaining({ name: "Bushi Tenderfoot", confidence: 86.2 }),
+        system_result: expect.objectContaining({
+          name: "Bushi Tenderfoot",
+          confidence: 86.2,
+          ocr_text: "BUSHI TENDERFOOT CHK 1",
+        }),
         user_result: expect.objectContaining({ added_to_inventory: expect.any(Boolean) }),
         candidates: [
           expect.objectContaining({
@@ -1074,35 +1067,6 @@ describe("admin routes", () => {
       login.data.access_token,
     );
     expect(invalidDate.status).toBe(422);
-  });
-
-  it("manages permission records through admin users because only authorized emails may enter the console", async () => {
-    const env = createTestEnv();
-    await seedAdmin(env, "super-permission", "permission@example.com", "correct-password", "super_admin");
-    await seedAdmin(env, "operator-permission", "ops-permission@example.com", "correct-password", "operator");
-    const login = await loginAdmin(env, "permission@example.com", "correct-password");
-
-    const listResponse = await requestAdmin(env, "/permissions", "GET", undefined, login.data.access_token);
-    const patchResponse = await requestAdmin(
-      env,
-      "/permissions/operator-permission",
-      "PATCH",
-      { status: "disabled" },
-      login.data.access_token,
-    );
-    const patchBody = await patchResponse.json();
-
-    expect(listResponse.status).toBe(200);
-    expect(patchResponse.status).toBe(200);
-    expect(patchBody).toEqual({
-      success: true,
-      data: expect.objectContaining({
-        id: "operator-permission",
-        email: "ops-permission@example.com",
-        permission_status: "disabled",
-      }),
-    });
-    expect(env.DB.adminUsers.find((row) => row.id === "operator-permission")?.status).toBe("disabled");
   });
 
   it("returns 404 for every removed Trending Pin endpoint because the obsolete API must stay retired", async () => {

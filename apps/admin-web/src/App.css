@@ -546,6 +546,14 @@ body {
   padding: 20px;
 }
 
+.apple-notifications-filter-panel {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.apple-notification-created-at {
+  grid-column: span 2;
+}
+
 .scans-filter-panel > * {
   min-width: 0;
   width: 100%;
@@ -825,6 +833,16 @@ body {
   }
 }
 
+@media (min-width: 901px) and (max-width: 1199px) {
+  .apple-notifications-filter-panel {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .apple-notification-created-at {
+    grid-column: auto;
+  }
+}
+
 @media (max-width: 900px) {
   .notification-detail-drawer-root .ant-drawer-content-wrapper {
     width: 92vw !important;
@@ -836,6 +854,14 @@ body {
 
   .scans-filter-panel {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .apple-notification-created-at {
+    grid-column: auto;
+  }
+
+  .apple-notifications-filter-panel .scans-filter-actions {
+    grid-column: 1 / -1;
   }
 
   .scans-pagination {

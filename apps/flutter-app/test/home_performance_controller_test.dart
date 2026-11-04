@@ -12,6 +12,66 @@ import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 
 void main() {
   test(
+    'switching owners clears loaded performance before the next account can view it',
+    () async {
+      final api = _ControlledPerformanceApi();
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith(_ReadyAuthController.new),
+          portfolioApiClientProvider.overrideWithValue(api),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(
+        homePerformanceControllerProvider.notifier,
+      );
+      final load = controller.load(
+        folderId: 'shared-folder',
+        localPremiumVerified: true,
+      );
+      api.completeNext(_performance(PerformanceRange.oneMonth, 100));
+      await load;
+
+      (container.read(authControllerProvider.notifier) as _ReadyAuthController)
+          .switchOwner();
+
+      final state = container.read(homePerformanceControllerProvider);
+      expect(state.data, isNull);
+      expect(state.hasLoaded, isFalse);
+      expect(state.folderId, isNull);
+    },
+  );
+
+  test(
+    'an old owner response cannot populate performance after an account switch',
+    () async {
+      final api = _ControlledPerformanceApi();
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith(_ReadyAuthController.new),
+          portfolioApiClientProvider.overrideWithValue(api),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(
+        homePerformanceControllerProvider.notifier,
+      );
+      final oldLoad = controller.load(
+        folderId: 'shared-folder',
+        localPremiumVerified: true,
+      );
+
+      (container.read(authControllerProvider.notifier) as _ReadyAuthController)
+          .switchOwner();
+      expect(container.read(homePerformanceControllerProvider).data, isNull);
+      api.completeNext(_performance(PerformanceRange.oneMonth, 100));
+      await oldLoad;
+
+      expect(container.read(homePerformanceControllerProvider).data, isNull);
+    },
+  );
+
+  test(
     'Entitlement sync 409 keeps loading, repairs once, and retries once',
     () async {
       final api = _RepairablePerformanceApi();
@@ -265,6 +325,17 @@ void main() {
 }
 
 class _ReadyAuthController extends AuthController {
+  void switchOwner() {
+    state = const AuthState.ready(
+      session: AuthSession(
+        ownerType: OwnerType.user,
+        accessToken: 'access-2',
+        refreshToken: 'refresh-2',
+        userId: 'user-2',
+      ),
+    );
+  }
+
   @override
   AuthState build() => const AuthState.ready(
     session: AuthSession(

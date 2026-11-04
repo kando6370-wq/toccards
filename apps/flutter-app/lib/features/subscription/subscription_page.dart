@@ -384,7 +384,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                   : Text(
                       showOfflineFallback
                           ? display.selectedSku?.offlineTrial == true
-                                ? 'Try For Free'
+                                ? 'TRY FOR FREE'
                                 : 'SUBSCRIBE'
                           : display.selectedCard?.cta ?? 'SUBSCRIBE',
                       textAlign: TextAlign.center,
@@ -518,7 +518,10 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                                     display.showTrialSwitch,
                                   )) {
                                     (3, true) => 5,
-                                    (3, false) => 62,
+                                    (3, false) =>
+                                      display.config?.isLocalFallback == true
+                                          ? 86
+                                          : 62,
                                     (2, true) => 56,
                                     (2, false) => 100,
                                     _ => 16,
@@ -2037,7 +2040,9 @@ class _OfflinePlanTile extends StatelessWidget {
                                 fit: BoxFit.scaleDown,
                                 alignment: Alignment.centerRight,
                                 child: Text(
-                                  sku.offlinePrice ?? '',
+                                  sku.offlineTrial
+                                      ? 'Then ${sku.offlinePrice ?? ''}'
+                                      : sku.offlinePrice ?? '',
                                   maxLines: 1,
                                   softWrap: false,
                                   style: const TextStyle(
@@ -2049,15 +2054,16 @@ class _OfflinePlanTile extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            const Text(
-                              'per week',
-                              textAlign: TextAlign.right,
-                              style: TextStyle(
-                                color: _subscriptionSheetSecondaryText,
-                                fontSize: 12,
-                                height: 16 / 12,
+                            if (sku.copy.priceNote.isNotEmpty)
+                              Text(
+                                sku.copy.priceNote,
+                                textAlign: TextAlign.right,
+                                style: const TextStyle(
+                                  color: _subscriptionSheetSecondaryText,
+                                  fontSize: 12,
+                                  height: 16 / 12,
+                                ),
                               ),
-                            ),
                           ],
                         ),
                       ),
@@ -2116,14 +2122,6 @@ class _ConfiguredPlanTile extends StatelessWidget {
     final isWeeklyPeriod =
         (product.periodUnit == 'week' && product.periodValue == 1) ||
         (product.periodUnit == 'day' && product.periodValue == 7);
-    final weeklyPrice =
-        usesLocalFallback &&
-            product.periodUnit == 'month' &&
-            product.periodValue == 1
-        ? product.fourWeekPrice
-        : usesLocalFallback && isWeeklyPeriod
-        ? product.product.displayPrice
-        : product.weeklyPrice;
     final periodLabel =
         product.type == DisplayProductType.subscription &&
             product.periodValue == 1
@@ -2141,9 +2139,11 @@ class _ConfiguredPlanTile extends StatelessWidget {
     final priceCaption = card.hidePrice
         ? ''
         : usesLocalFallback
-        ? weeklyPrice == null
-              ? periodLabel
-              : 'per week'
+        ? product.type == DisplayProductType.nonConsumable
+              ? ''
+              : isWeeklyPeriod
+              ? 'per week'
+              : periodLabel
         : usesRemoteConfiguration
         ? showWeeklyOnly
               ? 'per week'
@@ -2155,10 +2155,8 @@ class _ConfiguredPlanTile extends StatelessWidget {
         ? product.isTrialProduct && product.canUseTrial
               ? 'Then ${product.weeklyPrice!}'
               : product.weeklyPrice!
-        : usesLocalFallback && weeklyPrice != null
-        ? product.isTrialProduct && product.canUseTrial
-              ? 'Then $weeklyPrice'
-              : weeklyPrice
+        : usesLocalFallback && product.isTrialProduct && product.canUseTrial
+        ? 'Then ${product.product.displayPrice}'
         : product.product.displayPrice;
     final showSubtitle = card.subtitle.trim().isNotEmpty;
     final hasNameDetails =

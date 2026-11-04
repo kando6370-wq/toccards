@@ -46,46 +46,32 @@ final subscriptionDisplayApiProvider = Provider(
   (ref) => SubscriptionDisplayApi(ref.watch(portfolioDioProvider)),
 );
 
-const _fallbackWeeklyTrialPlanId = 'weekly_trial';
-const _fallbackYearlyPlanId = 'yearly_pro';
-const _fallbackMonthlyPlanId = 'monthly';
+const _fallbackYearlyTrialPlanId = 'yearly_trial';
 
 /// Build the local Page/Modal fallback from the approved long-lived products.
 ///
-/// The original weekly/yearly/lifetime entries remain in the purchase registry
-/// for older transactions and Restore. Only the additional display products
-/// participate in this three-card fallback. Production currently reuses its
-/// configured yearly product, so the yearly_pro entry is optional.
+/// Display the ordinary weekly, yearly trial and lifetime products. All other
+/// registered products remain available to the purchase listener and Restore.
 SubscriptionDisplayConfig legacySubscriptionFallback(
   AppSubscriptionConfiguration configuration,
   SubscriptionPageType type,
 ) {
+  final ids = configuration.configuredProductIds;
+  final weeklyId = ids[subscriptionWeeklyPlanId];
+  final lifetimeId = ids[subscriptionLifetimePlanId];
   final additional = {
     for (final product in configuration.additionalProducts)
       product.planId: product,
   };
-  final trial = additional[_fallbackWeeklyTrialPlanId];
-  final monthly = additional[_fallbackMonthlyPlanId];
-  final yearlyAdditional = additional[_fallbackYearlyPlanId];
-  final configuredYearlyId =
-      configuration.configuredProductIds[subscriptionYearlyPlanId];
-  final configuredYearly = configuredYearlyId == null
-      ? null
-      : configuration.supportedProducts
-            .where((product) => product.productId == configuredYearlyId)
-            .firstOrNull;
-  final yearly = yearlyAdditional?.type == DisplayProductType.subscription
-      ? yearlyAdditional
-      : configuredYearly?.type == DisplayProductType.subscription
-      ? configuredYearly
-      : null;
+  final trial = additional[_fallbackYearlyTrialPlanId];
 
   // Keep old builds usable when the optional additions are not present yet.
   // A partially registered new set must not produce a misleading mixed card
   // list, so it falls back to the previous local configuration as a unit.
-  if (trial?.type != DisplayProductType.subscription ||
-      monthly?.type != DisplayProductType.subscription ||
-      yearly == null) {
+  if (weeklyId == null ||
+      lifetimeId == null ||
+      trial?.type != DisplayProductType.subscription ||
+      trial?.isTrialProduct != true) {
     return _legacySubscriptionFallback(configuration, type);
   }
 
@@ -94,35 +80,38 @@ SubscriptionDisplayConfig legacySubscriptionFallback(
     isLocalFallback: true,
     skus: [
       SubscriptionDisplaySku(
-        productId: trial!.productId,
+        productId: weeklyId,
         type: DisplayProductType.subscription,
-        isDefault: true,
         offlinePrice: 'US\$4.99',
         offlineFullPrice: 'US\$4.99',
-        offlineTrial: trial.isTrialProduct,
-        copy: const SubscriptionCopy(name: '3-Day Free', cta: 'Try For Free'),
-      ),
-      SubscriptionDisplaySku(
-        productId: yearly.productId,
-        type: DisplayProductType.subscription,
-        offlinePrice: 'US\$0.96',
-        offlineFullPrice: 'US\$49.99',
         copy: const SubscriptionCopy(
-          name: 'Unlimited Yearly',
-          subtitle: 'Only {price} per year',
-          badge: 'save 81%',
+          name: 'Unlimited Weekly',
+          priceNote: 'per week',
           cta: 'SUBSCRIBE',
         ),
       ),
       SubscriptionDisplaySku(
-        productId: monthly!.productId,
+        productId: trial!.productId,
         type: DisplayProductType.subscription,
-        offlinePrice: 'US\$3.25',
-        offlineFullPrice: 'US\$12.99',
+        isDefault: true,
+        offlinePrice: 'US\$49.99',
+        offlineFullPrice: 'US\$49.99',
+        offlineTrial: true,
         copy: const SubscriptionCopy(
-          name: 'Unlimited Monthly',
-          subtitle: 'Only {price} per month',
-          badge: 'Most Popular',
+          name: '3-Day Free',
+          badge: 'SAVE 81%',
+          priceNote: 'per year',
+          cta: 'TRY FOR FREE',
+        ),
+      ),
+      SubscriptionDisplaySku(
+        productId: lifetimeId,
+        type: DisplayProductType.nonConsumable,
+        offlinePrice: 'US\$79.99',
+        offlineFullPrice: 'US\$79.99',
+        copy: const SubscriptionCopy(
+          name: 'Lifetime Access',
+          badge: 'Best Offer',
           cta: 'SUBSCRIBE',
         ),
       ),

@@ -63,6 +63,9 @@ export function createLocalDbDataSourceAdapter(db: D1Database): DataSourceAdapte
       const pageSize = positiveIntegerOrDefault(options.page_size, 40);
       const offset = (page - 1) * pageSize;
       const objectTypeClause = objectTypeWhereClause(options.object_type);
+      const imageClause = options.has_image === 2
+        ? "AND cards_all.has_image = 2"
+        : "";
       const gameClause = options.game ? "AND lower(game) = lower(?)" : "";
       const setIdClause = options.set_id ? "AND set_id = ?" : "";
       const setClause = options.set_code ? "AND lower(set_code) = lower(?)" : "";
@@ -86,11 +89,14 @@ WHERE ${effectiveSearchTerms.map(
   coalesce(game, '')
 ) LIKE ?`,
 ).join("\nAND ")}
+${imageClause}
 ${objectTypeClause}
 ${gameClause}
 ${setIdClause}
 ${setClause}
-ORDER BY updated_at DESC NULLS LAST, product_id ASC
+ORDER BY created_at DESC NULLS LAST,
+  CASE WHEN product_id ~ '^[0-9]+$' THEN product_id::numeric ELSE NULL END DESC NULLS LAST,
+  product_id DESC
 LIMIT ? OFFSET ?`,
       ).bind(...bindings).all<CardCatalogRow>();
 
@@ -121,7 +127,8 @@ LIMIT ? OFFSET ?`,
          WHERE lower(s.name || ' ' || coalesce(s.set_code, '')) LIKE ?
            AND trim(coalesce(s.set_code, '')) <> ''
            ${gameClause}
-         ORDER BY s.name ASC, s.set_id ASC
+         ORDER BY CASE WHEN s.set_id ~ '^[0-9]+$' THEN s.set_id::numeric ELSE NULL END DESC NULLS LAST,
+                  s.set_id DESC
          LIMIT ? OFFSET ?`,
       ).bind(...bindings).all<SetSearchResult>();
 

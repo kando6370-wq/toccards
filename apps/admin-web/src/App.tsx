@@ -22,6 +22,7 @@ import {
   message,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
+import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import SubscriptionConfigPage from "./subscription-config/SubscriptionConfigPage";
 import type { SubscriptionRequest } from "./subscription-config/model";
@@ -106,7 +107,7 @@ type AppleNotificationRow = {
   sku: string | null; processing_status: string; received_at: string; uids: string | null;
 };
 
-type AppleNotificationOptions = { items: Array<{ notification_type: string; subtype: string | null }> };
+type AppleNotificationOptions = { items: Array<{ notification_type: string; subtype: string | null }>; skus: string[] };
 type AppleNotificationDetail = AppleNotificationRow & {
   decoded_payload: string | null;
   last_error: string | null;
@@ -638,12 +639,13 @@ function AppleNotificationsPage({ session }: { session: AdminSession }) {
   const detailRequestVersion = useRef(0);
   const path = useMemo(() => queryPath("/apple-notifications", page, filters), [filters, page]);
   const { data, loading, reload, error } = useAdminData<PagedResponse<AppleNotificationRow>>(path, session);
-  const { data: optionData } = useAdminData<AppleNotificationOptions>("/apple-notifications/options", session);
+  const { data: optionData, loading: optionsLoading, reload: reloadOptions, error: optionsError } = useAdminData<AppleNotificationOptions>("/apple-notifications/options", session);
   useEffect(() => {
     if (loading || !data) return;
     const lastPage = Math.max(1, Math.ceil(data.total / data.page_size));
     if (page > lastPage) setPage(lastPage);
   }, [data, loading, page]);
+  const skuOptions = (optionData?.skus ?? []).map((value) => ({ value, label: value }));
   const notificationTypes = [...new Set((optionData?.items ?? []).map((item) => item.notification_type))];
   const notificationTypeOptions = notificationTypes.map((value) => ({ value, label: value }));
   const selectedType = draft.notification_type || undefined;
@@ -657,6 +659,7 @@ function AppleNotificationsPage({ session }: { session: AdminSession }) {
       uid: draft.uid?.trim() ?? "",
       original_transaction_id: draft.original_transaction_id?.trim() ?? "",
       order_id: draft.order_id?.trim() ?? "",
+      sku: draft.sku?.trim() ?? "",
     };
     setDraft(nextFilters);
     setFilters(nextFilters);
@@ -667,6 +670,10 @@ function AppleNotificationsPage({ session }: { session: AdminSession }) {
     setFilters({ environment: DEFAULT_BILLING_ENVIRONMENT });
     setPage(1);
     setDateKey((value) => value + 1);
+  }
+  function refreshNotifications() {
+    reload();
+    reloadOptions();
   }
   async function openDetail(id: string) {
     const requestVersion = ++detailRequestVersion.current;
@@ -713,18 +720,19 @@ function AppleNotificationsPage({ session }: { session: AdminSession }) {
     { title: "创建时间（UTC+0）", dataIndex: "received_at", width: 170, render: notificationUtcTime },
     { title: "操作", width: 90, render: (_, row) => <Button type="link" onClick={() => openDetail(row.detail_id)}>查看详情</Button> },
   ];
-  return <PagePanel error={error ? "通知消息加载失败，请稍后重试" : null} onRefresh={reload} refreshing={loading} showRefresh={false}>
-    <section className="scans-filter-panel">
+  return <PagePanel error={error ? "通知消息加载失败，请稍后重试" : optionsError ? "筛选选项加载失败，请点击刷新重试" : null} onRefresh={refreshNotifications} refreshing={loading || optionsLoading} showRefresh={false}>
+    <section className="scans-filter-panel apple-notifications-filter-panel">
       <ScanFilterField label="UID"><Input value={draft.uid ?? ""} placeholder="请输入用户 ID。" onChange={(e) => setDraft({ ...draft, uid: e.target.value })} /></ScanFilterField>
       <ScanFilterField label="原始交易 ID"><Input value={draft.original_transaction_id ?? ""} placeholder="请输入原始交易 ID。" onChange={(e) => setDraft({ ...draft, original_transaction_id: e.target.value })} /></ScanFilterField>
       <ScanFilterField label="订单 ID"><Input value={draft.order_id ?? ""} placeholder="请输入订单 ID。" onChange={(e) => setDraft({ ...draft, order_id: e.target.value })} /></ScanFilterField>
+      <ScanFilterField label="SKU"><Select showSearch allowClear placeholder="全部" value={draft.sku || undefined} options={skuOptions} loading={optionsLoading} onChange={(v) => setDraft({ ...draft, sku: v ?? "" })} /></ScanFilterField>
       <ScanFilterField label="环境"><Select allowClear placeholder="全部" value={draft.environment || undefined} options={billingEnvironmentOptions} onChange={(v) => setDraft({ ...draft, environment: v ?? "" })} /></ScanFilterField>
       <ScanFilterField label="主通知类型"><Select showSearch allowClear placeholder="全部" value={selectedType} options={notificationTypeOptions} onChange={(v) => setDraft({ ...draft, notification_type: v ?? "", subtype: "" })} /></ScanFilterField>
       <ScanFilterField label="子通知类型"><Select showSearch allowClear placeholder="全部" value={draft.subtype || undefined} options={subtypeOptions} onChange={(v) => setDraft({ ...draft, subtype: v ?? "" })} /></ScanFilterField>
-      <ScanFilterField label="创建时间（UTC+0）"><DatePicker.RangePicker key={dateKey} format="YYYY-MM-DD" onChange={(_, v) => setDraft({ ...draft, created_from: v[0], created_to: v[1] })} /></ScanFilterField>
+      <ScanFilterField className="apple-notification-created-at" label="创建时间（UTC+0）"><DatePicker.RangePicker key={dateKey} format="YYYY-MM-DD" onChange={(_, v) => setDraft({ ...draft, created_from: v[0], created_to: v[1] })} /></ScanFilterField>
       <div className="scans-filter-actions"><Button disabled={loading} onClick={resetNotificationFilters}>重置</Button><Button className="cyan-button" disabled={loading} loading={loading} onClick={applyNotificationFilters}>查询</Button></div>
     </section>
-    <section className="scans-table-panel"><div className="billing-table-actions"><Title level={4}>通知消息列表</Title><Button disabled={loading} loading={loading} onClick={reload}>刷新</Button></div><Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} locale={{ emptyText: "暂无符合条件的通知消息" }} pagination={false} scroll={{ x: 1510 }} />
+    <section className="scans-table-panel"><div className="billing-table-actions"><Title level={4}>通知消息列表</Title><Button disabled={loading || optionsLoading} loading={loading || optionsLoading} onClick={refreshNotifications}>刷新</Button></div><Table rowKey="id" columns={columns} dataSource={data?.items ?? []} loading={loading} locale={{ emptyText: "暂无符合条件的通知消息" }} pagination={false} scroll={{ x: 1510 }} />
       <div className="scans-pagination"><Text>{rangeSummaryPage(page, data?.page_size ?? 20, data?.total ?? 0)}</Text><Pagination disabled={loading} current={page} pageSize={data?.page_size ?? 20} total={data?.total ?? 0} showSizeChanger={false} onChange={setPage} /></div>
     </section>
     <Drawer className="notification-detail-drawer" rootClassName="notification-detail-drawer-root" title="通知消息详情" width="55%" open={detailId !== null} onClose={closeDetail}>
@@ -805,8 +813,38 @@ function UsersPage({ session }: { session: AdminSession }) {
 }
 
 function FeedbackPage({ session }: { session: AdminSession }) {
-  const { data, loading, reload, error } = useAdminData<{ items: FeedbackTicket[] }>("/feedbacks?page_size=100", session);
+  const [page, setPage] = useState(1);
+  const [dateKey, setDateKey] = useState(0);
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const path = useMemo(() => {
+    const params = new URLSearchParams({ page: String(page), page_size: "5" });
+    Object.entries(filters).forEach(([key, value]) => value && params.set(key, value));
+    return `/feedbacks?${params.toString()}`;
+  }, [filters, page]);
+  const { data, loading, reload, error } = useAdminData<{ items: FeedbackTicket[]; total: number; page_size: number }>(path, session);
   const tickets = data?.items ?? [];
+
+  useEffect(() => {
+    if (loading || !data) return;
+    const lastPage = Math.max(1, Math.ceil(data.total / data.page_size));
+    if (page > lastPage) setPage(lastPage);
+  }, [data, loading, page]);
+
+  function applyFilters() {
+    const nextFilters = { ...draft, uid: draft.uid?.trim() ?? "" };
+    setDraft(nextFilters);
+    setFilters(nextFilters);
+    setPage(1);
+    reload();
+  }
+
+  function resetFilters() {
+    setDraft({});
+    setFilters({});
+    setPage(1);
+    setDateKey((value) => value + 1);
+  }
 
   async function updateStatus(ticket: FeedbackTicket, status: FeedbackStatus) {
     await mutate(session, `/feedbacks/${ticket.id}/status`, { method: "PATCH", body: { status } });
@@ -817,14 +855,14 @@ function FeedbackPage({ session }: { session: AdminSession }) {
   return (
     <PagePanel error={error} onRefresh={reload}>
       <FilterBar>
-        <DatePicker placeholder="开始时间" />
-        <DatePicker placeholder="结束时间" />
-        <Select placeholder="平台" className="filter-control" options={platformOptions} />
-        <Select placeholder="问题类型" className="filter-control" options={feedbackTypeOptions} />
-        <Select placeholder="处理状态" className="filter-control" options={feedbackStatusOptions} />
-        <Input placeholder="UID 搜索" className="filter-control" />
-        <Button className="cyan-button">查询</Button>
-        <Button>重置</Button>
+        <DatePicker key={`from-${dateKey}`} placeholder="开始时间" onChange={(_, value) => setDraft((current) => ({ ...current, date_from: typeof value === "string" ? value : "" }))} />
+        <DatePicker key={`to-${dateKey}`} placeholder="结束时间" onChange={(_, value) => setDraft((current) => ({ ...current, date_to: typeof value === "string" ? value : "" }))} />
+        <Select placeholder="平台未知" className="filter-control" disabled />
+        <Select placeholder="问题类型" className="filter-control" allowClear value={draft.issue_type || undefined} onChange={(value) => setDraft((current) => ({ ...current, issue_type: value ?? "" }))} options={feedbackTypeOptions} />
+        <Select placeholder="处理状态" className="filter-control" allowClear value={draft.status || undefined} onChange={(value) => setDraft((current) => ({ ...current, status: value ?? "" }))} options={feedbackStatusOptions} />
+        <Input placeholder="UID 搜索" className="filter-control" value={draft.uid ?? ""} onChange={(event) => setDraft((current) => ({ ...current, uid: event.target.value }))} onPressEnter={applyFilters} />
+        <Button className="cyan-button" onClick={applyFilters}>查询</Button>
+        <Button onClick={resetFilters}>重置</Button>
       </FilterBar>
       {loading && <Alert message="正在加载反馈" type="info" showIcon />}
       <div className="feedback-list">
@@ -859,8 +897,8 @@ function FeedbackPage({ session }: { session: AdminSession }) {
         ))}
       </div>
       <div className="feedback-footer">
-        <Text>{rangeSummary(tickets.length, "条反馈")}</Text>
-        <Pagination size="small" current={1} pageSize={5} total={tickets.length} showSizeChanger={false} />
+        <Text>{rangeSummaryPage(page, data?.page_size ?? 5, data?.total ?? 0)}</Text>
+        <Pagination size="small" current={page} pageSize={data?.page_size ?? 5} total={data?.total ?? 0} showSizeChanger={false} onChange={setPage} />
       </div>
     </PagePanel>
   );
@@ -868,6 +906,10 @@ function FeedbackPage({ session }: { session: AdminSession }) {
 
 function ScansPage({ session }: { session: AdminSession }) {
   const [selected, setSelected] = useState<ScanDetail | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const detailRequest = useRef({ version: 0, controller: null as AbortController | null });
   const [page, setPage] = useState(1);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [filters, setFilters] = useState<Record<string, string>>({});
@@ -881,9 +923,37 @@ function ScansPage({ session }: { session: AdminSession }) {
   const { data, loading, reload, error } = useAdminData<ScanListResponse>(queryPath, session);
   const scans = data?.items ?? [];
 
+  useEffect(() => () => {
+    detailRequest.current.version += 1;
+    detailRequest.current.controller?.abort();
+  }, []);
+
   async function openDetail(scanId: string) {
-    const detail = await adminRequest<ScanDetail>(`/scans/${scanId}`, { token: session.accessToken });
-    setSelected(detail);
+    const request = detailRequest.current;
+    request.controller?.abort();
+    request.controller = new AbortController();
+    const version = ++request.version;
+    setDetailId(scanId);
+    setSelected(null);
+    setDetailError(null);
+    setDetailLoading(true);
+    try {
+      const detail = await adminRequest<ScanDetail>(`/scans/${scanId}`, { token: session.accessToken, signal: request.controller.signal });
+      if (version === request.version) setSelected(detail);
+    } catch (requestError) {
+      if (version === request.version && !request.controller.signal.aborted) setDetailError(errorMessage(requestError));
+    } finally {
+      if (version === request.version) setDetailLoading(false);
+    }
+  }
+
+  function closeDetail() {
+    detailRequest.current.version += 1;
+    detailRequest.current.controller?.abort();
+    setDetailId(null);
+    setSelected(null);
+    setDetailError(null);
+    setDetailLoading(false);
   }
 
   function applyScanFilters() {
@@ -901,7 +971,7 @@ function ScansPage({ session }: { session: AdminSession }) {
     { title: "扫描时间", dataIndex: "scan_time", render: formatTime },
     { title: "识别状态", dataIndex: "recognition_status", render: renderRecognitionStatus },
     { title: "是否修改结果", dataIndex: "modified_result", render: (value: boolean) => (value ? "是" : "否") },
-    { title: "操作", render: (_, row) => <Button type="link" onClick={() => openDetail(row.scan_id)}>查看详情</Button> },
+    { title: "操作", render: (_, row) => <Button type="link" onClick={() => void openDetail(row.scan_id)}>查看详情</Button> },
   ];
 
   return (
@@ -913,6 +983,9 @@ function ScansPage({ session }: { session: AdminSession }) {
         </ScanFilterField>
         <ScanFilterField label="UID">
           <Input placeholder="输入用户 ID" value={draft.uid ?? ""} onChange={(event) => setDraft((current) => ({ ...current, uid: event.target.value }))} />
+        </ScanFilterField>
+        <ScanFilterField label="卡牌类型">
+          <Select placeholder="全部" allowClear value={draft.card_type || undefined} options={scanCardTypeOptions} onChange={(value) => setDraft((current) => ({ ...current, card_type: value ?? "" }))} />
         </ScanFilterField>
         <ScanFilterField label="平台">
           <Select placeholder="全部" allowClear value={draft.platform || undefined} options={scanPlatformOptions} onChange={(value) => setDraft((current) => ({ ...current, platform: value ?? "" }))} />
@@ -945,25 +1018,68 @@ function ScansPage({ session }: { session: AdminSession }) {
         </div>
       </section>
       <p className="scans-data-note">ⓘ 数据用途说明：扫描图片和识别结果仅用于问题排查、支持与识别质量审计。</p>
-      <ScanDetailDrawer scan={selected} session={session} onClose={() => setSelected(null)} />
+      <ScanDetailDrawer scan={selected} session={session} open={detailId !== null} loading={detailLoading} error={detailError} onRetry={() => detailId && void openDetail(detailId)} onClose={closeDetail} />
     </div>
   );
 }
 
-function ScanFilterField({ label, children }: { label: string; children: React.ReactNode }) {
-  return <label className="scan-filter-field"><span>{label}</span>{children}</label>;
+function ScanFilterField({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
+  return <label className={`scan-filter-field${className ? ` ${className}` : ""}`}><span>{label}</span>{children}</label>;
 }
 
 function PermissionsPage({ session }: { session: AdminSession }) {
+  const canManage = session.role === "super_admin";
   const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<PermissionItem | null>(null);
+  const [page, setPage] = useState(1);
+  const [draft, setDraft] = useState({ q: "", status: "" });
+  const [filters, setFilters] = useState(draft);
   const [form] = Form.useForm();
-  const { data, loading, reload, error } = useAdminData<{ items: PermissionItem[] }>("/permissions?page_size=100", session);
+  const [editForm] = Form.useForm<{ role: AdminRole; status: PermissionStatus }>();
+  const path = useMemo(() => {
+    const params = new URLSearchParams({ page: String(page), page_size: "8" });
+    if (filters.q) params.set("q", filters.q);
+    if (filters.status) params.set("status", filters.status);
+    return `/permissions?${params.toString()}`;
+  }, [filters, page]);
+  const { data, loading, reload, error } = useAdminData<PagedResponse<PermissionItem>>(path, session);
   const permissions = data?.items ?? [];
 
+  useEffect(() => {
+    if (loading || !data) return;
+    const lastPage = Math.max(1, Math.ceil(data.total / data.page_size));
+    if (page > lastPage) setPage(lastPage);
+  }, [data, loading, page]);
+  useEffect(() => {
+    if (editing) editForm.setFieldsValue({ role: editing.role, status: editing.permission_status });
+  }, [editing, editForm]);
+
+  function applyFilters() {
+    const next = { ...draft, q: draft.q.trim() };
+    setDraft(next);
+    setFilters(next);
+    setPage(1);
+    reload();
+  }
+  function resetFilters() {
+    const empty = { q: "", status: "" };
+    setDraft(empty);
+    setFilters(empty);
+    setPage(1);
+    reload();
+  }
   async function savePermission(values: { email: string; role: AdminRole; password: string }) {
     await mutate(session, "/permissions", { method: "POST", body: values });
     setModalOpen(false);
     form.resetFields();
+    setPage(1);
+    reload();
+  }
+  async function saveEditedPermission(values: { role: AdminRole; status: PermissionStatus }) {
+    if (!editing) return;
+    await mutate(session, `/permissions/${editing.id}`, { method: "PATCH", body: values });
+    setEditing(null);
+    editForm.resetFields();
     reload();
   }
 
@@ -984,8 +1100,8 @@ function PermissionsPage({ session }: { session: AdminSession }) {
       title: "操作",
       render: (_, row) => (
         <Space>
-          <Button type="link">编辑</Button>
-          <Button type="link" danger={row.permission_status === "active"} onClick={() => togglePermission(row)}>
+          <Button type="link" disabled={!canManage} onClick={() => setEditing(row)}>编辑</Button>
+          <Button type="link" disabled={!canManage} danger={row.permission_status === "active"} onClick={() => togglePermission(row)}>
             {row.permission_status === "active" ? "停用" : "启用"}
           </Button>
         </Space>
@@ -1001,17 +1117,17 @@ function PermissionsPage({ session }: { session: AdminSession }) {
       </section>
       <div className="toolbar-row">
         <FilterBar>
-          <Input placeholder="邮箱账号" className="filter-control" />
-          <Select placeholder="权限状态" className="filter-control" options={permissionStatusOptions} />
-          <Button className="cyan-button">查询</Button>
-          <Button>重置</Button>
+          <Input placeholder="邮箱账号" className="filter-control" value={draft.q} onChange={(event) => setDraft((current) => ({ ...current, q: event.target.value }))} onPressEnter={applyFilters} />
+          <Select placeholder="权限状态" className="filter-control" allowClear value={draft.status || undefined} onChange={(status) => setDraft((current) => ({ ...current, status: status ?? "" }))} options={permissionStatusOptions} />
+          <Button className="cyan-button" onClick={applyFilters}>查询</Button>
+          <Button onClick={resetFilters}>重置</Button>
         </FilterBar>
-        <Button className="cyan-button" onClick={() => setModalOpen(true)}>
+        <Button className="cyan-button" disabled={!canManage} onClick={() => setModalOpen(true)}>
           新增授权账号
         </Button>
       </div>
-      <DataPanel title="授权账号" count={permissions.length}>
-        <Table rowKey="id" columns={columns} dataSource={permissions} loading={loading} pagination={{ pageSize: 8 }} />
+      <DataPanel title="授权账号" count={data?.total ?? 0}>
+        <Table rowKey="id" columns={columns} dataSource={permissions} loading={loading} pagination={{ current: page, pageSize: 8, total: data?.total ?? 0, showSizeChanger: false, onChange: setPage }} />
       </DataPanel>
       <Modal open={modalOpen} title="新增授权账号" onCancel={() => setModalOpen(false)} onOk={form.submit}>
         <Form form={form} layout="vertical" onFinish={savePermission} initialValues={{ role: "operator" }}>
@@ -1023,6 +1139,17 @@ function PermissionsPage({ session }: { session: AdminSession }) {
           </Form.Item>
           <Form.Item name="password" label="初始密码" rules={[{ required: true }]}>
             <Input.Password />
+          </Form.Item>
+        </Form>
+      </Modal>
+      <Modal open={editing !== null} title="编辑授权账号" onCancel={() => setEditing(null)} onOk={editForm.submit}>
+        <Form form={editForm} layout="vertical" onFinish={saveEditedPermission}>
+          <Form.Item label="邮箱账号"><Text>{editing?.email}</Text></Form.Item>
+          <Form.Item name="role" label="账号角色" rules={[{ required: true }]}>
+            <Select options={[{ value: "operator", label: "运营管理员" }, { value: "super_admin", label: "超级管理员" }]} />
+          </Form.Item>
+          <Form.Item name="status" label="权限状态" rules={[{ required: true }]}>
+            <Select options={permissionStatusOptions} />
           </Form.Item>
         </Form>
       </Modal>
@@ -1143,9 +1270,19 @@ function AppVersionsPage({ session }: { session: AdminSession }) {
   );
 }
 
-function ScanDetailDrawer({ scan, session, onClose }: { scan: ScanDetail | null; session: AdminSession; onClose: () => void }) {
+function ScanDetailDrawer({ scan, session, open, loading, error, onRetry, onClose }: {
+  scan: ScanDetail | null;
+  session: AdminSession;
+  open: boolean;
+  loading: boolean;
+  error: string | null;
+  onRetry: () => void;
+  onClose: () => void;
+}) {
   return (
-    <Drawer open={!!scan} onClose={onClose} title="扫描详情" width={560} className="scan-detail-drawer">
+    <Drawer open={open} onClose={onClose} title="扫描详情" width={560} className="scan-detail-drawer">
+      {loading && <Spin size="large" />}
+      {error && <Alert type="error" showIcon message={error} action={<Button onClick={onRetry}>重试</Button>} />}
       {scan && (
         <Space direction="vertical" size={20} className="drawer-stack">
           <DetailSection title="扫描图片">
@@ -1173,6 +1310,7 @@ function ScanDetailDrawer({ scan, session, onClose }: { scan: ScanDetail | null;
               { label: "Number", value: displayValue(scan.system_result.number) },
               { label: "置信度", value: confidenceText(scan.system_result.confidence) },
               { label: "候选数量", value: displayValue(scan.system_result.candidate_count) },
+              { label: "OCR 文本", value: displayOptionalText(scan.system_result.ocr_text) },
             ]} />
           </DetailSection>
           <DetailSection title="用户确认结果">
@@ -1217,32 +1355,36 @@ function ScanDetailDrawer({ scan, session, onClose }: { scan: ScanDetail | null;
 
 function AuthenticatedScanImage({ path, session, className, preview = false }: { path: string; session: AdminSession; className: string; preview?: boolean }) {
   const [source, setSource] = useState<string | null>(null);
+  const { data: blob } = useQuery({
+    queryKey: ["admin-scan-image", session.accessToken, path],
+    queryFn: async ({ signal }) => {
+      const response = await fetch(`${API_BASE}${path}`, {
+        headers: createAdminRequestHeaders({ Authorization: `Bearer ${session.accessToken}` }),
+        signal,
+      });
+      dispatchSessionExpiredOnUnauthorized(response, session.accessToken);
+      if (!response.ok) throw new Error("Scan image unavailable");
+      return response.blob();
+    },
+    enabled: Boolean(path),
+    staleTime: Infinity,
+    gcTime: 0,
+    retry: false,
+    retryOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
   useEffect(() => {
-    if (!path) {
+    if (!blob) {
       setSource(null);
       return;
     }
-    let active = true;
-    let objectUrl: string | null = null;
-    fetch(`${API_BASE}${path}`, {
-      headers: createAdminRequestHeaders({ Authorization: `Bearer ${session.accessToken}` }),
-    })
-      .then((response) => {
-        dispatchSessionExpiredOnUnauthorized(response, session.accessToken);
-        if (!response.ok) throw new Error("Scan image unavailable");
-        return response.blob();
-      })
-      .then((blob) => {
-        if (!active) return;
-        objectUrl = URL.createObjectURL(blob);
-        setSource(objectUrl);
-      })
-      .catch(() => { if (active) setSource(null); });
+    const objectUrl = URL.createObjectURL(blob);
+    setSource(objectUrl);
     return () => {
-      active = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      URL.revokeObjectURL(objectUrl);
     };
-  }, [path, session.accessToken]);
+  }, [blob]);
   return source
     ? preview
       ? (
@@ -1378,31 +1520,29 @@ function LineChart({ data }: { data: Array<{ date: string; total: number }> }) {
 }
 
 function useAdminData<T>(path: string, session: AdminSession) {
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const key = `${session.accessToken}\0${path}`;
+  const [result, setResult] = useState<{ key: string; data: T | null; loading: boolean; error: string | null }>({ key, data: null, loading: true, error: null });
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
     let alive = true;
-    setLoading(true);
-    setError(null);
-    adminRequest<T>(path, { token: session.accessToken })
+    const controller = new AbortController();
+    setResult((current) => ({ key, data: current.key === key ? current.data : null, loading: true, error: null }));
+    adminRequest<T>(path, { token: session.accessToken, signal: controller.signal })
       .then((nextData) => {
-        if (alive) setData(nextData);
+        if (alive) setResult({ key, data: nextData, loading: false, error: null });
       })
       .catch((requestError) => {
-        if (alive) setError(errorMessage(requestError));
-      })
-      .finally(() => {
-        if (alive) setLoading(false);
+        if (alive) setResult((current) => ({ key, data: current.key === key ? current.data : null, loading: false, error: errorMessage(requestError) }));
       });
     return () => {
       alive = false;
+      controller.abort();
     };
-  }, [path, session.accessToken, version]);
+  }, [key, path, session.accessToken, version]);
 
-  return useMemo(() => ({ data, loading, error, reload: () => setVersion((value) => value + 1) }), [data, error, loading]);
+  const current = result.key === key ? result : { data: null, loading: true, error: null };
+  return useMemo(() => ({ data: current.data, loading: current.loading, error: current.error, reload: () => setVersion((value) => value + 1) }), [key, current.data, current.loading, current.error]);
 }
 
 function mutate(session: AdminSession, path: string, init: AdminRequestInit) {
@@ -1572,6 +1712,10 @@ function displayValue(value: unknown) {
   return String(value);
 }
 
+function displayOptionalText(value: unknown) {
+  return typeof value === "string" ? value : "";
+}
+
 function confidenceText(value: unknown) {
   const numeric = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(numeric)) return displayValue(value);
@@ -1601,23 +1745,17 @@ function formatMicros(value: number | null, currency: string | null): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(value / 1000000);
 }
 
-function rangeSummary(count: number, unit: string) {
-  if (count === 0) return `显示 0 条，共 0 ${unit}`;
-  return `显示 1 到 ${count} 条，共 ${count.toLocaleString()} ${unit}`;
-}
-
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "请求失败，请稍后重试";
 }
 
-const platformOptions = ["iOS", "Google"].map((value) => ({ value, label: value }));
 const environmentOptions = [{ value: "production", label: "Production" }, { value: "development", label: "Development" }];
 const userPlatformOptions = ["iOS", "Android", "web"].map((value) => ({ value, label: value }));
 const identityOptions = [
   { value: "google", label: "Google" }, { value: "anonymous", label: "游客" },
   { value: "apple", label: "Apple" }, { value: "email", label: "邮箱" },
 ];
-const feedbackTypeOptions = ["Bug Report", "Feature Request", "Account", "Other"].map((value) => ({ value, label: value }));
+const feedbackTypeOptions = ["Bug Report", "Feature Request", "Improvement", "Other"].map((value) => ({ value, label: value }));
 const feedbackStatusOptions = [
   { value: "pending", label: "待处理" },
   { value: "processed", label: "已处理" },
@@ -1629,6 +1767,7 @@ const recognitionOptions = [
   { value: "failed", label: "识别失败" },
 ];
 const scanPlatformOptions = ["iOS", "Android", "web"].map((value) => ({ value, label: value }));
+const scanCardTypeOptions = [{ value: "0", label: "TCG" }, { value: "1", label: "SPORTS" }];
 const confirmationOptions = [{ value: "confirmed", label: "已确认" }, { value: "pending", label: "待确认" }];
 const billingStatusOptions = [
   ["trial", "试用期"], ["initial_purchase", "首次付款"], ["trial_conversion", "试用转付费"], ["upgrade", "升级付款"],

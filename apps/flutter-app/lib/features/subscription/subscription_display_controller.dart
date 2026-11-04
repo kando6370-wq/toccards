@@ -407,6 +407,11 @@ class SubscriptionDisplayController extends ChangeNotifier {
       products = Map.unmodifiable({id: product});
       _hasShownProducts = true;
       _offlinePreviewActive = false;
+      if (sku.offlineTrial && !product.canUseTrial) {
+        errorMessage =
+            'Purchase conditions changed. Review the current price and tap again.';
+        return null;
+      }
       return product.product;
     } on Object {
       if (!_disposed && cycle == _cycle) {

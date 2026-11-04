@@ -102,6 +102,10 @@ type ScanRecordRow = {
   created_at: string;
 };
 
+type ScanListRow = Pick<ScanRecordRow,
+  "id" | "environment" | "owner_id" | "image_url" | "platform" | "app_version"
+  | "recognition_status" | "user_confirmation_status" | "modified_result" | "created_at">;
+
 type AppConfigRow = {
   key: string;
   value: string;
@@ -223,14 +227,18 @@ const SELECT_ADMIN_BY_ID_SQL = `
   LIMIT 1
 `;
 
-const SELECT_ADMIN_PERMISSIONS_SQL = `
-  SELECT id, email, password_hash, role, status, created_at
+const ADMIN_PERMISSIONS_FILTER_SQL = `
   FROM admin_user
   WHERE (CAST(? AS text) IS NULL OR lower(email) LIKE '%' || ? || '%')
     AND (CAST(? AS text) IS NULL OR status = ?)
+`;
+const SELECT_ADMIN_PERMISSIONS_SQL = `
+  SELECT id, email, password_hash, role, status, created_at
+  ${ADMIN_PERMISSIONS_FILTER_SQL}
   ORDER BY created_at DESC, id ASC
   LIMIT ? OFFSET ?
 `;
+const COUNT_ADMIN_PERMISSIONS_SQL = `SELECT COUNT(*) AS total ${ADMIN_PERMISSIONS_FILTER_SQL}`;
 
 const INSERT_ADMIN_PERMISSION_SQL = `
   INSERT INTO admin_user (id, email, password_hash, role, status, created_at)
@@ -374,13 +382,28 @@ const DISABLE_USER_SQL = `
   WHERE id = ? AND status = 'active'
 `;
 
+const FEEDBACK_FILTER_SQL = `
+  FROM feedback_ticket
+  WHERE (CAST(? AS text) IS NULL OR uid = ?)
+    AND (CAST(? AS text) IS NULL OR
+      CASE WHEN types IS JSON ARRAY THEN types::jsonb @> CAST(? AS jsonb)
+           ELSE FALSE END)
+    AND (CAST(? AS text) IS NULL OR
+      CASE WHEN status IN ('processed', 'closed') THEN 'processed'
+           WHEN status = 'ignored' THEN 'ignored'
+           ELSE 'pending' END = ?)
+    AND (CAST(? AS text) IS NULL OR created_at >= ?)
+    AND (CAST(? AS text) IS NULL OR created_at <= ?)
+`;
+
 const SELECT_FEEDBACKS_SQL = `
   SELECT id, uid, email, types, functions, message, status, created_at, updated_at
-  FROM feedback_ticket
-  WHERE (CAST(? AS text) IS NULL OR status = ?)
+  ${FEEDBACK_FILTER_SQL}
   ORDER BY created_at DESC, id ASC
   LIMIT ? OFFSET ?
 `;
+
+const COUNT_FEEDBACKS_SQL = `SELECT COUNT(*) AS total ${FEEDBACK_FILTER_SQL}`;
 
 const SELECT_FEEDBACK_BY_ID_SQL = `
   SELECT id, uid, email, types, functions, message, status, created_at, updated_at
@@ -400,10 +423,11 @@ const SELECT_APP_CONFIG_SQL = `
   ORDER BY key ASC
 `;
 
-const SELECT_SCAN_RECORDS_SQL = `
-  SELECT id, environment, owner_type, owner_id, image_url, filename, platform, app_version,
-    device_model, os_version, recognition_status, user_confirmation_status,
-    modified_result, system_result, user_result, candidates, created_at
+const SCAN_CARD_TYPE_FILTER_SQL = "AND system_result::jsonb -> 'card_type' = to_jsonb(CAST(? AS integer))";
+
+const SELECT_SCAN_RECORDS_SQL = (cardType: string | null) => `
+  SELECT id, environment, owner_id, image_url, platform, app_version,
+    recognition_status, user_confirmation_status, modified_result, created_at
   FROM scan_record
   WHERE (CAST(? AS text) IS NULL OR lower(owner_id) LIKE '%' || ? || '%')
     AND (CAST(? AS text) IS NULL OR lower(platform) = ?)
@@ -414,11 +438,12 @@ const SELECT_SCAN_RECORDS_SQL = `
     AND (CAST(? AS integer) IS NULL OR modified_result = ?)
     AND (CAST(? AS text) IS NULL OR created_at >= ?)
     AND (CAST(? AS text) IS NULL OR created_at <= ?)
+    ${cardType === null ? "" : SCAN_CARD_TYPE_FILTER_SQL}
   ORDER BY created_at DESC, id ASC
   LIMIT ? OFFSET ?
 `;
 
-const COUNT_SCAN_RECORDS_SQL = `
+const COUNT_SCAN_RECORDS_SQL = (cardType: string | null) => `
   SELECT COUNT(*) AS total
   FROM scan_record
   WHERE (CAST(? AS text) IS NULL OR lower(owner_id) LIKE '%' || ? || '%')
@@ -430,12 +455,20 @@ const COUNT_SCAN_RECORDS_SQL = `
     AND (CAST(? AS integer) IS NULL OR modified_result = ?)
     AND (CAST(? AS text) IS NULL OR created_at >= ?)
     AND (CAST(? AS text) IS NULL OR created_at <= ?)
+    ${cardType === null ? "" : SCAN_CARD_TYPE_FILTER_SQL}
 `;
 
 const SELECT_SCAN_RECORD_BY_ID_SQL = `
   SELECT id, environment, owner_type, owner_id, image_url, filename, platform, app_version,
     device_model, os_version, recognition_status, user_confirmation_status,
     modified_result, system_result, user_result, candidates, created_at
+  FROM scan_record
+  WHERE id = ?
+  LIMIT 1
+`;
+
+const SELECT_SCAN_IMAGE_BY_ID_SQL = `
+  SELECT image_url
   FROM scan_record
   WHERE id = ?
   LIMIT 1
@@ -807,6 +840,11 @@ adminRoutes.get("/apple-notifications", async (c) => {
   const bindings: unknown[] = [...scope.bindings];
   addExactCondition(conditions, bindings, "n.original_transaction_id", c.req.query("original_transaction_id"));
   addExactCondition(conditions, bindings, "n.transaction_id", c.req.query("order_id"));
+  const sku = c.req.query("sku")?.trim();
+  if (sku) {
+    conditions.push("n.product_id = ?");
+    bindings.push(sku);
+  }
   const uid = normalizeQuery(c.req.query("uid"));
   if (uid) {
     conditions.push(`EXISTS (SELECT 1 FROM billing_purchase_chain matched_chain
@@ -860,14 +898,23 @@ adminRoutes.get("/apple-notifications", async (c) => {
 adminRoutes.get("/apple-notifications/options", async (c) => {
   const scope = appleNotificationAdminScope(c.env);
   if (!scope) return c.json(INTERNAL_ERROR_RESPONSE, 500);
-  const rows = await c.env.DB.prepare(`SELECT DISTINCT n.notification_type, n.subtype
-    FROM apple_server_notification n
-    JOIN apple_notification_inbox inbox ON inbox.id = n.inbox_id
-    WHERE ${scope.sql}
-    ORDER BY n.notification_type, n.subtype`).bind(...scope.bindings).all<{
-      notification_type: string; subtype: string | null;
-    }>();
-  return c.json({ success: true, data: { items: rows.results ?? [] } });
+  const [rows, skus] = await Promise.all([
+    c.env.DB.prepare(`SELECT DISTINCT n.notification_type, n.subtype
+      FROM apple_server_notification n
+      JOIN apple_notification_inbox inbox ON inbox.id = n.inbox_id
+      WHERE ${scope.sql}
+      ORDER BY n.notification_type, n.subtype`).bind(...scope.bindings).all<{
+        notification_type: string; subtype: string | null;
+      }>(),
+    c.env.DB.prepare(`SELECT DISTINCT n.product_id AS sku
+      FROM apple_server_notification n
+      JOIN apple_notification_inbox inbox ON inbox.id = n.inbox_id
+      WHERE ${scope.sql} AND NULLIF(TRIM(n.product_id), '') IS NOT NULL
+      ORDER BY sku`).bind(...scope.bindings).all<{ sku: string }>(),
+  ]);
+  return c.json({ success: true, data: {
+    items: rows.results ?? [], skus: (skus.results ?? []).map((row) => row.sku),
+  } });
 });
 
 adminRoutes.get("/apple-notifications/:detailId", async (c) => {
@@ -976,15 +1023,32 @@ adminRoutes.get("/feedbacks", async (c) => {
   const page = readPositiveInt(c.req.query("page"), 1);
   const pageSize = Math.min(readPositiveInt(c.req.query("page_size"), 20), 100);
   const status = readFeedbackStatus(c.req.query("status"));
+  const uid = readRequiredString(c.req.query("uid"));
+  const issueType = readRequiredString(c.req.query("issue_type"));
+  const dateFrom = readDateBoundary(c.req.query("date_from"), false);
+  const dateTo = readDateBoundary(c.req.query("date_to"), true);
+  if (dateFrom === "invalid" || dateTo === "invalid") {
+    return c.json(VALIDATION_ERROR_RESPONSE, 422);
+  }
   const offset = (page - 1) * pageSize;
-  const { results = [] } = await c.env.DB.prepare(SELECT_FEEDBACKS_SQL)
-    .bind(null, null, pageSize, offset)
-    .all<FeedbackTicketRow>();
-  const items = results
-    .map(toAdminFeedbackTicket)
-    .filter((item) => !status || item.status === status);
+  const filterBindings = [
+    uid, uid,
+    issueType, issueType ? JSON.stringify([issueType]) : null,
+    status, status,
+    dateFrom, dateFrom,
+    dateTo, dateTo,
+  ] as const;
+  const [{ results = [] }, count] = await Promise.all([
+    c.env.DB.prepare(SELECT_FEEDBACKS_SQL)
+      .bind(...filterBindings, pageSize, offset)
+      .all<FeedbackTicketRow>(),
+    c.env.DB.prepare(COUNT_FEEDBACKS_SQL)
+      .bind(...filterBindings)
+      .first<{ total: number }>(),
+  ]);
+  const items = results.map(toAdminFeedbackTicket);
 
-  return c.json({ success: true, data: { items, page, page_size: pageSize } });
+  return c.json({ success: true, data: { items, total: count?.total ?? 0, page, page_size: pageSize } });
 });
 
 adminRoutes.get("/feedbacks/:ticketId", async (c) => {
@@ -1014,6 +1078,7 @@ adminRoutes.get("/scans", async (c) => {
   const uid = normalizeQuery(c.req.query("uid"));
   const platform = normalizeQuery(c.req.query("platform"));
   const appVersion = normalizeQuery(c.req.query("app_version"));
+  const cardType = normalizeQuery(c.req.query("card_type"));
   const environment = normalizeQuery(c.req.query("environment"));
   const recognitionStatus = normalizeQuery(c.req.query("recognition_status"));
   const confirmationStatus = normalizeQuery(c.req.query("user_confirmation_status"));
@@ -1023,6 +1088,7 @@ adminRoutes.get("/scans", async (c) => {
   if (
     dateFrom === "invalid"
     || dateTo === "invalid"
+    || (cardType !== null && cardType !== "0" && cardType !== "1")
     || (environment !== null && !VALID_APP_ENVIRONMENTS.has(environment))
   ) {
     return c.json(VALIDATION_ERROR_RESPONSE, 422);
@@ -1049,16 +1115,18 @@ adminRoutes.get("/scans", async (c) => {
       dateTo,
       dateTo,
   ] as const;
+  const cardTypeBindings = cardType === null ? [] : [Number(cardType)];
   const [{ results = [] }, count] = await Promise.all([
-    c.env.DB.prepare(SELECT_SCAN_RECORDS_SQL)
+    c.env.DB.prepare(SELECT_SCAN_RECORDS_SQL(cardType))
       .bind(
         ...filterBindings,
+        ...cardTypeBindings,
       pageSize,
       offset,
       )
-      .all<ScanRecordRow>(),
-    c.env.DB.prepare(COUNT_SCAN_RECORDS_SQL)
-      .bind(...filterBindings)
+      .all<ScanListRow>(),
+    c.env.DB.prepare(COUNT_SCAN_RECORDS_SQL(cardType))
+      .bind(...filterBindings, ...cardTypeBindings)
       .first<{ total: number }>(),
   ]);
   const items = results.map(toScanListItem);
@@ -1072,9 +1140,9 @@ adminRoutes.get("/scans", async (c) => {
 adminRoutes.get("/scans/:scanId/image", async (c) => {
   const bucket = c.env.SCAN_IMAGES;
   if (!bucket) return c.json(INTERNAL_ERROR_RESPONSE, 503);
-  const row = await c.env.DB.prepare(SELECT_SCAN_RECORD_BY_ID_SQL)
+  const row = await c.env.DB.prepare(SELECT_SCAN_IMAGE_BY_ID_SQL)
     .bind(c.req.param("scanId"))
-    .first<ScanRecordRow>();
+    .first<Pick<ScanRecordRow, "image_url">>();
   if (!row?.image_url) return c.json(NOT_FOUND_RESPONSE, 404);
   const object = await bucket.get(row.image_url);
   if (!object) return c.json(NOT_FOUND_RESPONSE, 404);
@@ -1102,10 +1170,13 @@ adminRoutes.get("/permissions", async (c) => {
   const { results = [] } = await c.env.DB.prepare(SELECT_ADMIN_PERMISSIONS_SQL)
     .bind(q, q, status, status, pageSize, offset)
     .all<AdminUserRow>();
+  const count = await c.env.DB.prepare(COUNT_ADMIN_PERMISSIONS_SQL)
+    .bind(q, q, status, status)
+    .first<{ total: number }>();
 
   return c.json({
     success: true,
-    data: { items: results.map(toPermissionRecord), page, page_size: pageSize },
+    data: { items: results.map(toPermissionRecord), total: count?.total ?? 0, page, page_size: pageSize },
   });
 });
 
@@ -1591,7 +1662,7 @@ function toAdminFeedbackTicket(row: FeedbackTicketRow) {
     issue_type: types[0] ?? "其他",
     module: functions[0] ?? "App",
     uid: row.uid,
-    platform: "iOS",
+    platform: "未知",
     app_version: "1.9.0",
     device_model: "Unknown",
     os_version: "Unknown",
@@ -1599,7 +1670,7 @@ function toAdminFeedbackTicket(row: FeedbackTicketRow) {
   };
 }
 
-function toScanListItem(row: ScanRecordRow) {
+function toScanListItem(row: ScanListRow) {
   return {
     scan_id: row.id,
     environment: row.environment,

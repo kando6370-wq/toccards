@@ -93,29 +93,38 @@ const card: CardSearchResult = {
 };
 
 describe("KV cached data source adapter", () => {
-  it("serves repeated searchCards calls from KV because cache hits must avoid third-party requests", async () => {
+  it("refreshes pre-filter pages because cached cards without images must not bypass the new catalog rule", async () => {
     const kv = new FakeKvNamespace();
-    const source = new CountingDataSourceAdapter([card]);
+    const higherIdCard = { ...card, card_ref: "80" };
+    const lowerIdCard = { ...card, card_ref: "9" };
+    const cards = [higherIdCard, lowerIdCard];
+    kv.values.set(
+      "v16:searchCards:charizard%20gx:tcg:all:all:all:1:20",
+      JSON.stringify([lowerIdCard, higherIdCard]),
+    );
+    const source = new CountingDataSourceAdapter(cards);
     const adapter = createKvCachedDataSourceAdapter(source, kv);
 
     const first = await adapter.searchCards(" Charizard GX ", {
       object_type: "tcg",
+      has_image: 2,
       page: 1,
       page_size: 20,
     });
     const second = await adapter.searchCards("charizard gx", {
       object_type: "tcg",
+      has_image: 2,
       page: 1,
       page_size: 20,
     });
 
-    expect(first).toEqual([card]);
-    expect(second).toEqual([card]);
+    expect(first).toEqual(cards);
+    expect(second).toEqual(cards);
     expect(source.searchCalls).toBe(1);
     expect(kv.puts).toEqual([
       {
-        key: "v12:searchCards:charizard%20gx:tcg:all:all:all:1:20",
-        value: JSON.stringify([card]),
+        key: "v17:searchCards:charizard%20gx:tcg:all:all:all:2:1:20",
+        value: JSON.stringify(cards),
         options: { expirationTtl: 3600 },
       },
     ]);
@@ -130,6 +139,7 @@ describe("KV cached data source adapter", () => {
       game: "Pokemon",
       set_id: "1455",
       set_code: "PR",
+      has_image: 2,
       page: 1,
       page_size: 40,
     });
@@ -137,14 +147,39 @@ describe("KV cached data source adapter", () => {
       game: "Pokemon",
       set_id: "1840",
       set_code: "PR",
+      has_image: 2,
       page: 1,
       page_size: 40,
     });
 
     expect(source.searchCalls).toBe(2);
     expect(kv.puts.map((put) => put.key)).toEqual([
-      "v12:searchCards::all:pokemon:1455:pr:1:40",
-      "v12:searchCards::all:pokemon:1840:pr:1:40",
+      "v17:searchCards::all:pokemon:1455:pr:2:1:40",
+      "v17:searchCards::all:pokemon:1840:pr:2:1:40",
+    ]);
+  });
+
+  it("keeps image-filtered catalog pages separate from internal unfiltered searches", async () => {
+    const kv = new FakeKvNamespace();
+    const source = new CountingDataSourceAdapter([card]);
+    const adapter = createKvCachedDataSourceAdapter(source, kv);
+
+    await adapter.searchCards("charizard", {
+      object_type: "tcg",
+      page: 1,
+      page_size: 40,
+    });
+    await adapter.searchCards("charizard", {
+      object_type: "tcg",
+      has_image: 2,
+      page: 1,
+      page_size: 40,
+    });
+
+    expect(source.searchCalls).toBe(2);
+    expect(kv.puts.map((put) => put.key)).toEqual([
+      "v17:searchCards:charizard:tcg:all:all:all:all:1:40",
+      "v17:searchCards:charizard:tcg:all:all:all:2:1:40",
     ]);
   });
 

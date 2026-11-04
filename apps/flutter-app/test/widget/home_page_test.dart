@@ -3337,6 +3337,89 @@ void main() {
     },
   );
 
+  testWidgets(
+    'Trending refresh ignores an older page success so fresh pagination remains available',
+    (tester) async {
+      final api = _DelayedTrendingPageApi();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ..._searchOverrides(),
+            cardDataApiClientProvider.overrideWithValue(api),
+          ],
+          child: const MaterialApp(home: TrendingTodayPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.fling(
+        find.byType(CustomScrollView),
+        const Offset(0, -10000),
+        10000,
+      );
+      await tester.pump(const Duration(seconds: 1));
+      expect(api.requestedPages, [1, 2]);
+
+      final refresh = tester
+          .state<RefreshIndicatorState>(
+            find.byKey(const Key('trending-today-refresh')),
+          )
+          .show();
+      await tester.pumpAndSettle();
+      await refresh;
+      expect(api.requestedPages, [1, 2, 1]);
+
+      api.oldSecondPage.complete(const []);
+      await tester.pump();
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -100));
+      await tester.pump();
+
+      expect(api.requestedPages, [1, 2, 1, 2]);
+    },
+  );
+
+  testWidgets(
+    'Trending refresh ignores an older page failure so fresh results do not show retry',
+    (tester) async {
+      final api = _DelayedTrendingPageApi();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ..._searchOverrides(),
+            cardDataApiClientProvider.overrideWithValue(api),
+          ],
+          child: const MaterialApp(home: TrendingTodayPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.fling(
+        find.byType(CustomScrollView),
+        const Offset(0, -10000),
+        10000,
+      );
+      await tester.pump(const Duration(seconds: 1));
+      expect(api.requestedPages, [1, 2]);
+
+      final refresh = tester
+          .state<RefreshIndicatorState>(
+            find.byKey(const Key('trending-today-refresh')),
+          )
+          .show();
+      await tester.pumpAndSettle();
+      await refresh;
+
+      api.oldSecondPage.completeError(StateError('old page failed'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('trending-today-retry-page')), findsNothing);
+      expect(find.text('Live Trending 0'), findsOneWidget);
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -100));
+      await tester.pump();
+      expect(api.requestedPages, [1, 2, 1, 2]);
+    },
+  );
+
   testWidgets('Search bottom tab navigates to Search page', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -4086,6 +4169,38 @@ class _FailingSecondPageTrendingCardDataApi extends _TrendingCardDataApi {
     requestedPages.add(page);
     if (page == 2) {
       throw StateError('PostgreSQL trending page unavailable');
+    }
+    return List.generate(
+      kandoPageSize,
+      (index) => CardDataCardDto(
+        cardRef: 'live-trending-$index',
+        name: 'Live Trending $index',
+        setName: 'Live Set',
+        setCode: 'LIVE',
+        cardNumber: '$index',
+        finish: 'Normal',
+        language: 'English',
+        objectType: 'tcg',
+        imageUrl: null,
+        rarity: 'Rare',
+        priceUsd: 12,
+        previous30dPriceUsd: 1,
+        priceChange1dPercent: 5,
+      ),
+    );
+  }
+}
+
+class _DelayedTrendingPageApi extends _TrendingCardDataApi {
+  final oldSecondPage = Completer<List<CardDataCardDto>>();
+  var _secondPageCalls = 0;
+
+  @override
+  Future<List<CardDataCardDto>> trendingCardPage({required int page}) async {
+    requestedPages.add(page);
+    if (page == 2) {
+      if (_secondPageCalls++ == 0) return oldSecondPage.future;
+      return const [];
     }
     return List.generate(
       kandoPageSize,

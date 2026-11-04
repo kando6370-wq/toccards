@@ -203,6 +203,113 @@ class CollectionDashboardDto {
   }
 }
 
+class CollectionPageDto {
+  const CollectionPageDto({
+    required this.folders,
+    required this.preference,
+    required this.folderId,
+    required this.items,
+    required this.total,
+    this.baseCount,
+    required this.page,
+    required this.pageSize,
+  });
+
+  final List<PortfolioFolderDto> folders;
+  final UserPreferenceDto preference;
+  final String? folderId;
+  final List<CollectionDashboardItemDto> items;
+  final int total;
+  final int? baseCount;
+  final int page;
+  final int pageSize;
+
+  factory CollectionPageDto.fromJson(Map<String, Object?> json) {
+    return CollectionPageDto(
+      folders: _itemsFrom(json['folders']).map(PortfolioFolderDto.fromJson).toList(),
+      preference: UserPreferenceDto.fromJson(_mapItem(json['preference'])),
+      folderId: _nullableString(json['folder_id']),
+      items: _itemsFrom(json['items']).map(CollectionDashboardItemDto.fromJson).toList(),
+      total: _requiredInt(json['total']),
+      baseCount: _nullableInt(json['base_count']),
+      page: _requiredInt(json['page']),
+      pageSize: _requiredInt(json['page_size']),
+    );
+  }
+}
+
+class CollectionFolderSummaryDto {
+  const CollectionFolderSummaryDto({
+    required this.folderId,
+    required this.itemCount,
+    required this.cardCount,
+    required this.gradedCount,
+    required this.totalValueUsd,
+    required this.languages,
+  });
+
+  final String folderId;
+  final int itemCount;
+  final int cardCount;
+  final int gradedCount;
+  final double? totalValueUsd;
+  final List<String> languages;
+
+  factory CollectionFolderSummaryDto.fromJson(Map<String, Object?> json) {
+    return CollectionFolderSummaryDto(
+      folderId: _requiredString(json['folder_id']),
+      itemCount: _requiredInt(json['item_count']),
+      cardCount: _requiredInt(json['card_count']),
+      gradedCount: _requiredInt(json['graded_count']),
+      totalValueUsd: _nullableDouble(json['total_value_usd']),
+      languages: _stringsFrom(json['languages']),
+    );
+  }
+}
+
+class CollectionSummaryDto {
+  const CollectionSummaryDto({
+    required this.folders,
+    required this.wishlistCount,
+    required this.wishlistLanguages,
+    this.games = const [],
+  });
+
+  final List<CollectionFolderSummaryDto> folders;
+  final int wishlistCount;
+  final List<String> wishlistLanguages;
+  final List<String> games;
+
+  factory CollectionSummaryDto.fromJson(Map<String, Object?> json) {
+    return CollectionSummaryDto(
+      folders: _itemsFrom(json['folders']).map(CollectionFolderSummaryDto.fromJson).toList(),
+      wishlistCount: _requiredInt(json['wishlist_count']),
+      wishlistLanguages: _stringsFrom(json['wishlist_languages']),
+      games: json['games'] == null ? const [] : _stringsFrom(json['games']),
+    );
+  }
+}
+
+class PortfolioCardAssetsDto {
+  const PortfolioCardAssetsDto({
+    required this.folders,
+    required this.items,
+    required this.wishlistItems,
+  });
+
+  final List<PortfolioFolderDto> folders;
+  final List<PortfolioItemDto> items;
+  final List<WishlistItemDto> wishlistItems;
+
+  factory PortfolioCardAssetsDto.fromJson(Map<String, Object?> json) {
+    return PortfolioCardAssetsDto(
+      folders: _itemsFrom(json['folders']).map(PortfolioFolderDto.fromJson).toList(),
+      items: _itemsFrom(json['items']).map(PortfolioItemDto.fromJson).toList(),
+      wishlistItems: _itemsFrom(json['wishlist_items']).map(WishlistItemDto.fromJson).toList(),
+    );
+  }
+}
+
 class PortfolioItemDto {
   const PortfolioItemDto({
     required this.id,
@@ -676,8 +783,37 @@ abstract interface class PortfolioApi {
   Future<void> deleteWishlist(AuthSession session, String itemId);
 }
 
+abstract interface class PortfolioCardAssetsApi {
+  Future<PortfolioCardAssetsDto> getCardAssets(
+    AuthSession session,
+    String cardRef,
+  );
+}
+
+abstract interface class PortfolioCardAssetsBatchApi {
+  Future<PortfolioCardAssetsDto> getCardAssetsBatch(
+    AuthSession session,
+    Iterable<String> cardRefs,
+  );
+}
+
 abstract interface class CollectionDashboardApi {
   Future<CollectionDashboardDto> getCollectionDashboard(AuthSession session);
+}
+
+abstract interface class CollectionPagedApi {
+  Future<CollectionPageDto> getCollectionPage(
+    AuthSession session, {
+    required String tab,
+    String? folderId,
+    String query = '',
+    String sort = 'newest',
+    int page = 1,
+    Iterable<String> games = const [],
+    Iterable<String> languages = const [],
+    Iterable<String> performanceItemIds = const [],
+  });
+  Future<CollectionSummaryDto> getCollectionSummary(AuthSession session);
 }
 
 abstract interface class PortfolioManagementApi {
@@ -707,7 +843,13 @@ abstract interface class PortfolioManagementApi {
 }
 
 class PortfolioApiClient
-    implements PortfolioApi, PortfolioManagementApi, CollectionDashboardApi {
+    implements
+        PortfolioApi,
+        PortfolioManagementApi,
+        CollectionDashboardApi,
+        PortfolioCardAssetsApi,
+        PortfolioCardAssetsBatchApi,
+        CollectionPagedApi {
   PortfolioApiClient(
     this._dio, {
     this.requestDeadline = portfolioRequestDeadline,
@@ -725,6 +867,70 @@ class PortfolioApiClient
   ) async {
     final data = await _requestData('GET', '/collection/dashboard', session);
     return CollectionDashboardDto.fromJson(data);
+  }
+
+  @override
+  Future<PortfolioCardAssetsDto> getCardAssets(
+    AuthSession session,
+    String cardRef,
+  ) async {
+    final data = await _requestData(
+      'GET',
+      '/portfolio/cards/${Uri.encodeComponent(cardRef)}/assets',
+      session,
+    );
+    return PortfolioCardAssetsDto.fromJson(data);
+  }
+
+  @override
+  Future<PortfolioCardAssetsDto> getCardAssetsBatch(
+    AuthSession session,
+    Iterable<String> cardRefs,
+  ) async {
+    final data = await _requestData(
+      'GET',
+      '/portfolio/cards/assets',
+      session,
+      queryParameters: {'card_ref': cardRefs.toSet().toList()},
+    );
+    return PortfolioCardAssetsDto.fromJson(data);
+  }
+
+  @override
+  Future<CollectionPageDto> getCollectionPage(
+    AuthSession session, {
+    required String tab,
+    String? folderId,
+    String query = '',
+    String sort = 'newest',
+    int page = 1,
+    Iterable<String> games = const [],
+    Iterable<String> languages = const [],
+    Iterable<String> performanceItemIds = const [],
+  }) async {
+    final data = await _requestData(
+      'GET',
+      '/collection/items',
+      session,
+      queryParameters: {
+        'tab': tab,
+        if (folderId != null) 'folder_id': folderId,
+        if (query.trim().isNotEmpty) 'q': query.trim(),
+        'sort': sort,
+        'page': page,
+        'page_size': kandoPageSize,
+        if (games.isNotEmpty) 'game': games.toList(),
+        if (languages.isNotEmpty) 'language': languages.toList(),
+        if (performanceItemIds.isNotEmpty) 'performance_id': performanceItemIds.toList(),
+      },
+    );
+    return CollectionPageDto.fromJson(data);
+  }
+
+  @override
+  Future<CollectionSummaryDto> getCollectionSummary(AuthSession session) async {
+    final data = await _requestData('GET', '/collection/summary', session);
+    return CollectionSummaryDto.fromJson(data);
   }
 
   @override

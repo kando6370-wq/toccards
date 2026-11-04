@@ -16,6 +16,7 @@ import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/currency/currency.dart';
+import 'package:kando_app/shared/currency/currency_rate_api.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
@@ -391,6 +392,427 @@ void main() {
       expect(state.portfolioSummary.totalValueText, '€1,132.95');
       expect(state.visibleItems.first.valueText, '€709.80');
       expect(state.visibleItems.first.changeText, '+8.10%');
+    },
+  );
+
+  test(
+    'non-USD collection cards appear before exchange rate and do not show mislabeled USD values',
+    () async {
+      final rates = _PendingCurrencyRateApi();
+      final container = _collectionContainer(
+        repository: _CurrencyCollectionRepository(),
+        currencyRateApi: rates,
+      );
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+      for (var attempt = 0; attempt < 10; attempt++) {
+        if (container.read(collectionControllerProvider).loadStatus ==
+            KandoLoadStatus.content) {
+          break;
+        }
+        await Future<void>.delayed(Duration.zero);
+      }
+      final pending = container.read(collectionControllerProvider);
+      expect(pending.loadStatus, KandoLoadStatus.content);
+      expect(pending.currency.code, 'EUR');
+      expect(pending.currency.usdRate, isNull);
+      expect(pending.visibleItems, isNotEmpty);
+      expect(pending.visibleItems.first.valueText, '--');
+      expect(pending.portfolioSummary.totalValueText, '--');
+
+      rates.complete(0.91);
+      await container.read(collectionControllerProvider.notifier).loadComplete;
+      final resolved = container.read(collectionControllerProvider);
+      expect(resolved.currency.code, 'EUR');
+      expect(resolved.visibleItems.first.valueText, startsWith('€'));
+      expect(resolved.portfolioSummary.totalValueText, startsWith('€'));
+    },
+  );
+
+  test(
+    'paged collection shows the first cards before global totals without loading the legacy dashboard',
+    () async {
+      final repository = _PagedCollectionRepository(delaySummary: true);
+      final container = _collectionContainer(repository: repository);
+      addTearDown(container.dispose);
+      final controller = container.read(collectionControllerProvider.notifier);
+      final firstPage = await _loadedPagedState(container);
+
+      expect(repository.legacyLoads, 0);
+      expect(repository.requestedPages, [1]);
+      expect(firstPage.isPaged, isTrue);
+      expect(firstPage.visibleItems, hasLength(40));
+      expect(firstPage.summaryStatus, KandoLoadStatus.loading);
+      expect(firstPage.portfolioSummary.totalValueText, '--');
+      expect(firstPage.portfolioSummary.cardCount, isNull);
+
+      repository.completeSummary();
+      await Future<void>.delayed(Duration.zero);
+      final resolved = container.read(collectionControllerProvider);
+      expect(resolved.portfolioSummary.cardCount, 45);
+      expect(resolved.portfolioSummary.totalValueText, r'$44.00');
+
+      await controller.loadNextPage();
+      final all = container.read(collectionControllerProvider);
+      expect(repository.requestedPages, [1, 2]);
+      expect(all.visibleItems, hasLength(45));
+      expect(all.visibleItems.last.name, 'Item 44');
+      expect(all.hasMore, isFalse);
+    },
+  );
+
+  test(
+    'paged collection treats summary zero and unavailable value differently',
+    () async {
+      final empty = _PagedCollectionRepository(
+        itemCount: 0,
+        totalValueUsd: 0,
+        delaySummary: true,
+      );
+      final emptyContainer = _collectionContainer(repository: empty);
+      addTearDown(emptyContainer.dispose);
+      var state = await _loadedPagedState(emptyContainer);
+      await Future<void>.delayed(Duration.zero);
+      state = emptyContainer.read(collectionControllerProvider);
+      expect(empty.requestedPages, [1]);
+      expect(state.loadStatus, KandoLoadStatus.content);
+      expect(state.isEmpty, isTrue);
+      expect(state.portfolioSummary.totalValueText, '--');
+      empty.completeSummary();
+      await Future<void>.delayed(Duration.zero);
+      state = emptyContainer.read(collectionControllerProvider);
+      expect(state.portfolioSummary.totalValueText, r'$0.00');
+
+      final unpriced = _PagedCollectionRepository(
+        itemCount: 1,
+        totalValueUsd: null,
+      );
+      final unpricedContainer = _collectionContainer(repository: unpriced);
+      addTearDown(unpricedContainer.dispose);
+      await _loadedPagedState(unpricedContainer);
+      await Future<void>.delayed(Duration.zero);
+      state = unpricedContainer.read(collectionControllerProvider);
+      expect(state.isEmpty, isFalse);
+      expect(state.portfolioSummary.totalValueText, '--');
+    },
+  );
+
+  test(
+    'empty filtered page shows no match before slow totals because the folder still owns cards',
+    () async {
+      final repository = _PagedCollectionRepository(delaySummary: true);
+      final container = _collectionContainer(repository: repository);
+      addTearDown(container.dispose);
+      await _loadedPagedState(container);
+      final controller = container.read(collectionControllerProvider.notifier);
+      controller.updateSearch('not-present');
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      await Future<void>.delayed(Duration.zero);
+
+      final state = container.read(collectionControllerProvider);
+      expect(state.summaryStatus, KandoLoadStatus.loading);
+      expect(state.baseCount, 45);
+      expect(state.total, 0);
+      expect(state.isEmpty, isFalse);
+      expect(state.isNoMatch, isTrue);
+      expect(state.portfolioSummary.totalValueText, '--');
+      repository.completeSummary();
+    },
+  );
+
+  test(
+    'paged collection changes tab and filter without treating one page as the whole folder',
+    () async {
+      final repository = _PagedCollectionRepository();
+      final container = _collectionContainer(repository: repository);
+      addTearDown(container.dispose);
+      await _loadedPagedState(container);
+      final controller = container.read(collectionControllerProvider.notifier);
+
+      controller.updateSearch('Item 44');
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      await Future<void>.delayed(Duration.zero);
+      var state = container.read(collectionControllerProvider);
+      expect(state.total, 1);
+      expect(state.visibleItems.single.name, 'Item 44');
+      expect(state.isNoMatch, isFalse);
+      expect(state.portfolioSummary.cardCount, 45);
+
+      controller.updateSearch('missing');
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      await Future<void>.delayed(Duration.zero);
+      state = container.read(collectionControllerProvider);
+      expect(state.visibleItems, isEmpty);
+      expect(state.isEmpty, isFalse);
+      expect(state.isNoMatch, isTrue);
+
+      controller.selectTab(CollectionTab.wishlist);
+      await Future<void>.delayed(Duration.zero);
+      state = container.read(collectionControllerProvider);
+      expect(state.selectedTab, CollectionTab.wishlist);
+      expect(state.visibleItems, hasLength(40));
+      expect(state.total, 42);
+      await controller.loadNextPage();
+      expect(
+        container.read(collectionControllerProvider).visibleItems,
+        hasLength(42),
+      );
+    },
+  );
+
+  test(
+    'paged collection keeps all owned Game filters when catalog games fail and another Game is on page two',
+    () async {
+      final repository = _PagedCollectionRepository(catalogFails: true);
+      final container = _collectionContainer(repository: repository);
+      addTearDown(container.dispose);
+      await _loadedPagedState(container);
+      await Future<void>.delayed(Duration.zero);
+      final controller = container.read(collectionControllerProvider.notifier);
+      var state = container.read(collectionControllerProvider);
+
+      expect(state.visibleItems, hasLength(40));
+      expect(
+        state.visibleItems.every((item) => item.game == 'Pokemon'),
+        isTrue,
+      );
+      expect(state.availableGames, ['Pokemon', 'Magic: The Gathering']);
+
+      controller.applySortAndFilters(
+        sort: CollectionSort.newest,
+        games: {'Magic: The Gathering'},
+        languages: const {},
+      );
+      await Future<void>.delayed(Duration.zero);
+      state = container.read(collectionControllerProvider);
+      expect(state.visibleItems.single.name, 'Item 44');
+      expect(state.total, 1);
+    },
+  );
+
+  test(
+    'paged collection preserves the initial Performance sort and retries the same second page',
+    () async {
+      final repository = _PagedCollectionRepository(failPageTwoOnce: true);
+      final container = _collectionContainer(repository: repository);
+      addTearDown(container.dispose);
+      container
+          .read(collectionInitialSortProvider.notifier)
+          .select(CollectionSort.performanceDesc);
+      container.read(collectionPerformanceOrderProvider.notifier).select(const [
+        'item-44',
+        'item-0',
+      ]);
+      final state = await _loadedPagedState(container);
+      final controller = container.read(collectionControllerProvider.notifier);
+
+      expect(state.selectedSort, CollectionSort.performanceDesc);
+      expect(repository.requestedSorts.first, CollectionSort.performanceDesc);
+      expect(repository.requestedPerformanceIds.first, ['item-44', 'item-0']);
+
+      await controller.loadNextPage();
+      expect(
+        container.read(collectionControllerProvider).hasPageFailure,
+        isTrue,
+      );
+      expect(
+        container.read(collectionControllerProvider).visibleItems,
+        hasLength(40),
+      );
+      await controller.retryNextPage();
+      expect(repository.requestedPages, [1, 2, 2]);
+      expect(
+        container.read(collectionControllerProvider).visibleItems,
+        hasLength(45),
+      );
+    },
+  );
+
+  test(
+    'paged refresh keeps old cards visible without starting an old next page',
+    () async {
+      final repository = _PagedCollectionRepository();
+      final container = _collectionContainer(repository: repository);
+      addTearDown(container.dispose);
+      await _loadedPagedState(container);
+      final controller = container.read(collectionControllerProvider.notifier);
+      repository.blockNextFirstPage();
+
+      final refresh = controller.refreshPreservingContent();
+      await repository.refreshPageStarted.future;
+      expect(
+        container.read(collectionControllerProvider).visibleItems,
+        hasLength(40),
+      );
+      await controller.loadNextPage();
+      expect(repository.requestedPages, [1, 1]);
+
+      repository.releaseNextFirstPage();
+      await refresh;
+      await controller.loadNextPage();
+      expect(repository.requestedPages, [1, 1, 2]);
+      expect(
+        container.read(collectionControllerProvider).visibleItems,
+        hasLength(45),
+      );
+    },
+  );
+
+  test(
+    'creating and deleting a folder refreshes paged totals and the selected folder page',
+    () async {
+      final repository = _PagedCollectionRepository();
+      final container = _collectionContainer(repository: repository);
+      addTearDown(container.dispose);
+      await _loadedPagedState(container);
+      final controller = container.read(collectionControllerProvider.notifier);
+
+      final created = await controller.createFolder('New');
+      expect(created.folder?.id, 'folder-new');
+      await controller.loadComplete;
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        container
+            .read(collectionControllerProvider)
+            .summary
+            ?.folders['folder-new']
+            ?.itemCount,
+        0,
+      );
+
+      await controller.selectFolder('sealed');
+      expect(
+        container.read(collectionControllerProvider).visibleItems,
+        isEmpty,
+      );
+      await controller.deleteFolder('sealed');
+      await controller.loadComplete;
+      await Future<void>.delayed(Duration.zero);
+      final state = container.read(collectionControllerProvider);
+      expect(state.selectedFolderId, 'main');
+      expect(state.visibleItems, hasLength(40));
+      expect(state.summary?.folders.containsKey('sealed'), isFalse);
+    },
+  );
+
+  test(
+    'an older folder preference failure cannot roll back a later successful selection',
+    () async {
+      final repository = _PagedCollectionRepository(
+        delaySealedPreference: true,
+      );
+      final container = _collectionContainer(repository: repository);
+      addTearDown(container.dispose);
+      await _loadedPagedState(container);
+      final controller = container.read(collectionControllerProvider.notifier);
+
+      final older = controller.selectFolder('sealed');
+      final newer = controller.selectFolder('empty');
+      await newer;
+      repository.failSealedPreference();
+      await older;
+
+      expect(
+        container.read(collectionControllerProvider).selectedFolderId,
+        'empty',
+      );
+      expect(container.read(selectedPortfolioFolderProvider), 'empty');
+    },
+  );
+
+  test(
+    'a late exchange rate cannot switch the selected currency back after the user changes it',
+    () async {
+      final rates = _PendingCurrencyRateApi();
+      final container = _collectionContainer(
+        repository: _PagedCollectionRepository(currencyCode: 'EUR'),
+        currencyRateApi: rates,
+      );
+      addTearDown(container.dispose);
+      await _loadedPagedState(container);
+      expect(container.read(collectionControllerProvider).currency.code, 'EUR');
+
+      container
+          .read(selectedCurrencyProvider.notifier)
+          .select(AppCurrency.gbp.withUsdRate(1.2));
+      rates.complete(0.91);
+      await Future<void>.delayed(Duration.zero);
+
+      final state = container.read(collectionControllerProvider);
+      expect(state.currency.code, 'GBP');
+      expect(container.read(selectedCurrencyProvider).code, 'GBP');
+    },
+  );
+
+  test(
+    'paged reads from a signed-out owner cannot restore that owners cards',
+    () async {
+      final repository = _OwnerPagedCollectionRepository();
+      final container = _collectionContainer(
+        repository: repository,
+        authController: _SwitchableCollectionAuthController.new,
+      );
+      addTearDown(container.dispose);
+      container.read(collectionControllerProvider);
+      expect(
+        container.read(authControllerProvider).session?.accessToken,
+        'old-access',
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(repository.oldPageRequested.isCompleted, isTrue);
+
+      (container.read(authControllerProvider.notifier)
+              as _SwitchableCollectionAuthController)
+          .setSession(null);
+      repository.releaseOldPage();
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(container.read(collectionControllerProvider).isLoading, isTrue);
+
+      (container.read(authControllerProvider.notifier)
+              as _SwitchableCollectionAuthController)
+          .setSession(_newOwnerSession);
+      await container.read(collectionControllerProvider.notifier).loadComplete;
+      await Future<void>.delayed(Duration.zero);
+      final current = container.read(collectionControllerProvider);
+      expect(current.isPaged, isTrue);
+      expect(current.portfolioSummary.totalValueText, r'$99.00');
+    },
+  );
+
+  test(
+    'late old-owner summary cannot overwrite the new owners totals',
+    () async {
+      final repository = _OwnerPagedCollectionRepository();
+      final container = _collectionContainer(
+        repository: repository,
+        authController: _SwitchableCollectionAuthController.new,
+      );
+      addTearDown(container.dispose);
+      container.read(collectionControllerProvider);
+      expect(
+        container.read(authControllerProvider).session?.accessToken,
+        'old-access',
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(repository.oldPageRequested.isCompleted, isTrue);
+      repository.releaseOldPage();
+      await container.read(collectionControllerProvider.notifier).loadComplete;
+
+      (container.read(authControllerProvider.notifier)
+              as _SwitchableCollectionAuthController)
+          .setSession(_newOwnerSession);
+      await container.read(collectionControllerProvider.notifier).loadComplete;
+      await Future<void>.delayed(Duration.zero);
+      repository.releaseOldSummary();
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        container
+            .read(collectionControllerProvider)
+            .portfolioSummary
+            .totalValueText,
+        r'$99.00',
+      );
     },
   );
 
@@ -904,6 +1326,8 @@ ProviderContainer _collectionContainer({
   InMemoryPortfolioAmountHiddenStorage? amountStorage,
   Future<List<CardPortfolioFolder>> Function()? loadEditorFolders,
   SubscriptionController Function()? subscriptionController,
+  CurrencyRateApi? currencyRateApi,
+  _SwitchableCollectionAuthController Function()? authController,
 }) {
   final storage = InMemoryAuthStorage();
   return ProviderContainer(
@@ -912,7 +1336,11 @@ ProviderContainer _collectionContainer({
       authRepositoryProvider.overrideWithValue(
         LocalPlaceholderAuthRepository(storage),
       ),
+      if (authController != null)
+        authControllerProvider.overrideWith(authController),
       collectionRepositoryProvider.overrideWithValue(repository),
+      if (currencyRateApi != null)
+        currencyRateApiProvider.overrideWithValue(currencyRateApi),
       subscriptionControllerProvider.overrideWith(
         subscriptionController ??
             _UnavailableReconciliationSubscriptionController.new,
@@ -931,6 +1359,338 @@ ProviderContainer _collectionContainer({
         ),
       ],
     ],
+  );
+}
+
+class _CurrencyCollectionRepository extends MockCollectionRepository {
+  @override
+  Future<CollectionDashboard> loadDashboard(AuthSession session) async {
+    return (await super.loadDashboard(session)).copyWith(currencyCode: 'EUR');
+  }
+}
+
+class _PendingCurrencyRateApi implements CurrencyRateApi {
+  final _rate = Completer<double>();
+
+  @override
+  Future<double> loadUsdRate(String targetCurrency) {
+    expect(targetCurrency, 'EUR');
+    return _rate.future;
+  }
+
+  void complete(double value) => _rate.complete(value);
+}
+
+class _PagedCollectionRepository extends MockCollectionRepository
+    implements CollectionPagedRepository, CollectionGameCatalogRepository {
+  _PagedCollectionRepository({
+    this.delaySummary = false,
+    this.itemCount = 45,
+    this.totalValueUsd = 44,
+    this.currencyCode = 'USD',
+    this.failPageTwoOnce = false,
+    this.delaySealedPreference = false,
+    this.catalogFails = false,
+  });
+
+  final bool delaySummary;
+  final int itemCount;
+  final double? totalValueUsd;
+  final String currencyCode;
+  final bool failPageTwoOnce;
+  final bool delaySealedPreference;
+  final bool catalogFails;
+  final requestedPages = <int>[];
+  final requestedSorts = <CollectionSort>[];
+  final requestedPerformanceIds = <List<String>>[];
+  final _pendingSummary = Completer<CollectionSummaryResult>();
+  final _sealedPreference = Completer<void>();
+  final refreshPageStarted = Completer<void>();
+  Completer<void>? _nextFirstPage;
+  var legacyLoads = 0;
+  var _failedPageTwo = false;
+  CollectionFolder? _createdFolder;
+  final deletedFolderIds = <String>{};
+
+  @override
+  bool get supportsPaging => true;
+
+  @override
+  Future<CollectionDashboard> loadDashboard(AuthSession session) {
+    legacyLoads += 1;
+    throw StateError('paged collection must not download the full dashboard');
+  }
+
+  @override
+  Future<CollectionPageResult> loadPage(
+    AuthSession session, {
+    required CollectionTab tab,
+    String? folderId,
+    String query = '',
+    CollectionSort sort = CollectionSort.newest,
+    int page = 1,
+    Set<String> games = const {},
+    Set<String> languages = const {},
+    List<String> performanceItemIds = const [],
+  }) async {
+    requestedPages.add(page);
+    if (page == 1 && _nextFirstPage != null) {
+      if (!refreshPageStarted.isCompleted) refreshPageStarted.complete();
+      await _nextFirstPage!.future;
+    }
+    requestedSorts.add(sort);
+    requestedPerformanceIds.add(performanceItemIds);
+    if (page == 2 && failPageTwoOnce && !_failedPageTwo) {
+      _failedPageTwo = true;
+      throw StateError('second page unavailable');
+    }
+    final source = await const MockCollectionRepository().loadDashboard(
+      session,
+    );
+    final folders = [
+      ...source.folders.where(
+        (folder) => !deletedFolderIds.contains(folder.id),
+      ),
+      if (_createdFolder case final folder?) folder,
+    ];
+    final selectedFolder = folderId ?? 'main';
+    final all = List.generate(
+      tab == CollectionTab.portfolio ? itemCount : 42,
+      (index) => CollectionItem(
+        id: 'item-$index',
+        cardRef: 'card-$index',
+        folderId: tab == CollectionTab.portfolio ? 'main' : null,
+        name: 'Item $index',
+        setName: 'Set',
+        number: '#$index',
+        rarity: 'Rare',
+        game: index == 44 ? 'Magic: The Gathering' : 'Pokemon',
+        language: index == 0 ? 'Japanese' : 'English',
+        finish: 'Normal',
+        grader: 'Raw',
+        condition: 'Near Mint',
+        grade: null,
+        quantity: 1,
+        marketValueUsd: index == 0 ? 0 : 1,
+        previous30dPriceUsd: 1,
+        addedAtSort: 100 - index,
+      ),
+    );
+    final filtered = all.where((item) {
+      return (tab == CollectionTab.wishlist || selectedFolder == 'main') &&
+          item.name.toLowerCase().contains(query.toLowerCase()) &&
+          (games.isEmpty || games.contains(item.game)) &&
+          (languages.isEmpty || languages.contains(item.language));
+    }).toList();
+    final start = (page - 1) * 40;
+    final rows = start < filtered.length
+        ? filtered.skip(start).take(40).toList()
+        : <CollectionItem>[];
+    return CollectionPageResult(
+      dashboard: CollectionDashboard(
+        folders: folders,
+        portfolioItems: tab == CollectionTab.portfolio ? rows : const [],
+        wishlistItems: tab == CollectionTab.wishlist ? rows : const [],
+        currencyCode: currencyCode,
+      ),
+      folderId: tab == CollectionTab.portfolio ? selectedFolder : null,
+      total: filtered.length,
+      baseCount: tab == CollectionTab.wishlist
+          ? 42
+          : selectedFolder == 'main'
+          ? itemCount
+          : 0,
+      page: page,
+      pageSize: 40,
+    );
+  }
+
+  @override
+  Future<CollectionSummaryResult> loadSummary(AuthSession session) {
+    return delaySummary ? _pendingSummary.future : Future.value(_summary());
+  }
+
+  CollectionSummaryResult _summary() => CollectionSummaryResult(
+    folders: {
+      'main': CollectionFolderTotals(
+        folderId: 'main',
+        itemCount: itemCount,
+        cardCount: itemCount,
+        gradedCount: 0,
+        totalValueUsd: totalValueUsd,
+        languages: const ['English', 'Japanese'],
+      ),
+      if (!deletedFolderIds.contains('sealed'))
+        'sealed': const CollectionFolderTotals(
+          folderId: 'sealed',
+          itemCount: 0,
+          cardCount: 0,
+          gradedCount: 0,
+          totalValueUsd: 0,
+          languages: [],
+        ),
+      if (_createdFolder case final folder?)
+        folder.id: CollectionFolderTotals(
+          folderId: folder.id,
+          itemCount: 0,
+          cardCount: 0,
+          gradedCount: 0,
+          totalValueUsd: 0,
+          languages: const [],
+        ),
+    },
+    wishlistCount: 42,
+    wishlistLanguages: const ['English', 'Japanese'],
+    games: const ['Pokemon', 'Magic: The Gathering'],
+  );
+
+  void completeSummary() => _pendingSummary.complete(_summary());
+
+  @override
+  Future<List<String>> loadGameOptions() => catalogFails
+      ? Future.error(StateError('games unavailable'))
+      : Future.value(const ['Pokemon', 'Magic: The Gathering']);
+
+  @override
+  Future<CollectionFolder> createFolder(
+    AuthSession session,
+    String name, {
+    bool localPremiumVerified = false,
+  }) async {
+    _createdFolder = CollectionFolder(
+      id: 'folder-${name.toLowerCase()}',
+      name: name,
+      isDefault: false,
+    );
+    return _createdFolder!;
+  }
+
+  @override
+  Future<void> deleteFolder(AuthSession session, String folderId) async {
+    deletedFolderIds.add(folderId);
+  }
+
+  @override
+  Future<void> updatePreferences(
+    AuthSession session, {
+    String? currency,
+    bool? amountHidden,
+    String? lastSelectedFolderId,
+  }) {
+    if (lastSelectedFolderId == 'sealed' && delaySealedPreference) {
+      return _sealedPreference.future;
+    }
+    return Future<void>.value();
+  }
+
+  void failSealedPreference() =>
+      _sealedPreference.completeError(StateError('old folder switch failed'));
+
+  void blockNextFirstPage() => _nextFirstPage = Completer<void>();
+
+  void releaseNextFirstPage() {
+    _nextFirstPage?.complete();
+    _nextFirstPage = null;
+  }
+}
+
+const _oldOwnerSession = AuthSession(
+  ownerType: OwnerType.user,
+  userId: 'old-owner',
+  accessToken: 'old-access',
+  refreshToken: 'old-refresh',
+);
+
+const _newOwnerSession = AuthSession(
+  ownerType: OwnerType.user,
+  userId: 'new-owner',
+  accessToken: 'new-access',
+  refreshToken: 'new-refresh',
+);
+
+class _SwitchableCollectionAuthController extends AuthController {
+  @override
+  AuthState build() => const AuthState.ready(session: _oldOwnerSession);
+
+  void setSession(AuthSession? session) {
+    state = session == null
+        ? const AuthState.loading()
+        : AuthState.ready(session: session);
+  }
+}
+
+class _OwnerPagedCollectionRepository extends _PagedCollectionRepository {
+  final oldPageRequested = Completer<void>();
+  final _oldPage = Completer<void>();
+  final _oldSummary = Completer<CollectionSummaryResult>();
+
+  @override
+  Future<CollectionPageResult> loadPage(
+    AuthSession session, {
+    required CollectionTab tab,
+    String? folderId,
+    String query = '',
+    CollectionSort sort = CollectionSort.newest,
+    int page = 1,
+    Set<String> games = const {},
+    Set<String> languages = const {},
+    List<String> performanceItemIds = const [],
+  }) async {
+    if (session.accessToken == 'old-access') {
+      if (!oldPageRequested.isCompleted) oldPageRequested.complete();
+      await _oldPage.future;
+    }
+    return super.loadPage(
+      session,
+      tab: tab,
+      folderId: folderId,
+      query: query,
+      sort: sort,
+      page: page,
+      games: games,
+      languages: languages,
+      performanceItemIds: performanceItemIds,
+    );
+  }
+
+  @override
+  Future<CollectionSummaryResult> loadSummary(AuthSession session) {
+    if (session.accessToken == 'old-access') return _oldSummary.future;
+    return Future.value(
+      const CollectionSummaryResult(
+        folders: {
+          'main': CollectionFolderTotals(
+            folderId: 'main',
+            itemCount: 45,
+            cardCount: 45,
+            gradedCount: 0,
+            totalValueUsd: 99,
+            languages: ['English', 'Japanese'],
+          ),
+        },
+        wishlistCount: 42,
+        wishlistLanguages: ['English', 'Japanese'],
+      ),
+    );
+  }
+
+  void releaseOldPage() => _oldPage.complete();
+
+  void releaseOldSummary() => _oldSummary.complete(
+    const CollectionSummaryResult(
+      folders: {
+        'main': CollectionFolderTotals(
+          folderId: 'main',
+          itemCount: 45,
+          cardCount: 45,
+          gradedCount: 0,
+          totalValueUsd: 44,
+          languages: ['English', 'Japanese'],
+        ),
+      },
+      wishlistCount: 42,
+      wishlistLanguages: ['English', 'Japanese'],
+    ),
   );
 }
 
@@ -971,6 +1731,18 @@ class _CountingHomeRepository implements HomeRepository {
 Future<CollectionState> _loadedState(ProviderContainer container) async {
   await container.read(authControllerProvider.notifier).startupComplete;
   await container.read(collectionControllerProvider.notifier).loadComplete;
+  return container.read(collectionControllerProvider);
+}
+
+Future<CollectionState> _loadedPagedState(ProviderContainer container) async {
+  container.read(collectionControllerProvider);
+  await container.read(authControllerProvider.notifier).startupComplete;
+  for (var attempt = 0; attempt < 20; attempt++) {
+    await container.read(collectionControllerProvider.notifier).loadComplete;
+    final state = container.read(collectionControllerProvider);
+    if (!state.isLoading) return state;
+    await Future<void>.delayed(Duration.zero);
+  }
   return container.read(collectionControllerProvider);
 }
 

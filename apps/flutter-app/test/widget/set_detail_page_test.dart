@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -357,6 +359,95 @@ void main() {
   );
 
   testWidgets(
+    'refresh ignores an older set page so cards from the previous list cannot return',
+    (tester) async {
+      final api = _OverlappingSetCatalogApi();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [setCatalogApiClientProvider.overrideWithValue(api)],
+          child: const MaterialApp(
+            home: SetDetailPage(
+              setId: 'base-set-id',
+              game: 'Pokemon',
+              setName: 'Base Set',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byKey(const Key('set-detail-card-grid')),
+        const Offset(0, -10000),
+      );
+      await tester.pump();
+      expect(api.requestedPages, [1, 2]);
+
+      final refresh = tester
+          .state<RefreshIndicatorState>(
+            find.byKey(const Key('set-detail-pull-to-refresh')),
+          )
+          .show();
+      await tester.pumpAndSettle();
+      await refresh;
+      expect(api.requestedPages, [1, 2, 1]);
+
+      api.oldSecondPage.complete([_card('stale', 'Stale card')]);
+      await tester.pumpAndSettle();
+      expect(find.text('Stale card'), findsNothing);
+      await tester.drag(
+        find.byKey(const Key('set-detail-card-grid')),
+        const Offset(0, 10000),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Fresh card'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'refresh ignores an older set page failure so the fresh list can continue',
+    (tester) async {
+      final api = _OverlappingSetCatalogApi();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [setCatalogApiClientProvider.overrideWithValue(api)],
+          child: const MaterialApp(
+            home: SetDetailPage(
+              setId: 'base-set-id',
+              game: 'Pokemon',
+              setName: 'Base Set',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byKey(const Key('set-detail-card-grid')),
+        const Offset(0, -10000),
+      );
+      await tester.pump();
+      expect(api.requestedPages, [1, 2]);
+
+      final refresh = tester
+          .state<RefreshIndicatorState>(
+            find.byKey(const Key('set-detail-pull-to-refresh')),
+          )
+          .show();
+      await tester.pumpAndSettle();
+      await refresh;
+
+      api.oldSecondPage.completeError(StateError('old page failed'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('set-detail-retry-page')), findsNothing);
+      await tester.drag(
+        find.byKey(const Key('set-detail-card-grid')),
+        const Offset(0, 10000),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Fresh card'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'initial failure stays retryable because a PostgreSQL error must not look like an empty set',
     (tester) async {
       final api = _FailingThenSuccessfulSetCatalogApi();
@@ -601,6 +692,36 @@ class _RetrySetCatalogApi implements SetCatalogApi {
       throw StateError('transient failure');
     }
     return [_card('recovered', 'Recovered card')];
+  }
+
+  @override
+  Future<List<CardDataGameDto>> listGames() async => const [];
+
+  @override
+  Future<List<CardDataSetDto>> searchCatalogSets(
+    String query, {
+    String? game,
+  }) async => const [];
+}
+
+class _OverlappingSetCatalogApi implements SetCatalogApi {
+  final requestedPages = <int>[];
+  final oldSecondPage = Completer<List<CardDataCardDto>>();
+  var _firstPageCalls = 0;
+
+  @override
+  Future<List<CardDataCardDto>> cardsForSet(
+    String setCode, {
+    required String game,
+    int page = 1,
+  }) {
+    requestedPages.add(page);
+    if (page == 2) return oldSecondPage.future;
+    final firstPageCall = _firstPageCalls++;
+    return Future.value([
+      _card('fresh', firstPageCall == 0 ? 'Initial card' : 'Fresh card'),
+      ...List.generate(39, (index) => _card('card-$index', 'Card $index')),
+    ]);
   }
 
   @override

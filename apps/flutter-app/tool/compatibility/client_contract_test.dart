@@ -171,11 +171,11 @@ void runClientContracts(String actualSourceCommit) {
           replay('catalog-page-2'),
         ).searchCardPage('Contract Card', game: 'Pokemon', page: 2);
         expect(first.length, 40);
-        expect(first.first.cardRef, '0001');
-        expect(first.last.cardRef, '0040');
-        expect(first.first.priceUsd, 0);
-        expect(first[1].priceUsd, isNull);
-        expect(second.single.cardRef, '0041');
+        expect(first.first.cardRef, '0041');
+        expect(first.last.cardRef, '0002');
+        expect(first.last.priceUsd, isNull);
+        expect(second.single.cardRef, '0001');
+        expect(second.single.priceUsd, 0);
         expect(
           {
             ...first.map((card) => card.cardRef),
@@ -192,7 +192,7 @@ void runClientContracts(String actualSourceCommit) {
         final setCards = await CardDataApiClient(
           replay('catalog-set-page-2'),
         ).cardsForSet('0010', game: 'Pokemon', page: 2);
-        expect(setCards.single.cardRef, '0041');
+        expect(setCards.single.cardRef, '0001');
       },
     );
     test(

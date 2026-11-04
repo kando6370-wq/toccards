@@ -36,6 +36,7 @@ export function loadLinuxRuntime(source: NodeJS.ProcessEnv = process.env): Linux
     SCAN_IMAGES: createFilesystemR2Bucket(objectStoragePath),
     JWT_SECRET: required(source, "JWT_SECRET"),
     VECTOR_RECOGNITION: vectorRecognition,
+    PHASH_RECOGNITION_BASE_URL: required(source, "PHASH_RECOGNITION_BASE_URL"),
     EXTENSION_RECOGNITION_KEY: optional(source, "EXTENSION_RECOGNITION_KEY"),
     EXTENSION_RECOGNITION_RATE_LIMITER: createExtensionRateLimiter(requestsPerMinute),
     ALLOWED_ORIGINS: required(source, "ALLOWED_ORIGINS"),

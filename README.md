@@ -18,7 +18,7 @@ Kando 是 Card AI 的 monorepo，包含 Flutter 客户端、Cloudflare Workers A
 
 ## 系统概览
 
-当前业务环境只有 `prod` 和 `dev`：`prod` 保持原 Cloudflare 部署，`dev` 是 kd201 上的 Linux 环境。旧 Cloudflare dev 业务 Worker 已退役，不再是发布目标；保留的 CF 向量识别和独立 Apple 回调只是 dev 的外部依赖。下图为 prod；Linux dev 的部署与数据边界见图后说明。
+当前业务环境只有 `prod` 和 `dev`：`prod` 保持原 Cloudflare 部署，`dev` 是 kd201 上的 Linux 环境。旧 Cloudflare dev 业务 Worker 已退役，不再是发布目标；保留的 CF 识别服务和独立 Apple 回调只是 dev 的外部依赖。下图为 prod；Linux dev 的部署与数据边界见图后说明。
 
 ```text
 Flutter App ------------+
@@ -26,7 +26,8 @@ Flutter App ------------+
 React Admin -- HTTPS ----+        |-- PlanetScale PostgreSQL（经 Hyperdrive）: 业务与目录真源
                                   |-- KV: 可重建缓存
                                   |-- R2: 受保护的扫描卡面图片
-                                  |-- recognize-vec: Service Binding 向量检索
+                                  |-- recognize-vec: Service Binding 旧 App/插件向量检索
+                                  |-- recognize.tcgcard.fun: HTTPS pHash/OCR 检索
                                   +-- OAuth、邮件、汇率和 Apple 服务
 
 Marketing Web -----------------> 独立 Cloudflare 静态站点
@@ -36,7 +37,7 @@ Marketing Web -----------------> 独立 Cloudflare 静态站点
 
 `dev` 已合入 Linux 入口 `src/linux/server.ts`，复用同一 Hono 应用与 PostgreSQL migration，使用独立 PostgreSQL、进程内 KV 和本地图片卷；Admin 由 Caddy 托管，离线模式使用 Node 静态服务。App `test` 默认 API 为 `http://192.168.50.201:8080/api/v1`，Admin development 使用同源相对 API，本机开发由 Vite 代理到 Linux，向量检索经 HTTP 复用 CF。2026-09-30 11:10 回读确认 kd201 watcher 已自动发布 `dev@7516cfd`，release 为 `branch-dev-7516cfd2a06a-20260930110549`：current 指向的 manifest、current-release、last-seen/last-deployed 一致，失败标记不存在；发布日志报告 API/DB healthy、Web started、migration 检查成功、无待执行 migration，ledger 14 项。发布前备份 1,135,397,728 字节且临时文件已移除；受 DBX MCP 只读策略限制，本轮未独立运行容器/数据库检查、`pg_restore --list` 或恢复演练；11:13 内网只读烟测通过，HTML 与本地构建仅 CR 字符不同，验证边界见 v1.1.1 历史记录。另一个历史检查点是 2026-09-29 17:03–17:04 的 `dev@c9f950e`：1,135,376,623 字节发布前备份通过 `pg_restore --list`，未执行恢复演练。17:04 内网 Admin 入口引用的 10 个 JS/CSS 资源与该提交本地 dev 构建哈希一致，候选图预览代码已交付；真实登录态交互仍需补验。旧 CF dev 的业务 Worker、域名入口和 cron 已退役；独立 Apple Sandbox 回调、CF 向量识别和正式环境保留。验收与未执行项见 [Linux 测试环境](docs/releases/v1.1.0/02-architecture/linux-test-environment.md)及 [v1.1.1 历史验证记录](docs/releases/v1.1.1/05-delivery/VERIFICATION.md)。
 
-当前代码包含端侧模型与 512 维向量识别；dev Linux 经 HTTP、prod Cloudflare 经 Service Binding 调用 `recognize-vec`。当前 App 要求 iOS 16+ 或 Android API 24+；Flutter Web 可用于其他页面开发，暂不支持扫描。扫描协议、平台资源及新旧 App 兼容边界见 [扫描识别链路](docs/releases/v1.1.0/01-flows/scan-recognition.md)。
+当前 App 使用 RTMDet 矫正卡面，并行计算 RGB pHash 与 ML Kit Latin OCR，向原 `/api/v1/scan/recognize` 提交 pHash 请求并调用 `recognize.tcgcard.fun`；同一路径继续接受线上 App 1.0.4+ 的 512 维 `vector` 请求并调用 `recognize-vec`，当前 Flutter 源码不再构建旧向量识别。插件既有向量入口保持不变。当前 App 要求 iOS 16+ 或 Android API 24+；Flutter Web 可用于其他页面开发，暂不支持扫描。当前协议与兼容边界见 [v1.1.3 扫描识别链路](docs/releases/v1.1.3/01-flows/scan-recognition.md)。
 
 ## 仓库结构
 
@@ -86,7 +87,7 @@ pnpm --filter @kando/admin-web dev
 pnpm --filter @kando/marketing-web dev
 ```
 
-Workers 包的 `dev` 命令实际编译并启动本机 Linux/Node 入口，需要通过进程环境提供独立 PostgreSQL、JWT 和 `VECTOR_RECOGNITION_BASE_URL` 等配置；它不启动或部署旧 Cloudflare dev Worker。Admin 本机开发使用 Vite 代理，Marketing 使用 Wrangler 本地开发。启动命令成功不等于 Apple、向量识别、邮件等外部服务已完成配置或验收。
+Workers 包的 `dev` 命令实际编译并启动本机 Linux/Node 入口，需要通过进程环境提供独立 PostgreSQL、JWT、`VECTOR_RECOGNITION_BASE_URL` 和 `PHASH_RECOGNITION_BASE_URL` 等配置；它不启动或部署旧 Cloudflare dev Worker。Admin 本机开发使用 Vite 代理，Marketing 使用 Wrangler 本地开发。启动命令成功不等于 Apple、识别、邮件等外部服务已完成配置或验收。
 
 Linux dev API 与 Admin 构建使用 `pnpm --filter @kando/workers-api build:dev`，原 `build:linux` 为兼容别名。`deploy:dry-run:dev` 构建并生成不含私有配置的 Linux 发布包；`deploy:dev` 使用显式 `TOCCARDS_SSH_TARGET` 经 SSH 调用服务器发布脚本。直接运行 Node API 的 `dev`/`start:linux` 从进程环境读取配置，开发机需使用可达的本地 PostgreSQL 地址，不能直接使用 Compose 内部主机名 `db`。详见 [Linux 运维手册](docs/linux-test-environment/README.md)。
 

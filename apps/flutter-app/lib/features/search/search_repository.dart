@@ -20,14 +20,24 @@ class SearchCatalogLoadResult {
   const SearchCatalogLoadResult({
     required this.catalog,
     this.failedSearchTabs = const {},
+    this.pendingSets,
   });
 
   final SearchCatalog catalog;
   final Set<SearchTab> failedSearchTabs;
+  final Future<List<SearchSet>?>? pendingSets;
 }
 
 abstract interface class PaginatedSearchRepository {
   Future<List<SearchCard>> searchCardPage(
+    String query, {
+    String? game,
+    required int page,
+  });
+}
+
+abstract interface class PaginatedSetSearchRepository {
+  Future<List<SearchSet>> searchSetPage(
     String query, {
     String? game,
     required int page,
@@ -41,6 +51,15 @@ abstract interface class SearchAssetRepository implements SearchRepository {
   });
   Future<WishlistItemDto> addWishlist(AuthSession session, String cardRef);
   Future<void> deleteWishlist(AuthSession session, String itemId);
+}
+
+abstract interface class SearchVisibleAssetRepository
+    implements SearchAssetRepository {
+  Future<SearchAssetSnapshot> loadVisibleAssets(
+    AuthSession session,
+    Iterable<String> cardRefs, {
+    String? selectedFolderId,
+  });
 }
 
 class SearchAssetSnapshot {
@@ -71,7 +90,8 @@ class HttpSearchRepository
     implements
         SearchCatalogLoadRepository,
         PaginatedSearchRepository,
-        SearchAssetRepository {
+        PaginatedSetSearchRepository,
+        SearchVisibleAssetRepository {
   const HttpSearchRepository(
     this._api, {
     SetCatalogApi? setCatalogApi,
@@ -88,7 +108,16 @@ class HttpSearchRepository
 
   @override
   Future<SearchCatalog> loadCatalog() async {
-    return (await loadCatalogResult()).catalog;
+    final result = await loadCatalogResult();
+    final pendingSets = result.pendingSets;
+    if (pendingSets == null) return result.catalog;
+    final sets = await pendingSets;
+    if (sets == null) return result.catalog;
+    return SearchCatalog(
+      games: result.catalog.games,
+      cards: result.catalog.cards,
+      sets: sets,
+    );
   }
 
   @override
@@ -121,20 +150,30 @@ class HttpSearchRepository
       );
       final setsFuture = _settle(_api.searchSets('', game: setQuery));
       final cards = await cardsFuture;
-      final sets = await setsFuture;
-      if (cards.failed && sets.failed) {
-        Error.throwWithStackTrace(cards.error!, cards.stackTrace!);
+      if (cards.failed) {
+        final sets = await setsFuture;
+        if (sets.failed) {
+          Error.throwWithStackTrace(cards.error!, cards.stackTrace!);
+        }
+        return SearchCatalogLoadResult(
+          catalog: SearchCatalog(
+            games: games,
+            cards: const [],
+            sets: sets.value?.map(_setFromDto).toList() ?? const [],
+          ),
+          failedSearchTabs: const {SearchTab.cards},
+        );
       }
       return SearchCatalogLoadResult(
         catalog: SearchCatalog(
           games: games,
           cards: cards.value ?? const [],
-          sets: sets.value?.map(_setFromDto).toList() ?? const [],
+          sets: const [],
         ),
-        failedSearchTabs: {
-          if (cards.failed) SearchTab.cards,
-          if (sets.failed) SearchTab.sets,
-        },
+        pendingSets: setsFuture.then((sets) {
+          if (sets.failed) return null;
+          return sets.value?.map(_setFromDto).toList() ?? const <SearchSet>[];
+        }),
       );
     }
   }
@@ -171,6 +210,24 @@ class HttpSearchRepository
   }
 
   @override
+  Future<List<SearchSet>> searchSetPage(
+    String query, {
+    String? game,
+    required int page,
+  }) async {
+    final api = _setCatalogApi;
+    if (api is PaginatedSetCatalogApi) {
+      final sets = await (api as PaginatedSetCatalogApi).searchSetPage(
+        query,
+        game: game,
+        page: page,
+      );
+      return sets.map(_setFromDto).toList();
+    }
+    return page == 1 ? searchSets(query, game: game) : const [];
+  }
+
+  @override
   Future<SearchAssetSnapshot> loadAssets(
     AuthSession session, {
     String? selectedFolderId,
@@ -184,6 +241,54 @@ class HttpSearchRepository
     final folders = results[0] as List<PortfolioFolderDto>;
     final items = results[1] as List<PortfolioItemDto>;
     final wishlist = results[2] as List<WishlistItemDto>;
+    return _assetSnapshotFromRows(
+      folders,
+      items,
+      wishlist,
+      selectedFolderId: selectedFolderId,
+    );
+  }
+
+  @override
+  Future<SearchAssetSnapshot> loadVisibleAssets(
+    AuthSession session,
+    Iterable<String> cardRefs, {
+    String? selectedFolderId,
+  }) async {
+    final requested = cardRefs.toSet();
+    final api = _requiredPortfolioApi;
+    if (api is! PortfolioCardAssetsBatchApi) {
+      final full = await loadAssets(
+        session,
+        selectedFolderId: selectedFolderId,
+      );
+      return SearchAssetSnapshot(
+        folderId: full.folderId,
+        statesByCardRef: {
+          for (final cardRef in requested)
+            if (full.statesByCardRef[cardRef] case final assets?)
+              cardRef: assets,
+        },
+      );
+    }
+    final result = await (api as PortfolioCardAssetsBatchApi)
+        .getCardAssetsBatch(session, requested);
+    return _assetSnapshotFromRows(
+      result.folders,
+      result.items.where((item) => requested.contains(item.cardRef)).toList(),
+      result.wishlistItems
+          .where((item) => requested.contains(item.cardRef))
+          .toList(),
+      selectedFolderId: selectedFolderId,
+    );
+  }
+
+  SearchAssetSnapshot _assetSnapshotFromRows(
+    List<PortfolioFolderDto> folders,
+    List<PortfolioItemDto> items,
+    List<WishlistItemDto> wishlist, {
+    String? selectedFolderId,
+  }) {
     if (folders.isEmpty) {
       throw StateError('Search requires at least one portfolio folder.');
     }

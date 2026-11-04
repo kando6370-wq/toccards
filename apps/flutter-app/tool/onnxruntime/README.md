@@ -1,6 +1,13 @@
 # Android minimal ONNX Runtime
 
 Android uses ONNX Runtime 1.23.0 built specifically for the two scan models.
+Only the RTMDet `.ort` is packaged by the pHash scan build; the PE `.ort`
+and Core ML source are outside platform/Flutter asset inputs. The existing
+minimal AAR remains necessary for detection and still contains the original
+two-model operator set. Its further reduction requires a detector-only
+operator configuration, a rebuilt AAR, and detection verification on Android.
+The two-model build instructions and size comparison below describe the
+original AAR rather than a newly measured detector-only runtime.
 The checked-in AAR contains the four Android ABIs and only the CPU operators
 and tensor types listed in `required_operators_and_types.config`.
 

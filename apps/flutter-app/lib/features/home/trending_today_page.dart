@@ -26,6 +26,7 @@ class _TrendingTodayPageState extends ConsumerState<TrendingTodayPage> {
   var _failed = false;
   var _page = 0;
   var _hasMore = true;
+  var _loadGeneration = 0;
 
   @override
   void initState() {
@@ -34,13 +35,15 @@ class _TrendingTodayPageState extends ConsumerState<TrendingTodayPage> {
   }
 
   Future<void> _load() async {
+    final generation = ++_loadGeneration;
     setState(() {
       _loading = true;
+      _loadingMore = false;
       _failed = false;
       _page = 0;
       _hasMore = true;
     });
-    await _loadPage(1, replace: true);
+    await _loadPage(1, replace: true, generation: generation);
   }
 
   Future<void> _refresh() {
@@ -54,7 +57,7 @@ class _TrendingTodayPageState extends ConsumerState<TrendingTodayPage> {
       _loadingMore = true;
       _failed = false;
     });
-    await _loadPage(_page + 1, replace: false);
+    await _loadPage(_page + 1, replace: false, generation: _loadGeneration);
   }
 
   Future<void> _retryPage() async {
@@ -65,10 +68,18 @@ class _TrendingTodayPageState extends ConsumerState<TrendingTodayPage> {
       _loadingMore = true;
       _failed = false;
     });
-    await _loadPage(replace ? 1 : _page + 1, replace: replace);
+    await _loadPage(
+      replace ? 1 : _page + 1,
+      replace: replace,
+      generation: _loadGeneration,
+    );
   }
 
-  Future<void> _loadPage(int page, {required bool replace}) async {
+  Future<void> _loadPage(
+    int page, {
+    required bool replace,
+    required int generation,
+  }) async {
     try {
       final api = ref.read(cardDataApiClientProvider);
       final rows = api is PaginatedTrendingCardDataApi
@@ -76,7 +87,7 @@ class _TrendingTodayPageState extends ConsumerState<TrendingTodayPage> {
               page: page,
             )
           : await api.trendingCards();
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         final nextCards = rows
             .where(
@@ -94,7 +105,7 @@ class _TrendingTodayPageState extends ConsumerState<TrendingTodayPage> {
         _failed = false;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _loading = false;
         _loadingMore = false;
