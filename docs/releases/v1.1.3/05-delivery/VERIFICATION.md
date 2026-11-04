@@ -6,6 +6,16 @@
 
 当前运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下记录只代表 v1.1.3 本地增量及实际执行的验证，不改变远端运行状态。
 
+<a id="ios-prod-193-20261104"></a>
+## iOS production App Store 包 1.0.7 (193) 与符号上传（2026-11-04）
+
+- 来源与授权：用户要求构建正式配置并上传 App Store Connect，特别要求上传 dSYM。从构建前干净的 `main@94417983` 开始；工程原为 `1.0.6+192`，因 1.0.6 已批准且此前上传通道关闭，沿用上一份商店构建的营销版本 1.0.7，本次生成 `1.0.7 (193)`。制品来源必须记为该提交加本轮版本号修改，不能标记为纯提交构建；脚本完成后 `pubspec.yaml` 同步为 `1.0.7+193`。
+- 配置与验证：使用 `config/production.json`、native HTTP transport、正式订阅商品、`https://api.tcgcard.fun/api/v1` 和 Firebase `tcg-card-2072d`。生产 health、配置校验、`release_config_test.dart`／`api_environment_test.dart`／`subscription_display_test.dart`／`subscription_restore_ui_test.dart` 合计 121/121、整个 App 的 `flutter analyze` 均通过。Flutter 3.44.5／Dart 3.12.2／Xcode 27.2 下完成 clean Release Archive 和正式 IPA 导出；本机 Flutter 与目标 iOS CI 3.44.7 的既有小版本差异仍保留。根 `pubspec.lock`、iOS `Podfile.lock` SHA-256 分别保持 `612f006776860e3a61f083bf27283a73ec1c22b95dd8d318b06533d8fed46183`、`30cc48d4a5f54bd8483fe4a3e3a0e44b4c683c31485b6c6e8aa1e7e4dc5ac6b4`，没有依赖升级或锁文件漂移。
+- 最终 IPA：解包确认 `com.cardai.tcg / 1.0.7 (193)`，严格完整签名校验通过，`Apple Distribution: kancloud cq (B95U3272HR)`；最终 entitlement 为 `get-task-allow=false`、`beta-reports-active=true`、App Attest=`production`，App Store profile 无登记设备列表。Firebase plist 与正式源逐字节一致，App AOT 包含正式 API 且不含测试内网 API。`Card AI.ipa` 为 63,087,080 字节、SHA-256 `93f8fa99a498f571314c99403a54fb41fe1af172c7b56a86a08f593639cb2aff`；`dSYMs.zip` 为 63,850,289 字节、SHA-256 `24cc6b33a5774dfe8eb57a46159cb05a34047d584bdf54a600cd06ea51fb4b1f`。两份 ZIP 校验通过，保存 IPA 与 build 输出逐字节一致，43/43 个唯一 Mach-O UUID 有匹配 dSYM。
+- Apple 上传：使用同一 `Runner.xcarchive` 执行 `xcodebuild -exportArchive`，明确设置 `destination=upload`、`method=app-store-connect`、`uploadSymbols=true`、`manageAppVersionAndBuildNumber=false`。分发日志确认实际封装 Runner UUID `3005117F-303D-3920-9F52-C5C146CBFEB9` 与 App.framework UUID `0C7143A3-EE63-5FFB-4C4F-F30283038BB4` 对应的 `.symbols`；17:00:20（Asia/Shanghai）返回 `Uploaded package is processing.`、`Upload succeeded.`、`EXPORT SUCCEEDED`，命令退出 0。仅证明上传成功并进入处理，没有独立回读处理完成状态，也没有提交审核或上架。
+- Firebase 上传：最初直连符号端点超时；用户开启 Shadowrocket 后，显式运行 Firebase SDK 的 `upload-symbols -gsp ios/Runner/Firebase/production/GoogleService-Info.plist -p ios <本次 dSYMs.zip>`。45 个 dSYM 条目全部返回 `Successfully submitted symbols`（含重复 bundle，实际唯一 UUID 为 43），Runner 和 App.framework 的本次 UUID 均取得回执，最终 `Successfully uploaded Crashlytics symbols` 且退出 0。未仅凭 Xcode 后台 build phase 成功推定 Firebase 已接收；Firebase 控制台处理及真实崩溃符号化未独立验收。
+- 已知符号边界与留存：Runner dSYM 深度校验通过；Flutter AOT `App.framework.dSYM` 仍有 150 个 parent-range 错误，不能宣称全部 DWARF 深检通过，但该 UUID 已被 Apple 分发管线封装并被 Firebase 接收。IPA 与符号保存于 `~/Downloads/CardAI-Packages/com.cardai.tcg/CardAI-Prod-1.0.7-193/`；新版本完整保存后，最旧的 `CardAI-Prod-1.0.3-150` 移入废纸篓，正式包仍保留 7 版。未安装手机、执行真实扫描／登录／订阅交易、运行完整 Flutter workspace／Android 验证、部署服务端、迁移数据库或提交／推送 Git。
+
 <a id="owner-assets-admin-emulator-20261103"></a>
 ## 账号隔离、批量资产与本地模拟器验证（2026-11-03）
 
