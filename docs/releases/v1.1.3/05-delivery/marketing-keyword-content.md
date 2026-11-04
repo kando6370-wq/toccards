@@ -99,3 +99,67 @@ Ego Browser 的美国 Google Search 样本显示，`AI card grading app` 结果�
 本轮 TypeSafe/Jev 语义分类请求返回 HTTP 451，未取得分类结果。以上词意、热度及页面归属由 Codex 复核；不把它们标为 Jev 判断。
 
 可复核入口：[PokeScope 查价页](https://pokescope.app/pokemon-card-value/)、[PriceCharting 宝可梦目录](https://www.pricecharting.com/category/pokemon-cards)、[Ludex 扫描查价页](https://www.ludex.com/scan-and-price/)、[CollX 首页](https://collx.app/)、[Google Trends 美国 30 天对比](https://trends.google.com/trends/explore?date=today%201-m&geo=US&q=pokemon%20card%20price%20checker,pokemon%20card%20scanner%20app,card%20collection%20tracker)、[本站 Search Console 效果报告](https://search.google.com/search-console/performance/search-analytics?resource_id=sc-domain%3Atcgcard.fun)。这些入口的搜索结果与相对指数会随时间变化，文中的数值只代表 2026-11-04 的可见样本。
+
+## 2026-11-04 竞品外链与 Card AI 获取机会
+
+### 外链证据边界
+
+- Semrush Backlink Analytics 当前可见 PokeScope 的根域估算为 3.1K 个引用域、16.9K 条 backlinks、月访问估算 140K、自然流量估算 95.8K、Authority Score 34。该报告显示 98% 的引用域处于 AS 0–10，不能把数量当作有效权威。PokeScope 的热门落地页包括首页（129 个引用域）、`/card/svp-88/`（120 个）和带 Product Hunt 参数的首页（15 个）。这些是第三方估算，不是本站或 Google 的点击数据。
+- Semrush 对 Ludex 和 CollX 的引用域页只公开了前 10 个域名，更多结果要求试用或升级。Ludex 可见的相关域包括 `topai.tools`；CollX 可见的相关域包括 `wentzvillehobby.com`、`noobjectioncards.com`、`onmantel.com` 和 `mrcollector.net`。这些域名是引用域观察，不代表每个域名都有编辑认可或可申请入口。
+- Semrush 对 PriceCharting 的可见相关域包括 `sportscardspro.com`、`tradingcardtrends.com`、`snug.cards` 和 `gradehaus.com`。其中大量链接来自同业、数据页或低权重域；不能把高 backlinks 数量直接转成 Card AI 的外链目标。
+- Google Search Console 当前显示 `tcgcard.fun` 有 57 个外部链接，55 个指向隐私页，主要引荐网站为 `apple.com`（53 个）、`chrome-stats.com`（2 个）和 `google.com`（2 个）。这说明当前公开外链主要来自应用或隐私资料，不是内容媒体推荐。Search Console 是本站第一方延迟数据，不等于全网 backlink 总量。
+
+### 已验证的公开链接
+
+| 来源页 | 实际链接 | 指向 | 属性与判断 |
+| --- | --- | --- | --- |
+| [Mantel Hobby Awards](https://news.onmantel.com/the-hobby-awards-innovation-of-the-year/) | 页面中的 `Website` 链接 | CollX、Ludex | 公开行业媒体页面，链接未显示 `nofollow`；适合争取“收藏行业工具/产品故事”类型报道 |
+| [Mantel Ludex founder interview](https://news.onmantel.com/the-latest-from-ludex-a-conversation-with-founder-and-ceo-brian-ludden/) | `Ludex`、`Desktop version here` 等 | Ludex | 公开采访页，说明创始人故事和产品数据是可行的编辑入口；不是目录提交 |
+| [ScreenRant Celebrations price article](https://screenrant.com/pokemon-tcg-celebrations-expansion-valuable-cards-worth-money/) | `Pricecharting.com` | PriceCharting | 页面实际链接未显示 `nofollow`；属于卡牌价格内容中的数据来源引用，需先提供可核验数据 |
+| [TheGamer Stellar Miracle price article](https://www.thegamer.com/pokemon-tcg-stellar-miracle-most-valuable/) | `PriceCharting.com` | PriceCharting | 页面实际链接带 `nofollow`；仍有品牌和主题相关性，但不应把它当作可传递权重的主要目标 |
+| [PokeBeach forum sales thread](https://www.pokebeach.com/forums/threads/uk-selling-old-pok%C3%A9mon-card-collection.153083/) | 用户签名/帖子中的 collection 链接 | PriceCharting | 页面实际链接带 `ugc nofollow`；是用户内容，不适合作为主动发帖或评论渠道 |
+| [PromoteProject TCG tag](https://www.promoteproject.com/tag/tcg) | `POKESCOPE.APP` | PokeScope | 公开产品目录直接链接；适合申请 Card AI 的准确产品资料，不应购买大量重复目录链接 |
+| [Scout Forge PokeScope review](https://scoutforge.net/apps/pokescope) | `Visit website` 与文章链接 | PokeScope | 链接带 `nofollow`；可作为产品资料页或认领资料的观察对象，不作为权重目标 |
+
+Google Search 还显示 Product Hunt 的 PokeScope 产品页、Sports Collectors Daily 的 CollX 报道和多个 Reddit 讨论，但本轮部分页面有安全验证或只显示搜索摘要，未把它们写成已验证的 HTML 外链。品牌提及、App Store 页面和社交帖子也不等于指向竞品官网的 backlink。
+
+### Card AI 外链优先级
+
+| 优先级 | 目标 | 我们需要准备的材料 | 方式 | 边界 |
+| --- | --- | --- | --- | --- |
+| P1 | Mantel 或其他收藏行业媒体 | 准确的扫描、印次确认、价格历史和收藏管理资料；真实版本号与素材说明；可复核的产品事实 | 使用现有官网及英文事实材料准备编辑选题或产品采访，先核实编辑渠道 | 不要求对方承诺 dofollow；不把未上线 AI 评级写入介绍 |
+| P1 | ScreenRant、TheGamer 这类价格/套装文章 | 已核对的套装卡表、卡号、语言/印次差异和日期化价格快照 | 提供数据更正、补充资料或新套装研究，争取自然引用 | TheGamer 示例为 `nofollow`；外链属性不是唯一价值 |
+| P2 观察 | Product Hunt | 准确产品页、演示图、支持平台、用户任务和当前限制 | 核对现有条目和实际提交要求后，准备一次产品或实质版本发布 | 竞品页面安全验证尚未通过，不能将此项写成可立即提交；页面是否产生推荐流量待验证 |
+| 暂缓 | PromoteProject、Scout Forge、相关真实目录 | 英文产品简介、官网 URL、App Store URL、隐私和产品能力说明 | 仅在明确普通提交免费后评估一个匹配的资料页 | 用户已排除付费渠道；已知付费推广不做，普通提交费用不明先暂缓，当前无需登录 |
+| P2 | Sports Collectors Daily、Mantel 的收藏管理主题 | 批量扫描、确认印次、收藏价值和价格历史的独立数据点 | 以行业数据、产品更新或实用指南为主题联系编辑 | 搜索结果中看见品牌不等于已获得链接；需人工接受 |
+| P3 | Reddit、PokéBeach 等社区 | 能解决具体问题的卡牌识别、印次或价格数据说明 | 只在已有问题中给出完整答案，链接仅在被需要时提供 | 不发推广评论、不制造用户内容 backlink；`ugc/nofollow` 不应作为主要 SEO 目标 |
+
+### 不建议复制的外链
+
+- 不复制 PokeScope Semrush 列表中的大量 `.shop`、`.online`、`.site` 低权重域名。它们贡献数量，但与卡牌读者和编辑信任不匹配。
+- 不把 `sportscardspro.com`、同业价格站或同一公司生态域名当作可以交换的链接。先确认所有权、主题和用户价值，再决定是否存在真实合作。
+- 不把 AI 工具目录、论坛评论、用户签名、自动提交站和链接交换作为主策略。Google 将自动化链接、低质量目录、优化评论链接和过度交换列为垃圾链接风险。
+- 不把“竞品被提及”当作“竞品获得高质量 backlink”。本次只有上表中的公开页面完成了链接属性或链接目标核对。
+
+### 研究结论与下一步
+
+Card AI 当前优先争取收藏行业媒体对实用资料的引用，并只评估明确免费的相关产品目录。现有官网、30th Celebration/RGB Mew 日期化价格样本和英文产品事实材料可供编辑查阅；本次不以新增官网页面作为前置条件。素材中的示意合成图和当前 App 限制须说明，不批量提交目录或发布社区评论。
+
+本轮 Semrush 可见层仍是第三方估算，引用域完整导出、全部竞品交集和页面级流量均不可用。可见的前 10 行已经包含供应商 First Seen/Last Seen 日期；该样本不等于完整引用域时间线，Ahrefs 的首次发现分析仍未取得。TypeSafe/Jev 对来源路由的分类请求返回 HTTP 451；来源分组和优先级由 Codex 根据实际页面、链接属性和产品适配复核。以上调研阶段没有执行外联、目录提交、评论发布或代码变更；后续申请准备与发送结果见下节。
+
+可复核入口：[Semrush PokeScope Backlink Analytics](https://www.semrush.com/analytics/backlinks/overview/?q=pokescope.app&searchType=domain)、[Semrush PokeScope Referring Domains](https://www.semrush.com/analytics/refdomains/report/?q=pokescope.app&searchType=domain)、[Semrush PriceCharting Referring Domains](https://www.semrush.com/analytics/refdomains/report/?q=pricecharting.com&searchType=domain)、[本站 Search Console Links](https://search.google.com/search-console/links?resource_id=sc-domain%3Atcgcard.fun)。
+
+### 外链申请准备（2026-11-04）
+
+[英文提交材料](../../../../apps/marketing-web/content/backlink-submission-kit.md)已准备：目录用产品名、短句、简介与功能条目，ScreenRant 和 TheGamer 编辑邮件，当前公开版本与素材说明。它不由官网生成器发布。ScreenRant 邮件已于 2026-11-04 21:10 经用户授权发出，并回查已发邮件；其他资料尚未提交。
+
+- ScreenRant 和 TheGamer 的公开联系页分别确认 `editorial@screenrant.com` 和 `editorial@thegamer.com`，用途包括 Topic Ideas、Feedback、Corrections、Suggestions。两家同属 Valnet，首轮择一匹配选题，不批量重复投递。
+- Scout Forge `/app-register` 明确要求登录或注册。PromoteProject 的 Submit startup 入口显示登录弹窗。两者的登录后字段、费用及实际审核规则尚未核实，不能称为免费或保证收录。
+- Mantel 目前只有公开客户支持地址可见，未核实编辑收件渠道；不向客服地址发送营销选题。Product Hunt 继续保持观察状态。
+- Apple 美国区官方 Lookup 本轮返回 Card AI: TCG Card Scanner、1.0.6、iOS 16+、Free，以及既有商店 URL。浏览器访问同一链接曾跳转到中国区首页，但官方 US 查询确认产品记录存在，因此不改商店 ID；不把仓库 1.0.7 上传记录写成已上架版本。
+- 现有 30th Celebration 指南已在线包含 RGB Mew 小节。所有快照仍按原观察日期标注，不将 10 月数字写成 11 月实时市价。
+- 用户确认保持现有官网视觉，品牌感受为准确、安心、可核对；本次没有新增官网页面、改模板或改导航。
+
+用户随后明确只做免费渠道。Scout Forge 的 $39 Featured 包和 PromoteProject 的 $0.99/天、$5.99/周置顶推广已排除；普通提交是否免费仍未核实，因此两项暂缓，当前不要求用户登录。后续只评估无需付费的编辑引用及明确免费的相关资料页。
+
+申请准备或邮件发出不等于新增外链。ScreenRant 完成一次投稿，尚无编辑接受或链接上线证据；未提交目录、创建外部账号、接受条款、购买服务或执行 Git push／部署。
