@@ -33,7 +33,7 @@ export default {
     },
     {
       "h2": "Find the price for a specific Pokemon printing",
-      "body": "A Pokemon card price finder is useful only when the result matches the copy you are checking. The [Moonbreon guide](/blog/moonbreon-card-value) separates Umbreon VMAX 215/203 from other Evolving Skies records. [Charizard 151](/blog/charizard-151-card-value) and [Mega Charizard X ex](/blog/mega-charizard-x-ex-card-value) each have several different card numbers, while the [Pikachu value guide](/blog/pikachu-card-values) compares selected printings from one set.\n\nThese public guides show dated reference samples. For the question 'how much is my card worth?', confirm the record, language, finish and raw condition or existing slab grade in the Card AI app, then inspect its available price and history. An old snapshot or the highest price for the character is not a quote for your copy."
+      "body": "A Pokemon card price finder is useful only when the result matches the copy you are checking. Browse the [Pokemon card value guides](/blog/pokemon-card-values) by name, then confirm the set and full number. The [Rayquaza VMAX guide](/blog/rayquaza-vmax-card-values) compares Evolving Skies, Crown Zenith and Trainer Gallery records. [Mew GG10](/blog/mew-gg10-card-value) and [Charizard GX](/blog/charizard-gx-card-values) show why a gallery prefix, product stamp or promo number changes the record.\n\nThe [Moonbreon guide](/blog/moonbreon-card-value) separates Umbreon VMAX 215/203 from other Evolving Skies records. [Charizard 151](/blog/charizard-151-card-value), [Mega Charizard X ex](/blog/mega-charizard-x-ex-card-value) and the [Pikachu value guide](/blog/pikachu-card-values) cover other selected printings.\n\nThese public guides show dated reference samples. For the question 'how much is my card worth?', confirm the record, language, finish and raw condition or existing slab grade in the Card AI app, then inspect its available price and history. An old snapshot or the highest price for the character is not a quote for your copy."
     },
     {
       "h2": "From price check to portfolio",
@@ -60,6 +60,14 @@ export default {
     {
       "q": "Can I use Card AI as a Pokemon card value checker?",
       "a": "Yes. Search by Pokemon name, set or card number, confirm the exact printing, then choose the raw condition or existing slab grade. Card AI shows the selected record's available published price and history."
+    },
+    {
+      "q": "Can I get a Pokemon card valuation on this website?",
+      "a": "The website provides dated reference guides for selected printings. To check your own card, use the Card AI app, confirm the record, language and finish, then choose its raw condition or existing slab grade. A guide sample does not value an uploaded photo or guarantee a sale price."
+    },
+    {
+      "q": "Are the public guide prices in my local currency?",
+      "a": "The guide tables label their samples in USD and show each price date. When comparing another market or currency, check the currency, date, printing and condition first. Shipping, fees and individual offers can differ from a published reference."
     },
     {
       "q": "Why is the graded price so different from the raw price?",

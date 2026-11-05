@@ -113,3 +113,47 @@ Topps checklist spotlight 在本轮有安全验证，Panini finder 未返回可�
 本次新增的 `card-lists.test.mjs` 保护官方编号完整性、多印次不合价、缺失记录、真实零值、外部文本转义、新页面发现与体育卡能力边界。开发与必要文档完成后，`pnpm --filter @kando/marketing-web test` 最终 29/29 通过，`node --check public/card-list.js` 和差异空白检查通过。按 sitemap 内容页与 404 页核对 41 页、903 个本地链接，没有缺失目标；最初补充检查误将 Google 所有权验证文件按内容页断言 H1，校正检查范围后通过，未修改该验证文件。
 
 浏览器在 1440px 桌面宽度走完三张表的卡号筛选和清空；ASC 名称、缺价格和无结果状态均通过。禁用 JavaScript 后 295 个 ASC 条目仍可见，筛选控件隐藏。390px 手机宽度核对新指南及相关调用页，H1 从遮挡前的 95px 移至 155px，导航底部为 108px；页面无整体横向溢出，620px 表格在 292px 自身容器内滚动。最后审查生成器、筛选脚本、价格转义和局部样式，没有待处理发现。未运行无改动的 Flutter、Admin 或 API 测试；未执行 Git commit/push 或生产部署。此本地实现不等于 Google 收录或排名改善。
+
+## 2026-11-05 全球竞品样本的内容落地
+
+用户在 MyDex/PokeScope 调研后明确要求按所查信息加入产品。本轮沿用此前批准的官网范围、英文市场和现有视觉，实施六个静态参考页、三个任务页的局部内容及其发现路径。没有开发竞品 App 更新中的收藏进度、AI 扫描器或其他新客户端能力。
+
+### 全球口径与页面归属
+
+全球概览在 2026-11-05 的桌面设备口径下，MyDex 显示预估月自然流量 7,647、关键词记录 19,547；PokeScope 为 96,149、77,486。关键词和主要页面明细实际显示 2026-11-04，选择器按国家提供，不能把美国明细称为全球完整明细。本轮保留 MyDex 美国/挪威/印度、PokeScope 美国/英国/澳大利亚的 478 条关键词记录与 462 条页面样本；关键词去重后为 378 个，不把跨国搜索量相加成全球搜索量。第三方估算不是实际访问日志，也不是新词、热词或本站预期点击的证明。
+
+| 词簇 | 本轮归属 | 实施内容 |
+| --- | --- | --- |
+| Pokemon card valuation、worth、value checker、price checker | `/card-price-checker` | 保留唯一查价任务归属；补充网页参考与 App 估值的区别、USD/日期说明，连接具体印次内容 |
+| Pokemon card scanner、scanner app、value scanner | `/pokemon-card-scanner` | 保留唯一扫描任务归属；补充同画面再版、盖章和 jumbo 的人工核对路径 |
+| 按角色找卡牌价值 | `/blog/pokemon-card-values` | 提供角色和具体印次导航，连接原有四个单卡指南、三个系列表及本轮五个参考页；不称全量卡牌库 |
+| Rayquaza VMAX | `/blog/rayquaza-vmax-card-values` | 七条英文样本，区分 Evolving Skies、Crown Zenith、Silver Tempest Trainer Gallery；排除同号 jumbo 和 Prize Pack 记录 |
+| Mew GG10 | `/blog/mew-gg10-card-value` | 明确 Mew GG10/GG70，与 Mewtwo VSTAR GG44/GG70 分开 |
+| Charizard GX | `/blog/charizard-gx-card-values` | 六条英文样本，区分 Hidden Fates、Battle Academy 盖章、Shiny Vault、SM211 和 Burning Shadows；排除 code card、jumbo、密封商品 |
+| Cufant、Cufant Pokemon card | `/blog/cufant-card-values` | 四条英文样本，区分 Shrouded Fable 普通/插画编号及 Shining Fates/Shiny Vault |
+| Ivysaur、Ivysaur Pokemon card | `/blog/ivysaur-card-values` | 四条英文样本，区分 151 普通/插画编号及 Base Set/1st Edition 记录；不将所有 shadowless 版本合并 |
+| 个人持仓价值与系列清单 | `/card-collection-tracker` | 说明完整 checklist、个人持有数量及持仓价值的区别；网页不读取账号或自动标记拥有状态 |
+
+此前的 Ascended Heroes 等系列清单、Charizard 151、Mega Charizard X ex、Moonbreon 和选定 Pikachu 内容继续保留原归属。错拼、含糊数字、竞品品牌和目录未确认的版本不批量生成独立页面。六个新页采用既有 `renderPost`，不增加动态路由、远程网页查价、登录或持仓写入。
+
+### 价格、来源与功能边界
+
+五个卡牌指南使用 2026-11-05 的公开目录查询，保留每条 `price_as_of`；价格精度沿用响应，不合并版本、不换算本币、不从其他品相或等级补价。总计展示 23 条选定英文记录（Rayquaza 7、Mew/Mewtwo 2、Charizard GX 6、Cufant 4、Ivysaur 4）。每页提供公开查询来源、语言/版本范围和价格日期；响应没有品相或机构等级，正文不将价格标为 NM、PSA 10、已成交价或保证售价。
+
+Shining Charizard 的 Neo Destiny 107/105 记录带 `1st Edition Holofoil` 标签，其价格日期仍为 2026-05-18。本轮没有把 335 美元旧样本写成当前价，也不建立虚假的当前价格页；导航页说明该日期与 Shining Fates Charizard VMAX SV107/SV122 的身份差别。
+
+Rayquaza 的官方 218/203 页面可核对名称、编号和图片，但其页面 rarity 标签与目录的描述标签不完全一致。本轮只引用官方页核对编号/图片，公开参考表按系列和编号区分记录，不将两个来源的分类标签静默合并。
+
+MyDex 近期 App 2.3.0、PokeScope App 2.4 的发布信息仅用于理解竞争方向，不成为 Card AI 功能证据。Card AI 的原始卡 AI 预测评级仍是此前确认的下一版本范围；本轮未改变上线状态或加入假工具入口。Jev 对 10 个代表词的分类调用返回 HTTP 451，未取得模型分类；最终词簇与范围由 Codex 依据来源和产品真源判断。提取、计数、生成和日期处理使用常规代码。
+
+### 生成与验收边界
+
+新增页的 title、description、Article/Breadcrumb、canonical、博客目录、首页 Guides、`llms.txt` 和 sitemap 继续由现有内容生成器维护。`sitemap-lastmod.mjs` 仅为六个新页和实际修改的收藏页使用 2026-11-05；其余历史日期保留。SEO 实施范围及来源矩阵见[本轮实施计划](../../../seo-implementation/2026-11-05-worldwide-card-values-implementation-plan.html)。
+
+本轮开发与必要文档完成后，执行 `pnpm --filter @kando/marketing-web test`。首次 26/29 通过：两处 sitemap 固定计数仍为 40，新增页的四个 title 超过既有 60 字符上限。将预期页数按新增六页更新为 46，缩短标题，没有放宽断言；重新执行后 29/29 通过。价格逐行核对的 23 条样本均与查询来源的卡号、金额和价格日期一致。
+
+静态输出检查确认 46 条 sitemap URL、47 张内容页及 669 个以 `/` 开头的本地正文/导航链接，目标与片段均存在；新页的自指 canonical、Article 日期、主实体 URL 和元数据一致。该链接数仅为此检查口径，不与历史不同口径的链接数量比较。内容页规范路径检查不将已有独立法律模板的 canonical 行为当作本次变更；法律页面未修改。13 个实施项的依赖顺序与内链/发现机制对应关系通过检查。`git diff --check` 通过。
+
+Ego Lite 在实际 `innerWidth=1440` 和 `390` 下核对六个新页；手机同时核对三个修改的任务页、首页与博客目录。新页 H1 位于导航下方，页面没有整体横向溢出，手机表格在约 292px 自身容器内横向滚动。查价页 → 角色导航 → Rayquaza VMAX → 查价页的真实点击路径通过。离线实施计划在桌面和手机下显示正常，工作包筛选、打印隐藏控件和运行错误捕获检查通过。
+
+Impeccable 检测器因缺少 HTML/CSS 解析依赖而降级为正则检查，未产生发现；该结果不证明计算后的对比度或所有 CSS 条件通过。本轮没有改动 CSS、模板布局或客户端交互逻辑，已保留现有视觉并完成上述浏览器检查。最终内容与生成输出审查未发现待处理问题。未运行无影响面的 Flutter、API、Admin 测试；未执行 Git commit/push、部署或搜索引擎提交。本地内容与发现入口完成，不代表生产可访问、Google 抓取、收录或排名改善。
