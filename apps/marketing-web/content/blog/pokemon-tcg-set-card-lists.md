@@ -1,8 +1,9 @@
 ---
 title: Pokemon TCG Set Card Lists and Prices | Card AI
 h1: Pokemon TCG set card lists: identify a card before checking its price
-description: Find official references and Card AI set codes for Prismatic Evolutions, White Flare, Surging Sparks, Paldean Fates, and Shrouded Fable.
+description: Browse searchable Chaos Rising, Ascended Heroes and Phantasmal Flames checklists, plus official references and set codes for other Pokemon expansions.
 date: 2026-10-29
+updated: 2026-11-05
 image: /assets/showcase-scan.png
 imageAlt: Card AI scan and candidate review screen
 imageCaption: Illustrative Card AI screen composite. Confirm the set and collector number on the physical card before checking an available price.
@@ -10,6 +11,16 @@ imageCaption: Illustrative Card AI screen composite. Confirm the set and collect
 A set card list tells you which physical cards belong to an expansion. It does not tell you what the copy in your hand is worth. Start with the [official Pokemon TCG card database](https://www.pokemon.com/us/pokemon-tcg/pokemon-cards/) to check the set and collector number. Then search Card AI for the matching card record and inspect any available price.
 
 On October 29, 2026, Card AI's public catalog returned these set records. The codes are search aids, not official checklist totals or a promise that every printing has a published price.
+
+## Search an English card checklist
+
+These pages pair every numbered entry from the publisher's English checklist with a separate Card AI reference snapshot retrieved November 5, 2026. Filter the list by card name or number and by whether a price sample is available. Finishes stay separate, individual price dates remain visible, and a missing record does not remove a card from the official numbered list.
+
+- [Chaos Rising card list and price reference](/blog/chaos-rising-card-list): CRI, 122 official numbered entries.
+- [Ascended Heroes card list and printing guide](/blog/ascended-heroes-card-list): ASC, 295 official numbered entries, with catalog patterns and finishes kept distinct.
+- [Phantasmal Flames card list and price reference](/blog/phantasmal-flames-card-list): PFL, 130 official numbered entries, excluding code cards and unnumbered extras.
+
+The public tables are dated references and do not scan photos or save holdings in the browser. Use the Card AI app to confirm the physical copy and inspect any available condition or grade-specific price. The following reference table covers other expansions checked on October 29.
 
 | Set | Card AI set code | Official reference |
 | --- | --- | --- |

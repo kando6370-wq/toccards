@@ -32,6 +32,10 @@ export default {
       "body": "A Pokemon card price checker and a Pokemon card value checker answer the same question only after you identify the copy. Start with the set and collector number, then confirm the artwork, finish and language. Choose the raw condition you actually have, or enter the grade already printed on a slab.\n\nCard AI can start from a photo or a catalog search. Both paths open the selected card record with its available published price and history. Check the price date and keep a missing price as missing; another printing's value is not a substitute. See the [Pokemon card scanner](/pokemon-card-scanner) for the camera review flow."
     },
     {
+      "h2": "Find the price for a specific Pokemon printing",
+      "body": "A Pokemon card price finder is useful only when the result matches the copy you are checking. The [Moonbreon guide](/blog/moonbreon-card-value) separates Umbreon VMAX 215/203 from other Evolving Skies records. [Charizard 151](/blog/charizard-151-card-value) and [Mega Charizard X ex](/blog/mega-charizard-x-ex-card-value) each have several different card numbers, while the [Pikachu value guide](/blog/pikachu-card-values) compares selected printings from one set.\n\nThese public guides show dated reference samples. For the question 'how much is my card worth?', confirm the record, language, finish and raw condition or existing slab grade in the Card AI app, then inspect its available price and history. An old snapshot or the highest price for the character is not a quote for your copy."
+    },
+    {
       "h2": "From price check to portfolio",
       "body": "Checking one card is useful once. The value compounds when the cards you check become a tracked collection with a running total that updates as the market moves, so you know what the whole thing is worth without re-checking card by card.\n\nBecause the card price database sits behind every entry, a card price scanner result and a text lookup resolve to the same number."
     },
@@ -50,7 +54,7 @@ export default {
       "a": "Scanning starts from a photo and suggests likely catalog matches for you to confirm. A price lookup starts from a name, set or card number. Both routes open the same confirmed card record with the same available current price and history."
     },
     {
-      "q": "What is my card worth?",
+      "q": "What is this card worth?",
       "a": "Select the matching catalog record, confirm its finish and language, and choose a raw condition or existing slab grade. Card AI then shows the relevant market price and available price history."
     },
     {

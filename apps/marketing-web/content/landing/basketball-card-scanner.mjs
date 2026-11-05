@@ -23,6 +23,10 @@ export default {
       "body": "A player's rookie-year cards trade on a different curve from everything printed afterwards, and that premium is specific to the rookie printings. Recording the set per card keeps rookie and non-rookie copies separate in your collection rather than merged under a player name."
     },
     {
+      "h2": "Using a Bowman basketball checklist",
+      "body": "Use the publisher's [2025-26 Bowman Basketball checklist spotlight](https://ripped.topps.com/2025-26-bowman-basketball-checklist-spotlight/) as a starting reference. Check the exact season and product name on the card or packaging. Bowman, Bowman Chrome and Bowman University are not interchangeable product names.\n\nKeep the player, printed card number or prefix, insert and parallel together. A stamped serial number such as /50 identifies the print run of a parallel; it does not replace the collector number in the checklist. Match those details before using a basketball card value or saving a holding.\n\nA broad Bowman result does not prove that a particular checklist entry is covered in Card AI. Search the exact product and player in the app, review the suggested record, and keep an unavailable printing as unavailable. This reference does not promise a complete 2025-26 Bowman catalog or a price for every parallel."
+    },
+    {
       "h2": "Raw and graded basketball cards tracked apart",
       "body": "- Raw cards are stored with their condition\n- Graded cards are stored with the grading company and grade, across PSA, BGS, CGC and SGC\n- The same card can be held as both a raw copy and a graded one, each with its own value\n\nYou enter the grade from the slab. Card AI does not predict what a raw card would grade."
     }

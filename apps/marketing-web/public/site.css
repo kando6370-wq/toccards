@@ -301,6 +301,23 @@
 .content-table-wrap th, .content-table-wrap td { padding: 13px 14px; border-bottom: 1px solid var(--site-border); text-align: left; vertical-align: top; }
 .content-table-wrap th { color: #fff; background: var(--site-panel); font-weight: 600; }
 .content-table-wrap tr:last-child td { border-bottom: 0; }
+.card-list { margin: 36px 0; }
+.card-list [hidden] { display: none !important; }
+.card-list-controls { display: flex; align-items: end; flex-wrap: wrap; gap: 16px; margin: 24px 0 14px; }
+.card-list-controls > div:first-child { flex: 1 1 260px; }
+.card-list-controls label { display: block; margin-bottom: 8px; color: #fff; font-size: 14px; }
+.card-list-controls input, .card-list-controls select, .card-list-controls button { min-height: 46px; max-width: 100%; padding: 10px 12px; border: 1px solid var(--site-border); border-radius: 6px; background: var(--site-panel); color: #fff; font: inherit; }
+.card-list-controls input { width: 100%; }
+.card-list-controls button { cursor: pointer; }
+.card-list-controls :focus-visible { outline: 2px solid var(--site-lime); outline-offset: 3px; }
+.card-list .content-table-wrap table { min-width: 620px; }
+.card-list caption { padding: 12px 14px; text-align: left; color: var(--site-muted); font-size: 13px; }
+.card-list tbody th { white-space: nowrap; font-weight: 400; background: none; border-bottom: 1px solid var(--site-border); }
+.card-list .card-list-prices { margin: 0; padding: 0; list-style: none; font-size: 13px; line-height: 22px; }
+.card-list .card-list-prices li { margin: 0 0 8px; }
+.card-list .card-list-prices li:last-child { margin-bottom: 0; }
+.card-list .card-list-count { font-size: 14px; }
+.content-article .card-list-jump { margin: 0 0 24px; font-size: 16px; }
 .content-links { list-style: none; padding: 0; }
 .content-links li { margin-bottom: 10px; }
 a { color: var(--site-lime); }
@@ -324,7 +341,7 @@ a { color: var(--site-lime); }
   .content-hero h1, .content-hero .content-lede { max-width: 100%; overflow-wrap: anywhere; }
   .content-hero h1 { font-size: 36px; line-height: 44px; }
   .content-lede { font-size: 17px; line-height: 28px; }
-  .content-article { padding: 72px 20px; }
+  .content-article { padding: 132px 20px 72px; }
   .content-article h1 { font-size: 32px; line-height: 40px; }
   .content-block h2, .content-prose h2 { font-size: 24px; line-height: 32px; }
   .blog-list { grid-template-columns: 1fr; }

@@ -1,0 +1,5075 @@
+{
+  "setName": "Ascended Heroes",
+  "setCode": "ASC",
+  "setId": "24541",
+  "observedAt": "2026-11-05",
+  "language": "English",
+  "galleryUrl": "https://tcg.pokemon.com/en-us/galleries/ascended-heroes/",
+  "checklistUrl": "https://d1i787aglh9bmb.cloudfront.net/assets/img/me-expansions/me2dot5/gallery/_pdfs/ME02pt5_Card_List_EN.pdf",
+  "catalogSource": "https://api.tcgcard.fun/api/v1/cards/search?set_id=24541&game=Pokemon&page_size=100",
+  "cards": [
+    {
+      "number": "001/217",
+      "name": "Erika’s Oddish",
+      "records": [
+        {
+          "cardRef": "676992",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.25,
+          "priceAsOf": "2026-11-02"
+        },
+        {
+          "cardRef": "676852",
+          "printing": "Poke Ball · Reverse Holofoil",
+          "priceUsd": 0.23,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675813",
+          "printing": "Normal",
+          "priceUsd": 0.17,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "002/217",
+      "name": "Erika’s Gloom",
+      "records": [
+        {
+          "cardRef": "676993",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.31,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676853",
+          "printing": "Poke Ball · Reverse Holofoil",
+          "priceUsd": 0.27,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675814",
+          "printing": "Normal",
+          "priceUsd": 0.2,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "003/217",
+      "name": "Erika’s Vileplume ex",
+      "records": [
+        {
+          "cardRef": "675815",
+          "printing": "Holofoil",
+          "priceUsd": 0.79,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "004/217",
+      "name": "Erika’s Bellsprout",
+      "records": [
+        {
+          "cardRef": "676994",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676854",
+          "printing": "Poke Ball · Reverse Holofoil",
+          "priceUsd": 0.23,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675816",
+          "printing": "Normal",
+          "priceUsd": 0.16,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "005/217",
+      "name": "Erika’s Weepinbell",
+      "records": [
+        {
+          "cardRef": "676995",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676855",
+          "printing": "Poke Ball · Reverse Holofoil",
+          "priceUsd": 0.26,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675817",
+          "printing": "Normal",
+          "priceUsd": 0.17,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "006/217",
+      "name": "Erika’s Victreebel",
+      "records": [
+        {
+          "cardRef": "676996",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.32,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "676856",
+          "printing": "Poke Ball · Reverse Holofoil",
+          "priceUsd": 0.23,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675818",
+          "printing": "Reverse Holofoil",
+          "priceUsd": 0.65,
+          "priceAsOf": "2026-10-15"
+        }
+      ]
+    },
+    {
+      "number": "007/217",
+      "name": "Erika’s Tangela",
+      "records": [
+        {
+          "cardRef": "676997",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.23,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "676857",
+          "printing": "Poke Ball · Reverse Holofoil",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675819",
+          "printing": "Normal",
+          "priceUsd": 0.11,
+          "priceAsOf": "2026-10-29"
+        }
+      ]
+    },
+    {
+      "number": "008/217",
+      "name": "Chikorita",
+      "records": [
+        {
+          "cardRef": "676998",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.26,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "676858",
+          "printing": "Friend Ball · Reverse Holofoil",
+          "priceUsd": 0.25,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "675820",
+          "printing": "Normal",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "009/217",
+      "name": "Bayleef",
+      "records": [
+        {
+          "cardRef": "676999",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.25,
+          "priceAsOf": "2026-11-02"
+        },
+        {
+          "cardRef": "676859",
+          "printing": "Friend Ball · Reverse Holofoil",
+          "priceUsd": 0.27,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "675821",
+          "printing": "Normal",
+          "priceUsd": 0.21,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "010/217",
+      "name": "Mega Meganium ex",
+      "records": [
+        {
+          "cardRef": "675822",
+          "printing": "Holofoil",
+          "priceUsd": 0.74,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "011/217",
+      "name": "Wurmple",
+      "records": [
+        {
+          "cardRef": "677000",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "676860",
+          "printing": "Love Ball · Reverse Holofoil",
+          "priceUsd": 0.23,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675823",
+          "printing": "Normal",
+          "priceUsd": 0.19,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "012/217",
+      "name": "Silcoon",
+      "records": [
+        {
+          "cardRef": "676861",
+          "printing": "Love Ball · Reverse Holofoil",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675824",
+          "printing": "Normal",
+          "priceUsd": 0.17,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "013/217",
+      "name": "Beautifly",
+      "records": [
+        {
+          "cardRef": "677002",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.26,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "676862",
+          "printing": "Love Ball · Reverse Holofoil",
+          "priceUsd": 0.21,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675825",
+          "printing": "Normal",
+          "priceUsd": 0.13,
+          "priceAsOf": "2026-11-02"
+        }
+      ]
+    },
+    {
+      "number": "014/217",
+      "name": "Cascoon",
+      "records": [
+        {
+          "cardRef": "677003",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.2,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676863",
+          "printing": "Love Ball · Reverse Holofoil",
+          "priceUsd": 0.2,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675826",
+          "printing": "Normal",
+          "priceUsd": 0.14,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "015/217",
+      "name": "Dustox",
+      "records": [
+        {
+          "cardRef": "677004",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.25,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "676864",
+          "printing": "Love Ball · Reverse Holofoil",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675827",
+          "printing": "Normal",
+          "priceUsd": 0.13,
+          "priceAsOf": "2026-11-03"
+        }
+      ]
+    },
+    {
+      "number": "016/217",
+      "name": "Budew",
+      "records": [
+        {
+          "cardRef": "677005",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.28,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676865",
+          "printing": "Friend Ball · Reverse Holofoil",
+          "priceUsd": 0.28,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675828",
+          "printing": "Normal",
+          "priceUsd": 0.19,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "017/217",
+      "name": "Grubbin",
+      "records": [
+        {
+          "cardRef": "677006",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "676866",
+          "printing": "Quick Ball · Reverse Holofoil",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-10-28"
+        },
+        {
+          "cardRef": "675829",
+          "printing": "Normal",
+          "priceUsd": 0.11,
+          "priceAsOf": "2026-11-02"
+        }
+      ]
+    },
+    {
+      "number": "018/217",
+      "name": "Team Rocket’s Tarountula",
+      "records": [
+        {
+          "cardRef": "677007",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.18,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "676867",
+          "printing": "Team Rocket · Reverse Holofoil",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-02"
+        },
+        {
+          "cardRef": "675830",
+          "printing": "Normal",
+          "priceUsd": 0.19,
+          "priceAsOf": "2026-11-02"
+        }
+      ]
+    },
+    {
+      "number": "019/217",
+      "name": "Team Rocket’s Spidops",
+      "records": [
+        {
+          "cardRef": "677008",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.29,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "676868",
+          "printing": "Team Rocket · Reverse Holofoil",
+          "priceUsd": 0.28,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675831",
+          "printing": "Holofoil",
+          "priceUsd": 0.21,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "020/217",
+      "name": "Charmander",
+      "records": [
+        {
+          "cardRef": "677009",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.27,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676869",
+          "printing": "Friend Ball · Reverse Holofoil",
+          "priceUsd": 0.28,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675832",
+          "printing": "Normal",
+          "priceUsd": 0.2,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "021/217",
+      "name": "Charmeleon",
+      "records": [
+        {
+          "cardRef": "677010",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.31,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676870",
+          "printing": "Friend Ball · Reverse Holofoil",
+          "priceUsd": 0.25,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675833",
+          "printing": "Normal",
+          "priceUsd": 0.16,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "022/217",
+      "name": "Mega Charizard Y ex",
+      "records": [
+        {
+          "cardRef": "675834",
+          "printing": "Holofoil",
+          "priceUsd": 4.75,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "023/217",
+      "name": "Ethan’s Slugma",
+      "records": [
+        {
+          "cardRef": "677011",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.25,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "676871",
+          "printing": "Poke Ball · Reverse Holofoil",
+          "priceUsd": 0.19,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675835",
+          "printing": "Normal",
+          "priceUsd": 0.15,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "024/217",
+      "name": "Ethan’s Magcargo",
+      "records": [
+        {
+          "cardRef": "677012",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "676872",
+          "printing": "Poke Ball · Reverse Holofoil",
+          "priceUsd": 0.21,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675836",
+          "printing": "Reverse Holofoil",
+          "priceUsd": 0.51,
+          "priceAsOf": "2026-09-14"
+        }
+      ]
+    },
+    {
+      "number": "025/217",
+      "name": "Entei",
+      "records": [
+        {
+          "cardRef": "676873",
+          "printing": "Quick Ball · Reverse Holofoil",
+          "priceUsd": 0.28,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675837",
+          "printing": "Reverse Holofoil",
+          "priceUsd": 2.01,
+          "priceAsOf": "2026-10-25"
+        }
+      ]
+    },
+    {
+      "number": "026/217",
+      "name": "Ethan’s Ho-Oh ex",
+      "records": [
+        {
+          "cardRef": "675838",
+          "printing": "Holofoil",
+          "priceUsd": 0.77,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "027/217",
+      "name": "Numel",
+      "records": [
+        {
+          "cardRef": "677014",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.19,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676874",
+          "printing": "Quick Ball · Reverse Holofoil",
+          "priceUsd": 0.23,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675839",
+          "printing": "Normal",
+          "priceUsd": 0.14,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "028/217",
+      "name": "Camerupt",
+      "records": [
+        {
+          "cardRef": "677015",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.27,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676875",
+          "printing": "Quick Ball · Reverse Holofoil",
+          "priceUsd": 0.17,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675840",
+          "printing": "Normal",
+          "priceUsd": 0.1,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "029/217",
+      "name": "Tepig",
+      "records": [
+        {
+          "cardRef": "677016",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.19,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "675841",
+          "printing": "Normal",
+          "priceUsd": 0.14,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "030/217",
+      "name": "Pignite",
+      "records": [
+        {
+          "cardRef": "677017",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676877",
+          "printing": "Friend Ball · Reverse Holofoil",
+          "priceUsd": 0.21,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "675842",
+          "printing": "Normal",
+          "priceUsd": 0.17,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "031/217",
+      "name": "Mega Emboar ex",
+      "records": [
+        {
+          "cardRef": "675843",
+          "printing": "Holofoil",
+          "priceUsd": 0.71,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "032/217",
+      "name": "N’s Darumaka",
+      "records": [
+        {
+          "cardRef": "676878",
+          "printing": "Poke Ball · Reverse Holofoil",
+          "priceUsd": 0.25,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675844",
+          "printing": "Normal",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "033/217",
+      "name": "N’s Darmanitan",
+      "records": [
+        {
+          "cardRef": "677019",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.28,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "676879",
+          "printing": "Poke Ball · Reverse Holofoil",
+          "priceUsd": 0.25,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675845",
+          "printing": "Normal",
+          "priceUsd": 0.19,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "034/217",
+      "name": "Salandit",
+      "records": [
+        {
+          "cardRef": "677020",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "676880",
+          "printing": "Quick Ball · Reverse Holofoil",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675846",
+          "printing": "Normal",
+          "priceUsd": 0.18,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "035/217",
+      "name": "Salazzle",
+      "records": [
+        {
+          "cardRef": "677021",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.31,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676881",
+          "printing": "Quick Ball · Reverse Holofoil",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-02"
+        },
+        {
+          "cardRef": "675847",
+          "printing": "Normal",
+          "priceUsd": 0.15,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "036/217",
+      "name": "Scorbunny",
+      "records": [
+        {
+          "cardRef": "677022",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.2,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "676882",
+          "printing": "Friend Ball · Reverse Holofoil",
+          "priceUsd": 0.19,
+          "priceAsOf": "2026-10-30"
+        },
+        {
+          "cardRef": "675848",
+          "printing": "Normal",
+          "priceUsd": 0.14,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "037/217",
+      "name": "Raboot",
+      "records": [
+        {
+          "cardRef": "677023",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.23,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676883",
+          "printing": "Friend Ball · Reverse Holofoil",
+          "priceUsd": 0.2,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675849",
+          "printing": "Normal",
+          "priceUsd": 0.15,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "038/217",
+      "name": "Cinderace ex",
+      "records": [
+        {
+          "cardRef": "675850",
+          "printing": "Holofoil",
+          "priceUsd": 0.63,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "039/217",
+      "name": "Psyduck",
+      "records": [
+        {
+          "cardRef": "677024",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.37,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676884",
+          "printing": "Love Ball · Reverse Holofoil",
+          "priceUsd": 0.56,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675851",
+          "printing": "Normal",
+          "priceUsd": 0.23,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "040/217",
+      "name": "Golduck",
+      "records": [
+        {
+          "cardRef": "677025",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.33,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676885",
+          "printing": "Love Ball · Reverse Holofoil",
+          "priceUsd": 0.27,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675852",
+          "printing": "Normal",
+          "priceUsd": 0.19,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "041/217",
+      "name": "Totodile",
+      "records": [
+        {
+          "cardRef": "677026",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-02"
+        },
+        {
+          "cardRef": "676886",
+          "printing": "Friend Ball · Reverse Holofoil",
+          "priceUsd": 0.21,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675853",
+          "printing": "Normal",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "042/217",
+      "name": "Croconaw",
+      "records": [
+        {
+          "cardRef": "676887",
+          "printing": "Friend Ball · Reverse Holofoil",
+          "priceUsd": 0.3,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675854",
+          "printing": "Normal",
+          "priceUsd": 0.23,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "043/217",
+      "name": "Mega Feraligatr ex",
+      "records": [
+        {
+          "cardRef": "675855",
+          "printing": "Holofoil",
+          "priceUsd": 0.76,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "044/217",
+      "name": "Sneasel",
+      "records": [
+        {
+          "cardRef": "677028",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676888",
+          "printing": "Dusk Ball · Reverse Holofoil",
+          "priceUsd": 0.21,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675856",
+          "printing": "Normal",
+          "priceUsd": 0.14,
+          "priceAsOf": "2026-10-29"
+        }
+      ]
+    },
+    {
+      "number": "045/217",
+      "name": "Weavile",
+      "records": [
+        {
+          "cardRef": "677029",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.29,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "676889",
+          "printing": "Dusk Ball · Reverse Holofoil",
+          "priceUsd": 0.25,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675857",
+          "printing": "Normal",
+          "priceUsd": 0.07,
+          "priceAsOf": "2026-10-30"
+        }
+      ]
+    },
+    {
+      "number": "046/217",
+      "name": "Snorunt",
+      "records": [
+        {
+          "cardRef": "677030",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "676890",
+          "printing": "Love Ball · Reverse Holofoil",
+          "priceUsd": 0.23,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675858",
+          "printing": "Normal",
+          "priceUsd": 0.23,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "047/217",
+      "name": "Mega Froslass ex",
+      "records": [
+        {
+          "cardRef": "675859",
+          "printing": "Holofoil",
+          "priceUsd": 1.42,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "048/217",
+      "name": "Regice ex",
+      "records": [
+        {
+          "cardRef": "675860",
+          "printing": "Holofoil",
+          "priceUsd": 0.5,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "049/217",
+      "name": "N’s Vanillite",
+      "records": [
+        {
+          "cardRef": "677031",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676891",
+          "printing": "Poke Ball · Reverse Holofoil",
+          "priceUsd": 0.21,
+          "priceAsOf": "2026-11-02"
+        },
+        {
+          "cardRef": "675861",
+          "printing": "Normal",
+          "priceUsd": 0.12,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "050/217",
+      "name": "N’s Vanillish",
+      "records": [
+        {
+          "cardRef": "677032",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676892",
+          "printing": "Poke Ball · Reverse Holofoil",
+          "priceUsd": 0.2,
+          "priceAsOf": "2026-10-31"
+        },
+        {
+          "cardRef": "675862",
+          "printing": "Normal",
+          "priceUsd": 0.15,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "051/217",
+      "name": "N’s Vanilluxe",
+      "records": [
+        {
+          "cardRef": "677033",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.29,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676893",
+          "printing": "Poke Ball · Reverse Holofoil",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675863",
+          "printing": "Normal",
+          "priceUsd": 0.13,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "052/217",
+      "name": "Snom",
+      "records": [
+        {
+          "cardRef": "676894",
+          "printing": "Friend Ball · Reverse Holofoil",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675864",
+          "printing": "Normal",
+          "priceUsd": 0.18,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "053/217",
+      "name": "Frosmoth",
+      "records": [
+        {
+          "cardRef": "677035",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.33,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "676895",
+          "printing": "Friend Ball · Reverse Holofoil",
+          "priceUsd": 0.18,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675865",
+          "printing": "Normal",
+          "priceUsd": 0.11,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "054/217",
+      "name": "Glastrier",
+      "records": [
+        {
+          "cardRef": "676896",
+          "printing": "Friend Ball · Reverse Holofoil",
+          "priceUsd": 0.27,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675866",
+          "printing": "Normal",
+          "priceUsd": 0.18,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "055/217",
+      "name": "Pikachu",
+      "records": [
+        {
+          "cardRef": "677037",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.45,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676897",
+          "printing": "Friend Ball · Reverse Holofoil",
+          "priceUsd": 0.51,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675867",
+          "printing": "Normal",
+          "priceUsd": 0.35,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "056/217",
+      "name": "Raichu",
+      "records": [
+        {
+          "cardRef": "677038",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.41,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "676898",
+          "printing": "Friend Ball · Reverse Holofoil",
+          "priceUsd": 0.3,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675868",
+          "printing": "Normal",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "057/217",
+      "name": "Pikachu ex",
+      "records": [
+        {
+          "cardRef": "675869",
+          "printing": "Holofoil",
+          "priceUsd": 2.83,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "058/217",
+      "name": "Voltorb ex",
+      "records": [
+        {
+          "cardRef": "675870",
+          "printing": "Holofoil",
+          "priceUsd": 0.56,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "059/217",
+      "name": "Tynamo",
+      "records": [
+        {
+          "cardRef": "677039",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.21,
+          "priceAsOf": "2026-10-31"
+        },
+        {
+          "cardRef": "676899",
+          "printing": "Quick Ball · Reverse Holofoil",
+          "priceUsd": 0.19,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "675871",
+          "printing": "Normal",
+          "priceUsd": 0.21,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "060/217",
+      "name": "Eelektrik",
+      "records": [
+        {
+          "cardRef": "677040",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.32,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676900",
+          "printing": "Quick Ball · Reverse Holofoil",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675872",
+          "printing": "Normal",
+          "priceUsd": 0.2,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "061/217",
+      "name": "Mega Eelektross ex",
+      "records": [
+        {
+          "cardRef": "675873",
+          "printing": "Holofoil",
+          "priceUsd": 0.64,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "062/217",
+      "name": "Stunfisk",
+      "records": [
+        {
+          "cardRef": "677041",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676901",
+          "printing": "Quick Ball · Reverse Holofoil",
+          "priceUsd": 0.19,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675874",
+          "printing": "Normal",
+          "priceUsd": 0.2,
+          "priceAsOf": "2026-11-03"
+        }
+      ]
+    },
+    {
+      "number": "063/217",
+      "name": "Helioptile",
+      "records": [
+        {
+          "cardRef": "677042",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.2,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "676902",
+          "printing": "Quick Ball · Reverse Holofoil",
+          "priceUsd": 0.2,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675875",
+          "printing": "Normal",
+          "priceUsd": 0.13,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "064/217",
+      "name": "Heliolisk",
+      "records": [
+        {
+          "cardRef": "677043",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.28,
+          "priceAsOf": "2026-11-02"
+        },
+        {
+          "cardRef": "676903",
+          "printing": "Quick Ball · Reverse Holofoil",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675876",
+          "printing": "Normal",
+          "priceUsd": 0.09,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "065/217",
+      "name": "Charjabug",
+      "records": [
+        {
+          "cardRef": "677044",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.2,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676904",
+          "printing": "Quick Ball · Reverse Holofoil",
+          "priceUsd": 0.2,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675877",
+          "printing": "Normal",
+          "priceUsd": 0.13,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "066/217",
+      "name": "Vikavolt",
+      "records": [
+        {
+          "cardRef": "675878",
+          "printing": "Normal",
+          "priceUsd": 0.11,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "067/217",
+      "name": "Tapu Koko",
+      "records": [
+        {
+          "cardRef": "676906",
+          "printing": "Quick Ball · Reverse Holofoil",
+          "priceUsd": 0.29,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675879",
+          "printing": "Reverse Holofoil",
+          "priceUsd": 2.2,
+          "priceAsOf": "2026-10-23"
+        }
+      ]
+    },
+    {
+      "number": "068/217",
+      "name": "Hop’s Pincurchin ex",
+      "records": [
+        {
+          "cardRef": "675880",
+          "printing": "Holofoil",
+          "priceUsd": 0.52,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "069/217",
+      "name": "Iono’s Tadbulb",
+      "records": [
+        {
+          "cardRef": "675881",
+          "printing": "Normal",
+          "priceUsd": 0.13,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "070/217",
+      "name": "Iono’s Bellibolt ex",
+      "records": [
+        {
+          "cardRef": "675882",
+          "printing": "Holofoil",
+          "priceUsd": 0.5,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "071/217",
+      "name": "Iono’s Wattrel",
+      "records": [
+        {
+          "cardRef": "675883",
+          "printing": "Normal",
+          "priceUsd": 0.15,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "072/217",
+      "name": "Iono’s Kilowattrel",
+      "records": [
+        {
+          "cardRef": "675884",
+          "printing": "Holofoil",
+          "priceUsd": 0.2,
+          "priceAsOf": "2026-10-29"
+        }
+      ]
+    },
+    {
+      "number": "073/217",
+      "name": "Miraidon ex",
+      "records": [
+        {
+          "cardRef": "675885",
+          "printing": "Holofoil",
+          "priceUsd": 0.62,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "074/217",
+      "name": "Clefairy",
+      "records": [
+        {
+          "cardRef": "677050",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.23,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "676910",
+          "printing": "Love Ball · Reverse Holofoil",
+          "priceUsd": 0.38,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675886",
+          "printing": "Normal",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-03"
+        }
+      ]
+    },
+    {
+      "number": "075/217",
+      "name": "Clefable",
+      "records": [
+        {
+          "cardRef": "677051",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.25,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "676911",
+          "printing": "Love Ball · Reverse Holofoil",
+          "priceUsd": 0.36,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675887",
+          "printing": "Normal",
+          "priceUsd": 0.18,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "076/217",
+      "name": "Lillie’s Clefairy ex",
+      "records": [
+        {
+          "cardRef": "675888",
+          "printing": "Holofoil",
+          "priceUsd": 1.39,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "077/217",
+      "name": "Team Rocket’s Exeggcute",
+      "records": [
+        {
+          "cardRef": "677052",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.28,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675889",
+          "printing": "Normal",
+          "priceUsd": 0.14,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "078/217",
+      "name": "Team Rocket’s Exeggutor",
+      "records": [
+        {
+          "cardRef": "677053",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.28,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676913",
+          "printing": "Team Rocket · Reverse Holofoil",
+          "priceUsd": 0.29,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675890",
+          "printing": "Holofoil",
+          "priceUsd": 0.18,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "079/217",
+      "name": "Team Rocket’s Mewtwo ex",
+      "records": [
+        {
+          "cardRef": "675891",
+          "printing": "Holofoil",
+          "priceUsd": 0.68,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "080/217",
+      "name": "Togepi",
+      "records": [
+        {
+          "cardRef": "677054",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.23,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "676914",
+          "printing": "Love Ball · Reverse Holofoil",
+          "priceUsd": 0.48,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675892",
+          "printing": "Normal",
+          "priceUsd": 0.15,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "081/217",
+      "name": "Togetic",
+      "records": [
+        {
+          "cardRef": "677055",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.27,
+          "priceAsOf": "2026-10-29"
+        },
+        {
+          "cardRef": "676915",
+          "printing": "Love Ball · Reverse Holofoil",
+          "priceUsd": 0.35,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675893",
+          "printing": "Normal",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-02"
+        }
+      ]
+    },
+    {
+      "number": "082/217",
+      "name": "Togekiss",
+      "records": [
+        {
+          "cardRef": "677056",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "676916",
+          "printing": "Love Ball · Reverse Holofoil",
+          "priceUsd": 0.32,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675894",
+          "printing": "Reverse Holofoil",
+          "priceUsd": 1,
+          "priceAsOf": "2026-08-17"
+        }
+      ]
+    },
+    {
+      "number": "083/217",
+      "name": "Marill",
+      "records": [
+        {
+          "cardRef": "677057",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676917",
+          "printing": "Friend Ball · Reverse Holofoil",
+          "priceUsd": 0.23,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "675895",
+          "printing": "Normal",
+          "priceUsd": 0.14,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "084/217",
+      "name": "Azumarill ex",
+      "records": [
+        {
+          "cardRef": "675896",
+          "printing": "Holofoil",
+          "priceUsd": 0.6,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "085/217",
+      "name": "Misdreavus",
+      "records": [
+        {
+          "cardRef": "677058",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.26,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676918",
+          "printing": "Dusk Ball · Reverse Holofoil",
+          "priceUsd": 0.3,
+          "priceAsOf": "2026-11-02"
+        },
+        {
+          "cardRef": "675897",
+          "printing": "Normal",
+          "priceUsd": 0.18,
+          "priceAsOf": "2026-10-31"
+        }
+      ]
+    },
+    {
+      "number": "086/217",
+      "name": "Mismagius",
+      "records": [
+        {
+          "cardRef": "677059",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.27,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "676919",
+          "printing": "Dusk Ball · Reverse Holofoil",
+          "priceUsd": 0.32,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675898",
+          "printing": "Reverse Holofoil",
+          "priceUsd": 3,
+          "priceAsOf": "2026-10-06"
+        }
+      ]
+    },
+    {
+      "number": "087/217",
+      "name": "Ralts",
+      "records": [
+        {
+          "cardRef": "677060",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.21,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676920",
+          "printing": "Love Ball · Reverse Holofoil",
+          "priceUsd": 0.36,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675899",
+          "printing": "Normal",
+          "priceUsd": 0.11,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "088/217",
+      "name": "Kirlia",
+      "records": [
+        {
+          "cardRef": "677061",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.29,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675900",
+          "printing": "Normal",
+          "priceUsd": 0.15,
+          "priceAsOf": "2026-11-03"
+        }
+      ]
+    },
+    {
+      "number": "089/217",
+      "name": "Mega Gardevoir ex",
+      "records": [
+        {
+          "cardRef": "675901",
+          "printing": "Holofoil",
+          "priceUsd": 0.7,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "090/217",
+      "name": "Shuppet",
+      "records": [
+        {
+          "cardRef": "677062",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-02"
+        },
+        {
+          "cardRef": "676922",
+          "printing": "Dusk Ball · Reverse Holofoil",
+          "priceUsd": 0.3,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675902",
+          "printing": "Normal",
+          "priceUsd": 0.12,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "091/217",
+      "name": "Banette",
+      "records": [
+        {
+          "cardRef": "677063",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.28,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676923",
+          "printing": "Dusk Ball · Reverse Holofoil",
+          "priceUsd": 0.29,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675903",
+          "printing": "Normal",
+          "priceUsd": 0.13,
+          "priceAsOf": "2026-11-02"
+        }
+      ]
+    },
+    {
+      "number": "092/217",
+      "name": "Rotom",
+      "records": [
+        {
+          "cardRef": "677064",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676924",
+          "printing": "Dusk Ball · Reverse Holofoil",
+          "priceUsd": 0.27,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675904",
+          "printing": "Normal",
+          "priceUsd": 0.17,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "093/217",
+      "name": "Swirlix",
+      "records": [
+        {
+          "cardRef": "677065",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.23,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676925",
+          "printing": "Love Ball · Reverse Holofoil",
+          "priceUsd": 0.3,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675905",
+          "printing": "Normal",
+          "priceUsd": 0.15,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "094/217",
+      "name": "Slurpuff",
+      "records": [
+        {
+          "cardRef": "677066",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.3,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676926",
+          "printing": "Love Ball · Reverse Holofoil",
+          "priceUsd": 0.32,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675906",
+          "printing": "Normal",
+          "priceUsd": 0.16,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "095/217",
+      "name": "Hop’s Phantump",
+      "records": [
+        {
+          "cardRef": "677067",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.33,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "676927",
+          "printing": "Poke Ball · Reverse Holofoil",
+          "priceUsd": 0.37,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675907",
+          "printing": "Normal",
+          "priceUsd": 0.17,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "096/217",
+      "name": "Hop’s Trevenant",
+      "records": [
+        {
+          "cardRef": "677068",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.32,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "676928",
+          "printing": "Poke Ball · Reverse Holofoil",
+          "priceUsd": 0.29,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675908",
+          "printing": "Reverse Holofoil",
+          "priceUsd": 0.52,
+          "priceAsOf": "2026-09-18"
+        }
+      ]
+    },
+    {
+      "number": "097/217",
+      "name": "Team Rocket’s Mimikyu",
+      "records": [
+        {
+          "cardRef": "676929",
+          "printing": "Team Rocket · Reverse Holofoil",
+          "priceUsd": 1.23,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675909",
+          "printing": "Normal",
+          "priceUsd": 0.23,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "098/217",
+      "name": "Spectrier",
+      "records": [
+        {
+          "cardRef": "677070",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.29,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676930",
+          "printing": "Dusk Ball · Reverse Holofoil",
+          "priceUsd": 0.29,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675910",
+          "printing": "Reverse Holofoil",
+          "priceUsd": 0.79,
+          "priceAsOf": "2026-10-19"
+        }
+      ]
+    },
+    {
+      "number": "099/217",
+      "name": "Munkidori",
+      "records": [
+        {
+          "cardRef": "677071",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.36,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676931",
+          "printing": "Dusk Ball · Reverse Holofoil",
+          "priceUsd": 0.29,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675911",
+          "printing": "Holofoil",
+          "priceUsd": 0.29,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "100/217",
+      "name": "Team Rocket’s Diglett",
+      "records": [
+        {
+          "cardRef": "677072",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676932",
+          "printing": "Team Rocket · Reverse Holofoil",
+          "priceUsd": 0.26,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675912",
+          "printing": "Normal",
+          "priceUsd": 0.1,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "101/217",
+      "name": "Team Rocket’s Dugtrio",
+      "records": [
+        {
+          "cardRef": "677073",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.25,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676933",
+          "printing": "Team Rocket · Reverse Holofoil",
+          "priceUsd": 0.25,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675913",
+          "printing": "Normal",
+          "priceUsd": 0.11,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "102/217",
+      "name": "Hitmontop",
+      "records": [
+        {
+          "cardRef": "677074",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.21,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "676934",
+          "printing": "Dusk Ball · Reverse Holofoil",
+          "priceUsd": 0.23,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675914",
+          "printing": "Normal",
+          "priceUsd": 0.17,
+          "priceAsOf": "2026-11-02"
+        }
+      ]
+    },
+    {
+      "number": "103/217",
+      "name": "Meditite",
+      "records": [
+        {
+          "cardRef": "677075",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.23,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "676935",
+          "printing": "Quick Ball · Reverse Holofoil",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675915",
+          "printing": "Normal",
+          "priceUsd": 0.15,
+          "priceAsOf": "2026-11-02"
+        }
+      ]
+    },
+    {
+      "number": "104/217",
+      "name": "Medicham",
+      "records": [
+        {
+          "cardRef": "677076",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676936",
+          "printing": "Quick Ball · Reverse Holofoil",
+          "priceUsd": 0.2,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675916",
+          "printing": "Normal",
+          "priceUsd": 0.15,
+          "priceAsOf": "2026-11-02"
+        }
+      ]
+    },
+    {
+      "number": "105/217",
+      "name": "Lunatone",
+      "records": [
+        {
+          "cardRef": "677077",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.25,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "676937",
+          "printing": "Dusk Ball · Reverse Holofoil",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-02"
+        },
+        {
+          "cardRef": "675917",
+          "printing": "Reverse Holofoil",
+          "priceUsd": 0.9,
+          "priceAsOf": "2026-08-17"
+        }
+      ]
+    },
+    {
+      "number": "106/217",
+      "name": "Solrock",
+      "records": [
+        {
+          "cardRef": "677078",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.21,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "676938",
+          "printing": "Dusk Ball · Reverse Holofoil",
+          "priceUsd": 0.21,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675918",
+          "printing": "Normal",
+          "priceUsd": 0.18,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "107/217",
+      "name": "Regirock ex",
+      "records": [
+        {
+          "cardRef": "675919",
+          "printing": "Holofoil",
+          "priceUsd": 0.51,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "108/217",
+      "name": "Groudon",
+      "records": [
+        {
+          "cardRef": "677079",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.28,
+          "priceAsOf": "2026-11-02"
+        },
+        {
+          "cardRef": "676939",
+          "printing": "Dusk Ball · Reverse Holofoil",
+          "priceUsd": 0.27,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "675920",
+          "printing": "Reverse Holofoil",
+          "priceUsd": 0.95,
+          "priceAsOf": "2026-09-23"
+        }
+      ]
+    },
+    {
+      "number": "109/217",
+      "name": "Cynthia’s Gible",
+      "records": [
+        {
+          "cardRef": "677080",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.33,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "676940",
+          "printing": "Poke Ball · Reverse Holofoil",
+          "priceUsd": 0.31,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675921",
+          "printing": "Normal",
+          "priceUsd": 0.19,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "110/217",
+      "name": "Cynthia’s Gabite",
+      "records": [
+        {
+          "cardRef": "677081",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.33,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "676941",
+          "printing": "Poke Ball · Reverse Holofoil",
+          "priceUsd": 0.38,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "675922",
+          "printing": "Normal",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-03"
+        }
+      ]
+    },
+    {
+      "number": "111/217",
+      "name": "Cynthia’s Garchomp ex",
+      "records": [
+        {
+          "cardRef": "675923",
+          "printing": "Holofoil",
+          "priceUsd": 0.67,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "112/217",
+      "name": "Riolu",
+      "records": [
+        {
+          "cardRef": "677082",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.27,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "676942",
+          "printing": "Friend Ball · Reverse Holofoil",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675924",
+          "printing": "Normal",
+          "priceUsd": 0.12,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "113/217",
+      "name": "Mega Lucario ex",
+      "records": [
+        {
+          "cardRef": "675925",
+          "printing": "Holofoil",
+          "priceUsd": 0.8,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "114/217",
+      "name": "Stunfisk ex",
+      "records": [
+        {
+          "cardRef": "675926",
+          "printing": "Holofoil",
+          "priceUsd": 0.51,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "115/217",
+      "name": "Pancham",
+      "records": [
+        {
+          "cardRef": "677083",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.26,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676943",
+          "printing": "Love Ball · Reverse Holofoil",
+          "priceUsd": 0.23,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675927",
+          "printing": "Normal",
+          "priceUsd": 0.1,
+          "priceAsOf": "2026-11-02"
+        }
+      ]
+    },
+    {
+      "number": "116/217",
+      "name": "Mega Hawlucha ex",
+      "records": [
+        {
+          "cardRef": "675928",
+          "printing": "Holofoil",
+          "priceUsd": 0.5,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "117/217",
+      "name": "Carbink",
+      "records": [
+        {
+          "cardRef": "677084",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.27,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676944",
+          "printing": "Love Ball · Reverse Holofoil",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675929",
+          "printing": "Normal",
+          "priceUsd": 0.12,
+          "priceAsOf": "2026-11-03"
+        }
+      ]
+    },
+    {
+      "number": "118/217",
+      "name": "Rolycoly",
+      "records": [
+        {
+          "cardRef": "677085",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.23,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676945",
+          "printing": "Dusk Ball · Reverse Holofoil",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "675930",
+          "printing": "Normal",
+          "priceUsd": 0.11,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "119/217",
+      "name": "Carkol",
+      "records": [
+        {
+          "cardRef": "677086",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.21,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "676946",
+          "printing": "Dusk Ball · Reverse Holofoil",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "675931",
+          "printing": "Normal",
+          "priceUsd": 0.15,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "120/217",
+      "name": "Coalossal",
+      "records": [
+        {
+          "cardRef": "677087",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.34,
+          "priceAsOf": "2026-11-02"
+        },
+        {
+          "cardRef": "676947",
+          "printing": "Dusk Ball · Reverse Holofoil",
+          "priceUsd": 0.21,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675932",
+          "printing": "Reverse Holofoil",
+          "priceUsd": 1.99,
+          "priceAsOf": "2026-11-02"
+        }
+      ]
+    },
+    {
+      "number": "121/217",
+      "name": "Koraidon ex",
+      "records": [
+        {
+          "cardRef": "675933",
+          "printing": "Holofoil",
+          "priceUsd": 0.66,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "122/217",
+      "name": "Okidogi",
+      "records": [
+        {
+          "cardRef": "677088",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.21,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "676948",
+          "printing": "Friend Ball · Reverse Holofoil",
+          "priceUsd": 0.2,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675934",
+          "printing": "Reverse Holofoil",
+          "priceUsd": 4.41,
+          "priceAsOf": "2026-10-07"
+        }
+      ]
+    },
+    {
+      "number": "123/217",
+      "name": "Gastly",
+      "records": [
+        {
+          "cardRef": "677089",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.27,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675935",
+          "printing": "Normal",
+          "priceUsd": 0.16,
+          "priceAsOf": "2026-11-03"
+        }
+      ]
+    },
+    {
+      "number": "124/217",
+      "name": "Haunter",
+      "records": [
+        {
+          "cardRef": "677090",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.4,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676950",
+          "printing": "Dusk Ball · Reverse Holofoil",
+          "priceUsd": 0.35,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "675936",
+          "printing": "Normal",
+          "priceUsd": 0.2,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "125/217",
+      "name": "Mega Gengar ex",
+      "records": [
+        {
+          "cardRef": "675937",
+          "printing": "Holofoil",
+          "priceUsd": 2.54,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "126/217",
+      "name": "Team Rocket’s Murkrow",
+      "records": [
+        {
+          "cardRef": "677091",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.28,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "676951",
+          "printing": "Team Rocket · Reverse Holofoil",
+          "priceUsd": 0.36,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675938",
+          "printing": "Normal",
+          "priceUsd": 0.2,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "127/217",
+      "name": "Team Rocket’s Honchkrow",
+      "records": [
+        {
+          "cardRef": "677092",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.31,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676952",
+          "printing": "Team Rocket · Reverse Holofoil",
+          "priceUsd": 0.66,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675939",
+          "printing": "Holofoil",
+          "priceUsd": 0.25,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "128/217",
+      "name": "Poochyena",
+      "records": [
+        {
+          "cardRef": "677093",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.23,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "676953",
+          "printing": "Dusk Ball · Reverse Holofoil",
+          "priceUsd": 0.3,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675940",
+          "printing": "Normal",
+          "priceUsd": 0.15,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "129/217",
+      "name": "Mightyena",
+      "records": [
+        {
+          "cardRef": "677094",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.29,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676954",
+          "printing": "Dusk Ball · Reverse Holofoil",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675941",
+          "printing": "Normal",
+          "priceUsd": 0.08,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "130/217",
+      "name": "Galarian Zigzagoon",
+      "records": [
+        {
+          "cardRef": "677095",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.2,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676955",
+          "printing": "Dusk Ball · Reverse Holofoil",
+          "priceUsd": 0.27,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675942",
+          "printing": "Normal",
+          "priceUsd": 0.09,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "131/217",
+      "name": "Galarian Linoone",
+      "records": [
+        {
+          "cardRef": "677096",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.31,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676956",
+          "printing": "Dusk Ball · Reverse Holofoil",
+          "priceUsd": 0.29,
+          "priceAsOf": "2026-10-30"
+        },
+        {
+          "cardRef": "675943",
+          "printing": "Normal",
+          "priceUsd": 0.12,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "132/217",
+      "name": "Galarian Obstagoon",
+      "records": [
+        {
+          "cardRef": "677097",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.33,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "676957",
+          "printing": "Dusk Ball · Reverse Holofoil",
+          "priceUsd": 0.28,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "675944",
+          "printing": "Normal",
+          "priceUsd": 0.14,
+          "priceAsOf": "2026-11-03"
+        }
+      ]
+    },
+    {
+      "number": "133/217",
+      "name": "Cynthia’s Spiritomb",
+      "records": [
+        {
+          "cardRef": "677098",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.34,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676958",
+          "printing": "Poke Ball · Reverse Holofoil",
+          "priceUsd": 0.25,
+          "priceAsOf": "2026-11-02"
+        },
+        {
+          "cardRef": "675945",
+          "printing": "Normal",
+          "priceUsd": 0.13,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "134/217",
+      "name": "Scraggy",
+      "records": [
+        {
+          "cardRef": "677099",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.31,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "676959",
+          "printing": "Quick Ball · Reverse Holofoil",
+          "priceUsd": 0.33,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675946",
+          "printing": "Normal",
+          "priceUsd": 0.17,
+          "priceAsOf": "2026-11-03"
+        }
+      ]
+    },
+    {
+      "number": "135/217",
+      "name": "Mega Scrafty ex",
+      "records": [
+        {
+          "cardRef": "675947",
+          "printing": "Holofoil",
+          "priceUsd": 0.63,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "136/217",
+      "name": "N’s Zorua",
+      "records": [
+        {
+          "cardRef": "677100",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.28,
+          "priceAsOf": "2026-11-02"
+        },
+        {
+          "cardRef": "675948",
+          "printing": "Normal",
+          "priceUsd": 0.2,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "137/217",
+      "name": "N’s Zoroark ex",
+      "records": [
+        {
+          "cardRef": "675949",
+          "printing": "Holofoil",
+          "priceUsd": 0.78,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "138/217",
+      "name": "Vullaby",
+      "records": [
+        {
+          "cardRef": "677101",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.21,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676961",
+          "printing": "Dusk Ball · Reverse Holofoil",
+          "priceUsd": 0.3,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675950",
+          "printing": "Normal",
+          "priceUsd": 0.08,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "139/217",
+      "name": "Mandibuzz ex",
+      "records": [
+        {
+          "cardRef": "675951",
+          "printing": "Holofoil",
+          "priceUsd": 0.49,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "140/217",
+      "name": "Pangoro",
+      "records": [
+        {
+          "cardRef": "677102",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.27,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676962",
+          "printing": "Love Ball · Reverse Holofoil",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675952",
+          "printing": "Normal",
+          "priceUsd": 0.14,
+          "priceAsOf": "2026-11-02"
+        }
+      ]
+    },
+    {
+      "number": "141/217",
+      "name": "Hoopa",
+      "records": [
+        {
+          "cardRef": "677103",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.26,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "676963",
+          "printing": "Poke Ball · Reverse Holofoil",
+          "priceUsd": 0.27,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675953",
+          "printing": "Holofoil",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "142/217",
+      "name": "Fezandipiti ex",
+      "records": [
+        {
+          "cardRef": "675954",
+          "printing": "Holofoil",
+          "priceUsd": 3.68,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "143/217",
+      "name": "Pecharunt",
+      "records": [
+        {
+          "cardRef": "677104",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.27,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676964",
+          "printing": "Poke Ball · Reverse Holofoil",
+          "priceUsd": 0.28,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "675955",
+          "printing": "Holofoil",
+          "priceUsd": 0.25,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "144/217",
+      "name": "Mawile",
+      "records": [
+        {
+          "cardRef": "677105",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.33,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675956",
+          "printing": "Normal",
+          "priceUsd": 0.14,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "145/217",
+      "name": "Registeel ex",
+      "records": [
+        {
+          "cardRef": "675957",
+          "printing": "Holofoil",
+          "priceUsd": 0.63,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "146/217",
+      "name": "Pawniard",
+      "records": [
+        {
+          "cardRef": "677106",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676966",
+          "printing": "Quick Ball · Reverse Holofoil",
+          "priceUsd": 0.2,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675958",
+          "printing": "Normal",
+          "priceUsd": 0.14,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "147/217",
+      "name": "Bisharp",
+      "records": [
+        {
+          "cardRef": "677107",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.29,
+          "priceAsOf": "2026-11-02"
+        },
+        {
+          "cardRef": "676967",
+          "printing": "Quick Ball · Reverse Holofoil",
+          "priceUsd": 0.21,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "675959",
+          "printing": "Normal",
+          "priceUsd": 0.1,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "148/217",
+      "name": "Kingambit",
+      "records": [
+        {
+          "cardRef": "677108",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.33,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676968",
+          "printing": "Quick Ball · Reverse Holofoil",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675960",
+          "printing": "Reverse Holofoil",
+          "priceUsd": 1.82,
+          "priceAsOf": "2026-11-03"
+        }
+      ]
+    },
+    {
+      "number": "149/217",
+      "name": "Togedemaru ex",
+      "records": [
+        {
+          "cardRef": "675961",
+          "printing": "Holofoil",
+          "priceUsd": 0.59,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "150/217",
+      "name": "Dratini",
+      "records": [
+        {
+          "cardRef": "676969",
+          "printing": "Love Ball · Reverse Holofoil",
+          "priceUsd": 0.26,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675962",
+          "printing": "Normal",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-03"
+        }
+      ]
+    },
+    {
+      "number": "151/217",
+      "name": "Dragonair",
+      "records": [
+        {
+          "cardRef": "677110",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.33,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "676970",
+          "printing": "Love Ball · Reverse Holofoil",
+          "priceUsd": 0.31,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675963",
+          "printing": "Normal",
+          "priceUsd": 0.23,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "152/217",
+      "name": "Mega Dragonite ex",
+      "records": [
+        {
+          "cardRef": "675964",
+          "printing": "Holofoil",
+          "priceUsd": 3.93,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "153/217",
+      "name": "Rayquaza",
+      "records": [
+        {
+          "cardRef": "677111",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 1.88,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676971",
+          "printing": "Friend Ball · Reverse Holofoil",
+          "priceUsd": 0.39,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675965",
+          "printing": "Reverse Holofoil",
+          "priceUsd": 1.34,
+          "priceAsOf": "2026-10-16"
+        }
+      ]
+    },
+    {
+      "number": "154/217",
+      "name": "N’s Reshiram",
+      "records": [
+        {
+          "cardRef": "677112",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.31,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "676972",
+          "printing": "Poke Ball · Reverse Holofoil",
+          "priceUsd": 0.25,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675966",
+          "printing": "Reverse Holofoil",
+          "priceUsd": 1.31,
+          "priceAsOf": "2026-10-03"
+        }
+      ]
+    },
+    {
+      "number": "155/217",
+      "name": "N’s Zekrom",
+      "records": [
+        {
+          "cardRef": "676973",
+          "printing": "Poke Ball · Reverse Holofoil",
+          "priceUsd": 0.3,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675967",
+          "printing": "Reverse Holofoil",
+          "priceUsd": 6.64,
+          "priceAsOf": "2026-10-10"
+        }
+      ]
+    },
+    {
+      "number": "156/217",
+      "name": "Noibat",
+      "records": [
+        {
+          "cardRef": "677114",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "676974",
+          "printing": "Friend Ball · Reverse Holofoil",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "675968",
+          "printing": "Normal",
+          "priceUsd": 0.21,
+          "priceAsOf": "2026-11-02"
+        }
+      ]
+    },
+    {
+      "number": "157/217",
+      "name": "Noivern",
+      "records": [
+        {
+          "cardRef": "677115",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.29,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676975",
+          "printing": "Friend Ball · Reverse Holofoil",
+          "priceUsd": 0.19,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675969",
+          "printing": "Normal",
+          "priceUsd": 0.17,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "158/217",
+      "name": "Dreepy",
+      "records": [
+        {
+          "cardRef": "677116",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.25,
+          "priceAsOf": "2026-11-02"
+        },
+        {
+          "cardRef": "676976",
+          "printing": "Quick Ball · Reverse Holofoil",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675970",
+          "printing": "Normal",
+          "priceUsd": 0.13,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "159/217",
+      "name": "Drakloak",
+      "records": [
+        {
+          "cardRef": "677117",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.21,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676977",
+          "printing": "Quick Ball · Reverse Holofoil",
+          "priceUsd": 0.23,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675971",
+          "printing": "Normal",
+          "priceUsd": 0.17,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "160/217",
+      "name": "Dragapult ex",
+      "records": [
+        {
+          "cardRef": "675972",
+          "printing": "Holofoil",
+          "priceUsd": 0.91,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "161/217",
+      "name": "Team Rocket’s Meowth",
+      "records": [
+        {
+          "cardRef": "677118",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.3,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "676978",
+          "printing": "Team Rocket · Reverse Holofoil",
+          "priceUsd": 0.32,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "675973",
+          "printing": "Normal",
+          "priceUsd": 0.15,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "162/217",
+      "name": "Team Rocket’s Kangaskhan ex",
+      "records": [
+        {
+          "cardRef": "675974",
+          "printing": "Holofoil",
+          "priceUsd": 0.61,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "163/217",
+      "name": "Larry’s Dunsparce",
+      "records": [
+        {
+          "cardRef": "677119",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.23,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676979",
+          "printing": "Poke Ball · Reverse Holofoil",
+          "priceUsd": 0.26,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675975",
+          "printing": "Normal",
+          "priceUsd": 0.14,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "164/217",
+      "name": "Larry’s Dudunsparce ex",
+      "records": [
+        {
+          "cardRef": "675976",
+          "printing": "Holofoil",
+          "priceUsd": 0.47,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "165/217",
+      "name": "Skitty",
+      "records": [
+        {
+          "cardRef": "677120",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676980",
+          "printing": "Love Ball · Reverse Holofoil",
+          "priceUsd": 0.29,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675977",
+          "printing": "Normal",
+          "priceUsd": 0.14,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "166/217",
+      "name": "Delcatty",
+      "records": [
+        {
+          "cardRef": "677121",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.27,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676981",
+          "printing": "Love Ball · Reverse Holofoil",
+          "priceUsd": 0.25,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "675978",
+          "printing": "Normal",
+          "priceUsd": 0.11,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "167/217",
+      "name": "Zangoose ex",
+      "records": [
+        {
+          "cardRef": "675979",
+          "printing": "Holofoil",
+          "priceUsd": 0.58,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "168/217",
+      "name": "Larry’s Starly",
+      "records": [
+        {
+          "cardRef": "677122",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.28,
+          "priceAsOf": "2026-11-04"
+        },
+        {
+          "cardRef": "676982",
+          "printing": "Poke Ball · Reverse Holofoil",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675980",
+          "printing": "Normal",
+          "priceUsd": 0.17,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "169/217",
+      "name": "Larry’s Staravia",
+      "records": [
+        {
+          "cardRef": "676983",
+          "printing": "Poke Ball · Reverse Holofoil",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675981",
+          "printing": "Normal",
+          "priceUsd": 0.15,
+          "priceAsOf": "2026-11-02"
+        }
+      ]
+    },
+    {
+      "number": "170/217",
+      "name": "Larry’s Staraptor",
+      "records": [
+        {
+          "cardRef": "677124",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.27,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "676984",
+          "printing": "Poke Ball · Reverse Holofoil",
+          "priceUsd": 0.23,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675982",
+          "printing": "Reverse Holofoil",
+          "priceUsd": 2.92,
+          "priceAsOf": "2026-10-10"
+        }
+      ]
+    },
+    {
+      "number": "171/217",
+      "name": "Fan Rotom",
+      "records": [
+        {
+          "cardRef": "677125",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.2,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676985",
+          "printing": "Dusk Ball · Reverse Holofoil",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "675983",
+          "printing": "Normal",
+          "priceUsd": 0.16,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "172/217",
+      "name": "Mega Audino ex",
+      "records": [
+        {
+          "cardRef": "675984",
+          "printing": "Holofoil",
+          "priceUsd": 0.84,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "173/217",
+      "name": "Larry’s Rufflet",
+      "records": [
+        {
+          "cardRef": "677126",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676986",
+          "printing": "Poke Ball · Reverse Holofoil",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675985",
+          "printing": "Normal",
+          "priceUsd": 0.15,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "174/217",
+      "name": "Larry’s Braviary",
+      "records": [
+        {
+          "cardRef": "677127",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.25,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676987",
+          "printing": "Poke Ball · Reverse Holofoil",
+          "priceUsd": 0.17,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "675986",
+          "printing": "Normal",
+          "priceUsd": 0.16,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "175/217",
+      "name": "Larry’s Komala",
+      "records": [
+        {
+          "cardRef": "677128",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.31,
+          "priceAsOf": "2026-11-03"
+        },
+        {
+          "cardRef": "676988",
+          "printing": "Poke Ball · Reverse Holofoil",
+          "priceUsd": 0.21,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675987",
+          "printing": "Normal",
+          "priceUsd": 0.14,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "176/217",
+      "name": "Drampa",
+      "records": [
+        {
+          "cardRef": "677129",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.31,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676989",
+          "printing": "Friend Ball · Reverse Holofoil",
+          "priceUsd": 0.21,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675988",
+          "printing": "Normal",
+          "priceUsd": 0.14,
+          "priceAsOf": "2026-11-03"
+        }
+      ]
+    },
+    {
+      "number": "177/217",
+      "name": "Hop’s Cramorant",
+      "records": [
+        {
+          "cardRef": "677130",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.25,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676990",
+          "printing": "Poke Ball · Reverse Holofoil",
+          "priceUsd": 0.21,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "675989",
+          "printing": "Normal",
+          "priceUsd": 0.11,
+          "priceAsOf": "2026-11-03"
+        }
+      ]
+    },
+    {
+      "number": "178/217",
+      "name": "Terapagos",
+      "records": [
+        {
+          "cardRef": "677131",
+          "printing": "Energy Symbol Pattern · Reverse Holofoil",
+          "priceUsd": 0.31,
+          "priceAsOf": "2026-11-05"
+        },
+        {
+          "cardRef": "676991",
+          "printing": "Love Ball · Reverse Holofoil",
+          "priceUsd": 0.23,
+          "priceAsOf": "2026-10-31"
+        },
+        {
+          "cardRef": "675990",
+          "printing": "Reverse Holofoil",
+          "priceUsd": 3.84,
+          "priceAsOf": "2026-10-20"
+        }
+      ]
+    },
+    {
+      "number": "179/217",
+      "name": "Terapagos ex",
+      "records": [
+        {
+          "cardRef": "675991",
+          "printing": "Holofoil",
+          "priceUsd": 0.56,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "180/217",
+      "name": "Acerola’s Mischief",
+      "records": [
+        {
+          "cardRef": "675992",
+          "printing": "Normal",
+          "priceUsd": 0.11,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "181/217",
+      "name": "Air Balloon",
+      "records": [
+        {
+          "cardRef": "675993",
+          "printing": "Normal",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "182/217",
+      "name": "Anthea & Concordia",
+      "records": [
+        {
+          "cardRef": "675994",
+          "printing": "Normal",
+          "priceUsd": 0.14,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "183/217",
+      "name": "Boss’s Orders",
+      "records": [
+        {
+          "cardRef": "675995",
+          "printing": "Corbeau · Normal",
+          "priceUsd": 0.23,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "184/217",
+      "name": "Buddy-Buddy Poffin",
+      "records": [
+        {
+          "cardRef": "675996",
+          "printing": "Normal",
+          "priceUsd": 0.19,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "185/217",
+      "name": "Canari",
+      "records": [
+        {
+          "cardRef": "675997",
+          "printing": "Normal",
+          "priceUsd": 0.2,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "186/217",
+      "name": "Counter Gain",
+      "records": [
+        {
+          "cardRef": "675998",
+          "printing": "Normal",
+          "priceUsd": 0.14,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "187/217",
+      "name": "Fighting Gong",
+      "records": [
+        {
+          "cardRef": "675999",
+          "printing": "Normal",
+          "priceUsd": 0.16,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "188/217",
+      "name": "Forest of Vitality",
+      "records": [
+        {
+          "cardRef": "676000",
+          "printing": "Normal",
+          "priceUsd": 0.21,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "189/217",
+      "name": "Glass Trumpet",
+      "records": [
+        {
+          "cardRef": "676001",
+          "printing": "Normal",
+          "priceUsd": 0.15,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "190/217",
+      "name": "Iris’s Fighting Spirit",
+      "records": [
+        {
+          "cardRef": "676002",
+          "printing": "Normal",
+          "priceUsd": 0.16,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "191/217",
+      "name": "Light Ball",
+      "records": [
+        {
+          "cardRef": "676003",
+          "printing": "Normal",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "192/217",
+      "name": "Lillie’s Determination",
+      "records": [
+        {
+          "cardRef": "676004",
+          "printing": "Normal",
+          "priceUsd": 0.28,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "193/217",
+      "name": "Mega Signal",
+      "records": [
+        {
+          "cardRef": "676005",
+          "printing": "Normal",
+          "priceUsd": 0.21,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "194/217",
+      "name": "Mystery Garden",
+      "records": [
+        {
+          "cardRef": "676006",
+          "printing": "Normal",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "195/217",
+      "name": "N’s PP Up",
+      "records": [
+        {
+          "cardRef": "676007",
+          "printing": "Normal",
+          "priceUsd": 0.19,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "196/217",
+      "name": "Night Stretcher",
+      "records": [
+        {
+          "cardRef": "676008",
+          "printing": "Normal",
+          "priceUsd": 0.18,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "197/217",
+      "name": "Nighttime Mine",
+      "records": [
+        {
+          "cardRef": "676009",
+          "printing": "Normal",
+          "priceUsd": 0.28,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "198/217",
+      "name": "Poké Pad",
+      "records": [
+        {
+          "cardRef": "676010",
+          "printing": "Normal",
+          "priceUsd": 0.26,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "199/217",
+      "name": "Premium Power Pro",
+      "records": [
+        {
+          "cardRef": "676011",
+          "printing": "Normal",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "200/217",
+      "name": "Surfer",
+      "records": [
+        {
+          "cardRef": "676012",
+          "printing": "Normal",
+          "priceUsd": 0.14,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "201/217",
+      "name": "Team Rocket’s Archer",
+      "records": [
+        {
+          "cardRef": "676013",
+          "printing": "Normal",
+          "priceUsd": 0.17,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "202/217",
+      "name": "Team Rocket’s Ariana",
+      "records": [
+        {
+          "cardRef": "676014",
+          "printing": "Normal",
+          "priceUsd": 0.18,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "203/217",
+      "name": "Team Rocket’s Factory",
+      "records": [
+        {
+          "cardRef": "676015",
+          "printing": "Normal",
+          "priceUsd": 0.19,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "204/217",
+      "name": "Team Rocket’s Giovanni",
+      "records": [
+        {
+          "cardRef": "676016",
+          "printing": "Normal",
+          "priceUsd": 0.17,
+          "priceAsOf": "2026-11-03"
+        }
+      ]
+    },
+    {
+      "number": "205/217",
+      "name": "Team Rocket’s Great Ball",
+      "records": [
+        {
+          "cardRef": "676017",
+          "printing": "Normal",
+          "priceUsd": 0.14,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "206/217",
+      "name": "Team Rocket’s Hypnotizer",
+      "records": [
+        {
+          "cardRef": "676018",
+          "printing": "Normal",
+          "priceUsd": 0.13,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "207/217",
+      "name": "Team Rocket’s Petrel",
+      "records": [
+        {
+          "cardRef": "676019",
+          "printing": "Normal",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "208/217",
+      "name": "Team Rocket’s Proton",
+      "records": [
+        {
+          "cardRef": "676020",
+          "printing": "Normal",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "209/217",
+      "name": "Team Rocket’s Transceiver",
+      "records": [
+        {
+          "cardRef": "676021",
+          "printing": "Normal",
+          "priceUsd": 0.19,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "210/217",
+      "name": "Team Rocket’s Watchtower",
+      "records": [
+        {
+          "cardRef": "676022",
+          "printing": "Normal",
+          "priceUsd": 0.19,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "211/217",
+      "name": "Thick Scale",
+      "records": [
+        {
+          "cardRef": "676023",
+          "printing": "Normal",
+          "priceUsd": 0.15,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "212/217",
+      "name": "Tool Scrapper",
+      "records": [
+        {
+          "cardRef": "676024",
+          "printing": "Normal",
+          "priceUsd": 0.23,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "213/217",
+      "name": "Ultra Ball",
+      "records": [
+        {
+          "cardRef": "676025",
+          "printing": "Normal",
+          "priceUsd": 0.23,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "214/217",
+      "name": "Urbain",
+      "records": [
+        {
+          "cardRef": "676026",
+          "printing": "Normal",
+          "priceUsd": 0.15,
+          "priceAsOf": "2026-10-31"
+        }
+      ]
+    },
+    {
+      "number": "215/217",
+      "name": "Waitress",
+      "records": [
+        {
+          "cardRef": "676027",
+          "printing": "Normal",
+          "priceUsd": 0.2,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "216/217",
+      "name": "Prism Energy",
+      "records": [
+        {
+          "cardRef": "676028",
+          "printing": "Normal",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "217/217",
+      "name": "Team Rocket’s Energy",
+      "records": []
+    },
+    {
+      "number": "218/217",
+      "name": "Erika’s Tangela",
+      "records": [
+        {
+          "cardRef": "676030",
+          "printing": "Holofoil",
+          "priceUsd": 10.29,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "219/217",
+      "name": "Beautifly",
+      "records": [
+        {
+          "cardRef": "676031",
+          "printing": "Holofoil",
+          "priceUsd": 3.82,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "220/217",
+      "name": "Dustox",
+      "records": [
+        {
+          "cardRef": "676032",
+          "printing": "Holofoil",
+          "priceUsd": 2.11,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "221/217",
+      "name": "Budew",
+      "records": [
+        {
+          "cardRef": "676033",
+          "printing": "Holofoil",
+          "priceUsd": 5.56,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "222/217",
+      "name": "Ethan’s Magcargo",
+      "records": [
+        {
+          "cardRef": "676034",
+          "printing": "Holofoil",
+          "priceUsd": 3.86,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "223/217",
+      "name": "Numel",
+      "records": [
+        {
+          "cardRef": "676035",
+          "printing": "Holofoil",
+          "priceUsd": 3.31,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "224/217",
+      "name": "Salazzle",
+      "records": [
+        {
+          "cardRef": "676036",
+          "printing": "Holofoil",
+          "priceUsd": 2.39,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "225/217",
+      "name": "Scorbunny",
+      "records": [
+        {
+          "cardRef": "676037",
+          "printing": "Holofoil",
+          "priceUsd": 5.89,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "226/217",
+      "name": "Psyduck",
+      "records": [
+        {
+          "cardRef": "676038",
+          "printing": "Holofoil",
+          "priceUsd": 42.64,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "227/217",
+      "name": "Snorunt",
+      "records": [
+        {
+          "cardRef": "676039",
+          "printing": "Holofoil",
+          "priceUsd": 3.4,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "228/217",
+      "name": "Weavile",
+      "records": [
+        {
+          "cardRef": "676040",
+          "printing": "Holofoil",
+          "priceUsd": 3.11,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "229/217",
+      "name": "Heliolisk",
+      "records": [
+        {
+          "cardRef": "676041",
+          "printing": "Holofoil",
+          "priceUsd": 1.48,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "230/217",
+      "name": "Vikavolt",
+      "records": [
+        {
+          "cardRef": "676042",
+          "printing": "Holofoil",
+          "priceUsd": 1.94,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "231/217",
+      "name": "Iono’s Wattrel",
+      "records": [
+        {
+          "cardRef": "676043",
+          "printing": "Holofoil",
+          "priceUsd": 4.6,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "232/217",
+      "name": "Marill",
+      "records": [
+        {
+          "cardRef": "676044",
+          "printing": "Holofoil",
+          "priceUsd": 7.81,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "233/217",
+      "name": "Misdreavus",
+      "records": [
+        {
+          "cardRef": "676045",
+          "printing": "Holofoil",
+          "priceUsd": 4.5,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "234/217",
+      "name": "Banette",
+      "records": [
+        {
+          "cardRef": "676046",
+          "printing": "Holofoil",
+          "priceUsd": 6.16,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "235/217",
+      "name": "Togekiss",
+      "records": [
+        {
+          "cardRef": "676047",
+          "printing": "Holofoil",
+          "priceUsd": 3.29,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "236/217",
+      "name": "Slurpuff",
+      "records": [
+        {
+          "cardRef": "676048",
+          "printing": "Holofoil",
+          "priceUsd": 6.59,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "237/217",
+      "name": "Hop’s Trevenant",
+      "records": [
+        {
+          "cardRef": "676049",
+          "printing": "Holofoil",
+          "priceUsd": 2.86,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "238/217",
+      "name": "Team Rocket’s Mimikyu",
+      "records": [
+        {
+          "cardRef": "676050",
+          "printing": "Holofoil",
+          "priceUsd": 14.78,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "239/217",
+      "name": "Team Rocket’s Dugtrio",
+      "records": [
+        {
+          "cardRef": "676051",
+          "printing": "Holofoil",
+          "priceUsd": 3.95,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "240/217",
+      "name": "Hitmontop",
+      "records": [
+        {
+          "cardRef": "676052",
+          "printing": "Holofoil",
+          "priceUsd": 3.83,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "241/217",
+      "name": "Medicham",
+      "records": [
+        {
+          "cardRef": "676053",
+          "printing": "Holofoil",
+          "priceUsd": 3.14,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "242/217",
+      "name": "Carbink",
+      "records": [
+        {
+          "cardRef": "676054",
+          "printing": "Holofoil",
+          "priceUsd": 3.38,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "243/217",
+      "name": "Mightyena",
+      "records": [
+        {
+          "cardRef": "676055",
+          "printing": "Holofoil",
+          "priceUsd": 4.55,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "244/217",
+      "name": "Cynthia’s Spiritomb",
+      "records": [
+        {
+          "cardRef": "676056",
+          "printing": "Holofoil",
+          "priceUsd": 7.03,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "245/217",
+      "name": "Galarian Obstagoon",
+      "records": [
+        {
+          "cardRef": "676057",
+          "printing": "Holofoil",
+          "priceUsd": 2.15,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "246/217",
+      "name": "Mawile",
+      "records": [
+        {
+          "cardRef": "676058",
+          "printing": "Holofoil",
+          "priceUsd": 4.58,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "247/217",
+      "name": "Dreepy",
+      "records": [
+        {
+          "cardRef": "676059",
+          "printing": "Holofoil",
+          "priceUsd": 5.15,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "248/217",
+      "name": "Drakloak",
+      "records": [
+        {
+          "cardRef": "676060",
+          "printing": "Holofoil",
+          "priceUsd": 3.24,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "249/217",
+      "name": "Larry’s Staraptor",
+      "records": [
+        {
+          "cardRef": "676061",
+          "printing": "Holofoil",
+          "priceUsd": 2.24,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "250/217",
+      "name": "Fan Rotom",
+      "records": [
+        {
+          "cardRef": "676062",
+          "printing": "Holofoil",
+          "priceUsd": 2.42,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "251/217",
+      "name": "Sprigatito ex",
+      "records": [
+        {
+          "cardRef": "676063",
+          "printing": "Holofoil",
+          "priceUsd": 1.68,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "252/217",
+      "name": "Stunfisk ex",
+      "records": [
+        {
+          "cardRef": "676064",
+          "printing": "Holofoil",
+          "priceUsd": 0.63,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "253/217",
+      "name": "Mega Audino ex",
+      "records": [
+        {
+          "cardRef": "676065",
+          "printing": "Holofoil",
+          "priceUsd": 1.33,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "254/217",
+      "name": "Anthea & Concordia",
+      "records": [
+        {
+          "cardRef": "676066",
+          "printing": "Holofoil",
+          "priceUsd": 0.82,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "255/217",
+      "name": "Black Belt’s Training",
+      "records": [
+        {
+          "cardRef": "676067",
+          "printing": "Holofoil",
+          "priceUsd": 0.73,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "256/217",
+      "name": "Boss’s Orders",
+      "records": [
+        {
+          "cardRef": "676068",
+          "printing": "Corbeau · Holofoil",
+          "priceUsd": 5.25,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "257/217",
+      "name": "Canari",
+      "records": [
+        {
+          "cardRef": "676069",
+          "printing": "Holofoil",
+          "priceUsd": 2.04,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "258/217",
+      "name": "Cheren",
+      "records": [
+        {
+          "cardRef": "676070",
+          "printing": "Holofoil",
+          "priceUsd": 0.57,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "259/217",
+      "name": "Counter Gain",
+      "records": [
+        {
+          "cardRef": "676071",
+          "printing": "Holofoil",
+          "priceUsd": 0.43,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "260/217",
+      "name": "Glass Trumpet",
+      "records": [
+        {
+          "cardRef": "676072",
+          "printing": "Holofoil",
+          "priceUsd": 0.6,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "261/217",
+      "name": "Jamming Tower",
+      "records": [
+        {
+          "cardRef": "676073",
+          "printing": "Holofoil",
+          "priceUsd": 0.72,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "262/217",
+      "name": "N’s PP Up",
+      "records": [
+        {
+          "cardRef": "676074",
+          "printing": "Holofoil",
+          "priceUsd": 1.53,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "263/217",
+      "name": "Team Rocket’s Transceiver",
+      "records": [
+        {
+          "cardRef": "676075",
+          "printing": "Holofoil",
+          "priceUsd": 0.85,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "264/217",
+      "name": "Ultra Ball",
+      "records": [
+        {
+          "cardRef": "676076",
+          "printing": "Holofoil",
+          "priceUsd": 4.88,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "265/217",
+      "name": "Mega Froslass ex",
+      "records": [
+        {
+          "cardRef": "676077",
+          "printing": "Holofoil",
+          "priceUsd": 5.27,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "266/217",
+      "name": "Mega Eelektross ex",
+      "records": [
+        {
+          "cardRef": "676078",
+          "printing": "Holofoil",
+          "priceUsd": 2.63,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "267/217",
+      "name": "Mega Diancie ex",
+      "records": [
+        {
+          "cardRef": "676079",
+          "printing": "Holofoil",
+          "priceUsd": 4.58,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "268/217",
+      "name": "Mega Hawlucha ex",
+      "records": [
+        {
+          "cardRef": "676080",
+          "printing": "Holofoil",
+          "priceUsd": 2.94,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "269/217",
+      "name": "Mega Gengar ex",
+      "records": [
+        {
+          "cardRef": "676081",
+          "printing": "Holofoil",
+          "priceUsd": 30.56,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "270/217",
+      "name": "Mega Scrafty ex",
+      "records": [
+        {
+          "cardRef": "676082",
+          "printing": "Holofoil",
+          "priceUsd": 2.49,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "271/217",
+      "name": "Mega Dragonite ex",
+      "records": [
+        {
+          "cardRef": "676083",
+          "printing": "Holofoil",
+          "priceUsd": 22.4,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "272/217",
+      "name": "Mega Meganium ex",
+      "records": [
+        {
+          "cardRef": "676084",
+          "printing": "Holofoil",
+          "priceUsd": 47.19,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "273/217",
+      "name": "Mega Emboar ex",
+      "records": [
+        {
+          "cardRef": "676085",
+          "printing": "Holofoil",
+          "priceUsd": 28.04,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "274/217",
+      "name": "Mega Feraligatr ex",
+      "records": [
+        {
+          "cardRef": "676086",
+          "printing": "Holofoil",
+          "priceUsd": 63.9,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "275/217",
+      "name": "Mega Froslass ex",
+      "records": [
+        {
+          "cardRef": "676087",
+          "printing": "Holofoil",
+          "priceUsd": 43.63,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "276/217",
+      "name": "Pikachu ex",
+      "records": [
+        {
+          "cardRef": "676088",
+          "printing": "Holofoil",
+          "priceUsd": 587.86,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "277/217",
+      "name": "Pikachu ex",
+      "records": [
+        {
+          "cardRef": "676089",
+          "printing": "Holofoil",
+          "priceUsd": 254.66,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "278/217",
+      "name": "Mega Eelektross ex",
+      "records": [
+        {
+          "cardRef": "676090",
+          "printing": "Holofoil",
+          "priceUsd": 16.32,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "279/217",
+      "name": "Iono’s Bellibolt ex",
+      "records": [
+        {
+          "cardRef": "676091",
+          "printing": "Holofoil",
+          "priceUsd": 32.15,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "280/217",
+      "name": "Lillie’s Clefairy ex",
+      "records": [
+        {
+          "cardRef": "676092",
+          "printing": "Holofoil",
+          "priceUsd": 94.71,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "281/217",
+      "name": "Team Rocket’s Mewtwo ex",
+      "records": [
+        {
+          "cardRef": "676093",
+          "printing": "Holofoil",
+          "priceUsd": 175.86,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "282/217",
+      "name": "Mega Diancie ex",
+      "records": [
+        {
+          "cardRef": "676094",
+          "printing": "Holofoil",
+          "priceUsd": 31.96,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "283/217",
+      "name": "Mega Hawlucha ex",
+      "records": [
+        {
+          "cardRef": "676095",
+          "printing": "Holofoil",
+          "priceUsd": 37.17,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "284/217",
+      "name": "Mega Gengar ex",
+      "records": [
+        {
+          "cardRef": "676096",
+          "printing": "Holofoil",
+          "priceUsd": 651.85,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "285/217",
+      "name": "Mega Scrafty ex",
+      "records": [
+        {
+          "cardRef": "676097",
+          "printing": "Holofoil",
+          "priceUsd": 37.02,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "286/217",
+      "name": "N’s Zoroark ex",
+      "records": [
+        {
+          "cardRef": "676098",
+          "printing": "Holofoil",
+          "priceUsd": 97.64,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "287/217",
+      "name": "Marnie’s Grimmsnarl ex",
+      "records": [
+        {
+          "cardRef": "676099",
+          "printing": "Holofoil",
+          "priceUsd": 33.88,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "288/217",
+      "name": "Fezandipiti ex",
+      "records": [
+        {
+          "cardRef": "676100",
+          "printing": "Holofoil",
+          "priceUsd": 37.62,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "289/217",
+      "name": "Steven’s Metagross ex",
+      "records": [
+        {
+          "cardRef": "676101",
+          "printing": "Holofoil",
+          "priceUsd": 54.99,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "290/217",
+      "name": "Mega Dragonite ex",
+      "records": [
+        {
+          "cardRef": "676102",
+          "printing": "Holofoil",
+          "priceUsd": 419.51,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "291/217",
+      "name": "Canari",
+      "records": [
+        {
+          "cardRef": "676103",
+          "printing": "Holofoil",
+          "priceUsd": 20.56,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "292/217",
+      "name": "Iris’s Fighting Spirit",
+      "records": [
+        {
+          "cardRef": "676104",
+          "printing": "Holofoil",
+          "priceUsd": 20.29,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "293/217",
+      "name": "Surfer",
+      "records": [
+        {
+          "cardRef": "676105",
+          "printing": "Holofoil",
+          "priceUsd": 16.04,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "294/217",
+      "name": "Mega Charizard Y ex",
+      "records": [
+        {
+          "cardRef": "676106",
+          "printing": "Holofoil",
+          "priceUsd": 228.98,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "295/217",
+      "name": "Mega Dragonite ex",
+      "records": [
+        {
+          "cardRef": "676107",
+          "printing": "Holofoil",
+          "priceUsd": 152.61,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    }
+  ]
+}

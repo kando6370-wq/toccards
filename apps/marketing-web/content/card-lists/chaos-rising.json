@@ -1,0 +1,1476 @@
+{
+  "setName": "Chaos Rising",
+  "setCode": "CRI",
+  "setId": "24655",
+  "observedAt": "2026-11-05",
+  "language": "English",
+  "galleryUrl": "https://tcg.pokemon.com/en-us/galleries/chaos-rising/",
+  "checklistUrl": "https://d1i787aglh9bmb.cloudfront.net/assets/img/me-expansions/me04/gallery/_pdfs/ME04_Card_List_EN.pdf",
+  "catalogSource": "https://api.tcgcard.fun/api/v1/cards/search?set_id=24655&game=Pokemon&page_size=100",
+  "cards": [
+    {
+      "number": "001/086",
+      "name": "Weedle",
+      "records": [
+        {
+          "cardRef": "693561",
+          "printing": "Normal",
+          "priceUsd": 0.15,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "002/086",
+      "name": "Kakuna",
+      "records": [
+        {
+          "cardRef": "693502",
+          "printing": "Normal",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "003/086",
+      "name": "Beedrill ex",
+      "records": [
+        {
+          "cardRef": "693453",
+          "printing": "Holofoil",
+          "priceUsd": 0.54,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "004/086",
+      "name": "Carnivine",
+      "records": [
+        {
+          "cardRef": "693459",
+          "printing": "Normal",
+          "priceUsd": 0.1,
+          "priceAsOf": "2026-11-03"
+        }
+      ]
+    },
+    {
+      "number": "005/086",
+      "name": "Chespin",
+      "records": [
+        {
+          "cardRef": "693461",
+          "printing": "Normal",
+          "priceUsd": 0.11,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "006/086",
+      "name": "Quilladin",
+      "records": [
+        {
+          "cardRef": "693537",
+          "printing": "Normal",
+          "priceUsd": 0.13,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "007/086",
+      "name": "Chesnaught",
+      "records": [
+        {
+          "cardRef": "693460",
+          "printing": "Holofoil",
+          "priceUsd": 0.21,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "008/086",
+      "name": "Vulpix",
+      "records": [
+        {
+          "cardRef": "693558",
+          "printing": "Normal",
+          "priceUsd": 0.07,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "009/086",
+      "name": "Ninetales",
+      "records": [
+        {
+          "cardRef": "693526",
+          "printing": "Normal",
+          "priceUsd": 0.14,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "010/086",
+      "name": "Ho-Oh",
+      "records": [
+        {
+          "cardRef": "693500",
+          "printing": "Reverse Holofoil",
+          "priceUsd": 0.26,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "011/086",
+      "name": "Fennekin",
+      "records": [
+        {
+          "cardRef": "693484",
+          "printing": "Normal",
+          "priceUsd": 0.17,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "012/086",
+      "name": "Braixen",
+      "records": [
+        {
+          "cardRef": "693457",
+          "printing": "Normal",
+          "priceUsd": 0.23,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "013/086",
+      "name": "Delphox",
+      "records": [
+        {
+          "cardRef": "693473",
+          "printing": "Holofoil",
+          "priceUsd": 0.22,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "014/086",
+      "name": "Litleo",
+      "records": [
+        {
+          "cardRef": "693505",
+          "printing": "Normal",
+          "priceUsd": 0.13,
+          "priceAsOf": "2026-11-03"
+        }
+      ]
+    },
+    {
+      "number": "015/086",
+      "name": "Mega Pyroar ex",
+      "records": [
+        {
+          "cardRef": "693519",
+          "printing": "Holofoil",
+          "priceUsd": 0.42,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "016/086",
+      "name": "Remoraid",
+      "records": [
+        {
+          "cardRef": "693539",
+          "printing": "Normal",
+          "priceUsd": 0.09,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "017/086",
+      "name": "Octillery",
+      "records": [
+        {
+          "cardRef": "693528",
+          "printing": "Normal",
+          "priceUsd": 0.11,
+          "priceAsOf": "2026-11-02"
+        }
+      ]
+    },
+    {
+      "number": "018/086",
+      "name": "Delibird",
+      "records": [
+        {
+          "cardRef": "693472",
+          "printing": "Normal",
+          "priceUsd": 0.07,
+          "priceAsOf": "2026-11-03"
+        }
+      ]
+    },
+    {
+      "number": "019/086",
+      "name": "Keldeo",
+      "records": [
+        {
+          "cardRef": "693503",
+          "printing": "Holofoil",
+          "priceUsd": 0.13,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "020/086",
+      "name": "Froakie",
+      "records": [
+        {
+          "cardRef": "693488",
+          "printing": "Normal",
+          "priceUsd": 0.11,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "021/086",
+      "name": "Frogadier",
+      "records": [
+        {
+          "cardRef": "693490",
+          "printing": "Normal",
+          "priceUsd": 0.15,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "022/086",
+      "name": "Mega Greninja ex",
+      "records": [
+        {
+          "cardRef": "693515",
+          "printing": "Holofoil",
+          "priceUsd": 0.74,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "023/086",
+      "name": "Bergmite",
+      "records": [
+        {
+          "cardRef": "693456",
+          "printing": "Normal",
+          "priceUsd": 0.06,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "024/086",
+      "name": "Avalugg",
+      "records": [
+        {
+          "cardRef": "693448",
+          "printing": "Normal",
+          "priceUsd": 0.09,
+          "priceAsOf": "2026-11-03"
+        }
+      ]
+    },
+    {
+      "number": "025/086",
+      "name": "Wimpod",
+      "records": [
+        {
+          "cardRef": "693562",
+          "printing": "Normal",
+          "priceUsd": 0.06,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "026/086",
+      "name": "Golisopod",
+      "records": [
+        {
+          "cardRef": "693494",
+          "printing": "Normal",
+          "priceUsd": 0.11,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "027/086",
+      "name": "Mareep",
+      "records": [
+        {
+          "cardRef": "693507",
+          "printing": "Normal",
+          "priceUsd": 0.13,
+          "priceAsOf": "2026-11-03"
+        }
+      ]
+    },
+    {
+      "number": "028/086",
+      "name": "Flaaffy",
+      "records": [
+        {
+          "cardRef": "693487",
+          "printing": "Normal",
+          "priceUsd": 0.14,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "029/086",
+      "name": "Ampharos",
+      "records": [
+        {
+          "cardRef": "693445",
+          "printing": "Reverse Holofoil",
+          "priceUsd": 0.25,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "030/086",
+      "name": "Emolga",
+      "records": [
+        {
+          "cardRef": "693481",
+          "printing": "Normal",
+          "priceUsd": 0.08,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "031/086",
+      "name": "Deoxys",
+      "records": [
+        {
+          "cardRef": "693474",
+          "printing": "Normal",
+          "priceUsd": 0.12,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "032/086",
+      "name": "Deoxys",
+      "records": [
+        {
+          "cardRef": "693475",
+          "printing": "Normal",
+          "priceUsd": 0.15,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "033/086",
+      "name": "Deoxys",
+      "records": [
+        {
+          "cardRef": "693476",
+          "printing": "Normal",
+          "priceUsd": 0.12,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "034/086",
+      "name": "Deoxys",
+      "records": [
+        {
+          "cardRef": "693477",
+          "printing": "Normal",
+          "priceUsd": 0.09,
+          "priceAsOf": "2026-11-03"
+        }
+      ]
+    },
+    {
+      "number": "035/086",
+      "name": "Mega Floette ex",
+      "records": [
+        {
+          "cardRef": "693511",
+          "printing": "Holofoil",
+          "priceUsd": 0.52,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "036/086",
+      "name": "Espurr",
+      "records": [
+        {
+          "cardRef": "693483",
+          "printing": "Normal",
+          "priceUsd": 0.21,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "037/086",
+      "name": "Meowstic",
+      "records": [
+        {
+          "cardRef": "693521",
+          "printing": "Normal",
+          "priceUsd": 0.1,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "038/086",
+      "name": "Phantump",
+      "records": [
+        {
+          "cardRef": "693531",
+          "printing": "Normal",
+          "priceUsd": 0.17,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "039/086",
+      "name": "Trevenant",
+      "records": [
+        {
+          "cardRef": "693556",
+          "printing": "Reverse Holofoil",
+          "priceUsd": 0.3,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "040/086",
+      "name": "Pumpkaboo",
+      "records": [
+        {
+          "cardRef": "693536",
+          "printing": "Normal",
+          "priceUsd": 0.1,
+          "priceAsOf": "2026-11-03"
+        }
+      ]
+    },
+    {
+      "number": "041/086",
+      "name": "Gourgeist ex",
+      "records": [
+        {
+          "cardRef": "693497",
+          "printing": "Holofoil",
+          "priceUsd": 0.48,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "042/086",
+      "name": "Xerneas",
+      "records": [
+        {
+          "cardRef": "693563",
+          "printing": "Reverse Holofoil",
+          "priceUsd": 0.29,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "043/086",
+      "name": "Sudowoodo",
+      "records": [
+        {
+          "cardRef": "693550",
+          "printing": "Normal",
+          "priceUsd": 0.11,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "044/086",
+      "name": "Phanpy",
+      "records": [
+        {
+          "cardRef": "693530",
+          "printing": "Normal",
+          "priceUsd": 0.13,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "045/086",
+      "name": "Donphan",
+      "records": [
+        {
+          "cardRef": "693478",
+          "printing": "Normal",
+          "priceUsd": 0.11,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "046/086",
+      "name": "Baltoy",
+      "records": [
+        {
+          "cardRef": "693452",
+          "printing": "Normal",
+          "priceUsd": 0.15,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "047/086",
+      "name": "Claydol",
+      "records": [
+        {
+          "cardRef": "693466",
+          "printing": "Normal",
+          "priceUsd": 0.09,
+          "priceAsOf": "2026-11-02"
+        }
+      ]
+    },
+    {
+      "number": "048/086",
+      "name": "Mega Gallade ex",
+      "records": [
+        {
+          "cardRef": "693514",
+          "printing": "Holofoil",
+          "priceUsd": 0.52,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "049/086",
+      "name": "Zubat",
+      "records": [
+        {
+          "cardRef": "693565",
+          "printing": "Normal",
+          "priceUsd": 0.13,
+          "priceAsOf": "2026-11-03"
+        }
+      ]
+    },
+    {
+      "number": "050/086",
+      "name": "Golbat",
+      "records": [
+        {
+          "cardRef": "693493",
+          "printing": "Normal",
+          "priceUsd": 0.1,
+          "priceAsOf": "2026-11-02"
+        }
+      ]
+    },
+    {
+      "number": "051/086",
+      "name": "Crobat",
+      "records": [
+        {
+          "cardRef": "693470",
+          "printing": "Holofoil",
+          "priceUsd": 0.2,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "052/086",
+      "name": "Qwilfish",
+      "records": [
+        {
+          "cardRef": "693538",
+          "printing": "Normal",
+          "priceUsd": 0.18,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "053/086",
+      "name": "Stunky",
+      "records": [
+        {
+          "cardRef": "693549",
+          "printing": "Normal",
+          "priceUsd": 0.09,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "054/086",
+      "name": "Skuntank",
+      "records": [
+        {
+          "cardRef": "693544",
+          "printing": "Normal",
+          "priceUsd": 0.09,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "055/086",
+      "name": "Krookodile ex",
+      "records": [
+        {
+          "cardRef": "693504",
+          "printing": "Holofoil",
+          "priceUsd": 0.45,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "056/086",
+      "name": "Trubbish",
+      "records": [
+        {
+          "cardRef": "693557",
+          "printing": "Normal",
+          "priceUsd": 0.15,
+          "priceAsOf": "2026-11-02"
+        }
+      ]
+    },
+    {
+      "number": "057/086",
+      "name": "Garbodor",
+      "records": [
+        {
+          "cardRef": "693492",
+          "printing": "Normal",
+          "priceUsd": 0.08,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "058/086",
+      "name": "Skrelp",
+      "records": [
+        {
+          "cardRef": "693543",
+          "printing": "Normal",
+          "priceUsd": 0.16,
+          "priceAsOf": "2026-11-03"
+        }
+      ]
+    },
+    {
+      "number": "059/086",
+      "name": "Beldum",
+      "records": [
+        {
+          "cardRef": "693455",
+          "printing": "Normal",
+          "priceUsd": 0.19,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "060/086",
+      "name": "Metang",
+      "records": [
+        {
+          "cardRef": "693523",
+          "printing": "Normal",
+          "priceUsd": 0.09,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "061/086",
+      "name": "Metagross",
+      "records": [
+        {
+          "cardRef": "693522",
+          "printing": "Normal",
+          "priceUsd": 0.16,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "062/086",
+      "name": "Ferroseed",
+      "records": [
+        {
+          "cardRef": "693485",
+          "printing": "Normal",
+          "priceUsd": 0.12,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "063/086",
+      "name": "Ferrothorn",
+      "records": [
+        {
+          "cardRef": "693486",
+          "printing": "Normal",
+          "priceUsd": 0.1,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "064/086",
+      "name": "Cobalion ex",
+      "records": [
+        {
+          "cardRef": "693468",
+          "printing": "Holofoil",
+          "priceUsd": 0.43,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "065/086",
+      "name": "Mega Dragalge ex",
+      "records": [
+        {
+          "cardRef": "693508",
+          "printing": "Holofoil",
+          "priceUsd": 0.46,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "066/086",
+      "name": "Goomy",
+      "records": [
+        {
+          "cardRef": "693496",
+          "printing": "Normal",
+          "priceUsd": 0.17,
+          "priceAsOf": "2026-11-02"
+        }
+      ]
+    },
+    {
+      "number": "067/086",
+      "name": "Sliggoo",
+      "records": [
+        {
+          "cardRef": "693545",
+          "printing": "Normal",
+          "priceUsd": 0.15,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "068/086",
+      "name": "Goodra",
+      "records": [
+        {
+          "cardRef": "693495",
+          "printing": "Reverse Holofoil",
+          "priceUsd": 0.29,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "069/086",
+      "name": "Tauros",
+      "records": [
+        {
+          "cardRef": "693552",
+          "printing": "Normal",
+          "priceUsd": 0.08,
+          "priceAsOf": "2026-11-02"
+        }
+      ]
+    },
+    {
+      "number": "070/086",
+      "name": "Patrat",
+      "records": [
+        {
+          "cardRef": "693529",
+          "printing": "Normal",
+          "priceUsd": 0.16,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "071/086",
+      "name": "Watchog",
+      "records": [
+        {
+          "cardRef": "693559",
+          "printing": "Normal",
+          "priceUsd": 0.11,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "072/086",
+      "name": "Minccino",
+      "records": [
+        {
+          "cardRef": "693525",
+          "printing": "Normal",
+          "priceUsd": 0.2,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "073/086",
+      "name": "Cinccino ex",
+      "records": [
+        {
+          "cardRef": "693463",
+          "printing": "Holofoil",
+          "priceUsd": 0.61,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "074/086",
+      "name": "Adversity Policy",
+      "records": [
+        {
+          "cardRef": "693444",
+          "printing": "Normal",
+          "priceUsd": 0.1,
+          "priceAsOf": "2026-11-02"
+        }
+      ]
+    },
+    {
+      "number": "075/086",
+      "name": "Ange Floette",
+      "records": [
+        {
+          "cardRef": "693447",
+          "printing": "Normal",
+          "priceUsd": 0.14,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "076/086",
+      "name": "AZ’s Tranquility",
+      "records": [
+        {
+          "cardRef": "693449",
+          "printing": "Normal",
+          "priceUsd": 0.2,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "077/086",
+      "name": "Emma",
+      "records": [
+        {
+          "cardRef": "693479",
+          "printing": "Normal",
+          "priceUsd": 0.14,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "078/086",
+      "name": "Great Haul Net",
+      "records": [
+        {
+          "cardRef": "693499",
+          "printing": "Normal",
+          "priceUsd": 0.13,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "079/086",
+      "name": "Philippe",
+      "records": [
+        {
+          "cardRef": "693532",
+          "printing": "Normal",
+          "priceUsd": 0.15,
+          "priceAsOf": "2026-11-03"
+        }
+      ]
+    },
+    {
+      "number": "080/086",
+      "name": "Prism Tower",
+      "records": [
+        {
+          "cardRef": "693534",
+          "printing": "Normal",
+          "priceUsd": 0.24,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "081/086",
+      "name": "Roxie’s Performance",
+      "records": [
+        {
+          "cardRef": "693540",
+          "printing": "Normal",
+          "priceUsd": 0.12,
+          "priceAsOf": "2026-11-03"
+        }
+      ]
+    },
+    {
+      "number": "082/086",
+      "name": "Special Red Card",
+      "records": [
+        {
+          "cardRef": "693547",
+          "printing": "Normal",
+          "priceUsd": 0.28,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "083/086",
+      "name": "Transformation Tome",
+      "records": [
+        {
+          "cardRef": "693555",
+          "printing": "Normal",
+          "priceUsd": 0.2,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "084/086",
+      "name": "Bubbly Energy",
+      "records": [
+        {
+          "cardRef": "693458",
+          "printing": "Holofoil",
+          "priceUsd": 0.21,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "085/086",
+      "name": "Magnetic Energy",
+      "records": [
+        {
+          "cardRef": "693506",
+          "printing": "Holofoil",
+          "priceUsd": 0.2,
+          "priceAsOf": "2026-10-31"
+        }
+      ]
+    },
+    {
+      "number": "086/086",
+      "name": "Nitro Energy",
+      "records": [
+        {
+          "cardRef": "693527",
+          "printing": "Holofoil",
+          "priceUsd": 0.2,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "087/086",
+      "name": "Chespin",
+      "records": [
+        {
+          "cardRef": "693462",
+          "printing": "Holofoil",
+          "priceUsd": 2.06,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "088/086",
+      "name": "Froakie",
+      "records": [
+        {
+          "cardRef": "693489",
+          "printing": "Holofoil",
+          "priceUsd": 4.35,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "089/086",
+      "name": "Frogadier",
+      "records": [
+        {
+          "cardRef": "693491",
+          "printing": "Holofoil",
+          "priceUsd": 2.9,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "090/086",
+      "name": "Ampharos",
+      "records": [
+        {
+          "cardRef": "693446",
+          "printing": "Holofoil",
+          "priceUsd": 3.86,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "091/086",
+      "name": "Xerneas",
+      "records": [
+        {
+          "cardRef": "693564",
+          "printing": "Holofoil",
+          "priceUsd": 3.93,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "092/086",
+      "name": "Claydol",
+      "records": [
+        {
+          "cardRef": "693467",
+          "printing": "Holofoil",
+          "priceUsd": 1.18,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "093/086",
+      "name": "Crobat",
+      "records": [
+        {
+          "cardRef": "693471",
+          "printing": "Holofoil",
+          "priceUsd": 1.53,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "094/086",
+      "name": "Metang",
+      "records": [
+        {
+          "cardRef": "693524",
+          "printing": "Holofoil",
+          "priceUsd": 1.46,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "095/086",
+      "name": "Sliggoo",
+      "records": [
+        {
+          "cardRef": "693546",
+          "printing": "Holofoil",
+          "priceUsd": 1.41,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "096/086",
+      "name": "Tauros",
+      "records": [
+        {
+          "cardRef": "693553",
+          "printing": "Holofoil",
+          "priceUsd": 1.81,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "097/086",
+      "name": "Watchog",
+      "records": [
+        {
+          "cardRef": "693560",
+          "printing": "Holofoil",
+          "priceUsd": 1.09,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "098/086",
+      "name": "Beedrill ex",
+      "records": [
+        {
+          "cardRef": "693454",
+          "printing": "Holofoil",
+          "priceUsd": 2.06,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "099/086",
+      "name": "Mega Pyroar ex",
+      "records": [
+        {
+          "cardRef": "693520",
+          "printing": "Holofoil",
+          "priceUsd": 1.81,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "100/086",
+      "name": "Mega Greninja ex",
+      "records": [
+        {
+          "cardRef": "693516",
+          "printing": "Holofoil",
+          "priceUsd": 7.28,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "101/086",
+      "name": "Mega Floette ex",
+      "records": [
+        {
+          "cardRef": "693512",
+          "printing": "Holofoil",
+          "priceUsd": 2.53,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "102/086",
+      "name": "Gourgeist ex",
+      "records": [
+        {
+          "cardRef": "693498",
+          "printing": "Holofoil",
+          "priceUsd": 1.07,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "103/086",
+      "name": "Cobalion ex",
+      "records": [
+        {
+          "cardRef": "693469",
+          "printing": "Holofoil",
+          "priceUsd": 1.13,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "104/086",
+      "name": "Mega Dragalge ex",
+      "records": [
+        {
+          "cardRef": "693509",
+          "printing": "Holofoil",
+          "priceUsd": 1.51,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "105/086",
+      "name": "Cinccino ex",
+      "records": [
+        {
+          "cardRef": "693464",
+          "printing": "Holofoil",
+          "priceUsd": 3.73,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "106/086",
+      "name": "AZ’s Tranquility",
+      "records": [
+        {
+          "cardRef": "693450",
+          "printing": "Holofoil",
+          "priceUsd": 1.47,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "107/086",
+      "name": "Emma",
+      "records": [
+        {
+          "cardRef": "693480",
+          "printing": "Holofoil",
+          "priceUsd": 1.67,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "108/086",
+      "name": "Energy Retrieval",
+      "records": [
+        {
+          "cardRef": "693482",
+          "printing": "Holofoil",
+          "priceUsd": 1.65,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "109/086",
+      "name": "Jumbo Ice Cream",
+      "records": [
+        {
+          "cardRef": "693501",
+          "printing": "Holofoil",
+          "priceUsd": 2.49,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "110/086",
+      "name": "Philippe",
+      "records": [
+        {
+          "cardRef": "693533",
+          "printing": "Holofoil",
+          "priceUsd": 1.12,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "111/086",
+      "name": "Prism Tower",
+      "records": [
+        {
+          "cardRef": "693535",
+          "printing": "Holofoil",
+          "priceUsd": 1.99,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "112/086",
+      "name": "Roxie’s Performance",
+      "records": [
+        {
+          "cardRef": "693541",
+          "printing": "Holofoil",
+          "priceUsd": 1.29,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "113/086",
+      "name": "Special Red Card",
+      "records": [
+        {
+          "cardRef": "693548",
+          "printing": "Holofoil",
+          "priceUsd": 2.7,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "114/086",
+      "name": "Surfing Beach",
+      "records": [
+        {
+          "cardRef": "693551",
+          "printing": "Holofoil",
+          "priceUsd": 2.57,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "115/086",
+      "name": "Tool Scrapper",
+      "records": [
+        {
+          "cardRef": "693554",
+          "printing": "Holofoil",
+          "priceUsd": 1.02,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "116/086",
+      "name": "Mega Greninja ex",
+      "records": [
+        {
+          "cardRef": "693517",
+          "printing": "Holofoil",
+          "priceUsd": 105.82,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "117/086",
+      "name": "Mega Floette ex",
+      "records": [
+        {
+          "cardRef": "693513",
+          "printing": "Holofoil",
+          "priceUsd": 20.45,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "118/086",
+      "name": "Mega Dragalge ex",
+      "records": [
+        {
+          "cardRef": "693510",
+          "printing": "Holofoil",
+          "priceUsd": 22.47,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "119/086",
+      "name": "Cinccino ex",
+      "records": [
+        {
+          "cardRef": "693465",
+          "printing": "Holofoil",
+          "priceUsd": 36.37,
+          "priceAsOf": "2026-11-04"
+        }
+      ]
+    },
+    {
+      "number": "120/086",
+      "name": "AZ’s Tranquility",
+      "records": [
+        {
+          "cardRef": "693451",
+          "printing": "Holofoil",
+          "priceUsd": 18.38,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "121/086",
+      "name": "Roxie’s Performance",
+      "records": [
+        {
+          "cardRef": "693542",
+          "printing": "Holofoil",
+          "priceUsd": 14.75,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    },
+    {
+      "number": "122/086",
+      "name": "Mega Greninja ex",
+      "records": [
+        {
+          "cardRef": "693518",
+          "printing": "Holofoil",
+          "priceUsd": 112.61,
+          "priceAsOf": "2026-11-05"
+        }
+      ]
+    }
+  ]
+}
