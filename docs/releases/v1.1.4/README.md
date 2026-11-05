@@ -11,6 +11,7 @@ v1.1.3 已原位归档。本版本承接 v1.1.3 之后的新增、变更、移�
 - App 向后兼容原则继续以 v1.1.2 的[人员阅读版](../v1.1.2/05-delivery/app-backward-compatibility-plan.md)和[AI 执行版](../v1.1.2/03-data-api/app-backward-compatibility-ai-guide.md)为规则真源；v1.1.4 的新增兼容证据写入本版本受影响业务文档或验证记录。
 - Flutter UI 继续遵循 [v1.0.0 UI 设计系统](../v1.0.0/00-product/ui-design-system.md)及已经生效的增量合同。
 - v1.1.3 的 API、Admin、Flutter、Marketing 和生产部署结果均为历史证据；后续开发、测试和发布不得只因进入 v1.1.4 就推断为已完成。
+- 2026-11-05 的依赖、Node、Flutter/Dart、Gradle 和 Linux 镜像安全升级见 [技术栈安全升级](02-architecture/security-stack-upgrade.md)，源码、构建、dev/prod 与移动端发布分别记录。
 
 ## 文档路由
 

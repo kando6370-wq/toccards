@@ -3,7 +3,7 @@
 name: kando_workspace
 publish_to: none
 environment:
-  sdk: ^3.9.2
+  sdk: ^3.13.7
 workspace:
   - apps/flutter-app
   - dart-packages/subscription-core

@@ -6,7 +6,7 @@ stages:
 
 ts:
   stage: ts
-  image: node:22
+  image: node:22.23.4-bookworm-slim
   before_script:
     - corepack enable
     - pnpm install --frozen-lockfile
@@ -23,8 +23,15 @@ ts:
 
 dart:
   stage: dart
-  image: ghcr.io/cirruslabs/flutter:3.44.0
+  image: debian:bookworm-slim
   before_script:
+    - apt-get update && apt-get install -y --no-install-recommends ca-certificates curl git libglu1-mesa unzip xz-utils zip
+    - curl --fail --location --retry 3 --output /tmp/flutter.tar.xz https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.47.9-stable.tar.xz
+    - echo "25ed8c3c29d51a7353f2a944310b478af8214920639524b19c50a19e6c044c5a  /tmp/flutter.tar.xz" | sha256sum --check --strict
+    - tar --extract --xz --file /tmp/flutter.tar.xz --directory /opt
+    - export PATH="/opt/flutter/bin:$PATH"
+    - git config --global --add safe.directory /opt/flutter
+    - flutter --version
     - flutter pub get # 解析根 pub workspace（含 melos dev 依赖）
   script:
     - dart run melos run analyze

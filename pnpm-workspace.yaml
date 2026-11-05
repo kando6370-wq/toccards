@@ -16,3 +16,9 @@ minimumReleaseAgeExclude:
 onlyBuiltDependencies:
   - esbuild
   - workerd
+
+# 上游固定旧版本的安全补丁；仅覆盖实际引入漏洞的父包。
+overrides:
+  "@esbuild-kit/core-utils@3.3.2>esbuild": "0.25.12"
+  "miniflare@4.20260630.0>sharp": "0.35.5"
+  "miniflare@4.20260630.0>undici": "7.30.1"

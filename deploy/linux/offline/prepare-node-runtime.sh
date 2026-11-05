@@ -10,6 +10,14 @@ if [ ! -x "$NODE_BINARY" ]; then
   exit 1
 fi
 
+if ! "$NODE_BINARY" -e '
+  const [major, minor, patch] = process.versions.node.split(".").map(Number);
+  if (major !== 22 || minor < 23 || (minor === 23 && patch < 4)) process.exit(1);
+'; then
+  echo "Offline runtime requires Node.js 22.23.4 or newer within major 22; found $("$NODE_BINARY" --version 2>/dev/null || echo unknown)" >&2
+  exit 1
+fi
+
 if ! docker image inspect "$BASE_IMAGE" >/dev/null 2>&1; then
   echo "Required offline base image is unavailable: $BASE_IMAGE" >&2
   exit 1
@@ -57,4 +65,8 @@ CMD ["node", "--version"]
 EOF
 
 docker build --network=none -t "$OUTPUT_IMAGE" "$workspace"
-docker run --rm "$OUTPUT_IMAGE" node -e 'console.log(process.version)'
+docker run --rm "$OUTPUT_IMAGE" node -e '
+  const [major, minor, patch] = process.versions.node.split(".").map(Number);
+  if (major !== 22 || minor < 23 || (minor === 23 && patch < 4)) process.exit(1);
+  console.log(process.version);
+'
