@@ -541,12 +541,12 @@ class KandoFloatingToast extends StatelessWidget {
 
 /// Figma top overlay toast content.
 ///
-/// Visual contract: 350x74, dark rounded surface, 40px type icon overlay,
+/// Visual contract: 350x74, clear glass surface, 40px type icon overlay,
 /// two-line ellipsized message, swipe-up dismiss on the toast itself, and
 /// right-side close affordance. Use through [showKandoTopToast] so replacement
 /// and auto-dismiss behavior stays global.
 ///
-/// 中文：顶部 Overlay Toast 内容组件。视觉规格为 350x74、暗色圆角面板、
+/// 中文：顶部 Overlay Toast 内容组件。视觉规格为 350x74、通透玻璃面板、
 /// 左侧 40px 类型图标区、文案最多两行且超出显示省略号。只有触摸到
 /// 提示框本身并向上滑动才会关闭；点击右侧关闭图标也会关闭。业务代码
 /// 优先调用 [showKandoTopToast]，保证全局替换和自动关闭逻辑一致。
@@ -587,6 +587,7 @@ class KandoTopToast extends StatelessWidget {
             side: BorderSide(color: Color(0x40FFFFFF)),
           ),
           settings: const LiquidGlassSettings(
+            bodyMode: GlassBodyMode.clear,
             glassColor: Color(0x2EFFFFFF),
             thickness: 26,
             blur: 12,

@@ -305,6 +305,7 @@ class _FigmaTabBarState extends State<_FigmaTabBar> {
                         side: BorderSide(color: Color(0x33FFFFFF)),
                       ),
                       settings: const LiquidGlassSettings(
+                        bodyMode: GlassBodyMode.clear,
                         glassColor: Color(0x1FFFFFFF),
                         thickness: 22,
                         blur: 8,
@@ -345,6 +346,7 @@ class _FigmaTabBarState extends State<_FigmaTabBar> {
                           side: BorderSide(color: Color(0x66FFFFFF)),
                         ),
                         settings: const LiquidGlassSettings(
+                          bodyMode: GlassBodyMode.clear,
                           glassColor: Color(0x3DFFFFFF),
                           thickness: 34,
                           blur: 6,
