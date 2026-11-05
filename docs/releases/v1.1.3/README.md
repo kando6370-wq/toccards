@@ -25,6 +25,9 @@ v1.1.2 已原位归档，不复制其产品、流程、架构、数据/API、Adm
 - 2026-11-05 后续按视频参考将底栏升级为按压鼓起、弹性移动和释放收回的透明镜片，并进一步减轻填充和模糊；快速改选、减少动态效果及当前验证边界见[底栏视频效果验证](05-delivery/VERIFICATION.md#liquid-glass-video-motion-20261105)。
 - 2026-11-05 经用户要求，已将当前预览的测试环境 Debug `1.0.6+192` 安装并启动于 iPhone 11；实际签名、调试连接和手机离线导致的未验边界见[真机安装记录](05-delivery/VERIFICATION.md#liquid-glass-iphone11-debug-20261105)。
 - 2026-11-05 同一预览另交付测试环境 Android Debug APK `1.0.6+192`，供用户自行安装；签名、网络策略、制品哈希与保存位置见[Android APK 交付记录](05-delivery/VERIFICATION.md#liquid-glass-android-debug-delivery-20261105)。
+- 2026-11-05 顶部提示进一步对齐底栏的通透玻璃材质，采用相同的低模糊、淡白染色及折射参数；五类提示和原交互保留，见[顶部提示材质对齐](05-delivery/VERIFICATION.md#liquid-glass-top-toast-clarity-20261105)。此前交付的安装包不包含本次调整。
+- 2026-11-05 按用户要求，已卸载 iPhone 11 的旧测试版并重新安装、启动包含顶部提示材质调整的 Debug `1.0.6+192`；签名、运行及网络离线边界见[卸载重装记录](05-delivery/VERIFICATION.md#liquid-glass-iphone11-top-toast-reinstall-20261105)。Android APK 仍为此前交付版本。
+- 2026-11-05 根据真机文字可读性反馈，顶部提示背景 blur 从 3 调为 6，保留淡白染色与通透材质，并已更新安装、启动于 iPhone 11；底栏 blur 仍为 3，见[顶部提示背景模糊调整](05-delivery/VERIFICATION.md#liquid-glass-top-toast-readability-20261105)。
 
 ## 文档路由
 

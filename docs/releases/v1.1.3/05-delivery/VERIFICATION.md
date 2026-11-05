@@ -6,6 +6,28 @@
 
 当前运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下记录只代表 v1.1.3 本地增量及实际执行的验证，不改变远端运行状态。
 
+<a id="liquid-glass-top-toast-readability-20261105"></a>
+## 顶部提示提高背景模糊（2026-11-05）
+
+- 范围与实现：用户在 iPhone 11 查看后反馈顶部提示文字不够清晰，按要求将共享 `KandoTopToast` 的背景 blur 从 3 调为 6，以减轻背后内容对文字的干扰。保留 clear 材质、白色 alpha 15／255、折射及文字阴影，iOS／Android 使用同一 Flutter 实现；底栏仍使用 blur 3。本轮仅调整这一材质参数，没有改动提示类型、布局或关闭交互。
+- 本地验证：`flutter test --no-pub test/toast_test.dart` 8／8 通过；完整 App `flutter analyze --no-pub` 无问题、退出 0；Dart 格式及 `git diff --check` 通过。最终差异自查确认本轮业务改动仅为顶部提示 blur 参数，未新增测试或修改 Golden。
+- iPhone 11 同步：上一段调试会话已断开，但目标 iPhone 11 仍连接；使用 `flutter run --debug --no-pub --flavor test --dart-define-from-file=config/test.json -d <iPhone 11 UDID>` 重新构建、安装并启动更新。CoreDevice 回读为测试版 `com.kando.kandoApp.beta`、`1.0.6+192`；最终 `.app` 验签通过，App Attest 为 `development`、`get-task-allow=true`，开发描述文件包含目标设备、Firebase 为测试项目、Debug kernel 存在。日志确认玻璃初始化、调试文件同步及交互调试就绪，当前连接保留。
+- 边界：本轮未再次卸载应用、导出 IPA／dSYM、重打 Android APK、运行完整 Flutter 测试／全部 Golden 或进行 Git commit／push、远端部署。源码分析、定向测试和 iPhone 安装不证明文字可读性已经由 Agent 目测验收，最终观感仍由真机反馈确认。
+
+<a id="liquid-glass-iphone11-top-toast-reinstall-20261105"></a>
+## 顶部提示材质更新后 iPhone 11 卸载重装（2026-11-05）
+
+- 来源与构建：按用户要求，基于 `codex/liquid-glass-nav-toast-preview@baf0a5b7` 加未提交的顶部提示材质调整，执行 `flutter build ios --debug --flavor test --dart-define-from-file=config/test.json --no-pub` 成功；保留测试环境、`com.kando.kandoApp.beta` 和 `1.0.6+192`。未重复运行此前已通过的 8 项 Toast 测试和完整 App 静态分析，本轮业务源码未再修改。
+- 卸载与安装：结束上一轮目标设备的 Flutter 调试会话，使用 `xcrun devicectl device uninstall app --device <iPhone 11 UDID> com.kando.kandoApp.beta` 卸载成功，随后按 Bundle 查询确认已不存在；再以 `flutter run --debug --no-build --no-pub --flavor test --dart-define-from-file=config/test.json -d <iPhone 11 UDID>` 完成重新安装与启动。CoreDevice 回读目标 iPhone 11 已安装 Card AI `1.0.6+192`，运行日志确认玻璃初始化、文件同步及交互调试就绪，当前调试连接保留。
+- 签名与边界：构建后及启动后的最终 `.app` 均通过 codesign 验证，签名 entitlement 为 App Attest `development`、`get-task-allow=true`；开发描述文件包含目标 iPhone 11，Firebase 为测试项目，Debug kernel 存在。本轮为直接 `.app` 调试安装，未导出 IPA／dSYM、重打 Android APK、递增版本、Git commit／push 或执行远端部署。日志仍有网络离线提示；安装启动和玻璃初始化不代表数据加载、真实视觉、文字可读性、帧率或功耗验收通过。
+
+<a id="liquid-glass-top-toast-clarity-20261105"></a>
+## 顶部提示通透材质与底栏对齐（2026-11-05）
+
+- 范围与实现：按用户要求，仅调整共享 `KandoTopToast` 的玻璃材质，与当前底栏使用相同设置：clear 模式、白色 alpha 15／255、blur 3、厚度 26、折射率 1.59、色差 0.01、光照 0.6、环境光 0.12、饱和度 1.15、glow 0.85；描边与外阴影也对齐底栏。原顶部提示的 alpha 46／255、blur 12 仅为此前交付时的历史实现。保留 350×74 尺寸、12 圆角、五类图标、文字阴影及替换／自动关闭／点击关闭／上滑关闭行为，继续复用 iOS／Android 同一 Flutter 渲染路径及质量降级策略。
+- 本地验证：完整 App `flutter analyze --no-pub` 无问题、退出 0；`flutter test --no-pub test/toast_test.dart` 8／8 通过，覆盖顶部提示的位置／类型、替换、手动关闭及上滑关闭。Dart 格式检查通过，未新增测试或更新 Golden。最终差异自查确认顶部提示的玻璃设置、描边及外阴影与底栏一致，调用接口和交互逻辑未变。
+- 交付边界：本次仅为本地源码调整，未重新构建或安装 iOS／Android 包，前述已安装 iPhone Debug 和已交付 Android APK 不包含本次调整。未进行真机透色、折射、文字可读性及功耗验收，未执行 Git commit／push 或远端部署。
+
 <a id="liquid-glass-android-debug-delivery-20261105"></a>
 ## 玻璃底栏 Android 测试环境 Debug APK 交付（2026-11-05）
 
