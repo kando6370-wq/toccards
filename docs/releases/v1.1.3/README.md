@@ -22,6 +22,9 @@ v1.1.2 已原位归档，不复制其产品、流程、架构、数据/API、Adm
 - 2026-11-02 后续用户体验优化新增[收藏分页、摘要与单卡资产读取](03-data-api/collection-read-model.md)，原 V1 全量接口保留；图片解码及后台预热调整见[性能说明](02-architecture/performance.md#用户体验与图片加载2026-11-02-后续增量)。启动固定时长和整批扫描 Review 门禁按用户选择保留，页面布局不改。
 - 2026-11-03 Home Performance 账号隔离、Search 批量资产及收藏补全范围调整见[性能说明](02-architecture/performance.md#账号隔离与大收藏读取2026-11-03)和[收藏读模型](03-data-api/collection-read-model.md#批量卡牌资产状态2026-11-03)；后台列表条件隔离、权限分页／筛选／编辑见[后台增量](04-admin/admin.md#列表条件隔离与权限管理接线2026-11-03)。
 - 2026-11-04 本地预览分支将共享底部导航栏和顶部提示表面切换为跨 iOS／Android 的 Flutter Liquid Glass Shader；11-05 按用户参考图移除深色底层，采用 clear 材质和独立玻璃选中胶囊。路由、中央扫描按钮和提示交互合同不变；依赖、透明度、测试质量降级及双端构建边界见[验证记录](05-delivery/VERIFICATION.md#liquid-glass-preview-20261104)。
+- 2026-11-05 后续按视频参考将底栏升级为按压鼓起、弹性移动和释放收回的透明镜片，并进一步减轻填充和模糊；快速改选、减少动态效果及当前验证边界见[底栏视频效果验证](05-delivery/VERIFICATION.md#liquid-glass-video-motion-20261105)。
+- 2026-11-05 经用户要求，已将当前预览的测试环境 Debug `1.0.6+192` 安装并启动于 iPhone 11；实际签名、调试连接和手机离线导致的未验边界见[真机安装记录](05-delivery/VERIFICATION.md#liquid-glass-iphone11-debug-20261105)。
+- 2026-11-05 同一预览另交付测试环境 Android Debug APK `1.0.6+192`，供用户自行安装；签名、网络策略、制品哈希与保存位置见[Android APK 交付记录](05-delivery/VERIFICATION.md#liquid-glass-android-debug-delivery-20261105)。
 
 ## 文档路由
 

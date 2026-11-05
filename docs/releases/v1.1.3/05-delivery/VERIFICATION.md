@@ -6,6 +6,31 @@
 
 当前运行基线见 [v1.1.2 生产收尾记录](../../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)。以下记录只代表 v1.1.3 本地增量及实际执行的验证，不改变远端运行状态。
 
+<a id="liquid-glass-android-debug-delivery-20261105"></a>
+## 玻璃底栏 Android 测试环境 Debug APK 交付（2026-11-05）
+
+- 来源与构建：按用户要求，将当前本地预览分支 `c5013d1f` 加未提交的弹性镜片改动构建为可手工安装的 Android Debug APK；沿用刚才 iPhone 的测试环境。`flutter build apk --debug --no-pub --dart-define-from-file=config/test.json` 成功，版本 `1.0.6+192`、包名 `com.cardai.tcg`、minSdk 24、targetSdk 36；包内包含 arm64-v8a／armeabi-v7a／x86_64 原生库。构建保留既有 Gradle／AGP／Kotlin 未来支持警告，未修改源码版本或工具链。
+- 制品验证：apksigner 验证成功、v2 签名有效；aapt 回读确认 debuggable，最终 Manifest 实际引用 `network_security_config_test` 且其规则包含 `192.168.50.201`。Debug kernel、玻璃库 5 个 Shader 和 APK ZIP 完整性检查通过。保存副本与构建输出 SHA-256 一致。
+- 保存与边界：交付文件为 `~/Downloads/CardAI-Packages/Android/CardAI-Test-1.0.6-192-liquid-glass-debug.apk`，301,276,504 字节、SHA-256 `e7afb84006547896833a149da7edad4ffe384d7d05745e84e88b298215b455ba`。由用户自行安装 Android 真机，本轮未安装或进行 Android 视觉／帧率／扫描验收；测试 API 需要设备能访问内网 `192.168.50.201:8080`。本轮仅打包和校验，未重复运行上一轮已通过的源码测试，未执行 Git commit／push、远端部署或远程配置写入。
+
+<a id="liquid-glass-iphone11-debug-20261105"></a>
+## 玻璃底栏 iPhone 11 Debug 安装（2026-11-05）
+
+- 来源与安装：经用户明确要求，将本地预览分支 `c5013d1f` 加未提交的弹性镜片改动安装到已配对、有线连接且开启开发者模式的 iPhone 11（iOS 18.7.8）。`flutter build ios --debug --flavor test --dart-define-from-file=config/test.json --no-pub` 成功；随后 `flutter run --debug --no-build --no-pub --flavor test --dart-define-from-file=config/test.json -d <目标设备>` 完成安装与启动，并建立 Dart 调试连接。CoreDevice 独立回读确认已安装 `com.kando.kandoApp.beta`、显示名 Card AI、版本 `1.0.6+192`；未递增源码版本号。
+- 签名与运行：对实际安装对应的最终 `.app` 执行完整 codesign 验证并读取签名 entitlement，确认 `get-task-allow=true`、App Attest 为 `development`，开发描述文件包含目标设备；实际 Firebase 配置为 `card-ai---test`，Debug kernel 存在。设备日志确认 `[LiquidGlass] Initialization complete.` 及 Flutter 调试服务已启动。本次为 Flutter 开发调试 `.app` 安装，没有导出或交付 IPA／dSYM，未运行 Release 发布脚本，既有 Downloads 包和 Xcode Archives 未改动。
+- 验收边界：构建主机访问 dev health 为 200，但手机启动时对测试 API／Firebase 等请求返回离线错误；没有把主机可达当成手机已联网。页面数据、匿名登录、实际导航玻璃视觉／帧率及扫描背景折射尚未独立验收，需设备连通测试环境后补验。调试连接保留以便用户查看效果；本轮未修改业务源码、服务端配置、Git commit／push 或执行远端部署。
+
+<a id="liquid-glass-video-motion-20261105"></a>
+## 底栏视频参考：弹性镜片与通透度（2026-11-05）
+
+- 来源与范围：续作起点为本地预览分支 `codex/liquid-glass-nav-toast-preview@c5013d1f`。抽帧查看用户提供的 29 秒底栏录屏，确认选中态包含按压鼓起、移动形变、透明镜片折射图标和释放后收回；这取代上一轮固定玻璃胶囊的 220ms 平移。仅调整 App Shell 底栏及对应测试、Golden 和文档，继续复用现有 `liquid_glass_widgets 1.16.1` 的跨端 Flutter 实现。
+- 通透度：底栏继续使用 clear 材质且无暗色 backer；白色填充 alpha 从 31 降为 15（满值 255，约 6%），blur 从 8 降为 3。静止选中胶囊使用 alpha 20 的淡白填充（约 8%），移动镜片不填充颜色、blur 为 0，依靠边缘光和折射显示轮廓；移动镜片的折射率 1.10、pinchStrength 0.4。上一节的 alpha 31／61 和独立静态 `GlassContainer` 为视频调整前的历史实现。
+- 动画与交互：复用 `AnimatedGlassIndicator` 的前后两层绘制，静止底色在图标下方，运动镜片在图标上方、中央 Scan 按钮下方。位置使用 380ms snappy spring，鼓起使用 220ms interactive spring；释放后延迟 180ms 收回。按住预览目标、取消退回原 Tab，松手才触发既有导航。GoRouter 替换页面时传递当前镜片位置、速度及活动量，快速连续切换接续当前运动；启用系统减少动态效果时直接定位选中态且不鼓起。原底栏 350×62、静止选中区高 54、中央 Scan 64×64 及溢出点击区保留。
+- 本地验证：完整 App `flutter analyze --no-pub` 无问题；`flutter test --no-pub test/toast_test.dart test/widget/app_shell_test.dart` 最终 20/20 通过，覆盖新增按压放大、取消回位、快速改选连续性和减少动态效果。Home／Search／Collection 的 `--name 'bottom navigation|bottom tab'` 筛选 9/9 通过。首轮 Shell 10 项通过、2 项失败：新测试把带 Key 的 `_FigmaTabItem` 误当作 `Semantics`，改为读取其实际语义子节点；另 1 张底栏 Golden 因预期样式变化有 4.94% 像素差异，检查实际图后仅更新该底栏基线。修正后未开启更新模式的最终测试通过；未重录其他 Golden。
+- 双端构建：最终源码的 `flutter build apk --debug --no-pub` 及 `flutter build ios --debug --no-codesign --no-pub` 均成功，两端各回读到该库的 5 个 Shader。最新 APK 为 230,713,964 字节、SHA-256 `6e5d7634c5390ab5005e15e9a911b99956cb2f724c1189a2b4a24d403c028d05`，替代上一轮样式 APK；iOS 为无签名 device `Runner.app`。Android 保留既有 Gradle／AGP／Kotlin 未来支持警告，iOS 保留既有三个插件的 Swift Package Manager 及 ML Kit arm64 Simulator 支持提示，未升级工具链或跳过校验。源码格式、文档链接和 `git diff --check` 通过。
+- 视觉与审查：忽略目录中的临时入口使用实际 App Shell、实际路由和受控彩色背景，捕获 84 帧并生成动画预览，入口 1/1 完成。检查了透色、按压形变、松手回收和文字布局；软件渲染使用 minimal，预览不证明 Impeller 的实际图标折射或移动端帧率。最终源码及调用方自查未发现阻断项，动画监听只重建两层指示器，业务页面不随逐帧动画重建。
+- 交付边界：本轮修改仍在本地预览分支，未提交或推送。未安装真机、发布签名包或执行远端部署；iOS／Android 真机透色、折射、相机背景、帧率及 Reduce Transparency 仍需实机验收。既有 ML Kit 阻断 iOS arm64 Simulator 的边界沿用上一节，本轮未重复该失败构建；完整 Flutter 测试／全部 Golden 未运行，静态与定向检查不能替代这些未验项。
+
 <a id="liquid-glass-preview-20261104"></a>
 ## 底部导航与顶部提示 Liquid Glass 本地预览（2026-11-04；11-05 通透样式补验）
 
