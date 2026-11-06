@@ -18,6 +18,7 @@ import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
 import '../../shared/ui/subscription_restore_result.dart';
 import '../../shared/ui/toast.dart';
+import '../../shared/platform/app_commercial_policy.dart';
 import 'account_page.dart';
 import 'profile_actions.dart';
 
@@ -36,13 +37,19 @@ class ProfilePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authControllerProvider);
     final subscription = ref.watch(subscriptionControllerProvider);
+    final usesSubscription = ref.watch(
+      appCommercialPolicyProvider.select(
+        (value) => value.usesAppleSubscription,
+      ),
+    );
+    final isRestoring = usesSubscription && subscription.isRestoring;
 
     return PopScope(
-      canPop: !subscription.isRestoring,
+      canPop: !isRestoring,
       child: Stack(
         children: [
           AbsorbPointer(
-            absorbing: subscription.isRestoring,
+            absorbing: isRestoring,
             child: KandoTabScaffold(
               currentTab: KandoMainTab.profile,
               body: SafeArea(
@@ -93,7 +100,7 @@ class ProfilePage extends ConsumerWidget {
               ),
             ),
           ),
-          if (subscription.isRestoring)
+          if (isRestoring)
             const Positioned.fill(
               child: ColoredBox(
                 color: Color(0x99000000),
@@ -134,6 +141,7 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
       if (!mounted) return;
       final session = ref.read(authControllerProvider).session;
       if (session?.isUser != true) return;
+      if (!ref.read(appCommercialPolicyProvider).usesAppleSubscription) return;
 
       final premiumState = await ref
           .read(subscriptionControllerProvider.notifier)
@@ -143,6 +151,8 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
       final currentSession = ref.read(authControllerProvider).session;
       if (currentSession?.isUser != true ||
           currentSession?.userId != session?.userId ||
+          currentSession?.platform != session?.platform ||
+          currentSession?.dataSpaceId != session?.dataSpaceId ||
           router.routeInformationProvider.value.uri != entryLocation) {
         return;
       }
@@ -162,42 +172,49 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
   Widget build(BuildContext context) {
     final session = widget.authState.session;
     final subscription = ref.watch(subscriptionControllerProvider);
-    ref.listen(subscriptionControllerProvider, (previous, next) {
-      if (next.resultEventCount != previous?.resultEventCount &&
-          next.restoreSource == SubscriptionRestoreSource.profile &&
-          context.mounted) {
-        switch (next.resultEvent) {
-          case SubscriptionResultEvent.restoreSuccess:
-            showSubscriptionRestoreResult(
-              context,
-              type: SubscriptionRestoreResultType.premiumRestored,
-            );
-          case SubscriptionResultEvent.restoreNotFound:
-            showSubscriptionRestoreResult(
-              context,
-              type: SubscriptionRestoreResultType.notFound,
-            );
-          case SubscriptionResultEvent.restoreFailed:
-            showSubscriptionRestoreResult(
-              context,
-              type: SubscriptionRestoreResultType.failed,
-            );
-          case SubscriptionResultEvent.purchaseSuccess ||
-              SubscriptionResultEvent.externalPremium ||
-              null:
-            break;
+    final usesSubscription = ref.watch(
+      appCommercialPolicyProvider.select(
+        (value) => value.usesAppleSubscription,
+      ),
+    );
+    if (usesSubscription) {
+      ref.listen(subscriptionControllerProvider, (previous, next) {
+        if (next.resultEventCount != previous?.resultEventCount &&
+            next.restoreSource == SubscriptionRestoreSource.profile &&
+            context.mounted) {
+          switch (next.resultEvent) {
+            case SubscriptionResultEvent.restoreSuccess:
+              showSubscriptionRestoreResult(
+                context,
+                type: SubscriptionRestoreResultType.premiumRestored,
+              );
+            case SubscriptionResultEvent.restoreNotFound:
+              showSubscriptionRestoreResult(
+                context,
+                type: SubscriptionRestoreResultType.notFound,
+              );
+            case SubscriptionResultEvent.restoreFailed:
+              showSubscriptionRestoreResult(
+                context,
+                type: SubscriptionRestoreResultType.failed,
+              );
+            case SubscriptionResultEvent.purchaseSuccess ||
+                SubscriptionResultEvent.externalPremium ||
+                null:
+              break;
+          }
         }
-      }
-      if (next.errorMessage != null &&
-          next.errorMessage != previous?.errorMessage &&
-          context.mounted) {
-        showKandoTopToast(
-          context,
-          message: next.errorMessage!,
-          type: KandoTopToastType.failure,
-        );
-      }
-    });
+        if (next.errorMessage != null &&
+            next.errorMessage != previous?.errorMessage &&
+            context.mounted) {
+          showKandoTopToast(
+            context,
+            message: next.errorMessage!,
+            type: KandoTopToastType.failure,
+          );
+        }
+      });
+    }
     final isUser = session?.ownerType == OwnerType.user;
     final emailText = session?.email ?? 'Unknown email';
     final userIdText = session?.userId ?? 'Unknown user';
@@ -225,7 +242,8 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
               96,
             ),
             children: [
-              if (subscription.premiumState == AppPremiumState.free) ...[
+              if (usesSubscription &&
+                  subscription.premiumState == AppPremiumState.free) ...[
                 _UpgradeBanner(
                   onTap: () => context.push(
                     subscriptionPageLocation(
@@ -258,23 +276,25 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
                   ],
                 ),
               const SizedBox(height: 24),
-              _SectionLabel('Subscribe'),
-              _MenuCard(
-                children: [
-                  _MenuRow(
-                    icon: Icons.restore,
-                    label: 'Restore',
-                    onTap: subscription.isLoading
-                        ? null
-                        : () => ref
-                              .read(subscriptionControllerProvider.notifier)
-                              .restore(
-                                source: SubscriptionRestoreSource.profile,
-                              ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
+              if (usesSubscription) ...[
+                _SectionLabel('Subscribe'),
+                _MenuCard(
+                  children: [
+                    _MenuRow(
+                      icon: Icons.restore,
+                      label: 'Restore',
+                      onTap: subscription.isLoading
+                          ? null
+                          : () => ref
+                                .read(subscriptionControllerProvider.notifier)
+                                .restore(
+                                  source: SubscriptionRestoreSource.profile,
+                                ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+              ],
               _SectionLabel('Support'),
               _MenuCard(
                 children: [
@@ -451,13 +471,25 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
   }
 
   Future<void> _confirmAndDelete(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showDeleteAccountConfirmation(context);
+    final confirmed = await showDeleteAccountConfirmation(
+      context,
+      platform: ref.read(authControllerProvider).session?.platform,
+    );
     if (!context.mounted || !confirmed) {
       return;
     }
 
     try {
       await ref.read(authControllerProvider.notifier).deleteAccount();
+    } on AuthPostDeleteSessionException {
+      if (context.mounted) {
+        showKandoTopToast(
+          context,
+          message:
+              'Account deleted. Restart the app to create a new guest session.',
+          type: KandoTopToastType.info,
+        );
+      }
     } on Exception {
       if (context.mounted) {
         showKandoTopToast(

@@ -4,6 +4,7 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 const googleIosClientId =
     '1030914046373-j0ihp89joii8c9k66v89l9dske6mp0mc.apps.googleusercontent.com';
+const googleServerClientId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
 
 typedef GoogleSignInInitializer =
     Future<void> Function({String? clientId, String? serverClientId});
@@ -84,9 +85,13 @@ class PlatformOAuthAuthorizer implements OAuthAuthorizer {
   Future<void>? _initialization;
 
   Future<void> initialize() {
+    final isAndroid =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
     return _initialization ??= _googleInitializer(
-      clientId: googleIosClientId,
-      serverClientId: null,
+      clientId: isAndroid ? null : googleIosClientId,
+      serverClientId: isAndroid && googleServerClientId.trim().isNotEmpty
+          ? googleServerClientId
+          : null,
     );
   }
 

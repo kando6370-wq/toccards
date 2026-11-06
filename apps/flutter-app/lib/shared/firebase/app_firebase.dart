@@ -24,8 +24,8 @@ class AppFirebase {
       return firebase;
     } on Object catch (error) {
       debugPrint(
-        'Firebase disabled: add a valid GoogleService-Info.plist to the '
-        'Runner target. $error',
+        'Firebase disabled: provide the platform Firebase configuration. '
+        '$error',
       );
       return null;
     }

@@ -10,6 +10,7 @@ import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/currency/currency_rate_api.dart';
 import 'package:kando_app/shared/market/market_change.dart';
+import 'package:kando_app/shared/platform/app_commercial_policy.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
@@ -1147,7 +1148,9 @@ class CollectionController extends Notifier<CollectionState> {
         .createFolder(
           session,
           normalized,
-          localPremiumVerified: ref.read(subscriptionControllerProvider).isPro,
+          localPremiumVerified:
+              ref.read(appCommercialPolicyProvider).usesAppleSubscription &&
+              ref.read(subscriptionControllerProvider).isPro,
         );
     CreateFolderResult applyFolder(CollectionFolder folder) {
       state = state.copyWith(
@@ -1165,11 +1168,19 @@ class CollectionController extends Notifier<CollectionState> {
       return applyFolder(folder);
     } on PortfolioApiException catch (error) {
       if (error.code == 'PREMIUM_REQUIRED') {
+        if (ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
+          return const CreateFolderResult(CreateFolderStatus.failed);
+        }
         await refreshPreservingContent();
         return const CreateFolderResult(CreateFolderStatus.premiumRequired);
       }
       if (error.statusCode == 409 &&
           error.code == 'ENTITLEMENT_SYNC_REQUIRED') {
+        if (ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
+          return const CreateFolderResult(
+            CreateFolderStatus.entitlementSyncRequired,
+          );
+        }
         final reconciliation = await ref
             .read(subscriptionControllerProvider.notifier)
             .reconcileServerEntitlement();

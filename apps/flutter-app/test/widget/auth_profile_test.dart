@@ -31,11 +31,43 @@ import 'package:kando_app/features/subscription/subscription_display_providers.d
 import '../subscription_display_fixtures.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/kando_modal.dart';
+import 'package:kando_app/shared/platform/app_commercial_policy.dart';
 
 import '../support/in_memory_onboarding_storage.dart';
 import '../support/mock_home_repository.dart';
 
 void main() {
+  testWidgets('Android auth removes Apple and explains platform isolation', (
+    tester,
+  ) async {
+    final repository = _WidgetAuthRepository(
+      initialSession: _anonymousSession('android-guest'),
+    );
+
+    await tester.pumpWidget(
+      _testApp(
+        repository,
+        onboardingStorage: InMemoryOnboardingStorage(),
+        commercialPolicy: const AppCommercialPolicy(isAndroidFreeLaunch: true),
+      ),
+    );
+    await _openOnboardingAuth(tester);
+
+    expect(find.text('Continue with Apple'), findsNothing);
+    expect(
+      find.textContaining('Your collections and other app data are separate'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('verified email and password are shared'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Continue with Google'));
+    await tester.pumpAndSettle();
+    expect(find.text('Continue?'), findsOneWidget);
+    expect(find.textContaining('will not merge'), findsOneWidget);
+  });
+
   for (final premiumState in AppPremiumState.values) {
     testWidgets(
       'onboarding email welcome auto closes after one second before $premiumState',
@@ -1008,6 +1040,10 @@ void main() {
       expect(authorizer.requests, [OAuthProvider.google]);
       expect(loadingOverlay, findsNothing);
       expect(repository.googleCallbackRequests, isEmpty);
+      expect(find.byKey(const Key('auth-apple-option')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('auth-apple-option')));
+      await tester.pump();
+      expect(authorizer.requests, [OAuthProvider.google]);
 
       authorizationCompleter.complete(
         const OAuthAuthorizationResult.google(
@@ -1115,6 +1151,7 @@ void main() {
       expect(authorizer.requests, [OAuthProvider.apple]);
       expect(loadingOverlay, findsNothing);
       expect(repository.appleCallbackRequests, isEmpty);
+      expect(find.byKey(const Key('auth-apple-option')), findsOneWidget);
 
       authorizationCompleter.complete(
         const OAuthAuthorizationResult.apple(
@@ -1325,6 +1362,62 @@ void main() {
       const Size(342, 56),
     );
   });
+
+  testWidgets(
+    'Android auth keeps normal and OAuth failure actions reachable at 320x568',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(320, 568);
+      addTearDown(tester.view.reset);
+      final repository = _WidgetAuthRepository(
+        initialSession: _anonymousSession('android-small-guest'),
+      );
+      final authorizer = _WidgetOAuthAuthorizer(
+        error: Exception('provider failed'),
+      );
+
+      await tester.pumpWidget(
+        _testAuthSheetApp(
+          repository,
+          authorizer: authorizer,
+          commercialPolicy: const AppCommercialPolicy(
+            isAndroidFreeLaunch: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Open auth'));
+      await tester.pumpAndSettle();
+
+      final close = find.byKey(const Key('auth-sheet-close'));
+      final google = find.byKey(const Key('auth-google-option'));
+      final email = find.byKey(const Key('auth-email-option'));
+      var closeRect = tester.getRect(close);
+      var googleRect = tester.getRect(google);
+      var emailRect = tester.getRect(email);
+      expect(closeRect.top, greaterThanOrEqualTo(0));
+      expect(googleRect.bottom, lessThanOrEqualTo(568));
+      expect(emailRect.bottom, lessThanOrEqualTo(568));
+      expect(closeRect.overlaps(googleRect), isFalse);
+      expect(closeRect.overlaps(emailRect), isFalse);
+
+      await tester.tap(find.text('Continue with Google'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('auth-oauth-warning')), findsOneWidget);
+      closeRect = tester.getRect(close);
+      googleRect = tester.getRect(google);
+      emailRect = tester.getRect(email);
+      expect(closeRect.top, greaterThanOrEqualTo(0));
+      expect(googleRect.bottom, lessThanOrEqualTo(568));
+      expect(emailRect.bottom, lessThanOrEqualTo(568));
+      expect(closeRect.overlaps(googleRect), isFalse);
+      expect(closeRect.overlaps(emailRect), isFalse);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('oauth failure keeps email fallback available', (tester) async {
     final repository = _WidgetAuthRepository(
@@ -2140,7 +2233,7 @@ void main() {
 
       expect(find.text('Delete Account?'), findsOneWidget);
       expect(
-        find.text("This action is permanent and can't be undone."),
+        find.textContaining('permanently deletes your iOS account'),
         findsOneWidget,
       );
       expect(find.text('Cancel'), findsOneWidget);
@@ -2228,6 +2321,9 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            appCommercialPolicyProvider.overrideWithValue(
+              const AppCommercialPolicy(isAndroidFreeLaunch: false),
+            ),
             authRepositoryProvider.overrideWithValue(repository),
             installedVersionReaderProvider.overrideWithValue(
               const _WidgetInstalledVersionReader(),
@@ -3611,6 +3707,9 @@ ProviderScope _testApp(
   AuthController Function()? authController,
   SubscriptionController Function()? subscriptionController,
   InMemoryOnboardingStorage? onboardingStorage,
+  AppCommercialPolicy commercialPolicy = const AppCommercialPolicy(
+    isAndroidFreeLaunch: false,
+  ),
 }) {
   final storage =
       onboardingStorage ?? InMemoryOnboardingStorage(completed: true);
@@ -3634,6 +3733,7 @@ ProviderScope _testApp(
         subscriptionController ?? _FreeSubscriptionController.new,
       ),
       subscriptionDisplayFactoryProvider.overrideWithValue(displayPageFixture),
+      appCommercialPolicyProvider.overrideWithValue(commercialPolicy),
       authDeviceIdProvider.overrideWithValue('widget-test-device'),
       onboardingRepositoryProvider.overrideWithValue(
         LocalOnboardingRepository(storage),
@@ -3702,6 +3802,9 @@ ProviderScope _subscriptionGoldenApp(
 }) {
   return ProviderScope(
     overrides: [
+      appCommercialPolicyProvider.overrideWithValue(
+        const AppCommercialPolicy(isAndroidFreeLaunch: false),
+      ),
       subscriptionControllerProvider.overrideWith(
         _FreeSubscriptionController.new,
       ),
@@ -3767,9 +3870,13 @@ class _LoginFlowSubscriptionController extends _FreeSubscriptionController {
 ProviderScope _testAuthSheetApp(
   _WidgetAuthRepository repository, {
   OAuthAuthorizer? authorizer,
+  AppCommercialPolicy commercialPolicy = const AppCommercialPolicy(
+    isAndroidFreeLaunch: false,
+  ),
 }) {
   return ProviderScope(
     overrides: [
+      appCommercialPolicyProvider.overrideWithValue(commercialPolicy),
       authRepositoryProvider.overrideWithValue(repository),
       if (authorizer != null)
         oauthAuthorizerProvider.overrideWithValue(authorizer),
@@ -3792,7 +3899,12 @@ ProviderScope _testAuthSheetApp(
 
 ProviderScope _testEmailAuthPageApp(_WidgetAuthRepository repository) {
   return ProviderScope(
-    overrides: [authRepositoryProvider.overrideWithValue(repository)],
+    overrides: [
+      appCommercialPolicyProvider.overrideWithValue(
+        const AppCommercialPolicy(isAndroidFreeLaunch: false),
+      ),
+      authRepositoryProvider.overrideWithValue(repository),
+    ],
     child: MaterialApp(
       theme: buildKandoTheme(),
       home: Builder(

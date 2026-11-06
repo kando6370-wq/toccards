@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 import '../../shared/scan/scan_api_client.dart';
 import '../../shared/scan/scan_card_recognizer.dart';
 import '../../shared/scan/scan_providers.dart';
+import '../../shared/platform/app_commercial_policy.dart';
 import '../auth/auth_controller.dart';
 import '../auth/auth_models.dart';
 import '../subscription/scan_quota_controller.dart';
@@ -140,6 +141,14 @@ abstract interface class ReleasableScanResultSource {
   void releaseImage(Uint8List imageBytes);
 }
 
+final scanLocalPremiumVerifiedProvider = Provider<bool>((ref) {
+  if (!ref.watch(appCommercialPolicyProvider).usesAppleSubscription) {
+    return false;
+  }
+  return ref.watch(subscriptionControllerProvider).isPro ||
+      ref.watch(scanQuotaControllerProvider).unlimited;
+});
+
 final scanResultSourceProvider = Provider<ScanResultSource>(
   (ref) => ApiScanResultSource(
     api: ref.watch(scanApiClientProvider),
@@ -147,9 +156,7 @@ final scanResultSourceProvider = Provider<ScanResultSource>(
     imagePicker: ImagePickerScanImagePicker(),
     cardRecognizer: createScanCardRecognizer(),
     appInfo: _readScanAppInfo,
-    localPremiumVerified: () =>
-        ref.read(subscriptionControllerProvider).isPro ||
-        ref.read(scanQuotaControllerProvider).unlimited,
+    localPremiumVerified: () => ref.read(scanLocalPremiumVerifiedProvider),
     onQuotaChanged: (quota) {
       if (ref.mounted) {
         ref

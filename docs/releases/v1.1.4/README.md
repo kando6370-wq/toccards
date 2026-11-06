@@ -13,6 +13,17 @@ v1.1.3 已原位归档。本版本承接 v1.1.3 之后的新增、变更、移�
 - v1.1.3 的 API、Admin、Flutter、Marketing 和生产部署结果均为历史证据；后续开发、测试和发布不得只因进入 v1.1.4 就推断为已完成。
 - 2026-11-05 的依赖、Node、Flutter/Dart、Gradle 和 Linux 镜像安全升级见 [技术栈安全升级](02-architecture/security-stack-upgrade.md)，源码、构建、dev/prod 与移动端发布分别记录。
 
+## Android 免费首版与双端数据隔离
+
+- [Android 免费首版增量 PRD v0.3 原件](00-product/Card_AI_Android_Free_First_Release_Incremental_PRD-3.md)：2026-11-05 产品输入，本次需求依据。
+- [Android 与 iOS 双端数据隔离方案原件](00-product/Android-iOS双端数据隔离方案.md)：2026-11-03 历史技术建议；与新版 PRD 冲突的全局账号状态、全账号删除按钮及导出建议不作为本期需求。
+- [结合当前项目的实施前评估](05-delivery/android-free-first-release-review.md)：2026-11-05 开始实现前的源码差距、待补规则、迁移与发布边界；其源码结论按评估基线理解，后续实现见下条合同。
+- [双端平台账号与免费首版实现合同](03-data-api/platform-accounts.md)：2026-11-05 起的账号、会话、删除、集中商业策略与测试／正式配置隔离实现；开发与验证状态按该文档记录，未执行远程迁移或发布。
+
+两份输入均按原始字节归档，不随实现修订。平台账号、删号与重新注册规则以新版 PRD 为准，原技术方案不代表当前已实施架构。
+
+2026-11-05 用户补充明确：Android 扫描业务逻辑沿用当前 iOS，只取消订阅校验及对应的累计免费扫描额度限制，不新增整批处理、持久化或跨设备恢复机制。此澄清优先于 PRD 中相关整批约束，详见[评估报告 0.2](05-delivery/android-free-first-release-review.md#02-扫描规则澄清2026-11-05)。
+
 ## 文档路由
 
 | 目录 | 记录范围 |

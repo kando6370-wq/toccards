@@ -16,10 +16,11 @@ describe("Portfolio item PostgreSQL pagination", () => {
     db = await PGliteDatabase.create();
     await db.exec(`
       CREATE TABLE "user" (id text PRIMARY KEY, status text NOT NULL);
-      CREATE TABLE anonymous_account (id text PRIMARY KEY, upgraded_user_id text);
+      CREATE TABLE platform_account (id text PRIMARY KEY, user_id text NOT NULL, platform text NOT NULL, status text NOT NULL);
+      CREATE TABLE anonymous_account (id text PRIMARY KEY, upgraded_user_id text, platform text NOT NULL, status text NOT NULL);
       CREATE TABLE session (
         id text PRIMARY KEY, owner_type text NOT NULL, owner_id text NOT NULL,
-        expires_at text NOT NULL, revoked_at text
+        platform text, user_id text, expires_at text NOT NULL, revoked_at text
       );
       CREATE TABLE collection_item (
         id text PRIMARY KEY, owner_type text NOT NULL, owner_id text NOT NULL,
@@ -32,11 +33,12 @@ describe("Portfolio item PostgreSQL pagination", () => {
         updated_at text NOT NULL
       );
       INSERT INTO "user" VALUES ('owner-1', 'active'), ('owner-2', 'active');
-      INSERT INTO anonymous_account VALUES ('anon-1', NULL), ('owner-1', NULL);
+      INSERT INTO platform_account VALUES ('owner-1', 'owner-1', 'ios', 'active'), ('owner-2', 'owner-2', 'ios', 'active');
+      INSERT INTO anonymous_account VALUES ('anon-1', NULL, 'ios', 'active'), ('owner-1', NULL, 'ios', 'active');
       INSERT INTO session VALUES
-        ('session-1', 'user', 'owner-1', '2099-01-01T00:00:00.000Z', NULL),
-        ('session-anon', 'anonymous', 'anon-1', '2099-01-01T00:00:00.000Z', NULL),
-        ('session-anon-same', 'anonymous', 'owner-1', '2099-01-01T00:00:00.000Z', NULL);
+        ('session-1', 'user', 'owner-1', 'ios', 'owner-1', '2099-01-01T00:00:00.000Z', NULL),
+        ('session-anon', 'anonymous', 'anon-1', 'ios', NULL, '2099-01-01T00:00:00.000Z', NULL),
+        ('session-anon-same', 'anonymous', 'owner-1', 'ios', NULL, '2099-01-01T00:00:00.000Z', NULL);
     `);
     for (const [id, ownerId, folderId, cardRef, createdAt, updatedAt, joinedAt] of [
       ["item-b", "owner-1", "main", "card-2", "2026-01-02T00:00:00.000Z", "2026-02-01T00:00:00.000Z", NOW],

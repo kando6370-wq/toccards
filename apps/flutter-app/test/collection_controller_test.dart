@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
@@ -19,6 +20,7 @@ import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/currency/currency_rate_api.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
+import 'package:kando_app/shared/platform/app_commercial_policy.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 import 'support/in_memory_auth_storage.dart';
@@ -29,6 +31,11 @@ import 'support/mock_card_detail_repository.dart';
 import 'support/mock_home_repository.dart';
 
 void main() {
+  setUp(() {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+  });
+
   test(
     'http repository maps real portfolio rows into collection dashboard because Collection must show backend-owned assets',
     () async {
@@ -1332,12 +1339,17 @@ ProviderContainer _collectionContainer({
   final storage = InMemoryAuthStorage();
   return ProviderContainer(
     overrides: [
+      appCommercialPolicyProvider.overrideWithValue(
+        const AppCommercialPolicy(isAndroidFreeLaunch: false),
+      ),
       authStorageProvider.overrideWithValue(storage),
       authRepositoryProvider.overrideWithValue(
         LocalPlaceholderAuthRepository(storage),
       ),
       if (authController != null)
         authControllerProvider.overrideWith(authController),
+      if (authController == null)
+        authControllerProvider.overrideWith(_ReadyCollectionAuthController.new),
       collectionRepositoryProvider.overrideWithValue(repository),
       if (currencyRateApi != null)
         currencyRateApiProvider.overrideWithValue(currencyRateApi),
@@ -1359,6 +1371,20 @@ ProviderContainer _collectionContainer({
         ),
       ],
     ],
+  );
+}
+
+class _ReadyCollectionAuthController extends AuthController {
+  @override
+  AuthState build() => const AuthState.ready(
+    session: AuthSession(
+      ownerType: OwnerType.user,
+      accessToken: 'collection-access',
+      refreshToken: 'collection-refresh',
+      userId: 'collection-user',
+      platform: AppPlatform.ios,
+      dataSpaceId: 'collection-space',
+    ),
   );
 }
 

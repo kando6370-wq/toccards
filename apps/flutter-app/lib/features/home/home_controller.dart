@@ -12,6 +12,7 @@ import 'package:kando_app/shared/currency/currency_rate_api.dart';
 import 'package:kando_app/shared/market/market_change.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
+import 'package:kando_app/shared/platform/app_commercial_policy.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 import 'home_models.dart';
@@ -1005,13 +1006,16 @@ class HomeController extends Notifier<HomeState> {
           session,
           days: 365,
           folderId: folderId,
-          localPremiumVerified: true,
+          localPremiumVerified: ref
+              .read(appCommercialPolicyProvider)
+              .usesAppleSubscription,
         )
         .timeout(const Duration(seconds: 25));
 
     try {
       return await request();
     } catch (error) {
+      if (ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) rethrow;
       if (!isEntitlementSyncRequired(error) ||
           !await ref.read(homeEntitlementRepairProvider)()) {
         rethrow;

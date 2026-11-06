@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/gestures.dart';
@@ -10,6 +11,7 @@ import 'package:kando_app/shared/ui/toast.dart';
 
 import '../../../shared/analytics/analytics_events.dart';
 import '../../../shared/analytics/app_analytics.dart';
+import '../../../shared/platform/app_commercial_policy.dart';
 import '../auth_controller.dart';
 import 'email_auth_pages.dart';
 import '../../profile/profile_actions.dart';
@@ -35,7 +37,7 @@ Future<void> showAuthSheet(
   if (waitForSuccessFeedback && feedback != null) await feedback;
 }
 
-class _AuthSheetDialog extends StatelessWidget {
+class _AuthSheetDialog extends ConsumerWidget {
   const _AuthSheetDialog({
     required this.animation,
     this.beforeEmailLoginDismiss,
@@ -45,7 +47,10 @@ class _AuthSheetDialog extends StatelessWidget {
   final Future<void> Function()? beforeEmailLoginDismiss;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final androidFreeLaunch = ref.watch(
+      appCommercialPolicyProvider.select((value) => value.isAndroidFreeLaunch),
+    );
     final overlayAnimation = CurvedAnimation(
       parent: animation,
       curve: Curves.easeOutCubic,
@@ -88,6 +93,7 @@ class _AuthSheetDialog extends StatelessWidget {
                   end: Offset.zero,
                 ).animate(sheetAnimation),
                 child: _AuthSheetFrame(
+                  androidFreeLaunch: androidFreeLaunch,
                   beforeEmailLoginDismiss: beforeEmailLoginDismiss,
                 ),
               ),
@@ -100,8 +106,12 @@ class _AuthSheetDialog extends StatelessWidget {
 }
 
 class _AuthSheetFrame extends StatefulWidget {
-  const _AuthSheetFrame({this.beforeEmailLoginDismiss});
+  const _AuthSheetFrame({
+    required this.androidFreeLaunch,
+    this.beforeEmailLoginDismiss,
+  });
 
+  final bool androidFreeLaunch;
   final Future<void> Function()? beforeEmailLoginDismiss;
 
   @override
@@ -113,10 +123,16 @@ class _AuthSheetFrameState extends State<_AuthSheetFrame> {
 
   @override
   Widget build(BuildContext context) {
-    final panelHeight = _showOAuthWarning ? 407.0 : 343.0;
+    final desiredPanelHeight = widget.androidFreeLaunch
+        ? (_showOAuthWarning ? 579.0 : 515.0)
+        : (_showOAuthWarning ? 407.0 : 343.0);
+    final frameHeight = math
+        .min(desiredPanelHeight + 56, MediaQuery.sizeOf(context).height)
+        .toDouble();
+    final panelHeight = math.max(0, frameHeight - 56).toDouble();
 
     return SizedBox(
-      height: panelHeight + 56,
+      height: frameHeight,
       child: Stack(
         alignment: Alignment.bottomCenter,
         children: [
@@ -129,6 +145,7 @@ class _AuthSheetFrameState extends State<_AuthSheetFrame> {
               key: const Key('auth-sheet-panel'),
               decoration: const BoxDecoration(),
               child: _AuthSheet(
+                androidFreeLaunch: widget.androidFreeLaunch,
                 beforeEmailLoginDismiss: widget.beforeEmailLoginDismiss,
                 onOAuthWarningChanged: (value) {
                   if (_showOAuthWarning != value) {
@@ -219,6 +236,7 @@ class _DownChevronPainter extends CustomPainter {
 
 class _FigmaAuthOptions extends StatelessWidget {
   const _FigmaAuthOptions({
+    required this.showApple,
     required this.onGooglePressed,
     required this.onApplePressed,
     required this.onEmailPressed,
@@ -226,6 +244,7 @@ class _FigmaAuthOptions extends StatelessWidget {
   });
 
   final VoidCallback? onGooglePressed;
+  final bool showApple;
   final VoidCallback? onApplePressed;
   final VoidCallback? onEmailPressed;
   final Widget agreement;
@@ -243,18 +262,19 @@ class _FigmaAuthOptions extends StatelessWidget {
           enabled: onGooglePressed != null,
           onTap: onGooglePressed,
         ),
-        _OptionButton(
-          key: const Key('auth-apple-option'),
-          icon: const Icon(
-            Icons.apple,
-            key: Key('auth-apple-icon'),
-            color: KandoColors.softAccent,
-            size: 28,
+        if (showApple)
+          _OptionButton(
+            key: const Key('auth-apple-option'),
+            icon: const Icon(
+              Icons.apple,
+              key: Key('auth-apple-icon'),
+              color: KandoColors.softAccent,
+              size: 28,
+            ),
+            label: 'Continue with Apple',
+            enabled: onApplePressed != null,
+            onTap: onApplePressed,
           ),
-          label: 'Continue with Apple',
-          enabled: onApplePressed != null,
-          onTap: onApplePressed,
-        ),
         _OptionButton(
           key: const Key('auth-email-option'),
           icon: const Icon(
@@ -345,7 +365,7 @@ class _AuthOptionsPanel extends StatelessWidget {
                 BorderSide(color: Color(0x14FFFFFF)),
               ),
             ),
-            child: Padding(
+            child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(24, 28, 24, 32),
               child: Column(
                 children: [
@@ -408,6 +428,7 @@ class _AuthHomeIndicator extends StatelessWidget {
 
 class _FigmaOAuthFailureOptions extends StatelessWidget {
   const _FigmaOAuthFailureOptions({
+    required this.showApple,
     required this.message,
     required this.onGooglePressed,
     required this.onApplePressed,
@@ -416,6 +437,7 @@ class _FigmaOAuthFailureOptions extends StatelessWidget {
   });
 
   final String message;
+  final bool showApple;
   final VoidCallback? onGooglePressed;
   final VoidCallback? onApplePressed;
   final VoidCallback? onEmailPressed;
@@ -447,18 +469,19 @@ class _FigmaOAuthFailureOptions extends StatelessWidget {
           enabled: onGooglePressed != null,
           onTap: onGooglePressed,
         ),
-        _OptionButton(
-          key: const Key('auth-apple-option'),
-          icon: const Icon(
-            Icons.apple,
-            key: Key('auth-apple-icon'),
-            color: KandoColors.softAccent,
-            size: 28,
+        if (showApple)
+          _OptionButton(
+            key: const Key('auth-apple-option'),
+            icon: const Icon(
+              Icons.apple,
+              key: Key('auth-apple-icon'),
+              color: KandoColors.softAccent,
+              size: 28,
+            ),
+            label: 'Continue with Apple',
+            enabled: onApplePressed != null,
+            onTap: onApplePressed,
           ),
-          label: 'Continue with Apple',
-          enabled: onApplePressed != null,
-          onTap: onApplePressed,
-        ),
       ],
     );
   }
@@ -466,10 +489,12 @@ class _FigmaOAuthFailureOptions extends StatelessWidget {
 
 class _AuthSheet extends ConsumerStatefulWidget {
   const _AuthSheet({
+    required this.androidFreeLaunch,
     required this.onOAuthWarningChanged,
     this.beforeEmailLoginDismiss,
   });
 
+  final bool androidFreeLaunch;
   final ValueChanged<bool> onOAuthWarningChanged;
   final Future<void> Function()? beforeEmailLoginDismiss;
 
@@ -505,29 +530,58 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final agreement = _AgreementText(
+    final showApple = !widget.androidFreeLaunch;
+    final agreementText = _AgreementText(
       termsRecognizer: _termsRecognizer,
       privacyRecognizer: _privacyRecognizer,
     );
+    final agreement = showApple
+        ? agreementText
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Your collections and other app data are separate on Android '
+                'and iOS. Purchases and subscription benefits do not transfer '
+                'between platforms.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: KandoColors.mutedText, fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Your verified email and password are shared across platforms.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: KandoColors.mutedText, fontSize: 13),
+              ),
+              const SizedBox(height: 20),
+              agreementText,
+            ],
+          );
     if (_showOAuthWarning) {
       return _FigmaOAuthFailureOptions(
+        showApple: showApple,
         message: _errorText ?? authAuthorizationFailedMessage,
         onGooglePressed: _loading ? null : _continueWithGoogle,
-        onApplePressed: _loading ? null : _continueWithApple,
+        onApplePressed: showApple && !_loading ? _continueWithApple : null,
         onEmailPressed: _loading ? null : _openEmailAuthPage,
         agreement: agreement,
       );
     }
     if (!_showOAuthWarning && _errorText == null) {
       return _FigmaAuthOptions(
+        showApple: showApple,
         onGooglePressed: _loading ? null : _continueWithGoogle,
-        onApplePressed: _loading ? null : _continueWithApple,
+        onApplePressed: showApple && !_loading ? _continueWithApple : null,
         onEmailPressed: _loading ? null : _openEmailAuthPage,
         agreement: agreement,
       );
     }
 
-    final options = [_googleOption(), _appleOption(), _emailOption()];
+    final options = [
+      _googleOption(),
+      if (showApple) _appleOption(),
+      _emailOption(),
+    ];
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 28, 24, 57),
@@ -559,6 +613,7 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
     OverlayEntry? loadingOverlay;
     return _run(
       () async {
+        if (!await _confirmGuestDataSeparation()) return;
         try {
           await ref
               .read(authControllerProvider.notifier)
@@ -584,6 +639,7 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
     OverlayEntry? loadingOverlay;
     return _run(
       () async {
+        if (!await _confirmGuestDataSeparation()) return;
         try {
           await ref
               .read(authControllerProvider.notifier)
@@ -643,6 +699,8 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
   }
 
   Future<void> _openEmailAuthPage() async {
+    if (!await _confirmGuestDataSeparation()) return;
+    if (!mounted) return;
     final optionsRoute = ModalRoute.of(context)!;
     final navigator = Navigator.of(context);
     final successMessage = await showEmailAuthPage(
@@ -699,6 +757,29 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
         }
       });
     }
+  }
+
+  Future<bool> _confirmGuestDataSeparation() async {
+    if (!widget.androidFreeLaunch) {
+      return true;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => KandoConfirmModal(
+        title: 'Continue?',
+        message: 'Guest data is kept.\nIt will not merge.',
+        icon: Icons.person_outline,
+        confirmLabel: 'Continue',
+        cancelLabel: 'Cancel',
+        confirmType: KandoModalButtonType.primary,
+        compact: true,
+        dense: true,
+        onCancel: () => Navigator.of(context).pop(false),
+        onConfirm: () => Navigator.of(context).pop(true),
+      ),
+    );
+    return confirmed == true;
   }
 
   Future<void> _run(

@@ -297,8 +297,8 @@ class FakeD1Statement {
 
     if (sql.includes("WITH accounts AS")) {
       const rows = adminUserResults(this.db, this.values);
-      const pageSize = Number(this.values[13] ?? rows.length);
-      const offset = Number(this.values[14] ?? 0);
+      const pageSize = Number(this.values[14] ?? rows.length);
+      const offset = Number(this.values[15] ?? 0);
       return okResult<T>(rows.slice(offset, offset + pageSize) as T[]);
     }
 
@@ -382,22 +382,10 @@ class FakeD1Statement {
     }
 
     if (sql.startsWith("UPDATE session SET revoked_at")) {
-      const [revokedAt, id] = this.values as [string, string];
-      const session = this.db.sessions.find((row) => row.id === id && row.revoked_at === null);
-      if (session) session.revoked_at = revokedAt;
-      return okResult<T>(undefined, session ? 1 : 0);
-    }
-
-    if (sql.startsWith("UPDATE user SET status = 'disabled'")) {
-      const [updatedAt, id] = this.values as [string, string];
-      const user = this.db.users.find(
-        (row) => row.id === id && (row.status ?? "active") === "active",
-      );
-      if (user) {
-        user.status = "disabled";
-        user.updated_at = updatedAt;
-      }
-      return okResult<T>(undefined, user ? 1 : 0);
+      const [revokedAt, target] = this.values as [string, string];
+      const sessions = this.db.sessions.filter((row) => row.id === target && row.revoked_at === null);
+      for (const session of sessions) session.revoked_at = revokedAt;
+      return okResult<T>(undefined, sessions.length);
     }
 
     if (sql.startsWith("UPDATE feedback_ticket SET status")) {
@@ -644,35 +632,6 @@ describe("admin routes", () => {
       page: 1,
       page_size: 8,
     });
-  });
-
-  it("allows only super_admin to disable users because account shutdown is high risk", async () => {
-    const env = createTestEnv();
-    await seedAdmin(env, "operator-1", "operator@example.com", "correct-password", "operator");
-    await seedAdmin(env, "super-1", "super@example.com", "correct-password", "super_admin");
-    env.DB.users.push(userRow("user-disable", "disable@example.com"));
-    const operatorLogin = await loginAdmin(env, "operator@example.com", "correct-password");
-    const superLogin = await loginAdmin(env, "super@example.com", "correct-password");
-
-    const operatorResponse = await requestAdmin(
-      env,
-      "/users/user/user-disable/disable",
-      "PATCH",
-      {},
-      operatorLogin.data.access_token,
-    );
-    const superResponse = await requestAdmin(
-      env,
-      "/users/user/user-disable/disable",
-      "PATCH",
-      {},
-      superLogin.data.access_token,
-    );
-
-    expect(operatorResponse.status).toBe(403);
-    expect(superResponse.status).toBe(200);
-    expect(env.DB.users[0]?.status).toBe("disabled");
-    expect(env.DB.users[0]?.deleted_at).toBeNull();
   });
 
   it("lets operators advance feedback with UI processing states because the new console has only pending, processed, and ignored", async () => {
@@ -935,9 +894,8 @@ describe("admin routes", () => {
     expect(usersSql).toContain(
       "ORDER BY CASE ai.provider WHEN 'google' THEN 1 WHEN 'apple' THEN 2 ELSE 3 END, ai.id ASC LIMIT 1",
     );
-    expect(usersSql).toContain(
-      "ORDER BY sr.created_at DESC, sr.id ASC LIMIT 1",
-    );
+    expect(usersSql).toContain("FROM platform_account pa");
+    expect(usersSql).not.toContain("FROM scan_record sr");
     expect(usersSql).toContain(
       "ORDER BY install.last_seen_at DESC, install.first_seen_at DESC, install.installation_id ASC LIMIT 1",
     );
@@ -1339,7 +1297,7 @@ function userRow(
 }
 
 function adminUserResults(db: FakeD1, values: unknown[]) {
-  const [type, , q, , , identity, , platform, , dateFrom, , dateTo] = values as Array<string | null>;
+  const [type, , q, , , , identity, , platform, , dateFrom, , dateTo] = values as Array<string | null>;
   const latestPlatform = (accountType: "user" | "anonymous", id: string) =>
     [...db.scanRecords]
       .filter((row) => row.owner_type === accountType && row.owner_id === id)

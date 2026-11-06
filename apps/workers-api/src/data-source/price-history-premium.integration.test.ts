@@ -1,30 +1,24 @@
 import { signAccessToken } from "@kando/auth-core";
-import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Env } from "../env";
+import { PGliteDatabase } from "../test-support/pglite-database";
 import type { DataSourceAdapter } from "./adapter";
 import { createDataSourceRoutes } from "./routes";
 
 const JWT_SECRET = "price-history-premium-test";
 
 describe("Extended card price history", () => {
-  let mf: Miniflare;
-  let db: D1Database;
+  let db: PGliteDatabase;
   let env: Env;
 
   beforeEach(async () => {
-    mf = new Miniflare({
-      modules: true,
-      script: "export default { fetch() { return new Response('ok') } }",
-      compatibilityDate: "2024-11-01",
-      d1Databases: ["DB"],
-    });
-    db = await mf.getD1Database("DB");
+    db = await PGliteDatabase.create();
     for (const statement of SCHEMA) await db.prepare(statement).run();
     await db.batch([
-      db.prepare("INSERT INTO user VALUES ('user-1', 'active')"),
-      db.prepare("INSERT INTO session VALUES ('session-a', 'user', 'user-1', '2099-01-01T00:00:00.000Z', NULL)"),
-      db.prepare("INSERT INTO session VALUES ('session-b', 'user', 'user-1', '2099-01-01T00:00:00.000Z', NULL)"),
+      db.prepare("INSERT INTO \"user\" VALUES ('user-1', 'active')"),
+      db.prepare("INSERT INTO platform_account VALUES ('user-1', 'user-1', 'ios', 'active')"),
+      db.prepare("INSERT INTO session VALUES ('session-a', 'user', 'user-1', 'ios', 'user-1', '2099-01-01T00:00:00.000Z', NULL)"),
+      db.prepare("INSERT INTO session VALUES ('session-b', 'user', 'user-1', 'ios', 'user-1', '2099-01-01T00:00:00.000Z', NULL)"),
     ]);
     env = {
       DB: db,
@@ -35,7 +29,7 @@ describe("Extended card price history", () => {
     };
   });
 
-  afterEach(async () => mf.dispose());
+  afterEach(async () => db.close());
 
   it("keeps 1D through 3M public because only extended history is Premium", async () => {
     expect((await request("/cards/100/price-series?days=90")).status).toBe(200);
@@ -134,8 +128,9 @@ async function errorCode(response: Response): Promise<string> {
 }
 
 const SCHEMA = [
-  "CREATE TABLE user (id TEXT PRIMARY KEY, status TEXT NOT NULL)",
-  "CREATE TABLE session (id TEXT PRIMARY KEY, owner_type TEXT NOT NULL, owner_id TEXT NOT NULL, expires_at TEXT NOT NULL, revoked_at TEXT)",
+  "CREATE TABLE \"user\" (id TEXT PRIMARY KEY, status TEXT NOT NULL)",
+  "CREATE TABLE platform_account (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, platform TEXT NOT NULL, status TEXT NOT NULL)",
+  "CREATE TABLE session (id TEXT PRIMARY KEY, owner_type TEXT NOT NULL, owner_id TEXT NOT NULL, platform TEXT, user_id TEXT, expires_at TEXT NOT NULL, revoked_at TEXT)",
   "CREATE TABLE billing_purchase_chain (id TEXT PRIMARY KEY, environment TEXT NOT NULL, product_id TEXT NOT NULL, status TEXT NOT NULL, expires_at TEXT, revoked_at TEXT)",
   "CREATE TABLE billing_session_entitlement_grant (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, purchase_chain_id TEXT NOT NULL, entitlement_id TEXT NOT NULL, status TEXT NOT NULL, expires_at TEXT, revoked_at TEXT)",
 ];

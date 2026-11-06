@@ -8,6 +8,7 @@ import '../../shared/api/app_http_transport.dart';
 import '../../shared/api/api_request_id.dart';
 import 'auth_models.dart';
 import 'auth_storage.dart';
+import 'android_play_integrity.dart';
 
 const oauthAuthorizationFailedMessage =
     'Authorization failed. Please try again.';
@@ -97,10 +98,13 @@ class HttpAuthRepository implements AuthRepository {
     this._dio,
     this._storage, {
     this.requestDeadline = authRequestDeadline,
-  });
+    AndroidPlayIntegrity androidPlayIntegrity =
+        const MethodChannelAndroidPlayIntegrity(),
+  }) : _androidPlayIntegrity = androidPlayIntegrity;
 
   final Dio _dio;
   final AuthStorage _storage;
+  final AndroidPlayIntegrity _androidPlayIntegrity;
   final Duration requestDeadline;
 
   @override
@@ -116,10 +120,20 @@ class HttpAuthRepository implements AuthRepository {
   @override
   Future<AuthSession> createAnonymousSession(String deviceId) async {
     try {
+      final platform = _installationPlatform();
+      final integrity = await _androidPlayIntegrity.createEvidence(
+        deviceId: deviceId,
+      );
       final data = await _requestData(
         'POST',
         '/auth/anonymous',
-        body: {'device_id': deviceId, 'platform': _installationPlatform()},
+        body: {
+          'device_id': deviceId,
+          'platform': platform,
+          if (integrity?.token?.isNotEmpty == true)
+            'integrity_token': integrity!.token,
+          if (integrity != null) 'request_nonce': integrity.requestNonce,
+        },
       );
       return _anonymousSession(data);
     } on DioException {
@@ -186,10 +200,12 @@ class HttpAuthRepository implements AuthRepository {
 
   @override
   Future<void> sendRegisterCode(String email) async {
+    final anonymousSession = await _currentAnonymousSession();
     await _requestVoid(
       'POST',
       '/auth/register/send-code',
-      body: {'email': email},
+      body: {'email': email, 'platform': _installationPlatform()},
+      session: anonymousSession,
     );
   }
 
@@ -198,10 +214,12 @@ class HttpAuthRepository implements AuthRepository {
     required String email,
     required String code,
   }) async {
+    final anonymousSession = await _currentAnonymousSession();
     await _requestVoid(
       'POST',
       '/auth/register/verify-code',
-      body: {'email': email, 'code': code},
+      body: {'email': email, 'code': code, 'platform': _installationPlatform()},
+      session: anonymousSession,
     );
   }
 
@@ -222,6 +240,7 @@ class HttpAuthRepository implements AuthRepository {
       'email': email,
       'code': code,
       'password': password,
+      'platform': _installationPlatform(),
     };
     if (anonymousId != null) {
       body['anonymous_id'] = anonymousId;
@@ -241,10 +260,16 @@ class HttpAuthRepository implements AuthRepository {
     required String email,
     required String password,
   }) async {
+    final anonymousSession = await _currentAnonymousSession();
     final data = await _requestData(
       'POST',
       '/auth/login',
-      body: {'email': email, 'password': password},
+      body: {
+        'email': email,
+        'password': password,
+        'platform': _installationPlatform(),
+      },
+      session: anonymousSession,
     );
     return _userSession(data);
   }
@@ -259,6 +284,7 @@ class HttpAuthRepository implements AuthRepository {
       '/auth/oauth/google/callback',
       {
         'id_token': idToken,
+        'platform': _installationPlatform(),
         if (anonymousId != null) 'anonymous_id': anonymousId,
       },
       session: anonymousSession?.isAnonymous == true ? anonymousSession : null,
@@ -277,6 +303,7 @@ class HttpAuthRepository implements AuthRepository {
       {
         'code': code,
         'id_token': idToken,
+        'platform': _installationPlatform(),
         if (anonymousId != null) 'anonymous_id': anonymousId,
       },
       session: anonymousSession?.isAnonymous == true ? anonymousSession : null,
@@ -344,6 +371,11 @@ class HttpAuthRepository implements AuthRepository {
     }
   }
 
+  Future<AuthSession?> _currentAnonymousSession() async {
+    final session = await _storage.readSession();
+    return session?.isAnonymous == true ? session : null;
+  }
+
   Future<AuthSession?> _readCurrentSession(
     AuthSession session, {
     Duration? requestTimeout,
@@ -357,13 +389,17 @@ class HttpAuthRepository implements AuthRepository {
       );
       final ownerType = _requiredString(data['owner_type']);
       if (ownerType == 'anonymous') {
+        final scope = _scopeFromResponse(data, previous: session);
         return AuthSession(
           ownerType: OwnerType.anonymous,
           accessToken: session.accessToken,
           refreshToken: session.refreshToken,
           anonymousId: _nullableString(data['anonymous_id']),
+          platform: scope.platform,
+          dataSpaceId: scope.dataSpaceId,
         );
       }
+      final scope = _scopeFromResponse(data, previous: session);
       return AuthSession(
         ownerType: OwnerType.user,
         accessToken: session.accessToken,
@@ -371,6 +407,8 @@ class HttpAuthRepository implements AuthRepository {
         userId: _nullableString(data['user_id']),
         email: _nullableString(data['email']),
         loginMethod: _loginMethod(data['login_method']),
+        platform: scope.platform,
+        dataSpaceId: scope.dataSpaceId,
       );
     } on AuthApiException catch (error) {
       if (error.code == 'UNAUTHORIZED') return null;
@@ -391,6 +429,7 @@ class HttpAuthRepository implements AuthRepository {
         body: {'refresh_token': session.refreshToken},
         requestTimeout: requestTimeout,
       );
+      final scope = _scopeFromResponse(data, previous: session);
       return AuthSession(
         ownerType: session.ownerType,
         accessToken: _requiredString(data['access_token']),
@@ -400,6 +439,8 @@ class HttpAuthRepository implements AuthRepository {
         userId: session.userId,
         email: session.email,
         loginMethod: session.loginMethod,
+        platform: scope.platform,
+        dataSpaceId: scope.dataSpaceId,
       );
     } on AuthApiException catch (error) {
       if (error.code == 'UNAUTHORIZED') return null;
@@ -494,15 +535,19 @@ class HttpAuthRepository implements AuthRepository {
   }
 
   AuthSession _anonymousSession(Map<String, Object?> data) {
+    final scope = _scopeFromResponse(data);
     return AuthSession(
       ownerType: OwnerType.anonymous,
       accessToken: _requiredString(data['access_token']),
       refreshToken: _requiredString(data['refresh_token']),
       anonymousId: _requiredString(data['anonymous_id']),
+      platform: scope.platform,
+      dataSpaceId: scope.dataSpaceId,
     );
   }
 
   AuthSession _userSession(Map<String, Object?> data) {
+    final scope = _scopeFromResponse(data);
     return AuthSession(
       ownerType: OwnerType.user,
       accessToken: _requiredString(data['access_token']),
@@ -510,6 +555,8 @@ class HttpAuthRepository implements AuthRepository {
       userId: _requiredString(data['user_id']),
       email: _nullableString(data['email']),
       loginMethod: _requiredLoginMethod(data['login_method']),
+      platform: scope.platform,
+      dataSpaceId: scope.dataSpaceId,
     );
   }
 
@@ -530,6 +577,58 @@ class HttpAuthRepository implements AuthRepository {
     };
   }
 
+  AppPlatform? _platform(Object? value) {
+    return switch (_nullableString(value)?.toLowerCase()) {
+      'ios' => AppPlatform.ios,
+      'android' => AppPlatform.android,
+      _ => null,
+    };
+  }
+
+  ({AppPlatform? platform, String? dataSpaceId}) _scopeFromResponse(
+    Map<String, Object?> data, {
+    AuthSession? previous,
+  }) {
+    final responsePlatform = _platform(data['platform']);
+    final responseDataSpaceId = _nullableString(data['data_space_id']);
+    final appPlatform = _currentAppPlatform();
+    if (appPlatform == AppPlatform.android) {
+      if (responsePlatform != AppPlatform.android ||
+          responseDataSpaceId == null) {
+        throw const AuthApiException(
+          'This Android app requires a platform-isolated server session.',
+          code: 'PLATFORM_SESSION_REQUIRED',
+        );
+      }
+    } else if (responsePlatform != null &&
+        responsePlatform != AppPlatform.ios) {
+      throw const AuthApiException(
+        'The server returned a session for another platform.',
+        code: 'PLATFORM_SESSION_MISMATCH',
+      );
+    }
+    if (previous?.platform != null &&
+        responsePlatform != null &&
+        previous!.platform != responsePlatform) {
+      throw const AuthApiException(
+        'The refreshed session changed platform.',
+        code: 'PLATFORM_SESSION_MISMATCH',
+      );
+    }
+    if (previous?.dataSpaceId != null &&
+        responseDataSpaceId != null &&
+        previous!.dataSpaceId != responseDataSpaceId) {
+      throw const AuthApiException(
+        'The refreshed session changed data space.',
+        code: 'DATA_SPACE_SESSION_MISMATCH',
+      );
+    }
+    return (
+      platform: responsePlatform ?? previous?.platform ?? appPlatform,
+      dataSpaceId: responseDataSpaceId ?? previous?.dataSpaceId,
+    );
+  }
+
   String _requiredString(Object? value) {
     final normalized = _nullableString(value);
     if (normalized == null) {
@@ -546,13 +645,23 @@ class HttpAuthRepository implements AuthRepository {
 }
 
 String _installationPlatform() {
-  if (kIsWeb) return 'Web';
+  if (kIsWeb) {
+    throw UnsupportedError('Authentication is supported only on iOS/Android.');
+  }
   return switch (defaultTargetPlatform) {
-    TargetPlatform.iOS => 'iOS',
-    TargetPlatform.android => 'Android',
-    TargetPlatform.macOS => 'macOS',
-    TargetPlatform.windows => 'Windows',
-    TargetPlatform.linux => 'Linux',
-    TargetPlatform.fuchsia => 'Unknown',
+    TargetPlatform.iOS => 'ios',
+    TargetPlatform.android => 'android',
+    _ => throw UnsupportedError(
+      'Authentication is supported only on iOS/Android.',
+    ),
+  };
+}
+
+AppPlatform? _currentAppPlatform() {
+  if (kIsWeb) return null;
+  return switch (defaultTargetPlatform) {
+    TargetPlatform.iOS => AppPlatform.ios,
+    TargetPlatform.android => AppPlatform.android,
+    _ => null,
   };
 }

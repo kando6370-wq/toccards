@@ -24,6 +24,7 @@ import '../features/subscription/startup_subscription_gate.dart';
 import '../shared/analytics/analytics_events.dart';
 import '../shared/analytics/app_analytics.dart';
 import '../shared/ui/kando_bottom_sheet_page.dart';
+import '../shared/platform/app_commercial_policy.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
@@ -37,12 +38,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               child: HomePage(),
             ),
           );
-          return const OnboardingGate(
-            home: StartupSubscriptionGate(source: 'cold_start', home: home),
-            firstLaunchHome: StartupSubscriptionGate(
-              source: 'onboarding',
-              home: home,
-            ),
+          final policy = ref.read(appCommercialPolicyProvider);
+          return OnboardingGate(
+            home: policy.usesAppleSubscription
+                ? const StartupSubscriptionGate(
+                    source: 'cold_start',
+                    home: home,
+                  )
+                : home,
+            firstLaunchHome: policy.usesAppleSubscription
+                ? const StartupSubscriptionGate(
+                    source: 'onboarding',
+                    home: home,
+                  )
+                : home,
           );
         },
       ),
@@ -151,6 +160,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/subscription',
+        redirect: (context, state) =>
+            ref.read(appCommercialPolicyProvider).usesAppleSubscription
+            ? null
+            : '/home',
         pageBuilder: (context, state) {
           final sheet = state.uri.queryParameters['presentation'] == 'sheet';
           final source = state.uri.queryParameters['source'];
@@ -187,6 +200,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/subscription/success',
+        redirect: (context, state) =>
+            ref.read(appCommercialPolicyProvider).usesAppleSubscription
+            ? null
+            : '/home',
         builder: (context, state) => SubscriptionSuccessPage(
           source: state.uri.queryParameters['source'],
           entrySource: state.uri.queryParameters['entry_source'],

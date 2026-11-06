@@ -14,6 +14,10 @@ import {
   appleDatabaseEnvironments,
 } from "../entitlements/apple-signed-data";
 import { getBearerToken, hasSigningSecret } from "../auth/http-auth";
+import {
+  deletePlatformOwner,
+  type DeletablePlatformOwner,
+} from "../auth/account";
 import { cardImageUrl } from "../card-image-url";
 import { createId } from "../id";
 import { createSubscriptionConfigAdminRoutes } from "../subscription-config/routes";
@@ -277,33 +281,27 @@ const REVOKE_SESSION_SQL = `
 
 const ADMIN_USERS_FILTERED_SQL = `
   WITH accounts AS (
-    SELECT 'user' AS account_type, u.id, u.email, NULL AS device_id, u.created_at,
-      CASE WHEN u.status = 'active' THEN 'active' ELSE 'disabled' END AS status,
+    SELECT 'user' AS account_type, pa.id, pa.user_id, u.email, NULL AS device_id,
+      pa.created_at, pa.status, u.status AS base_user_status,
       COALESCE((
-        SELECT ai.provider FROM auth_identity ai WHERE ai.user_id = u.id
+        SELECT ai.provider FROM auth_identity ai WHERE ai.user_id = pa.user_id
         ORDER BY CASE ai.provider WHEN 'google' THEN 1 WHEN 'apple' THEN 2 ELSE 3 END, ai.id ASC LIMIT 1
       ), 'email') AS identity,
-      COALESCE((
-        SELECT sr.platform FROM scan_record sr
-        WHERE sr.owner_type = 'user' AND sr.owner_id = u.id
-        ORDER BY sr.created_at DESC, sr.id ASC LIMIT 1
-      ), 'Unknown') AS platform,
+      pa.platform,
       COALESCE((
         SELECT install.country_code FROM app_installation install
-        WHERE install.uid = u.id
+        WHERE install.uid = pa.id
           AND NULLIF(TRIM(install.country_code), '') IS NOT NULL
         ORDER BY install.last_seen_at DESC, install.first_seen_at DESC, install.installation_id ASC LIMIT 1
       ), 'Unknown') AS country
-    FROM "user" u
+    FROM platform_account pa
+    INNER JOIN "user" u ON u.id = pa.user_id
     UNION ALL
-    SELECT 'anonymous', a.id, NULL, a.device_id, a.created_at,
+    SELECT 'anonymous', a.id, NULL, NULL, a.device_id, a.created_at,
       CASE WHEN a.upgraded_user_id IS NULL THEN 'guest' ELSE 'upgraded' END,
+      NULL,
       'anonymous',
-      COALESCE((
-        SELECT sr.platform FROM scan_record sr
-        WHERE sr.owner_type = 'anonymous' AND sr.owner_id = a.id
-        ORDER BY sr.created_at DESC, sr.id ASC LIMIT 1
-      ), 'Unknown'),
+      a.platform,
       COALESCE((
         SELECT install.country_code FROM app_installation install
         WHERE install.uid = a.id
@@ -314,7 +312,9 @@ const ADMIN_USERS_FILTERED_SQL = `
   )
   SELECT * FROM accounts
   WHERE (CAST(? AS text) IS NULL OR account_type = ?)
-    AND (CAST(? AS text) IS NULL OR lower(id) LIKE '%' || ? || '%' OR lower(COALESCE(email, device_id, '')) LIKE '%' || ? || '%')
+    AND (CAST(? AS text) IS NULL OR lower(id) LIKE '%' || ? || '%'
+      OR lower(COALESCE(user_id, '')) LIKE '%' || ? || '%'
+      OR lower(COALESCE(email, device_id, '')) LIKE '%' || ? || '%')
     AND (CAST(? AS text) IS NULL OR identity = ?)
     AND (CAST(? AS text) IS NULL OR lower(platform) = ?)
     AND (CAST(? AS text) IS NULL OR created_at >= ?)
@@ -364,22 +364,30 @@ const SELECT_INSTALLATION_ROWS_SQL = `
 `;
 
 const SELECT_USER_DETAIL_SQL = `
-  SELECT id, email, display_name, created_at, updated_at, status, deleted_at
-  FROM "user"
-  WHERE id = ?
+  SELECT pa.id, pa.user_id, pa.platform, pa.status, pa.created_at, pa.updated_at,
+    pa.deleted_at, u.email, u.display_name, u.status AS base_user_status,
+    u.deleted_at AS base_user_deleted_at
+  FROM platform_account pa
+  INNER JOIN "user" u ON u.id = pa.user_id
+  WHERE pa.id = ?
   LIMIT 1
 `;
 
 const SELECT_ANONYMOUS_DETAIL_SQL = `
-  SELECT id, device_id, created_at, upgraded_user_id
+  SELECT id, device_id, platform, status, created_at, deleted_at, upgraded_user_id
   FROM anonymous_account
   WHERE id = ?
   LIMIT 1
 `;
 
 const DISABLE_USER_SQL = `
-  UPDATE "user" SET status = 'disabled', updated_at = ?
+  UPDATE platform_account SET status = 'disabled', updated_at = ?
   WHERE id = ? AND status = 'active'
+`;
+
+const REVOKE_PLATFORM_SESSIONS_SQL = `
+  UPDATE session SET revoked_at = ?
+  WHERE owner_type = 'user' AND owner_id = ? AND revoked_at IS NULL
 `;
 
 const FEEDBACK_FILTER_SQL = `
@@ -961,7 +969,7 @@ adminRoutes.get("/users", async (c) => {
   }
   const offset = (page - 1) * pageSize;
   const filterBindings = [
-    type, type, q, q, q, identity, identity, platform, platform,
+    type, type, q, q, q, q, identity, identity, platform, platform,
     dateFrom, dateFrom, dateTo, dateTo,
   ] as const;
   const [{ results = [] }, count] = await Promise.all([
@@ -980,7 +988,10 @@ adminRoutes.get("/users", async (c) => {
 });
 
 adminRoutes.get("/users/:accountType/:id", async (c) => {
-  const accountType = c.req.param("accountType");
+  const accountTypeValue = c.req.param("accountType");
+  const accountType = accountTypeValue === "user" || accountTypeValue === "anonymous"
+    ? accountTypeValue
+    : null;
   const id = c.req.param("id");
   const row =
     accountType === "user"
@@ -1014,9 +1025,82 @@ adminRoutes.patch("/users/user/:id/disable", async (c) => {
   const existing = await c.env.DB.prepare(SELECT_USER_DETAIL_SQL).bind(id).first();
   if (!existing) return c.json(NOT_FOUND_RESPONSE, 404);
 
-  await c.env.DB.prepare(DISABLE_USER_SQL).bind(new Date().toISOString(), id).run();
+  const now = new Date().toISOString();
+  await c.env.DB.batch([
+    c.env.DB.prepare(DISABLE_USER_SQL).bind(now, id),
+    c.env.DB.prepare(REVOKE_PLATFORM_SESSIONS_SQL).bind(now, id),
+  ]);
   const row = await c.env.DB.prepare(SELECT_USER_DETAIL_SQL).bind(id).first();
   return c.json({ success: true, data: row });
+});
+
+adminRoutes.delete("/users/:accountType/:id/account", async (c) => {
+  const admin = c.get("admin");
+  if (admin.role !== "super_admin") {
+    return c.json(FORBIDDEN_RESPONSE, 403);
+  }
+  const body = await readJsonObject(c.req);
+  const platform = body.platform === "ios" || body.platform === "android"
+    ? body.platform
+    : null;
+  if (platform === null || body.confirmation !== "DELETE_PLATFORM_ACCOUNT") {
+    return c.json(VALIDATION_ERROR_RESPONSE, 422);
+  }
+  const accountTypeValue = c.req.param("accountType");
+  const accountType = accountTypeValue === "user" || accountTypeValue === "anonymous"
+    ? accountTypeValue
+    : null;
+  const id = c.req.param("id");
+  const target = accountType === "user"
+    ? await c.env.DB.prepare(SELECT_USER_DETAIL_SQL).bind(id).first<{
+        id: string; user_id: string; platform: "ios" | "android"; status: string;
+      }>()
+    : accountType === "anonymous"
+      ? await c.env.DB.prepare(SELECT_ANONYMOUS_DETAIL_SQL).bind(id).first<{
+          id: string; platform: "ios" | "android"; status: string;
+        }>()
+      : null;
+  if (accountType === null || !target) return c.json(NOT_FOUND_RESPONSE, 404);
+  if (target.platform !== platform) {
+    return c.json(VALIDATION_ERROR_RESPONSE, 422);
+  }
+  const requestId = c.req.header("X-Request-ID") ?? createId();
+  const audit = (outcome: string) => ({
+    actor_admin_id: admin.admin_id,
+    target_account_type: accountType,
+    target_owner_id: target.id,
+    platform,
+    request_id: requestId,
+    outcome,
+  });
+  if (target.status === "deleted") {
+    console.info("admin_platform_account_delete", JSON.stringify(audit("already_deleted")));
+    return c.json({
+      success: true,
+      data: { account_type: accountType, id: target.id, platform, status: "deleted" },
+    });
+  }
+  const owner: DeletablePlatformOwner = {
+    owner_type: accountType,
+    owner_id: target.id,
+    user_id: accountType === "user" && "user_id" in target &&
+        typeof target.user_id === "string"
+      ? target.user_id
+      : null,
+    platform,
+  };
+  console.info("admin_platform_account_delete", JSON.stringify(audit("started")));
+  try {
+    await deletePlatformOwner(c.env, owner, new Date());
+  } catch {
+    console.error("admin_platform_account_delete", JSON.stringify(audit("failed")));
+    return c.json(INTERNAL_ERROR_RESPONSE, 500);
+  }
+  console.info("admin_platform_account_delete", JSON.stringify(audit("succeeded")));
+  return c.json({
+    success: true,
+    data: { account_type: accountType, id: target.id, platform, status: "deleted" },
+  });
 });
 
 adminRoutes.get("/feedbacks", async (c) => {

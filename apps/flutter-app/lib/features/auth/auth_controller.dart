@@ -11,6 +11,7 @@ import 'auth_storage.dart';
 import '../../shared/api/api_request_log.dart';
 import '../../shared/api/app_http_transport.dart';
 import '../../shared/debug/app_debug_overlay.dart';
+import '../../shared/platform/app_commercial_policy.dart';
 
 const authAuthorizationFailedMessage = oauthAuthorizationFailedMessage;
 const authAccountActionFailedMessage =
@@ -25,6 +26,10 @@ class AuthActionException implements Exception {
 
   @override
   String toString() => message;
+}
+
+class AuthPostDeleteSessionException implements Exception {
+  const AuthPostDeleteSessionException();
 }
 
 final authStorageProvider = Provider<AuthStorage>((ref) {
@@ -149,10 +154,16 @@ class AuthController extends Notifier<AuthState> {
         await _repository.deleteCurrentAccount(session);
         await _replaceWithAnonymous();
       } else {
-        final anonymousSession = await _validatedPreviousAnonymousOrCreate();
         await _repository.deleteCurrentAccount(session);
-        await _repository.persistSession(anonymousSession);
-        state = AuthState.ready(session: anonymousSession);
+        state = const AuthState.ready(session: null);
+        try {
+          await _repository.clearAnonymousSession();
+          final anonymousSession = await _createAnonymousSession();
+          await _repository.persistSession(anonymousSession);
+          state = AuthState.ready(session: anonymousSession);
+        } on Object {
+          throw const AuthPostDeleteSessionException();
+        }
       }
     });
   }
@@ -293,7 +304,18 @@ class AuthController extends Notifier<AuthState> {
   }
 
   Future<void> _loadInitialSession(int generation) async {
-    final storedSession = await _repository.currentSessionFromStorage();
+    var storedSession = await _repository.currentSessionFromStorage();
+    if (ref.read(appCommercialPolicyProvider).isAndroidFreeLaunch &&
+        storedSession != null &&
+        (storedSession.platform != AppPlatform.android ||
+            storedSession.dataSpaceId == null)) {
+      if (storedSession.isUser) {
+        await _storage.clearUserSession();
+      } else {
+        await _storage.clearAnonymousSession();
+      }
+      storedSession = null;
+    }
     final hasUsableAccessToken =
         storedSession != null && _hasUsableAccessToken(storedSession);
     final restoredAnonymousSession =

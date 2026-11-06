@@ -1333,7 +1333,13 @@ class SearchController extends Notifier<SearchState> {
 
 Object? _searchOwnerKey(AuthSession? session) => session == null
     ? null
-    : (session.ownerType, session.userId, session.anonymousId);
+    : (
+        session.ownerType,
+        session.platform,
+        session.dataSpaceId,
+        session.userId,
+        session.anonymousId,
+      );
 
 String? _collectionInfoWithSavedItems(
   String? current,

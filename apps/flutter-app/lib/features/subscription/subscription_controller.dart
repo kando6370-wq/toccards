@@ -12,6 +12,7 @@ import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
 import '../../shared/api/api_environment.dart';
 import '../../shared/attribution/app_attribution.dart';
+import '../../shared/platform/app_commercial_policy.dart';
 import '../auth/auth_controller.dart';
 import '../auth/auth_models.dart';
 import 'apple_app_attest.dart';
@@ -787,6 +788,9 @@ class SubscriptionController extends Notifier<SubscriptionState> {
 
   @override
   SubscriptionState build() {
+    if (ref.watch(appCommercialPolicyProvider).isAndroidFreeLaunch) {
+      return const SubscriptionState(premiumState: AppPremiumState.free);
+    }
     final configuration = ref.watch(appSubscriptionConfigurationProvider);
     ref.listen(authControllerProvider, (_, next) {
       final session = next.session;

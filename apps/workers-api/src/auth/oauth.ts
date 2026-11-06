@@ -6,6 +6,7 @@ import {
   isOAuthAuthorizationFailedError,
 } from "./account-flow";
 import { hasSigningSecret } from "./http-auth";
+import { resolveIdentityAuthPlatform } from "./identity-platform";
 import {
   resolveAppleIdentity,
   resolveGoogleIdentity,
@@ -14,12 +15,14 @@ import {
 type GoogleOAuthCallbackInput = {
   idToken: string | null;
   anonymousId: string | null;
+  platform: unknown;
 };
 
 type AppleOAuthCallbackInput = {
   code: string | null;
   idToken: string | null;
   anonymousId: string | null;
+  platform: unknown;
 };
 
 const AUTHORIZATION_FAILED_RESPONSE = {
@@ -49,9 +52,17 @@ const STALE_ANONYMOUS_ACCOUNT_RESPONSE = {
 export function registerOAuthRoutes(routes: Hono<{ Bindings: Env }>): void {
   routes.post("/oauth/google/callback", async (c) => {
     const input = await readGoogleOAuthCallbackInput(c.req);
+    const platformResult = await resolveIdentityAuthPlatform(
+      c.env, c.req.header("Authorization"), input.platform,
+    );
+    if (platformResult.status !== "ok") {
+      return c.json(AUTHORIZATION_FAILED_RESPONSE, 422);
+    }
     const identity = await resolveGoogleIdentity(
       { idToken: input.idToken },
-      c.env.GOOGLE_CLIENT_ID,
+      platformResult.platform === "android"
+        ? c.env.GOOGLE_ANDROID_SERVER_CLIENT_ID
+        : c.env.GOOGLE_CLIENT_ID,
     );
 
     if (!identity) {
@@ -70,6 +81,7 @@ export function registerOAuthRoutes(routes: Hono<{ Bindings: Env }>): void {
         input.anonymousId,
         c.req.header("Authorization"),
         new Date(),
+        platformResult.platform,
       );
 
       return c.json({
@@ -83,6 +95,8 @@ export function registerOAuthRoutes(routes: Hono<{ Bindings: Env }>): void {
           expires_in: result.session.expiresIn,
           is_new_user: result.isNewUser,
           migrated: result.migrated,
+          platform: result.session.platform,
+          data_space_id: result.session.dataSpaceId,
         },
       });
     } catch (error) {
@@ -101,6 +115,12 @@ export function registerOAuthRoutes(routes: Hono<{ Bindings: Env }>): void {
 
   routes.post("/oauth/apple/callback", async (c) => {
     const input = await readAppleOAuthCallbackInput(c.req);
+    const platformResult = await resolveIdentityAuthPlatform(
+      c.env, c.req.header("Authorization"), input.platform,
+    );
+    if (platformResult.status !== "ok" || platformResult.platform !== "ios") {
+      return c.json(AUTHORIZATION_FAILED_RESPONSE, 422);
+    }
     const identity = await resolveAppleIdentity(
       { code: input.code, idToken: input.idToken },
       c.env.APPLE_CLIENT_ID,
@@ -122,6 +142,7 @@ export function registerOAuthRoutes(routes: Hono<{ Bindings: Env }>): void {
         input.anonymousId,
         c.req.header("Authorization"),
         new Date(),
+        platformResult.platform,
       );
 
       return c.json({
@@ -135,6 +156,8 @@ export function registerOAuthRoutes(routes: Hono<{ Bindings: Env }>): void {
           expires_in: result.session.expiresIn,
           is_new_user: result.isNewUser,
           migrated: result.migrated,
+          platform: result.session.platform,
+          data_space_id: result.session.dataSpaceId,
         },
       });
     } catch (error) {
@@ -160,7 +183,7 @@ async function readGoogleOAuthCallbackInput(request: {
   try {
     body = await request.json();
   } catch {
-    return { idToken: null, anonymousId: null };
+    return { idToken: null, anonymousId: null, platform: null };
   }
 
   const rawIdToken =
@@ -171,10 +194,13 @@ async function readGoogleOAuthCallbackInput(request: {
     body && typeof body === "object"
       ? (body as { anonymous_id?: unknown }).anonymous_id
       : undefined;
+  const rawPlatform = body && typeof body === "object"
+    ? (body as { platform?: unknown }).platform : undefined;
 
   return {
     idToken: trimString(rawIdToken),
     anonymousId: trimString(rawAnonymousId),
+    platform: rawPlatform,
   };
 }
 
@@ -186,7 +212,7 @@ async function readAppleOAuthCallbackInput(request: {
   try {
     body = await request.json();
   } catch {
-    return { code: null, idToken: null, anonymousId: null };
+    return { code: null, idToken: null, anonymousId: null, platform: null };
   }
 
   const rawCode =
@@ -201,11 +227,14 @@ async function readAppleOAuthCallbackInput(request: {
     body && typeof body === "object"
       ? (body as { anonymous_id?: unknown }).anonymous_id
       : undefined;
+  const rawPlatform = body && typeof body === "object"
+    ? (body as { platform?: unknown }).platform : undefined;
 
   return {
     code: trimString(rawCode),
     idToken: trimString(rawIdToken),
     anonymousId: trimString(rawAnonymousId),
+    platform: rawPlatform,
   };
 }
 

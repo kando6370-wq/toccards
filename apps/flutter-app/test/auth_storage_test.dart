@@ -6,6 +6,28 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kando_app/shared/security/secure_storage_keys.dart';
 
 void main() {
+  test(
+    'session storage preserves the server-bound platform and data space',
+    () async {
+      const storage = SecureAuthStorage();
+      const session = AuthSession(
+        ownerType: OwnerType.user,
+        accessToken: 'access',
+        refreshToken: 'refresh',
+        userId: 'shared-user',
+        platform: AppPlatform.android,
+        dataSpaceId: 'android-space',
+      );
+
+      await storage.writeSession(session);
+
+      final restored = await storage.readSession();
+      expect(restored?.platform, AppPlatform.android);
+      expect(restored?.dataSpaceId, 'android-space');
+      expect(restored?.userId, 'shared-user');
+    },
+  );
+
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {

@@ -38,6 +38,7 @@ describe("collection paged read model", () => {
       INSERT INTO wishlist_item (id, owner_type, owner_id, card_ref, created_at)
       VALUES ('wish-1', 'user', 'owner-1', 'card-c', '2026-07-03T00:00:00.000Z');
     `);
+    await db.exec(readFileSync(new URL("0018_platform_account_isolation.sql", migrations), "utf8"));
     token = await signAccessToken(
       { owner_type: "user", owner_id: "owner-1", session_id: "session-1" },
       JWT_SECRET,

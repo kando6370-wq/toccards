@@ -12,7 +12,7 @@ test("user filters stay fixed while the table body reserves enough viewport spac
   assert.match(app, /tableLayout="fixed"/);
   assert.match(app, /title: "国家", dataIndex: "country", width: 90, ellipsis: true, render: countryName/);
   assert.match(countryName, /new Intl\.DisplayNames\(\["zh-CN"\], \{ type: "region" \}\)/);
-  assert.match(app, /scroll=\{\{ x: 760, y: "calc\(100dvh - 470px\)" \}\}/);
+  assert.match(app, /scroll=\{\{ x: 1120, y: "calc\(100dvh - 470px\)" \}\}/);
   assert.match(css, /\.users-page \{[\s\S]*?overflow: hidden;/);
   assert.match(css, /\.users-page \.filter-bar \{[\s\S]*?position: sticky;/);
   assert.match(css, /\.users-table-panel \.ant-table-body \{[\s\S]*?height: clamp\(220px, calc\(100dvh - 470px\), 520px\)/);

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../shared/scan/scan_api_client.dart';
 import '../../shared/scan/scan_providers.dart';
 import '../auth/auth_controller.dart';
+import '../../shared/platform/app_commercial_policy.dart';
 import 'subscription_controller.dart';
 
 final freeScanLimitProvider = Provider<int>((ref) {
@@ -107,11 +108,16 @@ class ScanQuotaController extends Notifier<ScanQuotaState> {
     if (session == null) return false;
     final quotaRevision = _quotaRevision;
     state = state.copyWith(isLoading: true);
+    final usesAppleSubscription = ref
+        .read(appCommercialPolicyProvider)
+        .usesAppleSubscription;
     Future<ScanQuotaDto> request() => ref
         .read(scanApiClientProvider)
         .getQuota(
           session,
-          localPremiumVerified: ref.read(subscriptionControllerProvider).isPro,
+          localPremiumVerified:
+              usesAppleSubscription &&
+              ref.read(subscriptionControllerProvider).isPro,
         );
     try {
       final quota = await request();
@@ -125,6 +131,10 @@ class ScanQuotaController extends Notifier<ScanQuotaState> {
       if (error.statusCode != 409 ||
           error.code != 'ENTITLEMENT_SYNC_REQUIRED') {
         if (ref.mounted) state = state.copyWith(isLoading: false);
+        return false;
+      }
+      if (!usesAppleSubscription) {
+        state = state.copyWith(isLoading: false);
         return false;
       }
       final reconciliation = await ref

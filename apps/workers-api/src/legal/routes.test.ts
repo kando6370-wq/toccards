@@ -22,7 +22,7 @@ describe("public legal routes", () => {
 
     expect(response.status).toBe(200);
     expect(html).toContain("<title>Privacy Policy | Card AI</title>");
-    expect(html).toContain("Effective date: July 17, 2026");
+    expect(html).toContain("Effective date: November 5, 2026");
     expect(html).toContain("explains how Card AI handles information");
     expect(html).toContain("perspective-corrected card-area images");
     expect(html).toContain("private Cloudflare R2 bucket");
@@ -31,8 +31,13 @@ describe("public legal routes", () => {
     expect(html).toContain("RGB perceptual hashes and available normalized Latin OCR text");
     expect(html).toContain("they do not receive the card image");
     expect(html).not.toContain("the original image is not uploaded");
-    expect(html).toContain("retained without a fixed expiration period");
-    expect(html).toContain("Deleting an account does not delete these retained scan images");
+    expect(html).toContain("uploaded scan images, and scan records from active systems");
+    expect(html).toContain("The other platform's account, data, and subscriptions remain available");
+    expect(html).toContain("requires a new registration");
+    expect(html).toContain("When the last platform account is deleted");
+    expect(html).toContain("Google Play integrity verdicts");
+    expect(html).not.toContain("retained without a fixed expiration period");
+    expect(html).not.toContain("Deleting an account does not delete these retained scan images");
     expect(html).toContain("Portfolio folders");
     expect(html).toContain("Cloudflare");
     expect(html).not.toContain("retained for no more than 30 days");

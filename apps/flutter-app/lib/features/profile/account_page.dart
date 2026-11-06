@@ -99,6 +99,12 @@ class _AccountContent extends ConsumerWidget {
             ),
           ),
         ),
+        const SizedBox(height: 12),
+        const Text(
+          'Your verified email and password are shared across Android and iOS. '
+          'Collections, scans, and subscription benefits remain separate.',
+          style: TextStyle(color: KandoColors.mutedText, fontSize: 13),
+        ),
         const SizedBox(height: 32),
         _SectionLabel('Management'),
         const SizedBox(height: 8),
@@ -125,6 +131,7 @@ class _AccountContent extends ConsumerWidget {
                 onTap: () async {
                   final confirmed = await showDeleteAccountConfirmation(
                     context,
+                    platform: activeSession.platform,
                   );
                   if (!context.mounted || !confirmed) {
                     return;
@@ -136,6 +143,16 @@ class _AccountContent extends ConsumerWidget {
                         .deleteAccount();
                     if (context.mounted) {
                       context.go('/profile');
+                    }
+                  } on AuthPostDeleteSessionException {
+                    if (context.mounted) {
+                      showKandoTopToast(
+                        context,
+                        message:
+                            'Account deleted. Restart the app to create a new '
+                            'guest session.',
+                        type: KandoTopToastType.info,
+                      );
                     }
                   } on Exception {
                     if (context.mounted) {
@@ -409,11 +426,18 @@ class _ManagementButton extends StatelessWidget {
   }
 }
 
-Future<bool> showDeleteAccountConfirmation(BuildContext context) async {
+Future<bool> showDeleteAccountConfirmation(
+  BuildContext context, {
+  AppPlatform? platform,
+}) async {
+  final platformName = platform == AppPlatform.android ? 'Android' : 'iOS';
   return showKandoDangerConfirmModal(
     context,
     title: 'Delete Account?',
-    message: "This action is permanent and can't be undone.",
+    message:
+        'This permanently deletes your $platformName account, collections, scans, '
+        'and related app data. Your account and data on the other platform '
+        'remain available. To use $platformName again, you must register again.',
     confirmLabel: 'Delete',
     cancelLabel: 'Cancel',
   );

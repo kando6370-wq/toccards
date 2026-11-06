@@ -48,9 +48,10 @@ export async function reserveScanQuota(
   requestId: string,
   accessMode: "free" | "premium",
   now = new Date(),
-  options: { startProcessing?: boolean } = {},
+  options: { startProcessing?: boolean; unlimited?: boolean } = {},
 ): Promise<ScanQuotaReservation> {
   const startProcessing = options.startProcessing ?? true;
+  const unlimited = options.unlimited ?? false;
   const existing = startProcessing ? await findRequest(db, requestId) : null;
   if (existing) {
     if (
@@ -70,7 +71,7 @@ export async function reserveScanQuota(
           SET processing_expires_at = ?, attempts = attempts + 1, updated_at = ?
           WHERE request_id = ? AND session_id = ? AND status = 'reserved'
             AND (attempts = 0 OR processing_expires_at <= ?)
-            AND (? = 'premium' OR processing_expires_at > ? OR (
+            AND (? = 1 OR ? = 'premium' OR processing_expires_at > ? OR (
               SELECT COUNT(*) FROM scan_quota_request
               WHERE owner_type = ? AND owner_id = ? AND access_mode = 'free'
                 AND request_id <> ?
@@ -86,6 +87,7 @@ export async function reserveScanQuota(
           requestId,
           owner.session_id,
           now.toISOString(),
+          unlimited ? 1 : 0,
           existing.access_mode,
           now.toISOString(),
           owner.owner_type,
@@ -137,7 +139,7 @@ export async function reserveScanQuota(
           (request_id, owner_type, owner_id, session_id, access_mode, status,
            processing_expires_at, attempts, created_at, updated_at)
         SELECT ?, ?, ?, ?, ?, 'reserved', ?, ?, ?, ?
-        WHERE ? = 'premium' OR (
+        WHERE ? = 1 OR ? = 'premium' OR (
           SELECT COUNT(*) FROM scan_quota_request
           WHERE owner_type = ? AND owner_id = ? AND access_mode = 'free'
             AND (
@@ -156,6 +158,7 @@ export async function reserveScanQuota(
         startProcessing ? 1 : 0,
         timestamp,
         timestamp,
+        unlimited ? 1 : 0,
         accessMode,
         owner.owner_type,
         owner.owner_id,

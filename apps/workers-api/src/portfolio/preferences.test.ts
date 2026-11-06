@@ -1,28 +1,10 @@
+import { PGliteDatabase } from "../test-support/pglite-database";
+import { createPortfolioPostgresFixture, closePortfolioPostgresFixtures, seedPortfolioRows, readPortfolioRows } from "../test-support/portfolio-postgres-fixture";
 import { signAccessToken } from "@kando/auth-core";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import app, { type Env } from "../index";
 
 type OwnerType = "anonymous" | "user";
-
-type SessionRow = {
-  id: string;
-  owner_type: OwnerType;
-  owner_id: string;
-  expires_at: string;
-  revoked_at: string | null;
-};
-
-type OwnerRow = {
-  id: string;
-  deleted_at?: string | null;
-  upgraded_user_id?: string | null;
-};
-
-type FolderRow = {
-  id: string;
-  owner_type: OwnerType;
-  owner_id: string;
-};
 
 type PreferenceRow = {
   id: string;
@@ -37,121 +19,22 @@ type PreferenceRow = {
 
 const JWT_SECRET = "test-secret";
 const NOW = "2026-07-07T00:00:00.000Z";
-const LATER = "2099-01-01T00:00:00.000Z";
+const fixtureColumns = {
+  user_preference: ["id", "owner_type", "owner_id", "currency", "amount_hidden", "last_selected_folder_id", "created_at", "updated_at"],
+};
 
-class FakeD1Database {
-  sessions: SessionRow[] = [];
-  users: OwnerRow[] = [];
-  anonymousAccounts: OwnerRow[] = [];
-  folders: FolderRow[] = [];
-  preferences: PreferenceRow[] = [];
-
-  prepare(sql: string): FakeD1Statement {
-    return new FakeD1Statement(this, sql);
-  }
-}
-
-class FakeD1Statement {
-  private args: unknown[] = [];
-
-  constructor(
-    private readonly db: FakeD1Database,
-    private readonly sql: string,
-  ) {}
-
-  bind(...args: unknown[]): FakeD1Statement {
-    this.args = args;
-    return this;
-  }
-
-  async first<T>(): Promise<T | null> {
-    if (this.sql.includes("FROM session")) {
-      const [sessionId] = this.args;
-      return (this.db.sessions.find((row) => row.id === sessionId) ??
-        null) as T | null;
-    }
-
-    if (this.sql.includes("FROM anonymous_account")) {
-      const [ownerId] = this.args;
-      return (this.db.anonymousAccounts.find(
-        (row) => row.id === ownerId && row.upgraded_user_id === null,
-      ) ?? null) as T | null;
-    }
-
-    if (this.sql.includes("FROM portfolio_folder")) {
-      const [ownerType, ownerId, folderId] = this.args;
-      return (this.db.folders.find(
-        (row) =>
-          row.owner_type === ownerType &&
-          row.owner_id === ownerId &&
-          row.id === folderId,
-      ) ?? null) as T | null;
-    }
-
-    if (this.sql.includes("FROM user_preference")) {
-      const [ownerType, ownerId] = this.args;
-      return (this.db.preferences.find(
-        (row) => row.owner_type === ownerType && row.owner_id === ownerId,
-      ) ?? null) as T | null;
-    }
-
-    if (this.sql.includes('FROM "user"')) {
-      const [ownerId] = this.args;
-      return (this.db.users.find(
-        (row) => row.id === ownerId && row.deleted_at === null,
-      ) ?? null) as T | null;
-    }
-
-    return null;
-  }
-
-  async run(): Promise<{ success: true; meta: { changes: number } }> {
-    if (this.sql.includes("UPDATE user_preference")) {
-      const [
-        currency,
-        amountHidden,
-        lastSelectedFolderId,
-        updatedAt,
-        ownerType,
-        ownerId,
-      ] = this.args as [
-        string,
-        number,
-        string | null,
-        string,
-        OwnerType,
-        string,
-      ];
-      const preference = this.db.preferences.find(
-        (row) => row.owner_type === ownerType && row.owner_id === ownerId,
-      );
-
-      if (!preference) return changed(0);
-
-      preference.currency = currency;
-      preference.amount_hidden = amountHidden;
-      preference.last_selected_folder_id = lastSelectedFolderId;
-      preference.updated_at = updatedAt;
-      return changed(1);
-    }
-
-    return changed(0);
-  }
-}
+afterEach(async () => { await closePortfolioPostgresFixtures(); });
 
 describe("preference routes", () => {
   it("gets only the authenticated owner's preferences because display settings are owner scoped", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.preferences.push(
-      preference({ currency: "USD", amount_hidden: 0 }),
-      preference({
+    const db = await createDbForOwner("anonymous", "anon-1");
+    await seedPortfolioRows(db, 'user_preference', preference({ currency: "USD", amount_hidden: 0 }), preference({
         id: "other-pref",
         owner_type: "user",
         owner_id: "other",
         currency: "JPY",
         amount_hidden: 1,
-      }),
-    );
+      }));
 
     const response = await app.request(
       "/api/v1/preferences",
@@ -171,11 +54,9 @@ describe("preference routes", () => {
   });
 
   it("updates preference fields and returns the full preference because clients need one canonical settings snapshot", async () => {
-    const db = createDbForOwner("user", "user-1");
-    db.preferences.push(
-      preference({ owner_type: "user", owner_id: "user-1", currency: "USD" }),
-    );
-    db.folders.push({ id: "folder-1", owner_type: "user", owner_id: "user-1" });
+    const db = await createDbForOwner("user", "user-1");
+    await seedPortfolioRows(db, 'user_preference', preference({ owner_type: "user", owner_id: "user-1", currency: "USD" }));
+    await seedPortfolioRows(db, 'portfolio_folder', { id: "folder-1", owner_type: "user", owner_id: "user-1" });
 
     const response = await app.request(
       "/api/v1/preferences",
@@ -200,7 +81,7 @@ describe("preference routes", () => {
         last_selected_folder_id: "folder-1",
       },
     });
-    expect(db.preferences[0]).toMatchObject({
+    expect((await readPortfolioRows<PreferenceRow>(db, 'user_preference', fixtureColumns.user_preference))[0]).toMatchObject({
       currency: "JPY",
       amount_hidden: 1,
       last_selected_folder_id: "folder-1",
@@ -209,8 +90,8 @@ describe("preference routes", () => {
   });
 
   it("rejects invalid preference values because downstream display code relies on normalized settings", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.preferences.push(preference({}));
+    const db = await createDbForOwner("anonymous", "anon-1");
+    await seedPortfolioRows(db, 'user_preference', preference({}));
 
     const invalidCurrency = await app.request(
       "/api/v1/preferences",
@@ -244,9 +125,9 @@ describe("preference routes", () => {
   });
 
   it("rejects another owner's folder as last_selected_folder_id because preferences must not bridge owner boundaries", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.preferences.push(preference({}));
-    db.folders.push({ id: "folder-1", owner_type: "user", owner_id: "other" });
+    const db = await createDbForOwner("anonymous", "anon-1");
+    await seedPortfolioRows(db, 'user_preference', preference({}));
+    await seedPortfolioRows(db, 'portfolio_folder', { id: "folder-1", owner_type: "user", owner_id: "other" });
 
     const response = await app.request(
       "/api/v1/preferences",
@@ -266,36 +147,12 @@ describe("preference routes", () => {
   });
 });
 
-function changed(changes: number): { success: true; meta: { changes: number } } {
-  return { success: true, meta: { changes } };
+async function createDbForOwner(ownerType: OwnerType, ownerId: string): Promise<PGliteDatabase> {
+  return createPortfolioPostgresFixture(ownerType, ownerId);
 }
 
-function createDbForOwner(ownerType: OwnerType, ownerId: string): FakeD1Database {
-  const db = new FakeD1Database();
-
-  db.sessions.push({
-    id: sessionId(ownerType, ownerId),
-    owner_type: ownerType,
-    owner_id: ownerId,
-    expires_at: LATER,
-    revoked_at: null,
-  });
-
-  if (ownerType === "anonymous") {
-    db.anonymousAccounts.push({ id: ownerId, upgraded_user_id: null });
-  } else {
-    db.users.push({ id: ownerId, deleted_at: null });
-  }
-
-  return db;
-}
-
-function createTestEnv(db = new FakeD1Database()): Env {
-  return {
-    DB: db as unknown as D1Database,
-    CACHE_KV: {} as KVNamespace,
-    JWT_SECRET: JWT_SECRET,
-  };
+function createTestEnv(db: PGliteDatabase): Env {
+  return { DB: db, CACHE_KV: {} as KVNamespace, JWT_SECRET };
 }
 
 async function authHeaders(

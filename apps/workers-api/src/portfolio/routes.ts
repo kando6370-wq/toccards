@@ -14,7 +14,11 @@ import type { Env } from "../env";
 import { createId } from "../id";
 import { authenticateOwner, type AuthenticatedOwner } from "../owner-auth";
 import { LOCAL_PREMIUM_STATE_HEADER } from "../entitlements/premium-access";
-import { resolvePremiumAccess, type PremiumAccess } from "../entitlements/premium-access";
+import {
+  resolvePremiumAccess,
+  type PremiumAccess,
+} from "../entitlements/premium-access";
+import { usesAndroidFreeLaunch } from "../entitlements/platform-commercial-access";
 import { enrichCollectionDashboard } from "./collection-dashboard";
 import { loadPortfolioPerformance, parsePerformanceRange } from "./performance";
 import { loadValuationHistory } from "./valuation-history";
@@ -160,8 +164,8 @@ INSERT INTO portfolio_folder
 SELECT ?, ?, ?, ?, 0, COALESCE((
   SELECT MAX(sort_order) FROM portfolio_folder WHERE owner_type = ? AND owner_id = ?
 ), -100) + 100, ?, ?
-WHERE ? = 'premium' OR (
-  ? = 'free' AND (
+WHERE ? = 1 OR (
+  ? = 0 AND (
     SELECT COUNT(*) FROM portfolio_folder WHERE owner_type = ? AND owner_id = ?
   ) < 2
 )
@@ -619,7 +623,7 @@ export function createPortfolioRoutes(
     }
 
     const days = positiveIntegerOrDefault(c.req.query("days"), 90, 365);
-    if (days > 90) {
+    if (days > 90 && !usesAndroidFreeLaunch(auth.owner)) {
       const access = await premiumAccess(
         c.env,
         auth.owner.session_id,
@@ -658,15 +662,17 @@ export function createPortfolioRoutes(
 
     const range = parsePerformanceRange(c.req.query("range"));
     if (!range) return c.json(VALIDATION_ERROR_RESPONSE, 422);
-    const access = await premiumAccess(
-      c.env,
-      auth.owner.session_id,
-      c.req.header(LOCAL_PREMIUM_STATE_HEADER),
-    );
-    if (access === "sync_required") {
-      return c.json(ENTITLEMENT_SYNC_REQUIRED_RESPONSE, 409);
+    if (!usesAndroidFreeLaunch(auth.owner)) {
+      const access = await premiumAccess(
+        c.env,
+        auth.owner.session_id,
+        c.req.header(LOCAL_PREMIUM_STATE_HEADER),
+      );
+      if (access === "sync_required") {
+        return c.json(ENTITLEMENT_SYNC_REQUIRED_RESPONSE, 409);
+      }
+      if (access !== "premium") return c.json(PREMIUM_REQUIRED_RESPONSE, 403);
     }
-    if (access !== "premium") return c.json(PREMIUM_REQUIRED_RESPONSE, 403);
 
     const folderId = requiredString(c.req.query("folder_id"));
     const folder = folderId
@@ -687,15 +693,17 @@ export function createPortfolioRoutes(
 
     const range = parsePerformanceRange(c.req.query("range"));
     if (!range) return c.json(VALIDATION_ERROR_RESPONSE, 422);
-    const access = await premiumAccess(
-      c.env,
-      auth.owner.session_id,
-      c.req.header(LOCAL_PREMIUM_STATE_HEADER),
-    );
-    if (access === "sync_required") {
-      return c.json(ENTITLEMENT_SYNC_REQUIRED_RESPONSE, 409);
+    if (!usesAndroidFreeLaunch(auth.owner)) {
+      const access = await premiumAccess(
+        c.env,
+        auth.owner.session_id,
+        c.req.header(LOCAL_PREMIUM_STATE_HEADER),
+      );
+      if (access === "sync_required") {
+        return c.json(ENTITLEMENT_SYNC_REQUIRED_RESPONSE, 409);
+      }
+      if (access !== "premium") return c.json(PREMIUM_REQUIRED_RESPONSE, 403);
     }
-    if (access !== "premium") return c.json(PREMIUM_REQUIRED_RESPONSE, 403);
 
     const item = await findCollectionItem(c.env.DB, auth.owner, c.req.param("item_id"));
     if (!item) return c.json(NOT_FOUND_RESPONSE, 404);
@@ -1479,11 +1487,14 @@ export function createPortfolioRoutes(
 
     const now = new Date().toISOString();
     const folderId = idempotencyKey ?? createId();
-    const access = await premiumAccess(
-      c.env,
-      auth.owner.session_id,
-      c.req.header(LOCAL_PREMIUM_STATE_HEADER),
-    );
+    const androidFreeLaunch = usesAndroidFreeLaunch(auth.owner);
+    const access = androidFreeLaunch
+      ? null
+      : await premiumAccess(
+          c.env,
+          auth.owner.session_id,
+          c.req.header(LOCAL_PREMIUM_STATE_HEADER),
+        );
     if (access === "sync_required") {
       return c.json(ENTITLEMENT_SYNC_REQUIRED_RESPONSE, 409);
     }
@@ -1498,8 +1509,8 @@ export function createPortfolioRoutes(
         auth.owner.owner_id,
         now,
         now,
-        access,
-        access,
+        androidFreeLaunch || access === "premium" ? 1 : 0,
+        androidFreeLaunch || access === "premium" ? 1 : 0,
         auth.owner.owner_type,
         auth.owner.owner_id,
       );

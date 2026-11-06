@@ -21,6 +21,7 @@ import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
+import '../../shared/platform/app_commercial_policy.dart';
 import '../card_detail/card_detail_models.dart';
 import '../collection/collection_page.dart';
 import '../collection/collection_controller.dart';
@@ -75,8 +76,15 @@ class _HomePageState extends ConsumerState<HomePage>
     final premiumState = ref.watch(
       subscriptionControllerProvider.select((value) => value.premiumState),
     );
-    final isPro = premiumState == AppPremiumState.premium;
-    if (premiumState == AppPremiumState.free &&
+    final freePremiumFeatures = ref.watch(
+      appCommercialPolicyProvider.select(
+        (value) => value.hasFreePremiumFeatures,
+      ),
+    );
+    final isPro =
+        freePremiumFeatures || premiumState == AppPremiumState.premium;
+    if (!freePremiumFeatures &&
+        premiumState == AppPremiumState.free &&
         state.chartRange == HomeChartRange.oneYear) {
       Future<void>.microtask(
         () => ref
@@ -330,6 +338,9 @@ class _HomePageState extends ConsumerState<HomePage>
   }
 
   Future<AppPremiumState> _resolvePremiumForRestrictedAction() async {
+    if (ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
+      return AppPremiumState.premium;
+    }
     final current = ref.read(subscriptionControllerProvider).premiumState;
     if (current != AppPremiumState.unknown) return current;
     return ref
@@ -347,7 +358,9 @@ class _HomePageState extends ConsumerState<HomePage>
     final controller = ref.read(homePerformanceControllerProvider.notifier);
     await controller.load(
       folderId: folderId,
-      localPremiumVerified: true,
+      localPremiumVerified:
+          ref.read(appCommercialPolicyProvider).usesAppleSubscription &&
+          ref.read(subscriptionControllerProvider).isPro,
       force: force,
     );
   }
@@ -360,7 +373,9 @@ class _HomePageState extends ConsumerState<HomePage>
     await controller.selectRange(
       range,
       folderId: folderId,
-      localPremiumVerified: true,
+      localPremiumVerified:
+          ref.read(appCommercialPolicyProvider).usesAppleSubscription &&
+          ref.read(subscriptionControllerProvider).isPro,
     );
     if (!mounted) return;
     final failedState = ref.read(homePerformanceControllerProvider);

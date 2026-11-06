@@ -22,6 +22,7 @@ import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/portfolio/pending_collection.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
+import 'package:kando_app/shared/platform/app_commercial_policy.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/toast.dart';
@@ -2696,6 +2697,9 @@ class _CardDetailTestApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return ProviderScope(
       overrides: [
+        appCommercialPolicyProvider.overrideWithValue(
+          const AppCommercialPolicy(isAndroidFreeLaunch: false),
+        ),
         authStorageProvider.overrideWithValue(_cardDetailAuthStorage),
         authRepositoryProvider.overrideWithValue(_cardDetailAuthRepository),
         cardDetailRepositoryProvider.overrideWithValue(
@@ -2729,6 +2733,9 @@ class _CardDetailPriceRangeRouteApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return ProviderScope(
       overrides: [
+        appCommercialPolicyProvider.overrideWithValue(
+          const AppCommercialPolicy(isAndroidFreeLaunch: false),
+        ),
         authStorageProvider.overrideWithValue(_cardDetailAuthStorage),
         authRepositoryProvider.overrideWithValue(_cardDetailAuthRepository),
         cardDetailRepositoryProvider.overrideWithValue(
@@ -3157,6 +3164,9 @@ final _cardDetailAuthRepository = LocalPlaceholderAuthRepository(
 );
 
 final _cardDetailOverrides = [
+  appCommercialPolicyProvider.overrideWithValue(
+    const AppCommercialPolicy(isAndroidFreeLaunch: false),
+  ),
   authStorageProvider.overrideWithValue(_cardDetailAuthStorage),
   authRepositoryProvider.overrideWithValue(_cardDetailAuthRepository),
   cardDetailRepositoryProvider.overrideWithValue(

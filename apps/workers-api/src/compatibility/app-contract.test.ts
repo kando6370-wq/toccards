@@ -76,6 +76,8 @@ describe("frozen App contracts against current PostgreSQL-backed API", () => {
       await db.prepare("INSERT INTO session (id,owner_type,owner_id,refresh_token,expires_at,created_at) VALUES (?,'anonymous',?,?,?,?)")
         .bind(id + "-session", id, id + "-refresh", "2099-01-01T00:00:00.000Z", "2026-10-09").run();
     }
+    // The frozen clients must keep their original iOS owner after the platform migration.
+    await db.exec(readFileSync(path.join(directory, "../db/postgres/migrations/0018_platform_account_isolation.sql"), "utf8"));
     await db.exec(`
       INSERT INTO games (game_id, name, load, search_sort) VALUES
         (25, 'Pokemon', 1, 1), (26, 'Hidden game', 0, 0), (27, ' ', 1, 0);

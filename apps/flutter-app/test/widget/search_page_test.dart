@@ -26,6 +26,7 @@ import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/pending_collection.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
+import 'package:kando_app/shared/platform/app_commercial_policy.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/kando_bottom_sheet_page.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
@@ -2633,6 +2634,9 @@ void main() {
 _localAuthOverrides() {
   final storage = InMemoryAuthStorage();
   return [
+    appCommercialPolicyProvider.overrideWithValue(
+      const AppCommercialPolicy(isAndroidFreeLaunch: false),
+    ),
     authStorageProvider.overrideWithValue(storage),
     authRepositoryProvider.overrideWithValue(
       LocalPlaceholderAuthRepository(storage),

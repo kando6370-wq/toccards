@@ -1,27 +1,20 @@
 import { signAccessToken } from "@kando/auth-core";
-import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Env } from "../env";
+import { PGliteDatabase } from "../test-support/pglite-database";
 import { createEntitlementRoutes } from "./routes";
 
 describe("current-session Apple lifecycle route", () => {
-  let miniflare: Miniflare;
-  let db: D1Database;
+  let db: PGliteDatabase;
   let env: Env;
 
   beforeEach(async () => {
-    miniflare = new Miniflare({
-      modules: true,
-      script: "export default { fetch() { return new Response('ok') } }",
-      compatibilityDate: "2024-11-01",
-      d1Databases: ["DB"],
-    });
-    db = await miniflare.getD1Database("DB");
+    db = await PGliteDatabase.create();
     await db.exec(SCHEMA);
     await db.batch([
-      db.prepare("INSERT INTO anonymous_account VALUES ('owner-1', NULL)"),
-      db.prepare("INSERT INTO session VALUES ('session-a', 'anonymous', 'owner-1', '2099-01-01T00:00:00.000Z', NULL)"),
-      db.prepare("INSERT INTO session VALUES ('session-b', 'anonymous', 'owner-1', '2099-01-01T00:00:00.000Z', NULL)"),
+      db.prepare("INSERT INTO anonymous_account VALUES ('owner-1', NULL, 'ios', 'active')"),
+      db.prepare("INSERT INTO session VALUES ('session-a', 'anonymous', 'owner-1', 'ios', NULL, '2099-01-01T00:00:00.000Z', NULL)"),
+      db.prepare("INSERT INTO session VALUES ('session-b', 'anonymous', 'owner-1', 'ios', NULL, '2099-01-01T00:00:00.000Z', NULL)"),
       chain("chain-a", "Sandbox", "original-a", "REVOKED"),
       chain("chain-null", "Sandbox", "original-null", "ACTIVE", null),
       chain("chain-b", "Sandbox", "original-b", "ACTIVE"),
@@ -33,13 +26,14 @@ describe("current-session Apple lifecycle route", () => {
     ]);
     env = {
       DB: db,
+      CACHE_KV: {} as KVNamespace,
       JWT_SECRET: "lifecycle-test-secret",
       APP_ENVIRONMENT: "development",
       APPLE_IAP_PRODUCT_IDS: "yearly",
-    } as Env;
+    };
   });
 
-  afterEach(async () => miniflare.dispose());
+  afterEach(async () => db.close());
 
   it("returns only chains proved by the live session in the current environment", async () => {
     const app = createEntitlementRoutes();
@@ -92,8 +86,8 @@ describe("current-session Apple lifecycle route", () => {
 });
 
 const SCHEMA = `
-CREATE TABLE anonymous_account (id TEXT PRIMARY KEY, upgraded_user_id TEXT);
-CREATE TABLE session (id TEXT PRIMARY KEY, owner_type TEXT NOT NULL, owner_id TEXT NOT NULL, expires_at TEXT NOT NULL, revoked_at TEXT);
+CREATE TABLE anonymous_account (id TEXT PRIMARY KEY, upgraded_user_id TEXT, platform TEXT NOT NULL, status TEXT NOT NULL);
+CREATE TABLE session (id TEXT PRIMARY KEY, owner_type TEXT NOT NULL, owner_id TEXT NOT NULL, platform TEXT, user_id TEXT, expires_at TEXT NOT NULL, revoked_at TEXT);
 CREATE TABLE billing_purchase_chain (id TEXT PRIMARY KEY, store TEXT NOT NULL, environment TEXT NOT NULL, original_transaction_id TEXT NOT NULL, product_id TEXT NOT NULL, entitlement_id TEXT NOT NULL, status TEXT NOT NULL, state_effective_at TEXT);
 CREATE TABLE billing_session_entitlement_grant (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, purchase_chain_id TEXT NOT NULL, entitlement_id TEXT NOT NULL, status TEXT NOT NULL);
 `;

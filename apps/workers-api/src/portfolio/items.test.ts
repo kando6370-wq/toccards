@@ -1,22 +1,10 @@
+import { PGliteDatabase } from "../test-support/pglite-database";
+import { createPortfolioPostgresFixture, closePortfolioPostgresFixtures, seedPortfolioRows, readPortfolioRows } from "../test-support/portfolio-postgres-fixture";
 import { signAccessToken } from "@kando/auth-core";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import app, { type Env } from "../index";
 
 type OwnerType = "anonymous" | "user";
-
-type SessionRow = {
-  id: string;
-  owner_type: OwnerType;
-  owner_id: string;
-  expires_at: string;
-  revoked_at: string | null;
-};
-
-type OwnerRow = {
-  id: string;
-  deleted_at?: string | null;
-  upgraded_user_id?: string | null;
-};
 
 type FolderRow = {
   id: string;
@@ -79,381 +67,19 @@ type CollectionItemEventRow = {
 
 const JWT_SECRET = "test-secret";
 const NOW = "2026-07-07T00:00:00.000Z";
-const LATER = "2099-01-01T00:00:00.000Z";
+const fixtureColumns = {
+  wishlist_item: ["owner_type", "owner_id", "card_ref"],
+  collection_item_event: ["id", "item_id", "owner_type", "owner_id", "folder_id", "card_ref", "object_type", "grader", "condition", "grade", "language", "finish", "price_series_id", "quantity", "purchase_price", "purchase_currency", "performance_history_available_from", "event_type", "effective_at"],
+  collection_item: ["id", "owner_type", "owner_id", "folder_id", "card_ref", "object_type", "grader", "condition", "grade", "language", "finish", "price_series_id", "quantity", "purchase_price", "purchase_currency", "performance_start_at", "purchase_price_effective_at", "performance_history_available_from", "notes", "folder_joined_at", "created_at", "updated_at"],
+};
 
-class FakeD1Database {
-  sessions: SessionRow[] = [];
-  users: OwnerRow[] = [];
-  anonymousAccounts: OwnerRow[] = [];
-  folders: FolderRow[] = [];
-  items: CollectionItemRow[] = [];
-  itemEvents: CollectionItemEventRow[] = [];
-  wishlist: WishlistRow[] = [];
-  batchSizes: number[] = [];
-  nextBatchError: Error | null = null;
-
-  prepare(sql: string): FakeD1Statement {
-    return new FakeD1Statement(this, sql);
-  }
-
-  async batch(statements: FakeD1Statement[]): Promise<unknown[]> {
-    this.batchSizes.push(statements.length);
-    if (this.nextBatchError) {
-      const error = this.nextBatchError;
-      this.nextBatchError = null;
-      throw error;
-    }
-    return Promise.all(statements.map((statement) => statement.run()));
-  }
-}
-
-class FakeD1Statement {
-  private args: unknown[] = [];
-
-  constructor(
-    private readonly db: FakeD1Database,
-    private readonly sql: string,
-  ) {}
-
-  bind(...args: unknown[]): FakeD1Statement {
-    this.args = args;
-    return this;
-  }
-
-  async first<T>(): Promise<T | null> {
-    if (this.sql.includes("FROM session")) {
-      const [sessionId] = this.args;
-      return (this.db.sessions.find((row) => row.id === sessionId) ??
-        null) as T | null;
-    }
-
-    if (this.sql.includes("FROM anonymous_account")) {
-      const [ownerId] = this.args;
-      return (this.db.anonymousAccounts.find(
-        (row) => row.id === ownerId && row.upgraded_user_id === null,
-      ) ?? null) as T | null;
-    }
-
-    if (this.sql.includes('FROM "user"')) {
-      const [ownerId] = this.args;
-      return (this.db.users.find(
-        (row) => row.id === ownerId && row.deleted_at === null,
-      ) ?? null) as T | null;
-    }
-
-    if (this.sql.includes("FROM portfolio_folder")) {
-      const [ownerType, ownerId, folderId] = this.args;
-      return (this.db.folders.find(
-        (row) =>
-          row.owner_type === ownerType &&
-          row.owner_id === ownerId &&
-          row.id === folderId,
-      ) ?? null) as T | null;
-    }
-
-    if (this.sql.includes("FROM collection_item")) {
-      if (this.sql.includes("folder_id = ?")) {
-        const [
-          ownerType,
-          ownerId,
-          folderId,
-          cardRef,
-          language,
-          finish,
-          grader,
-          condition,
-          grade,
-        ] = this.args;
-        return (this.db.items.find((row) =>
-          row.owner_type === ownerType && row.owner_id === ownerId && row.folder_id === folderId &&
-          row.card_ref === cardRef && row.language === language && row.finish === finish &&
-          row.grader === grader && row.condition === condition && row.grade === grade
-        ) ?? null) as T | null;
-      }
-      const [ownerType, ownerId, itemId] = this.args;
-      return (this.db.items.find(
-        (row) =>
-          row.owner_type === ownerType &&
-          row.owner_id === ownerId &&
-          row.id === itemId,
-      ) ?? null) as T | null;
-    }
-
-    return null;
-  }
-
-  async all<T>(): Promise<{ results: T[] }> {
-    if (this.sql.includes("FROM collection_item")) {
-      const [ownerType, ownerId] = this.args;
-      return {
-        results: this.db.items.filter(
-          (row) => row.owner_type === ownerType && row.owner_id === ownerId,
-        ) as T[],
-      };
-    }
-
-    return { results: [] };
-  }
-
-  async run(): Promise<{ success: true; meta: { changes: number } }> {
-    if (this.sql.includes("INSERT INTO collection_item_event")) {
-      const [
-        id,
-        itemId,
-        ownerType,
-        ownerId,
-        folderId,
-        cardRef,
-        objectType,
-        grader,
-        condition,
-        grade,
-        language,
-        finish,
-        priceSeriesId,
-        quantity,
-        purchasePrice,
-        purchaseCurrency,
-        performanceHistoryAvailableFrom,
-        eventType,
-        effectiveAt,
-      ] = this.args as [
-        string,
-        string,
-        OwnerType,
-        string,
-        string,
-        string,
-        string,
-        string,
-        string | null,
-        number | null,
-        string | null,
-        string | null,
-        number | null,
-        number,
-        number | null,
-        string | null,
-        string,
-        "upsert" | "delete",
-        string,
-      ];
-      this.db.itemEvents.push({
-        id,
-        item_id: itemId,
-        owner_type: ownerType,
-        owner_id: ownerId,
-        folder_id: folderId,
-        card_ref: cardRef,
-        object_type: objectType,
-        grader,
-        condition,
-        grade,
-        language,
-        finish,
-        price_series_id: priceSeriesId,
-        quantity,
-        purchase_price: purchasePrice,
-        purchase_currency: purchaseCurrency,
-        performance_history_available_from: performanceHistoryAvailableFrom,
-        event_type: eventType,
-        effective_at: effectiveAt,
-      });
-      return changed(1);
-    }
-
-    if (this.sql.includes("INSERT INTO collection_item")) {
-      const [
-        id,
-        ownerType,
-        ownerId,
-        folderId,
-        cardRef,
-        objectType,
-        grader,
-        condition,
-        grade,
-        language,
-        finish,
-        priceSeriesId,
-        quantity,
-        purchasePrice,
-        purchaseCurrency,
-        performanceStartAt,
-        purchasePriceEffectiveAt,
-        performanceHistoryAvailableFrom,
-        notes,
-        createdAt,
-        updatedAt,
-      ] = this.args as [
-        string,
-        OwnerType,
-        string,
-        string,
-        string,
-        string,
-        string,
-        string | null,
-        number | null,
-        string | null,
-        string | null,
-        number | null,
-        number,
-        number | null,
-        string | null,
-        string,
-        string,
-        string,
-        string | null,
-        string,
-        string,
-      ];
-
-      this.db.items.push({
-        id,
-        owner_type: ownerType,
-        owner_id: ownerId,
-        folder_id: folderId,
-        card_ref: cardRef,
-        object_type: objectType,
-        grader,
-        condition,
-        grade,
-        language,
-        finish,
-        price_series_id: priceSeriesId,
-        quantity,
-        purchase_price: purchasePrice,
-        purchase_currency: purchaseCurrency,
-        performance_start_at: performanceStartAt,
-        purchase_price_effective_at: purchasePriceEffectiveAt,
-        performance_history_available_from: performanceHistoryAvailableFrom,
-        notes,
-        folder_joined_at: createdAt,
-        created_at: createdAt,
-        updated_at: updatedAt,
-      });
-
-      return changed(1);
-    }
-
-    if (this.sql.includes("UPDATE collection_item") && this.sql.includes("grader = ?")) {
-      const [
-        folderId,
-        folderJoinedAt,
-        grader,
-        condition,
-        grade,
-        language,
-        finish,
-        priceSeriesId,
-        quantity,
-        purchasePrice,
-        purchaseCurrency,
-        notes,
-        updatedAt,
-        ownerType,
-        ownerId,
-        itemId,
-      ] = this.args as [
-        string,
-        string,
-        string,
-        string | null,
-        number | null,
-        string | null,
-        string | null,
-        number | null,
-        number,
-        number | null,
-        string | null,
-        string | null,
-        string,
-        OwnerType,
-        string,
-        string,
-      ];
-      const item = findItem(this.db, ownerType, ownerId, itemId);
-
-      if (!item) return changed(0);
-
-      Object.assign(item, {
-        folder_id: folderId,
-        folder_joined_at: folderJoinedAt,
-        grader,
-        condition,
-        grade,
-        language,
-        finish,
-        price_series_id: priceSeriesId,
-        quantity,
-        purchase_price: purchasePrice,
-        purchase_currency: purchaseCurrency,
-        notes,
-        updated_at: updatedAt,
-      });
-
-      return changed(1);
-    }
-
-    if (this.sql.includes("UPDATE collection_item") && this.sql.includes("SET folder_id")) {
-      const [folderId, folderJoinedAt, updatedAt, ownerType, ownerId, itemId] = this.args as [
-        string,
-        string,
-        string,
-        OwnerType,
-        string,
-        string,
-      ];
-      const item = findItem(this.db, ownerType, ownerId, itemId);
-
-      if (!item) return changed(0);
-
-      item.folder_id = folderId;
-      item.folder_joined_at = folderJoinedAt;
-      item.updated_at = updatedAt;
-      return changed(1);
-    }
-
-    if (this.sql.includes("DELETE FROM collection_item")) {
-      const [ownerType, ownerId, itemId] = this.args;
-      const before = this.db.items.length;
-      this.db.items = this.db.items.filter(
-        (row) =>
-          !(
-            row.owner_type === ownerType &&
-            row.owner_id === ownerId &&
-            row.id === itemId
-          ),
-      );
-
-      return changed(before - this.db.items.length);
-    }
-
-    if (this.sql.includes("DELETE FROM wishlist_item")) {
-      const [ownerType, ownerId, cardRef] = this.args;
-      const before = this.db.wishlist.length;
-      this.db.wishlist = this.db.wishlist.filter(
-        (row) =>
-          !(
-            row.owner_type === ownerType &&
-            row.owner_id === ownerId &&
-            row.card_ref === cardRef
-          ),
-      );
-
-      return changed(before - this.db.wishlist.length);
-    }
-
-    return changed(0);
-  }
-}
+afterEach(async () => { await closePortfolioPostgresFixtures(); });
 
 describe("collection item routes", () => {
   it("creates a Raw collection item and removes the matching wishlist row because Collect transfers intent into ownership", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.folders.push(folder({ id: "main" }));
-    db.wishlist.push({ owner_type: "anonymous", owner_id: "anon-1", card_ref: "card-a" });
+    const db = await createDbForOwner("anonymous", "anon-1");
+    await seedPortfolioRows(db, 'portfolio_folder', folder({ id: "main" }));
+    await seedPortfolioRows(db, 'wishlist_item', { owner_type: "anonymous", owner_id: "anon-1", card_ref: "card-a" });
 
     const response = await app.request(
       "/api/v1/portfolio/items",
@@ -494,8 +120,8 @@ describe("collection item routes", () => {
         updated_at: expect.any(String),
       }),
     });
-    expect(db.wishlist).toEqual([]);
-    expect(db.itemEvents).toEqual([
+    expect((await readPortfolioRows<WishlistRow>(db, 'wishlist_item', fixtureColumns.wishlist_item))).toEqual([]);
+    expect((await readPortfolioRows<CollectionItemEventRow>(db, 'collection_item_event', fixtureColumns.collection_item_event))).toEqual([
       expect.objectContaining({
         item_id: expect.any(String),
         folder_id: "main",
@@ -508,8 +134,8 @@ describe("collection item routes", () => {
   });
 
   it("replays a lost create response by operation key because retry must confirm the original item", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.folders.push(folder({ id: "main" }));
+    const db = await createDbForOwner("anonymous", "anon-1");
+    await seedPortfolioRows(db, 'portfolio_folder', folder({ id: "main" }));
     const idempotencyKey = "33333333-3333-4333-8333-333333333333";
     const headers = {
       ...(await authHeaders("anonymous", "anon-1")),
@@ -547,13 +173,13 @@ describe("collection item routes", () => {
       success: true,
       data: { id: idempotencyKey, card_ref: "card-a", quantity: 2 },
     });
-    expect(db.items).toHaveLength(1);
-    expect(db.itemEvents).toHaveLength(1);
+    expect((await readPortfolioRows<CollectionItemRow>(db, 'collection_item', fixtureColumns.collection_item))).toHaveLength(1);
+    expect((await readPortfolioRows<CollectionItemEventRow>(db, 'collection_item_event', fixtureColumns.collection_item_event))).toHaveLength(1);
   });
 
   it("rejects changing an item create after reusing its operation key because one key has one request meaning", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.folders.push(folder({ id: "main" }));
+    const db = await createDbForOwner("anonymous", "anon-1");
+    await seedPortfolioRows(db, 'portfolio_folder', folder({ id: "main" }));
     const headers = {
       ...(await authHeaders("anonymous", "anon-1")),
       "Idempotency-Key": "44444444-4444-4444-8444-444444444444",
@@ -586,12 +212,12 @@ describe("collection item routes", () => {
     );
 
     expect(response.status).toBe(409);
-    expect(db.items).toHaveLength(1);
+    expect((await readPortfolioRows<CollectionItemRow>(db, 'collection_item', fixtureColumns.collection_item))).toHaveLength(1);
   });
 
   it("rejects the old Raw condition label because raw card condition must use the PRD canonical value", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.folders.push(folder({ id: "main" }));
+    const db = await createDbForOwner("anonymous", "anon-1");
+    await seedPortfolioRows(db, 'portfolio_folder', folder({ id: "main" }));
 
     const response = await app.request(
       "/api/v1/portfolio/items",
@@ -619,8 +245,8 @@ describe("collection item routes", () => {
   });
 
   it("accepts every PRD Raw condition and rejects the deprecated Nearly Mint spelling because raw valuation depends on canonical condition buckets", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.folders.push(folder({ id: "main" }));
+    const db = await createDbForOwner("anonymous", "anon-1");
+    await seedPortfolioRows(db, 'portfolio_folder', folder({ id: "main" }));
 
     for (const condition of [
       "Near Mint (NM)",
@@ -672,8 +298,8 @@ describe("collection item routes", () => {
   });
 
   it("rejects impossible graded values because grader-specific prices require a valid 1 to 10 grade scale", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.folders.push(folder({ id: "main" }));
+    const db = await createDbForOwner("anonymous", "anon-1");
+    await seedPortfolioRows(db, 'portfolio_folder', folder({ id: "main" }));
 
     const response = await app.request(
       "/api/v1/portfolio/items",
@@ -697,8 +323,8 @@ describe("collection item routes", () => {
   });
 
   it("rejects grader and folder validation failures because collection valuation depends on consistent grading state", async () => {
-    const db = createDbForOwner("user", "user-1");
-    db.folders.push(folder({ id: "main", owner_type: "user", owner_id: "user-1" }));
+    const db = await createDbForOwner("user", "user-1");
+    await seedPortfolioRows(db, 'portfolio_folder', folder({ id: "main", owner_type: "user", owner_id: "user-1" }));
 
     const badRaw = await app.request(
       "/api/v1/portfolio/items",
@@ -748,9 +374,9 @@ describe("collection item routes", () => {
   });
 
   it("allows the same card variant and grade when the grader differs", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.folders.push(folder({ id: "main" }));
-    db.items.push(item({
+    const db = await createDbForOwner("anonymous", "anon-1");
+    await seedPortfolioRows(db, 'portfolio_folder', folder({ id: "main" }));
+    await seedPortfolioRows(db, 'collection_item', item({
       id: "owned",
       folder_id: "main",
       card_ref: "card-a",
@@ -770,13 +396,13 @@ describe("collection item routes", () => {
     }, createTestEnv(db));
 
     expect(response.status).toBe(201);
-    expect(db.items).toHaveLength(2);
+    expect((await readPortfolioRows<CollectionItemRow>(db, 'collection_item', fixtureColumns.collection_item))).toHaveLength(2);
   });
 
   it("allows the same graded card variant when the grade differs", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.folders.push(folder({ id: "main" }));
-    db.items.push(item({
+    const db = await createDbForOwner("anonymous", "anon-1");
+    await seedPortfolioRows(db, 'portfolio_folder', folder({ id: "main" }));
+    await seedPortfolioRows(db, 'collection_item', item({
       id: "owned",
       folder_id: "main",
       card_ref: "card-a",
@@ -796,13 +422,13 @@ describe("collection item routes", () => {
     }, createTestEnv(db));
 
     expect(response.status).toBe(201);
-    expect(db.items).toHaveLength(2);
+    expect((await readPortfolioRows<CollectionItemRow>(db, 'collection_item', fixtureColumns.collection_item))).toHaveLength(2);
   });
 
   it("allows the same Raw card variant when the condition differs", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.folders.push(folder({ id: "main" }));
-    db.items.push(item({ id: "owned", folder_id: "main", card_ref: "card-a" }));
+    const db = await createDbForOwner("anonymous", "anon-1");
+    await seedPortfolioRows(db, 'portfolio_folder', folder({ id: "main" }));
+    await seedPortfolioRows(db, 'collection_item', item({ id: "owned", folder_id: "main", card_ref: "card-a" }));
 
     const response = await app.request("/api/v1/portfolio/items", {
       method: "POST",
@@ -815,13 +441,13 @@ describe("collection item routes", () => {
     }, createTestEnv(db));
 
     expect(response.status).toBe(201);
-    expect(db.items).toHaveLength(2);
+    expect((await readPortfolioRows<CollectionItemRow>(db, 'collection_item', fixtureColumns.collection_item))).toHaveLength(2);
   });
 
   it("preserves folder join time during field-only edits because ordinary edits are not folder additions", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.folders.push(folder({ id: "main" }));
-    db.items.push(item({ id: "owned", folder_id: "main", price_series_id: 7 }));
+    const db = await createDbForOwner("anonymous", "anon-1");
+    await seedPortfolioRows(db, 'portfolio_folder', folder({ id: "main" }));
+    await seedPortfolioRows(db, 'collection_item', item({ id: "owned", folder_id: "main", price_series_id: 7 }));
 
     const response = await app.request(
       "/api/v1/portfolio/items/owned",
@@ -834,20 +460,17 @@ describe("collection item routes", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(db.items[0].quantity).toBe(2);
-    expect(db.items[0].price_series_id).toBe(7);
-    expect(db.items[0].folder_joined_at).toBe(NOW);
-    expect(db.items[0].updated_at).not.toBe(NOW);
-    expect(db.itemEvents[0]?.price_series_id).toBe(7);
+    expect((await readPortfolioRows<CollectionItemRow>(db, 'collection_item', fixtureColumns.collection_item))[0].quantity).toBe(2);
+    expect((await readPortfolioRows<CollectionItemRow>(db, 'collection_item', fixtureColumns.collection_item))[0].price_series_id).toBe(7);
+    expect((await readPortfolioRows<CollectionItemRow>(db, 'collection_item', fixtureColumns.collection_item))[0].folder_joined_at).toBe(NOW);
+    expect((await readPortfolioRows<CollectionItemRow>(db, 'collection_item', fixtureColumns.collection_item))[0].updated_at).not.toBe(NOW);
+    expect((await readPortfolioRows<CollectionItemEventRow>(db, 'collection_item_event', fixtureColumns.collection_item_event))[0]?.price_series_id).toBe(7);
   });
 
   it("rejects an edit that would duplicate another collection item identity", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.folders.push(folder({ id: "main" }));
-    db.items.push(
-      item({ id: "existing" }),
-      item({ id: "edited", condition: "Lightly Played (LP)" }),
-    );
+    const db = await createDbForOwner("anonymous", "anon-1");
+    await seedPortfolioRows(db, 'portfolio_folder', folder({ id: "main" }));
+    await seedPortfolioRows(db, 'collection_item', item({ id: "existing" }), item({ id: "edited", condition: "Lightly Played (LP)" }));
 
     const response = await app.request(
       "/api/v1/portfolio/items/edited",
@@ -868,26 +491,24 @@ describe("collection item routes", () => {
           "This card with the same finish, language, and grading is already in this portfolio.",
       },
     });
-    expect(db.batchSizes).toEqual([]);
-    expect(db.items.find((row) => row.id === "edited")?.condition).toBe(
+
+    expect((await readPortfolioRows<CollectionItemRow>(db, 'collection_item', fixtureColumns.collection_item)).find((row) => row.id === "edited")?.condition).toBe(
       "Lightly Played (LP)",
     );
-    expect(db.itemEvents).toEqual([]);
+    expect((await readPortfolioRows<CollectionItemEventRow>(db, 'collection_item_event', fixtureColumns.collection_item_event))).toEqual([]);
   });
 
   it("maps a concurrent PostgreSQL duplicate during edit to the existing duplicate response", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.folders.push(folder({ id: "main" }));
-    db.items.push(item({ id: "edited", condition: "Lightly Played (LP)" }));
-    db.nextBatchError = Object.assign(
-      new Error(
-        'duplicate key value violates unique constraint "uq_collection_item_folder_card_variant"',
-      ),
-      {
-        code: "23505",
-        constraint_name: "uq_collection_item_folder_card_variant",
-      },
-    );
+    const db = await createDbForOwner("anonymous", "anon-1");
+    await seedPortfolioRows(db, 'portfolio_folder', folder({ id: "main" }));
+    await seedPortfolioRows(db, 'collection_item', item({ id: "edited", condition: "Lightly Played (LP)" }));
+    await db.exec(`CREATE FUNCTION fixture_concurrent_duplicate() RETURNS trigger
+      LANGUAGE plpgsql AS $$ BEGIN
+        RAISE EXCEPTION 'duplicate key value violates unique constraint "uq_collection_item_folder_card_variant"'
+          USING ERRCODE = '23505', CONSTRAINT = 'uq_collection_item_folder_card_variant';
+      END $$;
+      CREATE TRIGGER fixture_concurrent_duplicate BEFORE UPDATE ON collection_item
+      FOR EACH ROW EXECUTE FUNCTION fixture_concurrent_duplicate();`);
 
     const response = await app.request(
       "/api/v1/portfolio/items/edited",
@@ -903,15 +524,15 @@ describe("collection item routes", () => {
     expect(await response.json()).toMatchObject({
       error: { code: "DUPLICATE_COLLECTION_ITEM" },
     });
-    expect(db.batchSizes).toEqual([2]);
-    expect(db.items[0].condition).toBe("Lightly Played (LP)");
-    expect(db.itemEvents).toEqual([]);
+
+    expect((await readPortfolioRows<CollectionItemRow>(db, 'collection_item', fixtureColumns.collection_item))[0].condition).toBe("Lightly Played (LP)");
+    expect((await readPortfolioRows<CollectionItemEventRow>(db, 'collection_item_event', fixtureColumns.collection_item_event))).toEqual([]);
   });
 
   it("edits fields and moves folders in one PATCH because edited moves must complete atomically", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.folders.push(folder({ id: "main" }), folder({ id: "trade" }));
-    db.items.push(item({ id: "owned", folder_id: "main", price_series_id: 7 }));
+    const db = await createDbForOwner("anonymous", "anon-1");
+    await seedPortfolioRows(db, 'portfolio_folder', folder({ id: "main" }), folder({ id: "trade" }));
+    await seedPortfolioRows(db, 'collection_item', item({ id: "owned", folder_id: "main", price_series_id: 7 }));
 
     const response = await app.request(
       "/api/v1/portfolio/items/owned",
@@ -944,8 +565,8 @@ describe("collection item routes", () => {
         updated_at: expect.any(String),
       }),
     });
-    expect(db.batchSizes).toEqual([2]);
-    expect(db.items).toEqual([
+
+    expect((await readPortfolioRows<CollectionItemRow>(db, 'collection_item', fixtureColumns.collection_item))).toEqual([
       expect.objectContaining({
         id: "owned",
         folder_id: "trade",
@@ -956,9 +577,9 @@ describe("collection item routes", () => {
         notes: "trade binder",
       }),
     ]);
-    expect(db.items[0].folder_joined_at).toBe(db.items[0].updated_at);
-    expect(db.items[0].folder_joined_at).not.toBe(NOW);
-    expect(db.itemEvents).toEqual([
+    expect((await readPortfolioRows<CollectionItemRow>(db, 'collection_item', fixtureColumns.collection_item))[0].folder_joined_at).toBe((await readPortfolioRows<CollectionItemRow>(db, 'collection_item', fixtureColumns.collection_item))[0].updated_at);
+    expect((await readPortfolioRows<CollectionItemRow>(db, 'collection_item', fixtureColumns.collection_item))[0].folder_joined_at).not.toBe(NOW);
+    expect((await readPortfolioRows<CollectionItemEventRow>(db, 'collection_item_event', fixtureColumns.collection_item_event))).toEqual([
       expect.objectContaining({
         item_id: "owned",
         folder_id: "trade",
@@ -972,12 +593,9 @@ describe("collection item routes", () => {
   });
 
   it("keeps the original folder when an edited move targets another owner because failed saves must not move assets", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.folders.push(
-      folder({ id: "main" }),
-      folder({ id: "private", owner_type: "user", owner_id: "user-2" }),
-    );
-    db.items.push(item({ id: "owned", folder_id: "main" }));
+    const db = await createDbForOwner("anonymous", "anon-1");
+    await seedPortfolioRows(db, 'portfolio_folder', folder({ id: "main" }), folder({ id: "private", owner_type: "user", owner_id: "user-2" }));
+    await seedPortfolioRows(db, 'collection_item', item({ id: "owned", folder_id: "main" }));
 
     const response = await app.request(
       "/api/v1/portfolio/items/owned",
@@ -994,21 +612,21 @@ describe("collection item routes", () => {
       success: false,
       error: { code: "NOT_FOUND", message: "Not found." },
     });
-    expect(db.batchSizes).toEqual([]);
-    expect(db.items).toEqual([
+
+    expect((await readPortfolioRows<CollectionItemRow>(db, 'collection_item', fixtureColumns.collection_item))).toEqual([
       expect.objectContaining({
         id: "owned",
         folder_id: "main",
         quantity: 1,
       }),
     ]);
-    expect(db.itemEvents).toEqual([]);
+    expect((await readPortfolioRows<CollectionItemEventRow>(db, 'collection_item_event', fixtureColumns.collection_item_event))).toEqual([]);
   });
 
   it("preserves a saved series in move and delete events because folder changes must not rewrite historical pricing", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.folders.push(folder({ id: "main" }), folder({ id: "trade" }));
-    db.items.push(item({ id: "owned", folder_id: "main", price_series_id: 7 }));
+    const db = await createDbForOwner("anonymous", "anon-1");
+    await seedPortfolioRows(db, 'portfolio_folder', folder({ id: "main" }), folder({ id: "trade" }));
+    await seedPortfolioRows(db, 'collection_item', item({ id: "owned", folder_id: "main", price_series_id: 7 }));
     const headers = await authHeaders("anonymous", "anon-1");
 
     const move = await app.request(
@@ -1024,13 +642,13 @@ describe("collection item routes", () => {
 
     expect(move.status).toBe(200);
     expect(remove.status).toBe(200);
-    expect(db.itemEvents.map((eventRow) => eventRow.price_series_id)).toEqual([7, 7]);
+    expect((await readPortfolioRows<CollectionItemEventRow>(db, 'collection_item_event', fixtureColumns.collection_item_event)).map((eventRow) => eventRow.price_series_id)).toEqual([7, 7]);
   });
 
   it("gets, updates, moves, and deletes only owned collection items because item operations must stay inside the owner boundary", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.folders.push(folder({ id: "main" }), folder({ id: "trade" }));
-    db.items.push(item({ id: "owned", folder_id: "main" }));
+    const db = await createDbForOwner("anonymous", "anon-1");
+    await seedPortfolioRows(db, 'portfolio_folder', folder({ id: "main" }), folder({ id: "trade" }));
+    await seedPortfolioRows(db, 'collection_item', item({ id: "owned", folder_id: "main" }));
 
     const detail = await app.request(
       "/api/v1/portfolio/items/owned",
@@ -1113,8 +731,8 @@ describe("collection item routes", () => {
     });
     expect(remove.status).toBe(200);
     expect(await remove.json()).toEqual({ success: true, data: {} });
-    expect(db.items).toEqual([]);
-    expect(db.itemEvents).toEqual([
+    expect((await readPortfolioRows<CollectionItemRow>(db, 'collection_item', fixtureColumns.collection_item))).toEqual([]);
+    expect((await readPortfolioRows<CollectionItemEventRow>(db, 'collection_item_event', fixtureColumns.collection_item_event))).toEqual([
       expect.objectContaining({
         item_id: "owned",
         folder_id: "main",
@@ -1140,50 +758,12 @@ describe("collection item routes", () => {
   });
 });
 
-function findItem(
-  db: FakeD1Database,
-  ownerType: OwnerType,
-  ownerId: string,
-  itemId: string,
-): CollectionItemRow | undefined {
-  return db.items.find(
-    (row) =>
-      row.owner_type === ownerType &&
-      row.owner_id === ownerId &&
-      row.id === itemId,
-  );
+async function createDbForOwner(ownerType: OwnerType, ownerId: string): Promise<PGliteDatabase> {
+  return createPortfolioPostgresFixture(ownerType, ownerId);
 }
 
-function changed(changes: number): { success: true; meta: { changes: number } } {
-  return { success: true, meta: { changes } };
-}
-
-function createDbForOwner(ownerType: OwnerType, ownerId: string): FakeD1Database {
-  const db = new FakeD1Database();
-
-  db.sessions.push({
-    id: sessionId(ownerType, ownerId),
-    owner_type: ownerType,
-    owner_id: ownerId,
-    expires_at: LATER,
-    revoked_at: null,
-  });
-
-  if (ownerType === "anonymous") {
-    db.anonymousAccounts.push({ id: ownerId, upgraded_user_id: null });
-  } else {
-    db.users.push({ id: ownerId, deleted_at: null });
-  }
-
-  return db;
-}
-
-function createTestEnv(db = new FakeD1Database()): Env {
-  return {
-    DB: db as unknown as D1Database,
-    CACHE_KV: {} as KVNamespace,
-    JWT_SECRET: JWT_SECRET,
-  };
+function createTestEnv(db: PGliteDatabase): Env {
+  return { DB: db, CACHE_KV: {} as KVNamespace, JWT_SECRET };
 }
 
 async function authHeaders(

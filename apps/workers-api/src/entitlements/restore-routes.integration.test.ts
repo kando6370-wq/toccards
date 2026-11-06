@@ -1,8 +1,8 @@
 import { signAccessToken } from "@kando/auth-core";
 import { Environment, type JWSTransactionDecodedPayload } from "@apple/app-store-server-library";
-import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Env } from "../env";
+import { PGliteDatabase } from "../test-support/pglite-database";
 import { createAppleRestoreRoutes } from "./restore-routes";
 
 const NOW = new Date("2026-08-12T08:00:00.000Z");
@@ -11,23 +11,16 @@ const PRODUCT_ID = "com.cardai.tcg.pro.yearly";
 const JWS = "apple.restore.jws";
 
 describe("Apple Restore proof routes", () => {
-  let miniflare: Miniflare;
-  let db: D1Database;
+  let db: PGliteDatabase;
   let env: Env;
 
   beforeEach(async () => {
-    miniflare = new Miniflare({
-      modules: true,
-      script: "export default { fetch() { return new Response('ok') } }",
-      compatibilityDate: "2024-11-01",
-      d1Databases: ["DB"],
-    });
-    db = await miniflare.getD1Database("DB");
+    db = await PGliteDatabase.create();
     await db.exec(SCHEMA);
     await db.batch([
-      db.prepare("INSERT INTO anonymous_account (id, upgraded_user_id) VALUES ('100000', NULL)"),
-      db.prepare("INSERT INTO session (id, owner_type, owner_id, expires_at, revoked_at) VALUES ('session-a', 'anonymous', '100000', '2099-01-01T00:00:00.000Z', NULL)"),
-      db.prepare("INSERT INTO session (id, owner_type, owner_id, expires_at, revoked_at) VALUES ('session-b', 'anonymous', '100000', '2099-01-01T00:00:00.000Z', NULL)"),
+      db.prepare("INSERT INTO anonymous_account (id, upgraded_user_id, platform, status) VALUES ('100000', NULL, 'ios', 'active')"),
+      db.prepare("INSERT INTO session (id, owner_type, owner_id, platform, user_id, expires_at, revoked_at) VALUES ('session-a', 'anonymous', '100000', 'ios', NULL, '2099-01-01T00:00:00.000Z', NULL)"),
+      db.prepare("INSERT INTO session (id, owner_type, owner_id, platform, user_id, expires_at, revoked_at) VALUES ('session-b', 'anonymous', '100000', 'ios', NULL, '2099-01-01T00:00:00.000Z', NULL)"),
       db.prepare("INSERT INTO billing_product (store, product_id, entitlement_id, active) VALUES ('app_store', ?, 'performance_pro', 1)").bind(PRODUCT_ID),
     ]);
     env = {
@@ -44,7 +37,7 @@ describe("Apple Restore proof routes", () => {
 
   afterEach(async () => {
     currentEnv = null;
-    await miniflare.dispose();
+    await db.close();
   });
 
   it("grants only the live proving session and rejects replay without advancing the counter", async () => {
@@ -441,8 +434,8 @@ function transaction(): JWSTransactionDecodedPayload {
 }
 
 const SCHEMA = `
-CREATE TABLE anonymous_account (id TEXT PRIMARY KEY, upgraded_user_id TEXT);
-CREATE TABLE session (id TEXT PRIMARY KEY, owner_type TEXT NOT NULL, owner_id TEXT NOT NULL, expires_at TEXT NOT NULL, revoked_at TEXT);
+CREATE TABLE anonymous_account (id TEXT PRIMARY KEY, upgraded_user_id TEXT, platform TEXT NOT NULL, status TEXT NOT NULL);
+CREATE TABLE session (id TEXT PRIMARY KEY, owner_type TEXT NOT NULL, owner_id TEXT NOT NULL, platform TEXT, user_id TEXT, expires_at TEXT NOT NULL, revoked_at TEXT);
 CREATE TABLE billing_product (store TEXT NOT NULL, product_id TEXT NOT NULL, entitlement_id TEXT NOT NULL, active INTEGER NOT NULL, UNIQUE(store, product_id));
 CREATE TABLE billing_apple_app_attest_challenge (token TEXT PRIMARY KEY, session_id TEXT NOT NULL, purpose TEXT NOT NULL, request_id TEXT NOT NULL, key_id TEXT, evidence_sha256 TEXT, client_data TEXT NOT NULL, expires_at TEXT NOT NULL, consumed_at TEXT, consumption_id TEXT, result_code TEXT, response_json TEXT, http_status INTEGER, created_at TEXT NOT NULL, UNIQUE(session_id, request_id));
 CREATE TABLE billing_apple_app_attest_key (key_id TEXT PRIMARY KEY, public_key_pem TEXT NOT NULL, receipt_base64 TEXT NOT NULL, sign_count INTEGER NOT NULL, environment TEXT NOT NULL, registered_session_id TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);

@@ -14,6 +14,7 @@ import 'package:kando_app/features/subscription/subscription_product_support.dar
 import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/features/subscription/subscription_revenue_reporter.dart';
 import 'package:kando_app/shared/api/api_environment.dart';
+import 'package:kando_app/shared/platform/app_commercial_policy.dart';
 import 'package:subscription_core/subscription_core.dart';
 
 void main() {
@@ -277,6 +278,9 @@ ProviderContainer _registryContainer(
   _RegistryGateway gateway,
 ) => ProviderContainer(
   overrides: [
+    appCommercialPolicyProvider.overrideWithValue(
+      const AppCommercialPolicy(isAndroidFreeLaunch: false),
+    ),
     authControllerProvider.overrideWith(_RegistryAuth.new),
     appSubscriptionConfigurationProvider.overrideWithValue(
       const AppSubscriptionConfiguration(
