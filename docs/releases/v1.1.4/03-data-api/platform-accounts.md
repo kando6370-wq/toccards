@@ -1,6 +1,6 @@
 # 双端平台账号、Android 免费首版与发布配置
 
-状态：2026-11-05 起的源码实现合同；本地验证截至 2026-11-06，结果见本文末尾。源码、迁移文件、本地测试、远端迁移和商店发布分别记录。
+状态：2026-11-05 起的源码实现合同；本地验证及 2026-11-06 Linux dev 发布结果见本文末尾。源码、迁移文件、本地测试、远端迁移和商店发布分别记录。
 
 产品依据为 [Android 免费首版 PRD](../00-product/Card_AI_Android_Free_First_Release_Incremental_PRD-3.md)及[扫描规则澄清](../05-delivery/android-free-first-release-review.md#02-扫描规则澄清2026-11-05)。原始输入保持字节不变；实施前评估的旧源码差距不作为修改后的实现事实。
 
@@ -15,7 +15,7 @@
 
 ## PostgreSQL 与 owner 边界
 
-增量迁移文件为 `apps/workers-api/src/db/postgres/migrations/0018_platform_account_isolation.sql`，只供受控本地回放及未来经授权的环境发布使用，不修改历史 migration，不引入 D1。
+增量迁移文件为 `apps/workers-api/src/db/postgres/migrations/0018_platform_account_isolation.sql`，用于受控本地回放及经授权的环境发布，不修改历史 migration，不引入 D1。2026-11-06 已执行 Linux dev 迁移，结果见末节；prod 不在本次发布范围。
 
 | 对象 | 归属／状态 |
 |---|---|
@@ -29,7 +29,7 @@
 
 历史 `user.status=deleted` 不建立平台账号；迁移清除其 OAuth 关联、密码、显示名和原邮箱，并将邮箱替换为基于旧 user ID 的不可登录占位。对应邮箱的认证码仅在该邮箱没有被 active／disabled 身份复用时清理。旧 user ID、业务资产 tombstone 及必要财务／审计记录保留，不迁入新账号。active／disabled 身份、登录信息和平台归属不受这项历史归一影响。
 
-生产迁移需要冻结注册、登录及 OAuth 等认证写入，执行 0018、切换新 API 并只读核对映射后再解冻。旧服务端不能创建新平台账号，不能将这次迁移描述为无需写入冻结的在线变更；Android 放行必须晚于上述步骤。本轮没有执行任何远程迁移或发布。
+生产迁移需要冻结注册、登录及 OAuth 等认证写入，执行 0018、切换新 API 并只读核对映射后再解冻。旧服务端不能创建新平台账号，不能将这次迁移描述为无需写入冻结的在线变更；Android 放行必须晚于上述步骤。开发验证阶段未执行远程迁移，后续 Linux dev 发布单独记录在末节。
 
 新平台空间开始写入后，不能直接回退到不识别平台 owner 的旧 API。回退版本必须保留本次平台鉴权与 owner 解析；若需要恢复发布前数据库备份，须另行核对发布后的新增数据及恢复范围。不得通过删除平台关系、把 Android owner 改写成 iOS owner 或复活旧空间来回退。
 
@@ -177,6 +177,22 @@ X-Request-ID: <request id>
 
 此 Debug 包未提供正式 Firebase／Google／Play 配置，未使用正式签名；构建与静态制品检查不代表登录、Play Integrity、统计归因、相机识别或商店轨道已通过真机验收。
 
-以上为本地源码、测试、配置检查和 dry-run 范围。本轮没有连接远端数据库，没有执行 dev／prod migration，没有部署 API、Admin Pages／Workers assets、Marketing 或移动端制品，没有提交 App Store／Google Play，也没有使用正式 Android 签名。
+以上为本地开发阶段的源码、测试、配置检查和 dry-run 范围。该阶段没有连接远端数据库，没有执行 dev／prod migration，没有部署 API、Admin Pages／Workers assets、Marketing 或移动端制品，没有提交 App Store／Google Play，也没有使用正式 Android 签名。后续 Linux dev 发布见下节。
 
 正式发布前还需要独立打包设备上的签名 AAB／IPA、Play 测试轨道、真实 Google 登录与应用证明、iOS 购买／Restore、双端真机和正式制品的 16 KB 对齐复验。官网真实操作截图、处理期限及 SDK 数据披露也需按运营和最终包事实补齐。本地通过不能代替这些验收。
+
+## Linux dev 发布与验收（2026-11-06）
+
+本次经用户授权，将干净的 `codex/dev-andriod@c3762ea4` 合入 `dev@154c25fc910459c92a3e6025c8fd27e7b4adf3fc` 并推送。冲突仅涉及历史文档和营销测试；保留 dev／prod 各自的历史交付证据，营销测试采用更新后的谨慎内容合同并保留 HTML 标题渲染检查。合并后的 API、Admin、共享包和 Linux 部署代码与来源分支一致。
+
+发布前在 Node 22.23.4／pnpm 11.28.10 下重新完成 frozen 安装、依赖方向检查、7 项 TypeScript 类型检查任务、Workers 116 文件／943 项、Admin 87 项、Marketing 27 项及部署检查 13 项；均退出 0，无测试跳过。Linux dry-run 的 3 项 bundle 检查及 API／Admin 构建通过，manifest 为 `working_tree_dirty=false`。旧 App 源码兼容重跑为当前 API 8／8、App 1.0.4 与 1.0.5 各 24／24，证据位于忽略目录 `.dart_tool/app-compatibility/run-Bc4JaD/`。本次未重跑 Flutter 全量测试，前述 9 项既有失败及移动端验收边界继续保留。
+
+kd201 由既有 watcher 发布 `branch-dev-154c25fc9104-20261106092700`，服务器另外完成受影响 Workers 11 文件／125 项、部署检查 13 项及 bundle 检查 3 项，均通过且无跳过。更新 watcher 至同一来源版本并备份其脚本及私有配置，仅为本项目添加经 Node 官方 SHA-256 清单校验的独立 Node 22.23.4 路径，未改系统 Node 或其他应用。watcher 保持跟踪 dev，沿用原 cron、发布锁及失败处理。用户另行确认后，仅向 dev 私有环境追加 `ANDROID_INTEGRITY_ALLOW_DEVELOPMENT=true`；原文件已备份，逐字节确认除此追加外原内容完整保留。Android Google／Play 正式配置仍未提供，开发豁免不代表真实安装证明或 Google 登录已通过。
+
+为阻止旧认证写入，发布期间先停止旧 API，再由标准流程预检、备份、迁移和启动。预检确认 PostgreSQL 18.6、两个识别服务合同可达，待执行项仅 `0018`。备份 `toccards-test-20261106-092703-before-branch-dev-154c25fc9104-20261106092700.dump` 为 1,137,225,348 字节，`pg_restore --list` 退出 0，339 项目录条目；未执行恢复演练。迁移实际回填 7 个 iOS 平台账号、清理 1 条旧验证码、匿名化 2 个已删除 user，并更新 119 条历史业务会话；ledger 为 19 项／最新 `0018_platform_account_isolation.sql`。只读回查确认 7 个历史平台账号均沿用原 user ID，无漏映射、错误旧会话绑定或残留已删除用户登录字段，7 个 owner 写触发器存在。迁移后、烟测前的收藏、文件夹、心愿单、扫描记录及原会话行数与迁移前一致。
+
+独立运行验收确认 API／DB healthy、Web running、migration exited/0，API 实际 Node 为 22.23.4；current、manifest 和 last-deployed 均指向该发布提交，失败标记不存在，复检 pendingMigrations 为空。运行 API 与发布文件及同提交 Windows 构建 SHA-256 均为 `08223de5620c73e2baebb89a302f520030764283cc474df3b201b959d38f2381`。Admin 11 个运行文件及 HTTP 响应与 Linux release 原始字节一致；对 Windows 构建的 10 个 JS／CSS 原始字节一致，HTML 仅 CR 换行有差异，不能称跨平台 11／11 原始字节一致。部署记录属于文档后续提交时，watcher 仅推进 last-seen，不应将其写成重新发布业务代码。
+
+运行烟测 30／30 通过：基础 health、未登录鉴权、App 配置、插件缺 Key 拒绝；旧 iOS 缺省匿名认证与有限 Free 配额；Android dev 认证、`free + unlimited=true`、配额预留幂等及免费文件夹创建；iOS 看不到且不能编辑 Android 文件夹；Android Apple 接口返回 403、既有 session 不能改端、refresh 保持原空间。两个本轮独立游客均按现有删号流程清理，旧 access／refresh 均被拒绝；保留必要 tombstone，不触及真实用户、卡牌、订单或扫描图片。
+
+本次只发布 Linux dev API／Admin 及上述 PostgreSQL 迁移，未发布 prod、Marketing、APK／AAB／IPA 或商店版本。真实邮箱／Google 登录、Play Integrity、真机扫描、旧正式 iOS 包、购买／Restore、真实负载 P50/P95 和备份恢复仍待独立验收。0018 成功后的应用回退不会撤销数据库迁移；出现 Android 数据后不得直接回退到不识别平台空间的旧 API，恢复备份须另行核对新增数据和恢复范围。
