@@ -40,6 +40,7 @@ describe("card-scoped owner assets on PostgreSQL", () => {
              ('wish-b', 'user', 'owner-1', 'card-b', '${NOW}'),
              ('other-wish', 'user', 'owner-2', 'card-a', '${NOW}');
     `);
+    await db.exec(readFileSync(new URL("../db/postgres/migrations/0018_platform_account_isolation.sql", import.meta.url), "utf8"));
     token = await signAccessToken(
       { owner_type: "user", owner_id: "owner-1", session_id: "session-1" },
       JWT_SECRET,

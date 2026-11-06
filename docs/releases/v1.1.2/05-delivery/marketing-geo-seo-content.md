@@ -44,3 +44,7 @@ The marketing site assigns a primary page to each approved intent cluster. The g
 Run `pnpm --filter @kando/marketing-web generate:content` after editing content sources. The generator writes public HTML, homepage discovery links, `llms.txt`, and `sitemap.xml`.
 
 The formal sitemap follows the same namespace and `loc`/`lastmod` line shape as `meshcrate.vip`: the standard sitemap and Google image namespaces are declared, each URL is one line, and each record contains `loc` plus `lastmod` without `priority`. Card AI does not add `image:image` records until it has a page-specific image inventory. `apps/marketing-web/content/sitemap-lastmod.mjs` is the explicit date source. Update a route there only after a meaningful change to that public page. Before writing any generated file, the generator rejects missing, stale, duplicate, malformed, or impossible date entries instead of using the build date.
+
+## Homepage card preview
+
+The scan showcase uses the existing sample card image for an interactive tilt and flip preview. Its reverse side is Card AI branding, not a representation of the physical card back. The preview uses no new image or 3D library. It remains visible without JavaScript; reduced-motion settings disable tilt and flip transitions. The hero screenshots and store links remain the primary first-screen content.

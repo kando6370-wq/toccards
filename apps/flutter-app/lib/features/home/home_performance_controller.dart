@@ -5,6 +5,7 @@ import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
+import 'package:kando_app/shared/platform/app_commercial_policy.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 import 'home_entitlement_repair.dart';
@@ -43,7 +44,13 @@ class HomePerformanceController extends Notifier<HomePerformanceState> {
     ref.watch(
       authControllerProvider.select((auth) {
         final session = auth.session;
-        return (session?.ownerType, session?.userId, session?.anonymousId);
+        return (
+          session?.ownerType,
+          session?.platform,
+          session?.dataSpaceId,
+          session?.userId,
+          session?.anonymousId,
+        );
       }),
     );
     _generation += 1;
@@ -147,6 +154,7 @@ class HomePerformanceController extends Notifier<HomePerformanceState> {
     try {
       return await request();
     } catch (error) {
+      if (ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) rethrow;
       if (!isEntitlementSyncRequired(error) ||
           !await ref.read(homeEntitlementRepairProvider)()) {
         rethrow;

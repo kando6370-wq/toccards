@@ -171,12 +171,18 @@ test('approved keyword clusters stay with one truthful owner', async () => {
   assert.match(pages['card-identifier.html'], /does not guarantee an exact printing/i);
 
   assert.match(pages['card-price-checker.html'], /card price scanner app/i);
+  assert.match(pages['card-price-checker.html'], /<title>How Much Is This Card Worth\? Card Price Checker \| Card AI<\/title>/);
+  assert.match(pages['card-price-checker.html'], /<h1>How much is this trading card worth\?<\/h1>/);
+  assert.match(pages['card-price-checker.html'], /Scan or search a physical card in the Card AI app/);
   assert.match(pages['card-price-checker.html'], /trading card value app/i);
   assert.match(pages['card-price-checker.html'], /same confirmed card record/i);
   assert.match(pages['card-price-checker.html'], /Pokemon card price checker and a Pokemon card value checker answer the same question/i);
   assert.match(pages['card-price-checker.html'], /keep a missing price as missing/i);
+  assert.match(pages['card-price-checker.html'], /<summary>Can I use Card AI as a Pokemon card value checker\?<\/summary>/);
 
+  assert.match(pages['pokemon-card-scanner.html'], /<title>Pokemon Card Scanner App &amp; Value Checker \| Card AI<\/title>/);
   assert.match(pages['pokemon-card-scanner.html'], /Pokemon card value scanner/i);
+  assert.match(pages['pokemon-card-scanner.html'], /<summary>Can I use Card AI as a Pokemon card value scanner\?<\/summary>/);
   assert.match(pages['pokemon-card-scanner.html'], /best Pokemon card scanner app/i);
   assert.match(pages['pokemon-card-scanner.html'], /free to install/i);
   assert.match(pages['pokemon-card-scanner.html'], /does not authenticate cards or predict grades/i);
@@ -185,6 +191,7 @@ test('approved keyword clusters stay with one truthful owner', async () => {
 
   assert.match(pages['card-collection-tracker.html'], /TCG collection tracker/i);
   assert.match(pages['card-collection-tracker.html'], /trading card portfolio tracker/i);
+  assert.match(pages['card-collection-tracker.html'], /<summary>Can I use this as a Pokemon card collection tracker\?<\/summary>/);
   assert.match(pages['card-collection-tracker.html'], /raw conditions and existing slab grades as distinct holdings/i);
 
   assert.match(pages['bulk-card-scanner.html'], /bulk card scanner app/i);
@@ -257,6 +264,12 @@ test('30th Celebration guide keeps dated facts, article metadata, links, and dis
   assert.match(articleHtml, /Mew ex 158\/128[^<]*\$62\.33/);
   assert.match(articleHtml, /Gengar \(Prime\) 94\/102[^<]*\$54\.29/);
   assert.match(articleHtml, /Mewtwo ex 157\/128[^<]*\$45\.75/);
+  assert.match(articleHtml, /RGB Mew: match the color and language before checking a price/);
+  assert.match(articleHtml, /<li>R\/RGB, English 30C: \$4,824\.92<\/li>/);
+  assert.match(articleHtml, /<li>G\/RGB, English 30C: \$3,550\.78<\/li>/);
+  assert.match(articleHtml, /<li>B\/RGB, English 30C: \$4,152\.80<\/li>/);
+  assert.match(articleHtml, /Do not use an English 30C price for a Japanese m6a card/);
+  assert.match(articleHtml, /not the time of the underlying market observation/);
   assert.match(
     articleHtml,
     /dated market snapshots, not offers, appraisals, or guaranteed sale prices/i,
@@ -265,7 +278,7 @@ test('30th Celebration guide keeps dated facts, article metadata, links, and dis
   assert.match(articleHtml, /Card AI does not predict a grade/i);
   assert.match(articleHtml, /official 30th Celebration gallery and its full card checklist/i);
   assert.match(articleHtml, /not a complete card list or a ranking of the most valuable cards/i);
-  assert.match(articleHtml, /Updated 2026-10-20/);
+  assert.match(articleHtml, /Updated 2026-11-04/);
   assert.match(articleHtml, /30th Celebration Ultra-Premium Collection/);
   assert.match(articleHtml, /29 30th Celebration booster packs and one Classic Collection booster pack/);
   assert.match(articleHtml, /not a Card AI price for a sealed box/);
@@ -275,7 +288,7 @@ test('30th Celebration guide keeps dated facts, article metadata, links, and dis
 
   assert.equal(article?.headline, 'Pokemon TCG 30th Celebration card prices and set guide');
   assert.equal(article?.datePublished, '2026-10-10');
-  assert.equal(article?.dateModified, '2026-10-20');
+  assert.equal(article?.dateModified, '2026-11-04');
   assert.equal(article?.mainEntityOfPage, canonical);
   assert.equal(article?.image, 'https://tcgcard.fun/assets/showcase-analysis.png');
   assert.match(articleHtml, new RegExp(`<link rel="canonical" href="${canonical}">`));
@@ -289,7 +302,7 @@ test('30th Celebration guide keeps dated facts, article metadata, links, and dis
   assert.equal(occurrences(llms, `](${canonical})`), 1);
   assert.equal(occurrences(homepageHtml, `href="/blog/${slug}"`), 1);
   assert.equal(occurrences(blogIndexHtml, `href="/blog/${slug}"`), 1);
-  assert.equal(occurrences(sitemap, '<url>'), 32);
+  assert.equal(occurrences(sitemap, '<url>'), 33);
 });
 
 test('Minior guide distinguishes Pokemon GO encounters from physical card printings', async () => {
@@ -338,13 +351,19 @@ test('new collector guides keep card releases and retailer names distinct', asyn
     readFile(sitemapPath, 'utf8'),
   ]);
 
-  assert.match(dungeon, /World Earth trading cards/);
-  assert.match(dungeon, /Character collector cards/);
+  assert.match(dungeon, /<title>Dungeon Crawler Carl Trading Cards: Series 1 Guide \| Card AI<\/title>/);
+  assert.match(dungeon, /<h1>Dungeon Crawler Carl trading cards: Series 1 cards and packs<\/h1>/);
+  assert.match(dungeon, /Is there a Dungeon Crawler Carl Series 1 card list\?/);
+  assert.match(dungeon, /we have not verified a card-by-card checklist from the Series 1 issuer/);
+  assert.match(dungeon, /CardBox shows a third-party Series One checklist/);
+  assert.match(dungeon, /no cards with a value when checked/);
+  assert.match(dungeon, /Hot Topic.*out of stock when checked on October 30, 2026/s);
   assert.match(dungeon, /Unstoppable game cards/);
-  assert.match(dungeon, /<h2>Which Dungeon Crawler Carl cards are being discussed\?<\/h2>/);
-  assert.doesNotMatch(dungeon, /## Which Dungeon Crawler Carl cards are being discussed\?/);
-  assert.match(dungeon, /supports scanning cataloged Dungeon Crawler Carl collectible cards/);
-  assert.match(dungeon, /Availability of a matching record, image and market price depends on the specific card/);
+  assert.match(dungeon, /<h2>Which Dungeon Crawler Carl cards are being sold\?<\/h2>/);
+  assert.doesNotMatch(dungeon, /## Which Dungeon Crawler Carl cards are being sold\?/);
+  assert.doesNotMatch(dungeon, /supports scanning cataloged Dungeon Crawler Carl collectible cards/);
+  assert.match(dungeon, /not guaranteed to have a matching record or price/);
+  assert.match(dungeon, /Updated 2026-10-30/);
   assert.match(watson, /WatsonTCG.*store, not a separate TCG/s);
   assert.match(watson, /<h2>Match the card to its game<\/h2>/);
   assert.match(watson, /does not claim Card AI can identify every game, sealed product or item/);
@@ -388,7 +407,7 @@ test('marketing composites are disclosed as illustrative examples', async () => 
 
 test('sitemap matches the production XML structure and uses explicit lastmod values', async () => {
   const sitemap = await readFile(sitemapPath, 'utf8');
-  const lines = sitemap.trimEnd().split('\n');
+  const lines = sitemap.trimEnd().split(/\r?\n/);
   const entryLines = lines.slice(2, -1);
   const entries = entryLines.map((line) => {
     const match = line.match(/^<url><loc>(https:\/\/tcgcard\.fun(?:\/[^<]*)?)<\/loc><lastmod>(\d{4}-\d{2}-\d{2})<\/lastmod><\/url>$/);
@@ -405,7 +424,7 @@ test('sitemap matches the production XML structure and uses explicit lastmod val
   );
   assert.equal(lines.at(-1), '</urlset>');
   assert.doesNotMatch(sitemap, /Generated by|<priority>/);
-  assert.equal(entries.length, 32);
+  assert.equal(entries.length, 33);
   assert.equal(Object.keys(sitemapLastmod).length, entries.length);
   assert.deepEqual(
     [...new Set(entries.map(({ canonical }) => new URL(canonical).pathname))].sort(),
@@ -470,6 +489,12 @@ test('FAQ switches to one column at tablet widths', async () => {
 
 test('every landing page shows product proof, contextual links, and an honest store state', async () => {
   const names = await landingPageNames();
+  const appOnlyOwners = new Set([
+    'card-identifier.html',
+    'card-price-checker.html',
+    'card-collection-tracker.html',
+    'pokemon-card-scanner.html',
+  ]);
   assert.equal(names.length, 22);
 
   for (const name of names) {
@@ -493,7 +518,11 @@ test('every landing page shows product proof, contextual links, and an honest st
       assert.match(html, /class="cws-store-action"/);
       assert.doesNotMatch(html, /App Store|Google Play/);
     } else {
-      assert.match(html, /<h2>Try [^<]+ in Card AI\.<\/h2>/);
+      if (appOnlyOwners.has(name)) {
+        assert.match(html, /<h2>[^<]+ in the Card AI app\.<\/h2>/);
+      } else {
+        assert.match(html, /<h2>Try [^<]+ in Card AI\.<\/h2>/);
+      }
     }
     assert.doesNotMatch(html, /<h2>Start tracking your collection\.<\/h2>/);
     if (name !== 'chrome-extension.html') {
@@ -597,4 +626,31 @@ test('Chrome extension page and store copy stay accurate and discoverable', asyn
   assert.equal(screenshot.readUInt32BE(20), 800);
   assert.equal(promoTile.readUInt32BE(16), 440);
   assert.equal(promoTile.readUInt32BE(20), 280);
+});
+
+test('task navigation leads to existing app workflows with clear app-only copy', async () => {
+  const routes = [
+    '/card-identifier',
+    '/card-price-checker',
+    '/card-collection-tracker',
+    '/card-scanner-comparison-2026',
+  ];
+  const pages = await Promise.all(
+    ['index', 'card-identifier', 'card-price-checker', 'card-collection-tracker', 'pokemon-card-scanner'].map(
+      async (slug) => [slug, await readFile(fileURLToPath(new URL(`${slug}.html`, publicUrl)), 'utf8')],
+    ),
+  );
+
+  for (const [slug, html] of pages) {
+    const nav = html.match(/<nav class="primary-nav" aria-label="Card AI tasks">([\s\S]*?)<\/nav>/)?.[1];
+    assert.ok(nav, `${slug} has task navigation`);
+    for (const route of routes) assert.ok(nav.includes(`href="${route}"`), `${slug} links to ${route}`);
+    if (slug !== 'index') {
+      assert.match(html, /<p class="content-lede">[^<]*Card AI app/);
+      assert.match(html, /<h2>[^<]+ in the Card AI app\.<\/h2>/);
+    }
+  }
+
+  assert.match(pages[0][1], /<h1>Card AI\.<\/h1>/);
+  assert.match(pages[0][1], /Identify a card from a photo, check the available price/);
 });

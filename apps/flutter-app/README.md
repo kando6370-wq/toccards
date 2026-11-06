@@ -70,12 +70,26 @@ Firebase configuration.
 
 Android 沿用 `--dart-define-from-file=config/test.json` 选择测试环境，无需新增
 flavor。Gradle 从同一 `APP_ENV=test` 编译参数选择网络策略，只为该 IP 允许 HTTP；
-production 和未配置环境均使用禁止明文的默认策略。可分别构建验证：
+未配置环境默认使用测试 API 和隔离包名
+`dev.kando.cardvault.sandbox.a1aa3e`。可构建本机测试包：
 
 ```bash
 flutter build apk --debug --no-pub --dart-define-from-file=config/test.json
-flutter build apk --debug --no-pub --dart-define-from-file=config/production.json
 ```
+
+Debug 首次构建会使用当前 JDK 的 `keytool` 在仓库忽略目录
+`.dart_tool/android-test-signing/` 创建本项目专用测试证书；固定 `android`
+密码仅用于 Debug。该流程不会读取或删除全机 Debug keystore、正式 JKS 或
+`key.properties`。
+
+Android production 构建必须在独立打包环境显式提供
+`ANDROID_APPLICATION_ID`、`ANDROID_KEYSTORE_PATH`、`ANDROID_KEY_ALIAS`、
+`ANDROID_KEY_PASSWORD`、`ANDROID_STORE_PASSWORD`，并通过 dart-define 提供
+Google server client ID 和 Play cloud project number。Firebase 使用
+`ANDROID_FIREBASE_CONFIG_PATH` 指向打包机外部的 `google-services.json`；
+配置存在时才应用 Google Services 与 Crashlytics Gradle 插件。
+缺少任一正式配置时构建或运行会显式失败；本机测试构建不会读取仓库旁的
+`key.properties` 或既有 keystore，也不提交正式 `google-services.json`。
 
 ## 扫描平台与协议
 

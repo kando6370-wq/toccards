@@ -1,22 +1,10 @@
+import { PGliteDatabase } from "../test-support/pglite-database";
+import { createPortfolioPostgresFixture, closePortfolioPostgresFixtures, seedPortfolioRows, readPortfolioRows } from "../test-support/portfolio-postgres-fixture";
 import { signAccessToken } from "@kando/auth-core";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import app, { type Env } from "../index";
 
 type OwnerType = "anonymous" | "user";
-
-type SessionRow = {
-  id: string;
-  owner_type: OwnerType;
-  owner_id: string;
-  expires_at: string;
-  revoked_at: string | null;
-};
-
-type OwnerRow = {
-  id: string;
-  deleted_at?: string | null;
-  upgraded_user_id?: string | null;
-};
 
 type WishlistRow = {
   id: string;
@@ -35,175 +23,16 @@ type CollectionItemRow = {
 
 const JWT_SECRET = "test-secret";
 const NOW = "2026-07-07T00:00:00.000Z";
-const LATER = "2099-01-01T00:00:00.000Z";
+const fixtureColumns = {
+  wishlist_item: ["id", "owner_type", "owner_id", "card_ref", "created_at"],
+};
 
-class FakeD1Database {
-  sessions: SessionRow[] = [];
-  users: OwnerRow[] = [];
-  anonymousAccounts: OwnerRow[] = [];
-  wishlist: WishlistRow[] = [];
-  collectionItems: CollectionItemRow[] = [];
-
-  prepare(sql: string): FakeD1Statement {
-    return new FakeD1Statement(this, sql);
-  }
-
-  async batch<T>(statements: FakeD1Statement[]): Promise<D1Result<T>[]> {
-    const results: D1Result<T>[] = [];
-    for (const statement of statements) {
-      results.push(await statement.run() as D1Result<T>);
-    }
-    return results;
-  }
-}
-
-class FakeD1Statement {
-  private args: unknown[] = [];
-
-  constructor(
-    private readonly db: FakeD1Database,
-    private readonly sql: string,
-  ) {}
-
-  bind(...args: unknown[]): FakeD1Statement {
-    this.args = args;
-    return this;
-  }
-
-  async first<T>(): Promise<T | null> {
-    if (this.sql.includes("FROM session")) {
-      const [sessionId] = this.args;
-      return (this.db.sessions.find((row) => row.id === sessionId) ??
-        null) as T | null;
-    }
-
-    if (this.sql.includes("FROM anonymous_account")) {
-      const [ownerId] = this.args;
-      return (this.db.anonymousAccounts.find(
-        (row) => row.id === ownerId && row.upgraded_user_id === null,
-      ) ?? null) as T | null;
-    }
-
-    if (this.sql.includes('FROM "user"')) {
-      const [ownerId] = this.args;
-      return (this.db.users.find(
-        (row) => row.id === ownerId && row.deleted_at === null,
-      ) ?? null) as T | null;
-    }
-
-    if (this.sql.includes("FROM collection_item")) {
-      const [ownerType, ownerId, cardRef] = this.args;
-      return (this.db.collectionItems.find(
-        (row) =>
-          row.owner_type === ownerType &&
-          row.owner_id === ownerId &&
-          row.card_ref === cardRef,
-      ) ?? null) as T | null;
-    }
-
-    if (this.sql.includes("FROM wishlist_item")) {
-      const [ownerType, ownerId, itemId] = this.args;
-      return (this.db.wishlist.find(
-        (row) =>
-          row.owner_type === ownerType &&
-          row.owner_id === ownerId &&
-          row.id === itemId,
-      ) ?? null) as T | null;
-    }
-
-    return null;
-  }
-
-  async all<T>(): Promise<{ results: T[] }> {
-    if (this.sql.includes("FROM wishlist_item")) {
-      const [ownerType, ownerId] = this.args;
-      return {
-        results: this.db.wishlist.filter(
-          (row) => row.owner_type === ownerType && row.owner_id === ownerId,
-        ) as T[],
-      };
-    }
-
-    return { results: [] };
-  }
-
-  async run(): Promise<{ success: true; meta: { changes: number } }> {
-    if (this.sql.includes("INSERT INTO mutation_lock")) {
-      return changed(1);
-    }
-
-    if (this.sql.includes("INSERT INTO wishlist_item")) {
-      const [id, ownerType, ownerId, cardRef, createdAt] = this.args as [
-        string,
-        OwnerType,
-        string,
-        string,
-        string,
-        OwnerType,
-        string,
-        string,
-      ];
-
-      if (
-        this.db.collectionItems.some(
-          (row) =>
-            row.owner_type === ownerType &&
-            row.owner_id === ownerId &&
-            row.card_ref === cardRef,
-        )
-      ) {
-        return changed(0);
-      }
-
-      if (
-        this.db.wishlist.some(
-          (row) =>
-            row.owner_type === ownerType &&
-            row.owner_id === ownerId &&
-            row.card_ref === cardRef,
-        )
-      ) {
-        throw new Error("UNIQUE constraint failed: wishlist_item.card_ref");
-      }
-
-      this.db.wishlist.push({
-        id,
-        owner_type: ownerType,
-        owner_id: ownerId,
-        card_ref: cardRef,
-        created_at: createdAt,
-      });
-
-      return changed(1);
-    }
-
-    if (this.sql.includes("DELETE FROM wishlist_item")) {
-      const [ownerType, ownerId, itemId] = this.args;
-      const before = this.db.wishlist.length;
-      this.db.wishlist = this.db.wishlist.filter(
-        (row) =>
-          !(
-            row.owner_type === ownerType &&
-            row.owner_id === ownerId &&
-            row.id === itemId
-          ),
-      );
-
-      return changed(before - this.db.wishlist.length);
-    }
-
-    return changed(0);
-  }
-}
+afterEach(async () => { await closePortfolioPostgresFixtures(); });
 
 describe("wishlist routes", () => {
   it("lists paged owner-isolated wishlist rows because wanting a card is private asset intent", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.wishlist.push(
-      wishlist({ id: "older", card_ref: "card-a", created_at: "2026-01-01T00:00:00.000Z" }),
-      wishlist({ id: "newer", card_ref: "card-b", created_at: "2026-02-01T00:00:00.000Z" }),
-      wishlist({ id: "other", owner_type: "user", owner_id: "other", card_ref: "card-c" }),
-    );
+    const db = await createDbForOwner("anonymous", "anon-1");
+    await seedPortfolioRows(db, 'wishlist_item', wishlist({ id: "older", card_ref: "card-a", created_at: "2026-01-01T00:00:00.000Z" }), wishlist({ id: "newer", card_ref: "card-b", created_at: "2026-02-01T00:00:00.000Z" }), wishlist({ id: "other", owner_type: "user", owner_id: "other", card_ref: "card-c" }));
 
     const response = await app.request(
       "/api/v1/wishlist?page=1&page_size=1&sort_by=created_at&sort_order=desc",
@@ -230,12 +59,9 @@ describe("wishlist routes", () => {
   });
 
   it("uses wishlist id as a stable tie-breaker because equal timestamps must not duplicate or skip wishes across pages", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
+    const db = await createDbForOwner("anonymous", "anon-1");
     const createdAt = "2026-02-01T00:00:00.000Z";
-    db.wishlist.push(
-      wishlist({ id: "wish-b", card_ref: "card-b", created_at: createdAt }),
-      wishlist({ id: "wish-a", card_ref: "card-a", created_at: createdAt }),
-    );
+    await seedPortfolioRows(db, 'wishlist_item', wishlist({ id: "wish-b", card_ref: "card-b", created_at: createdAt }), wishlist({ id: "wish-a", card_ref: "card-a", created_at: createdAt }));
 
     const [firstPage, secondPage] = await Promise.all([
       app.request(
@@ -257,7 +83,7 @@ describe("wishlist routes", () => {
   });
 
   it("creates a wishlist row because search and card detail need to persist owner intent without a folder", async () => {
-    const db = createDbForOwner("user", "user-1");
+    const db = await createDbForOwner("user", "user-1");
 
     const response = await app.request(
       "/api/v1/wishlist",
@@ -278,7 +104,7 @@ describe("wishlist routes", () => {
         created_at: expect.any(String),
       }),
     });
-    expect(db.wishlist).toEqual([
+    expect((await readPortfolioRows<WishlistRow>(db, 'wishlist_item', fixtureColumns.wishlist_item))).toEqual([
       {
         id: expect.any(String),
         owner_type: "user",
@@ -290,7 +116,7 @@ describe("wishlist routes", () => {
   });
 
   it("replays Wishlist Add after a lost response because retry must confirm the original intent", async () => {
-    const db = createDbForOwner("user", "user-1");
+    const db = await createDbForOwner("user", "user-1");
     const idempotencyKey = "66666666-6666-4666-8666-666666666666";
     const headers = {
       ...(await authHeaders("user", "user-1")),
@@ -315,11 +141,11 @@ describe("wishlist routes", () => {
       success: true,
       data: { id: idempotencyKey, card_ref: "card-a" },
     });
-    expect(db.wishlist).toHaveLength(1);
+    expect((await readPortfolioRows<WishlistRow>(db, 'wishlist_item', fixtureColumns.wishlist_item))).toHaveLength(1);
   });
 
   it("rejects reusing a Wishlist Add key for another card because one key has one intent", async () => {
-    const db = createDbForOwner("user", "user-1");
+    const db = await createDbForOwner("user", "user-1");
     const headers = {
       ...(await authHeaders("user", "user-1")),
       "Idempotency-Key": "77777777-7777-4777-8777-777777777777",
@@ -337,12 +163,12 @@ describe("wishlist routes", () => {
     );
 
     expect(response.status).toBe(409);
-    expect(db.wishlist).toHaveLength(1);
+    expect((await readPortfolioRows<WishlistRow>(db, 'wishlist_item', fixtureColumns.wishlist_item))).toHaveLength(1);
   });
 
   it("returns CONFLICT for duplicate card_ref because one owner should have only one wishlist intent per card", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.wishlist.push(wishlist({ card_ref: "card-a" }));
+    const db = await createDbForOwner("anonymous", "anon-1");
+    await seedPortfolioRows(db, 'wishlist_item', wishlist({ card_ref: "card-a" }));
 
     const response = await app.request(
       "/api/v1/wishlist",
@@ -362,8 +188,8 @@ describe("wishlist routes", () => {
   });
 
   it("returns CONFLICT when the card is already in Portfolio because owned cards must not also stay wanted", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.collectionItems.push(item({ card_ref: "card-a" }));
+    const db = await createDbForOwner("anonymous", "anon-1");
+    await seedPortfolioRows(db, 'collection_item', item({ card_ref: "card-a" }));
 
     const response = await app.request(
       "/api/v1/wishlist",
@@ -380,11 +206,11 @@ describe("wishlist routes", () => {
       success: false,
       error: { code: "CONFLICT", message: "Conflict." },
     });
-    expect(db.wishlist).toEqual([]);
+    expect((await readPortfolioRows<WishlistRow>(db, 'wishlist_item', fixtureColumns.wishlist_item))).toEqual([]);
   });
 
   it("rejects blank card_ref because wishlist rows must identify a third-party card", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
+    const db = await createDbForOwner("anonymous", "anon-1");
 
     const response = await app.request(
       "/api/v1/wishlist",
@@ -404,11 +230,8 @@ describe("wishlist routes", () => {
   });
 
   it("deletes only owned wishlist rows because removing intent must stay inside the owner boundary", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.wishlist.push(
-      wishlist({ id: "owned", card_ref: "card-a" }),
-      wishlist({ id: "other", owner_type: "user", owner_id: "other", card_ref: "card-b" }),
-    );
+    const db = await createDbForOwner("anonymous", "anon-1");
+    await seedPortfolioRows(db, 'wishlist_item', wishlist({ id: "owned", card_ref: "card-a" }), wishlist({ id: "other", owner_type: "user", owner_id: "other", card_ref: "card-b" }));
 
     const missing = await app.request(
       "/api/v1/wishlist/other",
@@ -434,7 +257,7 @@ describe("wishlist routes", () => {
     });
     expect(remove.status).toBe(200);
     expect(await remove.json()).toEqual({ success: true, data: {} });
-    expect(db.wishlist).toEqual([
+    expect((await readPortfolioRows<WishlistRow>(db, 'wishlist_item', fixtureColumns.wishlist_item))).toEqual([
       wishlist({
         id: "other",
         owner_type: "user",
@@ -445,36 +268,12 @@ describe("wishlist routes", () => {
   });
 });
 
-function changed(changes: number): { success: true; meta: { changes: number } } {
-  return { success: true, meta: { changes } };
+async function createDbForOwner(ownerType: OwnerType, ownerId: string): Promise<PGliteDatabase> {
+  return createPortfolioPostgresFixture(ownerType, ownerId);
 }
 
-function createDbForOwner(ownerType: OwnerType, ownerId: string): FakeD1Database {
-  const db = new FakeD1Database();
-
-  db.sessions.push({
-    id: sessionId(ownerType, ownerId),
-    owner_type: ownerType,
-    owner_id: ownerId,
-    expires_at: LATER,
-    revoked_at: null,
-  });
-
-  if (ownerType === "anonymous") {
-    db.anonymousAccounts.push({ id: ownerId, upgraded_user_id: null });
-  } else {
-    db.users.push({ id: ownerId, deleted_at: null });
-  }
-
-  return db;
-}
-
-function createTestEnv(db = new FakeD1Database()): Env {
-  return {
-    DB: db as unknown as D1Database,
-    CACHE_KV: {} as KVNamespace,
-    JWT_SECRET: JWT_SECRET,
-  };
+function createTestEnv(db: PGliteDatabase): Env {
+  return { DB: db, CACHE_KV: {} as KVNamespace, JWT_SECRET };
 }
 
 async function authHeaders(

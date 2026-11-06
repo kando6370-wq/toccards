@@ -6,6 +6,7 @@ import {
   signAccessToken,
 } from "@kando/auth-core";
 import { createId } from "../id";
+import type { AuthPlatform } from "./platform-account";
 
 export type CreatedUserSession = {
   sessionId: string;
@@ -14,10 +15,15 @@ export type CreatedUserSession = {
   hashedRefreshToken: string;
   expiresAt: string;
   expiresIn: number;
+  userId: string;
+  dataSpaceId: string;
+  platform: AuthPlatform;
 };
 
 export async function createUserSessionValues(
   userId: string,
+  dataSpaceId: string,
+  platform: AuthPlatform,
   jwtSecret: string,
   now: Date,
 ): Promise<CreatedUserSession> {
@@ -25,7 +31,7 @@ export async function createUserSessionValues(
   const refreshToken = createRefreshToken();
   const hashedRefreshToken = await hashRefreshToken(refreshToken);
   const accessToken = await signAccessToken(
-    { owner_type: "user", owner_id: userId, session_id: sessionId },
+    { owner_type: "user", owner_id: dataSpaceId, session_id: sessionId },
     jwtSecret,
     now,
   );
@@ -37,5 +43,8 @@ export async function createUserSessionValues(
     hashedRefreshToken,
     expiresAt: refreshTokenExpiresAt(now),
     expiresIn: ACCESS_TOKEN_EXPIRES_IN_SECONDS,
+    userId,
+    dataSpaceId,
+    platform,
   };
 }

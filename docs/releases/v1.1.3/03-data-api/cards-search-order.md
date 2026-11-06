@@ -1,6 +1,6 @@
 # Cards 与 Sets 排序及索引
 
-更新日期：2026-11-02（Asia/Shanghai）。Cards 与 Sets 数值排序已随 `dev@867c6fd8` 发布 kd201 并独立验收，见[数值排序发布记录](../05-delivery/VERIFICATION.md#dev-numeric-search-deployment-20261029)；Cards 固定过滤 `has_image = 2` 已随 `dev@9365f16d` 发布并完成数据库逐项对照，见[图片过滤发布记录](../05-delivery/VERIFICATION.md#dev-japanese-ocr-cards-filter-release-20261029)。Sets 不增加图片条件。`0016` 已随 `dev@b9702b81` 执行，`0017` 已在事务外并发预建并随 `dev@8a8b5c17` 登记，2026-10-30 最终 Linux dev 运行提交为日志热修复后的 `c5908c32`，见[性能发布记录](../05-delivery/VERIFICATION.md#dev-performance-release-20261030)。2026-11-02 新增的 Sets 客户端渐进加载尚未发布；本轮保持既有索引迁移原样。prod 尚未执行上述 dev 数值排序、图片过滤或索引增量。
+更新日期：2026-11-04（Asia/Shanghai）。Cards 与 Sets 数值排序已随 `dev@867c6fd8` 发布 kd201 并独立验收，见[数值排序发布记录](../05-delivery/VERIFICATION.md#dev-numeric-search-deployment-20261029)；Cards 固定过滤 `has_image = 2` 已随 `dev@9365f16d` 发布并完成数据库逐项对照，见[图片过滤发布记录](../05-delivery/VERIFICATION.md#dev-japanese-ocr-cards-filter-release-20261029)。Sets 不增加图片条件。`0016` 已随 `dev@b9702b81` 执行，`0017` 已在事务外并发预建并随 `dev@8a8b5c17` 登记，2026-10-30 最终 Linux dev 运行提交为日志热修复后的 `c5908c32`，见[性能发布记录](../05-delivery/VERIFICATION.md#dev-performance-release-20261030)。2026-11-02 新增的 Sets 客户端渐进加载当时尚未发布；本轮保持既有索引迁移原样。API 及 PostgreSQL `0016/0017` 后续已随 `main@94417983` 发布生产，见[生产发布记录](../05-delivery/VERIFICATION.md#prod-business-release-20261104)；Flutter 客户端发布另行记录。
 
 ## 查询与缓存
 
@@ -74,7 +74,7 @@ Sets 查询仍只读取 `sets` 表，不关联 `cards_all`，也不增加 `has_i
 
 新增索引增加数据库存储及目录写入维护成本。目标大表不能把普通事务内建索引视为已验证的低风险发布：须先检查空间、写入负载、纯数字 ID 长度与 B-tree 项大小，在事务外用相同名称及定义 `CREATE INDEX CONCURRENTLY` 逐个预建，回读完整定义与 `indisvalid/indisready`，再让幂等迁移登记 ledger。仅同名索引存在不证明定义正确。迁移自身保留事务兼容的普通 `CREATE INDEX IF NOT EXISTS`，未预建时自动发布会实际建索引并影响目录写入，必须在发布前识别该状态。
 
-本地 PGlite 用实际适配器 SQL 和同创建时间数据验证迁移前后计划及结果；合成数据消除 Sort 不等于 dev/prod 的实际 P95 改善。2026-10-30 dev 在备份后并发预建三个索引，耗时 9／11／11 秒，完整定义及 valid／ready 回读通过；全目录、Game、Game＋Set 的真实单次计划均命中新索引且无 Sort，随后 migration 登记 ledger 18／`0017`。prod 尚未执行；dev 单次计划不代表真实流量 P95。
+本地 PGlite 用实际适配器 SQL 和同创建时间数据验证迁移前后计划及结果；合成数据消除 Sort 不等于 dev/prod 的实际 P95 改善。2026-10-30 dev 在备份后并发预建三个索引，耗时 9／11／11 秒，完整定义及 valid／ready 回读通过；全目录、Game、Game＋Set 的真实单次计划均命中新索引且无 Sort，随后 migration 登记 ledger 18／`0017`。dev 单次计划不代表真实流量 P95。2026-11-04 生产已按并发预建、核验、切流、并发删除旧索引及登记 ledger 的顺序完成 `0016/0017`，空间、锁、定义和三类计划的实际证据见[生产发布记录](../05-delivery/VERIFICATION.md#prod-business-release-20261104)；生产单次计划同样不代表真实流量 P50/P95 或端到端收益。
 
 Linux 发布包、预检和迁移脚本会自动发现新增的 PostgreSQL SQL 文件，无需更改迁移清单。`migrate.sh` 在事务内执行迁移，新索引建立失败会回滚；`0016` 的旧索引删除安排在新索引创建之后，`0017` 不删除索引。普通建索引会影响目录写入，删除索引还可能等待表锁；执行前必须按目标环境确认备份、空间、写入负载、锁等待和发布窗口。dev/prod 使用独立数据库，须分别核验和授权执行。
 

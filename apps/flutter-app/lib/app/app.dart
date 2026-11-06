@@ -25,7 +25,8 @@ class KandoApp extends ConsumerWidget {
       authControllerProvider.select((state) {
         final current = state.session;
         if (current == null) return null;
-        return '${current.ownerType.name}:${current.userId ?? current.anonymousId}';
+        return '${current.ownerType.name}:${current.platform?.name}:'
+            '${current.dataSpaceId ?? current.userId ?? current.anonymousId}';
       }),
       (previous, next) {
         if (previous != next) ref.invalidate(pendingCollectionProvider);

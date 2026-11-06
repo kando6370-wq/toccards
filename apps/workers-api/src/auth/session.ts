@@ -13,12 +13,15 @@ type SessionLookupRow = {
   owner_id: string;
   expires_at: string;
   revoked_at: string | null;
+  platform: "ios" | "android" | null;
+  user_id: string | null;
 };
 
 type OwnerType = "anonymous" | "user";
 
 type ValidSessionLookupRow = SessionLookupRow & {
   owner_type: OwnerType;
+  platform: "ios" | "android";
 };
 
 type OwnerRow = {
@@ -50,7 +53,7 @@ const INTERNAL_ERROR_RESPONSE = {
 } as const;
 
 const SELECT_SESSION_BY_REFRESH_TOKEN_SQL = `
-  SELECT id, owner_type, owner_id, expires_at, revoked_at
+  SELECT id, owner_type, owner_id, expires_at, revoked_at, platform, user_id
   FROM session
   WHERE refresh_token = ?
   LIMIT 1
@@ -59,14 +62,15 @@ const SELECT_SESSION_BY_REFRESH_TOKEN_SQL = `
 const SELECT_REFRESH_ANONYMOUS_OWNER_SQL = `
   SELECT id
   FROM anonymous_account
-  WHERE id = ? AND upgraded_user_id IS NULL
+  WHERE id = ? AND upgraded_user_id IS NULL AND status = 'active' AND platform = ?
   LIMIT 1
 `;
 
 const SELECT_REFRESH_USER_OWNER_SQL = `
-  SELECT id
-  FROM "user"
-  WHERE id = ? AND status = 'active'
+  SELECT pa.id
+  FROM platform_account pa
+  JOIN "user" u ON u.id = pa.user_id AND u.status = 'active'
+  WHERE pa.id = ? AND pa.user_id = ? AND pa.platform = ? AND pa.status = 'active'
   LIMIT 1
 `;
 
@@ -121,6 +125,9 @@ export function registerSessionRoutes(routes: Hono<{ Bindings: Env }>): void {
       data: {
         access_token: accessToken,
         expires_in: ACCESS_TOKEN_EXPIRES_IN_SECONDS,
+          platform: session.platform,
+          data_space_id: session.owner_id,
+          user_id: session.user_id,
       },
     });
   });
@@ -232,7 +239,13 @@ async function findOwner(
       ? SELECT_REFRESH_ANONYMOUS_OWNER_SQL
       : SELECT_REFRESH_USER_OWNER_SQL;
 
-  return db.prepare(sql).bind(session.owner_id).first<OwnerRow>();
+  return session.owner_type === "anonymous"
+    ? db.prepare(sql).bind(session.owner_id, session.platform).first<OwnerRow>()
+    : db.prepare(sql).bind(
+        session.owner_id,
+        session.user_id,
+        session.platform,
+      ).first<OwnerRow>();
 }
 
 function getBearerToken(authorization: string | undefined): string | null {
@@ -252,5 +265,9 @@ function getBearerToken(authorization: string | undefined): string | null {
 function hasSupportedOwnerType(
   session: SessionLookupRow,
 ): session is ValidSessionLookupRow {
-  return session.owner_type === "anonymous" || session.owner_type === "user";
+  return (
+    (session.owner_type === "anonymous" || session.owner_type === "user") &&
+    (session.platform === "ios" || session.platform === "android") &&
+    (session.owner_type === "anonymous" || typeof session.user_id === "string")
+  );
 }

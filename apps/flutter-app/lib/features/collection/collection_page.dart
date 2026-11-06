@@ -13,6 +13,7 @@ import 'package:kando_app/shared/ui/toast.dart';
 
 import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
+import '../../shared/platform/app_commercial_policy.dart';
 import '../subscription/subscription_controller.dart';
 import '../subscription/subscription_entitlement_cache.dart';
 import '../subscription/premium_top_entry.dart';
@@ -1274,6 +1275,12 @@ Future<void> showPortfolioFolderSheet(BuildContext context, WidgetRef ref) {
                         shape: const StadiumBorder(),
                       ),
                       onPressed: () async {
+                        if (ref
+                            .read(appCommercialPolicyProvider)
+                            .hasFreePremiumFeatures) {
+                          await _runCreateFolderFlow(context, controller);
+                          return;
+                        }
                         var premiumState = ref
                             .read(subscriptionControllerProvider)
                             .premiumState;

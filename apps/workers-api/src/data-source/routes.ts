@@ -23,6 +23,7 @@ import {
   LOCAL_PREMIUM_STATE_HEADER,
   resolvePremiumAccess,
 } from "../entitlements/premium-access";
+import { usesAndroidFreeLaunch } from "../entitlements/platform-commercial-access";
 
 type DataSourceRoutesOptions = {
   createAdapter?: (env: Env) => DataSourceAdapter;
@@ -438,6 +439,7 @@ async function extendedPriceHistoryDenial(
 > {
   const auth = await authenticateOwner(env, authorization);
   if (auth.status !== "ok") return auth.status;
+  if (usesAndroidFreeLaunch(auth.owner)) return "allowed";
   const access = await resolvePremiumAccess(
     env,
     auth.owner.session_id,

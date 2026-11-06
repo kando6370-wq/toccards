@@ -365,6 +365,7 @@ class KandoConfirmModal extends StatelessWidget {
     required this.onCancel,
     this.confirmType = KandoModalButtonType.primary,
     this.compact = false,
+    this.dense = false,
     this.isConfirming = false,
   });
 
@@ -377,6 +378,7 @@ class KandoConfirmModal extends StatelessWidget {
   final VoidCallback onCancel;
   final KandoModalButtonType confirmType;
   final bool compact;
+  final bool dense;
   final bool isConfirming;
 
   @override
@@ -387,7 +389,9 @@ class KandoConfirmModal extends StatelessWidget {
     final compactDangerLayout = danger && frameWidth < 342;
     return KandoModalFrame(
       height: compact
-          ? 334
+          ? dense
+                ? 300
+                : 334
           : danger
           ? compactDangerLayout
                 ? 377
@@ -397,7 +401,7 @@ class KandoConfirmModal extends StatelessWidget {
       child: Padding(
         padding: EdgeInsets.symmetric(
           horizontal: danger ? 16 : 33,
-          vertical: 33,
+          vertical: dense ? 12 : 33,
         ),
         child: SizedBox(
           width: double.infinity,
@@ -409,7 +413,7 @@ class KandoConfirmModal extends StatelessWidget {
                 assetPath: danger ? _dangerHeaderIconAsset : null,
                 danger: danger,
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: dense ? 12 : 20),
               _KandoModalText(
                 title: title,
                 message: message,

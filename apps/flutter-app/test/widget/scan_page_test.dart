@@ -29,6 +29,7 @@ import 'package:kando_app/features/subscription/subscription_entitlement_cache.d
 import 'package:kando_app/shared/analytics/analytics_events.dart';
 import 'package:kando_app/shared/analytics/app_analytics.dart';
 import 'package:kando_app/shared/card_image/kando_card_image.dart';
+import 'package:kando_app/shared/platform/app_commercial_policy.dart';
 import 'package:kando_app/shared/scan/scan_api_client.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/toast.dart';
@@ -134,6 +135,26 @@ const _unlimitedQuota = ScanQuotaDto(
 );
 
 void main() {
+  testWidgets('Android free launch ignores the cumulative iOS scan quota', (
+    tester,
+  ) async {
+    final source = _TestScanResultSource(
+      photoResult: Future.value(const ScanResolution.noMatch()),
+    );
+    await _pumpScanTestApp(
+      tester,
+      scanResultSource: source,
+      scanQuota: _exhaustedQuota,
+      commercialPolicy: const AppCommercialPolicy(isAndroidFreeLaunch: true),
+    );
+
+    await tester.tap(find.byTooltip('Take Photo'));
+    await tester.pump();
+
+    expect(source.photoCallCount, 1);
+    expect(find.text('Subscription'), findsNothing);
+  });
+
   testWidgets(
     'Scan locks portrait before opening the camera and restores app orientation on exit',
     (tester) async {
@@ -723,7 +744,10 @@ void main() {
       expect(subscription.refreshCount, 1);
       expect(source.photoCallCount, 1);
     },
-    variant: TargetPlatformVariant({TargetPlatform.android, TargetPlatform.iOS}),
+    variant: TargetPlatformVariant({
+      TargetPlatform.android,
+      TargetPlatform.iOS,
+    }),
   );
 
   testWidgets(
@@ -746,7 +770,10 @@ void main() {
       expect(source.photoCallCount, 1);
       expect(find.text('Subscription'), findsNothing);
     },
-    variant: TargetPlatformVariant({TargetPlatform.android, TargetPlatform.iOS}),
+    variant: TargetPlatformVariant({
+      TargetPlatform.android,
+      TargetPlatform.iOS,
+    }),
   );
 
   testWidgets(
@@ -769,7 +796,10 @@ void main() {
       expect(source.photoCallCount, 0);
       expect(find.text('Subscription'), findsOneWidget);
     },
-    variant: TargetPlatformVariant({TargetPlatform.android, TargetPlatform.iOS}),
+    variant: TargetPlatformVariant({
+      TargetPlatform.android,
+      TargetPlatform.iOS,
+    }),
   );
 
   testWidgets(
@@ -1960,11 +1990,11 @@ void main() {
     expect(tester.getTopLeft(find.byTooltip('Choose from Library')).dx, 36);
     expect(tester.getTopLeft(find.byTooltip('Choose from Library')).dy, 750);
 
-      expect(
-        find.text('10 scans remaining'),
-        findsOneWidget,
-        reason: 'The one-second minimum must finish before the result appears.',
-      );
+    expect(
+      find.text('10 scans remaining'),
+      findsOneWidget,
+      reason: 'The one-second minimum must finish before the result appears.',
+    );
     await expectLater(
       find.byKey(const Key('scan-revealing-figma-golden')),
       matchesGoldenFile(
@@ -2009,37 +2039,36 @@ void main() {
     expect(find.byKey(const Key('scan-active-item-1')), findsNothing);
   });
 
-  testWidgets(
-    'a fast recognition waits only for the one-second minimum',
-    (tester) async {
-      await _pumpScanTestApp(
-        tester,
-        scanResultSource: _TestScanResultSource(
-          photoResult: Future.value(
-            const ScanResolution.matched(
-              scanId: 'scan-mega',
-              cardRef: 'card-mega',
-              matchName: 'Mega Lucario ex',
-              candidates: ['Mega Lucario ex'],
-            ),
+  testWidgets('a fast recognition waits only for the one-second minimum', (
+    tester,
+  ) async {
+    await _pumpScanTestApp(
+      tester,
+      scanResultSource: _TestScanResultSource(
+        photoResult: Future.value(
+          const ScanResolution.matched(
+            scanId: 'scan-mega',
+            cardRef: 'card-mega',
+            matchName: 'Mega Lucario ex',
+            candidates: ['Mega Lucario ex'],
           ),
         ),
-        tickerEnabled: false,
-      );
+      ),
+      tickerEnabled: false,
+    );
 
-      await tester.tap(find.byTooltip('Take Photo'));
-      await _pumpUntilScanStarts(tester, 1);
-      await tester.pump(const Duration(milliseconds: 999));
+    await tester.tap(find.byTooltip('Take Photo'));
+    await _pumpUntilScanStarts(tester, 1);
+    await tester.pump(const Duration(milliseconds: 999));
 
-      expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
-      expect(find.text('Mega Lucario ex'), findsNothing);
+    expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
+    expect(find.text('Mega Lucario ex'), findsNothing);
 
-      await tester.pump(const Duration(milliseconds: 1));
-      await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
 
-      expect(find.text('Mega Lucario ex'), findsOneWidget);
-    },
-  );
+    expect(find.text('Mega Lucario ex'), findsOneWidget);
+  });
 
   testWidgets(
     'a recognition slower than one second displays immediately when it resolves',
@@ -2359,8 +2388,10 @@ void main() {
       final addButton = find.byKey(const Key('scan-review-add-one'));
       expect(addButton, findsOneWidget);
       final footerRect = tester.getRect(addButton);
-      expect(repository.requestedRefs.where((refs) => refs.single == 'card-mega'),
-          hasLength(1));
+      expect(
+        repository.requestedRefs.where((refs) => refs.single == 'card-mega'),
+        hasLength(1),
+      );
 
       await tester.drag(
         find.byKey(const Key('scan-review-list')),
@@ -2374,8 +2405,10 @@ void main() {
       expect(addButton, findsOneWidget);
       expect(tester.getRect(addButton), footerRect);
       expect(tester.widget<FilledButton>(addButton).onPressed, isNull);
-      expect(find.byKey(const Key('scan-review-form-1-card-lucario')),
-          findsOneWidget);
+      expect(
+        find.byKey(const Key('scan-review-form-1-card-lucario')),
+        findsOneWidget,
+      );
       repository.completeAlternate();
       await tester.pumpAndSettle();
       expect(addButton, findsOneWidget);
@@ -2401,7 +2434,9 @@ void main() {
         find.byKey(const Key('scan-review-candidate-card-lucario')),
       );
       await tester.pump();
-      await tester.tap(find.byKey(const Key('scan-review-candidate-card-mega')));
+      await tester.tap(
+        find.byKey(const Key('scan-review-candidate-card-mega')),
+      );
       repository.completeAlternate();
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('scan-review-add-one')));
@@ -2729,10 +2764,7 @@ void main() {
       );
       expect(
         analytics.propertiesFor(AnalyticsEvent.scanResults).single,
-        containsPair(
-          AnalyticsProperty.timing,
-          matches(RegExp(r'^\d+s$')),
-        ),
+        containsPair(AnalyticsProperty.timing, matches(RegExp(r'^\d+s$'))),
       );
 
       await tester.tap(find.byTooltip('Review completed scan'));
@@ -3006,17 +3038,13 @@ void main() {
       );
       final viewfinderAlpha = await tester.runAsync(() async {
         final recorder = ui.PictureRecorder();
-        viewfinderPaint.painter!.paint(
-          Canvas(recorder),
-          const Size(254, 363),
-        );
+        viewfinderPaint.painter!.paint(Canvas(recorder), const Size(254, 363));
         final image = await recorder.endRecording().toImage(254, 363);
         final pixels = await image.toByteData(
           format: ui.ImageByteFormat.rawRgba,
         );
         image.dispose();
-        int alphaAt(int x, int y) =>
-            pixels!.getUint8(((y * 254) + x) * 4 + 3);
+        int alphaAt(int x, int y) => pixels!.getUint8(((y * 254) + x) * 4 + 3);
         return (
           corners: [
             alphaAt(1, 20),
@@ -3045,7 +3073,8 @@ void main() {
       expect(
         viewfinderAlpha.leftEdge,
         lessThan(80),
-        reason: 'The side edge must remain a glow without a visible solid line.',
+        reason:
+            'The side edge must remain a glow without a visible solid line.',
       );
       expect(
         find.descendant(
@@ -4197,25 +4226,16 @@ void main() {
 
       expect(source.photoCallCount, 10);
       expect(find.text('Scanned: 10/10'), findsOneWidget);
-      expect(
-        find.text('Collect or remove cards to scan more'),
-        findsOneWidget,
-      );
+      expect(find.text('Collect or remove cards to scan more'), findsOneWidget);
       expect(
         tester.widget<KandoTopToast>(find.byType(KandoTopToast)).type,
         KandoTopToastType.info,
       );
       await tester.pump(const Duration(milliseconds: 2999));
-      expect(
-        find.text('Collect or remove cards to scan more'),
-        findsOneWidget,
-      );
+      expect(find.text('Collect or remove cards to scan more'), findsOneWidget);
       await tester.pump(const Duration(milliseconds: 1));
       await tester.pump();
-      expect(
-        find.text('Collect or remove cards to scan more'),
-        findsNothing,
-      );
+      expect(find.text('Collect or remove cards to scan more'), findsNothing);
     },
   );
 
@@ -4260,26 +4280,17 @@ void main() {
       expect(source.libraryCallCount, 0);
       expect(find.text('Scanned: 10/10'), findsOneWidget);
       expect(find.text('10 scans remaining'), findsOneWidget);
-      expect(
-        find.text('Collect or remove cards to scan more'),
-        findsOneWidget,
-      );
+      expect(find.text('Collect or remove cards to scan more'), findsOneWidget);
       expect(find.text('Scan queue is full'), findsNothing);
       await tester.pump(kandoTopToastDuration);
       await tester.pump();
-      expect(
-        find.text('Collect or remove cards to scan more'),
-        findsNothing,
-      );
+      expect(find.text('Collect or remove cards to scan more'), findsNothing);
 
       await tester.tap(find.byTooltip('Take Photo'));
       await tester.pump();
 
       expect(source.photoCallCount, 10);
-      expect(
-        find.text('Collect or remove cards to scan more'),
-        findsOneWidget,
-      );
+      expect(find.text('Collect or remove cards to scan more'), findsOneWidget);
       expect(find.text('Scan queue is full'), findsNothing);
       await tester.pump(kandoTopToastDuration);
       await tester.pump();
@@ -5458,6 +5469,9 @@ Future<void> _pumpScanTestApp(
   ScanQuotaDto? scanQuota,
   _TestScanQuotaController? scanQuotaController,
   SubscriptionController Function()? subscriptionController,
+  AppCommercialPolicy commercialPolicy = const AppCommercialPolicy(
+    isAndroidFreeLaunch: false,
+  ),
   SubscriptionPaywallResult? subscriptionResult,
   bool tickerEnabled = true,
 }) async {
@@ -5485,6 +5499,7 @@ Future<void> _pumpScanTestApp(
         subscriptionControllerProvider.overrideWith(
           subscriptionController ?? _FreeScanSubscriptionController.new,
         ),
+        appCommercialPolicyProvider.overrideWithValue(commercialPolicy),
         if (analytics != null) analyticsProvider.overrideWithValue(analytics),
       ],
       child: TickerMode(
@@ -5498,6 +5513,9 @@ Future<void> _pumpScanTestApp(
 
 _scanGoldenOverrides() {
   return [
+    appCommercialPolicyProvider.overrideWithValue(
+      const AppCommercialPolicy(isAndroidFreeLaunch: false),
+    ),
     scanPermissionGatewayProvider.overrideWithValue(
       const _GrantedScanPermissionGateway(),
     ),
@@ -6135,28 +6153,33 @@ class _ProgressiveGalleryResultSource extends _TestScanResultSource {
   @override
   Future<List<Future<ScanResolution>>> library({
     int maxItems = 10,
-    void Function(ScanImage image, Future<ScanResolution> resolution)? onSelected,
+    void Function(ScanImage image, Future<ScanResolution> resolution)?
+    onSelected,
     ScanCardType cardType = ScanCardType.tcg,
   }) async {
     final bytes = Uint8List.fromList(_transparentPngBytes);
-    final first = Future.value(ScanResolution.matched(
-      scanId: 'first-gallery-scan',
-      cardRef: 'first-gallery-card',
-      matchName: 'First gallery card',
-      candidates: const ['First gallery card'],
-      candidateCardRefs: const ['first-gallery-card'],
-      imageBytes: bytes,
-      displayImageBytes: bytes,
-      imageFileName: 'first.png',
-    ));
+    final first = Future.value(
+      ScanResolution.matched(
+        scanId: 'first-gallery-scan',
+        cardRef: 'first-gallery-card',
+        matchName: 'First gallery card',
+        candidates: const ['First gallery card'],
+        candidateCardRefs: const ['first-gallery-card'],
+        imageBytes: bytes,
+        displayImageBytes: bytes,
+        imageFileName: 'first.png',
+      ),
+    );
     onSelected?.call(ScanImage(bytes: bytes, fileName: 'first.png'), first);
     firstSelected.complete();
     await releaseSecond.future;
-    final second = Future.value(ScanResolution.noMatch(
-      imageBytes: bytes,
-      displayImageBytes: bytes,
-      imageFileName: 'second.png',
-    ));
+    final second = Future.value(
+      ScanResolution.noMatch(
+        imageBytes: bytes,
+        displayImageBytes: bytes,
+        imageFileName: 'second.png',
+      ),
+    );
     onSelected?.call(ScanImage(bytes: bytes, fileName: 'second.png'), second);
     return [first, second];
   }

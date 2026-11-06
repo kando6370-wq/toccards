@@ -3,7 +3,7 @@ title: Pokemon 30th Celebration Card Prices | Card AI
 h1: Pokemon TCG 30th Celebration card prices and set guide
 description: Use the official Pokemon 30th Celebration card list, compare 30C and 30C-CC records, and check a dated price snapshot before valuing your copies.
 date: 2026-10-10
-updated: 2026-10-20
+updated: 2026-11-04
 image: /assets/showcase-analysis.png
 imageAlt: Card AI market prices and price history view
 imageCaption: Illustrative Card AI screen composite. Values shown in the image are examples, not the dated 30th Celebration snapshot below.
@@ -28,9 +28,21 @@ Price snapshot observed October 10, 2026 (USD):
 
 These are dated market snapshots, not offers, appraisals, or guaranteed sale prices. Available values can change after publication, and the value that applies to a physical copy still depends on the confirmed printing, finish, language, and condition or existing slab grade.
 
+## RGB Mew: match the color and language before checking a price
+
+Card AI's public catalog search returned three separate English holofoil Mew records in 30C on October 30, 2026. Their catalog card numbers and available USD prices in that response were:
+
+- R/RGB, English 30C: $4,824.92
+- G/RGB, English 30C: $3,550.78
+- B/RGB, English 30C: $4,152.80
+
+The same search also returned R/RGB, G/RGB and B/RGB records under the Japanese m6a set. Check the language, set code, printed number and artwork before choosing a match. Do not use an English 30C price for a Japanese m6a card or swap one RGB color for another.
+
+These amounts describe a dated public search response, not the time of the underlying market observation, an offer or a guaranteed sale price. Open the confirmed record in Card AI to check its available price date and the condition or existing grade of your copy.
+
 ## Chase cards are a starting point, not a value guarantee
 
-Collectors often begin with a 30th anniversary Pokemon chase card list. That can help you choose what to look for, but it does not tell you what every copy is worth. The five records above are examples from one dated Card AI snapshot, not a complete card list or a ranking of the most valuable cards. A familiar character or popular artwork still needs the right set code, card number and finish before its price is useful.
+Collectors often begin with a 30th anniversary Pokemon chase card list. That can help you choose what to look for, but it does not tell you what every copy is worth. The five records in the October 10 snapshot are examples, not a complete card list or a ranking of the most valuable cards. A familiar character or popular artwork still needs the right set code, card number and finish before its price is useful.
 
 Our practical rule is to keep a want list separate from a portfolio. Add a card to your portfolio only after you confirm the physical copy and its condition or existing slab grade. Use the [card collection tracker](/card-collection-tracker) to follow the value of confirmed holdings over time.
 
@@ -40,7 +52,7 @@ The main 30C set and the 30C-CC Classic Collection are separate catalog groups. 
 
 This also keeps the new set separate from Pokemon Celebrations cards released in 2021. Similar anniversary wording does not make two printings interchangeable, and their prices should not be blended.
 
-## What is in the 30th Celebration Ultra-Premium Collection?
+## What is in the 30th Celebration Ultra-Premium Collection (UPC)?
 
 Pokemon has announced two Day & Night versions for November 6, 2026. The Day version features Pikachu ex and Espeon ex; the Night version features Pikachu ex and Umbreon ex. According to the [official product showcase](https://www.pokemon.com/us/news/pokemon-tcg-30th-celebration-product-showcase), each collection includes 29 30th Celebration booster packs and one Classic Collection booster pack containing three Classic Collection cards, along with accessories.
 

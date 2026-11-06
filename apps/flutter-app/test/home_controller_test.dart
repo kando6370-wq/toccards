@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
@@ -15,6 +16,7 @@ import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/currency/currency_rate_api.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
+import 'package:kando_app/shared/platform/app_commercial_policy.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 import 'support/in_memory_auth_storage.dart';
@@ -23,6 +25,11 @@ import 'support/local_placeholder_auth_repository.dart';
 import 'support/mock_home_repository.dart';
 
 void main() {
+  setUp(() {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+  });
+
   test(
     'one year keeps loading while repairing a missing session grant',
     () async {
@@ -794,6 +801,10 @@ ProviderContainer _homeContainer(
   final storage = InMemoryAuthStorage();
   return ProviderContainer(
     overrides: [
+      appCommercialPolicyProvider.overrideWithValue(
+        const AppCommercialPolicy(isAndroidFreeLaunch: false),
+      ),
+      authControllerProvider.overrideWith(_ReadyHomeAuthController.new),
       authStorageProvider.overrideWithValue(storage),
       authRepositoryProvider.overrideWithValue(
         LocalPlaceholderAuthRepository(storage),
@@ -817,6 +828,20 @@ ProviderContainer _homeContainer(
         initialAmountHidden,
       ),
     ],
+  );
+}
+
+class _ReadyHomeAuthController extends AuthController {
+  @override
+  AuthState build() => const AuthState.ready(
+    session: AuthSession(
+      ownerType: OwnerType.user,
+      accessToken: 'home-access',
+      refreshToken: 'home-refresh',
+      userId: 'home-user',
+      platform: AppPlatform.ios,
+      dataSpaceId: 'home-space',
+    ),
   );
 }
 

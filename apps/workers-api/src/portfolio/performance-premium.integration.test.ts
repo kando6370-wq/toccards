@@ -17,8 +17,9 @@ describe("Premium Performance routes", () => {
     for (const statement of SCHEMA) await db.prepare(statement).run();
     await db.batch([
       db.prepare("INSERT INTO \"user\" (id, status) VALUES ('user-1', 'active')"),
-      db.prepare("INSERT INTO session (id, owner_type, owner_id, expires_at, revoked_at) VALUES ('session-a', 'user', 'user-1', '2099-01-01T00:00:00.000Z', NULL)"),
-      db.prepare("INSERT INTO session (id, owner_type, owner_id, expires_at, revoked_at) VALUES ('session-b', 'user', 'user-1', '2099-01-01T00:00:00.000Z', NULL)"),
+      db.prepare("INSERT INTO platform_account VALUES ('user-1', 'user-1', 'ios', 'active')"),
+      db.prepare("INSERT INTO session (id, owner_type, owner_id, platform, user_id, expires_at, revoked_at) VALUES ('session-a', 'user', 'user-1', 'ios', 'user-1', '2099-01-01T00:00:00.000Z', NULL)"),
+      db.prepare("INSERT INTO session (id, owner_type, owner_id, platform, user_id, expires_at, revoked_at) VALUES ('session-b', 'user', 'user-1', 'ios', 'user-1', '2099-01-01T00:00:00.000Z', NULL)"),
       db.prepare("INSERT INTO portfolio_folder (id, owner_type, owner_id, name, is_default, sort_order, created_at, updated_at) VALUES ('main', 'user', 'user-1', 'Main', 1, 0, '2026-08-01T00:00:00.000Z', '2026-08-01T00:00:00.000Z')"),
       db.prepare("INSERT INTO collection_item (id, owner_type, owner_id, folder_id, card_ref, object_type, grader, condition, grade, language, finish, price_series_id, quantity, purchase_price, purchase_currency, performance_start_at, purchase_price_effective_at, performance_history_available_from, notes, created_at, updated_at) VALUES ('item-1', 'user', 'user-1', 'main', '100', 'tcg', 'Raw', 'Near Mint (NM)', NULL, 'English', 'Normal', 1, 1, 10, 'USD', '2026-08-01T00:00:00.000Z', '2026-08-01T00:00:00.000Z', '2026-08-01T00:00:00.000Z', NULL, '2026-08-01T00:00:00.000Z', '2026-08-01T00:00:00.000Z')"),
       db.prepare("INSERT INTO collection_item_event (id, item_id, owner_type, owner_id, folder_id, card_ref, object_type, grader, condition, grade, language, finish, price_series_id, quantity, purchase_price, purchase_currency, performance_history_available_from, event_type, effective_at) VALUES ('event-1', 'item-1', 'user', 'user-1', 'main', '100', 'tcg', 'Raw', 'Near Mint (NM)', NULL, 'English', 'Normal', 1, 1, 10, 'USD', '2026-08-01T00:00:00.000Z', 'upsert', '2026-08-01T00:00:00.000Z')"),
@@ -139,7 +140,8 @@ async function errorCode(response: Response): Promise<string> {
 
 const SCHEMA = [
   "CREATE TABLE \"user\" (id TEXT PRIMARY KEY, status TEXT NOT NULL)",
-  "CREATE TABLE session (id TEXT PRIMARY KEY, owner_type TEXT NOT NULL, owner_id TEXT NOT NULL, expires_at TEXT NOT NULL, revoked_at TEXT)",
+  "CREATE TABLE platform_account (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, platform TEXT NOT NULL, status TEXT NOT NULL)",
+  "CREATE TABLE session (id TEXT PRIMARY KEY, owner_type TEXT NOT NULL, owner_id TEXT NOT NULL, platform TEXT, user_id TEXT, expires_at TEXT NOT NULL, revoked_at TEXT)",
   "CREATE TABLE portfolio_folder (id TEXT PRIMARY KEY, owner_type TEXT NOT NULL, owner_id TEXT NOT NULL, name TEXT NOT NULL, is_default INTEGER NOT NULL, sort_order INTEGER NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
   "CREATE TABLE collection_item (id TEXT PRIMARY KEY, owner_type TEXT NOT NULL, owner_id TEXT NOT NULL, folder_id TEXT NOT NULL, card_ref TEXT NOT NULL, object_type TEXT NOT NULL, grader TEXT NOT NULL, condition TEXT, grade REAL, language TEXT, finish TEXT, price_series_id INTEGER, quantity INTEGER NOT NULL, purchase_price REAL, purchase_currency TEXT, performance_start_at TEXT, purchase_price_effective_at TEXT, performance_history_available_from TEXT, notes TEXT, folder_joined_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
   "CREATE TABLE collection_item_event (id TEXT PRIMARY KEY, item_id TEXT NOT NULL, owner_type TEXT NOT NULL, owner_id TEXT NOT NULL, folder_id TEXT NOT NULL, card_ref TEXT NOT NULL, object_type TEXT NOT NULL, grader TEXT NOT NULL, condition TEXT, grade REAL, language TEXT, finish TEXT, price_series_id INTEGER, quantity INTEGER NOT NULL, purchase_price REAL, purchase_currency TEXT, performance_history_available_from TEXT, event_type TEXT NOT NULL, effective_at TEXT NOT NULL)",

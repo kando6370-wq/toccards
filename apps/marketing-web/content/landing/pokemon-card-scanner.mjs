@@ -2,11 +2,12 @@ export default {
   "slug": "pokemon-card-scanner",
   "group": "tcg",
   "linkLabel": "Pokemon card scanner",
-  "title": "Pokemon Card Scanner: Check Pokemon Card Values | Card AI",
-  "description": "Scan Pokemon cards to find matching set and card records, confirm the printing, then check raw and graded market values and track your collection.",
+  "title": "Pokemon Card Scanner App & Value Checker | Card AI",
+  "description": "Use a Pokemon card scanner app to find matching set and card records, confirm the printing, then check raw and graded market values and track your collection.",
   "eyebrow": "Pokemon",
   "h1": "Pokemon card scanner and value checker.",
-  "lede": "Point your camera at a Pokemon card. The Pokemon card value scanner suggests likely catalog matches for you to confirm before checking available prices.",
+  "lede": "In the Card AI app, photograph a Pokemon card to find likely catalog matches. Confirm its printing before checking available prices or adding it to your collection.",
+  "ctaTitle": "Scan Pokemon cards in the Card AI app.",
   "proof": {
     "kind": "scan",
     "title": "Review the printing before checking its value.",
@@ -16,7 +17,7 @@ export default {
   "sections": [
     {
       "h2": "Why the exact printing decides the price",
-      "body": "Two Pokemon cards can show the same artwork and the same name and be worth very different amounts. What separates them is the printing: the set, the card number, whether it is a first edition or unlimited run, and whether the card is holo, reverse holo, or non-holo.\n\nCard AI compares the photo with its catalog and suggests likely records with the set and card number. Review the result and confirm the edition, variant and finish before using that printing's market price.\n\nFor a current set example, use the [Pokemon TCG 30th Celebration price guide](/blog/pokemon-tcg-30th-celebration-card-prices) to compare 30C and 30C-CC records before you confirm a scan. For the same Pokemon across different sets, the [Minior card guide](/blog/minior-pokemon-card-guide) separates Paradox Rift printings from Guardians Rising and from the Pokemon GO game event."
+      "body": "Two Pokemon cards can show the same artwork and the same name and be worth very different amounts. What separates them is the printing: the set, the card number, whether it is a first edition or unlimited run, and whether the card is holo, reverse holo, or non-holo.\n\nCard AI compares the photo with its catalog and suggests likely records with the set and card number. Review the result and confirm the edition, variant and finish before using that printing's market price.\n\nFor a current set example, use the [Pokemon TCG 30th Celebration price guide](/blog/pokemon-tcg-30th-celebration-card-prices) to compare 30C and 30C-CC records before you confirm a scan. The [Pokemon TCG set card list guide](/blog/pokemon-tcg-set-card-lists) covers Prismatic Evolutions, White Flare, Surging Sparks, Paldean Fates and Shrouded Fable. For the same Pokemon across different sets, the [Minior card guide](/blog/minior-pokemon-card-guide) separates Paradox Rift printings from Guardians Rising and from the Pokemon GO game event."
     },
     {
       "h2": "Raw and graded Pokemon cards are priced separately",
@@ -41,7 +42,7 @@ export default {
       "a": "Look for a workflow that shows likely set and card-number matches, lets you confirm edition, finish and language, separates raw condition from an existing slab grade, and keeps available price history with the saved card. Card AI does not authenticate cards or predict grades."
     },
     {
-      "q": "Is the Pokemon card scanner free to install?",
+      "q": "Is this a free Pokemon card scanner app?",
       "a": "Card AI is free to install from its current App Store listing. Free access has a server-managed limit of 10 successful scans; the 10-image queue is a separate batch limit. Premium access and store availability may change, so check the app before working through a large collection."
     },
     {
@@ -55,6 +56,10 @@ export default {
     {
       "q": "What is my Pokemon card worth?",
       "a": "Select the matching catalog record, confirm its edition and finish, and choose a raw condition or existing slab grade. Card AI then shows the relevant market price and available price history."
+    },
+    {
+      "q": "Can I use Card AI as a Pokemon card value scanner?",
+      "a": "Yes. Scan a card photo to find likely catalog records, confirm the set, number, finish and language, then open the selected record to see its available price and history. The scan suggests a match; it does not authenticate the card or guarantee an exact printing."
     },
     {
       "q": "Is there a Pokemon card price checker built in?",

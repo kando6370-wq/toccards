@@ -1,8 +1,8 @@
 # 查询、缓存与列表性能
 
-更新日期：2026-11-03（Asia/Shanghai）。2026-10-30 的查询、缓存、索引与日志热修已随 `dev@c5908c32` 发布 Linux dev，见[性能发布记录](../05-delivery/VERIFICATION.md#dev-performance-release-20261030)。2026-11-02 收藏 API 与后台增量已随 `dev@fe5e319f` 配套发布 Linux dev，见[本次发布记录](../05-delivery/VERIFICATION.md#dev-ux-loading-release-20261102)；客户端加载与扫描体验优化已合入 dev，当时没有发布 Flutter 制品。prod 尚未部署上述增量；dev 的单次计划与冷／热烟测不代表真实流量 P50/P95 或 prod 验收通过。
+更新日期：2026-11-04（Asia/Shanghai）。2026-10-30 的查询、缓存、索引与日志热修已随 `dev@c5908c32` 发布 Linux dev，见[性能发布记录](../05-delivery/VERIFICATION.md#dev-performance-release-20261030)。2026-11-02 收藏 API 与后台增量已随 `dev@fe5e319f` 配套发布 Linux dev，见[本次发布记录](../05-delivery/VERIFICATION.md#dev-ux-loading-release-20261102)；客户端加载与扫描体验优化已合入 dev，当时没有发布 Flutter 制品。dev 的单次计划与冷／热烟测不代表真实流量 P50/P95 或 prod 验收通过。
 
-下述 2026-11-03 增量的 API／Admin 已随 `dev@399f4066` 发布 Linux dev，见[发布记录](../05-delivery/VERIFICATION.md#dev-owner-assets-release-20261103)；本次未发布 Flutter 制品，也未完成真实账号流量、真机或 P50/P95 验收。
+下述 2026-11-03 增量的 API／Admin 已随 `dev@399f4066` 发布 Linux dev，见[发布记录](../05-delivery/VERIFICATION.md#dev-owner-assets-release-20261103)；该次未发布 Flutter 制品，也未完成真实账号流量、真机或 P50/P95 验收。本文所述 API／Admin 与 `0016/0017` 后续已随 `main@94417983` 发布生产，见[生产发布记录](../05-delivery/VERIFICATION.md#prod-business-release-20261104)；Flutter 客户端增量、真实流量性能与真机体验仍按各节证据边界判断。
 
 ## 账号隔离与大收藏读取（2026-11-03）
 

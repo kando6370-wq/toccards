@@ -136,6 +136,8 @@ Map<String, Object?> _sessionToJson(AuthSession session) {
     'user_id': session.userId,
     'email': session.email,
     'login_method': session.loginMethod?.name,
+    'platform': session.platform?.name,
+    'data_space_id': session.dataSpaceId,
   };
 }
 
@@ -162,6 +164,11 @@ AuthSession? _sessionFromJson(Map<String, Object?> value) {
     'apple' => LoginMethod.apple,
     _ => null,
   };
+  final platform = switch (value['platform']) {
+    'ios' => AppPlatform.ios,
+    'android' => AppPlatform.android,
+    _ => null,
+  };
   return AuthSession(
     ownerType: ownerType,
     accessToken: accessToken,
@@ -170,6 +177,8 @@ AuthSession? _sessionFromJson(Map<String, Object?> value) {
     userId: userId,
     email: _nonEmptyString(value['email']),
     loginMethod: loginMethod,
+    platform: platform,
+    dataSpaceId: _nonEmptyString(value['data_space_id']),
   );
 }
 

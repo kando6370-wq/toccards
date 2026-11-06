@@ -4,7 +4,7 @@ Kando 是 Card AI 的 monorepo，包含 Flutter 客户端、Cloudflare Workers A
 
 当前产品定位基线、用户流程、交易市场数据口径及官网内容边界见 [Card AI 产品定位与内容边界](docs/releases/v1.1.2/00-product/card-ai-product-positioning.md)。
 
-当前增量文档入口为 [v1.1.3](docs/releases/v1.1.3/README.md)；[v1.1.2](docs/releases/v1.1.2/README.md) 已于 2026-10-26 原位归档，[v1.1.1](docs/releases/v1.1.1/README.md) 已于 2026-10-09 原位归档，v1.1.0 开发归档与 v1.0.0 冻结基线保持不变。文档版本切换不修改 App 版本、Git tag 或生产环境，原有待验项继续保留。
+当前增量文档入口为 [v1.1.4](docs/releases/v1.1.4/README.md)；[v1.1.3](docs/releases/v1.1.3/README.md) 已于 2026-11-05 原位归档，[v1.1.2](docs/releases/v1.1.2/README.md) 已于 2026-10-26 原位归档，[v1.1.1](docs/releases/v1.1.1/README.md) 已于 2026-10-09 原位归档，v1.1.0 开发归档与 v1.0.0 冻结基线保持不变。文档版本切换不修改 App 版本、Git tag 或生产环境，原有待验项继续保留。
 
 最新 prod／App 收尾检查点为 2026-10-26：生产服务端与双 Admin 已于 2026-10-23 从 `main@557166b` 配套发布，App Store 已上架 1.0.6，Weekly Trial／Monthly 已完成生产动态准入；Page／Modal 保持未启用。用户确认相关实机交易链路目前无问题，Agent 未独立重放原始交易／平台记录。历史操作与证据边界见 [v1.1.2 生产收尾记录](docs/releases/v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)；v1.1.3 创建时没有新的代码或环境发布。
 
@@ -57,10 +57,13 @@ Marketing Web -----------------> 独立 Cloudflare 静态站点
 
 ## 环境要求
 
-- Node.js `>=22`
-- pnpm `11.9.0`（以根 `packageManager` 为准）
-- Dart SDK `^3.9.2`
-- Flutter `>=3.44.0`
+- Node.js `^22.23.4`
+- pnpm `11.28.10`（以根 `packageManager` 为准）
+- Dart SDK `^3.13.7`
+- Flutter `>=3.47.9`（CI 固定 `3.47.9`）
+- Android 构建 JDK `21.0.13+9`；核对 Flutter 实际选中的 JDK，不能仅依赖系统 `JAVA_HOME`。
+
+安全升级依据、实际验证与环境发布边界见 [2026-11-05 技术栈安全升级](docs/releases/v1.1.4/02-architecture/security-stack-upgrade.md)。
 
 安装依赖：
 

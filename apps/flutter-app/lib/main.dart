@@ -31,12 +31,6 @@ Future<void> main() async {
   configureAppDebugOverlay();
   await const SecureAuthStorage().prepareForCurrentInstallation();
   const amountHiddenStorage = PreferencesPortfolioAmountHiddenStorage();
-  var initialAmountHidden = false;
-  try {
-    initialAmountHidden = await amountHiddenStorage.readAmountHidden();
-  } catch (_) {
-    // Keep amounts visible when local preferences cannot be read.
-  }
   final firebase = await AppFirebase.initialize();
   firebase?.installGlobalErrorHandlers();
   installAppDebugErrorHandlers();
@@ -56,9 +50,6 @@ Future<void> main() async {
         analyticsProvider.overrideWithValue(analytics),
         portfolioAmountHiddenStorageProvider.overrideWithValue(
           amountHiddenStorage,
-        ),
-        initialPortfolioAmountHiddenProvider.overrideWithValue(
-          initialAmountHidden,
         ),
       ],
       child: const KandoApp(),

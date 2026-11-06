@@ -12,6 +12,7 @@ import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/market/market_change.dart';
+import 'package:kando_app/shared/platform/app_commercial_policy.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
@@ -1005,7 +1006,9 @@ class CardDetailController extends Notifier<CardDetailState> {
             cardId,
             finish: finish,
             ranges: const [CardPriceRange.oneYear],
-            localPremiumVerified: true,
+            localPremiumVerified:
+                ref.read(appCommercialPolicyProvider).usesAppleSubscription &&
+                ref.read(subscriptionControllerProvider).isPro,
           )
           .timeout(const Duration(seconds: 25));
       late final CardDetailSeriesData data;
@@ -1013,7 +1016,8 @@ class CardDetailController extends Notifier<CardDetailState> {
         data = await request();
       } on CardDataApiException catch (error) {
         if (error.statusCode != 409 ||
-            error.code != 'ENTITLEMENT_SYNC_REQUIRED') {
+            error.code != 'ENTITLEMENT_SYNC_REQUIRED' ||
+            ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
           rethrow;
         }
         final reconciliation = await ref

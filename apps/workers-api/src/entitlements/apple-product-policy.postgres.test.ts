@@ -18,10 +18,10 @@ let db: PGliteDatabase; let env: Env; let authorization: Record<string, string>;
 beforeAll(async () => {
   db = await PGliteDatabase.create();
   const directory = new URL("../db/postgres/migrations/", import.meta.url);
-  for (const name of ["0000_business_schema.sql", "0002_apple_inbox_environment.sql", "0006_mutation_lock.sql", "0007_billing_refund_status.sql", "0009_apple_notification_app_bundle.sql", "0014_subscription_display_config.sql"]) await db.exec(readFileSync(new URL(name, directory), "utf8"));
+  for (const name of ["0000_business_schema.sql", "0002_apple_inbox_environment.sql", "0006_mutation_lock.sql", "0007_billing_refund_status.sql", "0009_apple_notification_app_bundle.sql", "0014_subscription_display_config.sql", "0018_platform_account_isolation.sql"]) await db.exec(readFileSync(new URL(name, directory), "utf8"));
   env = { DB: db, CACHE_KV: { get: async () => null } as unknown as KVNamespace, JWT_SECRET: "dynamic-policy-test",
     APP_ENVIRONMENT: "development", APPLE_IAP_BUNDLE_ID: "example.app", APP_STORE_CONNECT_APP_ID: "456", APPLE_IAP_PRODUCT_IDS: "legacy.week" };
-  await db.exec("INSERT INTO anonymous_account(id,device_id,created_at) VALUES('100000','test-device','2026-10-16'); INSERT INTO session(id,owner_type,owner_id,refresh_token,expires_at,created_at) VALUES('session-a','anonymous','100000','test-refresh','2099-01-01','2026-10-16');");
+  await db.exec("INSERT INTO anonymous_account(id,device_id,created_at,platform,status) VALUES('100000','test-device','2026-10-16','ios','active'); INSERT INTO session(id,owner_type,owner_id,refresh_token,expires_at,created_at,platform,user_id) VALUES('session-a','anonymous','100000','test-refresh','2099-01-01','2026-10-16','ios',NULL);");
   authorization = { authorization: "Bearer " + await signAccessToken({ owner_type: "anonymous", owner_id: "100000", session_id: "session-a" }, env.JWT_SECRET), "content-type": "application/json" };
   for (const [id, fixture] of [
     ["cardx.month", catalogFixture().products[0]],

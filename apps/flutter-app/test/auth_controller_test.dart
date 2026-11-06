@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/auth/oauth_authorizer.dart';
+import 'package:kando_app/shared/platform/app_commercial_policy.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
 
 import 'support/in_memory_auth_storage.dart';
@@ -13,6 +14,45 @@ import 'support/local_placeholder_auth_repository.dart';
 
 void main() {
   const deviceId = 'test-device';
+
+  test(
+    'Android clears a legacy stored user session without a data space',
+    () async {
+      final legacyUser = _userSession(
+        userId: 'legacy-user',
+        email: 'person@example.com',
+      );
+      final freshAnonymous = AuthSession(
+        ownerType: OwnerType.anonymous,
+        accessToken: 'android-anon-access',
+        refreshToken: 'android-anon-refresh',
+        anonymousId: 'android-anon',
+        platform: AppPlatform.android,
+        dataSpaceId: 'android-guest-space',
+      );
+      final storage = InMemoryAuthStorage();
+      await storage.writeSession(legacyUser);
+      final repository = _FakeAuthRepository(
+        storedSession: legacyUser,
+        createdAnonymousSessions: [freshAnonymous],
+      );
+      final container = _createContainer(
+        repository,
+        deviceId,
+        storage: storage,
+        commercialPolicy: const AppCommercialPolicy(isAndroidFreeLaunch: true),
+      );
+      addTearDown(container.dispose);
+
+      await container.read(authControllerProvider.notifier).startupComplete;
+
+      expect(
+        container.read(authControllerProvider).session,
+        same(freshAnonymous),
+      );
+      expect(await storage.readSession(), isNull);
+    },
+  );
 
   test(
     'valid stored user session stays user so migration is not triggered',
@@ -717,7 +757,7 @@ void main() {
       await container.read(authControllerProvider.notifier).deleteAccount();
       final state = container.read(authControllerProvider);
 
-      expect(repository.validatedSessions, [same(upgradedAnonymous)]);
+      expect(repository.validatedSessions, isEmpty);
       expect(repository.clearedAnonymousSessions, 1);
       expect(repository.deletedSessions, [same(storedUser)]);
       expect(repository.createdDeviceIds, [deviceId]);
@@ -727,7 +767,7 @@ void main() {
   );
 
   test(
-    'user delete keeps the account when replacement guest creation fails because deletion must not strand a revoked identity',
+    'user delete never restores a server-deleted account when replacement guest creation fails',
     () async {
       final storedUser = AuthSession(
         ownerType: OwnerType.user,
@@ -749,13 +789,13 @@ void main() {
 
       await expectLater(
         container.read(authControllerProvider.notifier).deleteAccount(),
-        throwsA(isA<AuthNetworkException>()),
+        throwsA(isA<AuthPostDeleteSessionException>()),
       );
 
       expect(repository.clearedAnonymousSessions, 1);
-      expect(repository.deletedSessions, isEmpty);
+      expect(repository.deletedSessions, [same(storedUser)]);
       expect(repository.persistedSessions, isEmpty);
-      expect(container.read(authControllerProvider).session, same(storedUser));
+      expect(container.read(authControllerProvider).session, isNull);
     },
   );
 
@@ -810,7 +850,7 @@ void main() {
       final state = container.read(authControllerProvider);
 
       expect(repository.deletedSessions, [same(storedUser)]);
-      expect(repository.createdDeviceIds, [deviceId]);
+      expect(repository.createdDeviceIds, isEmpty);
       expect(repository.persistedSessions, isEmpty);
       expect(state.session, same(storedUser));
     },
@@ -1017,11 +1057,17 @@ ProviderContainer _createContainer(
   String deviceId, {
   OAuthAuthorizer? authorizer,
   List<Duration>? retryDelays,
+  InMemoryAuthStorage? storage,
+  AppCommercialPolicy commercialPolicy = const AppCommercialPolicy(
+    isAndroidFreeLaunch: false,
+  ),
 }) {
   return ProviderContainer(
     overrides: [
       authRepositoryProvider.overrideWithValue(repository),
       authDeviceIdProvider.overrideWithValue(deviceId),
+      if (storage != null) authStorageProvider.overrideWithValue(storage),
+      appCommercialPolicyProvider.overrideWithValue(commercialPolicy),
       if (retryDelays != null)
         authStartupRetryDelaysProvider.overrideWithValue(retryDelays),
       if (authorizer != null)

@@ -20,7 +20,7 @@ export function createLegalRoutes(): Hono<{ Bindings: Env }> {
   );
   routes.get("/legal/privacy", (c) =>
     c.html(
-      legalPage("Privacy Policy", privacyContent(), "July 17, 2026"),
+      legalPage("Privacy Policy", privacyContent(), "November 5, 2026"),
       200,
       LEGAL_HEADERS,
     ),
@@ -76,6 +76,7 @@ function termsContent(): string {
     <p>These Terms of Use govern access to the ${PRODUCT_NAME} application and related services. By using ${PRODUCT_NAME}, you agree to these terms.</p>
     <h2>1. Eligibility and accounts</h2>
     <p>You must be legally able to enter into these terms. If you are under the age of majority where you live, a parent or guardian must approve your use. You are responsible for activity under your account and for keeping access credentials secure.</p>
+    <p>A verified sign-in identity may be shared between Android and iOS, but each platform has its own account status, collections, scan records, preferences, and benefits. Data and purchases do not automatically transfer between platforms.</p>
     <h2>2. The service</h2>
     <p>${PRODUCT_NAME} helps collectors identify trading cards, organize Portfolio folders, maintain a Wishlist, and view market information. Scanned cards are not added to a Portfolio until you review and confirm them.</p>
     <h2>3. Card and price information</h2>
@@ -110,6 +111,7 @@ function privacyContent(): string {
       <li><strong>Scan information:</strong> perspective-corrected card-area images, either 512-dimensional image embeddings for supported legacy requests or RGB perceptual hashes and available normalized Latin OCR text for current requests, recognition candidates, confirmation results, filename, app version, platform, and available device or operating-system metadata.</li>
       <li><strong>Support information:</strong> feedback category, message, optional contact details, and related service records.</li>
       <li><strong>Technical information:</strong> network requests, security events, and diagnostics needed to operate and protect the service.</li>
+      <li><strong>Android installation verification:</strong> request-bound installation identifiers and Google Play integrity verdicts used to verify the app, signing certificate, installation, and device.</li>
     </ul>
     <h2>2. How we use information</h2>
     <p>We use information to authenticate users, recognize cards, maintain collections and preferences, show relevant card and price data, answer support requests, prevent abuse, troubleshoot failures, and comply with legal obligations.</p>
@@ -120,7 +122,9 @@ function privacyContent(): string {
     <h2>5. Sharing and sale</h2>
     <p>We do not sell personal information. We disclose information only to service providers, when you direct us to, to protect users and the service, during a business reorganization, or when required by law.</p>
     <h2>6. Retention and deletion</h2>
-    <p>Uploaded card-area images and their scan records are retained without a fixed expiration period for scan auditing, customer support, and recognition-quality review. Deleting an account does not delete these retained scan images or scan records. Other information is retained only for configured periods needed to provide ${PRODUCT_NAME}, meet security and legal requirements, resolve disputes, and maintain backups.</p>
+    <p>Android and iOS use separate platform accounts and business data. Deleting the account on one platform removes that platform's collections, preferences, uploaded scan images, and scan records from active systems and revokes its sign-in sessions. The other platform's account, data, and subscriptions remain available. Using the deleted platform again requires a new registration and does not restore its deleted business data.</p>
+    <p>Shared sign-in information remains only while needed for another platform account. When the last platform account is deleted, its shared email, password credentials, and sign-in provider associations are removed. Necessary financial, transaction, security, and audit records may be retained for applicable obligations and dispute handling. Backups and service-provider records follow their applicable retention and deletion procedures; account deletion does not promise immediate removal from every backup.</p>
+    <p>Deleting an iOS account does not automatically cancel an Apple subscription. Manage any active subscription through Apple. Android's free first release does not create a purchase, trial, or subscription record.</p>
     <h2>7. Security</h2>
     <p>We use technical and organizational safeguards designed to protect information. No storage or transmission method is completely secure.</p>
     <h2>8. International processing</h2>
@@ -140,7 +144,8 @@ function supportContent(): string {
     <p>Open Profile in the app and select Customer Support to send a request with the relevant category and details. You may also email <a href="mailto:kando@tcgcard.fun">kando@tcgcard.fun</a>.</p>
     <p>Do not send passwords, verification codes, or payment information in a support request.</p>
     <h2>Account deletion</h2>
-    <p>You can delete your account from Profile &gt; Account &gt; Delete account. If you cannot access the app, contact support from the email address associated with your account.</p>
+    <p>You can delete your account from Profile &gt; Account &gt; Delete account. This deletes the account and associated business data on the current platform only. If you cannot access the app, contact support from the email address associated with your account and specify Android or iOS. Do not provide your password. Identity and platform verification are required before processing; an email request is not confirmation that deletion is complete.</p>
+    <p>Android deletion instructions and email requests are available at <a href="https://tcgcard.fun/Account/AccountSetup">Account Setup</a>.</p>
     <h2>Policies</h2>
     <p>Review the <a href="/api/v1/legal/terms">Terms of Use</a> and <a href="/api/v1/legal/privacy">Privacy Policy</a> for service and data-handling details.</p>`;
 }

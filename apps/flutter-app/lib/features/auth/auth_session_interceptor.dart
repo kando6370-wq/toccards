@@ -119,6 +119,28 @@ class AuthSessionInterceptor extends Interceptor {
       if (data is! Map) return null;
       final accessToken = _nonEmptyString(data['access_token']);
       if (accessToken == null) return null;
+      final responsePlatform = _platform(data['platform']);
+      final responseDataSpaceId = _nonEmptyString(data['data_space_id']);
+      final incompatibleAndroidScope =
+          session.platform == AppPlatform.android &&
+          (responsePlatform != AppPlatform.android ||
+              responseDataSpaceId == null);
+      final changedPlatform =
+          session.platform != null &&
+          responsePlatform != null &&
+          responsePlatform != session.platform;
+      final changedDataSpace =
+          responseDataSpaceId != null &&
+          session.dataSpaceId != null &&
+          responseDataSpaceId != session.dataSpaceId;
+      if (incompatibleAndroidScope || changedPlatform || changedDataSpace) {
+        if (session.isUser) {
+          await _storage.clearUserSession();
+        } else {
+          await _storage.clearAnonymousSession();
+        }
+        return null;
+      }
 
       final latestSession = await _storage.readSession();
       if (latestSession?.refreshToken != session.refreshToken) {
@@ -134,6 +156,8 @@ class AuthSessionInterceptor extends Interceptor {
         userId: session.userId,
         email: session.email,
         loginMethod: session.loginMethod,
+        platform: responsePlatform ?? session.platform,
+        dataSpaceId: responseDataSpaceId ?? session.dataSpaceId,
       );
       await _storage.writeSession(refreshed);
       return refreshed;
@@ -154,6 +178,14 @@ class AuthSessionInterceptor extends Interceptor {
     final token = authorization.substring('Bearer '.length).trim();
     return token.isEmpty ? null : token;
   }
+}
+
+AppPlatform? _platform(Object? value) {
+  return switch (_nonEmptyString(value)?.toLowerCase()) {
+    'ios' => AppPlatform.ios,
+    'android' => AppPlatform.android,
+    _ => null,
+  };
 }
 
 bool _sameTokenOwner(String left, String right) {

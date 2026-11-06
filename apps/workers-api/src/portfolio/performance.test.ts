@@ -322,7 +322,7 @@ describe("portfolio performance", () => {
 
     await loadPortfolioPerformance(
       db,
-      { owner_type: "user", owner_id: "owner-1", session_id: "session-1" },
+      { owner_type: "user", owner_id: "owner-1", session_id: "session-1", platform: "ios", user_id: "owner-1", data_space_id: "owner-1" },
       "1M",
       { itemId: "item-1", now: new Date("2026-08-12T12:00:00Z") },
     );
@@ -346,7 +346,7 @@ describe("portfolio performance", () => {
 
     await loadPortfolioPerformance(
       db,
-      { owner_type: "user", owner_id: "owner-1", session_id: "session-1" },
+      { owner_type: "user", owner_id: "owner-1", session_id: "session-1", platform: "ios", user_id: "owner-1", data_space_id: "owner-1" },
       "1M",
       {
         folderId: "main",
@@ -374,7 +374,7 @@ describe("portfolio performance", () => {
 
     await expect(loadPortfolioPerformance(
       db,
-      { owner_type: "user", owner_id: "owner-1", session_id: "session-1" },
+      { owner_type: "user", owner_id: "owner-1", session_id: "session-1", platform: "ios", user_id: "owner-1", data_space_id: "owner-1" },
       "1M",
       { now: new Date("2026-08-12T12:00:00Z") },
     )).rejects.toThrow("Portfolio performance query exceeded 10000 events");

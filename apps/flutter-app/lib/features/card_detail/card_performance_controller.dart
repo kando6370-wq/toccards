@@ -5,6 +5,7 @@ import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
+import 'package:kando_app/shared/platform/app_commercial_policy.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 final cardPerformanceControllerProvider = NotifierProvider.autoDispose
@@ -87,7 +88,8 @@ class CardPerformanceController extends Notifier<CardPerformanceState> {
         data = await request();
       } on PortfolioApiException catch (error) {
         if (error.statusCode != 409 ||
-            error.code != 'ENTITLEMENT_SYNC_REQUIRED') {
+            error.code != 'ENTITLEMENT_SYNC_REQUIRED' ||
+            ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
           rethrow;
         }
         final reconciliation = await ref

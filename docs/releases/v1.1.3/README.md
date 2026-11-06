@@ -1,6 +1,6 @@
-# v1.1.3 开发文档
+# v1.1.3 开发归档
 
-状态：当前开发版本。启用日期：2026-10-26（Asia/Shanghai）。创建基线为 `main@0552669fb85a5037379eb3a2da1aaad54543ee0a`。
+状态：已归档。启用日期：2026-10-26（Asia/Shanghai），归档日期：2026-11-05（Asia/Shanghai）。创建基线为 `main@0552669fb85a5037379eb3a2da1aaad54543ee0a`。后续开发入口为 [v1.1.4](../v1.1.4/README.md)。
 
 v1.1.2 已原位归档，不复制其产品、流程、架构、数据/API、Admin 或交付文档。本版本只记录归档后的新增、变更、移除和实际验证；未变化内容继续引用历史真源。
 
@@ -8,10 +8,12 @@ v1.1.2 已原位归档，不复制其产品、流程、架构、数据/API、Adm
 
 - Linux dev 于 2026-11-03 发布 `dev@399f4066` 的 API／Admin，包含批量 owner 资产读取、收藏补全／摘要优化及后台权限管理接线；运行版本、备份、产物与未验边界见[发布记录](05-delivery/VERIFICATION.md#dev-owner-assets-release-20261103)。本次未发布 Flutter 制品或 prod。
 - Linux dev 于 2026-11-02 发布 `dev@fe5e319f` 的 API／Admin，包含收藏分页／摘要／单卡资产接口及后台修复；运行版本、备份、产物和未验边界见[发布记录](05-delivery/VERIFICATION.md#dev-ux-loading-release-20261102)。Flutter 制品与 prod 未在本次发布。
+- 生产 API、`api.tcgcard.fun` Admin 副本与 Pages `admin.tcgcard.fun` 已于 2026-11-04 从干净的 `main@94417983` 配套发布，PostgreSQL `0016/0017` 已登记为 18 项；版本、备份、索引、配置保持及未验边界见[生产发布记录](05-delivery/VERIFICATION.md#prod-business-release-20261104)。本次生产业务发布不包含 Flutter 或 Marketing。
 - [v1.1.2 开发归档](../v1.1.2/README.md)保留 App 1.0.6、订阅展示配置、动态商品准入、Admin、兼容规则及生产交付历史。
 - v1.1.2 的[生产收尾记录](../v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)是本版本的运行起点，不因创建 v1.1.3 重新记为部署或验收。
 - App 向后兼容原则继续以 v1.1.2 的[人员阅读版](../v1.1.2/05-delivery/app-backward-compatibility-plan.md)和[AI 执行版](../v1.1.2/03-data-api/app-backward-compatibility-ai-guide.md)为规则真源；v1.1.3 的新增兼容证据写入本版本受影响业务文档或[验证记录](05-delivery/VERIFICATION.md)，不回写归档版本。
 - Flutter UI 继续遵循 [v1.0.0 UI 设计系统](../v1.0.0/00-product/ui-design-system.md)及后续已生效的增量合同。
+- 官网关键词与页面归属增量见[营销内容记录](05-delivery/marketing-keyword-content.md)；未变化的能力边界继续引用 v1.1.2 的产品定位和营销内容文档。
 - 当前扫描识别增量见 [RGB pHash + Latin／Japanese OCR 链路](01-flows/scan-recognition.md)：当前 App 与线上低版本 App 共用原识别路径，服务端按互斥请求字段兼容 pHash 与旧向量协议。
 - Admin 扫描记录按 TCG／SPORTS 筛选及历史缺类型记录的边界见[扫描记录类型筛选](01-flows/scan-recognition.md#管理后台按卡牌类型筛选2026-10-28)。
 - Admin 苹果通知消息使用 SKU 下拉完整匹配筛选，选项来自可见全部通知记录的去重 Product ID；接口、无 SKU 失败记录和部署边界见[后台增量](04-admin/admin.md#苹果通知消息-sku-筛选2026-10-28)。
@@ -39,7 +41,7 @@ v1.1.2 已原位归档，不复制其产品、流程、架构、数据/API、Adm
 
 ## 记录规则
 
-- 后续开发记录默认写入 `docs/releases/v1.1.3/`，不得继续向 v1.1.2 追加新功能或新日期检查点。
+- 本版本的新增、变更、移除和实际验证已冻结在 `docs/releases/v1.1.3/`；后续开发资料写入 [v1.1.4](../v1.1.4/README.md)，不得继续向 v1.1.3 或更早归档版本追加新功能或新日期检查点。
 - 历史版本只允许在明确授权下修正确认过的事实错误；修正必须说明原因，并在 v1.1.3 留下引用。
 - 本地验证、CI、dev、prod、商店发布、用户反馈和 Agent 独立验收必须分别标记，未执行项不得写成通过。
 - 不在正式 docs 中保存执行日志、任务快照、截图、Secret、Token、私钥或原始生产响应。

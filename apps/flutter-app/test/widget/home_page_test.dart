@@ -39,6 +39,7 @@ import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/pagination/pagination.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
+import 'package:kando_app/shared/platform/app_commercial_policy.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
@@ -3467,6 +3468,9 @@ _searchOverrides() {
 _localAuthOverrides() {
   final storage = InMemoryAuthStorage();
   return [
+    appCommercialPolicyProvider.overrideWithValue(
+      const AppCommercialPolicy(isAndroidFreeLaunch: false),
+    ),
     authStorageProvider.overrideWithValue(storage),
     authRepositoryProvider.overrideWithValue(
       LocalPlaceholderAuthRepository(storage),

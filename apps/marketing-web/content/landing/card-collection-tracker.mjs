@@ -3,10 +3,11 @@ export default {
   "group": "feature",
   "linkLabel": "Card collection tracker",
   "title": "Card Collection Tracker & Value App | Card AI",
-  "description": "Track what a trading card collection is worth. Keep condition- and grade-specific holdings, follow price history, and monitor total portfolio value.",
+  "description": "Use the Card AI TCG collection tracker app to manage condition- and grade-specific holdings, follow price history, and monitor portfolio value.",
   "eyebrow": "Collection",
   "h1": "Trading card collection tracker.",
-  "lede": "Use one TCG collection tracker to see what the portfolio is worth now, which holdings carry the value, and how those prices move over time.",
+  "lede": "In the Card AI app, save the exact cards you own, see their available prices in one portfolio, and follow price history for each holding.",
+  "ctaTitle": "Track your collection in the Card AI app.",
   "proof": {
     "kind": "portfolio",
     "title": "See holdings and current value in one portfolio.",
@@ -43,6 +44,10 @@ export default {
     {
       "q": "Can I add cards without scanning them?",
       "a": "Yes. Search the card catalog by name, set or card number and add a matching record directly."
+    },
+    {
+      "q": "Can I use this as a Pokemon card collection tracker?",
+      "a": "Yes. Filter the collection to Pokemon, keep each confirmed printing and condition or grade distinct, and follow the available price history and portfolio value for the cards you own."
     },
     {
       "q": "Is this a card collection app or a collection manager?",

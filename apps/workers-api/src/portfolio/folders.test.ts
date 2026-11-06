@@ -1,22 +1,10 @@
+import { PGliteDatabase } from "../test-support/pglite-database";
+import { createPortfolioPostgresFixture, closePortfolioPostgresFixtures, seedPortfolioRows, readPortfolioRows } from "../test-support/portfolio-postgres-fixture";
 import { signAccessToken } from "@kando/auth-core";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import app, { type Env } from "../index";
 
 type OwnerType = "anonymous" | "user";
-
-type SessionRow = {
-  id: string;
-  owner_type: OwnerType;
-  owner_id: string;
-  expires_at: string;
-  revoked_at: string | null;
-};
-
-type OwnerRow = {
-  id: string;
-  deleted_at?: string | null;
-  upgraded_user_id?: string | null;
-};
 
 type FolderRow = {
   id: string;
@@ -37,295 +25,19 @@ type PreferenceRow = {
 
 const JWT_SECRET = "test-secret";
 const NOW = "2026-07-07T00:00:00.000Z";
-const LATER = "2099-01-01T00:00:00.000Z";
+const fixtureColumns = {
+  portfolio_folder: ["id", "owner_type", "owner_id", "name", "is_default", "sort_order", "created_at", "updated_at"],
+  user_preference: ["owner_type", "owner_id", "last_selected_folder_id"],
+};
 
-class FakeD1Database {
-  sessions: SessionRow[] = [];
-  users: OwnerRow[] = [];
-  anonymousAccounts: OwnerRow[] = [];
-  folders: FolderRow[] = [];
-  preferences: PreferenceRow[] = [];
-
-  prepare(sql: string): FakeD1Statement {
-    return new FakeD1Statement(this, sql);
-  }
-
-  async batch(statements: FakeD1Statement[]): Promise<unknown[]> {
-    return Promise.all(statements.map((statement) => statement.run()));
-  }
-}
-
-class FakeD1Statement {
-  private args: unknown[] = [];
-
-  constructor(
-    private readonly db: FakeD1Database,
-    private readonly sql: string,
-  ) {}
-
-  bind(...args: unknown[]): FakeD1Statement {
-    this.args = args;
-    return this;
-  }
-
-  async first<T>(): Promise<T | null> {
-    if (this.sql.includes("FROM session")) {
-      const [sessionId] = this.args;
-      return (this.db.sessions.find((row) => row.id === sessionId) ??
-        null) as T | null;
-    }
-
-    if (this.sql.includes("FROM anonymous_account")) {
-      const [ownerId] = this.args;
-      return (this.db.anonymousAccounts.find(
-        (row) => row.id === ownerId && row.upgraded_user_id === null,
-      ) ?? null) as T | null;
-    }
-
-    if (this.sql.includes('FROM "user"')) {
-      const [ownerId] = this.args;
-      return (this.db.users.find(
-        (row) => row.id === ownerId && row.deleted_at === null,
-      ) ?? null) as T | null;
-    }
-
-    if (this.sql.includes("FROM portfolio_folder")) {
-      const [ownerType, ownerId, folderId] = this.args;
-      return (this.db.folders.find(
-        (row) =>
-          row.owner_type === ownerType &&
-          row.owner_id === ownerId &&
-          row.id === folderId,
-      ) ?? null) as T | null;
-    }
-
-    return null;
-  }
-
-  async all<T>(): Promise<{ results: T[] }> {
-    if (this.sql.includes("FROM portfolio_folder")) {
-      const [ownerType, ownerId] = this.args;
-      const results = this.db.folders
-        .filter((row) => row.owner_type === ownerType && row.owner_id === ownerId)
-        .sort((left, right) =>
-          left.sort_order - right.sort_order
-          || left.id.localeCompare(right.id)
-        );
-
-      return { results: results as T[] };
-    }
-
-    return { results: [] };
-  }
-
-  async run(): Promise<{ success: true; meta: { changes: number } }> {
-    if (this.sql.includes("INSERT INTO mutation_lock")) {
-      return changed(1);
-    }
-
-    if (this.sql.includes("INSERT INTO portfolio_folder")) {
-      const [
-        id,
-        ownerType,
-        ownerId,
-        name,
-        sortOwnerType,
-        sortOwnerId,
-        createdAt,
-        updatedAt,
-        access,
-      ] = this.args as [
-        string,
-        OwnerType,
-        string,
-        string,
-        OwnerType,
-        string,
-        string,
-        string,
-        "free" | "premium",
-      ];
-
-      const ownerFolders = this.db.folders.filter(
-        (row) => row.owner_type === ownerType && row.owner_id === ownerId,
-      );
-      if (access === "free" && ownerFolders.length >= 2) {
-        return changed(0);
-      }
-
-      if (
-        this.db.folders.some(
-          (row) =>
-            row.owner_type === ownerType &&
-            row.owner_id === ownerId &&
-            row.name === name,
-        )
-      ) {
-        throw new Error("UNIQUE constraint failed: portfolio_folder.name");
-      }
-
-      const sortOrder = Math.max(
-        -100,
-        ...this.db.folders
-          .filter(
-            (row) =>
-              row.owner_type === sortOwnerType && row.owner_id === sortOwnerId,
-          )
-          .map((row) => row.sort_order),
-      ) + 100;
-
-      this.db.folders.push({
-        id,
-        owner_type: ownerType,
-        owner_id: ownerId,
-        name,
-        is_default: 0,
-        sort_order: sortOrder,
-        created_at: createdAt,
-        updated_at: updatedAt,
-      });
-
-      return changed(1);
-    }
-
-    if (this.sql.includes("UPDATE portfolio_folder") && this.sql.includes("name =")) {
-      const [name, updatedAt, ownerType, ownerId, folderId] = this.args as [
-        string,
-        string,
-        OwnerType,
-        string,
-        string,
-      ];
-      const duplicate = this.db.folders.some(
-        (row) =>
-          row.owner_type === ownerType &&
-          row.owner_id === ownerId &&
-          row.name === name &&
-          row.id !== folderId,
-      );
-
-      if (duplicate) {
-        throw new Error("UNIQUE constraint failed: portfolio_folder.name");
-      }
-
-      const folder = this.db.folders.find(
-        (row) =>
-          row.owner_type === ownerType &&
-          row.owner_id === ownerId &&
-          row.id === folderId,
-      );
-
-      if (!folder) return changed(0);
-
-      folder.name = name;
-      folder.updated_at = updatedAt;
-      return changed(1);
-    }
-
-    if (this.sql.includes("DELETE FROM portfolio_folder")) {
-      const [ownerType, ownerId, folderId] = this.args;
-      const before = this.db.folders.length;
-      this.db.folders = this.db.folders.filter(
-        (row) =>
-          !(
-            row.owner_type === ownerType &&
-            row.owner_id === ownerId &&
-            row.id === folderId
-          ),
-      );
-      return changed(before - this.db.folders.length);
-    }
-
-    if (this.sql.includes("UPDATE user_preference")) {
-      const [ownerType, ownerId, folderId] = this.args;
-      let changes = 0;
-
-      for (const preference of this.db.preferences) {
-        if (
-          preference.owner_type === ownerType &&
-          preference.owner_id === ownerId &&
-          preference.last_selected_folder_id === folderId
-        ) {
-          preference.last_selected_folder_id = null;
-          changes += 1;
-        }
-      }
-
-      return changed(changes);
-    }
-
-    if (this.sql.includes("SET is_default = 0")) {
-      const [updatedAt, ownerType, ownerId] = this.args as [
-        string,
-        OwnerType,
-        string,
-      ];
-      let changes = 0;
-
-      for (const folder of this.db.folders) {
-        if (folder.owner_type === ownerType && folder.owner_id === ownerId) {
-          folder.is_default = 0;
-          folder.updated_at = updatedAt;
-          changes += 1;
-        }
-      }
-
-      return changed(changes);
-    }
-
-    if (this.sql.includes("SET is_default = 1")) {
-      const [updatedAt, ownerType, ownerId, folderId] = this.args as [
-        string,
-        OwnerType,
-        string,
-        string,
-      ];
-      const folder = this.db.folders.find(
-        (row) =>
-          row.owner_type === ownerType &&
-          row.owner_id === ownerId &&
-          row.id === folderId,
-      );
-
-      if (!folder) return changed(0);
-
-      folder.is_default = 1;
-      folder.updated_at = updatedAt;
-      return changed(1);
-    }
-
-    if (this.sql.includes("sort_order =")) {
-      const [sortOrder, updatedAt, ownerType, ownerId, folderId] = this.args as [
-        number,
-        string,
-        OwnerType,
-        string,
-        string,
-      ];
-      const folder = this.db.folders.find(
-        (row) =>
-          row.owner_type === ownerType &&
-          row.owner_id === ownerId &&
-          row.id === folderId,
-      );
-
-      if (!folder) return changed(0);
-
-      folder.sort_order = sortOrder;
-      folder.updated_at = updatedAt;
-      return changed(1);
-    }
-
-    return changed(0);
-  }
-}
+afterEach(async () => { await closePortfolioPostgresFixtures(); });
 
 describe("portfolio folder routes", () => {
   it("rejects missing bearer tokens because asset data must never be inferred without owner proof", async () => {
     const response = await app.request(
       "/api/v1/portfolio/folders",
       {},
-      createTestEnv(),
+      createTestEnv(await createDbForOwner("anonymous", "unauthenticated-fixture")),
     );
 
     expect(response.status).toBe(401);
@@ -336,12 +48,8 @@ describe("portfolio folder routes", () => {
   });
 
   it("lists only the authenticated owner's folders in sort order because portfolio data is owner isolated", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.folders.push(
-      folder({ id: "other-folder", owner_type: "user", owner_id: "other" }),
-      folder({ id: "binder", name: "Binder", sort_order: 100 }),
-      folder({ id: "main", name: "Main", is_default: 1, sort_order: 0 }),
-    );
+    const db = await createDbForOwner("anonymous", "anon-1");
+    await seedPortfolioRows(db, 'portfolio_folder', folder({ id: "other-folder", owner_type: "user", owner_id: "other" }), folder({ id: "binder", name: "Binder", sort_order: 100 }), folder({ id: "main", name: "Main", is_default: 1, sort_order: 0 }));
 
     const response = await app.request(
       "/api/v1/portfolio/folders",
@@ -362,11 +70,8 @@ describe("portfolio folder routes", () => {
   });
 
   it("uses folder id as a stable tie-breaker because equal custom positions must not reorder between reads", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.folders.push(
-      folder({ id: "folder-z", name: "Main", sort_order: 100 }),
-      folder({ id: "folder-a", name: "Main", sort_order: 100 }),
-    );
+    const db = await createDbForOwner("anonymous", "anon-1");
+    await seedPortfolioRows(db, 'portfolio_folder', folder({ id: "folder-z", name: "Binder Z", sort_order: 100 }), folder({ id: "folder-a", name: "Binder A", sort_order: 100 }));
 
     const response = await app.request(
       "/api/v1/portfolio/folders",
@@ -385,16 +90,14 @@ describe("portfolio folder routes", () => {
   });
 
   it("creates a non-default folder after the current owner's last sort order because new folders should not disturb Main", async () => {
-    const db = createDbForOwner("user", "user-1");
-    db.folders.push(
-      folder({
+    const db = await createDbForOwner("user", "user-1");
+    await seedPortfolioRows(db, 'portfolio_folder', folder({
         id: "main",
         owner_type: "user",
         owner_id: "user-1",
         is_default: 1,
         sort_order: 0,
-      }),
-    );
+      }));
 
     const response = await app.request(
       "/api/v1/portfolio/folders",
@@ -421,7 +124,7 @@ describe("portfolio folder routes", () => {
   });
 
   it("replays the same folder create after a lost response because retries must not create duplicate folders", async () => {
-    const db = createDbForOwner("user", "user-1");
+    const db = await createDbForOwner("user", "user-1");
     const idempotencyKey = "11111111-1111-4111-8111-111111111111";
     const request = {
       method: "POST",
@@ -452,11 +155,11 @@ describe("portfolio folder routes", () => {
         name: "Trade Binder",
       }),
     });
-    expect(db.folders).toHaveLength(1);
+    expect((await readPortfolioRows<FolderRow>(db, 'portfolio_folder', fixtureColumns.portfolio_folder))).toHaveLength(1);
   });
 
   it("rejects reusing a folder idempotency key for a different name because one operation key has one meaning", async () => {
-    const db = createDbForOwner("user", "user-1");
+    const db = await createDbForOwner("user", "user-1");
     const idempotencyKey = "22222222-2222-4222-8222-222222222222";
     const headers = {
       ...(await authHeaders("user", "user-1")),
@@ -483,11 +186,11 @@ describe("portfolio folder routes", () => {
     );
 
     expect(response.status).toBe(409);
-    expect(db.folders).toHaveLength(1);
+    expect((await readPortfolioRows<FolderRow>(db, 'portfolio_folder', fixtureColumns.portfolio_folder))).toHaveLength(1);
   });
 
   it("rejects a malformed folder idempotency key because only server-compatible operation ids may become folder ids", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
+    const db = await createDbForOwner("anonymous", "anon-1");
 
     const response = await app.request(
       "/api/v1/portfolio/folders",
@@ -503,12 +206,12 @@ describe("portfolio folder routes", () => {
     );
 
     expect(response.status).toBe(422);
-    expect(db.folders).toHaveLength(0);
+    expect((await readPortfolioRows<FolderRow>(db, 'portfolio_folder', fixtureColumns.portfolio_folder))).toHaveLength(0);
   });
 
   it("returns CONFLICT when creating a duplicate folder name because owner folder names are unique", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.folders.push(folder({ id: "main", name: "Main" }));
+    const db = await createDbForOwner("anonymous", "anon-1");
+    await seedPortfolioRows(db, 'portfolio_folder', folder({ id: "main", name: "Main" }));
 
     const response = await app.request(
       "/api/v1/portfolio/folders",
@@ -528,7 +231,7 @@ describe("portfolio folder routes", () => {
   });
 
   it("rejects folder names over 50 characters because Portfolio folders must stay readable in the mobile UI", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
+    const db = await createDbForOwner("anonymous", "anon-1");
 
     const create = await app.request(
       "/api/v1/portfolio/folders",
@@ -539,7 +242,7 @@ describe("portfolio folder routes", () => {
       },
       createTestEnv(db),
     );
-    db.folders.push(folder({ id: "trade", name: "Trade" }));
+    await seedPortfolioRows(db, 'portfolio_folder', folder({ id: "trade", name: "Trade" }));
     const rename = await app.request(
       "/api/v1/portfolio/folders/trade",
       {
@@ -563,11 +266,8 @@ describe("portfolio folder routes", () => {
   });
 
   it("renames an owned folder and rejects deleting the default folder because Main must stay protected", async () => {
-    const db = createDbForOwner("user", "user-1");
-    db.folders.push(
-      folder({ id: "main", owner_type: "user", owner_id: "user-1", is_default: 1 }),
-      folder({ id: "trade", owner_type: "user", owner_id: "user-1", name: "Trade" }),
-    );
+    const db = await createDbForOwner("user", "user-1");
+    await seedPortfolioRows(db, 'portfolio_folder', folder({ id: "main", owner_type: "user", owner_id: "user-1", is_default: 1 }), folder({ id: "trade", owner_type: "user", owner_id: "user-1", name: "Trade" }));
 
     const rename = await app.request(
       "/api/v1/portfolio/folders/trade",
@@ -605,9 +305,9 @@ describe("portfolio folder routes", () => {
   });
 
   it("deletes a non-default folder and clears last_selected_folder_id because clients must fall back to Main", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.folders.push(folder({ id: "main", is_default: 1 }), folder({ id: "trade", name: "Trade" }));
-    db.preferences.push({
+    const db = await createDbForOwner("anonymous", "anon-1");
+    await seedPortfolioRows(db, 'portfolio_folder', folder({ id: "main", is_default: 1 }), folder({ id: "trade", name: "Trade" }));
+    await seedPortfolioRows(db, 'user_preference', {
       owner_type: "anonymous",
       owner_id: "anon-1",
       last_selected_folder_id: "trade",
@@ -624,16 +324,13 @@ describe("portfolio folder routes", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ success: true, data: {} });
-    expect(db.folders.map((row) => row.id)).toEqual(["main"]);
-    expect(db.preferences[0]?.last_selected_folder_id).toBeNull();
+    expect((await readPortfolioRows<FolderRow>(db, 'portfolio_folder', fixtureColumns.portfolio_folder)).map((row) => row.id)).toEqual(["main"]);
+    expect((await readPortfolioRows<PreferenceRow>(db, 'user_preference', fixtureColumns.user_preference))[0]?.last_selected_folder_id).toBeNull();
   });
 
   it("sets one default folder and reorders owned folders because folder state must remain consistent per owner", async () => {
-    const db = createDbForOwner("anonymous", "anon-1");
-    db.folders.push(
-      folder({ id: "main", is_default: 1, sort_order: 0 }),
-      folder({ id: "trade", name: "Trade", sort_order: 100 }),
-    );
+    const db = await createDbForOwner("anonymous", "anon-1");
+    await seedPortfolioRows(db, 'portfolio_folder', folder({ id: "main", is_default: 1, sort_order: 0 }), folder({ id: "trade", name: "Trade", sort_order: 100 }));
 
     const setDefault = await app.request(
       "/api/v1/portfolio/folders/trade/set-default",
@@ -700,39 +397,12 @@ describe("portfolio folder routes", () => {
   });
 });
 
-function changed(changes: number): { success: true; meta: { changes: number } } {
-  return { success: true, meta: { changes } };
+async function createDbForOwner(ownerType: OwnerType, ownerId: string): Promise<PGliteDatabase> {
+  return createPortfolioPostgresFixture(ownerType, ownerId);
 }
 
-function createDbForOwner(ownerType: OwnerType, ownerId: string): FakeD1Database {
-  const db = new FakeD1Database();
-
-  db.sessions.push({
-    id: sessionId(ownerType, ownerId),
-    owner_type: ownerType,
-    owner_id: ownerId,
-    expires_at: LATER,
-    revoked_at: null,
-  });
-
-  if (ownerType === "anonymous") {
-    db.anonymousAccounts.push({
-      id: ownerId,
-      upgraded_user_id: null,
-    });
-  } else {
-    db.users.push({ id: ownerId, deleted_at: null });
-  }
-
-  return db;
-}
-
-function createTestEnv(db = new FakeD1Database()): Env {
-  return {
-    DB: db as unknown as D1Database,
-    CACHE_KV: {} as KVNamespace,
-    JWT_SECRET: JWT_SECRET,
-  };
+function createTestEnv(db: PGliteDatabase): Env {
+  return { DB: db, CACHE_KV: {} as KVNamespace, JWT_SECRET };
 }
 
 async function authHeaders(

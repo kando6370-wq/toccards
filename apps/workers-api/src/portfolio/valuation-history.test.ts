@@ -42,7 +42,7 @@ describe("portfolio valuation history", () => {
     try {
       await loadValuationHistory(
         db as unknown as D1Database,
-        { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1" },
+        { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1", platform: "ios", user_id: null, data_space_id: "anon-1" },
         ["main"],
         365,
         new Date("2026-07-10T12:00:00.000Z"),
@@ -105,7 +105,7 @@ describe("portfolio valuation history", () => {
     };
     const pending = loadValuationHistory(
       db as unknown as D1Database,
-      { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1" },
+      { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1", platform: "ios", user_id: null, data_space_id: "anon-1" },
       ["main"],
       30,
       new Date("2026-07-10T12:00:00.000Z"),
@@ -167,7 +167,7 @@ describe("portfolio valuation history", () => {
 
     await loadValuationHistory(
       db as unknown as D1Database,
-      { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1" },
+      { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1", platform: "ios", user_id: null, data_space_id: "anon-1" },
       ["main"],
       2,
       new Date("2026-07-10T12:00:00.000Z"),
@@ -197,7 +197,7 @@ describe("portfolio valuation history", () => {
 
     const [main, empty] = await loadValuationHistory(
       db as unknown as D1Database,
-      { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1" },
+      { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1", platform: "ios", user_id: null, data_space_id: "anon-1" },
       ["main", "empty"],
       1,
       new Date("2026-07-10T12:00:00.000Z"),
@@ -224,7 +224,7 @@ describe("portfolio valuation history", () => {
 
     const [main] = await loadValuationHistory(
       db as unknown as D1Database,
-      { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1" },
+      { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1", platform: "ios", user_id: null, data_space_id: "anon-1" },
       ["main"],
       1,
       new Date("2026-07-10T12:00:00.000Z"),
@@ -254,7 +254,7 @@ describe("portfolio valuation history", () => {
 
     const result = await loadValuationHistory(
       db as unknown as D1Database,
-      { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1" },
+      { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1", platform: "ios", user_id: null, data_space_id: "anon-1" },
       ["main", "trade"],
       10,
       new Date("2026-07-10T12:00:00.000Z"),
@@ -294,7 +294,7 @@ describe("portfolio valuation history", () => {
     );
     const [main] = await loadValuationHistory(
       db as unknown as D1Database,
-      { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1" },
+      { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1", platform: "ios", user_id: null, data_space_id: "anon-1" },
       ["main"],
       1,
       new Date("2026-07-10T12:00:00.000Z"),
@@ -329,7 +329,7 @@ describe("portfolio valuation history", () => {
 
     const [main] = await loadValuationHistory(
       db as unknown as D1Database,
-      { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1" },
+      { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1", platform: "ios", user_id: null, data_space_id: "anon-1" },
       ["main"],
       1,
       new Date("2026-07-10T12:00:00.000Z"),
@@ -380,7 +380,7 @@ describe("portfolio valuation history", () => {
 
     const [main] = await loadValuationHistory(
       db as unknown as D1Database,
-      { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1" },
+      { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1", platform: "ios", user_id: null, data_space_id: "anon-1" },
       ["main"],
       1,
       new Date("2026-07-10T12:00:00.000Z"),
@@ -464,7 +464,7 @@ describe("portfolio valuation history", () => {
 
     const [main] = await loadValuationHistory(
       db as unknown as D1Database,
-      { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1" },
+      { owner_type: "anonymous", owner_id: "anon-1", session_id: "session-1", platform: "ios", user_id: null, data_space_id: "anon-1" },
       ["main"],
       1,
       new Date("2026-07-10T12:00:00.000Z"),

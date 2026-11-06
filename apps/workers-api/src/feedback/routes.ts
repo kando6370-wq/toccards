@@ -1,7 +1,8 @@
 import { Hono } from "hono";
+import type { Database } from "../db/database";
 import type { Env } from "../env";
 import { createId } from "../id";
-import { authenticateOwner } from "../owner-auth";
+import { authenticateOwner, type AuthenticatedOwner } from "../owner-auth";
 
 const FEEDBACK_TYPES = new Set([
   "Bug Report",
@@ -38,13 +39,25 @@ const INTERNAL_ERROR_RESPONSE = {
   },
 } as const;
 
-const INSERT_FEEDBACK_SQL = `
+const INSERT_USER_FEEDBACK_SQL = `
 INSERT INTO feedback_ticket
   (id, uid, email, types, functions, message, status, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, 'open', ?, ?)
+SELECT ?, ?, ?, ?, ?, ?, 'open', ?, ?
+FROM platform_account
+WHERE id = ? AND user_id = ? AND platform = ? AND status = 'active'
+FOR SHARE
 `;
 
-type FeedbackDraft = {
+const INSERT_ANONYMOUS_FEEDBACK_SQL = `
+INSERT INTO feedback_ticket
+  (id, uid, email, types, functions, message, status, created_at, updated_at)
+SELECT ?, ?, ?, ?, ?, ?, 'open', ?, ?
+FROM anonymous_account
+WHERE id = ? AND platform = ? AND upgraded_user_id IS NULL AND status = 'active'
+FOR SHARE
+`;
+
+export type FeedbackDraft = {
   email: string;
   types: string[];
   functions: string[];
@@ -75,18 +88,10 @@ export function createFeedbackRoutes(): Hono<{ Bindings: Env }> {
     const id = createId();
     const now = new Date().toISOString();
     try {
-      await c.env.DB.prepare(INSERT_FEEDBACK_SQL)
-        .bind(
-          id,
-          auth.owner.owner_id,
-          draft.email,
-          JSON.stringify(draft.types),
-          JSON.stringify(draft.functions),
-          draft.message,
-          now,
-          now,
-        )
-        .run();
+      const inserted = await insertFeedbackForActiveOwner(
+        c.env.DB, auth.owner, id, draft, now,
+      );
+      if (!inserted) return c.json(UNAUTHORIZED_RESPONSE, 401);
     } catch {
       return c.json(INTERNAL_ERROR_RESPONSE, 500);
     }
@@ -101,6 +106,27 @@ export function createFeedbackRoutes(): Hono<{ Bindings: Env }> {
   });
 
   return routes;
+}
+
+export async function insertFeedbackForActiveOwner(
+  db: Database,
+  owner: AuthenticatedOwner,
+  id: string,
+  draft: FeedbackDraft,
+  now: string,
+): Promise<boolean> {
+  const statement = owner.owner_type === "user"
+    ? db.prepare(INSERT_USER_FEEDBACK_SQL).bind(
+        id, owner.owner_id, draft.email, JSON.stringify(draft.types),
+        JSON.stringify(draft.functions), draft.message, now, now,
+        owner.owner_id, owner.user_id, owner.platform,
+      )
+    : db.prepare(INSERT_ANONYMOUS_FEEDBACK_SQL).bind(
+        id, owner.owner_id, draft.email, JSON.stringify(draft.types),
+        JSON.stringify(draft.functions), draft.message, now, now,
+        owner.owner_id, owner.platform,
+      );
+  return (await statement.run()).meta.changes === 1;
 }
 
 async function readJson(request: { json(): Promise<unknown> }): Promise<unknown> {

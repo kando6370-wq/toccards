@@ -42,7 +42,7 @@ test('homepage keeps the Figma icon assets and supported-game layout', async () 
   ]);
 });
 
-test('homepage follows the latest Figma spacing and scan motion layers', async () => {
+test('homepage follows the latest Figma spacing and keeps an accessible scan card preview', async () => {
   const [html, css] = await Promise.all([
     readFile(indexPath, 'utf8'),
     readFile(cssPath, 'utf8'),
@@ -60,15 +60,14 @@ test('homepage follows the latest Figma spacing and scan motion layers', async (
   assert.match(css, /\.new-footer-inner \{[^}]*width: min\(1680px,100%\);/);
 
   assert.ok(html.includes('class="scan-composite"'));
-  assert.ok(html.includes('class="scan-card-motion"'));
+  assert.ok(html.includes('class="scan-card-layer" type="button"'));
+  assert.ok(html.includes('aria-pressed="false" disabled'));
   assert.ok(html.includes('/assets/showcase-scan-card.png'));
   await access(fileURLToPath(new URL('assets/showcase-scan-card.png', publicUrl)));
-  assert.match(css, /\.scan-card-motion \{[^}]*animation: scan-card-float 2\.5s linear infinite;/);
+  assert.match(css, /\.scan-card-tilt \{[^}]*transform: rotateX\(/);
+  assert.match(css, /\.scan-card-layer\[aria-pressed="true"\] \.scan-card-flip \{[^}]*rotateY\(180deg\)/);
   assert.doesNotMatch(css, /\.scan-visual img \{[^}]*animation:/);
-  assert.match(
-    css,
-    /@media \(prefers-reduced-motion: reduce\) \{\s*\.scan-card-layer \{ display: none; \}\s*\}/,
-  );
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{[^}]*\.scan-card-tilt \{ transform: none; transition: none; \}/);
 });
 
 test('hero uses the current Figma Phone Mockups export', async () => {

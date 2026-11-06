@@ -4,17 +4,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Check a trading card's published raw or graded price and history. Supported sports cards also provide an eBay search link for separate market research.">
+  <meta name="description" content="Scan or search a physical card in the Card AI app. Confirm its set, number, condition or existing grade, then view available published prices and history.">
   <link rel="canonical" href="https://tcgcard.fun/card-price-checker">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Card AI">
-  <meta property="og:title" content="Card Price Checker: What Is My Card Worth? | Card AI">
-  <meta property="og:description" content="Check a trading card's published raw or graded price and history. Supported sports cards also provide an eBay search link for separate market research.">
+  <meta property="og:title" content="How Much Is This Card Worth? Card Price Checker | Card AI">
+  <meta property="og:description" content="Scan or search a physical card in the Card AI app. Confirm its set, number, condition or existing grade, then view available published prices and history.">
   <meta property="og:url" content="https://tcgcard.fun/card-price-checker">
   <meta property="og:image" content="https://tcgcard.fun/assets/hero-phones.png">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Card Price Checker: What Is My Card Worth? | Card AI">
-  <meta name="twitter:description" content="Check a trading card's published raw or graded price and history. Supported sports cards also provide an eBay search link for separate market research.">
+  <meta name="twitter:title" content="How Much Is This Card Worth? Card Price Checker | Card AI">
+  <meta name="twitter:description" content="Scan or search a physical card in the Card AI app. Confirm its set, number, condition or existing grade, then view available published prices and history.">
   <meta name="twitter:image" content="https://tcgcard.fun/assets/hero-phones.png">
   <link rel="icon" type="image/png" href="/assets/card-ai-logo.png">
   <link rel="apple-touch-icon" href="/assets/card-ai-logo.png">
@@ -22,9 +22,9 @@
 {
   "@context": "https://schema.org",
   "@type": "WebPage",
-  "name": "Card Price Checker: What Is My Card Worth? | Card AI",
+  "name": "How Much Is This Card Worth? Card Price Checker | Card AI",
   "url": "https://tcgcard.fun/card-price-checker",
-  "description": "Check a trading card's published raw or graded price and history. Supported sports cards also provide an eBay search link for separate market research.",
+  "description": "Scan or search a physical card in the Card AI app. Confirm its set, number, condition or existing grade, then view available published prices and history.",
   "image": "https://tcgcard.fun/assets/showcase-analysis.png",
   "isPartOf": {
     "@type": "WebSite",
@@ -52,6 +52,14 @@
       "acceptedAnswer": {
         "@type": "Answer",
         "text": "Select the matching catalog record, confirm its finish and language, and choose a raw condition or existing slab grade. Card AI then shows the relevant market price and available price history."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I use Card AI as a Pokemon card value checker?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Search by Pokemon name, set or card number, confirm the exact printing, then choose the raw condition or existing slab grade. Card AI shows the selected record's available published price and history."
       }
     },
     {
@@ -105,7 +113,7 @@
   ]
 }
   </script>
-  <title>Card Price Checker: What Is My Card Worth? | Card AI</title>
+  <title>How Much Is This Card Worth? Card Price Checker | Card AI</title>
   <link rel="stylesheet" href="/site.css">
 </head>
 <body>
@@ -116,14 +124,20 @@
           <img src="/assets/card-ai-logo.png" alt="">
           <span>Card AI</span>
         </a>
+        <nav class="primary-nav" aria-label="Card AI tasks">
+          <a href="/card-identifier">Scan</a>
+          <a href="/card-price-checker">Prices</a>
+          <a href="/card-collection-tracker">Collection</a>
+          <a href="/card-scanner-comparison-2026">Compare</a>
+        </nav>
       </div>
     </header>
     <main class="content-main">
       <section class="content-hero">
         <div class="site-container">
           <p class="content-eyebrow">Prices</p>
-          <h1>Trading card price checker.</h1>
-          <p class="content-lede">Scan or search for a card, confirm its condition or existing grade, and inspect the available published price and history. Supported sports cards also link to eBay search.</p>
+          <h1>How much is this trading card worth?</h1>
+          <p class="content-lede">Scan the card in the Card AI app or search by name, set or number. Confirm the exact printing and condition before viewing available published prices and history.</p>
         <div class="store-buttons" aria-label="Download options">
           <a class="store-badge" href="https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224" aria-label="Download on the App Store"><img class="store-icon-img" src="/assets/apple-store-icon.png" alt=""><span class="store-text"><small>Download</small><strong>App Store</strong></span></a>
           <span class="store-badge store-badge-disabled" aria-disabled="true"><img class="store-icon-img" src="/assets/google-play-icon.png" alt=""><span class="store-text"><small>Store Link Pending</small><strong>Google Play</strong></span></span>
@@ -161,7 +175,7 @@
           <p>Both routes land on the same catalog record with the same pricing and history. That makes the trading card value app useful whether the copy is on the table or only on your want list. For a Pokemon set example, see how the <a href="/blog/pokemon-tcg-30th-celebration-card-prices">30th Celebration price and set guide</a> separates the official card list from a dated price snapshot.</p>
           </section>
           <section class="content-block">
-            <h2>How to check a Pokemon card's value</h2>
+            <h2>How to check Pokemon TCG card prices</h2>
             <p>A Pokemon card price checker and a Pokemon card value checker answer the same question only after you identify the copy. Start with the set and collector number, then confirm the artwork, finish and language. Choose the raw condition you actually have, or enter the grade already printed on a slab.</p>
           <p>Card AI can start from a photo or a catalog search. Both paths open the selected card record with its available published price and history. Check the price date and keep a missing price as missing; another printing's value is not a substitute. See the <a href="/pokemon-card-scanner">Pokemon card scanner</a> for the camera review flow.</p>
           </section>
@@ -200,6 +214,10 @@
               <p>Select the matching catalog record, confirm its finish and language, and choose a raw condition or existing slab grade. Card AI then shows the relevant market price and available price history.</p>
             </details>
             <details class="faq-item">
+              <summary>Can I use Card AI as a Pokemon card value checker?</summary>
+              <p>Yes. Search by Pokemon name, set or card number, confirm the exact printing, then choose the raw condition or existing slab grade. Card AI shows the selected record's available published price and history.</p>
+            </details>
+            <details class="faq-item">
               <summary>Why is the graded price so different from the raw price?</summary>
               <p>Grading removes uncertainty about condition and caps supply at each grade level, so graded copies trade in a different market from raw ones. Card AI tracks them separately rather than blending them into one average.</p>
             </details>
@@ -229,7 +247,7 @@
 
       <section class="content-cta">
         <div class="site-container">
-          <h2>Try the card price checker in Card AI.</h2>
+          <h2>Check card prices in the Card AI app.</h2>
           <p>Find the matching card record, choose its condition or existing slab grade, and review the available market data.</p>
         <div class="store-buttons" aria-label="Download options">
           <a class="store-badge" href="https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224" aria-label="Download on the App Store"><img class="store-icon-img" src="/assets/apple-store-icon.png" alt=""><span class="store-text"><small>Download</small><strong>App Store</strong></span></a>

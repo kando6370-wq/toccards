@@ -10,6 +10,7 @@ import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/shared/scan/scan_api_client.dart';
 import 'package:kando_app/shared/scan/scan_providers.dart';
+import 'package:kando_app/shared/platform/app_commercial_policy.dart';
 
 void main() {
   test(
@@ -133,6 +134,9 @@ void main() {
       final api = _DelayedQuotaApi();
       final container = ProviderContainer(
         overrides: [
+          appCommercialPolicyProvider.overrideWithValue(
+            const AppCommercialPolicy(isAndroidFreeLaunch: false),
+          ),
           authControllerProvider.overrideWith(_ReadyAuthController.new),
           scanApiClientProvider.overrideWithValue(api),
           subscriptionControllerProvider.overrideWith(
@@ -191,6 +195,9 @@ void main() {
       final api = _ExpiredPremiumQuotaApi();
       final container = ProviderContainer(
         overrides: [
+          appCommercialPolicyProvider.overrideWithValue(
+            const AppCommercialPolicy(isAndroidFreeLaunch: false),
+          ),
           authControllerProvider.overrideWith(_ReadyAuthController.new),
           scanApiClientProvider.overrideWithValue(api),
           subscriptionControllerProvider.overrideWith(
@@ -229,6 +236,9 @@ void main() {
       final api = _ExpiredPremiumQuotaApi(statusCode: 400);
       final container = ProviderContainer(
         overrides: [
+          appCommercialPolicyProvider.overrideWithValue(
+            const AppCommercialPolicy(isAndroidFreeLaunch: false),
+          ),
           authControllerProvider.overrideWith(_ReadyAuthController.new),
           scanApiClientProvider.overrideWithValue(api),
           subscriptionControllerProvider.overrideWith(
@@ -243,6 +253,33 @@ void main() {
         isFalse,
       );
       expect(api.localPremiumStates, [true]);
+    },
+  );
+
+  test(
+    'Android free quota refresh never reconciles Apple entitlement on 409',
+    () async {
+      final api = _AlwaysSyncRequiredQuotaApi();
+      final subscription = _CountingReconciliationSubscriptionController();
+      final container = ProviderContainer(
+        overrides: [
+          appCommercialPolicyProvider.overrideWithValue(
+            const AppCommercialPolicy(isAndroidFreeLaunch: true),
+          ),
+          authControllerProvider.overrideWith(_ReadyAuthController.new),
+          scanApiClientProvider.overrideWithValue(api),
+          subscriptionControllerProvider.overrideWith(() => subscription),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      expect(
+        await container.read(scanQuotaControllerProvider.notifier).refresh(),
+        isFalse,
+      );
+      expect(api.localPremiumStates, [false]);
+      expect(subscription.reconciliationCalls, 0);
+      expect(container.read(scanQuotaControllerProvider).isLoading, isFalse);
     },
   );
 }
@@ -286,6 +323,40 @@ class _UnexpectedReconciliationSubscriptionController
   @override
   Future<EntitlementReconciliationResult> reconcileServerEntitlement() {
     throw StateError('Non-409 responses must not reconcile entitlement.');
+  }
+}
+
+class _CountingReconciliationSubscriptionController
+    extends SubscriptionController {
+  var reconciliationCalls = 0;
+
+  @override
+  SubscriptionState build() =>
+      const SubscriptionState(premiumState: AppPremiumState.free);
+
+  @override
+  Future<EntitlementReconciliationResult> reconcileServerEntitlement() async {
+    reconciliationCalls += 1;
+    return EntitlementReconciliationResult.freeConfirmed;
+  }
+}
+
+class _AlwaysSyncRequiredQuotaApi extends ScanApiClient {
+  _AlwaysSyncRequiredQuotaApi() : super(Dio());
+
+  final localPremiumStates = <bool>[];
+
+  @override
+  Future<ScanQuotaDto> getQuota(
+    AuthSession session, {
+    bool localPremiumVerified = false,
+  }) async {
+    localPremiumStates.add(localPremiumVerified);
+    throw ScanApiException(
+      'Premium access is still syncing.',
+      code: 'ENTITLEMENT_SYNC_REQUIRED',
+      statusCode: 409,
+    );
   }
 }
 

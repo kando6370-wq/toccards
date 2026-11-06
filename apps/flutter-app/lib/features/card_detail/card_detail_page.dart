@@ -23,6 +23,7 @@ import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
+import '../../shared/platform/app_commercial_policy.dart';
 import '../collection/collection_controller.dart';
 import '../home/home_controller.dart';
 import '../home/home_performance_controller.dart';
@@ -137,9 +138,16 @@ class _CardDetailPageState extends ConsumerState<CardDetailPage> {
     final premiumState = ref.watch(
       subscriptionControllerProvider.select((value) => value.premiumState),
     );
-    final isPro = premiumState == AppPremiumState.premium;
+    final freePremiumFeatures = ref.watch(
+      appCommercialPolicyProvider.select(
+        (value) => value.hasFreePremiumFeatures,
+      ),
+    );
+    final isPro =
+        freePremiumFeatures || premiumState == AppPremiumState.premium;
     final selectedFolderId = ref.watch(selectedPortfolioFolderProvider);
-    if (premiumState == AppPremiumState.free &&
+    if (!freePremiumFeatures &&
+        premiumState == AppPremiumState.free &&
         state.selectedPriceRange == CardPriceRange.oneYear) {
       Future<void>.microtask(
         () => controller.selectPriceRange(CardPriceRange.threeMonths),
@@ -1254,7 +1262,7 @@ class _OwnedDetailTabsState extends ConsumerState<_OwnedDetailTabs>
         unawaited(
           ref
               .read(cardPerformanceControllerProvider(itemId).notifier)
-              .load(localPremiumVerified: true),
+              .load(localPremiumVerified: _localPremiumVerified(ref)),
         );
       });
     }
@@ -1291,7 +1299,11 @@ class _OwnedDetailTabsState extends ConsumerState<_OwnedDetailTabs>
           (!becamePro && (performance.isFailure || performance.hasLoaded))) {
         return;
       }
-      unawaited(ref.read(provider.notifier).load(localPremiumVerified: true));
+      unawaited(
+        ref
+            .read(provider.notifier)
+            .load(localPremiumVerified: _localPremiumVerified(ref)),
+      );
     });
   }
 
@@ -1313,7 +1325,7 @@ class _OwnedDetailTabsState extends ConsumerState<_OwnedDetailTabs>
                   widget.currentCollectionItemId!,
                 ).notifier,
               )
-              .load(localPremiumVerified: true),
+              .load(localPremiumVerified: _localPremiumVerified(ref)),
         );
       }
     }
@@ -1415,10 +1427,16 @@ class _OwnedDetailTabsState extends ConsumerState<_OwnedDetailTabs>
             performance: performance!,
             onRangeSelected: (range) => ref
                 .read(cardPerformanceControllerProvider(itemId).notifier)
-                .selectRange(range, localPremiumVerified: true),
+                .selectRange(
+                  range,
+                  localPremiumVerified: _localPremiumVerified(ref),
+                ),
             onRefresh: () => ref
                 .read(cardPerformanceControllerProvider(itemId).notifier)
-                .load(localPremiumVerified: true, force: true),
+                .load(
+                  localPremiumVerified: _localPremiumVerified(ref),
+                  force: true,
+                ),
             onEditPurchasePrice: _editMissingPurchasePrice,
             onUnlock: () => _unlockPerformance(itemId),
           )
@@ -1438,7 +1456,7 @@ class _OwnedDetailTabsState extends ConsumerState<_OwnedDetailTabs>
     if (premiumState == AppPremiumState.premium) {
       await ref
           .read(cardPerformanceControllerProvider(itemId).notifier)
-          .load(localPremiumVerified: true, force: true);
+          .load(localPremiumVerified: _localPremiumVerified(ref), force: true);
       return;
     }
     if (premiumState == AppPremiumState.unknown) return;
@@ -1461,7 +1479,7 @@ class _OwnedDetailTabsState extends ConsumerState<_OwnedDetailTabs>
     }
     await ref
         .read(cardPerformanceControllerProvider(itemId).notifier)
-        .load(localPremiumVerified: true, force: true);
+        .load(localPremiumVerified: _localPremiumVerified(ref), force: true);
   }
 }
 
@@ -5425,9 +5443,17 @@ class _PriceOverview extends ConsumerWidget {
 }
 
 Future<AppPremiumState> _resolvePremiumForRestrictedAction(WidgetRef ref) {
+  if (ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
+    return Future.value(AppPremiumState.premium);
+  }
   final current = ref.read(subscriptionControllerProvider).premiumState;
   if (current != AppPremiumState.unknown) return Future.value(current);
   return ref.read(subscriptionControllerProvider.notifier).refreshEntitlement();
+}
+
+bool _localPremiumVerified(WidgetRef ref) {
+  return ref.read(appCommercialPolicyProvider).usesAppleSubscription &&
+      ref.read(subscriptionControllerProvider).isPro;
 }
 
 class _FinishTabs extends StatefulWidget {

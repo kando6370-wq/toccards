@@ -5,6 +5,9 @@
 ## 工作原则
 
 - 注意该项目app开发选择了Flutter而不是Ios或Android原生开发，所以开发要兼容两者,不能实现时，应先停止并询问。
+- 后续 App、共享 API、账号、数据和发布改动必须同时检查 Android 与 iOS，显式保留两端各自的业务规则，不得只按单端实现或验收。
+- Android 免费首版的扫描沿用当前 iOS 业务流程，仅取消 Android 订阅校验及对应的累计免费扫描额度限制；保留现有活动队列，不新增整批处理或跨设备扫描恢复。需求澄清见 `docs/releases/v1.1.4/05-delivery/android-free-first-release-review.md` 第 0.2 节。
+- Android 免费仅为首版商业策略；平台商业策略集中维护，为后续 Android 订阅留扩展点，不提前接入 Google Billing、建立未来付费额度或把 Android 永久标为 Premium。开发使用独立测试包名及 SDK 配置，正式 Android 标识、签名和 SDK 配置由独立打包环境注入，不复用本机既有正式签名。
 - 先读后写：修改前阅读目标文件、直接调用方、相关配置和已有测试。
 - 先明确假设：存在会改变实现或删除范围的歧义时，先停止并询问。
 - 保持简单：只实现当前需求，不增加猜测性功能或一次性抽象。
@@ -63,6 +66,7 @@ Marketing Web ──> 独立的营销与法律页面
 - 最新 prod 回退与订阅预检（2026-10-22）：`main@c701046` 推送后 Pages 自动发布新 Admin，但 Worker/API 仍为 `main@0a167e6`，形成订阅菜单已出现而接口 404 的双入口失配；经用户明确确认，已使用 Cloudflare 官方 rollback API 将 `admin.tcgcard.fun` production 别名回退到 `cbafc74` 的 deployment `0b48a48e-d234-441f-ac3b-738f0638ad70`。回退后两个 Admin 入口主 JS 原始字节与 SHA-256 一致，均不包含订阅菜单；Worker 版本、绑定、变量、Secret、cron 和 API 未改。仅绑定 Hyperdrive 的临时 remote preview 以只读事务确认 prod PostgreSQL 18.6 ledger 精确为 `0000-0013`，`0014` 三表不存在、`0015` 候选为 0，原 weekly/yearly/lifetime 三条 active `performance_pro` 映射有效。Apple 只读目录确认生产组 `22333203`，Weekly/Yearly/Lifetime 已批准，Monthly 与 Weekly Trial 均为 `MISSING_METADATA`，两者缺审核截图和可售范围；未执行 migration、备份、Secret 写入、Worker 发布、商品审批或 Apple 写操作，详见 `docs/releases/v1.1.2/05-delivery/VERIFICATION.md#prod-subscription-preflight-rollback-20261022`。
 - 最新 prod 订阅发布检查点（2026-10-23 15:17–15:36）：生产手工备份 `vd1ed3rj2awl` 保留；`main@557166b` 的 PostgreSQL `0014/0015` 已登记为 16 项且三张新表仍为空，17 个生产 Secret 名称及既有绑定保留。经用户明确授权，从干净的同一提交完成 `pnpm lint`、类型检查、Admin 77/77、Workers 单进程 91 文件／870 项、冻结 App 1.0.4/1.0.5 兼容合同及 prod dry-run；批准 Worker 为 2,173,328 字节、SHA-256 `3f868a55b091979c4709801aed511d5d8bb111afdbe59ab37703d773f9e53221`。候选 `687f4810-bb8d-4147-baaf-37e91caf0616` 先以 0% 配合版本覆盖完成生产只读烟测，再由 deployment `f5502441-208e-447c-876e-18ecb562c178` 切至 100%；Pages `edfe60a3-e7ae-4a8a-a7ac-e787e1ac2e17` 为 production/main、来源完整 `557166b`、dirty=false。`api.tcgcard.fun` 与 `admin.tcgcard.fun` 各 11 个文件均与同一冻结 Admin 逐字节一致，新 Page/Modal iOS/Google 接口、非法枚举、未登录 Admin、health、旧鉴权、App 配置和 CORS 烟测通过。未执行 triggers deploy，cron `*/5 * * * *`、自定义域名、Hyperdrive 缓存及 Smart Placement 保持；未审批生产商品、保存／启用 Page/Modal、提交 Apple 审核或发布 Flutter App，iOS supported-products 因尚无动态准入仍为空。详见 `docs/releases/v1.1.2/05-delivery/VERIFICATION.md#prod-subscription-release-20261023`。
 - 最新 prod App／订阅收尾检查点（2026-10-26 09:02–09:43）：App Store 五个抽样 storefront 均回读 `1.0.6`，生产 iOS 版本门禁为建议／最低 `1.0.6` 且强制更新。公开长期注册表最终包含 Weekly／Yearly／Lifetime／Weekly Trial／Monthly；经用户明确授权，仅由 super_admin 为 `production:com.cardai.tcg` 审批 `CardAi.monthly`，Apple 状态 `APPROVED`、类型 subscription、plan `apple:CardAi.monthly`、Singular 事件 `card_monthly`，原四项未变。运营确认 `card_weekly`／`card_yearly` 是迁移后的正式名称。Page／Modal 仍返回 `data:null`，既有两份配置未保存、未启用。用户确认版本更新、购买、Premium 权益、订单／Apple 通知、Singular／Firebase 收入及 Restore 已在实机测试且目前无问题；Agent 未独立重放交易或读取原始平台记录。用户另确认手工备份 `vd1ed3rj2awl` 已删除，未独立回读。除单一商品准入外未执行 migration、代码／Worker／Pages 部署、Secret／变量或 Apple 写操作，详见 `docs/releases/v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026`。
+- 最新 prod API／Admin 检查点（2026-11-04 16:37–17:30）：从干净的 `main@94417983` 冻结构建，Worker version `a31cd853-63cb-482a-b4f5-d9f2bf276761` 由 deployment `481eeda4-9d84-4818-a539-1cf2b6abb964` 于 17:24:47 切至 100%，Pages deployment `9a4ba485-d241-40ae-ae05-ea67e48dbc0b` 为 production／main／success；双 Admin 22 个文件与冻结构建一致。生产备份 `835yaldvcyjv` 完成且可恢复；6 个目标索引并发预建并验证后，切流、并发删除 3 个旧索引并登记 `0016/0017`，ledger 18 项 checksum 匹配。33 个既有 binding、17 个 Secret 名称、runtime、Smart Placement、observability、logpush、Hyperdrive 缓存、cron、域名与 Pages 配置保持，仅新增公开 pHash origin；17 项候选／live 烟测通过。仅发布生产 API／双 Admin 与索引迁移，未发布 Flutter、Marketing 或 Linux dev，未修改业务数据、订阅配置、商品准入、Apple 后台或 Secret；真实登录、真机／真实扫描、插件正确 Key／限频、备份恢复与真实流量 P95 未验，详见 [v1.1.3 生产发布记录](docs/releases/v1.1.3/05-delivery/VERIFICATION.md#prod-business-release-20261104)。
 - Git 交付检查点（2026-10-09）：prod 发布记录提交 `dbc2091` 已推送 `github/main`，本地/远端 main 一致；dev 为 `c253647`，已完整包含于 main。`dbc2091` 相对 `c253647` 仅变更 6 份文档/Agent 规则，最近已验收的 prod 发布源仍记为 `c253647`、Linux dev 发布源为 `b621d76`；推送后的 CI、自动发布与运行状态本轮未回查。本地/远端均无 `dev-ext*` 分支，历史来源名保留，不再作为开发分支。生产正确 Key 的识别/详情/限频以及真实插件/真机待验项没有因提交推送而关闭。
 - `deploy:dev` 构建 Linux 发布包并通过显式 SSH 目标发布，`deploy:dry-run:dev` 仅打包，不连接服务器；prod 继续使用原 Wrangler 发布入口。Linux 发布须先通过环境/数据库/识别预检，再备份已有数据库；标准与离线 Compose 均以 PostgreSQL 18 和原有 `PGDATA=/var/lib/postgresql/data` 为契约，不自动进行大版本升级。2026-09-30 历史 dev 检查点的 Linux release 为 `branch-dev-7516cfd2a06a-20260930110549`，2026-09-30 11:10 确认 manifest、`current-release`、`last-seen-sha` 与 `last-deployed-sha` 一致，失败标记不存在；既有 watcher 已自动发布请求放置日志增量。发布日志显示 API/DB healthy、Web started、migration 检查成功且 ledger 为 14 项，实际预检无待执行 migration；这些容器/数据库结果来自发布脚本，未另行通过 SSH 独立回查。发布前备份为 1,135,397,728 字节，临时文件已不存在；本轮未执行 `pg_restore --list` 或恢复演练。11:13 内网 health 200、未登录 auth/me 401、Admin 200；10 个 JS/CSS 资源与本地 dev 构建字节一致，HTML 仅 CR 字符有差异，不宣称原始字节一致。DBX MCP 只读策略阻止了手动 SSH 和产物下载，本轮没有绕过策略；运行容器 API bundle 哈希与新增字段的运行日志未独立回读。Apple 官方 Sandbox TEST 已经独立公网回调处理成功。旧 CF dev 的 Worker、域名和 cron 已退役，旧测试数据和包保留；API 与 watcher 的代理配置仍分别存放在各自私有环境文件。验证范围与未执行项见`docs/releases/v1.1.1/05-delivery/VERIFICATION.md`。
 - 历史 Linux dev 检查点（2026-10-09 10:58）：手工发布 `manual-extension-f952e50-dirty-20261009-1791513409974`，来源为未提交的 `dev-extension` 工作区，不能标记为纯 `f952e50` 提交。API/DB healthy、Web running、migration 检查 exited/0，ledger 仍为 14 项且最新 `0013`，无待执行 migration；原 PostgreSQL 18 数据卷保留。发布前数据库备份 1,135,397,964 字节，`pg_restore --list` 成功列出 324 项，未做恢复演练；API/Web 运行文件与批准产物 SHA256 一致，Admin 的 11 个 HTML/JS/CSS 字节全量匹配。插件 Key、频率 60 原字节保留，仅追加 `EXTENSION_TRUST_PROXY=true` 并备份私有环境文件；确认 API 没有宿主端口绑定，更新后的离线代理覆盖来源头。鉴权、参数拒绝、合成向量 5 个完整详情对照与防刷验收通过，不代表真实图片识别准确率。watcher 仍跟踪 `dev`，其 last-deployed 保持 `7516cfd`；后续 dev 自动发布可能覆盖此手工版本，未擅自修改 watcher 或 Git 推送。prod 未改动，详见`docs/releases/v1.1.1/05-delivery/VERIFICATION.md`。
@@ -84,12 +88,13 @@ Marketing Web ──> 独立的营销与法律页面
 
 ## 工具链与常用命令
 
-- Node `>=22`，pnpm `11.9.0`，Dart SDK `^3.9.2`。
+- Node `^22.23.4`，pnpm `11.28.10`，Dart SDK `^3.13.7`，Flutter `>=3.47.9`。
+- Android 构建使用安全补丁 JDK `21.0.13+9`，须核对 Flutter／Gradle 的实际 JVM；App 的 Dart 3.9 语言模式不降低根 workspace 的安全 SDK 下限。
 - 安装 Node 依赖：`pnpm install --frozen-lockfile`
 - TypeScript 全仓构建：`pnpm build`
 - TypeScript 类型检查：`pnpm type-check`
 - App 兼容源码回归：`pnpm test:app-compatibility`；固定 v1.0.4/v1.0.5 提交，在本地内存 PostgreSQL 跑当前 API，再使用旧 Dart 客户端处理真实测试响应。覆盖配置、文件夹、额度及 C03 目录/价格/汇率的首批源码场景，不能替代正式制品/真机或完整 C01–C13 验收；命令不触发远程部署/迁移。
-- App 兼容 CI 定义：`.github/workflows/app-compatibility.yml`，固定检查名 `App compatibility (Windows)`；Windows/Node 22/pnpm 11.9.0/Flutter 3.44.7，完整获取标签、锁定安装依赖并构建 auth-core 后执行源码合同。覆盖目标 dev/main 的 PR 和 dev/main push，不设 PR 路径过滤；开发分支 push 不触发此兼容工作流，已有 PR 的后续提交仍触发 PR 检查。2026-10-13 已按用户授权删除远端规则集 24904725，兼容检查保留为异步反馈，不再作为 dev/main 推送或合并的强制门槛；无部署权限或业务 Secret。工作流定义、本地冷启动通过、GitHub 托管运行通过和分支 required check 生效是独立状态，不得混报；见 v1.1.2 兼容文档。
+- App 兼容 CI 定义：`.github/workflows/app-compatibility.yml`，固定检查名 `App compatibility (Windows)`；Windows/Node 22.23.4/pnpm 11.28.10/Flutter 3.47.9，完整获取标签、锁定安装依赖并构建 auth-core 后执行源码合同。覆盖目标 dev/main 的 PR 和 dev/main push，不设 PR 路径过滤；开发分支 push 不触发此兼容工作流，已有 PR 的后续提交仍触发 PR 检查。2026-10-13 已按用户授权删除远端规则集 24904725，兼容检查保留为异步反馈，不再作为 dev/main 推送或合并的强制门槛；无部署权限或业务 Secret。工作流定义、本地冷启动通过、GitHub 托管运行通过和分支 required check 生效是独立状态，不得混报；见 v1.1.2 兼容文档。
 - 依赖方向检查：`pnpm lint`
 - Workers 测试：`pnpm --filter @kando/workers-api test`；默认命令仅追加 `**/.wrangler/**` 排除规则，避免生成的发布包/诊断被误扫，不删除历史材料、不缩减其他既有测试范围。
 - Admin 测试：`pnpm --filter @kando/admin-web test`
@@ -97,7 +102,7 @@ Marketing Web ──> 独立的营销与法律页面
 - Dart/Flutter 分析：`dart run melos run analyze`
 - Dart/Flutter 测试：`dart run melos run test`
 
-GitLab Flutter CI 使用 3.44.0，GitHub iOS CI 使用 3.44.7。涉及工具链或 iOS 构建时以目标流水线为准；需要统一版本时，明确选择并同步修改所有约束。
+GitLab 与 GitHub Flutter CI 统一使用 3.47.9；GitLab 从官方 archive 安装并核验 SHA-256。2026-11-05 的升级依据、验证及发布边界见 `docs/releases/v1.1.4/02-architecture/security-stack-upgrade.md`。涉及工具链或 iOS 构建时以目标流水线为准，需要统一版本时同步修改所有约束。
 
 ## 架构约束
 
@@ -131,7 +136,8 @@ GitLab Flutter CI 使用 3.44.0，GitHub iOS CI 使用 3.44.7。涉及工具链�
 - `docs/releases/v1.1.0/01-flows` 至 `05-delivery`：相对 v1.0.0 的开发归档、架构、数据/API、Admin 和交付证据；未验证边界按原记录保留。
 - `docs/releases/v1.1.1/README.md`：2026-10-09 起的开发归档入口；`docs/releases/v1.1.1/03-data-api/app-compatibility-contract.md` 和 `docs/releases/v1.1.1/05-delivery/app-compatibility-acceptance.md` 定义从 App 1.0.4 起的服务端兼容目标与待执行门禁，尚非已验证实现。`docs/releases/v1.1.1/01-flows/scan-recognition.md` 记录 2026-09-29 扫描 R2/向量并行的本地实现、失败补偿及批量额度边界，已通过相关本地与 PostgreSQL 多连接验证，2026-09-29 已自动发布 Linux dev，2026-10-08 随 `main@61b5420` 部署 prod；真机批量验收仍未完成。历史契约、故障与发布证据保留原路径及未验收边界。
 - `docs/releases/v1.1.2/README.md`：2026-10-26 原位归档；App 兼容阅读版与 AI 执行版、App 1.0.6 订阅配置、Admin 和生产交付证据按归档内容保留。不得继续向 v1.1.2 追加新开发或新日期检查点；只有明确授权的事实错误修正可以回写，并须从当前版本留下引用。
-- `docs/releases/v1.1.3/README.md`：当前增量开发入口。2026-10-26 之后的新增、变更、移除和实际验证写入 v1.1.3；未变化的产品、兼容、订阅、Admin 和交付合同继续引用 v1.1.2 或更早版本，不复制整套文档。当前验证记录入口为 `docs/releases/v1.1.3/05-delivery/VERIFICATION.md`。
+- `docs/releases/v1.1.3/README.md`：2026-11-05 原位归档，保留 2026-10-26 至 2026-11-04 的扫描、收藏、账号隔离、Admin、Marketing 及生产 API／双 Admin 证据。不得继续向该目录追加 v1.1.4 新功能或新日期检查点。
+- `docs/releases/v1.1.4/README.md`：当前增量开发入口。2026-11-05 之后的新增、变更、移除和实际验证写入 v1.1.4；未变化的产品、兼容、订阅、Admin 和交付合同继续引用 v1.1.3、v1.1.2 或更早版本，不复制整套文档。
 - App 1.0.6 订阅配置的 PRD 1.14、商品接入映射和最小实施草案见 [订阅配置产品输入](docs/releases/v1.1.2/00-product/admin-subscription-config-prd.md)；[离线原型](prototypes/admin-subscription-config-standalone.html)保留在正式 docs 之外。服务端第一阶段源码与环境／接口合同见 [订阅展示配置与商品准入](docs/releases/v1.1.2/03-data-api/subscription-display-config.md)。Admin 页面实现见 [当前后台文档](docs/releases/v1.1.2/04-admin/admin.md)，Flutter 消费源码与兜底／平台边界见 [客户端订阅展示](docs/releases/v1.1.2/01-flows/subscription-display.md)。2026-10-23 已发布生产服务端与双 Admin；2026-10-26 App 1.0.6 已上架，Weekly Trial／Monthly 已完成生产动态准入，用户确认相关实机交易链路目前无问题。Page／Modal 仍未启用，Agent 未独立重放原始交易／平台记录，完整旧包兼容矩阵继续按 AI 执行版保留证据边界。
 - 2026-10-27 订阅本地兜底页的新三卡与年试用 SKU 增量见 [v1.1.3 订阅本地兜底页](docs/releases/v1.1.3/01-flows/subscription-display.md)；本地构建注册不代表新 SKU 已完成测试／正式环境准入或交易验收。
 - 2026-10-28 Admin 扫描记录新增 TCG／SPORTS 类型筛选；新扫描审计保存 `system_result.card_type`，历史缺类型记录仅在“全部”中出现，不推断回填。实现与部署边界见 [v1.1.3 扫描识别链路](docs/releases/v1.1.3/01-flows/scan-recognition.md)。

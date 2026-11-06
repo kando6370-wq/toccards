@@ -1,4 +1,4 @@
-package com.cardai.tcg
+package dev.kando.cardvault.app
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -8,6 +8,9 @@ import android.graphics.Paint
 import android.media.ExifInterface
 import android.os.Handler
 import android.os.Looper
+import android.util.Base64
+import com.google.android.play.core.integrity.IntegrityManagerFactory
+import com.google.android.play.core.integrity.StandardIntegrityManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
@@ -15,6 +18,7 @@ import io.flutter.plugin.common.MethodChannel
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.Executors
+import java.security.MessageDigest
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.max
@@ -24,6 +28,11 @@ class MainActivity : FlutterActivity() {
     private val imageExecutor = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
     private var scanModelRuntime: ScanModelRuntime? = null
+    private val integrityManager by lazy {
+        IntegrityManagerFactory.createStandard(applicationContext)
+    }
+    private var integrityProvider: StandardIntegrityManager.StandardIntegrityTokenProvider? = null
+    private var integrityProjectNumber: Long? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -57,6 +66,76 @@ class MainActivity : FlutterActivity() {
                 }
                 else -> result.notImplemented()
             }
+        }
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "dev.kando.cardvault/play-integrity",
+        ).setMethodCallHandler { call, result ->
+            if (call.method != "requestStandardIntegrityToken") {
+                result.notImplemented()
+                return@setMethodCallHandler
+            }
+            requestStandardIntegrityToken(call, result)
+        }
+    }
+
+    private fun requestStandardIntegrityToken(call: MethodCall, result: MethodChannel.Result) {
+        val projectNumber = call.argument<String>("cloud_project_number")?.toLongOrNull()
+        val requestPayload = call.argument<String>("request_payload")
+        if (projectNumber == null || projectNumber <= 0 || requestPayload.isNullOrEmpty()) {
+            result.error(
+                "play_integrity_invalid_request",
+                "Cloud project number and request payload are required.",
+                null,
+            )
+            return
+        }
+        val requestHash = Base64.encodeToString(
+            MessageDigest.getInstance("SHA-256")
+                .digest(requestPayload.toByteArray(Charsets.UTF_8)),
+            Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING,
+        )
+        val cachedProvider = integrityProvider
+        if (cachedProvider != null && integrityProjectNumber == projectNumber) {
+            requestIntegrityToken(cachedProvider, requestHash, result)
+            return
+        }
+        integrityManager.prepareIntegrityToken(
+            StandardIntegrityManager.PrepareIntegrityTokenRequest.builder()
+                .setCloudProjectNumber(projectNumber)
+                .build(),
+        ).addOnSuccessListener { provider ->
+            integrityProvider = provider
+            integrityProjectNumber = projectNumber
+            requestIntegrityToken(provider, requestHash, result)
+        }.addOnFailureListener { error ->
+            result.error(
+                "play_integrity_prepare_failed",
+                error.message ?: "Unable to prepare Play Integrity.",
+                null,
+            )
+        }
+    }
+
+    private fun requestIntegrityToken(
+        provider: StandardIntegrityManager.StandardIntegrityTokenProvider,
+        requestHash: String,
+        result: MethodChannel.Result,
+    ) {
+        provider.request(
+            StandardIntegrityManager.StandardIntegrityTokenRequest.builder()
+                .setRequestHash(requestHash)
+                .build(),
+        ).addOnSuccessListener { response ->
+            result.success(mapOf("integrity_token" to response.token()))
+        }.addOnFailureListener { error ->
+            integrityProvider = null
+            integrityProjectNumber = null
+            result.error(
+                "play_integrity_request_failed",
+                error.message ?: "Unable to verify this Android installation.",
+                null,
+            )
         }
     }
 

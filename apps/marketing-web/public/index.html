@@ -4,12 +4,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Scan trading cards with AI to find matching records, check live market prices, and track your collection value across Pokemon, MTG, Yu-Gi-Oh!, One Piece and more.">
+  <meta name="description" content="Scan trading cards in the Card AI app, confirm matching records, check available published prices, and track your collection value.">
   <link rel="canonical" href="https://tcgcard.fun/">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Card AI">
   <meta property="og:title" content="Card AI: TCG Card Scanner, Price Checker &amp; Collection Tracker">
-  <meta property="og:description" content="Scan trading cards with AI to find matching records, check live market prices, and track your collection value across Pokemon, MTG, Yu-Gi-Oh!, One Piece and more.">
+  <meta property="og:description" content="Scan trading cards in the Card AI app, confirm matching records, check available published prices, and track your collection value.">
   <meta property="og:url" content="https://tcgcard.fun/">
   <meta property="og:image" content="https://tcgcard.fun/assets/hero-phones.png">
   <meta property="og:image:width" content="1232">
@@ -17,7 +17,7 @@
   <meta property="og:locale" content="en_US">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Card AI: TCG Card Scanner, Price Checker &amp; Collection Tracker">
-  <meta name="twitter:description" content="Scan trading cards with AI to find matching records, check live market prices, and track your collection value across Pokemon, MTG, Yu-Gi-Oh!, One Piece and more.">
+  <meta name="twitter:description" content="Scan trading cards in the Card AI app, confirm matching records, check available published prices, and track your collection value.">
   <meta name="twitter:image" content="https://tcgcard.fun/assets/hero-phones.png">
   <link rel="icon" type="image/png" href="/assets/card-ai-logo.png">
   <link rel="apple-touch-icon" href="/assets/card-ai-logo.png">
@@ -39,7 +39,7 @@
   },
   "featureList": [
     "AI trading card scanner and card identifier",
-    "TCG card price checker with live market data",
+    "TCG card price checker with available published market data",
     "Card collection tracker and portfolio value tracking",
     "Card price history and market trends",
     "Raw and graded card value comparison by condition and grade",
@@ -474,15 +474,21 @@ h1 { max-width: 660px; margin-bottom: 0; font-size: clamp(56px, 5.15vw, 78px); l
           <img src="/assets/card-ai-logo.png" alt="">
           <span>Card AI</span>
         </a>
+        <nav class="primary-nav" aria-label="Card AI tasks">
+          <a href="/card-identifier">Scan</a>
+          <a href="/card-price-checker">Prices</a>
+          <a href="/card-collection-tracker">Collection</a>
+          <a href="/card-scanner-comparison-2026">Compare</a>
+        </nav>
       </div>
     </header>
 
     <main>
       <section class="new-hero" id="hero">
         <div class="hero-stack">
-          <p class="hero-label">&bull; Professional Card Collecting &amp; Valuation</p>
-          <h1>Know what your cards<br>are worth.</h1>
-          <p class="hero-copy">Scan supported cards, confirm the matching record, compare current market data, and track your collection in one portfolio.</p>
+          <h1>Card AI.</h1>
+          <p class="hero-claim">Scan cards. Know their value.</p>
+          <p class="hero-copy">Identify a card from a photo, check the available price for its exact printing, and track the cards you own in the Card AI app.</p>
           <div class="store-buttons" aria-label="Download options">
             <a class="store-badge" href="https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224" aria-label="Download on the App Store">
               <img class="store-icon-img" src="/assets/apple-store-icon.png" alt="">
@@ -513,8 +519,8 @@ h1 { max-width: 660px; margin-bottom: 0; font-size: clamp(56px, 5.15vw, 78px); l
           </article>
           <article class="tool-card tool-card-large">
             <div class="tool-icon" aria-hidden="true"><img class="tool-icon-image" src="/assets/feature-icon-valuations.svg" width="24" height="24" alt=""></div>
-            <h3>Accurate Valuations</h3>
-            <p>Track price changes over time with clear market trends.</p>
+            <h3>Available Card Prices</h3>
+            <p>Check published prices and follow available price history.</p>
             <img class="tool-visual" src="/assets/feature-valuations.png" alt="Collection value chart">
           </article>
           <article class="tool-card tool-card-large">
@@ -565,9 +571,22 @@ h1 { max-width: 660px; margin-bottom: 0; font-size: clamp(56px, 5.15vw, 78px); l
           <article class="detail-row">
             <div class="detail-visual scan-visual">
               <img class="scan-composite" src="/assets/showcase-scan.png" alt="AI card scanning and recognition preview">
-              <span class="scan-card-layer" aria-hidden="true">
-                <img class="scan-card-motion" src="/assets/showcase-scan-card.png" alt="">
-              </span>
+              <button class="scan-card-layer" type="button" aria-label="Show Card AI side of sample card" aria-pressed="false" disabled>
+                <span class="scan-card-tilt" aria-hidden="true">
+                  <span class="scan-card-flip">
+                    <span class="scan-card-face scan-card-front">
+                      <img src="/assets/showcase-scan-card.png" alt="">
+                    </span>
+                    <span class="scan-card-face scan-card-back">
+                      <span class="scan-card-back-frame">
+                        <img src="/assets/card-ai-logo.png" alt="">
+                        <strong>Card AI</strong>
+                        <span>Scan / Review / Collect</span>
+                      </span>
+                    </span>
+                  </span>
+                </span>
+              </button>
             </div>
             <div class="detail-copy">
               <h2>Identify Cards as You Scan.</h2>
@@ -579,8 +598,8 @@ h1 { max-width: 660px; margin-bottom: 0; font-size: clamp(56px, 5.15vw, 78px); l
             <div class="detail-visual"><img src="/assets/showcase-analysis.png" alt="Card market prices and trend analysis"></div>
             <div class="detail-copy">
               <h2>Market Analysis<br>for Your Cards.</h2>
-              <p>Multi-dimensional data and historical sales to support better-informed decisions.</p>
-              <ul><li>Sold Listings When Available</li><li>Price Trend Charts</li><li>Price Comparisons by Grade</li><li>Raw and Graded Price Views</li></ul>
+              <p>Review available published prices and price history for the exact card you confirmed.</p>
+              <ul><li>Published Price Dates</li><li>Price Trend Charts</li><li>Price Comparisons by Grade</li><li>Raw and Graded Price Views</li></ul>
             </div>
           </article>
         </div>
@@ -661,7 +680,7 @@ h1 { max-width: 660px; margin-bottom: 0; font-size: clamp(56px, 5.15vw, 78px); l
             </div>
             <div class="browse-col">
               <h3>Guides</h3>
-              <ul class="content-links"><li><a href="/blog/dungeon-crawler-carl-trading-cards">Dungeon Crawler Carl trading cards: identify the release first</a></li><li><a href="/blog/minior-pokemon-card-guide">Minior Pokemon cards: identify the printing before checking value</a></li><li><a href="/blog/scanning-cards-from-watsontcg">How to scan cards bought at WatsonTCG</a></li><li><a href="/blog/pokemon-tcg-30th-celebration-card-prices">Pokemon TCG 30th Celebration card prices and set guide</a></li><li><a href="/blog/what-is-my-trading-card-worth">What is my trading card worth?</a></li><li><a href="/blog/raw-vs-graded-card-values">Raw vs graded cards, and what grading does to value</a></li><li><a href="/blog/">All guides</a></li></ul>
+              <ul class="content-links"><li><a href="/blog/pokemon-tcg-set-card-lists">Pokemon TCG set card lists: identify a card before checking its price</a></li><li><a href="/blog/dungeon-crawler-carl-trading-cards">Dungeon Crawler Carl trading cards: Series 1 cards and packs</a></li><li><a href="/blog/minior-pokemon-card-guide">Minior Pokemon cards: identify the printing before checking value</a></li><li><a href="/blog/scanning-cards-from-watsontcg">How to scan cards bought at WatsonTCG</a></li><li><a href="/blog/pokemon-tcg-30th-celebration-card-prices">Pokemon TCG 30th Celebration card prices and set guide</a></li><li><a href="/blog/what-is-my-trading-card-worth">What is my trading card worth?</a></li><li><a href="/blog/raw-vs-graded-card-values">Raw vs graded cards, and what grading does to value</a></li><li><a href="/blog/">All guides</a></li></ul>
             </div>
           </div>
         </div>
@@ -982,15 +1001,20 @@ aggregate it, unless we are legally required or permitted to retain
 it.</p>
 <h2 id="privacy-account-deletion-and-data-deletion">8. Account Deletion and Data
 Deletion</h2>
-<p>If Card AI allows account creation, you may initiate account deletion
-within the app.</p>
-<p>When you delete your account, we will delete or de-identify personal
-information associated with your account, subject to legal, security,
-fraud prevention, backup, accounting, dispute resolution, and other
-legitimate retention requirements.</p>
-<p>Deleting your account may delete your collection records, saved
-cards, preferences, and account-related information from active
-systems.</p>
+<p>You may initiate deletion in the app or use our <a
+href="/Account/AccountSetup">Account Setup page</a> to request deletion
+by email.</p>
+<p>Card AI keeps iOS and Android platform accounts and business data
+separate. A deletion request must identify the target platform. Deleting
+one platform account removes or de-identifies that platform's collection
+records, saved cards, scan records, preferences, and related account
+information from active systems, subject to legal, security, fraud
+prevention, backup, accounting, dispute resolution, and other legitimate
+retention requirements. It does not delete the other platform account or
+its business data.</p>
+<p>After a platform account is deleted, using Card AI again on that
+platform requires registration for a new platform account. Deleted
+business data is not restored to the new platform account.</p>
 <p>Some information may remain in backups, logs, or records for a
 limited period before deletion or de-identification.</p>
 <p>Deleting your Card AI account does not automatically cancel an active
@@ -1626,8 +1650,34 @@ class="uri">https://tcgcard.fun/terms</a></p>
   <script>
 'use strict';
 
-// This marketing page intentionally has no scripted interaction.
+const scanCard = document.querySelector('.scan-card-layer');
+if (scanCard) {
+  scanCard.disabled = false;
 
+  scanCard.addEventListener('pointermove', (event) => {
+    if (event.pointerType === 'touch' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const bounds = scanCard.getBoundingClientRect();
+    const x = (event.clientX - bounds.left) / bounds.width - 0.5;
+    const y = (event.clientY - bounds.top) / bounds.height - 0.5;
+    scanCard.style.setProperty('--scan-tilt-x', `${(-y * 12).toFixed(2)}deg`);
+    scanCard.style.setProperty('--scan-tilt-y', `${(x * 16).toFixed(2)}deg`);
+    scanCard.style.setProperty('--scan-light-x', `${((x + 0.5) * 100).toFixed(1)}%`);
+    scanCard.style.setProperty('--scan-light-y', `${((y + 0.5) * 100).toFixed(1)}%`);
+  });
+
+  scanCard.addEventListener('pointerleave', () => {
+    scanCard.style.removeProperty('--scan-tilt-x');
+    scanCard.style.removeProperty('--scan-tilt-y');
+    scanCard.style.removeProperty('--scan-light-x');
+    scanCard.style.removeProperty('--scan-light-y');
+  });
+
+  scanCard.addEventListener('click', () => {
+    const flipped = scanCard.getAttribute('aria-pressed') !== 'true';
+    scanCard.setAttribute('aria-pressed', String(flipped));
+    scanCard.setAttribute('aria-label', flipped ? 'Show sample card front' : 'Show Card AI side of sample card');
+  });
+}
 
 const modalTriggers = document.querySelectorAll('[data-modal-target]');
 const modalCloseControls = document.querySelectorAll('[data-modal-close]');

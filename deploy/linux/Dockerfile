@@ -1,5 +1,5 @@
-ARG NODE_IMAGE=node:22-bookworm-slim
-ARG CADDY_IMAGE=caddy:2-alpine
+ARG NODE_IMAGE=node:22.23.4-bookworm-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da
+ARG CADDY_IMAGE=caddy:2.11.8-alpine@sha256:3db3a09e418f86a8fce8de4bc0026fccd2b4cd925aef00cc7d843d9fdc75e442
 
 FROM ${NODE_IMAGE} AS build
 

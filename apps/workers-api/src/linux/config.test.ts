@@ -78,6 +78,25 @@ describe("Linux runtime configuration", () => {
       .toThrow("EXTENSION_TRUST_PROXY must be true or false");
   });
 
+  it("keeps Android development credentials and explicit proof bypass separate from iOS purchase settings", () => {
+    vi.spyOn(postgresDatabase, "createPostgresDatabase")
+      .mockReturnValue({} as postgresDatabase.PostgresDatabase);
+    const runtime = loadLinuxRuntime({
+      ...source,
+      GOOGLE_CLIENT_ID: "ios-fixture-client",
+      GOOGLE_ANDROID_SERVER_CLIENT_ID: "android-fixture-client",
+      ANDROID_PLAY_PACKAGE_NAME: "dev.kando.integrity.fixture",
+      ANDROID_INTEGRITY_ALLOW_DEVELOPMENT: "true",
+    });
+    expect(runtime.env.GOOGLE_CLIENT_ID).toBe("ios-fixture-client");
+    expect(runtime.env.GOOGLE_ANDROID_SERVER_CLIENT_ID).toBe("android-fixture-client");
+    expect(runtime.env.ANDROID_PLAY_PACKAGE_NAME).toBe("dev.kando.integrity.fixture");
+    expect(runtime.env.ANDROID_INTEGRITY_ALLOW_DEVELOPMENT).toBe("true");
+    expect(runtime.env.APP_ENVIRONMENT).toBe("development");
+    expect(() => loadLinuxRuntime({ ...source, ANDROID_INTEGRITY_ALLOW_DEVELOPMENT: "yes" }))
+      .toThrow("ANDROID_INTEGRITY_ALLOW_DEVELOPMENT must be true or false");
+  });
+
   it("keeps the catalog optional and uses dedicated catalog credentials without changing purchase settings", () => {
     vi.spyOn(postgresDatabase, "createPostgresDatabase")
       .mockReturnValue({} as postgresDatabase.PostgresDatabase);

@@ -1,7 +1,11 @@
-import { hashPassword } from "@kando/auth-core";
+import { hashPassword, verifyPassword } from "@kando/auth-core";
 import type { Hono } from "hono";
 import { reserveAccountUid } from "../account-uid";
-import { mutationLockKey, runWithMutationLock } from "../db/mutation-lock";
+import {
+  mutationLockKey,
+  runWithMutationLock,
+  runWithMutationLockStatements,
+} from "../db/mutation-lock";
 import type { Env } from "../env";
 import { createId } from "../id";
 import { sendVerificationEmail } from "../mail/verification-email";
@@ -11,9 +15,13 @@ import {
 } from "./guest-migration";
 import { hasSigningSecret } from "./http-auth";
 import { createUserSessionValues } from "./user-session";
+import { resolveIdentityAuthPlatform } from "./identity-platform";
+import { findLatestPlatformAccount } from "./platform-account";
 
 type UserRow = {
   id: string;
+  password_hash: string | null;
+  status: string;
 };
 
 type VerificationCodeRow = {
@@ -28,6 +36,7 @@ type RegisterVerifyInput = {
   code: string | null;
   password: string | null;
   anonymousId: string | null;
+  platform: unknown;
 };
 
 const REGISTER_CODE_EXPIRES_IN_SECONDS = 600;
@@ -103,7 +112,7 @@ const INTERNAL_ERROR_RESPONSE = {
 } as const;
 
 const SELECT_USER_BY_EMAIL_SQL = `
-  SELECT id
+  SELECT id, password_hash, status
   FROM "user"
   WHERE email = ? AND status <> 'deleted'
   LIMIT 1
@@ -183,8 +192,8 @@ const INSERT_USER_PREFERENCE_SQL = `
 
 const INSERT_USER_SESSION_SQL = `
   INSERT INTO session
-    (id, owner_type, owner_id, login_method, refresh_token, expires_at, created_at, revoked_at)
-  SELECT ?, 'user', ?, 'email', ?, ?, ?, NULL
+    (id, owner_type, owner_id, login_method, refresh_token, expires_at, created_at, revoked_at, platform, user_id)
+  SELECT ?, 'user', ?, 'email', ?, ?, ?, NULL, ?, ?
   WHERE EXISTS (
     SELECT 1
     FROM verification_code
@@ -194,8 +203,8 @@ const INSERT_USER_SESSION_SQL = `
 
 const INSERT_MIGRATED_USER_SESSION_SQL = `
   INSERT INTO session
-    (id, owner_type, owner_id, login_method, refresh_token, expires_at, created_at, revoked_at)
-  SELECT ?, 'user', ?, 'email', ?, ?, ?, NULL
+    (id, owner_type, owner_id, login_method, refresh_token, expires_at, created_at, revoked_at, platform, user_id)
+  SELECT ?, 'user', ?, 'email', ?, ?, ?, NULL, ?, ?
   WHERE EXISTS (
     SELECT 1
     FROM verification_code
@@ -208,6 +217,20 @@ const INSERT_MIGRATED_USER_SESSION_SQL = `
     )
 `;
 
+const INSERT_PLATFORM_ACCOUNT_SQL = `INSERT INTO platform_account
+  (id, user_id, platform, status, created_at, updated_at, deleted_at)
+  SELECT ?, (SELECT id FROM "user" WHERE id = ? AND status = 'active'),
+    ?, 'active', ?, ?, NULL
+  WHERE EXISTS (
+    SELECT 1 FROM verification_code WHERE id = ? AND used_at = ?
+  )`;
+const SET_SHARED_PASSWORD_IF_UNSET_SQL = `UPDATE "user"
+  SET password_hash = ?, updated_at = ?
+  WHERE id = ? AND status = 'active' AND password_hash IS NULL
+    AND EXISTS (
+      SELECT 1 FROM verification_code WHERE id = ? AND used_at = ?
+    )`;
+
 const UPDATE_VERIFICATION_CODE_USED_SQL = `
   UPDATE verification_code
   SET used_at = ?
@@ -218,7 +241,8 @@ export function registerEmailRegistrationRoutes(
   routes: Hono<{ Bindings: Env }>,
 ): void {
   routes.post("/register/send-code", async (c) => {
-    const email = await readEmail(c.req);
+    const codeInput = await readRegistrationCodeInput(c.req);
+    const email = codeInput.email;
 
     if (!email) {
       return c.json(EMAIL_REQUIRED_RESPONSE, 422);
@@ -228,13 +252,24 @@ export function registerEmailRegistrationRoutes(
       return c.json(INVALID_EMAIL_RESPONSE, 422);
     }
 
+    const platformResult = await resolveIdentityAuthPlatform(
+      c.env, c.req.header("Authorization"), codeInput.platform,
+    );
+    if (platformResult.status !== "ok") {
+      return c.json(CONFLICT_RESPONSE, 409);
+    }
+
     try {
       const existingUser = await c.env.DB.prepare(SELECT_USER_BY_EMAIL_SQL)
-        .bind(email)
-        .first<UserRow>();
-
+        .bind(email).first<UserRow>();
       if (existingUser) {
-        return c.json(CONFLICT_RESPONSE, 409);
+        if (existingUser.status !== "active") return c.json(CONFLICT_RESPONSE, 409);
+        const platformAccount = await findLatestPlatformAccount(
+          c.env.DB, existingUser.id, platformResult.platform,
+        );
+        if (platformAccount && platformAccount.status !== "deleted") {
+          return c.json(CONFLICT_RESPONSE, 409);
+        }
       }
 
       const now = new Date();
@@ -335,6 +370,13 @@ export function registerEmailRegistrationRoutes(
       return c.json(INTERNAL_ERROR_RESPONSE, 500);
     }
 
+    const platformResult = await resolveIdentityAuthPlatform(
+      c.env, c.req.header("Authorization"), input.platform,
+    );
+    if (platformResult.status !== "ok") {
+      return c.json(INCORRECT_VERIFICATION_CODE_RESPONSE, 422);
+    }
+
     try {
       const now = new Date();
       const verificationCode = await c.env.DB.prepare(
@@ -358,10 +400,6 @@ export function registerEmailRegistrationRoutes(
         .bind(input.email)
         .first<UserRow>();
 
-      if (existingUser) {
-        return c.json(CONFLICT_RESPONSE, 409);
-      }
-
       const anonymousAccount = await findVerifiedAnonymousAccount(
         c.env.DB,
         input.anonymousId,
@@ -369,12 +407,105 @@ export function registerEmailRegistrationRoutes(
         c.env.JWT_SECRET,
         now,
       );
+      if (anonymousAccount && anonymousAccount.platform !== platformResult.platform) {
+        return c.json(STALE_ANONYMOUS_ACCOUNT_RESPONSE, 422);
+      }
       const createdAt = now.toISOString();
+      if (existingUser) {
+        if (existingUser.status !== "active") {
+          return c.json(CONFLICT_RESPONSE, 409);
+        }
+        const settingSharedPassword = existingUser.password_hash === null &&
+          platformResult.platform === "android";
+        if (!settingSharedPassword &&
+            (!existingUser.password_hash ||
+              !(await verifyPassword(input.password, existingUser.password_hash)))) {
+          return c.json(INVALID_PASSWORD_RESPONSE, 422);
+        }
+        const latestAccount = await findLatestPlatformAccount(
+          c.env.DB, existingUser.id, platformResult.platform,
+        );
+        if (latestAccount?.status === "active") {
+          return c.json(CONFLICT_RESPONSE, 409);
+        }
+        if (latestAccount && latestAccount.status !== "deleted") {
+          return c.json(CONFLICT_RESPONSE, 409);
+        }
+        const dataSpaceId = anonymousAccount?.id ?? await reserveAccountUid(c.env.DB, createdAt);
+        const session = await createUserSessionValues(
+          existingUser.id, dataSpaceId, platformResult.platform, c.env.JWT_SECRET, now,
+        );
+        const statements = [
+          c.env.DB.prepare(UPDATE_VERIFICATION_CODE_USED_SQL).bind(createdAt, verificationCode.id),
+          c.env.DB.prepare(INSERT_PLATFORM_ACCOUNT_SQL).bind(
+            dataSpaceId, existingUser.id, platformResult.platform, createdAt, createdAt,
+            verificationCode.id, createdAt,
+          ),
+        ];
+        if (settingSharedPassword) {
+          statements.push(c.env.DB.prepare(SET_SHARED_PASSWORD_IF_UNSET_SQL).bind(
+            await hashPassword(input.password),
+            createdAt,
+            existingUser.id,
+            verificationCode.id,
+            createdAt,
+          ));
+        }
+        if (anonymousAccount) {
+          const migration = createGuestMigrationStatements(
+            c.env.DB, anonymousAccount.id, dataSpaceId, createdAt,
+            { verificationCodeId: verificationCode.id, verificationUsedAt: createdAt },
+          );
+          statements.push(
+            migration.upgradeAccount, migration.portfolioFolders, migration.collectionItems,
+            migration.collectionItemEvents, migration.wishlistItems, migration.userPreference,
+            migration.scanRecords, migration.consumedFreeScanQuota,
+          );
+        } else {
+          statements.push(
+            c.env.DB.prepare(INSERT_USER_PORTFOLIO_FOLDER_SQL).bind(
+              createId(), dataSpaceId, createdAt, createdAt, verificationCode.id, createdAt,
+            ),
+            c.env.DB.prepare(INSERT_USER_PREFERENCE_SQL).bind(
+              createId(), dataSpaceId, createdAt, createdAt, verificationCode.id, createdAt,
+            ),
+          );
+        }
+        statements.push(c.env.DB.prepare(INSERT_USER_SESSION_SQL).bind(
+          session.sessionId, dataSpaceId, session.hashedRefreshToken, session.expiresAt,
+          createdAt, platformResult.platform, existingUser.id, verificationCode.id, createdAt,
+        ));
+        const results = await runWithMutationLockStatements(
+          c.env.DB,
+          await mutationLockKey("platform-account-delete", existingUser.id),
+          statements,
+        );
+        if (results[0]?.meta.changes !== 1) {
+          return c.json(INCORRECT_VERIFICATION_CODE_RESPONSE, 422);
+        }
+        if (results[1]?.meta.changes !== 1 ||
+            (settingSharedPassword && results[2]?.meta.changes !== 1) ||
+            results.at(-1)?.meta.changes !== 1 ||
+            results.some((result) => !result?.success)) {
+          return c.json(INTERNAL_ERROR_RESPONSE, 500);
+        }
+        return c.json({ success: true, data: {
+          user_id: existingUser.id, email: input.email, login_method: "email",
+          access_token: session.accessToken, refresh_token: session.refreshToken,
+          expires_in: session.expiresIn, migrated: anonymousAccount !== null,
+          platform: platformResult.platform, data_space_id: dataSpaceId,
+        }});
+      }
       const userId =
         anonymousAccount?.id ?? await reserveAccountUid(c.env.DB, createdAt);
+      const dataSpaceId = anonymousAccount?.id ?? (
+        platformResult.platform === "ios" ? userId : await reserveAccountUid(c.env.DB, createdAt)
+      );
       const passwordHash = await hashPassword(input.password);
       const session = await createUserSessionValues(
         userId,
+        dataSpaceId,
+        platformResult.platform,
         c.env.JWT_SECRET,
         now,
       );
@@ -383,14 +514,17 @@ export function registerEmailRegistrationRoutes(
         const migrationStatements = createGuestMigrationStatements(
           c.env.DB,
           anonymousAccount.id,
-          userId,
+          dataSpaceId,
           createdAt,
           {
             verificationCodeId: verificationCode.id,
             verificationUsedAt: createdAt,
           },
         );
-        const results = await c.env.DB.batch([
+        const results = await runWithMutationLockStatements(
+          c.env.DB,
+          await mutationLockKey("verification-code-register", input.email),
+          [
           c.env.DB.prepare(UPDATE_VERIFICATION_CODE_USED_SQL).bind(
             createdAt,
             verificationCode.id,
@@ -405,7 +539,11 @@ export function registerEmailRegistrationRoutes(
             verificationCode.id,
             createdAt,
             anonymousAccount.id,
-            userId,
+            dataSpaceId,
+          ),
+          c.env.DB.prepare(INSERT_PLATFORM_ACCOUNT_SQL).bind(
+            dataSpaceId, userId, platformResult.platform, createdAt, createdAt,
+            verificationCode.id, createdAt,
           ),
           migrationStatements.portfolioFolders,
           migrationStatements.collectionItems,
@@ -416,20 +554,24 @@ export function registerEmailRegistrationRoutes(
           migrationStatements.consumedFreeScanQuota,
           c.env.DB.prepare(INSERT_MIGRATED_USER_SESSION_SQL).bind(
             session.sessionId,
-            userId,
+            dataSpaceId,
             session.hashedRefreshToken,
             session.expiresAt,
             createdAt,
+            platformResult.platform,
+            userId,
             verificationCode.id,
             createdAt,
             anonymousAccount.id,
-            userId,
+            dataSpaceId,
           ),
-        ]);
+          ],
+        );
         const [
           codeResult,
           upgradeResult,
           userResult,
+          platformAccountResult,
           portfolioFoldersResult,
           collectionItemsResult,
           collectionItemEventsResult,
@@ -453,7 +595,7 @@ export function registerEmailRegistrationRoutes(
           return c.json(INCORRECT_VERIFICATION_CODE_RESPONSE, 422);
         }
 
-        if (results.length !== 11 || assetResults.some((result) => !result)) {
+        if (results.length !== 12 || assetResults.some((result) => !result)) {
           return c.json(INTERNAL_ERROR_RESPONSE, 500);
         }
 
@@ -463,12 +605,16 @@ export function registerEmailRegistrationRoutes(
 
         if (
           userResult?.meta.changes !== 1 ||
+          platformAccountResult?.meta.changes !== 1 ||
           sessionResult?.meta.changes !== 1
         ) {
           return c.json(INTERNAL_ERROR_RESPONSE, 500);
         }
       } else {
-        const results = await c.env.DB.batch([
+        const results = await runWithMutationLockStatements(
+          c.env.DB,
+          await mutationLockKey("verification-code-register", input.email),
+          [
           c.env.DB.prepare(UPDATE_VERIFICATION_CODE_USED_SQL).bind(
             createdAt,
             verificationCode.id,
@@ -482,9 +628,13 @@ export function registerEmailRegistrationRoutes(
             verificationCode.id,
             createdAt,
           ),
+          c.env.DB.prepare(INSERT_PLATFORM_ACCOUNT_SQL).bind(
+            dataSpaceId, userId, platformResult.platform, createdAt, createdAt,
+            verificationCode.id, createdAt,
+          ),
           c.env.DB.prepare(INSERT_USER_PORTFOLIO_FOLDER_SQL).bind(
             createId(),
-            userId,
+            dataSpaceId,
             createdAt,
             createdAt,
             verificationCode.id,
@@ -492,7 +642,7 @@ export function registerEmailRegistrationRoutes(
           ),
           c.env.DB.prepare(INSERT_USER_PREFERENCE_SQL).bind(
             createId(),
-            userId,
+            dataSpaceId,
             createdAt,
             createdAt,
             verificationCode.id,
@@ -500,21 +650,24 @@ export function registerEmailRegistrationRoutes(
           ),
           c.env.DB.prepare(INSERT_USER_SESSION_SQL).bind(
             session.sessionId,
-            userId,
+            dataSpaceId,
             session.hashedRefreshToken,
             session.expiresAt,
             createdAt,
+            platformResult.platform,
+            userId,
             verificationCode.id,
             createdAt,
           ),
-        ]);
+          ],
+        );
 
         if (results[0]?.meta.changes !== 1) {
           return c.json(INCORRECT_VERIFICATION_CODE_RESPONSE, 422);
         }
 
         if (
-          results.length !== 5 ||
+          results.length !== 6 ||
           results.slice(1).some((result) => result?.meta.changes !== 1)
         ) {
           return c.json(INTERNAL_ERROR_RESPONSE, 500);
@@ -531,9 +684,14 @@ export function registerEmailRegistrationRoutes(
           refresh_token: session.refreshToken,
           expires_in: session.expiresIn,
           migrated: anonymousAccount !== null,
+          platform: platformResult.platform,
+          data_space_id: dataSpaceId,
         },
       });
     } catch (error) {
+      if (input.anonymousId && isGuestMigrationConstraintError(error)) {
+        return c.json(STALE_ANONYMOUS_ACCOUNT_RESPONSE, 422);
+      }
       if (isUserEmailUniqueConstraintError(error)) {
         return c.json(CONFLICT_RESPONSE, 409);
       }
@@ -544,15 +702,15 @@ export function registerEmailRegistrationRoutes(
   });
 }
 
-async function readEmail(request: { json(): Promise<unknown> }): Promise<
-  string | null
-> {
+async function readRegistrationCodeInput(request: { json(): Promise<unknown> }): Promise<{
+  email: string | null; platform: unknown;
+}> {
   let body: unknown;
 
   try {
     body = await request.json();
   } catch {
-    return null;
+    return { email: null, platform: null };
   }
 
   const rawEmail =
@@ -560,7 +718,9 @@ async function readEmail(request: { json(): Promise<unknown> }): Promise<
       ? (body as { email?: unknown }).email
       : undefined;
 
-  return normalizeEmail(rawEmail);
+  const rawPlatform = body && typeof body === "object"
+    ? (body as { platform?: unknown }).platform : undefined;
+  return { email: normalizeEmail(rawEmail), platform: rawPlatform };
 }
 
 async function readRegisterVerifyInput(request: {
@@ -571,7 +731,7 @@ async function readRegisterVerifyInput(request: {
   try {
     body = await request.json();
   } catch {
-    return { email: null, code: null, password: null, anonymousId: null };
+    return { email: null, code: null, password: null, anonymousId: null, platform: null };
   }
 
   const rawEmail =
@@ -590,6 +750,8 @@ async function readRegisterVerifyInput(request: {
     body && typeof body === "object"
       ? (body as { anonymous_id?: unknown }).anonymous_id
       : undefined;
+  const rawPlatform = body && typeof body === "object"
+    ? (body as { platform?: unknown }).platform : undefined;
   const anonymousId =
     typeof rawAnonymousId === "string" ? rawAnonymousId.trim() : "";
 
@@ -598,6 +760,7 @@ async function readRegisterVerifyInput(request: {
     code: typeof rawCode === "string" ? rawCode.trim() : null,
     password: typeof rawPassword === "string" ? rawPassword : null,
     anonymousId: anonymousId.length > 0 ? anonymousId : null,
+    platform: rawPlatform,
   };
 }
 
@@ -616,13 +779,26 @@ function isValidEmail(email: string): boolean {
 }
 
 function isUserEmailUniqueConstraintError(error: unknown): boolean {
-  const postgresError = error as { code?: unknown; constraint_name?: unknown };
+  const postgresError = error as {
+    code?: unknown; constraint_name?: unknown; constraint?: unknown;
+  };
   return (
     error instanceof Error &&
     (error.message.includes("UNIQUE constraint failed: user.email") ||
       (postgresError.code === "23505" &&
-        postgresError.constraint_name === "uq_user_non_deleted_email"))
+        (postgresError.constraint_name === "uq_user_non_deleted_email" ||
+          postgresError.constraint === "uq_user_non_deleted_email")))
   );
+}
+
+function isGuestMigrationConstraintError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const postgresError = error as {
+    code?: unknown; column_name?: unknown; column?: unknown; table?: unknown;
+  };
+  return postgresError.code === "23502" &&
+    (postgresError.column_name === "user_id" || postgresError.column === "user_id") &&
+    (postgresError.table === "platform_account" || error.message.includes("platform_account"));
 }
 
 function isUsableRegisterCode(

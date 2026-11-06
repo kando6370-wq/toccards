@@ -76,7 +76,7 @@ Latin recognizer 继续使用既有轻量标准化，不改变其文本内容和
 - 平台范围保持 iOS 16+、Android API 24+；Flutter Web 扫描仍不支持。
 - Flutter 使用 `google_mlkit_text_recognition 0.16.0` 与 `unorm_dart 0.3.3`。Android 显式包含 `text-recognition-japanese:16.0.1`，iOS 显式包含 `GoogleMLKit/TextRecognitionJapanese ~> 9.0.0`；Latin 与 Japanese recognizer 按本需求并行运行。Google 的 iOS 指南建议避免同时使用不同脚本的多个 recognizer，因此该并行方案必须补充 iOS 真机稳定性、耗时和内存验证；本地单元测试不等于原生并行已验收。OCR 整体仍是可降级分支，不得让有效 pHash 失败。
 - Linux dev 同时要求 `VECTOR_RECOGNITION_BASE_URL` 和 `PHASH_RECOGNITION_BASE_URL`。发布预检分别校验 512/cosine 向量健康合同与 768/euclidean/`cards_phash` 哈希健康合同。
-- Cloudflare prod 的 `VECTOR_RECOGNITION` Service Binding 保持不变；pHash 使用独立 HTTPS origin。代码合入不等于 dev/prod 已部署，也不证明真实图片准确率、真机性能或外部服务已验收。
+- Cloudflare prod 的 `VECTOR_RECOGNITION` Service Binding 保持不变；pHash 使用独立 HTTPS origin。服务端兼容分流与 `PHASH_RECOGNITION_BASE_URL` 已随 `main@94417983` 发布生产，见[生产发布记录](../05-delivery/VERIFICATION.md#prod-business-release-20261104)；该发布不证明真实图片准确率、真机性能或端到端扫描验收。
 
 本地检查、平台构建及未验证边界记录在[本版本验证记录](../05-delivery/VERIFICATION.md)。
 

@@ -20,6 +20,7 @@ import { registerEmailLoginRoutes } from "./login";
 import { registerOAuthRoutes } from "./oauth";
 import { registerEmailRegistrationRoutes } from "./register";
 import { registerSessionRoutes } from "./session";
+import { resolveAuthPlatform } from "./platform";
 
 type AnonymousAccountRow = {
   id: string;
@@ -44,17 +45,18 @@ const INTERNAL_ERROR_RESPONSE = {
 const SELECT_REUSABLE_ANONYMOUS_ACCOUNT_SQL = `
   SELECT id
   FROM anonymous_account
-  WHERE device_id = ? AND upgraded_user_id IS NULL
+  WHERE device_id = ? AND platform = ? AND upgraded_user_id IS NULL AND status = 'active'
   ORDER BY created_at DESC, id ASC
   LIMIT 1
 `;
 
 const INSERT_ANONYMOUS_ACCOUNT_SQL = `
-  INSERT INTO anonymous_account (id, device_id, created_at, upgraded_user_id)
-  SELECT ?, ?, ?, NULL
+  INSERT INTO anonymous_account
+    (id, device_id, created_at, upgraded_user_id, platform, status, deleted_at)
+  SELECT ?, ?, ?, NULL, ?, 'active', NULL
   WHERE NOT EXISTS (
     SELECT 1 FROM anonymous_account
-    WHERE device_id = ? AND upgraded_user_id IS NULL
+    WHERE device_id = ? AND platform = ? AND upgraded_user_id IS NULL AND status = 'active'
   )
 `;
 
@@ -85,8 +87,8 @@ const INSERT_USER_PREFERENCE_SQL = `
 
 const INSERT_SESSION_SQL = `
   INSERT INTO session
-    (id, owner_type, owner_id, login_method, refresh_token, expires_at, created_at, revoked_at)
-  VALUES (?, 'anonymous', ?, NULL, ?, ?, ?, NULL)
+    (id, owner_type, owner_id, login_method, refresh_token, expires_at, created_at, revoked_at, platform, user_id)
+  VALUES (?, 'anonymous', ?, NULL, ?, ?, ?, NULL, ?, NULL)
 `;
 
 export const authRoutes = new Hono<{ Bindings: Env }>();
@@ -116,6 +118,10 @@ authRoutes.post("/anonymous", async (c) => {
     body && typeof body === "object"
       ? (body as { platform?: unknown }).platform
       : undefined;
+  const rawIntegrityToken = body && typeof body === "object"
+    ? (body as { integrity_token?: unknown }).integrity_token : undefined;
+  const rawRequestNonce = body && typeof body === "object"
+    ? (body as { request_nonce?: unknown }).request_nonce : undefined;
 
   if (typeof rawDeviceId !== "string") {
     return c.json(VALIDATION_ERROR_RESPONSE, 422);
@@ -125,6 +131,18 @@ authRoutes.post("/anonymous", async (c) => {
 
   if (deviceId.length === 0) {
     return c.json(VALIDATION_ERROR_RESPONSE, 422);
+  }
+
+  const requestNonce = typeof rawRequestNonce === "string" ? rawRequestNonce.trim() : "";
+  const platformResult = await resolveAuthPlatform(
+    c.env,
+    c.req.header("Authorization"),
+    rawPlatform,
+    typeof rawIntegrityToken === "string" ? rawIntegrityToken.trim() : undefined,
+    { deviceId, requestNonce },
+  );
+  if (platformResult.status !== "ok") {
+    return c.json({ success: false, error: { code: "PLATFORM_AUTH_FAILED", message: "Unable to verify this app installation." } }, 401);
   }
 
   if (
@@ -139,15 +157,16 @@ authRoutes.post("/anonymous", async (c) => {
   try {
     const now = new Date();
     const createdAt = now.toISOString();
-    const platform = normalizePlatform(rawPlatform);
+    const platform = platformResult.platform;
     const countryCode = normalizeCountryCode(c.req.raw.cf?.country);
     const anonymousId = await findOrCreateAnonymousAccount(
       c.env.DB,
       deviceId,
+      platform,
       createdAt,
     );
     await c.env.DB.prepare(UPSERT_APP_INSTALLATION_SQL)
-      .bind(deviceId, anonymousId, platform, countryCode, createdAt, createdAt)
+      .bind(deviceId, anonymousId, platform === "ios" ? "iOS" : "Android", countryCode, createdAt, createdAt)
       .run();
     const sessionId = createId();
     const refreshToken = createRefreshToken();
@@ -155,7 +174,7 @@ authRoutes.post("/anonymous", async (c) => {
     const expiresAt = refreshTokenExpiresAt(now);
 
     await c.env.DB.prepare(INSERT_SESSION_SQL)
-      .bind(sessionId, anonymousId, hashedRefreshToken, expiresAt, createdAt)
+      .bind(sessionId, anonymousId, hashedRefreshToken, expiresAt, createdAt, platform)
       .run();
 
     const accessToken = await signAccessToken(
@@ -175,6 +194,8 @@ authRoutes.post("/anonymous", async (c) => {
         access_token: accessToken,
         refresh_token: refreshToken,
         expires_in: ACCESS_TOKEN_EXPIRES_IN_SECONDS,
+          platform,
+          data_space_id: anonymousId,
       },
     });
   } catch (error) {
@@ -182,19 +203,6 @@ authRoutes.post("/anonymous", async (c) => {
     return c.json(INTERNAL_ERROR_RESPONSE, 500);
   }
 });
-
-function normalizePlatform(value: unknown): string {
-  if (typeof value !== "string") return "Unknown";
-  const platforms: Record<string, string> = {
-    ios: "iOS",
-    android: "Android",
-    web: "Web",
-    macos: "macOS",
-    windows: "Windows",
-    linux: "Linux",
-  };
-  return platforms[value.trim().toLowerCase()] ?? "Unknown";
-}
 
 function normalizeCountryCode(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -205,11 +213,12 @@ function normalizeCountryCode(value: unknown): string | null {
 async function findOrCreateAnonymousAccount(
   db: D1Database,
   deviceId: string,
+  platform: "ios" | "android",
   createdAt: string,
 ): Promise<string> {
   const existing = await db
     .prepare(SELECT_REUSABLE_ANONYMOUS_ACCOUNT_SQL)
-    .bind(deviceId)
+    .bind(deviceId, platform)
     .first<AnonymousAccountRow>();
 
   if (existing) {
@@ -224,7 +233,7 @@ async function findOrCreateAnonymousAccount(
     [
       db
         .prepare(INSERT_ANONYMOUS_ACCOUNT_SQL)
-        .bind(anonymousId, deviceId, createdAt, deviceId),
+        .bind(anonymousId, deviceId, createdAt, platform, deviceId, platform),
       db
         .prepare(INSERT_PORTFOLIO_FOLDER_SQL)
         .bind(createId(), anonymousId, createdAt, createdAt, anonymousId),
@@ -240,7 +249,7 @@ async function findOrCreateAnonymousAccount(
 
   const created = await db
     .prepare(SELECT_REUSABLE_ANONYMOUS_ACCOUNT_SQL)
-    .bind(deviceId)
+    .bind(deviceId, platform)
     .first<AnonymousAccountRow>();
   if (!created) {
     throw new Error("Anonymous account mutation did not create or find an account");

@@ -87,8 +87,12 @@ export async function runPreflight(artifactRoot, env = process.env, runDocker = 
     if (current.database !== env.POSTGRES_DB || current.username !== env.POSTGRES_USER) {
       throw new Error("Running database identity differs from the proposed environment");
     }
-    if (Math.floor(Number(current.version) / 10000) !== 18) {
+    const postgresVersion = Number(current.version);
+    if (Math.floor(postgresVersion / 10000) !== 18) {
       throw new Error("Existing dev database must use PostgreSQL 18; automatic major upgrades are not supported");
+    }
+    if (postgresVersion < 180006) {
+      throw new Error("Existing dev database must use PostgreSQL 18.6 or newer within major 18");
     }
     applied = current.migrations;
     const unknown = applied.filter((name) => !files.includes(name));

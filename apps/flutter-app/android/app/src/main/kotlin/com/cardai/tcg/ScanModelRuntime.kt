@@ -1,4 +1,4 @@
-package com.cardai.tcg
+package dev.kando.cardvault.app
 
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OnnxValue

@@ -3,7 +3,7 @@ enum AppEnvironment { test, production }
 abstract final class AppConfig {
   static const environmentName = String.fromEnvironment(
     'APP_ENV',
-    defaultValue: 'production',
+    defaultValue: 'test',
   );
 
   static const environment = environmentName == 'production'
