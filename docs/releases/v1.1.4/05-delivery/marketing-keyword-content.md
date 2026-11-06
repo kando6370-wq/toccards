@@ -167,3 +167,13 @@ Impeccable 检测器因缺少 HTML/CSS 解析依赖而降级为正则检查，�
 按 TypeSafe skill 对两个词的意图及同意图关系发起 Jev 分类，接口返回 HTTP 451 地区不可用，未取得模型判断。关键词归属和文案由 Codex 完成；生成、日期同步和 Git 操作使用常规代码。现有生成器同步文章元数据、Article、博客列表、首页 Guides 和 `llms.txt`，仅文章、首页和博客目录的 sitemap 日期更新为 2026-11-06。URL 与 canonical 保持既有页面归属。开发及文档完成后只验证受影响的营销内容。
 
 生成后执行既有 SEO 声明与首页合同测试，共 25 项通过，`git diff --check` 通过。Ego Lite 在 1440px 与 390px 下确认新标题、简介、小标题、自指 canonical 和博客入口一致，未发现整体横向溢出或缺失图片。未运行无影响面的 Flutter、API、Admin 测试；本次未提交、推送或部署，也未提交搜索引擎收录。
+
+## Pokemon scanner 的文章入口
+
+首页的生成 Guides 区块直接链接全部现有文章，Pokemon scanner 的“Check a card list before confirming the scan”及“Check similar artwork and reprints in Review”小节提供与扫描核对相关的正文入口。后者增加 Mew GG10 与 Mega Charizard X ex 指南，分别帮助读者区分 Mew／Mewtwo 的完整卡号和同名 Charizard 的不同印次。链接沿用既有英文文章 URL，不新增同意图页面，不将扫描结果写成真伪或评级保证。
+
+链接真源为 `apps/marketing-web/content/landing/pokemon-card-scanner.mjs`，HTML 由现有内容生成器输出。仅将实际修改的 `/pokemon-card-scanner` 内容日期更新为 2026-11-06；文章日期和 sitemap 网址清单保持既有值。内链入口供读者和抓取器发现内容，不构成收录、排名或 AI 引用效果的保证。
+
+开发和文档完成后，运行既有 SEO 声明与卡表合同检查，共 25 项通过；scanner 的本地相对链接目标均存在，两篇目标文章保留自指 canonical 和返回 scanner 的链接。1440px 桌面实际点击、390px 手机布局下的键盘导航均到达对应文章，源页及两个目标未发现页面整体横向溢出。桌面和手机验证使用本地静态预览，不代替生产部署或真机触屏验收。未运行无影响面的 Flutter、API、Admin 测试；上述本地验收阶段未执行提交、推送、部署或搜索引擎通知，后续交付须分别核对远端提交与正式网页。
+
+公开网页的 IndexNow 通知使用根目录 `.indexnow.json`，站点为 `https://tcgcard.fun`，验证文件作为 Marketing 静态资源发布。通知按用户要求人工触发；仅在正式网页回读确认目标内容、公开验证文件可访问且匹配后，提交本次改变的具体 URL。此次内链的通知范围只有 `/pokemon-card-scanner`，sitemap 的日期同步不触发全站通知。本地去重状态及回执保存在被忽略的 `.indexnow/`，通知接收与搜索引擎收录分别报告。

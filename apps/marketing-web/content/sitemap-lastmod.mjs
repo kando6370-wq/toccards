@@ -19,7 +19,7 @@ export default Object.freeze({
   '/lorcana-card-scanner': '2026-09-28',
   '/mtg-card-scanner': '2026-09-28',
   '/one-piece-card-scanner': '2026-10-29',
-  '/pokemon-card-scanner': '2026-11-05',
+  '/pokemon-card-scanner': '2026-11-06',
   '/soccer-card-scanner': '2026-09-28',
   '/star-wars-unlimited-card-scanner': '2026-09-28',
   '/yugioh-card-scanner': '2026-09-28',

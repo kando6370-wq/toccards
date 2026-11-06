@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "sites": [
+    {
+      "id": "card-ai",
+      "name": "card-ai",
+      "origin": "https://tcgcard.fun",
+      "sitemap": "/sitemap.xml",
+      "key": "444eeb2ada28d44a7a587aee0cbe0591",
+      "keyDelivery": "pages-asset"
+    }
+  ],
+  "state": {
+    "type": "local"
+  }
+}

@@ -37,7 +37,7 @@ export default {
     },
     {
       "h2": "Check similar artwork and reprints in Review",
-      "body": "A familiar image can appear on more than one product. Read the full collector number and inspect product stamps, card size, language and finish before you confirm a catalog match. For example, the [Charizard GX guide](/blog/charizard-gx-card-values) separates Hidden Fates 9/68 from a Battle Academy stamped record, while a Rayquaza VMAX number can also appear on a jumbo card.\n\nCard AI suggests likely records for you to review. It does not guarantee that a photo alone resolves every reprint or edition. If the visible details do not match, use catalog search and keep the record unconfirmed until you can identify the copy."
+      "body": "A familiar image can appear on more than one product. Read the full collector number and inspect product stamps, card size, language and finish before you confirm a catalog match. For example, the [Charizard GX guide](/blog/charizard-gx-card-values) separates Hidden Fates 9/68 from a Battle Academy stamped record, while a Rayquaza VMAX number can also appear on a jumbo card.\n\nCompare the [Mew GG10 and Mewtwo card numbers](/blog/mew-gg10-card-value) and the [Mega Charizard X ex printings](/blog/mega-charizard-x-ex-card-value) for more examples of why the full number and artwork matter.\n\nCard AI suggests likely records for you to review. It does not guarantee that a photo alone resolves every reprint or edition. If the visible details do not match, use catalog search and keep the record unconfirmed until you can identify the copy."
     },
     {
       "h2": "Watch your Pokemon collection value move",
