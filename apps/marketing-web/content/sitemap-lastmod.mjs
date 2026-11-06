@@ -1,6 +1,6 @@
 // Update a route only when its public page receives a meaningful content change.
 export default Object.freeze({
-  '/': '2026-11-05',
+  '/': '2026-11-06',
   '/basketball-card-scanner': '2026-11-05',
   '/bulk-card-scanner': '2026-10-10',
   '/card-ai-vs-collx': '2026-10-20',
@@ -23,7 +23,7 @@ export default Object.freeze({
   '/soccer-card-scanner': '2026-09-28',
   '/star-wars-unlimited-card-scanner': '2026-09-28',
   '/yugioh-card-scanner': '2026-09-28',
-  '/blog/': '2026-11-05',
+  '/blog/': '2026-11-06',
   '/blog/ascended-heroes-card-list': '2026-11-05',
   '/blog/chaos-rising-card-list': '2026-11-05',
   '/blog/charizard-151-card-value': '2026-11-05',
@@ -38,7 +38,7 @@ export default Object.freeze({
   '/blog/phantasmal-flames-card-list': '2026-11-05',
   '/blog/pikachu-card-values': '2026-11-05',
   '/blog/pokemon-card-values': '2026-11-05',
-  '/blog/pokemon-tcg-30th-celebration-card-prices': '2026-11-04',
+  '/blog/pokemon-tcg-30th-celebration-card-prices': '2026-11-06',
   '/blog/pokemon-tcg-set-card-lists': '2026-11-05',
   '/blog/raw-vs-graded-card-values': '2026-11-05',
   '/blog/rayquaza-vmax-card-values': '2026-11-05',

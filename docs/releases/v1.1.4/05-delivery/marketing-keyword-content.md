@@ -157,3 +157,13 @@ MyDex 近期 App 2.3.0、PokeScope App 2.4 的发布信息仅用于理解竞争�
 Ego Lite 在实际 `innerWidth=1440` 和 `390` 下核对六个新页；手机同时核对三个修改的任务页、首页与博客目录。新页 H1 位于导航下方，页面没有整体横向溢出，手机表格在约 292px 自身容器内横向滚动。查价页 → 角色导航 → Rayquaza VMAX → 查价页的真实点击路径通过。离线实施计划在桌面和手机下显示正常，工作包筛选、打印隐藏控件和运行错误捕获检查通过。
 
 Impeccable 检测器因缺少 HTML/CSS 解析依赖而降级为正则检查，未产生发现；该结果不证明计算后的对比度或所有 CSS 条件通过。本轮没有改动 CSS、模板布局或客户端交互逻辑，已保留现有视觉并完成上述浏览器检查。最终内容与生成输出审查未发现待处理问题。未运行无影响面的 Flutter、API、Admin 测试；未执行 Git commit/push、部署或搜索引擎提交。本地内容与发现入口完成，不代表生产可访问、Google 抓取、收录或排名改善。
+
+## 2026-11-06 Pokemon 30 周年关键词
+
+`30th anniversary pokemon` 与 `pokemon 30th anniversary` 共用既有 `/blog/pokemon-tcg-30th-celebration-card-prices`。标题、H1、description 和首段使用 `Pokemon 30th anniversary`；小标题使用 `30th anniversary Pokemon cards`。正文先按卡表、密封商品内容、单卡查价三个任务说明阅读入口，再保留既有 30C／30C-CC 和 RGB Mew 的日期、语言、印次及价格边界。
+
+2026-11-06 在 Ego Lite 查看美国英语 Google 搜索 `pokemon 30th anniversary`，可见官方 30th Celebration 系列页及卡牌、游戏、周边等筛选，说明该词比单卡查价更宽。反向词序查询导航超时，未获得其独立结果；两词同页的判断由 Codex 依据措辞、产品范围和既有页面作出，不称为两次完整搜索验证。官方 [30th Celebration 系列页](https://tcg.pokemon.com/en-us/expansions/30th-celebration/)正常展示，并作为新增首段的卡牌发布入口。页面明确只覆盖实体 TCG，不把周年全部活动、游戏或周边归为产品能力。
+
+按 TypeSafe skill 对两个词的意图及同意图关系发起 Jev 分类，接口返回 HTTP 451 地区不可用，未取得模型判断。关键词归属和文案由 Codex 完成；生成、日期同步和 Git 操作使用常规代码。现有生成器同步文章元数据、Article、博客列表、首页 Guides 和 `llms.txt`，仅文章、首页和博客目录的 sitemap 日期更新为 2026-11-06。URL 与 canonical 保持既有页面归属。开发及文档完成后只验证受影响的营销内容。
+
+生成后执行既有 SEO 声明与首页合同测试，共 25 项通过，`git diff --check` 通过。Ego Lite 在 1440px 与 390px 下确认新标题、简介、小标题、自指 canonical 和博客入口一致，未发现整体横向溢出或缺失图片。未运行无影响面的 Flutter、API、Admin 测试；本次未提交、推送或部署，也未提交搜索引擎收录。

@@ -251,7 +251,7 @@ test('30th Celebration guide keeps dated facts, article metadata, links, and dis
     ]);
   const article = jsonLdObjects(articleHtml).find((value) => value['@type'] === 'Article');
 
-  assert.match(articleHtml, /<h1>Pokemon TCG 30th Celebration card prices and set guide<\/h1>/);
+  assert.match(articleHtml, /<h1>Pokemon 30th anniversary: 30th Celebration cards and prices<\/h1>/);
   assert.match(articleHtml, /30C main set with 202 card records/i);
   assert.match(articleHtml, /30C-CC Classic Collection with 30 card records/i);
   assert.match(articleHtml, /Price snapshot observed October 10, 2026 \(USD\)/);
@@ -278,7 +278,7 @@ test('30th Celebration guide keeps dated facts, article metadata, links, and dis
   assert.match(articleHtml, /Card AI does not predict a grade/i);
   assert.match(articleHtml, /official 30th Celebration gallery and its full card checklist/i);
   assert.match(articleHtml, /not a complete card list or a ranking of the most valuable cards/i);
-  assert.match(articleHtml, /Updated 2026-11-04/);
+  assert.match(articleHtml, /Updated 2026-11-06/);
   assert.match(articleHtml, /30th Celebration Ultra-Premium Collection/);
   assert.match(articleHtml, /29 30th Celebration booster packs and one Classic Collection booster pack/);
   assert.match(articleHtml, /not a Card AI price for a sealed box/);
@@ -286,9 +286,9 @@ test('30th Celebration guide keeps dated facts, article metadata, links, and dis
   assert.match(articleHtml, /href="\/card-price-checker"/);
   assert.match(pokemonHtml, new RegExp(`href="/blog/${slug}"`));
 
-  assert.equal(article?.headline, 'Pokemon TCG 30th Celebration card prices and set guide');
+  assert.equal(article?.headline, 'Pokemon 30th anniversary: 30th Celebration cards and prices');
   assert.equal(article?.datePublished, '2026-10-10');
-  assert.equal(article?.dateModified, '2026-11-04');
+  assert.equal(article?.dateModified, '2026-11-06');
   assert.equal(article?.mainEntityOfPage, canonical);
   assert.equal(article?.image, 'https://tcgcard.fun/assets/showcase-analysis.png');
   assert.match(articleHtml, new RegExp(`<link rel="canonical" href="${canonical}">`));
