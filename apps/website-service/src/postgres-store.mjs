@@ -36,7 +36,10 @@ function cardRecord(row, games) {
 }
 export function createPostgresStore(query) {
  const getGames = async () => (await query(`SELECT game_id::text AS id,name FROM games WHERE load=1 AND btrim(coalesce(name,''))<>'' ORDER BY search_sort,game_id`,[])).map(r=>({...r,slug:slugFor(r),cardCount:null}));
- async function context() { const games=await getGames(); const pointers=await query(`SELECT p.scope_code,p.batch_id::text AS batch_id,b.business_date::text AS business_date FROM current_price_pointer p JOIN price_ingest_batch b ON b.batch_id=p.batch_id AND b.scope_code=p.scope_code JOIN price_source source ON source.source_id=b.source_id AND source.is_active WHERE p.scope_code LIKE 'current:%' AND b.status='published' ORDER BY p.scope_code`,[]);return {games,anchorDate:pointers.map(p=>p.business_date).filter(Boolean).sort().at(-1)??new Date().toISOString().slice(0,10),catalogVersion:'published-'+createHash('sha256').update(JSON.stringify(pointers)).digest('hex').slice(0,16),snapshotCapturedAt:new Date().toISOString(),datasetMode:'published-read-only'}; }
+ async function context(){
+  const games=await getGames();const pointers=await query(`${published} SELECT pub.source_id::text AS source_id,pub.scope_code,pub.batch_id::text AS batch_id,b.business_date::text AS business_date FROM published pub JOIN price_ingest_batch b ON b.batch_id=pub.batch_id JOIN price_source source ON source.source_id=pub.source_id AND source.is_active ORDER BY pub.source_id`,[]);
+  return {games,publications:pointers,anchorDate:pointers.map(p=>p.business_date).filter(Boolean).sort().at(-1)??new Date().toISOString().slice(0,10),catalogVersion:'published-'+createHash('sha256').update(JSON.stringify(pointers)).digest('hex').slice(0,16),snapshotCapturedAt:new Date().toISOString(),datasetMode:'published-read-only'};
+ }
  function pageResult(rows,page,pageSize) { const more=rows.length>pageSize;return {items:rows.slice(0,pageSize),total:null,totalKind:'not-computed',returnedCount:Math.min(rows.length,pageSize),page,pageSize,hasMore:more,nextPage:more?page+1:null}; }
  async function resolveSet(id) {
   const old=reviewSets.find(s=>s.id===id);
@@ -67,7 +70,7 @@ export function createPostgresStore(query) {
   const more=rows.length>pageSize,hasMore=before?true:more,hasPrevious=before?more:Boolean(after)||page>1;
   let total=null;const simple=!q&&(!language||language==='all')&&(!finish||finish==='all')&&(!price||price==='all');
   if(simple&&ctx.counts){if(set&&set!=='all'){const resolved=await resolveSet(set);total=ctx.counts.bySet[resolved.set_id]??null;}else if(game&&game!=='all'){const g=ctx.games.find(g=>g.slug===game||g.id===game);total=ctx.counts.byGame[g.id]??null;}else total=ctx.counts.total;}
-  return {items:selected,returnedCount:selected.length,total,totalKind:total===null?'not-computed':'cached-exact',countedAt:ctx.countedAt??null,page,pageSize,hasMore,hasPrevious,nextPage:hasMore?page+1:null,nextCursor:sort==='featured'&&hasMore?selected.at(-1)?.publicCardId??null:null,previousCursor:sort==='featured'&&hasPrevious?selected[0]?.publicCardId??null:null};
+  return {items:selected,returnedCount:selected.length,total,totalKind:total===null?'not-computed':'cached-scan',countedAt:ctx.countedAt??null,page,pageSize,hasMore,hasPrevious,nextPage:hasMore?page+1:null,nextCursor:sort==='featured'&&hasMore?selected.at(-1)?.publicCardId??null:null,previousCursor:sort==='featured'&&hasPrevious?selected[0]?.publicCardId??null:null};
  }
  async function getCard(id,params,ctx) {
   const rows=await query(`SELECT ${catalogColumns} FROM cards_all c WHERE c.product_id=$1 AND EXISTS (SELECT 1 FROM games g WHERE g.game_id=c.game_id AND g.load=1) LIMIT 1`,[text(id)]);if(!rows[0])return null;
@@ -95,29 +98,23 @@ export function createPostgresStore(query) {
   const rows=await query(`SELECT set_id,game,name,set_code,total_cards,count(*) OVER()::text AS matched_total FROM sets s WHERE ($1='' OR lower(s.name||' '||coalesce(s.set_code,'')) LIKE $1) AND ($2='' OR lower(s.game)=lower($2)) AND EXISTS(SELECT 1 FROM games g WHERE lower(g.name)=lower(s.game) AND g.load=1) ORDER BY s.name,s.set_id LIMIT $3 OFFSET $4`,[q?'%'+q.toLowerCase().replace(/[\\%_]/g,'\\$&')+'%':'',g?.name??'',pageSize+1,(page-1)*pageSize]);
   return {...pageResult(rows.map(r=>({id:setId({...r,set_name:r.name}),sourceSetId:r.set_id,name:r.name,code:r.set_code,gameSlug:ctx.games.find(g=>g.name.toLowerCase()===r.game.toLowerCase())?.slug,language:null,catalogedCount:ctx.counts?.bySet[r.set_id]??null,sourceReportedCount:r.total_cards,complete:false})),page,pageSize),total:rows.length?Number(rows[0].matched_total):page===1?0:null,totalKind:'exact-query',hasPrevious:page>1};
  }
- const store={context,getGames,listCards,getCard,trend,listSets,pageData,directoryCounts,rankings,async getSet(id,params,ctx){const set=await resolveSet(id);if(!set)return null;const allowed=ctx.games.find(g=>g.name.toLowerCase()===set.game.toLowerCase());if(!allowed)return null;return {id,name:set.name,code:set.set_code,gameSlug:allowed.slug,catalogedCount:null,complete:false,...await listCards(new URLSearchParams({...Object.fromEntries(params),set:id}),ctx)};}};
+ const store={context,getGames,listCards,getCard,trend,listSets,pageData,directoryChunk,priceChunk,hydrateRanking,async getSet(id,params,ctx){const set=await resolveSet(id);if(!set)return null;const allowed=ctx.games.find(g=>g.name.toLowerCase()===set.game.toLowerCase());if(!allowed)return null;return {id,name:set.name,code:set.set_code,gameSlug:allowed.slug,catalogedCount:null,complete:false,...await listCards(new URLSearchParams({...Object.fromEntries(params),set:id}),ctx)};}};
 
- async function directoryCounts(){
-  const rows=await query(`SELECT c.game_id::text AS game_id,c.set_id,count(*)::text AS n FROM cards_all c JOIN games g ON g.game_id=c.game_id AND g.load=1 WHERE c.product_type_name='Cards' AND c.has_image=2 GROUP BY c.game_id,c.set_id`,[]);
-  const result={total:0,byGame:{},bySet:{}};
-  for(const row of rows){const n=Number(row.n);if(!Number.isSafeInteger(n)||n<0)throw new Error('Invalid directory count.');result.total+=n;result.byGame[row.game_id]=(result.byGame[row.game_id]??0)+n;if(row.set_id)result.bySet[row.set_id]=(result.bySet[row.set_id]??0)+n;}
-  return result;
+ async function directoryChunk(after){return query(`SELECT product_id,game_id::text AS game_id,set_id,product_type_name,has_image FROM cards_all WHERE product_id>$1 ORDER BY product_id LIMIT 5000`,[after]);}
+ async function priceChunk(publication,after,ctx){
+  const [packet]=await query(`WITH chunk AS MATERIALIZED(SELECT series_id,observed_on,amount_micros,baseline_7d_on,baseline_7d_amount_micros,change_7d_percent FROM price_current_snapshot WHERE batch_id=$1::bigint AND series_id>$2::bigint ORDER BY series_id LIMIT 500),eligible AS(
+   SELECT s.card_ref,s.series_id::text AS series_id,snap.amount_micros::text AS amount_micros,snap.observed_on::text AS observed_on,snap.baseline_7d_on::text AS baseline_7d_on,snap.baseline_7d_amount_micros::text AS baseline_7d_amount_micros,snap.change_7d_percent::text AS change_7d_percent
+   FROM chunk snap JOIN price_series s ON s.series_id=snap.series_id AND s.source_id=$3::bigint JOIN cards_all c ON c.product_id=s.card_ref JOIN games g ON g.game_id=c.game_id AND g.load=1
+   WHERE ${activePrice} AND upper(btrim(s.grader_code))='RAW' AND (s.condition_code='NM' OR s.condition_code IS NULL) AND snap.amount_micros>0 AND snap.observed_on BETWEEN $4::date-6 AND $4::date
+   AND c.product_type_name='Cards' AND c.has_image=2 AND btrim(coalesce(c.number,''))<>'' AND btrim(coalesce(c.name,''))<>''
+  ) SELECT (SELECT max(series_id)::text FROM chunk) AS cursor,(SELECT count(*)::integer FROM chunk) AS scanned,coalesce((SELECT jsonb_agg(eligible) FROM eligible),'[]'::jsonb) AS items`,[publication.batch_id,after,publication.source_id,ctx.anchorDate]);
+  return {cursor:packet.cursor,scanned:packet.scanned,items:typeof packet.items==='string'?JSON.parse(packet.items):packet.items};
  }
- async function rankings(kind,ctx){
-  if(!['gainers','highest'].includes(kind))throw new CatalogInputError('Unknown ranking.');
-  const metric=kind==='gainers'?'change_7d_percent':'amount_micros';
-  const filter=kind==='gainers'?`AND snap.baseline_7d_amount_micros>0 AND snap.baseline_7d_on=snap.observed_on-7 AND snap.change_7d_percent>0`:'';
-  const rows=await query(`${published},eligible AS (
-   SELECT s.card_ref,s.series_id,snap.amount_micros,snap.observed_on,snap.change_7d_percent,snap.baseline_7d_on,snap.baseline_7d_amount_micros
-   ${priceFrom} WHERE ${activePrice} AND upper(btrim(s.grader_code))='RAW' AND (s.condition_code='NM' OR s.condition_code IS NULL)
-   AND snap.amount_micros>0 AND snap.observed_on BETWEEN $1::date-6 AND $1::date ${filter}
-   AND EXISTS(SELECT 1 FROM cards_all c JOIN games g ON g.game_id=c.game_id AND g.load=1 WHERE c.product_id=s.card_ref AND c.product_type_name='Cards' AND c.has_image=2 AND btrim(coalesce(c.number,''))<>'' AND btrim(coalesce(c.name,''))<>'')
-  ),best AS (SELECT DISTINCT ON(card_ref) * FROM eligible ORDER BY card_ref,${metric} DESC,observed_on DESC,series_id),leaders AS (
-   SELECT * FROM best ORDER BY ${metric} DESC,amount_micros DESC,observed_on DESC,card_ref LIMIT 100
-  ) SELECT ${catalogColumns},${priceColumns},l.baseline_7d_on::text AS comparison_date,l.baseline_7d_amount_micros::text AS comparison_micros
-  FROM leaders l JOIN cards_all c ON c.product_id=l.card_ref JOIN price_series s ON s.series_id=l.series_id JOIN price_source src ON src.source_id=s.source_id JOIN published pub ON pub.source_id=s.source_id JOIN price_current_snapshot snap ON snap.batch_id=pub.batch_id AND snap.series_id=s.series_id
-  ORDER BY l.${metric} DESC,l.amount_micros DESC,l.observed_on DESC,l.card_ref`,[ctx.anchorDate]);
-  return {kind,returnedCount:rows.length,items:rows.map((r,i)=>({...cardRecord(r,ctx.games),rank:i+1,baseline_7d_price:usd(r.comparison_micros),baseline_7d_on:r.comparison_date,price_change_7d_percent:r.change_7d_percent===null?null:Number(r.change_7d_percent)}))};
+ async function hydrateRanking(leaders,ctx){
+  if(!leaders.length)return [];
+  const rows=await query(`${published} SELECT ${catalogColumns},${priceColumns},snap.baseline_7d_on::text AS comparison_date,snap.baseline_7d_amount_micros::text AS comparison_micros ${priceFrom} JOIN cards_all c ON c.product_id=s.card_ref WHERE ${activePrice} AND s.series_id IN(SELECT value::bigint FROM jsonb_array_elements_text($1::jsonb))`,[JSON.stringify(leaders.map(c=>c.series_id))]);
+  const byId=new Map(rows.map(r=>[r.series_id,r]));
+  return leaders.map((leader,i)=>{const row=byId.get(leader.series_id);if(!row)throw new Error('Ranking identity changed during refresh.');return {...cardRecord(row,ctx.games),rank:i+1,baseline_7d_price:usd(row.comparison_micros),baseline_7d_on:row.comparison_date,price_change_7d_percent:row.change_7d_percent===null?null:Number(row.change_7d_percent)};});
  }
 
  async function pageData(params,ctx){

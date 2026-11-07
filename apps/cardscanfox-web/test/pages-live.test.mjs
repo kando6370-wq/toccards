@@ -35,10 +35,10 @@ test('live pages offer price sorting after a set is selected and show the requir
 });
 
 test('live navigation, download choices and paging explain the visitor task without internal review labels',async()=>{
- const pageData={...data,result:{...data.result,page:2,pageSize:24,total:241,returnedCount:24,hasPrevious:true,hasMore:true,previousCursor:'live-900',nextCursor:'live-999',countedAt:'2026-11-07T00:00:00Z'}};
+ const pageData={...data,result:{...data.result,page:2,pageSize:24,total:241,totalKind:'cached-scan',returnedCount:24,hasPrevious:true,hasMore:true,previousCursor:'live-900',nextCursor:'live-999',countedAt:'2026-11-07T00:00:00Z'}};
  const real={...env,SITE_DATA:{fetch:async()=>new Response(JSON.stringify({success:true,data:pageData,meta:{datasetMode:'published-read-only',catalogVersion:'live'}}))}};
  const html=await(await pages.fetch(new Request('https://preview.pages.dev/cards?page=2&after=live-899'),real,{})).text();
- assert.doesNotMatch(html,/Independent review site|Total not computed/);assert.match(html,/Top 100/);assert.match(html,/rel="prev"/);assert.match(html,/before=live-900/);assert.match(html,/page=3/);assert.match(html,/Page <strong>2/);assert.match(html,/of <strong>11/);assert.match(html,/href="\/download"/);
+ assert.doesNotMatch(html,/Independent review site|Total not computed/);assert.match(html,/Top 100/);assert.match(html,/rel="prev"/);assert.match(html,/before=live-900/);assert.match(html,/page=3/);assert.match(html,/Page <strong>2/);assert.match(html,/of about <strong>11/);assert.match(html,/About 241 cards/);assert.match(html,/href="\/download"/);
  const download=await(await pages.fetch(new Request('https://preview.pages.dev/download'),real,{})).text();assert.match(download,/Card AI for iOS/);assert.match(download,/Card AI for Android/);assert.match(download,/Coming soon/);assert.match(download,/chromewebstore\.google\.com/);assert.match(download,/apps\.apple\.com/);assert.doesNotMatch(download,/play\.google\.com/);
 });
 test('ranking rows link to the exact published price series and expose dates and comparison values',async()=>{

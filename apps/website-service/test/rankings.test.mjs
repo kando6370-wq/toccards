@@ -3,6 +3,7 @@ import {readFile} from 'node:fs/promises';
 import test from 'node:test';
 import {PGlite} from '@electric-sql/pglite';
 import {createPostgresStore} from '../src/postgres-store.mjs';
+import {refreshWebsiteSnapshot,snapshotKey} from '../src/site-snapshots.mjs';
 const db=new PGlite();await db.exec(await readFile(new URL('./fixtures/catalog.sql',import.meta.url),'utf8'));
 await db.exec(`UPDATE price_current_snapshot SET baseline_7d_on='2026-10-30',baseline_7d_amount_micros=100000000,change_7d_percent=23.45 WHERE series_id=100;
  INSERT INTO cards_all(product_id,game_id,game,set_id,set_name,set_code,number,name,product_type_name,has_image) VALUES
@@ -28,14 +29,17 @@ await db.exec(`UPDATE price_current_snapshot SET baseline_7d_on='2026-10-30',bas
  (10,1000,'2026-11-06',1000000000,'2026-10-29',1,999999),
  (10,1100,'2026-11-06',999999000000,'2026-10-30',1,999999);`);
 const store=createPostgresStore(async(sql,params)=>(await db.query(sql,params)).rows);const meta=await store.context();test.after(()=>db.close());
+const values=new Map(),cache={get:async key=>values.has(key)?JSON.parse(values.get(key)):null,put:async(key,value)=>values.set(key,value)};
+await refreshWebsiteSnapshot(cache,async(_url,operation)=>operation(store),'postgres://test-only',Date.parse('2026-11-07T12:00:00Z'));
+const built=JSON.parse(values.get(snapshotKey));
 test('weekly gainers compare the same raw price series exactly seven days apart and keep one printing record',async()=>{
- const result=await store.rankings('gainers',meta);assert.deepEqual(result.items.map(c=>c.publicCardId),['005','004','001']);assert.equal(result.items[0].reference.seriesId,'501');assert.equal(result.items[0].language,'Japanese');assert.equal(result.items[0].baseline_7d_price,1);assert.equal(result.items[0].price_usd,201);assert.equal(result.items[0].price_change_7d_percent,20000);
+ const result=built.boards.gainers;assert.deepEqual(result.items.map(c=>c.publicCardId),['005','004','001']);assert.equal(result.items[0].reference.seriesId,'501');assert.equal(result.items[0].language,'Japanese');assert.equal(result.items[0].baseline_7d_price,1);assert.equal(result.items[0].price_usd,201);assert.equal(result.items[0].price_change_7d_percent,20000);
 });
 test('highest-price ranking excludes slabs, sealed products, stale prices, missing identities and missing images',async()=>{
- const result=await store.rankings('highest',meta);assert.deepEqual(result.items.map(c=>c.publicCardId),['009','010','004','005','001']);assert.equal(result.items[0].price_usd,500000);assert.ok(result.items.every(c=>c.reference.grader==='RAW'));assert.equal(new Set(result.items.map(c=>c.publicCardId)).size,result.items.length);
+ const result=built.boards.highest;assert.deepEqual(result.items.map(c=>c.publicCardId),['009','010','004','005','001']);assert.equal(result.items[0].price_usd,500000);assert.ok(result.items.every(c=>c.reference.grader==='RAW'));assert.equal(new Set(result.items.map(c=>c.publicCardId)).size,result.items.length);
 });
 test('counts and cursor pagination describe the displayed single-card universe, in both directions',async()=>{
- const counts=await store.directoryCounts();assert.equal(counts.total,9);const context={...meta,counts,countedAt:'2026-11-07T00:00:00Z'};
+ const counts=built.counts;assert.equal(counts.total,9);const context={...meta,counts,countedAt:'2026-11-07T00:00:00Z'};
  const first=await store.listCards(new URLSearchParams({pageSize:'2'}),context);assert.equal(first.total,9);assert.equal(first.hasPrevious,false);assert.equal(first.nextCursor,'002');
  const second=await store.listCards(new URLSearchParams({pageSize:'2',page:'2',after:first.nextCursor}),context);assert.deepEqual(second.items.map(c=>c.publicCardId),['003','004']);assert.equal(second.page,2);assert.equal(second.previousCursor,'003');
  const previous=await store.listCards(new URLSearchParams({pageSize:'2',page:'1',before:second.previousCursor}),context);assert.deepEqual(previous.items.map(c=>c.publicCardId),['001','002']);assert.equal(previous.hasPrevious,false);assert.equal(previous.hasMore,true);

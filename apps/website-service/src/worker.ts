@@ -1,6 +1,6 @@
 import { catalog, games, sets, getCard, getSet, getTrend, queryCards, publicEnvelope } from '@kando/website-content';
 import { withReadOnlyCatalog } from './read-connection.mjs';
-import {readWebsiteSnapshot,refreshWebsiteSnapshot} from './site-snapshots.mjs';
+import {readWebsiteSnapshot,readRefreshStatus,refreshWebsiteSnapshot} from './site-snapshots.mjs';
 
 function connectionString(env: Env): string {
  const binding: unknown = Reflect.get(env, 'CATALOG_DB');
@@ -43,7 +43,7 @@ export function createWebsiteService(read = withReadOnlyCatalog) {
     if(/^\/rankings\/(gainers|highest)$/.test(path)){
      const kind=path.split('/')[2];
      if(!websiteSnapshot)return respond({success:false,error:{code:'RANKINGS_UPDATING',requestId}},503);
-     return respond({success:true,data:{...websiteSnapshot.boards[kind],generatedAt:websiteSnapshot.generatedAt,anchorDate:websiteSnapshot.anchorDate},meta:{requestId,catalogVersion:websiteSnapshot.catalogVersion,datasetMode:'published-read-only',snapshotCapturedAt:websiteSnapshot.generatedAt,directorySnapshot:true,versionScope:'ranking-snapshot'}});
+     return respond({success:true,data:{...websiteSnapshot.boards[kind],generatedAt:websiteSnapshot.generatedAt,anchorDate:websiteSnapshot.anchorDate},meta:{requestId,catalogVersion:websiteSnapshot.catalogVersion,datasetMode:'published-read-only',snapshotCapturedAt:websiteSnapshot.generatedAt,directorySnapshot:false,versionScope:'ranking-snapshot'}});
     }
 
     if (!['/health', '/games', '/cards', '/prices', '/sets', '/page-data'].includes(path) && !/^\/(?:cards\/[^/]+(?:\/trend)?|sets\/[^/]+)$/.test(path)) return respond({ success: false, error: { code: 'NOT_FOUND', requestId } }, 404);
@@ -60,7 +60,7 @@ export function createWebsiteService(read = withReadOnlyCatalog) {
     }
     const result = await read(connectionString(env), async store => {
      const baseMeta=await store.context();const meta = {...baseMeta,games:baseMeta.games.map((g:{id:string;name:string;slug:string})=>({...g,cardCount:websiteSnapshot?.counts?.byGame[g.id]??null})),counts:websiteSnapshot?.counts??null,countedAt:websiteSnapshot?.generatedAt??null};
-     if (path === '/health') data = { status: 'ok', mode: 'published-read-only' };
+     if (path === '/health') data = { status: 'ok', mode: 'published-read-only',refresh:await readRefreshStatus(env.SITE_CACHE) };
      else if (path === '/games') data = { items: meta.games };
      else if (path === '/page-data') data = await store.pageData(url.searchParams, meta);
      else if (path === '/cards' || path === '/prices') data = await store.listCards(url.searchParams, meta);
