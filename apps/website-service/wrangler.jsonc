@@ -38,7 +38,8 @@
   },
   "kv_namespaces": [
     {
-      "binding": "SITE_CACHE"
+      "binding": "SITE_CACHE",
+      "id": "dfe3ba256b38476ea575654d983c7ead"
     }
   ],
   "triggers": {

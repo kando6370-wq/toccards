@@ -56,3 +56,5 @@ Pages 项目的 `SITE_DATA` 绑定到 `cardscanfox-site-data-preview`，兼容�
 页面任务与元数据见 [逐页搜索意图](../05-delivery/cardscanfox-page-intents.md)。
 
 本轮开发完成后，官网 43 项、服务 34 项测试通过，相关类型检查和打包通过；索引/排名/分页逻辑使用隔离 PostgreSQL 验证。机械设计检查提示关闭的图片预览容器默认 img 与 HTML 正则匹配两项 warning；前者只在打开时设置图片，后者是正则表达式，不是页面图片元素。两项为已有实现的明确例外，未扩展为无关重构。Code Review 核对双向游标不叠加 OFFSET、统计范围与单卡过滤一致、排名不混成色/评级/时间窗口，以及预览不开放索引和旧正文保留。
+
+首次部署已创建并回读独立 KV `cardscanfox-site-data-preview-site-cache`，ID `dfe3ba256b38476ea575654d983c7ead`，现已固定到新服务配置，后续发布复用同一公开快照缓存。
