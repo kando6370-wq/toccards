@@ -18,8 +18,8 @@ CardScanFox 是本次官网采用的品牌。它服务实体 TCG 和体育卡收
 
 - [网址保护、逐页搜索意图与英文文案](../05-delivery/cardscanfox-website-route-seo-spec.md)：46 个既有网址逐页登记，12 类新增地址与标题模板。
 - [官网服务与数据隔离规格](../02-architecture/cardscanfox-website-service-spec.md)：现有接口限制、独立只读服务、文件内容源、公开投影与构建回退。
-- [当前产品定位](card-ai-product-positioning.md)：实际产品能力、市场数据和宣传边界。
-- [App 兼容 AI 执行版](../03-data-api/app-backward-compatibility-ai-guide.md)：涉及旧接口或共享数据时必须遵守。
+- [当前产品定位](../../v1.1.2/00-product/card-ai-product-positioning.md)：实际产品能力、市场数据和宣传边界。
+- [App 兼容 AI 执行版](../../v1.1.2/03-data-api/app-backward-compatibility-ai-guide.md)：涉及旧接口或共享数据时必须遵守。
 
 视觉参考为本地 `card-ai-catalog-preview.html?design=cardscanfox-lime-20261106#home` 版本和相邻 `DESIGN.md`。原型含 30 条快照，不代表正式卡库上限。临时 localhost 与 HaoyouBox 链接不是生产 URL 或实现真源；本文已写入必要设计规则。
 

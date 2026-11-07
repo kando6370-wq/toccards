@@ -2,7 +2,7 @@
 
 > 2026-11-07 更新：按用户要求取消新增官网管理后台、CMS、角色权限和官网数据库。采用项目文件维护内容、独立构建和新增只读数据服务；新服务参考现有 App 表结构，旧服务代码不修改。本文件不授权远程部署、资源创建或正式域名切换。
 
-配套文档：[主 Spec](../00-product/cardscanfox-website-redesign-spec.md)、[网址与文案](../05-delivery/cardscanfox-website-route-seo-spec.md)、[App 兼容 AI 执行版](../03-data-api/app-backward-compatibility-ai-guide.md)。
+配套文档：[主 Spec](../00-product/cardscanfox-website-redesign-spec.md)、[网址与文案](../05-delivery/cardscanfox-website-route-seo-spec.md)、[App 兼容 AI 执行版](../../v1.1.2/03-data-api/app-backward-compatibility-ai-guide.md)。
 
 ## 1. 实施范围
 

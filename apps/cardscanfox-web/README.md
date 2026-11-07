@@ -146,7 +146,7 @@ pnpm --filter @kando/cardscanfox-web catalog:sitemaps --input=/absolute/catalog.
 
 独立发布分支为 `codex/cardscanfox-preview`。只推送此分支不会推进 `main` 或 `dev`。Cloudflare 目标账号固定为 `dced4adca2f35cff247b39979058b934`。原手工上传项目 `cardscanfox-preview` 保留用于对比。
 
-新 Pages Git 项目 `cardscanfox-git-preview` 复用现有仓库连接。根目录 `/`，构建命令 `pnpm --filter @kando/cardscanfox-web build:ci`，输出目录 `apps/cardscanfox-web/dist`。Node 使用 22，pnpm 使用 11.9.0。构建失败不替换上一成功部署。发布清单记录 `CF_PAGES_COMMIT_SHA`，用于回读核对实际发布提交。
+新 Pages Git 项目 `cardscanfox-git-preview` 复用现有仓库连接。根目录 `/`，构建命令 `pnpm --filter @kando/cardscanfox-web --fail-if-no-match build:ci`，输出目录 `apps/cardscanfox-web/dist`。Node 使用 22，pnpm 使用 11.9.0。构建失败不替换上一成功部署。发布清单记录 `CF_PAGES_COMMIT_SHA`，用于回读核对实际发布提交。
 
 Pages 当前只发布 108 个静态评审页面，含 78 个非单卡详情页面；不接数据库，也不运行 Worker 的查询筛选与 Service Binding。所有响应加 noindex，robots 禁止抓取。完整动态站仍使用上述独立 Worker，不能把静态预览当作全量目录或正式上线。
 

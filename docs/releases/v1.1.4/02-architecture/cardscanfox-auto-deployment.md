@@ -8,10 +8,10 @@ Cloudflare 账号：`dced4adca2f35cff247b39979058b934`。复用已存在的 GitH
 
 | 目标 | 发布分支 | 根目录 | 构建命令 | 输出或部署 |
 |---|---|---|---|---|
-| Pages `cardscanfox-git-preview` | `codex/cardscanfox-preview` | `/` | `pnpm --filter @kando/cardscanfox-web build:ci` | `apps/cardscanfox-web/dist` |
-| Worker `cardscanfox-site-data-preview` | `codex/cardscanfox-preview` | `/` | `pnpm --filter @kando/website-service build:ci` | `pnpm --filter @kando/website-service deploy:preview` |
+| Pages `cardscanfox-git-preview` | `codex/cardscanfox-preview` | `/` | `pnpm --filter @kando/cardscanfox-web --fail-if-no-match build:ci` | `apps/cardscanfox-web/dist` |
+| Worker `cardscanfox-site-data-preview` | `codex/cardscanfox-preview` | `/` | `pnpm --filter @kando/website-service --fail-if-no-match build:ci` | `pnpm --filter @kando/website-service --fail-if-no-match deploy:preview` |
 
-Node 22、pnpm 11.9.0；禁用其他分支的预览构建。监听新应用、共享内容包和根工作区/锁文件。构建包含受影响测试、类型检查和打包。失败保留上一成功版本。Pages 清单 `sourceCommit` 与 Cloudflare 部署的提交 SHA 应一致。
+Node 22、pnpm 11.9.0；禁用其他分支的预览构建。Pages 监听 `apps/cardscanfox-web/*`、`apps/website-service/*`、`packages/website-content/*`、`pnpm-*.yaml`、`package.json`。只读 Worker 监听相同范围中除官网应用目录之外的路径。构建包含受影响测试、类型检查和打包。失败保留上一成功版本。Pages 清单 `sourceCommit` 与 Cloudflare 部署的提交 SHA 应一致。
 
 ## 当前预览边界
 

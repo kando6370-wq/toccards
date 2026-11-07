@@ -51,7 +51,7 @@ price：all、available、missing、under20、20to100、over100。sort：feature
 
 `wrangler.database.example.jsonc` 是真实只读模式的待配置样例。Hyperdrive ID 为全零占位值，必须换为专供新服务的获准只读连接；不能复用原业务写连接。该文件没有实际远程资源，不可直接作为发布完成的证据。运行绑定由适用配置的 `wrangler types` 生成，不增加 D1。
 
-没有创建新 Hyperdrive、读账号或远程服务，也没有读取远程数据库。本地真实连接、生产性能和两套服务的远程联调需要目标配置及发布授权。
+独立预览 Worker 已建立 Git 构建连接，默认只发布公开评审快照。没有创建新 Hyperdrive 或读账号，没有读取远程数据库。真实只读连接、生产性能和两套服务的远程联调仍需专用配置与验收。
 
 ## 可重复导出
 
@@ -77,6 +77,6 @@ NDJSON 按页写入临时文件，内存不累计全部原始对象。结尾包�
 
 ## Git 自动部署
 
-目标账号 `dced4adca2f35cff247b39979058b934`；仓库 `kando6370-wq/toccards`；发布分支 `codex/cardscanfox-preview`；Worker 名 `cardscanfox-site-data-preview`。根目录 `/`，构建命令 `pnpm --filter @kando/website-service build:ci`，部署命令 `pnpm --filter @kando/website-service deploy:preview`。构建环境 Node 22、pnpm 11.9.0。关闭非发布分支构建。
+目标账号 `dced4adca2f35cff247b39979058b934`；仓库 `kando6370-wq/toccards`；发布分支 `codex/cardscanfox-preview`；Worker 名 `cardscanfox-site-data-preview`。根目录 `/`，构建命令 `pnpm --filter @kando/website-service --fail-if-no-match build:ci`，部署命令 `pnpm --filter @kando/website-service --fail-if-no-match deploy:preview`。构建环境 Node 22、pnpm 11.9.0。关闭非发布分支构建。
 
 监听目录为 `apps/website-service/*`、`packages/website-content/*`、`pnpm-lock.yaml`、`pnpm-workspace.yaml`、`package.json`。默认配置只有评审快照，关闭 workers.dev 和版本 URL，不含数据库连接或迁移。只读真实模式需另行配置，不能自动复用 App 的生产写凭据。
