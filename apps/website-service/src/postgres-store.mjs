@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { cards as reviewCards, sets as reviewSets } from '@kando/website-content';
 
 export class CatalogInputError extends Error { constructor(message) { super(message); this.name = 'QueryError'; } }
-const knownGames = { pokemon:'pokemon', 'pokémon':'pokemon', 'one piece':'one-piece', yugioh:'yugioh', 'yu-gi-oh!':'yugioh', 'magic: the gathering':'mtg', magic:'mtg', 'disney lorcana':'lorcana', lorcana:'lorcana', basketball:'basketball' };
+const knownGames = { pokemon:'pokemon', 'pokémon':'pokemon', 'one piece':'one-piece', 'one piece card game':'one-piece', yugioh:'yugioh', 'yu-gi-oh!':'yugioh', 'magic: the gathering':'mtg', magic:'mtg', 'disney lorcana':'lorcana', lorcana:'lorcana', basketball:'basketball' };
 const slugFor = row => knownGames[row.name.trim().toLowerCase()] ?? `game-${row.id}`;
 const day = value => value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
 const shift = (date, n) => { const d = new Date(date+'T00:00:00Z'); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0, 10); };

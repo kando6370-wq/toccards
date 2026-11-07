@@ -23,3 +23,7 @@ Jev 本轮返回：Delta 归属指南，confidence 0.91；UPC 归属指南但 co
 先完成修改，再运行新官网内容/SEO/生产边界合同、构建、生产 dry-run。官网 CI 去掉重复执行新服务测试/构建；新服务保持自身构建检查。不跑无改动的 App/Admin/Flutter 测试。正式回读检查两篇文章、旧 URL、分页、榜单、单卡、canonical、robots、sitemap 和版本，不把 HTTP 200 或通知成功说成 Google 收录。
 
 本地发布前结果：官网 43 项测试、类型检查、静态构建和 production dry-run 通过。静态构建 113 条，46 个保护路径正文不变；首批单卡 sitemap 1,056 个（候选 1,063 个，排除 7 个资格/重复问题）。新注册两篇文章均由 Markdown 编译器处理。现有 IndexNow key 原字节复制至新官网资源，通过独立静态路由提供。
+
+正式 `180a2c02` 已于 2026-11-08 回读生效，官网 Workers Build success，旧域名直接返回新页面。两文、原 scanner 地址、单卡和两榜均 200/index,follow/自指 canonical；两榜各 100 行；robots 放行公开内容并声明 sitemap；sitemap 索引两项、栏目/文章 68 项、单卡 1,056 项，原 key 200 且正文一致。浏览器确认博客有两篇新指南入口。
+
+IndexNow 首批 60 URL 返回 202（收到、等待 key 验证），最后 7 URL 返回 403 UserForbiddedToAccessSite，另发现 `/games/one-piece` 404。报告位于忽略目录 `.indexnow/reports/2026-11-07T16-21-20-717Z.json`，按工具退避不持续重试，不把通知等同收录。正式 games 只读回读确认真实游戏名为 `One Piece Card Game`，其原自动 slug 为 game-62；新增明确 one-piece 别名修复稳定栏目地址，并补目录路由回归。该修复只改新只读服务。

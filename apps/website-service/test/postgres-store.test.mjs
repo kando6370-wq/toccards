@@ -44,3 +44,13 @@ test('global sorting cannot scan the full production catalog; a selected set kee
  for(const sort of ['name','recent','price-asc','price-desc'])await assert.rejects(()=>store.listCards(new URLSearchParams({sort}),ctx),/Choose a set/);
  const result=await store.listCards(new URLSearchParams({set:'db-A',sort:'price-asc'}),ctx);assert.deepEqual(result.items.map(c=>c.card_ref),['002','001','003']);assert.equal(result.items[0].price_usd,0);assert.equal(result.items.at(-1).price_usd,null);
 });
+
+test('One Piece Card Game resolves the public One Piece category to its catalog records',async()=>{
+ await db.exec('BEGIN');
+ try{
+  await db.exec("INSERT INTO games VALUES(62,'One Piece Card Game',1,62); INSERT INTO cards_all(product_id,game_id,game,set_id,set_name,set_code,number,name,product_type_name,has_image) VALUES('op-test',62,'One Piece Card Game','OP','One Piece Set','OP','001','One Piece Test Card','Cards',2)");
+  const meta=await store.context();assert.equal(meta.games.find(g=>g.id==='62').slug,'one-piece');
+  const page=await store.pageData(new URLSearchParams({path:'/games/one-piece'}),meta);
+  assert.equal(page.notFound,undefined);assert.deepEqual(page.cards.map(c=>c.publicCardId),['op-test']);
+ }finally{await db.exec('ROLLBACK');}
+});
