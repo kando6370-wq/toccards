@@ -38,6 +38,12 @@ test('weekly gainers compare the same raw price series exactly seven days apart 
 test('highest-price ranking excludes slabs, sealed products, stale prices, missing identities and missing images',async()=>{
  const result=built.boards.highest;assert.deepEqual(result.items.map(c=>c.publicCardId),['009','010','004','005','001']);assert.equal(result.items[0].price_usd,500000);assert.ok(result.items.every(c=>c.reference.grader==='RAW'));assert.equal(new Set(result.items.map(c=>c.publicCardId)).size,result.items.length);
 });
+test('ranking hydration preserves candidate order and rejects an oversized selection',async()=>{
+ const rows=await store.hydrateRanking([{series_id:'501'},{series_id:'400'}],meta);
+ assert.deepEqual(rows.map(c=>[c.rank,c.publicCardId,c.reference.seriesId]),[[1,'005','501'],[2,'004','400']]);
+ assert.deepEqual(await store.hydrateRanking([],meta),[]);
+ await assert.rejects(()=>store.hydrateRanking(Array.from({length:101},()=>({series_id:'400'})),meta),/bounded selection/);
+});
 test('counts and cursor pagination describe the displayed single-card universe, in both directions',async()=>{
  const counts=built.counts;assert.equal(counts.total,9);const context={...meta,counts,countedAt:'2026-11-07T00:00:00Z'};
  const first=await store.listCards(new URLSearchParams({pageSize:'2'}),context);assert.equal(first.total,9);assert.equal(first.hasPrevious,false);assert.equal(first.nextCursor,'002');

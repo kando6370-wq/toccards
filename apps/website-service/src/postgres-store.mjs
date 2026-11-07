@@ -112,7 +112,9 @@ export function createPostgresStore(query) {
  }
  async function hydrateRanking(leaders,ctx){
   if(!leaders.length)return [];
-  const rows=await query(`${published} SELECT ${catalogColumns},${priceColumns},snap.baseline_7d_on::text AS comparison_date,snap.baseline_7d_amount_micros::text AS comparison_micros ${priceFrom} JOIN cards_all c ON c.product_id=s.card_ref WHERE ${activePrice} AND s.series_id IN(SELECT value::bigint FROM jsonb_array_elements_text($1::jsonb))`,[JSON.stringify(leaders.map(c=>c.series_id))]);
+  if(leaders.length>100)throw new Error('Ranking hydration exceeds its bounded selection.');
+  const ids=leaders.map(c=>c.series_id);
+  const rows=await query(`${published} SELECT ${catalogColumns},${priceColumns},snap.baseline_7d_on::text AS comparison_date,snap.baseline_7d_amount_micros::text AS comparison_micros ${priceFrom} JOIN cards_all c ON c.product_id=s.card_ref WHERE ${activePrice} AND s.series_id IN(${ids.map((_,i)=>'$'+(i+1)+'::bigint').join(',')})`,ids);
   const byId=new Map(rows.map(r=>[r.series_id,r]));
   return leaders.map((leader,i)=>{const row=byId.get(leader.series_id);if(!row)throw new Error('Ranking identity changed during refresh.');return {...cardRecord(row,ctx.games),rank:i+1,baseline_7d_price:usd(row.comparison_micros),baseline_7d_on:row.comparison_date,price_change_7d_percent:row.change_7d_percent===null?null:Number(row.change_7d_percent)};});
  }
