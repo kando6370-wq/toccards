@@ -26,3 +26,10 @@ test('Pages keeps its build identity available and rejects mutations and preview
  assert.equal((await pages.fetch(new Request('https://preview.pages.dev/site-api/v1/cards',{method:'POST'}),env,{})).status,405);
  assert.equal((await pages.fetch(new Request('https://preview.pages.dev/sitemap.xml'),env,{})).status,404);
 });
+
+
+test('live pages offer price sorting after a set is selected and show the required action in the catalog',async()=>{
+ const global=await(await pages.fetch(new Request('https://preview.pages.dev/cards'),env,{})).text();assert.match(global,/Choose a set and apply filters/);assert.doesNotMatch(global,/<option value="price-desc"/);
+ const scoped=await(await pages.fetch(new Request('https://preview.pages.dev/cards?set=db-L'),env,{})).text();assert.match(scoped,/<option value="price-desc"/);
+ const prices=await(await pages.fetch(new Request('https://preview.pages.dev/prices'),env,{})).text();assert.match(prices,/name="set"/);assert.doesNotMatch(prices,/<option value="price-desc"/);
+});

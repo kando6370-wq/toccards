@@ -26,7 +26,7 @@
 | `/sets/{id}` | 系列身份和对应卡牌分页。 |
 | `/page-data` | `path` 加相应筛选参数，单次只读事务取得一个页面所需元数据、结果、所选卡牌和同维度趋势。 |
 
-price：all、available、missing、under20、20to100、over100。sort：featured、name、recent、price-asc、price-desc。featured 使用 product_id 稳定排序并支持 after 游标；其他排序使用受限页码。缺价固定放末尾，0 是有效金额。
+price：all、available、missing、under20、20to100、over100。sort：featured、name、recent、price-asc、price-desc。featured 使用 product_id 稳定排序并支持 after 游标；其他排序要求先选择系列，并使用受限页码。未限定系列的全局排序返回 400，避免遍历整个生产卡库。缺价固定放末尾，0 是有效金额。
 
 真实分页返回 total=null、totalKind=not-computed、returnedCount、hasMore、nextPage、nextCursor。不执行每次全库 COUNT，不把本页条数当总数。响应元数据包含 requestId、catalogVersion、snapshotCapturedAt、datasetMode。真实 catalogVersion 仅标识价格发布指针，versionScope=price-publication-pointers、directorySnapshot=false；目录没有全局发布版本，不声称跨请求是一致快照。
 

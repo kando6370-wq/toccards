@@ -153,3 +153,5 @@ Pages 构建命令现在生成 `_worker.js` 和全路径 `_routes.json`，通过
 新只读服务使用独立 Workers Builds，配置见 `apps/website-service/README.md`。新增数据服务复用正式库现有 Hyperdrive；原 App 代码、接口和绑定配置不修改。正式域名切换与索引开放分别管理。
 
 `worker/pages.ts` 是 Pages 的独立入口。Pages 项目的生产环境需设置 `SITE_DATA` → `cardscanfox-site-data-preview`，兼容日期为 2026-11-07，并开启 `nodejs_compat`。`wrangler.pages.jsonc` 记录同一配置供显式 CLI 使用；Git 项目的根目录仍是仓库根，运行时绑定按控制台配置生效。`build:pages` 在暂存目录完成服务端包编译后才替换完整产物。
+
+真实模式下，先选择系列并应用筛选，再提供按名称、价格和观测日期排序。全库浏览和关键词搜索仍使用目录顺序。价格页也提供系列选择。

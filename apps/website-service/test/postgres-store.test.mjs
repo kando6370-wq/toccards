@@ -38,3 +38,9 @@ test('single-card prices use the existing active-card partial index at catalog s
   assert.ok(indexes.includes('active_card_prices'),JSON.stringify(plan));
  }finally{await db.exec('ROLLBACK')}
 });
+
+
+test('global sorting cannot scan the full production catalog; a selected set keeps exact prices and missing-last order',async()=>{
+ for(const sort of ['name','recent','price-asc','price-desc'])await assert.rejects(()=>store.listCards(new URLSearchParams({sort}),ctx),/Choose a set/);
+ const result=await store.listCards(new URLSearchParams({set:'db-A',sort:'price-asc'}),ctx);assert.deepEqual(result.items.map(c=>c.card_ref),['002','001','003']);assert.equal(result.items[0].price_usd,0);assert.equal(result.items.at(-1).price_usd,null);
+});

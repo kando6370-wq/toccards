@@ -46,13 +46,14 @@ export function createPostgresStore(query) {
  async function listCards(params,ctx) {
   const q=text(params.get('q')),game=text(params.get('game')),set=text(params.get('set')),language=text(params.get('language')),finish=text(params.get('finish')),price=text(params.get('price')),sort=params.get('sort')??'featured',after=text(params.get('after'));
   if(after&&sort!=='featured')throw new CatalogInputError('Cursor paging requires featured order.');
+  if(sort!=='featured'&&(!set||set==='all'))throw new CatalogInputError('Choose a set before sorting by name, price or date.');
   const page=number(params.get('page'),1,500),pageSize=number(params.get('pageSize'),24,48);
   if(!['featured','name','recent','price-asc','price-desc'].includes(sort)||!['','all','available','missing','under20','20to100','over100'].includes(price))throw new CatalogInputError('Unsupported filter or sort.');
   const candidateFilters=[];const values=[],where=[`EXISTS (SELECT 1 FROM games g WHERE g.game_id=c.game_id AND g.load=1)`];const add=v=>{values.push(v);return '$'+values.length};
   if(after)where.push(`c.product_id>${add(after)}`);
   if(q){const pattern=q.toLowerCase().replace(/[\\%_]/g,'\\$&');where.push(`lower(coalesce(c.name,'')||' '||coalesce(c.number,'')||' '||coalesce(c.set_name,'')||' '||coalesce(c.set_code,'')||' '||coalesce(c.rarity,'')||' '||coalesce(c.game,'')) LIKE ${add('%'+pattern+'%')}`);}
   if(game&&game!=='all'){const g=ctx.games.find(g=>g.slug===game||g.id===game);if(!g)throw new CatalogInputError('Unknown game.');where.push(`c.game_id=${add(Number(g.id))}`);}
-  if(set&&set!=='all'){const s=await resolveSet(set);if(!s)throw new CatalogInputError('Unknown set.');where.push(`c.set_id=${add(s.set_id)}`);}
+  if(set&&set!=='all'){const s=await resolveSet(set);if(!s)throw new CatalogInputError('Unknown set.');where.push(`c.set_id=${add(s.set_id)}`);if(!game||game==='all'){const owner=ctx.games.find(g=>g.name.toLowerCase()===s.game.toLowerCase());if(!owner)throw new CatalogInputError('Unknown game.');where.push(`c.game_id=${add(Number(owner.id))}`);}}
   if(language&&language!=='all'){const key=add(language);where.push(`coalesce(p.language_name,p.language_code,'Not listed')=${key}`);candidateFilters.push(`coalesce(s.language_name,s.language_code,'Not listed')=${key}`);}
   if(finish&&finish!=='all'){const key=add(finish);where.push(`coalesce(p.finish_name,p.finish_code,'Not listed')=${key}`);candidateFilters.push(`coalesce(s.finish_name,s.finish_code,'Not listed')=${key}`);}
   if(price==='available')where.push('p.amount_micros IS NOT NULL');if(price==='missing')where.push('p.amount_micros IS NULL');
