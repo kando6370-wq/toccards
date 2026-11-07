@@ -1,10 +1,31 @@
-If you searched for **delta reign pokemon**, the expansion is officially named **Pokémon TCG: Mega Evolution—Delta Reign**. The Pokémon Company released it on November 6, 2026. This guide helps you identify the set, separate product formats and check a reference price for a specific card.
+**Delta Reign Pokémon cards** belong to **Pokémon TCG: Mega Evolution—Delta Reign**. The Pokémon Company released it on November 6, 2026. This guide helps you identify the set, separate product formats and check a reference price for a specific card.
 
 ## What is Delta Reign?
 
 Delta Reign brings Mega Rayquaza ex back alongside Mega Golurk ex, Mega Malamar ex and Mega Golisopod ex. It also introduces Legendary Stadiums: two Stadium cards combine into one feature and form an extended illustration. According to the official release announcement, a booster that contains a Legendary Stadium includes both halves.
 
 The expansion name identifies a group of cards. It does not identify one particular Rayquaza printing, rarity or finish. A search result showing a familiar character is only the start of a price check.
+
+## Delta Reign chase cards: start with the exact printing
+
+“Chase card” describes a card collectors particularly want. It is not an official rarity, a fixed price tier or a promise about pull rates. A **Delta Reign chase cards** search can mean favorite artwork, a playable card or a high-value printing; those are different comparisons.
+
+The official launch highlights these four Mega Evolution Pokémon ex. Use this as a starting point for identification, not a complete card list or a ranking by value:
+
+| Featured card | What to confirm |
+|---|---|
+| Mega Rayquaza ex | Set, complete collector number and finish; older M Rayquaza-EX cards belong to other expansions |
+| Mega Golurk ex | Exact artwork, number and language |
+| Mega Malamar ex | The particular printing rather than the character name alone |
+| Mega Golisopod ex | Whether your copy matches the set and finish being compared |
+
+For the Rayquaza comparison, read [Mega Rayquaza ex cards by set and number](/blog/mega-rayquaza-ex-card-values). It links to existing XY-era records and explains why their prices cannot stand in for a Delta Reign card.
+
+## Delta Reign card list and current catalog coverage
+
+Our [Delta Reign set page](/sets/db-24831) currently has no public single-card records to browse. This guide therefore does not provide a complete checklist or a most-expensive-card ranking for the expansion. Check the official release material in Sources for the confirmed highlights above. A missing catalog record is not a zero price.
+
+When records become available, match the collector number, language and finish before comparing them. For a broader search, use the [Pokémon card database](/games/pokemon). The [weekly gainers](/prices/top-gainers) and [highest-price list](/prices/most-valuable) cover qualifying published cards across the catalog; they are not Delta Reign-only rankings.
 
 ## How to find the right Delta Reign card
 

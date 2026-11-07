@@ -1,9 +1,9 @@
 [
   {
     "path": "/blog/delta-reign-pokemon",
-    "title": "Delta Reign Pokémon: Release, Cards & Price Checks | CardScanFox",
-    "description": "Explore Pokémon Delta Reign, released November 6, 2026. Learn what changed, how to identify your pulls and how to compare prices for the exact printing.",
-    "h1": "Delta Reign Pokémon: What to Know Before You Check a Card Price",
+    "title": "Delta Reign Pokémon Cards & Chase Cards Guide | CardScanFox",
+    "description": "Explore Delta Reign cards, official Mega Evolution highlights and chase-card comparisons. Match the printing and check catalog coverage before using a price.",
+    "h1": "Delta Reign Pokémon Cards: Chase Cards & Printing Guide",
     "author": "CardScanFox Editorial",
     "file": "delta-reign-pokemon.md",
     "published": true,
@@ -14,7 +14,8 @@
         "label": "The Pokémon Company: Delta Reign release announcement",
         "url": "https://press.pokemon.com/en-NZ/releases/MEDIA-ALERT-Legendary-Pokemon-Mega-Rayquaza-ex-Descends-into-Battle-in"
       }
-    ]
+    ],
+    "updatedAt": "2026-11-08"
   },
   {
     "path": "/blog/pokemon-upc-30th-anniversary",
@@ -30,6 +31,28 @@
       {
         "label": "Pokémon: 30th Celebration product showcase",
         "url": "https://www.pokemon.com/uk/news/pokemon-tcg-30th-celebration-product-showcase"
+      }
+    ],
+    "updatedAt": "2026-11-08"
+  },
+  {
+    "path": "/blog/mega-rayquaza-ex-card-values",
+    "title": "Mega Rayquaza ex Cards: Sets, Numbers & Prices | CardScanFox",
+    "description": "Find the right Mega Rayquaza ex printing. Compare Roaring Skies 61, 76 and 105, Ancient Origins 98 and the new Delta Reign release before checking a price.",
+    "h1": "Mega Rayquaza ex Cards: Which Printing Do You Have?",
+    "author": "CardScanFox Editorial",
+    "file": "mega-rayquaza-ex-card-values.md",
+    "published": true,
+    "category": "values",
+    "publishedAt": "2026-11-08",
+    "sources": [
+      {
+        "label": "Pokémon: official Roaring Skies card checklist",
+        "url": "https://assets.pokemon.com/assets/cms2/pdf/trading-card-game/checklist/xy6_web_cardlist_en.pdf"
+      },
+      {
+        "label": "Pokémon: Delta Reign release announcement",
+        "url": "https://press.pokemon.com/en-NZ/releases/MEDIA-ALERT-Legendary-Pokemon-Mega-Rayquaza-ex-Descends-into-Battle-in"
       }
     ]
   }

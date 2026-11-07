@@ -1,4 +1,12 @@
-The search **pokemon upc 30th anniversary** refers to the **Pokémon TCG: 30th Celebration Ultra-Premium Collection**. The official product showcase describes Day and Night versions, available in November 2026. This guide compares the confirmed contents and explains how to separate the sealed collection from the individual cards inside it.
+The **Pokémon 30th Anniversary UPC**, also called the **Pokémon 30th UPC**, refers to the **Pokémon TCG: 30th Celebration Ultra-Premium Collection**. The official product showcase describes Day and Night versions, available in November 2026. This guide compares the confirmed contents and explains how to separate the sealed collection from the individual cards inside it.
+
+## What does Pokémon 30th UPC mean?
+
+UPC stands for **Ultra-Premium Collection**. “Pokémon 30th UPC,” “30th UPC” and “Pokémon UPC 30th Anniversary” are shortened ways to look for this anniversary product. The official product-family name is **30th Celebration**. Confirm that name and the Day or Night version on the packaging when comparing listings.
+
+A UPC is a sealed collection containing multiple items. A search for a specific Pikachu ex, Espeon ex or Umbreon ex card needs a different check: read the card's collector number and verify whether it is the included promotional printing, a regular expansion card or another release. The same character name does not identify one price.
+
+For those single-card searches, use the [Pokémon card catalog](/games/pokemon), then open the matching detail page to see its price date and dimensions. For the anniversary set groups and checklist references, use the [30th Celebration card guide](/blog/pokemon-tcg-30th-celebration-card-prices).
 
 ## Day vs Night: what changes?
 

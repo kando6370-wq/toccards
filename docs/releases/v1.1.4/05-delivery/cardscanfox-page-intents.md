@@ -122,3 +122,7 @@ Title 与 Description 的逐页可执行真源为 [seo-pages.json](../../../../a
 改动前 `/prices` 的服务器原始 HTML Title 为英文 `Dated Trading Card Price References | CardScanFox`；截图中的中文可能来自浏览器或扩展翻译。本次将其改为明确的英文价格查询 Title，并扩充对用户任务有用的简介。检验源 HTML 与浏览器实际 DOM，不能只依据插件的本地展示。
 
 预览继续 noindex，不因接入真实数据或新增榜单开放收录。正式域名切换、索引开启与搜索引擎通知分别处理。
+
+## 2026-11-08 已授权卡牌词实施
+
+新增 `/blog/mega-rayquaza-ex-card-values` 承担 Mega Rayquaza 卡名消歧、具体编号和价格查找；Delta Reign 的 cards/chase cards 同属原 `/blog/delta-reign-pokemon`；30th UPC 各种简称由原 UPC 指南承接。对应 Title、Description 与正文已更新，不增加同义词薄页。见[本轮词与页面映射](cardscanfox-card-term-content-20261108.md)。

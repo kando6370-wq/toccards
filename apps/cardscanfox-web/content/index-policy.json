@@ -21,7 +21,8 @@
     "/games/yugioh",
     "/games/lorcana",
     "/games/basketball",
-    "/games/mtg"
+    "/games/mtg",
+    "/blog/mega-rayquaza-ex-card-values"
   ],
   "note": "Local production policy only. Preview authentication/noindex and PUBLISH_READY remain enforced. Eligible real card pages may be indexed; sitemap discovery expands in reviewed batches. Missing price alone does not exclude a useful identity page.",
   "catalog": {
