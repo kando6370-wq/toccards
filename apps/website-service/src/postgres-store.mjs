@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { cards as reviewCards, sets as reviewSets } from '@kando/website-content';
+import homeFeatured from '@kando/website-content/home-featured' with {type:'json'};
 
 export class CatalogInputError extends Error { constructor(message) { super(message); this.name = 'QueryError'; } }
 const knownGames = { pokemon:'pokemon', 'pokémon':'pokemon', 'one piece':'one-piece', 'one piece card game':'one-piece', yugioh:'yugioh', 'yu-gi-oh!':'yugioh', 'magic: the gathering':'mtg', magic:'mtg', 'disney lorcana':'lorcana', lorcana:'lorcana', basketball:'basketball' };
@@ -46,7 +47,7 @@ export function createPostgresStore(query) {
   const rows=old?await query(`SELECT set_id,game,name,set_code FROM sets WHERE name=$1 AND coalesce(set_code,'')=$2 LIMIT 2`,[old.name,old.code]):await query(`SELECT set_id,game,name,set_code FROM sets WHERE set_id=$1 LIMIT 1`,[text(id).replace(/^db-/, '')]);
   if(rows.length>1)throw new CatalogInputError('Ambiguous set identity.');return rows[0]??null;
  }
- async function listCards(params,ctx) {
+ async function listCards(params,ctx,selectedIds=null) {
   const q=text(params.get('q')),game=text(params.get('game')),set=text(params.get('set')),language=text(params.get('language')),finish=text(params.get('finish')),price=text(params.get('price')),sort=params.get('sort')??'featured',after=text(params.get('after')),before=text(params.get('before'));
   if(after&&before)throw new CatalogInputError('Use only one page cursor.');
   if((after||before)&&sort!=='featured')throw new CatalogInputError('Cursor paging requires featured order.');
@@ -55,6 +56,7 @@ export function createPostgresStore(query) {
   if(page>500&&!after&&!before)throw new CatalogInputError('Use the next and previous links for later pages.');
   if(!['featured','name','recent','price-asc','price-desc'].includes(sort)||!['','all','available','missing','under20','20to100','over100'].includes(price))throw new CatalogInputError('Unsupported filter or sort.');
   const candidateFilters=[];const values=[],where=[`EXISTS (SELECT 1 FROM games g WHERE g.game_id=c.game_id AND g.load=1)`,"c.product_type_name='Cards'",'c.has_image=2'];const add=v=>{values.push(v);return '$'+values.length};
+  if(selectedIds){if(!selectedIds.length||selectedIds.length>8)throw new CatalogInputError('Invalid featured selection.');where.push(`c.product_id IN(${selectedIds.map(id=>add(text(id))).join(',')})`);}
   if(after)where.push(`c.product_id>${add(after)}`);if(before)where.push(`c.product_id<${add(before)}`);
   if(q){const pattern=q.toLowerCase().replace(/[\\%_]/g,'\\$&');where.push(`lower(coalesce(c.name,'')||' '||coalesce(c.number,'')||' '||coalesce(c.set_name,'')||' '||coalesce(c.set_code,'')||' '||coalesce(c.rarity,'')||' '||coalesce(c.game,'')) LIKE ${add('%'+pattern+'%')}`);}
   if(game&&game!=='all'){const g=ctx.games.find(g=>g.slug===game||g.id===game);if(!g)throw new CatalogInputError('Unknown game.');where.push(`c.game_id=${add(Number(g.id))}`);}
@@ -135,7 +137,12 @@ export function createPostgresStore(query) {
   if(path.startsWith('/games/')){if(!ctx.games.some(g=>g.slug===path.slice(7)))return {...base,notFound:true};filter.set('game',path.slice(7));}
   if(path.startsWith('/sets/')){const id=decodeURIComponent(path.slice(6)),set=await store.getSet(id,filter,ctx);if(!set)return {...base,notFound:true};return {...base,sets:[set,...base.sets.filter(s=>s.id!==set.id)],set,cards:set.items,result:set};}
   if(!['/','/cards','/prices','/games'].includes(path)&&!path.startsWith('/games/'))throw new CatalogInputError('Unsupported page path.');
-  if(path==='/')filter.set('pageSize','4');if(path==='/prices')filter.set('pageSize','48');
+  if(path==='/'){
+   const ids=homeFeatured.cardIds,result=await listCards(new URLSearchParams({pageSize:String(ids.length)}),ctx,ids);
+   const byId=new Map(result.items.map(c=>[c.publicCardId,c]));result.items=ids.map(id=>byId.get(id)).filter(Boolean);result.returnedCount=result.items.length;
+   return {...base,cards:result.items,result};
+  }
+  if(path==='/prices')filter.set('pageSize','48');
   const result=await listCards(filter,ctx);return {...base,cards:result.items,result};
  };
  return store;

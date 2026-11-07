@@ -2,7 +2,7 @@
   "/": {
     "intent": "产品认知与下载",
     "title": "Trading Card Scanner & Collection Tracker | CardScanFox",
-    "description": "Scan physical trading cards with Card AI, confirm the exact printing and track your collection. Explore card prices, sets and collecting guides.",
+    "description": "Scan and organize TCG and sports cards with Card AI. Explore Pokémon 30th Celebration cards, compare Mega Rayquaza printings and check published prices.",
     "question": "How can I identify my cards and keep track of the collection I own?"
   },
   "/bulk-card-scanner": {

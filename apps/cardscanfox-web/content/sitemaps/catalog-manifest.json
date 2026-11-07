@@ -3,14 +3,14 @@
   "origin": "https://tcgcard.fun",
   "scope": "Initial discovery batch: public ranking cards and 18 Pokemon catalog pages; not a full catalog export; includes the verified physical-card records linked from the Mega Rayquaza guide",
   "capturedAt": "2026-11-07T16:05:28.958Z",
-  "candidateCount": 1066,
-  "discoveryCount": 1059,
+  "candidateCount": 1070,
+  "discoveryCount": 1063,
   "shards": [
     {
       "path": "/sitemaps/cards-00001.xml",
-      "urlCount": 1059,
-      "bytes": 58549,
-      "sha256": "58a4a1c0da63628fb65fa1ba55a013999c1a47fd9ab7e5cb0d459afcc1ae4f73"
+      "urlCount": 1063,
+      "bytes": 58769,
+      "sha256": "2a4e33538a81b36e3f818414eed7ed5eec70df8f39dbed56cd1caade623f7889"
     }
   ],
   "guideCardIds": [
@@ -19,5 +19,13 @@
     "98141",
     "101520"
   ],
-  "updatedAt": "2026-11-07T17:32:46.159Z"
+  "updatedAt": "2026-11-07T18:04:06.896Z",
+  "homeFeaturedCardIds": [
+    "714372",
+    "712954",
+    "717605",
+    "717610",
+    "101520",
+    "98141"
+  ]
 }

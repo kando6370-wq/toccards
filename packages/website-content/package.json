@@ -9,6 +9,7 @@
     "./legacy": "./data/legacy-pages.json",
     "./node-server": "./src/node-server.mjs",
     "./articles": "./data/articles.json",
-    "./seo": "./src/seo.mjs"
+    "./seo": "./src/seo.mjs",
+    "./home-featured": "./data/home-featured.json"
   }
 }

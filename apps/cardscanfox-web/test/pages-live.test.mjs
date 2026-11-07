@@ -47,3 +47,11 @@ test('ranking rows link to the exact published price series and expose dates and
  const html=await(await pages.fetch(new Request('https://preview.pages.dev/prices/top-gainers'),real,{})).text();assert.match(html,/27\.5%/);assert.match(html,/series=900/);assert.match(html,/\$20\.00/);assert.match(html,/Raw single cards/);assert.match(html,/7 Nov 2026/);
  const failed={...env,SITE_DATA:{fetch:async()=>new Response('Updating',{status:503})}};const pending=await pages.fetch(new Request('https://preview.pages.dev/prices/most-valuable'),failed,{});assert.equal(pending.status,503);assert.match(await pending.text(),/ranking is being prepared/);
 });
+
+test('homepage hero image, price record and detail link identify the same first featured printing',async()=>{
+ const picks=[{...card,publicCardId:'home-a',name:'Home Charizard',price_usd:11},{...card,publicCardId:'home-b',name:'Home Pikachu',price_usd:22},{...card,publicCardId:'home-c',name:'Home Mew',price_usd:33}];
+ const binding={fetch:async()=>new Response(JSON.stringify({success:true,data:{...data,cards:picks},meta:{catalogVersion:'home-test',datasetMode:'published-read-only'}}))};
+ const response=await pages.fetch(new Request('https://preview.pages.dev/'),{...env,SITE_DATA:binding},{});const html=await response.text();
+ assert.match(html,/href="\/cards\/home-a" class="scene-card scene-front"/);assert.match(html,/<a class="scene-record" href="\/cards\/home-a">[\s\S]*?Home Charizard[\s\S]*?\$11\.00/);
+ assert.match(html,/Pokémon cards in focus/);assert.match(html,/Explore these Pokémon topics/);assert.match(html,/href="\/blog\/delta-reign-pokemon"/);assert.match(html,/href="\/blog\/mega-rayquaza-ex-card-values"/);
+});

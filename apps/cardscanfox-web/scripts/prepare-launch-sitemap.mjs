@@ -2,10 +2,11 @@ import {execFileSync} from 'node:child_process';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {cardIndexEligibility,cardIdentityKey,cardMetadata} from '@kando/website-content/seo';
+import homeFeatured from '@kando/website-content/home-featured' with {type:'json'};
 import {splitSitemapEntries} from './catalog-sitemaps.mjs';
 const endpoint='https://cardscanfox-git-preview.pages.dev/site-api/v1/';
 const get=path=>{const body=JSON.parse(execFileSync('curl',['-fsS','--max-time','25',endpoint+path],{encoding:'utf8',maxBuffer:2000000}));if(!body.success||body.meta?.datasetMode!=='published-read-only')throw Error('A published read-only response is required');return body;};
-const cards=new Map();for(const id of ['98097','98112','98141','101520']){const c=get('cards/'+id).data;if(c)cards.set(c.publicCardId,c);}
+const cards=new Map();for(const id of new Set([...homeFeatured.cardIds,'98097','98112','98141','101520'])){const c=get('cards/'+id).data;if(c)cards.set(c.publicCardId,c);}
 for(const kind of ['gainers','highest'])for(const c of get('rankings/'+kind).data.items)cards.set(c.publicCardId,c);
 let after=null;for(let page=0;page<18;page++){const q=new URLSearchParams({pageSize:'48',game:'pokemon'});if(after)q.set('after',after);const d=get('cards?'+q).data;for(const c of d.items)cards.set(c.publicCardId,c);if(!d.hasMore)break;if(!d.nextCursor||d.nextCursor===after)throw Error('Cursor did not advance');after=d.nextCursor;}
 const groups=new Map(),titles=new Map();for(const c of cards.values()){const key=cardIdentityKey(c),title=cardMetadata(c).title;groups.set(key,(groups.get(key)??0)+1);titles.set(title,(titles.get(title)??0)+1);}

@@ -1,0 +1,37 @@
+{
+  "verifiedOn": "2026-11-08",
+  "cardIds": [
+    "714372",
+    "712954",
+    "717605",
+    "717610",
+    "101520",
+    "98141"
+  ],
+  "topics": [
+    {
+      "title": "Pokémon 30th Celebration",
+      "label": "Anniversary cards",
+      "description": "Find the anniversary printings, Classic Collection and their price references.",
+      "href": "/sets/set-cdfc299a9ad0",
+      "guideHref": "/blog/pokemon-tcg-30th-celebration-card-prices",
+      "guideLabel": "30th anniversary guide"
+    },
+    {
+      "title": "Mega Rayquaza ex",
+      "label": "Compare the printings",
+      "description": "Roaring Skies or Ancient Origins? Match the set and full collector number.",
+      "href": "/blog/mega-rayquaza-ex-card-values",
+      "guideHref": "/cards/101520",
+      "guideLabel": "See 98/98 card details"
+    },
+    {
+      "title": "Delta Reign",
+      "label": "Release guide",
+      "description": "Explore the official card highlights and the current catalog coverage.",
+      "href": "/blog/delta-reign-pokemon",
+      "guideHref": "/blog/pokemon-upc-30th-anniversary",
+      "guideLabel": "Also exploring the 30th UPC?"
+    }
+  ]
+}

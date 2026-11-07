@@ -54,3 +54,13 @@ test('One Piece Card Game resolves the public One Piece category to its catalog 
   assert.equal(page.notFound,undefined);assert.deepEqual(page.cards.map(c=>c.publicCardId),['op-test']);
  }finally{await db.exec('ROLLBACK');}
 });
+
+test('homepage selects confirmed featured records in editorial order, without unrelated directory fallback',async()=>{
+ await db.exec('BEGIN');
+ try{
+  await db.exec("INSERT INTO cards_all(product_id,game_id,game,set_id,set_name,set_code,number,name,product_type_name,has_image) VALUES('714372',1,'Pokemon','A','Test Set','TEST','4/102','Home Charizard','Cards',2),('712954',1,'Pokemon','A','Test Set','TEST','150/128','Home Pikachu','Cards',2),('717605',1,'Pokemon','A','Test Set','TEST','152/128','Home Mew','Cards',2),('101520',1,'Pokemon','A','Test Set','TEST','98/98','No public image','Cards',1)");
+  const home=await store.pageData(new URLSearchParams({path:'/',q:'unrelated',page:'99'}),ctx);
+  assert.deepEqual(home.cards.map(c=>c.publicCardId),['714372','712954','717605']);assert.equal(home.cards[0].price_usd,null);
+  const normal=await store.listCards(new URLSearchParams({pageSize:'2'}),ctx);assert.deepEqual(normal.items.map(c=>c.publicCardId),['001','002']);
+ }finally{await db.exec('ROLLBACK');}
+});
