@@ -1,0 +1,11 @@
+import {build} from 'esbuild';
+import {mkdir} from 'node:fs/promises';
+import {fileURLToPath} from 'node:url';
+import {startLocalServer,localAssetBinding} from '@kando/website-content/node-server';
+import './build.mjs';
+await mkdir(new URL('../.local/',import.meta.url),{recursive:true});
+await build({entryPoints:[fileURLToPath(new URL('../worker/index.ts',import.meta.url))],bundle:true,platform:'neutral',format:'esm',target:'es2022',outfile:fileURLToPath(new URL('../.local/worker.mjs',import.meta.url))});
+const worker=(await import('../.local/worker.mjs?'+Date.now())).default;
+const servicePort=Number(process.env.SITE_DATA_PORT??8891),port=Number(process.env.CARDSCANFOX_PORT??8890);
+if(!Number.isSafeInteger(port)||!Number.isSafeInteger(servicePort))throw new Error('Invalid local port.');
+startLocalServer(worker,{DEPLOYMENT_MODE:'preview',LOCAL_DEVELOPMENT:'true',PUBLIC_ORIGIN:'https://tcgcard.fun',CATALOG_MODE:process.env.WEBSITE_CATALOG_MODE??'snapshot',PUBLISH_READY:'false',ASSETS:localAssetBinding(fileURLToPath(new URL('../dist/',import.meta.url))),SITE_DATA:{fetch(request){const u=new URL(request.url);return fetch('http://127.0.0.1:'+servicePort+u.pathname+u.search,{method:request.method,signal:AbortSignal.timeout(3000)});}}},{port,label:'CardScanFox independent site'});

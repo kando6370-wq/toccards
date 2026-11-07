@@ -33,3 +33,5 @@ v1.1.3 已原位归档。本版本承接 v1.1.3 之后的新增、变更、移�
 - 本地验证、CI、dev、prod、商店发布、用户反馈和 Agent 独立验收必须分别标记，未执行项不得写成通过。
 - 不在正式 docs 中保存执行日志、任务快照、截图、Secret、Token、私钥或原始生产响应。
 - 文档版本、App 版本、API 版本、Git 提交和环境运行版本分别管理；创建 v1.1.4 不代表代码、数据库或环境发生变化。
+
+- [CardScanFox 独立预览与自动部署](02-architecture/cardscanfox-auto-deployment.md)：新版独立应用、保护旧 URL、静态预览与只读 Worker 的发布边界。

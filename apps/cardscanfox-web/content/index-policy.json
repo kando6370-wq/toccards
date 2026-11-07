@@ -1,0 +1,22 @@
+{
+  "newIndexPaths": [
+    "/cards",
+    "/games",
+    "/sets",
+    "/prices",
+    "/app",
+    "/help",
+    "/data-methodology",
+    "/blog/category/identity",
+    "/blog/category/values",
+    "/blog/category/collecting",
+    "/blog/category/comparisons"
+  ],
+  "note": "Local production policy only. Preview authentication/noindex and PUBLISH_READY remain enforced. Eligible real card pages may be indexed; sitemap discovery expands in reviewed batches. Missing price alone does not exclude a useful identity page.",
+  "catalog": {
+    "enabled": true,
+    "requiredDatasetMode": "published-read-only",
+    "sitemapUrlsPerFile": 10000,
+    "initialDiscoveryUrls": 1000
+  }
+}

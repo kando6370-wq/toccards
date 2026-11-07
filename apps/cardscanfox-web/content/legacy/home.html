@@ -1,0 +1,1726 @@
+<!doctype html>
+<!-- Deployment refresh: 2026-09-28 -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Scan trading cards in the Card AI app, confirm matching records, check available published prices, and track your collection value.">
+  <link rel="canonical" href="https://tcgcard.fun/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Card AI">
+  <meta property="og:title" content="Card AI: TCG Card Scanner, Price Checker &amp; Collection Tracker">
+  <meta property="og:description" content="Scan trading cards in the Card AI app, confirm matching records, check available published prices, and track your collection value.">
+  <meta property="og:url" content="https://tcgcard.fun/">
+  <meta property="og:image" content="https://tcgcard.fun/assets/hero-phones.png">
+  <meta property="og:image:width" content="1232">
+  <meta property="og:image:height" content="686">
+  <meta property="og:locale" content="en_US">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Card AI: TCG Card Scanner, Price Checker &amp; Collection Tracker">
+  <meta name="twitter:description" content="Scan trading cards in the Card AI app, confirm matching records, check available published prices, and track your collection value.">
+  <meta name="twitter:image" content="https://tcgcard.fun/assets/hero-phones.png">
+  <link rel="icon" type="image/png" href="/assets/card-ai-logo.png">
+  <link rel="apple-touch-icon" href="/assets/card-ai-logo.png">
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Card AI",
+  "alternateName": "Card AI: TCG Card Scanner",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "iOS 16+, Android 7.0+",
+  "url": "https://tcgcard.fun/",
+  "description": "Card AI is a trading card scanner and collection tracker. Scan a card to find likely catalog matches, confirm its printing details, check market prices for raw and graded copies, and track the value of your collection over time.",
+  "installUrl": "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224",
+  "screenshot": "https://tcgcard.fun/assets/hero-phones.png",
+  "offers": {
+    "@type": "Offer",
+    "price": 0
+  },
+  "featureList": [
+    "AI trading card scanner and card identifier",
+    "TCG card price checker with available published market data",
+    "Card collection tracker and portfolio value tracking",
+    "Card price history and market trends",
+    "Raw and graded card value comparison by condition and grade",
+    "Wishlist and card-set browsing",
+    "Multi-game support: Pokemon, Magic: The Gathering, Yu-Gi-Oh!, One Piece, Lorcana, Digimon, Dragon Ball Super and sports cards"
+  ],
+  "publisher": {
+    "@type": "Organization",
+    "name": "Chongqing Guanyun Technology Co.,ltd.",
+    "url": "https://tcgcard.fun/",
+    "logo": "https://tcgcard.fun/assets/card-ai-logo.png"
+  }
+}
+  </script>
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "Card AI",
+  "url": "https://tcgcard.fun/",
+  "description": "Card AI is a trading card scanner and collection tracker. Scan a card to find likely catalog matches, confirm its printing details, check market prices for raw and graded copies, and track the value of your collection over time."
+}
+  </script>
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What is my card worth?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Scan a card and Card AI suggests likely matches from the catalog. Review the set and card number, confirm the finish and language, then choose a raw condition or enter the grade shown on an existing slab to see the relevant market value."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "What should I look for in a trading card scanner app?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "A useful trading card scanner app should show likely catalog matches for review, keep the set and card number visible, separate raw condition from existing slab grades, and connect confirmed cards to price history and a collection tracker. Card AI does not authenticate cards or predict grades from a photo."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Which trading card games does the card scanner support?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Card AI supports Pokemon, Magic: The Gathering, Yu-Gi-Oh!, One Piece, Disney Lorcana, Digimon, Dragon Ball Super and Naruto cards in one collection, so supported games do not need separate collection apps."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How does Card AI identify a card from a photo?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Point your camera at a card, or select photos from your library. AI recognition suggests matching catalog records with details such as the set and card number. You review the match and confirm fields such as finish and language before adding it."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I scan more than one card at a time?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Bulk scanning lets you work through a stack of cards in one session and add them to your collection together, instead of looking up each card individually."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does Card AI work with sports cards?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. Alongside supported TCG titles, Card AI covers basketball, football and soccer cards, so you can check their values and track them in the same collection."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I track my collection value over time?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Your collection works as a portfolio. Card AI tracks the total value of everything you own, shows price history and market trends for individual cards, and updates as the market moves."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does Card AI handle graded cards?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. You can record a card as raw with its condition, or as third-party graded with the grading company and grade, covering PSA, BGS, CGC and SGC. Each is tracked and priced separately, so you can compare what the same card is worth raw versus graded."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Do I need to scan a card to look up its price?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. You can search the card catalog by name, set or card number and open a matching record to see its current market price, price history and details. Scanning is the faster route when the card is in front of you."
+      }
+    }
+  ]
+}
+  </script>
+  <title>Card AI: TCG Card Scanner, Price Checker &amp; Collection Tracker</title>
+  <style>
+:root {
+  color-scheme: dark;
+  --primary: #f0fe6f;
+  --on-primary: #2c3400;
+  --primary-container: #bac158;
+  --on-container: #515e00;
+  --primary-inverse: #576400;
+  --background: #000;
+  --surface: #0c0e0b;
+  --surface-raised: #11130f;
+  --text: #fff;
+  --muted: #a7aa9f;
+  --faint: #74786f;
+  --border: rgba(255, 255, 255, 0.1);
+  --border-accent: rgba(240, 254, 111, 0.18);
+  --content-width: 1240px;
+  --page-gutter: clamp(20px, 4vw, 64px);
+  --section-space: clamp(96px, 11vw, 156px);
+  --radius: 8px;
+  --radius-small: 6px;
+  --shadow: 0 28px 80px rgba(0, 0, 0, 0.58);
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--background);
+  color: var(--text);
+}
+
+* { box-sizing: border-box; }
+html { background: var(--background); scroll-behavior: smooth; }
+body { margin: 0; min-width: 320px; overflow-x: hidden; background: var(--background); }
+img { display: block; max-width: 100%; }
+h1, h2, h3, p { margin-top: 0; }
+h1, h2, h3 { letter-spacing: 0; }
+p { color: var(--muted); }
+.page-shell { width: min(var(--content-width), calc(100% - 2 * var(--page-gutter))); margin: 0 auto; }
+.section { padding: var(--section-space) 0; }
+.eyebrow { margin-bottom: 18px; color: var(--primary); font-size: 13px; font-weight: 750; letter-spacing: 0.12em; }
+
+.site-header { height: 76px; border-bottom: 1px solid var(--border); }
+.header-inner { width: min(var(--content-width), calc(100% - 2 * var(--page-gutter))); height: 100%; margin: 0 auto; display: flex; align-items: center; }
+.brand, .footer-brand { display: flex; align-items: center; gap: 10px; color: var(--text); font-weight: 750; }
+.brand img { width: 38px; height: auto; }
+
+.hero { position: relative; height: calc(100vh - 76px); min-height: 690px; max-height: 940px; overflow: hidden; isolation: isolate; }
+.hero::after { content: ""; position: absolute; z-index: -1; inset: 8% -8% auto auto; width: min(54vw, 760px); aspect-ratio: 1; background: radial-gradient(circle, rgba(186, 193, 88, 0.13), transparent 68%); pointer-events: none; }
+.hero-inner { height: 100%; display: grid; grid-template-columns: minmax(0, 1.02fr) minmax(360px, 0.88fr); align-items: center; gap: clamp(48px, 7vw, 112px); padding: clamp(42px, 6vh, 72px) 0; }
+.hero-copy { max-width: 680px; }
+h1 { max-width: 660px; margin-bottom: 0; font-size: clamp(56px, 5.15vw, 78px); line-height: 0.98; }
+.hero-description { max-width: 610px; margin: 26px 0 0; font-size: clamp(17px, 1.4vw, 20px); line-height: 1.58; }
+.store-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
+.store-badge { width: 174px; height: 54px; display: grid; grid-template-columns: 38px 1fr; align-items: center; padding: 6px 11px; border: 1px solid rgba(255, 255, 255, 0.82); border-radius: 7px; background: #050505; color: var(--text); }
+.store-copy { display: flex; flex-direction: column; justify-content: center; line-height: 1; }
+.store-kicker { margin-bottom: 3px; font-size: 10px; font-weight: 500; }
+.store-name { font-size: 22px; font-weight: 500; white-space: nowrap; }
+.apple-mark { font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 35px; line-height: 1; text-align: center; }
+.play-mark { width: 30px; height: 34px; margin-left: 2px; clip-path: polygon(0 0, 100% 50%, 0 100%); background: linear-gradient(150deg, #58c9e9 0 34%, #57c968 34% 52%, #f3d65a 52% 70%, #ef645c 70% 100%); }
+.product-stage { position: relative; width: min(100%, 510px); height: min(680px, calc(100vh - 150px)); max-height: 680px; min-height: 540px; justify-self: center; display: grid; place-items: center; }
+.phone-frame { position: relative; width: clamp(284px, 24vw, 340px); aspect-ratio: 390 / 780; max-height: 650px; overflow: hidden; border: 8px solid #191b17; border-radius: 42px; background: var(--surface); box-shadow: var(--shadow), 0 0 0 1px rgba(240, 254, 111, 0.13); }
+.phone-frame::before { content: ""; position: absolute; z-index: 2; top: 10px; left: 50%; width: 31%; height: 25px; border-radius: 999px; background: #090a08; transform: translateX(-50%); }
+.phone-frame img { width: 100%; height: auto; max-width: none; }
+.value-card, .chart-card { position: absolute; z-index: 3; border: 1px solid var(--border-accent); border-radius: var(--radius-small); background: rgba(13, 15, 11, 0.92); box-shadow: 0 20px 56px rgba(0, 0, 0, 0.52); backdrop-filter: blur(12px); }
+.value-card { left: 0; top: 26%; padding: 14px 16px; }
+.value-card small { color: var(--muted); }
+.value-card strong { display: block; margin-top: 4px; color: var(--primary); font-size: 22px; }
+.chart-card { right: -6px; bottom: 13%; width: min(270px, 58%); padding: 10px; }
+.chart-card img { width: 100%; height: auto; }
+
+.section-heading { max-width: 760px; margin-bottom: clamp(44px, 6vw, 72px); }
+.section-heading h2, .download h2 { margin-bottom: 22px; font-size: clamp(38px, 4vw, 58px); line-height: 1.05; }
+.section-heading > p:last-child { max-width: 640px; margin-bottom: 0; font-size: 18px; line-height: 1.65; }
+.compact-heading { max-width: 680px; }
+
+.features { border-top: 1px solid var(--border); }
+.feature-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.feature-card { min-height: 260px; padding: 28px; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius); background: linear-gradient(145deg, rgba(17, 19, 15, 0.94), rgba(8, 9, 7, 0.96)); }
+.feature-card-visual { min-height: 480px; }
+.feature-icon { width: 38px; height: 38px; display: grid; place-items: center; margin-bottom: 42px; border: 1px solid var(--border-accent); border-radius: var(--radius-small); background: rgba(240, 254, 111, 0.07); color: var(--primary); font-size: 22px; }
+.feature-card h3 { margin-bottom: 12px; font-size: 23px; }
+.feature-card p { margin-bottom: 0; line-height: 1.6; }
+.feature-media { margin-top: 28px; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-small); background: #090a08; }
+.feature-media img { width: 100%; height: auto; }
+.feature-media-phone { width: 64%; height: 230px; margin-right: auto; margin-left: auto; border-radius: 26px 26px 0 0; }
+.feature-media-chart { margin-top: 54px; padding: 8px; }
+.feature-media-home { height: 240px; }
+
+.workflow { background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin: 0; padding: 0; list-style: none; counter-reset: steps; }
+.steps li { position: relative; min-height: 230px; padding: 32px 48px 28px 0; border-top: 1px solid var(--border-accent); }
+.steps li:not(:last-child)::after { content: ""; position: absolute; top: -1px; right: 24px; width: 9px; height: 9px; border-radius: 50%; background: var(--primary); transform: translateY(-50%); box-shadow: 0 0 20px rgba(240, 254, 111, 0.4); }
+.step-number { display: block; margin-bottom: 50px; color: var(--primary); font-size: 13px; font-weight: 750; }
+.steps h3 { margin-bottom: 10px; font-size: 30px; }
+.steps p { max-width: 280px; margin-bottom: 0; line-height: 1.55; }
+
+.showcase { padding-bottom: 40px; }
+.showcase-row { min-height: 690px; display: grid; grid-template-columns: minmax(0, 0.85fr) minmax(460px, 1.15fr); align-items: center; gap: clamp(54px, 8vw, 120px); padding: 80px 0; border-top: 1px solid var(--border); }
+.showcase-row-reverse .showcase-copy { order: 2; }
+.showcase-row-reverse .showcase-visual { order: 1; }
+.showcase-copy { max-width: 520px; }
+.showcase-index { display: block; margin-bottom: 24px; color: var(--primary); font-size: 12px; font-weight: 750; letter-spacing: 0.1em; }
+.showcase-copy h3 { margin-bottom: 20px; font-size: clamp(36px, 3.4vw, 52px); line-height: 1.05; }
+.showcase-copy > p { font-size: 18px; line-height: 1.65; }
+.showcase-copy ul { margin: 28px 0 0; padding: 0; list-style: none; color: #d8dbd2; }
+.showcase-copy li { position: relative; margin: 12px 0; padding-left: 22px; }
+.showcase-copy li::before { content: ""; position: absolute; left: 0; top: 0.55em; width: 7px; height: 7px; border-radius: 50%; background: var(--primary); }
+.showcase-visual { position: relative; height: 610px; display: grid; place-items: center; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius); background: radial-gradient(circle at 50% 42%, rgba(186, 193, 88, 0.13), transparent 60%), #080907; }
+.screen-crop { width: 330px; height: 640px; margin-top: 94px; overflow: hidden; border: 7px solid #1b1d19; border-radius: 38px; box-shadow: var(--shadow); }
+.screen-crop img { width: 100%; height: auto; }
+.showcase-scan .screen-crop { width: 360px; margin-top: 80px; }
+.showcase-detail .screen-crop { width: 350px; margin-top: 184px; }
+
+.games { border-top: 1px solid var(--border); }
+.games-inner { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(520px, 1.1fr); gap: 80px; align-items: start; }
+.game-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 0; padding: 0; list-style: none; }
+.game-card { min-height: 104px; display: flex; align-items: center; gap: 16px; padding: 22px; border: 1px solid var(--border); border-radius: var(--radius); background: linear-gradient(145deg, rgba(17, 19, 15, 0.94), rgba(8, 9, 7, 0.96)); color: #e8eae5; font-size: 17px; font-weight: 650; }
+.game-mark { flex: 0 0 auto; width: 9px; height: 9px; border-radius: 2px; background: var(--primary); box-shadow: 0 0 0 5px rgba(240, 254, 111, 0.07); }
+.game-card:last-child { grid-column: 1 / -1; }
+
+.download { padding-bottom: clamp(100px, 12vw, 170px); }
+.download-inner { position: relative; padding: clamp(64px, 8vw, 104px) var(--page-gutter); overflow: hidden; border: 1px solid var(--border-accent); border-radius: var(--radius); background: radial-gradient(circle at 50% 120%, rgba(186, 193, 88, 0.16), transparent 48%), var(--surface); text-align: center; }
+.download-inner > img { width: 70px; height: auto; margin: 0 auto 24px; }
+.download h2 { max-width: 780px; margin-right: auto; margin-left: auto; }
+.download-inner > p:not(.eyebrow) { margin-bottom: 0; font-size: 18px; }
+.store-row-centered { justify-content: center; }
+
+.site-footer { padding: 38px 0; border-top: 1px solid var(--border); }
+.footer-inner { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 28px; }
+.footer-brand img { width: 32px; height: auto; }
+.footer-links { display: flex; gap: 28px; color: var(--muted); font-size: 14px; }
+.footer-links a { color: inherit; text-decoration: none; }
+.footer-inner > p { grid-column: 1 / -1; margin: 0; color: var(--faint); font-size: 13px; }
+
+@media (max-width: 1100px) {
+  .feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .games-inner { grid-template-columns: 1fr; gap: 12px; }
+}
+
+@media (max-width: 980px) {
+  .site-header { height: 68px; }
+  .brand img { width: 34px; }
+  .hero { height: auto; min-height: 0; max-height: none; }
+  .hero-inner { height: auto; grid-template-columns: 1fr; gap: 54px; padding: 64px 0 72px; }
+  .hero-copy { max-width: 720px; }
+  h1 { font-size: clamp(52px, 9vw, 72px); }
+  .product-stage { width: min(100%, 580px); height: 650px; min-height: 0; }
+  .steps li { padding-right: 28px; }
+  .showcase-row { min-height: 0; grid-template-columns: 1fr; gap: 46px; padding: 72px 0; }
+  .showcase-row-reverse .showcase-copy, .showcase-row-reverse .showcase-visual { order: initial; }
+  .showcase-copy { max-width: 650px; }
+  .showcase-visual { height: 580px; }
+}
+
+@media (max-width: 640px) {
+  :root { --page-gutter: 20px; --section-space: 82px; }
+  .hero-inner { gap: 38px; padding: 46px 0 58px; }
+  h1 { font-size: 48px; }
+  .hero-description { font-size: 17px; }
+  .store-row { display: grid; grid-template-columns: 1fr; width: fit-content; }
+  .product-stage { height: 540px; }
+  .phone-frame { width: 270px; border-radius: 36px; }
+  .value-card { left: -4px; top: 23%; padding: 11px 13px; }
+  .value-card strong { font-size: 18px; }
+  .chart-card { right: -22px; bottom: 8%; width: 210px; }
+  .section-heading h2, .download h2 { font-size: 38px; }
+  .feature-grid { grid-template-columns: 1fr; }
+  .feature-card, .feature-card-visual { min-height: 0; }
+  .feature-icon { margin-bottom: 34px; }
+  .feature-media-phone { height: 250px; }
+  .steps { grid-template-columns: 1fr; }
+  .steps li { min-height: 0; padding: 34px 0; }
+  .steps li:not(:last-child)::after { top: auto; right: auto; bottom: -5px; left: 0; }
+  .step-number { margin-bottom: 24px; }
+  .showcase-row { padding: 58px 0; }
+  .showcase-copy h3 { font-size: 38px; }
+  .showcase-copy > p { font-size: 17px; }
+  .showcase-visual { height: 500px; }
+  .screen-crop, .showcase-scan .screen-crop, .showcase-detail .screen-crop { width: min(290px, 84%); }
+  .showcase-detail .screen-crop { margin-top: 160px; }
+  .game-grid { grid-template-columns: 1fr; }
+  .game-card:last-child { grid-column: auto; }
+  .download-inner { padding-right: 22px; padding-left: 22px; }
+  .footer-inner { grid-template-columns: 1fr; }
+  .footer-links { flex-wrap: wrap; gap: 14px 22px; }
+}
+
+
+.footer-links button {
+  appearance: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.legal-modal[hidden] { display: none; }
+
+.legal-modal {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.legal-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.86);
+  backdrop-filter: blur(10px);
+}
+
+.legal-modal-panel {
+  position: relative;
+  width: min(900px, 100%);
+  height: min(88vh, 900px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius);
+  background: #080907;
+  box-shadow: 0 36px 100px rgba(0, 0, 0, 0.76);
+}
+
+.legal-modal-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px 28px;
+  border-bottom: 1px solid var(--border);
+}
+
+.legal-modal-label {
+  margin: 0 0 5px;
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+}
+
+.legal-modal-title {
+  margin: 0;
+  font-size: clamp(25px, 3vw, 34px);
+  line-height: 1.1;
+}
+
+.legal-modal-close {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  background: var(--surface-raised);
+  color: var(--text);
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.legal-modal-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 38px 44px 56px;
+}
+
+.modal-legal-content {
+  max-width: 760px;
+  margin: 0 auto;
+  color: #c6c9c1;
+  font-size: 16px;
+  line-height: 1.72;
+  overflow-wrap: anywhere;
+}
+
+.modal-legal-content h2 {
+  margin: 58px 0 18px;
+  color: var(--text);
+  font-size: 27px;
+  line-height: 1.25;
+}
+
+.modal-legal-content h2:first-of-type { margin-top: 50px; }
+
+.modal-legal-content h3 {
+  margin: 38px 0 14px;
+  color: var(--text);
+  font-size: 20px;
+  line-height: 1.35;
+}
+
+.modal-legal-content p { margin: 0 0 20px; }
+.modal-legal-content ul,
+.modal-legal-content ol { margin: 0 0 26px; padding-left: 24px; }
+.modal-legal-content li { margin: 8px 0; padding-left: 6px; }
+.modal-legal-content li::marker { color: var(--primary); }
+.modal-legal-content a { color: var(--primary); }
+.legal-modal-open { overflow: hidden; }
+
+@media (max-width: 640px) {
+  .legal-modal { padding: 0; }
+  .legal-modal-panel { width: 100%; height: 100%; border: 0; border-radius: 0; }
+  .legal-modal-header { padding: 18px 20px; }
+  .legal-modal-close { width: 40px; height: 40px; }
+  .legal-modal-scroll { padding: 28px 20px 48px; }
+  .modal-legal-content { font-size: 15px; line-height: 1.68; }
+  .modal-legal-content h2 { margin-top: 48px; font-size: 24px; }
+  .modal-legal-content h3 { margin-top: 34px; font-size: 19px; }
+}
+
+  </style>
+  <link rel="stylesheet" href="/site.css">
+</head>
+<body>
+  <div class="marketing-site">
+    <header class="new-header">
+      <div class="new-header-inner site-container">
+        <a class="new-brand" href="/" aria-label="Card AI home">
+          <img src="/assets/card-ai-logo.png" alt="">
+          <span>Card AI</span>
+        </a>
+        <nav class="primary-nav" aria-label="Card AI tasks">
+          <a href="/card-identifier">Scan</a>
+          <a href="/card-price-checker">Prices</a>
+          <a href="/card-collection-tracker">Collection</a>
+          <a href="/card-scanner-comparison-2026">Compare</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="new-hero" id="hero">
+        <div class="hero-stack">
+          <h1>Card AI.</h1>
+          <p class="hero-claim">Scan cards. Know their value.</p>
+          <p class="hero-copy">Identify a card from a photo, check the available price for its exact printing, and track the cards you own in the Card AI app.</p>
+          <div class="store-buttons" aria-label="Download options">
+            <a class="store-badge" href="https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224" aria-label="Download on the App Store">
+              <img class="store-icon-img" src="/assets/apple-store-icon.png" alt="">
+              <span class="store-text"><small>Download</small><strong>App Store</strong></span>
+            </a>
+            <span class="store-badge store-badge-disabled" aria-disabled="true">
+              <img class="store-icon-img" src="/assets/google-play-icon.png" alt="">
+              <span class="store-text"><small>Store Link Pending</small><strong>Google Play</strong></span>
+            </span>
+          </div>
+          <div class="trust-row" aria-label="Privacy and security">
+            <span>Data Encrypted in Transit</span>
+            <span>Privacy Controls</span>
+            <span>Built for Collectors</span>
+          </div>
+          <img class="hero-phones" src="/assets/hero-phones.png" alt="Card AI scanning, portfolio, and card detail screens">
+        </div>
+      </section>
+
+      <section class="tools-section" id="features">
+        <div class="tool-grid">
+          <div class="tool-title"><h2>Powerful Tools<br>for Effortless Collecting.</h2></div>
+          <article class="tool-card tool-card-large">
+            <div class="tool-icon" aria-hidden="true"><img class="tool-icon-image" src="/assets/feature-icon-recognition.svg" width="24" height="24" alt=""></div>
+            <h3>AI-Powered Card Recognition</h3>
+            <p>Take a photo to find likely card matches, then confirm the language and printing details in Review.</p>
+            <img class="tool-visual" src="/assets/feature-recognition.png" alt="Card recognition preview">
+          </article>
+          <article class="tool-card tool-card-large">
+            <div class="tool-icon" aria-hidden="true"><img class="tool-icon-image" src="/assets/feature-icon-valuations.svg" width="24" height="24" alt=""></div>
+            <h3>Available Card Prices</h3>
+            <p>Check published prices and follow available price history.</p>
+            <img class="tool-visual" src="/assets/feature-valuations.png" alt="Collection value chart">
+          </article>
+          <article class="tool-card tool-card-large">
+            <div class="tool-icon" aria-hidden="true"><img class="tool-icon-image" src="/assets/feature-icon-portfolio.svg" width="24" height="24" alt=""></div>
+            <h3>Portfolio Management</h3>
+            <p>Keep collection value, featured cards, and current market data in one place.</p>
+            <img class="tool-visual" src="/assets/feature-portfolio.png" alt="Portfolio management screens">
+          </article>
+          <article class="tool-card tool-card-small first-small">
+            <div class="tool-icon" aria-hidden="true"><img class="tool-icon-image" src="/assets/feature-icon-market-data.svg" width="19" height="19" alt=""></div>
+            <h3>Card Details &amp; Market Data</h3>
+            <p>Verify card identity, grading details, price history, and available marketplaces.</p>
+          </article>
+          <article class="tool-card tool-card-small">
+            <div class="tool-icon" aria-hidden="true"><img class="tool-icon-image" src="/assets/feature-icon-wishlist.svg" width="19" height="19" alt=""></div>
+            <h3>Wishlist</h3>
+            <p>Keep cards you are watching separate from the cards you own.</p>
+          </article>
+          <article class="tool-card tool-card-small">
+            <div class="tool-icon" aria-hidden="true"><img class="tool-icon-image" src="/assets/feature-icon-multi-game.svg" width="20" height="20" alt=""></div>
+            <h3>Multi-Game Support</h3>
+            <p>Manage popular trading card games and sports cards through a unified workflow.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="steps-section" id="workflow">
+        <div class="steps-wrap">
+          <h2>From Card to Collection in Three Simple Steps.</h2>
+          <div class="new-steps">
+            <article class="new-step"><span class="step-dot">01</span><h3>Scan</h3><p>Photograph or select cards to find likely catalog matches.</p></article>
+            <article class="new-step"><span class="step-dot">02</span><h3>Confirm</h3><p>Review the match, confirm the printing, and record a raw condition or existing slab grade.</p></article>
+            <article class="new-step"><span class="step-dot">03</span><h3>Track</h3><p>Get valuations and trends to refine your collection.</p></article>
+          </div>
+        </div>
+      </section>
+
+      <section class="details-section" id="showcase">
+        <div class="detail-list">
+          <article class="detail-row">
+            <div class="detail-visual"><img src="/assets/showcase-portfolio.png" alt="Portfolio value and performance overview"></div>
+            <div class="detail-copy">
+              <h2>See Your Collection<br>at a Glance.</h2>
+              <p>Total value, performance trends, and collection composition in one view.</p>
+              <ul><li>Current Valuation Updates</li><li>Collection Distribution Analysis</li><li>Featured Card Highlights</li><li>Multi-Dimensional Filters &amp; Sorting</li></ul>
+            </div>
+          </article>
+          <article class="detail-row">
+            <div class="detail-visual scan-visual">
+              <img class="scan-composite" src="/assets/showcase-scan.png" alt="AI card scanning and recognition preview">
+              <button class="scan-card-layer" type="button" aria-label="Show Card AI side of sample card" aria-pressed="false" disabled>
+                <span class="scan-card-tilt" aria-hidden="true">
+                  <span class="scan-card-flip">
+                    <span class="scan-card-face scan-card-front">
+                      <img src="/assets/showcase-scan-card.png" alt="">
+                    </span>
+                    <span class="scan-card-face scan-card-back">
+                      <span class="scan-card-back-frame">
+                        <img src="/assets/card-ai-logo.png" alt="">
+                        <strong>Card AI</strong>
+                        <span>Scan / Review / Collect</span>
+                      </span>
+                    </span>
+                  </span>
+                </span>
+              </button>
+            </div>
+            <div class="detail-copy">
+              <h2>Identify Cards as You Scan.</h2>
+              <p>Image recognition narrows the catalog to likely card matches for you to review.</p>
+              <ul><li>Photo-Based Candidate Matching</li><li>Set and Card Number Details</li><li>Printing Review Before Saving</li><li>Batch Scan Queue</li></ul>
+            </div>
+          </article>
+          <article class="detail-row">
+            <div class="detail-visual"><img src="/assets/showcase-analysis.png" alt="Card market prices and trend analysis"></div>
+            <div class="detail-copy">
+              <h2>Market Analysis<br>for Your Cards.</h2>
+              <p>Review available published prices and price history for the exact card you confirmed.</p>
+              <ul><li>Published Price Dates</li><li>Price Trend Charts</li><li>Price Comparisons by Grade</li><li>Raw and Graded Price Views</li></ul>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="games-section" id="supported-games">
+        <div class="games-layout site-container">
+          <h2>One Collection Across<br>Supported Games.</h2>
+          <div class="game-tags" aria-label="Supported card categories">
+            <span class="game-tag">Pokemon Trading</span><span class="game-tag">Yu-Gi-Oh!</span><span class="game-tag">Magic: The Gathering</span><span class="game-tag">One Piece Card Game</span><span class="game-tag">Naruto Card Game</span>
+            <span class="game-tag">Dragon Ball Super</span><span class="game-tag">Digimon Card Game</span><span class="game-tag">One Piece Card Game</span><span class="game-tag">Basketball Cards</span><span class="game-tag">Football Cards</span>
+            <span class="game-tag">More Categories</span>
+          </div>
+        </div>
+      </section>
+
+
+      <section class="faq-section" id="faq">
+        <div class="faq-layout site-container">
+          <h2>Trading Card Scanner<br>Questions.</h2>
+          <div class="faq-list">
+            <details class="faq-item">
+              <summary>What is my card worth?</summary>
+              <p>Scan a card and Card AI suggests likely matches from the catalog. Review the set and card number, confirm the finish and language, then choose a raw condition or enter the grade shown on an existing slab to see the relevant market value.</p>
+            </details>
+            <details class="faq-item">
+              <summary>What should I look for in a trading card scanner app?</summary>
+              <p>A useful trading card scanner app should show likely catalog matches for review, keep the set and card number visible, separate raw condition from existing slab grades, and connect confirmed cards to price history and a collection tracker. Card AI does not authenticate cards or predict grades from a photo.</p>
+            </details>
+            <details class="faq-item">
+              <summary>Which trading card games does the card scanner support?</summary>
+              <p>Card AI supports Pokemon, Magic: The Gathering, Yu-Gi-Oh!, One Piece, Disney Lorcana, Digimon, Dragon Ball Super and Naruto cards in one collection, so supported games do not need separate collection apps.</p>
+            </details>
+            <details class="faq-item">
+              <summary>How does Card AI identify a card from a photo?</summary>
+              <p>Point your camera at a card, or select photos from your library. AI recognition suggests matching catalog records with details such as the set and card number. You review the match and confirm fields such as finish and language before adding it.</p>
+            </details>
+            <details class="faq-item">
+              <summary>Can I scan more than one card at a time?</summary>
+              <p>Yes. Bulk scanning lets you work through a stack of cards in one session and add them to your collection together, instead of looking up each card individually.</p>
+            </details>
+            <details class="faq-item">
+              <summary>Does Card AI work with sports cards?</summary>
+              <p>Yes. Alongside supported TCG titles, Card AI covers basketball, football and soccer cards, so you can check their values and track them in the same collection.</p>
+            </details>
+            <details class="faq-item">
+              <summary>Can I track my collection value over time?</summary>
+              <p>Your collection works as a portfolio. Card AI tracks the total value of everything you own, shows price history and market trends for individual cards, and updates as the market moves.</p>
+            </details>
+            <details class="faq-item">
+              <summary>Does Card AI handle graded cards?</summary>
+              <p>Yes. You can record a card as raw with its condition, or as third-party graded with the grading company and grade, covering PSA, BGS, CGC and SGC. Each is tracked and priced separately, so you can compare what the same card is worth raw versus graded.</p>
+            </details>
+            <details class="faq-item">
+              <summary>Do I need to scan a card to look up its price?</summary>
+              <p>No. You can search the card catalog by name, set or card number and open a matching record to see its current market price, price history and details. Scanning is the faster route when the card is in front of you.</p>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <!-- BEGIN generated-links -->
+      <section class="browse-section" id="browse">
+        <div class="site-container">
+          <h2>Browse by game and feature.</h2>
+          <div class="browse-grid">
+            <div class="browse-col">
+              <h3>Trading card games</h3>
+              <ul class="content-links"><li><a href="/digimon-card-scanner">Digimon card scanner</a></li><li><a href="/dragon-ball-super-card-scanner">Dragon Ball Super card scanner</a></li><li><a href="/flesh-and-blood-card-scanner">Flesh and Blood card scanner</a></li><li><a href="/lorcana-card-scanner">Lorcana card scanner</a></li><li><a href="/mtg-card-scanner">MTG card scanner</a></li><li><a href="/one-piece-card-scanner">One Piece card scanner</a></li><li><a href="/pokemon-card-scanner">Pokemon card scanner</a></li><li><a href="/star-wars-unlimited-card-scanner">Star Wars Unlimited card scanner</a></li><li><a href="/yugioh-card-scanner">Yu-Gi-Oh! card scanner</a></li></ul>
+            </div>
+            <div class="browse-col">
+              <h3>Sports cards</h3>
+              <ul class="content-links"><li><a href="/basketball-card-scanner">Basketball card scanner</a></li><li><a href="/football-card-scanner">Football card scanner</a></li><li><a href="/soccer-card-scanner">Soccer card scanner</a></li></ul>
+            </div>
+            <div class="browse-col">
+              <h3>By feature</h3>
+              <ul class="content-links"><li><a href="/bulk-card-scanner">Bulk card scanner</a></li><li><a href="/card-ai-vs-collx">Card AI vs CollX</a></li><li><a href="/card-ai-vs-ludex">Card AI vs Ludex</a></li><li><a href="/card-collection-tracker">Card collection tracker</a></li><li><a href="/card-identifier">Card identifier</a></li><li><a href="/card-price-checker">Card price checker</a></li><li><a href="/card-scanner-comparison-2026">Card scanner app comparison 2026</a></li><li><a href="/chrome-extension">Chrome card recognizer</a></li><li><a href="/digital-card-binder">Digital card binder</a></li><li><a href="/graded-card-tracker">Graded card tracker</a></li></ul>
+            </div>
+            <div class="browse-col">
+              <h3>Guides</h3>
+              <ul class="content-links"><li><a href="/blog/ascended-heroes-card-list">Ascended Heroes card list and printing guide</a></li><li><a href="/blog/chaos-rising-card-list">Chaos Rising card list and price reference</a></li><li><a href="/blog/charizard-151-card-value">Charizard 151: compare 006/165, 183/165 and 199/165</a></li><li><a href="/blog/charizard-gx-card-values">Charizard GX: separate Hidden Fates, stamped and promo copies</a></li><li><a href="/blog/cufant-card-values">Cufant card values: compare the set and full number</a></li><li><a href="/blog/ivysaur-card-values">Ivysaur card values: 151 and Base Set are different records</a></li><li><a href="/blog/mega-charizard-x-ex-card-value">Mega Charizard X ex: check the Phantasmal Flames printing</a></li><li><a href="/blog/mew-gg10-card-value">Mew GG10: check Crown Zenith GG10/GG70 before pricing</a></li><li><a href="/blog/moonbreon-card-value">Moonbreon: identify Umbreon VMAX 215/203 before pricing</a></li><li><a href="/blog/phantasmal-flames-card-list">Phantasmal Flames card list and price reference</a></li><li><a href="/blog/pikachu-card-values">Pikachu card values start with the set and number</a></li><li><a href="/blog/pokemon-card-values">Find a Pokemon card value by its exact printing</a></li><li><a href="/blog/rayquaza-vmax-card-values">Rayquaza VMAX values depend on the set and card number</a></li><li><a href="/blog/pokemon-tcg-set-card-lists">Pokemon TCG set card lists: identify a card before checking its price</a></li><li><a href="/blog/dungeon-crawler-carl-trading-cards">Dungeon Crawler Carl trading cards: Series 1 cards and packs</a></li><li><a href="/blog/minior-pokemon-card-guide">Minior Pokemon cards: identify the printing before checking value</a></li><li><a href="/blog/scanning-cards-from-watsontcg">How to scan cards bought at WatsonTCG</a></li><li><a href="/blog/pokemon-tcg-30th-celebration-card-prices">Pokemon 30th anniversary: 30th Celebration cards and prices</a></li><li><a href="/blog/what-is-my-trading-card-worth">What is my trading card worth?</a></li><li><a href="/blog/raw-vs-graded-card-values">Raw vs graded cards, and what grading does to value</a></li><li><a href="/blog/">All guides</a></li></ul>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- END generated-links -->
+
+      <section class="new-cta" id="download">
+        <div class="cta-brand-block">
+          <img src="/assets/card-ai-logo.png" alt="Card AI logo">
+          <p class="cta-brand">Card AI</p>
+        </div>
+        <h2>Start Tracking Your Collection Today.</h2>
+        <p>Scan the cards you own, understand their market trends, and stay informed about your collection value.</p>
+        <div class="store-buttons" aria-label="Download options">
+          <a class="store-badge" href="https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224" aria-label="Download on the App Store"><img class="store-icon-img" src="/assets/apple-store-icon.png" alt=""><span class="store-text"><small>Download</small><strong>App Store</strong></span></a>
+          <span class="store-badge store-badge-disabled" aria-disabled="true"><img class="store-icon-img" src="/assets/google-play-icon.png" alt=""><span class="store-text"><small>Store Link Pending</small><strong>Google Play</strong></span></span>
+        </div>
+      </section>
+    </main>
+
+    <footer class="new-footer">
+      <div class="new-footer-inner site-container">
+        <div class="footer-logo"><img src="/assets/card-ai-logo.png" alt=""><span>Card AI</span></div>
+        <div class="new-footer-links" aria-label="Legal and contact">
+          <a href="/blog/">Blog</a>
+          <button type="button" data-modal-target="terms-modal">Terms of Service</button>
+          <button type="button" data-modal-target="privacy-modal">Privacy Policy</button>
+          <a href="mailto:support@tcgcard.fun">Contact Us</a>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <div class="legal-modal" id="privacy-modal" role="dialog" aria-modal="true" aria-labelledby="privacy-modal-title" hidden>
+    <div class="legal-modal-backdrop" data-modal-close></div>
+    <section class="legal-modal-panel">
+      <header class="legal-modal-header">
+        <div>
+          <p class="legal-modal-label">CARD AI LEGAL</p>
+          <h2 class="legal-modal-title" id="privacy-modal-title">Privacy Policy</h2>
+        </div>
+        <button class="legal-modal-close" type="button" data-modal-close aria-label="Close Privacy Policy" title="Close">×</button>
+      </header>
+      <div class="legal-modal-scroll">
+        <article class="modal-legal-content">
+<p>This Privacy Policy describes how Card AI: TCG Card Scanner(“Card
+AI,” “we,” “us,” or “our”) collects, uses, stores, shares, and protects
+information when you use Card AI: TCG Card Scanner and related features,
+websites, subscriptions, and services collectively referred to as the
+“Service.”</p>
+<p>By using Card AI, you agree to the collection and use of information
+described in this Privacy Policy. If you do not agree with this Privacy
+Policy, please do not use the Service.</p>
+<h2 id="privacy-information-we-collect">1. Information We Collect</h2>
+<p>The information we collect depends on how you use Card AI.</p>
+<h3 id="privacy-account-information">1.1 Account Information</h3>
+<p>When you create an account, sign in, or use account-related features,
+we may collect:</p>
+<ul>
+<li>Email address</li>
+<li>User ID</li>
+<li>Authentication provider information</li>
+<li>Login status</li>
+<li>Account creation date</li>
+<li>Account settings</li>
+<li>Subscription status where applicable</li>
+</ul>
+<p>If you sign in using a third-party login method, such as Google or
+Apple, we may receive basic account information from that provider,
+depending on your settings and the provider’s policies.</p>
+<h3 id="privacy-collection-and-card-information">1.2 Collection and Card
+Information</h3>
+<p>When you use Card AI to manage your collection, we may collect and
+store information that you enter, save, or edit, including:</p>
+<ul>
+<li>Cards added to your collection</li>
+<li>Wishlist or saved cards</li>
+<li>Card names</li>
+<li>Card categories</li>
+<li>Set names</li>
+<li>Card numbers</li>
+<li>Finish or variant information</li>
+<li>Language</li>
+<li>Quantity</li>
+<li>Purchase price</li>
+<li>Grading status</li>
+<li>Grading company</li>
+<li>Grade</li>
+<li>Collection folders or organization settings</li>
+<li>Portfolio and value-related records</li>
+</ul>
+<p>This information is used to provide collection tracking, card
+management, price reference, and related app features.</p>
+<h3 id="privacy-scan-images-camera-data-and-photo-library-access">1.3 Scan
+Images, Camera Data, and Photo Library Access</h3>
+<p>Card AI may request access to your device camera so you can scan
+trading cards or sports cards.</p>
+<p>Card AI may also allow you to import card images from your device
+photo library. We will access your photo library only when you choose to
+import or upload an image from your device. Depending on your device
+settings and operating system, you may be asked to grant permission to
+access selected photos or your photo library.</p>
+<p>When you use the camera scanning feature or choose to import an image
+from your photo library, we may process card images or scan-related data
+to identify cards and provide card information. Scan images may be
+temporarily processed by our systems or service providers for
+identification, troubleshooting, fraud prevention, quality improvement,
+and app functionality.</p>
+<p>We do not use your camera unless you grant camera permission through
+your device settings. We do not access your photo library unless you
+choose to import an image and grant the required permission.</p>
+<p>You can disable camera or photo library permissions at any time in
+your device settings, but scanning or image import features may not work
+without the required access.</p>
+<h3 id="privacy-price-search-and-app-usage-information">1.4 Price, Search, and
+App Usage Information</h3>
+<p>When you search for cards, view card details, check prices, or use
+app features, we may collect:</p>
+<ul>
+<li>Search queries</li>
+<li>Viewed card details</li>
+<li>Selected card categories</li>
+<li>Feature usage</li>
+<li>Button taps</li>
+<li>Screen views</li>
+<li>App session information</li>
+<li>Subscription page views</li>
+<li>Purchase flow events</li>
+<li>Scan success or failure events</li>
+<li>Error events</li>
+<li>Performance data</li>
+</ul>
+<p>This information helps us provide, analyze, improve, and troubleshoot
+the Service.</p>
+<h3 id="privacy-device-and-technical-information">1.5 Device and Technical
+Information</h3>
+<p>We and our service providers may automatically collect technical
+information, including:</p>
+<ul>
+<li>Device model</li>
+<li>Operating system version</li>
+<li>App version</li>
+<li>Device language</li>
+<li>Country or region</li>
+<li>Time zone</li>
+<li>IP address</li>
+<li>Network status</li>
+<li>Crash logs</li>
+<li>Diagnostic data</li>
+<li>App performance data</li>
+<li>Anonymous or pseudonymous identifiers</li>
+<li>Attribution identifiers where applicable</li>
+</ul>
+<p>We do not collect precise GPS location unless we specifically ask for
+it and you grant permission. Card AI currently does not require precise
+real-time location to provide its core features.</p>
+<h3 id="privacy-subscription-and-purchase-information">1.6 Subscription and
+Purchase Information</h3>
+<p>If you purchase a subscription or in-app purchase through the App
+Store, Apple processes your payment information. We do not receive your
+full payment card details.</p>
+<p>We may receive or process purchase-related information,
+including:</p>
+<ul>
+<li>Product ID</li>
+<li>Subscription status</li>
+<li>Trial status</li>
+<li>Purchase date</li>
+<li>Renewal status</li>
+<li>Expiration date</li>
+<li>Cancellation status</li>
+<li>Refund status</li>
+<li>Transaction identifiers</li>
+<li>App Store receipt or subscription validation data</li>
+</ul>
+<p>This information is used to provide premium features, verify
+purchases, prevent fraud, manage access, and support customer
+service.</p>
+<h3 id="privacy-communications">1.7 Communications</h3>
+<p>If you contact us for support, feedback, legal requests, or privacy
+questions, we may collect:</p>
+<ul>
+<li>Your email address</li>
+<li>Your message content</li>
+<li>Attachments or screenshots you provide</li>
+<li>Support history</li>
+<li>Information needed to respond to your request</li>
+</ul>
+<h2 id="privacy-how-we-use-information">2. How We Use Information</h2>
+<p>We use the information we collect to:</p>
+<ul>
+<li>Provide and operate Card AI</li>
+<li>Create and manage user accounts</li>
+<li>Authenticate users</li>
+<li>Enable card scanning and identification</li>
+<li>Save and sync collection records</li>
+<li>Display card information, prices, and estimated values</li>
+<li>Manage premium features and subscriptions</li>
+<li>Personalize app settings and user experience</li>
+<li>Analyze app performance and feature usage</li>
+<li>Improve card recognition, search, and product quality</li>
+<li>Fix bugs and crashes</li>
+<li>Prevent fraud, abuse, unauthorized access, and misuse</li>
+<li>Provide customer support</li>
+<li>Send service-related notices</li>
+<li>Comply with legal obligations</li>
+<li>Enforce our Terms of Use</li>
+<li>Protect our rights, users, and the Service</li>
+</ul>
+<p>We may use aggregated, anonymized, or de-identified information for
+analytics, research, product improvement, and business reporting.</p>
+<h2 id="privacy-third-party-services-we-use">3. Third-Party Services We Use</h2>
+<p>Card AI may use third-party services to provide authentication,
+analytics, attribution, crash reporting, infrastructure, app
+performance, and subscription-related functionality.</p>
+<p>These services may include:</p>
+<ul>
+<li>Google Firebase</li>
+<li>Firebase Authentication</li>
+<li>Google Analytics for Firebase</li>
+<li>Firebase Crashlytics</li>
+<li>Mixpanel</li>
+<li>Singular</li>
+<li>Apple App Store / StoreKit services</li>
+</ul>
+<p>These providers may collect or process information according to their
+own privacy policies and terms. We recommend reviewing their policies if
+you want to understand how they handle information.</p>
+<p>We may add, replace, or remove third-party service providers from
+time to time. If our data practices materially change, we will update
+this Privacy Policy and, where required, update our App Store privacy
+disclosures.</p>
+<h2 id="privacy-how-we-share-information">4. How We Share Information</h2>
+<p>We do not sell your personal information.</p>
+<p>We may share information in the following situations:</p>
+<h3 id="privacy-service-providers">4.1 Service Providers</h3>
+<p>We may share information with vendors and service providers who help
+us operate, host, analyze, secure, improve, or support the Service.</p>
+<p>These providers may only use information as necessary to provide
+services to us, unless otherwise permitted by law or their own
+relationship with you.</p>
+<h3 id="privacy-legal-and-safety-reasons">4.2 Legal and Safety Reasons</h3>
+<p>We may disclose information if we believe it is reasonably necessary
+to:</p>
+<ul>
+<li>Comply with applicable laws, legal processes, or government
+requests</li>
+<li>Enforce our Terms of Use</li>
+<li>Detect, prevent, or investigate fraud, security issues, or
+abuse</li>
+<li>Protect the rights, property, or safety of Card AI, users, or
+others</li>
+<li>Respond to claims that content or activity violates third-party
+rights</li>
+</ul>
+<h3 id="privacy-business-transfers">4.3 Business Transfers</h3>
+<p>If we are involved in a merger, acquisition, financing,
+reorganization, sale of assets, bankruptcy, or similar business
+transaction, information may be transferred as part of that transaction,
+subject to applicable law.</p>
+<h3 id="privacy-aggregated-or-de-identified-information">4.4 Aggregated or
+De-Identified Information</h3>
+<p>We may share aggregated, anonymized, or de-identified information
+that does not reasonably identify you.</p>
+<h2 id="privacy-app-tracking-and-advertising">5. App Tracking and
+Advertising</h2>
+<p>Card AI currently does not display third-party advertising.</p>
+<p>If we use data for tracking as defined by Apple’s App Tracking
+Transparency framework, we will request your permission where required
+before tracking you across apps or websites owned by other
+companies.</p>
+<p>Some analytics or attribution tools, including Singular, may help us
+understand installation sources, campaign performance, and app usage.
+The exact data collected may depend on your device settings, privacy
+choices, permissions, and applicable law.</p>
+<p>You can manage tracking permissions in your iOS settings.</p>
+<h2 id="privacy-cookies-and-similar-technologies">6. Cookies and Similar
+Technologies</h2>
+<p>If we operate a website, we may use cookies, pixels, SDKs, local
+storage, or similar technologies to:</p>
+<ul>
+<li>Keep the website functioning</li>
+<li>Remember preferences</li>
+<li>Analyze usage</li>
+<li>Improve performance</li>
+<li>Understand marketing effectiveness</li>
+<li>Protect against fraud or abuse</li>
+</ul>
+<p>You can manage cookies through your browser settings. Some website
+features may not function properly if cookies are disabled.</p>
+<p>Within the mobile app, third-party SDKs may use device identifiers or
+similar technologies for analytics, crash reporting, attribution,
+security, or app functionality.</p>
+<h2 id="privacy-data-retention">7. Data Retention</h2>
+<p>We retain personal information for as long as reasonably necessary to
+provide the Service, maintain your account, comply with legal
+obligations, resolve disputes, enforce agreements, prevent fraud, and
+support legitimate business purposes.</p>
+<p>Retention periods may vary depending on the type of information, how
+it is used, and legal requirements.</p>
+<p>For example:</p>
+<ul>
+<li>Account information may be retained while your account is
+active.</li>
+<li>Collection records may be retained while your account is active or
+until you delete them.</li>
+<li>Scan images may be processed temporarily and retained only as needed
+for identification, troubleshooting, security, or improvement
+purposes.</li>
+<li>Analytics, crash, diagnostic, and attribution data may be retained
+for a limited period or stored in aggregated or de-identified form.</li>
+<li>Purchase and subscription records may be retained as required for
+accounting, fraud prevention, legal compliance, or App Store transaction
+verification.</li>
+</ul>
+<p>When information is no longer needed, we will delete, de-identify, or
+aggregate it, unless we are legally required or permitted to retain
+it.</p>
+<h2 id="privacy-account-deletion-and-data-deletion">8. Account Deletion and Data
+Deletion</h2>
+<p>If Card AI allows account creation, you may initiate account deletion
+within the app.</p>
+<p>When you delete your account, we will delete or de-identify personal
+information associated with your account, subject to legal, security,
+fraud prevention, backup, accounting, dispute resolution, and other
+legitimate retention requirements.</p>
+<p>Deleting your account may delete your collection records, saved
+cards, preferences, and account-related information from active
+systems.</p>
+<p>Some information may remain in backups, logs, or records for a
+limited period before deletion or de-identification.</p>
+<p>Deleting your Card AI account does not automatically cancel an active
+App Store subscription. You must manage or cancel subscriptions through
+your Apple ID subscription settings.</p>
+<p>You may also contact us to request deletion or assistance:</p>
+<p><a href="mailto:support@tcgcard.fun">support@tcgcard.fun</a></p>
+<h2 id="privacy-your-privacy-rights-and-choices">9. Your Privacy Rights and
+Choices</h2>
+<p>Depending on where you live, you may have rights regarding your
+personal information, including the right to:</p>
+<ul>
+<li>Request access to your personal information</li>
+<li>Request correction of inaccurate information</li>
+<li>Request deletion of personal information</li>
+<li>Request restriction of processing</li>
+<li>Object to certain processing</li>
+<li>Request a copy of your information</li>
+<li>Withdraw consent where processing is based on consent</li>
+<li>Opt out of certain analytics, marketing, or tracking where
+applicable</li>
+<li>Lodge a complaint with a privacy authority</li>
+</ul>
+<p>To exercise your rights, contact us at: support@tcgcard.fun</p>
+<p>We may need to verify your identity before processing your
+request.</p>
+<p>Your rights may be limited by applicable law, security requirements,
+fraud prevention, legal obligations, or the rights of others.</p>
+<h2 id="privacy-communications-choices">10. Communications Choices</h2>
+<p>We may send you service-related messages, such as account, security,
+transaction, subscription, policy, or support notices. You may not be
+able to opt out of essential service communications.</p>
+<p>If we send marketing emails, you may opt out by using the unsubscribe
+link in the email or contacting us.</p>
+<h2 id="privacy-childrens-privacy">11. Children’s Privacy</h2>
+<p>Card AI is not intended for children and is not directed to users
+under the age required by applicable law.</p>
+<p>We do not knowingly collect personal information from children where
+parental consent is required by law.</p>
+<p>If you believe that a child has provided us with personal information
+without appropriate consent, please contact us. If we learn that we have
+collected such information, we will take reasonable steps to delete it,
+unless we are legally required or permitted to retain it.</p>
+<h2 id="privacy-international-data-transfers">12. International Data
+Transfers</h2>
+<p>We may process and store information in countries or regions outside
+where you live, including the United States and other locations where
+our service providers operate.</p>
+<p>These countries or regions may have data protection laws that differ
+from those in your location.</p>
+<p>Where required, we use appropriate safeguards for international data
+transfers.</p>
+<h2 id="privacy-data-security">13. Data Security</h2>
+<p>We use reasonable technical, administrative, and organizational
+measures designed to protect information from unauthorized access, loss,
+misuse, alteration, or disclosure.</p>
+<p>However, no method of transmission or storage is completely secure.
+We cannot guarantee absolute security.</p>
+<p>You are responsible for keeping your device, account, login
+credentials, and app access secure.</p>
+<h2 id="privacy-third-party-links-and-services">14. Third-Party Links and
+Services</h2>
+<p>Card AI may contain links or references to third-party websites,
+marketplaces, data sources, grading companies, or other external
+services.</p>
+<p>We are not responsible for the privacy practices, content, security,
+or policies of third-party services. If you use third-party services,
+their own privacy policies and terms apply.</p>
+<h2 id="privacy-third-party-brands">15. Third-Party Brands</h2>
+<p>Card AI is an independent app and is not affiliated with, endorsed
+by, sponsored by, or officially connected with any trading card game
+publisher, sports league, team, player, grading company, marketplace,
+manufacturer, or rights holder.</p>
+<p>References to Pokémon, Magic: The Gathering, One Piece, Yu-Gi-Oh!,
+Disney Lorcana, Digimon, Star Wars: Unlimited, Flesh and Blood, sports
+cards, grading companies, marketplaces, or other third-party brands are
+for identification, compatibility, reference, or informational purposes
+only.</p>
+<h2 id="privacy-changes-to-this-privacy-policy">16. Changes to This Privacy
+Policy</h2>
+<p>We may update this Privacy Policy from time to time.</p>
+<p>When we update this Privacy Policy, we will revise the Effective Date
+above. If we make material changes, we may notify you through the app,
+by email, on our website, or by other reasonable means where required by
+law.</p>
+<p>Your continued use of Card AI after the updated Privacy Policy
+becomes effective means you acknowledge the updated policy.</p>
+<h2 id="privacy-contact-us">17. Contact Us</h2>
+<p>If you have questions, requests, or concerns about this Privacy
+Policy or our privacy practices, please contact us:</p>
+<p>Website: <a href="https://tcgcard.fun"
+class="uri">https://tcgcard.fun</a></p>
+<p>Privacy Policy: <a href="https://tcgcard.fun/privacy"
+class="uri">https://tcgcard.fun/privacy</a></p>
+<p>Terms of Use: <a href="https://tcgcard.fun/terms"
+class="uri">https://tcgcard.fun/terms</a></p>
+<p>Support Email:
+<a href="mailto:support@tcgcard.fun">support@tcgcard.fun</a></p>
+        </article>
+      </div>
+    </section>
+  </div>
+
+  <div class="legal-modal" id="terms-modal" role="dialog" aria-modal="true" aria-labelledby="terms-modal-title" hidden>
+    <div class="legal-modal-backdrop" data-modal-close></div>
+    <section class="legal-modal-panel">
+      <header class="legal-modal-header">
+        <div>
+          <p class="legal-modal-label">CARD AI LEGAL</p>
+          <h2 class="legal-modal-title" id="terms-modal-title">Terms of Use</h2>
+        </div>
+        <button class="legal-modal-close" type="button" data-modal-close aria-label="Close Terms of Use" title="Close">×</button>
+      </header>
+      <div class="legal-modal-scroll">
+        <article class="modal-legal-content">
+<p>These Terms of Use (“Terms”) apply to your access to and use of Card
+AI: TCG Card Scanner and any related mobile application, website,
+features, content, subscriptions, and services provided by Card AI: TCG
+Card Scanner (“Card AI,” “we,” “us,” or “our”).</p>
+<p>By downloading, installing, accessing, or using Card AI, you agree to
+these Terms. If you do not agree to these Terms, please do not use the
+app.</p>
+<h2 id="terms-our-service">1. Our Service</h2>
+<p>Card AI is a mobile app designed to help users scan, search,
+identify, organize, and track trading cards and sports cards.</p>
+<p>The app may provide features including:</p>
+<ul>
+<li>Card scanning and identification</li>
+<li>Card information lookup</li>
+<li>Price and value reference</li>
+<li>Collection tracking</li>
+<li>Portfolio management</li>
+<li>Wishlist or saved card features</li>
+<li>Raw and graded card information when available</li>
+<li>Support for selected TCG and sports card categories</li>
+</ul>
+<p>Card AI currently supports or may support categories including
+Pokémon, Magic: The Gathering, One Piece, Yu-Gi-Oh!, Disney Lorcana,
+Digimon, Star Wars: Unlimited, Flesh and Blood, basketball cards,
+baseball cards, and football cards.</p>
+<p>We may update, modify, add, remove, suspend, or discontinue any part
+of the Service at any time.</p>
+<h2 id="terms-eligibility">2. Eligibility</h2>
+<p>You must be at least 13 years old to use Card AI. If you are under
+the age of majority in your country or region, you may use Card AI only
+with permission from a parent or legal guardian.</p>
+<p>By using Card AI, you confirm that you are legally able to agree to
+these Terms and that your use of the Service complies with applicable
+laws.</p>
+<h2 id="terms-account-registration">3. Account Registration</h2>
+<p>Some features may require you to create an account or sign in through
+supported authentication methods.</p>
+<p>You agree to provide accurate and complete information when creating
+or using your account. You are responsible for maintaining the security
+of your account and device. You are also responsible for all activity
+that occurs under your account.</p>
+<p>If you believe your account has been accessed without permission,
+please contact us as soon as possible.</p>
+<h2 id="terms-account-deletion">4. Account Deletion</h2>
+<p>You may request or perform account deletion through the app where
+available.</p>
+<p>When you delete your account, we will delete or de-identify personal
+data associated with your account, subject to legal, security, fraud
+prevention, backup, accounting, dispute resolution, or other legitimate
+retention requirements.</p>
+<p>Some data may remain in backups or logs for a limited period before
+being securely deleted or de-identified. Deleting your account does not
+automatically cancel any active App Store subscription. Subscription
+cancellation must be managed through your Apple ID subscription
+settings.</p>
+<h2 id="terms-card-scanning-feature">5. Card Scanning Feature</h2>
+<p>Card AI may request access to your device camera so you can scan
+trading cards or sports cards.</p>
+<p>By using the scanning feature, you understand and agree that:</p>
+<ul>
+<li>Scan results may not always be accurate.</li>
+<li>Image quality, lighting, angle, card condition, language, finish,
+set variation, parallel version, grading label, or database limitations
+may affect recognition results.</li>
+<li>You are responsible for reviewing and confirming scan results before
+saving cards to your collection.</li>
+<li>Scanned images may be processed temporarily to identify cards and
+provide the Service.</li>
+<li>We may use aggregated, anonymized, or de-identified technical
+information to improve scanning performance and app quality.</li>
+</ul>
+<p>You may not use the scanning feature to upload unlawful, harmful,
+infringing, abusive, or unauthorized content.</p>
+<h2 id="terms-card-data-prices-and-value-information">6. Card Data, Prices,
+and Value Information</h2>
+<p>Card AI may display card information, market prices, estimated
+values, historical data, grading-related information, collection totals,
+or other reference data.</p>
+<p>You understand and agree that:</p>
+<ul>
+<li>Card data and price information may be incomplete, delayed,
+unavailable, inaccurate, or based on third-party sources.</li>
+<li>Price and value information is provided for general informational
+purposes only.</li>
+<li>Card AI does not provide financial, investment, appraisal, grading,
+tax, legal, or professional advice.</li>
+<li>Displayed values do not guarantee that a card can be bought or sold
+at that price.</li>
+<li>Actual market prices may vary based on condition, grading,
+authenticity, demand, platform fees, shipping, taxes, buyer behavior,
+seller behavior, and other factors.</li>
+<li>You are responsible for independently verifying any information
+before buying, selling, grading, trading, insuring, or valuing any
+card.</li>
+</ul>
+<p>We are not responsible for losses, decisions, transactions, missed
+opportunities, or disputes arising from your reliance on card data, scan
+results, price estimates, or value information shown in the app.</p>
+<h2 id="terms-collection-records">7. Collection Records</h2>
+<p>Card AI may allow you to save cards, edit collection details, add
+purchase prices, set quantities, choose finishes, record grading
+information, organize cards, and track collection value.</p>
+<p>You are responsible for the accuracy of information you manually
+enter or edit. We do not guarantee that your collection value, portfolio
+value, profit/loss calculation, or related analytics will always be
+complete or accurate.</p>
+<p>You should keep your own backup of important records where
+necessary.</p>
+<h2 id="terms-subscriptions-and-in-app-purchases">8. Subscriptions and In-App
+Purchases</h2>
+<p>Card AI may offer paid subscriptions, free trials, premium features,
+or other in-app purchases through Apple’s in-app purchase system.</p>
+<p>If you purchase a subscription:</p>
+<ul>
+<li>Payment will be charged to your Apple ID account at confirmation of
+purchase.</li>
+<li>Subscriptions automatically renew unless canceled at least 24 hours
+before the end of the current subscription period.</li>
+<li>Your account may be charged for renewal within 24 hours before the
+end of the current period.</li>
+<li>You can manage or cancel your subscription in your Apple ID account
+settings.</li>
+<li>Deleting the app or deleting your Card AI account does not
+automatically cancel your subscription.</li>
+<li>Any unused portion of a free trial may be forfeited when you
+purchase a subscription, where applicable.</li>
+<li>Prices, subscription periods, available features, and free trial
+offers may vary by country, region, user, promotional campaign, or App
+Store settings.</li>
+</ul>
+<p>All billing, refunds, cancellations, and payment issues for App Store
+purchases are handled by Apple under Apple’s policies. We cannot
+directly cancel, refund, or modify App Store transactions unless Apple
+provides us with the ability to do so.</p>
+<p>Premium features may change over time. We may add, remove, modify, or
+limit premium features, provided that we do not materially reduce the
+core functionality of an active paid subscription without appropriate
+notice where required by law.</p>
+<h2 id="terms-acceptable-use">9. Acceptable Use</h2>
+<p>You agree not to:</p>
+<ul>
+<li>Use the Service for unlawful, fraudulent, harmful, abusive, or
+unauthorized purposes.</li>
+<li>Reverse engineer, decompile, modify, copy, distribute, sell, lease,
+or create derivative works based on the app or any part of the
+Service.</li>
+<li>Attempt to access, scrape, extract, collect, or use data from the
+Service through automated means without our permission.</li>
+<li>Interfere with or disrupt the Service, servers, security systems, or
+networks.</li>
+<li>Upload or submit content that infringes third-party rights,
+including intellectual property or privacy rights.</li>
+<li>Use the Service to impersonate another person or misrepresent your
+identity.</li>
+<li>Use the Service in a way that may damage, disable, overload, or
+impair the app.</li>
+<li>Circumvent subscription limits, usage limits, technical
+restrictions, or access controls.</li>
+<li>Use card images, data, or other content in a way that violates
+applicable laws or third-party rights.</li>
+</ul>
+<p>We may suspend, restrict, or terminate access to the Service if we
+believe you have violated these Terms, applicable laws, or the rights of
+others.</p>
+<h2 id="terms-third-party-services">10. Third-Party Services</h2>
+<p>Card AI may use third-party services to provide authentication,
+analytics, crash reporting, attribution, performance monitoring,
+infrastructure, and other app functionality.</p>
+<p>These services may include:</p>
+<ul>
+<li>Google Firebase</li>
+<li>Firebase Authentication</li>
+<li>Firebase Analytics / Google Analytics for Firebase</li>
+<li>Firebase Crashlytics</li>
+<li>Mixpanel</li>
+<li>Singular</li>
+</ul>
+<p>These third-party services may collect and process data according to
+their own terms and privacy policies. Your use of Card AI is also
+subject to the applicable terms and policies of those third-party
+services.</p>
+<p>We may add, replace, or remove third-party service providers from
+time to time.</p>
+<h2 id="terms-third-party-links-and-marketplaces">11. Third-Party Links and
+Marketplaces</h2>
+<p>Card AI may include links, references, or integrations that direct
+you to third-party websites, marketplaces, platforms, sellers, grading
+companies, or other external services.</p>
+<p>We do not control third-party websites or services and are not
+responsible for their content, prices, availability, accuracy, policies,
+transactions, fees, shipping, taxes, disputes, or security.</p>
+<p>If you choose to access or use third-party services, you do so at
+your own risk and subject to their own terms and policies.</p>
+<h2 id="terms-intellectual-property">12. Intellectual Property</h2>
+<p>Card AI, including its software, design, interface, features,
+graphics, logos, text, code, databases, and other content, is owned by
+us or our licensors and is protected by intellectual property and other
+laws.</p>
+<p>These Terms grant you a limited, personal, non-exclusive,
+non-transferable, revocable license to use Card AI for your own
+personal, non-commercial use, subject to these Terms.</p>
+<p>You do not acquire any ownership rights in Card AI or any part of the
+Service.</p>
+<h2 id="terms-user-content">13. User Content</h2>
+<p>You may submit, upload, save, or enter content into the Service,
+including card images, collection records, notes, purchase prices,
+grading details, or other information (“User Content”).</p>
+<p>You retain any rights you may have in your User Content. By using the
+Service, you grant us a limited license to host, store, process,
+display, reproduce, and use your User Content only as necessary to
+operate, provide, secure, support, and improve the Service.</p>
+<p>You represent that you have the necessary rights to submit your User
+Content and that your User Content does not violate any law or
+third-party rights.</p>
+<h2 id="terms-trademarks-and-brand-disclaimer">14. Trademarks and Brand
+Disclaimer</h2>
+<p>Card AI is an independent app and is not affiliated with, endorsed
+by, sponsored by, or officially connected with any trading card game
+publisher, sports league, team, player, grading company, marketplace,
+manufacturer, or rights holder.</p>
+<p>All trademarks, logos, card names, set names, character names, brand
+names, images, and other intellectual property belong to their
+respective owners.</p>
+<p>This includes, without limitation, The Pokémon Company, Nintendo,
+GAME FREAK, Creatures Inc., Wizards of the Coast, Hasbro, Konami,
+Bandai, Disney, Lucasfilm, Legend Story Studios, PSA, BGS, CGC, eBay,
+TCGplayer, and any applicable sports leagues, teams, players,
+manufacturers, or marketplaces.</p>
+<p>Any reference to third-party brands, cards, games, teams, players, or
+marketplaces is for identification, compatibility, reference, or
+informational purposes only.</p>
+<h2 id="terms-privacy">15. Privacy</h2>
+<p>Your privacy is important to us. Our collection, use, storage,
+sharing, and protection of personal data is described in our Privacy
+Policy.</p>
+<p>By using Card AI, you agree that we may process your information as
+described in our Privacy Policy.</p>
+<p>Privacy Policy:<a href="https://tcgcard.fun/privacy"
+class="uri">https://tcgcard.fun/privacy</a></p>
+<h2 id="terms-app-updates-and-availability">16. App Updates and
+Availability</h2>
+<p>We may release updates, bug fixes, improvements, or new features from
+time to time. Some features may require you to install the latest
+version of the app.</p>
+<p>We do not guarantee that Card AI will always be available,
+uninterrupted, secure, error-free, or compatible with every device,
+operating system, region, network, or App Store account.</p>
+<p>We may suspend or discontinue all or part of the Service at any
+time.</p>
+<h2 id="terms-disclaimers">17. Disclaimers</h2>
+<p>Card AI is provided on an “as is” and “as available” basis.</p>
+<p>To the maximum extent permitted by applicable law, we disclaim all
+warranties, whether express, implied, statutory, or otherwise, including
+warranties of merchantability, fitness for a particular purpose, title,
+non-infringement, accuracy, availability, and reliability.</p>
+<p>We do not guarantee that:</p>
+<ul>
+<li>Scan results will be correct.</li>
+<li>Card data will be complete or current.</li>
+<li>Price or value estimates will be accurate.</li>
+<li>Collection totals or analytics will be error-free.</li>
+<li>The Service will meet your expectations.</li>
+<li>The Service will operate without interruption or defects.</li>
+</ul>
+<p>You use Card AI at your own risk.</p>
+<h2 id="terms-limitation-of-liability">18. Limitation of Liability</h2>
+<p>To the maximum extent permitted by applicable law, we and our
+affiliates, officers, directors, employees, contractors, licensors, and
+service providers will not be liable for any indirect, incidental,
+special, consequential, exemplary, or punitive damages, including loss
+of profits, data, goodwill, business opportunities, collection value, or
+any losses arising from or related to reliance on card identification
+results, price or market-value information, condition or grading
+estimates, third-party marketplace links, or purchase, sale, grading, or
+other transaction decisions.</p>
+<p>To the maximum extent permitted by applicable law, our aggregate
+liability for all claims arising out of or relating to the Service or
+these Terms will not exceed the greater of: (a) the amount you actually
+paid to us for the Service during the 12 months immediately preceding
+the event giving rise to the claim; or (b) US$100.</p>
+<p>Nothing in these Terms excludes or limits any liability that cannot
+lawfully be excluded or limited. Some jurisdictions do not allow certain
+exclusions or limitations of liability, so some of the above provisions
+may not apply to you.</p>
+<h2 id="terms-indemnification">19. Indemnification</h2>
+<p>To the maximum extent permitted by applicable law, you agree to
+defend, indemnify, and hold harmless Card AI, and our affiliates,
+officers, directors, employees, contractors, licensors, service
+providers, and partners from and against any claims, damages, losses,
+liabilities, costs, and expenses, including reasonable attorneys’ fees,
+arising out of or related to:</p>
+<ul>
+<li>your use or misuse of the Service;</li>
+<li>your violation of these Terms;</li>
+<li>your violation of applicable laws;</li>
+<li>your User Content;</li>
+<li>your violation of third-party rights;</li>
+<li>your transactions, purchases, sales, grading submissions, or other
+decisions made based on information from the Service.</li>
+</ul>
+<h2 id="terms-termination">20. Termination</h2>
+<p>You may stop using Card AI at any time.</p>
+<p>We may suspend, restrict, or terminate your access to the Service at
+any time if we believe you have violated these Terms, created risk or
+legal exposure for us, or used the Service in a harmful, fraudulent,
+abusive, or unlawful way.</p>
+<p>After termination, sections that by their nature should survive will
+remain in effect, including intellectual property, disclaimers,
+limitation of liability, indemnification, privacy-related provisions,
+and dispute provisions.</p>
+<h2 id="terms-changes-to-these-terms">21. Changes to These Terms</h2>
+<p>We may update these Terms from time to time. When we update the
+Terms, we will revise the Effective Date above.</p>
+<p>If we make material changes, we may notify you through the app, by
+email, on our website, or by other reasonable means where required by
+law.</p>
+<p>Your continued use of Card AI after the updated Terms become
+effective means you accept the updated Terms.</p>
+<h2 id="terms-governing-law">22. Governing Law</h2>
+<p>These Terms shall be governed by and construed in accordance with
+applicable laws, without regard to conflict of law principles.</p>
+<p>If you are a consumer located in a jurisdiction with mandatory
+consumer protection rights, these Terms do not limit any rights you may
+have under applicable laws.</p>
+<h2 id="terms-open-source-and-model-licenses">23. OPEN SOURCE AND MODEL LICENSES</h2>
+<p>The App includes the RTMDet-Ins Card Detector and converted forms of the PE-Core-T16-384 image encoder. Copyright in the project-authored RTMDet-Ins model weights and conversions is held by Chongqing Guanyun Technology Co.,ltd.. PE-Core-T16-384 was developed by Meta. These models and their converted or modified forms are used under the Apache License, Version 2.0. The conversions and modifications made for this App were not created, reviewed, or endorsed by Meta.</p>
+<p>The RTMDet-Ins Card Detector was trained using modified materials derived from “cards-keypoints v1” by Norbert Gierczak and “Card-SEG v10 PhoneCardSegV1” by nandersen, each licensed under CC BY 4.0. The source images and annotations were converted, normalized, rotated, and adapted for model training. The original creators do not endorse these modifications or this App. CC BY 4.0 license: <a href="https://creativecommons.org/licenses/by/4.0/" class="uri">https://creativecommons.org/licenses/by/4.0/</a></p>
+<p>The Android version of the App includes Microsoft ONNX Runtime 1.23.0 under the MIT License. All referenced software, models, datasets, and converted materials are provided on an “AS IS” basis without warranties. Their licenses do not grant rights to any card artwork, photographs, game or team logos, player likenesses, product names, or trademarks. The applicable Apache 2.0, MIT, and ONNX Runtime third-party notices are reproduced below.</p>
+<h3>Apache License 2.0</h3>
+<p>The following license applies to the RTMDet-Ins trained weights and converted
+forms and to PE-Core-T16-384 and its converted forms as described above.</p>
+<p>Apache License
+Version 2.0, January 2004
+<a href="http://www.apache.org/licenses/" class="uri">http://www.apache.org/licenses/</a></p>
+<p>TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION</p>
+<p>1. Definitions.</p>
+<p>"License" shall mean the terms and conditions for use, reproduction,
+and distribution as defined by Sections 1 through 9 of this document.</p>
+<p>"Licensor" shall mean the copyright owner or entity authorized by
+the copyright owner that is granting the License.</p>
+<p>"Legal Entity" shall mean the union of the acting entity and all
+other entities that control, are controlled by, or are under common
+control with that entity. For the purposes of this definition,
+"control" means (i) the power, direct or indirect, to cause the
+direction or management of such entity, whether by contract or
+otherwise, or (ii) ownership of fifty percent (50%) or more of the
+outstanding shares, or (iii) beneficial ownership of such entity.</p>
+<p>"You" (or "Your") shall mean an individual or Legal Entity
+exercising permissions granted by this License.</p>
+<p>"Source" form shall mean the preferred form for making modifications,
+including but not limited to software source code, documentation
+source, and configuration files.</p>
+<p>"Object" form shall mean any form resulting from mechanical
+transformation or translation of a Source form, including but
+not limited to compiled object code, generated documentation,
+and conversions to other media types.</p>
+<p>"Work" shall mean the work of authorship, whether in Source or
+Object form, made available under the License, as indicated by a
+copyright notice that is included in or attached to the work
+(an example is provided in the Appendix below).</p>
+<p>"Derivative Works" shall mean any work, whether in Source or Object
+form, that is based on (or derived from) the Work and for which the
+editorial revisions, annotations, elaborations, or other modifications
+represent, as a whole, an original work of authorship. For the purposes
+of this License, Derivative Works shall not include works that remain
+separable from, or merely link (or bind by name) to the interfaces of,
+the Work and Derivative Works thereof.</p>
+<p>"Contribution" shall mean any work of authorship, including
+the original version of the Work and any modifications or additions
+to that Work or Derivative Works thereof, that is intentionally
+submitted to Licensor for inclusion in the Work by the copyright owner
+or by an individual or Legal Entity authorized to submit on behalf of
+the copyright owner. For the purposes of this definition, "submitted"
+means any form of electronic, verbal, or written communication sent
+to the Licensor or its representatives, including but not limited to
+communication on electronic mailing lists, source code control systems,
+and issue tracking systems that are managed by, or on behalf of, the
+Licensor for the purpose of discussing and improving the Work, but
+excluding communication that is conspicuously marked or otherwise
+designated in writing by the copyright owner as "Not a Contribution."</p>
+<p>"Contributor" shall mean Licensor and any individual or Legal Entity
+on behalf of whom a Contribution has been received by Licensor and
+subsequently incorporated within the Work.</p>
+<p>2. Grant of Copyright License. Subject to the terms and conditions of
+this License, each Contributor hereby grants to You a perpetual,
+worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+copyright license to reproduce, prepare Derivative Works of,
+publicly display, publicly perform, sublicense, and distribute the
+Work and such Derivative Works in Source or Object form.</p>
+<p>3. Grant of Patent License. Subject to the terms and conditions of
+this License, each Contributor hereby grants to You a perpetual,
+worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+(except as stated in this section) patent license to make, have made,
+use, offer to sell, sell, import, and otherwise transfer the Work,
+where such license applies only to those patent claims licensable
+by such Contributor that are necessarily infringed by their
+Contribution(s) alone or by combination of their Contribution(s)
+with the Work to which such Contribution(s) was submitted. If You
+institute patent litigation against any entity (including a
+cross-claim or counterclaim in a lawsuit) alleging that the Work
+or a Contribution incorporated within the Work constitutes direct
+or contributory patent infringement, then any patent licenses
+granted to You under this License for that Work shall terminate
+as of the date such litigation is filed.</p>
+<p>4. Redistribution. You may reproduce and distribute copies of the
+Work or Derivative Works thereof in any medium, with or without
+modifications, and in Source or Object form, provided that You
+meet the following conditions:</p>
+<p>(a) You must give any other recipients of the Work or
+Derivative Works a copy of this License; and</p>
+<p>(b) You must cause any modified files to carry prominent notices
+stating that You changed the files; and</p>
+<p>(c) You must retain, in the Source form of any Derivative Works
+that You distribute, all copyright, patent, trademark, and
+attribution notices from the Source form of the Work,
+excluding those notices that do not pertain to any part of
+the Derivative Works; and</p>
+<p>(d) If the Work includes a "NOTICE" text file as part of its
+distribution, then any Derivative Works that You distribute must
+include a readable copy of the attribution notices contained
+within such NOTICE file, excluding those notices that do not
+pertain to any part of the Derivative Works, in at least one
+of the following places: within a NOTICE text file distributed
+as part of the Derivative Works; within the Source form or
+documentation, if provided along with the Derivative Works; or,
+within a display generated by the Derivative Works, if and
+wherever such third-party notices normally appear. The contents
+of the NOTICE file are for informational purposes only and
+do not modify the License. You may add Your own attribution
+notices within Derivative Works that You distribute, alongside
+or as an addendum to the NOTICE text from the Work, provided
+that such additional attribution notices cannot be construed
+as modifying the License.</p>
+<p>You may add Your own copyright statement to Your modifications and
+may provide additional or different license terms and conditions
+for use, reproduction, or distribution of Your modifications, or
+for any such Derivative Works as a whole, provided Your use,
+reproduction, and distribution of the Work otherwise complies with
+the conditions stated in this License.</p>
+<p>5. Submission of Contributions. Unless You explicitly state otherwise,
+any Contribution intentionally submitted for inclusion in the Work
+by You to the Licensor shall be under the terms and conditions of
+this License, without any additional terms or conditions.
+Notwithstanding the above, nothing herein shall supersede or modify
+the terms of any separate license agreement you may have executed
+with Licensor regarding such Contributions.</p>
+<p>6. Trademarks. This License does not grant permission to use the trade
+names, trademarks, service marks, or product names of the Licensor,
+except as required for reasonable and customary use in describing the
+origin of the Work and reproducing the content of the NOTICE file.</p>
+<p>7. Disclaimer of Warranty. Unless required by applicable law or
+agreed to in writing, Licensor provides the Work (and each
+Contributor provides its Contributions) on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+implied, including, without limitation, any warranties or conditions
+of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+PARTICULAR PURPOSE. You are solely responsible for determining the
+appropriateness of using or redistributing the Work and assume any
+risks associated with Your exercise of permissions under this License.</p>
+<p>8. Limitation of Liability. In no event and under no legal theory,
+whether in tort (including negligence), contract, or otherwise,
+unless required by applicable law (such as deliberate and grossly
+negligent acts) or agreed to in writing, shall any Contributor be
+liable to You for damages, including any direct, indirect, special,
+incidental, or consequential damages of any character arising as a
+result of this License or out of the use or inability to use the
+Work (including but not limited to damages for loss of goodwill,
+work stoppage, computer failure or malfunction, or any and all
+other commercial damages or losses), even if such Contributor
+has been advised of the possibility of such damages.</p>
+<p>9. Accepting Warranty or Additional Liability. While redistributing
+the Work or Derivative Works thereof, You may choose to offer,
+and charge a fee for, acceptance of support, warranty, indemnity,
+or other liability obligations and/or rights consistent with this
+License. However, in accepting such obligations, You may act only
+on Your own behalf and on Your sole responsibility, not on behalf
+of any other Contributor, and only if You agree to indemnify,
+defend, and hold each Contributor harmless for any liability
+incurred by, or claims asserted against, such Contributor by reason
+of your accepting any such warranty or additional liability.</p>
+<h3>MIT License</h3>
+<p>Copyright (c) Microsoft Corporation</p>
+<p>Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:</p>
+<p>The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.</p>
+<p>THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.</p>
+<h3>Development Tools Not Included in the Application</h3>
+<p>MMDetection, MMCV, MMEngine, MMDeploy, ONNX, and OpenCV were used in model
+training, conversion, validation, or as preprocessing references. Their
+libraries are not included in the current mobile application. In particular,
+the mobile image-resize implementation matches OpenCV's half-pixel bilinear
+sampling behavior but does not include OpenCV.</p>
+<h2 id="terms-contact-us">24. Contact Us</h2>
+<p>If you have any questions about these Terms, please contact us:</p>
+<p>Website: <a href="https://tcgcard.fun"
+class="uri">https://tcgcard.fun</a></p>
+<p>Privacy Policy: <a href="https://tcgcard.fun/privacy"
+class="uri">https://tcgcard.fun/privacy</a></p>
+<p>Terms of Use: <a href="https://tcgcard.fun/terms"
+class="uri">https://tcgcard.fun/terms</a></p>
+<p>Support Email:
+<a href="mailto:support@tcgcard.fun">support@tcgcard.fun</a></p>
+        </article>
+      </div>
+    </section>
+  </div>
+  <script>
+'use strict';
+
+const scanCard = document.querySelector('.scan-card-layer');
+if (scanCard) {
+  scanCard.disabled = false;
+
+  scanCard.addEventListener('pointermove', (event) => {
+    if (event.pointerType === 'touch' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const bounds = scanCard.getBoundingClientRect();
+    const x = (event.clientX - bounds.left) / bounds.width - 0.5;
+    const y = (event.clientY - bounds.top) / bounds.height - 0.5;
+    scanCard.style.setProperty('--scan-tilt-x', `${(-y * 12).toFixed(2)}deg`);
+    scanCard.style.setProperty('--scan-tilt-y', `${(x * 16).toFixed(2)}deg`);
+    scanCard.style.setProperty('--scan-light-x', `${((x + 0.5) * 100).toFixed(1)}%`);
+    scanCard.style.setProperty('--scan-light-y', `${((y + 0.5) * 100).toFixed(1)}%`);
+  });
+
+  scanCard.addEventListener('pointerleave', () => {
+    scanCard.style.removeProperty('--scan-tilt-x');
+    scanCard.style.removeProperty('--scan-tilt-y');
+    scanCard.style.removeProperty('--scan-light-x');
+    scanCard.style.removeProperty('--scan-light-y');
+  });
+
+  scanCard.addEventListener('click', () => {
+    const flipped = scanCard.getAttribute('aria-pressed') !== 'true';
+    scanCard.setAttribute('aria-pressed', String(flipped));
+    scanCard.setAttribute('aria-label', flipped ? 'Show sample card front' : 'Show Card AI side of sample card');
+  });
+}
+
+const modalTriggers = document.querySelectorAll('[data-modal-target]');
+const modalCloseControls = document.querySelectorAll('[data-modal-close]');
+let modalReturnFocus = null;
+
+const openModal = (modalId, trigger) => {
+  const modal = document.getElementById(modalId);
+  if (!modal) return;
+
+  modalReturnFocus = trigger;
+  modal.hidden = false;
+  document.body.classList.add('legal-modal-open');
+  modal.querySelector('.legal-modal-close').focus();
+};
+
+const closeModal = (modal) => {
+  if (!modal) return;
+
+  modal.hidden = true;
+  document.body.classList.remove('legal-modal-open');
+  if (modalReturnFocus) modalReturnFocus.focus();
+  modalReturnFocus = null;
+};
+
+modalTriggers.forEach((trigger) => {
+  trigger.addEventListener('click', (event) => {
+    event.preventDefault();
+    openModal(trigger.dataset.modalTarget, trigger);
+  });
+});
+
+const modalIdByPath = {
+  '/privacy': 'privacy-modal',
+  '/terms': 'terms-modal',
+};
+const initialModalId = modalIdByPath[window.location.pathname.replace(/\/$/, '')];
+if (initialModalId) openModal(initialModalId, null);
+
+modalCloseControls.forEach((control) => {
+  control.addEventListener('click', () => closeModal(control.closest('.legal-modal')));
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') {
+    closeModal(document.querySelector('.legal-modal:not([hidden])'));
+  }
+});
+
+  </script>
+</body>
+</html>

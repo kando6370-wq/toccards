@@ -1,0 +1,45 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "cardscanfox-website-preview",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-11-06",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+    "not_found_handling": "404-page",
+    "html_handling": "none"
+  },
+  "services": [
+    {
+      "binding": "SITE_DATA",
+      "service": "cardscanfox-site-data-preview"
+    }
+  ],
+  "workers_dev": true,
+  "preview_urls": true,
+  "vars": {
+    "DEPLOYMENT_MODE": "preview",
+    "LOCAL_DEVELOPMENT": "false",
+    "PUBLIC_ORIGIN": "https://tcgcard.fun",
+    "CATALOG_MODE": "snapshot",
+    "PUBLISH_READY": "false"
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "secrets": {
+    "required": [
+      "PREVIEW_USERNAME",
+      "PREVIEW_PASSWORD"
+    ]
+  },
+  "version_metadata": {
+    "binding": "CF_VERSION_METADATA"
+  },
+  "account_id": "dced4adca2f35cff247b39979058b934"
+}
