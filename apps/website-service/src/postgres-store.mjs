@@ -36,7 +36,7 @@ function cardRecord(row, games) {
 }
 export function createPostgresStore(query) {
  const getGames = async () => (await query(`SELECT game_id::text AS id,name FROM games WHERE load=1 AND btrim(coalesce(name,''))<>'' ORDER BY search_sort,game_id`,[])).map(r=>({...r,slug:slugFor(r),cardCount:null}));
- async function context() { const games=await getGames(); const pointers=await query(`SELECT p.scope_code,p.batch_id::text AS batch_id FROM current_price_pointer p JOIN price_ingest_batch b ON b.batch_id=p.batch_id AND b.scope_code=p.scope_code WHERE p.scope_code LIKE 'current:%' AND b.status='published' ORDER BY p.scope_code`,[]);return {games,catalogVersion:'published-'+createHash('sha256').update(JSON.stringify(pointers)).digest('hex').slice(0,16),snapshotCapturedAt:new Date().toISOString(),datasetMode:'published-read-only'}; }
+ async function context() { const games=await getGames(); const pointers=await query(`SELECT p.scope_code,p.batch_id::text AS batch_id,b.business_date::text AS business_date FROM current_price_pointer p JOIN price_ingest_batch b ON b.batch_id=p.batch_id AND b.scope_code=p.scope_code JOIN price_source source ON source.source_id=b.source_id AND source.is_active WHERE p.scope_code LIKE 'current:%' AND b.status='published' ORDER BY p.scope_code`,[]);return {games,anchorDate:pointers.map(p=>p.business_date).filter(Boolean).sort().at(-1)??new Date().toISOString().slice(0,10),catalogVersion:'published-'+createHash('sha256').update(JSON.stringify(pointers)).digest('hex').slice(0,16),snapshotCapturedAt:new Date().toISOString(),datasetMode:'published-read-only'}; }
  function pageResult(rows,page,pageSize) { const more=rows.length>pageSize;return {items:rows.slice(0,pageSize),total:null,totalKind:'not-computed',returnedCount:Math.min(rows.length,pageSize),page,pageSize,hasMore:more,nextPage:more?page+1:null}; }
  async function resolveSet(id) {
   const old=reviewSets.find(s=>s.id===id);
@@ -44,13 +44,15 @@ export function createPostgresStore(query) {
   if(rows.length>1)throw new CatalogInputError('Ambiguous set identity.');return rows[0]??null;
  }
  async function listCards(params,ctx) {
-  const q=text(params.get('q')),game=text(params.get('game')),set=text(params.get('set')),language=text(params.get('language')),finish=text(params.get('finish')),price=text(params.get('price')),sort=params.get('sort')??'featured',after=text(params.get('after'));
-  if(after&&sort!=='featured')throw new CatalogInputError('Cursor paging requires featured order.');
+  const q=text(params.get('q')),game=text(params.get('game')),set=text(params.get('set')),language=text(params.get('language')),finish=text(params.get('finish')),price=text(params.get('price')),sort=params.get('sort')??'featured',after=text(params.get('after')),before=text(params.get('before'));
+  if(after&&before)throw new CatalogInputError('Use only one page cursor.');
+  if((after||before)&&sort!=='featured')throw new CatalogInputError('Cursor paging requires featured order.');
   if(sort!=='featured'&&(!set||set==='all'))throw new CatalogInputError('Choose a set before sorting by name, price or date.');
-  const page=number(params.get('page'),1,500),pageSize=number(params.get('pageSize'),24,48);
+  const page=number(params.get('page'),1,1000000),pageSize=number(params.get('pageSize'),24,48);
+  if(page>500&&!after&&!before)throw new CatalogInputError('Use the next and previous links for later pages.');
   if(!['featured','name','recent','price-asc','price-desc'].includes(sort)||!['','all','available','missing','under20','20to100','over100'].includes(price))throw new CatalogInputError('Unsupported filter or sort.');
-  const candidateFilters=[];const values=[],where=[`EXISTS (SELECT 1 FROM games g WHERE g.game_id=c.game_id AND g.load=1)`];const add=v=>{values.push(v);return '$'+values.length};
-  if(after)where.push(`c.product_id>${add(after)}`);
+  const candidateFilters=[];const values=[],where=[`EXISTS (SELECT 1 FROM games g WHERE g.game_id=c.game_id AND g.load=1)`,"c.product_type_name='Cards'",'c.has_image=2'];const add=v=>{values.push(v);return '$'+values.length};
+  if(after)where.push(`c.product_id>${add(after)}`);if(before)where.push(`c.product_id<${add(before)}`);
   if(q){const pattern=q.toLowerCase().replace(/[\\%_]/g,'\\$&');where.push(`lower(coalesce(c.name,'')||' '||coalesce(c.number,'')||' '||coalesce(c.set_name,'')||' '||coalesce(c.set_code,'')||' '||coalesce(c.rarity,'')||' '||coalesce(c.game,'')) LIKE ${add('%'+pattern+'%')}`);}
   if(game&&game!=='all'){const g=ctx.games.find(g=>g.slug===game||g.id===game);if(!g)throw new CatalogInputError('Unknown game.');where.push(`c.game_id=${add(Number(g.id))}`);}
   if(set&&set!=='all'){const s=await resolveSet(set);if(!s)throw new CatalogInputError('Unknown set.');where.push(`c.set_id=${add(s.set_id)}`);if(!game||game==='all'){const owner=ctx.games.find(g=>g.name.toLowerCase()===s.game.toLowerCase());if(!owner)throw new CatalogInputError('Unknown game.');where.push(`c.game_id=${add(Number(owner.id))}`);}}
@@ -59,9 +61,13 @@ export function createPostgresStore(query) {
   if(price==='available')where.push('p.amount_micros IS NOT NULL');if(price==='missing')where.push('p.amount_micros IS NULL');
   if(price==='under20')where.push('p.amount_micros::bigint<20000000');if(price==='20to100')where.push('p.amount_micros::bigint>=20000000 AND p.amount_micros::bigint<100000000');if(price==='over100')where.push('p.amount_micros::bigint>=100000000');
   const orders={featured:'c.product_id',name:'c.name,c.product_id',recent:'p.observed_on DESC NULLS LAST,c.product_id','price-asc':'p.amount_micros::bigint ASC NULLS LAST,c.product_id','price-desc':'p.amount_micros::bigint DESC NULLS LAST,c.product_id'};
-  const limit=add(pageSize+1),offset=add((page-1)*pageSize);
-  const rows=await query(`${published} SELECT ${catalogColumns},p.* FROM cards_all c LEFT JOIN LATERAL (SELECT ${priceColumns} ${priceFrom} WHERE ${activePrice} AND s.card_ref=c.product_id AND upper(btrim(s.grader_code))='RAW' ${candidateFilters.map(f=>'AND '+f).join(' ')} ORDER BY ${preferred} LIMIT 1) p ON true WHERE ${where.join(' AND ')} ORDER BY ${orders[sort]} LIMIT ${limit} OFFSET ${offset}`,values);
-  const result=pageResult(rows.map(r=>cardRecord(r,ctx.games)),page,pageSize);return {...result,nextCursor:sort==='featured'&&result.hasMore?result.items.at(-1).publicCardId:null};
+  const limit=add(pageSize+1),offset=add(after||before?0:(page-1)*pageSize);
+  const rows=await query(`${published} SELECT ${catalogColumns},p.* FROM cards_all c LEFT JOIN LATERAL (SELECT ${priceColumns} ${priceFrom} WHERE ${activePrice} AND s.card_ref=c.product_id AND upper(btrim(s.grader_code))='RAW' ${candidateFilters.map(f=>'AND '+f).join(' ')} ORDER BY ${preferred} LIMIT 1) p ON true WHERE ${where.join(' AND ')} ORDER BY ${before?'c.product_id DESC':orders[sort]} LIMIT ${limit} OFFSET ${offset}`,values);
+  const selected=rows.slice(0,pageSize).map(r=>cardRecord(r,ctx.games));if(before)selected.reverse();
+  const more=rows.length>pageSize,hasMore=before?true:more,hasPrevious=before?more:Boolean(after)||page>1;
+  let total=null;const simple=!q&&(!language||language==='all')&&(!finish||finish==='all')&&(!price||price==='all');
+  if(simple&&ctx.counts){if(set&&set!=='all'){const resolved=await resolveSet(set);total=ctx.counts.bySet[resolved.set_id]??null;}else if(game&&game!=='all'){const g=ctx.games.find(g=>g.slug===game||g.id===game);total=ctx.counts.byGame[g.id]??null;}else total=ctx.counts.total;}
+  return {items:selected,returnedCount:selected.length,total,totalKind:total===null?'not-computed':'cached-exact',countedAt:ctx.countedAt??null,page,pageSize,hasMore,hasPrevious,nextPage:hasMore?page+1:null,nextCursor:sort==='featured'&&hasMore?selected.at(-1)?.publicCardId??null:null,previousCursor:sort==='featured'&&hasPrevious?selected[0]?.publicCardId??null:null};
  }
  async function getCard(id,params,ctx) {
   const rows=await query(`SELECT ${catalogColumns} FROM cards_all c WHERE c.product_id=$1 AND EXISTS (SELECT 1 FROM games g WHERE g.game_id=c.game_id AND g.load=1) LIMIT 1`,[text(id)]);if(!rows[0])return null;
@@ -86,10 +92,34 @@ export function createPostgresStore(query) {
  async function listSets(params,ctx) {
   const page=number(params.get('page'),1,500),pageSize=number(params.get('pageSize'),24,48),q=text(params.get('q')),game=text(params.get('game'));
   const g=game&&game!=='all'?ctx.games.find(g=>g.slug===game||g.id===game):null;if(game&&game!=='all'&&!g)throw new CatalogInputError('Unknown game.');
-  const rows=await query(`SELECT set_id,game,name,set_code,total_cards FROM sets s WHERE ($1='' OR lower(s.name||' '||coalesce(s.set_code,'')) LIKE $1) AND ($2='' OR lower(s.game)=lower($2)) AND EXISTS(SELECT 1 FROM games g WHERE lower(g.name)=lower(s.game) AND g.load=1) ORDER BY s.name,s.set_id LIMIT $3 OFFSET $4`,[q?'%'+q.toLowerCase().replace(/[\\%_]/g,'\\$&')+'%':'',g?.name??'',pageSize+1,(page-1)*pageSize]);
-  return pageResult(rows.map(r=>({id:setId({...r,set_name:r.name}),sourceSetId:r.set_id,name:r.name,code:r.set_code,gameSlug:ctx.games.find(g=>g.name.toLowerCase()===r.game.toLowerCase())?.slug,language:null,catalogedCount:null,sourceReportedCount:r.total_cards,complete:false})),page,pageSize);
+  const rows=await query(`SELECT set_id,game,name,set_code,total_cards,count(*) OVER()::text AS matched_total FROM sets s WHERE ($1='' OR lower(s.name||' '||coalesce(s.set_code,'')) LIKE $1) AND ($2='' OR lower(s.game)=lower($2)) AND EXISTS(SELECT 1 FROM games g WHERE lower(g.name)=lower(s.game) AND g.load=1) ORDER BY s.name,s.set_id LIMIT $3 OFFSET $4`,[q?'%'+q.toLowerCase().replace(/[\\%_]/g,'\\$&')+'%':'',g?.name??'',pageSize+1,(page-1)*pageSize]);
+  return {...pageResult(rows.map(r=>({id:setId({...r,set_name:r.name}),sourceSetId:r.set_id,name:r.name,code:r.set_code,gameSlug:ctx.games.find(g=>g.name.toLowerCase()===r.game.toLowerCase())?.slug,language:null,catalogedCount:ctx.counts?.bySet[r.set_id]??null,sourceReportedCount:r.total_cards,complete:false})),page,pageSize),total:rows.length?Number(rows[0].matched_total):page===1?0:null,totalKind:'exact-query',hasPrevious:page>1};
  }
- const store={context,getGames,listCards,getCard,trend,listSets,pageData,async getSet(id,params,ctx){const set=await resolveSet(id);if(!set)return null;const allowed=ctx.games.find(g=>g.name.toLowerCase()===set.game.toLowerCase());if(!allowed)return null;return {id,name:set.name,code:set.set_code,gameSlug:allowed.slug,catalogedCount:null,complete:false,...await listCards(new URLSearchParams({...Object.fromEntries(params),set:id}),ctx)};}};
+ const store={context,getGames,listCards,getCard,trend,listSets,pageData,directoryCounts,rankings,async getSet(id,params,ctx){const set=await resolveSet(id);if(!set)return null;const allowed=ctx.games.find(g=>g.name.toLowerCase()===set.game.toLowerCase());if(!allowed)return null;return {id,name:set.name,code:set.set_code,gameSlug:allowed.slug,catalogedCount:null,complete:false,...await listCards(new URLSearchParams({...Object.fromEntries(params),set:id}),ctx)};}};
+
+ async function directoryCounts(){
+  const rows=await query(`SELECT c.game_id::text AS game_id,c.set_id,count(*)::text AS n FROM cards_all c JOIN games g ON g.game_id=c.game_id AND g.load=1 WHERE c.product_type_name='Cards' AND c.has_image=2 GROUP BY c.game_id,c.set_id`,[]);
+  const result={total:0,byGame:{},bySet:{}};
+  for(const row of rows){const n=Number(row.n);if(!Number.isSafeInteger(n)||n<0)throw new Error('Invalid directory count.');result.total+=n;result.byGame[row.game_id]=(result.byGame[row.game_id]??0)+n;if(row.set_id)result.bySet[row.set_id]=(result.bySet[row.set_id]??0)+n;}
+  return result;
+ }
+ async function rankings(kind,ctx){
+  if(!['gainers','highest'].includes(kind))throw new CatalogInputError('Unknown ranking.');
+  const metric=kind==='gainers'?'change_7d_percent':'amount_micros';
+  const filter=kind==='gainers'?`AND snap.baseline_7d_amount_micros>0 AND snap.baseline_7d_on=snap.observed_on-7 AND snap.change_7d_percent>0`:'';
+  const rows=await query(`${published},eligible AS (
+   SELECT s.card_ref,s.series_id,snap.amount_micros,snap.observed_on,snap.change_7d_percent,snap.baseline_7d_on,snap.baseline_7d_amount_micros
+   ${priceFrom} WHERE ${activePrice} AND upper(btrim(s.grader_code))='RAW' AND (s.condition_code='NM' OR s.condition_code IS NULL)
+   AND snap.amount_micros>0 AND snap.observed_on BETWEEN $1::date-6 AND $1::date ${filter}
+   AND EXISTS(SELECT 1 FROM cards_all c JOIN games g ON g.game_id=c.game_id AND g.load=1 WHERE c.product_id=s.card_ref AND c.product_type_name='Cards' AND c.has_image=2 AND btrim(coalesce(c.number,''))<>'' AND btrim(coalesce(c.name,''))<>'')
+  ),best AS (SELECT DISTINCT ON(card_ref) * FROM eligible ORDER BY card_ref,${metric} DESC,observed_on DESC,series_id),leaders AS (
+   SELECT * FROM best ORDER BY ${metric} DESC,amount_micros DESC,observed_on DESC,card_ref LIMIT 100
+  ) SELECT ${catalogColumns},${priceColumns},l.baseline_7d_on::text AS comparison_date,l.baseline_7d_amount_micros::text AS comparison_micros
+  FROM leaders l JOIN cards_all c ON c.product_id=l.card_ref JOIN price_series s ON s.series_id=l.series_id JOIN price_source src ON src.source_id=s.source_id JOIN published pub ON pub.source_id=s.source_id JOIN price_current_snapshot snap ON snap.batch_id=pub.batch_id AND snap.series_id=s.series_id
+  ORDER BY l.${metric} DESC,l.amount_micros DESC,l.observed_on DESC,l.card_ref`,[ctx.anchorDate]);
+  return {kind,returnedCount:rows.length,items:rows.map((r,i)=>({...cardRecord(r,ctx.games),rank:i+1,baseline_7d_price:usd(r.comparison_micros),baseline_7d_on:r.comparison_date,price_change_7d_percent:r.change_7d_percent===null?null:Number(r.change_7d_percent)}))};
+ }
+
  async function pageData(params,ctx){
   const path=params.get('path')??'/';const filter=new URLSearchParams(params);filter.delete('path');
   const base={games:ctx.games,sets:[],cards:[],result:null,card:null,trend:null,set:null,catalogVersion:ctx.catalogVersion,capturedAt:ctx.snapshotCapturedAt.slice(0,10)};
@@ -106,7 +136,7 @@ export function createPostgresStore(query) {
   if(path.startsWith('/games/')){if(!ctx.games.some(g=>g.slug===path.slice(7)))return {...base,notFound:true};filter.set('game',path.slice(7));}
   if(path.startsWith('/sets/')){const id=decodeURIComponent(path.slice(6)),set=await store.getSet(id,filter,ctx);if(!set)return {...base,notFound:true};return {...base,sets:[set,...base.sets.filter(s=>s.id!==set.id)],set,cards:set.items,result:set};}
   if(!['/','/cards','/prices','/games'].includes(path)&&!path.startsWith('/games/'))throw new CatalogInputError('Unsupported page path.');
-  if(path==='/')filter.set('pageSize','4');
+  if(path==='/')filter.set('pageSize','4');if(path==='/prices')filter.set('pageSize','48');
   const result=await listCards(filter,ctx);return {...base,cards:result.items,result};
  };
  return store;

@@ -23,3 +23,11 @@ test('the database budget rejects excess cold reads before opening a database co
  const response=await limited.fetch(new Request('https://site-data.internal/site-api/v1/cards'),env);
  assert.equal(response.status,429);assert.equal(response.headers.get('Retry-After'),'60');assert.equal(opened,0);assert.equal((await response.json()).error.code,'CATALOG_READ_BUDGET_EXCEEDED');
 });
+
+test('rankings are read from a complete snapshot without opening the business database',async()=>{
+ let opened=0;const readonly=createWebsiteService(async()=>{opened++;throw Error('must not query')});
+ const snapshot={schemaVersion:1,generatedAt:'2026-11-07T00:00:00Z',anchorDate:'2026-11-07',catalogVersion:'published-ranking',counts:{total:1},boards:{gainers:{kind:'gainers',items:[{rank:1,publicCardId:'100'}]},highest:{kind:'highest',items:[{rank:1,publicCardId:'100'}]}}};
+ const env={DEPLOYMENT_MODE:'preview',CATALOG_MODE:'postgres',SITE_CACHE:{get:async()=>snapshot}};
+ const r=await readonly.fetch(new Request('https://site-data.internal/site-api/v1/rankings/gainers'),env);assert.equal(r.status,200);assert.equal((await r.json()).data.items.length,1);assert.equal(opened,0);
+ const missing=await readonly.fetch(new Request('https://site-data.internal/site-api/v1/rankings/gainers'),{...env,SITE_CACHE:{get:async()=>null}});assert.equal(missing.status,503);assert.equal(opened,0);
+});

@@ -20,9 +20,10 @@ export function cardMetadata(card,{hasTrend=false}={}) {
  const title = `${numbered}${scope ? ' (' + scope + ')' : ''}: ${hasPrice ? 'Price & Card Details' : 'Card Details'}${edition?' — '+edition[2]:''} | CardScanFox`;
  const printing = `${identity}${set ? ' from ' + set : ''}`;
  const observed = dateLabel(card.price_as_of);
+ const context=[clean(card.language),clean(card.finish),clean(card.reference?.condition)].filter(meaningful).join(', ');
  const description = hasPrice
-  ? `Identify ${printing}. Check the published price${observed ? ' dated ' + observed : ''}, printing details${hasTrend?' and a 30-day trend':''}.`
-  : `Identify ${printing}. Check its collector number, artwork and printing details. A published price is not currently available.`;
+  ? `Check the published price of ${printing}${context?' ('+context+')':''}${observed?' as of '+observed:''}. Compare the printing and price context${hasTrend?', then view its 30-day trend':''}.`
+  : `Identify ${printing}${context?' ('+context+')':''}. Compare its collector number, artwork and printing details. A published price is not currently available.`;
  return {title,description,intent:hasPrice?'exact-card-identification-and-price':'exact-card-identification',identity};
 }
 export function cardIndexEligibility(card, datasetMode) {

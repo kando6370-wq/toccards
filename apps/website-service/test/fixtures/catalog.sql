@@ -18,3 +18,6 @@ INSERT INTO price_current_snapshot VALUES(10,100,'2026-11-06',123450000,1,NULL,N
 INSERT INTO price_history_month VALUES(100,'2026-10-01','[{"d":"2026-10-01","a":1},{"d":"2026-10-08","a":100000000},{"d":"2026-10-20","a":110000000}]',9),(100,'2026-11-01','[{"d":"2026-11-05","a":120000000},{"d":"2026-11-07","a":999999999}]',10),(101,'2026-11-01','[{"d":"2026-11-05","a":19000000}]',10);
 
 ALTER TABLE price_current_snapshot ADD COLUMN change_30d_percent numeric;
+
+ALTER TABLE cards_all ADD COLUMN has_image integer NOT NULL DEFAULT 2;
+UPDATE cards_all SET product_type_name='Cards' WHERE product_type_name='Card';

@@ -80,3 +80,11 @@ NDJSON 按页写入临时文件，内存不累计全部原始对象。结尾包�
 目标账号 `dced4adca2f35cff247b39979058b934`；仓库 `kando6370-wq/toccards`；发布分支 `codex/cardscanfox-preview`；Worker 名 `cardscanfox-site-data-preview`。根目录 `/`，构建命令 `pnpm --filter @kando/website-service --fail-if-no-match build:ci`，部署命令 `pnpm --filter @kando/website-service --fail-if-no-match deploy:preview`。构建环境 Node 22、pnpm 11.9.0。关闭非发布分支构建。
 
 监听目录为 `apps/website-service/*`、`packages/website-content/*`、`pnpm-lock.yaml`、`pnpm-workspace.yaml`、`package.json`。当前配置复用正式库 Hyperdrive，关闭 workers.dev 和版本 URL，不包含数据库密码或迁移。此接入使用原账户权限和本服务只读事务；独立数据库账号与连接池不是已完成能力。
+
+## 目录统计与价格榜单
+
+`SITE_CACHE` 仅缓存公开目录统计和两个 Top 100 快照。新服务的五分钟 cron 在成功快照超过一小时时刷新，失败保留旧结果并延后重试；页面访问不触发全库排名。`/site-api/v1/rankings/gainers` 与 `/rankings/highest` 提供生成时间、观测窗口、本次返回数量及最多 100 项。
+
+涨幅按相同序列精确七日正百分比排名，零/缺失起点排除。高价按最近七日观测窗口内当前金额排名。仅 USD 裸卡单卡，NM 或未指定成色；密封产品、评级序列、缺图或缺卡号记录排除。按卡牌记录去重，保留并展示获选序列的来源/语言/工艺，详情链接需携带 series。
+
+目录只列有图的单卡。普通、游戏及系列浏览可使用缓存统计，总数带统计时间；复杂筛选没有可靠总数时返回 null。前后分页使用 `after` 与 `before`，带游标不叠加 OFFSET。

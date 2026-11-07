@@ -1,5 +1,6 @@
 import { catalog, games, sets, getCard, getSet, getTrend, queryCards, publicEnvelope } from '@kando/website-content';
 import { withReadOnlyCatalog } from './read-connection.mjs';
+import {readWebsiteSnapshot,refreshWebsiteSnapshot} from './site-snapshots.mjs';
 
 function connectionString(env: Env): string {
  const binding: unknown = Reflect.get(env, 'CATALOG_DB');
@@ -9,7 +10,7 @@ function connectionString(env: Env): string {
  if (typeof local === 'string' && local) return local;
  throw new Error('CATALOG_READ_CONNECTION_NOT_CONFIGURED');
 }
-const allowedParams = new Set(['q', 'game', 'set', 'language', 'finish', 'price', 'sort', 'page', 'pageSize', 'days', 'series', 'condition', 'grader', 'path', 'after']);
+const allowedParams = new Set(['q', 'game', 'set', 'language', 'finish', 'price', 'sort', 'page', 'pageSize', 'days', 'series', 'condition', 'grader', 'path', 'after', 'before']);
 export function createWebsiteService(read = withReadOnlyCatalog) {
  return {
   async fetch(request: Request, env: Env, context?: ExecutionContext): Promise<Response> {
@@ -38,6 +39,13 @@ export function createWebsiteService(read = withReadOnlyCatalog) {
      return data === null ? respond({ success: false, error: { code: 'NOT_FOUND', requestId } }, 404) : respond(publicEnvelope(data, requestId));
     }
     if (mode !== 'postgres') throw new Error('CATALOG_MODE_NOT_CONFIGURED');
+    const websiteSnapshot=await readWebsiteSnapshot(env.SITE_CACHE);
+    if(/^\/rankings\/(gainers|highest)$/.test(path)){
+     const kind=path.split('/')[2];
+     if(!websiteSnapshot)return respond({success:false,error:{code:'RANKINGS_UPDATING',requestId}},503);
+     return respond({success:true,data:{...websiteSnapshot.boards[kind],generatedAt:websiteSnapshot.generatedAt,anchorDate:websiteSnapshot.anchorDate},meta:{requestId,catalogVersion:websiteSnapshot.catalogVersion,datasetMode:'published-read-only',snapshotCapturedAt:websiteSnapshot.generatedAt,directorySnapshot:true,versionScope:'ranking-snapshot'}});
+    }
+
     if (!['/health', '/games', '/cards', '/prices', '/sets', '/page-data'].includes(path) && !/^\/(?:cards\/[^/]+(?:\/trend)?|sets\/[^/]+)$/.test(path)) return respond({ success: false, error: { code: 'NOT_FOUND', requestId } }, 404);
     if (path.endsWith('/trend') && url.searchParams.has('days') && url.searchParams.get('days') !== '30') return respond({ success: false, error: { code: 'INVALID_QUERY', requestId } }, 400);
     const normalized = new URLSearchParams([...url.searchParams].sort(([a], [b]) => a.localeCompare(b)));
@@ -51,7 +59,7 @@ export function createWebsiteService(read = withReadOnlyCatalog) {
      return respond({success:false,error:{code:'CATALOG_READ_BUDGET_EXCEEDED',requestId}},429);
     }
     const result = await read(connectionString(env), async store => {
-     const meta = await store.context();
+     const baseMeta=await store.context();const meta = {...baseMeta,games:baseMeta.games.map((g:{id:string;name:string;slug:string})=>({...g,cardCount:websiteSnapshot?.counts?.byGame[g.id]??null})),counts:websiteSnapshot?.counts??null,countedAt:websiteSnapshot?.generatedAt??null};
      if (path === '/health') data = { status: 'ok', mode: 'published-read-only' };
      else if (path === '/games') data = { items: meta.games };
      else if (path === '/page-data') data = await store.pageData(url.searchParams, meta);
@@ -72,6 +80,10 @@ export function createWebsiteService(read = withReadOnlyCatalog) {
     console.error(JSON.stringify({ event: 'website_catalog_request_failed', requestId, status: bad ? 400 : 503, errorType: error instanceof Error ? error.name : 'Unknown',databaseCode:typeof code==='string'&&/^[0-9A-Z]{5}$/.test(code)?code:null,durationMs:Date.now()-startedAt }));
     return respond({ success: false, error: { code: bad ? 'INVALID_QUERY' : 'CATALOG_UNAVAILABLE', message: bad && error instanceof Error ? error.message : 'The catalog is temporarily unavailable.', requestId } }, bad ? 400 : 503);
    }
+  },
+  async scheduled(_event:ScheduledController,env:Env,ctx:ExecutionContext){
+   if(String(env.CATALOG_MODE)!=='postgres')return;
+   ctx.waitUntil(refreshWebsiteSnapshot(env.SITE_CACHE,read,connectionString(env)).then(result=>{console.log(JSON.stringify({event:'website_snapshot_refresh',...result}));}).catch(error=>{const code=error&&typeof error==='object'?Reflect.get(error,'code'):null;console.error(JSON.stringify({event:'website_snapshot_refresh_failed',errorType:error instanceof Error?error.name:'Unknown',databaseCode:typeof code==='string'&&/^[0-9A-Z]{5}$/.test(code)?code:null}));throw error;}));
   }
  };
 }

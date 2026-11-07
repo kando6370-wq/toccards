@@ -3,6 +3,7 @@ export const catalog = Object.freeze(snapshot);
 export const cards = Object.freeze(snapshot.cards);
 export const catalogVersion = snapshot.catalogVersion;
 export const publicOrigin = 'https://tcgcard.fun';
+export const chromeStoreUrl = 'https://chromewebstore.google.com/detail/tcg-card-recognizer-%E2%80%94-tcg/hggmhmclihnigdmgcbggblhmjjlpaemn';
 export const appStoreUrl = 'https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224';
 export const gameLabels = Object.freeze({pokemon:'Pokémon',yugioh:'Yu-Gi-Oh!', 'one-piece':'One Piece',lorcana:'Lorcana',mtg:'Magic: The Gathering',basketball:'Basketball'});
 export const hasPrice = card => typeof card.price_usd === 'number' && Number.isFinite(card.price_usd);

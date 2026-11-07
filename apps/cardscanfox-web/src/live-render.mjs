@@ -3,6 +3,15 @@ import { createRenderer, legacyByPath, errorPage } from './render.mjs';
 export const isCatalogPage = path => ['/', '/cards', '/games', '/sets', '/prices', '/saved'].includes(path) || /^\/(cards|games|sets)\/[^/]+$/.test(path);
 function homeWithoutCatalog(url){const renderer=createRenderer({catalog:{mode:'published-read-only',catalogVersion:'unavailable',capturedAt:null},cards:[],sets:[],games:[],getCard:()=>null});const result=renderer.resolvePage(url);result.html=result.html.replace('<section id="homeView">','<section id="homeView"><p class="notice" role="status">The card catalog is temporarily unavailable. Product information and existing guides remain available.</p>');return result;}
 export async function resolveServicePage(url, binding) {
+ const rankingKind={'/prices/top-gainers':'gainers','/prices/most-valuable':'highest'}[url.pathname];
+ if(rankingKind){
+  let response;try{response=await binding.fetch(new Request('https://site-data.internal/site-api/v1/rankings/'+rankingKind,{signal:AbortSignal.timeout(6500)}));}catch{}
+  const payload=response?.ok?await readBoundedJson(response):null;
+  const ranking=payload?.success&&payload.meta?.datasetMode==='published-read-only'?payload.data:null;
+  const rendered=createRenderer({liveSite:true,rankings:ranking??{kind:rankingKind,items:[],status:'updating'},catalog:{mode:'published-read-only',catalogVersion:payload?.meta?.catalogVersion??'unavailable',capturedAt:null}}).resolvePage(url);
+  return {...rendered,status:ranking?200:503,dataAvailable:Boolean(ranking?.items?.length)};
+ }
+
  if (!isCatalogPage(url.pathname) || (legacyByPath.has(url.pathname) && url.pathname !== '/')) return null;
  const params=new URLSearchParams(url.searchParams);params.set('path',url.pathname);
  let response;try{response=await binding.fetch(new Request('https://site-data.internal/site-api/v1/page-data?'+params,{signal:AbortSignal.timeout(6500)}));}catch(error){if(url.pathname==='/')return homeWithoutCatalog(url);throw error;}

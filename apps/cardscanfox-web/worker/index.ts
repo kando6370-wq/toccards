@@ -2,7 +2,7 @@ import {htmlCacheKey,htmlEtag,conditionalHtml} from '../src/html-cache.mjs';
 import { readBoundedJson } from '../src/read-json.mjs';
 import { resolveServicePage } from '../src/live-render.mjs';
 import { publishHtml, publicSitemap, sitemapIndex, mayIndex } from '../src/publication.mjs';
-import { resolvePage, errorPage, legacyByPath } from '../src/render.mjs';
+import { createRenderer, resolvePage, errorPage, legacyByPath } from '../src/render.mjs';
 
 type RuntimeVariables = 'DEPLOYMENT_MODE'|'CATALOG_MODE'|'LOCAL_DEVELOPMENT'|'PUBLISH_READY';
 type OptionalBindings = 'PREVIEW_USERNAME'|'PREVIEW_PASSWORD'|'CF_VERSION_METADATA';
@@ -17,6 +17,7 @@ async function previewAllowed(request: Request,env: WebsiteEnv):Promise<boolean>
  const authorization=request.headers.get('Authorization')??'';if(authorization.length>1024||!authorization.startsWith('Basic '))return false;
  try{return await equalSecret(atob(authorization.slice(6)),env.PREVIEW_USERNAME+':'+env.PREVIEW_PASSWORD)}catch{return false}
 }
+const liveContent=createRenderer({liveSite:true});
 const securityHeaders={
  'X-Robots-Tag':'noindex, nofollow, noarchive',
  'Cache-Control':'no-store',
@@ -57,7 +58,7 @@ export function createWebsiteHandler({publicPreview=false}={}) { return {
   const htmlCache=production&&typeof caches!=='undefined'&&'default' in caches?caches.default:null;
   const cacheKey=production?htmlCacheKey(request,env.CF_VERSION_METADATA?.id??'local'):null;
   if(htmlCache&&cacheKey){try{const cached=await htmlCache.match(cacheKey);if(cached){const freshHeaders=new Headers(cached.headers);freshHeaders.set('X-Request-Id',requestId);return conditionalHtml(request,cached.body,freshHeaders,cached.status);}}catch{console.error(JSON.stringify({event:'html_cache_read_failed',requestId}));}}
-  try{const page=(String(env.CATALOG_MODE)==='service'?await resolveServicePage(url,env.SITE_DATA):null)??resolvePage(url);headers.set('Content-Type','text/html; charset=utf-8');if(production){headers.set('X-Robots-Tag',mayIndex(url,page.status,page)?'index, follow':'noindex, follow');headers.set('Cache-Control',page.status===200&&url.pathname!=='/saved'?'public, max-age=0, s-maxage=60':'no-store');}const html=production?publishHtml(page.html,url,page.status,page):page.html;
+  try{const page=(String(env.CATALOG_MODE)==='service'?await resolveServicePage(url,env.SITE_DATA):null)??(String(env.CATALOG_MODE)==='service'?liveContent.resolvePage(url):resolvePage(url));headers.set('Content-Type','text/html; charset=utf-8');if(production){headers.set('X-Robots-Tag',mayIndex(url,page.status,page)?'index, follow':'noindex, follow');headers.set('Cache-Control',page.status===200&&url.pathname!=='/saved'?'public, max-age=0, s-maxage=60':'no-store');}const html=production?publishHtml(page.html,url,page.status,page):page.html;
    if(production&&page.status===200){headers.set('ETag',await htmlEtag(html));if(htmlCache&&cacheKey&&context&&request.method==='GET')context.waitUntil(htmlCache.put(cacheKey,new Response(html,{headers})).catch(()=>console.error(JSON.stringify({event:'html_cache_write_failed',requestId}))));return conditionalHtml(request,html,headers,page.status);}
    return new Response(request.method==='HEAD'?null:html,{status:page.status,headers});}
   catch(error){const invalid=error instanceof Error&&(error.name==='QueryError'||error instanceof URIError||error.message==='Invalid pricing selection.');const status=invalid?400:503;console.error(JSON.stringify({requestId,event:'page_render_failed',status,path:url.pathname,errorType:error instanceof Error?error.name:'Unknown'}));headers.set('Content-Type','text/html; charset=utf-8');return new Response(request.method==='HEAD'?null:errorPage(status,invalid?'Check the query or pricing selection.':'The catalog is temporarily unavailable. Existing articles and product guides remain available.'),{status,headers});}

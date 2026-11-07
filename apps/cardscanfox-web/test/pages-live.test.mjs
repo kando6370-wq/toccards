@@ -33,3 +33,17 @@ test('live pages offer price sorting after a set is selected and show the requir
  const scoped=await(await pages.fetch(new Request('https://preview.pages.dev/cards?set=db-L'),env,{})).text();assert.match(scoped,/<option value="price-desc"/);
  const prices=await(await pages.fetch(new Request('https://preview.pages.dev/prices'),env,{})).text();assert.match(prices,/name="set"/);assert.doesNotMatch(prices,/<option value="price-desc"/);
 });
+
+test('live navigation, download choices and paging explain the visitor task without internal review labels',async()=>{
+ const pageData={...data,result:{...data.result,page:2,pageSize:24,total:241,returnedCount:24,hasPrevious:true,hasMore:true,previousCursor:'live-900',nextCursor:'live-999',countedAt:'2026-11-07T00:00:00Z'}};
+ const real={...env,SITE_DATA:{fetch:async()=>new Response(JSON.stringify({success:true,data:pageData,meta:{datasetMode:'published-read-only',catalogVersion:'live'}}))}};
+ const html=await(await pages.fetch(new Request('https://preview.pages.dev/cards?page=2&after=live-899'),real,{})).text();
+ assert.doesNotMatch(html,/Independent review site|Total not computed/);assert.match(html,/Top 100/);assert.match(html,/rel="prev"/);assert.match(html,/before=live-900/);assert.match(html,/page=3/);assert.match(html,/Page <strong>2/);assert.match(html,/of <strong>11/);assert.match(html,/href="\/download"/);
+ const download=await(await pages.fetch(new Request('https://preview.pages.dev/download'),real,{})).text();assert.match(download,/Card AI for iOS/);assert.match(download,/Card AI for Android/);assert.match(download,/Coming soon/);assert.match(download,/chromewebstore\.google\.com/);assert.match(download,/apps\.apple\.com/);assert.doesNotMatch(download,/play\.google\.com/);
+});
+test('ranking rows link to the exact published price series and expose dates and comparison values',async()=>{
+ const ranked={...card,rank:1,baseline_7d_price:20,baseline_7d_on:'2026-10-31',price_change_7d_percent:27.5};
+ const real={...env,SITE_DATA:{fetch:async()=>new Response(JSON.stringify({success:true,data:{kind:'gainers',items:[ranked],generatedAt:'2026-11-07T00:00:00Z',anchorDate:'2026-11-07'},meta:{datasetMode:'published-read-only',catalogVersion:'ranked'}}))}};
+ const html=await(await pages.fetch(new Request('https://preview.pages.dev/prices/top-gainers'),real,{})).text();assert.match(html,/27\.5%/);assert.match(html,/series=900/);assert.match(html,/\$20\.00/);assert.match(html,/Raw single cards/);assert.match(html,/7 Nov 2026/);
+ const failed={...env,SITE_DATA:{fetch:async()=>new Response('Updating',{status:503})}};const pending=await pages.fetch(new Request('https://preview.pages.dev/prices/most-valuable'),failed,{});assert.equal(pending.status,503);assert.match(await pending.text(),/ranking is being prepared/);
+});

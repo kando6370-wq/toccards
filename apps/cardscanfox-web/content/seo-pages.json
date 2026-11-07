@@ -1,232 +1,488 @@
 {
   "/": {
     "intent": "产品认知与下载",
-    "title": "TCG Card Scanner & Collection Tracker | CardScanFox",
-    "description": "Identify trading cards, confirm the printing and check available prices. Organize owned cards and a separate Wishlist in the Card AI app."
+    "title": "Trading Card Scanner & Collection Tracker | CardScanFox",
+    "description": "Scan physical trading cards with Card AI, confirm the exact printing and track your collection. Explore card prices, sets and collecting guides.",
+    "question": "How can I identify my cards and keep track of the collection I own?"
   },
   "/bulk-card-scanner": {
     "intent": "批量整理实体卡的 App 流程",
     "title": "Bulk Card Scanner: Review a Stack of Cards | CardScanFox",
-    "description": "Queue up to 10 card photos in the Card AI app. Review each match, confirm printing details, then add the copies you own to your collection."
+    "description": "Queue up to 10 card photos in the Card AI app. Review each match, confirm printing details, then add the copies you own to your collection.",
+    "question": "Can Card AI identify and track the particular card type I collect?"
   },
   "/card-identifier": {
     "intent": "从照片识别卡牌，选择工具",
     "title": "Trading Card Identifier App: Scan & Confirm | CardScanFox",
-    "description": "Identify trading cards from a photo in the Card AI app. Confirm the set, collector number, language and finish before adding the card to your collection."
+    "description": "Identify trading cards from a photo in the Card AI app. Confirm the set, collector number, language and finish before adding the card to your collection.",
+    "question": "从照片识别卡牌，选择工具"
   },
   "/card-price-checker": {
     "intent": "查自己的单卡价值及操作方法",
     "title": "Card Price Checker: What Is Your Card Worth? | CardScanFox",
-    "description": "Learn how to check a trading card’s value by set, collector number, finish and condition. Understand dated prices before tracking your cards in the app."
+    "description": "Learn how to check a trading card’s value by set, collector number, finish and condition. Understand dated prices before tracking your cards in the app.",
+    "question": "查自己的单卡价值及操作方法"
   },
   "/card-collection-tracker": {
     "intent": "选择收藏及价值追踪工具",
     "title": "Card Collection Tracker & Portfolio App | CardScanFox",
-    "description": "Track owned trading cards, quantities and available collection value. Keep a separate Wishlist and organize confirmed holdings in the Card AI app."
+    "description": "Track owned trading cards, quantities and available collection value. Keep a separate Wishlist and organize confirmed holdings in the Card AI app.",
+    "question": "选择收藏及价值追踪工具"
   },
   "/digital-card-binder": {
     "intent": "组织数字卡册与文件夹",
     "title": "Digital Card Binder: Organize Your Cards | CardScanFox",
-    "description": "Organize confirmed card holdings into folders in the Card AI app. Keep printing, quantity, raw condition and existing slab grades with each copy."
+    "description": "Organize confirmed card holdings into folders in the Card AI app. Keep printing, quantity, raw condition and existing slab grades with each copy.",
+    "question": "组织数字卡册与文件夹"
   },
   "/graded-card-tracker": {
     "intent": "管理已经评级的卡",
     "title": "Graded Card Tracker: Keep Each Copy Separate | CardScanFox",
-    "description": "Record existing PSA, BGS, CGC or SGC grades alongside raw card holdings. Check available grade-specific prices without mixing different copies."
+    "description": "Record existing PSA, BGS, CGC or SGC grades alongside raw card holdings. Check available grade-specific prices without mixing different copies.",
+    "question": "管理已经评级的卡"
   },
   "/card-ai-vs-collx": {
     "intent": "商业比较，选择查价及收藏工具",
     "title": "Card AI vs CollX: Price & Collection Workflows | CardScanFox",
-    "description": "Compare documented Card AI and CollX workflows for card variants, condition, price context and collections. See source dates and limits before choosing."
+    "description": "Compare documented Card AI and CollX workflows for card variants, condition, price context and collections. See source dates and limits before choosing.",
+    "question": "商业比较，选择查价及收藏工具"
   },
   "/card-ai-vs-ludex": {
     "intent": "商业比较，扫描后收藏还是售卖",
     "title": "Card AI vs Ludex: Compare the Next Step | CardScanFox",
-    "description": "Compare documented scan review, price research, collection and listing workflows. Choose by your next task, with sources and testing limits explained."
+    "description": "Compare documented scan review, price research, collection and listing workflows. Choose by your next task, with sources and testing limits explained.",
+    "question": "商业比较，扫描后收藏还是售卖"
   },
   "/card-scanner-comparison-2026": {
     "intent": "比较扫描 App、额度和适用场景",
     "title": "Trading Card Scanner Apps Compared: 2026 Guide | CardScanFox",
-    "description": "Compare card scanner workflows, free-scan limits, price context and collection tools. Read the dated sources and choose what fits the cards you own."
+    "description": "Compare card scanner workflows, free-scan limits, price context and collection tools. Read the dated sources and choose what fits the cards you own.",
+    "question": "比较扫描 App、额度和适用场景"
   },
   "/chrome-extension": {
     "intent": "浏览器图片识别工具",
-    "title": "Identify Trading Cards in Chrome Images | CardScanFox",
-    "description": "Use the Card AI Chrome extension to find catalog matches for card images on webpages. Review the card record and available price before comparing a listing."
+    "title": "TCG Card Recognizer for Chrome: Identify Card Images",
+    "description": "Identify a trading card image while browsing in Chrome. Review likely matches and open price details with the TCG Card Recognizer extension.",
+    "question": "How do I identify a trading card image on a webpage?"
   },
   "/blog/": {
     "intent": "浏览收藏知识和对比文章",
     "title": "Trading Card Values, Card Lists & App Comparisons | CardScanFox",
-    "description": "Find card lists, understand raw and graded values, and compare card-scanning apps. Read printing guides and dated sources before choosing your next step."
+    "description": "Find card lists, understand raw and graded values, and compare card-scanning apps. Read printing guides and dated sources before choosing your next step.",
+    "question": "What specific printing, checklist or collecting question does this guide answer?"
   },
   "/blog/ascended-heroes-card-list": {
     "intent": "查系列卡表与具体印次",
     "title": "Ascended Heroes Card List & Printing Guide | CardScanFox",
-    "description": "Explore the Ascended Heroes card-list guide. Check full card numbers, available catalog records and dated references before comparing your copy."
+    "description": "Explore the Ascended Heroes card-list guide. Check full card numbers, available catalog records and dated references before comparing your copy.",
+    "question": "What specific printing, checklist or collecting question does this guide answer?"
   },
   "/blog/chaos-rising-card-list": {
     "intent": "查系列卡表和参考价",
     "title": "Chaos Rising Card List & Price References | CardScanFox",
-    "description": "Use the Chaos Rising guide to match card names and full numbers. Separate catalog coverage from the dated prices available for individual printings."
+    "description": "Use the Chaos Rising guide to match card names and full numbers. Separate catalog coverage from the dated prices available for individual printings.",
+    "question": "What specific printing, checklist or collecting question does this guide answer?"
   },
   "/blog/charizard-151-card-value": {
     "intent": "区分 151 喷火龙编号并查价值",
     "title": "Charizard 151 Values: 006, 183 or 199? | CardScanFox",
-    "description": "Compare Charizard 151 records 006/165, 183/165 and 199/165. Match the artwork and full number before using a dated raw or graded price reference."
+    "description": "Compare Charizard 151 records 006/165, 183/165 and 199/165. Match the artwork and full number before using a dated raw or graded price reference.",
+    "question": "What specific printing, checklist or collecting question does this guide answer?"
   },
   "/blog/charizard-gx-card-values": {
     "intent": "区分 GX 版本、印章与促销卡",
     "title": "Charizard GX Values: SV49, SM211 & More | CardScanFox",
-    "description": "Separate Charizard GX printings by set, full number and product stamp. Review Hidden Fates and promo records before comparing available prices."
+    "description": "Separate Charizard GX printings by set, full number and product stamp. Review Hidden Fates and promo records before comparing available prices.",
+    "question": "What specific printing, checklist or collecting question does this guide answer?"
   },
   "/blog/cufant-card-values": {
     "intent": "区分 Cufant 实体卡及价格",
     "title": "Cufant Card Values by Set & Number | CardScanFox",
-    "description": "Compare selected Cufant printings from Shrouded Fable and Shiny Vault. Check the complete number, finish and date before using a price reference."
+    "description": "Compare selected Cufant printings from Shrouded Fable and Shiny Vault. Check the complete number, finish and date before using a price reference.",
+    "question": "What specific printing, checklist or collecting question does this guide answer?"
   },
   "/blog/ivysaur-card-values": {
     "intent": "区分 Ivysaur 151 与初代卡",
     "title": "Ivysaur Card Values: 151 vs Base Set | CardScanFox",
-    "description": "Separate Ivysaur 151 and Base Set records by artwork and collector number. Confirm language, finish and condition before comparing dated values."
+    "description": "Separate Ivysaur 151 and Base Set records by artwork and collector number. Confirm language, finish and condition before comparing dated values.",
+    "question": "What specific printing, checklist or collecting question does this guide answer?"
   },
   "/blog/mega-charizard-x-ex-card-value": {
     "intent": "确认 Mega Charizard X ex 具体印次",
     "title": "Mega Charizard X ex Value: Match the Number | CardScanFox",
-    "description": "Check the Phantasmal Flames set and full collector number for Mega Charizard X ex. Use the matching record and date when reviewing available prices."
+    "description": "Check the Phantasmal Flames set and full collector number for Mega Charizard X ex. Use the matching record and date when reviewing available prices.",
+    "question": "What specific printing, checklist or collecting question does this guide answer?"
   },
   "/blog/mew-gg10-card-value": {
     "intent": "定位 Mew GG10/GG70 印次",
     "title": "Mew GG10 Value: Crown Zenith GG10/GG70 | CardScanFox",
-    "description": "Identify Mew GG10 from Crown Zenith before checking its value. Keep the gallery prefix, full number and condition with each dated price reference."
+    "description": "Identify Mew GG10 from Crown Zenith before checking its value. Keep the gallery prefix, full number and condition with each dated price reference.",
+    "question": "What specific printing, checklist or collecting question does this guide answer?"
   },
   "/blog/moonbreon-card-value": {
     "intent": "把昵称解析为实际单卡",
     "title": "Moonbreon Value: Umbreon VMAX 215/203 | CardScanFox",
-    "description": "Match Moonbreon to Umbreon VMAX 215/203 from Evolving Skies. Check the exact printing, language and raw or graded state before comparing prices."
+    "description": "Match Moonbreon to Umbreon VMAX 215/203 from Evolving Skies. Check the exact printing, language and raw or graded state before comparing prices.",
+    "question": "What specific printing, checklist or collecting question does this guide answer?"
   },
   "/blog/phantasmal-flames-card-list": {
     "intent": "查系列卡表与价格参考",
     "title": "Phantasmal Flames Card List & Prices | CardScanFox",
-    "description": "Use the Phantasmal Flames guide to find card-list references and selected catalog records. Confirm each printing before using its dated price."
+    "description": "Use the Phantasmal Flames guide to find card-list references and selected catalog records. Confirm each printing before using its dated price.",
+    "question": "What specific printing, checklist or collecting question does this guide answer?"
   },
   "/blog/pikachu-card-values": {
     "intent": "按版本查 Pikachu 价值",
     "title": "Pikachu Card Values: Which Printing Is Yours? | CardScanFox",
-    "description": "Pikachu appears across many releases. Compare the set, full number, language and finish to find a price reference that belongs to your copy."
+    "description": "Pikachu appears across many releases. Compare the set, full number, language and finish to find a price reference that belongs to your copy.",
+    "question": "What specific printing, checklist or collecting question does this guide answer?"
   },
   "/blog/pokemon-card-values": {
     "intent": "学习按名称、系列、编号查值",
     "title": "Pokémon Card Values by Name, Set & Number | CardScanFox",
-    "description": "Start with the Pokémon name, set and full card number. Explore printing guides and learn how condition and price dates affect the reference you use."
+    "description": "Start with the Pokémon name, set and full card number. Explore printing guides and learn how condition and price dates affect the reference you use.",
+    "question": "What specific printing, checklist or collecting question does this guide answer?"
   },
   "/blog/rayquaza-vmax-card-values": {
     "intent": "比较 Rayquaza VMAX 多印次",
     "title": "Rayquaza VMAX Values: Compare the Printings | CardScanFox",
-    "description": "Compare selected Rayquaza VMAX records from Evolving Skies, Crown Zenith and Trainer Gallery. Check set, number and condition before using prices."
+    "description": "Compare selected Rayquaza VMAX records from Evolving Skies, Crown Zenith and Trainer Gallery. Check set, number and condition before using prices.",
+    "question": "What specific printing, checklist or collecting question does this guide answer?"
   },
   "/blog/pokemon-tcg-set-card-lists": {
     "intent": "查多个 Pokémon 系列官方卡表",
     "title": "Pokémon TCG Set Card Lists & Lookup Guide | CardScanFox",
-    "description": "Find official card-list references for selected Pokémon sets. Match a catalog set code and full number before looking up a physical single card."
+    "description": "Find official card-list references for selected Pokémon sets. Match a catalog set code and full number before looking up a physical single card.",
+    "question": "What specific printing, checklist or collecting question does this guide answer?"
   },
   "/blog/dungeon-crawler-carl-trading-cards": {
     "intent": "辨别收藏卡发行与不同产品",
     "title": "Dungeon Crawler Carl Cards: Release Guide | CardScanFox",
-    "description": "Distinguish Dungeon Crawler Carl collectible-card releases and related products. Check the actual single-card record before assuming catalog or price coverage."
+    "description": "Distinguish Dungeon Crawler Carl collectible-card releases and related products. Check the actual single-card record before assuming catalog or price coverage.",
+    "question": "What specific printing, checklist or collecting question does this guide answer?"
   },
   "/blog/minior-pokemon-card-guide": {
     "intent": "辨别 Minior 实体 TCG 版本",
     "title": "Minior Pokémon Cards: Printings & Value Checks | CardScanFox",
-    "description": "Compare selected Minior Pokémon TCG printings by set and number. Keep physical trading cards separate from Pokémon GO encounters and game advice."
+    "description": "Compare selected Minior Pokémon TCG printings by set and number. Keep physical trading cards separate from Pokémon GO encounters and game advice.",
+    "question": "What specific printing, checklist or collecting question does this guide answer?"
   },
   "/blog/scanning-cards-from-watsontcg": {
     "intent": "购买后如何识别支持的单卡",
     "title": "Scan Cards Bought at WatsonTCG | CardScanFox",
-    "description": "Bought cards at WatsonTCG? Identify each supported single by its game, set and number, then review the record in the Card AI app. Coverage varies."
+    "description": "Bought cards at WatsonTCG? Identify each supported single by its game, set and number, then review the record in the Card AI app. Coverage varies.",
+    "question": "What specific printing, checklist or collecting question does this guide answer?"
   },
   "/blog/pokemon-tcg-30th-celebration-card-prices": {
     "intent": "区分周年套卡、单卡和产品",
     "title": "Pokémon 30th Celebration: Card Lists & Prices | CardScanFox",
-    "description": "Separate 30th Celebration catalog groups, official card-list references and dated single-card price samples. Check set codes before valuing your copy."
+    "description": "Separate 30th Celebration catalog groups, official card-list references and dated single-card price samples. Check set codes before valuing your copy.",
+    "question": "What specific printing, checklist or collecting question does this guide answer?"
   },
   "/blog/what-is-my-trading-card-worth": {
     "intent": "学习估值步骤",
     "title": "What Is My Trading Card Worth? | CardScanFox",
-    "description": "Identify the printing, assess raw condition or record an existing slab grade, and check price context. Learn which reference can apply to your trading card."
+    "description": "Identify the printing, assess raw condition or record an existing slab grade, and check price context. Learn which reference can apply to your trading card.",
+    "question": "What specific printing, checklist or collecting question does this guide answer?"
   },
   "/blog/raw-vs-graded-card-values": {
     "intent": "理解裸卡与已评级卡价格差异",
     "title": "Raw vs Graded Card Values: What Changes? | CardScanFox",
-    "description": "Learn why raw condition and an existing slab grade belong to separate price records. Compare like-for-like printings without assuming a guaranteed grading premium."
+    "description": "Learn why raw condition and an existing slab grade belong to separate price records. Compare like-for-like printings without assuming a guaranteed grading premium.",
+    "question": "What specific printing, checklist or collecting question does this guide answer?"
   },
   "/privacy": {
     "intent": "了解隐私和数据处理",
     "title": "Card AI Privacy Policy | CardScanFox",
-    "description": "Read how the CardScanFox website and linked services handle information, including website analytics, local saved references and your privacy choices."
+    "description": "Read how the CardScanFox website and linked services handle information, including website analytics, local saved references and your privacy choices.",
+    "question": "了解隐私和数据处理"
   },
   "/terms": {
     "intent": "了解网站使用条款",
     "title": "Card AI Terms of Use | CardScanFox",
-    "description": "Read the terms for using the CardScanFox website, its card information and dated price references, plus links to the terms that apply to the app."
+    "description": "Read the terms for using the CardScanFox website, its card information and dated price references, plus links to the terms that apply to the app.",
+    "question": "了解网站使用条款"
   },
   "/basketball-card-scanner": {
     "intent": "寻找特定卡种扫描与收藏工具",
     "title": "Basketball Card Scanner: Identify Your Printing | CardScanFox",
-    "description": "Find likely Basketball card matches in the Card AI app. Confirm the set, full number and printing details, then check available prices for your copy."
+    "description": "Find likely Basketball card matches in the Card AI app. Confirm the set, full number and printing details, then check available prices for your copy.",
+    "question": "Can Card AI identify and track the particular card type I collect?"
   },
   "/digimon-card-scanner": {
     "intent": "寻找特定卡种扫描与收藏工具",
     "title": "Digimon Card Scanner: Identify Your Printing | CardScanFox",
-    "description": "Find likely Digimon card matches in the Card AI app. Confirm the set, full number and printing details, then check available prices for your copy."
+    "description": "Find likely Digimon card matches in the Card AI app. Confirm the set, full number and printing details, then check available prices for your copy.",
+    "question": "Can Card AI identify and track the particular card type I collect?"
   },
   "/dragon-ball-super-card-scanner": {
     "intent": "寻找特定卡种扫描与收藏工具",
     "title": "Dragon Ball Super Card Scanner: Check Coverage | CardScanFox",
-    "description": "Learn how to check Dragon Ball Super card coverage before scanning. Confirm a catalog match, printing details and available price context in the Card AI app."
+    "description": "Learn how to check Dragon Ball Super card coverage before scanning. Confirm a catalog match, printing details and available price context in the Card AI app.",
+    "question": "Can Card AI identify and track the particular card type I collect?"
   },
   "/flesh-and-blood-card-scanner": {
     "intent": "寻找特定卡种扫描与收藏工具",
     "title": "Flesh and Blood Card Scanner: Identify Your Printing | CardScanFox",
-    "description": "Find likely Flesh and Blood card matches in the Card AI app. Confirm the set, full number and printing details, then check available prices for your copy."
+    "description": "Find likely Flesh and Blood card matches in the Card AI app. Confirm the set, full number and printing details, then check available prices for your copy.",
+    "question": "Can Card AI identify and track the particular card type I collect?"
   },
   "/football-card-scanner": {
     "intent": "寻找特定卡种扫描与收藏工具",
     "title": "Football Card Scanner: Check Coverage | CardScanFox",
-    "description": "Learn how to check Football card coverage before scanning. Confirm a catalog match, printing details and available price context in the Card AI app."
+    "description": "Learn how to check Football card coverage before scanning. Confirm a catalog match, printing details and available price context in the Card AI app.",
+    "question": "Can Card AI identify and track the particular card type I collect?"
   },
   "/lorcana-card-scanner": {
     "intent": "寻找特定卡种扫描与收藏工具",
     "title": "Lorcana Card Scanner: Identify Your Printing | CardScanFox",
-    "description": "Find likely Lorcana card matches in the Card AI app. Confirm the set, full number and printing details, then check available prices for your copy."
+    "description": "Find likely Lorcana card matches in the Card AI app. Confirm the set, full number and printing details, then check available prices for your copy.",
+    "question": "Can Card AI identify and track the particular card type I collect?"
   },
   "/mtg-card-scanner": {
     "intent": "寻找特定卡种扫描与收藏工具",
     "title": "MTG Card Scanner: Identify Your Printing | CardScanFox",
-    "description": "Find likely MTG card matches in the Card AI app. Confirm the set, full number and printing details, then check available prices for your copy."
+    "description": "Find likely MTG card matches in the Card AI app. Confirm the set, full number and printing details, then check available prices for your copy.",
+    "question": "Can Card AI identify and track the particular card type I collect?"
   },
   "/one-piece-card-scanner": {
     "intent": "寻找特定卡种扫描与收藏工具",
     "title": "One Piece Card Scanner: Identify Your Printing | CardScanFox",
-    "description": "Find likely One Piece card matches in the Card AI app. Confirm the set, full number and printing details, then check available prices for your copy."
+    "description": "Find likely One Piece card matches in the Card AI app. Confirm the set, full number and printing details, then check available prices for your copy.",
+    "question": "Can Card AI identify and track the particular card type I collect?"
   },
   "/pokemon-card-scanner": {
     "intent": "寻找特定卡种扫描与收藏工具",
     "title": "Pokémon Card Scanner: Identify Your Printing | CardScanFox",
-    "description": "Find likely Pokémon card matches in the Card AI app. Confirm the set, full number and printing details, then check available prices for your copy."
+    "description": "Find likely Pokémon card matches in the Card AI app. Confirm the set, full number and printing details, then check available prices for your copy.",
+    "question": "Can Card AI identify and track the particular card type I collect?"
   },
   "/soccer-card-scanner": {
     "intent": "寻找特定卡种扫描与收藏工具",
     "title": "Soccer Card Scanner: Identify Your Printing | CardScanFox",
-    "description": "Find likely Soccer card matches in the Card AI app. Confirm the set, full number and printing details, then check available prices for your copy."
+    "description": "Find likely Soccer card matches in the Card AI app. Confirm the set, full number and printing details, then check available prices for your copy.",
+    "question": "Can Card AI identify and track the particular card type I collect?"
   },
   "/star-wars-unlimited-card-scanner": {
     "intent": "寻找特定卡种扫描与收藏工具",
     "title": "Star Wars Unlimited Card Scanner: Identify Your Printing | CardScanFox",
-    "description": "Find likely Star Wars Unlimited card matches in the Card AI app. Confirm the set, full number and printing details, then check available prices for your copy."
+    "description": "Find likely Star Wars Unlimited card matches in the Card AI app. Confirm the set, full number and printing details, then check available prices for your copy.",
+    "question": "Can Card AI identify and track the particular card type I collect?"
   },
   "/yugioh-card-scanner": {
     "intent": "寻找特定卡种扫描与收藏工具",
     "title": "Yu-Gi-Oh! Card Scanner: Identify Your Printing | CardScanFox",
-    "description": "Find likely Yu-Gi-Oh! card matches in the Card AI app. Confirm the set, full number and printing details, then check available prices for your copy."
+    "description": "Find likely Yu-Gi-Oh! card matches in the Card AI app. Confirm the set, full number and printing details, then check available prices for your copy.",
+    "question": "Can Card AI identify and track the particular card type I collect?"
+  },
+  "/cards": {
+    "intent": "按名称、系列或编号查找具体印次",
+    "title": "Trading Card Database: Find Cards & Prices | CardScanFox",
+    "description": "Search trading cards by name, set or collector number. Match the exact printing, compare available prices and open the card record that fits your copy.",
+    "question": "Which catalog printing matches the card in my hand?"
+  },
+  "/sets": {
+    "intent": "按系列浏览已入库卡牌",
+    "title": "Trading Card Sets: Browse Cards & Prices | CardScanFox",
+    "description": "Find a trading card set and browse the cards currently in the catalog. Check collector numbers, printing details and available published prices.",
+    "question": "Which cards from this set are available in the catalog?"
+  },
+  "/games": {
+    "intent": "选择卡种后进入卡库",
+    "title": "Trading Card Games & Sports Card Database | CardScanFox",
+    "description": "Choose a trading card game or sport, then explore its sets and card records. Find the right printing and check available price references and dates.",
+    "question": "Where do I browse cards for my game or sport?"
+  },
+  "/prices": {
+    "intent": "查具体卡牌当前价值",
+    "title": "Trading Card Prices & Value Lookup | CardScanFox",
+    "description": "Look up a card by name, set or number. Compare its published USD price, condition and price date, then open a 30-day trend when one is available.",
+    "question": "What is my particular card worth, and which price should I compare?"
+  },
+  "/prices/top-gainers": {
+    "intent": "近七天同口径裸卡涨幅排行",
+    "title": "Top 100 Trading Card Price Gainers This Week | CardScanFox",
+    "description": "Explore the largest seven-day gains in published raw single-card prices. Compare the same price series, its starting amount and the exact printing.",
+    "question": "Which raw card prices rose the most over an exact seven-day comparison?"
+  },
+  "/prices/most-valuable": {
+    "intent": "近期已发布裸卡高价排行",
+    "title": "Top 100 Highest-Priced Trading Cards | CardScanFox",
+    "description": "Compare the highest published raw-card prices observed in the latest seven-day window. See each printing, price source, condition and observation date.",
+    "question": "Which raw single cards have the highest recent published reference prices?"
+  },
+  "/app": {
+    "intent": "了解扫描与收藏流程并选择工具",
+    "title": "Card AI: Scan, Price & Track Trading Cards | CardScanFox",
+    "description": "Use Card AI to identify physical cards, confirm the printing and organize your collection. Explore price history, Portfolio, folders and Wishlist.",
+    "question": "Does Card AI support the scanning and collection workflow I need?"
+  },
+  "/download": {
+    "intent": "按平台下载或确认发布状态",
+    "title": "Download Card AI: iPhone, Android & Chrome | CardScanFox",
+    "description": "Get Card AI for iPhone, check Android availability or install TCG Card Recognizer for Chrome. Choose the tool that fits where you collect and browse.",
+    "question": "Where can I get the iPhone app, Android app or Chrome extension?"
+  },
+  "/help": {
+    "intent": "解决识别、价格与收藏使用疑问",
+    "title": "Card AI Help: Scanning, Prices & Collections | CardScanFox",
+    "description": "Find answers about card matches, raw and graded price references, collection tracking and browser saves. Get the right guide or contact Card AI support.",
+    "question": "How do I resolve a question about a scan, price or saved card?"
+  },
+  "/data-methodology": {
+    "intent": "理解价格来源与比较边界",
+    "title": "How Card Prices Are Selected & Updated | CardScanFox",
+    "description": "Understand published price sources, raw and graded comparisons, observation dates and missing data before using a trading card reference price.",
+    "question": "Where do these prices come from, and when are two prices comparable?"
+  },
+  "/saved": {
+    "intent": "返回本浏览器收藏的卡牌参考",
+    "title": "Saved Trading Cards & Price References | CardScanFox",
+    "description": "Return to card references saved in this browser. Reopen each printing and its available price; manage owned holdings and Wishlist in the Card AI app.",
+    "question": "Where are the card references I saved on this website?"
+  },
+  "/blog/category/identity": {
+    "intent": "辨别卡牌与查官方卡表",
+    "title": "Card Identification Guides & Set Lists | CardScanFox",
+    "description": "Find guides to card numbers, sets, reprints and official checklists. Use the visible printing details to identify the card before checking a value.",
+    "question": "Which guide helps me complete this collecting task?"
+  },
+  "/blog/category/values": {
+    "intent": "理解卡价及版本、成色差异",
+    "title": "Trading Card Value Guides: Printing & Condition | CardScanFox",
+    "description": "Compare card printings, raw condition and existing slab grades. Learn what a published reference price can tell you about a particular card.",
+    "question": "Which guide helps me complete this collecting task?"
+  },
+  "/blog/category/collecting": {
+    "intent": "学习收藏组织与价值追踪",
+    "title": "Card Collecting Guides: Binders & Tracking | CardScanFox",
+    "description": "Learn how to organize confirmed card holdings, compare collection workflows and keep owned cards separate from the cards on your Wishlist.",
+    "question": "Which guide helps me complete this collecting task?"
+  },
+  "/blog/category/comparisons": {
+    "intent": "比较卡牌扫描和收藏工具",
+    "title": "Card Scanner App Comparisons & Guides | CardScanFox",
+    "description": "Compare documented scanner, price-research and collection workflows. Read source dates and practical limits before choosing an app for your cards.",
+    "question": "Which guide helps me complete this collecting task?"
+  },
+  "/games/pokemon": {
+    "intent": "浏览 Pokémon 的卡库与价格",
+    "title": "Pokémon Card Database: Sets & Prices | CardScanFox",
+    "description": "Browse Pokémon card records by set, name and collector number. Match a printing, check its published price and open available card details.",
+    "question": "Which Pokémon printing matches my card?"
+  },
+  "/games/one-piece": {
+    "intent": "浏览 One Piece 的卡库与价格",
+    "title": "One Piece Card Database: Sets & Prices | CardScanFox",
+    "description": "Browse One Piece card records by set, name and collector number. Match a printing, check its published price and open available card details.",
+    "question": "Which One Piece printing matches my card?"
+  },
+  "/games/yugioh": {
+    "intent": "浏览 Yu-Gi-Oh! 的卡库与价格",
+    "title": "Yu-Gi-Oh! Card Database: Sets & Prices | CardScanFox",
+    "description": "Browse Yu-Gi-Oh! card records by set, name and collector number. Match a printing, check its published price and open available card details.",
+    "question": "Which Yu-Gi-Oh! printing matches my card?"
+  },
+  "/games/lorcana": {
+    "intent": "浏览 Lorcana 的卡库与价格",
+    "title": "Lorcana Card Database: Sets & Prices | CardScanFox",
+    "description": "Browse Lorcana card records by set, name and collector number. Match a printing, check its published price and open available card details.",
+    "question": "Which Lorcana printing matches my card?"
+  },
+  "/games/basketball": {
+    "intent": "浏览 Basketball 的卡库与价格",
+    "title": "Basketball Card Database: Sets & Prices | CardScanFox",
+    "description": "Browse Basketball card records by set, name and collector number. Match a printing, check its published price and open available card details.",
+    "question": "Which Basketball printing matches my card?"
+  },
+  "/games/mtg": {
+    "intent": "浏览 Magic: The Gathering 的卡库与价格",
+    "title": "Magic: The Gathering Card Database: Sets & Prices | CardScanFox",
+    "description": "Browse Magic: The Gathering card records by set, name and collector number. Match a printing, check its published price and open available card details.",
+    "question": "Which Magic: The Gathering printing matches my card?"
+  },
+  "/sets/set-b5d02f417546": {
+    "intent": "浏览指定系列已入库印次",
+    "title": "ME: 30th Celebration Classic Collection: Browse Cards & Prices | CardScanFox",
+    "description": "Browse cataloged ME: 30th Celebration Classic Collection printings by name or collector number. Compare language, finish and available prices without assuming a complete official checklist.",
+    "question": "Which cataloged printing from ME: 30th Celebration Classic Collection do I need?"
+  },
+  "/sets/set-d3a57ebd2a6b": {
+    "intent": "浏览指定系列已入库印次",
+    "title": "M6a: MEGA Expansion 30th Celebration (JP): Browse Cards & Prices | CardScanFox",
+    "description": "Browse cataloged M6a: MEGA Expansion 30th Celebration (JP) printings by name or collector number. Compare language, finish and available prices without assuming a complete official checklist.",
+    "question": "Which cataloged printing from M6a: MEGA Expansion 30th Celebration (JP) do I need?"
+  },
+  "/sets/set-9eeb37c90bf2": {
+    "intent": "浏览指定系列已入库印次",
+    "title": "Nine Colours Gathering (Friend): Browse Cards & Prices | CardScanFox",
+    "description": "Browse cataloged Nine Colours Gathering (Friend) printings by name or collector number. Compare language, finish and available prices without assuming a complete official checklist.",
+    "question": "Which cataloged printing from Nine Colours Gathering (Friend) do I need?"
+  },
+  "/sets/set-e99f365c1ca2": {
+    "intent": "浏览指定系列已入库印次",
+    "title": "One Piece Promotion Cards: Browse Cards & Prices | CardScanFox",
+    "description": "Browse cataloged One Piece Promotion Cards printings by name or collector number. Compare language, finish and available prices without assuming a complete official checklist.",
+    "question": "Which cataloged printing from One Piece Promotion Cards do I need?"
+  },
+  "/sets/set-f55a7ecc0bed": {
+    "intent": "浏览指定系列已入库印次",
+    "title": "Rarity Collection 5: Browse Cards & Prices | CardScanFox",
+    "description": "Browse cataloged Rarity Collection 5 printings by name or collector number. Compare language, finish and available prices without assuming a complete official checklist.",
+    "question": "Which cataloged printing from Rarity Collection 5 do I need?"
+  },
+  "/sets/set-a9ce944051d8": {
+    "intent": "浏览指定系列已入库印次",
+    "title": "Disney Lorcana Promo Cards: Browse Cards & Prices | CardScanFox",
+    "description": "Browse cataloged Disney Lorcana Promo Cards printings by name or collector number. Compare language, finish and available prices without assuming a complete official checklist.",
+    "question": "Which cataloged printing from Disney Lorcana Promo Cards do I need?"
+  },
+  "/sets/set-f9989f3c67f9": {
+    "intent": "浏览指定系列已入库印次",
+    "title": "Golden Energy: Browse Cards & Prices | CardScanFox",
+    "description": "Browse cataloged Golden Energy printings by name or collector number. Compare language, finish and available prices without assuming a complete official checklist.",
+    "question": "Which cataloged printing from Golden Energy do I need?"
+  },
+  "/sets/set-6c5d26c52fca": {
+    "intent": "浏览指定系列已入库印次",
+    "title": "Winterspell: Browse Cards & Prices | CardScanFox",
+    "description": "Browse cataloged Winterspell printings by name or collector number. Compare language, finish and available prices without assuming a complete official checklist.",
+    "question": "Which cataloged printing from Winterspell do I need?"
+  },
+  "/sets/set-6a45990b1a66": {
+    "intent": "浏览指定系列已入库印次",
+    "title": "Shadow of Glory: Browse Cards & Prices | CardScanFox",
+    "description": "Browse cataloged Shadow of Glory printings by name or collector number. Compare language, finish and available prices without assuming a complete official checklist.",
+    "question": "Which cataloged printing from Shadow of Glory do I need?"
+  },
+  "/sets/set-d40f9aa20d26": {
+    "intent": "浏览指定系列已入库印次",
+    "title": "Shining Synergy (Summon): Browse Cards & Prices | CardScanFox",
+    "description": "Browse cataloged Shining Synergy (Summon) printings by name or collector number. Compare language, finish and available prices without assuming a complete official checklist.",
+    "question": "Which cataloged printing from Shining Synergy (Summon) do I need?"
+  },
+  "/sets/set-cdfc299a9ad0": {
+    "intent": "浏览指定系列已入库印次",
+    "title": "ME: 30th Celebration: Browse Cards & Prices | CardScanFox",
+    "description": "Browse cataloged ME: 30th Celebration printings by name or collector number. Compare language, finish and available prices without assuming a complete official checklist.",
+    "question": "Which cataloged printing from ME: 30th Celebration do I need?"
+  },
+  "/sets/set-d87314ba68c4": {
+    "intent": "浏览指定系列已入库印次",
+    "title": "2024 Panini Prizm: Browse Cards & Prices | CardScanFox",
+    "description": "Browse cataloged 2024 Panini Prizm printings by name or collector number. Compare language, finish and available prices without assuming a complete official checklist.",
+    "question": "Which cataloged printing from 2024 Panini Prizm do I need?"
+  },
+  "/sets/set-03121efbc4af": {
+    "intent": "浏览指定系列已入库印次",
+    "title": "Oversize Cards: Browse Cards & Prices | CardScanFox",
+    "description": "Browse cataloged Oversize Cards printings by name or collector number. Compare language, finish and available prices without assuming a complete official checklist.",
+    "question": "Which cataloged printing from Oversize Cards do I need?"
+  },
+  "/sets/set-90fac8c03fb3": {
+    "intent": "浏览指定系列已入库印次",
+    "title": "smL: Sun & Moon Family Pokemon Card Game (JP): Browse Cards & Prices | CardScanFox",
+    "description": "Browse cataloged smL: Sun & Moon Family Pokemon Card Game (JP) printings by name or collector number. Compare language, finish and available prices without assuming a complete official checklist.",
+    "question": "Which cataloged printing from smL: Sun & Moon Family Pokemon Card Game (JP) do I need?"
   }
 }

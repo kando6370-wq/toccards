@@ -35,3 +35,5 @@ v1.1.3 已原位归档。本版本承接 v1.1.3 之后的新增、变更、移�
 - 文档版本、App 版本、API 版本、Git 提交和环境运行版本分别管理；创建 v1.1.4 不代表代码、数据库或环境发生变化。
 
 - [CardScanFox 独立预览与自动部署](02-architecture/cardscanfox-auto-deployment.md)：新版独立应用、保护旧 URL、静态预览与只读 Worker 的发布边界。
+
+- [CardScanFox 页面搜索意图与页面任务](05-delivery/cardscanfox-page-intents.md)：固定页面归属、动态卡牌元数据、平台下载与价格榜单口径。
