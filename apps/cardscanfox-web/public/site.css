@@ -52,3 +52,4 @@
  .ranking-table td:last-child{grid-column:2/-1;grid-row:3;font-size:11px;color:var(--muted)}
  .ranking-table td:last-child::before{content:'Observed ';font-weight:650}
 }
+@media(max-width:699px){.file-article table{min-width:0;table-layout:fixed}.file-article th,.file-article td{padding:10px 7px;overflow-wrap:anywhere}}
