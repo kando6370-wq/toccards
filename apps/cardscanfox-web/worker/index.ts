@@ -4,11 +4,14 @@ import { resolveServicePage } from '../src/live-render.mjs';
 import { publishHtml, publicSitemap, sitemapIndex, mayIndex } from '../src/publication.mjs';
 import { resolvePage, errorPage, legacyByPath } from '../src/render.mjs';
 
+type RuntimeVariables = 'DEPLOYMENT_MODE'|'CATALOG_MODE'|'LOCAL_DEVELOPMENT'|'PUBLISH_READY';
+type OptionalBindings = 'PREVIEW_USERNAME'|'PREVIEW_PASSWORD'|'CF_VERSION_METADATA';
+export type WebsiteEnv = Omit<Env,RuntimeVariables|OptionalBindings> & Record<RuntimeVariables,string> & Partial<Pick<Env,OptionalBindings>>;
 async function equalSecret(left: string, right: string): Promise<boolean> {
  const enc=new TextEncoder();const [a,b]=await Promise.all([crypto.subtle.digest('SHA-256',enc.encode(left)),crypto.subtle.digest('SHA-256',enc.encode(right))]);
  const x=new Uint8Array(a),y=new Uint8Array(b);let difference=0;for(let i=0;i<x.length;i++)difference|=x[i]^y[i];return difference===0;
 }
-async function previewAllowed(request: Request,env: Env):Promise<boolean>{
+async function previewAllowed(request: Request,env: WebsiteEnv):Promise<boolean>{
  if(String(env.LOCAL_DEVELOPMENT)==='true')return true;
  if(!env.PREVIEW_USERNAME||!env.PREVIEW_PASSWORD||env.PREVIEW_PASSWORD.length<12)return false;
  const authorization=request.headers.get('Authorization')??'';if(authorization.length>1024||!authorization.startsWith('Basic '))return false;
@@ -22,12 +25,12 @@ const securityHeaders={
  'X-Frame-Options':'DENY',
  'Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
 };
-export default {
- async fetch(request:Request,env:Env,context?:ExecutionContext):Promise<Response>{
+export function createWebsiteHandler({publicPreview=false}={}) { return {
+ async fetch(request:Request,env:WebsiteEnv,context?:ExecutionContext):Promise<Response>{
   const requestId=crypto.randomUUID();const headers=new Headers({...securityHeaders,'X-Request-Id':requestId,'X-Site-Release':'cardscanfox-independent-review'});
   const production=String(env.DEPLOYMENT_MODE)==='production';
   if(!['preview','production'].includes(String(env.DEPLOYMENT_MODE))||(production&&(String(env.PUBLISH_READY)!=='true'||String(env.CATALOG_MODE)!=='service')))return new Response('This candidate has no approved production cutover configuration.',{status:503,headers});
-  if(!production&&!await previewAllowed(request,env)){headers.set('WWW-Authenticate','Basic realm="CardScanFox review", charset="UTF-8"');return new Response('Authorized review access is required.',{status:401,headers});}
+  if(!production&&!publicPreview&&!await previewAllowed(request,env)){headers.set('WWW-Authenticate','Basic realm="CardScanFox review", charset="UTF-8"');return new Response('Authorized review access is required.',{status:401,headers});}
   if(!['GET','HEAD'].includes(request.method)){headers.set('Allow','GET, HEAD');return new Response('Method not allowed',{status:405,headers});}
   const url=new URL(request.url);if(production)headers.delete('X-Robots-Tag');let pathname:string;try{pathname=decodeURI(url.pathname)}catch{return new Response('Invalid URL',{status:400,headers})}
   if(pathname.startsWith('/site-api/v1/')){
@@ -48,7 +51,7 @@ export default {
   }
   if(pathname.endsWith('.html')){const canonical=pathname==='/index.html'?'/':pathname==='/blog/index.html'?'/blog/':pathname.slice(0,-5);if(legacyByPath.has(canonical)){headers.set('Location',canonical+url.search);return new Response(null,{status:308,headers});}}
   if(pathname==='/blog'){headers.set('Location','/blog/'+url.search);return new Response(null,{status:308,headers});}
-  if(pathname.startsWith('/assets/')||pathname==='/site.css'||pathname==='/site.js'||pathname==='/google406556797e3e830d.html'){
+  if(pathname.startsWith('/assets/')||['/site.css','/site.js','/google406556797e3e830d.html','/release-manifest.json','/route-manifest.json'].includes(pathname)){
    const response=await env.ASSETS.fetch(request);const result=new Response(request.method==='HEAD'?null:response.body,response);for(const [key,value]of headers)result.headers.set(key,value);return result;
   }
   const htmlCache=production&&typeof caches!=='undefined'&&'default' in caches?caches.default:null;
@@ -59,4 +62,5 @@ export default {
    return new Response(request.method==='HEAD'?null:html,{status:page.status,headers});}
   catch(error){const invalid=error instanceof Error&&(error.name==='QueryError'||error instanceof URIError||error.message==='Invalid pricing selection.');const status=invalid?400:503;console.error(JSON.stringify({requestId,event:'page_render_failed',status,path:url.pathname,errorType:error instanceof Error?error.name:'Unknown'}));headers.set('Content-Type','text/html; charset=utf-8');return new Response(request.method==='HEAD'?null:errorPage(status,invalid?'Check the query or pricing selection.':'The catalog is temporarily unavailable. Existing articles and product guides remain available.'),{status,headers});}
  }
-};
+}; }
+export default createWebsiteHandler();

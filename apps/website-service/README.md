@@ -4,8 +4,8 @@
 
 ## 两种运行方式
 
-- `CATALOG_MODE=snapshot`：默认本地评审模式，30 条真实捕获记录。只读，不连接数据库，不代表全库。
-- `CATALOG_MODE=postgres`：新服务独立连接现有目录的只读副本或经批准的只读目标。公开流量不经 App API；数据库读取仍有资源开销，真实预算和性能需在目标环境验收。
+- `CATALOG_MODE=snapshot`：本地评审模式，30 条真实捕获记录。只读，不连接数据库，不代表全库。
+- `CATALOG_MODE=postgres`：当前远程配置。按用户 2026-11-07 的接入要求，新增服务复用正式库现有 Hyperdrive `tcg-cards-db`（ID `7d71bcd0bcf64e518a23a852ced76d66`），独立封装现有查询规则。原 App Worker、旧接口和原绑定配置不修改。
 
 本地默认：`pnpm --filter @kando/website-service dev`，监听 `127.0.0.1:8891`。
 
@@ -40,18 +40,18 @@ price：all、available、missing、under20、20to100、over100。sort：feature
 - 详情可选同一卡牌的明确 series；跨卡牌选取被拒绝。评级价与 Raw 不混用。
 - 趋势同一 series、同一确认维度，以价格观测日为末日的 30 个自然日，只读取有效发布链中的月历史；缺口不补线，不生成预测点。页面没有逐日表或悬浮明细。
 - micros 原值使用字符串输出；安全范围内才转换为展示金额，精度异常直接失败，不静默四舍五入成另一价格。
-- 每次数据库操作是 `REPEATABLE READ READ ONLY` 事务；独立连接池最多 2 个连接，单语句超时 1500ms、锁超时 750ms，并检查 4500ms 操作预算。不运行迁移、DDL、业务写入或任意客户端 SQL。
-- Cloudflare 内部成功响应缓存 60 秒；错误和 health 不缓存。缓存键由规范参数哈希生成，不含账户数据。公开 API 响应保持 no-store；原 V1 缓存语义不变。
+- 每次数据库操作是 `REPEATABLE READ READ ONLY` 事务；每次请求的客户端最多 2 个连接，单语句超时 1500ms、锁超时 750ms，并检查 4500ms 操作预算。不运行迁移、DDL、业务写入或任意客户端 SQL。
+- Cloudflare 内部成功响应缓存 60 秒；错误和 health 不缓存。缓存键含部署版本与规范参数，不含账户数据。命中缓存不消耗数据库读取预算；未命中时，独立原生限频 binding `CATALOG_READ_BUDGET` 每个 Cloudflare 数据中心最多放行 30 次/60 秒，超出返回 429，不连接数据库。此限频不是全网统一并发上限。公开 API 响应保持 no-store；原 V1 缓存语义不变。
 
-这些是代码默认上限，不是生产容量证明。若目标是业务主库，仍需批准读账号、连接总量、查询计划、缓存效果及退让；优先只读副本。
+这些是代码默认上限，不是生产容量证明。当前复用同一 Hyperdrive 和原账户权限；只读事务限制本服务的 SQL 行为，不能表述为数据库账户已降权或连接池已完全隔离。数据库读取会占用生产资源；没有复制连接密码、创建账号、修改旧池上限、执行迁移或写业务数据。
 
 ## Cloudflare 配置
 
-`wrangler.jsonc` 是快照预览配置，关闭 workers.dev 和版本 URL，经新官网的 `SITE_DATA` binding 访问。
+`wrangler.jsonc` 使用正式库的现有 Hyperdrive，关闭 workers.dev 和版本 URL，经新官网的 `SITE_DATA` binding 访问。绑定只出现在新服务中；原 App 配置保持原样。
 
 `wrangler.database.example.jsonc` 是真实只读模式的待配置样例。Hyperdrive ID 为全零占位值，必须换为专供新服务的获准只读连接；不能复用原业务写连接。该文件没有实际远程资源，不可直接作为发布完成的证据。运行绑定由适用配置的 `wrangler types` 生成，不增加 D1。
 
-独立预览 Worker 已建立 Git 构建连接，默认只发布公开评审快照。没有创建新 Hyperdrive 或读账号，没有读取远程数据库。真实只读连接、生产性能和两套服务的远程联调仍需专用配置与验收。
+独立预览 Worker 已建立 Git 构建连接。本次新增正式库绑定和读取预算；没有创建新 Hyperdrive 或账号。远程接通及性能结果以实际发布回读为准，代码配置本身不是成功证据。
 
 ## 可重复导出
 
@@ -79,4 +79,4 @@ NDJSON 按页写入临时文件，内存不累计全部原始对象。结尾包�
 
 目标账号 `dced4adca2f35cff247b39979058b934`；仓库 `kando6370-wq/toccards`；发布分支 `codex/cardscanfox-preview`；Worker 名 `cardscanfox-site-data-preview`。根目录 `/`，构建命令 `pnpm --filter @kando/website-service --fail-if-no-match build:ci`，部署命令 `pnpm --filter @kando/website-service --fail-if-no-match deploy:preview`。构建环境 Node 22、pnpm 11.9.0。关闭非发布分支构建。
 
-监听目录为 `apps/website-service/*`、`packages/website-content/*`、`pnpm-lock.yaml`、`pnpm-workspace.yaml`、`package.json`。默认配置只有评审快照，关闭 workers.dev 和版本 URL，不含数据库连接或迁移。只读真实模式需另行配置，不能自动复用 App 的生产写凭据。
+监听目录为 `apps/website-service/*`、`packages/website-content/*`、`pnpm-lock.yaml`、`pnpm-workspace.yaml`、`package.json`。当前配置复用正式库 Hyperdrive，关闭 workers.dev 和版本 URL，不包含数据库密码或迁移。此接入使用原账户权限和本服务只读事务；独立数据库账号与连接池不是已完成能力。

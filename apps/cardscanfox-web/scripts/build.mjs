@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile, cp, rm, rename } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
+import { build } from 'esbuild';
 import { parse } from 'parse5';
 import { inventory, hash, releaseFingerprint } from './release-tools.mjs';
 import { copyCatalogSitemaps } from './copy-sitemaps.mjs';
@@ -29,6 +30,10 @@ try{
  await writeFile(new URL('404.html',staging),errorPage(404,'Return to the existing article address, catalog or homepage.'));
  await writeFile(new URL('robots.txt',staging),'User-agent: *\nDisallow: /\n');
  await writeFile(new URL('route-manifest.json',staging),JSON.stringify({mode:'review',routeCount:routes.length,routes},null,2)+'\n');
+ if(process.argv.includes('--pages')){
+  await build({entryPoints:[fileURLToPath(new URL('worker/pages.ts',root))],outfile:fileURLToPath(new URL('_worker.js',staging)),bundle:true,platform:'neutral',format:'esm',target:'es2022'});
+  await writeFile(new URL('_routes.json',staging),JSON.stringify({version:1,include:['/*'],exclude:[]})+'\n');
+ }
  const runtimeSources=[];for(const [prefix,source]of [['web/src',new URL('src/',root)],['web/worker',new URL('worker/',root)],['web/scripts',new URL('scripts/',root)],['service/src',new URL('../website-service/src/',root)],['content/src',new URL('../../packages/website-content/src/',root)],['content/data',new URL('../../packages/website-content/data/',root)]])for(const file of await inventory(fileURLToPath(source)))runtimeSources.push({path:prefix+'/'+file.path,sha256:file.sha256});runtimeSources.push({path:'pnpm-lock.yaml',sha256:hash(await readFile(new URL('../../pnpm-lock.yaml',root)))});for(const file of ['content/index-policy.json','content/seo-pages.json','content/blog-topics.json','content/articles.json','wrangler.jsonc','wrangler.production.example.jsonc','wrangler.service-preview.example.jsonc'])runtimeSources.push({path:'web/'+file,sha256:hash(await readFile(new URL(file,root)))});
  const sourceCommit=process.env.CF_PAGES_COMMIT_SHA??process.env.WORKERS_CI_COMMIT_SHA??null;
  if(sourceCommit!==null&&!/^[a-f0-9]{40}$/.test(sourceCommit))throw new Error('Invalid build commit identity.');

@@ -14,7 +14,8 @@
     "content:compile": "node scripts/compile-articles.mjs",
     "release:compare": "node scripts/compare-releases.mjs",
     "catalog:sitemaps": "node scripts/catalog-sitemaps.mjs",
-    "build:ci": "pnpm build && pnpm test && pnpm type-check && pnpm --filter @kando/website-service test && pnpm --filter @kando/website-service type-check && pnpm --filter @kando/website-service build"
+    "build:pages": "node scripts/build.mjs --pages",
+    "build:ci": "pnpm build:pages && pnpm test && pnpm type-check && pnpm --filter @kando/website-service test && pnpm --filter @kando/website-service type-check && pnpm --filter @kando/website-service build"
   },
   "dependencies": {
     "@kando/website-content": "workspace:*"

@@ -10,11 +10,21 @@
   "preview_urls": false,
   "vars": {
     "DEPLOYMENT_MODE": "preview",
-    "CATALOG_MODE": "snapshot"
+    "CATALOG_MODE": "postgres"
   },
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1
   },
-  "account_id": "dced4adca2f35cff247b39979058b934"
+  "account_id": "dced4adca2f35cff247b39979058b934",
+  "hyperdrive": [{
+    "binding": "CATALOG_DB",
+    "id": "7d71bcd0bcf64e518a23a852ced76d66"
+  }],
+  "ratelimits": [{
+    "name": "CATALOG_READ_BUDGET",
+    "namespace_id": "2026110701",
+    "simple": {"limit": 30,"period": 60}
+  }],
+  "version_metadata": {"binding":"CF_VERSION_METADATA"}
 }

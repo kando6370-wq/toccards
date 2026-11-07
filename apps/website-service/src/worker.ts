@@ -14,7 +14,7 @@ export function createWebsiteService(read = withReadOnlyCatalog) {
  return {
   async fetch(request: Request, env: Env, context?: ExecutionContext): Promise<Response> {
    const requestId = crypto.randomUUID();
-   const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow', 'X-Content-Type-Options': 'nosniff', 'X-Request-Id': requestId };
+   const headers: Record<string,string> = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow', 'X-Content-Type-Options': 'nosniff', 'X-Request-Id': requestId };
    const respond = (data: unknown, status = 200) => new Response(request.method === 'HEAD' ? null : JSON.stringify(data), { status, headers });
    if (!['preview', 'production'].includes(String(env.DEPLOYMENT_MODE))) return respond({ success: false, error: { code: 'ENVIRONMENT_NOT_CONFIGURED', requestId } }, 503);
    if (!['GET', 'HEAD'].includes(request.method)) return respond({ success: false, error: { code: 'METHOD_NOT_ALLOWED', requestId } }, 405);
@@ -41,11 +41,15 @@ export function createWebsiteService(read = withReadOnlyCatalog) {
     if (!['/health', '/games', '/cards', '/prices', '/sets', '/page-data'].includes(path) && !/^\/(?:cards\/[^/]+(?:\/trend)?|sets\/[^/]+)$/.test(path)) return respond({ success: false, error: { code: 'NOT_FOUND', requestId } }, 404);
     if (path.endsWith('/trend') && url.searchParams.has('days') && url.searchParams.get('days') !== '30') return respond({ success: false, error: { code: 'INVALID_QUERY', requestId } }, 400);
     const normalized = new URLSearchParams([...url.searchParams].sort(([a], [b]) => a.localeCompare(b)));
-    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(path + '?' + normalized));
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('prod-catalog|'+(env.CF_VERSION_METADATA?.id??'local')+'|'+path + '?' + normalized));
     const key = new Request('https://catalog-cache.internal/' + Array.from(new Uint8Array(digest), n => n.toString(16).padStart(2, '0')).join(''));
     const cache = typeof caches !== 'undefined' && 'default' in caches ? caches.default : null;
     const cached = cache && path !== '/health' ? await cache.match(key) : null;
     if (cached) { const body = await cached.json() as { data: unknown; meta: object }; return respond({ success: true, ...body, meta: { ...body.meta, requestId } }); }
+    if(env.CATALOG_READ_BUDGET&&!((await env.CATALOG_READ_BUDGET.limit({key:'catalog-database'})).success)){
+     headers['Retry-After']='60';
+     return respond({success:false,error:{code:'CATALOG_READ_BUDGET_EXCEEDED',requestId}},429);
+    }
     const result = await read(connectionString(env), async store => {
      const meta = await store.context();
      if (path === '/health') data = { status: 'ok', mode: 'published-read-only' };

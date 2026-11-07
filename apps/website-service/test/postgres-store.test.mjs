@@ -16,3 +16,10 @@ test('set source count never becomes verified catalog completeness and page aggr
 test('unsafe numeric prices fail instead of losing precision',()=>{assert.equal(usd('0'),0);assert.throws(()=>usd('9007199254740992'),/Unsafe/)});
 
 test('legacy decimal-string history is supported and malformed dates fail visibly',async()=>{await db.exec('BEGIN');try{await db.query("UPDATE price_history_month SET points=$1::jsonb WHERE series_id=100 AND month_start='2026-11-01'",[JSON.stringify([{date:'2026-11-04',price:'119.99'}])]);const trend=await store.trend('001',new URLSearchParams(),ctx);assert.equal(trend.points.find(p=>p.date==='2026-11-04').price,119.99);await db.query("UPDATE price_history_month SET points=$1::jsonb WHERE series_id=100 AND month_start='2026-11-01'",[JSON.stringify([{date:'2026-11-31',price:'119.99'}])]);await assert.rejects(()=>store.trend('001',new URLSearchParams(),ctx),/Invalid price history/)}finally{await db.exec('ROLLBACK')}});
+
+
+test('published price ranges compare numeric micros and keep a real zero distinct from missing data',async()=>{
+ const below=await store.listCards(new URLSearchParams({price:'under20'}),ctx);assert.deepEqual(below.items.map(c=>c.card_ref),['002']);
+ const middle=await store.listCards(new URLSearchParams({price:'20to100',language:'Japanese'}),ctx);assert.deepEqual(middle.items.map(c=>c.card_ref),['001']);assert.equal(middle.items[0].price_usd,20);
+ const above=await store.listCards(new URLSearchParams({price:'over100'}),ctx);assert.deepEqual(above.items.map(c=>c.card_ref),['001']);assert.equal(above.items[0].price_usd,123.45);
+});

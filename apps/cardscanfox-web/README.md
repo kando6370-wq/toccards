@@ -148,6 +148,8 @@ pnpm --filter @kando/cardscanfox-web catalog:sitemaps --input=/absolute/catalog.
 
 新 Pages Git 项目 `cardscanfox-git-preview` 复用现有仓库连接。根目录 `/`，构建命令 `pnpm --filter @kando/cardscanfox-web --fail-if-no-match build:ci`，输出目录 `apps/cardscanfox-web/dist`。Node 使用 22，pnpm 使用 11.9.0。构建失败不替换上一成功部署。发布清单记录 `CF_PAGES_COMMIT_SHA`，用于回读核对实际发布提交。
 
-Pages 当前只发布 108 个静态评审页面，含 78 个非单卡详情页面；不接数据库，也不运行 Worker 的查询筛选与 Service Binding。所有响应加 noindex，robots 禁止抓取。完整动态站仍使用上述独立 Worker，不能把静态预览当作全量目录或正式上线。
+Pages 构建命令现在生成 `_worker.js` 和全路径 `_routes.json`，通过 `SITE_DATA` Service Binding 取得真实目录并服务端渲染。108 个静态构建条目继续保留，单卡动态地址不限于原 30 条评审记录。公开 Pages 预览维持 noindex/no-store、robots 禁止抓取；独立 Workers 入口仍保留 Basic 认证。数据失败返回 503，首页保留产品说明，不以旧快照替代真实价格。
 
-新只读服务使用独立 Workers Builds，配置见 `apps/website-service/README.md`。正式域名切换、真实只读连接和全量卡库接入分别管理。
+新只读服务使用独立 Workers Builds，配置见 `apps/website-service/README.md`。新增数据服务复用正式库现有 Hyperdrive；原 App 代码、接口和绑定配置不修改。正式域名切换与索引开放分别管理。
+
+`worker/pages.ts` 是 Pages 的独立入口。Pages 项目的生产环境需设置 `SITE_DATA` → `cardscanfox-site-data-preview`，兼容日期为 2026-11-07，并开启 `nodejs_compat`。`wrangler.pages.jsonc` 记录同一配置供显式 CLI 使用；Git 项目的根目录仍是仓库根，运行时绑定按控制台配置生效。`build:pages` 在暂存目录完成服务端包编译后才替换完整产物。

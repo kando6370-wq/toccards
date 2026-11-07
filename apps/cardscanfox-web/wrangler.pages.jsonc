@@ -1,0 +1,8 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "cardscanfox-git-preview",
+  "pages_build_output_dir": "./dist",
+  "compatibility_date": "2026-11-07",
+  "compatibility_flags": ["nodejs_compat"],
+  "services": [{"binding":"SITE_DATA","service":"cardscanfox-site-data-preview"}]
+}
