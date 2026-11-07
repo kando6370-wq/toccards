@@ -13,7 +13,7 @@ const allowedParams = new Set(['q', 'game', 'set', 'language', 'finish', 'price'
 export function createWebsiteService(read = withReadOnlyCatalog) {
  return {
   async fetch(request: Request, env: Env, context?: ExecutionContext): Promise<Response> {
-   const requestId = crypto.randomUUID();
+   const requestId = crypto.randomUUID(), startedAt = Date.now();
    const headers: Record<string,string> = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow', 'X-Content-Type-Options': 'nosniff', 'X-Request-Id': requestId };
    const respond = (data: unknown, status = 200) => new Response(request.method === 'HEAD' ? null : JSON.stringify(data), { status, headers });
    if (!['preview', 'production'].includes(String(env.DEPLOYMENT_MODE))) return respond({ success: false, error: { code: 'ENVIRONMENT_NOT_CONFIGURED', requestId } }, 503);
@@ -68,7 +68,8 @@ export function createWebsiteService(read = withReadOnlyCatalog) {
     return respond(payload);
    } catch (error) {
     const bad = error instanceof Error && (error.name === 'QueryError' || error instanceof URIError);
-    console.error(JSON.stringify({ event: 'website_catalog_request_failed', requestId, status: bad ? 400 : 503, errorType: error instanceof Error ? error.name : 'Unknown' }));
+    const code=error&&typeof error==='object'?Reflect.get(error,'code'):null;
+    console.error(JSON.stringify({ event: 'website_catalog_request_failed', requestId, status: bad ? 400 : 503, errorType: error instanceof Error ? error.name : 'Unknown',databaseCode:typeof code==='string'&&/^[0-9A-Z]{5}$/.test(code)?code:null,durationMs:Date.now()-startedAt }));
     return respond({ success: false, error: { code: bad ? 'INVALID_QUERY' : 'CATALOG_UNAVAILABLE', message: bad && error instanceof Error ? error.message : 'The catalog is temporarily unavailable.', requestId } }, bad ? 400 : 503);
    }
   }

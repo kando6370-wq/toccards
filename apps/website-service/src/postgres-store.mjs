@@ -23,7 +23,7 @@ const priceColumns = `s.series_id::text AS series_id, src.source_code, src.displ
 const priceFrom = `FROM price_series s JOIN price_source src ON src.source_id=s.source_id AND src.is_active IS TRUE
  JOIN published pub ON pub.source_id=s.source_id JOIN price_current_snapshot snap ON snap.batch_id=pub.batch_id AND snap.series_id=s.series_id`;
 const preferred = `(CASE WHEN s.condition_code='NM' THEN 0 ELSE 100 END)+(CASE WHEN s.language_code='EN' THEN 0 ELSE 10 END)+(CASE WHEN s.finish_code='N' THEN 0 ELSE 1 END),snap.change_30d_percent DESC NULLS LAST,snap.observed_on DESC,src.source_code,s.source_record_id,s.metric_code,s.series_id`;
-const activePrice = `s.is_active IS TRUE AND s.currency_code='USD'`;
+const activePrice = `s.is_active AND s.currency_code='USD'`;
 const catalogColumns = `c.product_id,c.game_id,c.game,c.set_id,c.set_name,c.set_code,c.number,c.name,c.rarity,c.product_type_name,c.updated_at`;
 function priceContext(p) {
  if (!p?.series_id) return null;

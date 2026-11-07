@@ -30,3 +30,9 @@ Pages 项目的 `SITE_DATA` 绑定到 `cardscanfox-site-data-preview`，兼容�
 ## 价格区间修正
 
 正式数据库集成阅读发现，价格展示投影把 micros 转为 text，而金额区间仍直接与整数比较，会触发 PostgreSQL 类型错误。区间比较改为显式 bigint；金额输出和零价语义保持。新增数据库回归覆盖低于 20、20 到 100、高于 100 三段。开发完成后在隔离 PostgreSQL 中回放修改前源码，同一低价筛选触发 42883；修后 39 项官网、26 项服务测试及类型/打包通过。Code Review 已核对金额类型、GET/HEAD 边界、预览访问控制、缓存版本与数据库读取预算；原 App 不在修改范围。
+
+## 正式目录查询的索引匹配
+
+真实接入先确认 health 正常；列表和单卡价格曾在 2.15–2.24 秒返回 503，日志为 PostgresError。阅读现有生产 migration 发现 `idx_price_series_card_qualifiers` 的谓词为 `WHERE is_active`，新服务使用 `is_active IS TRUE`。隔离 PostgreSQL 以 20,000 条价格数据执行实际查询计划，修改前对 `price_series` 做 Seq Scan，改用既有谓词后能使用部分索引。只调整新服务的条件表达式，不执行生产索引或 schema 变更。新增计划回归保护此索引；日志只增加 SQLSTATE 和耗时，不记录连接串或 SQL 参数。真实修复效果仍需部署后按原请求回读，局部计划不代替生产性能验收。
+
+该索引修正的 27 项服务测试、类型检查与 dry-run 已通过。Code Review 确认布尔谓词在 WHERE 中保持相同筛选语义，新增测试使用实际查询计划核对既有索引；日志不包含凭据或 SQL 参数。没有运行无影响面的 App／Admin／Flutter 测试。

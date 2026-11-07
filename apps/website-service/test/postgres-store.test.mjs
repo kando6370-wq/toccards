@@ -23,3 +23,18 @@ test('published price ranges compare numeric micros and keep a real zero distinc
  const middle=await store.listCards(new URLSearchParams({price:'20to100',language:'Japanese'}),ctx);assert.deepEqual(middle.items.map(c=>c.card_ref),['001']);assert.equal(middle.items[0].price_usd,20);
  const above=await store.listCards(new URLSearchParams({price:'over100'}),ctx);assert.deepEqual(above.items.map(c=>c.card_ref),['001']);assert.equal(above.items[0].price_usd,123.45);
 });
+
+test('single-card prices use the existing active-card partial index at catalog scale',async()=>{
+ await db.exec('BEGIN');
+ try{
+  await db.exec(`CREATE UNIQUE INDEX series_pk ON price_series(series_id);CREATE UNIQUE INDEX snapshot_pk ON price_current_snapshot(batch_id,series_id);
+   CREATE INDEX active_card_prices ON price_series(card_ref,grader_code,grade_min_x10,grade_max_x10,condition_code,language_code,finish_code) INCLUDE(series_id,source_id,metric_code,currency_code) WHERE is_active;
+   INSERT INTO price_series(series_id,source_id,source_record_id,metric_code,card_ref,currency_code,grader_code,is_active) SELECT 1000+i,1,'extra-'||i,'market','extra-'||i,'USD','RAW',true FROM generate_series(1,20000) i;
+   INSERT INTO price_current_snapshot(batch_id,series_id,observed_on,amount_micros) SELECT 10,1000+i,'2026-11-07',1000000 FROM generate_series(1,20000) i;ANALYZE;`);
+  let captured;const actual=createPostgresStore(async(sql,values)=>{if(sql.includes('FROM price_series s'))captured={sql,values};return (await db.query(sql,values)).rows});
+  const meta=await actual.context();await actual.getCard('001',new URLSearchParams(),meta);
+  const plan=(await db.query('EXPLAIN (FORMAT JSON,COSTS OFF) '+captured.sql,captured.values)).rows[0]['QUERY PLAN'][0].Plan;
+  const indexes=[];function walk(p){if(p['Index Name'])indexes.push(p['Index Name']);for(const child of p.Plans??[])walk(child)}walk(plan);
+  assert.ok(indexes.includes('active_card_prices'),JSON.stringify(plan));
+ }finally{await db.exec('ROLLBACK')}
+});
