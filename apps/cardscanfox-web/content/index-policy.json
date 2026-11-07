@@ -10,7 +10,18 @@
     "/blog/category/identity",
     "/blog/category/values",
     "/blog/category/collecting",
-    "/blog/category/comparisons"
+    "/blog/category/comparisons",
+    "/download",
+    "/prices/top-gainers",
+    "/prices/most-valuable",
+    "/blog/delta-reign-pokemon",
+    "/blog/pokemon-upc-30th-anniversary",
+    "/games/pokemon",
+    "/games/one-piece",
+    "/games/yugioh",
+    "/games/lorcana",
+    "/games/basketball",
+    "/games/mtg"
   ],
   "note": "Local production policy only. Preview authentication/noindex and PUBLISH_READY remain enforced. Eligible real card pages may be indexed; sitemap discovery expands in reviewed batches. Missing price alone does not exclude a useful identity page.",
   "catalog": {

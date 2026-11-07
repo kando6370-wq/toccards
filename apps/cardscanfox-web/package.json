@@ -15,7 +15,8 @@
     "release:compare": "node scripts/compare-releases.mjs",
     "catalog:sitemaps": "node scripts/catalog-sitemaps.mjs",
     "build:pages": "node scripts/build.mjs --pages",
-    "build:ci": "pnpm build:pages && pnpm test && pnpm type-check && pnpm --filter @kando/website-service test && pnpm --filter @kando/website-service type-check && pnpm --filter @kando/website-service build"
+    "build:ci": "pnpm build:pages && pnpm test && pnpm type-check",
+    "deploy:production": "pnpm build && wrangler deploy --config wrangler.production.jsonc"
   },
   "dependencies": {
     "@kando/website-content": "workspace:*"

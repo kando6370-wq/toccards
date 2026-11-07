@@ -5,6 +5,7 @@ export function mayIndex(url,status=200,page={}) {
  if(status!==200||url.search||url.pathname==='/saved')return false;
  if(/^\/cards\/[^/]+$/.test(url.pathname))return policy.catalog?.enabled===true&&page.seo?.kind==='card'&&page.seo.eligible===true;
  if(page.dataAvailable===false&&!legacyByPath.has(url.pathname))return false;
+ if(/^\/(games|sets)\/[^/]+$/.test(url.pathname)&&page.dataAvailable===true)return true;
  return legacyByPath.has(url.pathname)||approved.has(url.pathname);
 }
 export function publishHtml(html,url,status,page={}) {

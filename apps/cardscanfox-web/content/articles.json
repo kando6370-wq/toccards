@@ -1,1 +1,36 @@
-[]
+[
+  {
+    "path": "/blog/delta-reign-pokemon",
+    "title": "Delta Reign Pokémon: Release, Cards & Price Checks | CardScanFox",
+    "description": "Explore Pokémon Delta Reign, released November 6, 2026. Learn what changed, how to identify your pulls and how to compare prices for the exact printing.",
+    "h1": "Delta Reign Pokémon: What to Know Before You Check a Card Price",
+    "author": "CardScanFox Editorial",
+    "file": "delta-reign-pokemon.md",
+    "published": true,
+    "category": "identity",
+    "publishedAt": "2026-11-08",
+    "sources": [
+      {
+        "label": "The Pokémon Company: Delta Reign release announcement",
+        "url": "https://press.pokemon.com/en-NZ/releases/MEDIA-ALERT-Legendary-Pokemon-Mega-Rayquaza-ex-Descends-into-Battle-in"
+      }
+    ]
+  },
+  {
+    "path": "/blog/pokemon-upc-30th-anniversary",
+    "title": "Pokémon 30th Anniversary UPC: Day vs Night & Contents | CardScanFox",
+    "description": "Compare the Pokémon 30th Anniversary UPC Day and Night versions, confirmed pack contents and promo themes. Separate sealed-box prices from individual card values.",
+    "h1": "Pokémon 30th Anniversary UPC: Day and Night Compared",
+    "author": "CardScanFox Editorial",
+    "file": "pokemon-upc-30th-anniversary.md",
+    "published": true,
+    "category": "collecting",
+    "publishedAt": "2026-11-08",
+    "sources": [
+      {
+        "label": "Pokémon: 30th Celebration product showcase",
+        "url": "https://www.pokemon.com/uk/news/pokemon-tcg-30th-celebration-product-showcase"
+      }
+    ]
+  }
+]
