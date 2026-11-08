@@ -188,15 +188,15 @@
     "topic": "竞品已有关键词与本站页面覆盖",
     "site": "https://tcgcard.fun",
     "repository": "toccards",
-    "checkout": "第二批基线 main@2e49d4c6；第一批内容已发布 a524ffd8",
+    "checkout": "第二批官网内容 main@0b95d68e；本报告随后归档",
     "mode": "已授权的竞品对比与内容实施",
     "opportunity_decision": "HOLD",
     "action_resolution": "执行已有产品能力支持的内容补齐",
     "research_date": "2026-11-08",
-    "updated_at": "2026-11-08T15:25:51+08:00",
+    "updated_at": "2026-11-08T15:36:51+08:00",
     "evidence_depth": "竞品报表、Google 可见搜索与本站目录事实",
     "html_plan_path": "/Users/mac/.codex/worktrees/cardscanfox-auto-deploy/toccards/docs/seo-implementation/2026-11-08-pokescope-organic-implementation-plan.html",
-    "completion_boundary": "第一批已上线并通知 22 个 URL。第二批 3 篇新指南、3 个老页补充与 19 个新增卡牌发现已完成；构建、34 项检查、33 个内链及桌面/移动端检查通过。待 main 自动发布与本批 29 个 URL 的通知。热度与后续流量未验证。"
+    "completion_boundary": "第二批 3 篇指南、3 个老页补充和 19 个新增详情发现已正式上线。34 项相关检查及桌面/移动端检查通过；正式 sitemap 为 86 个非卡牌页面＋1112 个详情，共 1198 条。本批 29 个 URL 的 IndexNow 通知均收到 HTTP 200。热度、新词和后续流量未验证。"
   },
   "root_plan": {
     "run_id": "pokescope-organic-20261108",
@@ -420,8 +420,8 @@
     },
     {
       "step": 7,
-      "label": "第二批内容完成",
-      "detail": "3 篇新指南、3 个老页补充及 19 个新增卡牌发现；构建、34 项检查和 33 个内链通过，桌面/移动端无横向溢出。待正式发布。",
+      "label": "第二批正式上线并完成通知",
+      "detail": "main@0b95d68e，正式 10 个内容页与卡牌入口通过；sitemap 86＋1112；29 个 URL 通知均收到 HTTP 200。",
       "state": "implemented"
     }
   ],
@@ -1652,7 +1652,8 @@
       ],
       "evidence": [
         "只读目录中 20 个真实卡牌记录",
-        "三个 Google 可见查询的原始结果；不按个性化位置推断 US 排名"
+        "三个 Google 可见查询的原始结果；不按个性化位置推断 US 排名",
+        "正式 sourceCommit 0b95d68e3de9389f528634d506df186a5960094a；29 个 URL 通知均收到 HTTP 200。"
       ],
       "depends_on": [],
       "activation_requires": [
@@ -1662,7 +1663,7 @@
       "difficulty": "low",
       "effort": "small",
       "iteration": "第二批",
-      "state": "approved",
+      "state": "implemented",
       "approval": "approved",
       "disposition": "用户继续授权的内容扩展"
     }
@@ -1706,7 +1707,7 @@
     {
       "id": "ITER-2",
       "priority": "P1",
-      "state": "approved",
+      "state": "implemented",
       "title": "第二批：具体印次查价",
       "goal": "承接三个明确卡名意图，并复用 Charizard/Mew 旧页",
       "item_ids": [
@@ -1731,7 +1732,7 @@
   "files": [
     {
       "path": "apps/cardscanfox-web/content/articles/",
-      "role": "4 篇原创英文指南",
+      "role": "两批新增 7 篇英文印次/卡况指南；保留原有文章",
       "verification_status": "verified"
     },
     {
@@ -1746,7 +1747,7 @@
     },
     {
       "path": "apps/cardscanfox-web/content/sitemaps/",
-      "role": "保留既有 1,081 条并新增 12 条详情",
+      "role": "本批保留既有 1093 条，再新增 19 条卡牌发现，总计 1112 条",
       "verification_status": "verified"
     },
     {
@@ -1841,6 +1842,14 @@
       "method_boundary": "可见搜索与只读目录",
       "claim": "20 个卡牌身份已核对；Bubble Mew 对应英语 Paldean Fates 232/091；205/165 的普通卡与金属卡分开；Jev 8 个候选预分类后由 Codex 纠正交易计算器。",
       "locator": "apps/cardscanfox-web/.local/pokescope-comparison-20261108/batch-2/",
+      "observation_date": "2026-11-08",
+      "verification_status": "verified"
+    },
+    {
+      "source_label": "CardScanFox",
+      "method_boundary": "第二批正式回读与通知回执",
+      "claim": "正式内容版本 0b95d68e，sitemap 86＋1112；29 个受影响 URL 的 IndexNow 通知成功，未证明抓取或收录。",
+      "locator": "https://tcgcard.fun/release-manifest.json",
       "observation_date": "2026-11-08",
       "verification_status": "verified"
     }
