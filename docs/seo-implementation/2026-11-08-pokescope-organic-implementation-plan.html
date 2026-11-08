@@ -188,15 +188,15 @@
     "topic": "竞品已有关键词与本站页面覆盖",
     "site": "https://tcgcard.fun",
     "repository": "toccards",
-    "checkout": "codex/cardscanfox-preview；基线 42eaf74b",
+    "checkout": "已发布官网内容 main@a524ffd8；本报告随后归档",
     "mode": "已授权的竞品对比与内容实施",
     "opportunity_decision": "HOLD",
     "action_resolution": "执行已有产品能力支持的内容补齐",
     "research_date": "2026-11-08",
-    "updated_at": "2026-11-08T14:50:30+08:00",
+    "updated_at": "2026-11-08T15:07:04+08:00",
     "evidence_depth": "竞品报表、Google 可见搜索与本站目录事实",
     "html_plan_path": "/Users/mac/.codex/worktrees/cardscanfox-auto-deploy/toccards/docs/seo-implementation/2026-11-08-pokescope-organic-implementation-plan.html",
-    "completion_boundary": "本地完成 4 篇指南、4 个既有页面补充和 sitemap 发现；构建、34 项相关检查、25 个内链及桌面/移动端浏览器检查通过。待 main 自动发布和正式回读。热度、词龄和未来流量仍未确认。"
+    "completion_boundary": "4 篇指南与 4 个既有页面补充已正式上线。构建和 34 项相关检查通过；46 个老网址正文与原链接保留。正式 sitemap 共 1,176 条；本轮 22 个 URL 的 IndexNow 通知均收到 HTTP 200。热度、新词与后续搜索流量仍未验证。"
   },
   "root_plan": {
     "run_id": "pokescope-organic-20261108",
@@ -409,8 +409,8 @@
     {
       "step": 5,
       "label": "发布及索引通知",
-      "detail": "待影响面检查、主分支自动发布和正式版本回读。",
-      "state": "approved"
+      "detail": "main@a524ffd8 正式生效；10 个内容页面、真实卡牌入口和 sitemap 回读通过。本轮 22 个 URL 已通知 IndexNow，HTTP 200。",
+      "state": "implemented"
     },
     {
       "step": 6,
@@ -1201,7 +1201,8 @@
         "英文元信息、canonical、robots 与 sitemap 正确"
       ],
       "evidence": [
-        "15 个已读取的只读卡牌记录；TCGplayer/PSA 官方标准"
+        "15 个已读取的只读卡牌记录；TCGplayer/PSA 官方标准",
+        "正式 sourceCommit a524ffd83da9e5b1e9dc2afbdf3f2378e3ac13cf；22 个 URL 通知均收到 HTTP 200。"
       ],
       "depends_on": [],
       "activation_requires": [
@@ -1211,7 +1212,7 @@
       "difficulty": "low",
       "effort": "small",
       "iteration": "本轮",
-      "state": "approved",
+      "state": "implemented",
       "approval": "approved",
       "disposition": "用户已授权的内容补齐"
     }
@@ -1350,6 +1351,14 @@
       "method_boundary": "model-judgment",
       "claim": "jev-1.14.0 完成 5 个产品词根的 core 分类；不是逐词审核或最终发布决定",
       "locator": "apps/cardscanfox-web/.local/pokescope-comparison-20261108/jev-roots.json",
+      "observation_date": "2026-11-08",
+      "verification_status": "verified"
+    },
+    {
+      "source_label": "CardScanFox",
+      "method_boundary": "正式回读与通知回执",
+      "claim": "正式内容版本 a524ffd8，sitemap 83+1093；22 个受影响 URL 的 IndexNow 通知成功，未证明抓取或收录。",
+      "locator": "https://tcgcard.fun/release-manifest.json",
       "observation_date": "2026-11-08",
       "verification_status": "verified"
     }

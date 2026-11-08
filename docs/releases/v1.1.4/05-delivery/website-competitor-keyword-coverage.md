@@ -44,6 +44,10 @@ TypeSafe `jev-1.14.0` 用于 5 个产品词根的语义分类，均归入核心�
 
 内容、元信息、内链和 sitemap 变更全部完成后进行影响面检查：独立官网构建通过，生成 118 条 HTML 路由；content-files、content-preservation、catalog-seo、pages-live 共 34 项通过。新指南的 25 个非卡牌内链、唯一 H1、canonical、index 策略和 sitemap 发现检查通过。保留全部 1,081 条原卡牌 URL。桌面 1440px 与移动端 390px 浏览器检查未见页面横向溢出；卡况表的 5 行正常呈现。初次检查发现宝可梦元信息中遗漏 intent/question 字段，补齐后重跑上述 34 项全部通过。
 
-主分支自动部署和正式正文回读待本次推送完成；未把本地构建写成正式上线。
+官网内容提交 `a524ffd83da9e5b1e9dc2afbdf3f2378e3ac13cf` 已推送 `origin/main`。正确 Cloudflare 账号 `dced4adca2f35cff247b39979058b934` 下的 `toccards-website` 和独立 `cardscanfox-site-data-preview` 自动构建均为 success。正式 `/release-manifest.json` 回读 sourceCommit 为同一提交，releaseId 为 `8cf94f607da0ff54d0634123f3da898272183c40ca3fa0b4e2190d760524cf00`。
+
+正式站 10 个新增/更新内容页面的英文元信息、canonical 和 index 策略通过；4 个正文补充与博客索引链接再次逐一回读。Ego 浏览器确认新文章、目录中的 6 个指南入口及 Gengar 05/62 实际详情正常，后者明确显示版别、价格条件、观察日期。正式 sitemap 回读为 83 个非卡牌页面和 1,093 个卡牌详情，共 1,176 条。
+
+本轮 22 个影响 URL 已全部通知 IndexNow，均收到 HTTP 200。首轮通用 skill 提交 18 个；其内容指纹使用正则截取 main/article，遇到嵌套 article 的首个结束标签会提前停止，导致 4 个实际变更页面被判定 content_unchanged。对这 4 个页面再次运行同一 skill 的公开页面资格检查，并确认完整正式 HTML 含新增内容后，按相同站点配置一次性补交，收到 HTTP 200。未修改全局 skill、历史去重状态或设置定时任务。两份回执位于忽略的 `.indexnow/reports/2026-11-08T07-01-13-640Z.json` 和 `.indexnow/reports/2026-11-08T07-05-49-149Z-body-update-supplement.json`。接口接收不等于搜索引擎已抓取、收录或获得流量。
 
 未纳入本次验证：App 真机、扫描识别、登录、购买、业务数据库写入和全仓回归。这些功能不在本次变更影响面内。
