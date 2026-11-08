@@ -27,3 +27,12 @@ test('production HTML cache serves repeat requests without reloading the data se
  const context={waitUntil:p=>pending.push(p)};
  try{const request=new Request('https://tcgcard.fun/cards/cache-001');const first=await worker.fetch(request,configured,context);assert.equal(first.status,200);assert.equal(first.headers.get('X-Robots-Tag'),'index, follow');await Promise.all(pending.splice(0));const tag=first.headers.get('ETag');assert.ok(tag);const conditional=await worker.fetch(new Request(request.url,{headers:{'If-None-Match':tag}}),configured,context);assert.equal(conditional.status,304);assert.equal(calls,1);await worker.fetch(request,{...configured,CF_VERSION_METADATA:{id:'cache-v2'}},context);assert.equal(calls,2);await Promise.all(pending);}finally{if(original===undefined)delete globalThis.caches;else globalThis.caches=original;}
 });
+
+test('production IndexNow key is readable as UTF-8 text without inherited preview robot directives',async()=>{
+ const key='444eeb2ada28d44a7a587aee0cbe0591',path='/'+key+'.txt';
+ const keyed={...env,ASSETS:{fetch:async()=>new Response(key+'\n',{headers:{'Content-Type':'text/plain','X-Robots-Tag':'noindex, nofollow, noarchive'}})}};
+ const production={...keyed,DEPLOYMENT_MODE:'production',CATALOG_MODE:'service',PUBLISH_READY:'true'};
+ for(const method of ['GET','HEAD']){const r=await worker.fetch(new Request('https://tcgcard.fun'+path,{method}),production);assert.equal(r.status,200);assert.equal(r.headers.get('X-Robots-Tag'),null);assert.equal(r.headers.get('Content-Type'),'text/plain; charset=utf-8');assert.equal(await r.text(),method==='HEAD'?'':key+'\n');}
+ const locked=await worker.fetch(new Request('https://candidate.workers.dev'+path),keyed);assert.equal(locked.status,401);
+ const preview=await worker.fetch(new Request('https://candidate.workers.dev'+path,{headers:{Authorization:authorization}}),keyed);assert.match(preview.headers.get('X-Robots-Tag'),/noindex/);
+});

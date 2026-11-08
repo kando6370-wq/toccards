@@ -53,7 +53,9 @@ export function createWebsiteHandler({publicPreview=false}={}) { return {
   if(pathname.endsWith('.html')){const canonical=pathname==='/index.html'?'/':pathname==='/blog/index.html'?'/blog/':pathname.slice(0,-5);if(legacyByPath.has(canonical)){headers.set('Location',canonical+url.search);return new Response(null,{status:308,headers});}}
   if(pathname==='/blog'){headers.set('Location','/blog/'+url.search);return new Response(null,{status:308,headers});}
   if(pathname.startsWith('/assets/')||['/site.css','/site.js','/444eeb2ada28d44a7a587aee0cbe0591.txt','/google406556797e3e830d.html','/release-manifest.json','/route-manifest.json'].includes(pathname)){
-   const response=await env.ASSETS.fetch(request);const result=new Response(request.method==='HEAD'?null:response.body,response);for(const [key,value]of headers)result.headers.set(key,value);return result;
+   const response=await env.ASSETS.fetch(request);const result=new Response(request.method==='HEAD'?null:response.body,response);for(const [key,value]of headers)result.headers.set(key,value);
+   if(production&&pathname==='/444eeb2ada28d44a7a587aee0cbe0591.txt'){result.headers.delete('X-Robots-Tag');result.headers.set('Content-Type','text/plain; charset=utf-8');}
+   return result;
   }
   const htmlCache=production&&typeof caches!=='undefined'&&'default' in caches?caches.default:null;
   const cacheKey=production?htmlCacheKey(request,env.CF_VERSION_METADATA?.id??'local'):null;
