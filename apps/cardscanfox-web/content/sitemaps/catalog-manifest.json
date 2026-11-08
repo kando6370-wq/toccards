@@ -1,16 +1,16 @@
 {
   "schemaVersion": 1,
   "origin": "https://tcgcard.fun",
-  "scope": "Initial discovery batch: public ranking cards and 18 Pokemon catalog pages; not a full catalog export; includes the verified physical-card records linked from the Mega Rayquaza guide; includes verified Gengar, Eevee and Mewtwo guide records",
+  "scope": "Initial discovery batch: public ranking cards and 18 Pokemon catalog pages; not a full catalog export; includes the verified physical-card records linked from the Mega Rayquaza guide; includes verified Gengar, Eevee and Mewtwo guide records; includes verified Charmander, Dragonite, Mew and existing Charizard guide records",
   "capturedAt": "2026-11-07T16:05:28.958Z",
-  "candidateCount": 1100,
-  "discoveryCount": 1093,
+  "candidateCount": 1119,
+  "discoveryCount": 1112,
   "shards": [
     {
       "path": "/sitemaps/cards-00001.xml",
-      "urlCount": 1093,
-      "bytes": 60420,
-      "sha256": "da2daf28de470f290e6519b7ee59a7fb6357805415c468776dfbeb2fbd6bf3cf"
+      "urlCount": 1112,
+      "bytes": 61464,
+      "sha256": "f16a25bcf9a66634e84f45a3e3ba8dd1778791585369c88e78c122dd60dfdac7"
     }
   ],
   "guideCardIds": [
@@ -32,9 +32,29 @@
     "146695",
     "146698",
     "632891",
-    "633031"
+    "633031",
+    "502555",
+    "502556",
+    "124085",
+    "124119",
+    "246757",
+    "246758",
+    "106520",
+    "44427",
+    "534919",
+    "535527",
+    "516566",
+    "517027",
+    "517051",
+    "519481",
+    "253274",
+    "502558",
+    "517017",
+    "517045",
+    "197651",
+    "197780"
   ],
-  "updatedAt": "2026-11-08T06:48:38.157Z",
+  "updatedAt": "2026-11-08T07:24:16.410Z",
   "homeFeaturedCardIds": [
     "714372",
     "712954",

@@ -188,19 +188,19 @@
     "topic": "竞品已有关键词与本站页面覆盖",
     "site": "https://tcgcard.fun",
     "repository": "toccards",
-    "checkout": "已发布官网内容 main@a524ffd8；本报告随后归档",
+    "checkout": "第二批基线 main@2e49d4c6；第一批内容已发布 a524ffd8",
     "mode": "已授权的竞品对比与内容实施",
     "opportunity_decision": "HOLD",
     "action_resolution": "执行已有产品能力支持的内容补齐",
     "research_date": "2026-11-08",
-    "updated_at": "2026-11-08T15:07:04+08:00",
+    "updated_at": "2026-11-08T15:25:51+08:00",
     "evidence_depth": "竞品报表、Google 可见搜索与本站目录事实",
     "html_plan_path": "/Users/mac/.codex/worktrees/cardscanfox-auto-deploy/toccards/docs/seo-implementation/2026-11-08-pokescope-organic-implementation-plan.html",
-    "completion_boundary": "4 篇指南与 4 个既有页面补充已正式上线。构建和 34 项相关检查通过；46 个老网址正文与原链接保留。正式 sitemap 共 1,176 条；本轮 22 个 URL 的 IndexNow 通知均收到 HTTP 200。热度、新词与后续搜索流量仍未验证。"
+    "completion_boundary": "第一批已上线并通知 22 个 URL。第二批 3 篇新指南、3 个老页补充与 19 个新增卡牌发现已完成；构建、34 项检查、33 个内链及桌面/移动端检查通过。待 main 自动发布与本批 29 个 URL 的通知。热度与后续流量未验证。"
   },
   "root_plan": {
     "run_id": "pokescope-organic-20261108",
-    "scope": "竞品美国桌面自然排名；50,000 行可访问导出及选定意图映射",
+    "scope": "竞品美国桌面自然排名；50,000 行可访问导出及选定意图映射；第二批继续已有卡名/印次查价词，不重新运行 Trends",
     "target_market": "US",
     "language": "en",
     "audience": "需要识别和查价的实体宝可梦卡牌收藏者",
@@ -417,6 +417,12 @@
       "label": "本地影响面检查",
       "detail": "构建、34 项相关检查和内链通过；1440px/390px 浏览器无页面横向溢出。",
       "state": "implemented"
+    },
+    {
+      "step": 7,
+      "label": "第二批内容完成",
+      "detail": "3 篇新指南、3 个老页补充及 19 个新增卡牌发现；构建、34 项检查和 33 个内链通过，桌面/移动端无横向溢出。待正式发布。",
+      "state": "implemented"
     }
   ],
   "google_sources": [
@@ -425,12 +431,12 @@
       "collection_method": "browser-ui",
       "access_state": "available",
       "verification_status": "verified",
-      "scope": "pokemon card values checker；当前账号/浏览器呈现，语言 zh-CN",
+      "scope": "上一批通用查价查询；本批 Charmander 151、Dragonite EX、Bubble Mew 三个查询，hl=en/gl=us",
       "date_range": "2026-11-08",
       "used_for": "核对查价工具与数据库的混合搜索意图；不当作 US 无个性化排名",
       "locator": "https://www.google.com/search?q=pokemon+card+values+checker",
-      "row_count": 1,
-      "limit_boundary": "只核对一个通用查价查询。其余候选未逐个做 Google SERP。"
+      "row_count": 4,
+      "limit_boundary": "参数为 en/US；仍可能个性化，不当作 US 无个性化排名。结果用于印次与页面任务核对，未采用价格、流量或 AI 摘要中的未验证断言。"
     },
     {
       "source_name": "Google Trends",
@@ -822,24 +828,227 @@
       "research_first_seen_at": "2026-11-08",
       "research_last_seen_at": "2026-11-08",
       "seen_in_runs": 1,
-      "first_visible_period": "未核实；行 Timestamp 不是首次出现",
-      "capture_window": "竞品 2026-11-06 快照",
-      "confirmation_window": "本次未做历史热度确认",
+      "first_visible_period": "未核实；不是行 Timestamp",
+      "capture_window": "同一竞品 2026-11-06 快照",
+      "confirmation_window": "本轮未验证历史热度",
       "root_parent": "pokemon card values",
       "heat_state": "uncertain",
       "current_direction": "uncertain",
-      "heat_evidence": "只有排名快照，不能确认近期上涨",
+      "heat_evidence": "没有当前趋势结论",
       "search_observation": "工具估算 Traffic 27；Position 1；Search Volume 110；URL https://pokescope.app/trade-calculator/；行 Timestamp 2026-10-14。",
-      "trend_evidence": "本次未读取 Google Trends",
-      "keyword_planner_observation": "本次未读取",
-      "search_console_observation": "本次未读取",
-      "similarweb_observation": "本次未读取",
-      "jev_preclassification": "词级未调用；Jev 仅做 5 个产品词根分类",
-      "product_fit": "产品没有交易计算器，暂不承接",
+      "trend_evidence": "未重启此前异常的 Trends 扫描",
+      "keyword_planner_observation": "本轮未读取",
+      "search_console_observation": "本轮未读取",
+      "similarweb_observation": "本轮未读取",
+      "jev_preclassification": "jev-1.14.0：印次查价，置信度 0.47；Codex 排除未实现工具。",
+      "product_fit": "Codex 排除未实现的交易计算器；Jev 低置信度结果未采用",
       "owner_page": "不新增页面",
       "disposition": "defer",
       "priority": "P1",
-      "reason": "Codex 以已核实产品能力确定归属；报表意图标签不是产品事实"
+      "reason": "Codex 排除未实现的交易计算器；Jev 低置信度结果未采用"
+    },
+    {
+      "keyword": "charmander 151",
+      "keyword_cluster": "charmander 151",
+      "research_lanes": [],
+      "primary_research_lane": "uncertain",
+      "new_term_state": "uncertain",
+      "freshness_state": "uncertain",
+      "research_first_seen_at": "2026-11-08",
+      "research_last_seen_at": "2026-11-08",
+      "seen_in_runs": 1,
+      "first_visible_period": "未核实；不是行 Timestamp",
+      "capture_window": "同一竞品 2026-11-06 快照",
+      "confirmation_window": "本轮未验证历史热度",
+      "root_parent": "pokemon card values",
+      "heat_state": "uncertain",
+      "current_direction": "uncertain",
+      "heat_evidence": "没有当前趋势结论",
+      "search_observation": "工具估算 Traffic 188；Position 7；Search Volume 9900；URL https://pokescope.app/card/sv3pt5-168/；行 Timestamp 2026-10-26。",
+      "trend_evidence": "未重启此前异常的 Trends 扫描",
+      "keyword_planner_observation": "本轮未读取",
+      "search_console_observation": "本轮未读取",
+      "similarweb_observation": "本轮未读取",
+      "jev_preclassification": "jev-1.14.0：印次查价，置信度 0.99；Codex 复核保留印次查价意图。",
+      "product_fit": "新增 004/165 与 168/165 识别指南",
+      "owner_page": "/blog/charmander-151-card-value",
+      "disposition": "new-page",
+      "priority": "P1",
+      "reason": "新增 004/165 与 168/165 识别指南"
+    },
+    {
+      "keyword": "dragonite ex",
+      "keyword_cluster": "dragonite ex",
+      "research_lanes": [],
+      "primary_research_lane": "uncertain",
+      "new_term_state": "uncertain",
+      "freshness_state": "uncertain",
+      "research_first_seen_at": "2026-11-08",
+      "research_last_seen_at": "2026-11-08",
+      "seen_in_runs": 1,
+      "first_visible_period": "未核实；不是行 Timestamp",
+      "capture_window": "同一竞品 2026-11-06 快照",
+      "confirmation_window": "本轮未验证历史热度",
+      "root_parent": "pokemon card values",
+      "heat_state": "uncertain",
+      "current_direction": "uncertain",
+      "heat_evidence": "没有当前趋势结论",
+      "search_observation": "工具估算 Traffic 125；Position 6；Search Volume 6600；URL https://pokescope.app/pokemon/dragonite/；行 Timestamp 2026-10-23。",
+      "trend_evidence": "未重启此前异常的 Trends 扫描",
+      "keyword_planner_observation": "本轮未读取",
+      "search_console_observation": "本轮未读取",
+      "similarweb_observation": "本轮未读取",
+      "jev_preclassification": "jev-1.14.0：印次查价，置信度 0.99；Codex 复核保留印次查价意图。",
+      "product_fit": "新增 EX、V 和 Fossil 的版本区别",
+      "owner_page": "/blog/dragonite-ex-card-values",
+      "disposition": "new-page",
+      "priority": "P1",
+      "reason": "新增 EX、V 和 Fossil 的版本区别"
+    },
+    {
+      "keyword": "bubble mew",
+      "keyword_cluster": "bubble mew",
+      "research_lanes": [],
+      "primary_research_lane": "uncertain",
+      "new_term_state": "uncertain",
+      "freshness_state": "uncertain",
+      "research_first_seen_at": "2026-11-08",
+      "research_last_seen_at": "2026-11-08",
+      "seen_in_runs": 1,
+      "first_visible_period": "未核实；不是行 Timestamp",
+      "capture_window": "同一竞品 2026-11-06 快照",
+      "confirmation_window": "本轮未验证历史热度",
+      "root_parent": "pokemon card values",
+      "heat_state": "uncertain",
+      "current_direction": "uncertain",
+      "heat_evidence": "没有当前趋势结论",
+      "search_observation": "工具估算 Traffic 90；Position 14；Search Volume 60500；URL https://pokescope.app/card/sv4pt5-232/；行 Timestamp 2026-10-23。",
+      "trend_evidence": "未重启此前异常的 Trends 扫描",
+      "keyword_planner_observation": "本轮未读取",
+      "search_console_observation": "本轮未读取",
+      "similarweb_observation": "本轮未读取",
+      "jev_preclassification": "jev-1.14.0：印次查价，置信度 0.95；Codex 复核保留印次查价意图。",
+      "product_fit": "新增 232/091 的昵称到正式卡号映射",
+      "owner_page": "/blog/mew-ex-card-values",
+      "disposition": "new-page",
+      "priority": "P1",
+      "reason": "新增 232/091 的昵称到正式卡号映射"
+    },
+    {
+      "keyword": "mew ex",
+      "keyword_cluster": "mew ex",
+      "research_lanes": [],
+      "primary_research_lane": "uncertain",
+      "new_term_state": "uncertain",
+      "freshness_state": "uncertain",
+      "research_first_seen_at": "2026-11-08",
+      "research_last_seen_at": "2026-11-08",
+      "seen_in_runs": 1,
+      "first_visible_period": "未核实；不是行 Timestamp",
+      "capture_window": "同一竞品 2026-11-06 快照",
+      "confirmation_window": "本轮未验证历史热度",
+      "root_parent": "pokemon card values",
+      "heat_state": "uncertain",
+      "current_direction": "uncertain",
+      "heat_evidence": "没有当前趋势结论",
+      "search_observation": "导出未取得该精确短语的非零行；仅用于印次词簇归类，不补造流量。",
+      "trend_evidence": "未重启此前异常的 Trends 扫描",
+      "keyword_planner_observation": "本轮未读取",
+      "search_console_observation": "本轮未读取",
+      "similarweb_observation": "本轮未读取",
+      "jev_preclassification": "jev-1.14.0：印次查价，置信度 0.89；Codex 复核保留印次查价意图。",
+      "product_fit": "与 Bubble Mew 共用归属页，区分 151 与金属卡",
+      "owner_page": "/blog/mew-ex-card-values",
+      "disposition": "reuse-existing",
+      "priority": "P1",
+      "reason": "与 Bubble Mew 共用归属页，区分 151 与金属卡"
+    },
+    {
+      "keyword": "charizard gx",
+      "keyword_cluster": "charizard gx",
+      "research_lanes": [],
+      "primary_research_lane": "uncertain",
+      "new_term_state": "uncertain",
+      "freshness_state": "uncertain",
+      "research_first_seen_at": "2026-11-08",
+      "research_last_seen_at": "2026-11-08",
+      "seen_in_runs": 1,
+      "first_visible_period": "未核实；不是行 Timestamp",
+      "capture_window": "同一竞品 2026-11-06 快照",
+      "confirmation_window": "本轮未验证历史热度",
+      "root_parent": "pokemon card values",
+      "heat_state": "uncertain",
+      "current_direction": "uncertain",
+      "heat_evidence": "没有当前趋势结论",
+      "search_observation": "工具估算 Traffic 229；Position 6；Search Volume 12100；URL https://pokescope.app/card/sm115-9/；行 Timestamp 2026-10-26。",
+      "trend_evidence": "未重启此前异常的 Trends 扫描",
+      "keyword_planner_observation": "本轮未读取",
+      "search_console_observation": "本轮未读取",
+      "similarweb_observation": "本轮未读取",
+      "jev_preclassification": "jev-1.14.0：印次查价，置信度 0.92；Codex 复核保留印次查价意图。",
+      "product_fit": "保留原文，补 9/68 和 SV49 的真实详情入口",
+      "owner_page": "/blog/charizard-gx-card-values",
+      "disposition": "reuse-existing",
+      "priority": "P1",
+      "reason": "保留原文，补 9/68 和 SV49 的真实详情入口"
+    },
+    {
+      "keyword": "charizard 151",
+      "keyword_cluster": "charizard 151",
+      "research_lanes": [],
+      "primary_research_lane": "uncertain",
+      "new_term_state": "uncertain",
+      "freshness_state": "uncertain",
+      "research_first_seen_at": "2026-11-08",
+      "research_last_seen_at": "2026-11-08",
+      "seen_in_runs": 1,
+      "first_visible_period": "未核实；不是行 Timestamp",
+      "capture_window": "同一竞品 2026-11-06 快照",
+      "confirmation_window": "本轮未验证历史热度",
+      "root_parent": "pokemon card values",
+      "heat_state": "uncertain",
+      "current_direction": "uncertain",
+      "heat_evidence": "没有当前趋势结论",
+      "search_observation": "工具估算 Traffic 88；Position 10；Search Volume 22200；URL https://pokescope.app/card/sv3pt5-199/；行 Timestamp 2026-10-23。",
+      "trend_evidence": "未重启此前异常的 Trends 扫描",
+      "keyword_planner_observation": "本轮未读取",
+      "search_console_observation": "本轮未读取",
+      "similarweb_observation": "本轮未读取",
+      "jev_preclassification": "jev-1.14.0：印次查价，置信度 0.88；Codex 复核保留印次查价意图。",
+      "product_fit": "保留原文，补三张 Charizard ex 详情和 Charmander 指南入口",
+      "owner_page": "/blog/charizard-151-card-value",
+      "disposition": "reuse-existing",
+      "priority": "P1",
+      "reason": "保留原文，补三张 Charizard ex 详情和 Charmander 指南入口"
+    },
+    {
+      "keyword": "greninja xy24 promo price spike",
+      "keyword_cluster": "greninja xy24 promo price spike",
+      "research_lanes": [],
+      "primary_research_lane": "uncertain",
+      "new_term_state": "uncertain",
+      "freshness_state": "uncertain",
+      "research_first_seen_at": "2026-11-08",
+      "research_last_seen_at": "2026-11-08",
+      "seen_in_runs": 1,
+      "first_visible_period": "未核实；不是行 Timestamp",
+      "capture_window": "同一竞品 2026-11-06 快照",
+      "confirmation_window": "本轮未验证历史热度",
+      "root_parent": "pokemon card values",
+      "heat_state": "uncertain",
+      "current_direction": "uncertain",
+      "heat_evidence": "没有当前趋势结论",
+      "search_observation": "工具估算 Traffic 86；Position 6；Search Volume 3600；URL https://pokescope.app/card/xyp-XY24/；行 Timestamp 2026-10-24。",
+      "trend_evidence": "未重启此前异常的 Trends 扫描",
+      "keyword_planner_observation": "本轮未读取",
+      "search_console_observation": "本轮未读取",
+      "similarweb_observation": "本轮未读取",
+      "jev_preclassification": "jev-1.14.0：印次查价，置信度 0.99；Codex 仅识别意图，不采用当前涨价断言。",
+      "product_fit": "价格暴涨陈述未验证，不因关键词存在写成当前事实",
+      "owner_page": "本轮暂缓",
+      "disposition": "defer",
+      "priority": "P1",
+      "reason": "价格暴涨陈述未验证，不因关键词存在写成当前事实"
     }
   ],
   "opportunities": [
@@ -974,6 +1183,72 @@
         "工具估算 Traffic 27；Position 1；Search Volume 110；URL https://pokescope.app/trade-calculator/；行 Timestamp 2026-10-14。"
       ],
       "uncertainty": "真实竞品流量、当前热度和本站收益未验证"
+    },
+    {
+      "keyword_cluster": "charmander 151",
+      "intent": "新增 004/165 与 168/165 识别指南",
+      "owner_page": "/blog/charmander-151-card-value",
+      "action_resolution": "new-page",
+      "priority": "P1",
+      "evidence": [
+        "工具估算 Traffic 188；Position 7；Search Volume 9900；URL https://pokescope.app/card/sv3pt5-168/；行 Timestamp 2026-10-26。"
+      ],
+      "uncertainty": "不预测本站流量；不是最近一周热度验证"
+    },
+    {
+      "keyword_cluster": "dragonite ex",
+      "intent": "新增 EX、V 和 Fossil 的版本区别",
+      "owner_page": "/blog/dragonite-ex-card-values",
+      "action_resolution": "new-page",
+      "priority": "P1",
+      "evidence": [
+        "工具估算 Traffic 125；Position 6；Search Volume 6600；URL https://pokescope.app/pokemon/dragonite/；行 Timestamp 2026-10-23。"
+      ],
+      "uncertainty": "不预测本站流量；不是最近一周热度验证"
+    },
+    {
+      "keyword_cluster": "bubble mew",
+      "intent": "新增 232/091 的昵称到正式卡号映射",
+      "owner_page": "/blog/mew-ex-card-values",
+      "action_resolution": "new-page",
+      "priority": "P1",
+      "evidence": [
+        "工具估算 Traffic 90；Position 14；Search Volume 60500；URL https://pokescope.app/card/sv4pt5-232/；行 Timestamp 2026-10-23。"
+      ],
+      "uncertainty": "不预测本站流量；不是最近一周热度验证"
+    },
+    {
+      "keyword_cluster": "mew ex",
+      "intent": "与 Bubble Mew 共用归属页，区分 151 与金属卡",
+      "owner_page": "/blog/mew-ex-card-values",
+      "action_resolution": "reuse-existing",
+      "priority": "P1",
+      "evidence": [
+        "导出未取得该精确短语的非零行；仅用于印次词簇归类，不补造流量。"
+      ],
+      "uncertainty": "不预测本站流量；不是最近一周热度验证"
+    },
+    {
+      "keyword_cluster": "charizard gx",
+      "intent": "保留原文，补 9/68 和 SV49 的真实详情入口",
+      "owner_page": "/blog/charizard-gx-card-values",
+      "action_resolution": "reuse-existing",
+      "priority": "P1",
+      "evidence": [
+        "工具估算 Traffic 229；Position 6；Search Volume 12100；URL https://pokescope.app/card/sm115-9/；行 Timestamp 2026-10-26。"
+      ],
+      "uncertainty": "不预测本站流量；不是最近一周热度验证"
+    },
+    {
+      "keyword_cluster": "charizard 151",
+      "intent": "保留原文，补三张 Charizard ex 详情和 Charmander 指南入口",
+      "owner_page": "/blog/charizard-151-card-value",
+      "action_resolution": "reuse-existing",
+      "priority": "P1",
+      "evidence": [
+        "工具估算 Traffic 88；Position 10；Search Volume 22200；URL https://pokescope.app/card/sv3pt5-199/；行 Timestamp 2026-10-23。"
+      ],
+      "uncertainty": "不预测本站流量；不是最近一周热度验证"
     }
   ],
   "items": [
@@ -1215,6 +1490,181 @@
       "state": "implemented",
       "approval": "approved",
       "disposition": "用户已授权的内容补齐"
+    },
+    {
+      "id": "SEO-NEW-08",
+      "title": "Charmander 151 印次指南",
+      "target": "/blog/charmander-151-card-value",
+      "type": "NEW",
+      "how": "完成所有内容后只检查官网影响面，正式生效后通知本次影响 URL。",
+      "steps": [
+        "核实 20 个只读卡牌记录",
+        "完成 3 篇文章和内链",
+        "验证后推送 main、正式回读与 IndexNow 通知"
+      ],
+      "blocking_conditions": [
+        "新版未生效时不通知 IndexNow"
+      ],
+      "acceptance_checks": [
+        "46 个老页原正文和链接保留",
+        "独立官网构建与相关检查通过",
+        "新增卡号、canonical、索引策略和 sitemap 正确"
+      ],
+      "evidence": [
+        "只读目录中 20 个真实卡牌记录",
+        "三个 Google 可见查询的原始结果；不按个性化位置推断 US 排名"
+      ],
+      "depends_on": [],
+      "activation_requires": [
+        "正式发布成功"
+      ],
+      "priority": "P1",
+      "difficulty": "low",
+      "effort": "small",
+      "iteration": "第二批",
+      "state": "implemented",
+      "approval": "approved",
+      "disposition": "用户继续授权的内容扩展"
+    },
+    {
+      "id": "SEO-NEW-09",
+      "title": "Dragonite EX 印次指南",
+      "target": "/blog/dragonite-ex-card-values",
+      "type": "NEW",
+      "how": "完成所有内容后只检查官网影响面，正式生效后通知本次影响 URL。",
+      "steps": [
+        "核实 20 个只读卡牌记录",
+        "完成 3 篇文章和内链",
+        "验证后推送 main、正式回读与 IndexNow 通知"
+      ],
+      "blocking_conditions": [
+        "新版未生效时不通知 IndexNow"
+      ],
+      "acceptance_checks": [
+        "46 个老页原正文和链接保留",
+        "独立官网构建与相关检查通过",
+        "新增卡号、canonical、索引策略和 sitemap 正确"
+      ],
+      "evidence": [
+        "只读目录中 20 个真实卡牌记录",
+        "三个 Google 可见查询的原始结果；不按个性化位置推断 US 排名"
+      ],
+      "depends_on": [],
+      "activation_requires": [
+        "正式发布成功"
+      ],
+      "priority": "P1",
+      "difficulty": "low",
+      "effort": "small",
+      "iteration": "第二批",
+      "state": "implemented",
+      "approval": "approved",
+      "disposition": "用户继续授权的内容扩展"
+    },
+    {
+      "id": "SEO-NEW-10",
+      "title": "Bubble Mew / Mew ex 印次指南",
+      "target": "/blog/mew-ex-card-values",
+      "type": "NEW",
+      "how": "完成所有内容后只检查官网影响面，正式生效后通知本次影响 URL。",
+      "steps": [
+        "核实 20 个只读卡牌记录",
+        "完成 3 篇文章和内链",
+        "验证后推送 main、正式回读与 IndexNow 通知"
+      ],
+      "blocking_conditions": [
+        "新版未生效时不通知 IndexNow"
+      ],
+      "acceptance_checks": [
+        "46 个老页原正文和链接保留",
+        "独立官网构建与相关检查通过",
+        "新增卡号、canonical、索引策略和 sitemap 正确"
+      ],
+      "evidence": [
+        "只读目录中 20 个真实卡牌记录",
+        "三个 Google 可见查询的原始结果；不按个性化位置推断 US 排名"
+      ],
+      "depends_on": [],
+      "activation_requires": [
+        "正式发布成功"
+      ],
+      "priority": "P1",
+      "difficulty": "low",
+      "effort": "small",
+      "iteration": "第二批",
+      "state": "implemented",
+      "approval": "approved",
+      "disposition": "用户继续授权的内容扩展"
+    },
+    {
+      "id": "SEO-LINK-11",
+      "title": "Charizard 与 Mew 老页补详情及新指南入口",
+      "target": "3 个老页面、宝可梦目录与既有查价指南",
+      "type": "LINK",
+      "how": "完成所有内容后只检查官网影响面，正式生效后通知本次影响 URL。",
+      "steps": [
+        "核实 20 个只读卡牌记录",
+        "完成 3 篇文章和内链",
+        "验证后推送 main、正式回读与 IndexNow 通知"
+      ],
+      "blocking_conditions": [
+        "新版未生效时不通知 IndexNow"
+      ],
+      "acceptance_checks": [
+        "46 个老页原正文和链接保留",
+        "独立官网构建与相关检查通过",
+        "新增卡号、canonical、索引策略和 sitemap 正确"
+      ],
+      "evidence": [
+        "只读目录中 20 个真实卡牌记录",
+        "三个 Google 可见查询的原始结果；不按个性化位置推断 US 排名"
+      ],
+      "depends_on": [],
+      "activation_requires": [
+        "正式发布成功"
+      ],
+      "priority": "P1",
+      "difficulty": "low",
+      "effort": "small",
+      "iteration": "第二批",
+      "state": "implemented",
+      "approval": "approved",
+      "disposition": "用户继续授权的内容扩展"
+    },
+    {
+      "id": "SEO-TECH-12",
+      "title": "第二批发现、验证与发布",
+      "target": "目标 86 个非卡牌页面＋1112 个详情",
+      "type": "TECH",
+      "how": "完成所有内容后只检查官网影响面，正式生效后通知本次影响 URL。",
+      "steps": [
+        "核实 20 个只读卡牌记录",
+        "完成 3 篇文章和内链",
+        "验证后推送 main、正式回读与 IndexNow 通知"
+      ],
+      "blocking_conditions": [
+        "新版未生效时不通知 IndexNow"
+      ],
+      "acceptance_checks": [
+        "46 个老页原正文和链接保留",
+        "独立官网构建与相关检查通过",
+        "新增卡号、canonical、索引策略和 sitemap 正确"
+      ],
+      "evidence": [
+        "只读目录中 20 个真实卡牌记录",
+        "三个 Google 可见查询的原始结果；不按个性化位置推断 US 排名"
+      ],
+      "depends_on": [],
+      "activation_requires": [
+        "正式发布成功"
+      ],
+      "priority": "P1",
+      "difficulty": "low",
+      "effort": "small",
+      "iteration": "第二批",
+      "state": "approved",
+      "approval": "approved",
+      "disposition": "用户继续授权的内容扩展"
     }
   ],
   "iterations": [
@@ -1250,6 +1700,30 @@
       ],
       "acceptance": [
         "影响面检查后发布；回读正式正文并通知 IndexNow"
+      ],
+      "effort": "本轮"
+    },
+    {
+      "id": "ITER-2",
+      "priority": "P1",
+      "state": "approved",
+      "title": "第二批：具体印次查价",
+      "goal": "承接三个明确卡名意图，并复用 Charizard/Mew 旧页",
+      "item_ids": [
+        "SEO-NEW-08",
+        "SEO-NEW-09",
+        "SEO-NEW-10",
+        "SEO-LINK-11",
+        "SEO-TECH-12"
+      ],
+      "deliverables": [
+        "3 篇新指南、3 个老页补充、19 个新增卡牌发现"
+      ],
+      "not_in_scope": [
+        "App/API/Admin、交易计算器、涨价预测"
+      ],
+      "acceptance": [
+        "先完成内容，再检查影响面、正式发布及 IndexNow 通知"
       ],
       "effort": "本轮"
     }
@@ -1359,6 +1833,14 @@
       "method_boundary": "正式回读与通知回执",
       "claim": "正式内容版本 a524ffd8，sitemap 83+1093；22 个受影响 URL 的 IndexNow 通知成功，未证明抓取或收录。",
       "locator": "https://tcgcard.fun/release-manifest.json",
+      "observation_date": "2026-11-08",
+      "verification_status": "verified"
+    },
+    {
+      "source_label": "Google Search 与 CardScanFox",
+      "method_boundary": "可见搜索与只读目录",
+      "claim": "20 个卡牌身份已核对；Bubble Mew 对应英语 Paldean Fates 232/091；205/165 的普通卡与金属卡分开；Jev 8 个候选预分类后由 Codex 纠正交易计算器。",
+      "locator": "apps/cardscanfox-web/.local/pokescope-comparison-20261108/batch-2/",
       "observation_date": "2026-11-08",
       "verification_status": "verified"
     }

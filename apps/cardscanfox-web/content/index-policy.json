@@ -36,7 +36,10 @@
     "/blog/gengar-card-values",
     "/blog/eevee-card-values",
     "/blog/mewtwo-card-values",
-    "/blog/pokemon-card-condition-guide"
+    "/blog/pokemon-card-condition-guide",
+    "/blog/charmander-151-card-value",
+    "/blog/dragonite-ex-card-values",
+    "/blog/mew-ex-card-values"
   ],
   "note": "Local production policy only. Preview authentication/noindex and PUBLISH_READY remain enforced. Eligible real card pages may be indexed; sitemap discovery expands in reviewed batches. Missing price alone does not exclude a useful identity page.",
   "catalog": {

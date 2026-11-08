@@ -51,3 +51,23 @@ TypeSafe `jev-1.14.0` 用于 5 个产品词根的语义分类，均归入核心�
 本轮 22 个影响 URL 已全部通知 IndexNow，均收到 HTTP 200。首轮通用 skill 提交 18 个；其内容指纹使用正则截取 main/article，遇到嵌套 article 的首个结束标签会提前停止，导致 4 个实际变更页面被判定 content_unchanged。对这 4 个页面再次运行同一 skill 的公开页面资格检查，并确认完整正式 HTML 含新增内容后，按相同站点配置一次性补交，收到 HTTP 200。未修改全局 skill、历史去重状态或设置定时任务。两份回执位于忽略的 `.indexnow/reports/2026-11-08T07-01-13-640Z.json` 和 `.indexnow/reports/2026-11-08T07-05-49-149Z-body-update-supplement.json`。接口接收不等于搜索引擎已抓取、收录或获得流量。
 
 未纳入本次验证：App 真机、扫描识别、登录、购买、业务数据库写入和全仓回归。这些功能不在本次变更影响面内。
+
+## 第二批卡名与印次覆盖（2026-11-08）
+
+用户继续授权后，沿用同一美国桌面竞品报表，不重复获取或扩大其 50,000 行上限，不恢复此前异常的 Trends 扫描。Google 可见搜索核对了 `charmander 151 card value`、`dragonite ex card value` 和 `bubble mew card number`；使用 en/US 参数，但不把账号下可见结果当作无个性化 US 排名。可见 TCGplayer 结果分别对应 Charmander 168/165、Dragonite EX Full Art 和 Mew ex 232/091。未采用广告、购物价、第三方访问估算或 AI 摘要作为本站价格事实。
+
+TypeSafe 在线文档本轮未能读取，复用已保存的正式 HTTP API/Choice 文档；实际 `jev-1.14.0` 完成 8 个候选词的预分类。Jev 将交易计算器误归为印次查价，置信度为 0.47，Codex 按产品能力纠正为排除。`greninja xy24 promo price spike` 保留为待核实词，不将词中的上涨断言写成当前事实。其余卡名归属由真实目录和已有页面覆盖决定。
+
+新增三个页面：
+
+- `/blog/charmander-151-card-value`：004/165 与 168/165 的编号、图案、语言、finish 和价格条件。
+- `/blog/dragonite-ex-card-values`：Evolutions EX 72/108、106/108；Evolving Skies V 191/203、192/203；Fossil 04/62、19/62。
+- `/blog/mew-ex-card-values`：Bubble Mew 232/091、216/091、151 的三种 Mew ex、205/165 金属卡和 Fusion Strike Mew V；与既有 Mew GG10 页区分。
+
+既有 Charizard GX、Charizard 151 和 Mew GG10 三个页面保留全文及日期化价格样本，只在保护容器之外补充真实详情和新指南入口。宝可梦目录、既有通用查价指南、博客索引及 values 分类可以发现新文章。没有创建查价同义页面，也没有在文章中写死当前金额。
+
+本批通过只读接口核对 20 个卡牌记录。19 个此前不在 sitemap 中，追加后目标为 1,112 个详情；原有 1,093 条全部保留。非卡牌索引页目标从 83 个增至 86 个，总发现数目标为 1,198。所有指南种子继续保存在 `guideCardIds`，不设置定时扫描。
+
+第二批内容与发现路径完成后进行影响面检查：独立官网构建通过，生成 121 条 HTML；相关 34 项检查全部通过。新文章的 17 个卡牌链接均在候选 sitemap 中，16 个其他内链可正确解析；原有 1,093 条卡牌 URL 全部保留。1440px 桌面和 390px 移动端浏览器检查通过，三篇新文章无页面横向溢出。
+
+本批待 main 自动部署、正式回读及 29 个受影响 URL 的 IndexNow 通知。未修改 App、原业务 API、Admin、旧 Marketing、数据库或 Cloudflare 绑定。

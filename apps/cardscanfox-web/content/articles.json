@@ -131,5 +131,80 @@
         "url": "https://www.psacard.com/gradingstandards"
       }
     ]
+  },
+  {
+    "path": "/blog/charmander-151-card-value",
+    "title": "Charmander 151 Value: 004/165 vs 168/165 | CardScanFox",
+    "description": "Find the right Charmander 151 card. Compare 004/165 and 168/165, match the artwork and finish, then check the available price, condition and observation date.",
+    "h1": "Charmander 151 Card Value: 004/165 or 168/165?",
+    "author": "CardScanFox Editorial",
+    "file": "charmander-151-card-value.md",
+    "published": true,
+    "category": "values",
+    "publishedAt": "2026-11-08",
+    "sources": [
+      {
+        "label": "CardScanFox: published printing record and dated price context",
+        "url": "https://tcgcard.fun/cards/502556"
+      },
+      {
+        "label": "CardScanFox: Pokémon catalog lookup",
+        "url": "https://tcgcard.fun/games/pokemon"
+      },
+      {
+        "label": "TCGplayer: Charmander 168/165 product record",
+        "url": "https://www.tcgplayer.com/product/502556/pokemon-sv-scarlet-and-violet-151-charmander-168-165"
+      }
+    ]
+  },
+  {
+    "path": "/blog/dragonite-ex-card-values",
+    "title": "Dragonite EX Values: 72/108 vs 106/108 | CardScanFox",
+    "description": "Which Dragonite card is yours? Compare Evolutions EX 72/108 and 106/108, Evolving Skies V printings and Fossil cards before opening the matching price record.",
+    "h1": "Dragonite EX Card Values: Match the Set and Full Number",
+    "author": "CardScanFox Editorial",
+    "file": "dragonite-ex-card-values.md",
+    "published": true,
+    "category": "values",
+    "publishedAt": "2026-11-08",
+    "sources": [
+      {
+        "label": "CardScanFox: published printing record and dated price context",
+        "url": "https://tcgcard.fun/cards/124085"
+      },
+      {
+        "label": "CardScanFox: Pokémon catalog lookup",
+        "url": "https://tcgcard.fun/games/pokemon"
+      },
+      {
+        "label": "TCGplayer: Dragonite EX Full Art product record",
+        "url": "https://www.tcgplayer.com/product/124119/pokemon-xy-evolutions-dragonite-ex-full-art"
+      }
+    ]
+  },
+  {
+    "path": "/blog/mew-ex-card-values",
+    "title": "Bubble Mew & Mew ex Values: 232/091, 151 & Metal | CardScanFox",
+    "description": "Identify Bubble Mew 232/091 and compare other Mew ex printings. Match Paldean Fates, Pokémon 151 and the 205/165 metal card before checking prices.",
+    "h1": "Bubble Mew and Mew ex: Match the Number, Set and Material",
+    "author": "CardScanFox Editorial",
+    "file": "mew-ex-card-values.md",
+    "published": true,
+    "category": "values",
+    "publishedAt": "2026-11-08",
+    "sources": [
+      {
+        "label": "CardScanFox: published printing record and dated price context",
+        "url": "https://tcgcard.fun/cards/534919"
+      },
+      {
+        "label": "CardScanFox: Pokémon catalog lookup",
+        "url": "https://tcgcard.fun/games/pokemon"
+      },
+      {
+        "label": "TCGplayer: Mew ex 232/091 product record",
+        "url": "https://www.tcgplayer.com/product/534919/pokemon-sv-paldean-fates-mew-ex-232-091"
+      }
+    ]
   }
 ]
