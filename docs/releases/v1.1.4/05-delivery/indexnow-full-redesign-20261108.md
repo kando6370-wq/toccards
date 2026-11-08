@@ -19,3 +19,11 @@
 保留完整 URL 文件、HTTP 接收回执和校验方式，只有接口返回 200/202 后才更新通知状态。没有设置 Cron，不修改 App/API/Admin/Flutter、数据库或安全配置。
 
 官方协议：https://www.indexnow.org/documentation
+
+## 本次结果
+
+2026-11-08 11:12（UTC+8），正式资源版本 c39b9083 已回读为上述完整清单。对全部 1,160 URL 做同域、参数、重复、robots 和 sitemap 归属校验，另外对 42 个遗漏发布地址及 5 个当前页面做了 HTTP 正文检查。原有 1,063 个目录单卡采用已发布清单资格作为批量通知依据，没有额外逐页触发数据库读取。
+
+一次正式 POST 返回 HTTP 200，submitted=1,160、remaining=0。其中 site=79、cards=1,081。完整回执 `.indexnow/reports/2026-11-08T03-12-12-038Z-full-redesign.json`，逐条 URL `.indexnow/reports/2026-11-08T03-12-12-038Z-full-redesign-urls.json`。通知状态保留旧 history/hash，写入本次实际接收结果，只为本次确实读取过正文的地址更新 hash，不伪造其他页面的 HTTP 检查或新 hash。
+
+本轮地图/SEO/原正文保留共 27 项检查通过（208ms），构建通过。生成器输出也保留 releaseCardIds 元数据，防止连续生成时丢失这批发布入口。原有 46 个受保护旧地址仍在正式 site sitemap；Saved、接口、预览地址和查验失败地址均不提交。本轮没有展开或宣称提交全部数百万动态卡牌。
