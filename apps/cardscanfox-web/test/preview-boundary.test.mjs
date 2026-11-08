@@ -36,3 +36,9 @@ test('production IndexNow key is readable as UTF-8 text without inherited previe
  const locked=await worker.fetch(new Request('https://candidate.workers.dev'+path),keyed);assert.equal(locked.status,401);
  const preview=await worker.fetch(new Request('https://candidate.workers.dev'+path,{headers:{Authorization:authorization}}),keyed);assert.match(preview.headers.get('X-Robots-Tag'),/noindex/);
 });
+
+test('every published IndexNow key file contains its exact UTF-8 filename value and is served as a public production asset',async()=>{
+ const {readdir}=await import('node:fs/promises');const root=new URL('../public/',import.meta.url);
+ const files=(await readdir(root)).filter(f=>/^[a-f0-9]{32}\.txt$/.test(f));assert.ok(files.length>=1);
+ for(const file of files){const text=await readFile(new URL(file,root),'utf8');assert.equal(text,file.slice(0,-4));const r=await worker.fetch(new Request('https://tcgcard.fun/'+file),{...env,DEPLOYMENT_MODE:'production',CATALOG_MODE:'service',PUBLISH_READY:'true',ASSETS:{fetch:async()=>new Response(text,{headers:{'X-Robots-Tag':'noindex'}})}});assert.equal(await r.text(),text);assert.equal(r.headers.get('X-Robots-Tag'),null);assert.equal(r.headers.get('Content-Type'),'text/plain; charset=utf-8');}
+});
