@@ -21,3 +21,13 @@
 登录目标 Cloudflare 账号，在 tcgcard.fun 安全分析的 Events 页面、过去 24 小时、无筛选条件时，未显示防火墙事件。此为采样视图，不作为真实 Bing 请求必定成功的证明。未改安全设置。
 
 保留旧 key 标识，把其文件规范为无 BOM/无末尾换行的 32 字符值；额外发布一个同格式对照 key 文件，暂不切换 .indexnow.json。两个确切文件路径均为公开文本，预览保护不变。发布后对旧/新 key 各做一次同首页验证，以区分文件格式与 key 状态，不能仅凭 202 宣称完整修复。
+
+## 恢复结果
+
+资源版本 2de58f1d 正式生效后，两份 key 都是 200、UTF-8、恰好 32 字节、无重定向且无 X-Robots-Tag。对同一首页做对照：2026-11-08 10:15（UTC+8）旧 key 仍为 403，新 key 为 202；10:19 新 key 复核为 HTTP 200，验证通过。因此正式提交配置切换为已验证新 key。该对照证明当前服务端对两个 key 的接受状态不同；没有 IndexNow 验证服务内部日志，旧 key 为何长期失效或是否命中负缓存仍不能确定，不能归结为已经证实的 Cloudflare 拦截。
+
+切换 .indexnow.json 后，仅清除旧失败造成的本地 retryAfter；保留 pending、hashes 和 history，并在忽略的 debug 目录备份旧状态。此操作发生在新 key 真实 HTTP 200 通过之后，不是绕过 429 限频；本轮未收到 429，也未设置持续重试。
+
+10:21 按 indexnow-submit 正式流程重提 17 个此前待通知的正式 URL，结果 checked=17、submitted=17、HTTP=200、remaining=0。报告：`.indexnow/reports/2026-11-08T02-21-50-808Z.json`。HTTP 200 表示收到网址，不表示已经抓取、收录或排名改善。
+
+本轮共完成 12 项受影响边界回归、类型检查和打包；此前第一项修复为 11 项。没有运行无影响面的业务 App、Admin、Flutter 或后端回归。未改 App/API/Admin/Flutter/旧官网代码、数据库、生产 Secret、DNS 或 WAF。所有判断基于字节、HTTP 与协议的确定性校验，无需 Jev 分类或模型推断成功状态。
