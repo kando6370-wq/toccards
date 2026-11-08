@@ -86,4 +86,6 @@ TypeSafe 在线文档本轮未能读取，复用已保存的正式 HTTP API/Choi
 
 文章文件支持可选 language=en/de，默认仍为 en；新文章 document lang 和 Article inLanguage 为 de，来源标题显示 Quellen。其他页面保持既有语言与 URL，不新增全站语言切换或错误的翻译 hreflang。
 
-内容完成后构建通过，生成 122 条 HTML。相关 35 项检查通过，包括德文 document lang/Article inLanguage、非法语言拒绝和英文页保留 en；46 个老页原正文及链接保留。1440px/390px 浏览器检查无横向溢出，概率表有 5 行。待正式发布和 4 个影响 URL 的 IndexNow 通知。原 App、业务 API、Admin、旧 Marketing 和数据库不变。
+内容完成后构建通过，生成 122 条 HTML。相关 35 项检查通过，包括德文 document lang/Article inLanguage、非法语言拒绝和英文页保留 en；46 个老页原正文及链接保留。1440px/390px 浏览器检查无横向溢出，概率表有 5 行。内容提交 `1f808c7885d9ba29213d88a4c8f958a3a01f3a2f` 已推送 main，官网与独立只读服务的自动构建均 success。正式 manifest sourceCommit 为同一提交，releaseId 为 `6bda865ebf90a0ada518c6d9f514e06e1d9f1b5d8824ecdb641d2f560a12d0a9`。4 个影响页正式 HTML、德文语言及英语旧页保留、canonical、index 策略与内链通过；非卡牌 sitemap 87 条，详情 1,112 条，总计 1,199。Ego 正式页面回读通过。
+
+4 个 URL 的 IndexNow 通知全部收到 HTTP 200：通用 skill 首轮接收 2 个，另外两个索引页因首个嵌套 article 指纹漏判，在核对完整新链接和页面资格后补交 2 个。回执 `.indexnow/reports/2026-11-08T13-52-08-538Z.json`、`.indexnow/reports/2026-11-08T13-54-01-383Z-delta-body-supplement.json`；未改全局 skill 或历史状态，不宣称已收录。原 App、业务 API、Admin、旧 Marketing 和数据库不变。
