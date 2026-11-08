@@ -1,25 +1,40 @@
 {
   "schemaVersion": 1,
   "origin": "https://tcgcard.fun",
-  "scope": "Initial discovery batch: public ranking cards and 18 Pokemon catalog pages; not a full catalog export; includes the verified physical-card records linked from the Mega Rayquaza guide",
+  "scope": "Initial discovery batch: public ranking cards and 18 Pokemon catalog pages; not a full catalog export; includes the verified physical-card records linked from the Mega Rayquaza guide; includes verified Gengar, Eevee and Mewtwo guide records",
   "capturedAt": "2026-11-07T16:05:28.958Z",
-  "candidateCount": 1088,
-  "discoveryCount": 1081,
+  "candidateCount": 1100,
+  "discoveryCount": 1093,
   "shards": [
     {
       "path": "/sitemaps/cards-00001.xml",
-      "urlCount": 1081,
-      "bytes": 59761,
-      "sha256": "87522017f42a4cc2fbdce03940f866ec2d7dc67f4813d11aba34f7b3ddc4e1c8"
+      "urlCount": 1093,
+      "bytes": 60420,
+      "sha256": "da2daf28de470f290e6519b7ee59a7fb6357805415c468776dfbeb2fbd6bf3cf"
     }
   ],
   "guideCardIds": [
     "98097",
     "98112",
     "98141",
-    "101520"
+    "101520",
+    "106521",
+    "44428",
+    "284266",
+    "253266",
+    "253371",
+    "264218",
+    "550232",
+    "550179",
+    "197811",
+    "107180",
+    "107181",
+    "146695",
+    "146698",
+    "632891",
+    "633031"
   ],
-  "updatedAt": "2026-11-07T18:04:06.896Z",
+  "updatedAt": "2026-11-08T06:48:38.157Z",
   "homeFeaturedCardIds": [
     "714372",
     "712954",

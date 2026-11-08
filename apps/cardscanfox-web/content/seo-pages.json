@@ -366,10 +366,10 @@
     "question": "Which guide helps me complete this collecting task?"
   },
   "/games/pokemon": {
-    "intent": "浏览 Pokémon 的卡库与价格",
-    "title": "Pokémon Card Database: Sets & Prices | CardScanFox",
-    "description": "Browse Pokémon card records by set, name and collector number. Match a printing, check its published price and open available card details.",
-    "question": "Which Pokémon printing matches my card?"
+    "intent": "按名称和卡号查询 Pokémon 印次与价格",
+    "title": "Pokémon Card Values & Database: Find Your Card | CardScanFox",
+    "description": "Look up Pokémon cards by name, set and collector number. Compare printings, check available price references and dates, and find the record that matches your card.",
+    "question": "Which Pokémon printing is mine, and what price reference is available?"
   },
   "/games/one-piece": {
     "intent": "浏览 One Piece 的卡库与价格",

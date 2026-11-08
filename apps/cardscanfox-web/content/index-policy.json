@@ -32,7 +32,11 @@
     "/sets/set-cdfc299a9ad0",
     "/sets/set-d87314ba68c4",
     "/sets/set-03121efbc4af",
-    "/sets/set-90fac8c03fb3"
+    "/sets/set-90fac8c03fb3",
+    "/blog/gengar-card-values",
+    "/blog/eevee-card-values",
+    "/blog/mewtwo-card-values",
+    "/blog/pokemon-card-condition-guide"
   ],
   "note": "Local production policy only. Preview authentication/noindex and PUBLISH_READY remain enforced. Eligible real card pages may be indexed; sitemap discovery expands in reviewed batches. Missing price alone does not exclude a useful identity page.",
   "catalog": {

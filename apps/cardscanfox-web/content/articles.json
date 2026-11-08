@@ -55,5 +55,81 @@
         "url": "https://press.pokemon.com/en-NZ/releases/MEDIA-ALERT-Legendary-Pokemon-Mega-Rayquaza-ex-Descends-into-Battle-in"
       }
     ]
+  },
+  {
+    "path": "/blog/gengar-card-values",
+    "title": "Gengar Card Values: Fossil, VMAX & Full Art | CardScanFox",
+    "description": "Find your Gengar card by set and number. Compare Fossil holo 5/62, non-holo 20/62, Fusion Strike VMAX and Lost Origin TG06 before checking prices.",
+    "h1": "Gengar Card Values: Fossil Holo, VMAX and Other Printings",
+    "author": "CardScanFox Editorial",
+    "file": "gengar-card-values.md",
+    "published": true,
+    "category": "values",
+    "publishedAt": "2026-11-08",
+    "sources": [
+      {
+        "label": "CardScanFox: published Pokémon card catalog",
+        "url": "https://tcgcard.fun/games/pokemon"
+      }
+    ]
+  },
+  {
+    "path": "/blog/eevee-card-values",
+    "title": "Eevee Card Values: Full Art, TG11 & 188/167 | CardScanFox",
+    "description": "Which Eevee card do you have? Compare Brilliant Stars TG11/TG30, Twilight Masquerade 188/167 and other printings, then open the matching price record.",
+    "h1": "Eevee Card Values: Match the Full-Art Card to Its Number",
+    "author": "CardScanFox Editorial",
+    "file": "eevee-card-values.md",
+    "published": true,
+    "category": "values",
+    "publishedAt": "2026-11-08",
+    "sources": [
+      {
+        "label": "CardScanFox: published Pokémon card catalog",
+        "url": "https://tcgcard.fun/games/pokemon"
+      }
+    ]
+  },
+  {
+    "path": "/blog/mewtwo-card-values",
+    "title": "Mewtwo Card Values: EX, GX & Team Rocket’s ex | CardScanFox",
+    "description": "Match your Mewtwo card by set and collector number. Compare BREAKthrough EX, Shining Legends GX and Team Rocket’s Mewtwo ex before checking its price.",
+    "h1": "Mewtwo Card Values: EX, GX and Team Rocket’s ex Compared",
+    "author": "CardScanFox Editorial",
+    "file": "mewtwo-card-values.md",
+    "published": true,
+    "category": "values",
+    "publishedAt": "2026-11-08",
+    "sources": [
+      {
+        "label": "CardScanFox: published Pokémon card catalog",
+        "url": "https://tcgcard.fun/games/pokemon"
+      }
+    ]
+  },
+  {
+    "path": "/blog/pokemon-card-condition-guide",
+    "title": "Pokémon Card Condition Guide: NM, LP, MP & Damage | CardScanFox",
+    "description": "What do NM, LP and MP mean for Pokémon cards? Learn the raw condition labels, inspect wear and compare the right price context without guessing a PSA grade.",
+    "h1": "Pokémon Card Condition Guide: NM, LP, MP, HP and Damaged",
+    "author": "CardScanFox Editorial",
+    "file": "pokemon-card-condition-guide.md",
+    "published": true,
+    "category": "values",
+    "publishedAt": "2026-11-08",
+    "sources": [
+      {
+        "label": "TCGplayer: Card Conditioning Overview",
+        "url": "https://help.tcgplayer.com/hc/en-us/articles/221430307-Card-Conditioning-Overview"
+      },
+      {
+        "label": "TCGplayer: Understanding Card Condition Imperfections",
+        "url": "https://help.tcgplayer.com/hc/en-us/articles/26141121045143-Understanding-Card-Condition-Imperfections-A-Comprehensive-Guide"
+      },
+      {
+        "label": "PSA: Grading Standards",
+        "url": "https://www.psacard.com/gradingstandards"
+      }
+    ]
   }
 ]
