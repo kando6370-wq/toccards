@@ -196,7 +196,7 @@
     "updated_at": "2026-11-08T15:36:51+08:00",
     "evidence_depth": "竞品报表、Google 可见搜索与本站目录事实",
     "html_plan_path": "/Users/mac/.codex/worktrees/cardscanfox-auto-deploy/toccards/docs/seo-implementation/2026-11-08-pokescope-organic-implementation-plan.html",
-    "completion_boundary": "第二批 3 篇指南、3 个老页补充和 19 个新增详情发现已正式上线。34 项相关检查及桌面/移动端检查通过；正式 sitemap 为 86 个非卡牌页面＋1112 个详情，共 1198 条。本批 29 个 URL 的 IndexNow 通知均收到 HTTP 200。热度、新词和后续流量未验证。"
+    "completion_boundary": "前两批已上线。指定词 Delta-Herrschaft 的独立德文概率指南与现有系列页内链已完成，待影响面检查和正式发布；不声明新词或热度。"
   },
   "root_plan": {
     "run_id": "pokescope-organic-20261108",
@@ -1049,6 +1049,27 @@
       "disposition": "defer",
       "priority": "P1",
       "reason": "价格暴涨陈述未验证，不因关键词存在写成当前事实"
+    },
+    {
+      "keyword": "pokemon delta herrschaft pull rate",
+      "keyword_cluster": "Delta-Herrschaft booster odds",
+      "research_lanes": [],
+      "primary_research_lane": "uncertain",
+      "freshness_state": "uncertain",
+      "new_term_state": "uncertain",
+      "heat_state": "uncertain",
+      "root_parent": "pokemon card values",
+      "owner_page": "/blog/pokemon-delta-herrschaft-pull-rate",
+      "product_fit": "独立德文开包概率指南；接入既有系列指南",
+      "search_observation": "Ego de/DE 查询可见概率指南、Mega-Rayquaza/SIR 与数字游戏掉率；不据此声明热度或排名。",
+      "jev_preclassification": "jev-1.14.0：抽卡概率，置信度 1.0；Codex 复核保留",
+      "disposition": "new-page",
+      "priority": "P1",
+      "reason": "单卡抽中概率与现有系列识别指南是不同任务；用户已明确要求实施。",
+      "trend_evidence": "本次未查 Trends",
+      "research_first_seen_at": "2026-11-08",
+      "research_last_seen_at": "2026-11-08",
+      "seen_in_runs": 1
     }
   ],
   "opportunities": [
@@ -1666,6 +1687,41 @@
       "state": "implemented",
       "approval": "approved",
       "disposition": "用户继续授权的内容扩展"
+    },
+    {
+      "id": "SEO-NEW-13",
+      "type": "NEW",
+      "title": "Delta-Herrschaft 德文抽卡概率指南",
+      "target": "/blog/pokemon-delta-herrschaft-pull-rate",
+      "how": "德文正文、标题与简介回答抽卡概率；标明样本与来源，禁止保底和官方赔率误述",
+      "state": "implemented",
+      "approval": "approved",
+      "priority": "P1",
+      "depends_on": [],
+      "activation_requires": [
+        "正式发布"
+      ],
+      "acceptance_checks": [
+        "document lang/Article inLanguage=de",
+        "旧英文页面保持 en",
+        "真实来源、样本边界和双向内链",
+        "构建、相关检查、正式发布及通知"
+      ],
+      "evidence": [
+        "Ego de/DE 可见查询；官方公告；两个早期统计原作者页面"
+      ],
+      "blocking_conditions": [
+        "新版未生效不通知 IndexNow"
+      ],
+      "steps": [
+        "内容完成后检查影响面",
+        "推送 main 并正式回读",
+        "只通知 4 个受影响 URL"
+      ],
+      "disposition": "用户明确指定词并要求实施",
+      "difficulty": "low",
+      "effort": "small",
+      "iteration": "指定词追加"
     }
   ],
   "iterations": [

@@ -23,3 +23,14 @@ const binding={fetch:async()=>new Response(JSON.stringify({success:true,data:pag
 test('live SSR uses service records outside the 30-card review snapshot, including price context',async()=>{const r=await resolveServicePage(new URL('/cards/live-001?series=10','https://tcgcard.fun'),binding);assert.equal(r.status,200);assert.match(r.html,/Service-only card/);assert.match(r.html,/\$12\.34/);assert.match(r.html,/Test Source/);assert.match(r.html,/name="series"/);assert.doesNotMatch(r.html,/90 days|145\.78/);const list=await resolveServicePage(new URL('/cards','https://tcgcard.fun'),binding);assert.match(list.html,/Page <strong>1/);assert.doesNotMatch(list.html,/Total not computed/);assert.match(list.html,/after=live-001/)});
 test('service failure preserves product homepage but never substitutes review prices into live catalog pages',async()=>{const failed={fetch:async()=>new Response('Unavailable',{status:503})};const home=await resolveServicePage(new URL('/','https://tcgcard.fun'),failed);assert.equal(home.status,200);assert.match(home.html,/temporarily unavailable/);assert.match(home.html,/Scan cards/);assert.doesNotMatch(home.html,/145\.78/);await assert.rejects(()=>resolveServicePage(new URL('/cards','https://tcgcard.fun'),failed),/CATALOG_UNAVAILABLE/)});
 test('production SEO opens protected URLs while preview-only and arbitrary filters stay excluded',()=>{const sitemap=publicSitemap();assert.match(sitemap,/<urlset/);assert.match(sitemap,/https:\/\/tcgcard.fun\/blog\/ascended-heroes-card-list/);assert.doesNotMatch(sitemap,/\/saved|\?q=|\/cards\/714372/);const html=createRenderer().resolvePage(new URL('/card-identifier','https://tcgcard.fun')).html;assert.match(publishHtml(html,new URL('/card-identifier','https://tcgcard.fun'),200),/content="index,follow"/);assert.match(publishHtml(html,new URL('/cards?q=foo','https://tcgcard.fun'),200),/content="noindex,follow"/);assert.doesNotMatch(publishHtml(html,new URL('/card-identifier','https://tcgcard.fun'),200),/class="preview-rail"/)});
+
+test('German articles declare their content language without changing English pages',async()=>{
+ const articles=await compileArticles([{...meta,language:'de'}],{root});
+ const renderer=createRenderer({articles});
+ const page=renderer.resolvePage(new URL(meta.path,'https://tcgcard.fun'));
+ assert.match(page.html,/<html lang="de">/);
+ assert.match(page.html,/"inLanguage":"de"/);
+ assert.match(page.html,/<h2>Quellen<\/h2>/);
+ assert.match(renderer.resolvePage(new URL('/app','https://tcgcard.fun')).html,/<html lang="en">/);
+ await assert.rejects(()=>compileArticles([{...meta,language:'invalid'}],{root}),/Unsupported article language/);
+});

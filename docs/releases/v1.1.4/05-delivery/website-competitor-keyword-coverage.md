@@ -75,3 +75,15 @@ TypeSafe 在线文档本轮未能读取，复用已保存的正式 HTTP API/Choi
 本批 29 个 URL 的 IndexNow 通知全部收到 HTTP 200。通用 skill 首轮提交 22 个；受前述嵌套 article 指纹限制影响的 7 个正文更新页，在重复核对页面资格与正式完整 HTML 新内容后一次性补交 7 个，HTTP 200。回执为 `.indexnow/reports/2026-11-08T07-34-25-423Z.json` 和 `.indexnow/reports/2026-11-08T07-35-23-463Z-batch-2-body-update-supplement.json`。没有修改全局 skill 或历史去重状态，没有定时任务。接口接收不等于抓取或收录。
 
 本批未修改 App、原业务 API、Admin、旧 Marketing、数据库或 Cloudflare 绑定；未跑与官网内容无关的 App/业务回归。
+
+## Delta-Herrschaft Pull Rate（2026-11-08）
+
+用户指定 `pokemon delta herrschaft pull rate` 并要求按搜索意图加入官网。Ego 德国/德文参数下的可见搜索以抽卡概率、稀有度和 Mega-Rayquaza 命中率为主，不能用价格榜或卡表代替。实际 Jev `jev-1.14.0` 将其分类为 pull_probability（1.0），页面归属与内容由 Codex 复核。该单词需求不触发热词排名或全量 Trends 扫描。
+
+新增 `/blog/pokemon-delta-herrschaft-pull-rate` 德文独立指南，标题为 `Delta-Herrschaft Pull Rate: SIR, Mega-Rayquaza & Daten`。Description 承诺对比早期 SIR/Mega-Rayquaza 估算、样本量和德文实体包的适用边界。既有 `/blog/delta-reign-pokemon` 保留原识别/系列内容，追加新指南入口；新文章进入博客与 collecting 分类和正式 sitemap。
+
+内容核对官方德文发布公告、PokéZentrum 约 1,850 包的多来源汇总、TCGtalk 252 包的英语预发行样本。数值仅作为原作者报告的观测，不宣称已独立验证原始开包记录，不把未明确语言的汇总称作德国实测率，不混合样本；区分稀有度与单卡概率、均值与保底、实体包与 TCG Live。标题不承诺官方赔率或必出。页面没有提供虚构的 Delta-Herrschaft 完整卡表、价格或计算器。
+
+文章文件支持可选 language=en/de，默认仍为 en；新文章 document lang 和 Article inLanguage 为 de，来源标题显示 Quellen。其他页面保持既有语言与 URL，不新增全站语言切换或错误的翻译 hreflang。
+
+内容完成后构建通过，生成 122 条 HTML。相关 35 项检查通过，包括德文 document lang/Article inLanguage、非法语言拒绝和英文页保留 en；46 个老页原正文及链接保留。1440px/390px 浏览器检查无横向溢出，概率表有 5 行。待正式发布和 4 个影响 URL 的 IndexNow 通知。原 App、业务 API、Admin、旧 Marketing 和数据库不变。

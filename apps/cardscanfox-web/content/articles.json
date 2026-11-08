@@ -206,5 +206,35 @@
         "url": "https://www.tcgplayer.com/product/534919/pokemon-sv-paldean-fates-mew-ex-232-091"
       }
     ]
+  },
+  {
+    "path": "/blog/pokemon-delta-herrschaft-pull-rate",
+    "title": "Delta-Herrschaft Pull Rate: SIR, Mega-Rayquaza & Daten",
+    "description": "Welche Pull Rate hat Pokémon Delta-Herrschaft? Vergleiche frühe SIR- und Mega-Rayquaza-Schätzungen, Stichprobengrößen und Grenzen für deutsche Booster.",
+    "h1": "Pokémon Delta-Herrschaft Pull Rate: SIR und Mega-Rayquaza im Vergleich",
+    "language": "de",
+    "author": "CardScanFox Redaktion",
+    "file": "pokemon-delta-herrschaft-pull-rate.md",
+    "published": true,
+    "category": "collecting",
+    "publishedAt": "2026-11-08",
+    "sources": [
+      {
+        "label": "Pokémon: offizielle deutsche Veröffentlichungsankündigung",
+        "url": "https://www.pokemon.com/de/news/die-erweiterung-mega-entwicklung-delta-herrschaft-des-pokemon-sammelkartenspiels-ist-jetzt-erhaeltlich"
+      },
+      {
+        "label": "PokéZentrum: Zusammenstellung von etwa 1.850 Packs, 6. November 2026",
+        "url": "https://pokezentrum.de/pokemon-karten-news/pokemon-delta-herrschaft-erste-pull-rates-enthuellt/"
+      },
+      {
+        "label": "TCGtalk: englische Vorab-Stichprobe von 252 Packs",
+        "url": "https://tcgtalk.com/guides/delta-reign-pull-rates"
+      },
+      {
+        "label": "Pokémon: Dropraten für das digitale TCG Live",
+        "url": "https://tcg.pokemon.com/de-de/tcgl/droprate/"
+      }
+    ]
   }
 ]
