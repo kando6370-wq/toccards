@@ -343,6 +343,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          appCommercialPolicyProvider.overrideWithValue(
+            const AppCommercialPolicy(isAndroidFreeLaunch: false),
+          ),
           homeRepositoryProvider.overrideWithValue(const MockHomeRepository()),
           subscriptionControllerProvider.overrideWith(
             _FreeHomeSubscriptionController.new,
@@ -365,13 +368,18 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.byKey(const Key('home-premium-top-entry')), findsOneWidget);
+    expect(
+      find.byKey(const Key('home-chart-range-1y-pro-badge')),
+      findsOneWidget,
+    );
     await expectLater(
       find.byKey(const Key('home-figma-golden')),
       matchesGoldenFile(
         'goldens/rendered/figma_home_normal_131_21335_390x844.png',
       ),
     );
-  });
+  }, variant: TargetPlatformVariant({TargetPlatform.iOS}));
 
   testWidgets('v1.1 PRD partial Home failure renders at the 390x844 baseline', (
     tester,
@@ -388,6 +396,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          appCommercialPolicyProvider.overrideWithValue(
+            const AppCommercialPolicy(isAndroidFreeLaunch: false),
+          ),
           homeRepositoryProvider.overrideWithValue(repository),
           subscriptionControllerProvider.overrideWith(
             _FreeHomeSubscriptionController.new,
@@ -416,13 +427,14 @@ void main() {
     );
     await tester.pump();
 
+    expect(find.byKey(const Key('home-premium-top-entry')), findsOneWidget);
     await expectLater(
       find.byKey(const Key('home-failure-figma-golden')),
       matchesGoldenFile(
         'goldens/rendered/figma_home_failure_131_21496_390x844.png',
       ),
     );
-  });
+  }, variant: TargetPlatformVariant({TargetPlatform.iOS}));
 
   testWidgets('Home shows the M4-1 dashboard information hierarchy', (
     tester,
@@ -1014,6 +1026,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      expect(find.text('Unlock Performance'), findsOneWidget);
       await expectLater(
         find.byKey(const Key('home-performance-locked-golden')),
         matchesGoldenFile(
@@ -1037,6 +1050,7 @@ void main() {
         const Size(364, 222),
       );
     },
+    variant: TargetPlatformVariant({TargetPlatform.iOS}),
   );
 
   testWidgets('free users can tap the 1Y PRO badge to open Premium', (

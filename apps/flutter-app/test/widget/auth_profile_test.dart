@@ -3031,7 +3031,7 @@ void main() {
       const Size(390, 152),
     );
     expect(find.text('Restore'), findsOneWidget);
-  });
+  }, variant: TargetPlatformVariant({TargetPlatform.iOS}));
 
   testWidgets('unsubscribed Profile banner opens the full Subscription Page', (
     tester,
@@ -3388,7 +3388,7 @@ void main() {
         'goldens/rendered/figma_subscription_success_motion_300ms_390x844.png',
       ),
     );
-  });
+  }, variant: TargetPlatformVariant({TargetPlatform.iOS}));
 
   for (final goldenCase in [
     (
@@ -3405,36 +3405,26 @@ void main() {
     testWidgets('subscription ${goldenCase.name} renders the 390x844 fixture', (
       tester,
     ) async {
-      final overridesPlatform = goldenCase.name == 'bottom sheet';
-      if (overridesPlatform) {
-        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      if (goldenCase.name == 'success page') {
+        tester.view.padding = const FakeViewPadding(top: 59);
+        addTearDown(tester.view.resetPadding);
       }
-      try {
-        tester.view.physicalSize = const Size(390, 844);
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.resetPhysicalSize);
-        addTearDown(tester.view.resetDevicePixelRatio);
-        if (goldenCase.name == 'success page') {
-          tester.view.padding = const FakeViewPadding(top: 59);
-          addTearDown(tester.view.resetPadding);
-        }
 
-        await tester.pumpWidget(_subscriptionGoldenApp(goldenCase.child));
-        await tester.runAsync(
-          () => Future<void>.delayed(const Duration(milliseconds: 100)),
-        );
-        await tester.pumpAndSettle();
+      await tester.pumpWidget(_subscriptionGoldenApp(goldenCase.child));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pumpAndSettle();
 
-        await expectLater(
-          find.byKey(const Key('subscription-golden-boundary')),
-          matchesGoldenFile('goldens/rendered/${goldenCase.file}'),
-        );
-      } finally {
-        if (overridesPlatform) {
-          debugDefaultTargetPlatformOverride = null;
-        }
-      }
-    });
+      await expectLater(
+        find.byKey(const Key('subscription-golden-boundary')),
+        matchesGoldenFile('goldens/rendered/${goldenCase.file}'),
+      );
+    }, variant: TargetPlatformVariant({TargetPlatform.iOS}));
   }
 
   testWidgets('subscription video background follows the available width', (

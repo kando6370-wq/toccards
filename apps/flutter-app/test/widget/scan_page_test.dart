@@ -529,7 +529,11 @@ void main() {
       expect(find.byKey(const Key('scan-item-price-1')), findsOneWidget);
       expect(find.text('--'), findsOneWidget);
       expect(find.text('9 scans remaining'), findsOneWidget);
-      expect(repository.loadCardsCount, 1);
+      expect(
+        repository.loadedCardRefs,
+        unorderedEquals(['card-mega', 'card-lucario', 'card-riolu']),
+        reason: 'Each recognized candidate must load its details exactly once.',
+      );
 
       repository.completeBackgroundLoadWithEmptyPrices();
       await tester.pump();
@@ -1734,7 +1738,7 @@ void main() {
         'goldens/rendered/figma_scan_before_328_10858_390x844.png',
       ),
     );
-  });
+  }, variant: TargetPlatformVariant({TargetPlatform.iOS}));
 
   testWidgets('Figma scan scanning renders at the 390x844 baseline', (
     tester,
@@ -1776,7 +1780,7 @@ void main() {
         'goldens/rendered/figma_scan_scanning_131_19516_390x844.png',
       ),
     );
-  });
+  }, variant: TargetPlatformVariant({TargetPlatform.iOS}));
 
   testWidgets(
     'Figma recognition replaces the scan line before returning a match',
@@ -1927,7 +1931,7 @@ void main() {
         'goldens/rendered/figma_scan_recognizing_continuous_390x844.png',
       ),
     );
-  });
+  }, variant: TargetPlatformVariant({TargetPlatform.iOS}));
 
   testWidgets(
     'Figma scan reveal restores camera controls before returning a match',
@@ -2010,7 +2014,7 @@ void main() {
         'goldens/rendered/figma_scan_revealing_continuous_390x844.png',
       ),
     );
-  });
+  }, variant: TargetPlatformVariant({TargetPlatform.iOS}));
 
   testWidgets('Deleting revealing scan feedback discards its pending result', (
     tester,
@@ -2594,7 +2598,7 @@ void main() {
         'goldens/rendered/figma_scan_review_131_19961_390x844.png',
       ),
     );
-  });
+  }, variant: TargetPlatformVariant({TargetPlatform.iOS}));
 
   testWidgets(
     'Review collapses back to the same scan session because editing a match must not exit or discard prior scans',
@@ -2759,7 +2763,12 @@ void main() {
       await _completeFigmaScan(tester);
 
       expect(find.text('Mega Lucario ex'), findsOneWidget);
-      expect(repository.loadCardsCount, 1);
+      expect(
+        repository.loadedCardRefs,
+        unorderedEquals(['card-mega', 'card-lucario', 'card-riolu']),
+        reason:
+            'Analytics must wait while each recognized candidate loads once.',
+      );
       expect(analytics.count(AnalyticsEvent.scanResults), 0);
 
       await tester.pump(const Duration(seconds: 1));
@@ -6163,10 +6172,12 @@ class _ReviewImageLoadRepository extends _FakeScanReviewRepository {
 class _StaleScanCardsRepository extends _FakeScanReviewRepository {
   final _backgroundLoad = Completer<Map<String, ScanReviewCard>>();
   var loadCardsCount = 0;
+  final loadedCardRefs = <String>[];
 
   @override
   Future<Map<String, ScanReviewCard>> loadCards(List<String> cardRefs) {
     loadCardsCount += 1;
+    loadedCardRefs.addAll(cardRefs);
     if (loadCardsCount == 1) return _backgroundLoad.future;
     return super.loadCards(cardRefs);
   }
