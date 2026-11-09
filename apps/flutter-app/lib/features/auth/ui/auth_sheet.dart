@@ -916,9 +916,11 @@ class _OAuthLoadingOverlay extends StatelessWidget {
                     message,
                     textAlign: TextAlign.center,
                     textScaler: TextScaler.noScaling,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: KandoColors.text,
-                      fontFamily: 'Geist',
+                      fontFamily:
+                          kandoBodyFontFamily(Theme.of(context).platform) ??
+                          'Geist',
                       fontSize: 16,
                       height: 24 / 16,
                       fontWeight: FontWeight.w500,
@@ -1145,7 +1147,8 @@ class _AgreementText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const bodyStyle = TextStyle(
+    final bodyStyle = TextStyle(
+      fontFamily: kandoBodyFontFamily(Theme.of(context).platform),
       color: KandoColors.text,
       fontSize: 12,
       height: 16 / 12,
@@ -1165,13 +1168,13 @@ class _AgreementText extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
+          Text(
             'By continuing, you agree to our',
-            key: Key('auth-agreement-copy'),
+            key: const Key('auth-agreement-copy'),
             textAlign: TextAlign.center,
             maxLines: 1,
             textScaler: TextScaler.noScaling,
-            textHeightBehavior: TextHeightBehavior(
+            textHeightBehavior: const TextHeightBehavior(
               applyHeightToFirstAscent: false,
               applyHeightToLastDescent: false,
             ),

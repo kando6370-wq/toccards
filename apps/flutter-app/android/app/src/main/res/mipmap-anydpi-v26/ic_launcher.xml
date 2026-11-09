@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/card_ai_icon_background" />
-    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
+    <!-- Compensate for adaptive layer overscan to preserve the iOS artwork scale. -->
+    <foreground>
+        <inset
+            android:drawable="@mipmap/ic_launcher_foreground"
+            android:insetLeft="16.666667%"
+            android:insetTop="16.666667%"
+            android:insetRight="16.666667%"
+            android:insetBottom="16.666667%" />
+    </foreground>
 </adaptive-icon>

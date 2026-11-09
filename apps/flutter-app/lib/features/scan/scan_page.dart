@@ -1212,6 +1212,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
             builder: (context) => Theme(
               key: const Key('scan-permission-material-theme'),
               data: ThemeData(
+                fontFamily: kandoBodyFontFamily(Theme.of(context).platform),
                 colorScheme: ColorScheme.fromSeed(
                   seedColor: Colors.blue,
                   brightness: Brightness.light,

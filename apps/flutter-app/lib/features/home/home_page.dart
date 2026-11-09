@@ -3363,6 +3363,7 @@ class _InteractiveChartState extends State<_InteractiveChart> {
                   tooltipRows: widget.tooltipRows,
                   selectedIndex: _selectedIndex,
                   emphasizeSinglePoint: widget.emphasizeSinglePoint,
+                  fontFamily: kandoBodyFontFamily(Theme.of(context).platform),
                 ),
                 child: const SizedBox.expand(),
               ),
@@ -3382,6 +3383,7 @@ class _ChartPainter extends CustomPainter {
     required this.tooltipRows,
     required this.selectedIndex,
     required this.emphasizeSinglePoint,
+    required this.fontFamily,
   });
 
   final List<double> values;
@@ -3390,6 +3392,7 @@ class _ChartPainter extends CustomPainter {
   final List<List<String>>? tooltipRows;
   final int? selectedIndex;
   final bool emphasizeSinglePoint;
+  final String? fontFamily;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -3494,6 +3497,7 @@ class _ChartPainter extends CustomPainter {
         style: homeChartTooltipTextStyle(
           isPerformance: isPerformanceTooltip,
           isDate: true,
+          fontFamily: fontFamily,
         ),
       ),
       maxLines: 1,
@@ -3509,6 +3513,7 @@ class _ChartPainter extends CustomPainter {
                   style: homeChartTooltipTextStyle(
                     isPerformance: isPerformanceTooltip,
                     isDate: false,
+                    fontFamily: fontFamily,
                   ),
                 ),
                 maxLines: 1,
@@ -3570,7 +3575,8 @@ class _ChartPainter extends CustomPainter {
         oldDelegate.formattedValues != formattedValues ||
         oldDelegate.tooltipRows != tooltipRows ||
         oldDelegate.selectedIndex != selectedIndex ||
-        oldDelegate.emphasizeSinglePoint != emphasizeSinglePoint;
+        oldDelegate.emphasizeSinglePoint != emphasizeSinglePoint ||
+        oldDelegate.fontFamily != fontFamily;
   }
 }
 
@@ -3588,17 +3594,24 @@ const homePerformanceTooltipTextStyle = TextStyle(
 TextStyle homeChartTooltipTextStyle({
   required bool isPerformance,
   required bool isDate,
+  String? fontFamily,
 }) {
-  if (isPerformance) return homePerformanceTooltipTextStyle;
+  if (isPerformance) {
+    return fontFamily == null
+        ? homePerformanceTooltipTextStyle
+        : homePerformanceTooltipTextStyle.copyWith(fontFamily: fontFamily);
+  }
   return isDate
-      ? const TextStyle(
+      ? TextStyle(
           color: Color(0xFF92927D),
+          fontFamily: fontFamily,
           fontSize: 11,
           fontWeight: FontWeight.w400,
           height: 16 / 11,
         )
-      : const TextStyle(
+      : TextStyle(
           color: KandoColors.accent,
+          fontFamily: fontFamily,
           fontSize: 11,
           fontWeight: FontWeight.w500,
           height: 16 / 11,

@@ -48,6 +48,7 @@ import 'package:kando_app/shared/ui/toast.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 import '../support/in_memory_auth_storage.dart';
+import '../support/load_inter_fonts.dart';
 import '../support/in_memory_portfolio_amount_hidden_storage.dart';
 import '../support/home_fixture_asset_bundle.dart';
 import '../support/local_placeholder_auth_repository.dart';
@@ -56,6 +57,8 @@ import '../support/mock_home_repository.dart';
 import '../support/mock_search_repository.dart';
 
 void main() {
+  setUpAll(loadInterFonts);
+
   test('Home card change badges use the Figma status colors', () {
     expect(homeCardChangeBadgeTextColor(1), const Color(0xFF4ADE80));
     expect(homeCardChangeBadgeTextColor(-1), const Color(0xFFFF8989));

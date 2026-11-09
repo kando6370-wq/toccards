@@ -32,10 +32,13 @@ import 'package:kando_app/shared/ui/toast.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 import '../support/in_memory_auth_storage.dart';
+import '../support/load_inter_fonts.dart';
 import '../support/local_placeholder_auth_repository.dart';
 import '../support/mock_card_detail_repository.dart';
 
 void main() {
+  setUpAll(loadInterFonts);
+
   test('Performance tooltip separates Figma label and value styles', () {
     final span = buildCardDetailChartTooltipRow(r'Market Value: $790.00');
     final children = span.children!.cast<TextSpan>();
@@ -358,6 +361,62 @@ void main() {
         reason:
             'The overflow cue must disappear once the last finish is visible.',
       );
+    },
+  );
+
+  testWidgets(
+    'Android Finish tabs scroll only when rendered Inter labels need it',
+    (tester) async {
+      final fonts = (await tester.runAsync(_readProductionCardDetailFonts))!;
+      await _loadProductionCardDetailFonts(fonts);
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      const finishes = ['1st Edition Holofoil', 'Reverse Holofoil'];
+      await tester.pumpWidget(
+        _CardDetailTestApp(
+          cardId: '600820',
+          repository: _FinishTabCardDetailRepository(finishes: finishes),
+          platform: TargetPlatform.android,
+          useKandoTheme: true,
+        ),
+      );
+      await tester.pumpAndSettle();
+      final tabs = find.byKey(const Key('card-detail-finish-tabs'));
+      await tester.scrollUntilVisible(
+        tabs,
+        400,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      var renderedWidth = 0.0;
+      for (final finish in finishes) {
+        final label = tester.renderObject<RenderParagraph>(find.text(finish));
+        expect(label.text.style?.fontFamily, 'Inter');
+        renderedWidth += tester
+            .getSize(find.byKey(Key('card-detail-finish-$finish')))
+            .width;
+      }
+      final pageInsets =
+          tester.view.physicalSize.width - tester.getSize(tabs).width;
+      final scroll = find.byKey(const Key('card-detail-finish-tabs-scroll'));
+      tester.view.physicalSize = Size(renderedWidth + pageInsets + 1, 844);
+      await tester.pumpAndSettle();
+      expect(
+        scroll,
+        findsNothing,
+        reason: 'Labels that fit should stay in the fixed row.',
+      );
+      expect(tester.takeException(), isNull);
+
+      tester.view.physicalSize = Size(renderedWidth + pageInsets - 1, 844);
+      await tester.pumpAndSettle();
+      expect(
+        scroll,
+        findsOneWidget,
+        reason: 'Inter labels wider than the viewport must remain reachable.',
+      );
+      expect(tester.takeException(), isNull);
     },
   );
 
@@ -2990,7 +3049,7 @@ class _CardDetailTestApp extends StatelessWidget {
         ? buildKandoTheme()
         : ThemeData(fontFamily: 'Roboto');
     final robotoTheme = ThemeData(fontFamily: 'Roboto');
-    final theme = useKandoTheme
+    final theme = useKandoTheme && platform != TargetPlatform.android
         ? baseTheme.copyWith(
             textTheme: robotoTheme.textTheme,
             primaryTextTheme: robotoTheme.primaryTextTheme,
@@ -3061,8 +3120,12 @@ class _QuickCollectionHeaderTestApp extends StatelessWidget {
       child: MaterialApp.router(
         theme: baseTheme.copyWith(
           platform: platform,
-          textTheme: robotoTheme.textTheme,
-          primaryTextTheme: robotoTheme.primaryTextTheme,
+          textTheme: platform == TargetPlatform.android
+              ? baseTheme.textTheme
+              : robotoTheme.textTheme,
+          primaryTextTheme: platform == TargetPlatform.android
+              ? baseTheme.primaryTextTheme
+              : robotoTheme.primaryTextTheme,
         ),
         routerConfig: GoRouter(
           routes: [

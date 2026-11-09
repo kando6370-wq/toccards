@@ -5676,10 +5676,13 @@ class _FinishTabsState extends State<_FinishTabs> {
   }
 
   double _tabsWidth(BuildContext context) {
+    final textStyle = Theme.of(context).platform == TargetPlatform.android
+        ? DefaultTextStyle.of(context).style.merge(_textStyle)
+        : _textStyle;
     var width = 0.0;
     for (final finish in widget.finishes) {
       final painter = TextPainter(
-        text: TextSpan(text: finish, style: _textStyle),
+        text: TextSpan(text: finish, style: textStyle),
         maxLines: 1,
         textDirection: Directionality.of(context),
         textScaler: MediaQuery.textScalerOf(context),
@@ -6428,6 +6431,7 @@ class _InteractivePriceChartState extends State<_InteractivePriceChart> {
                   tooltipRows: widget.tooltipRows,
                   selectedIndex: _selectedIndex,
                   emphasizeSinglePoint: widget.emphasizeSinglePoint,
+                  fontFamily: kandoBodyFontFamily(Theme.of(context).platform),
                 ),
                 child: const SizedBox.expand(),
               ),
@@ -6446,6 +6450,7 @@ class _PriceChartPainter extends CustomPainter {
     required this.tooltipRows,
     required this.selectedIndex,
     required this.emphasizeSinglePoint,
+    required this.fontFamily,
   });
 
   final List<_DetailChartSeries> series;
@@ -6453,6 +6458,7 @@ class _PriceChartPainter extends CustomPainter {
   final List<List<String>>? tooltipRows;
   final int? selectedIndex;
   final bool emphasizeSinglePoint;
+  final String? fontFamily;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -6594,11 +6600,15 @@ class _PriceChartPainter extends CustomPainter {
     final tooltipFirstRowOffset = usePerformanceTooltipStyle ? 28.0 : 24.0;
     final datePainter = TextPainter(
       text: usePerformanceTooltipStyle
-          ? buildCardDetailChartTooltipRow('Date: ${selected.dateLabel}')
+          ? buildCardDetailChartTooltipRow(
+              'Date: ${selected.dateLabel}',
+              fontFamily: fontFamily,
+            )
           : TextSpan(
               text: 'Date: ${selected.dateLabel}',
-              style: const TextStyle(
+              style: TextStyle(
                 color: Color(0xFF92927D),
+                fontFamily: fontFamily,
                 fontSize: 11,
                 fontWeight: FontWeight.w400,
                 height: 16 / 11,
@@ -6625,12 +6635,16 @@ class _PriceChartPainter extends CustomPainter {
                       '${series[index].label}: ${_formatDetailChartPrice(selectedPoints[index])}',
                   style: TextStyle(
                     color: series[index].color,
+                    fontFamily: fontFamily,
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
                     height: 14 / 10,
                   ),
                 )
-              : buildCardDetailChartTooltipRow(customRows[index]),
+              : buildCardDetailChartTooltipRow(
+                  customRows[index],
+                  fontFamily: fontFamily,
+                ),
           maxLines: 1,
           ellipsis: '...',
           textDirection: TextDirection.ltr,
@@ -6639,8 +6653,9 @@ class _PriceChartPainter extends CustomPainter {
         TextPainter(
           text: TextSpan(
             text: 'Qty: ${quantities[resolvedSelectedIndex]}',
-            style: const TextStyle(
+            style: TextStyle(
               color: KandoColors.mutedText,
+              fontFamily: fontFamily,
               fontSize: 10,
               fontWeight: FontWeight.w500,
               height: 14 / 10,
@@ -6706,28 +6721,34 @@ class _PriceChartPainter extends CustomPainter {
         oldDelegate.quantities != quantities ||
         oldDelegate.tooltipRows != tooltipRows ||
         oldDelegate.selectedIndex != selectedIndex ||
-        oldDelegate.emphasizeSinglePoint != emphasizeSinglePoint;
+        oldDelegate.emphasizeSinglePoint != emphasizeSinglePoint ||
+        oldDelegate.fontFamily != fontFamily;
   }
 }
 
 /// Builds the mixed label/value typography used by the Card Detail chart.
 @visibleForTesting
-TextSpan buildCardDetailChartTooltipRow(String row) {
+TextSpan buildCardDetailChartTooltipRow(String row, {String? fontFamily}) {
   final separatorIndex = row.indexOf(':');
   if (separatorIndex < 0) {
     return TextSpan(
-      children: [TextSpan(text: row, style: _cardDetailTooltipValueStyle)],
+      children: [
+        TextSpan(
+          text: row,
+          style: _cardDetailTooltipValueStyle.copyWith(fontFamily: fontFamily),
+        ),
+      ],
     );
   }
   return TextSpan(
     children: [
       TextSpan(
         text: row.substring(0, separatorIndex + 1),
-        style: _cardDetailTooltipLabelStyle,
+        style: _cardDetailTooltipLabelStyle.copyWith(fontFamily: fontFamily),
       ),
       TextSpan(
         text: row.substring(separatorIndex + 1),
-        style: _cardDetailTooltipValueStyle,
+        style: _cardDetailTooltipValueStyle.copyWith(fontFamily: fontFamily),
       ),
     ],
   );

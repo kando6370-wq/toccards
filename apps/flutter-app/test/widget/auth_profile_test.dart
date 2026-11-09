@@ -34,9 +34,12 @@ import 'package:kando_app/shared/ui/kando_modal.dart';
 import 'package:kando_app/shared/platform/app_commercial_policy.dart';
 
 import '../support/in_memory_onboarding_storage.dart';
+import '../support/load_inter_fonts.dart';
 import '../support/mock_home_repository.dart';
 
 void main() {
+  setUpAll(loadInterFonts);
+
   testWidgets('Android auth removes Apple and explains platform isolation', (
     tester,
   ) async {
@@ -1055,6 +1058,13 @@ void main() {
       expect(loadingOverlay, findsOneWidget);
       expect(tester.getSize(loadingOverlay), const Size(390, 844));
       expect(find.text('Signing in with Google'), findsOneWidget);
+      expect(
+        tester
+            .widget<Text>(find.text('Signing in with Google'))
+            .style
+            ?.fontFamily,
+        'Inter',
+      );
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(repository.googleCallbackRequests, [
         const _GoogleCallbackRequest(
@@ -1164,6 +1174,13 @@ void main() {
       expect(loadingOverlay, findsOneWidget);
       expect(tester.getSize(loadingOverlay), const Size(390, 844));
       expect(find.text('Signing in with Apple'), findsOneWidget);
+      expect(
+        tester
+            .widget<Text>(find.text('Signing in with Apple'))
+            .style
+            ?.fontFamily,
+        'Inter',
+      );
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(repository.appleCallbackRequests, [
         const _AppleCallbackRequest(
@@ -1207,6 +1224,7 @@ void main() {
       final agreementLinks = tester.widget<RichText>(
         find.byKey(const Key('auth-agreement-links')),
       );
+      expect(agreementLinks.text.style?.fontFamily, 'Inter');
       final agreementText =
           '${agreementCopy.data} ${agreementLinks.text.toPlainText()}';
       expect(
@@ -2812,7 +2830,7 @@ void main() {
     final submit = find.byKey(const Key('feedback-submit-button'));
     final contentList = find.byKey(const Key('customer-support-content-list'));
     final scrollable = tester.state<ScrollableState>(
-      find.descendant(of: contentList, matching: find.byType(Scrollable)),
+      find.descendant(of: contentList, matching: find.byType(Scrollable)).first,
     );
     final submitBeforeScroll = tester.getRect(submit);
     final scrollOffsetBefore = scrollable.position.pixels;
@@ -3658,6 +3676,9 @@ void main() {
   testWidgets('offline logout from Account keeps the user on account details', (
     tester,
   ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
     final repository = _WidgetAuthRepository(
       initialSession: _userSession(),
       logoutError: const AuthNetworkException(),

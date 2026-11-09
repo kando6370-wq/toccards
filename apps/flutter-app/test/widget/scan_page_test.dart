@@ -35,6 +35,7 @@ import 'package:kando_app/shared/scan/scan_api_client.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
+import '../support/load_inter_fonts.dart';
 import '../support/mock_home_repository.dart';
 import '../support/mock_search_repository.dart';
 
@@ -136,6 +137,8 @@ const _unlimitedQuota = ScanQuotaDto(
 );
 
 void main() {
+  setUpAll(loadInterFonts);
+
   testWidgets('Android free launch ignores the cumulative iOS scan quota', (
     tester,
   ) async {
@@ -1048,6 +1051,7 @@ void main() {
         find.byKey(const Key('scan-permission-material-theme')),
       );
       expect(permissionTheme.data.brightness, Brightness.light);
+      expect(permissionTheme.data.textTheme.bodyMedium?.fontFamily, 'Inter');
       expect(
         permissionTheme.data.colorScheme.primary,
         isNot(buildKandoTheme().colorScheme.primary),

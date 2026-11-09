@@ -203,6 +203,38 @@ Review 打开／保存时的退出守卫、Review 返回扫描的折叠行为，
 
 测试创建的两张游客收藏、临时 pending 项和两次卡图扫描已通过 UI 清理，收藏数回读为 0；模拟器显示尺寸、密度、字号、硬件键盘 IME 设置及 Wi-Fi 已与开始时保存值核对恢复。未清除既有 AVD 数据或保存快照。此次未提交／推送 Git、未发布服务端或正式移动端制品。
 
+### Android 正文字体 Inter（2026-11-09）
+
+Android 的默认正文、按钮、标签和金额改为本地打包的 Inter 4.1，沿用原有字号、字重、行高和颜色；不依赖运行时网络下载。字体取自官方 `rsms/inter` 的 `v4.1` 发布包，接入当前使用的 400／500／600／700／800 正体和 400 斜体，SIL Open Font License 与版权声明随 App 资产一并分发。原始发布 ZIP 的 SHA-256 为 `9883fdd4a49d4fb66bd8177ba6625ef9a64aa45899767dde3d36aa425756b11e`。
+
+平台选择集中在 `kandoBodyFontFamily`：仅 Android 返回 Inter，其他平台不覆盖原默认字体。iOS 继续使用原系统字体；显式 `Fraunces` 的标题、卡牌名继续加载原 Baskerville SemiBold 文件。冻结的 v1.0.0 设计规范仍记录 Geist，与当前未接入 Geist 的运行源码不同；本次按用户选择的 Android Inter 增量执行，不回写冻结规范或将 Inter 注册为 Geist 别名。
+
+Home／Card Detail 的图表提示使用独立 TextPainter，登录加载提示显式指定过 Geist，协议链接使用裸 RichText，扫描权限提示另建 Material 主题；这些位置均在 Android 显式接入 Inter，iOS 原样式保留。Card Detail 的 Finish 标签仅在 Android 用与实际文字一致的继承样式测量宽度，避免换字体后错误选择固定行或横向滚动。扫描识别、账号、订阅、服务端和数据库行为不变。共享资产声明也会将 Inter 文件包含进 iOS 包，iOS 不选择该字体，不能据此声称 iOS 二进制体积不变。
+
+本轮使用 Flutter 3.47.9／Dart 3.13.7。8 份受影响测试文件串行运行结果为 **561 项通过／14 项失败／0 跳过，退出码 1**；新增主题／字体合同 10／10 通过，Card Detail 文件 70／70 个测试通过。原 9 项失败保留；另有 5 项在真实 Inter 渲染后产生的 Golden 差异：Profile 未订阅 banner、订阅成功 300ms 动画帧、订阅成功页、锁定的 Performance 面板和 Scan Review。合计为 12 项截图差异及 2 项既有扫描额度／analytics 断言，未更新 Golden 或删除／放宽业务断言，不能记作全量通过。
+
+真实字体在各文件 `setUpAll` 中提前加载，并以等长 `iiii` 比 `WWWW` 窄的前置检查拒绝 Ahem 替身；晚加载产生的等宽字形及其溢出诊断不作为产品布局证据。320 宽度／1.2 倍字号的 Home Performance、Scan Review 和新增收藏表单，以及已收藏摘要块回归通过；Finish 标签以实际渲染总宽两侧各 1px 验证固定行与滚动分支。两个旧 Auth 测试仅修正外层滚动容器定位和明确 390×844 的移动视口，原交互断言保留。完整 `flutter analyze --no-pub` 为 0 issues，独立 Code Review 通过。
+
+本轮未完成最终制品的模拟器页面验收：早期旧包对照曾进入引导页，后续同一命名 AVD 已不可用，实际 `emulator -list-avds` 返回空，不能将旧包截图视作 Inter 验收。未运行 Android 真机或 iOS 构建／真机；Windows 本地字体选择合同不能代替两端实机视觉验收。原始本地诊断保存在忽略目录 `.dart_tool/android-inter-font-20261109/`。
+
+随后使用隔离 JDK 21.0.13+9 执行 `flutter build apk --debug --no-pub --build-number=200 --dart-define-from-file=config/test.json`，构建成功，`assembleDebug` 耗时 70.2 秒。来源为 `cbff59879b7899db7bf0ce9a65ad37244308a737` 加本节未提交字体改动，必须标记 dirty；未修改 `pubspec.yaml` 的版本号。交付文件为 `D:/Downloads/CardAI-Packages/dev.kando.cardvault.sandbox.a1aa3e/CardAI-Test-1.0.7-200-Android-20261109-094220/CardAI-Test-1.0.7-200-dev-inter-font.apk`，252,664,736 字节，SHA-256 `2b0dd089453760d7abc84b00b724ae5cc6a88ca55667e826a40b8ba7c90b0699`，同目录包含构建信息、校验文件与字体资产验证结果。
+
+包内六个 Inter 文件、许可证及原 Baskerville 共 8 项与源码逐字节一致，字体清单的字重和斜体映射完整；14 个构建输入在构建前后哈希一致。包名仍为 `dev.kando.cardvault.sandbox.a1aa3e`，项目测试证书与 199 包一致；签名、权限、19 个 64 位原生库及 ZIP 16 KB 对齐检查通过，可覆盖安装同一测试包并继续连接原 dev。Google／Firebase／真实 Play Integrity 等既有配置和未验边界不变；本轮未提交／推送 Git，未发布服务端、正式 Android 制品或 iOS 制品。
+
+### Android 桌面图标比例修复（2026-11-09）
+
+用户反馈 APK 安装后的卡牌图案被放大／裁切，并提供实际桌面截图。回查 200 包及源码确认：Android 五档 legacy／foreground PNG 与 iOS AppIcon 使用同一图案，APK 内 10 个 PNG 与源码字节一致；v26 adaptive XML 却把完整方形图直接作为 foreground。AOSP Android 8 的 `AdaptiveIconDrawable` 会把每个图层四边各扩展 25%，因此原画面以 1.5 倍进入最终可见区域，主体上／下边超出，不能归为打包漏图或直接替换另一张 Logo。
+
+仅修改 `mipmap-anydpi-v26/ic_launcher.xml`，在 foreground 内使用四边各 `16.666667%` 的比例 inset，补偿 `1.5 × (1 − 1/6 − 1/6) = 1` 的缩放并保持居中。原 3D 卡牌图案、渐变背景、五档 Android PNG、iOS AppIcon 和启动页资源均不变；不强制 OEM 桌面采用 iOS 外框形状。Android API 24／25 继续使用原 legacy 图，API 26 起使用有补偿的 adaptive 图标；Android 8 AOSP 已核对支持 foreground 内嵌 drawable 及百分比 InsetDrawable。
+
+回归以当前 iOS 1024 图的主体几何为参照，对全部五档 Android 图逐一检查 legacy 比例、adaptive 可见区域比例及圆形安全区。修前 legacy 通过、adaptive 失败，mdpi 主体左边距为 0.04167，明显偏离 iOS 的 0.19434；修后 2／2 通过。独立 Code Review 通过。上述回归按 AOSP 的图层变换建模，遮罩预览不是手机桌面截图，不能代替用户原手机安装后的视觉验收。
+
+最终 `flutter analyze --no-pub` 为 0 issues；格式化后的图标回归再次 2／2 通过。使用同一隔离 Flutter 3.47.9／JDK 21.0.13+9 执行 `flutter build apk --debug --no-pub --build-number=201 --dart-define-from-file=config/test.json`，`assembleDebug` 24.4 秒成功。交付文件为 `D:/Downloads/CardAI-Packages/dev.kando.cardvault.sandbox.a1aa3e/CardAI-Test-1.0.7-201-Android-20261109-100451/CardAI-Test-1.0.7-201-dev-launcher-icon-fix.apk`，252,664,852 字节，SHA-256 `ceb209b1d08d6ab72b5e881a4b1d402f5247680f6b9fe9b0bb096ca690066588`；同目录含构建信息、SHA256、实际 APK 图标验证结果和明确标注为模拟的遮罩对照图。
+
+从实际 APK 二进制 XML 回读四边 inset 均为 fraction `0.16666662693`，10 个 launcher PNG 和 8 个字体／许可证文件与源码字节一致；26 项原始 Android／iOS 图标资源与此前 14 个字体构建输入均保持，43 个构建输入的前后哈希一致。包名、项目测试证书、dev 配置沿用 200 包，签名、权限、19 个 64 位原生库和 ZIP 16 KB 对齐检查通过。新包包含上一节 Inter 改动，来源为 `cbff5987` 加字体与本节未提交修改，不能记为干净提交制品。
+
+本次仅对 launcher 资源追加修复与验证，未重复运行上一节 8 份 Flutter 页面测试，其 14 项失败边界继续保留。用户原手机的更新后桌面图标、iOS 构建／真机均未验；未改启动页、正式配置、服务器、数据库或既有字体实现，未提交／推送 Git 或执行远程发布。
+
 ## 验证与发布边界
 
 代码、测试和文档改动完成后，先验证 PostgreSQL 平台迁移／认证与免费能力，再运行受影响旧 iOS 源码合同、Admin 与 Flutter 双端回归。涉及 owner 的并发写入、删号重试、游客迁移和账号切换必须检查实际结果。
