@@ -1,13 +1,23 @@
 ---
-title: Pokemon 30th Celebration Card Prices | Card AI
-h1: Pokemon TCG 30th Celebration card prices and set guide
-description: Use the official Pokemon 30th Celebration card list, compare 30C and 30C-CC records, and check a dated price snapshot before valuing your copies.
+title: Pokemon 30th Anniversary: Card Lists & Prices | Card AI
+h1: Pokemon 30th anniversary: 30th Celebration cards and prices
+description: Explore Pokemon 30th anniversary cards, use the official 30th Celebration checklist, compare Day & Night UPC contents, and check dated single-card prices.
 date: 2026-10-10
-updated: 2026-11-04
+updated: 2026-11-06
 image: /assets/showcase-analysis.png
 imageAlt: Card AI market prices and price history view
 imageCaption: Illustrative Card AI screen composite. Values shown in the image are examples, not the dated 30th Celebration snapshot below.
 ---
+Looking for Pokemon 30th anniversary cards? This guide covers the physical TCG side of the celebration: the official 30th Celebration card list, Day & Night Ultra-Premium Collection contents, and dated single-card price examples. Start with the [official 30th Celebration expansion page](https://tcg.pokemon.com/en-us/expansions/30th-celebration/) to see the card release, then use the sections below to check a product or a specific printing.
+
+## 30th anniversary Pokemon cards: where to start
+
+- For a card list, use the official gallery and checklist linked below. Confirm the set code, card number, artwork, finish and language.
+- For a sealed product, check the Day & Night Ultra-Premium Collection contents below and the linked official product showcase.
+- For a card price, compare the dated examples with the exact printing you own. Use Card AI to search for the matching record and its available price history.
+
+The anniversary is a broader topic than one TCG expansion. This page focuses on 30th Celebration cards and products; it does not cover every Pokemon anniversary game, event or merchandise release.
+
 On October 10, 2026, Card AI's published catalog separated ME: 30th Celebration into the 30C main set with 202 card records and the 30C-CC Classic Collection with 30 card records. These are dated Card AI catalog record counts, not official checklist totals. Confirm the set code and collector number before using a price, because the same Pokemon can appear in both groups or in an older set.
 
 ## Start with the official 30th Celebration card list

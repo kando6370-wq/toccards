@@ -1,0 +1,25 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "cardscanfox-site-data-readonly-preview",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-11-06",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "workers_dev": false,
+  "preview_urls": false,
+  "vars": {
+    "DEPLOYMENT_MODE": "preview",
+    "CATALOG_MODE": "postgres"
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "hyperdrive": [
+    {
+      "binding": "CATALOG_DB",
+      "id": "00000000000000000000000000000000"
+    }
+  ]
+}

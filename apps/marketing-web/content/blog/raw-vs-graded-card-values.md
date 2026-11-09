@@ -3,7 +3,7 @@ title: Raw vs Graded Card Values: What Changes | Card AI
 h1: Raw vs graded cards, and what grading does to value
 description: Why graded cards trade at a premium over raw copies, how the gap between grades works, and when grading a card is worth the cost and the wait.
 date: 2026-09-21
-updated: 2026-10-20
+updated: 2026-11-05
 image: /assets/showcase-analysis.png
 imageAlt: Card AI market prices and price history view
 imageCaption: Card AI keeps raw and graded market views separate when data is available.
@@ -36,6 +36,12 @@ For an already graded card, Card AI can record PSA, BGS, CGC or SGC and the grad
 
 This is a way to manage cards that have already been graded. Card AI does not submit cards to a grading company, authenticate a slab, or estimate what grade a raw card would receive. For the app workflow, see the [graded card tracker](/graded-card-tracker).
 
+## What does a card centering calculator measure?
+
+A card centering calculator compares the border widths on a photograph, usually as left/right and top/bottom ratios. It describes one aspect of condition. It does not inspect every surface defect, authenticate a card or guarantee the grade assigned by an institution. Consult the [PSA grading standards](https://www.psacard.com/gradingstandards) for that company's criteria rather than treating a ratio as a full grade.
+
+Card AI currently records the grade already printed on an existing slab. The current public app does not include a card centering calculator or raw-card grade predictor. Compare the available prices for confirmed holdings in the [graded card tracker](/graded-card-tracker); a prediction from another tool is not an existing slab grade to record as a fact.
+
 ## When grading is worth it
 
 Grading has a real cost in fees and turnaround time. A rough filter:
@@ -50,7 +56,7 @@ If you collect seriously you will end up holding both raw and graded copies, som
 
 [Card AI](/) records each copy with its own status. A raw card is stored with its condition. A graded card is stored with the grading company and grade, covering PSA, BGS, CGC and SGC. The same card can appear in your collection more than once, as a raw copy and as a PSA 10, each valued on its own market.
 
-To be clear about what the app does and does not do: you record the grade from the slab. Card AI does not predict what a raw card would grade, and no scanner can tell you that reliably from a photograph.
+You record the grade from the slab. Card AI currently does not predict what a raw card would grade from a photograph.
 
 ## Related
 

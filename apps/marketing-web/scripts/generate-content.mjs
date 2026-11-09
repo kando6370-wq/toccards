@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sitemapLastmod from '../content/sitemap-lastmod.mjs';
 import { renderSitemap, sitemapEntries } from './sitemap.mjs';
+import { renderCardList } from './card-lists.mjs';
 
 const appDirectory = dirname(dirname(fileURLToPath(import.meta.url)));
 const publicDirectory = join(appDirectory, 'public');
@@ -127,6 +128,7 @@ function renderShell({
   indexable = true,
   ogType = 'website',
   image = '/assets/hero-phones.png',
+  scripts = [],
 }) {
   const blocks = jsonLd
     .map((entry) => `  <script type="application/ld+json">\n${JSON.stringify(entry, null, 2)}\n  </script>`)
@@ -153,7 +155,7 @@ ${indexable ? `  <meta property="og:url" content="${ORIGIN}${url}">` : ''}
   <link rel="apple-touch-icon" href="/assets/card-ai-logo.png">
 ${blocks}
   <title>${escapeHtml(title)}</title>
-  <link rel="stylesheet" href="/site.css">
+  <link rel="stylesheet" href="/site.css">${scripts.length ? `\n${scripts.map((src) => `  <script src="${escapeHtml(src)}" defer></script>`).join('\n')}` : ''}
 </head>
 <body>
   <div class="marketing-site">
@@ -283,6 +285,9 @@ ${renderStoreAction(page)}
 }
 
 function renderPost(post) {
+  const prose = post.cardList
+    ? post.body.split('<!-- card-list -->').map(renderMarkdown).join(renderCardList(post.cardList))
+    : renderMarkdown(post.body);
   const figure = post.meta.image
     ? `          <figure class="content-figure">
             <img src="${escapeHtml(post.meta.image)}" alt="${escapeHtml(post.meta.imageAlt)}">
@@ -293,10 +298,10 @@ function renderPost(post) {
         <div class="site-container">
           <p class="content-eyebrow"><a href="/blog/">Blog</a></p>
           <h1>${escapeHtml(post.meta.h1)}</h1>
-          <p class="content-meta"><time datetime="${post.meta.date}">${post.meta.date}</time>${post.meta.updated ? ` · <time datetime="${post.meta.updated}">Updated ${post.meta.updated}</time>` : ''}</p>
+          <p class="content-meta"><time datetime="${post.meta.date}">${post.meta.date}</time>${post.meta.updated ? ` · <time datetime="${post.meta.updated}">Updated ${post.meta.updated}</time>` : ''}</p>${post.cardList ? '\n          <p class="card-list-jump"><a href="#card-list">Browse the card list and price samples</a></p>' : ''}
 ${figure}
           <div class="content-prose">
-          ${renderMarkdown(post.body)}
+          ${prose}
           </div>
         </div>
       </article>`;
@@ -336,6 +341,7 @@ ${figure}
     body,
     ogType: 'article',
     image: post.meta.image,
+    scripts: post.cardList ? ['/card-list.js'] : [],
   });
 }
 
@@ -468,7 +474,11 @@ const posts = [];
 for (const file of blogFiles) {
   const raw = await readFile(join(contentDirectory, 'blog', file), 'utf8');
   const { meta, body } = parseFrontMatter(raw);
-  posts.push({ slug: file.replace(/\.md$/, ''), meta, body });
+  const cardList = meta.cardList
+    ? JSON.parse(await readFile(join(contentDirectory, 'card-lists', `${meta.cardList}.json`), 'utf8'))
+    : undefined;
+  if (cardList && body.split('<!-- card-list -->').length !== 2) throw new Error(`Expected one card-list marker in ${file}`);
+  posts.push({ slug: file.replace(/\.md$/, ''), meta, body, cardList });
 }
 posts.sort((a, b) => b.meta.date.localeCompare(a.meta.date));
 

@@ -32,6 +32,14 @@ export default {
       "body": "The Pokemon card price checker in Card AI starts with the catalog record you confirm, not the character name alone. Scan in the app or search by set and number, review the suggested printing, then open its available raw or graded prices and history. If you own that copy, save it to your collection; otherwise keep it on your wishlist.\n\nThe app does not guarantee a match from every photo or a published price for every record. A marketplace listing and the published price are different references, so check the price date before acting."
     },
     {
+      "h2": "Check a card list before confirming the scan",
+      "body": "Use the searchable English [Chaos Rising card list](/blog/chaos-rising-card-list), [Ascended Heroes card list](/blog/ascended-heroes-card-list) or [Phantasmal Flames card list](/blog/phantasmal-flames-card-list) to find the official numbered entry and compare separately dated Card AI reference prices. The website lists are available to browse; scanning and saving cards remain app workflows.\n\nFor a character name, start with the [Pokemon card value guides](/blog/pokemon-card-values). Compare [Cufant printings](/blog/cufant-card-values), [Ivysaur from 151 and Base Set](/blog/ivysaur-card-values) or [Rayquaza VMAX numbers](/blog/rayquaza-vmax-card-values) before choosing a candidate. The [Moonbreon guide](/blog/moonbreon-card-value), [Charizard 151 guide](/blog/charizard-151-card-value) and [Pikachu card value guide](/blog/pikachu-card-values) cover other selected records. A nickname or familiar character is a useful search clue, not proof of a match."
+    },
+    {
+      "h2": "Check similar artwork and reprints in Review",
+      "body": "A familiar image can appear on more than one product. Read the full collector number and inspect product stamps, card size, language and finish before you confirm a catalog match. For example, the [Charizard GX guide](/blog/charizard-gx-card-values) separates Hidden Fates 9/68 from a Battle Academy stamped record, while a Rayquaza VMAX number can also appear on a jumbo card.\n\nCompare the [Mew GG10 and Mewtwo card numbers](/blog/mew-gg10-card-value) and the [Mega Charizard X ex printings](/blog/mega-charizard-x-ex-card-value) for more examples of why the full number and artwork matter.\n\nCard AI suggests likely records for you to review. It does not guarantee that a photo alone resolves every reprint or edition. If the visible details do not match, use catalog search and keep the record unconfirmed until you can identify the copy."
+    },
+    {
       "h2": "Watch your Pokemon collection value move",
       "body": "Once cards are in your collection they behave like a portfolio. Card AI totals what you own, keeps price history on individual cards, and updates as the market moves, so you can see whether a set is appreciating before you decide to sell or keep buying."
     }

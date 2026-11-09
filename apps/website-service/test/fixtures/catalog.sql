@@ -1,0 +1,23 @@
+CREATE TABLE games(game_id integer,name text,load integer,search_sort integer);
+CREATE TABLE sets(set_id text,game text,name text,set_code text,total_cards integer);
+CREATE TABLE cards_all(product_id text,game_id integer,game text,set_id text,set_name text,set_code text,number text,name text,rarity text,product_type_name text,updated_at text);
+CREATE TABLE price_source(source_id bigint,source_code text,display_name text,is_active boolean);
+CREATE TABLE price_ingest_batch(batch_id bigint,source_id bigint,scope_code text,status text,business_date date);
+CREATE TABLE current_price_pointer(scope_code text,batch_id bigint);
+CREATE TABLE price_series(series_id bigint,source_id bigint,source_record_id text,metric_code text,card_ref text,currency_code text,condition_code text,condition_name text,language_code text,language_name text,finish_code text,finish_name text,grader_code text,grade_min_x10 integer,grade_max_x10 integer,is_active boolean);
+CREATE TABLE price_current_snapshot(batch_id bigint,series_id bigint,observed_on date,amount_micros bigint,change_7d_percent numeric,baseline_1d_on date,baseline_1d_amount_micros bigint,baseline_7d_on date,baseline_7d_amount_micros bigint);
+CREATE TABLE price_history_month(series_id bigint,month_start date,points jsonb,last_batch_id bigint);
+INSERT INTO games VALUES(1,'Pokemon',1,1),(2,'Disabled Game',0,2);
+INSERT INTO sets VALUES('A','Pokemon','Test Set','TEST',999);
+INSERT INTO cards_all VALUES('001',1,'Pokemon','A','Test Set','TEST','001/010','Alpha Card','Rare','Card','2026-11-06'),('002',1,'Pokemon','A','Test Set','TEST','002/010','Zero Card',NULL,'Card','2026-11-06'),('003',1,'Pokemon','A','Test Set','TEST','003/010','Missing Card',NULL,'Card','2026-11-06'),('999',2,'Disabled Game','X','Hidden Set','X','999','Disabled Card',NULL,'Card','2026-11-06');
+INSERT INTO price_source VALUES(1,'tcgplayer','TCGplayer',true),(2,'inactive','Inactive Source',false),(3,'draft','Draft Source',true);
+INSERT INTO price_ingest_batch VALUES(10,1,'current:tcgplayer','published','2026-11-06'),(9,1,'current:tcgplayer','superseded','2026-10-01'),(20,2,'current:inactive','published','2026-11-06'),(30,3,'current:draft','draft','2026-11-06'),(31,1,'unrelated','published','2026-11-06');
+INSERT INTO current_price_pointer VALUES('current:tcgplayer',10),('current:inactive',20),('current:draft',30);
+INSERT INTO price_series VALUES(100,1,'alpha-en','market','001','USD','NM','Near Mint','EN','English','N','Normal','RAW',NULL,NULL,true),(101,1,'alpha-jp','market','001','USD','NM','Near Mint','JP','Japanese','H','Holofoil','RAW',NULL,NULL,true),(102,1,'alpha-psa','market','001','USD',NULL,NULL,'EN','English','N','Normal','PSA',100,100,true),(103,1,'alpha-off','market','001','USD','NM','Near Mint','EN','English','N','Normal','RAW',NULL,NULL,false),(104,2,'alpha-dead-source','market','001','USD','NM','Near Mint','EN','English','N','Normal','RAW',NULL,NULL,true),(105,3,'alpha-draft','market','001','USD','NM','Near Mint','EN','English','N','Normal','RAW',NULL,NULL,true),(200,1,'zero','market','002','USD','NM','Near Mint','EN','English','N','Normal','RAW',NULL,NULL,true);
+INSERT INTO price_current_snapshot VALUES(10,100,'2026-11-06',123450000,1,NULL,NULL,NULL,NULL),(10,101,'2026-11-06',20000000,2,NULL,NULL,NULL,NULL),(10,102,'2026-11-06',999000000,3,NULL,NULL,NULL,NULL),(10,103,'2026-11-06',1,0,NULL,NULL,NULL,NULL),(20,104,'2026-11-06',2,0,NULL,NULL,NULL,NULL),(30,105,'2026-11-06',3,0,NULL,NULL,NULL,NULL),(10,200,'2026-11-06',0,0,NULL,NULL,NULL,NULL);
+INSERT INTO price_history_month VALUES(100,'2026-10-01','[{"d":"2026-10-01","a":1},{"d":"2026-10-08","a":100000000},{"d":"2026-10-20","a":110000000}]',9),(100,'2026-11-01','[{"d":"2026-11-05","a":120000000},{"d":"2026-11-07","a":999999999}]',10),(101,'2026-11-01','[{"d":"2026-11-05","a":19000000}]',10);
+
+ALTER TABLE price_current_snapshot ADD COLUMN change_30d_percent numeric;
+
+ALTER TABLE cards_all ADD COLUMN has_image integer NOT NULL DEFAULT 2;
+UPDATE cards_all SET product_type_name='Cards' WHERE product_type_name='Card';

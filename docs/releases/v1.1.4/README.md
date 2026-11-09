@@ -26,6 +26,12 @@ v1.1.3 已原位归档。本版本承接 v1.1.3 之后的新增、变更、移�
 
 ## 文档路由
 
+- [官网改动同步到 dev](05-delivery/cardscanfox-dev-sync-20261109.md)：2026-11-09 官网提交合并、依赖锁文件修复与影响面验证。
+
+- [PokeScope 自然搜索词与独立官网覆盖](05-delivery/website-competitor-keyword-coverage.md)：2026-11-08 竞品估算口径、四篇角色/卡况指南、既有页面归属和索引发现。
+
+- [官网关键词、可筛选卡表与印次指南](05-delivery/marketing-keyword-content.md)：2026-11-05 竞品关键词估算补证、三套英文官方编号表、全球竞品样本的角色/印次参考页、价格快照与本地验收边界。
+
 | 目录 | 记录范围 |
 |---|---|
 | `00-product/` | v1.1.4 新产品输入和明确批准的需求补充；不复制旧 PRD |
@@ -43,3 +49,7 @@ v1.1.3 已原位归档。本版本承接 v1.1.3 之后的新增、变更、移�
 - 本地验证、CI、dev、prod、商店发布、用户反馈和 Agent 独立验收必须分别标记，未执行项不得写成通过。
 - 不在正式 docs 中保存执行日志、任务快照、截图、Secret、Token、私钥或原始生产响应。
 - 文档版本、App 版本、API 版本、Git 提交和环境运行版本分别管理；创建 v1.1.4 不代表代码、数据库或环境发生变化。
+
+- [CardScanFox 独立预览与自动部署](02-architecture/cardscanfox-auto-deployment.md)：新版独立应用、保护旧 URL、静态预览与只读 Worker 的发布边界。
+
+- [CardScanFox 页面搜索意图与页面任务](05-delivery/cardscanfox-page-intents.md)：固定页面归属、动态卡牌元数据、平台下载与价格榜单口径。

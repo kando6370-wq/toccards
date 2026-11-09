@@ -16,6 +16,11 @@ The [canonical website](https://tcgcard.fun/) is tcgcard.fun. Card AI supports c
 - Wishlist management
 - Multi-game and sports card collection support
 
+## Website References
+
+- Public English checklists for Chaos Rising, Ascended Heroes and Phantasmal Flames include name/number filters and dated USD catalog samples. They do not scan photos or save holdings in the browser. Sample responses do not specify a raw condition or slab grade; check the confirmed record in the app for available condition or grade-specific prices.
+- Single-card printing guides distinguish Moonbreon, Charizard 151, Mega Charizard X ex and selected Pikachu records. Historical examples are not live sale quotes or grade predictions.
+
 ## Pages
 
 - [Basketball card scanner](https://tcgcard.fun/basketball-card-scanner): Scan basketball cards to find matching catalog records, confirm the parallel and finish, then check market values for raw and graded copies.
@@ -41,11 +46,24 @@ The [canonical website](https://tcgcard.fun/) is tcgcard.fun. Card AI supports c
 - [Star Wars Unlimited card scanner](https://tcgcard.fun/star-wars-unlimited-card-scanner): Scan Star Wars Unlimited cards to find matching set and card records, confirm the variant, then check market values and track your collection.
 - [Yu-Gi-Oh! card scanner](https://tcgcard.fun/yugioh-card-scanner): Scan Yu-Gi-Oh! cards to find matching set-code and rarity records, confirm the edition, then check raw and graded market values.
 - [Blog](https://tcgcard.fun/blog/): Guides on card values, grading, and collection tracking.
-- [Pokemon TCG set card lists: identify a card before checking its price](https://tcgcard.fun/blog/pokemon-tcg-set-card-lists): Find official references and Card AI set codes for Prismatic Evolutions, White Flare, Surging Sparks, Paldean Fates, and Shrouded Fable.
+- [Ascended Heroes card list and printing guide](https://tcgcard.fun/blog/ascended-heroes-card-list): Search the official English Ascended Heroes card numbers and compare separately dated price samples for cataloged finishes and patterns.
+- [Chaos Rising card list and price reference](https://tcgcard.fun/blog/chaos-rising-card-list): Browse the official English Chaos Rising card numbers, filter by name, and compare dated Card AI price samples before confirming your printing.
+- [Charizard 151: compare 006/165, 183/165 and 199/165](https://tcgcard.fun/blog/charizard-151-card-value): Tell English Pokemon 151 Charizard ex printings apart by collector number and artwork, then compare separately dated reference prices.
+- [Charizard GX: separate Hidden Fates, stamped and promo copies](https://tcgcard.fun/blog/charizard-gx-card-values): Compare English Charizard GX 9/68, Battle Academy, SV49/SV94, SM211 and Burning Shadows printings with dated price samples and clear product identities.
+- [Cufant card values: compare the set and full number](https://tcgcard.fun/blog/cufant-card-values): Compare selected English Cufant cards from Shrouded Fable and Shining Fates. Separate 041/064, 076/064 and SV090/SV122 with dated price samples.
+- [Ivysaur card values: 151 and Base Set are different records](https://tcgcard.fun/blog/ivysaur-card-values): Compare selected English Ivysaur 002/165, 167/165 and Base Set 030/102 records. Check the edition, finish and price date before valuing your copy.
+- [Mega Charizard X ex: check the Phantasmal Flames printing](https://tcgcard.fun/blog/mega-charizard-x-ex-card-value): Compare four English Phantasmal Flames Mega Charizard X ex card numbers, artwork references and dated USD samples before checking your copy.
+- [Mew GG10: check Crown Zenith GG10/GG70 before pricing](https://tcgcard.fun/blog/mew-gg10-card-value): Identify English Mew GG10/GG70 from Crown Zenith Galarian Gallery, check a dated price sample and avoid confusing it with Mewtwo VSTAR GG44.
+- [Moonbreon: identify Umbreon VMAX 215/203 before pricing](https://tcgcard.fun/blog/moonbreon-card-value): Identify the Evolving Skies Umbreon VMAX known as Moonbreon, compare 215/203 with other Umbreon printings, and check dated price references.
+- [Phantasmal Flames card list and price reference](https://tcgcard.fun/blog/phantasmal-flames-card-list): Browse English Phantasmal Flames card numbers, find Mega Charizard X ex printings, and compare dated price samples with missing values kept visible.
+- [Pikachu card values start with the set and number](https://tcgcard.fun/blog/pikachu-card-values): Compare selected English Pikachu ex printings from Surging Sparks, understand valuable-card lists, and check the record that matches your physical copy.
+- [Find a Pokemon card value by its exact printing](https://tcgcard.fun/blog/pokemon-card-values): Browse Pokemon value guides by character, then compare set, card number and finish. Use dated price samples and confirm your copy in the Card AI app.
+- [Rayquaza VMAX values depend on the set and card number](https://tcgcard.fun/blog/rayquaza-vmax-card-values): Compare selected English Rayquaza VMAX printings from Evolving Skies, Crown Zenith and Silver Tempest. Check dated prices, numbers and product differences.
+- [Pokemon TCG set card lists: identify a card before checking its price](https://tcgcard.fun/blog/pokemon-tcg-set-card-lists): Browse searchable Chaos Rising, Ascended Heroes and Phantasmal Flames checklists, plus official references and set codes for other Pokemon expansions.
 - [Dungeon Crawler Carl trading cards: Series 1 cards and packs](https://tcgcard.fun/blog/dungeon-crawler-carl-trading-cards): See a third-party Series 1 card list, find a retailer pack listing, and learn how these collectibles differ from the Unstoppable game.
 - [Minior Pokemon cards: identify the printing before checking value](https://tcgcard.fun/blog/minior-pokemon-card-guide): Compare Minior cards from Paradox Rift and Guardians Rising by set and collector number. Keep Pokemon GO encounters separate from physical card prices.
 - [How to scan cards bought at WatsonTCG](https://tcgcard.fun/blog/scanning-cards-from-watsontcg): WatsonTCG is a card retailer, not a card game. Check which singles are in a supported Card AI catalog, then confirm set, number and variant after scanning.
-- [Pokemon TCG 30th Celebration card prices and set guide](https://tcgcard.fun/blog/pokemon-tcg-30th-celebration-card-prices): Use the official Pokemon 30th Celebration card list, compare 30C and 30C-CC records, and check a dated price snapshot before valuing your copies.
+- [Pokemon 30th anniversary: 30th Celebration cards and prices](https://tcgcard.fun/blog/pokemon-tcg-30th-celebration-card-prices): Explore Pokemon 30th anniversary cards, use the official 30th Celebration checklist, compare Day & Night UPC contents, and check dated single-card prices.
 - [What is my trading card worth?](https://tcgcard.fun/blog/what-is-my-trading-card-worth): A practical guide to checking what a trading card is worth, why the same card has several different prices, and which number actually applies to your copy.
 - [Raw vs graded cards, and what grading does to value](https://tcgcard.fun/blog/raw-vs-graded-card-values): Why graded cards trade at a premium over raw copies, how the gap between grades works, and when grading a card is worth the cost and the wait.
 

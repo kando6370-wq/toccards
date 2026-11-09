@@ -23,6 +23,10 @@ export default {
       "body": "An on-card autograph, a patch card and a base parallel of the same player trade independently, sometimes by wide margins. Variant and finish are recorded per card, so each sits in the collection as its own position with its own price history."
     },
     {
+      "h2": "2025 Phoenix Football checklist: confirm the parallel",
+      "body": "For a 2025 Phoenix Football checklist, start with [Panini's checklist finder](https://www.paniniamerica.net/checklist.html). [Checklist Insider's 2025 Panini Phoenix Football guide](https://www.checklistinsider.com/2025-panini-phoenix-football) provides an independently maintained checklist and lists 250 base cards, with inserts and parallels separately. That source is a reference, not a Card AI price feed.\n\nMatch the year, player, card number and insert name before selecting a parallel. Silver and Gold /10, for example, are different printings; a card number and a stamped serial number describe different things. A checklist identifies an entry but does not value your condition or an existing slab grade.\n\nComplete 2025 Phoenix Football coverage has not been confirmed in Card AI. If search or a scan does not return the exact printing, keep the checklist reference and do not save another card as a substitute."
+    },
+    {
       "h2": "Condition and grade kept apart",
       "body": "Raw cards are recorded by condition, graded cards by grading company and grade across PSA, BGS, CGC and SGC. The two are never blended into a single number, because they trade in different markets."
     }

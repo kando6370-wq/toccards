@@ -1,0 +1,324 @@
+{
+  "/": [
+    "产品认知与下载",
+    "TCG Card Scanner & Collection Tracker | CardScanFox",
+    "Scan cards. Track your collection.",
+    "Identify trading cards, confirm the printing and check available prices. Organize owned cards and a separate Wishlist in the Card AI app.",
+    "首页保留 /；新品牌与现有 Card AI App 的关系必须清楚。"
+  ],
+  "/bulk-card-scanner": [
+    "批量整理实体卡的 App 流程",
+    "Bulk Card Scanner: Review a Stack of Cards | CardScanFox",
+    "Scan a stack. Confirm each card.",
+    "Queue up to 10 card photos in the Card AI app. Review each match, confirm printing details, then add the copies you own to your collection.",
+    "保留批量整理意图；10 张队列不等于免费额度，也不宣称同一照片识别整桌卡。"
+  ],
+  "/card-identifier": [
+    "从照片识别卡牌，选择工具",
+    "Trading Card Identifier From a Photo | CardScanFox",
+    "Find the card. Confirm the printing.",
+    "Identify likely trading card matches from a photo. Check the set, number, language and finish before saving the confirmed record in the Card AI app.",
+    "本页是 App 功能说明，不能伪装成网页可直接扫描的工具。"
+  ],
+  "/card-price-checker": [
+    "查自己的单卡价值及操作方法",
+    "What Is Your Card Worth? Card Price Checker | CardScanFox",
+    "Find the price for your exact card.",
+    "Learn how to check a trading card price by set, number, finish and condition. Explore dated references and continue your own lookup in the Card AI app.",
+    "保留主要查价说明入口；/prices 是目录概览，不另做同文的关键词页。"
+  ],
+  "/card-collection-tracker": [
+    "选择收藏及价值追踪工具",
+    "Card Collection Tracker & Portfolio App | CardScanFox",
+    "Know what you own. Follow your collection.",
+    "Track owned trading cards, quantities and available collection value. Keep a separate Wishlist and organize confirmed holdings in the Card AI app.",
+    "重在持仓与价值；不与卡册页重复目录组织内容。"
+  ],
+  "/digital-card-binder": [
+    "组织数字卡册与文件夹",
+    "Digital Card Binder: Organize Your Cards | CardScanFox",
+    "Give every card a place in your collection.",
+    "Organize confirmed card holdings into folders in the Card AI app. Keep printing, quantity, raw condition and existing slab grades with each copy.",
+    "重在分类和文件夹；不承诺导入导出或完整套卡完成率。"
+  ],
+  "/graded-card-tracker": [
+    "管理已经评级的卡",
+    "Graded Card Tracker: Keep Each Copy Separate | CardScanFox",
+    "Track the grade already on your slab.",
+    "Record existing PSA, BGS, CGC or SGC grades alongside raw card holdings. Check available grade-specific prices without mixing different copies.",
+    "不承诺照片预测评级、送评、鉴定或所有等级都有价格。"
+  ],
+  "/card-ai-vs-collx": [
+    "商业比较，选择查价及收藏工具",
+    "Card AI vs CollX: Price & Collection Workflows | CardScanFox",
+    "Card AI vs CollX: what does the price represent?",
+    "Compare documented Card AI and CollX workflows for card variants, condition, price context and collections. See source dates and limits before choosing.",
+    "归入博客对比分类，原路径和 Card AI 查询词保留。"
+  ],
+  "/card-ai-vs-ludex": [
+    "商业比较，扫描后收藏还是售卖",
+    "Card AI vs Ludex: Compare the Next Step | CardScanFox",
+    "Card AI vs Ludex: what happens after the scan?",
+    "Compare documented scan review, price research, collection and listing workflows. Choose by your next task, with sources and testing limits explained.",
+    "不改为 /blog/... 或 /cardscanfox-vs-ludex；没有实测不写准确率赢家。"
+  ],
+  "/card-scanner-comparison-2026": [
+    "比较扫描 App、额度和适用场景",
+    "Trading Card Scanner Apps Compared: 2026 Guide | CardScanFox",
+    "Which card scanner fits your collection?",
+    "Compare card scanner workflows, free-scan limits, price context and collection tools. Read the dated sources and choose what fits the cards you own.",
+    "保留年份 URL；内容复核后更新日期，不为次年复制同一意图。"
+  ],
+  "/chrome-extension": [
+    "浏览器图片识别工具",
+    "Chrome Card Recognizer for Pokémon & TCG | CardScanFox",
+    "Identify a card image while you browse.",
+    "Select a card image on a webpage, adjust the crop and review likely matches with the Chrome recognizer. Check available reference prices and coverage.",
+    "保留真实 Chrome Web Store 链接、UTM 与扩展边界；不加入 App 的收藏能力。"
+  ],
+  "/blog/": [
+    "浏览收藏知识和对比文章",
+    "Trading Card Guides & App Comparisons | CardScanFox",
+    "Better information. Better collecting.",
+    "Learn to identify card printings, understand dated prices and organize a collection. Read practical guides, app comparisons and clearly labelled perspectives.",
+    "博客主目录保留尾斜线；分类只组织入口，不复制正文。"
+  ],
+  "/blog/ascended-heroes-card-list": [
+    "查系列卡表与具体印次",
+    "Ascended Heroes Card List & Printing Guide | CardScanFox",
+    "Ascended Heroes: find the printing before the price.",
+    "Explore the Ascended Heroes card-list guide. Check full card numbers, available catalog records and dated references before comparing your copy.",
+    "保留已有官方来源及价格日期；目录覆盖不等于完整官方卡表。"
+  ],
+  "/blog/chaos-rising-card-list": [
+    "查系列卡表和参考价",
+    "Chaos Rising Card List & Price References | CardScanFox",
+    "Chaos Rising card list and price references.",
+    "Use the Chaos Rising guide to match card names and full numbers. Separate catalog coverage from the dated prices available for individual printings.",
+    "保留已发布卡表解释，不改成只有目录链接的薄页。"
+  ],
+  "/blog/charizard-151-card-value": [
+    "区分 151 喷火龙编号并查价值",
+    "Charizard 151 Values: 006, 183 or 199? | CardScanFox",
+    "Which Charizard 151 printing do you own?",
+    "Compare Charizard 151 records 006/165, 183/165 and 199/165. Match the artwork and full number before using a dated raw or graded price reference.",
+    "保持具体编号的独立比较价值。"
+  ],
+  "/blog/charizard-gx-card-values": [
+    "区分 GX 版本、印章与促销卡",
+    "Charizard GX Values: SV49, SM211 & More | CardScanFox",
+    "Identify your Charizard GX before checking its value.",
+    "Separate Charizard GX printings by set, full number and product stamp. Review Hidden Fates and promo records before comparing available prices.",
+    "不得把不同印次价格混合为角色统一价格。"
+  ],
+  "/blog/cufant-card-values": [
+    "区分 Cufant 实体卡及价格",
+    "Cufant Card Values by Set & Number | CardScanFox",
+    "Which Cufant card matches your copy?",
+    "Compare selected Cufant printings from Shrouded Fable and Shiny Vault. Check the complete number, finish and date before using a price reference.",
+    "留存现有具体卡图、来源和参考样本。"
+  ],
+  "/blog/ivysaur-card-values": [
+    "区分 Ivysaur 151 与初代卡",
+    "Ivysaur Card Values: 151 vs Base Set | CardScanFox",
+    "Ivysaur values start with the right set.",
+    "Separate Ivysaur 151 and Base Set records by artwork and collector number. Confirm language, finish and condition before comparing dated values.",
+    "内容保留印次比较；不用单卡数据详情替代全文。"
+  ],
+  "/blog/mega-charizard-x-ex-card-value": [
+    "确认 Mega Charizard X ex 具体印次",
+    "Mega Charizard X ex Value: Match the Number | CardScanFox",
+    "Find the exact Mega Charizard X ex printing.",
+    "Check the Phantasmal Flames set and full collector number for Mega Charizard X ex. Use the matching record and date when reviewing available prices.",
+    "保留系列与编号核对流程。"
+  ],
+  "/blog/mew-gg10-card-value": [
+    "定位 Mew GG10/GG70 印次",
+    "Mew GG10 Value: Crown Zenith GG10/GG70 | CardScanFox",
+    "Mew GG10: confirm Crown Zenith GG10/GG70.",
+    "Identify Mew GG10 from Crown Zenith before checking its value. Keep the gallery prefix, full number and condition with each dated price reference.",
+    "保留 GG 前缀语义。"
+  ],
+  "/blog/moonbreon-card-value": [
+    "把昵称解析为实际单卡",
+    "Moonbreon Value: Umbreon VMAX 215/203 | CardScanFox",
+    "Moonbreon means a specific Umbreon VMAX printing.",
+    "Match Moonbreon to Umbreon VMAX 215/203 from Evolving Skies. Check the exact printing, language and raw or graded state before comparing prices.",
+    "昵称只作检索线索，不创建多个同文昵称页。"
+  ],
+  "/blog/phantasmal-flames-card-list": [
+    "查系列卡表与价格参考",
+    "Phantasmal Flames Card List & Prices | CardScanFox",
+    "Explore Phantasmal Flames by card and number.",
+    "Use the Phantasmal Flames guide to find card-list references and selected catalog records. Confirm each printing before using its dated price.",
+    "源事实与官网已验证卡表为准。"
+  ],
+  "/blog/pikachu-card-values": [
+    "按版本查 Pikachu 价值",
+    "Pikachu Card Values: Which Printing Is Yours? | CardScanFox",
+    "Find your Pikachu printing before its price.",
+    "Pikachu appears across many releases. Compare the set, full number, language and finish to find a price reference that belongs to your copy.",
+    "角色聚合解释页，不等同目录中任一单卡详情。"
+  ],
+  "/blog/pokemon-card-values": [
+    "学习按名称、系列、编号查值",
+    "Pokémon Card Values by Name, Set & Number | CardScanFox",
+    "Find a Pokémon card value by its exact printing.",
+    "Start with the Pokémon name, set and full card number. Explore printing guides and learn how condition and price dates affect the reference you use.",
+    "与 App 查价功能页按学习/操作分工，避免新增 /pokemon-price-checker 同文页。"
+  ],
+  "/blog/rayquaza-vmax-card-values": [
+    "比较 Rayquaza VMAX 多印次",
+    "Rayquaza VMAX Values: Compare the Printings | CardScanFox",
+    "Rayquaza VMAX values depend on the printing.",
+    "Compare selected Rayquaza VMAX records from Evolving Skies, Crown Zenith and Trainer Gallery. Check set, number and condition before using prices.",
+    "保留多个实物版本对照。"
+  ],
+  "/blog/pokemon-tcg-set-card-lists": [
+    "查多个 Pokémon 系列官方卡表",
+    "Pokémon TCG Set Card Lists & Lookup Guide | CardScanFox",
+    "Find the right Pokémon set and card number.",
+    "Find official card-list references for selected Pokémon sets. Match a catalog set code and full number before looking up a physical single card.",
+    "沿用已有多个系列目录入口，不复制官方全文或保证全覆盖。"
+  ],
+  "/blog/dungeon-crawler-carl-trading-cards": [
+    "辨别收藏卡发行与不同产品",
+    "Dungeon Crawler Carl Cards: Release Guide | CardScanFox",
+    "Dungeon Crawler Carl trading cards: know the release.",
+    "Distinguish Dungeon Crawler Carl collectible-card releases and related products. Check the actual single-card record before assuming catalog or price coverage.",
+    "发行事实和目录覆盖分别核实；不宣称每套或每卡都已支持。"
+  ],
+  "/blog/minior-pokemon-card-guide": [
+    "辨别 Minior 实体 TCG 版本",
+    "Minior Pokémon Cards: Printings & Value Checks | CardScanFox",
+    "Identify the Minior card in your collection.",
+    "Compare selected Minior Pokémon TCG printings by set and number. Keep physical trading cards separate from Pokémon GO encounters and game advice.",
+    "不承接游戏攻略；保留官方卡表出处。"
+  ],
+  "/blog/scanning-cards-from-watsontcg": [
+    "购买后如何识别支持的单卡",
+    "Scan Cards Bought at WatsonTCG | CardScanFox",
+    "Match the single card, not the retailer name.",
+    "Bought cards at WatsonTCG? Identify each supported single by its game, set and number, then review the record in the Card AI app. Coverage varies.",
+    "保留零合作声明，不把商店或全部库存当作支持卡种。"
+  ],
+  "/blog/pokemon-tcg-30th-celebration-card-prices": [
+    "区分周年套卡、单卡和产品",
+    "Pokémon 30th Celebration: Card Lists & Prices | CardScanFox",
+    "Pokémon 30th Celebration: identify the card first.",
+    "Separate 30th Celebration catalog groups, official card-list references and dated single-card price samples. Check set codes before valuing your copy.",
+    "保留原观测日期，不能把旧快照写成当前价格；密封产品内容与单卡估值分开。"
+  ],
+  "/blog/what-is-my-trading-card-worth": [
+    "学习估值步骤",
+    "What Is My Trading Card Worth? | CardScanFox",
+    "Work out which price applies to your card.",
+    "Identify the printing, assess raw condition or record an existing slab grade, and check price context. Learn which reference can apply to your trading card.",
+    "教学意图归此文；具体价格归对应单卡；功能操作归 /card-price-checker。"
+  ],
+  "/blog/raw-vs-graded-card-values": [
+    "理解裸卡与已评级卡价格差异",
+    "Raw vs Graded Card Values: What Changes? | CardScanFox",
+    "Raw and graded prices answer different questions.",
+    "Learn why raw condition and an existing slab grade belong to separate price records. Compare like-for-like printings without assuming a guaranteed grading premium.",
+    "不把相关性写成保证评级溢价，不给无证据收益承诺。"
+  ],
+  "/privacy": [
+    "了解隐私和数据处理",
+    "Privacy Policy | CardScanFox",
+    "Privacy Policy",
+    "Read how the CardScanFox website and linked services handle information, including website analytics, local saved references and your privacy choices.",
+    "法律正文保留；新增数据处理只有完成法务复核才可写入。本轮仅标题/摘要草案。"
+  ],
+  "/terms": [
+    "了解网站使用条款",
+    "Terms of Use | CardScanFox",
+    "Terms of Use",
+    "Read the terms for using the CardScanFox website, its card information and dated price references, plus links to the terms that apply to the app.",
+    "保留法律主体和 App 条款边界，不能通过视觉改版擅改合同。"
+  ],
+  "/basketball-card-scanner": [
+    "寻找特定卡种扫描与收藏工具",
+    "Basketball Card Scanner: Identify Your Printing | CardScanFox",
+    "Basketball card scanning: confirm the copy you own.",
+    "Find likely Basketball card matches in the Card AI app. Confirm the set, full number and printing details, then check available prices for your copy.",
+    "核对球员、年份、系列、编号与平行版本；本页保留原功能意图，不改成公共卡库列表。"
+  ],
+  "/digimon-card-scanner": [
+    "寻找特定卡种扫描与收藏工具",
+    "Digimon Card Scanner: Identify Your Printing | CardScanFox",
+    "Digimon card scanning: confirm the copy you own.",
+    "Find likely Digimon card matches in the Card AI app. Confirm the set, full number and printing details, then check available prices for your copy.",
+    "核对卡号、补充包、语言与平行图；本页保留原功能意图，不改成公共卡库列表。"
+  ],
+  "/dragon-ball-super-card-scanner": [
+    "寻找特定卡种扫描与收藏工具",
+    "Dragon Ball Super Card Scanner: Check Coverage | CardScanFox",
+    "Dragon Ball Super card scanning: check the supported record first.",
+    "Learn how to check Dragon Ball Super card coverage before scanning. Confirm a catalog match, printing details and available price context in the Card AI app.",
+    "覆盖需要重新核对；目录缺口不能以标题承诺填补；本页保留原功能意图，不改成公共卡库列表。"
+  ],
+  "/flesh-and-blood-card-scanner": [
+    "寻找特定卡种扫描与收藏工具",
+    "Flesh and Blood Card Scanner: Identify Your Printing | CardScanFox",
+    "Flesh and Blood card scanning: confirm the copy you own.",
+    "Find likely Flesh and Blood card matches in the Card AI app. Confirm the set, full number and printing details, then check available prices for your copy.",
+    "核对系列、卡号、工艺与语言；本页保留原功能意图，不改成公共卡库列表。"
+  ],
+  "/football-card-scanner": [
+    "寻找特定卡种扫描与收藏工具",
+    "Football Card Scanner: Check Coverage | CardScanFox",
+    "Football card scanning: check the supported record first.",
+    "Learn how to check Football card coverage before scanning. Confirm a catalog match, printing details and available price context in the Card AI app.",
+    "覆盖需要重新核对；保留 URL 和已有用户价值；本页保留原功能意图，不改成公共卡库列表。"
+  ],
+  "/lorcana-card-scanner": [
+    "寻找特定卡种扫描与收藏工具",
+    "Lorcana Card Scanner: Identify Your Printing | CardScanFox",
+    "Lorcana card scanning: confirm the copy you own.",
+    "Find likely Lorcana card matches in the Card AI app. Confirm the set, full number and printing details, then check available prices for your copy.",
+    "核对系列、全编号、语言与工艺；本页保留原功能意图，不改成公共卡库列表。"
+  ],
+  "/mtg-card-scanner": [
+    "寻找特定卡种扫描与收藏工具",
+    "MTG Card Scanner: Identify Your Printing | CardScanFox",
+    "MTG card scanning: confirm the copy you own.",
+    "Find likely MTG card matches in the Card AI app. Confirm the set, full number and printing details, then check available prices for your copy.",
+    "核对系列、编号、语言与 foil 状态；本页保留原功能意图，不改成公共卡库列表。"
+  ],
+  "/one-piece-card-scanner": [
+    "寻找特定卡种扫描与收藏工具",
+    "One Piece Card Scanner: Identify Your Printing | CardScanFox",
+    "One Piece card scanning: confirm the copy you own.",
+    "Find likely One Piece card matches in the Card AI app. Confirm the set, full number and printing details, then check available prices for your copy.",
+    "核对完整卡号、版本及平行图；保留官方卡表链接；本页保留原功能意图，不改成公共卡库列表。"
+  ],
+  "/pokemon-card-scanner": [
+    "寻找特定卡种扫描与收藏工具",
+    "Pokémon Card Scanner: Identify Your Printing | CardScanFox",
+    "Pokémon card scanning: confirm the copy you own.",
+    "Find likely Pokémon card matches in the Card AI app. Confirm the set, full number and printing details, then check available prices for your copy.",
+    "核对系列、全编号、语言与闪卡工艺；本页保留原功能意图，不改成公共卡库列表。"
+  ],
+  "/soccer-card-scanner": [
+    "寻找特定卡种扫描与收藏工具",
+    "Soccer Card Scanner: Identify Your Printing | CardScanFox",
+    "Soccer card scanning: confirm the copy you own.",
+    "Find likely Soccer card matches in the Card AI app. Confirm the set, full number and printing details, then check available prices for your copy.",
+    "核对球员、年份、系列、编号和平行版本；本页保留原功能意图，不改成公共卡库列表。"
+  ],
+  "/star-wars-unlimited-card-scanner": [
+    "寻找特定卡种扫描与收藏工具",
+    "Star Wars Unlimited Card Scanner: Identify Your Printing | CardScanFox",
+    "Star Wars Unlimited card scanning: confirm the copy you own.",
+    "Find likely Star Wars Unlimited card matches in the Card AI app. Confirm the set, full number and printing details, then check available prices for your copy.",
+    "核对系列、卡号、版本与工艺；本页保留原功能意图，不改成公共卡库列表。"
+  ],
+  "/yugioh-card-scanner": [
+    "寻找特定卡种扫描与收藏工具",
+    "Yu-Gi-Oh! Card Scanner: Identify Your Printing | CardScanFox",
+    "Yu-Gi-Oh! card scanning: confirm the copy you own.",
+    "Find likely Yu-Gi-Oh! card matches in the Card AI app. Confirm the set, full number and printing details, then check available prices for your copy.",
+    "核对全卡号、版本、稀有度与语言；本页保留原功能意图，不改成公共卡库列表。"
+  ]
+}

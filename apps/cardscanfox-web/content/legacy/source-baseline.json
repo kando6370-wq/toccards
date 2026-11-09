@@ -1,0 +1,2567 @@
+{
+  "capturedOn": "2026-11-06",
+  "origin": "https://tcgcard.fun",
+  "scope": "Known sitemap URLs only; not a complete GSC or historical external-link inventory. Source read-only baseline, not a completed migration.",
+  "pageCount": 46,
+  "pages": [
+    {
+      "path": "/",
+      "file": "home.html",
+      "status": 200,
+      "bytes": 94646,
+      "title": "Card AI: TCG Card Scanner, Price Checker & Collection Tracker",
+      "h1": [
+        "Card AI."
+      ],
+      "h2": [
+        "Powerful Tools for Effortless Collecting.",
+        "From Card to Collection in Three Simple Steps.",
+        "See Your Collection at a Glance.",
+        "Identify Cards as You Scan.",
+        "Market Analysis for Your Cards.",
+        "One Collection Across Supported Games.",
+        "Trading Card Scanner Questions.",
+        "Browse by game and feature.",
+        "Start Tracking Your Collection Today.",
+        "Privacy Policy",
+        "1. Information We Collect",
+        "2. How We Use Information",
+        "3. Third-Party Services We Use",
+        "4. How We Share Information",
+        "5. App Tracking and Advertising",
+        "6. Cookies and Similar Technologies",
+        "7. Data Retention",
+        "8. Account Deletion and Data Deletion",
+        "9. Your Privacy Rights and Choices",
+        "10. Communications Choices",
+        "11. Children’s Privacy",
+        "12. International Data Transfers",
+        "13. Data Security",
+        "14. Third-Party Links and Services",
+        "15. Third-Party Brands",
+        "16. Changes to This Privacy Policy",
+        "17. Contact Us",
+        "Terms of Use",
+        "1. Our Service",
+        "2. Eligibility",
+        "3. Account Registration",
+        "4. Account Deletion",
+        "5. Card Scanning Feature",
+        "6. Card Data, Prices, and Value Information",
+        "7. Collection Records",
+        "8. Subscriptions and In-App Purchases",
+        "9. Acceptable Use",
+        "10. Third-Party Services",
+        "11. Third-Party Links and Marketplaces",
+        "12. Intellectual Property",
+        "13. User Content",
+        "14. Trademarks and Brand Disclaimer",
+        "15. Privacy",
+        "16. App Updates and Availability",
+        "17. Disclaimers",
+        "18. Limitation of Liability",
+        "19. Indemnification",
+        "20. Termination",
+        "21. Changes to These Terms",
+        "22. Governing Law",
+        "23. OPEN SOURCE AND MODEL LICENSES",
+        "24. Contact Us"
+      ],
+      "canonical": "https://tcgcard.fun/",
+      "normalizedBodySha256": "0d5730ff5277344f9d284f91ccfb933deae7a9bd53747f779531cf29001a6cb7",
+      "bodyCharacters": 6321,
+      "wordCount": 1034,
+      "tableRows": 0,
+      "contentLinks": [
+        "/basketball-card-scanner",
+        "/blog/",
+        "/blog/ascended-heroes-card-list",
+        "/blog/chaos-rising-card-list",
+        "/blog/charizard-151-card-value",
+        "/blog/charizard-gx-card-values",
+        "/blog/cufant-card-values",
+        "/blog/dungeon-crawler-carl-trading-cards",
+        "/blog/ivysaur-card-values",
+        "/blog/mega-charizard-x-ex-card-value",
+        "/blog/mew-gg10-card-value",
+        "/blog/minior-pokemon-card-guide",
+        "/blog/moonbreon-card-value",
+        "/blog/phantasmal-flames-card-list",
+        "/blog/pikachu-card-values",
+        "/blog/pokemon-card-values",
+        "/blog/pokemon-tcg-30th-celebration-card-prices",
+        "/blog/pokemon-tcg-set-card-lists",
+        "/blog/raw-vs-graded-card-values",
+        "/blog/rayquaza-vmax-card-values",
+        "/blog/scanning-cards-from-watsontcg",
+        "/blog/what-is-my-trading-card-worth",
+        "/bulk-card-scanner",
+        "/card-ai-vs-collx",
+        "/card-ai-vs-ludex",
+        "/card-collection-tracker",
+        "/card-identifier",
+        "/card-price-checker",
+        "/card-scanner-comparison-2026",
+        "/chrome-extension",
+        "/digimon-card-scanner",
+        "/digital-card-binder",
+        "/dragon-ball-super-card-scanner",
+        "/flesh-and-blood-card-scanner",
+        "/football-card-scanner",
+        "/graded-card-tracker",
+        "/lorcana-card-scanner",
+        "/mtg-card-scanner",
+        "/one-piece-card-scanner",
+        "/pokemon-card-scanner",
+        "/soccer-card-scanner",
+        "/star-wars-unlimited-card-scanner",
+        "/yugioh-card-scanner",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/hero-phones.png",
+          "alt": "Card AI scanning, portfolio, and card detail screens"
+        },
+        {
+          "src": "/assets/feature-icon-recognition.svg",
+          "alt": ""
+        },
+        {
+          "src": "/assets/feature-recognition.png",
+          "alt": "Card recognition preview"
+        },
+        {
+          "src": "/assets/feature-icon-valuations.svg",
+          "alt": ""
+        },
+        {
+          "src": "/assets/feature-valuations.png",
+          "alt": "Collection value chart"
+        },
+        {
+          "src": "/assets/feature-icon-portfolio.svg",
+          "alt": ""
+        },
+        {
+          "src": "/assets/feature-portfolio.png",
+          "alt": "Portfolio management screens"
+        },
+        {
+          "src": "/assets/feature-icon-market-data.svg",
+          "alt": ""
+        },
+        {
+          "src": "/assets/feature-icon-wishlist.svg",
+          "alt": ""
+        },
+        {
+          "src": "/assets/feature-icon-multi-game.svg",
+          "alt": ""
+        },
+        {
+          "src": "/assets/showcase-portfolio.png",
+          "alt": "Portfolio value and performance overview"
+        },
+        {
+          "src": "/assets/showcase-scan.png",
+          "alt": "AI card scanning and recognition preview"
+        },
+        {
+          "src": "/assets/showcase-scan-card.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/card-ai-logo.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/showcase-analysis.png",
+          "alt": "Card market prices and trend analysis"
+        },
+        {
+          "src": "/assets/card-ai-logo.png",
+          "alt": "Card AI logo"
+        },
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        }
+      ],
+      "htmlSha256": "c40d6e4a47b8c61b506dd3104357868c2fce4c91aa5687a287d3ea80489503b6",
+      "localPublicFile": "apps/marketing-web/public/index.html",
+      "localBodyMatchesLive": false,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/basketball-card-scanner",
+      "file": "basketball-card-scanner.html",
+      "status": 200,
+      "bytes": 12276,
+      "title": "Basketball Card Scanner & Value Checker | Card AI",
+      "h1": [
+        "Basketball card scanner and value checker."
+      ],
+      "h2": [
+        "Review the parallel before you save it.",
+        "The parallel is the card",
+        "Rookie cards carry a premium that does not transfer",
+        "Using a Bowman basketball checklist",
+        "Raw and graded basketball cards tracked apart",
+        "Related",
+        "Basketball card scanner questions.",
+        "Try the basketball card scanner in Card AI."
+      ],
+      "canonical": "https://tcgcard.fun/basketball-card-scanner",
+      "normalizedBodySha256": "2be0f6b57bbe85cbff4b13c8ddfc258ad938d907548a3de90f8d31ebe352b91b",
+      "bodyCharacters": 3772,
+      "wordCount": 621,
+      "tableRows": 0,
+      "contentLinks": [
+        "/card-price-checker",
+        "/football-card-scanner",
+        "/soccer-card-scanner",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224",
+        "https://ripped.topps.com/2025-26-bowman-basketball-checklist-spotlight/"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/showcase-scan.png",
+          "alt": "Basketball card scanner: Card AI scan and candidate review screen"
+        },
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        }
+      ],
+      "htmlSha256": "4f99828c3a1ff234709311442cb3c7c9e885d19fffe88113cde389af848e7260",
+      "localPublicFile": "apps/marketing-web/public/basketball-card-scanner.html",
+      "localBodyMatchesLive": false,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/bulk-card-scanner",
+      "file": "bulk-card-scanner.html",
+      "status": 200,
+      "bytes": 11086,
+      "title": "Bulk Card Scanner: Scan a Stack of Cards at Once | Card AI",
+      "h1": [
+        "Bulk card scanner."
+      ],
+      "h2": [
+        "Review a batch before it reaches your collection.",
+        "The bottleneck is entry, not identification",
+        "Find the keepers inside the bulk",
+        "Everything lands in one collection",
+        "Related",
+        "Bulk card scanner questions.",
+        "Try the bulk card scanner in Card AI."
+      ],
+      "canonical": "https://tcgcard.fun/bulk-card-scanner",
+      "normalizedBodySha256": "08749954486e78512aef479d01e93c4d9d3fa34e2c03e8d341b44a0b4733fcdd",
+      "bodyCharacters": 2825,
+      "wordCount": 476,
+      "tableRows": 0,
+      "contentLinks": [
+        "/card-collection-tracker",
+        "/pokemon-card-scanner",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/showcase-scan.png",
+          "alt": "Bulk card scanner: Card AI scan and candidate review screen"
+        },
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        }
+      ],
+      "htmlSha256": "78730ec60dae1d0c2e4f607581aadccf07f19357f1e4d89f64760e92377f28fb",
+      "localPublicFile": "apps/marketing-web/public/bulk-card-scanner.html",
+      "localBodyMatchesLive": true,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/card-ai-vs-collx",
+      "file": "card-ai-vs-collx.html",
+      "status": 200,
+      "bytes": 11452,
+      "title": "Card AI vs CollX: Prices and Collection | Card AI",
+      "h1": [
+        "Card AI vs CollX: what does the price represent?"
+      ],
+      "h2": [
+        "Card AI keeps the selected copy visible.",
+        "Variant, condition and price are separate decisions",
+        "A useful test with two copies of one card",
+        "Read the source of the number",
+        "Related",
+        "Card AI vs CollX questions.",
+        "Try the collection tracker in Card AI."
+      ],
+      "canonical": "https://tcgcard.fun/card-ai-vs-collx",
+      "normalizedBodySha256": "379842d34f86e5787a75aba2475dfdda803625136e1aacdb66c2b877cea526fd",
+      "bodyCharacters": 3437,
+      "wordCount": 567,
+      "tableRows": 5,
+      "contentLinks": [
+        "/card-price-checker",
+        "/card-scanner-comparison-2026",
+        "/graded-card-tracker",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224",
+        "https://www.collx.app/faq"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/showcase-analysis.png",
+          "alt": "Card AI vs CollX: Card AI market prices and price history screen"
+        },
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        }
+      ],
+      "htmlSha256": "c0d82ad867c3c23a7b955c34b2e01239106a58ddf4316500233fead216e6a87b",
+      "localPublicFile": "apps/marketing-web/public/card-ai-vs-collx.html",
+      "localBodyMatchesLive": true,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/card-ai-vs-ludex",
+      "file": "card-ai-vs-ludex.html",
+      "status": 200,
+      "bytes": 11114,
+      "title": "Card AI vs Ludex: Scan, Price and List | Card AI",
+      "h1": [
+        "Card AI vs Ludex: scan to collection or scan to listing?"
+      ],
+      "h2": [
+        "Card AI makes each match a review decision.",
+        "The documented path after a scan",
+        "Choose based on selling plans",
+        "How to compare the two fairly",
+        "Related",
+        "Card AI vs Ludex questions.",
+        "Try the card scanner in Card AI."
+      ],
+      "canonical": "https://tcgcard.fun/card-ai-vs-ludex",
+      "normalizedBodySha256": "0b6536d99e4f19dfef1b115a87e7bbe49835daa23560827a7be2d87051e5d5f1",
+      "bodyCharacters": 3048,
+      "wordCount": 518,
+      "tableRows": 4,
+      "contentLinks": [
+        "/bulk-card-scanner",
+        "/card-collection-tracker",
+        "/card-scanner-comparison-2026",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224",
+        "https://www.ludex.com/scan-and-price/"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/showcase-scan.png",
+          "alt": "Card AI vs Ludex: Card AI scan and candidate review screen"
+        },
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        }
+      ],
+      "htmlSha256": "26340649600f0c4ce38b98b4feb53f8ed1348caccbedec39f21214920613916e",
+      "localPublicFile": "apps/marketing-web/public/card-ai-vs-ludex.html",
+      "localBodyMatchesLive": true,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/card-collection-tracker",
+      "file": "card-collection-tracker.html",
+      "status": 200,
+      "bytes": 15380,
+      "title": "Card Collection Tracker & Value App | Card AI",
+      "h1": [
+        "Trading card collection tracker."
+      ],
+      "h2": [
+        "See holdings and current value in one portfolio.",
+        "A collection becomes useful when it becomes a portfolio",
+        "Valuation keeps each holding distinct",
+        "Price history explains the portfolio movement",
+        "Keep a set checklist separate from your holdings",
+        "Related",
+        "Card collection tracker questions.",
+        "Track your collection in the Card AI app."
+      ],
+      "canonical": "https://tcgcard.fun/card-collection-tracker",
+      "normalizedBodySha256": "86da4937fafb03ce2a0312ddc1d2832136ff2939f08ddcf69dac79224b8e1d92",
+      "bodyCharacters": 4748,
+      "wordCount": 774,
+      "tableRows": 0,
+      "contentLinks": [
+        "/blog/ascended-heroes-card-list",
+        "/blog/chaos-rising-card-list",
+        "/blog/phantasmal-flames-card-list",
+        "/blog/pokemon-card-values",
+        "/bulk-card-scanner",
+        "/digital-card-binder",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/showcase-portfolio.png",
+          "alt": "Card collection tracker: Card AI collection value and portfolio screen"
+        },
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        }
+      ],
+      "htmlSha256": "7cafb9b84e9459054df79fb3d740b2eb4c04c0cb1eb7f05a1e189ed6c0a91210",
+      "localPublicFile": "apps/marketing-web/public/card-collection-tracker.html",
+      "localBodyMatchesLive": false,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/card-identifier",
+      "file": "card-identifier.html",
+      "status": 200,
+      "bytes": 12802,
+      "title": "Trading Card Identifier From a Photo | Card AI",
+      "h1": [
+        "Trading card identifier."
+      ],
+      "h2": [
+        "See the candidate before you confirm the card.",
+        "Naming a card is the easy half",
+        "What the card photo scanner reads",
+        "Card search by photo, or by text",
+        "Where image recognition struggles, and what to do",
+        "Related",
+        "Card identifier questions.",
+        "Identify a card in the Card AI app."
+      ],
+      "canonical": "https://tcgcard.fun/card-identifier",
+      "normalizedBodySha256": "ab804e92ba9c3b6f509333216271b59863a28a6e6f5354be2563f0e266f94313",
+      "bodyCharacters": 3809,
+      "wordCount": 631,
+      "tableRows": 0,
+      "contentLinks": [
+        "/bulk-card-scanner",
+        "/card-price-checker",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/showcase-scan.png",
+          "alt": "Card identifier: Card AI scan and candidate review screen"
+        },
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        }
+      ],
+      "htmlSha256": "a3ace3cd1b32120cf746705317a644cafd3d5a78b2003229ea7a9e43862f4795",
+      "localPublicFile": "apps/marketing-web/public/card-identifier.html",
+      "localBodyMatchesLive": true,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/card-price-checker",
+      "file": "card-price-checker.html",
+      "status": 200,
+      "bytes": 21416,
+      "title": "How Much Is This Card Worth? Card Price Checker | Card AI",
+      "h1": [
+        "How much is this trading card worth?"
+      ],
+      "h2": [
+        "Inspect the price behind the card record.",
+        "One price for a card is usually the wrong price",
+        "Price history matters more than the current price",
+        "Two ways to use the card price scanner",
+        "How to check Pokemon TCG card prices",
+        "Find the price for a specific Pokemon printing",
+        "From price check to portfolio",
+        "Published prices and marketplace research",
+        "Tracking prices after the check",
+        "Related",
+        "Card price checker questions.",
+        "Check card prices in the Card AI app."
+      ],
+      "canonical": "https://tcgcard.fun/card-price-checker",
+      "normalizedBodySha256": "78862c46fbeb46e1802369d44541a7690c2f187066c906da4c547e92e6b236f3",
+      "bodyCharacters": 8118,
+      "wordCount": 1407,
+      "tableRows": 0,
+      "contentLinks": [
+        "/blog/charizard-151-card-value",
+        "/blog/charizard-gx-card-values",
+        "/blog/mega-charizard-x-ex-card-value",
+        "/blog/mew-gg10-card-value",
+        "/blog/moonbreon-card-value",
+        "/blog/pikachu-card-values",
+        "/blog/pokemon-card-values",
+        "/blog/pokemon-tcg-30th-celebration-card-prices",
+        "/blog/rayquaza-vmax-card-values",
+        "/card-identifier",
+        "/card-scanner-comparison-2026",
+        "/graded-card-tracker",
+        "/pokemon-card-scanner",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/showcase-analysis.png",
+          "alt": "Card price checker: Card AI market prices and price history screen"
+        },
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        }
+      ],
+      "htmlSha256": "2c46e82dba044d4ad4eab9b76568a2bd834b8a59142921b61b01e1cdd7311967",
+      "localPublicFile": "apps/marketing-web/public/card-price-checker.html",
+      "localBodyMatchesLive": false,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/card-scanner-comparison-2026",
+      "file": "card-scanner-comparison-2026.html",
+      "status": 200,
+      "bytes": 13679,
+      "title": "Trading Card Scanner Apps Compared in 2026 | Card AI",
+      "h1": [
+        "Trading card scanner apps compared in 2026."
+      ],
+      "h2": [
+        "Card AI uses a review queue for up to 10 images.",
+        "What each product documents",
+        "Pick the tool by the next action",
+        "What does a free sports card scanner app actually include?",
+        "Check the card before trusting any price",
+        "Related",
+        "Card scanner app comparison 2026 questions.",
+        "Try the card scanner in Card AI."
+      ],
+      "canonical": "https://tcgcard.fun/card-scanner-comparison-2026",
+      "normalizedBodySha256": "489ea7b0a64f8e917093c01fb232592d0acba57ad5fa78e17409bba1fd99d7fb",
+      "bodyCharacters": 4937,
+      "wordCount": 807,
+      "tableRows": 7,
+      "contentLinks": [
+        "/bulk-card-scanner",
+        "/card-ai-vs-collx",
+        "/card-ai-vs-ludex",
+        "/card-collection-tracker",
+        "/card-price-checker",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224",
+        "https://www.cardladder.com/pricing",
+        "https://www.centerstagehq.com/faq",
+        "https://www.collx.app/",
+        "https://www.collx.app/faq",
+        "https://www.ludex.com/scan-and-price/",
+        "https://www.pricecharting.com/page/collection-tracker"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/showcase-scan.png",
+          "alt": "Card scanner app comparison 2026: Card AI scan and candidate review screen"
+        },
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        }
+      ],
+      "htmlSha256": "aca7ef812f12da36e7aae572ef006b556ef4139f1659cce68d2ad7ac79925ff6",
+      "localPublicFile": "apps/marketing-web/public/card-scanner-comparison-2026.html",
+      "localBodyMatchesLive": true,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/chrome-extension",
+      "file": "chrome-extension.html",
+      "status": 200,
+      "bytes": 12123,
+      "title": "Chrome Card Recognizer for Pokémon and TCG | Card AI",
+      "h1": [
+        "Recognize cards while you browse."
+      ],
+      "h2": [
+        "From a web image to candidate cards.",
+        "Recognize cards on ordinary webpages",
+        "Choose TCG or sports-card recognition",
+        "Adjust the crop and review likely matches",
+        "Use a Pokémon checklist for set-level research",
+        "Image processing and reference prices",
+        "Independent collector tool",
+        "Related",
+        "Chrome card recognizer questions.",
+        "Recognize a card on the page you are viewing."
+      ],
+      "canonical": "https://tcgcard.fun/chrome-extension",
+      "normalizedBodySha256": "ae216d91ae21f065ff893fe19e0e61a55c70e8d728d8b524cf0bf6d29a468e9b",
+      "bodyCharacters": 3857,
+      "wordCount": 627,
+      "tableRows": 0,
+      "contentLinks": [
+        "/blog/pokemon-tcg-30th-celebration-card-prices",
+        "/card-price-checker",
+        "/pokemon-card-scanner",
+        "https://chromewebstore.google.com/detail/tcg-card-recognizer-%E2%80%94-tcg/hggmhmclihnigdmgcbggblhmjjlpaemn?utm_source=tcgcard.fun&utm_medium=referral&utm_campaign=chrome_extension_page"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/chrome-extension-recognition.png",
+          "alt": "Chrome card recognizer: Chrome extension recognition panel on a webpage with a sample card image"
+        }
+      ],
+      "htmlSha256": "2eb971f57519dccffe2f3e195edbfda8c499923396e445fc8c16f3613369c976",
+      "localPublicFile": "apps/marketing-web/public/chrome-extension.html",
+      "localBodyMatchesLive": false,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/digimon-card-scanner",
+      "file": "digimon-card-scanner.html",
+      "status": 200,
+      "bytes": 10628,
+      "title": "Digimon Card Scanner & Value Checker | Card AI",
+      "h1": [
+        "Digimon card scanner and value checker."
+      ],
+      "h2": [
+        "Confirm alternate art in the review flow.",
+        "Alternate art and parallel rares carry the premium",
+        "Promos and set cards are not interchangeable",
+        "Raw and graded, tracked separately",
+        "Related",
+        "Digimon card scanner questions.",
+        "Try the digimon card scanner in Card AI."
+      ],
+      "canonical": "https://tcgcard.fun/digimon-card-scanner",
+      "normalizedBodySha256": "aa876829b4554a2393b6a27282c44fd6a2bc3243f900a0adf8f4a69221cd9086",
+      "bodyCharacters": 2551,
+      "wordCount": 425,
+      "tableRows": 0,
+      "contentLinks": [
+        "/card-price-checker",
+        "/dragon-ball-super-card-scanner",
+        "/lorcana-card-scanner",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/showcase-scan.png",
+          "alt": "Digimon card scanner: Card AI scan and candidate review screen"
+        },
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        }
+      ],
+      "htmlSha256": "68e8820e2472c0cf20bc21e854646f23ad6ee5f356ff99403cc6de2db16df0c9",
+      "localPublicFile": "apps/marketing-web/public/digimon-card-scanner.html",
+      "localBodyMatchesLive": true,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/digital-card-binder",
+      "file": "digital-card-binder.html",
+      "status": 200,
+      "bytes": 13060,
+      "title": "Digital Card Binder & Collection Catalog | Card AI",
+      "h1": [
+        "Digital card binder and catalog."
+      ],
+      "h2": [
+        "Turn saved cards into a searchable inventory.",
+        "The problem a physical binder does not solve",
+        "A card catalog that holds the details",
+        "Quantities and distinct copies",
+        "Search and filters replace memory",
+        "Related",
+        "Digital card binder questions.",
+        "Try the digital card binder in Card AI."
+      ],
+      "canonical": "https://tcgcard.fun/digital-card-binder",
+      "normalizedBodySha256": "27da74e7588d57bc34c7bacb09ac68796968bb81a0cc93dbbc0e2e69e41cb1f8",
+      "bodyCharacters": 3706,
+      "wordCount": 620,
+      "tableRows": 0,
+      "contentLinks": [
+        "/bulk-card-scanner",
+        "/card-collection-tracker",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/showcase-portfolio.png",
+          "alt": "Digital card binder: Card AI collection value and portfolio screen"
+        },
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        }
+      ],
+      "htmlSha256": "b54f47f7abed678722e78c6789c407826d7c67fb7306b01a2cf964a5d7bee8f9",
+      "localPublicFile": "apps/marketing-web/public/digital-card-binder.html",
+      "localBodyMatchesLive": true,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/dragon-ball-super-card-scanner",
+      "file": "dragon-ball-super-card-scanner.html",
+      "status": 200,
+      "bytes": 10814,
+      "title": "Dragon Ball Super Card Scanner & Value Checker | Card AI",
+      "h1": [
+        "Dragon Ball Super card scanner."
+      ],
+      "h2": [
+        "Review rarity and printing details together.",
+        "Rarity tier decides the price",
+        "Leaders and alternate art are separate positions",
+        "Track a set as it moves",
+        "Related",
+        "Dragon Ball Super card scanner questions.",
+        "Try the dragon Ball Super card scanner in Card AI."
+      ],
+      "canonical": "https://tcgcard.fun/dragon-ball-super-card-scanner",
+      "normalizedBodySha256": "518c577ecb1df5e8ff615c8814d4b899627c95cf94f32178b90744e9409771ea",
+      "bodyCharacters": 2575,
+      "wordCount": 429,
+      "tableRows": 0,
+      "contentLinks": [
+        "/card-price-checker",
+        "/digimon-card-scanner",
+        "/yugioh-card-scanner",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/showcase-scan.png",
+          "alt": "Dragon Ball Super card scanner: Card AI scan and candidate review screen"
+        },
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        }
+      ],
+      "htmlSha256": "79d3d13e840d3e106baf5987005ab338d8ed486336e9106f64119b77ffab4f66",
+      "localPublicFile": "apps/marketing-web/public/dragon-ball-super-card-scanner.html",
+      "localBodyMatchesLive": true,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/flesh-and-blood-card-scanner",
+      "file": "flesh-and-blood-card-scanner.html",
+      "status": 200,
+      "bytes": 10680,
+      "title": "Flesh and Blood Card Scanner & Value Checker | Card AI",
+      "h1": [
+        "Flesh and Blood card scanner."
+      ],
+      "h2": [
+        "Confirm the foil treatment before pricing.",
+        "Foiling is a pricing tier, not a cosmetic detail",
+        "Legendary, Fabled and Majestic sit on their own curves",
+        "First edition and unlimited printings",
+        "Related",
+        "Flesh and Blood card scanner questions.",
+        "Try the flesh and Blood card scanner in Card AI."
+      ],
+      "canonical": "https://tcgcard.fun/flesh-and-blood-card-scanner",
+      "normalizedBodySha256": "f033f7c15d722c29ed2da7a1329bae18ee8cda03dda054df18b3949f69193849",
+      "bodyCharacters": 2551,
+      "wordCount": 435,
+      "tableRows": 0,
+      "contentLinks": [
+        "/card-price-checker",
+        "/star-wars-unlimited-card-scanner",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/showcase-scan.png",
+          "alt": "Flesh and Blood card scanner: Card AI scan and candidate review screen"
+        },
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        }
+      ],
+      "htmlSha256": "9e979e5493c70abeb44a13ed4b47a0e4c195d8bc715fe407f8feebf73f16dc92",
+      "localPublicFile": "apps/marketing-web/public/flesh-and-blood-card-scanner.html",
+      "localBodyMatchesLive": true,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/football-card-scanner",
+      "file": "football-card-scanner.html",
+      "status": 200,
+      "bytes": 11885,
+      "title": "Football Card Scanner: Check Football Card Values | Card AI",
+      "h1": [
+        "Football card scanner and value checker."
+      ],
+      "h2": [
+        "Review the rookie printing and parallel.",
+        "Rookie year is the dividing line",
+        "Autographs, patches and parallels are separate markets",
+        "2025 Phoenix Football checklist: confirm the parallel",
+        "Condition and grade kept apart",
+        "Related",
+        "Football card scanner questions.",
+        "Try the football card scanner in Card AI."
+      ],
+      "canonical": "https://tcgcard.fun/football-card-scanner",
+      "normalizedBodySha256": "9e879461a364c303d3abbd2d859b8a850ec213262af4143779d95389117ea324",
+      "bodyCharacters": 3496,
+      "wordCount": 567,
+      "tableRows": 0,
+      "contentLinks": [
+        "/basketball-card-scanner",
+        "/card-price-checker",
+        "/soccer-card-scanner",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224",
+        "https://www.checklistinsider.com/2025-panini-phoenix-football",
+        "https://www.paniniamerica.net/checklist.html"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/showcase-scan.png",
+          "alt": "Football card scanner: Card AI scan and candidate review screen"
+        },
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        }
+      ],
+      "htmlSha256": "920680845d65ee26acb62b2d03df3aae20902f5d7de2e5df6ad0512bd3a34ae6",
+      "localPublicFile": "apps/marketing-web/public/football-card-scanner.html",
+      "localBodyMatchesLive": false,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/graded-card-tracker",
+      "file": "graded-card-tracker.html",
+      "status": 200,
+      "bytes": 10835,
+      "title": "Graded Card Tracker: Raw vs Graded Values | Card AI",
+      "h1": [
+        "Graded and raw card tracker."
+      ],
+      "h2": [
+        "Compare raw and graded markets without predicting a grade.",
+        "Grade is a market, not a label",
+        "Raw and slabbed copies of the same card, side by side",
+        "What this does not do",
+        "Related",
+        "Graded card tracker questions.",
+        "Try the graded card tracker in Card AI."
+      ],
+      "canonical": "https://tcgcard.fun/graded-card-tracker",
+      "normalizedBodySha256": "5ce8e07cff1c27787455011a53a244da33298b42cb399ec5885bd6d6c74e8e7d",
+      "bodyCharacters": 2641,
+      "wordCount": 469,
+      "tableRows": 0,
+      "contentLinks": [
+        "/card-collection-tracker",
+        "/card-price-checker",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/showcase-analysis.png",
+          "alt": "Graded card tracker: Card AI market prices and price history screen"
+        },
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        }
+      ],
+      "htmlSha256": "37a0e9ad84bebfa15ec0a238f0c1f6f974222c5a492bd37011829bc243e92afa",
+      "localPublicFile": "apps/marketing-web/public/graded-card-tracker.html",
+      "localBodyMatchesLive": true,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/lorcana-card-scanner",
+      "file": "lorcana-card-scanner.html",
+      "status": 200,
+      "bytes": 10889,
+      "title": "Lorcana Card Scanner & Value Checker | Card AI",
+      "h1": [
+        "Lorcana card scanner and collection tracker."
+      ],
+      "h2": [
+        "Confirm enchanted and foil treatments in Review.",
+        "Enchanted versions sit in a different price bracket",
+        "Foil and non-foil are tracked apart",
+        "A young game, but the same tracking problem",
+        "Related",
+        "Lorcana card scanner questions.",
+        "Try the lorcana card scanner in Card AI."
+      ],
+      "canonical": "https://tcgcard.fun/lorcana-card-scanner",
+      "normalizedBodySha256": "8d1f7d28d7e53ca2efc2697062786e8794bd2fceca7420275ec2b15b098e42e8",
+      "bodyCharacters": 2712,
+      "wordCount": 436,
+      "tableRows": 0,
+      "contentLinks": [
+        "/card-price-checker",
+        "/digimon-card-scanner",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/showcase-scan.png",
+          "alt": "Lorcana card scanner: Card AI scan and candidate review screen"
+        },
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        }
+      ],
+      "htmlSha256": "646f90d0252771245a05e8621114266820487c345e74ebffdc4b7f7bfe545027",
+      "localPublicFile": "apps/marketing-web/public/lorcana-card-scanner.html",
+      "localBodyMatchesLive": true,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/mtg-card-scanner",
+      "file": "mtg-card-scanner.html",
+      "status": 200,
+      "bytes": 11843,
+      "title": "MTG Card Scanner & Collection Tracker | Card AI",
+      "h1": [
+        "MTG card scanner and collection tracker."
+      ],
+      "h2": [
+        "Review the set, collector number, and treatment.",
+        "Reprints are the hard part of scanning Magic cards",
+        "Foil, borderless and showcase treatments are separate cards to the market",
+        "Track the value of a collection built over years",
+        "Look up a card without scanning it",
+        "Related",
+        "MTG card scanner questions.",
+        "Try the mTG card scanner in Card AI."
+      ],
+      "canonical": "https://tcgcard.fun/mtg-card-scanner",
+      "normalizedBodySha256": "084de8479c4bf594db58558714cbe1dee4d9cb582c72dc113025494372b359cc",
+      "bodyCharacters": 3472,
+      "wordCount": 587,
+      "tableRows": 0,
+      "contentLinks": [
+        "/card-price-checker",
+        "/pokemon-card-scanner",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/showcase-scan.png",
+          "alt": "MTG card scanner: Card AI scan and candidate review screen"
+        },
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        }
+      ],
+      "htmlSha256": "1a493bb3296535b275ad3c6ba99e8d6f71f3ba1b9537bfb973a034415c7cc6ca",
+      "localPublicFile": "apps/marketing-web/public/mtg-card-scanner.html",
+      "localBodyMatchesLive": true,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/one-piece-card-scanner",
+      "file": "one-piece-card-scanner.html",
+      "status": 200,
+      "bytes": 11553,
+      "title": "One Piece Card Scanner & Value Checker | Card AI",
+      "h1": [
+        "One Piece card scanner and value tracker."
+      ],
+      "h2": [
+        "Compare the artwork before confirming the match.",
+        "Alternate art is where the money is",
+        "Leader cards and parallels tracked as their own entries",
+        "One Piece TCG card list: verify the set and number",
+        "Japanese and English copies are separate markets",
+        "Related",
+        "One Piece card scanner questions.",
+        "Try the one Piece card scanner in Card AI."
+      ],
+      "canonical": "https://tcgcard.fun/one-piece-card-scanner",
+      "normalizedBodySha256": "14f4321c03ebddc89c8cbaf19e346626b4b80f4cfae081280fcf60551783f67e",
+      "bodyCharacters": 3244,
+      "wordCount": 547,
+      "tableRows": 0,
+      "contentLinks": [
+        "/card-price-checker",
+        "/pokemon-card-scanner",
+        "/yugioh-card-scanner",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224",
+        "https://en.onepiece-cardgame.com/cardlist/"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/showcase-scan.png",
+          "alt": "One Piece card scanner: Card AI scan and candidate review screen"
+        },
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        }
+      ],
+      "htmlSha256": "888ba266376c1808a5f2dd46ed1b4b7d7e471b84aaf35889585ad048393bda82",
+      "localPublicFile": "apps/marketing-web/public/one-piece-card-scanner.html",
+      "localBodyMatchesLive": true,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/pokemon-card-scanner",
+      "file": "pokemon-card-scanner.html",
+      "status": 200,
+      "bytes": 19187,
+      "title": "Pokemon Card Scanner App & Value Checker | Card AI",
+      "h1": [
+        "Pokemon card scanner and value checker."
+      ],
+      "h2": [
+        "Review the printing before checking its value.",
+        "Why the exact printing decides the price",
+        "Raw and graded Pokemon cards are priced separately",
+        "Scan a stack, not one card at a time",
+        "From a photo to a price and a collection record",
+        "Check a card list before confirming the scan",
+        "Check similar artwork and reprints in Review",
+        "Watch your Pokemon collection value move",
+        "Related",
+        "Pokemon card scanner questions.",
+        "Scan Pokemon cards in the Card AI app."
+      ],
+      "canonical": "https://tcgcard.fun/pokemon-card-scanner",
+      "normalizedBodySha256": "71451da38d560d29bbb0ce365f0e84c657130a2c49d774419981ec1f9ea55103",
+      "bodyCharacters": 7312,
+      "wordCount": 1255,
+      "tableRows": 0,
+      "contentLinks": [
+        "/blog/ascended-heroes-card-list",
+        "/blog/chaos-rising-card-list",
+        "/blog/charizard-151-card-value",
+        "/blog/charizard-gx-card-values",
+        "/blog/cufant-card-values",
+        "/blog/ivysaur-card-values",
+        "/blog/mega-charizard-x-ex-card-value",
+        "/blog/mew-gg10-card-value",
+        "/blog/minior-pokemon-card-guide",
+        "/blog/moonbreon-card-value",
+        "/blog/phantasmal-flames-card-list",
+        "/blog/pikachu-card-values",
+        "/blog/pokemon-card-values",
+        "/blog/pokemon-tcg-30th-celebration-card-prices",
+        "/blog/pokemon-tcg-set-card-lists",
+        "/blog/rayquaza-vmax-card-values",
+        "/card-price-checker",
+        "/mtg-card-scanner",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/showcase-scan.png",
+          "alt": "Pokemon card scanner: Card AI scan and candidate review screen"
+        },
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        }
+      ],
+      "htmlSha256": "9b3fd8eaf2b905504134c86564805a8230c5d80b70aac12ac5c995ffca2f03f6",
+      "localPublicFile": "apps/marketing-web/public/pokemon-card-scanner.html",
+      "localBodyMatchesLive": false,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/soccer-card-scanner",
+      "file": "soccer-card-scanner.html",
+      "status": 200,
+      "bytes": 10879,
+      "title": "Soccer Card Scanner: Check Soccer Card Values | Card AI",
+      "h1": [
+        "Soccer card scanner and value checker."
+      ],
+      "h2": [
+        "Confirm the release and numbered parallel.",
+        "Tournament years reprice the market",
+        "The same player across many releases",
+        "Raw and graded copies valued separately",
+        "Related",
+        "Soccer card scanner questions.",
+        "Try the soccer card scanner in Card AI."
+      ],
+      "canonical": "https://tcgcard.fun/soccer-card-scanner",
+      "normalizedBodySha256": "d9fe7860f74d9d512447d5f80c6b982b8719b2c508790f52bad1ee51e0c06b32",
+      "bodyCharacters": 2692,
+      "wordCount": 437,
+      "tableRows": 0,
+      "contentLinks": [
+        "/basketball-card-scanner",
+        "/card-price-checker",
+        "/football-card-scanner",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/showcase-scan.png",
+          "alt": "Soccer card scanner: Card AI scan and candidate review screen"
+        },
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        }
+      ],
+      "htmlSha256": "cfbbfe9817c004495d2ff1495eed741430ec4143e5de0c02c62365876712564d",
+      "localPublicFile": "apps/marketing-web/public/soccer-card-scanner.html",
+      "localBodyMatchesLive": true,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/star-wars-unlimited-card-scanner",
+      "file": "star-wars-unlimited-card-scanner.html",
+      "status": 200,
+      "bytes": 10529,
+      "title": "Star Wars Unlimited Card Scanner & Value Checker | Card AI",
+      "h1": [
+        "Star Wars Unlimited card scanner."
+      ],
+      "h2": [
+        "Review hyperspace, showcase, and foil details.",
+        "Variants are the pricing question",
+        "Leaders and bases behave differently from the main set",
+        "Raw and graded copies kept apart",
+        "Related",
+        "Star Wars Unlimited card scanner questions.",
+        "Try the star Wars Unlimited card scanner in Card AI."
+      ],
+      "canonical": "https://tcgcard.fun/star-wars-unlimited-card-scanner",
+      "normalizedBodySha256": "283f36cdd791583627ca83acf0d6ae7dd41d3ac85483de089d31da116149e4bb",
+      "bodyCharacters": 2402,
+      "wordCount": 388,
+      "tableRows": 0,
+      "contentLinks": [
+        "/card-price-checker",
+        "/flesh-and-blood-card-scanner",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/showcase-scan.png",
+          "alt": "Star Wars Unlimited card scanner: Card AI scan and candidate review screen"
+        },
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        }
+      ],
+      "htmlSha256": "b0db6e633fe731d31fe664b6ae343cb49400086f751f5411b274092718becb33",
+      "localPublicFile": "apps/marketing-web/public/star-wars-unlimited-card-scanner.html",
+      "localBodyMatchesLive": true,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/yugioh-card-scanner",
+      "file": "yugioh-card-scanner.html",
+      "status": 200,
+      "bytes": 11287,
+      "title": "Yu-Gi-Oh! Card Scanner & Value Checker | Card AI",
+      "h1": [
+        "Yu-Gi-Oh! card scanner and value checker."
+      ],
+      "h2": [
+        "Review rarity and edition before pricing.",
+        "Rarity tiers are the whole game in Yu-Gi-Oh! pricing",
+        "First Edition and Unlimited are different markets",
+        "Raw condition and slab grades tracked apart",
+        "Related",
+        "Yu-Gi-Oh! card scanner questions.",
+        "Try the yu-Gi-Oh! card scanner in Card AI."
+      ],
+      "canonical": "https://tcgcard.fun/yugioh-card-scanner",
+      "normalizedBodySha256": "2750c9d673a7f805f10f62db9813d442c210a212bca8de189cb527819b0788ce",
+      "bodyCharacters": 3062,
+      "wordCount": 507,
+      "tableRows": 0,
+      "contentLinks": [
+        "/card-price-checker",
+        "/one-piece-card-scanner",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/showcase-scan.png",
+          "alt": "Yu-Gi-Oh! card scanner: Card AI scan and candidate review screen"
+        },
+        {
+          "src": "/assets/apple-store-icon.png",
+          "alt": ""
+        },
+        {
+          "src": "/assets/google-play-icon.png",
+          "alt": ""
+        }
+      ],
+      "htmlSha256": "8af7af92c5fab4e3550443c2803780e61992f1e7c3017890d3454a56e9ce1ae2",
+      "localPublicFile": "apps/marketing-web/public/yugioh-card-scanner.html",
+      "localBodyMatchesLive": true,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/blog/",
+      "file": "blog-index.html",
+      "status": 200,
+      "bytes": 18206,
+      "title": "Card AI Blog: Trading Card Values & Collecting Guides",
+      "h1": [
+        "Trading card values, scanning, and collecting."
+      ],
+      "h2": [
+        "Ascended Heroes card list and printing guide",
+        "Chaos Rising card list and price reference",
+        "Charizard 151: compare 006/165, 183/165 and 199/165",
+        "Charizard GX: separate Hidden Fates, stamped and promo copies",
+        "Cufant card values: compare the set and full number",
+        "Ivysaur card values: 151 and Base Set are different records",
+        "Mega Charizard X ex: check the Phantasmal Flames printing",
+        "Mew GG10: check Crown Zenith GG10/GG70 before pricing",
+        "Moonbreon: identify Umbreon VMAX 215/203 before pricing",
+        "Phantasmal Flames card list and price reference",
+        "Pikachu card values start with the set and number",
+        "Find a Pokemon card value by its exact printing",
+        "Rayquaza VMAX values depend on the set and card number",
+        "Pokemon TCG set card lists: identify a card before checking its price",
+        "Dungeon Crawler Carl trading cards: Series 1 cards and packs",
+        "Minior Pokemon cards: identify the printing before checking value",
+        "How to scan cards bought at WatsonTCG",
+        "Pokemon 30th anniversary: 30th Celebration cards and prices",
+        "What is my trading card worth?",
+        "Raw vs graded cards, and what grading does to value"
+      ],
+      "canonical": "https://tcgcard.fun/blog/",
+      "normalizedBodySha256": "56b511fd4786a4f9a2d7970c9a224e5c1bd285f48eca3da90eab127d9bc39368",
+      "bodyCharacters": 4379,
+      "wordCount": 662,
+      "tableRows": 0,
+      "contentLinks": [
+        "/blog/ascended-heroes-card-list",
+        "/blog/chaos-rising-card-list",
+        "/blog/charizard-151-card-value",
+        "/blog/charizard-gx-card-values",
+        "/blog/cufant-card-values",
+        "/blog/dungeon-crawler-carl-trading-cards",
+        "/blog/ivysaur-card-values",
+        "/blog/mega-charizard-x-ex-card-value",
+        "/blog/mew-gg10-card-value",
+        "/blog/minior-pokemon-card-guide",
+        "/blog/moonbreon-card-value",
+        "/blog/phantasmal-flames-card-list",
+        "/blog/pikachu-card-values",
+        "/blog/pokemon-card-values",
+        "/blog/pokemon-tcg-30th-celebration-card-prices",
+        "/blog/pokemon-tcg-set-card-lists",
+        "/blog/raw-vs-graded-card-values",
+        "/blog/rayquaza-vmax-card-values",
+        "/blog/scanning-cards-from-watsontcg",
+        "/blog/what-is-my-trading-card-worth"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/showcase-portfolio.png",
+          "alt": "Card AI collection and confirmed card records example"
+        },
+        {
+          "src": "/assets/showcase-analysis.png",
+          "alt": "Card AI reference prices and price history example"
+        },
+        {
+          "src": "/assets/showcase-scan.png",
+          "alt": "Card AI suggested card candidates and review example"
+        },
+        {
+          "src": "/assets/showcase-analysis.png",
+          "alt": "Card AI raw and graded price reference example"
+        },
+        {
+          "src": "/assets/showcase-analysis.png",
+          "alt": "Card AI market price reference screen example"
+        },
+        {
+          "src": "/assets/showcase-analysis.png",
+          "alt": "Card AI price and history screen example"
+        },
+        {
+          "src": "/assets/showcase-analysis.png",
+          "alt": "Card AI published market price and history example"
+        },
+        {
+          "src": "/assets/showcase-analysis.png",
+          "alt": "Card AI card value reference screen example"
+        },
+        {
+          "src": "/assets/showcase-analysis.png",
+          "alt": "Card AI raw and graded price reference example"
+        },
+        {
+          "src": "/assets/showcase-analysis.png",
+          "alt": "Card AI published prices and history example"
+        },
+        {
+          "src": "/assets/showcase-portfolio.png",
+          "alt": "Card AI confirmed holdings and portfolio example"
+        },
+        {
+          "src": "/assets/showcase-analysis.png",
+          "alt": "Card AI card price and history screen example"
+        },
+        {
+          "src": "/assets/showcase-analysis.png",
+          "alt": "Card AI price reference and history example"
+        },
+        {
+          "src": "/assets/showcase-scan.png",
+          "alt": "Card AI scan and candidate review screen"
+        },
+        {
+          "src": "/assets/showcase-scan.png",
+          "alt": "Card AI scan and candidate review screen"
+        },
+        {
+          "src": "/assets/showcase-scan.png",
+          "alt": "Card AI scan and candidate review screen"
+        },
+        {
+          "src": "/assets/showcase-scan.png",
+          "alt": "Card AI scan and candidate review screen"
+        },
+        {
+          "src": "/assets/showcase-analysis.png",
+          "alt": "Card AI market prices and price history view"
+        },
+        {
+          "src": "/assets/showcase-analysis.png",
+          "alt": "Card AI card market prices and trend analysis"
+        },
+        {
+          "src": "/assets/showcase-analysis.png",
+          "alt": "Card AI market prices and price history view"
+        }
+      ],
+      "htmlSha256": "dd9c151d84187f1d8dbef6ffcbc30d1815ff328d2da74493c10c12d2d56a102b",
+      "localPublicFile": "apps/marketing-web/public/blog/index.html",
+      "localBodyMatchesLive": false,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/blog/ascended-heroes-card-list",
+      "file": "blog__ascended-heroes-card-list.html",
+      "status": 200,
+      "bytes": 139000,
+      "title": "Ascended Heroes Card List and Prices | Card AI",
+      "h1": [
+        "Ascended Heroes card list and printing guide"
+      ],
+      "h2": [
+        "One card number can have several finishes",
+        "Browse the Ascended Heroes card list",
+        "How to compare an Ascended Heroes card",
+        "Prices and checklist completion answer different questions"
+      ],
+      "canonical": "https://tcgcard.fun/blog/ascended-heroes-card-list",
+      "normalizedBodySha256": "2afecfc53338c12cbbb3de24de841b24e51e62287e32ab218a826677d05fc623",
+      "bodyCharacters": 32655,
+      "wordCount": 5291,
+      "tableRows": 296,
+      "contentLinks": [
+        "#card-list",
+        "/blog/",
+        "/blog/chaos-rising-card-list",
+        "/blog/mega-charizard-x-ex-card-value",
+        "/blog/phantasmal-flames-card-list",
+        "/card-collection-tracker",
+        "/digital-card-binder",
+        "/pokemon-card-scanner",
+        "https://d1i787aglh9bmb.cloudfront.net/assets/img/me-expansions/me2dot5/gallery/_pdfs/ME02pt5_Card_List_EN.pdf",
+        "https://tcg.pokemon.com/en-us/galleries/ascended-heroes/"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/showcase-portfolio.png",
+          "alt": "Card AI collection and confirmed card records example"
+        }
+      ],
+      "htmlSha256": "167686ab71784ba6084330b161f15b3044642dfeacb82e86ea9a9a0acd8d7421",
+      "localPublicFile": null,
+      "localBodyMatchesLive": null,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/blog/chaos-rising-card-list",
+      "file": "blog__chaos-rising-card-list.html",
+      "status": 200,
+      "bytes": 44884,
+      "title": "Chaos Rising Card List and Price Snapshot | Card AI",
+      "h1": [
+        "Chaos Rising card list and price reference"
+      ],
+      "h2": [
+        "Confirm CRI and the printed number",
+        "Browse the Chaos Rising card list",
+        "Use the list as a reference, then confirm your copy",
+        "Checklist, chase card and sealed-product questions"
+      ],
+      "canonical": "https://tcgcard.fun/blog/chaos-rising-card-list",
+      "normalizedBodySha256": "0c5c4fa7ff62c1dc028fa375f6caec63e555527417bc4db447b9c163bd238145",
+      "bodyCharacters": 8840,
+      "wordCount": 1429,
+      "tableRows": 123,
+      "contentLinks": [
+        "#card-list",
+        "/blog/",
+        "/blog/ascended-heroes-card-list",
+        "/blog/phantasmal-flames-card-list",
+        "/blog/pokemon-tcg-set-card-lists",
+        "/card-collection-tracker",
+        "/card-price-checker",
+        "/pokemon-card-scanner",
+        "https://d1i787aglh9bmb.cloudfront.net/assets/img/me-expansions/me04/gallery/_pdfs/ME04_Card_List_EN.pdf",
+        "https://tcg.pokemon.com/en-us/galleries/chaos-rising/"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/showcase-analysis.png",
+          "alt": "Card AI reference prices and price history example"
+        }
+      ],
+      "htmlSha256": "4827e2110e9c6b3064b02590ad01db2a05af58f29a21e2d3231cc8ebbb070a30",
+      "localPublicFile": null,
+      "localBodyMatchesLive": null,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/blog/charizard-151-card-value",
+      "file": "blog__charizard-151-card-value.html",
+      "status": 200,
+      "bytes": 7839,
+      "title": "Charizard 151 Card Values by Number | Card AI",
+      "h1": [
+        "Charizard 151: compare 006/165, 183/165 and 199/165"
+      ],
+      "h2": [
+        "Match the collector number",
+        "Artwork, language and card state",
+        "Look up your copy in Card AI"
+      ],
+      "canonical": "https://tcgcard.fun/blog/charizard-151-card-value",
+      "normalizedBodySha256": "36df9310261d5fc520118cd829dcf810ce5d00985fb4c5205e09a41056623410",
+      "bodyCharacters": 2229,
+      "wordCount": 361,
+      "tableRows": 4,
+      "contentLinks": [
+        "/blog/",
+        "/blog/mega-charizard-x-ex-card-value",
+        "/blog/moonbreon-card-value",
+        "/card-collection-tracker",
+        "/card-price-checker",
+        "/pokemon-card-scanner",
+        "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/mew_web_cardlist_en.pdf",
+        "https://www.pokemon.com/uk/pokemon-tcg/pokemon-cards/series/sv3pt5/199/"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/showcase-scan.png",
+          "alt": "Card AI suggested card candidates and review example"
+        }
+      ],
+      "htmlSha256": "4da53ae52c65006ffced1785d0239c8f735e1d8c214b420d61718c12ea8bf68b",
+      "localPublicFile": null,
+      "localBodyMatchesLive": null,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/blog/charizard-gx-card-values",
+      "file": "blog__charizard-gx-card-values.html",
+      "status": 200,
+      "bytes": 8702,
+      "title": "Charizard GX Values: Hidden Fates, SV49 and SM211 | Card AI",
+      "h1": [
+        "Charizard GX: separate Hidden Fates, stamped and promo copies"
+      ],
+      "h2": [
+        "Selected English Charizard GX references",
+        "Same number, different product",
+        "Check your copy in the app",
+        "Charizard ex and VMAX are separate searches"
+      ],
+      "canonical": "https://tcgcard.fun/blog/charizard-gx-card-values",
+      "normalizedBodySha256": "93995b1fa6d75bc61b36da2408a5d2aa4309f3ff0e57c0fde0d100030d71ed34",
+      "bodyCharacters": 2892,
+      "wordCount": 461,
+      "tableRows": 7,
+      "contentLinks": [
+        "/blog/",
+        "/blog/charizard-151-card-value",
+        "/blog/mega-charizard-x-ex-card-value",
+        "/blog/pokemon-card-values",
+        "/card-price-checker",
+        "/pokemon-card-scanner",
+        "https://api.tcgcard.fun/api/v1/cards/search?q=Charizard%20GX&game=Pokemon&page_size=100"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/showcase-analysis.png",
+          "alt": "Card AI raw and graded price reference example"
+        }
+      ],
+      "htmlSha256": "031cfa55167c300449cf915b2dfd55a7fcaeac709ed7c9aa718b98082f1f55aa",
+      "localPublicFile": null,
+      "localBodyMatchesLive": null,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/blog/cufant-card-values",
+      "file": "blog__cufant-card-values.html",
+      "status": 200,
+      "bytes": 8167,
+      "title": "Cufant Card Values: Shrouded Fable and Shiny Vault | Card AI",
+      "h1": [
+        "Cufant card values: compare the set and full number"
+      ],
+      "h2": [
+        "Selected English Cufant card values",
+        "Why the set and finish matter",
+        "How to check your Cufant card"
+      ],
+      "canonical": "https://tcgcard.fun/blog/cufant-card-values",
+      "normalizedBodySha256": "3f2f21fce5bdc6ae77fb63b6f77580e6aed355f36f35fb36c3181e607be94569",
+      "bodyCharacters": 2490,
+      "wordCount": 398,
+      "tableRows": 5,
+      "contentLinks": [
+        "/blog/",
+        "/blog/ivysaur-card-values",
+        "/blog/pokemon-card-values",
+        "/blog/pokemon-tcg-set-card-lists",
+        "/card-price-checker",
+        "/pokemon-card-scanner",
+        "https://api.tcgcard.fun/api/v1/cards/search?q=Cufant&game=Pokemon&page_size=100"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/showcase-analysis.png",
+          "alt": "Card AI market price reference screen example"
+        }
+      ],
+      "htmlSha256": "20fc4c1e016ef2b6de0d3f446337827719e2d4c947660416550ea4d0059b4180",
+      "localPublicFile": null,
+      "localBodyMatchesLive": null,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/blog/ivysaur-card-values",
+      "file": "blog__ivysaur-card-values.html",
+      "status": 200,
+      "bytes": 8200,
+      "title": "Ivysaur Card Values: 151 and Base Set | Card AI",
+      "h1": [
+        "Ivysaur card values: 151 and Base Set are different records"
+      ],
+      "h2": [
+        "Selected English Ivysaur records",
+        "Read more than 030/102",
+        "Check your own copy in Card AI"
+      ],
+      "canonical": "https://tcgcard.fun/blog/ivysaur-card-values",
+      "normalizedBodySha256": "594012562f6be93951e68af4fd32b974fdab221b2492f86857d14e17cde77ed5",
+      "bodyCharacters": 2536,
+      "wordCount": 412,
+      "tableRows": 5,
+      "contentLinks": [
+        "/blog/",
+        "/blog/charizard-151-card-value",
+        "/blog/pokemon-card-values",
+        "/card-collection-tracker",
+        "/card-price-checker",
+        "/pokemon-card-scanner",
+        "https://api.tcgcard.fun/api/v1/cards/search?q=Ivysaur&game=Pokemon&page_size=100"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/showcase-analysis.png",
+          "alt": "Card AI price and history screen example"
+        }
+      ],
+      "htmlSha256": "1fb31acbc4d39c38abe5bcdb5268d27b343e08e1a1071a9c7adf07201717536b",
+      "localPublicFile": null,
+      "localBodyMatchesLive": null,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/blog/mega-charizard-x-ex-card-value",
+      "file": "blog__mega-charizard-x-ex-card-value.html",
+      "status": 200,
+      "bytes": 7966,
+      "title": "Mega Charizard X ex Values by Card Number | Card AI",
+      "h1": [
+        "Mega Charizard X ex: check the Phantasmal Flames printing"
+      ],
+      "h2": [
+        "Four numbers, four separate records",
+        "Use a single-card reference for a single card",
+        "Confirm a scan before checking its value"
+      ],
+      "canonical": "https://tcgcard.fun/blog/mega-charizard-x-ex-card-value",
+      "normalizedBodySha256": "e5d79bee3699d9fea19f5d4a00a335dab3bef6ae2cd41aa4446b3c82e7cf9ea5",
+      "bodyCharacters": 2369,
+      "wordCount": 387,
+      "tableRows": 5,
+      "contentLinks": [
+        "/blog/",
+        "/blog/charizard-151-card-value",
+        "/blog/phantasmal-flames-card-list",
+        "/card-collection-tracker",
+        "/card-price-checker",
+        "/pokemon-card-scanner",
+        "https://tcg.pokemon.com/en-us/galleries/phantasmal-flames/"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/showcase-analysis.png",
+          "alt": "Card AI published market price and history example"
+        }
+      ],
+      "htmlSha256": "ec9afa7a0001f5aaa9d3d90b77ae8acf3da9b6e7735a3a09f093463023bb7a44",
+      "localPublicFile": null,
+      "localBodyMatchesLive": null,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/blog/mew-gg10-card-value",
+      "file": "blog__mew-gg10-card-value.html",
+      "status": 200,
+      "bytes": 8022,
+      "title": "Mew GG10 Card Value: Crown Zenith GG10/GG70 | Card AI",
+      "h1": [
+        "Mew GG10: check Crown Zenith GG10/GG70 before pricing"
+      ],
+      "h2": [
+        "The dated Mew GG10 reference",
+        "What to confirm on the physical card",
+        "Check a Mew GG10 price in Card AI"
+      ],
+      "canonical": "https://tcgcard.fun/blog/mew-gg10-card-value",
+      "normalizedBodySha256": "0fdae0d7f8600b3f6e0548a723b939ac860ffd1122f801c83904188ea5a03d2f",
+      "bodyCharacters": 2401,
+      "wordCount": 402,
+      "tableRows": 3,
+      "contentLinks": [
+        "/blog/",
+        "/blog/pokemon-card-values",
+        "/blog/raw-vs-graded-card-values",
+        "/card-collection-tracker",
+        "/card-price-checker",
+        "/pokemon-card-scanner",
+        "https://api.tcgcard.fun/api/v1/cards/search?q=Mew%20GG10&game=Pokemon&page_size=100",
+        "https://api.tcgcard.fun/api/v1/cards/search?q=Mewtwo%20VSTAR&game=Pokemon&page_size=100"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/showcase-analysis.png",
+          "alt": "Card AI card value reference screen example"
+        }
+      ],
+      "htmlSha256": "40e5c9ddba8a619c53b77fe3f4879e31b8ea0015aa88daa466ae33353b92873d",
+      "localPublicFile": null,
+      "localBodyMatchesLive": null,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/blog/moonbreon-card-value",
+      "file": "blog__moonbreon-card-value.html",
+      "status": 200,
+      "bytes": 7865,
+      "title": "Moonbreon Card Value: Umbreon VMAX 215/203 | Card AI",
+      "h1": [
+        "Moonbreon: identify Umbreon VMAX 215/203 before pricing"
+      ],
+      "h2": [
+        "Which Umbreon VMAX do you have?",
+        "How to check a Moonbreon value",
+        "Why can two Moonbreon price pages disagree?"
+      ],
+      "canonical": "https://tcgcard.fun/blog/moonbreon-card-value",
+      "normalizedBodySha256": "e90a39da3dfe1f5ad5b7e0351680c0e5799b45026747f72a642447163da9fd6f",
+      "bodyCharacters": 2384,
+      "wordCount": 376,
+      "tableRows": 4,
+      "contentLinks": [
+        "/blog/",
+        "/blog/charizard-151-card-value",
+        "/card-collection-tracker",
+        "/card-price-checker",
+        "/pokemon-card-scanner",
+        "https://www.pokemon.com/us/pokemon-tcg/pokemon-cards/series/swsh7/215/"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/showcase-analysis.png",
+          "alt": "Card AI raw and graded price reference example"
+        }
+      ],
+      "htmlSha256": "0149d1426c7740b69aaeaed1db8bdadaf25d65853bb9b9fb7391553f057179e3",
+      "localPublicFile": null,
+      "localBodyMatchesLive": null,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/blog/phantasmal-flames-card-list",
+      "file": "blog__phantasmal-flames-card-list.html",
+      "status": 200,
+      "bytes": 47217,
+      "title": "Phantasmal Flames Card List and Prices | Card AI",
+      "h1": [
+        "Phantasmal Flames card list and price reference"
+      ],
+      "h2": [
+        "PFL, card number and artwork come first",
+        "Browse the Phantasmal Flames card list",
+        "Mega Charizard X ex is not one interchangeable card",
+        "From checklist to collection"
+      ],
+      "canonical": "https://tcgcard.fun/blog/phantasmal-flames-card-list",
+      "normalizedBodySha256": "f8118cce49cc370374930c4d31d22caadc62ac7caf6620193b53124bba171593",
+      "bodyCharacters": 9126,
+      "wordCount": 1461,
+      "tableRows": 131,
+      "contentLinks": [
+        "#card-list",
+        "/blog/",
+        "/blog/ascended-heroes-card-list",
+        "/blog/chaos-rising-card-list",
+        "/blog/mega-charizard-x-ex-card-value",
+        "/blog/pokemon-tcg-set-card-lists",
+        "/blog/raw-vs-graded-card-values",
+        "/card-price-checker",
+        "/pokemon-card-scanner",
+        "https://d1i787aglh9bmb.cloudfront.net/assets/img/me-expansions/me02/gallery/_pdfs/P10347_ME02_Card_List_EN_HiRes.pdf",
+        "https://tcg.pokemon.com/en-us/galleries/phantasmal-flames/"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/showcase-analysis.png",
+          "alt": "Card AI published prices and history example"
+        }
+      ],
+      "htmlSha256": "d23d8fbd3367cbed3e2c3f2b8dfeae0a249037f1710ac4ea702a5787cd03e997",
+      "localPublicFile": null,
+      "localBodyMatchesLive": null,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/blog/pikachu-card-values",
+      "file": "blog__pikachu-card-values.html",
+      "status": 200,
+      "bytes": 7978,
+      "title": "Pikachu Card Values: Match the Printing | Card AI",
+      "h1": [
+        "Pikachu card values start with the set and number"
+      ],
+      "h2": [
+        "A selected Surging Sparks comparison",
+        "Why most-valuable lists differ",
+        "Check and track the confirmed copy"
+      ],
+      "canonical": "https://tcgcard.fun/blog/pikachu-card-values",
+      "normalizedBodySha256": "5719dced2bc014a3a54802f1a032a5a91600186af010c3d03a67d6a4fcd820cc",
+      "bodyCharacters": 2349,
+      "wordCount": 384,
+      "tableRows": 5,
+      "contentLinks": [
+        "/blog/",
+        "/blog/ascended-heroes-card-list",
+        "/blog/pokemon-tcg-30th-celebration-card-prices",
+        "/blog/pokemon-tcg-set-card-lists",
+        "/card-collection-tracker",
+        "/card-price-checker",
+        "/pokemon-card-scanner",
+        "https://www.pokemon.com/us/pokemon-tcg/pokemon-cards/"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/showcase-portfolio.png",
+          "alt": "Card AI confirmed holdings and portfolio example"
+        }
+      ],
+      "htmlSha256": "a9260ce4a217714765018ca9db6db31771c3a9a93e7d6d12df3169bf1901d159",
+      "localPublicFile": null,
+      "localBodyMatchesLive": null,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/blog/pokemon-card-values",
+      "file": "blog__pokemon-card-values.html",
+      "status": 200,
+      "bytes": 9907,
+      "title": "Pokemon Card Values by Name, Set and Number | Card AI",
+      "h1": [
+        "Find a Pokemon card value by its exact printing"
+      ],
+      "h2": [
+        "Browse card values by Pokemon",
+        "Check a number within its set",
+        "Read the price date before using a value",
+        "Move from a reference to your own card"
+      ],
+      "canonical": "https://tcgcard.fun/blog/pokemon-card-values",
+      "normalizedBodySha256": "a46152fd6da288caaad7657ac7b9d85ef7167da79e667fd4bc655e0362ea3edd",
+      "bodyCharacters": 3726,
+      "wordCount": 606,
+      "tableRows": 10,
+      "contentLinks": [
+        "/blog/",
+        "/blog/ascended-heroes-card-list",
+        "/blog/chaos-rising-card-list",
+        "/blog/charizard-151-card-value",
+        "/blog/charizard-gx-card-values",
+        "/blog/cufant-card-values",
+        "/blog/ivysaur-card-values",
+        "/blog/mega-charizard-x-ex-card-value",
+        "/blog/mew-gg10-card-value",
+        "/blog/moonbreon-card-value",
+        "/blog/phantasmal-flames-card-list",
+        "/blog/pikachu-card-values",
+        "/blog/rayquaza-vmax-card-values",
+        "/card-collection-tracker",
+        "/card-price-checker",
+        "/pokemon-card-scanner",
+        "https://api.tcgcard.fun/api/v1/cards/search?q=Shining%20Charizard&game=Pokemon&page_size=100"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/showcase-analysis.png",
+          "alt": "Card AI card price and history screen example"
+        }
+      ],
+      "htmlSha256": "9e47b808f498af45a61f60927bf04e8636903a27f3990a1b68356865b6f2d974",
+      "localPublicFile": null,
+      "localBodyMatchesLive": null,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/blog/rayquaza-vmax-card-values",
+      "file": "blog__rayquaza-vmax-card-values.html",
+      "status": 200,
+      "bytes": 8670,
+      "title": "Rayquaza VMAX Values: Printings and Prices | Card AI",
+      "h1": [
+        "Rayquaza VMAX values depend on the set and card number"
+      ],
+      "h2": [
+        "Compare selected English Rayquaza VMAX records",
+        "Why 111/203 needs more than a number",
+        "How to check the value of your copy",
+        "Other Pokemon value references"
+      ],
+      "canonical": "https://tcgcard.fun/blog/rayquaza-vmax-card-values",
+      "normalizedBodySha256": "d54dbb2e455fa0a639c3e1b903de1621b7ccd75d6406a2c8545c9093d3574376",
+      "bodyCharacters": 2810,
+      "wordCount": 438,
+      "tableRows": 8,
+      "contentLinks": [
+        "/blog/",
+        "/blog/moonbreon-card-value",
+        "/blog/pokemon-card-values",
+        "/card-price-checker",
+        "/pokemon-card-scanner",
+        "https://api.tcgcard.fun/api/v1/cards/search?q=Rayquaza%20VMAX&game=Pokemon&page_size=100",
+        "https://www.pokemon.com/us/pokemon-tcg/pokemon-cards/series/swsh7/218/"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/showcase-analysis.png",
+          "alt": "Card AI price reference and history example"
+        }
+      ],
+      "htmlSha256": "608cda0ddd3012d29b25debc24d240bb8e90fa246267883ba3ec20cdbb2c9e1d",
+      "localPublicFile": null,
+      "localBodyMatchesLive": null,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/blog/pokemon-tcg-set-card-lists",
+      "file": "blog__pokemon-tcg-set-card-lists.html",
+      "status": 200,
+      "bytes": 11341,
+      "title": "Pokemon TCG Set Card Lists and Prices | Card AI",
+      "h1": [
+        "Pokemon TCG set card lists: identify a card before checking its price"
+      ],
+      "h2": [
+        "Search an English card checklist",
+        "Prismatic Evolutions card list and printings",
+        "White Flare card list",
+        "Surging Sparks card list",
+        "Paldean Fates card list",
+        "Shrouded Fable card list",
+        "From a card list to an available price",
+        "Related"
+      ],
+      "canonical": "https://tcgcard.fun/blog/pokemon-tcg-set-card-lists",
+      "normalizedBodySha256": "b6d5381c5acba565246b04d0c02dd3c2bc0e9a3277a811536ba1cf55488fe1ac",
+      "bodyCharacters": 4286,
+      "wordCount": 704,
+      "tableRows": 6,
+      "contentLinks": [
+        "/blog/",
+        "/blog/ascended-heroes-card-list",
+        "/blog/chaos-rising-card-list",
+        "/blog/phantasmal-flames-card-list",
+        "/blog/pokemon-tcg-30th-celebration-card-prices",
+        "/card-collection-tracker",
+        "/card-price-checker",
+        "/pokemon-card-scanner",
+        "https://press.pokemon.com/en/MEDIA-ALERT-Pokemon-Trading-Card-Game-Scarlet-VioletPrismatic-Evolutio",
+        "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/paf_web_cardlist_en.pdf",
+        "https://www.pokemon.com/uk/pokemon-tcg/product-gallery/scarlet-violet-prismatic-evolutions-premium-figure-collection",
+        "https://www.pokemon.com/us/features/pokemon-tcg-scarlet-violet-surging-sparks-top-competitive-cards",
+        "https://www.pokemon.com/us/pokemon-tcg/pokemon-cards/",
+        "https://www.pokemon.com/us/pokemon-tcg/scarlet-violet-shrouded-fable",
+        "https://www.pokemon.com/us/pokemon-tcg/scarlet-violet-white-flare"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/showcase-scan.png",
+          "alt": "Card AI scan and candidate review screen"
+        }
+      ],
+      "htmlSha256": "7acc0879018c97bf699f9426a295b5161819254307535b43cb6e30199ea65600",
+      "localPublicFile": "apps/marketing-web/public/blog/pokemon-tcg-set-card-lists.html",
+      "localBodyMatchesLive": false,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/blog/dungeon-crawler-carl-trading-cards",
+      "file": "blog__dungeon-crawler-carl-trading-cards.html",
+      "status": 200,
+      "bytes": 8323,
+      "title": "Dungeon Crawler Carl Trading Cards: Series 1 Guide | Card AI",
+      "h1": [
+        "Dungeon Crawler Carl trading cards: Series 1 cards and packs"
+      ],
+      "h2": [
+        "Which Dungeon Crawler Carl cards are being sold?",
+        "Is there a Dungeon Crawler Carl Series 1 card list?",
+        "Where can you buy Dungeon Crawler Carl trading cards?",
+        "Check the card before checking value",
+        "Related"
+      ],
+      "canonical": "https://tcgcard.fun/blog/dungeon-crawler-carl-trading-cards",
+      "normalizedBodySha256": "a798732ba5fe86198f3902c5625de54512b821f09d1771dcb05562bbd72d0e5d",
+      "bodyCharacters": 2518,
+      "wordCount": 405,
+      "tableRows": 0,
+      "contentLinks": [
+        "/blog/",
+        "/blog/raw-vs-graded-card-values",
+        "/card-identifier",
+        "/card-price-checker",
+        "https://cardbox.club/price-guide/dungeon-crawler-carl/dungeon-crawler-carl-series-one-9c845a",
+        "https://dungeoncrawlercarl.renegadegamestudios.com/dungeon-crawler-carl-unstoppable/",
+        "https://www.hottopic.com/product/dungeon-crawler-carl-series-1-trading-card-pack/37061648.html",
+        "https://www.linkedin.com/posts/playmates-toys_playmates-toys-inc-in-partnership-with-books-a-million-activity-7462587604455231488--M6O"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/showcase-scan.png",
+          "alt": "Card AI scan and candidate review screen"
+        }
+      ],
+      "htmlSha256": "915cf323ba6872c33d95aa216ceb0ff892414a8a0fb16e5d6e4c526a97fab1a9",
+      "localPublicFile": "apps/marketing-web/public/blog/dungeon-crawler-carl-trading-cards.html",
+      "localBodyMatchesLive": false,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/blog/minior-pokemon-card-guide",
+      "file": "blog__minior-pokemon-card-guide.html",
+      "status": 200,
+      "bytes": 8250,
+      "title": "Minior Pokemon Cards: Set Numbers and Value Checks | Card AI",
+      "h1": [
+        "Minior Pokemon cards: identify the printing before checking value"
+      ],
+      "h2": [
+        "Which Minior card do you have?",
+        "How to check a Minior card's value",
+        "Pokemon GO Minior versus Pokemon TCG Minior",
+        "Official card references",
+        "Related"
+      ],
+      "canonical": "https://tcgcard.fun/blog/minior-pokemon-card-guide",
+      "normalizedBodySha256": "f625bc59d1ab2d926d06b134abdcd9c60d2a8cbd9fcff830b26dfe479ed9922c",
+      "bodyCharacters": 2453,
+      "wordCount": 405,
+      "tableRows": 0,
+      "contentLinks": [
+        "/blog/",
+        "/blog/raw-vs-graded-card-values",
+        "/card-price-checker",
+        "/pokemon-card-scanner",
+        "https://play.pokemon.com/en-gb/resources/documents/tcg-errata/",
+        "https://pokemongo.com/news/minior-meteor-showers-2026",
+        "https://www.pokemon.com/static-assets/content-assets/cms2-en-uk/pdf/trading-card-game/checklist/par_web_cardlist_en.pdf",
+        "https://www.pokemon.com/static-assets/content-assets/cms2/pdf/trading-card-game/checklist/sm2_web_cardlist_en.pdf"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/showcase-scan.png",
+          "alt": "Card AI scan and candidate review screen"
+        }
+      ],
+      "htmlSha256": "46ac6922c8d2e0e78e40a31fbeb982c8e4e06280885412ebf92557548e6e12d3",
+      "localPublicFile": "apps/marketing-web/public/blog/minior-pokemon-card-guide.html",
+      "localBodyMatchesLive": true,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/blog/scanning-cards-from-watsontcg",
+      "file": "blog__scanning-cards-from-watsontcg.html",
+      "status": 200,
+      "bytes": 7359,
+      "title": "Scan Cards Bought at WatsonTCG | Card AI",
+      "h1": [
+        "How to scan cards bought at WatsonTCG"
+      ],
+      "h2": [
+        "Match the card to its game",
+        "Scan after opening or buying a single",
+        "Related"
+      ],
+      "canonical": "https://tcgcard.fun/blog/scanning-cards-from-watsontcg",
+      "normalizedBodySha256": "7ae2c5a94dd8a6f27d392458c238e4d3805ff13348e35491d18475d3e50cf8dd",
+      "bodyCharacters": 2027,
+      "wordCount": 349,
+      "tableRows": 0,
+      "contentLinks": [
+        "/blog/",
+        "/blog/what-is-my-trading-card-worth",
+        "/bulk-card-scanner",
+        "/card-collection-tracker",
+        "/lorcana-card-scanner",
+        "/mtg-card-scanner",
+        "/one-piece-card-scanner",
+        "/pokemon-card-scanner",
+        "https://watsontcg.com/"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/showcase-scan.png",
+          "alt": "Card AI scan and candidate review screen"
+        }
+      ],
+      "htmlSha256": "65464963fbe1f58c3d9232333e13478b63988c9a2aa4321ba224137671f935d0",
+      "localPublicFile": "apps/marketing-web/public/blog/scanning-cards-from-watsontcg.html",
+      "localBodyMatchesLive": true,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/blog/pokemon-tcg-30th-celebration-card-prices",
+      "file": "blog__pokemon-tcg-30th-celebration-card-prices.html",
+      "status": 200,
+      "bytes": 13837,
+      "title": "Pokemon 30th Anniversary: Card Lists & Prices | Card AI",
+      "h1": [
+        "Pokemon 30th anniversary: 30th Celebration cards and prices"
+      ],
+      "h2": [
+        "30th anniversary Pokemon cards: where to start",
+        "Start with the official 30th Celebration card list",
+        "30th Celebration price snapshot",
+        "RGB Mew: match the color and language before checking a price",
+        "Chase cards are a starting point, not a value guarantee",
+        "Confirm 30C or 30C-CC first",
+        "What is in the 30th Celebration Ultra-Premium Collection (UPC)?",
+        "Scan or search for the matching record",
+        "Keep raw and graded values separate",
+        "Questions",
+        "Related"
+      ],
+      "canonical": "https://tcgcard.fun/blog/pokemon-tcg-30th-celebration-card-prices",
+      "normalizedBodySha256": "6813baeafbcc66876ce896f832ac85a6b3d5d193c2671b9a7a6a13694ba6fb14",
+      "bodyCharacters": 7580,
+      "wordCount": 1250,
+      "tableRows": 0,
+      "contentLinks": [
+        "/blog/",
+        "/blog/raw-vs-graded-card-values",
+        "/card-collection-tracker",
+        "/card-price-checker",
+        "/pokemon-card-scanner",
+        "https://tcg.pokemon.com/en-us/expansions/30th-celebration/",
+        "https://tcg.pokemon.com/en-us/galleries/30th-celebration/",
+        "https://www.pokemon.com/us/news/pokemon-tcg-30th-celebration-product-showcase"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/showcase-analysis.png",
+          "alt": "Card AI market prices and price history view"
+        }
+      ],
+      "htmlSha256": "afa15239ea386585af45ae67bbeb3e5e5bed6c34332b006f11a423f888aed13f",
+      "localPublicFile": "apps/marketing-web/public/blog/pokemon-tcg-30th-celebration-card-prices.html",
+      "localBodyMatchesLive": false,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/blog/what-is-my-trading-card-worth",
+      "file": "blog__what-is-my-trading-card-worth.html",
+      "status": 200,
+      "bytes": 10117,
+      "title": "What Is My Trading Card Worth? | Card AI",
+      "h1": [
+        "What is my trading card worth?"
+      ],
+      "h2": [
+        "The same card has more than one price",
+        "Start by identifying the exact printing",
+        "Then decide whether you are pricing raw or graded",
+        "Look at the history, not just today's number",
+        "Which Pokemon cards are worth money?",
+        "Checking a card with Card AI",
+        "Related"
+      ],
+      "canonical": "https://tcgcard.fun/blog/what-is-my-trading-card-worth",
+      "normalizedBodySha256": "3ff927b77600158011f6d92bc36bfdf698a58436ee5eefdbb6b866078fdcd388",
+      "bodyCharacters": 4526,
+      "wordCount": 814,
+      "tableRows": 0,
+      "contentLinks": [
+        "/",
+        "/blog/",
+        "/blog/pokemon-tcg-30th-celebration-card-prices",
+        "/blog/raw-vs-graded-card-values",
+        "/card-price-checker",
+        "/pokemon-card-scanner"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/showcase-analysis.png",
+          "alt": "Card AI card market prices and trend analysis"
+        }
+      ],
+      "htmlSha256": "95e036ab22f2a0d0956093b236112ab1598b0697561fba8f732794b21d07f2b9",
+      "localPublicFile": "apps/marketing-web/public/blog/what-is-my-trading-card-worth.html",
+      "localBodyMatchesLive": true,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/blog/raw-vs-graded-card-values",
+      "file": "blog__raw-vs-graded-card-values.html",
+      "status": 200,
+      "bytes": 10464,
+      "title": "Raw vs Graded Card Values: What Changes | Card AI",
+      "h1": [
+        "Raw vs graded cards, and what grading does to value"
+      ],
+      "h2": [
+        "What grading actually sells",
+        "The gap between grades is not linear",
+        "How to price raw versus graded cards",
+        "Which card grading companies can Card AI record?",
+        "What does a card centering calculator measure?",
+        "When grading is worth it",
+        "Tracking both in one collection",
+        "Related"
+      ],
+      "canonical": "https://tcgcard.fun/blog/raw-vs-graded-card-values",
+      "normalizedBodySha256": "3ab0e7c12e9a6ab97036a8a481e8ef544afa46280e4bf3d723c6c4abcbf6c5c4",
+      "bodyCharacters": 4901,
+      "wordCount": 876,
+      "tableRows": 0,
+      "contentLinks": [
+        "/",
+        "/blog/",
+        "/blog/what-is-my-trading-card-worth",
+        "/card-price-checker",
+        "/graded-card-tracker",
+        "https://www.psacard.com/gradingstandards"
+      ],
+      "contentImages": [
+        {
+          "src": "/assets/showcase-analysis.png",
+          "alt": "Card AI market prices and price history view"
+        }
+      ],
+      "htmlSha256": "bf099d10773ef5443fe4c43132e791e07fc87669dd781c816cd663d53649faca",
+      "localPublicFile": "apps/marketing-web/public/blog/raw-vs-graded-card-values.html",
+      "localBodyMatchesLive": false,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/privacy",
+      "file": "privacy.html",
+      "status": 200,
+      "bytes": 22640,
+      "title": "Privacy Policy | Card AI",
+      "h1": [
+        "Privacy Policy"
+      ],
+      "h2": [
+        "1. Information We Collect",
+        "2. How We Use Information",
+        "3. Third-Party Services We Use",
+        "4. How We Share Information",
+        "5. App Tracking and Advertising",
+        "6. Cookies and Similar Technologies",
+        "7. Data Retention",
+        "8. Account Deletion and Data Deletion",
+        "9. Your Privacy Rights and Choices",
+        "10. Communications Choices",
+        "11. Children’s Privacy",
+        "12. International Data Transfers",
+        "13. Data Security",
+        "14. Third-Party Links and Services",
+        "15. Third-Party Brands",
+        "16. Changes to This Privacy Policy",
+        "17. Contact Us"
+      ],
+      "canonical": null,
+      "normalizedBodySha256": "bc69a9cc3846846d9e94562a108c3ed789e902f1a87df8a3ff18f451fc32ac44",
+      "bodyCharacters": 14685,
+      "wordCount": 2153,
+      "tableRows": 0,
+      "contentLinks": [
+        "https://tcgcard.fun",
+        "https://tcgcard.fun/privacy",
+        "https://tcgcard.fun/terms",
+        "mailto:support@tcgcard.fun"
+      ],
+      "contentImages": [],
+      "htmlSha256": "c33c6e62dd28666d39b193a02905667a0a767f278614c57079d0775a9f3c2482",
+      "localPublicFile": "apps/marketing-web/public/privacy.html",
+      "localBodyMatchesLive": false,
+      "newProjectMigrationStatus": "notImplemented"
+    },
+    {
+      "path": "/terms",
+      "file": "terms.html",
+      "status": 200,
+      "bytes": 34901,
+      "title": "Terms of Use | Card AI",
+      "h1": [
+        "Terms of Use"
+      ],
+      "h2": [
+        "1. Our Service",
+        "2. Eligibility",
+        "3. Account Registration",
+        "4. Account Deletion",
+        "5. Card Scanning Feature",
+        "6. Card Data, Prices, and Value Information",
+        "7. Collection Records",
+        "8. Subscriptions and In-App Purchases",
+        "9. Acceptable Use",
+        "10. Third-Party Services",
+        "11. Third-Party Links and Marketplaces",
+        "12. Intellectual Property",
+        "13. User Content",
+        "14. Trademarks and Brand Disclaimer",
+        "15. Privacy",
+        "16. App Updates and Availability",
+        "17. Disclaimers",
+        "18. Limitation of Liability",
+        "19. Indemnification",
+        "20. Termination",
+        "21. Changes to These Terms",
+        "22. Governing Law",
+        "23. OPEN SOURCE AND MODEL LICENSES",
+        "24. Contact Us"
+      ],
+      "canonical": null,
+      "normalizedBodySha256": "f016aa425070c551128c5d02720d7551b12f443324d6ccafe87bc69a69b32d34",
+      "bodyCharacters": 27530,
+      "wordCount": 4169,
+      "tableRows": 0,
+      "contentLinks": [
+        "http://www.apache.org/licenses/",
+        "https://creativecommons.org/licenses/by/4.0/",
+        "https://tcgcard.fun",
+        "https://tcgcard.fun/privacy",
+        "https://tcgcard.fun/terms",
+        "mailto:support@tcgcard.fun"
+      ],
+      "contentImages": [],
+      "htmlSha256": "42c26240bec9255a21bc80491677896fbd767df167d233c8825eca4b6b9e5620",
+      "localPublicFile": "apps/marketing-web/public/terms.html",
+      "localBodyMatchesLive": true,
+      "newProjectMigrationStatus": "notImplemented"
+    }
+  ]
+}

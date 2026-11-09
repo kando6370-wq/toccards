@@ -26,6 +26,10 @@ export default {
     {
       "h2": "Price history explains the portfolio movement",
       "body": "A current total is only the latest point. Card AI keeps available price history on individual cards, so you can separate a collection-wide move from one valuable holding changing sharply.\n\nThat makes the page a portfolio tracker rather than another catalog view: it is organized around value, contribution, and change over time."
+    },
+    {
+      "h2": "Keep a set checklist separate from your holdings",
+      "body": "A checklist shows which numbered cards belong to a set. Your collection records which copies you own, including quantity, finish, language and condition or existing slab grade. A full set's reference value is not the value of your personal holdings.\n\nUse the public [Ascended Heroes card list](/blog/ascended-heroes-card-list), [Chaos Rising card list](/blog/chaos-rising-card-list) or [Phantasmal Flames card list](/blog/phantasmal-flames-card-list) to check a numbered entry, then add the confirmed copy in the Card AI app. The [Pokemon card value guides](/blog/pokemon-card-values) help separate selected printings before you save them. These public lists do not read your account or mark cards as owned."
     }
   ],
   "faq": [
