@@ -5,7 +5,9 @@ import 'package:go_router/go_router.dart';
 import 'package:kando_app/app/theme.dart';
 import 'package:kando_app/shared/portfolio/pending_collection.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
+import 'package:kando_app/shared/ui/kando_liquid_glass.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 void main() {
   test('Kando color scheme is reused across scaffold rebuilds', () {
@@ -38,6 +40,20 @@ void main() {
       final profile = find.byKey(const Key('kando-tab-profile'));
 
       expect(tester.getSize(bar), const Size(350, 62));
+      expect(find.byKey(const Key('kando-tab-liquid-glass')), findsOneWidget);
+      expect(
+        tester.widget(find.byKey(const Key('kando-tab-liquid-glass'))),
+        isA<GlassContainer>(),
+      );
+      expect(
+        find.byKey(const Key('kando-tab-selected-liquid-glass')),
+        findsOneWidget,
+      );
+      expect(
+        tester.widget(find.byKey(const Key('kando-tab-selected-liquid-glass'))),
+        isA<AnimatedGlassIndicator>(),
+      );
+      expect(kandoLiquidGlassQuality, GlassQuality.minimal);
       expect(tester.getBottomRight(bar), const Offset(370, 822));
       expect(tester.getSize(scan), const Size.square(64));
       expect(
@@ -350,8 +366,168 @@ void main() {
     expect(midAnimationCenter, greaterThan(collectionCenter));
     expect(midAnimationCenter, lessThan(profileCenter));
 
-    await tester.pump(const Duration(milliseconds: 220));
+    await tester.pumpAndSettle();
     expect(tester.getCenter(background).dx, closeTo(profileCenter, 0.01));
+  });
+
+  testWidgets('holding a tab expands a clear lens and release settles it', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(
+          home: KandoTabScaffold(
+            currentTab: KandoMainTab.home,
+            body: SizedBox.expand(),
+          ),
+        ),
+      ),
+    );
+    final selected = find.byKey(const Key('kando-tab-selected-background'));
+    final lens = find.byKey(const Key('kando-tab-selected-liquid-glass'));
+    final restHeight = tester.getSize(selected).height;
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byKey(const Key('kando-tab-home'))),
+    );
+    await tester.pump(const Duration(milliseconds: 120));
+    await tester.pump(const Duration(milliseconds: 120));
+
+    final lensTransform = find
+        .descendant(of: lens, matching: find.byType(Transform))
+        .first;
+    expect(tester.getRect(lensTransform).height, greaterThan(restHeight));
+    expect(
+      tester
+          .widget<Semantics>(
+            find
+                .descendant(
+                  of: find.byKey(const Key('kando-tab-home')),
+                  matching: find.byType(Semantics),
+                )
+                .first,
+          )
+          .properties
+          .selected,
+      isTrue,
+    );
+
+    await gesture.up();
+    await tester.pump(const Duration(milliseconds: 180));
+    await tester.pumpAndSettle();
+    expect(tester.widget<AnimatedGlassIndicator>(lens).thickness, 0);
+    expect(tester.getSize(selected).height, restHeight);
+
+    final homeCenter = tester.getCenter(selected).dx;
+    final cancelled = await tester.startGesture(
+      tester.getCenter(find.byKey(const Key('kando-tab-search'))),
+    );
+    await tester.pump(const Duration(milliseconds: 120));
+    await tester.pump(const Duration(milliseconds: 120));
+    expect(tester.getCenter(selected).dx, greaterThan(homeCenter));
+    await cancelled.cancel();
+    await tester.pump(const Duration(milliseconds: 180));
+    await tester.pumpAndSettle();
+    expect(tester.getCenter(selected).dx, closeTo(homeCenter, 0.01));
+    expect(tester.widget<AnimatedGlassIndicator>(lens).thickness, 0);
+  });
+
+  testWidgets('rapid tab changes continue from the moving lens position', (
+    tester,
+  ) async {
+    final router = GoRouter(
+      initialLocation: '/home',
+      routes: [
+        for (final (path, tab) in const [
+          ('/home', KandoMainTab.home),
+          ('/search', KandoMainTab.search),
+          ('/profile', KandoMainTab.profile),
+        ])
+          GoRoute(
+            path: path,
+            pageBuilder: (_, _) => NoTransitionPage<void>(
+              child: KandoTabScaffold(
+                currentTab: tab,
+                body: const SizedBox.expand(),
+              ),
+            ),
+          ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(child: MaterialApp.router(routerConfig: router)),
+    );
+    await tester.tap(find.byKey(const Key('kando-tab-profile')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+    final selected = find.byKey(const Key('kando-tab-selected-background'));
+    final movingCenter = tester.getCenter(selected);
+    await tester.tap(find.byKey(const Key('kando-tab-search')));
+    await tester.pump();
+    expect(tester.getCenter(selected).dx, closeTo(movingCenter.dx, 0.01));
+
+    await tester.pumpAndSettle();
+    expect(
+      tester.getCenter(selected).dx,
+      closeTo(
+        tester.getCenter(find.byKey(const Key('kando-tab-search'))).dx,
+        0.01,
+      ),
+    );
+  });
+
+  testWidgets('reduced motion changes selection without inflating the lens', (
+    tester,
+  ) async {
+    final router = GoRouter(
+      initialLocation: '/home',
+      routes: [
+        for (final (path, tab) in const [
+          ('/home', KandoMainTab.home),
+          ('/profile', KandoMainTab.profile),
+        ])
+          GoRoute(
+            path: path,
+            pageBuilder: (_, _) => NoTransitionPage<void>(
+              child: KandoTabScaffold(
+                currentTab: tab,
+                body: const SizedBox.expand(),
+              ),
+            ),
+          ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp.router(
+          routerConfig: router,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(disableAnimations: true),
+            child: child!,
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byKey(const Key('kando-tab-profile')));
+    await tester.pump();
+    expect(
+      tester
+          .getCenter(find.byKey(const Key('kando-tab-selected-background')))
+          .dx,
+      closeTo(
+        tester.getCenter(find.byKey(const Key('kando-tab-profile'))).dx,
+        0.01,
+      ),
+    );
+    expect(
+      tester
+          .widget<AnimatedGlassIndicator>(
+            find.byKey(const Key('kando-tab-selected-liquid-glass')),
+          )
+          .thickness,
+      0,
+    );
   });
 
   testWidgets('Figma tab bar renders at the approved 390x844 baseline', (

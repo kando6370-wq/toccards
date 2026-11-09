@@ -26,6 +26,65 @@
 - Firebase 上传：最初直连符号端点超时；用户开启 Shadowrocket 后，显式运行 Firebase SDK 的 `upload-symbols -gsp ios/Runner/Firebase/production/GoogleService-Info.plist -p ios <本次 dSYMs.zip>`。45 个 dSYM 条目全部返回 `Successfully submitted symbols`（含重复 bundle，实际唯一 UUID 为 43），Runner 和 App.framework 的本次 UUID 均取得回执，最终 `Successfully uploaded Crashlytics symbols` 且退出 0。未仅凭 Xcode 后台 build phase 成功推定 Firebase 已接收；Firebase 控制台处理及真实崩溃符号化未独立验收。
 - 已知符号边界与留存：Runner dSYM 深度校验通过；Flutter AOT `App.framework.dSYM` 仍有 150 个 parent-range 错误，不能宣称全部 DWARF 深检通过，但该 UUID 已被 Apple 分发管线封装并被 Firebase 接收。IPA 与符号保存于 `~/Downloads/CardAI-Packages/com.cardai.tcg/CardAI-Prod-1.0.7-193/`；新版本完整保存后，最旧的 `CardAI-Prod-1.0.3-150` 移入废纸篓，正式包仍保留 7 版。未安装手机、执行真实扫描／登录／订阅交易、运行完整 Flutter workspace／Android 验证、部署服务端、迁移数据库或提交／推送 Git。
 
+<a id="liquid-glass-top-toast-readability-20261105"></a>
+## 顶部提示提高背景模糊（2026-11-05）
+
+- 范围与实现：用户在 iPhone 11 查看后反馈顶部提示文字不够清晰，按要求将共享 `KandoTopToast` 的背景 blur 从 3 调为 6，以减轻背后内容对文字的干扰。保留 clear 材质、白色 alpha 15／255、折射及文字阴影，iOS／Android 使用同一 Flutter 实现；底栏仍使用 blur 3。本轮仅调整这一材质参数，没有改动提示类型、布局或关闭交互。
+- 本地验证：`flutter test --no-pub test/toast_test.dart` 8／8 通过；完整 App `flutter analyze --no-pub` 无问题、退出 0；Dart 格式及 `git diff --check` 通过。最终差异自查确认本轮业务改动仅为顶部提示 blur 参数，未新增测试或修改 Golden。
+- iPhone 11 同步：上一段调试会话已断开，但目标 iPhone 11 仍连接；使用 `flutter run --debug --no-pub --flavor test --dart-define-from-file=config/test.json -d <iPhone 11 UDID>` 重新构建、安装并启动更新。CoreDevice 回读为测试版 `com.kando.kandoApp.beta`、`1.0.6+192`；最终 `.app` 验签通过，App Attest 为 `development`、`get-task-allow=true`，开发描述文件包含目标设备、Firebase 为测试项目、Debug kernel 存在。日志确认玻璃初始化、调试文件同步及交互调试就绪，当前连接保留。
+- 边界：本轮未再次卸载应用、导出 IPA／dSYM、重打 Android APK、运行完整 Flutter 测试／全部 Golden 或进行 Git commit／push、远端部署。源码分析、定向测试和 iPhone 安装不证明文字可读性已经由 Agent 目测验收，最终观感仍由真机反馈确认。
+
+<a id="liquid-glass-iphone11-top-toast-reinstall-20261105"></a>
+## 顶部提示材质更新后 iPhone 11 卸载重装（2026-11-05）
+
+- 来源与构建：按用户要求，基于 `codex/liquid-glass-nav-toast-preview@baf0a5b7` 加未提交的顶部提示材质调整，执行 `flutter build ios --debug --flavor test --dart-define-from-file=config/test.json --no-pub` 成功；保留测试环境、`com.kando.kandoApp.beta` 和 `1.0.6+192`。未重复运行此前已通过的 8 项 Toast 测试和完整 App 静态分析，本轮业务源码未再修改。
+- 卸载与安装：结束上一轮目标设备的 Flutter 调试会话，使用 `xcrun devicectl device uninstall app --device <iPhone 11 UDID> com.kando.kandoApp.beta` 卸载成功，随后按 Bundle 查询确认已不存在；再以 `flutter run --debug --no-build --no-pub --flavor test --dart-define-from-file=config/test.json -d <iPhone 11 UDID>` 完成重新安装与启动。CoreDevice 回读目标 iPhone 11 已安装 Card AI `1.0.6+192`，运行日志确认玻璃初始化、文件同步及交互调试就绪，当前调试连接保留。
+- 签名与边界：构建后及启动后的最终 `.app` 均通过 codesign 验证，签名 entitlement 为 App Attest `development`、`get-task-allow=true`；开发描述文件包含目标 iPhone 11，Firebase 为测试项目，Debug kernel 存在。本轮为直接 `.app` 调试安装，未导出 IPA／dSYM、重打 Android APK、递增版本、Git commit／push 或执行远端部署。日志仍有网络离线提示；安装启动和玻璃初始化不代表数据加载、真实视觉、文字可读性、帧率或功耗验收通过。
+
+<a id="liquid-glass-top-toast-clarity-20261105"></a>
+## 顶部提示通透材质与底栏对齐（2026-11-05）
+
+- 范围与实现：按用户要求，仅调整共享 `KandoTopToast` 的玻璃材质，与当前底栏使用相同设置：clear 模式、白色 alpha 15／255、blur 3、厚度 26、折射率 1.59、色差 0.01、光照 0.6、环境光 0.12、饱和度 1.15、glow 0.85；描边与外阴影也对齐底栏。原顶部提示的 alpha 46／255、blur 12 仅为此前交付时的历史实现。保留 350×74 尺寸、12 圆角、五类图标、文字阴影及替换／自动关闭／点击关闭／上滑关闭行为，继续复用 iOS／Android 同一 Flutter 渲染路径及质量降级策略。
+- 本地验证：完整 App `flutter analyze --no-pub` 无问题、退出 0；`flutter test --no-pub test/toast_test.dart` 8／8 通过，覆盖顶部提示的位置／类型、替换、手动关闭及上滑关闭。Dart 格式检查通过，未新增测试或更新 Golden。最终差异自查确认顶部提示的玻璃设置、描边及外阴影与底栏一致，调用接口和交互逻辑未变。
+- 交付边界：本次仅为本地源码调整，未重新构建或安装 iOS／Android 包，前述已安装 iPhone Debug 和已交付 Android APK 不包含本次调整。未进行真机透色、折射、文字可读性及功耗验收，未执行 Git commit／push 或远端部署。
+
+<a id="liquid-glass-android-debug-delivery-20261105"></a>
+## 玻璃底栏 Android 测试环境 Debug APK 交付（2026-11-05）
+
+- 来源与构建：按用户要求，将当前本地预览分支 `c5013d1f` 加未提交的弹性镜片改动构建为可手工安装的 Android Debug APK；沿用刚才 iPhone 的测试环境。`flutter build apk --debug --no-pub --dart-define-from-file=config/test.json` 成功，版本 `1.0.6+192`、包名 `com.cardai.tcg`、minSdk 24、targetSdk 36；包内包含 arm64-v8a／armeabi-v7a／x86_64 原生库。构建保留既有 Gradle／AGP／Kotlin 未来支持警告，未修改源码版本或工具链。
+- 制品验证：apksigner 验证成功、v2 签名有效；aapt 回读确认 debuggable，最终 Manifest 实际引用 `network_security_config_test` 且其规则包含 `192.168.50.201`。Debug kernel、玻璃库 5 个 Shader 和 APK ZIP 完整性检查通过。保存副本与构建输出 SHA-256 一致。
+- 保存与边界：交付文件为 `~/Downloads/CardAI-Packages/Android/CardAI-Test-1.0.6-192-liquid-glass-debug.apk`，301,276,504 字节、SHA-256 `e7afb84006547896833a149da7edad4ffe384d7d05745e84e88b298215b455ba`。由用户自行安装 Android 真机，本轮未安装或进行 Android 视觉／帧率／扫描验收；测试 API 需要设备能访问内网 `192.168.50.201:8080`。本轮仅打包和校验，未重复运行上一轮已通过的源码测试，未执行 Git commit／push、远端部署或远程配置写入。
+
+<a id="liquid-glass-iphone11-debug-20261105"></a>
+## 玻璃底栏 iPhone 11 Debug 安装（2026-11-05）
+
+- 来源与安装：经用户明确要求，将本地预览分支 `c5013d1f` 加未提交的弹性镜片改动安装到已配对、有线连接且开启开发者模式的 iPhone 11（iOS 18.7.8）。`flutter build ios --debug --flavor test --dart-define-from-file=config/test.json --no-pub` 成功；随后 `flutter run --debug --no-build --no-pub --flavor test --dart-define-from-file=config/test.json -d <目标设备>` 完成安装与启动，并建立 Dart 调试连接。CoreDevice 独立回读确认已安装 `com.kando.kandoApp.beta`、显示名 Card AI、版本 `1.0.6+192`；未递增源码版本号。
+- 签名与运行：对实际安装对应的最终 `.app` 执行完整 codesign 验证并读取签名 entitlement，确认 `get-task-allow=true`、App Attest 为 `development`，开发描述文件包含目标设备；实际 Firebase 配置为 `card-ai---test`，Debug kernel 存在。设备日志确认 `[LiquidGlass] Initialization complete.` 及 Flutter 调试服务已启动。本次为 Flutter 开发调试 `.app` 安装，没有导出或交付 IPA／dSYM，未运行 Release 发布脚本，既有 Downloads 包和 Xcode Archives 未改动。
+- 验收边界：构建主机访问 dev health 为 200，但手机启动时对测试 API／Firebase 等请求返回离线错误；没有把主机可达当成手机已联网。页面数据、匿名登录、实际导航玻璃视觉／帧率及扫描背景折射尚未独立验收，需设备连通测试环境后补验。调试连接保留以便用户查看效果；本轮未修改业务源码、服务端配置、Git commit／push 或执行远端部署。
+
+<a id="liquid-glass-video-motion-20261105"></a>
+## 底栏视频参考：弹性镜片与通透度（2026-11-05）
+
+- 来源与范围：续作起点为本地预览分支 `codex/liquid-glass-nav-toast-preview@c5013d1f`。抽帧查看用户提供的 29 秒底栏录屏，确认选中态包含按压鼓起、移动形变、透明镜片折射图标和释放后收回；这取代上一轮固定玻璃胶囊的 220ms 平移。仅调整 App Shell 底栏及对应测试、Golden 和文档，继续复用现有 `liquid_glass_widgets 1.16.1` 的跨端 Flutter 实现。
+- 通透度：底栏继续使用 clear 材质且无暗色 backer；白色填充 alpha 从 31 降为 15（满值 255，约 6%），blur 从 8 降为 3。静止选中胶囊使用 alpha 20 的淡白填充（约 8%），移动镜片不填充颜色、blur 为 0，依靠边缘光和折射显示轮廓；移动镜片的折射率 1.10、pinchStrength 0.4。上一节的 alpha 31／61 和独立静态 `GlassContainer` 为视频调整前的历史实现。
+- 动画与交互：复用 `AnimatedGlassIndicator` 的前后两层绘制，静止底色在图标下方，运动镜片在图标上方、中央 Scan 按钮下方。位置使用 380ms snappy spring，鼓起使用 220ms interactive spring；释放后延迟 180ms 收回。按住预览目标、取消退回原 Tab，松手才触发既有导航。GoRouter 替换页面时传递当前镜片位置、速度及活动量，快速连续切换接续当前运动；启用系统减少动态效果时直接定位选中态且不鼓起。原底栏 350×62、静止选中区高 54、中央 Scan 64×64 及溢出点击区保留。
+- 本地验证：完整 App `flutter analyze --no-pub` 无问题；`flutter test --no-pub test/toast_test.dart test/widget/app_shell_test.dart` 最终 20/20 通过，覆盖新增按压放大、取消回位、快速改选连续性和减少动态效果。Home／Search／Collection 的 `--name 'bottom navigation|bottom tab'` 筛选 9/9 通过。首轮 Shell 10 项通过、2 项失败：新测试把带 Key 的 `_FigmaTabItem` 误当作 `Semantics`，改为读取其实际语义子节点；另 1 张底栏 Golden 因预期样式变化有 4.94% 像素差异，检查实际图后仅更新该底栏基线。修正后未开启更新模式的最终测试通过；未重录其他 Golden。
+- 双端构建：最终源码的 `flutter build apk --debug --no-pub` 及 `flutter build ios --debug --no-codesign --no-pub` 均成功，两端各回读到该库的 5 个 Shader。最新 APK 为 230,713,964 字节、SHA-256 `6e5d7634c5390ab5005e15e9a911b99956cb2f724c1189a2b4a24d403c028d05`，替代上一轮样式 APK；iOS 为无签名 device `Runner.app`。Android 保留既有 Gradle／AGP／Kotlin 未来支持警告，iOS 保留既有三个插件的 Swift Package Manager 及 ML Kit arm64 Simulator 支持提示，未升级工具链或跳过校验。源码格式、文档链接和 `git diff --check` 通过。
+- 视觉与审查：忽略目录中的临时入口使用实际 App Shell、实际路由和受控彩色背景，捕获 84 帧并生成动画预览，入口 1/1 完成。检查了透色、按压形变、松手回收和文字布局；软件渲染使用 minimal，预览不证明 Impeller 的实际图标折射或移动端帧率。最终源码及调用方自查未发现阻断项，动画监听只重建两层指示器，业务页面不随逐帧动画重建。
+- 交付边界：本轮修改仍在本地预览分支，未提交或推送。未安装真机、发布签名包或执行远端部署；iOS／Android 真机透色、折射、相机背景、帧率及 Reduce Transparency 仍需实机验收。既有 ML Kit 阻断 iOS arm64 Simulator 的边界沿用上一节，本轮未重复该失败构建；完整 Flutter 测试／全部 Golden 未运行，静态与定向检查不能替代这些未验项。
+
+<a id="liquid-glass-preview-20261104"></a>
+## 底部导航与顶部提示 Liquid Glass 本地预览（2026-11-04；11-05 通透样式补验）
+
+- 来源与范围：从当时干净的 `codex/dev-1.0.7scan@5d674a0` 创建本地 `codex/liquid-glass-nav-toast-preview`，未推送。仅增加 `liquid_glass_widgets 1.16.1`，初始化其 Flutter Shader 运行环境，并将共享 350×62 底栏表面与 `KandoTopToast` 表面换成 `GlassContainer` premium 渲染；保留五个 Tab 顺序、中央扫描按钮及溢出点击区、路由、高亮动画、提示类型、全局替换、3 秒自动关闭、关闭按钮和上滑关闭。其他 Toast、弹窗、页面和业务逻辑未改。
+- 通透样式：按用户参考图去掉底栏与顶部提示的暗色 backer 和深色玻璃填充；底栏、选中胶囊及顶部提示统一采用 `GlassBodyMode.clear`，白色填充 alpha 分别为 31／61／46（满值 255）。保留模糊、折射和细亮边；选中项使用独立 `GlassContainer`，与底栏玻璃层互为同级，保留 54px 高、27px 圆角和 220ms 滑动动画。顶部提示正文增加轻微阴影；没有改中央扫描按钮、页面背景或其他 Toast。历史 UI 规范的暗色面板要求在这两处由本次用户明确批准的视觉方向替代。
+- 跨端策略：支持 Flutter ShaderFilter 的 Android／iOS Impeller 运行包使用 premium 质量；软件渲染测试、Web 或旧渲染器使用 minimal。两种路径均不再叠加暗色 backer。`flutter test` 的软件渲染器对强制 premium 的异步路径输出不稳定，因此共享 helper 按渲染能力选择质量，而不是读取平台名或维护两套 UI。依赖为纯 Flutter 视觉路径，没有引入 Compose。
+- 本地验证：目标实现与测试的 `flutter analyze --no-pub` 无问题，Dart workspace `dart run melos run analyze` 最终两个 package 均无问题、退出 0；Toast 与 App Shell 两文件合跑 17/17 通过，三个主页面的底部导航路由筛选 9/9 通过，覆盖底栏 350×62 几何、Tab／Scan 点击、跨路由高亮、提示替换／关闭／上滑以及两处确实使用 `GlassContainer`。更新一张属于本次预期视觉变化的底栏 Golden；整组稳定性修正前的页面级回归曾出现 10 个 Golden 失败，包含既有独立组件／扫描背景差异，未据此重录无关基线；质量分流后目标两文件复跑通过。
+- 11-05 补验：使用本机 Flutter 3.44.5／Dart 3.12.2，目标 5 文件 `flutter analyze --no-pub` 无问题；`flutter test --no-pub test/toast_test.dart test/widget/app_shell_test.dart` 首轮 16 项通过、1 张底栏 Golden 因预期样式变化失败（4.95% 像素差异）。检查实际图后只更新该底栏 Golden，clear 模式最终源码复跑 17/17 通过；Home／Search／Collection 的 `--name 'bottom navigation|bottom tab'` 筛选再次 9/9 通过。根 `pnpm lint` 通过；`pnpm type-check` 7 个任务成功，其中 5 个复用缓存、2 个实际执行。格式、文档引用和 `git diff --check` 通过。
+- 构建与资产：首轮 APK 为 278,200,427 字节、SHA-256 `956ede43198eca1c8c8b9c9814605b609fe8d42a8b7a8a5c20536346af6ac9ac`，不再代表最新样式。11-05 最终源码的 `flutter build apk --debug --no-pub` 成功，APK 为 230,713,964 字节、SHA-256 `0a726d5785d3d4e2ee65d7cdfacfd7f2a7a539f8a1dac97ec6c76c7a0ee6db13`；`flutter build ios --debug --no-codesign --no-pub` 成功生成 device `Runner.app`。最新双端产物均回读到该库的 `interactive_indicator`、`lightweight_glass`、`liquid_glass_geometry_blended`、`liquid_glass_render` 和 `progressive_blur` 五个 Shader。Android 保留既有 Gradle 8.12／AGP 8.9.1／Kotlin 2.1.0 未来支持、Java 8 及 Singular unchecked 警告；iOS 保留既有三个插件尚未支持 Swift Package Manager、ML Kit 不支持 arm64 Simulator 的提示。
+- 视觉与审查：临时入口仅在忽略目录，使用实际底栏及 `KandoTopToast` 在受控彩色／深色背景下捕获软件渲染预览，检查透色、胶囊轮廓和文字可读性；这不是实际业务页面截图，也不是 premium 折射验收。首轮捕获在第二张图等待时中断，截图转换移入 `tester.runAsync` 后 1/1 完成，未改变业务组件。最终差异及直接调用方自查未发现阻断项；本轮新增源码仅明确三处 clear 材质及修正顶部提示注释。
+- Git 与未验边界：本轮续做起点为已有本地 `38d17696`，本轮修改未提交、未推送。首轮 iOS Simulator 构建被既有 Google ML Kit／MLImage／MLKitVision 不支持 Apple Silicon iOS 26+ Simulator arm64 阻断，本轮没有重复该失败构建；设备无签名编译不等于安装或视觉验收。首轮未发现 Android Emulator，本轮未进行设备安装。未运行完整 Flutter workspace／全部 Golden、真机帧率、相机纹理背后的实际折射、低端 Android GLES 或 Reduce Transparency 视觉验收；这些仍需 iOS／Android 实机补验。本轮未执行远端部署、签名制品、数据库或远程配置写入。
+
 <a id="owner-assets-admin-emulator-20261103"></a>
 ## 账号隔离、批量资产与本地模拟器验证（2026-11-03）
 

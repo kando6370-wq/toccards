@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import 'app/app.dart';
 import 'features/auth/auth_storage.dart';
@@ -14,6 +15,7 @@ import 'shared/portfolio/portfolio_providers.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await LiquidGlassWidgets.initialize();
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -41,18 +43,21 @@ Future<void> main() async {
     loadMixpanelToken: () => loadMixpanelProjectToken(dio: mixpanelDio),
   );
   runApp(
-    ProviderScope(
-      overrides: [
-        appHttpTransportProvider.overrideWith((ref) {
-          ref.onDispose(httpTransport.close);
-          return httpTransport;
-        }),
-        analyticsProvider.overrideWithValue(analytics),
-        portfolioAmountHiddenStorageProvider.overrideWithValue(
-          amountHiddenStorage,
-        ),
-      ],
-      child: const KandoApp(),
+    LiquidGlassWidgets.wrap(
+      brightnessResolver: Theme.maybeBrightnessOf,
+      child: ProviderScope(
+        overrides: [
+          appHttpTransportProvider.overrideWith((ref) {
+            ref.onDispose(httpTransport.close);
+            return httpTransport;
+          }),
+          analyticsProvider.overrideWithValue(analytics),
+          portfolioAmountHiddenStorageProvider.overrideWithValue(
+            amountHiddenStorage,
+          ),
+        ],
+        child: const KandoApp(),
+      ),
     ),
   );
 }

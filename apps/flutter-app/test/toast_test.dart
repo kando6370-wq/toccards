@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kando_app/shared/ui/kando_liquid_glass.dart';
 import 'package:kando_app/shared/ui/toast.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 void main() {
   test('global Toast copy matches PRD text', () {
@@ -100,6 +102,11 @@ void main() {
     await tester.pump();
 
     expect(find.byKey(const Key('kando-top-toast')), findsOneWidget);
+    expect(
+      tester.widget(find.byKey(const Key('kando-top-toast'))),
+      isA<GlassContainer>(),
+    );
+    expect(kandoLiquidGlassQuality, GlassQuality.minimal);
     expect(find.text(networkFailureToastText), findsOneWidget);
     final messageText = tester.widget<Text>(find.text(networkFailureToastText));
     expect(messageText.maxLines, 2);
