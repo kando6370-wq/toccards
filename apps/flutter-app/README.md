@@ -70,8 +70,12 @@ Firebase configuration.
 
 Android 沿用 `--dart-define-from-file=config/test.json` 选择测试环境，无需新增
 flavor。Gradle 从同一 `APP_ENV=test` 编译参数选择网络策略，只为该 IP 允许 HTTP；
-未配置环境默认使用测试 API 和隔离包名
-`dev.kando.cardvault.sandbox.a1aa3e`。可构建本机测试包：
+未配置环境默认使用测试 API 和 application ID `com.kando.kandoApp.beta`。
+该字符串与 iOS 测试 Bundle ID 相同，但 Android 的 Firebase App、OAuth client、
+签名和安装数据仍是独立平台资源，不复用 iOS 配置。`config/test.json` 提供 Android
+测试使用的 Web server client ID；Android OAuth client 另按该包名和测试签名登记。
+原 `dev.kando.cardvault.sandbox.a1aa3e` 安装的登录态及本地数据不会自动迁移到新包。
+可构建本机测试包：
 
 ```bash
 flutter build apk --debug --no-pub --dart-define-from-file=config/test.json

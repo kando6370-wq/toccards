@@ -1,6 +1,7 @@
 {
   "APP_ENV": "test",
   "APP_HTTP_TRANSPORT": "native",
+  "GOOGLE_SERVER_CLIENT_ID": "1030914046373-60jceo6ofjtr3f58u6oa1ov3gjl51d81.apps.googleusercontent.com",
   "cronetHttpNoPlay": true,
   "SUBSCRIPTION_APP_STORE_WEEKLY_ID": "cardx.week",
   "SUBSCRIPTION_APP_STORE_YEARLY_ID": "cardx.year",

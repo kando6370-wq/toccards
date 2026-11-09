@@ -123,7 +123,7 @@ X-Request-ID: <request id>
 
 ## 开发与正式打包隔离
 
-- 本机 Android 测试默认使用 `APP_ENV=test` 和独立 applicationId `dev.kando.cardvault.sandbox.a1aa3e`。Debug 签名在本项目忽略目录 `.dart_tool/android-test-signing/` 首次生成，不复用全机 Debug keystore 或已有正式 JKS。
+- 本机 Android 测试默认使用 `APP_ENV=test` 和独立 applicationId `com.kando.kandoApp.beta`。Debug 签名在本项目忽略目录 `.dart_tool/android-test-signing/` 首次生成，不复用全机 Debug keystore 或已有正式 JKS。下述旧 APK 交付记录按各自构建日期保留原包名，不回写为当前合同。
 - Android 正式 applicationId、上传签名路径／密码、Firebase 配置和其他正式 SDK 值由独立打包环境注入；不自动读取本机已有 key.properties 或签名库。
 - production 必须提供 `ANDROID_APPLICATION_ID`、`ANDROID_KEYSTORE_PATH`、`ANDROID_KEY_ALIAS`、`ANDROID_KEY_PASSWORD`、`ANDROID_STORE_PASSWORD`、有效的 `ANDROID_FIREBASE_CONFIG_PATH`，以及 Google server client ID／Play cloud project number 编译参数。缺失时构建显式失败，不回退到测试签名；production 禁止 Debug 构建。
 - 开发未提供 Firebase 外部配置时不应用 Google Services／Crashlytics 插件，Firebase 在运行时明确不可用，不将其写成已接通。打包机提供正式文件后仍需实发日志／分析事件验收。
@@ -131,6 +131,25 @@ X-Request-ID: <request id>
 - 不通过随机重命名业务方法／资源、删除 Git 历史或混用开发者账号来替代发布与来源管理；本轮不更改 IDE 全局设置、网络、账号或删除本机私有文件。
 
 本次是在同一 Flutter 项目增加 Android 发布，继续复用本仓的跨端实现，不引入其他项目源码。向独立打包机交付时应导出已批准提交的源码并记录提交与构建来源，忽略的本地测试签名、缓存及私有配置不随源码交付；无需删除正在开发的工作区 Git 历史。
+
+### Android dev Google 登录配置（2026-11-09）
+
+Android dev 与既有 iOS Google 登录共用 Google Cloud project `tcg-card-2072d`，但使用独立 OAuth client，不因同项目而混用平台身份：
+
+- Android OAuth client 为 `1030914046373-72g2q8ornut5i7hs23ff2nhaec7ovknl.apps.googleusercontent.com`，package 为 `com.kando.kandoApp.beta`，Debug 证书 SHA-1 为 `D8:EC:55:E3:B9:C4:FF:7A:2E:54:F2:DE:DA:33:98:F6:E7:2C:B4:92`。
+- Android dev 的 server audience 使用独立 Web OAuth client `1030914046373-60jceo6ofjtr3f58u6oa1ov3gjl51d81.apps.googleusercontent.com`。`config/test.json` 已将该值配置为客户端 `GOOGLE_SERVER_CLIENT_ID`；Linux dev 必须以同值配置 `GOOGLE_ANDROID_SERVER_CLIENT_ID`，否则 API 会因 ID Token audience 不匹配拒绝登录。
+- 原 iOS client、既有 Web client 与 production Android OAuth 均未修改；iOS API 继续使用原 `GOOGLE_CLIENT_ID`。本配置不使用 Web client secret，不接入 Firebase Authentication，也不复用 production Play Integrity 服务账号或私钥。
+- dev 的 `ANDROID_INTEGRITY_ALLOW_DEVELOPMENT=true` 只允许测试安装先建立 Android 游客会话；Google OAuth 回调仍校验真实 ID Token 的 audience、issuer、已验证邮箱和 `sub`，不会因开发豁免跳过。
+
+Linux dev 已在当前 release `branch-dev-9f17115ae738-20261109093204` 的共享私有环境中写入上述 Android Web audience；修改前私有环境备份为 `/home/user/apps/toccards-test/shared/.env.before-android-google-20261109T092000Z`。仅 `GOOGLE_ANDROID_SERVER_CLIENT_ID` 发生变化，其余 `.env` 原始字节保持；原 iOS audience `1030914046373-j0ihp89joii8c9k66v89l9dske6mp0mc.apps.googleusercontent.com`、`APP_ENVIRONMENT=development` 与 `ANDROID_INTEGRITY_ALLOW_DEVELOPMENT=true` 均保留。
+
+只使用同一 API image `sha256:8bd2fb1d816471ae40f927b8f0ab717cc3a6b4ea0cb7b35dbf09aa79f124f9d2` 重建 API 容器，新容器 ID 为 `1aab2fce3a1665d3d59c8a72a5f73239557dd746b02626c9f11cbbb7cf9973ff`，运行且 healthy，health HTTP 200。DB／Web／migrate 容器、watcher、`current` 与 release 状态均未改变，没有执行 migration。容器访问 Google `tokeninfo` 的无效 token 探测返回 HTTP 400 `invalid_token`，只证明出站网络和端点可达，不证明真实 Google 登录或 Token 验签成功。
+
+客户端相关定向测试 13／13 通过，`flutter analyze` 为 0 issues。使用新 dev OAuth 配置构建 Android Debug APK 1.0.7+203，来源为 `6c53c9f21d702f5860db665a2ce715f4815649a3` 加本轮未提交修改，必须标记 dirty，不能描述为纯提交制品。交付文件为 `D:/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.7-203-Android-20261109-172557/CardAI-Test-1.0.7-203-dev-google-login.apk`，252,665,220 字节，SHA-256 `407ef92aae5097e7b7971bb580aa3c90b0ae008621449d2308531314b5d11027`；同目录保存公开构建与校验元数据。
+
+静态核验确认 package `com.kando.kandoApp.beta`、versionCode 203、minSdk 24、targetSdk 36，Debug V2 签名 SHA-1 与上述 Android OAuth client 完全匹配。Compiled Kernel 包含选定 dev Web client ID，且与实际运行 Linux dev API 的 `GOOGLE_ANDROID_SERVER_CLIENT_ID` 逐字一致；未使用 Web client secret。APK 包含 `arm64-v8a`、`armeabi-v7a`、`x86_64` 三种 ABI，28 个原生库中的 19 个 64 位库全部通过 ELF 16 KB 对齐，ZIP 16 KB 对齐通过；禁止的 Billing、录音和广泛照片／存储权限不存在，测试网络策略只为 `192.168.50.201` 放行 HTTP。复制后的制品哈希一致，537 个构建输入前后未变化；临时 Flutter JDK 设置已恢复。
+
+该包没有接入 Firebase 或 production Play Integrity，测试安装仍使用 dev Integrity bypass。applicationId 从旧测试包名变为 `com.kando.kandoApp.beta`，本机旧安装数据不会自动迁移。当前 ADB 未发现连接的设备，本轮未执行模拟器或真机安装，也未使用真实 Google 账号登录；同一 Google 用户的共享基础身份、Android 独立数据空间及端到端登录仍待真机验证，不能由静态配置、API healthy 或无效 token 探测推断为已通过。
 
 ## 实现说明
 

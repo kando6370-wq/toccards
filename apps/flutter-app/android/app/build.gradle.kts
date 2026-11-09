@@ -117,7 +117,7 @@ android {
         applicationId = if (isProductionEnvironment) {
             productionApplicationId
         } else {
-            "dev.kando.cardvault.sandbox.a1aa3e"
+            "com.kando.kandoApp.beta"
         }
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
