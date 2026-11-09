@@ -2432,42 +2432,52 @@ class _CollectionStatTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final android = Theme.of(context).platform == TargetPlatform.android;
+    final content = Column(
+      mainAxisSize: android ? MainAxisSize.min : MainAxisSize.max,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: android
+          ? MainAxisAlignment.start
+          : MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          key: Key('card-detail-collection-stat-label-${label.toLowerCase()}'),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: labelSize,
+            height: 18 / labelSize,
+            fontWeight: labelWeight,
+            color: KandoColors.mutedText,
+          ),
+        ),
+        if (android) const SizedBox(height: 2),
+        Text(
+          value,
+          key: Key('card-detail-collection-stat-value-${label.toLowerCase()}'),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 16,
+            height: 24 / 16,
+            fontWeight: FontWeight.w400,
+            color: KandoColors.text,
+          ),
+        ),
+      ],
+    );
     return Container(
-      height: 78,
+      key: Key('card-detail-collection-stat-${label.toLowerCase()}'),
+      height: android ? null : 78,
+      constraints: android ? const BoxConstraints(minHeight: 78) : null,
       padding: const EdgeInsets.all(17),
       decoration: BoxDecoration(
         color: KandoColors.surface,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: KandoColors.border),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: labelSize,
-              height: 18 / labelSize,
-              fontWeight: labelWeight,
-              color: KandoColors.mutedText,
-            ),
-          ),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 16,
-              height: 24 / 16,
-              fontWeight: FontWeight.w400,
-              color: KandoColors.text,
-            ),
-          ),
-        ],
-      ),
+      child: content,
     );
   }
 }
@@ -3378,6 +3388,10 @@ class _AddCollectionItemSheet extends ConsumerWidget {
     final draft = state.collectionItemDraft!;
     final hidesPortfolioSelector = entrySource == AnalyticsValue.sourceSearch;
     final routeKeyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+    final android = Theme.of(context).platform == TargetPlatform.android;
+    final revealKeyboardInset = keepActionsFixedOnKeyboard || android
+        ? routeKeyboardInset
+        : 0.0;
 
     return AnimatedPadding(
       duration: const Duration(milliseconds: 180),
@@ -3399,109 +3413,85 @@ class _AddCollectionItemSheet extends ConsumerWidget {
               if (topContent != null) topContent!,
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Collection item',
-                        maxLines: 1,
-                        style: TextStyle(
-                          fontFamily: 'Fraunces',
-                          fontSize: 30,
-                          height: 40 / 30,
-                          color: KandoColors.text,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Flexible(
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        widthFactor: useQuickCollectionController ? null : 1,
-                        child: InkWell(
-                          key: const Key('card-detail-add-item-portfolio'),
-                          borderRadius: BorderRadius.circular(8),
-                          onTap: actionsEnabled
-                              ? () async {
-                                  final options = [
-                                    for (final folder
-                                        in state.detail.portfolioFolders)
-                                      folder.name,
-                                  ];
-                                  final next = await _showChoiceSheet(
-                                    context,
-                                    title: 'Portfolio',
-                                    selected: draft.portfolioName,
-                                    options: options,
-                                  );
-                                  if (next != null) {
-                                    if (useQuickCollectionController) {
-                                      final folderId = state
-                                          .detail
-                                          .portfolioFolders
-                                          .where(
-                                            (folder) => folder.name == next,
-                                          )
-                                          .firstOrNull
-                                          ?.id;
-                                      if (folderId != null) {
-                                        ref
-                                            .read(
-                                              selectedPortfolioFolderProvider
-                                                  .notifier,
-                                            )
-                                            .select(folderId);
-                                      }
-                                    }
-                                    controller.updateCollectionItemDraft(
-                                      portfolioName: next,
-                                    );
-                                  }
+                child: _CollectionItemSheetHeader(
+                  useQuickCollectionController: useQuickCollectionController,
+                  portfolioAction: InkWell(
+                    key: const Key('card-detail-add-item-portfolio'),
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: actionsEnabled
+                        ? () async {
+                            final options = [
+                              for (final folder
+                                  in state.detail.portfolioFolders)
+                                folder.name,
+                            ];
+                            final next = await _showChoiceSheet(
+                              context,
+                              title: 'Portfolio',
+                              selected: draft.portfolioName,
+                              options: options,
+                            );
+                            if (next != null) {
+                              if (useQuickCollectionController) {
+                                final folderId = state.detail.portfolioFolders
+                                    .where((folder) => folder.name == next)
+                                    .firstOrNull
+                                    ?.id;
+                                if (folderId != null) {
+                                  ref
+                                      .read(
+                                        selectedPortfolioFolderProvider
+                                            .notifier,
+                                      )
+                                      .select(folderId);
                                 }
-                              : null,
-                          child: Padding(
-                            padding: EdgeInsets.only(
-                              left: 4,
-                              right: useQuickCollectionController ? 0 : 4,
-                              top: 2,
-                              bottom: 2,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    'Adding to ${draft.portfolioName}',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      height: 24 / 16,
-                                      color: KandoColors.accent,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                const Icon(
-                                  Icons.keyboard_arrow_down_rounded,
-                                  size: 20,
-                                  color: KandoColors.accent,
-                                ),
-                              ],
+                              }
+                              controller.updateCollectionItemDraft(
+                                portfolioName: next,
+                              );
+                            }
+                          }
+                        : null,
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        left: 4,
+                        right: useQuickCollectionController ? 0 : 4,
+                        top: 2,
+                        bottom: 2,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              'Adding to ${draft.portfolioName}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                height: 24 / 16,
+                                color: KandoColors.accent,
+                              ),
                             ),
                           ),
-                        ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            size: 20,
+                            color: KandoColors.accent,
+                          ),
+                        ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
               ),
               Expanded(
                 child: _KeyboardAwareCollectionItemScroll(
-                  keyboardInset: keepActionsFixedOnKeyboard
+                  keyboardInset: revealKeyboardInset,
+                  viewportBottomInset: keepActionsFixedOnKeyboard
                       ? routeKeyboardInset
-                      : 0,
+                      : 0.0,
                   child: Container(
                     decoration: _kPanel(strong: true),
                     child: Column(
@@ -3531,188 +3521,207 @@ class _AddCollectionItemSheet extends ConsumerWidget {
                   ),
                 ),
               ),
-              Container(
-                width: double.infinity,
-                padding: EdgeInsets.fromLTRB(
-                  16,
-                  16,
-                  useQuickCollectionController ? 20 : 16,
-                  20 +
-                      (useBottomSafeArea
-                          ? MediaQuery.viewPaddingOf(context).bottom
-                          : 0),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                transform: Matrix4.translationValues(
+                  0,
+                  -(keepActionsFixedOnKeyboard &&
+                          Theme.of(context).platform == TargetPlatform.android
+                      ? routeKeyboardInset
+                      : 0.0),
+                  0,
                 ),
-                decoration: BoxDecoration(
-                  color: KandoColors.ink.withValues(alpha: 0.96),
-                  border: Border(
-                    top: BorderSide(
-                      color: KandoColors.border.withValues(alpha: 0.4),
+                child: Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    16,
+                    useQuickCollectionController ? 20 : 16,
+                    20 +
+                        (useBottomSafeArea
+                            ? MediaQuery.viewPaddingOf(context).bottom
+                            : 0),
+                  ),
+                  decoration: BoxDecoration(
+                    color: KandoColors.ink.withValues(alpha: 0.96),
+                    border: Border(
+                      top: BorderSide(
+                        color: KandoColors.border.withValues(alpha: 0.4),
+                      ),
                     ),
                   ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('TOTAL VALUE', style: _kFieldLabelStyle),
-                        Text(
-                          state.collectionItemDraftTotalText,
-                          key: const Key('card-detail-item-total'),
-                          style: const TextStyle(
-                            color: KandoColors.accent,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            height: 24 / 16,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: FilledButton.icon(
-                            key: const Key('card-detail-item-submit'),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: KandoColors.accent,
-                              disabledBackgroundColor: KandoColors.accent,
-                              foregroundColor: KandoColors.ink,
-                              disabledForegroundColor: KandoColors.ink,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: const StadiumBorder(),
-                              textStyle: const TextStyle(fontSize: 16),
-                            ),
-                            onPressed:
-                                state.isSavingCollectionItemDraft ||
-                                    !actionsEnabled
-                                ? null
-                                : () async {
-                                    ref
-                                        .read(analyticsProvider)
-                                        .track(
-                                          AnalyticsEvent.collectionItemAddClick,
-                                          properties: {
-                                            AnalyticsProperty.ipType:
-                                                analyticsIpType(
-                                                  state.detail.game,
-                                                ),
-                                            AnalyticsProperty.gradeType:
-                                                draft.grader.toLowerCase() ==
-                                                    'raw'
-                                                ? AnalyticsValue.gradeNormal
-                                                : AnalyticsValue.gradeGraded,
-                                            AnalyticsProperty.entrySource:
-                                                entrySource,
-                                          },
-                                        );
-                                    bool saved;
-                                    try {
-                                      saved = await controller
-                                          .saveCollectionItemDraft(
-                                            invalidateAssetConsumers:
-                                                onSaved == null,
-                                          );
-                                    } on PortfolioApiException catch (error) {
-                                      if (context.mounted) {
-                                        showKandoTopToast(
-                                          context,
-                                          message: error.message,
-                                          type: KandoTopToastType.failure,
-                                        );
-                                      }
-                                      return;
-                                    } catch (_) {
-                                      if (context.mounted) {
-                                        showKandoTopFailureToast(context);
-                                      }
-                                      return;
-                                    }
-                                    if (!context.mounted) return;
-                                    if (!saved) {
-                                      final message = ref
-                                          .read(provider)
-                                          .collectionItemFormError;
-                                      showKandoTopToast(
-                                        context,
-                                        message:
-                                            message ?? genericFailureToastText,
-                                        type: KandoTopToastType.failure,
-                                      );
-                                      return;
-                                    }
-                                    if (onSaved != null) {
-                                      await onSaved!();
-                                    } else {
-                                      Navigator.of(context).pop(true);
-                                    }
-                                  },
-                            icon: state.isSavingCollectionItemDraft
-                                ? const SizedBox(
-                                    key: Key('card-detail-item-submit-loading'),
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: KandoColors.ink,
-                                    ),
-                                  )
-                                : const Icon(Icons.add_circle_outline),
-                            label: const Text('Add this card'),
-                          ),
-                        ),
-                        if (onDelete != null) ...[
-                          const SizedBox(width: 10),
-                          IconButton.filled(
-                            key: const Key('pending-collection-delete'),
-                            tooltip: 'Delete pending item',
-                            onPressed: actionsEnabled ? onDelete : null,
-                            style: IconButton.styleFrom(
-                              backgroundColor: const Color(0xFF33282C),
-                              foregroundColor: const Color(0xFFE58B93),
-                              fixedSize: const Size.square(52),
-                            ),
-                            icon: const Icon(Icons.delete_outline),
-                          ),
-                        ],
-                      ],
-                    ),
-                    if (onAddAll != null && onDeleteAll != null) ...[
-                      const SizedBox(height: 10),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              key: const Key('pending-collection-add-all'),
-                              onPressed: actionsEnabled ? onAddAll : null,
-                              child: Text(batchProgressText ?? 'ADD ALL CARDS'),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: OutlinedButton(
-                              key: const Key('pending-collection-delete-all'),
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                ),
-                              ),
-                              onPressed: actionsEnabled ? onDeleteAll : null,
-                              child: const FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text(
-                                  'DELETE ALL CARDS',
-                                  maxLines: 1,
-                                  softWrap: false,
-                                ),
-                              ),
+                          const Text('TOTAL VALUE', style: _kFieldLabelStyle),
+                          Text(
+                            state.collectionItemDraftTotalText,
+                            key: const Key('card-detail-item-total'),
+                            style: const TextStyle(
+                              color: KandoColors.accent,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              height: 24 / 16,
                             ),
                           ),
                         ],
                       ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: FilledButton.icon(
+                              key: const Key('card-detail-item-submit'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: KandoColors.accent,
+                                disabledBackgroundColor: KandoColors.accent,
+                                foregroundColor: KandoColors.ink,
+                                disabledForegroundColor: KandoColors.ink,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                shape: const StadiumBorder(),
+                                textStyle: const TextStyle(fontSize: 16),
+                              ),
+                              onPressed:
+                                  state.isSavingCollectionItemDraft ||
+                                      !actionsEnabled
+                                  ? null
+                                  : () async {
+                                      ref
+                                          .read(analyticsProvider)
+                                          .track(
+                                            AnalyticsEvent
+                                                .collectionItemAddClick,
+                                            properties: {
+                                              AnalyticsProperty.ipType:
+                                                  analyticsIpType(
+                                                    state.detail.game,
+                                                  ),
+                                              AnalyticsProperty.gradeType:
+                                                  draft.grader.toLowerCase() ==
+                                                      'raw'
+                                                  ? AnalyticsValue.gradeNormal
+                                                  : AnalyticsValue.gradeGraded,
+                                              AnalyticsProperty.entrySource:
+                                                  entrySource,
+                                            },
+                                          );
+                                      bool saved;
+                                      try {
+                                        saved = await controller
+                                            .saveCollectionItemDraft(
+                                              invalidateAssetConsumers:
+                                                  onSaved == null,
+                                            );
+                                      } on PortfolioApiException catch (error) {
+                                        if (context.mounted) {
+                                          showKandoTopToast(
+                                            context,
+                                            message: error.message,
+                                            type: KandoTopToastType.failure,
+                                          );
+                                        }
+                                        return;
+                                      } catch (_) {
+                                        if (context.mounted) {
+                                          showKandoTopFailureToast(context);
+                                        }
+                                        return;
+                                      }
+                                      if (!context.mounted) return;
+                                      if (!saved) {
+                                        final message = ref
+                                            .read(provider)
+                                            .collectionItemFormError;
+                                        showKandoTopToast(
+                                          context,
+                                          message:
+                                              message ??
+                                              genericFailureToastText,
+                                          type: KandoTopToastType.failure,
+                                        );
+                                        return;
+                                      }
+                                      if (onSaved != null) {
+                                        await onSaved!();
+                                      } else {
+                                        Navigator.of(context).pop(true);
+                                      }
+                                    },
+                              icon: state.isSavingCollectionItemDraft
+                                  ? const SizedBox(
+                                      key: Key(
+                                        'card-detail-item-submit-loading',
+                                      ),
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: KandoColors.ink,
+                                      ),
+                                    )
+                                  : const Icon(Icons.add_circle_outline),
+                              label: const Text('Add this card'),
+                            ),
+                          ),
+                          if (onDelete != null) ...[
+                            const SizedBox(width: 10),
+                            IconButton.filled(
+                              key: const Key('pending-collection-delete'),
+                              tooltip: 'Delete pending item',
+                              onPressed: actionsEnabled ? onDelete : null,
+                              style: IconButton.styleFrom(
+                                backgroundColor: const Color(0xFF33282C),
+                                foregroundColor: const Color(0xFFE58B93),
+                                fixedSize: const Size.square(52),
+                              ),
+                              icon: const Icon(Icons.delete_outline),
+                            ),
+                          ],
+                        ],
+                      ),
+                      if (onAddAll != null && onDeleteAll != null) ...[
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                key: const Key('pending-collection-add-all'),
+                                onPressed: actionsEnabled ? onAddAll : null,
+                                child: Text(
+                                  batchProgressText ?? 'ADD ALL CARDS',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: OutlinedButton(
+                                key: const Key('pending-collection-delete-all'),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
+                                ),
+                                onPressed: actionsEnabled ? onDeleteAll : null,
+                                child: const FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    'DELETE ALL CARDS',
+                                    maxLines: 1,
+                                    softWrap: false,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ],
@@ -3723,13 +3732,74 @@ class _AddCollectionItemSheet extends ConsumerWidget {
   }
 }
 
+class _CollectionItemSheetHeader extends StatelessWidget {
+  const _CollectionItemSheetHeader({
+    required this.useQuickCollectionController,
+    required this.portfolioAction,
+  });
+
+  final bool useQuickCollectionController;
+  final Widget portfolioAction;
+
+  @override
+  Widget build(BuildContext context) {
+    const titleStyle = TextStyle(
+      fontFamily: 'Fraunces',
+      fontSize: 30,
+      height: 40 / 30,
+      color: KandoColors.text,
+    );
+    final android = Theme.of(context).platform == TargetPlatform.android;
+
+    if (android) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Collection item',
+            key: Key('card-detail-add-item-title'),
+            maxLines: 2,
+            style: titleStyle,
+          ),
+          const SizedBox(height: 4),
+          Align(alignment: Alignment.centerRight, child: portfolioAction),
+        ],
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        const Expanded(
+          child: Text(
+            'Collection item',
+            key: Key('card-detail-add-item-title'),
+            maxLines: 1,
+            style: titleStyle,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Flexible(
+          child: Align(
+            alignment: Alignment.centerRight,
+            widthFactor: useQuickCollectionController ? null : 1,
+            child: portfolioAction,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _KeyboardAwareCollectionItemScroll extends StatefulWidget {
   const _KeyboardAwareCollectionItemScroll({
     required this.keyboardInset,
+    required this.viewportBottomInset,
     required this.child,
   });
 
   final double keyboardInset;
+  final double viewportBottomInset;
   final Widget child;
 
   @override
@@ -3740,25 +3810,58 @@ class _KeyboardAwareCollectionItemScroll extends StatefulWidget {
 class _KeyboardAwareCollectionItemScrollState
     extends State<_KeyboardAwareCollectionItemScroll> {
   final ScrollController _scrollController = ScrollController();
+  final GlobalKey _viewportKey = GlobalKey();
   double _lastKeyboardInset = 0;
 
   @override
+  void initState() {
+    super.initState();
+    FocusManager.instance.addListener(_handleFocusChange);
+  }
+
+  @override
+  void didUpdateWidget(covariant _KeyboardAwareCollectionItemScroll oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.keyboardInset > _lastKeyboardInset) {
+      _scheduleFocusedFieldReveal();
+      unawaited(
+        Future<void>.delayed(const Duration(milliseconds: 200), () {
+          if (mounted) _scheduleFocusedFieldReveal();
+        }),
+      );
+    }
+    _lastKeyboardInset = widget.keyboardInset;
+  }
+
+  @override
   void dispose() {
+    FocusManager.instance.removeListener(_handleFocusChange);
     _scrollController.dispose();
     super.dispose();
   }
 
-  void _scheduleFocusedFieldReveal(double visibleBottom) {
+  void _handleFocusChange() {
+    if (widget.keyboardInset > 0) _scheduleFocusedFieldReveal();
+  }
+
+  void _scheduleFocusedFieldReveal() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final focusContext = FocusManager.instance.primaryFocus?.context;
       final focusBox = focusContext?.findRenderObject() as RenderBox?;
-      if (focusBox == null || !_scrollController.hasClients) {
+      final viewportBox =
+          _viewportKey.currentContext?.findRenderObject() as RenderBox?;
+      if (focusBox == null ||
+          viewportBox == null ||
+          !_scrollController.hasClients) {
         return;
       }
       final focusBottom = focusBox
           .localToGlobal(Offset(0, focusBox.size.height))
           .dy;
+      final visibleBottom =
+          viewportBox.localToGlobal(Offset(0, viewportBox.size.height)).dy -
+          widget.viewportBottomInset;
       final requiredDelta = focusBottom - visibleBottom + 20;
       if (requiredDelta <= 0) return;
       final position = _scrollController.position;
@@ -3777,17 +3880,19 @@ class _KeyboardAwareCollectionItemScrollState
 
   @override
   Widget build(BuildContext context) {
-    if (widget.keyboardInset > _lastKeyboardInset) {
-      _scheduleFocusedFieldReveal(
-        MediaQuery.sizeOf(context).height - widget.keyboardInset,
-      );
-    }
-    _lastKeyboardInset = widget.keyboardInset;
-    return SingleChildScrollView(
-      key: const Key('card-detail-add-item-scroll'),
-      controller: _scrollController,
-      padding: EdgeInsets.fromLTRB(20, 0, 20, 24 + widget.keyboardInset),
-      child: widget.child,
+    return SizedBox(
+      key: _viewportKey,
+      child: SingleChildScrollView(
+        key: const Key('card-detail-add-item-scroll'),
+        controller: _scrollController,
+        padding: EdgeInsets.fromLTRB(
+          20,
+          0,
+          20,
+          24 + widget.viewportBottomInset,
+        ),
+        child: widget.child,
+      ),
     );
   }
 }
@@ -4897,6 +5002,40 @@ class _CollectionCardStateButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final content = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: selected ? KandoColors.accent : _kCollectionSecondaryText,
+            ),
+          ),
+          Text(
+            subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 10,
+              color: _kCollectionSecondaryText,
+            ),
+          ),
+        ],
+      ),
+    );
+    final androidContent = Theme.of(context).platform == TargetPlatform.android
+        ? ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 58),
+            child: content,
+          )
+        : SizedBox(height: 58, child: content);
+
     return Material(
       key: buttonKey,
       color: selected
@@ -4911,37 +5050,7 @@ class _CollectionCardStateButton extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
         onTap: onPressed,
-        child: SizedBox(
-          height: 58,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: selected
-                        ? KandoColors.accent
-                        : _kCollectionSecondaryText,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: _kCollectionSecondaryText,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+        child: androidContent,
       ),
     );
   }

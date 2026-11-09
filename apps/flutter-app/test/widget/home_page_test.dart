@@ -565,7 +565,13 @@ void main() {
     tester.view.physicalSize = const Size(360, 844);
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(_mockHomeApp());
+    await tester.pumpWidget(
+      _mockResponsiveHomeApp(
+        platform: TargetPlatform.iOS,
+        isAndroidFreeLaunch: false,
+        homeRepository: const MockHomeRepository(),
+      ),
+    );
     await tester.pumpAndSettle();
 
     final tabs = find.byKey(const Key('home-mode-tabs'));
@@ -595,6 +601,219 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  for (final width in [320.0, 360.0, 393.0]) {
+    for (final textScale in width == 320 ? [1.0] : [1.0, 1.2]) {
+      testWidgets('Android free empty Home keeps header and actions usable at '
+          '${width.toInt()} width and ${textScale}x text', (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = Size(width, 804);
+        addTearDown(tester.view.reset);
+
+        await tester.pumpWidget(
+          _mockResponsiveHomeApp(
+            platform: TargetPlatform.android,
+            isAndroidFreeLaunch: true,
+            textScale: textScale,
+            performanceApi: _TestHomePerformanceApi(
+              itemCount: 0,
+              topPerformerCount: 0,
+            ),
+          ),
+        );
+        await _waitForHomeAuth(tester);
+
+        final tabs = find.byKey(const Key('home-mode-tabs'));
+        final currency = find.byKey(const Key('home-currency-control'));
+        if (width == 320 || (width == 360 && textScale == 1.2)) {
+          expect(
+            tester.getRect(currency).top,
+            greaterThan(tester.getRect(tabs).bottom),
+          );
+        } else {
+          expect(tester.getCenter(currency).dy, tester.getCenter(tabs).dy);
+        }
+        for (final (tabKey, label) in [
+          ('home-overview-tab', 'Overview'),
+          ('home-performance-tab', 'Performance'),
+        ]) {
+          final tabRect = tester.getRect(find.byKey(Key(tabKey)));
+          final labelRect = tester.getRect(
+            find.descendant(
+              of: find.byKey(Key(tabKey)),
+              matching: find.text(label),
+            ),
+          );
+          expect(labelRect.left, greaterThanOrEqualTo(tabRect.left));
+          expect(labelRect.right, lessThanOrEqualTo(tabRect.right));
+        }
+        final currencyTap = find.descendant(
+          of: currency,
+          matching: find.byType(InkWell),
+        );
+        expect(tester.widget<InkWell>(currencyTap).onTap, isNotNull);
+        expect(
+          find.byKey(const Key('home-portfolio-empty-scan')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('home-portfolio-empty-search')),
+          findsOneWidget,
+        );
+        final emptyPanel = find.ancestor(
+          of: find.byKey(const Key('home-portfolio-empty-scan')),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Container && widget.constraints?.minHeight == 410,
+          ),
+        );
+        final panelRect = tester.getRect(emptyPanel.first);
+        final scanRect = tester.getRect(
+          find.byKey(const Key('home-portfolio-empty-scan')),
+        );
+        final searchRect = tester.getRect(
+          find.byKey(const Key('home-portfolio-empty-search')),
+        );
+        expect(scanRect.overlaps(searchRect), isFalse);
+        expect(scanRect.left, greaterThanOrEqualTo(panelRect.left));
+        expect(scanRect.right, lessThanOrEqualTo(panelRect.right));
+        expect(scanRect.top, greaterThanOrEqualTo(panelRect.top));
+        expect(scanRect.bottom, lessThanOrEqualTo(panelRect.bottom));
+        expect(searchRect.left, greaterThanOrEqualTo(panelRect.left));
+        expect(searchRect.right, lessThanOrEqualTo(panelRect.right));
+        expect(searchRect.top, greaterThanOrEqualTo(panelRect.top));
+        expect(searchRect.bottom, lessThanOrEqualTo(panelRect.bottom));
+        expect(tester.takeException(), isNull);
+
+        await tester.tap(find.byKey(const Key('home-performance-tab')));
+        await tester.pumpAndSettle();
+        final selectedPerformanceRect = tester.getRect(
+          find.byKey(const Key('home-performance-tab')),
+        );
+        final selectedPerformanceLabelRect = tester.getRect(
+          find.descendant(
+            of: find.byKey(const Key('home-performance-tab')),
+            matching: find.text('Performance'),
+          ),
+        );
+        expect(
+          selectedPerformanceLabelRect.right,
+          lessThanOrEqualTo(selectedPerformanceRect.right),
+        );
+        expect(find.byKey(const Key('home-performance-empty')), findsOneWidget);
+        expect(
+          find.byKey(const Key('home-portfolio-empty-scan')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('home-portfolio-empty-search')),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
+  for (final width in [360.0, 390.0]) {
+    testWidgets(
+      'iOS Home preserves its header breakpoint at ${width.toInt()}',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = Size(width, 804);
+        addTearDown(tester.view.reset);
+
+        await tester.pumpWidget(
+          _mockResponsiveHomeApp(
+            platform: TargetPlatform.iOS,
+            isAndroidFreeLaunch: false,
+            homeRepository: const MockHomeRepository(),
+          ),
+        );
+        await _waitForHomeAuth(tester);
+
+        final tabs = find.byKey(const Key('home-mode-tabs'));
+        final currency = find.byKey(const Key('home-currency-control'));
+        expect(tester.getSize(tabs).width, 200);
+        expect(
+          tester.getSize(find.byKey(const Key('home-overview-tab'))).width,
+          86,
+        );
+        expect(
+          tester.getSize(find.byKey(const Key('home-performance-tab'))).width,
+          106,
+        );
+        if (width == 360) {
+          expect(
+            tester.getRect(currency).top,
+            greaterThan(tester.getRect(tabs).bottom),
+          );
+        } else {
+          expect(tester.getCenter(currency).dy, tester.getCenter(tabs).dy);
+        }
+      },
+    );
+  }
+
+  testWidgets(
+    'Android free Home hides subscription entry points while keeping 1Y usable',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 804);
+      addTearDown(tester.view.reset);
+      final api = _AndroidFreeHomeTrackingApi();
+
+      await tester.pumpWidget(
+        _mockResponsiveHomeApp(
+          platform: TargetPlatform.android,
+          isAndroidFreeLaunch: true,
+          homeRepository: const MockHomeRepository(),
+          performanceApi: api,
+        ),
+      );
+      await _waitForHomeAuth(tester);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(HomePage)),
+      );
+
+      expect(find.byKey(const Key('home-premium-top-entry')), findsNothing);
+      expect(
+        find.byKey(const Key('home-chart-range-1y-pro-badge')),
+        findsNothing,
+      );
+      final oneYear = find.byKey(const Key('home-chart-range-1y'));
+      expect(oneYear, findsOneWidget);
+      await tester.tap(oneYear);
+      await tester.pumpAndSettle();
+      expect(
+        container.read(homeControllerProvider).chartRange,
+        HomeChartRange.oneYear,
+      );
+      expect(api.valuationRequests, [(days: 365, localPremiumVerified: false)]);
+
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('home-premium-top-entry')), findsNothing);
+      expect(
+        find.byKey(const Key('home-chart-range-1y-pro-badge')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('home-performance-range-1Y')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const Key('home-performance-range-1Y')));
+      await tester.pumpAndSettle();
+      expect(
+        container.read(homePerformanceControllerProvider).selectedRange,
+        PerformanceRange.oneYear,
+      );
+      expect(api.performanceRequests.last, (
+        range: PerformanceRange.oneYear,
+        localPremiumVerified: false,
+      ));
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'Trending Today rows match the Figma surface treatment without changing their content',
@@ -3457,6 +3676,74 @@ void main() {
     expect(find.byTooltip('Take Photo'), findsOneWidget);
     expect(find.text('This section is coming soon.'), findsNothing);
   });
+
+  testWidgets(
+    'Android priced Performance cards grow with 1.2x text without clipping',
+    (tester) async {
+      final fonts = (await tester.runAsync(_readProductionHomeFonts))!;
+      await _loadProductionHomeFonts(fonts);
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(320, 711);
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        _mockResponsiveHomeApp(
+          platform: TargetPlatform.android,
+          isAndroidFreeLaunch: true,
+          textScale: 1.2,
+          homeRepository: const MockHomeRepository(),
+          performanceApi: _TestHomePerformanceApi(
+            itemCount: 2,
+            purchasePriceItemCount: 2,
+            topPerformerCount: 2,
+          ),
+          useKandoTheme: true,
+        ),
+      );
+      await _waitForHomeAuth(tester);
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('home-premium-top-entry')), findsNothing);
+      expect(
+        find.byKey(const Key('home-chart-range-1y-pro-badge')),
+        findsNothing,
+      );
+
+      for (final key in [
+        const Key('home-performance-metric-profit-loss'),
+        const Key('home-performance-metric-return'),
+      ]) {
+        final metric = find.byKey(key);
+        final helper = find.descendant(
+          of: metric,
+          matching: find.text('Priced cards only'),
+        );
+        expect(tester.getSize(metric).height, greaterThan(100));
+        expect(
+          tester.getRect(helper).bottom,
+          lessThanOrEqualTo(tester.getRect(metric).bottom),
+        );
+      }
+
+      final performers = find.byKey(const Key('home-top-performers-list'));
+      await tester.ensureVisible(performers);
+      await tester.pumpAndSettle();
+      for (final itemId in ['item-pikachu', 'item-charizard']) {
+        final card = find.byKey(Key('home-top-performer-$itemId'));
+        final cardRect = tester.getRect(card);
+        expect(cardRect.height, greaterThanOrEqualTo(253));
+        final textElements = find
+            .descendant(of: card, matching: find.byType(Text))
+            .evaluate();
+        for (final element in textElements) {
+          expect(
+            tester.getRect(find.byWidget(element.widget)).bottom,
+            lessThanOrEqualTo(cardRect.bottom),
+          );
+        }
+      }
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
 
 _searchOverrides() {
@@ -3510,6 +3797,52 @@ Widget _mockHomeApp([
         if (analytics != null) analyticsProvider.overrideWithValue(analytics),
       ],
       child: const _HomeTestApp(),
+    ),
+  );
+}
+
+Widget _mockResponsiveHomeApp({
+  required TargetPlatform platform,
+  required bool isAndroidFreeLaunch,
+  double textScale = 1,
+  PortfolioApiClient? performanceApi,
+  HomeRepository homeRepository = const _EmptyDefaultHomeRepository(),
+  bool useKandoTheme = false,
+}) {
+  final portfolioManagement = _TestPortfolioManagementApi();
+  final storage = InMemoryAuthStorage();
+  return DefaultAssetBundle(
+    bundle: homeFixtureAssetBundle,
+    child: ProviderScope(
+      overrides: [
+        appCommercialPolicyProvider.overrideWithValue(
+          AppCommercialPolicy(isAndroidFreeLaunch: isAndroidFreeLaunch),
+        ),
+        authStorageProvider.overrideWithValue(storage),
+        authRepositoryProvider.overrideWithValue(
+          LocalPlaceholderAuthRepository(storage),
+        ),
+        portfolioAmountHiddenStorageProvider.overrideWithValue(
+          InMemoryPortfolioAmountHiddenStorage(),
+        ),
+        homeRepositoryProvider.overrideWithValue(homeRepository),
+        collectionRepositoryProvider.overrideWithValue(
+          _HomeCollectionRepository(portfolioManagement),
+        ),
+        portfolioManagementApiProvider.overrideWithValue(portfolioManagement),
+        portfolioApiClientProvider.overrideWithValue(
+          performanceApi ?? _TestHomePerformanceApi(),
+        ),
+        currencyRateApiProvider.overrideWithValue(const _TestCurrencyRateApi()),
+        subscriptionControllerProvider.overrideWith(
+          _FreeHomeSubscriptionController.new,
+        ),
+      ],
+      child: _HomeTestApp(
+        platform: platform,
+        textScale: textScale,
+        useKandoTheme: useKandoTheme,
+      ),
     ),
   );
 }
@@ -3641,6 +3974,57 @@ class _TestHomePerformanceApi extends PortfolioApiClient {
       series: range == PerformanceRange.oneDay
           ? [current]
           : [previous, current],
+    );
+  }
+}
+
+class _AndroidFreeHomeTrackingApi extends _TestHomePerformanceApi {
+  final valuationRequests = <({int days, bool localPremiumVerified})>[];
+  final performanceRequests =
+      <({PerformanceRange range, bool localPremiumVerified})>[];
+
+  @override
+  Future<List<PortfolioFolderValuationDto>> getValuationHistory(
+    AuthSession session, {
+    int days = 90,
+    String? folderId,
+    bool localPremiumVerified = false,
+  }) async {
+    valuationRequests.add((
+      days: days,
+      localPremiumVerified: localPremiumVerified,
+    ));
+    return const [
+      PortfolioFolderValuationDto(
+        folderId: 'main',
+        itemCount: 3,
+        marketPriceStatus: MarketPriceStatus.available,
+        currentValueUsd: 125,
+        series: [
+          PortfolioValuationPointDto(date: '2025-08-20', valueUsd: 100),
+          PortfolioValuationPointDto(date: '2026-08-20', valueUsd: 125),
+        ],
+        mostValuable: [],
+      ),
+    ];
+  }
+
+  @override
+  Future<PortfolioPerformanceDto> getPortfolioPerformance(
+    AuthSession session, {
+    required PerformanceRange range,
+    String? folderId,
+    bool localPremiumVerified = false,
+  }) {
+    performanceRequests.add((
+      range: range,
+      localPremiumVerified: localPremiumVerified,
+    ));
+    return super.getPortfolioPerformance(
+      session,
+      range: range,
+      folderId: folderId,
+      localPremiumVerified: localPremiumVerified,
     );
   }
 }
@@ -3862,6 +4246,23 @@ Widget _mockHomeRouteApp({
 
 const _longFolderName = 'International Tournament Collection Archive';
 
+class _EmptyDefaultHomeRepository implements HomeRepository {
+  const _EmptyDefaultHomeRepository();
+
+  @override
+  HomeDashboard loadDashboard() => mockHomeDashboard.copyWith(
+    folders: [
+      for (final folder in mockHomeDashboard.folders)
+        HomeFolder(
+          id: folder.id,
+          name: folder.name,
+          isDefault: folder.id == 'empty',
+        ),
+    ],
+    trending: const [],
+  );
+}
+
 class _LongFolderHomeRepository implements HomeRepository {
   const _LongFolderHomeRepository();
 
@@ -4065,12 +4466,89 @@ Future<void> _waitForHomeAuth(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+typedef _ProductionHomeFonts = ({
+  ByteData robotoRegular,
+  ByteData robotoMedium,
+  ByteData fraunces,
+});
+
+Future<_ProductionHomeFonts> _readProductionHomeFonts() async {
+  var directory = File(Platform.resolvedExecutable).parent;
+  Directory? materialFonts;
+  while (directory.parent.path != directory.path) {
+    for (final candidate in [
+      Directory(
+        '${directory.path}${Platform.pathSeparator}material_fonts',
+      ),
+      Directory(
+        '${directory.path}${Platform.pathSeparator}artifacts'
+        '${Platform.pathSeparator}material_fonts',
+      ),
+    ]) {
+      if (await candidate.exists()) {
+        materialFonts = candidate;
+        break;
+      }
+    }
+    if (materialFonts != null) break;
+    directory = directory.parent;
+  }
+  if (materialFonts == null) {
+    throw StateError('Flutter material fonts directory is unavailable.');
+  }
+  Future<ByteData> loadFont(String fileName) async {
+    final bytes = await File(
+      '${materialFonts!.path}${Platform.pathSeparator}$fileName',
+    ).readAsBytes();
+    return bytes.buffer.asByteData(bytes.offsetInBytes, bytes.lengthInBytes);
+  }
+
+  return (
+    robotoRegular: await loadFont('roboto-regular.ttf'),
+    robotoMedium: await loadFont('roboto-medium.ttf'),
+    fraunces: await rootBundle.load(
+      'assets/fonts/Baskerville-BaskervilleSemiBold.ttf',
+    ),
+  );
+}
+
+Future<void> _loadProductionHomeFonts(_ProductionHomeFonts fonts) async {
+  await (FontLoader('Roboto')
+        ..addFont(Future.value(fonts.robotoRegular))
+        ..addFont(Future.value(fonts.robotoMedium)))
+      .load();
+  await (FontLoader('Fraunces')
+        ..addFont(Future.value(fonts.fraunces)))
+      .load();
+}
+
 class _HomeTestApp extends StatelessWidget {
-  const _HomeTestApp();
+  const _HomeTestApp({
+    this.platform,
+    this.textScale = 1,
+    this.useKandoTheme = false,
+  });
+
+  final TargetPlatform? platform;
+  final double textScale;
+  final bool useKandoTheme;
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(home: HomePage());
+    return MaterialApp(
+      theme: platform == null
+          ? null
+          : (useKandoTheme ? buildKandoTheme() : ThemeData()).copyWith(
+              platform: platform,
+            ),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      ),
+      home: const HomePage(),
+    );
   }
 }
 

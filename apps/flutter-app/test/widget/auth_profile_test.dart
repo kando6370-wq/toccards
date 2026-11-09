@@ -1400,6 +1400,7 @@ void main() {
       expect(emailRect.bottom, lessThanOrEqualTo(568));
       expect(closeRect.overlaps(googleRect), isFalse);
       expect(closeRect.overlaps(emailRect), isFalse);
+      expect(tester.takeException(), isNull);
 
       await tester.tap(find.text('Continue with Google'));
       await tester.pumpAndSettle();
@@ -1415,7 +1416,6 @@ void main() {
       expect(emailRect.bottom, lessThanOrEqualTo(568));
       expect(closeRect.overlaps(googleRect), isFalse);
       expect(closeRect.overlaps(emailRect), isFalse);
-      expect(tester.takeException(), isNull);
     },
   );
 
@@ -1635,6 +1635,201 @@ void main() {
     expect(editableText.controller.text, 'password123');
     expect(editableText.focusNode.hasFocus, isTrue);
   });
+
+  testWidgets(
+    'Android email registration keeps its field and Continue action above the IME',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(320, 711);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 283);
+      addTearDown(tester.view.reset);
+
+      final repository = _WidgetAuthRepository(
+        initialSession: _anonymousSession('android-email-registration'),
+        emailRegistered: false,
+      );
+
+      await tester.pumpWidget(
+        _testEmailAuthPageApp(
+          repository,
+          platform: TargetPlatform.android,
+          commercialPolicy: const AppCommercialPolicy(
+            isAndroidFreeLaunch: true,
+          ),
+          textScale: 1.2,
+        ),
+      );
+      await tester.tap(find.text('Open email auth'));
+      await tester.pumpAndSettle();
+
+      final field = find.byType(TextFormField);
+      final continueButton = find.widgetWithText(FilledButton, 'CONTINUE');
+      final keyboardTop = 711 - 283;
+      expect(field, findsOneWidget);
+      expect(continueButton, findsOneWidget);
+      expect(tester.getRect(field).bottom, lessThan(keyboardTop));
+      expect(
+        tester.getRect(continueButton).bottom,
+        lessThanOrEqualTo(keyboardTop),
+      );
+      expect(
+        tester.getRect(field).overlaps(tester.getRect(continueButton)),
+        isFalse,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Android registration code and password controls stay reachable above the IME',
+    (tester) async {
+      _configureAndroidEmailIme(tester);
+      final repository = _WidgetAuthRepository(
+        initialSession: _anonymousSession('android-register-flow'),
+        emailRegistered: false,
+      );
+      await tester.pumpWidget(
+        _testEmailAuthPageApp(
+          repository,
+          platform: TargetPlatform.android,
+          commercialPolicy: const AppCommercialPolicy(
+            isAndroidFreeLaunch: true,
+          ),
+          textScale: 1.2,
+        ),
+      );
+      await tester.tap(find.text('Open email auth'));
+      await tester.pumpAndSettle();
+      await _continueWithEmail(
+        tester,
+        'new@example.com',
+        destinationLabel: 'Verification Code',
+      );
+
+      await _expectReachableAboveAndroidIme(
+        tester,
+        find.byKey(const Key('register-code-email-input')),
+      );
+      await _expectReachableAboveAndroidIme(
+        tester,
+        find.byKey(const Key('verification-code-input')),
+      );
+
+      await tester.enterText(
+        find.byKey(const Key('verification-code-input')),
+        '123456',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Set Password'), findsOneWidget);
+      final passwordFields = find.byType(TextFormField);
+      expect(passwordFields, findsNWidgets(2));
+      await _expectReachableAboveAndroidIme(tester, passwordFields.first);
+      await _expectReachableAboveAndroidIme(tester, passwordFields.last);
+      await _expectReachableAboveAndroidIme(
+        tester,
+        find.widgetWithText(FilledButton, 'Create Account'),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Android email transition hands the IME to only the destination form',
+    (tester) async {
+      _configureAndroidEmailIme(tester);
+      final repository = _WidgetAuthRepository(
+        initialSession: _anonymousSession('android-email-transition'),
+        emailRegistered: false,
+      );
+      await tester.pumpWidget(
+        _testEmailAuthPageApp(
+          repository,
+          platform: TargetPlatform.android,
+          commercialPolicy: const AppCommercialPolicy(
+            isAndroidFreeLaunch: true,
+          ),
+          textScale: 1.2,
+        ),
+      );
+      await tester.tap(find.text('Open email auth'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField), 'new@example.com');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'CONTINUE'));
+      await _pumpUntilVisible(tester, find.text('Verification Code'));
+
+      expect(find.text('Verification Code'), findsOneWidget);
+      expect(find.byType(EditableText), findsNWidgets(2));
+      final verificationInput = find.descendant(
+        of: find.byKey(const Key('verification-code-input')),
+        matching: find.byType(EditableText),
+      );
+      expect(
+        tester.widget<EditableText>(verificationInput).focusNode.hasFocus,
+        isTrue,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('iOS email transition keeps its outgoing cross-fade frame', (
+    tester,
+  ) async {
+    final repository = _WidgetAuthRepository(
+      initialSession: _anonymousSession('ios-email-transition'),
+      emailRegistered: false,
+    );
+    await tester.pumpWidget(_testEmailAuthPageApp(repository));
+    await tester.tap(find.text('Open email auth'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField), 'new@example.com');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'CONTINUE'));
+    await _pumpUntilVisible(tester, find.text('Verification Code'));
+
+    expect(find.text('Verification Code'), findsOneWidget);
+    expect(find.byType(EditableText), findsNWidgets(3));
+    await tester.pumpAndSettle();
+    expect(find.byType(EditableText), findsNWidgets(2));
+  });
+
+  testWidgets(
+    'Android login and forgot-email controls stay reachable above the IME',
+    (tester) async {
+      _configureAndroidEmailIme(tester);
+      final repository = _WidgetAuthRepository(
+        initialSession: _anonymousSession('android-login-flow'),
+      );
+      await tester.pumpWidget(
+        _testEmailAuthPageApp(
+          repository,
+          platform: TargetPlatform.android,
+          commercialPolicy: const AppCommercialPolicy(
+            isAndroidFreeLaunch: true,
+          ),
+          textScale: 1.2,
+        ),
+      );
+      await tester.tap(find.text('Open email auth'));
+      await tester.pumpAndSettle();
+      await _continueWithEmail(tester, 'person@example.com');
+
+      await _expectReachableAboveAndroidIme(tester, find.byType(TextFormField));
+      await _expectReachableAboveAndroidIme(
+        tester,
+        find.widgetWithText(FilledButton, 'SIGN IN'),
+      );
+      await tester.tap(find.text('Forgot Password ?'));
+      await tester.pumpAndSettle();
+      expect(find.text('Reset Password'), findsOneWidget);
+      await _expectReachableAboveAndroidIme(tester, find.byType(TextFormField));
+      await _expectReachableAboveAndroidIme(
+        tester,
+        find.widgetWithText(FilledButton, 'Get verification code'),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('oauth authorization failure shows retry copy and keeps guest', (
     tester,
@@ -3680,6 +3875,29 @@ Future<void> _openEmailAuth(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+void _configureAndroidEmailIme(WidgetTester tester) {
+  tester.view.devicePixelRatio = 1;
+  tester.view.physicalSize = const Size(320, 711);
+  tester.view.viewInsets = const FakeViewPadding(bottom: 283);
+  addTearDown(tester.view.reset);
+}
+
+Future<void> _expectReachableAboveAndroidIme(
+  WidgetTester tester,
+  Finder finder,
+) async {
+  await tester.ensureVisible(finder);
+  await tester.pump();
+  expect(tester.getRect(finder).bottom, lessThanOrEqualTo(711 - 283));
+}
+
+Future<void> _pumpUntilVisible(WidgetTester tester, Finder finder) async {
+  for (var frame = 0; frame < 10 && finder.evaluate().isEmpty; frame++) {
+    await tester.pump();
+  }
+  expect(finder, findsOneWidget);
+}
+
 Future<void> _openAuthSheet(WidgetTester tester) async {
   await tester.tap(find.text('Sign in / Sign up'));
   await tester.pumpAndSettle();
@@ -3897,16 +4115,27 @@ ProviderScope _testAuthSheetApp(
   );
 }
 
-ProviderScope _testEmailAuthPageApp(_WidgetAuthRepository repository) {
+ProviderScope _testEmailAuthPageApp(
+  _WidgetAuthRepository repository, {
+  TargetPlatform platform = TargetPlatform.iOS,
+  AppCommercialPolicy commercialPolicy = const AppCommercialPolicy(
+    isAndroidFreeLaunch: false,
+  ),
+  double textScale = 1,
+}) {
   return ProviderScope(
     overrides: [
-      appCommercialPolicyProvider.overrideWithValue(
-        const AppCommercialPolicy(isAndroidFreeLaunch: false),
-      ),
+      appCommercialPolicyProvider.overrideWithValue(commercialPolicy),
       authRepositoryProvider.overrideWithValue(repository),
     ],
     child: MaterialApp(
-      theme: buildKandoTheme(),
+      theme: buildKandoTheme().copyWith(platform: platform),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      ),
       home: Builder(
         builder: (context) => Scaffold(
           body: Center(

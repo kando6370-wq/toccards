@@ -18,6 +18,7 @@ import '../../shared/currency/currency.dart';
 import '../../shared/portfolio/portfolio_providers.dart';
 import '../../shared/portfolio/portfolio_api_client.dart';
 import '../../shared/scan/scan_api_client.dart';
+import '../../shared/ui/kando_modal.dart';
 import '../../shared/ui/kando_style.dart';
 import '../../shared/ui/premium_unlocked_toast.dart';
 import '../../shared/ui/subscription_restore_result.dart';
@@ -449,6 +450,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   var _openingCamera = false;
   var _cameraPausedForLifecycle = false;
   var _permissionDialogVisible = false;
+  var _exitDialogVisible = false;
   var _appActive = true;
   var _openingReview = false;
   var _reviewing = false;
@@ -2347,6 +2349,36 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   Future<void> _requestExitScan() async {
     if (_openingReview || _savingReview) {
+      return;
+    }
+    if (Theme.of(context).platform == TargetPlatform.android) {
+      if (_exitDialogVisible) return;
+      _exitDialogVisible = true;
+      final hasUnsavedResults = _hasUnsavedScanResults;
+      try {
+        final shouldExit = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => KandoConfirmModal(
+            title: hasUnsavedResults ? 'Exit scan result?' : 'Exit scan?',
+            message: hasUnsavedResults
+                ? 'Your scanned card has not been collected yet.'
+                : 'Exit the scanner and return to Home?',
+            icon: Icons.drive_file_move_outline,
+            confirmLabel: 'NO, STAY HERE',
+            cancelLabel: 'EXIT',
+            dense: true,
+            onConfirm: () {
+              ref.read(analyticsProvider).track(AnalyticsEvent.cancelClick);
+              Navigator.of(dialogContext).pop(false);
+            },
+            onCancel: () => Navigator.of(dialogContext).pop(true),
+          ),
+        );
+        if (mounted && shouldExit == true) context.go('/home');
+      } finally {
+        _exitDialogVisible = false;
+      }
       return;
     }
     if (!_hasUnsavedScanResults) {
@@ -5350,11 +5382,19 @@ class _ReviewCardState extends StatelessWidget {
       Row(
         children: [
           Expanded(
-            child: _stateButton(rawKey, 'Raw', 'Unrated card', isRaw, onRaw),
+            child: _stateButton(
+              context,
+              rawKey,
+              'Raw',
+              'Unrated card',
+              isRaw,
+              onRaw,
+            ),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: _stateButton(
+              context,
               gradedKey,
               'Graded',
               'Certified card',
@@ -5368,14 +5408,14 @@ class _ReviewCardState extends StatelessWidget {
   );
 
   Widget _stateButton(
+    BuildContext context,
     Key key,
     String title,
     String subtitle,
     bool selected,
     VoidCallback onPressed,
-  ) => SizedBox(
-    height: 58,
-    child: OutlinedButton(
+  ) {
+    final button = OutlinedButton(
       key: key,
       onPressed: enabled ? onPressed : null,
       style: OutlinedButton.styleFrom(
@@ -5408,8 +5448,15 @@ class _ReviewCardState extends StatelessWidget {
           ),
         ],
       ),
-    ),
-  );
+    );
+    if (Theme.of(context).platform == TargetPlatform.android) {
+      return ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 58),
+        child: button,
+      );
+    }
+    return SizedBox(height: 58, child: button);
+  }
 }
 
 Future<String?> _showReviewChoiceSheet(

@@ -145,6 +145,64 @@ X-Request-ID: <request id>
 1. Android 认证面板最初直接采用扩展后的固定高度，在 320×568 viewport 的 OAuth 失败态发生底部 14 px `RenderFlex` overflow，等价失败证据见 `.dart_tool/android-first-release/auth-profile-after-fixtures.jsonl` 的 `Android auth keeps normal and OAuth failure actions reachable at 320x568`。根因是新增平台隔离说明和操作按钮超过固定面板可用高度。修复为按 viewport 截断外框高度并让内容区滚动；同一用例同时检查操作可见、关闭按钮不与操作重叠及无 Flutter exception。独立复核确认该修改只处理布局，不改变认证路由或平台判断。
 2. 移除 `main.dart` 对旧全局 amount visibility 的预读后，历史 iOS 升级用户会丢失原本地隐藏金额选择；直接恢复全局预读又会让 Android 或另一账号继承该值。修复采用上述当前 owner 一次迁移、持久 claim 和串行队列。迁移与用户选择共用 `_writeTail`，避免迟到迁移覆盖用户最新的持久化选择。9 项存储测试覆盖数据空间隔离、历史 owner scope 恢复、Android 不继承、已有 scoped 优先、A→B 快速切换、迟到读取、同 scope 保留、文件夹 scope 重置及迁移与选择顺序；Storage、Home、Collection 相关回归合计 77／77 通过。独立复核确认 claim 在 remove 失败时阻止跨 scope 复制并允许原 scope 后续清理，未发现死锁或新增跨账号副作用。
 
+### Android Home 布局修复（2026-11-06）
+
+用户的 Android 真机截图显示 Overview／Performance 顶部 USD 被挤到下一行，空收藏卡片的操作区域出现 `BOTTOM OVERFLOWED BY 22 PIXELS`；用户明确要求保留原 iOS 页面样式。
+
+- 顶部断行阈值原为 `200 + 8 + 32 + 98 = 338`，仍包含 Android 免费首版已经隐藏的 32px 订阅入口。仅当 `Theme.of(context).platform == TargetPlatform.android` 时改用实际控件总宽 306；360／393 宽度下 USD 与标签同行，320 极窄宽度仍保留可读的两行布局。iOS 原 338 阈值不变。
+- Overview 与 Performance 共用的空收藏卡固定高 410，窄屏或放大字号增加正文行数后会挤压按钮。Android 改为最小高 410、按实际内容增高，页面仍由原滚动容器承载；iOS 继续固定高 410。内部字体、字号、颜色、padding、按钮高度、圆角和操作流程未改，也没有通过裁剪或隐藏文字规避溢出。
+- 修前 5 个 Android 布局场景均失败；修后 Android 320／360／393 宽度、普通／1.2 倍文字及 iOS 360／390 原断点的 7 项矩阵全部通过。测试同时检查 Overview 和 Performance，校验 Scan／Search 按钮不重叠且完整位于空卡范围内，保留 iOS 的旧断点意图。
+- 加入原 compact 场景与 Android 无 PRO／1Y 真实点击合同后，最窄回归 9／9 通过；完整 `home_page_test.dart` 为 87 项通过、2 项失败、0 跳过，退出码 1。失败仍为此前的 Home normal／partial failure 两项 Golden，未更新这些基线或放宽断言。生产文件及测试静态分析无问题，独立 Code Review 通过。本轮未以用户手机重放，不能把 widget 回归写成真机验收。
+
+用户随后提供 Figma 文件 `Hzsq4itkIOHp9TRWkapvcU` 的 `1603:142`／`1603:148` 节点，并明确 Android 去掉 USD 旁圆形入口和图表 PRO 标识。已在现有 Chrome 会话只读核对这两个图片节点：Android 沿用免费商业策略隐藏对应入口和 PRO badge，USD、图表及 1Y 功能保留；不删除 iOS 共享订阅组件或改变其样式。本轮未修改 Figma 文件。
+
+核对 1Y 时发现 Overview 点击处理仍直接使用 `premiumState=free`，与 Android 已隐藏 PRO、免费开放 1Y 的策略冲突。真实点击回归在修前稳定进入订阅路由，测试显示 `No GoRouter found in context`，图表仍为 1M 且 365 天 API 未触达。修复仅让 `hasFreePremiumFeatures` 跳过这段付费入口判断，后续仍调用原 controller／服务端接口，不制造 Premium 身份或发送 Apple 已验证 header；iOS 的 1Y 付费处理保持原逻辑。
+
+修后真实点击 Overview 1Y，controller 切至 `oneYear` 并发出 `days=365, localPremiumVerified=false` 的估值请求；Performance 1Y 同样真实切换范围，最后一次请求的 `localPremiumVerified` 为 false。两页均断言顶部订阅入口和 Overview 的 1Y PRO badge 不存在，没有仅检查按钮的 onTap 非空来代替功能验证。
+
+修复后执行 `flutter build apk --debug --no-pub --build-number=194 --dart-define-from-file=config/test.json`，构建成功，耗时 30.4 秒；版本为 1.0.7+194，源码为 `c3762ea4` 加本节未提交修复，未修改 `pubspec.yaml` 版本。新包保存至 `D:/Downloads/CardAI-Packages/dev.kando.cardvault.sandbox.a1aa3e/CardAI-Test-1.0.7-194-Android-20261106-105724/CardAI-Test-1.0.7-194-dev-home-fix.apk`，同目录含构建信息与校验文件。
+
+制品为 251,361,196 字节，SHA-256 `27b80ea49ff8355f3698776693f58c05da3e5e6f732c67d74a8d0f7060066194`。独立测试包名及证书与 193 包一致，签名验证通过；没有 Billing／录音／广泛照片与存储权限，19 个 64 位原生库及 ZIP 16 KB 对齐检查通过。打包前后 Home 源码哈希相同，复制后制品哈希一致。Google／Firebase／真实 Play Integrity 的配置和未验边界沿用下述 dev 测试包说明；未执行提交、推送或服务端部署。
+
+### Android 扫描退出确认（2026-11-06）
+
+用户反馈扫描页点击 X 会直接退出，并提供 Figma `Hzsq4itkIOHp9TRWkapvcU` 的 `1620:200` 节点。已通过现有 Chrome 会话只读核对原型：主操作为 `NO, STAY HERE`，次操作为 `EXIT`；有未收藏结果时提示 `Exit scan result?` 和 `Your scanned card has not been collected yet.`。
+
+原实现仅在 `_items` 非空时确认，空扫描页会直接跳转 Home。Android 现在在扫描页点击 X 或按系统返回时都先确认；空列表使用 `Exit scan?`／`Exit the scanner and return to Home?`，避免无结果时误称存在未收藏卡牌。有扫描、识别中或待处理结果时沿用原型的未收藏提示。
+
+Android 弹窗复用 `KandoConfirmModal` 的普通品牌样式；主按钮返回 false，保留页面、扫描项、相机和在途识别，次按钮返回 true 后才返回 Home，并复用原 dispose 清理相机、计时器和动画、恢复方向。弹窗遮罩不能直接关闭；弹窗内系统返回视为留下，不执行退出。同步 `_exitDialogVisible` 防止重复点击叠加确认框，finally 不在已销毁页面调用 setState。
+
+Review 打开／保存时的退出守卫、Review 返回扫描的折叠行为，以及 iOS 的空页直接返回和原有未收藏 AlertDialog 均保持。此次没有修改扫描队列、收藏／删除范围、订阅、识别协议、服务端或数据库。独立 Code Review 未发现阻塞项。
+
+修前 Android 空页点击 X／连续触发会直接进入 Home，新退出提示断言失败。修后强化退出回归 5／5 通过：覆盖 320 宽度与 1.2 倍文字、X 与系统返回、防叠加、遮罩拦截、Stay 保留同一扫描项并在识别完成后继续展示，以及确认 EXIT 后迟到结果不回写页面。原 Review 折叠、iOS 空页／有结果退出与取消选图合同共 4 项通过。完整 Scan 文件曾运行 145 项通过、6 项既有失败、0 跳过，失败为原有 4 项 Golden 和 2 项额度／analytics 断言；之后仅强化新增测试并重跑 5 项，没有重复完整集合或更新既有 Golden，不记为全量通过。
+
+生产文件与最终测试的 `flutter analyze --no-pub` 通过，最终 Code Review 通过。随后执行 `flutter build apk --debug --no-pub --build-number=195 --dart-define-from-file=config/test.json`，耗时 23.6 秒，产出 1.0.7+195；构建来自 `c3762ea4` 加本轮未提交的 Home／扫描修复，未修改 `pubspec.yaml` 版本或正式配置。
+
+交付文件为 `D:/Downloads/CardAI-Packages/dev.kando.cardvault.sandbox.a1aa3e/CardAI-Test-1.0.7-195-Android-20261106-114034/CardAI-Test-1.0.7-195-dev-scan-exit-fix.apk`，251,362,944 字节，SHA-256 `d81266b82e13c755f2a049f021766befb6494604b7875a55a4f92b7a2bec20a3`。同目录有构建信息与校验文件，复制后哈希一致；构建前后 Home／Scan 源码哈希一致。包名、项目测试证书与 193／194 一致；签名、权限、19 个 64 位库及 ZIP 16 KB 对齐检查通过。仍连接 dev，Google／Firebase／真实 Play Integrity 的未配置边界不变；未执行真机安装、提交推送或服务端发布。
+
+### Android 模拟器页面与键盘巡检（2026-11-06）
+
+本轮使用本地既有 API 36 AVD 与独立 Android 测试包，连接 Linux dev；主要复现条件为逻辑宽度 320、系统字号 1.2、真实 Gboard 键盘，并补查 360／393 宽度。原始截图、UI 树、日志和执行矩阵保存在忽略目录 `.dart_tool/android-ui-audit-20261106/`，不把过渡动画截图或 Ahem 测试字体的尺寸差异直接记作产品缺陷。
+
+实际巡检覆盖引导与登录选项、邮箱输入和校验、Home Overview／Performance 的空态及有资产状态、USD 搜索、文件夹新增／返回、Search Cards／Sets 与 Set Detail、Card Detail 新增／编辑收藏、Quick Review、Collection／Wishlist／筛选、Profile、反馈邮箱与多行留言、扫描权限／相册／退出确认和 Scan Review。邮箱验证码、设置密码、忘记密码的深层步骤用本地仓库替身补充控件可达性验证，没有发送真实验证码或反馈消息。
+
+已确认并修复的 Android 布局问题：
+
+- 邮箱首屏键盘弹起后溢出、Continue 遮挡：父级统一判断 IME，再传给表单，键盘可见时整页滚动；收起键盘恢复原底部按钮。验证码页可滚动，Android 切页即时交接焦点；iOS 保留原布局和 120ms 转场。
+- Home 大字号 Performance 标签裁切、指标卡与 Top Performers 底部溢出：Android 标签宽度随缩放扩展，指标自然增高；最多五张排名卡使用横向滚动与自然统一高度，保留原图片、宽度、间距、点击与 View all。iOS 原固定尺寸不变。
+- Sets 行、收藏状态按钮、已收藏详情摘要块的大字号溢出：Android 改为最小高度容纳内容；iOS 原固定高度保持。
+- 收藏表单标题裁切：Android 标题与 Portfolio 操作上下排布，避免依赖某一字号的线性缩放假设；iOS 原 Row 保持。
+- 标准新增表单的购买价格被底部操作区遮挡、Quick Review 的操作区被键盘覆盖：Android 依据实际滚动视口露出焦点，Quick Review 的按钮随键盘上移。iOS Quick Review 原 `24 + keyboardInset` 滚动底部空间保留，新增合同锁定该边界。
+- Collection 摘要卡与固定 Sliver 高度不一致：仅 Android 大字号根据标题、Folder、金额行和边框计算同步高度；默认字号和 iOS 原尺寸保持。
+
+模拟器使用仓库卡图完成了相册导入、识别、匹配详情与 Review 输入检查，证明该样本路径可达，不代表真实相机识别准确率。X／系统返回、Stay 保留结果及 EXIT 的 UI 已实际检查；iOS 通过源码合同和独立 Code Review 检查，本轮没有运行 iOS 真机。Google／Firebase／真实 Play Integrity、正式邮箱账号登录、真实支付和 Play 测试轨道仍不属于此次本地 UI 验收。
+
+最终受影响六份 Widget 文件串行运行结果为 **531 项通过／9 项既有失败／0 跳过，退出码 1**。失败名称与已记录的原基线一致：Auth 的 1 个订阅 Golden、Home 的 2 个 Golden、Scan 的 4 个 Golden 和 2 个额度／analytics 断言。随后仅对巡检末尾补出的已收藏摘要块做最小修改，完整 Card Detail 文件重跑 **68／68** 通过；没有再次运行其余五份文件。最终源码／测试分析通过，没有更新 Golden、放宽断言或忽略布局异常；真实字体回归显式加载生产字体，独立 Code Review 发现的 iOS Quick Review padding 回归已关闭。
+
+交付测试包为 **1.0.7+199**，构建命令为 `flutter build apk --debug --no-pub --build-number=199 --dart-define-from-file=config/test.json`，来源是 `c3762ea4` 加本轮未提交改动，构建耗时 38.8 秒。已安装到模拟器核对 `versionCode=199`，并完成最后已收藏摘要块的原路径复验；该会话 Flutter 日志没有 RenderFlex／RenderBox 布局错误。文件为 `D:/Downloads/CardAI-Packages/dev.kando.cardvault.sandbox.a1aa3e/CardAI-Test-1.0.7-199-Android-20261106-194948/CardAI-Test-1.0.7-199-dev-ui-adaptation.apk`，251,370,988 字节，SHA-256 `7b9449d1b9340626bdd3c86008e87ed25843f5a47e3c57076e996e4f093c3832`。独立测试包名和证书保持，签名、权限、19 个 64 位 ELF 库与 ZIP 16 KB 对齐检查通过；同目录保留构建信息、SHA256 校验和 UI 对照图。
+
+测试创建的两张游客收藏、临时 pending 项和两次卡图扫描已通过 UI 清理，收藏数回读为 0；模拟器显示尺寸、密度、字号、硬件键盘 IME 设置及 Wi-Fi 已与开始时保存值核对恢复。未清除既有 AVD 数据或保存快照。此次未提交／推送 Git、未发布服务端或正式移动端制品。
+
 ## 验证与发布边界
 
 代码、测试和文档改动完成后，先验证 PostgreSQL 平台迁移／认证与免费能力，再运行受影响旧 iOS 源码合同、Admin 与 Flutter 双端回归。涉及 owner 的并发写入、删号重试、游客迁移和账号切换必须检查实际结果。
@@ -176,6 +234,19 @@ X-Request-ID: <request id>
 | 原生对齐 | APK 中 25 个 `.so`；17 个 64 位库全部满足 16 KB ELF LOAD 对齐，`zipalign -c -P 16 4` 通过。32 位 ML Kit OCR 库为 4 KB，不将此项写成 64 位对齐失败 |
 
 此 Debug 包未提供正式 Firebase／Google／Play 配置，未使用正式签名；构建与静态制品检查不代表登录、Play Integrity、统计归因、相机识别或商店轨道已通过真机验收。
+
+### dev 测试 APK 交付（2026-11-06 10:03，Asia/Shanghai）
+
+用户确认已部署 dev 后，从干净的 `codex/dev-andriod@c3762ea4714c92125f5004ca6146a10bfa65c4b3` 执行 `flutter build apk --debug --no-pub --dart-define-from-file=config/test.json`，构建成功，`assembleDebug` 耗时 76.5 秒。明确加载 test 配置及其 `cronetHttpNoPlay=true`，没有改动业务源码、版本号或正式配置。
+
+- 安装包：`D:/Downloads/CardAI-Packages/dev.kando.cardvault.sandbox.a1aa3e/CardAI-Test-1.0.7-193-Android-20261106-100303/CardAI-Test-1.0.7-193-dev.apk`；同目录保存 `build-info.json` 与 `SHA256SUMS.txt`，复制后的 SHA-256 已复核一致。
+- 版本仍为 1.0.7+193；独立测试 applicationId、minSdk 24／targetSdk 36、项目测试证书与上述合同一致。包为通用 APK，含 arm64-v8a、armeabi-v7a 和 x86_64。
+- 字节数为 303,821,024；SHA-256 为 `d17d893a71e1c5ff7bdb8b520e1b0580232b1832b6fdf31b52c2c8749db07d0e`。显式测试配置与上一次仅传 APP_ENV 的构建参数不同，不沿用旧制品哈希和大小。
+- 签名验证通过；最终权限没有 Billing、录音或广泛照片／存储权限。28 个原生库中 19 个 64 位库全部满足 16 KB ELF LOAD 对齐，ZIP 16 KB 对齐检查通过。
+- APK 中的测试网络策略只为 `192.168.50.201` 放行 HTTP；API 为 `http://192.168.50.201:8080/api/v1`。本机只读 health 检查为 HTTP 200，手机仍需能访问该局域网地址。本轮没有独立回读服务器发布 SHA 或迁移 ledger，不把 health 当作这些验收的证据。
+- 本包未提供 Android 专用 Google OAuth、Firebase 或 Play 配置；这些链路不在本次通过范围。首次 Android 游客会话要求 dev 服务端同时为 `APP_ENVIRONMENT=development` 和 `ANDROID_INTEGRITY_ALLOW_DEVELOPMENT=true`，否则不能用无 Integrity token 的测试安装建立会话。本轮没有修改服务器设置或执行登录／注册写请求。
+
+本次只执行测试 APK 构建、静态制品核验和本地交付，没有安装到手机或执行真机扫描；iOS 源码及配置未改。README 中历史“默认 production”的描述已按当前 `AppConfig` 与 Android Gradle 的实际 test 缺省行为修正。
 
 以上为本地源码、测试、配置检查和 dry-run 范围。本轮没有连接远端数据库，没有执行 dev／prod migration，没有部署 API、Admin Pages／Workers assets、Marketing 或移动端制品，没有提交 App Store／Google Play，也没有使用正式 Android 签名。
 

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/cupertino.dart';
@@ -1034,7 +1035,11 @@ void main() {
         camera: ScanPermissionResult.permanentlyDenied,
       );
 
-      await _pumpScanTestApp(tester, permissions: permissions);
+      await _pumpScanTestApp(
+        tester,
+        permissions: permissions,
+        platform: TargetPlatform.android,
+      );
       await tester.pumpAndSettle();
 
       expect(find.byType(AlertDialog), findsOneWidget);
@@ -3689,6 +3694,27 @@ void main() {
     expect(find.text('Lightly Played (LP)'), findsOneWidget);
   });
 
+  testWidgets('iOS Review card state keeps its original fixed height', (
+    tester,
+  ) async {
+    await _pumpScanTestApp(tester, platform: TargetPlatform.iOS);
+    await tester.tap(find.byTooltip('Take Photo'));
+    await _completeFigmaScan(tester);
+    await tester.tap(find.byTooltip('Review completed scan'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getSize(find.byKey(const Key('scan-review-state-raw-1'))).height,
+      58,
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const Key('scan-review-state-graded-1')))
+          .height,
+      58,
+    );
+  });
+
   testWidgets(
     'Scan review keeps its target and does not offer a portfolio choice',
     (tester) async {
@@ -5347,6 +5373,162 @@ void main() {
   );
 
   testWidgets(
+    'Android empty scan confirms close and system back without stacking dialogs',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(320, 720);
+      addTearDown(tester.view.reset);
+
+      await _pumpScanTestApp(
+        tester,
+        commercialPolicy: const AppCommercialPolicy(isAndroidFreeLaunch: true),
+        platform: TargetPlatform.android,
+        textScale: 1.2,
+      );
+
+      final closeButton = tester.widget<IconButton>(
+        find.byKey(const Key('scan-figma-close-button')),
+      );
+      closeButton.onPressed!();
+      closeButton.onPressed!();
+      await tester.pumpAndSettle();
+      expect(find.text('Exit scan?'), findsOneWidget);
+      expect(find.text('Exit the scanner and return to Home?'), findsOneWidget);
+      expect(find.text('NO, STAY HERE'), findsOneWidget);
+      expect(find.text('EXIT'), findsOneWidget);
+      await tester.tapAt(const Offset(2, 2));
+      await tester.pump();
+      expect(find.text('Exit scan?'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(find.text('NO, STAY HERE'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ScanPage), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('Exit scan?'), findsOneWidget);
+      await tester.tap(find.text('NO, STAY HERE'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ScanPage), findsOneWidget);
+    },
+  );
+
+  testWidgets('Android empty scan exits only after confirmation', (
+    tester,
+  ) async {
+    await _pumpScanTestApp(
+      tester,
+      commercialPolicy: const AppCommercialPolicy(isAndroidFreeLaunch: true),
+      platform: TargetPlatform.android,
+    );
+
+    await tester.tap(find.byTooltip('Close Scan'));
+    await tester.pumpAndSettle();
+    expect(find.text('Exit scan?'), findsOneWidget);
+    await tester.tap(find.text('EXIT'));
+    await tester.pumpAndSettle();
+    expect(find.text('Overview'), findsOneWidget);
+  });
+
+  testWidgets('Android recognition in flight confirms before leaving scan', (
+    tester,
+  ) async {
+    final pending = Completer<ScanResolution>();
+    await _pumpScanTestApp(
+      tester,
+      scanResultSource: _TestScanResultSource(photoResult: pending.future),
+      commercialPolicy: const AppCommercialPolicy(isAndroidFreeLaunch: true),
+      platform: TargetPlatform.android,
+    );
+
+    await tester.tap(find.byTooltip('Take Photo'));
+    await tester.pump();
+    expect(find.byKey(const Key('scan-recognition-progress')), findsOneWidget);
+    await tester.tap(find.byTooltip('Close Scan'));
+    await tester.pump();
+    expect(find.text('Exit scan result?'), findsOneWidget);
+    await tester.tap(find.text('NO, STAY HERE'));
+    await tester.pump();
+    expect(find.byType(ScanPage), findsOneWidget);
+    expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
+
+    pending.complete(const ScanResolution.noMatch());
+    await _completeFigmaScan(tester);
+    expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
+    expect(find.text('No Match Found'), findsOneWidget);
+  });
+
+  testWidgets('Android pending recognition ignores a late result after exit', (
+    tester,
+  ) async {
+    final pending = Completer<ScanResolution>();
+    await _pumpScanTestApp(
+      tester,
+      scanResultSource: _TestScanResultSource(photoResult: pending.future),
+      commercialPolicy: const AppCommercialPolicy(isAndroidFreeLaunch: true),
+      platform: TargetPlatform.android,
+    );
+
+    await tester.tap(find.byTooltip('Take Photo'));
+    await tester.pump();
+    expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
+    await tester.tap(find.byTooltip('Close Scan'));
+    await tester.pump();
+    expect(find.text('Exit scan result?'), findsOneWidget);
+    await tester.tap(find.text('EXIT'));
+    await tester.pumpAndSettle();
+    expect(find.text('Overview'), findsOneWidget);
+
+    pending.complete(const ScanResolution.noMatch());
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump();
+    expect(find.text('Overview'), findsOneWidget);
+    expect(find.byType(ScanPage), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Android unsaved result uses the Figma exit copy and actions', (
+    tester,
+  ) async {
+    await _pumpScanTestApp(
+      tester,
+      scanResultSource: _TestScanResultSource(
+        photoResult: Future.value(
+          const ScanResolution.matched(
+            scanId: 'android-unsaved',
+            cardRef: 'android-card',
+            matchName: 'Android card',
+            candidates: ['Android card'],
+          ),
+        ),
+      ),
+      commercialPolicy: const AppCommercialPolicy(isAndroidFreeLaunch: true),
+      platform: TargetPlatform.android,
+    );
+    await tester.tap(find.byTooltip('Take Photo'));
+    await _completeFigmaScan(tester);
+
+    await tester.tap(find.byTooltip('Close Scan'));
+    await tester.pumpAndSettle();
+    expect(find.text('Exit scan result?'), findsOneWidget);
+    expect(
+      find.text('Your scanned card has not been collected yet.'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('NO, STAY HERE'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ScanPage), findsOneWidget);
+    expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Close Scan'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('EXIT'));
+    await tester.pumpAndSettle();
+    expect(find.text('Overview'), findsOneWidget);
+  });
+
+  testWidgets(
     'Scan asks before discarding an unmatched portfolio result because scan results are not auto-saved',
     (tester) async {
       await _pumpScanTestApp(
@@ -5406,6 +5588,105 @@ void main() {
       expect(find.text('Overview'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'Android Review card state grows with production fonts without clipping',
+    (tester) async {
+      final fonts = (await tester.runAsync(_readProductionScanFonts))!;
+      await _loadProductionScanFonts(fonts);
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(320, 711);
+      addTearDown(tester.view.reset);
+      await _pumpScanTestApp(
+        tester,
+        platform: TargetPlatform.android,
+        textScale: 1.2,
+        commercialPolicy: const AppCommercialPolicy(isAndroidFreeLaunch: true),
+      );
+
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.tap(find.byTooltip('Review completed scan'));
+      await tester.pumpAndSettle();
+
+      for (final entry in [
+        (
+          key: const Key('scan-review-state-raw-1'),
+          title: 'Raw',
+          subtitle: 'Unrated card',
+        ),
+        (
+          key: const Key('scan-review-state-graded-1'),
+          title: 'Graded',
+          subtitle: 'Certified card',
+        ),
+      ]) {
+        final button = find.byKey(entry.key);
+        await tester.ensureVisible(button);
+        await tester.pumpAndSettle();
+        final buttonRect = tester.getRect(button);
+        expect(buttonRect.height, greaterThan(58));
+        for (final label in [entry.title, entry.subtitle]) {
+          final labelRect = tester.getRect(find.text(label));
+          expect(labelRect.top, greaterThanOrEqualTo(buttonRect.top));
+          expect(labelRect.bottom, lessThanOrEqualTo(buttonRect.bottom));
+        }
+      }
+      expect(tester.takeException(), isNull);
+    },
+  );
+}
+
+typedef _ProductionScanFonts = ({
+  ByteData robotoRegular,
+  ByteData robotoMedium,
+  ByteData fraunces,
+});
+
+Future<_ProductionScanFonts> _readProductionScanFonts() async {
+  var directory = File(Platform.resolvedExecutable).parent;
+  Directory? materialFonts;
+  while (directory.parent.path != directory.path) {
+    for (final candidate in [
+      Directory('${directory.path}${Platform.pathSeparator}material_fonts'),
+      Directory(
+        '${directory.path}${Platform.pathSeparator}artifacts'
+        '${Platform.pathSeparator}material_fonts',
+      ),
+    ]) {
+      if (await candidate.exists()) {
+        materialFonts = candidate;
+        break;
+      }
+    }
+    if (materialFonts != null) break;
+    directory = directory.parent;
+  }
+  if (materialFonts == null) {
+    throw StateError('Flutter material fonts directory is unavailable.');
+  }
+  Future<ByteData> loadFont(String fileName) async {
+    final bytes = await File(
+      '${materialFonts!.path}${Platform.pathSeparator}$fileName',
+    ).readAsBytes();
+    return bytes.buffer.asByteData(bytes.offsetInBytes, bytes.lengthInBytes);
+  }
+
+  return (
+    robotoRegular: await loadFont('roboto-regular.ttf'),
+    robotoMedium: await loadFont('roboto-medium.ttf'),
+    fraunces: await rootBundle.load(
+      'assets/fonts/Baskerville-BaskervilleSemiBold.ttf',
+    ),
+  );
+}
+
+Future<void> _loadProductionScanFonts(_ProductionScanFonts fonts) async {
+  await (FontLoader('Roboto')
+        ..addFont(Future.value(fonts.robotoRegular))
+        ..addFont(Future.value(fonts.robotoMedium)))
+      .load();
+  await (FontLoader('Fraunces')..addFont(Future.value(fonts.fraunces))).load();
 }
 
 _TestScanResultSource _verifiedScanWithCardMetadata() {
@@ -5474,6 +5755,8 @@ Future<void> _pumpScanTestApp(
   ),
   SubscriptionPaywallResult? subscriptionResult,
   bool tickerEnabled = true,
+  TargetPlatform platform = TargetPlatform.iOS,
+  double textScale = 1,
 }) async {
   await tester.pumpWidget(const SizedBox.shrink());
   await tester.pumpAndSettle();
@@ -5504,7 +5787,11 @@ Future<void> _pumpScanTestApp(
       ],
       child: TickerMode(
         enabled: tickerEnabled,
-        child: _ScanTestAppWithRoutes(subscriptionResult: subscriptionResult),
+        child: _ScanTestAppWithRoutes(
+          subscriptionResult: subscriptionResult,
+          platform: platform,
+          textScale: textScale,
+        ),
       ),
     ),
   );
@@ -6364,14 +6651,26 @@ _searchOverrides() {
 }
 
 class _ScanTestAppWithRoutes extends StatelessWidget {
-  const _ScanTestAppWithRoutes({this.subscriptionResult});
+  const _ScanTestAppWithRoutes({
+    this.subscriptionResult,
+    this.platform = TargetPlatform.iOS,
+    this.textScale = 1,
+  });
 
   final SubscriptionPaywallResult? subscriptionResult;
+  final TargetPlatform platform;
+  final double textScale;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      theme: buildKandoTheme(),
+      theme: buildKandoTheme().copyWith(platform: platform),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      ),
       routerConfig: GoRouter(
         initialLocation: '/scan',
         routes: [

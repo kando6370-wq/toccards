@@ -5,7 +5,7 @@
 `APP_ENV` selects the API and Mixpanel projects together. The supported values
 are `test` and `production`; these map to the current business environments
 `dev` (Linux) and `prod` (Cloudflare), respectively. The default is
-`production` so an unconfigured build stays aligned with the production app
+`test` so an unconfigured local build uses the test API and isolated Android
 identity. Test builds must explicitly load `config/test.json`; the retired
 Cloudflare dev API is not a build target.
 
