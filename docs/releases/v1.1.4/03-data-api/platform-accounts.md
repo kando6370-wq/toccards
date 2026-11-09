@@ -292,6 +292,15 @@ Home／Card Detail 的图表提示使用独立 TextPainter，登录加载提示�
 
 本次只执行测试 APK 构建、静态制品核验和本地交付，没有安装到手机或执行真机扫描；iOS 源码及配置未改。README 中历史“默认 production”的描述已按当前 `AppConfig` 与 Android Gradle 的实际 test 缺省行为修正。
 
+### iOS 测试环境内部包交付（2026-11-09）
+
+从构建前干净的 `codex/dev-andriod@6c53c9f21d702f5860db665a2ce715f4815649a3` 执行 `./tool/release_ios.sh --env test`，使用 Flutter 3.47.9／Dart 3.13.7／Xcode 27.2 完成 clean Release 归档、App Store IPA 导出及 Development 内部 IPA 打包，脚本退出 0。构建参数指定 `1.0.7 (194)`，成功后 `pubspec.yaml` 从 `1.0.7+193` 同步为 `1.0.7+194`；`Podfile.lock` 仅更新本机新 Flutter SDK 的 spec checksum，Pod 版本及根 `pubspec.lock` 未变，未升级业务依赖。
+
+- 交付内部包：`~/Downloads/CardAI-Packages/com.kando.kandoApp.beta/CardAI-Test-1.0.7-194/Card AI Test.ipa`，45,666,531 字节，SHA-256 `c68dd98cf37bfa988070e2b98e8afa23f72398b2af65ed8a781fdbffca1454c2`；保存文件与构建输出逐字节一致。测试包只保留最近 3 版，新版完整保存后将最旧的 190 版移入废纸篓，191／192／194 保留。
+- 最终内部 IPA 已解包并通过严格完整签名验证：Bundle ID=`com.kando.kandoApp.beta`、Apple Development 签名、`get-task-allow=true`、App Attest=`development`，描述文件含登记设备；Firebase 为测试项目 `card-ai---test` 且 plist 与测试源一致。AOT 含测试 API `http://192.168.50.201:8080/api/v1`，本机只读 health 为 HTTP 200；未回读服务端发布 SHA 或 migration ledger，不据 health 推定远端版本及迁移已验收。
+- 符号：同目录 `dSYMs.zip` 为 64,414,160 字节，SHA-256 `8879f85407e60907f987faa399689cd04cd288a26a3304c45dec85266de3dd0d`。脚本校验两份 ZIP 完整性，内部包及 App Store 导出包均为 43／43 个唯一 Mach-O UUID 有匹配 dSYM；这是 UUID 覆盖证据，未执行全量 DWARF 深检或真实崩溃符号化验收。
+- 本次 `flutter analyze` 通过；以显式 test 配置运行 `release_config_test.dart`、`api_environment_test.dart`、`app_commercial_policy_test.dart`、`subscription_android_free_policy_test.dart`，18／18 通过、退出 0，覆盖 Android 免费策略与 iOS 原 Apple 订阅策略的区分。没有修改两端业务实现或 Android 正式身份／签名；本次按用户范围只构建 iOS，未重新构建 Android、运行完整 Flutter workspace、安装真机、执行登录／扫描／购买、上传蒲公英／App Store Connect、提交／推送 Git 或部署／迁移远端环境。ML Kit 的 Swift Package Manager 及 Apple Silicon 模拟器架构支持提示仍保留，本次真机 arm64 构建成功不代表模拟器验收通过。
+
 以上为本地源码、测试、配置检查和 dry-run 范围。本轮没有连接远端数据库，没有执行 dev／prod migration，没有部署 API、Admin Pages／Workers assets、Marketing 或移动端制品，没有提交 App Store／Google Play，也没有使用正式 Android 签名。
 
 正式发布前还需要独立打包设备上的签名 AAB／IPA、Play 测试轨道、真实 Google 登录与应用证明、iOS 购买／Restore、双端真机和正式制品的 16 KB 对齐复验。官网真实操作截图、处理期限及 SDK 数据披露也需按运营和最终包事实补齐。本地通过不能代替这些验收。
