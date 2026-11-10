@@ -92,4 +92,4 @@ TypeSafe 在线文档本轮未能读取，复用已保存的正式 HTTP API/Choi
 
 ## 首页价格与 TCG 入口（2026-11-10）
 
-用户指定 pokemon tcg、pokemon card prices 加入首页。保留产品 H1、历史正文与其他卡类，用首页 Title、Description、首屏说明、次入口和卡库 H2 自然承接查价。完整任务仍在既有 `/games/pokemon`，没有新增同义页。详情、研究证据、文案和验收见[内容方案](../../../content-plans/2026-11-10-home-pokemon-keywords.md)。官网构建及 26 项相关检查通过；桌面/手机无页面横向溢出。元信息、OG、唯一 H1、canonical、模板同步和查价链接通过；首次检查中旧 H2 文案断言失效，核对原因后更新断言并重跑通过。验证使用本机 Node 24.3.0（与仓库固定 22.23.4 不同）；Cloudflare 固定环境构建结果另行回读。待正式发布与仅通知首页。
+用户指定 pokemon tcg、pokemon card prices 加入首页。保留产品 H1、历史正文与其他卡类，用首页 Title、Description、首屏说明、次入口和卡库 H2 自然承接查价。完整任务仍在既有 `/games/pokemon`，没有新增同义页。详情、研究证据、文案和验收见[内容方案](../../../content-plans/2026-11-10-home-pokemon-keywords.md)。官网构建及 26 项相关检查通过；桌面/手机无页面横向溢出。元信息、OG、唯一 H1、canonical、模板同步和查价链接通过；首次检查中旧 H2 文案断言失效，核对原因后更新断言并重跑通过。验证使用本机 Node 24.3.0（与仓库固定 22.23.4 不同）；Cloudflare 固定环境构建结果另行回读。正式内容提交 `35aad808ea8f02c599321d56ae64ab0d81d9894e` 已推送 main，Cloudflare 官网构建 success；正式 manifest 与同一 sourceCommit 匹配。Ego 正式首页 Title/Description、首屏、卡库 H2、canonical 及查价按钮进入 `/games/pokemon` 均已确认。仅首页通知 IndexNow，1 个 URL 收到 HTTP 200；回执 `.indexnow/reports/2026-11-10T09-51-31-827Z.json`。接收不等于收录或排名提升。

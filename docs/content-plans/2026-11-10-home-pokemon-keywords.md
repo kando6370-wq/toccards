@@ -43,3 +43,5 @@ recommendation_case：对需要核对实体卡印次的收藏者，本站已有�
 实现全部完成后，仅验证首页元信息、可见文案/链接、OG/Schema、46 个历史正文保留及桌面/移动端显示；正式目标版本回读后只通知首页 IndexNow。既有目录 URL 不变，不为此重交全站。本次不改 App、Admin、业务 API、数据库或旧 Marketing。上线与通知结果后补。
 
 本地验收：官网构建、26 项相关检查、首页 metadata/OG/canonical/唯一 H1/模板同步和跳转链接通过；1440px/390px 可见页面无横向溢出。使用本机 Node 24.3.0，非仓库固定 Node 22.23.4；正式构建另行回读。初次旧标题断言失败，按已核对的新文案更新后重跑通过。待正式回读及 IndexNow。
+
+正式内容提交 `35aad808ea8f02c599321d56ae64ab0d81d9894e` 已推送 main，Cloudflare 官网构建 success；正式 manifest 与同一 sourceCommit 匹配。Ego 正式首页 Title/Description、首屏、卡库 H2、canonical 及查价按钮进入 `/games/pokemon` 均已确认。仅首页通知 IndexNow，1 个 URL 收到 HTTP 200；回执 `.indexnow/reports/2026-11-10T09-51-31-827Z.json`。接收不等于收录或排名提升。
