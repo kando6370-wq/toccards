@@ -32,6 +32,24 @@ describe("Linux filesystem object storage", () => {
     expect(await bucket.get("scans/user/scan.jpg")).toBeNull();
   });
 
+  it("deletes every requested scan image in a batch while preserving another owner's image", async () => {
+    const root = await mkdtemp(join(tmpdir(), "toccards-r2-"));
+    roots.push(root);
+    const bucket = createFilesystemR2Bucket(root);
+    const keys = ["scans/android/first.jpg", "scans/android/second.jpg"];
+    for (const key of [...keys, "scans/ios/kept.jpg"]) {
+      await bucket.put(key, "scan", { httpMetadata: { contentType: "image/jpeg" } });
+    }
+
+    await bucket.delete([...keys, "scans/android/already-missing.jpg"]);
+
+    for (const key of keys) {
+      expect(await bucket.get(key)).toBeNull();
+      expect(await bucket.head(key)).toBeNull();
+    }
+    expect(await (await bucket.get("scans/ios/kept.jpg"))?.text()).toBe("scan");
+  });
+
   it("rejects object keys that escape the configured directory", async () => {
     const root = await mkdtemp(join(tmpdir(), "toccards-r2-"));
     roots.push(root);

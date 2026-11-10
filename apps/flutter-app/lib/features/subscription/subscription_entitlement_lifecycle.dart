@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'subscription_controller.dart';
+import '../../shared/platform/app_commercial_policy.dart';
 
 class SubscriptionEntitlementLifecycleObserver extends ConsumerStatefulWidget {
   const SubscriptionEntitlementLifecycleObserver({
@@ -41,6 +42,7 @@ class _SubscriptionEntitlementLifecycleObserverState
   }
 
   Future<void> _refreshEntitlement() async {
+    if (!ref.read(appCommercialPolicyProvider).usesAppleSubscription) return;
     try {
       await ref
           .read(subscriptionControllerProvider.notifier)

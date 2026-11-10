@@ -13,10 +13,12 @@ import 'package:kando_app/features/scan/scan_result_source.dart';
 import '../../shared/card_image/kando_card_image.dart';
 import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
+import '../../shared/platform/app_commercial_policy.dart';
 import '../../shared/currency/currency.dart';
 import '../../shared/portfolio/portfolio_providers.dart';
 import '../../shared/portfolio/portfolio_api_client.dart';
 import '../../shared/scan/scan_api_client.dart';
+import '../../shared/ui/kando_modal.dart';
 import '../../shared/ui/kando_style.dart';
 import '../../shared/ui/premium_unlocked_toast.dart';
 import '../../shared/ui/subscription_restore_result.dart';
@@ -46,8 +48,7 @@ enum _ScanItemStatus {
 
 enum _ScanReviewSaveAction { single, all }
 
-const _scanQueueCapacityToastText =
-    'Collect or remove cards to scan more';
+const _scanQueueCapacityToastText = 'Collect or remove cards to scan more';
 
 class _ScanReviewLoadException implements Exception {
   const _ScanReviewLoadException();
@@ -130,11 +131,10 @@ _ScanViewfinderGeometry _scanViewfinderGeometry(
       viewport.width > _viewfinderBaseViewportWidth ||
       viewport.height > _viewfinderBaseViewportHeight;
   if (scale == 1 && largerThanBaseViewport) {
-    final upscaleLeftLimit =
-        (padding.left + _viewfinderUpscalePadding).clamp(
-          0.0,
-          viewport.width,
-        );
+    final upscaleLeftLimit = (padding.left + _viewfinderUpscalePadding).clamp(
+      0.0,
+      viewport.width,
+    );
     final upscaleRightLimit =
         (viewport.width - padding.right - _viewfinderUpscalePadding).clamp(
           upscaleLeftLimit,
@@ -165,12 +165,8 @@ _ScanViewfinderGeometry _scanViewfinderGeometry(
   final width = _viewfinderBaseWidth * scale;
   final height = _viewfinderBaseHeight * scale;
   final left =
-      layoutLeftLimit +
-      ((layoutRightLimit - layoutLeftLimit - width) / 2);
-  final maxTop = math.max(
-    layoutTopLimit,
-    layoutBottomLimit - height,
-  );
+      layoutLeftLimit + ((layoutRightLimit - layoutLeftLimit - width) / 2);
+  final maxTop = math.max(layoutTopLimit, layoutBottomLimit - height);
   final top = _viewfinderBaseTop.clamp(layoutTopLimit, maxTop);
   return _ScanViewfinderGeometry(Rect.fromLTWH(left, top, width, height));
 }
@@ -454,6 +450,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   var _openingCamera = false;
   var _cameraPausedForLifecycle = false;
   var _permissionDialogVisible = false;
+  var _exitDialogVisible = false;
   var _appActive = true;
   var _openingReview = false;
   var _reviewing = false;
@@ -538,7 +535,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        unawaited(ref.read(scanQuotaControllerProvider.notifier).refresh());
+        if (!ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
+          unawaited(ref.read(scanQuotaControllerProvider.notifier).refresh());
+        }
       }
     });
     unawaited(_lockOrientationAndOpenCamera());
@@ -549,7 +548,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
     if (state == AppLifecycleState.resumed) {
       _appActive = true;
       _freeEntitlementConfirmedForLifecycle = false;
-      unawaited(_refreshQuotaAndResumeWaiting());
+      if (!ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
+        unawaited(_refreshQuotaAndResumeWaiting());
+      }
       unawaited(_resumeCameraForLifecycle());
       return;
     }
@@ -904,6 +905,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   bool _scanQuotaExhausted() {
+    if (ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
+      return false;
+    }
     final quota = ref.read(scanQuotaControllerProvider);
     if (ref.read(subscriptionControllerProvider).isPro || quota.unlimited) {
       return false;
@@ -912,6 +916,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   bool _scanQuotaAwaitingSettlement() {
+    if (ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
+      return false;
+    }
     final quota = ref.read(scanQuotaControllerProvider);
     if (ref.read(subscriptionControllerProvider).isPro || quota.unlimited) {
       return false;
@@ -950,6 +957,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   Future<bool> _resolvePremiumBeforeScan() async {
+    if (ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
+      return true;
+    }
     final current = ref.read(subscriptionControllerProvider).premiumState;
     final quota = ref.read(scanQuotaControllerProvider);
     if (current == AppPremiumState.premium || quota.unlimited) return true;
@@ -1202,6 +1212,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
             builder: (context) => Theme(
               key: const Key('scan-permission-material-theme'),
               data: ThemeData(
+                fontFamily: kandoBodyFontFamily(Theme.of(context).platform),
                 colorScheme: ColorScheme.fromSeed(
                   seedColor: Colors.blue,
                   brightness: Brightness.light,
@@ -1578,6 +1589,28 @@ class _ScanPageState extends ConsumerState<ScanPage>
       });
       return;
     }
+    if (ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures &&
+        (resolution.kind == ScanResolutionKind.quotaExhausted ||
+            resolution.kind == ScanResolutionKind.entitlementSyncRequired)) {
+      _pendingScans.remove(itemId)?.revealController?.dispose();
+      final item = _items.where((item) => item.id == itemId).firstOrNull;
+      if (item != null) {
+        _replaceItem(
+          item.copyWith(
+            status: _ScanItemStatus.failed,
+            imageBytes: resolution.imageBytes,
+            displayImageBytes: resolution.displayImageBytes,
+            imageFileName: resolution.imageFileName,
+          ),
+        );
+      }
+      showKandoTopToast(
+        context,
+        message: 'Android free scan access is temporarily unavailable.',
+        type: KandoTopToastType.failure,
+      );
+      return;
+    }
     if (resolution.kind == ScanResolutionKind.quotaExhausted) {
       final shouldOpenQuotaPaywall =
           pending.quotaPromptBatchId == null ||
@@ -1735,13 +1768,17 @@ class _ScanPageState extends ConsumerState<ScanPage>
     final analytics = ref.read(analyticsProvider);
     final repository = ref.read(scanReviewRepositoryProvider);
     final groups = await Future.wait([
-      for (final cardRef in {for (final candidate in match.candidates) candidate.cardRef})
+      for (final cardRef in {
+        for (final candidate in match.candidates) candidate.cardRef,
+      })
         () async {
           try {
             final cards = await repository.loadCards([cardRef]);
             if (mounted &&
-                _items.any((item) =>
-                    item.id == itemId && item.match?.scanId == match.scanId)) {
+                _items.any(
+                  (item) =>
+                      item.id == itemId && item.match?.scanId == match.scanId,
+                )) {
               setState(() {
                 _loadedReviewCardRefs.addAll(cards.keys);
                 _reviewCards = _mergeScanCards(_reviewCards, cards);
@@ -2315,6 +2352,36 @@ class _ScanPageState extends ConsumerState<ScanPage>
     if (_openingReview || _savingReview) {
       return;
     }
+    if (Theme.of(context).platform == TargetPlatform.android) {
+      if (_exitDialogVisible) return;
+      _exitDialogVisible = true;
+      final hasUnsavedResults = _hasUnsavedScanResults;
+      try {
+        final shouldExit = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => KandoConfirmModal(
+            title: hasUnsavedResults ? 'Exit scan result?' : 'Exit scan?',
+            message: hasUnsavedResults
+                ? 'Your scanned card has not been collected yet.'
+                : 'Exit the scanner and return to Home?',
+            icon: Icons.drive_file_move_outline,
+            confirmLabel: 'NO, STAY HERE',
+            cancelLabel: 'EXIT',
+            dense: true,
+            onConfirm: () {
+              ref.read(analyticsProvider).track(AnalyticsEvent.cancelClick);
+              Navigator.of(dialogContext).pop(false);
+            },
+            onCancel: () => Navigator.of(dialogContext).pop(true),
+          ),
+        );
+        if (mounted && shouldExit == true) context.go('/home');
+      } finally {
+        _exitDialogVisible = false;
+      }
+      return;
+    }
     if (!_hasUnsavedScanResults) {
       if (mounted) {
         context.go('/home');
@@ -2425,8 +2492,13 @@ class _ScanPageState extends ConsumerState<ScanPage>
     final isPro = ref.watch(
       subscriptionControllerProvider.select((value) => value.isPro),
     );
+    final freePremiumFeatures = ref.watch(
+      appCommercialPolicyProvider.select(
+        (value) => value.hasFreePremiumFeatures,
+      ),
+    );
     final quota = ref.watch(scanQuotaControllerProvider);
-    final hasPremiumAccess = isPro || quota.unlimited;
+    final hasPremiumAccess = freePremiumFeatures || isPro || quota.unlimited;
     final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
     return PopScope(
       canPop: false,
@@ -2879,12 +2951,9 @@ class _ScanCardTypeSelector extends StatelessWidget {
 
   Future<void> _showOptions(BuildContext context) async {
     final button = context.findRenderObject() as RenderBox;
-    final overlay = Navigator.of(context).overlay!.context.findRenderObject()
-        as RenderBox;
-    final buttonTopLeft = button.localToGlobal(
-      Offset.zero,
-      ancestor: overlay,
-    );
+    final overlay =
+        Navigator.of(context).overlay!.context.findRenderObject() as RenderBox;
+    final buttonTopLeft = button.localToGlobal(Offset.zero, ancestor: overlay);
     final menuWidth = width * 2 / 3;
     final menuLeft = buttonTopLeft.dx + (button.size.width - menuWidth) / 2;
     final menuTop = buttonTopLeft.dy + button.size.height - 2;
@@ -2916,9 +2985,7 @@ class _ScanCardTypeSelector extends StatelessWidget {
             child: Text(
               type.label,
               style: TextStyle(
-                color: type == selected
-                    ? KandoColors.accent
-                    : KandoColors.text,
+                color: type == selected ? KandoColors.accent : KandoColors.text,
                 fontSize: 14,
                 height: 20 / 14,
               ),
@@ -3715,12 +3782,7 @@ class _ViewfinderPainter extends CustomPainter {
       ..lineTo(left + cornerLength, bottom)
       ..moveTo(right - cornerLength, bottom)
       ..lineTo(right - cornerRadius, bottom)
-      ..quadraticBezierTo(
-        right,
-        bottom,
-        right,
-        bottom - cornerRadius,
-      )
+      ..quadraticBezierTo(right, bottom, right, bottom - cornerRadius)
       ..lineTo(right, bottom - cornerLength);
     canvas.drawPath(
       cornerPath,
@@ -4418,29 +4480,30 @@ class _ReviewMatches extends StatelessWidget {
                           child: CircularProgressIndicator(),
                         ),
                       )
-                      else
-                        Stack(
-                          children: [
-                            KeyedSubtree(
-                              key: ValueKey(
-                                'scan-review-form-${selected.id}-${match.cardRef}',
-                              ),
-                              child: _ReviewCollectionItem(
-                                itemId: selected.id,
-                                target: target!,
-                                card: card,
-                                draft: draft,
-                                formError: formError,
-                                enabled: !saving && !candidateLoading,
-                                onChanged: (next) => onUpdateDraft(selected.id, next),
-                              ),
+                    else
+                      Stack(
+                        children: [
+                          KeyedSubtree(
+                            key: ValueKey(
+                              'scan-review-form-${selected.id}-${match.cardRef}',
                             ),
-                            if (candidateLoading)
-                              const Positioned.fill(
-                                child: Center(child: CircularProgressIndicator()),
-                              ),
-                          ],
-                        ),
+                            child: _ReviewCollectionItem(
+                              itemId: selected.id,
+                              target: target!,
+                              card: card,
+                              draft: draft,
+                              formError: formError,
+                              enabled: !saving && !candidateLoading,
+                              onChanged: (next) =>
+                                  onUpdateDraft(selected.id, next),
+                            ),
+                          ),
+                          if (candidateLoading)
+                            const Positioned.fill(
+                              child: Center(child: CircularProgressIndicator()),
+                            ),
+                        ],
+                      ),
                   ],
                 ),
               ),
@@ -5320,11 +5383,19 @@ class _ReviewCardState extends StatelessWidget {
       Row(
         children: [
           Expanded(
-            child: _stateButton(rawKey, 'Raw', 'Unrated card', isRaw, onRaw),
+            child: _stateButton(
+              context,
+              rawKey,
+              'Raw',
+              'Unrated card',
+              isRaw,
+              onRaw,
+            ),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: _stateButton(
+              context,
               gradedKey,
               'Graded',
               'Certified card',
@@ -5338,14 +5409,14 @@ class _ReviewCardState extends StatelessWidget {
   );
 
   Widget _stateButton(
+    BuildContext context,
     Key key,
     String title,
     String subtitle,
     bool selected,
     VoidCallback onPressed,
-  ) => SizedBox(
-    height: 58,
-    child: OutlinedButton(
+  ) {
+    final button = OutlinedButton(
       key: key,
       onPressed: enabled ? onPressed : null,
       style: OutlinedButton.styleFrom(
@@ -5378,8 +5449,15 @@ class _ReviewCardState extends StatelessWidget {
           ),
         ],
       ),
-    ),
-  );
+    );
+    if (Theme.of(context).platform == TargetPlatform.android) {
+      return ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 58),
+        child: button,
+      );
+    }
+    return SizedBox(height: 58, child: button);
+  }
 }
 
 Future<String?> _showReviewChoiceSheet(
@@ -5751,7 +5829,9 @@ class _ReviewFooter extends StatelessWidget {
                       height: 56,
                       child: FilledButton.icon(
                         key: const Key('scan-review-add-one'),
-                        onPressed: saving || !singleReady ? null : onAddThisCard,
+                        onPressed: saving || !singleReady
+                            ? null
+                            : onAddThisCard,
                         icon: addingSingle
                             ? const SizedBox(
                                 key: Key('scan-review-add-one-loading'),

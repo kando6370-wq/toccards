@@ -3,6 +3,7 @@ import type { Hono } from "hono";
 import type { Env } from "../env";
 import { migrateGuestAssetsToExistingUser } from "./guest-migration";
 import { getBearerToken, hasSigningSecret } from "./http-auth";
+import { mutationLockKey, runWithMutationLockStatements } from "../db/mutation-lock";
 
 type OwnerType = "anonymous" | "user";
 
@@ -12,24 +13,37 @@ type SessionLookupRow = {
   owner_id: string;
   expires_at: string;
   revoked_at: string | null;
+  platform: "ios" | "android" | null;
+  user_id: string | null;
 };
 
 type ValidSessionLookupRow = SessionLookupRow & {
   owner_type: OwnerType;
+  platform: "ios" | "android";
 };
 
 type AuthenticatedOwner = {
   owner_type: OwnerType;
   owner_id: string;
+  user_id: string | null;
+  platform: "ios" | "android";
+  session_id: string;
 };
+
+export type DeletablePlatformOwner = Pick<
+  AuthenticatedOwner,
+  "owner_type" | "owner_id" | "user_id" | "platform"
+>;
 
 type OwnerRow = {
   id: string;
+  status: string;
 };
 
 type AnonymousAccountForMigrationRow = {
   id: string;
   upgraded_user_id: string | null;
+  platform: "ios" | "android";
 };
 
 const UNAUTHORIZED_RESPONSE = {
@@ -69,74 +83,98 @@ const VALIDATION_ERROR_RESPONSE = {
 } as const;
 
 const SELECT_SESSION_BY_ID_SQL = `
-  SELECT id, owner_type, owner_id, expires_at, revoked_at
+  SELECT id, owner_type, owner_id, expires_at, revoked_at, platform, user_id
   FROM session
   WHERE id = ?
   LIMIT 1
 `;
 
 const SELECT_ACCOUNT_ANONYMOUS_OWNER_SQL = `
-  SELECT id
+  SELECT id, status
   FROM anonymous_account
-  WHERE id = ? AND upgraded_user_id IS NULL
+  WHERE id = ? AND status IN ('active', 'deleting', 'deleted')
   LIMIT 1
 `;
 
 const SELECT_ACCOUNT_USER_OWNER_SQL = `
-  SELECT id
-  FROM "user"
-  WHERE id = ? AND status = 'active'
+  SELECT pa.id, pa.status
+  FROM platform_account pa
+  JOIN "user" u ON u.id = pa.user_id AND u.status IN ('active', 'deleted')
+  WHERE pa.id = ? AND pa.user_id = ? AND pa.platform = ? AND pa.status IN ('active', 'deleting', 'deleted')
   LIMIT 1
 `;
 
 const SELECT_ANONYMOUS_ACCOUNT_FOR_MIGRATION_SQL = `
-  SELECT id, upgraded_user_id
+  SELECT id, upgraded_user_id, platform
   FROM anonymous_account
   WHERE id = ?
   LIMIT 1
 `;
 
-const UPDATE_USER_DELETED_SQL = `
-  UPDATE "user"
+const MARK_PLATFORM_DELETING_SQL = `UPDATE platform_account
+  SET status = 'deleting', updated_at = ?
+  WHERE id = ? AND user_id = ? AND platform = ? AND status IN ('active', 'disabled')`;
+const MARK_ANONYMOUS_DELETING_SQL = `UPDATE anonymous_account
+  SET status = 'deleting'
+  WHERE id = ? AND platform = ? AND status = 'active'`;
+const SELECT_OWNER_SCAN_IMAGES_SQL = `SELECT image_url FROM scan_record
+  WHERE owner_type = ? AND owner_id = ? AND image_url IS NOT NULL`;
+const DELETE_OWNER_COLLECTION_EVENTS_SQL = `DELETE FROM collection_item_event WHERE owner_type = ? AND owner_id = ?`;
+const DELETE_OWNER_COLLECTION_ITEMS_SQL = `DELETE FROM collection_item WHERE owner_type = ? AND owner_id = ?`;
+const DELETE_OWNER_FOLDERS_SQL = `DELETE FROM portfolio_folder WHERE owner_type = ? AND owner_id = ?`;
+const DELETE_OWNER_WISHLIST_SQL = `DELETE FROM wishlist_item WHERE owner_type = ? AND owner_id = ?`;
+const DELETE_OWNER_PREFERENCE_SQL = `DELETE FROM user_preference WHERE owner_type = ? AND owner_id = ?`;
+const DELETE_OWNER_SCAN_QUOTA_SQL = `DELETE FROM scan_quota_request WHERE owner_type = ? AND owner_id = ?`;
+const DELETE_OWNER_SCAN_RECORDS_SQL = `DELETE FROM scan_record WHERE owner_type = ? AND owner_id = ?`;
+const DELETE_OWNER_ENTITLEMENTS_SQL = `DELETE FROM billing_entitlement_grant WHERE owner_type = ? AND owner_id = ?`;
+const DELETE_OWNER_SESSION_ENTITLEMENTS_SQL = `DELETE FROM billing_session_entitlement_grant
+  WHERE session_id IN (SELECT id FROM session WHERE owner_type = ? AND owner_id = ?)`;
+const DELETE_OWNER_APP_ATTEST_CHALLENGES_SQL = `DELETE FROM billing_apple_app_attest_challenge
+  WHERE session_id IN (SELECT id FROM session WHERE owner_type = ? AND owner_id = ?)`;
+const DELETE_OWNER_APP_ATTEST_KEYS_SQL = `DELETE FROM billing_apple_app_attest_key
+  WHERE registered_session_id IN (SELECT id FROM session WHERE owner_type = ? AND owner_id = ?)`;
+const DELETE_OWNER_FEEDBACK_SQL = `DELETE FROM feedback_ticket WHERE uid = ?`;
+const DELETE_OWNER_INSTALLATIONS_SQL = `DELETE FROM app_installation WHERE uid = ?`;
+const DELETE_RELATED_GUEST_FEEDBACK_SQL = `DELETE FROM feedback_ticket WHERE uid IN (
+  SELECT id FROM anonymous_account WHERE upgraded_user_id = ? AND platform = ?
+)`;
+const DELETE_RELATED_GUEST_INSTALLATIONS_SQL = `DELETE FROM app_installation WHERE uid IN (
+  SELECT id FROM anonymous_account WHERE upgraded_user_id = ? AND platform = ?
+)`;
+const REVOKE_RELATED_GUEST_SESSIONS_SQL = `UPDATE session SET revoked_at = ?
+  WHERE owner_type = 'anonymous' AND owner_id IN (
+    SELECT id FROM anonymous_account WHERE upgraded_user_id = ? AND platform = ?
+  ) AND revoked_at IS NULL`;
+const ANONYMIZE_RELATED_GUESTS_SQL = `UPDATE anonymous_account
+  SET device_id = 'deleted:' || id, status = 'deleted', deleted_at = ?
+  WHERE upgraded_user_id = ? AND platform = ?`;
+const MARK_PLATFORM_DELETED_SQL = `UPDATE platform_account
   SET status = 'deleted', deleted_at = ?, updated_at = ?
-  WHERE id = ? AND status = 'active'
-`;
+  WHERE id = ? AND status = 'deleting'`;
+const MARK_ANONYMOUS_DELETED_SQL = `UPDATE anonymous_account
+  SET device_id = 'deleted:' || id, status = 'deleted', deleted_at = ?
+  WHERE id = ? AND status = 'deleting'`;
+const DELETE_AUTH_IDENTITIES_IF_LAST_SQL = `DELETE FROM auth_identity
+  WHERE user_id = ? AND NOT EXISTS (
+    SELECT 1 FROM platform_account WHERE user_id = ? AND status IN ('active', 'disabled', 'deleting')
+  )`;
+const DELETE_VERIFICATION_CODES_IF_LAST_SQL = `DELETE FROM verification_code
+  WHERE email = (SELECT email FROM "user" WHERE id = ?)
+    AND NOT EXISTS (
+      SELECT 1 FROM platform_account
+      WHERE user_id = ? AND status IN ('active', 'disabled', 'deleting')
+    )`;
+const ANONYMIZE_USER_IF_LAST_SQL = `UPDATE "user"
+  SET email = ?, password_hash = NULL, display_name = NULL, status = 'deleted',
+      deleted_at = ?, updated_at = ?
+  WHERE id = ? AND NOT EXISTS (
+    SELECT 1 FROM platform_account WHERE user_id = ? AND status IN ('active', 'disabled', 'deleting')
+  )`;
 
 const REVOKE_OWNER_SESSIONS_SQL = `
   UPDATE session
   SET revoked_at = ?
   WHERE owner_type = ? AND owner_id = ? AND revoked_at IS NULL
-`;
-
-const DELETE_ANONYMOUS_PORTFOLIO_FOLDERS_SQL = `
-  DELETE FROM portfolio_folder
-  WHERE owner_type = 'anonymous' AND owner_id = ?
-`;
-
-const DELETE_ANONYMOUS_COLLECTION_ITEMS_SQL = `
-  DELETE FROM collection_item
-  WHERE owner_type = 'anonymous' AND owner_id = ?
-`;
-
-const DELETE_ANONYMOUS_COLLECTION_ITEM_EVENTS_SQL = `
-  DELETE FROM collection_item_event
-  WHERE owner_type = 'anonymous' AND owner_id = ?
-`;
-
-const DELETE_ANONYMOUS_WISHLIST_ITEMS_SQL = `
-  DELETE FROM wishlist_item
-  WHERE owner_type = 'anonymous' AND owner_id = ?
-`;
-
-const DELETE_ANONYMOUS_USER_PREFERENCE_SQL = `
-  DELETE FROM user_preference
-  WHERE owner_type = 'anonymous' AND owner_id = ?
-`;
-
-const INVALIDATE_ANONYMOUS_ACCOUNT_SQL = `
-  UPDATE anonymous_account
-  SET upgraded_user_id = ?
-  WHERE id = ? AND upgraded_user_id IS NULL
 `;
 
 export function registerAccountRoutes(routes: Hono<{ Bindings: Env }>): void {
@@ -146,6 +184,7 @@ export function registerAccountRoutes(routes: Hono<{ Bindings: Env }>): void {
       c.req.header("Authorization"),
       c.env.JWT_SECRET,
       new Date(),
+      true,
     );
 
     if (auth.status === "internal_error") {
@@ -157,48 +196,7 @@ export function registerAccountRoutes(routes: Hono<{ Bindings: Env }>): void {
     }
 
     try {
-      const nowIso = new Date().toISOString();
-      if (auth.owner.owner_type === "user") {
-        await c.env.DB.batch([
-          c.env.DB.prepare(UPDATE_USER_DELETED_SQL).bind(
-            nowIso,
-            nowIso,
-            auth.owner.owner_id,
-          ),
-          c.env.DB.prepare(REVOKE_OWNER_SESSIONS_SQL).bind(
-            nowIso,
-            "user",
-            auth.owner.owner_id,
-          ),
-        ]);
-      } else {
-        await c.env.DB.batch([
-          c.env.DB.prepare(DELETE_ANONYMOUS_PORTFOLIO_FOLDERS_SQL).bind(
-            auth.owner.owner_id,
-          ),
-          c.env.DB.prepare(DELETE_ANONYMOUS_COLLECTION_ITEMS_SQL).bind(
-            auth.owner.owner_id,
-          ),
-          c.env.DB.prepare(DELETE_ANONYMOUS_COLLECTION_ITEM_EVENTS_SQL).bind(
-            auth.owner.owner_id,
-          ),
-          c.env.DB.prepare(DELETE_ANONYMOUS_WISHLIST_ITEMS_SQL).bind(
-            auth.owner.owner_id,
-          ),
-          c.env.DB.prepare(DELETE_ANONYMOUS_USER_PREFERENCE_SQL).bind(
-            auth.owner.owner_id,
-          ),
-          c.env.DB.prepare(INVALIDATE_ANONYMOUS_ACCOUNT_SQL).bind(
-            auth.owner.owner_id,
-            auth.owner.owner_id,
-          ),
-          c.env.DB.prepare(REVOKE_OWNER_SESSIONS_SQL).bind(
-            nowIso,
-            "anonymous",
-            auth.owner.owner_id,
-          ),
-        ]);
-      }
+      await deletePlatformOwner(c.env, auth.owner, new Date());
 
       return c.json({ success: true, data: {} });
     } catch (error) {
@@ -256,6 +254,10 @@ export function registerAccountRoutes(routes: Hono<{ Bindings: Env }>): void {
         return c.json(NOT_FOUND_RESPONSE, 404);
       }
 
+      if (anonymousAccount.platform !== auth.owner.platform) {
+        return c.json(AUTH_REQUIRED_RESPONSE, 403);
+      }
+
       if (anonymousAccount.upgraded_user_id !== null) {
         return c.json(CONFLICT_RESPONSE, 409);
       }
@@ -282,11 +284,117 @@ export function registerAccountRoutes(routes: Hono<{ Bindings: Env }>): void {
   });
 }
 
+export async function deletePlatformOwner(
+  env: Env,
+  owner: DeletablePlatformOwner,
+  now: Date,
+): Promise<void> {
+  const nowIso = now.toISOString();
+  const lockIdentity = owner.user_id ?? `anonymous:${owner.owner_id}`;
+  const markStatement = owner.owner_type === "user"
+    ? env.DB.prepare(MARK_PLATFORM_DELETING_SQL).bind(
+        nowIso, owner.owner_id, owner.user_id, owner.platform,
+      )
+    : env.DB.prepare(MARK_ANONYMOUS_DELETING_SQL).bind(
+        owner.owner_id, owner.platform,
+      );
+  const [markResult] = await runWithMutationLockStatements(
+    env.DB,
+    await mutationLockKey("platform-account-delete", lockIdentity),
+    [
+      markStatement,
+      env.DB.prepare(REVOKE_OWNER_SESSIONS_SQL).bind(
+        nowIso, owner.owner_type, owner.owner_id,
+      ),
+    ],
+  );
+  if (markResult?.meta.changes !== 1) {
+    const row = owner.owner_type === "user"
+      ? await env.DB.prepare(`SELECT status FROM platform_account
+          WHERE id = ? AND user_id = ? AND platform = ?`)
+          .bind(owner.owner_id, owner.user_id, owner.platform)
+          .first<{ status: string }>()
+      : await env.DB.prepare(`SELECT status FROM anonymous_account
+          WHERE id = ? AND platform = ?`)
+          .bind(owner.owner_id, owner.platform)
+          .first<{ status: string }>();
+    if (row?.status !== "deleting" && row?.status !== "deleted") {
+      throw new Error("Platform account is not available for deletion.");
+    }
+  }
+
+  const images = await env.DB.prepare(SELECT_OWNER_SCAN_IMAGES_SQL)
+    .bind(owner.owner_type, owner.owner_id)
+    .all<{ image_url: string }>();
+  if ((images.results?.length ?? 0) > 0 && !env.SCAN_IMAGES) {
+    throw new Error("Scan image storage is unavailable during account deletion.");
+  }
+  if (env.SCAN_IMAGES) {
+    const imageKeys = [...new Set(
+      (images.results ?? []).map((row) => row.image_url).filter(Boolean),
+    )];
+    for (let offset = 0; offset < imageKeys.length; offset += 1000) {
+      await env.SCAN_IMAGES.delete(imageKeys.slice(offset, offset + 1000));
+    }
+  }
+
+  const ownerBindings = [owner.owner_type, owner.owner_id] as const;
+  const finalStatements = [
+    env.DB.prepare(DELETE_OWNER_SESSION_ENTITLEMENTS_SQL).bind(...ownerBindings),
+    env.DB.prepare(DELETE_OWNER_APP_ATTEST_CHALLENGES_SQL).bind(...ownerBindings),
+    env.DB.prepare(DELETE_OWNER_APP_ATTEST_KEYS_SQL).bind(...ownerBindings),
+    env.DB.prepare(DELETE_OWNER_ENTITLEMENTS_SQL).bind(...ownerBindings),
+    env.DB.prepare(DELETE_OWNER_SCAN_QUOTA_SQL).bind(...ownerBindings),
+    env.DB.prepare(DELETE_OWNER_COLLECTION_EVENTS_SQL).bind(...ownerBindings),
+    env.DB.prepare(DELETE_OWNER_COLLECTION_ITEMS_SQL).bind(...ownerBindings),
+    env.DB.prepare(DELETE_OWNER_WISHLIST_SQL).bind(...ownerBindings),
+    env.DB.prepare(DELETE_OWNER_PREFERENCE_SQL).bind(...ownerBindings),
+    env.DB.prepare(DELETE_OWNER_FOLDERS_SQL).bind(...ownerBindings),
+    env.DB.prepare(DELETE_OWNER_SCAN_RECORDS_SQL).bind(...ownerBindings),
+    env.DB.prepare(DELETE_OWNER_FEEDBACK_SQL).bind(owner.owner_id),
+    env.DB.prepare(DELETE_OWNER_INSTALLATIONS_SQL).bind(owner.owner_id),
+  ];
+  if (owner.owner_type === "user") {
+    if (!owner.user_id) throw new Error("User platform deletion requires a base user.");
+    const userId = owner.user_id;
+    finalStatements.push(
+      env.DB.prepare(DELETE_RELATED_GUEST_FEEDBACK_SQL).bind(
+        owner.owner_id, owner.platform,
+      ),
+      env.DB.prepare(DELETE_RELATED_GUEST_INSTALLATIONS_SQL).bind(
+        owner.owner_id, owner.platform,
+      ),
+      env.DB.prepare(REVOKE_RELATED_GUEST_SESSIONS_SQL).bind(
+        nowIso, owner.owner_id, owner.platform,
+      ),
+      env.DB.prepare(ANONYMIZE_RELATED_GUESTS_SQL).bind(
+        nowIso, owner.owner_id, owner.platform,
+      ),
+      env.DB.prepare(MARK_PLATFORM_DELETED_SQL).bind(nowIso, nowIso, owner.owner_id),
+      env.DB.prepare(DELETE_VERIFICATION_CODES_IF_LAST_SQL).bind(userId, userId),
+      env.DB.prepare(DELETE_AUTH_IDENTITIES_IF_LAST_SQL).bind(userId, userId),
+      env.DB.prepare(ANONYMIZE_USER_IF_LAST_SQL).bind(
+        `deleted+${userId}@invalid.cardai.local`, nowIso, nowIso, userId, userId,
+      ),
+    );
+  } else {
+    finalStatements.push(env.DB.prepare(MARK_ANONYMOUS_DELETED_SQL).bind(
+      nowIso, owner.owner_id,
+    ));
+  }
+  await runWithMutationLockStatements(
+    env.DB,
+    await mutationLockKey("platform-account-delete", lockIdentity),
+    finalStatements,
+  );
+}
+
 async function authenticateOwner(
   db: D1Database,
   authorization: string | undefined,
   jwtSecret: unknown,
   now: Date,
+  allowDeleting = false,
 ): Promise<
   | { status: "ok"; owner: AuthenticatedOwner }
   | { status: "unauthorized" }
@@ -314,7 +422,7 @@ async function authenticateOwner(
     .first<SessionLookupRow>();
 
   if (
-    !isLiveSession(session, now) ||
+    !isUnexpiredSession(session, now) ||
     session.owner_type !== verification.payload.owner_type ||
     session.owner_id !== verification.payload.owner_id
   ) {
@@ -326,10 +434,20 @@ async function authenticateOwner(
   if (!owner) {
     return { status: "unauthorized" };
   }
+  if (session.revoked_at !== null &&
+      (!allowDeleting || (owner.status !== "deleting" && owner.status !== "deleted"))) {
+    return { status: "unauthorized" };
+  }
 
   return {
     status: "ok",
-    owner: { owner_type: session.owner_type, owner_id: session.owner_id },
+    owner: {
+      owner_type: session.owner_type,
+      owner_id: session.owner_id,
+      user_id: session.user_id,
+      platform: session.platform!,
+      session_id: session.id,
+    },
   };
 }
 
@@ -342,7 +460,11 @@ async function findOwner(
       ? SELECT_ACCOUNT_ANONYMOUS_OWNER_SQL
       : SELECT_ACCOUNT_USER_OWNER_SQL;
 
-  return db.prepare(sql).bind(session.owner_id).first<OwnerRow>();
+  return session.owner_type === "anonymous"
+    ? db.prepare(sql).bind(session.owner_id).first<OwnerRow>()
+    : db.prepare(sql).bind(
+        session.owner_id, session.user_id, session.platform,
+      ).first<OwnerRow>();
 }
 
 async function verifyAnonymousProof(
@@ -409,12 +531,22 @@ function isLiveSession(
   session: SessionLookupRow | null,
   now: Date,
 ): session is ValidSessionLookupRow {
-  const expiresAt = session ? Date.parse(session.expires_at) : NaN;
+  return (
+    isUnexpiredSession(session, now) &&
+    session.revoked_at === null
+  );
+}
 
+function isUnexpiredSession(
+  session: SessionLookupRow | null,
+  now: Date,
+): session is ValidSessionLookupRow {
+  const expiresAt = session ? Date.parse(session.expires_at) : NaN;
   return (
     !!session &&
     (session.owner_type === "anonymous" || session.owner_type === "user") &&
-    session.revoked_at === null &&
+    (session.platform === "ios" || session.platform === "android") &&
+    (session.owner_type === "anonymous" || typeof session.user_id === "string") &&
     Number.isFinite(expiresAt) &&
     expiresAt > now.getTime()
   );

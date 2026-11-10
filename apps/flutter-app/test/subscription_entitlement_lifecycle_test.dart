@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/features/subscription/subscription_entitlement_lifecycle.dart';
+import 'package:kando_app/shared/platform/app_commercial_policy.dart';
 
 void main() {
   testWidgets(
@@ -46,7 +47,12 @@ void main() {
 
 Widget _testApp(_LifecycleSubscriptionController controller) {
   return ProviderScope(
-    overrides: [subscriptionControllerProvider.overrideWith(() => controller)],
+    overrides: [
+      appCommercialPolicyProvider.overrideWithValue(
+        const AppCommercialPolicy(isAndroidFreeLaunch: false),
+      ),
+      subscriptionControllerProvider.overrideWith(() => controller),
+    ],
     child: const MaterialApp(
       home: SubscriptionEntitlementLifecycleObserver(
         child: Scaffold(body: Text('Current Page')),

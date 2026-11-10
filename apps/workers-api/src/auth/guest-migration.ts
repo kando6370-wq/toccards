@@ -1,13 +1,14 @@
 import { verifyAccessToken } from "@kando/auth-core";
 import { getBearerToken } from "./http-auth";
 
-export type AnonymousAccountRow = { id: string };
+export type AnonymousAccountRow = { id: string; platform: "ios" | "android" };
 export type SessionLookupRow = {
   id: string;
   owner_type: string;
   owner_id: string;
   expires_at: string;
   revoked_at: string | null;
+  platform: string | null;
 };
 export type MigrationCounts = {
   migrated_folders: number;
@@ -36,14 +37,14 @@ type CompleteGuestMigrationGuard = Required<GuestMigrationGuard>;
 const GUEST_ACCOUNT_UNAVAILABLE_MESSAGE = "Guest account is no longer available.";
 
 const SELECT_LIVE_ANONYMOUS_ACCOUNT_SQL = `
-  SELECT id
+  SELECT id, platform
   FROM anonymous_account
-  WHERE id = ? AND upgraded_user_id IS NULL
+  WHERE id = ? AND upgraded_user_id IS NULL AND status = 'active'
   LIMIT 1
 `;
 
 const SELECT_SESSION_BY_ID_SQL = `
-  SELECT id, owner_type, owner_id, expires_at, revoked_at
+  SELECT id, owner_type, owner_id, expires_at, revoked_at, platform
   FROM session
   WHERE id = ?
   LIMIT 1
@@ -161,7 +162,7 @@ const UPDATE_ANONYMOUS_CONSUMED_FREE_SCAN_QUOTA_SQL = `
 const UPDATE_ANONYMOUS_ACCOUNT_UPGRADED_SQL = `
   UPDATE anonymous_account
   SET upgraded_user_id = ?
-  WHERE id = ? AND upgraded_user_id IS NULL
+  WHERE id = ? AND upgraded_user_id IS NULL AND status = 'active'
     AND EXISTS (
       SELECT 1
       FROM verification_code
@@ -248,7 +249,7 @@ const UPDATE_ANONYMOUS_CONSUMED_FREE_SCAN_QUOTA_UNGUARDED_SQL = `
 const UPDATE_ANONYMOUS_ACCOUNT_UPGRADED_UNGUARDED_SQL = `
   UPDATE anonymous_account
   SET upgraded_user_id = ?
-  WHERE id = ? AND upgraded_user_id IS NULL
+  WHERE id = ? AND upgraded_user_id IS NULL AND status = 'active'
 `;
 
 const REMAP_CONFLICTING_COLLECTION_ITEMS_TO_USER_FOLDER_SQL = `
@@ -476,10 +477,11 @@ export async function findVerifiedAnonymousAccount(
     return null;
   }
 
-  return db
+  const account = await db
     .prepare(SELECT_LIVE_ANONYMOUS_ACCOUNT_SQL)
     .bind(anonymousId)
     .first<AnonymousAccountRow>();
+  return account?.platform === session!.platform ? account : null;
 }
 
 export async function migrateGuestAssetsToUser(
@@ -752,6 +754,7 @@ function isLiveAnonymousSession(
     !!session &&
     session.owner_type === "anonymous" &&
     session.owner_id === anonymousId &&
+    (session.platform === "ios" || session.platform === "android") &&
     session.revoked_at === null &&
     Number.isFinite(expiresAt) &&
     expiresAt > now.getTime()

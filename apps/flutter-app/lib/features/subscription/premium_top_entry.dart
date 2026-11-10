@@ -8,6 +8,7 @@ import 'package:kando_app/shared/ui/kando_style.dart';
 
 import 'subscription_controller.dart';
 import 'subscription_entitlement_cache.dart';
+import '../../shared/platform/app_commercial_policy.dart';
 
 class PremiumPageHeader extends StatelessWidget {
   const PremiumPageHeader({
@@ -53,6 +54,9 @@ class PremiumTopEntry extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (!ref.watch(appCommercialPolicyProvider).usesAppleSubscription) {
+      return const SizedBox.shrink();
+    }
     final premiumState = ref.watch(
       subscriptionControllerProvider.select((state) => state.premiumState),
     );

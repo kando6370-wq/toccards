@@ -1,8 +1,8 @@
 import { signAccessToken } from "@kando/auth-core";
 import { Environment, type JWSTransactionDecodedPayload } from "@apple/app-store-server-library";
-import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Env } from "../env";
+import { PGliteDatabase } from "../test-support/pglite-database";
 import { createEntitlementRoutes } from "./routes";
 
 const NOW = new Date("2026-08-13T08:00:00.000Z");
@@ -10,23 +10,21 @@ const PRODUCT_ID = "com.cardai.tcg.pro.yearly";
 const REQUEST_ID = "123e4567-e89b-42d3-a456-426614174010";
 
 describe("Apple Fresh Purchase routes", () => {
-  let mf: Miniflare;
-  let db: D1Database;
+  let db: PGliteDatabase;
   let env: Env;
 
   beforeEach(async () => {
-    mf = new Miniflare({ modules: true, script: "export default { fetch() { return new Response('ok') } }", compatibilityDate: "2024-11-01", d1Databases: ["DB"] });
-    db = await mf.getD1Database("DB");
+    db = await PGliteDatabase.create();
     await db.exec(SCHEMA);
     await db.batch([
-      db.prepare("INSERT INTO anonymous_account VALUES ('100000', NULL)"),
-      db.prepare("INSERT INTO session VALUES ('session-a', 'anonymous', '100000', '2099-01-01T00:00:00.000Z', NULL)"),
+      db.prepare("INSERT INTO anonymous_account VALUES ('100000', NULL, 'ios', 'active')"),
+      db.prepare("INSERT INTO session VALUES ('session-a', 'anonymous', '100000', 'ios', NULL, '2099-01-01T00:00:00.000Z', NULL)"),
       db.prepare("INSERT INTO billing_product VALUES ('app_store', ?, 'performance_pro', 1)").bind(PRODUCT_ID),
     ]);
     env = { DB: db, CACHE_KV: {} as KVNamespace, JWT_SECRET: "fresh-purchase-test", APP_ENVIRONMENT: "development", APPLE_IAP_PRODUCT_IDS: PRODUCT_ID };
   });
 
-  afterEach(async () => { await mf.dispose(); });
+  afterEach(async () => { await db.close(); });
 
   it("consumes the session challenge and keeps subscription auto-renew unknown without renewal evidence", async () => {
     let appAccountToken = "";
@@ -94,9 +92,9 @@ function transaction(appAccountToken: string): JWSTransactionDecodedPayload {
 }
 
 const SCHEMA = `
-CREATE TABLE anonymous_account (id TEXT PRIMARY KEY, upgraded_user_id TEXT);
-CREATE TABLE user (id TEXT PRIMARY KEY, status TEXT);
-CREATE TABLE session (id TEXT PRIMARY KEY, owner_type TEXT, owner_id TEXT, expires_at TEXT, revoked_at TEXT);
+CREATE TABLE anonymous_account (id TEXT PRIMARY KEY, upgraded_user_id TEXT, platform TEXT NOT NULL, status TEXT NOT NULL);
+CREATE TABLE "user" (id TEXT PRIMARY KEY, status TEXT);
+CREATE TABLE session (id TEXT PRIMARY KEY, owner_type TEXT, owner_id TEXT, platform TEXT, user_id TEXT, expires_at TEXT, revoked_at TEXT);
 CREATE TABLE billing_product (store TEXT, product_id TEXT, entitlement_id TEXT, active INTEGER, UNIQUE(store, product_id));
 CREATE TABLE billing_purchase_chain (id TEXT PRIMARY KEY, store TEXT, environment TEXT, original_transaction_id TEXT, product_id TEXT, entitlement_id TEXT, original_owner_type TEXT, original_owner_id TEXT, app_account_token TEXT, status TEXT, auto_renew INTEGER, expires_at TEXT, grace_period_expires_at TEXT, revoked_at TEXT, state_effective_at TEXT, created_at TEXT, updated_at TEXT, UNIQUE(store, environment, original_transaction_id));
 CREATE TABLE billing_apple_purchase_challenge (token TEXT PRIMARY KEY, session_id TEXT, product_id TEXT, expires_at TEXT, consumed_at TEXT, consumed_transaction_id TEXT, created_at TEXT);

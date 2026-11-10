@@ -1,29 +1,39 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/features/auth/android_play_integrity.dart';
 import 'package:kando_app/features/auth/auth_repository.dart';
 
 import 'support/in_memory_auth_storage.dart';
 
 void main() {
+  setUp(() {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+  });
+
   test(
     'creates a backend anonymous session because asset APIs require a signed owner token',
     () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
       final adapter = _FakeAuthAdapter({
         'POST /auth/anonymous': _ok({
           'anonymous_id': 'anon-1',
           'access_token': 'anon-access',
           'refresh_token': 'anon-refresh',
+          'platform': 'android',
+          'data_space_id': 'android-guest-space',
           'expires_in': 900,
         }),
       });
       final repository = HttpAuthRepository(
         _dio(adapter),
         InMemoryAuthStorage(),
+        androidPlayIntegrity: const _FakeAndroidPlayIntegrity(),
       );
 
       final session = await repository.createAnonymousSession('device-1');
@@ -34,7 +44,9 @@ void main() {
       expect(session.refreshToken, 'anon-refresh');
       expect(adapter.requests.single.body, {
         'device_id': 'device-1',
-        'platform': 'Android',
+        'platform': 'android',
+        'integrity_token': 'integrity-token',
+        'request_nonce': 'request-nonce',
       });
     },
   );
@@ -271,11 +283,14 @@ void main() {
   test(
     'logs in through the backend because user sessions must be server-issued',
     () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
       final adapter = _FakeAuthAdapter({
         'POST /auth/login': _ok({
           'user_id': 'user-1',
           'email': 'person@example.com',
           'login_method': 'email',
+          'platform': 'android',
+          'data_space_id': 'android-space',
           'access_token': 'user-access',
           'refresh_token': 'user-refresh',
           'expires_in': 900,
@@ -295,12 +310,119 @@ void main() {
       expect(session.userId, 'user-1');
       expect(session.email, 'person@example.com');
       expect(session.loginMethod, LoginMethod.email);
+      expect(session.platform, AppPlatform.android);
+      expect(session.dataSpaceId, 'android-space');
       expect(adapter.requests.single.body, {
         'email': 'person@example.com',
         'password': 'password123',
+        'platform': 'android',
       });
     },
   );
+
+  test(
+    'iOS login identifies the platform without changing the shared identity',
+    () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      final adapter = _FakeAuthAdapter({
+        'POST /auth/login': _ok({
+          'user_id': 'shared-user',
+          'email': 'person@example.com',
+          'login_method': 'email',
+          'platform': 'ios',
+          'data_space_id': 'ios-space',
+          'access_token': 'user-access',
+          'refresh_token': 'user-refresh',
+        }),
+      });
+      final repository = HttpAuthRepository(
+        _dio(adapter),
+        InMemoryAuthStorage(),
+      );
+
+      final session = await repository.login(
+        email: 'person@example.com',
+        password: 'password123',
+      );
+
+      expect(adapter.requests.single.body, {
+        'email': 'person@example.com',
+        'password': 'password123',
+        'platform': 'ios',
+      });
+      expect(session.userId, 'shared-user');
+      expect(session.platform, AppPlatform.ios);
+      expect(session.dataSpaceId, 'ios-space');
+    },
+  );
+
+  test(
+    'legacy iOS login remains compatible when scope fields are absent',
+    () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      final adapter = _FakeAuthAdapter({
+        'POST /auth/login': _ok({
+          'user_id': 'legacy-user',
+          'email': 'person@example.com',
+          'login_method': 'email',
+          'access_token': 'user-access',
+          'refresh_token': 'user-refresh',
+        }),
+      });
+      final repository = HttpAuthRepository(
+        _dio(adapter),
+        InMemoryAuthStorage(),
+      );
+
+      final session = await repository.login(
+        email: 'person@example.com',
+        password: 'password123',
+      );
+
+      expect(session.platform, AppPlatform.ios);
+      expect(session.dataSpaceId, isNull);
+    },
+  );
+
+  for (final incompatibleResponse in [
+    <String, Object?>{},
+    <String, Object?>{'platform': 'ios', 'data_space_id': 'ios-space'},
+  ]) {
+    test(
+      'Android rejects login without an Android server-bound data space',
+      () async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.android;
+        final adapter = _FakeAuthAdapter({
+          'POST /auth/login': _ok({
+            'user_id': 'legacy-user',
+            'email': 'person@example.com',
+            'login_method': 'email',
+            'access_token': 'user-access',
+            'refresh_token': 'user-refresh',
+            ...incompatibleResponse,
+          }),
+        });
+        final repository = HttpAuthRepository(
+          _dio(adapter),
+          InMemoryAuthStorage(),
+        );
+
+        await expectLater(
+          repository.login(
+            email: 'person@example.com',
+            password: 'password123',
+          ),
+          throwsA(
+            isA<AuthApiException>().having(
+              (error) => error.code,
+              'code',
+              'PLATFORM_SESSION_REQUIRED',
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   test(
     'login has one total deadline so a late success cannot become the current session',
@@ -334,6 +456,7 @@ void main() {
   test(
     'registration proves guest ownership because only that guest assets may migrate',
     () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
       final storage = InMemoryAuthStorage();
       await storage.writeSession(
         const AuthSession(
@@ -350,6 +473,8 @@ void main() {
           'login_method': 'email',
           'access_token': 'user-access',
           'refresh_token': 'user-refresh',
+          'platform': 'android',
+          'data_space_id': 'android-space',
         }),
       });
       final repository = HttpAuthRepository(_dio(adapter), storage);
@@ -365,6 +490,7 @@ void main() {
         'email': 'person@example.com',
         'code': '123456',
         'password': 'password123',
+        'platform': 'android',
         'anonymous_id': 'anon-1',
       });
       expect(adapter.requests.single.authorization, 'Bearer anon-access');
@@ -374,6 +500,7 @@ void main() {
   test(
     'google callback proves guest ownership because new OAuth users may migrate only their own assets',
     () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
       final storage = InMemoryAuthStorage();
       await storage.writeSession(
         const AuthSession(
@@ -390,6 +517,8 @@ void main() {
           'login_method': 'google',
           'access_token': 'user-access',
           'refresh_token': 'user-refresh',
+          'platform': 'android',
+          'data_space_id': 'android-space',
         }),
       });
       final repository = HttpAuthRepository(_dio(adapter), storage);
@@ -401,6 +530,7 @@ void main() {
 
       expect(adapter.requests.single.body, {
         'id_token': 'google-id-token',
+        'platform': 'android',
         'anonymous_id': 'anon-1',
       });
       expect(adapter.requests.single.authorization, 'Bearer anon-access');
@@ -490,6 +620,20 @@ void main() {
       expect(await storage.readSession(), same(guest));
     },
   );
+}
+
+class _FakeAndroidPlayIntegrity implements AndroidPlayIntegrity {
+  const _FakeAndroidPlayIntegrity();
+
+  @override
+  Future<AndroidIntegrityEvidence?> createEvidence({
+    required String deviceId,
+  }) async {
+    return const AndroidIntegrityEvidence(
+      token: 'integrity-token',
+      requestNonce: 'request-nonce',
+    );
+  }
 }
 
 Dio _dio(_FakeAuthAdapter adapter) {

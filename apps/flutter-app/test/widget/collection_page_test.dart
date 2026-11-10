@@ -23,6 +23,7 @@ import 'package:kando_app/features/subscription/subscription_entitlement_cache.d
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/currency/currency_rate_api.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
+import 'package:kando_app/shared/platform/app_commercial_policy.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
@@ -386,7 +387,13 @@ void main() {
     final summaryRect = tester.getRect(
       find.byKey(const Key('collection-portfolio-summary')),
     );
-    expect(tester.getTopLeft(find.text('PORTFOLIO')).dx - summaryRect.left, 17);
+    expect(
+      tester
+              .getTopLeft(find.byKey(const Key('collection-portfolio-label')))
+              .dx -
+          summaryRect.left,
+      17,
+    );
     expect(
       summaryRect.right -
           tester
@@ -397,6 +404,12 @@ void main() {
     expect(
       tester.getSize(find.byKey(const Key('collection-folder-button'))).height,
       24,
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const Key('collection-portfolio-value-row')))
+          .height,
+      40,
     );
     final folderButtonWidth = tester
         .getSize(find.byKey(const Key('collection-folder-button')))
@@ -443,6 +456,76 @@ void main() {
       rightCardId: 'umbreon-vmax',
     );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'Android Portfolio summary grows with large text while its pinned header contains it',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(360, 800);
+      addTearDown(tester.view.reset);
+
+      await _pumpCollection(
+        tester,
+        platform: TargetPlatform.android,
+        textScale: 1.2,
+      );
+
+      final summary = find.byKey(const Key('collection-portfolio-summary'));
+      final header = find.byKey(const Key('collection-controls-header'));
+      final folder = find.byKey(const Key('collection-folder-button'));
+      final valueRow = find.byKey(const Key('collection-portfolio-value-row'));
+      final total = find.byKey(const Key('collection-portfolio-total'));
+      final portfolioLabel = find.byKey(
+        const Key('collection-portfolio-label'),
+      );
+      final folderLabel = find.descendant(
+        of: folder,
+        matching: find.byType(Text),
+      );
+      expect(tester.getSize(summary).height, 124);
+      expect(
+        tester.getRect(summary).bottom,
+        lessThanOrEqualTo(tester.getRect(header).bottom),
+      );
+      expect(tester.getSize(folder).height, 30);
+      expect(
+        tester.getRect(folderLabel).top,
+        greaterThanOrEqualTo(tester.getRect(folder).top),
+      );
+      expect(
+        tester.getRect(folderLabel).bottom,
+        lessThanOrEqualTo(tester.getRect(folder).bottom),
+      );
+      expect(tester.getSize(valueRow).height, 48);
+      expect(tester.getSize(portfolioLabel).height, 24);
+      expect(
+        tester.getRect(total).top,
+        greaterThanOrEqualTo(tester.getRect(valueRow).top),
+      );
+      expect(
+        tester.getRect(total).bottom,
+        lessThanOrEqualTo(tester.getRect(valueRow).bottom),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('iOS Portfolio summary keeps its original fixed height', (
+    tester,
+  ) async {
+    await _pumpCollection(tester, platform: TargetPlatform.iOS);
+
+    expect(
+      tester
+          .getSize(find.byKey(const Key('collection-portfolio-summary')))
+          .height,
+      110,
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('collection-folder-button'))).height,
+      24,
+    );
   });
 
   testWidgets(
@@ -1602,11 +1685,17 @@ Future<void> _pumpCollection(
   CollectionRepository repository = const MockCollectionRepository(),
   SubscriptionController Function()? subscriptionController,
   bool useRoutes = false,
+  TargetPlatform? platform,
+  double textScale = 1,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        ..._localAuthOverrides(),
+        ..._localAuthOverrides(
+          commercialPolicy: platform == TargetPlatform.android
+              ? const AppCommercialPolicy(isAndroidFreeLaunch: true)
+              : const AppCommercialPolicy(isAndroidFreeLaunch: false),
+        ),
         collectionRepositoryProvider.overrideWithValue(repository),
         subscriptionControllerProvider.overrideWith(
           subscriptionController ?? _FreeCollectionSubscriptionController.new,
@@ -1614,7 +1703,7 @@ Future<void> _pumpCollection(
       ],
       child: useRoutes
           ? const _CollectionTestAppWithRoutes()
-          : const _CollectionTestApp(),
+          : _CollectionTestApp(platform: platform, textScale: textScale),
     ),
   );
   await tester.pumpAndSettle();
@@ -1669,9 +1758,14 @@ _searchOverrides() {
   ];
 }
 
-_localAuthOverrides() {
+_localAuthOverrides({
+  AppCommercialPolicy commercialPolicy = const AppCommercialPolicy(
+    isAndroidFreeLaunch: false,
+  ),
+}) {
   final storage = InMemoryAuthStorage();
   return [
+    appCommercialPolicyProvider.overrideWithValue(commercialPolicy),
     authStorageProvider.overrideWithValue(storage),
     authRepositoryProvider.overrideWithValue(
       LocalPlaceholderAuthRepository(storage),
@@ -1691,11 +1785,23 @@ class _TestCurrencyRateApi implements CurrencyRateApi {
 }
 
 class _CollectionTestApp extends StatelessWidget {
-  const _CollectionTestApp();
+  const _CollectionTestApp({this.platform, this.textScale = 1});
+
+  final TargetPlatform? platform;
+  final double textScale;
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(home: CollectionPage());
+    return MaterialApp(
+      theme: platform == null ? null : ThemeData(platform: platform),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      ),
+      home: const CollectionPage(),
+    );
   }
 }
 

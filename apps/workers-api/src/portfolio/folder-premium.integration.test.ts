@@ -1,30 +1,29 @@
 import { signAccessToken } from "@kando/auth-core";
-import { Miniflare } from "miniflare";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Env } from "../env";
+import { PGliteDatabase } from "../test-support/pglite-database";
 import { createPortfolioRoutes } from "./routes";
 
 const JWT_SECRET = "folder-premium-test";
 
 describe("Portfolio Folder Premium limit", () => {
-  let mf: Miniflare;
-  let db: D1Database;
+  let db: PGliteDatabase;
   let env: Env;
 
   beforeEach(async () => {
-    mf = new Miniflare({ modules: true, script: "export default { fetch() { return new Response('ok') } }", compatibilityDate: "2024-11-01", d1Databases: ["DB"] });
-    db = await mf.getD1Database("DB");
+    db = await PGliteDatabase.create();
     for (const statement of SCHEMA) await db.prepare(statement).run();
     await db.batch([
-      db.prepare("INSERT INTO user (id, status) VALUES ('user-1', 'active')"),
-      db.prepare("INSERT INTO session (id, owner_type, owner_id, expires_at, revoked_at) VALUES ('session-a', 'user', 'user-1', '2099-01-01T00:00:00.000Z', NULL)"),
-      db.prepare("INSERT INTO session (id, owner_type, owner_id, expires_at, revoked_at) VALUES ('session-b', 'user', 'user-1', '2099-01-01T00:00:00.000Z', NULL)"),
+      db.prepare("INSERT INTO \"user\" (id, status) VALUES ('user-1', 'active')"),
+      db.prepare("INSERT INTO platform_account VALUES ('user-1', 'user-1', 'ios', 'active')"),
+      db.prepare("INSERT INTO session (id, owner_type, owner_id, platform, user_id, expires_at, revoked_at) VALUES ('session-a', 'user', 'user-1', 'ios', 'user-1', '2099-01-01T00:00:00.000Z', NULL)"),
+      db.prepare("INSERT INTO session (id, owner_type, owner_id, platform, user_id, expires_at, revoked_at) VALUES ('session-b', 'user', 'user-1', 'ios', 'user-1', '2099-01-01T00:00:00.000Z', NULL)"),
       db.prepare("INSERT INTO portfolio_folder (id, owner_type, owner_id, name, is_default, sort_order, created_at, updated_at) VALUES ('main', 'user', 'user-1', 'Main', 1, 0, '2026-08-12T00:00:00.000Z', '2026-08-12T00:00:00.000Z')"),
     ]);
     env = { DB: db, CACHE_KV: {} as KVNamespace, JWT_SECRET, APP_ENVIRONMENT: "development", APPLE_IAP_PRODUCT_IDS: "yearly" };
   });
 
-  afterEach(async () => { await mf.dispose(); });
+  afterEach(async () => { await db.close(); });
 
   it("allows only one of two concurrent Free creates because the count and insert are one D1 statement", async () => {
     const app = createPortfolioRoutes();
@@ -117,8 +116,9 @@ async function token(sessionId: string): Promise<string> {
 
 const SCHEMA = [
   "CREATE TABLE mutation_lock (lock_key TEXT PRIMARY KEY)",
-  "CREATE TABLE user (id TEXT PRIMARY KEY, status TEXT NOT NULL)",
-  "CREATE TABLE session (id TEXT PRIMARY KEY, owner_type TEXT NOT NULL, owner_id TEXT NOT NULL, expires_at TEXT NOT NULL, revoked_at TEXT)",
+  "CREATE TABLE \"user\" (id TEXT PRIMARY KEY, status TEXT NOT NULL)",
+  "CREATE TABLE platform_account (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, platform TEXT NOT NULL, status TEXT NOT NULL)",
+  "CREATE TABLE session (id TEXT PRIMARY KEY, owner_type TEXT NOT NULL, owner_id TEXT NOT NULL, platform TEXT, user_id TEXT, expires_at TEXT NOT NULL, revoked_at TEXT)",
   "CREATE TABLE portfolio_folder (id TEXT PRIMARY KEY, owner_type TEXT NOT NULL, owner_id TEXT NOT NULL, name TEXT NOT NULL, is_default INTEGER NOT NULL, sort_order INTEGER NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, UNIQUE(owner_type, owner_id, name))",
   "CREATE TABLE billing_purchase_chain (id TEXT PRIMARY KEY, environment TEXT NOT NULL, product_id TEXT NOT NULL, status TEXT NOT NULL, expires_at TEXT, revoked_at TEXT)",
   "CREATE TABLE billing_session_entitlement_grant (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, purchase_chain_id TEXT NOT NULL, entitlement_id TEXT NOT NULL, status TEXT NOT NULL, expires_at TEXT, revoked_at TEXT)",

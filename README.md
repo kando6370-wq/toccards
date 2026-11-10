@@ -57,10 +57,13 @@ Marketing Web -----------------> 独立 Cloudflare 静态站点
 
 ## 环境要求
 
-- Node.js `>=22`
-- pnpm `11.9.0`（以根 `packageManager` 为准）
-- Dart SDK `^3.9.2`
-- Flutter `>=3.44.0`
+- Node.js `^22.23.4`
+- pnpm `11.28.10`（以根 `packageManager` 为准）
+- Dart SDK `^3.13.7`
+- Flutter `>=3.47.9`（CI 固定 `3.47.9`）
+- Android 构建 JDK `21.0.13+9`；核对 Flutter 实际选中的 JDK，不能仅依赖系统 `JAVA_HOME`。
+
+安全升级依据、实际验证与环境发布边界见 [2026-11-05 技术栈安全升级](docs/releases/v1.1.4/02-architecture/security-stack-upgrade.md)。
 
 安装依赖：
 

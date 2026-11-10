@@ -7,6 +7,7 @@ import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/features/subscription/subscription_route_page.dart';
 import 'package:kando_app/shared/ui/kando_bottom_sheet_page.dart';
+import 'package:kando_app/shared/platform/app_commercial_policy.dart';
 
 void main() {
   test('full Subscription Page location keeps source without sheet mode', () {
@@ -123,6 +124,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          appCommercialPolicyProvider.overrideWithValue(
+            const AppCommercialPolicy(isAndroidFreeLaunch: false),
+          ),
           subscriptionControllerProvider.overrideWith(
             _FreeSubscriptionController.new,
           ),
@@ -177,6 +181,9 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
+              appCommercialPolicyProvider.overrideWithValue(
+                const AppCommercialPolicy(isAndroidFreeLaunch: false),
+              ),
               subscriptionControllerProvider.overrideWith(
                 _FreeSubscriptionController.new,
               ),
@@ -208,6 +215,9 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            appCommercialPolicyProvider.overrideWithValue(
+              const AppCommercialPolicy(isAndroidFreeLaunch: false),
+            ),
             subscriptionControllerProvider.overrideWith(
               () => _FixedSubscriptionController(state),
             ),

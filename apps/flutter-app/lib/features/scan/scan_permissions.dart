@@ -23,12 +23,11 @@ class PluginScanPermissionGateway implements ScanPermissionGateway {
   @override
   Future<ScanPermissionResult> requestGallery() async {
     if (kIsWeb) return ScanPermissionResult.granted;
-    final photos = await _request(Permission.photos);
-    if (photos != ScanPermissionResult.denied ||
-        defaultTargetPlatform != TargetPlatform.android) {
-      return photos;
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return ScanPermissionResult.granted;
     }
-    return _request(Permission.storage);
+    final photos = await _request(Permission.photos);
+    return photos;
   }
 
   Future<ScanPermissionResult> _request(Permission permission) async {

@@ -144,7 +144,7 @@ class KandoNetworkImage extends ImageProvider<KandoNetworkImage> {
       if (bytes.isEmpty) {
         throw StateError('Network image is an empty file: $resolved');
       }
-      return decode(
+      return await decode(
         await ui.ImmutableBuffer.fromUint8List(bytes),
         getTargetSize: key.decodeSize == null
             ? null

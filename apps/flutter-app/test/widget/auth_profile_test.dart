@@ -31,11 +31,46 @@ import 'package:kando_app/features/subscription/subscription_display_providers.d
 import '../subscription_display_fixtures.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/kando_modal.dart';
+import 'package:kando_app/shared/platform/app_commercial_policy.dart';
 
 import '../support/in_memory_onboarding_storage.dart';
+import '../support/load_inter_fonts.dart';
 import '../support/mock_home_repository.dart';
 
 void main() {
+  setUpAll(loadInterFonts);
+
+  testWidgets('Android auth removes Apple and explains platform isolation', (
+    tester,
+  ) async {
+    final repository = _WidgetAuthRepository(
+      initialSession: _anonymousSession('android-guest'),
+    );
+
+    await tester.pumpWidget(
+      _testApp(
+        repository,
+        onboardingStorage: InMemoryOnboardingStorage(),
+        commercialPolicy: const AppCommercialPolicy(isAndroidFreeLaunch: true),
+      ),
+    );
+    await _openOnboardingAuth(tester);
+
+    expect(find.text('Continue with Apple'), findsNothing);
+    expect(
+      find.textContaining('Your collections and other app data are separate'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('verified email and password are shared'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Continue with Google'));
+    await tester.pumpAndSettle();
+    expect(find.text('Continue?'), findsOneWidget);
+    expect(find.textContaining('will not merge'), findsOneWidget);
+  });
+
   for (final premiumState in AppPremiumState.values) {
     testWidgets(
       'onboarding email welcome auto closes after one second before $premiumState',
@@ -1008,6 +1043,10 @@ void main() {
       expect(authorizer.requests, [OAuthProvider.google]);
       expect(loadingOverlay, findsNothing);
       expect(repository.googleCallbackRequests, isEmpty);
+      expect(find.byKey(const Key('auth-apple-option')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('auth-apple-option')));
+      await tester.pump();
+      expect(authorizer.requests, [OAuthProvider.google]);
 
       authorizationCompleter.complete(
         const OAuthAuthorizationResult.google(
@@ -1019,6 +1058,13 @@ void main() {
       expect(loadingOverlay, findsOneWidget);
       expect(tester.getSize(loadingOverlay), const Size(390, 844));
       expect(find.text('Signing in with Google'), findsOneWidget);
+      expect(
+        tester
+            .widget<Text>(find.text('Signing in with Google'))
+            .style
+            ?.fontFamily,
+        'Inter',
+      );
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(repository.googleCallbackRequests, [
         const _GoogleCallbackRequest(
@@ -1115,6 +1161,7 @@ void main() {
       expect(authorizer.requests, [OAuthProvider.apple]);
       expect(loadingOverlay, findsNothing);
       expect(repository.appleCallbackRequests, isEmpty);
+      expect(find.byKey(const Key('auth-apple-option')), findsOneWidget);
 
       authorizationCompleter.complete(
         const OAuthAuthorizationResult.apple(
@@ -1127,6 +1174,13 @@ void main() {
       expect(loadingOverlay, findsOneWidget);
       expect(tester.getSize(loadingOverlay), const Size(390, 844));
       expect(find.text('Signing in with Apple'), findsOneWidget);
+      expect(
+        tester
+            .widget<Text>(find.text('Signing in with Apple'))
+            .style
+            ?.fontFamily,
+        'Inter',
+      );
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(repository.appleCallbackRequests, [
         const _AppleCallbackRequest(
@@ -1170,6 +1224,7 @@ void main() {
       final agreementLinks = tester.widget<RichText>(
         find.byKey(const Key('auth-agreement-links')),
       );
+      expect(agreementLinks.text.style?.fontFamily, 'Inter');
       final agreementText =
           '${agreementCopy.data} ${agreementLinks.text.toPlainText()}';
       expect(
@@ -1325,6 +1380,62 @@ void main() {
       const Size(342, 56),
     );
   });
+
+  testWidgets(
+    'Android auth keeps normal and OAuth failure actions reachable at 320x568',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(320, 568);
+      addTearDown(tester.view.reset);
+      final repository = _WidgetAuthRepository(
+        initialSession: _anonymousSession('android-small-guest'),
+      );
+      final authorizer = _WidgetOAuthAuthorizer(
+        error: Exception('provider failed'),
+      );
+
+      await tester.pumpWidget(
+        _testAuthSheetApp(
+          repository,
+          authorizer: authorizer,
+          commercialPolicy: const AppCommercialPolicy(
+            isAndroidFreeLaunch: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Open auth'));
+      await tester.pumpAndSettle();
+
+      final close = find.byKey(const Key('auth-sheet-close'));
+      final google = find.byKey(const Key('auth-google-option'));
+      final email = find.byKey(const Key('auth-email-option'));
+      var closeRect = tester.getRect(close);
+      var googleRect = tester.getRect(google);
+      var emailRect = tester.getRect(email);
+      expect(closeRect.top, greaterThanOrEqualTo(0));
+      expect(googleRect.bottom, lessThanOrEqualTo(568));
+      expect(emailRect.bottom, lessThanOrEqualTo(568));
+      expect(closeRect.overlaps(googleRect), isFalse);
+      expect(closeRect.overlaps(emailRect), isFalse);
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(find.text('Continue with Google'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('auth-oauth-warning')), findsOneWidget);
+      closeRect = tester.getRect(close);
+      googleRect = tester.getRect(google);
+      emailRect = tester.getRect(email);
+      expect(closeRect.top, greaterThanOrEqualTo(0));
+      expect(googleRect.bottom, lessThanOrEqualTo(568));
+      expect(emailRect.bottom, lessThanOrEqualTo(568));
+      expect(closeRect.overlaps(googleRect), isFalse);
+      expect(closeRect.overlaps(emailRect), isFalse);
+    },
+  );
 
   testWidgets('oauth failure keeps email fallback available', (tester) async {
     final repository = _WidgetAuthRepository(
@@ -1542,6 +1653,201 @@ void main() {
     expect(editableText.controller.text, 'password123');
     expect(editableText.focusNode.hasFocus, isTrue);
   });
+
+  testWidgets(
+    'Android email registration keeps its field and Continue action above the IME',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(320, 711);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 283);
+      addTearDown(tester.view.reset);
+
+      final repository = _WidgetAuthRepository(
+        initialSession: _anonymousSession('android-email-registration'),
+        emailRegistered: false,
+      );
+
+      await tester.pumpWidget(
+        _testEmailAuthPageApp(
+          repository,
+          platform: TargetPlatform.android,
+          commercialPolicy: const AppCommercialPolicy(
+            isAndroidFreeLaunch: true,
+          ),
+          textScale: 1.2,
+        ),
+      );
+      await tester.tap(find.text('Open email auth'));
+      await tester.pumpAndSettle();
+
+      final field = find.byType(TextFormField);
+      final continueButton = find.widgetWithText(FilledButton, 'CONTINUE');
+      final keyboardTop = 711 - 283;
+      expect(field, findsOneWidget);
+      expect(continueButton, findsOneWidget);
+      expect(tester.getRect(field).bottom, lessThan(keyboardTop));
+      expect(
+        tester.getRect(continueButton).bottom,
+        lessThanOrEqualTo(keyboardTop),
+      );
+      expect(
+        tester.getRect(field).overlaps(tester.getRect(continueButton)),
+        isFalse,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Android registration code and password controls stay reachable above the IME',
+    (tester) async {
+      _configureAndroidEmailIme(tester);
+      final repository = _WidgetAuthRepository(
+        initialSession: _anonymousSession('android-register-flow'),
+        emailRegistered: false,
+      );
+      await tester.pumpWidget(
+        _testEmailAuthPageApp(
+          repository,
+          platform: TargetPlatform.android,
+          commercialPolicy: const AppCommercialPolicy(
+            isAndroidFreeLaunch: true,
+          ),
+          textScale: 1.2,
+        ),
+      );
+      await tester.tap(find.text('Open email auth'));
+      await tester.pumpAndSettle();
+      await _continueWithEmail(
+        tester,
+        'new@example.com',
+        destinationLabel: 'Verification Code',
+      );
+
+      await _expectReachableAboveAndroidIme(
+        tester,
+        find.byKey(const Key('register-code-email-input')),
+      );
+      await _expectReachableAboveAndroidIme(
+        tester,
+        find.byKey(const Key('verification-code-input')),
+      );
+
+      await tester.enterText(
+        find.byKey(const Key('verification-code-input')),
+        '123456',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Set Password'), findsOneWidget);
+      final passwordFields = find.byType(TextFormField);
+      expect(passwordFields, findsNWidgets(2));
+      await _expectReachableAboveAndroidIme(tester, passwordFields.first);
+      await _expectReachableAboveAndroidIme(tester, passwordFields.last);
+      await _expectReachableAboveAndroidIme(
+        tester,
+        find.widgetWithText(FilledButton, 'Create Account'),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Android email transition hands the IME to only the destination form',
+    (tester) async {
+      _configureAndroidEmailIme(tester);
+      final repository = _WidgetAuthRepository(
+        initialSession: _anonymousSession('android-email-transition'),
+        emailRegistered: false,
+      );
+      await tester.pumpWidget(
+        _testEmailAuthPageApp(
+          repository,
+          platform: TargetPlatform.android,
+          commercialPolicy: const AppCommercialPolicy(
+            isAndroidFreeLaunch: true,
+          ),
+          textScale: 1.2,
+        ),
+      );
+      await tester.tap(find.text('Open email auth'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField), 'new@example.com');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'CONTINUE'));
+      await _pumpUntilVisible(tester, find.text('Verification Code'));
+
+      expect(find.text('Verification Code'), findsOneWidget);
+      expect(find.byType(EditableText), findsNWidgets(2));
+      final verificationInput = find.descendant(
+        of: find.byKey(const Key('verification-code-input')),
+        matching: find.byType(EditableText),
+      );
+      expect(
+        tester.widget<EditableText>(verificationInput).focusNode.hasFocus,
+        isTrue,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('iOS email transition keeps its outgoing cross-fade frame', (
+    tester,
+  ) async {
+    final repository = _WidgetAuthRepository(
+      initialSession: _anonymousSession('ios-email-transition'),
+      emailRegistered: false,
+    );
+    await tester.pumpWidget(_testEmailAuthPageApp(repository));
+    await tester.tap(find.text('Open email auth'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField), 'new@example.com');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'CONTINUE'));
+    await _pumpUntilVisible(tester, find.text('Verification Code'));
+
+    expect(find.text('Verification Code'), findsOneWidget);
+    expect(find.byType(EditableText), findsNWidgets(3));
+    await tester.pumpAndSettle();
+    expect(find.byType(EditableText), findsNWidgets(2));
+  });
+
+  testWidgets(
+    'Android login and forgot-email controls stay reachable above the IME',
+    (tester) async {
+      _configureAndroidEmailIme(tester);
+      final repository = _WidgetAuthRepository(
+        initialSession: _anonymousSession('android-login-flow'),
+      );
+      await tester.pumpWidget(
+        _testEmailAuthPageApp(
+          repository,
+          platform: TargetPlatform.android,
+          commercialPolicy: const AppCommercialPolicy(
+            isAndroidFreeLaunch: true,
+          ),
+          textScale: 1.2,
+        ),
+      );
+      await tester.tap(find.text('Open email auth'));
+      await tester.pumpAndSettle();
+      await _continueWithEmail(tester, 'person@example.com');
+
+      await _expectReachableAboveAndroidIme(tester, find.byType(TextFormField));
+      await _expectReachableAboveAndroidIme(
+        tester,
+        find.widgetWithText(FilledButton, 'SIGN IN'),
+      );
+      await tester.tap(find.text('Forgot Password ?'));
+      await tester.pumpAndSettle();
+      expect(find.text('Reset Password'), findsOneWidget);
+      await _expectReachableAboveAndroidIme(tester, find.byType(TextFormField));
+      await _expectReachableAboveAndroidIme(
+        tester,
+        find.widgetWithText(FilledButton, 'Get verification code'),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('oauth authorization failure shows retry copy and keeps guest', (
     tester,
@@ -2140,7 +2446,7 @@ void main() {
 
       expect(find.text('Delete Account?'), findsOneWidget);
       expect(
-        find.text("This action is permanent and can't be undone."),
+        find.textContaining('permanently deletes your iOS account'),
         findsOneWidget,
       );
       expect(find.text('Cancel'), findsOneWidget);
@@ -2228,6 +2534,9 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            appCommercialPolicyProvider.overrideWithValue(
+              const AppCommercialPolicy(isAndroidFreeLaunch: false),
+            ),
             authRepositoryProvider.overrideWithValue(repository),
             installedVersionReaderProvider.overrideWithValue(
               const _WidgetInstalledVersionReader(),
@@ -2521,7 +2830,7 @@ void main() {
     final submit = find.byKey(const Key('feedback-submit-button'));
     final contentList = find.byKey(const Key('customer-support-content-list'));
     final scrollable = tester.state<ScrollableState>(
-      find.descendant(of: contentList, matching: find.byType(Scrollable)),
+      find.descendant(of: contentList, matching: find.byType(Scrollable)).first,
     );
     final submitBeforeScroll = tester.getRect(submit);
     final scrollOffsetBefore = scrollable.position.pixels;
@@ -2722,7 +3031,7 @@ void main() {
       const Size(390, 152),
     );
     expect(find.text('Restore'), findsOneWidget);
-  });
+  }, variant: TargetPlatformVariant({TargetPlatform.iOS}));
 
   testWidgets('unsubscribed Profile banner opens the full Subscription Page', (
     tester,
@@ -3079,7 +3388,7 @@ void main() {
         'goldens/rendered/figma_subscription_success_motion_300ms_390x844.png',
       ),
     );
-  });
+  }, variant: TargetPlatformVariant({TargetPlatform.iOS}));
 
   for (final goldenCase in [
     (
@@ -3096,36 +3405,26 @@ void main() {
     testWidgets('subscription ${goldenCase.name} renders the 390x844 fixture', (
       tester,
     ) async {
-      final overridesPlatform = goldenCase.name == 'bottom sheet';
-      if (overridesPlatform) {
-        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      if (goldenCase.name == 'success page') {
+        tester.view.padding = const FakeViewPadding(top: 59);
+        addTearDown(tester.view.resetPadding);
       }
-      try {
-        tester.view.physicalSize = const Size(390, 844);
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.resetPhysicalSize);
-        addTearDown(tester.view.resetDevicePixelRatio);
-        if (goldenCase.name == 'success page') {
-          tester.view.padding = const FakeViewPadding(top: 59);
-          addTearDown(tester.view.resetPadding);
-        }
 
-        await tester.pumpWidget(_subscriptionGoldenApp(goldenCase.child));
-        await tester.runAsync(
-          () => Future<void>.delayed(const Duration(milliseconds: 100)),
-        );
-        await tester.pumpAndSettle();
+      await tester.pumpWidget(_subscriptionGoldenApp(goldenCase.child));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pumpAndSettle();
 
-        await expectLater(
-          find.byKey(const Key('subscription-golden-boundary')),
-          matchesGoldenFile('goldens/rendered/${goldenCase.file}'),
-        );
-      } finally {
-        if (overridesPlatform) {
-          debugDefaultTargetPlatformOverride = null;
-        }
-      }
-    });
+      await expectLater(
+        find.byKey(const Key('subscription-golden-boundary')),
+        matchesGoldenFile('goldens/rendered/${goldenCase.file}'),
+      );
+    }, variant: TargetPlatformVariant({TargetPlatform.iOS}));
   }
 
   testWidgets('subscription video background follows the available width', (
@@ -3367,6 +3666,9 @@ void main() {
   testWidgets('offline logout from Account keeps the user on account details', (
     tester,
   ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
     final repository = _WidgetAuthRepository(
       initialSession: _userSession(),
       logoutError: const AuthNetworkException(),
@@ -3584,6 +3886,29 @@ Future<void> _openEmailAuth(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+void _configureAndroidEmailIme(WidgetTester tester) {
+  tester.view.devicePixelRatio = 1;
+  tester.view.physicalSize = const Size(320, 711);
+  tester.view.viewInsets = const FakeViewPadding(bottom: 283);
+  addTearDown(tester.view.reset);
+}
+
+Future<void> _expectReachableAboveAndroidIme(
+  WidgetTester tester,
+  Finder finder,
+) async {
+  await tester.ensureVisible(finder);
+  await tester.pump();
+  expect(tester.getRect(finder).bottom, lessThanOrEqualTo(711 - 283));
+}
+
+Future<void> _pumpUntilVisible(WidgetTester tester, Finder finder) async {
+  for (var frame = 0; frame < 10 && finder.evaluate().isEmpty; frame++) {
+    await tester.pump();
+  }
+  expect(finder, findsOneWidget);
+}
+
 Future<void> _openAuthSheet(WidgetTester tester) async {
   await tester.tap(find.text('Sign in / Sign up'));
   await tester.pumpAndSettle();
@@ -3611,6 +3936,9 @@ ProviderScope _testApp(
   AuthController Function()? authController,
   SubscriptionController Function()? subscriptionController,
   InMemoryOnboardingStorage? onboardingStorage,
+  AppCommercialPolicy commercialPolicy = const AppCommercialPolicy(
+    isAndroidFreeLaunch: false,
+  ),
 }) {
   final storage =
       onboardingStorage ?? InMemoryOnboardingStorage(completed: true);
@@ -3634,6 +3962,7 @@ ProviderScope _testApp(
         subscriptionController ?? _FreeSubscriptionController.new,
       ),
       subscriptionDisplayFactoryProvider.overrideWithValue(displayPageFixture),
+      appCommercialPolicyProvider.overrideWithValue(commercialPolicy),
       authDeviceIdProvider.overrideWithValue('widget-test-device'),
       onboardingRepositoryProvider.overrideWithValue(
         LocalOnboardingRepository(storage),
@@ -3702,6 +4031,9 @@ ProviderScope _subscriptionGoldenApp(
 }) {
   return ProviderScope(
     overrides: [
+      appCommercialPolicyProvider.overrideWithValue(
+        const AppCommercialPolicy(isAndroidFreeLaunch: false),
+      ),
       subscriptionControllerProvider.overrideWith(
         _FreeSubscriptionController.new,
       ),
@@ -3767,9 +4099,13 @@ class _LoginFlowSubscriptionController extends _FreeSubscriptionController {
 ProviderScope _testAuthSheetApp(
   _WidgetAuthRepository repository, {
   OAuthAuthorizer? authorizer,
+  AppCommercialPolicy commercialPolicy = const AppCommercialPolicy(
+    isAndroidFreeLaunch: false,
+  ),
 }) {
   return ProviderScope(
     overrides: [
+      appCommercialPolicyProvider.overrideWithValue(commercialPolicy),
       authRepositoryProvider.overrideWithValue(repository),
       if (authorizer != null)
         oauthAuthorizerProvider.overrideWithValue(authorizer),
@@ -3790,11 +4126,27 @@ ProviderScope _testAuthSheetApp(
   );
 }
 
-ProviderScope _testEmailAuthPageApp(_WidgetAuthRepository repository) {
+ProviderScope _testEmailAuthPageApp(
+  _WidgetAuthRepository repository, {
+  TargetPlatform platform = TargetPlatform.iOS,
+  AppCommercialPolicy commercialPolicy = const AppCommercialPolicy(
+    isAndroidFreeLaunch: false,
+  ),
+  double textScale = 1,
+}) {
   return ProviderScope(
-    overrides: [authRepositoryProvider.overrideWithValue(repository)],
+    overrides: [
+      appCommercialPolicyProvider.overrideWithValue(commercialPolicy),
+      authRepositoryProvider.overrideWithValue(repository),
+    ],
     child: MaterialApp(
-      theme: buildKandoTheme(),
+      theme: buildKandoTheme().copyWith(platform: platform),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      ),
       home: Builder(
         builder: (context) => Scaffold(
           body: Center(

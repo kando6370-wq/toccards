@@ -15,6 +15,7 @@ import {
   LOCAL_PREMIUM_STATE_HEADER,
   resolvePremiumAccess,
 } from "../entitlements/premium-access";
+import { usesAndroidFreeLaunch } from "../entitlements/platform-commercial-access";
 import {
   loadScanQuota,
   releaseQueuedScanQuota,
@@ -263,10 +264,11 @@ function logSlowScanRecognitionTiming(
 function scanQuotaPayload(
   quota: ScanQuotaSnapshot,
   access: "free" | "premium",
+  unlimited = access === "premium",
 ) {
   return {
     access,
-    unlimited: access === "premium",
+    unlimited,
     ...quota,
   };
 }
@@ -275,6 +277,7 @@ function withCurrentScanQuota(
   body: unknown,
   quota: ScanQuotaSnapshot,
   access: "free" | "premium",
+  unlimited = access === "premium",
 ): unknown {
   if (!isRecord(body) || body.success !== true || !isRecord(body.data)) {
     return body;
@@ -284,7 +287,7 @@ function withCurrentScanQuota(
     ...body,
     data: {
       ...body.data,
-      quota: scanQuotaPayload(quota, access),
+      quota: scanQuotaPayload(quota, access, unlimited),
     },
   };
 }
@@ -300,11 +303,10 @@ export function createScanRoutes() {
     }
 
     const localPremiumState = c.req.header(LOCAL_PREMIUM_STATE_HEADER);
-    const accessPromise = resolvePremiumAccess(
-      c.env,
-      auth.owner.session_id,
-      localPremiumState,
-    );
+    const androidFree = usesAndroidFreeLaunch(auth.owner);
+    const accessPromise = androidFree
+      ? Promise.resolve("free" as const)
+      : resolvePremiumAccess(c.env, auth.owner.session_id, localPremiumState);
     const [access, quota] = localPremiumState?.toLowerCase() === "verified"
       ? [await accessPromise, null] as const
       : await Promise.all([accessPromise, loadScanQuota(c.env.DB, auth.owner)]);
@@ -314,7 +316,7 @@ export function createScanRoutes() {
     const snapshot = quota ?? await loadScanQuota(c.env.DB, auth.owner);
     return c.json({
       success: true,
-      data: scanQuotaPayload(snapshot, access),
+      data: scanQuotaPayload(snapshot, access, androidFree || access === "premium"),
     });
   });
 
@@ -330,11 +332,14 @@ export function createScanRoutes() {
     if (!requestId || c.req.header("Idempotency-Key") !== requestId) {
       return c.json(VALIDATION_ERROR_RESPONSE, 422);
     }
-    const access = await resolvePremiumAccess(
-      c.env,
-      auth.owner.session_id,
-      c.req.header(LOCAL_PREMIUM_STATE_HEADER),
-    );
+    const androidFree = usesAndroidFreeLaunch(auth.owner);
+    const access = androidFree
+      ? "free" as const
+      : await resolvePremiumAccess(
+          c.env,
+          auth.owner.session_id,
+          c.req.header(LOCAL_PREMIUM_STATE_HEADER),
+        );
     if (access === "sync_required") {
       return c.json(ENTITLEMENT_SYNC_REQUIRED_RESPONSE, 409);
     }
@@ -344,7 +349,7 @@ export function createScanRoutes() {
       requestId,
       access,
       new Date(),
-      { startProcessing: false },
+      { startProcessing: false, unlimited: androidFree },
     );
     if (reservation.status === "exhausted") {
       return c.json({
@@ -359,7 +364,11 @@ export function createScanRoutes() {
       success: true,
       data: {
         request_id: requestId,
-        quota: scanQuotaPayload(reservation.quota, reservation.accessMode),
+        quota: scanQuotaPayload(
+          reservation.quota,
+          reservation.accessMode,
+          androidFree || reservation.accessMode === "premium",
+        ),
       },
     });
   });
@@ -450,11 +459,14 @@ export function createScanRoutes() {
       return c.json(VECTOR_RECOGNITION_UNAVAILABLE_RESPONSE, 503);
     }
 
-    const access = await resolvePremiumAccess(
-      c.env,
-      auth.owner.session_id,
-      c.req.header(LOCAL_PREMIUM_STATE_HEADER),
-    );
+    const androidFree = usesAndroidFreeLaunch(auth.owner);
+    const access = androidFree
+      ? "free" as const
+      : await resolvePremiumAccess(
+          c.env,
+          auth.owner.session_id,
+          c.req.header(LOCAL_PREMIUM_STATE_HEADER),
+        );
     if (access === "sync_required") {
       await releaseQueuedScanQuota(
         c.env.DB,
@@ -469,6 +481,8 @@ export function createScanRoutes() {
       auth.owner,
       requestId,
       access,
+      new Date(),
+      { unlimited: androidFree },
     );
     if (reservation.status === "exhausted") {
       return c.json({
@@ -481,6 +495,7 @@ export function createScanRoutes() {
         reservation.response.body,
         reservation.quota,
         reservation.accessMode,
+        androidFree || reservation.accessMode === "premium",
       );
       return new Response(JSON.stringify(responseBody), {
         status: reservation.response.status,
@@ -675,10 +690,28 @@ export function createScanRoutes() {
     } catch (error) {
       console.error("Failed to persist scan audit record.", error);
       await deleteUploadedImage(imageBucket, imageKey);
-      await settleScanQuota(c.env.DB, auth.owner, requestId, "released", null, {
-        body: INTERNAL_ERROR_RESPONSE,
-        status: 500,
-      });
+      let ownerStillActive = false;
+      let ownerNoLongerAuthorized = false;
+      try {
+        const currentAuth = await authenticateOwner(
+          c.env,
+          c.req.header("Authorization"),
+        );
+        ownerStillActive = currentAuth.status === "ok" &&
+          currentAuth.owner.session_id === auth.owner.session_id;
+        ownerNoLongerAuthorized = currentAuth.status === "unauthorized";
+      } catch {
+        // The audit write already failed; do not risk another owner-scoped write.
+      }
+      if (ownerStillActive) {
+        await settleScanQuota(c.env.DB, auth.owner, requestId, "released", null, {
+          body: INTERNAL_ERROR_RESPONSE,
+          status: 500,
+        });
+      }
+      if (ownerNoLongerAuthorized) {
+        return c.json(UNAUTHORIZED_RESPONSE, 401);
+      }
       return c.json(INTERNAL_ERROR_RESPONSE, 500);
     }
     const auditStoredAt = performance.now();
@@ -721,7 +754,11 @@ export function createScanRoutes() {
         recognition_status: recognitionStatus,
         cards_detected: candidates.length > 0 ? 1 : 0,
         elapsed: (Date.now() - startedAt) / 1000,
-        quota: scanQuotaPayload(predictedQuota, reservation.accessMode),
+        quota: scanQuotaPayload(
+          predictedQuota,
+          reservation.accessMode,
+          androidFree || reservation.accessMode === "premium",
+        ),
         warnings: recognized?.length === candidates.length
           ? []
           : ["Some recognized cards are missing from the catalog."],
@@ -743,6 +780,7 @@ export function createScanRoutes() {
         quota: scanQuotaPayload(
           settledQuota ?? predictedQuota,
           reservation.accessMode,
+          androidFree || reservation.accessMode === "premium",
         ),
       },
     };

@@ -18,6 +18,7 @@ import 'package:kando_app/features/subscription/subscription_entitlement_cache.d
 import 'package:kando_app/shared/analytics/analytics_events.dart';
 import 'package:kando_app/shared/analytics/app_analytics.dart';
 import 'package:kando_app/shared/attribution/app_attribution.dart';
+import 'package:kando_app/shared/platform/app_commercial_policy.dart';
 import 'package:mixpanel_flutter/mixpanel_flutter.dart';
 
 import 'support/in_memory_onboarding_storage.dart';
@@ -221,6 +222,9 @@ ProviderScope _testApp(
 }) {
   return ProviderScope(
     overrides: [
+      appCommercialPolicyProvider.overrideWithValue(
+        const AppCommercialPolicy(isAndroidFreeLaunch: false),
+      ),
       appAttributionCoordinatorProvider.overrideWithValue(
         testAppAttributionCoordinator(),
       ),

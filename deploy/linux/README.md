@@ -16,7 +16,8 @@ Linux 部署资产已通过 `19a6ac4` 合入；2026-09-15 已将 `dev-inner` 整
 - 测试域名已解析到服务器；首次验证也可直接使用 `http://服务器IP:8080`。
 - 已准备独立测试 JWT secret、CF 识别 origin 和需要启用的 OAuth/Apple/邮件测试配置。
 - 若启用 `.env.example` 中的 `NODE_USE_ENV_PROXY`，API 容器需使用 Node 22.21.0+；HTTP(S) 代理和 `NO_PROXY` 的当前配置见[外部服务配置与代理](../../docs/linux-test-environment/README.md#外部服务配置与代理)。
-- PostgreSQL 使用 18；标准镜像默认 `postgres:18-alpine`，离线镜像安装 `postgresql-18`。两种方式均显式保留 `PGDATA=/var/lib/postgresql/data` 与现有 `postgres-data` 卷，避免因 18 镜像默认目录变化读到空目录。
+- PostgreSQL 使用 18，安全补丁最低为 18.6；标准镜像默认 `postgres:18.6-alpine`，离线镜像安装 `postgresql-18`。两种方式均显式保留 `PGDATA=/var/lib/postgresql/data` 与现有 `postgres-data` 卷，避免因 18 镜像默认目录变化读到空目录。
+- Node 使用 22.23.4 或更高的 22.x 补丁，标准 Caddy 使用 2.11.8。离线运行镜像来自宿主 Node，必须单独满足补丁要求，更新在线镜像配置不会替换宿主运行时。安全升级与尚未执行的环境验收见 [技术栈安全升级](../../docs/releases/v1.1.4/02-architecture/security-stack-upgrade.md)。
 
 ## 可选插件免登录识别
 

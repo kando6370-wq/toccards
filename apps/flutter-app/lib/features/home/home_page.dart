@@ -21,6 +21,7 @@ import 'package:skeletonizer/skeletonizer.dart';
 
 import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
+import '../../shared/platform/app_commercial_policy.dart';
 import '../card_detail/card_detail_models.dart';
 import '../collection/collection_page.dart';
 import '../collection/collection_controller.dart';
@@ -75,8 +76,15 @@ class _HomePageState extends ConsumerState<HomePage>
     final premiumState = ref.watch(
       subscriptionControllerProvider.select((value) => value.premiumState),
     );
-    final isPro = premiumState == AppPremiumState.premium;
-    if (premiumState == AppPremiumState.free &&
+    final freePremiumFeatures = ref.watch(
+      appCommercialPolicyProvider.select(
+        (value) => value.hasFreePremiumFeatures,
+      ),
+    );
+    final isPro =
+        freePremiumFeatures || premiumState == AppPremiumState.premium;
+    if (!freePremiumFeatures &&
+        premiumState == AppPremiumState.free &&
         state.chartRange == HomeChartRange.oneYear) {
       Future<void>.microtask(
         () => ref
@@ -305,7 +313,8 @@ class _HomePageState extends ConsumerState<HomePage>
     HomeChartRange range, {
     required AppPremiumState premiumState,
   }) async {
-    if (range == HomeChartRange.oneYear) {
+    if (range == HomeChartRange.oneYear &&
+        !ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
       final resolved = premiumState == AppPremiumState.unknown
           ? await _resolvePremiumForRestrictedAction()
           : premiumState;
@@ -330,6 +339,9 @@ class _HomePageState extends ConsumerState<HomePage>
   }
 
   Future<AppPremiumState> _resolvePremiumForRestrictedAction() async {
+    if (ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
+      return AppPremiumState.premium;
+    }
     final current = ref.read(subscriptionControllerProvider).premiumState;
     if (current != AppPremiumState.unknown) return current;
     return ref
@@ -347,7 +359,9 @@ class _HomePageState extends ConsumerState<HomePage>
     final controller = ref.read(homePerformanceControllerProvider.notifier);
     await controller.load(
       folderId: folderId,
-      localPremiumVerified: true,
+      localPremiumVerified:
+          ref.read(appCommercialPolicyProvider).usesAppleSubscription &&
+          ref.read(subscriptionControllerProvider).isPro,
       force: force,
     );
   }
@@ -360,7 +374,9 @@ class _HomePageState extends ConsumerState<HomePage>
     await controller.selectRange(
       range,
       folderId: folderId,
-      localPremiumVerified: true,
+      localPremiumVerified:
+          ref.read(appCommercialPolicyProvider).usesAppleSubscription &&
+          ref.read(subscriptionControllerProvider).isPro,
     );
     if (!mounted) return;
     final failedState = ref.read(homePerformanceControllerProvider);
@@ -522,7 +538,25 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isAndroid = Theme.of(context).platform == TargetPlatform.android;
+    double androidSegmentWidth(double minimumWidth) {
+      final textScaler = MediaQuery.textScalerOf(context);
+      final scale = textScaler.scale(16) / 16;
+      const horizontalAllowance = 20.0;
+      final scalableTextWidth = minimumWidth - horizontalAllowance;
+      return math.max(
+        minimumWidth,
+        scalableTextWidth * scale + horizontalAllowance,
+      );
+    }
+
+    final overviewWidth = isAndroid ? androidSegmentWidth(86) : 86.0;
+    final performanceWidth = isAndroid
+        ? androidSegmentWidth(106)
+        : 106.0;
     final tabs = _HomeModeTabs(
+      overviewWidth: overviewWidth,
+      performanceWidth: performanceWidth,
       performanceSelected: performanceSelected,
       onOverviewPressed: onOverviewPressed,
       onPerformancePressed: onPerformancePressed,
@@ -622,7 +656,10 @@ class _Header extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         // The two rows preserve full-size tab labels on compact screens.
-        const minSingleRowWidth = 200.0 + 8 + 32 + 98;
+        final tabsWidth = overviewWidth + 8 + performanceWidth;
+        final minSingleRowWidth = isAndroid
+            ? tabsWidth + 8 + 98
+            : 200.0 + 8 + 32 + 98;
         if (constraints.maxWidth < minSingleRowWidth) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -647,11 +684,15 @@ class _Header extends StatelessWidget {
 
 class _HomeModeTabs extends StatelessWidget {
   const _HomeModeTabs({
+    required this.overviewWidth,
+    required this.performanceWidth,
     required this.performanceSelected,
     required this.onOverviewPressed,
     required this.onPerformancePressed,
   });
 
+  final double overviewWidth;
+  final double performanceWidth;
   final bool performanceSelected;
   final VoidCallback onOverviewPressed;
   final VoidCallback onPerformancePressed;
@@ -663,13 +704,13 @@ class _HomeModeTabs extends StatelessWidget {
       children: [
         SizedBox(
           key: const Key('home-mode-tabs'),
-          width: 200,
+          width: overviewWidth + 8 + performanceWidth,
           height: 42,
           child: Row(
             children: [
               _HomeModeSegment(
                 key: const Key('home-overview-tab'),
-                width: 86,
+                width: overviewWidth,
                 selected: !performanceSelected,
                 label: 'Overview',
                 onTap: onOverviewPressed,
@@ -677,7 +718,7 @@ class _HomeModeTabs extends StatelessWidget {
               const SizedBox(width: 8),
               _HomeModeSegment(
                 key: const Key('home-performance-tab'),
-                width: 106,
+                width: performanceWidth,
                 selected: performanceSelected,
                 label: 'Performance',
                 onTap: onPerformancePressed,
@@ -1214,6 +1255,7 @@ class _TopPerformersSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final visiblePerformers = performers.take(5).toList();
+    final isAndroid = Theme.of(context).platform == TargetPlatform.android;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1270,6 +1312,34 @@ class _TopPerformersSection extends StatelessWidget {
             key: Key('home-top-performers-empty'),
             message: 'Add purchase prices to see your top performers',
           )
+        else if (isAndroid)
+          SingleChildScrollView(
+            key: const Key('home-top-performers-list'),
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.only(bottom: 16),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (var index = 0; index < visiblePerformers.length; index++) ...[
+                    _TopPerformerCard(
+                      key: Key(
+                        'home-top-performer-${visiblePerformers[index].itemId}',
+                      ),
+                      state: state,
+                      performer: visiblePerformers[index],
+                      minHeight: 253,
+                      onPressed: () => onPerformerPressed(
+                        visiblePerformers[index],
+                      ),
+                    ),
+                    if (index < visiblePerformers.length - 1)
+                      const SizedBox(width: 16),
+                  ],
+                ],
+              ),
+            ),
+          )
         else
           SizedBox(
             height: 269,
@@ -1285,6 +1355,7 @@ class _TopPerformersSection extends StatelessWidget {
                   key: Key('home-top-performer-${performer.itemId}'),
                   state: state,
                   performer: performer,
+                  height: 253,
                   onPressed: () => onPerformerPressed(performer),
                 );
               },
@@ -1300,11 +1371,15 @@ class _TopPerformerCard extends StatelessWidget {
     super.key,
     required this.state,
     required this.performer,
+    this.height,
+    this.minHeight,
     required this.onPressed,
   });
 
   final HomeState state;
   final PortfolioTopPerformerDto performer;
+  final double? height;
+  final double? minHeight;
   final VoidCallback onPressed;
 
   @override
@@ -1319,108 +1394,114 @@ class _TopPerformerCard extends StatelessWidget {
 
     return SizedBox(
       width: 144,
-      height: 253,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(12),
-          child: Ink(
-            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0x1FFFFFFF)),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xCC1C1E15), Color(0xE612140D)],
+      height: height,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: minHeight ?? 0),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onPressed,
+            borderRadius: BorderRadius.circular(12),
+            child: Ink(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 13,
+                vertical: 12,
               ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x66000000),
-                  offset: Offset(0, 4),
-                  blurRadius: 20,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0x1FFFFFFF)),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xCC1C1E15), Color(0xE612140D)],
                 ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  height: 155,
-                  width: double.infinity,
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Positioned.fill(
-                        child: Container(
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: KandoColors.ink,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: _HomeCardImage(
-                              imageAssetPath: null,
-                              imageUrl: performer.imageUrl,
-                              height: 143,
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x66000000),
+                    offset: Offset(0, 4),
+                    blurRadius: 20,
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    height: 155,
+                    width: double.infinity,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Positioned.fill(
+                          child: Container(
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: KandoColors.ink,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(6),
+                              child: _HomeCardImage(
+                                imageAssetPath: null,
+                                imageUrl: performer.imageUrl,
+                                height: 143,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      Positioned(
-                        top: 0,
-                        right: -2,
-                        child: _HomeCardChangeBadge(
-                          text: returnText,
-                          percent: performer.returnPercent,
+                        Positioned(
+                          top: 0,
+                          right: -2,
+                          child: _HomeCardChangeBadge(
+                            text: returnText,
+                            percent: performer.returnPercent,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  performer.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFFE4E3D3),
-                    fontFamily: 'Fraunces',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    height: 20 / 14,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: KandoColors.mutedText,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w400,
-                    height: 18 / 10,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    marketValue,
-                    maxLines: 1,
-                    style: const TextStyle(
-                      color: KandoColors.money,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      height: 20 / 12,
+                      ],
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  Text(
+                    performer.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFFE4E3D3),
+                      fontFamily: 'Fraunces',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      height: 20 / 14,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: KandoColors.mutedText,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w400,
+                      height: 18 / 10,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      marketValue,
+                      maxLines: 1,
+                      style: const TextStyle(
+                        color: KandoColors.money,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        height: 20 / 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -1648,9 +1729,11 @@ class _PerformanceMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isAndroid = Theme.of(context).platform == TargetPlatform.android;
     return Container(
       width: double.infinity,
-      height: 100,
+      height: isAndroid ? null : 100,
+      constraints: isAndroid ? const BoxConstraints(minHeight: 100) : null,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
@@ -2091,10 +2174,12 @@ class _PortfolioEmptyPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isAndroid = Theme.of(context).platform == TargetPlatform.android;
     return SizedBox(
-      height: 410,
+      height: isAndroid ? null : 410,
       width: double.infinity,
       child: Container(
+        constraints: isAndroid ? const BoxConstraints(minHeight: 410) : null,
         padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 25),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
@@ -3278,6 +3363,7 @@ class _InteractiveChartState extends State<_InteractiveChart> {
                   tooltipRows: widget.tooltipRows,
                   selectedIndex: _selectedIndex,
                   emphasizeSinglePoint: widget.emphasizeSinglePoint,
+                  fontFamily: kandoBodyFontFamily(Theme.of(context).platform),
                 ),
                 child: const SizedBox.expand(),
               ),
@@ -3297,6 +3383,7 @@ class _ChartPainter extends CustomPainter {
     required this.tooltipRows,
     required this.selectedIndex,
     required this.emphasizeSinglePoint,
+    required this.fontFamily,
   });
 
   final List<double> values;
@@ -3305,6 +3392,7 @@ class _ChartPainter extends CustomPainter {
   final List<List<String>>? tooltipRows;
   final int? selectedIndex;
   final bool emphasizeSinglePoint;
+  final String? fontFamily;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -3409,6 +3497,7 @@ class _ChartPainter extends CustomPainter {
         style: homeChartTooltipTextStyle(
           isPerformance: isPerformanceTooltip,
           isDate: true,
+          fontFamily: fontFamily,
         ),
       ),
       maxLines: 1,
@@ -3424,6 +3513,7 @@ class _ChartPainter extends CustomPainter {
                   style: homeChartTooltipTextStyle(
                     isPerformance: isPerformanceTooltip,
                     isDate: false,
+                    fontFamily: fontFamily,
                   ),
                 ),
                 maxLines: 1,
@@ -3485,7 +3575,8 @@ class _ChartPainter extends CustomPainter {
         oldDelegate.formattedValues != formattedValues ||
         oldDelegate.tooltipRows != tooltipRows ||
         oldDelegate.selectedIndex != selectedIndex ||
-        oldDelegate.emphasizeSinglePoint != emphasizeSinglePoint;
+        oldDelegate.emphasizeSinglePoint != emphasizeSinglePoint ||
+        oldDelegate.fontFamily != fontFamily;
   }
 }
 
@@ -3503,17 +3594,24 @@ const homePerformanceTooltipTextStyle = TextStyle(
 TextStyle homeChartTooltipTextStyle({
   required bool isPerformance,
   required bool isDate,
+  String? fontFamily,
 }) {
-  if (isPerformance) return homePerformanceTooltipTextStyle;
+  if (isPerformance) {
+    return fontFamily == null
+        ? homePerformanceTooltipTextStyle
+        : homePerformanceTooltipTextStyle.copyWith(fontFamily: fontFamily);
+  }
   return isDate
-      ? const TextStyle(
+      ? TextStyle(
           color: Color(0xFF92927D),
+          fontFamily: fontFamily,
           fontSize: 11,
           fontWeight: FontWeight.w400,
           height: 16 / 11,
         )
-      : const TextStyle(
+      : TextStyle(
           color: KandoColors.accent,
+          fontFamily: fontFamily,
           fontSize: 11,
           fontWeight: FontWeight.w500,
           height: 16 / 11,

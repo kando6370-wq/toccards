@@ -3,12 +3,82 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
+import 'package:kando_app/features/scan/scan_result_source.dart';
+import 'package:kando_app/features/subscription/scan_quota_controller.dart';
+import 'package:kando_app/features/subscription/subscription_controller.dart';
+import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
+import 'package:kando_app/shared/platform/app_commercial_policy.dart';
 import 'package:kando_app/shared/scan/scan_api_client.dart';
 import 'package:kando_app/shared/scan/scan_card_recognizer.dart';
 
 void main() {
+  for (final scenario in [
+    (
+      name: 'Android unlimited free access omits the local Premium header',
+      policy: const AppCommercialPolicy(isAndroidFreeLaunch: true),
+      expectedHeader: null,
+    ),
+    (
+      name: 'iOS Premium access keeps the verified local Premium header',
+      policy: const AppCommercialPolicy(isAndroidFreeLaunch: false),
+      expectedHeader: 'verified',
+    ),
+  ]) {
+    test(scenario.name, () async {
+      final container = ProviderContainer(
+        overrides: [
+          appCommercialPolicyProvider.overrideWithValue(scenario.policy),
+          subscriptionControllerProvider.overrideWith(
+            _PremiumSubscriptionController.new,
+          ),
+          scanQuotaControllerProvider.overrideWith(
+            _UnlimitedScanQuotaController.new,
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final adapter = _RecordingAdapter((request) {
+        expect(request.localPremiumState, scenario.expectedHeader);
+        return _json(200, {
+          'success': true,
+          'data': {
+            'scan_id': 'scan-policy',
+            'recognition_status': 'no_match',
+            'quota': {
+              'access': 'free',
+              'limit': 10,
+              'reserved': 0,
+              'consumed': 10,
+              'remaining': 0,
+              'unlimited': true,
+            },
+            'results': [
+              {'index': 1, 'matched': false, 'candidates': <Object?>[]},
+            ],
+          },
+        });
+      });
+
+      await ScanApiClient(_dio(adapter)).recognizeImage(
+        _session,
+        hashes: ScanCardHashes(
+          r: _hash,
+          g: _hash,
+          b: _hash,
+          cardImageBytes: Uint8List.fromList([1, 2, 3, 4]),
+        ),
+        fileName: 'scan.jpg',
+        platform: scenario.policy.isAndroidFreeLaunch ? 'Android' : 'iOS',
+        appVersion: '1.0.0',
+        requestId: '123e4567-e89b-42d3-a456-426614174000',
+        localPremiumVerified: container.read(scanLocalPremiumVerifiedProvider),
+      );
+    });
+  }
+
   test(
     'scan transport keeps the full operation deadline because an early receive timeout can hide a server-side quota settlement',
     () {
@@ -516,6 +586,7 @@ class _RecordingAdapter implements HttpClientAdapter {
         path: options.path,
         authorization: options.headers['Authorization']?.toString(),
         idempotencyKey: options.headers['Idempotency-Key']?.toString(),
+        localPremiumState: options.headers['X-Local-Premium-State']?.toString(),
         body: data,
       ),
     );
@@ -531,6 +602,7 @@ class _RecordedRequest {
     required this.path,
     required this.authorization,
     required this.idempotencyKey,
+    required this.localPremiumState,
     required this.body,
   });
 
@@ -538,5 +610,22 @@ class _RecordedRequest {
   final String path;
   final String? authorization;
   final String? idempotencyKey;
+  final String? localPremiumState;
   final Object? body;
+}
+
+class _PremiumSubscriptionController extends SubscriptionController {
+  @override
+  SubscriptionState build() =>
+      const SubscriptionState(premiumState: AppPremiumState.premium);
+}
+
+class _UnlimitedScanQuotaController extends ScanQuotaController {
+  @override
+  ScanQuotaState build() => const ScanQuotaState(
+    limit: 10,
+    remainingScans: 0,
+    unlimited: true,
+    isServerAuthoritative: true,
+  );
 }

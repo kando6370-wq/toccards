@@ -87,7 +87,8 @@ function toUpgradePrompt(parsed: Record<string, unknown>): PublicUpgradePrompt {
 }
 
 function normalizePlatform(value: string | undefined): "ios" | "google" {
-  return value?.trim().toLowerCase() === "google" ? "google" : "ios";
+  const normalized = value?.trim().toLowerCase();
+  return normalized === "google" || normalized === "android" ? "google" : "ios";
 }
 
 function stringOrNull(value: unknown): string | null {

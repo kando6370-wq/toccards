@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+String? kandoBodyFontFamily(TargetPlatform platform) {
+  return platform == TargetPlatform.android ? 'Inter' : null;
+}
+
 abstract final class KandoColors {
   static const ink = Color(0xFF10100B);
   static const surface = Color(0xFF1A1C14);

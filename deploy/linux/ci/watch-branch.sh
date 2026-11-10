@@ -107,13 +107,13 @@ record_failure() {
 trap record_failure ERR
 
 cd "$source_dir"
-if [[ ! -x "$pnpm_bin" || "$($pnpm_bin --version 2>/dev/null || true)" != "11.9.0" ]]; then
+if [[ ! -x "$pnpm_bin" || "$($pnpm_bin --version 2>/dev/null || true)" != "11.28.10" ]]; then
   rm -rf "$pnpm_tools_dir/node_modules"
   npm install \
     --prefix "$pnpm_tools_dir" \
     --no-save \
     --no-package-lock \
-    pnpm@11.9.0
+    pnpm@11.28.10
 fi
 export PATH="$pnpm_tools_dir/node_modules/.bin:$PATH"
 "$pnpm_bin" install --frozen-lockfile --store-dir "$pnpm_store_dir"

@@ -5,7 +5,7 @@
 `APP_ENV` selects the API and Mixpanel projects together. The supported values
 are `test` and `production`; these map to the current business environments
 `dev` (Linux) and `prod` (Cloudflare), respectively. The default is
-`production` so an unconfigured build stays aligned with the production app
+`test` so an unconfigured local build uses the test API and isolated Android
 identity. Test builds must explicitly load `config/test.json`; the retired
 Cloudflare dev API is not a build target.
 
@@ -70,12 +70,30 @@ Firebase configuration.
 
 Android 沿用 `--dart-define-from-file=config/test.json` 选择测试环境，无需新增
 flavor。Gradle 从同一 `APP_ENV=test` 编译参数选择网络策略，只为该 IP 允许 HTTP；
-production 和未配置环境均使用禁止明文的默认策略。可分别构建验证：
+未配置环境默认使用测试 API 和 application ID `com.kando.kandoApp.beta`。
+该字符串与 iOS 测试 Bundle ID 相同，但 Android 的 Firebase App、OAuth client、
+签名和安装数据仍是独立平台资源，不复用 iOS 配置。`config/test.json` 提供 Android
+测试使用的 Web server client ID；Android OAuth client 另按该包名和测试签名登记。
+原 `dev.kando.cardvault.sandbox.a1aa3e` 安装的登录态及本地数据不会自动迁移到新包。
+可构建本机测试包：
 
 ```bash
 flutter build apk --debug --no-pub --dart-define-from-file=config/test.json
-flutter build apk --debug --no-pub --dart-define-from-file=config/production.json
 ```
+
+Debug 首次构建会使用当前 JDK 的 `keytool` 在仓库忽略目录
+`.dart_tool/android-test-signing/` 创建本项目专用测试证书；固定 `android`
+密码仅用于 Debug。该流程不会读取或删除全机 Debug keystore、正式 JKS 或
+`key.properties`。
+
+Android production 构建必须在独立打包环境显式提供
+`ANDROID_APPLICATION_ID`、`ANDROID_KEYSTORE_PATH`、`ANDROID_KEY_ALIAS`、
+`ANDROID_KEY_PASSWORD`、`ANDROID_STORE_PASSWORD`，并通过 dart-define 提供
+Google server client ID 和 Play cloud project number。Firebase 使用
+`ANDROID_FIREBASE_CONFIG_PATH` 指向打包机外部的 `google-services.json`；
+配置存在时才应用 Google Services 与 Crashlytics Gradle 插件。
+缺少任一正式配置时构建或运行会显式失败；本机测试构建不会读取仓库旁的
+`key.properties` 或既有 keystore，也不提交正式 `google-services.json`。
 
 ## 扫描平台与协议
 
@@ -162,6 +180,62 @@ App Store IPA 和 `dSYMs.zip`，指定真机安装时还保存 `Card AI Device.i
 保存失败不会清理旧版本，同名版本拒绝覆盖；无关目录和符号链接不参与清理。
 此规则仅管理上述专用目录内的 IPA/dSYM，不清理 Xcode Archives。
 保存步骤使用 macOS 的 `ditto` 和 Python 3 标准库，不需要额外安装 Python 包。
+
+## Android 版本与制品管理
+
+Android 使用 Python 3 标准库发布入口，不改变现有 iOS 发布脚本：
+
+```powershell
+# 先查看将使用的环境、包名、版本和历史最高构建号；不构建、不改版本文件
+python tool/release_android.py --env test --dry-run
+
+# 构建、验证并保存可安装的 dev Debug APK
+python tool/release_android.py --env test
+
+# 独立正式打包环境：外部注入身份、签名、Firebase 与 Google 配置后构建 AAB
+python tool/release_android.py --env production --bundletool /private/tools/bundletool.jar
+```
+
+默认使用 PATH 中的 Flutter；可通过 `--flutter` 选择 Flutter 3.47.9／Dart 3.13.7
+或更新的兼容 SDK，通过 `--jdk` 选择安全修补的 JDK 21.0.13+9。
+显式 JDK 仅在该次流程中临时设置，成功或失败后都恢复原 Flutter 设置；
+同时检查 Flutter 与 Gradle 实际选择的 JVM。Gradle 默认使用进程内的 2 GiB heap、
+单 worker 设置，可通过已有 `GRADLE_OPTS` 调整，不改写 `gradle.properties`。
+
+脚本从共享 `pubspec.yaml` 的三段版本号读取营销版本，并选择高于当前构建号和
+该 Android 包所有已保存构建号的下一个值。旧的 `*-Android-*` 手工交付目录也纳入
+查找，避免已有 Android 203 包时因 pubspec 仍是 194 而退回 195。
+`--build-number N` 可显式指定更大的值；不自动改变营销版本，不并行运行同一工作区的
+iOS／Android 发布。只有构建、签名／包名／版本／原生库校验及完整保存都成功后，
+才更新共享 pubspec 的构建号；失败不提前消耗构建号，也不会覆盖其他流程已经修改的版本。
+
+Test 默认构建 Debug APK；production 默认构建 Release AAB，也可指定 `--artifact apk`。
+正式模式要求干净的批准源码、外部正式包名、上传签名和 Firebase 配置，以及
+`GOOGLE_SERVER_CLIENT_ID`／`ANDROID_PLAY_CLOUD_PROJECT_NUMBER`。
+同时要求从 Play Console 核实的 Upload 证书 SHA-256，使用
+`ANDROID_UPLOAD_CERTIFICATE_SHA256` 或 `--expected-certificate-sha256` 提供，
+并与最终制品签名比较。Test 默认核对已登记 OAuth 的本项目测试证书；更换测试签名后，
+须先登记对应 Android OAuth，再通过 `ANDROID_TEST_CERTIFICATE_SHA256` 或同一参数
+明确提供新的批准摘要，不能只因“存在签名”就视为配置匹配。
+公开编译值可在对应配置文件或进程环境提供；`--config`／`RELEASE_ENV_CONFIG`
+可选择独立打包环境的配置文件。AAB 校验另外要求 `--bundletool` 或 `BUNDLETOOL_JAR`。
+没有正式配置时明确失败，不回退到测试包名或测试签名。APK 校验签名与 ZIP／64 位
+ELF 的 16 KB 对齐；AAB 校验 bundletool、JAR 签名、manifest 和 64 位 ELF。
+两种制品均核对 minSdk 24、targetSdk 至少 36，以及最终证书与批准摘要一致。
+这些本地校验不能替代 Play 处理后的分发签名、真实安装或商店验收。
+
+制品默认保存到系统 Downloads 的 `CardAI-Packages/<applicationId>/Android/`，
+可通过 `--artifacts-root` 指定现有交付根目录；例如本机历史包位于
+`D:/Downloads/CardAI-Packages`，应继续使用该根目录。每版目录包含 APK／AAB、
+可用的 Release symbols／mapping、`build-info.json` 和 `SHA256SUMS.txt`。
+Android Test 保留最近 3 版、Production 保留 7 版，完整保存后才将超额受管版本移至
+`Android/.Recovery/`，可人工恢复，不永久删除。iOS 同包名 IPA、历史手工 Android
+目录、其他环境与无关目录均不参与清理。同名目录拒绝覆盖，复制哈希不匹配则失败。
+脚本不安装设备、不上传商店、不修改后台版本规则，也不提交或推送 Git。
+
+应用内升级与构建号是两套机制：后台最低／建议版本只比较三段营销版本，忽略 `+build`；
+需要对用户提示新版本时，应发布新的营销版本并单独配置 Android 更新规则。
+跨端接口与实际验证见[双端版本管理](../../docs/releases/v1.1.4/03-data-api/app-version-management.md)。
 
 ## Chrome with production services
 

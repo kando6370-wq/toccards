@@ -19,8 +19,10 @@ class FakeR2 {
     return {} as R2Object;
   }
 
-  async delete(key: string): Promise<void> {
-    this.objects.delete(key);
+  async delete(keys: string | string[]): Promise<void> {
+    for (const key of Array.isArray(keys) ? keys : [keys]) {
+      this.objects.delete(key);
+    }
   }
 }
 
@@ -1481,6 +1483,43 @@ describe("scan routes", () => {
     expect((await readRows(env.DB, "scan_record"))).toEqual([]);
   });
 
+  it("does not resurrect scan data when the owner is deleted during recognition", async () => {
+    const env = await createRecognitionEnv();
+    const token = await recognitionToken(env);
+    const gate = scanGate();
+    const upstream = vi.fn(async () => {
+      await gate.promise;
+      return Response.json({ candidates: [] });
+    });
+    stubVectorRecognition(env, upstream);
+    const bucket = env.SCAN_IMAGES as unknown as FakeR2;
+    const pending = recognize(env, token, { vector: VECTOR });
+
+    try {
+      await vi.waitFor(() => {
+        expect(upstream).toHaveBeenCalledOnce();
+        expect(bucket.objects.size).toBe(1);
+      });
+      const deleted = await app.request("/api/v1/auth/account", {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      }, env);
+      expect(deleted.status).toBe(200);
+
+      gate.release();
+      const response = await pending;
+      expect(response.status).toBe(401);
+      expect(await readRows(env.DB, "scan_record")).toEqual([]);
+      expect(await readRows(env.DB, "scan_quota_request")).toEqual([]);
+      expect(await readRows(env.DB, "portfolio_folder")).toEqual([]);
+      expect(await readRows(env.DB, "user_preference")).toEqual([]);
+      expect(bucket.objects.size).toBe(0);
+    } finally {
+      gate.release();
+      await pending;
+    }
+  });
+
   it("isolates two concurrent Gallery batches at the Free limit because failures may return only their own slot", async () => {
     const env = await createRecognitionEnv();
     await insertParallelScanCard(env.DB);
@@ -2091,6 +2130,12 @@ describe("scan routes", () => {
 
   it("rejects foreign folders, non-candidates, and repeated confirmation because Review cannot cross ownership or duplicate items", async () => {
     const env = await createConfirmEnv();
+    await env.DB.exec(`
+      INSERT INTO "user" (id, email, created_at, updated_at)
+      VALUES ('other', 'other@example.com', '2026-07-20T00:00:00.000Z', '2026-07-20T00:00:00.000Z');
+      INSERT INTO platform_account (id, user_id, platform, status, created_at, updated_at)
+      VALUES ('other', 'other', 'ios', 'active', '2026-07-20T00:00:00.000Z', '2026-07-20T00:00:00.000Z');
+    `);
     await insertRows(env.DB, "portfolio_folder", { id: "foreign", owner_type: "user", owner_id: "other" });
     const token = await confirmToken(env);
     const base = {
@@ -2157,7 +2202,7 @@ describe("scan routes", () => {
 async function createTestEnv(): Promise<TestEnvWithPostgres> {
   const db = await PGliteDatabase.create();
   databases.push(db);
-  for (const name of ["0000_business_schema", "0001_price_domain", "0006_mutation_lock", "0008_collection_item_grading_identity", "0010_scan_record_environment"]) {
+  for (const name of ["0000_business_schema", "0001_price_domain", "0006_mutation_lock", "0008_collection_item_grading_identity", "0010_scan_record_environment", "0018_platform_account_isolation"]) {
     await db.exec(readFileSync(new URL('../db/postgres/migrations/' + name + '.sql', import.meta.url), 'utf8'));
   }
   const queries: string[] = [];
@@ -2172,8 +2217,8 @@ async function createTestEnv(): Promise<TestEnvWithPostgres> {
 async function insertRows(db: PGliteDatabase, table: string, ...values: Record<string, unknown>[]) {
   const now = new Date().toISOString();
   const defaults: Record<string, Record<string, unknown>> = {
-    session: { refresh_token: crypto.randomUUID(), created_at: now },
-    anonymous_account: { device_id: crypto.randomUUID(), created_at: now },
+    session: { refresh_token: crypto.randomUUID(), created_at: now, platform: "ios", user_id: null },
+    anonymous_account: { device_id: crypto.randomUUID(), created_at: now, platform: "ios", status: "active" },
     portfolio_folder: { name: crypto.randomUUID(), created_at: now, updated_at: now },
     scan_record: { filename: "scan.jpg", platform: "iOS", app_version: "1.0.0", raw_response: "{}", created_at: now },
     scan_quota_request: { created_at: now, updated_at: now },

@@ -1,9 +1,30 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/app_upgrade/app_upgrade_models.dart';
 import 'package:kando_app/features/app_upgrade/app_upgrade_repository.dart';
 
 void main() {
+  test('the repository selects independent iOS and Google version rules', () {
+    final dio = Dio();
+    addTearDown(dio.close);
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    for (final entry in <TargetPlatform, String>{
+      TargetPlatform.iOS: 'ios',
+      TargetPlatform.android: 'google',
+    }.entries) {
+      debugDefaultTargetPlatformOverride = entry.key;
+      final container = ProviderContainer(
+        overrides: [appUpgradeDioProvider.overrideWithValue(dio)],
+      );
+      addTearDown(container.dispose);
+      final repository = container.read(appUpgradeRepositoryProvider);
+      expect(repository, isA<HttpAppUpgradeRepository>());
+      expect((repository as HttpAppUpgradeRepository).platform, entry.value);
+    }
+  });
+
   test('app upgrade requests allow ten seconds per network phase', () {
     expect(appUpgradeNetworkTimeout, const Duration(seconds: 10));
   });
@@ -146,6 +167,55 @@ void main() {
           platform: 'google',
         ).loadConfig()).upgradePrompt,
         isNull,
+      );
+    },
+  );
+
+  test(
+    'an enabled Google rule uses the Play destination and existing version policy',
+    () async {
+      final dio = Dio();
+      addTearDown(dio.close);
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            expect(options.queryParameters, {'platform': 'google'});
+            handler.resolve(
+              Response(
+                requestOptions: options,
+                data: <String, Object?>{
+                  'success': true,
+                  'data': <String, Object?>{
+                    'upgrade_prompt': <String, Object?>{
+                      'latest_version': '1.0.2',
+                      'min_version': '1.0.1',
+                      'force_update': true,
+                      'title': 'Update available',
+                      'message': 'A new version is available.',
+                      'forced_message': 'Update to continue.',
+                      'store_url':
+                          'https://play.google.com/store/apps/details?id=com.cardai.tcg',
+                    },
+                  },
+                },
+              ),
+            );
+          },
+        ),
+      );
+      final config = await HttpAppUpgradeRepository(
+        dio,
+        platform: 'google',
+      ).loadConfig();
+      final decision = AppUpgradePolicy.evaluate(
+        currentVersion: '1.0.1+203',
+        config: config,
+      );
+      expect(decision.showUpdate, isTrue);
+      expect(decision.forceUpdate, isFalse);
+      expect(
+        decision.storeUrl,
+        'https://play.google.com/store/apps/details?id=com.cardai.tcg',
       );
     },
   );

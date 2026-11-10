@@ -118,10 +118,12 @@ type PagedResponse<T> = { items: T[]; total: number; page: number; page_size: nu
 type UserItem = {
   account_type: "user" | "anonymous";
   id: string;
+  user_id: string | null;
   email: string | null;
   device_id: string | null;
   created_at: string;
   status: string;
+  base_user_status: string | null;
   platform: string;
   country: string;
   identity: "anonymous" | "email" | "google" | "apple";
@@ -192,6 +194,10 @@ type AppVersionItem = {
   updated_at: string;
 };
 
+function appVersionPlatformLabel(platform: AppVersionItem["platform"]): string {
+  return platform === "Google" ? "Android（Google Play）" : platform;
+}
+
 const { Sider, Content } = Layout;
 const { Title, Text } = Typography;
 const API_BASE = resolveAdminApiBase({
@@ -228,7 +234,7 @@ const pageMeta: Record<MenuKey, { title: string; description: string }> = {
   feedbacks: { title: "用户反馈", description: "查看用户提交的反馈内容，并标记处理状态。" },
   scans: { title: "扫描记录管理", description: "查看用户扫描图片、系统识别结果和用户最终确认结果。" },
   permissions: { title: "权限管理", description: "管理允许访问后台的邮箱账号。" },
-  "app-versions": { title: "版本管理", description: "管理 iOS 与 Google 端最低支持版本和更新提示。" },
+  "app-versions": { title: "版本管理", description: "管理 iOS 与 Android（Google Play）最低支持版本和更新提示。" },
   "subscription-configs": { title: "订阅配置", description: "管理订阅页与订阅大弹窗的商品组合、试用关系和生效状态。" },
 };
 
@@ -771,8 +777,11 @@ function UsersPage({ session }: { session: AdminSession }) {
   const { data, loading, reload, error } = useAdminData<UserListResponse>(path, session);
   const users = data?.items ?? [];
   const columns: ColumnsType<UserItem> = [
-    { title: "UID", dataIndex: "id", width: 120, ellipsis: true },
+    { title: "数据空间 ID", dataIndex: "id", width: 140, ellipsis: true },
+    { title: "基础用户 ID", dataIndex: "user_id", width: 130, ellipsis: true, render: displayValue },
     { title: "平台", dataIndex: "platform", width: 90, ellipsis: true },
+    { title: "平台状态", dataIndex: "status", width: 100, ellipsis: true },
+    { title: "基础账号状态", dataIndex: "base_user_status", width: 120, ellipsis: true, render: displayValue },
     { title: "首次安装日期", dataIndex: "created_at", width: 130, ellipsis: true, render: formatDate },
     { title: "用户身份", dataIndex: "identity", width: 100, ellipsis: true, render: renderUserIdentity },
     { title: "登录账号", width: 230, render: (_, row) => {
@@ -798,7 +807,7 @@ function UsersPage({ session }: { session: AdminSession }) {
   return (
     <PagePanel error={error} onRefresh={reload} className="users-page">
       <FilterBar>
-        <Input value={draft.q} onChange={(event) => setDraft((current) => ({ ...current, q: event.target.value }))} onPressEnter={applyFilters} placeholder="UID、邮箱或设备号" className="filter-control user-search-control" />
+        <Input value={draft.q} onChange={(event) => setDraft((current) => ({ ...current, q: event.target.value }))} onPressEnter={applyFilters} placeholder="数据空间、基础用户、邮箱或设备号" className="filter-control user-search-control" />
         <Select allowClear value={draft.platform} onChange={(platform) => setDraft((current) => ({ ...current, platform }))} placeholder="平台" className="filter-control" options={userPlatformOptions} />
         <Select allowClear value={draft.identity} onChange={(identity) => setDraft((current) => ({ ...current, identity }))} placeholder="用户身份" className="filter-control" options={identityOptions} />
         <DatePicker.RangePicker key={dateRangeKey} onChange={(_, values) => setDraft((current) => ({ ...current, date_from: values[0], date_to: values[1] }))} />
@@ -806,7 +815,7 @@ function UsersPage({ session }: { session: AdminSession }) {
         <Button onClick={resetFilters}>重置</Button>
       </FilterBar>
       <DataPanel title="用户数据" count={data?.total ?? 0} className="users-table-panel">
-        <Table rowKey={(row) => `${row.account_type}-${row.id}`} columns={columns} dataSource={users} loading={loading} size="small" tableLayout="fixed" scroll={{ x: 760, y: "calc(100dvh - 470px)" }} pagination={{ current: page, pageSize: 8, total: data?.total ?? 0, showSizeChanger: false, showTotal: (total) => `共 ${total} 条`, onChange: setPage }} />
+        <Table rowKey={(row) => `${row.account_type}-${row.id}`} columns={columns} dataSource={users} loading={loading} size="small" tableLayout="fixed" scroll={{ x: 1120, y: "calc(100dvh - 470px)" }} pagination={{ current: page, pageSize: 8, total: data?.total ?? 0, showSizeChanger: false, showTotal: (total) => `共 ${total} 条`, onChange: setPage }} />
       </DataPanel>
     </PagePanel>
   );
@@ -1182,7 +1191,7 @@ function AppVersionsPage({ session }: { session: AdminSession }) {
   }
 
   const columns: ColumnsType<AppVersionItem> = [
-    { title: "操作平台", dataIndex: "platform" },
+    { title: "操作平台", dataIndex: "platform", render: (value: AppVersionItem["platform"]) => appVersionPlatformLabel(value) },
     { title: "最低支持版本", dataIndex: "min_supported_version" },
     { title: "建议更新版本", dataIndex: "recommended_version", render: (value: string) => <Text className="accent-text">{value}</Text> },
     { title: "强制更新", dataIndex: "force_update", render: (value: boolean) => value ? "开启" : "关闭" },
@@ -1223,7 +1232,11 @@ function AppVersionsPage({ session }: { session: AdminSession }) {
         extra={<Button type="text" onClick={() => setEditing(null)}>×</Button>}
       >
         <Form form={form} layout="vertical" onFinish={saveVersion} requiredMark={false}>
-          <Form.Item name="platform" label="操作平台">
+          <Form.Item
+            name="platform"
+            label="操作平台"
+            getValueProps={(value: AppVersionItem["platform"]) => ({ value: appVersionPlatformLabel(value) })}
+          >
             <Input disabled />
           </Form.Item>
           <div className="two-col-form">
@@ -1750,7 +1763,10 @@ function errorMessage(error: unknown) {
 }
 
 const environmentOptions = [{ value: "production", label: "Production" }, { value: "development", label: "Development" }];
-const userPlatformOptions = ["iOS", "Android", "web"].map((value) => ({ value, label: value }));
+const userPlatformOptions = [
+  { value: "ios", label: "iOS" },
+  { value: "android", label: "Android" },
+];
 const identityOptions = [
   { value: "google", label: "Google" }, { value: "anonymous", label: "游客" },
   { value: "apple", label: "Apple" }, { value: "email", label: "邮箱" },

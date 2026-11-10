@@ -1,4 +1,5 @@
-gradle-wrapper.jar
+# Keep the wrapper executable under version control so its implementation is reviewed.
+!gradle/wrapper/gradle-wrapper.jar
 /.gradle
 /captures/
 /gradlew
@@ -12,3 +13,4 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+**/google-services.json

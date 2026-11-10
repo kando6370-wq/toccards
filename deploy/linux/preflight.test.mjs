@@ -62,8 +62,9 @@ test("preflight lists missing migrations and checks the recognition contract usi
   assert.equal(healthRequest, 2);
 });
 
-test("preflight refuses a major-version mismatch, stopped database or schema newer than the release", async () => {
+test("preflight refuses an unsupported PostgreSQL version, stopped database or schema newer than the release", async () => {
   await assert.rejects(runPreflight(root, environment, (args) => databaseCommand(args, { version: "160010" })), /PostgreSQL 18/);
+  await assert.rejects(runPreflight(root, environment, (args) => databaseCommand(args, { version: "180005" })), /PostgreSQL 18\.6/);
   await assert.rejects(runPreflight(root, environment, (args) => args[0] === "inspect" ? "false" : databaseCommand(args)), /database is stopped/);
   await assert.rejects(runPreflight(root, environment, (args) => databaseCommand(args, { migrations: [...migrations, "9999_unknown.sql"] })), /ahead of this release/);
 });

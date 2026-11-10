@@ -92,9 +92,11 @@ void main() {
         'cardx.year.trial',
       ]),
     );
-    final testYearlyTrial = testAdditional.singleWhere(
-      (entry) => (entry as Map)['product_id'] == 'cardx.year.trial',
-    ) as Map;
+    final testYearlyTrial =
+        testAdditional.singleWhere(
+              (entry) => (entry as Map)['product_id'] == 'cardx.year.trial',
+            )
+            as Map;
     expect(testYearlyTrial['plan_id'], 'yearly_trial');
     expect(testYearlyTrial['product_type'], 'subscription');
     expect(testYearlyTrial['is_trial_product'], isTrue);
@@ -112,9 +114,11 @@ void main() {
         'CardAi.yearly.trial',
       ]),
     );
-    final productionYearlyTrial = productionAdditional.singleWhere(
-      (entry) => (entry as Map)['product_id'] == 'CardAi.yearly.trial',
-    ) as Map;
+    final productionYearlyTrial =
+        productionAdditional.singleWhere(
+              (entry) => (entry as Map)['product_id'] == 'CardAi.yearly.trial',
+            )
+            as Map;
     expect(productionYearlyTrial['plan_id'], 'yearly_trial');
     expect(productionYearlyTrial['product_type'], 'subscription');
     expect(productionYearlyTrial['is_trial_product'], isTrue);
@@ -205,7 +209,7 @@ void main() {
   );
 
   test(
-    'unconfigured builds default to production because the default app identity is production',
+    'Android test builds use the beta application ID while production identities remain explicit',
     () {
       final apiEnvironment = File(
         'lib/shared/api/api_environment.dart',
@@ -217,12 +221,42 @@ void main() {
         'android/app/build.gradle.kts',
       ).readAsStringSync();
 
-      expect(apiEnvironment, contains("defaultValue: 'production'"));
+      expect(apiEnvironment, contains("defaultValue: 'test'"));
       expect(
         'PRODUCT_BUNDLE_IDENTIFIER = com.cardai.tcg;'.allMatches(iosProject),
         hasLength(3),
       );
-      expect(androidBuild, contains('applicationId = "com.cardai.tcg"'));
+      expect(androidBuild, contains('"com.kando.kandoApp.beta"'));
+      expect(androidBuild, contains('System.getenv("ANDROID_APPLICATION_ID")'));
+      expect(androidBuild, contains('ANDROID_PLAY_CLOUD_PROJECT_NUMBER'));
+      expect(androidBuild, contains('ANDROID_FIREBASE_CONFIG_PATH'));
+      expect(androidBuild, contains('com.google.gms.google-services'));
+      expect(androidBuild, contains('cardvault-debug.keystore'));
+      expect(androidBuild, contains('prepareProjectDebugKeystore'));
+      expect(
+        androidBuild,
+        isNot(contains('rootProject.file("key.properties")')),
+      );
+      final androidManifest = File(
+        'android/app/src/main/AndroidManifest.xml',
+      ).readAsStringSync();
+      for (final permission in [
+        'android.permission.READ_EXTERNAL_STORAGE',
+        'android.permission.WRITE_EXTERNAL_STORAGE',
+        'android.permission.READ_MEDIA_IMAGES',
+        'android.permission.READ_MEDIA_VIDEO',
+        'com.android.vending.BILLING',
+      ]) {
+        expect(
+          androidManifest,
+          contains(
+            RegExp(
+              '<uses-permission\\s+android:name="${RegExp.escape(permission)}"\\s+'
+              'tools:node="remove"\\s*/>',
+            ),
+          ),
+        );
+      }
     },
   );
 

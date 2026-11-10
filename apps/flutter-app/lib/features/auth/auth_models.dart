@@ -2,6 +2,8 @@ enum OwnerType { anonymous, user }
 
 enum LoginMethod { email, google, apple }
 
+enum AppPlatform { ios, android }
+
 extension LoginMethodDisplay on LoginMethod {
   String get displayName => name.toUpperCase();
 }
@@ -15,6 +17,8 @@ class AuthSession {
     this.userId,
     this.email,
     this.loginMethod,
+    this.platform,
+    this.dataSpaceId,
   });
 
   final OwnerType ownerType;
@@ -24,6 +28,8 @@ class AuthSession {
   final String? userId;
   final String? email;
   final LoginMethod? loginMethod;
+  final AppPlatform? platform;
+  final String? dataSpaceId;
 
   bool get isAnonymous => ownerType == OwnerType.anonymous;
   bool get isUser => ownerType == OwnerType.user;

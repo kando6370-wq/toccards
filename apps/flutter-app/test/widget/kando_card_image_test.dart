@@ -141,6 +141,56 @@ void main() {
     },
   );
 
+  test(
+    'an asynchronous decode failure evicts the provider key so card art can retry',
+    () async {
+      final imageCache = PaintingBinding.instance.imageCache;
+      imageCache.clear();
+      imageCache.clearLiveImages();
+      final dio = Dio()..httpClientAdapter = _ImageAdapter();
+      final provider = KandoNetworkImage(
+        'https://img.example/retry-card.png',
+        dio: dio,
+      );
+      final key = await provider.obtainKey(ImageConfiguration.empty);
+      final cachedImage = Completer<ImageInfo>();
+      imageCache.putIfAbsent(
+        key,
+        () => OneFrameImageStreamCompleter(cachedImage.future),
+      );
+      expect(imageCache.statusForKey(key).pending, isTrue);
+
+      final decodeFailed = Completer<void>();
+      final stream = provider.loadImage(
+        key,
+        (buffer, {getTargetSize}) async {
+          buffer.dispose();
+          await Future<void>.delayed(Duration.zero);
+          throw StateError('asynchronous decode failed');
+        },
+      );
+      final listener = ImageStreamListener(
+        (_, _) {},
+        onError: (_, _) {
+          if (!decodeFailed.isCompleted) decodeFailed.complete();
+        },
+      );
+      stream.addListener(listener);
+      await decodeFailed.future.timeout(const Duration(seconds: 5));
+      await Future<void>.delayed(Duration.zero);
+      stream.removeListener(listener);
+
+      expect(imageCache.statusForKey(key).untracked, isTrue);
+      var retried = false;
+      imageCache.putIfAbsent(key, () {
+        retried = true;
+        return OneFrameImageStreamCompleter(Completer<ImageInfo>().future);
+      });
+      expect(retried, isTrue);
+      imageCache.evict(key);
+    },
+  );
+
   testWidgets(
     'card image keeps its display box when decode sizing is enabled',
     (tester) async {

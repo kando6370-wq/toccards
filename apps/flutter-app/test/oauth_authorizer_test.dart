@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/oauth_authorizer.dart';
 
@@ -5,6 +6,8 @@ void main() {
   test(
     'uses the production iOS audience so Workers can verify the token',
     () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
       String? configuredClientId;
       String? configuredServerClientId;
       final authorizer = PlatformOAuthAuthorizer.testing(
@@ -24,6 +27,22 @@ void main() {
       expect(configuredServerClientId, isNull);
     },
   );
+
+  test('Android leaves the client ID to the platform configuration', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    String? configuredClientId;
+    final authorizer = PlatformOAuthAuthorizer.testing(
+      appleClient: _AppleClient(result: null),
+      googleInitializer: ({clientId, serverClientId}) async {
+        configuredClientId = clientId;
+      },
+    );
+
+    await authorizer.initialize();
+
+    expect(configuredClientId, isNull);
+  });
 
   test(
     'routes Apple authorization through the native client because Apple proof must reach Workers',

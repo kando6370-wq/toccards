@@ -12,6 +12,9 @@ const OWNER: AuthenticatedOwner = {
   owner_type: "user",
   owner_id: "100001",
   session_id: "session-1",
+  platform: "ios",
+  user_id: "100001",
+  data_space_id: "100001",
 };
 
 describe("server-authoritative scan quota", () => {

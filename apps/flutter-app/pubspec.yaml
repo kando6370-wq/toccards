@@ -16,14 +16,14 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.7+193
+version: 1.0.7+205
 
 # 归属根 Dart pub workspace（见仓库根 pubspec.yaml）；依赖由工作区统一解析。
 resolution: workspace
 
 environment:
   sdk: ^3.9.2
-  flutter: '>=3.44.0'
+  flutter: '>=3.47.9'
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -101,11 +101,27 @@ flutter:
   uses-material-design: true
 
   fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Inter-ExtraBold.ttf
+          weight: 800
+        - asset: assets/fonts/Inter-Italic.ttf
+          weight: 400
+          style: italic
     - family: Fraunces
       fonts:
         - asset: assets/fonts/Baskerville-BaskervilleSemiBold.ttf
 
   assets:
+    - assets/fonts/Inter-LICENSE.txt
     - assets/auth/
     - assets/branding/
     - assets/collection/

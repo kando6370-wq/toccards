@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 
@@ -6,6 +7,7 @@ ThemeData buildKandoTheme() {
 
   return ThemeData(
     colorScheme: colorScheme,
+    fontFamily: kandoBodyFontFamily(defaultTargetPlatform),
     useMaterial3: true,
     scaffoldBackgroundColor: KandoColors.ink,
     appBarTheme: AppBarTheme(

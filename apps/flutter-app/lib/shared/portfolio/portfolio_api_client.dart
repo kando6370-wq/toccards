@@ -226,10 +226,14 @@ class CollectionPageDto {
 
   factory CollectionPageDto.fromJson(Map<String, Object?> json) {
     return CollectionPageDto(
-      folders: _itemsFrom(json['folders']).map(PortfolioFolderDto.fromJson).toList(),
+      folders: _itemsFrom(
+        json['folders'],
+      ).map(PortfolioFolderDto.fromJson).toList(),
       preference: UserPreferenceDto.fromJson(_mapItem(json['preference'])),
       folderId: _nullableString(json['folder_id']),
-      items: _itemsFrom(json['items']).map(CollectionDashboardItemDto.fromJson).toList(),
+      items: _itemsFrom(
+        json['items'],
+      ).map(CollectionDashboardItemDto.fromJson).toList(),
       total: _requiredInt(json['total']),
       baseCount: _nullableInt(json['base_count']),
       page: _requiredInt(json['page']),
@@ -282,7 +286,9 @@ class CollectionSummaryDto {
 
   factory CollectionSummaryDto.fromJson(Map<String, Object?> json) {
     return CollectionSummaryDto(
-      folders: _itemsFrom(json['folders']).map(CollectionFolderSummaryDto.fromJson).toList(),
+      folders: _itemsFrom(
+        json['folders'],
+      ).map(CollectionFolderSummaryDto.fromJson).toList(),
       wishlistCount: _requiredInt(json['wishlist_count']),
       wishlistLanguages: _stringsFrom(json['wishlist_languages']),
       games: json['games'] == null ? const [] : _stringsFrom(json['games']),
@@ -303,9 +309,13 @@ class PortfolioCardAssetsDto {
 
   factory PortfolioCardAssetsDto.fromJson(Map<String, Object?> json) {
     return PortfolioCardAssetsDto(
-      folders: _itemsFrom(json['folders']).map(PortfolioFolderDto.fromJson).toList(),
+      folders: _itemsFrom(
+        json['folders'],
+      ).map(PortfolioFolderDto.fromJson).toList(),
       items: _itemsFrom(json['items']).map(PortfolioItemDto.fromJson).toList(),
-      wishlistItems: _itemsFrom(json['wishlist_items']).map(WishlistItemDto.fromJson).toList(),
+      wishlistItems: _itemsFrom(
+        json['wishlist_items'],
+      ).map(WishlistItemDto.fromJson).toList(),
     );
   }
 }
@@ -921,7 +931,8 @@ class PortfolioApiClient
         'page_size': kandoPageSize,
         if (games.isNotEmpty) 'game': games.toList(),
         if (languages.isNotEmpty) 'language': languages.toList(),
-        if (performanceItemIds.isNotEmpty) 'performance_id': performanceItemIds.toList(),
+        if (performanceItemIds.isNotEmpty)
+          'performance_id': performanceItemIds.toList(),
       },
     );
     return CollectionPageDto.fromJson(data);
@@ -945,8 +956,7 @@ class PortfolioApiClient
     String name, {
     bool localPremiumVerified = false,
   }) async {
-    final ownerId =
-        session.userId ?? session.anonymousId ?? session.accessToken;
+    final ownerId = _portfolioOwnerKey(session);
     final operationKey =
         '${session.ownerType.name}\u0000$ownerId\u0000${name.trim()}';
     final requestId = _pendingFolderRequestIds.putIfAbsent(
@@ -1184,8 +1194,7 @@ class PortfolioApiClient
     String? idempotencyKey,
     bool includeCardRef = true,
   }) async {
-    final ownerId =
-        session.userId ?? session.anonymousId ?? session.accessToken;
+    final ownerId = _portfolioOwnerKey(session);
     final operationKey = jsonEncode({
       'owner_type': session.ownerType.name,
       'owner_id': ownerId,
@@ -1248,8 +1257,7 @@ class PortfolioApiClient
     AuthSession session,
     String cardRef,
   ) async {
-    final ownerId =
-        session.userId ?? session.anonymousId ?? session.accessToken;
+    final ownerId = _portfolioOwnerKey(session);
     final operationKey = jsonEncode({
       'owner_type': session.ownerType.name,
       'owner_id': ownerId,
@@ -1361,6 +1369,12 @@ class PortfolioApiClient
       statusCode: statusCode,
     );
   }
+}
+
+String _portfolioOwnerKey(AuthSession session) {
+  final baseId = session.userId ?? session.anonymousId ?? session.accessToken;
+  return '${session.ownerType.name}\u0000${session.platform?.name ?? 'legacy'}'
+      '\u0000${session.dataSpaceId ?? baseId}';
 }
 
 List<Map<String, Object?>> _items(Map<String, Object?> data) {

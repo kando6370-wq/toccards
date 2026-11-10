@@ -404,7 +404,7 @@ test('marketing composites are disclosed as illustrative examples', async () => 
 
 test('sitemap matches the production XML structure and uses explicit lastmod values', async () => {
   const sitemap = await readFile(sitemapPath, 'utf8');
-  const lines = sitemap.trimEnd().split('\n');
+  const lines = sitemap.trimEnd().split(/\r?\n/);
   const entryLines = lines.slice(2, -1);
   const entries = entryLines.map((line) => {
     const match = line.match(/^<url><loc>(https:\/\/tcgcard\.fun(?:\/[^<]*)?)<\/loc><lastmod>(\d{4}-\d{2}-\d{2})<\/lastmod><\/url>$/);

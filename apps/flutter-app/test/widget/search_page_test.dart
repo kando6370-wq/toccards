@@ -26,6 +26,7 @@ import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/portfolio/pending_collection.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
+import 'package:kando_app/shared/platform/app_commercial_policy.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/kando_bottom_sheet_page.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
@@ -588,7 +589,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: _searchOverrides(),
-        child: const _SearchTestApp(),
+        child: const _SearchTestApp(platform: TargetPlatform.iOS),
       ),
     );
     await tester.pumpAndSettle();
@@ -630,6 +631,12 @@ void main() {
       350,
     );
     expect(
+      tester
+          .getSize(find.byKey(const Key('search-set-mega-evolution-promos')))
+          .height,
+      102,
+    );
+    expect(
       tester.getSize(
         find.byKey(const Key('search-set-image-mega-evolution-promos')),
       ),
@@ -649,6 +656,41 @@ void main() {
     expect(find.byKey(const Key('pending-collection-notice')), findsOneWidget);
     expect(find.text('Charizard ex'), findsOneWidget);
   });
+
+  testWidgets(
+    'Android Sets rows grow with 1.2x text instead of clipping metadata',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(320, 711);
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: _searchOverrides(),
+          child: const _SearchTestApp(
+            platform: TargetPlatform.android,
+            textScale: 1.2,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sets'));
+      await tester.pumpAndSettle();
+
+      final row = find.byKey(const Key('search-set-mega-evolution-promos'));
+      final metadata = find.descendant(
+        of: row,
+        matching: find.text('2025 · 124 cards'),
+      );
+      expect(row, findsOneWidget);
+      expect(metadata, findsOneWidget);
+      expect(
+        tester.getRect(metadata).bottom,
+        lessThanOrEqualTo(tester.getRect(row).bottom),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'Sets keeps its rows and spacing while scrolling loads the next page',
@@ -1259,67 +1301,73 @@ void main() {
     );
   });
 
+  testWidgets('pending Review keeps its action area above the keyboard', (
+    tester,
+  ) async {
+    tester.view.padding = const FakeViewPadding(bottom: 34);
+    tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+    addTearDown(tester.view.resetPadding);
+    addTearDown(tester.view.resetViewPadding);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [..._searchOverrides(), ..._cardDetailOverrides()],
+        child: const _SearchTestAppWithRoutes(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('search-collect-squirtle')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('pending-collection-notice')));
+    await tester.pumpAndSettle();
+
+    final sheet = find.byKey(const Key('card-detail-add-item-sheet'));
+    final submit = find.byKey(const Key('card-detail-item-submit'));
+    final notes = find.descendant(
+      of: find.byKey(const Key('card-detail-item-notes')),
+      matching: find.byType(TextFormField),
+    );
+    await tester.ensureVisible(notes);
+    await tester.showKeyboard(notes);
+    await tester.pump();
+    final sheetBottomBefore = tester.getRect(sheet).bottom;
+    final submitBottomBefore = tester.getRect(submit).bottom;
+    final scrollable = find.descendant(
+      of: find.byKey(const Key('card-detail-add-item-scroll')),
+      matching: find.byType(Scrollable),
+    );
+    final scrollPosition = tester
+        .state<ScrollableState>(scrollable.first)
+        .position;
+    final scrollOffsetBefore = scrollPosition.pixels;
+
+    tester.view.viewInsets = FakeViewPadding(
+      bottom: 300 * tester.view.devicePixelRatio,
+    );
+    tester.view.padding = FakeViewPadding.zero;
+    await tester.pumpAndSettle();
+
+    expect(tester.getRect(sheet).bottom, closeTo(sheetBottomBefore, 0.01));
+    final viewportHeight =
+        tester.view.physicalSize.height / tester.view.devicePixelRatio;
+    expect(
+      tester.getRect(submit).bottom,
+      closeTo(submitBottomBefore - 300, 0.01),
+    );
+    expect(
+      tester.getRect(submit).bottom,
+      lessThanOrEqualTo(viewportHeight - 300),
+    );
+    expect(scrollPosition.pixels, greaterThan(scrollOffsetBefore));
+    expect(
+      tester.getRect(notes).bottom,
+      lessThanOrEqualTo(viewportHeight - 300),
+    );
+  });
+
   testWidgets(
-    'pending Review keeps its action area fixed when the keyboard opens',
-    (tester) async {
-      tester.view.padding = const FakeViewPadding(bottom: 34);
-      tester.view.viewPadding = const FakeViewPadding(bottom: 34);
-      addTearDown(tester.view.resetPadding);
-      addTearDown(tester.view.resetViewPadding);
-      addTearDown(tester.view.resetViewInsets);
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [..._searchOverrides(), ..._cardDetailOverrides()],
-          child: const _SearchTestAppWithRoutes(),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byKey(const Key('search-collect-squirtle')));
-      await tester.pump();
-      await tester.tap(find.byKey(const Key('pending-collection-notice')));
-      await tester.pumpAndSettle();
-
-      final sheet = find.byKey(const Key('card-detail-add-item-sheet'));
-      final submit = find.byKey(const Key('card-detail-item-submit'));
-      final notes = find.descendant(
-        of: find.byKey(const Key('card-detail-item-notes')),
-        matching: find.byType(TextFormField),
-      );
-      await tester.ensureVisible(notes);
-      await tester.showKeyboard(notes);
-      await tester.pump();
-      final sheetBottomBefore = tester.getRect(sheet).bottom;
-      final submitBottomBefore = tester.getRect(submit).bottom;
-      final scrollable = find.descendant(
-        of: find.byKey(const Key('card-detail-add-item-scroll')),
-        matching: find.byType(Scrollable),
-      );
-      final scrollPosition = tester
-          .state<ScrollableState>(scrollable.first)
-          .position;
-      final scrollOffsetBefore = scrollPosition.pixels;
-
-      tester.view.viewInsets = FakeViewPadding(
-        bottom: 300 * tester.view.devicePixelRatio,
-      );
-      tester.view.padding = FakeViewPadding.zero;
-      await tester.pumpAndSettle();
-
-      expect(tester.getRect(sheet).bottom, closeTo(sheetBottomBefore, 0.01));
-      expect(tester.getRect(submit).bottom, closeTo(submitBottomBefore, 0.01));
-      final viewportHeight =
-          tester.view.physicalSize.height / tester.view.devicePixelRatio;
-      expect(scrollPosition.pixels, greaterThan(scrollOffsetBefore));
-      expect(
-        tester.getRect(notes).bottom,
-        lessThanOrEqualTo(viewportHeight - 300),
-      );
-    },
-  );
-
-  testWidgets(
-    'multiple pending Review keeps its taller action area fixed when the keyboard opens',
+    'multiple pending Review keeps its taller action area above the keyboard',
     (tester) async {
       tester.view.padding = const FakeViewPadding(bottom: 34);
       tester.view.viewPadding = const FakeViewPadding(bottom: 34);
@@ -1355,7 +1403,7 @@ void main() {
       expect(tester.getRect(sheet).bottom, closeTo(sheetBottomBefore, 0.01));
       expect(
         tester.getRect(deleteAll).bottom,
-        closeTo(deleteAllBottomBefore, 0.01),
+        closeTo(deleteAllBottomBefore - 300, 0.01),
       );
     },
   );
@@ -2633,6 +2681,9 @@ void main() {
 _localAuthOverrides() {
   final storage = InMemoryAuthStorage();
   return [
+    appCommercialPolicyProvider.overrideWithValue(
+      const AppCommercialPolicy(isAndroidFreeLaunch: false),
+    ),
     authStorageProvider.overrideWithValue(storage),
     authRepositoryProvider.overrideWithValue(
       LocalPlaceholderAuthRepository(storage),
@@ -2650,11 +2701,25 @@ _cardDetailOverrides() {
 }
 
 class _SearchTestApp extends StatelessWidget {
-  const _SearchTestApp();
+  const _SearchTestApp({this.platform, this.textScale = 1});
+
+  final TargetPlatform? platform;
+  final double textScale;
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(home: SearchPage());
+    return MaterialApp(
+      theme: platform == null ? null : ThemeData().copyWith(platform: platform),
+      builder: textScale == 1
+          ? null
+          : (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: TextScaler.linear(textScale)),
+              child: child!,
+            ),
+      home: const SearchPage(),
+    );
   }
 }
 

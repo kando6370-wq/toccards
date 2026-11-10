@@ -13,6 +13,7 @@ import 'package:kando_app/shared/ui/toast.dart';
 
 import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
+import '../../shared/platform/app_commercial_policy.dart';
 import '../subscription/subscription_controller.dart';
 import '../subscription/subscription_entitlement_cache.dart';
 import '../subscription/premium_top_entry.dart';
@@ -75,7 +76,9 @@ class _CollectionPageState extends ConsumerState<CollectionPage> {
                         delegate: _CollectionControlsHeaderDelegate(
                           extent: state.loadStatus == KandoLoadStatus.content
                               ? state.selectedTab == CollectionTab.portfolio
-                                    ? _CollectionControlsHeader.portfolioExtent
+                                    ? _CollectionControlsHeader.portfolioExtentFor(
+                                        context,
+                                      )
                                     : _CollectionControlsHeader.wishlistExtent
                               : _CollectionControlsHeader.loadingExtent,
                           child: _CollectionControlsHeader(
@@ -186,6 +189,13 @@ class _CollectionControlsHeader extends StatelessWidget {
   static const portfolioExtent = 246.0;
   static const wishlistExtent = 136.0;
   static const loadingExtent = 136.0;
+
+  static double portfolioExtentFor(BuildContext context) {
+    if (Theme.of(context).platform != TargetPlatform.android) {
+      return portfolioExtent;
+    }
+    return loadingExtent + _PortfolioSummaryCard.extentFor(context);
+  }
 
   final CollectionState state;
   final ValueChanged<CollectionTab> onSelectTab;
@@ -394,13 +404,47 @@ class _PortfolioSummaryCard extends StatelessWidget {
   final VoidCallback onFolderPressed;
   final VoidCallback onHidePressed;
 
+  static bool usesAndroidLargeTextLayout(BuildContext context) {
+    return Theme.of(context).platform == TargetPlatform.android &&
+        MediaQuery.textScalerOf(context).scale(14) > 14;
+  }
+
+  static double folderExtentFor(BuildContext context) {
+    final scaledLineHeight =
+        MediaQuery.textScalerOf(context).scale(14) * (24 / 14);
+    return (scaledLineHeight + 1).clamp(24.0, double.infinity).toDouble();
+  }
+
+  static double labelExtentFor(BuildContext context) {
+    final scaledLineHeight =
+        MediaQuery.textScalerOf(context).scale(14) * (20 / 14);
+    return scaledLineHeight.clamp(20.0, double.infinity).toDouble();
+  }
+
+  static double valueExtentFor(BuildContext context) {
+    final scaledLineHeight =
+        MediaQuery.textScalerOf(context).scale(24) * (40 / 24);
+    return scaledLineHeight.clamp(40.0, double.infinity).toDouble();
+  }
+
+  static double extentFor(BuildContext context) {
+    if (!usesAndroidLargeTextLayout(context)) return 110;
+    final headerExtent = folderExtentFor(context) > labelExtentFor(context)
+        ? folderExtentFor(context)
+        : labelExtentFor(context);
+    return (2 + 24 + headerExtent + 4 + valueExtentFor(context) + 16)
+        .ceilToDouble();
+  }
+
   @override
   Widget build(BuildContext context) {
     final summary = state.portfolioSummary;
+    final androidLargeText = usesAndroidLargeTextLayout(context);
+    final extent = extentFor(context);
     return Container(
       key: const Key('collection-portfolio-summary'),
       width: double.infinity,
-      height: 110,
+      height: extent,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         gradient: const LinearGradient(
@@ -432,53 +476,38 @@ class _PortfolioSummaryCard extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Column(
+              mainAxisSize: androidLargeText
+                  ? MainAxisSize.min
+                  : MainAxisSize.max,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'PORTFOLIO',
-                      style: TextStyle(
-                        fontSize: 14,
-                        height: 20 / 14,
-                        letterSpacing: 0.2,
-                        color: Color(0xFF92927D),
-                      ),
-                    ),
-                    _FolderButton(
-                      name: state.selectedFolder.name,
-                      onPressed: onFolderPressed,
-                    ),
-                  ],
+                _PortfolioSummaryHeaderRow(
+                  folderName: state.selectedFolder.name,
+                  onFolderPressed: onFolderPressed,
                 ),
                 const SizedBox(height: 4),
-                SizedBox(
-                  height: 40,
-                  child: Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          summary.totalValueText,
-                          key: const Key('collection-portfolio-total'),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            height: 40 / 24,
-                            fontWeight: FontWeight.w600,
-                            color: KandoColors.accent,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      _HideAmountButton(
-                        hidden: state.amountHidden,
-                        onPressed: onHidePressed,
-                      ),
-                    ],
+                if (androidLargeText)
+                  ConstrainedBox(
+                    key: const Key('collection-portfolio-value-row'),
+                    constraints: BoxConstraints(
+                      minHeight: valueExtentFor(context),
+                    ),
+                    child: _PortfolioValueRow(
+                      summary: summary,
+                      state: state,
+                      onHidePressed: onHidePressed,
+                    ),
+                  )
+                else
+                  SizedBox(
+                    key: const Key('collection-portfolio-value-row'),
+                    height: 40,
+                    child: _PortfolioValueRow(
+                      summary: summary,
+                      state: state,
+                      onHidePressed: onHidePressed,
+                    ),
                   ),
-                ),
                 SizedBox(
                   height: 16,
                   child: FittedBox(
@@ -526,6 +555,94 @@ class _PortfolioSummaryCard extends StatelessWidget {
   }
 }
 
+class _PortfolioSummaryHeaderRow extends StatelessWidget {
+  const _PortfolioSummaryHeaderRow({
+    required this.folderName,
+    required this.onFolderPressed,
+  });
+
+  final String folderName;
+  final VoidCallback onFolderPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    const label = Text(
+      'PORTFOLIO',
+      key: Key('collection-portfolio-label'),
+      maxLines: 1,
+      softWrap: false,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        fontSize: 14,
+        height: 20 / 14,
+        letterSpacing: 0.2,
+        color: Color(0xFF92927D),
+      ),
+    );
+    final folder = _FolderButton(name: folderName, onPressed: onFolderPressed);
+    if (!_PortfolioSummaryCard.usesAndroidLargeTextLayout(context)) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [label, folder],
+      );
+    }
+    return Row(
+      children: [
+        Expanded(
+          child: SizedBox(
+            height: _PortfolioSummaryCard.labelExtentFor(context),
+            child: const Align(alignment: Alignment.centerLeft, child: label),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Align(
+            alignment: Alignment.centerRight,
+            widthFactor: 1,
+            child: folder,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PortfolioValueRow extends StatelessWidget {
+  const _PortfolioValueRow({
+    required this.summary,
+    required this.state,
+    required this.onHidePressed,
+  });
+
+  final CollectionSummary summary;
+  final CollectionState state;
+  final VoidCallback onHidePressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Flexible(
+          child: Text(
+            summary.totalValueText,
+            key: const Key('collection-portfolio-total'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 24,
+              height: 40 / 24,
+              fontWeight: FontWeight.w600,
+              color: KandoColors.accent,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        _HideAmountButton(hidden: state.amountHidden, onPressed: onHidePressed),
+      ],
+    );
+  }
+}
+
 class _FolderButton extends StatelessWidget {
   const _FolderButton({required this.name, required this.onPressed});
 
@@ -534,13 +651,47 @@ class _FolderButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final content = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SvgPicture.asset(
+          'assets/home/folder_switch.svg',
+          key: const Key('collection-folder-switch-icon'),
+          width: 12,
+          height: 12,
+        ),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 14,
+              height: 24 / 14,
+              color: KandoColors.accent,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ),
+      ],
+    );
+    final androidLargeText = _PortfolioSummaryCard.usesAndroidLargeTextLayout(
+      context,
+    );
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onPressed,
       child: Container(
         key: const Key('collection-folder-button'),
-        height: 24,
-        constraints: const BoxConstraints(minWidth: 70, maxWidth: 150),
+        height: androidLargeText ? null : 24,
+        constraints: androidLargeText
+            ? BoxConstraints(
+                minWidth: 70,
+                maxWidth: 150,
+                minHeight: _PortfolioSummaryCard.folderExtentFor(context),
+              )
+            : const BoxConstraints(minWidth: 70, maxWidth: 150),
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
           color: KandoColors.accent.withValues(alpha: 0.05),
@@ -550,31 +701,7 @@ class _FolderButton extends StatelessWidget {
             width: 0.5,
           ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SvgPicture.asset(
-              'assets/home/folder_switch.svg',
-              key: const Key('collection-folder-switch-icon'),
-              width: 12,
-              height: 12,
-            ),
-            const SizedBox(width: 4),
-            Flexible(
-              child: Text(
-                name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 14,
-                  height: 24 / 14,
-                  color: KandoColors.accent,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-            ),
-          ],
-        ),
+        child: content,
       ),
     );
   }
@@ -1274,6 +1401,12 @@ Future<void> showPortfolioFolderSheet(BuildContext context, WidgetRef ref) {
                         shape: const StadiumBorder(),
                       ),
                       onPressed: () async {
+                        if (ref
+                            .read(appCommercialPolicyProvider)
+                            .hasFreePremiumFeatures) {
+                          await _runCreateFolderFlow(context, controller);
+                          return;
+                        }
                         var premiumState = ref
                             .read(subscriptionControllerProvider)
                             .premiumState;

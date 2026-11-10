@@ -24,6 +24,10 @@ export function loadLinuxRuntime(source: NodeJS.ProcessEnv = process.env): Linux
   if (trustProxy && trustProxy !== "true" && trustProxy !== "false") {
     throw new Error("EXTENSION_TRUST_PROXY must be true or false");
   }
+  const androidDevelopmentProof = optional(source, "ANDROID_INTEGRITY_ALLOW_DEVELOPMENT");
+  if (androidDevelopmentProof && androidDevelopmentProof !== "true" && androidDevelopmentProof !== "false") {
+    throw new Error("ANDROID_INTEGRITY_ALLOW_DEVELOPMENT must be true or false");
+  }
   const requestsPerMinute = positiveInteger(source, "EXTENSION_RECOGNITION_REQUESTS_PER_MINUTE", 60);
   const vectorRecognition = createHttpVectorRecognition(
     required(source, "VECTOR_RECOGNITION_BASE_URL"),
@@ -42,6 +46,12 @@ export function loadLinuxRuntime(source: NodeJS.ProcessEnv = process.env): Linux
     ALLOWED_ORIGINS: required(source, "ALLOWED_ORIGINS"),
     APP_ENVIRONMENT: "development",
     GOOGLE_CLIENT_ID: optional(source, "GOOGLE_CLIENT_ID"),
+    GOOGLE_ANDROID_SERVER_CLIENT_ID: optional(source, "GOOGLE_ANDROID_SERVER_CLIENT_ID"),
+    ANDROID_PLAY_PACKAGE_NAME: optional(source, "ANDROID_PLAY_PACKAGE_NAME"),
+    ANDROID_PLAY_CERTIFICATE_SHA256_DIGESTS: optional(source, "ANDROID_PLAY_CERTIFICATE_SHA256_DIGESTS"),
+    ANDROID_PLAY_SERVICE_ACCOUNT_EMAIL: optional(source, "ANDROID_PLAY_SERVICE_ACCOUNT_EMAIL"),
+    ANDROID_PLAY_SERVICE_ACCOUNT_PRIVATE_KEY: optional(source, "ANDROID_PLAY_SERVICE_ACCOUNT_PRIVATE_KEY"),
+    ANDROID_INTEGRITY_ALLOW_DEVELOPMENT: androidDevelopmentProof,
     APPLE_CLIENT_ID: optional(source, "APPLE_CLIENT_ID"),
     APPLE_IAP_BUNDLE_ID: optional(source, "APPLE_IAP_BUNDLE_ID"),
     APPLE_IAP_APP_ID: optional(source, "APPLE_IAP_APP_ID"),

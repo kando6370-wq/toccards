@@ -5,6 +5,9 @@
 ## 工作原则
 
 - 注意该项目app开发选择了Flutter而不是Ios或Android原生开发，所以开发要兼容两者,不能实现时，应先停止并询问。
+- 后续 App、共享 API、账号、数据和发布改动必须同时检查 Android 与 iOS，显式保留两端各自的业务规则，不得只按单端实现或验收。
+- Android 免费首版的扫描沿用当前 iOS 业务流程，仅取消 Android 订阅校验及对应的累计免费扫描额度限制；保留现有活动队列，不新增整批处理或跨设备扫描恢复。需求澄清见 `docs/releases/v1.1.4/05-delivery/android-free-first-release-review.md` 第 0.2 节。
+- Android 免费仅为首版商业策略；平台商业策略集中维护，为后续 Android 订阅留扩展点，不提前接入 Google Billing、建立未来付费额度或把 Android 永久标为 Premium。开发使用独立测试包名及 SDK 配置，正式 Android 标识、签名和 SDK 配置由独立打包环境注入，不复用本机既有正式签名。
 - 先读后写：修改前阅读目标文件、直接调用方、相关配置和已有测试。
 - 先明确假设：存在会改变实现或删除范围的歧义时，先停止并询问。
 - 保持简单：只实现当前需求，不增加猜测性功能或一次性抽象。
@@ -74,12 +77,13 @@ Marketing Web ──> 独立的营销与法律页面
 
 ## 工具链与常用命令
 
-- Node `>=22`，pnpm `11.9.0`，Dart SDK `^3.9.2`。
+- Node `^22.23.4`，pnpm `11.28.10`，Dart SDK `^3.13.7`，Flutter `>=3.47.9`。
+- Android 构建使用安全补丁 JDK `21.0.13+9`，须核对 Flutter／Gradle 的实际 JVM；App 的 Dart 3.9 语言模式不降低根 workspace 的安全 SDK 下限。
 - 安装 Node 依赖：`pnpm install --frozen-lockfile`
 - TypeScript 全仓构建：`pnpm build`
 - TypeScript 类型检查：`pnpm type-check`
 - App 兼容源码回归：`pnpm test:app-compatibility`；固定 v1.0.4/v1.0.5 提交，在本地内存 PostgreSQL 跑当前 API，再使用旧 Dart 客户端处理真实测试响应。覆盖配置、文件夹、额度及 C03 目录/价格/汇率的首批源码场景，不能替代正式制品/真机或完整 C01–C13 验收；命令不触发远程部署/迁移。
-- App 兼容 CI 定义：`.github/workflows/app-compatibility.yml`，固定检查名 `App compatibility (Windows)`；Windows/Node 22/pnpm 11.9.0/Flutter 3.44.7，完整获取标签、锁定安装依赖并构建 auth-core 后执行源码合同。覆盖目标 dev/main 的 PR 和 dev/main push，不设 PR 路径过滤；开发分支 push 不触发此兼容工作流，已有 PR 的后续提交仍触发 PR 检查。2026-10-13 已按用户授权删除远端规则集 24904725，兼容检查保留为异步反馈，不再作为 dev/main 推送或合并的强制门槛；无部署权限或业务 Secret。工作流定义、本地冷启动通过、GitHub 托管运行通过和分支 required check 生效是独立状态，不得混报；见 v1.1.2 兼容文档。
+- App 兼容 CI 定义：`.github/workflows/app-compatibility.yml`，固定检查名 `App compatibility (Windows)`；Windows/Node 22.23.4/pnpm 11.28.10/Flutter 3.47.9，完整获取标签、锁定安装依赖并构建 auth-core 后执行源码合同。覆盖目标 dev/main 的 PR 和 dev/main push，不设 PR 路径过滤；开发分支 push 不触发此兼容工作流，已有 PR 的后续提交仍触发 PR 检查。2026-10-13 已按用户授权删除远端规则集 24904725，兼容检查保留为异步反馈，不再作为 dev/main 推送或合并的强制门槛；无部署权限或业务 Secret。工作流定义、本地冷启动通过、GitHub 托管运行通过和分支 required check 生效是独立状态，不得混报；见 v1.1.2 兼容文档。
 - 依赖方向检查：`pnpm lint`
 - Workers 测试：`pnpm --filter @kando/workers-api test`；默认命令仅追加 `**/.wrangler/**` 排除规则，避免生成的发布包/诊断被误扫，不删除历史材料、不缩减其他既有测试范围。
 - Admin 测试：`pnpm --filter @kando/admin-web test`
@@ -87,7 +91,7 @@ Marketing Web ──> 独立的营销与法律页面
 - Dart/Flutter 分析：`dart run melos run analyze`
 - Dart/Flutter 测试：`dart run melos run test`
 
-GitLab Flutter CI 使用 3.44.0，GitHub iOS CI 使用 3.44.7。涉及工具链或 iOS 构建时以目标流水线为准；需要统一版本时，明确选择并同步修改所有约束。
+GitLab 与 GitHub Flutter CI 统一使用 3.47.9；GitLab 从官方 archive 安装并核验 SHA-256。2026-11-05 的升级依据、验证及发布边界见 `docs/releases/v1.1.4/02-architecture/security-stack-upgrade.md`。涉及工具链或 iOS 构建时以目标流水线为准，需要统一版本时同步修改所有约束。
 
 ## 架构约束
 

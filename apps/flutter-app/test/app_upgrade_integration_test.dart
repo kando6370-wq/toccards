@@ -17,6 +17,10 @@ void main() {
       'KandoApp starts enforcement at Home on $platform and retains it across route changes',
       (tester) async {
         var actions = 0;
+        final storeUrl = platform == TargetPlatform.android
+            ? 'https://play.google.com/store/apps/details?id=com.cardai.tcg'
+            : 'https://apps.apple.com/app/id6793017224';
+        final launcher = _StoreLauncher();
         final router = GoRouter(
           initialLocation: '/other',
           routes: [
@@ -46,11 +50,12 @@ void main() {
               authControllerProvider.overrideWith(_IdleAuthController.new),
               appRouterProvider.overrideWithValue(router),
               appUpgradeRepositoryProvider.overrideWithValue(
-                const _MandatoryUpgradeRepository(),
+                _MandatoryUpgradeRepository(storeUrl),
               ),
               installedVersionReaderProvider.overrideWithValue(
                 const _OldInstalledVersion(),
               ),
+              appStoreLauncherProvider.overrideWithValue(launcher),
             ],
             child: const KandoApp(),
           ),
@@ -64,6 +69,9 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('Update Now'), findsOneWidget);
         expect(find.text('LATER'), findsNothing);
+        await tester.tap(find.text('INSTALL'));
+        await tester.pumpAndSettle();
+        expect(launcher.openedUrls, [storeUrl]);
         await tester.tap(find.text('Use App'), warnIfMissed: false);
         await tester.tapAt(Offset.zero);
         await tester.binding.handlePopRoute();
@@ -83,19 +91,29 @@ class _IdleAuthController extends AuthController {
 }
 
 class _MandatoryUpgradeRepository implements AppUpgradeRepository {
-  const _MandatoryUpgradeRepository();
+  const _MandatoryUpgradeRepository(this.storeUrl);
+
+  final String storeUrl;
+
   @override
-  Future<AppUpgradeConfig> loadConfig() async => const AppUpgradeConfig(
+  Future<AppUpgradeConfig> loadConfig() async => AppUpgradeConfig(
     upgradePrompt: UpgradePrompt(
-      latestVersion: '1.0.1',
+      latestVersion: '1.0.2',
       minVersion: '1.0.1',
       forceUpdate: true,
       title: 'Update available',
       message: 'Please install the latest version.',
       forcedMessage: 'Please update to continue.',
-      storeUrl: 'https://apps.apple.com/app/id6793017224',
+      storeUrl: storeUrl,
     ),
   );
+}
+
+class _StoreLauncher implements AppStoreLauncher {
+  final openedUrls = <String>[];
+
+  @override
+  Future<void> open(String url) async => openedUrls.add(url);
 }
 
 class _OldInstalledVersion implements InstalledVersionReader {

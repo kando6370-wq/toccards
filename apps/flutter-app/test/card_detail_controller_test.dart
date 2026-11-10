@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
@@ -17,6 +18,7 @@ import 'package:kando_app/features/search/search_controller.dart';
 import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
+import 'package:kando_app/shared/platform/app_commercial_policy.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
@@ -28,6 +30,11 @@ import 'support/mock_home_repository.dart';
 import 'support/mock_search_repository.dart';
 
 void main() {
+  setUp(() {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+  });
+
   test(
     'collection grading options and database buckets stay aligned because every saved graded card must be priceable',
     () {
@@ -2096,6 +2103,10 @@ ProviderContainer _cardDetailContainer({
   final storage = InMemoryAuthStorage();
   return ProviderContainer(
     overrides: [
+      appCommercialPolicyProvider.overrideWithValue(
+        const AppCommercialPolicy(isAndroidFreeLaunch: false),
+      ),
+      authControllerProvider.overrideWith(_ReadyCardDetailAuthController.new),
       authStorageProvider.overrideWithValue(storage),
       authRepositoryProvider.overrideWithValue(
         LocalPlaceholderAuthRepository(storage),
@@ -2113,6 +2124,20 @@ ProviderContainer _cardDetailContainer({
         ),
       ],
     ],
+  );
+}
+
+class _ReadyCardDetailAuthController extends AuthController {
+  @override
+  AuthState build() => const AuthState.ready(
+    session: AuthSession(
+      ownerType: OwnerType.user,
+      accessToken: 'card-detail-access',
+      refreshToken: 'card-detail-refresh',
+      userId: 'card-detail-user',
+      platform: AppPlatform.ios,
+      dataSpaceId: 'card-detail-space',
+    ),
   );
 }
 
@@ -2317,15 +2342,14 @@ class _ScopedPortfolioApiClient extends _FakePortfolioApiClient
     return PortfolioCardAssetsDto(
       folders: const [
         PortfolioFolderDto(
-          id: 'main', name: 'Main', isDefault: true, sortOrder: 100,
+          id: 'main',
+          name: 'Main',
+          isDefault: true,
+          sortOrder: 100,
         ),
       ],
       items: [
-        _portfolioItem(
-          id: 'owned-pikachu',
-          cardRef: cardRef,
-          quantity: 2,
-        ),
+        _portfolioItem(id: 'owned-pikachu', cardRef: cardRef, quantity: 2),
       ],
       wishlistItems: const [],
     );
