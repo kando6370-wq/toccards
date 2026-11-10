@@ -134,3 +134,11 @@ pnpm --filter @kando/workers-api exec wrangler versions upload `
 专用 Play Integrity 服务账号的真实 OAuth Token 请求返回 HTTP 200；固定无效 Token 的解码探测返回 HTTP 400／`INVALID_ARGUMENT`。Token 仅在进程内使用，不输出或落盘。这证明凭据和接口可达，不等于真实 Play 安装证明通过；未新增 IAM 权限，真实 Token 解码仍待 Play 安装包验收。生产 Secret、API 配套迁移／发布及内部测试 AAB 上传尚未执行。
 
 第二次完整构建已通过外部 Firebase 任务，随后失败于 R8：Flutter ML Kit 插件将 Chinese／Devanagari／Korean 识别器声明为可选 `compileOnly`，但在脚本分流中直接引用其类型。当前 App 只创建 Latin 与 Japanese 识别器，Japanese 依赖已提供。最小处理仅加入 R8 自动建议的上述三种未使用脚本共六个具体类型的 `dontwarn`，不关闭 R8、不扩大到整个 ML Kit 包，也不引入未使用模型；修复后的完整 release 构建与两种实际 OCR 运行仍需分别验证。Android `.kotlin` 编译缓存加入忽略，保留既有缓存内容，避免构建输出使正式源码门禁误报。
+
+### 10:04 正式 AAB 与 0% API 候选检查点
+
+第三次完整构建成功，来源为干净的 `main@1e31a65f4bacf9af62b96d13893c92578a66af4c`，产物为 `com.cardai.tcg`／`1.0.7+206` release AAB。外部 Firebase、R8、正式 Upload 签名及 bundletool 校验通过，30 个原生库中 20 个 64 位库满足 ELF 16 KB 对齐。制品路径为 `D:/Downloads/CardAI-Packages/com.cardai.tcg/Android/CardAI-Prod-1.0.7-206/CardAI-Prod-1.0.7-206.aab`，112,346,826 字节，SHA-256 `15c1c6e3f49c16f427049c9199f1b764a86b9b7e6abc24f0d4c220e729584e89`；同目录保留三份 Dart 原生符号、R8 mapping、build-info 与逐文件 SHA-256。发布脚本成功归档后才将共享 `pubspec.yaml` 从 `1.0.7+205` 写为 `1.0.7+206`。此为本地正式制品验收，尚未从 Play 安装，也未完成真实 OCR／Google 登录／Integrity／统计崩溃验收。
+
+同一源码冻结 API／Admin 后创建未部署的 API 候选 `c02380d5-32b2-4e63-b8ef-68cbdf909ebe`，Worker 2,240,417 字节、SHA-256 `de9930f552657743acbf0723efe5009617dd72366bca5bbb64fedbc93ae89a55`，Admin 为同次构建的 11 个静态文件。独立回读确认旧 34 个 binding 描述符及原 17 个 Secret 名称保留，仅新增四项 Android 公开变量和一个 `ANDROID_PLAY_SERVICE_ACCOUNT_PRIVATE_KEY` Secret；runtime／placement 保持，未读取或比较原 Secret 明文。私钥只提取为仓库外受限临时文件传入候选，上传后中转文件已移除。当前活动 deployment 仍为 `481eeda4-9d84-4818-a539-1cf2b6abb964`／`a31cd853-63cb-482a-b4f5-d9f2bf276761`／100%，没有切流。历史 33 个 binding 的数量不覆盖本轮实时回读的 34 项真值。
+
+生产只读事务确认 PostgreSQL 18.6、ledger 精确为 `0000–0017` 的 18 项且 checksum 全部匹配，`0018` 与新增平台表／列／owner trigger 均不存在。迁移前手工备份 `7mb5sy3bszvh` 已创建，名称 `prod-main-a91ceb65-pre-0018-20261110`，默认到期日 2026-12-10；本检查点尚在生成，不能写成可恢复备份完成。Play 内部测试名单 `Card AI Internal 20261110` 已按用户提供邮箱保存并回读为 6 人，首个版本草稿仍未上传 AAB 或发布。现有管理员页面会话已到期，本轮不读取或输出登录凭据。
