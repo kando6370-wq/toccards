@@ -27,3 +27,13 @@ Jev 本轮返回：Delta 归属指南，confidence 0.91；UPC 归属指南但 co
 正式 `180a2c02` 已于 2026-11-08 回读生效，官网 Workers Build success，旧域名直接返回新页面。两文、原 scanner 地址、单卡和两榜均 200/index,follow/自指 canonical；两榜各 100 行；robots 放行公开内容并声明 sitemap；sitemap 索引两项、栏目/文章 68 项、单卡 1,056 项，原 key 200 且正文一致。浏览器确认博客有两篇新指南入口。
 
 IndexNow 首批 60 URL 返回 202（收到、等待 key 验证），最后 7 URL 返回 403 UserForbiddedToAccessSite，另发现 `/games/one-piece` 404。报告位于忽略目录 `.indexnow/reports/2026-11-07T16-21-20-717Z.json`，按工具退避不持续重试，不把通知等同收录。正式 games 只读回读确认真实游戏名为 `One Piece Card Game`，其原自动 slug 为 game-62；新增明确 one-piece 别名修复稳定栏目地址，并补目录路由回归。该修复只改新只读服务。
+
+## Google Play 平台删号页面候选（2026-11-10）
+
+为 Google Play Internal testing 准备公开账号删除说明，候选在新官网应用中新增 `/Account/AccountSetup`，说明 Android／iOS 平台范围、身份核验、另一端保留、旧会话撤销、重新注册及 iOS 订阅取消边界；页面保持公开可访问但 `noindex`，不加入 sitemap。`/privacy` 与旧首页保留的法律源同步平台范围删除文字。旧 `apps/marketing-web` 不作为发布入口，避免覆盖正式 `SITE_DATA` binding 和动态目录 Worker。
+
+受保护快照只更新 `/privacy` 的正文哈希；首页原 `<main>` 正文哈希保持不变，其法律弹层源文件仅同步相同文字。候选 release manifest 为 123 条路由，相对线上 `1f808c78` 的 122 条路由无缺失，只新增删号页；显式批准的 protected 差异仅 `/privacy`。其余 45 条受保护路由不变。
+
+本地使用 Node 22.23.4 完成官网 50／50 项测试、类型检查、静态构建、候选完整性校验及 production dry-run；构建 release ID 为 `685d68694945acf84c4168dc90ff826f9e1c7fab6c8f8618fb77338c76d27738`，dry-run 保留 `SITE_DATA`、assets、版本元数据及五项 production 变量。Windows 测试入口改用 `fileURLToPath`，受原字节保护的 legacy HTML 与 sitemap XML 固定 LF，未放宽哈希或正文保护。
+
+本轮只准备本地候选，没有上传版本、切换流量、修改 Cloudflare 配置、提交 IndexNow 或填写 Play Console。正式发布前仍需使用修复后的共享 lockfile执行 frozen install，刷新活动 deployment／version／binding 回退点；发布后回读删号页、隐私页、动态目录、榜单、sitemap、robots 和 release manifest，并确认支持邮箱的实际处理流程。

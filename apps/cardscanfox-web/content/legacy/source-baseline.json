@@ -8,7 +8,7 @@
       "path": "/",
       "file": "home.html",
       "status": 200,
-      "bytes": 94646,
+      "bytes": 95099,
       "title": "Card AI: TCG Card Scanner, Price Checker & Collection Tracker",
       "h1": [
         "Card AI."
@@ -200,7 +200,7 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "c40d6e4a47b8c61b506dd3104357868c2fce4c91aa5687a287d3ea80489503b6",
+      "htmlSha256": "979b36f5669398b9be0c8c56cd3d2d6d958ae40b482caa3c641f4d81ba6473b5",
       "localPublicFile": "apps/marketing-web/public/index.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented"
@@ -2468,7 +2468,7 @@
       "path": "/privacy",
       "file": "privacy.html",
       "status": 200,
-      "bytes": 22640,
+      "bytes": 23039,
       "title": "Privacy Policy | Card AI",
       "h1": [
         "Privacy Policy"
@@ -2493,18 +2493,19 @@
         "17. Contact Us"
       ],
       "canonical": null,
-      "normalizedBodySha256": "bc69a9cc3846846d9e94562a108c3ed789e902f1a87df8a3ff18f451fc32ac44",
-      "bodyCharacters": 14685,
-      "wordCount": 2153,
+      "normalizedBodySha256": "6024a373b109660f456d4e0624c8d9abb36ee2ff119841d4ad2098bb469fadf0",
+      "bodyCharacters": 15052,
+      "wordCount": 2216,
       "tableRows": 0,
       "contentLinks": [
+        "/Account/AccountSetup",
         "https://tcgcard.fun",
         "https://tcgcard.fun/privacy",
         "https://tcgcard.fun/terms",
         "mailto:support@tcgcard.fun"
       ],
       "contentImages": [],
-      "htmlSha256": "c33c6e62dd28666d39b193a02905667a0a767f278614c57079d0775a9f3c2482",
+      "htmlSha256": "d9bb3f7dd1c726fce30bdc0b13f0031fe336b0a1216deeb44be1cfb991c17338",
       "localPublicFile": "apps/marketing-web/public/privacy.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented"
