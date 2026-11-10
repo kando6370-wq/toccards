@@ -132,3 +132,5 @@ pnpm --filter @kando/workers-api exec wrangler versions upload `
 首次 release AAB 构建失败于 `processReleaseGoogleServices`：Google Services 4.4.4 后注册的 variant 任务覆盖了通用 `configureEach` 中设置的外部文件输入。最小修复在插件完成各 variant 的任务注册后，通过后注册的 `androidComponents.onVariants` 回调设置命名任务输入，不复制配置进源码。实际独立执行该 release Gradle 任务成功，生成资源中的 project ID、Android App ID 与 Web audience 均与批准配置一致，外部 JSON SHA-256 未变，源码目录中没有 `google-services.json`。完整 AAB 仍待重试，不能把此任务通过写成制品完成。
 
 专用 Play Integrity 服务账号的真实 OAuth Token 请求返回 HTTP 200；固定无效 Token 的解码探测返回 HTTP 400／`INVALID_ARGUMENT`。Token 仅在进程内使用，不输出或落盘。这证明凭据和接口可达，不等于真实 Play 安装证明通过；未新增 IAM 权限，真实 Token 解码仍待 Play 安装包验收。生产 Secret、API 配套迁移／发布及内部测试 AAB 上传尚未执行。
+
+第二次完整构建已通过外部 Firebase 任务，随后失败于 R8：Flutter ML Kit 插件将 Chinese／Devanagari／Korean 识别器声明为可选 `compileOnly`，但在脚本分流中直接引用其类型。当前 App 只创建 Latin 与 Japanese 识别器，Japanese 依赖已提供。最小处理仅加入 R8 自动建议的上述三种未使用脚本共六个具体类型的 `dontwarn`，不关闭 R8、不扩大到整个 ML Kit 包，也不引入未使用模型；修复后的完整 release 构建与两种实际 OCR 运行仍需分别验证。Android `.kotlin` 编译缓存加入忽略，保留既有缓存内容，避免构建输出使正式源码门禁误报。

@@ -1,6 +1,7 @@
 # Keep the wrapper executable under version control so its implementation is reviewed.
 !gradle/wrapper/gradle-wrapper.jar
 /.gradle
+/.kotlin
 /captures/
 /gradlew
 /gradlew.bat
