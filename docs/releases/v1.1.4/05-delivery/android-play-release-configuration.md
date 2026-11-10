@@ -142,3 +142,11 @@ pnpm --filter @kando/workers-api exec wrangler versions upload `
 同一源码冻结 API／Admin 后创建未部署的 API 候选 `c02380d5-32b2-4e63-b8ef-68cbdf909ebe`，Worker 2,240,417 字节、SHA-256 `de9930f552657743acbf0723efe5009617dd72366bca5bbb64fedbc93ae89a55`，Admin 为同次构建的 11 个静态文件。独立回读确认旧 34 个 binding 描述符及原 17 个 Secret 名称保留，仅新增四项 Android 公开变量和一个 `ANDROID_PLAY_SERVICE_ACCOUNT_PRIVATE_KEY` Secret；runtime／placement 保持，未读取或比较原 Secret 明文。私钥只提取为仓库外受限临时文件传入候选，上传后中转文件已移除。当前活动 deployment 仍为 `481eeda4-9d84-4818-a539-1cf2b6abb964`／`a31cd853-63cb-482a-b4f5-d9f2bf276761`／100%，没有切流。历史 33 个 binding 的数量不覆盖本轮实时回读的 34 项真值。
 
 生产只读事务确认 PostgreSQL 18.6、ledger 精确为 `0000–0017` 的 18 项且 checksum 全部匹配，`0018` 与新增平台表／列／owner trigger 均不存在。迁移前手工备份 `7mb5sy3bszvh` 已创建，名称 `prod-main-a91ceb65-pre-0018-20261110`，默认到期日 2026-12-10；本检查点尚在生成，不能写成可恢复备份完成。Play 内部测试名单 `Card AI Internal 20261110` 已按用户提供邮箱保存并回读为 6 人，首个版本草稿仍未上传 AAB 或发布。现有管理员页面会话已到期，本轮不读取或输出登录凭据。
+
+### Android 免费首版移除 Google Billing SDK（2026-11-10）
+
+正式 AAB 独立检查发现共享 `in_app_purchase` umbrella 依赖即使未调用购买，也会把 Android BillingClient、查询 intent 与原生活动打入制品。用户明确选择首版从 Android 制品移除 Google Billing SDK，同时完整保留 iOS StoreKit 订阅。最小源码调整由订阅共享包直接依赖 StoreKit 实现与平台接口，App Store gateway 首次使用时只注册一次 StoreKit；Google Play store 未注册实现时显式失败，不引入占位实现、Manifest 隐藏或未来 Billing 代码。该调整不改变 `SubscriptionStoreGateway`、`SubscriptionClient`、iOS 产品／购买／Restore／完成交易或 StoreKit 2 验签合同。
+
+依赖与 Dart 测试通过后仍须重新构建正式 AAB，确认 Android 插件注册表、Manifest、DEX 与 bundle 元数据不再包含 BillingClient／ProxyBillingActivity／`billing.properties`／Billing 查询；同时重新构建 iOS 制品并执行真实 Sandbox 购买、purchase stream、Restore 和未完成交易回归。本地源码测试不替代双端正式制品与真机验收。
+
+本地定向验证：subscription-core **15／15** 通过，覆盖 App Store 产品及购买参数、StoreKit 2 证据、Restore、完成交易和未注册 Google Play 的显式失败；两个 Dart 包分析均为 0 issues。锁文件已移除 umbrella 与 Android 原生购买插件，生成的插件注册表中 Android 无 `in_app_purchase_android`、iOS 仍有 StoreKit。首次完整 App 测试为 **1404 通过／3 失败**，三项均因新 worktree 缺少既有测试直接读取的 Flutter Material 字体缓存而在读取字体时失败；从已批准 SDK 按原字节补齐被引用的两个字体文件后，原 Card Detail 整文件 **70／70** 通过，未修改页面实现、测试断言或 Golden。完整 App 正在按原配置重跑，正式无 Billing AAB 尚待重建；本记录不将首轮失败写成通过。

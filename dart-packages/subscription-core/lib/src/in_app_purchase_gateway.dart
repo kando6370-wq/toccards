@@ -1,4 +1,4 @@
-import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:in_app_purchase_platform_interface/in_app_purchase_platform_interface.dart';
 import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
 
 import 'subscription_config.dart';
@@ -8,12 +8,28 @@ import 'subscription_models.dart';
 class InAppPurchaseSubscriptionGateway implements SubscriptionStoreGateway {
   InAppPurchaseSubscriptionGateway({
     required this.store,
-    InAppPurchase? inAppPurchase,
-  }) : _inAppPurchase = inAppPurchase ?? InAppPurchase.instance;
+    InAppPurchasePlatform? inAppPurchase,
+  }) : _inAppPurchase = inAppPurchase ?? _defaultPlatform(store);
 
   @override
   final SubscriptionStore store;
-  final InAppPurchase _inAppPurchase;
+  final InAppPurchasePlatform _inAppPurchase;
+
+  static InAppPurchasePlatform? _appStorePlatform;
+
+  static InAppPurchasePlatform _defaultPlatform(SubscriptionStore store) {
+    if (store != SubscriptionStore.appStore) {
+      throw UnsupportedError(
+        'No native purchase gateway is registered for ${store.name}.',
+      );
+    }
+    return _appStorePlatform ??= _registerAppStore();
+  }
+
+  static InAppPurchasePlatform _registerAppStore() {
+    InAppPurchaseStoreKitPlatform.registerPlatform();
+    return InAppPurchasePlatform.instance;
+  }
 
   @override
   Stream<SubscriptionPurchase> get purchaseUpdates => _inAppPurchase
