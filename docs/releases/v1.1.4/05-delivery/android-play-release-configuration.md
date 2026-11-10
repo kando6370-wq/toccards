@@ -162,3 +162,19 @@ pnpm --filter @kando/workers-api exec wrangler versions upload `
 仅将 `admin.app_version.production.google` 的 `store_url` 从 YouTube 改为正式 Card AI 地址，公开接口独立回读一致；仍为 disabled／force=false，原 min `1.0.0` 和 recommended `1.9.0` 未改，不得在校准这些值前直接启用。临时写入执行器已停止。API 和官网候选已在旧版 100%／候选 0% 下验收，尚未执行 `0018` 或普通流量切换；Cloudflare 只支持一个 deployment 中最多两个版本，因此维护候选逐个以 0% 验收，不同时登记三个 0% 版本。Worker 内容校验使用指定版本的 immutable modules 接口；Wrangler dry-run 上传表单先解析真实 JS 模块，再逐字节核对，未用随机 multipart boundary 的整体摘要替代脚本摘要。
 
 本检查点尚未上传 Play AAB 或发布测试轨道。iOS 线上制品未重发；共享购买源码与 StoreKit 2 合同通过不等于已完成新的签名 IPA、真实购买／Restore 或双端实机验收。
+
+## 生产配套发布与 Play 上传阻塞（2026-11-10 12:05）
+
+经用户要求执行前述建议，生产配套已完成；Google Play 尚未上传或发布。以下状态覆盖前文较早检查点中的“未迁移／未切流”，不改写当时的历史事实。
+
+- 认证写维护于 11:50:58 观察生效，11:59:41 回读解除，约 8 分 43 秒。期间旧 API 维护版本随后切为新 API 维护版本，注册／登录／刷新及用户管理写入保持 503，既有读取由对应业务代码继续处理；双 Admin 和 plain API 候选验收后才解除冻结。
+- `0018_platform_account_isolation` 于 11:53:42 提交，ledger 为 19 项，checksum `8b90965117b90d4aabd24edae3a92021f4d378ab9588f209f69c7951175302d6`。449 个既有 active iOS 空间均保留原 owner ID，独立后验无缺失或错配，7 个指定触发器均为 origin enabled；14 个已删除 user 登录字段、2 条认证身份及精确候选的 3 条验证码已清理，完成前没有 Android 数据空间。
+- 执行器第一次因事务选项语法、第二次因 JSON 参数类型失败，均在迁移 SQL 提交前回滚；分别独立确认目标表与 ledger 不存在后修正执行器。SQL 原文及其批准 checksum 未变。成功提交后的首次只读触发器探针另遇数组参数适配问题，修正为独立标量绑定后再次完成后验；没有把这些失败计为通过或重复执行已提交迁移。
+- API 从干净 `main@1e31a65f` 的冻结构建发布，最终 version `c02380d5-32b2-4e63-b8ef-68cbdf909ebe`，deployment `2ac37542-a212-41b1-a7b4-b96b29f6cf09`，100%。原 34 个 binding 描述符及原 17 个 Secret 名称保留，仅增四项 Android 公开变量与一个 Integrity 私钥 Secret，最终 39 bindings／18 Secrets；runtime 与原版一致。只比较 Secret 名称与描述符，未读取原 Secret 明文。
+- Pages deployment `727e70d3-385b-4f0f-9287-217248f75c27` 为 production／success，来源同一 `1e31a65f`。`api.tcgcard.fun` 与 `admin.tcgcard.fun` 共 22 个 HTML／JS／CSS 与同一批准构建原始字节一致。候选及迁移后的 17 项基础烟测和资产核验通过；解除维护后，空匿名请求返回正常 422，非法 Android 安装证明返回 401，而非建立业务账号。这些负向请求不等于真实 Google／Play Token 验收。
+- 当前 `tcgcard.fun` 使用新 `cardscanfox-web`，没有部署退役营销站。官网 version `fc46ad44-9e93-4da2-97c3-d0bbe760e6ae`／deployment `89055b06-95c4-48de-abd5-84e9b05f461f` 为 100%，来源 `bff82de7`，release ID `d80e3cd4d1d87c2d4e5ed275c8c96e10b0c8941b8787571e5cc324d560e5594a`。原 8 bindings／runtime／`SITE_DATA` 保留；新增删号页与隐私文本已上线，删号页 200／noindex，首页、动态目录与 release manifest 回读正常，无既有路由丢失。动态 `/cards` 不接受测试自加的未知查询参数，最终按正常 URL 验收，未把非法参数请求的 400 当作上线故障。
+- 最终只读回查 cron 仍为 `*/5 * * * *`，API 自定义域名 enabled，未执行 triggers deploy。数据库写执行器、只读探针和商店 URL 修复器均已停止。备份仍保留至 2026-12-10，没有恢复演练；没有重发 iOS App、Linux dev、Apple 配置或订阅商品。
+
+用户随后明确确认上传 `207` AAB 并登记新 Upload 公钥。Play 草稿已保存为 `1.0.7 (207) - Internal`，名单为 6 人；上传在本地选文件阶段失败，因为 Chrome 扩展未允许文件网址访问。系统文件选择器的替代操作又因窗口最小化及工具无法可靠核实当前 Chrome 网址而被工具停止。当前没有 AAB 上传成功、Upload 公钥登记或 Internal testing 发布的证据，不得写成已上架；授权保留，待恢复浏览器操作条件后继续同一制品，不上传已退役的 206 包。
+
+待完成：Play 接收与分发签名核验、内部测试发布、从 Play 安装后的真实安装证明／Google 登录／扫描与统计崩溃、iOS 真实购买／Restore，以及客服邮箱处理能力和正式运营资料验收。上述实机、交易和商店验收均未因源码测试、生产迁移或基础烟测自动关闭。

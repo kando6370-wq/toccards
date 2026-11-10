@@ -323,3 +323,11 @@ Home／Card Detail 的图表提示使用独立 TextPainter，登录加载提示�
 以上为本地源码、测试、配置检查和 dry-run 范围。本轮没有连接远端数据库，没有执行 dev／prod migration，没有部署 API、Admin Pages／Workers assets、Marketing 或移动端制品，没有提交 App Store／Google Play，也没有使用正式 Android 签名。
 
 正式发布前还需要独立打包设备上的签名 AAB／IPA、Play 测试轨道、真实 Google 登录与应用证明、iOS 购买／Restore、双端真机和正式制品的 16 KB 对齐复验。官网真实操作截图、处理期限及 SDK 数据披露也需按运营和最终包事实补齐。本地通过不能代替这些验收。
+
+### 生产平台账号发布（2026-11-10）
+
+从干净 API 源 `main@1e31a65f` 完成生产 `0018` 及新 API／双 Admin 配套发布。迁移前备份 `7mb5sy3bszvh` 完成（5.54 GB，2026-12-10 到期，未恢复演练）；认证写维护约 11:50:58–11:59:41。11:53:42 迁移提交后 ledger 为 19 项且 checksum 精确匹配，449 个既有 active iOS 空间保留原 owner ID，无映射缺失，7 个指定 owner 触发器均启用。已删除账号的登录信息按合同匿名化，清理 2 条认证身份和精确候选的 3 条验证码；未扩删另一平台资产。
+
+最终 API version `c02380d5-32b2-4e63-b8ef-68cbdf909ebe`／deployment `2ac37542-a212-41b1-a7b4-b96b29f6cf09` 为 100%。Pages `727e70d3-385b-4f0f-9287-217248f75c27` 为 production／success，双 Admin 22 个文件均与同一冻结构建字节一致。新增 Android 公开配置和 Integrity 私钥 Secret，原 34 bindings／17 Secret 名称保留；正式环境未启用 development 豁免。官网删号页与隐私说明亦已配套发布，Google 更新规则只修正商店 URL，仍停用提示且未启用强更。
+
+迁移前执行器两次适配失败均回滚并独立确认未部分提交；首次迁移后只读探针的数组参数问题修正后再做独立后验。全部失败记录保留，未将其计为通过。解除维护后的基础 HTTP、非法安装证明拒绝与配置／资产核验通过，真实账号登录、Play 安装证明、Android 扫描、iOS 购买／Restore 未独立重放。207 无 Billing 的正式 AAB 已完成本地校验，但 Play 文件上传被浏览器能力阻塞，尚无商店发布；详见[本轮发布与上传记录](../05-delivery/android-play-release-configuration.md#生产配套发布与-play-上传阻塞2026-11-10-1205)。
