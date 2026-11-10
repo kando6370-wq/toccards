@@ -1,0 +1,63 @@
+{
+  "batch_id": "home-pokemon-20261110",
+  "date": "2026-11-10",
+  "site": "https://tcgcard.fun",
+  "baseline": "0633fba4",
+  "inputs": [
+    {
+      "id": "K-001",
+      "term": "pokemon tcg",
+      "intent": "mixed official navigation, game information and collecting",
+      "plan": "P-001"
+    },
+    {
+      "id": "K-002",
+      "term": "pokemon card prices",
+      "intent": "printing-specific price lookup",
+      "plan": "P-001"
+    }
+  ],
+  "plan": {
+    "id": "P-001",
+    "action": "improve_existing",
+    "url": "/",
+    "language": "en",
+    "primary_task_owner": "/games/pokemon",
+    "title": "Pokémon TCG Card Prices & Scanner | CardScanFox",
+    "description": "Check Pokémon card prices by set and number. Explore Pokémon TCG printings, confirm price dates, and scan and track physical cards with the Card AI app.",
+    "files": [
+      "apps/cardscanfox-web/content/seo-pages.json",
+      "apps/cardscanfox-web/src/home.html",
+      "apps/cardscanfox-web/src/home-template.mjs",
+      "apps/cardscanfox-web/src/render.mjs"
+    ],
+    "ai_question_map": {
+      "price_lookup": "homepage directs to existing exact-printing database and dated price context",
+      "official_rules": "not fulfilled by this site"
+    },
+    "recommendation_case": "Existing identification and dated reference workflow; no measured AI recommendation or ranking benefit",
+    "copy_audit": {
+      "title": "improved",
+      "input_output": "improved",
+      "one_sentence": "improved",
+      "object_then_steps": "preserved",
+      "specific_fields": "preserved",
+      "faq": "not_applicable",
+      "boundaries": "preserved",
+      "comparisons": "not_applicable"
+    },
+    "status": "implemented; local build and 26 impacted checks passed; desktop/mobile verified; pending production"
+  },
+  "evidence": {
+    "google_search": [
+      "https://www.google.com/search?q=pokemon+tcg&hl=en&gl=us",
+      "https://www.google.com/search?q=pokemon+card+prices&hl=en&gl=us"
+    ],
+    "product": "https://tcgcard.fun/games/pokemon",
+    "jev": "jev-1.14.0; 2 terms; broad TCG uncertainty reviewed by Codex"
+  },
+  "limitations": [
+    "No GSC metrics or current heat validation",
+    "No promise of ranking, crawling, AI citation or conversion"
+  ]
+}

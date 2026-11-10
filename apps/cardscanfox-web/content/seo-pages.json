@@ -1,9 +1,9 @@
 {
   "/": {
-    "intent": "产品认知与下载",
-    "title": "Trading Card Scanner & Collection Tracker | CardScanFox",
-    "description": "Scan and organize TCG and sports cards with Card AI. Explore Pokémon 30th Celebration cards, compare Mega Rayquaza printings and check published prices.",
-    "question": "How can I identify my cards and keep track of the collection I own?"
+    "intent": "宝可梦实体卡查价入口、产品认知与下载",
+    "title": "Pokémon TCG Card Prices & Scanner | CardScanFox",
+    "description": "Check Pokémon card prices by set and number. Explore Pokémon TCG printings, confirm price dates, and scan and track physical cards with the Card AI app.",
+    "question": "Where can I check Pokémon card prices and identify the cards in my collection?"
   },
   "/bulk-card-scanner": {
     "intent": "批量整理实体卡的 App 流程",
