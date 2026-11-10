@@ -120,3 +120,15 @@ pnpm --filter @kando/workers-api exec wrangler versions upload `
 8. 同轮回归 iOS 登录、Apple 购买／Restore 和原数据空间；根据最终 AAB、SDK 与真实数据处理填写 Data safety、隐私、账号删除、商店详情及其余初始设置。
 
 完成上述步骤前，不得将源码实现、Debug APK、Firebase App／SHA-1／OAuth 注册、Integrity project 关联、服务账号或本地私钥创建、配置文件下载或历史证书记录描述为 Android production 已完整配置、已上传或已通过商店验收。Android OAuth client 由 Google Service 自动创建，未手工修改原 iOS／Web client；Firebase SHA-1 登记也不等于服务端所需 Play 分发 SHA-256 已注入。专用 Integrity 服务账号与唯一私钥已创建并仅在本地受限保管，但本轮未添加直接 IAM 授权、未审计或修改既有项目继承 IAM，未写入 Cloudflare Secret、上传候选或完成真实 OAuth／解码；API／打包机正式配置未注入，Upload key 与打包机仍未核实，也没有真实 Google 登录／Integrity E2E、App／API 部署、数据库迁移、移动端发布或 Git 提交／推送。
+
+## 本机正式构建准备（2026-11-10，进行中）
+
+用户允许在当前 Windows 机器建立隔离的正式打包环境，覆盖此前物理独立打包机的要求；仍不复用本机既有正式签名。发布源已合并为 `main@a91ceb65`，共享版本为 `1.0.7+205`。Play Console 实时回读确认组织账号、正式 package、Google 托管分发证书及三个 Integrity 基础响应保持；内部测试尚无发布版本，现已建立首个未命名草稿。签名页未显示既有 Upload 证书，不能因此宣称已核对了既有 Upload JKS。
+
+在仓库外受限目录新建尚未登记的专用 Upload JKS，alias 为 `cardai-upload-20261110`，RSA 4096；公开 SHA-256 为 `43:38:30:F5:02:98:FA:A5:E6:5E:B4:68:19:E1:59:52:11:8D:E3:31:19:F9:F5:7A:33:49:6E:7B:E5:33:84:28`，SHA-1 为 `6D:61:50:B7:A8:B6:C4:EA:41:FF:AB:D6:CE:8E:6C:AF:B0:47:DC:A7`。密码随机生成并由当前用户的 Windows DPAPI 加密保存，目录只允许当前用户与 SYSTEM；凭据未入仓。此签名仅是首包候选上传身份，尚未经 Play 接受或登记，不更换 Google 托管分发证书。
+
+隔离 Flutter 3.47.9／Dart 3.13.7／JDK 21.0.13+9 可用。Google 官方 bundletool 1.18.3 的 SHA-256 与官方 asset digest 一致。项目所需 API 36、Build Tools 36、NDK 28.2 和 Platform Tools 均使用已接受的 Android SDK license；doctor 的剩余许可警告仅指未使用的 microXR 预览镜像，本轮没有接受新条款。
+
+首次 release AAB 构建失败于 `processReleaseGoogleServices`：Google Services 4.4.4 后注册的 variant 任务覆盖了通用 `configureEach` 中设置的外部文件输入。最小修复在插件完成各 variant 的任务注册后，通过后注册的 `androidComponents.onVariants` 回调设置命名任务输入，不复制配置进源码。实际独立执行该 release Gradle 任务成功，生成资源中的 project ID、Android App ID 与 Web audience 均与批准配置一致，外部 JSON SHA-256 未变，源码目录中没有 `google-services.json`。完整 AAB 仍待重试，不能把此任务通过写成制品完成。
+
+专用 Play Integrity 服务账号的真实 OAuth Token 请求返回 HTTP 200；固定无效 Token 的解码探测返回 HTTP 400／`INVALID_ARGUMENT`。Token 仅在进程内使用，不输出或落盘。这证明凭据和接口可达，不等于真实 Play 安装证明通过；未新增 IAM 权限，真实 Token 解码仍待 Play 安装包验收。生产 Secret、API 配套迁移／发布及内部测试 AAB 上传尚未执行。
