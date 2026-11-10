@@ -1,9 +1,9 @@
 {
   "/": {
-    "intent": "宝可梦实体卡查价入口、产品认知与下载",
-    "title": "Pokémon TCG Card Prices & Scanner | CardScanFox",
-    "description": "Check Pokémon card prices by set and number. Explore Pokémon TCG printings, confirm price dates, and scan and track physical cards with the Card AI app.",
-    "question": "Where can I check Pokémon card prices and identify the cards in my collection?"
+    "intent": "多品类 TCG 与体育卡识别、查价、收藏及下载；重点提供宝可梦查价入口",
+    "title": "TCG & Sports Card Scanner, Prices & Tracker | CardScanFox",
+    "description": "Scan and track TCG and sports cards with Card AI. Explore Pokémon TCG, check Pokémon card prices by set and number, and compare dated printing references.",
+    "question": "How can I scan, check prices and track my TCG and sports card collection?"
   },
   "/bulk-card-scanner": {
     "intent": "批量整理实体卡的 App 流程",

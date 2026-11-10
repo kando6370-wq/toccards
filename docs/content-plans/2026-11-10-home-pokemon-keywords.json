@@ -23,8 +23,8 @@
     "url": "/",
     "language": "en",
     "primary_task_owner": "/games/pokemon",
-    "title": "Pokémon TCG Card Prices & Scanner | CardScanFox",
-    "description": "Check Pokémon card prices by set and number. Explore Pokémon TCG printings, confirm price dates, and scan and track physical cards with the Card AI app.",
+    "title": "TCG & Sports Card Scanner, Prices & Tracker | CardScanFox",
+    "description": "Scan and track TCG and sports cards with Card AI. Explore Pokémon TCG, check Pokémon card prices by set and number, and compare dated printing references.",
     "files": [
       "apps/cardscanfox-web/content/seo-pages.json",
       "apps/cardscanfox-web/src/home.html",
@@ -46,7 +46,7 @@
       "boundaries": "preserved",
       "comparisons": "not_applicable"
     },
-    "status": "published and verified; homepage IndexNow received HTTP 200"
+    "status": "user correction implemented; pending verification and publication"
   },
   "evidence": {
     "google_search": [
@@ -69,5 +69,6 @@
       "httpStatus": 200,
       "receipt": ".indexnow/reports/2026-11-10T09-51-31-827Z.json"
     }
-  }
+  },
+  "correction": "Retain multi-category TCG and sports card positioning and general catalog CTA; add a separate visible Pokemon TCG and Pokemon card prices paragraph linking to /games/pokemon. Previous Pokemon-focused title superseded."
 }

@@ -45,3 +45,11 @@ recommendation_case：对需要核对实体卡印次的收藏者，本站已有�
 本地验收：官网构建、26 项相关检查、首页 metadata/OG/canonical/唯一 H1/模板同步和跳转链接通过；1440px/390px 可见页面无横向溢出。使用本机 Node 24.3.0，非仓库固定 Node 22.23.4；正式构建另行回读。初次旧标题断言失败，按已核对的新文案更新后重跑通过。待正式回读及 IndexNow。
 
 正式内容提交 `35aad808ea8f02c599321d56ae64ab0d81d9894e` 已推送 main，Cloudflare 官网构建 success；正式 manifest 与同一 sourceCommit 匹配。Ego 正式首页 Title/Description、首屏、卡库 H2、canonical 及查价按钮进入 `/games/pokemon` 均已确认。仅首页通知 IndexNow，1 个 URL 收到 HTTP 200；回执 `.indexnow/reports/2026-11-10T09-51-31-827Z.json`。接收不等于收录或排名提升。
+
+## 用户纠正后的最终口径
+
+用户明确：增加 Pokémon 两词权重不能替代多品类 TCG/体育卡产品定位。上一版 Title 与首屏次入口收窄过度，已修正。
+
+首页 Title：TCG & Sports Card Scanner, Prices & Tracker | CardScanFox。Description：Scan and track TCG and sports cards with Card AI. Explore Pokémon TCG, check Pokémon card prices by set and number, and compare dated printing references.
+
+恢复原首屏完整 TCG/sports cards 说明与 Explore the cards→/cards；新增独立可见段落 Collect Pokémon TCG? Check Pokémon card prices→/games/pokemon，按系列/卡号和日期承接。卡库 H2 恢复 Find the card you’re looking for.，简介明确所选宝可梦卡与全品类目录的关系。WebSite schema 同步完整定位。此前文案记录仅作历史，不是最终发布稿。未删除旧正文或品类能力；不将“权重”描述为已测量的搜索引擎分值。待完成修正后的验证与发布。
