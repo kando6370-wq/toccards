@@ -40,6 +40,17 @@ function createHooks() {
 
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
+test("version management labels Google as Android without changing its PATCH platform", () => {
+  const appVersionPlatformLabel = new Function(
+    `${compileFunction("appVersionPlatformLabel")} return appVersionPlatformLabel;`,
+  )();
+  assert.equal(appVersionPlatformLabel("Google"), "Android（Google Play）");
+  assert.equal(appVersionPlatformLabel("iOS"), "iOS");
+  assert.match(source, /`\/app-versions\/\$\{editing\.platform\}`/);
+  assert.match(source, /`\/app-versions\/\$\{row\.platform\}`/);
+  assert.doesNotMatch(source, /\/app-versions\/Android/);
+});
+
 test("a failed filter change cannot show rows from the previous Admin query", async () => {
   const hooks = createHooks();
   const pending = new Map();

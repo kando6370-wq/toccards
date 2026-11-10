@@ -58,6 +58,7 @@ Android package 与 iOS Bundle ID 虽然都是 `com.cardai.tcg`，平台资源�
 | `ANDROID_KEY_ALIAS` | 与该 JKS 实际 alias 一致 |
 | `ANDROID_KEY_PASSWORD` | 打包机 Secret |
 | `ANDROID_STORE_PASSWORD` | 打包机 Secret |
+| `ANDROID_UPLOAD_CERTIFICATE_SHA256` | 从 Play Console 核实的 Upload 证书摘要，供 Android 发布脚本比对最终签名；当前 Upload 证书仍未核实，不得填写 App Signing 分发证书代替 |
 | `ANDROID_FIREBASE_CONFIG_PATH` | 独立打包机接收并复核上述 SHA-256 后使用的私有路径；当前交付物尚未注入任何打包环境 |
 | `GOOGLE_SERVER_CLIENT_ID` | 正式 Web OAuth client ID，属于公开标识，以 dart-define 构建参数注入 |
 | `ANDROID_PLAY_CLOUD_PROJECT_NUMBER` | 已关联 Play Integrity 的 Cloud project number，以 dart-define 注入 |

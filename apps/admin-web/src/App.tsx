@@ -194,6 +194,10 @@ type AppVersionItem = {
   updated_at: string;
 };
 
+function appVersionPlatformLabel(platform: AppVersionItem["platform"]): string {
+  return platform === "Google" ? "Android（Google Play）" : platform;
+}
+
 const { Sider, Content } = Layout;
 const { Title, Text } = Typography;
 const API_BASE = resolveAdminApiBase({
@@ -230,7 +234,7 @@ const pageMeta: Record<MenuKey, { title: string; description: string }> = {
   feedbacks: { title: "用户反馈", description: "查看用户提交的反馈内容，并标记处理状态。" },
   scans: { title: "扫描记录管理", description: "查看用户扫描图片、系统识别结果和用户最终确认结果。" },
   permissions: { title: "权限管理", description: "管理允许访问后台的邮箱账号。" },
-  "app-versions": { title: "版本管理", description: "管理 iOS 与 Google 端最低支持版本和更新提示。" },
+  "app-versions": { title: "版本管理", description: "管理 iOS 与 Android（Google Play）最低支持版本和更新提示。" },
   "subscription-configs": { title: "订阅配置", description: "管理订阅页与订阅大弹窗的商品组合、试用关系和生效状态。" },
 };
 
@@ -1187,7 +1191,7 @@ function AppVersionsPage({ session }: { session: AdminSession }) {
   }
 
   const columns: ColumnsType<AppVersionItem> = [
-    { title: "操作平台", dataIndex: "platform" },
+    { title: "操作平台", dataIndex: "platform", render: (value: AppVersionItem["platform"]) => appVersionPlatformLabel(value) },
     { title: "最低支持版本", dataIndex: "min_supported_version" },
     { title: "建议更新版本", dataIndex: "recommended_version", render: (value: string) => <Text className="accent-text">{value}</Text> },
     { title: "强制更新", dataIndex: "force_update", render: (value: boolean) => value ? "开启" : "关闭" },
@@ -1228,7 +1232,11 @@ function AppVersionsPage({ session }: { session: AdminSession }) {
         extra={<Button type="text" onClick={() => setEditing(null)}>×</Button>}
       >
         <Form form={form} layout="vertical" onFinish={saveVersion} requiredMark={false}>
-          <Form.Item name="platform" label="操作平台">
+          <Form.Item
+            name="platform"
+            label="操作平台"
+            getValueProps={(value: AppVersionItem["platform"]) => ({ value: appVersionPlatformLabel(value) })}
+          >
             <Input disabled />
           </Form.Item>
           <div className="two-col-form">

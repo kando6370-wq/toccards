@@ -20,6 +20,7 @@ v1.1.3 已原位归档。本版本承接 v1.1.3 之后的新增、变更、移�
 - [结合当前项目的实施前评估](05-delivery/android-free-first-release-review.md)：2026-11-05 开始实现前的源码差距、待补规则、迁移与发布边界；其源码结论按评估基线理解，后续实现见下条合同。
 - [双端平台账号与免费首版实现合同](03-data-api/platform-accounts.md)：2026-11-05 起的账号、会话、删除、集中商业策略与测试／正式配置隔离实现；开发与验证状态按该文档记录，未执行远程迁移或发布。
 - [Android Google Play 正式配置交接清单](05-delivery/android-play-release-configuration.md)：正式包名、Play 签名、Firebase／OAuth／Play Integrity 字段映射、独立打包机输入及验收顺序；未核实值保持待确认，不保存私钥或占位配置。
+- [Android 与 iOS 版本管理](03-data-api/app-version-management.md)：双端独立升级规则、Android 自动构建号及 APK／AAB 校验归档，沿用既有 iOS 规则与发布流程。
 
 两份输入均按原始字节归档，不随实现修订。平台账号、删号与重新注册规则以新版 PRD 为准，原技术方案不代表当前已实施架构。
 

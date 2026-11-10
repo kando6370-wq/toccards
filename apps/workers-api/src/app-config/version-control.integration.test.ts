@@ -69,12 +69,25 @@ describe("version control in a shared PostgreSQL database", () => {
     expect(await (await publicConfig("production")).json()).toMatchObject({ data: { upgrade_prompt: { force_update: true } } });
   });
 
-  it("isolates Android from iOS and preserves the store link when a platform prompt is disabled", async () => {
+  it("maps Android and Google to one isolated rule without crossing iOS or environments", async () => {
     await admin("production", "/app-versions/iOS", rule);
     const storeUrl = "https://play.google.com/store/apps/details?id=com.cardai.tcg";
     await admin("production", "/app-versions/Google", { ...rule, store_url: storeUrl, status: "disabled" });
-    expect(await (await publicConfig("production", "google")).json()).toMatchObject({ data: { upgrade_prompt: null, app_store_url: storeUrl } });
+    await admin("development", "/app-versions/Google", {
+      ...rule,
+      min_supported_version: "2.0.0",
+      recommended_version: "2.1.0",
+      store_url: "https://play.google.com/store/apps/details?id=dev.example",
+    });
+    const google = await (await publicConfig("production", "google")).json();
+    const android = await (await publicConfig("production", "android")).json();
+    expect(android).toEqual(google);
+    expect(google).toMatchObject({ data: { upgrade_prompt: null, app_store_url: storeUrl } });
     expect(await (await publicConfig("production")).json()).toMatchObject({ data: { upgrade_prompt: { force_update: true } } });
+    expect(await (await publicConfig("development", "android")).json()).toMatchObject({ data: {
+      upgrade_prompt: { latest_version: "2.1.0", min_version: "2.0.0", force_update: true },
+      app_store_url: "https://play.google.com/store/apps/details?id=dev.example",
+    } });
   });
 
   it("never falls back to shared or other-environment rules because an uninitialized environment must be configured explicitly", async () => {
