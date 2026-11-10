@@ -28,6 +28,8 @@ v1.1.3 已原位归档。本版本承接 v1.1.3 之后的新增、变更、移�
 
 ## 文档路由
 
+- [官网账号删除申请方案与页面设计](00-product/cardscanfox-account-deletion-design.md)：保留现有正式 URL，公开网页准备邮件、人工核验与平台级删除的设计草案；本轮不修改业务代码或上线。
+
 - [PokeScope 自然搜索词与独立官网覆盖](05-delivery/website-competitor-keyword-coverage.md)：2026-11-08 竞品估算口径、四篇角色/卡况指南、既有页面归属和索引发现。
 
 - [官网关键词、可筛选卡表与印次指南](05-delivery/marketing-keyword-content.md)：2026-11-05 竞品关键词估算补证、三套英文官方编号表、全球竞品样本的角色/印次参考页、价格快照与本地验收边界。
