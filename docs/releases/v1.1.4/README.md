@@ -19,7 +19,7 @@ v1.1.3 已原位归档。本版本承接 v1.1.3 之后的新增、变更、移�
 - [Android 与 iOS 双端数据隔离方案原件](00-product/Android-iOS双端数据隔离方案.md)：2026-11-03 历史技术建议；与新版 PRD 冲突的全局账号状态、全账号删除按钮及导出建议不作为本期需求。
 - [结合当前项目的实施前评估](05-delivery/android-free-first-release-review.md)：2026-11-05 开始实现前的源码差距、待补规则、迁移与发布边界；其源码结论按评估基线理解，后续实现见下条合同。
 - [双端平台账号与免费首版实现合同](03-data-api/platform-accounts.md)：账号、会话、删除、集中商业策略与配置隔离；2026-11-10 已完成生产 0018／API／双 Admin 发布，历史开发验证与本轮生产证据分别保留。
-- [Android Google Play 正式配置交接清单](05-delivery/android-play-release-configuration.md)：正式签名、Firebase／OAuth／Play Integrity 配置、本机隔离构建与发布记录；207 无 Billing AAB 已完成，6 人名单和草稿已保存，Play 上传仍被浏览器能力阻塞，不代表商店已发布。
+- [Android Google Play 正式配置交接清单](05-delivery/android-play-release-configuration.md)：正式签名、Firebase／OAuth／Play Integrity 配置、本机隔离构建与发布记录；207 无 Billing AAB 已由 Play 接收并发布至 6 人 Internal testing 轨道，当前为有效／尚未审核，真实安装、登录、Integrity、扫描与统计验收仍待完成。
 - [Android 与 iOS 版本管理](03-data-api/app-version-management.md)：双端独立升级规则、Android 自动构建号及 APK／AAB 校验归档，沿用既有 iOS 规则与发布流程。
 
 两份输入均按原始字节归档，不随实现修订。平台账号、删号与重新注册规则以新版 PRD 为准，原技术方案不代表当前已实施架构。

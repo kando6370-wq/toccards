@@ -178,3 +178,13 @@ pnpm --filter @kando/workers-api exec wrangler versions upload `
 用户随后明确确认上传 `207` AAB 并登记新 Upload 公钥。Play 草稿已保存为 `1.0.7 (207) - Internal`，名单为 6 人；上传在本地选文件阶段失败，因为 Chrome 扩展未允许文件网址访问。系统文件选择器的替代操作又因窗口最小化及工具无法可靠核实当前 Chrome 网址而被工具停止。当前没有 AAB 上传成功、Upload 公钥登记或 Internal testing 发布的证据，不得写成已上架；授权保留，待恢复浏览器操作条件后继续同一制品，不上传已退役的 206 包。
 
 待完成：Play 接收与分发签名核验、内部测试发布、从 Play 安装后的真实安装证明／Google 登录／扫描与统计崩溃、iOS 真实购买／Restore，以及客服邮箱处理能力和正式运营资料验收。上述实机、交易和商店验收均未因源码测试、生产迁移或基础烟测自动关闭。
+
+## Google Play 内部测试发布（2026-11-10 13:33）
+
+2026-11-10 13:32 观察到用户手动上传同一核验制品 `CardAI-Prod-1.0.7-207.aab` 后，Play 正在优化处理。13:33 处理完成，Console 显示版本代码 207／版本名称 1.0.7、Android API 24+、target API 36、3 个 ABI，并包含 ReTrace 映射和原生调试符号；发布预览显示“可以发布了”，未显示错误或警告。该制品仍为 111,933,187 字节，SHA-256 `1d6123f06f21b5d15cc00104d9c163aef657812a4c7ded028cb978fb6f4c8a11`，package 为 `com.cardai.tcg`；本轮没有重建或重签 AAB，也没有上传已退役的 206 包。
+
+保存并发布后，Internal testing 轨道状态为“有效”，最新版本为 `1.0.7 (207) - Internal`；Console 显示“已面向内部测试人员发布 1 个版本代码”，发布时间为 11 月 10 日 13:33，状态为“尚未审核”。应用在审核前临时显示为 `com.cardai.tcg (unreviewed)`。测试名单 `Card AI Internal 20261110` 已选中，6 个邮箱与用户提供名单逐项一致。加入链接 `https://play.google.com/apps/internaltest/4699832920920642226` 由当前账号打开后显示邀请和 `Accept invite`；本轮未代用户接受邀请。Console 提示传播通常需要约 1 小时，也可能更久，因此本检查点不宣称测试人员已完成安装或链接已在所有账号即时生效。
+
+签名页下载的 Upload certificate 保存为 `D:/Downloads/upload_cert.der`，SHA-256 `433830f50298faa5e65eb46819e15952118de33119f9f57a33496e7be5338428`，与本地 207 AAB 的 Upload 证书一致，证明新 Upload 公钥已被 Play 接受并登记。签名页 Digital Asset Links 仍显示 Google 托管 App Signing 分发证书 SHA-256 `97:95:91:85:58:0E:3D:75:82:62:D5:28:4B:D9:FE:7A:D2:2F:5C:34:7B:28:5A:EF:25:67:23:9F:17:97:C4:3F`。本轮未下载或验签 Play 实际生成的 APK，因此不把签名页回读扩展为分发制品已独立验签。
+
+控制台证据保存在 `.dart_tool/play-internal-20261110/play-internal-207-published.jpg`、`play-internal-207-testers.jpg`、`play-internal-207-invite.jpg`、`play-internal-207-signing.jpg`、`play-internal-207-signing.txt` 和 `play-upload-cert-accepted.der`；结构化终态记录为 `.dart_tool/play-internal-20261110/play-internal-207-final-state.json`。本轮没有重新执行生产迁移、API／Admin／官网部署、iOS 发布或订阅配置写入。Play 接收和内部轨道发布不等于真实 Play Integrity、Google 登录、扫描、Analytics／Crashlytics、从 Play 安装后的签名与业务闭环或 iOS 真实购买／Restore 已通过；这些实机与交易验收仍待完成。
