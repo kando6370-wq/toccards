@@ -42,6 +42,57 @@ YouTube 占位链接，不能直接作为 Card AI 更新入口。本轮不自动
 实际启用前应确认目标版本、兼容下限、强更开关和真实下载地址；正式商店版本尚不可下载时
 不得用强更将用户导向不可用页面。
 
+## Admin 编辑与保存回显（2026-11-10）
+
+版本页面只展示版本管理，移除页内遗留的“销售数据”和“订单查询”标签；后台独立的
+订单统计菜单不受影响。
+
+原保存流程丢弃 PATCH 返回的新记录后重新查询列表，且没有提交锁。普通版本 SELECT
+可复用 Hyperdrive 的旧查询结果；HTTP `Cache-Control: no-store` 不控制数据库查询缓存，
+数据库写入也不会主动清除已缓存的 SELECT。连续点击保存还会并发写入同一平台的规则。
+这些路径会造成保存后旧值回显或较早提交覆盖较新提交；没有读取生产原始请求日志，
+不将某一次线上错误归因于其中某一条路径。
+
+当前保存和启停成功后直接使用服务端返回的完整记录替换对应平台行，包含更新时间、
+最低版本、建议版本、强更、地址及状态，另一平台保持原值。共享 Admin 数据读取 hook
+增加本地更新入口，同时取消尚未完成的旧列表请求并忽略其迟到结果，防止覆盖已确认的保存结果。
+保存期间锁定提交、编辑、启停和关闭抽屉；失败时提示错误并保留编辑内容，允许用户重试。
+
+后台版本列表与 App 公共配置的专用 SELECT 加入 `CURRENT_TIMESTAMP AS fetched_at`，
+根据 [Hyperdrive 查询缓存规则](https://developers.cloudflare.com/hyperdrive/concepts/query-caching/)
+使该查询不进入查询缓存。时间字段仅供内部查询，不进入 Admin 或 App 响应。HTTP
+`no-store` 保留，其他业务查询与全局 Hyperdrive 配置保持原值。不使用 SQL 注释或
+只读事务来假定缓存失效，不新增数据库表、migration 或 binding。
+
+V1 路径、请求及响应字段保持兼容；平台仍为 `iOS`／`Google`，公共 `android` 别名仍
+读取 Google 规则；可信服务端环境、平台隔离、规则校验、权限及 Flutter 升级策略保持原行为。
+影响范围限于 Admin 版本编辑／启停、共享 Admin 读取 hook 的迟到响应保护及公共 App 配置读取。
+本地测试的缓存替身不等于生产 Hyperdrive 实测；远端发布、真实管理员操作和两端真机升级
+仍须分别验收，本次不修改远端规则。
+
+本地验证基线为 `main@3de09907` 加本次未提交修改，Windows／Node `22.23.4`／pnpm
+`11.28.10`。独立 Node 位于
+`C:/Users/jhon/AppData/Local/Temp/kando-node-v22.23.4-win-x64/node-v22.23.4-win-x64/node.exe`，
+下表以 `node22` 简写；最终根检查也通过该 Node 显式调用 Corepack 的 pnpm 入口。
+
+| 验证范围与命令 | 实际结果 |
+|---|---|
+| Admin 目录：`node22 --max-old-space-size=256 --max-semi-space-size=2 --test --test-concurrency=1 test/*.test.mjs` | 退出 0，95 项通过；标签断言改为实际渲染节点后，版本／共享读取两个文件再定向运行 10 项通过。 |
+| Workers 目录：`node22 --max-old-space-size=256 --max-semi-space-size=2 node_modules/vitest/vitest.mjs run src/app-config/version-control.integration.test.ts src/app-config/routes.test.ts src/compatibility/app-contract.test.ts --exclude **/.wrangler/** --maxWorkers=1 --no-file-parallelism` | 退出 0，3 文件／24 项通过，包含平台／环境隔离、旧缓存替身、完整公共配置响应及 V1 源码合同。 |
+| 根目录：`pnpm type-check --concurrency=1 --force`，Node 内存限制 512 MB | 退出 0，9 个实际任务成功、0 缓存命中；Admin／Workers 另以 Node 22.23.4 直接调用 tsc 检查通过。 |
+| 根目录：`node22 scripts/check-dep-direction.mjs`、`git diff --check` | 退出 0；依赖方向及差异格式检查通过。 |
+
+开发和文档完成后，在忽略目录隔离注入同一基线的旧实现进行反证，没有回退工作区。
+相同 Admin 用例在旧逻辑下分别稳定暴露三个问题：多余标签、保存成功仍保留旧行、双击发出
+两次 PATCH；旧服务端查询在已快照的旧缓存下返回保存前版本，回归用例失败。它们是开发后
+对旧逻辑的反证，不是修复前已运行的测试。修复逻辑在同一用例下通过。
+
+首次并行检查因系统虚拟内存不足退出；低内存串行方式重新完成检查后才记录通过。
+独立 Code Review 无阻断项；审查建议的 SQL 说明注释已移出查询字符串并重跑相关验证。
+未运行完整 Workers 测试、旧 Dart 编排、发布构建、浏览器／管理员真实操作或 iOS／Android
+真机升级；本次仅修改配置读取与 Admin 交互，已验证受影响的源码合同，远端和真机仍待有权
+管理员／移动端测试补验。本地修复与验证阶段未执行 Git commit/push、dev/prod 部署、迁移或远端业务写入。
+
 ## Android 自动打包与保存
 
 入口、参数和环境注入见 [Flutter Android 发布说明](../../../../apps/flutter-app/README.md#android-版本与制品管理)。

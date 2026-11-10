@@ -2,8 +2,9 @@ import { hashPassword } from "@kando/auth-core";
 import { readFileSync } from "node:fs";
 import { URL } from "node:url";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import app from "../index";
+import type { DatabaseStatement } from "../db/database";
 import type { Env } from "../env";
+import app from "../index";
 import { PGliteDatabase } from "../test-support/pglite-database";
 
 const rule = {
@@ -39,15 +40,15 @@ describe("version control in a shared PostgreSQL database", () => {
   function env(environment: Env["APP_ENVIRONMENT"] = "development"): Env {
     return { DB: db, APP_ENVIRONMENT: environment, CACHE_KV: {} as KVNamespace, JWT_SECRET: "version-control-test-secret" };
   }
-  function admin(environment: Env["APP_ENVIRONMENT"], path: string, body?: unknown) {
+  function admin(environment: Env["APP_ENVIRONMENT"], path: string, body?: unknown, database: Env["DB"] = db) {
     return app.request(`/api/v1/admin${path}`, {
       method: body === undefined ? "GET" : "PATCH",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    }, env(environment));
+    }, { ...env(environment), DB: database });
   }
-  function publicConfig(environment: Env["APP_ENVIRONMENT"], platform = "ios") {
-    return app.request(`/api/v1/app-config?platform=${platform}&environment=production`, {}, env(environment));
+  function publicConfig(environment: Env["APP_ENVIRONMENT"], platform = "ios", database: Env["DB"] = db) {
+    return app.request(`/api/v1/app-config?platform=${platform}&environment=production`, {}, { ...env(environment), DB: database });
   }
   async function seed(key: string, value: unknown) {
     await db.prepare("INSERT INTO app_config (key, value, updated_at) VALUES (?, ?, ?)")
@@ -88,6 +89,51 @@ describe("version control in a shared PostgreSQL database", () => {
       upgrade_prompt: { latest_version: "2.1.0", min_version: "2.0.0", force_update: true },
       app_store_url: "https://play.google.com/store/apps/details?id=dev.example",
     } });
+  });
+
+  it("reads saved iOS and Android rules without reusing stale ordinary selects", async () => {
+    await admin("production", "/app-versions/iOS", rule);
+    await admin("development", "/app-versions/iOS", { ...rule, recommended_version: "1.0.3" });
+    await admin("production", "/app-versions/Google", {
+      ...rule,
+      platform: "Google",
+      store_url: "https://play.google.com/store/apps/details?id=old.example",
+    });
+    const staleReads = await databaseWithStaleOrdinaryAppConfigReads(db);
+    const iosProduction = { ...rule, recommended_version: "1.1.0" };
+    const iosDevelopment = { ...rule, min_supported_version: "2.0.0", recommended_version: "2.1.0" };
+    const googleProduction = {
+      ...rule,
+      platform: "Google",
+      min_supported_version: "3.0.0",
+      recommended_version: "3.1.0",
+      store_url: "https://play.google.com/store/apps/details?id=com.cardai.tcg",
+    };
+
+    expect((await admin("production", "/app-versions/iOS", iosProduction, staleReads)).status).toBe(200);
+    expect((await admin("development", "/app-versions/iOS", iosDevelopment, staleReads)).status).toBe(200);
+    expect((await admin("production", "/app-versions/Google", googleProduction, staleReads)).status).toBe(200);
+
+    const productionList = await (await admin("production", "/app-versions", undefined, staleReads)).json();
+    const developmentList = await (await admin("development", "/app-versions", undefined, staleReads)).json();
+    expect(productionList).toMatchObject({ data: { environment: "production", items: expect.arrayContaining([
+      expect.objectContaining({ platform: "iOS", recommended_version: "1.1.0" }),
+      expect.objectContaining({ platform: "Google", recommended_version: "3.1.0" }),
+    ]) } });
+    expect(developmentList).toMatchObject({ data: { environment: "development", items: expect.arrayContaining([
+      expect.objectContaining({ platform: "iOS", recommended_version: "2.1.0" }),
+      expect.objectContaining({ platform: "Google", status: "disabled" }),
+    ]) } });
+
+    expect(await (await publicConfig("production", "ios", staleReads)).json()).toMatchObject({
+      data: { upgrade_prompt: { latest_version: "1.1.0" } },
+    });
+    const google = await (await publicConfig("production", "google", staleReads)).json();
+    expect(await (await publicConfig("production", "android", staleReads)).json()).toEqual(google);
+    expect(google).toMatchObject({ data: { upgrade_prompt: { latest_version: "3.1.0" } } });
+    expect(await (await publicConfig("development", "ios", staleReads)).json()).toMatchObject({
+      data: { upgrade_prompt: { latest_version: "2.1.0" } },
+    });
   });
 
   it("never falls back to shared or other-environment rules because an uninitialized environment must be configured explicitly", async () => {
@@ -158,3 +204,35 @@ describe("version control in a shared PostgreSQL database", () => {
     } } });
   });
 });
+
+async function databaseWithStaleOrdinaryAppConfigReads(database: Env["DB"]): Promise<Env["DB"]> {
+  const stale = await database.prepare(`
+    SELECT key, value, updated_by, updated_at
+    FROM app_config
+    ORDER BY key ASC
+  `).all();
+  const wrap = (statement: DatabaseStatement): DatabaseStatement => new Proxy(statement, {
+    get(target, property, receiver) {
+      if (property === "bind") {
+        return (...values: unknown[]) => wrap(target.bind(...values));
+      }
+      if (property === "all") {
+        return async () => stale;
+      }
+      const value = Reflect.get(target, property, receiver);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+
+  return new Proxy(database, {
+    get(target, property, receiver) {
+      if (property === "prepare") {
+        return (query: string) => query.includes("FROM app_config") && !query.includes("CURRENT_TIMESTAMP")
+          ? wrap(target.prepare(query))
+          : target.prepare(query);
+      }
+      const value = Reflect.get(target, property, receiver);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+}

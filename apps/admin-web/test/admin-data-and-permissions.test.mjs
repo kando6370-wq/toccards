@@ -17,14 +17,21 @@ function compileFunction(name) {
 function createHooks() {
   const state = [];
   const effects = [];
+  const refs = [];
   let stateIndex = 0;
   let effectIndex = 0;
+  let refIndex = 0;
   return {
-    reset() { stateIndex = 0; effectIndex = 0; },
+    reset() { stateIndex = 0; effectIndex = 0; refIndex = 0; },
     useState(initial) {
       const index = stateIndex++;
       if (!(index in state)) state[index] = typeof initial === "function" ? initial() : initial;
       return [state[index], (next) => { state[index] = typeof next === "function" ? next(state[index]) : next; }];
+    },
+    useRef(initial) {
+      const index = refIndex++;
+      refs[index] ??= { current: initial };
+      return refs[index];
     },
     useEffect(effect, deps) {
       const index = effectIndex++;
@@ -91,6 +98,41 @@ test("a failed filter change cannot show rows from the previous Admin query", as
   session.accessToken = "next-token";
   assert.equal(render("/permissions?page=1").data, null);
   assert.equal(oldSignal.aborted, true);
+});
+
+test("a late list response cannot overwrite a version rule confirmed by a successful save", async () => {
+  const hooks = createHooks();
+  const pending = [];
+  const dependencies = {
+    ...hooks,
+    adminRequest(_path, init) {
+      return new Promise((resolve, reject) => pending.push({ resolve, reject, signal: init.signal }));
+    },
+    errorMessage: (error) => error.message,
+  };
+  const useAdminData = new Function(...Object.keys(dependencies), `${compileFunction("useAdminData")} return useAdminData;`)(...Object.values(dependencies));
+  const render = () => { hooks.reset(); return useAdminData("/app-versions", { accessToken: "test-token" }); };
+  render();
+  pending[0].resolve({ items: [{ platform: "iOS", recommended_version: "1.0.0" }, { platform: "Google", recommended_version: "2.0.0" }] });
+  await flush();
+  render().reload();
+  render();
+  const saved = { platform: "iOS", recommended_version: "1.1.0" };
+  render().updateData((current) => ({ ...current, items: current.items.map((row) => row.platform === saved.platform ? saved : row) }));
+  assert.equal(pending[1].signal.aborted, true);
+  pending[1].resolve({ items: [{ platform: "iOS", recommended_version: "1.0.0" }] });
+  await flush();
+  assert.deepEqual(render().data.items, [saved, { platform: "Google", recommended_version: "2.0.0" }]);
+  assert.equal(render().loading, false);
+  assert.equal(render().error, null);
+
+  render().reload();
+  render();
+  render().updateData((current) => current);
+  pending[2].reject(new Error("late cancelled request"));
+  await flush();
+  assert.deepEqual(render().data.items, [saved, { platform: "Google", recommended_version: "2.0.0" }]);
+  assert.equal(render().error, null);
 });
 
 test("permissions use server pagination, filters, and the existing role/status editor", async () => {

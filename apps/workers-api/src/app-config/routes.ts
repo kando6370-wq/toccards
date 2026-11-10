@@ -22,8 +22,9 @@ type PublicUpgradePrompt = {
   forced_message?: string;
 };
 
+// Hyperdrive does not cache queries containing PostgreSQL STABLE time functions.
 const SELECT_PUBLIC_APP_CONFIG_SQL = `
-  SELECT key, value
+  SELECT key, value, CURRENT_TIMESTAMP AS fetched_at
   FROM app_config
   WHERE key IN (?, 'card_share_base_url', 'terms_url', 'privacy_url')
   ORDER BY key ASC

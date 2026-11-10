@@ -431,6 +431,13 @@ const SELECT_APP_CONFIG_SQL = `
   ORDER BY key ASC
 `;
 
+// Hyperdrive does not cache queries containing PostgreSQL STABLE time functions.
+const SELECT_APP_VERSION_CONFIG_SQL = `
+  SELECT key, value, updated_by, updated_at, CURRENT_TIMESTAMP AS fetched_at
+  FROM app_config
+  ORDER BY key ASC
+`;
+
 const SCAN_CARD_TYPE_FILTER_SQL = "AND system_result::jsonb -> 'card_type' = to_jsonb(CAST(? AS integer))";
 
 const SELECT_SCAN_RECORDS_SQL = (cardType: string | null) => `
@@ -1310,7 +1317,7 @@ adminRoutes.get("/app-versions", async (c) => {
   c.header("Cache-Control", "no-store");
   const environment = appVersionEnvironment(c.env.APP_ENVIRONMENT);
   if (!environment) return c.json(VERSION_CONFIG_UNAVAILABLE, 503);
-  const { results = [] } = await c.env.DB.prepare(SELECT_APP_CONFIG_SQL).all<AppConfigRow>();
+  const { results = [] } = await c.env.DB.prepare(SELECT_APP_VERSION_CONFIG_SQL).all<AppConfigRow>();
   const items = buildAppVersionRecords(results, environment);
   return items ? c.json({ success: true, data: { environment, items } }) : c.json(VERSION_CONFIG_UNAVAILABLE, 503);
 });

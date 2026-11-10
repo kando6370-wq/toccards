@@ -1168,26 +1168,53 @@ function PermissionsPage({ session }: { session: AdminSession }) {
 
 function AppVersionsPage({ session }: { session: AdminSession }) {
   const [editing, setEditing] = useState<AppVersionItem | null>(null);
+  const [saving, setSaving] = useState(false);
+  const mutationPending = useRef(false);
   const [form] = Form.useForm<AppVersionItem>();
-  const { data, loading, reload, error } = useAdminData<{ environment: "development" | "production"; items: AppVersionItem[] }>("/app-versions", session);
+  const { data, loading, reload, updateData, error } = useAdminData<{ environment: "development" | "production"; items: AppVersionItem[] }>("/app-versions", session);
 
   useEffect(() => {
     if (editing) form.setFieldsValue(editing);
   }, [editing, form]);
 
   async function saveVersion(values: AppVersionItem) {
-    if (!editing) return;
-    await mutate(session, `/app-versions/${editing.platform}`, { method: "PATCH", body: values });
-    setEditing(null);
-    reload();
+    if (!editing || mutationPending.current) return;
+    mutationPending.current = true;
+    setSaving(true);
+    try {
+      const saved = await adminRequest<AppVersionItem>(`/app-versions/${editing.platform}`, { method: "PATCH", body: values, token: session.accessToken });
+      updateData((current) => current && ({ ...current, items: current.items.map((item) => item.platform === saved.platform ? saved : item) }));
+      setEditing(null);
+      message.success("版本规则已保存");
+    } catch (requestError) {
+      message.error(errorMessage(requestError));
+    } finally {
+      mutationPending.current = false;
+      setSaving(false);
+    }
   }
 
   async function toggleVersion(row: AppVersionItem) {
-    await mutate(session, `/app-versions/${row.platform}`, {
-      method: "PATCH",
-      body: { ...row, status: row.status === "enabled" ? "disabled" : "enabled" },
-    });
-    reload();
+    if (mutationPending.current) return;
+    mutationPending.current = true;
+    setSaving(true);
+    try {
+      const saved = await adminRequest<AppVersionItem>(`/app-versions/${row.platform}`, {
+        method: "PATCH",
+        body: { ...row, status: row.status === "enabled" ? "disabled" : "enabled" },
+        token: session.accessToken,
+      });
+      updateData((current) => current && ({ ...current, items: current.items.map((item) => item.platform === saved.platform ? saved : item) }));
+    } catch (requestError) {
+      message.error(errorMessage(requestError));
+    } finally {
+      mutationPending.current = false;
+      setSaving(false);
+    }
+  }
+
+  function closeEditor() {
+    if (!mutationPending.current) setEditing(null);
   }
 
   const columns: ColumnsType<AppVersionItem> = [
@@ -1201,10 +1228,10 @@ function AppVersionsPage({ session }: { session: AdminSession }) {
       title: "操作",
       render: (_, row) => (
         <Space>
-          <Button type="link" onClick={() => setEditing(row)}>
+          <Button type="link" disabled={loading || saving} onClick={() => { if (!mutationPending.current) setEditing(row); }}>
             编辑
           </Button>
-          <Button type="link" danger={row.status === "enabled"} onClick={() => toggleVersion(row)}>
+          <Button type="link" disabled={loading || saving} danger={row.status === "enabled"} onClick={() => toggleVersion(row)}>
             {row.status === "enabled" ? "禁用" : "启用"}
           </Button>
         </Space>
@@ -1213,11 +1240,9 @@ function AppVersionsPage({ session }: { session: AdminSession }) {
   ];
 
   return (
-    <PagePanel error={error} onRefresh={reload}>
+    <PagePanel error={error} onRefresh={reload} refreshing={loading || saving}>
       {data && <Alert type="info" showIcon message={`当前环境：${data.environment === "production" ? "生产（prod）" : "开发（dev）"}。版本规则仅影响连接此环境的 App。`} />}
       <div className="top-tabs">
-        <span>销售数据</span>
-        <span>订单查询</span>
         <strong>版本管理</strong>
       </div>
       <section className="table-panel narrow-table">
@@ -1228,10 +1253,10 @@ function AppVersionsPage({ session }: { session: AdminSession }) {
         title="编辑版本管理"
         width={520}
         closable={false}
-        onClose={() => setEditing(null)}
-        extra={<Button type="text" onClick={() => setEditing(null)}>×</Button>}
+        onClose={closeEditor}
+        extra={<Button type="text" disabled={saving} onClick={closeEditor}>×</Button>}
       >
-        <Form form={form} layout="vertical" onFinish={saveVersion} requiredMark={false}>
+        <Form form={form} layout="vertical" onFinish={saveVersion} requiredMark={false} disabled={saving}>
           <Form.Item
             name="platform"
             label="操作平台"
@@ -1272,8 +1297,8 @@ function AppVersionsPage({ session }: { session: AdminSession }) {
             <Select options={[{ value: "enabled", label: "生效中" }, { value: "disabled", label: "已停用" }]} />
           </Form.Item>
           <div className="drawer-footer">
-            <Button onClick={() => setEditing(null)}>取消</Button>
-            <Button className="cyan-button" htmlType="submit">
+            <Button disabled={saving} onClick={closeEditor}>取消</Button>
+            <Button className="cyan-button" htmlType="submit" loading={saving}>
               保存
             </Button>
           </div>
@@ -1536,17 +1561,19 @@ function useAdminData<T>(path: string, session: AdminSession) {
   const key = `${session.accessToken}\0${path}`;
   const [result, setResult] = useState<{ key: string; data: T | null; loading: boolean; error: string | null }>({ key, data: null, loading: true, error: null });
   const [version, setVersion] = useState(0);
+  const requestController = useRef<AbortController | null>(null);
 
   useEffect(() => {
     let alive = true;
     const controller = new AbortController();
+    requestController.current = controller;
     setResult((current) => ({ key, data: current.key === key ? current.data : null, loading: true, error: null }));
     adminRequest<T>(path, { token: session.accessToken, signal: controller.signal })
       .then((nextData) => {
-        if (alive) setResult({ key, data: nextData, loading: false, error: null });
+        if (alive && !controller.signal.aborted) setResult({ key, data: nextData, loading: false, error: null });
       })
       .catch((requestError) => {
-        if (alive) setResult((current) => ({ key, data: current.key === key ? current.data : null, loading: false, error: errorMessage(requestError) }));
+        if (alive && !controller.signal.aborted) setResult((current) => ({ key, data: current.key === key ? current.data : null, loading: false, error: errorMessage(requestError) }));
       });
     return () => {
       alive = false;
@@ -1555,7 +1582,16 @@ function useAdminData<T>(path: string, session: AdminSession) {
   }, [key, path, session.accessToken, version]);
 
   const current = result.key === key ? result : { data: null, loading: true, error: null };
-  return useMemo(() => ({ data: current.data, loading: current.loading, error: current.error, reload: () => setVersion((value) => value + 1) }), [key, current.data, current.loading, current.error]);
+  return useMemo(() => ({
+    data: current.data,
+    loading: current.loading,
+    error: current.error,
+    reload: () => setVersion((value) => value + 1),
+    updateData: (update: (data: T | null) => T | null) => {
+      requestController.current?.abort();
+      setResult((previous) => ({ key, data: update(previous.key === key ? previous.data : null), loading: false, error: null }));
+    },
+  }), [key, current.data, current.loading, current.error]);
 }
 
 function mutate(session: AdminSession, path: string, init: AdminRequestInit) {
