@@ -93,6 +93,49 @@ V1 路径、请求及响应字段保持兼容；平台仍为 `iOS`／`Google`，
 真机升级；本次仅修改配置读取与 Admin 交互，已验证受影响的源码合同，远端和真机仍待有权
 管理员／移动端测试补验。本地修复与验证阶段未执行 Git commit/push、dev/prod 部署、迁移或远端业务写入。
 
+### 生产后台配套发布（2026-11-10）
+
+经用户明确授权，从干净的 `main@1c5b813e4773b6728486b50864c5a7b7a15c1071` 冻结
+production Admin 与配套 Worker。独立 Node `22.23.4` 下重新完成 auth-core 构建、
+Admin `vite build --mode production` 及 Worker `deploy --env prod --dry-run`，均退出 0。
+与指定线上版本的 immutable module 比较，Worker 仅增加上述两处版本配置查询的防缓存处理，
+没有夹带其他后端业务改动。
+
+- 冻结 Worker 为 2,240,613 字节，SHA-256
+  `6cba8831df2274cca4bf1690dffe1f336cf0f9d6dbef5b657d20ad608b6dbea0`。
+  使用 `versions upload --no-bundle --keep-vars --strict` 上传候选
+  `27c1b376-ed63-4b5a-bb53-80d39b5f6ae8`，通过指定版本的
+  `/workers/workers/toccards-api-prod/versions/<id>?include=modules` 回读逐字节匹配，
+  39 个原绑定描述符、18 个 Secret 名称及 runtime 均与原版一致；未读取 Secret 明文。
+- 旧版 `c02380d5-32b2-4e63-b8ef-68cbdf909ebe` 保持 100% 时，将候选登记为 0%，
+  deployment 为 `c8361028-e83e-4360-8da7-04faf9ec8e79`。通过版本覆盖头完成
+  14 项 HTTP 检查和 11 个 Admin 静态文件的原始字节核验后，才切为候选 100%。
+  最终 deployment 为 `cc0c498b-26cf-47ec-9b19-9a1faa1cdf16`。
+- `admin.tcgcard.fun` 已由本次 Git push 自动发布，Pages deployment
+  `7780d597-a6b6-4465-9e4f-9ae2d63fdaf1` 为 production／success，来源同一完整 SHA，
+  dirty=false；本轮没有重复手工发布 Pages。`api.tcgcard.fun` 的后台副本随新 Worker 发布。
+  最终双入口共 22 个 HTML／JS／CSS 已检查：21 个原始字节一致，Pages 的 `index.html`
+  为 1048 字节，冻结 Windows HTML 为 1060 字节，仅差 12 个 CR 字符，移除 CR 后完全一致。
+  另一个 Pages 只读样本包含既有 Cloudflare Browser Insights beacon，未改变统计设置，
+  不宣称所有 HTML 响应都与本地构建原始字节一致。
+- 正式流量下再次完成 14 项检查：health、原鉴权及 Admin 受保护接口的未登录拒绝、
+  iOS／Google／Android 公共配置、Admin CORS 与 `/admin`；Google 和 Android
+  配置响应一致，公共响应仍为 `no-store` 且不包含内部 `fetched_at`。最终验收时间为
+  2026-11-10 15:47（Asia/Shanghai）。39 个绑定、18 个 Secret 描述符、兼容配置、
+  Smart Placement、observability、logpush、运行缓存、cron、自定义域名、Hyperdrive
+  查询缓存及 Pages 项目配置与发布前精确匹配，没有执行 triggers deploy。
+
+发布脚本经独立审查后，烟测记录必须绑定候选 ID、对应 deployment 和冻结清单，切流要求
+候选烟测成功，最终验收要求正式流量烟测成功。首次 dry-run 因重复 `--outdir` 参数失败，
+模块回读首次使用的旧路径只返回版本元数据；均在切流前修正并重新验证，不计为通过。
+构建、指定版本字节核验、候选／正式烟测和发布守卫复审最终均通过。忽略目录中的
+`.wrangler/prod-admin-20261110-1c5b813e/` 保留本地冻结清单和结构化验收材料，正式 docs
+不保存原始响应或凭据。
+
+本轮没有数据库迁移、远程 SQL 写入、后台版本规则编辑／启停、订阅配置修改、Linux dev、
+官网或 Flutter／商店发布，未回查生产 migration ledger。未登录烟测不替代真实管理员的
+iOS／Android 编辑保存操作，也不替代真机升级提示；这两项仍需管理员及移动端测试补验。
+
 ## Android 自动打包与保存
 
 入口、参数和环境注入见 [Flutter Android 发布说明](../../../../apps/flutter-app/README.md#android-版本与制品管理)。
