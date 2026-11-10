@@ -150,3 +150,15 @@ pnpm --filter @kando/workers-api exec wrangler versions upload `
 依赖与 Dart 测试通过后仍须重新构建正式 AAB，确认 Android 插件注册表、Manifest、DEX 与 bundle 元数据不再包含 BillingClient／ProxyBillingActivity／`billing.properties`／Billing 查询；同时重新构建 iOS 制品并执行真实 Sandbox 购买、purchase stream、Restore 和未完成交易回归。本地源码测试不替代双端正式制品与真机验收。
 
 本地定向验证：subscription-core **15／15** 通过，覆盖 App Store 产品及购买参数、StoreKit 2 证据、Restore、完成交易和未注册 Google Play 的显式失败；两个 Dart 包分析均为 0 issues。锁文件已移除 umbrella 与 Android 原生购买插件，生成的插件注册表中 Android 无 `in_app_purchase_android`、iOS 仍有 StoreKit。首次完整 App 测试为 **1404 通过／3 失败**，三项均因新 worktree 缺少既有测试直接读取的 Flutter Material 字体缓存而在读取字体时失败；从已批准 SDK 按原字节补齐被引用的两个字体文件后，原 Card Detail 整文件 **70／70** 通过，未修改页面实现、测试断言或 Golden。完整 App 正在按原配置重跑，正式无 Billing AAB 尚待重建；本记录不将首轮失败写成通过。
+
+### 无 Billing 的 207 正式制品检查点
+
+完整 App 按原配置重跑为 **1407／1407、0 失败、0 跳过**；订阅核心 **15／15**，两包分析 0 issues。正式 AAB 从干净 `main@8701ff9b576e42582c047e71581ffb942fce1be5` 构建并归档为 `1.0.7+207`，111,933,187 字节，SHA-256 `1d6123f06f21b5d15cc00104d9c163aef657812a4c7ded028cb978fb6f4c8a11`。路径为 `D:/Downloads/CardAI-Packages/com.cardai.tcg/Android/CardAI-Prod-1.0.7-207/CardAI-Prod-1.0.7-207.aab`，同目录保留符号、R8 mapping 与逐文件校验；归档成功后共享构建号才从 206 前进到 207。
+
+独立回读确认正式包名／版本／minSdk 24／targetSdk 36、Upload 证书、批准 Firebase 三项公开身份与三种 libapp 的 production API 均正确；30 个原生库中 20 个 64 位 ELF 全部 16 KB 对齐，BundleConfig 为 `PAGE_ALIGNMENT_16K`，Latin／Japanese OCR 均保留。最终 Manifest、DEX、bundle properties 和插件表均无 Android Billing SDK／原生购买插件，iOS StoreKit 插件保留。767 个 payload 的 manifest 摘要逐项一致且 JAR 随机访问签名验证通过；签名记录仍位于 ZIP 末尾，流式验证警告保留，以 Play 实际接收结果作为最终签名兼容证据。206 含被动 Billing SDK 的制品只保留历史记录，不用于本次上传。
+
+配套预发布检查：Workers 第二轮完整 **116 文件／943 项**、Admin **88 项**、旧 App 1.0.4／1.0.5 源码合同各 **24 项**和当前 API **8 项**通过。Workers 第一轮一项 PGlite hook 超时及首次兼容运行缺 package config 的失败日志保留，没有提高超时或排除用例。生产备份 `7mb5sy3bszvh` 已完成，界面报告 5.54 GB／未压缩 22.25 GB、提供恢复入口，到期日 2026-12-10；没有恢复演练。
+
+仅将 `admin.app_version.production.google` 的 `store_url` 从 YouTube 改为正式 Card AI 地址，公开接口独立回读一致；仍为 disabled／force=false，原 min `1.0.0` 和 recommended `1.9.0` 未改，不得在校准这些值前直接启用。临时写入执行器已停止。API 和官网候选已在旧版 100%／候选 0% 下验收，尚未执行 `0018` 或普通流量切换；Cloudflare 只支持一个 deployment 中最多两个版本，因此维护候选逐个以 0% 验收，不同时登记三个 0% 版本。Worker 内容校验使用指定版本的 immutable modules 接口；Wrangler dry-run 上传表单先解析真实 JS 模块，再逐字节核对，未用随机 multipart boundary 的整体摘要替代脚本摘要。
+
+本检查点尚未上传 Play AAB 或发布测试轨道。iOS 线上制品未重发；共享购买源码与 StoreKit 2 合同通过不等于已完成新的签名 IPA、真实购买／Restore 或双端实机验收。
