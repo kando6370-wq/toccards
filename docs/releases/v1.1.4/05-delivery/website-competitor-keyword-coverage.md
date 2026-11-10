@@ -97,3 +97,5 @@ TypeSafe 在线文档本轮未能读取，复用已保存的正式 HTTP API/Choi
 ### 首页定位修正（2026-11-10）
 
 用户明确要求仅加大 Pokémon 两词权重，不移除其他 TCG/体育卡定位。上一版把 Title 和首屏次入口收窄为 Pokémon，原因是错误地将特定获客词当作全站产品范围。现恢复 Title 的 TCG & Sports Card Scanner, Prices & Tracker、原首屏完整说明、Explore the cards→/cards；新增独立 Pokémon TCG / Pokémon card prices 段落和 /games/pokemon 链接。卡库 H2 恢复通用品类，WebSite 描述同步。未删除旧正文、功能或品类页面。构建与 26 项相关检查通过，首次新增断言因属性顺序写反失败，核对实际 HTML 后修正并重跑通过；待桌面/移动端及正式回读、首页 IndexNow 通知。
+
+修正内容已正式发布，sourceCommit 8c36b51c1d6a834dd528d05692421a2de420d019，Cloudflare 官网构建 success。正式 HTML 与刷新后的可见页面确认完整 TCG/sports 定位、/download、/cards 和独立 /games/pokemon 入口同时存在。浏览器首次仍显示缓存旧稿，刷新后为新稿；未清理全站缓存。首页 IndexNow 通知收到 HTTP 200，回执 .indexnow/reports/2026-11-10T09-59-26-519Z.json。

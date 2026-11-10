@@ -53,3 +53,5 @@ recommendation_case：对需要核对实体卡印次的收藏者，本站已有�
 首页 Title：TCG & Sports Card Scanner, Prices & Tracker | CardScanFox。Description：Scan and track TCG and sports cards with Card AI. Explore Pokémon TCG, check Pokémon card prices by set and number, and compare dated printing references.
 
 恢复原首屏完整 TCG/sports cards 说明与 Explore the cards→/cards；新增独立可见段落 Collect Pokémon TCG? Check Pokémon card prices→/games/pokemon，按系列/卡号和日期承接。卡库 H2 恢复 Find the card you’re looking for.，简介明确所选宝可梦卡与全品类目录的关系。WebSite schema 同步完整定位。此前文案记录仅作历史，不是最终发布稿。未删除旧正文或品类能力；不将“权重”描述为已测量的搜索引擎分值。待完成修正后的验证与发布。
+
+修正内容已正式发布，sourceCommit 8c36b51c1d6a834dd528d05692421a2de420d019，Cloudflare 官网构建 success。正式 HTML 与刷新后的可见页面确认完整 TCG/sports 定位、/download、/cards 和独立 /games/pokemon 入口同时存在。浏览器首次仍显示缓存旧稿，刷新后为新稿；未清理全站缓存。首页 IndexNow 通知收到 HTTP 200，回执 .indexnow/reports/2026-11-10T09-59-26-519Z.json。

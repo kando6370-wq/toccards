@@ -46,7 +46,7 @@
       "boundaries": "preserved",
       "comparisons": "not_applicable"
     },
-    "status": "user correction implemented; pending verification and publication"
+    "status": "corrected broad positioning published and verified"
   },
   "evidence": {
     "google_search": [
@@ -61,13 +61,13 @@
     "No promise of ranking, crawling, AI citation or conversion"
   ],
   "delivery": {
-    "sourceCommit": "35aad808ea8f02c599321d56ae64ab0d81d9894e",
+    "sourceCommit": "8c36b51c1d6a834dd528d05692421a2de420d019",
     "cloudflareBuild": "success",
-    "formalBrowserCheck": "passed; CTA navigates to Pokemon catalog",
+    "formalBrowserCheck": "refreshed page verifies broad positioning and download/full catalog/Pokemon catalog links",
     "indexnow": {
       "urls": 1,
       "httpStatus": 200,
-      "receipt": ".indexnow/reports/2026-11-10T09-51-31-827Z.json"
+      "receipt": ".indexnow/reports/2026-11-10T09-59-26-519Z.json"
     }
   },
   "correction": "Retain multi-category TCG and sports card positioning and general catalog CTA; add a separate visible Pokemon TCG and Pokemon card prices paragraph linking to /games/pokemon. Previous Pokemon-focused title superseded."
