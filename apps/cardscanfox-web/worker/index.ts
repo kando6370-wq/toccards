@@ -1,6 +1,7 @@
 import {htmlCacheKey,htmlEtag,conditionalHtml} from '../src/html-cache.mjs';
 import { readBoundedJson } from '../src/read-json.mjs';
 import { resolveServicePage } from '../src/live-render.mjs';
+import { CatalogResponseError } from '../src/catalog-error.mjs';
 import { publishHtml, publicSitemap, sitemapIndex, mayIndex } from '../src/publication.mjs';
 import { createRenderer, resolvePage, errorPage, legacyByPath } from '../src/render.mjs';
 
@@ -64,7 +65,17 @@ export function createWebsiteHandler({publicPreview=false}={}) { return {
   try{const page=(String(env.CATALOG_MODE)==='service'?await resolveServicePage(url,env.SITE_DATA):null)??(String(env.CATALOG_MODE)==='service'?liveContent.resolvePage(url):resolvePage(url));headers.set('Content-Type','text/html; charset=utf-8');if(production){headers.set('X-Robots-Tag',mayIndex(url,page.status,page)?'index, follow':'noindex, follow');headers.set('Cache-Control',page.status===200&&url.pathname!=='/saved'?'public, max-age=0, s-maxage=60':'no-store');}const html=production?publishHtml(page.html,url,page.status,page):page.html;
    if(production&&page.status===200){headers.set('ETag',await htmlEtag(html));if(htmlCache&&cacheKey&&context&&request.method==='GET')context.waitUntil(htmlCache.put(cacheKey,new Response(html,{headers})).catch(()=>console.error(JSON.stringify({event:'html_cache_write_failed',requestId}))));return conditionalHtml(request,html,headers,page.status);}
    return new Response(request.method==='HEAD'?null:html,{status:page.status,headers});}
-  catch(error){const invalid=error instanceof Error&&(error.name==='QueryError'||error instanceof URIError||error.message==='Invalid pricing selection.');const status=invalid?400:503;console.error(JSON.stringify({requestId,event:'page_render_failed',status,path:url.pathname,errorType:error instanceof Error?error.name:'Unknown'}));headers.set('Content-Type','text/html; charset=utf-8');return new Response(request.method==='HEAD'?null:errorPage(status,invalid?'Check the query or pricing selection.':'The catalog is temporarily unavailable. Existing articles and product guides remain available.'),{status,headers});}
+  catch(error){
+   const invalid=error instanceof Error&&(error.name==='QueryError'||error instanceof URIError||error.message==='Invalid pricing selection.');
+   const upstream=error instanceof CatalogResponseError?error:null;
+   const status=invalid?400:503;
+   console.error(JSON.stringify({requestId,event:'page_render_failed',status,path:url.pathname,errorType:error instanceof Error?error.name:'Unknown',upstreamStatus:upstream?.upstreamStatus??null,reason:upstream?.reason??null}));
+   if(upstream?.retryAfter)headers.set('Retry-After',upstream.retryAfter);
+   if(production)headers.set('X-Robots-Tag','noindex, follow');
+   headers.set('Content-Type','text/html; charset=utf-8');
+   const message=invalid?'Check the query or pricing selection.':upstream?.upstreamStatus===429?'The catalog is temporarily busy. Please try again shortly. Existing articles and product guides remain available.':'The catalog is temporarily unavailable. Existing articles and product guides remain available.';
+   return new Response(request.method==='HEAD'?null:errorPage(status,message),{status,headers});
+  }
  }
 }; }
 export default createWebsiteHandler();

@@ -23,6 +23,12 @@ The following records belong to a different expansion from the Paldean Fates exa
 
 Choose the number printed on your card. “Mew ex 151” can refer to the expansion name or the 151/165 collector number, so check both fields. It does not identify Bubble Mew 232/091.
 
+## Mew ex 152/128 is a different 30th Celebration printing
+
+[Mew ex 152/128](/cards/717605) belongs to **ME: 30th Celebration**. It is not the Scarlet & Violet—151 card numbered 151/165, and it is not the English Bubble Mew 232/091 from Paldean Fates.
+
+Keep both parts of the collector number. “Mew 152” alone does not establish the set, language or finish. Open the [30th Celebration guide](/blog/pokemon-tcg-30th-celebration-card-prices) for the release context, then read the selected price series and observation date on the exact record.
+
 ## Two 205/165 products: regular card or metal card?
 
 The catalog also contains a separate [Mew ex 205/165 metal-card record](/cards/519481). It shares a collector number with the regular [205/165 card](/cards/517051), but the material and product identity differ.
