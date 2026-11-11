@@ -30,6 +30,18 @@ v1.1.3 已原位归档。本版本承接 v1.1.3 之后的新增、变更、移�
 
 - [官网账号删除申请方案与页面设计](00-product/cardscanfox-account-deletion-design.md)：保留现有正式 URL；2026-11-11 已实现并正式发布官网邮件草稿、复制回退与人工协助入口，页面／资源及 Help 入口已验收，后台受控执行与客服运营仍按文档落实。
 
+- [CardScanFox 正式官网发布](05-delivery/cardscanfox-production-cutover.md)：正式 Worker 与 Route、手工构建身份、自动发布边界及 2026-11-11 重发的回退点和验收记录。
+
+- [官网改版规格](00-product/cardscanfox-website-redesign-spec.md)与[独立只读服务规格](02-architecture/cardscanfox-website-service-spec.md)：官网设计、内容真源及服务边界，实际实现和发布按各文档的状态与日期理解。
+
+- [官网路由与搜索意图](05-delivery/cardscanfox-website-route-seo-spec.md)及[单卡目录与规模化索引](05-delivery/cardscanfox-catalog-indexing.md)：URL、元数据、目录和 sitemap 的设计与实现边界。
+
+- [官网卡牌术语内容补充](05-delivery/cardscanfox-card-term-content-20261108.md)：2026-11-08 内容增量及对应验证记录。
+
+- [官网首页真实卡牌展示](05-delivery/cardscanfox-home-featured-20261108.md)：2026-11-08 首页卡牌与详情链接的实现及验收记录。
+
+- [IndexNow 调试记录](05-delivery/indexnow-debug-20261108.md)和[新版官网通知记录](05-delivery/indexnow-full-redesign-20261108.md)：按原日期保留通知范围、接口回执与收录边界，不作为当前部署或搜索收录状态。
+
 - [PokeScope 自然搜索词与独立官网覆盖](05-delivery/website-competitor-keyword-coverage.md)：2026-11-08 竞品估算口径、四篇角色/卡况指南、既有页面归属和索引发现。
 
 - [官网关键词、可筛选卡表与印次指南](05-delivery/marketing-keyword-content.md)：2026-11-05 竞品关键词估算补证、三套英文官方编号表、全球竞品样本的角色/印次参考页、价格快照与本地验收边界。

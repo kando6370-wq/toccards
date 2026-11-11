@@ -24,7 +24,9 @@
 这是 TypeScript/Node 与 Dart/Flutter 并行的 monorepo：
 
 - `apps/admin-web`：React、Vite、TypeScript、Ant Design 管理后台。
-- `apps/marketing-web`：Cloudflare Workers 营销与法律页面。
+- `apps/cardscanfox-web`：当前正式官网，Cloudflare Worker 渲染与静态资源，通过 `SITE_DATA` 访问公开目录。
+- `apps/website-service`：官网只读目录服务，复用现有 PostgreSQL/Hyperdrive，不承载 App 账号或业务写接口。
+- `apps/marketing-web`：保留的旧营销与法律页源码，不作为当前正式官网发布入口。
 - `apps/workers-api`：共享 Hono API、Cloudflare Workers 与 Linux Node 运行入口、PostgreSQL 访问层及 migrations。
 - `apps/flutter-app`：Flutter 客户端，使用 Riverpod 与 GoRouter。
 - `packages/auth-core`：共享认证与密码学能力。
@@ -46,7 +48,7 @@ React Admin ── HTTPS ──────┘          ├─> PlanetScale Post
                                      ├─> recognize.tcgcard.fun：HTTPS pHash／OCR 检索
                                      └─> OAuth、邮件、汇率等外部服务
 
-Marketing Web ──> 独立的营销与法律页面
+CardScanFox Web ──> 官网 Worker ──> SITE_DATA 只读目录服务 ──> 现有 PostgreSQL／公开缓存
 ```
 
 - Flutter App 只通过 API 访问服务端数据，不直接连接 PostgreSQL、KV 或 R2。
@@ -66,7 +68,7 @@ Marketing Web ──> 独立的营销与法律页面
 - 最新 prod 回退与订阅预检（2026-10-22）：`main@c701046` 推送后 Pages 自动发布新 Admin，但 Worker/API 仍为 `main@0a167e6`，形成订阅菜单已出现而接口 404 的双入口失配；经用户明确确认，已使用 Cloudflare 官方 rollback API 将 `admin.tcgcard.fun` production 别名回退到 `cbafc74` 的 deployment `0b48a48e-d234-441f-ac3b-738f0638ad70`。回退后两个 Admin 入口主 JS 原始字节与 SHA-256 一致，均不包含订阅菜单；Worker 版本、绑定、变量、Secret、cron 和 API 未改。仅绑定 Hyperdrive 的临时 remote preview 以只读事务确认 prod PostgreSQL 18.6 ledger 精确为 `0000-0013`，`0014` 三表不存在、`0015` 候选为 0，原 weekly/yearly/lifetime 三条 active `performance_pro` 映射有效。Apple 只读目录确认生产组 `22333203`，Weekly/Yearly/Lifetime 已批准，Monthly 与 Weekly Trial 均为 `MISSING_METADATA`，两者缺审核截图和可售范围；未执行 migration、备份、Secret 写入、Worker 发布、商品审批或 Apple 写操作，详见 `docs/releases/v1.1.2/05-delivery/VERIFICATION.md#prod-subscription-preflight-rollback-20261022`。
 - 最新 prod 订阅发布检查点（2026-10-23 15:17–15:36）：生产手工备份 `vd1ed3rj2awl` 保留；`main@557166b` 的 PostgreSQL `0014/0015` 已登记为 16 项且三张新表仍为空，17 个生产 Secret 名称及既有绑定保留。经用户明确授权，从干净的同一提交完成 `pnpm lint`、类型检查、Admin 77/77、Workers 单进程 91 文件／870 项、冻结 App 1.0.4/1.0.5 兼容合同及 prod dry-run；批准 Worker 为 2,173,328 字节、SHA-256 `3f868a55b091979c4709801aed511d5d8bb111afdbe59ab37703d773f9e53221`。候选 `687f4810-bb8d-4147-baaf-37e91caf0616` 先以 0% 配合版本覆盖完成生产只读烟测，再由 deployment `f5502441-208e-447c-876e-18ecb562c178` 切至 100%；Pages `edfe60a3-e7ae-4a8a-a7ac-e787e1ac2e17` 为 production/main、来源完整 `557166b`、dirty=false。`api.tcgcard.fun` 与 `admin.tcgcard.fun` 各 11 个文件均与同一冻结 Admin 逐字节一致，新 Page/Modal iOS/Google 接口、非法枚举、未登录 Admin、health、旧鉴权、App 配置和 CORS 烟测通过。未执行 triggers deploy，cron `*/5 * * * *`、自定义域名、Hyperdrive 缓存及 Smart Placement 保持；未审批生产商品、保存／启用 Page/Modal、提交 Apple 审核或发布 Flutter App，iOS supported-products 因尚无动态准入仍为空。详见 `docs/releases/v1.1.2/05-delivery/VERIFICATION.md#prod-subscription-release-20261023`。
 - 最新 prod App／订阅收尾检查点（2026-10-26 09:02–09:43）：App Store 五个抽样 storefront 均回读 `1.0.6`，生产 iOS 版本门禁为建议／最低 `1.0.6` 且强制更新。公开长期注册表最终包含 Weekly／Yearly／Lifetime／Weekly Trial／Monthly；经用户明确授权，仅由 super_admin 为 `production:com.cardai.tcg` 审批 `CardAi.monthly`，Apple 状态 `APPROVED`、类型 subscription、plan `apple:CardAi.monthly`、Singular 事件 `card_monthly`，原四项未变。运营确认 `card_weekly`／`card_yearly` 是迁移后的正式名称。Page／Modal 仍返回 `data:null`，既有两份配置未保存、未启用。用户确认版本更新、购买、Premium 权益、订单／Apple 通知、Singular／Firebase 收入及 Restore 已在实机测试且目前无问题；Agent 未独立重放交易或读取原始平台记录。用户另确认手工备份 `vd1ed3rj2awl` 已删除，未独立回读。除单一商品准入外未执行 migration、代码／Worker／Pages 部署、Secret／变量或 Apple 写操作，详见 `docs/releases/v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026`。
-- 最新 prod API／Admin 检查点（2026-11-04 16:37–17:30）：从干净的 `main@94417983` 冻结构建，Worker version `a31cd853-63cb-482a-b4f5-d9f2bf276761` 由 deployment `481eeda4-9d84-4818-a539-1cf2b6abb964` 于 17:24:47 切至 100%，Pages deployment `9a4ba485-d241-40ae-ae05-ea67e48dbc0b` 为 production／main／success；双 Admin 22 个文件与冻结构建一致。生产备份 `835yaldvcyjv` 完成且可恢复；6 个目标索引并发预建并验证后，切流、并发删除 3 个旧索引并登记 `0016/0017`，ledger 18 项 checksum 匹配。33 个既有 binding、17 个 Secret 名称、runtime、Smart Placement、observability、logpush、Hyperdrive 缓存、cron、域名与 Pages 配置保持，仅新增公开 pHash origin；17 项候选／live 烟测通过。仅发布生产 API／双 Admin 与索引迁移，未发布 Flutter、Marketing 或 Linux dev，未修改业务数据、订阅配置、商品准入、Apple 后台或 Secret；真实登录、真机／真实扫描、插件正确 Key／限频、备份恢复与真实流量 P95 未验，详见 [v1.1.3 生产发布记录](docs/releases/v1.1.3/05-delivery/VERIFICATION.md#prod-business-release-20261104)。
+- 历史 prod API／Admin 检查点（2026-11-04 16:37–17:30）：从干净的 `main@94417983` 冻结构建，Worker version `a31cd853-63cb-482a-b4f5-d9f2bf276761` 由 deployment `481eeda4-9d84-4818-a539-1cf2b6abb964` 于 17:24:47 切至 100%，Pages deployment `9a4ba485-d241-40ae-ae05-ea67e48dbc0b` 为 production／main／success；双 Admin 22 个文件与冻结构建一致。生产备份 `835yaldvcyjv` 完成且可恢复；6 个目标索引并发预建并验证后，切流、并发删除 3 个旧索引并登记 `0016/0017`，ledger 18 项 checksum 匹配。33 个既有 binding、17 个 Secret 名称、runtime、Smart Placement、observability、logpush、Hyperdrive 缓存、cron、域名与 Pages 配置保持，仅新增公开 pHash origin；17 项候选／live 烟测通过。仅发布生产 API／双 Admin 与索引迁移，未发布 Flutter、Marketing 或 Linux dev，未修改业务数据、订阅配置、商品准入、Apple 后台或 Secret；真实登录、真机／真实扫描、插件正确 Key／限频、备份恢复与真实流量 P95 未验，详见 [v1.1.3 生产发布记录](docs/releases/v1.1.3/05-delivery/VERIFICATION.md#prod-business-release-20261104)。
 - Git 交付检查点（2026-10-09）：prod 发布记录提交 `dbc2091` 已推送 `github/main`，本地/远端 main 一致；dev 为 `c253647`，已完整包含于 main。`dbc2091` 相对 `c253647` 仅变更 6 份文档/Agent 规则，最近已验收的 prod 发布源仍记为 `c253647`、Linux dev 发布源为 `b621d76`；推送后的 CI、自动发布与运行状态本轮未回查。本地/远端均无 `dev-ext*` 分支，历史来源名保留，不再作为开发分支。生产正确 Key 的识别/详情/限频以及真实插件/真机待验项没有因提交推送而关闭。
 - `deploy:dev` 构建 Linux 发布包并通过显式 SSH 目标发布，`deploy:dry-run:dev` 仅打包，不连接服务器；prod 继续使用原 Wrangler 发布入口。Linux 发布须先通过环境/数据库/识别预检，再备份已有数据库；标准与离线 Compose 均以 PostgreSQL 18 和原有 `PGDATA=/var/lib/postgresql/data` 为契约，不自动进行大版本升级。2026-09-30 历史 dev 检查点的 Linux release 为 `branch-dev-7516cfd2a06a-20260930110549`，2026-09-30 11:10 确认 manifest、`current-release`、`last-seen-sha` 与 `last-deployed-sha` 一致，失败标记不存在；既有 watcher 已自动发布请求放置日志增量。发布日志显示 API/DB healthy、Web started、migration 检查成功且 ledger 为 14 项，实际预检无待执行 migration；这些容器/数据库结果来自发布脚本，未另行通过 SSH 独立回查。发布前备份为 1,135,397,728 字节，临时文件已不存在；本轮未执行 `pg_restore --list` 或恢复演练。11:13 内网 health 200、未登录 auth/me 401、Admin 200；10 个 JS/CSS 资源与本地 dev 构建字节一致，HTML 仅 CR 字符有差异，不宣称原始字节一致。DBX MCP 只读策略阻止了手动 SSH 和产物下载，本轮没有绕过策略；运行容器 API bundle 哈希与新增字段的运行日志未独立回读。Apple 官方 Sandbox TEST 已经独立公网回调处理成功。旧 CF dev 的 Worker、域名和 cron 已退役，旧测试数据和包保留；API 与 watcher 的代理配置仍分别存放在各自私有环境文件。验证范围与未执行项见`docs/releases/v1.1.1/05-delivery/VERIFICATION.md`。
 - 历史 Linux dev 检查点（2026-10-09 10:58）：手工发布 `manual-extension-f952e50-dirty-20261009-1791513409974`，来源为未提交的 `dev-extension` 工作区，不能标记为纯 `f952e50` 提交。API/DB healthy、Web running、migration 检查 exited/0，ledger 仍为 14 项且最新 `0013`，无待执行 migration；原 PostgreSQL 18 数据卷保留。发布前数据库备份 1,135,397,964 字节，`pg_restore --list` 成功列出 324 项，未做恢复演练；API/Web 运行文件与批准产物 SHA256 一致，Admin 的 11 个 HTML/JS/CSS 字节全量匹配。插件 Key、频率 60 原字节保留，仅追加 `EXTENSION_TRUST_PROXY=true` 并备份私有环境文件；确认 API 没有宿主端口绑定，更新后的离线代理覆盖来源头。鉴权、参数拒绝、合成向量 5 个完整详情对照与防刷验收通过，不代表真实图片识别准确率。watcher 仍跟踪 `dev`，其 last-deployed 保持 `7516cfd`；后续 dev 自动发布可能覆盖此手工版本，未擅自修改 watcher 或 Git 推送。prod 未改动，详见`docs/releases/v1.1.1/05-delivery/VERIFICATION.md`。
@@ -74,6 +76,8 @@ Marketing Web ──> 独立的营销与法律页面
 - 最新 Linux dev 补验（2026-10-12 14:22–14:26）：PR #3 已合入 `dev@e8d1dd9`；SSH 独立回读确认 watcher/current/manifest 指向 `branch-dev-e8d1dd952f05-20261012131153`，失败标记不存在。API/DB healthy、Web running、migration exited/0；PostgreSQL 18、ledger 14 项/最新 `0013`、无待执行迁移。发布前备份 1,135,398,457 字节，`pg_restore --list` 成功列出 324 项，未做恢复演练。运行 API/Web 文件及 Admin 11 个静态文件与 Linux release 字节一致，基础 HTTP 烟测通过；本轮只读验收，未手工重发或迁移。该运行检查点早于 C03 的后续合并整理，C03 增量由 PR #6 跟踪；正式旧包/真机、完整兼容矩阵仍待验，见 [AI 执行版的历史证据摘要](docs/releases/v1.1.2/03-data-api/app-backward-compatibility-ai-guide.md#63-保留的历史证据摘要)。
 - 2026-10-15 订阅联调预检发现源码与 Linux 运行基线分离：当前订阅候选仍为 512 维向量规范；Linux current 实际为 dev-xiangyang@2c56e9f 加 Admin 原图预览的手工 dirty 包，使用 recognize.tcgcard.fun 的 pHash／OCR 协议。recognize-vec.tcgcard.fun 的 512／cosine 服务从 dev 网络可达，但本轮未切换。不得将历史“dev 已使用向量”的记录视为当前运行事实，也不得仅放宽健康检查。用户已明确 pHash／OCR 属于另一位同事的独立测试，本次业务采用当前 512 维向量方案；后续按向量 API、测试 App 与 recognize-vec 服务配套推进，不再将方案选择列为待确认项。该选择不代表服务器已完成切换，部署仍需协调实际运行环境。详见 [扫描基线定位](docs/releases/v1.1.2/05-delivery/VERIFICATION.md#subscription-config-baseline-resolution)。
 - `packages/*` 只承载跨应用共享能力，应用之间通过包依赖或 HTTP 契约协作。
+
+当前正式官网使用 `apps/cardscanfox-web/wrangler.production.jsonc` 发布到 `toccards-website`／`tcgcard.fun/*`，经 `SITE_DATA` 复用官网只读目录服务；不得运行旧 `apps/marketing-web` 的 deploy 覆盖同名 Worker。`main` 的相关路径推送已接入 Cloudflare 自动发布，Git 推送与远端实际生效须分别核对。近期 API／双 Admin 和官网发布记录分别见 [v1.1.4 版本管理](docs/releases/v1.1.4/03-data-api/app-version-management.md#生产后台配套发布2026-11-10)及[官网发布记录](docs/releases/v1.1.4/05-delivery/cardscanfox-production-cutover.md#账号删除申请页正式重发2026-11-11)；上方历史检查点不能替代当前环境回读。
 
 ## 工具链与常用命令
 
@@ -133,7 +137,7 @@ GitLab 与 GitHub Flutter CI 统一使用 3.47.9；GitLab 从官方 archive 安�
 
 `docs/releases/v1.0.0` 是已发布冻结基线，后续迭代不得回写；若需修正已经确认的文档错误，必须先说明原因并获得用户明确授权。11 份原始 PRD 包括 `glossary.md`、`overview.md`、`ui-design-system.md` 和 `00-product/modules/` 下的 8 份模块文档，必须保持字节不变，不得因当前实现或后续需求而修订。
 
-实现文档以对应版本代码、迁移和运行配置为准。v1.1.0、v1.1.1 与 v1.1.2 开发记录已原位归档；后续 v1.1.3 的新增、变更、移除及实现结果按需写入 `docs/releases/v1.1.3/`，未变化部分引用历史版本。旧版本的补充验收在当前版本按新日期补证并链接原检查点，不覆盖历史结论；归档不等于设计实现、外部验收或商店发布通过。不要新增执行日志、任务状态快照、交接文档、生成截图或原始设计素材到 `docs/`。
+实现文档以对应版本代码、迁移和运行配置为准。v1.1.0、v1.1.1、v1.1.2 与 v1.1.3 开发记录已原位归档；后续新增、变更、移除及实现结果按需写入 `docs/releases/v1.1.4/`，未变化部分引用历史版本。旧版本的补充验收在当前版本按新日期补证并链接原检查点，不覆盖历史结论；归档不等于设计实现、外部验收或商店发布通过。不要新增执行日志、任务状态快照、交接文档、生成截图或原始设计素材到 `docs/`。
 
 Flutter UI 变更前必须阅读 `docs/releases/v1.0.0/00-product/ui-design-system.md`，并优先复用现有组件、颜色、间距和交互模式；若历史基线或 v1.1.3 有明确增量契约，同时读取对应版本文档。
 
@@ -189,6 +193,6 @@ Flutter UI 变更前必须阅读 `docs/releases/v1.0.0/00-product/ui-design-syst
 #### 文档与记录
 
 - 修复导致接口、配置、行为、Schema、架构、部署、运维或用户操作方式变化时，必须在同一任务中更新 `docs` 下相关文档或项目既有等价位置；不得等全部编码结束后补写。
-- 每个 BUG 必须在 Issue、任务系统、提交说明或当前版本既有业务文档中记录根因、证据、修复方式、影响范围、验证结果、Code Review 结论和未验证项，保证后续可追溯。v1.1.2 的 App 兼容规则与历史补证保留在归档 AI 执行版；v1.1.3 的新证据写入当前版本受影响业务文档或统一验证记录，不复制旧版规则文档。
+- 每个 BUG 必须在 Issue、任务系统、提交说明或当前版本既有业务文档中记录根因、证据、修复方式、影响范围、验证结果、Code Review 结论和未验证项，保证后续可追溯。v1.1.2 的 App 兼容规则与历史补证保留在归档 AI 执行版；v1.1.4 的新证据写入当前版本受影响业务文档或统一验证记录，不复制旧版规则文档。
 - 文档影响不存在时必须记录 `N/A` 及理由，不得为了满足流程创建无业务价值的重复文档。简单 BUG 若已由 Issue、提交和回归测试完整追踪，不强制新建独立工作项目录。
 - 文档只描述实际修复后的当前行为，不得把猜测根因、未执行验证或计划中的后续改进写成已确认事实。

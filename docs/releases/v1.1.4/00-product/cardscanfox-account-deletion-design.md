@@ -21,9 +21,11 @@
 
 Google 官方允许通过客服邮箱或表单提供网页申请路径，并未要求额外公开无需鉴权的删除 API。网站入口和 App 内入口、关联数据、服务提供商删除及保留披露应一起考虑；网页本身不能代表端到端合规验收完成。官方依据见第 12 节。
 
-## 2. 现有官网与业务基础
+## 2. 设计时的官网与业务基线（2026-11-10，历史）
 
-| 当前事实 | 对本方案的影响 |
+本节保留设计前的状态与决策依据；源码链接现在指向实现后的文件，不应将下表当作当前功能缺失清单。2026-11-11 的实现与发布结果见第 13 节。
+
+| 当时事实 | 对当时方案的影响 |
 |---|---|
 | [现有页面](../../../../apps/cardscanfox-web/src/render.mjs) 的 `accountSetup()` 已在 `/Account/AccountSetup` 提供邮件入口 | 保留大小写和完整路径，不另换正式 URL。 |
 | 页面标题偏向 `Account setup and deletion`，内容以长文说明为主 | 改为目的明确的删除标题、结构化申请区和处理步骤。 |
@@ -62,11 +64,13 @@ Google 官方允许通过客服邮箱或表单提供网页申请路径，并未�
 | 辅助入口 | 不记得邮箱／无法使用原邮箱的人工协助，始终可见；无邮件客户端时可查看收件地址和模板。 |
 | 范围说明 | 当前平台删除的数据、另一平台保留、无法恢复及合法保留例外。 |
 | 处理步骤 | 发送邮件、身份核验、执行与确认；不得伪装成可在线查询的实时工单状态。 |
-| 已安装 App 的用户 | 提供 App 内 `Profile → Account → Delete Account` 的文字路径；网页申请同样可用，不强制跳回 App。该路径已按现有 Profile 账号入口和 `/account` 路由核对。 |
+| 已安装 App 的用户 | 正式账号：`Profile → Account → Delete Account`；游客（Guest）：Profile 页底部的 `Delete Account`。网页申请同样可用，不强制跳回 App。两种入口分别位于 [Account 页面](../../../../apps/flutter-app/lib/features/profile/account_page.dart)和 [Profile 页面](../../../../apps/flutter-app/lib/features/profile/profile_page.dart)，游客不通过 `/account` 页删号。 |
 | iOS 条件提示 | 仅在选择 iOS 时，明确删除账号不会自动取消 Apple 订阅；提供管理订阅的帮助说明。 |
 | FAQ 与页脚 | 隐私政策、使用条款、Help、账号删除；补充网站 Saved 与 App 收藏不是同一份数据。 |
 
 视觉继承[官网规格](cardscanfox-website-redesign-spec.md)和现有 `site.css`：Manrope，浅色底 `#f8f9f6`、主文字 `#1b231d`、次文字 `#626b64`、分割线 `#dfe4da`、主动作色 `#e5f17c`。不做红色恐吓式整页，不增加推广弹窗或优惠挽留。
+
+当前实现差距（2026-11-11 复核）：官网 FAQ `Still have the app?` 和 API 法律文案仍只提示正式账号路径，尚未说明游客的 Profile 底部入口。Flutter 两种入口均已存在；本次文档校正未修改官网／API 文案或发布，不能将这里的路径更正视为线上文案已修复。
 
 桌面采用主申请区与右侧说明的两栏布局；手机将申请区置于前面，其后是范围、步骤和 FAQ。320px 不横向溢出；平台选择使用原生 `fieldset / legend / radio`，主操作可键盘访问，字段错误通过 `aria-describedby` 关联，草稿状态使用 `aria-live`，重要提示不只用颜色表达。交互设计预览在本次对话中提供，英文为拟上线文案，中文文档用于评审。
 
@@ -249,7 +253,7 @@ Android 范围提示：`This request applies to your Android Card AI account. Yo
 | `node scripts/check-dep-direction.mjs` | 仓库依赖方向检查通过。 |
 | `node scripts/build.mjs --pages` | 123 条路由构建通过，包含 46 个受保护旧网址；专页模块随静态资源输出。 |
 | 本地浏览器 | 桌面、390px 与 320px 布局可读；两种手机宽度均无页面横向溢出，邮箱字体为 16px。无默认平台、字段错误与输入保留、平台范围切换、iOS 条件提示及方向键选择已实际检查。 |
-| 独立代码与文档复核 | 无阻断项；3 份本轮 Markdown 中 14 个本地链接全部存在，App 路径与实际 Flutter 页面一致。 |
+| 独立代码与文档复核 | 当时未报告阻断项；3 份本轮 Markdown 中 14 个本地链接全部存在，已核对正式账号的 App 路径。后续发现遗漏游客分支，差距与正确入口见第 4 节。 |
 | `git diff --check` | 通过。 |
 
 首次全量验证曾因本地 EOL 状态失败：44 个旧 HTML 与 1 个 sitemap 的工作树被转换为 CRLF，与现有 LF 原字节保护要求不符。逐文件确认仅移除 CR 即等于 HEAD，且 HEAD 哈希符合原基线／manifest 后，恢复了本地批准 LF 字节；没有修改正文、基线、manifest 或放宽断言。随后上述全量测试和构建通过。构建生成的两个内容 JSON 也没有语义改动，均从本轮内容 diff 中排除。

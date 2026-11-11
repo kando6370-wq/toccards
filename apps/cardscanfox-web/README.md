@@ -1,6 +1,6 @@
 # CardScanFox 独立官网
 
-既有 `marketing-web` 的独立改版候选，保留旧项目、域名和网址。使用已确认的几何狐狸标识与浅色视觉。
+CardScanFox 当前正式官网，独立于既有 `marketing-web`，保留原域名和网址。使用已确认的几何狐狸标识与浅色视觉。
 
 ## 当前实现范围
 
@@ -11,7 +11,7 @@
 - 原博客列表和卡表筛选可继续操作。旧网址、原 H1 和正文保持。按用户后续要求，`content/seo-pages.json` 已应用按搜索意图编写的标题和简介；`content/seo-proposals.json` 保留初版草案作对照。
 - 独立只读数据服务支持本地捕获快照及新增 PostgreSQL 只读接口；默认预览仍读取 30 条真实捕获快照。单卡只提供固定 30 天摘要与 App 引导，不改变现有 App 的历史接口、订阅或额度。
 
-按用户 2026-11-07 的要求，本期不建设官网管理后台、账号、角色、CMS 写接口或官网数据库。页面和文章在项目文件维护。生产数据出口、真实全量目录和正式接管仍需对应来源与发布授权。
+按用户 2026-11-07 的要求，不建设官网管理后台、账号、角色、CMS 写接口或官网数据库。页面和文章在项目文件维护。正式站已接管原域名；后续生产变更仍需取得发布授权并完成独立验收。
 
 ## 本地运行
 
@@ -61,13 +61,15 @@ pnpm type-check
 
 ## Cloudflare 边界
 
-候选名为 `cardscanfox-website-preview`，不声明生产 Route/Custom Domain，也不绑定原业务库。`run_worker_first` 使 HTML 和素材都先经过预览访问控制。
+正式官网由 Worker `toccards-website` 托管，Route 为 `tcgcard.fun/*`，生效配置为 `wrangler.production.jsonc`。正式 Worker 通过 `SITE_DATA` 绑定独立只读服务 `cardscanfox-site-data-preview`；不新增官网写接口或直接业务库写入。
 
-远程预览必须配置独立 `PREVIEW_USERNAME` 和至少 12 字符的随机 `PREVIEW_PASSWORD`，且不能使用示例值。缺少凭据时拒绝访问；版本 URL 也不应绕过这层检查。不要提交 `.dev.vars`。
+私有 Worker 预览 `cardscanfox-website-preview` 与公开 Pages 预览 `cardscanfox-git-preview` 继续用于对比和发布前验证，不声明生产 Route/Custom Domain。私有预览的 `run_worker_first` 使 HTML 和素材都先经过预览访问控制。
+
+私有 Worker 预览必须配置独立 `PREVIEW_USERNAME` 和至少 12 字符的随机 `PREVIEW_PASSWORD`，且不能使用示例值。缺少凭据时拒绝访问；版本 URL 也不应绕过这层检查。公开 Pages 预览使用独立入口，不要求 Basic 认证，但保留预览的 noindex／no-store 边界。不要提交 `.dev.vars`。
 
 绑定 `SITE_DATA` 的服务目标是独立 `cardscanfox-site-data-preview`。只有取得目标环境授权后才创建/部署服务或设置远程 Secret。
 
-预览响应 `noindex/nofollow`、`no-store`，robots 禁止抓取，预览不发布 sitemap、不提交 IndexNow。正式候选必须同时配置真实服务模式和明确的 PUBLISH_READY 开关，默认拒绝启用；后续接管仍需独立批准，并遵守原 URL、缓存、访问控制和回退验证。
+预览响应 `noindex/nofollow`、`no-store`，robots 禁止抓取，预览不发布 sitemap、不提交 IndexNow。正式站使用真实服务模式并已启用 `PUBLISH_READY`；后续发布仍须遵守原 URL、缓存、访问控制和回退验证。
 
 ## 内容与数据来源
 
@@ -75,7 +77,7 @@ pnpm type-check
 
 卡图和价格为本地评审数据，原观测日期保留。生产再展示许可和读模型出口没有因本地实现而自动获批。禁止将用户扫描原图用作公开卡图。
 
-规格入口：`docs/releases/v1.1.2/00-product/cardscanfox-website-redesign-spec.md`。
+规格入口：[CardScanFox 官网改版规格](../../docs/releases/v1.1.4/00-product/cardscanfox-website-redesign-spec.md)。
 
 ## 文件内容维护（无管理后台）
 
@@ -116,11 +118,13 @@ pnpm type-check
 pnpm --filter @kando/cardscanfox-web release:compare /absolute/current-release /absolute/candidate-release
 ```
 
-该命令拒绝缺失已有 URL、修改保护标记、缺失保护正文、资产改动和未登记文件。回退也需同样对照；动态数据地址和非 sitemap 历史地址还需合并真实访问记录，不能只靠静态清单证明覆盖。
+该命令先校验两个 release 各自的文件哈希和文件登记，再比较路由清单；它拒绝缺失已有 URL，以及受保护路由的保护标记或 `sourceBodyHash` 变化。已合法登记的 JS、CSS、图片等资产差异不会仅因内容变化被拒绝，仍需结合构建差异和发布验收人工核对。回退也需同样对照；动态数据地址和非 sitemap 历史地址还需合并真实访问记录，不能只靠静态清单证明覆盖。
 
 `content/index-policy.json` 在正式模式保留旧 46 页及已登记栏目的索引。单卡采用真实数据与身份完整性规则，合格详情可索引，无须手填几十万网址。Saved、草稿、搜索/筛选组合不进入 sitemap。
 
-`wrangler.production.example.jsonc` 是未生效的正式候选配置，不含正式域名 Route，`PUBLISH_READY=false` 默认拒绝正式模式。正式启用需批准目标和构建，确认独立真实数据服务，再明确设置该开关。正式响应会移除预览认证和 noindex，并按索引策略生成 sitemap；公开 API 拒绝评审快照。示例配置不是一次部署授权。
+`wrangler.production.jsonc` 是当前生效的正式配置，目标为 `toccards-website`，Route 为 `tcgcard.fun/*`，并绑定独立真实只读服务。`wrangler.production.example.jsonc` 仅保留为未生效样例，不能作为当前生产状态或一次部署授权。正式响应移除预览认证，再按索引策略决定 robots；账号删除、Saved 等页面继续 noindex，公开内容按资格进入 sitemap；公开 API 拒绝评审快照。
+
+手工正式构建前必须确认工作区干净且 HEAD 是批准的发布提交，将该提交的 40 位 SHA 注入构建环境，并排除优先级更高的旧 `CF_PAGES_COMMIT_SHA`。`build.mjs` 只从 `CF_PAGES_COMMIT_SHA` 或 `WORKERS_CI_COMMIT_SHA` 写入 `release-manifest.json` 的 `sourceCommit`；普通 `pnpm deploy:production` 不会自动注入该值。具体环境注入、生产命令和回读步骤以[生产切换记录](../../docs/releases/v1.1.4/05-delivery/cardscanfox-production-cutover.md#发布目标)为准。
 
 ## 单卡搜索意图与规模化 sitemap
 
@@ -140,15 +144,17 @@ pnpm --filter @kando/cardscanfox-web catalog:sitemaps --input=/absolute/catalog.
 
 正式 HTML 加入按 Worker 版本隔离的缓存与 ETag/304，降低重复请求成本。预览、Saved、带身份头或参数的页面不进入公共 HTML 缓存。实际爬取压力仍需在真实只读目标测量。
 
-更多规则见 `docs/releases/v1.1.2/05-delivery/cardscanfox-catalog-indexing.md`。目前没有读取 GSC 查询和收录基线，不宣称文案已提高点击率或所有卡牌已被收录。
+更多规则见[单卡规模化索引方案](../../docs/releases/v1.1.4/05-delivery/cardscanfox-catalog-indexing.md)。目前没有读取 GSC 查询和收录基线，不宣称文案已提高点击率或所有卡牌已被收录。
 
 ## Git 自动部署
 
-独立发布分支为 `codex/cardscanfox-preview`。只推送此分支不会推进 `main` 或 `dev`。Cloudflare 目标账号固定为 `dced4adca2f35cff247b39979058b934`。原手工上传项目 `cardscanfox-preview` 保留用于对比。
+预览发布分支为 `codex/cardscanfox-preview`。只推送此分支不会推进 `main` 或 `dev`。`main` 已连接正式 Worker 自动构建，但只有提交命中 Cloudflare 当前配置的监听路径时才会触发；不得把任意一次 `main` 推送直接写成生产已发布。Cloudflare 目标账号固定为 `dced4adca2f35cff247b39979058b934`。原手工上传项目 `cardscanfox-preview` 保留用于对比。
 
-新 Pages Git 项目 `cardscanfox-git-preview` 复用现有仓库连接。根目录 `/`，构建命令 `pnpm --filter @kando/cardscanfox-web --fail-if-no-match build:ci`，输出目录 `apps/cardscanfox-web/dist`。Node 使用 22，pnpm 使用 11.9.0。构建失败不替换上一成功部署。发布清单记录 `CF_PAGES_COMMIT_SHA`，用于回读核对实际发布提交。
+新 Pages Git 项目 `cardscanfox-git-preview` 复用现有仓库连接。根目录 `/`，构建命令 `pnpm --filter @kando/cardscanfox-web --fail-if-no-match build:ci`，输出目录 `apps/cardscanfox-web/dist`。当前仓库要求 Node `^22.23.4`、pnpm `11.28.10`；远端构建环境版本仍须从实际部署回读。构建失败不替换上一成功部署。Pages 发布清单记录 `CF_PAGES_COMMIT_SHA`，用于回读核对实际发布提交。
 
-Pages 构建命令现在生成 `_worker.js` 和全路径 `_routes.json`，通过 `SITE_DATA` Service Binding 取得真实目录并服务端渲染。108 个静态构建条目继续保留，单卡动态地址不限于原 30 条评审记录。公开 Pages 预览维持 noindex/no-store、robots 禁止抓取；独立 Workers 入口仍保留 Basic 认证。数据失败返回 503，首页保留产品说明，不以旧快照替代真实价格。
+Pages 构建命令生成 `_worker.js` 和全路径 `_routes.json`，通过 `SITE_DATA` Service Binding 取得真实目录并服务端渲染。2026-11-07 初始预览有 108 个静态构建条目；当前构建清单为 123 条路由，单卡动态地址不限于原 30 条评审记录。公开 Pages 预览维持 noindex/no-store、robots 禁止抓取；独立 Workers 入口仍保留 Basic 认证。数据失败返回 503，首页保留产品说明，不以旧快照替代真实价格。
+
+提交、Cloudflare 自动构建和线上生效是三个独立状态。每次正式发布都要回读活动 version/deployment，并核对线上 `/release-manifest.json` 的 `sourceCommit` 与批准提交一致；只看到 Git 推送或构建记录不能宣称生产已更新。
 
 新只读服务使用独立 Workers Builds，配置见 `apps/website-service/README.md`。新增数据服务复用正式库现有 Hyperdrive；原 App 代码、接口和绑定配置不修改。正式域名切换与索引开放分别管理。
 

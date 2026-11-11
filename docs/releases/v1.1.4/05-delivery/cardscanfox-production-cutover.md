@@ -12,7 +12,23 @@ Jev 本轮返回：Delta 归属指南，confidence 0.91；UPC 归属指南但 co
 
 在新应用内新增 `wrangler.production.jsonc`，目标固定为 dced4adca2f35cff247b39979058b934 账号的现有官网 Worker `toccards-website`，保留 `tcgcard.fun/*` 路由，改为部署独立新应用，复用新只读服务 `cardscanfox-site-data-preview`。原营销源文件与 App/API/Admin/Flutter 不修改。新配置生产模式显式开启，预览 Pages 入口继续强制 noindex。
 
-正式构建命令为 `pnpm --filter @kando/cardscanfox-web build`，部署命令为 `pnpm --filter @kando/cardscanfox-web exec wrangler deploy --config wrangler.production.jsonc`，仓库根目录执行，生产分支 main。正式源版本从 release-manifest 回读。旧 Worker 版本保留，失败可通过版本回退恢复。
+正式应用为 `apps/cardscanfox-web`，生产分支为 `main`。`main` 相关路径推送已由既有 Cloudflare Git 集成自动发布；不是每次文档提交都必然触发构建，具体监听范围以控制台配置为准。推送成功、自动构建成功与正式流量生效分别验收，不能只凭 Git SHA 推断已上线。
+
+手工正式发布在仓库根目录执行，须先取得目标环境授权并使用项目约束的工具链。构建器只从 `CF_PAGES_COMMIT_SHA` 或 `WORKERS_CI_COMMIT_SHA` 读取提交身份，不会自动执行 Git；普通 `build`／`deploy:production` 命令若缺少这两个变量，会生成 `sourceCommit:null`。以下 PowerShell 示例在干净工作区将同一完整 SHA 注入两个入口，避免旧环境变量优先级带入错误身份：
+
+```powershell
+if (git status --porcelain) { throw '发布工作区必须干净' }
+$websiteSourceCommit = (git rev-parse HEAD).Trim()
+if ($LASTEXITCODE -ne 0 -or $websiteSourceCommit -notmatch '^[a-f0-9]{40}$') { throw '无法确认完整发布提交' }
+$env:CF_PAGES_COMMIT_SHA = $websiteSourceCommit
+$env:WORKERS_CI_COMMIT_SHA = $websiteSourceCommit
+pnpm --filter @kando/cardscanfox-web build
+if ($LASTEXITCODE -ne 0) { throw '官网构建失败' }
+$websiteManifest = Get-Content 'apps/cardscanfox-web/dist/release-manifest.json' -Raw | ConvertFrom-Json
+if ($websiteManifest.sourceCommit -ne $websiteSourceCommit) { throw '产物提交身份不匹配' }
+```
+
+完成候选清单、保护路由、production dry-run、活动配置与回退点核对后，再使用 `pnpm --filter @kando/cardscanfox-web exec wrangler deploy --config wrangler.production.jsonc --keep-vars`，或按本页重发记录先 `versions upload`、比较候选，再 `versions deploy`。部署后回读活动版本及 `release-manifest.json`，核对完整 SHA 和批准的 release ID。旧 Worker 版本保留，失败可通过版本回退恢复。
 
 ## 网站地图与通知
 
