@@ -37,3 +37,17 @@ IndexNow 首批 60 URL 返回 202（收到、等待 key 验证），最后 7 URL
 本地使用 Node 22.23.4 完成官网 50／50 项测试、类型检查、静态构建、候选完整性校验及 production dry-run；构建 release ID 为 `685d68694945acf84c4168dc90ff826f9e1c7fab6c8f8618fb77338c76d27738`，dry-run 保留 `SITE_DATA`、assets、版本元数据及五项 production 变量。Windows 测试入口改用 `fileURLToPath`，受原字节保护的 legacy HTML 与 sitemap XML 固定 LF，未放宽哈希或正文保护。
 
 本轮只准备本地候选，没有上传版本、切换流量、修改 Cloudflare 配置、提交 IndexNow 或填写 Play Console。正式发布前仍需使用修复后的共享 lockfile执行 frozen install，刷新活动 deployment／version／binding 回退点；发布后回读删号页、隐私页、动态目录、榜单、sitemap、robots 和 release manifest，并确认支持邮箱的实际处理流程。
+
+## 账号删除申请页正式重发（2026-11-11）
+
+用户明确要求重新部署官网。发布前回读确认：`main@b716ae1206b06331a25028f90fc24f3697021490` 已经由既有自动发布生效，活动 Worker 为 `cfa24a8a-7971-4bd8-a816-28e52d0afb31`、100% 流量，deployment `2cd39ad2-6dbe-48f3-9b13-60c49402e3f2`。本轮是在同一源码上显式重发，不将其记为功能首次生效。
+
+从干净的同一提交使用 Node `22.23.4`、pnpm `11.28.10` 完成 `install --frozen-lockfile`、正式构建、完整文件清单验证及 production dry-run；123 条路由无缺失，46 条受保护旧页的正文哈希不变。提交前的 73/73 官网测试与类型检查见[实现验证记录](../00-product/cardscanfox-account-deletion-design.md#132-提交前同步2026-11-11)，本轮没有重复运行未改变源码的业务测试。Windows 工作树的 `public/_headers` 仅恢复为 HEAD 已批准的 LF 原字节；构建后的响应头规则与原生产完全一致，未修改规则、基线或 Git 内容。
+
+先上传候选并逐项比较，再于 **2026-11-11 09:49:18（Asia/Shanghai）** 将 Worker version `cc262754-4590-4428-82bf-f2167bfa8521` 切至 100%，deployment `dd1fe5cb-4bdb-4d03-b8eb-b90a31a6314d`；随后独立回读活动版本一致。新 `release-manifest.json` 的 `sourceCommit=b716ae1206b06331a25028f90fc24f3697021490`，`releaseId=9c3307eb8c87b60b7150064e2b293df333aa5af0bbf70f576290c842023d6bed`，190 个登记文件。现网清单原字节与冻结构建一致。
+
+候选与原生产的 Worker 脚本 etag、8 项绑定描述符及完整版本化运行配置相同，`SITE_DATA` 继续指向 `cardscanfox-site-data-preview`；assets 响应头、兼容日期及 `nodejs_compat` 保持一致。上传仅有账号删除脚本、CSS 和新发布清单 3 个不同原字节资源，其余 187 个复用已有资产。版本部署输出同步 `logpush=false`、observability enabled／sampling=1；发布前未独立读取这些非版本化设置，不宣称它们已逐项前后比对。未执行 triggers deploy，未重设 Route、域名或 cron。
+
+正式域名完成 19 项 GET／HEAD 检查，全部返回 200。账号删除页的 canonical、安全响应头、`noindex, follow`、无默认平台和同源 module 正常，专用脚本、CSS、公共脚本原始字节及 SHA-256 均与冻结资源一致；Help／两处页脚／隐私入口可用，删除页未进入 sitemap。首页、目录、价格页、涨幅榜、单卡、隐私、条款、robots、sitemap 与 Saved 的索引／缓存边界均通过抽查。浏览器实际从 Help 展开删除问答并到达正式删除页，空字段校验和 Android／iOS 范围及条件订阅提示正常。手机布局沿用同一源码先前的 320／390px 本地验收，本轮未另做线上手机尺寸复验。
+
+保留原 Worker version 作为回退点，未执行回退；未发布 App／共享 API／Admin／目录数据服务，未执行迁移、业务写入、Secret 操作、IndexNow 通知或 Play Console 填写。未发送真实邮件、打开有效邮件草稿、读取或改写系统剪贴板、操作真实账号或执行删号；客服收件、身份核验、自有数据与服务提供商删除仍需独立落实。发布证据与截图存放于被忽略的 `apps/cardscanfox-web/.local/prod-redeploy-b716ae12-20261111/`，不纳入源码或法律正文。
