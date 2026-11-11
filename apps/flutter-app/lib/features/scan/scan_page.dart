@@ -524,6 +524,8 @@ class _ScanPageState extends ConsumerState<ScanPage>
 
   bool get _hasUnsavedScanResults => _items.isNotEmpty;
 
+  bool get _hasAndroidUncollectedResults => _matchedItems.isNotEmpty;
+
   @override
   void initState() {
     super.initState();
@@ -2353,18 +2355,19 @@ class _ScanPageState extends ConsumerState<ScanPage>
       return;
     }
     if (Theme.of(context).platform == TargetPlatform.android) {
+      if (!_hasAndroidUncollectedResults) {
+        if (mounted) context.go('/home');
+        return;
+      }
       if (_exitDialogVisible) return;
       _exitDialogVisible = true;
-      final hasUnsavedResults = _hasUnsavedScanResults;
       try {
         final shouldExit = await showDialog<bool>(
           context: context,
           barrierDismissible: false,
           builder: (dialogContext) => KandoConfirmModal(
-            title: hasUnsavedResults ? 'Exit scan result?' : 'Exit scan?',
-            message: hasUnsavedResults
-                ? 'Your scanned card has not been collected yet.'
-                : 'Exit the scanner and return to Home?',
+            title: 'Exit scan result?',
+            message: 'Your scanned card has not been collected yet.',
             icon: Icons.drive_file_move_outline,
             confirmLabel: 'NO, STAY HERE',
             cancelLabel: 'EXIT',

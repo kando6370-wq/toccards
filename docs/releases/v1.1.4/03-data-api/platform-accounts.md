@@ -331,3 +331,11 @@ Home／Card Detail 的图表提示使用独立 TextPainter，登录加载提示�
 最终 API version `c02380d5-32b2-4e63-b8ef-68cbdf909ebe`／deployment `2ac37542-a212-41b1-a7b4-b96b29f6cf09` 为 100%。Pages `727e70d3-385b-4f0f-9287-217248f75c27` 为 production／success，双 Admin 22 个文件均与同一冻结构建字节一致。新增 Android 公开配置和 Integrity 私钥 Secret，原 34 bindings／17 Secret 名称保留；正式环境未启用 development 豁免。官网删号页与隐私说明亦已配套发布，Google 更新规则只修正商店 URL，仍停用提示且未启用强更。
 
 迁移前执行器两次适配失败均回滚并独立确认未部分提交；首次迁移后只读探针的数组参数问题修正后再做独立后验。全部失败记录保留，未将其计为通过。解除维护后的基础 HTTP、非法安装证明拒绝与配置／资产核验通过。207 无 Billing 的正式 AAB 已由 Play 接收，新 Upload 证书与本地制品匹配，并于 2026-11-10 13:33 发布至 6 人 Internal testing 轨道；当前轨道有效、版本尚未审核，邀请页可打开但未代用户接受。真实账号登录、Play 安装证明、Android 扫描与统计、Play 分发 APK 独立验签及 iOS 购买／Restore 未独立重放；详见[本轮发布与上传记录](../05-delivery/android-play-release-configuration.md#google-play-内部测试发布2026-11-10-1333)。
+
+### Android 扫描退出提示条件收紧（2026-11-11）
+
+用户补充反馈：扫描结果中没有需要加入收藏或删除的卡牌时，Android 仍会弹出退出确认。根因是退出判断把扫描队列中任意 `_items` 都当成未收藏结果，包含识别中、失败和无匹配项目。
+
+修复后 Android 仅在存在 `matched` 卡牌时显示 `Exit scan result?`；空队列、识别中、无匹配、失败、等待额度和权益同步项目直接返回 Home。iOS 仍按原有 `_items` 未保存结果规则处理，扫描队列、删除、重试、Review 和收藏接口均未改变。
+
+本地使用仓库隔离 Flutter 3.47.9／Dart 3.13.7 执行 `scan_page_test.dart`，156／156 通过、0 失败、0 跳过；覆盖 Android 空队列、系统返回、识别中迟到结果、无匹配、失败及有匹配卡牌弹窗。`flutter analyze --no-pub` 为 0 issues。未执行真机安装、APK 构建、提交推送或 dev/prod 发布。
