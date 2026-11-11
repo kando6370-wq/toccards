@@ -339,3 +339,17 @@ Home／Card Detail 的图表提示使用独立 TextPainter，登录加载提示�
 修复后 Android 仅在存在 `matched` 卡牌时显示 `Exit scan result?`；空队列、识别中、无匹配、失败、等待额度和权益同步项目直接返回 Home。iOS 仍按原有 `_items` 未保存结果规则处理，扫描队列、删除、重试、Review 和收藏接口均未改变。
 
 本地使用仓库隔离 Flutter 3.47.9／Dart 3.13.7 执行 `scan_page_test.dart`，156／156 通过、0 失败、0 跳过；覆盖 Android 空队列、系统返回、识别中迟到结果、无匹配、失败及有匹配卡牌弹窗。`flutter analyze --no-pub` 为 0 issues。未执行真机安装、APK 构建、提交推送或 dev/prod 发布。
+
+### Android dev 208 包启动停留 Logo 修复（2026-11-11）
+
+用户安装 dev `1.0.7+208` 后一直停留原生 Logo。ADB 在荣耀 BKQ-AN10（API 37）安装同一制品后复现：进程存活，`firstWindowDrawn=false`，渲染帧数为 0；Flutter 报 `PlatformException(channel-error)`，无法连接 `dev.flutter.pigeon.shared_preferences_android.SharedPreferencesApi.getAll`。异常发生于 `runApp` 前的安装标记读取，不能归因为 dev API 网络加载。
+
+Android SDK `apkanalyzer dex code` 确认交付 APK 缺少 `io.flutter.plugins.GeneratedPluginRegistrant`，工作区同名忽略生成文件也不存在。原发布脚本直接使用 `analyze --no-pub`／`build --no-pub`，已有 Dart 依赖配置不能保证原生插件注册文件仍存在，因而构建、签名和 16 KB 对齐通过也不能证明 App 可启动。
+
+发布脚本现在先用选定 Flutter 执行 `pub get --enforce-lockfile`，恢复锁定依赖并生成插件注册文件，然后沿用原分析、构建、制品校验及成功后更新构建号的流程。依赖准备失败时立即中止，不保存制品或提前推进共享构建号；不绕过启动异常，不修改账号数据、业务页面、订阅或 iOS 发布脚本。
+
+新增干净检出插件生成和依赖准备失败两项回归，修前均失败；在 `apps/flutter-app/tool` 执行 `python -m unittest test_release_android test_save_android_artifacts -v`，修后 Android 发布／保存脚本共 25／25 通过、0 跳过、退出 0；独立 Code Review 无阻塞项。真实 `pub get --enforce-lockfile` 成功，根锁文件和 iOS 跟踪文件均未变化；发布脚本的 `flutter analyze --no-pub` 为 0 issues，Debug 构建耗时 38.1 秒。
+
+新 dev APK 为 `1.0.7+209`／`com.kando.kandoApp.beta`，来自 `598bac19` 加本节打包流程未提交修复，不能记为纯提交构建。保存路径为 `D:/Downloads/CardAI-Packages/com.kando.kandoApp.beta/Android/CardAI-Test-1.0.7-209/CardAI-Test-1.0.7-209.apk`；252,275,285 字节，SHA-256 `31ad95549975c16c8c8a954dfc3e5cddd7d1afc2ede71abc8e8f5abd8e82f941`。同目录保留构建元数据和校验文件，签名与批准测试证书一致，19 个 64 位原生库及 ZIP 16 KB 对齐通过；最终 APK DEX 已确认包含自动注册类及 SharedPreferences／Secure Storage 注册。
+
+在同一荣耀 BKQ-AN10（API 37）覆盖安装 209 后进入 Home Overview；再次强停并冷启动成功，`am start -W` 首窗为 1,116ms，`firstWindowDrawn=true`，UI 树包含 Overview／Performance、Portfolio 和空收藏入口，当前进程无原通道异常。没有清除 App 数据，诊断临时日志标签已恢复，手机上的临时 UI 树文件已移除。未执行真实扫描、Google 登录、购买／Restore、iOS 构建或 dev/prod 服务端发布；此前 208 仅构建与静态校验通过，不能记为启动验收通过。

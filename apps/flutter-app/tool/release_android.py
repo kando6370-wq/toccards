@@ -277,6 +277,9 @@ def build_release(args, app_dir=APP_DIR, environment=None):
     dirty = bool(run(["git", "status", "--porcelain"], app_dir, environment, True).strip())
     if args.env == "production" and dirty:
         raise ValueError("Production releases require an approved clean checkout")
+    # Native plugin registrants are ignored generated files and may be absent
+    # even when package_config.json is already available for --no-pub builds.
+    run([flutter, "pub", "get", "--enforce-lockfile"], app_dir, environment)
     with use_jdk(flutter, args.jdk, app_dir, environment) as build_env:
         tools, build_env = android_tools(flutter, app_dir, build_env)
         build_env.setdefault("GRADLE_OPTS", '-Dorg.gradle.jvmargs="-Xmx2048m -XX:MaxMetaspaceSize=768m -XX:ReservedCodeCacheSize=256m" -Dorg.gradle.workers.max=1 -Dorg.gradle.parallel=false')

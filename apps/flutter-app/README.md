@@ -185,6 +185,8 @@ App Store IPA 和 `dSYMs.zip`，指定真机安装时还保存 `Card AI Device.i
 
 Android 使用 Python 3 标准库发布入口，不改变现有 iOS 发布脚本：
 
+脚本先执行 `flutter pub get --enforce-lockfile`，按锁文件恢复依赖并重新生成原生插件注册文件，再分析和构建，避免干净检出或清理生成物后打出缺少插件的 APK。
+
 ```powershell
 # 先查看将使用的环境、包名、版本和历史最高构建号；不构建、不改版本文件
 python tool/release_android.py --env test --dry-run
