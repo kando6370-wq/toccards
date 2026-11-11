@@ -14,6 +14,41 @@ import 'package:kando_app/shared/platform/app_commercial_policy.dart';
 
 void main() {
   test(
+    'auth scope change resets quota state before the next account refresh',
+    () async {
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith(_SwitchingAuthController.new),
+        ],
+      );
+      addTearDown(container.dispose);
+      final quota = container.read(scanQuotaControllerProvider.notifier);
+      quota.applyServerQuota(
+        const ScanQuotaDto(
+          access: ScanQuotaAccess.free,
+          limit: 10,
+          reserved: 0,
+          consumed: 9,
+          remaining: 1,
+          unlimited: false,
+        ),
+      );
+
+      final auth =
+          container.read(authControllerProvider.notifier)
+              as _SwitchingAuthController;
+      auth.switchSession(_quotaSessionB);
+      await Future<void>.delayed(Duration.zero);
+
+      final reset = container.read(scanQuotaControllerProvider);
+      expect(reset.isLoading, isTrue);
+      expect(reset.remainingScans, 10);
+      expect(reset.unlimited, isFalse);
+      expect(reset.isServerAuthoritative, isFalse);
+    },
+  );
+
+  test(
     'reservation changes internal capacity without changing displayed quota',
     () {
       final container = ProviderContainer();
@@ -295,6 +330,36 @@ class _ReadyAuthController extends AuthController {
     ),
   );
 }
+
+class _SwitchingAuthController extends AuthController {
+  AuthSession _current = _quotaSessionA;
+
+  @override
+  AuthState build() => AuthState.ready(session: _current);
+
+  void switchSession(AuthSession session) {
+    _current = session;
+    state = AuthState.ready(session: session);
+  }
+}
+
+const _quotaSessionA = AuthSession(
+  ownerType: OwnerType.user,
+  accessToken: 'quota-a-access',
+  refreshToken: 'quota-a-refresh',
+  userId: 'quota-a',
+  platform: AppPlatform.ios,
+  dataSpaceId: 'quota-a-space',
+);
+
+const _quotaSessionB = AuthSession(
+  ownerType: OwnerType.user,
+  accessToken: 'quota-b-access',
+  refreshToken: 'quota-b-refresh',
+  userId: 'quota-b',
+  platform: AppPlatform.android,
+  dataSpaceId: 'quota-b-space',
+);
 
 class _ExpiredSubscriptionController extends SubscriptionController {
   @override

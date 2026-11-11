@@ -61,6 +61,18 @@ class ScanQuotaController extends Notifier<ScanQuotaState> {
 
   @override
   ScanQuotaState build() {
+    ref.watch(
+      authControllerProvider.select((auth) {
+        final session = auth.session;
+        return (
+          session?.ownerType,
+          session?.platform,
+          session?.dataSpaceId,
+          session?.userId,
+          session?.anonymousId,
+        );
+      }),
+    );
     final limit = ref.watch(freeScanLimitProvider);
     return ScanQuotaState(limit: limit, remainingScans: limit, isLoading: true);
   }

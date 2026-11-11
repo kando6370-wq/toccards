@@ -788,6 +788,20 @@ class SubscriptionController extends Notifier<SubscriptionState> {
 
   @override
   SubscriptionState build() {
+    ref.watch(
+      authControllerProvider.select((auth) {
+        final session = auth.session;
+        return (
+          session?.ownerType,
+          session?.platform,
+          session?.dataSpaceId,
+          session?.userId,
+          session?.anonymousId,
+        );
+      }),
+    );
+    _entitlementExpiryTimer?.cancel();
+    _entitlementExpiryTimer = null;
     if (ref.watch(appCommercialPolicyProvider).isAndroidFreeLaunch) {
       return const SubscriptionState(premiumState: AppPremiumState.free);
     }
@@ -1428,16 +1442,26 @@ class SubscriptionController extends Notifier<SubscriptionState> {
     bool showFailure = false,
   }) async {
     final previousState = state.premiumState;
+    final initialSession = ref.read(authControllerProvider).session;
+    final initialScope = initialSession == null
+        ? null
+        : _entitlementScope(initialSession);
     // Startup already loads the registry; later foreground reconciliation refreshes it.
     configuration = await supportedConfiguration(refresh: _client != null);
-    if (!ref.mounted) {
+    if (!ref.mounted || !_isCurrentEntitlementScope(initialScope)) {
       return _EntitlementRefreshResult(
         state: previousState,
         wasVerified: false,
       );
     }
-    final storage = ref.read(subscriptionEntitlementCacheStorageProvider);
-    final cached = await storage.read();
+    final session = ref.read(authControllerProvider).session;
+    final cached = await _readEntitlementCache(session);
+    if (!ref.mounted || !_isCurrentEntitlementScope(initialScope)) {
+      return _EntitlementRefreshResult(
+        state: previousState,
+        wasVerified: false,
+      );
+    }
     final cachedState = cached?.effectiveState(DateTime.now().toUtc());
     ref
         .read(analyticsProvider)
@@ -1456,7 +1480,6 @@ class SubscriptionController extends Notifier<SubscriptionState> {
       );
     }
     try {
-      final session = ref.read(authControllerProvider).session;
       final lifecycleFuture = session == null
           ? Future<List<ApplePurchaseChainLifecycle>?>.value(null)
           : ref
@@ -1469,14 +1492,14 @@ class SubscriptionController extends Notifier<SubscriptionState> {
           .read(appleCurrentEntitlementReaderProvider)
           .read(configuration.supportedProductIds)
           .timeout(const Duration(seconds: 25));
-      if (!ref.mounted) {
+      if (!ref.mounted || !_isCurrentEntitlementScope(initialScope)) {
         return _EntitlementRefreshResult(
           state: state.premiumState,
           wasVerified: false,
         );
       }
       final lifecycle = await lifecycleFuture;
-      if (!ref.mounted) {
+      if (!ref.mounted || !_isCurrentEntitlementScope(initialScope)) {
         return _EntitlementRefreshResult(
           state: state.premiumState,
           wasVerified: false,
@@ -1487,12 +1510,18 @@ class SubscriptionController extends Notifier<SubscriptionState> {
         lifecycle,
       );
       if (entitlements.isEmpty) {
+        if (!_isCurrentEntitlementScope(initialScope)) {
+          return _EntitlementRefreshResult(
+            state: state.premiumState,
+            wasVerified: false,
+          );
+        }
         ref.read(analyticsProvider).updateSubscriptionPlan(null);
         final verifiedFree = VerifiedEntitlementCache(
           state: AppPremiumState.free,
           verifiedAt: DateTime.now().toUtc(),
         );
-        await storage.write(verifiedFree);
+        await _writeEntitlementCache(session, verifiedFree);
         _scheduleEntitlementExpiry(verifiedFree);
         if (ref.mounted) {
           state = state.copyWith(
@@ -1515,7 +1544,13 @@ class SubscriptionController extends Notifier<SubscriptionState> {
       if (cache == null) {
         throw StateError('Current Apple entitlement evidence is malformed.');
       }
-      await storage.write(cache);
+      if (!_isCurrentEntitlementScope(initialScope)) {
+        return _EntitlementRefreshResult(
+          state: state.premiumState,
+          wasVerified: false,
+        );
+      }
+      await _writeEntitlementCache(session, cache);
       ref.read(analyticsProvider).updateSubscriptionPlan(cache.productId);
       _scheduleEntitlementExpiry(cache);
       if (ref.mounted) {
@@ -1529,6 +1564,12 @@ class SubscriptionController extends Notifier<SubscriptionState> {
         wasVerified: true,
       );
     } on Object {
+      if (!_isCurrentEntitlementScope(initialScope)) {
+        return _EntitlementRefreshResult(
+          state: state.premiumState,
+          wasVerified: false,
+        );
+      }
       final fallback = cachedState ?? AppPremiumState.unknown;
       if (ref.mounted) {
         state = state.copyWith(
@@ -1544,13 +1585,15 @@ class SubscriptionController extends Notifier<SubscriptionState> {
   }
 
   Future<void> _cacheRestoreResult(AppleRestoreResult result) async {
-    final storage = ref.read(subscriptionEntitlementCacheStorageProvider);
+    final session = ref.read(authControllerProvider).session;
+    final scope = session == null ? null : _entitlementScope(session);
     if (!result.isSuccess) {
       final cache = VerifiedEntitlementCache(
         state: AppPremiumState.free,
         verifiedAt: DateTime.now().toUtc(),
       );
-      await storage.write(cache);
+      if (!_isCurrentEntitlementScope(scope)) return;
+      await _writeEntitlementCache(session, cache);
       _scheduleEntitlementExpiry(cache);
       return;
     }
@@ -1561,9 +1604,50 @@ class SubscriptionController extends Notifier<SubscriptionState> {
         ? _cacheFromEvidence(productId, evidence)
         : null;
     if (cache != null) {
-      await storage.write(cache);
+      if (!_isCurrentEntitlementScope(scope)) return;
+      await _writeEntitlementCache(session, cache);
       _scheduleEntitlementExpiry(cache);
     }
+  }
+
+  Future<VerifiedEntitlementCache?> _readEntitlementCache(
+    AuthSession? session,
+  ) async {
+    if (session == null) return null;
+    final storage = ref.read(subscriptionEntitlementCacheStorageProvider);
+    if (storage is ScopedSubscriptionEntitlementCacheStorage) {
+      return storage.readForScope(_entitlementScope(session));
+    }
+    return storage.read();
+  }
+
+  Future<void> _writeEntitlementCache(
+    AuthSession? session,
+    VerifiedEntitlementCache cache,
+  ) async {
+    if (session == null) return;
+    final storage = ref.read(subscriptionEntitlementCacheStorageProvider);
+    if (storage is ScopedSubscriptionEntitlementCacheStorage) {
+      await storage.writeForScope(_entitlementScope(session), cache);
+      return;
+    }
+    await storage.write(cache);
+  }
+
+  String _entitlementScope(AuthSession session) {
+    final ownerId =
+        session.dataSpaceId ??
+        session.userId ??
+        session.anonymousId ??
+        session.accessToken;
+    return '${session.ownerType.name}:'
+        '${session.platform?.name ?? 'ios'}:$ownerId';
+  }
+
+  bool _isCurrentEntitlementScope(String? scope) {
+    final session = ref.read(authControllerProvider).session;
+    final current = session == null ? null : _entitlementScope(session);
+    return current == scope;
   }
 
   void _scheduleEntitlementExpiry(VerifiedEntitlementCache? cache) {
@@ -1744,7 +1828,10 @@ class SubscriptionController extends Notifier<SubscriptionState> {
         if (cache != null) {
           _scheduleEntitlementExpiry(cache);
           unawaited(
-            ref.read(subscriptionEntitlementCacheStorageProvider).write(cache),
+            _writeEntitlementCache(
+              ref.read(authControllerProvider).session,
+              cache,
+            ),
           );
         }
       }

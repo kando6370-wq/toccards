@@ -31,6 +31,15 @@ void main() {
         dataSpaceId: 'android-guest-space',
       );
       final storage = InMemoryAuthStorage();
+      const legacyGuest = AuthSession(
+        ownerType: OwnerType.anonymous,
+        accessToken: 'ios-guest-access',
+        refreshToken: 'ios-guest-refresh',
+        anonymousId: 'ios-guest',
+        platform: AppPlatform.ios,
+        dataSpaceId: 'ios-guest-space',
+      );
+      await storage.writeSession(legacyGuest);
       await storage.writeSession(legacyUser);
       final repository = _FakeAuthRepository(
         storedSession: legacyUser,
@@ -51,6 +60,110 @@ void main() {
         same(freshAnonymous),
       );
       expect(await storage.readSession(), isNull);
+      expect(await storage.readPreviousAnonymousSession(), isNull);
+    },
+  );
+
+  test('Android logout never restores a previous iOS guest session', () async {
+    const androidUser = AuthSession(
+      ownerType: OwnerType.user,
+      accessToken: 'android-user-access',
+      refreshToken: 'android-user-refresh',
+      userId: 'android-user',
+      platform: AppPlatform.android,
+      dataSpaceId: 'android-user-space',
+    );
+    const previousIosGuest = AuthSession(
+      ownerType: OwnerType.anonymous,
+      accessToken: 'ios-guest-access',
+      refreshToken: 'ios-guest-refresh',
+      anonymousId: 'ios-guest',
+      platform: AppPlatform.ios,
+      dataSpaceId: 'ios-guest-space',
+    );
+    const freshAndroidGuest = AuthSession(
+      ownerType: OwnerType.anonymous,
+      accessToken: 'android-guest-access',
+      refreshToken: 'android-guest-refresh',
+      anonymousId: 'android-guest',
+      platform: AppPlatform.android,
+      dataSpaceId: 'android-guest-space',
+    );
+    final repository = _FakeAuthRepository(
+      storedSession: androidUser,
+      validatedSession: androidUser,
+      previousAnonymousSession: previousIosGuest,
+      createdAnonymousSessions: [freshAndroidGuest],
+    );
+    final container = _createContainer(
+      repository,
+      deviceId,
+      commercialPolicy: const AppCommercialPolicy(isAndroidFreeLaunch: true),
+    );
+    addTearDown(container.dispose);
+    await container.read(authControllerProvider.notifier).startupComplete;
+
+    await container.read(authControllerProvider.notifier).logout();
+
+    expect(repository.validatedSessions, [same(androidUser)]);
+    expect(repository.clearedAnonymousSessions, 1);
+    expect(repository.persistedSessions, [same(freshAndroidGuest)]);
+    expect(
+      container.read(authControllerProvider).session,
+      same(freshAndroidGuest),
+    );
+  });
+
+  test(
+    'Android creates a fresh guest when only a stale iOS previous session remains',
+    () async {
+      const androidUser = AuthSession(
+        ownerType: OwnerType.user,
+        accessToken: 'android-user-access',
+        refreshToken: 'android-user-refresh',
+        userId: 'android-user',
+        platform: AppPlatform.android,
+        dataSpaceId: 'android-user-space',
+      );
+      const previousIosGuest = AuthSession(
+        ownerType: OwnerType.anonymous,
+        accessToken: 'ios-guest-access',
+        refreshToken: 'ios-guest-refresh',
+        anonymousId: 'ios-guest',
+        platform: AppPlatform.ios,
+        dataSpaceId: 'ios-guest-space',
+      );
+      const freshAndroidGuest = AuthSession(
+        ownerType: OwnerType.anonymous,
+        accessToken: 'android-guest-access',
+        refreshToken: 'android-guest-refresh',
+        anonymousId: 'android-guest',
+        platform: AppPlatform.android,
+        dataSpaceId: 'android-guest-space',
+      );
+      final repository = _FakeAuthRepository(
+        storedSession: androidUser,
+        validatedSession: androidUser,
+        previousAnonymousSession: previousIosGuest,
+        createdAnonymousSessions: [freshAndroidGuest],
+      );
+      final container = _createContainer(
+        repository,
+        deviceId,
+        commercialPolicy: const AppCommercialPolicy(isAndroidFreeLaunch: true),
+      );
+      addTearDown(container.dispose);
+      await container.read(authControllerProvider.notifier).startupComplete;
+
+      await container.read(authControllerProvider.notifier).logout();
+
+      expect(repository.validatedSessions, [same(androidUser)]);
+      expect(repository.clearedAnonymousSessions, 1);
+      expect(repository.persistedSessions, [same(freshAndroidGuest)]);
+      expect(
+        container.read(authControllerProvider).session,
+        same(freshAndroidGuest),
+      );
     },
   );
 

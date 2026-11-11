@@ -666,7 +666,7 @@ export function createScanRoutes() {
           auth.owner.owner_id,
           imageKey,
           readString(body.get("filename")) ?? `scan.${image.extension}`,
-          readString(body.get("platform")) ?? "unknown",
+          auth.owner.platform,
           readString(body.get("app_version")) ?? "unknown",
           readString(body.get("device_model")),
           readString(body.get("os_version")),
