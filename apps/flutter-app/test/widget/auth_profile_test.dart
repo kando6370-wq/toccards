@@ -67,8 +67,9 @@ void main() {
     );
     await tester.tap(find.text('Continue with Google'));
     await tester.pumpAndSettle();
-    expect(find.text('Continue?'), findsOneWidget);
-    expect(find.textContaining('will not merge'), findsOneWidget);
+    expect(find.text('Continue?'), findsNothing);
+    expect(find.textContaining('will not merge'), findsNothing);
+    expect(repository.googleCallbackRequests, hasLength(1));
   });
 
   for (final premiumState in AppPremiumState.values) {

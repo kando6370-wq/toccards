@@ -2560,6 +2560,7 @@ Future<void> _openAddCollectionItemSheet(
     builder: (_) => _AddCollectionItemSheet(
       cardId: controller.cardId,
       entrySource: entrySource,
+      useBottomSafeArea: true,
     ),
   );
 

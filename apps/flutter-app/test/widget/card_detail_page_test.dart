@@ -1290,6 +1290,32 @@ void main() {
     },
   );
 
+  testWidgets(
+    'Android add item footer stays above the three-button navigation inset',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      tester.view.viewPadding = const FakeViewPadding(bottom: 24);
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        const _CardDetailTestApp(
+          cardId: 'one-piece-luffy',
+          platform: TargetPlatform.android,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('card-detail-add-to-portfolio-one-piece-luffy')),
+      );
+      await tester.pumpAndSettle();
+
+      final submit = find.byKey(const Key('card-detail-item-submit'));
+      expect(tester.getRect(submit).bottom, lessThanOrEqualTo(844 - 24));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('iOS add item card state keeps its original fixed height', (
     tester,
   ) async {
