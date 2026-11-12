@@ -197,13 +197,12 @@ class _CardDetailPageState extends ConsumerState<CardDetailPage> {
                   },
                 ),
               )
-            : LayoutBuilder(
-                  builder: (context, constraints) {
-                    final horizontalPadding = math.max(
-                      20.0,
-                      (constraints.maxWidth - 672) / 2,
-                    );
-                    return RefreshIndicator(
+            : Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 672),
+                    child: RefreshIndicator(
                       key: const Key('card-detail-pull-to-refresh'),
                       onRefresh: () {
                         ref
@@ -216,12 +215,7 @@ class _CardDetailPageState extends ConsumerState<CardDetailPage> {
                         keyboardDismissBehavior:
                             ScrollViewKeyboardDismissBehavior.onDrag,
                         physics: const AlwaysScrollableScrollPhysics(),
-                        padding: EdgeInsets.fromLTRB(
-                          horizontalPadding,
-                          20,
-                          horizontalPadding,
-                          28,
-                        ),
+                        padding: const EdgeInsets.only(top: 20, bottom: 28),
                         children: [
                           _CardHero(
                             state: state,
@@ -272,8 +266,9 @@ class _CardDetailPageState extends ConsumerState<CardDetailPage> {
                           ],
                         ],
                       ),
-                    );
-                  },
+                    ),
+                  ),
+                ),
               ),
       ),
     );

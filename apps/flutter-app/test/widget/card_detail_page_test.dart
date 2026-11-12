@@ -1236,6 +1236,83 @@ void main() {
     },
   );
 
+  for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+    testWidgets(
+      '${platform.name} CardDetail add item sheet preserves its draft without rebuilding during IME animation',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        tester.view.padding = const FakeViewPadding(bottom: 34);
+        tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+        addTearDown(tester.view.reset);
+
+        await tester.pumpWidget(
+          _CardDetailTestApp(
+            cardId: 'one-piece-luffy',
+            platform: platform,
+            entrySource: AnalyticsValue.sourceScan,
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const Key('card-detail-add-to-portfolio-one-piece-luffy')),
+        );
+        await tester.pumpAndSettle();
+
+        final quantity = find.byKey(const Key('card-detail-item-quantity'));
+        await tester.ensureVisible(quantity);
+        await tester.enterText(quantity, '7');
+        await tester.pumpAndSettle();
+        final editable = find.descendant(
+          of: quantity,
+          matching: find.byType(EditableText),
+        );
+
+        final previousRebuildCallback = debugOnRebuildDirtyWidget;
+        var sheetRebuilds = 0;
+        var formRebuilds = 0;
+        var backgroundRebuilds = 0;
+        debugOnRebuildDirtyWidget = (element, builtOnce) {
+          previousRebuildCallback?.call(element, builtOnce);
+          if (element.widget.runtimeType.toString() ==
+              '_AddCollectionItemSheet') {
+            sheetRebuilds += 1;
+          }
+          if (element.widget.runtimeType.toString() == '_CollectionItemForm') {
+            formRebuilds += 1;
+          }
+          if (element.widget.runtimeType.toString() ==
+              '_GenericCardDetailSections') {
+            backgroundRebuilds += 1;
+          }
+        };
+        addTearDown(() => debugOnRebuildDirtyWidget = previousRebuildCallback);
+
+        for (final inset in [40.0, 100.0, 180.0, 260.0, 330.0]) {
+          tester.view.padding = FakeViewPadding.zero;
+          tester.view.viewInsets = FakeViewPadding(bottom: inset);
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+
+        expect(sheetRebuilds, 0);
+        expect(formRebuilds, 0);
+        expect(
+          backgroundRebuilds,
+          0,
+          reason:
+              'IME animation must not rebuild the CardDetail sections behind the add sheet.',
+        );
+        expect(tester.widget<EditableText>(editable).controller.text, '7');
+        expect(
+          tester.widget<EditableText>(editable).focusNode.hasFocus,
+          isTrue,
+        );
+        expect(tester.testTextInput.isVisible, isTrue);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets(
     'Android add item sheet reveals purchase price above its fixed footer when the IME opens',
     (tester) async {
@@ -2753,6 +2830,96 @@ void main() {
       },
     );
 
+    for (final entrySource in [
+      AnalyticsValue.sourceSearch,
+      AnalyticsValue.sourceEdit,
+      AnalyticsValue.sourceScan,
+    ]) {
+      testWidgets(
+        '${platform.name} $entrySource inline Collection Item edit does not rebuild the full form during IME animation',
+        (tester) async {
+          tester.view.physicalSize = const Size(390, 844);
+          tester.view.devicePixelRatio = 1;
+          tester.view.padding = const FakeViewPadding(bottom: 34);
+          tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+          addTearDown(tester.view.reset);
+          await tester.pumpWidget(
+            _CardDetailTestApp(
+              cardId: 'charizard-ex',
+              platform: platform,
+              entrySource: entrySource,
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          if (entrySource == AnalyticsValue.sourceEdit) {
+            await tester.tap(find.text('Collection Item'));
+            await tester.pumpAndSettle();
+          }
+          await tester.scrollUntilVisible(find.text('Collection Item'), 400);
+          await tester.ensureVisible(find.text('Edit item'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Edit item'));
+          await tester.pumpAndSettle();
+
+          final fieldKey = switch (entrySource) {
+            AnalyticsValue.sourceEdit => 'card-detail-item-purchase-price',
+            AnalyticsValue.sourceScan => 'card-detail-item-notes',
+            _ => 'card-detail-item-quantity',
+          };
+          final draftText = switch (entrySource) {
+            AnalyticsValue.sourceEdit => '12.50',
+            AnalyticsValue.sourceScan => 'Keyboard draft',
+            _ => '7',
+          };
+          final field = find.byKey(Key(fieldKey));
+          await tester.ensureVisible(field);
+          await tester.enterText(field, draftText);
+          await tester.pumpAndSettle();
+          final editable = find.descendant(
+            of: field,
+            matching: find.byType(EditableText),
+          );
+
+          final previousRebuildCallback = debugOnRebuildDirtyWidget;
+          var formRebuilds = 0;
+          debugOnRebuildDirtyWidget = (element, builtOnce) {
+            previousRebuildCallback?.call(element, builtOnce);
+            if (element.widget.runtimeType.toString() ==
+                '_CollectionItemForm') {
+              formRebuilds += 1;
+            }
+          };
+          addTearDown(
+            () => debugOnRebuildDirtyWidget = previousRebuildCallback,
+          );
+
+          for (final inset in [40.0, 100.0, 180.0, 260.0, 330.0]) {
+            tester.view.padding = FakeViewPadding.zero;
+            tester.view.viewInsets = FakeViewPadding(bottom: inset);
+            await tester.pump(const Duration(milliseconds: 16));
+          }
+
+          expect(
+            formRebuilds,
+            0,
+            reason:
+                'IME layout changes must relayout the CardDetail viewport without rebuilding its inline collection form.',
+          );
+          expect(
+            tester.widget<EditableText>(editable).controller.text,
+            draftText,
+          );
+          expect(
+            tester.widget<EditableText>(editable).focusNode.hasFocus,
+            isTrue,
+          );
+          expect(tester.testTextInput.isVisible, isTrue);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
     testWidgets(
       '${platform.name} Collection Item edit preserves its draft without rebuilding the full sheet during IME animation',
       (tester) async {
@@ -3051,6 +3218,22 @@ void main() {
     expect(find.byKey(const Key('card-detail-price-chart')), findsOneWidget);
   });
 
+  testWidgets('CardDetail keeps its 672px content width on a wide viewport', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1024, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(const _CardDetailTestApp(cardId: 'squirtle'));
+    await tester.pumpAndSettle();
+
+    final scroll = tester.getRect(find.byKey(const Key('card-detail-scroll')));
+    expect(scroll.width, 672);
+    expect(scroll.left, 176);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'Android owned Collection Item stat tiles grow with 1.2x production fonts',
     (tester) async {
@@ -3080,10 +3263,7 @@ void main() {
           final text = find.byKey(
             Key('card-detail-collection-stat-$part-$label'),
           );
-          expect(
-            tester.getRect(text).top,
-            greaterThanOrEqualTo(tileRect.top),
-          );
+          expect(tester.getRect(text).top, greaterThanOrEqualTo(tileRect.top));
           expect(
             tester.getRect(text).bottom,
             lessThanOrEqualTo(tileRect.bottom),

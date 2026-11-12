@@ -446,3 +446,16 @@ Android SDK `apkanalyzer dex code` 确认交付 APK 缺少 `io.flutter.plugins.G
 按用户要求，将上节同一 APK 覆盖安装到 Xiaomi `23116PN5BC`（ADB `dba62e86`）；安装前重新核对保存文件 SHA-256，原安装为 210，`adb install -r` 返回 Success，安装后回读版本为 `1.0.7+212`。冷启动 `am start -W` 返回 Status=ok、TotalTime=2028ms；后续回读 Card AI MainActivity 位于前台、进程 22648 存活，所检查日志无 fatal crash、通道异常或未处理异常。首次前台断言期间系统 PhotoPicker 位于前台而中止，随后已重新回读 App 前台状态，未将该断言记为通过。
 
 本次未清除 App 数据、重新构建 APK、修改业务源码或操作荣耀手机；手机临时 UI XML 已移除。小米键盘流畅度及 Total Value 几何未在本次安装步骤中复测，不能将荣耀的结果外推为小米验收通过；未提交／推送 Git。
+
+### 全局卡牌编辑页键盘重建修复（2026-11-12）
+
+用户补充确认：此前的键盘优化只覆盖 Search 列表和文件夹图标快速加入，卡牌详情及扫描进入的编辑入口仍然慢。本轮对卡牌详情、Search／Collection／Home 通过 `CardDetailPage` 的编辑入口、CardDetail 新增弹层、Quick Review 以及 Scan Review 的相机／相册单卡／多卡路径做了全局检查。
+
+- CardDetail 已加载内容原先使用 `LayoutBuilder` 读取键盘调整后的页面约束，导致 IME 动画每帧重建详情列表和内联 `_CollectionItemForm`。改为固定 20px 水平边距、居中 `maxWidth: 672` 的稳定外壳；保留 Scaffold resize、滚动、底栏、Android／iOS 布局和业务回调。
+- Scan Review 顶部退出热区原先读取 `MediaQuery.paddingOf(context).top`。Android 键盘出现时底部导航安全区变化会使 `padding` 变化，造成 `ScanPage` 额外重建；改用稳定的 `MediaQuery.viewPaddingOf(context).top`，只保持系统顶部安全区，不改变 Review 表单、底栏或键盘滚动。
+
+修前证据：CardDetail 内联表单在 Android／iOS 的 5 帧 IME 动画中各重建 4 次；Scan Review 的 Android／iOS 相机／相册单卡／多卡 8 个新场景均观察到 `ScanPage` 重建。修后验证：
+
+- `card_detail_page_test.dart` **86／86** 通过，覆盖 Search／Edit／Scan 三种 entry source、Android／iOS、数量／购买价格／备注字段、详情内联编辑、真实新增弹层、Quick Review 和 1024px 宽屏 `maxWidth: 672`。
+- `scan_page_test.dart` **167／167** 通过，键盘定向回归 **13／13** 通过；新增矩阵 Android／iOS × 相机／相册 × 单卡／多卡 **8／8** 通过，草稿、焦点、键盘可见性及 `ScanPage`／Review／表单重建均受保护。
+- `dart analyze` 对两处生产文件及两处测试文件为 **No issues found**。测试使用隔离 Flutter 3.47.9／Dart 3.13.7，本轮没有继续使用 USB 调试或真机操作；未执行 iOS 真机、Android 真机修复后 A/B、Profile／AOT 性能采样或新 APK 发布。
