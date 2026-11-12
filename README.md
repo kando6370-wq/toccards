@@ -6,7 +6,9 @@ Kando 是 Card AI 的 monorepo，包含 Flutter 客户端、Cloudflare Workers A
 
 当前增量文档入口为 [v1.1.4](docs/releases/v1.1.4/README.md)；[v1.1.3](docs/releases/v1.1.3/README.md) 已于 2026-11-05 原位归档，[v1.1.2](docs/releases/v1.1.2/README.md) 已于 2026-10-26 原位归档，[v1.1.1](docs/releases/v1.1.1/README.md) 已于 2026-10-09 原位归档，v1.1.0 开发归档与 v1.0.0 冻结基线保持不变。文档版本切换不修改 App 版本、Git tag 或生产环境，原有待验项继续保留。
 
-当前 Flutter 源码版本以 [pubspec.yaml](apps/flutter-app/pubspec.yaml) 为准，2026-11-11 核对为 `1.0.7+207`。近期已记录的交付分别见 [2026-11-10 API／双 Admin 版本管理发布](docs/releases/v1.1.4/03-data-api/app-version-management.md#生产后台配套发布2026-11-10)、[Android 207 Internal testing](docs/releases/v1.1.4/05-delivery/android-play-release-configuration.md#google-play-内部测试发布2026-11-10-1333)及 [2026-11-11 正式官网重发](docs/releases/v1.1.4/05-delivery/cardscanfox-production-cutover.md#账号删除申请页正式重发2026-11-11)。以下旧检查点按其日期保留，不代表这些独立环境仍运行同一提交。
+当前 Flutter 源码版本以 [pubspec.yaml](apps/flutter-app/pubspec.yaml) 为准，2026-11-12 核对为 `1.0.7+212`。Android dev 212 的构建与双机安装记录见[平台账号与 App 交付](docs/releases/v1.1.4/03-data-api/platform-accounts.md#quick-review-的-total-value-固定到底部2026-11-12)；Google Play Internal testing 已记录的制品仍为 207，源码构建号前进不代表商店更新。近期独立环境的交付分别见 [2026-11-10 API／双 Admin 版本管理发布](docs/releases/v1.1.4/03-data-api/app-version-management.md#生产后台配套发布2026-11-10)、[Android 207 Internal testing](docs/releases/v1.1.4/05-delivery/android-play-release-configuration.md#google-play-内部测试发布2026-11-10-1333)及 [2026-11-11 正式官网重发](docs/releases/v1.1.4/05-delivery/cardscanfox-production-cutover.md#账号删除申请页正式重发2026-11-11)。以下旧检查点按其日期保留，不代表这些独立环境仍运行同一提交。
+
+2026-11-12，`codex/fixbug-andriod@5fcd814c` 已通过双亲合并提交 `dev@87ba3b4b` 推送到 `github/dev`，包含 Android／Flutter、API、官网及 Admin 启动会话修复等来源分支增量；合并保留 dev 部署／环境实现，业务源码沿用来源分支。Admin 行为见[启动会话校验](docs/releases/v1.1.4/04-admin/admin-auth-session.md)。同日按用户要求重发 Linux dev，14:05 独立确认 release `branch-dev-87ba3b4b0929-20261112140056`、运行文件与 watcher 状态一致，见[重部署验收](docs/releases/v1.1.4/03-data-api/platform-accounts.md#linux-dev-redeploy-20261112)。GitHub CI 尚未回查，部署不代表真实管理员或双端真机业务已验收。
 
 App／订阅的历史收尾检查点（2026-10-26）：生产服务端与双 Admin 已于 2026-10-23 从 `main@557166b` 配套发布，App Store 已上架 1.0.6，Weekly Trial／Monthly 已完成生产动态准入；Page／Modal 保持未启用。用户确认相关实机交易链路目前无问题，Agent 未独立重放原始交易／平台记录。历史操作与证据边界见 [v1.1.2 生产收尾记录](docs/releases/v1.1.2/05-delivery/VERIFICATION.md#prod-app-1-0-6-monthly-admission-20261026)；v1.1.3 创建时没有新的代码或环境发布。
 
@@ -16,7 +18,7 @@ App／订阅的历史收尾检查点（2026-10-26）：生产服务端与双 Adm
 
 历史检查点：2026-10-08 已按干净的 `main@61b5420` 发布生产 API 和两个 Admin 入口。Worker version `4adbd0b7-3c67-4795-8ad0-c39795dc4be6` 回读为 100% 流量；独立 Pages `toccards-admin` deployment `39154bee-45d6-429d-8118-dfafed526ab7` 成功，两个入口的 HTML 与各 10 个 JS/CSS 均与同一批准构建逐字节一致。扫描 R2/向量并行和请求放置日志已上线 prod；Smart Placement、Hyperdrive 查询缓存、变量/绑定、cron、域名及 Pages 构建与自动部署配置保留原值。没有执行 migration、数据库业务写入或 Flutter/营销站发布；未独立重查生产 PostgreSQL ledger。旧 App 真机、真实扫描/登录态、性能与缓存一致性仍未验收。实际命令、初轮测试超时及复验、回退点和未执行项见 [v1.1.1 验证记录](docs/releases/v1.1.1/05-delivery/VERIFICATION.md)。
 
-仓库最近保留的 Linux dev 验收记录为 2026-10-12 的 `dev@e8d1dd9`：watcher／release 与运行文件一致，API／DB healthy、Web running、migration exited/0，PostgreSQL ledger 14 项／最新 `0013`，Admin 11 个静态文件匹配。该历史检查点早于 C03 后续整理；当前服务器运行版本需另行回读，不能由 Git 分支或源码推断。详情见 [v1.1.2 历史证据摘要](docs/releases/v1.1.2/03-data-api/app-backward-compatibility-ai-guide.md#63-保留的历史证据摘要)。v1.1.0／v1.1.1 的原始验收记录继续按日期保留，完整兼容、正式旧包／真机和性能验收仍未完成。
+Linux dev 已记录的完整发布验收包括 2026-11-06 的 `dev@154c25fc`：API／DB healthy、Web running、migration exited/0，PostgreSQL ledger 为 19 项／最新 `0018`，API 及 Admin 运行文件匹配，30 项烟测通过，见[平台账号 dev 发布](docs/releases/v1.1.4/03-data-api/platform-accounts.md#linux-dev-发布与验收2026-11-06)。2026-11-09 另在 `branch-dev-9f17115ae738-20261109093204` 上修改 Android Google audience 并仅重建 API 容器，见[dev Google 配置](docs/releases/v1.1.4/03-data-api/platform-accounts.md#android-dev-google-登录配置2026-11-09)。这些是对应日期的证据；2026-11-12 的运行版本与配置哈希已在上述重部署中补验，真实登录、扫描、旧正式包兼容和性能的未验边界继续按原记录保留。
 
 ## 系统概览
 

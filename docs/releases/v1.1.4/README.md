@@ -6,6 +6,8 @@ v1.1.3 已原位归档。本版本承接 v1.1.3 之后的新增、变更、移�
 
 ## 当前基线
 
+- 2026-11-12 核对：`dev@87ba3b4b` 已合入 `codex/fixbug-andriod@5fcd814c` 并推送远端；Flutter 共享源码版本为 `1.0.7+212`。同日已按要求重发 Linux dev 并于 14:05 独立验收，见[API／Admin 重部署](03-data-api/platform-accounts.md#linux-dev-redeploy-20261112)。源码、Android dev 制品、Play Internal 207、生产 API／双 Admin 与官网各自保留来源和验收记录，不由合并推定已同步发布；GitHub CI 未回查。
+- dev 部署、环境配置与运行证据以 dev 分支的实现和对应日期验收为准，业务实现以本次来源分支为准。Linux 已记录的 2026-11-06 完整发布与 2026-11-09 配置补验见[平台账号合同](03-data-api/platform-accounts.md#linux-dev-发布与验收2026-11-06)，日常操作见 [Linux 运维手册](../../linux-test-environment/README.md)。
 - [v1.1.3 开发归档](../v1.1.3/README.md)保留 2026-10-26 至 2026-11-04 的扫描、收藏、账号隔离、Admin、营销及生产 API／双 Admin 发布记录。
 - v1.1.3 的生产发布记录不因版本切换重新记为新部署；生产源、Worker、Pages、PostgreSQL migration 和未验边界按原日期理解。
 - App 向后兼容原则继续以 v1.1.2 的[人员阅读版](../v1.1.2/05-delivery/app-backward-compatibility-plan.md)和[AI 执行版](../v1.1.2/03-data-api/app-backward-compatibility-ai-guide.md)为规则真源；v1.1.4 的新增兼容证据写入本版本受影响业务文档或验证记录。
@@ -19,7 +21,7 @@ v1.1.3 已原位归档。本版本承接 v1.1.3 之后的新增、变更、移�
 - [Android 与 iOS 双端数据隔离方案原件](00-product/Android-iOS双端数据隔离方案.md)：2026-11-03 历史技术建议；与新版 PRD 冲突的全局账号状态、全账号删除按钮及导出建议不作为本期需求。
 - [结合当前项目的实施前评估](05-delivery/android-free-first-release-review.md)：2026-11-05 开始实现前的源码差距、待补规则、迁移与发布边界；其源码结论按评估基线理解，后续实现见下条合同。
 - [双端平台账号与免费首版实现合同](03-data-api/platform-accounts.md)：2026-11-05 起的账号、会话、删除、集中商业策略与测试／正式配置隔离实现；2026-11-06 已随 `dev@154c25fc` 发布 Linux API／Admin 并执行 `0018`，2026-11-10 已完成生产 0018／API／双 Admin 发布，历史开发验证与本轮生产证据分别保留。
-- [Android Google Play 正式配置交接清单](05-delivery/android-play-release-configuration.md)：正式签名、Firebase／OAuth／Play Integrity 配置、本机隔离构建与发布记录；207 无 Billing AAB 已由 Play 接收并发布至 6 人 Internal testing 轨道，当前为有效／尚未审核，真实安装、登录、Integrity、扫描与统计验收仍待完成。
+- [Android Google Play 正式配置交接清单](05-delivery/android-play-release-configuration.md)：正式签名、Firebase／OAuth／Play Integrity 配置、本机隔离构建与发布记录；207 无 Billing AAB 已由 Play 接收并发布至 6 人 Internal testing 轨道，2026-11-10 回读为有效／尚未审核，真实安装、登录、Integrity、扫描与统计验收仍待完成。
 - [Android 与 iOS 版本管理](03-data-api/app-version-management.md)：双端独立升级规则、Android 自动构建号及 APK／AAB 校验归档，沿用既有 iOS 规则与发布流程。
 
 两份输入均按原始字节归档，不随实现修订。平台账号、删号与重新注册规则以新版 PRD 为准，原技术方案不代表当前已实施架构。

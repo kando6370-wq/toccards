@@ -2,7 +2,7 @@
 
 当前 `dev` 即本手册的 Linux 环境，`prod` 保持原 Cloudflare 运行与发布方式；已退役的旧 CF dev 不是第三个业务环境或后续发布目标。
 
-最近一次独立验收为 2026-10-30 的 `dev@c5908c32`：release `branch-dev-c5908c320503-20261030134917` 的 watcher／current／manifest／运行文件一致，API／DB healthy、Web running，PostgreSQL ledger 18 项／最新 `0017`，三个新索引 valid／ready，Admin 11 个静态文件匹配；冷／热 Cards Search 请求级日志路径、SQL 和 KV 指标已核对。见 [v1.1.3 验证记录](../releases/v1.1.3/05-delivery/VERIFICATION.md#dev-performance-release-20261030)。源码或历史文档仍不能替代当前服务器回读；下方 2026-09-15 至 2026-09-23 的配置与发布情况按原日期保留。
+2026-11-12 14:05 已独立验收本次重部署：干净 `dev@87ba3b4b` 对应 release `branch-dev-87ba3b4b0929-20261112140056`，current／manifest／watcher 状态一致，失败标记为空；API／DB healthy、Web running、migrate exited/0。Node 22.23.4、PostgreSQL 18.6／ledger 19 项／最新 `0018` 保持，无待执行迁移。1,232,817,600 字节发布前备份的目录读取通过，API 运行文件及 Admin 11 个静态文件逐字节匹配，私有配置哈希不变，见[重部署验收](../releases/v1.1.4/03-data-api/platform-accounts.md#linux-dev-redeploy-20261112)。此前 [2026-11-06 完整发布](../releases/v1.1.4/03-data-api/platform-accounts.md#linux-dev-发布与验收2026-11-06)与 [2026-11-09 配置补验](../releases/v1.1.4/03-data-api/platform-accounts.md#android-dev-google-登录配置2026-11-09)继续按原日期保留；历史记录不能替代后续服务器验收。
 
 > 适用项目：`toccards`
 >
@@ -12,9 +12,9 @@
 >
 > 自动部署分支：`dev`
 >
-> 最近一条已记录的独立验收：2026-10-30，`dev@c5908c32`／`branch-dev-c5908c320503-20261030134917`
+> 已记录检查点：2026-11-12 14:05，`dev@87ba3b4b`／`branch-dev-87ba3b4b0929-20261112140056` 重部署验收
 >
-> 验收边界：已记录运行文件、容器状态、migration ledger、索引计划、备份目录可读性、Admin 静态文件和请求级冷／热缓存日志；未完成数据库恢复、真实流量 P95、Flutter 真机或生产验收
+> 验收边界：各日期分别记录运行文件、容器状态、migration ledger、备份和静态资源检查；10 月 30 日的索引／冷热缓存证据保留在 v1.1.3。未完成数据库恢复、真实流量 P95 或完整双端真机验收，不能外推为生产验收
 
 Linux 整改已通过 `75c0ec4` 合入 dev，保留该分支原有的后台筛选改动；该提交及 `a419415` release 现在都是历史检查点。2026-09-23 的历史 release 为 `branch-dev-f9feac7b16b5-20260923103511`，运行 bundle 包含 HTTP 向量适配与 Sports Shop eBay 入口；原数据库及图片卷保留，ledger 为 14 项。发布前 1,135,250,246 字节 custom-format 备份通过 PostgreSQL 18 `pg_restore --list`，未执行恢复。日常手工 SSH 发布仍需配置非交互 key/agent；本次通过交互 SSH 只读核验已由服务器 watcher 完成的自动发布，没有执行手工重发。后续只改 Flutter/文档的 `d8f0aa2` 仅更新 `last-seen-sha`，没有替换 Linux release。完整证据见[验证记录](../releases/v1.1.0/05-delivery/VERIFICATION.md#sports-shop-linux-dev-自动发布回读2026-09-23)。
 
@@ -22,7 +22,7 @@ Linux 整改已通过 `75c0ec4` 合入 dev，保留该分支原有的后台筛�
 
 ## 1. 目标与原则
 
-Linux 承接现有 dev 环境整改，与 Cloudflare 正式环境使用同一套业务代码，不维护两套 API、管理后台、SQL 或业务规则。环境差异仅放在运行入口、基础设施适配器、环境变量和部署脚本中；识别按用户明确要求继续复用现有 CF 向量服务。
+Linux 承接现有 dev 环境整改，与 Cloudflare 正式环境共用同一套 API、管理后台、SQL 与业务实现。各环境按已发布提交独立运行，不能推定 dev 与 prod 版本相同。环境差异放在运行入口、基础设施适配器、环境变量和部署脚本中；旧 App／插件继续使用 HTTP 向量服务，当前 App 使用独立的 pHash／OCR 服务，两套 origin 均为部署必需配置。
 
 | 项目 | Linux 测试环境 | Cloudflare 正式环境 |
 |---|---|---|
@@ -36,7 +36,7 @@ Linux 承接现有 dev 环境整改，与 Cloudflare 正式环境使用同一套
 
 必须遵守以下隔离规则：
 
-- Linux 业务读写使用独立 PostgreSQL、图片卷和测试密钥；仅通过 HTTP 向现有 CF 识别服务发送向量，候选资料、额度与扫描记录仍在本地处理。
+- Linux 业务读写使用独立 PostgreSQL、图片卷和测试密钥；旧 App／插件向 `VECTOR_RECOGNITION_BASE_URL` 发送向量，当前 App 向 `PHASH_RECOGNITION_BASE_URL` 发送 RGB pHash 及可选 OCR，候选资料、额度与扫描记录仍在 Linux 处理。
 - kd201 的 `.env`、数据库密码和 JWT secret 不提交到 Git。
 - 自动部署只负责 kd201，不会触发或修改 Cloudflare 正式环境。
 - 不执行 `docker compose down -v`，除非明确要永久清空测试数据库和扫描图片。
@@ -102,9 +102,14 @@ chmod 600 .env
 - `POSTGRES_PASSWORD`
 - `DATABASE_URL`
 - `JWT_SECRET`
-- `VECTOR_RECOGNITION_BASE_URL`：必填识别服务 origin，例如 `https://recognize-vec.tcgcard.fun`；不得包含路径、凭据、查询参数或 fragment，适配器固定请求 `/recognize`。
+- `APP_ENVIRONMENT=development`
+- `OBJECT_STORAGE_PATH=/data/scan-images`
+- `VECTOR_RECOGNITION_BASE_URL`：旧 App／插件的必填向量服务 origin，例如 `https://recognize-vec.tcgcard.fun`。
+- `PHASH_RECOGNITION_BASE_URL`：当前 App 的必填 pHash／OCR 服务 origin，例如 `https://recognize.tcgcard.fun`。
 - `LINUX_TEST_SITE_ADDRESS`
 - `ALLOWED_ORIGINS`
+
+`POSTGRES_DB`／`POSTGRES_USER` 与 `DATABASE_URL` 中的数据库名、用户名和密码必须匹配，Compose 发布地址固定为 `db:5432`。两套识别地址只允许 HTTP(S) origin，不得包含路径、凭据、查询参数或 fragment，各适配器固定请求 `/recognize`。发布前分别核对向量 512／cosine／top_k=5 与 RGB pHash 768／euclidean／top_k=5／`cards_phash` 健康合同；数据库必须为 PostgreSQL 18.6 或更高的 18.x，不自动升级旧大版本。
 
 kd201 使用局域网 HTTP 时的非敏感配置示例：
 
@@ -116,7 +121,7 @@ POSTGRES_LISTEN_ADDRESS=192.168.50.201
 POSTGRES_HOST_PORT=15432
 ```
 
-当前 Linux 入口通过 `loadLinuxRuntime` 强制读取 `VECTOR_RECOGNITION_BASE_URL`；仅有旧 `OCR_SERVICE_BASE_URL` 时拒绝启动。旧 OCR 键不再参与扫描，也不能作为当前版本的回退配置。应用回退须选择兼容当前 PostgreSQL schema 和向量协议的已验证版本，并核对对应私有配置。2026-09-15 的迁移过程保留在历史验证记录中。
+当前 Linux 入口通过 `loadLinuxRuntime` 同时要求 `VECTOR_RECOGNITION_BASE_URL` 和 `PHASH_RECOGNITION_BASE_URL`；缺少任一项时拒绝启动。旧 `OCR_SERVICE_BASE_URL` 不参与运行，也不能替代当前 pHash／OCR 配置。应用回退须兼容现有 PostgreSQL schema、平台账号 owner 及两套识别协议，并核对对应私有配置。2026-09-15 的迁移过程保留在历史验证记录中。
 
 ### 外部服务配置与代理
 

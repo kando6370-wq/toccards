@@ -1,6 +1,6 @@
 # 双端平台账号、Android 免费首版与发布配置
 
-状态：2026-11-05 起的源码实现合同；本地验证与测试收口截至 2026-11-09，结果按日期分别记录。源码、迁移文件、本地测试、远端迁移和商店发布分别记录。
+状态：2026-11-05 起的源码实现合同；实现、构建与验证记录已更新至 2026-11-12，结果按日期分别记录。源码、迁移文件、本地测试、远端迁移和商店发布分别记录；历史段落中的“本轮未提交／未部署”只指对应阶段。
 
 产品依据为 [Android 免费首版 PRD](../00-product/Card_AI_Android_Free_First_Release_Incremental_PRD-3.md)及[扫描规则澄清](../05-delivery/android-free-first-release-review.md#02-扫描规则澄清2026-11-05)。原始输入保持字节不变；实施前评估的旧源码差距不作为修改后的实现事实。
 
@@ -15,7 +15,7 @@
 
 ## PostgreSQL 与 owner 边界
 
-增量迁移文件为 `apps/workers-api/src/db/postgres/migrations/0018_platform_account_isolation.sql`，只供受控本地回放及未来经授权的环境发布使用，不修改历史 migration，不引入 D1。
+增量迁移文件为 `apps/workers-api/src/db/postgres/migrations/0018_platform_account_isolation.sql`，已记录于 2026-11-06 在 Linux dev、2026-11-10 在 prod 执行，具体结果见本文各环境发布记录。不修改已应用 migration，不引入 D1；现有环境后续由 migration ledger 判断待执行项，不重复执行已登记迁移。
 
 | 对象 | 归属／状态 |
 |---|---|
@@ -29,7 +29,7 @@
 
 历史 `user.status=deleted` 不建立平台账号；迁移清除其 OAuth 关联、密码、显示名和原邮箱，并将邮箱替换为基于旧 user ID 的不可登录占位。对应邮箱的认证码仅在该邮箱没有被 active／disabled 身份复用时清理。旧 user ID、业务资产 tombstone 及必要财务／审计记录保留，不迁入新账号。active／disabled 身份、登录信息和平台归属不受这项历史归一影响。
 
-生产迁移需要冻结注册、登录及 OAuth 等认证写入，执行 0018、切换新 API 并只读核对映射后再解冻。旧服务端不能创建新平台账号，不能将这次迁移描述为无需写入冻结的在线变更；Android 放行必须晚于上述步骤。本轮没有执行任何远程迁移或发布。
+0018 的生产发布要求先冻结注册、登录及 OAuth 等认证写入，执行迁移、切换新 API 并只读核对映射后再解冻。2026-11-10 已按该流程完成，见[生产平台账号发布](#生产平台账号发布2026-11-10)。旧服务端不能创建新平台账号，不能将这次迁移描述为无需写入冻结的在线变更；Android 放行必须晚于上述步骤。
 
 新平台空间开始写入后，不能直接回退到不识别平台 owner 的旧 API。回退版本必须保留本次平台鉴权与 owner 解析；若需要恢复发布前数据库备份，须另行核对发布后的新增数据及恢复范围。不得通过删除平台关系、把 Android owner 改写成 iOS owner 或复活旧空间来回退。
 
@@ -125,6 +125,7 @@ X-Request-ID: <request id>
 
 - 本机 Android 测试默认使用 `APP_ENV=test` 和独立 applicationId `com.kando.kandoApp.beta`。Debug 签名在本项目忽略目录 `.dart_tool/android-test-signing/` 首次生成，不复用全机 Debug keystore 或已有正式 JKS。下述旧 APK 交付记录按各自构建日期保留原包名，不回写为当前合同。
 - Android 正式 applicationId、上传签名路径／密码、Firebase 配置和其他正式 SDK 值由独立打包环境注入；不自动读取本机已有 key.properties 或签名库。
+- 2026-11-10 用户已允许在当前 Windows 机器建立隔离的正式打包环境，覆盖此前物理独立打包机要求；测试与正式配置、签名和制品仍须隔离，详见[正式打包准备](../05-delivery/android-play-release-configuration.md#本机正式构建准备2026-11-10进行中)。
 - production 必须提供 `ANDROID_APPLICATION_ID`、`ANDROID_KEYSTORE_PATH`、`ANDROID_KEY_ALIAS`、`ANDROID_KEY_PASSWORD`、`ANDROID_STORE_PASSWORD`、有效的 `ANDROID_FIREBASE_CONFIG_PATH`，以及 Google server client ID／Play cloud project number 编译参数。缺失时构建显式失败，不回退到测试签名；production 禁止 Debug 构建。
 - 开发未提供 Firebase 外部配置时不应用 Google Services／Crashlytics 插件，Firebase 在运行时明确不可用，不将其写成已接通。打包机提供正式文件后仍需实发日志／分析事件验收。
 - 现有 iOS 正式 Bundle ID 和 Apple 配置关系保持兼容。改变默认开发环境时，既有 iOS 发布调用必须显式使用 production 配置，防止正式包误连 dev。
@@ -141,7 +142,7 @@ Android dev 与既有 iOS Google 登录共用 Google Cloud project `tcg-card-207
 - 原 iOS client、既有 Web client 与 production Android OAuth 均未修改；iOS API 继续使用原 `GOOGLE_CLIENT_ID`。本配置不使用 Web client secret，不接入 Firebase Authentication，也不复用 production Play Integrity 服务账号或私钥。
 - dev 的 `ANDROID_INTEGRITY_ALLOW_DEVELOPMENT=true` 只允许测试安装先建立 Android 游客会话；Google OAuth 回调仍校验真实 ID Token 的 audience、issuer、已验证邮箱和 `sub`，不会因开发豁免跳过。
 
-Linux dev 已在当前 release `branch-dev-9f17115ae738-20261109093204` 的共享私有环境中写入上述 Android Web audience；修改前私有环境备份为 `/home/user/apps/toccards-test/shared/.env.before-android-google-20261109T092000Z`。仅 `GOOGLE_ANDROID_SERVER_CLIENT_ID` 发生变化，其余 `.env` 原始字节保持；原 iOS audience `1030914046373-j0ihp89joii8c9k66v89l9dske6mp0mc.apps.googleusercontent.com`、`APP_ENVIRONMENT=development` 与 `ANDROID_INTEGRITY_ALLOW_DEVELOPMENT=true` 均保留。
+2026-11-09 检查时，Linux dev 的 release 为 `branch-dev-9f17115ae738-20261109093204`，已在其共享私有环境中写入上述 Android Web audience；修改前私有环境备份为 `/home/user/apps/toccards-test/shared/.env.before-android-google-20261109T092000Z`。仅 `GOOGLE_ANDROID_SERVER_CLIENT_ID` 发生变化，其余 `.env` 原始字节保持；原 iOS audience `1030914046373-j0ihp89joii8c9k66v89l9dske6mp0mc.apps.googleusercontent.com`、`APP_ENVIRONMENT=development` 与 `ANDROID_INTEGRITY_ALLOW_DEVELOPMENT=true` 均保留。该 release 与下述容器状态是当天证据，不能代替 2026-11-12 Git 合并后的运行版本回读。
 
 只使用同一 API image `sha256:8bd2fb1d816471ae40f927b8f0ab717cc3a6b4ea0cb7b35dbf09aa79f124f9d2` 重建 API 容器，新容器 ID 为 `1aab2fce3a1665d3d59c8a72a5f73239557dd746b02626c9f11cbbb7cf9973ff`，运行且 healthy，health HTTP 200。DB／Web／migrate 容器、watcher、`current` 与 release 状态均未改变，没有执行 migration。容器访问 Google `tokeninfo` 的无效 token 探测返回 HTTP 400 `invalid_token`，只证明出站网络和端点可达，不证明真实 Google 登录或 Token 验签成功。
 
@@ -466,3 +467,19 @@ Android SDK `apkanalyzer dex code` 确认交付 APK 缺少 `io.flutter.plugins.G
 按用户要求，将上节同一 APK 覆盖安装到 Xiaomi `23116PN5BC`（ADB `dba62e86`）；安装前重新核对保存文件 SHA-256，原安装为 210，`adb install -r` 返回 Success，安装后回读版本为 `1.0.7+212`。冷启动 `am start -W` 返回 Status=ok、TotalTime=2028ms；后续回读 Card AI MainActivity 位于前台、进程 22648 存活，所检查日志无 fatal crash、通道异常或未处理异常。首次前台断言期间系统 PhotoPicker 位于前台而中止，随后已重新回读 App 前台状态，未将该断言记为通过。
 
 本次未清除 App 数据、重新构建 APK、修改业务源码或操作荣耀手机；手机临时 UI XML 已移除。小米键盘流畅度及 Total Value 几何未在本次安装步骤中复测，不能将荣耀的结果外推为小米验收通过；未提交／推送 Git。
+
+<a id="linux-dev-redeploy-20261112"></a>
+
+## Linux dev API／Admin 重部署（2026-11-12）
+
+按用户要求，通过服务器既有 watcher 强制重发干净的 `dev@87ba3b4b0929af3e37d770605653fb14559e4a45`。该提交已包含 `codex/fixbug-andriod@5fcd814c`，保留 dev 部署／环境实现及来源分支的业务代码。本机尚未提交的文档未参与服务器构建。发布前独立回读发现 watcher 已在 11:40 自动发布同一提交；确认两把锁空闲后才执行本次重发，没有并发启动第二轮部署。
+
+新 release 为 `branch-dev-87ba3b4b0929-20261112140056`，14:05 独立回读确认 `current`、`shared/current-release`、manifest、watcher `last-seen-sha`／`last-deployed-sha` 及干净 source 检出全部一致；失败标记不存在，watcher／deploy 锁空闲。watcher 配置选中的 Node 和 API 实际运行 Node 均为 22.23.4，发布前补跑 Admin 96 项回归、Admin 类型检查和根依赖方向检查通过，标准 watcher 的锁定依赖安装、受影响 Workers／Node 检查、API／Admin 构建及 Linux bundle 检查正常完成。
+
+- 发布前后预检均通过两套识别服务健康合同，`pendingMigrations=[]`。PostgreSQL 保持 18.6，ledger 精确匹配发布包中的 19 个文件、最新 `0018_platform_account_isolation.sql`，没有新增业务迁移。原 `toccards-linux-test_postgres-data` 卷保留，发布配置继续使用约定的 `/var/lib/postgresql/data` 路径。
+- 发布前备份 `toccards-test-20261112-140058-before-branch-dev-87ba3b4b0929-20261112140056.dump` 为 1,232,817,600 字节，在 PostgreSQL 18 容器内执行 `pg_restore --list` 成功，374 项目录条目；未做恢复演练。
+- API／DB healthy、Web running、migrate exited/0。运行 API bundle 与 release SHA-256 均为 `3dde06a44aedc35dd171c083d4787f69af6e46fbf0c6142bf77690d0d31422f6`；离线 Web 程序也逐字节匹配。Admin 11 个文件在 release、运行容器、服务器 HTTP 及开发机局域网 HTTP 四处原始字节全部一致，构建包含启动刷新会话逻辑。
+- 服务器侧 8 项 HTTP 检查通过：health 200，App／Admin 未登录拒绝，缺失／无效 Admin refresh token 返回可解析的 JSON 401，iOS／Google／Android 公共配置均为 200。开发机另完成 15 项局域网检查（11 个 Admin 文件、health 和三端配置），Google／Android 配置相同。
+- `shared/.env`、`watcher.env` 的发布前后完整哈希不变，未输出凭据或修改私有配置。备份、历史 release 和本地文档保留，没有清理用户数据。
+
+本次仅重发 Linux dev API／Admin；没有执行 prod、官网、Flutter 制品或商店发布，没有进行数据库业务写入验收。真实管理员登录及浏览器闪现回归、Google 登录、真机扫描、购买／Restore、恢复演练和真实流量性能仍未验收，GitHub CI 结果未回查。机器可读验收证据位于忽略目录 `.dart_tool/dev-deploy-20261112/`；上述结果是本次发布回读，不替代后续环境状态核验。

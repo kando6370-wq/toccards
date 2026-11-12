@@ -97,7 +97,9 @@ Google server client ID 和 Play cloud project number。Firebase 使用
 
 ## 扫描平台与协议
 
-当前扫描链路支持 iOS 16+ 和 Android API 24+。端侧 RTMDet-Ins 检测并矫正卡面，随后并行计算 RGB 分通道 pHash 与 ML Kit Latin OCR；OCR 文本经 Unicode 兼容规范化、去附加符号、大小写及空白/分隔符规则化后写入 `ocr_text`。当前 App 向原 `/api/v1/scan/recognize` 提交 JPEG、`r/g/b`、`card_type` 以及成功取得时的 `ocr_text`；OCR 失败时省略该字段并继续哈希检索，成功但无文本时保留空字符串。当前源码不再构建旧向量识别，服务端仍在同一路径接受线上 App 1.0.4+ 的 `vector` 请求。Flutter Web 暂不支持扫描。实现与兼容边界见[当前扫描识别链路](../../docs/releases/v1.1.3/01-flows/scan-recognition.md)。
+当前扫描链路支持 iOS 16+ 和 Android API 24+。端侧 RTMDet-Ins 检测并矫正卡面，随后并行计算 RGB 分通道 pHash 与 ML Kit OCR；Latin 与 Japanese 识别器对同一卡面并行执行。Latin 文本沿用既有 Unicode 兼容规范化、去附加符号、大小写及空白／分隔符规则；Japanese 仅保留 Han／Hiragana／Katakana／`ー`，少于 3 个日文字符时置空，最终按 Latin 在前、Japanese 在后合并为单个 `ocr_text`。
+
+当前 App 向原 `/api/v1/scan/recognize` 提交 JPEG、`r/g/b`、`card_type` 以及成功取得时的 `ocr_text`；OCR 失败时省略该字段并继续哈希检索，成功但无文本时保留空字符串。当前源码不再构建旧向量识别，服务端仍在同一路径接受线上 App 1.0.4+ 的 `vector` 请求。Flutter Web 暂不支持扫描。实现与兼容边界见[当前扫描识别链路](../../docs/releases/v1.1.3/01-flows/scan-recognition.md)。
 
 ## iOS simulator
 
