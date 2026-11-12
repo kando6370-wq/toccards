@@ -67,3 +67,13 @@ IndexNow 首批 60 URL 返回 202（收到、等待 key 验证），最后 7 URL
 正式域名完成 19 项 GET／HEAD 检查，全部返回 200。账号删除页的 canonical、安全响应头、`noindex, follow`、无默认平台和同源 module 正常，专用脚本、CSS、公共脚本原始字节及 SHA-256 均与冻结资源一致；Help／两处页脚／隐私入口可用，删除页未进入 sitemap。首页、目录、价格页、涨幅榜、单卡、隐私、条款、robots、sitemap 与 Saved 的索引／缓存边界均通过抽查。浏览器实际从 Help 展开删除问答并到达正式删除页，空字段校验和 Android／iOS 范围及条件订阅提示正常。手机布局沿用同一源码先前的 320／390px 本地验收，本轮未另做线上手机尺寸复验。
 
 保留原 Worker version 作为回退点，未执行回退；未发布 App／共享 API／Admin／目录数据服务，未执行迁移、业务写入、Secret 操作、IndexNow 通知或 Play Console 填写。未发送真实邮件、打开有效邮件草稿、读取或改写系统剪贴板、操作真实账号或执行删号；客服收件、身份核验、自有数据与服务提供商删除仍需独立落实。发布证据与截图存放于被忽略的 `apps/cardscanfox-web/.local/prod-redeploy-b716ae12-20261111/`，不纳入源码或法律正文。
+
+## /saved robots 报告修复（2026-11-12）
+
+Search Console 仅报告 1 个 robots 屏蔽网址，示例为 /saved。该页是浏览器本地保存引用，不属于公开 SEO 内容。原因是生产 Worker 同时使用 Disallow: /saved 和页面 noindex,follow，Google 无法读取页面的 noindex，于是将预期排除显示为 robots 屏蔽。
+
+修复保留 /saved 的个性化、noindex,nofollow、no-store 和不入 sitemap 规则，同时从生产 robots.txt 删除 Disallow: /saved。这样 Google 可以读取页面的排除指令，公开页面的抓取规则不变，/site-api/ 仍保持禁止抓取。生产部署和 Search Console 重新回读仍是后续独立步骤；本地代码检查通过不代表线上状态已更新。
+
+本地补验使用官方 SHA-256 校验后的独立 Node 22.23.4 与 pnpm 11.28.10。合入最新 main 后，账号删除、内容文件与 Worker 发布边界三个受影响测试文件共 30/30 通过，类型检查和显式 wrangler.production.jsonc dry-run 通过；构建登记 124 条 HTML 路由、保留 46 条旧正文，dry-run 读取 203 个静态文件。此前使用默认 dry-run 命令得到的是预览配置，不作为本次生产配置验收证据。未运行 App、共享 API、Admin 或其他无影响面测试。
+
+独立 Code Review 未发现阻塞项，已核对 HTML/header 的 noindex,nofollow 一致、/site-api/ 与预览 robots 原边界保留、远端账号删除测试与交付记录保留。只读临时探针确认 /saved 的 GET、HEAD、条件响应 304 均保留 no-store 和排除索引指令，共享 HTML 缓存读写为 0。Saved 引用存于访问者本机浏览器；robots 不是认证或数据隐私控制，本次不改变本地保存功能。Google 抓取后报告可能改列为 noindex 排除，具体以 GSC 后续结果为准。该页不提交 IndexNow。

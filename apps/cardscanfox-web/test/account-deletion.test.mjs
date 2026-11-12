@@ -102,3 +102,11 @@ test('the dedicated client asset is served by the existing assets rule and makes
  assert.match(css,/\.account-deletion-layout/);
  assert.match(css,/\.account-deletion-email\{[^}]*font-size:16px/);
 });
+
+test('the saved browser page remains noindex and nofollow',()=>{
+ const url=new URL('/saved','https://tcgcard.fun');
+ const page=resolvePage(url);
+ assert.equal(page.status,200);
+ assert.equal(mayIndex(url,page.status,page),false);
+ assert.match(publishHtml(page.html,url,page.status,page),/content="noindex,nofollow"/);
+});
