@@ -1,0 +1,53 @@
+{
+  "batch_id": "mcd2026",
+  "date": "2026-11-12",
+  "baseline": "d2acb84c",
+  "inputs": [
+    {
+      "id": "K-001",
+      "term": "pokemon mcdonalds 2026",
+      "source": "https://new.web.cafe/keywords/pokemon-mcdonalds-2026",
+      "plan": "P-001"
+    }
+  ],
+  "plan": {
+    "id": "P-001",
+    "action": "create_content",
+    "url": "/blog/pokemon-mcdonalds-2026",
+    "language": "en",
+    "intent": "regional promotion dates, card checklist and printing identification",
+    "title": "Pokémon McDonald’s 2026: Dates, 15 Cards & Happy Meal Guide",
+    "description": "When is Pokémon at McDonald’s in 2026? Check US dates, the 15-card checklist, Canada differences and how to identify your Happy Meal cards before pricing them.",
+    "ai_question_map": {
+      "promotion": "official regional dates and card gallery",
+      "valuation": "catalog workflow only; no verified 2026 set currently found"
+    },
+    "recommendation_case": "Source-backed collecting guide; not restaurant inventory or current 2026 pricing",
+    "copy_audit": [
+      "task title",
+      "inputs and outputs",
+      "direct answer",
+      "object before workflow",
+      "attributed dates and counts",
+      "question headings",
+      "coverage limits",
+      "regional comparison"
+    ],
+    "status": "implemented; pending validation and publication"
+  },
+  "jev": {
+    "status": "unavailable",
+    "http_status": 451,
+    "codex_review": "Completed using current visible search, primary sources and public catalog"
+  },
+  "sources": [
+    "https://www.pokemon.com/us/news/pokemon-happy-meals-return-to-mcdonalds-in-the-us",
+    "https://corporate.mcdonalds.com/corpmcd/our-stories/article/USmenuspotter.html",
+    "https://www.pokemon.com/us/news/pokemon-happy-meals-return-to-mcdonalds-in-canada"
+  ],
+  "limitations": [
+    "No measured demand or ranking claim",
+    "No restaurant stock",
+    "No fabricated card price or guaranteed scanner match"
+  ]
+}

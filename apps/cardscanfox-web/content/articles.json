@@ -241,5 +241,34 @@
         "url": "https://tcg.pokemon.com/de-de/tcgl/droprate/"
       }
     ]
+  },
+  {
+    "path": "/blog/pokemon-mcdonalds-2026",
+    "title": "Pokémon McDonald’s 2026: Dates, 15 Cards & Happy Meal Guide",
+    "description": "When is Pokémon at McDonald’s in 2026? Check US dates, the 15-card checklist, Canada differences and how to identify your Happy Meal cards before pricing them.",
+    "h1": "Pokémon McDonald’s 2026: Happy Meal Dates, Cards and Collecting Guide",
+    "author": "CardScanFox Editorial",
+    "file": "pokemon-mcdonalds-2026.md",
+    "published": true,
+    "category": "collecting",
+    "publishedAt": "2026-11-12",
+    "sources": [
+      {
+        "label": "Pokémon: US Happy Meal announcement, November 10, 2026",
+        "url": "https://www.pokemon.com/us/news/pokemon-happy-meals-return-to-mcdonalds-in-the-us"
+      },
+      {
+        "label": "McDonald’s USA: November 10 Pokémon launch",
+        "url": "https://corporate.mcdonalds.com/corpmcd/our-stories/article/USmenuspotter.html"
+      },
+      {
+        "label": "Pokémon: Canada announcement, November 3, 2026",
+        "url": "https://www.pokemon.com/us/news/pokemon-happy-meals-return-to-mcdonalds-in-canada"
+      },
+      {
+        "label": "Pokémon: regional rollout schedule",
+        "url": "https://www.pokemon.com/us/news/pokemon-happy-meals-are-coming-to-mcdonalds-in-an-exciting-new-way-"
+      }
+    ]
   }
 ]
