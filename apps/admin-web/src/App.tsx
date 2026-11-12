@@ -239,16 +239,42 @@ const pageMeta: Record<MenuKey, { title: string; description: string }> = {
 };
 
 export default function App() {
-  const [session, setSession] = useState<AdminSession | null>(() => readStoredSession());
+  const [session, setSession] = useState<AdminSession | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const [authView, setAuthView] = useState<"login" | "password" | "denied">("login");
 
   useEffect(() => {
+    let active = true;
+    const storedSession = readStoredSession();
+    if (!storedSession) {
+      setAuthReady(true);
+      return () => { active = false; };
+    }
+
+    refreshAdminSession(storedSession)
+      .then((nextSession) => {
+        if (!active) return;
+        setSession(nextSession);
+        setAuthReady(true);
+      })
+      .catch((error) => {
+        if (!active) return;
+        if (isAuthenticationFailure(error)) setSession(null);
+        else setSession(storedSession);
+        setAuthReady(true);
+      });
+
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!authReady) return;
     if (session) {
       window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
     } else {
       window.localStorage.removeItem(SESSION_STORAGE_KEY);
     }
-  }, [session]);
+  }, [authReady, session]);
 
   useEffect(() => {
     const handleSessionExpired = () => {
@@ -259,6 +285,8 @@ export default function App() {
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
   }, []);
 
+  if (!authReady) return <AuthLoadingView />;
+
   if (!session) {
     if (authView === "password") return <PasswordSetupView onBack={() => setAuthView("login")} />;
     if (authView === "denied") return <AccessDeniedView onBack={() => setAuthView("login")} />;
@@ -266,6 +294,10 @@ export default function App() {
   }
 
   return <AdminShell session={session} onLogout={() => setSession(null)} />;
+}
+
+function AuthLoadingView() {
+  return <main className="auth-loading" aria-label="正在验证登录状态"><Spin size="large" /></main>;
 }
 
 function LoginView({
@@ -1617,6 +1649,17 @@ async function adminRequest<T>(path: string, init: AdminRequestInit = {}): Promi
   return payload.data;
 }
 
+async function refreshAdminSession(session: AdminSession): Promise<AdminSession> {
+  const body = await adminRequest<{ access_token: string }>("/auth/refresh", {
+    method: "POST",
+    body: { refresh_token: session.refreshToken },
+  });
+  if (typeof body.access_token !== "string" || body.access_token.length === 0) {
+    throw new AdminApiError("INVALID_REFRESH_RESPONSE", "登录状态无效。", 401);
+  }
+  return { ...session, accessToken: body.access_token };
+}
+
 async function downloadAdminFile(path: string, session: AdminSession, fallbackName: string) {
   const response = await fetch(`${API_BASE}${path}`, {
     headers: createAdminRequestHeaders({ Authorization: `Bearer ${session.accessToken}` }),
@@ -1647,6 +1690,10 @@ function dispatchSessionExpiredOnUnauthorized(response: Response, token?: string
   if (token && response.status === 401) {
     window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
   }
+}
+
+function isAuthenticationFailure(error: unknown): boolean {
+  return error instanceof AdminApiError && (error.status === 401 || error.status === 403);
 }
 
 class AdminApiError extends Error {
