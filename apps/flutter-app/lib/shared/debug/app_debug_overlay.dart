@@ -90,6 +90,7 @@ class AppDebugOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DebugOverlay(
+      maintainState: false,
       hiddenFields: appDebugHiddenFields,
       logBucket: appDebugLogBucket,
       httpBucket: appDebugHttpBucket,

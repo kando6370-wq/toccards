@@ -20,6 +20,13 @@ body {
   overflow: hidden;
 }
 
+.auth-loading {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #f8fbfc 0%, #eef5f7 100%);
+}
+
 .login-card,
 .password-card,
 .denied-card {

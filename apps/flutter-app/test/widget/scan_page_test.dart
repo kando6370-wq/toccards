@@ -3617,6 +3617,111 @@ void main() {
     },
   );
 
+  for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+    testWidgets(
+      '${platform.name} Review keeps the keyboard open between editable fields',
+      (tester) async {
+        await _pumpScanTestApp(tester, platform: platform);
+        await tester.tap(find.byTooltip('Take Photo'));
+        await _completeFigmaScan(tester);
+        await tester.tap(find.byTooltip('Review completed scan'));
+        await tester.pumpAndSettle();
+
+        final quantity = find.byKey(const Key('scan-review-quantity-1'));
+        await tester.ensureVisible(quantity);
+        await tester.pumpAndSettle();
+        await tester.tap(quantity);
+        await tester.pump();
+        await tester.enterText(quantity, '2');
+        await tester.pump();
+
+        for (final key in ['scan-review-price-1', 'scan-review-notes-1']) {
+          final field = find.byKey(Key(key));
+          await tester.ensureVisible(field);
+          await tester.pumpAndSettle();
+          tester.testTextInput.log.clear();
+
+          final gesture = await tester.startGesture(tester.getCenter(field));
+          await tester.pump(const Duration(milliseconds: 32));
+          final visibleDuringTap = tester.testTextInput.isVisible;
+          await gesture.up();
+          await tester.pump();
+
+          expect(
+            visibleDuringTap,
+            isTrue,
+            reason: 'Switching fields must not start a keyboard hide animation.',
+          );
+          expect(
+            tester.testTextInput.log.map((call) => call.method),
+            isNot(contains('TextInput.hide')),
+          );
+          expect(
+            tester.widget<EditableText>(
+              find.descendant(of: field, matching: find.byType(EditableText)),
+            ).focusNode.hasFocus,
+            isTrue,
+          );
+        }
+        expect(
+          tester.widget<EditableText>(
+            find.descendant(of: quantity, matching: find.byType(EditableText)),
+          ).controller.text,
+          '2',
+        );
+      },
+    );
+  }
+
+  testWidgets(
+    'Review keyboard animation preserves the draft without rebuilding ScanPage',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+      await _pumpScanTestApp(tester, platform: TargetPlatform.android);
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.tap(find.byTooltip('Review completed scan'));
+      await tester.pumpAndSettle();
+      final notes = find.byKey(const Key('scan-review-notes-1'));
+      await tester.ensureVisible(notes);
+      await tester.pumpAndSettle();
+      await tester.enterText(notes, 'Keep this draft');
+      await tester.pumpAndSettle();
+
+      final previousRebuildCallback = debugOnRebuildDirtyWidget;
+      var pageRebuilds = 0;
+      debugOnRebuildDirtyWidget = (element, builtOnce) {
+        previousRebuildCallback?.call(element, builtOnce);
+        if (element.widget is ScanPage) pageRebuilds += 1;
+      };
+      addTearDown(() => debugOnRebuildDirtyWidget = previousRebuildCallback);
+      for (final inset in [40.0, 100.0, 180.0, 260.0, 330.0]) {
+        tester.view.viewInsets = FakeViewPadding(bottom: inset);
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await tester.pumpAndSettle();
+
+      expect(
+        pageRebuilds,
+        0,
+        reason: 'Keyboard animation must not rebuild the scan state and its full review form.',
+      );
+      expect(find.byKey(const Key('scan-review-add-one')), findsNothing);
+      expect(tester.testTextInput.isVisible, isTrue);
+      final editable = tester.widget<EditableText>(
+        find.descendant(of: notes, matching: find.byType(EditableText)),
+      );
+      expect(editable.controller.text, 'Keep this draft');
+      expect(editable.focusNode.hasFocus, isTrue);
+
+      tester.view.viewInsets = FakeViewPadding.zero;
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('scan-review-add-one')), findsOneWidget);
+    },
+  );
+
   testWidgets('Review inline selection does not restore focus to Quantity', (
     tester,
   ) async {
@@ -5386,48 +5491,23 @@ void main() {
   );
 
   testWidgets(
-    'Android empty scan confirms close and system back without stacking dialogs',
+    'Android empty scan exits without a confirmation dialog',
     (tester) async {
-      tester.view.devicePixelRatio = 1;
-      tester.view.physicalSize = const Size(320, 720);
-      addTearDown(tester.view.reset);
-
       await _pumpScanTestApp(
         tester,
         commercialPolicy: const AppCommercialPolicy(isAndroidFreeLaunch: true),
         platform: TargetPlatform.android,
-        textScale: 1.2,
       );
 
-      final closeButton = tester.widget<IconButton>(
-        find.byKey(const Key('scan-figma-close-button')),
-      );
-      closeButton.onPressed!();
-      closeButton.onPressed!();
+      await tester.tap(find.byTooltip('Close Scan'));
       await tester.pumpAndSettle();
-      expect(find.text('Exit scan?'), findsOneWidget);
-      expect(find.text('Exit the scanner and return to Home?'), findsOneWidget);
-      expect(find.text('NO, STAY HERE'), findsOneWidget);
-      expect(find.text('EXIT'), findsOneWidget);
-      await tester.tapAt(const Offset(2, 2));
-      await tester.pump();
-      expect(find.text('Exit scan?'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-
-      await tester.tap(find.text('NO, STAY HERE'));
-      await tester.pumpAndSettle();
-      expect(find.byType(ScanPage), findsOneWidget);
-
-      await tester.binding.handlePopRoute();
-      await tester.pumpAndSettle();
-      expect(find.text('Exit scan?'), findsOneWidget);
-      await tester.tap(find.text('NO, STAY HERE'));
-      await tester.pumpAndSettle();
-      expect(find.byType(ScanPage), findsOneWidget);
+      expect(find.text('Exit scan?'), findsNothing);
+      expect(find.text('Exit scan result?'), findsNothing);
+      expect(find.text('Overview'), findsOneWidget);
     },
   );
 
-  testWidgets('Android empty scan exits only after confirmation', (
+  testWidgets('Android empty scan exits without confirmation from system back', (
     tester,
   ) async {
     await _pumpScanTestApp(
@@ -5436,15 +5516,14 @@ void main() {
       platform: TargetPlatform.android,
     );
 
-    await tester.tap(find.byTooltip('Close Scan'));
+    await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
-    expect(find.text('Exit scan?'), findsOneWidget);
-    await tester.tap(find.text('EXIT'));
-    await tester.pumpAndSettle();
+    expect(find.text('Exit scan?'), findsNothing);
+    expect(find.text('Exit scan result?'), findsNothing);
     expect(find.text('Overview'), findsOneWidget);
   });
 
-  testWidgets('Android recognition in flight confirms before leaving scan', (
+  testWidgets('Android recognition in flight exits without confirmation', (
     tester,
   ) async {
     final pending = Completer<ScanResolution>();
@@ -5459,17 +5538,13 @@ void main() {
     await tester.pump();
     expect(find.byKey(const Key('scan-recognition-progress')), findsOneWidget);
     await tester.tap(find.byTooltip('Close Scan'));
-    await tester.pump();
-    expect(find.text('Exit scan result?'), findsOneWidget);
-    await tester.tap(find.text('NO, STAY HERE'));
-    await tester.pump();
-    expect(find.byType(ScanPage), findsOneWidget);
-    expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(find.text('Exit scan result?'), findsNothing);
+    expect(find.text('Overview'), findsOneWidget);
 
     pending.complete(const ScanResolution.noMatch());
-    await _completeFigmaScan(tester);
-    expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
-    expect(find.text('No Match Found'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.byType(ScanPage), findsNothing);
   });
 
   testWidgets('Android pending recognition ignores a late result after exit', (
@@ -5487,10 +5562,8 @@ void main() {
     await tester.pump();
     expect(find.byKey(const Key('scan-active-item-1')), findsOneWidget);
     await tester.tap(find.byTooltip('Close Scan'));
-    await tester.pump();
-    expect(find.text('Exit scan result?'), findsOneWidget);
-    await tester.tap(find.text('EXIT'));
     await tester.pumpAndSettle();
+    expect(find.text('Exit scan result?'), findsNothing);
     expect(find.text('Overview'), findsOneWidget);
 
     pending.complete(const ScanResolution.noMatch());
@@ -5499,6 +5572,50 @@ void main() {
     expect(find.text('Overview'), findsOneWidget);
     expect(find.byType(ScanPage), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Android unmatched scan result exits without confirmation', (
+    tester,
+  ) async {
+    await _pumpScanTestApp(
+      tester,
+      scanResultSource: _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.noMatch()),
+      ),
+      commercialPolicy: const AppCommercialPolicy(isAndroidFreeLaunch: true),
+      platform: TargetPlatform.android,
+    );
+
+    await tester.tap(find.byTooltip('Take Photo'));
+    await _completeFigmaScan(tester);
+    expect(find.text('No Match Found'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Close Scan'));
+    await tester.pumpAndSettle();
+    expect(find.text('Exit scan result?'), findsNothing);
+    expect(find.text('Overview'), findsOneWidget);
+  });
+
+  testWidgets('Android failed scan result exits without confirmation', (
+    tester,
+  ) async {
+    await _pumpScanTestApp(
+      tester,
+      scanResultSource: _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.failed()),
+      ),
+      commercialPolicy: const AppCommercialPolicy(isAndroidFreeLaunch: true),
+      platform: TargetPlatform.android,
+    );
+
+    await tester.tap(find.byTooltip('Take Photo'));
+    await _completeFigmaScan(tester);
+    expect(find.text('Failed'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Close Scan'));
+    await tester.pumpAndSettle();
+    expect(find.text('Exit scan result?'), findsNothing);
+    expect(find.text('Overview'), findsOneWidget);
   });
 
   testWidgets('Android unsaved result uses the Figma exit copy and actions', (

@@ -28,6 +28,8 @@ v1.1.3 已原位归档。本版本承接 v1.1.3 之后的新增、变更、移�
 
 ## 文档路由
 
+- [Admin 启动会话校验](04-admin/admin-auth-session.md)：启动时先验证持久会话，避免无效会话短暂挂载后台页面后才跳转登录。
+
 - [官网账号删除申请方案与页面设计](00-product/cardscanfox-account-deletion-design.md)：保留现有正式 URL；2026-11-11 已实现并正式发布官网邮件草稿、复制回退与人工协助入口，页面／资源及 Help 入口已验收，后台受控执行与客服运营仍按文档落实。
 
 - [CardScanFox 正式官网发布](05-delivery/cardscanfox-production-cutover.md)：正式 Worker 与 Route、手工构建身份、自动发布边界及 2026-11-11 重发的回退点和验收记录。

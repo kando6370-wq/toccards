@@ -67,8 +67,8 @@ void main() {
     );
     await tester.tap(find.text('Continue with Google'));
     await tester.pumpAndSettle();
-    expect(find.text('Continue?'), findsOneWidget);
-    expect(find.textContaining('will not merge'), findsOneWidget);
+    expect(find.text('Continue?'), findsNothing);
+    expect(find.textContaining('will not merge'), findsNothing);
   });
 
   for (final premiumState in AppPremiumState.values) {
@@ -1421,8 +1421,6 @@ void main() {
       expect(tester.takeException(), isNull);
 
       await tester.tap(find.text('Continue with Google'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('auth-oauth-warning')), findsOneWidget);

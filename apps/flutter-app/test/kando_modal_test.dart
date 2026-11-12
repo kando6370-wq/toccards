@@ -4,7 +4,38 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/shared/ui/kando_modal.dart';
 
+void _noop() {}
+
 void main() {
+  testWidgets('dense confirm modal keeps copy close to its actions', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: KandoConfirmModal(
+          title: 'Exit scan result?',
+          message: 'Your scanned card has not been collected yet.',
+          icon: Icons.drive_file_move_outline,
+          confirmLabel: 'NO, STAY HERE',
+          cancelLabel: 'EXIT',
+          onConfirm: _noop,
+          onCancel: _noop,
+          dense: true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final frame = tester.getRect(find.byKey(const Key('kando-modal-frame')));
+    final message = tester.getRect(
+      find.text('Your scanned card has not been collected yet.'),
+    );
+    final primaryButton = tester.getRect(find.text('NO, STAY HERE'));
+
+    expect(frame.size, const Size(342, 334));
+    expect(primaryButton.top - message.bottom, lessThan(60));
+  });
+
   testWidgets('danger confirm modal renders Figma-sized shell and returns true', (
     tester,
   ) async {

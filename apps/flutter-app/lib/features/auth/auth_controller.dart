@@ -309,10 +309,12 @@ class AuthController extends Notifier<AuthState> {
         storedSession != null &&
         (storedSession.platform != AppPlatform.android ||
             storedSession.dataSpaceId == null)) {
+      // A legacy iOS user can leave an iOS guest in the previous-session
+      // slot. Clear that slot before creating the Android replacement so a
+      // later Android logout cannot restore the wrong platform owner.
+      await _storage.clearAnonymousSession();
       if (storedSession.isUser) {
         await _storage.clearUserSession();
-      } else {
-        await _storage.clearAnonymousSession();
       }
       storedSession = null;
     }
@@ -381,6 +383,17 @@ class AuthController extends Notifier<AuthState> {
     final previousAnonymous = await _repository
         .previousAnonymousSessionFromStorage();
     if (previousAnonymous != null) {
+      final isAndroid = ref
+          .read(appCommercialPolicyProvider)
+          .isAndroidFreeLaunch;
+      final previousPlatformIsCompatible = isAndroid
+          ? previousAnonymous.platform == AppPlatform.android &&
+                previousAnonymous.dataSpaceId != null
+          : previousAnonymous.platform != AppPlatform.android;
+      if (!previousPlatformIsCompatible) {
+        await _repository.clearAnonymousSession();
+        return _createAnonymousSession();
+      }
       final validated = await _repository.validateStoredSession(
         previousAnonymous,
       );

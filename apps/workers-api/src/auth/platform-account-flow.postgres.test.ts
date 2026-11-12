@@ -3,6 +3,7 @@ import { URL } from "node:url";
 import { hashPassword, hashRefreshToken, signAccessToken } from "@kando/auth-core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Env } from "../env";
+import { createPortfolioRoutes } from "../portfolio/routes";
 import { PGliteDatabase } from "../test-support/pglite-database";
 import { authRoutes } from "./anonymous";
 import { completeOAuthAccountFlow } from "./account-flow";
@@ -17,7 +18,9 @@ describe("platform account authentication and deletion", () => {
   beforeEach(async () => {
     db = await PGliteDatabase.create();
     await db.exec(readFileSync(new URL("0000_business_schema.sql", migrations), "utf8"));
+    await db.exec(readFileSync(new URL("0001_price_domain.sql", migrations), "utf8"));
     await db.exec(readFileSync(new URL("0006_mutation_lock.sql", migrations), "utf8"));
+    await db.exec(readFileSync(new URL("0008_collection_item_grading_identity.sql", migrations), "utf8"));
     await db.exec(readFileSync(new URL("0018_platform_account_isolation.sql", migrations), "utf8"));
     env = {
       DB: db,
@@ -32,6 +35,19 @@ describe("platform account authentication and deletion", () => {
   it("opens an empty Android space for an existing iOS identity and keeps both owners separate", async () => {
     await seedUser("shared", "shared@example.com", "password-1");
     await seedPlatform("shared", "shared", "ios", "active");
+    await db.exec(`
+      INSERT INTO portfolio_folder
+        (id, owner_type, owner_id, name, is_default, sort_order, created_at, updated_at)
+      VALUES ('ios-folder', 'user', 'shared', 'Main', 1, 0, '2026-11-05', '2026-11-05');
+      INSERT INTO user_preference
+        (id, owner_type, owner_id, currency, amount_hidden, created_at, updated_at)
+      VALUES ('ios-preference', 'user', 'shared', 'USD', 0, '2026-11-05', '2026-11-05');
+      INSERT INTO collection_item
+        (id, owner_type, owner_id, folder_id, card_ref, object_type, grader, quantity, created_at, updated_at)
+      VALUES ('ios-item', 'user', 'shared', 'ios-folder', 'ios-card', 'tcg', 'Raw', 1,
+        '2026-11-05', '2026-11-05');
+    `);
+    const ios = await seedUserSession("shared", "shared", "ios", "ios-session");
     const anonymousToken = await seedAnonymousAndroidSession("android-guest", "android-session");
 
     const response = await authRoutes.request("/login", {
@@ -64,6 +80,16 @@ describe("platform account authentication and deletion", () => {
       { id: body.data.data_space_id, platform: "android" },
       { id: "shared", platform: "ios" },
     ]);
+
+    const iosCollection = await createPortfolioRoutes().request(
+      "/collection/items?tab=portfolio",
+      { headers: { Authorization: `Bearer ${ios.access}` } },
+      env,
+    );
+    expect(iosCollection.status).toBe(200);
+    await expect(iosCollection.json()).resolves.toMatchObject({
+      data: { items: [expect.objectContaining({ id: "ios-item", card_ref: "ios-card" })] },
+    });
   });
 
   it("deletes only the current platform, revokes refresh, and anonymizes identity after the last platform", async () => {

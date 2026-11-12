@@ -88,6 +88,35 @@ class AndroidReleaseTest(unittest.TestCase):
         self.assertEqual(self.pubspec.read_bytes(), self.original)
         self.assertFalse(self.args.artifacts_root.exists())
 
+    def test_clean_checkout_regenerates_native_plugins_before_no_pub_build(self):
+        registrant = self.app / "android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java"
+
+        def prepare_plugins(command, *args):
+            words = [str(word) for word in command]
+            if words[1:3] == ["pub", "get"]:
+                self.assertIn("--enforce-lockfile", words)
+                registrant.parent.mkdir(parents=True)
+                registrant.write_text("SharedPreferencesPlugin")
+            if words[1:3] == ["build", "apk"]:
+                self.assertTrue(
+                    registrant.is_file(),
+                    "A clean checkout must register native plugins before shipping an APK that reads preferences at startup.",
+                )
+            return self.command(command, *args)
+
+        self.release(runner=prepare_plugins)
+
+    def test_failed_locked_dependency_setup_cannot_ship_stale_native_plugins(self):
+        def fail_dependency_setup(command, *args):
+            if [str(word) for word in command[1:3]] == ["pub", "get"]:
+                raise RuntimeError("locked dependency setup failed")
+            return self.command(command, *args)
+
+        with self.assertRaisesRegex(RuntimeError, "locked dependency setup failed"):
+            self.release(runner=fail_dependency_setup)
+        self.assertEqual(self.pubspec.read_bytes(), self.original)
+        self.assertFalse(self.args.artifacts_root.exists())
+
     def test_verification_failure_cannot_publish_or_advance_a_broken_apk(self):
         def reject(*args):
             raise ValueError("wrong APK identity")
