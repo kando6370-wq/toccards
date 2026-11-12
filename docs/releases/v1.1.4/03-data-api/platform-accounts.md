@@ -459,3 +459,9 @@ Android SDK `apkanalyzer dex code` 确认交付 APK 缺少 `io.flutter.plugins.G
 - `card_detail_page_test.dart` **86／86** 通过，覆盖 Search／Edit／Scan 三种 entry source、Android／iOS、数量／购买价格／备注字段、详情内联编辑、真实新增弹层、Quick Review 和 1024px 宽屏 `maxWidth: 672`。
 - `scan_page_test.dart` **167／167** 通过，键盘定向回归 **13／13** 通过；新增矩阵 Android／iOS × 相机／相册 × 单卡／多卡 **8／8** 通过，草稿、焦点、键盘可见性及 `ScanPage`／Review／表单重建均受保护。
 - `dart analyze` 对两处生产文件及两处测试文件为 **No issues found**。测试使用隔离 Flutter 3.47.9／Dart 3.13.7，本轮没有继续使用 USB 调试或真机操作；未执行 iOS 真机、Android 真机修复后 A/B、Profile／AOT 性能采样或新 APK 发布。
+
+### Android 扫描退出弹窗再次收紧间距（2026-11-12）
+
+用户提供真机照片反馈：扫描结果页的 `Exit scan result?` 弹窗中文案与 `NO, STAY HERE` 主按钮之间仍有过宽空白。该路径复用 `KandoConfirmModal(dense: true)`，本次将 dense 弹窗高度从 334px 收紧为 310px；普通危险确认、移除弹窗、iOS 原生退出弹窗和按钮尺寸保持不变。
+
+定向 `kando_modal_test.dart` 在修复前按 310px 高度和小于 42px 文案间距断言失败；修复后 **7／7** 通过，确认弹窗无 RenderFlex 溢出，文案到主按钮间距收紧。当前修改尚未构建或安装新的 Android APK，真机照片对应的最终视觉仍需安装包含本次改动的测试包复核。

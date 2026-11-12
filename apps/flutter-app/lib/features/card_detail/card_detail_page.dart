@@ -3655,7 +3655,10 @@ class _AddCollectionItemSheet extends ConsumerWidget {
                 },
               ),
             ),
-            footerContent,
+            _KeyboardAwareCollectionItemFooter(
+              moveAboveKeyboard: keepActionsFixedOnKeyboard && android,
+              child: footerContent,
+            ),
           ],
         ),
       ),
@@ -3729,6 +3732,28 @@ class _CollectionItemSheetHeader extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _KeyboardAwareCollectionItemFooter extends StatelessWidget {
+  const _KeyboardAwareCollectionItemFooter({
+    required this.moveAboveKeyboard,
+    required this.child,
+  });
+
+  final bool moveAboveKeyboard;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final inset = moveAboveKeyboard
+        ? MediaQuery.viewInsetsOf(context).bottom
+        : 0.0;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      transform: Matrix4.translationValues(0, -inset, 0),
+      child: child,
     );
   }
 }

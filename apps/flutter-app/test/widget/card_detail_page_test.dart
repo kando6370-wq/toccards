@@ -3409,17 +3409,20 @@ void main() {
           isTrue,
         );
         expect(tester.testTextInput.isVisible, isTrue);
+        final expectedOffset = platform == TargetPlatform.android ? -330.0 : 0.0;
         expect(
-          tester.getRect(total),
-          initialTotalRect,
-          reason:
-              'Quick Review totals must stay at the page bottom while the IME opens.',
+          tester.getRect(total).top,
+          closeTo(initialTotalRect.top + expectedOffset, 0.1),
+          reason: platform == TargetPlatform.android
+              ? 'Android Quick Review total must move above the IME.'
+              : 'iOS Quick Review total keeps its original bottom layout.',
         );
         expect(
-          tester.getRect(submit),
-          initialSubmitRect,
-          reason:
-              'Quick Review actions must stay at the page bottom while the IME opens.',
+          tester.getRect(submit).top,
+          closeTo(initialSubmitRect.top + expectedOffset, 0.1),
+          reason: platform == TargetPlatform.android
+              ? 'Android Quick Review actions must move above the IME.'
+              : 'iOS Quick Review actions keep their original bottom layout.',
         );
 
         tester.view.viewInsets = FakeViewPadding.zero;
