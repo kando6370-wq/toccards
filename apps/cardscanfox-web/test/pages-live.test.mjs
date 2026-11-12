@@ -4,8 +4,9 @@ import {build} from 'esbuild';
 import {mkdtemp,rm} from 'node:fs/promises';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
+import {fileURLToPath} from 'node:url';
 const dir=await mkdtemp(join(tmpdir(),'cardscanfox-pages-'));
-await build({entryPoints:[new URL('../worker/pages.ts',import.meta.url).pathname],outfile:join(dir,'pages.mjs'),bundle:true,platform:'neutral',format:'esm',target:'es2022'});
+await build({entryPoints:[fileURLToPath(new URL('../worker/pages.ts',import.meta.url))],outfile:join(dir,'pages.mjs'),bundle:true,platform:'neutral',format:'esm',target:'es2022'});
 const pages=(await import('file://'+join(dir,'pages.mjs'))).default;
 test.after(()=>rm(dir,{recursive:true,force:true}));
 const card={publicCardId:'live-900',card_ref:'live-900',name:'Published catalog card',game:'Pokemon',gameSlug:'pokemon',publicSetId:'db-L',set_name:'Live Set',set_code:'LIVE',card_number:'009/100',image_url:'https://image.tcgcard.fun/cards/live-900.jpg',price_usd:25.5,price_as_of:'2026-11-07',reference:{seriesId:'900',sourceLabel:'Published source',metric:'market',priceAsOf:'2026-11-07',amount:25.5,condition:'Near Mint',grader:'RAW'},references:[]};
@@ -53,5 +54,5 @@ test('homepage hero image, price record and detail link identify the same first 
  const binding={fetch:async()=>new Response(JSON.stringify({success:true,data:{...data,cards:picks},meta:{catalogVersion:'home-test',datasetMode:'published-read-only'}}))};
  const response=await pages.fetch(new Request('https://preview.pages.dev/'),{...env,SITE_DATA:binding},{});const html=await response.text();
  assert.match(html,/href="\/cards\/home-a" class="scene-card scene-front"/);assert.match(html,/<a class="scene-record" href="\/cards\/home-a">[\s\S]*?Home Charizard[\s\S]*?\$11\.00/);
- assert.match(html,/Pokémon cards in focus/);assert.match(html,/Explore these Pokémon topics/);assert.match(html,/href="\/blog\/delta-reign-pokemon"/);assert.match(html,/href="\/blog\/mega-rayquaza-ex-card-values"/);
+ assert.match(html,/Find the card you’re looking for/);assert.match(html,/Look up TCG and sports cards by name/);assert.match(html,/href="\/games\/pokemon">Check Pokémon card prices/);assert.match(html,/class="fox-text-action" href="\/cards"/);assert.match(html,/Explore these Pokémon topics/);assert.match(html,/href="\/blog\/delta-reign-pokemon"/);assert.match(html,/href="\/blog\/mega-rayquaza-ex-card-values"/);
 });

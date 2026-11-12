@@ -397,7 +397,7 @@ SPEC CHECKSUMS:
   FirebaseInstallations: eb29ccbf64eaedf86fd5b2ccc7fabde567660b52
   FirebaseRemoteConfigInterop: 7e3d57ce4b1e958bb1d15403faa7178f46bbb5b7
   FirebaseSessions: acfe7eadca47cda94ac86592737204581bb1abf6
-  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  Flutter: 71a624a5bc0c04062bf19101d501e466baf2fb47
   flutter_secure_storage_darwin: acdb3f316ed05a3e68f856e0353b133eec373a23
   google_mlkit_commons: b4dfe2f6ae4cbf24010dc6640a28984d01343c86
   google_mlkit_text_recognition: 9b164471713e3afdb4c129cabe6d1d64fef7e817

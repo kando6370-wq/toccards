@@ -17,3 +17,15 @@ test("authenticated 401 responses return to login because expired tokens must no
 test("private scan image requests share expiry handling because they bypass the JSON request helper", () => {
   assert.match(app, /dispatchSessionExpiredOnUnauthorized\(response, session\.accessToken\)/);
 });
+
+test("stored sessions are verified before the private admin shell mounts", () => {
+  assert.match(app, /const \[authReady, setAuthReady\] = useState\(false\)/);
+  assert.match(app, /refreshAdminSession\(storedSession\)/);
+  assert.match(app, /typeof body\.access_token !== "string"/);
+  assert.match(app, /if \(!authReady\) return <AuthLoadingView \/>;/);
+  assert.match(app, /if \(isAuthenticationFailure\(error\)\) setSession\(null\)/);
+
+  const loadingIndex = app.indexOf("if (!authReady) return <AuthLoadingView />;");
+  const shellIndex = app.indexOf("return <AdminShell session={session}");
+  assert.ok(loadingIndex >= 0 && shellIndex >= 0 && loadingIndex < shellIndex);
+});

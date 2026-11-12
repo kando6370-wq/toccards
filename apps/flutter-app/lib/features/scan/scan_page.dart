@@ -18,6 +18,7 @@ import '../../shared/currency/currency.dart';
 import '../../shared/portfolio/portfolio_providers.dart';
 import '../../shared/portfolio/portfolio_api_client.dart';
 import '../../shared/scan/scan_api_client.dart';
+import '../../shared/ui/kando_modal.dart';
 import '../../shared/ui/kando_style.dart';
 import '../../shared/ui/premium_unlocked_toast.dart';
 import '../../shared/ui/subscription_restore_result.dart';
@@ -449,6 +450,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   var _openingCamera = false;
   var _cameraPausedForLifecycle = false;
   var _permissionDialogVisible = false;
+  var _exitDialogVisible = false;
   var _appActive = true;
   var _openingReview = false;
   var _reviewing = false;
@@ -521,6 +523,8 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   bool get _hasUnsavedScanResults => _items.isNotEmpty;
+
+  bool get _hasAndroidUncollectedResults => _matchedItems.isNotEmpty;
 
   @override
   void initState() {
@@ -1210,6 +1214,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
             builder: (context) => Theme(
               key: const Key('scan-permission-material-theme'),
               data: ThemeData(
+                fontFamily: kandoBodyFontFamily(Theme.of(context).platform),
                 colorScheme: ColorScheme.fromSeed(
                   seedColor: Colors.blue,
                   brightness: Brightness.light,
@@ -1490,7 +1495,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       duration: _revealTimelineDuration,
     );
     pending.revealController = controller;
-    final disableAnimations = MediaQuery.of(context).disableAnimations;
+    final disableAnimations = MediaQuery.disableAnimationsOf(context);
     if (disableAnimations) {
       controller.value = 1;
     } else {
@@ -2349,6 +2354,37 @@ class _ScanPageState extends ConsumerState<ScanPage>
     if (_openingReview || _savingReview) {
       return;
     }
+    if (Theme.of(context).platform == TargetPlatform.android) {
+      if (!_hasAndroidUncollectedResults) {
+        if (mounted) context.go('/home');
+        return;
+      }
+      if (_exitDialogVisible) return;
+      _exitDialogVisible = true;
+      try {
+        final shouldExit = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => KandoConfirmModal(
+            title: 'Exit scan result?',
+            message: 'Your scanned card has not been collected yet.',
+            icon: Icons.drive_file_move_outline,
+            confirmLabel: 'NO, STAY HERE',
+            cancelLabel: 'EXIT',
+            dense: true,
+            onConfirm: () {
+              ref.read(analyticsProvider).track(AnalyticsEvent.cancelClick);
+              Navigator.of(dialogContext).pop(false);
+            },
+            onCancel: () => Navigator.of(dialogContext).pop(true),
+          ),
+        );
+        if (mounted && shouldExit == true) context.go('/home');
+      } finally {
+        _exitDialogVisible = false;
+      }
+      return;
+    }
     if (!_hasUnsavedScanResults) {
       if (mounted) {
         context.go('/home');
@@ -2466,7 +2502,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
     );
     final quota = ref.watch(scanQuotaControllerProvider);
     final hasPremiumAccess = freePremiumFeatures || isPro || quota.unlimited;
-    final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -2486,30 +2521,27 @@ class _ScanPageState extends ConsumerState<ScanPage>
                   SafeArea(
                     child: Padding(
                       padding: const EdgeInsets.only(top: 24),
-                      child: _KeyboardDismissOnPointerDown(
-                        child: _ReviewMatches(
-                          items: _matchedItems,
-                          selectedItemId: _selectedReviewItemId,
-                          target: _reviewTarget,
-                          cards: _reviewCards,
-                          drafts: _reviewDrafts,
-                          loadingCandidateIds: _loadingReviewCandidateIds,
-                          formError: _reviewFormError,
-                          saving: _savingReview,
-                          savingAction: _savingReviewAction,
-                          keyboardVisible: keyboardVisible,
-                          currency: currency,
-                          onCollapse: _closeReview,
-                          onSelectItem: _selectReviewItem,
-                          onSelectCandidate: (item, candidate) => unawaited(
-                            _selectReviewCandidate(item, candidate),
-                          ),
-                          onUpdateDraft: _updateReviewDraft,
-                          onAddThisCard: _addSelectedItem,
-                          onAddAllCards: _addAllMatchedItems,
-                          onDeleteItem: _deleteReviewItem,
-                          onDeleteAll: _deleteAllReviewItems,
+                      child: _ReviewMatches(
+                        items: _matchedItems,
+                        selectedItemId: _selectedReviewItemId,
+                        target: _reviewTarget,
+                        cards: _reviewCards,
+                        drafts: _reviewDrafts,
+                        loadingCandidateIds: _loadingReviewCandidateIds,
+                        formError: _reviewFormError,
+                        saving: _savingReview,
+                        savingAction: _savingReviewAction,
+                        currency: currency,
+                        onCollapse: _closeReview,
+                        onSelectItem: _selectReviewItem,
+                        onSelectCandidate: (item, candidate) => unawaited(
+                          _selectReviewCandidate(item, candidate),
                         ),
+                        onUpdateDraft: _updateReviewDraft,
+                        onAddThisCard: _addSelectedItem,
+                        onAddAllCards: _addAllMatchedItems,
+                        onDeleteItem: _deleteReviewItem,
+                        onDeleteAll: _deleteAllReviewItems,
                       ),
                     ),
                   ),
@@ -4287,7 +4319,6 @@ class _ReviewMatches extends StatelessWidget {
     required this.formError,
     required this.saving,
     required this.savingAction,
-    required this.keyboardVisible,
     required this.currency,
     required this.onCollapse,
     required this.onSelectItem,
@@ -4308,7 +4339,6 @@ class _ReviewMatches extends StatelessWidget {
   final String? formError;
   final bool saving;
   final _ScanReviewSaveAction? savingAction;
-  final bool keyboardVisible;
   final AppCurrency currency;
   final VoidCallback onCollapse;
   final ValueChanged<_ScanItem> onSelectItem;
@@ -4477,54 +4507,35 @@ class _ReviewMatches extends StatelessWidget {
             ],
           ),
         ),
-        if (ready && !keyboardVisible)
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: _ReviewFooter(
-              totalText: _reviewTotalText(card, draft, currency),
-              showBulkActions: items.length > 1,
-              singleReady: !candidateLoading,
-              bulkReady: loadingCandidateIds.isEmpty,
-              saving: saving,
-              savingAction: savingAction,
-              onAddThisCard: onAddThisCard,
-              onAddAllCards: onAddAllCards,
-              onDeleteItem: () => onDeleteItem(selected),
-              onDeleteAll: onDeleteAll,
+        if (ready)
+          Positioned.fill(
+            child: MediaQuery.fromView(
+              view: View.of(context),
+              child: Builder(
+                builder: (context) {
+                  if (MediaQuery.viewInsetsOf(context).bottom > 0) {
+                    return const SizedBox.shrink();
+                  }
+                  return Align(
+                    alignment: Alignment.bottomCenter,
+                    child: _ReviewFooter(
+                      totalText: _reviewTotalText(card, draft, currency),
+                      showBulkActions: items.length > 1,
+                      singleReady: !candidateLoading,
+                      bulkReady: loadingCandidateIds.isEmpty,
+                      saving: saving,
+                      savingAction: savingAction,
+                      onAddThisCard: onAddThisCard,
+                      onAddAllCards: onAddAllCards,
+                      onDeleteItem: () => onDeleteItem(selected),
+                      onDeleteAll: onDeleteAll,
+                    ),
+                  );
+                },
+              ),
             ),
           ),
       ],
-    );
-  }
-}
-
-class _KeyboardDismissOnPointerDown extends StatelessWidget {
-  const _KeyboardDismissOnPointerDown({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Listener(
-      behavior: HitTestBehavior.translucent,
-      onPointerDown: (event) {
-        final focus = FocusManager.instance.primaryFocus;
-        final focusContext = focus?.context;
-        if (focus == null || focusContext == null) {
-          return;
-        }
-
-        final renderObject = focusContext.findRenderObject();
-        if (renderObject is RenderBox && renderObject.attached) {
-          final localPosition = renderObject.globalToLocal(event.position);
-          if (renderObject.paintBounds.contains(localPosition)) {
-            return;
-          }
-        }
-
-        FocusScope.of(context).unfocus();
-      },
-      child: child,
     );
   }
 }
@@ -4970,6 +4981,7 @@ class _ReviewCollectionItem extends StatelessWidget {
                       key: Key('scan-review-notes-$itemId'),
                       initialValue: draft.notes,
                       enabled: enabled,
+                      onTapOutside: (_) => FocusScope.of(context).unfocus(),
                       minLines: 5,
                       maxLines: 8,
                       maxLength: 500,
@@ -5064,6 +5076,7 @@ class _ReviewTextRow extends StatelessWidget {
           initialValue: value,
           enabled: enabled,
           keyboardType: keyboardType,
+          onTapOutside: (_) => FocusScope.of(context).unfocus(),
           cursorColor: const Color(0xFFF0FE6F),
           style: TextStyle(
             color: accentText
@@ -5350,11 +5363,19 @@ class _ReviewCardState extends StatelessWidget {
       Row(
         children: [
           Expanded(
-            child: _stateButton(rawKey, 'Raw', 'Unrated card', isRaw, onRaw),
+            child: _stateButton(
+              context,
+              rawKey,
+              'Raw',
+              'Unrated card',
+              isRaw,
+              onRaw,
+            ),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: _stateButton(
+              context,
               gradedKey,
               'Graded',
               'Certified card',
@@ -5368,14 +5389,14 @@ class _ReviewCardState extends StatelessWidget {
   );
 
   Widget _stateButton(
+    BuildContext context,
     Key key,
     String title,
     String subtitle,
     bool selected,
     VoidCallback onPressed,
-  ) => SizedBox(
-    height: 58,
-    child: OutlinedButton(
+  ) {
+    final button = OutlinedButton(
       key: key,
       onPressed: enabled ? onPressed : null,
       style: OutlinedButton.styleFrom(
@@ -5408,8 +5429,15 @@ class _ReviewCardState extends StatelessWidget {
           ),
         ],
       ),
-    ),
-  );
+    );
+    if (Theme.of(context).platform == TargetPlatform.android) {
+      return ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 58),
+        child: button,
+      );
+    }
+    return SizedBox(height: 58, child: button);
+  }
 }
 
 Future<String?> _showReviewChoiceSheet(

@@ -89,3 +89,13 @@ TypeSafe 在线文档本轮未能读取，复用已保存的正式 HTTP API/Choi
 内容完成后构建通过，生成 122 条 HTML。相关 35 项检查通过，包括德文 document lang/Article inLanguage、非法语言拒绝和英文页保留 en；46 个老页原正文及链接保留。1440px/390px 浏览器检查无横向溢出，概率表有 5 行。内容提交 `1f808c7885d9ba29213d88a4c8f958a3a01f3a2f` 已推送 main，官网与独立只读服务的自动构建均 success。正式 manifest sourceCommit 为同一提交，releaseId 为 `6bda865ebf90a0ada518c6d9f514e06e1d9f1b5d8824ecdb641d2f560a12d0a9`。4 个影响页正式 HTML、德文语言及英语旧页保留、canonical、index 策略与内链通过；非卡牌 sitemap 87 条，详情 1,112 条，总计 1,199。Ego 正式页面回读通过。
 
 4 个 URL 的 IndexNow 通知全部收到 HTTP 200：通用 skill 首轮接收 2 个，另外两个索引页因首个嵌套 article 指纹漏判，在核对完整新链接和页面资格后补交 2 个。回执 `.indexnow/reports/2026-11-08T13-52-08-538Z.json`、`.indexnow/reports/2026-11-08T13-54-01-383Z-delta-body-supplement.json`；未改全局 skill 或历史状态，不宣称已收录。原 App、业务 API、Admin、旧 Marketing 和数据库不变。
+
+## 首页价格与 TCG 入口（2026-11-10）
+
+用户指定 pokemon tcg、pokemon card prices 加入首页。保留产品 H1、历史正文与其他卡类，用首页 Title、Description、首屏说明、次入口和卡库 H2 自然承接查价。完整任务仍在既有 `/games/pokemon`，没有新增同义页。详情、研究证据、文案和验收见[内容方案](../../../content-plans/2026-11-10-home-pokemon-keywords.md)。官网构建及 26 项相关检查通过；桌面/手机无页面横向溢出。元信息、OG、唯一 H1、canonical、模板同步和查价链接通过；首次检查中旧 H2 文案断言失效，核对原因后更新断言并重跑通过。验证使用本机 Node 24.3.0（与仓库固定 22.23.4 不同）；Cloudflare 固定环境构建结果另行回读。正式内容提交 `35aad808ea8f02c599321d56ae64ab0d81d9894e` 已推送 main，Cloudflare 官网构建 success；正式 manifest 与同一 sourceCommit 匹配。Ego 正式首页 Title/Description、首屏、卡库 H2、canonical 及查价按钮进入 `/games/pokemon` 均已确认。仅首页通知 IndexNow，1 个 URL 收到 HTTP 200；回执 `.indexnow/reports/2026-11-10T09-51-31-827Z.json`。接收不等于收录或排名提升。
+
+### 首页定位修正（2026-11-10）
+
+用户明确要求仅加大 Pokémon 两词权重，不移除其他 TCG/体育卡定位。上一版把 Title 和首屏次入口收窄为 Pokémon，原因是错误地将特定获客词当作全站产品范围。现恢复 Title 的 TCG & Sports Card Scanner, Prices & Tracker、原首屏完整说明、Explore the cards→/cards；新增独立 Pokémon TCG / Pokémon card prices 段落和 /games/pokemon 链接。卡库 H2 恢复通用品类，WebSite 描述同步。未删除旧正文、功能或品类页面。构建与 26 项相关检查通过，首次新增断言因属性顺序写反失败，核对实际 HTML 后修正并重跑通过；待桌面/移动端及正式回读、首页 IndexNow 通知。
+
+修正内容已正式发布，sourceCommit 8c36b51c1d6a834dd528d05692421a2de420d019，Cloudflare 官网构建 success。正式 HTML 与刷新后的可见页面确认完整 TCG/sports 定位、/download、/cards 和独立 /games/pokemon 入口同时存在。浏览器首次仍显示缓存旧稿，刷新后为新稿；未清理全站缓存。首页 IndexNow 通知收到 HTTP 200，回执 .indexnow/reports/2026-11-10T09-59-26-519Z.json。

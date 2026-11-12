@@ -212,7 +212,7 @@ describe("scan routes", () => {
     const requestId = crypto.randomUUID();
 
     const response = await recognize(env, await recognitionToken(env), {
-      request_id: requestId, vector: VECTOR, game_id: 1, platform: "iOS",
+      request_id: requestId, vector: VECTOR, game_id: 1, platform: "android",
     });
 
     expect(upstream).toHaveBeenCalledExactlyOnceWith(
@@ -233,7 +233,12 @@ describe("scan routes", () => {
     });
     const scanRecords = await readRows(env.DB, "scan_record");
     expect(scanRecords).toEqual([
-      expect.objectContaining({ id: requestId, environment: "development", recognition_status: "success" }),
+      expect.objectContaining({
+        id: requestId,
+        environment: "development",
+        platform: "ios",
+        recognition_status: "success",
+      }),
     ]);
     expect(JSON.parse(scanRecords[0]!.system_result)).toMatchObject({
       card_type: 0,

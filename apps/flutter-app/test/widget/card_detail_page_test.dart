@@ -1,13 +1,16 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kando_app/app/theme.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_actions.dart';
@@ -29,10 +32,13 @@ import 'package:kando_app/shared/ui/toast.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
 import '../support/in_memory_auth_storage.dart';
+import '../support/load_inter_fonts.dart';
 import '../support/local_placeholder_auth_repository.dart';
 import '../support/mock_card_detail_repository.dart';
 
 void main() {
+  setUpAll(loadInterFonts);
+
   test('Performance tooltip separates Figma label and value styles', () {
     final span = buildCardDetailChartTooltipRow(r'Market Value: $790.00');
     final children = span.children!.cast<TextSpan>();
@@ -355,6 +361,62 @@ void main() {
         reason:
             'The overflow cue must disappear once the last finish is visible.',
       );
+    },
+  );
+
+  testWidgets(
+    'Android Finish tabs scroll only when rendered Inter labels need it',
+    (tester) async {
+      final fonts = (await tester.runAsync(_readProductionCardDetailFonts))!;
+      await _loadProductionCardDetailFonts(fonts);
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      const finishes = ['1st Edition Holofoil', 'Reverse Holofoil'];
+      await tester.pumpWidget(
+        _CardDetailTestApp(
+          cardId: '600820',
+          repository: _FinishTabCardDetailRepository(finishes: finishes),
+          platform: TargetPlatform.android,
+          useKandoTheme: true,
+        ),
+      );
+      await tester.pumpAndSettle();
+      final tabs = find.byKey(const Key('card-detail-finish-tabs'));
+      await tester.scrollUntilVisible(
+        tabs,
+        400,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      var renderedWidth = 0.0;
+      for (final finish in finishes) {
+        final label = tester.renderObject<RenderParagraph>(find.text(finish));
+        expect(label.text.style?.fontFamily, 'Inter');
+        renderedWidth += tester
+            .getSize(find.byKey(Key('card-detail-finish-$finish')))
+            .width;
+      }
+      final pageInsets =
+          tester.view.physicalSize.width - tester.getSize(tabs).width;
+      final scroll = find.byKey(const Key('card-detail-finish-tabs-scroll'));
+      tester.view.physicalSize = Size(renderedWidth + pageInsets + 1, 844);
+      await tester.pumpAndSettle();
+      expect(
+        scroll,
+        findsNothing,
+        reason: 'Labels that fit should stay in the fixed row.',
+      );
+      expect(tester.takeException(), isNull);
+
+      tester.view.physicalSize = Size(renderedWidth + pageInsets - 1, 844);
+      await tester.pumpAndSettle();
+      expect(
+        scroll,
+        findsOneWidget,
+        reason: 'Inter labels wider than the viewport must remain reachable.',
+      );
+      expect(tester.takeException(), isNull);
     },
   );
 
@@ -1109,6 +1171,191 @@ void main() {
       await tester.pump();
     },
   );
+
+  testWidgets(
+    'Android add item sheet keeps its header and card state readable with large text',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        const _CardDetailTestApp(
+          cardId: 'one-piece-luffy',
+          platform: TargetPlatform.android,
+          useKandoTheme: true,
+          textScale: 1.2,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('card-detail-add-to-portfolio-one-piece-luffy')),
+      );
+      await tester.pumpAndSettle();
+
+      final title = find.byKey(const Key('card-detail-add-item-title'));
+      expect(
+        tester.renderObject<RenderParagraph>(title).didExceedMaxLines,
+        isFalse,
+      );
+      expect(
+        tester.getRect(title).right,
+        lessThanOrEqualTo(
+          tester
+              .getRect(find.byKey(const Key('card-detail-add-item-sheet')))
+              .right,
+        ),
+      );
+
+      final scroll = find
+          .descendant(
+            of: find.byKey(const Key('card-detail-add-item-scroll')),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('card-detail-item-card-state')),
+        300,
+        scrollable: scroll,
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .getSize(find.byKey(const Key('card-detail-item-state-raw')))
+            .height,
+        greaterThan(58),
+      );
+      expect(
+        tester
+            .getSize(find.byKey(const Key('card-detail-item-state-graded')))
+            .height,
+        greaterThan(58),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Android add item sheet reveals purchase price above its fixed footer when the IME opens',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        const _CardDetailTestApp(
+          cardId: 'one-piece-luffy',
+          platform: TargetPlatform.android,
+          textScale: 1.2,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('card-detail-add-to-portfolio-one-piece-luffy')),
+      );
+      await tester.pumpAndSettle();
+
+      final scrollSurface = find.byKey(
+        const Key('card-detail-add-item-scroll'),
+      );
+      final scrollable = find
+          .descendant(of: scrollSurface, matching: find.byType(Scrollable))
+          .first;
+      final purchasePrice = find.byKey(
+        const Key('card-detail-item-purchase-price'),
+      );
+      await tester.scrollUntilVisible(
+        purchasePrice,
+        300,
+        scrollable: scrollable,
+      );
+      await tester.pumpAndSettle();
+      await tester.showKeyboard(purchasePrice);
+
+      tester.view.viewInsets = const FakeViewPadding(bottom: 416);
+      await tester.pump(const Duration(milliseconds: 220));
+      await tester.pumpAndSettle();
+
+      final editable = find.descendant(
+        of: purchasePrice,
+        matching: find.byType(EditableText),
+      );
+      expect(
+        tester.getRect(editable).bottom,
+        lessThanOrEqualTo(tester.getRect(scrollSurface).bottom - 20),
+      );
+      expect(tester.testTextInput.isVisible, isTrue);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Android add item footer stays above the three-button navigation inset',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      tester.view.viewPadding = const FakeViewPadding(bottom: 24);
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        const _CardDetailTestApp(
+          cardId: 'one-piece-luffy',
+          platform: TargetPlatform.android,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('card-detail-add-to-portfolio-one-piece-luffy')),
+      );
+      await tester.pumpAndSettle();
+
+      final submit = find.byKey(const Key('card-detail-item-submit'));
+      expect(tester.getRect(submit).bottom, lessThanOrEqualTo(844 - 24));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('iOS add item card state keeps its original fixed height', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const _CardDetailTestApp(
+        cardId: 'one-piece-luffy',
+        platform: TargetPlatform.iOS,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('card-detail-add-to-portfolio-one-piece-luffy')),
+    );
+    await tester.pumpAndSettle();
+    final scrollable = find
+        .descendant(
+          of: find.byKey(const Key('card-detail-add-item-scroll')),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('card-detail-item-card-state')),
+      300,
+      scrollable: scrollable,
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .getSize(find.byKey(const Key('card-detail-item-state-raw')))
+          .height,
+      58,
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const Key('card-detail-item-state-graded')))
+          .height,
+      58,
+    );
+  });
 
   testWidgets('owned CardDetail defaults to Collection Item content', (
     tester,
@@ -2450,6 +2697,139 @@ void main() {
     },
   );
 
+  for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+    testWidgets(
+      '${platform.name} Collection Item edit keeps the keyboard open when switching text fields',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          _CardDetailTestApp(
+            cardId: 'charizard-ex',
+            platform: platform,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.scrollUntilVisible(find.text('Collection Item'), 400);
+        await tester.ensureVisible(find.text('Edit item'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Edit item'));
+        await tester.pumpAndSettle();
+
+        final quantity = find.descendant(
+          of: find.byKey(const Key('card-detail-item-quantity')),
+          matching: find.byType(EditableText),
+        );
+        final purchasePrice = find.descendant(
+          of: find.byKey(const Key('card-detail-item-purchase-price')),
+          matching: find.byType(EditableText),
+        );
+        await tester.ensureVisible(quantity);
+        await tester.tap(quantity);
+        await tester.pump();
+        expect(tester.testTextInput.isVisible, isTrue);
+
+        await tester.ensureVisible(purchasePrice);
+        await tester.pumpAndSettle();
+        tester.testTextInput.log.clear();
+        final pointer = await tester.startGesture(
+          tester.getCenter(purchasePrice),
+        );
+        await tester.pump(const Duration(milliseconds: 32));
+
+        expect(tester.testTextInput.isVisible, isTrue);
+        expect(
+          tester.testTextInput.log.map((entry) => entry.method),
+          isNot(contains('TextInput.hide')),
+          reason: 'Switching editable fields must not restart the system IME.',
+        );
+
+        await pointer.up();
+        await tester.pump();
+        expect(tester.widget<EditableText>(purchasePrice).focusNode.hasFocus, isTrue);
+        expect(tester.testTextInput.isVisible, isTrue);
+      },
+    );
+
+    testWidgets(
+      '${platform.name} Collection Item edit preserves its draft without rebuilding the full sheet during IME animation',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final repository = _DelayedUpdateCardDetailRepository();
+        await tester.pumpWidget(
+          _CardDetailTestApp(
+            cardId: 'charizard-ex',
+            platform: platform,
+            collectionItemId: null,
+            repository: repository,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final item = find.byKey(
+          const Key('card-detail-portfolio-item-item-charizard'),
+        );
+        await tester.scrollUntilVisible(item, 400);
+        await tester.ensureVisible(item);
+        await tester.pumpAndSettle();
+        await tester.tap(item);
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const Key('card-detail-edit-item-sheet')),
+          findsOneWidget,
+        );
+
+        final quantity = find.byKey(const Key('card-detail-item-quantity'));
+        await tester.ensureVisible(quantity);
+        await tester.enterText(quantity, '7');
+        await tester.pumpAndSettle();
+        final editable = find.descendant(
+          of: quantity,
+          matching: find.byType(EditableText),
+        );
+
+        final previousRebuildCallback = debugOnRebuildDirtyWidget;
+        var sheetRebuilds = 0;
+        var formRebuilds = 0;
+        debugOnRebuildDirtyWidget = (element, builtOnce) {
+          previousRebuildCallback?.call(element, builtOnce);
+          if (element.widget.runtimeType.toString() ==
+              '_EditCollectionItemSheet') {
+            sheetRebuilds += 1;
+          }
+          if (element.widget.runtimeType.toString() == '_CollectionItemForm') {
+            formRebuilds += 1;
+          }
+        };
+        addTearDown(() => debugOnRebuildDirtyWidget = previousRebuildCallback);
+
+        for (final inset in [40.0, 100.0, 180.0, 260.0, 330.0]) {
+          tester.view.viewInsets = FakeViewPadding(bottom: inset);
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+
+        expect(
+          sheetRebuilds,
+          0,
+          reason:
+              'IME animation must only update sheet padding instead of rebuilding the full edit form.',
+        );
+        expect(formRebuilds, 0);
+        expect(tester.widget<EditableText>(editable).controller.text, '7');
+        expect(
+          tester.widget<EditableText>(editable).focusNode.hasFocus,
+          isTrue,
+        );
+        expect(tester.testTextInput.isVisible, isTrue);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('owned Collection Item purchase price uses decimal keyboard', (
     tester,
   ) async {
@@ -2670,6 +3050,206 @@ void main() {
     );
     expect(find.byKey(const Key('card-detail-price-chart')), findsOneWidget);
   });
+
+  testWidgets(
+    'Android owned Collection Item stat tiles grow with 1.2x production fonts',
+    (tester) async {
+      final fonts = (await tester.runAsync(_readProductionCardDetailFonts))!;
+      await _loadProductionCardDetailFonts(fonts);
+      tester.view.physicalSize = const Size(393, 852);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        const _CardDetailTestApp(
+          cardId: 'charizard-ex',
+          platform: TargetPlatform.android,
+          textScale: 1.2,
+          useKandoTheme: true,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      for (final label in ['quantity', 'portfolio']) {
+        final tile = find.byKey(Key('card-detail-collection-stat-$label'));
+        await tester.ensureVisible(tile);
+        await tester.pumpAndSettle();
+        final tileRect = tester.getRect(tile);
+        expect(tileRect.height, greaterThan(78));
+        for (final part in ['label', 'value']) {
+          final text = find.byKey(
+            Key('card-detail-collection-stat-$part-$label'),
+          );
+          expect(
+            tester.getRect(text).top,
+            greaterThanOrEqualTo(tileRect.top),
+          );
+          expect(
+            tester.getRect(text).bottom,
+            lessThanOrEqualTo(tileRect.bottom),
+          );
+        }
+      }
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('iOS owned Collection Item stat tiles keep 78px height', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const _CardDetailTestApp(
+        cardId: 'charizard-ex',
+        platform: TargetPlatform.iOS,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    for (final label in ['quantity', 'portfolio']) {
+      final tile = find.byKey(Key('card-detail-collection-stat-$label'));
+      await tester.ensureVisible(tile);
+      await tester.pumpAndSettle();
+      expect(tester.getSize(tile).height, 78);
+    }
+  });
+
+  testWidgets(
+    'Android compact add item header keeps the full title and portfolio action visible',
+    (tester) async {
+      final fonts = (await tester.runAsync(_readProductionCardDetailFonts))!;
+      await _loadProductionCardDetailFonts(fonts);
+      tester.view.physicalSize = const Size(320, 711);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(const _QuickCollectionHeaderTestApp());
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+
+      final sheet = find.byKey(const Key('card-detail-add-item-sheet'));
+      final title = find.byKey(const Key('card-detail-add-item-title'));
+      final portfolio = find.byKey(const Key('card-detail-add-item-portfolio'));
+      final titleParagraph = tester.renderObject<RenderParagraph>(title);
+      expect(titleParagraph.didExceedMaxLines, isFalse);
+      expect(
+        tester.getRect(title).left,
+        greaterThanOrEqualTo(tester.getRect(sheet).left),
+      );
+      expect(
+        tester.getRect(title).right,
+        lessThanOrEqualTo(tester.getRect(sheet).right),
+      );
+      expect(
+        tester.getRect(portfolio).right,
+        lessThanOrEqualTo(tester.getRect(sheet).right),
+      );
+      expect(
+        tester.getRect(portfolio).top,
+        greaterThanOrEqualTo(tester.getRect(title).bottom),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('iOS Quick Review keeps its original keyboard scroll padding', (
+    tester,
+  ) async {
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      const _QuickCollectionHeaderTestApp(platform: TargetPlatform.iOS),
+    );
+    await tester.pumpAndSettle();
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pumpAndSettle();
+
+    final scroll = tester.widget<SingleChildScrollView>(
+      find.byKey(const Key('card-detail-add-item-scroll')),
+    );
+    final logicalKeyboardInset = 300 / tester.view.devicePixelRatio;
+    expect(
+      scroll.padding,
+      EdgeInsets.fromLTRB(20, 0, 20, 24 + logicalKeyboardInset),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+    testWidgets(
+      '${platform.name} Quick Review preserves its draft without rebuilding the full form during IME animation',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+
+        await tester.pumpWidget(
+          _QuickCollectionHeaderTestApp(platform: platform),
+        );
+        await tester.pumpAndSettle();
+
+        final quantity = find.byKey(const Key('card-detail-item-quantity'));
+        await tester.ensureVisible(quantity);
+        await tester.enterText(quantity, '7');
+        await tester.pumpAndSettle();
+        final editable = find.descendant(
+          of: quantity,
+          matching: find.byType(EditableText),
+        );
+        final total = find.byKey(const Key('card-detail-item-total'));
+        final submit = find.byKey(const Key('card-detail-item-submit'));
+        final initialTotalRect = tester.getRect(total);
+        final initialSubmitRect = tester.getRect(submit);
+
+        final previousRebuildCallback = debugOnRebuildDirtyWidget;
+        var sheetRebuilds = 0;
+        debugOnRebuildDirtyWidget = (element, builtOnce) {
+          previousRebuildCallback?.call(element, builtOnce);
+          if (element.widget.runtimeType.toString() ==
+              '_AddCollectionItemSheet') {
+            sheetRebuilds += 1;
+          }
+        };
+        addTearDown(() => debugOnRebuildDirtyWidget = previousRebuildCallback);
+
+        for (final inset in [40.0, 100.0, 180.0, 260.0, 330.0]) {
+          tester.view.viewInsets = FakeViewPadding(bottom: inset);
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        await tester.pumpAndSettle();
+
+        expect(
+          sheetRebuilds,
+          0,
+          reason:
+              'IME animation must only update keyboard-aware layout instead of rebuilding the full collection form.',
+        );
+        expect(tester.widget<EditableText>(editable).controller.text, '7');
+        expect(
+          tester.widget<EditableText>(editable).focusNode.hasFocus,
+          isTrue,
+        );
+        expect(tester.testTextInput.isVisible, isTrue);
+        expect(
+          tester.getRect(total),
+          initialTotalRect,
+          reason:
+              'Quick Review totals must stay at the page bottom while the IME opens.',
+        );
+        expect(
+          tester.getRect(submit),
+          initialSubmitRect,
+          reason:
+              'Quick Review actions must stay at the page bottom while the IME opens.',
+        );
+
+        tester.view.viewInsets = FakeViewPadding.zero;
+        await tester.pumpAndSettle();
+        expect(tester.getRect(total), initialTotalRect);
+        expect(tester.getRect(submit), initialSubmitRect);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }
 
 class _CardDetailTestApp extends StatelessWidget {
@@ -2682,6 +3262,9 @@ class _CardDetailTestApp extends StatelessWidget {
     this.subscriptionController,
     this.performanceApi,
     this.collectionItemId = 'item-charizard',
+    this.platform,
+    this.textScale = 1,
+    this.useKandoTheme = false,
   });
 
   final String cardId;
@@ -2692,9 +3275,22 @@ class _CardDetailTestApp extends StatelessWidget {
   final SubscriptionController Function()? subscriptionController;
   final PortfolioApiClient? performanceApi;
   final String? collectionItemId;
+  final TargetPlatform? platform;
+  final double textScale;
+  final bool useKandoTheme;
 
   @override
   Widget build(BuildContext context) {
+    final baseTheme = useKandoTheme
+        ? buildKandoTheme()
+        : ThemeData(fontFamily: 'Roboto');
+    final robotoTheme = ThemeData(fontFamily: 'Roboto');
+    final theme = useKandoTheme && platform != TargetPlatform.android
+        ? baseTheme.copyWith(
+            textTheme: robotoTheme.textTheme,
+            primaryTextTheme: robotoTheme.primaryTextTheme,
+          )
+        : baseTheme;
     return ProviderScope(
       overrides: [
         appCommercialPolicyProvider.overrideWithValue(
@@ -2715,6 +3311,13 @@ class _CardDetailTestApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
+        theme: platform == null ? null : theme.copyWith(platform: platform),
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
         home: CardDetailPage(
           cardId: cardId,
           preview: preview,
@@ -2723,6 +3326,96 @@ class _CardDetailTestApp extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _QuickCollectionHeaderTestApp extends StatelessWidget {
+  const _QuickCollectionHeaderTestApp({this.platform = TargetPlatform.android});
+
+  final TargetPlatform platform;
+
+  @override
+  Widget build(BuildContext context) {
+    final baseTheme = buildKandoTheme();
+    final robotoTheme = ThemeData(fontFamily: 'Roboto');
+    return ProviderScope(
+      overrides: [
+        appCommercialPolicyProvider.overrideWithValue(
+          const AppCommercialPolicy(isAndroidFreeLaunch: true),
+        ),
+        authStorageProvider.overrideWithValue(_cardDetailAuthStorage),
+        authRepositoryProvider.overrideWithValue(_cardDetailAuthRepository),
+        cardDetailRepositoryProvider.overrideWithValue(
+          const MockCardDetailRepository(),
+        ),
+        portfolioApiClientProvider.overrideWithValue(_CardPerformanceApi()),
+        subscriptionControllerProvider.overrideWith(
+          _FreeCardSubscriptionController.new,
+        ),
+      ],
+      child: MaterialApp.router(
+        theme: baseTheme.copyWith(
+          platform: platform,
+          textTheme: platform == TargetPlatform.android
+              ? baseTheme.textTheme
+              : robotoTheme.textTheme,
+          primaryTextTheme: platform == TargetPlatform.android
+              ? baseTheme.primaryTextTheme
+              : robotoTheme.primaryTextTheme,
+        ),
+        routerConfig: GoRouter(
+          routes: [
+            GoRoute(
+              path: '/',
+              builder: (_, _) => const Scaffold(
+                resizeToAvoidBottomInset: false,
+                body: _SeededQuickCollectionReview(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SeededQuickCollectionReview extends ConsumerStatefulWidget {
+  const _SeededQuickCollectionReview();
+
+  @override
+  ConsumerState<_SeededQuickCollectionReview> createState() =>
+      _SeededQuickCollectionReviewState();
+}
+
+class _SeededQuickCollectionReviewState
+    extends ConsumerState<_SeededQuickCollectionReview> {
+  var _seeded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future<void>(() {
+      ref
+          .read(pendingCollectionProvider.notifier)
+          .add(
+            const PendingCollectionCard(
+              id: 'one-piece-luffy',
+              name: 'Monkey D. Luffy',
+              game: 'One Piece',
+              setName: 'Romance Dawn',
+              metadataLine: 'Leader #001',
+              variantLine: 'Normal',
+            ),
+          );
+      if (mounted) setState(() => _seeded = true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _seeded
+        ? const QuickCollectionReviewPage(heightFactor: 1)
+        : const SizedBox.shrink();
   }
 }
 
@@ -3508,4 +4201,57 @@ class _SportsShopCardDetailRepository extends MockCardDetailRepository {
       ],
     );
   }
+}
+
+typedef _ProductionCardDetailFonts = ({
+  ByteData robotoRegular,
+  ByteData robotoMedium,
+  ByteData fraunces,
+});
+
+Future<_ProductionCardDetailFonts> _readProductionCardDetailFonts() async {
+  var directory = Directory.current;
+  Directory? materialFonts;
+  while (true) {
+    final candidate = Directory(
+      '${directory.path}${Platform.pathSeparator}.dart_tool'
+      '${Platform.pathSeparator}security-sdk${Platform.pathSeparator}sdk'
+      '${Platform.pathSeparator}flutter${Platform.pathSeparator}bin'
+      '${Platform.pathSeparator}cache${Platform.pathSeparator}artifacts'
+      '${Platform.pathSeparator}material_fonts',
+    );
+    if (candidate.existsSync()) {
+      materialFonts = candidate;
+      break;
+    }
+    if (directory.parent.path == directory.path) break;
+    directory = directory.parent;
+  }
+  if (materialFonts == null) {
+    throw StateError('Flutter material fonts directory is unavailable.');
+  }
+  Future<ByteData> loadFont(String fileName) async {
+    final bytes = await File(
+      '${materialFonts!.path}${Platform.pathSeparator}$fileName',
+    ).readAsBytes();
+    return bytes.buffer.asByteData(bytes.offsetInBytes, bytes.lengthInBytes);
+  }
+
+  return (
+    robotoRegular: await loadFont('roboto-regular.ttf'),
+    robotoMedium: await loadFont('roboto-medium.ttf'),
+    fraunces: await rootBundle.load(
+      'assets/fonts/Baskerville-BaskervilleSemiBold.ttf',
+    ),
+  );
+}
+
+Future<void> _loadProductionCardDetailFonts(
+  _ProductionCardDetailFonts fonts,
+) async {
+  await (FontLoader('Roboto')
+        ..addFont(Future.value(fonts.robotoRegular))
+        ..addFont(Future.value(fonts.robotoMedium)))
+      .load();
+  await (FontLoader('Fraunces')..addFont(Future.value(fonts.fraunces))).load();
 }

@@ -18,7 +18,9 @@ v1.1.3 已原位归档。本版本承接 v1.1.3 之后的新增、变更、移�
 - [Android 免费首版增量 PRD v0.3 原件](00-product/Card_AI_Android_Free_First_Release_Incremental_PRD-3.md)：2026-11-05 产品输入，本次需求依据。
 - [Android 与 iOS 双端数据隔离方案原件](00-product/Android-iOS双端数据隔离方案.md)：2026-11-03 历史技术建议；与新版 PRD 冲突的全局账号状态、全账号删除按钮及导出建议不作为本期需求。
 - [结合当前项目的实施前评估](05-delivery/android-free-first-release-review.md)：2026-11-05 开始实现前的源码差距、待补规则、迁移与发布边界；其源码结论按评估基线理解，后续实现见下条合同。
-- [双端平台账号与免费首版实现合同](03-data-api/platform-accounts.md)：2026-11-05 起的账号、会话、删除、集中商业策略与测试／正式配置隔离实现；2026-11-06 已随 `dev@154c25fc` 发布 Linux API／Admin 并执行 `0018`，运行验收、Android dev 证明豁免及未验边界见文末。prod、Marketing 和移动端未在本次发布。
+- [双端平台账号与免费首版实现合同](03-data-api/platform-accounts.md)：2026-11-05 起的账号、会话、删除、集中商业策略与测试／正式配置隔离实现；2026-11-06 已随 `dev@154c25fc` 发布 Linux API／Admin 并执行 `0018`，2026-11-10 已完成生产 0018／API／双 Admin 发布，历史开发验证与本轮生产证据分别保留。
+- [Android Google Play 正式配置交接清单](05-delivery/android-play-release-configuration.md)：正式签名、Firebase／OAuth／Play Integrity 配置、本机隔离构建与发布记录；207 无 Billing AAB 已由 Play 接收并发布至 6 人 Internal testing 轨道，当前为有效／尚未审核，真实安装、登录、Integrity、扫描与统计验收仍待完成。
+- [Android 与 iOS 版本管理](03-data-api/app-version-management.md)：双端独立升级规则、Android 自动构建号及 APK／AAB 校验归档，沿用既有 iOS 规则与发布流程。
 
 两份输入均按原始字节归档，不随实现修订。平台账号、删号与重新注册规则以新版 PRD 为准，原技术方案不代表当前已实施架构。
 
@@ -27,6 +29,22 @@ v1.1.3 已原位归档。本版本承接 v1.1.3 之后的新增、变更、移�
 ## 文档路由
 
 - [官网改动同步到 dev](05-delivery/cardscanfox-dev-sync-20261109.md)：2026-11-09 官网提交合并、依赖锁文件修复与影响面验证。
+
+- [Admin 启动会话校验](04-admin/admin-auth-session.md)：启动时先验证持久会话，避免无效会话短暂挂载后台页面后才跳转登录。
+
+- [官网账号删除申请方案与页面设计](00-product/cardscanfox-account-deletion-design.md)：保留现有正式 URL；2026-11-11 已实现并正式发布官网邮件草稿、复制回退与人工协助入口，页面／资源及 Help 入口已验收，后台受控执行与客服运营仍按文档落实。
+
+- [CardScanFox 正式官网发布](05-delivery/cardscanfox-production-cutover.md)：正式 Worker 与 Route、手工构建身份、自动发布边界及 2026-11-11 重发的回退点和验收记录。
+
+- [官网改版规格](00-product/cardscanfox-website-redesign-spec.md)与[独立只读服务规格](02-architecture/cardscanfox-website-service-spec.md)：官网设计、内容真源及服务边界，实际实现和发布按各文档的状态与日期理解。
+
+- [官网路由与搜索意图](05-delivery/cardscanfox-website-route-seo-spec.md)及[单卡目录与规模化索引](05-delivery/cardscanfox-catalog-indexing.md)：URL、元数据、目录和 sitemap 的设计与实现边界。
+
+- [官网卡牌术语内容补充](05-delivery/cardscanfox-card-term-content-20261108.md)：2026-11-08 内容增量及对应验证记录。
+
+- [官网首页真实卡牌展示](05-delivery/cardscanfox-home-featured-20261108.md)：2026-11-08 首页卡牌与详情链接的实现及验收记录。
+
+- [IndexNow 调试记录](05-delivery/indexnow-debug-20261108.md)和[新版官网通知记录](05-delivery/indexnow-full-redesign-20261108.md)：按原日期保留通知范围、接口回执与收录边界，不作为当前部署或搜索收录状态。
 
 - [PokeScope 自然搜索词与独立官网覆盖](05-delivery/website-competitor-keyword-coverage.md)：2026-11-08 竞品估算口径、四篇角色/卡况指南、既有页面归属和索引发现。
 

@@ -194,6 +194,10 @@ type AppVersionItem = {
   updated_at: string;
 };
 
+function appVersionPlatformLabel(platform: AppVersionItem["platform"]): string {
+  return platform === "Google" ? "Android（Google Play）" : platform;
+}
+
 const { Sider, Content } = Layout;
 const { Title, Text } = Typography;
 const API_BASE = resolveAdminApiBase({
@@ -230,21 +234,47 @@ const pageMeta: Record<MenuKey, { title: string; description: string }> = {
   feedbacks: { title: "用户反馈", description: "查看用户提交的反馈内容，并标记处理状态。" },
   scans: { title: "扫描记录管理", description: "查看用户扫描图片、系统识别结果和用户最终确认结果。" },
   permissions: { title: "权限管理", description: "管理允许访问后台的邮箱账号。" },
-  "app-versions": { title: "版本管理", description: "管理 iOS 与 Google 端最低支持版本和更新提示。" },
+  "app-versions": { title: "版本管理", description: "管理 iOS 与 Android（Google Play）最低支持版本和更新提示。" },
   "subscription-configs": { title: "订阅配置", description: "管理订阅页与订阅大弹窗的商品组合、试用关系和生效状态。" },
 };
 
 export default function App() {
-  const [session, setSession] = useState<AdminSession | null>(() => readStoredSession());
+  const [session, setSession] = useState<AdminSession | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const [authView, setAuthView] = useState<"login" | "password" | "denied">("login");
 
   useEffect(() => {
+    let active = true;
+    const storedSession = readStoredSession();
+    if (!storedSession) {
+      setAuthReady(true);
+      return () => { active = false; };
+    }
+
+    refreshAdminSession(storedSession)
+      .then((nextSession) => {
+        if (!active) return;
+        setSession(nextSession);
+        setAuthReady(true);
+      })
+      .catch((error) => {
+        if (!active) return;
+        if (isAuthenticationFailure(error)) setSession(null);
+        else setSession(storedSession);
+        setAuthReady(true);
+      });
+
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!authReady) return;
     if (session) {
       window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
     } else {
       window.localStorage.removeItem(SESSION_STORAGE_KEY);
     }
-  }, [session]);
+  }, [authReady, session]);
 
   useEffect(() => {
     const handleSessionExpired = () => {
@@ -255,6 +285,8 @@ export default function App() {
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
   }, []);
 
+  if (!authReady) return <AuthLoadingView />;
+
   if (!session) {
     if (authView === "password") return <PasswordSetupView onBack={() => setAuthView("login")} />;
     if (authView === "denied") return <AccessDeniedView onBack={() => setAuthView("login")} />;
@@ -262,6 +294,10 @@ export default function App() {
   }
 
   return <AdminShell session={session} onLogout={() => setSession(null)} />;
+}
+
+function AuthLoadingView() {
+  return <main className="auth-loading" aria-label="正在验证登录状态"><Spin size="large" /></main>;
 }
 
 function LoginView({
@@ -1164,30 +1200,57 @@ function PermissionsPage({ session }: { session: AdminSession }) {
 
 function AppVersionsPage({ session }: { session: AdminSession }) {
   const [editing, setEditing] = useState<AppVersionItem | null>(null);
+  const [saving, setSaving] = useState(false);
+  const mutationPending = useRef(false);
   const [form] = Form.useForm<AppVersionItem>();
-  const { data, loading, reload, error } = useAdminData<{ environment: "development" | "production"; items: AppVersionItem[] }>("/app-versions", session);
+  const { data, loading, reload, updateData, error } = useAdminData<{ environment: "development" | "production"; items: AppVersionItem[] }>("/app-versions", session);
 
   useEffect(() => {
     if (editing) form.setFieldsValue(editing);
   }, [editing, form]);
 
   async function saveVersion(values: AppVersionItem) {
-    if (!editing) return;
-    await mutate(session, `/app-versions/${editing.platform}`, { method: "PATCH", body: values });
-    setEditing(null);
-    reload();
+    if (!editing || mutationPending.current) return;
+    mutationPending.current = true;
+    setSaving(true);
+    try {
+      const saved = await adminRequest<AppVersionItem>(`/app-versions/${editing.platform}`, { method: "PATCH", body: values, token: session.accessToken });
+      updateData((current) => current && ({ ...current, items: current.items.map((item) => item.platform === saved.platform ? saved : item) }));
+      setEditing(null);
+      message.success("版本规则已保存");
+    } catch (requestError) {
+      message.error(errorMessage(requestError));
+    } finally {
+      mutationPending.current = false;
+      setSaving(false);
+    }
   }
 
   async function toggleVersion(row: AppVersionItem) {
-    await mutate(session, `/app-versions/${row.platform}`, {
-      method: "PATCH",
-      body: { ...row, status: row.status === "enabled" ? "disabled" : "enabled" },
-    });
-    reload();
+    if (mutationPending.current) return;
+    mutationPending.current = true;
+    setSaving(true);
+    try {
+      const saved = await adminRequest<AppVersionItem>(`/app-versions/${row.platform}`, {
+        method: "PATCH",
+        body: { ...row, status: row.status === "enabled" ? "disabled" : "enabled" },
+        token: session.accessToken,
+      });
+      updateData((current) => current && ({ ...current, items: current.items.map((item) => item.platform === saved.platform ? saved : item) }));
+    } catch (requestError) {
+      message.error(errorMessage(requestError));
+    } finally {
+      mutationPending.current = false;
+      setSaving(false);
+    }
+  }
+
+  function closeEditor() {
+    if (!mutationPending.current) setEditing(null);
   }
 
   const columns: ColumnsType<AppVersionItem> = [
-    { title: "操作平台", dataIndex: "platform" },
+    { title: "操作平台", dataIndex: "platform", render: (value: AppVersionItem["platform"]) => appVersionPlatformLabel(value) },
     { title: "最低支持版本", dataIndex: "min_supported_version" },
     { title: "建议更新版本", dataIndex: "recommended_version", render: (value: string) => <Text className="accent-text">{value}</Text> },
     { title: "强制更新", dataIndex: "force_update", render: (value: boolean) => value ? "开启" : "关闭" },
@@ -1197,10 +1260,10 @@ function AppVersionsPage({ session }: { session: AdminSession }) {
       title: "操作",
       render: (_, row) => (
         <Space>
-          <Button type="link" onClick={() => setEditing(row)}>
+          <Button type="link" disabled={loading || saving} onClick={() => { if (!mutationPending.current) setEditing(row); }}>
             编辑
           </Button>
-          <Button type="link" danger={row.status === "enabled"} onClick={() => toggleVersion(row)}>
+          <Button type="link" disabled={loading || saving} danger={row.status === "enabled"} onClick={() => toggleVersion(row)}>
             {row.status === "enabled" ? "禁用" : "启用"}
           </Button>
         </Space>
@@ -1209,11 +1272,9 @@ function AppVersionsPage({ session }: { session: AdminSession }) {
   ];
 
   return (
-    <PagePanel error={error} onRefresh={reload}>
+    <PagePanel error={error} onRefresh={reload} refreshing={loading || saving}>
       {data && <Alert type="info" showIcon message={`当前环境：${data.environment === "production" ? "生产（prod）" : "开发（dev）"}。版本规则仅影响连接此环境的 App。`} />}
       <div className="top-tabs">
-        <span>销售数据</span>
-        <span>订单查询</span>
         <strong>版本管理</strong>
       </div>
       <section className="table-panel narrow-table">
@@ -1224,11 +1285,15 @@ function AppVersionsPage({ session }: { session: AdminSession }) {
         title="编辑版本管理"
         width={520}
         closable={false}
-        onClose={() => setEditing(null)}
-        extra={<Button type="text" onClick={() => setEditing(null)}>×</Button>}
+        onClose={closeEditor}
+        extra={<Button type="text" disabled={saving} onClick={closeEditor}>×</Button>}
       >
-        <Form form={form} layout="vertical" onFinish={saveVersion} requiredMark={false}>
-          <Form.Item name="platform" label="操作平台">
+        <Form form={form} layout="vertical" onFinish={saveVersion} requiredMark={false} disabled={saving}>
+          <Form.Item
+            name="platform"
+            label="操作平台"
+            getValueProps={(value: AppVersionItem["platform"]) => ({ value: appVersionPlatformLabel(value) })}
+          >
             <Input disabled />
           </Form.Item>
           <div className="two-col-form">
@@ -1264,8 +1329,8 @@ function AppVersionsPage({ session }: { session: AdminSession }) {
             <Select options={[{ value: "enabled", label: "生效中" }, { value: "disabled", label: "已停用" }]} />
           </Form.Item>
           <div className="drawer-footer">
-            <Button onClick={() => setEditing(null)}>取消</Button>
-            <Button className="cyan-button" htmlType="submit">
+            <Button disabled={saving} onClick={closeEditor}>取消</Button>
+            <Button className="cyan-button" htmlType="submit" loading={saving}>
               保存
             </Button>
           </div>
@@ -1528,17 +1593,19 @@ function useAdminData<T>(path: string, session: AdminSession) {
   const key = `${session.accessToken}\0${path}`;
   const [result, setResult] = useState<{ key: string; data: T | null; loading: boolean; error: string | null }>({ key, data: null, loading: true, error: null });
   const [version, setVersion] = useState(0);
+  const requestController = useRef<AbortController | null>(null);
 
   useEffect(() => {
     let alive = true;
     const controller = new AbortController();
+    requestController.current = controller;
     setResult((current) => ({ key, data: current.key === key ? current.data : null, loading: true, error: null }));
     adminRequest<T>(path, { token: session.accessToken, signal: controller.signal })
       .then((nextData) => {
-        if (alive) setResult({ key, data: nextData, loading: false, error: null });
+        if (alive && !controller.signal.aborted) setResult({ key, data: nextData, loading: false, error: null });
       })
       .catch((requestError) => {
-        if (alive) setResult((current) => ({ key, data: current.key === key ? current.data : null, loading: false, error: errorMessage(requestError) }));
+        if (alive && !controller.signal.aborted) setResult((current) => ({ key, data: current.key === key ? current.data : null, loading: false, error: errorMessage(requestError) }));
       });
     return () => {
       alive = false;
@@ -1547,7 +1614,16 @@ function useAdminData<T>(path: string, session: AdminSession) {
   }, [key, path, session.accessToken, version]);
 
   const current = result.key === key ? result : { data: null, loading: true, error: null };
-  return useMemo(() => ({ data: current.data, loading: current.loading, error: current.error, reload: () => setVersion((value) => value + 1) }), [key, current.data, current.loading, current.error]);
+  return useMemo(() => ({
+    data: current.data,
+    loading: current.loading,
+    error: current.error,
+    reload: () => setVersion((value) => value + 1),
+    updateData: (update: (data: T | null) => T | null) => {
+      requestController.current?.abort();
+      setResult((previous) => ({ key, data: update(previous.key === key ? previous.data : null), loading: false, error: null }));
+    },
+  }), [key, current.data, current.loading, current.error]);
 }
 
 function mutate(session: AdminSession, path: string, init: AdminRequestInit) {
@@ -1571,6 +1647,17 @@ async function adminRequest<T>(path: string, init: AdminRequestInit = {}): Promi
     throw new AdminApiError(payload.error.code, payload.error.message, response.status, payload.error.fields);
   }
   return payload.data;
+}
+
+async function refreshAdminSession(session: AdminSession): Promise<AdminSession> {
+  const body = await adminRequest<{ access_token: string }>("/auth/refresh", {
+    method: "POST",
+    body: { refresh_token: session.refreshToken },
+  });
+  if (typeof body.access_token !== "string" || body.access_token.length === 0) {
+    throw new AdminApiError("INVALID_REFRESH_RESPONSE", "登录状态无效。", 401);
+  }
+  return { ...session, accessToken: body.access_token };
 }
 
 async function downloadAdminFile(path: string, session: AdminSession, fallbackName: string) {
@@ -1603,6 +1690,10 @@ function dispatchSessionExpiredOnUnauthorized(response: Response, token?: string
   if (token && response.status === 401) {
     window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
   }
+}
+
+function isAuthenticationFailure(error: unknown): boolean {
+  return error instanceof AdminApiError && (error.status === 401 || error.status === 403);
 }
 
 class AdminApiError extends Error {

@@ -80,13 +80,24 @@ abstract interface class SubscriptionEntitlementCacheStorage {
   Future<void> write(VerifiedEntitlementCache cache);
 }
 
-class SecureSubscriptionEntitlementCacheStorage
+abstract interface class ScopedSubscriptionEntitlementCacheStorage
     implements SubscriptionEntitlementCacheStorage {
+  Future<VerifiedEntitlementCache?> readForScope(String scope);
+  Future<void> writeForScope(String scope, VerifiedEntitlementCache cache);
+}
+
+class SecureSubscriptionEntitlementCacheStorage
+    implements ScopedSubscriptionEntitlementCacheStorage {
   const SecureSubscriptionEntitlementCacheStorage({
     FlutterSecureStorage storage = const FlutterSecureStorage(),
   }) : _storage = storage;
 
   final FlutterSecureStorage _storage;
+
+  String _keyForScope(String scope) {
+    final encoded = base64Url.encode(utf8.encode(scope)).replaceAll('=', '');
+    return '$subscriptionVerifiedEntitlementCacheStorageKey.$encoded';
+  }
 
   @override
   Future<VerifiedEntitlementCache?> read() async {
@@ -105,6 +116,25 @@ class SecureSubscriptionEntitlementCacheStorage
   Future<void> write(VerifiedEntitlementCache cache) {
     return _storage.write(
       key: subscriptionVerifiedEntitlementCacheStorageKey,
+      value: jsonEncode(cache.toJson()),
+    );
+  }
+
+  @override
+  Future<VerifiedEntitlementCache?> readForScope(String scope) async {
+    final encoded = await _storage.read(key: _keyForScope(scope));
+    if (encoded == null) return null;
+    try {
+      return VerifiedEntitlementCache.fromJson(jsonDecode(encoded));
+    } on FormatException {
+      return null;
+    }
+  }
+
+  @override
+  Future<void> writeForScope(String scope, VerifiedEntitlementCache cache) {
+    return _storage.write(
+      key: _keyForScope(scope),
       value: jsonEncode(cache.toJson()),
     );
   }

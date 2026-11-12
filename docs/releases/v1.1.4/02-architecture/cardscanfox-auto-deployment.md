@@ -1,8 +1,16 @@
-# CardScanFox 独立预览与自动部署
+# CardScanFox 官网自动部署
 
-新版官网与只读服务使用现有 monorepo 中的独立应用，不修改旧营销站、App API、Flutter 或现有发布配置。独立 Git 分支 `codex/cardscanfox-preview` 从 `origin/main` 建立，仅包含新版官网、只读服务、共享公开内容包、工作区登记和必要文档。原工作区的未提交改动保留。
+新版官网与只读服务使用现有 monorepo 中的独立应用，不修改旧营销站、App API 或 Flutter。2026-11-07 建立的独立 Git 分支 `codex/cardscanfox-preview` 用于预览；当时仅包含新版官网、只读服务、共享公开内容包、工作区登记和必要文档。下方“预览初始化配置”和“初始预览边界”保留该日历史检查点，不能作为当前生产配置。
 
-## 自动部署配置
+## 当前状态
+
+正式官网现由 Worker `toccards-website` 托管，Route 为 `tcgcard.fun/*`，配置见 `apps/cardscanfox-web/wrangler.production.jsonc`；`SITE_DATA` 继续绑定独立只读服务 `cardscanfox-site-data-preview`。`main` 已确认可触发 Cloudflare 正式自动构建，但仅在提交命中 Cloudflare 已配置的监听路径时触发。远端监听路径属于 Cloudflare 项目配置，发布时必须回读，不能把任意 `main` 推送等同于正式部署。
+
+预览分支 `codex/cardscanfox-preview`、Pages 项目 `cardscanfox-git-preview` 和私有 Worker 预览继续保留。当前仓库要求 Node `^22.23.4`、pnpm `11.28.10`，当前本地构建清单为 123 条路由；远端实际工具链、构建提交和路由清单仍以对应 deployment 的回读结果为准。
+
+手工正式构建前必须确认工作区干净、HEAD 为批准提交，将该提交的 40 位 SHA 注入构建环境，并排除优先级更高的旧 `CF_PAGES_COMMIT_SHA`；完整示例见[正式发布说明](../05-delivery/cardscanfox-production-cutover.md#发布目标)。构建脚本只从 `CF_PAGES_COMMIT_SHA` 或 `WORKERS_CI_COMMIT_SHA` 写入 `release-manifest.sourceCommit`，`deploy:production` 不会自动注入。提交、自动构建和线上生效应分别核验；正式发布需回读活动 version/deployment，并确认线上发布清单的 `sourceCommit` 与批准提交一致。
+
+## 2026-11-07 预览初始化配置
 
 Cloudflare 账号：`dced4adca2f35cff247b39979058b934`。复用已存在的 GitHub 连接 `kando6370-wq/toccards`，不建立第二套 App 业务接口或新 CMS。
 
@@ -11,11 +19,11 @@ Cloudflare 账号：`dced4adca2f35cff247b39979058b934`。复用已存在的 GitH
 | Pages `cardscanfox-git-preview` | `codex/cardscanfox-preview` | `/` | `pnpm --filter @kando/cardscanfox-web --fail-if-no-match build:ci` | `apps/cardscanfox-web/dist` |
 | Worker `cardscanfox-site-data-preview` | `codex/cardscanfox-preview` | `/` | `pnpm --filter @kando/website-service --fail-if-no-match build:ci` | `pnpm --filter @kando/website-service --fail-if-no-match deploy:preview` |
 
-Node 22、pnpm 11.9.0；禁用其他分支的预览构建。Pages 监听 `apps/cardscanfox-web/*`、`apps/website-service/*`、`packages/website-content/*`、`pnpm-*.yaml`、`package.json`。只读 Worker 监听相同范围中除官网应用目录之外的路径。构建包含受影响测试、类型检查和打包。失败保留上一成功版本。Pages 清单 `sourceCommit` 与 Cloudflare 部署的提交 SHA 应一致。
+该历史配置使用 Node 22、pnpm 11.9.0，并禁用其他分支的预览构建。Pages 当时监听 `apps/cardscanfox-web/*`、`apps/website-service/*`、`packages/website-content/*`、`pnpm-*.yaml`、`package.json`；只读 Worker 监听相同范围中除官网应用目录之外的路径。构建包含受影响测试、类型检查和打包。失败保留上一成功版本。Pages 清单 `sourceCommit` 与 Cloudflare 部署的提交 SHA 应一致。上述 pnpm 版本是 2026-11-07 的远端历史值，当前仓库规范为 `11.28.10`。
 
-## 当前预览边界
+## 2026-11-07 初始预览边界
 
-原 `cardscanfox-preview.pages.dev` 为已上传的静态对比版本。新 Pages Git 项目通过 `build:pages` 生成服务端入口，使用 `SITE_DATA` binding 动态查询正式目录。108 个静态构建条目包括 46 个保护旧地址、32 个新增非单卡页面、30 个单卡评审页面；真实单卡地址不受这 30 条评审数据限制。
+原 `cardscanfox-preview.pages.dev` 为已上传的静态对比版本。新 Pages Git 项目通过 `build:pages` 生成服务端入口，使用 `SITE_DATA` binding 动态查询正式目录。当时 108 个静态构建条目包括 46 个保护旧地址、32 个新增非单卡页面、30 个单卡评审页面；真实单卡地址不受这 30 条评审数据限制。当前构建已增至 123 条路由，108 条仅是该历史检查点。
 
 只读 Worker 当前通过现有正式库 Hyperdrive 执行只读事务，关闭公共域名与版本 URL。旧 App Worker、接口和绑定配置不修改。新服务与 App 复用数据库账户权限和连接池；独立限频、缓存与超时减少新增读取压力，不等于生产性能已经通过验收。正式域名切换与全量索引开放分别管理。预览维持 noindex、robots 禁止抓取，不提交 IndexNow。
 

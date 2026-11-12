@@ -8,93 +8,41 @@
       "path": "/",
       "file": "home.html",
       "status": 200,
-      "bytes": 94646,
+      "bytes": 95139,
       "title": "Card AI: TCG Card Scanner, Price Checker & Collection Tracker",
       "h1": [
         "Card AI."
       ],
       "h2": [
-        "Powerful Tools for Effortless Collecting.",
+        "Powerful Toolsfor Effortless Collecting.",
         "From Card to Collection in Three Simple Steps.",
-        "See Your Collection at a Glance.",
+        "See Your Collectionat a Glance.",
         "Identify Cards as You Scan.",
-        "Market Analysis for Your Cards.",
-        "One Collection Across Supported Games.",
-        "Trading Card Scanner Questions.",
+        "Market Analysisfor Your Cards.",
+        "One Collection AcrossSupported Games.",
+        "Trading Card ScannerQuestions.",
         "Browse by game and feature.",
-        "Start Tracking Your Collection Today.",
-        "Privacy Policy",
-        "1. Information We Collect",
-        "2. How We Use Information",
-        "3. Third-Party Services We Use",
-        "4. How We Share Information",
-        "5. App Tracking and Advertising",
-        "6. Cookies and Similar Technologies",
-        "7. Data Retention",
-        "8. Account Deletion and Data Deletion",
-        "9. Your Privacy Rights and Choices",
-        "10. Communications Choices",
-        "11. Children’s Privacy",
-        "12. International Data Transfers",
-        "13. Data Security",
-        "14. Third-Party Links and Services",
-        "15. Third-Party Brands",
-        "16. Changes to This Privacy Policy",
-        "17. Contact Us",
-        "Terms of Use",
-        "1. Our Service",
-        "2. Eligibility",
-        "3. Account Registration",
-        "4. Account Deletion",
-        "5. Card Scanning Feature",
-        "6. Card Data, Prices, and Value Information",
-        "7. Collection Records",
-        "8. Subscriptions and In-App Purchases",
-        "9. Acceptable Use",
-        "10. Third-Party Services",
-        "11. Third-Party Links and Marketplaces",
-        "12. Intellectual Property",
-        "13. User Content",
-        "14. Trademarks and Brand Disclaimer",
-        "15. Privacy",
-        "16. App Updates and Availability",
-        "17. Disclaimers",
-        "18. Limitation of Liability",
-        "19. Indemnification",
-        "20. Termination",
-        "21. Changes to These Terms",
-        "22. Governing Law",
-        "23. OPEN SOURCE AND MODEL LICENSES",
-        "24. Contact Us"
+        "Start Tracking Your Collection Today."
       ],
       "canonical": "https://tcgcard.fun/",
-      "normalizedBodySha256": "0d5730ff5277344f9d284f91ccfb933deae7a9bd53747f779531cf29001a6cb7",
-      "bodyCharacters": 6321,
-      "wordCount": 1034,
+      "normalizedBodySha256": "b111318f803078b7e1a62d4dae117f08826ae043cbfbbc581e8d53da50f2a449",
+      "bodyCharacters": 6322,
+      "wordCount": 973,
       "tableRows": 0,
       "contentLinks": [
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224",
+        "/digimon-card-scanner",
+        "/dragon-ball-super-card-scanner",
+        "/flesh-and-blood-card-scanner",
+        "/lorcana-card-scanner",
+        "/mtg-card-scanner",
+        "/one-piece-card-scanner",
+        "/pokemon-card-scanner",
+        "/star-wars-unlimited-card-scanner",
+        "/yugioh-card-scanner",
         "/basketball-card-scanner",
-        "/blog/",
-        "/blog/ascended-heroes-card-list",
-        "/blog/chaos-rising-card-list",
-        "/blog/charizard-151-card-value",
-        "/blog/charizard-gx-card-values",
-        "/blog/cufant-card-values",
-        "/blog/dungeon-crawler-carl-trading-cards",
-        "/blog/ivysaur-card-values",
-        "/blog/mega-charizard-x-ex-card-value",
-        "/blog/mew-gg10-card-value",
-        "/blog/minior-pokemon-card-guide",
-        "/blog/moonbreon-card-value",
-        "/blog/phantasmal-flames-card-list",
-        "/blog/pikachu-card-values",
-        "/blog/pokemon-card-values",
-        "/blog/pokemon-tcg-30th-celebration-card-prices",
-        "/blog/pokemon-tcg-set-card-lists",
-        "/blog/raw-vs-graded-card-values",
-        "/blog/rayquaza-vmax-card-values",
-        "/blog/scanning-cards-from-watsontcg",
-        "/blog/what-is-my-trading-card-worth",
+        "/football-card-scanner",
+        "/soccer-card-scanner",
         "/bulk-card-scanner",
         "/card-ai-vs-collx",
         "/card-ai-vs-ludex",
@@ -103,20 +51,29 @@
         "/card-price-checker",
         "/card-scanner-comparison-2026",
         "/chrome-extension",
-        "/digimon-card-scanner",
         "/digital-card-binder",
-        "/dragon-ball-super-card-scanner",
-        "/flesh-and-blood-card-scanner",
-        "/football-card-scanner",
         "/graded-card-tracker",
-        "/lorcana-card-scanner",
-        "/mtg-card-scanner",
-        "/one-piece-card-scanner",
-        "/pokemon-card-scanner",
-        "/soccer-card-scanner",
-        "/star-wars-unlimited-card-scanner",
-        "/yugioh-card-scanner",
-        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224"
+        "/blog/ascended-heroes-card-list",
+        "/blog/chaos-rising-card-list",
+        "/blog/charizard-151-card-value",
+        "/blog/charizard-gx-card-values",
+        "/blog/cufant-card-values",
+        "/blog/ivysaur-card-values",
+        "/blog/mega-charizard-x-ex-card-value",
+        "/blog/mew-gg10-card-value",
+        "/blog/moonbreon-card-value",
+        "/blog/phantasmal-flames-card-list",
+        "/blog/pikachu-card-values",
+        "/blog/pokemon-card-values",
+        "/blog/rayquaza-vmax-card-values",
+        "/blog/pokemon-tcg-set-card-lists",
+        "/blog/dungeon-crawler-carl-trading-cards",
+        "/blog/minior-pokemon-card-guide",
+        "/blog/scanning-cards-from-watsontcg",
+        "/blog/pokemon-tcg-30th-celebration-card-prices",
+        "/blog/what-is-my-trading-card-worth",
+        "/blog/raw-vs-graded-card-values",
+        "/blog/"
       ],
       "contentImages": [
         {
@@ -200,10 +157,16 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "c40d6e4a47b8c61b506dd3104357868c2fce4c91aa5687a287d3ea80489503b6",
+      "htmlSha256": "b9c05a49d0bde00b95c4805ec7107fbf2efc5f6c040dfa8471574d8750075abe",
       "localPublicFile": "apps/marketing-web/public/index.html",
       "localBodyMatchesLive": false,
-      "newProjectMigrationStatus": "notImplemented"
+      "newProjectMigrationStatus": "notImplemented",
+      "priorHtmlSha256": "979b36f5669398b9be0c8c56cd3d2d6d958ae40b482caa3c641f4d81ba6473b5",
+      "contentRevision": {
+        "date": "2026-11-10",
+        "approval": "TCG-20261110-ANSWER: user approved all 17 page improvements",
+        "scope": "approved answer, platform/coverage correction, FAQ and contextual links; numbered tables and price observation dates retained"
+      }
     },
     {
       "path": "/basketball-card-scanner",
@@ -436,10 +399,10 @@
       "path": "/card-collection-tracker",
       "file": "card-collection-tracker.html",
       "status": 200,
-      "bytes": 15380,
-      "title": "Card Collection Tracker & Value App | Card AI",
+      "bytes": 12399,
+      "title": "Trading Card Collection Tracker: Holdings & Wishlist",
       "h1": [
-        "Trading card collection tracker."
+        "Track the cards you own. Keep Wishlist separate."
       ],
       "h2": [
         "See holdings and current value in one portfolio.",
@@ -452,18 +415,20 @@
         "Track your collection in the Card AI app."
       ],
       "canonical": "https://tcgcard.fun/card-collection-tracker",
-      "normalizedBodySha256": "86da4937fafb03ce2a0312ddc1d2832136ff2939f08ddcf69dac79224b8e1d92",
-      "bodyCharacters": 4748,
-      "wordCount": 774,
+      "normalizedBodySha256": "144d4ad578a4d22e88427448315d104ebb1d67b011009f6cc3951797085a363c",
+      "bodyCharacters": 5133,
+      "wordCount": 821,
       "tableRows": 0,
       "contentLinks": [
+        "/download",
+        "/digital-card-binder",
+        "/graded-card-tracker",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224",
         "/blog/ascended-heroes-card-list",
         "/blog/chaos-rising-card-list",
         "/blog/phantasmal-flames-card-list",
         "/blog/pokemon-card-values",
-        "/bulk-card-scanner",
-        "/digital-card-binder",
-        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224"
+        "/bulk-card-scanner"
       ],
       "contentImages": [
         {
@@ -487,19 +452,25 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "7cafb9b84e9459054df79fb3d740b2eb4c04c0cb1eb7f05a1e189ed6c0a91210",
+      "htmlSha256": "fdd5b42702ad2f5f52786c84f0ea385da5504ff1843959131ef89c07c93fb5c5",
       "localPublicFile": "apps/marketing-web/public/card-collection-tracker.html",
       "localBodyMatchesLive": false,
-      "newProjectMigrationStatus": "notImplemented"
+      "newProjectMigrationStatus": "notImplemented",
+      "priorHtmlSha256": "7cafb9b84e9459054df79fb3d740b2eb4c04c0cb1eb7f05a1e189ed6c0a91210",
+      "contentRevision": {
+        "date": "2026-11-10",
+        "approval": "TCG-20261110-ANSWER: user approved all 17 page improvements",
+        "scope": "approved answer, platform/coverage correction, FAQ and contextual links; numbered tables and price observation dates retained"
+      }
     },
     {
       "path": "/card-identifier",
       "file": "card-identifier.html",
       "status": 200,
-      "bytes": 12802,
-      "title": "Trading Card Identifier From a Photo | Card AI",
+      "bytes": 11091,
+      "title": "Trading Card Photo Identifier: Review Matches in Card AI",
       "h1": [
-        "Trading card identifier."
+        "Identify the card. Confirm the printing."
       ],
       "h2": [
         "See the candidate before you confirm the card.",
@@ -512,14 +483,17 @@
         "Identify a card in the Card AI app."
       ],
       "canonical": "https://tcgcard.fun/card-identifier",
-      "normalizedBodySha256": "ab804e92ba9c3b6f509333216271b59863a28a6e6f5354be2563f0e266f94313",
-      "bodyCharacters": 3809,
-      "wordCount": 631,
+      "normalizedBodySha256": "098df19bbca9d0a3cc6c7ca74a3729df71a48a1f42d4fdc13c41d383d068b8be",
+      "bodyCharacters": 4191,
+      "wordCount": 683,
       "tableRows": 0,
       "contentLinks": [
-        "/bulk-card-scanner",
+        "/cards",
+        "/download",
+        "/chrome-extension",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224",
         "/card-price-checker",
-        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224"
+        "/bulk-card-scanner"
       ],
       "contentImages": [
         {
@@ -543,19 +517,25 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "a3ace3cd1b32120cf746705317a644cafd3d5a78b2003229ea7a9e43862f4795",
+      "htmlSha256": "ad2757c744371c9e3aabdcf72f596bb25bc811be821d1358b150a0e59dc4a4ba",
       "localPublicFile": "apps/marketing-web/public/card-identifier.html",
       "localBodyMatchesLive": true,
-      "newProjectMigrationStatus": "notImplemented"
+      "newProjectMigrationStatus": "notImplemented",
+      "priorHtmlSha256": "a3ace3cd1b32120cf746705317a644cafd3d5a78b2003229ea7a9e43862f4795",
+      "contentRevision": {
+        "date": "2026-11-10",
+        "approval": "TCG-20261110-ANSWER: user approved all 17 page improvements",
+        "scope": "approved answer, platform/coverage correction, FAQ and contextual links; numbered tables and price observation dates retained"
+      }
     },
     {
       "path": "/card-price-checker",
       "file": "card-price-checker.html",
       "status": 200,
-      "bytes": 21416,
-      "title": "How Much Is This Card Worth? Card Price Checker | Card AI",
+      "bytes": 16732,
+      "title": "Card Price Checker Guide: Match Printing & Condition",
       "h1": [
-        "How much is this trading card worth?"
+        "Check the card before checking its value."
       ],
       "h2": [
         "Inspect the price behind the card record.",
@@ -572,25 +552,28 @@
         "Check card prices in the Card AI app."
       ],
       "canonical": "https://tcgcard.fun/card-price-checker",
-      "normalizedBodySha256": "78862c46fbeb46e1802369d44541a7690c2f187066c906da4c547e92e6b236f3",
-      "bodyCharacters": 8118,
-      "wordCount": 1407,
+      "normalizedBodySha256": "47ef243dfde5c0beb20406b7a0e9fd7b077084434d8a6a87fab7e618e9aa8322",
+      "bodyCharacters": 8479,
+      "wordCount": 1432,
       "tableRows": 0,
       "contentLinks": [
-        "/blog/charizard-151-card-value",
-        "/blog/charizard-gx-card-values",
-        "/blog/mega-charizard-x-ex-card-value",
-        "/blog/mew-gg10-card-value",
-        "/blog/moonbreon-card-value",
-        "/blog/pikachu-card-values",
-        "/blog/pokemon-card-values",
-        "/blog/pokemon-tcg-30th-celebration-card-prices",
-        "/blog/rayquaza-vmax-card-values",
-        "/card-identifier",
-        "/card-scanner-comparison-2026",
+        "/prices",
+        "/blog/raw-vs-graded-card-values",
+        "/download",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224",
         "/graded-card-tracker",
+        "/blog/pokemon-tcg-30th-celebration-card-prices",
         "/pokemon-card-scanner",
-        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224"
+        "/blog/pokemon-card-values",
+        "/blog/rayquaza-vmax-card-values",
+        "/blog/mew-gg10-card-value",
+        "/blog/charizard-gx-card-values",
+        "/blog/moonbreon-card-value",
+        "/blog/charizard-151-card-value",
+        "/blog/mega-charizard-x-ex-card-value",
+        "/blog/pikachu-card-values",
+        "/card-identifier",
+        "/card-scanner-comparison-2026"
       ],
       "contentImages": [
         {
@@ -614,10 +597,16 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "2c46e82dba044d4ad4eab9b76568a2bd834b8a59142921b61b01e1cdd7311967",
+      "htmlSha256": "b8f318a1ab6be73c4616f0c97a2b84a7205491736d2ba4d8a8f4905329f147db",
       "localPublicFile": "apps/marketing-web/public/card-price-checker.html",
       "localBodyMatchesLive": false,
-      "newProjectMigrationStatus": "notImplemented"
+      "newProjectMigrationStatus": "notImplemented",
+      "priorHtmlSha256": "2c46e82dba044d4ad4eab9b76568a2bd834b8a59142921b61b01e1cdd7311967",
+      "contentRevision": {
+        "date": "2026-11-10",
+        "approval": "TCG-20261110-ANSWER: user approved all 17 page improvements",
+        "scope": "approved answer, platform/coverage correction, FAQ and contextual links; numbered tables and price observation dates retained"
+      }
     },
     {
       "path": "/card-scanner-comparison-2026",
@@ -843,8 +832,8 @@
       "path": "/dragon-ball-super-card-scanner",
       "file": "dragon-ball-super-card-scanner.html",
       "status": 200,
-      "bytes": 10814,
-      "title": "Dragon Ball Super Card Scanner & Value Checker | Card AI",
+      "bytes": 9483,
+      "title": "Dragon Ball Super Card Scanner: Check Coverage | CardScanFox",
       "h1": [
         "Dragon Ball Super card scanner."
       ],
@@ -855,18 +844,22 @@
         "Track a set as it moves",
         "Related",
         "Dragon Ball Super card scanner questions.",
-        "Try the dragon Ball Super card scanner in Card AI."
+        "Check Dragon Ball Super coverage before scanning."
       ],
       "canonical": "https://tcgcard.fun/dragon-ball-super-card-scanner",
-      "normalizedBodySha256": "518c577ecb1df5e8ff615c8814d4b899627c95cf94f32178b90744e9409771ea",
-      "bodyCharacters": 2575,
-      "wordCount": 429,
+      "normalizedBodySha256": "3e77034526298028743a0d9667f5856f35935e17820313942fb3ebdd6c036944",
+      "bodyCharacters": 2782,
+      "wordCount": 448,
       "tableRows": 0,
       "contentLinks": [
+        "/download",
+        "/card-identifier",
+        "/data-methodology",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224",
+        "/games",
         "/card-price-checker",
         "/digimon-card-scanner",
-        "/yugioh-card-scanner",
-        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224"
+        "/yugioh-card-scanner"
       ],
       "contentImages": [
         {
@@ -890,10 +883,16 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "79d3d13e840d3e106baf5987005ab338d8ed486336e9106f64119b77ffab4f66",
+      "htmlSha256": "00791e3ec13ecc38e66470d55ad8c69d1f6c842e1d62751c897e810ba376022d",
       "localPublicFile": "apps/marketing-web/public/dragon-ball-super-card-scanner.html",
       "localBodyMatchesLive": true,
-      "newProjectMigrationStatus": "notImplemented"
+      "newProjectMigrationStatus": "notImplemented",
+      "priorHtmlSha256": "79d3d13e840d3e106baf5987005ab338d8ed486336e9106f64119b77ffab4f66",
+      "contentRevision": {
+        "date": "2026-11-10",
+        "approval": "TCG-20261110-ANSWER: user approved all 17 page improvements",
+        "scope": "approved answer, platform/coverage correction, FAQ and contextual links; numbered tables and price observation dates retained"
+      }
     },
     {
       "path": "/flesh-and-blood-card-scanner",
@@ -954,8 +953,8 @@
       "path": "/football-card-scanner",
       "file": "football-card-scanner.html",
       "status": 200,
-      "bytes": 11885,
-      "title": "Football Card Scanner: Check Football Card Values | Card AI",
+      "bytes": 10531,
+      "title": "Football Card Scanner: Check Coverage | CardScanFox",
       "h1": [
         "Football card scanner and value checker."
       ],
@@ -967,20 +966,24 @@
         "Condition and grade kept apart",
         "Related",
         "Football card scanner questions.",
-        "Try the football card scanner in Card AI."
+        "Check football coverage before scanning."
       ],
       "canonical": "https://tcgcard.fun/football-card-scanner",
-      "normalizedBodySha256": "9e879461a364c303d3abbd2d859b8a850ec213262af4143779d95389117ea324",
-      "bodyCharacters": 3496,
-      "wordCount": 567,
+      "normalizedBodySha256": "cdeef163c72ba064d7caeb39f4eea69b32500fc16410d940447d7b98dc352e61",
+      "bodyCharacters": 3663,
+      "wordCount": 573,
       "tableRows": 0,
       "contentLinks": [
-        "/basketball-card-scanner",
-        "/card-price-checker",
-        "/soccer-card-scanner",
+        "/download",
+        "/card-identifier",
+        "/data-methodology",
         "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224",
+        "/games",
+        "/card-price-checker",
+        "https://www.paniniamerica.net/checklist.html",
         "https://www.checklistinsider.com/2025-panini-phoenix-football",
-        "https://www.paniniamerica.net/checklist.html"
+        "/basketball-card-scanner",
+        "/soccer-card-scanner"
       ],
       "contentImages": [
         {
@@ -1004,10 +1007,16 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "920680845d65ee26acb62b2d03df3aae20902f5d7de2e5df6ad0512bd3a34ae6",
+      "htmlSha256": "08ca3aac0b30e04556656ffe3af7ea0444774d28c8cab550984e561f05ab1a0a",
       "localPublicFile": "apps/marketing-web/public/football-card-scanner.html",
       "localBodyMatchesLive": false,
-      "newProjectMigrationStatus": "notImplemented"
+      "newProjectMigrationStatus": "notImplemented",
+      "priorHtmlSha256": "920680845d65ee26acb62b2d03df3aae20902f5d7de2e5df6ad0512bd3a34ae6",
+      "contentRevision": {
+        "date": "2026-11-10",
+        "approval": "TCG-20261110-ANSWER: user approved all 17 page improvements",
+        "scope": "approved answer, platform/coverage correction, FAQ and contextual links; numbered tables and price observation dates retained"
+      }
     },
     {
       "path": "/graded-card-tracker",
@@ -1623,8 +1632,8 @@
       "path": "/blog/ascended-heroes-card-list",
       "file": "blog__ascended-heroes-card-list.html",
       "status": 200,
-      "bytes": 139000,
-      "title": "Ascended Heroes Card List and Prices | Card AI",
+      "bytes": 141342,
+      "title": "Ascended Heroes Card List & Printing Guide | CardScanFox",
       "h1": [
         "Ascended Heroes card list and printing guide"
       ],
@@ -1635,21 +1644,24 @@
         "Prices and checklist completion answer different questions"
       ],
       "canonical": "https://tcgcard.fun/blog/ascended-heroes-card-list",
-      "normalizedBodySha256": "2afecfc53338c12cbbb3de24de841b24e51e62287e32ab218a826677d05fc623",
-      "bodyCharacters": 32655,
-      "wordCount": 5291,
+      "normalizedBodySha256": "0e9e3d9cf105bb20bddc4e9b2065fbf2eb9293c3163034d21f145634d1a73ef9",
+      "bodyCharacters": 32047,
+      "wordCount": 4479,
       "tableRows": 296,
       "contentLinks": [
-        "#card-list",
         "/blog/",
-        "/blog/chaos-rising-card-list",
-        "/blog/mega-charizard-x-ex-card-value",
-        "/blog/phantasmal-flames-card-list",
-        "/card-collection-tracker",
-        "/digital-card-binder",
-        "/pokemon-card-scanner",
+        "#card-list",
+        "/sets",
+        "/games/pokemon",
+        "/data-methodology",
         "https://d1i787aglh9bmb.cloudfront.net/assets/img/me-expansions/me2dot5/gallery/_pdfs/ME02pt5_Card_List_EN.pdf",
-        "https://tcg.pokemon.com/en-us/galleries/ascended-heroes/"
+        "https://tcg.pokemon.com/en-us/galleries/ascended-heroes/",
+        "/pokemon-card-scanner",
+        "/digital-card-binder",
+        "/card-collection-tracker",
+        "/blog/chaos-rising-card-list",
+        "/blog/phantasmal-flames-card-list",
+        "/blog/mega-charizard-x-ex-card-value"
       ],
       "contentImages": [
         {
@@ -1657,17 +1669,23 @@
           "alt": "Card AI collection and confirmed card records example"
         }
       ],
-      "htmlSha256": "167686ab71784ba6084330b161f15b3044642dfeacb82e86ea9a9a0acd8d7421",
+      "htmlSha256": "58e8c6b25074d7110eaa070c48a19bbfbc10d3c0ee46542244434332c012ee9e",
       "localPublicFile": null,
       "localBodyMatchesLive": null,
-      "newProjectMigrationStatus": "notImplemented"
+      "newProjectMigrationStatus": "notImplemented",
+      "priorHtmlSha256": "167686ab71784ba6084330b161f15b3044642dfeacb82e86ea9a9a0acd8d7421",
+      "contentRevision": {
+        "date": "2026-11-10",
+        "approval": "TCG-20261110-ANSWER: user approved all 17 page improvements",
+        "scope": "approved answer, platform/coverage correction, FAQ and contextual links; numbered tables and price observation dates retained"
+      }
     },
     {
       "path": "/blog/chaos-rising-card-list",
       "file": "blog__chaos-rising-card-list.html",
       "status": 200,
-      "bytes": 44884,
-      "title": "Chaos Rising Card List and Price Snapshot | Card AI",
+      "bytes": 45476,
+      "title": "Chaos Rising Card List & Price References | CardScanFox",
       "h1": [
         "Chaos Rising card list and price reference"
       ],
@@ -1678,21 +1696,24 @@
         "Checklist, chase card and sealed-product questions"
       ],
       "canonical": "https://tcgcard.fun/blog/chaos-rising-card-list",
-      "normalizedBodySha256": "0c5c4fa7ff62c1dc028fa375f6caec63e555527417bc4db447b9c163bd238145",
-      "bodyCharacters": 8840,
-      "wordCount": 1429,
+      "normalizedBodySha256": "049f3b564b76ae874e57bfcbf4378d24267b64a4049bfa8e6345e9149d3c2b90",
+      "bodyCharacters": 8803,
+      "wordCount": 1208,
       "tableRows": 123,
       "contentLinks": [
-        "#card-list",
         "/blog/",
+        "#card-list",
+        "/sets",
+        "/games/pokemon",
+        "/data-methodology",
+        "https://d1i787aglh9bmb.cloudfront.net/assets/img/me-expansions/me04/gallery/_pdfs/ME04_Card_List_EN.pdf",
+        "https://tcg.pokemon.com/en-us/galleries/chaos-rising/",
+        "/pokemon-card-scanner",
+        "/card-price-checker",
         "/blog/ascended-heroes-card-list",
         "/blog/phantasmal-flames-card-list",
         "/blog/pokemon-tcg-set-card-lists",
-        "/card-collection-tracker",
-        "/card-price-checker",
-        "/pokemon-card-scanner",
-        "https://d1i787aglh9bmb.cloudfront.net/assets/img/me-expansions/me04/gallery/_pdfs/ME04_Card_List_EN.pdf",
-        "https://tcg.pokemon.com/en-us/galleries/chaos-rising/"
+        "/card-collection-tracker"
       ],
       "contentImages": [
         {
@@ -1700,10 +1721,16 @@
           "alt": "Card AI reference prices and price history example"
         }
       ],
-      "htmlSha256": "4827e2110e9c6b3064b02590ad01db2a05af58f29a21e2d3231cc8ebbb070a30",
+      "htmlSha256": "7fc0baf31d97b3572a446a96584e3371e20a711b7ffd0a5e149b48678bccee60",
       "localPublicFile": null,
       "localBodyMatchesLive": null,
-      "newProjectMigrationStatus": "notImplemented"
+      "newProjectMigrationStatus": "notImplemented",
+      "priorHtmlSha256": "4827e2110e9c6b3064b02590ad01db2a05af58f29a21e2d3231cc8ebbb070a30",
+      "contentRevision": {
+        "date": "2026-11-10",
+        "approval": "TCG-20261110-ANSWER: user approved all 17 page improvements",
+        "scope": "approved answer, platform/coverage correction, FAQ and contextual links; numbered tables and price observation dates retained"
+      }
     },
     {
       "path": "/blog/charizard-151-card-value",
@@ -1984,8 +2011,8 @@
       "path": "/blog/phantasmal-flames-card-list",
       "file": "blog__phantasmal-flames-card-list.html",
       "status": 200,
-      "bytes": 47217,
-      "title": "Phantasmal Flames Card List and Prices | Card AI",
+      "bytes": 47749,
+      "title": "Phantasmal Flames Card List & Prices | CardScanFox",
       "h1": [
         "Phantasmal Flames card list and price reference"
       ],
@@ -1996,22 +2023,25 @@
         "From checklist to collection"
       ],
       "canonical": "https://tcgcard.fun/blog/phantasmal-flames-card-list",
-      "normalizedBodySha256": "f8118cce49cc370374930c4d31d22caadc62ac7caf6620193b53124bba171593",
-      "bodyCharacters": 9126,
-      "wordCount": 1461,
+      "normalizedBodySha256": "30133b008ca4e36524e75693292f1f722bffb90fb2b9f908e2b1c435e060eaf8",
+      "bodyCharacters": 9068,
+      "wordCount": 1226,
       "tableRows": 131,
       "contentLinks": [
-        "#card-list",
         "/blog/",
-        "/blog/ascended-heroes-card-list",
-        "/blog/chaos-rising-card-list",
-        "/blog/mega-charizard-x-ex-card-value",
-        "/blog/pokemon-tcg-set-card-lists",
-        "/blog/raw-vs-graded-card-values",
-        "/card-price-checker",
-        "/pokemon-card-scanner",
+        "#card-list",
+        "/sets",
+        "/games/pokemon",
+        "/data-methodology",
         "https://d1i787aglh9bmb.cloudfront.net/assets/img/me-expansions/me02/gallery/_pdfs/P10347_ME02_Card_List_EN_HiRes.pdf",
-        "https://tcg.pokemon.com/en-us/galleries/phantasmal-flames/"
+        "https://tcg.pokemon.com/en-us/galleries/phantasmal-flames/",
+        "/blog/mega-charizard-x-ex-card-value",
+        "/pokemon-card-scanner",
+        "/card-price-checker",
+        "/blog/raw-vs-graded-card-values",
+        "/blog/chaos-rising-card-list",
+        "/blog/ascended-heroes-card-list",
+        "/blog/pokemon-tcg-set-card-lists"
       ],
       "contentImages": [
         {
@@ -2019,10 +2049,16 @@
           "alt": "Card AI published prices and history example"
         }
       ],
-      "htmlSha256": "d23d8fbd3367cbed3e2c3f2b8dfeae0a249037f1710ac4ea702a5787cd03e997",
+      "htmlSha256": "eb77e8732144b554f63cacd1ce553c76cf876a8cac2bebd7034998a815efa473",
       "localPublicFile": null,
       "localBodyMatchesLive": null,
-      "newProjectMigrationStatus": "notImplemented"
+      "newProjectMigrationStatus": "notImplemented",
+      "priorHtmlSha256": "d23d8fbd3367cbed3e2c3f2b8dfeae0a249037f1710ac4ea702a5787cd03e997",
+      "contentRevision": {
+        "date": "2026-11-10",
+        "approval": "TCG-20261110-ANSWER: user approved all 17 page improvements",
+        "scope": "approved answer, platform/coverage correction, FAQ and contextual links; numbered tables and price observation dates retained"
+      }
     },
     {
       "path": "/blog/pikachu-card-values",
@@ -2068,39 +2104,43 @@
       "path": "/blog/pokemon-card-values",
       "file": "blog__pokemon-card-values.html",
       "status": 200,
-      "bytes": 9907,
-      "title": "Pokemon Card Values by Name, Set and Number | Card AI",
+      "bytes": 10943,
+      "title": "Pokémon Card Values: Find the Exact Printing & Price",
       "h1": [
-        "Find a Pokemon card value by its exact printing"
+        "Find your Pokémon card value by its exact printing"
       ],
       "h2": [
         "Browse card values by Pokemon",
         "Check a number within its set",
         "Read the price date before using a value",
-        "Move from a reference to your own card"
+        "Move from a reference to your own card",
+        "Questions about this reference"
       ],
       "canonical": "https://tcgcard.fun/blog/pokemon-card-values",
-      "normalizedBodySha256": "a46152fd6da288caaad7657ac7b9d85ef7167da79e667fd4bc655e0362ea3edd",
-      "bodyCharacters": 3726,
-      "wordCount": 606,
+      "normalizedBodySha256": "e562d1b61e4fd23c746c0cb107d17d5a072576ef085baa61efbd138be06c996e",
+      "bodyCharacters": 4293,
+      "wordCount": 666,
       "tableRows": 10,
       "contentLinks": [
         "/blog/",
-        "/blog/ascended-heroes-card-list",
-        "/blog/chaos-rising-card-list",
-        "/blog/charizard-151-card-value",
+        "/games/pokemon",
+        "/data-methodology",
+        "/blog/pokemon-card-condition-guide",
+        "/pokemon-card-scanner",
+        "/blog/rayquaza-vmax-card-values",
+        "/blog/mew-gg10-card-value",
         "/blog/charizard-gx-card-values",
+        "/blog/charizard-151-card-value",
+        "/blog/mega-charizard-x-ex-card-value",
+        "/blog/pikachu-card-values",
+        "/blog/moonbreon-card-value",
         "/blog/cufant-card-values",
         "/blog/ivysaur-card-values",
-        "/blog/mega-charizard-x-ex-card-value",
-        "/blog/mew-gg10-card-value",
-        "/blog/moonbreon-card-value",
+        "/blog/ascended-heroes-card-list",
+        "/blog/chaos-rising-card-list",
         "/blog/phantasmal-flames-card-list",
-        "/blog/pikachu-card-values",
-        "/blog/rayquaza-vmax-card-values",
-        "/card-collection-tracker",
         "/card-price-checker",
-        "/pokemon-card-scanner",
+        "/card-collection-tracker",
         "https://api.tcgcard.fun/api/v1/cards/search?q=Shining%20Charizard&game=Pokemon&page_size=100"
       ],
       "contentImages": [
@@ -2109,10 +2149,16 @@
           "alt": "Card AI card price and history screen example"
         }
       ],
-      "htmlSha256": "9e47b808f498af45a61f60927bf04e8636903a27f3990a1b68356865b6f2d974",
+      "htmlSha256": "79e6cbd505b216dcd82e8f8abf260b0db7006fb156d12454dce26f631c9edd56",
       "localPublicFile": null,
       "localBodyMatchesLive": null,
-      "newProjectMigrationStatus": "notImplemented"
+      "newProjectMigrationStatus": "notImplemented",
+      "priorHtmlSha256": "9e47b808f498af45a61f60927bf04e8636903a27f3990a1b68356865b6f2d974",
+      "contentRevision": {
+        "date": "2026-11-10",
+        "approval": "TCG-20261110-ANSWER: user approved all 17 page improvements",
+        "scope": "approved answer, platform/coverage correction, FAQ and contextual links; numbered tables and price observation dates retained"
+      }
     },
     {
       "path": "/blog/rayquaza-vmax-card-values",
@@ -2210,32 +2256,33 @@
       "path": "/blog/dungeon-crawler-carl-trading-cards",
       "file": "blog__dungeon-crawler-carl-trading-cards.html",
       "status": 200,
-      "bytes": 8323,
-      "title": "Dungeon Crawler Carl Trading Cards: Series 1 Guide | Card AI",
+      "bytes": 9263,
+      "title": "Dungeon Crawler Carl Trading Cards: Series 1 & Checklist",
       "h1": [
-        "Dungeon Crawler Carl trading cards: Series 1 cards and packs"
+        "Dungeon Crawler Carl trading cards: identify Series 1"
       ],
       "h2": [
         "Which Dungeon Crawler Carl cards are being sold?",
         "Is there a Dungeon Crawler Carl Series 1 card list?",
         "Where can you buy Dungeon Crawler Carl trading cards?",
         "Check the card before checking value",
-        "Related"
+        "Related",
+        "Questions about this reference"
       ],
       "canonical": "https://tcgcard.fun/blog/dungeon-crawler-carl-trading-cards",
-      "normalizedBodySha256": "a798732ba5fe86198f3902c5625de54512b821f09d1771dcb05562bbd72d0e5d",
-      "bodyCharacters": 2518,
-      "wordCount": 405,
+      "normalizedBodySha256": "86a3c3a2dce759d207321ed2b39ae91060962d25c151bd7ccbdd64f44ae94e96",
+      "bodyCharacters": 3083,
+      "wordCount": 487,
       "tableRows": 0,
       "contentLinks": [
         "/blog/",
-        "/blog/raw-vs-graded-card-values",
         "/card-identifier",
         "/card-price-checker",
-        "https://cardbox.club/price-guide/dungeon-crawler-carl/dungeon-crawler-carl-series-one-9c845a",
-        "https://dungeoncrawlercarl.renegadegamestudios.com/dungeon-crawler-carl-unstoppable/",
+        "/blog/raw-vs-graded-card-values",
+        "https://www.linkedin.com/posts/playmates-toys_playmates-toys-inc-in-partnership-with-books-a-million-activity-7462587604455231488--M6O",
         "https://www.hottopic.com/product/dungeon-crawler-carl-series-1-trading-card-pack/37061648.html",
-        "https://www.linkedin.com/posts/playmates-toys_playmates-toys-inc-in-partnership-with-books-a-million-activity-7462587604455231488--M6O"
+        "https://dungeoncrawlercarl.renegadegamestudios.com/dungeon-crawler-carl-unstoppable/",
+        "https://cardbox.club/price-guide/dungeon-crawler-carl/dungeon-crawler-carl-series-one-9c845a"
       ],
       "contentImages": [
         {
@@ -2243,10 +2290,16 @@
           "alt": "Card AI scan and candidate review screen"
         }
       ],
-      "htmlSha256": "915cf323ba6872c33d95aa216ceb0ff892414a8a0fb16e5d6e4c526a97fab1a9",
+      "htmlSha256": "0f01a5d5ea5eeb64c815f61c33f8ac163e4259f9942d4e1bd533fe58be44917f",
       "localPublicFile": "apps/marketing-web/public/blog/dungeon-crawler-carl-trading-cards.html",
       "localBodyMatchesLive": false,
-      "newProjectMigrationStatus": "notImplemented"
+      "newProjectMigrationStatus": "notImplemented",
+      "priorHtmlSha256": "915cf323ba6872c33d95aa216ceb0ff892414a8a0fb16e5d6e4c526a97fab1a9",
+      "contentRevision": {
+        "date": "2026-11-10",
+        "approval": "TCG-20261110-ANSWER: user approved all 17 page improvements",
+        "scope": "approved answer, platform/coverage correction, FAQ and contextual links; numbered tables and price observation dates retained"
+      }
     },
     {
       "path": "/blog/minior-pokemon-card-guide",
@@ -2294,31 +2347,33 @@
       "path": "/blog/scanning-cards-from-watsontcg",
       "file": "blog__scanning-cards-from-watsontcg.html",
       "status": 200,
-      "bytes": 7359,
-      "title": "Scan Cards Bought at WatsonTCG | Card AI",
+      "bytes": 7948,
+      "title": "Scan Cards Bought at WatsonTCG: Confirm the Printing",
       "h1": [
-        "How to scan cards bought at WatsonTCG"
+        "Identify cards bought at WatsonTCG before tracking them"
       ],
       "h2": [
         "Match the card to its game",
         "Scan after opening or buying a single",
-        "Related"
+        "Related",
+        "Questions about this reference"
       ],
       "canonical": "https://tcgcard.fun/blog/scanning-cards-from-watsontcg",
-      "normalizedBodySha256": "7ae2c5a94dd8a6f27d392458c238e4d3805ff13348e35491d18475d3e50cf8dd",
-      "bodyCharacters": 2027,
-      "wordCount": 349,
+      "normalizedBodySha256": "2cc00763e8778c2da3ef20de86aeb6c4cdc4b73fadb6f6e85209b0ee9200a72e",
+      "bodyCharacters": 2369,
+      "wordCount": 390,
       "tableRows": 0,
       "contentLinks": [
         "/blog/",
-        "/blog/what-is-my-trading-card-worth",
-        "/bulk-card-scanner",
+        "/card-identifier",
+        "/cards",
         "/card-collection-tracker",
-        "/lorcana-card-scanner",
+        "/pokemon-card-scanner",
         "/mtg-card-scanner",
         "/one-piece-card-scanner",
-        "/pokemon-card-scanner",
-        "https://watsontcg.com/"
+        "/lorcana-card-scanner",
+        "/bulk-card-scanner",
+        "/blog/what-is-my-trading-card-worth"
       ],
       "contentImages": [
         {
@@ -2326,17 +2381,23 @@
           "alt": "Card AI scan and candidate review screen"
         }
       ],
-      "htmlSha256": "65464963fbe1f58c3d9232333e13478b63988c9a2aa4321ba224137671f935d0",
+      "htmlSha256": "0b4e0f32c210b350efeabee7c6de0822515e96d0eef613284f46010a5c8b3380",
       "localPublicFile": "apps/marketing-web/public/blog/scanning-cards-from-watsontcg.html",
       "localBodyMatchesLive": true,
-      "newProjectMigrationStatus": "notImplemented"
+      "newProjectMigrationStatus": "notImplemented",
+      "priorHtmlSha256": "65464963fbe1f58c3d9232333e13478b63988c9a2aa4321ba224137671f935d0",
+      "contentRevision": {
+        "date": "2026-11-10",
+        "approval": "TCG-20261110-ANSWER: user approved all 17 page improvements",
+        "scope": "approved answer, platform/coverage correction, FAQ and contextual links; numbered tables and price observation dates retained"
+      }
     },
     {
       "path": "/blog/pokemon-tcg-30th-celebration-card-prices",
       "file": "blog__pokemon-tcg-30th-celebration-card-prices.html",
       "status": 200,
-      "bytes": 13837,
-      "title": "Pokemon 30th Anniversary: Card Lists & Prices | Card AI",
+      "bytes": 13877,
+      "title": "Pokémon 30th Celebration: Card Lists & Prices | CardScanFox",
       "h1": [
         "Pokemon 30th anniversary: 30th Celebration cards and prices"
       ],
@@ -2354,19 +2415,21 @@
         "Related"
       ],
       "canonical": "https://tcgcard.fun/blog/pokemon-tcg-30th-celebration-card-prices",
-      "normalizedBodySha256": "6813baeafbcc66876ce896f832ac85a6b3d5d193c2671b9a7a6a13694ba6fb14",
-      "bodyCharacters": 7580,
-      "wordCount": 1250,
+      "normalizedBodySha256": "edc30f32cea5516951b7438e734d976e18df2abda44347868fe664100ef4932e",
+      "bodyCharacters": 7541,
+      "wordCount": 1235,
       "tableRows": 0,
       "contentLinks": [
         "/blog/",
-        "/blog/raw-vs-graded-card-values",
-        "/card-collection-tracker",
-        "/card-price-checker",
-        "/pokemon-card-scanner",
-        "https://tcg.pokemon.com/en-us/expansions/30th-celebration/",
+        "/cards/717605",
+        "/sets/set-cdfc299a9ad0",
+        "/blog/pokemon-upc-30th-anniversary",
         "https://tcg.pokemon.com/en-us/galleries/30th-celebration/",
-        "https://www.pokemon.com/us/news/pokemon-tcg-30th-celebration-product-showcase"
+        "/card-collection-tracker",
+        "https://www.pokemon.com/us/news/pokemon-tcg-30th-celebration-product-showcase",
+        "/pokemon-card-scanner",
+        "/card-price-checker",
+        "/blog/raw-vs-graded-card-values"
       ],
       "contentImages": [
         {
@@ -2374,10 +2437,16 @@
           "alt": "Card AI market prices and price history view"
         }
       ],
-      "htmlSha256": "afa15239ea386585af45ae67bbeb3e5e5bed6c34332b006f11a423f888aed13f",
+      "htmlSha256": "91855236d3ce99bbc38dd96ecff35a35278b7cf11d136215fd08099d778f226d",
       "localPublicFile": "apps/marketing-web/public/blog/pokemon-tcg-30th-celebration-card-prices.html",
       "localBodyMatchesLive": false,
-      "newProjectMigrationStatus": "notImplemented"
+      "newProjectMigrationStatus": "notImplemented",
+      "priorHtmlSha256": "afa15239ea386585af45ae67bbeb3e5e5bed6c34332b006f11a423f888aed13f",
+      "contentRevision": {
+        "date": "2026-11-10",
+        "approval": "TCG-20261110-ANSWER: user approved all 17 page improvements",
+        "scope": "approved answer, platform/coverage correction, FAQ and contextual links; numbered tables and price observation dates retained"
+      }
     },
     {
       "path": "/blog/what-is-my-trading-card-worth",
@@ -2468,7 +2537,7 @@
       "path": "/privacy",
       "file": "privacy.html",
       "status": 200,
-      "bytes": 22640,
+      "bytes": 23039,
       "title": "Privacy Policy | Card AI",
       "h1": [
         "Privacy Policy"
@@ -2493,18 +2562,19 @@
         "17. Contact Us"
       ],
       "canonical": null,
-      "normalizedBodySha256": "bc69a9cc3846846d9e94562a108c3ed789e902f1a87df8a3ff18f451fc32ac44",
-      "bodyCharacters": 14685,
-      "wordCount": 2153,
+      "normalizedBodySha256": "6024a373b109660f456d4e0624c8d9abb36ee2ff119841d4ad2098bb469fadf0",
+      "bodyCharacters": 15052,
+      "wordCount": 2216,
       "tableRows": 0,
       "contentLinks": [
+        "/Account/AccountSetup",
         "https://tcgcard.fun",
         "https://tcgcard.fun/privacy",
         "https://tcgcard.fun/terms",
         "mailto:support@tcgcard.fun"
       ],
       "contentImages": [],
-      "htmlSha256": "c33c6e62dd28666d39b193a02905667a0a767f278614c57079d0775a9f3c2482",
+      "htmlSha256": "d9bb3f7dd1c726fce30bdc0b13f0031fe336b0a1216deeb44be1cfb991c17338",
       "localPublicFile": "apps/marketing-web/public/privacy.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented"

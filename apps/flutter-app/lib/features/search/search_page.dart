@@ -774,6 +774,7 @@ class _SearchSetRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isAndroid = Theme.of(context).platform == TargetPlatform.android;
     return InkWell(
       key: Key('search-set-${set.id}'),
       onTap: () => context.push(
@@ -783,7 +784,8 @@ class _SearchSetRow extends ConsumerWidget {
       ),
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        height: 92,
+        height: isAndroid ? null : 92,
+        constraints: isAndroid ? const BoxConstraints(minHeight: 92) : null,
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
           gradient: const LinearGradient(

@@ -204,8 +204,13 @@
       {
         "label": "TCGplayer: Mew ex 232/091 product record",
         "url": "https://www.tcgplayer.com/product/534919/pokemon-sv-paldean-fates-mew-ex-232-091"
+      },
+      {
+        "label": "CardScanFox: Mew ex 152/128 from 30th Celebration",
+        "url": "https://tcgcard.fun/cards/717605"
       }
-    ]
+    ],
+    "updatedAt": "2026-11-10"
   },
   {
     "path": "/blog/pokemon-delta-herrschaft-pull-rate",

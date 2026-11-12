@@ -613,7 +613,6 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
     OverlayEntry? loadingOverlay;
     return _run(
       () async {
-        if (!await _confirmGuestDataSeparation()) return;
         try {
           await ref
               .read(authControllerProvider.notifier)
@@ -639,7 +638,6 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
     OverlayEntry? loadingOverlay;
     return _run(
       () async {
-        if (!await _confirmGuestDataSeparation()) return;
         try {
           await ref
               .read(authControllerProvider.notifier)
@@ -699,7 +697,6 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
   }
 
   Future<void> _openEmailAuthPage() async {
-    if (!await _confirmGuestDataSeparation()) return;
     if (!mounted) return;
     final optionsRoute = ModalRoute.of(context)!;
     final navigator = Navigator.of(context);
@@ -757,29 +754,6 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
         }
       });
     }
-  }
-
-  Future<bool> _confirmGuestDataSeparation() async {
-    if (!widget.androidFreeLaunch) {
-      return true;
-    }
-    final confirmed = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => KandoConfirmModal(
-        title: 'Continue?',
-        message: 'Guest data is kept.\nIt will not merge.',
-        icon: Icons.person_outline,
-        confirmLabel: 'Continue',
-        cancelLabel: 'Cancel',
-        confirmType: KandoModalButtonType.primary,
-        compact: true,
-        dense: true,
-        onCancel: () => Navigator.of(context).pop(false),
-        onConfirm: () => Navigator.of(context).pop(true),
-      ),
-    );
-    return confirmed == true;
   }
 
   Future<void> _run(
@@ -916,9 +890,11 @@ class _OAuthLoadingOverlay extends StatelessWidget {
                     message,
                     textAlign: TextAlign.center,
                     textScaler: TextScaler.noScaling,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: KandoColors.text,
-                      fontFamily: 'Geist',
+                      fontFamily:
+                          kandoBodyFontFamily(Theme.of(context).platform) ??
+                          'Geist',
                       fontSize: 16,
                       height: 24 / 16,
                       fontWeight: FontWeight.w500,
@@ -1145,7 +1121,8 @@ class _AgreementText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const bodyStyle = TextStyle(
+    final bodyStyle = TextStyle(
+      fontFamily: kandoBodyFontFamily(Theme.of(context).platform),
       color: KandoColors.text,
       fontSize: 12,
       height: 16 / 12,
@@ -1165,13 +1142,13 @@ class _AgreementText extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
+          Text(
             'By continuing, you agree to our',
-            key: Key('auth-agreement-copy'),
+            key: const Key('auth-agreement-copy'),
             textAlign: TextAlign.center,
             maxLines: 1,
             textScaler: TextScaler.noScaling,
-            textHeightBehavior: TextHeightBehavior(
+            textHeightBehavior: const TextHeightBehavior(
               applyHeightToFirstAscent: false,
               applyHeightToLastDescent: false,
             ),

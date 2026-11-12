@@ -37,6 +37,10 @@ crons = ["*/5 * * * *"]
 
 [env.prod.vars]
 GOOGLE_CLIENT_ID = "1030914046373-j0ihp89joii8c9k66v89l9dske6mp0mc.apps.googleusercontent.com"
+GOOGLE_ANDROID_SERVER_CLIENT_ID = "1030914046373-ub1ap8io8trdoj2lu5musu2bmumduuak.apps.googleusercontent.com"
+ANDROID_PLAY_PACKAGE_NAME = "com.cardai.tcg"
+ANDROID_PLAY_CERTIFICATE_SHA256_DIGESTS = "l5WRhVgOPXWCYtUoS9n-etIvXDR7KFrvJWcjnxeXxD8"
+ANDROID_PLAY_SERVICE_ACCOUNT_EMAIL = "cardai-play-integrity@tcg-card-2072d.iam.gserviceaccount.com"
 APPLE_CLIENT_ID = "com.cardai.tcg"
 APPLE_APP_ATTEST_APP_ID = "B95U3272HR.com.cardai.tcg"
 APPLE_APP_ATTEST_DEVELOPMENT = "false"

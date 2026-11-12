@@ -68,8 +68,14 @@ if (isProductionEnvironment) {
 if (hasFirebaseConfig) {
     apply(plugin = "com.google.gms.google-services")
     apply(plugin = "com.google.firebase.crashlytics")
-    tasks.withType<GoogleServicesTask>().configureEach {
-        googleServicesJsonFiles.set(listOf(firebaseConfigFile!!))
+    androidComponents {
+        onVariants(selector().all()) { variant ->
+            val variantName = variant.name.replaceFirstChar { it.uppercaseChar() }
+            // Configure after the plugin registers its default variant inputs.
+            tasks.named<GoogleServicesTask>("process${variantName}GoogleServices") {
+                googleServicesJsonFiles.set(listOf(firebaseConfigFile!!))
+            }
+        }
     }
 }
 
@@ -117,7 +123,7 @@ android {
         applicationId = if (isProductionEnvironment) {
             productionApplicationId
         } else {
-            "dev.kando.cardvault.sandbox.a1aa3e"
+            "com.kando.kandoApp.beta"
         }
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.

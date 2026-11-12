@@ -31,5 +31,5 @@ test('fixed public page owners have a clear intent and use English task copy in 
   assert.ok(meta.intent&&meta.question,path);assert.ok(meta.title&&meta.description.length>70,path);
   const page=renderer.resolvePage(new URL(path,'https://tcgcard.fun'));assert.equal(page.status,200,path);assert.match(page.html,/<html lang="en">/);assert.doesNotMatch(page.html,/Independent review site/);
  }
- const price=renderer.resolvePage(new URL('/prices','https://tcgcard.fun')).html;assert.match(price,/<title>Trading Card Prices &amp; Value Lookup/);assert.match(price,/What is your/);
+ const price=renderer.resolvePage(new URL('/prices','https://tcgcard.fun')).html;assert.match(price,/<title>Trading Card Price Lookup/);assert.match(price,/Look up the price/);
 });

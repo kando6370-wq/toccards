@@ -396,6 +396,8 @@ class KandoConfirmModal extends StatelessWidget {
           ? compactDangerLayout
                 ? 377
                 : 355
+          : dense
+          ? 334
           : 378,
       danger: danger,
       child: Padding(

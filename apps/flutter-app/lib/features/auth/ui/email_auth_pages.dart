@@ -101,7 +101,9 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
     final form = Form(
       key: _formKey,
       child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 120),
+        duration: Theme.of(context).platform == TargetPlatform.android
+            ? Duration.zero
+            : const Duration(milliseconds: 120),
         child: _buildPage(context),
       ),
     );
@@ -128,6 +130,9 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
   }
 
   Widget _buildPage(BuildContext context) {
+    final compactAndroidEmail =
+        Theme.of(context).platform == TargetPlatform.android &&
+        MediaQuery.viewInsetsOf(context).bottom > 0;
     final body = switch (_page) {
       _EmailPage.email => _EmailInputPage(
         controller: _emailController,
@@ -135,6 +140,7 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
         errorText: _errorText,
         onContinue: _beginEmailAuth,
         fullScreen: widget.fullScreen,
+        compactForKeyboard: compactAndroidEmail,
       ),
       _EmailPage.login => _PasswordPage(
         title: _email ?? '',
@@ -714,6 +720,7 @@ class _EmailInputPage extends StatelessWidget {
     required this.errorText,
     required this.onContinue,
     required this.fullScreen,
+    required this.compactForKeyboard,
   });
 
   final TextEditingController controller;
@@ -721,6 +728,7 @@ class _EmailInputPage extends StatelessWidget {
   final String? errorText;
   final VoidCallback onContinue;
   final bool fullScreen;
+  final bool compactForKeyboard;
 
   @override
   Widget build(BuildContext context) {
@@ -755,6 +763,32 @@ class _EmailInputPage extends StatelessWidget {
             label: 'Continue',
             loading: loading,
             onPressed: onContinue,
+          ),
+        ],
+      );
+    }
+
+    if (compactForKeyboard) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          emailField,
+          if (errorText != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              errorText!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ],
+          const SizedBox(height: 16),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (context, value, _) => _PrimaryButton(
+              label: 'Continue',
+              loading: loading,
+              enabled: _hasValidEmailInput(value.text),
+              onPressed: onContinue,
+            ),
           ),
         ],
       );
@@ -1213,44 +1247,93 @@ class _CodePageState extends State<_CodePage> {
 
   @override
   Widget build(BuildContext context) {
-    final content = ValueListenableBuilder<TextEditingValue>(
-      valueListenable: widget.controller,
-      builder: (context, value, _) {
-        final complete = value.text.length == 6;
-        final resendAfterError = complete && widget.errorText != null;
-        final canResend = widget.resendSeconds == 0 && widget.resendEnabled;
-        return Column(
+    Widget buildContent(bool anchorActionsToBottom) {
+      return ValueListenableBuilder<TextEditingValue>(
+        valueListenable: widget.controller,
+        builder: (context, value, _) {
+          final complete = value.text.length == 6;
+          final resendAfterError = complete && widget.errorText != null;
+          final canResend = widget.resendSeconds == 0 && widget.resendEnabled;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _VerificationCodeInput(
+                controller: widget.controller,
+                focusNode: _focusNode,
+                autofocus: widget.fullScreen,
+                errorText: widget.errorText,
+                onSubmitted: widget.onContinue,
+              ),
+              if (anchorActionsToBottom)
+                const Spacer()
+              else
+                const SizedBox(height: 24),
+              _CodeActionButton(
+                label: complete && !resendAfterError
+                    ? 'Get verification code'
+                    : widget.resendSeconds > 0
+                    ? 'Retry in ${widget.resendSeconds} seconds'
+                    : 'Get verification code',
+                loading: widget.loading,
+                enabled: resendAfterError ? canResend : complete || canResend,
+                onPressed: complete && !resendAfterError
+                    ? widget.onContinue
+                    : widget.onResend,
+              ),
+            ],
+          );
+        },
+      );
+    }
+
+    if (!widget.fullScreen) return buildContent(false);
+
+    if (Theme.of(context).platform == TargetPlatform.android) {
+      return SingleChildScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _VerificationCodeInput(
-              controller: widget.controller,
-              focusNode: _focusNode,
-              autofocus: widget.fullScreen,
-              errorText: widget.errorText,
-              onSubmitted: widget.onContinue,
+            _FigmaAuthTitle(widget.title),
+            if (!widget.isForgotFlow) ...[
+              const SizedBox(height: 8),
+              const Text(
+                'Enter the correct email CAPTCHA login',
+                style: TextStyle(
+                  color: Color(0xFF92927D),
+                  fontSize: 11,
+                  height: 18 / 11,
+                ),
+              ),
+            ],
+            const SizedBox(height: 32),
+            const Text(
+              'Email Address',
+              style: TextStyle(
+                color: Color(0xFF92927D),
+                fontSize: 11,
+                height: 18 / 11,
+              ),
             ),
-            if (widget.fullScreen)
-              const Spacer()
+            const SizedBox(height: 8),
+            if (widget.emailController == null)
+              _ReadOnlyEmailField(email: widget.email)
             else
-              const SizedBox(height: 24),
-            _CodeActionButton(
-              label: complete && !resendAfterError
-                  ? 'Get verification code'
-                  : widget.resendSeconds > 0
-                  ? 'Retry in ${widget.resendSeconds} seconds'
-                  : 'Get verification code',
-              loading: widget.loading,
-              enabled: resendAfterError ? canResend : complete || canResend,
-              onPressed: complete && !resendAfterError
-                  ? widget.onContinue
-                  : widget.onResend,
-            ),
+              TextFormField(
+                key: const Key('register-code-email-input'),
+                controller: widget.emailController,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
+                onChanged: widget.onEmailChanged,
+                style: _fieldTextStyle,
+                decoration: _fieldDecoration(hint: 'name@exclusive.com'),
+              ),
+            const SizedBox(height: 32),
+            buildContent(false),
           ],
-        );
-      },
-    );
-
-    if (!widget.fullScreen) return content;
+        ),
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1290,7 +1373,7 @@ class _CodePageState extends State<_CodePage> {
             decoration: _fieldDecoration(hint: 'name@exclusive.com'),
           ),
         const SizedBox(height: 32),
-        Expanded(child: content),
+        Expanded(child: buildContent(true)),
       ],
     );
   }
@@ -2129,57 +2212,82 @@ class _EmailAuthFullScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final showEmailHeading = page == _EmailPage.email;
     final usesFigmaTopNavigation = !showEmailHeading;
+    final isScrollableAndroidEmail =
+        showEmailHeading &&
+        Theme.of(context).platform == TargetPlatform.android;
+    final compactAndroidEmail =
+        isScrollableAndroidEmail && MediaQuery.viewInsetsOf(context).bottom > 0;
+
+    final content = Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        compactAndroidEmail ? 12 : 28,
+        20,
+        compactAndroidEmail ? 12 : 32,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: IconButton(
+              key: const Key('email-auth-back'),
+              onPressed: onBack,
+              icon: const Icon(Icons.arrow_back_rounded),
+              iconSize: 24,
+              color: KandoColors.text,
+              style: IconButton.styleFrom(
+                backgroundColor: KandoColors.elevatedSurface,
+                fixedSize: const Size.square(40),
+              ),
+            ),
+          ),
+          SizedBox(
+            height: usesFigmaTopNavigation
+                ? 16
+                : compactAndroidEmail
+                ? 16
+                : 35,
+          ),
+          if (showEmailHeading) ...[
+            const Text(
+              'Continue With Email',
+              style: TextStyle(
+                color: KandoColors.text,
+                fontFamily: 'Fraunces',
+                fontSize: 31,
+                height: 1.1,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Enter your credentials to access your secure digital\nrepository.',
+              style: TextStyle(
+                color: KandoColors.mutedText,
+                fontSize: 12,
+                height: 1.5,
+              ),
+            ),
+            SizedBox(height: compactAndroidEmail ? 16 : 36),
+          ],
+          if (compactAndroidEmail) child else Expanded(child: child),
+        ],
+      ),
+    );
 
     return SizedBox.expand(
       key: const Key('email-auth-page'),
       child: Scaffold(
         backgroundColor: KandoColors.ink,
         body: SafeArea(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(20, 28, 20, 32),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: IconButton(
-                    key: const Key('email-auth-back'),
-                    onPressed: onBack,
-                    icon: const Icon(Icons.arrow_back_rounded),
-                    iconSize: 24,
-                    color: KandoColors.text,
-                    style: IconButton.styleFrom(
-                      backgroundColor: KandoColors.elevatedSurface,
-                      fixedSize: const Size.square(40),
-                    ),
-                  ),
-                ),
-                SizedBox(height: usesFigmaTopNavigation ? 16 : 35),
-                if (showEmailHeading) ...[
-                  const Text(
-                    'Continue With Email',
-                    style: TextStyle(
-                      color: KandoColors.text,
-                      fontFamily: 'Fraunces',
-                      fontSize: 31,
-                      height: 1.1,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Enter your credentials to access your secure digital\nrepository.',
-                    style: TextStyle(
-                      color: KandoColors.mutedText,
-                      fontSize: 12,
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 36),
-                ],
-                Expanded(child: child),
-              ],
-            ),
-          ),
+          child: compactAndroidEmail
+              ? SingleChildScrollView(
+                  reverse: true,
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  child: content,
+                )
+              : content,
         ),
       ),
     );

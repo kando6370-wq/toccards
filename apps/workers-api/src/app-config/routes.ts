@@ -22,8 +22,9 @@ type PublicUpgradePrompt = {
   forced_message?: string;
 };
 
+// Hyperdrive does not cache queries containing PostgreSQL STABLE time functions.
 const SELECT_PUBLIC_APP_CONFIG_SQL = `
-  SELECT key, value
+  SELECT key, value, CURRENT_TIMESTAMP AS fetched_at
   FROM app_config
   WHERE key IN (?, 'card_share_base_url', 'terms_url', 'privacy_url')
   ORDER BY key ASC
@@ -87,7 +88,8 @@ function toUpgradePrompt(parsed: Record<string, unknown>): PublicUpgradePrompt {
 }
 
 function normalizePlatform(value: string | undefined): "ios" | "google" {
-  return value?.trim().toLowerCase() === "google" ? "google" : "ios";
+  const normalized = value?.trim().toLowerCase();
+  return normalized === "google" || normalized === "android" ? "google" : "ios";
 }
 
 function stringOrNull(value: unknown): string | null {

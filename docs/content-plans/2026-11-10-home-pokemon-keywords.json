@@ -1,0 +1,74 @@
+{
+  "batch_id": "home-pokemon-20261110",
+  "date": "2026-11-10",
+  "site": "https://tcgcard.fun",
+  "baseline": "0633fba4",
+  "inputs": [
+    {
+      "id": "K-001",
+      "term": "pokemon tcg",
+      "intent": "mixed official navigation, game information and collecting",
+      "plan": "P-001"
+    },
+    {
+      "id": "K-002",
+      "term": "pokemon card prices",
+      "intent": "printing-specific price lookup",
+      "plan": "P-001"
+    }
+  ],
+  "plan": {
+    "id": "P-001",
+    "action": "improve_existing",
+    "url": "/",
+    "language": "en",
+    "primary_task_owner": "/games/pokemon",
+    "title": "TCG & Sports Card Scanner, Prices & Tracker | CardScanFox",
+    "description": "Scan and track TCG and sports cards with Card AI. Explore Pokémon TCG, check Pokémon card prices by set and number, and compare dated printing references.",
+    "files": [
+      "apps/cardscanfox-web/content/seo-pages.json",
+      "apps/cardscanfox-web/src/home.html",
+      "apps/cardscanfox-web/src/home-template.mjs",
+      "apps/cardscanfox-web/src/render.mjs"
+    ],
+    "ai_question_map": {
+      "price_lookup": "homepage directs to existing exact-printing database and dated price context",
+      "official_rules": "not fulfilled by this site"
+    },
+    "recommendation_case": "Existing identification and dated reference workflow; no measured AI recommendation or ranking benefit",
+    "copy_audit": {
+      "title": "improved",
+      "input_output": "improved",
+      "one_sentence": "improved",
+      "object_then_steps": "preserved",
+      "specific_fields": "preserved",
+      "faq": "not_applicable",
+      "boundaries": "preserved",
+      "comparisons": "not_applicable"
+    },
+    "status": "corrected broad positioning published and verified"
+  },
+  "evidence": {
+    "google_search": [
+      "https://www.google.com/search?q=pokemon+tcg&hl=en&gl=us",
+      "https://www.google.com/search?q=pokemon+card+prices&hl=en&gl=us"
+    ],
+    "product": "https://tcgcard.fun/games/pokemon",
+    "jev": "jev-1.14.0; 2 terms; broad TCG uncertainty reviewed by Codex"
+  },
+  "limitations": [
+    "No GSC metrics or current heat validation",
+    "No promise of ranking, crawling, AI citation or conversion"
+  ],
+  "delivery": {
+    "sourceCommit": "8c36b51c1d6a834dd528d05692421a2de420d019",
+    "cloudflareBuild": "success",
+    "formalBrowserCheck": "refreshed page verifies broad positioning and download/full catalog/Pokemon catalog links",
+    "indexnow": {
+      "urls": 1,
+      "httpStatus": 200,
+      "receipt": ".indexnow/reports/2026-11-10T09-59-26-519Z.json"
+    }
+  },
+  "correction": "Retain multi-category TCG and sports card positioning and general catalog CTA; add a separate visible Pokemon TCG and Pokemon card prices paragraph linking to /games/pokemon. Previous Pokemon-focused title superseded."
+}

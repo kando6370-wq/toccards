@@ -209,7 +209,7 @@ void main() {
   );
 
   test(
-    'unconfigured local builds default to isolated Android test identity while iOS keeps its existing bundle ID',
+    'Android test builds use the beta application ID while production identities remain explicit',
     () {
       final apiEnvironment = File(
         'lib/shared/api/api_environment.dart',
@@ -226,7 +226,7 @@ void main() {
         'PRODUCT_BUNDLE_IDENTIFIER = com.cardai.tcg;'.allMatches(iosProject),
         hasLength(3),
       );
-      expect(androidBuild, contains('"dev.kando.cardvault.sandbox.a1aa3e"'));
+      expect(androidBuild, contains('"com.kando.kandoApp.beta"'));
       expect(androidBuild, contains('System.getenv("ANDROID_APPLICATION_ID")'));
       expect(androidBuild, contains('ANDROID_PLAY_CLOUD_PROJECT_NUMBER'));
       expect(androidBuild, contains('ANDROID_FIREBASE_CONFIG_PATH'));

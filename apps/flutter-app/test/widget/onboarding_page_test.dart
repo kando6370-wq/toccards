@@ -15,20 +15,22 @@ import 'package:kando_app/shared/platform/app_commercial_policy.dart';
 import 'package:video_player/video_player.dart';
 
 import '../support/in_memory_auth_storage.dart';
+import '../support/load_inter_fonts.dart';
 import '../support/in_memory_onboarding_storage.dart';
 import '../support/test_app_attribution.dart';
 import '../support/local_placeholder_auth_repository.dart';
 
 void main() {
   setUpAll(() async {
+    await loadInterFonts();
     await (FontLoader('Fraunces')..addFont(
           rootBundle.load('assets/fonts/Baskerville-BaskervilleSemiBold.ttf'),
         ))
         .load();
   });
 
-  test('app body typography uses the platform default family', () {
-    expect(buildKandoTheme().textTheme.bodyMedium?.fontFamily, 'Roboto');
+  test('Android onboarding uses the shared Inter body typography', () {
+    expect(buildKandoTheme().textTheme.bodyMedium?.fontFamily, 'Inter');
   });
 
   testWidgets('first launch starts on the scan guide with its video', (

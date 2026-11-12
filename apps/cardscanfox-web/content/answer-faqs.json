@@ -1,0 +1,38 @@
+{
+  "/": [
+    {
+      "question": "Can I scan a photo on this website?",
+      "answer": "No. Use the website for text lookup. Scan physical cards in Card AI for iPhone, or identify a webpage image with the separate Chrome extension."
+    },
+    {
+      "question": "Does saving a card on the website add it to my app collection?",
+      "answer": "No. Website Saved references stay in this browser. Manage owned holdings and Wishlist in Card AI."
+    }
+  ],
+  "/prices": [
+    {
+      "question": "Why can two records for the same character have different prices?",
+      "answer": "They may represent different sets, numbers, languages, finishes, conditions or grades. Compare the matching price series."
+    },
+    {
+      "question": "Why is no price shown for my card?",
+      "answer": "A catalog record and a published price are separate states. A missing amount does not mean the card is worth zero."
+    }
+  ],
+  "/cards/717605": [
+    {
+      "question": "Is Mew ex 152/128 the same card as Bubble Mew?",
+      "answer": "No. This page is the 30th Celebration 152/128 record. The English Bubble Mew discussed in our guide is Paldean Fates 232/091."
+    },
+    {
+      "question": "Is the displayed amount a guaranteed selling price?",
+      "answer": "No. It is a dated published reference for the selected price series. It is not an offer for your physical copy."
+    }
+  ],
+  "/sets/db-t1192": [
+    {
+      "question": "Is this the same as American football Prizm?",
+      "answer": "No. FIFA refers to soccer. Match the exact release and sport before using a card or price reference."
+    }
+  ]
+}
