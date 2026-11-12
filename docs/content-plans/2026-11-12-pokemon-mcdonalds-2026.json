@@ -33,7 +33,7 @@
       "coverage limits",
       "regional comparison"
     ],
-    "status": "implemented; pending validation and publication"
+    "status": "published and formally verified"
   },
   "jev": {
     "status": "unavailable",
@@ -49,5 +49,18 @@
     "No measured demand or ranking claim",
     "No restaurant stock",
     "No fabricated card price or guaranteed scanner match"
-  ]
+  ],
+  "delivery": {
+    "sourceCommit": "83ac198591a24083f53707e3cfebdce554933912",
+    "tests": 35,
+    "browser": "desktop/mobile and formal page passed",
+    "indexnow": {
+      "submitted": 4,
+      "httpStatus": 200,
+      "receipts": [
+        ".indexnow/reports/2026-11-12T04-24-12-108Z.json",
+        ".indexnow/reports/2026-11-12T04-24-53-049Z-mcd2026-body-supplement.json"
+      ]
+    }
+  }
 }

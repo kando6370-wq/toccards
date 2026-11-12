@@ -103,3 +103,5 @@ TypeSafe 在线文档本轮未能读取，复用已保存的正式 HTTP API/Choi
 ## McDonald’s 活动专题（2026-11-12）
 
 按用户指定词新增英文 /blog/pokemon-mcdonalds-2026，区分US/Canada日期、15卡清单、玩具、库存与价格覆盖。旧30th Celebration页仅保护容器外追加入口。官网TCG与体育卡定位不变。Jev HTTP451，分类由Codex以当前来源复核；[完整方案](../../../content-plans/2026-11-12-pokemon-mcdonalds-2026.md)及同名JSON记录任务映射、文案、证据和未验证项。待官网影响面检查及正式发布/通知。
+
+发布完成：内容提交83ac198591a24083f53707e3cfebdce554933912已推送main；官网及独立只读服务构建success，正式manifest与提交一致。35项相关检查通过，桌面/手机无横向溢出；正式4页元信息、canonical、index和内链及新路径sitemap通过。4个URL通知均收到HTTP200：标准skill接收3个，博客索引因嵌套article指纹漏判，在检查完整HTML新链接及页面资格后补交1个。回执.indexnow/reports/2026-11-12T04-24-12-108Z.json和.indexnow/reports/2026-11-12T04-24-53-049Z-mcd2026-body-supplement.json；未修改全局skill/历史状态，接收不代表收录。
