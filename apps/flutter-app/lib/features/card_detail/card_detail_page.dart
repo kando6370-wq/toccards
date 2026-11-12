@@ -180,25 +180,24 @@ class _CardDetailPageState extends ConsumerState<CardDetailPage> {
           ? _CollectionEditFooter(state: state, controller: controller)
           : null,
       body: SafeArea(
-        child: _CardDetailKeyboardDismissOnPointerDown(
-          child: state.loadStatus == KandoLoadStatus.loading
-              ? _CardDetailLoadingBody(
-                  preview: widget.preview,
-                  onBack: () => _goBack(context, controller),
-                )
-              : state.isUnavailable
-              ? Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: KandoFailureBlock(
-                    onRefresh: () {
-                      ref
-                          .read(analyticsProvider)
-                          .track(AnalyticsEvent.refreshClick);
-                      controller.refresh();
-                    },
-                  ),
-                )
-              : LayoutBuilder(
+        child: state.loadStatus == KandoLoadStatus.loading
+            ? _CardDetailLoadingBody(
+                preview: widget.preview,
+                onBack: () => _goBack(context, controller),
+              )
+            : state.isUnavailable
+            ? Padding(
+                padding: const EdgeInsets.all(20),
+                child: KandoFailureBlock(
+                  onRefresh: () {
+                    ref
+                        .read(analyticsProvider)
+                        .track(AnalyticsEvent.refreshClick);
+                    controller.refresh();
+                  },
+                ),
+              )
+            : LayoutBuilder(
                   builder: (context, constraints) {
                     final horizontalPadding = math.max(
                       20.0,
@@ -275,8 +274,7 @@ class _CardDetailPageState extends ConsumerState<CardDetailPage> {
                       ),
                     );
                   },
-                ),
-        ),
+              ),
       ),
     );
 
@@ -344,37 +342,6 @@ String? _currentCollectionItemId(
     return requestedItemId;
   }
   return allowSingleFallback && items.length == 1 ? items.single.id : null;
-}
-
-class _CardDetailKeyboardDismissOnPointerDown extends StatelessWidget {
-  const _CardDetailKeyboardDismissOnPointerDown({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Listener(
-      behavior: HitTestBehavior.translucent,
-      onPointerDown: (event) {
-        final focus = FocusManager.instance.primaryFocus;
-        final focusContext = focus?.context;
-        if (focus == null || focusContext == null) {
-          return;
-        }
-
-        final renderObject = focusContext.findRenderObject();
-        if (renderObject is RenderBox && renderObject.attached) {
-          final localPosition = renderObject.globalToLocal(event.position);
-          if (renderObject.paintBounds.contains(localPosition)) {
-            return;
-          }
-        }
-
-        FocusScope.of(context).unfocus();
-      },
-      child: child,
-    );
-  }
 }
 
 class _CardDetailLoadingBody extends StatelessWidget {
@@ -3812,7 +3779,7 @@ class _KeyboardAwareCollectionItemScrollState
     extends State<_KeyboardAwareCollectionItemScroll> {
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _viewportKey = GlobalKey();
-  double _lastKeyboardInset = 0;
+  Timer? _settledRevealTimer;
 
   @override
   void initState() {
@@ -3823,20 +3790,23 @@ class _KeyboardAwareCollectionItemScrollState
   @override
   void didUpdateWidget(covariant _KeyboardAwareCollectionItemScroll oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.keyboardInset > _lastKeyboardInset) {
+    if (oldWidget.keyboardInset <= 0 && widget.keyboardInset > 0) {
       _scheduleFocusedFieldReveal();
-      unawaited(
-        Future<void>.delayed(const Duration(milliseconds: 200), () {
-          if (mounted) _scheduleFocusedFieldReveal();
-        }),
-      );
     }
-    _lastKeyboardInset = widget.keyboardInset;
+    if (widget.keyboardInset != oldWidget.keyboardInset) {
+      _settledRevealTimer?.cancel();
+      if (widget.keyboardInset > 0) {
+        _settledRevealTimer = Timer(const Duration(milliseconds: 200), () {
+          if (mounted) _scheduleFocusedFieldReveal();
+        });
+      }
+    }
   }
 
   @override
   void dispose() {
     FocusManager.instance.removeListener(_handleFocusChange);
+    _settledRevealTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
   }

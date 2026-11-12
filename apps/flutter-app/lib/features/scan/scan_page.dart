@@ -2502,7 +2502,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
     );
     final quota = ref.watch(scanQuotaControllerProvider);
     final hasPremiumAccess = freePremiumFeatures || isPro || quota.unlimited;
-    final keyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -2522,30 +2521,27 @@ class _ScanPageState extends ConsumerState<ScanPage>
                   SafeArea(
                     child: Padding(
                       padding: const EdgeInsets.only(top: 24),
-                      child: _KeyboardDismissOnPointerDown(
-                        child: _ReviewMatches(
-                          items: _matchedItems,
-                          selectedItemId: _selectedReviewItemId,
-                          target: _reviewTarget,
-                          cards: _reviewCards,
-                          drafts: _reviewDrafts,
-                          loadingCandidateIds: _loadingReviewCandidateIds,
-                          formError: _reviewFormError,
-                          saving: _savingReview,
-                          savingAction: _savingReviewAction,
-                          keyboardVisible: keyboardVisible,
-                          currency: currency,
-                          onCollapse: _closeReview,
-                          onSelectItem: _selectReviewItem,
-                          onSelectCandidate: (item, candidate) => unawaited(
-                            _selectReviewCandidate(item, candidate),
-                          ),
-                          onUpdateDraft: _updateReviewDraft,
-                          onAddThisCard: _addSelectedItem,
-                          onAddAllCards: _addAllMatchedItems,
-                          onDeleteItem: _deleteReviewItem,
-                          onDeleteAll: _deleteAllReviewItems,
+                      child: _ReviewMatches(
+                        items: _matchedItems,
+                        selectedItemId: _selectedReviewItemId,
+                        target: _reviewTarget,
+                        cards: _reviewCards,
+                        drafts: _reviewDrafts,
+                        loadingCandidateIds: _loadingReviewCandidateIds,
+                        formError: _reviewFormError,
+                        saving: _savingReview,
+                        savingAction: _savingReviewAction,
+                        currency: currency,
+                        onCollapse: _closeReview,
+                        onSelectItem: _selectReviewItem,
+                        onSelectCandidate: (item, candidate) => unawaited(
+                          _selectReviewCandidate(item, candidate),
                         ),
+                        onUpdateDraft: _updateReviewDraft,
+                        onAddThisCard: _addSelectedItem,
+                        onAddAllCards: _addAllMatchedItems,
+                        onDeleteItem: _deleteReviewItem,
+                        onDeleteAll: _deleteAllReviewItems,
                       ),
                     ),
                   ),
@@ -4323,7 +4319,6 @@ class _ReviewMatches extends StatelessWidget {
     required this.formError,
     required this.saving,
     required this.savingAction,
-    required this.keyboardVisible,
     required this.currency,
     required this.onCollapse,
     required this.onSelectItem,
@@ -4344,7 +4339,6 @@ class _ReviewMatches extends StatelessWidget {
   final String? formError;
   final bool saving;
   final _ScanReviewSaveAction? savingAction;
-  final bool keyboardVisible;
   final AppCurrency currency;
   final VoidCallback onCollapse;
   final ValueChanged<_ScanItem> onSelectItem;
@@ -4513,54 +4507,35 @@ class _ReviewMatches extends StatelessWidget {
             ],
           ),
         ),
-        if (ready && !keyboardVisible)
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: _ReviewFooter(
-              totalText: _reviewTotalText(card, draft, currency),
-              showBulkActions: items.length > 1,
-              singleReady: !candidateLoading,
-              bulkReady: loadingCandidateIds.isEmpty,
-              saving: saving,
-              savingAction: savingAction,
-              onAddThisCard: onAddThisCard,
-              onAddAllCards: onAddAllCards,
-              onDeleteItem: () => onDeleteItem(selected),
-              onDeleteAll: onDeleteAll,
+        if (ready)
+          Positioned.fill(
+            child: MediaQuery.fromView(
+              view: View.of(context),
+              child: Builder(
+                builder: (context) {
+                  if (MediaQuery.viewInsetsOf(context).bottom > 0) {
+                    return const SizedBox.shrink();
+                  }
+                  return Align(
+                    alignment: Alignment.bottomCenter,
+                    child: _ReviewFooter(
+                      totalText: _reviewTotalText(card, draft, currency),
+                      showBulkActions: items.length > 1,
+                      singleReady: !candidateLoading,
+                      bulkReady: loadingCandidateIds.isEmpty,
+                      saving: saving,
+                      savingAction: savingAction,
+                      onAddThisCard: onAddThisCard,
+                      onAddAllCards: onAddAllCards,
+                      onDeleteItem: () => onDeleteItem(selected),
+                      onDeleteAll: onDeleteAll,
+                    ),
+                  );
+                },
+              ),
             ),
           ),
       ],
-    );
-  }
-}
-
-class _KeyboardDismissOnPointerDown extends StatelessWidget {
-  const _KeyboardDismissOnPointerDown({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Listener(
-      behavior: HitTestBehavior.translucent,
-      onPointerDown: (event) {
-        final focus = FocusManager.instance.primaryFocus;
-        final focusContext = focus?.context;
-        if (focus == null || focusContext == null) {
-          return;
-        }
-
-        final renderObject = focusContext.findRenderObject();
-        if (renderObject is RenderBox && renderObject.attached) {
-          final localPosition = renderObject.globalToLocal(event.position);
-          if (renderObject.paintBounds.contains(localPosition)) {
-            return;
-          }
-        }
-
-        FocusScope.of(context).unfocus();
-      },
-      child: child,
     );
   }
 }
@@ -5006,6 +4981,7 @@ class _ReviewCollectionItem extends StatelessWidget {
                       key: Key('scan-review-notes-$itemId'),
                       initialValue: draft.notes,
                       enabled: enabled,
+                      onTapOutside: (_) => FocusScope.of(context).unfocus(),
                       minLines: 5,
                       maxLines: 8,
                       maxLength: 500,
@@ -5100,6 +5076,7 @@ class _ReviewTextRow extends StatelessWidget {
           initialValue: value,
           enabled: enabled,
           keyboardType: keyboardType,
+          onTapOutside: (_) => FocusScope.of(context).unfocus(),
           cursorColor: const Color(0xFFF0FE6F),
           style: TextStyle(
             color: accentText

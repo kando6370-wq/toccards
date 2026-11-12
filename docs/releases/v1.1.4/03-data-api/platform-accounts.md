@@ -353,3 +353,45 @@ Android SDK `apkanalyzer dex code` 确认交付 APK 缺少 `io.flutter.plugins.G
 新 dev APK 为 `1.0.7+209`／`com.kando.kandoApp.beta`，来自 `598bac19` 加本节打包流程未提交修复，不能记为纯提交构建。保存路径为 `D:/Downloads/CardAI-Packages/com.kando.kandoApp.beta/Android/CardAI-Test-1.0.7-209/CardAI-Test-1.0.7-209.apk`；252,275,285 字节，SHA-256 `31ad95549975c16c8c8a954dfc3e5cddd7d1afc2ede71abc8e8f5abd8e82f941`。同目录保留构建元数据和校验文件，签名与批准测试证书一致，19 个 64 位原生库及 ZIP 16 KB 对齐通过；最终 APK DEX 已确认包含自动注册类及 SharedPreferences／Secure Storage 注册。
 
 在同一荣耀 BKQ-AN10（API 37）覆盖安装 209 后进入 Home Overview；再次强停并冷启动成功，`am start -W` 首窗为 1,116ms，`firstWindowDrawn=true`，UI 树包含 Overview／Performance、Portfolio 和空收藏入口，当前进程无原通道异常。没有清除 App 数据，诊断临时日志标签已恢复，手机上的临时 UI 树文件已移除。未执行真实扫描、Google 登录、购买／Restore、iOS 构建或 dev/prod 服务端发布；此前 208 仅构建与静态校验通过，不能记为启动验收通过。
+
+### Android 键盘弹出慢的代码排查（2026-11-11）
+
+用户反馈新测试机的收藏／扫描 Review 数量、价格、备注输入每次弹键盘慢，并要求排查所有输入入口；随后明确暂时无法连接手机，先检查代码。本轮未操作正在运行的其他模拟器，未修改业务代码、输入法设置或重新打包，真机点击到 IME 显示的耗时尚未测量。
+
+已检查 `lib` 中 21 处标准文本输入构造及其复用组件、焦点和窗口配置，范围包括扫描 Review、卡牌详情内联编辑、加入收藏／Quick Review、Search／Collection 搜索、文件夹命名、登录／注册／找回密码、反馈、Home 币种搜索和 API 日志访问码。
+
+**已复现的代码问题**：Scan Review 的 `_KeyboardDismissOnPointerDown` 和 Card Detail 页面的 `_CardDetailKeyboardDismissOnPointerDown` 仅判断触点是否位于旧焦点输入框内，跨输入框点击时会先 `unfocus()`。使用 Flutter 3.47.9／Dart 3.13.7 和 Android 主题，模拟数量到价格的触点按下、跨帧等待 32ms 再抬起，实际记录到 `TextInput.clearClient → TextInput.hide → TextInput.setClient → TextInput.show`。两项“字段切换不应主动收起键盘”诊断断言均失败，证明存在额外的 hide/show；32ms 是模拟手指按压间隔，不是测得的键盘弹出耗时。
+
+独立“加入收藏”弹层作为同条件对照通过：触点按下时旧输入框仍有焦点，切换期间没有 `TextInput.hide`。该弹层和 Quick Review 不处于上述 Card Detail 全页 Listener 下，不能把内联编辑的证据扩展到它们。Flutter 默认 `TextFieldTapRegion` 将标准输入框归到同组，字段自身的 `onTapOutside` 不是本次复现的原因。三个场景首次点击后均在首个 pump 发出 `TextInput.show`，但 Widget 测试不包含真实输入法或系统动画。
+
+**修复前尚待真机测量的代价**：修复前 Scan 顶层和收藏弹层读取数值型 `viewInsets.bottom`，键盘高度变化会触发复杂表单重建；收藏 `_KeyboardAwareCollectionItemScroll` 每次高度增加还会安排立即检查与 200ms 延迟检查，并可能启动 180ms 滚动。200ms 发生在键盘 inset 已变化后，不能当作人为延迟显示键盘的证据。209 为 Debug 包且 test 环境启用 DebugOverlay，这些因素的实际耗时影响未在修复前完全隔离，不归因为系统输入法或直接认定为全部卡顿的根因。
+
+其余入口及 Android `adjustResize`／MainActivity 未发现点击输入框后等待网络或刻意延迟焦点的路径；Search／Collection 的 300ms 防抖只用于文字变化后的查询。此结论仅为源码检查，不代表各页面真机性能已通过。临时诊断脚本与 Widget 输出已在读取后清理；执行两个临时 `*_probe_test.dart` 的 `Keyboard investigation` 场景，最终结果为 1 个对照通过、2 个暴露既有缺陷的失败、0 跳过；未放宽断言或将失败记为通过。
+
+### Android 键盘延迟真机补证（2026-11-11）
+
+设备为 Xiaomi `23116PN5BC`、Android API 36，安装 dev Debug `1.0.7+209`，使用 `com.sohu.inputmethod.sogou.xiaomi/.SogouIME`。系统窗口、转场与 animator 动画倍率回读均为 `1.0`，没有修改。设备允许 ADB 读取日志，但 `input tap` 被系统 `INJECT_EVENTS` 权限拒绝；没有绕过此限制，后续操作均由用户本人完成，使用 `ImeTracker` 同一 token 的 `onRequestShow → onShown` 计算耗时，不把 ADB 调度或人工等待时间算作点击延迟。
+
+| 同机、同输入法场景 | 完整配对样本 | 请求显示至显示完成 | 中位数 |
+| --- | --- | --- | --- |
+| 原 Review 价格／备注操作 | 4 | 762–806ms | 777.5ms |
+| 系统设置搜索框对照 | 5 | 452–537ms | 501ms |
+| Review 开启 CPU 采样后再次操作 | 7 | 668–774ms | 735ms |
+
+前两组均未开启 Dart CPU 采样，样本中位数相差约 277ms；用户也反馈系统设置明显更快。第三组用于分析运行开销，不是修复后数据。指标从 App 请求显示开始，尚无物理触点到首次请求的精确时间，不能将其称为完整点击耗时，也不据这些小样本宣称所有输入页面均有相同延迟。
+
+真机同时证实了字段切换的额外收起：Review 中一条 App `HIDE_SOFT_INPUT` 请求发生后 81ms 又发出 `SHOW_SOFT_INPUT`；旧隐藏动画被取消，随后仍收到旧 token 的 `onHidden`，新 token 再 `onShown`。与上一节 Widget 诊断的 `unfocus → hide → focus → show` 路径一致，属于已证实的焦点交接缺陷。用户主动点击输入法收起的记录单独识别，不算作 App 的错误隐藏。
+
+另一次短时 CPU／时间线采样取得 6,956 个 CPU 样本；环形缓冲区保留的 CPU 样本跨度约 19.944 秒。Flutter 调用栈主要热点包含 `Element.performRebuild`／`updateChildren`，采样时间线中可完整配对的 290 个 Flutter Frame 的 P95 为 25.33ms、最大 40.579ms，105 个超过 16.7ms。该片段包含键盘显示／隐藏和字段切换，不是全会话或正式包性能指标。它支持“复杂表单重建是需要优先验证的额外开销”这一判断，但尚未做隔离重建的 A/B 或 Profile／AOT 对照，不能把差值全部归因于该代码或 Debug JIT，也没有证据归咎于网络或输入法配置异常。
+
+原 Review 保留在前台，未保存／删除扫描卡牌、清除 App 数据或切换输入法。临时日志标签及 Dart profiler 开关已恢复，VM 端口转发和手机临时 UI 树已移除；原始日志、CPU 采样和时间线已读取后清理，仅保留本节汇总。临时诊断未修改业务源码、重新构建、提交推送或部署；独立加入收藏弹层及其他页面本轮未做真机耗时对照，沿用上节各自的验证边界。
+
+### 键盘焦点与避让修复（2026-11-11，源码）
+
+随后按上述已复现路径做最小修复：Scan Review 和 Card Detail 内联编辑移除全页 `PointerDown` 强制 `unfocus()`，数量／价格／备注字段改由 Flutter 默认 `TextFieldTapRegion` 交接焦点，字段外点击继续通过输入框 `onTapOutside` 收起键盘。Scan Review 的页脚键盘可见性读取限制在局部 `MediaQuery` 子树，识别状态、候选和表单不再直接依赖键盘 inset；Card Detail 的键盘滚动补偿改为可取消的稳定计时器，键盘动画逐帧变化不会累积多个 200ms 检查。
+
+相关键盘定向回归 **6／6 通过、0 失败、0 跳过**；Card Detail 全文件 **73／73 通过、0 失败、0 跳过**，覆盖 Android／iOS 字段切换、空白收起、选择控件、键盘避让、草稿保留、收藏编辑和保存路径。修复前暴露焦点 hide/show 的两个诊断断言已转为通过；`flutter analyze --no-pub` 为 0 issues。Scan 全文件最终集合在约第 152 项时因 Dart VM 在编译 Flutter `Element.updateChildren` 优化 JIT 阶段内存不足而中止，未将后续用例记为通过；此前已通过的 Scan 定向回归仍保留。未修改识别、收藏确认、删除、账号、订阅、API 或数据库业务。
+
+修复后的 dev Debug APK `1.0.7+210` 已完成构建、签名、16 KB 对齐和制品校验，路径为 `D:/Downloads/CardAI-Packages/com.kando.kandoApp.beta/Android/CardAI-Test-1.0.7-210/CardAI-Test-1.0.7-210.apk`，252,275,629 字节，SHA-256 `0f7adbe0599049a369340a9e35e63ea88e7bd2b1f315cf1df958fff98b1059ad`。构建期间 USB 设备断开，未安装到真机，未完成修复后同机 A/B；因此真机 0.78 秒与系统 0.50 秒的原始差值不能写成修复后的性能结果。
+
+2026-11-12 提交前独立 Code Review 未发现阻塞问题，复核了双端字段焦点交接、空白收起、选择控件、页脚布局及滚动 Timer 取消边界。该审查不替代上述真机及完整集合验证，工作区已有的普通确认弹窗高度和对应测试改动不纳入本次键盘修复提交。

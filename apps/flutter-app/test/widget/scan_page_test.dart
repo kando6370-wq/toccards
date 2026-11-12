@@ -3617,6 +3617,99 @@ void main() {
     },
   );
 
+  for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+    testWidgets(
+      '${platform.name} Review keeps the keyboard open between editable fields',
+      (tester) async {
+        await _pumpScanTestApp(tester, platform: platform);
+        await tester.tap(find.byTooltip('Take Photo'));
+        await _completeFigmaScan(tester);
+        await tester.tap(find.byTooltip('Review completed scan'));
+        await tester.pumpAndSettle();
+
+        final quantity = find.byKey(const Key('scan-review-quantity-1'));
+        await tester.ensureVisible(quantity);
+        await tester.pumpAndSettle();
+        await tester.tap(quantity);
+        await tester.pump();
+        await tester.enterText(quantity, '2');
+        await tester.pump();
+
+        for (final key in ['scan-review-price-1', 'scan-review-notes-1']) {
+          final field = find.byKey(Key(key));
+          await tester.ensureVisible(field);
+          await tester.pumpAndSettle();
+          tester.testTextInput.log.clear();
+
+          final gesture = await tester.startGesture(tester.getCenter(field));
+          await tester.pump(const Duration(milliseconds: 32));
+          final visibleDuringTap = tester.testTextInput.isVisible;
+          await gesture.up();
+          await tester.pump();
+
+          expect(
+            visibleDuringTap,
+            isTrue,
+            reason: 'Switching fields must not start a keyboard hide animation.',
+          );
+          expect(
+            tester.testTextInput.log.map((call) => call.method),
+            isNot(contains('TextInput.hide')),
+          );
+          expect(
+            tester.widget<EditableText>(
+              find.descendant(of: field, matching: find.byType(EditableText)),
+            ).focusNode.hasFocus,
+            isTrue,
+          );
+        }
+        expect(
+          tester.widget<EditableText>(
+            find.descendant(of: quantity, matching: find.byType(EditableText)),
+          ).controller.text,
+          '2',
+        );
+      },
+    );
+  }
+
+  testWidgets(
+    'Review keyboard animation preserves the draft and hides the footer',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+      await _pumpScanTestApp(tester, platform: TargetPlatform.android);
+      await tester.tap(find.byTooltip('Take Photo'));
+      await _completeFigmaScan(tester);
+      await tester.tap(find.byTooltip('Review completed scan'));
+      await tester.pumpAndSettle();
+      final notes = find.byKey(const Key('scan-review-notes-1'));
+      await tester.ensureVisible(notes);
+      await tester.pumpAndSettle();
+      await tester.enterText(notes, 'Keep this draft');
+      await tester.pumpAndSettle();
+
+      for (final inset in [40.0, 100.0, 180.0, 260.0, 330.0]) {
+        tester.view.viewInsets = FakeViewPadding(bottom: inset);
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('scan-review-add-one')), findsNothing);
+      expect(tester.testTextInput.isVisible, isTrue);
+      final editable = tester.widget<EditableText>(
+        find.descendant(of: notes, matching: find.byType(EditableText)),
+      );
+      expect(editable.controller.text, 'Keep this draft');
+      expect(editable.focusNode.hasFocus, isTrue);
+
+      tester.view.viewInsets = FakeViewPadding.zero;
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('scan-review-add-one')), findsOneWidget);
+    },
+  );
+
   testWidgets('Review inline selection does not restore focus to Quantity', (
     tester,
   ) async {

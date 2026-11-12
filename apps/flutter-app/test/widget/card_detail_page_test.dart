@@ -2697,6 +2697,63 @@ void main() {
     },
   );
 
+  for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+    testWidgets(
+      '${platform.name} Collection Item edit keeps the keyboard open when switching text fields',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          _CardDetailTestApp(
+            cardId: 'charizard-ex',
+            platform: platform,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.scrollUntilVisible(find.text('Collection Item'), 400);
+        await tester.ensureVisible(find.text('Edit item'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Edit item'));
+        await tester.pumpAndSettle();
+
+        final quantity = find.descendant(
+          of: find.byKey(const Key('card-detail-item-quantity')),
+          matching: find.byType(EditableText),
+        );
+        final purchasePrice = find.descendant(
+          of: find.byKey(const Key('card-detail-item-purchase-price')),
+          matching: find.byType(EditableText),
+        );
+        await tester.ensureVisible(quantity);
+        await tester.tap(quantity);
+        await tester.pump();
+        expect(tester.testTextInput.isVisible, isTrue);
+
+        await tester.ensureVisible(purchasePrice);
+        await tester.pumpAndSettle();
+        tester.testTextInput.log.clear();
+        final pointer = await tester.startGesture(
+          tester.getCenter(purchasePrice),
+        );
+        await tester.pump(const Duration(milliseconds: 32));
+
+        expect(tester.testTextInput.isVisible, isTrue);
+        expect(
+          tester.testTextInput.log.map((entry) => entry.method),
+          isNot(contains('TextInput.hide')),
+          reason: 'Switching editable fields must not restart the system IME.',
+        );
+
+        await pointer.up();
+        await tester.pump();
+        expect(tester.widget<EditableText>(purchasePrice).focusNode.hasFocus, isTrue);
+        expect(tester.testTextInput.isVisible, isTrue);
+      },
+    );
+  }
+
   testWidgets('owned Collection Item purchase price uses decimal keyboard', (
     tester,
   ) async {
