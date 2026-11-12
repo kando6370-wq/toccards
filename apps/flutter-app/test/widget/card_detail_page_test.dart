@@ -2752,6 +2752,82 @@ void main() {
         expect(tester.testTextInput.isVisible, isTrue);
       },
     );
+
+    testWidgets(
+      '${platform.name} Collection Item edit preserves its draft without rebuilding the full sheet during IME animation',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final repository = _DelayedUpdateCardDetailRepository();
+        await tester.pumpWidget(
+          _CardDetailTestApp(
+            cardId: 'charizard-ex',
+            platform: platform,
+            collectionItemId: null,
+            repository: repository,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final item = find.byKey(
+          const Key('card-detail-portfolio-item-item-charizard'),
+        );
+        await tester.scrollUntilVisible(item, 400);
+        await tester.ensureVisible(item);
+        await tester.pumpAndSettle();
+        await tester.tap(item);
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const Key('card-detail-edit-item-sheet')),
+          findsOneWidget,
+        );
+
+        final quantity = find.byKey(const Key('card-detail-item-quantity'));
+        await tester.ensureVisible(quantity);
+        await tester.enterText(quantity, '7');
+        await tester.pumpAndSettle();
+        final editable = find.descendant(
+          of: quantity,
+          matching: find.byType(EditableText),
+        );
+
+        final previousRebuildCallback = debugOnRebuildDirtyWidget;
+        var sheetRebuilds = 0;
+        var formRebuilds = 0;
+        debugOnRebuildDirtyWidget = (element, builtOnce) {
+          previousRebuildCallback?.call(element, builtOnce);
+          if (element.widget.runtimeType.toString() ==
+              '_EditCollectionItemSheet') {
+            sheetRebuilds += 1;
+          }
+          if (element.widget.runtimeType.toString() == '_CollectionItemForm') {
+            formRebuilds += 1;
+          }
+        };
+        addTearDown(() => debugOnRebuildDirtyWidget = previousRebuildCallback);
+
+        for (final inset in [40.0, 100.0, 180.0, 260.0, 330.0]) {
+          tester.view.viewInsets = FakeViewPadding(bottom: inset);
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+
+        expect(
+          sheetRebuilds,
+          0,
+          reason:
+              'IME animation must only update sheet padding instead of rebuilding the full edit form.',
+        );
+        expect(formRebuilds, 0);
+        expect(tester.widget<EditableText>(editable).controller.text, '7');
+        expect(
+          tester.widget<EditableText>(editable).focusNode.hasFocus,
+          isTrue,
+        );
+        expect(tester.testTextInput.isVisible, isTrue);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   testWidgets('owned Collection Item purchase price uses decimal keyboard', (
@@ -3097,6 +3173,83 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+    testWidgets(
+      '${platform.name} Quick Review preserves its draft without rebuilding the full form during IME animation',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+
+        await tester.pumpWidget(
+          _QuickCollectionHeaderTestApp(platform: platform),
+        );
+        await tester.pumpAndSettle();
+
+        final quantity = find.byKey(const Key('card-detail-item-quantity'));
+        await tester.ensureVisible(quantity);
+        await tester.enterText(quantity, '7');
+        await tester.pumpAndSettle();
+        final editable = find.descendant(
+          of: quantity,
+          matching: find.byType(EditableText),
+        );
+        final total = find.byKey(const Key('card-detail-item-total'));
+        final submit = find.byKey(const Key('card-detail-item-submit'));
+        final initialTotalRect = tester.getRect(total);
+        final initialSubmitRect = tester.getRect(submit);
+
+        final previousRebuildCallback = debugOnRebuildDirtyWidget;
+        var sheetRebuilds = 0;
+        debugOnRebuildDirtyWidget = (element, builtOnce) {
+          previousRebuildCallback?.call(element, builtOnce);
+          if (element.widget.runtimeType.toString() ==
+              '_AddCollectionItemSheet') {
+            sheetRebuilds += 1;
+          }
+        };
+        addTearDown(() => debugOnRebuildDirtyWidget = previousRebuildCallback);
+
+        for (final inset in [40.0, 100.0, 180.0, 260.0, 330.0]) {
+          tester.view.viewInsets = FakeViewPadding(bottom: inset);
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        await tester.pumpAndSettle();
+
+        expect(
+          sheetRebuilds,
+          0,
+          reason:
+              'IME animation must only update keyboard-aware layout instead of rebuilding the full collection form.',
+        );
+        expect(tester.widget<EditableText>(editable).controller.text, '7');
+        expect(
+          tester.widget<EditableText>(editable).focusNode.hasFocus,
+          isTrue,
+        );
+        expect(tester.testTextInput.isVisible, isTrue);
+        expect(
+          tester.getRect(total),
+          initialTotalRect,
+          reason:
+              'Quick Review totals must stay at the page bottom while the IME opens.',
+        );
+        expect(
+          tester.getRect(submit),
+          initialSubmitRect,
+          reason:
+              'Quick Review actions must stay at the page bottom while the IME opens.',
+        );
+
+        tester.view.viewInsets = FakeViewPadding.zero;
+        await tester.pumpAndSettle();
+        expect(tester.getRect(total), initialTotalRect);
+        expect(tester.getRect(submit), initialSubmitRect);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }
 
 class _CardDetailTestApp extends StatelessWidget {

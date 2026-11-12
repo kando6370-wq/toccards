@@ -395,3 +395,54 @@ Android SDK `apkanalyzer dex code` 确认交付 APK 缺少 `io.flutter.plugins.G
 修复后的 dev Debug APK `1.0.7+210` 已完成构建、签名、16 KB 对齐和制品校验，路径为 `D:/Downloads/CardAI-Packages/com.kando.kandoApp.beta/Android/CardAI-Test-1.0.7-210/CardAI-Test-1.0.7-210.apk`，252,275,629 字节，SHA-256 `0f7adbe0599049a369340a9e35e63ea88e7bd2b1f315cf1df958fff98b1059ad`。构建期间 USB 设备断开，未安装到真机，未完成修复后同机 A/B；因此真机 0.78 秒与系统 0.50 秒的原始差值不能写成修复后的性能结果。
 
 2026-11-12 提交前独立 Code Review 未发现阻塞问题，复核了双端字段焦点交接、空白收起、选择控件、页脚布局及滚动 Timer 取消边界。该审查不替代上述真机及完整集合验证，工作区已有的普通确认弹窗高度和对应测试改动不纳入本次键盘修复提交。
+
+### 键盘动画重复构建修复与荣耀实测（2026-11-12）
+
+用户在小米和荣耀安装 210 后仍反馈键盘弹出卡顿，说明上一节焦点交接修复没有完成性能验收。本轮使用已连接的荣耀 YOK-AN10、Android API 31、百度荣耀输入法，在现有 Quick Review 价格输入页采样；该页是独立收藏 Review，不包含 `ScanPage`。保留待收藏项和草稿，自动操作仅点击现有输入框并收起键盘，不输入文字或触发保存、删除。
+
+确认并修复三处额外工作：
+
+- Scan Reveal 中 `MediaQuery.of(context).disableAnimations` 仍会让整个扫描页依赖完整窗口数据。改为 `MediaQuery.disableAnimationsOf(context)`，保留无障碍动画语义；新增断言验证 5 个 IME inset 帧不会重建 `ScanPage`。
+- test 环境的隐藏 DebugOverlay 默认保留 Offstage 诊断页，窗口信息仍随键盘动画刷新。设置 `maintainState: false`，关闭时卸载诊断页；外部日志／HTTP bucket 保留，production 原本不挂载此面板。诊断面板自己的临时页签状态会在关闭后重置。
+- 收藏新增／Quick Review 和已收藏卡牌编辑弹层在父 ConsumerWidget 读取键盘高度，导致每个 IME inset 帧重建完整表单。将读取下沉到局部 `Builder`，复用预先创建的表单、预览和底栏 Widget；业务 Provider 更新仍正常生成新内容。首轮性能隔离保留原 180ms 避让／底栏动画、滚动补偿及业务回调，后续底栏行为按下述用户补充要求修订。
+
+修前 ScanPage 回归为 5 帧重建 5 次，隐藏诊断页回归失败；新增和编辑弹层的 Android 回归也分别为 5 帧重建 5 次。修后新增／编辑弹层 Android、iOS 共 4 项回归通过，同时断言草稿、焦点和输入法可见性保留。最终相关集合为 Scan／DebugOverlay **164／164**、Card Detail **77／77**，合计 **241／241 通过、0 失败、0 跳过**；隔离 Flutter 3.47.9 的 `flutter analyze --no-pub` 为 0 issues，`git diff --check` 通过。独立 Code Review 未发现阻塞问题，确认业务回调及双端原布局条件未改。首次测试命令 cwd 错误导致字体资产 setup 失败，另一次编辑弹层诊断因 Dart VM OOM 中止，均未计为通过；纠正入口、工作目录后，最终完整相关集合正常通过。
+
+真机先仅加载前两处修复时仍有长帧，Flutter UI Frame P95 两次为 60.905ms、49.134ms，不能将其记为问题已解决。之后按 Widget／CPU 时间线定位到 `_AddCollectionItemSheet` 完整重建，保留片段中 11 次、单次含子树最高 38.88ms。热重载保留旧 Element 的继承依赖，单纯重新编译不足以验证新依赖图；本轮在保留 Provider 草稿的前提下重新挂载弹层，并恢复原始 item Key，未将临时 Key 写入最终实现。
+
+在同一进程、同一价格输入框，预热后每组重复 3 次键盘开合。下表的 Flutter 指标是 UI isolate 上可配对的 Dart `Frame` 区间，不含完整屏幕呈现；Android 指标取原始 `gfxinfo` 顶部系统汇总，两者不能混为同一口径。
+
+| 样本 | Flutter UI 帧数／P95／最大值 | UI 区间超过 16.7ms | Android 系统帧数／P95／janky |
+| --- | --- | --- | --- |
+| 原 210 基线 | 121／35.177ms／109.195ms | 35 | 97／36ms／23 |
+| 完整隔离后第 1 组 | 122／38.879ms／111.818ms | 23 | 113／17ms／5 |
+| 完整隔离后第 2 组 | 125／22.024ms／77.149ms | 15 | 114／11ms／3 |
+| 完整隔离后第 3 组 | 125／21.412ms／63.013ms | 14 | 117／13ms／3 |
+
+另一次只开启用户 Widget 构建跟踪的 3 轮采样中，完整 Add Sheet、Form、Add Form 和卡牌预览均为 **0 次构建**；局部键盘滚动包装器为 34 次，单次含子树最高 1.68ms。该跟踪采样不与上表未开启跟踪的性能数值合并。原始 `gfxinfo framestats` 脚本最初不兼容当前表头，返回的 0 帧不可用；修正表头后明细仍只保留 10 帧，不作为全窗口指标，表中仅引用系统完整汇总。固定 16.7ms 只是统一阈值，不等同系统 janky 判定。
+
+用户随后在当前荣耀亲自操作并反馈“明显顺畅了”。该反馈与重复业务构建消除、系统长帧减少相符，但仍有离群长帧、Debug／JIT 和采样顺序偏差；不宣称完全无卡顿，不将 UI 帧指标当作点击至键盘显示耗时。小米本轮未连接，扫描 Review、iOS 真机、Profile／AOT 及其他输入页面未做本轮真机对照；双端业务回归不能替代这些验收。
+
+首轮交付 dev Debug `1.0.7+211`／`com.kando.kandoApp.beta`，来源 `90ddf893132e29eeae073ff778d8609916825109` 加本节未提交修改，不能记为纯提交构建。Flutter 3.47.9／Dart 3.13.7／隔离 JDK 21.0.13+9 的实际 Gradle JVM 已核对，锁定依赖准备、分析及 `assembleDebug` 成功（56.9 秒），共享构建号仅在制品保存后推进。APK 为 `D:/Downloads/CardAI-Packages/com.kando.kandoApp.beta/Android/CardAI-Test-1.0.7-211/CardAI-Test-1.0.7-211.apk`，252,275,273 字节，SHA-256 `1c062d0a0dcc70e44e9644cfca830a43195408b9cb531e57af52a9925f3c8eb5`；测试证书匹配、19 个 64 位原生库及 ZIP 16 KB 对齐通过，最终 DEX 的 `classes18.dex` 确认定义插件自动注册类。
+
+用户明确当前待收藏项可丢弃并授权直接安装后，荣耀覆盖安装返回 Success，回读 versionCode=211、新进程已显示 Search 和真实卡牌列表，无所检查的启动通道异常／未处理异常。初次诊断脚本只接受 Home，因实际恢复 Search 而断言失败；后续直接检查已渲染的 Search UI，不将错误的页面前提当作 App 启动故障，也不将该断言记为通过。未清除 App 数据、修改账号或写入收藏。
+
+### Quick Review 的 Total Value 固定到底部（2026-11-12）
+
+用户安装 211 后补充要求：键盘打开时 Total Value 不应浮到键盘上方，应固定在页面底部。首轮性能隔离保留了既有 Android Quick Review 的 `AnimatedContainer` 负向键盘高度位移，这与本次明确的布局要求冲突；现采用用户新要求，移除该底栏位移包装，直接复用稳定 `footerContent`。普通新增弹层原有的整体键盘避让、Quick Review 表单滚动补偿及 iOS 原有固定底栏行为保留，保存／删除／数量／价格计算不变。
+
+新增几何回归在旧 Android 实现复现：TOTAL VALUE 顶部／底部从 734／758 变为 404／428，恰好随 330px 键盘高度上移。修复将底栏固定在原坐标，键盘覆盖底部时不把操作栏抬到键盘上方；同时验证键盘收起后的坐标、草稿和焦点。最终验证与后续制品见下述交付记录。
+
+强化后的 Quick Review Android／iOS 两项回归通过，Card Detail 全文件仍为 **77／77、0 失败、0 跳过**；此前未改变的 Scan／DebugOverlay **164／164** 结果保留，合计相关回归 241 项。独立 Code Review 确认只删除底栏位移、普通 Add／Edit 的原避让和业务回调未变。
+
+后续 dev Debug **1.0.7+212** 使用相同隔离工具链执行锁定依赖准备、0 issues 分析和 `assembleDebug`（45.1 秒），成功保存后共享构建号同步为 212。APK 为 `D:/Downloads/CardAI-Packages/com.kando.kandoApp.beta/Android/CardAI-Test-1.0.7-212/CardAI-Test-1.0.7-212.apk`，252,275,253 字节，SHA-256 `9e4e2639fb132f7986462876fff96356cd662d6a7677b14f05c8beec7e885f5f`；同样来自 `90ddf893` 加未提交修改，测试证书及 19 个 64 位库／ZIP 16 KB 对齐通过。上述性能时间线和“明显顺畅了”反馈属于 212 打包前的性能修复验证，不改写为 212 新进程的性能测量。
+
+荣耀覆盖安装 212 返回 Success，实际回读 versionCode=212、新进程 27973。初次 UI 探针在 Review 尚未就绪时未找到待处理入口并停止，未新建或保存卡牌；待现有 Review 渲染后复验，价格输入能正常唤起键盘，TOTAL VALUE 的物理坐标在键盘展开前、展开中和收起后均为 `[52,2328][312,2387]`。实际截图确认底栏被键盘覆盖、没有浮到键盘上方，价格输入仍完整可见；检查的进程日志无通道异常、未处理异常或 fatal crash。完成后收起键盘并停留原 Review，未输入、保存或删除卡牌。该次几何／启动烟测不是 212 的完整性能采样，也不代表小米或 iOS 真机验收。
+
+已断开诊断附加但保留 App 运行，恢复临时 profiler／Widget 跟踪设置，删除本轮手机 XML 和两个自建端口转发；私有 VM 连接文件、临时 Java／候选源码等 252,553 字节已移除。保留原始压缩时间线、回归／构建日志与本次截图用于此次问题复核；Android 交付目录按既有策略保留 210／211／212，209 移到可恢复区而非宣称释放其磁盘占用。未改动 iOS 制品或其他项目进程，未提交／推送 Git、发布服务端或操作生产环境。
+
+### 小米安装同一 212 测试包（2026-11-12）
+
+按用户要求，将上节同一 APK 覆盖安装到 Xiaomi `23116PN5BC`（ADB `dba62e86`）；安装前重新核对保存文件 SHA-256，原安装为 210，`adb install -r` 返回 Success，安装后回读版本为 `1.0.7+212`。冷启动 `am start -W` 返回 Status=ok、TotalTime=2028ms；后续回读 Card AI MainActivity 位于前台、进程 22648 存活，所检查日志无 fatal crash、通道异常或未处理异常。首次前台断言期间系统 PhotoPicker 位于前台而中止，随后已重新回读 App 前台状态，未将该断言记为通过。
+
+本次未清除 App 数据、重新构建 APK、修改业务源码或操作荣耀手机；手机临时 UI XML 已移除。小米键盘流畅度及 Total Value 几何未在本次安装步骤中复测，不能将荣耀的结果外推为小米验收通过；未提交／推送 Git。

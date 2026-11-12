@@ -3674,7 +3674,7 @@ void main() {
   }
 
   testWidgets(
-    'Review keyboard animation preserves the draft and hides the footer',
+    'Review keyboard animation preserves the draft without rebuilding ScanPage',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(390, 844);
@@ -3690,12 +3690,24 @@ void main() {
       await tester.enterText(notes, 'Keep this draft');
       await tester.pumpAndSettle();
 
+      final previousRebuildCallback = debugOnRebuildDirtyWidget;
+      var pageRebuilds = 0;
+      debugOnRebuildDirtyWidget = (element, builtOnce) {
+        previousRebuildCallback?.call(element, builtOnce);
+        if (element.widget is ScanPage) pageRebuilds += 1;
+      };
+      addTearDown(() => debugOnRebuildDirtyWidget = previousRebuildCallback);
       for (final inset in [40.0, 100.0, 180.0, 260.0, 330.0]) {
         tester.view.viewInsets = FakeViewPadding(bottom: inset);
         await tester.pump(const Duration(milliseconds: 16));
       }
       await tester.pumpAndSettle();
 
+      expect(
+        pageRebuilds,
+        0,
+        reason: 'Keyboard animation must not rebuild the scan state and its full review form.',
+      );
       expect(find.byKey(const Key('scan-review-add-one')), findsNothing);
       expect(tester.testTextInput.isVisible, isTrue);
       final editable = tester.widget<EditableText>(

@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_debug_overlay/flutter_debug_overlay.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kando_app/shared/debug/app_debug_overlay.dart';
 
@@ -8,6 +10,48 @@ void main() {
   setUpAll(configureAppDebugOverlay);
   setUp(appDebugHttpBucket.clear);
   tearDown(appDebugHttpBucket.clear);
+
+  testWidgets('hidden diagnostics do not build an offstage screen during input', (
+    tester,
+  ) async {
+    addTearDown(appDebugLogBucket.clear);
+    appDebugLogBucket.add(
+      LogEvent(level: LogLevel.info, message: 'Retained keyboard diagnostic'),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => buildAppDebugOverlay(child!),
+        home: const Scaffold(body: TextField()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Debug', skipOffstage: false),
+      findsNothing,
+      reason: 'An invisible diagnostics page must not do IME-driven layout work.',
+    );
+    final overlay = tester.state<DebugOverlayState>(find.byType(DebugOverlay));
+    overlay.toggleVisibility();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('Debug'), findsOneWidget);
+    overlay.toggleVisibility();
+    await tester.pumpAndSettle();
+    expect(find.text('Debug', skipOffstage: false), findsNothing);
+    overlay.toggleVisibility();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('Debug'), findsOneWidget);
+    expect(
+      appDebugLogBucket.entries.any(
+        (entry) => entry.message == 'Retained keyboard diagnostic',
+      ),
+      isTrue,
+      reason: 'Closing diagnostics must retain collected logs for later review.',
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   test('captures Dio requests and successful responses', () async {
     final dio = Dio(BaseOptions(baseUrl: 'https://api.example.test'))

@@ -1495,7 +1495,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       duration: _revealTimelineDuration,
     );
     pending.revealController = controller;
-    final disableAnimations = MediaQuery.of(context).disableAnimations;
+    final disableAnimations = MediaQuery.disableAnimationsOf(context);
     if (disableAnimations) {
       controller.value = 1;
     } else {
