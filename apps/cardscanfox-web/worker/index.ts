@@ -26,7 +26,7 @@ const securityHeaders={
  'X-Content-Type-Options':'nosniff',
  'Referrer-Policy':'strict-origin-when-cross-origin',
  'X-Frame-Options':'DENY',
- 'Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
+ 'Content-Security-Policy':"default-src 'self'; script-src 'self' https://www.pvuv.ai; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://in.pvuv.ai; form-action 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
 };
 export function createWebsiteHandler({publicPreview=false}={}) { return {
  async fetch(request:Request,env:WebsiteEnv,context?:ExecutionContext):Promise<Response>{

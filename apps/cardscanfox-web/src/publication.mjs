@@ -1,6 +1,7 @@
 import policy from '../content/index-policy.json' with {type:'json'};
 import {legacyByPath,allStaticPaths} from './render.mjs';
 const approved=new Set(policy.newIndexPaths);
+const PVUV_SCRIPT='<script defer src="https://www.pvuv.ai/f.js" data-site="gx4EamoZ" data-api="https://in.pvuv.ai"></script>';
 export function mayIndex(url,status=200,page={}) {
  if(status!==200||url.search||url.pathname==='/saved')return false;
  if(/^\/cards\/[^/]+$/.test(url.pathname))return policy.catalog?.enabled===true&&page.seo?.kind==='card'&&page.seo.eligible===true;
@@ -10,7 +11,7 @@ export function mayIndex(url,status=200,page={}) {
 }
 export function publishHtml(html,url,status,page={}) {
  const robots=mayIndex(url,status,page)?'index,follow':url.pathname==='/saved'?'noindex,nofollow':'noindex,follow';
- return html.replace(/<meta name="robots" content="[^"]*">/,`<meta name="robots" content="${robots}">`).replace(/<div class="preview-rail">[\s\S]*?<\/div>/,'').replace('CardScanFox is the proposed website identity for the existing Card AI app.','CardScanFox is the website for the Card AI app.');
+ return html.replace(/<meta name="robots" content="[^"]*">/,`<meta name="robots" content="${robots}">`).replace(/<div class="preview-rail">[\s\S]*?<\/div>/,'').replace('</head>',`${PVUV_SCRIPT}</head>`).replace('CardScanFox is the proposed website identity for the existing Card AI app.','CardScanFox is the website for the Card AI app.');
 }
 const escape=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
 export function publicSitemap(origin='https://tcgcard.fun') {
