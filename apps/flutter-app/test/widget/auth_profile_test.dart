@@ -2606,7 +2606,7 @@ void main() {
 
       expect(
         listView.padding,
-        const EdgeInsets.fromLTRB(20, KandoLayout.mainTabTopPadding, 20, 96),
+        const EdgeInsets.fromLTRB(20, KandoLayout.mainTabTopPadding, 20, 132),
       );
       expect(find.byIcon(Icons.shield_outlined), findsNothing);
       await tester.scrollUntilVisible(find.text('Privacy Policy'), 200);

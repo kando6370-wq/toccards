@@ -239,7 +239,7 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
               20,
               KandoLayout.mainTabTopPadding,
               20,
-              96,
+              132,
             ),
             children: [
               if (usesSubscription &&
