@@ -1618,7 +1618,6 @@ class _PasswordPairPage extends StatelessWidget {
           confirmController: confirmController,
           loading: loading,
           buttonLabel: buttonLabel,
-          errorText: errorText,
           onSubmit: onSubmit,
           anchorActionsToBottom: anchorActionsToBottom,
         ),
@@ -1654,7 +1653,6 @@ class _FigmaPasswordPairContent extends StatelessWidget {
     required this.confirmController,
     required this.loading,
     required this.buttonLabel,
-    required this.errorText,
     required this.onSubmit,
     required this.anchorActionsToBottom,
   });
@@ -1663,7 +1661,6 @@ class _FigmaPasswordPairContent extends StatelessWidget {
   final TextEditingController confirmController;
   final bool loading;
   final String buttonLabel;
-  final String? errorText;
   final VoidCallback onSubmit;
   final bool anchorActionsToBottom;
 
@@ -1678,13 +1675,11 @@ class _FigmaPasswordPairContent extends StatelessWidget {
         final password = passwordController.text;
         final confirmPassword = confirmController.text;
         final passwordError =
-            (password.isNotEmpty && password.length < 8) ||
-                errorText == _shortPasswordMessage
+            password.isNotEmpty && password.length < 8
             ? 'At least 8 characters'
             : null;
         final confirmError =
-            (confirmPassword.isNotEmpty && confirmPassword != password) ||
-                errorText == _passwordMismatchMessage
+            confirmPassword.isNotEmpty && confirmPassword != password
             ? 'Inconsistent with last input'
             : null;
         final canSubmit =

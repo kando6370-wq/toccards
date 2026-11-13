@@ -2053,7 +2053,26 @@ void main() {
     );
     expect(invalidCreateButton.onPressed, isNull);
     expect(repository.registerRequests, isEmpty);
-  });
+
+    await tester.enterText(fields.at(0), '12345678');
+    await tester.enterText(fields.at(1), '12345678');
+    await tester.pump();
+
+    expect(find.text('At least 8 characters'), findsNothing);
+    expect(find.text('Inconsistent with last input'), findsNothing);
+    final validCreateButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Create Account'),
+    );
+    expect(validCreateButton.onPressed, isNotNull);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Create Account'));
+    await tester.pumpAndSettle();
+    expect(repository.registerRequests, hasLength(1));
+    expect(repository.registerRequests.single.password, '12345678');
+  }, variant: TargetPlatformVariant({
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+  }));
 
   testWidgets('register code page starts the resend countdown after sending', (
     tester,
