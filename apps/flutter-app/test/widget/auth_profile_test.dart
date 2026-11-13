@@ -24,6 +24,7 @@ import 'package:kando_app/features/profile/customer_support_page.dart';
 import 'package:kando_app/features/profile/feedback_repository.dart';
 import 'package:kando_app/features/profile/profile_actions.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
+import 'package:kando_app/features/profile/account_page.dart';
 import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/features/subscription/subscription_page.dart';
@@ -40,7 +41,7 @@ import '../support/mock_home_repository.dart';
 void main() {
   setUpAll(loadInterFonts);
 
-  testWidgets('Android auth removes Apple and explains platform isolation', (
+  testWidgets('Android auth removes Apple and platform isolation copy', (
     tester,
   ) async {
     final repository = _WidgetAuthRepository(
@@ -59,16 +60,48 @@ void main() {
     expect(find.text('Continue with Apple'), findsNothing);
     expect(
       find.textContaining('Your collections and other app data are separate'),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.textContaining('verified email and password are shared'),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const Key('auth-agreement-copy')),
       findsOneWidget,
     );
+    expect(find.byKey(const Key('auth-agreement-links')), findsOneWidget);
     await tester.tap(find.text('Continue with Google'));
     await tester.pumpAndSettle();
     expect(find.text('Continue?'), findsNothing);
     expect(find.textContaining('will not merge'), findsNothing);
+  });
+
+  testWidgets('Android delete confirmation uses the shared iOS copy', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildKandoTheme(),
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showDeleteAccountConfirmation(
+              context,
+              platform: AppPlatform.android,
+            ),
+            child: const Text('Open delete'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open delete'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text("This action is permanent and can't be undone."),
+      findsOneWidget,
+    );
+    expect(find.textContaining('permanently deletes your'), findsNothing);
   });
 
   for (final premiumState in AppPremiumState.values) {
@@ -2444,7 +2477,7 @@ void main() {
 
       expect(find.text('Delete Account?'), findsOneWidget);
       expect(
-        find.textContaining('permanently deletes your iOS account'),
+        find.text("This action is permanent and can't be undone."),
         findsOneWidget,
       );
       expect(find.text('Cancel'), findsOneWidget);
