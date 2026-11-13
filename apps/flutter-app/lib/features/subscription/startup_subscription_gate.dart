@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../shared/ui/kando_style.dart';
+import '../auth/auth_controller.dart';
 import 'subscription_controller.dart';
 import 'subscription_entitlement_cache.dart';
 import 'subscription_page.dart';
@@ -46,6 +47,9 @@ class _StartupSubscriptionGateState
 
   @override
   Widget build(BuildContext context) {
+    if (ref.watch(authControllerProvider).hasError) {
+      return widget.home;
+    }
     return switch (_resolvedState) {
       AppPremiumState.free => SubscriptionPage(source: widget.source),
       AppPremiumState.premium || AppPremiumState.unknown => widget.home,

@@ -3874,7 +3874,7 @@ Future<void> _submitEmailUntilWelcome(WidgetTester tester) async {
 }
 
 Future<void> _openProfileTab(WidgetTester tester) async {
-  await tester.tap(find.text('Profile'));
+  await tester.tap(find.byKey(const Key('kando-tab-profile')));
   await tester.pumpAndSettle();
 }
 
