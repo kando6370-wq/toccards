@@ -23,7 +23,7 @@ Google官方协议每个sitemap可含50000个URL/50MB；1200页不是数量超�
 
 ## 验收及交付边界
 
-全部实现完成后，只检查发布策略、sitemap、原正文保留、Worker meta/header一致性与预览边界；不跑未改动的App、Admin、原业务API回归。本地构建生成124条HTML，46条原网址全文/原链接保留。官网全套76项首次75项通过，失败为旧测试仍假设任意有效卡页都可索引；将该场景改用明确保留ID并保留缺价索引断言后，相关catalog-seo 12项重跑全部通过。其余75项已经通过，无未解决失败。另独立逐个核对140个曝光URL可保留索引资格、清单244条、XML及manifest字节/hash、153条地图数均通过。生产Worker单测确认暂停页仍200且meta/header均noindex,follow，缓存与预览边界通过。本地Node24.3.0，与仓库固定22.23.4不同；正式构建与运行回读另记。待正式发布证据。Google需要重新抓取才处理noindex，不保证即时退出搜索结果；不向IndexNow当作新内容重复通知暂停页。GSC无法抓取仍须按真实Googlebot请求证据单独排查，本次不改WAF。
+全部实现完成后，只检查发布策略、sitemap、原正文保留、Worker meta/header一致性与预览边界；不跑未改动的App、Admin、原业务API回归。本地构建生成124条HTML，46条原网址全文/原链接保留。官网全套76项首次75项通过，失败为旧测试仍假设任意有效卡页都可索引；将该场景改用明确保留ID并保留缺价索引断言后，相关catalog-seo 12项重跑全部通过。其余75项已经通过，无未解决失败。另独立逐个核对140个曝光URL可保留索引资格、清单244条、XML及manifest字节/hash、153条地图数均通过。生产Worker单测确认暂停页仍200且meta/header均noindex,follow，缓存与预览边界通过。本地Node24.3.0，与仓库固定22.23.4不同；正式构建与运行回读另记。内容提交f23b29e011e06ad63372a74d2fcc7f437badfbc9已推送main，官网Worker自动构建success，正式manifest回读同一sourceCommit。正式XML为88＋65＝153，抽查两个暂停详情均200且meta/header为noindex,follow；有曝光的Mew ex、Honesty Impact、2022 Panini Prizm套装，以及近期McDonald’s指南均200且index,follow。140个正曝光URL的全部清单匹配已通过本地规则逐项核验；线上仅抽查，不声称逐页重抓140页。最终Ego任务空间已不可用，未补做可见浏览器验收，正式验证以HTTP正文/响应头和manifest为准。Google需要重新抓取才处理noindex，不保证即时退出搜索结果；不向IndexNow当作新内容重复通知暂停页。GSC无法抓取仍须按真实Googlebot请求证据单独排查，本次不改WAF。
 
 官方依据：
 - https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap
