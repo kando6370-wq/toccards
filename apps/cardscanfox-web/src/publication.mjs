@@ -1,9 +1,11 @@
 import policy from '../content/index-policy.json' with {type:'json'};
 import {legacyByPath,allStaticPaths} from './render.mjs';
 const approved=new Set(policy.newIndexPaths);
+const rolloutPaths=new Set(policy.rollout?.allowedPaths??[]);
 const PVUV_SCRIPT='<script defer src="https://www.pvuv.ai/f.js" data-site="gx4EamoZ" data-api="https://in.pvuv.ai"></script>';
 export function mayIndex(url,status=200,page={}) {
  if(status!==200||url.search||url.pathname==='/saved')return false;
+ if(policy.rollout?.enabled===true&&!rolloutPaths.has(url.pathname))return false;
  if(/^\/cards\/[^/]+$/.test(url.pathname))return policy.catalog?.enabled===true&&page.seo?.kind==='card'&&page.seo.eligible===true;
  if(page.dataAvailable===false&&!legacyByPath.has(url.pathname))return false;
  if(/^\/(games|sets)\/[^/]+$/.test(url.pathname)&&page.dataAvailable===true)return true;
@@ -27,4 +29,5 @@ export function sitemapIndex(shards=[],origin='https://tcgcard.fun') {
 export function validateIndexPolicy() {
  if(!Array.isArray(policy.newIndexPaths)||policy.newIndexPaths.some(p=>!allStaticPaths.includes(p)||p==='/saved'||p.includes('?')||p.includes('#')||p.includes('/category/opinion')))throw new Error('Index policy contains an unknown or ineligible route.');
  if(policy.catalog?.enabled!==true&&policy.catalog?.enabled!==false)throw new Error('Catalog eligibility policy must be explicit.');
+ if(policy.rollout?.enabled===true&&(!Array.isArray(policy.rollout.allowedPaths)||!rolloutPaths.size||rolloutPaths.size!==policy.rollout.allowedPaths.length||policy.rollout.allowedPaths.some(p=>typeof p!=='string'||!p.startsWith('/')||/[?#]/.test(p)||p==='/saved'||p.startsWith('/site-api/'))))throw new Error('Invalid phased index allowlist.');
 }

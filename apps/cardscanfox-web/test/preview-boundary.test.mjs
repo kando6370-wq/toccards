@@ -24,11 +24,16 @@ test('production keeps the saved page out of robots blocking and exposes noindex
 test('production HTML cache serves repeat requests without reloading the data service and supports conditional GET',async()=>{
  const original=globalThis.caches,entries=new Map(),pending=[];let calls=0;
  globalThis.caches={default:{match:async key=>entries.get(key.url)?.clone()??null,put:async(key,response)=>{entries.set(key.url,response.clone());}}};
- const c={publicCardId:'cache-001',card_ref:'cache-001',name:'Cache Test Card',game:'Pokemon',gameSlug:'pokemon',publicSetId:'db-C',set_name:'Cache Set',set_code:'CACHE',card_number:'001/010',image_url:'https://image.tcgcard.fun/cards/cache-001.jpg',price_usd:null,price_as_of:null,references:[]};
+ const c={publicCardId:'714372',card_ref:'714372',name:'Cache Test Card',game:'Pokemon',gameSlug:'pokemon',publicSetId:'db-C',set_name:'Cache Set',set_code:'CACHE',card_number:'001/010',image_url:'https://image.tcgcard.fun/cards/714372.jpg',price_usd:null,price_as_of:null,references:[]};
  const data={games:[{id:'1',slug:'pokemon',name:'Pokemon',cardCount:null}],sets:[{id:'db-C',name:'Cache Set',code:'CACHE',gameSlug:'pokemon',catalogedCount:null}],cards:[c],card:c,trend:{points:[]},capturedAt:'2026-11-07'};
  const configured={...env,DEPLOYMENT_MODE:'production',CATALOG_MODE:'service',PUBLISH_READY:'true',CF_VERSION_METADATA:{id:'cache-v1'},SITE_DATA:{fetch:async()=>{calls++;return new Response(JSON.stringify({success:true,data,meta:{datasetMode:'published-read-only',catalogVersion:'cache'}}));}}};
  const context={waitUntil:p=>pending.push(p)};
- try{const request=new Request('https://tcgcard.fun/cards/cache-001');const first=await worker.fetch(request,configured,context);assert.equal(first.status,200);assert.equal(first.headers.get('X-Robots-Tag'),'index, follow');await Promise.all(pending.splice(0));const tag=first.headers.get('ETag');assert.ok(tag);const conditional=await worker.fetch(new Request(request.url,{headers:{'If-None-Match':tag}}),configured,context);assert.equal(conditional.status,304);assert.equal(calls,1);await worker.fetch(request,{...configured,CF_VERSION_METADATA:{id:'cache-v2'}},context);assert.equal(calls,2);await Promise.all(pending);}finally{if(original===undefined)delete globalThis.caches;else globalThis.caches=original;}
+ try{const request=new Request('https://tcgcard.fun/cards/714372');const first=await worker.fetch(request,configured,context);assert.equal(first.status,200);assert.equal(first.headers.get('X-Robots-Tag'),'index, follow');await Promise.all(pending.splice(0));const tag=first.headers.get('ETag');assert.ok(tag);const conditional=await worker.fetch(new Request(request.url,{headers:{'If-None-Match':tag}}),configured,context);assert.equal(conditional.status,304);assert.equal(calls,1);await worker.fetch(request,{...configured,CF_VERSION_METADATA:{id:'cache-v2'}},context);assert.equal(calls,2);await Promise.all(pending);
+ const paused={...c,publicCardId:'unlisted-printing',card_ref:'unlisted-printing'};
+ const pausedEnv={...configured,SITE_DATA:{fetch:async()=>new Response(JSON.stringify({success:true,data:{...data,cards:[paused],card:paused},meta:{datasetMode:'published-read-only',catalogVersion:'paused'}}))}};
+ const pausedResponse=await worker.fetch(new Request('https://tcgcard.fun/cards/unlisted-printing'),pausedEnv,context);
+ assert.equal(pausedResponse.status,200);assert.equal(pausedResponse.headers.get('X-Robots-Tag'),'noindex, follow');assert.match(await pausedResponse.text(),/content="noindex,follow"/);await Promise.all(pending);
+}finally{if(original===undefined)delete globalThis.caches;else globalThis.caches=original;}
 });
 
 test('production IndexNow key is readable as UTF-8 text without inherited preview robot directives',async()=>{
