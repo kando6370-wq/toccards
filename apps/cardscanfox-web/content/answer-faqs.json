@@ -34,5 +34,19 @@
       "question": "Is this the same as American football Prizm?",
       "answer": "No. FIFA refers to soccer. Match the exact release and sport before using a card or price reference."
     }
+  ],
+  "/help": [
+    {
+      "question": "How many free scans does Card AI include?",
+      "answer": "Card AI is free to download on iPhone. Free access currently includes 10 successful scans per account or guest identity, with no daily or monthly reset. Failed scans and no-match results do not consume this allowance. Check the current in-app Premium offer and purchase terms before buying."
+    },
+    {
+      "question": "Does the 10-image queue give me 10 new free scans?",
+      "answer": "No. The queue holds up to 10 separate camera or gallery images for individual review. Queue capacity and your remaining free scans are separate limits. Review each set, full card number, language and finish before saving. The queue does not scan an entire binder page from one photo."
+    },
+    {
+      "question": "What should I do if the scanner finds the wrong printing?",
+      "answer": "Do not save a candidate that does not match your card. Check the set, full card number, language and finish. Try a straight-on photo in even light or search the catalog by name, set or number. If the exact printing is absent, do not substitute a different version or its price."
+    }
   ]
 }

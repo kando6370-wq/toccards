@@ -218,7 +218,7 @@
   "/dragon-ball-super-card-scanner": {
     "intent": "寻找特定卡种扫描与收藏工具",
     "title": "Dragon Ball Super Card Scanner: Check Coverage | CardScanFox",
-    "description": "Learn how to check Dragon Ball Super card coverage before scanning. Confirm a catalog match, printing details and available price context in the Card AI app.",
+    "description": "Dragon Ball Super coverage in Card AI has not been verified. Check the category and exact printing before using a scan or available price reference.",
     "question": "Can Card AI identify my particular Dragon Ball Super card?"
   },
   "/flesh-and-blood-card-scanner": {
@@ -230,7 +230,7 @@
   "/football-card-scanner": {
     "intent": "寻找特定卡种扫描与收藏工具",
     "title": "Football Card Scanner: Check Coverage | CardScanFox",
-    "description": "Learn how to check Football card coverage before scanning. Confirm a catalog match, printing details and available price context in the Card AI app.",
+    "description": "American football coverage in Card AI has not been verified. Check the category and exact printing before using a scan or available price reference.",
     "question": "Can Card AI identify my particular Football card?"
   },
   "/lorcana-card-scanner": {

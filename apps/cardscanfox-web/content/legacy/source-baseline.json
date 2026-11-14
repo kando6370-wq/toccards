@@ -8,7 +8,7 @@
       "path": "/",
       "file": "home.html",
       "status": 200,
-      "bytes": 95139,
+      "bytes": 95631,
       "title": "Card AI: TCG Card Scanner, Price Checker & Collection Tracker",
       "h1": [
         "Card AI."
@@ -25,24 +25,33 @@
         "Start Tracking Your Collection Today."
       ],
       "canonical": "https://tcgcard.fun/",
-      "normalizedBodySha256": "b111318f803078b7e1a62d4dae117f08826ae043cbfbbc581e8d53da50f2a449",
-      "bodyCharacters": 6322,
-      "wordCount": 973,
+      "normalizedBodySha256": "ca61f822c308e79285efe2e1998b2ef2132317897e7f89a9fefabd46db92afed",
+      "bodyCharacters": 6568,
+      "wordCount": 1011,
       "tableRows": 0,
       "contentLinks": [
-        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224",
-        "/digimon-card-scanner",
-        "/dragon-ball-super-card-scanner",
-        "/flesh-and-blood-card-scanner",
-        "/lorcana-card-scanner",
-        "/mtg-card-scanner",
-        "/one-piece-card-scanner",
-        "/pokemon-card-scanner",
-        "/star-wars-unlimited-card-scanner",
-        "/yugioh-card-scanner",
         "/basketball-card-scanner",
-        "/football-card-scanner",
-        "/soccer-card-scanner",
+        "/blog/",
+        "/blog/ascended-heroes-card-list",
+        "/blog/chaos-rising-card-list",
+        "/blog/charizard-151-card-value",
+        "/blog/charizard-gx-card-values",
+        "/blog/cufant-card-values",
+        "/blog/dungeon-crawler-carl-trading-cards",
+        "/blog/ivysaur-card-values",
+        "/blog/mega-charizard-x-ex-card-value",
+        "/blog/mew-gg10-card-value",
+        "/blog/minior-pokemon-card-guide",
+        "/blog/moonbreon-card-value",
+        "/blog/phantasmal-flames-card-list",
+        "/blog/pikachu-card-values",
+        "/blog/pokemon-card-values",
+        "/blog/pokemon-tcg-30th-celebration-card-prices",
+        "/blog/pokemon-tcg-set-card-lists",
+        "/blog/raw-vs-graded-card-values",
+        "/blog/rayquaza-vmax-card-values",
+        "/blog/scanning-cards-from-watsontcg",
+        "/blog/what-is-my-trading-card-worth",
         "/bulk-card-scanner",
         "/card-ai-vs-collx",
         "/card-ai-vs-ludex",
@@ -51,29 +60,20 @@
         "/card-price-checker",
         "/card-scanner-comparison-2026",
         "/chrome-extension",
+        "/digimon-card-scanner",
         "/digital-card-binder",
+        "/dragon-ball-super-card-scanner",
+        "/flesh-and-blood-card-scanner",
+        "/football-card-scanner",
         "/graded-card-tracker",
-        "/blog/ascended-heroes-card-list",
-        "/blog/chaos-rising-card-list",
-        "/blog/charizard-151-card-value",
-        "/blog/charizard-gx-card-values",
-        "/blog/cufant-card-values",
-        "/blog/ivysaur-card-values",
-        "/blog/mega-charizard-x-ex-card-value",
-        "/blog/mew-gg10-card-value",
-        "/blog/moonbreon-card-value",
-        "/blog/phantasmal-flames-card-list",
-        "/blog/pikachu-card-values",
-        "/blog/pokemon-card-values",
-        "/blog/rayquaza-vmax-card-values",
-        "/blog/pokemon-tcg-set-card-lists",
-        "/blog/dungeon-crawler-carl-trading-cards",
-        "/blog/minior-pokemon-card-guide",
-        "/blog/scanning-cards-from-watsontcg",
-        "/blog/pokemon-tcg-30th-celebration-card-prices",
-        "/blog/what-is-my-trading-card-worth",
-        "/blog/raw-vs-graded-card-values",
-        "/blog/"
+        "/lorcana-card-scanner",
+        "/mtg-card-scanner",
+        "/one-piece-card-scanner",
+        "/pokemon-card-scanner",
+        "/soccer-card-scanner",
+        "/star-wars-unlimited-card-scanner",
+        "/yugioh-card-scanner",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224"
       ],
       "contentImages": [
         {
@@ -157,7 +157,7 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "b9c05a49d0bde00b95c4805ec7107fbf2efc5f6c040dfa8471574d8750075abe",
+      "htmlSha256": "10f23a16b0e8870d9a9f006d54e6bc98535c76909528618d9aef8382427bc0fc",
       "localPublicFile": "apps/marketing-web/public/index.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
@@ -166,13 +166,17 @@
         "date": "2026-11-10",
         "approval": "TCG-20261110-ANSWER: user approved all 17 page improvements",
         "scope": "approved answer, platform/coverage correction, FAQ and contextual links; numbered tables and price observation dates retained"
-      }
+      },
+      "previousApprovedHtmlSha256": "b9c05a49d0bde00b95c4805ec7107fbf2efc5f6c040dfa8471574d8750075abe",
+      "originalCapturedHtmlSha256": "c40d6e4a47b8c61b506dd3104357868c2fce4c91aa5687a287d3ea80489503b6",
+      "editorialUpdatedOn": "2026-11-15",
+      "editorialReason": "Keep the formal source support limits and explicitly identify unverified TCG categories. State separate-image review and lifetime free allowance in the existing homepage FAQ. Limit the existing homepage value answer to available published prices."
     },
     {
       "path": "/basketball-card-scanner",
       "file": "basketball-card-scanner.html",
       "status": 200,
-      "bytes": 12276,
+      "bytes": 12258,
       "title": "Basketball Card Scanner & Value Checker | Card AI",
       "h1": [
         "Basketball card scanner and value checker."
@@ -188,9 +192,9 @@
         "Try the basketball card scanner in Card AI."
       ],
       "canonical": "https://tcgcard.fun/basketball-card-scanner",
-      "normalizedBodySha256": "2be0f6b57bbe85cbff4b13c8ddfc258ad938d907548a3de90f8d31ebe352b91b",
-      "bodyCharacters": 3772,
-      "wordCount": 621,
+      "normalizedBodySha256": "d98925b5f096dd5a149b24eeb22cf7f1fcee3601397c43a14280477ed783d7d2",
+      "bodyCharacters": 3746,
+      "wordCount": 612,
       "tableRows": 0,
       "contentLinks": [
         "/card-price-checker",
@@ -221,22 +225,27 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "4f99828c3a1ff234709311442cb3c7c9e885d19fffe88113cde389af848e7260",
+      "htmlSha256": "e68f9b53a9dc9f725a1add7ab087688188b208ebc766ac922200bf684fa10069",
       "localPublicFile": "apps/marketing-web/public/basketball-card-scanner.html",
       "localBodyMatchesLive": false,
-      "newProjectMigrationStatus": "notImplemented"
+      "newProjectMigrationStatus": "notImplemented",
+      "previousApprovedHtmlSha256": "4f99828c3a1ff234709311442cb3c7c9e885d19fffe88113cde389af848e7260",
+      "originalCapturedHtmlSha256": "4f99828c3a1ff234709311442cb3c7c9e885d19fffe88113cde389af848e7260",
+      "editorialUpdatedOn": "2026-11-15",
+      "editorialReason": "Remove the implication of an in-app sold-listing feed from the illustrative screenshot note."
     },
     {
       "path": "/bulk-card-scanner",
       "file": "bulk-card-scanner.html",
       "status": 200,
-      "bytes": 11086,
+      "bytes": 13111,
       "title": "Bulk Card Scanner: Scan a Stack of Cards at Once | Card AI",
       "h1": [
         "Bulk card scanner."
       ],
       "h2": [
         "Review a batch before it reaches your collection.",
+        "How do I sort a stack of cards?",
         "The bottleneck is entry, not identification",
         "Find the keepers inside the bulk",
         "Everything lands in one collection",
@@ -245,9 +254,9 @@
         "Try the bulk card scanner in Card AI."
       ],
       "canonical": "https://tcgcard.fun/bulk-card-scanner",
-      "normalizedBodySha256": "08749954486e78512aef479d01e93c4d9d3fa34e2c03e8d341b44a0b4733fcdd",
-      "bodyCharacters": 2825,
-      "wordCount": 476,
+      "normalizedBodySha256": "78971e160a099d66c5bb8f955282efdd0b0858420ac908802973188372de85e6",
+      "bodyCharacters": 4053,
+      "wordCount": 688,
       "tableRows": 0,
       "contentLinks": [
         "/card-collection-tracker",
@@ -276,22 +285,27 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "78730ec60dae1d0c2e4f607581aadccf07f19357f1e4d89f64760e92377f28fb",
+      "htmlSha256": "610494c9ed09cc9b94da17b8c7378a2fe8e1cea0c14aadfaa701d40798791e21",
       "localPublicFile": "apps/marketing-web/public/bulk-card-scanner.html",
-      "localBodyMatchesLive": true,
-      "newProjectMigrationStatus": "notImplemented"
+      "localBodyMatchesLive": false,
+      "newProjectMigrationStatus": "notImplemented",
+      "previousApprovedHtmlSha256": "78730ec60dae1d0c2e4f607581aadccf07f19357f1e4d89f64760e92377f28fb",
+      "originalCapturedHtmlSha256": "78730ec60dae1d0c2e4f607581aadccf07f19357f1e4d89f64760e92377f28fb",
+      "editorialUpdatedOn": "2026-11-15",
+      "editorialReason": "Add actionable steps and mismatch or missing-price handling. Separate lifetime free scans from the 10-image queue. State public iPhone availability and the pending Android release. Align bulk-scanning description with the review queue. Explain separate-image review rather than binder-page recognition. Remove the implication of an in-app sold-listing feed from the illustrative screenshot note."
     },
     {
       "path": "/card-ai-vs-collx",
       "file": "card-ai-vs-collx.html",
       "status": 200,
-      "bytes": 11452,
+      "bytes": 13683,
       "title": "Card AI vs CollX: Prices and Collection | Card AI",
       "h1": [
         "Card AI vs CollX: what does the price represent?"
       ],
       "h2": [
         "Card AI keeps the selected copy visible.",
+        "How should I choose between Card AI and CollX?",
         "Variant, condition and price are separate decisions",
         "A useful test with two copies of one card",
         "Read the source of the number",
@@ -300,9 +314,9 @@
         "Try the collection tracker in Card AI."
       ],
       "canonical": "https://tcgcard.fun/card-ai-vs-collx",
-      "normalizedBodySha256": "379842d34f86e5787a75aba2475dfdda803625136e1aacdb66c2b877cea526fd",
-      "bodyCharacters": 3437,
-      "wordCount": 567,
+      "normalizedBodySha256": "16f33c4e4b9cc28aca192e8516c753632dc7002e2e547452ef881f7d63dcc0f3",
+      "bodyCharacters": 4806,
+      "wordCount": 776,
       "tableRows": 5,
       "contentLinks": [
         "/card-price-checker",
@@ -333,22 +347,27 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "c0d82ad867c3c23a7b955c34b2e01239106a58ddf4316500233fead216e6a87b",
+      "htmlSha256": "328ac7c2dee2adab276acb49d1d1bd3429872956b6a6218685b96c612d85fa7d",
       "localPublicFile": "apps/marketing-web/public/card-ai-vs-collx.html",
-      "localBodyMatchesLive": true,
-      "newProjectMigrationStatus": "notImplemented"
+      "localBodyMatchesLive": false,
+      "newProjectMigrationStatus": "notImplemented",
+      "previousApprovedHtmlSha256": "c0d82ad867c3c23a7b955c34b2e01239106a58ddf4316500233fead216e6a87b",
+      "originalCapturedHtmlSha256": "c0d82ad867c3c23a7b955c34b2e01239106a58ddf4316500233fead216e6a87b",
+      "editorialUpdatedOn": "2026-11-15",
+      "editorialReason": "Add actionable steps and mismatch or missing-price handling. Separate lifetime free scans from the 10-image queue. State public iPhone availability and the pending Android release. Make the workflow comparison answer direct without claiming a benchmark. Remove unverified football support from the comparison. Remove the implication of an in-app sold-listing feed from the illustrative screenshot note."
     },
     {
       "path": "/card-ai-vs-ludex",
       "file": "card-ai-vs-ludex.html",
       "status": 200,
-      "bytes": 11114,
+      "bytes": 13180,
       "title": "Card AI vs Ludex: Scan, Price and List | Card AI",
       "h1": [
         "Card AI vs Ludex: scan to collection or scan to listing?"
       ],
       "h2": [
         "Card AI makes each match a review decision.",
+        "How should I choose between Card AI and Ludex?",
         "The documented path after a scan",
         "Choose based on selling plans",
         "How to compare the two fairly",
@@ -357,9 +376,9 @@
         "Try the card scanner in Card AI."
       ],
       "canonical": "https://tcgcard.fun/card-ai-vs-ludex",
-      "normalizedBodySha256": "0b6536d99e4f19dfef1b115a87e7bbe49835daa23560827a7be2d87051e5d5f1",
-      "bodyCharacters": 3048,
-      "wordCount": 518,
+      "normalizedBodySha256": "3782549b26b37bb49a71ad405f3b805de8b220580559327e073e1e54b622cb99",
+      "bodyCharacters": 4369,
+      "wordCount": 725,
       "tableRows": 4,
       "contentLinks": [
         "/bulk-card-scanner",
@@ -390,22 +409,27 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "26340649600f0c4ce38b98b4feb53f8ed1348caccbedec39f21214920613916e",
+      "htmlSha256": "b035cc3bcd27b5a1ae18e0ff07534f0232c44b31973595e1d8cd906f68e98b4d",
       "localPublicFile": "apps/marketing-web/public/card-ai-vs-ludex.html",
-      "localBodyMatchesLive": true,
-      "newProjectMigrationStatus": "notImplemented"
+      "localBodyMatchesLive": false,
+      "newProjectMigrationStatus": "notImplemented",
+      "previousApprovedHtmlSha256": "26340649600f0c4ce38b98b4feb53f8ed1348caccbedec39f21214920613916e",
+      "originalCapturedHtmlSha256": "26340649600f0c4ce38b98b4feb53f8ed1348caccbedec39f21214920613916e",
+      "editorialUpdatedOn": "2026-11-15",
+      "editorialReason": "Add actionable steps and mismatch or missing-price handling. Separate lifetime free scans from the 10-image queue. State public iPhone availability and the pending Android release. Make the workflow comparison answer direct without claiming a benchmark. Remove unverified football support from the comparison. Remove the implication of an in-app sold-listing feed from the illustrative screenshot note."
     },
     {
       "path": "/card-collection-tracker",
       "file": "card-collection-tracker.html",
       "status": 200,
-      "bytes": 12399,
+      "bytes": 16799,
       "title": "Trading Card Collection Tracker: Holdings & Wishlist",
       "h1": [
         "Track the cards you own. Keep Wishlist separate."
       ],
       "h2": [
         "See holdings and current value in one portfolio.",
+        "How do I track the cards I own?",
         "A collection becomes useful when it becomes a portfolio",
         "Valuation keeps each holding distinct",
         "Price history explains the portfolio movement",
@@ -415,20 +439,20 @@
         "Track your collection in the Card AI app."
       ],
       "canonical": "https://tcgcard.fun/card-collection-tracker",
-      "normalizedBodySha256": "144d4ad578a4d22e88427448315d104ebb1d67b011009f6cc3951797085a363c",
-      "bodyCharacters": 5133,
-      "wordCount": 821,
+      "normalizedBodySha256": "62c6001a7a254693116a2896c3b5ab576780a8ef065c4ffa36d55a1efb211011",
+      "bodyCharacters": 5914,
+      "wordCount": 954,
       "tableRows": 0,
       "contentLinks": [
-        "/download",
-        "/digital-card-binder",
-        "/graded-card-tracker",
-        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224",
         "/blog/ascended-heroes-card-list",
         "/blog/chaos-rising-card-list",
         "/blog/phantasmal-flames-card-list",
         "/blog/pokemon-card-values",
-        "/bulk-card-scanner"
+        "/bulk-card-scanner",
+        "/digital-card-binder",
+        "/download",
+        "/graded-card-tracker",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224"
       ],
       "contentImages": [
         {
@@ -452,7 +476,7 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "fdd5b42702ad2f5f52786c84f0ea385da5504ff1843959131ef89c07c93fb5c5",
+      "htmlSha256": "139cc3322a1418670ae1b8754dbb1e7f975c51a8e0b341987a4797bb99f93bb2",
       "localPublicFile": "apps/marketing-web/public/card-collection-tracker.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
@@ -461,19 +485,24 @@
         "date": "2026-11-10",
         "approval": "TCG-20261110-ANSWER: user approved all 17 page improvements",
         "scope": "approved answer, platform/coverage correction, FAQ and contextual links; numbered tables and price observation dates retained"
-      }
+      },
+      "previousApprovedHtmlSha256": "fdd5b42702ad2f5f52786c84f0ea385da5504ff1843959131ef89c07c93fb5c5",
+      "originalCapturedHtmlSha256": "7cafb9b84e9459054df79fb3d740b2eb4c04c0cb1eb7f05a1e189ed6c0a91210",
+      "editorialUpdatedOn": "2026-11-15",
+      "editorialReason": "Add actionable steps and mismatch or missing-price handling. State public iPhone availability and the pending Android release. Limit collection totals to available published prices. Explain missing-price limits in the collection-value answer. Remove the implication of an in-app sold-listing feed from the illustrative screenshot note."
     },
     {
       "path": "/card-identifier",
       "file": "card-identifier.html",
       "status": 200,
-      "bytes": 11091,
+      "bytes": 15315,
       "title": "Trading Card Photo Identifier: Review Matches in Card AI",
       "h1": [
         "Identify the card. Confirm the printing."
       ],
       "h2": [
         "See the candidate before you confirm the card.",
+        "How do I identify a card from a photo?",
         "Naming a card is the easy half",
         "What the card photo scanner reads",
         "Card search by photo, or by text",
@@ -483,17 +512,17 @@
         "Identify a card in the Card AI app."
       ],
       "canonical": "https://tcgcard.fun/card-identifier",
-      "normalizedBodySha256": "098df19bbca9d0a3cc6c7ca74a3729df71a48a1f42d4fdc13c41d383d068b8be",
-      "bodyCharacters": 4191,
-      "wordCount": 683,
+      "normalizedBodySha256": "99aded3add105fb90e7c2ed321795336f1b7d9c4780be7d5700fd783236949f1",
+      "bodyCharacters": 5299,
+      "wordCount": 886,
       "tableRows": 0,
       "contentLinks": [
-        "/cards",
-        "/download",
-        "/chrome-extension",
-        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224",
+        "/bulk-card-scanner",
         "/card-price-checker",
-        "/bulk-card-scanner"
+        "/cards",
+        "/chrome-extension",
+        "/download",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224"
       ],
       "contentImages": [
         {
@@ -517,28 +546,33 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "ad2757c744371c9e3aabdcf72f596bb25bc811be821d1358b150a0e59dc4a4ba",
+      "htmlSha256": "ab89b0131a98c11644c29da656d8f5e8a754bfdfe9f126da7cc96726b281142b",
       "localPublicFile": "apps/marketing-web/public/card-identifier.html",
-      "localBodyMatchesLive": true,
+      "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
       "priorHtmlSha256": "a3ace3cd1b32120cf746705317a644cafd3d5a78b2003229ea7a9e43862f4795",
       "contentRevision": {
         "date": "2026-11-10",
         "approval": "TCG-20261110-ANSWER: user approved all 17 page improvements",
         "scope": "approved answer, platform/coverage correction, FAQ and contextual links; numbered tables and price observation dates retained"
-      }
+      },
+      "previousApprovedHtmlSha256": "ad2757c744371c9e3aabdcf72f596bb25bc811be821d1358b150a0e59dc4a4ba",
+      "originalCapturedHtmlSha256": "a3ace3cd1b32120cf746705317a644cafd3d5a78b2003229ea7a9e43862f4795",
+      "editorialUpdatedOn": "2026-11-15",
+      "editorialReason": "Add actionable steps and mismatch or missing-price handling. Separate lifetime free scans from the 10-image queue. State public iPhone availability and the pending Android release. Keep unverified categories distinct from confirmed support. Remove the implication of an in-app sold-listing feed from the illustrative screenshot note."
     },
     {
       "path": "/card-price-checker",
       "file": "card-price-checker.html",
       "status": 200,
-      "bytes": 16732,
+      "bytes": 17816,
       "title": "Card Price Checker Guide: Match Printing & Condition",
       "h1": [
         "Check the card before checking its value."
       ],
       "h2": [
         "Inspect the price behind the card record.",
+        "How do I check what my card is worth?",
         "One price for a card is usually the wrong price",
         "Price history matters more than the current price",
         "Two ways to use the card price scanner",
@@ -552,28 +586,28 @@
         "Check card prices in the Card AI app."
       ],
       "canonical": "https://tcgcard.fun/card-price-checker",
-      "normalizedBodySha256": "47ef243dfde5c0beb20406b7a0e9fd7b077084434d8a6a87fab7e618e9aa8322",
-      "bodyCharacters": 8479,
-      "wordCount": 1432,
+      "normalizedBodySha256": "bf06858df944699dc3495647f58cad3f6b91d0ab5f686282190f896f0f299e49",
+      "bodyCharacters": 9386,
+      "wordCount": 1586,
       "tableRows": 0,
       "contentLinks": [
-        "/prices",
-        "/blog/raw-vs-graded-card-values",
-        "/download",
-        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224",
-        "/graded-card-tracker",
-        "/blog/pokemon-tcg-30th-celebration-card-prices",
-        "/pokemon-card-scanner",
-        "/blog/pokemon-card-values",
-        "/blog/rayquaza-vmax-card-values",
-        "/blog/mew-gg10-card-value",
-        "/blog/charizard-gx-card-values",
-        "/blog/moonbreon-card-value",
         "/blog/charizard-151-card-value",
+        "/blog/charizard-gx-card-values",
         "/blog/mega-charizard-x-ex-card-value",
+        "/blog/mew-gg10-card-value",
+        "/blog/moonbreon-card-value",
         "/blog/pikachu-card-values",
+        "/blog/pokemon-card-values",
+        "/blog/pokemon-tcg-30th-celebration-card-prices",
+        "/blog/raw-vs-graded-card-values",
+        "/blog/rayquaza-vmax-card-values",
         "/card-identifier",
-        "/card-scanner-comparison-2026"
+        "/card-scanner-comparison-2026",
+        "/download",
+        "/graded-card-tracker",
+        "/pokemon-card-scanner",
+        "/prices",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224"
       ],
       "contentImages": [
         {
@@ -597,7 +631,7 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "b8f318a1ab6be73c4616f0c97a2b84a7205491736d2ba4d8a8f4905329f147db",
+      "htmlSha256": "68e97423638468a6d53c7fcbcba289a1c422a68dc5aad32d5c8f0da333490cc3",
       "localPublicFile": "apps/marketing-web/public/card-price-checker.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
@@ -606,19 +640,24 @@
         "date": "2026-11-10",
         "approval": "TCG-20261110-ANSWER: user approved all 17 page improvements",
         "scope": "approved answer, platform/coverage correction, FAQ and contextual links; numbered tables and price observation dates retained"
-      }
+      },
+      "previousApprovedHtmlSha256": "b8f318a1ab6be73c4616f0c97a2b84a7205491736d2ba4d8a8f4905329f147db",
+      "originalCapturedHtmlSha256": "2c46e82dba044d4ad4eab9b76568a2bd834b8a59142921b61b01e1cdd7311967",
+      "editorialUpdatedOn": "2026-11-15",
+      "editorialReason": "Add actionable steps and mismatch or missing-price handling. State public iPhone availability and the pending Android release. Remove the implication of an in-app sold-listing feed from the illustrative screenshot note."
     },
     {
       "path": "/card-scanner-comparison-2026",
       "file": "card-scanner-comparison-2026.html",
       "status": 200,
-      "bytes": 13679,
+      "bytes": 15665,
       "title": "Trading Card Scanner Apps Compared in 2026 | Card AI",
       "h1": [
         "Trading card scanner apps compared in 2026."
       ],
       "h2": [
         "Card AI uses a review queue for up to 10 images.",
+        "How do I choose a card scanner app?",
         "What each product documents",
         "Pick the tool by the next action",
         "What does a free sports card scanner app actually include?",
@@ -628,9 +667,9 @@
         "Try the card scanner in Card AI."
       ],
       "canonical": "https://tcgcard.fun/card-scanner-comparison-2026",
-      "normalizedBodySha256": "489ea7b0a64f8e917093c01fb232592d0acba57ad5fa78e17409bba1fd99d7fb",
-      "bodyCharacters": 4937,
-      "wordCount": 807,
+      "normalizedBodySha256": "27e6c42dd311d9f249186d275e714d65df8bd645b4e7c7c589dd897202f8e572",
+      "bodyCharacters": 6161,
+      "wordCount": 993,
       "tableRows": 7,
       "contentLinks": [
         "/bulk-card-scanner",
@@ -668,10 +707,14 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "aca7ef812f12da36e7aae572ef006b556ef4139f1659cce68d2ad7ac79925ff6",
+      "htmlSha256": "bdbeb9a5d5713bb81b0eb889b2bc7ba4bdf457a5944df88d23c5e17ed4d2b0df",
       "localPublicFile": "apps/marketing-web/public/card-scanner-comparison-2026.html",
-      "localBodyMatchesLive": true,
-      "newProjectMigrationStatus": "notImplemented"
+      "localBodyMatchesLive": false,
+      "newProjectMigrationStatus": "notImplemented",
+      "previousApprovedHtmlSha256": "aca7ef812f12da36e7aae572ef006b556ef4139f1659cce68d2ad7ac79925ff6",
+      "originalCapturedHtmlSha256": "aca7ef812f12da36e7aae572ef006b556ef4139f1659cce68d2ad7ac79925ff6",
+      "editorialUpdatedOn": "2026-11-15",
+      "editorialReason": "Add actionable steps and mismatch or missing-price handling. Separate lifetime free scans from the 10-image queue. State public iPhone availability and the pending Android release. State selection criteria instead of implying an accuracy ranking. Clarify the cumulative free allowance without inventing Premium pricing. Align category and platform limits with current availability. Remove the implication of an in-app sold-listing feed from the illustrative screenshot note."
     },
     {
       "path": "/chrome-extension",
@@ -720,7 +763,7 @@
       "path": "/digimon-card-scanner",
       "file": "digimon-card-scanner.html",
       "status": 200,
-      "bytes": 10628,
+      "bytes": 10996,
       "title": "Digimon Card Scanner & Value Checker | Card AI",
       "h1": [
         "Digimon card scanner and value checker."
@@ -735,9 +778,9 @@
         "Try the digimon card scanner in Card AI."
       ],
       "canonical": "https://tcgcard.fun/digimon-card-scanner",
-      "normalizedBodySha256": "aa876829b4554a2393b6a27282c44fd6a2bc3243f900a0adf8f4a69221cd9086",
-      "bodyCharacters": 2551,
-      "wordCount": 425,
+      "normalizedBodySha256": "823a149426c69cf8523d5190bc1a1ed09dd88c7fd5506b5f9843cd4941295bd1",
+      "bodyCharacters": 2720,
+      "wordCount": 448,
       "tableRows": 0,
       "contentLinks": [
         "/card-price-checker",
@@ -767,16 +810,20 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "68e8820e2472c0cf20bc21e854646f23ad6ee5f356ff99403cc6de2db16df0c9",
+      "htmlSha256": "bb8d076d95e8b2dae37dfdbd74921657e010f4f8d3e63d0132842ec2ec355cf5",
       "localPublicFile": "apps/marketing-web/public/digimon-card-scanner.html",
-      "localBodyMatchesLive": true,
-      "newProjectMigrationStatus": "notImplemented"
+      "localBodyMatchesLive": false,
+      "newProjectMigrationStatus": "notImplemented",
+      "previousApprovedHtmlSha256": "68e8820e2472c0cf20bc21e854646f23ad6ee5f356ff99403cc6de2db16df0c9",
+      "originalCapturedHtmlSha256": "68e8820e2472c0cf20bc21e854646f23ad6ee5f356ff99403cc6de2db16df0c9",
+      "editorialUpdatedOn": "2026-11-15",
+      "editorialReason": "Remove the implication of an in-app sold-listing feed from the illustrative screenshot note. Answer the whole-collection question with the queue and allowance limits."
     },
     {
       "path": "/digital-card-binder",
       "file": "digital-card-binder.html",
       "status": 200,
-      "bytes": 13060,
+      "bytes": 13042,
       "title": "Digital Card Binder & Collection Catalog | Card AI",
       "h1": [
         "Digital card binder and catalog."
@@ -792,9 +839,9 @@
         "Try the digital card binder in Card AI."
       ],
       "canonical": "https://tcgcard.fun/digital-card-binder",
-      "normalizedBodySha256": "27da74e7588d57bc34c7bacb09ac68796968bb81a0cc93dbbc0e2e69e41cb1f8",
-      "bodyCharacters": 3706,
-      "wordCount": 620,
+      "normalizedBodySha256": "23c87ff4d572371535e2485ff24f5eb0497f5259ff12319438e5b0194581b278",
+      "bodyCharacters": 3678,
+      "wordCount": 609,
       "tableRows": 0,
       "contentLinks": [
         "/bulk-card-scanner",
@@ -823,16 +870,20 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "b54f47f7abed678722e78c6789c407826d7c67fb7306b01a2cf964a5d7bee8f9",
+      "htmlSha256": "d7ec94700c9d25be4a6a4ada19a2f87153ba1b8158bcbd9f39fac78e00636998",
       "localPublicFile": "apps/marketing-web/public/digital-card-binder.html",
-      "localBodyMatchesLive": true,
-      "newProjectMigrationStatus": "notImplemented"
+      "localBodyMatchesLive": false,
+      "newProjectMigrationStatus": "notImplemented",
+      "previousApprovedHtmlSha256": "b54f47f7abed678722e78c6789c407826d7c67fb7306b01a2cf964a5d7bee8f9",
+      "originalCapturedHtmlSha256": "b54f47f7abed678722e78c6789c407826d7c67fb7306b01a2cf964a5d7bee8f9",
+      "editorialUpdatedOn": "2026-11-15",
+      "editorialReason": "Remove the implication of an in-app sold-listing feed from the illustrative screenshot note."
     },
     {
       "path": "/dragon-ball-super-card-scanner",
       "file": "dragon-ball-super-card-scanner.html",
       "status": 200,
-      "bytes": 9483,
+      "bytes": 10969,
       "title": "Dragon Ball Super Card Scanner: Check Coverage | CardScanFox",
       "h1": [
         "Dragon Ball Super card scanner."
@@ -847,19 +898,19 @@
         "Check Dragon Ball Super coverage before scanning."
       ],
       "canonical": "https://tcgcard.fun/dragon-ball-super-card-scanner",
-      "normalizedBodySha256": "3e77034526298028743a0d9667f5856f35935e17820313942fb3ebdd6c036944",
-      "bodyCharacters": 2782,
-      "wordCount": 448,
+      "normalizedBodySha256": "12260f8108f0db579ae80880e04a4d352d0625b8baab0537e58247bb6ed0e5f7",
+      "bodyCharacters": 2825,
+      "wordCount": 458,
       "tableRows": 0,
       "contentLinks": [
-        "/download",
         "/card-identifier",
-        "/data-methodology",
-        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224",
-        "/games",
         "/card-price-checker",
+        "/data-methodology",
         "/digimon-card-scanner",
-        "/yugioh-card-scanner"
+        "/download",
+        "/games",
+        "/yugioh-card-scanner",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224"
       ],
       "contentImages": [
         {
@@ -872,7 +923,7 @@
         },
         {
           "src": "/assets/showcase-scan.png",
-          "alt": "Dragon Ball Super card scanner: Card AI scan and candidate review screen"
+          "alt": "Illustrative Card AI scan and candidate review screen; Dragon Ball Super coverage is unverified."
         },
         {
           "src": "/assets/apple-store-icon.png",
@@ -883,22 +934,26 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "00791e3ec13ecc38e66470d55ad8c69d1f6c842e1d62751c897e810ba376022d",
+      "htmlSha256": "50c87cd8f151c1b2356154a3b4aee773834da572b8b439d4506801638f4512ae",
       "localPublicFile": "apps/marketing-web/public/dragon-ball-super-card-scanner.html",
-      "localBodyMatchesLive": true,
+      "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
       "priorHtmlSha256": "79d3d13e840d3e106baf5987005ab338d8ed486336e9106f64119b77ffab4f66",
       "contentRevision": {
         "date": "2026-11-10",
         "approval": "TCG-20261110-ANSWER: user approved all 17 page improvements",
         "scope": "approved answer, platform/coverage correction, FAQ and contextual links; numbered tables and price observation dates retained"
-      }
+      },
+      "previousApprovedHtmlSha256": "00791e3ec13ecc38e66470d55ad8c69d1f6c842e1d62751c897e810ba376022d",
+      "originalCapturedHtmlSha256": "79d3d13e840d3e106baf5987005ab338d8ed486336e9106f64119b77ffab4f66",
+      "editorialUpdatedOn": "2026-11-15",
+      "editorialReason": "Keep the newer coverage guide and state that the category is unverified. Avoid presenting a generic app illustration as evidence of category support. Remove the implication of an in-app sold-listing feed from the illustrative screenshot note. Align the source metadata and SEO description with unverified category coverage."
     },
     {
       "path": "/flesh-and-blood-card-scanner",
       "file": "flesh-and-blood-card-scanner.html",
       "status": 200,
-      "bytes": 10680,
+      "bytes": 10890,
       "title": "Flesh and Blood Card Scanner & Value Checker | Card AI",
       "h1": [
         "Flesh and Blood card scanner."
@@ -913,9 +968,9 @@
         "Try the flesh and Blood card scanner in Card AI."
       ],
       "canonical": "https://tcgcard.fun/flesh-and-blood-card-scanner",
-      "normalizedBodySha256": "f033f7c15d722c29ed2da7a1329bae18ee8cda03dda054df18b3949f69193849",
-      "bodyCharacters": 2551,
-      "wordCount": 435,
+      "normalizedBodySha256": "585aeddb51033362de506ef198c34cb4fda088efbde4a5800be57071378bac1c",
+      "bodyCharacters": 2641,
+      "wordCount": 439,
       "tableRows": 0,
       "contentLinks": [
         "/card-price-checker",
@@ -944,16 +999,20 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "9e979e5493c70abeb44a13ed4b47a0e4c195d8bc715fe407f8feebf73f16dc92",
+      "htmlSha256": "a34eb2e6aa1798bbb1ce05c15a93ac0b7a07c61d1e7740e6680df6b6b1061017",
       "localPublicFile": "apps/marketing-web/public/flesh-and-blood-card-scanner.html",
-      "localBodyMatchesLive": true,
-      "newProjectMigrationStatus": "notImplemented"
+      "localBodyMatchesLive": false,
+      "newProjectMigrationStatus": "notImplemented",
+      "previousApprovedHtmlSha256": "9e979e5493c70abeb44a13ed4b47a0e4c195d8bc715fe407f8feebf73f16dc92",
+      "originalCapturedHtmlSha256": "9e979e5493c70abeb44a13ed4b47a0e4c195d8bc715fe407f8feebf73f16dc92",
+      "editorialUpdatedOn": "2026-11-15",
+      "editorialReason": "Remove the implication of an in-app sold-listing feed from the illustrative screenshot note. Replace live-total wording with a dated, coverage-limited reference total."
     },
     {
       "path": "/football-card-scanner",
       "file": "football-card-scanner.html",
       "status": 200,
-      "bytes": 10531,
+      "bytes": 12184,
       "title": "Football Card Scanner: Check Coverage | CardScanFox",
       "h1": [
         "Football card scanner and value checker."
@@ -969,21 +1028,21 @@
         "Check football coverage before scanning."
       ],
       "canonical": "https://tcgcard.fun/football-card-scanner",
-      "normalizedBodySha256": "cdeef163c72ba064d7caeb39f4eea69b32500fc16410d940447d7b98dc352e61",
-      "bodyCharacters": 3663,
-      "wordCount": 573,
+      "normalizedBodySha256": "2f299a472c4fc0e154954e2569d6a59869fcd1b77318279b409e85a3d0a33ac2",
+      "bodyCharacters": 3796,
+      "wordCount": 596,
       "tableRows": 0,
       "contentLinks": [
-        "/download",
-        "/card-identifier",
-        "/data-methodology",
-        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224",
-        "/games",
-        "/card-price-checker",
-        "https://www.paniniamerica.net/checklist.html",
-        "https://www.checklistinsider.com/2025-panini-phoenix-football",
         "/basketball-card-scanner",
-        "/soccer-card-scanner"
+        "/card-identifier",
+        "/card-price-checker",
+        "/data-methodology",
+        "/download",
+        "/games",
+        "/soccer-card-scanner",
+        "https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224",
+        "https://www.checklistinsider.com/2025-panini-phoenix-football",
+        "https://www.paniniamerica.net/checklist.html"
       ],
       "contentImages": [
         {
@@ -996,7 +1055,7 @@
         },
         {
           "src": "/assets/showcase-scan.png",
-          "alt": "Football card scanner: Card AI scan and candidate review screen"
+          "alt": "Illustrative Card AI scan and candidate review screen; American football coverage is unverified."
         },
         {
           "src": "/assets/apple-store-icon.png",
@@ -1007,7 +1066,7 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "08ca3aac0b30e04556656ffe3af7ea0444774d28c8cab550984e561f05ab1a0a",
+      "htmlSha256": "c71338592acd1abb7d1e0b4424bbc50f8a77e6340fd523dec9e6104600712c9b",
       "localPublicFile": "apps/marketing-web/public/football-card-scanner.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
@@ -1016,13 +1075,17 @@
         "date": "2026-11-10",
         "approval": "TCG-20261110-ANSWER: user approved all 17 page improvements",
         "scope": "approved answer, platform/coverage correction, FAQ and contextual links; numbered tables and price observation dates retained"
-      }
+      },
+      "previousApprovedHtmlSha256": "08ca3aac0b30e04556656ffe3af7ea0444774d28c8cab550984e561f05ab1a0a",
+      "originalCapturedHtmlSha256": "920680845d65ee26acb62b2d03df3aae20902f5d7de2e5df6ad0512bd3a34ae6",
+      "editorialUpdatedOn": "2026-11-15",
+      "editorialReason": "State public iPhone availability and the pending Android release. Keep the newer coverage guide and state that the category is unverified. Avoid presenting a generic app illustration as evidence of category support. Qualify grade tracking by the existence of a supported record. Remove the implication of an in-app sold-listing feed from the illustrative screenshot note. Align the source metadata and SEO description with unverified category coverage."
     },
     {
       "path": "/graded-card-tracker",
       "file": "graded-card-tracker.html",
       "status": 200,
-      "bytes": 10835,
+      "bytes": 10817,
       "title": "Graded Card Tracker: Raw vs Graded Values | Card AI",
       "h1": [
         "Graded and raw card tracker."
@@ -1037,9 +1100,9 @@
         "Try the graded card tracker in Card AI."
       ],
       "canonical": "https://tcgcard.fun/graded-card-tracker",
-      "normalizedBodySha256": "5ce8e07cff1c27787455011a53a244da33298b42cb399ec5885bd6d6c74e8e7d",
-      "bodyCharacters": 2641,
-      "wordCount": 469,
+      "normalizedBodySha256": "97d1075ab596af35f44763d1e5417c8aaabdc56f78b73cc2233407ac68d0eb48",
+      "bodyCharacters": 2614,
+      "wordCount": 459,
       "tableRows": 0,
       "contentLinks": [
         "/card-collection-tracker",
@@ -1068,16 +1131,20 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "37a0e9ad84bebfa15ec0a238f0c1f6f974222c5a492bd37011829bc243e92afa",
+      "htmlSha256": "1ea50e419fcb5299c433225db7c243a332d6d383e8ade73f73530763f3e6bf0f",
       "localPublicFile": "apps/marketing-web/public/graded-card-tracker.html",
-      "localBodyMatchesLive": true,
-      "newProjectMigrationStatus": "notImplemented"
+      "localBodyMatchesLive": false,
+      "newProjectMigrationStatus": "notImplemented",
+      "previousApprovedHtmlSha256": "37a0e9ad84bebfa15ec0a238f0c1f6f974222c5a492bd37011829bc243e92afa",
+      "originalCapturedHtmlSha256": "37a0e9ad84bebfa15ec0a238f0c1f6f974222c5a492bd37011829bc243e92afa",
+      "editorialUpdatedOn": "2026-11-15",
+      "editorialReason": "Remove the implication of an in-app sold-listing feed from the illustrative screenshot note."
     },
     {
       "path": "/lorcana-card-scanner",
       "file": "lorcana-card-scanner.html",
       "status": 200,
-      "bytes": 10889,
+      "bytes": 10871,
       "title": "Lorcana Card Scanner & Value Checker | Card AI",
       "h1": [
         "Lorcana card scanner and collection tracker."
@@ -1092,9 +1159,9 @@
         "Try the lorcana card scanner in Card AI."
       ],
       "canonical": "https://tcgcard.fun/lorcana-card-scanner",
-      "normalizedBodySha256": "8d1f7d28d7e53ca2efc2697062786e8794bd2fceca7420275ec2b15b098e42e8",
-      "bodyCharacters": 2712,
-      "wordCount": 436,
+      "normalizedBodySha256": "a21c7870b39b7b0c34788ba1f751b9909059b56bf751c10dcde21a23885a6426",
+      "bodyCharacters": 2688,
+      "wordCount": 429,
       "tableRows": 0,
       "contentLinks": [
         "/card-price-checker",
@@ -1123,16 +1190,20 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "646f90d0252771245a05e8621114266820487c345e74ebffdc4b7f7bfe545027",
+      "htmlSha256": "5150ffae90447677cfc978e343537c28504e8dbe8cf2a92483b1606c45269771",
       "localPublicFile": "apps/marketing-web/public/lorcana-card-scanner.html",
-      "localBodyMatchesLive": true,
-      "newProjectMigrationStatus": "notImplemented"
+      "localBodyMatchesLive": false,
+      "newProjectMigrationStatus": "notImplemented",
+      "previousApprovedHtmlSha256": "646f90d0252771245a05e8621114266820487c345e74ebffdc4b7f7bfe545027",
+      "originalCapturedHtmlSha256": "646f90d0252771245a05e8621114266820487c345e74ebffdc4b7f7bfe545027",
+      "editorialUpdatedOn": "2026-11-15",
+      "editorialReason": "Remove the implication of an in-app sold-listing feed from the illustrative screenshot note."
     },
     {
       "path": "/mtg-card-scanner",
       "file": "mtg-card-scanner.html",
       "status": 200,
-      "bytes": 11843,
+      "bytes": 11825,
       "title": "MTG Card Scanner & Collection Tracker | Card AI",
       "h1": [
         "MTG card scanner and collection tracker."
@@ -1148,9 +1219,9 @@
         "Try the mTG card scanner in Card AI."
       ],
       "canonical": "https://tcgcard.fun/mtg-card-scanner",
-      "normalizedBodySha256": "084de8479c4bf594db58558714cbe1dee4d9cb582c72dc113025494372b359cc",
-      "bodyCharacters": 3472,
-      "wordCount": 587,
+      "normalizedBodySha256": "1c42bd9ee6dded790f1ba1755030b193d769a16802f876ba34dec96ced0ebd83",
+      "bodyCharacters": 3446,
+      "wordCount": 578,
       "tableRows": 0,
       "contentLinks": [
         "/card-price-checker",
@@ -1179,16 +1250,20 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "1a493bb3296535b275ad3c6ba99e8d6f71f3ba1b9537bfb973a034415c7cc6ca",
+      "htmlSha256": "dc59a2cff9c9787c4972a821a2d372abf85f45a21cd288ff6e0b98da0eed974b",
       "localPublicFile": "apps/marketing-web/public/mtg-card-scanner.html",
-      "localBodyMatchesLive": true,
-      "newProjectMigrationStatus": "notImplemented"
+      "localBodyMatchesLive": false,
+      "newProjectMigrationStatus": "notImplemented",
+      "previousApprovedHtmlSha256": "1a493bb3296535b275ad3c6ba99e8d6f71f3ba1b9537bfb973a034415c7cc6ca",
+      "originalCapturedHtmlSha256": "1a493bb3296535b275ad3c6ba99e8d6f71f3ba1b9537bfb973a034415c7cc6ca",
+      "editorialUpdatedOn": "2026-11-15",
+      "editorialReason": "Remove the implication of an in-app sold-listing feed from the illustrative screenshot note."
     },
     {
       "path": "/one-piece-card-scanner",
       "file": "one-piece-card-scanner.html",
       "status": 200,
-      "bytes": 11553,
+      "bytes": 11703,
       "title": "One Piece Card Scanner & Value Checker | Card AI",
       "h1": [
         "One Piece card scanner and value tracker."
@@ -1204,9 +1279,9 @@
         "Try the one Piece card scanner in Card AI."
       ],
       "canonical": "https://tcgcard.fun/one-piece-card-scanner",
-      "normalizedBodySha256": "14f4321c03ebddc89c8cbaf19e346626b4b80f4cfae081280fcf60551783f67e",
-      "bodyCharacters": 3244,
-      "wordCount": 547,
+      "normalizedBodySha256": "94b99faa0c3da4e994c06866a8f61928e5d9cd877c92c35db15c9d06c893013d",
+      "bodyCharacters": 3304,
+      "wordCount": 545,
       "tableRows": 0,
       "contentLinks": [
         "/card-price-checker",
@@ -1237,16 +1312,20 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "888ba266376c1808a5f2dd46ed1b4b7d7e471b84aaf35889585ad048393bda82",
+      "htmlSha256": "8a7d440cf3c076ba843b4caf28c075a862d9606d2e0094e710d79d9b59f8df42",
       "localPublicFile": "apps/marketing-web/public/one-piece-card-scanner.html",
-      "localBodyMatchesLive": true,
-      "newProjectMigrationStatus": "notImplemented"
+      "localBodyMatchesLive": false,
+      "newProjectMigrationStatus": "notImplemented",
+      "previousApprovedHtmlSha256": "888ba266376c1808a5f2dd46ed1b4b7d7e471b84aaf35889585ad048393bda82",
+      "originalCapturedHtmlSha256": "888ba266376c1808a5f2dd46ed1b4b7d7e471b84aaf35889585ad048393bda82",
+      "editorialUpdatedOn": "2026-11-15",
+      "editorialReason": "Remove the implication of an in-app sold-listing feed from the illustrative screenshot note. Replace live-total wording with a dated, coverage-limited reference total."
     },
     {
       "path": "/pokemon-card-scanner",
       "file": "pokemon-card-scanner.html",
       "status": 200,
-      "bytes": 19187,
+      "bytes": 19273,
       "title": "Pokemon Card Scanner App & Value Checker | Card AI",
       "h1": [
         "Pokemon card scanner and value checker."
@@ -1265,9 +1344,9 @@
         "Scan Pokemon cards in the Card AI app."
       ],
       "canonical": "https://tcgcard.fun/pokemon-card-scanner",
-      "normalizedBodySha256": "71451da38d560d29bbb0ce365f0e84c657130a2c49d774419981ec1f9ea55103",
-      "bodyCharacters": 7312,
-      "wordCount": 1255,
+      "normalizedBodySha256": "12ed271b0274d2aace09b185e7ce8a48e3c2c79e1ce4401b2d58f70fe993162d",
+      "bodyCharacters": 7334,
+      "wordCount": 1254,
       "tableRows": 0,
       "contentLinks": [
         "/blog/ascended-heroes-card-list",
@@ -1312,16 +1391,20 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "9b3fd8eaf2b905504134c86564805a8230c5d80b70aac12ac5c995ffca2f03f6",
+      "htmlSha256": "e85f4d3bd1ab5167ea5690c72ee742bb07abb202a4e31d37a7197349ed058225",
       "localPublicFile": "apps/marketing-web/public/pokemon-card-scanner.html",
       "localBodyMatchesLive": false,
-      "newProjectMigrationStatus": "notImplemented"
+      "newProjectMigrationStatus": "notImplemented",
+      "previousApprovedHtmlSha256": "9b3fd8eaf2b905504134c86564805a8230c5d80b70aac12ac5c995ffca2f03f6",
+      "originalCapturedHtmlSha256": "9b3fd8eaf2b905504134c86564805a8230c5d80b70aac12ac5c995ffca2f03f6",
+      "editorialUpdatedOn": "2026-11-15",
+      "editorialReason": "Remove the implication of an in-app sold-listing feed from the illustrative screenshot note. Clarify cumulative free scans, separate queue capacity, and platform availability."
     },
     {
       "path": "/soccer-card-scanner",
       "file": "soccer-card-scanner.html",
       "status": 200,
-      "bytes": 10879,
+      "bytes": 10861,
       "title": "Soccer Card Scanner: Check Soccer Card Values | Card AI",
       "h1": [
         "Soccer card scanner and value checker."
@@ -1336,9 +1419,9 @@
         "Try the soccer card scanner in Card AI."
       ],
       "canonical": "https://tcgcard.fun/soccer-card-scanner",
-      "normalizedBodySha256": "d9fe7860f74d9d512447d5f80c6b982b8719b2c508790f52bad1ee51e0c06b32",
-      "bodyCharacters": 2692,
-      "wordCount": 437,
+      "normalizedBodySha256": "fad4b113f199c0c59e9f39b99489b032d5203c194db079e5d711f66344b6e4b5",
+      "bodyCharacters": 2668,
+      "wordCount": 430,
       "tableRows": 0,
       "contentLinks": [
         "/basketball-card-scanner",
@@ -1368,16 +1451,20 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "cfbbfe9817c004495d2ff1495eed741430ec4143e5de0c02c62365876712564d",
+      "htmlSha256": "1c7bde44401f0399099f0af1e09243594f16b67d09ed761deafb6c1684bf3e62",
       "localPublicFile": "apps/marketing-web/public/soccer-card-scanner.html",
-      "localBodyMatchesLive": true,
-      "newProjectMigrationStatus": "notImplemented"
+      "localBodyMatchesLive": false,
+      "newProjectMigrationStatus": "notImplemented",
+      "previousApprovedHtmlSha256": "cfbbfe9817c004495d2ff1495eed741430ec4143e5de0c02c62365876712564d",
+      "originalCapturedHtmlSha256": "cfbbfe9817c004495d2ff1495eed741430ec4143e5de0c02c62365876712564d",
+      "editorialUpdatedOn": "2026-11-15",
+      "editorialReason": "Remove the implication of an in-app sold-listing feed from the illustrative screenshot note."
     },
     {
       "path": "/star-wars-unlimited-card-scanner",
       "file": "star-wars-unlimited-card-scanner.html",
       "status": 200,
-      "bytes": 10529,
+      "bytes": 10511,
       "title": "Star Wars Unlimited Card Scanner & Value Checker | Card AI",
       "h1": [
         "Star Wars Unlimited card scanner."
@@ -1392,9 +1479,9 @@
         "Try the star Wars Unlimited card scanner in Card AI."
       ],
       "canonical": "https://tcgcard.fun/star-wars-unlimited-card-scanner",
-      "normalizedBodySha256": "283f36cdd791583627ca83acf0d6ae7dd41d3ac85483de089d31da116149e4bb",
-      "bodyCharacters": 2402,
-      "wordCount": 388,
+      "normalizedBodySha256": "7def8cbec518cd060747f566ab6ebe31820c62182f6e224f48dcca90acc3ec59",
+      "bodyCharacters": 2378,
+      "wordCount": 381,
       "tableRows": 0,
       "contentLinks": [
         "/card-price-checker",
@@ -1423,16 +1510,20 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "b0db6e633fe731d31fe664b6ae343cb49400086f751f5411b274092718becb33",
+      "htmlSha256": "37ca99035c67b36b8bcfa1849b03fad3e3bf917197a82479db9d2959297c4cd2",
       "localPublicFile": "apps/marketing-web/public/star-wars-unlimited-card-scanner.html",
-      "localBodyMatchesLive": true,
-      "newProjectMigrationStatus": "notImplemented"
+      "localBodyMatchesLive": false,
+      "newProjectMigrationStatus": "notImplemented",
+      "previousApprovedHtmlSha256": "b0db6e633fe731d31fe664b6ae343cb49400086f751f5411b274092718becb33",
+      "originalCapturedHtmlSha256": "b0db6e633fe731d31fe664b6ae343cb49400086f751f5411b274092718becb33",
+      "editorialUpdatedOn": "2026-11-15",
+      "editorialReason": "Remove the implication of an in-app sold-listing feed from the illustrative screenshot note."
     },
     {
       "path": "/yugioh-card-scanner",
       "file": "yugioh-card-scanner.html",
       "status": 200,
-      "bytes": 11287,
+      "bytes": 11269,
       "title": "Yu-Gi-Oh! Card Scanner & Value Checker | Card AI",
       "h1": [
         "Yu-Gi-Oh! card scanner and value checker."
@@ -1447,9 +1538,9 @@
         "Try the yu-Gi-Oh! card scanner in Card AI."
       ],
       "canonical": "https://tcgcard.fun/yugioh-card-scanner",
-      "normalizedBodySha256": "2750c9d673a7f805f10f62db9813d442c210a212bca8de189cb527819b0788ce",
-      "bodyCharacters": 3062,
-      "wordCount": 507,
+      "normalizedBodySha256": "55a3f7e3dd507e518e3317b4501377be09aed3614b99d7c05547ab324a54f88a",
+      "bodyCharacters": 3036,
+      "wordCount": 498,
       "tableRows": 0,
       "contentLinks": [
         "/card-price-checker",
@@ -1478,10 +1569,14 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "8af7af92c5fab4e3550443c2803780e61992f1e7c3017890d3454a56e9ce1ae2",
+      "htmlSha256": "8f7348eded4c448d906ab6325d68cdfa01c793c816019f5b5aba6f9c47e38d7b",
       "localPublicFile": "apps/marketing-web/public/yugioh-card-scanner.html",
-      "localBodyMatchesLive": true,
-      "newProjectMigrationStatus": "notImplemented"
+      "localBodyMatchesLive": false,
+      "newProjectMigrationStatus": "notImplemented",
+      "previousApprovedHtmlSha256": "8af7af92c5fab4e3550443c2803780e61992f1e7c3017890d3454a56e9ce1ae2",
+      "originalCapturedHtmlSha256": "8af7af92c5fab4e3550443c2803780e61992f1e7c3017890d3454a56e9ce1ae2",
+      "editorialUpdatedOn": "2026-11-15",
+      "editorialReason": "Remove the implication of an in-app sold-listing feed from the illustrative screenshot note."
     },
     {
       "path": "/blog/",

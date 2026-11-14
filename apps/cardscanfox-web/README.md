@@ -152,7 +152,7 @@ pnpm --filter @kando/cardscanfox-web catalog:sitemaps --input=/absolute/catalog.
 
 新 Pages Git 项目 `cardscanfox-git-preview` 复用现有仓库连接。根目录 `/`，构建命令 `pnpm --filter @kando/cardscanfox-web --fail-if-no-match build:ci`，输出目录 `apps/cardscanfox-web/dist`。当前仓库要求 Node `^22.23.4`、pnpm `11.28.10`；远端构建环境版本仍须从实际部署回读。构建失败不替换上一成功部署。Pages 发布清单记录 `CF_PAGES_COMMIT_SHA`，用于回读核对实际发布提交。
 
-Pages 构建命令生成 `_worker.js` 和全路径 `_routes.json`，通过 `SITE_DATA` Service Binding 取得真实目录并服务端渲染。2026-11-07 初始预览有 108 个静态构建条目；当前构建清单为 123 条路由，单卡动态地址不限于原 30 条评审记录。公开 Pages 预览维持 noindex/no-store、robots 禁止抓取；独立 Workers 入口仍保留 Basic 认证。数据失败返回 503，首页保留产品说明，不以旧快照替代真实价格。
+Pages 构建命令生成 `_worker.js` 和全路径 `_routes.json`，通过 `SITE_DATA` Service Binding 取得真实目录并服务端渲染。2026-11-07 初始预览有 108 个静态构建条目；当前静态构建条数以 `dist/release-manifest.json` 为准，单卡动态地址不限于原 30 条评审记录。公开 Pages 预览维持 noindex/no-store、robots 禁止抓取；独立 Workers 入口仍保留 Basic 认证。数据失败返回 503，首页保留产品说明，不以旧快照替代真实价格。
 
 提交、Cloudflare 自动构建和线上生效是三个独立状态。每次正式发布都要回读活动 version/deployment，并核对线上 `/release-manifest.json` 的 `sourceCommit` 与批准提交一致；只看到 Git 推送或构建记录不能宣称生产已更新。
 
@@ -177,3 +177,10 @@ Pages 构建命令生成 `_worker.js` 和全路径 `_routes.json`，通过 `SITE
 `/Account/AccountSetup` 保留公开删除入口与 noindex 策略，Help 和页脚可进入。用户选择 Android／iOS、填写账号邮箱后，页面专用脚本 `/assets/account-deletion.js` 在本地准备邮件草稿或复制文本；不向官网提交账号资料，也不调用删除 API。草稿不是已发送或已受理，剪贴板不可用时提供手动复制回退。输入变更会清理旧草稿，iOS 订阅不自动取消的说明只在对应平台显示。
 
 无法使用原账号邮箱或没有 JavaScript 时，仍可通过固定客服邮箱和人工协助模板申请。客服核验、超级管理员受控执行、第三方数据处理和处理时限属于独立运营环节；本轮不新增 Admin Web 删除按钮或官网写服务。设计、实际实现和验收边界见[方案文档](../../docs/releases/v1.1.4/00-product/cardscanfox-account-deletion-design.md)。
+
+
+## 免费额度与推荐依据
+
+`content/answer-faqs.json` 的 `/help` 问答在首页、App、下载和帮助页复用，并生成等价 FAQPage。累计 10 次免费成功扫描与 10 张独立图片的队列容量分开说明；失败与无匹配不消耗成功额度，Premium 条件由 App 内实际报价说明。Android 未公开发布，独立 Chrome 扩展使用真实名称 TCG Card Recognizer。
+
+获批正文更正只更新相应 `source-baseline.json` 条目，并保留前版批准哈希，不全量重设保护基线。当前目录、榜单、账号删除与分阶段索引策略保留。功能与来源可以支持有范围的引用，识别性能和竞品优劣仍需真实同条件证据。
