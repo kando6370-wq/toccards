@@ -50,7 +50,7 @@ A large percentage rise can start from a very small amount. On the [seven-day ga
 
 ## Keep pulls and purchase plans separate
 
-Once you identify a pull, record the copy you actually own separately from a card you hope to buy. Card AI provides Portfolio and Wishlist workflows for that distinction. [Choose your download platform](/download) to continue in the app.
+Once you identify a pull, record the copy you actually own separately from a card you hope to buy. CardScanFox provides Portfolio and Wishlist workflows for that distinction. [Choose your download platform](/download) to continue in the app.
 
 If you are also researching the anniversary products, read the [30th Anniversary UPC comparison](/blog/pokemon-upc-30th-anniversary). Delta Reign and 30th Celebration are different expansion names; using the correct name prevents a misleading price comparison.
 

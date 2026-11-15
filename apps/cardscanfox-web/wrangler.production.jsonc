@@ -17,6 +17,11 @@
     {
       "binding": "SITE_DATA",
       "service": "cardscanfox-site-data-preview"
+    },
+    {
+      "binding": "WEB_VECTOR_RECOGNITION",
+      "service": "recognize-vec",
+      "environment": "production"
     }
   ],
   "workers_dev": false,
@@ -43,6 +48,16 @@
     {
       "pattern": "tcgcard.fun/*",
       "zone_name": "tcgcard.fun"
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "WEB_SCANNER_RATE_LIMITER",
+      "namespace_id": "2026111502",
+      "simple": {
+        "limit": 6,
+        "period": 60
+      }
     }
   ]
 }

@@ -1,0 +1,28 @@
+{
+  "source": "Existing TCG Card Recognizer browser inference assets",
+  "onnxRuntimeVersion": "1.30.0",
+  "onnxRuntimeLicense": "MIT; see LICENSE-ONNXRUNTIME.txt",
+  "modelLicense": "Apache-2.0; see LICENSE.PE and PE_MODEL_PROVENANCE.md. The ONNX conversion is copied unchanged; its SHA256 matches the existing Flutter provenance.",
+  "files": [
+    {
+      "file": "pe_core_t16_image_fp16.onnx",
+      "bytes": 12811395,
+      "sha256": "9d8c56ebb6428bc26f6a85bfd919cd0a73dbdcbb882bbaba8c8d66e9faad0f2d"
+    },
+    {
+      "file": "ort.wasm.min.js",
+      "bytes": 50196,
+      "sha256": "faece07e84faa9001f5104bbe4e5c70861d06cb2376a0dea1fa0ad33a67adc81"
+    },
+    {
+      "file": "ort-wasm-simd-threaded.mjs",
+      "bytes": 24381,
+      "sha256": "e13f7f94fc51b4ca72b12faeb1ee95f4ace6dfbc8939bc718aabdc0a27c4299b"
+    },
+    {
+      "file": "ort-wasm-simd-threaded.wasm",
+      "bytes": 14239897,
+      "sha256": "3398c10d07d229bd91b364548e130e0e51a8e5704b88c7c083ebbeb78842dee2"
+    }
+  ]
+}

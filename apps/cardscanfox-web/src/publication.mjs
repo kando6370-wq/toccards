@@ -1,10 +1,11 @@
+import {redirectTarget} from './redirects.mjs';
 import policy from '../content/index-policy.json' with {type:'json'};
 import {legacyByPath,allStaticPaths} from './render.mjs';
 const approved=new Set(policy.newIndexPaths);
 const rolloutPaths=new Set(policy.rollout?.allowedPaths??[]);
 const PVUV_SCRIPT='<script defer src="https://www.pvuv.ai/f.js" data-site="gx4EamoZ" data-api="https://in.pvuv.ai"></script>';
 export function mayIndex(url,status=200,page={}) {
- if(status!==200||url.search||url.pathname==='/saved')return false;
+ if(status!==200||url.search||url.pathname==='/saved'||redirectTarget(url.pathname))return false;
  if(policy.rollout?.enabled===true&&!rolloutPaths.has(url.pathname))return false;
  if(/^\/cards\/[^/]+$/.test(url.pathname))return policy.catalog?.enabled===true&&page.seo?.kind==='card'&&page.seo.eligible===true;
  if(page.dataAvailable===false&&!legacyByPath.has(url.pathname))return false;

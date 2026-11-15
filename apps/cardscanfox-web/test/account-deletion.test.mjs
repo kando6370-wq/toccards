@@ -89,7 +89,7 @@ test('Help and both footer sections expose the existing deletion URL without add
   assert.ok(links.length>=2,path+' must keep the public deletion entry discoverable');
  }
  const help=resolvePage(new URL('/help','https://tcgcard.fun')).html;
- assert.match(help,/How can I delete my Card AI account after uninstalling/);
+ assert.match(help,/How can I delete my CardScanFox account after uninstalling/);
  const page=resolvePage(new URL(accountPath,'https://tcgcard.fun')).html;
  const helpLinks=nodes(page,node=>node.tagName==='a'&&attribute(node,'href')==='/help'&&attribute(node,'aria-current')==='page');
  assert.equal(helpLinks.length,1,'the page belongs to the existing Help navigation');

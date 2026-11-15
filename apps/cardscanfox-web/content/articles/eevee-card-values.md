@@ -42,6 +42,6 @@ Use a reference that identifies the same grading company and grade. A raw refere
 
 ## Keep the card you own separate from the one you want
 
-Use [Card AI](/download) to identify your physical card, confirm the result and record your collection. A Wishlist entry represents a card you want, while a holding represents a card you own. Keep those records separate when following collection value.
+Use [CardScanFox](/download) to identify your physical card, confirm the result and record your collection. A Wishlist entry represents a card you want, while a holding represents a card you own. Keep those records separate when following collection value.
 
 For other character searches, explore [Gengar card values](/blog/gengar-card-values), [Mewtwo card values](/blog/mewtwo-card-values) and the existing [Pikachu value guide](/blog/pikachu-card-values).

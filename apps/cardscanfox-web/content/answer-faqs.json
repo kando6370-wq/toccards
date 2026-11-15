@@ -2,11 +2,11 @@
   "/": [
     {
       "question": "Can I scan a photo on this website?",
-      "answer": "No. Use the website for text lookup. Scan physical cards in Card AI for iPhone, or identify a webpage image with the separate Chrome extension."
+      "answer": "Yes. Open the Pokémon card scanner, trading card identifier or sports card scanner to choose one card photo and compare matches on the page. The photo is processed in your browser; its vector is sent for catalog matching. You can also search by name, set or number."
     },
     {
       "question": "Does saving a card on the website add it to my app collection?",
-      "answer": "No. Website Saved references stay in this browser. Manage owned holdings and Wishlist in Card AI."
+      "answer": "No. Website Saved references stay in this browser. Manage owned holdings and Wishlist in CardScanFox."
     }
   ],
   "/prices": [
@@ -37,8 +37,8 @@
   ],
   "/help": [
     {
-      "question": "How many free scans does Card AI include?",
-      "answer": "Card AI is free to download on iPhone. Free access currently includes 10 successful scans per account or guest identity, with no daily or monthly reset. Failed scans and no-match results do not consume this allowance. Check the current in-app Premium offer and purchase terms before buying."
+      "question": "How many free scans does the iPhone app include?",
+      "answer": "CardScanFox is free to download on iPhone. Free access currently includes 10 successful scans per account or guest identity, with no daily or monthly reset. Failed scans and no-match results do not consume this allowance. Check the current in-app Premium offer and purchase terms before buying."
     },
     {
       "question": "Does the 10-image queue give me 10 new free scans?",

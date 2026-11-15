@@ -1,3 +1,4 @@
+import {redirectTarget} from '../src/redirects.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {parse} from 'parse5';
@@ -32,7 +33,7 @@ test('free allowance and image queue answers stay consistent across discovery, p
 });
 
 test('all affected tool and comparison FAQs match visible answers',()=>{
- const paths=['/','/app','/help','/download',...legacyPages.filter(page=>['feature','comparison'].includes(page.type)).map(page=>page.path)];
+ const paths=['/','/app','/help','/download',...legacyPages.filter(page=>['feature','comparison'].includes(page.type)&&!redirectTarget(page.path)).map(page=>page.path)];
  for(const path of paths){
   const html=render(path).html,body=content(html),questions=[];
   walk(parse(html),node=>{
@@ -49,11 +50,11 @@ test('all affected tool and comparison FAQs match visible answers',()=>{
 });
 
 test('screenshots and holdings descriptions do not promise sold listings or live values for every owned card',()=>{
- for(const path of ['/',...legacyPages.filter(page=>['feature','comparison'].includes(page.type)).map(page=>page.path)]){
+ for(const path of ['/',...legacyPages.filter(page=>['feature','comparison'].includes(page.type)&&!redirectTarget(page.path)).map(page=>page.path)]){
   const body=content(render(path).html);
   assert.doesNotMatch(body,/sold-listing availability|collection tracker with a live total|tracks the total value of everything you own/i,path);
  }
- for(const path of ['/football-card-scanner','/dragon-ball-super-card-scanner']){
+ for(const path of ['/football-card-scanner']){
   const body=content(render(path).html);
   assert.match(body,/Coverage is not confirmed for this category/,path);
  }

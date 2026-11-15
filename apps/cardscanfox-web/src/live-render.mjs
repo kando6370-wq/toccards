@@ -4,6 +4,20 @@ import { createRenderer, legacyByPath, errorPage } from './render.mjs';
 export const isCatalogPage = path => ['/', '/cards', '/games', '/sets', '/prices', '/saved'].includes(path) || /^\/(cards|games|sets)\/[^/]+$/.test(path);
 function homeWithoutCatalog(url,busy=false){const renderer=createRenderer({catalog:{mode:'published-read-only',catalogVersion:'unavailable',capturedAt:null},cards:[],sets:[],games:[],getCard:()=>null});const result=renderer.resolvePage(url);const message=busy?'The card catalog is temporarily busy. Please try again shortly.':'The card catalog is temporarily unavailable.';result.html=result.html.replace('<section id="homeView">',`<section id="homeView"><p class="notice" role="status">${message} Product information and existing guides remain available.</p>`);return result;}
 export async function resolveServicePage(url, binding) {
+ const scanner=['/pokemon-card-scanner','/sports-card-scanner','/card-identifier'].includes(url.pathname);
+ if(['/sports-card-scanner','/card-identifier'].includes(url.pathname)&&(!url.searchParams.has('q')||!url.searchParams.get('game'))){
+  try{const response=await binding.fetch(new Request('https://site-data.internal/site-api/v1/games',{signal:AbortSignal.timeout(6500)}));const payload=response.ok?await readBoundedJson(response):null;if(payload?.success!==true||payload.meta?.datasetMode!=='published-read-only'||!Array.isArray(payload.data?.items))throw new Error('Catalog unavailable.');return createRenderer({liveSite:true,games:payload.data.items}).resolvePage(url);}catch{return createRenderer({liveSite:true,games:[],scannerLookupError:true}).resolvePage(url);}
+ }
+ if(scanner&&url.searchParams.has('q')){
+  const params=new URLSearchParams(url.searchParams);params.set('path',url.pathname==='/pokemon-card-scanner'?'/games/pokemon':'/cards');params.set('pageSize','6');
+  try{
+   const response=await binding.fetch(new Request('https://site-data.internal/site-api/v1/page-data?'+params,{signal:AbortSignal.timeout(6500)}));
+   if(response.status===400){const error=new Error('Check the card name or collector number.');error.name='QueryError';throw error;}
+   const payload=response.ok?await readBoundedJson(response):null;
+   if(payload?.success!==true||payload.meta?.datasetMode!=='published-read-only'||!Array.isArray(payload.data?.result?.items))throw new Error('Scanner lookup unavailable.');
+   const data=payload.data,renderer=createRenderer({liveSite:true,games:data.games??[],cards:data.cards??[],queryCards:()=>data.result});return {...renderer.resolvePage(url),dataAvailable:true};
+  }catch(error){if(error?.name==='QueryError')throw error;return {...createRenderer({liveSite:true,games:[],scannerLookupError:true}).resolvePage(url),dataAvailable:false};}
+ }
  const rankingKind={'/prices/top-gainers':'gainers','/prices/most-valuable':'highest'}[url.pathname];
  if(rankingKind){
   let response;try{response=await binding.fetch(new Request('https://site-data.internal/site-api/v1/rankings/'+rankingKind,{signal:AbortSignal.timeout(6500)}));}catch{}

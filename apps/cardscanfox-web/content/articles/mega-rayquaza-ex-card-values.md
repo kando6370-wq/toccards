@@ -41,4 +41,4 @@ If you meant another Rayquaza release, browse the [Roaring Skies set](/sets/db-1
 
 ## Keep each copy separate in your collection
 
-Two cards with the same character can have different printings, conditions and quantities. In Card AI, confirm the match before adding a holding, record the copy you own, and use Wishlist for cards you still want. [Choose your download platform](/download) to continue in the app.
+Two cards with the same character can have different printings, conditions and quantities. In CardScanFox, confirm the match before adding a holding, record the copy you own, and use Wishlist for cards you still want. [Choose your download platform](/download) to continue in the app.

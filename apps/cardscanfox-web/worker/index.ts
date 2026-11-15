@@ -1,3 +1,5 @@
+import { handleWebRecognition } from '../src/web-recognition.mjs';
+import { redirectLocation } from '../src/redirects.mjs';
 import {htmlCacheKey,htmlEtag,conditionalHtml} from '../src/html-cache.mjs';
 import { readBoundedJson } from '../src/read-json.mjs';
 import { resolveServicePage } from '../src/live-render.mjs';
@@ -6,7 +8,7 @@ import { publishHtml, publicSitemap, sitemapIndex, mayIndex } from '../src/publi
 import { createRenderer, resolvePage, errorPage, legacyByPath } from '../src/render.mjs';
 
 type RuntimeVariables = 'DEPLOYMENT_MODE'|'CATALOG_MODE'|'LOCAL_DEVELOPMENT'|'PUBLISH_READY';
-type OptionalBindings = 'PREVIEW_USERNAME'|'PREVIEW_PASSWORD'|'CF_VERSION_METADATA';
+type OptionalBindings = 'PREVIEW_USERNAME'|'PREVIEW_PASSWORD'|'CF_VERSION_METADATA'|'WEB_VECTOR_RECOGNITION'|'WEB_SCANNER_RATE_LIMITER';
 export type WebsiteEnv = Omit<Env,RuntimeVariables|OptionalBindings> & Record<RuntimeVariables,string> & Partial<Pick<Env,OptionalBindings>>;
 async function equalSecret(left: string, right: string): Promise<boolean> {
  const enc=new TextEncoder();const [a,b]=await Promise.all([crypto.subtle.digest('SHA-256',enc.encode(left)),crypto.subtle.digest('SHA-256',enc.encode(right))]);
@@ -34,8 +36,10 @@ export function createWebsiteHandler({publicPreview=false}={}) { return {
   const production=String(env.DEPLOYMENT_MODE)==='production';
   if(!['preview','production'].includes(String(env.DEPLOYMENT_MODE))||(production&&(String(env.PUBLISH_READY)!=='true'||String(env.CATALOG_MODE)!=='service')))return new Response('This candidate has no approved production cutover configuration.',{status:503,headers});
   if(!production&&!publicPreview&&!await previewAllowed(request,env)){headers.set('WWW-Authenticate','Basic realm="CardScanFox review", charset="UTF-8"');return new Response('Authorized review access is required.',{status:401,headers});}
+  if(new URL(request.url).pathname==='/site-api/v1/recognize'){const response=await handleWebRecognition(request,env);for(const [key,value]of headers)if(!response.headers.has(key))response.headers.set(key,value);return response;}
   if(!['GET','HEAD'].includes(request.method)){headers.set('Allow','GET, HEAD');return new Response('Method not allowed',{status:405,headers});}
   const url=new URL(request.url);if(production)headers.delete('X-Robots-Tag');let pathname:string;try{pathname=decodeURI(url.pathname)}catch{return new Response('Invalid URL',{status:400,headers})}
+  if(['/pokemon-card-scanner','/sports-card-scanner','/card-identifier'].includes(pathname))headers.set('Content-Security-Policy',securityHeaders['Content-Security-Policy'].replace("script-src 'self'", "script-src 'self' 'wasm-unsafe-eval'").replace("img-src 'self' data:", "img-src 'self' data: blob:") + "; worker-src 'self'");
   if(pathname.startsWith('/site-api/v1/')){
    try{const upstream=await env.SITE_DATA.fetch(new Request('https://site-data.internal'+url.pathname+url.search,{method:request.method,signal:AbortSignal.timeout(6500)}));if(production&&upstream.ok&&request.method!=='HEAD'){const body=await readBoundedJson(upstream);if(body.meta?.datasetMode!=='published-read-only')throw new Error('REVIEW_DATA_NOT_PUBLIC');const result=new Response(JSON.stringify(body),upstream);for(const [key,value]of headers)result.headers.set(key,value);return result;}const response=new Response(request.method==='HEAD'?null:upstream.body,upstream);for(const [key,value]of headers)response.headers.set(key,value);return response;}
    catch{headers.set('Content-Type','application/json; charset=utf-8');return new Response(JSON.stringify({success:false,error:{code:'SITE_DATA_UNAVAILABLE',requestId}}),{status:503,headers});}
@@ -52,6 +56,7 @@ export function createWebsiteHandler({publicPreview=false}={}) { return {
     const source=await env.ASSETS.fetch(request);if(!source.ok)throw new Error('Missing sitemap asset');return new Response(request.method==='HEAD'?null:source.body,{headers});
    }catch{return new Response('Sitemap temporarily unavailable',{status:503,headers});}
   }
+  const consolidated=redirectLocation(pathname,url.search);if(consolidated){headers.set('Location',consolidated);headers.set('Cache-Control','public, max-age=3600');return new Response(null,{status:301,headers});}
   if(pathname.endsWith('.html')){const canonical=pathname==='/index.html'?'/':pathname==='/blog/index.html'?'/blog/':pathname.slice(0,-5);if(legacyByPath.has(canonical)){headers.set('Location',canonical+url.search);return new Response(null,{status:308,headers});}}
   if(pathname==='/blog'){headers.set('Location','/blog/'+url.search);return new Response(null,{status:308,headers});}
   if(pathname.startsWith('/assets/')||indexNowKeyPaths.has(pathname)||['/site.css','/site.js','/google406556797e3e830d.html','/release-manifest.json','/route-manifest.json'].includes(pathname)){
