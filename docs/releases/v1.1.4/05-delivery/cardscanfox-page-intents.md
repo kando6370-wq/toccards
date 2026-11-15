@@ -215,3 +215,17 @@ Jev对9个公开页面做意图预分类。Codex核对曝光、能力、迁移�
 Git推送、Cloudflare自动构建和正式manifest/sourceCommit生效分别核验。当前正式代码回读为2682ed95，而main的97e2b0bc是后续文档提交；不能把两者混为上线状态。最终发布使用正式toccards-website，保留SITE_DATA并按候选配置新增独立向量/限频绑定；不发布旧marketing-web、业务API或移动端。本轮继续沿用最初不请求编入索引的限制，不提交IndexNow。后续成功/失败以实际平台和正式版本回读补证，不提前宣称上线。
 
 合并前补验使用项目规定的Node 22.23.4（本地归档与Node官方SHASUMS256一致）和pnpm 11.28.10。当前待提交树重新构建120路由、119项官网测试、串行root type-check流程9任务及依赖方向均通过。独立交付审查确认105个文件均属已授权范围，模型/runtime/license未被ignore，最大文件14.24 MB，无私有原始GSC、凭据或无关应用改动。
+
+## main交付与正式回读（2026-11-16）
+
+功能提交`3099fbf92f0ab1a4a99ebf9d40937137c88e3c9a`已快进合并到main并推送，远端ref独立回读一致。本记录是功能提交之后的文档补证，不能把文档SHA当作官网sourceCommit。合并后的干净main使用Node22.23.4/pnpm11.28.10完成冻结安装、119项官网测试、39项目录服务测试、120路由构建、production dry-run；此前同一源码root type-check流程9任务和依赖方向通过。
+
+Cloudflare Git自动构建/发布成功：官网Build `b277dac0-552a-40ac-802f-0ba87972b092`，CI报告Version `d8873425-d5d3-499c-af1e-2dd64b9a098b`；只读目录Build `97589ed3-73db-4af6-83c1-f82d5c8efb9f`，CI报告Version `4ca32ab5-4312-4a3a-ba1c-a2439f95ed8e`。同一功能SHA的Admin Pages与App compatibility均success。未手动发布其他目标；Cloudflare活动版本API因本机无可用token未独立读取，不宣称读取了100%流量配置。
+
+正式release-manifest回读sourceCommit为同一3099fbf9，releaseId为`f01959c7bf5b3f0c3fadce258376a94830442e631a76fbea507d36e468c1434e`，120 routes/196 files，与批准主分支构建清单和指纹一致。正式HTTP检查125/129通过：73/77固定owner通过，DCC100唯一行、周年191价格日期行、三扫描入口、18条301、149条地图（84静态+65卡）、两暂停卡200/noindex与Mew index、JS/CSS原始SHA通过。模型/WASM HEAD返回200但size及ONNX MIME缺失未算独立通过；浏览器后续实际加载模型及WASM成功。
+
+正式浏览器以公开卡图完成三种真实链路：通用TCG686490（0不带game）、Pokemon714372（0+pokemon）、Sports t8546993（1）均返回200 matched与5候选，输入卡均为第一候选，价格与观察日来自正式公开目录。只做三个烟测，不推算识别准确率；本轮没有使用模拟匹配响应，没有写App账户/额度/扫描记录。物理相机、Safari真机与负载/长时稳定性仍未验收。
+
+4个中文系列地址目前404/noindex，未计为通过：`/sets/set-9eeb37c90bf2`、`/sets/set-f9989f3c67f9`、`/sets/set-6a45990b1a66`、`/sets/set-d40f9aa20d26`。resolver源码及其匹配用card字段与本轮前完全相同；历史正曝光集合不含这4个路径，但无旧线上HTTP记录，因此出现时间和发布因果未定。当前公开games列表不含Pokemon Chinese，与分类未启用的情况一致，仍不能证明具体set行是否存在。没有为此猜测性改数据、扩权限或掩盖404，需后续核对数据启用/映射。
+
+全部原始回读、构建与浏览器证据位于任务外部artifact的delivery目录，不把私有原始GSC或日志加入docs。继续遵守本会话的索引请求限制，未提交GSC请求或IndexNow。

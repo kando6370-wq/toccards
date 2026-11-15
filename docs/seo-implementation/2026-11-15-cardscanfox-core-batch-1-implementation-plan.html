@@ -189,15 +189,15 @@
     "topic": "第一批已验收；第二、三步按已有曝光、唯一页面与真实目录实施",
     "site": "https://tcgcard.fun",
     "repository": "/Users/git/kando/toC/toccards-answer-recovery",
-    "checkout": "codex/cardscanfox-answer-recovery @97e2b0bc＋保留的本地修改",
+    "checkout": "功能源码已合入main：3099fbf92f0ab1a4a99ebf9d40937137c88e3c9a；本交付记录为后续文档提交",
     "mode": "execution",
     "opportunity_decision": "HOLD",
     "action_resolution": "HOLD",
     "research_date": "2026-11-15",
-    "updated_at": "2026-11-16T01:10:27+08:00",
+    "updated_at": "2026-11-16T02:06:54+08:00",
     "evidence_depth": "source-only",
     "html_plan_path": "/Users/git/kando/toC/toccards-answer-recovery/docs/seo-implementation/2026-11-15-cardscanfox-core-batch-1-implementation-plan.html",
-    "completion_boundary": "第一至三步本地实现和验收已完成，119项测试、类型检查、构建、dry-run及代码/UI复审通过。用户现已授权合并main并push，正在对最终待交付树重跑必要检查并提交；提交、自动构建与正式生效分开回读。此前未push/未部署记录保留为历史阶段，不是当前权限限制。沿用原索引请求限制，本次不提交IndexNow。生产完整图片匹配、物理相机和Safari真机边界仍按实际验收记录更新。",
+    "completion_boundary": "功能提交3099fbf9已快进合并并推送main。官网及只读目录服务的Cloudflare自动构建/发布成功，正式manifest回读同一完整SHA与批准releaseId。合并树119项官网测试、39项目录服务测试、root类型/依赖/构建和生产dry-run通过，功能提交的GitHub兼容检查成功。正式三种网页扫描均以真实卡图返回200 matched、5个候选和真实价格日期，未模拟上游。125/129项正式HTTP检查通过；另4个Pokemon Chinese系列当前404/noindex，首次出现与发布归因未定，未计为通过。物理相机、Safari真机、广泛准确率/负载仍未验收。不提交IndexNow或GSC请求。",
     "decision_scope": "HOLD仍只指未经独立复算的研究数值；本轮第二/三步实施已获明确用户授权，四页301合并不等于批量删除无需求页面。",
     "approval_statement": "第一批授权与边界见scope_history；本轮新增授权：用户明确回复“第二步与第三步可以做的”，授权本轮四卡种页合并、保留页补强及周年/真实查价入口完善和受影响本地验证。无需重复批准；本条不授权Git push、部署、外链或索引提交。 用户随后明确要求“合并到主分支 push 上去了”，已授权本次官网改动提交、合并main及推送；沿用既有自动发布流程回读，本轮继续不请求编入索引或IndexNow。",
     "validation_owner": "主Agent统一验证并更新本文件状态。",
@@ -5167,6 +5167,50 @@
       "locator": "/Users/mac/.codex/visualizations/2026/11/15/01a1df94-092f-7ba0-9d4e-89f827b5add8/batch-2-3/anchor-regression.json；anchor-fixed-320/390/1440.png；本会话独立UI复审",
       "observation_date": "2026-11-16",
       "verification_status": "verified"
+    },
+    {
+      "id": "E-39",
+      "source_label": "repository evidence",
+      "source_name": "main合并推送及最终主分支验证",
+      "collection_method": "source-inspection",
+      "method_boundary": "项目代码证据",
+      "claim": "功能提交3099fbf9快进至main并推送，远端ref独立匹配；Node22.23.4/pnpm11.28.10下官网119、目录39、root类型9任务、依赖、主分支构建/production dry-run通过。",
+      "locator": "https://github.com/kando6370-wq/toccards/commit/3099fbf92f0ab1a4a99ebf9d40937137c88e3c9a；/tmp/cardscanfox-main-tests.log；/tmp/cardscanfox-main-service-tests.log",
+      "observation_date": "2026-11-16",
+      "verification_status": "verified"
+    },
+    {
+      "id": "E-40",
+      "source_label": "Ego Lite observation",
+      "source_name": "正式网页扫描真实端到端",
+      "collection_method": "visible-ego",
+      "method_boundary": "项目代码证据",
+      "claim": "通用TCG、Pokemon和Sports均经实际本地浏览器模型→正式网关→向量服务→公开目录返回200 matched/5候选，三个输入均为第一候选；价格日期来自正式响应，不使用mock。仅三个烟测样本，不推算准确率。",
+      "locator": "/Users/mac/.codex/visualizations/2026/11/15/01a1df94-092f-7ba0-9d4e-89f827b5add8/delivery/live-tcg-scanner.json；/Users/mac/.codex/visualizations/2026/11/15/01a1df94-092f-7ba0-9d4e-89f827b5add8/delivery/live-pokemon-sports-scanners.json",
+      "observation_date": "2026-11-16",
+      "verification_status": "verified"
+    },
+    {
+      "id": "E-41",
+      "source_label": "repository evidence",
+      "source_name": "正式内容、资产及版本回读",
+      "collection_method": "api",
+      "method_boundary": "项目代码证据",
+      "claim": "正式manifest sourceCommit与release指纹匹配批准产物，125/129项HTTP通过；DCC100、周年191、3扫描入口、18条301、149地图、暂停卡/曝光卡边界、JS/CSS原始hash通过。模型WASM可实际加载；HEAD缺少size/ONNX MIME未单独当作大小或MIME通过。",
+      "locator": "/Users/mac/.codex/visualizations/2026/11/15/01a1df94-092f-7ba0-9d4e-89f827b5add8/delivery/live-probe-results.json；https://tcgcard.fun/release-manifest.json",
+      "observation_date": "2026-11-16",
+      "verification_status": "verified"
+    },
+    {
+      "id": "E-42",
+      "source_label": "inference",
+      "source_name": "四中文系列404的数据可用性调查",
+      "collection_method": "source-inspection",
+      "method_boundary": "推断或待确认事项",
+      "claim": "4个Pokemon Chinese系列当前404/noindex且不在历史正曝光URL集合；本轮未改resolver或匹配card字段，缺发布前HTTP证据，不能断言既存故障或此次回归。可能涉及游戏启用/系列匹配，未查询或改写生产DB。",
+      "locator": "/Users/mac/.codex/visualizations/2026/11/15/01a1df94-092f-7ba0-9d4e-89f827b5add8/delivery/set404-investigation.json",
+      "observation_date": "2026-11-16",
+      "verification_status": "verified"
     }
   ],
   "dependency_resolved_execution_checklist": [
@@ -5192,7 +5236,7 @@
     "SEO-TECH-005",
     "SEO-TECH-006"
   ],
-  "completion_boundary_and_approval": "21个已授权工作包已完成本地验收，无需重复批准本地实现。正式发布、生产真实端到端和索引提交未执行；AI评级及外链仍不在当前范围。",
+  "completion_boundary_and_approval": "21项本地实施完成，已按用户后续明确授权合并并推送。正式主要改动和三扫描样本已回读，4个中文系列数据缺口单列未通过。当前文档提交仅记录交付，不等同新功能部署。无需重复批准；本轮未提交索引通知。",
   "scope_history": [
     {
       "batch": "第一批本地功能改造",
@@ -5483,12 +5527,56 @@
   "delivery": {
     "authorization": "User explicitly requested merge to main and push.",
     "target_branch": "main",
-    "git_state": "authorized-preflight",
-    "deployment_state": "awaiting-existing-git-build",
-    "indexnow": "excluded-by-session-index-request-limit",
-    "source_commit": null,
-    "scope": "All three approved website optimization batches; other worktrees and applications remain outside scope."
-  }
+    "git_state": "code-merged-and-pushed",
+    "source_commit": "3099fbf92f0ab1a4a99ebf9d40937137c88e3c9a",
+    "documentation_record": "This is a documentation-only follow-up to the delivered code commit; do not equate this document commit with the website sourceCommit.",
+    "deployment_state": "live-verified-with-series-data-gaps",
+    "live_source_commit": "3099fbf92f0ab1a4a99ebf9d40937137c88e3c9a",
+    "release_id": "f01959c7bf5b3f0c3fadce258376a94830442e631a76fbea507d36e468c1434e",
+    "website_build_id": "b277dac0-552a-40ac-802f-0ba87972b092",
+    "website_version_reported_by_ci": "d8873425-d5d3-499c-af1e-2dd64b9a098b",
+    "data_service_build_id": "97589ed3-73db-4af6-83c1-f82d5c8efb9f",
+    "data_service_version_reported_by_ci": "4ca32ab5-4312-4a3a-ba1c-a2439f95ed8e",
+    "hosted_app_compatibility_for_code_commit": "success",
+    "local_tests": {
+      "website": 119,
+      "website_service": 39
+    },
+    "production_http": {
+      "passed": 125,
+      "total": 129,
+      "unavailable_series": [
+        "/sets/set-9eeb37c90bf2",
+        "/sets/set-f9989f3c67f9",
+        "/sets/set-6a45990b1a66",
+        "/sets/set-d40f9aa20d26"
+      ],
+      "first_appearance": "unknown",
+      "publication_causality": "undetermined; resolver code and matching card fields unchanged"
+    },
+    "real_browser_scanners": {
+      "tcg": "200 matched; input 686490 first candidate",
+      "pokemon": "200 matched; input 714372 first candidate",
+      "sports": "200 matched; input t8546993 first candidate",
+      "candidate_response_mocked": false,
+      "limitation": "Three smoke samples are not a recognition-accuracy or load study."
+    },
+    "indexnow": "not-submitted-per-session-limit",
+    "active_cloudflare_version_api_read": "unavailable; version IDs are CI-reported, live source verified via public manifest and runtime routes."
+  },
+  "open_data_findings": [
+    {
+      "paths": [
+        "/sets/set-9eeb37c90bf2",
+        "/sets/set-f9989f3c67f9",
+        "/sets/set-6a45990b1a66",
+        "/sets/set-d40f9aa20d26"
+      ],
+      "state": "unavailable",
+      "cause": "undetermined",
+      "in_scope_action": "Recorded honestly; no unrequested provider, database or index changes."
+    }
+  ]
 }</script>
     <script>
       (() => {
