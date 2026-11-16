@@ -2074,6 +2074,158 @@ void main() {
     TargetPlatform.android,
   }));
 
+  for (final isReset in [false, true]) {
+    testWidgets(
+      '${isReset ? 'reset' : 'register'} password rejects whitespace without changing input',
+      (tester) async {
+        final platform = debugDefaultTargetPlatformOverride!;
+        final repository = _WidgetAuthRepository(
+          initialSession: AuthSession(
+            ownerType: OwnerType.anonymous,
+            accessToken: 'anon-existing-access',
+            refreshToken: 'anon-existing-refresh',
+            anonymousId: 'anon-existing',
+            platform: platform == TargetPlatform.android
+                ? AppPlatform.android
+                : AppPlatform.ios,
+            dataSpaceId: 'anon-existing',
+          ),
+          emailRegistered: isReset,
+        );
+        await tester.pumpWidget(
+          _testEmailAuthPageApp(
+            repository,
+            platform: platform,
+            commercialPolicy: AppCommercialPolicy(
+              isAndroidFreeLaunch: platform == TargetPlatform.android,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Open email auth'));
+        await tester.pumpAndSettle();
+        await _continueWithEmail(
+          tester,
+          'person@example.com',
+          destinationLabel: isReset ? 'Password' : 'Verification Code',
+        );
+        if (isReset) {
+          await tester.tap(find.text('Forgot Password ?'));
+          await tester.pumpAndSettle();
+          await tester.enterText(
+            find.byType(TextFormField),
+            'person@example.com',
+          );
+          await tester.tap(
+            find.widgetWithText(FilledButton, 'Get verification code'),
+          );
+          await tester.pumpAndSettle();
+        }
+        await tester.enterText(
+          find.byKey(const Key('verification-code-input')),
+          '123456',
+        );
+        await tester.pumpAndSettle();
+
+        final fields = find.byType(TextFormField);
+        final button = find.widgetWithText(
+          FilledButton,
+          isReset ? 'Confirm' : 'Create Account',
+        );
+        await tester.enterText(fields.at(0), 'password123');
+        await tester.enterText(fields.at(1), 'password123');
+        await tester.pump();
+        final submit = tester.widget<FilledButton>(button).onPressed!;
+
+        for (final password in [
+          '        ',
+          ' password123',
+          'password123 ',
+          'pass word123',
+          'password\t123',
+          'password\u3000123',
+        ]) {
+          await tester.enterText(fields.at(0), password);
+          await tester.pump();
+          await tester.enterText(fields.at(1), password);
+          await tester.pump();
+
+          expect(
+            find.text('Password cannot contain spaces.'),
+            findsOneWidget,
+            reason: 'Password: ${password.codeUnits}',
+          );
+          expect(tester.widget<FilledButton>(button).onPressed, isNull);
+          expect(
+            tester.widget<TextFormField>(fields.at(0)).controller!.text,
+            password,
+          );
+          // A callback captured before editing must revalidate the new input.
+          submit();
+          await tester.pump();
+          expect(repository.registerRequests, isEmpty);
+          expect(repository.resetRequests, isEmpty);
+        }
+
+        await tester.enterText(fields.at(0), 'password123');
+        await tester.pump();
+        await tester.enterText(fields.at(1), 'password123');
+        await tester.pumpAndSettle();
+        expect(find.text('Password cannot contain spaces.'), findsNothing);
+        expect(
+          tester.widget<TextFormField>(fields.at(0)).controller!.text,
+          'password123',
+        );
+        expect(
+          tester.widget<TextFormField>(fields.at(1)).controller!.text,
+          'password123',
+        );
+        expect(tester.widget<FilledButton>(button).onPressed, isNotNull);
+        await tester.tap(button);
+        await tester.pumpAndSettle();
+        if (isReset) {
+          expect(repository.resetRequests.single.newPassword, 'password123');
+        } else {
+          expect(repository.registerRequests.single.password, 'password123');
+        }
+      },
+      variant: TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      }),
+    );
+  }
+
+  testWidgets(
+    'login preserves whitespace in an existing password',
+    (tester) async {
+      final repository = _WidgetAuthRepository(
+        initialSession: _anonymousSession('anon-existing'),
+      );
+      await tester.pumpWidget(
+        _testEmailAuthPageApp(
+          repository,
+          platform: debugDefaultTargetPlatformOverride!,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Open email auth'));
+      await tester.pumpAndSettle();
+      await _continueWithEmail(tester, 'person@example.com');
+      await tester.enterText(find.byType(TextFormField), ' old pass123 ');
+      await tester.tap(find.widgetWithText(FilledButton, 'SIGN IN'));
+      await tester.pumpAndSettle();
+
+      expect(repository.loginRequests, [
+        const _LoginRequest('person@example.com', ' old pass123 '),
+      ]);
+    },
+    variant: TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
+
   testWidgets('register code page starts the resend countdown after sending', (
     tester,
   ) async {

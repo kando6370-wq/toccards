@@ -53,6 +53,23 @@ Android Google audience 使用独立 `GOOGLE_ANDROID_SERVER_CLIENT_ID`，iOS 原
 
 已通过 Apple／Google 建立、尚无邮箱密码的共享基础身份，在 Android 通过邮箱验证码注册时允许首次设置 `password_hash`；该密码立即作为双端共享凭据，原 OAuth identity、iOS 平台账号及资产保持不变。只有 `password_hash IS NULL` 时可以设置一次；已有密码必须验证原值，Android 开端或删后重注册均不得覆盖。
 
+### 新密码禁止空白（2026-11-16）
+
+用户确认注册和忘记密码设置的新密码不得包含首尾或中间空格。根因为 Flutter 密码页的提交条件和 API 原先均仅检查原字符串长度，8 个空格满足最少 8 字符条件并进入哈希写入。定位基线为 `codex/fixbug-andriod@7f2009cf`；新规则仍要求至少 8 字符，并使用两端一致的 `\s` 检查拒绝普通空格、Tab、换行及全角空格，不自动删除或 trim 密码。
+
+Android／iOS 共用密码页显示 `Password cannot contain spaces.` 并禁用提交，提交回调再次校验。V1 注册验证和忘记密码重置在写新密码前执行相同限制，沿用 `VALIDATION_ERROR` 和原错误包络；拒绝时不消费验证码／重置凭证，不创建账号或修改原密码。不新增字段、API 版本、迁移或认证策略。
+
+登录继续使用原始密码，历史含空白密码不被修改。注册 API 使用已有密码验证共享身份、开通另一平台时也保留旧凭据验证行为，仅新建身份和 OAuth-only 身份首次设置共享密码执行新限制。新版注册页面统一禁止空白，因此历史含空白密码用户如需通过该页面重新注册，应先走忘记密码设置无空白的新密码；原登录入口和旧请求的凭据验证继续可用。
+
+本地验证结果：
+
+- 隔离 Flutter 3.47.9／Dart 3.13.7 执行 `flutter test --no-pub --concurrency=1 --dart-define=APP_ENV=test test/widget/auth_profile_test.dart`，认证相关 **144／144 通过、0 失败、0 跳过**；新增注册／重置／旧密码登录 Android、iOS 六项回归均通过。`flutter analyze --no-pub` 为 **0 issues**。
+- `pnpm --filter @kando/workers-api test -- src/auth/email-auth.postgres.test.ts src/auth/forgot-password.postgres.test.ts src/auth/platform-account-flow.postgres.test.ts`，PostgreSQL 相关 **67／67 通过、0 失败、0 跳过**，包含精确 8 空格、普通／全角空格、Tab、换行及凭证不消费、旧密码不修改断言。Workers `type-check` 退出 0。实际 Node 为 22.20.0，低于仓库要求 `^22.23.4`，命令有 engine warning，不将本次结果记为目标 Node 版本验证。
+- 开发完成后在隔离副本使用 HEAD 旧生产源码反证：Flutter 注册／重置 × Android／iOS **4 项均在 8 空格输入处按预期失败**；API 新增的 9 项空白场景均错误返回 200。该证据不表述为修复前已运行测试。测试编写期间修正了单行框默认过滤换行、字段跨帧焦点交接及 Android 测试会话的平台前提，调试失败未记为通过。
+- 最终独立 Code Review 未发现阻塞问题，`git diff --check` 通过。API 对不足 8 字符且含空白的输入优先返回原长度错误，App 优先显示空格错误，两者均拒绝该输入；不改变历史错误优先级。
+
+本次仅本地源码修改，未构建移动端制品、安装 Android／iOS 真机、执行完整旧版 App 制品兼容验收或部署 dev／prod；真机输入法与新包、线上 API 验收须在对应交付后补验。API 隔离副本已清理；Flutter 隔离副本 `.dart_tool/password-whitespace-probe` 已无活动测试，精确目录的递归删除被执行策略以 `blocked by policy` 拒绝，保留于 Git ignored 目录，不绕过策略。
+
 兼容边界：已绑定 Android 的凭证不能通过改参数切到 iOS；Android 免费资格要求安装证明。旧 iOS 客户端尚无登录应用证明，原认证入口继续验证账号密码／OAuth，而不能仅从 HTTP 证明请求实际来自 iOS 物理设备。不得把该兼容路径宣称为双端物理设备证明均已完成；它不向 iOS 路径授予 Android 免费资格，也不允许既有 Android 会话切换空间。
 
 ## Android 应用证明与环境配置

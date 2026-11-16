@@ -143,6 +143,28 @@ describe("PostgreSQL email authentication", () => {
     expect((await register("new@example.com", "123456", "password-1")).status).toBe(422);
   });
 
+  it.each([
+    ["eight spaces", "        "],
+    ["ASCII space", "password 1"],
+    ["tab", "password\t1"],
+    ["line break", "password\n1"],
+    ["ideographic space", "password\u30001"],
+  ])("rejects %s when creating a password", async (_label, password) => {
+    await verification("whitespace@example.com", "123456");
+    const response = await register("whitespace@example.com", "123456", password);
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toMatchObject({
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Password cannot contain spaces.",
+      },
+    });
+    const state = await db.query<{ users: number; used_at: string | null }>(`
+      SELECT (SELECT COUNT(*) FROM "user")::int AS users, used_at
+      FROM verification_code WHERE email = 'whitespace@example.com'`);
+    expect(state.rows[0]).toEqual({ users: 0, used_at: null });
+  });
+
   it("re-registers a deleted platform with the shared password and a new owner generation", async () => {
     const passwordHash = await seedUser("shared", "shared@example.com", "password-1");
     await platform("old-ios", "shared", "ios", "deleted");
@@ -427,13 +449,40 @@ describe("PostgreSQL email authentication", () => {
     expect(user.rows[0]).toMatchObject({ identities: 1, ios_folders: 1 });
   });
 
+  it("rejects whitespace when an Android OAuth-only identity first sets the shared password", async () => {
+    await db.exec(`INSERT INTO "user"
+      (id, email, password_hash, created_at, updated_at, status)
+      VALUES ('oauth-user', 'oauth-whitespace@example.com', NULL,
+        '2026-11-05', '2026-11-05', 'active')`);
+    const android = await seedAnonymousAuth("oauth-android", "oauth-android-session");
+    await verification("oauth-whitespace@example.com", "123456");
+    const response = await register(
+      "oauth-whitespace@example.com", "123456", "shared\u3000password",
+      "oauth-android", android, "android",
+    );
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toMatchObject({
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Password cannot contain spaces.",
+      },
+    });
+    const state = await db.query<{
+      password_hash: string | null; used_at: string | null; platforms: number;
+    }>(`SELECT u.password_hash, v.used_at,
+        (SELECT COUNT(*) FROM platform_account WHERE user_id = u.id)::int AS platforms
+      FROM "user" u JOIN verification_code v ON v.email = u.email
+      WHERE u.id = 'oauth-user'`);
+    expect(state.rows[0]).toEqual({ password_hash: null, used_at: null, platforms: 0 });
+  });
+
   it("never overwrites an existing shared password when Android opens its first platform space", async () => {
-    const originalHash = await seedUser("shared", "shared-first@example.com", "original-password");
+    const originalHash = await seedUser("shared", "shared-first@example.com", "original password");
     await platform("ios-space", "shared", "ios", "active");
     const android = await seedAnonymousAuth("shared-android", "shared-android-session");
     await verification("shared-first@example.com", "123456");
     expect((await register(
-      "shared-first@example.com", "123456", "original-password",
+      "shared-first@example.com", "123456", "original password",
       "shared-android", android, "android",
     )).status).toBe(200);
     const user = await db.query<{ password_hash: string }>(

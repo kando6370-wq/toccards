@@ -46,6 +46,7 @@ const RESET_CODE_RESEND_AFTER_SECONDS = 60;
 const EMAIL_MAX_LENGTH = 254;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const VERIFICATION_CODE_PATTERN = /^\d{6}$/;
+const PASSWORD_WHITESPACE_PATTERN = /\s/u;
 
 const EMAIL_REQUIRED_RESPONSE = {
   success: false,
@@ -100,6 +101,14 @@ const INVALID_PASSWORD_RESPONSE = {
   error: {
     code: "VALIDATION_ERROR",
     message: "Password must be at least 8 characters.",
+  },
+} as const;
+
+const PASSWORD_WHITESPACE_RESPONSE = {
+  success: false,
+  error: {
+    code: "VALIDATION_ERROR",
+    message: "Password cannot contain spaces.",
   },
 } as const;
 
@@ -314,6 +323,10 @@ export function registerForgotPasswordRoutes(
 
     if (!input.newPassword || input.newPassword.length < 8) {
       return c.json(INVALID_PASSWORD_RESPONSE, 422);
+    }
+
+    if (PASSWORD_WHITESPACE_PATTERN.test(input.newPassword)) {
+      return c.json(PASSWORD_WHITESPACE_RESPONSE, 422);
     }
 
     if (!input.resetToken) {

@@ -44,6 +44,7 @@ const REGISTER_CODE_RESEND_AFTER_SECONDS = 60;
 const EMAIL_MAX_LENGTH = 254;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const VERIFICATION_CODE_PATTERN = /^\d{6}$/;
+const PASSWORD_WHITESPACE_PATTERN = /\s/u;
 
 const EMAIL_REQUIRED_RESPONSE = {
   success: false,
@@ -87,6 +88,14 @@ const INVALID_PASSWORD_RESPONSE = {
   error: {
     code: "VALIDATION_ERROR",
     message: "Password must be at least 8 characters.",
+  },
+} as const;
+
+const PASSWORD_WHITESPACE_RESPONSE = {
+  success: false,
+  error: {
+    code: "VALIDATION_ERROR",
+    message: "Password cannot contain spaces.",
   },
 } as const;
 
@@ -417,6 +426,9 @@ export function registerEmailRegistrationRoutes(
         }
         const settingSharedPassword = existingUser.password_hash === null &&
           platformResult.platform === "android";
+        if (settingSharedPassword && PASSWORD_WHITESPACE_PATTERN.test(input.password)) {
+          return c.json(PASSWORD_WHITESPACE_RESPONSE, 422);
+        }
         if (!settingSharedPassword &&
             (!existingUser.password_hash ||
               !(await verifyPassword(input.password, existingUser.password_hash)))) {
@@ -495,6 +507,9 @@ export function registerEmailRegistrationRoutes(
           expires_in: session.expiresIn, migrated: anonymousAccount !== null,
           platform: platformResult.platform, data_space_id: dataSpaceId,
         }});
+      }
+      if (PASSWORD_WHITESPACE_PATTERN.test(input.password)) {
+        return c.json(PASSWORD_WHITESPACE_RESPONSE, 422);
       }
       const userId =
         anonymousAccount?.id ?? await reserveAccountUid(c.env.DB, createdAt);
