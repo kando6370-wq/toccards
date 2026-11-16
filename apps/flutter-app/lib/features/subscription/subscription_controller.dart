@@ -788,6 +788,12 @@ class SubscriptionController extends Notifier<SubscriptionState> {
 
   @override
   SubscriptionState build() {
+    final isAndroidFreeLaunch = ref
+        .watch(appCommercialPolicyProvider)
+        .isAndroidFreeLaunch;
+    if (isAndroidFreeLaunch) {
+      return const SubscriptionState(premiumState: AppPremiumState.free);
+    }
     ref.watch(
       authControllerProvider.select((auth) {
         final session = auth.session;
@@ -802,9 +808,6 @@ class SubscriptionController extends Notifier<SubscriptionState> {
     );
     _entitlementExpiryTimer?.cancel();
     _entitlementExpiryTimer = null;
-    if (ref.watch(appCommercialPolicyProvider).isAndroidFreeLaunch) {
-      return const SubscriptionState(premiumState: AppPremiumState.free);
-    }
     final configuration = ref.watch(appSubscriptionConfigurationProvider);
     ref.listen(authControllerProvider, (_, next) {
       final session = next.session;

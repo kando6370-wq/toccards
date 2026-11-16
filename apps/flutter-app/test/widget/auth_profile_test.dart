@@ -24,6 +24,7 @@ import 'package:kando_app/features/profile/customer_support_page.dart';
 import 'package:kando_app/features/profile/feedback_repository.dart';
 import 'package:kando_app/features/profile/profile_actions.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
+import 'package:kando_app/features/profile/account_page.dart';
 import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/features/subscription/subscription_page.dart';
@@ -40,7 +41,7 @@ import '../support/mock_home_repository.dart';
 void main() {
   setUpAll(loadInterFonts);
 
-  testWidgets('Android auth removes Apple and explains platform isolation', (
+  testWidgets('Android auth removes Apple and platform isolation copy', (
     tester,
   ) async {
     final repository = _WidgetAuthRepository(
@@ -59,16 +60,48 @@ void main() {
     expect(find.text('Continue with Apple'), findsNothing);
     expect(
       find.textContaining('Your collections and other app data are separate'),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.textContaining('verified email and password are shared'),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const Key('auth-agreement-copy')),
       findsOneWidget,
     );
+    expect(find.byKey(const Key('auth-agreement-links')), findsOneWidget);
     await tester.tap(find.text('Continue with Google'));
     await tester.pumpAndSettle();
     expect(find.text('Continue?'), findsNothing);
     expect(find.textContaining('will not merge'), findsNothing);
+  });
+
+  testWidgets('Android delete confirmation uses the shared iOS copy', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildKandoTheme(),
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showDeleteAccountConfirmation(
+              context,
+              platform: AppPlatform.android,
+            ),
+            child: const Text('Open delete'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open delete'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text("This action is permanent and can't be undone."),
+      findsOneWidget,
+    );
+    expect(find.textContaining('permanently deletes your'), findsNothing);
   });
 
   for (final premiumState in AppPremiumState.values) {
@@ -2020,7 +2053,26 @@ void main() {
     );
     expect(invalidCreateButton.onPressed, isNull);
     expect(repository.registerRequests, isEmpty);
-  });
+
+    await tester.enterText(fields.at(0), '12345678');
+    await tester.enterText(fields.at(1), '12345678');
+    await tester.pump();
+
+    expect(find.text('At least 8 characters'), findsNothing);
+    expect(find.text('Inconsistent with last input'), findsNothing);
+    final validCreateButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Create Account'),
+    );
+    expect(validCreateButton.onPressed, isNotNull);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Create Account'));
+    await tester.pumpAndSettle();
+    expect(repository.registerRequests, hasLength(1));
+    expect(repository.registerRequests.single.password, '12345678');
+  }, variant: TargetPlatformVariant({
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+  }));
 
   testWidgets('register code page starts the resend countdown after sending', (
     tester,
@@ -2444,7 +2496,7 @@ void main() {
 
       expect(find.text('Delete Account?'), findsOneWidget);
       expect(
-        find.textContaining('permanently deletes your iOS account'),
+        find.text("This action is permanent and can't be undone."),
         findsOneWidget,
       );
       expect(find.text('Cancel'), findsOneWidget);
@@ -2554,7 +2606,7 @@ void main() {
 
       expect(
         listView.padding,
-        const EdgeInsets.fromLTRB(20, KandoLayout.mainTabTopPadding, 20, 96),
+        const EdgeInsets.fromLTRB(20, KandoLayout.mainTabTopPadding, 20, 132),
       );
       expect(find.byIcon(Icons.shield_outlined), findsNothing);
       await tester.scrollUntilVisible(find.text('Privacy Policy'), 200);
@@ -3874,7 +3926,7 @@ Future<void> _submitEmailUntilWelcome(WidgetTester tester) async {
 }
 
 Future<void> _openProfileTab(WidgetTester tester) async {
-  await tester.tap(find.text('Profile'));
+  await tester.tap(find.byKey(const Key('kando-tab-profile')));
   await tester.pumpAndSettle();
 }
 

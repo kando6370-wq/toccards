@@ -2549,7 +2549,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
                     left: 0,
                     top: 0,
                     right: 0,
-                    height: MediaQuery.paddingOf(context).top + 24,
+                    height: MediaQuery.viewPaddingOf(context).top + 24,
                     child: GestureDetector(
                       key: const Key('scan-review-collapse-area'),
                       behavior: HitTestBehavior.opaque,

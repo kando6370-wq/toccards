@@ -430,14 +430,10 @@ Future<bool> showDeleteAccountConfirmation(
   BuildContext context, {
   AppPlatform? platform,
 }) async {
-  final platformName = platform == AppPlatform.android ? 'Android' : 'iOS';
   return showKandoDangerConfirmModal(
     context,
     title: 'Delete Account?',
-    message:
-        'This permanently deletes your $platformName account, collections, scans, '
-        'and related app data. Your account and data on the other platform '
-        'remain available. To use $platformName again, you must register again.',
+    message: "This action is permanent and can't be undone.",
     confirmLabel: 'Delete',
     cancelLabel: 'Cancel',
   );

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -19,6 +20,9 @@ class SystemScanOrientationGateway implements ScanOrientationGateway {
   ]);
 
   @override
-  Future<void> restore() =>
-      SystemChrome.setPreferredOrientations(const <DeviceOrientation>[]);
+  Future<void> restore() => SystemChrome.setPreferredOrientations(
+    defaultTargetPlatform == TargetPlatform.android
+        ? const [DeviceOrientation.portraitUp]
+        : const <DeviceOrientation>[],
+  );
 }
