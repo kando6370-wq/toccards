@@ -14,9 +14,11 @@ import '../../../shared/analytics/app_analytics.dart';
 import '../auth_controller.dart';
 
 const _shortPasswordMessage = 'Password must be at least 8 characters.';
+const _passwordWhitespaceMessage = 'Password cannot contain spaces.';
 const _passwordMismatchMessage = 'Passwords do not match.';
 const _incorrectCodeMessage = 'Incorrect verification code';
 const _expiredCodeMessage = 'Code expired. Request a new one';
+final _passwordWhitespace = RegExp(r'\s');
 
 enum _EmailPage {
   email,
@@ -674,6 +676,10 @@ class _EmailAuthPagesState extends ConsumerState<EmailAuthPages> {
   }
 
   bool _validatePasswordPair() {
+    if (_passwordWhitespace.hasMatch(_passwordController.text)) {
+      setState(() => _errorText = _passwordWhitespaceMessage);
+      return false;
+    }
     if (!_validatePassword(_passwordController.text)) {
       return false;
     }
@@ -1674,8 +1680,9 @@ class _FigmaPasswordPairContent extends StatelessWidget {
       builder: (context, _) {
         final password = passwordController.text;
         final confirmPassword = confirmController.text;
-        final passwordError =
-            password.isNotEmpty && password.length < 8
+        final passwordError = _passwordWhitespace.hasMatch(password)
+            ? _passwordWhitespaceMessage
+            : password.isNotEmpty && password.length < 8
             ? 'At least 8 characters'
             : null;
         final confirmError =
@@ -1684,6 +1691,7 @@ class _FigmaPasswordPairContent extends StatelessWidget {
             : null;
         final canSubmit =
             password.length >= 8 &&
+            passwordError == null &&
             confirmPassword.isNotEmpty &&
             confirmPassword == password;
 
