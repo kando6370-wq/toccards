@@ -190,15 +190,15 @@
     "topic": "前三轮已交付；新增网页AI预评级和同页价格查询",
     "site": "https://tcgcard.fun",
     "repository": "/Users/git/kando/toC/toccards-answer-recovery",
-    "checkout": "codex/cardscanfox-grading-completion；基线为已正式发布main72520229",
+    "checkout": "main功能676415c8已push并正式验证；此为后续文档补证",
     "mode": "execution",
     "opportunity_decision": "HOLD",
     "action_resolution": "HOLD",
     "research_date": "2026-11-15",
-    "updated_at": "2026-11-16T14:02:48+08:00",
+    "updated_at": "2026-11-16T14:31:04+08:00",
     "evidence_depth": "source-only",
     "html_plan_path": "/Users/git/kando/toC/toccards-answer-recovery/docs/seo-implementation/2026-11-15-cardscanfox-core-batch-1-implementation-plan.html",
-    "completion_boundary": "先发布72520229已完成；后续7项补齐本地验收197测试通过，84卡许可和95发现，准备合并push与正式模型重放。准确率校准、真实送评前后样本、数周表现不提前声称完成。",
+    "completion_boundary": "已按顺序先发布72520229，再将7项后续补齐发布676415c8。197官网测试、121路由构建、类型/dryrun、真实模型出6–9及分项、84卡许可/95地图和索引头已验。首次目录503后恢复但根因未定；准确率/真实送评前后/真机/数周表现/中文系列数据问题仍未关闭。IndexNow仅2工具URL received200，未操作GSC请求。",
     "decision_scope": "HOLD仍只指未经独立复算的研究数值；本轮第二/三步实施已获明确用户授权，四页301合并不等于批量删除无需求页面。",
     "approval_statement": "第一批授权与边界见scope_history；本轮新增授权：用户明确回复“第二步与第三步可以做的”，授权本轮四卡种页合并、保留页补强及周年/真实查价入口完善和受影响本地验证。无需重复批准；本条不授权Git push、部署、外链或索引提交。 用户随后明确要求“合并到主分支 push 上去了”，已授权本次官网改动提交、合并main及推送；沿用既有自动发布流程回读，本轮继续不请求编入索引或IndexNow。",
     "validation_owner": "主Agent统一验证并更新本文件状态。",
@@ -528,7 +528,7 @@
       "step": 11,
       "label": "主分支发布及补齐",
       "state": "implemented",
-      "detail": "本地197测试/类型/构建/dryrun/浏览器/独立审查通过，等待本次推送上线与真实模型回读。"
+      "detail": "两次功能发布及正式回读完成，真实云模型能出区间；完整待验边界在交付记录保留。"
     }
   ],
   "google_sources": [
@@ -4733,7 +4733,7 @@
       "acceptance_checks": [
         "整体完成后运行影响面测试、构建、浏览器和独立审查。",
         "价格维度完整，缺少评级公司/grade/RAW不补造。",
-        "不写用户账户或业务库，不提交索引请求。"
+        "不写用户账户或业务库，不操作GSC请求编入索引；项目IndexNow收尾仅两个实质变化工具URL。"
       ],
       "difficulty": "unavailable",
       "effort": "unavailable",
@@ -4747,7 +4747,12 @@
         "discovered_urls": 95,
         "browser": "automatic/manual/refusal, real price groups,6images and3widths passed",
         "code_review": "all reported P2 closed; no outstanding P1/P2",
-        "production": "not_yet_deployed"
+        "production": "verified"
+      },
+      "delivery": {
+        "sourceCommit": "676415c80d178f27bd0870c8cc918b08b47251f6",
+        "production": "verified",
+        "real_model": "estimated 6–9 on a documented raw front/back scan; no accuracy claim"
       }
     },
     {
@@ -4783,7 +4788,7 @@
       "acceptance_checks": [
         "整体完成后运行影响面测试、构建、浏览器和独立审查。",
         "价格维度完整，缺少评级公司/grade/RAW不补造。",
-        "不写用户账户或业务库，不提交索引请求。"
+        "不写用户账户或业务库，不操作GSC请求编入索引；项目IndexNow收尾仅两个实质变化工具URL。"
       ],
       "difficulty": "unavailable",
       "effort": "unavailable",
@@ -4797,7 +4802,12 @@
         "discovered_urls": 95,
         "browser": "automatic/manual/refusal, real price groups,6images and3widths passed",
         "code_review": "all reported P2 closed; no outstanding P1/P2",
-        "production": "not_yet_deployed"
+        "production": "verified"
+      },
+      "delivery": {
+        "sourceCommit": "676415c80d178f27bd0870c8cc918b08b47251f6",
+        "production": "verified",
+        "real_model": "estimated 6–9 on a documented raw front/back scan; no accuracy claim"
       }
     },
     {
@@ -4836,7 +4846,7 @@
       "acceptance_checks": [
         "整体完成后运行影响面测试、构建、浏览器和独立审查。",
         "价格维度完整，缺少评级公司/grade/RAW不补造。",
-        "不写用户账户或业务库，不提交索引请求。"
+        "不写用户账户或业务库，不操作GSC请求编入索引；项目IndexNow收尾仅两个实质变化工具URL。"
       ],
       "difficulty": "unavailable",
       "effort": "unavailable",
@@ -4850,7 +4860,12 @@
         "discovered_urls": 95,
         "browser": "automatic/manual/refusal, real price groups,6images and3widths passed",
         "code_review": "all reported P2 closed; no outstanding P1/P2",
-        "production": "not_yet_deployed"
+        "production": "verified"
+      },
+      "delivery": {
+        "sourceCommit": "676415c80d178f27bd0870c8cc918b08b47251f6",
+        "production": "verified",
+        "real_model": "estimated 6–9 on a documented raw front/back scan; no accuracy claim"
       }
     },
     {
@@ -4888,7 +4903,7 @@
       "acceptance_checks": [
         "整体完成后运行影响面测试、构建、浏览器和独立审查。",
         "价格维度完整，缺少评级公司/grade/RAW不补造。",
-        "不写用户账户或业务库，不提交索引请求。"
+        "不写用户账户或业务库，不操作GSC请求编入索引；项目IndexNow收尾仅两个实质变化工具URL。"
       ],
       "difficulty": "unavailable",
       "effort": "unavailable",
@@ -4903,7 +4918,12 @@
         "discovered_urls": 95,
         "browser": "automatic/manual/refusal, real price groups,6images and3widths passed",
         "code_review": "all reported P2 closed; no outstanding P1/P2",
-        "production": "not_yet_deployed"
+        "production": "verified"
+      },
+      "delivery": {
+        "sourceCommit": "676415c80d178f27bd0870c8cc918b08b47251f6",
+        "production": "verified",
+        "real_model": "estimated 6–9 on a documented raw front/back scan; no accuracy claim"
       }
     },
     {
@@ -4943,7 +4963,7 @@
       "acceptance_checks": [
         "整体完成后运行影响面测试、构建、浏览器和独立审查。",
         "价格维度完整，缺少评级公司/grade/RAW不补造。",
-        "不写用户账户或业务库，不提交索引请求。"
+        "不写用户账户或业务库，不操作GSC请求编入索引；项目IndexNow收尾仅两个实质变化工具URL。"
       ],
       "difficulty": "unavailable",
       "effort": "unavailable",
@@ -4957,7 +4977,12 @@
         "discovered_urls": 95,
         "browser": "automatic/manual/refusal, real price groups,6images and3widths passed",
         "code_review": "all reported P2 closed; no outstanding P1/P2",
-        "production": "not_yet_deployed"
+        "production": "verified"
+      },
+      "delivery": {
+        "sourceCommit": "676415c80d178f27bd0870c8cc918b08b47251f6",
+        "production": "verified",
+        "real_model": "estimated 6–9 on a documented raw front/back scan; no accuracy claim"
       }
     },
     {
@@ -4996,7 +5021,7 @@
       "acceptance_checks": [
         "整体完成后运行影响面测试、构建、浏览器和独立审查。",
         "价格维度完整，缺少评级公司/grade/RAW不补造。",
-        "不写用户账户或业务库，不提交索引请求。"
+        "不写用户账户或业务库，不操作GSC请求编入索引；项目IndexNow收尾仅两个实质变化工具URL。"
       ],
       "difficulty": "unavailable",
       "effort": "unavailable",
@@ -5011,7 +5036,12 @@
         "discovered_urls": 95,
         "browser": "automatic/manual/refusal, real price groups,6images and3widths passed",
         "code_review": "all reported P2 closed; no outstanding P1/P2",
-        "production": "not_yet_deployed"
+        "production": "verified"
+      },
+      "delivery": {
+        "sourceCommit": "676415c80d178f27bd0870c8cc918b08b47251f6",
+        "production": "verified",
+        "real_model": "estimated 6–9 on a documented raw front/back scan; no accuracy claim"
       }
     },
     {
@@ -5064,7 +5094,12 @@
         "discovered_urls": 95,
         "browser": "automatic/manual/refusal, real price groups,6images and3widths passed",
         "code_review": "all reported P2 closed; no outstanding P1/P2",
-        "production": "not_yet_deployed"
+        "production": "verified"
+      },
+      "delivery": {
+        "sourceCommit": "676415c80d178f27bd0870c8cc918b08b47251f6",
+        "production": "verified",
+        "real_model": "estimated 6–9 on a documented raw front/back scan; no accuracy claim"
       }
     }
   ],
@@ -6113,7 +6148,7 @@
     "SEO-TECH-011",
     "SEO-TECH-012"
   ],
-  "completion_boundary_and_approval": "用户明确授权先发布并继续优化，后续不重复求相同批准。数周GSC/行为、逐卡需求与外链前置仍独立待验。",
+  "completion_boundary_and_approval": "用户要求的先合并push、再调整未完成工程项已执行并交付。任何未来数据写入/外链采购不由此隐含授权；不得将已知未验项、历史数字或协议受理改写为准确率/排名/收录成功。",
   "scope_history": [
     {
       "batch": "第一批本地功能改造",
@@ -6227,6 +6262,36 @@
       "real_runtime": "AI unverified; published price lookup verified",
       "deployment": "not_pushed_or_deployed",
       "notes": "预评级范围是未校准启发式，目录示例不是物理样卡。价格429丢表单问题按同输入修复并独立复审关闭。"
+    },
+    {
+      "date": "2026-11-16T14:31:04+08:00",
+      "item_ids": [
+        "SEO-FEAT-004",
+        "SEO-FEAT-005",
+        "SEO-PAGE-012",
+        "SEO-TECH-010",
+        "SEO-LINK-004",
+        "SEO-TECH-011",
+        "SEO-TECH-012"
+      ],
+      "sourceCommit": "676415c80d178f27bd0870c8cc918b08b47251f6",
+      "state": "production_verified",
+      "website_tests": 197,
+      "real_model": "200 estimated with 5 criteria on each side; no professional ground truth",
+      "discovery": {
+        "site": 88,
+        "cards": 7,
+        "cardAllowed": 84
+      },
+      "indexnow": {
+        "urls": [
+          "https://tcgcard.fun/ai-card-grading",
+          "https://tcgcard.fun/card-price-checker"
+        ],
+        "httpStatus": 200,
+        "submitted": 2,
+        "meaning": "received, not indexing proof"
+      }
     }
   ],
   "page_intent_classification_batch_2_3": [
