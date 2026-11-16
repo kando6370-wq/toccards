@@ -28,6 +28,8 @@ v1.1.3 已原位归档。本版本承接 v1.1.3 之后的新增、变更、移�
 
 ## 文档路由
 
+- [Delta Reign 卡表与 ETB 成本比较](05-delivery/cardscanfox-delta-reign-pages.md)：既有套卡文章、独立ETB答案页、同页成本计算器及内容/索引边界。
+
 - [官网按曝光记录收紧索引](05-delivery/cardscanfox-index-rollout-20261115.md)：保留140个有曝光URL、重点关键词与核心页，暂停清单外批量详情索引。
 
 - [Admin 启动会话校验](04-admin/admin-auth-session.md)：启动时先验证持久会话，避免无效会话短暂挂载后台页面后才跳转登录。

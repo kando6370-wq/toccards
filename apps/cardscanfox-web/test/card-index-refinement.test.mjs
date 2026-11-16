@@ -193,8 +193,11 @@ test('new positive sets are explicit owners and the seven-card discovery artifac
  const locations=[...body.toString('utf8').matchAll(/<loc>([^<]+)<\/loc>/g)].map(match=>match[1]);assert.equal(locations.length,7);assert.equal(new Set(locations).size,7);
  for(const location of locations){const path=new URL(location).pathname;assert.ok(allowed.has(path));assert.equal(mayIndex(new URL(location),200,eligibleCard),true);assert.equal(manifest.pausedByUnverifiedDemandCardIds.includes(path.slice(7)),false);}
  for(const path of newCardPaths)assert.ok(locations.includes(url(path).href));
- assert.equal((publicSitemap().match(/<loc>/g)??[]).length,88);
- assert.equal(88+locations.length,95);
+ const siteLocations=[...publicSitemap().matchAll(/<loc>([^<]+)<\/loc>/g)].map(match=>match[1]);
+ assert.ok(siteLocations.includes(url('/blog/delta-reign-etb').href));
+ assert.equal(siteLocations.filter(location=>location!==url('/blog/delta-reign-etb').href).length,88);
+ assert.equal(siteLocations.length,89);
+ assert.equal(siteLocations.length+locations.length,96);
 });
 test('the fresh report stays separate from the preserved historical window and does not claim a release outcome',()=>{
  assert.equal(policy.rollout.performanceWindow.reportRows,145);assert.equal(policy.rollout.performanceWindow.latestDataDate,'2026-11-13');assert.equal(policy.rollout.performanceWindow.protectedPositiveCardUrls,84);

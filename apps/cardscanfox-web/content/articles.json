@@ -1,9 +1,9 @@
 [
   {
     "path": "/blog/delta-reign-pokemon",
-    "title": "Delta Reign Pokémon Cards & Chase Cards Guide | CardScanFox",
-    "description": "Explore Delta Reign cards, official Mega Evolution highlights and chase-card comparisons. Match the printing and check catalog coverage before using a price.",
-    "h1": "Delta Reign Pokémon Cards: Chase Cards & Printing Guide",
+    "title": "Delta Reign Card List, Chase Cards & Products | CardScanFox",
+    "description": "Browse a source-linked Delta Reign checklist, dated card-price examples, release dates and ETB differences. Match each card by its full number.",
+    "h1": "Delta Reign Card List: Cards, Prices & Products",
     "author": "CardScanFox",
     "file": "delta-reign-pokemon.md",
     "published": true,
@@ -11,11 +11,71 @@
     "publishedAt": "2026-11-08",
     "sources": [
       {
-        "label": "The Pokémon Company: Delta Reign release announcement",
-        "url": "https://press.pokemon.com/en-NZ/releases/MEDIA-ALERT-Legendary-Pokemon-Mega-Rayquaza-ex-Descends-into-Battle-in"
+        "label": "The Pokémon Company: US Delta Reign launch and retailer promotions",
+        "url": "https://press.pokemon.com/en/MEDIA-ALERT-Legendary-Pokemon-Mega-Rayquaza-ex-Descends-into-Battle-in"
+      },
+      {
+        "label": "Pokémon: Delta Reign product contents and release windows",
+        "url": "https://www.pokemon.com/us/news/pokemon-tcg-mega-evolution-delta-reign-product-showcase"
+      },
+      {
+        "label": "Pokémon TCG: official Delta Reign expansion and prerelease information",
+        "url": "https://tcg.pokemon.com/en-us/expansions/delta-reign/"
+      },
+      {
+        "label": "PokéCottage: numbered English checklist, checked 2026-11-16",
+        "url": "https://pokecottage.com/sets/delta-reign-card-list"
+      },
+      {
+        "label": "PriceCharting: dated ungraded card references, checked 2026-11-16",
+        "url": "https://www.pricecharting.com/console/pokemon-delta-reign"
       }
     ],
-    "updatedAt": "2026-11-08"
+    "updatedAt": "2026-11-16",
+    "image": "/assets/guides/delta-reign-card-numbers.png",
+    "imageAlt": "Delta Reign Mega Rayquaza ex card numbers 084/103, 138/103 and 141/103 identify different printings.",
+    "showDescription": false
+  },
+  {
+    "path": "/blog/delta-reign-etb",
+    "title": "Delta Reign ETB: Contents, Promos & Price Comparison | CardScanFox",
+    "h1": "Delta Reign ETB: Standard vs Pokémon Center",
+    "description": "Compare Delta Reign ETB contents, Kyogre promos, Pokémon Center differences and dated US prices. Check box and case units before buying.",
+    "author": "CardScanFox",
+    "file": "delta-reign-etb.md",
+    "published": true,
+    "category": "collecting",
+    "publishedAt": "2026-11-16",
+    "updatedAt": "2026-11-16",
+    "image": "/assets/guides/delta-reign-etb-editions.png",
+    "imageAlt": "Delta Reign ETB comparison: regular edition has nine packs and one Kyogre promo; Pokémon Center has eleven packs and two Kyogre promos.",
+    "sources": [
+      {
+        "label": "Pokémon: standard and Pokémon Center ETB product contents",
+        "url": "https://www.pokemon.com/us/news/pokemon-tcg-mega-evolution-delta-reign-product-showcase"
+      },
+      {
+        "label": "Pokémon Center: edition SKU 10-10438-112 and dated official-store offer",
+        "url": "https://www.pokemoncenter.com/product/10-10438-112/pokemon-tcg-mega-evolution-delta-reign-pokemon-center-elite-trainer-box"
+      },
+      {
+        "label": "The Pokémon Company: separate US retailer launch promotion",
+        "url": "https://press.pokemon.com/en/MEDIA-ALERT-Legendary-Pokemon-Mega-Rayquaza-ex-Descends-into-Battle-in"
+      },
+      {
+        "label": "GameStop: standard ETB description and dated retailer/member offers",
+        "url": "https://www.gamestop.com/toys-games/trading-cards/products/pokemon-trading-card-game-delta-reign-elite-trainer-box/20037568.html"
+      },
+      {
+        "label": "TCGplayer: standard-box seller terms, checked 2026-11-16",
+        "url": "https://www.tcgplayer.com/product/712102/pokemon-me06-delta-reign-delta-reign-elite-trainer-box?Language=English"
+      },
+      {
+        "label": "TCGplayer: specific ten-box case terms, checked 2026-11-16",
+        "url": "https://www.tcgplayer.com/product/712103/pokemon-me06-delta-reign-delta-reign-elite-trainer-box-case?Language=English"
+      }
+    ],
+    "showDescription": false
   },
   {
     "path": "/blog/pokemon-upc-30th-anniversary",

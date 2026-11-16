@@ -19,6 +19,8 @@ const routes=[];
 await mkdir(staging,{recursive:true});
 try{
  await cp(new URL('public/',root),staging,{recursive:true});
+ await build({entryPoints:[fileURLToPath(new URL('src/etb-calculator.mjs',root))],outfile:fileURLToPath(new URL('assets/etb-calculator.js',staging)),bundle:true,platform:'browser',format:'esm',target:'es2022'});
+ await cp(new URL('src/etb-calculator.css',root),new URL('assets/etb-calculator.css',staging));
  await copyCatalogSitemaps(process.env.CATALOG_SITEMAPS_DIR??fileURLToPath(new URL('content/sitemaps/',root)),fileURLToPath(new URL('sitemaps/',staging)),{allowedCardPaths:indexPolicy.rollout?.enabled===true?new Set(indexPolicy.rollout.allowedPaths.filter(path=>path.startsWith('/cards/'))):null});
  for(const path of allStaticPaths){
   const result=resolvePage(new URL(path,'https://tcgcard.fun'));if(result.status!==200)throw new Error('Build route failed: '+path);

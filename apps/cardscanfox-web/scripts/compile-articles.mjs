@@ -46,6 +46,9 @@ export async function compileArticles(registry, { root, protectedPaths = [] }) {
     for (const key of ['title', 'description', 'h1', 'author', 'file']) if (typeof page[key] !== 'string' || !page[key].trim()) throw new Error(`Article ${page.path} needs ${key}.`);
     if (typeof page.published !== 'boolean' || !categories.has(page.category) || !isDate(page.publishedAt) || (page.updatedAt && (!isDate(page.updatedAt) || page.updatedAt < page.publishedAt))) throw new Error(`Invalid article metadata: ${page.path}`);
     if (!Array.isArray(page.sources) || page.sources.length === 0 || page.sources.some(s => !s.label?.trim() || !safeUrl(s.url) || !s.url.startsWith('https:'))) throw new Error('Articles need labeled primary sources.');
+    if (page.image !== undefined && (typeof page.image !== 'string' || !/^\/assets\/[A-Za-z0-9/_-]+\.(?:png|jpe?g|webp|svg)$/.test(page.image) || !safeUrl(page.image, true) || typeof page.imageAlt !== 'string' || !page.imageAlt.trim())) throw new Error('Article cover image needs a safe local asset path and alternative text.');
+    if (page.image === undefined && page.imageAlt !== undefined) throw new Error('Article cover alternative text needs an image.');
+    if (page.showDescription !== undefined && typeof page.showDescription !== 'boolean') throw new Error('Article description visibility must be boolean.');
     if (page.language !== undefined && !['en', 'de'].includes(page.language)) throw new Error('Unsupported article language.');
     const path = resolve(contentRoot, page.file);
     if (!path.startsWith(contentRoot + sep) || !path.endsWith('.md')) throw new Error('Article file must stay inside content/articles.');
@@ -53,7 +56,7 @@ export async function compileArticles(registry, { root, protectedPaths = [] }) {
     if(!resolvedFile.startsWith(resolvedRoot+sep))throw new Error('Article symlink leaves its content directory.');
     const bodyHtml = renderMarkdown(await readFile(resolvedFile, 'utf8'));
     if (!page.published) continue;
-    articles.push({ id: page.path, path: page.path, type: 'article', title: page.title, description: page.description, h1: page.h1, author: page.author, category: page.category, ...(page.language ? {language:page.language} : {}), publishedAt: page.publishedAt, updatedAt: page.updatedAt ?? null, sources: page.sources.map(s => ({ label: s.label, url: s.url })), bodyHtml, protected: false });
+    articles.push({ id: page.path, path: page.path, type: 'article', title: page.title, description: page.description, h1: page.h1, author: page.author, category: page.category, ...(page.language ? {language:page.language} : {}), ...(page.image ? {image:page.image,imageAlt:page.imageAlt} : {}), ...(page.showDescription === undefined ? {} : {showDescription:page.showDescription}), publishedAt: page.publishedAt, updatedAt: page.updatedAt ?? null, sources: page.sources.map(s => ({ label: s.label, url: s.url })), bodyHtml, protected: false });
   }
   return articles;
 }

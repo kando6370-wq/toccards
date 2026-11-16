@@ -46,7 +46,8 @@
     "/ai-card-grading",
     "/sets/db-t322",
     "/sets/db-t399",
-    "/sets/db-t582"
+    "/sets/db-t582",
+    "/blog/delta-reign-etb"
   ],
   "note": "Local production policy only. Preview authentication/noindex and PUBLISH_READY remain enforced. Eligible real card pages may be indexed; sitemap discovery expands in reviewed batches. Missing price alone does not exclude a useful identity page.",
   "catalog": {
@@ -255,7 +256,8 @@
       "/cards/t100959",
       "/sets/db-t322",
       "/sets/db-t399",
-      "/sets/db-t582"
+      "/sets/db-t582",
+      "/blog/delta-reign-etb"
     ],
     "note": "Retain all 140 historically observed positive-impression URLs directly or through their five approved owner redirects, plus five newly observed positive URLs. Card indexing is limited to 82 historical and two new positive-impression card paths. Sixty former reference-only exceptions are temporarily paused; a missing report row is not proof of zero monthly demand. Core non-card owners and their other approved exceptions remain.",
     "approvedConsolidations": {

@@ -78,3 +78,8 @@
 
 /* Consolidated TCG guides and the existing Pokémon value hub. */
 .tcg-guide-nav,.catalog-value-nav{display:flex;flex-wrap:wrap;gap:10px;margin:24px 0}.tcg-guide-nav a,.catalog-value-nav a{display:inline-flex;align-items:center;min-height:42px;padding:10px 14px;border:1px solid var(--line);border-radius:7px;background:var(--white);font-size:13px;font-weight:700;line-height:1.4}.tcg-guide-nav a:hover,.catalog-value-nav a:hover{background:var(--soft)}.tcg-game-guide,#pokemon-value-guide,#how-to-buy,#cardSearch,#web-scanner-title{scroll-margin-top:150px}.tcg-game-guide{margin-top:36px}.tcg-game-guide h2{margin-bottom:14px}.tcg-game-guide p+p{margin-top:14px}
+
+.post-art img.post-guide-image{position:static;width:100%;height:100%;max-width:none;object-fit:contain;transform:none;border-radius:0;box-shadow:none}
+.file-article img[src="/assets/guides/delta-reign-etb-official-energy-evidence.webp"]{width:303px;aspect-ratio:303/28}
+.file-article img[src="/assets/guides/delta-reign-etb-marketplace-energy-evidence.webp"]{width:435px;aspect-ratio:435/108}
+.file-article img[src="/assets/guides/delta-reign-pokecottage-number-evidence.webp"]{width:280px;aspect-ratio:280/90}
