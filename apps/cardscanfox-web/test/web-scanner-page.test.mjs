@@ -10,7 +10,7 @@ const url=path=>new URL(path,'https://tcgcard.fun');
 test('both scanner owners render working inputs, same-page text forms and scoped metadata before JavaScript',()=>{
  const renderer=createRenderer({liveSite:true});
  for(const mode of ['pokemon','sports']){const path='/'+mode+'-card-scanner',page=renderer.resolvePage(url(path));assert.equal(page.status,200);assert.match(page.html,new RegExp('<title>[^<]*'+(mode==='pokemon'?'Pokémon':'Sports')+' Card Scanner'));assert.match(page.html,/data-scan-file type="file"/);assert.match(page.html,/data-camera-file[^>]*capture="environment"/);assert.ok(page.html.includes('action="'+path+'"'));assert.match(page.html,/src="\/assets\/web-scanner.js"/);assert.doesNotMatch(page.html,/<script[^>]*src="[^\"]*(?:onnx|ort\.wasm)/);}
- assert.equal(mayIndex(url('/sports-card-scanner')),true);assert.match(publicSitemap(),/\/sports-card-scanner/);assert.equal(renderer.resolvePage(url('/ai-card-grading')).status,404);
+ assert.equal(mayIndex(url('/sports-card-scanner')),true);assert.match(publicSitemap(),/\/sports-card-scanner/);const grading=renderer.resolvePage(url('/ai-card-grading'));assert.equal(grading.status,200);assert.match(grading.html,/data-pregrade-form/);assert.match(grading.html,/\/site-api\/v1\/pregrade|\/assets\/web-pregrade.js/);
 });
 
 test('same-page text lookup reads published data and never substitutes snapshot prices on failure',async()=>{

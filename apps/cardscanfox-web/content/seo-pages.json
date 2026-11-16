@@ -18,10 +18,10 @@
     "question": "Which published trading-card printing matches my photo or card number?"
   },
   "/card-price-checker": {
-    "intent": "查自己的单卡价值及操作方法",
-    "title": "Card Price Checker Guide: Match Printing & Condition",
-    "description": "Learn which set, number, finish and condition belong in a card price comparison. Start a web lookup or continue in the CardScanFox app.",
-    "question": "What details do I need before checking what my card is worth?"
+    "intent": "同页查询自己的单卡真实发布价格及匹配上下文",
+    "title": "Card Price Checker: Search Trading Card Values Online | CardScanFox",
+    "description": "Use the card price checker to search trading card values online. Match the set, number, language and finish, then read the published price source and date.",
+    "question": "What is my trading card worth, and which published price matches my printing?"
   },
   "/card-collection-tracker": {
     "intent": "选择收藏及价值追踪工具",
@@ -460,5 +460,11 @@
     "title": "Sports Card Scanner: Identify Cards Online | CardScanFox",
     "description": "Scan a sports card photo in your browser. Compare the player, year, set, number and parallel, then open its available published price and observation date.",
     "question": "Which published sports-card printing matches my photo?"
+  },
+  "/ai-card-grading": {
+    "title": "AI Card Grading: Free Online Photo Pregrading | CardScanFox",
+    "description": "Upload card front and back photos for a visible-condition pregrade. Check centering, compare grading costs and find published card prices on one page.",
+    "intent": "同页双面照片预评级、留白比和送评成本比较",
+    "question": "What visible condition issues does my card have, and is professional grading worth the cost?"
   }
 }

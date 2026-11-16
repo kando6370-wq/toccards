@@ -217,6 +217,9 @@ choose to import an image and grant the required permission.</p>
 <p>You can disable camera or photo library permissions at any time in
 your device settings, but scanning or image import features may not work
 without the required access.</p>
+<h3 id="privacy-web-ai-pregrading">Website AI pregrading</h3>
+<p>When you choose Analyze photos on the CardScanFox AI pregrading page, your selected front and back photos are resized in your browser and sent to Cloudflare Workers AI to assess visible card condition. This is separate from browser identity scanning, which sends an image vector for catalog matching.</p>
+<p>The website does not save pregrading photos or results to an account, database, public result page or image store. They are held in memory for the request and displayed in your current page. Request metadata and your IP address may be processed for security, rate limits and service operation. Upload only card photos; keep personal information out of the background. See <a href="https://developers.cloudflare.com/workers-ai/platform/data-usage/">Cloudflare Workers AI data usage</a>. Website pregrading information updated 16 November 2026.</p>
 <h3 id="privacy-price-search-and-app-usage-information">1.4 Price, Search, and
 App Usage Information</h3>
 <p>When you search for cards, view card details, check prices, or use

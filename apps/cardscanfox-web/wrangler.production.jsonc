@@ -58,6 +58,25 @@
         "limit": 6,
         "period": 60
       }
+    },
+    {
+      "name": "WEB_PREGRADING_RATE_LIMITER",
+      "namespace_id": "2026111611",
+      "simple": {
+        "limit": 2,
+        "period": 60
+      }
+    },
+    {
+      "name": "WEB_PREGRADING_GLOBAL_LIMITER",
+      "namespace_id": "2026111612",
+      "simple": {
+        "limit": 10,
+        "period": 60
+      }
     }
-  ]
+  ],
+  "ai": {
+    "binding": "WEB_PREGRADING_AI"
+  }
 }
