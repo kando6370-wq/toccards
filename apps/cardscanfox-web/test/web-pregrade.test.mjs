@@ -153,3 +153,21 @@ test('model faults and cancellation do not retry or expose private diagnostics',
  const controller = new AbortController();
  fixture = environment({run:()=>{setTimeout(()=>controller.abort(),5);return new Promise(()=>{});}});response = await handleWebPregrade(request(undefined,{}, {signal:controller.signal}),fixture.env);assert.equal(response.status,504);assert.equal(fixture.calls.models.length,1);
 });
+
+test('an unusable photo cannot show clean-condition labels from an inconsistent provider response',async()=>{
+ const value=assessment();value.pair.sameCardPlausible=false;value.pair.issues=['different card'];
+ for(const face of ['front','back']){value[face].quality='unusable';value[face].issues=['different card'];for(const name of criteria)value[face][name]={severity:'none_visible',observation:'moderate'};}
+ const {env}=environment({output:value}),body=await(await handleWebPregrade(request(),env)).json();
+ assert.equal(body.data.status,'needs_better_photos');assert.equal(body.data.range,null);
+ for(const face of ['front','back'])for(const name of criteria){assert.equal(body.data[face][name].severity,'unassessable');assert.match(body.data[face][name].observation,/Not assessed/);}
+});
+
+test('clear photos of a worn card retain condition notes without being rejected as unclear photos',async()=>{
+ const value=assessment();for(const face of ['front','back']){value[face].issues=['minor whitening on edges'];value[face].edges={severity:'minor',observation:'minor whitening'};value[face].surface={severity:'none_visible',observation:'none_visible'};}
+ const {env}=environment({output:value}),body=await(await handleWebPregrade(request(),env)).json();
+ assert.equal(body.data.status,'estimated');assert.deepEqual(body.data.range,{low:6,high:9});
+ for(const face of ['front','back']){assert.deepEqual(body.data[face].issues,[]);assert.deepEqual(body.data[face].notes,['minor whitening on edges']);assert.match(body.data[face].surface.observation,/No obvious surface damage/);assert.equal(body.data[face].edges.observation,'minor whitening');}
+ const contradictory=assessment();contradictory.front.issues=['glare obscures the card'];contradictory.front.edges={severity:'minor',observation:'minor whitening'};const unsure=environment({output:contradictory});const blocked=await(await handleWebPregrade(request(),unsure.env)).json();assert.equal(blocked.data.range,null);assert.deepEqual(blocked.data.front.issues,['glare obscures the card']);
+ for(const observation of ['minor whitening','minor whitening on edges; glare obscures the upper corners']){const mixed=assessment();mixed.front.issues=['minor whitening on edges; glare obscures the upper corners'];mixed.front.edges={severity:'minor',observation};const uncertain=environment({output:mixed});const noGrade=await(await handleWebPregrade(request(),uncertain.env)).json();assert.equal(noGrade.data.range,null);assert.deepEqual(noGrade.data.front.issues,mixed.front.issues);}
+ const blurred=assessment();blurred.front.quality='limited';blurred.front.issues=['Image is blurred.'];const limited=environment({output:blurred});const result=await(await handleWebPregrade(request(),limited.env)).json();assert.equal(result.data.range,null);assert.deepEqual(result.data.front.issues,['Image is blurred.']);
+});

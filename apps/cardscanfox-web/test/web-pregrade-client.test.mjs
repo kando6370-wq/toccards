@@ -76,3 +76,10 @@ test('single catalog images stay separate from real physical pregrade examples',
  assert.match(html, /109\.63/); assert.match(html, /Near Mint/); assert.match(html, /TCGplayer/); assert.match(html, /Grade 8, 9 and 10 price comparison is unavailable/); assert.doesNotMatch(html, /pregrade-examples-title/);
  assert.doesNotMatch(renderPregradePage({catalogExamples: [{...example, href: 'https://example.com/cards/714372'}]}), /pregrade-catalog-title/);
 });
+
+test('automatic geometry and local state are excluded from the photo upload request',async()=>{
+ const {pregradeUploadPayload}=await import('../public/assets/web-pregrade.js');
+ const source={dataUrl:'data:image/jpeg;base64,AA==',width:700,height:1000,measurement:{ratios:{left:45,right:55}},privatePixels:new Uint8Array(16)};
+ assert.deepEqual(pregradeUploadPayload({front:source,back:{...source,width:800}}),{front:{dataUrl:source.dataUrl,width:700,height:1000},back:{dataUrl:source.dataUrl,width:800,height:1000}});
+ assert.ok(source.measurement);
+});

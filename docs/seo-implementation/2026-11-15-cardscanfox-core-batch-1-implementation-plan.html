@@ -190,15 +190,15 @@
     "topic": "前三轮已交付；新增网页AI预评级和同页价格查询",
     "site": "https://tcgcard.fun",
     "repository": "/Users/git/kando/toC/toccards-answer-recovery",
-    "checkout": "codex/cardscanfox-pregrading，基线19adda49；前三轮正式source3099保持历史记录",
+    "checkout": "codex/cardscanfox-grading-completion；基线为已正式发布main72520229",
     "mode": "execution",
     "opportunity_decision": "HOLD",
     "action_resolution": "HOLD",
     "research_date": "2026-11-15",
-    "updated_at": "2026-11-16T11:06:52+08:00",
+    "updated_at": "2026-11-16T14:02:48+08:00",
     "evidence_depth": "source-only",
     "html_plan_path": "/Users/git/kando/toC/toccards-answer-recovery/docs/seo-implementation/2026-11-15-cardscanfox-core-batch-1-implementation-plan.html",
-    "completion_boundary": "前三轮已正式交付。新增7项本地实现与必要验证通过：155官网测试、类型、121路由构建、生产dryrun、真实published查价、手机布局和独立审查；真实WorkersAI与专业校准未验。本增量未push/部署/索引通知/外链。",
+    "completion_boundary": "先发布72520229已完成；后续7项补齐本地验收197测试通过，84卡许可和95发现，准备合并push与正式模型重放。准确率校准、真实送评前后样本、数周表现不提前声称完成。",
     "decision_scope": "HOLD仍只指未经独立复算的研究数值；本轮第二/三步实施已获明确用户授权，四页301合并不等于批量删除无需求页面。",
     "approval_statement": "第一批授权与边界见scope_history；本轮新增授权：用户明确回复“第二步与第三步可以做的”，授权本轮四卡种页合并、保留页补强及周年/真实查价入口完善和受影响本地验证。无需重复批准；本条不授权Git push、部署、外链或索引提交。 用户随后明确要求“合并到主分支 push 上去了”，已授权本次官网改动提交、合并main及推送；沿用既有自动发布流程回读，本轮继续不请求编入索引或IndexNow。",
     "validation_owner": "主Agent统一验证并更新本文件状态。",
@@ -523,6 +523,12 @@
       "label": "后续网页AI预评级与价格查询",
       "state": "implemented",
       "detail": "155官网测试、类型/构建/dryrun、双工具6组布局、真实published查价和独立复审通过。AI运行未验，未推送部署。"
+    },
+    {
+      "step": 11,
+      "label": "主分支发布及补齐",
+      "state": "implemented",
+      "detail": "本地197测试/类型/构建/dryrun/浏览器/独立审查通过，等待本次推送上线与真实模型回读。"
     }
   ],
   "google_sources": [
@@ -4341,6 +4347,11 @@
         "reviews": "P2 closed; no outstanding P1/P2",
         "real_ai_runtime": "unverified",
         "production": "not_deployed"
+      },
+      "delivery": {
+        "sourceCommit": "7252022945953194a3a725950a424bedcdb97a5e",
+        "production": "verified",
+        "cloudAi": "negative real call verified; no grade accuracy claim"
       }
     },
     {
@@ -4394,6 +4405,11 @@
         "reviews": "P2 closed; no outstanding P1/P2",
         "real_ai_runtime": "unverified",
         "production": "not_deployed"
+      },
+      "delivery": {
+        "sourceCommit": "7252022945953194a3a725950a424bedcdb97a5e",
+        "production": "verified",
+        "cloudAi": "negative real call verified; no grade accuracy claim"
       }
     },
     {
@@ -4443,6 +4459,11 @@
         "reviews": "P2 closed; no outstanding P1/P2",
         "real_ai_runtime": "unverified",
         "production": "not_deployed"
+      },
+      "delivery": {
+        "sourceCommit": "7252022945953194a3a725950a424bedcdb97a5e",
+        "production": "verified",
+        "cloudAi": "negative real call verified; no grade accuracy claim"
       }
     },
     {
@@ -4498,6 +4519,11 @@
         "reviews": "P2 closed; no outstanding P1/P2",
         "real_ai_runtime": "unverified",
         "production": "not_deployed"
+      },
+      "delivery": {
+        "sourceCommit": "7252022945953194a3a725950a424bedcdb97a5e",
+        "production": "verified",
+        "cloudAi": "negative real call verified; no grade accuracy claim"
       }
     },
     {
@@ -4551,6 +4577,11 @@
         "reviews": "P2 closed; no outstanding P1/P2",
         "real_ai_runtime": "unverified",
         "production": "not_deployed"
+      },
+      "delivery": {
+        "sourceCommit": "7252022945953194a3a725950a424bedcdb97a5e",
+        "production": "verified",
+        "cloudAi": "negative real call verified; no grade accuracy claim"
       }
     },
     {
@@ -4604,6 +4635,11 @@
         "reviews": "P2 closed; no outstanding P1/P2",
         "real_ai_runtime": "unverified",
         "production": "not_deployed"
+      },
+      "delivery": {
+        "sourceCommit": "7252022945953194a3a725950a424bedcdb97a5e",
+        "production": "verified",
+        "cloudAi": "negative real call verified; no grade accuracy claim"
       }
     },
     {
@@ -4657,6 +4693,378 @@
         "reviews": "P2 closed; no outstanding P1/P2",
         "real_ai_runtime": "unverified",
         "production": "not_deployed"
+      },
+      "delivery": {
+        "sourceCommit": "7252022945953194a3a725950a424bedcdb97a5e",
+        "production": "verified",
+        "cloudAi": "negative real call verified; no grade accuracy claim"
+      }
+    },
+    {
+      "id": "SEO-FEAT-004",
+      "type": "FEAT",
+      "title": "自动边框测量与可视校正",
+      "state": "implemented",
+      "approval": "approved",
+      "approval_evidence": "用户2026-11-16明确先合并push后调整未优化项。",
+      "disposition": "active",
+      "priority": "P1",
+      "depends_on": [],
+      "activation_requires": [],
+      "blocking_conditions": "真实裸卡正向模型效果与数周数据不能由合成测试代替。",
+      "owner_page": "/ai-card-grading",
+      "route": "/ai-card-grading",
+      "keyword_cluster": "ai card grading / free ai card grading",
+      "intent": "自动边框测量与可视校正",
+      "source_file": "/Users/git/kando/toC/toccards-answer-recovery/apps/cardscanfox-web/public/assets/card-centering.js",
+      "component_or_template": "自动边框测量与可视校正",
+      "semantic_placement": "同一工具页，不新建同意图页",
+      "operation": "update",
+      "evidence": [
+        "E-27"
+      ],
+      "evidence_depth": "rendered",
+      "assumptions": [
+        "仅几何可可靠检测的连续边框输出数值。"
+      ],
+      "risk": [
+        "专业封装图不是裸卡AI准确率样本，指导估值不是成交。"
+      ],
+      "acceptance_checks": [
+        "整体完成后运行影响面测试、构建、浏览器和独立审查。",
+        "价格维度完整，缺少评级公司/grade/RAW不补造。",
+        "不写用户账户或业务库，不提交索引请求。"
+      ],
+      "difficulty": "unavailable",
+      "effort": "unavailable",
+      "iteration": "发布后补齐",
+      "how": "像素轮廓、透视校正与连续边框，失败不默认比例；SVG拖动和键盘校正。",
+      "verification": {
+        "local": "passed",
+        "website_tests": 197,
+        "build_routes": 121,
+        "card_allowlist": 84,
+        "discovered_urls": 95,
+        "browser": "automatic/manual/refusal, real price groups,6images and3widths passed",
+        "code_review": "all reported P2 closed; no outstanding P1/P2",
+        "production": "not_yet_deployed"
+      }
+    },
+    {
+      "id": "SEO-FEAT-005",
+      "type": "FEAT",
+      "title": "同页真实评级参考价",
+      "state": "implemented",
+      "approval": "approved",
+      "approval_evidence": "用户2026-11-16明确先合并push后调整未优化项。",
+      "disposition": "active",
+      "priority": "P1",
+      "depends_on": [],
+      "activation_requires": [],
+      "blocking_conditions": "真实裸卡正向模型效果与数周数据不能由合成测试代替。",
+      "owner_page": "/ai-card-grading",
+      "route": "/ai-card-grading",
+      "keyword_cluster": "ai card grading / free ai card grading",
+      "intent": "同页真实评级参考价",
+      "source_file": "/Users/git/kando/toC/toccards-answer-recovery/apps/cardscanfox-web/public/assets/grading-price-data.js",
+      "component_or_template": "同页真实评级参考价",
+      "semantic_placement": "同一工具页，不新建同意图页",
+      "operation": "update",
+      "evidence": [
+        "E-27"
+      ],
+      "evidence_depth": "rendered",
+      "assumptions": [
+        "仅几何可可靠检测的连续边框输出数值。"
+      ],
+      "risk": [
+        "专业封装图不是裸卡AI准确率样本，指导估值不是成交。"
+      ],
+      "acceptance_checks": [
+        "整体完成后运行影响面测试、构建、浏览器和独立审查。",
+        "价格维度完整，缺少评级公司/grade/RAW不补造。",
+        "不写用户账户或业务库，不提交索引请求。"
+      ],
+      "difficulty": "unavailable",
+      "effort": "unavailable",
+      "iteration": "发布后补齐",
+      "how": "公开published详情按source/币种/语言/finish/grader分组，GENERIC不当PSA，完整同口径才填价。",
+      "verification": {
+        "local": "passed",
+        "website_tests": 197,
+        "build_routes": 121,
+        "card_allowlist": 84,
+        "discovered_urls": 95,
+        "browser": "automatic/manual/refusal, real price groups,6images and3widths passed",
+        "code_review": "all reported P2 closed; no outstanding P1/P2",
+        "production": "not_yet_deployed"
+      }
+    },
+    {
+      "id": "SEO-PAGE-012",
+      "type": "PAGE",
+      "title": "专业样卡与评级价差答案层",
+      "state": "implemented",
+      "approval": "approved",
+      "approval_evidence": "用户2026-11-16明确先合并push后调整未优化项。",
+      "disposition": "active",
+      "priority": "P1",
+      "depends_on": [
+        "SEO-FEAT-004",
+        "SEO-FEAT-005"
+      ],
+      "activation_requires": [],
+      "blocking_conditions": "真实裸卡正向模型效果与数周数据不能由合成测试代替。",
+      "owner_page": "/ai-card-grading",
+      "route": "/ai-card-grading",
+      "keyword_cluster": "ai card grading / free ai card grading",
+      "intent": "专业样卡与评级价差答案层",
+      "source_file": "/Users/git/kando/toC/toccards-answer-recovery/apps/cardscanfox-web/src/certified-examples-template.mjs",
+      "component_or_template": "专业样卡与评级价差答案层",
+      "semantic_placement": "同一工具页，不新建同意图页",
+      "operation": "update",
+      "evidence": [
+        "E-27"
+      ],
+      "evidence_depth": "rendered",
+      "assumptions": [
+        "仅几何可可靠检测的连续边框输出数值。"
+      ],
+      "risk": [
+        "专业封装图不是裸卡AI准确率样本，指导估值不是成交。"
+      ],
+      "acceptance_checks": [
+        "整体完成后运行影响面测试、构建、浏览器和独立审查。",
+        "价格维度完整，缺少评级公司/grade/RAW不补造。",
+        "不写用户账户或业务库，不提交索引请求。"
+      ],
+      "difficulty": "unavailable",
+      "effort": "unavailable",
+      "iteration": "发布后补齐",
+      "how": "三个2021 PSA正背专业参考与三个1999 PSA指导估值分开，官方无notes不补造。",
+      "verification": {
+        "local": "passed",
+        "website_tests": 197,
+        "build_routes": 121,
+        "card_allowlist": 84,
+        "discovered_urls": 95,
+        "browser": "automatic/manual/refusal, real price groups,6images and3widths passed",
+        "code_review": "all reported P2 closed; no outstanding P1/P2",
+        "production": "not_yet_deployed"
+      }
+    },
+    {
+      "id": "SEO-TECH-010",
+      "type": "TECH",
+      "title": "新增内容/图片指纹与同页边界",
+      "state": "implemented",
+      "approval": "approved",
+      "approval_evidence": "用户2026-11-16明确先合并push后调整未优化项。",
+      "disposition": "active",
+      "priority": "P1",
+      "depends_on": [
+        "SEO-PAGE-012"
+      ],
+      "activation_requires": [],
+      "blocking_conditions": "真实裸卡正向模型效果与数周数据不能由合成测试代替。",
+      "owner_page": "/ai-card-grading",
+      "route": "/ai-card-grading",
+      "keyword_cluster": "ai card grading / free ai card grading",
+      "intent": "新增内容/图片指纹与同页边界",
+      "source_file": "/Users/git/kando/toC/toccards-answer-recovery/apps/cardscanfox-web/scripts/build.mjs",
+      "component_or_template": "新增内容/图片指纹与同页边界",
+      "semantic_placement": "同一工具页，不新建同意图页",
+      "operation": "update",
+      "evidence": [
+        "E-27"
+      ],
+      "evidence_depth": "rendered",
+      "assumptions": [
+        "仅几何可可靠检测的连续边框输出数值。"
+      ],
+      "risk": [
+        "专业封装图不是裸卡AI准确率样本，指导估值不是成交。"
+      ],
+      "acceptance_checks": [
+        "整体完成后运行影响面测试、构建、浏览器和独立审查。",
+        "价格维度完整，缺少评级公司/grade/RAW不补造。",
+        "不写用户账户或业务库，不提交索引请求。"
+      ],
+      "difficulty": "unavailable",
+      "effort": "unavailable",
+      "iteration": "发布后补齐",
+      "how": "两份公开registry入构建指纹；不新增结果URL、不改App/API/DB。",
+      "technical_stage": 3,
+      "verification": {
+        "local": "passed",
+        "website_tests": 197,
+        "build_routes": 121,
+        "card_allowlist": 84,
+        "discovered_urls": 95,
+        "browser": "automatic/manual/refusal, real price groups,6images and3widths passed",
+        "code_review": "all reported P2 closed; no outstanding P1/P2",
+        "production": "not_yet_deployed"
+      }
+    },
+    {
+      "id": "SEO-LINK-004",
+      "type": "LINK",
+      "title": "同页成本与评级参考价互通",
+      "state": "implemented",
+      "approval": "approved",
+      "approval_evidence": "用户2026-11-16明确先合并push后调整未优化项。",
+      "disposition": "active",
+      "priority": "P1",
+      "depends_on": [
+        "SEO-TECH-010"
+      ],
+      "activation_requires": [
+        "SEO-TECH-012"
+      ],
+      "blocking_conditions": "真实裸卡正向模型效果与数周数据不能由合成测试代替。",
+      "owner_page": "/ai-card-grading",
+      "route": "/ai-card-grading",
+      "keyword_cluster": "ai card grading / free ai card grading",
+      "intent": "同页成本与评级参考价互通",
+      "source_file": "/Users/git/kando/toC/toccards-answer-recovery/apps/cardscanfox-web/src/pregrade-template.mjs",
+      "component_or_template": "同页成本与评级参考价互通",
+      "semantic_placement": "同一工具页，不新建同意图页",
+      "operation": "update",
+      "evidence": [
+        "E-27"
+      ],
+      "evidence_depth": "rendered",
+      "assumptions": [
+        "仅几何可可靠检测的连续边框输出数值。"
+      ],
+      "risk": [
+        "专业封装图不是裸卡AI准确率样本，指导估值不是成交。"
+      ],
+      "acceptance_checks": [
+        "整体完成后运行影响面测试、构建、浏览器和独立审查。",
+        "价格维度完整，缺少评级公司/grade/RAW不补造。",
+        "不写用户账户或业务库，不提交索引请求。"
+      ],
+      "difficulty": "unavailable",
+      "effort": "unavailable",
+      "iteration": "发布后补齐",
+      "how": "成本表Find prices链接同页查询，专业参考链接真实官方证书。",
+      "verification": {
+        "local": "passed",
+        "website_tests": 197,
+        "build_routes": 121,
+        "card_allowlist": 84,
+        "discovered_urls": 95,
+        "browser": "automatic/manual/refusal, real price groups,6images and3widths passed",
+        "code_review": "all reported P2 closed; no outstanding P1/P2",
+        "production": "not_yet_deployed"
+      }
+    },
+    {
+      "id": "SEO-TECH-011",
+      "type": "TECH",
+      "title": "补齐后受影响功能与正式运行验收",
+      "state": "implemented",
+      "approval": "approved",
+      "approval_evidence": "用户2026-11-16明确先合并push后调整未优化项。",
+      "disposition": "active",
+      "priority": "P1",
+      "depends_on": [
+        "SEO-LINK-004",
+        "SEO-TECH-012"
+      ],
+      "activation_requires": [],
+      "blocking_conditions": "真实裸卡正向模型效果与数周数据不能由合成测试代替。",
+      "owner_page": "/ai-card-grading",
+      "route": "/ai-card-grading",
+      "keyword_cluster": "ai card grading / free ai card grading",
+      "intent": "补齐后受影响功能与正式运行验收",
+      "source_file": "/Users/git/kando/toC/toccards-answer-recovery/apps/cardscanfox-web/test/grading-references.test.mjs",
+      "component_or_template": "补齐后受影响功能与正式运行验收",
+      "semantic_placement": "同一工具页，不新建同意图页",
+      "operation": "update",
+      "evidence": [
+        "E-27"
+      ],
+      "evidence_depth": "rendered",
+      "assumptions": [
+        "仅几何可可靠检测的连续边框输出数值。"
+      ],
+      "risk": [
+        "专业封装图不是裸卡AI准确率样本，指导估值不是成交。"
+      ],
+      "acceptance_checks": [
+        "整体完成后运行影响面测试、构建、浏览器和独立审查。",
+        "价格维度完整，缺少评级公司/grade/RAW不补造。",
+        "不写用户账户或业务库，不提交索引请求。"
+      ],
+      "difficulty": "unavailable",
+      "effort": "unavailable",
+      "iteration": "发布后补齐",
+      "how": "实现和文档完成后才测；实际公开数据、合成几何与模型真实调用分别报告。",
+      "technical_stage": 6,
+      "verification": {
+        "local": "passed",
+        "website_tests": 197,
+        "build_routes": 121,
+        "card_allowlist": 84,
+        "discovered_urls": 95,
+        "browser": "automatic/manual/refusal, real price groups,6images and3widths passed",
+        "code_review": "all reported P2 closed; no outstanding P1/P2",
+        "production": "not_yet_deployed"
+      }
+    },
+    {
+      "id": "SEO-TECH-012",
+      "type": "TECH",
+      "technical_stage": 5,
+      "title": "按当前GSC收缩单卡与保护新曝光目录",
+      "state": "implemented",
+      "approval": "approved",
+      "approval_evidence": "用户明确继续尚未完成的优化；此前已批准第二步只保留独立需求有证据的单卡，其他暂缓。",
+      "disposition": "active",
+      "priority": "P1",
+      "depends_on": [
+        "SEO-TECH-010",
+        "SEO-LINK-004"
+      ],
+      "activation_requires": [],
+      "blocking_conditions": "none",
+      "owner_page": "/cards/*；/sets/*；/sitemaps/*",
+      "route": "现有公共路径",
+      "source_file": "/Users/git/kando/toC/toccards-answer-recovery/apps/cardscanfox-web/content/index-policy.json",
+      "component_or_template": "rollout/verifiedDynamicSetPaths/copyCatalogSitemaps",
+      "semantic_placement": "公共索引与发现边界，正文/接口不删除",
+      "operation": "update",
+      "evidence": [
+        "E-28"
+      ],
+      "evidence_depth": "rendered",
+      "assumptions": [
+        "当前可见报告145完整行到11/13，不代表新版本效果或月搜索量。"
+      ],
+      "risk": [
+        "缺行不等于零需求，60仅暂缓并保留链接；历史正曝光必须保留。"
+      ],
+      "acceptance_checks": [
+        "历史140通过直接或已批准owner受保护。",
+        "卡许可84、单卡地图7、site地图88，共95。",
+        "外部合法候选也不能绕过许可重新放出暂缓卡。",
+        "动态已验证系列无需伪造snapshotHTML。"
+      ],
+      "difficulty": "unavailable",
+      "effort": "unavailable",
+      "iteration": "发布后补齐",
+      "how": "保历史82卡+新2、暂缓60仅引用、补3正曝光系列发现；1047仅作历史快照，保留各来源列表。",
+      "verification": {
+        "local": "passed",
+        "website_tests": 197,
+        "build_routes": 121,
+        "card_allowlist": 84,
+        "discovered_urls": 95,
+        "browser": "automatic/manual/refusal, real price groups,6images and3widths passed",
+        "code_review": "all reported P2 closed; no outstanding P1/P2",
+        "production": "not_yet_deployed"
       }
     }
   ],
@@ -4886,6 +5294,37 @@
       "acceptance": [
         "真实AI运行和接口替身测试分别报告",
         "受影响功能检查及独立审查"
+      ],
+      "effort": "unavailable"
+    },
+    {
+      "id": "批次10",
+      "title": "先发布再补齐功能与数据",
+      "priority": "P1",
+      "state": "implemented",
+      "goal": "补自动测量、同页真实价格和专业参考，保持证据边界。",
+      "item_ids": [
+        "SEO-FEAT-004",
+        "SEO-FEAT-005",
+        "SEO-PAGE-012",
+        "SEO-TECH-010",
+        "SEO-LINK-004",
+        "SEO-TECH-011",
+        "SEO-TECH-012"
+      ],
+      "deliverables": [
+        "自动几何+校正",
+        "同页分维度评级价",
+        "官方专业参考和guide估值"
+      ],
+      "not_in_scope": [
+        "伪造裸卡送评前后或grader notes",
+        "App/DB/schema变化",
+        "在没有数周数据时声称达标或买外链"
+      ],
+      "acceptance": [
+        "新代码与文档完成后才验证",
+        "真实运行和受控fixture分开"
       ],
       "effort": "unavailable"
     }
@@ -5621,6 +6060,20 @@
       "locator": "docs/releases/v1.1.4/05-delivery/cardscanfox-page-intents.md；content/pregrading-catalog-examples.json",
       "observed_at": "2026-11-16T10:39:20+08:00",
       "detail": "用户确认AI预评级并选择新网页后端；3个真实Pokemon RAW目录/价格已回读；PSA/CGC官方标准与费用按Nov16引用；四旧卡种已有raw301。"
+    },
+    {
+      "id": "E-27",
+      "kind": "production-and-primary-sources",
+      "locator": "docs/releases/v1.1.4/05-delivery/cardscanfox-page-intents.md；PSA Cert Verification/Price Guide；Beckett官方pricing",
+      "observed_at": "2026-11-16T12:19:15+08:00",
+      "detail": "72520229正式manifest已匹配批准构建；真实AI错卡拒测；PSA同printing三grade专业参考与不同1999printings指导估值已核。"
+    },
+    {
+      "id": "E-28",
+      "kind": "Google first-party property data",
+      "locator": "本任务外部私有GSC DOM原始145行；仓库仅存公共URL布尔归属和历史保护fixture",
+      "observed_at": "2026-11-16T13:41:32+08:00",
+      "detail": "145正曝光URL/84卡，旧82卡全保、新2卡3系列；数据到11/13。未调用GSC写入/索引请求，未公开私有指标。"
     }
   ],
   "dependency_resolved_execution_checklist": [
@@ -5651,9 +6104,16 @@
     "SEO-TECH-007",
     "SEO-LINK-003",
     "SEO-TECH-008",
-    "SEO-TECH-009"
+    "SEO-TECH-009",
+    "SEO-FEAT-004",
+    "SEO-FEAT-005",
+    "SEO-PAGE-012",
+    "SEO-TECH-010",
+    "SEO-LINK-004",
+    "SEO-TECH-011",
+    "SEO-TECH-012"
   ],
-  "completion_boundary_and_approval": "前21项保留正式交付状态。新增7项完成本地实现及验证；发布仍需本轮新增AI后端的授权，随后沿用既有Git/Cloudflare发布并做真实推理。没有把stub测试或旧sourceCommit当作本次上线。",
+  "completion_boundary_and_approval": "用户明确授权先发布并继续优化，后续不重复求相同批准。数周GSC/行为、逐卡需求与外链前置仍独立待验。",
   "scope_history": [
     {
       "batch": "第一批本地功能改造",
@@ -5694,6 +6154,11 @@
       "scope": "用户更正确有AI预评级，选择新建轻量网页后端；同页工具与价格查询本地执行。用户指定热门卡示例复用项目后台详情。",
       "authorization": "本轮开发与必要验证已授权；不把前一批推送记录当作新版本部署证据。",
       "redirect_audit": "四旧卡种raw301已核实，follow后200不是合并遗漏。"
+    },
+    {
+      "date": "2026-11-16T12:19:15+08:00",
+      "scope": "用户先合并push，再继续未完成优化。72520229已合入main/远端且正式发布，开始自动居中、真实价格维度、专业参考与不可用照片标签修正。",
+      "authorization": "用户本轮明确授权，不重复请求合并/发布批准。"
     }
   ],
   "execution_batches": [

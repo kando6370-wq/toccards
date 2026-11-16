@@ -226,3 +226,9 @@ MTG、One Piece、Basketball和Football保留独立URL与H1，补充各自编号
 `/card-price-checker` 在本页读取现有发布目录，只有有关键词或具体套卡才查询。价格仍受条件、来源、语言、工艺和日期约束。热门目录示例真源为 `content/pregrading-catalog-examples.json`，不是实物预评级样卡；不要给目录图编造背面或分数。
 
 协议、费用来源、模型限制、配置与回滚范围见 [页面意图文档](../../docs/releases/v1.1.4/05-delivery/cardscanfox-page-intents.md#网页-ai-预评级与价格查询2026-11-16-后续增量)。构建会重新导入本批已批准的能力文案与隐私用途修改；旧发布记录和未验证项保持历史口径。
+
+### 自动居中与评级参考补齐
+
+`card-centering.js` 只用浏览器像素测量外框和连续印刷内框，结果与AI上传对象分开。`centering-view.js` 显示自动结果、两层框线及拖动/键盘校正；不可靠或全幅卡不输出默认比例。`grading-price-data.js` 同页读取现有公开价格references，按全部真实维度分组；完整同公司与匹配RAW数据才可填成本表。
+
+`certified-grading-examples.json` 与六张原始图片登记三个2021 PSA专业参考；`grading-price-guide-examples.json` 登记另三张1999 Shadowless的PSA指导估值。样本年份、认证结果、指导估值与后台目录价格分开维护，不能互相映射。新增数据文件已进入构建指纹。所有代码和文档完成后才运行几何/接口/价格/图片完整性与浏览器检查。

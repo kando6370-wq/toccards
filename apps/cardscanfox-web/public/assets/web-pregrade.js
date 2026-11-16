@@ -1,3 +1,4 @@
+import {createCenteringView} from './centering-view.js';
 const MAX_ORIGINAL_BYTES = 20 * 1024 * 1024;
 const MAX_UPLOAD_BYTES = 1.5 * 1024 * 1024;
 const MAX_PIXELS = 24_000_000;
@@ -59,6 +60,8 @@ export async function preparePregradePhoto(file) {
  }
 }
 
+export function pregradeUploadPayload(photos) {return Object.fromEntries(SIDES.map(side=>[side,{dataUrl:photos[side].dataUrl,width:photos[side].width,height:photos[side].height}]))};
+
 export function calculateGradingCost(values) {
  const names = ['rawValue', 'grade8Value', 'grade9Value', 'grade10Value', 'serviceFee', 'shippingInsurance', 'sellingFeePercent'];
  if (!values || !names.every(name => typeof values[name] === 'number' && Number.isFinite(values[name]) && values[name] >= 0 && values[name] <= 10_000_000) || values.sellingFeePercent >= 100) throw new PregradeError('Enter all seven amounts. Use zero where a cost does not apply and a selling fee below 100%.');
@@ -89,6 +92,7 @@ export function validatePregradeResult(payload) {
  for (const side of SIDES) {
   const report = data[side];
   if (!report || !Object.hasOwn(QUALITIES, report.quality) || !Array.isArray(report.issues) || report.issues.length > 10 || !report.issues.every(issue => validText(issue))) return false;
+  if (report.notes!==undefined&&(!Array.isArray(report.notes)||report.notes.length>4||!report.notes.every(note=>validText(note,160))))return false;
   if (!CRITERIA.every(name => report[name] && Object.hasOwn(SEVERITIES, report[name].severity) && validText(report[name].observation))) return false;
   if (data.status === 'estimated' && (report.quality !== 'good' || report.issues.length || CRITERIA.some(name => report[name].severity === 'unassessable'))) return false;
  }
@@ -143,7 +147,7 @@ function renderReport(root, payload) {
  for (const side of SIDES) {
   const report = data[side], section = node('section'), list = node('dl');
   section.append(node('h3', '', side === 'front' ? 'Card front' : 'Card back'), node('p', 'pregrade-quality', QUALITIES[report.quality]));
-  if (report.issues.length) { const issues = node('ul'); for (const issue of report.issues) issues.append(node('li', '', issue)); section.append(issues); }
+  const sideNotes=[...report.issues,...(report.notes??[])];if (sideNotes.length) { const issues = node('ul'); for (const issue of sideNotes) issues.append(node('li', '', issue)); section.append(issues); }
   for (const name of CRITERIA) {
    const criterion = node('div', 'pregrade-criterion'), title = node('dt', '', LABELS[name]); title.append(node('span', '', SEVERITIES[report[name].severity]));
    criterion.append(title, node('dd', '', report[name].observation)); list.append(criterion);
@@ -189,6 +193,7 @@ export function initWebPregrade(root) {
  const panels = Object.fromEntries(SIDES.map(side => [side, find('[data-photo-side="' + side + '"]')]));
  if (![form, submit, cancel, clear, consent, status, error, result, ...Object.values(panels)].every(Boolean)) return null;
  root.dataset.pregradeReady = 'true';
+ const centeringViews=Object.fromEntries(SIDES.map(side=>[side,createCenteringView(panels[side])]));
  const listeners = new AbortController(), photos = {front: null, back: null}, preparing = {front: false, back: false}, photoRevisions = {front: 0, back: 0};
  let revision = 0, request = null, disposed = false;
  const update = () => {
@@ -200,22 +205,23 @@ export function initWebPregrade(root) {
  const hideError = () => { error.hidden = true; error.textContent = ''; };
  const showError = message => { error.textContent = message; error.hidden = false; status.textContent = ''; };
  const invalidate = () => { revision++; request?.abort(); request = null; result.hidden = true; for (const selector of ['[data-result-title]', '[data-result-range]', '[data-result-summary]', '[data-result-method]', '[data-result-issues]', '[data-result-sides]']) find(selector).replaceChildren(); hideError(); };
+ const photoPricesChanged = () => {const cost=find('[data-cost-result]');if(cost)cost.hidden=true;const costError=find('[data-cost-error]');if(costError)costError.hidden=true;root.dispatchEvent(new CustomEvent('pregrade-photos-changed'));};
  const currentStatus = () => { status.textContent = photos.front && photos.back ? 'Both photos are ready. Confirm the photo permission, then get your pregrade.' : photos.front ? 'Front photo ready. Choose the back of the same card.' : photos.back ? 'Back photo ready. Choose the front of the same card.' : 'Choose the front and back photos to start.'; };
  const resetSide = side => {
-  photos[side] = null; preparing[side] = false; photoRevisions[side]++;
+  centeringViews[side].clear();photos[side] = null; preparing[side] = false; photoRevisions[side]++;
   const panel = panels[side]; panel.querySelector('[data-photo-preview]').hidden = true; panel.querySelector('[data-photo-image]').removeAttribute('src'); panel.querySelector('[data-photo-caption]').textContent = ''; panel.querySelector('[data-photo-remove]').hidden = true;
   panel.querySelector('[data-photo-file]').value = ''; panel.querySelector('[data-photo-camera-file]').value = '';
  };
  async function choose(side, file) {
   if (!file || disposed) return;
-  invalidate(); resetSide(side); const current = photoRevisions[side]; preparing[side] = true; status.textContent = 'Preparing the ' + side + ' photo…'; update();
+  photoPricesChanged();invalidate(); resetSide(side); const current = photoRevisions[side]; preparing[side] = true; status.textContent = 'Preparing the ' + side + ' photo…'; update();
   try {
    const photo = await preparePregradePhoto(file);
    if (disposed || current !== photoRevisions[side]) return;
    const opposite = side === 'front' ? 'back' : 'front';
    if (photos[opposite]?.dataUrl === photo.dataUrl) throw new PregradeError('These are the same photo. Choose the front and the back of one card.');
    photos[side] = photo; const panel = panels[side];
-   panel.querySelector('[data-photo-image]').src = photo.dataUrl; panel.querySelector('[data-photo-preview]').hidden = false; panel.querySelector('[data-photo-caption]').textContent = photo.width + ' × ' + photo.height + ' · metadata removed'; panel.querySelector('[data-photo-remove]').hidden = false; currentStatus();
+   panel.querySelector('[data-photo-image]').src = photo.dataUrl; panel.querySelector('[data-photo-preview]').hidden = false; panel.querySelector('[data-photo-caption]').textContent = photo.width + ' × ' + photo.height + ' · metadata removed'; panel.querySelector('[data-photo-remove]').hidden = false; void centeringViews[side].setPhoto(photo); currentStatus();
   } catch (failure) {
    if (!disposed && current === photoRevisions[side]) showError(failure instanceof PregradeError ? failure.message : 'This photo could not be prepared. Choose another photo.');
   } finally { if (!disposed && current === photoRevisions[side]) { preparing[side] = false; update(); } }
@@ -227,7 +233,7 @@ export function initWebPregrade(root) {
   const timeout = setTimeout(() => controller.abort(new PregradeError('This assessment took too long. Try again later.')), 65_000);
   status.textContent = 'Assessing visible condition on both sides. This can take up to a minute…'; update();
   try {
-   const response = await waitForAssessment(fetch('/site-api/v1/pregrade', {method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: {'Content-Type': 'application/json'}, signal: controller.signal, body: JSON.stringify({front: photos.front, back: photos.back})}), controller.signal);
+   const response = await waitForAssessment(fetch('/site-api/v1/pregrade', {method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: {'Content-Type': 'application/json'}, signal: controller.signal, body: JSON.stringify(pregradeUploadPayload(photos))}), controller.signal);
    if (!response.ok) throw responseError(response);
    const payload = await readResult(response, controller.signal);
    if (disposed || current !== revision) return;
@@ -244,12 +250,12 @@ export function initWebPregrade(root) {
   panel.querySelector('[data-photo-file]').addEventListener('change', event => { void choose(side, event.target.files?.[0]); }, {signal: listeners.signal});
   camera.addEventListener('change', event => { void choose(side, event.target.files?.[0]); }, {signal: listeners.signal});
   panel.querySelector('[data-photo-camera]').addEventListener('click', () => camera.click(), {signal: listeners.signal});
-  panel.querySelector('[data-photo-remove]').addEventListener('click', () => { invalidate(); resetSide(side); currentStatus(); update(); }, {signal: listeners.signal});
+  panel.querySelector('[data-photo-remove]').addEventListener('click', () => { photoPricesChanged();invalidate(); resetSide(side); currentStatus(); update(); }, {signal: listeners.signal});
  }
  form.addEventListener('submit', assess, {signal: listeners.signal});
  consent.addEventListener('change', () => { if (!consent.checked && request) { invalidate(); currentStatus(); } update(); }, {signal: listeners.signal});
  cancel.addEventListener('click', () => { invalidate(); status.textContent = 'Assessment cancelled. Your selected photos are still here. You can clear them or try again.'; update(); }, {signal: listeners.signal});
- clear.addEventListener('click', () => { invalidate(); for (const side of SIDES) resetSide(side); consent.checked = false; currentStatus(); update(); }, {signal: listeners.signal});
+ clear.addEventListener('click', () => { photoPricesChanged();invalidate(); for (const side of SIDES) resetSide(side); consent.checked = false; currentStatus(); update(); }, {signal: listeners.signal});
  const costForm = find('[data-grading-cost-form]');
  costForm?.addEventListener('submit', event => {
   event.preventDefault(); const costError = find('[data-cost-error]'); costError.hidden = true;
@@ -264,7 +270,7 @@ export function initWebPregrade(root) {
   catch (failure) { output.textContent = failure.message; }
  }, {signal: listeners.signal});
  centeringForm?.addEventListener('input', () => { find('[data-centering-result]').textContent = ''; }, {signal: listeners.signal});
- const destroy = () => { disposed = true; invalidate(); listeners.abort(); for (const side of SIDES) resetSide(side); root.dataset.pregradeReady = 'false'; };
+ const destroy = () => { disposed = true; invalidate(); listeners.abort(); for (const side of SIDES) { resetSide(side);centeringViews[side].destroy(); } root.dataset.pregradeReady = 'false'; };
  window.addEventListener('pagehide', destroy, {once: true, signal: listeners.signal});
  update(); return {destroy};
 }

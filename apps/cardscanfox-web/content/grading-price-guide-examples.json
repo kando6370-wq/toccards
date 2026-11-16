@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-16",
+  "sourceUrl": "https://www.psacard.com/priceguide/non-sports-tcg-card-values/1999-poke-mon-game/2432",
+  "sourceLabel": "PSA Price Guide — 1999 Pokémon Game",
+  "metric": "guide_estimate",
+  "currency": "USD",
+  "grader": "PSA",
+  "sourceUpdatedAt": null,
+  "note": "These are PSA guide estimates for the named 1999 Shadowless printings. They are not recorded sale prices, prices for the 2021 certified examples, or quotes for an uploaded card. The source does not publish an individual update date for each row.",
+  "catalogMapping": null,
+  "examples": [
+    {
+      "id": "psa-guide-1999-alakazam-shadowless",
+      "name": "Alakazam",
+      "cardNumber": "1",
+      "year": 1999,
+      "setName": "1999 Pokémon Game",
+      "variation": "Shadowless",
+      "sourcePrintingLabel": "Alakazam-Shadowless",
+      "grader": "PSA",
+      "currency": "USD",
+      "metric": "guide_estimate",
+      "gradePrices": {
+        "8": 250,
+        "9": 400,
+        "10": 800
+      },
+      "sourceUrl": "https://www.psacard.com/priceguide/non-sports-tcg-card-values/1999-poke-mon-game/2432",
+      "sourceLabel": "PSA Price Guide — 1999 Pokémon Game",
+      "observedAt": "2026-11-16",
+      "sourceUpdatedAt": null,
+      "catalogCardId": null
+    },
+    {
+      "id": "psa-guide-1999-blastoise-shadowless",
+      "name": "Blastoise",
+      "cardNumber": "2",
+      "year": 1999,
+      "setName": "1999 Pokémon Game",
+      "variation": "Shadowless",
+      "sourcePrintingLabel": "Blastoise-Shadowless",
+      "grader": "PSA",
+      "currency": "USD",
+      "metric": "guide_estimate",
+      "gradePrices": {
+        "8": 580,
+        "9": 2000,
+        "10": 15000
+      },
+      "sourceUrl": "https://www.psacard.com/priceguide/non-sports-tcg-card-values/1999-poke-mon-game/2432",
+      "sourceLabel": "PSA Price Guide — 1999 Pokémon Game",
+      "observedAt": "2026-11-16",
+      "sourceUpdatedAt": null,
+      "catalogCardId": null
+    },
+    {
+      "id": "psa-guide-1999-mewtwo-shadowless",
+      "name": "Mewtwo",
+      "cardNumber": "10",
+      "year": 1999,
+      "setName": "1999 Pokémon Game",
+      "variation": "Shadowless",
+      "sourcePrintingLabel": "Mewtwo-Shadowless",
+      "grader": "PSA",
+      "currency": "USD",
+      "metric": "guide_estimate",
+      "gradePrices": {
+        "8": 200,
+        "9": 450,
+        "10": 5500
+      },
+      "sourceUrl": "https://www.psacard.com/priceguide/non-sports-tcg-card-values/1999-poke-mon-game/2432",
+      "sourceLabel": "PSA Price Guide — 1999 Pokémon Game",
+      "observedAt": "2026-11-16",
+      "sourceUpdatedAt": null,
+      "catalogCardId": null
+    }
+  ]
+}

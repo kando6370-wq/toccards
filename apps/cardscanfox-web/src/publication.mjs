@@ -28,7 +28,9 @@ export function sitemapIndex(shards=[],origin='https://tcgcard.fun') {
  return '<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'+paths.map(path=>`<sitemap><loc>${escape(origin+path)}</loc></sitemap>`).join('\n')+'\n</sitemapindex>\n';
 }
 export function validateIndexPolicy() {
- if(!Array.isArray(policy.newIndexPaths)||policy.newIndexPaths.some(p=>!allStaticPaths.includes(p)||p==='/saved'||p.includes('?')||p.includes('#')||p.includes('/category/opinion')))throw new Error('Index policy contains an unknown or ineligible route.');
+ const verifiedDynamic=new Set(policy.verifiedDynamicSetPaths??[]);
+ if(!Array.isArray(policy.verifiedDynamicSetPaths??[])||verifiedDynamic.size!==(policy.verifiedDynamicSetPaths??[]).length||[...verifiedDynamic].some(path=>!/^\/sets\/[A-Za-z0-9_-]{1,128}$/.test(path)||!approved.has(path)||!rolloutPaths.has(path)))throw new Error('Invalid verified dynamic set discovery.');
+ if(!Array.isArray(policy.newIndexPaths)||policy.newIndexPaths.some(p=>(!allStaticPaths.includes(p)&&!verifiedDynamic.has(p))||p==='/saved'||p.includes('?')||p.includes('#')||p.includes('/category/opinion')))throw new Error('Index policy contains an unknown or ineligible route.');
  if(policy.catalog?.enabled!==true&&policy.catalog?.enabled!==false)throw new Error('Catalog eligibility policy must be explicit.');
  if(policy.rollout?.enabled===true&&(!Array.isArray(policy.rollout.allowedPaths)||!rolloutPaths.size||rolloutPaths.size!==policy.rollout.allowedPaths.length||policy.rollout.allowedPaths.some(p=>typeof p!=='string'||!p.startsWith('/')||/[?#]/.test(p)||p==='/saved'||p.startsWith('/site-api/'))))throw new Error('Invalid phased index allowlist.');
 }

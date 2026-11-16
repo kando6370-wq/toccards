@@ -1,7 +1,8 @@
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import {resolve,join} from 'node:path';
 import {createHash} from 'node:crypto';
-export async function copyCatalogSitemaps(source,destination){
+export async function copyCatalogSitemaps(source,destination,{allowedCardPaths=null}={}){
+ if(allowedCardPaths!==null&&!(allowedCardPaths instanceof Set))throw new Error('Invalid approved discovery scope.');
  const manifest=source?JSON.parse(await readFile(join(source,'catalog-manifest.json'),'utf8')):{schemaVersion:1,origin:'https://tcgcard.fun',discoveryCount:0,shards:[]};
  if(manifest.schemaVersion!==1||manifest.origin!=='https://tcgcard.fun'||!Array.isArray(manifest.shards)||manifest.shards.length>1000)throw new Error('Invalid catalog sitemap manifest.');
  let total=0;const seen=new Set();const verified=[];
@@ -11,6 +12,7 @@ export async function copyCatalogSitemaps(source,destination){
   if(body.length!==shard.bytes||body.length>50*1024*1024||createHash('sha256').update(body).digest('hex')!==shard.sha256)throw new Error('Sitemap artifact does not match its manifest.');
   const xml=body.toString('utf8');if(/<!DOCTYPE|<!ENTITY/i.test(xml))throw new Error('Unexpected XML declaration.');const urls=[...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m=>m[1].replace(/&(amp|lt|gt|quot|apos);/g,(_,key)=>({amp:'&',lt:'<',gt:'>',quot:'"',apos:"'"}[key])));
   if(urls.length!==shard.urlCount||urls.some(url=>{try{const parsed=new URL(url);return parsed.origin!=='https://tcgcard.fun'||!/^\/cards\/[^/]+$/.test(parsed.pathname)||/[?#]/.test(url)||parsed.href!==url;}catch{return true;}}))throw new Error('Sitemap contains unexpected URLs.');
+  if(allowedCardPaths&&urls.some(url=>!allowedCardPaths.has(new URL(url).pathname)))throw new Error('Sitemap contains a card outside the approved discovery scope.');
   verified.push({shard,body});total+=shard.urlCount;
  }
  if(total!==manifest.discoveryCount)throw new Error('Sitemap counts do not match.');

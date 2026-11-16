@@ -123,7 +123,7 @@ const SYSTEM_PROMPT = `You inspect photographs of physical trading cards before 
 Check that the images plausibly show the opposite sides of one physical card. Reject a pair with two fronts, two backs, clearly different cards, no physical card, slabs/sleeves hiding the condition, catalog artwork, cropped corners, or severe perspective/blur/glare. Do not claim authenticity or certainty that unseen sides belong together. A non-card or wrong side has quality unusable and unassessable criteria.
 For each side describe ONLY visible evidence in plain English: centering, corners, edges (including whitening), surface (including visible scratches/creases), and print (including visible spots). Choose none_visible, minor, moderate, major, or unassessable. none_visible means no defect visible in this photograph, never flawless. If a feature cannot be observed, choose unassessable. Flat photographs can miss dents and micro-scratches; do not invent their presence or absence. Describe photograph limits.
 Centering is QUALITATIVE only. Never provide percentages, ratios, pixel measurements, numeric grades, company standards, market prices, or submission advice. Borderless/full-art cards without a reliable visible reference have unassessable centering.
-Use quality good only for clear, full-card, unobstructed photos where each criterion can be inspected. Otherwise use limited or unusable and concise issues that tell the user how to retake the photo. Keep observations under 220 characters and issue text under 160 characters. Do not output personal data visible in the background.`;
+Quality describes the photograph, not the card condition. A worn or damaged card can have a good photograph. Put visible card wear in criterion observations; issues should describe only photography problems. A good photograph must have an empty issues list; damage belongs only in criterion observations. Use quality good only for clear, full-card, unobstructed photos where each criterion can be inspected. Otherwise use limited or unusable and concise issues that tell the user how to retake the photo. Keep observations under 220 characters and issue text under 160 characters. Do not output personal data visible in the background.`;
 
 function shortText(value, max) {
  return typeof value === 'string' && value.trim().length > 0 && value.length <= max && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(value);
@@ -138,7 +138,24 @@ function validatedSide(value) {
  }
  // The model must not turn a qualitative centering check into an invented measurement.
  if (/\d+\s*(?:\/|:|%)\s*\d*/.test(value.centering.observation)) return null;
- return {quality:value.quality,issues:value.issues.map(issue => issue.trim()), ...Object.fromEntries(CRITERIA.map(name => [name,{severity:value[name].severity,observation:value[name].observation.trim()}]))};
+ // Normalize only a small, explicit wear vocabulary. Any mixed or unknown warning
+ // remains blocking, even when the provider labels the photograph good.
+ const plain=value=>value.trim().toLowerCase().replace(/\s+/g,' ').replace(/\.$/,'');
+ const wear=/^(?:(?:minor|moderate|major|light|slight|visible|some) )?(?:(?:edge|corner|surface) )?(?:whitening|wear|chipping|fraying|rounding|scratches|scratching|print spots|print lines|creases?)(?: (?:on|along|at) (?:the )?(?:edges|corners|surface|front|back))?$/;
+ const withoutLocation=value=>value.replace(/ (?:on|along|at) (?:the )?(?:edges|corners|surface|front|back)$/,'');
+ const isConditionNote=note=>value.quality==='good'&&wear.test(plain(note))&&CRITERIA.some(name=>{
+  const item=value[name],observation=plain(item.observation);
+  return ['minor','moderate','major'].includes(item.severity)&&wear.test(observation)&&withoutLocation(plain(note))===withoutLocation(observation);
+ });
+ const notes=value.issues.filter(isConditionNote).map(issue=>issue.trim());
+ const issues=value.issues.filter(issue=>!isConditionNote(issue)).map(issue=>issue.trim());
+ const dimensions={centering:'centering issue',corners:'corner wear',edges:'edge wear',surface:'surface damage',print:'printing defect'};
+ return {quality:value.quality,issues,notes,...Object.fromEntries(CRITERIA.map(name=>{
+  if(value.quality==='unusable')return [name,{severity:'unassessable',observation:'Not assessed because this photo is unsuitable. Retake this side of the same card.'}];
+  const severity=value[name].severity,raw=value[name].observation.trim();
+  const observation=raw===severity?(severity==='unassessable'?'This area cannot be assessed from this photo.':severity==='none_visible'?'No obvious '+dimensions[name]+' is visible in this photo.':severity[0].toUpperCase()+severity.slice(1)+' '+dimensions[name]+' is visible in this photo.'):raw;
+  return [name,{severity,observation}];
+ }))};
 }
 
 function assessmentResult(output) {

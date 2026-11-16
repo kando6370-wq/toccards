@@ -1,0 +1,193 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-11-16",
+  "kind": "professional_reference",
+  "printing": {
+    "year": 2021,
+    "game": "Pokémon",
+    "setName": "Celebrations Classic Collection",
+    "cardName": "Charizard-Holo",
+    "cardNumber": "4",
+    "collectorNumber": "4/102",
+    "language": "English",
+    "finish": "Holofoil",
+    "variation": "Classic Coll–Base Set"
+  },
+  "note": "These are three different physical cards of the same 2021 printing, shown in their PSA holders. They are official professional-grade references, not CardScanFox AI predictions or before-and-after submission examples. The front and back of each specimen show the same certification number.",
+  "sourceCredit": "Professional Sports Authenticator (PSA)",
+  "imageReuseLicense": "not_independently_verified",
+  "historicalSaleNote": "Each historicalSale is the first public Sales of Similar Items row shown on the cited certificate page when inspected. It concerns another card with its own certification number, not the displayed specimen. Dates and sale types differ; these are recorded historical examples, not synchronized current prices.",
+  "examples": [
+    {
+      "kind": "professional_reference",
+      "certNumber": "161387604",
+      "grader": "PSA",
+      "grade": 8,
+      "gradeLabel": "NM-MT 8",
+      "title": "2021 Celebrations Charizard-Holo #4 — PSA 8",
+      "frontImage": "/assets/grading-references/psa-161387604-front.jpg",
+      "backImage": "/assets/grading-references/psa-161387604-back.jpg",
+      "imageMetadata": {
+        "front": {
+          "path": "/assets/grading-references/psa-161387604-front.jpg",
+          "sourceUrl": "https://d1htnxwo4o0jhw.cloudfront.net/cert/211086404/large/UmyDQxHcL0yT4k3x8avUZw.jpg",
+          "width": 1140,
+          "height": 1903,
+          "bytes": 377119,
+          "sha256": "2138344852fc9c737821185a499e64db86fad056b7d00fe6d8bdcc1a7d8c999c",
+          "sourcePage": "https://www.psacard.com/cert/161387604/psa",
+          "sourceImageLabel": "Cert image 1",
+          "transformation": "none"
+        },
+        "back": {
+          "path": "/assets/grading-references/psa-161387604-back.jpg",
+          "sourceUrl": "https://d1htnxwo4o0jhw.cloudfront.net/cert/211086404/large/EF6vKBTevUa1iDTxmXK-SQ.jpg",
+          "width": 1140,
+          "height": 1917,
+          "bytes": 329817,
+          "sha256": "c1524aad25e1e92f04304969cd7344e81f126d9b98e6d3455dbd4dcf70d8f600",
+          "sourcePage": "https://www.psacard.com/cert/161387604/psa",
+          "sourceImageLabel": "Cert image 2",
+          "transformation": "none"
+        }
+      },
+      "sourceUrl": "https://www.psacard.com/cert/161387604/psa",
+      "sourceLabel": "PSA Cert Verification",
+      "observedAt": "2026-11-16",
+      "encapsulated": true,
+      "photoType": "post_encapsulation_scan",
+      "notesPublished": false,
+      "officialGraderNotes": null,
+      "aiAssessment": null,
+      "historicalSale": {
+        "amount": 175,
+        "date": "2026-10-08",
+        "venue": "eBay",
+        "saleType": "BestOffer",
+        "soldItemCertNumber": "148920331",
+        "listingId": "206545273546",
+        "currency": "USD",
+        "relation": "similar_item",
+        "sourceLabel": "PSA — Sales of Similar Items",
+        "sourceUrl": "https://www.psacard.com/cert/161387604/psa",
+        "observedAt": "2026-11-16",
+        "verification": "reported_by_psa",
+        "isDisplayedSampleSale": false
+      }
+    },
+    {
+      "kind": "professional_reference",
+      "certNumber": "152931430",
+      "grader": "PSA",
+      "grade": 9,
+      "gradeLabel": "MINT 9",
+      "title": "2021 Celebrations Charizard-Holo #4 — PSA 9",
+      "frontImage": "/assets/grading-references/psa-152931430-front.jpg",
+      "backImage": "/assets/grading-references/psa-152931430-back.jpg",
+      "imageMetadata": {
+        "front": {
+          "path": "/assets/grading-references/psa-152931430-front.jpg",
+          "sourceUrl": "https://d1htnxwo4o0jhw.cloudfront.net/cert/203879095/large/oQyREgRis0uJzP6S5_3jkg.jpg",
+          "width": 1140,
+          "height": 1920,
+          "bytes": 538051,
+          "sha256": "0bc4097bce134f4d992411ce25a530d36083bebb7e53d2e518b2d2d5353a3908",
+          "sourcePage": "https://www.psacard.com/cert/152931430/psa",
+          "sourceImageLabel": "Cert image 1",
+          "transformation": "none"
+        },
+        "back": {
+          "path": "/assets/grading-references/psa-152931430-back.jpg",
+          "sourceUrl": "https://d1htnxwo4o0jhw.cloudfront.net/cert/203879095/large/WW8KMYqBPEqsLLW9CUpLEQ.jpg",
+          "width": 1140,
+          "height": 1920,
+          "bytes": 529511,
+          "sha256": "d049bb5bb88cc2c9ed2d8205230861a043fed5b53be24793569adc5298114fbd",
+          "sourcePage": "https://www.psacard.com/cert/152931430/psa",
+          "sourceImageLabel": "Cert image 2",
+          "transformation": "none"
+        }
+      },
+      "sourceUrl": "https://www.psacard.com/cert/152931430/psa",
+      "sourceLabel": "PSA Cert Verification",
+      "observedAt": "2026-11-16",
+      "encapsulated": true,
+      "photoType": "post_encapsulation_scan",
+      "notesPublished": false,
+      "officialGraderNotes": null,
+      "aiAssessment": null,
+      "historicalSale": {
+        "amount": 152.5,
+        "date": "2026-11-14",
+        "venue": "eBay",
+        "saleType": "Auction",
+        "soldItemCertNumber": "82920776",
+        "listingId": "137928029649",
+        "currency": "USD",
+        "relation": "similar_item",
+        "sourceLabel": "PSA — Sales of Similar Items",
+        "sourceUrl": "https://www.psacard.com/cert/152931430/psa",
+        "observedAt": "2026-11-16",
+        "verification": "reported_by_psa",
+        "isDisplayedSampleSale": false
+      }
+    },
+    {
+      "kind": "professional_reference",
+      "certNumber": "64285064",
+      "grader": "PSA",
+      "grade": 10,
+      "gradeLabel": "GEM MT 10",
+      "title": "2021 Celebrations Charizard-Holo #4 — PSA 10",
+      "frontImage": "/assets/grading-references/psa-64285064-front.jpg",
+      "backImage": "/assets/grading-references/psa-64285064-back.jpg",
+      "imageMetadata": {
+        "front": {
+          "path": "/assets/grading-references/psa-64285064-front.jpg",
+          "sourceUrl": "https://d1htnxwo4o0jhw.cloudfront.net/cert/127252844/large/358237191.jpg",
+          "width": 1140,
+          "height": 1900,
+          "bytes": 496660,
+          "sha256": "a743ab14400c0737cfa6e9ff7124238e3d0e505972c3798544e293f3c4302049",
+          "sourcePage": "https://www.psacard.com/cert/64285064/psa",
+          "sourceImageLabel": "Cert image 1",
+          "transformation": "none"
+        },
+        "back": {
+          "path": "/assets/grading-references/psa-64285064-back.jpg",
+          "sourceUrl": "https://d1htnxwo4o0jhw.cloudfront.net/cert/127252844/large/358237474.jpg",
+          "width": 1140,
+          "height": 1915,
+          "bytes": 365719,
+          "sha256": "37f08be2534cdfd3cd03ab7452be61ac4f4bd86f75f5abf8a8cc1bb9fccace58",
+          "sourcePage": "https://www.psacard.com/cert/64285064/psa",
+          "sourceImageLabel": "Cert image 2",
+          "transformation": "none"
+        }
+      },
+      "sourceUrl": "https://www.psacard.com/cert/64285064/psa",
+      "sourceLabel": "PSA Cert Verification",
+      "observedAt": "2026-11-16",
+      "encapsulated": true,
+      "photoType": "post_encapsulation_scan",
+      "notesPublished": false,
+      "officialGraderNotes": null,
+      "aiAssessment": null,
+      "historicalSale": {
+        "amount": 499.99,
+        "date": "2026-09-12",
+        "venue": "eBay",
+        "saleType": "FixedPrice",
+        "soldItemCertNumber": "83781469",
+        "listingId": "206499275083",
+        "currency": "USD",
+        "relation": "similar_item",
+        "sourceLabel": "PSA — Sales of Similar Items",
+        "sourceUrl": "https://www.psacard.com/cert/64285064/psa",
+        "observedAt": "2026-11-16",
+        "verification": "reported_by_psa",
+        "isDisplayedSampleSale": false
+      }
+    }
+  ]
+}
