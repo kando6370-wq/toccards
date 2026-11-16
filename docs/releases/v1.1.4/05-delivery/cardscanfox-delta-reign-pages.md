@@ -87,3 +87,17 @@ Delta编号小节先说明113/076报价不能在未匹配系列、语言、画�
 ### 主分支交付前检查（2026-11-16）
 
 用户已明确授权合并main并推送。完整官网215项测试、官网type-check、根依赖方向检查及diff检查重新通过；不包含无影响面的App/API/Admin测试。既有Cloudflare Git自动发布作为首选发布路径。当前本机Wrangler没有可用非交互认证，未读取到活动deployment；正式生效以推送后的生产清单SHA及实际页面回读确认，不能用Git推送替代。
+
+### main交付与正式回读（2026-11-16 22:54，UTC+8）
+
+代码提交`b9638656e5edd7f649b5670a0375fc820dafa2e6`已快进合入main并推送origin/main，未强推，其他工作区未提交内容保留。合并后的main再次通过215项官网测试；干净提交构建、生产配置dry-run和提交身份校验均通过。未改生产绑定、路由、变量、数据库或App/API源码。
+
+GitHub回读的`Workers Builds: toccards-website`、`Workers Builds: cardscanfox-site-data-preview`、`Cloudflare Pages: toccards-admin`和`App compatibility (Windows)`均为success。后两项是既有main自动流程；本轮没有手工重发这些应用，也不把构建成功当作这些业务的独立线上功能验收。
+
+正式`/release-manifest.json`回读sourceCommit与代码提交一致，releaseId为`de30ffa06e9342d5a1325a5a9a3e8bd90017eca6950f88fcda598ca56c957f0f`。两篇文章、blog总览和identity/collecting分类共5页均为200、自指canonical及index,follow；sitemap包含全部5页。2张封面、3张来源图、计算器JS/CSS与site.css共8个资源的生产原始字节与批准构建一致。
+
+正式浏览器实点同页计算器：最低三盒仍显示240美元商品小计及未知运费；十盒case显示716.96美元税前整单、每盒71.70美元。两篇H1和新增答案正常。未调用图片识别或评级模型，没有产生App账号、扫描或数据库业务写入。
+
+按构建HTML哈希变化限定5个公开网址提交IndexNow：两篇文章、`/blog/`、`/blog/category/identity`、`/blog/category/collecting`。接口HTTP200，5条已收到，无本次请求待处理网址。报告保存在项目忽略目录`.indexnow/reports/2026-11-16T14-54-33-377Z.json`。未扩大到首页、卡页或其他待通知网址，回执不表示搜索收录或AI推荐。
+
+本机未取得Cloudflare非交互认证，因此未单独读取活动deployment ID；以上发布结论由Cloudflare成功检查、正式清单SHA、目标正文和资源字节回读共同支持。真实Safari设备、后续GSC点击及AI自然引用效果仍未验收。研究HTML/JSON保留研究时的历史状态，当前发布状态以本节和正式清单为准。
