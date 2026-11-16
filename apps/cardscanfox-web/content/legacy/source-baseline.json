@@ -8,7 +8,7 @@
       "path": "/",
       "file": "home.html",
       "status": 200,
-      "bytes": 96001,
+      "bytes": 96163,
       "title": "CardScanFox: TCG Card Scanner, Price Checker & Collection Tracker",
       "h1": [
         "CardScanFox."
@@ -25,9 +25,9 @@
         "Start Tracking Your Collection Today."
       ],
       "canonical": "https://tcgcard.fun/",
-      "normalizedBodySha256": "49558ff5b731a0a3986487a9b9b0b55d5e9dd90a12f9e362f0ecabc696327b52",
-      "bodyCharacters": 6624,
-      "wordCount": 997,
+      "normalizedBodySha256": "97aab5e59bfd67a55b9bb9519567a7430d1047e3dd38d1c4cea81ceb22ead87d",
+      "bodyCharacters": 6705,
+      "wordCount": 1009,
       "tableRows": 0,
       "contentLinks": [
         "/basketball-card-scanner",
@@ -157,7 +157,7 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "52907f1183db8b5645f09c2756d9eab90e40d02de000ea94872e9023e0dcfcc2",
+      "htmlSha256": "441b349227cf1f353b5a94b2709f7c79540ed98d37e71a262f8415469f569d66",
       "localPublicFile": "apps/marketing-web/public/index.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
@@ -176,7 +176,7 @@
       "path": "/basketball-card-scanner",
       "file": "basketball-card-scanner.html",
       "status": 200,
-      "bytes": 14928,
+      "bytes": 14949,
       "title": "Basketball Card Scanner & Value Checker | CardScanFox",
       "h1": [
         "Basketball card scanner and value checker."
@@ -194,9 +194,9 @@
         "Try the basketball card scanner in CardScanFox."
       ],
       "canonical": "https://tcgcard.fun/basketball-card-scanner",
-      "normalizedBodySha256": "725ffb2252c5d56574f2c485cdeb2c68e6a468fafdfea2ba9a517e03d2df4561",
-      "bodyCharacters": 5799,
-      "wordCount": 922,
+      "normalizedBodySha256": "bf68655c320c71d82378fe83f0a57712758c844dbb1ee24c2720d295d3996f72",
+      "bodyCharacters": 5820,
+      "wordCount": 924,
       "tableRows": 0,
       "contentLinks": [
         "/card-price-checker",
@@ -228,7 +228,7 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "8da4945198eaa6a95cd7ecead1c31bf46254a3679eb1f40af18388d3b9001773",
+      "htmlSha256": "eb7a8a45f3bb635c65db4aeb77fd0bdeefc65c38ddd09eeaad2b2f37588ef9ae",
       "localPublicFile": "apps/marketing-web/public/basketball-card-scanner.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
@@ -653,7 +653,7 @@
       "path": "/card-scanner-comparison-2026",
       "file": "card-scanner-comparison-2026.html",
       "status": 200,
-      "bytes": 15805,
+      "bytes": 15864,
       "title": "Trading Card Scanner Apps Compared in 2026 | CardScanFox",
       "h1": [
         "Trading card scanner apps compared in 2026."
@@ -670,9 +670,9 @@
         "Try the card scanner in CardScanFox."
       ],
       "canonical": "https://tcgcard.fun/card-scanner-comparison-2026",
-      "normalizedBodySha256": "34f0fd91f75db16a22233822bae6bbe8a50aaaa04276028eb42024fe151f9b38",
-      "bodyCharacters": 6225,
-      "wordCount": 977,
+      "normalizedBodySha256": "0311ec2dd0422f32320852b2184a519cd52eeb12ffc67bcfa84ef47385dd0bbe",
+      "bodyCharacters": 6284,
+      "wordCount": 984,
       "tableRows": 7,
       "contentLinks": [
         "/bulk-card-scanner",
@@ -710,7 +710,7 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "e39c0bb3b60389b989a8e22f1e25966ba81a5c4e2cc3fb49649bd62b3a3aa417",
+      "htmlSha256": "0bfd00c10521e74c833030ec70bc4c8cdb6925b0da0ecdc2df9d119c037f2387",
       "localPublicFile": "apps/marketing-web/public/card-scanner-comparison-2026.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
@@ -770,7 +770,7 @@
       "path": "/digimon-card-scanner",
       "file": "digimon-card-scanner.html",
       "status": 200,
-      "bytes": 11072,
+      "bytes": 11087,
       "title": "Digimon Card Scanner & Value Checker | CardScanFox",
       "h1": [
         "Digimon card scanner and value checker."
@@ -785,9 +785,9 @@
         "Try the digimon card scanner in CardScanFox."
       ],
       "canonical": "https://tcgcard.fun/digimon-card-scanner",
-      "normalizedBodySha256": "9a2699c527cd23a41839364b93c3b26c6bb5c8de9da34997be0a4f11b32b3beb",
-      "bodyCharacters": 2748,
-      "wordCount": 441,
+      "normalizedBodySha256": "5a1e9477a5943d3e508b85cce6598a06cda3ab53eadac76bc7d6dc18f2c2734c",
+      "bodyCharacters": 2763,
+      "wordCount": 442,
       "tableRows": 0,
       "contentLinks": [
         "/card-price-checker",
@@ -817,7 +817,7 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "5d3ce94074f41a7b7b8d220eb44fc05693e1025301d4a159f718cacc5b7dbcb8",
+      "htmlSha256": "b298f8351370d5116c6bc6d17838b4aa353c374b25fd7f91aff649a6a3b8b4b7",
       "localPublicFile": "apps/marketing-web/public/digimon-card-scanner.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
@@ -1019,7 +1019,7 @@
       "path": "/football-card-scanner",
       "file": "football-card-scanner.html",
       "status": 200,
-      "bytes": 14908,
+      "bytes": 14930,
       "title": "Football Card Scanner: Check Coverage | CardScanFox",
       "h1": [
         "Football card scanner and value checker."
@@ -1037,9 +1037,9 @@
         "Check football coverage before scanning."
       ],
       "canonical": "https://tcgcard.fun/football-card-scanner",
-      "normalizedBodySha256": "c5c262b4d94cc867943def0df74c3a6fe8d8935a571604ee08561c3d35eba0d9",
-      "bodyCharacters": 5905,
-      "wordCount": 919,
+      "normalizedBodySha256": "e33d5dbcc3a541ed8758b175c6187f3dbd3677d2e5c76ba3cf86b2c64ef60221",
+      "bodyCharacters": 5927,
+      "wordCount": 920,
       "tableRows": 0,
       "contentLinks": [
         "/basketball-card-scanner",
@@ -1076,7 +1076,7 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "35e22da9e125d16b7d97aae01bffd90aa2a443b5e727cf6849aefed664c2ef84",
+      "htmlSha256": "eb624bcd09f02bcc104a680610fc146c0f9fbaa5d5e491b32b61bf45d7cdb783",
       "localPublicFile": "apps/marketing-web/public/football-card-scanner.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
@@ -1095,7 +1095,7 @@
       "path": "/graded-card-tracker",
       "file": "graded-card-tracker.html",
       "status": 200,
-      "bytes": 10909,
+      "bytes": 11120,
       "title": "Graded Card Tracker: Raw vs Graded Values | CardScanFox",
       "h1": [
         "Graded and raw card tracker."
@@ -1110,9 +1110,9 @@
         "Try the graded card tracker in CardScanFox."
       ],
       "canonical": "https://tcgcard.fun/graded-card-tracker",
-      "normalizedBodySha256": "bbe5ab4f1c5a1216b40cf4fa76b50271e4028560fcbc5e58d0388d45ac0fbc8f",
-      "bodyCharacters": 2646,
-      "wordCount": 451,
+      "normalizedBodySha256": "9f0b65d5b97763192dad654dea1ffd1ec5880e1beab75148855cca241ef1138c",
+      "bodyCharacters": 2748,
+      "wordCount": 454,
       "tableRows": 0,
       "contentLinks": [
         "/card-collection-tracker",
@@ -1141,7 +1141,7 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "dc518362d09a96f5f9c524b99d6f6d4c64673423636916f6b7228f654a7a6f2d",
+      "htmlSha256": "eaff771b93cffe49a4afa923cfe5ab02344f5d7b27a97e7a7a7aa89cb0ed0201",
       "localPublicFile": "apps/marketing-web/public/graded-card-tracker.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
@@ -1343,7 +1343,7 @@
       "path": "/pokemon-card-scanner",
       "file": "pokemon-card-scanner.html",
       "status": 200,
-      "bytes": 19390,
+      "bytes": 19643,
       "title": "Pokemon Card Scanner App & Value Checker | CardScanFox",
       "h1": [
         "Pokemon card scanner and value checker."
@@ -1362,9 +1362,9 @@
         "Scan Pokemon cards in the CardScanFox app."
       ],
       "canonical": "https://tcgcard.fun/pokemon-card-scanner",
-      "normalizedBodySha256": "274eebf09141aada5136e0772f8a55f971a5a7b22367e2c20542e0276672862c",
-      "bodyCharacters": 7398,
-      "wordCount": 1238,
+      "normalizedBodySha256": "117df96dc2d547549b65b942c38fb28f06fd122f42cea383853ddf6be552793e",
+      "bodyCharacters": 7569,
+      "wordCount": 1264,
       "tableRows": 0,
       "contentLinks": [
         "/blog/ascended-heroes-card-list",
@@ -1409,7 +1409,7 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "0584b054a473fed5b526471f9f037bd796ce0fbd540ae108972b50d3224e9acb",
+      "htmlSha256": "314db25d62a1dfff506663ebcbdd7d703b00fefddb7683089d500285bd6dd965",
       "localPublicFile": "apps/marketing-web/public/pokemon-card-scanner.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
@@ -1422,7 +1422,7 @@
       "path": "/soccer-card-scanner",
       "file": "soccer-card-scanner.html",
       "status": 200,
-      "bytes": 10937,
+      "bytes": 10959,
       "title": "Soccer Card Scanner: Check Soccer Card Values | CardScanFox",
       "h1": [
         "Soccer card scanner and value checker."
@@ -1437,9 +1437,9 @@
         "Try the soccer card scanner in CardScanFox."
       ],
       "canonical": "https://tcgcard.fun/soccer-card-scanner",
-      "normalizedBodySha256": "90660b75ceb022d100a72e83a577dc8bbc39a9e7d433ab25f013b43f30f802b9",
-      "bodyCharacters": 2692,
-      "wordCount": 424,
+      "normalizedBodySha256": "2fd44cb7942ea9c81cbf3bb2de998d386959469a88932258c8b321c592690d8a",
+      "bodyCharacters": 2714,
+      "wordCount": 426,
       "tableRows": 0,
       "contentLinks": [
         "/basketball-card-scanner",
@@ -1469,7 +1469,7 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "b292ebaacc2855555fdfb96461fcff27ac8eaed1f6cc74dfc077ca41e92017ad",
+      "htmlSha256": "d516e4bb90d4ebea9bd45dc7fd0e9c4cab4eeb286d49dcd1a420b21d5eaf0d20",
       "localPublicFile": "apps/marketing-web/public/soccer-card-scanner.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
@@ -1541,7 +1541,7 @@
       "path": "/yugioh-card-scanner",
       "file": "yugioh-card-scanner.html",
       "status": 200,
-      "bytes": 11345,
+      "bytes": 11434,
       "title": "Yu-Gi-Oh! Card Scanner & Value Checker | CardScanFox",
       "h1": [
         "Yu-Gi-Oh! card scanner and value checker."
@@ -1556,9 +1556,9 @@
         "Try the yu-Gi-Oh! card scanner in CardScanFox."
       ],
       "canonical": "https://tcgcard.fun/yugioh-card-scanner",
-      "normalizedBodySha256": "8585706c13dd95137e7b5bbb0f6fcf8ddc33a857ca107199e354cff34ca9f0f2",
-      "bodyCharacters": 3060,
-      "wordCount": 492,
+      "normalizedBodySha256": "fa627627eba536b9a8c88202b3941fb6e00ed44d67e818048ac766a48e944db9",
+      "bodyCharacters": 3149,
+      "wordCount": 503,
       "tableRows": 0,
       "contentLinks": [
         "/card-price-checker",
@@ -1587,7 +1587,7 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "9d00187884a624e4f1c01135e556b440f203634378d75df648345a9d0edf22ee",
+      "htmlSha256": "167b8a368ba6fdc4b3cb8898ae4d918e5a990700031bcef957fe6b76e924d2b5",
       "localPublicFile": "apps/marketing-web/public/yugioh-card-scanner.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
@@ -1855,7 +1855,7 @@
       "path": "/blog/charizard-151-card-value",
       "file": "blog__charizard-151-card-value.html",
       "status": 200,
-      "bytes": 7914,
+      "bytes": 7958,
       "title": "Charizard 151 Card Values by Number | CardScanFox",
       "h1": [
         "Charizard 151: compare 006/165, 183/165 and 199/165"
@@ -1866,9 +1866,9 @@
         "Look up your copy in CardScanFox"
       ],
       "canonical": "https://tcgcard.fun/blog/charizard-151-card-value",
-      "normalizedBodySha256": "8a8df4d641d2efe5c7e092292a80d9e075afb1399e1308e60fea45a5a66c411b",
-      "bodyCharacters": 2227,
-      "wordCount": 339,
+      "normalizedBodySha256": "fed733040070bca09ba4962a2c697b345564b3561cfd061ac7c26ffc47f5152c",
+      "bodyCharacters": 2271,
+      "wordCount": 343,
       "tableRows": 4,
       "contentLinks": [
         "/blog/",
@@ -1886,7 +1886,7 @@
           "alt": "CardScanFox suggested card candidates and review example"
         }
       ],
-      "htmlSha256": "1658fade6ac9840a46202165a2fc00a7a848aaeb943475c7c8cc0e423738bd7a",
+      "htmlSha256": "14533a84df3c81d9e95fccdb01ba5626cefe695f8929a90d3760c5dec0c6f392",
       "localPublicFile": null,
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
@@ -2474,7 +2474,7 @@
       "path": "/blog/minior-pokemon-card-guide",
       "file": "blog__minior-pokemon-card-guide.html",
       "status": 200,
-      "bytes": 8321,
+      "bytes": 8362,
       "title": "Minior Pokemon Cards: Set Numbers and Value Checks | CardScanFox",
       "h1": [
         "Minior Pokemon cards: identify the printing before checking value"
@@ -2487,9 +2487,9 @@
         "Related"
       ],
       "canonical": "https://tcgcard.fun/blog/minior-pokemon-card-guide",
-      "normalizedBodySha256": "ec32ce4f69c3cb416e8e5b4cc14b3b28a430de260331480248a6ff96863adda1",
-      "bodyCharacters": 2459,
-      "wordCount": 396,
+      "normalizedBodySha256": "7d5850877cabb8b03aa24d6d56880e727deaced2e1f80e20c75479078e5720eb",
+      "bodyCharacters": 2500,
+      "wordCount": 402,
       "tableRows": 0,
       "contentLinks": [
         "/blog/",
@@ -2507,7 +2507,7 @@
           "alt": "CardScanFox scan and candidate review screen"
         }
       ],
-      "htmlSha256": "75064fba6a3b0d3635aa7eb542ab022966221914665c601bd2f1a7eb52393d42",
+      "htmlSha256": "2defcec17b9d97973cf895371522e6992f1b7cb91545240fdafc30f9fb5840ff",
       "localPublicFile": "apps/marketing-web/public/blog/minior-pokemon-card-guide.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
@@ -2823,7 +2823,7 @@
       "path": "/blog/what-is-my-trading-card-worth",
       "file": "blog__what-is-my-trading-card-worth.html",
       "status": 200,
-      "bytes": 10191,
+      "bytes": 10169,
       "title": "What Is My Trading Card Worth? | CardScanFox",
       "h1": [
         "What is my trading card worth?"
@@ -2838,9 +2838,9 @@
         "Related"
       ],
       "canonical": "https://tcgcard.fun/blog/what-is-my-trading-card-worth",
-      "normalizedBodySha256": "f2a93302531dedfa6916721aee9419a6d1a77683cc124ec4617e1e6043188aac",
-      "bodyCharacters": 4537,
-      "wordCount": 805,
+      "normalizedBodySha256": "b8f9686c1b5b89601f9a4b930f8f75e47c7edf6e99ab6c15893e68fcfa3f3115",
+      "bodyCharacters": 4515,
+      "wordCount": 797,
       "tableRows": 0,
       "contentLinks": [
         "/",
@@ -2856,7 +2856,7 @@
           "alt": "CardScanFox card market prices and trend analysis"
         }
       ],
-      "htmlSha256": "0eb3f95794f35715a6ed4f7853627cfee411e585c9556e0e0ab957e3dc3aa21c",
+      "htmlSha256": "d926462af8619b9dc9010a959678f97d55f99608c661ca7f4b816fe1fb8974bc",
       "localPublicFile": "apps/marketing-web/public/blog/what-is-my-trading-card-worth.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
@@ -2869,7 +2869,7 @@
       "path": "/blog/raw-vs-graded-card-values",
       "file": "blog__raw-vs-graded-card-values.html",
       "status": 200,
-      "bytes": 10554,
+      "bytes": 10644,
       "title": "Raw vs Graded Card Values: What Changes | CardScanFox",
       "h1": [
         "Raw vs graded cards, and what grading does to value"
@@ -2885,9 +2885,9 @@
         "Related"
       ],
       "canonical": "https://tcgcard.fun/blog/raw-vs-graded-card-values",
-      "normalizedBodySha256": "0b285949afb00ffdd59d4cf317b04a4bc0de61fbee565975337475d924210bfb",
-      "bodyCharacters": 4928,
-      "wordCount": 863,
+      "normalizedBodySha256": "cdba786310a5fddfb8adba1f95dfd1d8d108cb621d9c3b518a1564e162572aa5",
+      "bodyCharacters": 5018,
+      "wordCount": 875,
       "tableRows": 0,
       "contentLinks": [
         "/",
@@ -2903,7 +2903,7 @@
           "alt": "CardScanFox market prices and price history view"
         }
       ],
-      "htmlSha256": "09e7357c843031322160ce0b0dd0311d0d9dbee546a31b5f8b84425c3dc079cc",
+      "htmlSha256": "b0d44a0742adb8efa493186d4b7c66c73e3e907079a897f8cd1bb141da83a0bc",
       "localPublicFile": "apps/marketing-web/public/blog/raw-vs-graded-card-values.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
@@ -2916,7 +2916,7 @@
       "path": "/privacy",
       "file": "privacy.html",
       "status": 200,
-      "bytes": 23039,
+      "bytes": 23959,
       "title": "Privacy Policy | Card AI",
       "h1": [
         "Privacy Policy"
@@ -2941,19 +2941,21 @@
         "17. Contact Us"
       ],
       "canonical": null,
-      "normalizedBodySha256": "6024a373b109660f456d4e0624c8d9abb36ee2ff119841d4ad2098bb469fadf0",
-      "bodyCharacters": 15052,
-      "wordCount": 2216,
+      "normalizedBodySha256": "b2c7e2211f96655f4500388203189b54f3b22f29558f9b942198bd8be56175ea",
+      "bodyCharacters": 15838,
+      "wordCount": 2340,
       "tableRows": 0,
       "contentLinks": [
+        "/",
         "/Account/AccountSetup",
+        "https://developers.cloudflare.com/workers-ai/platform/data-usage/",
         "https://tcgcard.fun",
         "https://tcgcard.fun/privacy",
         "https://tcgcard.fun/terms",
         "mailto:support@tcgcard.fun"
       ],
       "contentImages": [],
-      "htmlSha256": "d9bb3f7dd1c726fce30bdc0b13f0031fe336b0a1216deeb44be1cfb991c17338",
+      "htmlSha256": "0a5d96f350a9c6ea9ac0a6802f19b9a9fb3b9848485cde92ca648ee117ccec52",
       "localPublicFile": "apps/marketing-web/public/privacy.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented"
@@ -2962,7 +2964,7 @@
       "path": "/terms",
       "file": "terms.html",
       "status": 200,
-      "bytes": 34901,
+      "bytes": 35384,
       "title": "Terms of Use | Card AI",
       "h1": [
         "Terms of Use"
@@ -2973,6 +2975,7 @@
         "3. Account Registration",
         "4. Account Deletion",
         "5. Card Scanning Feature",
+        "Website AI pregrading",
         "6. Card Data, Prices, and Value Information",
         "7. Collection Records",
         "8. Subscriptions and In-App Purchases",
@@ -2994,11 +2997,12 @@
         "24. Contact Us"
       ],
       "canonical": null,
-      "normalizedBodySha256": "f016aa425070c551128c5d02720d7551b12f443324d6ccafe87bc69a69b32d34",
-      "bodyCharacters": 27530,
-      "wordCount": 4169,
+      "normalizedBodySha256": "8603aa0b0006ce380000b116238d2298ebd8135a7c3f61f9819e1efea2fd5fed",
+      "bodyCharacters": 27944,
+      "wordCount": 4238,
       "tableRows": 0,
       "contentLinks": [
+        "/",
         "http://www.apache.org/licenses/",
         "https://creativecommons.org/licenses/by/4.0/",
         "https://tcgcard.fun",
@@ -3007,7 +3011,7 @@
         "mailto:support@tcgcard.fun"
       ],
       "contentImages": [],
-      "htmlSha256": "42c26240bec9255a21bc80491677896fbd767df167d233c8825eca4b6b9e5620",
+      "htmlSha256": "3e9cb2f9d2de129afeacc9927c0e7298cf5f1234d04a46a6203884b789382eae",
       "localPublicFile": "apps/marketing-web/public/terms.html",
       "localBodyMatchesLive": true,
       "newProjectMigrationStatus": "notImplemented"

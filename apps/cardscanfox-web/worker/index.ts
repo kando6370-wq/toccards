@@ -1,3 +1,4 @@
+import { handleWebPregrade } from '../src/web-pregrade.mjs';
 import { handleWebRecognition } from '../src/web-recognition.mjs';
 import { redirectLocation } from '../src/redirects.mjs';
 import {htmlCacheKey,htmlEtag,conditionalHtml} from '../src/html-cache.mjs';
@@ -8,7 +9,7 @@ import { publishHtml, publicSitemap, sitemapIndex, mayIndex } from '../src/publi
 import { createRenderer, resolvePage, errorPage, legacyByPath } from '../src/render.mjs';
 
 type RuntimeVariables = 'DEPLOYMENT_MODE'|'CATALOG_MODE'|'LOCAL_DEVELOPMENT'|'PUBLISH_READY';
-type OptionalBindings = 'PREVIEW_USERNAME'|'PREVIEW_PASSWORD'|'CF_VERSION_METADATA'|'WEB_VECTOR_RECOGNITION'|'WEB_SCANNER_RATE_LIMITER';
+type OptionalBindings = 'PREVIEW_USERNAME'|'PREVIEW_PASSWORD'|'CF_VERSION_METADATA'|'WEB_VECTOR_RECOGNITION'|'WEB_SCANNER_RATE_LIMITER'|'WEB_PREGRADING_AI'|'WEB_PREGRADING_RATE_LIMITER'|'WEB_PREGRADING_GLOBAL_LIMITER';
 export type WebsiteEnv = Omit<Env,RuntimeVariables|OptionalBindings> & Record<RuntimeVariables,string> & Partial<Pick<Env,OptionalBindings>>;
 async function equalSecret(left: string, right: string): Promise<boolean> {
  const enc=new TextEncoder();const [a,b]=await Promise.all([crypto.subtle.digest('SHA-256',enc.encode(left)),crypto.subtle.digest('SHA-256',enc.encode(right))]);
@@ -36,10 +37,12 @@ export function createWebsiteHandler({publicPreview=false}={}) { return {
   const production=String(env.DEPLOYMENT_MODE)==='production';
   if(!['preview','production'].includes(String(env.DEPLOYMENT_MODE))||(production&&(String(env.PUBLISH_READY)!=='true'||String(env.CATALOG_MODE)!=='service')))return new Response('This candidate has no approved production cutover configuration.',{status:503,headers});
   if(!production&&!publicPreview&&!await previewAllowed(request,env)){headers.set('WWW-Authenticate','Basic realm="CardScanFox review", charset="UTF-8"');return new Response('Authorized review access is required.',{status:401,headers});}
+  if(new URL(request.url).pathname==='/site-api/v1/pregrade'){const response=await handleWebPregrade(request,env);for(const [key,value]of headers)if(!response.headers.has(key))response.headers.set(key,value);return response;}
   if(new URL(request.url).pathname==='/site-api/v1/recognize'){const response=await handleWebRecognition(request,env);for(const [key,value]of headers)if(!response.headers.has(key))response.headers.set(key,value);return response;}
   if(!['GET','HEAD'].includes(request.method)){headers.set('Allow','GET, HEAD');return new Response('Method not allowed',{status:405,headers});}
   const url=new URL(request.url);if(production)headers.delete('X-Robots-Tag');let pathname:string;try{pathname=decodeURI(url.pathname)}catch{return new Response('Invalid URL',{status:400,headers})}
   if(['/pokemon-card-scanner','/sports-card-scanner','/card-identifier'].includes(pathname))headers.set('Content-Security-Policy',securityHeaders['Content-Security-Policy'].replace("script-src 'self'", "script-src 'self' 'wasm-unsafe-eval'").replace("img-src 'self' data:", "img-src 'self' data: blob:") + "; worker-src 'self'");
+  if(pathname==='/ai-card-grading')headers.set('Content-Security-Policy',securityHeaders['Content-Security-Policy'].replace("img-src 'self' data:", "img-src 'self' data: blob:"));
   if(pathname.startsWith('/site-api/v1/')){
    try{const upstream=await env.SITE_DATA.fetch(new Request('https://site-data.internal'+url.pathname+url.search,{method:request.method,signal:AbortSignal.timeout(6500)}));if(production&&upstream.ok&&request.method!=='HEAD'){const body=await readBoundedJson(upstream);if(body.meta?.datasetMode!=='published-read-only')throw new Error('REVIEW_DATA_NOT_PUBLIC');const result=new Response(JSON.stringify(body),upstream);for(const [key,value]of headers)result.headers.set(key,value);return result;}const response=new Response(request.method==='HEAD'?null:upstream.body,upstream);for(const [key,value]of headers)response.headers.set(key,value);return response;}
    catch{headers.set('Content-Type','application/json; charset=utf-8');return new Response(JSON.stringify({success:false,error:{code:'SITE_DATA_UNAVAILABLE',requestId}}),{status:503,headers});}
@@ -67,7 +70,7 @@ export function createWebsiteHandler({publicPreview=false}={}) { return {
   const htmlCache=production&&typeof caches!=='undefined'&&'default' in caches?caches.default:null;
   const cacheKey=production?htmlCacheKey(request,env.CF_VERSION_METADATA?.id??'local'):null;
   if(htmlCache&&cacheKey){try{const cached=await htmlCache.match(cacheKey);if(cached){const freshHeaders=new Headers(cached.headers);freshHeaders.set('X-Request-Id',requestId);return conditionalHtml(request,cached.body,freshHeaders,cached.status);}}catch{console.error(JSON.stringify({event:'html_cache_read_failed',requestId}));}}
-  try{const page=(String(env.CATALOG_MODE)==='service'?await resolveServicePage(url,env.SITE_DATA):null)??(String(env.CATALOG_MODE)==='service'?liveContent.resolvePage(url):resolvePage(url));headers.set('Content-Type','text/html; charset=utf-8');if(production){headers.set('X-Robots-Tag',mayIndex(url,page.status,page)?'index, follow':url.pathname==='/saved'?'noindex, nofollow':'noindex, follow');headers.set('Cache-Control',page.status===200&&url.pathname!=='/saved'?'public, max-age=0, s-maxage=60':'no-store');}const html=production?publishHtml(page.html,url,page.status,page):page.html;
+  try{const page=(String(env.CATALOG_MODE)==='service'?await resolveServicePage(url,env.SITE_DATA):null)??(String(env.CATALOG_MODE)==='service'?liveContent.resolvePage(url):resolvePage(url));if('retryAfter' in page&&typeof page.retryAfter==='string')headers.set('Retry-After',page.retryAfter);headers.set('Content-Type','text/html; charset=utf-8');if(production){headers.set('X-Robots-Tag',mayIndex(url,page.status,page)?'index, follow':url.pathname==='/saved'?'noindex, nofollow':'noindex, follow');headers.set('Cache-Control',page.status===200&&url.pathname!=='/saved'?'public, max-age=0, s-maxage=60':'no-store');}const html=production?publishHtml(page.html,url,page.status,page):page.html;
    if(production&&page.status===200){headers.set('ETag',await htmlEtag(html));if(htmlCache&&cacheKey&&context&&request.method==='GET')context.waitUntil(htmlCache.put(cacheKey,new Response(html,{headers})).catch(()=>console.error(JSON.stringify({event:'html_cache_write_failed',requestId}))));return conditionalHtml(request,html,headers,page.status);}
    return new Response(request.method==='HEAD'?null:html,{status:page.status,headers});}
   catch(error){

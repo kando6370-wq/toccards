@@ -42,7 +42,8 @@
     "/blog/mew-ex-card-values",
     "/blog/pokemon-delta-herrschaft-pull-rate",
     "/blog/pokemon-mcdonalds-2026",
-    "/sports-card-scanner"
+    "/sports-card-scanner",
+    "/ai-card-grading"
   ],
   "note": "Local production policy only. Preview authentication/noindex and PUBLISH_READY remain enforced. Eligible real card pages may be indexed; sitemap discovery expands in reviewed batches. Missing price alone does not exclude a useful identity page.",
   "catalog": {
@@ -300,7 +301,8 @@
       "/star-wars-unlimited-card-scanner",
       "/terms",
       "/yugioh-card-scanner",
-      "/sports-card-scanner"
+      "/sports-card-scanner",
+      "/ai-card-grading"
     ],
     "note": "Keep observed positive-impression URLs directly or through approved intent-consolidation redirects, plus existing core/keyword pages and guide references. Four card-game landing pages move to the functional card-identifier owner; card-level eligibility is unchanged. Missing observations do not prove zero demand.",
     "approvedConsolidations": {
