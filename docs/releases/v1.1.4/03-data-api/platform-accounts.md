@@ -68,7 +68,20 @@ Android／iOS 共用密码页显示 `Password cannot contain spaces.` 并禁用�
 - 开发完成后在隔离副本使用 HEAD 旧生产源码反证：Flutter 注册／重置 × Android／iOS **4 项均在 8 空格输入处按预期失败**；API 新增的 9 项空白场景均错误返回 200。该证据不表述为修复前已运行测试。测试编写期间修正了单行框默认过滤换行、字段跨帧焦点交接及 Android 测试会话的平台前提，调试失败未记为通过。
 - 最终独立 Code Review 未发现阻塞问题，`git diff --check` 通过。API 对不足 8 字符且含空白的输入优先返回原长度错误，App 优先显示空格错误，两者均拒绝该输入；不改变历史错误优先级。
 
-本次仅本地源码修改，未构建移动端制品、安装 Android／iOS 真机、执行完整旧版 App 制品兼容验收或部署 dev／prod；真机输入法与新包、线上 API 验收须在对应交付后补验。API 隔离副本已清理；Flutter 隔离副本 `.dart_tool/password-whitespace-probe` 已无活动测试，精确目录的递归删除被执行策略以 `blocked by policy` 拒绝，保留于 Git ignored 目录，不绕过策略。
+上述源码验证阶段未构建移动端制品、安装 Android／iOS 真机、执行完整旧版 App 制品兼容验收或部署 dev／prod；后续 USB 真机补验见下一节。API 隔离副本已清理；Flutter 隔离副本 `.dart_tool/password-whitespace-probe` 已无活动测试，精确目录的递归删除被执行策略以 `blocked by policy` 拒绝，保留于 Git ignored 目录，不绕过策略。
+
+### Android USB 忘记密码补验（2026-11-16）
+
+使用干净的 `6699d78702d206027fdc0d6920e401d719a82610`，通过既有 `release_android.py --env test` 构建 dev Debug **1.0.7+213**／`com.kando.kandoApp.beta`。Flutter 3.47.9／Dart 3.13.7、实际 Gradle JVM 21.0.13+9、锁定依赖准备、0 issues 分析、签名及 19 个 64 位库／ZIP 16 KB 对齐均通过；`assembleDebug` 为 171.3 秒。APK 保存于 `D:/Downloads/CardAI-Packages/com.kando.kandoApp.beta/Android/CardAI-Test-1.0.7-213/CardAI-Test-1.0.7-213.apk`，252,275,413 字节，SHA-256 `2c76087871286c216645a148a9a8bab257a257bd3cb80f970e4827a8897053c9`。成功保存后共享构建号推进为 213，受管测试包保留 211／212／213，210 按既有规则移至 `.Recovery`；未清理 iOS 制品。
+
+荣耀 YOK-AN10／Android 12（API 31）经 USB 覆盖安装返回 Success，回读 versionCode=213，冷启动 Status=ok。保留原 App 数据，使用用户提供的真实测试邮箱、本人回传的验证码与最终密码连接 Linux dev API，未使用认证替身。测试邮箱已注册，用户随后明确取消注册真机测试，本轮仅完成忘记密码：
+
+- 真实发码与验证码校验后进入 `Set New Password`。
+- 两字段分别输入 8 个普通空格、首空格、尾空格及中间空格，均保留原字符数量，原生 UI 树可见 `Password cannot contain spaces.`，`Confirm` 同时为 enabled=false／clickable=false。8 空格显示 8 个掩码，另外三组分别保留 10 个掩码。
+- 改为两次相同的有效密码后，错误提示消失、`Confirm` 恢复可点击；提交后显示 `Password reset successfully.` 并回到登录页。随后输入用户指定的新密码，使用输入框 Enter／Go 提交，成功返回已登录 Profile。邮箱、验证码和密码明文不写入本记录。
+- 检查的新进程 Flutter／AndroidRuntime 错误日志为空，完成后 App 保留在该测试账号的 Profile，未删除账号、清除 App 数据或修改收藏。
+
+这是新客户端的真机输入限制及与既有 dev API 的真实重置／登录验收；本轮未部署 API，新增服务端空白拒绝仍仅有本地回归证据。注册、iOS 真机、Tab／全角空格等其他真机输入和 production 均未补验，不从上述结果外推。ADB 截图返回 0 字节，未取得可用截图，界面证据采用原生 UI 树与实际流程结果；截图获取失败不记为通过。首轮构建因 JDK 参数指向上一级目录而中止，修正为实际 JDK 根目录后完成，原 Flutter JDK 配置已恢复。
 
 兼容边界：已绑定 Android 的凭证不能通过改参数切到 iOS；Android 免费资格要求安装证明。旧 iOS 客户端尚无登录应用证明，原认证入口继续验证账号密码／OAuth，而不能仅从 HTTP 证明请求实际来自 iOS 物理设备。不得把该兼容路径宣称为双端物理设备证明均已完成；它不向 iOS 路径授予 Android 免费资格，也不允许既有 Android 会话切换空间。
 
