@@ -32,8 +32,8 @@ void main() {
     );
     final primaryButton = tester.getRect(find.text('NO, STAY HERE'));
 
-    expect(frame.size, const Size(342, 334));
-    expect(primaryButton.top - message.bottom, lessThan(60));
+    expect(frame.size, const Size(342, 310));
+    expect(primaryButton.top - message.bottom, lessThan(42));
   });
 
   testWidgets('danger confirm modal renders Figma-sized shell and returns true', (

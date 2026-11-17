@@ -24,6 +24,7 @@ import 'package:kando_app/features/profile/customer_support_page.dart';
 import 'package:kando_app/features/profile/feedback_repository.dart';
 import 'package:kando_app/features/profile/profile_actions.dart';
 import 'package:kando_app/features/profile/profile_page.dart';
+import 'package:kando_app/features/profile/account_page.dart';
 import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/features/subscription/subscription_page.dart';
@@ -40,7 +41,7 @@ import '../support/mock_home_repository.dart';
 void main() {
   setUpAll(loadInterFonts);
 
-  testWidgets('Android auth removes Apple and explains platform isolation', (
+  testWidgets('Android auth removes Apple and platform isolation copy', (
     tester,
   ) async {
     final repository = _WidgetAuthRepository(
@@ -59,16 +60,48 @@ void main() {
     expect(find.text('Continue with Apple'), findsNothing);
     expect(
       find.textContaining('Your collections and other app data are separate'),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.textContaining('verified email and password are shared'),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const Key('auth-agreement-copy')),
       findsOneWidget,
     );
+    expect(find.byKey(const Key('auth-agreement-links')), findsOneWidget);
     await tester.tap(find.text('Continue with Google'));
     await tester.pumpAndSettle();
     expect(find.text('Continue?'), findsNothing);
     expect(find.textContaining('will not merge'), findsNothing);
+  });
+
+  testWidgets('Android delete confirmation uses the shared iOS copy', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildKandoTheme(),
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showDeleteAccountConfirmation(
+              context,
+              platform: AppPlatform.android,
+            ),
+            child: const Text('Open delete'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open delete'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text("This action is permanent and can't be undone."),
+      findsOneWidget,
+    );
+    expect(find.textContaining('permanently deletes your'), findsNothing);
   });
 
   for (final premiumState in AppPremiumState.values) {
@@ -2020,7 +2053,178 @@ void main() {
     );
     expect(invalidCreateButton.onPressed, isNull);
     expect(repository.registerRequests, isEmpty);
-  });
+
+    await tester.enterText(fields.at(0), '12345678');
+    await tester.enterText(fields.at(1), '12345678');
+    await tester.pump();
+
+    expect(find.text('At least 8 characters'), findsNothing);
+    expect(find.text('Inconsistent with last input'), findsNothing);
+    final validCreateButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Create Account'),
+    );
+    expect(validCreateButton.onPressed, isNotNull);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Create Account'));
+    await tester.pumpAndSettle();
+    expect(repository.registerRequests, hasLength(1));
+    expect(repository.registerRequests.single.password, '12345678');
+  }, variant: TargetPlatformVariant({
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+  }));
+
+  for (final isReset in [false, true]) {
+    testWidgets(
+      '${isReset ? 'reset' : 'register'} password rejects whitespace without changing input',
+      (tester) async {
+        final platform = debugDefaultTargetPlatformOverride!;
+        final repository = _WidgetAuthRepository(
+          initialSession: AuthSession(
+            ownerType: OwnerType.anonymous,
+            accessToken: 'anon-existing-access',
+            refreshToken: 'anon-existing-refresh',
+            anonymousId: 'anon-existing',
+            platform: platform == TargetPlatform.android
+                ? AppPlatform.android
+                : AppPlatform.ios,
+            dataSpaceId: 'anon-existing',
+          ),
+          emailRegistered: isReset,
+        );
+        await tester.pumpWidget(
+          _testEmailAuthPageApp(
+            repository,
+            platform: platform,
+            commercialPolicy: AppCommercialPolicy(
+              isAndroidFreeLaunch: platform == TargetPlatform.android,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Open email auth'));
+        await tester.pumpAndSettle();
+        await _continueWithEmail(
+          tester,
+          'person@example.com',
+          destinationLabel: isReset ? 'Password' : 'Verification Code',
+        );
+        if (isReset) {
+          await tester.tap(find.text('Forgot Password ?'));
+          await tester.pumpAndSettle();
+          await tester.enterText(
+            find.byType(TextFormField),
+            'person@example.com',
+          );
+          await tester.tap(
+            find.widgetWithText(FilledButton, 'Get verification code'),
+          );
+          await tester.pumpAndSettle();
+        }
+        await tester.enterText(
+          find.byKey(const Key('verification-code-input')),
+          '123456',
+        );
+        await tester.pumpAndSettle();
+
+        final fields = find.byType(TextFormField);
+        final button = find.widgetWithText(
+          FilledButton,
+          isReset ? 'Confirm' : 'Create Account',
+        );
+        await tester.enterText(fields.at(0), 'password123');
+        await tester.enterText(fields.at(1), 'password123');
+        await tester.pump();
+        final submit = tester.widget<FilledButton>(button).onPressed!;
+
+        for (final password in [
+          '        ',
+          ' password123',
+          'password123 ',
+          'pass word123',
+          'password\t123',
+          'password\u3000123',
+        ]) {
+          await tester.enterText(fields.at(0), password);
+          await tester.pump();
+          await tester.enterText(fields.at(1), password);
+          await tester.pump();
+
+          expect(
+            find.text('Password cannot contain spaces.'),
+            findsOneWidget,
+            reason: 'Password: ${password.codeUnits}',
+          );
+          expect(tester.widget<FilledButton>(button).onPressed, isNull);
+          expect(
+            tester.widget<TextFormField>(fields.at(0)).controller!.text,
+            password,
+          );
+          // A callback captured before editing must revalidate the new input.
+          submit();
+          await tester.pump();
+          expect(repository.registerRequests, isEmpty);
+          expect(repository.resetRequests, isEmpty);
+        }
+
+        await tester.enterText(fields.at(0), 'password123');
+        await tester.pump();
+        await tester.enterText(fields.at(1), 'password123');
+        await tester.pumpAndSettle();
+        expect(find.text('Password cannot contain spaces.'), findsNothing);
+        expect(
+          tester.widget<TextFormField>(fields.at(0)).controller!.text,
+          'password123',
+        );
+        expect(
+          tester.widget<TextFormField>(fields.at(1)).controller!.text,
+          'password123',
+        );
+        expect(tester.widget<FilledButton>(button).onPressed, isNotNull);
+        await tester.tap(button);
+        await tester.pumpAndSettle();
+        if (isReset) {
+          expect(repository.resetRequests.single.newPassword, 'password123');
+        } else {
+          expect(repository.registerRequests.single.password, 'password123');
+        }
+      },
+      variant: TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      }),
+    );
+  }
+
+  testWidgets(
+    'login preserves whitespace in an existing password',
+    (tester) async {
+      final repository = _WidgetAuthRepository(
+        initialSession: _anonymousSession('anon-existing'),
+      );
+      await tester.pumpWidget(
+        _testEmailAuthPageApp(
+          repository,
+          platform: debugDefaultTargetPlatformOverride!,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Open email auth'));
+      await tester.pumpAndSettle();
+      await _continueWithEmail(tester, 'person@example.com');
+      await tester.enterText(find.byType(TextFormField), ' old pass123 ');
+      await tester.tap(find.widgetWithText(FilledButton, 'SIGN IN'));
+      await tester.pumpAndSettle();
+
+      expect(repository.loginRequests, [
+        const _LoginRequest('person@example.com', ' old pass123 '),
+      ]);
+    },
+    variant: TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
 
   testWidgets('register code page starts the resend countdown after sending', (
     tester,
@@ -2444,7 +2648,7 @@ void main() {
 
       expect(find.text('Delete Account?'), findsOneWidget);
       expect(
-        find.textContaining('permanently deletes your iOS account'),
+        find.text("This action is permanent and can't be undone."),
         findsOneWidget,
       );
       expect(find.text('Cancel'), findsOneWidget);
@@ -2554,7 +2758,7 @@ void main() {
 
       expect(
         listView.padding,
-        const EdgeInsets.fromLTRB(20, KandoLayout.mainTabTopPadding, 20, 96),
+        const EdgeInsets.fromLTRB(20, KandoLayout.mainTabTopPadding, 20, 132),
       );
       expect(find.byIcon(Icons.shield_outlined), findsNothing);
       await tester.scrollUntilVisible(find.text('Privacy Policy'), 200);
@@ -3874,7 +4078,7 @@ Future<void> _submitEmailUntilWelcome(WidgetTester tester) async {
 }
 
 Future<void> _openProfileTab(WidgetTester tester) async {
-  await tester.tap(find.text('Profile'));
+  await tester.tap(find.byKey(const Key('kando-tab-profile')));
   await tester.pumpAndSettle();
 }
 

@@ -1,6 +1,6 @@
 # 双端平台账号、Android 免费首版与发布配置
 
-状态：2026-11-05 起的源码实现合同；实现、构建与验证记录已更新至 2026-11-12，结果按日期分别记录。源码、迁移文件、本地测试、远端迁移和商店发布分别记录；历史段落中的“本轮未提交／未部署”只指对应阶段。
+状态：2026-11-05 起的源码实现合同；实现、构建与验证记录已更新至 2026-11-16，结果按日期分别记录。源码、迁移文件、本地测试、远端迁移和商店发布分别记录；历史段落中的“本轮未提交／未部署”只指对应阶段。
 
 产品依据为 [Android 免费首版 PRD](../00-product/Card_AI_Android_Free_First_Release_Incremental_PRD-3.md)及[扫描规则澄清](../05-delivery/android-free-first-release-review.md#02-扫描规则澄清2026-11-05)。原始输入保持字节不变；实施前评估的旧源码差距不作为修改后的实现事实。
 
@@ -52,6 +52,36 @@
 Android Google audience 使用独立 `GOOGLE_ANDROID_SERVER_CLIENT_ID`，iOS 原 `GOOGLE_CLIENT_ID` 保留。不同 Provider 的关联继续以经过验证的身份为依据，不根据客户端邮箱文本合并资产。
 
 已通过 Apple／Google 建立、尚无邮箱密码的共享基础身份，在 Android 通过邮箱验证码注册时允许首次设置 `password_hash`；该密码立即作为双端共享凭据，原 OAuth identity、iOS 平台账号及资产保持不变。只有 `password_hash IS NULL` 时可以设置一次；已有密码必须验证原值，Android 开端或删后重注册均不得覆盖。
+
+### 新密码禁止空白（2026-11-16）
+
+用户确认注册和忘记密码设置的新密码不得包含首尾或中间空格。根因为 Flutter 密码页的提交条件和 API 原先均仅检查原字符串长度，8 个空格满足最少 8 字符条件并进入哈希写入。定位基线为 `codex/fixbug-andriod@7f2009cf`；新规则仍要求至少 8 字符，并使用两端一致的 `\s` 检查拒绝普通空格、Tab、换行及全角空格，不自动删除或 trim 密码。
+
+Android／iOS 共用密码页显示 `Password cannot contain spaces.` 并禁用提交，提交回调再次校验。V1 注册验证和忘记密码重置在写新密码前执行相同限制，沿用 `VALIDATION_ERROR` 和原错误包络；拒绝时不消费验证码／重置凭证，不创建账号或修改原密码。不新增字段、API 版本、迁移或认证策略。
+
+登录继续使用原始密码，历史含空白密码不被修改。注册 API 使用已有密码验证共享身份、开通另一平台时也保留旧凭据验证行为，仅新建身份和 OAuth-only 身份首次设置共享密码执行新限制。新版注册页面统一禁止空白，因此历史含空白密码用户如需通过该页面重新注册，应先走忘记密码设置无空白的新密码；原登录入口和旧请求的凭据验证继续可用。
+
+本地验证结果：
+
+- 隔离 Flutter 3.47.9／Dart 3.13.7 执行 `flutter test --no-pub --concurrency=1 --dart-define=APP_ENV=test test/widget/auth_profile_test.dart`，认证相关 **144／144 通过、0 失败、0 跳过**；新增注册／重置／旧密码登录 Android、iOS 六项回归均通过。`flutter analyze --no-pub` 为 **0 issues**。
+- `pnpm --filter @kando/workers-api test -- src/auth/email-auth.postgres.test.ts src/auth/forgot-password.postgres.test.ts src/auth/platform-account-flow.postgres.test.ts`，PostgreSQL 相关 **67／67 通过、0 失败、0 跳过**，包含精确 8 空格、普通／全角空格、Tab、换行及凭证不消费、旧密码不修改断言。Workers `type-check` 退出 0。实际 Node 为 22.20.0，低于仓库要求 `^22.23.4`，命令有 engine warning，不将本次结果记为目标 Node 版本验证。
+- 开发完成后在隔离副本使用 HEAD 旧生产源码反证：Flutter 注册／重置 × Android／iOS **4 项均在 8 空格输入处按预期失败**；API 新增的 9 项空白场景均错误返回 200。该证据不表述为修复前已运行测试。测试编写期间修正了单行框默认过滤换行、字段跨帧焦点交接及 Android 测试会话的平台前提，调试失败未记为通过。
+- 最终独立 Code Review 未发现阻塞问题，`git diff --check` 通过。API 对不足 8 字符且含空白的输入优先返回原长度错误，App 优先显示空格错误，两者均拒绝该输入；不改变历史错误优先级。
+
+上述源码验证阶段未构建移动端制品、安装 Android／iOS 真机、执行完整旧版 App 制品兼容验收或部署 dev／prod；后续 USB 真机补验见下一节。API 隔离副本已清理；Flutter 隔离副本 `.dart_tool/password-whitespace-probe` 已无活动测试，精确目录的递归删除被执行策略以 `blocked by policy` 拒绝，保留于 Git ignored 目录，不绕过策略。
+
+### Android USB 忘记密码补验（2026-11-16）
+
+使用干净的 `6699d78702d206027fdc0d6920e401d719a82610`，通过既有 `release_android.py --env test` 构建 dev Debug **1.0.7+213**／`com.kando.kandoApp.beta`。Flutter 3.47.9／Dart 3.13.7、实际 Gradle JVM 21.0.13+9、锁定依赖准备、0 issues 分析、签名及 19 个 64 位库／ZIP 16 KB 对齐均通过；`assembleDebug` 为 171.3 秒。APK 保存于 `D:/Downloads/CardAI-Packages/com.kando.kandoApp.beta/Android/CardAI-Test-1.0.7-213/CardAI-Test-1.0.7-213.apk`，252,275,413 字节，SHA-256 `2c76087871286c216645a148a9a8bab257a257bd3cb80f970e4827a8897053c9`。成功保存后共享构建号推进为 213，受管测试包保留 211／212／213，210 按既有规则移至 `.Recovery`；未清理 iOS 制品。
+
+荣耀 YOK-AN10／Android 12（API 31）经 USB 覆盖安装返回 Success，回读 versionCode=213，冷启动 Status=ok。保留原 App 数据，使用用户提供的真实测试邮箱、本人回传的验证码与最终密码连接 Linux dev API，未使用认证替身。测试邮箱已注册，用户随后明确取消注册真机测试，本轮仅完成忘记密码：
+
+- 真实发码与验证码校验后进入 `Set New Password`。
+- 两字段分别输入 8 个普通空格、首空格、尾空格及中间空格，均保留原字符数量，原生 UI 树可见 `Password cannot contain spaces.`，`Confirm` 同时为 enabled=false／clickable=false。8 空格显示 8 个掩码，另外三组分别保留 10 个掩码。
+- 改为两次相同的有效密码后，错误提示消失、`Confirm` 恢复可点击；提交后显示 `Password reset successfully.` 并回到登录页。随后输入用户指定的新密码，使用输入框 Enter／Go 提交，成功返回已登录 Profile。邮箱、验证码和密码明文不写入本记录。
+- 检查的新进程 Flutter／AndroidRuntime 错误日志为空，完成后 App 保留在该测试账号的 Profile，未删除账号、清除 App 数据或修改收藏。
+
+这是新客户端的真机输入限制及与既有 dev API 的真实重置／登录验收；本轮未部署 API，新增服务端空白拒绝仍仅有本地回归证据。注册、iOS 真机、Tab／全角空格等其他真机输入和 production 均未补验，不从上述结果外推。ADB 截图返回 0 字节，未取得可用截图，界面证据采用原生 UI 树与实际流程结果；截图获取失败不记为通过。首轮构建因 JDK 参数指向上一级目录而中止，修正为实际 JDK 根目录后完成，原 Flutter JDK 配置已恢复。
 
 兼容边界：已绑定 Android 的凭证不能通过改参数切到 iOS；Android 免费资格要求安装证明。旧 iOS 客户端尚无登录应用证明，原认证入口继续验证账号密码／OAuth，而不能仅从 HTTP 证明请求实际来自 iOS 物理设备。不得把该兼容路径宣称为双端物理设备证明均已完成；它不向 iOS 路径授予 Android 免费资格，也不允许既有 Android 会话切换空间。
 
@@ -467,6 +497,25 @@ Android SDK `apkanalyzer dex code` 确认交付 APK 缺少 `io.flutter.plugins.G
 按用户要求，将上节同一 APK 覆盖安装到 Xiaomi `23116PN5BC`（ADB `dba62e86`）；安装前重新核对保存文件 SHA-256，原安装为 210，`adb install -r` 返回 Success，安装后回读版本为 `1.0.7+212`。冷启动 `am start -W` 返回 Status=ok、TotalTime=2028ms；后续回读 Card AI MainActivity 位于前台、进程 22648 存活，所检查日志无 fatal crash、通道异常或未处理异常。首次前台断言期间系统 PhotoPicker 位于前台而中止，随后已重新回读 App 前台状态，未将该断言记为通过。
 
 本次未清除 App 数据、重新构建 APK、修改业务源码或操作荣耀手机；手机临时 UI XML 已移除。小米键盘流畅度及 Total Value 几何未在本次安装步骤中复测，不能将荣耀的结果外推为小米验收通过；未提交／推送 Git。
+
+### 全局卡牌编辑页键盘重建修复（2026-11-12）
+
+用户补充确认：此前的键盘优化只覆盖 Search 列表和文件夹图标快速加入，卡牌详情及扫描进入的编辑入口仍然慢。本轮对卡牌详情、Search／Collection／Home 通过 `CardDetailPage` 的编辑入口、CardDetail 新增弹层、Quick Review 以及 Scan Review 的相机／相册单卡／多卡路径做了全局检查。
+
+- CardDetail 已加载内容原先使用 `LayoutBuilder` 读取键盘调整后的页面约束，导致 IME 动画每帧重建详情列表和内联 `_CollectionItemForm`。改为固定 20px 水平边距、居中 `maxWidth: 672` 的稳定外壳；保留 Scaffold resize、滚动、底栏、Android／iOS 布局和业务回调。
+- Scan Review 顶部退出热区原先读取 `MediaQuery.paddingOf(context).top`。Android 键盘出现时底部导航安全区变化会使 `padding` 变化，造成 `ScanPage` 额外重建；改用稳定的 `MediaQuery.viewPaddingOf(context).top`，只保持系统顶部安全区，不改变 Review 表单、底栏或键盘滚动。
+
+修前证据：CardDetail 内联表单在 Android／iOS 的 5 帧 IME 动画中各重建 4 次；Scan Review 的 Android／iOS 相机／相册单卡／多卡 8 个新场景均观察到 `ScanPage` 重建。修后验证：
+
+- `card_detail_page_test.dart` **86／86** 通过，覆盖 Search／Edit／Scan 三种 entry source、Android／iOS、数量／购买价格／备注字段、详情内联编辑、真实新增弹层、Quick Review 和 1024px 宽屏 `maxWidth: 672`。
+- `scan_page_test.dart` **167／167** 通过，键盘定向回归 **13／13** 通过；新增矩阵 Android／iOS × 相机／相册 × 单卡／多卡 **8／8** 通过，草稿、焦点、键盘可见性及 `ScanPage`／Review／表单重建均受保护。
+- `dart analyze` 对两处生产文件及两处测试文件为 **No issues found**。测试使用隔离 Flutter 3.47.9／Dart 3.13.7，本轮没有继续使用 USB 调试或真机操作；未执行 iOS 真机、Android 真机修复后 A/B、Profile／AOT 性能采样或新 APK 发布。
+
+### Android 扫描退出弹窗再次收紧间距（2026-11-12）
+
+用户提供真机照片反馈：扫描结果页的 `Exit scan result?` 弹窗中文案与 `NO, STAY HERE` 主按钮之间仍有过宽空白。该路径复用 `KandoConfirmModal(dense: true)`，本次将 dense 弹窗高度从 334px 收紧为 310px；普通危险确认、移除弹窗、iOS 原生退出弹窗和按钮尺寸保持不变。
+
+定向 `kando_modal_test.dart` 在修复前按 310px 高度和小于 42px 文案间距断言失败；修复后 **7／7** 通过，确认弹窗无 RenderFlex 溢出，文案到主按钮间距收紧。当前修改尚未构建或安装新的 Android APK，真机照片对应的最终视觉仍需安装包含本次改动的测试包复核。
 
 <a id="linux-dev-redeploy-20261112"></a>
 

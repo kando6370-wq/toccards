@@ -2604,7 +2604,8 @@ void main() {
     'Review collapses back to the same scan session because editing a match must not exit or discard prior scans',
     (tester) async {
       tester.view.padding = const FakeViewPadding(top: 44);
-      addTearDown(tester.view.resetPadding);
+      tester.view.viewPadding = const FakeViewPadding(top: 44);
+      addTearDown(tester.view.reset);
       final source = _TestScanResultSource(
         photoResult: Future.value(
           const ScanResolution.matched(
@@ -2634,7 +2635,7 @@ void main() {
       final collapseArea = tester.getRect(
         find.byKey(const Key('scan-review-collapse-area')),
       );
-      final safeTop = MediaQuery.paddingOf(
+      final safeTop = MediaQuery.viewPaddingOf(
         tester.element(find.byType(ScanPage)),
       ).top;
       expect(collapseArea.height, safeTop + 24);
@@ -3721,6 +3722,173 @@ void main() {
       expect(find.byKey(const Key('scan-review-add-one')), findsOneWidget);
     },
   );
+
+  for (final testCase in [
+    (
+      name: 'Android camera single-card',
+      platform: TargetPlatform.android,
+      gallery: false,
+      multiple: false,
+    ),
+    (
+      name: 'Android camera multi-card',
+      platform: TargetPlatform.android,
+      gallery: false,
+      multiple: true,
+    ),
+    (
+      name: 'iOS camera single-card',
+      platform: TargetPlatform.iOS,
+      gallery: false,
+      multiple: false,
+    ),
+    (
+      name: 'iOS camera multi-card',
+      platform: TargetPlatform.iOS,
+      gallery: false,
+      multiple: true,
+    ),
+    (
+      name: 'Android gallery single-card',
+      platform: TargetPlatform.android,
+      gallery: true,
+      multiple: false,
+    ),
+    (
+      name: 'Android gallery multi-card',
+      platform: TargetPlatform.android,
+      gallery: true,
+      multiple: true,
+    ),
+    (
+      name: 'iOS gallery single-card',
+      platform: TargetPlatform.iOS,
+      gallery: true,
+      multiple: false,
+    ),
+    (
+      name: 'iOS gallery multi-card',
+      platform: TargetPlatform.iOS,
+      gallery: true,
+      multiple: true,
+    ),
+  ]) {
+    testWidgets(
+      '${testCase.name} Review does not rebuild the editor when the keyboard replaces the navigation inset',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
+        tester.view.viewPadding = const FakeViewPadding(top: 47, bottom: 34);
+        addTearDown(tester.view.reset);
+
+        final bytes = Uint8List.fromList(_transparentPngBytes);
+        final first = Future.value(
+          ScanResolution.matched(
+            scanId: 'keyboard-first',
+            cardRef: 'card-mega',
+            matchName: 'Mega Lucario ex',
+            candidates: const ['Mega Lucario ex'],
+            candidateCardRefs: const ['card-mega'],
+            imageBytes: bytes,
+            displayImageBytes: bytes,
+            imageFileName: 'keyboard-first.png',
+          ),
+        );
+        final second = Future.value(
+          ScanResolution.matched(
+            scanId: 'keyboard-second',
+            cardRef: 'card-charizard',
+            matchName: 'Charizard ex',
+            candidates: const ['Charizard ex'],
+            candidateCardRefs: const ['card-charizard'],
+            imageBytes: bytes,
+            displayImageBytes: bytes,
+            imageFileName: 'keyboard-second.png',
+          ),
+        );
+        final source = testCase.gallery
+            ? _TestScanResultSource(
+                photoResult: Future.value(const ScanResolution.failed()),
+                libraryImages: [
+                  ScanImage(bytes: bytes, fileName: 'keyboard-first.png'),
+                  if (testCase.multiple)
+                    ScanImage(bytes: bytes, fileName: 'keyboard-second.png'),
+                ],
+                libraryResults: [first, if (testCase.multiple) second],
+              )
+            : _TestScanResultSource(
+                photoResult: first,
+                subsequentPhotoResults: [if (testCase.multiple) second],
+              );
+        await _pumpScanTestApp(
+          tester,
+          platform: testCase.platform,
+          scanResultSource: source,
+        );
+
+        if (testCase.gallery) {
+          await tester.tap(find.byTooltip('Choose from Library'));
+          await _completeFigmaScan(tester);
+        } else {
+          await tester.tap(find.byTooltip('Take Photo'));
+          await _completeFigmaScan(tester);
+          if (testCase.multiple) {
+            await tester.tap(find.byTooltip('Take Photo'));
+            await _completeFigmaScan(tester);
+          }
+        }
+        await tester.tap(find.byTooltip('Review completed scan').first);
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const Key('scan-review-item-2')),
+          testCase.multiple ? findsOneWidget : findsNothing,
+        );
+
+        final notes = find.byKey(const Key('scan-review-notes-1'));
+        await tester.ensureVisible(notes);
+        await tester.enterText(notes, 'Keep the scan draft');
+        await tester.pumpAndSettle();
+        final editable = find.descendant(
+          of: notes,
+          matching: find.byType(EditableText),
+        );
+
+        final previousRebuildCallback = debugOnRebuildDirtyWidget;
+        var pageRebuilds = 0;
+        var reviewRebuilds = 0;
+        var formRebuilds = 0;
+        debugOnRebuildDirtyWidget = (element, builtOnce) {
+          previousRebuildCallback?.call(element, builtOnce);
+          final type = element.widget.runtimeType.toString();
+          if (element.widget is ScanPage) pageRebuilds += 1;
+          if (type == '_ReviewMatches') reviewRebuilds += 1;
+          if (type == '_ReviewCollectionItem') formRebuilds += 1;
+        };
+        addTearDown(() => debugOnRebuildDirtyWidget = previousRebuildCallback);
+
+        for (final inset in [40.0, 100.0, 180.0, 260.0, 330.0]) {
+          tester.view.viewInsets = FakeViewPadding(bottom: inset);
+          tester.view.padding = const FakeViewPadding(top: 47);
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+
+        expect(pageRebuilds, 0);
+        expect(reviewRebuilds, 0);
+        expect(formRebuilds, 0);
+        expect(
+          tester.widget<EditableText>(editable).controller.text,
+          'Keep the scan draft',
+        );
+        expect(
+          tester.widget<EditableText>(editable).focusNode.hasFocus,
+          isTrue,
+        );
+        expect(tester.testTextInput.isVisible, isTrue);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets('Review inline selection does not restore focus to Quantity', (
     tester,

@@ -87,6 +87,40 @@ describe("PostgreSQL forgot-password flow", () => {
     expect(await verifyPassword("password-2", stored.rows[0]!.password_hash)).toBe(true);
   });
 
+  it.each([
+    ["eight spaces", "        "],
+    ["ASCII space", "password 2"],
+    ["tab", "password\t2"],
+    ["line break", "password\n2"],
+    ["ideographic space", "password\u30002"],
+  ])("rejects %s without consuming reset authority", async (_label, newPassword) => {
+    await user("owner", "owner@example.com", "password-1");
+    await code("new", "owner@example.com", "222222", new Date().toISOString());
+    const verified = await verify("owner@example.com", "222222");
+    expect(verified.status).toBe(200);
+    const resetToken = ((await verified.json()) as {
+      data: { reset_token: string };
+    }).data.reset_token;
+    const response = await authRoutes.request("/forgot-password/reset", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "owner@example.com", new_password: newPassword, reset_token: resetToken,
+      }),
+    }, env);
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toMatchObject({
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Password cannot contain spaces.",
+      },
+    });
+    const state = await db.query<{ password_hash: string; used_at: string | null }>(`
+      SELECT u.password_hash, v.used_at FROM "user" u
+      JOIN verification_code v ON v.email = u.email WHERE u.id = 'owner'`);
+    expect(state.rows[0]?.used_at).toBeNull();
+    expect(await verifyPassword("password-1", state.rows[0]!.password_hash)).toBe(true);
+  });
+
   it("uses code id as a stable tie-breaker when migrated reset proofs share a timestamp", async () => {
     await user("owner", "owner@example.com", "password-1");
     const timestamp = new Date().toISOString();

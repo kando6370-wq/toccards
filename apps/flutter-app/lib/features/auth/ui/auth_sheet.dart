@@ -535,28 +535,7 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
       termsRecognizer: _termsRecognizer,
       privacyRecognizer: _privacyRecognizer,
     );
-    final agreement = showApple
-        ? agreementText
-        : Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Your collections and other app data are separate on Android '
-                'and iOS. Purchases and subscription benefits do not transfer '
-                'between platforms.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: KandoColors.mutedText, fontSize: 13),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Your verified email and password are shared across platforms.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: KandoColors.mutedText, fontSize: 13),
-              ),
-              const SizedBox(height: 20),
-              agreementText,
-            ],
-          );
+    final agreement = agreementText;
     if (_showOAuthWarning) {
       return _FigmaOAuthFailureOptions(
         showApple: showApple,
