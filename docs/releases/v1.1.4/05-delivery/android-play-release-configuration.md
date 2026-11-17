@@ -198,3 +198,13 @@ Ego 自动选择并上传 213 AAB，Play 完成处理并接受原已登记 Uploa
 release 2 于 2026-11-16 10:17 发布，Internal testing 轨道状态为“有效”，最新版本为 `1.0.7 (213) - Internal`，状态为“已面向内部测试人员发布”／“尚未审核”，临时名称仍为 `com.cardai.tcg (unreviewed)`。`Card AI Internal 20261110` 名单继续选中，6 个邮箱逐项匹配且未修改。加入页对当前账号显示 `You’re a tester for com.cardai.tcg (unreviewed)` 并提供 `Download test app`；本轮未代用户加入或安装，不能据此宣称 213 已完成 Play 安装或冷启动验收。
 
 本轮重新下载当前 Upload certificate 的浏览器事件超时，没有新增证书下载或摘要复验；213 被 Play 接受证明继续使用原已登记 Upload 密钥。签名页 Digital Asset Links 回读的 Google 托管 App Signing SHA-256 仍为 `97:95:91:85:58:0E:3D:75:82:62:D5:28:4B:D9:FE:7A:D2:2F:5C:34:7B:28:5A:EF:25:67:23:9F:17:97:C4:3F`，但未下载或独立验签 Play 实际生成的 APK。权威终态和 11 份证据摘要见 `.dart_tool/play-internal-20261116/play-internal-213-final-state.json`；本轮未重新部署生产后台／API、执行数据库迁移、发布 iOS 制品或提交／推送 Git。213 从 Play 安装与冷启动、实际分发签名、真实 Play Integrity／Google 登录／扫描／Review 键盘流程、Analytics／Crashlytics，以及新 iOS 制品购买／Restore 仍待验收。
+
+## Google Play 内部测试 214 发布（2026-11-17 10:06）
+
+从干净且与 `github/main` 一致的 `main@fd2a51a8c527b1e7a4c0cde873228dca4a4529b2` 使用固定 Flutter 3.47.9／Dart 3.13.7／JDK 21.0.13+9 构建 `1.0.7+214`。AAB 为 `D:/Downloads/CardAI-Packages/com.cardai.tcg/Android/CardAI-Prod-1.0.7-214/CardAI-Prod-1.0.7-214.aab`，111,943,743 字节，SHA-256 `9317ded6060e04bfd8b3ca332626e8cf7a04d1df46220234efb62477d9a7d654`。独立核验确认 package、API 24／target 36、原 Upload 签名、production 配置、767 个签名 payload、30 个原生库及 16 KB 对齐、Android 无 Billing、OCR、全局竖屏、插件注册与 iOS StoreKit 源码合同正确，并完整保留三份原生符号和 R8 mapping。双端认证页面 **144／144**、发布／归档脚本 **25／25** 通过，合计 169 项、0 失败、0 跳过；App 分析 0 issues。没有重跑完整 App 或新 iOS 制品测试。
+
+首次构建包装器因旧私有目录路径失效，在读取 `verification.json` 时失败，没有构建或消耗版本号；修正忽略目录包装器后，从 Codex 应用受限 LocalCache 目录复用同一把已登记 Upload JKS 完成构建。首次独立核验又因核验脚本错误假定 `RegExp` 源码拼写而失败；仅修正核验断言后对同一 AAB 复验通过，没有修改 App 源码、重签或重排制品。客户端新增的注册／重置新密码空白字符拒绝覆盖 Android 与 iOS 共用页面；包含相同规则的 Workers 生产版本未在本轮部署，不能据此宣称生产服务端或旧客户端的空白密码请求已被阻止。
+
+Play 接受 214 AAB 和原 Upload 签名，发布预览显示“可以发布了”，没有错误或警告。设备目录相对上一版本的增减全部为 0；本轮回读支持手机 12,474 台、平板 6,561 台、电视 3 台、车载 1 台、Chromebook 10 台、Android XR 2 台。该实时基线与 213 发布当天的目录数量不同，不把目录随时间变化写成 214 引入的兼容变化。
+
+release 3 于 2026-11-17 10:06 发布，Internal testing 轨道状态为“有效”，最新版本为 `1.0.7 (214) - Internal`，状态为“已面向内部测试人员发布”／“尚未审核”，临时名称仍为 `com.cardai.tcg (unreviewed)`。`Card AI Internal 20261110` 名单继续选中，6 个邮箱逐项匹配且未修改。加入页对当前账号显示 `You’re a tester for com.cardai.tcg (unreviewed)` 并提供 `Download test app`；本轮未代用户加入或安装。权威终态和 15 份证据摘要见 `.dart_tool/play-internal-20261117/play-internal-214-final-state.json`；本轮没有重新部署生产后台／API、执行数据库迁移、发布 iOS 制品或提交／推送 Git。214 从 Play 安装与冷启动、实际 Play 生成 APK 签名、真实 Play Integrity／Google 登录／生产密码流程／扫描／运行时统计，以及新 iOS 二进制真机验收仍待完成。

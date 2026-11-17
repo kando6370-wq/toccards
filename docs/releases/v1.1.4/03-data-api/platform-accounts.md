@@ -499,3 +499,7 @@ Android SDK `apkanalyzer dex code` 确认交付 APK 缺少 `io.flutter.plugins.G
 ### Android Internal testing 213 交付（2026-11-16）
 
 包含上述 Android 全局竖屏与键盘修复的正式 `1.0.7+213` AAB 已于 10:17 发布至原 6 人 Internal testing 轨道，当前轨道有效、版本尚未审核。Play 预览提示因 MainActivity 固定竖屏减少 2 台电视和 1 台车载设备，手机和平板范围不变；该错误已在本发布版本中明确确认忽略。此次仅更新 Android 测试制品，未重新部署生产后台／API、执行数据库迁移或发布新 iOS 制品；从 Play 安装后的真实登录、Integrity、扫描、Review 键盘流程、统计事件及 iOS 购买／Restore 仍待验收。制品、测试、签名和控制台证据见[Google Play 内部测试 213 发布记录](../05-delivery/android-play-release-configuration.md#google-play-内部测试-213-发布2026-11-16-1017)。
+
+### Android Internal testing 214 交付（2026-11-17）
+
+Android／iOS 共用注册与重置密码页的新密码空白字符拒绝已包含在正式 `1.0.7+214` AAB，并于 10:06 发布至原 6 人 Internal testing 轨道；轨道有效、版本尚未审核，设备支持范围相对 213 无增减。本轮只发布 Android 测试制品，没有部署包含同一规则的生产 Workers API，因此不能将新客户端校验扩展为旧客户端或直接 API 请求已由服务端拒绝；从 Play 安装后的真实密码流程、登录、Integrity、扫描、运行时统计及新 iOS 制品仍待验收。制品、验证和控制台边界见[Google Play 内部测试 214 发布记录](../05-delivery/android-play-release-configuration.md#google-play-内部测试-214-发布2026-11-17-1006)。
