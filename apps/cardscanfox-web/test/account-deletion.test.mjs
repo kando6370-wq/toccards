@@ -22,14 +22,20 @@ test('the public account deletion page explains the platform-scoped operation',(
 });
 
 test('privacy and the retained home legal source share the platform deletion contract',async()=>{
+ const home=await readFile(new URL('../content/legacy/home.html',import.meta.url),'utf8');
  const sources=[
   legacyPages.find(page=>page.path==='/privacy')?.bodyHtml??'',
-  await readFile(new URL('../content/legacy/home.html',import.meta.url),'utf8'),
+  home.match(/id="privacy-modal"[\s\S]*?<article class="modal-legal-content">([\s\S]*?)<\/article>/)?.[1]??'',
  ];
+ const text=node=>node.nodeName==='#text'?node.value:(node.childNodes??[]).map(text).join('');
+ const bodies=sources.map(source=>text(nodes(source,node=>node.tagName==='article')[0]??parse(source)).replace(/\s+/g,' ').trim());
+ assert.equal(bodies[0],bodies[1],'the retained privacy modal must disclose the same policy as the public privacy page');
  for(const source of sources){
   assert.match(source,/href="\/Account\/AccountSetup"/);
-  assert.match(source,/does not delete the other platform account/i);
-  assert.match(source,/Deleted\s+business data is not restored/i);
+  assert.match(source,/Deleting one platform account does not delete the separate account or records on the other platform/i);
+  assert.match(source,/Signing in with the same email or Google account does not recover deleted data/i);
+  assert.match(source,/the account and its associated information on our own servers are deleted immediately/i);
+  assert.match(source,/does not automatically or immediately erase records already held in Firebase, Mixpanel, Singular, Apple/i);
  }
 });
 
