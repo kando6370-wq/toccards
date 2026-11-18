@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,15 +12,65 @@ import 'package:share_plus/share_plus.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const pluginChannel = MethodChannel('dev.fluttercommunity.plus/share');
-  tearDown(() {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(pluginChannel, null);
+  const pathProviderChannel = MethodChannel('plugins.flutter.io/path_provider');
+  final messenger =
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+  late Directory cache;
+  setUp(() async {
+    cache = await Directory.systemTemp.createTemp('card-share-test-');
+    messenger.setMockMethodCallHandler(pathProviderChannel, (call) async {
+      expect(call.method, 'getTemporaryDirectory');
+      return cache.path;
+    });
   });
+  tearDown(() async {
+    messenger.setMockMethodCallHandler(pluginChannel, null);
+    messenger.setMockMethodCallHandler(pathProviderChannel, null);
+    await cache.delete(recursive: true);
+  });
+
+  test(
+    'native poster handoff leaves no source PNG after repeated shares or errors',
+    () async {
+      final unrelated = await File('${cache.path}/unrelated.jpg').create();
+      final actions = PluginCardDetailActions(
+        const _FakeConfig(AppUpgradeConfig()),
+        loadThumbnail: (_) async => XFile.fromData(Uint8List.fromList([1])),
+        buildPoster: _buildTestPoster,
+        platform: TargetPlatform.android,
+      );
+      var handoffs = 0;
+      messenger.setMockMethodCallHandler(pluginChannel, (call) async {
+        expect(call.method, 'share');
+        final arguments = call.arguments as Map;
+        final source = File((arguments['paths'] as List).single as String);
+        expect(source.uri.pathSegments.last, 'card-ai-card.png');
+        expect(await source.readAsBytes(), [137, 80, 78, 71]);
+        expect(arguments['mimeTypes'], ['image/png']);
+        handoffs++;
+        if (handoffs == 3) throw PlatformException(code: 'share_error');
+        return handoffs == 1 ? 'test.receiver' : '';
+      });
+
+      for (var attempt = 0; attempt < 3; attempt++) {
+        final share = _shareSwitch(actions);
+        if (attempt < 2) {
+          await share;
+        } else {
+          await expectLater(share, throwsA(isA<PlatformException>()));
+        }
+        expect(await cache.list().length, 1);
+        expect(await unrelated.exists(), isTrue);
+      }
+      expect(handoffs, 3);
+    },
+  );
 
   test(
     'Android shares the confirmed PNG and encodes the same URL shown in preview',
     () async {
       ShareParams? shared;
+      List<int>? sharedBytes;
       Uri? encodedUrl;
       final photo = Uint8List.fromList([1, 2, 3]);
       final poster = Uint8List.fromList([137, 80, 78, 71]);
@@ -30,7 +81,10 @@ void main() {
             cardShareBaseUrl: 'https://api-dev.tcgcard.fun/share/cards',
           ),
         ),
-        share: (params) async => shared = params,
+        share: (params) async {
+          shared = params;
+          sharedBytes = await params.files!.single.readAsBytes();
+        },
         loadThumbnail: (url) async {
           expect(
             url,
@@ -79,8 +133,7 @@ void main() {
       expect(shared?.previewThumbnail, isNull);
       expect(shared?.files, hasLength(1));
       expect(shared?.files?.single.mimeType, 'image/png');
-      expect(await shared!.files!.single.readAsBytes(), poster);
-      expect(shared?.fileNameOverrides, ['card-ai-card.png']);
+      expect(sharedBytes, poster);
       expect(shared?.title, 'Share Charizard ex');
       expect(shared?.sharePositionOrigin, origin);
     },
@@ -141,6 +194,7 @@ void main() {
         },
       );
       expect(shareCalls, 0);
+      expect(await cache.list().isEmpty, isTrue);
     },
   );
 
