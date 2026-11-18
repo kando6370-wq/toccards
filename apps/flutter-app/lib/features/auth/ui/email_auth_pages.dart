@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import '../../../shared/ui/kando_responsive.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/shared/ui/kando_modal.dart';
@@ -2283,14 +2284,17 @@ class _EmailAuthFullScreen extends StatelessWidget {
       child: Scaffold(
         backgroundColor: KandoColors.ink,
         body: SafeArea(
-          child: compactAndroidEmail
-              ? SingleChildScrollView(
-                  reverse: true,
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  child: content,
-                )
-              : content,
+          child: KandoContentWidth(
+            maxWidth: 560,
+            child: compactAndroidEmail
+                ? SingleChildScrollView(
+                    reverse: true,
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    child: content,
+                  )
+                : content,
+          ),
         ),
       ),
     );

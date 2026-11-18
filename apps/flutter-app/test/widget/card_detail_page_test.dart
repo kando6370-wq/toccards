@@ -3218,19 +3218,34 @@ void main() {
     expect(find.byKey(const Key('card-detail-price-chart')), findsOneWidget);
   });
 
-  testWidgets('CardDetail keeps its 672px content width on a wide viewport', (
+  testWidgets('CardDetail changes columns without replacing its route state', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1024, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(const _CardDetailTestApp(cardId: 'squirtle'));
+    await tester.pumpWidget(const _CardDetailTestApp(cardId: 'charizard-ex'));
     await tester.pumpAndSettle();
 
     final scroll = tester.getRect(find.byKey(const Key('card-detail-scroll')));
-    expect(scroll.width, 672);
-    expect(scroll.left, 176);
+    expect(scroll.width, 984);
+    final pageState = tester.state(find.byType(CardDetailPage));
+    final hero = tester.getRect(find.byKey(const Key('card-detail-hero')));
+    final tabs = tester.getRect(
+      find.byKey(const Key('card-detail-owned-tabs')),
+    );
+    expect(tabs.left, greaterThan(hero.right));
+    expect(tabs.top, hero.top);
+    tester.view.physicalSize = const Size(390, 844);
+    await tester.pumpAndSettle();
+    expect(tester.state(find.byType(CardDetailPage)), same(pageState));
+    expect(
+      tester.getTopLeft(find.byKey(const Key('card-detail-owned-tabs'))).dy,
+      greaterThan(
+        tester.getBottomRight(find.byKey(const Key('card-detail-hero'))).dy,
+      ),
+    );
     expect(tester.takeException(), isNull);
   });
 

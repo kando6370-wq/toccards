@@ -2803,7 +2803,7 @@ void main() {
   );
 
   testWidgets(
-    'Profile tab fills wide screens while detail pages keep the mobile canvas',
+    'Profile tab limits reading width while detail pages keep the mobile canvas',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(800, 1000);
@@ -2816,11 +2816,11 @@ void main() {
 
       expect(
         tester.getSize(find.byKey(const Key('profile-content-list'))).width,
-        800,
+        560,
       );
       expect(
         tester.getSize(find.byKey(const Key('profile-upgrade-banner'))).width,
-        760,
+        520,
       );
       expect(find.byKey(const Key('profile-pull-to-refresh')), findsOneWidget);
 

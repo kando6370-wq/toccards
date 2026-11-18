@@ -20,6 +20,7 @@ import '../../shared/portfolio/portfolio_api_client.dart';
 import '../../shared/scan/scan_api_client.dart';
 import '../../shared/ui/kando_modal.dart';
 import '../../shared/ui/kando_style.dart';
+import '../../shared/ui/kando_responsive.dart';
 import '../../shared/ui/premium_unlocked_toast.dart';
 import '../../shared/ui/subscription_restore_result.dart';
 import '../../shared/ui/toast.dart';
@@ -447,6 +448,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   var _nextScanToken = 1;
   var _nextQuotaPromptBatchId = 1;
   var _cameraGeneration = 0;
+  var _viewportGeneration = 0;
   var _openingCamera = false;
   var _cameraPausedForLifecycle = false;
   var _permissionDialogVisible = false;
@@ -543,6 +545,11 @@ class _ScanPageState extends ConsumerState<ScanPage>
       }
     });
     unawaited(_lockOrientationAndOpenCamera());
+  }
+
+  @override
+  void didChangeMetrics() {
+    _viewportGeneration += 1;
   }
 
   @override
@@ -785,6 +792,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       setState(() => _captureFeedbackItemId = itemId);
       await _captureController.forward(from: 0).orCancel;
       if (!mounted) return const ScanResolution.failed();
+      final viewportGeneration = _viewportGeneration;
       final viewport = MediaQuery.sizeOf(context);
       final viewfinder = _scanViewfinderGeometry(
         viewport,
@@ -794,6 +802,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
         viewfinder: viewfinder,
         viewport: viewport,
       );
+      if (!mounted || viewportGeneration != _viewportGeneration) {
+        return const ScanResolution.failed();
+      }
       onCaptured(image);
       return await source.recognize(
         image,
@@ -2746,15 +2757,18 @@ class _ScanCameraView extends StatelessWidget {
             children: [
               Positioned(
                 top: safeTop + _scanTopNavigationGap,
-                left: 16,
-                right: 16,
+                left: 16 + padding.left,
+                right: 16 + padding.right,
                 height: _scanTopBarHeight,
-                child: _ScanTopBar(
-                  onClosePressed: onClosePressed,
-                  onFlashPressed: onFlashPressed,
-                  flashEnabled: flashEnabled,
-                  selectedCardType: selectedCardType,
-                  onCardTypeChanged: onCardTypeChanged,
+                child: KandoContentWidth(
+                  maxWidth: 560,
+                  child: _ScanTopBar(
+                    onClosePressed: onClosePressed,
+                    onFlashPressed: onFlashPressed,
+                    flashEnabled: flashEnabled,
+                    selectedCardType: selectedCardType,
+                    onCardTypeChanged: onCardTypeChanged,
+                  ),
                 ),
               ),
             ],
@@ -2793,21 +2807,24 @@ class _ScanCameraView extends StatelessWidget {
           ),
         ],
         Positioned(
-          left: 16,
-          right: 16,
+          left: 16 + padding.left,
+          right: 16 + padding.right,
           bottom: _scanResultsBottom,
-          child: _ScanResults(
-            items: items,
-            cards: cards,
-            currency: currency,
-            remainingScans: remainingScans,
-            showRevealingFeedback: showRevealingFeedback,
-            onUpgradePressed: onUpgradePressed,
-            onDismissRevealing: onDismissScanFeedback,
-            onReviewItem: onReviewItem,
-            onRetryItem: onRetryItem,
-            onDeleteItem: onDeleteItem,
-            onSearchPressed: onSearchItem,
+          child: KandoContentWidth(
+            maxWidth: 560,
+            child: _ScanResults(
+              items: items,
+              cards: cards,
+              currency: currency,
+              remainingScans: remainingScans,
+              showRevealingFeedback: showRevealingFeedback,
+              onUpgradePressed: onUpgradePressed,
+              onDismissRevealing: onDismissScanFeedback,
+              onReviewItem: onReviewItem,
+              onRetryItem: onRetryItem,
+              onDeleteItem: onDeleteItem,
+              onSearchPressed: onSearchItem,
+            ),
           ),
         ),
         Positioned(
@@ -2816,11 +2833,14 @@ class _ScanCameraView extends StatelessWidget {
           bottom: math.max(0, 22 - padding.bottom),
           child: SafeArea(
             top: false,
-            child: _ScanBottomControls(
-              canReview: canReview,
-              onPhotoPressed: onPhotoPressed,
-              onLibraryPressed: onLibraryPressed,
-              onReviewPressed: onReviewPressed,
+            child: KandoContentWidth(
+              maxWidth: 560,
+              child: _ScanBottomControls(
+                canReview: canReview,
+                onPhotoPressed: onPhotoPressed,
+                onLibraryPressed: onLibraryPressed,
+                onReviewPressed: onReviewPressed,
+              ),
             ),
           ),
         ),

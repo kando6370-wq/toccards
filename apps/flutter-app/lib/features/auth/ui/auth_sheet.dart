@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kando_app/shared/ui/kando_modal.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
+import 'package:kando_app/shared/ui/kando_responsive.dart';
 import 'package:kando_app/shared/ui/toast.dart';
 
 import '../../../shared/analytics/analytics_events.dart';
@@ -92,9 +93,16 @@ class _AuthSheetDialog extends ConsumerWidget {
                   begin: const Offset(0, 0.08),
                   end: Offset.zero,
                 ).animate(sheetAnimation),
-                child: _AuthSheetFrame(
-                  androidFreeLaunch: androidFreeLaunch,
-                  beforeEmailLoginDismiss: beforeEmailLoginDismiss,
+                child: SafeArea(
+                  top: false,
+                  bottom: false,
+                  child: KandoContentWidth(
+                    maxWidth: 560,
+                    child: _AuthSheetFrame(
+                      androidFreeLaunch: androidFreeLaunch,
+                      beforeEmailLoginDismiss: beforeEmailLoginDismiss,
+                    ),
+                  ),
                 ),
               ),
             ),

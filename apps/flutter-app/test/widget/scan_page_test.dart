@@ -1539,6 +1539,57 @@ void main() {
     },
   );
 
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets('resizing during capture rejects stale geometry on $platform', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+      final capture = Completer<ScanImage>();
+      final camera = _TestScanCameraSession()..pendingPhoto = capture;
+      final factory = _TestScanCameraFactory(camera);
+      final source = _TestScanResultSource(
+        photoResult: Future.value(const ScanResolution.failed()),
+        recognizeResult: Future.value(const ScanResolution.noMatch()),
+      );
+      await _pumpScanTestApp(
+        tester,
+        scanResultSource: source,
+        scanCameraFactory: factory,
+        platform: platform,
+      );
+      final pageState = tester.state(find.byType(ScanPage));
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 501));
+      expect(camera.takePhotoCount, 1);
+      tester.view.physicalSize = const Size(951, 669);
+      tester.view.padding = const FakeViewPadding(right: 108);
+      await tester.pump();
+      capture.complete(
+        ScanImage(
+          bytes: Uint8List.fromList(_transparentPngBytes),
+          fileName: 'stale.jpg',
+          viewfinderCropped: true,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(source.recognizedImages, isEmpty);
+      expect(factory.openCount, 1);
+      expect(tester.state(find.byType(ScanPage)), same(pageState));
+      expect(camera.disposed, isFalse);
+      camera.pendingPhoto = null;
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 501));
+      expect(source.recognizedImages, hasLength(1));
+      expect(camera.takePhotoCount, 2);
+      expect(camera.lastViewport, const Size(951, 669));
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets(
     'Opening the camera does not recognize anything until the shutter is pressed',
     (tester) async {
@@ -6887,6 +6938,7 @@ class _PermissionDelayedScanCameraFactory implements ScanCameraFactory {
 }
 
 class _TestScanCameraSession implements ScanCameraSession {
+  Completer<ScanImage>? pendingPhoto;
   var _flashEnabled = false;
   var takePhotoCount = 0;
   Rect? lastViewfinder;
@@ -6914,6 +6966,7 @@ class _TestScanCameraSession implements ScanCameraSession {
     takePhotoCount += 1;
     lastViewfinder = viewfinder;
     lastViewport = viewport;
+    if (pendingPhoto != null) return pendingPhoto!.future;
     return ScanImage(
       bytes: Uint8List.fromList(_transparentPngBytes),
       fileName: 'live-camera.jpg',

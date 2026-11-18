@@ -9,6 +9,7 @@ import 'package:kando_app/shared/card_image/kando_network_image.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
+import 'package:kando_app/shared/ui/kando_responsive.dart';
 
 import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
@@ -86,7 +87,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                           key: const Key('search-content-list'),
                           controller: _scrollController,
                           physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 116),
+                          padding: EdgeInsets.fromLTRB(
+                            20,
+                            0,
+                            20,
+                            kandoTabContentBottomPadding(context, 116),
+                          ),
                           children: [
                             if (widget.fromScan) ...[
                               _BackToScanButton(context: context),
@@ -138,11 +144,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                               ),
                             ),
                             SliverPadding(
-                              padding: const EdgeInsets.fromLTRB(
+                              padding: EdgeInsets.fromLTRB(
                                 20,
                                 0,
                                 20,
-                                116,
+                                kandoTabContentBottomPadding(context, 116),
                               ),
                               sliver: state.isLoading
                                   ? const SliverToBoxAdapter(
@@ -636,19 +642,19 @@ class _SearchResults extends ConsumerWidget {
 
     return SliverMainAxisGroup(
       slivers: [
-        SliverGrid.builder(
-          key: const Key('search-results-grid'),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            mainAxisExtent: 378,
-          ),
-          itemCount: visibleCards.length,
-          itemBuilder: (context, index) => SearchCardTile(
-            card: visibleCards[index],
-            actionsEnabled: state.isAssetReady(visibleCards[index].id),
-            showSearchMetadata: true,
+        SliverLayoutBuilder(
+          builder: (context, constraints) => SliverGrid.builder(
+            key: const Key('search-results-grid'),
+            gridDelegate: kandoCardGridDelegate(
+              context,
+              constraints.crossAxisExtent,
+            ),
+            itemCount: visibleCards.length,
+            itemBuilder: (context, index) => SearchCardTile(
+              card: visibleCards[index],
+              actionsEnabled: state.isAssetReady(visibleCards[index].id),
+              showSearchMetadata: true,
+            ),
           ),
         ),
         if (state.isLoadingMoreCards)

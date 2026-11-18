@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:kando_app/features/search/search_card_tile.dart';
 import 'package:kando_app/features/search/search_models.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
+import 'package:kando_app/shared/ui/kando_responsive.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/premium_unlocked_toast.dart';
@@ -132,8 +133,12 @@ class _CollectionPageState extends ConsumerState<CollectionPage> {
                                 state: state,
                                 controller: controller,
                               ),
-                              const SliverToBoxAdapter(
-                                child: SizedBox(height: 100),
+                              SliverToBoxAdapter(
+                                child: SizedBox(
+                                  height: kandoUsesSideNavigation(context)
+                                      ? 0
+                                      : 100,
+                                ),
                               ),
                             ],
                           ),
@@ -1051,21 +1056,21 @@ class _CollectionGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SliverGrid.builder(
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        mainAxisExtent: 378,
-      ),
-      itemCount: items.length,
-      itemBuilder: (context, index) => SearchCardTile(
-        card: _asSearchCard(items[index], showQuantity: showQuantity),
-        actionsEnabled: false,
-        showActions: false,
-        showSearchMetadata: true,
-        showQuantity: showQuantity,
-        entrySource: AnalyticsValue.sourceEdit,
+    return SliverLayoutBuilder(
+      builder: (context, constraints) => SliverGrid.builder(
+        gridDelegate: kandoCardGridDelegate(
+          context,
+          constraints.crossAxisExtent,
+        ),
+        itemCount: items.length,
+        itemBuilder: (context, index) => SearchCardTile(
+          card: _asSearchCard(items[index], showQuantity: showQuantity),
+          actionsEnabled: false,
+          showActions: false,
+          showSearchMetadata: true,
+          showQuantity: showQuantity,
+          entrySource: AnalyticsValue.sourceEdit,
+        ),
       ),
     );
   }

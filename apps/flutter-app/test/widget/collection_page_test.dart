@@ -1723,7 +1723,10 @@ void _expectCollectionCardRowMatchesSearchField(
   );
 
   expect(leftCardRect.left, closeTo(searchFieldRect.left, 0.01));
-  expect(rightCardRect.right, closeTo(searchFieldRect.right, 0.01));
+  final columns = (searchFieldRect.width + 10) / (leftCardRect.width + 10);
+  expect(columns, closeTo(columns.roundToDouble(), 0.01));
+  expect(columns, greaterThanOrEqualTo(2));
+  expect(rightCardRect.width, closeTo(leftCardRect.width, 0.01));
   expect(rightCardRect.left - leftCardRect.right, closeTo(10, 0.01));
 }
 

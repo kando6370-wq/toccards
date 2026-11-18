@@ -39,6 +39,53 @@ import '../support/mock_collection_repository.dart';
 import '../support/mock_search_repository.dart';
 
 void main() {
+  testWidgets('Duo catalog adds columns and retains a search while folding', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: _searchOverrides(),
+        child: const _SearchTestApp(platform: TargetPlatform.iOS),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final pageState = tester.state(find.byType(SearchPage));
+    final field = find.descendant(
+      of: find.byKey(const Key('search-field')),
+      matching: find.byType(TextField),
+    );
+    await tester.enterText(field, 'Squirtle');
+    await tester.pumpAndSettle(const Duration(milliseconds: 400));
+    for (final size in [const Size(951, 669), const Size(466, 678)]) {
+      tester.view.physicalSize = size;
+      tester.view.padding = const FakeViewPadding(right: 84);
+      await tester.pumpAndSettle();
+      final grid = tester.widget<SliverGrid>(
+        find.byKey(const Key('search-results-grid')),
+      );
+      final delegate =
+          grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+      expect(delegate.crossAxisCount, size.width > 760 ? 4 : 1);
+      expect(tester.state(find.byType(SearchPage)), same(pageState));
+      expect(tester.widget<TextField>(field).controller!.text, 'Squirtle');
+      expect(
+        find.descendant(
+          of: find.byType(SearchCardTile),
+          matching: find.text('Squirtle'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester.getRect(find.byKey(const Key('search-field'))).right,
+        lessThanOrEqualTo(size.width - 84 - 20),
+      );
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   testWidgets('Search keeps static controls visible while catalog is pending', (
     tester,
   ) async {
@@ -70,6 +117,10 @@ void main() {
   testWidgets('Search shows Cards tab with Pokemon results by default', (
     tester,
   ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: _searchOverrides(),
@@ -231,6 +282,10 @@ void main() {
   testWidgets(
     'Search controls stay pinned while results move because filters must remain available during browsing',
     (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+
       await tester.pumpWidget(
         ProviderScope(
           overrides: _searchOverrides(),
@@ -2547,6 +2602,10 @@ void main() {
   testWidgets(
     'returning from CardDetail restores the selected Search card position',
     (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+
       await tester.pumpWidget(
         ProviderScope(
           overrides: [..._searchOverrides(), ..._cardDetailOverrides()],

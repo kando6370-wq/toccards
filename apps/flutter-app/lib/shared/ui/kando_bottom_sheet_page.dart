@@ -46,6 +46,7 @@ class KandoBottomSheetPage<T> extends Page<T> {
         to: navigator.context,
       ),
       isScrollControlled: true,
+      constraints: const BoxConstraints(maxWidth: 640),
       backgroundColor: Colors.transparent,
       modalBarrierColor: barrierColor,
       barrierLabel: localizations.scrimLabel,

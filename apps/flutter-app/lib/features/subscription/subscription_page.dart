@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../../shared/ui/kando_responsive.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
@@ -707,7 +708,10 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
             const Positioned.fill(
               child: _PaywallBackground(useUpdatedSheetUi: false),
             ),
-            SafeArea(bottom: false, child: content),
+            SafeArea(
+              bottom: false,
+              child: KandoContentWidth(maxWidth: 560, child: content),
+            ),
           ],
         ),
       );
@@ -729,7 +733,7 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
                   ),
                 Padding(
                   padding: const EdgeInsets.only(top: 32),
-                  child: content,
+                  child: KandoContentWidth(maxWidth: 560, child: content),
                 ),
                 Positioned(
                   top: useUpdatedSheetUi ? 13 : 10,

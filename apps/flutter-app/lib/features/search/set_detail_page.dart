@@ -6,6 +6,7 @@ import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/pagination/pagination.dart';
 import 'package:kando_app/shared/portfolio/pending_collection.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
+import 'package:kando_app/shared/ui/kando_responsive.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
@@ -183,50 +184,57 @@ class _SetDetailPageState extends ConsumerState<SetDetailPage> {
       child: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 350),
-          child: GridView.builder(
-            key: const Key('set-detail-card-grid'),
-            controller: _scrollController,
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.fromLTRB(0, 16, 0, showPendingNotice ? 96 : 16),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              mainAxisExtent: 378,
-            ),
-            itemCount: _cards.length + (_loading || _failed ? 1 : 0),
-            itemBuilder: (context, index) {
-              if (index == _cards.length) {
-                return Center(
-                  child: _loading
-                      ? const CircularProgressIndicator()
-                      : IconButton(
-                          key: const Key('set-detail-retry-page'),
-                          tooltip: 'Retry loading cards',
-                          onPressed: () {
-                            ref
-                                .read(analyticsProvider)
-                                .track(AnalyticsEvent.refreshClick);
-                            _load(reset: false);
-                          },
-                          icon: const Icon(Icons.refresh),
-                        ),
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.sizeOf(context).width < 600 ? 350 : 1160,
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) => GridView.builder(
+              key: const Key('set-detail-card-grid'),
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.fromLTRB(
+                0,
+                16,
+                0,
+                showPendingNotice ? 96 : 16,
+              ),
+              gridDelegate: kandoCardGridDelegate(
+                context,
+                constraints.maxWidth,
+              ),
+              itemCount: _cards.length + (_loading || _failed ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (index == _cards.length) {
+                  return Center(
+                    child: _loading
+                        ? const CircularProgressIndicator()
+                        : IconButton(
+                            key: const Key('set-detail-retry-page'),
+                            tooltip: 'Retry loading cards',
+                            onPressed: () {
+                              ref
+                                  .read(analyticsProvider)
+                                  .track(AnalyticsEvent.refreshClick);
+                              _load(reset: false);
+                            },
+                            icon: const Icon(Icons.refresh),
+                          ),
+                  );
+                }
+                final card = ref
+                    .read(searchControllerProvider.notifier)
+                    .resolveCard(_cards[index]);
+                return SearchCardTile(
+                  card: card,
+                  actionsEnabled:
+                      !searchState.isLoading &&
+                      !searchState.isUnavailable &&
+                      searchState.isAssetReady(card.id),
+                  showSearchMetadata: true,
+                  collectGame: widget.game,
                 );
-              }
-              final card = ref
-                  .read(searchControllerProvider.notifier)
-                  .resolveCard(_cards[index]);
-              return SearchCardTile(
-                card: card,
-                actionsEnabled:
-                    !searchState.isLoading &&
-                    !searchState.isUnavailable &&
-                    searchState.isAssetReady(card.id),
-                showSearchMetadata: true,
-                collectGame: widget.game,
-              );
-            },
+              },
+            ),
           ),
         ),
       ),

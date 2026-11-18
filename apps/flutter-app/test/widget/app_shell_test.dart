@@ -8,6 +8,127 @@ import 'package:kando_app/shared/ui/app_shell.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 
 void main() {
+  testWidgets(
+    'Android bottom navigation avoids the side safe area after resizing',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(
+            home: KandoTabScaffold(
+              currentTab: KandoMainTab.search,
+              body: SizedBox.expand(),
+            ),
+          ),
+        ),
+      );
+      for (final size in [const Size(951, 669), const Size(466, 678)]) {
+        tester.view.physicalSize = size;
+        tester.view.padding = const FakeViewPadding(right: 108);
+        await tester.pump();
+        final bar = tester.getRect(find.byKey(const Key('kando-tab-bar')));
+        final scan = tester.getRect(find.byKey(const Key('kando-tab-scan')));
+        final overflow = tester.getRect(
+          find.byKey(const Key('kando-tab-scan-overflow-hit-region')),
+        );
+        expect(bar.right, lessThanOrEqualTo(size.width - 108 - 20));
+        expect(bar.left, greaterThanOrEqualTo(20));
+        expect(bar.width, lessThanOrEqualTo(480));
+        expect(bar.center.dx, closeTo((size.width - 108) / 2, 0.01));
+        expect(overflow.topLeft, scan.topLeft);
+        expect(tester.takeException(), isNull);
+      }
+    },
+  );
+
+  testWidgets(
+    'Duo side navigation keeps all five destinations reachable while folding',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(951, 669);
+      tester.view.padding = const FakeViewPadding(right: 84);
+      addTearDown(tester.view.reset);
+      final router = GoRouter(
+        initialLocation: '/home',
+        routes: [
+          for (final tab in KandoMainTab.values)
+            GoRoute(
+              path: '/${tab.name}',
+              builder: (context, state) => KandoTabScaffold(
+                currentTab: tab,
+                body: Text('page-${tab.name}'),
+              ),
+            ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp.router(
+            theme: ThemeData(platform: TargetPlatform.iOS),
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      for (final size in [
+        const Size(951, 669),
+        const Size(466, 678),
+        const Size(951, 669),
+      ]) {
+        tester.view.physicalSize = size;
+        await tester.pumpAndSettle();
+        final bar = tester.getRect(find.byKey(const Key('kando-tab-bar')));
+        expect(bar.size, const Size(68, 380));
+        expect(bar.left, greaterThanOrEqualTo(size.width - 84 + 8));
+        expect(bar.right, lessThanOrEqualTo(size.width - 8));
+        expect(bar.top, greaterThanOrEqualTo(200));
+        expect(
+          find.byKey(const Key('kando-tab-scan-overflow-hit-region')),
+          findsNothing,
+        );
+        for (final tab in [
+          KandoMainTab.search,
+          KandoMainTab.scan,
+          KandoMainTab.collection,
+          KandoMainTab.profile,
+          KandoMainTab.home,
+        ]) {
+          await tester.tap(find.byKey(Key('kando-tab-${tab.name}')));
+          await tester.pumpAndSettle();
+          expect(find.text('page-${tab.name}'), findsOneWidget);
+          if (tab != KandoMainTab.scan) {
+            expect(
+              tester.getCenter(
+                find.byKey(const Key('kando-tab-selected-background')),
+              ),
+              tester.getCenter(find.byKey(Key('kando-tab-${tab.name}'))),
+            );
+          }
+        }
+        expect(tester.takeException(), isNull);
+      }
+      tester.view.physicalSize = const Size(951, 480);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('kando-side-navigation')), findsNothing);
+      final fallback = tester.getRect(find.byKey(const Key('kando-tab-bar')));
+      expect(fallback.height, 62);
+      expect(fallback.right, lessThanOrEqualTo(951 - 84 - 20));
+      await tester.tap(find.byKey(const Key('kando-tab-search')));
+      await tester.pumpAndSettle();
+      expect(find.text('page-search'), findsOneWidget);
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.padding = FakeViewPadding.zero;
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSize(find.byKey(const Key('kando-tab-bar'))),
+        const Size(350, 62),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   test('Kando color scheme is reused across scaffold rebuilds', () {
     expect(buildKandoColorScheme(), same(buildKandoColorScheme()));
   });

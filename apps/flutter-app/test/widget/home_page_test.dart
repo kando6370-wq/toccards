@@ -436,6 +436,49 @@ void main() {
     );
   }, variant: TargetPlatformVariant({TargetPlatform.iOS}));
 
+  testWidgets('Duo Home reflows the portfolio without losing amount privacy', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(951, 669);
+    tester.view.padding = const FakeViewPadding(right: 84);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      _mockResponsiveHomeApp(
+        platform: TargetPlatform.iOS,
+        isAndroidFreeLaunch: false,
+        homeRepository: const MockHomeRepository(),
+      ),
+    );
+    await _waitForHomeAuth(tester);
+    final pageState = tester.state(find.byType(HomePage));
+    await tester.tap(find.byKey(const Key('home-hide-amount')));
+    await tester.pumpAndSettle();
+    for (final size in [
+      const Size(951, 669),
+      const Size(466, 678),
+      const Size(951, 669),
+    ]) {
+      tester.view.physicalSize = size;
+      await tester.pumpAndSettle();
+      final chart = tester.getRect(
+        find.byKey(const Key('home-portfolio-chart')),
+      );
+      final cards = tester.getRect(
+        find.byKey(const Key('home-most-valuable-list')),
+      );
+      if (size.width == 951) {
+        expect(cards.left, greaterThan(chart.right));
+      } else {
+        expect(cards.top, greaterThan(chart.bottom));
+      }
+      expect(tester.state(find.byType(HomePage)), same(pageState));
+      expect(find.text(hiddenMoneyText), findsOneWidget);
+      expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   testWidgets('Home shows the M4-1 dashboard information hierarchy', (
     tester,
   ) async {

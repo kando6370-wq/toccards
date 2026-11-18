@@ -14,6 +14,7 @@ import 'package:kando_app/shared/portfolio/pending_collection.dart';
 import 'package:kando_app/shared/portfolio/portfolio_providers.dart';
 import 'package:kando_app/shared/ui/kando_modal.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
+import 'package:kando_app/shared/ui/kando_responsive.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/premium_locked_panel.dart';
 import 'package:kando_app/shared/ui/premium_unlocked_toast.dart';
@@ -201,7 +202,7 @@ class _CardDetailPageState extends ConsumerState<CardDetailPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 672),
+                    constraints: const BoxConstraints(maxWidth: 1120),
                     child: RefreshIndicator(
                       key: const Key('card-detail-pull-to-refresh'),
                       onRefresh: () {
@@ -210,61 +211,74 @@ class _CardDetailPageState extends ConsumerState<CardDetailPage> {
                             .track(AnalyticsEvent.refreshClick);
                         return controller.refresh();
                       },
-                      child: ListView(
+                      child: SingleChildScrollView(
                         key: const Key('card-detail-scroll'),
                         keyboardDismissBehavior:
                             ScrollViewKeyboardDismissBehavior.onDrag,
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.only(top: 20, bottom: 28),
-                        children: [
-                          _CardHero(
-                            state: state,
-                            controller: controller,
-                            entrySource: widget.entrySource,
-                            isGenericEntry: !hasExplicitCollectionItem,
-                            onBack: () => _goBack(context, controller),
+                        child: KandoAdaptiveColumns(
+                          key: const Key('card-detail-columns'),
+                          primaryFraction: 0.42,
+                          gap: 28,
+                          primary: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _CardHero(
+                                state: state,
+                                controller: controller,
+                                entrySource: widget.entrySource,
+                                isGenericEntry: !hasExplicitCollectionItem,
+                                onBack: () => _goBack(context, controller),
+                              ),
+                              const SizedBox(height: 10),
+                              _PrimaryActions(state: state),
+                              if (state.assetStateStatus ==
+                                  KandoLoadStatus.failure) ...[
+                                const SizedBox(height: 12),
+                                KandoFailureBlock(
+                                  key: const Key(
+                                    'card-detail-asset-state-failure',
+                                  ),
+                                  onRefresh: controller.refreshAssetState,
+                                ),
+                              ],
+                            ],
                           ),
-                          const SizedBox(height: 10),
-                          _PrimaryActions(state: state),
-                          if (state.assetStateStatus ==
-                              KandoLoadStatus.failure) ...[
-                            const SizedBox(height: 12),
-                            KandoFailureBlock(
-                              key: const Key('card-detail-asset-state-failure'),
-                              onRefresh: controller.refreshAssetState,
-                            ),
-                          ],
-                          const SizedBox(height: 28),
-                          // _BasicInfo(state: state),
-                          // const SizedBox(height: 28),
-                          if (isResolvingExplicitCollectionItem)
-                            const _OwnedDetailTabsSkeleton()
-                          else if (hasExplicitCollectionItem)
-                            _OwnedDetailTabs(
-                              key: ValueKey(currentCollectionItemId),
-                              state: state,
-                              controller: controller,
-                              entrySource: widget.entrySource,
-                              isPro: isPro,
-                              currentCollectionItemId: currentCollectionItemId,
-                            )
-                          else
-                            _GenericCardDetailSections(
-                              state: state,
-                              controller: controller,
-                              isPro: isPro,
-                              selectedFolderId: selectedFolderId,
-                              onEditItem: (itemId) =>
-                                  _openItemEditor(controller, itemId),
-                            ),
-                          if (state.assetStateStatus ==
-                                  KandoLoadStatus.content &&
-                              state.detail.isWishlisted &&
-                              !state.detail.isCollected) ...[
-                            const SizedBox(height: 28),
-                            _RemoveWishlistButton(controller: controller),
-                          ],
-                        ],
+                          secondary: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              if (isResolvingExplicitCollectionItem)
+                                const _OwnedDetailTabsSkeleton()
+                              else if (hasExplicitCollectionItem)
+                                _OwnedDetailTabs(
+                                  key: ValueKey(currentCollectionItemId),
+                                  state: state,
+                                  controller: controller,
+                                  entrySource: widget.entrySource,
+                                  isPro: isPro,
+                                  currentCollectionItemId:
+                                      currentCollectionItemId,
+                                )
+                              else
+                                _GenericCardDetailSections(
+                                  state: state,
+                                  controller: controller,
+                                  isPro: isPro,
+                                  selectedFolderId: selectedFolderId,
+                                  onEditItem: (itemId) =>
+                                      _openItemEditor(controller, itemId),
+                                ),
+                              if (state.assetStateStatus ==
+                                      KandoLoadStatus.content &&
+                                  state.detail.isWishlisted &&
+                                  !state.detail.isCollected) ...[
+                                const SizedBox(height: 28),
+                                _RemoveWishlistButton(controller: controller),
+                              ],
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),

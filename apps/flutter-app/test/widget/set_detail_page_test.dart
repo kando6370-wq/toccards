@@ -27,6 +27,10 @@ void main() {
   testWidgets(
     'set cards show the Cards result details because users need the same collection context from either entry point',
     (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(tester.view.reset);
+
       await tester.pumpWidget(
         ProviderScope(
           overrides: [

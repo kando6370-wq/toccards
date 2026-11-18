@@ -143,6 +143,8 @@ GitLab 与 GitHub Flutter CI 统一使用 3.47.9；GitLab 从官方 archive 安�
 
 Flutter UI 变更前必须阅读 `docs/releases/v1.0.0/00-product/ui-design-system.md`，并优先复用现有组件、颜色、间距和交互模式；若历史基线或 v1.1.3 有明确增量契约，同时读取对应版本文档。
 
+2026-11-17 本地 Duo 首轮 UI 适配与右侧竖导航规格见 `docs/releases/v1.1.4/02-architecture/iphone-duo-adaptation.md`；Flutter 按实际窗口安全区／局部约束重排，Android 保持底部导航、全程竖屏和免费首版策略，iOS 保留既有业务与方向规则。模拟器省略 ML Kit 的隔离预览包不能用于完整扫描验收。
+
 ## 安全边界
 
 - 未经明确授权，不执行 Git push、部署、远程数据库迁移、生产写操作或发布。

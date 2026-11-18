@@ -11,6 +11,7 @@ import 'package:kando_app/shared/currency/currency.dart';
 import 'package:kando_app/shared/market/market_change.dart';
 import 'package:kando_app/shared/portfolio/portfolio_api_client.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
+import 'package:kando_app/shared/ui/kando_responsive.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 import 'package:kando_app/shared/ui/premium_locked_panel.dart';
@@ -124,11 +125,11 @@ class _HomePageState extends ConsumerState<HomePage>
             child: SingleChildScrollView(
               key: const Key('home-normal-content'),
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(
+              padding: EdgeInsets.fromLTRB(
                 20,
                 KandoLayout.mainTabTopPadding,
                 20,
-                132,
+                kandoTabContentBottomPadding(context, 132),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -210,54 +211,58 @@ class _HomePageState extends ConsumerState<HomePage>
                         context.push('/collection');
                       },
                     )
-                  else ...[
-                    _PortfolioCard(
-                      state: state,
-                      showOneYearProBadge: !isPro,
-                      onFolderPressed: () {
-                        ref
-                            .read(analyticsProvider)
-                            .track(AnalyticsEvent.folderClick);
-                        _showFolderSheet(context, ref);
-                      },
-                      onHidePressed: controller.toggleAmountHidden,
-                      onRangeSelected: (range) => _selectOverviewRange(
-                        context,
-                        controller,
-                        range,
-                        premiumState: premiumState,
+                  else
+                    KandoAdaptiveColumns(
+                      key: const Key('home-overview-columns'),
+                      primary: _PortfolioCard(
+                        state: state,
+                        showOneYearProBadge: !isPro,
+                        onFolderPressed: () {
+                          ref
+                              .read(analyticsProvider)
+                              .track(AnalyticsEvent.folderClick);
+                          _showFolderSheet(context, ref);
+                        },
+                        onHidePressed: controller.toggleAmountHidden,
+                        onRangeSelected: (range) => _selectOverviewRange(
+                          context,
+                          controller,
+                          range,
+                          premiumState: premiumState,
+                        ),
+                        onRefresh: () => _trackRefresh(controller.refresh),
                       ),
-                      onRefresh: () => _trackRefresh(controller.refresh),
+                      secondary: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _MostValuableSection(
+                            state: state,
+                            onRefresh: controller.refresh,
+                            onViewAll: () {
+                              ref
+                                  .read(analyticsProvider)
+                                  .track(AnalyticsEvent.mostvaluableClick);
+                              ref
+                                  .read(collectionInitialSortProvider.notifier)
+                                  .select(CollectionSort.valueDesc);
+                              context.go('/collection');
+                            },
+                          ),
+                          const SizedBox(height: 32),
+                          _TrendingSection(
+                            state: state,
+                            onRefresh: () =>
+                                _trackRefresh(controller.refreshTrending),
+                            onViewAll: () {
+                              ref
+                                  .read(analyticsProvider)
+                                  .track(AnalyticsEvent.trendingClick);
+                              context.push('/trending');
+                            },
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 32),
-                    _MostValuableSection(
-                      state: state,
-                      onRefresh: controller.refresh,
-                      onViewAll: () {
-                        ref
-                            .read(analyticsProvider)
-                            .track(AnalyticsEvent.mostvaluableClick);
-                        ref
-                            .read(collectionInitialSortProvider.notifier)
-                            .select(CollectionSort.valueDesc);
-                        context.go('/collection');
-                      },
-                    ),
-                  ],
-                  if (!performanceSelected) ...[
-                    const SizedBox(height: 32),
-                    _TrendingSection(
-                      state: state,
-                      onRefresh: () =>
-                          _trackRefresh(controller.refreshTrending),
-                      onViewAll: () {
-                        ref
-                            .read(analyticsProvider)
-                            .track(AnalyticsEvent.trendingClick);
-                        context.push('/trending');
-                      },
-                    ),
-                  ],
                 ],
               ),
             ),

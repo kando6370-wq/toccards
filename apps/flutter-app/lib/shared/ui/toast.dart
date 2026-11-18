@@ -114,10 +114,11 @@ void showKandoTopToast(
   late final OverlayEntry entry;
   entry = OverlayEntry(
     builder: (context) {
-      final top = MediaQuery.paddingOf(context).top + kandoTopToastTopGap;
+      final padding = MediaQuery.paddingOf(context);
+      final top = padding.top + kandoTopToastTopGap;
       return Positioned(
-        left: 20,
-        right: 20,
+        left: 20 + padding.left,
+        right: 20 + padding.right,
         top: top,
         child: IgnorePointer(
           ignoring: false,
