@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/ui/app_shell.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
+import 'package:kando_app/shared/ui/kando_responsive.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
 import '../auth/auth_controller.dart';
@@ -52,51 +53,66 @@ class ProfilePage extends ConsumerWidget {
             absorbing: isRestoring,
             child: KandoTabScaffold(
               currentTab: KandoMainTab.profile,
-              body: SafeArea(
-                bottom: false,
-                child: Column(
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        20,
-                        KandoLayout.mainTabTopPadding,
-                        20,
-                        0,
-                      ),
-                      child: PremiumPageHeader(
-                        title: 'Profile',
-                        source: 'profile',
-                      ),
-                    ),
-                    Expanded(
-                      child: authState.isLoading
-                          ? const Center(child: CircularProgressIndicator())
-                          : authState.hasError
-                          ? KandoFailureBlock(
-                              onRefresh: () {
-                                ref
-                                    .read(analyticsProvider)
-                                    .track(AnalyticsEvent.refreshClick);
-                                ref
-                                    .read(authControllerProvider.notifier)
-                                    .retryStartup();
-                              },
-                            )
-                          : _ProfileContent(
-                              authState: authState,
-                              onRefresh: () async {
-                                ref
-                                    .read(analyticsProvider)
-                                    .track(AnalyticsEvent.refreshClick);
-                                ref.invalidate(profileVersionProvider);
-                                await ref
-                                    .read(authControllerProvider.notifier)
-                                    .retryStartup();
-                              },
+              body: LayoutBuilder(
+                builder: (context, constraints) {
+                  final wide =
+                      constraints.maxWidth >= 840 &&
+                      constraints.maxHeight -
+                              MediaQuery.paddingOf(context).vertical >=
+                          528;
+                  return KandoContentWidth(
+                    maxWidth: wide ? 1040 : 560,
+                    child: SafeArea(
+                      bottom: false,
+                      child: Column(
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              20,
+                              KandoLayout.mainTabTopPadding,
+                              20,
+                              0,
                             ),
+                            child: PremiumPageHeader(
+                              title: 'Profile',
+                              source: 'profile',
+                            ),
+                          ),
+                          Expanded(
+                            child: authState.isLoading
+                                ? const Center(
+                                    child: CircularProgressIndicator(),
+                                  )
+                                : authState.hasError
+                                ? KandoFailureBlock(
+                                    onRefresh: () {
+                                      ref
+                                          .read(analyticsProvider)
+                                          .track(AnalyticsEvent.refreshClick);
+                                      ref
+                                          .read(authControllerProvider.notifier)
+                                          .retryStartup();
+                                    },
+                                  )
+                                : _ProfileContent(
+                                    authState: authState,
+                                    wide: wide,
+                                    onRefresh: () async {
+                                      ref
+                                          .read(analyticsProvider)
+                                          .track(AnalyticsEvent.refreshClick);
+                                      ref.invalidate(profileVersionProvider);
+                                      await ref
+                                          .read(authControllerProvider.notifier)
+                                          .retryStartup();
+                                    },
+                                  ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
           ),
@@ -116,8 +132,13 @@ class ProfilePage extends ConsumerWidget {
 }
 
 class _ProfileContent extends ConsumerStatefulWidget {
-  const _ProfileContent({required this.authState, required this.onRefresh});
+  const _ProfileContent({
+    required this.authState,
+    required this.onRefresh,
+    required this.wide,
+  });
 
+  final bool wide;
   final AuthState authState;
   final Future<void> Function() onRefresh;
 
@@ -226,201 +247,241 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
           loading: () => 'Version',
         );
 
-    return Center(
-      child: SizedBox(
-        width: double.infinity,
-        child: RefreshIndicator(
-          key: const Key('profile-pull-to-refresh'),
-          onRefresh: widget.onRefresh,
-          child: ListView(
-            key: const Key('profile-content-list'),
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(
-              20,
-              KandoLayout.mainTabTopPadding,
-              20,
-              132,
+    final wide = widget.wide;
+    final showUpgrade =
+        usesSubscription && subscription.premiumState == AppPremiumState.free;
+    final banner = _UpgradeBanner(
+      onTap: () => context.push(
+        subscriptionPageLocation(
+          source: 'profile',
+          entrySource: 'profile_banner',
+        ),
+      ),
+    );
+    final accountRow = isUser
+        ? _AccountRow(
+            email: emailText,
+            userId: userIdText,
+            onTap: () => context.push('/account'),
+          )
+        : _MenuRow(
+            compact: wide,
+            icon: Icons.person_outline,
+            label: 'Sign in / Sign up',
+            onTap: _signIn,
+          );
+    final restoreRow = _MenuRow(
+      compact: wide,
+      icon: Icons.restore,
+      label: 'Restore',
+      onTap: subscription.isLoading
+          ? null
+          : () => ref
+                .read(subscriptionControllerProvider.notifier)
+                .restore(source: SubscriptionRestoreSource.profile),
+    );
+    final support = Column(
+      key: const Key('profile-support-section'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _SectionLabel('Support'),
+        _MenuCard(
+          children: [
+            _MenuRow(
+              compact: wide,
+              icon: Icons.mail_outline,
+              label: 'Customer Support',
+              onTap: () => context.push('/customer-support'),
             ),
-            children: [
-              if (usesSubscription &&
-                  subscription.premiumState == AppPremiumState.free) ...[
-                _UpgradeBanner(
-                  onTap: () => context.push(
-                    subscriptionPageLocation(
-                      source: 'profile',
-                      entrySource: 'profile_banner',
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
-              _SectionLabel('Account'),
-              if (isUser)
-                _MenuCard(
-                  children: [
-                    _AccountRow(
-                      email: emailText,
-                      userId: userIdText,
-                      onTap: () => context.push('/account'),
-                    ),
-                  ],
-                )
-              else
-                _MenuCard(
-                  children: [
-                    _MenuRow(
-                      icon: Icons.person_outline,
-                      label: 'Sign in / Sign up',
-                      onTap: _signIn,
-                    ),
-                  ],
-                ),
-              const SizedBox(height: 24),
-              if (usesSubscription) ...[
-                _SectionLabel('Subscribe'),
-                _MenuCard(
-                  children: [
-                    _MenuRow(
-                      icon: Icons.restore,
-                      label: 'Restore',
-                      onTap: subscription.isLoading
-                          ? null
-                          : () => ref
-                                .read(subscriptionControllerProvider.notifier)
-                                .restore(
-                                  source: SubscriptionRestoreSource.profile,
-                                ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-              ],
-              _SectionLabel('Support'),
-              _MenuCard(
-                children: [
-                  _MenuRow(
-                    icon: Icons.mail_outline,
-                    label: 'Customer Support',
-                    onTap: () => context.push('/customer-support'),
-                  ),
-                  _MenuRow(
-                    icon: Icons.star_outline,
-                    label: 'Score',
-                    onTap: () => _runProfileAction(
-                      context,
-                      () => ref.read(profileActionsProvider).requestScore(),
-                    ),
-                  ),
-                  Builder(
-                    builder: (shareContext) => _MenuRow(
-                      icon: Icons.share_outlined,
-                      label: 'Share With Friends',
-                      onTap: () {
-                        ref
-                            .read(analyticsProvider)
-                            .track(AnalyticsEvent.shareAppClick);
-                        _runProfileAction(
-                          context,
-                          () => ref
-                              .read(profileActionsProvider)
-                              .shareWithFriends(
-                                sharePositionOrigin: _sharePositionOrigin(
-                                  shareContext,
-                                ),
-                              ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
+            _MenuRow(
+              compact: wide,
+              icon: Icons.star_outline,
+              label: 'Score',
+              onTap: () => _runProfileAction(
+                context,
+                () => ref.read(profileActionsProvider).requestScore(),
               ),
-              const SizedBox(height: 24),
-              _SectionLabel('Others'),
-              _MenuCard(
-                children: [
-                  _MenuRow(
-                    icon: Icons.description_outlined,
-                    label: 'Terms Of Use',
-                    onTap: () => _runProfileAction(
-                      context,
-                      () => ref.read(profileActionsProvider).openTerms(),
-                    ),
-                  ),
-                  _MenuRow(
-                    iconAsset: 'assets/profile/privacy_policy.svg',
-                    label: 'Privacy Policy',
-                    onTap: () => _runProfileAction(
-                      context,
-                      () => ref.read(profileActionsProvider).openPrivacy(),
-                    ),
-                  ),
-                ],
+            ),
+            Builder(
+              builder: (shareContext) => _MenuRow(
+                compact: wide,
+                icon: Icons.share_outlined,
+                label: 'Share With Friends',
+                onTap: () {
+                  ref
+                      .read(analyticsProvider)
+                      .track(AnalyticsEvent.shareAppClick);
+                  _runProfileAction(
+                    context,
+                    () => ref
+                        .read(profileActionsProvider)
+                        .shareWithFriends(
+                          sharePositionOrigin: _sharePositionOrigin(
+                            shareContext,
+                          ),
+                        ),
+                  );
+                },
               ),
-              const SizedBox(height: 32),
-              if (isUser)
-                Center(
-                  child: TextButton.icon(
-                    onPressed: () async {
-                      await _logout(context, ref);
-                    },
-                    style: TextButton.styleFrom(
-                      foregroundColor: KandoColors.text,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 32,
-                        vertical: 12,
-                      ),
-                    ),
-                    icon: const Icon(Icons.logout, size: 18),
-                    label: const Text(
-                      'Log Out',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                  ),
-                )
-              else
-                Center(
-                  child: TextButton.icon(
-                    onPressed: () => _confirmAndDelete(context, ref),
-                    style: TextButton.styleFrom(
-                      foregroundColor: _dangerColor,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 32,
-                        vertical: 12,
-                      ),
-                    ),
-                    icon: const Icon(Icons.delete_outline, size: 20),
-                    label: const Text(
-                      'Delete Account',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                  ),
-                ),
-              const SizedBox(height: 16),
-              Center(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => _handleVersionTap(context),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    child: Text(
-                      versionText,
-                      key: const Key('profile-version-text'),
-                      style: TextStyle(
-                        color: KandoColors.mutedText.withValues(alpha: 0.7),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ),
-                ),
+            ),
+          ],
+        ),
+      ],
+    );
+    final others = Column(
+      key: const Key('profile-others-section'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _SectionLabel('Others'),
+        _MenuCard(
+          children: [
+            _MenuRow(
+              compact: wide,
+              icon: Icons.description_outlined,
+              label: 'Terms Of Use',
+              onTap: () => _runProfileAction(
+                context,
+                () => ref.read(profileActionsProvider).openTerms(),
               ),
-            ],
+            ),
+            _MenuRow(
+              compact: wide,
+              iconAsset: 'assets/profile/privacy_policy.svg',
+              label: 'Privacy Policy',
+              onTap: () => _runProfileAction(
+                context,
+                () => ref.read(profileActionsProvider).openPrivacy(),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+    final footerItems = <Widget>[
+      if (isUser)
+        Center(
+          widthFactor: wide ? 1 : null,
+          child: TextButton.icon(
+            onPressed: () async {
+              await _logout(context, ref);
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: KandoColors.text,
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+            ),
+            icon: const Icon(Icons.logout, size: 18),
+            label: const Text('Log Out', style: TextStyle(fontSize: 16)),
+          ),
+        )
+      else
+        Center(
+          widthFactor: wide ? 1 : null,
+          child: TextButton.icon(
+            onPressed: () => _confirmAndDelete(context, ref),
+            style: TextButton.styleFrom(
+              foregroundColor: _dangerColor,
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+            ),
+            icon: const Icon(Icons.delete_outline, size: 20),
+            label: const Text('Delete Account', style: TextStyle(fontSize: 16)),
           ),
         ),
+      if (!wide) const SizedBox(height: 16),
+      Center(
+        widthFactor: wide ? 1 : null,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => _handleVersionTap(context),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Text(
+              versionText,
+              key: const Key('profile-version-text'),
+              style: TextStyle(
+                color: KandoColors.mutedText.withValues(alpha: 0.7),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ),
+        ),
+      ),
+    ];
+    final footer = wide
+        ? Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
+            children: footerItems,
+          )
+        : Column(children: footerItems);
+    final account = Column(
+      key: const Key('profile-account-section'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _SectionLabel('Account'),
+        _MenuCard(children: [accountRow]),
+      ],
+    );
+    final subscribe = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _SectionLabel('Subscribe'),
+        _MenuCard(children: [restoreRow]),
+      ],
+    );
+    return RefreshIndicator(
+      key: const Key('profile-pull-to-refresh'),
+      onRefresh: widget.onRefresh,
+      child: ListView(
+        key: const Key('profile-content-list'),
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          KandoLayout.mainTabTopPadding,
+          20,
+          kandoTabContentBottomPadding(context, 132),
+        ),
+        children: [
+          if (wide)
+            KandoAdaptiveColumns(
+              primaryFraction: 0.46,
+              gap: 32,
+              primary: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (showUpgrade) ...[banner, const SizedBox(height: 32)],
+                  account,
+                  if (usesSubscription) ...[
+                    const SizedBox(height: 24),
+                    subscribe,
+                  ],
+                  const SizedBox(height: 24),
+                  footer,
+                ],
+              ),
+              secondary: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [support, const SizedBox(height: 32), others],
+              ),
+            )
+          else ...[
+            if (showUpgrade) ...[banner, const SizedBox(height: 24)],
+            account,
+            const SizedBox(height: 24),
+            if (usesSubscription) ...[
+              subscribe,
+              const SizedBox(height: 24),
+            ],
+            support,
+            const SizedBox(height: 24),
+            others,
+            const SizedBox(height: 32),
+            footer,
+          ],
+        ],
       ),
     );
   }
@@ -766,13 +827,19 @@ class _MenuCard extends StatelessWidget {
 }
 
 class _MenuRow extends StatelessWidget {
-  const _MenuRow({this.icon, this.iconAsset, required this.label, this.onTap})
-    : assert((icon == null) != (iconAsset == null));
+  const _MenuRow({
+    this.icon,
+    this.iconAsset,
+    required this.label,
+    this.onTap,
+    this.compact = false,
+  }) : assert((icon == null) != (iconAsset == null));
 
   final IconData? icon;
   final String? iconAsset;
   final String label;
   final VoidCallback? onTap;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -780,7 +847,10 @@ class _MenuRow extends StatelessWidget {
       onTap: onTap,
       overlayColor: const WidgetStatePropertyAll(_menuOverlayColor),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: compact ? 12 : 20,
+        ),
         child: Row(
           children: [
             _IconBadge(icon: icon, iconAsset: iconAsset),

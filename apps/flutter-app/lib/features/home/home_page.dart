@@ -44,6 +44,10 @@ class HomePage extends ConsumerStatefulWidget {
 class _HomePageState extends ConsumerState<HomePage>
     with WidgetsBindingObserver {
   AppLifecycleState? _lastLifecycleState;
+  final _headerKey = GlobalKey();
+  final _portfolioKey = GlobalKey();
+  final _listsKey = GlobalKey();
+  final _contentScrollKey = GlobalKey();
 
   @override
   void initState() {
@@ -106,6 +110,126 @@ class _HomePageState extends ConsumerState<HomePage>
       Future<void>.microtask(() => _loadPerformance(state.selectedFolderId));
     }
 
+    final header = KeyedSubtree(
+      key: _headerKey,
+      child: _Header(
+        currencyCode: state.currencyCode,
+        currencySymbol: state.currency.symbol,
+        performanceSelected: performanceSelected,
+        onOverviewPressed: () {
+          ref
+              .read(homeDashboardTabProvider.notifier)
+              .select(HomeDashboardTab.overview);
+        },
+        onPerformancePressed: () {
+          if (performanceSelected) return;
+          ref
+              .read(homeDashboardTabProvider.notifier)
+              .select(HomeDashboardTab.performance);
+          ref.read(analyticsProvider).track(AnalyticsEvent.homePerformanceView);
+          unawaited(_loadPerformanceIfPremium(state.selectedFolderId));
+        },
+        onCurrencyPressed: () {
+          ref.read(analyticsProvider).track(AnalyticsEvent.currencyClick);
+          _showCurrencySheet(context, ref);
+        },
+      ),
+    );
+    final portfolio = KeyedSubtree(
+      key: _portfolioKey,
+      child: _PortfolioCard(
+        state: state,
+        showOneYearProBadge: !isPro,
+        onFolderPressed: () {
+          ref.read(analyticsProvider).track(AnalyticsEvent.folderClick);
+          _showFolderSheet(context, ref);
+        },
+        onHidePressed: controller.toggleAmountHidden,
+        onRangeSelected: (range) => _selectOverviewRange(
+          context,
+          controller,
+          range,
+          premiumState: premiumState,
+        ),
+        onRefresh: () => _trackRefresh(controller.refresh),
+      ),
+    );
+    final lists = KeyedSubtree(
+      key: _listsKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _MostValuableSection(
+            state: state,
+            onRefresh: controller.refresh,
+            onViewAll: () {
+              ref
+                  .read(analyticsProvider)
+                  .track(AnalyticsEvent.mostvaluableClick);
+              ref
+                  .read(collectionInitialSortProvider.notifier)
+                  .select(CollectionSort.valueDesc);
+              context.go('/collection');
+            },
+          ),
+          const SizedBox(height: 32),
+          _TrendingSection(
+            state: state,
+            onRefresh: () => _trackRefresh(controller.refreshTrending),
+            onViewAll: () {
+              ref.read(analyticsProvider).track(AnalyticsEvent.trendingClick);
+              context.push('/trending');
+            },
+          ),
+        ],
+      ),
+    );
+    final performanceContent = performanceSelected
+        ? _PerformanceSection(
+            state: state,
+            performance: performance,
+            isPro: isPro,
+            onHidePressed: controller.toggleAmountHidden,
+            onFolderPressed: () => _showFolderSheet(context, ref),
+            onRangeSelected: (range) => _selectPerformanceRange(
+              range,
+              folderId: state.selectedFolderId,
+            ),
+            onUnlock: () =>
+                _unlockPerformance(context, folderId: state.selectedFolderId),
+            onRefresh: () =>
+                _loadPerformance(state.selectedFolderId, force: true),
+            onTopPerformerPressed: (performer) => context.push(
+              Uri(
+                path: '/cards/${performer.cardRef}',
+                queryParameters: {
+                  'collection': 'portfolio',
+                  'entry': AnalyticsValue.sourceHomePerformance,
+                  'item_id': performer.itemId,
+                },
+              ).toString(),
+              extra: CardDetailPreview(
+                cardId: performer.cardRef,
+                name: performer.name,
+                imageUrl: performer.imageUrl,
+                setName: performer.setName,
+                identityLine: performer.cardNumber.isEmpty
+                    ? null
+                    : '#${performer.cardNumber}',
+              ),
+            ),
+            onViewAllTopPerformers: () {
+              ref
+                  .read(collectionControllerProvider.notifier)
+                  .showTopPerformers(
+                    folderId: state.selectedFolderId,
+                    itemIds: performance.data?.topPerformerItemIds ?? const [],
+                  );
+              context.push('/collection');
+            },
+          )
+        : null;
+
     return KandoTabScaffold(
       currentTab: KandoMainTab.home,
       body: DecoratedBox(
@@ -122,149 +246,104 @@ class _HomePageState extends ConsumerState<HomePage>
           child: RefreshIndicator(
             key: const Key('home-pull-to-refresh'),
             onRefresh: () => _trackRefresh(controller.refresh),
-            child: SingleChildScrollView(
-              key: const Key('home-normal-content'),
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: EdgeInsets.fromLTRB(
-                20,
-                KandoLayout.mainTabTopPadding,
-                20,
-                kandoTabContentBottomPadding(context, 132),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _Header(
-                    currencyCode: state.currencyCode,
-                    currencySymbol: state.currency.symbol,
-                    performanceSelected: performanceSelected,
-                    onOverviewPressed: () {
-                      ref
-                          .read(homeDashboardTabProvider.notifier)
-                          .select(HomeDashboardTab.overview);
-                    },
-                    onPerformancePressed: () {
-                      if (performanceSelected) return;
-                      ref
-                          .read(homeDashboardTabProvider.notifier)
-                          .select(HomeDashboardTab.performance);
-                      ref
-                          .read(analyticsProvider)
-                          .track(AnalyticsEvent.homePerformanceView);
-                      unawaited(
-                        _loadPerformanceIfPremium(state.selectedFolderId),
-                      );
-                    },
-                    onCurrencyPressed: () {
-                      ref
-                          .read(analyticsProvider)
-                          .track(AnalyticsEvent.currencyClick);
-                      _showCurrencySheet(context, ref);
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  if (performanceSelected)
-                    _PerformanceSection(
-                      state: state,
-                      performance: performance,
-                      isPro: isPro,
-                      onHidePressed: controller.toggleAmountHidden,
-                      onFolderPressed: () => _showFolderSheet(context, ref),
-                      onRangeSelected: (range) => _selectPerformanceRange(
-                        range,
-                        folderId: state.selectedFolderId,
+            child: LayoutBuilder(
+              builder: (_, constraints) {
+                // Keep the page's original safe area for navigation placement.
+                final bottomPadding = kandoTabContentBottomPadding(
+                  context,
+                  132,
+                );
+                final fixedBottomPadding = math.max(
+                  bottomPadding,
+                  MediaQuery.paddingOf(context).bottom,
+                );
+                final textScale =
+                    MediaQuery.textScalerOf(context).scale(16) / 16;
+                // The wide header has one 42px row and a 24px section gap.
+                final paneHeight =
+                    constraints.maxHeight -
+                    KandoLayout.mainTabTopPadding -
+                    fixedBottomPadding -
+                    66;
+                final minimumPaneHeight =
+                    !state.isUnavailable && !state.hasCollectionItems
+                    ? 520
+                    : 400;
+                final pinOverview =
+                    !performanceSelected &&
+                    constraints.maxWidth - 40 >= 800 &&
+                    paneHeight >= minimumPaneHeight * math.max(1, textScale);
+                Widget scrollContent(Widget child, EdgeInsets padding) =>
+                    KeyedSubtree(
+                      key: _contentScrollKey,
+                      child: SingleChildScrollView(
+                        key: const Key('home-normal-content'),
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: padding,
+                        child: child,
                       ),
-                      onUnlock: () => _unlockPerformance(
-                        context,
-                        folderId: state.selectedFolderId,
-                      ),
-                      onRefresh: () =>
-                          _loadPerformance(state.selectedFolderId, force: true),
-                      onTopPerformerPressed: (performer) => context.push(
-                        Uri(
-                          path: '/cards/${performer.cardRef}',
-                          queryParameters: {
-                            'collection': 'portfolio',
-                            'entry': AnalyticsValue.sourceHomePerformance,
-                            'item_id': performer.itemId,
-                          },
-                        ).toString(),
-                        extra: CardDetailPreview(
-                          cardId: performer.cardRef,
-                          name: performer.name,
-                          imageUrl: performer.imageUrl,
-                          setName: performer.setName,
-                          identityLine: performer.cardNumber.isEmpty
-                              ? null
-                              : '#${performer.cardNumber}',
-                        ),
-                      ),
-                      onViewAllTopPerformers: () {
-                        ref
-                            .read(collectionControllerProvider.notifier)
-                            .showTopPerformers(
-                              folderId: state.selectedFolderId,
-                              itemIds:
-                                  performance.data?.topPerformerItemIds ??
-                                  const [],
-                            );
-                        context.push('/collection');
-                      },
-                    )
-                  else
-                    KandoAdaptiveColumns(
-                      key: const Key('home-overview-columns'),
-                      primary: _PortfolioCard(
-                        state: state,
-                        showOneYearProBadge: !isPro,
-                        onFolderPressed: () {
-                          ref
-                              .read(analyticsProvider)
-                              .track(AnalyticsEvent.folderClick);
-                          _showFolderSheet(context, ref);
-                        },
-                        onHidePressed: controller.toggleAmountHidden,
-                        onRangeSelected: (range) => _selectOverviewRange(
-                          context,
-                          controller,
-                          range,
-                          premiumState: premiumState,
-                        ),
-                        onRefresh: () => _trackRefresh(controller.refresh),
-                      ),
-                      secondary: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _MostValuableSection(
-                            state: state,
-                            onRefresh: controller.refresh,
-                            onViewAll: () {
-                              ref
-                                  .read(analyticsProvider)
-                                  .track(AnalyticsEvent.mostvaluableClick);
-                              ref
-                                  .read(collectionInitialSortProvider.notifier)
-                                  .select(CollectionSort.valueDesc);
-                              context.go('/collection');
-                            },
-                          ),
-                          const SizedBox(height: 32),
-                          _TrendingSection(
-                            state: state,
-                            onRefresh: () =>
-                                _trackRefresh(controller.refreshTrending),
-                            onViewAll: () {
-                              ref
-                                  .read(analyticsProvider)
-                                  .track(AnalyticsEvent.trendingClick);
-                              context.push('/trending');
-                            },
-                          ),
-                        ],
-                      ),
+                    );
+                if (pinOverview) {
+                  return Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      20,
+                      KandoLayout.mainTabTopPadding,
+                      20,
+                      fixedBottomPadding,
                     ),
-                ],
-              ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        header,
+                        const SizedBox(height: 24),
+                        Expanded(
+                          child: Row(
+                            key: const Key('home-overview-columns'),
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(child: portfolio),
+                              const SizedBox(width: 32),
+                              Expanded(
+                                child: scrollContent(lists, EdgeInsets.zero),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return scrollContent(
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      header,
+                      const SizedBox(height: 24),
+                      if (performanceContent != null)
+                        performanceContent
+                      else
+                        KandoContentWidth(
+                          key: const Key('home-overview-columns'),
+                          maxWidth: 672,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              portfolio,
+                              const SizedBox(height: 32),
+                              lists,
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                  EdgeInsets.fromLTRB(
+                    20,
+                    KandoLayout.mainTabTopPadding,
+                    20,
+                    bottomPadding,
+                  ),
+                );
+              },
             ),
           ),
         ),

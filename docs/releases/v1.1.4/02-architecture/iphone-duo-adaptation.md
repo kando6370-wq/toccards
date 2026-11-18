@@ -120,13 +120,13 @@ Android 继续全程 `portraitUp`，保留免费首版策略；iOS 继续使用�
 - iOS 当前窗口右安全区至少 84 逻辑像素，且扣除顶部安全区、底部／键盘避让后高度至少 520 时，显示 68×380 的竖向胶囊。顶部至少预留 140 逻辑像素给相机和系统状态，在余下区域垂直居中；84 宽的区域左右各留 8。该规则依据窗口安全区和空间，不按硬件型号切换。
 - 顺序沿用 Home、Search、Scan、Collection、Profile；普通入口高 54，Scan 为 56 圆按钮，入口间隔 22、水平内边距 4、垂直内边距 10。根据用户反馈，将原预览的 80×312 胶囊收窄、拉长，并缩小 Scan，使入口间距和上下留白更均衡。复用现有图标、11px 导航字、品牌渐变、毛玻璃和选中动画。右栏不会挤压正文；正文仍尊重系统左右安全区。
 - 右栏模式移除底部胶囊和它的预留空白；短窗口回到底部，底部导航宽度至多 480 并避让左右安全区，390×844 基线仍为 350×62。Android 保留底部导航。
-- 正文最大宽度 1200，Profile／认证／订阅正文最大 560，路由 sheet 最大 640，Toast 尊重左右安全区。底部未完成收藏提示保持可点击与限宽。
+- 正文最大宽度 1200；Profile 宽窗口正文最大 1040、单列最大 560，认证／订阅正文最大 560，路由 sheet 最大 640，Toast 尊重左右安全区。底部未完成收藏提示保持可点击与限宽。
 
 ### 9.2 页面重排与状态
 
-- Search、Collection、Set Detail 按局部宽度计算网格列数：最小卡宽 170、间隔 10；大字体提高最小宽度及卡片高度。390 正常手机保留两列；951×669／右安全区 84 的预览场景可显示四列，极窄或大字体可降一列。Set Detail 窄窗口保留原 350 内容宽度。
-- Home Overview 的资产面板与高价值卡牌／趋势，以及 Card Detail 的卡图／主操作与价格／资产详情，在局部宽度至少 800 且可用高度至少 480 时并排；键盘或短窗口回到可滚动单列。使用同一 Wrap 子树维持表单与页面 State，沿用 controller 和路由。
-- Card Detail 采用单个 SingleChildScrollView 包含自适应内容，避免将整组双栏塞进懒加载单个列表项后破坏后代的滚动定位。
+- Search、Collection、Set Detail 按局部宽度计算网格列数：目标卡宽 170、间隔 10；局部净宽至少 320 时保留两列紧凑卡片，大字体按最多 1.5 倍提高宽度门槛并增加卡片高度。390 正常手机及 466×678／右安全区 84 的折叠外屏均保留两列；951×669／右安全区 84 的展开内屏显示四列，极窄或大字体可降一列。Set Detail 窄窗口保留原 350 内容宽度。
+- Home Overview 在扣除页面横向边距后的局部宽度至少 800，且扣除顶栏、模块间距、上下留白后的面板高度至少 400（空收藏面板为 520，均随字体倍率提高门槛）时并排：顶部切换栏与货币控件、左侧资产／图表固定，右侧 Most Valuable 与 Trending Today 共同独立纵向滚动，Most Valuable 保留横向滚动。窄屏、短窗口、键盘或大字体占用后空间不足时回到最大 672 的可滚动单列。稳定页面内 Key 保持图表、卡片横向列表和主滚动 State；Performance 保留整页滚动。
+- Card Detail 以正文局部约束判断布局：宽度至少 800、高度至少 480 时，左侧卡图／主操作和右侧价格／资产信息分别使用独立滚动容器。滑动右侧不会带动左侧；左侧内容过高时仍可单独滚动以访问按钮。窄屏、短窗口或键盘占用后高度不足时回到限宽 672 的整页单列滚动。两面板和主滚动容器通过页面内的稳定 Key 保持既有子树／滚动 State；内容构建放在尺寸布局计算之外，避免键盘动画重复重建编辑表单。沿用 controller、路由及原有下拉刷新。
 - Scan 保留整窗 viewport、既有取景框与 capture orientation，顶部／底部控件及结果条尊重左右安全区并限宽 560。拍照开始后若窗口 metrics 变化，丢弃该次结果并按既有失败卡片允许重试；不把旧几何对应的图片发送识别，活动队列和相机会话不因重排重建。
 
 ### 9.3 验证与边界
@@ -148,3 +148,61 @@ Duo 真机、普通 iPhone／Android 真机、系统完整分屏矩阵、真实�
 用户恢复 Device Hub 后，通过原生窗口截图实际观察到展开内屏的 Home 双栏及右侧完整五入口。68×380 胶囊呈修长比例，Scan 按钮位于中间，入口间距均匀；时间和信号显示在上方独立区域，未见导航遮挡系统状态或正文。该结果补齐最新比例版内屏首页的目视检查，不扩展为全页面、外屏或完整折叠矩阵验收。
 
 随后用户自行进入 Scan，较晚取得的 `simctl` 截图已是扫描页面，保留为 `/private/tmp/kd-iphone-duo-adapted/duo-scan-inspection-20261118.png` 及对应原图，不将它标作导航截图。为保留用户正在操作的扫描状态，本轮未切换页面。仅补充运行画面观察与记录，没有修改 App 源码、重建安装包或重复运行上一轮已完成的测试。
+
+### 9.5 卡牌详情固定左栏（2026-11-18）
+
+用户要求从 Search 进入卡牌详情后，右侧信息滚动时左侧图片区域保持固定。原实现将两栏放在同一个 SingleChildScrollView 内，右侧滚动会同时移动左侧；修改前在 951×669／right 84／bottom 34 下，iOS 和 Android 的针对性测试均复现：向上滑动 240 后，Hero 顶部从 20 变为 -220。
+
+当前按第 9.2 节的局部尺寸规则拆分双栏滚动，左侧包含卡图、返回／收藏入口及主按钮。普通手机、短窗口和键盘占用后空间不足时继续整页单列滚动。保留同一页面、面板和主滚动 State，布局切换不丢失编辑文本；内容与约束计算分离，避免键盘动画重复构建表单。该布局由通用 CardDetailPage 承担，Search、收藏及 Scan 入口沿用各自既有业务语义，没有新增路由或修改平台策略。
+
+- **测试：**新增 iOS／Android 回归覆盖右侧滚动时 Hero 与主按钮的矩形保持不变、窄屏整页滚动、主滚动 State 连续性、较短双栏下左侧按钮可达且不带动右侧、编辑草稿在宽窄／键盘切换时保持。`flutter test --no-pub test/widget/card_detail_page_test.dart test/widget/kando_responsive_test.dart test/widget/search_page_test.dart` 最终 145 项全部通过，退出 0，包含既有双端键盘动画和 Search 进出详情的回归。`flutter analyze --no-pub` 无问题；未更新 golden。
+- **模拟器：**隔离 test／Debug-test 预览构建成功并安装到同一 Duo，版本仍为 1.0.7+213。产物来源为 `72b293fd` 加本轮未提交改动，不能标为纯提交构建；已安装 Flutter kernel 与构建产物 SHA-256 一致，记录见 `pinned-detail-installed-identity.json`。从 Search 点击用户截图中的 Fuecoco - 126/M-P，实际拖动右侧至 Market Prices／Shop 后，左侧卡图、返回和 VIEW SOLD LISTINGS 按钮位置保持不变。
+- **证据：**本机 `/private/tmp/kd-iphone-duo-adapted/` 保留 `pinned-detail-before.log`、`pinned-detail-ime.log`、`pinned-detail-regression-final.log`、`analyze-pinned-detail-final.log`、`build-pinned-detail-final.log`、滑动前后的 `pinned-detail-before-scroll.png`／`pinned-detail-after-scroll.png` 和展示缩略图 `pinned-detail-preview.png`。
+- **Code Review：**自审通过，检查了左右滚动隔离、窄屏与短高度回退、稳定 Key 的作用域、下拉刷新、主滚动容器及键盘编辑状态；修改仅涉及详情布局、对应测试和本方案文档。
+- **边界：**本轮仅改 Flutter 布局，未修改 Android 原生／SDK／签名配置；完成双端 widget 回归，未重建本轮 Android APK 或进行 Android 设备运行。iOS 继续保留第 8 节 OCR 预览例外，本次结果只证明所述 UI 行为。未提交／推送 Git、发布商店制品或改动远端环境。
+
+### 9.6 Profile 宽屏分区（2026-11-18）
+
+用户要求重新整理 Duo 的 Profile 页面。原来整个 Profile 在共享壳层限宽 560，展开后仍是窄长列表，支持和法律入口落在首屏之外。本轮为布局迭代：页面自行管理阅读宽度，安全区内宽度至少 840、扣除上下安全区后高度至少 528 时使用最大 1040 的双栏；左侧从上到下为免费用户的既有会员卡片、Account 账户卡片、独立的 Subscribe／Restore 分组、退出或删除入口及版本号，右侧为支持和法律条款。两栏间距 32，常用入口使用最小 64 高的紧凑行，保留原有字号、图标、暗色卡片和品牌色；文字增大时由内容自然撑高，并可整页滚动。Duo 右栏导航模式下移除 Profile 的底部导航预留空白。
+
+窄窗口及短高度仍采用最大 560 的单列及原始会员 banner、分组和行高。页面状态、下拉刷新、账号／恢复购买、客服、评分、分享、条款、退出／删除及版本入口沿用当前回调；Android 仍隐藏 Apple 订阅和恢复入口，保留竖屏／免费首版规则。账户和反馈详情页继续采用原 390 画布。
+
+- **回归：**`flutter test --no-pub test/widget/auth_profile_test.dart test/widget/app_shell_test.dart test/widget/kando_responsive_test.dart` 为 154 项通过、5 项失败，退出 1。5 项均为既有 golden 差异；本轮实际截图与上一轮保存的未修改基线逐字节一致，包含 Profile banner、导航及订阅 sheet／成功页，没有更新或放宽 golden。新增 3 项专项用例全部通过，覆盖 iOS／Android 宽屏首屏入口可达、原生动作与分享定位调用、窄屏状态延续，以及 Premium、短高度和双倍文字场景。`flutter analyze --no-pub` 无问题，退出 0。
+- **Code Review：**自审通过：只解除共享壳层对 Profile 的固定限宽，其他主 Tab 的 1200 上限不变；Profile 自行保证窄屏／短窗口最大 560，账户及反馈详情仍为 390。所有动作沿用原回调，恢复过程的遮挡与返回阻断保留。未修改 API、平台判断、原生方向或商业策略。
+- **验证边界：**本轮为 Flutter 页面布局，Android 完成相关 widget 回归，未重建 APK 或运行 Android 设备；真实购买／恢复、OAuth、删除及分享发送没有操作。模拟器沿用第 8 节的 ML Kit 隔离 UI 预览工程，不能用于完整扫描／OCR 验收。未提交／推送 Git、部署远端或发布商店制品。
+
+- **模拟器实测：**Xcode test／Debug-test／arm64 构建成功，版本 1.0.7+213；已顺序安装并启动 Duo，关闭启动订阅页，进入 Profile，展开内屏后确认双栏及右侧导航完整显示，账户、支持、条款、删除入口与版本号在首屏可见。已安装 Flutter kernel 与本次产物一致，SHA-256 为 `f69b2286f4a9be30e964e2ceb6772f8502cc65fecfa704e2db708c4d96fea621`；来源为 `72b293fd` 加未提交的详情／Profile 改动。模拟器保留在此页供用户查看。
+- **证据与清理：**本机 `/private/tmp/kd-iphone-duo-adapted/` 保留 `profile-layout-focused-final.log`、`profile-layout-regression.log`、`profile-layout-golden-comparison.json`、`analyze-profile-layout.log`、`build-profile-layout.log`、`profile-layout-installed-identity.json`、`profile-layout-inner.png` 和 `profile-layout-preview.png`。构建结束后清理本任务编译中间文件／模块缓存及测试诊断转储，保留最终安装包、隔离原生工程、旧预览和验证证据，不影响 Android 制品或共享缓存。
+
+同日按用户反馈，将宽屏左侧的会员卡片与账户分组互换：会员卡片在上、账户／恢复购买在下，间距仍为 32；Android 和 Premium 无会员卡片时没有额外空白。仅调整现有排列及对应断言，`flutter test --no-pub test/widget/auth_profile_test.dart --plain-name 'wide Profile'` 3 项通过，`flutter analyze --no-pub` 无问题，均退出 0；未重复上一轮整套 golden。自审确认窄屏、平台策略及回调保持原样。重新构建并安装同一隔离预览包后，已实际核对 Duo 展开内屏的卡片顺序，模拟器停在 Profile。安装 kernel 与产物一致，SHA-256 为 `ef1957e59376d40f76eb42f6c314028897b631b04ce393787af2d87170c339d9`。本机证据使用 `profile-banner-top-*`、`analyze-profile-banner-top.log` 和 `build-profile-banner-top.log`；清理本次无活动依赖的编译中间文件／模块缓存，保留最终包及证据。Android 未重建或上机、ML Kit 预览例外及未提交／推送／发布边界沿用上段。
+
+随后按用户要求，将 Restore 从 Account 卡片中拆出，恢复独立卡片及原有 `SUBSCRIBE` 标题，放在 Account 下方，分组间距 24；会员卡片继续置顶。复用同一 Restore 回调，Android 继续隐藏该分组。上述 3 项相关布局测试及 `flutter analyze --no-pub` 再次通过，退出 0，自审通过；未重复整套 golden 或重建 Android APK。隔离 UI 预览构建、安装和启动成功，已目视确认 Duo 内屏的会员卡片、Account、Subscribe／Restore 顺序及首屏可达，模拟器停留在此页。已安装 kernel 与产物一致，SHA-256 为 `a5aac13c15ca8b6cbf509ec94f5cb15cd3f30b7366c26ea70e19158b89178625`。本机证据使用 `profile-restore-section-*`、`analyze-profile-restore-section.log` 和 `build-profile-restore-section.log`，仅清理本次无活动依赖的编译中间文件／模块缓存，保留最终包与截图。其余验证和发布边界沿用上段。
+
+
+### 9.7 折叠外屏恢复两列（2026-11-18）
+
+用户截图中 Collection 外屏显示单列。实际 466 宽扣除右安全区 84 和页面左右各 20 后，网格净宽为 342；旧公式将卡宽 170 作为硬下限，连同列间距 10 要求至少 350 才能显示两列，导致 Search 和 Collection 外屏均降为一列。修复前在相同尺寸／安全区下，iOS 和 Android 共 4 项页面测试均失败，首两张卡纵向分开 388，证实根因。
+
+共享网格保留宽屏原有列数计算，仅在局部净宽至少 320 时保证两列；宽度门槛继续随文字倍率提高，极窄或大字体可回到一列。Duo 外屏卡宽为 166，展开仍四列；卡片样式、行距、字号、图片比例和操作逻辑沿用原组件。Search、Collection 的 Portfolio／Wishlist 以及使用同一网格的 Set Detail 均在影响范围内；导航、方向、API、数据及双端商业策略不变。
+
+- **回归：**修复前失败的 4 项 Duo 页面测试在相同尺寸／安全区下全部通过；Search 搜索词及页面 State、Collection 的 Portfolio／Wishlist 和页面 State 在折叠／展开后保持。完整受影响命令 `flutter test --no-pub test/widget/search_page_test.dart test/widget/collection_page_test.dart test/widget/set_detail_page_test.dart test/widget/kando_responsive_test.dart` 共 115 项全部通过，退出 0；包含 320 净宽两列、300 净宽单列、大字体单列及操作／价格区域不越界，普通手机和 Set Detail 原有尺寸回归通过。`flutter analyze --no-pub` 无问题，退出 0。
+- **Code Review：**自审通过。两列下限只影响原公式会产生一列且满足紧凑宽度门槛的场景，三列及以上的计算保持原样；文字缩放和卡片高度规则保留。共享修复覆盖三个直接调用方，不增加设备型号判断、不修改卡片或页面业务。双端完成 widget 回归；本轮未重建 Android APK 或运行 Android 设备。
+
+- **模拟器实测：**同一隔离 test／Debug-test／arm64 预览包构建成功并安装启动，版本 1.0.7+213，来源为 `72b293fd` 加未提交改动；已安装 kernel 与产物一致，SHA-256 为 `30b77d14122fdf160bb1b8203812f010c52cbfed2dccd5616d512182e1882dcf`。实际查看 Search 和 Collection，外屏均为两列、展开均为四列；重新折叠后 Collection 仍保持两列及原 Main 文件夹／7 张卡，未操作收藏写入。最终停留在折叠 Collection。部分卡图显示既有占位图，本轮只验收网格布局。
+- **证据与边界：**本机 `/private/tmp/kd-iphone-duo-adapted/` 保留 `folded-grid-before.log`、`folded-grid-focused.log`、`folded-grid-regression.log`、`analyze-folded-grid.log`、`build-folded-grid.log`、`folded-grid-installed-identity.json`、`folded-grid-search.png`／`folded-grid-collection.png`、两页 `*-open.png` 与并排预览 `folded-grid-preview.png`。保留第 8 节 ML Kit 隔离 UI 预览例外；未进行完整扫描／OCR、真机或 Android 上机验证，未提交／推送 Git 或发布远端。
+- **清理：**确认无活动 xcodebuild 后，仅删除本任务 DerivedData 的编译中间文件、模块缓存和索引，释放约 1.23 GB；最终 Runner.app、隔离工程、日志截图、旧验收证据与 Android 制品均保留，删除结果记录在 `folded-grid-cleanup.json`。最终 `git diff --check` 通过。
+
+
+### 9.8 Overview 固定顶栏与左侧资产区（2026-11-18）
+
+用户要求展开内屏 Home 的 Overview 仅右侧 Most Valuable／Trending Today 区域上下滚动。原实现把顶栏、左右两栏放入同一 SingleChildScrollView；在 951×669／右安全区 84／底安全区 34 下，iOS 和 Android 的修改前测试均复现：右侧上滑 180 后，Overview 顶部从 8 移到 -172。当前仅在满足第 9.2 节空间条件的 Overview 双栏中，将右侧列表作为主滚动区；顶栏和左侧资产／图表处于滚动容器之外，左右模块位置、间距、字号和样式保留。下拉刷新仍通过该主滚动区使用原回调；Performance、窄屏和空间不足时继续整页滚动。平台方向、免费／订阅策略、API 和数据未改。
+
+- **专项回归：**7 项全部通过，包含 iOS／Android 右侧上滑时顶栏、货币、文件夹和图表矩形不变、左侧手势不移动页面、右侧下拉触发原刷新、短窗口／外屏／1.2 倍字体回到整页滚动、空收藏两个主动作可达，以及折叠前后页面、主滚动和横向卡片 Scrollable State 与横向位置保持。初始空态测试的 iOS 默认测试字体引起虚假换行，改用既有生产字体加载辅助后通过；没有修改生产字体／卡片样式。
+- **额外压力检查边界：**曾测试 1.5 倍文字；旧源码的同尺寸重放同样复现顶栏标签、固定高度卡片的溢出，证据保留在 `home-pinned-large-text-baseline.log`。本轮未扩大修改这些既有固定字号／高度组件，不能把 1.2 倍专项通过扩展为任意大字体已验收。
+- **底部空间修正：**初版模拟器检查发现右侧仍有底栏留白。LayoutBuilder 内的局部 context 已被 SafeArea 清除右安全区，导致侧栏判断误用底部 132 预留；改为使用页面原始 context，侧栏模式按底部安全区保留 34。新增滚动区底边断言在修复前 iOS 为 537、预期 635，Android 保持 537；修复后两端均通过，同组 7 项专项再次全部通过。失败证据为 `home-pinned-padding-before.log`。
+
+- **完整受影响回归：**底部空间修正后重新运行 `flutter test --no-pub test/widget/home_page_test.dart test/widget/app_shell_test.dart test/widget/kando_responsive_test.dart`，最终为 104 通过、5 失败，退出 1；5 项均为既有 golden 差异，对应 6 张本次实际图片与先前保存的未修改源码基线再次逐字节一致，没有更新 golden。初次扩展回归中，新测试提前加载真实字体影响后续两个旧几何断言；将这组使用字体加载的新增测试放到既有测试之后，恢复测试隔离，两个断言重新通过。`flutter analyze --no-pub` 再次无问题，退出 0。失败图像已归档，按 Git 跟踪状态仅清理本轮生成的未跟踪诊断。
+- **Code Review：**自审通过。确认五个既有分区的参数与回调除格式外一致，布局仅在 Overview 满足宽高条件时分离；顶栏及资产区不在右侧主滚动的祖先链中。检查了空收藏 410 高面板所需的额外空间、底部安全区／导航预留、文字倍率、下拉刷新通知和 State 在宽窄切换中的连续性。未修改共享壳层或其他页面源码；Android 方向、免费策略与 iOS 订阅策略保留。未重建 Android APK 或运行 Android 设备。
+- **模拟器实测：**底部空间修正后的隔离 test／Debug-test／arm64 UI 预览构建成功，顺序安装并启动同一 Duo，版本 1.0.7+213；来源为 `72b293fd` 加未提交改动。安装 kernel 与批准产物 SHA-256 一致，为 `615cfb1d48f075e817796ac9eed6aec664d5bc78a391c5b7053186051bc78036`。展开 Overview 后，实际向上拖动右侧列表，Most Valuable 和 Trending Today 一起移动，顶栏、货币按钮和左侧资产／图表固定；右侧延伸至底部安全区。滑动前后截图对比，顶栏及左侧内容区域像素完全一致，右侧发生变化。最终停留在展开 Overview，没有操作购买或收藏写入。
+- **证据与边界：**本机 `/private/tmp/kd-iphone-duo-adapted/` 保留 `home-pinned-focused-final.log`、`home-pinned-regression-final.log`、`home-pinned-golden-comparison.json`、`home-pinned-golden-evidence.zip`、`analyze-home-pinned-final.log`、`build-home-pinned-final.log`、`home-pinned-installed-identity.json`、`home-pinned-before-scroll.png`／`home-pinned-after-scroll.png`、`home-pinned-scroll-comparison.json` 和 `home-pinned-preview.png`。第 8 节 ML Kit 隔离 UI 预览例外继续适用，不代表完整扫描／OCR 或真机验证；Android 完成 widget 回归，未重建 APK 或上机。未提交／推送 Git、改动远端环境或发布商店制品。
+- **清理：**确认构建／测试进程已结束后，删除本任务 DerivedData 的编译中间文件、模块缓存和索引，释放约 1.32 GB，四个目标目录均已不存在；保留最终 Runner.app、隔离工程、Android 制品及上述证据。清理结果见 `home-pinned-cleanup.json`；最终 `git diff --check` 通过。

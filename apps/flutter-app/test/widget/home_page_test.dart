@@ -454,6 +454,21 @@ void main() {
     final pageState = tester.state(find.byType(HomePage));
     await tester.tap(find.byKey(const Key('home-hide-amount')));
     await tester.pumpAndSettle();
+    final cardsList = find.byKey(const Key('home-most-valuable-list'));
+    final carousel = tester.state<ScrollableState>(
+      find.descendant(of: cardsList, matching: find.byType(Scrollable)),
+    );
+    await tester.drag(cardsList, const Offset(-40, 0));
+    await tester.pumpAndSettle();
+    final carouselOffset = carousel.position.pixels;
+    expect(carouselOffset, greaterThan(0));
+    final verticalScroll = find
+        .descendant(
+          of: find.byKey(const Key('home-normal-content')),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    final scrollState = tester.state<ScrollableState>(verticalScroll);
     for (final size in [
       const Size(951, 669),
       const Size(466, 678),
@@ -473,6 +488,14 @@ void main() {
         expect(cards.top, greaterThan(chart.bottom));
       }
       expect(tester.state(find.byType(HomePage)), same(pageState));
+      expect(tester.state<ScrollableState>(verticalScroll), same(scrollState));
+      expect(
+        tester.state<ScrollableState>(
+          find.descendant(of: cardsList, matching: find.byType(Scrollable)),
+        ),
+        same(carousel),
+      );
+      expect(carousel.position.pixels, closeTo(carouselOffset, 0.01));
       expect(find.text(hiddenMoneyText), findsOneWidget);
       expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -3804,6 +3827,165 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets('Duo $platform Overview only scrolls the right lists', (
+      tester,
+    ) async {
+      final fonts = (await tester.runAsync(_readProductionHomeFonts))!;
+      await _loadProductionHomeFonts(fonts);
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(951, 669);
+      tester.view.padding = const FakeViewPadding(right: 84, bottom: 34);
+      addTearDown(tester.view.reset);
+      final repository = _CountingHomeRepository();
+      await tester.pumpWidget(
+        _mockResponsiveHomeApp(
+          platform: platform,
+          isAndroidFreeLaunch: platform == TargetPlatform.android,
+          homeRepository: repository,
+        ),
+      );
+      await _waitForHomeAuth(tester);
+      final fixed = [
+        find.byKey(const Key('home-overview-tab')),
+        find.byKey(const Key('home-currency-control')),
+        find.byKey(const Key('home-overview-folder')),
+        find.byKey(const Key('home-portfolio-chart')),
+      ];
+      final before = fixed.map(tester.getRect).toList();
+      expect(
+        tester.getRect(find.byKey(const Key('home-normal-content'))).bottom,
+        platform == TargetPlatform.iOS ? 669 - 34 : 669 - 132,
+      );
+      final lists = find.byKey(const Key('home-most-valuable-list'));
+      final listTop = tester.getTopLeft(lists).dy;
+      await tester.drag(find.text('Trending Today'), const Offset(0, -180));
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(lists).dy, lessThan(listTop));
+      for (var index = 0; index < fixed.length; index++) {
+        expect(tester.getRect(fixed[index]), before[index]);
+      }
+      await tester.drag(
+        find.byKey(const Key('home-hide-amount')),
+        const Offset(0, -100),
+      );
+      await tester.pumpAndSettle();
+      for (var index = 0; index < fixed.length; index++) {
+        expect(tester.getRect(fixed[index]), before[index]);
+      }
+      final calls = repository.calls;
+      tester
+          .state<ScrollableState>(
+            find
+                .descendant(
+                  of: find.byKey(const Key('home-normal-content')),
+                  matching: find.byType(Scrollable),
+                )
+                .first,
+          )
+          .position
+          .jumpTo(0);
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byKey(const Key('home-normal-content')),
+        const Offset(0, 800),
+      );
+      await tester.pumpAndSettle();
+      expect(repository.calls, greaterThan(calls));
+      for (var index = 0; index < fixed.length; index++) {
+        expect(tester.getRect(fixed[index]), before[index]);
+      }
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+      'Duo $platform Overview scrolls as a page when space is tight',
+      (tester) async {
+        final fonts = (await tester.runAsync(_readProductionHomeFonts))!;
+        await _loadProductionHomeFonts(fonts);
+        tester.view.devicePixelRatio = 1;
+        tester.view.padding = const FakeViewPadding(right: 84, bottom: 34);
+        addTearDown(tester.view.reset);
+        for (final scenario in [
+          (size: const Size(466, 678), textScale: 1.0),
+          (size: const Size(951, 420), textScale: 1.0),
+          (size: const Size(951, 560), textScale: 1.2),
+        ]) {
+          tester.view.physicalSize = scenario.size;
+          await tester.pumpWidget(
+            _mockResponsiveHomeApp(
+              platform: platform,
+              isAndroidFreeLaunch: platform == TargetPlatform.android,
+              homeRepository: const MockHomeRepository(),
+              textScale: scenario.textScale,
+            ),
+          );
+          await _waitForHomeAuth(tester);
+          final scroll = find.byKey(const Key('home-normal-content'));
+          final scrollState = tester.state<ScrollableState>(
+            find
+                .descendant(of: scroll, matching: find.byType(Scrollable))
+                .first,
+          );
+          scrollState.position.jumpTo(0);
+          await tester.pumpAndSettle();
+          final tab = find.byKey(const Key('home-overview-tab'));
+          final chart = find.byKey(const Key('home-portfolio-chart'));
+          final cards = find.byKey(const Key('home-most-valuable-list'));
+          expect(
+            tester.getTopLeft(cards).dy,
+            greaterThan(tester.getRect(chart).bottom),
+          );
+          final top = tester.getTopLeft(tab).dy;
+          final rect = tester.getRect(scroll);
+          await tester.dragFrom(
+            Offset(rect.right - 5, rect.bottom - 40),
+            const Offset(0, -140),
+          );
+          await tester.pumpAndSettle();
+          expect(tester.getTopLeft(tab).dy, lessThan(top));
+          expect(tester.takeException(), isNull);
+        }
+      },
+    );
+    testWidgets('Duo $platform empty Overview keeps both actions reachable', (
+      tester,
+    ) async {
+      final fonts = (await tester.runAsync(_readProductionHomeFonts))!;
+      await _loadProductionHomeFonts(fonts);
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(right: 84, bottom: 34);
+      addTearDown(tester.view.reset);
+      tester.view.physicalSize = const Size(951, 669);
+      await tester.pumpWidget(
+        _mockResponsiveHomeApp(
+          platform: platform,
+          isAndroidFreeLaunch: platform == TargetPlatform.android,
+        ),
+      );
+      await _waitForHomeAuth(tester);
+      for (final size in [
+        const Size(951, 669),
+        const Size(951, 560),
+        const Size(466, 678),
+      ]) {
+        tester.view.physicalSize = size;
+        await tester.pumpAndSettle();
+        for (final key in [
+          'home-portfolio-empty-scan',
+          'home-portfolio-empty-search',
+        ]) {
+          final action = find.byKey(Key(key));
+          await tester.ensureVisible(action);
+          await tester.pumpAndSettle();
+          expect(tester.getRect(action).top, greaterThanOrEqualTo(0));
+          expect(tester.getRect(action).bottom, lessThanOrEqualTo(size.height));
+        }
+        expect(tester.takeException(), isNull);
+      }
+    });
+  }
+
 }
 
 _searchOverrides() {

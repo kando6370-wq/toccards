@@ -73,10 +73,7 @@ class KandoTabScaffold extends ConsumerWidget {
               child: SafeArea(
                 top: false,
                 bottom: false,
-                child: KandoContentWidth(
-                  maxWidth: currentTab == KandoMainTab.profile ? 560 : 1200,
-                  child: body,
-                ),
+                child: KandoContentWidth(maxWidth: 1200, child: body),
               ),
             ),
             if (showPendingNotice)

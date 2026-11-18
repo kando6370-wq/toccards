@@ -124,6 +124,9 @@ class CardDetailPage extends ConsumerStatefulWidget {
 class _CardDetailPageState extends ConsumerState<CardDetailPage> {
   bool _trackedView = false;
   bool _isItemEditSheetOpen = false;
+  final _primaryPaneKey = GlobalKey();
+  final _informationPaneKey = GlobalKey();
+  final _informationScrollKey = GlobalKey();
 
   @override
   void didUpdateWidget(covariant CardDetailPage oldWidget) {
@@ -171,6 +174,64 @@ class _CardDetailPageState extends ConsumerState<CardDetailPage> {
         state.assetStateStatus == KandoLoadStatus.loading;
     _trackViewWhenLoaded(state);
 
+    final primary = KeyedSubtree(
+      key: _primaryPaneKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _CardHero(
+            state: state,
+            controller: controller,
+            entrySource: widget.entrySource,
+            isGenericEntry: !hasExplicitCollectionItem,
+            onBack: () => _goBack(context, controller),
+          ),
+          const SizedBox(height: 10),
+          _PrimaryActions(state: state),
+          if (state.assetStateStatus == KandoLoadStatus.failure) ...[
+            const SizedBox(height: 12),
+            KandoFailureBlock(
+              key: const Key('card-detail-asset-state-failure'),
+              onRefresh: controller.refreshAssetState,
+            ),
+          ],
+        ],
+      ),
+    );
+    final information = KeyedSubtree(
+      key: _informationPaneKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (isResolvingExplicitCollectionItem)
+            const _OwnedDetailTabsSkeleton()
+          else if (hasExplicitCollectionItem)
+            _OwnedDetailTabs(
+              key: ValueKey(currentCollectionItemId),
+              state: state,
+              controller: controller,
+              entrySource: widget.entrySource,
+              isPro: isPro,
+              currentCollectionItemId: currentCollectionItemId,
+            )
+          else
+            _GenericCardDetailSections(
+              state: state,
+              controller: controller,
+              isPro: isPro,
+              selectedFolderId: selectedFolderId,
+              onEditItem: (itemId) => _openItemEditor(controller, itemId),
+            ),
+          if (state.assetStateStatus == KandoLoadStatus.content &&
+              state.detail.isWishlisted &&
+              !state.detail.isCollected) ...[
+            const SizedBox(height: 28),
+            _RemoveWishlistButton(controller: controller),
+          ],
+        ],
+      ),
+    );
+
     final page = Scaffold(
       backgroundColor: KandoColors.ink,
       bottomNavigationBar:
@@ -211,74 +272,65 @@ class _CardDetailPageState extends ConsumerState<CardDetailPage> {
                             .track(AnalyticsEvent.refreshClick);
                         return controller.refresh();
                       },
-                      child: SingleChildScrollView(
-                        key: const Key('card-detail-scroll'),
-                        keyboardDismissBehavior:
-                            ScrollViewKeyboardDismissBehavior.onDrag,
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.only(top: 20, bottom: 28),
-                        child: KandoAdaptiveColumns(
-                          key: const Key('card-detail-columns'),
-                          primaryFraction: 0.42,
-                          gap: 28,
-                          primary: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _CardHero(
-                                state: state,
-                                controller: controller,
-                                entrySource: widget.entrySource,
-                                isGenericEntry: !hasExplicitCollectionItem,
-                                onBack: () => _goBack(context, controller),
-                              ),
-                              const SizedBox(height: 10),
-                              _PrimaryActions(state: state),
-                              if (state.assetStateStatus ==
-                                  KandoLoadStatus.failure) ...[
-                                const SizedBox(height: 12),
-                                KandoFailureBlock(
-                                  key: const Key(
-                                    'card-detail-asset-state-failure',
+                      child: LayoutBuilder(
+                        key: const Key('card-detail-columns'),
+                        builder: (context, constraints) {
+                          // Reparent the existing panes and scroll state when
+                          // folding or opening the keyboard changes the layout.
+                          Widget informationScroll(Widget child) =>
+                              KeyedSubtree(
+                                key: _informationScrollKey,
+                                child: SingleChildScrollView(
+                                  key: const Key('card-detail-scroll'),
+                                  keyboardDismissBehavior:
+                                      ScrollViewKeyboardDismissBehavior.onDrag,
+                                  physics:
+                                      const AlwaysScrollableScrollPhysics(),
+                                  padding: const EdgeInsets.only(
+                                    top: 20,
+                                    bottom: 28,
                                   ),
-                                  onRefresh: controller.refreshAssetState,
+                                  child: child,
                                 ),
-                              ],
-                            ],
-                          ),
-                          secondary: Column(
+                              );
+                          if (constraints.maxWidth < 800 ||
+                              constraints.maxHeight < 480) {
+                            return informationScroll(
+                              KandoContentWidth(
+                                maxWidth: 672,
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    primary,
+                                    const SizedBox(height: 28),
+                                    information,
+                                  ],
+                                ),
+                              ),
+                            );
+                          }
+                          return Row(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              if (isResolvingExplicitCollectionItem)
-                                const _OwnedDetailTabsSkeleton()
-                              else if (hasExplicitCollectionItem)
-                                _OwnedDetailTabs(
-                                  key: ValueKey(currentCollectionItemId),
-                                  state: state,
-                                  controller: controller,
-                                  entrySource: widget.entrySource,
-                                  isPro: isPro,
-                                  currentCollectionItemId:
-                                      currentCollectionItemId,
-                                )
-                              else
-                                _GenericCardDetailSections(
-                                  state: state,
-                                  controller: controller,
-                                  isPro: isPro,
-                                  selectedFolderId: selectedFolderId,
-                                  onEditItem: (itemId) =>
-                                      _openItemEditor(controller, itemId),
+                              SizedBox(
+                                width: (constraints.maxWidth - 28) * 0.42,
+                                child: SingleChildScrollView(
+                                  key: const Key('card-detail-primary-scroll'),
+                                  primary: false,
+                                  physics: const ClampingScrollPhysics(),
+                                  padding: const EdgeInsets.only(
+                                    top: 20,
+                                    bottom: 28,
+                                  ),
+                                  child: primary,
                                 ),
-                              if (state.assetStateStatus ==
-                                      KandoLoadStatus.content &&
-                                  state.detail.isWishlisted &&
-                                  !state.detail.isCollected) ...[
-                                const SizedBox(height: 28),
-                                _RemoveWishlistButton(controller: controller),
-                              ],
+                              ),
+                              const SizedBox(width: 28),
+                              Expanded(child: informationScroll(information)),
                             ],
-                          ),
-                        ),
+                          );
+                        },
                       ),
                     ),
                   ),

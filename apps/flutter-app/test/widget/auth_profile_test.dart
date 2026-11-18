@@ -2803,6 +2803,156 @@ void main() {
   );
 
   testWidgets(
+    'wide Profile keeps grouped actions reachable across platforms and resizing',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(951, 669);
+      tester.view.padding = const FakeViewPadding(right: 84, bottom: 34);
+      addTearDown(tester.view.reset);
+      final android = defaultTargetPlatform == TargetPlatform.android;
+      final actions = _WidgetProfileActions();
+      await tester.pumpWidget(
+        _testApp(
+          _WidgetAuthRepository(initialSession: AuthSession(
+            ownerType: OwnerType.anonymous,
+            accessToken: 'duo-access', refreshToken: 'duo-refresh',
+            anonymousId: 'duo-guest',
+            platform: android ? AppPlatform.android : AppPlatform.ios,
+            dataSpaceId: 'duo-space',
+          )),
+          profileActions: actions,
+          commercialPolicy: AppCommercialPolicy(isAndroidFreeLaunch: android),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _openProfileTab(tester);
+      final profile = tester.element(find.byType(ProfilePage));
+      final account = tester.getRect(
+        find.byKey(const Key('profile-account-section')),
+      );
+      final support = tester.getRect(
+        find.byKey(const Key('profile-support-section')),
+      );
+      if (android) {
+        expect(account.top, support.top);
+      } else {
+        final banner = tester.getRect(
+          find.byKey(const Key('profile-upgrade-banner')),
+        );
+        expect(banner.top, support.top);
+        expect(account.top - banner.bottom, closeTo(32, 0.01));
+      }
+      expect(support.left - account.right, closeTo(32, 0.01));
+      expect(support.right, lessThanOrEqualTo(951 - 84 - 20));
+      for (final label in [
+        'Sign in / Sign up',
+        'Customer Support',
+        'Score',
+        'Share With Friends',
+        'Terms Of Use',
+        'Privacy Policy',
+        'Delete Account',
+      ]) {
+        expect(find.text(label).hitTestable(), findsOneWidget);
+      }
+      expect(
+        find.byKey(const Key('profile-version-text')).hitTestable(),
+        findsOneWidget,
+      );
+      expect(find.text('Restore'), android ? findsNothing : findsOneWidget);
+      expect(find.text('SUBSCRIBE'), android ? findsNothing : findsOneWidget);
+      if (!android) {
+        expect(find.text('Restore').hitTestable(), findsOneWidget);
+        expect(
+          tester.getRect(find.text('SUBSCRIBE')).top,
+          greaterThan(account.bottom),
+        );
+      }
+      expect(find.text('Upgrade Now'), android ? findsNothing : findsOneWidget);
+      for (final label in [
+        'Score',
+        'Share With Friends',
+        'Terms Of Use',
+        'Privacy Policy',
+      ]) {
+        await tester.tap(find.text(label));
+        await tester.pumpAndSettle();
+      }
+      expect(actions.calls, ['score', 'share', 'terms', 'privacy']);
+      expect(actions.sharePositionOrigin?.isEmpty, isFalse);
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.padding = const FakeViewPadding(bottom: 34);
+      await tester.pumpAndSettle();
+      expect(tester.element(find.byType(ProfilePage)), same(profile));
+      expect(
+        tester.getSize(find.byKey(const Key('profile-content-list'))).width,
+        390,
+      );
+      if (!android) {
+        expect(
+          tester.getSize(find.byKey(const Key('profile-upgrade-banner'))),
+          const Size(350, 152),
+        );
+      }
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
+
+  testWidgets(
+    'wide Profile handles Premium accounts short windows and large text',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(951, 669);
+      tester.view.padding = const FakeViewPadding(right: 84, bottom: 34);
+      addTearDown(tester.view.reset);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await tester.pumpWidget(
+        _testApp(
+          _WidgetAuthRepository(initialSession: _userSession()),
+          subscriptionController: _ProSubscriptionController.new,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _openProfileTab(tester);
+      for (final label in [
+        'person@example.com',
+        'Restore',
+        'Log Out',
+        'Privacy Policy',
+      ]) {
+        expect(find.text(label).hitTestable(), findsOneWidget);
+      }
+      expect(find.text('Upgrade Now'), findsNothing);
+      expect(find.text('SUBSCRIBE'), findsOneWidget);
+      tester.view.physicalSize = const Size(951, 460);
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSize(find.byKey(const Key('profile-content-list'))).width,
+        560,
+      );
+      expect(find.text('SUBSCRIBE'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Privacy Policy'), 160);
+      await tester.pumpAndSettle();
+      expect(find.text('Privacy Policy').hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      tester.view.physicalSize = const Size(951, 669);
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      await tester.pumpAndSettle();
+      for (final label in ['Privacy Policy', 'Log Out']) {
+        await tester.ensureVisible(find.text(label));
+        await tester.pumpAndSettle();
+        expect(find.text(label).hitTestable(), findsOneWidget);
+      }
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant({TargetPlatform.iOS}),
+  );
+
+  testWidgets(
     'Profile tab limits reading width while detail pages keep the mobile canvas',
     (tester) async {
       tester.view.devicePixelRatio = 1;

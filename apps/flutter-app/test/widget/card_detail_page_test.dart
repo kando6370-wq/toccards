@@ -3218,6 +3218,123 @@ void main() {
     expect(find.byKey(const Key('card-detail-price-chart')), findsOneWidget);
   });
 
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets(
+      'wide CardDetail keeps the hero stationary while information scrolls on $platform',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(951, 669);
+        tester.view.padding = const FakeViewPadding(right: 84, bottom: 34);
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          _CardDetailTestApp(
+            cardId: 'squirtle',
+            collectionItemId: null,
+            platform: platform,
+          ),
+        );
+        await tester.pumpAndSettle();
+        final hero = find.byKey(const Key('card-detail-hero'));
+        final actions = find.byKey(const Key('card-detail-view-sold-listings'));
+        final chart = find.byKey(const Key('card-detail-price-chart'));
+        final scroll = find.byKey(const Key('card-detail-scroll'));
+        final initialHero = tester.getRect(hero);
+        final initialActions = tester.getRect(actions);
+        final initialChart = tester.getRect(chart);
+        final scrollRect = tester.getRect(scroll);
+        final scrollState = tester.state<ScrollableState>(
+          find.descendant(of: scroll, matching: find.byType(Scrollable)).first,
+        );
+        final pageState = tester.state(find.byType(CardDetailPage));
+
+        await tester.dragFrom(
+          Offset(scrollRect.right - 8, scrollRect.center.dy),
+          const Offset(0, -240),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.getRect(chart).top, lessThan(initialChart.top - 100));
+        expect(tester.getRect(hero), initialHero);
+        expect(tester.getRect(actions), initialActions);
+
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.padding = FakeViewPadding.zero;
+        await tester.pumpAndSettle();
+        final narrowHero = tester.getRect(hero);
+        final narrowScroll = tester.getRect(scroll);
+        await tester.dragFrom(
+          Offset(narrowScroll.right - 8, narrowScroll.center.dy),
+          const Offset(0, -120),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.getRect(hero).top, lessThan(narrowHero.top));
+        expect(tester.state(find.byType(CardDetailPage)), same(pageState));
+        expect(
+          tester.state<ScrollableState>(
+            find.descendant(of: scroll, matching: find.byType(Scrollable)).first,
+          ),
+          same(scrollState),
+        );
+        tester.view.physicalSize = const Size(951, 550);
+        tester.view.padding = const FakeViewPadding(right: 84, bottom: 34);
+        await tester.pumpAndSettle();
+        final informationOffset = scrollState.position.pixels;
+        await tester.ensureVisible(actions);
+        await tester.pumpAndSettle();
+        expect(
+          tester.getRect(actions).bottom,
+          lessThanOrEqualTo(
+            tester.getRect(
+              find.byKey(const Key('card-detail-primary-scroll')),
+            ).bottom,
+          ),
+        );
+        expect(scrollState.position.pixels, informationOffset);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'CardDetail keeps its editor mounted across pinned and stacked layouts on $platform',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(951, 900);
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          _CardDetailTestApp(cardId: 'charizard-ex', platform: platform),
+        );
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('Edit item'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Edit item'));
+        await tester.pumpAndSettle();
+        final quantity = find.byKey(const Key('card-detail-item-quantity'));
+        await tester.ensureVisible(quantity);
+        await tester.enterText(quantity, '7');
+        await tester.pumpAndSettle();
+        final editable = find.descendant(
+          of: quantity,
+          matching: find.byType(EditableText),
+        );
+        final fieldState = tester.state(editable);
+        final pageState = tester.state(find.byType(CardDetailPage));
+        for (final window in [
+          (const Size(951, 900), 300.0),
+          (const Size(390, 844), 300.0),
+          (const Size(951, 480), 0.0),
+          (const Size(951, 900), 0.0),
+        ]) {
+          tester.view.physicalSize = window.$1;
+          tester.view.viewInsets = FakeViewPadding(bottom: window.$2);
+          await tester.pumpAndSettle();
+          expect(tester.state(editable), same(fieldState));
+          expect(tester.widget<EditableText>(editable).controller.text, '7');
+          expect(tester.state(find.byType(CardDetailPage)), same(pageState));
+          expect(tester.takeException(), isNull);
+        }
+      },
+    );
+  }
+
   testWidgets('CardDetail changes columns without replacing its route state', (
     tester,
   ) async {
@@ -3229,7 +3346,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final scroll = tester.getRect(find.byKey(const Key('card-detail-scroll')));
-    expect(scroll.width, 984);
+    expect(scroll.width, closeTo((984 - 28) * 0.58, 0.01));
     final pageState = tester.state(find.byType(CardDetailPage));
     final hero = tester.getRect(find.byKey(const Key('card-detail-hero')));
     final tabs = tester.getRect(

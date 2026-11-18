@@ -36,6 +36,55 @@ import '../support/mock_collection_repository.dart';
 import '../support/mock_search_repository.dart';
 
 void main() {
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets('Duo $platform collection keeps two columns while folded', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(466, 678);
+      tester.view.padding = const FakeViewPadding(right: 84);
+      addTearDown(tester.view.reset);
+      await _pumpCollection(tester, platform: platform);
+      final pageState = tester.state(find.byType(CollectionPage));
+      for (final wishlist in [false, true]) {
+        if (wishlist) {
+          await tester.tap(find.text('Wishlist'));
+          await tester.pumpAndSettle();
+        }
+        for (final size in [
+          const Size(466, 678),
+          const Size(951, 669),
+          const Size(466, 678),
+        ]) {
+          tester.view.physicalSize = size;
+          await tester.pumpAndSettle();
+          final first = tester.getRect(
+            find.byKey(Key(
+              'search-card-${wishlist ? 'lorcana-elsa' : 'charizard-ex'}',
+            )),
+          );
+          final second = tester.getRect(
+            find.byKey(Key(
+              'search-card-${wishlist ? 'one-piece-luffy' : 'umbreon-vmax'}',
+            )),
+          );
+          final field = tester.getRect(
+            find.byKey(const Key('collection-search-field')),
+          );
+          expect(first.top, second.top);
+          expect(second.left - first.right, closeTo(10, 0.01));
+          expect(first.width, closeTo(second.width, 0.01));
+          final columns = (field.width + 10) / (first.width + 10);
+          expect(columns, closeTo(size.width > 760 ? 4 : 2, 0.01));
+          expect(tester.state(find.byType(CollectionPage)), same(pageState));
+          expect(first.left, field.left);
+          expect(field.right, lessThanOrEqualTo(size.width - 84 - 20));
+          expect(tester.takeException(), isNull);
+        }
+      }
+    });
+  }
+
   testWidgets(
     'Collection keeps static controls visible while data is pending',
     (tester) async {

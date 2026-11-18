@@ -39,49 +39,114 @@ import '../support/mock_collection_repository.dart';
 import '../support/mock_search_repository.dart';
 
 void main() {
-  testWidgets('Duo catalog adds columns and retains a search while folding', (
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets('Duo $platform catalog keeps two columns while folded', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(466, 678);
+      tester.view.padding = const FakeViewPadding(right: 84);
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ..._searchOverrides(),
+            appCommercialPolicyProvider.overrideWithValue(
+              AppCommercialPolicy(
+                isAndroidFreeLaunch: platform == TargetPlatform.android,
+              ),
+            ),
+          ],
+          child: _SearchTestApp(platform: platform),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final first = tester.getRect(
+        find.byKey(const Key('search-card-squirtle')),
+      );
+      final second = tester.getRect(
+        find.byKey(const Key('search-card-charizard-ex')),
+      );
+      expect(first.top, second.top);
+      expect(second.left - first.right, 10);
+      expect(first.width, 166);
+      expect(second.right, 466 - 84 - 20);
+      expect(tester.takeException(), isNull);
+      final pageState = tester.state(find.byType(SearchPage));
+      final field = find.descendant(
+        of: find.byKey(const Key('search-field')),
+        matching: find.byType(TextField),
+      );
+      await tester.enterText(field, 'Squirtle');
+      await tester.pumpAndSettle(const Duration(milliseconds: 400));
+      for (final size in [
+        const Size(951, 669),
+        const Size(466, 678),
+        const Size(951, 669),
+      ]) {
+        tester.view.physicalSize = size;
+        await tester.pumpAndSettle();
+        final grid = tester.widget<SliverGrid>(
+          find.byKey(const Key('search-results-grid')),
+        );
+        final delegate =
+            grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
+        expect(delegate.crossAxisCount, size.width > 760 ? 4 : 2);
+        expect(tester.state(find.byType(SearchPage)), same(pageState));
+        expect(tester.widget<TextField>(field).controller!.text, 'Squirtle');
+        expect(
+          find.descendant(
+            of: find.byType(SearchCardTile),
+            matching: find.text('Squirtle'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          tester.getRect(find.byKey(const Key('search-field'))).right,
+          lessThanOrEqualTo(size.width - 84 - 20),
+        );
+        expect(tester.takeException(), isNull);
+      }
+    });
+  }
+
+  testWidgets('compact catalog keeps readable cards at width and text limits', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(390, 844);
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: _searchOverrides(),
-        child: const _SearchTestApp(platform: TargetPlatform.iOS),
-      ),
-    );
-    await tester.pumpAndSettle();
-    final pageState = tester.state(find.byType(SearchPage));
-    final field = find.descendant(
-      of: find.byKey(const Key('search-field')),
-      matching: find.byType(TextField),
-    );
-    await tester.enterText(field, 'Squirtle');
-    await tester.pumpAndSettle(const Duration(milliseconds: 400));
-    for (final size in [const Size(951, 669), const Size(466, 678)]) {
-      tester.view.physicalSize = size;
-      tester.view.padding = const FakeViewPadding(right: 84);
+    for (final scenario in [
+      (width: 360.0, textScale: 1.0, columns: 2),
+      (width: 340.0, textScale: 1.0, columns: 1),
+      (width: 382.0, textScale: 1.5, columns: 1),
+    ]) {
+      tester.view.physicalSize = Size(scenario.width, 844);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: _searchOverrides(),
+          child: _SearchTestApp(textScale: scenario.textScale),
+        ),
+      );
       await tester.pumpAndSettle();
       final grid = tester.widget<SliverGrid>(
         find.byKey(const Key('search-results-grid')),
       );
       final delegate =
           grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
-      expect(delegate.crossAxisCount, size.width > 760 ? 4 : 1);
-      expect(tester.state(find.byType(SearchPage)), same(pageState));
-      expect(tester.widget<TextField>(field).controller!.text, 'Squirtle');
-      expect(
-        find.descendant(
-          of: find.byType(SearchCardTile),
-          matching: find.text('Squirtle'),
-        ),
-        findsOneWidget,
+      expect(delegate.crossAxisCount, scenario.columns);
+      final card = tester.getRect(
+        find.byKey(const Key('search-card-squirtle')),
       );
-      expect(
-        tester.getRect(find.byKey(const Key('search-field'))).right,
-        lessThanOrEqualTo(size.width - 84 - 20),
-      );
+      for (final key in [
+        'search-collect-squirtle',
+        'search-wishlist-squirtle',
+        'search-price-row-squirtle',
+      ]) {
+        final control = tester.getRect(find.byKey(Key(key)));
+        expect(control.left, greaterThanOrEqualTo(card.left));
+        expect(control.right, lessThanOrEqualTo(card.right));
+        expect(control.bottom, lessThanOrEqualTo(card.bottom));
+      }
       expect(tester.takeException(), isNull);
     }
   });

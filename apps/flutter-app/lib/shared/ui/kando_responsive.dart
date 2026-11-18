@@ -81,9 +81,12 @@ SliverGridDelegateWithFixedCrossAxisCount kandoCardGridDelegate(
   double availableWidth,
 ) {
   final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
-  final minimumCardWidth = 170 * textScale.clamp(1.0, 1.5);
+  final widthScale = textScale.clamp(1.0, 1.5);
+  final minimumCardWidth = 170 * widthScale;
+  // Allow a compact pair on phones after safe areas and page padding.
+  final minimumColumns = availableWidth >= 320 * widthScale ? 2 : 1;
   final columns = math.max(
-    1,
+    minimumColumns,
     ((availableWidth + 10) / (minimumCardWidth + 10)).floor(),
   );
   return SliverGridDelegateWithFixedCrossAxisCount(
