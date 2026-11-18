@@ -47,11 +47,11 @@ Title 与 Description 的逐页可执行真源为 [seo-pages.json](../../../../a
 | `/blog/` | 浏览收藏知识和对比文章 | Trading Card Values, Card Lists & App Comparisons \| CardScanFox |
 | `/blog/ascended-heroes-card-list` | 查系列卡表与具体印次 | Ascended Heroes Card List & Printing Guide \| CardScanFox |
 | `/blog/chaos-rising-card-list` | 查系列卡表和参考价 | Chaos Rising Card List & Price References \| CardScanFox |
-| `/blog/charizard-151-card-value` | 区分 151 喷火龙编号并查价值 | Charizard 151 Values: 006, 183 or 199? \| CardScanFox |
+| `/blog/charizard-151-card-value` | `pokemon 151 charizard`：区分英版 151 印次并查价值 | Pokémon 151 Charizard ex Card Values: 006, 183 & 199 |
 | `/blog/charizard-gx-card-values` | 区分 GX 版本、印章与促销卡 | Charizard GX Values: SV49, SM211 & More \| CardScanFox |
 | `/blog/cufant-card-values` | 区分 Cufant 实体卡及价格 | Cufant Card Values by Set & Number \| CardScanFox |
 | `/blog/ivysaur-card-values` | 区分 Ivysaur 151 与初代卡 | Ivysaur Card Values: 151 vs Base Set \| CardScanFox |
-| `/blog/mega-charizard-x-ex-card-value` | 确认 Mega Charizard X ex 具体印次 | Mega Charizard X ex Value: Match the Number \| CardScanFox |
+| `/blog/mega-charizard-x-ex-card-value` | `mega charizard x ex card value`：确认 Phantasmal Flames 印次和价格参考 | Mega Charizard X ex Card Value: Phantasmal Flames |
 | `/blog/mew-gg10-card-value` | 定位 Mew GG10/GG70 印次 | Mew GG10 Value: Crown Zenith GG10/GG70 \| CardScanFox |
 | `/blog/moonbreon-card-value` | 把昵称解析为实际单卡 | Moonbreon Value: Umbreon VMAX 215/203 \| CardScanFox |
 | `/blog/phantasmal-flames-card-list` | 查系列卡表与价格参考 | Phantasmal Flames Card List & Prices \| CardScanFox |
@@ -116,6 +116,8 @@ Title 与 Description 的逐页可执行真源为 [seo-pages.json](../../../../a
 | `/sets/set-90fac8c03fb3` | 浏览指定系列已入库印次 | smL: Sun & Moon Family Pokemon Card Game (JP): Browse Cards & Prices \| CardScanFox |
 
 ## 证据与边界
+
+2026-11-18 审计复核：Web.Cafe 将 Mega 页与 `pokemon 151 charizard` 配对时显示 45 分，改用该页自身主词后为 88 分；两个观测均为改动前的诊断分，不是 Google 指标。151 页是该 151 查询的主页面，旧正文未在首段直接列出三个卡号。两页保留原规范网址和历史价格样本，改用各自首段答案，并用真实尺寸固定文章图布局；X 和 Open Graph 使用对应文章图。不为外部工具阈值扩写字数、堆词或迁移 URL。
 
 本轮向 Jev 提交了 55 个公开页面/页面族的意图分类问题，服务返回 HTTP 451（区域不可用），没有采用任何模型分类结果。以上归属由 Codex 根据现有功能、正文、路由和用户指定问题复核；不把这些分类当作 Google 搜索量、排名、点击率或收录证据。
 

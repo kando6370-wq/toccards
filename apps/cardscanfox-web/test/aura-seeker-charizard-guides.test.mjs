@@ -33,12 +33,12 @@ test('Aura Seeker provides a source-linked Japanese preview, not an English chec
   assert.equal(renderer.resolvePage(new URL('/blog/flowing-fists-card-list', origin)).status, 404);
 });
 
-test('Charizard answers supplement intact legacy pages without replacing the SEO metadata', () => {
+test('Charizard guides lead with their own set and valuation task without changing indexing or dated examples', () => {
   const checks = [
-    ['/blog/charizard-151-card-value', /English 199\/165 and .*Japanese Charizard ex 201\/165/],
-    ['/blog/mega-charizard-x-ex-card-value', /125\/094<\/strong> is the Special Illustration Rare.*130\/094<\/strong> is the gold Mega Hyper Rare/],
+    ['/blog/charizard-151-card-value', 'Pokémon 151 Charizard ex', 'showcase-scan', 343, '$295.98', /English 199\/165 and .*Japanese Charizard ex 201\/165/],
+    ['/blog/mega-charizard-x-ex-card-value', 'Mega Charizard X ex card value', 'showcase-analysis', 392, '$569.97', /125\/094<\/strong> is the Special Illustration Rare.*130\/094<\/strong> is the gold Mega Hyper Rare/],
   ];
-  for (const [path, answer] of checks) {
+  for (const [path, phrase, cover, height, historicalPrice, answer] of checks) {
     const {url, page} = render(path);
     const source = legacyPages.find(entry => entry.path === path);
     const published = publishHtml(page.html, url, page.status, page);
@@ -46,15 +46,26 @@ test('Charizard answers supplement intact legacy pages without replacing the SEO
     const head = root.childNodes.find(node => node.tagName === 'head');
     const title = head.childNodes.find(node => node.tagName === 'title');
     const description = head.childNodes.find(node => node.tagName === 'meta' && node.attrs.some(attr => attr.name === 'name' && attr.value === 'description'));
+    const imagePath = `/assets/legacy/${cover}.png`;
     assert.ok(published.includes(source.bodyHtml), path);
     assert.equal(title.childNodes[0].value, seoPages[path].title, path);
     assert.equal(description.attrs.find(attr => attr.name === 'content').value, seoPages[path].description, path);
     assert.ok(published.includes(`<h1>${source.h1}</h1>`), path);
+    assert.ok(title.childNodes[0].value.toLowerCase().includes(phrase.toLowerCase()), path);
+    assert.ok(source.h1.toLowerCase().includes(phrase.toLowerCase()), path);
+    const lead = source.bodyHtml.match(/<div class="content-prose">\s*<p>([^]*?)<\/p>\s*<figure/)[1];
+    assert.match(lead, new RegExp(path.includes('mega-') ? 'Phantasmal Flames.*125/094.*130/094' : 'Pokémon 151.*006/165.*183/165.*199/165'));
+    assert.ok(published.includes(`width="760" height="${height}"`), path);
+    assert.ok(published.includes(`<meta name="twitter:card" content="summary_large_image">`), path);
+    assert.ok(published.includes(`<meta name="twitter:image" content="${origin}${imagePath}">`), path);
+    assert.ok(published.includes(`<meta property="og:image" content="${origin}${imagePath}">`), path);
+    assert.ok(published.includes(historicalPrice), path);
     assert.ok(published.includes(`<link rel="canonical" href="${source.canonical}">`), path);
     assert.match(published, /content="index,follow"/);
     assert.match(published, answer);
   }
   const englishGuide = render(checks[0][0]).page.html;
+  assert.doesNotMatch(render(checks[1][0]).page.html, /<title>[^<]*Pokémon 151/i);
   for (const [id, number] of [['502558', '006/165'], ['517017', '183/165'], ['517045', '199/165']]) {
     assert.ok(englishGuide.includes(`href="/cards/${id}">Charizard ex ${number}</a>`));
   }

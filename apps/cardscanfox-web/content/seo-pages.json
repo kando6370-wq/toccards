@@ -85,8 +85,9 @@
   },
   "/blog/charizard-151-card-value": {
     "intent": "区分 151 喷火龙编号并查价值",
-    "title": "Charizard 151 Values: 006, 183 or 199? | CardScanFox",
-    "description": "Compare Charizard 151 records 006/165, 183/165 and 199/165. Match the artwork and full number before using a dated raw or graded price reference.",
+    "title": "Pokémon 151 Charizard ex Card Values: 006, 183 & 199",
+    "description": "Compare Pokémon 151 Charizard ex card values for English 006/165, 183/165 and 199/165. Match the printing, then check the source, card condition and date.",
+    "socialCard": true,
     "question": "What specific printing, checklist or collecting question does this guide answer?"
   },
   "/blog/charizard-gx-card-values": {
@@ -109,8 +110,9 @@
   },
   "/blog/mega-charizard-x-ex-card-value": {
     "intent": "确认 Mega Charizard X ex 具体印次",
-    "title": "Mega Charizard X ex Value: Match the Number | CardScanFox",
-    "description": "Check the Phantasmal Flames set and full collector number for Mega Charizard X ex. Use the matching record and date when reviewing available prices.",
+    "title": "Mega Charizard X ex Card Value: Phantasmal Flames",
+    "description": "Compare Mega Charizard X ex card values for Phantasmal Flames 013/094, 109/094, 125/094 and 130/094. Match the printing before using a dated reference.",
+    "socialCard": true,
     "question": "What specific printing, checklist or collecting question does this guide answer?"
   },
   "/blog/mew-gg10-card-value": {

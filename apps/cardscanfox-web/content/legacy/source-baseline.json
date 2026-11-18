@@ -1855,20 +1855,20 @@
       "path": "/blog/charizard-151-card-value",
       "file": "blog__charizard-151-card-value.html",
       "status": 200,
-      "bytes": 7958,
+      "bytes": 8051,
       "title": "Charizard 151 Card Values by Number | CardScanFox",
       "h1": [
-        "Charizard 151: compare 006/165, 183/165 and 199/165"
+        "Pokémon 151 Charizard ex card values"
       ],
       "h2": [
-        "Match the collector number",
+        "Pokémon 151 Charizard ex prices by collector number",
         "Artwork, language and card state",
         "Look up your copy in CardScanFox"
       ],
       "canonical": "https://tcgcard.fun/blog/charizard-151-card-value",
-      "normalizedBodySha256": "fed733040070bca09ba4962a2c697b345564b3561cfd061ac7c26ffc47f5152c",
-      "bodyCharacters": 2271,
-      "wordCount": 343,
+      "normalizedBodySha256": "4a25461ee99233bf249a84bb88dad28c993923f116d012ed7eddc9e8e8db5021",
+      "bodyCharacters": 2305,
+      "wordCount": 353,
       "tableRows": 4,
       "contentLinks": [
         "/blog/",
@@ -1886,14 +1886,14 @@
           "alt": "CardScanFox suggested card candidates and review example"
         }
       ],
-      "htmlSha256": "14533a84df3c81d9e95fccdb01ba5626cefe695f8929a90d3760c5dec0c6f392",
+      "htmlSha256": "ced11410505c6d4f33adf2c462a1c98cf87f44a42928c6b13f6bf9121f53b01e",
       "localPublicFile": null,
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
       "originalCapturedHtmlSha256": "4da53ae52c65006ffced1785d0239c8f735e1d8c214b420d61718c12ea8bf68b",
-      "previousApprovedHtmlSha256": "4da53ae52c65006ffced1785d0239c8f735e1d8c214b420d61718c12ea8bf68b",
-      "editorialUpdatedOn": "2026-11-15",
-      "editorialReason": "Approved answer-first content, CardScanFox branding and Pokémon intent consolidation; local candidate only."
+      "previousApprovedHtmlSha256": "14533a84df3c81d9e95fccdb01ba5626cefe695f8929a90d3760c5dec0c6f392",
+      "editorialUpdatedOn": "2026-11-18",
+      "editorialReason": "Clarify the assigned search intent and reserve space for the article image; local candidate only."
     },
     {
       "path": "/blog/charizard-gx-card-values",
@@ -2029,20 +2029,20 @@
       "path": "/blog/mega-charizard-x-ex-card-value",
       "file": "blog__mega-charizard-x-ex-card-value.html",
       "status": 200,
-      "bytes": 8037,
+      "bytes": 8154,
       "title": "Mega Charizard X ex Values by Card Number | CardScanFox",
       "h1": [
-        "Mega Charizard X ex: check the Phantasmal Flames printing"
+        "Mega Charizard X ex card values in Phantasmal Flames"
       ],
       "h2": [
-        "Four numbers, four separate records",
+        "Mega Charizard X ex card value by collector number",
         "Use a single-card reference for a single card",
         "Confirm a scan before checking its value"
       ],
       "canonical": "https://tcgcard.fun/blog/mega-charizard-x-ex-card-value",
-      "normalizedBodySha256": "8761042362270bc9452c2a856e6b818fd3d45997df7af3aa54ff51b398a93da9",
-      "bodyCharacters": 2359,
-      "wordCount": 362,
+      "normalizedBodySha256": "37862d445591b4245130bc913dfa97c6b382bcbfcf48be37203ab5445c21690d",
+      "bodyCharacters": 2388,
+      "wordCount": 371,
       "tableRows": 5,
       "contentLinks": [
         "/blog/",
@@ -2059,14 +2059,14 @@
           "alt": "CardScanFox published market price and history example"
         }
       ],
-      "htmlSha256": "5db9df1257ce9c1e7d51f5eca1d80e026c33b0086459047ef9649661de76eb4a",
+      "htmlSha256": "c9b68602bd47a888a7b672ad768a03a955f5f2e3cebd468c2568bbf389fc9b8e",
       "localPublicFile": null,
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
       "originalCapturedHtmlSha256": "ec9afa7a0001f5aaa9d3d90b77ae8acf3da9b6e7735a3a09f093463023bb7a44",
-      "previousApprovedHtmlSha256": "ec9afa7a0001f5aaa9d3d90b77ae8acf3da9b6e7735a3a09f093463023bb7a44",
-      "editorialUpdatedOn": "2026-11-15",
-      "editorialReason": "Approved answer-first content, CardScanFox branding and Pokémon intent consolidation; local candidate only."
+      "previousApprovedHtmlSha256": "5db9df1257ce9c1e7d51f5eca1d80e026c33b0086459047ef9649661de76eb4a",
+      "editorialUpdatedOn": "2026-11-18",
+      "editorialReason": "Clarify the assigned search intent and reserve space for the article image; local candidate only."
     },
     {
       "path": "/blog/mew-gg10-card-value",
