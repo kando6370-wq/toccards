@@ -80,4 +80,11 @@ Android 原生 App 仅在确认分享后才把 PNG 写入私有缓存中的固�
 
 - 生产 `/share/cards/560537` 的缓存 MISS 响应仍给 Android 用户提供 YouTube 占位链接，而公共 App 配置已返回 Card AI 的 Google Play 地址。旧分享查询读取无环境的版本键和全局备用地址，忽略了后台已保存的分环境配置。修复前以本地 PostgreSQL 回归复现：期望 `com.cardai.tcg`，实际为 `com.google.android.youtube`。
 - 分享页按服务端 `APP_ENVIRONMENT` 读取 `admin.app_version.<environment>.ios` 与 `.google`，与 `/app-config` 使用同一键规则；缺少有效地址时不回退到旧键或其他环境。保留 `kando://` 唤起、按平台选择商店及页面 HTTP 缓存；版本提示停用不影响已配置的商店链接。无 App、数据库配置或迁移改动。
-- 分享页和版本管理定向测试共 18／18 通过，Workers 类型检查、根依赖方向检查通过。Code Review 核对了参数绑定、双端隔离、缺配置行为及旧链接不回退，无阻塞项。未部署或做真机端到端验证；生产发布后须用新响应核对双端商店链接，旧分享页响应仍可能在原有 300 秒缓存期内被复用。
+- 分享页和版本管理定向测试共 18／18 通过，Workers 类型检查、根依赖方向检查通过。Code Review 核对了参数绑定、双端隔离、缺配置行为及旧链接不回退，无阻塞项。
+
+#### 生产发布验收（2026-11-18 17:26，Asia/Shanghai）
+
+- 从线上 `toccards-api-prod` 版本 `bf8efb96-7ae1-448b-8009-928ef2ad7530` 的 immutable module 生成最小候选，仅替换 `881390776e75b9cf5218de0db7297960e90479b3` 中的 `loadConfiguredStoreUrls`。原函数与线上编译结果逐字节匹配，逆向替换后全模块一致，未发布当前 `main` 的其他增量（包括分享页品牌文案）。候选回读 SHA-256 为 `fec5aa54e9891581218f82b39b0f9ba931658d171b4f9ed5ffcf2ad7ea55bcfd`。
+- 候选 `4c7d5633-514d-4322-9cfc-0fca71d37128` 在 deployment `850b736f-b4df-4887-afc6-7c2d81581936` 以 0% 验收后，由 deployment `bd5e4430-a4ac-4435-b43a-32ec8cc24aaa` 切至 100%，已回读确认。上一个 100% 版本 `bf8efb96-7ae1-448b-8009-928ef2ad7530` 保留为回退基线。
+- 候选和正式流量各 7 项只读烟测通过。`/share/cards/560537` 的缓存 MISS 响应中，Android 指向 Google Play 的 `com.cardai.tcg`，iOS 保持 App Store 的 `id6793017224`，`kando://` 唤起地址不变；health、未登录拒绝和 iOS／Google／Android 公共配置均正常。两个 Admin 入口各 11 个 HTML／JS／CSS 指纹与发布前匹配（比较 HTML 时排除 Cloudflare Insights beacon），Pages deployment 仍为 `6ee65b9c-e7ac-4821-919f-96117cc560aa`。39 个绑定（含 18 个 Secret 描述符）、Worker 运行配置、Smart Placement、cron、自定义域和 Hyperdrive 查询缓存均未变。
+- 未读 Secret 明文，未执行数据库迁移或业务配置写入，未发布 Flutter、Google Play 或 App Store。HTTP 验证不代表真机点击通过或 Play 正式版可下载；旧分享响应仍可能在原有 300 秒缓存期内被复用。

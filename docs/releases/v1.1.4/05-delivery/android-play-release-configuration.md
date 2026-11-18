@@ -208,3 +208,17 @@ release 2 于 2026-11-16 10:17 发布，Internal testing 轨道状态为“有�
 Play 接受 214 AAB 和原 Upload 签名，发布预览显示“可以发布了”，没有错误或警告。设备目录相对上一版本的增减全部为 0；本轮回读支持手机 12,474 台、平板 6,561 台、电视 3 台、车载 1 台、Chromebook 10 台、Android XR 2 台。该实时基线与 213 发布当天的目录数量不同，不把目录随时间变化写成 214 引入的兼容变化。
 
 release 3 于 2026-11-17 10:06 发布，Internal testing 轨道状态为“有效”，最新版本为 `1.0.7 (214) - Internal`，状态为“已面向内部测试人员发布”／“尚未审核”，临时名称仍为 `com.cardai.tcg (unreviewed)`。`Card AI Internal 20261110` 名单继续选中，6 个邮箱逐项匹配且未修改。加入页对当前账号显示 `You’re a tester for com.cardai.tcg (unreviewed)` 并提供 `Download test app`；本轮未代用户加入或安装。权威终态和 15 份证据摘要见 `.dart_tool/play-internal-20261117/play-internal-214-final-state.json`；本轮没有重新部署生产后台／API、执行数据库迁移、发布 iOS 制品或提交／推送 Git。214 从 Play 安装与冷启动、实际 Play 生成 APK 签名、真实 Play Integrity／Google 登录／生产密码流程／扫描／运行时统计，以及新 iOS 二进制真机验收仍待完成。
+
+## Google Play 内部测试 215 发布（2026-11-18）
+
+Play 制品列表构建前最高为 `214`。从干净的 `main@881390776e75b9cf5218de0db7297960e90479b3` 使用固定 Flutter 3.47.9／Dart 3.13.7／JDK 21.0.13+9 构建正式 `1.0.7+215`，脚本归档后推进共享构建号。AAB 为 `D:/Downloads/CardAI-Packages/com.cardai.tcg/Android/CardAI-Prod-1.0.7-215/CardAI-Prod-1.0.7-215.aab`，112,336,967 字节，SHA-256 `69dc8c3e864b125907ef25190b49af935b5b4d3214812af136cb919da17dc6fa`，保留三份原生符号及 R8 mapping。原 Upload 签名、767 个签名 payload、minSdk 24／target 36、30 个原生库及 16 KB 对齐、生产 API、无 Android Billing、竖屏与双路 OCR 均通过独立核验；所有 `libapp.so` 均含 Android 海报、复制链接及暂存源文件清理标记。iOS StoreKit 源码合同保留，未构建 iOS 制品。
+
+分享相关 Flutter 定向回归 test 环境 122／122、production 环境 16／16，发布与归档脚本 25／25，App 分析无问题。验证摘要见 `.dart_tool/play-internal-20261118/verification-1.0.7-215/independent-verification.json`。
+
+Play 接受同一 `215` AAB，预览为“可以发布了”，对照 `214` 的设备支持范围无增减。Internal testing release 4 已发布并独立回读：轨道“有效”，`1.0.7 (215) - Internal`“已面向内部测试人员发布”／“尚未审核”，原 `Card AI Internal 20261110` 6 人名单仍选中、未改动。此步骤仅发布内部测试，未操作 Production、API 或 iOS。
+
+### 安装反馈与正式版送审（2026-11-18）
+
+- 用户确认从 Google Play 安装 `215` 并反馈测试未发现问题。未独立核验 Play 分发 APK 签名，未取得逐项业务验收记录。
+- Play Console 只读回查：Production 发布记录名称为 `1.0.0`，制品为 `215 (1.0.7)`，仅美国区“审核中”，自管式发布已关闭。此检查点未确认审核通过或公众可下载；发布后需用未加入内测的美国区账号核对公开商店安装。
+- 分享落地页的商店跳转修复由生产 API 独立发布，不需要重打此 AAB；双端 HTTP 验收和回退记录见[卡牌分享](../01-flows/card-sharing.md)。
