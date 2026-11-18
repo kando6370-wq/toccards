@@ -130,12 +130,12 @@ function cardSharePage(
 </head>
 <body>
   <main>
-    <div class="brand">KANDO</div>
+    <div class="brand">CARD AI</div>
     <article>
       <img src="${imageUrl}" alt="${name}">
       <div><h1>${name}</h1><p>${setName}</p>${price ? `<p class="price">${escapeHtml(price)}</p>` : ""}</div>
     </article>
-    <button id="open-app" data-app-url="${appUrl}" data-ios-store="${iosStoreUrl}" data-android-store="${androidStoreUrl}">Open in Kando</button>
+    <button id="open-app" data-app-url="${appUrl}" data-ios-store="${iosStoreUrl}" data-android-store="${androidStoreUrl}">Open in CARD AI</button>
   </main>
   <script>
     (() => {

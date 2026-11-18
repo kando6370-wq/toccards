@@ -34,6 +34,7 @@ import 'card_detail_actions.dart';
 import 'card_detail_controller.dart';
 import 'card_detail_models.dart';
 import 'card_performance_controller.dart';
+import 'card_share_preview.dart';
 
 /// Figma spacing/radius tokens for the card detail module.
 const double _kRadiusLg = 16;
@@ -662,6 +663,9 @@ class _CardHero extends ConsumerWidget {
                                     .read(analyticsProvider)
                                     .track(AnalyticsEvent.shareCardClick);
                                 try {
+                                  final androidPreview =
+                                      Theme.of(context).platform ==
+                                      TargetPlatform.android;
                                   await ref
                                       .read(cardDetailActionsProvider)
                                       .shareCard(
@@ -671,6 +675,25 @@ class _CardHero extends ConsumerWidget {
                                         marketPrice: state.marketPriceText,
                                         sharePositionOrigin:
                                             _sharePositionOrigin(shareContext),
+                                        preview: androidPreview
+                                            ? ({
+                                                required cardUrl,
+                                                required posterBytes,
+                                              }) {
+                                                if (!shareContext.mounted ||
+                                                    ModalRoute.of(
+                                                          shareContext,
+                                                        )?.isCurrent !=
+                                                        true) {
+                                                  return Future.value(false);
+                                                }
+                                                return showCardSharePreview(
+                                                  shareContext,
+                                                  cardUrl: cardUrl,
+                                                  posterBytes: posterBytes,
+                                                );
+                                              }
+                                            : null,
                                       );
                                 } catch (_) {
                                   if (context.mounted) {

@@ -83,3 +83,7 @@
 .file-article img[src="/assets/guides/delta-reign-etb-official-energy-evidence.webp"]{width:303px;aspect-ratio:303/28}
 .file-article img[src="/assets/guides/delta-reign-etb-marketplace-energy-evidence.webp"]{width:435px;aspect-ratio:435/108}
 .file-article img[src="/assets/guides/delta-reign-pokecottage-number-evidence.webp"]{width:280px;aspect-ratio:280/90}
+
+.legacy-content .legal-modal-version{font-size:12px;color:var(--muted);margin:10px 0 0}
+
+.legacy-content:is([data-legacy-path="/privacy"],[data-legacy-path="/terms"]) .modal-legal-content{max-width:900px;overflow-wrap:anywhere}.legacy-content:is([data-legacy-path="/privacy"],[data-legacy-path="/terms"]) table{min-width:0;table-layout:fixed}.legacy-content:is([data-legacy-path="/privacy"],[data-legacy-path="/terms"]) th,.legacy-content:is([data-legacy-path="/privacy"],[data-legacy-path="/terms"]) td{overflow-wrap:anywhere}.legacy-content:is([data-legacy-path="/privacy"],[data-legacy-path="/terms"]) th:first-child{width:30%}.legacy-content:is([data-legacy-path="/privacy"],[data-legacy-path="/terms"]) pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.75 ui-monospace,SFMono-Regular,Consolas,monospace}

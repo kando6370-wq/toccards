@@ -24,6 +24,17 @@ test('pregrading has a single SSR owner with a tool, dated references and separa
  assert.ok(allStaticPaths.includes('/ai-card-grading'));assert.equal(mayIndex(new URL('https://tcgcard.fun/ai-card-grading')),true);assert.equal(mayIndex(new URL('https://tcgcard.fun/ai-card-grading?result=1')),false);
  assert.match(publicSitemap(),/https:\/\/tcgcard.fun\/ai-card-grading/);
 });
+test('the revised legal pages still explain what happens to pregrading photos and what estimates mean',()=>{
+ const privacy=resolvePage(new URL('https://tcgcard.fun/privacy'));
+ const terms=resolvePage(new URL('https://tcgcard.fun/terms'));
+ for(const page of [privacy,terms]){
+  assert.equal(page.status,200);
+  assert.match(page.html,/Version date: November 17, 2026/);
+ }
+ assert.match(privacy.html,/sent to Cloudflare Workers AI/);
+ assert.match(privacy.html,/does not save pregrading photos or results/);
+ assert.match(terms.html,/separate from professional authentication and certified grading/);
+});
 test('production serves the independent page and never caches or indexes the assessment API',async()=>{
  const page=await worker.fetch(new Request('https://tcgcard.fun/ai-card-grading'),env);assert.equal(page.status,200);assert.equal(page.headers.get('X-Robots-Tag'),'index, follow');assert.match(page.headers.get('Content-Security-Policy'),/img-src 'self' data: blob:/);
  const response=await worker.fetch(new Request('https://tcgcard.fun/site-api/v1/pregrade',{method:'POST',headers:{Origin:'https://tcgcard.fun','Content-Type':'application/json'},body:'{}'}),env);

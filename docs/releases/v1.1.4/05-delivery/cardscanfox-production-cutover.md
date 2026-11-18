@@ -77,3 +77,13 @@ Search Console 仅报告 1 个 robots 屏蔽网址，示例为 /saved。该页�
 本地补验使用官方 SHA-256 校验后的独立 Node 22.23.4 与 pnpm 11.28.10。合入最新 main 后，账号删除、内容文件与 Worker 发布边界三个受影响测试文件共 30/30 通过，类型检查和显式 wrangler.production.jsonc dry-run 通过；构建登记 124 条 HTML 路由、保留 46 条旧正文，dry-run 读取 203 个静态文件。此前使用默认 dry-run 命令得到的是预览配置，不作为本次生产配置验收证据。未运行 App、共享 API、Admin 或其他无影响面测试。
 
 独立 Code Review 未发现阻塞项，已核对 HTML/header 的 noindex,nofollow 一致、/site-api/ 与预览 robots 原边界保留、远端账号删除测试与交付记录保留。只读临时探针确认 /saved 的 GET、HEAD、条件响应 304 均保留 no-store 和排除索引指令，共享 HTML 缓存读写为 0。Saved 引用存于访问者本机浏览器；robots 不是认证或数据隐私控制，本次不改变本地保存功能。Google 抓取后报告可能改列为 noindex 排除，具体以 GSC 后续结果为准。该页不提交 IndexNow。
+
+## 法律正文同步（2026-11-17）
+
+按用户提供的新版 `Privacy Policy.md` 与 `Terms of Use.md`，更新当前官网 `/privacy`（10 节）、`/terms`（24 节）及保留的首页法律弹层，并同步受保护源快照与生成的共享正文。英文词间的不换行空格转为普通空格，正文措辞、表格、链接和许可证代码块保留；法律页面的表格与长文本样式仅作用于对应页面。页面统一显示 `Version date: November 17, 2026`，对应正文的版本日期说明。
+
+API 的 `/api/v1/legal/privacy` 与 `/api/v1/legal/terms` 同步完整正文，保持公开 HTML 入口，避免 App Store 元数据所引用的 API 隐私页继续展示另一版内容。Android 与 iOS App 的运行时法律入口仍共用官网地址；旧 `apps/marketing-web` 历史源码不作为当前发布真源。本次为源码同步，未部署，不代表官网、API 或商店内容已生效。
+
+使用 Node `22.23.4` 完成官网 73／73 项测试、官网类型检查与 123 条路由构建，以及 API 法律路由 3／3 项测试和 Workers 类型检查。确定性对照确认所有更新入口的正文、链接、表格与许可证代码块均与附件一致；其余 43 份受保护源和首页原 `<main>` 正文不变。浏览器完成官网 1280／390／320px、API 390／320px 的布局检查，修正 API 长许可证链接换行后无正文横向溢出，独立审查通过。本次未运行全量 Workers 测试、Flutter 构建或真机验收，因改动仅涉及静态法律页面与展示样式。
+
+合入 `main` 时，官网 `/privacy`、`/terms` 及保留的首页法律弹层原样保留官网 AI 预评级披露；API 法律页继续展示新版 App 法律正文，不加入官网专用说明。

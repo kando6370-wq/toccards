@@ -122,6 +122,10 @@
     .modal-legal-content li { margin: 8px 0; padding-left: 6px; }
     .modal-legal-content li::marker { color: var(--primary); }
     .modal-legal-content a { color: var(--primary); }
+    .modal-legal-content table { width: 100%; table-layout: fixed; border-collapse: collapse; }
+    .modal-legal-content th, .modal-legal-content td { padding: 12px; border: 1px solid var(--border); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+    .modal-legal-content th:first-child { width: 30%; }
+    .modal-legal-content pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.65; }
     @media (max-width: 640px) {
       .legal-modal { padding: 0; }
       .legal-modal-panel { width: 100%; height: 100%; border: 0; border-radius: 0; }
@@ -133,6 +137,7 @@
       .modal-legal-content h2 { margin-top: 48px; font-size: 24px; }
       .modal-legal-content h3 { margin-top: 34px; font-size: 19px; }
     }
+    .legal-modal-version { margin: 10px 0 0; color: #c6c9c1; font-size: 13px; }
   </style>
 </head>
 <body>
@@ -143,401 +148,150 @@
         <div>
           <p class="legal-modal-label">CARD AI LEGAL</p>
           <h1 class="legal-modal-title">Privacy Policy</h1>
+          <p class="legal-modal-version">Version date: November 17, 2026</p>
         </div>
         <a class="legal-modal-close" href="/" aria-label="Close Privacy Policy" title="Close">&times;</a>
       </header>
       <div class="legal-modal-scroll">
         <article class="modal-legal-content">
-<p>This Privacy Policy describes how Card AI: TCG Card Scanner(“Card
-AI,” “we,” “us,” or “our”) collects, uses, stores, shares, and protects
-information when you use Card AI: TCG Card Scanner and related features,
-websites, subscriptions, and services collectively referred to as the
-“Service.”</p>
-<p>By using Card AI, you agree to the collection and use of information
-described in this Privacy Policy. If you do not agree with this Privacy
-Policy, please do not use the Service.</p>
-<h2 id="privacy-information-we-collect">1. Information We Collect</h2>
-<p>The information we collect depends on how you use Card AI.</p>
-<h3 id="privacy-account-information">1.1 Account Information</h3>
-<p>When you create an account, sign in, or use account-related features,
-we may collect:</p>
-<ul>
-<li>Email address</li>
-<li>User ID</li>
-<li>Authentication provider information</li>
-<li>Login status</li>
-<li>Account creation date</li>
-<li>Account settings</li>
-<li>Subscription status where applicable</li>
-</ul>
-<p>If you sign in using a third-party login method, such as Google or
-Apple, we may receive basic account information from that provider,
-depending on your settings and the provider’s policies.</p>
-<h3 id="privacy-collection-and-card-information">1.2 Collection and Card
-Information</h3>
-<p>When you use Card AI to manage your collection, we may collect and
-store information that you enter, save, or edit, including:</p>
-<ul>
-<li>Cards added to your collection</li>
-<li>Wishlist or saved cards</li>
-<li>Card names</li>
-<li>Card categories</li>
-<li>Set names</li>
-<li>Card numbers</li>
-<li>Finish or variant information</li>
-<li>Language</li>
-<li>Quantity</li>
-<li>Purchase price</li>
-<li>Grading status</li>
-<li>Grading company</li>
-<li>Grade</li>
-<li>Collection folders or organization settings</li>
-<li>Portfolio and value-related records</li>
-</ul>
-<p>This information is used to provide collection tracking, card
-management, price reference, and related app features.</p>
-<h3 id="privacy-scan-images-camera-data-and-photo-library-access">1.3 Scan
-Images, Camera Data, and Photo Library Access</h3>
-<p>Card AI may request access to your device camera so you can scan
-trading cards or sports cards.</p>
-<p>Card AI may also allow you to import card images from your device
-photo library. We will access your photo library only when you choose to
-import or upload an image from your device. Depending on your device
-settings and operating system, you may be asked to grant permission to
-access selected photos or your photo library.</p>
-<p>When you use the camera scanning feature or choose to import an image
-from your photo library, we may process card images or scan-related data
-to identify cards and provide card information. Scan images may be
-temporarily processed by our systems or service providers for
-identification, troubleshooting, fraud prevention, quality improvement,
-and app functionality.</p>
-<p>We do not use your camera unless you grant camera permission through
-your device settings. We do not access your photo library unless you
-choose to import an image and grant the required permission.</p>
-<p>You can disable camera or photo library permissions at any time in
-your device settings, but scanning or image import features may not work
-without the required access.</p>
+<p>This Privacy Policy explains how <strong>Card AI: TCG Card Scanner</strong> (“Card AI,” “we,” “us,” or “our”) collects, uses, stores, discloses, and deletes information when you use our iOS and Android applications and related account and support services (the “Service”). Platform-specific practices are identified below.</p>
+<p>For privacy questions or requests, contact <a href="mailto:support@tcgcard.fun">support@tcgcard.fun</a>. Our website is <a href="https://tcgcard.fun">https://tcgcard.fun</a>.</p>
+<h2 id="privacy-1-information-we-collect-and-why">1. Information We Collect and Why</h2>
+<h3 id="privacy-account-and-sign-in-information">Account and sign-in information</h3>
+<p>When you register or sign in, we process your email address, account or provider user ID, authentication information, account settings, and session information to create and secure your account. Email-and-password registration involves processing the credentials you submit. Supported third-party sign-in methods provide authentication results and the account information authorized by that method. We do not receive your Google or Apple account password when you use their sign-in services.</p>
+<p>Android supports guest access, email-and-password accounts, and Google sign-in. iOS offers the sign-in methods displayed in the iOS app. An email address ending in gmail.com is treated as an email address; using it with a Card AI password is different from using Google sign-in.</p>
+<p>Guest access does not require you to supply an account email, but use of the Service may still generate scan records, technical identifiers, and usage information.</p>
+<h3 id="privacy-card-images-and-scan-records">Card images and scan records</h3>
+<p>When you scan a card or import a photo for recognition, <strong>the image is uploaded to our server for identification</strong>. We process the image and associated recognition results to provide scanning and scan-record features. Uploaded scan images and associated scan records are stored until you delete the relevant platform account, unless you delete them earlier using an available deletion feature.</p>
+<p><strong>We do not use your uploaded images or scan records to train machine-learning or AI models.</strong> Processing an image with an existing recognition model is used to provide the requested recognition result.</p>
+<p>We use the camera when you initiate scanning and grant the necessary permission. Photo import accesses images you select or authorize through your device's photo-access controls. You can manage these permissions in device settings. Refusing permission may prevent the corresponding scanning or import feature from working.</p>
 <h3 id="privacy-web-ai-pregrading">Website AI pregrading</h3>
 <p>When you choose Analyze photos on the CardScanFox AI pregrading page, your selected front and back photos are resized in your browser and sent to Cloudflare Workers AI to assess visible card condition. This is separate from browser identity scanning, which sends an image vector for catalog matching.</p>
 <p>The website does not save pregrading photos or results to an account, database, public result page or image store. They are held in memory for the request and displayed in your current page. Request metadata and your IP address may be processed for security, rate limits and service operation. Upload only card photos; keep personal information out of the background. See <a href="https://developers.cloudflare.com/workers-ai/platform/data-usage/">Cloudflare Workers AI data usage</a>. Website pregrading information updated 16 November 2026.</p>
-<h3 id="privacy-price-search-and-app-usage-information">1.4 Price, Search, and
-App Usage Information</h3>
-<p>When you search for cards, view card details, check prices, or use
-app features, we may collect:</p>
+<h3 id="privacy-collections-and-information-you-enter">Collections and information you enter</h3>
+<p>We store collection and Wishlist records, folder names, card selections, quantities, finishes, languages, purchase prices, grading details, preferences, and other information you enter into supported features. We use these records to organize your collection and provide price references, collection values, and related charts. A manually entered card purchase price is collection data; it is not your payment-card or bank-account information.</p>
+<h3 id="privacy-search-and-app-activity">Search and app activity</h3>
+<p>Search terms, such as card names or numbers, are sent to our systems when needed to return search results. We do not maintain a saved user search-history feature. Processing a search request is separate from displaying or storing a searchable history in the app.</p>
+<p>Our analytics services process configured events such as screen views, button taps, sessions, and scan success or failure. We use these events to understand feature usage and improve the app. Search-related events may record use of the search feature; this does not itself mean that the text of every search is included in analytics.</p>
+<h3 id="privacy-device-information-diagnostics-and-approximate-location">Device information, diagnostics, and approximate location</h3>
+<p>The app and its SDKs process device and app information, such as device model, operating-system and app versions, language, IP address, app-instance and installation identifiers, and configured usage events. Firebase Crashlytics processes crash reports, stack traces, relevant application and device state, and installation identifiers to diagnose errors.</p>
+<p>Analytics services may derive approximate location, such as country, region, or city, from your IP address. This does not require your device's location permission. <strong>We do not request or collect precise GPS location.</strong></p>
+<h3 id="privacy-advertising-attribution">Advertising attribution</h3>
+<p>We use Singular and relevant analytics integrations to measure installation sources and advertising campaign results. This may involve advertising identifiers when available and permitted, install-referrer information, IP address, device/app details, and configured conversion events.</p>
+<p>The Android app does not display in-app advertisements. Attribution is used to measure advertisements for Card AI shown outside the app. Having no in-app advertisements does not mean that attribution data is not processed.</p>
+<p>On iOS, access to the advertising identifier and tracking subject to Apple's permission requirements depend on the applicable device permission. On Android, the availability of the advertising identifier depends on device settings and applicable platform controls.</p>
+<h3 id="privacy-ios-purchases">iOS purchases</h3>
+<p>Apple handles payment for purchases made through the App Store. To determine iOS access to purchased features, the iOS app uses purchase and subscription information supplied by Apple, such as product identifiers, transaction information, and current entitlement status. We do not receive your complete payment-card details from Apple.</p>
+<p>The current Android release has no subscriptions or in-app purchases. Apple purchase rights are not used to restrict access to the free Android release.</p>
+<h3 id="privacy-support-communications">Support communications</h3>
+<p>If you email us or submit a support or deletion request, we process your contact information, message, and any attachments you voluntarily provide to respond and handle the request. We do not access your email inbox or collect unrelated emails from your device.</p>
+<h2 id="privacy-2-how-we-use-information">2. How We Use Information</h2>
+<p>We process information to:</p>
 <ul>
-<li>Search queries</li>
-<li>Viewed card details</li>
-<li>Selected card categories</li>
-<li>Feature usage</li>
-<li>Button taps</li>
-<li>Screen views</li>
-<li>App session information</li>
-<li>Subscription page views</li>
-<li>Purchase flow events</li>
-<li>Scan success or failure events</li>
-<li>Error events</li>
-<li>Performance data</li>
+<li><p>Provide scanning, search, collection management, and price-reference features.</p>
+</li>
+<li><p>Register, authenticate, and manage accounts and sessions.</p>
+</li>
+<li><p>Store and retrieve records within the relevant platform account.</p>
+</li>
+<li><p>Determine iOS purchase access and provide free Android access.</p>
+</li>
+<li><p>Analyze feature usage, diagnose crashes, and improve reliability.</p>
+</li>
+<li><p>Measure advertising and installation attribution.</p>
+</li>
+<li><p>Respond to support requests and send necessary account or service notices.</p>
+</li>
+<li><p>Protect the Service against unauthorized access and abuse, and meet applicable legal obligations.</p>
+</li>
 </ul>
-<p>This information helps us provide, analyze, improve, and troubleshoot
-the Service.</p>
-<h3 id="privacy-device-and-technical-information">1.5 Device and Technical
-Information</h3>
-<p>We and our service providers may automatically collect technical
-information, including:</p>
+<p>We do not use card images or scan records for model training. A reference to product improvement in this policy does not authorize such training.</p>
+<p>Where applicable law requires a legal basis, processing is based on providing the service you request, our legitimate interests in operating and protecting the Service where permitted, compliance with legal obligations, or consent where required. You may withdraw consent for consent-based processing without affecting processing that was lawful before withdrawal.</p>
+<h2 id="privacy-3-android-and-ios-data-separation">3. Android and iOS Data Separation</h2>
+<p>Android and iOS have <strong>separate platform accounts and personal data spaces</strong>, even where they use shared databases or authentication infrastructure.</p>
+<p>Signing in with the same email address or identity provider on both platforms does not automatically merge or synchronize collections, Wishlist, folders, scan images or records, preferences, or collection-value records. Public card catalog and price-reference data may be shared between platforms.</p>
+<p>Apple purchase entitlements apply to iOS. Android free access is separate. Deleting one platform account does not delete the separate account or records on the other platform. A shared authentication record needed for the other active platform may remain for that purpose; it does not restore the deleted platform account.</p>
+<h2 id="privacy-4-service-providers-and-other-recipients">4. Service Providers and Other Recipients</h2>
+<p>Our analytics, attribution, and crash-reporting SDK providers are <strong>Firebase, Mixpanel, and Singular</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Provider or recipient</th>
+<th>Relevant information and purposes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Firebase / Google Analytics for Firebase</td>
+<td>App-instance identifiers, device/app information, configured usage events, and IP-derived approximate location for usage analysis.</td>
+</tr>
+<tr>
+<td>Firebase Crashlytics</td>
+<td>Crash reports, diagnostics, application/device state, installation identifiers, and any diagnostic context attached to reports, to investigate and fix errors.</td>
+</tr>
+<tr>
+<td>Mixpanel</td>
+<td>Configured events, user or pseudonymous identifiers, device/app information, and IP-derived approximate location for product analytics.</td>
+</tr>
+<tr>
+<td>Singular</td>
+<td>Available advertising identifiers, install/referrer and attribution information, IP address, device/app details, and configured conversion events for campaign measurement.</td>
+</tr>
+<tr>
+<td>Google and Apple sign-in services</td>
+<td>Authentication information and authorized account information when you choose a supported sign-in method. Apple sign-in is an iOS feature.</td>
+</tr>
+<tr>
+<td>Apple App Store</td>
+<td>Purchase, subscription, and entitlement information for iOS purchases; Apple independently handles billing and its own transaction records.</td>
+</tr>
+<tr>
+<td>Infrastructure service providers</td>
+<td>The account, collection, image, and technical data needed to host and operate our servers, databases, and recognition services.</td>
+</tr>
+</tbody></table>
+<p>Advertising attribution integrations may send relevant identifiers and conversion events to the advertising platforms connected to those campaigns. The information involved depends on the enabled integration and applicable permissions. This does not authorize disclosure of scan images or collection contents for advertising.</p>
+<p>Service providers processing data on our behalf are distinct from independent services you choose to visit or use. Transfers to a processor may still be described in this policy even where they are exempt from the specific “sharing” label in Google Play's Data safety form.</p>
+<p>Provider privacy information:</p>
 <ul>
-<li>Device model</li>
-<li>Operating system version</li>
-<li>App version</li>
-<li>Device language</li>
-<li>Country or region</li>
-<li>Time zone</li>
-<li>IP address</li>
-<li>Network status</li>
-<li>Crash logs</li>
-<li>Diagnostic data</li>
-<li>App performance data</li>
-<li>Anonymous or pseudonymous identifiers</li>
-<li>Attribution identifiers where applicable</li>
+<li><p><a href="https://policies.google.com/privacy">Google Privacy Policy</a></p>
+</li>
+<li><p><a href="https://firebase.google.com/support/privacy">Firebase Privacy and Security</a></p>
+</li>
+<li><p><a href="https://mixpanel.com/legal/privacy-policy/">Mixpanel Privacy Policy</a></p>
+</li>
+<li><p><a href="https://www.singular.net/privacy-policy/">Singular Privacy Policy</a></p>
+</li>
+<li><p><a href="https://www.apple.com/legal/privacy/">Apple Privacy Policy</a></p>
+</li>
 </ul>
-<p>We do not collect precise GPS location unless we specifically ask for
-it and you grant permission. Card AI currently does not require precise
-real-time location to provide its core features.</p>
-<h3 id="privacy-subscription-and-purchase-information">1.6 Subscription and
-Purchase Information</h3>
-<p>If you purchase a subscription or in-app purchase through the App
-Store, Apple processes your payment information. We do not receive your
-full payment card details.</p>
-<p>We may receive or process purchase-related information,
-including:</p>
-<ul>
-<li>Product ID</li>
-<li>Subscription status</li>
-<li>Trial status</li>
-<li>Purchase date</li>
-<li>Renewal status</li>
-<li>Expiration date</li>
-<li>Cancellation status</li>
-<li>Refund status</li>
-<li>Transaction identifiers</li>
-<li>App Store receipt or subscription validation data</li>
-</ul>
-<p>This information is used to provide premium features, verify
-purchases, prevent fraud, manage access, and support customer
-service.</p>
-<h3 id="privacy-communications">1.7 Communications</h3>
-<p>If you contact us for support, feedback, legal requests, or privacy
-questions, we may collect:</p>
-<ul>
-<li>Your email address</li>
-<li>Your message content</li>
-<li>Attachments or screenshots you provide</li>
-<li>Support history</li>
-<li>Information needed to respond to your request</li>
-</ul>
-<h2 id="privacy-how-we-use-information">2. How We Use Information</h2>
-<p>We use the information we collect to:</p>
-<ul>
-<li>Provide and operate Card AI</li>
-<li>Create and manage user accounts</li>
-<li>Authenticate users</li>
-<li>Enable card scanning and identification</li>
-<li>Save and sync collection records</li>
-<li>Display card information, prices, and estimated values</li>
-<li>Manage premium features and subscriptions</li>
-<li>Personalize app settings and user experience</li>
-<li>Analyze app performance and feature usage</li>
-<li>Improve card recognition, search, and product quality</li>
-<li>Fix bugs and crashes</li>
-<li>Prevent fraud, abuse, unauthorized access, and misuse</li>
-<li>Provide customer support</li>
-<li>Send service-related notices</li>
-<li>Comply with legal obligations</li>
-<li>Enforce our Terms of Use</li>
-<li>Protect our rights, users, and the Service</li>
-</ul>
-<p>We may use aggregated, anonymized, or de-identified information for
-analytics, research, product improvement, and business reporting.</p>
-<h2 id="privacy-third-party-services-we-use">3. Third-Party Services We Use</h2>
-<p>Card AI may use third-party services to provide authentication,
-analytics, attribution, crash reporting, infrastructure, app
-performance, and subscription-related functionality.</p>
-<p>These services may include:</p>
-<ul>
-<li>Google Firebase</li>
-<li>Firebase Authentication</li>
-<li>Google Analytics for Firebase</li>
-<li>Firebase Crashlytics</li>
-<li>Mixpanel</li>
-<li>Singular</li>
-<li>Apple App Store / StoreKit services</li>
-</ul>
-<p>These providers may collect or process information according to their
-own privacy policies and terms. We recommend reviewing their policies if
-you want to understand how they handle information.</p>
-<p>We may add, replace, or remove third-party service providers from
-time to time. If our data practices materially change, we will update
-this Privacy Policy and, where required, update our App Store privacy
-disclosures.</p>
-<h2 id="privacy-how-we-share-information">4. How We Share Information</h2>
-<p>We do not sell your personal information.</p>
-<p>We may share information in the following situations:</p>
-<h3 id="privacy-service-providers">4.1 Service Providers</h3>
-<p>We may share information with vendors and service providers who help
-us operate, host, analyze, secure, improve, or support the Service.</p>
-<p>These providers may only use information as necessary to provide
-services to us, unless otherwise permitted by law or their own
-relationship with you.</p>
-<h3 id="privacy-legal-and-safety-reasons">4.2 Legal and Safety Reasons</h3>
-<p>We may disclose information if we believe it is reasonably necessary
-to:</p>
-<ul>
-<li>Comply with applicable laws, legal processes, or government
-requests</li>
-<li>Enforce our Terms of Use</li>
-<li>Detect, prevent, or investigate fraud, security issues, or
-abuse</li>
-<li>Protect the rights, property, or safety of Card AI, users, or
-others</li>
-<li>Respond to claims that content or activity violates third-party
-rights</li>
-</ul>
-<h3 id="privacy-business-transfers">4.3 Business Transfers</h3>
-<p>If we are involved in a merger, acquisition, financing,
-reorganization, sale of assets, bankruptcy, or similar business
-transaction, information may be transferred as part of that transaction,
-subject to applicable law.</p>
-<h3 id="privacy-aggregated-or-de-identified-information">4.4 Aggregated or
-De-Identified Information</h3>
-<p>We may share aggregated, anonymized, or de-identified information
-that does not reasonably identify you.</p>
-<h2 id="privacy-app-tracking-and-advertising">5. App Tracking and
-Advertising</h2>
-<p>Card AI currently does not display third-party advertising.</p>
-<p>If we use data for tracking as defined by Apple’s App Tracking
-Transparency framework, we will request your permission where required
-before tracking you across apps or websites owned by other
-companies.</p>
-<p>Some analytics or attribution tools, including Singular, may help us
-understand installation sources, campaign performance, and app usage.
-The exact data collected may depend on your device settings, privacy
-choices, permissions, and applicable law.</p>
-<p>You can manage tracking permissions in your iOS settings.</p>
-<h2 id="privacy-cookies-and-similar-technologies">6. Cookies and Similar
-Technologies</h2>
-<p>If we operate a website, we may use cookies, pixels, SDKs, local
-storage, or similar technologies to:</p>
-<ul>
-<li>Keep the website functioning</li>
-<li>Remember preferences</li>
-<li>Analyze usage</li>
-<li>Improve performance</li>
-<li>Understand marketing effectiveness</li>
-<li>Protect against fraud or abuse</li>
-</ul>
-<p>You can manage cookies through your browser settings. Some website
-features may not function properly if cookies are disabled.</p>
-<p>Within the mobile app, third-party SDKs may use device identifiers or
-similar technologies for analytics, crash reporting, attribution,
-security, or app functionality.</p>
-<h2 id="privacy-data-retention">7. Data Retention</h2>
-<p>We retain personal information for as long as reasonably necessary to
-provide the Service, maintain your account, comply with legal
-obligations, resolve disputes, enforce agreements, prevent fraud, and
-support legitimate business purposes.</p>
-<p>Retention periods may vary depending on the type of information, how
-it is used, and legal requirements.</p>
-<p>For example:</p>
-<ul>
-<li>Account information may be retained while your account is
-active.</li>
-<li>Collection records may be retained while your account is active or
-until you delete them.</li>
-<li>Scan images may be processed temporarily and retained only as needed
-for identification, troubleshooting, security, or improvement
-purposes.</li>
-<li>Analytics, crash, diagnostic, and attribution data may be retained
-for a limited period or stored in aggregated or de-identified form.</li>
-<li>Purchase and subscription records may be retained as required for
-accounting, fraud prevention, legal compliance, or App Store transaction
-verification.</li>
-</ul>
-<p>When information is no longer needed, we will delete, de-identify, or
-aggregate it, unless we are legally required or permitted to retain
-it.</p>
-<h2 id="privacy-account-deletion-and-data-deletion">8. Account Deletion and Data
-Deletion</h2>
-<p>You may initiate deletion in the app or use our <a
-href="/Account/AccountSetup">Account Setup page</a> to request deletion
-by email.</p>
-<p>Card AI keeps iOS and Android platform accounts and business data
-separate. A deletion request must identify the target platform. Deleting
-one platform account removes or de-identifies that platform's collection
-records, saved cards, scan records, preferences, and related account
-information from active systems, subject to legal, security, fraud
-prevention, backup, accounting, dispute resolution, and other legitimate
-retention requirements. It does not delete the other platform account or
-its business data.</p>
-<p>After a platform account is deleted, using Card AI again on that
-platform requires registration for a new platform account. Deleted
-business data is not restored to the new platform account.</p>
-<p>Some information may remain in backups, logs, or records for a
-limited period before deletion or de-identification.</p>
-<p>Deleting your Card AI account does not automatically cancel an active
-App Store subscription. You must manage or cancel subscriptions through
-your Apple ID subscription settings.</p>
-<p>You may also contact us to request deletion or assistance:</p>
-<p><a href="mailto:support@tcgcard.fun">support@tcgcard.fun</a></p>
-<h2 id="privacy-your-privacy-rights-and-choices">9. Your Privacy Rights and
-Choices</h2>
-<p>Depending on where you live, you may have rights regarding your
-personal information, including the right to:</p>
-<ul>
-<li>Request access to your personal information</li>
-<li>Request correction of inaccurate information</li>
-<li>Request deletion of personal information</li>
-<li>Request restriction of processing</li>
-<li>Object to certain processing</li>
-<li>Request a copy of your information</li>
-<li>Withdraw consent where processing is based on consent</li>
-<li>Opt out of certain analytics, marketing, or tracking where
-applicable</li>
-<li>Lodge a complaint with a privacy authority</li>
-</ul>
-<p>To exercise your rights, contact us at: support@tcgcard.fun</p>
-<p>We may need to verify your identity before processing your
-request.</p>
-<p>Your rights may be limited by applicable law, security requirements,
-fraud prevention, legal obligations, or the rights of others.</p>
-<h2 id="privacy-communications-choices">10. Communications Choices</h2>
-<p>We may send you service-related messages, such as account, security,
-transaction, subscription, policy, or support notices. You may not be
-able to opt out of essential service communications.</p>
-<p>If we send marketing emails, you may opt out by using the unsubscribe
-link in the email or contacting us.</p>
-<h2 id="privacy-childrens-privacy">11. Children’s Privacy</h2>
-<p>Card AI is not intended for children and is not directed to users
-under the age required by applicable law.</p>
-<p>We do not knowingly collect personal information from children where
-parental consent is required by law.</p>
-<p>If you believe that a child has provided us with personal information
-without appropriate consent, please contact us. If we learn that we have
-collected such information, we will take reasonable steps to delete it,
-unless we are legally required or permitted to retain it.</p>
-<h2 id="privacy-international-data-transfers">12. International Data
-Transfers</h2>
-<p>We may process and store information in countries or regions outside
-where you live, including the United States and other locations where
-our service providers operate.</p>
-<p>These countries or regions may have data protection laws that differ
-from those in your location.</p>
-<p>Where required, we use appropriate safeguards for international data
-transfers.</p>
-<h2 id="privacy-data-security">13. Data Security</h2>
-<p>We use reasonable technical, administrative, and organizational
-measures designed to protect information from unauthorized access, loss,
-misuse, alteration, or disclosure.</p>
-<p>However, no method of transmission or storage is completely secure.
-We cannot guarantee absolute security.</p>
-<p>You are responsible for keeping your device, account, login
-credentials, and app access secure.</p>
-<h2 id="privacy-third-party-links-and-services">14. Third-Party Links and
-Services</h2>
-<p>Card AI may contain links or references to third-party websites,
-marketplaces, data sources, grading companies, or other external
-services.</p>
-<p>We are not responsible for the privacy practices, content, security,
-or policies of third-party services. If you use third-party services,
-their own privacy policies and terms apply.</p>
-<h2 id="privacy-third-party-brands">15. Third-Party Brands</h2>
-<p>Card AI is an independent app and is not affiliated with, endorsed
-by, sponsored by, or officially connected with any trading card game
-publisher, sports league, team, player, grading company, marketplace,
-manufacturer, or rights holder.</p>
-<p>References to Pokémon, Magic: The Gathering, One Piece, Yu-Gi-Oh!,
-Disney Lorcana, Digimon, Star Wars: Unlimited, Flesh and Blood, sports
-cards, grading companies, marketplaces, or other third-party brands are
-for identification, compatibility, reference, or informational purposes
-only.</p>
-<h2 id="privacy-changes-to-this-privacy-policy">16. Changes to This Privacy
-Policy</h2>
-<p>We may update this Privacy Policy from time to time.</p>
-<p>When we update this Privacy Policy, we will revise the Effective Date
-above. If we make material changes, we may notify you through the app,
-by email, on our website, or by other reasonable means where required by
-law.</p>
-<p>Your continued use of Card AI after the updated Privacy Policy
-becomes effective means you acknowledge the updated policy.</p>
-<h2 id="privacy-contact-us">17. Contact Us</h2>
-<p>If you have questions, requests, or concerns about this Privacy
-Policy or our privacy practices, please contact us:</p>
-<p>Website: <a href="https://tcgcard.fun"
-class="uri">https://tcgcard.fun</a></p>
-<p>Privacy Policy: <a href="https://tcgcard.fun/privacy"
-class="uri">https://tcgcard.fun/privacy</a></p>
-<p>Terms of Use: <a href="https://tcgcard.fun/terms"
-class="uri">https://tcgcard.fun/terms</a></p>
-<p>Support Email:
-<a href="mailto:support@tcgcard.fun">support@tcgcard.fun</a></p>
+<p>We may also disclose information when legally required, to address security incidents or protect legal rights, or in connection with a business transfer subject to applicable privacy obligations. If you choose to share content through another app or open an external marketplace, the recipient's own practices apply.</p>
+<p>We do not sell personal information for money. Where applicable law treats advertising-related disclosure as “sharing,” a “sale,” or targeted advertising, you may exercise the applicable rights by contacting us.</p>
+<h2 id="privacy-5-retention-and-deletion">5. Retention and Deletion</h2>
+<h3 id="privacy-records-on-our-servers">Records on our servers</h3>
+<p>We retain your platform account, collection records, uploaded scan images, and scan records to provide the Service until you delete that platform account or delete individual records through an available feature.</p>
+<p><strong>When a verified account deletion is executed, the account and its associated information on our own servers are deleted immediately, without a scheduled waiting period. We do not retain those deleted account records on our servers for later account recovery.</strong> The immediate deletion statement concerns execution of the deletion operation; an emailed request may first require support review and identity verification.</p>
+<h3 id="privacy-records-held-by-third-parties">Records held by third parties</h3>
+<p><strong>Deleting your Card AI account does not automatically or immediately erase records already held in Firebase, Mixpanel, Singular, Apple, or other third-party systems.</strong> Analytics, attribution, and diagnostic records in those systems are subject to the relevant service's retention settings, deletion mechanisms, and applicable legal requirements. We do not represent that these records disappear at the same time as our server records.</p>
+<p>For requests concerning personal information held by providers in connection with Card AI, contact us at <a href="mailto:support@tcgcard.fun">support@tcgcard.fun</a>. We handle requests according to applicable rights and available provider procedures. Independent provider accounts, such as your Google or Apple account, must be managed through the provider. Apple's transaction records are governed by Apple's own obligations and policies.</p>
+<p>Support correspondence and deletion-request communications are separate from your in-app collection records and may remain in the systems used to handle your request for as long as necessary to resolve it and meet applicable legal obligations. If a legal requirement prevents deletion of particular information, we will explain the applicable reason and scope where permitted.</p>
+<h2 id="privacy-6-how-to-delete-your-account">6. How to Delete Your Account</h2>
+<p>You can initiate deletion through <strong>Delete Account</strong> in the app's account settings. You can also use our <a href="/Account/AccountSetup">account deletion webpage</a> without reinstalling the app, or email <a href="mailto:support@tcgcard.fun">support@tcgcard.fun</a>.</p>
+<p>Specify <strong>Android or iOS</strong> and identify the account you want deleted. If the webpage opens an email draft, you must send that email to submit the request. We may need to verify that the request comes from the account holder. Do not send passwords or verification codes. For guest data, contact support so we can help identify the relevant records.</p>
+<p>Deletion removes the selected platform account and its associated server records, including collections, Wishlist, folders, saved card details, scan images and records, and preferences, and ends access through that platform account's sessions. <strong>To use an account on that platform again, you must register again. Signing in with the same email or Google account does not recover deleted data.</strong></p>
+<p>The separate account and records on the other platform remain unaffected. If you want both deleted, request deletion for both platforms. Deletion does not delete your Apple or Google account.</p>
+<p>Deleting Card AI or its iOS account <strong>does not cancel an Apple subscription</strong>. Manage or cancel that subscription in your Apple account's subscription settings. Canceling a subscription is not a prerequisite for submitting a Card AI account-deletion request. Uninstalling the app alone does not delete a server-side account.</p>
+<h2 id="privacy-7-your-rights-and-choices">7. Your Rights and Choices</h2>
+<p>Depending on your location, you may have rights to access, correct, delete, obtain a copy of, restrict, or object to processing of your personal information; withdraw consent; or opt out of applicable targeted advertising or sharing. You may also complain to the relevant data protection authority. Contact <a href="mailto:support@tcgcard.fun">support@tcgcard.fun</a> to exercise applicable rights. We may request proportionate verification to protect your information.</p>
+<p>You can manage camera and photo permissions in device settings. You can manage available advertising-identifier controls on Android and tracking permissions on iOS. These controls do not necessarily stop all analytics, diagnostics, or information needed to operate your account. We do not imply that every data category has an in-app opt-out switch.</p>
+<h2 id="privacy-8-security-and-international-processing">8. Security and International Processing</h2>
+<p>We use reasonable technical and organizational measures designed to protect information against unauthorized access, misuse, loss, and disclosure. Our production app-to-API connection uses HTTPS. No method of electronic transmission or storage is completely secure, and we cannot guarantee absolute security.</p>
+<p>Information may be processed in countries where our infrastructure and service providers operate. Their laws may differ from those where you live. Applicable transfer and data-protection requirements continue to apply to such processing.</p>
+<h2 id="privacy-9-children-s-privacy">9. Children's Privacy</h2>
+<p>Card AI is intended for users aged <strong>13 and older</strong> and is not directed to children under 13. Where applicable law requires a higher age or parental authorization, that requirement applies. Users below the age of majority need a parent or guardian's permission to use the Service.</p>
+<p>If you believe a child has provided personal information contrary to these requirements, contact us so we can investigate and delete it as appropriate. Store content ratings describe content suitability and do not replace these eligibility requirements.</p>
+<h2 id="privacy-10-changes-and-contact">10. Changes and Contact</h2>
+<p>We may update this policy as the Service or our practices change. The version date identifies the revision; it takes effect when published on our website unless a later effective date is stated. We provide notice of material changes where required by law and obtain consent where legally required.</p>
+<p>Privacy contact: <a href="mailto:support@tcgcard.fun">support@tcgcard.fun</a>   Website: <a href="https://tcgcard.fun">https://tcgcard.fun</a>   Privacy Policy: <a href="/privacy">https://tcgcard.fun/privacy</a>   Terms of Use: <a href="/terms">https://tcgcard.fun/terms</a>   Account deletion: <a href="/Account/AccountSetup">https://tcgcard.fun/Account/AccountSetup</a></p>
         </article>
       </div>
     </main>
