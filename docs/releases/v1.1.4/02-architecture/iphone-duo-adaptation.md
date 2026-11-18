@@ -113,7 +113,7 @@ Android 继续全程 `portraitUp`，保留免费首版策略；iOS 继续使用�
 
 ## 9. 首轮实施（2026-11-17）
 
-这是同一 Flutter 客户端的布局增量。当前保留独立详情路由，不实施搜索／收藏的列表详情主从导航；Scan 保持全窗口预览，不实施局部预览双栏。平台商业策略、账号／数据、API、扫描识别协议及原生方向声明均保留。
+这是同一 Flutter 客户端的布局增量。当前保留独立详情路由，不实施搜索／收藏的列表详情主从导航。首轮 Scan 保持全窗口预览；2026-11-18 按用户后续授权增加第 9.9 节的 6:4 局部预览双栏。平台商业策略、账号／数据、API、扫描识别协议及原生方向声明均保留。
 
 ### 9.1 右侧导航与正文
 
@@ -127,7 +127,7 @@ Android 继续全程 `portraitUp`，保留免费首版策略；iOS 继续使用�
 - Search、Collection、Set Detail 按局部宽度计算网格列数：目标卡宽 170、间隔 10；局部净宽至少 320 时保留两列紧凑卡片，大字体按最多 1.5 倍提高宽度门槛并增加卡片高度。390 正常手机及 466×678／右安全区 84 的折叠外屏均保留两列；951×669／右安全区 84 的展开内屏显示四列，极窄或大字体可降一列。Set Detail 窄窗口保留原 350 内容宽度。
 - Home Overview 在扣除页面横向边距后的局部宽度至少 800，且扣除顶栏、模块间距、上下留白后的面板高度至少 400（空收藏面板为 520，均随字体倍率提高门槛）时并排：顶部切换栏与货币控件、左侧资产／图表固定，右侧 Most Valuable 与 Trending Today 共同独立纵向滚动，Most Valuable 保留横向滚动。窄屏、短窗口、键盘或大字体占用后空间不足时回到最大 672 的可滚动单列。稳定页面内 Key 保持图表、卡片横向列表和主滚动 State；Performance 保留整页滚动。
 - Card Detail 以正文局部约束判断布局：宽度至少 800、高度至少 480 时，左侧卡图／主操作和右侧价格／资产信息分别使用独立滚动容器。滑动右侧不会带动左侧；左侧内容过高时仍可单独滚动以访问按钮。窄屏、短窗口或键盘占用后高度不足时回到限宽 672 的整页单列滚动。两面板和主滚动容器通过页面内的稳定 Key 保持既有子树／滚动 State；内容构建放在尺寸布局计算之外，避免键盘动画重复重建编辑表单。沿用 controller、路由及原有下拉刷新。
-- Scan 保留整窗 viewport、既有取景框与 capture orientation，顶部／底部控件及结果条尊重左右安全区并限宽 560。拍照开始后若窗口 metrics 变化，丢弃该次结果并按既有失败卡片允许重试；不把旧几何对应的图片发送识别，活动队列和相机会话不因重排重建。
+- Scan 在安全区和页面边距内宽度至少 800、扣除顶部栏与上下留白后面板高度至少 440（两项门槛随字体倍率提高）时，按扣除 24 间距后的宽度 6:4 分为左侧相机预览和右侧控制／结果队列。取景框保持原卡牌比例并占预览高度至多 80%；显示、遮罩和拍照裁剪共用左侧局部 viewport／取景框。右侧结果纵向滚动，类型／闪光灯与底部操作固定；窄屏、短窗口和字体增大后空间不足时保留整窗预览与原底部横向结果条。capture orientation、拍照期间 metrics 变化时丢弃旧几何结果、活动队列和相机会话的原规则保持。
 
 ### 9.3 验证与边界
 
@@ -206,3 +206,45 @@ Duo 真机、普通 iPhone／Android 真机、系统完整分屏矩阵、真实�
 - **模拟器实测：**底部空间修正后的隔离 test／Debug-test／arm64 UI 预览构建成功，顺序安装并启动同一 Duo，版本 1.0.7+213；来源为 `72b293fd` 加未提交改动。安装 kernel 与批准产物 SHA-256 一致，为 `615cfb1d48f075e817796ac9eed6aec664d5bc78a391c5b7053186051bc78036`。展开 Overview 后，实际向上拖动右侧列表，Most Valuable 和 Trending Today 一起移动，顶栏、货币按钮和左侧资产／图表固定；右侧延伸至底部安全区。滑动前后截图对比，顶栏及左侧内容区域像素完全一致，右侧发生变化。最终停留在展开 Overview，没有操作购买或收藏写入。
 - **证据与边界：**本机 `/private/tmp/kd-iphone-duo-adapted/` 保留 `home-pinned-focused-final.log`、`home-pinned-regression-final.log`、`home-pinned-golden-comparison.json`、`home-pinned-golden-evidence.zip`、`analyze-home-pinned-final.log`、`build-home-pinned-final.log`、`home-pinned-installed-identity.json`、`home-pinned-before-scroll.png`／`home-pinned-after-scroll.png`、`home-pinned-scroll-comparison.json` 和 `home-pinned-preview.png`。第 8 节 ML Kit 隔离 UI 预览例外继续适用，不代表完整扫描／OCR 或真机验证；Android 完成 widget 回归，未重建 APK 或上机。未提交／推送 Git、改动远端环境或发布商店制品。
 - **清理：**确认构建／测试进程已结束后，删除本任务 DerivedData 的编译中间文件、模块缓存和索引，释放约 1.32 GB，四个目标目录均已不存在；保留最终 Runner.app、隔离工程、Android 制品及上述证据。清理结果见 `home-pinned-cleanup.json`；最终 `git diff --check` 通过。
+
+### 9.9 Scan 6:4 取景与队列双栏（2026-11-18）
+
+用户批准扫描页采用左侧取景、右侧操作与结果队列的方案，并指定取景占 60%、右侧占 40%。当前按安全区内宽度减去左右各 20 和栏间距 24 后分配 6:4；顶部关闭与 Scan cards 标题独立，左右面板顶部对齐，底部在系统安全区外额外留 8。扣除边距后的宽度至少 800、面板高度至少 440 时采用双栏，门槛随文字倍率提高；外屏、短窗口或字体放大导致空间不足时保留原单列布局。
+
+- **取景与交互：**左侧取景框居中，保持原 254:363 比例，最大占相机面板高度 80%；右侧顶部为卡牌类型和闪光灯，底部固定相册、快门和 Done，中间结果队列独立纵向滚动，保留结果状态、删除、重试、手动搜索、Review 和总额。空队列显示简短提示。
+- **坐标与平台：**绘制、动画与拍照共用相机面板的局部 viewport／取景框坐标，经现有 BoxFit.cover 裁剪映射；保留窗口变化时丢弃过期拍照结果的保护。iOS 免费额度与升级入口保留，Android 按现有免费首版策略隐藏；两端方向、识别协议、权限、队列上限和业务回调不改。折叠重排保持 ScanPage State 和活动队列，不因窗口变化重开相机会话。
+- **专项验证：**iOS／Android 共 6 项通过，覆盖 6:4 与安全区、类型／闪光灯、局部拍照参数、8 项队列独立滚动、折叠往返保持会话／队列、删除与 Review，以及窄屏／短窗口／1.2 倍文字回退。测试使用生产字体；相册测试按既有关闭再重开相机流程提供新会话，并允许纵向懒列表回收已滚出视口的首项。
+- **受影响回归：**`flutter test --no-pub test/widget/scan_page_test.dart test/scan_native_image_processor_test.dart test/scan_orientation_test.dart test/scan_result_source_test.dart test/scan_mask_geometry_test.dart` 最终 196 通过、5 失败，退出 1。5 项均为原有 iOS golden 差异；本次扫描前、拍摄、识别、揭示和 Review 的实际图像与先前保存的未修改源码基线逐字节一致，不更新 golden。局部相机面板的原生归一化裁剪参数、旧异步扫描／失败重试／额度、双端方向与蒙版测试通过；`flutter analyze --no-pub` 无问题，退出 0。
+- **Code Review：**自审通过。显示和拍照共用 `_scanCameraLayout`，窄屏继续调用原几何；相机与动画均限制在同一局部面板。宽窄布局复用同一结果过滤、排序、总额与动作回调，固定控件不在结果 ListView 的祖先链内；未修改相机会话生命周期或识别原生实现。检查了空队列、处理状态、列表惰性回收、删除及 Done 门禁、折叠时相机与队列连续性和文字／短窗口回退。普通屏幕的 5 张实际图像保持字节一致。
+- **模拟器安装与实测：**隔离工程的 test／Debug-test／arm64 UI 预览构建成功，顺序安装并启动 Device Hub 的 iPhone Duo（iOS 27.1，`A9D96BD2-F97C-42A6-9047-FDC8F0781675`）；Bundle `com.kando.kandoApp.beta`，版本 1.0.7+213，来源为 `783283a3` 加本轮未提交改动。安装 kernel 与构建 SHA-256 一致，为 `220173611cb899bd731b0554aff415c6afb894e7f23e8babba0825b67449ba2e`。实际确认展开时左侧取景／右侧操作与空队列、折叠恢复原单列、再次展开恢复双栏，以及 TCG／Sports Card 菜单切换；最终停留在展开的 TCG 扫描页。未拍照识别、选相册上传、购买或写收藏。
+- **证据与边界：**本机 `/private/tmp/kd-iphone-duo-adapted/` 保留 `scan-split-focused.log`、`scan-split-regression.log`、`scan-split-golden-comparison.json`、`scan-split-golden-evidence.zip`、`analyze-scan-split.log`、`build-scan-split.log`、`scan-split-installed-identity.json` 和展开／折叠／预览截图。第 8 节省略 ML Kit 的隔离 UI 预览例外继续适用，不能代表完整原生 OCR／真实相机裁剪／识别已验收；这部分需真机补验。Android 完成共享 widget／裁剪／方向回归，未重建 APK 或运行折叠设备；安卓实机效果仍待补验。未提交／推送 Git、发布远端环境或商店制品。
+- **清理：**确认本任务构建／测试已结束，删除 DerivedData 的编译中间文件、模块缓存、SDK 统计缓存和索引，移除约 0.96 GB 文件，磁盘可用空间增加约 1.02 GB；四个目标目录均不存在。保留最终 Runner.app、隔离工程、Android 制品和验证证据，本轮生成的未跟踪 golden 诊断已先归档再清理，跟踪文件保留。清理结果见 `scan-split-cleanup.json`。
+
+2026-11-18 按用户要求为右侧操作区和左侧能显示相机画面的完整预览面板添加临时红色边框，以观察真实布局边界：仅 Debug 双栏显示 2 逻辑像素红框，分别使用相同 sidebar／preview 矩形叠加 IgnorePointer，不占布局空间，也不拦截点击；原取景框四角保留，Release／窄屏不显示红框。两端共享相同调试行为，原安全区、6:4 比例、业务和方向策略保留。
+
+红框增量已重新通过 iOS／Android 6 项 Duo Scan 专项及 `flutter analyze --no-pub`；自审确认两个标记使用原面板矩形，IgnorePointer 不截获操作，未更改布局约束。接到左侧补充要求后中断了仅右侧红框的构建，随后包含两侧红框的构建成功并安装同一模拟器，kernel SHA-256 与产物一致，为 `6bf2b8c478899a4ed2417b16a45737e7bf81ebe9a452bf2d105b113cd11e6e60`。Device Hub 实际已显示左侧完整相机面板和右侧操作区的红色外框，内部黄色取景四角保持，最终停留在展开扫描页。相关日志、身份、截图和清理证据为本机上述目录的 `scan-border-focused.log`、`analyze-scan-border.log`、`build-scan-borders-final.log`、`scan-borders-installed-identity.json`、`scan-borders-open.png`／`scan-borders-preview.png` 和 `scan-borders-cleanup.json`。确认本轮构建／测试结束后再次清理四个编译缓存目录，保留 Runner.app 和证据；未重建 Android APK／运行 Android 真机，完整扫描／OCR 预览例外继续适用。
+
+2026-11-18 按用户标注收紧双栏下方留白：两侧面板底部额外间距从 24 减至 8，保留系统底部安全区／键盘避让；Duo 951×669、底部安全区 34 时，红框底边从 y=611 下移至 y=627，距屏幕底部由 58 减至 42。6:4 宽度、顶部位置和两侧临时红框保留；普通单列分支和平台方向／商业策略不改。
+
+该底部间距增量已通过 iOS／Android 6 项 Duo Scan 专项（包含两侧底边 y=627、相机局部裁剪参数、滚动／折叠连续性与回退场景）及 `flutter analyze --no-pub`。自审确认只收紧双栏面板下方额外间距，画面和拍照仍共用同一几何；未改变单列底部控件、平台方向或额度规则。
+
+底部留白版隔离 UI 预览构建成功，安装并启动同一 Duo／1.0.7+213；安装 kernel 与构建一致，SHA-256 为 `2298fd20b58386084e477e8c28628fa4a2f1d1c3265176d47bad9885537a6f7f`。Device Hub 交互中已目视确认展开扫描页两侧红框底边下移、底部空白缩小；Agent 未操作拍照、相册、购买或收藏写入。证据保留 `scan-bottom-gap-focused.log`、`analyze-scan-bottom-gap.log`、`build-scan-bottom-gap.log`、`scan-bottom-gap-installed-identity.json` 和 `scan-bottom-gap-cleanup.json`；后续捕获到其他页面的截图不作为本次布局证据，已清理。确认构建／测试结束后移除四个编译缓存目录，约 0.96 GB 文件，保留最终 Runner.app。未重建 Android APK／运行 Android 真机，隔离包完整扫描／OCR 未验收边界继续保留。
+
+### 9.10 Scan Review 底部操作区宽度与调试边界（2026-11-18）
+
+用户标注扫描结果小卡片进入的 Review 页面，底部操作区比上方内容少占右侧空间。定位到外层 SafeArea 已避让安全区，而 Footer 为读取键盘状态恢复完整 MediaQuery 后，再次通过内部 SafeArea 应用左右安全区；Duo 951×669、右安全区 84 时，iOS／Android 修改前回归均复现删除按钮右边缘为 773，预期与上方内容对齐为 857，重复避让正好 84。
+
+当前 Footer 依赖既有外层安全区，移除内部重复的左右和底部避让；内容仍保留原左右各 10、底部 8 的间距。键盘出现时隐藏操作栏、单张／批量添加删除、保存状态和平台业务规则保持。按用户要求，已移除相机预览与队列面板的两侧红框，当前临时红框仅标记 Review 整块底部操作区；使用 Debug 模式的前景描边，不参与布局、不截获点击，Release 不显示。
+
+用户继续指出批量按钮下方留白偏大：修改前两端回归均确认最后一排操作按钮底边为 y=593，预期只应用一次底部安全区后为 y=627，重复量正好 34。现已移除 Footer 内重复 SafeArea，由外层统一避让；按钮距屏幕底部为系统安全区 34 加内容边距 8，共 42。单卡时批量按钮与 6 间距原本就不构建，不占高度；列表固定底部滚动预留 170 本轮保留，与操作区的安全区重复是独立设置。
+
+- **验证与 Code Review：**最终 iOS／Android 8 项 Duo Scan／Review 专项全部通过，含单张与多张经结果小卡片进入 Review 后的左右对齐、最后一排按钮底边为 y=627。受影响完整回归 `flutter test --no-pub test/widget/scan_page_test.dart test/scan_orientation_test.dart` 为 174 通过、5 项 golden 失败，退出 1；四张扫描实际图像与未修改基线逐字节一致，Review 比基线多出 1,952 个差异像素，全部为本次要求的纯红调试描边，未修改 golden。`flutter analyze --no-pub` 无问题，退出 0。自审通过：外层统一安全区、Footer 原间距和动态高度、键盘隐藏判断、保存状态与全部业务回调保持；删除的内部 SafeArea 是重复避让的唯一根因，移除两侧取景红框不改变拍照几何。
+- **本机 UI 交付：**为保留用户当前两张活动扫描结果，本轮通过 `flutter attach` 对现有 Duo Debug 会话热更新，未重装／重启 App，未执行扫描、相册上传、添加或删除收藏。系统 Bonjour 未自动发现调试会话，改用该本地 App 既有调试服务直连；热更新成功后在 Device Hub 目视确认 Footer 红框覆盖完整安全宽度，按钮下方仅余 8 内容边距。断开调试客户端后原 App 进程 36322 仍运行，队列保留。此状态为运行中热更新，重新启动仍加载先前已安装包；最新源码的隔离 UI 预览 Runner.app 已另行构建成功并保留，版本 1.0.7+213、kernel SHA-256 `84b1134b1cca2def0e72a3a44cff4e7c3cf8dc42c8b6685e3cab4c399cb67fdd`，尚未安装，以免清空本轮临时队列。不将热更新与重新安装身份核验混报。
+- **证据与清理：**本机既有临时目录保留 `scan-review-width-before.log`、`scan-review-bottom-before.log`、`scan-review-width-focused.log`、`scan-review-width-regression.log`、`analyze-scan-review-width.log`、`scan-review-width-golden-comparison.json`／`scan-review-width-golden-evidence.zip`、`build-scan-review-width-final.log`、`scan-review-hot-reload.json`、`scan-review-width-final-open.png`／`scan-review-width-final-preview.png` 及 `scan-review-width-cleanup.json`。已先归档再移除本轮未跟踪 golden 诊断；删除临时调试连接发现信息和 PID 文件。确认调试客户端、构建／测试均已结束后，清理四个编译缓存目录，保留最终包和截图。Android 未重新构建 APK 或运行真机，隔离预览的完整扫描／OCR 未验收边界保留；未提交／推送或发布任何远端环境。
+
+2026-11-18 后续收紧：用户在模拟器确认仍有空白，并明确只去掉红框内的底部留白、保留框外系统安全区。重新截图确认原 8 内容边距仍在，批量 OutlinedButton 还有 40 可见高度与 48 点击占位之间的下方 4 透明空间；本轮将 Footer 底部内容边距改为 0，两个批量按钮可见最小高度设为 48，使其可见边界填满既有点击占位。单卡主操作仍为 56 高；两端共享该布局，系统底部安全区 34 保留，最后一排按钮可见底边与红框底边均为 y=635。顶部和左右间距、回调、键盘隐藏与单张／多张业务规则保留。
+
+修改前同一 iOS／Android Review 回归已复现 y=627 而期望 y=635，失败证据为 `review-footer-gap-before.log`；回归同时检查最后一排每个按钮的实际 Material 可见边界与 Footer 底边对齐，且可见高度至少 48，避免仅验证外层点击框而漏掉透明占位。
+
+- **验证与 Code Review：**`flutter test --no-pub test/widget/scan_page_test.dart --plain-name 'Duo ' --reporter expanded` 的两端 8 项通过，退出 0；Review／批量操作相关回归（`--name '[Rr]eview|bulk actions'`）49 项通过、1 项旧 Review golden 失败（23,605 像素差异，未更新基线），退出 1，覆盖单张／多张、键盘、候选加载、关闭和失败保存。`flutter analyze --no-pub` 无问题、退出 0，`git diff --check` 通过。自审通过：0 底部内容边距只收紧 Footer；批量按钮可见高度从 40 补到既有 48 点击占位，没有缩小触控目标；单卡 56 高、左右 10、顶部 10、批量行间距 6 以及安全区与业务回调保持。此次未重跑其余页面和全量测试，未构建或上机验收 Android APK。
+- **本机交付与清理：**同一 Duo／App 进程 36322 成功热更新 1 个库，截图确认批量按钮可见底边与红框底边贴合，框外 34 安全区保留、两张扫描结果仍在；没有重装／重启，也没有扫描或收藏写入。首次调试连接的默认 widget tracking 与隔离包的 false 不一致，触发调试字段查找异常；按隔离包实际配置重新连接并使用 `--no-track-widget-creation` 热更新后恢复，最终没有该异常。断开调试客户端后原 App 仍运行。此次未构建新包，重启后仍回到先前安装版本。证据为 `scan-review-user-gap-current.png`、`review-footer-gap-after.png`／`review-footer-gap-preview.png`、`review-footer-gap-focused.log`、`review-footer-gap-regression.log` 和 `analyze-review-footer-gap.log`；本轮 Review golden 诊断归档后移出仓库，临时编译输出在调试客户端结束后清理。其他任务的既有失败图与可复用缓存保留；未提交／推送或发布远端环境。

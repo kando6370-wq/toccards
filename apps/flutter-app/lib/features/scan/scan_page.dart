@@ -172,6 +172,61 @@ _ScanViewfinderGeometry _scanViewfinderGeometry(
   return _ScanViewfinderGeometry(Rect.fromLTWH(left, top, width, height));
 }
 
+class _ScanCameraLayout {
+  const _ScanCameraLayout({
+    required this.preview,
+    required this.viewfinder,
+    this.sidebar,
+  });
+
+  final Rect preview;
+  final Rect? sidebar;
+  // Relative to preview, so painting and BoxFit.cover cropping share a viewport.
+  final _ScanViewfinderGeometry viewfinder;
+}
+
+_ScanCameraLayout _scanCameraLayout(MediaQueryData media) {
+  final viewport = media.size;
+  final padding = media.padding;
+  final width = viewport.width - padding.horizontal - 40;
+  final top = padding.top + _viewfinderTopChromeHeight + 24;
+  final height =
+      viewport.height -
+      top -
+      math.max(padding.bottom, media.viewInsets.bottom) -
+      8;
+  final textScale = math.max(1.0, media.textScaler.scale(16) / 16);
+  if (width < 800 * textScale || height < 440 * textScale) {
+    return _ScanCameraLayout(
+      preview: Offset.zero & viewport,
+      viewfinder: _scanViewfinderGeometry(viewport, padding),
+    );
+  }
+
+  // Divide the space after the gutter in the requested 6:4 ratio.
+  final previewWidth = (width - 24) * .6;
+  final preview = Rect.fromLTWH(padding.left + 20, top, previewWidth, height);
+  final scale = math.min(
+    (preview.width - 48) / _viewfinderBaseWidth,
+    preview.height * .8 / _viewfinderBaseHeight,
+  );
+  final frameSize = Size(
+    _viewfinderBaseWidth * scale,
+    _viewfinderBaseHeight * scale,
+  );
+  return _ScanCameraLayout(
+    preview: preview,
+    sidebar: Rect.fromLTWH(preview.right + 24, top, (width - 24) * .4, height),
+    viewfinder: _ScanViewfinderGeometry(
+      Rect.fromCenter(
+        center: preview.size.center(Offset.zero),
+        width: frameSize.width,
+        height: frameSize.height,
+      ),
+    ),
+  );
+}
+
 class _ScanMatch {
   const _ScanMatch({
     required this.scanId,
@@ -793,14 +848,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
       await _captureController.forward(from: 0).orCancel;
       if (!mounted) return const ScanResolution.failed();
       final viewportGeneration = _viewportGeneration;
-      final viewport = MediaQuery.sizeOf(context);
-      final viewfinder = _scanViewfinderGeometry(
-        viewport,
-        MediaQuery.paddingOf(context),
-      ).rect;
+      final layout = _scanCameraLayout(MediaQuery.of(context));
       final image = await camera.takePhoto(
-        viewfinder: viewfinder,
-        viewport: viewport,
+        viewfinder: layout.viewfinder.rect,
+        viewport: layout.preview.size,
       );
       if (!mounted || viewportGeneration != _viewportGeneration) {
         return const ScanResolution.failed();
@@ -2706,147 +2757,230 @@ class _ScanCameraView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final viewport = MediaQuery.sizeOf(context);
-    final padding = MediaQuery.paddingOf(context);
-    final geometry = _scanViewfinderGeometry(viewport, padding);
+    final media = MediaQuery.of(context);
+    final padding = media.padding;
+    final layout = _scanCameraLayout(media);
+    final sidebar = layout.sidebar;
+    final viewport = layout.preview.size;
+    final geometry = layout.viewfinder;
     final safeTop = padding.top;
     final topNavigationHeight =
         safeTop + _scanTopNavigationGap + _scanTopBarHeight;
+    final results = _ScanResults(
+      vertical: sidebar != null,
+      items: items,
+      cards: cards,
+      currency: currency,
+      remainingScans: remainingScans,
+      showRevealingFeedback: showRevealingFeedback,
+      onUpgradePressed: onUpgradePressed,
+      onDismissRevealing: onDismissScanFeedback,
+      onReviewItem: onReviewItem,
+      onRetryItem: onRetryItem,
+      onDeleteItem: onDeleteItem,
+      onSearchPressed: onSearchItem,
+    );
+    final controls = _ScanBottomControls(
+      canReview: canReview,
+      onPhotoPressed: onPhotoPressed,
+      onLibraryPressed: onLibraryPressed,
+      onReviewPressed: onReviewPressed,
+    );
     return Stack(
       children: [
-        if (cameraPreview != null)
-          Positioned.fill(
-            child: KeyedSubtree(
-              key: const Key('scan-live-camera-preview'),
-              child: cameraPreview!,
-            ),
-          ),
-        if (recognizing)
-          Positioned.fill(child: _FigmaRecognizingOverlay(geometry: geometry))
-        else if (revealing)
-          Positioned.fill(child: _FigmaRevealingOverlay(geometry: geometry))
-        else ...[
-          Positioned.fill(
-            child: ColoredBox(
-              key: const Key('scan-figma-camera-overlay'),
-              color: const Color(0x120D0F08),
-            ),
-          ),
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: geometry.radialAlignment(viewport),
-                  radius: 0.86,
-                  colors: [
-                    Colors.transparent,
-                    const Color(0xFF0D0F08).withValues(alpha: 0.75),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-        Positioned(
-          key: const Key('scan-figma-top-controls'),
-          top: 0,
-          left: 0,
-          right: 0,
-          height: topNavigationHeight,
-          child: Stack(
-            children: [
-              Positioned(
-                top: safeTop + _scanTopNavigationGap,
-                left: 16 + padding.left,
-                right: 16 + padding.right,
-                height: _scanTopBarHeight,
-                child: KandoContentWidth(
-                  maxWidth: 560,
-                  child: _ScanTopBar(
-                    onClosePressed: onClosePressed,
-                    onFlashPressed: onFlashPressed,
-                    flashEnabled: flashEnabled,
-                    selectedCardType: selectedCardType,
-                    onCardTypeChanged: onCardTypeChanged,
+        Positioned.fromRect(
+          rect: layout.preview,
+          child: ClipRect(
+            key: const Key('scan-camera-pane'),
+            child: Stack(
+              children: [
+                if (cameraPreview != null)
+                  Positioned.fill(
+                    child: KeyedSubtree(
+                      key: const Key('scan-live-camera-preview'),
+                      child: cameraPreview!,
+                    ),
+                  ),
+                if (recognizing)
+                  Positioned.fill(
+                    child: _FigmaRecognizingOverlay(geometry: geometry),
+                  )
+                else if (revealing)
+                  Positioned.fill(
+                    child: _FigmaRevealingOverlay(geometry: geometry),
+                  )
+                else ...[
+                  Positioned.fill(
+                    child: ColoredBox(
+                      key: const Key('scan-figma-camera-overlay'),
+                      color: const Color(0x120D0F08),
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: RadialGradient(
+                          center: geometry.radialAlignment(viewport),
+                          radius: 0.86,
+                          colors: [
+                            Colors.transparent,
+                            const Color(0xFF0D0F08).withValues(alpha: 0.75),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+                Positioned.fromRect(
+                  rect: geometry.rect,
+                  child: _ViewfinderCorners(
+                    size: geometry.rect.size,
+                    focusFrameShadow: recognizing || revealing,
                   ),
                 ),
-              ),
-            ],
-          ),
-        ),
-        Positioned.fromRect(
-          rect: geometry.rect,
-          child: _ViewfinderCorners(
-            size: geometry.rect.size,
-            focusFrameShadow: recognizing || revealing,
-          ),
-        ),
-        Positioned.fromRect(
-          rect: geometry.rect,
-          child: const IgnorePointer(
-            child: Center(
-              child: Text(
-                'ALIGN CARD HERE',
-                key: Key('scan-figma-align-hint'),
-                style: TextStyle(
-                  color: Color(0xFFE4E3D3),
-                  fontSize: 15,
-                  height: 16 / 15,
+                Positioned.fromRect(
+                  rect: geometry.rect,
+                  child: const IgnorePointer(
+                    child: Center(
+                      child: Text(
+                        'ALIGN CARD HERE',
+                        key: Key('scan-figma-align-hint'),
+                        style: TextStyle(
+                          color: Color(0xFFE4E3D3),
+                          fontSize: 15,
+                          height: 16 / 15,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+                if (capturingPhoto) ...[
+                  Positioned.fromRect(
+                    rect: geometry.rect,
+                    child: _FigmaScanningLine(
+                      key: Key('scan-figma-scanning-line'),
+                      animation: captureAnimation,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ),
-        if (capturingPhoto) ...[
+        if (sidebar != null) ...[
+          Positioned(
+            left: padding.left + 20,
+            top: safeTop + _scanTopNavigationGap,
+            child: Row(
+              children: [
+                _ScanCloseButton(onPressed: onClosePressed),
+                const SizedBox(width: 16),
+                const Text(
+                  'Scan cards',
+                  style: TextStyle(
+                    fontFamily: 'Fraunces',
+                    fontSize: 20,
+                    color: KandoColors.text,
+                  ),
+                ),
+              ],
+            ),
+          ),
           Positioned.fromRect(
-            rect: geometry.rect,
-            child: _FigmaScanningLine(
-              key: Key('scan-figma-scanning-line'),
-              animation: captureAnimation,
+            rect: sidebar,
+            child: Column(
+              key: const Key('scan-controls-pane'),
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _ScanTopBar(
+                  showCloseButton: false,
+                  onClosePressed: onClosePressed,
+                  onFlashPressed: onFlashPressed,
+                  flashEnabled: flashEnabled,
+                  selectedCardType: selectedCardType,
+                  onCardTypeChanged: onCardTypeChanged,
+                ),
+                const SizedBox(height: 16),
+                Expanded(child: results),
+                const SizedBox(height: 24),
+                controls,
+              ],
+            ),
+          ),
+        ] else ...[
+          Positioned(
+            key: const Key('scan-figma-top-controls'),
+            top: 0,
+            left: 0,
+            right: 0,
+            height: topNavigationHeight,
+            child: Stack(
+              children: [
+                Positioned(
+                  top: safeTop + _scanTopNavigationGap,
+                  left: 16 + padding.left,
+                  right: 16 + padding.right,
+                  height: _scanTopBarHeight,
+                  child: KandoContentWidth(
+                    maxWidth: 560,
+                    child: _ScanTopBar(
+                      onClosePressed: onClosePressed,
+                      onFlashPressed: onFlashPressed,
+                      flashEnabled: flashEnabled,
+                      selectedCardType: selectedCardType,
+                      onCardTypeChanged: onCardTypeChanged,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            left: 16 + padding.left,
+            right: 16 + padding.right,
+            bottom: _scanResultsBottom,
+            child: KandoContentWidth(maxWidth: 560, child: results),
+          ),
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: math.max(0, 22 - padding.bottom),
+            child: SafeArea(
+              top: false,
+              child: KandoContentWidth(maxWidth: 560, child: controls),
             ),
           ),
         ],
-        Positioned(
-          left: 16 + padding.left,
-          right: 16 + padding.right,
-          bottom: _scanResultsBottom,
-          child: KandoContentWidth(
-            maxWidth: 560,
-            child: _ScanResults(
-              items: items,
-              cards: cards,
-              currency: currency,
-              remainingScans: remainingScans,
-              showRevealingFeedback: showRevealingFeedback,
-              onUpgradePressed: onUpgradePressed,
-              onDismissRevealing: onDismissScanFeedback,
-              onReviewItem: onReviewItem,
-              onRetryItem: onRetryItem,
-              onDeleteItem: onDeleteItem,
-              onSearchPressed: onSearchItem,
-            ),
-          ),
-        ),
-        Positioned(
-          left: 16,
-          right: 16,
-          bottom: math.max(0, 22 - padding.bottom),
-          child: SafeArea(
-            top: false,
-            child: KandoContentWidth(
-              maxWidth: 560,
-              child: _ScanBottomControls(
-                canReview: canReview,
-                onPhotoPressed: onPhotoPressed,
-                onLibraryPressed: onLibraryPressed,
-                onReviewPressed: onReviewPressed,
-              ),
-            ),
-          ),
-        ),
       ],
     );
   }
+}
+
+class _ScanCloseButton extends StatelessWidget {
+  const _ScanCloseButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+    key: const Key('scan-figma-close-button'),
+    tooltip: 'Close Scan',
+    onPressed: onPressed,
+    constraints: const BoxConstraints.tightFor(width: 42, height: 42),
+    padding: EdgeInsets.zero,
+    style: IconButton.styleFrom(
+      minimumSize: const Size(42, 42),
+      maximumSize: const Size(42, 42),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      backgroundColor: const Color(0xFF222222).withValues(alpha: 0.82),
+    ),
+    icon: SvgPicture.asset(
+      'assets/scan/close.svg',
+      key: const Key('scan-figma-close-icon'),
+      width: 14,
+      height: 14,
+    ),
+  );
 }
 
 class _ScanTopBar extends StatelessWidget {
@@ -2856,6 +2990,7 @@ class _ScanTopBar extends StatelessWidget {
     required this.flashEnabled,
     required this.selectedCardType,
     required this.onCardTypeChanged,
+    this.showCloseButton = true,
   });
 
   final VoidCallback onClosePressed;
@@ -2863,6 +2998,7 @@ class _ScanTopBar extends StatelessWidget {
   final bool flashEnabled;
   final ScanCardType selectedCardType;
   final ValueChanged<ScanCardType> onCardTypeChanged;
+  final bool showCloseButton;
 
   @override
   Widget build(BuildContext context) {
@@ -2871,46 +3007,28 @@ class _ScanTopBar extends StatelessWidget {
       height: _scanTopBarHeight,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final selectorWidth = math.min(
-            209.0,
-            math.max(144.0, constraints.maxWidth - 96),
-          );
+          final selectorWidth = showCloseButton
+              ? math.min(209.0, math.max(144.0, constraints.maxWidth - 96))
+              : constraints.maxWidth - 58;
           return Stack(
             alignment: Alignment.center,
             children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: IconButton(
-                  key: const Key('scan-figma-close-button'),
-                  tooltip: 'Close Scan',
-                  onPressed: onClosePressed,
-                  constraints: const BoxConstraints.tightFor(
-                    width: 42,
-                    height: 42,
-                  ),
-                  padding: EdgeInsets.zero,
-                  style: IconButton.styleFrom(
-                    minimumSize: const Size(42, 42),
-                    maximumSize: const Size(42, 42),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    backgroundColor: const Color(
-                      0xFF222222,
-                    ).withValues(alpha: 0.82),
-                  ),
-                  icon: SvgPicture.asset(
-                    'assets/scan/close.svg',
-                    key: const Key('scan-figma-close-icon'),
-                    width: 14,
-                    height: 14,
-                  ),
+              if (showCloseButton)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: _ScanCloseButton(onPressed: onClosePressed),
                 ),
-              ),
-              SizedBox(
-                width: selectorWidth,
-                child: _ScanCardTypeSelector(
+              Align(
+                alignment: showCloseButton
+                    ? Alignment.center
+                    : Alignment.centerLeft,
+                child: SizedBox(
                   width: selectorWidth,
-                  selected: selectedCardType,
-                  onChanged: onCardTypeChanged,
+                  child: _ScanCardTypeSelector(
+                    width: selectorWidth,
+                    selected: selectedCardType,
+                    onChanged: onCardTypeChanged,
+                  ),
                 ),
               ),
               Align(
@@ -2931,9 +3049,8 @@ class _ScanTopBar extends StatelessWidget {
                     backgroundColor: flashEnabled
                         ? KandoColors.accent
                         : const Color(0xFF222222).withValues(alpha: 0.82),
-                    disabledBackgroundColor: const Color(
-                      0xFF222222,
-                    ).withValues(alpha: 0.82),
+                    disabledBackgroundColor: const Color(0xFF222222)
+                        .withValues(alpha: 0.82),
                   ),
                   icon: SvgPicture.asset(
                     'assets/scan/flash.svg',
@@ -3596,17 +3713,19 @@ class _ScanRevealingToast extends StatelessWidget {
     required super.key,
     required this.item,
     required this.onClosePressed,
+    this.width = 202,
   });
 
   final _ScanItem item;
   final VoidCallback onClosePressed;
+  final double width;
 
   @override
   Widget build(BuildContext context) {
     return Align(
       alignment: Alignment.topLeft,
       child: SizedBox(
-        width: 202,
+        width: width,
         height: 76,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
@@ -3880,6 +3999,7 @@ class _ScanResults extends StatelessWidget {
     required this.onRetryItem,
     required this.onDeleteItem,
     required this.onSearchPressed,
+    this.vertical = false,
   });
 
   final List<_ScanItem> items;
@@ -3893,6 +4013,7 @@ class _ScanResults extends StatelessWidget {
   final ValueChanged<_ScanItem> onRetryItem;
   final ValueChanged<_ScanItem> onDeleteItem;
   final ValueChanged<_ScanItem> onSearchPressed;
+  final bool vertical;
 
   @override
   Widget build(BuildContext context) {
@@ -3918,6 +4039,128 @@ class _ScanResults extends StatelessWidget {
       final draft = _previewDraft(card);
       return sum + (_selectedReviewPrice(card, draft) ?? 0);
     });
+
+    Widget itemCard(BuildContext context, int index) {
+      final item = visibleItems[index];
+      return _ScanItemCard(
+        key: Key('scan-active-item-${item.id}'),
+        width: vertical ? double.infinity : 202,
+        item: item,
+        card: cards[item.match?.cardRef],
+        currency: currency,
+        onReview: () => onReviewItem(item.id),
+        onRetry: () => onRetryItem(item),
+        onDelete: () => onDeleteItem(item),
+        onDismissRevealing: onDismissRevealing,
+        onSearch: () => onSearchPressed(item),
+      );
+    }
+
+    if (vertical) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (remainingScans != null) ...[
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                key: const Key('scan-free-quota-pill'),
+                onTap: onUpgradePressed,
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Row(
+                    children: [
+                      SvgPicture.asset(
+                        'assets/scan/pro_badge.svg',
+                        width: 20,
+                        height: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(text: '$remainingScans scans remaining'),
+                              const TextSpan(
+                                text: ' · Upgrade',
+                                style: TextStyle(color: KandoColors.accent),
+                              ),
+                            ],
+                          ),
+                          style: const TextStyle(
+                            color: KandoColors.mutedText,
+                            fontSize: 13,
+                            height: 18 / 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          Row(
+            key: const Key('scan-results-summary'),
+            children: [
+              const Expanded(
+                child: Text(
+                  'Scanned cards',
+                  style: TextStyle(
+                    fontFamily: 'Fraunces',
+                    fontSize: 20,
+                    color: KandoColors.text,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '$completedCount/${items.length}',
+                style: const TextStyle(
+                  color: KandoColors.mutedText,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: visibleItems.isEmpty
+                ? const Center(
+                    child: Text(
+                      'Your cards appear here',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: KandoColors.mutedText,
+                        fontSize: 13,
+                      ),
+                    ),
+                  )
+                : ListView.separated(
+                    key: const Key('scan-figma-result-rail'),
+                    padding: EdgeInsets.zero,
+                    itemCount: visibleItems.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 12),
+                    itemBuilder: itemCard,
+                  ),
+          ),
+          if (hasValuedCards && total > 0) ...[
+            const SizedBox(height: 16),
+            Text(
+              'Total: ${CurrencyFormatter(currency: currency).formatUsd(total)}',
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                color: Color(0xFFFFF6AF),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
+      );
+    }
 
     return SizedBox(
       height: _scanLowerStatusHeight,
@@ -3976,20 +4219,7 @@ class _ScanResults extends StatelessWidget {
                     clipBehavior: Clip.hardEdge,
                     itemCount: visibleItems.length,
                     separatorBuilder: (_, _) => const SizedBox(width: 12),
-                    itemBuilder: (context, index) {
-                      final item = visibleItems[index];
-                      return _ScanItemCard(
-                        key: Key('scan-active-item-${item.id}'),
-                        item: item,
-                        card: cards[item.match?.cardRef],
-                        currency: currency,
-                        onReview: () => onReviewItem(item.id),
-                        onRetry: () => onRetryItem(item),
-                        onDelete: () => onDeleteItem(item),
-                        onDismissRevealing: onDismissRevealing,
-                        onSearch: () => onSearchPressed(item),
-                      );
-                    },
+                    itemBuilder: itemCard,
                   ),
           ),
         ],
@@ -4009,6 +4239,7 @@ class _ScanItemCard extends StatelessWidget {
     required this.onDelete,
     required this.onDismissRevealing,
     required this.onSearch,
+    this.width = 202,
   });
 
   final _ScanItem item;
@@ -4019,6 +4250,7 @@ class _ScanItemCard extends StatelessWidget {
   final VoidCallback onDelete;
   final VoidCallback onDismissRevealing;
   final VoidCallback onSearch;
+  final double width;
 
   @override
   Widget build(BuildContext context) {
@@ -4027,6 +4259,7 @@ class _ScanItemCard extends StatelessWidget {
         item.status == _ScanItemStatus.revealing) {
       return _ScanRevealingToast(
         key: null,
+        width: width,
         item: item,
         onClosePressed: onDelete,
       );
@@ -4073,7 +4306,7 @@ class _ScanItemCard extends StatelessWidget {
         child: Align(
           alignment: Alignment.topLeft,
           child: SizedBox(
-            width: 202,
+            width: width,
             height: 76,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
@@ -5795,122 +6028,130 @@ class _ReviewFooter extends StatelessWidget {
     final addingSingle = savingAction == _ScanReviewSaveAction.single;
     final addingAll = savingAction == _ScanReviewSaveAction.all;
 
-    return Material(
+    final footer = Material(
       color: const Color(0xFF10100B),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  const Text(
-                    'TOTAL VALUE',
-                    style: TextStyle(color: Color(0xFF92927D), fontSize: 11),
+      // Review's outer SafeArea already handles the screen insets.
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                const Text(
+                  'TOTAL VALUE',
+                  style: TextStyle(color: Color(0xFF92927D), fontSize: 11),
+                ),
+                const Spacer(),
+                Text(
+                  totalText,
+                  key: const Key('scan-review-total'),
+                  style: const TextStyle(
+                    color: Color(0xFFF0FE6F),
+                    fontWeight: FontWeight.w600,
                   ),
-                  const Spacer(),
-                  Text(
-                    totalText,
-                    key: const Key('scan-review-total'),
-                    style: const TextStyle(
-                      color: Color(0xFFF0FE6F),
-                      fontWeight: FontWeight.w600,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 56,
+                    child: FilledButton.icon(
+                      key: const Key('scan-review-add-one'),
+                      onPressed: saving || !singleReady ? null : onAddThisCard,
+                      icon: addingSingle
+                          ? const SizedBox(
+                              key: Key('scan-review-add-one-loading'),
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text(
+                              '+',
+                              style: TextStyle(fontSize: 20, height: 1),
+                            ),
+                      label: const Text('Add this card'),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 8),
+                ),
+                const SizedBox(width: 10),
+                IconButton(
+                  key: const Key('scan-review-delete-one'),
+                  tooltip: 'Delete card',
+                  onPressed: saving ? null : onDeleteItem,
+                  style: IconButton.styleFrom(
+                    fixedSize: const Size.square(56),
+                    minimumSize: const Size.square(56),
+                    padding: EdgeInsets.zero,
+                    backgroundColor: const Color(0x1AE1B6FF),
+                    disabledBackgroundColor: const Color(0x0DE1B6FF),
+                    foregroundColor: const Color(0xFFFFB4AB),
+                    disabledForegroundColor: const Color(0x66FFB4AB),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(33),
+                      side: const BorderSide(color: Color(0x33FFB4AB)),
+                    ),
+                  ),
+                  icon: const Icon(Icons.delete_outline, size: 24),
+                ),
+              ],
+            ),
+            if (showBulkActions) ...[
+              const SizedBox(height: 6),
+              // Fill the 48px tap target so no invisible gap remains below.
               Row(
                 children: [
                   Expanded(
-                    child: SizedBox(
-                      height: 56,
-                      child: FilledButton.icon(
-                        key: const Key('scan-review-add-one'),
-                        onPressed: saving || !singleReady
-                            ? null
-                            : onAddThisCard,
-                        icon: addingSingle
-                            ? const SizedBox(
-                                key: Key('scan-review-add-one-loading'),
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Text(
-                                '+',
-                                style: TextStyle(fontSize: 20, height: 1),
-                              ),
-                        label: const Text('Add this card'),
+                    child: OutlinedButton(
+                      key: const Key('scan-review-add-all'),
+                      onPressed: saving || !bulkReady ? null : onAddAllCards,
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(64, 48),
                       ),
+                      child: addingAll
+                          ? const SizedBox(
+                              key: Key('scan-review-add-all-loading'),
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('ADD ALL CARDS'),
                     ),
                   ),
                   const SizedBox(width: 10),
-                  IconButton(
-                    key: const Key('scan-review-delete-one'),
-                    tooltip: 'Delete card',
-                    onPressed: saving ? null : onDeleteItem,
-                    style: IconButton.styleFrom(
-                      fixedSize: const Size.square(56),
-                      minimumSize: const Size.square(56),
-                      padding: EdgeInsets.zero,
-                      backgroundColor: const Color(0x1AE1B6FF),
-                      disabledBackgroundColor: const Color(0x0DE1B6FF),
-                      foregroundColor: const Color(0xFFFFB4AB),
-                      disabledForegroundColor: const Color(0x66FFB4AB),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(33),
-                        side: const BorderSide(color: Color(0x33FFB4AB)),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: saving ? null : onDeleteAll,
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(64, 48),
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                      ),
+                      child: const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text('DELETE ALL CARDS'),
                       ),
                     ),
-                    icon: const Icon(Icons.delete_outline, size: 24),
                   ),
                 ],
               ),
-              if (showBulkActions) ...[
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        key: const Key('scan-review-add-all'),
-                        onPressed: saving || !bulkReady ? null : onAddAllCards,
-                        child: addingAll
-                            ? const SizedBox(
-                                key: Key('scan-review-add-all-loading'),
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Text('ADD ALL CARDS'),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: saving ? null : onDeleteAll,
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                        ),
-                        child: const FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text('DELETE ALL CARDS'),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
             ],
-          ),
+          ],
         ),
       ),
+    );
+    // Temporary debug outline for inspecting the Review action area's bounds.
+    return DecoratedBox(
+      key: const Key('scan-review-footer-region'),
+      position: DecorationPosition.foreground,
+      decoration: BoxDecoration(
+        border: kDebugMode
+            ? Border.all(color: const Color(0xFFFF0000), width: 2)
+            : null,
+      ),
+      child: footer,
     );
   }
 }

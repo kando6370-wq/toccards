@@ -1565,7 +1565,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 501));
       expect(camera.takePhotoCount, 1);
       tester.view.physicalSize = const Size(951, 669);
-      tester.view.padding = const FakeViewPadding(right: 108);
+      tester.view.padding = const FakeViewPadding(right: 84);
       await tester.pump();
       capture.complete(
         ScanImage(
@@ -1585,7 +1585,12 @@ void main() {
       await tester.pump(const Duration(milliseconds: 501));
       expect(source.recognizedImages, hasLength(1));
       expect(camera.takePhotoCount, 2);
-      expect(camera.lastViewport, const Size(951, 669));
+      final preview = tester.getRect(find.byKey(const Key('scan-camera-pane')));
+      expect(camera.lastViewport, preview.size);
+      expect(
+        camera.lastViewfinder!.shift(preview.topLeft),
+        tester.getRect(find.byKey(const Key('scan-figma-viewfinder'))),
+      );
       expect(tester.takeException(), isNull);
     });
   }
@@ -5984,6 +5989,315 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets(
+      'Duo Scan $platform uses 6:4 panes and crops the visible preview',
+      (tester) async {
+        final fonts = (await tester.runAsync(_readProductionScanFonts))!;
+        await _loadProductionScanFonts(fonts);
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(951, 669);
+        tester.view.padding = const FakeViewPadding(right: 84, bottom: 34);
+        addTearDown(tester.view.reset);
+        final camera = _TestScanCameraSession();
+        final source = _TestScanResultSource(
+          photoResult: Future.value(const ScanResolution.noMatch()),
+        );
+        await _pumpScanTestApp(
+          tester,
+          platform: platform,
+          commercialPolicy: AppCommercialPolicy(
+            isAndroidFreeLaunch: platform == TargetPlatform.android,
+          ),
+          scanCameraFactory: _TestScanCameraFactory(camera),
+          scanResultSource: source,
+        );
+        final preview = tester.getRect(
+          find.byKey(const Key('scan-camera-pane')),
+        );
+        final controls = tester.getRect(
+          find.byKey(const Key('scan-controls-pane')),
+        );
+        final frame = tester.getRect(
+          find.byKey(const Key('scan-figma-viewfinder')),
+        );
+        expect(preview.width / controls.width, closeTo(1.5, .0001));
+        expect(preview.right + 24, closeTo(controls.left, .0001));
+        expect(preview.top, controls.top);
+        expect(preview.bottom, controls.bottom);
+        expect(controls.right, lessThanOrEqualTo(951 - 84 - 20));
+        expect(controls.bottom, closeTo(669 - 34 - 8, .0001));
+        expect(frame.height / preview.height, closeTo(.8, .0001));
+        expect(frame.width / frame.height, closeTo(254 / 363, .0001));
+        expect(preview.contains(frame.topLeft), isTrue);
+        expect(preview.contains(frame.bottomRight), isTrue);
+        for (final tooltip in [
+          'Take Photo',
+          'Choose from Library',
+          'Select card type',
+        ]) {
+          final rect = tester.getRect(find.byTooltip(tooltip));
+          expect(rect.left, greaterThanOrEqualTo(controls.left));
+          expect(rect.right, lessThanOrEqualTo(controls.right));
+        }
+        expect(
+          find.byKey(const Key('scan-free-quota-pill')),
+          platform == TargetPlatform.iOS ? findsOneWidget : findsNothing,
+        );
+        await tester.tap(find.byKey(const Key('scan-figma-flash-button')));
+        await tester.pumpAndSettle();
+        expect(camera.flashEnabled, isTrue);
+        await tester.tap(find.byTooltip('Select card type'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('scan-card-type-option-sports')));
+        await tester.pumpAndSettle();
+        expect(find.text('Sports Card'), findsOneWidget);
+        await tester.tap(find.byTooltip('Take Photo'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 501));
+        expect(camera.takePhotoCount, 1);
+        expect(camera.lastViewport, preview.size);
+        final localFrame = camera.lastViewfinder!;
+        expect(localFrame.left + preview.left, closeTo(frame.left, .0001));
+        expect(localFrame.top + preview.top, closeTo(frame.top, .0001));
+        expect(localFrame.size, frame.size);
+        expect(source.recognizedImages, hasLength(1));
+        await _completeFigmaScan(tester);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'Duo Scan $platform scrolls only the queue and survives folding',
+      (tester) async {
+        final fonts = (await tester.runAsync(_readProductionScanFonts))!;
+        await _loadProductionScanFonts(fonts);
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(951, 669);
+        tester.view.padding = const FakeViewPadding(right: 84, bottom: 34);
+        addTearDown(tester.view.reset);
+        final camera = _TestScanCameraSession();
+        final factory = _TestScanCameraFactory(_TestScanCameraSession());
+        final source = _TestScanResultSource(
+          photoResult: Future.value(const ScanResolution.failed()),
+          libraryResults: [
+            for (var i = 0; i < 8; i++)
+              Future.value(
+                ScanResolution.matched(
+                  scanId: 'wide-scan-$i',
+                  cardRef: 'card-mega',
+                  matchName: 'Mega Lucario ex',
+                  candidates: const ['Mega Lucario ex'],
+                  candidateCardRefs: const ['card-mega'],
+                ),
+              ),
+          ],
+        );
+        await _pumpScanTestApp(
+          tester,
+          platform: platform,
+          commercialPolicy: AppCommercialPolicy(
+            isAndroidFreeLaunch: platform == TargetPlatform.android,
+          ),
+          scanCameraFactory: factory,
+          scanResultSource: source,
+        );
+        final page = tester.state(find.byType(ScanPage));
+        // The gallery flow closes the original camera and opens a new session.
+        factory.session = camera;
+        await tester.tap(find.byTooltip('Choose from Library'));
+        await _completeFigmaScan(tester);
+        await tester.pumpAndSettle();
+        final fixed = [
+          find.byKey(const Key('scan-figma-viewfinder')),
+          find.byTooltip('Take Photo'),
+          find.byKey(const Key('scan-card-type-selector')),
+          find.byTooltip('Close Scan'),
+        ];
+        final before = fixed.map(tester.getRect).toList();
+        final rail = find.byKey(const Key('scan-figma-result-rail'));
+        expect(tester.widget<ListView>(rail).scrollDirection, Axis.vertical);
+        final firstItem = find.byKey(const Key('scan-active-item-8'));
+        final firstRect = tester.getRect(firstItem);
+        final railTop = tester.getTopLeft(rail).dy;
+        await tester.timedDrag(
+          rail,
+          const Offset(0, -100),
+          const Duration(seconds: 1),
+        );
+        await tester.pumpAndSettle();
+        final scroll = tester.state<ScrollableState>(
+          find.descendant(of: rail, matching: find.byType(Scrollable)).first,
+        );
+        expect(scroll.position.pixels, greaterThan(0));
+        // Offscreen rows may be recycled by the lazy list.
+        if (firstItem.evaluate().isNotEmpty) {
+          expect(tester.getTopLeft(firstItem).dy, lessThan(firstRect.top));
+        } else {
+          expect(
+            scroll.position.pixels,
+            greaterThanOrEqualTo(firstRect.bottom - railTop),
+          );
+        }
+        for (var i = 0; i < fixed.length; i++) {
+          expect(tester.getRect(fixed[i]), before[i]);
+        }
+        final openCount = factory.openCount;
+        for (final size in [const Size(466, 678), const Size(951, 669)]) {
+          tester.view.physicalSize = size;
+          await tester.pumpAndSettle();
+          expect(tester.state(find.byType(ScanPage)), same(page));
+          expect(factory.openCount, openCount);
+          expect(camera.disposed, isFalse);
+          final currentRail = tester.widget<ListView>(rail);
+          expect(
+            currentRail.scrollDirection,
+            size.width == 951 ? Axis.vertical : Axis.horizontal,
+          );
+          expect(currentRail.semanticChildCount, 8);
+        }
+        await tester.tap(find.byKey(const Key('scan-delete-item-8')));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('scan-active-item-8')), findsNothing);
+        expect(tester.widget<ListView>(rail).semanticChildCount, 7);
+        await tester.tap(find.byTooltip('Review completed scan'));
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('Back to Scan'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'Duo Scan $platform keeps a single layout when space is tight',
+      (tester) async {
+        final fonts = (await tester.runAsync(_readProductionScanFonts))!;
+        await _loadProductionScanFonts(fonts);
+        tester.view.devicePixelRatio = 1;
+        tester.view.padding = const FakeViewPadding(right: 84, bottom: 34);
+        addTearDown(tester.view.reset);
+        for (final scenario in [
+          (size: const Size(466, 678), scale: 1.0),
+          (size: const Size(951, 500), scale: 1.0),
+          (size: const Size(951, 669), scale: 1.2),
+        ]) {
+          tester.view.physicalSize = scenario.size;
+          await _pumpScanTestApp(
+            tester,
+            platform: platform,
+            textScale: scenario.scale,
+            commercialPolicy: AppCommercialPolicy(
+              isAndroidFreeLaunch: platform == TargetPlatform.android,
+            ),
+          );
+          expect(find.byKey(const Key('scan-controls-pane')), findsNothing);
+          expect(
+            find.byKey(const Key('scan-figma-top-controls')),
+            findsOneWidget,
+          );
+          for (final tooltip in [
+            'Take Photo',
+            'Choose from Library',
+            'Close Scan',
+          ]) {
+            final rect = tester.getRect(find.byTooltip(tooltip));
+            expect(rect.top, greaterThanOrEqualTo(0));
+            expect(rect.bottom, lessThanOrEqualTo(scenario.size.height));
+          }
+          expect(tester.takeException(), isNull);
+        }
+      },
+    );
+
+    testWidgets(
+      'Duo Review $platform actions fill the same safe width as the content',
+      (tester) async {
+        final fonts = (await tester.runAsync(_readProductionScanFonts))!;
+        await _loadProductionScanFonts(fonts);
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(951, 669);
+        tester.view.padding = const FakeViewPadding(right: 84, bottom: 34);
+        tester.view.viewPadding = const FakeViewPadding(right: 84, bottom: 34);
+        addTearDown(tester.view.reset);
+        await _pumpScanTestApp(
+          tester,
+          scanResultSource: _TestScanResultSource(
+            photoResult: Future.value(
+              const ScanResolution.matched(
+                scanId: 'wide-review',
+                cardRef: 'card-mega',
+                matchName: 'Mega Lucario ex',
+                candidates: ['Mega Lucario ex'],
+                candidateCardRefs: ['card-mega'],
+              ),
+            ),
+          ),
+          platform: platform,
+          commercialPolicy: AppCommercialPolicy(
+            isAndroidFreeLaunch: platform == TargetPlatform.android,
+          ),
+        );
+        for (var count = 1; count <= 2; count++) {
+          await tester.tap(find.byTooltip('Take Photo'));
+          await _completeFigmaScan(tester);
+          await tester.tap(find.byKey(Key('scan-active-item-$count')));
+          await tester.pumpAndSettle();
+          final listRect = tester.getRect(
+            find.byKey(const Key('scan-review-list')),
+          );
+          final addRect = tester.getRect(
+            find.byKey(const Key('scan-review-add-one')),
+          );
+          final deleteRect = tester.getRect(
+            find.byKey(const Key('scan-review-delete-one')),
+          );
+          expect(addRect.left, closeTo(listRect.left + 10, .0001));
+          expect(deleteRect.right, closeTo(listRect.right - 10, .0001));
+          expect(
+            find.byKey(const Key('scan-review-add-all')),
+            count == 2 ? findsOneWidget : findsNothing,
+          );
+          if (count == 2) {
+            expect(
+              tester.getRect(
+                find.ancestor(
+                  of: find.text('DELETE ALL CARDS'),
+                  matching: find.byType(OutlinedButton),
+                ),
+              ).right,
+              closeTo(listRect.right - 10, .0001),
+            );
+          }
+          final lastAction = count == 2
+              ? find.ancestor(
+                  of: find.text('DELETE ALL CARDS'),
+                  matching: find.byType(OutlinedButton),
+                )
+              : find.byKey(const Key('scan-review-delete-one'));
+          final footerRect = tester.getRect(
+            find.byKey(const Key('scan-review-footer-region')),
+          );
+          expect(
+            tester.getRect(lastAction).bottom,
+            closeTo(669 - 34, .0001),
+          );
+          final bottomActions = count == 2
+              ? [find.byKey(const Key('scan-review-add-all')), lastAction]
+              : [find.byKey(const Key('scan-review-add-one')), lastAction];
+          for (final action in bottomActions) {
+            final paintedRect = tester.getRect(
+              find.descendant(of: action, matching: find.byType(Material)),
+            );
+            expect(paintedRect.bottom, closeTo(footerRect.bottom, .0001));
+            expect(paintedRect.height, greaterThanOrEqualTo(48));
+          }
+          await tester.tap(find.byTooltip('Back to Scan'));
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+        }
+      },
+    );
+  }
 }
 
 typedef _ProductionScanFonts = ({

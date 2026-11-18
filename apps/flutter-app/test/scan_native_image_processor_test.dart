@@ -43,6 +43,28 @@ void main() {
   );
 
   test(
+    'crop uses the local wide camera pane before mapping to native image pixels',
+    () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            expect(call.method, 'cropViewfinder');
+            final frame = (call.arguments as Map)['frame'] as List;
+            expect(frame[0], closeTo(.1875, .000001));
+            expect(frame[1], closeTo(.25390625, .000001));
+            expect(frame[2], closeTo(.8125, .000001));
+            expect(frame[3], closeTo(.74609375, .000001));
+            return Uint8List.fromList([0xff, 0xd8]);
+          });
+      await const ScanNativeImageProcessor().cropViewfinder(
+        Uint8List.fromList([1, 2, 3]),
+        viewfinder: const Rect.fromLTWH(90, 60, 300, 420),
+        viewport: const Size(480, 540),
+        previewSize: const Size(1080, 1920),
+      );
+    },
+  );
+
+  test(
     'invalid viewfinder cannot silently fall back to the full photo',
     () async {
       await expectLater(
