@@ -1,5 +1,26 @@
 [
   {
+    "id": "/blog/aura-seeker-card-list",
+    "path": "/blog/aura-seeker-card-list",
+    "type": "article",
+    "title": "Aura Seeker Card List: Confirmed Japanese M7 Reveals | CardScanFox",
+    "description": "See officially revealed cards from Japan’s Hadou Seeker (M7), with collector numbers and links to the official card images. This is not a complete checklist.",
+    "h1": "Aura Seeker card list: confirmed Japanese M7 reveals",
+    "author": "CardScanFox",
+    "category": "identity",
+    "showDescription": false,
+    "publishedAt": "2026-11-18",
+    "updatedAt": null,
+    "sources": [
+      {
+        "label": "Pokémon Japan: Hadou Seeker (M7) announcement and official card gallery",
+        "url": "https://www.pokemon-card.com/ex/m7/"
+      }
+    ],
+    "bodyHtml": "<p><strong>Aura Seeker</strong> is an English rendering of <strong>Hadou Seeker (ハドウシーカー)</strong>, the Japanese Pokémon TCG expansion with set code <strong>M7</strong>. <a href=\"https://www.pokemon-card.com/ex/m7/\">Pokémon Japan</a> lists <strong>November 27, 2026</strong> as the scheduled release date in Japan. This preview covers selected official reveals, not the full Japanese checklist or an English set.</p>\n<h2>Which Japanese M7 cards are confirmed?</h2>\n<p>We checked the official Japanese gallery on <strong>November 18, 2026</strong>. Each row links to the publisher's Japanese card image. The collector numbers below identify Japanese printings only.</p>\n<table>\n<thead>\n<tr>\n<th>Japanese M7 number</th>\n<th>Card</th>\n<th>Pokémon Japan</th>\n</tr>\n</thead>\n<tbody><tr>\n<td>013/078</td>\n<td>Ninetales (キュウコン)</td>\n<td><a href=\"https://www.pokemon-card.com/ex/m7/assets/images/card/m7-013-gpz4x.webp\">Official reveal</a></td>\n</tr>\n<tr>\n<td>018/078</td>\n<td>Quagsire (ヌオー)</td>\n<td><a href=\"https://www.pokemon-card.com/ex/m7/assets/images/card/m7-018-n53j6.webp\">Official reveal</a></td>\n</tr>\n<tr>\n<td>020/078</td>\n<td>Floatzel ex (フローゼルex)</td>\n<td><a href=\"https://www.pokemon-card.com/ex/m7/assets/images/card/m7-020-ubnz7.webp\">Official reveal</a></td>\n</tr>\n<tr>\n<td>030/078</td>\n<td>Mega Absol Z ex (メガアブソルZex)</td>\n<td><a href=\"https://www.pokemon-card.com/ex/m7/assets/images/card/m7-030-be3fz.webp\">Official reveal</a></td>\n</tr>\n<tr>\n<td>057/078</td>\n<td>Mega Lucario Z ex (メガルカリオZex)</td>\n<td><a href=\"https://www.pokemon-card.com/ex/m7/assets/images/card/m7-057-bhdzs.webp\">Official reveal</a></td>\n</tr>\n<tr>\n<td>067/078</td>\n<td>Mega Garchomp Z ex (メガガブリアスZex)</td>\n<td><a href=\"https://www.pokemon-card.com/ex/m7/assets/images/card/m7-067-h8s4g.webp\">Official reveal</a></td>\n</tr>\n</tbody></table>\n<p>If your card is not in this table, check the Card List (カードリスト) on the <a href=\"https://www.pokemon-card.com/ex/m7/\">Japanese product page</a>. The preview does not show that a missing card is excluded from the set.</p>\n<h2>Is this the English Flowing Fists checklist?</h2>\n<p>No. A <a href=\"https://www.hobbiesville.com/collections/pokemon-flowing-fists\">retailer preorder page</a> uses the name Flowing Fists. That listing is not a Pokémon announcement and does not confirm the English release date, card names or collector numbers. No English entries are confirmed by the sources used for this preview.</p>\n<p>To match a Japanese card to a later English printing, compare the artwork and card text against an official English card record. Use the collector number shown on that English record; do not copy the number from the Japanese card.</p>\n",
+    "protected": false
+  },
+  {
     "id": "/blog/delta-reign-pokemon",
     "path": "/blog/delta-reign-pokemon",
     "type": "article",

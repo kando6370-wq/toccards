@@ -1,5 +1,23 @@
 [
   {
+    "path": "/blog/aura-seeker-card-list",
+    "title": "Aura Seeker Card List: Confirmed Japanese M7 Reveals | CardScanFox",
+    "description": "See officially revealed cards from Japan’s Hadou Seeker (M7), with collector numbers and links to the official card images. This is not a complete checklist.",
+    "h1": "Aura Seeker card list: confirmed Japanese M7 reveals",
+    "author": "CardScanFox",
+    "file": "aura-seeker-card-list.md",
+    "published": true,
+    "category": "identity",
+    "publishedAt": "2026-11-18",
+    "sources": [
+      {
+        "label": "Pokémon Japan: Hadou Seeker (M7) announcement and official card gallery",
+        "url": "https://www.pokemon-card.com/ex/m7/"
+      }
+    ],
+    "showDescription": false
+  },
+  {
     "path": "/blog/delta-reign-pokemon",
     "title": "Delta Reign Card List, Chase Cards & Products | CardScanFox",
     "description": "Browse a source-linked Delta Reign checklist, dated card-price examples, release dates and ETB differences. Match each card by its full number.",
