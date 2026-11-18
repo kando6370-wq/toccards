@@ -67,4 +67,12 @@
 
 根据用户 Quaxly 分享页截图的两个红框，服务端 HTML 顶部品牌由 `KANDO` 改为 `CARD AI`，按钮由 `Open in Kando` 改为 `Open in CARD AI`。只修改这两处可见文案；卡牌内容、二维码／分享 URL、`kando://` App 唤起协议、两端商店选择和样式沿用现有逻辑，Android 与 iOS 使用同一份 HTML。
 
-回归先失败：新增可见品牌断言在旧模板上失败；替换文案后 `pnpm --filter @kando/workers-api test src/card-share/routes.test.ts --maxWorkers=1` 为 2／2 通过，Workers `type-check` 通过。独立 Code Review 通过，无待处理发现。本轮未发布服务端，截图所对应的远端网页需部署后才会显示新文案。
+回归先失败：新增可见品牌断言在旧模板上失败；替换文案后 `pnpm --filter @kando/workers-api test src/card-share/routes.test.ts --maxWorkers=1` 为 2／2 通过，Workers `type-check` 通过。独立 Code Review 通过，无待处理发现。此处记录实现阶段的本地验证；随后 Linux dev 的发布证据见下节。
+
+### Linux dev 重新部署（2026-11-18）
+
+按用户授权在 kd201 从干净 `dev@340efc7b` 重部署，release 为 `branch-dev-340efc7bafbf-20261118104450`。初次自动发布卡在识别预检：pHash 服务经现有代理被重置，直连正常。发布锁保护下对两份私有配置做 0600 备份，仅将 `recognize.tcgcard.fun` 加入 `shared/.env` 与 `watcher/watcher.env` 的 `NO_PROXY`，保留其他配置。预检通过，`pendingMigrations=[]`；随后由现有 watcher 重发。
+
+10:49 回读确认 current、manifest 和 watcher 的已见／已发布 SHA 一致，失败标记为空；API 和数据库健康，后台运行，migrate 正常退出。Workers 定向测试 125／125、部署相关检查 13／13 通过，运行 API 及 11 个后台文件与发布产物匹配。PostgreSQL 18.6 原数据卷和 19 项迁移记录保持，最新 `0018`；1,232,832,496 字节的发布前备份通过 `pg_restore --list`（374 项）。运行 API 容器对两套识别服务的健康协议校验均通过。
+
+8 项 HTTP 检查通过：API 健康、未登录返回 401、Android 与 iOS 公开配置、后台首页、分享页及法律两页。分享页回读到 `CARD AI` 和 `Open in CARD AI`，保留 `kando://` 及两端商店跳转字段。本次仅发布 Linux dev 服务端，未发布正式环境或移动制品，未重做真机扫描、真实登录或数据库恢复演练。

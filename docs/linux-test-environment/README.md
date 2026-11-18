@@ -2,6 +2,8 @@
 
 当前 `dev` 即本手册的 Linux 环境，`prod` 保持原 Cloudflare 运行与发布方式；已退役的旧 CF dev 不是第三个业务环境或后续发布目标。
 
+2026-11-18 10:49 已独立验收干净 `dev@340efc7b` 的重部署，release 为 `branch-dev-340efc7bafbf-20261118104450`；API 和数据库健康，后台运行，分享页已显示 `CARD AI`。发布前数据库备份目录可读，现有 19 项迁移记录未变。代理故障、修复及检查结果见[卡牌分享 dev 发布记录](../releases/v1.1.4/01-flows/card-sharing.md#linux-dev-重新部署2026-11-18)。
+
 2026-11-12 14:05 已独立验收本次重部署：干净 `dev@87ba3b4b` 对应 release `branch-dev-87ba3b4b0929-20261112140056`，current／manifest／watcher 状态一致，失败标记为空；API／DB healthy、Web running、migrate exited/0。Node 22.23.4、PostgreSQL 18.6／ledger 19 项／最新 `0018` 保持，无待执行迁移。1,232,817,600 字节发布前备份的目录读取通过，API 运行文件及 Admin 11 个静态文件逐字节匹配，私有配置哈希不变，见[重部署验收](../releases/v1.1.4/03-data-api/platform-accounts.md#linux-dev-redeploy-20261112)。此前 [2026-11-06 完整发布](../releases/v1.1.4/03-data-api/platform-accounts.md#linux-dev-发布与验收2026-11-06)与 [2026-11-09 配置补验](../releases/v1.1.4/03-data-api/platform-accounts.md#android-dev-google-登录配置2026-11-09)继续按原日期保留；历史记录不能替代后续服务器验收。
 
 > 适用项目：`toccards`
@@ -12,7 +14,7 @@
 >
 > 自动部署分支：`dev`
 >
-> 已记录检查点：2026-11-12 14:05，`dev@87ba3b4b`／`branch-dev-87ba3b4b0929-20261112140056` 重部署验收
+> 已记录检查点：2026-11-18 10:49，`dev@340efc7b`／`branch-dev-340efc7bafbf-20261118104450` 重部署验收
 >
 > 验收边界：各日期分别记录运行文件、容器状态、migration ledger、备份和静态资源检查；10 月 30 日的索引／冷热缓存证据保留在 v1.1.3。未完成数据库恢复、真实流量 P95 或完整双端真机验收，不能外推为生产验收
 
@@ -135,10 +137,12 @@ kd201 的 Google 直连在宿主机及 API 容器均连接超时。用户提供�
 NODE_USE_ENV_PROXY=1
 HTTP_PROXY=http://192.168.48.10:7890
 HTTPS_PROXY=http://192.168.48.10:7890
-NO_PROXY=localhost,127.0.0.1,::1,db,api,192.168.50.201,192.168.48.10,recognize-vec.tcgcard.fun
+NO_PROXY=localhost,127.0.0.1,::1,db,api,192.168.50.201,192.168.48.10,recognize-vec.tcgcard.fun,recognize.tcgcard.fun
 ```
 
 此方式要求实际 API 运行时为 Node 22.21.0+；2026-09-16 记录中的 kd201 为 22.22.1，当前版本需另行回读。`NODE_USE_ENV_PROXY` 是 Node 启动配置，不由 `loadLinuxRuntime` 转换；仅设置 `HTTPS_PROXY` 无法保证旧版 Node 的原生 `fetch` 使用代理。Node 原生代理配置接受 HTTP(S) URL，不能把此处改成 `socks5://`。2026-09-16 自动发布整改时，另外将相同 HTTP/HTTPS/NO_PROXY/NODE_USE_ENV_PROXY 设置加入 `watcher/watcher.env`，使监听器的 Git/Node/pnpm 使用已验证的出口；API 环境和 watcher 环境各自维护，不会自动互相继承。宿主机全局代理、Docker daemon 和其他项目未修改；数据库为直连 TCP，内网与 CF 向量服务通过 `NO_PROXY` 直连，TLS 校验保持开启。
+
+2026-11-18 回读发现 pHash 服务经原代理连接会被重置，kd201 和 API 容器直连均通过健康协议检查。在发布锁保护下备份 `shared/.env` 与 `watcher/watcher.env`，仅将 `recognize.tcgcard.fun` 补入两处 `NO_PROXY`，保留原代理及 TLS 校验；重部署后的 API 使用 Node 22.23.4，两套识别服务均验收通过。
 
 变更前备份 `shared/.env`，持有 watcher/deploy 锁后，在 `current/deploy/linux` 使用既有两份 Compose 配置执行 `up -d --no-deps api`；仅重建 API。回退时恢复对应 `.env` 备份并执行同一命令。Google 返回 `400 invalid_token`（未传真实令牌）只证明网络可达；真实账号登录仍需测试包及用户授权令牌。
 
