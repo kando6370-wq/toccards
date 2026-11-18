@@ -6028,7 +6028,8 @@ class _ReviewFooter extends StatelessWidget {
     final addingSingle = savingAction == _ScanReviewSaveAction.single;
     final addingAll = savingAction == _ScanReviewSaveAction.all;
 
-    final footer = Material(
+    return Material(
+      key: const Key('scan-review-footer-region'),
       color: const Color(0xFF10100B),
       // Review's outer SafeArea already handles the screen insets.
       child: Padding(
@@ -6141,17 +6142,6 @@ class _ReviewFooter extends StatelessWidget {
           ],
         ),
       ),
-    );
-    // Temporary debug outline for inspecting the Review action area's bounds.
-    return DecoratedBox(
-      key: const Key('scan-review-footer-region'),
-      position: DecorationPosition.foreground,
-      decoration: BoxDecoration(
-        border: kDebugMode
-            ? Border.all(color: const Color(0xFFFF0000), width: 2)
-            : null,
-      ),
-      child: footer,
     );
   }
 }

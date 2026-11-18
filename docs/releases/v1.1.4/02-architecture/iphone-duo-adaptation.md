@@ -234,7 +234,7 @@ Duo 真机、普通 iPhone／Android 真机、系统完整分屏矩阵、真实�
 
 用户标注扫描结果小卡片进入的 Review 页面，底部操作区比上方内容少占右侧空间。定位到外层 SafeArea 已避让安全区，而 Footer 为读取键盘状态恢复完整 MediaQuery 后，再次通过内部 SafeArea 应用左右安全区；Duo 951×669、右安全区 84 时，iOS／Android 修改前回归均复现删除按钮右边缘为 773，预期与上方内容对齐为 857，重复避让正好 84。
 
-当前 Footer 依赖既有外层安全区，移除内部重复的左右和底部避让；内容仍保留原左右各 10、底部 8 的间距。键盘出现时隐藏操作栏、单张／批量添加删除、保存状态和平台业务规则保持。按用户要求，已移除相机预览与队列面板的两侧红框，当前临时红框仅标记 Review 整块底部操作区；使用 Debug 模式的前景描边，不参与布局、不截获点击，Release 不显示。
+首轮 Footer 依赖既有外层安全区，移除内部重复的左右和底部避让；内容当时保留原左右各 10、底部 8 的间距。键盘出现时隐藏操作栏、单张／批量添加删除、保存状态和平台业务规则保持。首轮按用户要求移除相机预览与队列面板的两侧红框，仅对 Review 整块底部操作区添加 Debug 前景描边，不参与布局、不截获点击；后续间距收紧及全部红框移除见本节末尾。
 
 用户继续指出批量按钮下方留白偏大：修改前两端回归均确认最后一排操作按钮底边为 y=593，预期只应用一次底部安全区后为 y=627，重复量正好 34。现已移除 Footer 内重复 SafeArea，由外层统一避让；按钮距屏幕底部为系统安全区 34 加内容边距 8，共 42。单卡时批量按钮与 6 间距原本就不构建，不占高度；列表固定底部滚动预留 170 本轮保留，与操作区的安全区重复是独立设置。
 
@@ -248,3 +248,7 @@ Duo 真机、普通 iPhone／Android 真机、系统完整分屏矩阵、真实�
 
 - **验证与 Code Review：**`flutter test --no-pub test/widget/scan_page_test.dart --plain-name 'Duo ' --reporter expanded` 的两端 8 项通过，退出 0；Review／批量操作相关回归（`--name '[Rr]eview|bulk actions'`）49 项通过、1 项旧 Review golden 失败（23,605 像素差异，未更新基线），退出 1，覆盖单张／多张、键盘、候选加载、关闭和失败保存。`flutter analyze --no-pub` 无问题、退出 0，`git diff --check` 通过。自审通过：0 底部内容边距只收紧 Footer；批量按钮可见高度从 40 补到既有 48 点击占位，没有缩小触控目标；单卡 56 高、左右 10、顶部 10、批量行间距 6 以及安全区与业务回调保持。此次未重跑其余页面和全量测试，未构建或上机验收 Android APK。
 - **本机交付与清理：**同一 Duo／App 进程 36322 成功热更新 1 个库，截图确认批量按钮可见底边与红框底边贴合，框外 34 安全区保留、两张扫描结果仍在；没有重装／重启，也没有扫描或收藏写入。首次调试连接的默认 widget tracking 与隔离包的 false 不一致，触发调试字段查找异常；按隔离包实际配置重新连接并使用 `--no-track-widget-creation` 热更新后恢复，最终没有该异常。断开调试客户端后原 App 仍运行。此次未构建新包，重启后仍回到先前安装版本。证据为 `scan-review-user-gap-current.png`、`review-footer-gap-after.png`／`review-footer-gap-preview.png`、`review-footer-gap-focused.log`、`review-footer-gap-regression.log` 和 `analyze-review-footer-gap.log`；本轮 Review golden 诊断归档后移出仓库，临时编译输出在调试客户端结束后清理。其他任务的既有失败图与可复用缓存保留；未提交／推送或发布远端环境。
+
+2026-11-18 用户确认间距后要求删除红框：移除 Review Footer 的临时 Debug DecoratedBox 描边，将区域 Key 保留在原 Material 上用于既有布局回归；最终 Scan 与 Review 均无临时红框。既有布局、间距、安全区和业务动作保持。
+
+移除红框后，两端 8 项 Duo Scan／Review 专项和 `flutter analyze --no-pub` 均通过、退出 0，`git diff --check` 通过；未新增测试。自审确认只移除绘制层、保留 Material 与区域 Key，无尺寸或业务变化。当前 Duo 进程 36322 成功热更新 1 个库，未重装／重启；用户当前位于 Scan 且有 6 项活动扫描，未为截图切页或操作队列。运行截图仅显示 Scan，不作为 Review 外观验收证据；Review 几何由既有两端回归检查。证据保留 `review-footer-no-border-tests.log`、`analyze-review-footer-no-border.log`；调试客户端断开后确认 App 仍运行，删除两张无关运行截图与临时连接信息。未重新构建安装包、运行 Android 设备或重跑全量／golden；此前 golden 差异未在本轮关闭。未提交／推送或发布远端环境。
