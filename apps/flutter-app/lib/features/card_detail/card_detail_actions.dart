@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:dio/dio.dart';
@@ -11,6 +12,7 @@ import '../../shared/api/app_http_transport.dart';
 import '../../shared/card_image/card_image_url.dart';
 import '../app_upgrade/app_upgrade_models.dart';
 import '../app_upgrade/app_upgrade_repository.dart';
+import 'card_share_poster.dart';
 
 final cardDetailActionsProvider = Provider<CardDetailActions>((ref) {
   final dio = ref.watch(appImageDioProvider);
@@ -22,6 +24,19 @@ final cardDetailActionsProvider = Provider<CardDetailActions>((ref) {
 
 typedef CardShareLauncher = Future<void> Function(ShareParams params);
 typedef CardShareThumbnailLoader = Future<XFile?> Function(String imageUrl);
+typedef CardSharePreviewPresenter =
+    Future<bool> Function({
+      required Uri cardUrl,
+      required Future<Uint8List> posterBytes,
+    });
+typedef CardSharePosterBuilder =
+    Future<Uint8List> Function({
+      required Uint8List imageBytes,
+      required String name,
+      required String setName,
+      required String marketPrice,
+      required Uri cardUrl,
+    });
 
 const cardShareFallbackBaseUrl = AppConfig.cardShareBaseUrl;
 
@@ -50,6 +65,7 @@ abstract interface class CardDetailActions {
     required String setName,
     required String marketPrice,
     Rect? sharePositionOrigin,
+    CardSharePreviewPresenter? preview,
   });
 
   Future<void> openSoldListings({
@@ -65,15 +81,19 @@ class PluginCardDetailActions implements CardDetailActions {
     this._configRepository, {
     CardShareLauncher share = _shareCard,
     CardShareThumbnailLoader loadThumbnail = _unavailableThumbnailLoader,
+    CardSharePosterBuilder buildPoster = renderCardSharePoster,
     TargetPlatform? platform,
   }) : _share = share,
        _loadThumbnail = loadThumbnail,
+       _buildPoster = buildPoster,
        _platform = platform ?? defaultTargetPlatform;
 
   final AppUpgradeRepository _configRepository;
   final CardShareLauncher _share;
   final CardShareThumbnailLoader _loadThumbnail;
+  final CardSharePosterBuilder _buildPoster;
   final TargetPlatform _platform;
+  Future<void>? _androidShareInFlight;
 
   @override
   Future<void> shareCard({
@@ -82,6 +102,38 @@ class PluginCardDetailActions implements CardDetailActions {
     required String setName,
     required String marketPrice,
     Rect? sharePositionOrigin,
+    CardSharePreviewPresenter? preview,
+  }) async {
+    final inFlight = _androidShareInFlight;
+    if (_platform == TargetPlatform.android && inFlight != null) {
+      await inFlight;
+      return;
+    }
+    final action = _shareCardOnce(
+      cardRef: cardRef,
+      name: name,
+      setName: setName,
+      marketPrice: marketPrice,
+      sharePositionOrigin: sharePositionOrigin,
+      preview: preview,
+    );
+    if (_platform == TargetPlatform.android) _androidShareInFlight = action;
+    try {
+      await action;
+    } finally {
+      if (identical(_androidShareInFlight, action)) {
+        _androidShareInFlight = null;
+      }
+    }
+  }
+
+  Future<void> _shareCardOnce({
+    required String cardRef,
+    required String name,
+    required String setName,
+    required String marketPrice,
+    Rect? sharePositionOrigin,
+    CardSharePreviewPresenter? preview,
   }) async {
     var config = const AppUpgradeConfig();
     try {
@@ -111,25 +163,71 @@ class PluginCardDetailActions implements CardDetailActions {
       return;
     }
 
-    XFile? thumbnail;
     if (_platform == TargetPlatform.android) {
-      try {
-        thumbnail = await _loadThumbnail(
-          cardImageUrl(cardRef, CardImageVariant.preview),
-        );
-      } catch (_) {
-        // Sharing the link is still useful if the preview image cannot load.
+      final posterBytes = _createPoster(
+        cardRef: cardRef,
+        name: name,
+        setName: setName,
+        marketPrice: marketPrice,
+        cardUrl: cardUrl,
+      );
+      // Keep generation errors observed even if the user closes the preview early.
+      unawaited(
+        posterBytes.then<void>(
+          (_) {},
+          onError: (Object error, StackTrace _) {
+            debugPrint('Card share poster could not be generated: $error');
+          },
+        ),
+      );
+      if (preview != null &&
+          !await preview(cardUrl: cardUrl, posterBytes: posterBytes)) {
+        return;
       }
+      final bytes = await posterBytes;
+      await _share(
+        ShareParams(
+          files: [XFile.fromData(bytes, mimeType: 'image/png')],
+          fileNameOverrides: ['card-ai-card.png'],
+          title: 'Share $name',
+          subject: name,
+          sharePositionOrigin: sharePositionOrigin,
+        ),
+      );
+      return;
     }
     await _share(
       ShareParams(
         text: '$name\n$setName\nMarket price: $marketPrice\n$cardUrl',
         title: 'Share $name',
         subject: name,
-        previewThumbnail: thumbnail,
         sharePositionOrigin: sharePositionOrigin,
       ),
     );
+  }
+
+  Future<Uint8List> _createPoster({
+    required String cardRef,
+    required String name,
+    required String setName,
+    required String marketPrice,
+    required Uri cardUrl,
+  }) async {
+    final image = await _loadThumbnail(
+      cardImageUrl(cardRef, CardImageVariant.preview),
+    );
+    if (image == null) throw StateError('Card image is unavailable.');
+    final imageBytes = await image.readAsBytes();
+    if (imageBytes.isEmpty) throw StateError('Card image is empty.');
+    final bytes = await _buildPoster(
+      imageBytes: imageBytes,
+      name: name,
+      setName: setName,
+      marketPrice: marketPrice,
+      cardUrl: cardUrl,
+    );
+    if (bytes.isEmpty) throw StateError('Card share poster is empty.');
+    return bytes;
   }
 
   Uri? _webUri(String? value) {
