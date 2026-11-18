@@ -75,3 +75,9 @@ Android 原生 App 仅在确认分享后才把 PNG 写入私有缓存中的固�
 - 修复验证：Flutter 3.47.9／Dart 3.13.7 下，`APP_ENV=test` 的 `card_detail_actions`、`profile_actions`、`card_detail_page` 和 `card_share_poster` 测试 122／122 通过；`APP_ENV=production` 的 `card_detail_actions` 测试 16／16 通过；`flutter analyze --no-pub` 无问题。测试覆盖接收方选择、系统取消、插件异常、取消预览和 iOS 原 URI 路径。
 - Android 复验：Temurin JDK 21.0.13+9 下 `:app:assembleDebug` 通过；以 `db7df72b` 加本轮未提交修复构建的 `com.kando.kandoApp.beta`／`1.0.7 (214)` 测试包（SHA-256 `8ce81a9099c3d91d49d431b7e81a9872648f56d3079179d39888e83c9a716c14`）覆盖安装到同一台设备。连续三次对同一张卡打开并取消系统分享，固定源文件每次返回后均不存在，无新增随机源目录，FileProvider 副本保留且 PNG 文件头正确。随后仅手工清理测试包内确认的三份旧源 PNG 及空目录，回查仅剩接收副本，其他缓存未动。
 - 本地 Code Review 无阻塞项：核对现有连点保护、返回与异常清理、插件复制时序及 iOS／Profile 分支。未向第三方应用实际发送，未构建或实测 iOS 新包，未发布正式 Android 制品；其他安装上的旧缓存不由此次源码批量清理。
+
+### 分享落地页商店跳转修复（2026-11-18）
+
+- 生产 `/share/cards/560537` 的缓存 MISS 响应仍给 Android 用户提供 YouTube 占位链接，而公共 App 配置已返回 Card AI 的 Google Play 地址。旧分享查询读取无环境的版本键和全局备用地址，忽略了后台已保存的分环境配置。修复前以本地 PostgreSQL 回归复现：期望 `com.cardai.tcg`，实际为 `com.google.android.youtube`。
+- 分享页按服务端 `APP_ENVIRONMENT` 读取 `admin.app_version.<environment>.ios` 与 `.google`，与 `/app-config` 使用同一键规则；缺少有效地址时不回退到旧键或其他环境。保留 `kando://` 唤起、按平台选择商店及页面 HTTP 缓存；版本提示停用不影响已配置的商店链接。无 App、数据库配置或迁移改动。
+- 分享页和版本管理定向测试共 18／18 通过，Workers 类型检查、根依赖方向检查通过。Code Review 核对了参数绑定、双端隔离、缺配置行为及旧链接不回退，无阻塞项。未部署或做真机端到端验证；生产发布后须用新响应核对双端商店链接，旧分享页响应仍可能在原有 300 秒缓存期内被复用。

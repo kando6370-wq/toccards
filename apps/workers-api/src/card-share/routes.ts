@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { appVersionConfigKey, appVersionEnvironment } from "../app-config/app-version-config";
 import type { Env } from "../env";
 import type { CardSearchResult } from "../data-source/adapter";
 import {
@@ -163,16 +164,19 @@ function cardSharePage(
 }
 
 async function loadConfiguredStoreUrls(env: Env): Promise<StoreUrls> {
+  const environment = appVersionEnvironment(env.APP_ENVIRONMENT);
+  if (!environment) return { ios: null, android: null };
+  const iosKey = appVersionConfigKey(environment, "ios");
+  const androidKey = appVersionConfigKey(environment, "google");
   try {
+    // Like /app-config, bypass Hyperdrive's query cache for store configuration.
     const { results = [] } = await env.DB.prepare(
-      "SELECT key, value FROM app_config WHERE key IN ('admin.app_version.ios', 'admin.app_version.google', 'app_store_url')",
-    ).all<AppConfigRow>();
+      "SELECT key, value, CURRENT_TIMESTAMP AS fetched_at FROM app_config WHERE key IN (?, ?)",
+    ).bind(iosKey, androidKey).all<AppConfigRow>();
     const configs = new Map(results.map((row) => [row.key, row.value]));
-    const fallback = validWebUrl(configs.get("app_store_url"));
     return {
-      ios: adminStoreUrl(configs.get("admin.app_version.ios")) ?? fallback,
-      android:
-        adminStoreUrl(configs.get("admin.app_version.google")) ?? fallback,
+      ios: adminStoreUrl(configs.get(iosKey)),
+      android: adminStoreUrl(configs.get(androidKey)),
     };
   } catch {
     return { ios: null, android: null };
