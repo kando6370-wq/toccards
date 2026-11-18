@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -18,6 +19,7 @@ import 'package:kando_app/features/card_detail/card_detail_controller.dart';
 import 'package:kando_app/features/card_detail/card_detail_models.dart';
 import 'package:kando_app/features/card_detail/card_detail_page.dart';
 import 'package:kando_app/features/card_detail/card_detail_repository.dart';
+import 'package:kando_app/features/card_detail/card_share_preview.dart';
 import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/shared/analytics/analytics_events.dart';
@@ -3167,16 +3169,81 @@ void main() {
     expect(find.byKey(const Key('card-detail-price-chart')), findsOneWidget);
   });
 
-  testWidgets('owned CardDetail shares its real identity and market price', (
+  testWidgets('Android CardDetail closes poster preview without sharing', (
+    tester,
+  ) async {
+    final poster = Completer<Uint8List>();
+    final actions = _RecordingCardDetailActions(posterBytes: poster.future);
+    await tester.pumpWidget(
+      _CardDetailTestApp(
+        cardId: 'charizard-ex',
+        actions: actions,
+        platform: TargetPlatform.android,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final shareButton = tester.widget<IconButton>(
+      find.byKey(const Key('card-detail-share-charizard-ex')),
+    );
+    shareButton.onPressed!();
+    shareButton.onPressed!();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(actions.cardRef, isNull);
+    expect(find.byKey(const Key('card-share-preview-modal')), findsOneWidget);
+    expect(find.byKey(const Key('card-share-preview-loading')), findsOneWidget);
+    final disabledShare = tester.widget<FilledButton>(
+      find.descendant(
+        of: find.byKey(const Key('card-share-preview-submit')),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    expect(disabledShare.onPressed, isNull);
+
+    poster.complete(await _testCardSharePosterPng());
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('card-share-preview-image')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('card-share-preview-close')));
+    await tester.pumpAndSettle();
+
+    expect(actions.cardRef, isNull);
+    expect(find.byKey(const Key('card-share-preview-modal')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('card-detail-share-charizard-ex')));
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(actions.cardRef, isNull);
+    expect(find.byKey(const Key('card-share-preview-modal')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('card-detail-share-charizard-ex')));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(2, 2));
+    await tester.pumpAndSettle();
+
+    expect(actions.cardRef, isNull);
+    expect(find.byKey(const Key('card-share-preview-modal')), findsNothing);
+  });
+
+  testWidgets('Android CardDetail shares only after preview confirmation', (
     tester,
   ) async {
     final actions = _RecordingCardDetailActions();
     await tester.pumpWidget(
-      _CardDetailTestApp(cardId: 'charizard-ex', actions: actions),
+      _CardDetailTestApp(
+        cardId: 'charizard-ex',
+        actions: actions,
+        platform: TargetPlatform.android,
+      ),
     );
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('card-detail-share-charizard-ex')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('card-share-preview-submit')));
     await tester.pumpAndSettle();
 
     expect(actions.name, 'Charizard ex');
@@ -3186,6 +3253,202 @@ void main() {
     expect(actions.sharePositionOrigin, isNotNull);
     expect(actions.sharePositionOrigin?.isEmpty, isFalse);
   });
+
+  testWidgets('Android poster preview copies only its card URL', (tester) async {
+    MethodCall? clipboardCall;
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') clipboardCall = call;
+      return null;
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+    final actions = _RecordingCardDetailActions();
+    await tester.pumpWidget(
+      _CardDetailTestApp(
+        cardId: 'charizard-ex',
+        actions: actions,
+        platform: TargetPlatform.android,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('card-detail-share-charizard-ex')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('card-share-preview-copy-link')));
+    await tester.pump();
+
+    expect(clipboardCall?.method, 'Clipboard.setData');
+    expect(clipboardCall?.arguments, {
+      'text': 'https://example.com/share/cards/charizard-ex',
+    });
+    expect(actions.cardRef, isNull);
+    expect(find.byKey(const Key('card-share-preview-modal')), findsOneWidget);
+    expect(find.text('Link copied.'), findsOneWidget);
+    await tester.pump(kandoTopToastDuration);
+  });
+
+  testWidgets('failed Android poster still allows copying its card URL', (
+    tester,
+  ) async {
+    MethodCall? clipboardCall;
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') clipboardCall = call;
+      return null;
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+    final actions = _RecordingCardDetailActions(posterFails: true);
+    await tester.pumpWidget(
+      _CardDetailTestApp(
+        cardId: 'charizard-ex',
+        actions: actions,
+        platform: TargetPlatform.android,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('card-detail-share-charizard-ex')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('card-share-preview-error')), findsOneWidget);
+    final disabledShare = tester.widget<FilledButton>(
+      find.descendant(
+        of: find.byKey(const Key('card-share-preview-submit')),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    expect(disabledShare.onPressed, isNull);
+    await tester.tap(find.byKey(const Key('card-share-preview-copy-link')));
+    await tester.pump();
+    expect(clipboardCall?.arguments, {
+      'text': 'https://example.com/share/cards/charizard-ex',
+    });
+    expect(actions.cardRef, isNull);
+    await tester.pump(kandoTopToastDuration);
+  });
+
+  testWidgets('Android link copy failure stays in preview without sharing', (
+    tester,
+  ) async {
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') {
+        throw PlatformException(code: 'clipboard-failed');
+      }
+      return null;
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+    final actions = _RecordingCardDetailActions();
+    await tester.pumpWidget(
+      _CardDetailTestApp(
+        cardId: 'charizard-ex',
+        actions: actions,
+        platform: TargetPlatform.android,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('card-detail-share-charizard-ex')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('card-share-preview-copy-link')));
+    await tester.pump();
+
+    expect(find.text(genericFailureToastText), findsOneWidget);
+    expect(find.byKey(const Key('card-share-preview-modal')), findsOneWidget);
+    expect(actions.cardRef, isNull);
+    await tester.pump(kandoTopToastDuration);
+  });
+
+  testWidgets('iOS CardDetail keeps direct URI sharing without app preview', (
+    tester,
+  ) async {
+    final actions = _RecordingCardDetailActions();
+    await tester.pumpWidget(
+      _CardDetailTestApp(
+        cardId: 'charizard-ex',
+        actions: actions,
+        platform: TargetPlatform.iOS,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('card-detail-share-charizard-ex')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('card-share-preview-modal')), findsNothing);
+    expect(actions.cardRef, 'charizard-ex');
+    expect(actions.name, 'Charizard ex');
+    expect(actions.setName, 'Obsidian Flames');
+    expect(actions.marketPrice, r'$780.00');
+    expect(actions.sharePositionOrigin, isNotNull);
+    expect(actions.sharePositionOrigin?.isEmpty, isFalse);
+  });
+
+  testWidgets(
+    'Android share preview remains usable on a compact screen with large text',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 568);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            theme: buildKandoTheme().copyWith(
+              platform: TargetPlatform.android,
+            ),
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: const TextScaler.linear(1.2)),
+              child: child!,
+            ),
+            home: Builder(
+              builder: (context) => FilledButton(
+                key: const Key('open-card-share-preview'),
+                onPressed: () => showCardSharePreview(
+                  context,
+                  cardUrl: Uri.parse(
+                    'https://example.com/share/cards/charizard-ex',
+                  ),
+                  posterBytes: _testCardSharePosterPng(),
+                ),
+                child: const Text('Open preview'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('open-card-share-preview')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('card-share-preview-scroll')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.ensureVisible(
+        find.byKey(const Key('card-share-preview-copy-link')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .getRect(find.byKey(const Key('card-share-preview-copy-link')))
+            .bottom,
+        lessThanOrEqualTo(568),
+      );
+      await tester.tap(find.byKey(const Key('card-share-preview-close')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('card-share-preview-modal')), findsNothing);
+    },
+  );
 
   testWidgets('unknown CardDetail shows shared failure copy', (tester) async {
     await tester.pumpWidget(const _CardDetailTestApp(cardId: 'missing-card'));
@@ -4051,6 +4314,10 @@ final _cardDetailOverrides = [
 ];
 
 class _RecordingCardDetailActions implements CardDetailActions {
+  _RecordingCardDetailActions({this.posterBytes, this.posterFails = false});
+
+  final Future<Uint8List>? posterBytes;
+  final bool posterFails;
   String? cardRef;
   String? name;
   String? setName;
@@ -4081,13 +4348,40 @@ class _RecordingCardDetailActions implements CardDetailActions {
     required String setName,
     required String marketPrice,
     Rect? sharePositionOrigin,
+    CardSharePreviewPresenter? preview,
   }) async {
+    if (preview != null) {
+      final generatedPoster = posterFails
+          ? Future<Uint8List>.delayed(
+              Duration.zero,
+              () => throw StateError('Poster failed'),
+            )
+          : posterBytes ?? _testCardSharePosterPng();
+      unawaited(
+        generatedPoster.then<void>(
+          (_) {},
+          onError: (Object _, StackTrace _) {},
+        ),
+      );
+      final confirmed = await preview(
+        cardUrl: Uri.parse('https://example.com/share/cards/$cardRef'),
+        posterBytes: generatedPoster,
+      );
+      if (!confirmed) return;
+    }
     this.cardRef = cardRef;
     this.name = name;
     this.setName = setName;
     this.marketPrice = marketPrice;
     this.sharePositionOrigin = sharePositionOrigin;
   }
+}
+
+Future<Uint8List> _testCardSharePosterPng() async {
+  return base64Decode(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwC'
+    'AAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+  );
 }
 
 class _DelayedUpdateCardDetailRepository extends MockCardDetailRepository {
