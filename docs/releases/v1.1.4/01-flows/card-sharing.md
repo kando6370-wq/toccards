@@ -20,7 +20,7 @@
 - [预览弹层](../../../../apps/flutter-app/lib/features/card_detail/card_share_preview.dart)复用现有弹层、按钮和提示；生成中显示加载状态，失败时显示错误并禁用图片分享，复制链接仍可用。小屏和大字体可滚动操作。
 - 卡图下载、解码或海报生成错误会被明确记录和展示；不静默改成 TXT 分享。用户取消后，仍在完成的生成任务不会打开系统面板或抛出无人接收的异步错误。系统图片分享失败继续交给页面原有失败提示。
 
-文件分享复用 `share_plus` 既有临时文件、FileProvider 和读取权限管理。本次不新增 Android 原生分享桥、Manifest Provider、相册权限、保存相册功能或 iOS 原生改动。实际系统分享面板的排版由设备决定；App 内预览提供确定的海报内容。
+Android 原生 App 仅在确认分享后才把 PNG 写入私有缓存中的固定源文件 `cache/card-ai-card.png`，并传文件路径给 `share_plus`。原生插件先复制到 `cache/share_plus/` 供 FileProvider 和接收应用读取；分享调用返回（含取消）或抛错后，App 只清理源文件，不提前删除接收方副本。若 App 进程在清理前被杀，下一次分享覆盖同一路径，不新增源文件。插件副本仍按既有策略在下一次调用插件分享时清理，不扫描或批量删除旧版随机目录。Web、iOS 和 Profile 的分享路径不变。不新增原生分享桥或权限。
 
 ## 验证与交付边界
 
@@ -68,3 +68,10 @@
 根据用户 Quaxly 分享页截图的两个红框，服务端 HTML 顶部品牌由 `KANDO` 改为 `CARD AI`，按钮由 `Open in Kando` 改为 `Open in CARD AI`。只修改这两处可见文案；卡牌内容、二维码／分享 URL、`kando://` App 唤起协议、两端商店选择和样式沿用现有逻辑，Android 与 iOS 使用同一份 HTML。
 
 回归先失败：新增可见品牌断言在旧模板上失败；替换文案后 `pnpm --filter @kando/workers-api test src/card-share/routes.test.ts --maxWorkers=1` 为 2／2 通过，Workers `type-check` 通过。独立 Code Review 通过，无待处理发现。本轮未发布服务端，截图所对应的远端网页需部署后才会显示新文案。
+
+### Android 海报源文件清理（2026-11-18）
+
+- 根因与先失败证据：锁定的 `share_plus 12.0.2` 将内存文件写入缓存根目录下的随机目录，原生只清理 `share_plus/` 中的副本。新增回归在旧代码首次分享后发现多余目录；荣耀 YOK_AN10／Android 12 上，旧测试包对同一张 Quaxly 海报再次打开并取消分享后，随机源文件从 2 份增加到 3 份。
+- 修复验证：Flutter 3.47.9／Dart 3.13.7 下，`APP_ENV=test` 的 `card_detail_actions`、`profile_actions`、`card_detail_page` 和 `card_share_poster` 测试 122／122 通过；`APP_ENV=production` 的 `card_detail_actions` 测试 16／16 通过；`flutter analyze --no-pub` 无问题。测试覆盖接收方选择、系统取消、插件异常、取消预览和 iOS 原 URI 路径。
+- Android 复验：Temurin JDK 21.0.13+9 下 `:app:assembleDebug` 通过；以 `db7df72b` 加本轮未提交修复构建的 `com.kando.kandoApp.beta`／`1.0.7 (214)` 测试包（SHA-256 `8ce81a9099c3d91d49d431b7e81a9872648f56d3079179d39888e83c9a716c14`）覆盖安装到同一台设备。连续三次对同一张卡打开并取消系统分享，固定源文件每次返回后均不存在，无新增随机源目录，FileProvider 副本保留且 PNG 文件头正确。随后仅手工清理测试包内确认的三份旧源 PNG 及空目录，回查仅剩接收副本，其他缓存未动。
+- 本地 Code Review 无阻塞项：核对现有连点保护、返回与异常清理、插件复制时序及 iOS／Profile 分支。未向第三方应用实际发送，未构建或实测 iOS 新包，未发布正式 Android 制品；其他安装上的旧缓存不由此次源码批量清理。
