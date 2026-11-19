@@ -76,8 +76,8 @@ test('the eight card-price examples retain their printing, price type and observ
 
 test('both page owners keep one H1 and propagate their own metadata and cover into Article and social output', () => {
   const expectations = new Map([
-    [mainPath, {phrase: /Delta Reign Card List/, h1: 'Delta Reign Card List: Cards, Prices & Products'}],
-    [etbPath, {phrase: /Delta Reign ETB/, h1: 'Delta Reign ETB: Standard vs Pokémon Center'}],
+    [mainPath, {phrase: /Delta Reign Card List/, h1: 'Delta Reign card list: all 141 English cards'}],
+    [etbPath, {phrase: /Delta Reign Elite Trainer Box/, h1: 'Delta Reign ETB: Standard vs Pokémon Center'}],
   ]);
   for (const [path, expected] of expectations) {
     const source = registry.find(page => page.path === path);
@@ -103,13 +103,29 @@ test('both page owners keep one H1 and propagate their own metadata and cover in
     assert.equal(schema.publisher.name, 'CardScanFox');
     assert.equal(schema.mainEntityOfPage, origin + path);
     assert.equal(schema.datePublished, path === mainPath ? '2026-11-08' : '2026-11-16');
-    if (path === mainPath || source.updatedAt) assert.equal(schema.dateModified, '2026-11-16');
+    assert.equal(schema.dateModified, '2026-11-19');
     const image = Array.isArray(schema.image) ? schema.image[0] : schema.image;
     assert.equal(typeof image === 'string' ? image : image?.url, origin + source.image);
     const bodyImage = matching(articleBody(tree), 'img', 'src', source.image)[0];
     assert.ok(bodyImage, path + ' body diagram');
     assert.ok(attr(bodyImage, 'alt')?.trim());
   }
+});
+
+test('home, Pokémon and set discovery point to the sole Delta Reign checklist owner', () => {
+  const deltaSet = {id:'db-24831', name:'ME06: Delta Reign', code:'DLR', gameSlug:'pokemon', catalogedCount:141};
+  const catalog = createRenderer({
+    sets: [deltaSet],
+    getSet: id => id === deltaSet.id ? deltaSet : null,
+    queryCards: () => ({items:[], page:1, pageSize:24, total:0, hasMore:false}),
+  });
+  for (const path of ['/', '/games/pokemon', '/sets', '/sets/db-24831']) {
+    const page = catalog.resolvePage(new URL(path, origin));
+    assert.equal(page.status, 200, path);
+    const links = matching(parse(page.html), 'a', 'href', mainPath);
+    assert.ok(links.some(link => /Delta Reign.*card list/i.test(normalized(link))), path);
+  }
+  assert.doesNotMatch(publicSitemap(), /<loc>https:\/\/tcgcard\.fun\/sets\/db-24831<\/loc>/);
 });
 
 test('the two guides hand off through contextual links and appear with their own covers in their topic lists', () => {

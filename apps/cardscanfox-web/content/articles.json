@@ -1,5 +1,39 @@
 [
   {
+    "path": "/cyberpunk-tcg-card-list",
+    "title": "Cyberpunk TCG Card List: Retail, Beta & Promos | CardScanFox",
+    "description": "Find the official Cyberpunk TCG card list and match Welcome to Night City retail, beta, starter-deck, and promo printings.",
+    "h1": "Cyberpunk TCG card list",
+    "author": "CardScanFox",
+    "file": "cyberpunk-tcg-card-list.md",
+    "published": true,
+    "category": "identity",
+    "publishedAt": "2026-11-19",
+    "sources": [
+      { "label": "Cyberpunk TCG official card database", "url": "https://cyberpunktcg.com/cards" },
+      { "label": "WeirdCo: Welcome to Night City starter deck lists", "url": "https://cyberpunktcg.com/blog/wnc-starter-decks" }
+    ],
+    "showDescription": false
+  },
+  {
+    "path": "/sports-card-advent-calendar",
+    "title": "Sports Card Advent Calendar 2026: Topps Holiday Baseball Guide | CardScanFox",
+    "description": "Compare Topps Holiday Baseball advent calendars by year, find the official 2026 checklist, and check box format before ordering.",
+    "h1": "Sports card advent calendar guide",
+    "author": "CardScanFox",
+    "file": "sports-card-advent-calendar.md",
+    "published": true,
+    "category": "collecting",
+    "publishedAt": "2026-11-19",
+    "sources": [
+      { "label": "Topps Ripped: 2026 Holiday Baseball format and pack contents", "url": "https://ripped.topps.com/2026-topps-holiday-baseball-which-box-is-best/" },
+      { "label": "Topps: 2026 Holiday Baseball collection and checklist", "url": "https://www.topps.com/pages/topps-holiday-baseball" },
+      { "label": "Topps: 2025 Holiday Baseball Advent Calendar", "url": "https://www.topps.com/products/2025-topps-holiday-baseball-advent-calendar" },
+      { "label": "Topps: 2024 Holiday Baseball Advent Calendar", "url": "https://www.topps.com/pages/topps-baseball-holiday-advent-calendar" }
+    ],
+    "showDescription": false
+  },
+  {
     "path": "/blog/aura-seeker-card-list",
     "title": "Aura Seeker Card List: Confirmed Japanese M7 Reveals | CardScanFox",
     "description": "See officially revealed cards from Japan’s Hadou Seeker (M7), with collector numbers and links to the official card images. This is not a complete checklist.",
@@ -19,9 +53,9 @@
   },
   {
     "path": "/blog/delta-reign-pokemon",
-    "title": "Delta Reign Card List, Chase Cards & Products | CardScanFox",
-    "description": "Browse a source-linked Delta Reign checklist, dated card-price examples, release dates and ETB differences. Match each card by its full number.",
-    "h1": "Delta Reign Card List: Cards, Prices & Products",
+    "title": "Delta Reign Card List: All 141 English Cards | CardScanFox",
+    "description": "Browse all 141 numbered English Delta Reign cards, including 38 secret cards. Match the full collector number and see dated price examples.",
+    "h1": "Delta Reign card list: all 141 English cards",
     "author": "CardScanFox",
     "file": "delta-reign-pokemon.md",
     "published": true,
@@ -49,14 +83,14 @@
         "url": "https://www.pricecharting.com/console/pokemon-delta-reign"
       }
     ],
-    "updatedAt": "2026-11-16",
+    "updatedAt": "2026-11-19",
     "image": "/assets/guides/delta-reign-card-numbers.png",
     "imageAlt": "Delta Reign Mega Rayquaza ex card numbers 084/103, 138/103 and 141/103 identify different printings.",
     "showDescription": false
   },
   {
     "path": "/blog/delta-reign-etb",
-    "title": "Delta Reign ETB: Contents, Promos & Price Comparison | CardScanFox",
+    "title": "Delta Reign Elite Trainer Box: Contents, Kyogre Promos & Prices | CardScanFox",
     "h1": "Delta Reign ETB: Standard vs Pokémon Center",
     "description": "Compare Delta Reign ETB contents, Kyogre promos, Pokémon Center differences and dated US prices. Check box and case units before buying.",
     "author": "CardScanFox",
@@ -64,7 +98,7 @@
     "published": true,
     "category": "collecting",
     "publishedAt": "2026-11-16",
-    "updatedAt": "2026-11-16",
+    "updatedAt": "2026-11-19",
     "image": "/assets/guides/delta-reign-etb-editions.png",
     "imageAlt": "Delta Reign ETB comparison: regular edition has nine packs and one Kyogre promo; Pokémon Center has eleven packs and two Kyogre promos.",
     "sources": [
@@ -326,14 +360,15 @@
   },
   {
     "path": "/blog/pokemon-mcdonalds-2026",
-    "title": "Pokémon McDonald’s 2026: Dates, 15 Cards & Happy Meal Guide",
-    "description": "When is Pokémon at McDonald’s in 2026? Check US dates, the 15-card checklist, Canada differences and how to identify your Happy Meal cards before pricing them.",
-    "h1": "Pokémon McDonald’s 2026: Happy Meal Dates, Cards and Collecting Guide",
+    "title": "Pokémon McDonald’s Card List 2026: All 15 US Happy Meal Cards | CardScanFox",
+    "description": "Check all 15 Pokémon McDonald’s Happy Meal cards for 2026, the US promotion dates, and how the Canadian offer differs.",
+    "h1": "Pokémon McDonald’s card list 2026",
     "author": "CardScanFox",
     "file": "pokemon-mcdonalds-2026.md",
     "published": true,
     "category": "collecting",
     "publishedAt": "2026-11-12",
+    "updatedAt": "2026-11-19",
     "sources": [
       {
         "label": "Pokémon: US Happy Meal announcement, November 10, 2026",

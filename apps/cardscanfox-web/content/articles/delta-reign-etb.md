@@ -107,6 +107,6 @@ Confirm the seller’s exact case quantity and edition before ordering. The page
 
 ## Should you buy an ETB, packs or the single card?
 
-Start with the result you want. An ETB bundles pack opening, its stated promo and play accessories. If you want a specific Kyogre promo, compare that exact edition and stamp with an identified single-card listing. Extra packs do not guarantee a particular chase card. For the expansion itself, use the [Delta Reign cards and release guide](/blog/delta-reign-pokemon).
+Choose the ETB edition by pack count, included Kyogre promos, and delivered price. To buy a Kyogre promo on its own, match the stamp and collector number before comparing offers. For booster-pack singles, see the [Delta Reign expansion checklist](/blog/delta-reign-pokemon).
 
 After opening, match a physical pull’s set, full number, language and finish before checking its price. The [Pokémon card scanner](/pokemon-card-scanner) and [Pokémon catalog](/games/pokemon) help review supported records. Delta Reign’s public set currently has no single-card rows, so an older Rayquaza quote is not a Delta Reign value. Keep your sealed-box purchase comparison separate from the value of a specific pull.

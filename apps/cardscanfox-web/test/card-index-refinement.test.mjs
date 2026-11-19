@@ -194,11 +194,11 @@ test('new positive sets are explicit owners and the seven-card discovery artifac
  for(const location of locations){const path=new URL(location).pathname;assert.ok(allowed.has(path));assert.equal(mayIndex(new URL(location),200,eligibleCard),true);assert.equal(manifest.pausedByUnverifiedDemandCardIds.includes(path.slice(7)),false);}
  for(const path of newCardPaths)assert.ok(locations.includes(url(path).href));
  const siteLocations=[...publicSitemap().matchAll(/<loc>([^<]+)<\/loc>/g)].map(match=>match[1]);
- const addedGuides=['/blog/delta-reign-etb','/blog/aura-seeker-card-list'].map(path=>url(path).href);
+ const addedGuides=['/blog/delta-reign-etb','/blog/aura-seeker-card-list','/cyberpunk-tcg-card-list','/sports-card-advent-calendar'].map(path=>url(path).href);
  for(const guide of addedGuides)assert.ok(siteLocations.includes(guide));
  assert.equal(siteLocations.filter(location=>!addedGuides.includes(location)).length,88);
- assert.equal(siteLocations.length,90);
- assert.equal(siteLocations.length+locations.length,97);
+ assert.equal(siteLocations.length,92);
+ assert.equal(siteLocations.length+locations.length,99);
 });
 test('the fresh report stays separate from the preserved historical window and does not claim a release outcome',()=>{
  assert.equal(policy.rollout.performanceWindow.reportRows,145);assert.equal(policy.rollout.performanceWindow.latestDataDate,'2026-11-13');assert.equal(policy.rollout.performanceWindow.protectedPositiveCardUrls,84);

@@ -19,8 +19,8 @@
   },
   "/card-price-checker": {
     "intent": "同页查询自己的单卡真实发布价格及匹配上下文",
-    "title": "Card Price Checker: Search Trading Card Values Online | CardScanFox",
-    "description": "Use the card price checker to search trading card values online. Match the set, number, language and finish, then read the published price source and date.",
+    "title": "Pokémon Card Value Checker & Trading Card Price Checker | CardScanFox",
+    "description": "Use the Pokémon card value checker to find published prices for Pokémon and other trading cards. Match the set, collector number, language and finish.",
     "question": "What is my trading card worth, and which published price matches my printing?"
   },
   "/card-collection-tracker": {

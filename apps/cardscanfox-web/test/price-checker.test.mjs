@@ -18,8 +18,8 @@ test('the initial price checker is usable without a full-catalog query or review
  const binding={fetch:async()=>{calls++;throw new Error('No initial catalog read is expected.');}};
  for(const query of ['','?q=%20%20&set=all']){
   const page=await resolveServicePage(url(query),binding);
-  assert.equal(page.status,200);assert.match(page.html,/<h1>Card price checker<\/h1>/);
-  assert.match(page.html,/<title>Card Price Checker: Search Trading Card Values Online \| CardScanFox<\/title>/);
+  assert.equal(page.status,200);assert.match(page.html,/<h1>Pokémon card value checker<\/h1>/);
+  assert.match(page.html,/<title>Pokémon Card Value Checker &amp; Trading Card Price Checker \| CardScanFox<\/title>/);
   assert.match(page.html,/<form method="get" action="\/card-price-checker" role="search"/);
   assert.match(page.html,/name="q" type="search"/);assert.doesNotMatch(page.html,/price-checker-results-title/);
   assert.doesNotMatch(page.html,/Featured in review|145\.78/);

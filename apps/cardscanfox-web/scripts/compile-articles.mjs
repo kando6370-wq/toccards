@@ -5,6 +5,7 @@ import { Marked } from 'marked';
 import { parseFragment, serialize } from 'parse5';
 
 const categories = new Set(['identity', 'values', 'collecting', 'comparisons', 'opinion']);
+const standaloneArticlePaths = new Set(['/cyberpunk-tcg-card-list', '/sports-card-advent-calendar']);
 const tags = new Set(['p', 'h2', 'h3', 'h4', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'em', 'strong', 'del', 'a', 'img', 'hr', 'br', 'table', 'thead', 'tbody', 'tr', 'th', 'td']);
 const attributes = { a: new Set(['href', 'title']), img: new Set(['src', 'alt', 'title']), th: new Set(['align']), td: new Set(['align']), ol: new Set(['start']) };
 const parser = new Marked({ gfm: true, async: false });
@@ -41,7 +42,7 @@ export async function compileArticles(registry, { root, protectedPaths = [] }) {
   const seen = new Set(protectedPaths), articles = [];
   const contentRoot = resolve(root);
   for (const page of registry) {
-    if (!page || !/^\/blog\/[a-z0-9]+(?:-[a-z0-9]+)*$/.test(page.path ?? '') || seen.has(page.path)) throw new Error('Duplicate, protected or invalid article path.');
+    if (!page || (!/^\/blog\/[a-z0-9]+(?:-[a-z0-9]+)*$/.test(page.path ?? '') && !standaloneArticlePaths.has(page.path)) || seen.has(page.path)) throw new Error('Duplicate, protected or invalid article path.');
     seen.add(page.path);
     for (const key of ['title', 'description', 'h1', 'author', 'file']) if (typeof page[key] !== 'string' || !page[key].trim()) throw new Error(`Article ${page.path} needs ${key}.`);
     if (typeof page.published !== 'boolean' || !categories.has(page.category) || !isDate(page.publishedAt) || (page.updatedAt && (!isDate(page.updatedAt) || page.updatedAt < page.publishedAt))) throw new Error(`Invalid article metadata: ${page.path}`);

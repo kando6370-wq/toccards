@@ -2,6 +2,14 @@
 
 本增量落实已确认的页面词表、完整文案与计算器方案。开发基线为 `main@2c17f03a`，本地分支为 `codex/delta-reign-pages`。本地实现、验收与正式发布分别记录；开发授权不代表生产部署或 Git push 授权。
 
+## 2026-11-19 页面定位与发现
+
+`/blog/delta-reign-pokemon` 承接英文扩展卡表。首页、`/games/pokemon`、`/sets` 和 `/sets/db-24831` 用描述性链接指向这篇指南。`/blog/delta-reign-etb` 承接两个 ETB 版本的内容物、赠卡和价格。目录详情页保留当前索引状态。
+
+生产站点地图索引 `/sitemap.xml` 指向 `/sitemaps/site.xml`。子站点地图返回 HTTP 200，并包含 `/ai-card-grading`。2026-11-19 的 GSC 网址检查显示该页已收录，GSC 同日确认收到重新抓取请求。GSC 接收了子站点地图的直接提交。当时，主、子站点地图均显示「无法抓取」。
+
+`/card-price-checker` 保留原有地址与查价功能，标题及首屏加入 Pokémon 查价意图。麦当劳 2026 卡表复用 `/blog/pokemon-mcdonalds-2026`。`/cyberpunk-tcg-card-list` 和 `/sports-card-advent-calendar` 通过文章注册表和生产索引策略加入子站点地图。Cyberpunk 页面展示已核对的英文零售卡样本，并链接官方数据库。体育卡日历以 Topps 2026 棒球产品为主。
+
 ## 页面与任务
 
 | 页面 | 主要任务 | 内容与动作 |

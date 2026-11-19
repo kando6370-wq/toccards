@@ -1,3 +1,5 @@
+The 2026 US Pokémon McDonald’s card list has **15 English cards**, including seven foil cards. Each participating US Happy Meal includes two cards while supplies last. Use the checklist below to identify your cards and check the separate dates and pack details for your region.
+
 ## Is Pokémon at McDonald’s in 2026?
 
 **Yes. Checked November 12, 2026:** the US Pokémon Happy Meal promotion started on **November 10** at participating restaurants. Pokémon’s US announcement says it runs **through December 14, 2026**, while supplies last. It includes physical Pokémon TCG cards and miniature Happy Meal box-shaped toys.
