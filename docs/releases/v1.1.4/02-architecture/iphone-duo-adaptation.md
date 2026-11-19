@@ -125,7 +125,7 @@ Android 继续全程 `portraitUp`，保留免费首版策略；iOS 继续使用�
 ### 9.2 页面重排与状态
 
 - Search、Collection、Set Detail 按局部宽度计算网格列数：目标卡宽 170、间隔 10；局部净宽至少 320 时保留两列紧凑卡片，大字体按最多 1.5 倍提高宽度门槛并增加卡片高度。390 正常手机及 466×678／右安全区 84 的折叠外屏均保留两列；951×669／右安全区 84 的展开内屏显示四列，极窄或大字体可降一列。Set Detail 窄窗口保留原 350 内容宽度。
-- Home Overview 在扣除页面横向边距后的局部宽度至少 800，且扣除顶栏、模块间距、上下留白后的面板高度至少 400（空收藏面板为 520，均随字体倍率提高门槛）时并排：顶部切换栏与货币控件、左侧资产／图表固定，右侧 Most Valuable 与 Trending Today 共同独立纵向滚动，Most Valuable 保留横向滚动。窄屏、短窗口、键盘或大字体占用后空间不足时回到最大 672 的可滚动单列。稳定页面内 Key 保持图表、卡片横向列表和主滚动 State；Performance 保留整页滚动。
+- Home Overview 在扣除页面横向边距后的局部宽度至少 800，且扣除顶栏、模块间距、上下留白后的面板高度至少 400（空收藏面板为 520，均随字体倍率提高门槛）时并排：顶部切换栏与货币控件、左侧资产／图表固定，右侧 Most Valuable 与 Trending Today 共同独立纵向滚动，Most Valuable 保留横向滚动。窄屏、短窗口、键盘或大字体占用后空间不足时回到最大 672 的可滚动单列。稳定页面内 Key 保持图表、卡片横向列表和主滚动 State；Performance 的 Duo 宽屏规则单独见第 9.12 节，其他尺寸仍按原整页滚动。
 - Card Detail 以正文局部约束判断布局：宽度至少 800、高度至少 480 时，左侧卡图／主操作和右侧价格／资产信息分别使用独立滚动容器。滑动右侧不会带动左侧；左侧内容过高时仍可单独滚动以访问按钮。窄屏、短窗口或键盘占用后高度不足时回到限宽 672 的整页单列滚动。两面板和主滚动容器通过页面内的稳定 Key 保持既有子树／滚动 State；内容构建放在尺寸布局计算之外，避免键盘动画重复重建编辑表单。沿用 controller、路由及原有下拉刷新。
 - Scan 在安全区和页面边距内宽度至少 800、扣除顶部栏与上下留白后面板高度至少 440（两项门槛随字体倍率提高）时，按扣除 24 间距后的宽度 6:4 分为左侧相机预览和右侧控制／结果队列。取景框保持原卡牌比例并占预览高度至多 80%；显示、遮罩和拍照裁剪共用左侧局部 viewport／取景框。右侧结果纵向滚动，类型／闪光灯与底部操作固定；窄屏、短窗口和字体增大后空间不足时保留整窗预览与原底部横向结果条。capture orientation、拍照期间 metrics 变化时丢弃旧几何结果、活动队列和相机会话的原规则保持。
 
@@ -195,7 +195,7 @@ Duo 真机、普通 iPhone／Android 真机、系统完整分屏矩阵、真实�
 
 ### 9.8 Overview 固定顶栏与左侧资产区（2026-11-18）
 
-用户要求展开内屏 Home 的 Overview 仅右侧 Most Valuable／Trending Today 区域上下滚动。原实现把顶栏、左右两栏放入同一 SingleChildScrollView；在 951×669／右安全区 84／底安全区 34 下，iOS 和 Android 的修改前测试均复现：右侧上滑 180 后，Overview 顶部从 8 移到 -172。当前仅在满足第 9.2 节空间条件的 Overview 双栏中，将右侧列表作为主滚动区；顶栏和左侧资产／图表处于滚动容器之外，左右模块位置、间距、字号和样式保留。下拉刷新仍通过该主滚动区使用原回调；Performance、窄屏和空间不足时继续整页滚动。平台方向、免费／订阅策略、API 和数据未改。
+用户要求展开内屏 Home 的 Overview 仅右侧 Most Valuable／Trending Today 区域上下滚动。原实现把顶栏、左右两栏放入同一 SingleChildScrollView；在 951×669／右安全区 84／底安全区 34 下，iOS 和 Android 的修改前测试均复现：右侧上滑 180 后，Overview 顶部从 8 移到 -172。当前仅在满足第 9.2 节空间条件的 Overview 双栏中，将右侧列表作为主滚动区；顶栏和左侧资产／图表处于滚动容器之外，左右模块位置、间距、字号和样式保留。下拉刷新仍通过该主滚动区使用原回调；Performance 的 Duo 宽屏规则单独见第 9.12 节，其他尺寸和空间不足时继续整页滚动。平台方向、免费／订阅策略、API 和数据未改。
 
 - **专项回归：**7 项全部通过，包含 iOS／Android 右侧上滑时顶栏、货币、文件夹和图表矩形不变、左侧手势不移动页面、右侧下拉触发原刷新、短窗口／外屏／1.2 倍字体回到整页滚动、空收藏两个主动作可达，以及折叠前后页面、主滚动和横向卡片 Scrollable State 与横向位置保持。初始空态测试的 iOS 默认测试字体引起虚假换行，改用既有生产字体加载辅助后通过；没有修改生产字体／卡片样式。
 - **额外压力检查边界：**曾测试 1.5 倍文字；旧源码的同尺寸重放同样复现顶栏标签、固定高度卡片的溢出，证据保留在 `home-pinned-large-text-baseline.log`。本轮未扩大修改这些既有固定字号／高度组件，不能把 1.2 倍专项通过扩展为任意大字体已验收。
@@ -252,3 +252,44 @@ Duo 真机、普通 iPhone／Android 真机、系统完整分屏矩阵、真实�
 2026-11-18 用户确认间距后要求删除红框：移除 Review Footer 的临时 Debug DecoratedBox 描边，将区域 Key 保留在原 Material 上用于既有布局回归；最终 Scan 与 Review 均无临时红框。既有布局、间距、安全区和业务动作保持。
 
 移除红框后，两端 8 项 Duo Scan／Review 专项和 `flutter analyze --no-pub` 均通过、退出 0，`git diff --check` 通过；未新增测试。自审确认只移除绘制层、保留 Material 与区域 Key，无尺寸或业务变化。当前 Duo 进程 36322 成功热更新 1 个库，未重装／重启；用户当前位于 Scan 且有 6 项活动扫描，未为截图切页或操作队列。运行截图仅显示 Scan，不作为 Review 外观验收证据；Review 几何由既有两端回归检查。证据保留 `review-footer-no-border-tests.log`、`analyze-review-footer-no-border.log`；调试客户端断开后确认 App 仍运行，删除两张无关运行截图与临时连接信息。未重新构建安装包、运行 Android 设备或重跑全量／golden；此前 golden 差异未在本轮关闭。未提交／推送或发布远端环境。
+
+### 9.11 Scan Review 双栏布局（2026-11-18）
+
+用户批准图片核对／信息编辑 45:55 的方案，并明确只改布局。当前按原始完整安全视口判断：安全宽度至少 800、扣除安全区与既有顶部 24 后的高度至少 560 时启用，门槛随文字倍率提高，键盘不参与模式切换。宽屏顶部固定活动卡片缩略图队列，原标题位于左侧面板内、图片上方，右栏从队列下方直接开始；两侧外边距各 20、栏间 24，左侧显示原扫描图和当前匹配图（完整比例）及横向候选，右侧表单独立滚动、底部操作区固定在右栏。极短的键盘视口允许左侧核对区自身滚动以保持候选可达。
+
+右侧复用原卡牌摘要与编辑组件，宽屏省略重复小卡图、数量与工艺并排；工艺仍沿用原可用选项与选择回调。总金额与当前卡片操作同排，批量操作仍只在多卡时显示，底部内容边距保持 0，系统安全区仍只由外层处理。窄屏、短窗口和较大字体保留原单列构成与全宽操作区。局部布局 State 仅用于在宽窄切换时重挂同一输入／横向列表子树，不承载业务数据；原选中卡片／候选 ValueKey、草稿、加载门禁、回调、保存、确认、删除、额度、订阅与平台方向规则沿用。
+
+验收覆盖两端的 45:55 几何、独立滚动和固定操作区、单卡／多卡、短窗口／大字体回退、折叠和键盘期间输入 Element／焦点／草稿连续性，以及切卡后通过既有确认回调提交原数量和备注。大字体回退检查实际复现 iOS Raw／Graded 按钮两行文字在原固定 58 高内溢出 1 像素，根因为内侧 40 高不足以容纳放大后的文字；仅将 iOS 高度按文字倍率增大，默认字号仍为 58，Android 沿用原最小高度。原有文件夹业务测试从固定拖动 600 改为定位到实际按钮，适用于单列和双栏，原业务断言保留。
+
+- **回归：**`flutter test --no-pub test/widget/scan_page_test.dart test/scan_orientation_test.dart --reporter expanded` 最终为 178 通过、5 失败，退出 1；5 项均为原有 390×844 iOS golden 差异，没有更新基准或放宽断言。6 项双端 Duo Review 专项与原有扫描确认流程单独运行共 7 项通过、退出 0。对改动前 HEAD 与当前源码分别运行同一普通手机 Review golden，均复现差异且实际 PNG 原始字节相同（SHA-256 `a3e667ea94d198d8191c8d268fe4f7eefb1563d2f79988fb3fc4709c241c2219`）。`flutter analyze --no-pub` 无问题、退出 0，`git diff --check` 通过。
+- **Code Review：**自审通过；`ScanPage` 生命周期、状态和业务方法与改动前逐字节一致，候选点击、表单更新、文件夹、确认、删除和加载门禁沿用原表达式。图片／候选组件、表单控件、选择弹层及金额格式化保持原实现，仅变更所述布局、图片 fit 和按钮高度。未改变 API、识别／上传、草稿数据、额度、平台商业策略或原生方向。
+- **布局证据：**从实际 Flutter Review 组件和测试数据渲染单卡／多卡 951×669 图，已目视检查；图片使用测试占位资源，不代表真实扫描。临时截图测试只输出本机新图片，完成后移除，没有更新仓库 golden。
+- **验证边界：**Android 运行相关 widget／方向回归，未重建 APK 或运行 Android 设备；真实相机／OCR、扫描上传、购买／恢复及收藏写入没有操作。沿用第 8 节的省略 ML Kit 隔离模拟器 UI 工程，不能用于完整扫描验收；未提交／推送 Git 或发布远端环境。
+- **模拟器交付：**Xcode test／Debug-test／arm64 构建成功、退出 0，重新安装并启动 `com.kando.kandoApp.beta`（1.0.7+213），来源为 `bc8e220b` 加本轮未提交布局改动。安装 kernel 与批准产物 SHA-256 均为 `5f71291aeb935752c65b260cd7b60a4e58faf3304977e91fe00e80f596b00e5f`。已在 Device Hub 关闭启动订阅页并打开新版 Scan，登录收藏仍可见，当前队列为 0/0；没有为验收上传图片或制造真实扫描，因此运行中的 Review 外观尚未独立验证，双栏外观证据来自上述 Flutter 测试渲染。模拟器保留在 Scan 页供用户查看。
+- **证据与清理：**本机 `/private/tmp/kd-iphone-duo-adapted/` 保留 `review-layout-*` 的回归／分析／构建日志、窄屏对比、单卡／多卡渲染图、安装身份及截图差异归档。确认编译和调试连接已结束且缓存没有打开文件后，清理本次 4 个编译中间目录／模块缓存，释放约 954 MiB；最终安装包、隔离工程、运行 App 和必要证据保留。20 张生成的 golden 诊断图归档后移出源码目录，临时截图测试与连接配置已移除，没有清理共享依赖或 Android 制品。
+
+同日按用户要求，将宽屏 `Review your matches` 标题移至活动缩略图队列下方、双栏内容上方，保留既有 12／16 间距和双栏起点；仅交换标题与队列顺序。两端 6 项 Duo Review 专项通过、退出 0，已在原几何测试中补充标题位于队列下方和双栏上方的断言；`flutter analyze --no-pub` 无问题、退出 0，`git diff --check` 通过，自审确认只调整布局顺序。当前 Duo 进程 78474 已成功热更新 1 个库，Device Hub 实际观察到标题的新位置、原两张扫描结果及当前编辑滚动位置保留；没有重装／重启或执行扫描、上传、确认和删除。此轮为运行中的热更新，没有重建安装包，重启仍使用上一轮安装版本。证据为 `review-title-below-tests.log`、`review-title-below-analyze.log` 和脱敏后的 `review-title-attach.log`；断开调试客户端后确认 App 仍运行，已删除临时连接配置。未重跑整套／golden，Android 未重建或上机；其他未验及发布边界沿用上文。
+
+随后按用户进一步明确的位置，将原标题放入左侧面板内、图片上方；队列与双栏间保留 16，左侧标题与图片间为 12。右栏与左侧面板顶部对齐，默认字号下表单可用高度增加 48；左侧图片／候选仍按扣除标题后的剩余高度计算，右侧滚动不带动标题或图片。窄屏布局和业务代码保持。两端 6 项 Duo Review 专项及 `flutter analyze --no-pub` 均通过、退出 0，`git diff --check` 通过，自审确认源码改动仅位于响应式布局组件。原进程 78474 成功热更新 1 个库，Device Hub 已目视核对标题位于左侧灰色面板内、右栏更高，原两张结果及编辑滚动状态保留；未重装／重启或执行业务写操作。证据为 `review-title-in-pane-tests.log`、`review-title-in-pane-analyze.log` 和脱敏后的 `review-title-in-pane-attach.log`；已断开客户端、确认 App 仍运行并删除临时连接配置和不再使用的改动前源码副本。本轮未重建安装包、Android APK 或重跑完整／golden，重启仍加载先前安装版。
+
+后续按用户截图收紧 Review 顶部空白：双栏外层顶部间距从 24 改为 8，叠加原有内层 8 后，安全区内的队列上方留白从 32 缩至 16；单列仍为原间距，系统安全区不变。父级间距与 Review 双栏共用原始视口判断，宽度／高度／字体门槛保持，键盘不改变模式。用户同时报告点空白会触发 X 返回；回归在安全区下方空白位置点击后稳定复现 Review 消失，根因为顶部覆盖了绑定 `_closeReview` 的透明 GestureDetector。移除该覆盖层后，空白不再关闭页面，X 与系统返回继续沿用原回调，队列、草稿及保存业务不改。
+
+用户接着要求放大金额数字，并让 `TOTAL VALUE` 标签顶部与 Add 按钮顶部对齐：双栏 Footer 的金额区域固定为 84×56，标签仍为 11 字号，数字在剩余高度内按 40 字号、1 倍行高等比填充，底部与 Add 按钮底部对齐，长金额自动缩小以避免溢出。金额格式、字重、计算方式、按钮及窄屏样式保持。
+
+本轮最终验证：空白点击的修改前回归为 1 项失败、退出 1，证据 `review-empty-space-before.log`；修改后 `flutter test --no-pub test/widget/scan_page_test.dart --name 'Duo Review|Review ignores empty space|Review close only' --reporter expanded` 共 8 项通过、退出 0，含两端顶部队列距安全区为 16、空白点击保持 Review、X 关闭后原队列可继续扫描、折叠／键盘草稿保持，以及金额实际变换后边界、字号增大和标签／按钮顶部对齐。`flutter analyze --no-pub` 无问题、退出 0，`git diff --check` 通过；自审确认仅改变响应式间距、透明点击层和 Footer 排版，原关闭回调、PopScope、业务数据及平台策略保持。当前 Duo 进程 78474 连续热更新成功，Device Hub 实际观察到收紧后的顶部空白、放大金额和对齐，点击顶部空白后 Review 保持；当前扫描结果保留，没有重装／重启或执行扫描、确认、删除。最终证据为 `review-total-alignment-tests.log`、`review-total-alignment-analyze.log` 和脱敏后的 `review-top-gap-attach.log`，调试客户端已结束并确认 App 仍运行，临时连接配置和无用的修改前源码副本已清理。未重建安装包／Android APK、运行 Android 设备或重跑完整／golden；重启仍使用原安装版，完整扫描／OCR 等边界沿用上文，未提交／推送或发布远端环境。
+
+### 9.12 Home Performance 双栏布局（2026-11-19）
+
+按用户要求，将 iPhone Duo 宽屏 Home Performance 调整为与 Overview 相同的主从布局：左侧固定 Performance 标题、指标卡和趋势图，右侧固定 Top Performers 标题与 View all，只有卡片区域以两列网格独立纵向滚动。宽屏安全区内净宽至少 800 且高度满足当前面板门槛时启用，普通 iPhone、Android 窄屏、短窗口和无 Top Performers 数据时继续原单列布局。订阅状态、Performance API、额度、导航和回调均未改变。
+
+新增 iOS／Android Duo 尺寸回归，验证 Performance 主滚动区和 Top Performers 右滚动区的左右位置、顶部对齐、图表归属及窄屏回退；两端 Duo 专项 2 项通过，`flutter analyze --no-pub` 无问题，`git diff --check` 通过。既有 Home 测试中 3 项历史 golden／几何失败仍按原边界保留，未更新基线；新增布局专项本身通过。
+
+当前 test 包已重新构建并安装到 Device Hub 的 iPhone Duo（`com.kando.kandoApp.beta`，版本 `1.0.7+213`）。由于模拟器仍未登录有效 Sandbox Apple Account，运行态显示锁定 Performance，无法通过真实订阅进入 Premium 数据态；Premium 双栏已使用现有测试数据在 Flutter 测试渲染中核对，未执行真实购买、恢复或生产操作。未提交／推送 Git、发布远端环境或重建 Android APK。
+
+本轮在同一布局基础上继续收紧 Performance Duo 的滚动边界：iOS Duo 左侧 Performance 标题、指标卡和趋势图保持固定，右侧仅卡片内容使用两列 `GridView` 纵向滚动，`Top Performers` 与 `View all` 保持在网格上方固定；卡片宽度随右栏网格列宽伸展。普通 iOS、Android 窄屏及非 Duo 宽屏仍沿用原横向 Top Performers 列表；Android 宽屏在免费锁定态保留左侧纵向滚动兜底，避免锁定面板在短高度下溢出。未改变 Performance API、订阅判断、卡片点击、View all 导航或业务数据。
+
+新增回归断言覆盖两端 Duo 的右侧 `GridView` 垂直方向、标题不在滚动容器内、前两张卡同列并排、第三张卡进入下一行，以及 iOS 左列固定／Android 免费态左列滚动兜底；iOS／Android Duo 专项各 1 项通过，`dart analyze lib/features/home/home_page.dart`、`dart format` 和 `git diff --check` 通过。完整 `home_page_test.dart` 未标记为通过：本地仍有既有 Home golden 差异及空状态几何断言失败，未更新 golden 或放宽断言。
+
+按用户要求，先从 Device Hub 的 iPhone Duo 卸载 `com.kando.kandoApp.beta`，再安装并启动新的 test arm64 Simulator 包（`1.0.7+213`，Runner 二进制 SHA-256 `7dcea3cf5ef1e324ce78c3be8a9b3a8809fa5666ab12f7e4fd86eac3db8a5dd6`）。卸载和安装命令均成功，当前进程已启动；首次启动因模拟器重新建立登录／网络状态停留在启动画面，未将其写成 Premium 双栏的运行态验收。未提交／推送 Git、发布远端环境或重建 Android APK。
+
+后续复查发现上一个包为无签名 Simulator 构建，首次启动在 `flutter_secure_storage` 的 Keychain 调用处报 `-34018`，导致启动画面不继续。已用同一源码和 arm64 预览参数生成 ad-hoc `Sign to Run Locally` 包（Runner SHA-256 `406c0505596d805675fa208795282b81cea15f65324075362f8a06ca387a45bc`），再次卸载、安装并启动。Device Hub 已出现 iOS 首次追踪选择，选择“不允许追踪”后进入首次引导并继续到 Home Performance 页面；当前为 Free 状态的锁定 Performance，证明 App 已正常打开。未改业务代码、未购买订阅、未执行生产操作。

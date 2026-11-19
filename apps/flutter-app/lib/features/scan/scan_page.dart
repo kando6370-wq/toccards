@@ -2564,6 +2564,9 @@ class _ScanPageState extends ConsumerState<ScanPage>
     );
     final quota = ref.watch(scanQuotaControllerProvider);
     final hasPremiumAccess = freePremiumFeatures || isPro || quota.unlimited;
+    final reviewTopPadding = _reviewing && _useExpandedReviewLayout(context)
+        ? 8.0
+        : 24.0;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -2582,7 +2585,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
                 children: [
                   SafeArea(
                     child: Padding(
-                      padding: const EdgeInsets.only(top: 24),
+                      padding: EdgeInsets.only(top: reviewTopPadding),
                       child: _ReviewMatches(
                         items: _matchedItems,
                         selectedItemId: _selectedReviewItemId,
@@ -2605,17 +2608,6 @@ class _ScanPageState extends ConsumerState<ScanPage>
                         onDeleteItem: _deleteReviewItem,
                         onDeleteAll: _deleteAllReviewItems,
                       ),
-                    ),
-                  ),
-                  Positioned(
-                    left: 0,
-                    top: 0,
-                    right: 0,
-                    height: MediaQuery.viewPaddingOf(context).top + 24,
-                    child: GestureDetector(
-                      key: const Key('scan-review-collapse-area'),
-                      behavior: HitTestBehavior.opaque,
-                      onTap: _closeReview,
                     ),
                   ),
                 ],
@@ -4561,6 +4553,19 @@ class _ScanResultThumbnail extends StatelessWidget {
   }
 }
 
+bool _useExpandedReviewLayout(BuildContext context) {
+  final mediaSize = MediaQuery.sizeOf(context);
+  final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
+  final view = View.of(context);
+  final screenPadding = EdgeInsets.fromViewPadding(
+    view.viewPadding,
+    view.devicePixelRatio,
+  );
+  // Keep the existing full-viewport breakpoint independent of keyboard height.
+  return mediaSize.width - screenPadding.horizontal >= 800 * textScale &&
+      mediaSize.height - screenPadding.vertical - 24 >= 560 * textScale;
+}
+
 class _ReviewMatches extends StatelessWidget {
   const _ReviewMatches({
     required this.items,
@@ -4614,190 +4619,355 @@ class _ReviewMatches extends StatelessWidget {
     final ready = target != null && card != null && draft != null;
     final candidateLoading = loadingCandidateIds.contains(selected.id);
 
-    return Stack(
+    final view = View.of(context);
+    final expanded = _useExpandedReviewLayout(context);
+    final queue = Row(
       children: [
-        Positioned.fill(
-          child: ListView(
-            key: const Key('scan-review-list'),
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: const EdgeInsets.fromLTRB(10, 8, 10, 170),
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 62,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: items.length,
-                        separatorBuilder: (_, _) => const SizedBox(width: 8),
-                        itemBuilder: (context, index) {
-                          final item = items[index];
-                          return InkWell(
-                            key: Key('scan-review-item-${item.id}'),
-                            onTap: saving ? null : () => onSelectItem(item),
-                            borderRadius: BorderRadius.circular(4),
-                            child: Container(
-                              width: 44,
-                              padding: const EdgeInsets.all(2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF10100B),
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(
-                                  color: item.id == selected.id
-                                      ? const Color(0xFFF0FE6F)
-                                      : Colors.transparent,
-                                ),
-                              ),
-                              child: _ScanResultThumbnail(
-                                item: item,
-                                width: 40,
-                                height: 58,
-                              ),
-                            ),
-                          );
-                        },
+        Expanded(
+          child: SizedBox(
+            height: 62,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: items.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final item = items[index];
+                return InkWell(
+                  key: Key('scan-review-item-${item.id}'),
+                  onTap: saving ? null : () => onSelectItem(item),
+                  borderRadius: BorderRadius.circular(4),
+                  child: Container(
+                    width: 44,
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10100B),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: item.id == selected.id
+                            ? const Color(0xFFF0FE6F)
+                            : Colors.transparent,
                       ),
+                    ),
+                    child: _ScanResultThumbnail(
+                      item: item,
+                      width: 40,
+                      height: 58,
                     ),
                   ),
-                  IconButton(
-                    tooltip: 'Back to Scan',
-                    onPressed: saving ? null : onCollapse,
-                    icon: SvgPicture.asset(
-                      'assets/scan/close.svg',
-                      width: 14,
-                      height: 14,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF222222),
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Review your matches',
-                      style: TextStyle(
-                        color: Color(0xFFEEECD8),
-                        fontFamily: 'Fraunces',
-                        fontSize: 28,
-                        height: 36 / 28,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    _ReviewImageComparison(item: selected, card: card),
-                    const SizedBox(height: 24),
-                    const Text(
-                      'Top matched results:',
-                      style: TextStyle(
-                        color: Color(0xFFEEECD8),
-                        fontFamily: 'Fraunces',
-                        fontSize: 22,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      height: 192,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: match.candidates.length,
-                        separatorBuilder: (_, _) => const SizedBox(width: 12),
-                        itemBuilder: (context, index) {
-                          final candidate = match.candidates[index];
-                          return _ReviewCandidateCard(
-                            candidate: candidate,
-                            card: cards[candidate.cardRef],
-                            selected: candidate.cardRef == match.cardRef,
-                            onTap: saving
-                                ? null
-                                : () => onSelectCandidate(selected, candidate),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    if (!ready)
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(32),
-                          child: CircularProgressIndicator(),
-                        ),
-                      )
-                    else
-                      Stack(
-                        children: [
-                          KeyedSubtree(
-                            key: ValueKey(
-                              'scan-review-form-${selected.id}-${match.cardRef}',
-                            ),
-                            child: _ReviewCollectionItem(
-                              itemId: selected.id,
-                              target: target!,
-                              card: card,
-                              draft: draft,
-                              formError: formError,
-                              enabled: !saving && !candidateLoading,
-                              onChanged: (next) =>
-                                  onUpdateDraft(selected.id, next),
-                            ),
-                          ),
-                          if (candidateLoading)
-                            const Positioned.fill(
-                              child: Center(child: CircularProgressIndicator()),
-                            ),
-                        ],
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (ready)
-          Positioned.fill(
-            child: MediaQuery.fromView(
-              view: View.of(context),
-              child: Builder(
-                builder: (context) {
-                  if (MediaQuery.viewInsetsOf(context).bottom > 0) {
-                    return const SizedBox.shrink();
-                  }
-                  return Align(
-                    alignment: Alignment.bottomCenter,
-                    child: _ReviewFooter(
-                      totalText: _reviewTotalText(card, draft, currency),
-                      showBulkActions: items.length > 1,
-                      singleReady: !candidateLoading,
-                      bulkReady: loadingCandidateIds.isEmpty,
-                      saving: saving,
-                      savingAction: savingAction,
-                      onAddThisCard: onAddThisCard,
-                      onAddAllCards: onAddAllCards,
-                      onDeleteItem: () => onDeleteItem(selected),
-                      onDeleteAll: onDeleteAll,
-                    ),
-                  );
-                },
-              ),
+                );
+              },
             ),
           ),
+        ),
+        IconButton(
+          tooltip: 'Back to Scan',
+          onPressed: saving ? null : onCollapse,
+          icon: SvgPicture.asset(
+            'assets/scan/close.svg',
+            width: 14,
+            height: 14,
+          ),
+        ),
       ],
+    );
+    final candidates = ListView.separated(
+      scrollDirection: Axis.horizontal,
+      itemCount: match.candidates.length,
+      separatorBuilder: (_, _) => const SizedBox(width: 12),
+      itemBuilder: (context, index) {
+        final candidate = match.candidates[index];
+        return _ReviewCandidateCard(
+          candidate: candidate,
+          card: cards[candidate.cardRef],
+          selected: candidate.cardRef == match.cardRef,
+          onTap: saving ? null : () => onSelectCandidate(selected, candidate),
+        );
+      },
+    );
+    final editor = !ready
+        ? const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32),
+              child: CircularProgressIndicator(),
+            ),
+          )
+        : Stack(
+            children: [
+              KeyedSubtree(
+                key: ValueKey(
+                  'scan-review-form-${selected.id}-${match.cardRef}',
+                ),
+                child: _ReviewCollectionItem(
+                  itemId: selected.id,
+                  compact: expanded,
+                  target: target!,
+                  card: card,
+                  draft: draft,
+                  formError: formError,
+                  enabled: !saving && !candidateLoading,
+                  onChanged: (next) => onUpdateDraft(selected.id, next),
+                ),
+              ),
+              if (candidateLoading)
+                const Positioned.fill(
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+            ],
+          );
+    final footer = !ready
+        ? null
+        : MediaQuery.fromView(
+            view: view,
+            child: Builder(
+              builder: (context) {
+                if (MediaQuery.viewInsetsOf(context).bottom > 0) {
+                  return const SizedBox.shrink();
+                }
+                return _ReviewFooter(
+                  inlineTotal: expanded,
+                  totalText: _reviewTotalText(card, draft, currency),
+                  showBulkActions: items.length > 1,
+                  singleReady: !candidateLoading,
+                  bulkReady: loadingCandidateIds.isEmpty,
+                  saving: saving,
+                  savingAction: savingAction,
+                  onAddThisCard: onAddThisCard,
+                  onAddAllCards: onAddAllCards,
+                  onDeleteItem: () => onDeleteItem(selected),
+                  onDeleteAll: onDeleteAll,
+                );
+              },
+            ),
+          );
+    return _ReviewResponsiveLayout(
+      expanded: expanded,
+      queue: queue,
+      comparison: _ReviewImageComparison(
+        item: selected,
+        card: card,
+        containCaptured: expanded,
+      ),
+      candidates: candidates,
+      editor: editor,
+      footer: footer,
+    );
+  }
+}
+
+class _ReviewResponsiveLayout extends StatefulWidget {
+  const _ReviewResponsiveLayout({
+    required this.expanded,
+    required this.queue,
+    required this.comparison,
+    required this.candidates,
+    required this.editor,
+    required this.footer,
+  });
+
+  final bool expanded;
+  final Widget queue;
+  final Widget comparison;
+  final Widget candidates;
+  final Widget editor;
+  final Widget? footer;
+
+  @override
+  State<_ReviewResponsiveLayout> createState() =>
+      _ReviewResponsiveLayoutState();
+}
+
+class _ReviewResponsiveLayoutState extends State<_ReviewResponsiveLayout> {
+  // Reparent the existing inputs and horizontal lists when folding the window.
+  final _queueKey = GlobalKey();
+  final _comparisonKey = GlobalKey();
+  final _candidatesKey = GlobalKey();
+  final _editorKey = GlobalKey();
+
+  @override
+  Widget build(BuildContext context) {
+    final queue = KeyedSubtree(key: _queueKey, child: widget.queue);
+    final comparison = KeyedSubtree(
+      key: _comparisonKey,
+      child: widget.comparison,
+    );
+    final candidates = KeyedSubtree(
+      key: _candidatesKey,
+      child: widget.candidates,
+    );
+    final editor = KeyedSubtree(key: _editorKey, child: widget.editor);
+    const title = Text(
+      'Review your matches',
+      style: TextStyle(
+        color: Color(0xFFEEECD8),
+        fontFamily: 'Fraunces',
+        fontSize: 28,
+        height: 36 / 28,
+      ),
+    );
+    const candidateTitle = Text(
+      'Top matched results:',
+      style: TextStyle(
+        color: Color(0xFFEEECD8),
+        fontFamily: 'Fraunces',
+        fontSize: 22,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+    if (!widget.expanded) {
+      return Stack(
+        children: [
+          Positioned.fill(
+            child: ListView(
+              key: const Key('scan-review-list'),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 170),
+              children: [
+                queue,
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF222222),
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(24),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      title,
+                      const SizedBox(height: 24),
+                      comparison,
+                      const SizedBox(height: 24),
+                      candidateTitle,
+                      const SizedBox(height: 12),
+                      SizedBox(height: 192, child: candidates),
+                      const SizedBox(height: 24),
+                      editor,
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (widget.footer != null)
+            Align(alignment: Alignment.bottomCenter, child: widget.footer),
+        ],
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          queue,
+          const SizedBox(height: 16),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  flex: 45,
+                  child: Container(
+                    key: const Key('scan-review-picture-pane'),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF222222),
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        title,
+                        const SizedBox(height: 12),
+                        Expanded(
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              final candidateHeight = math.min(
+                                168.0,
+                                math.max(80.0, constraints.maxHeight * .34),
+                              );
+                              final comparisonHeight = math.max(
+                                40.0,
+                                math.min(
+                                  280.0,
+                                  constraints.maxHeight - candidateHeight - 62,
+                                ),
+                              );
+                              return SingleChildScrollView(
+                                // Short keyboard viewports can still reach every candidate.
+                                physics: constraints.maxHeight < 182
+                                    ? const ClampingScrollPhysics()
+                                    : const NeverScrollableScrollPhysics(),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    SizedBox(
+                                      height: comparisonHeight,
+                                      child: comparison,
+                                    ),
+                                    const SizedBox(height: 24),
+                                    candidateTitle,
+                                    const SizedBox(height: 12),
+                                    SizedBox(
+                                      height: candidateHeight,
+                                      child: candidates,
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 24),
+                Expanded(
+                  flex: 55,
+                  child: Column(
+                    key: const Key('scan-review-editor-pane'),
+                    children: [
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF222222),
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: SingleChildScrollView(
+                            key: const Key('scan-review-list'),
+                            keyboardDismissBehavior:
+                                ScrollViewKeyboardDismissBehavior.onDrag,
+                            padding: const EdgeInsets.all(12),
+                            child: editor,
+                          ),
+                        ),
+                      ),
+                      if (widget.footer != null) widget.footer!,
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
 class _ReviewImageComparison extends StatelessWidget {
-  const _ReviewImageComparison({required this.item, required this.card});
+  const _ReviewImageComparison({
+    required this.item,
+    required this.card,
+    this.containCaptured = false,
+  });
 
   final _ScanItem item;
   final ScanReviewCard? card;
+  final bool containCaptured;
 
   @override
   Widget build(BuildContext context) {
@@ -4812,7 +4982,7 @@ class _ReviewImageComparison extends StatelessWidget {
                   ? const _ReviewImageUnavailable()
                   : Image.memory(
                       item.displayImageBytes!,
-                      fit: BoxFit.cover,
+                      fit: containCaptured ? BoxFit.contain : BoxFit.cover,
                       gaplessPlayback: true,
                     ),
             ),
@@ -4967,6 +5137,7 @@ class _ReviewCollectionItem extends StatelessWidget {
     required this.formError,
     required this.enabled,
     required this.onChanged,
+    this.compact = false,
   });
 
   final int itemId;
@@ -4976,6 +5147,7 @@ class _ReviewCollectionItem extends StatelessWidget {
   final String? formError;
   final bool enabled;
   final ValueChanged<_ScanCollectionDraft> onChanged;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -5058,18 +5230,19 @@ class _ReviewCollectionItem extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    SizedBox(
-                      width: 80,
-                      height: 110,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: _ReviewNetworkImage(
-                          imageUrl: card.imageUrl,
-                          fit: BoxFit.contain,
+                    if (!compact)
+                      SizedBox(
+                        width: 80,
+                        height: 110,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: _ReviewNetworkImage(
+                            imageUrl: card.imageUrl,
+                            fit: BoxFit.contain,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 16),
+                    if (!compact) const SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -5118,27 +5291,47 @@ class _ReviewCollectionItem extends StatelessWidget {
                   children: [
                     const _ReviewSectionLabel('OWNERSHIP SUMMARY'),
                     const SizedBox(height: 12),
-                    _ReviewTextRow(
-                      fieldKey: Key('scan-review-quantity-$itemId'),
-                      label: 'QUANTITY',
-                      value: draft.quantityText,
-                      enabled: enabled,
-                      keyboardType: TextInputType.number,
-                      onChanged: (value) =>
-                          onChanged(draft.copyWith(quantityText: value)),
-                    ),
-                    const SizedBox(height: 24),
-                    _ReviewPillGroup(
-                      fieldKey: Key('scan-review-finish-$itemId'),
-                      label: 'FINISH',
-                      selected: draft.finish,
-                      options: _optionsIncluding(
-                        card.collectionFinishOptions,
-                        draft.finish,
-                      ),
-                      enabled: enabled,
-                      onChanged: (value) =>
-                          onChanged(draft.copyWith(finish: value)),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final fieldWidth = compact
+                            ? (constraints.maxWidth - 12) / 2
+                            : constraints.maxWidth;
+                        return Wrap(
+                          spacing: 12,
+                          runSpacing: 24,
+                          children: [
+                            SizedBox(
+                              width: fieldWidth,
+                              child: _ReviewTextRow(
+                                fieldKey: Key('scan-review-quantity-$itemId'),
+                                label: 'QUANTITY',
+                                value: draft.quantityText,
+                                enabled: enabled,
+                                keyboardType: TextInputType.number,
+                                onChanged: (value) => onChanged(
+                                  draft.copyWith(quantityText: value),
+                                ),
+                              ),
+                            ),
+                            SizedBox(
+                              width: fieldWidth,
+                              child: _ReviewPillGroup(
+                                fieldKey: Key('scan-review-finish-$itemId'),
+                                label: 'FINISH',
+                                columns: compact ? 1 : 3,
+                                selected: draft.finish,
+                                options: _optionsIncluding(
+                                  card.collectionFinishOptions,
+                                  draft.finish,
+                                ),
+                                enabled: enabled,
+                                onChanged: (value) =>
+                                    onChanged(draft.copyWith(finish: value)),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                     const SizedBox(height: 24),
                     _ReviewCardState(
@@ -5689,7 +5882,8 @@ class _ReviewCardState extends StatelessWidget {
         child: button,
       );
     }
-    return SizedBox(height: 58, child: button);
+    final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
+    return SizedBox(height: 58 * math.max(1.0, textScale), child: button);
   }
 }
 
@@ -6010,6 +6204,7 @@ class _ReviewFooter extends StatelessWidget {
     required this.onAddAllCards,
     required this.onDeleteItem,
     required this.onDeleteAll,
+    this.inlineTotal = false,
   });
 
   final String totalText;
@@ -6022,6 +6217,7 @@ class _ReviewFooter extends StatelessWidget {
   final VoidCallback onAddAllCards;
   final VoidCallback onDeleteItem;
   final VoidCallback onDeleteAll;
+  final bool inlineTotal;
 
   @override
   Widget build(BuildContext context) {
@@ -6033,30 +6229,72 @@ class _ReviewFooter extends StatelessWidget {
       color: const Color(0xFF10100B),
       // Review's outer SafeArea already handles the screen insets.
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
+        padding: EdgeInsets.fromLTRB(
+          inlineTotal ? 0 : 10,
+          10,
+          inlineTotal ? 0 : 10,
+          0,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                const Text(
-                  'TOTAL VALUE',
-                  style: TextStyle(color: Color(0xFF92927D), fontSize: 11),
-                ),
-                const Spacer(),
-                Text(
-                  totalText,
-                  key: const Key('scan-review-total'),
-                  style: const TextStyle(
-                    color: Color(0xFFF0FE6F),
-                    fontWeight: FontWeight.w600,
+            if (!inlineTotal) ...[
+              Row(
+                children: [
+                  Text(
+                    'TOTAL VALUE',
+                    style: TextStyle(color: Color(0xFF92927D), fontSize: 11),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
+                  const Spacer(),
+                  Text(
+                    totalText,
+                    key: const Key('scan-review-total'),
+                    style: const TextStyle(
+                      color: Color(0xFFF0FE6F),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
             Row(
               children: [
+                if (inlineTotal) ...[
+                  SizedBox(
+                    width: 84,
+                    height: 56,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'TOTAL VALUE',
+                          style: TextStyle(
+                            color: Color(0xFF92927D),
+                            fontSize: 11,
+                          ),
+                        ),
+                        Expanded(
+                          child: FittedBox(
+                            fit: BoxFit.contain,
+                            alignment: Alignment.bottomLeft,
+                            child: Text(
+                              totalText,
+                              key: const Key('scan-review-total'),
+                              style: const TextStyle(
+                                color: Color(0xFFF0FE6F),
+                                fontSize: 40,
+                                height: 1,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                ],
                 Expanded(
                   child: SizedBox(
                     height: 56,

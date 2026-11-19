@@ -1304,6 +1304,104 @@ void main() {
     },
   );
 
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets('Duo $platform Performance keeps Top Performers on the right', (
+      tester,
+    ) async {
+      final fonts = (await tester.runAsync(_readProductionHomeFonts))!;
+      await _loadProductionHomeFonts(fonts);
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(951, 669);
+      tester.view.padding = const FakeViewPadding(right: 84, bottom: 34);
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        _mockResponsiveHomeApp(
+          platform: platform,
+          isAndroidFreeLaunch: platform == TargetPlatform.android,
+          homeRepository: const MockHomeRepository(),
+          performanceApi: _TestHomePerformanceApi(),
+          subscriptionController: platform == TargetPlatform.iOS
+              ? _ProHomeSubscriptionController.new
+              : _FreeHomeSubscriptionController.new,
+        ),
+      );
+      await _waitForHomeAuth(tester);
+      await tester.tap(find.byKey(const Key('home-performance-tab')));
+      await tester.pumpAndSettle();
+
+      final columns = find.byKey(const Key('home-performance-columns'));
+      final main = find.byKey(const Key('home-performance-main-scroll'));
+      final topPerformers = find.byKey(
+        const Key('home-performance-top-performers-scroll'),
+      );
+      final topPerformersGrid = find.byKey(
+        const Key('home-top-performers-grid'),
+      );
+      final topPerformersHeader = find.byKey(
+        const Key('home-top-performers-header'),
+      );
+      expect(columns, findsOneWidget);
+      expect(main, findsOneWidget);
+      expect(topPerformers, findsOneWidget);
+      expect(topPerformersGrid, findsOneWidget);
+      expect(topPerformersHeader, findsOneWidget);
+      expect(
+        tester.widget<GridView>(topPerformersGrid).scrollDirection,
+        Axis.vertical,
+      );
+      expect(
+        find.descendant(of: main, matching: find.byType(SingleChildScrollView)),
+        platform == TargetPlatform.android ? findsOneWidget : findsNothing,
+      );
+      expect(
+        tester.getRect(topPerformers).left,
+        greaterThan(tester.getRect(main).right),
+      );
+      expect(tester.getTopLeft(topPerformers).dy, tester.getTopLeft(main).dy);
+      expect(
+        find.descendant(
+          of: topPerformers,
+          matching: find.text('Top Performers'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: topPerformersGrid,
+          matching: find.text('Top Performers'),
+        ),
+        findsNothing,
+      );
+      final firstPerformer = find.byKey(
+        const Key('home-top-performer-item-pikachu'),
+      );
+      final secondPerformer = find.byKey(
+        const Key('home-top-performer-item-charizard'),
+      );
+      final thirdPerformer = find.byKey(
+        const Key('home-top-performer-item-umbreon'),
+      );
+      expect(
+        tester.getTopLeft(secondPerformer).dx,
+        greaterThan(tester.getTopLeft(firstPerformer).dx),
+      );
+      expect(
+        tester.getTopLeft(thirdPerformer).dy,
+        greaterThan(tester.getTopLeft(firstPerformer).dy),
+      );
+      expect(
+        find.descendant(
+          of: main,
+          matching: find.byKey(const Key('home-performance-chart')),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('home-normal-content')), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets(
     'Home Performance metrics match the Figma 2x2 card layout and reuse detail icons',
     (tester) async {
@@ -3985,7 +4083,6 @@ void main() {
       }
     });
   }
-
 }
 
 _searchOverrides() {
@@ -4050,6 +4147,7 @@ Widget _mockResponsiveHomeApp({
   PortfolioApiClient? performanceApi,
   HomeRepository homeRepository = const _EmptyDefaultHomeRepository(),
   bool useKandoTheme = false,
+  SubscriptionController Function()? subscriptionController,
 }) {
   final portfolioManagement = _TestPortfolioManagementApi();
   final storage = InMemoryAuthStorage();
@@ -4077,7 +4175,7 @@ Widget _mockResponsiveHomeApp({
         ),
         currencyRateApiProvider.overrideWithValue(const _TestCurrencyRateApi()),
         subscriptionControllerProvider.overrideWith(
-          _FreeHomeSubscriptionController.new,
+          subscriptionController ?? _FreeHomeSubscriptionController.new,
         ),
       ],
       child: _HomeTestApp(
@@ -4719,9 +4817,7 @@ Future<_ProductionHomeFonts> _readProductionHomeFonts() async {
   Directory? materialFonts;
   while (directory.parent.path != directory.path) {
     for (final candidate in [
-      Directory(
-        '${directory.path}${Platform.pathSeparator}material_fonts',
-      ),
+      Directory('${directory.path}${Platform.pathSeparator}material_fonts'),
       Directory(
         '${directory.path}${Platform.pathSeparator}artifacts'
         '${Platform.pathSeparator}material_fonts',
@@ -4759,9 +4855,7 @@ Future<void> _loadProductionHomeFonts(_ProductionHomeFonts fonts) async {
         ..addFont(Future.value(fonts.robotoRegular))
         ..addFont(Future.value(fonts.robotoMedium)))
       .load();
-  await (FontLoader('Fraunces')
-        ..addFont(Future.value(fonts.fraunces)))
-      .load();
+  await (FontLoader('Fraunces')..addFont(Future.value(fonts.fraunces))).load();
 }
 
 class _HomeTestApp extends StatelessWidget {

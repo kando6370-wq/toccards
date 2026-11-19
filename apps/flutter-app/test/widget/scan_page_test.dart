@@ -2657,7 +2657,7 @@ void main() {
   }, variant: TargetPlatformVariant({TargetPlatform.iOS}));
 
   testWidgets(
-    'Review collapses back to the same scan session because editing a match must not exit or discard prior scans',
+    'Review ignores empty space and closes with X without discarding prior scans',
     (tester) async {
       tester.view.padding = const FakeViewPadding(top: 44);
       tester.view.viewPadding = const FakeViewPadding(top: 44);
@@ -2688,15 +2688,15 @@ void main() {
       await tester.tap(find.byTooltip('Review completed scan'));
       await tester.pumpAndSettle();
 
-      final collapseArea = tester.getRect(
-        find.byKey(const Key('scan-review-collapse-area')),
-      );
       final safeTop = MediaQuery.viewPaddingOf(
         tester.element(find.byType(ScanPage)),
       ).top;
-      expect(collapseArea.height, safeTop + 24);
+      await tester.tapAt(Offset(20, safeTop + 12));
+      await tester.pumpAndSettle();
+      expect(find.text('Review your matches'), findsOneWidget);
+      expect(find.text('Exit scan result?'), findsNothing);
 
-      await tester.tap(find.byKey(const Key('scan-review-collapse-area')));
+      await tester.tap(find.byTooltip('Back to Scan'));
       await tester.pumpAndSettle();
 
       expect(find.text('Review your matches'), findsNothing);
@@ -3327,9 +3327,8 @@ void main() {
       expect(find.byKey(const Key('scan-review-total')), findsOneWidget);
       expect(find.text(r'$25.00'), findsWidgets);
 
-      await tester.drag(
-        find.byKey(const Key('scan-review-list')),
-        const Offset(0, -600),
+      await tester.ensureVisible(
+        find.byKey(const Key('scan-review-folder-1')),
       );
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('scan-review-folder-1')));
@@ -6210,7 +6209,7 @@ void main() {
     );
 
     testWidgets(
-      'Duo Review $platform actions fill the same safe width as the content',
+      'Duo Review $platform pins the pictures and the actions while only the editor scrolls',
       (tester) async {
         final fonts = (await tester.runAsync(_readProductionScanFonts))!;
         await _loadProductionScanFonts(fonts);
@@ -6242,30 +6241,65 @@ void main() {
           await _completeFigmaScan(tester);
           await tester.tap(find.byKey(Key('scan-active-item-$count')));
           await tester.pumpAndSettle();
-          final listRect = tester.getRect(
-            find.byKey(const Key('scan-review-list')),
+          await tester.tapAt(const Offset(20, 4));
+          await tester.pumpAndSettle();
+          expect(find.text('Review your matches'), findsOneWidget);
+          expect(
+            tester.getRect(find.byKey(const Key('scan-review-item-1'))).top,
+            closeTo(16, .0001),
           );
+          final editorRect = tester.getRect(
+            find.byKey(const Key('scan-review-editor-pane')),
+          );
+          final pictureRect = tester.getRect(
+            find.byKey(const Key('scan-review-picture-pane')),
+          );
+          final titleRect = tester.getRect(find.text('Review your matches'));
+          expect(
+            titleRect.top,
+            greaterThan(
+              tester.getRect(find.byKey(const Key('scan-review-item-1'))).bottom,
+            ),
+          );
+          expect(titleRect.left, closeTo(pictureRect.left + 12, .0001));
+          expect(titleRect.top, closeTo(pictureRect.top + 12, .0001));
+          expect(titleRect.right, lessThanOrEqualTo(pictureRect.right - 12));
+          expect(editorRect.top, closeTo(pictureRect.top, .0001));
+          expect(
+            editorRect.top,
+            closeTo(
+              tester.getRect(find.byKey(const Key('scan-review-item-1'))).bottom +
+                  16,
+              .0001,
+            ),
+          );
+          expect(pictureRect.width / editorRect.width, closeTo(45 / 55, .0001));
+          expect(editorRect.left - pictureRect.right, closeTo(24, .0001));
+          expect(pictureRect.left, closeTo(20, .0001));
+          expect(editorRect.right, closeTo(951 - 84 - 20, .0001));
           final addRect = tester.getRect(
             find.byKey(const Key('scan-review-add-one')),
           );
           final deleteRect = tester.getRect(
             find.byKey(const Key('scan-review-delete-one')),
           );
-          expect(addRect.left, closeTo(listRect.left + 10, .0001));
-          expect(deleteRect.right, closeTo(listRect.right - 10, .0001));
+          expect(addRect.left, greaterThan(editorRect.left));
+          expect(deleteRect.right, closeTo(editorRect.right, .0001));
           expect(
             find.byKey(const Key('scan-review-add-all')),
             count == 2 ? findsOneWidget : findsNothing,
           );
           if (count == 2) {
             expect(
-              tester.getRect(
-                find.ancestor(
-                  of: find.text('DELETE ALL CARDS'),
-                  matching: find.byType(OutlinedButton),
-                ),
-              ).right,
-              closeTo(listRect.right - 10, .0001),
+              tester
+                  .getRect(
+                    find.ancestor(
+                      of: find.text('DELETE ALL CARDS'),
+                      matching: find.byType(OutlinedButton),
+                    ),
+                  )
+                  .right,
+              closeTo(editorRect.right, .0001),
             );
           }
           final lastAction = count == 2
@@ -6277,10 +6311,7 @@ void main() {
           final footerRect = tester.getRect(
             find.byKey(const Key('scan-review-footer-region')),
           );
-          expect(
-            tester.getRect(lastAction).bottom,
-            closeTo(669 - 34, .0001),
-          );
+          expect(tester.getRect(lastAction).bottom, closeTo(669 - 34, .0001));
           final bottomActions = count == 2
               ? [find.byKey(const Key('scan-review-add-all')), lastAction]
               : [find.byKey(const Key('scan-review-add-one')), lastAction];
@@ -6291,12 +6322,195 @@ void main() {
             expect(paintedRect.bottom, closeTo(footerRect.bottom, .0001));
             expect(paintedRect.height, greaterThanOrEqualTo(48));
           }
+          expect(footerRect.left, closeTo(editorRect.left, .0001));
+          expect(footerRect.right, closeTo(editorRect.right, .0001));
+          final totalBox = tester.renderObject<RenderBox>(
+            find.byKey(const Key('scan-review-total')),
+          );
+          final totalRect = Rect.fromPoints(
+            totalBox.localToGlobal(Offset.zero),
+            totalBox.localToGlobal(totalBox.size.bottomRight(Offset.zero)),
+          );
+          final totalLabelRect = tester.getRect(find.text('TOTAL VALUE'));
+          expect(totalLabelRect.top, closeTo(addRect.top, .0001));
+          expect(totalRect.top, greaterThanOrEqualTo(totalLabelRect.bottom));
+          expect(totalRect.height, greaterThan(20));
+          expect(totalRect.right, lessThanOrEqualTo(editorRect.left + 84.0001));
+          expect(totalRect.bottom, closeTo(addRect.bottom, .0001));
+          expect(
+            totalRect.center.dy,
+            inInclusiveRange(addRect.top, addRect.bottom),
+          );
+          await tester.drag(
+            find.byKey(const Key('scan-review-list')),
+            const Offset(0, -350),
+          );
+          await tester.pumpAndSettle();
+          expect(
+            tester.getRect(find.byKey(const Key('scan-review-picture-pane'))),
+            pictureRect,
+          );
+          expect(tester.getRect(find.text('Review your matches')), titleRect);
+          expect(
+            tester.getRect(find.byKey(const Key('scan-review-footer-region'))),
+            footerRect,
+          );
           await tester.tap(find.byTooltip('Back to Scan'));
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
         }
       },
     );
+    testWidgets(
+      'Duo Review $platform keeps a usable single column for short windows and larger text',
+      (tester) async {
+        final fonts = (await tester.runAsync(_readProductionScanFonts))!;
+        await _loadProductionScanFonts(fonts);
+        tester.view.devicePixelRatio = 1;
+        tester.view.padding = const FakeViewPadding(right: 84, bottom: 34);
+        tester.view.viewPadding = const FakeViewPadding(right: 84, bottom: 34);
+        addTearDown(tester.view.reset);
+        for (final scenario in [
+          (size: const Size(951, 500), scale: 1.0),
+          (size: const Size(951, 669), scale: 1.2),
+        ]) {
+          tester.view.physicalSize = scenario.size;
+          await _pumpScanTestApp(
+            tester,
+            platform: platform,
+            textScale: scenario.scale,
+            commercialPolicy: AppCommercialPolicy(
+              isAndroidFreeLaunch: platform == TargetPlatform.android,
+            ),
+          );
+          await tester.tap(find.byTooltip('Take Photo'));
+          await _completeFigmaScan(tester);
+          await tester.tap(find.byKey(const Key('scan-active-item-1')));
+          await tester.pumpAndSettle();
+          expect(find.byKey(const Key('scan-review-picture-pane')), findsNothing);
+          final footer = tester.getRect(
+            find.byKey(const Key('scan-review-footer-region')),
+          );
+          expect(footer.left, 0);
+          expect(footer.right, scenario.size.width - 84);
+          expect(footer.bottom, scenario.size.height - 34);
+          await tester.ensureVisible(
+            find.byKey(const Key('scan-review-notes-1')),
+          );
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+        }
+      },
+    );
+    testWidgets(
+      'Duo Review $platform preserves the editor across folding keyboard and card changes',
+      (tester) async {
+        final fonts = (await tester.runAsync(_readProductionScanFonts))!;
+        await _loadProductionScanFonts(fonts);
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(951, 669);
+        tester.view.padding = const FakeViewPadding(right: 84, bottom: 34);
+        tester.view.viewPadding = const FakeViewPadding(right: 84, bottom: 34);
+        addTearDown(tester.view.reset);
+        final repository = _FakeScanReviewRepository();
+        await _pumpScanTestApp(
+          tester,
+          platform: platform,
+          scanReviewRepository: repository,
+          commercialPolicy: AppCommercialPolicy(
+            isAndroidFreeLaunch: platform == TargetPlatform.android,
+          ),
+          scanResultSource: _TestScanResultSource(
+            photoResult: Future.value(
+              const ScanResolution.matched(
+                scanId: 'duo-draft-first',
+                cardRef: 'card-mega',
+                matchName: 'Mega Lucario ex',
+                candidates: ['Mega Lucario ex'],
+                candidateCardRefs: ['card-mega'],
+              ),
+            ),
+            subsequentPhotoResults: [
+              Future.value(
+                const ScanResolution.matched(
+                  scanId: 'duo-draft-second',
+                  cardRef: 'card-charizard',
+                  matchName: 'Charizard ex',
+                  candidates: ['Charizard ex'],
+                  candidateCardRefs: ['card-charizard'],
+                ),
+              ),
+            ],
+          ),
+        );
+        for (var count = 1; count <= 2; count++) {
+          await tester.tap(find.byTooltip('Take Photo'));
+          await _completeFigmaScan(tester);
+        }
+        await tester.tap(find.byKey(const Key('scan-active-item-1')));
+        await tester.pumpAndSettle();
+        final quantity = find.byKey(const Key('scan-review-quantity-1'));
+        final notes = find.byKey(const Key('scan-review-notes-1'));
+        await tester.ensureVisible(quantity);
+        await tester.enterText(quantity, '7');
+        await tester.ensureVisible(notes);
+        await tester.enterText(notes, 'Duo draft');
+        await tester.pumpAndSettle();
+        final notesElement = tester.element(notes);
+        final editable = tester.widget<EditableText>(
+          find.descendant(of: notes, matching: find.byType(EditableText)),
+        );
+        for (final size in [const Size(466, 900), const Size(951, 669)]) {
+          tester.view.physicalSize = size;
+          final padding = size.width == 951
+              ? const FakeViewPadding(right: 84, bottom: 34)
+              : const FakeViewPadding(top: 47, bottom: 34);
+          tester.view.padding = padding;
+          tester.view.viewPadding = padding;
+          await tester.pumpAndSettle();
+          await tester.ensureVisible(notes);
+          await tester.pumpAndSettle();
+          expect(tester.element(notes), same(notesElement));
+          expect(editable.controller.text, 'Duo draft');
+          expect(editable.focusNode.hasFocus, isTrue);
+          expect(
+            find.byKey(const Key('scan-review-picture-pane')),
+            size.width == 951 ? findsOneWidget : findsNothing,
+          );
+          expect(tester.takeException(), isNull);
+        }
+        for (final inset in [100.0, 200.0, 300.0]) {
+          tester.view.viewInsets = FakeViewPadding(bottom: inset);
+          tester.view.padding = const FakeViewPadding(right: 84);
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        await tester.pumpAndSettle();
+        expect(tester.element(notes), same(notesElement));
+        expect(editable.controller.text, 'Duo draft');
+        expect(editable.focusNode.hasFocus, isTrue);
+        expect(find.byKey(const Key('scan-review-add-one')), findsNothing);
+        expect(tester.takeException(), isNull);
+        tester.view.viewInsets = FakeViewPadding.zero;
+        tester.view.padding = const FakeViewPadding(right: 84, bottom: 34);
+        editable.focusNode.unfocus();
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('scan-review-item-2')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('scan-review-item-1')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('scan-review-add-one')));
+        await tester.pump();
+        await tester.pump();
+        expect(repository.confirmedScanIds, ['duo-draft-first']);
+        expect(repository.confirmedItems.single.quantity, 7);
+        expect(repository.confirmedItems.single.notes, 'Duo draft');
+        expect(repository.confirmedItems.single.cardRef, 'card-mega');
+        await tester.pump(kandoCenteredSuccessToastDuration);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      },
+    );
+
   }
 }
 

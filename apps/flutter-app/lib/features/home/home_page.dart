@@ -273,6 +273,11 @@ class _HomePageState extends ConsumerState<HomePage>
                     !performanceSelected &&
                     constraints.maxWidth - 40 >= 800 &&
                     paneHeight >= minimumPaneHeight * math.max(1, textScale);
+                final pinPerformance =
+                    performanceSelected &&
+                    performanceContent != null &&
+                    constraints.maxWidth - 40 >= 800 &&
+                    paneHeight >= 400 * math.max(1, textScale);
                 Widget scrollContent(Widget child, EdgeInsets padding) =>
                     KeyedSubtree(
                       key: _contentScrollKey,
@@ -283,7 +288,7 @@ class _HomePageState extends ConsumerState<HomePage>
                         child: child,
                       ),
                     );
-                if (pinOverview) {
+                if (pinOverview || pinPerformance) {
                   return Padding(
                     padding: EdgeInsets.fromLTRB(
                       20,
@@ -297,17 +302,23 @@ class _HomePageState extends ConsumerState<HomePage>
                         header,
                         const SizedBox(height: 24),
                         Expanded(
-                          child: Row(
-                            key: const Key('home-overview-columns'),
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Expanded(child: portfolio),
-                              const SizedBox(width: 32),
-                              Expanded(
-                                child: scrollContent(lists, EdgeInsets.zero),
-                              ),
-                            ],
-                          ),
+                          child: pinOverview
+                              ? Row(
+                                  key: const Key('home-overview-columns'),
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    Expanded(child: portfolio),
+                                    const SizedBox(width: 32),
+                                    Expanded(
+                                      child: scrollContent(
+                                        lists,
+                                        EdgeInsets.zero,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : performanceContent!,
                         ),
                       ],
                     ),
@@ -635,9 +646,7 @@ class _Header extends StatelessWidget {
     }
 
     final overviewWidth = isAndroid ? androidSegmentWidth(86) : 86.0;
-    final performanceWidth = isAndroid
-        ? androidSegmentWidth(106)
-        : 106.0;
+    final performanceWidth = isAndroid ? androidSegmentWidth(106) : 106.0;
     final tabs = _HomeModeTabs(
       overviewWidth: overviewWidth,
       performanceWidth: performanceWidth,
@@ -942,283 +951,341 @@ class _PerformanceSectionState extends State<_PerformanceSection> {
     final purchasePriceSummary = purchasePriceItemCount == 0
         ? 'Add purchase prices to track profit and return'
         : '$purchasePriceItemCount ${purchasePriceItemCount == 1 ? 'card' : 'cards'} with purchase price';
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RepaintBoundary(
-          key: const Key('home-performance-header'),
-          child: SizedBox(
-            height: 56,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  height: 32,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Row(
-                          children: [
-                            const Flexible(
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  'PERFORMANCE',
-                                  maxLines: 1,
-                                  style: TextStyle(
-                                    color: KandoColors.text,
-                                    fontFamily: 'Fraunces',
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w400,
-                                    height: 32 / 24,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            _AmountVisibilityButton(
-                              key: const Key('home-performance-hide-amount'),
-                              amountHidden: state.amountHidden,
-                              onPressed: widget.onHidePressed,
-                            ),
-                          ],
-                        ),
-                      ),
-                      _FolderPill(
-                        key: const Key('home-performance-folder'),
-                        label: state.selectedFolder.name,
-                        maxWidth: 120,
-                        onPressed: () {
-                          _clearOverlays();
-                          widget.onFolderPressed();
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                if (showPurchasePriceSummary) ...[
-                  const SizedBox(height: 4),
-                  SizedBox(
-                    height: 20,
+    final performanceHeader = RepaintBoundary(
+      key: const Key('home-performance-header'),
+      child: SizedBox(
+        height: 56,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              height: 32,
+              child: Row(
+                children: [
+                  Expanded(
                     child: Row(
                       children: [
-                        Flexible(
-                          fit: FlexFit.loose,
+                        const Flexible(
                           child: FittedBox(
                             fit: BoxFit.scaleDown,
                             alignment: Alignment.centerLeft,
                             child: Text(
-                              purchasePriceSummary,
+                              'PERFORMANCE',
                               maxLines: 1,
                               style: TextStyle(
-                                color: KandoColors.mutedText,
-                                fontSize: 14,
+                                color: KandoColors.text,
+                                fontFamily: 'Fraunces',
+                                fontSize: 24,
                                 fontWeight: FontWeight.w400,
-                                height: 20 / 14,
+                                height: 32 / 24,
                               ),
                             ),
                           ),
                         ),
-                        if (showPurchasePriceInfo) ...[
-                          const SizedBox(width: 4),
-                          Center(
-                            child: CompositedTransformTarget(
-                              link: _infoLayerLink,
-                              child: TapRegion(
-                                onTapOutside: (_) => _removeInfoTip(),
-                                child: _PerformanceInfoButton(
-                                  key: const Key(
-                                    'home-performance-partial-info',
-                                  ),
-                                  onPressed: _toggleInfoTip,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                        const SizedBox(width: 8),
+                        _AmountVisibilityButton(
+                          key: const Key('home-performance-hide-amount'),
+                          amountHidden: state.amountHidden,
+                          onPressed: widget.onHidePressed,
+                        ),
                       ],
                     ),
                   ),
+                  _FolderPill(
+                    key: const Key('home-performance-folder'),
+                    label: state.selectedFolder.name,
+                    maxWidth: 120,
+                    onPressed: () {
+                      _clearOverlays();
+                      widget.onFolderPressed();
+                    },
+                  ),
                 ],
+              ),
+            ),
+            if (showPurchasePriceSummary) ...[
+              const SizedBox(height: 4),
+              SizedBox(
+                height: 20,
+                child: Row(
+                  children: [
+                    Flexible(
+                      fit: FlexFit.loose,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          purchasePriceSummary,
+                          maxLines: 1,
+                          style: const TextStyle(
+                            color: KandoColors.mutedText,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                            height: 20 / 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (showPurchasePriceInfo) ...[
+                      const SizedBox(width: 4),
+                      Center(
+                        child: CompositedTransformTarget(
+                          link: _infoLayerLink,
+                          child: TapRegion(
+                            onTapOutside: (_) => _removeInfoTip(),
+                            child: _PerformanceInfoButton(
+                              key: const Key('home-performance-partial-info'),
+                              onPressed: _toggleInfoTip,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+
+    Widget buildPerformanceMetrics(PortfolioPerformanceDto data) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (data.purchasePriceStatus == PurchasePriceStatus.missing)
+            _PerformanceMetric(
+              key: const Key('home-performance-metric-market-value-single'),
+              iconAsset: 'assets/collection/performance_current_value.svg',
+              label: 'Market Value',
+              value: _performanceAmount(state, data.current.marketValueUsd),
+            )
+          else ...[
+            Row(
+              key: const Key('home-performance-metrics-row-1'),
+              children: [
+                Expanded(
+                  child: _PerformanceMetric(
+                    key: const Key('home-performance-metric-total-paid'),
+                    iconAsset:
+                        'assets/collection/performance_purchase_cost.svg',
+                    label: 'Total Paid',
+                    value: _performanceAmount(state, data.current.totalPaidUsd),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _PerformanceMetric(
+                    key: const Key('home-performance-metric-market-value'),
+                    iconAsset:
+                        'assets/collection/performance_current_value.svg',
+                    label: 'Market Value',
+                    value: _performanceAmount(
+                      state,
+                      data.current.marketValueUsd,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              key: const Key('home-performance-metrics-row-2'),
+              children: [
+                Expanded(
+                  child: _PerformanceMetric(
+                    key: const Key('home-performance-metric-profit-loss'),
+                    iconAsset: 'assets/collection/performance_profit_loss.svg',
+                    label: 'Profit / Loss',
+                    value: _performanceAmount(
+                      state,
+                      data.current.profitLossUsd,
+                    ),
+                    helper: 'Priced cards only',
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _PerformanceMetric(
+                    key: const Key('home-performance-metric-return'),
+                    iconAsset: 'assets/collection/performance_return.svg',
+                    label: 'Return',
+                    value: data.current.returnPercent == null
+                        ? '--'
+                        : '${data.current.returnPercent!.toStringAsFixed(2)}%',
+                    helper: 'Priced cards only',
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 12),
+          Container(
+            height: 190,
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: KandoColors.borderSubtle),
+              color: KandoColors.ink.withValues(alpha: 0.55),
+            ),
+            child: Column(
+              children: [
+                _PerformanceRangePicker(
+                  selected: performance.selectedRange,
+                  isLoading: performance.isLoading,
+                  onSelected: (range) {
+                    _clearOverlays();
+                    widget.onRangeSelected(range);
+                  },
+                ),
+                const SizedBox(height: 20),
+                Expanded(
+                  child: _InteractiveChart(
+                    key: _chartKey,
+                    semanticKey: const Key('home-performance-chart'),
+                    semanticLabel: 'Portfolio performance chart',
+                    emphasizeSinglePoint: true,
+                    onSelectionChanged: (selected) {
+                      if (selected) _removeInfoTip();
+                    },
+                    values: data.series
+                        .map((point) => point.marketValueUsd)
+                        .toList(),
+                    dates: data.series.map((point) => point.date).toList(),
+                    quantities: data.series
+                        .map((point) => point.quantity)
+                        .toList(),
+                    formattedValues: data.series
+                        .map(
+                          (point) =>
+                              _performanceAmount(state, point.marketValueUsd),
+                        )
+                        .toList(),
+                    tooltipRows: [
+                      for (var index = 0; index < data.series.length; index++)
+                        _performanceTooltipRows(state, data.series, index),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
-        ),
-        const SizedBox(height: 20),
-        if (!widget.isPro)
-          KandoPremiumLockedPanel(
-            key: const Key('home-performance-locked'),
-            title: 'Portfolio Performance',
-            message:
-                'Unlock total paid, profit and loss,\n'
-                'return, longer\n'
-                'history, and change explanations.',
-            buttonLabel: 'Unlock Performance',
-            buttonKey: const Key('home-unlock-performance'),
-            onPressed: widget.onUnlock,
-          )
-        else if (performance.isFailure && performance.data == null)
-          _FigmaFailurePanel(
-            key: const Key('home-performance-failure'),
-            height: 390,
-            refreshKey: const Key('home-performance-refresh'),
-            onRefresh: widget.onRefresh,
-          )
-        else if (performance.isLoading && performance.data == null)
-          const _PerformanceLoadingSkeleton()
-        else if (performance.data case final data?) ...[
-          if (data.itemCount == 0) ...[
-            _PortfolioEmptyPanel(
-              key: Key('home-performance-empty'),
-              onScan: () => context.go('/scan'),
-              onSearch: () => context.go('/search'),
-            ),
-            const SizedBox(height: 32),
-            _TopPerformersSection(
-              state: state,
-              performers: data.topPerformers,
-              onPerformerPressed: widget.onTopPerformerPressed,
-              onViewAll: widget.onViewAllTopPerformers,
-            ),
-          ] else if (data.marketPriceStatus == MarketPriceStatus.missing)
-            const SizedBox(
-              key: Key('home-performance-no-data'),
-              height: 300,
-              child: Center(child: Text('No performance history available.')),
-            )
-          else ...[
-            if (data.purchasePriceStatus == PurchasePriceStatus.missing)
-              _PerformanceMetric(
-                key: const Key('home-performance-metric-market-value-single'),
-                iconAsset: 'assets/collection/performance_current_value.svg',
-                label: 'Market Value',
-                value: _performanceAmount(state, data.current.marketValueUsd),
-              )
-            else ...[
-              Row(
-                key: const Key('home-performance-metrics-row-1'),
-                children: [
-                  Expanded(
-                    child: _PerformanceMetric(
-                      key: const Key('home-performance-metric-total-paid'),
-                      iconAsset:
-                          'assets/collection/performance_purchase_cost.svg',
-                      label: 'Total Paid',
-                      value: _performanceAmount(
-                        state,
-                        data.current.totalPaidUsd,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _PerformanceMetric(
-                      key: const Key('home-performance-metric-market-value'),
-                      iconAsset:
-                          'assets/collection/performance_current_value.svg',
-                      label: 'Market Value',
-                      value: _performanceAmount(
-                        state,
-                        data.current.marketValueUsd,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                key: const Key('home-performance-metrics-row-2'),
-                children: [
-                  Expanded(
-                    child: _PerformanceMetric(
-                      key: const Key('home-performance-metric-profit-loss'),
-                      iconAsset:
-                          'assets/collection/performance_profit_loss.svg',
-                      label: 'Profit / Loss',
-                      value: _performanceAmount(
-                        state,
-                        data.current.profitLossUsd,
-                      ),
-                      helper: 'Priced cards only',
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _PerformanceMetric(
-                      key: const Key('home-performance-metric-return'),
-                      iconAsset: 'assets/collection/performance_return.svg',
-                      label: 'Return',
-                      value: data.current.returnPercent == null
-                          ? '--'
-                          : '${data.current.returnPercent!.toStringAsFixed(2)}%',
-                      helper: 'Priced cards only',
-                    ),
-                  ),
-                ],
-              ),
+        ],
+      );
+    }
+
+    List<PortfolioTopPerformerDto>? topPerformerData;
+    late final Widget mainContent;
+    if (!widget.isPro) {
+      mainContent = KandoPremiumLockedPanel(
+        key: const Key('home-performance-locked'),
+        title: 'Portfolio Performance',
+        message:
+            'Unlock total paid, profit and loss,\n'
+            'return, longer\n'
+            'history, and change explanations.',
+        buttonLabel: 'Unlock Performance',
+        buttonKey: const Key('home-unlock-performance'),
+        onPressed: widget.onUnlock,
+      );
+    } else if (performance.isFailure && performance.data == null) {
+      mainContent = _FigmaFailurePanel(
+        key: const Key('home-performance-failure'),
+        height: 390,
+        refreshKey: const Key('home-performance-refresh'),
+        onRefresh: widget.onRefresh,
+      );
+    } else if (performance.isLoading && performance.data == null) {
+      mainContent = const _PerformanceLoadingSkeleton();
+    } else if (performanceData case final data?) {
+      if (data.itemCount == 0) {
+        mainContent = _PortfolioEmptyPanel(
+          key: const Key('home-performance-empty'),
+          onScan: () => context.go('/scan'),
+          onSearch: () => context.go('/search'),
+        );
+        topPerformerData = data.topPerformers;
+      } else if (data.marketPriceStatus == MarketPriceStatus.missing) {
+        mainContent = const SizedBox(
+          key: Key('home-performance-no-data'),
+          height: 300,
+          child: Center(child: Text('No performance history available.')),
+        );
+      } else {
+        mainContent = buildPerformanceMetrics(data);
+        topPerformerData = data.topPerformers;
+      }
+    } else {
+      mainContent = const SizedBox.shrink();
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final useDuoColumns =
+            topPerformerData != null &&
+            constraints.maxWidth >= 800 &&
+            constraints.maxHeight >= 400;
+        final topPerformers = topPerformerData == null
+            ? null
+            : _TopPerformersSection(
+                state: state,
+                performers: topPerformerData,
+                duoLayout: useDuoColumns,
+                onPerformerPressed: widget.onTopPerformerPressed,
+                onViewAll: widget.onViewAllTopPerformers,
+              );
+        if (!useDuoColumns) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              performanceHeader,
+              const SizedBox(height: 20),
+              mainContent,
+              if (topPerformers != null) ...[
+                const SizedBox(height: 32),
+                topPerformers,
+              ],
             ],
-            const SizedBox(height: 12),
-            Container(
-              height: 190,
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: KandoColors.borderSubtle),
-                color: KandoColors.ink.withValues(alpha: 0.55),
-              ),
-              child: Column(
-                children: [
-                  _PerformanceRangePicker(
-                    selected: performance.selectedRange,
-                    isLoading: performance.isLoading,
-                    onSelected: (range) {
-                      _clearOverlays();
-                      widget.onRangeSelected(range);
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  Expanded(
-                    child: _InteractiveChart(
-                      key: _chartKey,
-                      semanticKey: const Key('home-performance-chart'),
-                      semanticLabel: 'Portfolio performance chart',
-                      emphasizeSinglePoint: true,
-                      onSelectionChanged: (selected) {
-                        if (selected) _removeInfoTip();
-                      },
-                      values: data.series
-                          .map((point) => point.marketValueUsd)
-                          .toList(),
-                      dates: data.series.map((point) => point.date).toList(),
-                      quantities: data.series
-                          .map((point) => point.quantity)
-                          .toList(),
-                      formattedValues: data.series
-                          .map(
-                            (point) =>
-                                _performanceAmount(state, point.marketValueUsd),
-                          )
-                          .toList(),
-                      tooltipRows: [
-                        for (var index = 0; index < data.series.length; index++)
-                          _performanceTooltipRows(state, data.series, index),
-                      ],
-                    ),
-                  ),
-                ],
+          );
+        }
+
+        final leftColumn = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            performanceHeader,
+            const SizedBox(height: 20),
+            mainContent,
+          ],
+        );
+        final isAndroid = Theme.of(context).platform == TargetPlatform.android;
+
+        return Row(
+          key: const Key('home-performance-columns'),
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: KeyedSubtree(
+                key: const Key('home-performance-main-scroll'),
+                child: isAndroid
+                    ? SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: leftColumn,
+                      )
+                    : leftColumn,
               ),
             ),
-            const SizedBox(height: 32),
-            _TopPerformersSection(
-              state: state,
-              performers: data.topPerformers,
-              onPerformerPressed: widget.onTopPerformerPressed,
-              onViewAll: widget.onViewAllTopPerformers,
+            const SizedBox(width: 32),
+            Expanded(
+              child: KeyedSubtree(
+                key: const Key('home-performance-top-performers-scroll'),
+                child: topPerformers!,
+              ),
             ),
           ],
-        ],
-      ],
+        );
+      },
     );
   }
 
@@ -1327,12 +1394,14 @@ class _TopPerformersSection extends StatelessWidget {
   const _TopPerformersSection({
     required this.state,
     required this.performers,
+    this.duoLayout = false,
     required this.onPerformerPressed,
     required this.onViewAll,
   });
 
   final HomeState state;
   final List<PortfolioTopPerformerDto> performers;
+  final bool duoLayout;
   final ValueChanged<PortfolioTopPerformerDto> onPerformerPressed;
   final VoidCallback onViewAll;
 
@@ -1340,56 +1409,104 @@ class _TopPerformersSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final visiblePerformers = performers.take(5).toList();
     final isAndroid = Theme.of(context).platform == TargetPlatform.android;
+    final header = KeyedSubtree(
+      key: const Key('home-top-performers-header'),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Top Performers',
+                style: TextStyle(
+                  color: KandoColors.text,
+                  fontFamily: 'Fraunces',
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
+                  height: 32 / 24,
+                ),
+              ),
+            ),
+            InkWell(
+              key: const Key('home-top-performers-view-all'),
+              onTap: onViewAll,
+              borderRadius: BorderRadius.circular(4),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'View all',
+                      style: TextStyle(
+                        color: KandoColors.accent,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        height: 24 / 14,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    SvgPicture.asset(
+                      'assets/home/view_all_arrow.svg',
+                      width: 14,
+                      height: 10,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (duoLayout) {
+      final content = visiblePerformers.isEmpty
+          ? SingleChildScrollView(
+              key: const Key('home-top-performers-grid'),
+              padding: const EdgeInsets.only(bottom: 16),
+              child: const _EmptyCardBlock(
+                key: Key('home-top-performers-empty'),
+                message: 'Add purchase prices to see your top performers',
+              ),
+            )
+          : GridView.builder(
+              key: const Key('home-top-performers-grid'),
+              padding: const EdgeInsets.only(bottom: 16),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                mainAxisExtent: 253,
+              ),
+              itemCount: visiblePerformers.length,
+              itemBuilder: (context, index) {
+                final performer = visiblePerformers[index];
+                return _TopPerformerCard(
+                  key: Key('home-top-performer-${performer.itemId}'),
+                  state: state,
+                  performer: performer,
+                  width: null,
+                  height: 253,
+                  onPressed: () => onPerformerPressed(performer),
+                );
+              },
+            );
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          header,
+          const SizedBox(height: 16),
+          Expanded(child: content),
+        ],
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Top Performers',
-                  style: TextStyle(
-                    color: KandoColors.text,
-                    fontFamily: 'Fraunces',
-                    fontSize: 24,
-                    fontWeight: FontWeight.w600,
-                    height: 32 / 24,
-                  ),
-                ),
-              ),
-              InkWell(
-                key: const Key('home-top-performers-view-all'),
-                onTap: onViewAll,
-                borderRadius: BorderRadius.circular(4),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        'View all',
-                        style: TextStyle(
-                          color: KandoColors.accent,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w400,
-                          height: 24 / 14,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      SvgPicture.asset(
-                        'assets/home/view_all_arrow.svg',
-                        width: 14,
-                        height: 10,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+        header,
         const SizedBox(height: 16),
         if (visiblePerformers.isEmpty)
           const _EmptyCardBlock(
@@ -1405,7 +1522,11 @@ class _TopPerformersSection extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  for (var index = 0; index < visiblePerformers.length; index++) ...[
+                  for (
+                    var index = 0;
+                    index < visiblePerformers.length;
+                    index++
+                  ) ...[
                     _TopPerformerCard(
                       key: Key(
                         'home-top-performer-${visiblePerformers[index].itemId}',
@@ -1413,9 +1534,8 @@ class _TopPerformersSection extends StatelessWidget {
                       state: state,
                       performer: visiblePerformers[index],
                       minHeight: 253,
-                      onPressed: () => onPerformerPressed(
-                        visiblePerformers[index],
-                      ),
+                      onPressed: () =>
+                          onPerformerPressed(visiblePerformers[index]),
                     ),
                     if (index < visiblePerformers.length - 1)
                       const SizedBox(width: 16),
@@ -1455,6 +1575,7 @@ class _TopPerformerCard extends StatelessWidget {
     super.key,
     required this.state,
     required this.performer,
+    this.width = 144,
     this.height,
     this.minHeight,
     required this.onPressed,
@@ -1462,6 +1583,7 @@ class _TopPerformerCard extends StatelessWidget {
 
   final HomeState state;
   final PortfolioTopPerformerDto performer;
+  final double? width;
   final double? height;
   final double? minHeight;
   final VoidCallback onPressed;
@@ -1477,7 +1599,7 @@ class _TopPerformerCard extends StatelessWidget {
     final marketValue = _performanceAmount(state, performer.marketValueUsd);
 
     return SizedBox(
-      width: 144,
+      width: width,
       height: height,
       child: ConstrainedBox(
         constraints: BoxConstraints(minHeight: minHeight ?? 0),
@@ -1487,10 +1609,7 @@ class _TopPerformerCard extends StatelessWidget {
             onTap: onPressed,
             borderRadius: BorderRadius.circular(12),
             child: Ink(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 13,
-                vertical: 12,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: const Color(0x1FFFFFFF)),
