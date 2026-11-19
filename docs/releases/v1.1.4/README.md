@@ -22,6 +22,7 @@ v1.1.3 已原位归档。本版本承接 v1.1.3 之后的新增、变更、移�
 - [Android Google Play 正式配置交接清单](05-delivery/android-play-release-configuration.md)：正式签名、Firebase／OAuth／Play Integrity 配置、本机隔离构建与发布记录；207 无 Billing AAB 已由 Play 接收并发布至 6 人 Internal testing 轨道，当前为有效／尚未审核，真实安装、登录、Integrity、扫描与统计验收仍待完成。
 - [Android 与 iOS 版本管理](03-data-api/app-version-management.md)：双端独立升级规则、Android 自动构建号及 APK／AAB 校验归档，沿用既有 iOS 规则与发布流程。
 - [Android 无边框画面检查](05-delivery/android-edge-to-edge-20261119.md)：2026-11-19 检查 Android 15／target SDK 35 相关风险，补齐引导页底部系统 inset 处理并记录 API 36 模拟器验证边界。
+- [Android R8 与资源缩减优化检查](05-delivery/android-r8-optimization-20261119.md)：2026-11-19 处理 Google Play 的资源缩减与 AGP 版本建议，记录 AGP 9.0.1、Gradle 9.1.0 和本地 Release AAB 验证边界。
 
 两份输入均按原始字节归档，不随实现修订。平台账号、删号与重新注册规则以新版 PRD 为准，原技术方案不代表当前已实施架构。
 
