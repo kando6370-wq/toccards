@@ -71,3 +71,17 @@ R8 输出目录为 `apps/flutter-app/build/app/outputs/mapping/release/`，已�
 本次验证使用本地 test 环境的 Release 构建配置，没有读取或修改正式签名，没有上传 Google Play，也没有使用该 AAB 执行 Play 安装或真机回归。Android 业务代码、iOS 源码和 iOS 构建配置均未修改。
 
 AGP 9 构建仍会报告 Flutter 插件、旧 DSL、非内置 Kotlin 和 Jetifier 相关过渡警告。它们没有阻止当前 AAB 构建成功，后续应在 Flutter 插件支持内置 Kotlin、Cronet 依赖完成 namespace 迁移后再清理对应兼容配置。
+
+## 真机复测
+
+测试时间为 2026-11-19 15:37–15:46（Asia/Shanghai）。
+
+- `192.168.36.51:39677` 返回 Windows 10061，设备端拒绝连接。
+- 已使用在线设备 `192.168.36.22:38991` 完成测试。设备为 HONOR YOK-AN10，Android 12，API 31，屏幕 1236×2676，密度 520。
+- Release APK 使用项目专用测试签名 `.dart_tool/android-test-signing/cardvault-debug.keystore` 临时签名后安装。正式签名、正式密钥和 Play 发布配置未使用。
+- 已安装包为 `com.kando.kandoApp.beta`，versionName `1.0.7`，versionCode `213`，target SDK `36`，APK 签名版本为 v3。
+- 首页、Search、Collection、Profile 和 Scan 均可进入。Scan 的相机预览、TCG 选择、闪光灯、固定取景框、Gallery、拍摄和 Done 控件均可见，取景框没有被系统状态区域或底部导航区域遮挡。
+- 退出 Scan 后返回主界面。应用的 requested orientation 为 `SCREEN_ORIENTATION_PORTRAIT`，显示服务回读的应用旋转为 `ROTATION_0`。
+- 清空本轮 logcat 后回读，没有发现 `FATAL EXCEPTION`、`AndroidRuntime`、`E/flutter`、`FlutterError` 或未处理异常。
+
+本轮未执行拍摄、识别提交、真实登录、收藏写入、购买、Play 安装或 Android 15/API 35 实体设备验收。API 31 真机结果用于确认当前 Release 代码的启动和基础页面行为，不能替代 Play 生产包及 Android 15 实体设备验收。
