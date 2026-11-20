@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {mkdtemp,rm,readFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {localAssetBinding} from '@kando/website-content/node-server';
 import {build} from 'esbuild';import test from 'node:test';
 const dir=await mkdtemp(join(tmpdir(),'cardscanfox-boundary-'));await build({entryPoints:[fileURLToPath(new URL('../worker/index.ts',import.meta.url))],outfile:join(dir,'worker.mjs'),bundle:true,platform:'neutral',format:'esm',target:'es2022'});const worker=(await import('file://'+join(dir,'worker.mjs'))).default;test.after(()=>rm(dir,{recursive:true,force:true}));
 const assets={fetch:async()=>new Response('body{color:black}',{headers:{'Content-Type':'text/css'}})};
@@ -9,6 +10,24 @@ const env={DEPLOYMENT_MODE:'preview',LOCAL_DEVELOPMENT:'false',PUBLIC_ORIGIN:'ht
 const authorization='Basic '+btoa('review:test-only-long-review-password');
 test('preview authentication protects HTML and static assets before either is served',async()=>{for(const path of ['/','/site.css','/assets/cardscanfox-lime-mark.svg','/cards/714372']){const r=await worker.fetch(new Request('https://candidate.workers.dev'+path),env);assert.equal(r.status,401);assert.match(r.headers.get('X-Robots-Tag'),/noindex/);}});
 test('authorized preview serves real content with noindex and no-store',async()=>{const r=await worker.fetch(new Request('https://candidate.workers.dev/blog/charizard-151-card-value',{headers:{Authorization:authorization}}),env);assert.equal(r.status,200);assert.match(r.headers.get('X-Robots-Tag'),/noindex/);assert.equal(r.headers.get('Cache-Control'),'no-store');assert.match(await r.text(),/006\/165/)});
+test('the redesigned pages serve their linked stylesheets through the protected static asset routes',async()=>{
+ const localAssets=localAssetBinding(fileURLToPath(new URL('../public/',import.meta.url)));
+ const request=path=>new Request('https://candidate.workers.dev'+path,{headers:{Authorization:authorization}});
+ const preview={...env,ASSETS:localAssets};
+ for(const [path,theme]of [['/','home'],['/cards','page']]){
+  const page=await worker.fetch(request(path),preview);
+  assert.equal(page.status,200,path);
+  const html=await page.text();
+  for(const css of ['/assets/site-layout.css',`/assets/${theme}-layout.css`]){
+   assert.ok(html.includes(`href="${css}"`),`${path} should link ${css}`);
+   const unauthenticated=await worker.fetch(new Request('https://candidate.workers.dev'+css),preview);
+   assert.equal(unauthenticated.status,401,css);
+   const stylesheet=await worker.fetch(request(css),preview);
+   assert.equal(stylesheet.status,200,css);
+   assert.match(stylesheet.headers.get('Content-Type'),/^text\/css/);
+  }
+ }
+});
 test('missing preview credentials do not accidentally publish the candidate',async()=>{const r=await worker.fetch(new Request('https://candidate.workers.dev/'),{...env,PREVIEW_PASSWORD:''});assert.equal(r.status,401)});
 test('the candidate refuses production mode until a reviewed cutover configuration exists',async()=>{const r=await worker.fetch(new Request('https://tcgcard.fun/'),{...env,DEPLOYMENT_MODE:'production'});assert.equal(r.status,503)});
 test('legacy html aliases and blog trailing slash have explicit canonical redirects',async()=>{for(const [from,to]of [['/card-identifier.html','/card-identifier'],['/blog','/blog/'],['/blog/index.html','/blog/']]){const r=await worker.fetch(new Request('https://candidate.workers.dev'+from,{headers:{Authorization:authorization}}),env);assert.equal(r.status,308);assert.equal(r.headers.get('Location'),to)}});

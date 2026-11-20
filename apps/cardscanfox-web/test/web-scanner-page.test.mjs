@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import {fileURLToPath} from 'node:url';
 import {createRenderer} from '../src/render.mjs';
 import {resolveServicePage} from '../src/live-render.mjs';
 import {mayIndex,publicSitemap} from '../src/publication.mjs';
@@ -34,7 +35,7 @@ test('the shared loopback server preserves POST bodies and serves model modules 
  const server=startLocalServer({fetch:async request=>Response.json({method:request.method,body:await request.text()})},{},{port:0,label:'scanner transport test'});
  try{if(!server.listening)await new Promise(resolve=>server.once('listening',resolve));const response=await fetch('http://127.0.0.1:'+server.address().port+'/recognize',{method:'POST',body:'{"vector":[1]}'});assert.deepEqual(await response.json(),{method:'POST',body:'{"vector":[1]}'});}
  finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
- const assets=localAssetBinding(new URL('../public/',import.meta.url).pathname);
+ const assets=localAssetBinding(fileURLToPath(new URL('../public/',import.meta.url)));
  for(const [path,type]of [['ort-wasm-simd-threaded.mjs','text/javascript'],['ort-wasm-simd-threaded.wasm','application/wasm']]){const response=await assets.fetch(new Request('http://127.0.0.1/assets/scanner/'+path));assert.equal(response.status,200);assert.match(response.headers.get('Content-Type'),new RegExp(type));}
 });
 

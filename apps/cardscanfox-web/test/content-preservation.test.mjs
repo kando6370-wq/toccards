@@ -22,7 +22,7 @@ test('active protected URLs retain their full approved content; the consolidated
   const newDoc=parse(result.html),newMain=find(newDoc,n=>n.tagName==='main');assert.ok(norm(text(newMain)).includes(norm(text(oldMain))),`Missing visible content at ${source.path}`);
   const count=(node,tag)=>{let n=0;visit(node,x=>{if(x.tagName===tag)n++});return n};assert.ok(count(newMain,'tr')>=count(oldMain,'tr'),`Missing table rows at ${source.path}`);
   const record=legacyPages.find(p=>p.path===source.path);assert.ok(allStaticPaths.includes(source.path));assert.equal(record.protected,true);
-  if(source.path==='/card-price-checker')assert.equal(norm(text(find(newMain,n=>n.tagName==='h1'))),'Card price checker');
+  if(source.path==='/card-price-checker')assert.equal(norm(text(find(newMain,n=>n.tagName==='h1'))),'Pokémon card value checker');
   else if(source.path!=='/')assert.equal(norm(text(find(newMain,n=>n.tagName==='h1'))),norm(text(find(oldMain,n=>n.tagName==='h1'))),source.path);
  }
 });

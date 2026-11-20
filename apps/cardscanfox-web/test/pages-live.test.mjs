@@ -53,8 +53,12 @@ test('homepage hero image, price record and detail link identify the same first 
  const picks=[{...card,publicCardId:'home-a',name:'Home Charizard',price_usd:11},{...card,publicCardId:'home-b',name:'Home Pikachu',price_usd:22},{...card,publicCardId:'home-c',name:'Home Mew',price_usd:33}];
  const binding={fetch:async()=>new Response(JSON.stringify({success:true,data:{...data,cards:picks},meta:{catalogVersion:'home-test',datasetMode:'published-read-only'}}))};
  const response=await pages.fetch(new Request('https://preview.pages.dev/'),{...env,SITE_DATA:binding},{});const html=await response.text();
- assert.match(html,/href="\/cards\/home-a" class="scene-card scene-front"/);assert.match(html,/<a class="scene-record" href="\/cards\/home-a">[\s\S]*?Home Charizard[\s\S]*?\$11\.00/);
- assert.match(html,/Find the card you’re looking for/);assert.match(html,/Scan Pokémon and sports card photos in your browser/);assert.match(html,/href="\/games\/pokemon">Check Pokémon card prices/);assert.match(html,/class="fox-text-action" href="\/cards"/);assert.match(html,/Explore these Pokémon topics/);assert.match(html,/href="\/blog\/delta-reign-pokemon"/);assert.match(html,/href="\/blog\/mega-rayquaza-ex-card-values"/);
+ assert.match(html,/<a class="hero-card card-front" href="\/cards\/home-a"><img[^>]+alt="Home Charizard 009\/100"/);
+ assert.match(html,/<a class="printing-card" href="\/cards\/home-a">[\s\S]*?Home Charizard[\s\S]*?Illustrative chart/);
+ assert.match(html,/<a class="price-badge" href="\/cards\/home-a">[\s\S]*?7 Nov 2026[\s\S]*?\$11\.00<\/strong><\/a>/);
+ assert.match(html,/href="\/card-identifier">Scan a photo online/);
+ assert.match(html,/href="\/games\/pokemon">Check Pokémon card prices/);
+ assert.match(html,/href="\/cards">Browse the catalog/);assert.match(html,/Explore these Pokémon topics/);assert.match(html,/href="\/blog\/delta-reign-pokemon"/);assert.match(html,/href="\/blog\/mega-rayquaza-ex-card-values"/);
 });
 
 
