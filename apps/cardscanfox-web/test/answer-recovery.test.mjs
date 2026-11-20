@@ -38,7 +38,7 @@ test('public pages use the Card AI handoff branding and keep source attribution'
   assert.match(html,/<meta property="og:site_name" content="Card AI">/,path);
   assert.match(html,/>Get Card AI /,path);
   assert.doesNotMatch(html,/<title>[^<]*CardScanFox|>Get CardScanFox /,path);
-  visit(parse(html),node=>{if(node.tagName!=='script'||attr(node,'type')!=='application/ld+json')return;const data=JSON.parse(text(node));for(const field of ['author','publisher'])if(data[field]){assert.match(data[field].name,/CardScanFox/,path+' '+field);assert.doesNotMatch(data[field].name,/Card AI/,path+' '+field);}});
+  visit(parse(html),node=>{if(node.tagName!=='script'||attr(node,'type')!=='application/ld+json')return;const json=text(node);assert.doesNotMatch(json,/cardscanfox-lime-(?:wordmark|mark)\.svg/,path);const data=JSON.parse(json);if(path==='/blog/delta-reign-pokemon'&&data['@type']==='Article')assert.equal(data.publisher.logo.url,'https://tcgcard.fun/assets/card-ai-wordmark.svg');for(const field of ['author','publisher'])if(data[field]){assert.match(data[field].name,/CardScanFox/,path+' '+field);assert.doesNotMatch(data[field].name,/Card AI/,path+' '+field);}});
  }
  assert.match(render('/download'),/listed on the App Store as/i);
  assert.match(render('/download'),/id6793017224/);
