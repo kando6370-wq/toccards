@@ -1,0 +1,144 @@
+{
+  "date": "2026-11-16",
+  "status": "已完成本地实现与影响面验证；未发布",
+  "conclusion": "保留两篇文章当前Title、Description、H1、首屏答案和模块顺序；GEO仅补强现有正文答案、来源证据和计算器旁说明。",
+  "patches": [
+    {
+      "id": "GEO-C01",
+      "page": "/blog/delta-reign-etb",
+      "action": "保留SEO元数据；工具说明仅在现有模块补强",
+      "current": "页面元数据继续突出Delta Reign ETB的内容物、赠卡、版本和价格比较。原Cost Calculator元数据替换提案撤回。",
+      "location": "现有计算器标题下；保留Title、Description、H1与首屏原文",
+      "copy_en": "Use this free, no-sign-in calculator to compare a Delta Reign ETB quote with your required number of boxes and whole-order budget. It shows minimum purchase quantities, extra boxes and known costs.",
+      "gain": "正文说明交代输入、输出和门槛；元数据继续服务原搜索意图。",
+      "evidence": "现有同页JS计算器，无登录门槛；不新增工具能力。",
+      "implementation_state": "implemented-local"
+    },
+    {
+      "id": "GEO-C02",
+      "page": "/blog/delta-reign-etb",
+      "action": "保留原模块顺序与首屏简短入口",
+      "current": "原工具首屏大幅前移提案撤回。现有计算器位置和首屏跳转已经可用。",
+      "location": "内容物→promo→报价与MOQ→case/预算→计算器；首屏保留现有短链接",
+      "copy_en": "Compare an order with your quantity and budget.",
+      "gain": "保留商品研究任务的阅读顺序；需要计算的用户使用同页入口。",
+      "evidence": "已有#etb-cost-calculator入口和真实表单；本项是保留，不是待开发功能。",
+      "status": "keep",
+      "implementation_state": "kept"
+    },
+    {
+      "id": "GEO-C03",
+      "page": "/blog/delta-reign-etb",
+      "action": "替换现有预算小节标题与首段",
+      "current": "现有Does a lower price per box fit your budget?段已经有$100算例；本项仅调整问法和答案顺序。",
+      "location": "现有预算小节，替换而非追加重复FAQ",
+      "heading": "Can I buy one Delta Reign ETB with a $100 budget?",
+      "copy_en": "Among the three quotes recorded on **November 16, 2026** below, the **$84.98 single-box offer** is the only one whose known order amount is below **$100**. It leaves **$15.02 for tax or other checkout charges**. The three-box minimum starts at a **$240 goods subtotal**, and the ten-box case requires **$716.96 before tax**. Confirm the remaining checkout charges before deciding that the single-box order fits your budget.",
+      "gain": "答案单独被摘取时仍保留日期、比较范围、最低数量与未知费用。",
+      "evidence": "使用现有保存报价与确定性计算，不称全市场最便宜或保证100美元结账。",
+      "implementation_state": "implemented-local",
+      "implemented_text": "Among the three quotes recorded on **November 16, 2026** below, the **$84.98 single-box offer** is the only one whose known order amount is below **$100**. It leaves **$15.02 for tax or other checkout charges**. The three-box minimum starts at a **$240 goods subtotal**, and the ten-box case requires **$716.96 before tax**. Confirm the remaining checkout charges before deciding that the single-box order fits your budget.\n\n| Recorded quote | Boxes required | Known order amount | What it means for a $100 budget |\n|---|---:|---|---|\n| [Great Buys single-box offer](https://www.tcgplayer.com/product/712102/pokemon-me06-delta-reign-delta-reign-elite-trainer-box?Language=English) | 1 | $84.98, with listed shipping included, before tax | $15.02 remains for tax or other charges |\n| [San Diego Dawg minimum order](https://www.tcgplayer.com/product/712102/pokemon-me06-delta-reign-delta-reign-elite-trainer-box?Language=English) | 3 | $240 goods subtotal; whole-order shipping and tax unconfirmed | Already over budget |\n| [Ten-box case offer](https://www.tcgplayer.com/product/712103/pokemon-me06-delta-reign-delta-reign-elite-trainer-box-case?Language=English) | 10 | $716.96 with the listed $5 shipping, before tax | Already over budget |\n\nThe single-box headroom is **$100 − $84.98 = $15.02 before unknown charges**. The minimum-order goods subtotal is **3 × $80 = $240**. These are calculations from the dated offers, not a current lowest-price ranking.\n\nUse this order of checks: **required edition → minimum boxes → whole-order cost → budget → cost per box or included pack**. A case can have a lower unit cost while requiring much more cash. The price-per-pack figure divides a complete ETB bundle, including its promos and accessories; it does not predict the cards you will pull or assign the whole price to loose booster packs."
+    },
+    {
+      "id": "GEO-C04",
+      "page": "/blog/delta-reign-pokemon",
+      "action": "补强两段现有答案的独立可引用性",
+      "current": "具体编号和141/242解释均已存在，不新增同主题页。",
+      "location": "Which number should I use for Mega Rayquaza ex?和141/242小节",
+      "heading": "Can a 113/076 price value a 138/103 or 141/103 card?",
+      "copy_en": "**Do not substitute a 113/076 price reference for a Delta Reign 138/103 or 141/103 card without matching the set, language, artwork and finish.** This English checklist contains Mega Rayquaza ex at **084/103, 138/103 and 141/103**. Our **2026-11-16** check of the [PokéCottage English checklist](https://pokecottage.com/sets/delta-reign-card-list) found a **113/076** entry in a separate top-price module; the denominator alone does not establish its language.",
+      "second_copy_en": "The **141-card Delta Reign numbered checklist** and **PriceCharting’s displayed total of 242 catalog items** count different objects. In the **2026-11-16** source check, the [PokéCottage English checklist](https://pokecottage.com/sets/delta-reign-card-list) covered **103 main-set cards and 38 secret cards**, while the [PriceCharting Delta Reign catalog](https://www.pricecharting.com/console/pokemon-delta-reign) also showed sealed products and reverse-holo entries. Use the matching card number and finish when comparing an individual price.",
+      "gain": "具体问题先给结论；统计对象、日期与限定随答案一起保留。",
+      "evidence": "保留PokéCottage及PriceCharting原始链接；不把/076擅自标成日版，也不称完整审计了全部242项。",
+      "implementation_state": "implemented-local"
+    },
+    {
+      "id": "GEO-C05",
+      "page": "两篇文章的来源对照段",
+      "action": "在对应段落旁增加已采集来源观察图及图注",
+      "current": "目前公开素材为编号和版本示意图；真实来源核对截图已采集，但未进入文章。",
+      "location": "40/45 Energy对照段；/076与/103对照段",
+      "copy_en": "Source-page comparison checked by CardScanFox on November 16, 2026. The images record the page descriptions visible at that time; they are not an unboxing test.",
+      "gain": "读者能复核本站比较过程；把原始规格、来源描述与本站解释分开。",
+      "evidence_files": [
+        "/assets/guides/delta-reign-etb-official-energy-evidence.webp",
+        "/assets/guides/delta-reign-etb-marketplace-energy-evidence.webp",
+        "/assets/guides/delta-reign-pokecottage-number-evidence.webp"
+      ],
+      "evidence": "原首屏截图没有关键字段，未采用。已补采官方与TCGplayer详情字段，并复用真实编号模块观察图；公开图只裁剪相关字段，保留源链接、观察日期及alt，三图约11KB。",
+      "implementation_state": "implemented-local"
+    }
+  ],
+  "keep": [
+    "141张编号卡表、8条注明日期的价格示例、MOQ与case算例、费用未知值处理已实现。",
+    "不新建重复card-grading或GEO专用同义页。",
+    "Pokémillion指南仍watch；纯游戏或商店导航指向原站。"
+  ],
+  "hold": [
+    "完整当前卡价与实时库存缺真实数据，不能靠内容扩写获得这类推荐资格。",
+    "Daily跨午夜刷新尚未实测，不把纽约午夜提示当成已验证机制。"
+  ],
+  "publication": "正文、预算表、工具说明与3张证据图已在本地实现。Title、Description、H1、首屏和H2顺序保留；未commit/push/deploy。",
+  "verification": "完成获准改动后只验两篇文章、metadata、真实计算器、链接与移动布局。自然发现实验另行记录，不把指定网址读取当成自然引用。",
+  "jev": "复用本轮已真实完成的12问分类：jev-1.14.0，2026-11-16T13:10:43Z；Codex核对当前代码并编写此最小修改方案。没有再次调用或把分类置信度当推荐概率。",
+  "seo_guardrails": {
+    "priority": "保留已有SEO主意图与点击表达。",
+    "protected_metadata": [
+      {
+        "path": "/blog/delta-reign-pokemon",
+        "title": "Delta Reign Card List, Chase Cards & Products | CardScanFox",
+        "description": "Browse a source-linked Delta Reign checklist, dated card-price examples, release dates and ETB differences. Match each card by its full number.",
+        "h1": "Delta Reign Card List: Cards, Prices & Products"
+      },
+      {
+        "path": "/blog/delta-reign-etb",
+        "title": "Delta Reign ETB: Contents, Promos & Price Comparison | CardScanFox",
+        "description": "Compare Delta Reign ETB contents, Kyogre promos, Pokémon Center differences and dated US prices. Check box and case units before buying.",
+        "h1": "Delta Reign ETB: Standard vs Pokémon Center"
+      }
+    ],
+    "protected_layout": "保留内容物→promo→报价与MOQ→case/预算→计算器的现有顺序，以及首屏短入口。",
+    "withdrawn": [
+      "将Cost Calculator替换进Title",
+      "将Free/no-sign-in替换进Description",
+      "把完整计算器移动到首屏"
+    ],
+    "ctr_evidence": "尚无新旧Title/Description的CTR对照；不能承诺零影响。正文也可能被Google选为摘要。",
+    "verification": "后续按同一页面、查询意图、国家和设备观察点击、曝光、CTR和平均排名；结合位置变化解读。"
+  },
+  "revision_note": "用户要求不能为GEO牺牲SEO点击。元数据修改与工具首屏前移撤回；正文提案保留。没有CTR证据支持标题改成Calculator更好。",
+  "implementation_state": "implemented-local",
+  "implementation_validation": {
+    "targeted_tests": {
+      "passed": 18,
+      "failed": 0,
+      "skipped": 0
+    },
+    "build_routes": 122,
+    "protected_legacy_routes": 46,
+    "seo_guard": {
+      "metadata": "unchanged",
+      "first_answers": "unchanged",
+      "h2_order": "unchanged",
+      "canonical": "unchanged",
+      "changed_compiled_pages": [
+        "/blog/delta-reign-etb",
+        "/blog/delta-reign-pokemon"
+      ],
+      "evidence_assets": 3,
+      "evidence_bytes": 11120
+    },
+    "browser_widths": [
+      1440,
+      390,
+      320
+    ],
+    "browser_pages": 6,
+    "independent_review": "passed; no findings",
+    "diff_check": "passed",
+    "production_published": false,
+    "git_pushed": false,
+    "git_committed": false,
+    "jev_usage": "Reused prior 12-question semantic classification; no new request."
+  }
+}

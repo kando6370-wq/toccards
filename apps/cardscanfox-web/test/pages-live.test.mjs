@@ -53,6 +53,31 @@ test('homepage hero image, price record and detail link identify the same first 
  const picks=[{...card,publicCardId:'home-a',name:'Home Charizard',price_usd:11},{...card,publicCardId:'home-b',name:'Home Pikachu',price_usd:22},{...card,publicCardId:'home-c',name:'Home Mew',price_usd:33}];
  const binding={fetch:async()=>new Response(JSON.stringify({success:true,data:{...data,cards:picks},meta:{catalogVersion:'home-test',datasetMode:'published-read-only'}}))};
  const response=await pages.fetch(new Request('https://preview.pages.dev/'),{...env,SITE_DATA:binding},{});const html=await response.text();
- assert.match(html,/href="\/cards\/home-a" class="scene-card scene-front"/);assert.match(html,/<a class="scene-record" href="\/cards\/home-a">[\s\S]*?Home Charizard[\s\S]*?\$11\.00/);
- assert.match(html,/Find the card you’re looking for/);assert.match(html,/Look up TCG and sports cards by name/);assert.match(html,/href="\/games\/pokemon">Check Pokémon card prices/);assert.match(html,/class="fox-text-action" href="\/cards"/);assert.match(html,/Explore these Pokémon topics/);assert.match(html,/href="\/blog\/delta-reign-pokemon"/);assert.match(html,/href="\/blog\/mega-rayquaza-ex-card-values"/);
+ assert.match(html,/<a class="hero-card card-front" href="\/cards\/home-a"><img[^>]+alt="Home Charizard 009\/100"/);
+ assert.match(html,/<a class="printing-card" href="\/cards\/home-a">[\s\S]*?Home Charizard[\s\S]*?Illustrative chart/);
+ assert.match(html,/<a class="price-badge" href="\/cards\/home-a">[\s\S]*?7 Nov 2026[\s\S]*?\$11\.00<\/strong><\/a>/);
+ assert.match(html,/href="\/card-identifier">Scan a photo online/);
+ assert.match(html,/href="\/games\/pokemon">Check Pokémon card prices/);
+ assert.match(html,/href="\/cards">Browse the catalog/);assert.match(html,/Explore these Pokémon topics/);assert.match(html,/href="\/blog\/delta-reign-pokemon"/);assert.match(html,/href="\/blog\/mega-rayquaza-ex-card-values"/);
+});
+
+
+test('consolidated Pokémon value URLs redirect before catalog access and preserve queries for GET and HEAD',async()=>{
+ const unavailable={...env,SITE_DATA:{fetch:async()=>{throw new Error('must not fetch data for a redirect')}}};
+ for(const method of ['GET','HEAD'])for(const path of ['/blog/pokemon-card-values','/blog/pokemon-card-values.html']){
+  const response=await pages.fetch(new Request('https://preview.pages.dev'+path+'?q=Mew',{method}),unavailable,{});
+  assert.equal(response.status,301);assert.equal(response.headers.get('Location'),'/games/pokemon?q=Mew');assert.equal(await response.text(),'');
+ }
+ const hub=await pages.fetch(new Request('https://preview.pages.dev/games/pokemon'),env,{});
+ assert.equal(hub.status,200);const html=await hub.text();assert.match(html,/Browse card values by Pokemon/);assert.match(html,/217\/203/);assert.match(html,/collector number/);
+ assert.equal((await pages.fetch(new Request('https://preview.pages.dev/pokemon-card-scanner'),env,{})).status,200);
+});
+
+test('consolidated game URL aliases send a single 301 with query before the right guide fragment',async()=>{
+ const unavailable={...env,SITE_DATA:{fetch:async()=>{throw Error('redirect must not query the catalog');}}};
+ for(const slug of ['digimon','lorcana','dragon-ball-super','flesh-and-blood'])for(const suffix of ['','.html'])for(const method of ['GET','HEAD']){
+  const response=await pages.fetch(new Request('https://preview.pages.dev/'+slug+'-card-scanner'+suffix+'?q=A%26B&game=lorcana',{method}),unavailable,{});
+  assert.equal(response.status,301);assert.equal(response.headers.get('Location'),'/card-identifier?q=A%26B&game=lorcana#'+slug);assert.equal(await response.text(),'');
+ }
+ const owner=await pages.fetch(new Request('https://preview.pages.dev/card-identifier'),unavailable,{});assert.equal(owner.status,200);const html=await owner.text();assert.match(html,/data-mode="tcg"/);assert.match(owner.headers.get('Content-Security-Policy'),/wasm-unsafe-eval/);
 });

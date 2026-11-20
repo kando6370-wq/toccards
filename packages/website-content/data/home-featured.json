@@ -26,12 +26,12 @@
       "guideLabel": "See 98/98 card details"
     },
     {
-      "title": "Delta Reign",
-      "label": "Release guide",
-      "description": "Explore the official card highlights and the current catalog coverage.",
+      "title": "Delta Reign card list",
+      "label": "Expansion checklist",
+      "description": "Find all 141 numbered English cards, including 38 secret cards.",
       "href": "/blog/delta-reign-pokemon",
-      "guideHref": "/blog/pokemon-upc-30th-anniversary",
-      "guideLabel": "Also exploring the 30th UPC?"
+      "guideHref": "/blog/delta-reign-etb",
+      "guideLabel": "Compare Delta Reign Elite Trainer Boxes"
     }
   ]
 }

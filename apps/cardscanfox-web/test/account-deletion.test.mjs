@@ -25,7 +25,7 @@ test('privacy and the retained home legal source share the platform deletion con
  const home=await readFile(new URL('../content/legacy/home.html',import.meta.url),'utf8');
  const sources=[
   legacyPages.find(page=>page.path==='/privacy')?.bodyHtml??'',
-  home.match(/id="privacy-modal"[\s\S]*?<article class="modal-legal-content">([\s\S]*?)<\/article>/)?.[1]??'',
+  home.match(/id="privacy-modal"[\s\S]*?<article class="modal-legal-content">([\s\S]*?)<\/article>/)?.[1]?.replaceAll('CardScanFox','Card AI')??'',
  ];
  const text=node=>node.nodeName==='#text'?node.value:(node.childNodes??[]).map(text).join('');
  const bodies=sources.map(source=>text(nodes(source,node=>node.tagName==='article')[0]??parse(source)).replace(/\s+/g,' ').trim());
@@ -107,4 +107,12 @@ test('the dedicated client asset is served by the existing assets rule and makes
  const css=await readFile(new URL('../public/site.css',import.meta.url),'utf8');
  assert.match(css,/\.account-deletion-layout/);
  assert.match(css,/\.account-deletion-email\{[^}]*font-size:16px/);
+});
+
+test('the saved browser page remains noindex and nofollow',()=>{
+ const url=new URL('/saved','https://tcgcard.fun');
+ const page=resolvePage(url);
+ assert.equal(page.status,200);
+ assert.equal(mayIndex(url,page.status,page),false);
+ assert.match(publishHtml(page.html,url,page.status,page),/content="noindex,nofollow"/);
 });

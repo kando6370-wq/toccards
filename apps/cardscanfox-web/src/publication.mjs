@@ -1,16 +1,20 @@
+import {redirectTarget} from './redirects.mjs';
 import policy from '../content/index-policy.json' with {type:'json'};
 import {legacyByPath,allStaticPaths} from './render.mjs';
 const approved=new Set(policy.newIndexPaths);
+const rolloutPaths=new Set(policy.rollout?.allowedPaths??[]);
+const PVUV_SCRIPT='<script defer src="https://www.pvuv.ai/f.js" data-site="gx4EamoZ" data-api="https://in.pvuv.ai"></script>';
 export function mayIndex(url,status=200,page={}) {
- if(status!==200||url.search||url.pathname==='/saved')return false;
+ if(status!==200||url.search||url.pathname==='/saved'||redirectTarget(url.pathname))return false;
+ if(policy.rollout?.enabled===true&&!rolloutPaths.has(url.pathname))return false;
  if(/^\/cards\/[^/]+$/.test(url.pathname))return policy.catalog?.enabled===true&&page.seo?.kind==='card'&&page.seo.eligible===true;
  if(page.dataAvailable===false&&!legacyByPath.has(url.pathname))return false;
  if(/^\/(games|sets)\/[^/]+$/.test(url.pathname)&&page.dataAvailable===true)return true;
  return legacyByPath.has(url.pathname)||approved.has(url.pathname);
 }
 export function publishHtml(html,url,status,page={}) {
- const robots=mayIndex(url,status,page)?'index,follow':'noindex,follow';
- return html.replace(/<meta name="robots" content="[^"]*">/,`<meta name="robots" content="${robots}">`).replace(/<div class="preview-rail">[\s\S]*?<\/div>/,'').replace('CardScanFox is the proposed website identity for the existing Card AI app.','CardScanFox is the website for the Card AI app.');
+ const robots=mayIndex(url,status,page)?'index,follow':url.pathname==='/saved'?'noindex,nofollow':'noindex,follow';
+ return html.replace(/<meta name="robots" content="[^"]*">/,`<meta name="robots" content="${robots}">`).replace(/<div class="preview-rail">[\s\S]*?<\/div>/,'').replace('</head>',`${PVUV_SCRIPT}</head>`);
 }
 const escape=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
 export function publicSitemap(origin='https://tcgcard.fun') {
@@ -24,6 +28,9 @@ export function sitemapIndex(shards=[],origin='https://tcgcard.fun') {
  return '<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'+paths.map(path=>`<sitemap><loc>${escape(origin+path)}</loc></sitemap>`).join('\n')+'\n</sitemapindex>\n';
 }
 export function validateIndexPolicy() {
- if(!Array.isArray(policy.newIndexPaths)||policy.newIndexPaths.some(p=>!allStaticPaths.includes(p)||p==='/saved'||p.includes('?')||p.includes('#')||p.includes('/category/opinion')))throw new Error('Index policy contains an unknown or ineligible route.');
+ const verifiedDynamic=new Set(policy.verifiedDynamicSetPaths??[]);
+ if(!Array.isArray(policy.verifiedDynamicSetPaths??[])||verifiedDynamic.size!==(policy.verifiedDynamicSetPaths??[]).length||[...verifiedDynamic].some(path=>!/^\/sets\/[A-Za-z0-9_-]{1,128}$/.test(path)||!approved.has(path)||!rolloutPaths.has(path)))throw new Error('Invalid verified dynamic set discovery.');
+ if(!Array.isArray(policy.newIndexPaths)||policy.newIndexPaths.some(p=>(!allStaticPaths.includes(p)&&!verifiedDynamic.has(p))||p==='/saved'||p.includes('?')||p.includes('#')||p.includes('/category/opinion')))throw new Error('Index policy contains an unknown or ineligible route.');
  if(policy.catalog?.enabled!==true&&policy.catalog?.enabled!==false)throw new Error('Catalog eligibility policy must be explicit.');
+ if(policy.rollout?.enabled===true&&(!Array.isArray(policy.rollout.allowedPaths)||!rolloutPaths.size||rolloutPaths.size!==policy.rollout.allowedPaths.length||policy.rollout.allowedPaths.some(p=>typeof p!=='string'||!p.startsWith('/')||/[?#]/.test(p)||p==='/saved'||p.startsWith('/site-api/'))))throw new Error('Invalid phased index allowlist.');
 }

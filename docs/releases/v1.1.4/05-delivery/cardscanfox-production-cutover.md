@@ -68,6 +68,16 @@ IndexNow 首批 60 URL 返回 202（收到、等待 key 验证），最后 7 URL
 
 保留原 Worker version 作为回退点，未执行回退；未发布 App／共享 API／Admin／目录数据服务，未执行迁移、业务写入、Secret 操作、IndexNow 通知或 Play Console 填写。未发送真实邮件、打开有效邮件草稿、读取或改写系统剪贴板、操作真实账号或执行删号；客服收件、身份核验、自有数据与服务提供商删除仍需独立落实。发布证据与截图存放于被忽略的 `apps/cardscanfox-web/.local/prod-redeploy-b716ae12-20261111/`，不纳入源码或法律正文。
 
+## /saved robots 报告修复（2026-11-12）
+
+Search Console 仅报告 1 个 robots 屏蔽网址，示例为 /saved。该页是浏览器本地保存引用，不属于公开 SEO 内容。原因是生产 Worker 同时使用 Disallow: /saved 和页面 noindex,follow，Google 无法读取页面的 noindex，于是将预期排除显示为 robots 屏蔽。
+
+修复保留 /saved 的个性化、noindex,nofollow、no-store 和不入 sitemap 规则，同时从生产 robots.txt 删除 Disallow: /saved。这样 Google 可以读取页面的排除指令，公开页面的抓取规则不变，/site-api/ 仍保持禁止抓取。生产部署和 Search Console 重新回读仍是后续独立步骤；本地代码检查通过不代表线上状态已更新。
+
+本地补验使用官方 SHA-256 校验后的独立 Node 22.23.4 与 pnpm 11.28.10。合入最新 main 后，账号删除、内容文件与 Worker 发布边界三个受影响测试文件共 30/30 通过，类型检查和显式 wrangler.production.jsonc dry-run 通过；构建登记 124 条 HTML 路由、保留 46 条旧正文，dry-run 读取 203 个静态文件。此前使用默认 dry-run 命令得到的是预览配置，不作为本次生产配置验收证据。未运行 App、共享 API、Admin 或其他无影响面测试。
+
+独立 Code Review 未发现阻塞项，已核对 HTML/header 的 noindex,nofollow 一致、/site-api/ 与预览 robots 原边界保留、远端账号删除测试与交付记录保留。只读临时探针确认 /saved 的 GET、HEAD、条件响应 304 均保留 no-store 和排除索引指令，共享 HTML 缓存读写为 0。Saved 引用存于访问者本机浏览器；robots 不是认证或数据隐私控制，本次不改变本地保存功能。Google 抓取后报告可能改列为 noindex 排除，具体以 GSC 后续结果为准。该页不提交 IndexNow。
+
 ## 法律正文同步（2026-11-17）
 
 按用户提供的新版 `Privacy Policy.md` 与 `Terms of Use.md`，更新当前官网 `/privacy`（10 节）、`/terms`（24 节）及保留的首页法律弹层，并同步受保护源快照与生成的共享正文。英文词间的不换行空格转为普通空格，正文措辞、表格、链接和许可证代码块保留；法律页面的表格与长文本样式仅作用于对应页面。页面统一显示 `Version date: November 17, 2026`，对应正文的版本日期说明。
@@ -75,3 +85,13 @@ IndexNow 首批 60 URL 返回 202（收到、等待 key 验证），最后 7 URL
 API 的 `/api/v1/legal/privacy` 与 `/api/v1/legal/terms` 同步完整正文，保持公开 HTML 入口，避免 App Store 元数据所引用的 API 隐私页继续展示另一版内容。Android 与 iOS App 的运行时法律入口仍共用官网地址；旧 `apps/marketing-web` 历史源码不作为当前发布真源。本次为源码同步，未部署，不代表官网、API 或商店内容已生效。
 
 使用 Node `22.23.4` 完成官网 73／73 项测试、官网类型检查与 123 条路由构建，以及 API 法律路由 3／3 项测试和 Workers 类型检查。确定性对照确认所有更新入口的正文、链接、表格与许可证代码块均与附件一致；其余 43 份受保护源和首页原 `<main>` 正文不变。浏览器完成官网 1280／390／320px、API 390／320px 的布局检查，修正 API 长许可证链接换行后无正文横向溢出，独立审查通过。本次未运行全量 Workers 测试、Flutter 构建或真机验收，因改动仅涉及静态法律页面与展示样式。
+
+合入 `main` 时，官网 `/privacy`、`/terms` 及保留的首页法律弹层原样保留官网 AI 预评级披露；API 法律页继续展示新版 App 法律正文，不加入官网专用说明。
+
+## 官网内容正式重发（2026-11-20）
+
+按用户授权从 `main@b8c11918845c08283ea829d34189a40f355a4265` 重发 CardScanFox 官网。该提交在发布前已生效，活动版本 `b4773ec8-a7c2-4005-8c29-ed2c855b126d` 保留为回退点。**09:55:47（Asia/Shanghai）** 将 `toccards-website` 的新版本 `98c5414b-8478-4e7a-956a-9f55722291fc` 切至 100%，deployment `87b83127-e4a9-42ac-9ab1-187ce0534e12` 经独立回读确认。
+
+使用经 SHA-256 校验的 Node `22.23.4` 单独构建。隔离构建中按生产清单核对 LF 字节，保留原单卡 sitemap 分片的 7 个网址。125 条路由、222 个文件及 57 项构建输入指纹均与原生产清单一致，46 条受保护旧页正文通过核对。候选脚本 etag、13 项绑定和版本化运行配置与原活动版本一致。正式域名返回的新发布清单与本次上传字节一致，release ID 为 `dae13cfd0c31d8d0fabc98432a1356cc6d0a36e6d519be66e97dab4dc1cc0b9c`。
+
+标准类型检查及 production dry-run 通过。原官网套件 217／219 通过，剩余两项为查价页旧标题断言和 Windows 下扫描器测试的 URL 路径转换。隔离副本按当前标题和系统文件路径补验 15／15 通过。线上 21 项检查通过，覆盖首页、目录、更新文章、查价页、法律页、JS/WASM、robots 和 sitemap。真实浏览器交互与图片识别实测留待专项验收。

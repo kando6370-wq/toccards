@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -185,15 +187,34 @@ class PluginCardDetailActions implements CardDetailActions {
         return;
       }
       final bytes = await posterBytes;
-      await _share(
-        ShareParams(
-          files: [XFile.fromData(bytes, mimeType: 'image/png')],
-          fileNameOverrides: ['card-ai-card.png'],
-          title: 'Share $name',
-          subject: name,
-          sharePositionOrigin: sharePositionOrigin,
-        ),
-      );
+      const fileName = 'card-ai-card.png';
+      final source = kIsWeb
+          ? null
+          : File('${(await getTemporaryDirectory()).path}/$fileName');
+      try {
+        await source?.writeAsBytes(bytes);
+        await _share(
+          ShareParams(
+            files: [
+              if (source == null)
+                XFile.fromData(bytes, mimeType: 'image/png')
+              else
+                XFile(source.path, mimeType: 'image/png'),
+            ],
+            fileNameOverrides: [fileName],
+            title: 'Share $name',
+            subject: name,
+            sharePositionOrigin: sharePositionOrigin,
+          ),
+        );
+      } finally {
+        // Android shares a separate FileProvider copy, not this staging file.
+        try {
+          if (source != null && await source.exists()) await source.delete();
+        } on FileSystemException catch (error) {
+          debugPrint('Could not delete the card share source: $error');
+        }
+      }
       return;
     }
     await _share(

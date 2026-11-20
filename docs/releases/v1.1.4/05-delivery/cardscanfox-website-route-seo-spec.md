@@ -587,7 +587,7 @@ Google 可改写搜索标题和摘要。文案的点击收益需要在相近位�
 - Title：`Saved Card References | CardScanFox`。
 - H1：`Your saved card references.`。
 - Description：`Review the cards saved in this browser. These reference bookmarks are separate from the Portfolio and Wishlist you manage in the Card AI app.`。
-- 开放与收录条件：私有个性化状态；noindex,nofollow，no-store，不入sitemap。
+- 开放与收录条件：私有个性化状态；允许 Google 读取页面以看到 noindex,nofollow，响应使用 no-store，不入 sitemap。robots 不再禁止 /saved，避免 Search Console 将预期排除报告为 robots 屏蔽。
 
 ### 单卡模板的缺失分支
 

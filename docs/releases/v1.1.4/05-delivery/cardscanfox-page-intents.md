@@ -19,7 +19,7 @@
 | Saved | 我保存的网页卡牌参考在哪里？ | 返回本浏览器书签；App 持仓不在网页修改 |
 | 隐私/条款 | 数据如何处理、使用规则是什么？ | 阅读原有法律内容与联系渠道 |
 
-同一意图尽量由一个明确页面承担。`/pokemon-card-scanner` 等原地址负责“选择扫描工具”；`/games/pokemon` 负责“浏览卡库”；具体 `/cards/{id}` 负责“精确印次与价格”。原官方卡表文章继续承担对应 checklist 需求，系列目录不宣称是完整官方卡表。旧 46 个地址和文章正文保留。
+同一意图尽量由一个明确页面承担。`/pokemon-card-scanner` 等原地址负责“选择扫描工具”；`/games/pokemon` 负责“浏览卡库”；具体 `/cards/{id}` 负责“精确印次与价格”。原官方卡表文章继续承担对应 checklist 需求，系列目录不宣称是完整官方卡表。原导入真源保留；2026-11-15 按用户要求将通用 Pokémon 查价博客并入中心页，见下文。
 
 ## 单卡与动态页面模板
 
@@ -47,11 +47,11 @@ Title 与 Description 的逐页可执行真源为 [seo-pages.json](../../../../a
 | `/blog/` | 浏览收藏知识和对比文章 | Trading Card Values, Card Lists & App Comparisons \| CardScanFox |
 | `/blog/ascended-heroes-card-list` | 查系列卡表与具体印次 | Ascended Heroes Card List & Printing Guide \| CardScanFox |
 | `/blog/chaos-rising-card-list` | 查系列卡表和参考价 | Chaos Rising Card List & Price References \| CardScanFox |
-| `/blog/charizard-151-card-value` | 区分 151 喷火龙编号并查价值 | Charizard 151 Values: 006, 183 or 199? \| CardScanFox |
+| `/blog/charizard-151-card-value` | `pokemon 151 charizard`：区分英版 151 印次并查价值 | Pokémon 151 Charizard ex Card Values: 006, 183 & 199 |
 | `/blog/charizard-gx-card-values` | 区分 GX 版本、印章与促销卡 | Charizard GX Values: SV49, SM211 & More \| CardScanFox |
 | `/blog/cufant-card-values` | 区分 Cufant 实体卡及价格 | Cufant Card Values by Set & Number \| CardScanFox |
 | `/blog/ivysaur-card-values` | 区分 Ivysaur 151 与初代卡 | Ivysaur Card Values: 151 vs Base Set \| CardScanFox |
-| `/blog/mega-charizard-x-ex-card-value` | 确认 Mega Charizard X ex 具体印次 | Mega Charizard X ex Value: Match the Number \| CardScanFox |
+| `/blog/mega-charizard-x-ex-card-value` | `mega charizard x ex card value`：确认 Phantasmal Flames 印次和价格参考 | Mega Charizard X ex Card Value: Phantasmal Flames |
 | `/blog/mew-gg10-card-value` | 定位 Mew GG10/GG70 印次 | Mew GG10 Value: Crown Zenith GG10/GG70 \| CardScanFox |
 | `/blog/moonbreon-card-value` | 把昵称解析为实际单卡 | Moonbreon Value: Umbreon VMAX 215/203 \| CardScanFox |
 | `/blog/phantasmal-flames-card-list` | 查系列卡表与价格参考 | Phantasmal Flames Card List & Prices \| CardScanFox |
@@ -117,6 +117,8 @@ Title 与 Description 的逐页可执行真源为 [seo-pages.json](../../../../a
 
 ## 证据与边界
 
+2026-11-18 审计复核：Web.Cafe 将 Mega 页与 `pokemon 151 charizard` 配对时显示 45 分，改用该页自身主词后为 88 分；两个观测均为改动前的诊断分，不是 Google 指标。151 页是该 151 查询的主页面，旧正文未在首段直接列出三个卡号。两页保留原规范网址和历史价格样本，改用各自首段答案，并用真实尺寸固定文章图布局；X 和 Open Graph 使用对应文章图。不为外部工具阈值扩写字数、堆词或迁移 URL。
+
 本轮向 Jev 提交了 55 个公开页面/页面族的意图分类问题，服务返回 HTTP 451（区域不可用），没有采用任何模型分类结果。以上归属由 Codex 根据现有功能、正文、路由和用户指定问题复核；不把这些分类当作 Google 搜索量、排名、点击率或收录证据。
 
 改动前 `/prices` 的服务器原始 HTML Title 为英文 `Dated Trading Card Price References | CardScanFox`；截图中的中文可能来自浏览器或扩展翻译。本次将其改为明确的英文价格查询 Title，并扩充对用户任务有用的简介。检验源 HTML 与浏览器实际 DOM，不能只依据插件的本地展示。
@@ -126,3 +128,209 @@ Title 与 Description 的逐页可执行真源为 [seo-pages.json](../../../../a
 ## 2026-11-08 已授权卡牌词实施
 
 新增 `/blog/mega-rayquaza-ex-card-values` 承担 Mega Rayquaza 卡名消歧、具体编号和价格查找；Delta Reign 的 cards/chase cards 同属原 `/blog/delta-reign-pokemon`；30th UPC 各种简称由原 UPC 指南承接。对应 Title、Description 与正文已更新，不增加同义词薄页。见[本轮词与页面映射](cardscanfox-card-term-content-20261108.md)。
+
+
+## 2026-11-15 产品答案与引用依据
+
+本次继续改善已有工具页，不新增同义词落地页。免费成功扫描额度、图片队列容量和公开平台状态分开说明：当前服务端 `FREE_SCAN_LIMIT=10`，按 owner 累计 consumed，不按日/月重置；识别失败或无匹配释放预留。Premium 的价格与当前购买条件以 App 内实际报价为准。
+
+`content/answer-faqs.json` 的 `/help` 问答被首页、App、下载和帮助页复用，正文和 FAQPage 使用同一份文本；识别错配时先核对印次或文字检索，不把另一印次的价格当替代。帮助页原有账号删除、平台分流和价格日期说明继续保留。数据方法、两种价格榜、账号删除、目录、限流故障边界和现有分阶段索引策略不随这次文案调整。
+
+已核实覆盖与未核实覆盖分开：Football、Dragon Ball Super、Naruto 的旧正文不能因通用卡种或语言字段而承诺完整支持；用户先核对具体目录记录。截图金额继续标为示例，未导入的成交列表不作为 App 功能描述；持仓估值只汇总已确认持仓和可用价格，缺价不等于零或实时可售金额。卡表、历史价格样本、原 URL/H1、外链与法律正文保留。
+
+产品功能说明、数据来源和真实商店入口可以支持有条件的事实引用或候选推荐。准确率、识别速度、竞品优劣和真实成交结果需要同条件实测；本次不生成或声称这些结果。自然发现、页面引用、产品入选、访问和安装分别观察。指定网址可读不能证明无品牌问题下会被发现或推荐。
+
+抓取诊断的范围：同一客户端网络下，默认 Python urllib 曾收到 Cloudflare 403/error 1010；使用如实描述用途的 User-Agent 后，首页与 robots 返回 200。该结果不能证明真实 OAI-SearchBot 的 IP 抓取成功或失败。目标账户日志未取得，不据此关闭 WAF/BIC。生产发布、真实设备识别和发布后的 AI 入选观察仍需分别取得证据。
+
+本地检查使用 Node 22.23.4、pnpm 11.28.10：构建 124 条静态路由，46 个既有网址保留；官网 79 项测试、类型检查、dry-run 和 Code Review 通过。新增 3 项回归在 7fbe5ac 隔离基线中失败，在修订后通过。检查 27 个相关页面及 64 个不同站内目标；其中 `/cards/101520` 不在本地样本，单独回读正式地址为 200，其余目标由本地页面验证。下载、帮助和 App 页在 1280、390、320px 下没有页面横向溢出，新增问答可点击和键盘展开。索引配置、allowlist、sitemap、目录/榜单/账号删除实现没有差异；未部署或提交索引通知。
+
+
+### 本次合并与正式回读
+
+用户随后明确授权合并 `main` 并推送。代码提交 `2682ed953213c07ba6fbdb6a5e66a7dbfb215a9b` 已快进合入并推送 `origin/main`；合并后的 79 项官网测试通过。对应的 Cloudflare 官网／只读服务自动构建和 GitHub App compatibility 检查均成功。未手工更改生产绑定、数据库或索引配置。
+
+正式 `/release-manifest.json` 回读的 `sourceCommit` 为上述代码提交，`releaseId` 为 `b3afc352577ba2b8f86febd40c2da433cb0a4d4a446072a2a9e1f74ef9178096`，保留 124 条构建路由。25 个实际内容变化页面逐一返回 200，canonical 与可索引状态正确；21 个非首页旧页的正文来源哈希与批准产物一致，首页、App、下载及 Help 均读到新增免费额度答案。
+
+按项目 `.indexnow.json` 和全局 `indexnow-submit` skill，正式版本回读通过后仅通知这 25 个公开地址：22 个旧页（含首页）及 `/app`、`/download`、`/help`。两批分别为 20 和 5 个地址，接口均返回 HTTP 200，本次 `remainingRequested=0`。这表示通知已受理，不表示已收录、获得 AI 引用或带来安装。没有通知内容未变的数据方法、价格目录、单卡、系列、榜单、后台/API、预览及暂缓索引页面。
+
+本段是代码提交 `2682ed95` 的正式验收补证；后续仅文档提交不作为新功能发布证据。
+
+## 2026-11-15 答案优先修订
+
+本轮以用户给定五项要求为实施范围，不新增热词页面，不提交 IndexNow 或请求编入索引。
+
+| 用户需求 | 唯一页面归属 | 本地改动 |
+| --- | --- | --- |
+| DCC Series 1 卡表、pack、价格、购买及编号 | `/blog/dungeon-crawler-carl-trading-cards` | 发行方 #001–100 完整表；区分 Playmates/Borant 与 Renegade；来源与观察日期 |
+| 周年 UPC Day/Night 内容与发售 | `/blog/pokemon-upc-30th-anniversary` | 内容物、日夜主题区别、2026-11-06 发售及商店带日期挂牌价 |
+| 周年单卡清单与价格 | `/blog/pokemon-tcg-30th-celebration-card-prices` | 158 编号卡、3 RGB Mew、30 Classic；每卡原价格日期 |
+| Pokémon 泛查卡及价格 | `/games/pokemon` | 迁入旧博客角色指南、编号读法、日期说明；旧博客及其 .html 301，保留 query |
+| Pokémon 拍照工具 | `/pokemon-card-scanner` | 保留独立工具意图 |
+| 具体系列与具体印次 | 现有卡表、`/sets/{id}`、`/cards/{id}`、角色指南 | 继续各自回答具体问题，不统一重定向 |
+
+公开页品牌、按钮和组织署名统一为 CardScanFox；下载页解释真实商店中的 Card AI 名称。法律正文、账号删除应用身份、实际商店链接与产品能力限制保持有效。
+
+Git 对照范围为 2026-11-03 至本轮基线 `97e2b0bc`。`3ab3d1c7`/`180a2c02` 主要完成迁移和官网切换；`0f340a26` 改过 7 篇旧博客、5 个工具页和首页；`2682ed95` 修改22个功能/比较页面，没有修改博客正文。20 篇旧博客中13篇在本轮之前的正文与导入基线一致；三个完整卡表仍有295/122/130张卡。故没有执行整站 Git revert：恢复三篇卡表的直接首段，重写 DCC、周年卡价和 Watson 操作答案，保留额度、平台及目录范围的事实纠正。
+
+基线有32篇博客正文，另有1个博客列表和4个分类页；合并泛查价博客后为31篇正文。这不等于37篇文章。后续按核心需求维护既有页面，外链接受、真实流量、抓取和排名分别衡量。
+
+Jev 1.14.0 对54个现有文章/工具/比较页做搜索意图预分类。Codex 复核所有权，并纠正 Pokémon 泛查价博客归属及 Yu-Gi-Oh 工具分类。最终路由、重定向与数据转换使用确定性代码，不依赖模型。测试在内容和文档完成后运行；正式发布、线上301与数周搜索表现需要独立验证。
+
+本轮本地验收：官网测试85项通过；官网 type-check、123路由构建、Worker dry-run 与 git diff --check 通过；6个重点页面在1440/390/320像素下共18次浏览器检查，无页面横向溢出；独立Code Review无待修复项。运行环境为Node 22.23.1、pnpm 11.28.10；仓库声明Node ^22.23.4，因此未声称已在该最低补丁版本验收。未运行App/Admin/API/只读数据服务测试，这些实现未修改。未执行Git commit/push、dev/prod部署、线上新版验收、GSC索引请求或IndexNow。
+
+## 核心扫描词第一批（2026-11-15）
+
+本轮用户确认先做网页扫描与SEO，AI评级单列后续需求。首页承接`card scanner`并引导两个真实网页工具；`/pokemon-card-scanner`承接Pokemon照片识别；新`/sports-card-scanner`承接体育卡照片识别；`/card-price-checker`保留查价解释和入口；`/games/pokemon`继续使用已发布真实数据。周年卡价页Title/H1按`Pokémon 30th Anniversary Cards: Full Card List & Prices`调整，191张清单和原价格日期保留。
+
+15个扫描页是不同卡种/运动的英文页面，不能写成多语种矩阵；18/13只是本次读取的CollX/Collectr sitemap loc数，不是整个产品页数。153是本站已收紧的sitemap发现批次，不是数据库记录上限。未按这些数字执行新一轮删页，未把800字作为保留门槛。现有AI Grade未实现，不建立虚假可用工具。
+
+网页工具与iPhone App的免费扫描额度、保存记录分开。识别网关只读，独立服务绑定和防刷为本地配置候选；没有部署或变更远程资源。未声明网页扫描已在线可用，正式发布后还需真实图片匹配、目录预算和目标平台浏览器补验。首次约26 MiB资源加载不能用原HTML响应时间代替。
+
+本批验证：官网109项测试通过；root type-check首次并行流程在Wrangler类型生成后等待，停止该流程后以`WRANGLER_SEND_METRICS=false pnpm exec turbo type-check --concurrency=1`完成9个任务；官网与只读服务另行直接`tsc --noEmit`通过。依赖方向、124路由构建、preview及production配置dry-run通过。独立审查已关闭首次模型加载取消和Sports分页前筛选/离线动态slug错误，最终无待修复P1/P2。
+
+Ego在本地使用真实卡图实际运行模型，得到512维有限向量；模型仅主动识别时下载，原图未发送至识别网关。缺绑定场景明确503。取消/换图、同页查卡、捕获公开目录响应的候选显示已验证；该候选显示测试模拟匹配响应，不是生产识别准确率或完整线上端到端验收。物理手机相机、Safari真机、生产绑定和实际扫描流量下的目录预算未验收。本轮未commit/push、未部署、未提交索引或外链。
+
+最终页面检查：4个重点页面在1440/390/320像素下12组无页面横向溢出、各1个H1、初始模型下载均0。首页双CTA小屏换行和扫描按钮禁用视觉已补齐，独立UI复审原P2已关闭，结论ship。HTML计划在桌面/手机均非空且无页面溢出，9项工作包筛选器可用。机械样式检查因解析库缺失降级；隐藏预览图的无src告警经截图核实不构成可见破图，不宣称完整机械检测通过。
+
+## 第二步与第三步：合并与内容补齐（2026-11-16）
+
+用户进一步明确授权执行第二、三步；这是第一批之后的新本地范围，不回写前述历史验收。`/card-identifier` 先升级为通用 TCG 真实工具，再承接4个有已记录曝光的卡种页：Digimon、Lorcana、Dragon Ball Super、Flesh and Blood分别301到同页相应章节，正文迁入编号/artwork/foil/promo/edition诊断。旧源保留，不输出旧页重复正文；干净URL与`.html`均单跳，query在fragment之前。站内链接改直达，四源路径退出sitemap及许可。此前140个正曝光URL中的一般Pokemon查价博客已迁至中心页，本轮再迁4页；这是经授权的URL合并，不是把有曝光页误删。
+
+MTG、One Piece、Basketball、Football分别保留独立回答，补足约900词的实用核对步骤，保留原路径/H1。不同游戏的特殊印次和不同运动的编号/序号不能互相替代；Football与Dragon Ball Super的覆盖未确认状态不因搜索量建议而改为已支持。
+
+第三步沿用已有191卡表、逐卡价格日期、UPC两页分工和真实Pokemon数据库读取。本轮在周年价页直接补single/booster/UPC购买选择，链接官方where-to-buy；不刷新旧价格/库存观察日。Pokemon中心页加5项实际导航，不编价格、不将缺价视为零。没有新增周年页。
+
+卡页审计使用原始GSC窗口2026-10-12至2026-11-11的140个URL布尔归属、既有种子与暂停清单，未把私有原始指标发送Jev。当前142个许可卡页=82个正曝光+60个仅内容引用。65个发现卡页=5个正曝光+60个引用；另外77个正曝光卡页原本不在地图。1047个暂停发现卡页仍无索引资格。本轮保持卡级规则，60个引用种子的独立需求仍待数据核实，不自动关闭，也不宣称有搜索量。
+
+Jev对9个公开页面做意图预分类。Codex核对曝光、能力、迁移内容和目标页后决定合并；精确URL集合、query/fragment组合、过滤和分页由常规代码完成。无需新App API、Schema、迁移或远程绑定；未推送、部署、做外链或提交索引。完成实现及文档后再统一运行影响面验证。
+
+第二/三步本地验收：119项官网测试、官网type-check、依赖方向、120路由构建和production dry-run通过；独立Code Review无P1/P2。16个GET/HEAD/clean/html HTTP检查确认单跳301与query/fragment次序，4个浏览器迁移均到正确章节。8个受影响页面在1440/390/320宽度共24组无横向溢出，各1个H1，初始模型请求均0。通用TCG实际模型输出512维有限向量，识别参数0且不传game；非Pokemon候选显示/体育候选排除使用捕获的公开MTG数据作受控UI测试，不能当作生产准确率。文章修订日期16日，逐卡价格观察日期保持原值。
+
+候选sitemap为84个静态URL+65个卡URL，共149；相对第一批候选减少4个合并源。卡级许可142不变，1047暂停卡无重开。历史140正曝光URL为135直接保留+5个已授权迁移，无不明移除。生产只抽查2个暂停卡仍200/noindex和1个Mew卡仍index；没有推送、部署或IndexNow，不宣称新合并已在线生效。
+
+最终UI复审：返回扫描器锚点曾被sticky页头遮挡，已复现并对目标补齐现有150px滚动偏移。相同Return链接在320/390/1440宽度回归通过，标题均在页头下方；UI复审原P2已关闭（resolved/ship）。该小修只验证受影响锚点/布局并重做构建及dry-run，未重复未影响的App/Admin/API测试。实施HTML的21个工作包已完成本地验收；线上发布边界不变。
+
+## 三轮官网优化的Git交付授权（2026-11-16）
+
+用户明确要求将本会话官网改动合并主分支并推送。范围为前述答案恢复、品牌、网页扫描、四卡种合并、保留页与周年/查价入口；包含模型及许可证、生成内容与必要本地HTTP支持，不包含其他工作区或App/Admin/共享业务API/Flutter改动。main与分支共同基线为97e2b0bc；合并前重新拉取远端、核对范围并运行最终受影响检查，采用快进合并，保留其他工作区。
+
+Git推送、Cloudflare自动构建和正式manifest/sourceCommit生效分别核验。当前正式代码回读为2682ed95，而main的97e2b0bc是后续文档提交；不能把两者混为上线状态。最终发布使用正式toccards-website，保留SITE_DATA并按候选配置新增独立向量/限频绑定；不发布旧marketing-web、业务API或移动端。本轮继续沿用最初不请求编入索引的限制，不提交IndexNow。后续成功/失败以实际平台和正式版本回读补证，不提前宣称上线。
+
+合并前补验使用项目规定的Node 22.23.4（本地归档与Node官方SHASUMS256一致）和pnpm 11.28.10。当前待提交树重新构建120路由、119项官网测试、串行root type-check流程9任务及依赖方向均通过。独立交付审查确认105个文件均属已授权范围，模型/runtime/license未被ignore，最大文件14.24 MB，无私有原始GSC、凭据或无关应用改动。
+
+## main交付与正式回读（2026-11-16）
+
+功能提交`3099fbf92f0ab1a4a99ebf9d40937137c88e3c9a`已快进合并到main并推送，远端ref独立回读一致。本记录是功能提交之后的文档补证，不能把文档SHA当作官网sourceCommit。合并后的干净main使用Node22.23.4/pnpm11.28.10完成冻结安装、119项官网测试、39项目录服务测试、120路由构建、production dry-run；此前同一源码root type-check流程9任务和依赖方向通过。
+
+Cloudflare Git自动构建/发布成功：官网Build `b277dac0-552a-40ac-802f-0ba87972b092`，CI报告Version `d8873425-d5d3-499c-af1e-2dd64b9a098b`；只读目录Build `97589ed3-73db-4af6-83c1-f82d5c8efb9f`，CI报告Version `4ca32ab5-4312-4a3a-ba1c-a2439f95ed8e`。同一功能SHA的Admin Pages与App compatibility均success。未手动发布其他目标；Cloudflare活动版本API因本机无可用token未独立读取，不宣称读取了100%流量配置。
+
+正式release-manifest回读sourceCommit为同一3099fbf9，releaseId为`f01959c7bf5b3f0c3fadce258376a94830442e631a76fbea507d36e468c1434e`，120 routes/196 files，与批准主分支构建清单和指纹一致。正式HTTP检查125/129通过：73/77固定owner通过，DCC100唯一行、周年191价格日期行、三扫描入口、18条301、149条地图（84静态+65卡）、两暂停卡200/noindex与Mew index、JS/CSS原始SHA通过。模型/WASM HEAD返回200但size及ONNX MIME缺失未算独立通过；浏览器后续实际加载模型及WASM成功。
+
+正式浏览器以公开卡图完成三种真实链路：通用TCG686490（0不带game）、Pokemon714372（0+pokemon）、Sports t8546993（1）均返回200 matched与5候选，输入卡均为第一候选，价格与观察日来自正式公开目录。只做三个烟测，不推算识别准确率；本轮没有使用模拟匹配响应，没有写App账户/额度/扫描记录。物理相机、Safari真机与负载/长时稳定性仍未验收。
+
+4个中文系列地址目前404/noindex，未计为通过：`/sets/set-9eeb37c90bf2`、`/sets/set-f9989f3c67f9`、`/sets/set-6a45990b1a66`、`/sets/set-d40f9aa20d26`。resolver源码及其匹配用card字段与本轮前完全相同；历史正曝光集合不含这4个路径，但无旧线上HTTP记录，因此出现时间和发布因果未定。当前公开games列表不含Pokemon Chinese，与分类未启用的情况一致，仍不能证明具体set行是否存在。没有为此猜测性改数据、扩权限或掩盖404，需后续核对数据启用/映射。
+
+全部原始回读、构建与浏览器证据位于任务外部artifact的delivery目录，不把私有原始GSC或日志加入docs。继续遵守本会话的索引请求限制，未提交GSC请求或IndexNow。
+
+## 网页 AI 预评级与价格查询（2026-11-16 后续增量）
+
+用户已更正产品事实：产品确有 AI 预评级。此前“整个产品不预测评级”的结论不再适用；身份识别、预评级和已有认证等级仍是三条不同流程。用户进一步选择本批新建轻量网页后端，不依赖尚未定位的 App 评级服务。本增量在 `codex/cardscanfox-pregrading` 实现，基线为 `main@19adda49`；前述 3099 发布记录保持历史状态，不用本地代码替代生产验收。
+
+| 页面 | 本次唯一任务 | 用户动作 |
+|---|---|---|
+| `/ai-card-grading` | 免费照片预评级、人工留白比例计算及送评成本比较 | 同页上传正反面、查看可见状况与宽泛区间，再输入真实价格和费用比较 |
+| `/card-price-checker` | 查询已发布的精确印次价格 | 同页 GET 搜索，核对版本、RAW 条件、来源和日期，打开同一价格系列 |
+| `/pokemon-card-scanner` 等身份识别页 | 匹配目录记录 | 保留原向量识别，明确链接到单独预评级流程 |
+| `/graded-card-tracker` | 记录已有评级 | 使用 slab 上的真实公司与分数，不把 AI 区间当成认证等级 |
+
+### 预评级数据契约
+
+新接口 `POST /site-api/v1/pregrade` 属于官网 Worker。请求仅接受 `front`、`back`，每面为 `{dataUrl,width,height}`。浏览器将原 JPEG/PNG/WebP 转为无原始 EXIF 的 JPEG，最长边不超过 1600，最短边至少 640，每张上传最多 1.5 MiB。后端再次校验实际 JPEG/PNG 文件头、尺寸、base64、整包 4,200,000 字节和两图重复；不接收远程 URL。
+
+视觉服务为 `WEB_PREGRADING_AI` Workers AI binding，固定模型 `@cf/meta/llama-4-scout-17b-16e-instruct`。一次多图请求，无自动重试，模型等待最多 45 秒；上传读取 8 秒、限频调用各有短超时。个人 `WEB_PREGRADING_RATE_LIMITER` 为每 IP 每 60 秒 2 次；聚合 `WEB_PREGRADING_GLOBAL_LIMITER` 为每位置每 60 秒 10 次。Cloudflare 原生限频按位置执行，不能作为全球每日硬费用上限。预览和正式配置使用独立 namespace。新增 AI binding 不修改 SITE_DATA、向量服务、App 接口或业务数据；缺少任一新绑定、可信来源 IP 或服务时，只关闭预评级并明确失败。回滚到前一官网产物即可停用该入口；不涉及数据回滚或迁移。
+
+响应保留两面的 quality、issues 和 centering/corners/edges/surface/print 五项可见观察；每项用 `none_visible/minor/moderate/major/unassessable`。只有双面合理、清晰且五项均可观察，才给宽泛范围。代码按最严重项映射为无可见问题 8–10、轻微 6–9、中等 3–7、严重 1–4。这是明确的产品启发式，未与 PSA/BGS/CGC 实物等级校准，不是模型置信度，更不是认证或交易担保。照片不足、反光、遮挡、非卡、错面等返回 `needs_better_photos` 和 `range:null`。数值留白比只由用户输入边距后用常规代码计算；视觉模型不得输出编造比例。
+
+图片与结果只在当前浏览器页面及服务请求内存使用，不写账号、PostgreSQL、R2 或公开结果网址，不记录图片或完整模型输入。接口始终 `no-store` 和 `noindex`；公开工具主页面提供 SSR 内容，随机结果不生成 URL。发送前需勾选照片处理说明；隐私页补充 Cloudflare AI 的具体用途。原 App 的图片与账号流程不变。Cloudflare 计费、模型实际可用性与实测推理属于运行验收项；配置存在不等于已上线。
+
+费用比较只使用用户输入的 RAW、8/9/10 成交参考、送评、往返邮费保险和出售费率；同一费率同时扣除 RAW 和 graded 两侧。代码给三个分数各自净差及盈亏平衡售价，不从 AI 区间推导成交价。官方标准/费用核对于 2026-11-16：PSA Gem Mint 10 的居中描述为正面约 55/45、背面约 75/25，它只是综合标准的一部分；PSA Value 公开例为 $39.99、最高投保值 $500、估计 90–100 工作日；CGC Economy 公开例为 $20、最高值 $1,000、估计 90 工作日。页面保留官方来源链接、观察日及邮费/保险/税和其他适用要求，不把一个 tier 当作统一报价。
+
+### 真实目录示例与价格查询
+
+按用户指示复用现有卡牌详情接口，核对了 Charizard 714372、Pikachu 716991、Gengar ex 719554。示例仅展示真实目录图与 RAW Near Mint 价格，观察日期均为 2026-11-15，实际核对为 11-16；真源为 `content/pregrading-catalog-examples.json`。这些不是同一实物的正反面照片或 AI 评级样卡。接口没有提供可用背面，不补图；也没有同一公司、同语言/工艺的完整 8/9/10 价格组，不拼接 GENERIC、Normal、Holofoil 等不同维度。专业评级与 AI 对照结果仍需对应实物图片及可靠等级，目录示例不作准确率证据。
+
+价格页初始不读取全目录。只有非空名称/编号或具体 set 才用既有 published page-data 查询，每页 24 条；保留游戏、套卡、语言、工艺、价格、排序和游标。全目录不支持的昂贵排序仍要求具体 set。价格为 RAW 发布参考，不自动当成送评后价值。缺价保留 null，真实零价保留零，未知条件不改成 Near Mint；错误 400/429/503 和非发布数据不回退成评审快照。原指南与 FAQ 保留在下方折叠区，查询参数页 noindex、canonical 回主入口。
+
+本轮复核四个旧卡种 clean/html 地址的 GET/HEAD，16/16 已是 301，跟随后 4/4 目标 200；验收表的“仍为 200”是重定向跟随后状态，不是原响应。无需重写现有正确合并。卡页 142 许可、1047 暂停规则不变；不批量 noindex，不新增周年页。
+
+Jev 1.14.0 已对 29 条公开能力文案做“全局否认/身份匹配边界/其他”分类。Codex 复核上下文后只修改与已确认预评级能力冲突的句子，并保留认证和市场价格边界；低置信度的“匹配不等于评级”没有按全局否认处理。路由、尺寸、价格查询、范围映射、计算、重试与限频均由代码完成。未将原始 GSC、用户照片或凭据发送 Jev。
+
+验证顺序：所有功能和本节文档完成后，再运行受影响官网测试、类型、构建、production dry-run、浏览器操作和独立审查。测试替身通过不等于真实模型通过；本地完成、Git 提交/推送、平台发布、正式 HTTP、真实 AI 推理和搜索表现分别记录。本增量尚未执行 Git push、远程部署、索引通知或外链操作。
+
+价格页错误恢复补充：独立 UI 审查发现上游 429 时通用错误页会丢失搜索表单；已在修改前用 `q=Charizard&game=pokemon` 和 429/Retry-After 60 复现，原输出 503 且 form/query 均缺失。修复仅在 checker 分支保留原表单、全部筛选和同一查询重试；400 保持 400，繁忙及不可用保持 503，429 的安全 Retry-After 透传。失败不给结果、不调用快照查询、保持 noindex。待完成此补充后重跑对应影响面验证与独立复审。
+
+本地最终验证：Node 22.23.4（安装归档与 Node 官方 SHA256 一致）、pnpm 11.28.10。155 项官网测试全部通过；根串行 type-check 9 项成功（含缓存），错误恢复返工后另跑官网 type-check 通过；依赖方向和 diff 检查通过。121 路由构建、199 文件清单、production dry-run 通过。相对正式 3099 清单只新增 AI 页 HTML、该工具 JS/CSS 三个文件，无删除；内容/运行代码更新另由指纹覆盖。独立 Code Review 及价格页 UI 复审的两项 P2 已关闭，无待修复 P1/P2。
+
+Ego 浏览器实际读取线上 published 目录，Charizard 查询同页返回 24 条，保留具体印次、来源、日期和 series 链接。两个工具页在 1440/390/320 宽度共 6 组均 1 个 H1、无页面横向溢出；价格表在手机内部横向滚动，页面 320/320、表格可视 292/内容 560。费用表用明确测试输入核对 grade8/9/10 净差与 $166.67 盈亏平衡；人工边距 4/6 与 5/5 得 40/60 与 50/50。双图真实文件规范化、发送同意、缺 binding 的明确失败及清空状态已操作。该双图来自公开目录，仅验证上传界面，不作为真实物理配对或 AI 评分证据。价格恢复使用受控 429 上游，按修复前同一输入回归得到 503、Retry-After 60、原 query/game 和表单均保留、noindex，并在 390px 截图复核。
+
+未验证：目标 Cloudflare 账号的真实 Workers AI 多图/JSON Mode、响应时间、照片预评级效果与官方等级校准、物理相机及 Safari 真机。当前可见 Cloudflare 会话只提供另一个账号，目标配置账号不可访问；没有使用其他账号代替。上述测试中的 AI 响应为接口替身，不能记作真实模型通过；浏览器缺 binding 明确失败也不是模型成功。本地候选未推送、未部署，正式 sourceCommit 仍为 3099fbf9；未提交 GSC、IndexNow 或外链。公开页面可在发布授权后沿用既有 Git/Cloudflare 流程上线，再独立回读并做真实 AI 请求验收。
+
+## 主分支发布与剩余功能补齐（2026-11-16）
+
+用户已明确先将本地预评级/价格查询合并主分支并 push，再继续调整未完成项。干净 main 在保留远端 Android 发布记录 `1a5639bf` 后合并 `cf52b169`，合并提交为 `7252022945953194a3a725950a424bedcdb97a5e`，远端独立回读一致。合并树155项官网测试、39项目录服务测试、根类型9任务、依赖方向、121路由构建及production dry-run通过。
+
+Cloudflare官网Build `a45b4dbe-acd1-4704-94cb-3dcaa42bb619` 与只读目录Build `2a56f0f8-a2f7-409b-9c9b-ab01d7c7550c` 均success，CI报告版本分别为 `fc4ac340-95b4-4408-9441-a4373fcd2e75`、`7250af48-72d1-43d4-a87c-7f944462471d`；同提交Admin Pages及App compatibility均success。正式manifest独立回读sourceCommit为72520229，releaseId为`b8b500a6c53f4b25a3903bdeab852bf4bb2c63a7cee876ece35c9ec6a79aaaab`，与批准构建一致。AI页与增强价格页正式200，AI主路径已进入site sitemap。未读取Cloudflare活动版本/100%流量API，不将CI版本报告等同独立流量配置验收。
+
+正式Ego页面确实调用Workers AI，使用两张不同公开目录正面图测试错误配对，返回HTTP200、needs_better_photos、range:null和different card；界面不输出分数。这是实际云调用的负向烟测，不是正确配对、评级质量或准确率验收。该真实响应也暴露模型在quality=unusable时仍给none_visible标签和无意义观察的情况；后续局部修复把不可用照片的全部维度明确归为unassessable，不把这些标签当成干净或可评分。原接口/请求大小/限频/不存图片的契约不变。
+
+### 本地后续：自动几何、真实价格维度和专业参考
+
+后续在 `codex/cardscanfox-grading-completion` 开发，基线为已发布72520229。自动居中使用浏览器RGBA像素的确定性几何计算，独立于视觉评级和后端三字段上传对象。支持完整外框、连续印刷边框和可校正轻透视：估计背景、提取卡片轮廓、拟合四边、校正视角，再用四边多条扫描线确认内框。自动成功显示校正图像像素宽、整数左右/上下比例和检测敏感度；全幅、裁切、反光或边界不可靠时不填数值。外框/内框可切换，四角支持拖动或键盘箭头校正；手工确认结果单独标明来源。未改变App API、业务库、R2或用户照片上传范围。
+
+AI页增加同页公开目录搜索和详情references读取，按card/source/currency/language/finish/grader分组展示RAW及8/9/10价格；GENERIC明确是未指定公司的共享桶。只有同一公司三个分数齐全、指标族一致且有匹配USD/语言/工艺的明确RAW Near Mint，才允许自动填成本表；缺值、歧义、重复series、不同公司或不同印次不填。更换查询或卡片撤销仍由模块持有的填值，不清除用户另行编辑的值。搜索/详情只读取现有published-read-only API，不产生新用户结果URL，不写持仓。
+
+现有后台热门卡只有GENERIC8/9与独立PSA等公司的10，不能拼成PSA完整价格组。因此本页另列官方PSA Price Guide的1999 Shadowless Alakazam/Blastoise/Mewtwo 8/9/10参考估值，保留来源、观察日与源页未给逐行更新时间的事实；不冒称单笔成交，不映射到后台2026卡或2021样本。BGS补充当前Standard $34.95、45工作日、页面Sold Out状态，观察日2026-11-16，来源为官方beckett.com/grading。
+
+新增三组真实PSA8/9/10专业参考：2021 Celebrations Classic Collection Charizard-Holo #4，认证号161387604、152931430、64285064。每组正反图都保留同一认证号、来源页、原图SHA与尺寸；全部为封装后扫描。官方没有逐卡grader notes，registry留null，不编造某处瑕疵导致具体分数，也不把它们称为CardScanFox预测或送评前后验证。它们与后台2026 30th Celebration Classic Collection分开；source观察日是核对日期，不冒充图片拍摄或价格更新日。
+
+所有后续实现和必要文档完成后再运行本批几何、价格、接口及浏览器检查。测试中的合成几何图和完整价格fixture只验证算法或契约，不充当真实实物/市场数据；专业参考也不等于预评级准确率校准。数周GSC/行为表现、逐卡独立需求与相关外链仍按原前置条件执行，不提前宣称完成。
+
+跨工具回归补充：独立审查发现换照片后仍可能保留旧卡的自动价格和成本结果。用修复前构建的价格模块执行相同两条DOM回归，均失败（自动值未清除、晚到详情仍显示）；后续增加照片变化事件、自动填值所有权清理及明确卡名/编号/套卡来源。手动编辑保留，旧自动值与ROI失效，晚到响应不可回填。根事件和价格模块修复完成后再统一验证并复审。几何初轮检查中的一项仅因拒测消息分支不同而失败：裁切图已正确返回unavailable/null；改为核对拒测且无任何几何数值，不绑定错误文案的具体早退分支。
+
+真实配对补验：通过Ego读取LOC同一馆藏item2008676565的原件正反高分辨率TIFF（cdn跳转到tile.loc.gov的公开资源），转换格式后在正式页上传，未裁掉封装来制造正例。实际模型返回两面quality=good、edges=minor，但把minor whitening也放入issues；旧状态机因此误要求重拍。根因是把成色备注当成照片质量问题。后续只将good照片中与已判定minor/moderate/major观察在限定纯磨损词汇和有限位置后缀上精确对应的成色备注转到新增可忽略notes；无法对应的质量警告仍保留issues并拒绝出分，保留实际维度严重度；limited/unusable的issues继续阻止出分。客户端旧约定的estimated→good且issues为空仍保持，notes为向后可忽略新增字段；只有枚举令牌的观察转为相应普通英文描述，不增加模型未判断的具体瑕疵。增加相同真实响应的回归，同时保留模糊照片不得出分的验证。本次没有专业实物等级真值，不能由此报告准确率。
+
+复审进一步发现substring归类会吞掉“磨损;反光遮挡”等混合警告，已改成有限纯磨损词汇和位置后缀的精确对应。未知、复合、反光或遮挡文本全部仍为blocking issues，并有同样含质量警告的观察字段回归。
+
+### 卡页索引收缩：以当前可见GSC为依据
+
+当前已登录GSC的tcgcard.fun属性可读。通过网页报告DOM取得完整145行，界面页脚为145；图表可见数据到2026-11-13，不能用作11-16新版本效果。私有逐页点击/曝光留在任务外部artifact，不写入仓库或发送Jev。仅用公共URL的正曝光布尔归属与原许可对照。
+
+旧142个许可单卡由82个历史正曝光与60个仅内容引用组成。当前84个正曝光单卡包含原82，新增100219（MTG Valeron Wardens）和t100959（Basketball LeBron Reactive Blue），均已从正式published接口核对稳定ID、完整编号/系列/图片。按用户已批准的“只保留独立需求有证据的单卡，其余暂缓索引”执行：许可142→84；60个仅引用卡退出许可与发现地图，但保留HTTP访问、查价API、合集内链，不宣称它们月搜为零。原1047暂停发现记录仍作历史快照保存，不根据不完整目录反推新的全站暂停总数。
+
+单卡地图65条去60、保留5，再加入2个新正曝光卡，得7条；原guide/home/release来源列表保留用于追溯，生成器新增2个positive ID候选且继续受许可过滤，不会重开60个卡页。当前新增三个正曝光系列db-t322/db-t399/db-t582均正式200并有真实H1，分别为2007 Topps Chrome、2020 Panini Donruss Optic、2025 Topps Chrome；加入许可及独立verifiedDynamicSetPaths发现登记。它们由真实服务动态渲染，不为通过构建而伪造离线HTML。静态发现校验仍拒绝无登记的未知路由。
+
+旧140个正曝光地址全部保留直接访问或已有授权301归属；新的两个卡与三个系列补保护。原145行是当前已观察正曝光集合，不是全量Google查询日志或关键词月量。后续恢复暂缓卡页需独立查询/曝光/需求证据，不把缺行当作零需求。
+
+四个旧中文系列本次均重新确认正式404，并记录unavailableDiscoveryPaths；核对发现原本已不在发现地图，因此没有重复扣减。未修改业务库或分类开关，不把数据恢复记为完成。许可仍保留历史意图，以便未来真实发布数据可用时单独恢复发现。当前site地图85 + 3新增正曝光系列 = 88条，卡地图7条，总发现95条；这是sitemap发现数，不是数据库总卡量。新动态系列需同时登记verifiedDynamicSetPaths/newIndexPaths/rollout，构建校验不会放行任意未知set路径。发现生成器已保留新增positive卡ID与原来源元数据。
+
+索引复审补齐构建入口：修改前，用合法published候选导出714372并给复制器传只允许717605的scope，旧复制器仍成功复制1条，证明外部CATALOG_SITEMAPS_DIR能绕过发现许可。复制入口现强制当前card allowedPaths，拒绝合法但未获发现许可的卡；通用离线候选生成能力保留。prepare-launch-sitemap新增正曝光发现ID直接候选并同步实际输出ID，预先过滤暂缓seed，避免榜单变化时丢掉原5张正曝光发现卡或重开60。
+
+本批本地最终验收：197项官网测试通过，官网type-check、依赖方向、diff检查、121路由构建与production dry-run通过。独立交叉Code Review的照片/旧价联动、混合质量警告、候选地图绕过和正曝光发现稳定性问题均关闭，无剩余P1/P2。测试按整批代码和必要文档完成后执行；初轮失败与后续修正按前述证据保留。
+
+浏览器实际读取Gengar253266的正式published详情，显示7组不同source/finish/grader上下文，GENERIC明确为共享桶，缺PSA8/9时不出现自动填价。已知边距合成图的自动输出约40/60与36/64（与合成边界的数像素偏差保留检测敏感度），键盘校正后明确显示人工确认44/56；它是几何测试，不是实物分数证据。无内框渐变图拒绝自动数字，初始占位框隐藏，人工校正展开可用。换照片后价格上下文和旧ROI消失、手输100保留。6张专业参考图全部实际加载；1440/390/320宽度各1个H1、页面无横向溢出。真实手机触控、Safari设备及专业评级准确率仍未由这些检查证明。
+
+本地QA的远程目录HTTP适配曾保留Node已解压响应的br头，导致浏览器读体失败；仅忽略目录内的QA适配剥离压缩头后，同一正式数据成功。正式Worker的内部Service Binding不走这个Node代理，未为此更改业务API或生产压缩配置。
+
+## 补齐批次正式交付（2026-11-16）
+
+功能提交 `676415c80d178f27bd0870c8cc918b08b47251f6` 已快进合并main并push，远端ref独立匹配。合并后的干净main再次完成121路由构建和197项官网测试；同一源码官网type-check、依赖方向与production dry-run通过。官网Cloudflare Build `6a12d2f3-f5c8-4b3a-9e79-51ae36d6dd0f` success，CI报告Version `0644b960-a370-4976-a12e-586576f70cf6`；同提交Admin Pages和App compatibility成功。该批未改只读服务源码，不重新手动部署业务API、数据库或移动端。
+
+正式manifest回读同一676415c8，releaseId与批准main构建一致，121路由/209文件。AI页、价格页200/index；site地图88、单卡地图7，共95。两个新增正曝光卡和三个正曝光系列最终均200/index，历史Mew717605仍index，暂缓Charizard714372仍200且noindex，canonical和价格查询不受删除影响。
+
+实际正式Ego上传LOC同一物理item原件正反图，Workers AI返回200/estimated、6–9区间、两面各五项及minor角/边观察，界面完整显示。输入是有可追溯正反面的未封装扫描，未模拟模型、未裁掉PSA外壳制造正例；这只确认真实链路能出区间，并无专业grade真值，不能推算准确率。错误配对的真实拒测记录、不可用照片/混合反光警告的回归和不出分条件仍保留。
+
+首次正式回读7个目录URL曾返回503，没有Retry-After；独立公开page-data随后成功，拿其真实响应在本地同版本渲染200，同一正式URL原样复查最终均200（约2.6–5.2秒）。没有为此改超时、限频或数据库，也没有取得上游日志证实根因；首次503记录保留，不能把偶发可用性记为已定位修复，后续负载/长时稳定性仍待查。
+
+按用户提供的项目IndexNow收尾规则，本次只通知内容实质变化的 `/ai-card-grading`、`/card-price-checker` 两个工具URL，接口HTTP200/received、submitted2、remaining0。没有通知DCC文章、暂缓卡页、API或预览，也没有操作GSC“请求编入索引”。这是协议通知受理，不是Google/Bing已收录或排名证明。Jev只对这两个已公开页面做意图预分类；固定域名、URL、sitemap与正文资格由代码检查，没有发送源码、原始GSC指标或照片。
+
+此记录为功能发布后的文档补证；后续文档SHA不替代正式manifest中的676415c8。待完成边界仍包括：专业等级准确率与真实送评前后对照、官方未公开的逐卡notes、真实手机/Safari、数周GSC/行为表现、4个中文系列的数据启用/映射和目录偶发503根因。没有把这些写成已通过，也未在前置指标未达成时购买外链。

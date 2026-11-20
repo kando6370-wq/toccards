@@ -2,13 +2,32 @@ import assert from 'node:assert/strict';
 import {mkdtemp,rm,readFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {localAssetBinding} from '@kando/website-content/node-server';
 import {build} from 'esbuild';import test from 'node:test';
 const dir=await mkdtemp(join(tmpdir(),'cardscanfox-boundary-'));await build({entryPoints:[fileURLToPath(new URL('../worker/index.ts',import.meta.url))],outfile:join(dir,'worker.mjs'),bundle:true,platform:'neutral',format:'esm',target:'es2022'});const worker=(await import('file://'+join(dir,'worker.mjs'))).default;test.after(()=>rm(dir,{recursive:true,force:true}));
 const assets={fetch:async()=>new Response('body{color:black}',{headers:{'Content-Type':'text/css'}})};
 const env={DEPLOYMENT_MODE:'preview',LOCAL_DEVELOPMENT:'false',PUBLIC_ORIGIN:'https://tcgcard.fun',PREVIEW_USERNAME:'review',PREVIEW_PASSWORD:'test-only-long-review-password',ASSETS:assets,SITE_DATA:{fetch:async()=>new Response('{}',{headers:{'Content-Type':'application/json'}})}};
 const authorization='Basic '+btoa('review:test-only-long-review-password');
-test('preview authentication protects HTML and static assets before either is served',async()=>{for(const path of ['/','/site.css','/assets/cardscanfox-lime-mark.svg','/cards/714372']){const r=await worker.fetch(new Request('https://candidate.workers.dev'+path),env);assert.equal(r.status,401);assert.match(r.headers.get('X-Robots-Tag'),/noindex/);}});
+test('preview authentication protects HTML and static assets before either is served',async()=>{for(const path of ['/','/site.css','/assets/card-ai-icon.svg','/assets/card-ai-wordmark.svg','/cards/714372']){const r=await worker.fetch(new Request('https://candidate.workers.dev'+path),env);assert.equal(r.status,401);assert.match(r.headers.get('X-Robots-Tag'),/noindex/);}});
 test('authorized preview serves real content with noindex and no-store',async()=>{const r=await worker.fetch(new Request('https://candidate.workers.dev/blog/charizard-151-card-value',{headers:{Authorization:authorization}}),env);assert.equal(r.status,200);assert.match(r.headers.get('X-Robots-Tag'),/noindex/);assert.equal(r.headers.get('Cache-Control'),'no-store');assert.match(await r.text(),/006\/165/)});
+test('the redesigned pages serve their linked stylesheets through the protected static asset routes',async()=>{
+ const localAssets=localAssetBinding(fileURLToPath(new URL('../public/',import.meta.url)));
+ const request=path=>new Request('https://candidate.workers.dev'+path,{headers:{Authorization:authorization}});
+ const preview={...env,ASSETS:localAssets};
+ for(const [path,theme]of [['/','home'],['/cards','page']]){
+  const page=await worker.fetch(request(path),preview);
+  assert.equal(page.status,200,path);
+  const html=await page.text();
+  for(const css of ['/assets/site-layout.css',`/assets/${theme}-layout.css`]){
+   assert.ok(html.includes(`href="${css}"`),`${path} should link ${css}`);
+   const unauthenticated=await worker.fetch(new Request('https://candidate.workers.dev'+css),preview);
+   assert.equal(unauthenticated.status,401,css);
+   const stylesheet=await worker.fetch(request(css),preview);
+   assert.equal(stylesheet.status,200,css);
+   assert.match(stylesheet.headers.get('Content-Type'),/^text\/css/);
+  }
+ }
+});
 test('missing preview credentials do not accidentally publish the candidate',async()=>{const r=await worker.fetch(new Request('https://candidate.workers.dev/'),{...env,PREVIEW_PASSWORD:''});assert.equal(r.status,401)});
 test('the candidate refuses production mode until a reviewed cutover configuration exists',async()=>{const r=await worker.fetch(new Request('https://tcgcard.fun/'),{...env,DEPLOYMENT_MODE:'production'});assert.equal(r.status,503)});
 test('legacy html aliases and blog trailing slash have explicit canonical redirects',async()=>{for(const [from,to]of [['/card-identifier.html','/card-identifier'],['/blog','/blog/'],['/blog/index.html','/blog/']]){const r=await worker.fetch(new Request('https://candidate.workers.dev'+from,{headers:{Authorization:authorization}}),env);assert.equal(r.status,308);assert.equal(r.headers.get('Location'),to)}});
@@ -18,15 +37,22 @@ test('the preview config declares no production route or business database bindi
 test('service mode cannot silently fall back to the review catalog',async()=>{const failing={...env,LOCAL_DEVELOPMENT:'true',CATALOG_MODE:'service',SITE_DATA:{fetch:async()=>new Response('offline',{status:503})}};const r=await worker.fetch(new Request('https://candidate.workers.dev/cards'),failing);assert.equal(r.status,503);assert.doesNotMatch(await r.text(),/145\.78/);const article=await worker.fetch(new Request('https://candidate.workers.dev/card-identifier'),failing);assert.equal(article.status,200)});
 test('approved production settings do not expose review API payloads or carry preview noindex into old pages',async()=>{const production={...env,DEPLOYMENT_MODE:'production',CATALOG_MODE:'service',PUBLISH_READY:'true',SITE_DATA:{fetch:async()=>new Response(JSON.stringify({success:true,data:{items:[]},meta:{datasetMode:'review-snapshot'}}),{headers:{'Content-Type':'application/json'}})}};const api=await worker.fetch(new Request('https://tcgcard.fun/site-api/v1/cards'),production);assert.equal(api.status,503);const page=await worker.fetch(new Request('https://tcgcard.fun/card-identifier'),production);assert.equal(page.status,200);assert.equal(page.headers.get('X-Robots-Tag'),'index, follow');assert.match(await page.text(),/content="index,follow"/);const deletion=await worker.fetch(new Request('https://tcgcard.fun/Account/AccountSetup'),production);assert.equal(deletion.status,200);assert.equal(deletion.headers.get('X-Robots-Tag'),'noindex, follow');assert.match(await deletion.text(),/mailto:support@tcgcard\.fun/);const sitemap=await worker.fetch(new Request('https://tcgcard.fun/sitemap.xml'),production);assert.equal(sitemap.status,200);assert.match(await sitemap.text(),/https:\/\/tcgcard.fun\/sitemaps\/site.xml/);const site=await worker.fetch(new Request('https://tcgcard.fun/sitemaps/site.xml'),production),siteBody=await site.text();assert.match(siteBody,/https:\/\/tcgcard.fun\/privacy/);assert.doesNotMatch(siteBody,/Account\/AccountSetup/)});
 
+test('production keeps the saved page out of robots blocking and exposes noindex nofollow',async()=>{const production={...env,DEPLOYMENT_MODE:'production',CATALOG_MODE:'service',PUBLISH_READY:'true',SITE_DATA:{fetch:async()=>new Response(JSON.stringify({success:true,data:{games:[],cards:[],sets:[],capturedAt:'2026-11-12'},meta:{datasetMode:'published-read-only',catalogVersion:'saved-test'}}),{headers:{'Content-Type':'application/json'}})}};const robots=await worker.fetch(new Request('https://tcgcard.fun/robots.txt'),production);assert.equal(robots.status,200);const robotsBody=await robots.text();assert.match(robotsBody,/Allow: \/\n/);assert.doesNotMatch(robotsBody,/Disallow: \/saved/);const saved=await worker.fetch(new Request('https://tcgcard.fun/saved'),production);assert.equal(saved.status,200);assert.equal(saved.headers.get('X-Robots-Tag'),'noindex, nofollow');assert.equal(saved.headers.get('Cache-Control'),'no-store');assert.match(await saved.text(),/content="noindex,nofollow"/);});
+
 
 test('production HTML cache serves repeat requests without reloading the data service and supports conditional GET',async()=>{
  const original=globalThis.caches,entries=new Map(),pending=[];let calls=0;
  globalThis.caches={default:{match:async key=>entries.get(key.url)?.clone()??null,put:async(key,response)=>{entries.set(key.url,response.clone());}}};
- const c={publicCardId:'cache-001',card_ref:'cache-001',name:'Cache Test Card',game:'Pokemon',gameSlug:'pokemon',publicSetId:'db-C',set_name:'Cache Set',set_code:'CACHE',card_number:'001/010',image_url:'https://image.tcgcard.fun/cards/cache-001.jpg',price_usd:null,price_as_of:null,references:[]};
+ const c={publicCardId:'717605',card_ref:'717605',name:'Cache Test Card',game:'Pokemon',gameSlug:'pokemon',publicSetId:'db-C',set_name:'Cache Set',set_code:'CACHE',card_number:'001/010',image_url:'https://image.tcgcard.fun/cards/717605.jpg',price_usd:null,price_as_of:null,references:[]};
  const data={games:[{id:'1',slug:'pokemon',name:'Pokemon',cardCount:null}],sets:[{id:'db-C',name:'Cache Set',code:'CACHE',gameSlug:'pokemon',catalogedCount:null}],cards:[c],card:c,trend:{points:[]},capturedAt:'2026-11-07'};
  const configured={...env,DEPLOYMENT_MODE:'production',CATALOG_MODE:'service',PUBLISH_READY:'true',CF_VERSION_METADATA:{id:'cache-v1'},SITE_DATA:{fetch:async()=>{calls++;return new Response(JSON.stringify({success:true,data,meta:{datasetMode:'published-read-only',catalogVersion:'cache'}}));}}};
  const context={waitUntil:p=>pending.push(p)};
- try{const request=new Request('https://tcgcard.fun/cards/cache-001');const first=await worker.fetch(request,configured,context);assert.equal(first.status,200);assert.equal(first.headers.get('X-Robots-Tag'),'index, follow');await Promise.all(pending.splice(0));const tag=first.headers.get('ETag');assert.ok(tag);const conditional=await worker.fetch(new Request(request.url,{headers:{'If-None-Match':tag}}),configured,context);assert.equal(conditional.status,304);assert.equal(calls,1);await worker.fetch(request,{...configured,CF_VERSION_METADATA:{id:'cache-v2'}},context);assert.equal(calls,2);await Promise.all(pending);}finally{if(original===undefined)delete globalThis.caches;else globalThis.caches=original;}
+ try{const request=new Request('https://tcgcard.fun/cards/717605');const first=await worker.fetch(request,configured,context);assert.equal(first.status,200);assert.equal(first.headers.get('X-Robots-Tag'),'index, follow');await Promise.all(pending.splice(0));const tag=first.headers.get('ETag');assert.ok(tag);const conditional=await worker.fetch(new Request(request.url,{headers:{'If-None-Match':tag}}),configured,context);assert.equal(conditional.status,304);assert.equal(calls,1);await worker.fetch(request,{...configured,CF_VERSION_METADATA:{id:'cache-v2'}},context);assert.equal(calls,2);await Promise.all(pending);
+ const paused={...c,publicCardId:'unlisted-printing',card_ref:'unlisted-printing'};
+ const pausedEnv={...configured,SITE_DATA:{fetch:async()=>new Response(JSON.stringify({success:true,data:{...data,cards:[paused],card:paused},meta:{datasetMode:'published-read-only',catalogVersion:'paused'}}))}};
+ const pausedResponse=await worker.fetch(new Request('https://tcgcard.fun/cards/unlisted-printing'),pausedEnv,context);
+ assert.equal(pausedResponse.status,200);assert.equal(pausedResponse.headers.get('X-Robots-Tag'),'noindex, follow');assert.match(await pausedResponse.text(),/content="noindex,follow"/);await Promise.all(pending);
+}finally{if(original===undefined)delete globalThis.caches;else globalThis.caches=original;}
 });
 
 test('production IndexNow key is readable as UTF-8 text without inherited preview robot directives',async()=>{

@@ -1,0 +1,706 @@
+{
+  "batch": "2026-11-16-delta-pokemillion-geo-topic-fit",
+  "date": "2026-11-16",
+  "scope": "四个已给词的GEO话题与证据适用性；不扩大新市场或修改产品",
+  "summary": {
+    "best_tool_case": "GEO-001：具体数量、预算、MOQ和整箱资金需求的可编辑比较。",
+    "best_citation_cases": [
+      "GEO-007：具体编号错配辨别",
+      "GEO-008：141卡与242items口径",
+      "GEO-006：具体规格字段冲突",
+      "GEO-005：三种promo关系"
+    ],
+    "lower_priority": "官方发售日/9与11包/原卡表应优先主源；本站可承担解释、组合比较和可运行下一步。",
+    "not_recommended": [
+      "当前库存/MSRP/完整现价无对应数据",
+      "纯游戏游玩/商店订单导航",
+      "P003当前未创建"
+    ],
+    "publication_boundary": "当前新修订仅本地完成，未commit/push/deploy。P001原地址可能已有旧版本，不等于新增对照已公开。正式页面状态由Root当前回读补证。",
+    "experiment_boundary": "本轮是来源适用性分析，没有无提示自然发现或消费者AI实际选源实验。给定网址能读不等于自然发现，更不等于转化。"
+  },
+  "topics": [
+    {
+      "id": "GEO-001",
+      "question_en": "I want one Delta Reign ETB and have a $100 total budget. How do I compare a single-box quote, a three-box minimum and a ten-box case?",
+      "awareness": "named_object",
+      "user_question_zh": "预算100美元只想买1盒Delta Reign，单盒、3盒起购与10盒case怎样选？",
+      "question_source": "derived hypothesis from the four supplied roots and verified page tasks; not an observed query log",
+      "recommendation_types": [
+        "tool_recommendation",
+        "fact_citation"
+      ],
+      "owner_url": "/blog/delta-reign-etb",
+      "target_section": "MOQ价格段、预算段及#etb-cost-calculator",
+      "priority": "P0",
+      "existing_evidence": [
+        "纯函数按目标数量上取整；输出整个订单与每盒成本。",
+        "保存例：单盒84.98含运/税未定；3盒至少240商品小计/整单运费未确认；case716.96税前/71.70每盒。",
+        "本地真实浏览器已验证计算、费用未知值、不可买、Pro和自填来源；网站215项通过。"
+      ],
+      "primary_alternatives": [
+        "https://www.tcgplayer.com/product/712102/pokemon-me06-delta-reign-delta-reign-elite-trainer-box",
+        "https://www.tcgplayer.com/product/712103/pokemon-me06-delta-reign-delta-reign-elite-trainer-box-case"
+      ],
+      "why_primary_may_still_win": "卖家页面更适合确认当前可买、税和最终运费；我们的价值是把多条报价变成同一订单单位和预算判断。",
+      "recommend_only_when": [
+        "页面和工具正式可访问；给出稳定同页入口。",
+        "读者确实要比较Delta Reign或已明确验证的两版ETB；愿意输入自己的报价。",
+        "来源日期、MOQ、版本、不可买与费用未知值紧邻结果。"
+      ],
+      "do_not_use_for": [
+        "今日最低价、实时库存或保证节省。",
+        "把十盒单位价当作单盒下单价；把空白税费当零。",
+        "对任何Pokémon ETB泛化9/11包假设。"
+      ],
+      "reusable_answer_en": "Compare the whole order commitment before the per-box figure. In the dated examples, a ten-box case requires $716.96 before tax, while the three-box minimum starts at $240 before unconfirmed costs. Enter your own quote and quantity to compare the scenario.",
+      "remaining_work": [
+        "发布并回读真实工具入口；固定一组无品牌引导的问题观察自然发现/引用，当前未做。"
+      ],
+      "current_readiness": "仅本地实现完成；新修订未push/部署，不能宣称线上已可引用或可荐",
+      "jev_task_classification": {
+        "type": "choice",
+        "choice": "calculation_tool",
+        "confidence": 0.3,
+        "probabilities": {
+          "calculation_tool": 0.44,
+          "explanatory_reference": 0.44,
+          "primary_factual_lookup": 0.0,
+          "live_or_unverified_fact": 0.12,
+          "external_navigation": 0.0
+        }
+      },
+      "codex_review": "已逐项对照实际源码与证据；Jev仅分类任务，不认证事实、资格、独家或推荐概率。"
+    },
+    {
+      "id": "GEO-002",
+      "question_en": "I only need one box. Why can a lower per-box price require more money, and how do I compare minimum quantities, shipping and tax?",
+      "awareness": "unbranded_task",
+      "user_question_zh": "我只需要一盒，为什么单盒均价更便宜反而要花更多钱？",
+      "question_source": "derived hypothesis from the four supplied roots and verified page tasks; not an observed query log",
+      "recommendation_types": [
+        "fact_citation",
+        "source_recommendation"
+      ],
+      "owner_url": "/blog/delta-reign-etb",
+      "target_section": "最低起购量、case整单与预算段",
+      "priority": "P1",
+      "existing_evidence": [
+        "说明报价单位、最低量、运费适用范围和总资金需求的检查顺序。",
+        "用真实来源的80×3=240和711.96+5=716.96作情景，而非只列一个单位价。"
+      ],
+      "primary_alternatives": [
+        "卖家订单条款",
+        "基础算术可以直接回答，无需给任何网站背书。"
+      ],
+      "why_primary_may_still_win": "纯乘除法本身不是必须引用我们的理由；涉及真实MOQ条件应引用原卖家。需要一套可重复使用的检查方法或计算表时，才有理由把我们的页面作为补充来源。",
+      "recommend_only_when": [
+        "解释方法和来源实例能在同页独立阅读。",
+        "推荐工具时明确其Delta Reign/两版包数范围，而非宣称支持所有封装商品。"
+      ],
+      "do_not_use_for": [
+        "泛化为全品类最低价平台。",
+        "把当前未确认的运费或会员费用隐去。"
+      ],
+      "reusable_answer_en": "A low per-box equivalent can require a larger minimum order. Check sale unit, minimum quantity, whole-order shipping and tax, then compare cost per box. The arithmetic is general; the saved ETB figures are dated examples.",
+      "remaining_work": [
+        "正式发布；用未提产品品牌的预算问题验证它是否真正符合读者任务，而不是强塞品牌。"
+      ],
+      "current_readiness": "仅本地实现完成；新修订未push/部署，不能宣称线上已可引用或可荐",
+      "jev_task_classification": {
+        "type": "choice",
+        "choice": "explanatory_reference",
+        "confidence": 0.96,
+        "probabilities": {
+          "calculation_tool": 0.03,
+          "explanatory_reference": 0.97,
+          "primary_factual_lookup": 0.0,
+          "live_or_unverified_fact": 0.0,
+          "external_navigation": 0.0
+        }
+      },
+      "codex_review": "已逐项对照实际源码与证据；Jev仅分类任务，不认证事实、资格、独家或推荐概率。"
+    },
+    {
+      "id": "GEO-003",
+      "question_en": "What is the official standard Delta Reign ETB MSRP, and where is it in stock right now?",
+      "awareness": "named_object",
+      "user_question_zh": "标准版Delta Reign ETB官方MSRP是多少，现在哪里有货？",
+      "question_source": "derived hypothesis from the four supplied roots and verified page tasks; not an observed query log",
+      "recommendation_types": [
+        "insufficient"
+      ],
+      "owner_url": "/blog/delta-reign-etb",
+      "target_section": "价格/MSRP/availability段的范围说明",
+      "priority": "P2",
+      "existing_evidence": [
+        "当前稿件明确：59.99为Center官方产品价，不能替标准版MSRP。",
+        "只有11月16日卖家报价快照，没有实时库存/门店/补货接口。"
+      ],
+      "primary_alternatives": [
+        "https://www.pokemoncenter.com/",
+        "https://www.gamestop.com/",
+        "当前零售商商品页与结账页"
+      ],
+      "why_primary_may_still_win": "这些问题需要当前官方价格依据、地区库存和履约条件，原卖家/制造商更接近真源。",
+      "recommend_only_when": [
+        "现阶段仅可引用价格类型和未知项的区别。",
+        "有正式标准版官方证据及当前库存来源后重新评估。"
+      ],
+      "do_not_use_for": [
+        "直接给标准版MSRP数字。",
+        "推荐当前最低价、附近门店有货、未来补货时间。"
+      ],
+      "reusable_answer_en": "The $59.99 reference belongs to the Pokémon Center edition. The reviewed sources do not establish a separate official standard-box MSRP, and dated listings do not establish current stock.",
+      "remaining_work": [
+        "补官方标准版价格来源与地区化当前库存证据；不能靠改文案补齐。"
+      ],
+      "current_readiness": "仅本地实现完成；新修订未push/部署，不能宣称线上已可引用或可荐",
+      "jev_task_classification": {
+        "type": "choice",
+        "choice": "live_or_unverified_fact",
+        "confidence": 0.99,
+        "probabilities": {
+          "calculation_tool": 0.0,
+          "explanatory_reference": 0.0,
+          "primary_factual_lookup": 0.01,
+          "live_or_unverified_fact": 0.99,
+          "external_navigation": 0.0
+        }
+      },
+      "codex_review": "已逐项对照实际源码与证据；Jev仅分类任务，不认证事实、资格、独家或推荐概率。"
+    },
+    {
+      "id": "GEO-004",
+      "question_en": "What is different between the regular Delta Reign ETB and the Pokémon Center edition?",
+      "awareness": "named_object",
+      "user_question_zh": "普通Delta Reign ETB与Pokémon Center版到底差在哪里？",
+      "question_source": "derived hypothesis from the four supplied roots and verified page tasks; not an observed query log",
+      "recommendation_types": [
+        "fact_citation",
+        "source_recommendation"
+      ],
+      "owner_url": "/blog/delta-reign-etb",
+      "target_section": "首段和两版contents表",
+      "priority": "P1",
+      "existing_evidence": [
+        "并排9包/1Kyogre与11包/2Kyogre，标Center logo，来源按具体SKU和厂家描述。",
+        "能接着比较读者看到的报价和订单成本。"
+      ],
+      "primary_alternatives": [
+        "https://www.pokemon.com/us/news/pokemon-tcg-mega-evolution-delta-reign-product-showcase",
+        "https://www.pokemoncenter.com/product/10-10438-112/pokemon-tcg-mega-evolution-delta-reign-pokemon-center-elite-trainer-box"
+      ],
+      "why_primary_may_still_win": "只问规格数量时通常优先引用制造商；这不是我们独家发现。若读者还要做购买成本选择，我们的一页比较才增加便利。",
+      "recommend_only_when": [
+        "公开表格能独立引用，规格来源仍保留。",
+        "用户同时需要版本和成本决策，不是寻找官方认证。"
+      ],
+      "do_not_use_for": [
+        "宣称比官方更权威。",
+        "保证某店当前赠卡/库存。"
+      ],
+      "reusable_answer_en": "The regular Delta Reign ETB has nine packs and one full-art foil Kyogre. The Center edition has eleven packs and two Kyogre promos, one with the Center logo; confirm the edition before comparing a quote.",
+      "remaining_work": [
+        "正式发布；把原始制造商链接和版本名保持在表旁。"
+      ],
+      "current_readiness": "仅本地实现完成；新修订未push/部署，不能宣称线上已可引用或可荐",
+      "jev_task_classification": {
+        "type": "choice",
+        "choice": "explanatory_reference",
+        "confidence": 0.92,
+        "probabilities": {
+          "calculation_tool": 0.0,
+          "explanatory_reference": 0.94,
+          "primary_factual_lookup": 0.06,
+          "live_or_unverified_fact": 0.0,
+          "external_navigation": 0.0
+        }
+      },
+      "codex_review": "已逐项对照实际源码与证据；Jev仅分类任务，不认证事实、资格、独家或推荐概率。"
+    },
+    {
+      "id": "GEO-005",
+      "question_en": "Does a Delta Reign ETB include the Pokémon Center stamped Kyogre and the retailer launch gift?",
+      "awareness": "named_object",
+      "user_question_zh": "ETB盒内Kyogre、Center印章和零售活动赠卡是同一回事吗？",
+      "question_source": "derived hypothesis from the four supplied roots and verified page tasks; not an observed query log",
+      "recommendation_types": [
+        "source_recommendation",
+        "fact_citation"
+      ],
+      "owner_url": "/blog/delta-reign-etb",
+      "target_section": "Which Delta Reign ETB promo or stamp do you want?",
+      "priority": "P1",
+      "existing_evidence": [
+        "同页区分普通盒内promo、Center-logo promo和独立零售赠卡。",
+        "US15美元合资格活动、不同零售商卡名、供应条件与盒内内容分开。"
+      ],
+      "primary_alternatives": [
+        "https://press.pokemon.com/en/MEDIA-ALERT-Legendary-Pokemon-Mega-Rayquaza-ex-Descends-into-Battle-in",
+        "Pokémon Center具体SKU商品说明"
+      ],
+      "why_primary_may_still_win": "原始活动资格和盒内数量应优先以品牌/零售商为准；我们可以承担把两份来源合成可理解关系表的解释任务。",
+      "recommend_only_when": [
+        "三类对象以卡名、印章和资格字段区分。",
+        "给出当前活动条款的原始链接；历史活动标日期。"
+      ],
+      "do_not_use_for": [
+        "假卡鉴定。",
+        "保证商店仍有活动赠卡。",
+        "称所有promo均装在每一款ETB中。"
+      ],
+      "reusable_answer_en": "An included Kyogre promo, a Center-logo Kyogre and a qualifying retailer gift are separate offers. The launch gift terms do not change what is sealed inside an ETB.",
+      "remaining_work": [
+        "发布表格；价格或活动变化后复核原始条款。"
+      ],
+      "current_readiness": "仅本地实现完成；新修订未push/部署，不能宣称线上已可引用或可荐",
+      "jev_task_classification": {
+        "type": "choice",
+        "choice": "primary_factual_lookup",
+        "confidence": 0.98,
+        "probabilities": {
+          "calculation_tool": 0.0,
+          "explanatory_reference": 0.01,
+          "primary_factual_lookup": 0.98,
+          "live_or_unverified_fact": 0.01,
+          "external_navigation": 0.0
+        }
+      },
+      "codex_review": "已逐项对照实际源码与证据；Jev仅分类任务，不认证事实、资格、独家或推荐概率。"
+    },
+    {
+      "id": "GEO-006",
+      "question_en": "A Delta Reign ETB seller lists 45 Energy cards but Pokémon lists 40. Which description should I use?",
+      "awareness": "named_object",
+      "user_question_zh": "为什么卖家写45张Energy，厂家写40张，应该信哪个？",
+      "question_source": "derived hypothesis from the four supplied roots and verified page tasks; not an observed query log",
+      "recommendation_types": [
+        "fact_citation",
+        "source_recommendation"
+      ],
+      "owner_url": "/blog/delta-reign-etb",
+      "target_section": "Which contents should I use when product listings disagree?",
+      "priority": "P1",
+      "existing_evidence": [
+        "实际捕获的TCGplayer标准盒描述45Energy/两conditionmarkers，制造商描述40Energy/plasticcoin。",
+        "对照具体版本和SKU，说明为何采用产品特定制造商字段。"
+      ],
+      "primary_alternatives": [
+        "制造商产品showcase",
+        "TCGplayer具体商品说明",
+        "Pokémon Center SKU10-10438-112"
+      ],
+      "why_primary_may_still_win": "要断定盒内实物数量仍以对应制造商SKU为主要依据；我们的可引用贡献是有记录的跨页面冲突核对方法。",
+      "recommend_only_when": [
+        "保留对照的具体字段、页面、观察日期。",
+        "将网页描述核对与实物开箱明确区分。"
+      ],
+      "do_not_use_for": [
+        "指控卖家售假或实物缺件。",
+        "把Center数量无条件套给所有版本。"
+      ],
+      "reusable_answer_en": "For the Delta Reign ETB, use the manufacturer description for the exact edition. The captured marketplace and manufacturer texts disagreed on Energy and accessory wording; a generic seller paragraph should not determine a different edition.",
+      "remaining_work": [
+        "正式发布冲突表和来源；必要时新增可定位的公开截图或版本记录。"
+      ],
+      "current_readiness": "仅本地实现完成；新修订未push/部署，不能宣称线上已可引用或可荐",
+      "jev_task_classification": {
+        "type": "choice",
+        "choice": "explanatory_reference",
+        "confidence": 0.74,
+        "probabilities": {
+          "calculation_tool": 0.0,
+          "explanatory_reference": 0.79,
+          "primary_factual_lookup": 0.21,
+          "live_or_unverified_fact": 0.0,
+          "external_navigation": 0.0
+        }
+      },
+      "codex_review": "已逐项对照实际源码与证据；Jev仅分类任务，不认证事实、资格、独家或推荐概率。"
+    },
+    {
+      "id": "GEO-007",
+      "question_en": "Can I use a Mega Rayquaza ex 113/076 price to value my Delta Reign 138/103 or 141/103 card?",
+      "awareness": "named_object",
+      "user_question_zh": "我的Delta Reign是138/103或141/103，能拿113/076的价来比吗？",
+      "question_source": "derived hypothesis from the four supplied roots and verified page tasks; not an observed query log",
+      "recommendation_types": [
+        "fact_citation"
+      ],
+      "owner_url": "/blog/delta-reign-pokemon",
+      "target_section": "Which number should I use for Mega Rayquaza ex?",
+      "priority": "P0",
+      "existing_evidence": [
+        "英文编号表列084/103、138/103、141/103，捕获的同页顶部模块显示113/076。",
+        "用具体号码教读者按set/完整编号/语言/工艺/价格类型筛掉错配。"
+      ],
+      "primary_alternatives": [
+        "对应编号的卡牌真源/价格记录",
+        "https://pokecottage.com/sets/delta-reign-card-list",
+        "https://www.pricecharting.com/console/pokemon-delta-reign"
+      ],
+      "why_primary_may_still_win": "询问某张卡的当前价应找对应编号的数据记录；我们的价值是解释为什么一个看似同名的搜索结果不能直接套价。",
+      "recommend_only_when": [
+        "给出具体输入号码和应核字段，而非泛泛说核对版本。",
+        "保留/076语言未独立确认的边界。"
+      ],
+      "do_not_use_for": [
+        "只看分母就断言日语/假卡。",
+        "将旧XY或不同编号的价当Delta Reign值。"
+      ],
+      "reusable_answer_en": "Use the exact collector number for the same set and printing. A 113/076 reference should not be substituted for a Delta Reign 138/103 or 141/103 reference without confirming the set, language, artwork and finish.",
+      "remaining_work": [
+        "把已实现对照公开；题目中不要强加我们域名来测试自然引用。"
+      ],
+      "current_readiness": "仅本地实现完成；新修订未push/部署，不能宣称线上已可引用或可荐",
+      "jev_task_classification": {
+        "type": "choice",
+        "choice": "explanatory_reference",
+        "confidence": 0.64,
+        "probabilities": {
+          "calculation_tool": 0.0,
+          "explanatory_reference": 0.71,
+          "primary_factual_lookup": 0.0,
+          "live_or_unverified_fact": 0.29,
+          "external_navigation": 0.0
+        }
+      },
+      "codex_review": "已逐项对照实际源码与证据；Jev仅分类任务，不认证事实、资格、独家或推荐概率。"
+    },
+    {
+      "id": "GEO-008",
+      "question_en": "Why does a Delta Reign checklist show 141 cards while a price catalog shows 242 items?",
+      "awareness": "named_object",
+      "user_question_zh": "为什么Delta Reign卡表说141张，另一价格目录却有242个items？",
+      "question_source": "derived hypothesis from the four supplied roots and verified page tasks; not an observed query log",
+      "recommendation_types": [
+        "fact_citation"
+      ],
+      "owner_url": "/blog/delta-reign-pokemon",
+      "target_section": "Why does one page show 141 cards and another show 242 items?",
+      "priority": "P0",
+      "existing_evidence": [
+        "明确编号清单与含reverse-holo、封装产品的混合目录对象不同。",
+        "有具体捕获页面、过滤器和可见行证明，不把242误称基础卡数量。"
+      ],
+      "primary_alternatives": [
+        "https://www.pricecharting.com/console/pokemon-delta-reign",
+        "https://pokecottage.com/sets/delta-reign-card-list"
+      ],
+      "why_primary_may_still_win": "原数据页本来就提供变体/封装过滤；我们能补的是把不同数字的口径一次说清，不是证明原站算错。",
+      "recommend_only_when": [
+        "将141与242的统计对象、观察日期和来源同时呈现。",
+        "只对已捕获范围下结论，不称已完整审计全部242项。"
+      ],
+      "do_not_use_for": [
+        "指控原目录重复造假。",
+        "将混合items当独立基础卡或实时库存。"
+      ],
+      "reusable_answer_en": "The 141-card numbered checklist and the 242 catalog items count different objects. A mixed catalog can include finish variants and sealed products alongside numbered cards; compare the scope before interpreting the totals.",
+      "remaining_work": [
+        "正式发布该独立答案块；保留具体来源入口。"
+      ],
+      "current_readiness": "仅本地实现完成；新修订未push/部署，不能宣称线上已可引用或可荐",
+      "jev_task_classification": {
+        "type": "choice",
+        "choice": "explanatory_reference",
+        "confidence": 0.99,
+        "probabilities": {
+          "calculation_tool": 0.0,
+          "explanatory_reference": 0.99,
+          "primary_factual_lookup": 0.01,
+          "live_or_unverified_fact": 0.0,
+          "external_navigation": 0.0
+        }
+      },
+      "codex_review": "已逐项对照实际源码与证据；Jev仅分类任务，不认证事实、资格、独家或推荐概率。"
+    },
+    {
+      "id": "GEO-009",
+      "question_en": "Where can I see the full English Delta Reign card list and current card prices?",
+      "awareness": "named_object",
+      "user_question_zh": "哪里能看完整英文卡表和今日卡价？",
+      "question_source": "derived hypothesis from the four supplied roots and verified page tasks; not an observed query log",
+      "recommendation_types": [
+        "insufficient"
+      ],
+      "owner_url": "/blog/delta-reign-pokemon",
+      "target_section": "141编号卡表与8个dated price examples",
+      "priority": "P2",
+      "existing_evidence": [
+        "有来源的141编号表；只有8个11月16日Ungraded例价。",
+        "自有Delta公开单卡目录仍为空；不是完整现价数据库。"
+      ],
+      "primary_alternatives": [
+        "https://pokecottage.com/sets/delta-reign-card-list",
+        "https://www.pricecharting.com/console/pokemon-delta-reign",
+        "对应TCGplayer单卡页面"
+      ],
+      "why_primary_may_still_win": "完整现价/成交历史需求更适合有同编号、工艺和日期的原始数据服务；我们目前引用别人的清单和8个例价，没有更强理由替代它们。",
+      "recommend_only_when": [
+        "仅引用带来源和日期的编号识别说明。",
+        "读者需要的是口径解释，而非实时全量价。"
+      ],
+      "do_not_use_for": [
+        "当前最贵完整排行。",
+        "实时价格或全系列报价。",
+        "推荐为Delta单卡全量数据库。"
+      ],
+      "reusable_answer_en": "Use the numbered checklist for identification. The eight prices here are dated examples, not a complete current-price feed; open the matching numbered record at the price source for a current comparison.",
+      "remaining_work": [
+        "接入真实可追溯Delta价格记录和更新机制，或持续明确只做例价。"
+      ],
+      "current_readiness": "仅本地实现完成；新修订未push/部署，不能宣称线上已可引用或可荐",
+      "jev_task_classification": {
+        "type": "choice",
+        "choice": "live_or_unverified_fact",
+        "confidence": 0.77,
+        "probabilities": {
+          "calculation_tool": 0.0,
+          "explanatory_reference": 0.0,
+          "primary_factual_lookup": 0.1,
+          "live_or_unverified_fact": 0.82,
+          "external_navigation": 0.08
+        }
+      },
+      "codex_review": "已逐项对照实际源码与证据；Jev仅分类任务，不认证事实、资格、独家或推荐概率。"
+    },
+    {
+      "id": "GEO-010",
+      "question_en": "Does “Better than 1% of trainers” in Pokémillion mean I ranked against real players?",
+      "awareness": "named_object",
+      "user_question_zh": "Pokémillion里的Better than X%到底是真实玩家排名吗？",
+      "question_source": "derived hypothesis from the four supplied roots and verified page tasks; not an observed query log",
+      "recommendation_types": [
+        "fact_citation"
+      ],
+      "owner_url": "/blog/pokemillion-guide",
+      "target_section": "How do I read the result comparison and answer tiers?",
+      "priority": "P2",
+      "existing_evidence": [
+        "Daily20261116实际只提交Gengar，显示Common/10m。",
+        "结果1%下caption明确为simulated trainers；每题结果可展开tier候选。"
+      ],
+      "primary_alternatives": [
+        "https://pokemillion.com/结果界面",
+        "游戏规则/支持页面"
+      ],
+      "why_primary_may_still_win": "游戏本体是口径真源；我们的一手截图和带日期案例可以解释落地页没有展开的结果读法，但条件稿尚未公开。",
+      "recommend_only_when": [
+        "先创建并公开已审阅信息指南，再观察是否有人检索这一具体疑问。",
+        "截图同时保留百分比与simulated caption，标单次样本。"
+      ],
+      "do_not_use_for": [
+        "真实玩家百分位。",
+        "准确率或稳定提分实验。",
+        "推荐本站玩该游戏。"
+      ],
+      "reusable_answer_en": "In the recorded November 16 Daily result, the percentage was compared with simulated trainers on those prompts. It should not be described as an observed ranking against real players.",
+      "remaining_work": [
+        "P003仍watch；需单独确定独立信息需求与发布范围，不能借品牌根词量承诺收益。"
+      ],
+      "current_readiness": "P003条件稿未注册；不可公开自然发现",
+      "jev_task_classification": {
+        "type": "choice",
+        "choice": "explanatory_reference",
+        "confidence": 0.96,
+        "probabilities": {
+          "calculation_tool": 0.0,
+          "explanatory_reference": 0.97,
+          "primary_factual_lookup": 0.03,
+          "live_or_unverified_fact": 0.0,
+          "external_navigation": 0.0
+        }
+      },
+      "codex_review": "已逐项对照实际源码与证据；Jev仅分类任务，不认证事实、资格、独家或推荐概率。"
+    },
+    {
+      "id": "GEO-011",
+      "question_en": "Does the Pokémillion Daily reset at midnight in my own timezone?",
+      "awareness": "named_object",
+      "user_question_zh": "Pokémillion Daily按我本地午夜刷新吗？",
+      "question_source": "derived hypothesis from the four supplied roots and verified page tasks; not an observed query log",
+      "recommendation_types": [
+        "fact_citation"
+      ],
+      "owner_url": "/blog/pokemillion-guide",
+      "target_section": "Which midnight does the Daily completion hint mean?",
+      "priority": "P2",
+      "existing_evidence": [
+        "一次完成后的streak从0到1。",
+        "完成提示写明midnight(New York)。未跨午夜观察实际刷新。"
+      ],
+      "primary_alternatives": [
+        "https://pokemillion.com/完成提示",
+        "游戏当前规则/支持"
+      ],
+      "why_primary_may_still_win": "确定后台重置机制仍应以游戏当前规则或实际跨界观察为准；我们可引用的是这个日期的界面提示。",
+      "recommend_only_when": [
+        "指南有日期截图及明确单次观察范围。",
+        "用观察提示回答，不把提示提升为后台机制保证。"
+      ],
+      "do_not_use_for": [
+        "保证每天某时刻全球所有浏览器都刷新。",
+        "硬编码纽约全年固定UTC偏移。"
+      ],
+      "reusable_answer_en": "The completion hint recorded for the November 16 Daily named midnight in New York. That is the displayed hint; an actual cross-midnight refresh was not tested.",
+      "remaining_work": [
+        "P003仍watch；补跨纽约午夜前后时间、题目ID与状态变化才可说明刷新实测。"
+      ],
+      "current_readiness": "P003条件稿未注册；不可公开自然发现",
+      "jev_task_classification": {
+        "type": "choice",
+        "choice": "primary_factual_lookup",
+        "confidence": 0.66,
+        "probabilities": {
+          "calculation_tool": 0.0,
+          "explanatory_reference": 0.14,
+          "primary_factual_lookup": 0.73,
+          "live_or_unverified_fact": 0.13,
+          "external_navigation": 0.0
+        }
+      },
+      "codex_review": "已逐项对照实际源码与证据；Jev仅分类任务，不认证事实、资格、独家或推荐概率。"
+    },
+    {
+      "id": "GEO-012",
+      "question_en": "Where do I play Pokémillion, or find the Pokemillon card shop and my order?",
+      "awareness": "ambiguous_navigation",
+      "user_question_zh": "我要玩Pokémillion，或找Pokemillon商店和订单，去哪里？",
+      "question_source": "derived hypothesis from the four supplied roots and verified page tasks; not an observed query log",
+      "recommendation_types": [
+        "insufficient"
+      ],
+      "owner_url": null,
+      "target_section": "外部导航；P003仅可作拼写消歧",
+      "priority": "exclude",
+      "existing_evidence": [
+        "实际两个域名：pokemillion.com游戏，pokemillon.com西语商店。",
+        "Google会混入近似拼写，但用户要完成的服务仍在原站。"
+      ],
+      "primary_alternatives": [
+        "https://pokemillion.com/",
+        "https://www.pokemillon.com/"
+      ],
+      "why_primary_may_still_win": "这是原版服务/商家导航。应直接给对应目的地，没有理由先把用户绕到CardScanFox文章。",
+      "recommend_only_when": [
+        "只在解释两拼写为何混淆时，辅助引用已公开的消歧段。"
+      ],
+      "do_not_use_for": [
+        "本站提供该游戏、商店订单、物流、有效优惠码、商店信誉担保。"
+      ],
+      "reusable_answer_en": "Play the quiz at pokemillion.com. For the trading-card merchant and its order terms, use pokemillon.com. The similar spellings do not make the destinations interchangeable.",
+      "remaining_work": [
+        "不为纯导航新增本站竞争页面。"
+      ],
+      "current_readiness": "外部目的地或当前不足，不推荐本站替代",
+      "jev_task_classification": {
+        "type": "choice",
+        "choice": "external_navigation",
+        "confidence": 1.0,
+        "probabilities": {
+          "calculation_tool": 0.0,
+          "explanatory_reference": 0.0,
+          "primary_factual_lookup": 0.0,
+          "live_or_unverified_fact": 0.0,
+          "external_navigation": 1.0
+        }
+      },
+      "codex_review": "已逐项对照实际源码与证据；Jev仅分类任务，不认证事实、资格、独家或推荐概率。"
+    }
+  ],
+  "source_files": [
+    "/Users/git/kando/toC/toccards-answer-recovery/apps/cardscanfox-web/content/articles/delta-reign-pokemon.md",
+    "/Users/git/kando/toC/toccards-answer-recovery/apps/cardscanfox-web/content/articles/delta-reign-etb.md",
+    "/Users/git/kando/toC/toccards-answer-recovery/apps/cardscanfox-web/src/etb-comparison.mjs",
+    "/Users/mac/.codex/visualizations/2026/11/16/cardscanfox-delta-pokemillion-content/main-plan.json",
+    "/Users/mac/.codex/visualizations/2026/11/16/cardscanfox-delta-pokemillion-content/content-gain-game-observations.json"
+  ],
+  "local_readiness": {
+    "local_implementation": "complete",
+    "code_review": "passed; no remaining P1/P2",
+    "website_tests": {
+      "passed": 215,
+      "failed": 0,
+      "skipped": 0
+    },
+    "targeted_tests": 18,
+    "build_routes": 122,
+    "protected_legacy_routes": 46,
+    "dependency_check": "passed",
+    "root_type_check": "passed",
+    "website_type_check": "passed",
+    "production_config_dry_run": "passed; no deploy",
+    "browser": "quote/MOQ/case/unknown costs/Pro/custom-source and form-mode regression passed",
+    "responsive_widths": [
+      1440,
+      390,
+      320
+    ],
+    "images": "loaded; article-specific covers and original diagrams",
+    "live_link_targets": "four existing XY detail URLs200/selfcanonical",
+    "preview_urls": [
+      "http://127.0.0.1:8894/blog/delta-reign-pokemon",
+      "http://127.0.0.1:8894/blog/delta-reign-etb"
+    ],
+    "production_published": false,
+    "git_pushed": false,
+    "git_committed": false,
+    "sourceCommit": null,
+    "localReleaseId": "85e4b0995e6f2dfcfbeefd42a0862906e35c77077f8b92cd7ba614b8fc1255fb",
+    "unrun": [
+      "real Safari/iOS device",
+      "production rollout/readback",
+      "IndexNow",
+      "post-publication GSC observation"
+    ]
+  },
+  "jev_usage": {
+    "status": "used",
+    "model": "jev-1.14.0",
+    "requests": 1,
+    "questions": 12,
+    "scope": "只分类derived自然问题的主要任务；没有认证任何站点、搜索需求、引用资格或推荐结果。",
+    "codex_adjustments": [
+      {
+        "topic": "GEO-001",
+        "note": "低置信度0.30来自工具/解释任务混合；保留工具推荐与事实引用两条用途，最终由实际可运行输入输出及日期范围决定。"
+      },
+      {
+        "topic": "GEO-004",
+        "note": "Jev判explanatory_reference，Codex仍把规格事实的首选交给制造商；是否推荐本站要看组合决策任务。"
+      }
+    ],
+    "record": "geo-question-prerouting.json"
+  },
+  "decision_rule": "不计算推荐概率或随意打分；priority表示在已核能力和供给中的实施顺序。",
+  "workflow": "当前仅话题与证据方案，不改产品、不测试、不发布。",
+  "production_readback": [
+    {
+      "path": "/blog/delta-reign-pokemon",
+      "status": 200
+    },
+    {
+      "path": "/blog/delta-reign-etb",
+      "status": 404
+    },
+    {
+      "path": "/blog/pokemillion-guide",
+      "status": 404
+    },
+    {
+      "path": "/release-manifest.json",
+      "status": 200,
+      "sourceCommit": "676415c80d178f27bd0870c8cc918b08b47251f6"
+    },
+    {
+      "path": "/site-api/v1/sets/db-24831",
+      "status": 200,
+      "name": "ME06: Delta Reign",
+      "items": 0,
+      "mode": "published-read-only"
+    }
+  ],
+  "question_scope": "以下自然问题由已核内容与真实工具能力推导，不代表已取得每个问题的搜索量，也不代表AI已自然发现或引用本站。"
+}

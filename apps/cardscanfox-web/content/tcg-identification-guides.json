@@ -1,0 +1,42 @@
+[
+  {
+    "id": "digimon",
+    "name": "Digimon",
+    "heading": "Digimon: match the number, artwork and promo release",
+    "paragraphs": [
+      "Read the full printed set code and card number, then compare the artwork. A standard card and an alternate-art or parallel version can share a number. The number narrows the search; the picture and treatment select the printing.",
+      "Keep box toppers and tournament promos separate from regular set cards. Match the product or event marking and language before choosing a record. If several candidates share the same number, open their details and compare the full card front instead of picking the highest price.",
+      "For a price comparison, use the exact artwork, language and finish. A missing promo record or price stays unresolved. Try the game-specific text search above with the printed number before substituting a different release."
+    ]
+  },
+  {
+    "id": "lorcana",
+    "name": "Disney Lorcana",
+    "heading": "Lorcana: separate Enchanted artwork and foil treatments",
+    "paragraphs": [
+      "Match the set, full collector number and artwork before comparing a Lorcana price. The familiar character name is a search clue; it does not select one printing. Compare an Enchanted treatment against the card image, rather than assuming every foil card is Enchanted.",
+      "Check foil and non-foil copies separately. Photograph the front straight on in even light, then compare the finish on the physical copy with the selected record. A photo can suggest candidates; review the actual treatment before saving or pricing the card.",
+      "If the artwork matches but the language or finish differs, continue the search for your printing. Open its available price and observation date. Use the app for owned holdings and folders; the website scanner returns reference candidates."
+    ]
+  },
+  {
+    "id": "flesh-and-blood",
+    "name": "Flesh and Blood",
+    "heading": "Flesh and Blood: check foil type and edition together",
+    "paragraphs": [
+      "Compare the printed set and collector number, language and artwork, then check whether the copy is non-foil, rainbow foil or cold foil. Similar artwork does not make these finishes the same reference. Inspect the physical card in light when the photo does not resolve the treatment.",
+      "Where a release has First Edition and Unlimited printings, inspect the actual product and card markings before selecting a record. Do not infer an edition from the character, set name or a larger displayed price. Keep edition evidence with the copy you are checking.",
+      "Open the matching published record for its available price and date. If the correct edition or finish is missing, use the full number in text search and leave the match unresolved rather than borrow the value from another printing."
+    ]
+  },
+  {
+    "id": "dragon-ball-super",
+    "name": "Dragon Ball Super",
+    "heading": "Dragon Ball Super: confirm catalog coverage before choosing a match",
+    "paragraphs": [
+      "Dragon Ball Super coverage is not confirmed. Start by checking whether the game and exact printing appear in the available catalog. The general TCG scanner is a way to look for a matching published record; it is not a promise that every release is covered.",
+      "For a candidate, compare the complete set and card number, artwork, language, rarity and finish. Leader cards and alternate-art treatments need their own checks. A Secret Rare or God Rare label does not establish catalog support or identify a price by itself.",
+      "If there is no exact result, keep the card unconfirmed and check its printed details against the release information. Do not choose another game or rarity as a substitute. Use a price only after opening a record that matches the physical copy."
+    ]
+  }
+]

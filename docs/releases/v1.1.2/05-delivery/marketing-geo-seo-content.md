@@ -8,6 +8,14 @@ The marketing site assigns a primary page to each approved intent cluster. The g
 
 ## Page owners
 
+### CardScanFox public website
+
+The CardScanFox website in `apps/cardscanfox-web` assigns Japanese M7 reveal searches to `/blog/aura-seeker-card-list`. The November 18, 2026 preview lists selected cards from [Pokémon Japan](https://www.pokemon-card.com/ex/m7/) and links each card to its official image. Expand the same URL when a complete official checklist is available. Retailer preorder names do not confirm an English release date or checklist. Do not create an English Flowing Fists page until there is independent official evidence.
+
+`/blog/charizard-151-card-value` distinguishes Japanese 201/165 from English 199/165 and keeps all three English card links. `/blog/mega-charizard-x-ex-card-value` explains 125/094 vs 130/094 and how to compare trade references. Both retain their existing SEO metadata and protected legacy content. The homepage and `/card-price-checker` remain unchanged. Index eligibility is not proof of Google indexing or an AI citation.
+
+### Legacy marketing pages
+
 | Intent | Owner |
 | --- | --- |
 | Best trading card scanner apps in 2026 | `/card-scanner-comparison-2026` |

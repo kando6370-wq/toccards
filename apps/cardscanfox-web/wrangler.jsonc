@@ -17,6 +17,11 @@
     {
       "binding": "SITE_DATA",
       "service": "cardscanfox-site-data-preview"
+    },
+    {
+      "binding": "WEB_VECTOR_RECOGNITION",
+      "service": "recognize-vec",
+      "environment": "production"
     }
   ],
   "workers_dev": true,
@@ -41,5 +46,34 @@
   "version_metadata": {
     "binding": "CF_VERSION_METADATA"
   },
-  "account_id": "dced4adca2f35cff247b39979058b934"
+  "account_id": "dced4adca2f35cff247b39979058b934",
+  "ratelimits": [
+    {
+      "name": "WEB_SCANNER_RATE_LIMITER",
+      "namespace_id": "2026111501",
+      "simple": {
+        "limit": 6,
+        "period": 60
+      }
+    },
+    {
+      "name": "WEB_PREGRADING_RATE_LIMITER",
+      "namespace_id": "2026111601",
+      "simple": {
+        "limit": 2,
+        "period": 60
+      }
+    },
+    {
+      "name": "WEB_PREGRADING_GLOBAL_LIMITER",
+      "namespace_id": "2026111602",
+      "simple": {
+        "limit": 10,
+        "period": 60
+      }
+    }
+  ],
+  "ai": {
+    "binding": "WEB_PREGRADING_AI"
+  }
 }

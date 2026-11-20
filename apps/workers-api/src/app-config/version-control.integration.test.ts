@@ -2,6 +2,7 @@ import { hashPassword } from "@kando/auth-core";
 import { readFileSync } from "node:fs";
 import { URL } from "node:url";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { createCardShareRoutes } from "../card-share/routes";
 import type { DatabaseStatement } from "../db/database";
 import type { Env } from "../env";
 import app from "../index";
@@ -134,6 +135,37 @@ describe("version control in a shared PostgreSQL database", () => {
     expect(await (await publicConfig("development", "ios", staleReads)).json()).toMatchObject({
       data: { upgrade_prompt: { latest_version: "2.1.0" } },
     });
+  });
+
+  it("sends card-share recipients to the configured store for their platform and environment, never a stale placeholder", async () => {
+    const playStore = "https://play.google.com/store/apps/details?id=com.cardai.tcg";
+    const placeholder = "https://play.google.com/store/apps/details?id=com.google.android.youtube";
+    const devIosStore = "https://example.com/dev-ios";
+    await seed("admin.app_version.production.google", { ...rule, status: "disabled", store_url: playStore });
+    await seed("admin.app_version.production.ios", rule);
+    await seed("admin.app_version.development.ios", { ...rule, store_url: devIosStore });
+    await seed("admin.app_version.google", { ...rule, store_url: placeholder });
+    await seed("app_store_url", placeholder);
+    const share = createCardShareRoutes({
+      loadCard: async (_env, cardRef) => ({
+        card_ref: cardRef, name: "Switch", set_name: "Deck & Exclusives",
+        set_code: "PR", card_number: "92/109", finish: null, language: null,
+        object_type: "tcg", image_url: null, rarity: null,
+      }),
+    });
+
+    const path = "/share/cards/560537?environment=production";
+    const prod = await share.request(path, {}, env("production"));
+    expect(prod.status).toBe(200);
+    const prodHtml = await prod.text();
+    expect(prodHtml.match(/data-android-store="([^"]*)"/)?.[1]).toBe(playStore);
+    expect(prodHtml.match(/data-ios-store="([^"]*)"/)?.[1]).toBe(rule.store_url);
+
+    const dev = await share.request(path, {}, env("development"));
+    expect(dev.status).toBe(200);
+    const devHtml = await dev.text();
+    expect(devHtml.match(/data-android-store="([^"]*)"/)?.[1]).toBe("");
+    expect(devHtml.match(/data-ios-store="([^"]*)"/)?.[1]).toBe(devIosStore);
   });
 
   it("never falls back to shared or other-environment rules because an uninitialized environment must be configured explicitly", async () => {

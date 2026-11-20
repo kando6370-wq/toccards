@@ -1,0 +1,137 @@
+/* Shared width and masthead from the November UI delivery. */
+:root {
+  --site-gutter: 48px;
+  --site-content-width: min(1280px, calc(100% - 2 * var(--site-gutter)));
+  --site-header-height: 80px;
+  --ui-text: #1b231d;
+  --ui-muted: #526151;
+  --ui-accent: #416b40;
+  --ui-focus: #416b40;
+  --ui-radius-control: 10px;
+  --ui-radius-media: 20px;
+  --ui-radius-panel: 24px;
+}
+html { scrollbar-gutter: stable; scroll-padding-top: calc(var(--site-header-height) + 12px); }
+.wrap { width: var(--site-content-width); }
+.header { background: #f7faf5; border-bottom: 1px solid var(--line); box-shadow: none; }
+.header .header-inner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: var(--site-header-height);
+  gap: 36px;
+  padding: 0;
+}
+.header .brand { display: flex; align-items: center; min-height: 44px; width: 148px; flex-shrink: 0; }
+.header .brand img, .footer .brand img { width: 104px; height: auto; }
+.header .nav {
+  display: flex;
+  flex: 0 1 auto;
+  gap: 20px;
+  height: auto;
+  width: auto;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+.header .nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  height: auto;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--ui-muted);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.header .nav a:hover, .header .nav a[aria-current] {
+  background: transparent;
+  box-shadow: none;
+  color: var(--ui-text);
+  text-decoration: underline;
+  text-decoration-color: #95af7d;
+  text-underline-offset: 10px;
+}
+.header .nav a::after { display: none; }
+.header .header-actions { gap: 20px; margin-left: auto; }
+.header .saved-nav { min-height: 44px; font-size: 12px; color: var(--ui-muted); }
+.header .header-actions .btn {
+  min-height: 44px;
+  padding: 12px 20px;
+  border: 1px solid #cddc68;
+  border-radius: var(--ui-radius-control);
+  background: #e5f17c;
+  color: var(--ui-text);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.header .header-actions .btn:hover { background: #d8e85e; transform: none; }
+.header .menu-toggle, .header .nav .mobile-saved { display: none; }
+.wide-footer-links { padding-block: 56px; gap: 32px; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.wide-footer-links h2 { margin-bottom: 14px; font-size: 16px; }
+.wide-footer-links a { font-size: 13px; }
+.footer { background: #eef3e9; color: var(--ui-text); border-top: 1px solid var(--line); }
+.footer-inner { gap: 24px; }
+.footer p { max-width: 55ch; color: var(--ui-muted); font-size: 13px; }
+.footer-links { flex-wrap: wrap; gap: 16px; }
+
+@media (max-width: 1200px) {
+  .header .header-inner { gap: 22px; }
+  .header .brand { width: 115px; }
+  .header .nav { gap: 14px; }
+  .header .header-actions { gap: 12px; }
+}
+@media (max-width: 1100px) {
+  .header .nav {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: calc(-1 * var(--site-gutter));
+    right: calc(-1 * var(--site-gutter));
+    width: auto;
+    padding: 16px var(--site-gutter);
+    border-bottom: 1px solid var(--line);
+    background: #f7faf5;
+    max-height: calc(100dvh - var(--site-header-height));
+    overflow: auto;
+  }
+  .header .nav.mobile-open { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 20px; }
+  .header .nav .mobile-saved { display: inline-flex; }
+  .header .nav a { font-size: 14px; }
+  .header .saved-nav { display: none; }
+  .header .menu-toggle {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    border: 0;
+    border-radius: var(--ui-radius-control);
+    background: transparent;
+    color: var(--ui-text);
+  }
+  .header .menu-toggle:hover { background: #e8eee4; }
+  .wide-footer-links { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  :root { --site-gutter: 20px; --site-header-height: 72px; }
+  .header .header-inner { gap: 8px; }
+  .header .brand { width: 104px; }
+  .header .header-actions { gap: 4px; }
+  .header .header-actions .btn { font-size: 11px; padding: 10px 12px; }
+  .wide-footer-links { gap: 32px 16px; padding-block: 40px; }
+  .footer-inner { display: grid; }
+  .footer p { order: 0; margin: 0; }
+  .footer-links { margin-left: 0; }
+}
+
+@media (max-width: 360px) {
+  .header .header-actions .btn { font-size: 10px; padding-inline: 8px; }
+}

@@ -188,3 +188,37 @@ pnpm --filter @kando/workers-api exec wrangler versions upload `
 签名页下载的 Upload certificate 保存为 `D:/Downloads/upload_cert.der`，SHA-256 `433830f50298faa5e65eb46819e15952118de33119f9f57a33496e7be5338428`，与本地 207 AAB 的 Upload 证书一致，证明新 Upload 公钥已被 Play 接受并登记。签名页 Digital Asset Links 仍显示 Google 托管 App Signing 分发证书 SHA-256 `97:95:91:85:58:0E:3D:75:82:62:D5:28:4B:D9:FE:7A:D2:2F:5C:34:7B:28:5A:EF:25:67:23:9F:17:97:C4:3F`。本轮未下载或验签 Play 实际生成的 APK，因此不把签名页回读扩展为分发制品已独立验签。
 
 控制台证据保存在 `.dart_tool/play-internal-20261110/play-internal-207-published.jpg`、`play-internal-207-testers.jpg`、`play-internal-207-invite.jpg`、`play-internal-207-signing.jpg`、`play-internal-207-signing.txt` 和 `play-upload-cert-accepted.der`；结构化终态记录为 `.dart_tool/play-internal-20261110/play-internal-207-final-state.json`。本轮没有重新执行生产迁移、API／Admin／官网部署、iOS 发布或订阅配置写入。Play 接收和内部轨道发布不等于真实 Play Integrity、Google 登录、扫描、Analytics／Crashlytics、从 Play 安装后的签名与业务闭环或 iOS 真实购买／Restore 已通过；这些实机与交易验收仍待完成。
+
+## Google Play 内部测试 213 发布（2026-11-16 10:17）
+
+从干净的 `main@19adda4943b9c1648cfbe22033c0b4f984c33272` 使用固定 Flutter 3.47.9／Dart 3.13.7／JDK 21.0.13+9 构建 `1.0.7+213`。AAB 为 `D:/Downloads/CardAI-Packages/com.cardai.tcg/Android/CardAI-Prod-1.0.7-213/CardAI-Prod-1.0.7-213.aab`，111,943,156 字节，SHA-256 `114ff83e1c7fa2c405b360e456da7e6e7bc6e8e81adfbf4c2f40f89446292f06`。独立核验确认 package、API 24／target 36、Upload 签名、production 配置、30 个原生库及 16 KB 对齐、Android 无 Billing、iOS StoreKit 合同、插件注册和 Android 全局竖屏配置正确。App **1444／1444**、subscription-core **15／15**、发布脚本 **25／25** 通过，0 失败、0 跳过，两包分析 0 issues；制品成功归档后共享构建号由 212 写回 213。
+
+Ego 自动选择并上传 213 AAB，Play 完成处理并接受原已登记 Upload 签名。首次发布预览显示 1 个错误：该版本不再支持 3 台此前支持的设备；手机 12,517 台和平板 6,558 台不变，电视由 5 台降为 3 台，车载由 2 台降为 1 台。207 与 213 的最终 Manifest 对比仅有 versionCode 和 MainActivity `screenOrientation=1` 不同，后者符合用户明确的 Android 全局竖屏要求，因此在 Console 确认继续；最终标签保留为“错误（在此发布版本中被忽略）”。本轮不得写成无错误或无警告，也不把电视／车载范围缩减描述为手机或平板兼容回归。
+
+release 2 于 2026-11-16 10:17 发布，Internal testing 轨道状态为“有效”，最新版本为 `1.0.7 (213) - Internal`，状态为“已面向内部测试人员发布”／“尚未审核”，临时名称仍为 `com.cardai.tcg (unreviewed)`。`Card AI Internal 20261110` 名单继续选中，6 个邮箱逐项匹配且未修改。加入页对当前账号显示 `You’re a tester for com.cardai.tcg (unreviewed)` 并提供 `Download test app`；本轮未代用户加入或安装，不能据此宣称 213 已完成 Play 安装或冷启动验收。
+
+本轮重新下载当前 Upload certificate 的浏览器事件超时，没有新增证书下载或摘要复验；213 被 Play 接受证明继续使用原已登记 Upload 密钥。签名页 Digital Asset Links 回读的 Google 托管 App Signing SHA-256 仍为 `97:95:91:85:58:0E:3D:75:82:62:D5:28:4B:D9:FE:7A:D2:2F:5C:34:7B:28:5A:EF:25:67:23:9F:17:97:C4:3F`，但未下载或独立验签 Play 实际生成的 APK。权威终态和 11 份证据摘要见 `.dart_tool/play-internal-20261116/play-internal-213-final-state.json`；本轮未重新部署生产后台／API、执行数据库迁移、发布 iOS 制品或提交／推送 Git。213 从 Play 安装与冷启动、实际分发签名、真实 Play Integrity／Google 登录／扫描／Review 键盘流程、Analytics／Crashlytics，以及新 iOS 制品购买／Restore 仍待验收。
+
+## Google Play 内部测试 214 发布（2026-11-17 10:06）
+
+从干净且与 `github/main` 一致的 `main@fd2a51a8c527b1e7a4c0cde873228dca4a4529b2` 使用固定 Flutter 3.47.9／Dart 3.13.7／JDK 21.0.13+9 构建 `1.0.7+214`。AAB 为 `D:/Downloads/CardAI-Packages/com.cardai.tcg/Android/CardAI-Prod-1.0.7-214/CardAI-Prod-1.0.7-214.aab`，111,943,743 字节，SHA-256 `9317ded6060e04bfd8b3ca332626e8cf7a04d1df46220234efb62477d9a7d654`。独立核验确认 package、API 24／target 36、原 Upload 签名、production 配置、767 个签名 payload、30 个原生库及 16 KB 对齐、Android 无 Billing、OCR、全局竖屏、插件注册与 iOS StoreKit 源码合同正确，并完整保留三份原生符号和 R8 mapping。双端认证页面 **144／144**、发布／归档脚本 **25／25** 通过，合计 169 项、0 失败、0 跳过；App 分析 0 issues。没有重跑完整 App 或新 iOS 制品测试。
+
+首次构建包装器因旧私有目录路径失效，在读取 `verification.json` 时失败，没有构建或消耗版本号；修正忽略目录包装器后，从 Codex 应用受限 LocalCache 目录复用同一把已登记 Upload JKS 完成构建。首次独立核验又因核验脚本错误假定 `RegExp` 源码拼写而失败；仅修正核验断言后对同一 AAB 复验通过，没有修改 App 源码、重签或重排制品。客户端新增的注册／重置新密码空白字符拒绝覆盖 Android 与 iOS 共用页面；包含相同规则的 Workers 生产版本未在本轮部署，不能据此宣称生产服务端或旧客户端的空白密码请求已被阻止。
+
+Play 接受 214 AAB 和原 Upload 签名，发布预览显示“可以发布了”，没有错误或警告。设备目录相对上一版本的增减全部为 0；本轮回读支持手机 12,474 台、平板 6,561 台、电视 3 台、车载 1 台、Chromebook 10 台、Android XR 2 台。该实时基线与 213 发布当天的目录数量不同，不把目录随时间变化写成 214 引入的兼容变化。
+
+release 3 于 2026-11-17 10:06 发布，Internal testing 轨道状态为“有效”，最新版本为 `1.0.7 (214) - Internal`，状态为“已面向内部测试人员发布”／“尚未审核”，临时名称仍为 `com.cardai.tcg (unreviewed)`。`Card AI Internal 20261110` 名单继续选中，6 个邮箱逐项匹配且未修改。加入页对当前账号显示 `You’re a tester for com.cardai.tcg (unreviewed)` 并提供 `Download test app`；本轮未代用户加入或安装。权威终态和 15 份证据摘要见 `.dart_tool/play-internal-20261117/play-internal-214-final-state.json`；本轮没有重新部署生产后台／API、执行数据库迁移、发布 iOS 制品或提交／推送 Git。214 从 Play 安装与冷启动、实际 Play 生成 APK 签名、真实 Play Integrity／Google 登录／生产密码流程／扫描／运行时统计，以及新 iOS 二进制真机验收仍待完成。
+
+## Google Play 内部测试 215 发布（2026-11-18）
+
+Play 制品列表构建前最高为 `214`。从干净的 `main@881390776e75b9cf5218de0db7297960e90479b3` 使用固定 Flutter 3.47.9／Dart 3.13.7／JDK 21.0.13+9 构建正式 `1.0.7+215`，脚本归档后推进共享构建号。AAB 为 `D:/Downloads/CardAI-Packages/com.cardai.tcg/Android/CardAI-Prod-1.0.7-215/CardAI-Prod-1.0.7-215.aab`，112,336,967 字节，SHA-256 `69dc8c3e864b125907ef25190b49af935b5b4d3214812af136cb919da17dc6fa`，保留三份原生符号及 R8 mapping。原 Upload 签名、767 个签名 payload、minSdk 24／target 36、30 个原生库及 16 KB 对齐、生产 API、无 Android Billing、竖屏与双路 OCR 均通过独立核验；所有 `libapp.so` 均含 Android 海报、复制链接及暂存源文件清理标记。iOS StoreKit 源码合同保留，未构建 iOS 制品。
+
+分享相关 Flutter 定向回归 test 环境 122／122、production 环境 16／16，发布与归档脚本 25／25，App 分析无问题。验证摘要见 `.dart_tool/play-internal-20261118/verification-1.0.7-215/independent-verification.json`。
+
+Play 接受同一 `215` AAB，预览为“可以发布了”，对照 `214` 的设备支持范围无增减。Internal testing release 4 已发布并独立回读：轨道“有效”，`1.0.7 (215) - Internal`“已面向内部测试人员发布”／“尚未审核”，原 `Card AI Internal 20261110` 6 人名单仍选中、未改动。此步骤仅发布内部测试，未操作 Production、API 或 iOS。
+
+### 安装反馈与正式版送审（2026-11-18）
+
+- 用户确认从 Google Play 安装 `215` 并反馈测试未发现问题。未独立核验 Play 分发 APK 签名，未取得逐项业务验收记录。
+- Play Console 只读回查：Production 发布记录名称为 `1.0.0`，制品为 `215 (1.0.7)`，仅美国区“审核中”，自管式发布已关闭。此检查点未确认审核通过或公众可下载；发布后需用未加入内测的美国区账号核对公开商店安装。
+- 分享落地页的商店跳转修复由生产 API 独立发布，不需要重打此 AAB；双端 HTTP 验收和回退记录见[卡牌分享](../01-flows/card-sharing.md)。

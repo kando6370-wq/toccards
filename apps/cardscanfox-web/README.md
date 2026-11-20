@@ -1,14 +1,14 @@
-# CardScanFox 独立官网
+# Card AI 独立官网
 
-CardScanFox 当前正式官网，独立于既有 `marketing-web`，保留原域名和网址。使用已确认的几何狐狸标识与浅色视觉。
+Card AI 正式官网，独立于既有 `marketing-web`，沿用原域名和网址。使用交付包中的 Card AI 标识和浅色布局。
 
 ## 当前实现范围
 
-- 回收并导入线上 46 个已知网址的完整主内容。20 篇旧博客、3 个比较页和法律正文保持原路径；13 篇原 checkout 没有的文章已回收。
-- 导入时检查源文件哈希和可见主文本，保留卡号、表格、日期、FAQ、链接和图片说明，清理旧脚本及事件属性。
+- 回收并导入线上 46 个已知网址的完整主内容。旧内容保留在导入真源；除下述已合并查价页外，文章、比较页和法律正文保持原路径；13 篇原 checkout 没有的文章已回收。
+- 导入时检查源文件哈希和可见主文本，保留卡号、表格、日期、FAQ、链接和图片说明，清理旧脚本及事件属性。原始快照用于核验，生成的正文、署名和元数据统一使用 Card AI。
 - 新首页、卡种/系列目录、单卡、价格概览、工具、帮助、数据方法和本机 Saved 使用真实路径和服务端 HTML。
 - 新首页重新编排产品内容；完整旧首页另保留在可阅读的原 App 介绍折叠区，后续正文编辑须单独评审。
-- 原博客列表和卡表筛选可继续操作。旧网址、原 H1 和正文保持。按用户后续要求，`content/seo-pages.json` 已应用按搜索意图编写的标题和简介；`content/seo-proposals.json` 保留初版草案作对照。
+- 原博客列表和卡表筛选可继续操作。按已批准的内容修订维护正文；通用 Pokémon 查价博客合并到中心页，见下节。按用户后续要求，`content/seo-pages.json` 已应用按搜索意图编写的标题和简介；`content/seo-proposals.json` 保留初版草案作对照。
 - 独立只读数据服务支持本地捕获快照及新增 PostgreSQL 只读接口；默认预览仍读取 30 条真实捕获快照。单卡只提供固定 30 天摘要与 App 引导，不改变现有 App 的历史接口、订阅或额度。
 
 按用户 2026-11-07 的要求，不建设官网管理后台、账号、角色、CMS 写接口或官网数据库。页面和文章在项目文件维护。正式站已接管原域名；后续生产变更仍需取得发布授权并完成独立验收。
@@ -152,7 +152,7 @@ pnpm --filter @kando/cardscanfox-web catalog:sitemaps --input=/absolute/catalog.
 
 新 Pages Git 项目 `cardscanfox-git-preview` 复用现有仓库连接。根目录 `/`，构建命令 `pnpm --filter @kando/cardscanfox-web --fail-if-no-match build:ci`，输出目录 `apps/cardscanfox-web/dist`。当前仓库要求 Node `^22.23.4`、pnpm `11.28.10`；远端构建环境版本仍须从实际部署回读。构建失败不替换上一成功部署。Pages 发布清单记录 `CF_PAGES_COMMIT_SHA`，用于回读核对实际发布提交。
 
-Pages 构建命令生成 `_worker.js` 和全路径 `_routes.json`，通过 `SITE_DATA` Service Binding 取得真实目录并服务端渲染。2026-11-07 初始预览有 108 个静态构建条目；当前构建清单为 123 条路由，单卡动态地址不限于原 30 条评审记录。公开 Pages 预览维持 noindex/no-store、robots 禁止抓取；独立 Workers 入口仍保留 Basic 认证。数据失败返回 503，首页保留产品说明，不以旧快照替代真实价格。
+Pages 构建命令生成 `_worker.js` 和全路径 `_routes.json`，通过 `SITE_DATA` Service Binding 取得真实目录并服务端渲染。2026-11-07 初始预览有 108 个静态构建条目；当前静态构建条数以 `dist/release-manifest.json` 为准，单卡动态地址不限于原 30 条评审记录。公开 Pages 预览维持 noindex/no-store、robots 禁止抓取；独立 Workers 入口仍保留 Basic 认证。数据失败返回 503，首页保留产品说明，不以旧快照替代真实价格。
 
 提交、Cloudflare 自动构建和线上生效是三个独立状态。每次正式发布都要回读活动 version/deployment，并核对线上 `/release-manifest.json` 的 `sourceCommit` 与批准提交一致；只看到 Git 推送或构建记录不能宣称生产已更新。
 
@@ -177,3 +177,58 @@ Pages 构建命令生成 `_worker.js` 和全路径 `_routes.json`，通过 `SITE
 `/Account/AccountSetup` 保留公开删除入口与 noindex 策略，Help 和页脚可进入。用户选择 Android／iOS、填写账号邮箱后，页面专用脚本 `/assets/account-deletion.js` 在本地准备邮件草稿或复制文本；不向官网提交账号资料，也不调用删除 API。草稿不是已发送或已受理，剪贴板不可用时提供手动复制回退。输入变更会清理旧草稿，iOS 订阅不自动取消的说明只在对应平台显示。
 
 无法使用原账号邮箱或没有 JavaScript 时，仍可通过固定客服邮箱和人工协助模板申请。客服核验、超级管理员受控执行、第三方数据处理和处理时限属于独立运营环节；本轮不新增 Admin Web 删除按钮或官网写服务。设计、实际实现和验收边界见[方案文档](../../docs/releases/v1.1.4/00-product/cardscanfox-account-deletion-design.md)。
+
+
+## 免费额度与推荐依据
+
+`content/answer-faqs.json` 的 `/help` 问答在首页、App、下载和帮助页复用，并生成等价 FAQPage。累计 10 次免费成功扫描与 10 张独立图片的队列容量分开说明；失败与无匹配不消耗成功额度，Premium 条件由 App 内实际报价说明。Android 未公开发布，独立 Chrome 扩展使用真实名称 TCG Card Recognizer。
+
+获批正文更正只更新相应 `source-baseline.json` 条目，并保留前版批准哈希，不全量重设保护基线。当前目录、榜单、账号删除与分阶段索引策略保留。功能与来源可以支持有范围的引用，识别性能和竞品优劣仍需真实同条件证据。
+
+## 2026-11-15 答案页与品牌归属
+
+DCC 直接提供发行方 #001–100 卡表、包内容、产品区分、购买渠道和带日期价格。两篇现有周年文章分别负责 UPC 产品与 191 张主集/RGB/Classic 单卡清单和带日期价格，不新增周年 URL。
+
+`/games/pokemon` 是通用 Pokémon 查卡/查价中心；`/pokemon-card-scanner` 是拍照工具页。旧 `/blog/pokemon-card-values` 的角色指南表、编号读法与价格日期说明迁入中心页，其干净 URL 和 `.html` URL 通过 `src/redirects.mjs` 返回 301。查询参数保留。旧源文件留作可复现内容导入；该地址不生成重复 HTML、不进入 sitemap 或索引 allowlist。既有 release:compare 会将这次有意的路径合并和正文更新列为差异，不能宣称无变化通过。
+
+网页品牌、按钮、作者和发布者统一为 CardScanFox。下载页明确现有 App Store 名称为 Card AI: TCG Card Scanner；真实商店 URL、法律正文与账号删除身份保持对应既有应用。
+
+后续内容先指定唯一页面归属，优先维护卡价、各系列扫描及比较页面；每页给具体答案及来源日期，避免同意图重复建页。外链工作需另按渠道和实际接受结果实施，不把提交记录当作已获得链接。本轮不请求编入索引、不提交 IndexNow。当前只完成本地修改，正式站状态不能据此更新。
+
+## 网页扫描首批（2026-11-15，本地候选）
+
+`/pokemon-card-scanner` 与 `/sports-card-scanner` 在本页提供单张照片选择、相机文件入口、端侧模型推理、候选比较及同页文字查询。首次主动识别才加载约26 MiB模型和WASM，初始页面不下载模型。主标题、可索引内容和普通文字查询均服务端输出；模型不会生成卡名、价格或评级。
+
+`POST /site-api/v1/recognize` 只接受512维有限非零向量及TCG=0/Sports=1类型，可选`game=pokemon`仅过滤TCG；照片不发送到识别网关。官网Worker通过独立`WEB_VECTOR_RECOGNITION`绑定调用现有`recognize-vec/production`，通过既有`SITE_DATA`补已发布详情。绑定未配置时新入口503，限频429，目录失败明确503，缺价保持缺价。现有App鉴权、额度、扫描记录、R2及目录数据库均不写入。
+
+本地候选配置新增独立`WEB_SCANNER_RATE_LIMITER`：6次/60秒/IP；preview namespace=2026111501，production namespace=2026111502。未修改已有目录预算：一次识别最多读取5个详情，目录现有预算仍可能先触发。照片仅在浏览器处理；向量和公开详情请求联网，不声明完全离线。扫描页单独允许WASM执行和blob图片，其他页面保持原CSP。
+
+同页文字查询由官网将读取映射至既有`/page-data`契约，不为只读目录服务新增写接口。静态本地服务器只增加POST body转发和MJS/WASM MIME；没有将客户端自报IP作为可信CF IP。默认本地预览不伪造生产绑定，缺少绑定时页面会显示服务暂不可用；真实端到端匹配须在具有绑定的获授权环境验收。
+
+AI Grade尚未实现，用户已确认本批只做网页扫描与SEO。未建立AI评级工具页，不用已有slab评级字段冒充照片预测。低量卡种页、卡页和已有曝光URL不在本批批量删除、301或noindex范围。月搜/KD/DR/外链预算仍须匹配原报告口径；本批不宣称进前十或流量收益。
+
+## 页面合并与内容侧第二、三步（2026-11-16，本地候选）
+
+`/card-identifier` 是通用 TCG 扫描与文字查询 owner，复用网页模型和既有只读识别网关。照片请求为 `card_type:0` 且不带 `game`；Pokemon 专用模式仍为0加`game:pokemon`，体育模式仍为1。通用文字查询从真实 `/games` 选择可用 TCG，在分页前按游戏筛选；不会把体育记录混入通用 TCG 候选。
+
+Digimon、Lorcana、Dragon Ball Super、Flesh and Blood 四个旧路径及 `.html` 别名单跳301到 `/card-identifier` 对应章节。`redirectLocation` 保留查询参数并置于fragment之前；旧正文留在导入源中，不作为重复正文发布。活跃站内链接直接到新owner章节，旧地址退出静态HTML、sitemap和allowlist。四页曾有曝光，因此这是有信息迁入的意图合并，不记作无曝光页面删除；不承诺排名信号即时转移。Dragon Ball Super覆盖未确认状态继续明确保留。
+
+MTG、One Piece、Basketball和Football保留独立URL与H1，补充各自编号、印次、语言/工艺、serial/parallel和误配恢复流程，并指向适合的网页工具。Football不改成已确认支持。
+
+周年卡价页保留191卡和原价格日期，在本页直接补充购买single、random booster、UPC固定promo的选择与官方零售商入口；UPC产品详解继续由现有独立页承接。`/games/pokemon` 保持真实发布价格读取，增加名称/编号、已有价格、周年卡表、扫描和估值指南导航，不改价格来源或生成金额。
+
+卡页索引部分核对原始URL证据：142个许可卡页为82个有记录曝光卡和60个内容引用种子；后60个不能称为已核实有月搜索量。原发现批次的1047个暂停卡页继续保持无索引资格，详情可访问规则不改。本轮不再按65/66个地图卡数推断数据库太薄，也不把未见曝光当作永久零需求。既有品牌统一继续沿用。
+
+## 网页预评级与同页价格查询（2026-11-16）
+
+`/ai-card-grading` 使用官网独立 `POST /site-api/v1/pregrade`。前后两张照片经浏览器去原始元数据、压缩，再交 `WEB_PREGRADING_AI` Workers AI Scout 做可见状况判断。新增两个独立原生限频绑定；没有 App 登录、订阅、扫描记录、图片持久化或数据库变更。缺新绑定时明确 503；普通 Node 本地开发不模拟云模型，不会把目录匹配置信度当分数。真实模型验收需具备 Workers AI 的环境，不能把接口替身测试当作推理验收。费用和留白计算为常规代码。
+
+`/card-price-checker` 在本页读取现有发布目录，只有有关键词或具体套卡才查询。价格仍受条件、来源、语言、工艺和日期约束。热门目录示例真源为 `content/pregrading-catalog-examples.json`，不是实物预评级样卡；不要给目录图编造背面或分数。
+
+协议、费用来源、模型限制、配置与回滚范围见 [页面意图文档](../../docs/releases/v1.1.4/05-delivery/cardscanfox-page-intents.md#网页-ai-预评级与价格查询2026-11-16-后续增量)。构建会重新导入本批已批准的能力文案与隐私用途修改；旧发布记录和未验证项保持历史口径。
+
+### 自动居中与评级参考补齐
+
+`card-centering.js` 只用浏览器像素测量外框和连续印刷内框，结果与AI上传对象分开。`centering-view.js` 显示自动结果、两层框线及拖动/键盘校正；不可靠或全幅卡不输出默认比例。`grading-price-data.js` 同页读取现有公开价格references，按全部真实维度分组；完整同公司与匹配RAW数据才可填成本表。
+
+`certified-grading-examples.json` 与六张原始图片登记三个2021 PSA专业参考；`grading-price-guide-examples.json` 登记另三张1999 Shadowless的PSA指导估值。样本年份、认证结果、指导估值与后台目录价格分开维护，不能互相映射。新增数据文件已进入构建指纹。所有代码和文档完成后才运行几何/接口/价格/图片完整性与浏览器检查。

@@ -1,16 +1,16 @@
 {
   "schemaVersion": 1,
   "origin": "https://tcgcard.fun",
-  "scope": "Initial discovery batch: public ranking cards and 18 Pokemon catalog pages; not a full catalog export; includes the verified physical-card records linked from the Mega Rayquaza guide; includes verified Gengar, Eevee and Mewtwo guide records; includes verified Charmander, Dragonite, Mew and existing Charizard guide records",
+  "scope": "Phased public discovery of observed positive-impression cards. Reference lists retain provenance only; unverified-demand card exceptions remain accessible with noindex.",
   "capturedAt": "2026-11-07T16:05:28.958Z",
   "candidateCount": 1119,
-  "discoveryCount": 1112,
+  "discoveryCount": 7,
   "shards": [
     {
       "path": "/sitemaps/cards-00001.xml",
-      "urlCount": 1112,
-      "bytes": 61464,
-      "sha256": "f16a25bcf9a66634e84f45a3e3ba8dd1778791585369c88e78c122dd60dfdac7"
+      "urlCount": 7,
+      "bytes": 499,
+      "sha256": "5a148eb121c67945c45606919dac507d3fdfe45995f61072cbec5ad8305e8b1e"
     }
   ],
   "guideCardIds": [
@@ -54,7 +54,7 @@
     "197651",
     "197780"
   ],
-  "updatedAt": "2026-11-08T07:24:16.410Z",
+  "updatedAt": "2026-11-16",
   "homeFeaturedCardIds": [
     "714372",
     "712954",
@@ -84,5 +84,99 @@
     "716878",
     "t8546993",
     "708235"
-  ]
+  ],
+  "historicalDiscoverySnapshot": {
+    "capturedAt": "2026-11-07T16:05:28.958Z",
+    "preparedAt": "2026-11-14T16:43:33.250656+00:00",
+    "candidateCount": 1119,
+    "discoveryCount": 65,
+    "pausedDiscoveryCount": 1047,
+    "scope": "Historical discovery snapshot only. These counts are not a current whole-catalog total or a count of all currently paused pages."
+  },
+  "candidateCountNote": "The candidateCount and capturedAt fields retain the historical export scope, not the current catalog size.",
+  "pausedByUnverifiedDemandCardIds": [
+    "101520",
+    "106520",
+    "106521",
+    "107180",
+    "107181",
+    "124085",
+    "124119",
+    "146695",
+    "146698",
+    "197651",
+    "197780",
+    "197811",
+    "246757",
+    "246758",
+    "253266",
+    "253274",
+    "253371",
+    "264218",
+    "284266",
+    "44427",
+    "44428",
+    "502555",
+    "502556",
+    "502558",
+    "516566",
+    "517017",
+    "517027",
+    "517045",
+    "517051",
+    "519481",
+    "534919",
+    "535527",
+    "550179",
+    "550232",
+    "632891",
+    "633031",
+    "677150",
+    "687200",
+    "687201",
+    "702518",
+    "708235",
+    "710263",
+    "712044",
+    "712954",
+    "714372",
+    "716878",
+    "716879",
+    "716927",
+    "716977",
+    "716978",
+    "716991",
+    "717555",
+    "717610",
+    "719554",
+    "721297",
+    "722598",
+    "98097",
+    "98112",
+    "98141",
+    "t8546993"
+  ],
+  "newPositiveCardIds": [
+    "100219",
+    "t100959"
+  ],
+  "positiveDiscoveryCardIds": [
+    "t2771934",
+    "t1906859",
+    "90139",
+    "690216",
+    "717605",
+    "100219",
+    "t100959"
+  ],
+  "refinementEvidence": {
+    "observedOn": "2026-11-16",
+    "latestGscDataDate": "2026-11-13",
+    "reportRows": 145,
+    "historicalPositiveCardCount": 82,
+    "newPositiveCardCount": 2,
+    "allowedPositiveCardCount": 84,
+    "pausedReferenceOnlyCount": 60,
+    "note": "Only public URL membership and aggregate cardinalities are recorded here. Absence in the selected report is not a measurement of zero search demand."
+  }
 }
