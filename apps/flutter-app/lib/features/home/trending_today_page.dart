@@ -6,6 +6,7 @@ import 'package:kando_app/features/search/search_repository.dart';
 import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 import 'package:kando_app/shared/card_data/card_data_providers.dart';
 import 'package:kando_app/shared/pagination/pagination.dart';
+import 'package:kando_app/shared/ui/kando_responsive.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/load_state.dart';
 
@@ -166,30 +167,19 @@ class _TrendingTodayPageState extends ConsumerState<TrendingTodayPage> {
         slivers: [
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-            sliver: SliverToBoxAdapter(
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 350),
-                  child: GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 10,
-                          mainAxisSpacing: 10,
-                          mainAxisExtent: 378,
-                        ),
-                    itemCount: _cards.length,
-                    itemBuilder: (context, index) => SearchCardTile(
-                      card: _cards[index],
-                      actionsEnabled: false,
-                      showActions: false,
-                      showSearchMetadata: true,
-                      entrySource: AnalyticsValue.sourceTrendingToday,
-                    ),
-                  ),
+            sliver: SliverLayoutBuilder(
+              builder: (context, constraints) => SliverGrid.builder(
+                gridDelegate: kandoCardGridDelegate(
+                  context,
+                  constraints.crossAxisExtent,
+                ),
+                itemCount: _cards.length,
+                itemBuilder: (context, index) => SearchCardTile(
+                  card: _cards[index],
+                  actionsEnabled: false,
+                  showActions: false,
+                  showSearchMetadata: true,
+                  entrySource: AnalyticsValue.sourceTrendingToday,
                 ),
               ),
             ),

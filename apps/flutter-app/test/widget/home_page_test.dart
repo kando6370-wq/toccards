@@ -3642,10 +3642,11 @@ void main() {
       expect(find.text('Live Trending'), findsOneWidget);
       expect(find.text('+5.00%'), findsOneWidget);
       expect(find.text('Falling Trending'), findsNothing);
-      expect(
-        tester.getSize(find.byKey(const Key('search-card-live-trending'))),
-        const Size(170, 378),
+      final liveCard = tester.getSize(
+        find.byKey(const Key('search-card-live-trending')),
       );
+      expect(liveCard.height, 378);
+      expect(liveCard.width, greaterThan(170));
       expect(
         tester
             .getSize(
@@ -3659,6 +3660,74 @@ void main() {
       expect(trendingApi.requestedPages, [1]);
     },
   );
+
+  testWidgets('Trending View all uses four columns on an expanded Duo window', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(951, 669);
+    tester.view.padding = const FakeViewPadding(right: 84, bottom: 34);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ..._searchOverrides(),
+          cardDataApiClientProvider.overrideWithValue(
+            _FailingSecondPageTrendingCardDataApi(),
+          ),
+        ],
+        child: const MaterialApp(home: TrendingTodayPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final first = tester.getRect(
+      find.byKey(const Key('search-card-live-trending-0')),
+    );
+    final fourth = tester.getRect(
+      find.byKey(const Key('search-card-live-trending-3')),
+    );
+    final fifth = tester.getRect(
+      find.byKey(const Key('search-card-live-trending-4')),
+    );
+    expect(fourth.top, closeTo(first.top, 0.01));
+    expect(fourth.left, greaterThan(first.right));
+    expect(fifth.top, greaterThan(first.bottom));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Trending View all uses the available Duo portrait width', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(466, 678);
+    tester.view.padding = const FakeViewPadding(right: 84, bottom: 34);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ..._searchOverrides(),
+          cardDataApiClientProvider.overrideWithValue(
+            _FailingSecondPageTrendingCardDataApi(),
+          ),
+        ],
+        child: const MaterialApp(home: TrendingTodayPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final first = tester.getRect(
+      find.byKey(const Key('search-card-live-trending-0')),
+    );
+    final second = tester.getRect(
+      find.byKey(const Key('search-card-live-trending-1')),
+    );
+    expect(first.width, 170);
+    expect(second.width, 170);
+    expect(second.left - first.right, 10);
+    expect(second.right, 466 - 84 - 16);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'Trending View all shows an empty state because PostgreSQL zero rows is a successful response',
