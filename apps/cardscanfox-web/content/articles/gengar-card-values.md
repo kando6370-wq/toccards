@@ -39,4 +39,4 @@ A reference for a raw Near Mint copy is not a quote for a worn card or a PSA-gra
 
 [Search the Pokémon catalog for Gengar](/games/pokemon?q=Gengar) if your number is not listed here. The catalog has more records than this short guide. Search results may include promos, oversized cards or other products, so confirm the format as well as the name.
 
-Have the physical card in hand? [Use the CardScanFox Pokémon scanner](/pokemon-card-scanner), review the candidate and confirm the printing. Then record your holdings in the app. Website saves keep reference bookmarks; they do not create an app holding.
+Have the physical card in hand? [Use the Card AI Pokémon scanner](/pokemon-card-scanner), review the candidate and confirm the printing. Then record your holdings in the app. Website saves keep reference bookmarks; they do not create an app holding.

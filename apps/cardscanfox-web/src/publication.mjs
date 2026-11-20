@@ -14,7 +14,7 @@ export function mayIndex(url,status=200,page={}) {
 }
 export function publishHtml(html,url,status,page={}) {
  const robots=mayIndex(url,status,page)?'index,follow':url.pathname==='/saved'?'noindex,nofollow':'noindex,follow';
- return html.replace(/<meta name="robots" content="[^"]*">/,`<meta name="robots" content="${robots}">`).replace(/<div class="preview-rail">[\s\S]*?<\/div>/,'').replace('</head>',`${PVUV_SCRIPT}</head>`).replace('CardScanFox is the proposed website identity for the existing Card AI app.','CardScanFox is the website for the Card AI app.');
+ return html.replace(/<meta name="robots" content="[^"]*">/,`<meta name="robots" content="${robots}">`).replace(/<div class="preview-rail">[\s\S]*?<\/div>/,'').replace('</head>',`${PVUV_SCRIPT}</head>`);
 }
 const escape=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
 export function publicSitemap(origin='https://tcgcard.fun') {

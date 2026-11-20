@@ -46,4 +46,4 @@ Die offizielle [Droprate-Seite für Pokémon-Sammelkartenspiel-Live](https://tcg
 
 Identifiziere zuerst die konkrete Druckversion. In der [Pokémon-Kartendatenbank auf Englisch](/games/pokemon) kannst du nach Name, Set und Nummer suchen. Prüfe bei vorhandenen Datensätzen Sprache, Finish, Preisquelle und Beobachtungsdatum. Fehlende Katalogdaten sind kein Nullwert.
 
-Mit [CardScanFox](/download) kannst du Identifikationskandidaten prüfen und bestätigte Karten deiner Sammlung zuordnen. App und verlinkte Produktseiten sind überwiegend englischsprachig. Eine Pull-Rate sagt weder den Verkaufspreis deiner Karte noch die Wertentwicklung deiner Sammlung voraus.
+Mit [Card AI](/download) kannst du Identifikationskandidaten prüfen und bestätigte Karten deiner Sammlung zuordnen. App und verlinkte Produktseiten sind überwiegend englischsprachig. Eine Pull-Rate sagt weder den Verkaufspreis deiner Karte noch die Wertentwicklung deiner Sammlung voraus.

@@ -1,10 +1,10 @@
 [
   {
     "path": "/cyberpunk-tcg-card-list",
-    "title": "Cyberpunk TCG Card List: Retail, Beta & Promos | CardScanFox",
+    "title": "Cyberpunk TCG Card List: Retail, Beta & Promos | Card AI",
     "description": "Find the official Cyberpunk TCG card list and match Welcome to Night City retail, beta, starter-deck, and promo printings.",
     "h1": "Cyberpunk TCG card list",
-    "author": "CardScanFox",
+    "author": "Card AI",
     "file": "cyberpunk-tcg-card-list.md",
     "published": true,
     "category": "identity",
@@ -17,10 +17,10 @@
   },
   {
     "path": "/sports-card-advent-calendar",
-    "title": "Sports Card Advent Calendar 2026: Topps Holiday Baseball Guide | CardScanFox",
+    "title": "Sports Card Advent Calendar 2026: Topps Holiday Baseball Guide | Card AI",
     "description": "Compare Topps Holiday Baseball advent calendars by year, find the official 2026 checklist, and check box format before ordering.",
     "h1": "Sports card advent calendar guide",
-    "author": "CardScanFox",
+    "author": "Card AI",
     "file": "sports-card-advent-calendar.md",
     "published": true,
     "category": "collecting",
@@ -35,10 +35,10 @@
   },
   {
     "path": "/blog/aura-seeker-card-list",
-    "title": "Aura Seeker Card List: Confirmed Japanese M7 Reveals | CardScanFox",
+    "title": "Aura Seeker Card List: Confirmed Japanese M7 Reveals | Card AI",
     "description": "See officially revealed cards from Japan’s Hadou Seeker (M7), with collector numbers and links to the official card images. This is not a complete checklist.",
     "h1": "Aura Seeker card list: confirmed Japanese M7 reveals",
-    "author": "CardScanFox",
+    "author": "Card AI",
     "file": "aura-seeker-card-list.md",
     "published": true,
     "category": "identity",
@@ -53,10 +53,10 @@
   },
   {
     "path": "/blog/delta-reign-pokemon",
-    "title": "Delta Reign Card List: All 141 English Cards | CardScanFox",
+    "title": "Delta Reign Card List: All 141 English Cards | Card AI",
     "description": "Browse all 141 numbered English Delta Reign cards, including 38 secret cards. Match the full collector number and see dated price examples.",
     "h1": "Delta Reign card list: all 141 English cards",
-    "author": "CardScanFox",
+    "author": "Card AI",
     "file": "delta-reign-pokemon.md",
     "published": true,
     "category": "identity",
@@ -90,10 +90,10 @@
   },
   {
     "path": "/blog/delta-reign-etb",
-    "title": "Delta Reign Elite Trainer Box: Contents, Kyogre Promos & Prices | CardScanFox",
+    "title": "Delta Reign Elite Trainer Box: Contents, Kyogre Promos & Prices | Card AI",
     "h1": "Delta Reign ETB: Standard vs Pokémon Center",
     "description": "Compare Delta Reign ETB contents, Kyogre promos, Pokémon Center differences and dated US prices. Check box and case units before buying.",
-    "author": "CardScanFox",
+    "author": "Card AI",
     "file": "delta-reign-etb.md",
     "published": true,
     "category": "collecting",
@@ -131,10 +131,10 @@
   },
   {
     "path": "/blog/pokemon-upc-30th-anniversary",
-    "title": "Pokémon 30th Anniversary UPC: Day vs Night & Contents | CardScanFox",
+    "title": "Pokémon 30th Anniversary UPC: Day vs Night & Contents | Card AI",
     "description": "Compare Pokémon 30th Celebration UPC Day and Night promos, all box contents, the November 6 release and dated retailer prices. Find the card checklist separately.",
     "h1": "Pokémon 30th Anniversary UPC: Day and Night Compared",
-    "author": "CardScanFox",
+    "author": "Card AI",
     "file": "pokemon-upc-30th-anniversary.md",
     "published": true,
     "category": "collecting",
@@ -153,10 +153,10 @@
   },
   {
     "path": "/blog/mega-rayquaza-ex-card-values",
-    "title": "Mega Rayquaza ex Cards: Sets, Numbers & Prices | CardScanFox",
+    "title": "Mega Rayquaza ex Cards: Sets, Numbers & Prices | Card AI",
     "description": "Find the right Mega Rayquaza ex printing. Compare Roaring Skies 61, 76 and 105, Ancient Origins 98 and the new Delta Reign release before checking a price.",
     "h1": "Mega Rayquaza ex Cards: Which Printing Do You Have?",
-    "author": "CardScanFox",
+    "author": "Card AI",
     "file": "mega-rayquaza-ex-card-values.md",
     "published": true,
     "category": "values",
@@ -174,61 +174,61 @@
   },
   {
     "path": "/blog/gengar-card-values",
-    "title": "Gengar Card Values: Fossil, VMAX & Full Art | CardScanFox",
+    "title": "Gengar Card Values: Fossil, VMAX & Full Art | Card AI",
     "description": "Find your Gengar card by set and number. Compare Fossil holo 5/62, non-holo 20/62, Fusion Strike VMAX and Lost Origin TG06 before checking prices.",
     "h1": "Gengar Card Values: Fossil Holo, VMAX and Other Printings",
-    "author": "CardScanFox",
+    "author": "Card AI",
     "file": "gengar-card-values.md",
     "published": true,
     "category": "values",
     "publishedAt": "2026-11-08",
     "sources": [
       {
-        "label": "CardScanFox: published Pokémon card catalog",
+        "label": "Card AI: published Pokémon card catalog",
         "url": "https://tcgcard.fun/games/pokemon"
       }
     ]
   },
   {
     "path": "/blog/eevee-card-values",
-    "title": "Eevee Card Values: Full Art, TG11 & 188/167 | CardScanFox",
+    "title": "Eevee Card Values: Full Art, TG11 & 188/167 | Card AI",
     "description": "Which Eevee card do you have? Compare Brilliant Stars TG11/TG30, Twilight Masquerade 188/167 and other printings, then open the matching price record.",
     "h1": "Eevee Card Values: Match the Full-Art Card to Its Number",
-    "author": "CardScanFox",
+    "author": "Card AI",
     "file": "eevee-card-values.md",
     "published": true,
     "category": "values",
     "publishedAt": "2026-11-08",
     "sources": [
       {
-        "label": "CardScanFox: published Pokémon card catalog",
+        "label": "Card AI: published Pokémon card catalog",
         "url": "https://tcgcard.fun/games/pokemon"
       }
     ]
   },
   {
     "path": "/blog/mewtwo-card-values",
-    "title": "Mewtwo Card Values: EX, GX & Team Rocket’s ex | CardScanFox",
+    "title": "Mewtwo Card Values: EX, GX & Team Rocket’s ex | Card AI",
     "description": "Match your Mewtwo card by set and collector number. Compare BREAKthrough EX, Shining Legends GX and Team Rocket’s Mewtwo ex before checking its price.",
     "h1": "Mewtwo Card Values: EX, GX and Team Rocket’s ex Compared",
-    "author": "CardScanFox",
+    "author": "Card AI",
     "file": "mewtwo-card-values.md",
     "published": true,
     "category": "values",
     "publishedAt": "2026-11-08",
     "sources": [
       {
-        "label": "CardScanFox: published Pokémon card catalog",
+        "label": "Card AI: published Pokémon card catalog",
         "url": "https://tcgcard.fun/games/pokemon"
       }
     ]
   },
   {
     "path": "/blog/pokemon-card-condition-guide",
-    "title": "Pokémon Card Condition Guide: NM, LP, MP & Damage | CardScanFox",
+    "title": "Pokémon Card Condition Guide: NM, LP, MP & Damage | Card AI",
     "description": "What do NM, LP and MP mean for Pokémon cards? Learn the raw condition labels, inspect wear and compare the right price context without guessing a PSA grade.",
     "h1": "Pokémon Card Condition Guide: NM, LP, MP, HP and Damaged",
-    "author": "CardScanFox",
+    "author": "Card AI",
     "file": "pokemon-card-condition-guide.md",
     "published": true,
     "category": "values",
@@ -250,21 +250,21 @@
   },
   {
     "path": "/blog/charmander-151-card-value",
-    "title": "Charmander 151 Value: 004/165 vs 168/165 | CardScanFox",
+    "title": "Charmander 151 Value: 004/165 vs 168/165 | Card AI",
     "description": "Find the right Charmander 151 card. Compare 004/165 and 168/165, match the artwork and finish, then check the available price, condition and observation date.",
     "h1": "Charmander 151 Card Value: 004/165 or 168/165?",
-    "author": "CardScanFox",
+    "author": "Card AI",
     "file": "charmander-151-card-value.md",
     "published": true,
     "category": "values",
     "publishedAt": "2026-11-08",
     "sources": [
       {
-        "label": "CardScanFox: published printing record and dated price context",
+        "label": "Card AI: published printing record and dated price context",
         "url": "https://tcgcard.fun/cards/502556"
       },
       {
-        "label": "CardScanFox: Pokémon catalog lookup",
+        "label": "Card AI: Pokémon catalog lookup",
         "url": "https://tcgcard.fun/games/pokemon"
       },
       {
@@ -275,21 +275,21 @@
   },
   {
     "path": "/blog/dragonite-ex-card-values",
-    "title": "Dragonite EX Values: 72/108 vs 106/108 | CardScanFox",
+    "title": "Dragonite EX Values: 72/108 vs 106/108 | Card AI",
     "description": "Which Dragonite card is yours? Compare Evolutions EX 72/108 and 106/108, Evolving Skies V printings and Fossil cards before opening the matching price record.",
     "h1": "Dragonite EX Card Values: Match the Set and Full Number",
-    "author": "CardScanFox",
+    "author": "Card AI",
     "file": "dragonite-ex-card-values.md",
     "published": true,
     "category": "values",
     "publishedAt": "2026-11-08",
     "sources": [
       {
-        "label": "CardScanFox: published printing record and dated price context",
+        "label": "Card AI: published printing record and dated price context",
         "url": "https://tcgcard.fun/cards/124085"
       },
       {
-        "label": "CardScanFox: Pokémon catalog lookup",
+        "label": "Card AI: Pokémon catalog lookup",
         "url": "https://tcgcard.fun/games/pokemon"
       },
       {
@@ -300,21 +300,21 @@
   },
   {
     "path": "/blog/mew-ex-card-values",
-    "title": "Bubble Mew & Mew ex Values: 232/091, 151 & Metal | CardScanFox",
+    "title": "Bubble Mew & Mew ex Values: 232/091, 151 & Metal | Card AI",
     "description": "Identify Bubble Mew 232/091 and compare other Mew ex printings. Match Paldean Fates, Pokémon 151 and the 205/165 metal card before checking prices.",
     "h1": "Bubble Mew and Mew ex: Match the Number, Set and Material",
-    "author": "CardScanFox",
+    "author": "Card AI",
     "file": "mew-ex-card-values.md",
     "published": true,
     "category": "values",
     "publishedAt": "2026-11-08",
     "sources": [
       {
-        "label": "CardScanFox: published printing record and dated price context",
+        "label": "Card AI: published printing record and dated price context",
         "url": "https://tcgcard.fun/cards/534919"
       },
       {
-        "label": "CardScanFox: Pokémon catalog lookup",
+        "label": "Card AI: Pokémon catalog lookup",
         "url": "https://tcgcard.fun/games/pokemon"
       },
       {
@@ -322,7 +322,7 @@
         "url": "https://www.tcgplayer.com/product/534919/pokemon-sv-paldean-fates-mew-ex-232-091"
       },
       {
-        "label": "CardScanFox: Mew ex 152/128 from 30th Celebration",
+        "label": "Card AI: Mew ex 152/128 from 30th Celebration",
         "url": "https://tcgcard.fun/cards/717605"
       }
     ],
@@ -334,7 +334,7 @@
     "description": "Welche Pull Rate hat Pokémon Delta-Herrschaft? Vergleiche frühe SIR- und Mega-Rayquaza-Schätzungen, Stichprobengrößen und Grenzen für deutsche Booster.",
     "h1": "Pokémon Delta-Herrschaft Pull Rate: SIR und Mega-Rayquaza im Vergleich",
     "language": "de",
-    "author": "CardScanFox",
+    "author": "Card AI",
     "file": "pokemon-delta-herrschaft-pull-rate.md",
     "published": true,
     "category": "collecting",
@@ -360,10 +360,10 @@
   },
   {
     "path": "/blog/pokemon-mcdonalds-2026",
-    "title": "Pokémon McDonald’s Card List 2026: All 15 US Happy Meal Cards | CardScanFox",
+    "title": "Pokémon McDonald’s Card List 2026: All 15 US Happy Meal Cards | Card AI",
     "description": "Check all 15 Pokémon McDonald’s Happy Meal cards for 2026, the US promotion dates, and how the Canadian offer differs.",
     "h1": "Pokémon McDonald’s card list 2026",
-    "author": "CardScanFox",
+    "author": "Card AI",
     "file": "pokemon-mcdonalds-2026.md",
     "published": true,
     "category": "collecting",

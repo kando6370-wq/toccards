@@ -38,5 +38,7 @@ for(const page of baseline.pages){
  const h1=text(find(main,n=>n.tagName==='h1')??{}),headings=[],links=[],images=[],dates=[];walk(main,n=>{if(n.tagName==='h2')headings.push(norm(text(n)));if(n.tagName==='a'&&attr(n,'href'))links.push(attr(n,'href'));if(n.tagName==='img')images.push({src:attr(n,'src'),alt:attr(n,'alt')??''});if(n.tagName==='time')dates.push({date:attr(n,'datetime'),text:text(n)});});
  records.push({category:topics[page.path]??null,id:'legacy-'+String(records.length+1).padStart(2,'0'),path:page.path,type:page.path==='/'?'home':page.path==='/blog/'?'blog-index':page.path.startsWith('/blog/')?'article':page.path.includes('-vs-')||page.path.includes('comparison-2026')?'comparison':['/privacy','/terms'].includes(page.path)?'legal':'feature',title,description,h1,bodyHtml:serialize(main),sourceBodyHash:createHash('sha256').update(sourceText).digest('hex'),sourceHtmlHash:page.htmlSha256,canonical:page.canonical??`https://tcgcard.fun${page.path}`,headings,jsonLd:ld,links:[...new Set(links)],images,dates,protected:true,importedFrom:'https://tcgcard.fun'+page.path,capturedOn:baseline.capturedOn});
 }
-await mkdir(new URL('.',output),{recursive:true});await writeFile(output,JSON.stringify(records,null,2)+'\n');
+// Keep the verified source snapshots and hashes; publish the imported copy under Card AI.
+const brandedContent=JSON.stringify(records,null,2).replaceAll('CardScanFox','Card AI');
+await mkdir(new URL('.',output),{recursive:true});await writeFile(output,brandedContent+'\n');
 console.log(`Imported ${records.length} complete legacy pages; visible main text is unchanged.`);

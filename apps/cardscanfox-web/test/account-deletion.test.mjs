@@ -25,7 +25,7 @@ test('privacy and the retained home legal source share the platform deletion con
  const home=await readFile(new URL('../content/legacy/home.html',import.meta.url),'utf8');
  const sources=[
   legacyPages.find(page=>page.path==='/privacy')?.bodyHtml??'',
-  home.match(/id="privacy-modal"[\s\S]*?<article class="modal-legal-content">([\s\S]*?)<\/article>/)?.[1]??'',
+  home.match(/id="privacy-modal"[\s\S]*?<article class="modal-legal-content">([\s\S]*?)<\/article>/)?.[1]?.replaceAll('CardScanFox','Card AI')??'',
  ];
  const text=node=>node.nodeName==='#text'?node.value:(node.childNodes??[]).map(text).join('');
  const bodies=sources.map(source=>text(nodes(source,node=>node.tagName==='article')[0]??parse(source)).replace(/\s+/g,' ').trim());
@@ -95,7 +95,7 @@ test('Help and both footer sections expose the existing deletion URL without add
   assert.ok(links.length>=2,path+' must keep the public deletion entry discoverable');
  }
  const help=resolvePage(new URL('/help','https://tcgcard.fun')).html;
- assert.match(help,/How can I delete my CardScanFox account after uninstalling/);
+ assert.match(help,/How can I delete my Card AI account after uninstalling/);
  const page=resolvePage(new URL(accountPath,'https://tcgcard.fun')).html;
  const helpLinks=nodes(page,node=>node.tagName==='a'&&attribute(node,'href')==='/help'&&attribute(node,'aria-current')==='page');
  assert.equal(helpLinks.length,1,'the page belongs to the existing Help navigation');

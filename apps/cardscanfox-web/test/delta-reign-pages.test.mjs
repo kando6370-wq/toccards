@@ -99,8 +99,8 @@ test('both page owners keep one H1 and propagate their own metadata and cover in
     const schema = schemas(tree).find(item => item['@type'] === 'Article');
     assert.ok(schema, path);
     assert.equal(schema.headline, expected.h1);
-    assert.equal(schema.author.name, 'CardScanFox');
-    assert.equal(schema.publisher.name, 'CardScanFox');
+    assert.equal(schema.author.name, 'Card AI');
+    assert.equal(schema.publisher.name, 'Card AI');
     assert.equal(schema.mainEntityOfPage, origin + path);
     assert.equal(schema.datePublished, path === mainPath ? '2026-11-08' : '2026-11-16');
     assert.equal(schema.dateModified, '2026-11-19');
@@ -192,8 +192,8 @@ test('optional article covers stay local, carry alt text and preserve the legacy
   try {
     await writeFile(join(root, 'sample.md'), '## Compare a card\n\nMatch the collector number first.\n');
     const meta = {
-      path: '/blog/sample-cover', title: 'Sample cover | CardScanFox', description: 'A source-backed cover fixture.',
-      h1: 'Sample cover', author: 'CardScanFox', file: 'sample.md', published: true, category: 'identity',
+      path: '/blog/sample-cover', title: 'Sample cover | Card AI', description: 'A source-backed cover fixture.',
+      h1: 'Sample cover', author: 'Card AI', file: 'sample.md', published: true, category: 'identity',
       publishedAt: '2026-11-16', sources: [{label: 'Manufacturer', url: 'https://tcg.pokemon.com/'}],
       image: '/assets/guides/sample-cover.png', imageAlt: 'A printing comparison diagram',
     };

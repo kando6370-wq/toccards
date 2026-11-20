@@ -49,4 +49,4 @@ Use the [raw vs graded value guide](/blog/raw-vs-graded-card-values) for slab co
 
 ## Turn the lookup into a collection record
 
-[Search Mew ex records](/games/pokemon?q=Mew%20ex) to inspect more candidates. With the physical card, use the [CardScanFox scanner](/pokemon-card-scanner), confirm the exact printing and record the holding in the app. A nickname helps start the search; the confirmed card identity is what belongs in your collection.
+[Search Mew ex records](/games/pokemon?q=Mew%20ex) to inspect more candidates. With the physical card, use the [Card AI scanner](/pokemon-card-scanner), confirm the exact printing and record the holding in the app. A nickname helps start the search; the confirmed card identity is what belongs in your collection.
