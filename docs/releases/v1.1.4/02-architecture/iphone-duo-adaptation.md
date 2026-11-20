@@ -293,3 +293,23 @@ Duo 真机、普通 iPhone／Android 真机、系统完整分屏矩阵、真实�
 按用户要求，先从 Device Hub 的 iPhone Duo 卸载 `com.kando.kandoApp.beta`，再安装并启动新的 test arm64 Simulator 包（`1.0.7+213`，Runner 二进制 SHA-256 `7dcea3cf5ef1e324ce78c3be8a9b3a8809fa5666ab12f7e4fd86eac3db8a5dd6`）。卸载和安装命令均成功，当前进程已启动；首次启动因模拟器重新建立登录／网络状态停留在启动画面，未将其写成 Premium 双栏的运行态验收。未提交／推送 Git、发布远端环境或重建 Android APK。
 
 后续复查发现上一个包为无签名 Simulator 构建，首次启动在 `flutter_secure_storage` 的 Keychain 调用处报 `-34018`，导致启动画面不继续。已用同一源码和 arm64 预览参数生成 ad-hoc `Sign to Run Locally` 包（Runner SHA-256 `406c0505596d805675fa208795282b81cea15f65324075362f8a06ca387a45bc`），再次卸载、安装并启动。Device Hub 已出现 iOS 首次追踪选择，选择“不允许追踪”后进入首次引导并继续到 Home Performance 页面；当前为 Free 状态的锁定 Performance，证明 App 已正常打开。未改业务代码、未购买订阅、未执行生产操作。
+
+### 9.14 Duo 弹窗右侧空白统一处理（2026-11-19）
+
+用户反馈展开内屏时多个弹窗右侧出现与侧边导航等宽的空白。复查确认共同原因是页面壳层已经使用右侧 84px 安全区承载导航，而弹窗内容再次由 `SafeArea` 扣除左右 inset；弹窗因此把同一段空间重复让出。新增 `kandoModalSafeArea()` 统一保留弹窗需要的上下安全区，仅在 iOS Duo 展开内屏的净宽至少 800、高度满足条件时移除已由弹窗自身承载的左右侧导航 inset；iPhone Duo 外屏（466 宽）的弹窗内容继续保留右侧 SafeArea，Subscription sheet 的背景层单独铺满外屏；Android、普通 iPhone、短窗口和大字体回退继续按原安全区规则。Home 货币选择、Collection 文件夹／筛选／操作、Search 游戏筛选、Scan Review 选择／文件夹、Card Detail 选择／删除确认／Quick Review 状态面板、Auth 与 Subscription 弹窗均复用该处理，订阅路由仍由页面内部负责安全区。
+
+Card Detail 新增／编辑卡片弹窗保留 Flutter `showModalBottomSheet(useSafeArea: true)` 的 IME 稳定性，再根据原始 iOS Duo view padding 平移半个侧边 inset，使宽屏弹窗以完整视口居中；这样保留输入时表单不重建的既有行为。所有修改只涉及弹窗边界和安全区，未改变业务回调、状态、数据请求、订阅规则或平台方向。
+
+- **回归：**Home 货币、Collection 文件夹、Search 游戏筛选、Scan Review 选择／文件夹、Card Detail 新增／编辑及相关删除／组合操作的定向测试全部通过；其中组合命令共 14 项通过，附加弹窗／业务回归共 9 项通过。iOS／Android Duo 共享布局与 Android 免费状态回退专项共 12 项通过。`dart analyze` 覆盖本轮 Flutter 源码与测试文件，无问题；`git diff --check` 通过。
+- **新增几何断言：**Home 货币搜索字段与弹窗右边缘保持 20 间距；Collection 文件夹行与弹窗右边缘保持 20 间距；Card Detail Duo 新增弹窗以完整视口中心对齐。Card Detail 输入法动画测试保持新增／编辑表单和草稿不重建。
+- **外屏回归：**Subscription sheet 在 466×678、右侧 84px inset 的外屏由全宽背景延伸到 466，Close、Restore、标题、权益、套餐和拖拽把手等内容仍限制在 382 的安全内容边界；切换到 951×669 展开内屏后背景和内容均延伸到 951。新增回归覆盖这次外屏／内屏切换。
+- **边界：**本轮未改业务逻辑、API、数据库、订阅商品或生产环境；未更新历史 golden。全量 Home／Scan 中既有 golden 差异仍按前节记录保留，未将未执行的全量 golden、真机和真实订阅验收写成通过；Android 仅完成 Flutter 共享回归，未重建 APK 或运行折叠 Android 真机。
+- **模拟器交付：**使用签名的 `Debug-test` arm64 Simulator 包构建成功并先卸载后安装到 Device Hub iPhone Duo（iOS 27.1，`A9D96BD2-F97C-42A6-9047-FDC8F0781675`），Bundle `com.kando.kandoApp.beta`，版本 `1.0.7+213`；本次“仅 Duo 背景全宽、内容遵守 SafeArea”包 Runner SHA-256 为 `1fed3c0a9ebf7e60aa9816852bb745b51d40a401638953bb2e153f133cceef40`。进程已启动，Device Hub 当前可见订阅弹窗；外屏几何由 Flutter 回归和 Device Hub 预览共同核对，内容层停在安全边界内。未执行购买、恢复、扫描或收藏写入。
+
+### 9.15 Search 收藏横条与收藏弹窗 SafeArea（2026-11-19）
+
+用户反馈 Search 列表点击收藏后出现的横条，以及点击横条进入的收藏编辑弹窗，在 iPhone Duo 外屏下需要让内容避开右侧状态／导航区域；同时批量 `ADD ALL CARDS`／`DELETE ALL CARDS` 按钮下方存在额外空白。本轮仅调整布局：横条继续遵守页面已有 SafeArea，收藏弹窗的上方内容包进共享 `kandoModalSafeArea()`，底部 Footer 保留全宽背景并把操作内容放在自身边距内；Footer 的底部留白从固定 20px 改为只保留系统 `viewPadding.bottom`，不改变保存、批量保存、删除确认、键盘避让或收藏状态流。
+
+- **Duo 几何回归：**466×678、右侧 84px inset 下，横条背景和内容右边缘均为 362；收藏弹窗背景右边缘为 466、上方内容安全边缘为 382；底部操作 Footer 背景右边缘为 466、批量删除按钮右边缘为 446，按钮底部与弹窗底部之间仅保留 34px 系统安全区。Search 页面完整 `search_page_test.dart` 共 58 项通过，新增专项包含横条与弹窗的背景／内容边界及批量 Footer 间距；`dart analyze` 与 `git diff --check` 通过。
+- **平台边界：**Android、普通 iPhone 和窄屏布局继续使用原有结构；未改收藏 API、pending 队列、文件夹／表单数据、保存与删除业务逻辑。
+- **模拟器交付：**使用签名的 `Debug-test` arm64 Simulator 包重新构建，先卸载再安装到 Device Hub iPhone Duo（iOS 27.1，`A9D96BD2-F97C-42A6-9047-FDC8F0781675`），Bundle `com.kando.kandoApp.beta`，版本 `1.0.7+213`；Runner SHA-256 为 `8c095fa1391aad3185ecdd66ca4fea13e4456325f0b2f0458f160842f357c8e8`。进程已启动，Device Hub 当前显示系统跟踪授权首次引导页，说明安装和启动成功；未执行真实收藏写入、保存或删除操作。

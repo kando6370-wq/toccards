@@ -1135,6 +1135,33 @@ void main() {
     },
   );
 
+  testWidgets('Duo CardDetail add item sheet fills the modal surface', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(951, 669);
+    tester.view.padding = const FakeViewPadding(right: 84, bottom: 34);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      const _CardDetailTestApp(
+        cardId: 'one-piece-luffy',
+        platform: TargetPlatform.iOS,
+        useKandoTheme: true,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('card-detail-add-to-portfolio-one-piece-luffy')),
+    );
+    await tester.pumpAndSettle();
+
+    final sheet = tester.getRect(
+      find.byKey(const Key('card-detail-add-item-sheet')),
+    );
+    expect(sheet.center.dx, closeTo(951 / 2, 0.01));
+  });
+
   testWidgets(
     'Add this card shows duplicate failures in a top toast because the fixed action must not require scrolling to the form error',
     (tester) async {

@@ -59,14 +59,16 @@ void main() {
           tester.view.physicalSize = size;
           await tester.pumpAndSettle();
           final first = tester.getRect(
-            find.byKey(Key(
-              'search-card-${wishlist ? 'lorcana-elsa' : 'charizard-ex'}',
-            )),
+            find.byKey(
+              Key('search-card-${wishlist ? 'lorcana-elsa' : 'charizard-ex'}'),
+            ),
           );
           final second = tester.getRect(
-            find.byKey(Key(
-              'search-card-${wishlist ? 'one-piece-luffy' : 'umbreon-vmax'}',
-            )),
+            find.byKey(
+              Key(
+                'search-card-${wishlist ? 'one-piece-luffy' : 'umbreon-vmax'}',
+              ),
+            ),
           );
           final field = tester.getRect(
             find.byKey(const Key('collection-search-field')),
@@ -921,6 +923,31 @@ void main() {
     expect(find.text('Sealed'), findsWidgets);
     expect(find.text('Evolving Skies Booster Box'), findsOneWidget);
     expect(find.text('Charizard ex'), findsNothing);
+  });
+
+  testWidgets('Duo folder picker fills its modal surface to the right edge', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(951, 669);
+    tester.view.padding = const FakeViewPadding(right: 84, bottom: 34);
+    addTearDown(tester.view.reset);
+
+    await _pumpCollection(
+      tester,
+      platform: TargetPlatform.iOS,
+      subscriptionController: _ProCollectionSubscriptionController.new,
+    );
+    await tester.tap(find.text('Main'));
+    await tester.pumpAndSettle();
+
+    final surface = tester.getRect(find.byType(FractionallySizedBox).first);
+    final containers = find.ancestor(
+      of: find.byKey(const Key('collection-folder-select-main')),
+      matching: find.byType(Container),
+    );
+    final folderRow = tester.getRect(containers.first);
+    expect(folderRow.right, closeTo(surface.right - 20, 0.01));
   });
 
   testWidgets(

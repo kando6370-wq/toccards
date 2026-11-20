@@ -1109,7 +1109,18 @@ Future<void> _openEditCollectionItemSheet(
     useSafeArea: true,
     backgroundColor: Colors.transparent,
     barrierColor: Colors.black.withValues(alpha: 0.72),
-    builder: (_) => _EditCollectionItemSheet(cardId: cardId),
+    builder: (sheetContext) {
+      final padding = View.of(sheetContext).padding;
+      final duoSideShift =
+          Theme.of(sheetContext).platform == TargetPlatform.iOS &&
+              padding.right >= 84
+          ? padding.right / 2
+          : 0.0;
+      return Transform.translate(
+        offset: Offset(duoSideShift, 0),
+        child: _EditCollectionItemSheet(cardId: cardId),
+      );
+    },
   );
 
   final current = container.read(provider);
@@ -2590,11 +2601,22 @@ Future<void> _openAddCollectionItemSheet(
     useSafeArea: true,
     backgroundColor: Colors.transparent,
     barrierColor: Colors.black.withValues(alpha: 0.72),
-    builder: (_) => _AddCollectionItemSheet(
-      cardId: controller.cardId,
-      entrySource: entrySource,
-      useBottomSafeArea: true,
-    ),
+    builder: (sheetContext) {
+      final padding = View.of(sheetContext).padding;
+      final duoSideShift =
+          Theme.of(sheetContext).platform == TargetPlatform.iOS &&
+              padding.right >= 84
+          ? padding.right / 2
+          : 0.0;
+      return Transform.translate(
+        offset: Offset(duoSideShift, 0),
+        child: _AddCollectionItemSheet(
+          cardId: controller.cardId,
+          entrySource: entrySource,
+          useBottomSafeArea: true,
+        ),
+      );
+    },
   );
 
   if (saved == true && context.mounted) {
@@ -3266,7 +3288,8 @@ class _QuickCollectionStateSurface extends StatelessWidget {
         color: const Color(0xFF222222),
         clipBehavior: Clip.antiAlias,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        child: SafeArea(
+        child: kandoModalSafeArea(
+          context,
           top: false,
           child: Stack(
             children: [
@@ -3449,12 +3472,13 @@ class _AddCollectionItemSheet extends ConsumerWidget {
     );
 
     final footerContent = Container(
+      key: const Key('card-detail-add-item-footer'),
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(
         16,
         16,
         useQuickCollectionController ? 20 : 16,
-        20 + (useBottomSafeArea ? MediaQuery.viewPaddingOf(context).bottom : 0),
+        useBottomSafeArea ? MediaQuery.viewPaddingOf(context).bottom : 0,
       ),
       decoration: BoxDecoration(
         color: KandoColors.ink.withValues(alpha: 0.96),
@@ -3629,96 +3653,110 @@ class _AddCollectionItemSheet extends ConsumerWidget {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         child: Column(
           children: [
-            const SizedBox(height: 12),
-            const _QuickCollectionReviewHandle(),
-            if (topContent != null) topContent!,
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
-              child: _CollectionItemSheetHeader(
-                useQuickCollectionController: useQuickCollectionController,
-                portfolioAction: InkWell(
-                  key: const Key('card-detail-add-item-portfolio'),
-                  borderRadius: BorderRadius.circular(8),
-                  onTap: actionsEnabled
-                      ? () async {
-                          final options = [
-                            for (final folder in state.detail.portfolioFolders)
-                              folder.name,
-                          ];
-                          final next = await _showChoiceSheet(
-                            context,
-                            title: 'Portfolio',
-                            selected: draft.portfolioName,
-                            options: options,
-                          );
-                          if (next != null) {
-                            if (useQuickCollectionController) {
-                              final folderId = state.detail.portfolioFolders
-                                  .where((folder) => folder.name == next)
-                                  .firstOrNull
-                                  ?.id;
-                              if (folderId != null) {
-                                ref
-                                    .read(
-                                      selectedPortfolioFolderProvider.notifier,
-                                    )
-                                    .select(folderId);
-                              }
-                            }
-                            controller.updateCollectionItemDraft(
-                              portfolioName: next,
-                            );
-                          }
-                        }
-                      : null,
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      left: 4,
-                      right: useQuickCollectionController ? 0 : 4,
-                      top: 2,
-                      bottom: 2,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            'Adding to ${draft.portfolioName}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              height: 24 / 16,
-                              color: KandoColors.accent,
+            Expanded(
+              child: kandoModalSafeArea(
+                context,
+                top: false,
+                bottom: false,
+                child: KeyedSubtree(
+                  key: const Key('card-detail-add-item-content-safe-area'),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 12),
+                      const _QuickCollectionReviewHandle(),
+                      if (topContent != null) topContent!,
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+                        child: _CollectionItemSheetHeader(
+                          useQuickCollectionController: useQuickCollectionController,
+                          portfolioAction: InkWell(
+                            key: const Key('card-detail-add-item-portfolio'),
+                            borderRadius: BorderRadius.circular(8),
+                            onTap: actionsEnabled
+                                ? () async {
+                                    final options = [
+                                      for (final folder in state.detail.portfolioFolders)
+                                        folder.name,
+                                    ];
+                                    final next = await _showChoiceSheet(
+                                      context,
+                                      title: 'Portfolio',
+                                      selected: draft.portfolioName,
+                                      options: options,
+                                    );
+                                    if (next != null) {
+                                      if (useQuickCollectionController) {
+                                        final folderId = state.detail.portfolioFolders
+                                            .where((folder) => folder.name == next)
+                                            .firstOrNull
+                                            ?.id;
+                                        if (folderId != null) {
+                                          ref
+                                              .read(
+                                                selectedPortfolioFolderProvider.notifier,
+                                              )
+                                              .select(folderId);
+                                        }
+                                      }
+                                      controller.updateCollectionItemDraft(
+                                        portfolioName: next,
+                                      );
+                                    }
+                                  }
+                                : null,
+                            child: Padding(
+                              padding: EdgeInsets.only(
+                                left: 4,
+                                right: useQuickCollectionController ? 0 : 4,
+                                top: 2,
+                                bottom: 2,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      'Adding to ${draft.portfolioName}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        height: 24 / 16,
+                                        color: KandoColors.accent,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(
+                                    Icons.keyboard_arrow_down_rounded,
+                                    size: 20,
+                                    color: KandoColors.accent,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          size: 20,
-                          color: KandoColors.accent,
+                      ),
+                      Expanded(
+                        child: Builder(
+                          builder: (context) {
+                            final inset = MediaQuery.viewInsetsOf(context).bottom;
+                            return _KeyboardAwareCollectionItemScroll(
+                              keyboardInset: keepActionsFixedOnKeyboard || android
+                                  ? inset
+                                  : 0.0,
+                              viewportBottomInset: keepActionsFixedOnKeyboard
+                                  ? inset
+                                  : 0.0,
+                              child: scrollContent,
+                            );
+                          },
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-            ),
-            Expanded(
-              child: Builder(
-                builder: (context) {
-                  final inset = MediaQuery.viewInsetsOf(context).bottom;
-                  return _KeyboardAwareCollectionItemScroll(
-                    keyboardInset: keepActionsFixedOnKeyboard || android
-                        ? inset
-                        : 0.0,
-                    viewportBottomInset: keepActionsFixedOnKeyboard
-                        ? inset
-                        : 0.0,
-                    child: scrollContent,
-                  );
-                },
               ),
             ),
             _KeyboardAwareCollectionItemFooter(
@@ -5239,7 +5277,8 @@ Future<String?> _showChoiceSheet(
       final bottomInset = MediaQuery.paddingOf(sheetContext).bottom;
       final maxHeight = math.min(screenHeight * 0.68, 520.0);
 
-      return SafeArea(
+      return kandoModalSafeArea(
+        sheetContext,
         top: false,
         bottom: false,
         child: Padding(
@@ -6870,7 +6909,7 @@ Future<bool?> _showRemoveConfirmationSheet({
   return showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
-    useSafeArea: true,
+    useSafeArea: false,
     backgroundColor: Colors.transparent,
     barrierColor: Colors.black.withValues(alpha: 0.72),
     builder: (sheetContext) => _RemoveConfirmationSheet(
@@ -6915,7 +6954,8 @@ class _RemoveConfirmationSheet extends StatelessWidget {
       color: const Color(0xFF222222),
       clipBehavior: Clip.antiAlias,
       borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      child: SafeArea(
+      child: kandoModalSafeArea(
+        context,
         top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),

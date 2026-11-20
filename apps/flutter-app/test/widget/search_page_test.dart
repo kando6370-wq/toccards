@@ -1357,6 +1357,59 @@ void main() {
     },
   );
 
+  testWidgets(
+    'Duo pending notice and Review keep content safe while backgrounds stay full width',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(466, 678);
+      tester.view.padding = const FakeViewPadding(right: 84, bottom: 34);
+      tester.view.viewPadding = const FakeViewPadding(right: 84, bottom: 34);
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [..._searchOverrides(), ..._cardDetailOverrides()],
+          child: const _SearchTestAppWithRoutes(
+            platform: TargetPlatform.iOS,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final collect = find.byKey(const Key('search-collect-squirtle'));
+      await tester.tap(collect);
+      await tester.tap(collect);
+      await tester.pumpAndSettle();
+
+      final notice = find.byKey(const Key('pending-collection-notice'));
+      final noticeContent = find.byKey(
+        const Key('pending-collection-notice-content-safe-area'),
+      );
+      expect(tester.getRect(notice).right, closeTo(362, 0.01));
+      expect(tester.getRect(noticeContent).right, closeTo(362, 0.01));
+
+      await tester.tap(notice);
+      await tester.pumpAndSettle();
+
+      final sheet = find.byKey(const Key('card-detail-add-item-sheet'));
+      final sheetContent = find.byKey(
+        const Key('card-detail-add-item-content-safe-area'),
+      );
+      final footer = find.byKey(
+        const Key('card-detail-add-item-footer'),
+      );
+      final deleteAll = find.byKey(const Key('pending-collection-delete-all'));
+      expect(tester.getRect(sheet).right, closeTo(466, 0.01));
+      expect(tester.getRect(sheetContent).right, closeTo(382, 0.01));
+      expect(tester.getRect(footer).right, closeTo(466, 0.01));
+      expect(tester.getRect(deleteAll).right, closeTo(446, 0.01));
+      expect(
+        tester.getRect(deleteAll).bottom,
+        closeTo(tester.getRect(sheet).bottom - 34, 0.01),
+      );
+    },
+  );
+
   testWidgets('pending Review top scrim closes the bottom-aligned sheet', (
     tester,
   ) async {
@@ -2867,11 +2920,16 @@ class _SearchTestAppWithoutPendingRoute extends StatelessWidget {
 }
 
 class _SearchTestAppWithRoutes extends StatelessWidget {
-  const _SearchTestAppWithRoutes();
+  const _SearchTestAppWithRoutes({this.platform});
+
+  final TargetPlatform? platform;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
+      theme: platform == null
+          ? null
+          : ThemeData().copyWith(platform: platform),
       routerConfig: GoRouter(
         initialLocation: '/search',
         routes: [

@@ -175,7 +175,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               barrierColor: const Color(0x99000000),
               isDismissible: false,
               enableDrag: defaultTargetPlatform != TargetPlatform.iOS,
-              useSafeArea: true,
+              useSafeArea: false,
               heightFactor: subscriptionSheetHeightFactor,
               sheetAnimationStyle: subscriptionSheetAnimationStyle,
               child: SubscriptionPage(

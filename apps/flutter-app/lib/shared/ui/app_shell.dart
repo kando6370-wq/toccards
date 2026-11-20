@@ -218,6 +218,7 @@ class PendingCollectionNotice extends StatelessWidget {
           }
         },
         child: Padding(
+          key: const Key('pending-collection-notice-content-safe-area'),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Row(
             children: [

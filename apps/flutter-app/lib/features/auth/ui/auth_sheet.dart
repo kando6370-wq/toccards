@@ -93,7 +93,8 @@ class _AuthSheetDialog extends ConsumerWidget {
                   begin: const Offset(0, 0.08),
                   end: Offset.zero,
                 ).animate(sheetAnimation),
-                child: SafeArea(
+                child: kandoModalSafeArea(
+                  context,
                   top: false,
                   bottom: false,
                   child: KandoContentWidth(

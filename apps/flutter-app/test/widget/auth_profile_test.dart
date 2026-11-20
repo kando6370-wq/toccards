@@ -3779,6 +3779,55 @@ void main() {
     }, variant: TargetPlatformVariant({TargetPlatform.iOS}));
   }
 
+  testWidgets('subscription sheet keeps the outer display right SafeArea', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(466, 678);
+    tester.view.padding = const FakeViewPadding(right: 84);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      _subscriptionGoldenApp(
+        const SubscriptionPage(sheet: true),
+        platform: TargetPlatform.iOS,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .getRect(find.byKey(const Key('subscription-sheet-content-surface')))
+          .right,
+      closeTo(466, 0.01),
+    );
+    expect(
+      tester
+          .getRect(
+            find.byKey(const Key('subscription-sheet-content-safe-area')),
+          )
+          .right,
+      closeTo(466 - 84, 0.01),
+    );
+
+    tester.view.physicalSize = const Size(951, 669);
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .getRect(find.byKey(const Key('subscription-sheet-content-surface')))
+          .right,
+      closeTo(951, 0.01),
+    );
+    expect(
+      tester
+          .getRect(
+            find.byKey(const Key('subscription-sheet-content-safe-area')),
+          )
+          .right,
+      closeTo(951, 0.01),
+    );
+  }, variant: TargetPlatformVariant({TargetPlatform.iOS}));
+
   testWidgets('subscription video background follows the available width', (
     tester,
   ) async {
@@ -4380,6 +4429,7 @@ class _FreeSubscriptionController extends SubscriptionController {
 ProviderScope _subscriptionGoldenApp(
   Widget child, {
   bool disableAnimations = true,
+  TargetPlatform? platform,
 }) {
   return ProviderScope(
     overrides: [
@@ -4392,7 +4442,9 @@ ProviderScope _subscriptionGoldenApp(
       subscriptionDisplayFactoryProvider.overrideWithValue(displayPageFixture),
     ],
     child: MaterialApp(
-      theme: buildKandoTheme(),
+      theme: platform == null
+          ? buildKandoTheme()
+          : buildKandoTheme().copyWith(platform: platform),
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(
           context,

@@ -3027,6 +3027,36 @@ void main() {
     },
   );
 
+  testWidgets('Duo currency picker does not reserve the side-nav inset twice', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(951, 669);
+    tester.view.padding = const FakeViewPadding(right: 84, bottom: 34);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      _mockHomeApp(
+        null,
+        const _TestCurrencyRateApi(),
+        const MockHomeRepository(),
+        _FreeHomeSubscriptionController.new,
+        null,
+        null,
+        TargetPlatform.iOS,
+      ),
+    );
+    await _waitForHomeAuth(tester);
+    await tester.tap(find.text('USD'));
+    await tester.pumpAndSettle();
+
+    final surface = tester.getRect(find.byType(FractionallySizedBox).first);
+    final search = tester.getRect(
+      find.byKey(const Key('home-currency-search')),
+    );
+    expect(search.right, closeTo(surface.right - 20, 0.01));
+  });
+
   testWidgets(
     'currency search filters by display name before the real rate and preference update',
     (tester) async {
@@ -4114,6 +4144,7 @@ Widget _mockHomeApp([
   SubscriptionController Function()? subscriptionController,
   PortfolioApiClient? performanceApi,
   AppAnalytics? analytics,
+  TargetPlatform? platform,
 ]) {
   final portfolioManagement = managementApi ?? _TestPortfolioManagementApi();
   return DefaultAssetBundle(
@@ -4135,7 +4166,7 @@ Widget _mockHomeApp([
         ),
         if (analytics != null) analyticsProvider.overrideWithValue(analytics),
       ],
-      child: const _HomeTestApp(),
+      child: _HomeTestApp(platform: platform),
     ),
   );
 }

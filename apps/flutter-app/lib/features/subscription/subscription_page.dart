@@ -716,80 +716,111 @@ class _SubscriptionPageState extends ConsumerState<SubscriptionPage>
         ),
       );
     }
-    return Scaffold(
-      key: const Key('subscription-sheet-surface'),
-      backgroundColor: Colors.transparent,
-      body: SafeArea(
+    final duoSideInsetSheet =
+        useUpdatedSheetUi && MediaQuery.paddingOf(context).right >= 84;
+    final sheetForeground = Stack(
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 32),
+          child: KandoContentWidth(maxWidth: 560, child: content),
+        ),
+        Positioned(
+          top: useUpdatedSheetUi ? 13 : 10,
+          left: 0,
+          right: 0,
+          child: Center(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onVerticalDragStart: display == null
+                  ? null
+                  : (_) => _sheetDragDistance = 0,
+              onVerticalDragUpdate: display == null
+                  ? null
+                  : (details) => _sheetDragDistance += details.delta.dy,
+              onVerticalDragEnd: display == null
+                  ? null
+                  : (_) {
+                      if (display.closeAvailable &&
+                          !state.isPurchasing &&
+                          !state.isRestoring &&
+                          _sheetDragDistance > 60 &&
+                          context.canPop()) {
+                        ref
+                            .read(subscriptionControllerProvider.notifier)
+                            .abandonPurchasePresentation();
+                        context.pop();
+                      }
+                      _sheetDragDistance = 0;
+                    },
+              child: Padding(
+                padding: display == null
+                    ? EdgeInsets.zero
+                    : const EdgeInsets.symmetric(horizontal: 32, vertical: 8),
+                child: Container(
+                  key: const Key('subscription-sheet-handle'),
+                  width: 48,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF615D3B),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+    final sheetBackground = useUpdatedSheetUi
+        ? const Positioned.fill(
+            child: _PaywallBackground(useUpdatedSheetUi: true),
+          )
+        : null;
+    final Widget sheetBody;
+    if (duoSideInsetSheet) {
+      sheetBody = ClipRRect(
+        key: const Key('subscription-sheet-content-surface'),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        child: ColoredBox(
+          color: KandoColors.ink,
+          child: Stack(
+            children: [
+              if (sheetBackground case final background?) background,
+              kandoModalSafeArea(
+                context,
+                bottom: false,
+                child: KeyedSubtree(
+                  key: const Key('subscription-sheet-content-safe-area'),
+                  child: sheetForeground,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } else {
+      sheetBody = kandoModalSafeArea(
+        context,
         bottom: false,
         child: ClipRRect(
+          key: const Key('subscription-sheet-content-surface'),
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           child: ColoredBox(
             color: KandoColors.ink,
             child: Stack(
               children: [
-                if (useUpdatedSheetUi)
-                  const Positioned.fill(
-                    child: _PaywallBackground(useUpdatedSheetUi: true),
-                  ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 32),
-                  child: KandoContentWidth(maxWidth: 560, child: content),
-                ),
-                Positioned(
-                  top: useUpdatedSheetUi ? 13 : 10,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onVerticalDragStart: display == null
-                          ? null
-                          : (_) => _sheetDragDistance = 0,
-                      onVerticalDragUpdate: display == null
-                          ? null
-                          : (details) => _sheetDragDistance += details.delta.dy,
-                      onVerticalDragEnd: display == null
-                          ? null
-                          : (_) {
-                              if (display.closeAvailable &&
-                                  !state.isPurchasing &&
-                                  !state.isRestoring &&
-                                  _sheetDragDistance > 60 &&
-                                  context.canPop()) {
-                                ref
-                                    .read(
-                                      subscriptionControllerProvider.notifier,
-                                    )
-                                    .abandonPurchasePresentation();
-                                context.pop();
-                              }
-                              _sheetDragDistance = 0;
-                            },
-                      child: Padding(
-                        padding: display == null
-                            ? EdgeInsets.zero
-                            : const EdgeInsets.symmetric(
-                                horizontal: 32,
-                                vertical: 8,
-                              ),
-                        child: Container(
-                          key: const Key('subscription-sheet-handle'),
-                          width: 48,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF615D3B),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                if (sheetBackground case final background?) background,
+                sheetForeground,
               ],
             ),
           ),
         ),
-      ),
+      );
+    }
+    return Scaffold(
+      key: const Key('subscription-sheet-surface'),
+      backgroundColor: Colors.transparent,
+      body: sheetBody,
     );
   }
 }

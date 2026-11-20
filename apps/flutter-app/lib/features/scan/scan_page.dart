@@ -2599,9 +2599,8 @@ class _ScanPageState extends ConsumerState<ScanPage>
                         currency: currency,
                         onCollapse: _closeReview,
                         onSelectItem: _selectReviewItem,
-                        onSelectCandidate: (item, candidate) => unawaited(
-                          _selectReviewCandidate(item, candidate),
-                        ),
+                        onSelectCandidate: (item, candidate) =>
+                            unawaited(_selectReviewCandidate(item, candidate)),
                         onUpdateDraft: _updateReviewDraft,
                         onAddThisCard: _addSelectedItem,
                         onAddAllCards: _addAllMatchedItems,
@@ -3041,8 +3040,9 @@ class _ScanTopBar extends StatelessWidget {
                     backgroundColor: flashEnabled
                         ? KandoColors.accent
                         : const Color(0xFF222222).withValues(alpha: 0.82),
-                    disabledBackgroundColor: const Color(0xFF222222)
-                        .withValues(alpha: 0.82),
+                    disabledBackgroundColor: const Color(
+                      0xFF222222,
+                    ).withValues(alpha: 0.82),
                   ),
                   icon: SvgPicture.asset(
                     'assets/scan/flash.svg',
@@ -5904,7 +5904,8 @@ Future<String?> _showReviewChoiceSheet(
       final screenHeight = MediaQuery.sizeOf(sheetContext).height;
       final maxHeight = screenHeight * 0.68 > 520 ? 520.0 : screenHeight * 0.68;
 
-      return SafeArea(
+      return kandoModalSafeArea(
+        sheetContext,
         top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
@@ -6053,137 +6054,141 @@ Future<ScanReviewFolder?> _showScanFolderSheet(
   return showModalBottomSheet<ScanReviewFolder>(
     context: context,
     isScrollControlled: true,
-    useSafeArea: true,
+    useSafeArea: false,
     backgroundColor: Colors.transparent,
     barrierColor: const Color(0x99000000),
     builder: (context) {
-      return ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.72,
-        ),
-        child: Material(
-          color: const Color(0xFF222222),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          clipBehavior: Clip.antiAlias,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 21, 20, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  key: const Key('scan-review-folder-sheet-handle'),
-                  width: 48,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF615D3B),
-                    borderRadius: BorderRadius.circular(9999),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Add scanned cards to',
-                    style: TextStyle(
-                      color: Color(0xFFF0FE6F),
-                      fontSize: 16,
-                      height: 24 / 16,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Container(
+      return kandoModalSafeArea(
+        context,
+        top: false,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.72,
+          ),
+          child: Material(
+            color: const Color(0xFF222222),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            clipBehavior: Clip.antiAlias,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 21, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    key: const Key('scan-review-folder-sheet-handle'),
                     width: 48,
-                    height: 4,
+                    height: 6,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF0FE6F),
+                      color: const Color(0xFF615D3B),
                       borderRadius: BorderRadius.circular(9999),
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                Flexible(
-                  child: ListView.separated(
-                    key: const Key('scan-review-folder-sheet-list'),
-                    shrinkWrap: true,
-                    itemCount: folders.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final folder = folders[index];
-                      final selected = folder.id == selectedFolderId;
-                      return InkWell(
-                        key: Key('scan-review-folder-option-${folder.id}'),
-                        onTap: () => Navigator.of(context).pop(folder),
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          height: 58,
-                          padding: const EdgeInsets.symmetric(horizontal: 17),
-                          decoration: BoxDecoration(
-                            color: selected
-                                ? const Color(0x0DF0FE6F)
-                                : const Color(0xFF1A1C14),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
+                  const SizedBox(height: 24),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Add scanned cards to',
+                      style: TextStyle(
+                        color: Color(0xFFF0FE6F),
+                        fontSize: 16,
+                        height: 24 / 16,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      width: 48,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0FE6F),
+                        borderRadius: BorderRadius.circular(9999),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Flexible(
+                    child: ListView.separated(
+                      key: const Key('scan-review-folder-sheet-list'),
+                      shrinkWrap: true,
+                      itemCount: folders.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        final folder = folders[index];
+                        final selected = folder.id == selectedFolderId;
+                        return InkWell(
+                          key: Key('scan-review-folder-option-${folder.id}'),
+                          onTap: () => Navigator.of(context).pop(folder),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            height: 58,
+                            padding: const EdgeInsets.symmetric(horizontal: 17),
+                            decoration: BoxDecoration(
                               color: selected
-                                  ? const Color(0xFFF0FE6F)
-                                  : const Color(0xFF464835),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.folder_outlined,
-                                size: 20,
+                                  ? const Color(0x0DF0FE6F)
+                                  : const Color(0xFF1A1C14),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
                                 color: selected
                                     ? const Color(0xFFF0FE6F)
-                                    : const Color(0xFF92927D),
+                                    : const Color(0xFF464835),
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  folder.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: selected
-                                        ? const Color(0xFFEEECD8)
-                                        : const Color(0xFF92927D),
-                                    fontSize: selected ? 15 : 16,
-                                    height: selected ? 22 / 15 : 24 / 16,
-                                  ),
-                                ),
-                              ),
-                              if (selected)
-                                const Icon(
-                                  Icons.check_circle,
-                                  key: Key(
-                                    'scan-review-folder-selected-indicator',
-                                  ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.folder_outlined,
                                   size: 20,
-                                  color: Color(0xFFF0FE6F),
-                                )
-                              else
-                                Container(
-                                  width: 24,
-                                  height: 24,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: const Color(0xFF464835),
-                                      width: 2,
+                                  color: selected
+                                      ? const Color(0xFFF0FE6F)
+                                      : const Color(0xFF92927D),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    folder.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: selected
+                                          ? const Color(0xFFEEECD8)
+                                          : const Color(0xFF92927D),
+                                      fontSize: selected ? 15 : 16,
+                                      height: selected ? 22 / 15 : 24 / 16,
                                     ),
                                   ),
                                 ),
-                            ],
+                                if (selected)
+                                  const Icon(
+                                    Icons.check_circle,
+                                    key: Key(
+                                      'scan-review-folder-selected-indicator',
+                                    ),
+                                    size: 20,
+                                    color: Color(0xFFF0FE6F),
+                                  )
+                                else
+                                  Container(
+                                    width: 24,
+                                    height: 24,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: const Color(0xFF464835),
+                                        width: 2,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

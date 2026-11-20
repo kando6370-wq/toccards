@@ -508,7 +508,8 @@ class _HomePageState extends ConsumerState<HomePage>
             }).toList();
             return FractionallySizedBox(
               heightFactor: 0.88,
-              child: SafeArea(
+              child: kandoModalSafeArea(
+                context,
                 child: Padding(
                   padding: EdgeInsets.fromLTRB(
                     20,

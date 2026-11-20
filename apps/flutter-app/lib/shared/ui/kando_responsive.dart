@@ -24,6 +24,35 @@ class KandoContentWidth extends StatelessWidget {
   );
 }
 
+/// Applies safe-area padding to a modal surface without reserving Duo's
+/// side-navigation inset inside the already-contained sheet.
+///
+/// The right-side 84px inset is used by the app shell for navigation on iPhone
+/// Duo. A bottom sheet or dialog has its own surface and must use that width;
+/// applying the inset a second time leaves an empty strip on the right.
+Widget kandoModalSafeArea(
+  BuildContext context, {
+  required Widget child,
+  bool top = true,
+  bool bottom = true,
+}) {
+  final padding = MediaQuery.paddingOf(context);
+  final size = MediaQuery.sizeOf(context);
+  final bottomClearance = math.max(32.0, padding.bottom);
+  final expandedContentWidth = size.width - padding.left - padding.right;
+  final removeSideNavigationInset =
+      Theme.of(context).platform == TargetPlatform.iOS &&
+      padding.right >= 84 &&
+      expandedContentWidth >= 800 &&
+      size.height - padding.top - bottomClearance >= 520;
+  return MediaQuery.removePadding(
+    context: context,
+    removeLeft: removeSideNavigationInset,
+    removeRight: removeSideNavigationInset,
+    child: SafeArea(top: top, bottom: bottom, child: child),
+  );
+}
+
 /// Keeps both subtrees mounted when a window changes between one and two columns.
 class KandoAdaptiveColumns extends StatelessWidget {
   const KandoAdaptiveColumns({

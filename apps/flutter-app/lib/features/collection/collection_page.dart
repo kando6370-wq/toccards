@@ -1161,15 +1161,19 @@ Future<void> showPortfolioFolderSheet(BuildContext context, WidgetRef ref) {
         final state = ref.watch(collectionControllerProvider);
         final controller = ref.read(collectionControllerProvider.notifier);
         if (state.loadStatus == KandoLoadStatus.loading) {
-          return const FractionallySizedBox(
+          return FractionallySizedBox(
             heightFactor: 0.62,
-            child: SafeArea(child: KandoLoadingBlock()),
+            child: kandoModalSafeArea(
+              context,
+              child: const KandoLoadingBlock(),
+            ),
           );
         }
         if (state.isUnavailable) {
           return FractionallySizedBox(
             heightFactor: 0.62,
-            child: SafeArea(
+            child: kandoModalSafeArea(
+              context,
               child: KandoFailureBlock(onRefresh: controller.refresh),
             ),
           );
@@ -1177,7 +1181,8 @@ Future<void> showPortfolioFolderSheet(BuildContext context, WidgetRef ref) {
         final folders = state.dashboard.folders;
         return FractionallySizedBox(
           heightFactor: 0.62,
-          child: SafeArea(
+          child: kandoModalSafeArea(
+            context,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
               child: Column(
@@ -1770,7 +1775,8 @@ class _PortfolioActionSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
+    return kandoModalSafeArea(
+      context,
       top: false,
       child: Container(
         width: double.infinity,
@@ -2028,7 +2034,7 @@ Future<void> _showFilterSheet(BuildContext context, WidgetRef ref) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    useSafeArea: true,
+    useSafeArea: false,
     barrierColor: Colors.black.withValues(alpha: 0.76),
     backgroundColor: Colors.transparent,
     shape: const RoundedRectangleBorder(
@@ -2068,7 +2074,8 @@ Future<void> _showFilterSheet(BuildContext context, WidgetRef ref) {
                       top: Radius.circular(22),
                     ),
                   ),
-                  child: SafeArea(
+                  child: kandoModalSafeArea(
+                    context,
                     top: false,
                     child: Column(
                       children: [
