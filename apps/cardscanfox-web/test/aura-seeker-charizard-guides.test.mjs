@@ -30,7 +30,25 @@ test('Aura Seeker provides a source-linked Japanese preview, not an English chec
   for (const listing of ['/blog/', '/blog/category/identity']) {
     assert.ok(render(listing).page.html.includes(`href="${auraPath}"`));
   }
-  assert.equal(renderer.resolvePage(new URL('/blog/flowing-fists-card-list', origin)).status, 404);
+  const flowing = render('/blog/flowing-fists-card-list').page;
+  assert.match(flowing.html, /Flowing Fists card list/);
+  assert.match(flowing.html, /No complete English Flowing Fists checklist is confirmed/);
+  assert.ok(publicSitemap(origin).includes(`${origin}/blog/flowing-fists-card-list`));
+});
+
+test('November keyword guides keep price and rules claims source-linked', () => {
+  const checks = [
+    ['/blog/mickey-mantle-rookie-card-value', /1951 Bowman #253/, /1952 Topps #311/, /AI card pregrading tool/],
+    ['/blog/one-piece-tcg-ban-list', /OP14-020 Dracule Mihawk/, /October 12, 2026/, /official rules/],
+  ];
+  for (const [path, first, second, third] of checks) {
+    const {url, page} = render(path);
+    assert.match(page.html, first);
+    assert.match(page.html, second);
+    assert.match(page.html, third);
+    assert.ok(mayIndex(url, page.status, page));
+    assert.ok(publicSitemap(origin).includes(`${origin}${path}`));
+  }
 });
 
 test('Charizard guides lead with their own set and valuation task without changing indexing or dated examples', () => {

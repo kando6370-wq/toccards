@@ -50,7 +50,10 @@
     "/sets/db-t399",
     "/sets/db-t582",
     "/blog/delta-reign-etb",
-    "/blog/aura-seeker-card-list"
+    "/blog/aura-seeker-card-list",
+    "/blog/flowing-fists-card-list",
+    "/blog/mickey-mantle-rookie-card-value",
+    "/blog/one-piece-tcg-ban-list"
   ],
   "note": "Local production policy only. Preview authentication/noindex and PUBLISH_READY remain enforced. Eligible real card pages may be indexed; sitemap discovery expands in reviewed batches. Missing price alone does not exclude a useful identity page.",
   "catalog": {
@@ -263,7 +266,10 @@
       "/sets/db-t399",
       "/sets/db-t582",
       "/blog/delta-reign-etb",
-      "/blog/aura-seeker-card-list"
+      "/blog/aura-seeker-card-list",
+      "/blog/flowing-fists-card-list",
+      "/blog/mickey-mantle-rookie-card-value",
+      "/blog/one-piece-tcg-ban-list"
     ],
     "note": "Retain all 140 historically observed positive-impression URLs directly or through their five approved owner redirects, plus five newly observed positive URLs. Card indexing is limited to 82 historical and two new positive-impression card paths. Sixty former reference-only exceptions are temporarily paused; a missing report row is not proof of zero monthly demand. Core non-card owners and their other approved exceptions remain.",
     "approvedConsolidations": {
