@@ -321,3 +321,15 @@ Card Detail 新增／编辑卡片弹窗保留 Flutter `showModalBottomSheet(useS
 - **回归：**Trending Today 定向测试共 5 项通过，新增覆盖 466×678、右侧 84px 安全区的竖屏几何，以及 951×669、右侧 84px 安全区的展开四列几何。竖屏测试确认两张卡片各 170px 宽、间距 10px，第二列右边缘落在安全区内 16px；展开测试确认第四张卡片与第一行对齐、第五张进入下一行。`flutter analyze --no-pub` 无问题，`git diff --check` 通过。
 - **模拟器交付：**使用签名的 `Debug-test` arm64 Simulator 预览包重新构建，先卸载旧包再安装到 Device Hub iPhone Duo（iOS 27.1，UDID `A9D96BD2-F97C-42A6-9047-FDC8F0781675`），Bundle `com.kando.kandoApp.beta`，版本 `1.0.7+213`；Runner SHA-256 为 `20aa5c127c88987e95c4c9e63912145a119ac0427d84295b0c8d9893e434afc6`。Device Hub 已启动新包并打开 Trending Today，目视确认竖屏卡片使用完整安全宽度。该包沿用隔离预览构建的 ML Kit 模拟器例外，只用于 UI 预览，不能替代完整扫描验收。
 - **平台边界：**Trending Today 使用 Flutter 共享响应式网格，Android 继续沿用底部导航与原方向规则；本轮未改业务 API、数据库、订阅、扫描识别或生产环境。
+
+### 9.17 Onboarding 三个欢迎页宽屏适配（2026-11-20）
+
+用户确认开始实施欢迎页适配。本轮仅调整 `OnboardingPage` 的布局，不改变三页顺序、PageView 切换、视频预加载与播放、分页指示器、登录／注册／游客流程或埋点。
+
+- 普通竖屏和窄窗口继续使用原有单列版式、视频尺寸、底部渐变控制区、按钮尺寸及安全区行为。
+- 可用宽度至少 800 且扣除上下安全区后的高度至少 480 时启用展开布局。可用内容宽度按 60:40 分配，左侧展示引导视频，右侧展示标题、说明、分页指示器和操作按钮。
+- 宽屏右侧内容通过 SafeArea 和右侧系统 inset 保持安全距离，背景渐变延伸到窗口最右侧。第三页的登录／注册与跳过按钮沿右侧内容自然排列。
+- 引导媒体在宽屏左侧保持原始 780:960 比例，最大宽度 520，并在左侧区域居中。普通竖屏媒体仍保持原有 390:480 参考几何。
+- 新增展开窗口几何回归，普通竖屏既有回归继续通过。`flutter test --no-pub test/widget/onboarding_page_test.dart` 共 18 项通过，`flutter analyze --no-pub lib/features/onboarding/onboarding_page.dart` 通过，`git diff --check` 通过。
+
+本轮未构建或安装新的模拟器包，未执行 Android APK、Duo 真机、真实扫描、登录、订阅或完整设备方向矩阵验收。Android 继续保留项目既有正向竖屏规则，宽屏分支只在实际可用窗口达到阈值时生效。

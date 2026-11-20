@@ -164,6 +164,43 @@ void main() {
     }
   });
 
+  testWidgets('wide onboarding uses a six four media and controls layout', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.padding = const FakeViewPadding(
+      left: 0,
+      top: 24,
+      right: 84,
+      bottom: 24,
+    );
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      _testPage(
+        InMemoryOnboardingStorage(),
+        padding: const EdgeInsets.only(top: 24, right: 84, bottom: 24),
+      ),
+    );
+
+    final media = find.byKey(const ValueKey('onboarding-media-first-frame-0'));
+    final panel = find.byKey(const ValueKey('onboarding-controls-panel-0'));
+    final title = find.byKey(const ValueKey('onboarding-title-0'));
+    final primary = find.byTooltip("LET'S START");
+
+    expect(tester.getSize(media), const Size(520, 640));
+    expect(tester.getTopLeft(media).dx, closeTo(74.8, 0.1));
+    expect(tester.getTopLeft(media).dy, closeTo(80, 0.1));
+    expect(tester.getTopLeft(panel).dx, closeTo(669.6, 0.1));
+    expect(
+      tester.getTopLeft(title).dx,
+      greaterThan(tester.getTopLeft(panel).dx),
+    );
+    expect(tester.getTopRight(primary).dx, lessThanOrEqualTo(1200 - 84));
+    expect(tester.getTopLeft(primary).dy, greaterThan(0));
+  });
+
   testWidgets('guide copy and controls match the Figma 390x844 layout', (
     tester,
   ) async {
@@ -453,11 +490,13 @@ Widget _testPage(
   InMemoryOnboardingStorage storage, {
   bool disableAnimations = false,
   TextScaler textScaler = TextScaler.noScaling,
+  EdgeInsets padding = EdgeInsets.zero,
 }) {
   final page = MediaQuery(
     data: MediaQueryData(
       disableAnimations: disableAnimations,
       textScaler: textScaler,
+      padding: padding,
     ),
     child: const OnboardingPage(),
   );

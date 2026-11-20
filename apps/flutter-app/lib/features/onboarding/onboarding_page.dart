@@ -234,151 +234,200 @@ class _OnboardingSlideView extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final panelHeight = math.min(292.0, constraints.maxHeight);
-        final contentWidth = math.min(
-          348.0,
-          math.max(0.0, constraints.maxWidth - 42),
+        final padding = MediaQuery.paddingOf(context);
+        final availableHeight = math.max(
+          0.0,
+          constraints.maxHeight - padding.top - padding.bottom,
         );
-        final buttonHorizontalInset = math.max(0.0, (contentWidth - 284) / 2);
-        final descriptionViewportWidth = math.min(
-          slide.descriptionWidth,
-          constraints.maxWidth,
-        );
+        final useWideLayout =
+            constraints.maxWidth >= 800 && availableHeight >= 480;
 
-        Widget buildDescription() => Text(
-          slide.description,
-          key: ValueKey('onboarding-description-$index'),
-          maxLines: 2,
-          textAlign: TextAlign.center,
-          textScaler: TextScaler.noScaling,
-          style: const TextStyle(
-            color: Color(0xCCC8C8B1),
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-            height: 24 / 14,
-          ),
-        );
+        if (useWideLayout) {
+          return _buildWideLayout(context, constraints, padding);
+        }
 
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            _OnboardingMedia(
-              key: ValueKey('onboarding-media-placeholder-$index'),
-              index: index,
-              placeholderAsset: slide.placeholderAsset,
-              isActive: isActive,
-              videoController: videoController,
-            ),
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: RepaintBoundary(
-                child: ClipRect(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 4.25, sigmaY: 4.25),
-                    child: Container(
-                      key: ValueKey('onboarding-controls-panel-$index'),
-                      width: double.infinity,
-                      height: panelHeight,
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Color(0x000D0F08), Color(0xE60D0F08)],
-                        ),
+        return _buildPhoneLayout(context, constraints);
+      },
+    );
+  }
+
+  Widget _buildPhoneLayout(BuildContext context, BoxConstraints constraints) {
+    final panelHeight = math.min(292.0, constraints.maxHeight);
+    final contentWidth = math.min(
+      348.0,
+      math.max(0.0, constraints.maxWidth - 42),
+    );
+    final buttonHorizontalInset = math.max(0.0, (contentWidth - 284) / 2);
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        _OnboardingMedia(
+          key: ValueKey('onboarding-media-placeholder-$index'),
+          index: index,
+          placeholderAsset: slide.placeholderAsset,
+          isActive: isActive,
+          videoController: videoController,
+        ),
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: RepaintBoundary(
+            child: ClipRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 4.25, sigmaY: 4.25),
+                child: Container(
+                  key: ValueKey('onboarding-controls-panel-$index'),
+                  width: double.infinity,
+                  height: panelHeight,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0x000D0F08), Color(0xE60D0F08)],
+                    ),
+                  ),
+                  child: Center(
+                    child: SizedBox(
+                      width: contentWidth,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Transform.translate(
+                            offset: Offset(0, index < 2 ? -30 : 0),
+                            child: _buildCopy(),
+                          ),
+                          const SizedBox(height: 8),
+                          _PageIndicator(
+                            currentIndex: currentIndex,
+                            pageCount: pageCount,
+                          ),
+                          const SizedBox(height: 16),
+                          Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: buttonHorizontalInset,
+                            ),
+                            child: _OnboardingButton(
+                              tooltip: slide.primaryLabel,
+                              label: slide.primaryLabel,
+                              onPressed: onPrimaryPressed,
+                              showArrow: true,
+                            ),
+                          ),
+                          if (onContinueAsGuest != null) ...[
+                            const SizedBox(height: 16),
+                            Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: buttonHorizontalInset,
+                              ),
+                              child: _OnboardingButton(
+                                tooltip: 'Skip and start now',
+                                label: 'SKIP AND START NOW',
+                                onPressed: onContinueAsGuest!,
+                                secondary: true,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 48),
+                        ],
                       ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWideLayout(
+    BuildContext context,
+    BoxConstraints constraints,
+    EdgeInsets padding,
+  ) {
+    final safeLeft = padding.left;
+    final safeRight = padding.right;
+    final usableWidth = math.max(
+      0.0,
+      constraints.maxWidth - safeLeft - safeRight,
+    );
+    final mediaWidth = usableWidth * 0.6;
+    final panelLeft = safeLeft + mediaWidth;
+    final panelContentWidth = math.min(
+      348.0,
+      math.max(0.0, usableWidth * 0.4 - 48),
+    );
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Positioned(
+          left: safeLeft,
+          top: 0,
+          width: mediaWidth,
+          bottom: 0,
+          child: _OnboardingMedia(
+            key: ValueKey('onboarding-media-placeholder-$index'),
+            index: index,
+            placeholderAsset: slide.placeholderAsset,
+            isActive: isActive,
+            videoController: videoController,
+            expanded: true,
+          ),
+        ),
+        Positioned(
+          left: panelLeft,
+          right: 0,
+          top: 0,
+          bottom: 0,
+          child: RepaintBoundary(
+            child: ClipRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 4.25, sigmaY: 4.25),
+                child: Container(
+                  key: ValueKey('onboarding-controls-panel-$index'),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: [Color(0x0010120D), Color(0xE60D0F08)],
+                    ),
+                  ),
+                  child: SafeArea(
+                    top: true,
+                    bottom: true,
+                    left: false,
+                    right: false,
+                    child: Padding(
+                      padding: EdgeInsets.only(left: 24, right: safeRight + 24),
                       child: Center(
                         child: SizedBox(
-                          width: contentWidth,
+                          width: panelContentWidth,
                           child: Column(
-                            mainAxisAlignment: MainAxisAlignment.end,
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Transform.translate(
-                                offset: Offset(0, index < 2 ? -30 : 0),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    SizedBox(
-                                      height: 40,
-                                      child: Center(
-                                        child: FittedBox(
-                                          fit: BoxFit.scaleDown,
-                                          child: Text(
-                                            slide.title,
-                                            key: ValueKey(
-                                              'onboarding-title-$index',
-                                            ),
-                                            maxLines: 1,
-                                            textAlign: TextAlign.center,
-                                            style: const TextStyle(
-                                              color: Color(0xFFE3E3D6),
-                                              fontFamily: 'Fraunces',
-                                              fontSize: 30,
-                                              fontWeight: FontWeight.w600,
-                                              height: 40 / 30,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    SizedBox(
-                                      height: 48,
-                                      child: OverflowBox(
-                                        minWidth: descriptionViewportWidth,
-                                        maxWidth: descriptionViewportWidth,
-                                        alignment: Alignment.center,
-                                        child: SizedBox(
-                                          key: ValueKey(
-                                            'onboarding-description-viewport-$index',
-                                          ),
-                                          width: descriptionViewportWidth,
-                                          height: 48,
-                                          child: index < 2
-                                              ? FittedBox(
-                                                  fit: BoxFit.scaleDown,
-                                                  alignment:
-                                                      Alignment.topCenter,
-                                                  child: buildDescription(),
-                                                )
-                                              : buildDescription(),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 8),
+                              _buildCopy(maxWidth: panelContentWidth),
+                              const SizedBox(height: 24),
                               _PageIndicator(
                                 currentIndex: currentIndex,
                                 pageCount: pageCount,
                               ),
-                              const SizedBox(height: 16),
-                              Padding(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: buttonHorizontalInset,
-                                ),
-                                child: _OnboardingButton(
-                                  tooltip: slide.primaryLabel,
-                                  label: slide.primaryLabel,
-                                  onPressed: onPrimaryPressed,
-                                  showArrow: true,
-                                ),
+                              const SizedBox(height: 24),
+                              _OnboardingButton(
+                                tooltip: slide.primaryLabel,
+                                label: slide.primaryLabel,
+                                onPressed: onPrimaryPressed,
+                                showArrow: true,
                               ),
                               if (onContinueAsGuest != null) ...[
                                 const SizedBox(height: 16),
-                                Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: buttonHorizontalInset,
-                                  ),
-                                  child: _OnboardingButton(
-                                    tooltip: 'Skip and start now',
-                                    label: 'SKIP AND START NOW',
-                                    onPressed: onContinueAsGuest!,
-                                    secondary: true,
-                                  ),
+                                _OnboardingButton(
+                                  tooltip: 'Skip and start now',
+                                  label: 'SKIP AND START NOW',
+                                  onPressed: onContinueAsGuest!,
+                                  secondary: true,
                                 ),
                               ],
-                              const SizedBox(height: 48),
                             ],
                           ),
                         ),
@@ -388,9 +437,78 @@ class _OnboardingSlideView extends StatelessWidget {
                 ),
               ),
             ),
-          ],
-        );
-      },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCopy({double? maxWidth}) {
+    final descriptionViewportWidth = math.min(
+      slide.descriptionWidth,
+      maxWidth ?? slide.descriptionWidth,
+    );
+
+    Widget buildDescription() => Text(
+      slide.description,
+      key: ValueKey('onboarding-description-$index'),
+      maxLines: 2,
+      textAlign: TextAlign.center,
+      textScaler: TextScaler.noScaling,
+      style: const TextStyle(
+        color: Color(0xCCC8C8B1),
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        height: 24 / 14,
+      ),
+    );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          height: 40,
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                slide.title,
+                key: ValueKey('onboarding-title-$index'),
+                maxLines: 1,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFFE3E3D6),
+                  fontFamily: 'Fraunces',
+                  fontSize: 30,
+                  fontWeight: FontWeight.w600,
+                  height: 40 / 30,
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 48,
+          child: OverflowBox(
+            minWidth: descriptionViewportWidth,
+            maxWidth: descriptionViewportWidth,
+            alignment: Alignment.center,
+            child: SizedBox(
+              key: ValueKey('onboarding-description-viewport-$index'),
+              width: descriptionViewportWidth,
+              height: 48,
+              child: index < 2
+                  ? FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.topCenter,
+                      child: buildDescription(),
+                    )
+                  : buildDescription(),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -401,6 +519,7 @@ class _OnboardingMedia extends StatelessWidget {
     required this.placeholderAsset,
     required this.isActive,
     required this.videoController,
+    this.expanded = false,
     super.key,
   });
 
@@ -408,6 +527,7 @@ class _OnboardingMedia extends StatelessWidget {
   final String placeholderAsset;
   final bool isActive;
   final _OnboardingVideoController videoController;
+  final bool expanded;
 
   @override
   Widget build(BuildContext context) {
@@ -416,18 +536,23 @@ class _OnboardingMedia extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final topOffset = math.min(86.0, constraints.maxHeight);
+        final topOffset = expanded
+            ? 0.0
+            : math.min(86.0, constraints.maxHeight);
+        final maxMediaWidth = expanded ? 520.0 : 390.0;
+        final verticalInset = expanded ? 48.0 : 0.0;
         final mediaWidth = math.min(
-          390.0,
+          maxMediaWidth,
           math.min(
-            constraints.maxWidth,
-            math.max(0.0, constraints.maxHeight - topOffset) * (780 / 960),
+            constraints.maxWidth - (expanded ? 48.0 : 0.0),
+            math.max(0.0, constraints.maxHeight - topOffset - verticalInset) *
+                (780 / 960),
           ),
         );
         final mediaHeight = mediaWidth * (960 / 780);
 
         return Align(
-          alignment: Alignment.topCenter,
+          alignment: expanded ? Alignment.center : Alignment.topCenter,
           child: Padding(
             padding: EdgeInsets.only(top: topOffset),
             child: SizedBox(

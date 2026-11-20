@@ -1301,10 +1301,7 @@ void main() {
       expect(tester.getSize(panel), const Size(390, 343));
       expect(tester.getBottomRight(panel), const Offset(390, 844));
       expect(tester.getSize(closeButton), const Size.square(40));
-      expect(
-        tester.getSize(find.byKey(const Key('auth-home-indicator'))),
-        const Size(390, 25.154),
-      );
+      expect(find.byKey(const Key('auth-home-indicator')), findsNothing);
 
       await tester.tap(closeButton);
       await tester.pumpAndSettle();
@@ -1334,7 +1331,7 @@ void main() {
     final panelCanvas = find.byKey(const Key('auth-options-panel-canvas'));
     expect(panelCanvas, findsOneWidget);
     expect(find.byKey(const Key('auth-options-close-canvas')), findsOneWidget);
-    expect(find.byKey(const Key('auth-home-indicator')), findsOneWidget);
+    expect(find.byKey(const Key('auth-home-indicator')), findsNothing);
     expect(find.byKey(const Key('auth-google-option')), findsOneWidget);
     expect(find.byKey(const Key('auth-apple-option')), findsOneWidget);
     expect(find.byKey(const Key('auth-email-option')), findsOneWidget);
@@ -1406,7 +1403,7 @@ void main() {
     expect(tester.getTopLeft(closeButton), const Offset(175, 381));
     expect(failureCanvas, findsOneWidget);
     expect(find.byKey(const Key('auth-options-close-canvas')), findsOneWidget);
-    expect(find.byKey(const Key('auth-home-indicator')), findsOneWidget);
+    expect(find.byKey(const Key('auth-home-indicator')), findsNothing);
     expect(find.byKey(const Key('auth-oauth-warning')), findsOneWidget);
     expect(
       tester.getSize(find.byKey(const Key('auth-email-option'))),

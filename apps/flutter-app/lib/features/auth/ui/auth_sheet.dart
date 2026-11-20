@@ -398,39 +398,7 @@ class _AuthOptionsPanel extends StatelessWidget {
             ),
           ),
         ),
-        const _AuthHomeIndicator(),
       ],
-    );
-  }
-}
-
-class _AuthHomeIndicator extends StatelessWidget {
-  const _AuthHomeIndicator();
-
-  @override
-  Widget build(BuildContext context) {
-    return ColoredBox(
-      color: KandoColors.ink,
-      child: SizedBox(
-        key: const Key('auth-home-indicator'),
-        height: 25.154,
-        width: double.infinity,
-        child: Stack(
-          alignment: Alignment.bottomCenter,
-          children: [
-            Positioned(
-              bottom: 8,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: KandoColors.softAccent,
-                  borderRadius: BorderRadius.circular(9999),
-                ),
-                child: const SizedBox(width: 134, height: 5),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
