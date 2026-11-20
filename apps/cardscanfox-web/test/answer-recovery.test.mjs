@@ -29,9 +29,15 @@ test('the anniversary card page contains all 191 linked single-card records with
  for(const answer of ['Espeon ex','Umbreon ex','November 6, 2026','29 regular booster packs','three-card Classic Collection pack'])assert.ok(upc.includes(answer),answer);
 });
 
-test('public brand, article attribution and download action use CardScanFox consistently',()=>{
- for(const path of [...legacyPages.filter(p=>!['legal'].includes(p.type)&&!redirectTarget(p.path)).map(p=>p.path),...articles.map(p=>p.path),'/app','/download','/help']){
-  const html=render(path);assert.match(html,/>Get CardScanFox /,path);assert.doesNotMatch(html,/>Get Card AI|>Download Card AI/,path);
+test('public pages use the Card AI handoff branding and keep source attribution',()=>{
+ for(const path of [...legacyPages.filter(p=>!redirectTarget(p.path)).map(p=>p.path),...articles.map(p=>p.path),'/cards','/app','/download','/help']){
+  const html=render(path);
+  assert.match(html,/<link rel="icon" href="\/assets\/card-ai-icon\.svg"/,path);
+  assert.equal((html.match(/<img src="\/assets\/card-ai-wordmark\.svg" alt="Card AI"/g)??[]).length,2,path);
+  assert.match(html,/aria-label="Card AI home"/,path);
+  assert.match(html,/<meta property="og:site_name" content="Card AI">/,path);
+  assert.match(html,/>Get Card AI /,path);
+  assert.doesNotMatch(html,/<title>[^<]*CardScanFox|>Get CardScanFox /,path);
   visit(parse(html),node=>{if(node.tagName!=='script'||attr(node,'type')!=='application/ld+json')return;const data=JSON.parse(text(node));for(const field of ['author','publisher'])if(data[field]){assert.match(data[field].name,/CardScanFox/,path+' '+field);assert.doesNotMatch(data[field].name,/Card AI/,path+' '+field);}});
  }
  assert.match(render('/download'),/listed on the App Store as/i);
