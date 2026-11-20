@@ -21,32 +21,37 @@ class AccountPage extends ConsumerWidget {
     final authState = ref.watch(authControllerProvider);
     final session = authState.session;
 
+    Future<void> refresh() {
+      ref.read(analyticsProvider).track(AnalyticsEvent.refreshClick);
+      return ref.read(authControllerProvider.notifier).retryStartup();
+    }
+
     return ProfileDetailScaffold(
       semanticsLabel: 'Account',
+      wideChild: authState.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : authState.hasError
+          ? KandoFailureBlock(onRefresh: refresh)
+          : _AccountContent(session: session, onRefresh: refresh, wide: true),
       child: authState.isLoading
           ? const Center(child: CircularProgressIndicator())
           : authState.hasError
-          ? KandoFailureBlock(
-              onRefresh: () {
-                ref.read(authControllerProvider.notifier).retryStartup();
-              },
-            )
-          : RefreshIndicator(
-              key: const Key('account-pull-to-refresh'),
-              onRefresh: () {
-                ref.read(analyticsProvider).track(AnalyticsEvent.refreshClick);
-                return ref.read(authControllerProvider.notifier).retryStartup();
-              },
-              child: _AccountContent(session: session),
-            ),
+          ? KandoFailureBlock(onRefresh: refresh)
+          : _AccountContent(session: session, onRefresh: refresh),
     );
   }
 }
 
 class _AccountContent extends ConsumerWidget {
-  const _AccountContent({required this.session});
+  const _AccountContent({
+    required this.session,
+    required this.onRefresh,
+    this.wide = false,
+  });
 
   final AuthSession? session;
+  final Future<void> Function() onRefresh;
+  final bool wide;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -65,111 +70,164 @@ class _AccountContent extends ConsumerWidget {
     final initial = email.trim().isNotEmpty
         ? email.trim().characters.first.toUpperCase()
         : '?';
+    final details = _accountDetails(context, ref, activeSession, email, userId);
 
-    return ListView(
-      key: const Key('account-content-list'),
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
-      children: [
-        const SizedBox(height: 12),
-        _ProfileHeader(initial: initial, email: email, userId: userId),
-        const SizedBox(height: 32),
-        _SectionLabel('Account Details'),
-        const SizedBox(height: 8),
-        _DetailRow(icon: Icons.mail_outline, label: 'EMAIL', value: email),
-        const SizedBox(height: 8),
-        _DetailRow(icon: Icons.fingerprint, label: 'ID', value: userId),
-        const SizedBox(height: 8),
-        _DetailRow(
-          icon: Icons.vpn_key_outlined,
-          label: 'LOGIN METHOD',
-          value: activeSession.loginMethod?.displayName ?? 'UNAVAILABLE',
-          trailing: Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: KandoColors.accent,
-              boxShadow: [
-                BoxShadow(
-                  color: KandoColors.accent.withValues(alpha: 0.8),
-                  blurRadius: 8,
+    if (wide) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            key: const Key('account-wide-profile-pane'),
+            width: 300,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 0, 32),
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: _ProfileHeader(
+                  initial: initial,
+                  email: email,
+                  userId: userId,
                 ),
-              ],
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 12),
-        const Text(
-          'Your verified email and password are shared across Android and iOS. '
-          'Collections, scans, and subscription benefits remain separate.',
-          style: TextStyle(color: KandoColors.mutedText, fontSize: 13),
-        ),
-        const SizedBox(height: 32),
-        _SectionLabel('Management'),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: _ManagementButton(
-                icon: Icons.logout,
-                label: 'Log Out',
-                background: KandoColors.elevatedSurface,
-                borderColor: KandoColors.border.withValues(alpha: 0.4),
-                foreground: KandoColors.text,
-                onTap: () => _logout(context, ref),
+          const SizedBox(width: 32),
+          Expanded(
+            child: RefreshIndicator(
+              key: const Key('account-pull-to-refresh'),
+              onRefresh: onRefresh,
+              child: ListView(
+                key: const Key('account-wide-details-list'),
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(0, 4, 20, 32),
+                children: details,
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _ManagementButton(
-                icon: Icons.delete_outline,
-                label: 'Delete Account',
-                background: KandoColors.errorText.withValues(alpha: 0.15),
-                borderColor: KandoColors.errorText.withValues(alpha: 0.3),
-                foreground: KandoColors.errorText,
-                onTap: () async {
-                  final confirmed = await showDeleteAccountConfirmation(
-                    context,
-                    platform: activeSession.platform,
-                  );
-                  if (!context.mounted || !confirmed) {
-                    return;
-                  }
+          ),
+        ],
+      );
+    }
 
-                  try {
-                    await ref
-                        .read(authControllerProvider.notifier)
-                        .deleteAccount();
-                    if (context.mounted) {
-                      context.go('/profile');
-                    }
-                  } on AuthPostDeleteSessionException {
-                    if (context.mounted) {
-                      showKandoTopToast(
-                        context,
-                        message:
-                            'Account deleted. Restart the app to create a new '
-                            'guest session.',
-                        type: KandoTopToastType.info,
-                      );
-                    }
-                  } on Exception {
-                    if (context.mounted) {
-                      showKandoTopToast(
-                        context,
-                        message: authAccountActionFailedMessage,
-                        type: KandoTopToastType.failure,
-                      );
-                    }
-                  }
-                },
-              ),
-            ),
-          ],
-        ),
-      ],
+    return RefreshIndicator(
+      key: const Key('account-pull-to-refresh'),
+      onRefresh: onRefresh,
+      child: ListView(
+        key: const Key('account-content-list'),
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+        children: [
+          const SizedBox(height: 12),
+          _ProfileHeader(initial: initial, email: email, userId: userId),
+          ...details,
+        ],
+      ),
     );
+  }
+
+  List<Widget> _accountDetails(
+    BuildContext context,
+    WidgetRef ref,
+    AuthSession activeSession,
+    String email,
+    String userId,
+  ) {
+    return [
+      const SizedBox(height: 12),
+      _SectionLabel('Account Details'),
+      const SizedBox(height: 8),
+      _DetailRow(icon: Icons.mail_outline, label: 'EMAIL', value: email),
+      const SizedBox(height: 8),
+      _DetailRow(icon: Icons.fingerprint, label: 'ID', value: userId),
+      const SizedBox(height: 8),
+      _DetailRow(
+        icon: Icons.vpn_key_outlined,
+        label: 'LOGIN METHOD',
+        value: activeSession.loginMethod?.displayName ?? 'UNAVAILABLE',
+        trailing: Container(
+          width: 6,
+          height: 6,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: KandoColors.accent,
+            boxShadow: [
+              BoxShadow(
+                color: KandoColors.accent.withValues(alpha: 0.8),
+                blurRadius: 8,
+              ),
+            ],
+          ),
+        ),
+      ),
+      const SizedBox(height: 12),
+      const Text(
+        'Your verified email and password are shared across Android and iOS. '
+        'Collections, scans, and subscription benefits remain separate.',
+        style: TextStyle(color: KandoColors.mutedText, fontSize: 13),
+      ),
+      const SizedBox(height: 32),
+      _SectionLabel('Management'),
+      const SizedBox(height: 8),
+      Row(
+        children: [
+          Expanded(
+            child: _ManagementButton(
+              icon: Icons.logout,
+              label: 'Log Out',
+              background: KandoColors.elevatedSurface,
+              borderColor: KandoColors.border.withValues(alpha: 0.4),
+              foreground: KandoColors.text,
+              onTap: () => _logout(context, ref),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _ManagementButton(
+              icon: Icons.delete_outline,
+              label: 'Delete Account',
+              background: KandoColors.errorText.withValues(alpha: 0.15),
+              borderColor: KandoColors.errorText.withValues(alpha: 0.3),
+              foreground: KandoColors.errorText,
+              onTap: () async {
+                final confirmed = await showDeleteAccountConfirmation(
+                  context,
+                  platform: activeSession.platform,
+                );
+                if (!context.mounted || !confirmed) {
+                  return;
+                }
+
+                try {
+                  await ref
+                      .read(authControllerProvider.notifier)
+                      .deleteAccount();
+                  if (context.mounted) {
+                    context.go('/profile');
+                  }
+                } on AuthPostDeleteSessionException {
+                  if (context.mounted) {
+                    showKandoTopToast(
+                      context,
+                      message:
+                          'Account deleted. Restart the app to create a new '
+                          'guest session.',
+                      type: KandoTopToastType.info,
+                    );
+                  }
+                } on Exception {
+                  if (context.mounted) {
+                    showKandoTopToast(
+                      context,
+                      message: authAccountActionFailedMessage,
+                      type: KandoTopToastType.failure,
+                    );
+                  }
+                }
+              },
+            ),
+          ),
+        ],
+      ),
+    ];
   }
 
   Future<void> _logout(BuildContext context, WidgetRef ref) async {

@@ -165,10 +165,10 @@ Duo 真机、普通 iPhone／Android 真机、系统完整分屏矩阵、真实�
 
 用户要求重新整理 Duo 的 Profile 页面。原来整个 Profile 在共享壳层限宽 560，展开后仍是窄长列表，支持和法律入口落在首屏之外。本轮为布局迭代：页面自行管理阅读宽度，安全区内宽度至少 840、扣除上下安全区后高度至少 528 时使用最大 1040 的双栏；左侧从上到下为免费用户的既有会员卡片、Account 账户卡片、独立的 Subscribe／Restore 分组、退出或删除入口及版本号，右侧为支持和法律条款。两栏间距 32，常用入口使用最小 64 高的紧凑行，保留原有字号、图标、暗色卡片和品牌色；文字增大时由内容自然撑高，并可整页滚动。Duo 右栏导航模式下移除 Profile 的底部导航预留空白。
 
-窄窗口及短高度仍采用最大 560 的单列及原始会员 banner、分组和行高。页面状态、下拉刷新、账号／恢复购买、客服、评分、分享、条款、退出／删除及版本入口沿用当前回调；Android 仍隐藏 Apple 订阅和恢复入口，保留竖屏／免费首版规则。账户和反馈详情页继续采用原 390 画布。
+窄窗口及短高度仍采用最大 560 的单列及原始会员 banner、分组和行高。页面状态、下拉刷新、账号／恢复购买、客服、评分、分享、条款、退出／删除及版本入口沿用当前回调；Android 仍隐藏 Apple 订阅和恢复入口，保留竖屏／免费首版规则。账户和反馈详情页填充 SafeArea 内的实际可用宽度，普通 390 宽设备的视觉基线保持不变。
 
 - **回归：**`flutter test --no-pub test/widget/auth_profile_test.dart test/widget/app_shell_test.dart test/widget/kando_responsive_test.dart` 为 154 项通过、5 项失败，退出 1。5 项均为既有 golden 差异；本轮实际截图与上一轮保存的未修改基线逐字节一致，包含 Profile banner、导航及订阅 sheet／成功页，没有更新或放宽 golden。新增 3 项专项用例全部通过，覆盖 iOS／Android 宽屏首屏入口可达、原生动作与分享定位调用、窄屏状态延续，以及 Premium、短高度和双倍文字场景。`flutter analyze --no-pub` 无问题，退出 0。
-- **Code Review：**自审通过：只解除共享壳层对 Profile 的固定限宽，其他主 Tab 的 1200 上限不变；Profile 自行保证窄屏／短窗口最大 560，账户及反馈详情仍为 390。所有动作沿用原回调，恢复过程的遮挡与返回阻断保留。未修改 API、平台判断、原生方向或商业策略。
+- **Code Review：**自审通过：只解除共享壳层对 Profile 的固定限宽，其他主 Tab 的 1200 上限不变；Profile 自行保证窄屏／短窗口最大 560，账户及反馈详情填充 SafeArea 内的实际可用宽度。所有动作沿用原回调，恢复过程的遮挡与返回阻断保留。未修改 API、平台判断、原生方向或商业策略。
 - **验证边界：**本轮为 Flutter 页面布局，Android 完成相关 widget 回归，未重建 APK 或运行 Android 设备；真实购买／恢复、OAuth、删除及分享发送没有操作。模拟器沿用第 8 节的 ML Kit 隔离 UI 预览工程，不能用于完整扫描／OCR 验收。未提交／推送 Git、部署远端或发布商店制品。
 
 - **模拟器实测：**Xcode test／Debug-test／arm64 构建成功，版本 1.0.7+213；已顺序安装并启动 Duo，关闭启动订阅页，进入 Profile，展开内屏后确认双栏及右侧导航完整显示，账户、支持、条款、删除入口与版本号在首屏可见。已安装 Flutter kernel 与本次产物一致，SHA-256 为 `f69b2286f4a9be30e964e2ceb6772f8502cc65fecfa704e2db708c4d96fea621`；来源为 `72b293fd` 加未提交的详情／Profile 改动。模拟器保留在此页供用户查看。
@@ -333,3 +333,15 @@ Card Detail 新增／编辑卡片弹窗保留 Flutter `showModalBottomSheet(useS
 - 新增展开窗口几何回归，普通竖屏既有回归继续通过。`flutter test --no-pub test/widget/onboarding_page_test.dart` 共 18 项通过，`flutter analyze --no-pub lib/features/onboarding/onboarding_page.dart` 通过，`git diff --check` 通过。
 
 本轮未构建或安装新的模拟器包，未执行 Android APK、Duo 真机、真实扫描、登录、订阅或完整设备方向矩阵验收。Android 继续保留项目既有正向竖屏规则，宽屏分支只在实际可用窗口达到阈值时生效。
+
+### 9.18 Profile Account 与 Customer Support 详情页双栏适配（2026-11-20）
+
+用户确认实施 Profile 下 Account 与 Customer Support 两个入口的 iPhone Duo 宽屏适配。本轮只改布局，不改变账号、反馈表单、路由、埋点或网络请求。
+
+- `ProfileDetailScaffold` 增加可选宽屏内容，按实际约束启用双栏。可用宽度至少 840、高度至少 480 且键盘未打开时使用最大 1040 的内容画布，其他情况使用 SafeArea 内的实际可用宽度作为单列画布。返回按钮、SafeArea 和路由返回逻辑保持不变。
+- Account 宽屏左侧固定用户头像、邮箱和用户 ID，右侧独立滚动账号详情和管理操作。登出、删除账号、下拉刷新和错误重试仍使用原控制器和回调。
+- Customer Support 宽屏左侧固定页面说明、反馈类型和受影响功能，右侧独立滚动邮箱与留言表单，提交按钮固定在右栏底部。选择、校验、字数限制、提交成功／失败提示和返回 Profile 的流程保持不变。
+- 键盘出现或窗口高度不足时自动回退单列，单列内容填充 SafeArea 内的实际可用宽度，保留已输入内容和已选择项。Android 仍遵循正向竖屏规则，普通 iPhone、iPad 和 Android 宽窗口复用同一约束判断。
+
+- **验证：**三个目标页面文件 `flutter analyze --no-pub` 通过。新增 Account／Customer Support 宽屏几何回归 2 项通过，确认左侧内容边界保持、右侧表单区和提交按钮保持独立。现有 Profile／Account／Customer Support 移动端定向回归 6 项通过。完整 `auth_profile_test.dart` 共 144 项，其中 140 项通过，4 项为既有订阅/Profile golden 差异，未更新基线。
+- **当前边界：**本轮尚未构建或安装新的 iPhone Duo 包，尚未在 Device Hub 目视核对 Account 与 Customer Support 的宽屏效果。未修改 Android 原生工程、业务 API、数据库、订阅、账号数据或反馈接口。

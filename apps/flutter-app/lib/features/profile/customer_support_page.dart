@@ -68,134 +68,181 @@ class _CustomerSupportPageState extends ConsumerState<CustomerSupportPage> {
     final isTooLong = _messageController.text.length > feedbackMessageMaxLength;
 
     return ProfileDetailScaffold(
+      wideChild: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            key: const Key('customer-support-wide-intro-pane'),
+            width: 320,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 4, 0, 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: _introAndCategories(),
+              ),
+            ),
+          ),
+          const SizedBox(width: 32),
+          Expanded(
+            child: Column(
+              children: [
+                Expanded(
+                  child: ListView(
+                    key: const Key('customer-support-wide-form-list'),
+                    padding: const EdgeInsets.fromLTRB(0, 4, 20, 12),
+                    children: _formFields(context),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(0, 12, 20, 12),
+                  child: _submitButton(isTooLong),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
       child: Column(
         children: [
           Expanded(
             child: ListView(
               key: const Key('customer-support-content-list'),
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-              children: [
-                const Text(
-                  'CONNECT WITH US',
-                  style: TextStyle(
-                    color: KandoColors.accent,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Send Feedback',
-                  style: TextStyle(
-                    color: KandoColors.text,
-                    fontFamily: 'Fraunces',
-                    fontSize: 32,
-                    height: 1.25,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Help us refine the Vault experience. '
-                  'Your insights drive our innovation.',
-                  style: TextStyle(
-                    color: KandoColors.mutedText,
-                    fontSize: 16,
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 32),
-                _ChipSection(
-                  title: 'Feedback Type',
-                  options: _typeOptions,
-                  selectedValues: _selectedTypes,
-                  onToggle: _toggleType,
-                ),
-                const SizedBox(height: 24),
-                _ChipSection(
-                  title: 'Affected Function',
-                  options: _functionOptions,
-                  selectedValues: _selectedFunctions,
-                  onToggle: _toggleFunction,
-                  iconForOption: _functionIcon,
-                ),
-                const SizedBox(height: 24),
-                _FieldLabel('Email Address'),
-                const SizedBox(height: 8),
-                TextFormField(
-                  key: const ValueKey('feedback-email-field'),
-                  controller: _emailController,
-                  decoration: _feedbackInputDecoration(
-                    hintText: 'collector@vault.io',
-                    errorText: _emailError,
-                  ),
-                  keyboardType: TextInputType.emailAddress,
-                  style: _feedbackInputTextStyle,
-                  onTapOutside: (_) => FocusScope.of(context).unfocus(),
-                ),
-                const SizedBox(height: 24),
-                const _FieldLabel('Your Message'),
-                const SizedBox(height: 8),
-                SizedBox(
-                  height: 178,
-                  child: TextFormField(
-                    key: const ValueKey('feedback-message-field'),
-                    controller: _messageController,
-                    decoration: _feedbackInputDecoration(
-                      hintText: "Tell us what's on your mind...",
-                      errorText: _messageError,
-                    ),
-                    style: _feedbackInputTextStyle,
-                    textAlignVertical: TextAlignVertical.top,
-                    expands: true,
-                    minLines: null,
-                    maxLines: null,
-                    onTapOutside: (_) => FocusScope.of(context).unfocus(),
-                  ),
-                ),
-                const SizedBox(height: 20),
-              ],
+              children: [..._introAndCategories(), ..._formFields(context)],
             ),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-            child: SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                key: const Key('feedback-submit-button'),
-                onPressed: _isSubmitting || isTooLong ? null : _submit,
-                style: FilledButton.styleFrom(
-                  backgroundColor: KandoColors.accent,
-                  foregroundColor: KandoColors.ink,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      _isSubmitting ? 'SUBMITTING...' : 'SUBMIT FEEDBACK',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    SvgPicture.asset(
-                      'assets/profile/send_feedback.svg',
-                      key: const Key('feedback-submit-icon'),
-                      width: 24,
-                      height: 24,
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            child: _submitButton(isTooLong),
           ),
         ],
+      ),
+    );
+  }
+
+  List<Widget> _introAndCategories() {
+    return [
+      const Text(
+        'CONNECT WITH US',
+        style: TextStyle(
+          color: KandoColors.accent,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.5,
+        ),
+      ),
+      const SizedBox(height: 8),
+      const Text(
+        'Send Feedback',
+        style: TextStyle(
+          color: KandoColors.text,
+          fontFamily: 'Fraunces',
+          fontSize: 32,
+          height: 1.25,
+        ),
+      ),
+      const SizedBox(height: 8),
+      const Text(
+        'Help us refine the Vault experience. '
+        'Your insights drive our innovation.',
+        style: TextStyle(
+          color: KandoColors.mutedText,
+          fontSize: 16,
+          height: 1.5,
+        ),
+      ),
+      const SizedBox(height: 32),
+      _ChipSection(
+        title: 'Feedback Type',
+        options: _typeOptions,
+        selectedValues: _selectedTypes,
+        onToggle: _toggleType,
+      ),
+      const SizedBox(height: 24),
+      _ChipSection(
+        title: 'Affected Function',
+        options: _functionOptions,
+        selectedValues: _selectedFunctions,
+        onToggle: _toggleFunction,
+        iconForOption: _functionIcon,
+      ),
+    ];
+  }
+
+  List<Widget> _formFields(BuildContext context) {
+    return [
+      _FieldLabel('Email Address'),
+      const SizedBox(height: 8),
+      TextFormField(
+        key: const ValueKey('feedback-email-field'),
+        controller: _emailController,
+        decoration: _feedbackInputDecoration(
+          hintText: 'collector@vault.io',
+          errorText: _emailError,
+        ),
+        keyboardType: TextInputType.emailAddress,
+        style: _feedbackInputTextStyle,
+        onTapOutside: (_) => FocusScope.of(context).unfocus(),
+      ),
+      const SizedBox(height: 24),
+      const _FieldLabel('Your Message'),
+      const SizedBox(height: 8),
+      SizedBox(
+        height: 178,
+        child: TextFormField(
+          key: const ValueKey('feedback-message-field'),
+          controller: _messageController,
+          decoration: _feedbackInputDecoration(
+            hintText: "Tell us what's on your mind...",
+            errorText: _messageError,
+          ),
+          style: _feedbackInputTextStyle,
+          textAlignVertical: TextAlignVertical.top,
+          expands: true,
+          minLines: null,
+          maxLines: null,
+          onTapOutside: (_) => FocusScope.of(context).unfocus(),
+        ),
+      ),
+      const SizedBox(height: 20),
+    ];
+  }
+
+  Widget _submitButton(bool isTooLong) {
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton(
+        key: const Key('feedback-submit-button'),
+        onPressed: _isSubmitting || isTooLong ? null : _submit,
+        style: FilledButton.styleFrom(
+          backgroundColor: KandoColors.accent,
+          foregroundColor: KandoColors.ink,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(99),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              _isSubmitting ? 'SUBMITTING...' : 'SUBMIT FEEDBACK',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(width: 8),
+            SvgPicture.asset(
+              'assets/profile/send_feedback.svg',
+              key: const Key('feedback-submit-icon'),
+              width: 24,
+              height: 24,
+            ),
+          ],
+        ),
       ),
     );
   }

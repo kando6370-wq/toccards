@@ -66,10 +66,7 @@ void main() {
       find.textContaining('verified email and password are shared'),
       findsNothing,
     );
-    expect(
-      find.byKey(const Key('auth-agreement-copy')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const Key('auth-agreement-copy')), findsOneWidget);
     expect(find.byKey(const Key('auth-agreement-links')), findsOneWidget);
     await tester.tap(find.text('Continue with Google'));
     await tester.pumpAndSettle();
@@ -1979,97 +1976,102 @@ void main() {
     },
   );
 
-  testWidgets('register password page matches figma validation states', (
-    tester,
-  ) async {
-    final repository = _WidgetAuthRepository(
-      initialSession: _anonymousSession('anon-existing'),
-      emailRegistered: false,
-    );
+  testWidgets(
+    'register password page matches figma validation states',
+    (tester) async {
+      final repository = _WidgetAuthRepository(
+        initialSession: _anonymousSession('anon-existing'),
+        emailRegistered: false,
+      );
 
-    await tester.pumpWidget(_testEmailAuthPageApp(repository));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Open email auth'));
-    await tester.pumpAndSettle();
-    await _continueWithEmail(
-      tester,
-      'person@example.com',
-      destinationLabel: 'Verification Code',
-    );
-    await tester.enterText(
-      find.byKey(const Key('verification-code-input')),
-      '123456',
-    );
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(_testEmailAuthPageApp(repository));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Open email auth'));
+      await tester.pumpAndSettle();
+      await _continueWithEmail(
+        tester,
+        'person@example.com',
+        destinationLabel: 'Verification Code',
+      );
+      await tester.enterText(
+        find.byKey(const Key('verification-code-input')),
+        '123456',
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('Set Password'), findsOneWidget);
-    expect(find.text('Set New Password'), findsNothing);
-    expect(find.widgetWithText(FilledButton, 'Create Account'), findsOneWidget);
-    final emptyCreateButton = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Create Account'),
-    );
-    expect(emptyCreateButton.onPressed, isNull);
-    expect(find.byIcon(Icons.visibility_off_outlined), findsNWidgets(2));
-    expect(find.byIcon(Icons.visibility_outlined), findsNothing);
+      expect(find.text('Set Password'), findsOneWidget);
+      expect(find.text('Set New Password'), findsNothing);
+      expect(
+        find.widgetWithText(FilledButton, 'Create Account'),
+        findsOneWidget,
+      );
+      final emptyCreateButton = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Create Account'),
+      );
+      expect(emptyCreateButton.onPressed, isNull);
+      expect(find.byIcon(Icons.visibility_off_outlined), findsNWidgets(2));
+      expect(find.byIcon(Icons.visibility_outlined), findsNothing);
 
-    final fields = find.byType(TextFormField);
-    final editableFields = find.byType(EditableText);
-    expect(find.text('Your password'), findsOneWidget);
-    expect(find.text('Confirm your password'), findsOneWidget);
-    expect(
-      tester.widget<EditableText>(editableFields.at(0)).obscureText,
-      isTrue,
-    );
-    expect(
-      tester.widget<EditableText>(editableFields.at(1)).obscureText,
-      isTrue,
-    );
+      final fields = find.byType(TextFormField);
+      final editableFields = find.byType(EditableText);
+      expect(find.text('Your password'), findsOneWidget);
+      expect(find.text('Confirm your password'), findsOneWidget);
+      expect(
+        tester.widget<EditableText>(editableFields.at(0)).obscureText,
+        isTrue,
+      );
+      expect(
+        tester.widget<EditableText>(editableFields.at(1)).obscureText,
+        isTrue,
+      );
 
-    await tester.tap(find.byIcon(Icons.visibility_off_outlined).first);
-    await tester.pump();
+      await tester.tap(find.byIcon(Icons.visibility_off_outlined).first);
+      await tester.pump();
 
-    expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
-    expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
-    expect(
-      tester.widget<EditableText>(editableFields.at(0)).obscureText,
-      isFalse,
-    );
-    expect(
-      tester.widget<EditableText>(editableFields.at(1)).obscureText,
-      isTrue,
-    );
+      expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
+      expect(
+        tester.widget<EditableText>(editableFields.at(0)).obscureText,
+        isFalse,
+      );
+      expect(
+        tester.widget<EditableText>(editableFields.at(1)).obscureText,
+        isTrue,
+      );
 
-    await tester.enterText(fields.at(0), 'short');
-    await tester.enterText(fields.at(1), 'password456');
-    await tester.pump();
+      await tester.enterText(fields.at(0), 'short');
+      await tester.enterText(fields.at(1), 'password456');
+      await tester.pump();
 
-    expect(find.text('At least 8 characters'), findsOneWidget);
-    expect(find.text('Inconsistent with last input'), findsOneWidget);
-    final invalidCreateButton = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Create Account'),
-    );
-    expect(invalidCreateButton.onPressed, isNull);
-    expect(repository.registerRequests, isEmpty);
+      expect(find.text('At least 8 characters'), findsOneWidget);
+      expect(find.text('Inconsistent with last input'), findsOneWidget);
+      final invalidCreateButton = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Create Account'),
+      );
+      expect(invalidCreateButton.onPressed, isNull);
+      expect(repository.registerRequests, isEmpty);
 
-    await tester.enterText(fields.at(0), '12345678');
-    await tester.enterText(fields.at(1), '12345678');
-    await tester.pump();
+      await tester.enterText(fields.at(0), '12345678');
+      await tester.enterText(fields.at(1), '12345678');
+      await tester.pump();
 
-    expect(find.text('At least 8 characters'), findsNothing);
-    expect(find.text('Inconsistent with last input'), findsNothing);
-    final validCreateButton = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Create Account'),
-    );
-    expect(validCreateButton.onPressed, isNotNull);
+      expect(find.text('At least 8 characters'), findsNothing);
+      expect(find.text('Inconsistent with last input'), findsNothing);
+      final validCreateButton = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Create Account'),
+      );
+      expect(validCreateButton.onPressed, isNotNull);
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Create Account'));
-    await tester.pumpAndSettle();
-    expect(repository.registerRequests, hasLength(1));
-    expect(repository.registerRequests.single.password, '12345678');
-  }, variant: TargetPlatformVariant({
-    TargetPlatform.iOS,
-    TargetPlatform.android,
-  }));
+      await tester.tap(find.widgetWithText(FilledButton, 'Create Account'));
+      await tester.pumpAndSettle();
+      expect(repository.registerRequests, hasLength(1));
+      expect(repository.registerRequests.single.password, '12345678');
+    },
+    variant: TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
 
   for (final isReset in [false, true]) {
     testWidgets(
@@ -2810,13 +2812,16 @@ void main() {
       final actions = _WidgetProfileActions();
       await tester.pumpWidget(
         _testApp(
-          _WidgetAuthRepository(initialSession: AuthSession(
-            ownerType: OwnerType.anonymous,
-            accessToken: 'duo-access', refreshToken: 'duo-refresh',
-            anonymousId: 'duo-guest',
-            platform: android ? AppPlatform.android : AppPlatform.ios,
-            dataSpaceId: 'duo-space',
-          )),
+          _WidgetAuthRepository(
+            initialSession: AuthSession(
+              ownerType: OwnerType.anonymous,
+              accessToken: 'duo-access',
+              refreshToken: 'duo-refresh',
+              anonymousId: 'duo-guest',
+              platform: android ? AppPlatform.android : AppPlatform.ios,
+              dataSpaceId: 'duo-space',
+            ),
+          ),
           profileActions: actions,
           commercialPolicy: AppCommercialPolicy(isAndroidFreeLaunch: android),
         ),
@@ -2950,7 +2955,7 @@ void main() {
   );
 
   testWidgets(
-    'Profile tab limits reading width while detail pages keep the mobile canvas',
+    'Profile tab limits reading width while detail pages fill the available canvas',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(800, 1000);
@@ -2976,7 +2981,7 @@ void main() {
 
       expect(
         tester.getSize(find.byKey(const Key('account-content-list'))).width,
-        390,
+        800,
       );
       expect(
         tester.getSize(find.byKey(const Key('profile-back-button'))),
@@ -3000,7 +3005,7 @@ void main() {
         tester
             .getSize(find.byKey(const Key('customer-support-content-list')))
             .width,
-        390,
+        800,
       );
       expect(
         tester.getSize(find.byKey(const Key('profile-back-button'))),
@@ -3012,6 +3017,38 @@ void main() {
       );
     },
   );
+
+  testWidgets('Profile detail pages use the portrait Duo safe-area width', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(466, 844);
+    tester.view.padding = const FakeViewPadding(right: 84, bottom: 34);
+    addTearDown(tester.view.reset);
+    final repository = _WidgetAuthRepository(initialSession: _userSession());
+
+    await tester.pumpWidget(_testApp(repository));
+    await tester.pumpAndSettle();
+    await _openProfileTab(tester);
+
+    await tester.tap(find.text('person@example.com').first);
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSize(find.byKey(const Key('account-content-list'))).width,
+      382,
+    );
+
+    await tester.tap(find.byKey(const Key('profile-back-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Customer Support'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .getSize(find.byKey(const Key('customer-support-content-list')))
+          .width,
+      382,
+    );
+  });
 
   testWidgets(
     'Profile utility actions call native/share/browser services from their list entries',
@@ -4215,6 +4252,74 @@ void main() {
     expect(repository._currentSession?.anonymousId, 'anon-old');
     await _dismissTopToast(tester);
   });
+
+  testWidgets('wide Account keeps profile pane fixed while details scroll', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(951, 669);
+    tester.view.padding = const FakeViewPadding(right: 84, bottom: 34);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      _testApp(_WidgetAuthRepository(initialSession: _userSession())),
+    );
+    await tester.pumpAndSettle();
+    await _openProfileTab(tester);
+    await tester.tap(find.text('person@example.com').first);
+    await tester.pumpAndSettle();
+
+    final profilePaneFinder = find.byKey(
+      const Key('account-wide-profile-pane'),
+    );
+    final profilePaneBefore = tester.getRect(profilePaneFinder);
+    final details = find.byKey(const Key('account-wide-details-list'));
+    final detailsScrollable = tester.state<ScrollableState>(
+      find.descendant(of: details, matching: find.byType(Scrollable)).first,
+    );
+    await tester.drag(details, const Offset(0, -320));
+    await tester.pumpAndSettle();
+
+    expect(detailsScrollable.position.maxScrollExtent, greaterThanOrEqualTo(0));
+    expect(tester.getRect(profilePaneFinder), profilePaneBefore);
+    expect(find.text('Log Out').hitTestable(), findsOneWidget);
+  });
+
+  testWidgets(
+    'wide Customer Support keeps categories fixed and submit fixed to form pane',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(951, 669);
+      tester.view.padding = const FakeViewPadding(right: 84, bottom: 34);
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        _testApp(_WidgetAuthRepository(initialSession: _userSession())),
+      );
+      await tester.pumpAndSettle();
+      await _openProfileTab(tester);
+      await tester.tap(find.text('Customer Support'));
+      await tester.pumpAndSettle();
+
+      final introFinder = find.byKey(
+        const Key('customer-support-wide-intro-pane'),
+      );
+      final introBefore = tester.getRect(introFinder);
+      final submit = find.byKey(const Key('feedback-submit-button'));
+      final submitBefore = tester.getRect(submit);
+      final form = find.byKey(const Key('customer-support-wide-form-list'));
+      final formScrollable = tester.state<ScrollableState>(
+        find.descendant(of: form, matching: find.byType(Scrollable)).first,
+      );
+      await tester.drag(form, const Offset(0, -220));
+      await tester.pumpAndSettle();
+
+      expect(formScrollable.position.maxScrollExtent, greaterThanOrEqualTo(0));
+      expect(tester.getRect(introFinder), introBefore);
+      expect(tester.getRect(submit), submitBefore);
+      expect(tester.getRect(submit).left, greaterThan(introBefore.right));
+    },
+  );
 }
 
 Future<void> _dismissTopToast(WidgetTester tester) async {
