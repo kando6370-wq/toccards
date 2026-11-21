@@ -51,6 +51,25 @@ test('November keyword guides keep price and rules claims source-linked', () => 
   }
 });
 
+test('Pokémon keyword updates keep one indexable owner per guide', () => {
+  const checks = [
+    ['/blog/pokemon-mcdonalds-2026', /November 10 through December 14/, /href="\/ai-card-grading"/],
+    ['/blog/takumi-akabane-pokemon-cards', /021\/DPt-P/, /href="\/pokemon-card-scanner"/],
+    ['/blog/flowing-fists-card-list', /February 6, 2027/, /No complete English Flowing Fists checklist/],
+  ];
+  const sitemap = publicSitemap(origin);
+  for (const [path, answer, evidence] of checks) {
+    const {url, page} = render(path);
+    assert.match(page.html, answer);
+    assert.match(page.html, evidence);
+    assert.ok(page.html.includes(`<link rel="canonical" href="${url.href}">`));
+    assert.ok(mayIndex(url, page.status, page));
+    assert.ok(sitemap.includes(`<loc>${url.href}</loc>`));
+  }
+  assert.ok(render('/blog/category/identity').page.html.includes('href="/blog/takumi-akabane-pokemon-cards"'));
+  assert.ok(!sitemap.includes('/blog/mcdonalds-pokemon-happy-meal-cards-2026'));
+});
+
 test('Charizard guides lead with their own set and valuation task without changing indexing or dated examples', () => {
   const checks = [
     ['/blog/charizard-151-card-value', 'Pokémon 151 Charizard ex', 'showcase-scan', 343, '$295.98', /English 199\/165 and .*Japanese Charizard ex 201\/165/],

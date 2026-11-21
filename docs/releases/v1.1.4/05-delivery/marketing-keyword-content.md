@@ -2,6 +2,12 @@
 
 本版本记录 2026-11-05 的竞品关键词补证、官网卡表与印次指南增量。历史定位、关键词和外链范围引用 [v1.1.3 营销内容记录](../../v1.1.3/05-delivery/marketing-keyword-content.md)。
 
+## 2026-11-21 Pokémon 关键词页面调整
+
+- `/blog/pokemon-mcdonalds-2026` 承接同一活动的多个 Happy Meal 搜索词。更新首段、标题和描述，保留原 URL、区域规则和 15 张卡清单。增加卡价查询与照片卡况估计入口。
+- `/blog/takumi-akabane-pokemon-cards` 收录四张有目录依据的日版卡牌示例，按系列和编号区分印次，加入博客识别分类和网站地图。
+- `/blog/flowing-fists-card-list` 更新实体发售、预发布和 TCG Live 日期，标明报道来源。完整英文卡表仍待核实。
+
 ## 2026-11-05 竞品关键词级流量估算补证
 
 用户提供了新的可访问报告入口。Ego Lite 中已读取 `sem.3ue.co` 展示的 Semrush 自然排名；原链接的 `/analytics/refdomains/report/` 是反向链接的引荐域报告，查引流词使用 `/analytics/organic/positions/`。本次沿用 Card AI 的五个竞品，链接中的 `mathtug.com` 仅用于确认入口，不纳入卡牌竞争分析。访问标识不写入仓库或对外资料。

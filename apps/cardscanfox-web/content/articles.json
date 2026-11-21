@@ -360,23 +360,23 @@
   },
   {
     "path": "/blog/flowing-fists-card-list",
-    "title": "Flowing Fists Card List: What Is Confirmed | CardScanFox",
-    "description": "Track the Flowing Fists card list, the Japanese M7 source set, release evidence, and the difference between a retailer name and an official English checklist.",
+    "title": "Flowing Fists Card List and Release Dates | CardScanFox",
+    "description": "Check reported Flowing Fists release dates, featured Pokémon and the status of the English card list. Find the separate Japanese M7 gallery.",
     "h1": "Flowing Fists card list",
     "author": "CardScanFox",
     "file": "flowing-fists-card-list.md",
     "published": true,
     "category": "identity",
     "publishedAt": "2026-11-20",
-    "updatedAt": "2026-11-20",
+    "updatedAt": "2026-11-21",
     "sources": [
       {
         "label": "Pokémon Japan: M7 product page and card gallery",
         "url": "https://www.pokemon-card.com/ex/m7/"
       },
       {
-        "label": "Hobbiesville: Flowing Fists product collection",
-        "url": "https://www.hobbiesville.com/collections/pokemon-flowing-fists"
+        "label": "GamesRadar: Flowing Fists release dates and featured cards",
+        "url": "https://www.gamesradar.com/tabletop-gaming/pokemon-cards-come-out-swinging-with-the-next-expansion-flowing-fists/"
       }
     ]
   },
@@ -430,15 +430,15 @@
   },
   {
     "path": "/blog/pokemon-mcdonalds-2026",
-    "title": "Pokémon McDonald’s Card List 2026: All 15 US Happy Meal Cards | Card AI",
-    "description": "Check all 15 Pokémon McDonald’s Happy Meal cards for 2026, the US promotion dates, and how the Canadian offer differs.",
-    "h1": "Pokémon McDonald’s card list 2026",
+    "title": "McDonald’s Pokémon Happy Meal 2026: US Card List | Card AI",
+    "description": "Check all 15 US McDonald’s Pokémon Happy Meal cards, the 2026 offer dates, the separate toy collection and the Canada and Quebec rules.",
+    "h1": "McDonald’s Pokémon Happy Meal 2026 card list",
     "author": "Card AI",
     "file": "pokemon-mcdonalds-2026.md",
     "published": true,
     "category": "collecting",
     "publishedAt": "2026-11-12",
-    "updatedAt": "2026-11-19",
+    "updatedAt": "2026-11-21",
     "sources": [
       {
         "label": "Pokémon: US Happy Meal announcement, November 10, 2026",
@@ -455,6 +455,24 @@
       {
         "label": "Pokémon: regional rollout schedule",
         "url": "https://www.pokemon.com/us/news/pokemon-happy-meals-are-coming-to-mcdonalds-in-an-exciting-new-way-"
+      }
+    ]
+  },
+  {
+    "path": "/blog/takumi-akabane-pokemon-cards",
+    "title": "Takumi Akabane Pokémon Cards and Illustrator Credits | CardScanFox",
+    "description": "See Pokémon cards credited to Takumi Akabane, including Japanese Special Energy printings, and match each set and collector number before comparing prices.",
+    "h1": "Takumi Akabane Pokémon cards",
+    "author": "CardScanFox",
+    "file": "takumi-akabane-pokemon-cards.md",
+    "published": true,
+    "category": "identity",
+    "publishedAt": "2026-11-21",
+    "updatedAt": "2026-11-21",
+    "sources": [
+      {
+        "label": "The Art of Pokémon: Takumi Akabane illustrator catalog",
+        "url": "https://www.artofpkm.com/illustrators/takumi-akabane"
       }
     ]
   }

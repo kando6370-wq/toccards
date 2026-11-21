@@ -1,8 +1,18 @@
-Flowing Fists is a name being used for an upcoming Pokémon TCG product. The search term is already active, but the available evidence still needs to be separated into official Japanese information, retailer naming, and a confirmed English checklist.
+**November 21, 2026 update:** Flowing Fists is an upcoming English Pokémon TCG expansion featuring Mega Lucario Z ex. GamesRadar reports a **February 6, 2027** retail release, **January 23** prerelease events and **February 4** availability in Pokémon TCG Live. The sources cited here cover the release and selected reveals. The full English collector-number checklist remains unverified for this guide.
 
-## Is Flowing Fists an official English checklist?
+## When does Flowing Fists release?
 
-No complete English Flowing Fists checklist is confirmed by the sources used for this page. A retailer collection uses the name **Flowing Fists**, while the official Japanese product page identifies the related Japanese expansion as **M7**. A retailer product name does not confirm English card names, collector numbers, release timing, or the final product contents.
+| Milestone | Reported date | What to check |
+| --- | --- | --- |
+| Prerelease events | From January 23, 2027 | Check dates and participation with your local event organizer. |
+| Pokémon TCG Live | February 4, 2027 | Check availability in the game. |
+| Retail release | February 6, 2027 | Check the specific product and local stock before ordering. |
+
+The [GamesRadar announcement coverage](https://www.gamesradar.com/tabletop-gaming/pokemon-cards-come-out-swinging-with-the-next-expansion-flowing-fists/) also names Mega Glimmora ex among the featured cards. Use the final English card gallery to confirm names and numbers for individual printings.
+
+## Is the full English Flowing Fists card list available?
+
+No complete English Flowing Fists checklist is confirmed by the sources used for this page. The Japanese **M7** gallery is useful for identifying Japanese printings.
 
 The existing [Aura Seeker card list](/blog/aura-seeker-card-list) records selected M7 reveals and links to the official Japanese card images. Those collector numbers identify Japanese printings only.
 
@@ -21,10 +31,6 @@ Do not copy a Japanese number into an English collection record. Confirm the lat
 - Whether the card has a published price observation.
 
 The [Pokémon card scanner](/pokemon-card-scanner) can help narrow a card to likely catalog records. Confirm the set, number, language, and finish before treating a result as the same printing.
-
-## Flowing Fists release searches
-
-Search results and retailer pages can appear before a publisher confirms the English product. Keep the page date and source links visible when comparing release claims. A later official announcement should replace this evidence summary if it confirms an English checklist or release date.
 
 ## Related
 

@@ -1,10 +1,8 @@
-The 2026 US Pokémon McDonald’s card list has **15 English cards**, including seven foil cards. Each participating US Happy Meal includes two cards while supplies last. Use the checklist below to identify your cards and check the separate dates and pack details for your region.
+The 2026 McDonald’s Pokémon Happy Meal promotion in the US runs from **November 10 through December 14**, while supplies last at participating restaurants. Each meal includes **two Pokémon TCG cards**. The US promotion has **15 English cards**, including seven foil cards, and a separate collection of **15 miniature Happy Meal box toys**.
 
 ## Is Pokémon at McDonald’s in 2026?
 
-**Yes. Checked November 12, 2026:** the US Pokémon Happy Meal promotion started on **November 10** at participating restaurants. Pokémon’s US announcement says it runs **through December 14, 2026**, while supplies last. It includes physical Pokémon TCG cards and miniature Happy Meal box-shaped toys.
-
-If you searched “pokemon mcdonalds 2026,” start with your country. A US launch date does not establish availability at a restaurant elsewhere. This guide separates the confirmed regional details, the card collection and the steps for identifying your own cards.
+Yes. For the 2026 McDonald’s and Pokémon collaboration, check your country’s dates and restaurant participation before making a trip. The US and Canada offers have different end dates, and Quebec has different pack contents. See the [official US announcement](https://www.pokemon.com/us/news/pokemon-happy-meals-return-to-mcdonalds-in-the-us).
 
 ## Dates and contents depend on the region
 
@@ -45,6 +43,8 @@ There is no single value for the promotion. A useful reference must match the ex
 Our catalog check on November 12 did **not find a clearly labeled 2026 McDonald’s Pokémon set**. We therefore do not publish a 2026 price table or replace missing records with older McDonald’s cards. The absence of a record does not mean that your card has no value.
 
 Use the [Pokémon card database](/games/pokemon) to inspect available records and the [condition guide](/blog/pokemon-card-condition-guide) to understand raw condition labels. If the exact promotional printing is missing, keep the official reference and check catalog coverage later. General [highest-price](/prices/most-valuable) and [weekly-gainer](/prices/top-gainers) pages are not rankings of this promotion.
+
+For a card you already own, confirm the collector number and finish before using the [card price checker](/card-price-checker). Use [AI card grading](/ai-card-grading) for a photo-based estimate of visible condition. A certified grade requires a professional grading service.
 
 ## How to identify and record your Happy Meal cards
 
