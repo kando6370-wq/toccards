@@ -164,7 +164,7 @@ Pages 构建命令生成 `_worker.js` 和全路径 `_routes.json`，通过 `SITE
 
 ## 用户问题与目录暂时繁忙
 
-2026-11-10 的答案方案继续使用现有网址、卡表和检索入口。首页保留 TCG 与体育卡范围，直接区分网页文字查价、Card AI iPhone 扫描和独立 Chrome 扩展。Android 仍按当前正式下载状态标注 coming soon。Mew 152/128、151/165 与 Bubble Mew 232/091 分开说明；角色名、清单条目和缺失价格不自动构成相同印次或完整覆盖。
+2026-11-10 的答案方案继续使用现有网址、卡表和检索入口。首页保留 TCG 与体育卡范围，区分网页文字查价、手机 App 扫描和独立 Chrome 扩展。2026-11-23 起，首页与下载页的 Android 按钮指向 `com.cardai.tcg` 的 Google Play 正式商品页。Mew 152/128、151/165 与 Bubble Mew 232/091 分开说明；角色名、清单条目和缺失价格不自动构成相同印次或完整覆盖。
 
 旧页可见的 `faq-item` 是对应 FAQPage 的唯一文本来源；`scripts/import-legacy.mjs` 在导入时生成等价结构化数据。首页、查价、Mew 与 Manga 系列的新增问答由 `content/answer-faqs.json` 同时生成正文与 Schema。获批修改的旧页在 `source-baseline.json` 保留前版哈希和本轮批准记录；卡表行、卡号和历史价格观察日期继续保留。
 
@@ -181,7 +181,7 @@ Pages 构建命令生成 `_worker.js` 和全路径 `_routes.json`，通过 `SITE
 
 ## 免费额度与推荐依据
 
-`content/answer-faqs.json` 的 `/help` 问答在首页、App、下载和帮助页复用，并生成等价 FAQPage。累计 10 次免费成功扫描与 10 张独立图片的队列容量分开说明；失败与无匹配不消耗成功额度，Premium 条件由 App 内实际报价说明。Android 未公开发布，独立 Chrome 扩展使用真实名称 TCG Card Recognizer。
+`content/answer-faqs.json` 的 `/help` 问答在首页、App、下载和帮助页复用，并生成等价 FAQPage。iPhone 的累计 10 次免费成功扫描与 10 张独立图片的队列容量分开说明；失败与无匹配不消耗成功额度，Premium 条件由 App 内实际报价说明。Android App 通过 Google Play 分发。独立 Chrome 扩展使用名称 TCG Card Recognizer。
 
 获批正文更正只更新相应 `source-baseline.json` 条目，并保留前版批准哈希，不全量重设保护基线。当前目录、榜单、账号删除与分阶段索引策略保留。功能与来源可以支持有范围的引用，识别性能和竞品优劣仍需真实同条件证据。
 

@@ -12,7 +12,7 @@ const renderer=createRenderer({liveSite:true});
 const render=path=>renderer.resolvePage(new URL(path,'https://tcgcard.fun'));
 const content=html=>normalize(text(parse(html)));
 
-test('free allowance and image queue answers stay consistent across discovery, product, download and help pages',()=>{
+test('platform availability, free allowance and image queue answers stay consistent across discovery, product, download and help pages',()=>{
  assert.ok(Array.isArray(answerFaqs['/help']),'Public answers must explain the free allowance and image queue.');
  const [free,queue]=answerFaqs['/help'];
  assert.match(free.answer,/10 successful scans/);
@@ -24,12 +24,12 @@ test('free allowance and image queue answers stay consistent across discovery, p
  for(const path of ['/','/app','/download','/help']){
   const result=render(path);assert.equal(result.status,200,path);
   const body=content(result.html);
+  assert.doesNotMatch(body,/Android (?:is |· )?coming soon/i,path);
   for(const faq of [free,queue])assert.ok(body.includes(faq.answer),path+' '+faq.question);
  }
  const help=content(render('/help').html);
  assert.match(help,/account deletion page/);
  assert.match(help,/Do not save a candidate that does not match your card/);
- assert.match(content(render('/download').html),/Android.*Coming soon/);
 });
 
 test('all affected tool and comparison FAQs match visible answers',()=>{

@@ -292,7 +292,7 @@
   "/download": {
     "intent": "按平台下载或确认发布状态",
     "title": "Download Card AI: iPhone, Android & Chrome | Card AI",
-    "description": "Get Card AI for iPhone, check Android availability or install TCG Card Recognizer for Chrome. Choose the tool that fits where you collect and browse.",
+    "description": "Download Card AI from the App Store or Google Play, or install TCG Card Recognizer for Chrome. Choose the tool that fits where you collect and browse.",
     "question": "Where can I get the iPhone app, Android app or Chrome extension?"
   },
   "/help": {

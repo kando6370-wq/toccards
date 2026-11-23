@@ -1,6 +1,8 @@
 # CardScanFox 页面搜索意图与页面任务
 
-本次按用户指定的页面问题实施，不扩展为热词或搜索量研究。用户已确认：iOS 已可下载；Android 仍待上线；已上线的 Google 商店产品是 TCG Card Recognizer Chrome 扩展。网站使用英文任务标题、简介和界面，不翻译来源卡牌的专有名称。
+本次按用户指定的页面问题实施，不扩展为热词或搜索量研究。2026-11-23 已核对 Android 正式商品页 [Card AI: TCG Card Scanner](https://play.google.com/store/apps/details?id=com.cardai.tcg)。首页与下载页的 Android 按钮使用此地址。网站使用英文任务标题、简介和界面，不翻译来源卡牌的专有名称。
+
+本地预览实点 `/download` 的 Android 按钮后，Google Play 打开了包名 `com.cardai.tcg` 的商品页。官网构建生成 129 个路由，下载相关的 19 项回归通过。官网全量 222 项中有 2 项失败，改动前的 `main@22c84675` 可复现同样结果：Flowing Fists 文章仍有旧品牌名，站点地图条目数断言期望 88、实际 92。
 
 ## 页面归属原则
 
@@ -13,7 +15,7 @@
 | 7 天涨幅榜 | 哪些同口径裸卡价格在一周内涨幅最高？ | 比较百分比和前后金额，打开相同价格序列的详情 |
 | 近期高价榜 | 近期已发布裸卡参考价最高的是哪些印次？ | 查看 Top 100，核对版本、来源与观测日期 |
 | App 与原扫描工具页 | 这个工具是否支持我的卡和整理流程？ | 了解工具边界，进入 iOS/Android/Chrome 平台选择 |
-| 下载页 | 从哪里下载合适的平台版本？ | iOS 去 App Store；Android 显示 Coming soon；扩展去 Chrome Web Store |
+| 下载页 | 从哪里下载合适的平台版本？ | iOS 去 App Store，Android 去 Google Play，TCG Card Recognizer 去 Chrome Web Store |
 | 博客与分类 | 哪篇指南能解释版本、卡表、估值或工具差异？ | 找到对应主题，阅读保留原地址的文章 |
 | 帮助与数据方法 | 我为什么看到这个价格或这个状态？ | 理解来源、日期、成色、历史缺口与使用边界 |
 | Saved | 我保存的网页卡牌参考在哪里？ | 返回本浏览器书签；App 持仓不在网页修改 |

@@ -1,4 +1,4 @@
-export default function homeTemplate({ appStoreUrl, heroCards, printing, priceBadge, catalogCards, topics, stories, icon }) {
+export default function homeTemplate({ appStoreUrl, googlePlayUrl, heroCards, printing, priceBadge, catalogCards, topics, stories, icon }) {
   return `<section id="homeView">
   <section class="home-hero" aria-labelledby="hero-title">
     <div class="hero-canvas">
@@ -7,7 +7,7 @@ export default function homeTemplate({ appStoreUrl, heroCards, printing, priceBa
         <p class="hero-lede">Identify TCG and sports cards, check prices, and manage your collection with Card AI.</p>
         <div class="hero-actions">
           <a class="btn btn-primary" href="${appStoreUrl}" target="_blank" rel="noopener noreferrer">App Store</a>
-          <a class="btn btn-outline" href="/download">Android is coming soon</a>
+          <a class="btn btn-outline" href="${googlePlayUrl}" target="_blank" rel="noopener noreferrer">Google Play</a>
         </div>
         <div class="hero-lookup"><a class="text-link" href="/card-identifier">Scan a photo online ${icon('arrow')}</a><a class="text-link" href="/cards">Browse the catalog ${icon('arrow')}</a></div>
       </div>
