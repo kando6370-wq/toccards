@@ -34,6 +34,6 @@ There is no fixed percentage discount in this guide for moving from NM to LP or 
 
 Note visible defects and take clear front-and-back photos before making a transaction decision. Follow the marketplace’s current standards and the buyer’s stated requirements. Do not flatten, recolor or alter a card to make it fit a condition label.
 
-The [Card AI app](/download) helps identify cards and track holdings. Use [AI pregrading](/ai-card-grading) for a photo-based condition estimate before submission. Professional authentication and certification remain with the grading company. Confirm the printing and record the condition or existing grade accurately.
+The [CardScanFox app](/download) helps identify cards and track holdings. Use [AI pregrading](/ai-card-grading) for a photo-based condition estimate before submission. Professional authentication and certification remain with the grading company. Confirm the printing and record the condition or existing grade accurately.
 
 Try these printing guides next: [Gengar Fossil and VMAX](/blog/gengar-card-values), [Eevee full-art cards](/blog/eevee-card-values) and [Mewtwo EX, GX and ex](/blog/mewtwo-card-values).

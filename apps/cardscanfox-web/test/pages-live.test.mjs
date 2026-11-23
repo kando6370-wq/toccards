@@ -41,8 +41,8 @@ test('live navigation, download choices and paging explain the visitor task with
  const html=await(await pages.fetch(new Request('https://preview.pages.dev/cards?page=2&after=live-899'),real,{})).text();
  assert.doesNotMatch(html,/Independent review site|Total not computed/);assert.match(html,/Top 100/);assert.match(html,/rel="prev"/);assert.match(html,/before=live-900/);assert.match(html,/page=3/);assert.match(html,/Page <strong>2/);assert.match(html,/of about <strong>11/);assert.match(html,/About 241 cards/);assert.match(html,/href="\/download"/);
  const download=await(await pages.fetch(new Request('https://preview.pages.dev/download'),real,{})).text();
- assert.match(download,/Card AI for iOS/);assert.match(download,/apps\.apple\.com/);assert.match(download,/chromewebstore\.google\.com/);
- const android=download.match(/<h2>Card AI for Android<\/h2>(.*?)<\/article>/s)?.[1];
+ assert.match(download,/CardScanFox for iOS/);assert.match(download,/apps\.apple\.com/);assert.match(download,/chromewebstore\.google\.com/);
+ const android=download.match(/<h2>CardScanFox for Android<\/h2>(.*?)<\/article>/s)?.[1];
  assert.ok(android,'Android visitors need their own download card');
  assert.match(android,/<a\b[^>]*href="https:\/\/play\.google\.com\/store\/apps\/details\?id=com\.cardai\.tcg"[^>]*>Get it on Google Play/);
  assert.doesNotMatch(download,/Coming soon|being prepared for release/i);

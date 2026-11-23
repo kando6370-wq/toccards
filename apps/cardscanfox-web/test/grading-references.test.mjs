@@ -22,7 +22,7 @@ test('professional examples retain three different certified pairs and all six u
 });
 test('official grade references and guide estimates stay distinct from AI results, catalog identity and recorded sales',()=>{
  const examples=renderCertifiedExamples(certified),prices=renderGradePriceExamples(guide);
- assert.match(examples,/after encapsulation/);assert.match(examples,/not Card AI predictions/);assert.match(examples,/has not published individual grader notes/);
+ assert.match(examples,/after encapsulation/);assert.match(examples,/not CardScanFox predictions/);assert.match(examples,/has not published individual grader notes/);
  assert.equal(guide.metric,'guide_estimate');assert.equal(guide.sourceUpdatedAt,null);assert.equal(guide.catalogMapping,null);assert.ok(guide.examples.every(x=>x.year===1999&&x.grader==='PSA'&&x.variation==='Shadowless'));
  assert.match(prices,/guide estimates rather than individual sale records/);assert.match(prices,/separate from the 2021/);assert.doesNotMatch(prices,/2026 catalog card.*\$|current market sale/);
  assert.throws(()=>renderGradePriceExamples({...guide,metric:'sold'}));assert.throws(()=>renderGradePriceExamples({...guide,examples:guide.examples.map((x,i)=>i?x:{...x,grader:'CGC'})}));assert.throws(()=>renderCertifiedExamples({...certified,examples:certified.examples.map((x,i)=>i?x:{...x,sourceUrl:'https://example.com/fake-cert'})}));assert.throws(()=>renderCertifiedExamples({...certified,examples:certified.examples.map((x,i)=>i?x:{...x,aiAssessment:{grade:8}})}));

@@ -3,7 +3,6 @@ import test from 'node:test';
 import {parse} from 'parse5';
 import {createRenderer,allStaticPaths} from '../src/render.mjs';
 import {mayIndex,publicSitemap} from '../src/publication.mjs';
-import articles from '@kando/website-content/articles' with {type:'json'};
 const renderer=createRenderer({liveSite:true});
 const render=path=>renderer.resolvePage(new URL(path,'https://tcgcard.fun')).html;
 const visit=(node,fn)=>{fn(node);for(const child of node.childNodes??[])visit(child,fn);};
@@ -28,18 +27,24 @@ test('the anniversary card page contains all 191 linked single-card records with
  for(const answer of ['Espeon ex','Umbreon ex','November 6, 2026','29 regular booster packs','three-card Classic Collection pack'])assert.ok(upc.includes(answer),answer);
 });
 
-test('public pages use Card AI in copy, metadata and source attribution',()=>{
+test('public pages use CardScanFox in copy, metadata and source attribution',()=>{
  for(const path of [...allStaticPaths,'/cards/714372','/not-a-real-article']){
   const html=render(path);
-  assert.match(html,/<link rel="icon" href="\/assets\/card-ai-icon\.svg"/,path);
-  assert.equal((html.match(/<img src="\/assets\/card-ai-wordmark\.svg" alt="Card AI"/g)??[]).length,2,path);
-  assert.match(html,/aria-label="Card AI home"/,path);
-  assert.match(html,/<meta property="og:site_name" content="Card AI">/,path);
-  assert.match(html,/>Get Card AI /,path);
-  assert.doesNotMatch(html,/\bCardScanFox\b/i,path);
-  visit(parse(html),node=>{if(node.tagName!=='script'||attr(node,'type')!=='application/ld+json')return;const json=text(node);assert.doesNotMatch(json,/cardscanfox-lime-(?:wordmark|mark)\.svg/,path);const data=JSON.parse(json);if(path==='/blog/delta-reign-pokemon'&&data['@type']==='Article')assert.equal(data.publisher.logo.url,'https://tcgcard.fun/assets/card-ai-wordmark.svg');for(const field of ['author','publisher'])if(data[field]){assert.match(data[field].name,/Card AI/,path+' '+field);}});
+  assert.match(html,/<link rel="icon" href="\/assets\/cardscanfox-lime-mark\.svg"/,path);
+  assert.equal((html.match(/<img src="\/assets\/cardscanfox-lime-wordmark\.svg" alt="CardScanFox"/g)??[]).length,2,path);
+  assert.match(html,/aria-label="CardScanFox home"/,path);
+  assert.match(html,/<meta property="og:site_name" content="CardScanFox">/,path);
+  assert.match(html,/>Get CardScanFox /,path);
+  assert.doesNotMatch(html,/\/assets\/(?:card-ai-(?:wordmark|icon)\.svg|legacy\/card-ai-logo\.png)/,path);
+  // These pages identify the store app in its listing, approved policies or deletion request.
+  if(!['/privacy','/terms','/Account/AccountSetup'].includes(path)){
+   const copy=path==='/download'?html.replaceAll('<strong>Card AI: TCG Card Scanner</strong>',''):html;
+   assert.doesNotMatch(copy,/\bCard\s+AI\b/i,path);
+  }
+  visit(parse(html),node=>{if(node.tagName!=='script'||attr(node,'type')!=='application/ld+json')return;const json=text(node);const data=JSON.parse(json);if(path==='/blog/delta-reign-pokemon'&&data['@type']==='Article')assert.equal(data.publisher.logo.url,'https://tcgcard.fun/assets/cardscanfox-lime-wordmark.svg');for(const field of ['author','publisher'])if(data[field]){assert.match(data[field].name,/CardScanFox/,path+' '+field);}});
  }
- assert.match(render('/download'),/listed on the App Store as/i);
+ assert.match(render('/download'),/Listed on the App Store as <strong>Card AI: TCG Card Scanner<\/strong>/);
+ assert.match(render('/download'),/Listed on Google Play as <strong>Card AI: TCG Card Scanner<\/strong>/);
  assert.match(render('/download'),/id6793017224/);
 });
 

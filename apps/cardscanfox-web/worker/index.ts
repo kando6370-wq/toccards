@@ -36,7 +36,7 @@ export function createWebsiteHandler({publicPreview=false}={}) { return {
   const requestId=crypto.randomUUID();const headers=new Headers({...securityHeaders,'X-Request-Id':requestId,'X-Site-Release':'cardscanfox-independent-review'});
   const production=String(env.DEPLOYMENT_MODE)==='production';
   if(!['preview','production'].includes(String(env.DEPLOYMENT_MODE))||(production&&(String(env.PUBLISH_READY)!=='true'||String(env.CATALOG_MODE)!=='service')))return new Response('This candidate has no approved production cutover configuration.',{status:503,headers});
-  if(!production&&!publicPreview&&!await previewAllowed(request,env)){headers.set('WWW-Authenticate','Basic realm="Card AI review", charset="UTF-8"');return new Response('Authorized review access is required.',{status:401,headers});}
+  if(!production&&!publicPreview&&!await previewAllowed(request,env)){headers.set('WWW-Authenticate','Basic realm="CardScanFox review", charset="UTF-8"');return new Response('Authorized review access is required.',{status:401,headers});}
   if(new URL(request.url).pathname==='/site-api/v1/pregrade'){const response=await handleWebPregrade(request,env);for(const [key,value]of headers)if(!response.headers.has(key))response.headers.set(key,value);return response;}
   if(new URL(request.url).pathname==='/site-api/v1/recognize'){const response=await handleWebRecognition(request,env);for(const [key,value]of headers)if(!response.headers.has(key))response.headers.set(key,value);return response;}
   if(!['GET','HEAD'].includes(request.method)){headers.set('Allow','GET, HEAD');return new Response('Method not allowed',{status:405,headers});}

@@ -40,4 +40,4 @@ A published reference is not an offer to buy the card. If the matching amount or
 
 Use [Dragonite catalog search](/games/pokemon?q=Dragonite) if your number is absent from this selection. Search results can include promos, code cards and other products, so compare the complete identity before using an amount.
 
-The [Card AI app](/download) provides photo identification candidates and collection tracking. Confirm the printing before recording a holding. For other character comparisons, see [Gengar card values](/blog/gengar-card-values), [Eevee card values](/blog/eevee-card-values) and [Mewtwo card values](/blog/mewtwo-card-values).
+The [CardScanFox app](/download) provides photo identification candidates and collection tracking. Confirm the printing before recording a holding. For other character comparisons, see [Gengar card values](/blog/gengar-card-values), [Eevee card values](/blog/eevee-card-values) and [Mewtwo card values](/blog/mewtwo-card-values).

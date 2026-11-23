@@ -14,7 +14,7 @@ Yes. For the 2026 McDonald’s and Pokémon collaboration, check your country’
 
 The Canadian announcement says the box-shaped toys are not available in Quebec. It describes a Pokémon sticker and a four-card booster pack there instead. Keep that exception separate from the two-card offer described for the US and elsewhere in Canada.
 
-Use the [official rollout schedule](https://www.pokemon.com/us/news/pokemon-happy-meals-are-coming-to-mcdonalds-in-an-exciting-new-way-) for other countries. Card AI does not track restaurant inventory or guarantee that a particular location has a toy or card today.
+Use the [official rollout schedule](https://www.pokemon.com/us/news/pokemon-happy-meals-are-coming-to-mcdonalds-in-an-exciting-new-way-) for other countries. CardScanFox does not track restaurant inventory or guarantee that a particular location has a toy or card today.
 
 ## Pokémon McDonald’s 2026 card list
 
@@ -50,10 +50,10 @@ For a card you already own, confirm the collector number and finish before using
 
 1. Read the complete card name and number; compare the artwork with the official regional gallery.
 2. Check the promotional set, language and foil treatment. Keep sealed packs, toys and individual cards separate.
-3. Search the catalog or review the candidates from the [Card AI Pokémon scanner](/pokemon-card-scanner). Confirm the match; do not select an older printing just because the name agrees.
+3. Search the catalog or review the candidates from the [CardScanFox Pokémon scanner](/pokemon-card-scanner). Confirm the match; do not select an older printing just because the name agrees.
 4. Where the correct record is available, review its dated price context before recording the holding in the app.
 
-[Choose your Card AI download](/download) to continue with identification and collection tracking. Card AI does not authenticate a physical card or guarantee that every new promotional printing is already covered.
+[Choose your CardScanFox download](/download) to continue with identification and collection tracking. CardScanFox does not authenticate a physical card or guarantee that every new promotional printing is already covered.
 
 ## Is this the same as Pokémon 30th Celebration?
 

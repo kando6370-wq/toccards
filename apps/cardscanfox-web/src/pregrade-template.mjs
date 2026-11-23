@@ -56,7 +56,7 @@ export function renderPregradePage({examples = [], catalogExamples = [], certifi
    <form data-pregrade-form novalidate>
     <div class="pregrade-photo-grid">${photoField('front', '01 · Card front', 'Keep all four corners visible with a little plain background around the card. Photograph it straight on.')}${photoField('back', '02 · Card back', 'Turn over the same card. Use the same lighting and keep the back in focus.')}</div>
     <p class="pregrade-photo-note">JPEG, PNG or WebP · up to 20 MB per original photo · at least 640 pixels on each side. Photos are resized and metadata is removed in your browser before upload.</p>
-    <label class="pregrade-consent"><input type="checkbox" data-pregrade-consent><span>Send these two photos to Cloudflare AI for this assessment. Card AI does not save them to a card collection or publish a result page.</span></label>
+    <label class="pregrade-consent"><input type="checkbox" data-pregrade-consent><span>Send these two photos to Cloudflare AI for this assessment. CardScanFox does not save them to a card collection or publish a result page.</span></label>
     <div class="pregrade-submit-row"><button class="btn btn-primary" type="submit" data-pregrade-submit disabled>Get my pregrade</button><button class="btn btn-outline" type="button" data-pregrade-cancel hidden>Cancel assessment</button><button class="text-link" type="button" data-pregrade-clear hidden>Clear photos &amp; result</button></div>
     <p class="pregrade-status" data-pregrade-status role="status" aria-live="polite" aria-atomic="true">Choose the front and back photos to start.</p><p class="pregrade-error" data-pregrade-error role="alert" hidden></p>
    </form>

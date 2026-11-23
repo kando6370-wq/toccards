@@ -243,7 +243,7 @@ That stamp and the Pokémon Center logo identify different promotions. An ETB’
 4. Read the source, currency and observation date attached to that reference.
 5. Compare the same condition and object type: a loose card, an existing graded copy and a sealed box are different purchases.
 
-The [Pokémon catalog](/games/pokemon) and [card search](/cards?game=pokemon&q=Delta%20Reign) are entry points for supported records. Card AI’s Delta Reign set currently has no public single-card entries, so use the official material to establish the printing first. A missing catalog row is not a zero value. An older Rayquaza amount does not fill that gap.
+The [Pokémon catalog](/games/pokemon) and [card search](/cards?game=pokemon&q=Delta%20Reign) are entry points for supported records. CardScanFox’s Delta Reign set currently has no public single-card entries, so use the official material to establish the printing first. A missing catalog row is not a zero value. An older Rayquaza amount does not fill that gap.
 
 For an available record, compare the same price series over time. A large percentage rise can start from a low amount, and a raw reference does not value a graded slab. The [raw-versus-graded guide](/blog/raw-vs-graded-card-values) explains that distinction. Record the printing and source with your comparison so you can check like-for-like amounts later.
 
