@@ -85,3 +85,36 @@ AGP 9 构建仍会报告 Flutter 插件、旧 DSL、非内置 Kotlin 和 Jetifie
 - 清空本轮 logcat 后回读，没有发现 `FATAL EXCEPTION`、`AndroidRuntime`、`E/flutter`、`FlutterError` 或未处理异常。
 
 本轮未执行拍摄、识别提交、真实登录、收藏写入、购买、Play 安装或 Android 15/API 35 实体设备验收。API 31 真机结果用于确认当前 Release 代码的启动和基础页面行为，不能替代 Play 生产包及 Android 15 实体设备验收。
+
+## AGP 9 迁移警告补验（2026-11-23）
+
+本次补验针对 AGP 9.0.1 和 Gradle 9.1.0 的迁移警告，仅修改 Android Gradle 配置。
+
+### 已处理
+
+- 移除 `android.enableJetifier=true`。当前 App 的实际 Android 依赖树使用 AndroidX，源码和运行时依赖没有发现 `com.android.support` 或 `android.support.*` 依赖，Jetifier 警告已消失。
+- 将 App 的 `android {}` 配置迁移为 `extensions.configure<ApplicationExtension> {}`，消除 App 自身 `BaseAppModuleExtension` 的旧 DSL 警告。
+- 保留 `android.uniquePackageNames=false`。Cronet 的 `cronet-api` 和 `cronet-shared` 仍共享 `org.chromium.net` namespace，暂不能开启唯一包名检查。
+
+### 当前兼容边界
+
+- `android.newDsl=false` 继续保留。试验性开启新 DSL 会让 Flutter 3.47.9 的 `dev.flutter.flutter-gradle-plugin` 在 `ApplicationExtension` 与旧 `AbstractAppExtension` 之间发生类型转换失败，配置阶段直接构建失败。
+- `android.builtInKotlin=false` 和 App 的 `kotlin-android` 继续保留。试验性切换到内置 Kotlin 后，`camera_android_camerax` 等仍主动应用 KGP 的插件在配置阶段出现 Kotlin 类路径根冲突。
+- Pub 缓存中的 Flutter 插件仍产生 KGP、Groovy 空格赋值和 Manifest `package` 属性过渡警告。涉及的插件需要发布支持内置 Kotlin、新 DSL 和 Gradle 9 属性赋值的版本后，才能在不修改缓存文件的前提下继续清理。
+- Flutter 3.47.9 自身的 Gradle 集成仍产生 Kotlin 编译器弃用提示。该提示属于 Flutter SDK，当前仓库没有复制或修改 SDK 源码。
+
+### 本地补验
+
+| 检查 | 结果 |
+|---|---|
+| `gradlew.bat help --warning-mode all` | `BUILD SUCCESSFUL`，Jetifier 和 App 旧 `android {}` 警告已消失 |
+| Release AAB | `BUILD SUCCESSFUL`，925 actionable tasks |
+| R8 | `:app:minifyReleaseWithR8` 已执行 |
+| AAB | `apps/flutter-app/build/app/outputs/bundle/release/app-release.aab`，108,576,077 bytes |
+| AAB SHA-256 | `DC9B6E4B75BE8C4A2DBF7F3DC2B995287C79737E0AB81A30189717228D6DEFBA` |
+| 合并 Manifest | `targetSdkVersion=36` |
+| Flutter widget test | `test/widget/onboarding_page_test.dart`，17/17 通过 |
+
+Release 构建第二次使用临时的单 Worker、进程内 Kotlin 编译和较低 JVM 内存参数完成。第一次使用较高 JVM 堆和默认并发时因本机原生内存不足退出，未形成发布产物。临时参数没有写入仓库配置。
+
+本次未升级 Pub 依赖，也未修改 Pub 缓存中的插件源码。内置 Kotlin 和新 DSL 的完整迁移需要 Flutter SDK 与相关插件同时发布兼容版本后重新验证。

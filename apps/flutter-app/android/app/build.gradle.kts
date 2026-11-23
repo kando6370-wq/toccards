@@ -1,6 +1,7 @@
 import java.util.Base64
 import java.io.File
 import com.google.gms.googleservices.GoogleServicesTask
+import com.android.build.api.dsl.ApplicationExtension
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -108,7 +109,7 @@ val prepareProjectDebugKeystore = tasks.register<Exec>("prepareProjectDebugKeyst
     )
 }
 
-android {
+extensions.configure<ApplicationExtension> {
     namespace = "dev.kando.cardvault.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
