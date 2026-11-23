@@ -10,8 +10,14 @@
     "category": "identity",
     "publishedAt": "2026-11-19",
     "sources": [
-      { "label": "Cyberpunk TCG official card database", "url": "https://cyberpunktcg.com/cards" },
-      { "label": "WeirdCo: Welcome to Night City starter deck lists", "url": "https://cyberpunktcg.com/blog/wnc-starter-decks" }
+      {
+        "label": "Cyberpunk TCG official card database",
+        "url": "https://cyberpunktcg.com/cards"
+      },
+      {
+        "label": "WeirdCo: Welcome to Night City starter deck lists",
+        "url": "https://cyberpunktcg.com/blog/wnc-starter-decks"
+      }
     ],
     "showDescription": false
   },
@@ -26,30 +32,49 @@
     "category": "collecting",
     "publishedAt": "2026-11-19",
     "sources": [
-      { "label": "Topps Ripped: 2026 Holiday Baseball format and pack contents", "url": "https://ripped.topps.com/2026-topps-holiday-baseball-which-box-is-best/" },
-      { "label": "Topps: 2026 Holiday Baseball collection and checklist", "url": "https://www.topps.com/pages/topps-holiday-baseball" },
-      { "label": "Topps: 2025 Holiday Baseball Advent Calendar", "url": "https://www.topps.com/products/2025-topps-holiday-baseball-advent-calendar" },
-      { "label": "Topps: 2024 Holiday Baseball Advent Calendar", "url": "https://www.topps.com/pages/topps-baseball-holiday-advent-calendar" }
+      {
+        "label": "Topps Ripped: 2026 Holiday Baseball format and pack contents",
+        "url": "https://ripped.topps.com/2026-topps-holiday-baseball-which-box-is-best/"
+      },
+      {
+        "label": "Topps: 2026 Holiday Baseball collection and checklist",
+        "url": "https://www.topps.com/pages/topps-holiday-baseball"
+      },
+      {
+        "label": "Topps: 2025 Holiday Baseball Advent Calendar",
+        "url": "https://www.topps.com/products/2025-topps-holiday-baseball-advent-calendar"
+      },
+      {
+        "label": "Topps: 2024 Holiday Baseball Advent Calendar",
+        "url": "https://www.topps.com/pages/topps-baseball-holiday-advent-calendar"
+      }
     ],
     "showDescription": false
   },
   {
     "path": "/blog/aura-seeker-card-list",
-    "title": "Aura Seeker Card List: Confirmed Japanese M7 Reveals | CardScanFox",
-    "description": "See officially revealed cards from Japan’s Hadou Seeker (M7), with collector numbers and links to the official card images. This is not a complete checklist.",
-    "h1": "Aura Seeker card list: confirmed Japanese M7 reveals",
-    "author": "CardScanFox",
     "file": "aura-seeker-card-list.md",
     "published": true,
+    "title": "Aura Seeker Card List (M7) & Release Date | CardScanFox",
+    "h1": "Aura Seeker Card List",
+    "description": "Browse the Japanese Aura Seeker M7 card list, release date and card numbers. Compare it with English Flowing Fists without mixing languages.",
     "category": "identity",
-    "publishedAt": "2026-11-18",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-23",
     "sources": [
       {
-        "label": "Pokémon Japan: Hadou Seeker (M7) announcement and official card gallery",
-        "url": "https://www.pokemon-card.com/ex/m7/"
+        "label": "Pokémon Card Game official Aura Seeker page",
+        "url": "https://www.pokemon-card.com/ex/m7/?ui=en"
+      },
+      {
+        "label": "Pokémon Card Game official card search",
+        "url": "https://www.pokemon-card.com/card-search/index.php?illust=&keyword=&pg=964&regulation_sidebar_form=XY&se_ta=&sm_and_keyword=true"
+      },
+      {
+        "label": "Flowing Fists public revealed-card tracker",
+        "url": "https://tcgwatchtower.com/pokemon/sets/mega-evolution/flowing-fists/cards"
       }
-    ],
-    "showDescription": false
+    ]
   },
   {
     "path": "/blog/delta-reign-pokemon",
@@ -360,23 +385,26 @@
   },
   {
     "path": "/blog/flowing-fists-card-list",
-    "title": "Flowing Fists Card List and Release Dates | CardScanFox",
-    "description": "Check reported Flowing Fists release dates, featured Pokémon and the status of the English card list. Find the separate Japanese M7 gallery.",
-    "h1": "Flowing Fists card list",
-    "author": "CardScanFox",
     "file": "flowing-fists-card-list.md",
     "published": true,
+    "title": "Flowing Fists Card List & Release Date | CardScanFox",
+    "h1": "Flowing Fists Card List",
+    "description": "Track the announced Flowing Fists set, release date and revealed English cards. Separate confirmed English numbers from the Japanese Aura Seeker preview.",
     "category": "identity",
-    "publishedAt": "2026-11-20",
-    "updatedAt": "2026-11-21",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-23",
     "sources": [
       {
-        "label": "Pokémon Japan: M7 product page and card gallery",
-        "url": "https://www.pokemon-card.com/ex/m7/"
+        "label": "Pokémon official Flowing Fists product page",
+        "url": "https://www.pokemon.com/us/pokemon-tcg/mega-evolution-flowing-fists"
       },
       {
-        "label": "GamesRadar: Flowing Fists release dates and featured cards",
-        "url": "https://www.gamesradar.com/tabletop-gaming/pokemon-cards-come-out-swinging-with-the-next-expansion-flowing-fists/"
+        "label": "Pokémon official Flowing Fists media alert",
+        "url": "https://press.pokemon.com/en/MEDIA-ALERT-Z-Mega-Evolution-Pokemon-to-Debut-in-New-Pokemon-Trading-C"
+      },
+      {
+        "label": "Flowing Fists public revealed-card tracker",
+        "url": "https://tcgwatchtower.com/pokemon/sets/mega-evolution/flowing-fists/cards"
       }
     ]
   },
@@ -473,6 +501,128 @@
       {
         "label": "The Art of Pokémon: Takumi Akabane illustrator catalog",
         "url": "https://www.artofpkm.com/illustrators/takumi-akabane"
+      }
+    ]
+  },
+  {
+    "path": "/blog/pokemon-tcg-pocket-dual-fusion-card-list",
+    "file": "pokemon-tcg-pocket-dual-fusion-card-list.md",
+    "published": true,
+    "title": "Pokémon TCG Pocket Dual Fusion Card List (C1) | CardScanFox",
+    "h1": "Pokémon TCG Pocket Dual Fusion Card List",
+    "description": "See the Pokémon TCG Pocket Dual Fusion card list. Browse the public 217-card database count, pack information, collection numbers and new dual-type cards.",
+    "category": "identity",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-23",
+    "sources": [
+      {
+        "label": "Pokémon TCG Pocket official dual-type announcement",
+        "url": "https://www.youtube.com/watch?v=0FVBu5glEr8"
+      },
+      {
+        "label": "Dual Fusion public card list",
+        "url": "https://pocket.pokemongohub.net/en/set/c1dualfusion000-dual-fusion"
+      }
+    ]
+  },
+  {
+    "path": "/blog/mega-rayquaza-ex-premium-tournament-collection",
+    "file": "mega-rayquaza-ex-premium-tournament-collection.md",
+    "published": true,
+    "title": "Mega Rayquaza ex Premium Tournament Collection: Contents & Release Date | CardScanFox",
+    "h1": "Mega Rayquaza ex Premium Tournament Collection",
+    "description": "Check the official Mega Rayquaza ex Premium Tournament Collection contents, promo cards, release date and booster packs.",
+    "category": "collecting",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-23",
+    "sources": [
+      {
+        "label": "Pokémon official Mega Rayquaza ex Premium Tournament Collection page",
+        "url": "https://www.pokemon.com/uk/pokemon-tcg/product-gallery/mega-rayquaza-ex-premium-tournament-collection"
+      }
+    ]
+  },
+  {
+    "path": "/blog/mcdonalds-pokemon-collab-cards",
+    "file": "mcdonalds-pokemon-collab-cards.md",
+    "published": true,
+    "title": "McDonald’s Pokémon Collab Cards & Happy Meal Dates | CardScanFox",
+    "h1": "McDonald’s Pokémon Collab Cards",
+    "description": "Track the 2026 McDonald’s Pokémon collab by region. See confirmed Happy Meal dates, card counts, toys and checklist notes.",
+    "category": "collecting",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-23",
+    "sources": [
+      {
+        "label": "Pokémon official Canada McDonald’s Happy Meal announcement",
+        "url": "https://www.pokemon.com/us/news/pokemon-happy-meals-return-to-mcdonalds-in-canada"
+      },
+      {
+        "label": "CardScanFox McDonald’s promo card record",
+        "url": "https://tcgcard.fun/cards/110407"
+      }
+    ]
+  },
+  {
+    "path": "/blog/pokemon-valentines-box",
+    "file": "pokemon-valentines-box.md",
+    "published": true,
+    "title": "Pokémon TCG Valentine’s Box: Reported Date & Contents | CardScanFox",
+    "h1": "Pokémon TCG Valentine’s Box: What Is Confirmed?",
+    "description": "Track the reported Pokémon TCG Valentine’s Box. See what is reported, what is unknown and which details still need official confirmation.",
+    "category": "collecting",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-23",
+    "sources": [
+      {
+        "label": "PokéBeach Valentine’s Box report",
+        "url": "https://www.pokebeach.com/2026/10/pokemon-to-release-first-ever-valentines-day-tcg-set"
+      },
+      {
+        "label": "Tilt Valentine’s Box status guide",
+        "url": "https://www.tilt.app/blog/pokemon-valentines-box"
+      }
+    ]
+  },
+  {
+    "path": "/blog/mega-x-mega-parade-card-list",
+    "file": "mega-x-mega-parade-card-list.md",
+    "published": true,
+    "title": "MEGA x MEGA Parade Card List: Reported M7a Details | CardScanFox",
+    "h1": "MEGA x MEGA Parade: What Is Reported?",
+    "description": "Follow reported MEGA x MEGA Parade details. Separate Japanese product reports from unconfirmed English names, dates and card lists.",
+    "category": "collecting",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-23",
+    "sources": [
+      {
+        "label": "MEGA x MEGA Parade reported product analysis",
+        "url": "https://www.samuraiswordtokyo.com/blogs/news/mega-x-mega-parade-card-list-confirmed-vs-reported"
+      },
+      {
+        "label": "Aura Seeker official Japanese product page",
+        "url": "https://www.pokemon-card.com/ex/m7/?ui=en"
+      }
+    ]
+  },
+  {
+    "path": "/blog/takumi-akabane-pokemon-card-list",
+    "file": "takumi-akabane-pokemon-card-list.md",
+    "published": true,
+    "title": "Takumi Akabane Pokémon Card List | CardScanFox",
+    "h1": "Takumi Akabane Pokémon Card List",
+    "description": "Browse Pokémon cards associated with Takumi Akabane. Separate artist credits, early Pokémon TCG history and card checklist records.",
+    "category": "identity",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-23",
+    "sources": [
+      {
+        "label": "Takumi Akabane Pokémon card list database",
+        "url": "https://pokecardillustrators.com/illustrators/takumi-akabane-pokemon-card-list/"
+      },
+      {
+        "label": "Official Pokémon TCG rulebook reference",
+        "url": "https://assets.pokemon.com/assets/cms/pdf/tcg/rulebooks/Undaunted_Rulebook.pdf"
       }
     ]
   }

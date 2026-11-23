@@ -1,39 +1,27 @@
-**November 21, 2026 update:** Flowing Fists is an upcoming English Pokémon TCG expansion featuring Mega Lucario Z ex. GamesRadar reports a **February 6, 2027** retail release, **January 23** prerelease events and **February 4** availability in Pokémon TCG Live. The sources cited here cover the release and selected reveals. The full English collector-number checklist remains unverified for this guide.
+## Flowing Fists release date and theme
 
-## When does Flowing Fists release?
+Flowing Fists is an English Pokémon TCG expansion in the Mega Evolution era. The official product information lists February 6, 2027 as the release date and says the set has more than 110 cards.
 
-| Milestone | Reported date | What to check |
-| --- | --- | --- |
-| Prerelease events | From January 23, 2027 | Check dates and participation with your local event organizer. |
-| Pokémon TCG Live | February 4, 2027 | Check availability in the game. |
-| Retail release | February 6, 2027 | Check the specific product and local stock before ordering. |
+The announced theme includes Mega Lucario Z ex, Mega Absol Z ex, Mega Garchomp Z ex and Mega Glimmora ex. The official media alert also describes the planned rarity structure. These facts describe the announced set. They do not mean that a complete English card list is already public.
 
-The [GamesRadar announcement coverage](https://www.gamesradar.com/tabletop-gaming/pokemon-cards-come-out-swinging-with-the-next-expansion-flowing-fists/) also names Mega Glimmora ex among the featured cards. Use the final English card gallery to confirm names and numbers for individual printings.
+## Revealed English cards and preview cards
 
-## Is the full English Flowing Fists card list available?
+Keep three labels in the card table.
 
-No complete English Flowing Fists checklist is confirmed by the sources used for this page. The Japanese **M7** gallery is useful for identifying Japanese printings.
+| Status | What the label means |
+| --- | --- |
+| Confirmed English | The English card number has appeared on an official or clearly documented English reveal |
+| Japanese Aura Seeker preview | A related Japanese M7 card helps readers understand the theme, but its number does not become an English number |
+| Not revealed | The card or English number still needs a source |
 
-The existing [Aura Seeker card list](/blog/aura-seeker-card-list) records selected M7 reveals and links to the official Japanese card images. Those collector numbers identify Japanese printings only.
+Confirmed English cards use the printed English number. Japanese Aura Seeker cards can show a preview relationship, but their Japanese number and rarity do not prove the English number or the final English card list.
 
-## What the official Japanese source confirms
+## Is Flowing Fists the same as Aura Seeker?
 
-Pokémon Japan lists the M7 product page and card gallery. The gallery includes cards such as Ninetales, Quagsire, Floatzel ex, Mega Absol Z ex, Mega Lucario Z ex, and Mega Garchomp Z ex. Use the Japanese card image and collector number as a reference for the Japanese printing.
+Flowing Fists is the English product name connected to Japan’s Aura Seeker M7. Treat the two pages as related, but keep language, release date and collector numbers separate. Use [Aura Seeker](/blog/aura-seeker-card-list) for Japanese cards and this page for English cards.
 
-Do not copy a Japanese number into an English collection record. Confirm the later English artwork, card text, set code, and collector number before adding the card to a collection or using a price reference.
+A full English checklist should be updated when the official English gallery changes. Until then, label the page as revealed cards and announced product information.
 
-## What to check when the English list is published
+## Sources and update rule
 
-- The official English product or card-list source.
-- The English card name and collector number.
-- The language and set code on the exact printing.
-- Product contents, pack counts, promos, and release timing.
-- Whether the card has a published price observation.
-
-The [Pokémon card scanner](/pokemon-card-scanner) can help narrow a card to likely catalog records. Confirm the set, number, language, and finish before treating a result as the same printing.
-
-## Related
-
-- [Aura Seeker card list](/blog/aura-seeker-card-list)
-- [Pokemon TCG set card lists](/blog/pokemon-tcg-set-card-lists)
-- [Pokemon card scanner](/pokemon-card-scanner)
+Use the official Pokémon product page and media alert for the release date, theme and announced structure. Use the public tracker only as a secondary reveal reference. Do not copy a Japanese number into an English card row without an English source.

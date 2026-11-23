@@ -2410,14 +2410,14 @@
           "alt": "CardScanFox scan and candidate review screen"
         }
       ],
-      "htmlSha256": "e050cd58863385e42d1c88214b9cb8a9236edcdfa38822c2289feb3ff7481d7f",
+      "htmlSha256": "82e453bb8f5317557bdcb4dbabd661a82148897effb79cffc9e4171a5fdc1184",
       "localPublicFile": "apps/marketing-web/public/blog/pokemon-tcg-set-card-lists.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
       "originalCapturedHtmlSha256": "7acc0879018c97bf699f9426a295b5161819254307535b43cb6e30199ea65600",
       "previousApprovedHtmlSha256": "7acc0879018c97bf699f9426a295b5161819254307535b43cb6e30199ea65600",
-      "editorialUpdatedOn": "2026-11-15",
-      "editorialReason": "Approved answer-first content, CardScanFox branding and Pokémon intent consolidation; local candidate only."
+      "editorialUpdatedOn": "2026-11-23",
+      "editorialReason": "Add current Pokémon list routing for Flowing Fists, Aura Seeker, Pokémon TCG Pocket Dual Fusion and reported products while keeping language and game boundaries explicit."
     },
     {
       "path": "/blog/dungeon-crawler-carl-trading-cards",
