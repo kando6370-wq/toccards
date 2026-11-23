@@ -1,26 +1,22 @@
-## Aura Seeker M7 at a glance
+**Aura Seeker** is an English rendering of **Hadou Seeker (ハドウシーカー)**, the Japanese Pokémon TCG expansion with set code **M7**. [Pokémon Japan](https://www.pokemon-card.com/ex/m7/) lists **November 27, 2026** as the scheduled release date in Japan. This preview covers selected official reveals, not the full Japanese checklist or an English set.
 
-Aura Seeker is the Japanese M7 Pokémon Card Game expansion. The official Japanese page gives a November 27, 2026 release date, a 200-yen price and five random cards per pack.
+## Which Japanese M7 cards are confirmed?
 
-Use this page for Japanese card names and M7 collector numbers. The official page provides the card-list entry, and the official card search currently returns 78 main-set records for the expansion.
+We checked the official Japanese gallery on **November 18, 2026**. Each row links to the publisher's Japanese card image. The collector numbers below identify Japanese printings only.
 
-## Card numbers and secret rares
+| Japanese M7 number | Card | Pokémon Japan |
+| --- | --- | --- |
+| 013/078 | Ninetales (キュウコン) | [Official reveal](https://www.pokemon-card.com/ex/m7/assets/images/card/m7-013-gpz4x.webp) |
+| 018/078 | Quagsire (ヌオー) | [Official reveal](https://www.pokemon-card.com/ex/m7/assets/images/card/m7-018-n53j6.webp) |
+| 020/078 | Floatzel ex (フローゼルex) | [Official reveal](https://www.pokemon-card.com/ex/m7/assets/images/card/m7-020-ubnz7.webp) |
+| 030/078 | Mega Absol Z ex (メガアブソルZex) | [Official reveal](https://www.pokemon-card.com/ex/m7/assets/images/card/m7-030-be3fz.webp) |
+| 057/078 | Mega Lucario Z ex (メガルカリオZex) | [Official reveal](https://www.pokemon-card.com/ex/m7/assets/images/card/m7-057-bhdzs.webp) |
+| 067/078 | Mega Garchomp Z ex (メガガブリアスZex) | [Official reveal](https://www.pokemon-card.com/ex/m7/assets/images/card/m7-067-h8s4g.webp) |
 
-The official card search shows 78 numbered main-set records. Keep that main set separate from secret rares and other cards above the main-set numbering.
+If your card is not in this table, check the Card List (カードリスト) on the [Japanese product page](https://www.pokemon-card.com/ex/m7/). The preview does not show that a missing card is excluded from the set.
 
-| Section | How to display it |
-| --- | --- |
-| Main set | Japanese M7 numbers 001/078 through 078/078 |
-| Secret rares | Separate rows above the main set when officially shown |
-| English reading | Add only when the English card has an official reveal |
-| Language | Keep Japanese and English as separate fields |
+## Is this the English Flowing Fists checklist?
 
-Do not use the 78 main-set count as a claim that every secret rare has also been listed. The card search and official release materials should be checked again before a later update.
+No. A [retailer preorder page](https://www.hobbiesville.com/collections/pokemon-flowing-fists) uses the name Flowing Fists. That listing is not a Pokémon announcement and does not confirm the English release date, card names or collector numbers. No English entries are confirmed by the sources used for this preview.
 
-## Do not mix Japanese and English numbers
-
-Aura Seeker and Flowing Fists are related language releases. A Japanese M7 number is not an English Flowing Fists collector number. Keep language, set code and release date in every row, then link to the [Flowing Fists card list](/blog/flowing-fists-card-list) for English card tracking.
-
-## Sources and update rule
-
-Use the official Aura Seeker page and official card search for the Japanese set. Use the English Flowing Fists page only for the related English product. Keep each source and date beside the fields it supports.
+To match a Japanese card to a later English printing, compare the artwork and card text against an official English card record. Use the collector number shown on that English record; do not copy the number from the Japanese card.

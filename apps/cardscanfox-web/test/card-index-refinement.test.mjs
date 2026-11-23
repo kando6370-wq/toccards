@@ -204,6 +204,12 @@ test('new positive sets are explicit owners and the seven-card discovery artifac
   '/blog/mickey-mantle-rookie-card-value',
   '/blog/one-piece-tcg-ban-list',
   '/blog/takumi-akabane-pokemon-cards',
+  '/blog/pokemon-tcg-pocket-dual-fusion-card-list',
+  '/blog/mega-rayquaza-ex-premium-tournament-collection',
+  '/blog/mcdonalds-pokemon-collab-cards',
+  '/blog/pokemon-valentines-box',
+  '/blog/mega-x-mega-parade-card-list',
+  '/blog/takumi-akabane-pokemon-card-list',
  ].map(path=>url(path).href);
  for(const guide of addedGuides)assert.ok(siteLocations.includes(guide),guide);
  assert.equal(siteLocations.filter(location=>!addedGuides.includes(location)).length,baselineSiteCount);
