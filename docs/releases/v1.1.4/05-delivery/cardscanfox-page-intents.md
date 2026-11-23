@@ -4,6 +4,8 @@
 
 本地预览实点 `/download` 的 Android 按钮后，Google Play 打开了包名 `com.cardai.tcg` 的商品页。官网构建生成 129 个路由，下载相关的 19 项回归通过。官网全量 222 项中有 2 项失败，改动前的 `main@22c84675` 可复现同样结果：Flowing Fists 文章仍有旧品牌名，站点地图条目数断言期望 88、实际 92。
 
+2026-11-23 09:27（北京时间），官网自动发布 `main@c9a07f94`。Cloudflare 部署 `8a9419d4-fccd-4916-ae91-3676712d742b` 将 100% 流量分配给版本 `4a012124-4113-41e4-9f49-0d0c212c8758`，正式发布清单的 `sourceCommit` 与该提交一致。实点正式 `/download` 页的 “Get it on Google Play” 打开了 `com.cardai.tcg` 商品页。首页的 Android 按钮指向同一地址，App 介绍与帮助页也已更新上架说明。
+
 ## 页面归属原则
 
 | 页面族 | 访客要解决的问题 | 核心动作 |
