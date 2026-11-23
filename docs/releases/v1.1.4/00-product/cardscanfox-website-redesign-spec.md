@@ -73,7 +73,7 @@ CardScanFox 是本次官网采用的品牌。它服务实体 TCG 和体育卡收
 
 | 项目 | 规则 |
 | --- | --- |
-| 标识 | 使用已选 `cardscanfox-lime-mark.svg` 和匹配 wordmark；不改成橙狐、卡通狐或旧黄色折角图标。 |
+| 标识 | 页面主标识使用已选 `cardscanfox-lime-mark.svg` 和匹配 wordmark；浏览器标签单独使用旧品牌 `card-ai-icon.svg`。 |
 | 色彩 | 主文字 `#1b231d`；次文字 `#626b64`；背景 `#f8f9f6`；白色内容面；边界 `#dfe4da`；动作色 `#e5f17c`。 |
 | 字体 | Manrope，本地字体、合理字重、数字使用 tabular-nums；无渐变字。 |
 | 层级 | 首页大标题不超过约 62px；正文正式实现优先 14–16px；注释不作为主要信息，保证可读。 |
