@@ -69,3 +69,77 @@ test('every published IndexNow key file contains its exact UTF-8 filename value 
  const files=(await readdir(root)).filter(f=>/^[a-f0-9]{32}\.txt$/.test(f));assert.ok(files.length>=1);
  for(const file of files){const text=await readFile(new URL(file,root),'utf8');assert.equal(text,file.slice(0,-4));const r=await worker.fetch(new Request('https://tcgcard.fun/'+file),{...env,DEPLOYMENT_MODE:'production',CATALOG_MODE:'service',PUBLISH_READY:'true',ASSETS:{fetch:async()=>new Response(text,{headers:{'X-Robots-Tag':'noindex'}})}});assert.equal(await r.text(),text);assert.equal(r.headers.get('X-Robots-Tag'),null);assert.equal(r.headers.get('Content-Type'),'text/plain; charset=utf-8');}
 });
+
+const crawlerAgent = 'Mozilla/5.0 (compatible; ChatGPT-User/1.0)';
+const crawlerEnv = {
+  ...env,
+  DEPLOYMENT_MODE: 'production',
+  CATALOG_MODE: 'service',
+  PUBLISH_READY: 'true',
+  PVUV_SITE: 'test-site',
+  PVUV_INGEST_TOKEN: 'test-only-crawler-token',
+};
+
+test('production reports the crawler response in the background without sending the query or request headers', async t => {
+  const pending = [];
+  let finishReport;
+  const collectorResponse = new Promise(resolve => { finishReport = resolve; });
+  const collector = t.mock.method(globalThis, 'fetch', () => collectorResponse);
+  const request = new Request('https://tcgcard.fun/blog?private=value', {
+    method: 'HEAD',
+    headers: { 'User-Agent': crawlerAgent, 'CF-Connecting-IP': '192.0.2.1', Cookie: 'session=test' },
+  });
+  const response = await worker.fetch(request, crawlerEnv, { waitUntil: promise => pending.push(promise) });
+  assert.equal(response.status, 308);
+  assert.equal(response.headers.get('Location'), '/blog/?private=value');
+  assert.equal(pending.length, 1);
+  assert.equal(collector.mock.callCount(), 1);
+  const [url, options] = collector.mock.calls[0].arguments;
+  assert.equal(url, 'https://api.pvuv.ai/v1/sites/test-site/crawler_hits');
+  assert.equal(options.method, 'POST');
+  assert.equal(options.redirect, 'manual');
+  assert.deepEqual(options.headers, {
+    Authorization: 'Bearer test-only-crawler-token',
+    'Content-Type': 'application/json',
+  });
+  const { hits: [hit] } = JSON.parse(options.body);
+  assert.ok(Number.isInteger(hit.ts));
+  assert.deepEqual(hit, { ua: crawlerAgent, path: '/blog', ip: '192.0.2.1', status: 308, ts: hit.ts });
+  finishReport(new Response('{}'));
+  await Promise.all(pending);
+});
+
+test('PVUV skips normal traffic, API calls, assets, previews and sites without a token', async t => {
+  const collector = t.mock.method(globalThis, 'fetch');
+  const context = { waitUntil: () => assert.fail('Unexpected crawler report') };
+  const request = (path, options) => new Request('https://tcgcard.fun' + path, {
+    headers: { 'User-Agent': crawlerAgent },
+    ...options,
+  });
+  await worker.fetch(request('/', { headers: { 'User-Agent': 'Mozilla/5.0' } }), crawlerEnv, context);
+  await worker.fetch(request('/', { method: 'POST' }), crawlerEnv, context);
+  for (const path of ['/site-api/v1/cards', '/%73ite-api/v1/cards', '/api/v1/config', '/_health', '/assets/site-layout.css']) {
+    await worker.fetch(request(path), crawlerEnv, context);
+  }
+  await worker.fetch(request('/'), { ...crawlerEnv, DEPLOYMENT_MODE: 'preview' }, context);
+  await worker.fetch(request('/'), { ...crawlerEnv, PUBLISH_READY: 'false' }, context);
+  await worker.fetch(request('/'), { ...crawlerEnv, PVUV_INGEST_TOKEN: undefined }, context);
+  await worker.fetch(new Request('https://preview.example/robots.txt', { headers: { 'User-Agent': crawlerAgent } }), crawlerEnv, context);
+  assert.equal(collector.mock.callCount(), 0);
+});
+
+test('a rejected PVUV request leaves the production page response usable', async t => {
+  t.mock.method(globalThis, 'fetch', async () => { throw new Error('collector offline'); });
+  const warn = t.mock.method(console, 'warn', () => {});
+  const pending = [];
+  const response = await worker.fetch(
+    new Request('https://tcgcard.fun/robots.txt', { headers: { 'User-Agent': 'Googlebot/2.1' } }),
+    crawlerEnv,
+    { waitUntil: promise => pending.push(promise) },
+  );
+  assert.equal(response.status, 200);
+  assert.match(await response.text(), /Allow: \//);
+  assert.equal(pending.length, 1);
+  await Promise.all(pending);
+  assert.deepEqual(warn.mock.calls[0].arguments, [{ event: 'pvuv_crawler_report_failed' }]);
+});

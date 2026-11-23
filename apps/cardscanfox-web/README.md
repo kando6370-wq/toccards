@@ -126,6 +126,14 @@ pnpm --filter @kando/cardscanfox-web release:compare /absolute/current-release /
 
 手工正式构建前必须确认工作区干净且 HEAD 是批准的发布提交，将该提交的 40 位 SHA 注入构建环境，并排除优先级更高的旧 `CF_PAGES_COMMIT_SHA`。`build.mjs` 只从 `CF_PAGES_COMMIT_SHA` 或 `WORKERS_CI_COMMIT_SHA` 写入 `release-manifest.json` 的 `sourceCommit`；普通 `pnpm deploy:production` 不会自动注入该值。具体环境注入、生产命令和回读步骤以[生产切换记录](../../docs/releases/v1.1.4/05-delivery/cardscanfox-production-cutover.md#发布目标)为准。
 
+## PVUV 爬虫统计
+
+正式官网 Worker 为 PVUV 站点 `gx4EamoZ` 后台上报已知爬虫的页面 GET 和 HEAD 请求。上报包含页面路径、响应状态、时间、User-Agent，以及用于核验爬虫来源的 Cloudflare 客户端 IP。上报排除查询参数、站点 API、资源目录、非页面扩展名和预览环境。PVUV 服务异常时，页面仍返回原响应。
+
+在 PVUV 为 CardScanFox 创建用途为「服务端上报」的令牌，将其配置为正式 Worker 的 `PVUV_INGEST_TOKEN` Secret。正式配置中的 `PVUV_SITE` 已指向该站点。缺少令牌时跳过上报。
+
+发布后可用 [PVUV 官方验证方法](https://api.pvuv.ai/docs/crawler-sync.md) 发送一次带 ChatGPT-User 标识的请求，并在「AI 助手与爬虫」查看未核验记录。真实爬虫的来源由 PVUV 核验。
+
 ## 单卡搜索意图与规模化 sitemap
 
 `packages/website-content/src/seo.mjs` 根据实际卡名、编号、系列和价格状态生成 Title/Description。缺价不变成 0；无匹配历史时不写趋势承诺。卡牌、系列和文章保持一个明确的首选 URL，价格序列参数不扩成独立索引页。
