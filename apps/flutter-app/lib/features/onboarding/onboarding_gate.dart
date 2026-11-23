@@ -161,7 +161,7 @@ class _StartupPageState extends ConsumerState<_StartupPage>
                         width: 116 * scale,
                         height: 40 * scale,
                         child: Text(
-                          'Card AI',
+                          'CardScanFox',
                           maxLines: 1,
                           softWrap: false,
                           overflow: TextOverflow.visible,

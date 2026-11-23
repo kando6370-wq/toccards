@@ -104,8 +104,8 @@ class PluginProfileActions implements ProfileActions {
     await _share(
       ShareParams(
         uri: uri,
-        title: 'Share Card AI',
-        subject: 'Card AI',
+        title: 'Share CardScanFox',
+        subject: 'CardScanFox',
         sharePositionOrigin: sharePositionOrigin,
       ),
     );

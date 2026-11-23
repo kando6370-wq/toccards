@@ -206,7 +206,7 @@ void main() {
       );
 
       expect(find.byKey(const ValueKey('onboarding-loading')), findsOneWidget);
-      expect(find.text('Card AI'), findsOneWidget);
+      expect(find.text('CardScanFox'), findsOneWidget);
       expect(find.text('LOADING YOUR COLLECTION...'), findsOneWidget);
       expect(find.text('Home ready'), findsNothing);
 
