@@ -60,7 +60,8 @@
     "/blog/mcdonalds-pokemon-collab-cards",
     "/blog/pokemon-valentines-box",
     "/blog/mega-x-mega-parade-card-list",
-    "/blog/takumi-akabane-pokemon-card-list"
+    "/blog/takumi-akabane-pokemon-card-list",
+    "/blog/scanning-cards-from-watsontcg"
   ],
   "note": "Local production policy only. Preview authentication/noindex and PUBLISH_READY remain enforced. Eligible real card pages may be indexed; sitemap discovery expands in reviewed batches. Missing price alone does not exclude a useful identity page.",
   "catalog": {
