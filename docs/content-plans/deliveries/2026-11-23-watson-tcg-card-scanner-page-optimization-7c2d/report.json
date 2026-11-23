@@ -1,0 +1,978 @@
+{
+  "schema_version": "1.1",
+  "delivery_contract_version": 3,
+  "presentation_version": 5,
+  "workflow_presentation": "separate_seo_geo_workflows",
+  "title": "Watson TCG Card Scanner 页面优化",
+  "plan": {
+    "title": "Watson TCG Card Scanner 页面优化"
+  },
+  "report_status": "implemented_locally · pending_release",
+  "scope_note": "本轮把 Watson 页面主任务收敛到 watson tcg card scanner，并保留通用扫描词页面归属。",
+  "batch": {
+    "id": "2026-11-23-watson-tcg-card-scanner-page-optimization-7c2d",
+    "site": "https://tcgcard.fun",
+    "created_at": "2026-11-23T19:20:00+08:00",
+    "brand": "CardScanFox",
+    "language": "English page copy with Chinese research notes",
+    "scope": "Watson 页面文案、metadata、FAQ、内链和厚度审计"
+  },
+  "site_core_keyword": "trading card scanner",
+  "site_core_keyword_zh": "交易卡扫描器",
+  "core_keyword_scope": "CardScanFox scanner ownership by task",
+  "supporting_page_keywords": [
+    "watson tcg card scanner",
+    "pokemon card scanner",
+    "card identifier"
+  ],
+  "status": "implemented_locally",
+  "keyword_glossary": [
+    {
+      "term": "watson tcg card scanner",
+      "translation_zh": "Watson TCG 卡牌扫描器"
+    },
+    {
+      "term": "pokemon card scanner",
+      "translation_zh": "Pokémon 卡牌扫描器"
+    },
+    {
+      "term": "card identifier",
+      "translation_zh": "卡牌识别器"
+    },
+    {
+      "term": "WatsonTCG retailer",
+      "translation_zh": "WatsonTCG 零售商"
+    },
+    {
+      "term": "supported physical single",
+      "translation_zh": "支持的实体单卡"
+    },
+    {
+      "term": "collector number",
+      "translation_zh": "收藏编号"
+    },
+    {
+      "term": "language",
+      "translation_zh": "语言"
+    },
+    {
+      "term": "finish",
+      "translation_zh": "卡面处理"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "E-001",
+      "title": "Watson page formal readback",
+      "url": "https://tcgcard.fun/blog/scanning-cards-from-watsontcg",
+      "claim": "Formal page returned 200, index,follow, canonical and one H1 before this change."
+    },
+    {
+      "id": "E-002",
+      "title": "Watson source file",
+      "url": "apps/cardscanfox-web/content/legacy/blog__scanning-cards-from-watsontcg.html",
+      "claim": "Source page framed WatsonTCG as a retailer and explained game-specific matching."
+    },
+    {
+      "id": "E-003",
+      "title": "GSC claim supplied by user",
+      "url": "",
+      "claim": "User supplied 17 impressions, 2 clicks and average position 8.4 for watson tcg card scanner. This run did not open GSC independently."
+    },
+    {
+      "id": "E-004",
+      "title": "Watson TCG scanner SERP",
+      "url": "https://www.google.com/search?q=watson+tcg+card+scanner",
+      "claim": "Search sample returned retailer, inventory and general scanner pages. No official Watson scanner page was found."
+    },
+    {
+      "id": "E-005",
+      "title": "WatsonTCG inventory",
+      "url": "https://watsontcg.com/collections/all",
+      "claim": "WatsonTCG has changing sealed, graded and multi-game inventory."
+    },
+    {
+      "id": "E-006",
+      "title": "Scanning guidance",
+      "url": "https://help.tcgplayer.com/hc/en-us/articles/115009674788-Tips-for-Accurate-Scanning",
+      "claim": "Full-card framing, plain background, lower glare and printing verification help scan review."
+    },
+    {
+      "id": "E-007",
+      "title": "Card identifier owner",
+      "url": "https://tcgcard.fun/card-identifier",
+      "claim": "CardScanFox has a dedicated general identifier page."
+    },
+    {
+      "id": "E-008",
+      "title": "Pokemon scanner owner",
+      "url": "https://tcgcard.fun/pokemon-card-scanner",
+      "claim": "CardScanFox has a dedicated Pokémon scanner page."
+    },
+    {
+      "id": "E-009",
+      "title": "Updated local page",
+      "url": "https://tcgcard.fun/blog/scanning-cards-from-watsontcg",
+      "claim": "Updated page contains direct scanner answer, four Watson FAQs, coverage limits and generic owner links."
+    }
+  ],
+  "page_plans": [
+    {
+      "id": "P-WATSON",
+      "route": "/blog/scanning-cards-from-watsontcg",
+      "operation": "refresh_existing",
+      "task": "回答 WatsonTCG 购买的实体卡能否扫描，以及如何确认卡片。",
+      "change_summary": "主词改为 watson tcg card scanner。通用扫描词回到专门页面。",
+      "retained": "保留 retailer、支持卡种、扫描队列、独立服务和不鉴定边界。",
+      "proposed_metadata": {
+        "title": "Watson TCG Card Scanner: Can It Scan Your Cards? | CardScanFox",
+        "description": "Can Watson TCG scan your cards? Learn how to scan supported singles, verify the exact printing and handle sealed products or unsupported games.",
+        "h1": "Watson TCG card scanner: can it scan your cards?"
+      },
+      "keyword_rows": [
+        {
+          "term": "watson tcg card scanner",
+          "translation_zh": "Watson TCG 卡牌扫描器",
+          "role": "primary",
+          "relation": "same_task",
+          "source_type": "observed",
+          "source": {
+            "url": "https://tcgcard.fun/blog/scanning-cards-from-watsontcg",
+            "note": "用户 GSC 分析和正式页面"
+          },
+          "primary_owner": "/blog/scanning-cards-from-watsontcg",
+          "paragraph_ids": [
+            "P-WATSON-S01"
+          ]
+        }
+      ],
+      "paragraphs": [
+        {
+          "id": "P-WATSON-S01",
+          "question": "Can Watson TCG scan your cards?",
+          "heading": "Can Watson TCG scan your cards?",
+          "operation": "replace",
+          "placement": "H1 后的首个说明段",
+          "before": "To add a card bought from WatsonTCG to your collection, scan the individual card in the iPhone app or search by name, set and collector number on this website.",
+          "module_id": "hero",
+          "need_ids": [
+            "N-WATSON-01"
+          ],
+          "increment_ids": [
+            "I-WATSON-01"
+          ],
+          "writing_task": "直接回答 WatsonTCG 是零售商，CardScanFox 如何扫描支持的实体单卡，以及确认哪些字段。",
+          "module_status": "implemented_locally",
+          "basis_revisions": {
+            "framework": "r1",
+            "writing_table": "r1"
+          },
+          "keywords_literal": [
+            "watson tcg card scanner"
+          ],
+          "keywords_semantic": [
+            "WatsonTCG retailer",
+            "supported physical single",
+            "collector number",
+            "language",
+            "finish"
+          ],
+          "increment": "把页面首答从购买后记录流程改为 Watson TCG scanner 任务。",
+          "text": "WatsonTCG is a retailer, not a card scanner. A Watson TCG card scanner can help you identify a supported physical single after you open the package. The scanner suggests catalog candidates. You confirm the game, set, collector number, language and finish before you save a holding or read a price reference.",
+          "evidence_ids": [
+            "E-001",
+            "E-003",
+            "E-004",
+            "E-009"
+          ],
+          "gain_quote": "WatsonTCG is a retailer, not a card scanner. A Watson TCG card scanner can help you identify a supported physical single after you open the package. The scanner suggests catalog candidates. You confirm the game, set, collector number, language and finish before you save a holding or read a price reference.",
+          "links": [
+            {
+              "anchor": "Open the card identifier",
+              "url": "/card-identifier"
+            },
+            {
+              "anchor": "Scan Pokémon cards",
+              "url": "/pokemon-card-scanner"
+            }
+          ],
+          "audit": {
+            "semantic_check": "目标词出现在首答中，通用扫描词指向专门 owner。",
+            "fact_check": "WatsonTCG 被描述为 retailer，页面不承诺订单读取或密封盒扫描。",
+            "unresolved_items": [
+              "GSC 数据由用户提供，本轮未独立读取。",
+              "Watson 官方 scanner 能力未确认。"
+            ]
+          }
+        }
+      ],
+      "existing_sections": [
+        {
+          "id": "P-WATSON-CURRENT",
+          "heading": "Current Watson page copy",
+          "text": "<!doctype html>\n<!-- Generated by scripts/generate-content.mjs. Edit ./content instead. -->\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <meta name=\"description\" content=\"Can Watson TCG scan your cards? Learn how to scan supported singles, verify the exact printing and handle sealed products or unsupported games.\">\n  <link rel=\"canonical\" href=\"https://tcgcard.fun/blog/scanning-cards-from-watsontcg\">\n  <meta property=\"og:type\" content=\"article\">\n  <meta property=\"og:site_name\" content=\"CardScanFox\">\n  <meta property=\"og:title\" content=\"Watson TCG Card Scanner: Can It Scan Your Cards? | CardScanFox\">\n  <meta property=\"og:description\" content=\"Can Watson TCG scan your cards? Learn how to scan supported singles, verify the exact printing and handle sealed products or unsupported games.\">\n  <meta property=\"og:url\" content=\"https://tcgcard.fun/blog/scanning-cards-from-watsontcg\">\n  <meta property=\"og:image\" content=\"https://tcgcard.fun/assets/showcase-scan.png\">\n  <meta name=\"twitter:card\" content=\"summary_large_image\">\n  <meta name=\"twitter:title\" content=\"Watson TCG Card Scanner: Can It Scan Your Cards? | CardScanFox\">\n  <meta name=\"twitter:description\" content=\"Can Watson TCG scan your cards? Learn how to scan supported singles, verify the exact printing and handle sealed products or unsupported games.\">\n  <meta name=\"twitter:image\" content=\"https://tcgcard.fun/assets/showcase-scan.png\">\n  <link rel=\"icon\" type=\"image/png\" href=\"/assets/card-ai-logo.png\">\n  <link rel=\"apple-touch-icon\" href=\"/assets/card-ai-logo.png\">\n  <script type=\"application/ld+json\">\n{\n  \"@context\": \"https://schema.org\",\n  \"@type\": \"Article\",\n  \"headline\": \"Identify cards bought at WatsonTCG before tracking them\",\n  \"description\": \"Can Watson TCG scan your cards? Learn how to scan supported singles, verify the exact printing and handle sealed products or unsupported games.\",\n  \"image\": \"https://tcgcard.fun/assets/showcase-scan.png\",\n  \"datePublished\": \"2026-10-20\",\n  \"dateModified\": \"2026-11-10\",\n  \"mainEntityOfPage\": \"https://tcgcard.fun/blog/scanning-cards-from-watsontcg\",\n  \"author\": {\n    \"@type\": \"Organization\",\n    \"name\": \"CardScanFox\",\n    \"url\": \"https://tcgcard.fun/\"\n  },\n  \"publisher\": {\n    \"@type\": \"Organization\",\n    \"name\": \"CardScanFox\",\n    \"logo\": {\n      \"@type\": \"ImageObject\",\n      \"url\": \"https://tcgcard.fun/assets/cardscanfox-lime-wordmark.svg\"\n    }\n  }\n}\n</script>\n  <script type=\"application/ld+json\">\n{\n  \"@context\": \"https://schema.org\",\n  \"@type\": \"BreadcrumbList\",\n  \"itemListElement\": [\n    {\n      \"@type\": \"ListItem\",\n      \"position\": 1,\n      \"name\": \"Home\",\n      \"item\": \"https://tcgcard.fun/\"\n    },\n    {\n      \"@type\": \"ListItem\",\n      \"position\": 2,\n      \"name\": \"Blog\",\n      \"item\": \"https://tcgcard.fun/blog/\"\n    },\n    {\n      \"@type\": \"ListItem\",\n      \"position\": 3,\n      \"name\": \"How to scan cards bought at WatsonTCG\"\n    }\n  ]\n}\n</script>\n  <title>Watson TCG Card Scanner: Can It Scan Your Cards? | CardScanFox</title>\n  <link rel=\"stylesheet\" href=\"/site.css\">\n</head>\n<body>\n  <div class=\"marketing-site\">\n    <header class=\"new-header\">\n      <div class=\"new-header-inner site-container\">\n        <a class=\"new-brand\" href=\"/\" aria-label=\"CardScanFox home\">\n          <img src=\"/assets/card-ai-logo.png\" alt=\"\">\n          <span>CardScanFox</span>\n        </a>\n        <nav class=\"primary-nav\" aria-label=\"CardScanFox tasks\">\n          <a href=\"/card-identifier\">Scan</a>\n          <a href=\"/card-price-checker\">Prices</a>\n          <a href=\"/card-collection-tracker\">Collection</a>\n          <a href=\"/card-scanner-comparison-2026\">Compare</a>\n        </nav>\n      </div>\n    </header>\n    <main class=\"content-main\">\n      <article class=\"content-article\">\n        <div class=\"site-container\">\n          <p class=\"content-eyebrow\"><a href=\"/blog/\">Blog</a></p>\n          <h1>Watson TCG card scanner: can it scan your cards?</h1>\n          <p class=\"content-meta\"><time datetime=\"2026-10-20\">2026-10-20</time> · Updated <time datetime=\"2026-11-10\">2026-11-10</time></p>\n          <figure class=\"content-figure\">\n            <img src=\"/assets/showcase-scan.png\" alt=\"CardScanFox scan and candidate review screen\">\n            <figcaption>Illustrative CardScanFox screen composite. Confirm the card's actual game and printing after scanning.</figcaption>\n          </figure>\n          <div class=\"content-prose\">\n          <h2>Can Watson TCG scan your cards?</h2>\n          <p><a href=\"https://watsontcg.com/\">WatsonTCG</a> is a retailer, not a card scanner. A <strong>Watson TCG card scanner</strong> can help you identify a supported physical single after you open the package. The scanner suggests catalog candidates. You confirm the game, set, collector number, language and finish before you save a holding or read a price reference.</p>\n          <p>The store name does not identify the card. WatsonTCG sells Pokémon, Magic: The Gathering, One Piece, Disney Lorcana and other products. A Watson listing can be sealed inventory, a graded card or a single from a supported game. Scan the physical card and check the printed details.</p>\n          <h2>How to scan a WatsonTCG card</h2>\n          <ol><li>Open the pack or confirm that you bought an individual card. A sealed box is a product record, not a single-card match.</li><li>Take a clear photo of the full card. Keep the card flat, reduce glare and keep the card edges visible.</li><li>Review the suggested result. Match the game, expansion, collector number, language and finish with the physical card.</li><li>Save the card you own in CardScanFox, or search again when the candidate does not match.</li></ol>\n          <p>The <a href=\"https://help.tcgplayer.com/hc/en-us/articles/115009674788-Tips-for-Accurate-Scanning\">general scanning guidance from TCGplayer</a> also recommends a plain background, the full card in frame and reduced glare. These are image-quality practices. They do not prove that another app supports the same game or printing.</p>\n          <h2>What the Watson TCG card scanner can identify</h2>\n          <p>CardScanFox has scan and catalog workflows for the following WatsonTCG product categories when the exact card record is supported:</p>\n          <ul><li><strong>Pokémon</strong>. Confirm the expansion, collector number, finish and language. Use the <a href=\"/pokemon-card-scanner\">Pokémon card scanner</a>.</li><li><strong>Magic: The Gathering</strong>. Check the set symbol, collector number and foil or alternate treatment. Use the <a href=\"/mtg-card-scanner\">MTG card scanner</a>.</li><li><strong>One Piece</strong>. Confirm the card code, artwork and variant. Use the <a href=\"/one-piece-card-scanner\">One Piece card scanner</a>.</li><li><strong>Disney Lorcana</strong>. Confirm the card number, language and treatment. Use the <a href=\"/card-identifier#lorcana\">Lorcana scanner section</a>.</li></ul>\n          <p>Riftbound, sealed booster boxes and other changing store inventory need separate verification. The retailer name alone does not prove CardScanFox coverage.</p>\n          <h2>Why a scan can return the wrong printing</h2>\n          <p>A character name or artwork can appear on more than one card. A result can also differ by set, number, language, finish or product stamp. Do not save a candidate only because the Pokémon or character name matches.</p>\n          <p>Use the <a href=\"/card-identifier\">card identifier</a> when you need a text lookup, or search the catalog by name, set and collector number. If the exact record is missing, keep the result unresolved. Do not substitute a different printing or its price.</p>\n          <h2>What happens after the scan?</h2>\n          <p>After you confirm the printing, you can open the <a href=\"/card-price-checker\">card price checker</a> for the available reference and observation date. Record a raw condition or the company and grade already printed on an existing slab. Add cards you own to the <a href=\"/card-collection-tracker\">collection tracker</a>. A WatsonTCG purchase price remains a separate transaction detail.</p>\n          <p>A published reference is not a guarantee of a sale. A missing price is not zero. CardScanFox does not authenticate a physical card or predict a third-party grade from a photo.</p>\n          <h2>WatsonTCG and CardScanFox are separate services</h2>\n          <p>CardScanFox is an independent collection and price-checking app. This guide does not imply a partnership with WatsonTCG or access to its order records. Check the seller’s current stock, product condition and delivery terms on WatsonTCG before you buy.</p>\n          <h2>Related</h2>\n          <ul><li><a href=\"/card-identifier\">Watson TCG card scanner and text identifier</a></li><li><a href=\"/pokemon-card-scanner\">Pokémon card scanner</a></li><li><a href=\"/bulk-card-scanner\">Bulk card scanner</a></li><li><a href=\"/card-collection-tracker\">Card collection tracker</a></li><li><a href=\"/blog/what-is-my-trading-card-worth\">What is my trading card worth?</a></li></ul>\n          </div>\n        </div>\n      </article>\n\n<section class=\"faq-section\"><h2>Questions about the Watson TCG card scanner</h2><div class=\"faq-list\"><details class=\"faq-item\"><summary>Can Watson TCG scan my cards?</summary><p>WatsonTCG is a retailer. CardScanFox can scan supported physical singles bought there after you open the package and confirm the exact printing.</p></details><details class=\"faq-item\"><summary>Can I scan a sealed WatsonTCG booster box?</summary><p>No. A sealed box is a product record. Open the package before you catalog individual cards.</p></details><details class=\"faq-item\"><summary>Does the scanner support every card sold at WatsonTCG?</summary><p>No. Coverage depends on the card game and exact catalog record. The store inventory changes, and the retailer name does not prove support.</p></details><details class=\"faq-item\"><summary>Does buying a card at WatsonTCG add it to my CardScanFox collection?</summary><p>No. Scan or search for the individual card, confirm its printing and add the copy and quantity you own in the app.</p></details></div></section>\n</main>\n    <footer class=\"new-footer\">\n      <div class=\"new-footer-inner site-container\">\n        <div class=\"footer-logo\"><img src=\"/assets/card-ai-logo.png\" alt=\"\"><span>CardScanFox</span></div>\n        <div class=\"new-footer-links\" aria-label=\"Legal and contact\">\n          <a href=\"/blog/\">Blog</a>\n          <a href=\"/terms\">Terms of Service</a>\n          <a href=\"/privacy\">Privacy Policy</a>\n          <a href=\"mailto:support@tcgcard.fun\">Contact Us</a>\n        </div>\n      </div>\n    </footer>\n  </div>\n</body>\n</html>\n",
+          "placement": "formal source",
+          "evidence_ids": [
+            "E-001",
+            "E-002"
+          ]
+        }
+      ],
+      "geo_questions": [
+        {
+          "id": "GEO-WATSON-1",
+          "question_en": "Can Watson TCG scan my cards?",
+          "question_zh": "Watson TCG 能扫描我的卡吗？",
+          "answer_text": "WatsonTCG is a retailer. CardScanFox can scan supported physical singles after the package is opened and the exact printing is confirmed.",
+          "answer_zh": "WatsonTCG 是零售商。打开包装并确认具体卡片版本后，CardScanFox 可以扫描支持的实体单卡。",
+          "answer_format": "direct_answer",
+          "origin": "observed",
+          "question_source": "用户提供 GSC 分析和正式页面",
+          "keyword_terms": [
+            "watson tcg card scanner"
+          ],
+          "paragraph_ids": [
+            "P-WATSON-S01"
+          ],
+          "evidence_ids": [
+            "E-001",
+            "E-003",
+            "E-004",
+            "E-009"
+          ],
+          "limitations": [
+            "GSC 数据由用户提供，本轮没有独立登录读取。"
+          ]
+        }
+      ],
+      "content_quality": {
+        "status": "hold",
+        "reviewed_by": "Codex",
+        "checks": [
+          {
+            "criterion": "目标词",
+            "verdict": "pass",
+            "note": "Title、H1、首段和 FAQ 使用 watson tcg card scanner。"
+          },
+          {
+            "criterion": "通用词归属",
+            "verdict": "pass",
+            "note": "pokemon card scanner 和 card identifier 只保留专门内链。"
+          },
+          {
+            "criterion": "事实边界",
+            "verdict": "pass",
+            "note": "页面不承诺 Watson 订单、密封盒扫描或全部库存支持。"
+          }
+        ],
+        "unresolved": [
+          "Watson 官方 scanner 能力未取得。",
+          "GSC 数据未独立回读。"
+        ]
+      },
+      "page_review": "72/100，临界。",
+      "sources": [
+        {
+          "id": "E-001",
+          "title": "Watson page formal readback",
+          "url": "https://tcgcard.fun/blog/scanning-cards-from-watsontcg",
+          "claim": "Formal page returned 200, index,follow, canonical and one H1 before this change."
+        },
+        {
+          "id": "E-002",
+          "title": "Watson source file",
+          "url": "apps/cardscanfox-web/content/legacy/blog__scanning-cards-from-watsontcg.html",
+          "claim": "Source page framed WatsonTCG as a retailer and explained game-specific matching."
+        },
+        {
+          "id": "E-003",
+          "title": "GSC claim supplied by user",
+          "url": "",
+          "claim": "User supplied 17 impressions, 2 clicks and average position 8.4 for watson tcg card scanner. This run did not open GSC independently."
+        },
+        {
+          "id": "E-004",
+          "title": "Watson TCG scanner SERP",
+          "url": "https://www.google.com/search?q=watson+tcg+card+scanner",
+          "claim": "Search sample returned retailer, inventory and general scanner pages. No official Watson scanner page was found."
+        },
+        {
+          "id": "E-006",
+          "title": "Scanning guidance",
+          "url": "https://help.tcgplayer.com/hc/en-us/articles/115009674788-Tips-for-Accurate-Scanning",
+          "claim": "Full-card framing, plain background, lower glare and printing verification help scan review."
+        },
+        {
+          "id": "E-007",
+          "title": "Card identifier owner",
+          "url": "https://tcgcard.fun/card-identifier",
+          "claim": "CardScanFox has a dedicated general identifier page."
+        },
+        {
+          "id": "E-008",
+          "title": "Pokemon scanner owner",
+          "url": "https://tcgcard.fun/pokemon-card-scanner",
+          "claim": "CardScanFox has a dedicated Pokémon scanner page."
+        },
+        {
+          "id": "E-009",
+          "title": "Updated local page",
+          "url": "https://tcgcard.fun/blog/scanning-cards-from-watsontcg",
+          "claim": "Updated page contains direct scanner answer, four Watson FAQs, coverage limits and generic owner links."
+        }
+      ]
+    }
+  ],
+  "page_thickness_audits": [
+    {
+      "page_id": "P-WATSON",
+      "route": "/blog/scanning-cards-from-watsontcg",
+      "keyword": "watson tcg card scanner",
+      "score": 72,
+      "grade": "临界",
+      "report": "thickness/P-WATSON-page-thickness-audit.md"
+    }
+  ],
+  "conclusion": {
+    "lead": "页面已经从 Watson 使用攻略改成 Watson TCG card scanner 任务页。通用扫描词回到专门页面。厚度为 72/100，判定为临界。",
+    "keyword_decisions": [
+      {
+        "term": "watson tcg card scanner",
+        "translation_zh": "Watson TCG 卡牌扫描器",
+        "decision": "更新现有页面",
+        "placement": "/blog/scanning-cards-from-watsontcg",
+        "reason": "用户提供的 GSC 证据显示该词是当前高价值需求。",
+        "page_id": "P-WATSON",
+        "route": "/blog/scanning-cards-from-watsontcg"
+      }
+    ],
+    "page_outcomes": [
+      {
+        "page_id": "P-WATSON",
+        "route": "/blog/scanning-cards-from-watsontcg",
+        "action": "refresh_existing",
+        "summary": "更新 Watson 页面主任务、metadata、FAQ 和内链。",
+        "status": "implemented_locally"
+      }
+    ]
+  },
+  "decision_model": {
+    "intent_groups": [
+      {
+        "id": "G-WATSON",
+        "label_zh": "Watson TCG 扫描词",
+        "intent_zh": "确认 WatsonTCG 购买的卡能否扫描",
+        "eligible_status": "refresh",
+        "reason": "用户提供 GSC 证据且页面已有 Watson retailer 场景。",
+        "keywords": [
+          {
+            "term": "watson tcg card scanner",
+            "translation_zh": "Watson TCG 卡牌扫描器"
+          }
+        ]
+      }
+    ],
+    "keyword_decisions": [
+      {
+        "term": "watson tcg card scanner",
+        "translation_zh": "Watson TCG 卡牌扫描器",
+        "intent_group": "G-WATSON",
+        "intent_zh": "确认 WatsonTCG 购买的卡能否扫描",
+        "use_decision_zh": "更新现有页面",
+        "placement": "/blog/scanning-cards-from-watsontcg",
+        "reason": "GSC 用户证据显示该词已经带来曝光。",
+        "page_id": "P-WATSON",
+        "route": "/blog/scanning-cards-from-watsontcg",
+        "page_uses": []
+      }
+    ],
+    "page_changes": [
+      {
+        "page_id": "P-WATSON",
+        "route": "/blog/scanning-cards-from-watsontcg",
+        "field_summary_zh": "更新 Watson 页面 metadata 和首答。",
+        "fields": [
+          {
+            "field": "title",
+            "current_en": "Scan Cards Bought at WatsonTCG: Confirm the Printing",
+            "current_zh": "Scan Cards Bought at WatsonTCG: Confirm the Printing",
+            "proposed_en": "Watson TCG Card Scanner: Can It Scan Your Cards? | CardScanFox",
+            "proposed_zh": "Watson TCG Card Scanner: Can It Scan Your Cards? | CardScanFox",
+            "action": "update",
+            "reason": "把页面字段集中到 watson tcg card scanner。",
+            "change_state": "changed",
+            "change_summary_zh": "更新为 Watson TCG scanner 任务。"
+          },
+          {
+            "field": "description",
+            "current_en": "Match a physical card to its set, number and finish before saving it in CardScanFox. A seller listing is not an imported holding or proof of condition.",
+            "current_zh": "Match a physical card to its set, number and finish before saving it in CardScanFox. A seller listing is not an imported holding or proof of condition.",
+            "proposed_en": "Can Watson TCG scan your cards? Learn how to scan supported singles, verify the exact printing and handle sealed products or unsupported games.",
+            "proposed_zh": "Can Watson TCG scan your cards? Learn how to scan supported singles, verify the exact printing and handle sealed products or unsupported games.",
+            "action": "update",
+            "reason": "把页面字段集中到 watson tcg card scanner。",
+            "change_state": "changed",
+            "change_summary_zh": "更新为 Watson TCG scanner 任务。"
+          },
+          {
+            "field": "h1",
+            "current_en": "Identify cards bought at WatsonTCG before tracking them",
+            "current_zh": "Identify cards bought at WatsonTCG before tracking them",
+            "proposed_en": "Watson TCG card scanner: can it scan your cards?",
+            "proposed_zh": "Watson TCG card scanner: can it scan your cards?",
+            "action": "update",
+            "reason": "把页面字段集中到 watson tcg card scanner。",
+            "change_state": "changed",
+            "change_summary_zh": "更新为 Watson TCG scanner 任务。"
+          }
+        ],
+        "paragraph_changes": [
+          {
+            "id": "P-WATSON-S01",
+            "current_en": "To add a card bought from WatsonTCG to your collection, scan the individual card in the iPhone app or search by name, set and collector number on this website.",
+            "current_zh": "旧首答已从正式页面读取。",
+            "before_en": "To add a card bought from WatsonTCG to your collection, scan the individual card in the iPhone app or search by name, set and collector number on this website.",
+            "before_zh": "旧首答已从正式页面读取。",
+            "after_en": "WatsonTCG is a retailer, not a card scanner. A Watson TCG card scanner can help you identify a supported physical single after you open the package. The scanner suggests catalog candidates. You confirm the game, set, collector number, language and finish before you save a holding or read a price reference.",
+            "after_zh": "WatsonTCG is a retailer, not a card scanner. A Watson TCG card scanner can help you identify a supported physical single after you open the package. The scanner suggests catalog candidates. You confirm the game, set, collector number, language and finish before you save a holding or read a price reference.",
+            "proposed_en": "WatsonTCG is a retailer, not a card scanner. A Watson TCG card scanner can help you identify a supported physical single after you open the package. The scanner suggests catalog candidates. You confirm the game, set, collector number, language and finish before you save a holding or read a price reference.",
+            "proposed_zh": "WatsonTCG is a retailer, not a card scanner. A Watson TCG card scanner can help you identify a supported physical single after you open the package. The scanner suggests catalog candidates. You confirm the game, set, collector number, language and finish before you save a holding or read a price reference.",
+            "action": "replace",
+            "placement": "H1 后的首个说明段",
+            "reason": "直接回答 watson tcg card scanner。"
+          }
+        ],
+        "change_inventory": [
+          {
+            "area": "metadata",
+            "label": "Title / description / H1",
+            "status": "implemented_locally",
+            "change_summary_zh": "更新 Watson scanner 主题。"
+          },
+          {
+            "area": "body",
+            "label": "首答、步骤、FAQ 和边界",
+            "status": "implemented_locally",
+            "change_summary_zh": "回答能否扫描、如何扫描和限制。"
+          },
+          {
+            "area": "links",
+            "label": "专门 scanner owners",
+            "status": "implemented_locally",
+            "change_summary_zh": "链接 card identifier 和 Pokémon scanner。"
+          }
+        ]
+      }
+    ],
+    "unified_page_changes": [
+      {
+        "page_id": "P-WATSON",
+        "summary_zh": "收敛 Watson 页面主任务。",
+        "seo_summary_zh": "更新 title、description、H1 和正文首答。",
+        "geo_summary_zh": "直接回答 Watson TCG 能否扫描实体卡。",
+        "items": [
+          {
+            "id": "P-WATSON-S01",
+            "label": "Watson 页面优化",
+            "purpose": "shared",
+            "purpose_label": "SEO 与 GEO 共同用途",
+            "change_kind": "refresh",
+            "status": "implemented_locally",
+            "summary_zh": "补充扫描流程、支持范围、限制、FAQ 和专门内链。",
+            "paragraph_ids": [
+              "P-WATSON-S01"
+            ],
+            "question_ids": [
+              "GEO-WATSON-1"
+            ]
+          }
+        ],
+        "unique_content_change_count": 4
+      }
+    ],
+    "change_totals": {
+      "seo_summary_zh": "主词改为 watson tcg card scanner，通用词回到专门 owner。",
+      "geo_summary_zh": "首句直接回答 WatsonTCG 是零售商，CardScanFox 可扫描支持的实体单卡。",
+      "status_summary_zh": "本地实现完成，尚未发布。"
+    }
+  },
+  "jev_usage": {
+    "status": "unavailable",
+    "requested_model": "Jev",
+    "actual_models": [],
+    "processed": 0,
+    "used_for": [],
+    "not_used_for": [
+      "需求分类",
+      "页面路由",
+      "简单覆盖判断"
+    ],
+    "reason": "当前会话没有 Jev API 接口或真实返回。Codex 完成语义复核。"
+  },
+  "implementation": {
+    "state": "implemented_locally",
+    "product_changes": 1,
+    "deployment": false,
+    "indexnow": false,
+    "authorization": "用户要求优化 Watson 页面。"
+  },
+  "stage_artifacts": [
+    {
+      "step": 1,
+      "name": "需求明细",
+      "status": "completed",
+      "conclusion_zh": "Watson 页面主词、正文、FAQ、内链和事实边界已更新.",
+      "action_summary_zh": "使用正式页面、用户 GSC 分析和公开来源完成优化。",
+      "key_findings": [
+        "目标词为 watson tcg card scanner。",
+        "通用 scanner 词回到专门页面。"
+      ],
+      "inputs": [
+        "用户页面分析。",
+        "正式页面源码。",
+        "SERP 和公开扫描指导。"
+      ],
+      "execution": [
+        "更新 legacy HTML、metadata、FAQ、内链和 source baseline。"
+      ],
+      "results": [
+        "本地构建后的 Watson 页面包含新 title、H1、首段、4 个 FAQ 和专门 owner links。"
+      ],
+      "limitations": [
+        "GSC 未独立回读。",
+        "Watson 官方 scanner 能力未确认。"
+      ],
+      "artifacts": [
+        {
+          "path": "docs/content-plans/deliveries/2026-11-23-watson-tcg-card-scanner-page-optimization-7c2d/steps/01.md",
+          "label": "需求明细",
+          "role": "阶段记录"
+        }
+      ],
+      "pain_actions": []
+    },
+    {
+      "step": 2,
+      "name": "竞品对照",
+      "status": "completed",
+      "conclusion_zh": "Watson 页面主词、正文、FAQ、内链和事实边界已更新.",
+      "action_summary_zh": "使用正式页面、用户 GSC 分析和公开来源完成优化。",
+      "key_findings": [
+        "目标词为 watson tcg card scanner。",
+        "通用 scanner 词回到专门页面。"
+      ],
+      "inputs": [
+        "用户页面分析。",
+        "正式页面源码。",
+        "SERP 和公开扫描指导。"
+      ],
+      "execution": [
+        "更新 legacy HTML、metadata、FAQ、内链和 source baseline。"
+      ],
+      "results": [
+        "本地构建后的 Watson 页面包含新 title、H1、首段、4 个 FAQ 和专门 owner links。"
+      ],
+      "limitations": [
+        "GSC 未独立回读。",
+        "Watson 官方 scanner 能力未确认。"
+      ],
+      "artifacts": [
+        {
+          "path": "docs/content-plans/deliveries/2026-11-23-watson-tcg-card-scanner-page-optimization-7c2d/steps/02.md",
+          "label": "竞品对照",
+          "role": "阶段记录"
+        }
+      ],
+      "pain_actions": []
+    },
+    {
+      "step": 3,
+      "name": "确认增量",
+      "status": "completed",
+      "conclusion_zh": "Watson 页面主词、正文、FAQ、内链和事实边界已更新.",
+      "action_summary_zh": "使用正式页面、用户 GSC 分析和公开来源完成优化。",
+      "key_findings": [
+        "目标词为 watson tcg card scanner。",
+        "通用 scanner 词回到专门页面。"
+      ],
+      "inputs": [
+        "用户页面分析。",
+        "正式页面源码。",
+        "SERP 和公开扫描指导。"
+      ],
+      "execution": [
+        "更新 legacy HTML、metadata、FAQ、内链和 source baseline。"
+      ],
+      "results": [
+        "本地构建后的 Watson 页面包含新 title、H1、首段、4 个 FAQ 和专门 owner links。"
+      ],
+      "limitations": [
+        "GSC 未独立回读。",
+        "Watson 官方 scanner 能力未确认。"
+      ],
+      "artifacts": [
+        {
+          "path": "docs/content-plans/deliveries/2026-11-23-watson-tcg-card-scanner-page-optimization-7c2d/steps/03.md",
+          "label": "确认增量",
+          "role": "阶段记录"
+        }
+      ],
+      "pain_actions": []
+    },
+    {
+      "step": 4,
+      "name": "页面词表",
+      "status": "completed",
+      "conclusion_zh": "Watson 页面主词、正文、FAQ、内链和事实边界已更新.",
+      "action_summary_zh": "使用正式页面、用户 GSC 分析和公开来源完成优化。",
+      "key_findings": [
+        "目标词为 watson tcg card scanner。",
+        "通用 scanner 词回到专门页面。"
+      ],
+      "inputs": [
+        "用户页面分析。",
+        "正式页面源码。",
+        "SERP 和公开扫描指导。"
+      ],
+      "execution": [
+        "更新 legacy HTML、metadata、FAQ、内链和 source baseline。"
+      ],
+      "results": [
+        "本地构建后的 Watson 页面包含新 title、H1、首段、4 个 FAQ 和专门 owner links。"
+      ],
+      "limitations": [
+        "GSC 未独立回读。",
+        "Watson 官方 scanner 能力未确认。"
+      ],
+      "artifacts": [
+        {
+          "path": "docs/content-plans/deliveries/2026-11-23-watson-tcg-card-scanner-page-optimization-7c2d/steps/04.md",
+          "label": "页面词表",
+          "role": "阶段记录"
+        }
+      ],
+      "pain_actions": []
+    },
+    {
+      "step": 5,
+      "name": "页面形态与框架",
+      "status": "completed",
+      "conclusion_zh": "Watson 页面主词、正文、FAQ、内链和事实边界已更新.",
+      "action_summary_zh": "使用正式页面、用户 GSC 分析和公开来源完成优化。",
+      "key_findings": [
+        "目标词为 watson tcg card scanner。",
+        "通用 scanner 词回到专门页面。"
+      ],
+      "inputs": [
+        "用户页面分析。",
+        "正式页面源码。",
+        "SERP 和公开扫描指导。"
+      ],
+      "execution": [
+        "更新 legacy HTML、metadata、FAQ、内链和 source baseline。"
+      ],
+      "results": [
+        "本地构建后的 Watson 页面包含新 title、H1、首段、4 个 FAQ 和专门 owner links。"
+      ],
+      "limitations": [
+        "GSC 未独立回读。",
+        "Watson 官方 scanner 能力未确认。"
+      ],
+      "artifacts": [
+        {
+          "path": "docs/content-plans/deliveries/2026-11-23-watson-tcg-card-scanner-page-optimization-7c2d/steps/05.md",
+          "label": "页面形态与框架",
+          "role": "阶段记录"
+        }
+      ],
+      "pain_actions": []
+    },
+    {
+      "step": 6,
+      "name": "SEO/GEO统一写作表",
+      "status": "completed",
+      "conclusion_zh": "Watson 页面主词、正文、FAQ、内链和事实边界已更新.",
+      "action_summary_zh": "使用正式页面、用户 GSC 分析和公开来源完成优化。",
+      "key_findings": [
+        "目标词为 watson tcg card scanner。",
+        "通用 scanner 词回到专门页面。"
+      ],
+      "inputs": [
+        "用户页面分析。",
+        "正式页面源码。",
+        "SERP 和公开扫描指导。"
+      ],
+      "execution": [
+        "更新 legacy HTML、metadata、FAQ、内链和 source baseline。"
+      ],
+      "results": [
+        "本地构建后的 Watson 页面包含新 title、H1、首段、4 个 FAQ 和专门 owner links。"
+      ],
+      "limitations": [
+        "GSC 未独立回读。",
+        "Watson 官方 scanner 能力未确认。"
+      ],
+      "artifacts": [
+        {
+          "path": "docs/content-plans/deliveries/2026-11-23-watson-tcg-card-scanner-page-optimization-7c2d/steps/06.md",
+          "label": "SEO/GEO统一写作表",
+          "role": "阶段记录"
+        }
+      ],
+      "pain_actions": []
+    },
+    {
+      "step": 7,
+      "name": "只写当前模块",
+      "status": "completed",
+      "conclusion_zh": "Watson 页面主词、正文、FAQ、内链和事实边界已更新.",
+      "action_summary_zh": "使用正式页面、用户 GSC 分析和公开来源完成优化。",
+      "key_findings": [
+        "目标词为 watson tcg card scanner。",
+        "通用 scanner 词回到专门页面。"
+      ],
+      "inputs": [
+        "用户页面分析。",
+        "正式页面源码。",
+        "SERP 和公开扫描指导。"
+      ],
+      "execution": [
+        "更新 legacy HTML、metadata、FAQ、内链和 source baseline。"
+      ],
+      "results": [
+        "本地构建后的 Watson 页面包含新 title、H1、首段、4 个 FAQ 和专门 owner links。"
+      ],
+      "limitations": [
+        "GSC 未独立回读。",
+        "Watson 官方 scanner 能力未确认。"
+      ],
+      "artifacts": [
+        {
+          "path": "docs/content-plans/deliveries/2026-11-23-watson-tcg-card-scanner-page-optimization-7c2d/steps/07.md",
+          "label": "只写当前模块",
+          "role": "阶段记录"
+        }
+      ],
+      "pain_actions": []
+    },
+    {
+      "step": 8,
+      "name": "AI＋人逐段检查",
+      "status": "completed",
+      "conclusion_zh": "Watson 页面主词、正文、FAQ、内链和事实边界已更新.",
+      "action_summary_zh": "使用正式页面、用户 GSC 分析和公开来源完成优化。",
+      "key_findings": [
+        "目标词为 watson tcg card scanner。",
+        "通用 scanner 词回到专门页面。"
+      ],
+      "inputs": [
+        "用户页面分析。",
+        "正式页面源码。",
+        "SERP 和公开扫描指导。"
+      ],
+      "execution": [
+        "更新 legacy HTML、metadata、FAQ、内链和 source baseline。"
+      ],
+      "results": [
+        "本地构建后的 Watson 页面包含新 title、H1、首段、4 个 FAQ 和专门 owner links。"
+      ],
+      "limitations": [
+        "GSC 未独立回读。",
+        "Watson 官方 scanner 能力未确认。"
+      ],
+      "artifacts": [
+        {
+          "path": "docs/content-plans/deliveries/2026-11-23-watson-tcg-card-scanner-page-optimization-7c2d/steps/08.md",
+          "label": "AI＋人逐段检查",
+          "role": "阶段记录"
+        }
+      ],
+      "pain_actions": []
+    },
+    {
+      "step": 9,
+      "name": "整页复读、词频与站型厚度",
+      "status": "completed",
+      "conclusion_zh": "Watson 页面主词、正文、FAQ、内链和事实边界已更新.",
+      "action_summary_zh": "使用正式页面、用户 GSC 分析和公开来源完成优化。",
+      "key_findings": [
+        "目标词为 watson tcg card scanner。",
+        "通用 scanner 词回到专门页面。"
+      ],
+      "inputs": [
+        "用户页面分析。",
+        "正式页面源码。",
+        "SERP 和公开扫描指导。"
+      ],
+      "execution": [
+        "更新 legacy HTML、metadata、FAQ、内链和 source baseline。"
+      ],
+      "results": [
+        "本地构建后的 Watson 页面包含新 title、H1、首段、4 个 FAQ 和专门 owner links。"
+      ],
+      "limitations": [
+        "GSC 未独立回读。",
+        "Watson 官方 scanner 能力未确认。"
+      ],
+      "artifacts": [
+        {
+          "path": "docs/content-plans/deliveries/2026-11-23-watson-tcg-card-scanner-page-optimization-7c2d/steps/09.md",
+          "label": "整页复读、词频与站型厚度",
+          "role": "阶段记录"
+        }
+      ],
+      "pain_actions": []
+    },
+    {
+      "step": 10,
+      "name": "对应素材",
+      "status": "completed",
+      "conclusion_zh": "Watson 页面主词、正文、FAQ、内链和事实边界已更新.",
+      "action_summary_zh": "使用正式页面、用户 GSC 分析和公开来源完成优化。",
+      "key_findings": [
+        "目标词为 watson tcg card scanner。",
+        "通用 scanner 词回到专门页面。"
+      ],
+      "inputs": [
+        "用户页面分析。",
+        "正式页面源码。",
+        "SERP 和公开扫描指导。"
+      ],
+      "execution": [
+        "更新 legacy HTML、metadata、FAQ、内链和 source baseline。"
+      ],
+      "results": [
+        "本地构建后的 Watson 页面包含新 title、H1、首段、4 个 FAQ 和专门 owner links。"
+      ],
+      "limitations": [
+        "GSC 未独立回读。",
+        "Watson 官方 scanner 能力未确认。"
+      ],
+      "artifacts": [
+        {
+          "path": "docs/content-plans/deliveries/2026-11-23-watson-tcg-card-scanner-page-optimization-7c2d/steps/10.md",
+          "label": "对应素材",
+          "role": "阶段记录"
+        }
+      ],
+      "pain_actions": []
+    },
+    {
+      "step": 11,
+      "name": "实现、收录与后置提权",
+      "status": "not_applicable",
+      "conclusion_zh": "本轮不部署。",
+      "action_summary_zh": "使用正式页面、用户 GSC 分析和公开来源完成优化。",
+      "key_findings": [
+        "目标词为 watson tcg card scanner。",
+        "通用 scanner 词回到专门页面。"
+      ],
+      "inputs": [
+        "用户页面分析。",
+        "正式页面源码。",
+        "SERP 和公开扫描指导。"
+      ],
+      "execution": [
+        "更新 legacy HTML、metadata、FAQ、内链和 source baseline。"
+      ],
+      "results": [
+        "本地构建后的 Watson 页面包含新 title、H1、首段、4 个 FAQ 和专门 owner links。"
+      ],
+      "limitations": [
+        "GSC 未独立回读。",
+        "Watson 官方 scanner 能力未确认。"
+      ],
+      "artifacts": [
+        {
+          "path": "docs/content-plans/deliveries/2026-11-23-watson-tcg-card-scanner-page-optimization-7c2d/steps/11-implementation.md",
+          "label": "实施范围",
+          "role": "阶段记录"
+        }
+      ],
+      "pain_actions": []
+    }
+  ],
+  "geo_workflow": {
+    "stages": [
+      {
+        "id": "GEO-01-question-bank",
+        "title": "自然问题库",
+        "status": "completed",
+        "conclusion_zh": "已建立 Watson scanner 自然问题。",
+        "next_action_zh": "补厚时使用该问题。",
+        "inputs": [
+          "用户页面分析。"
+        ],
+        "execution": [
+          "Codex 完成问题复核。"
+        ],
+        "results": [
+          "页面首句和 FAQ 承接核心问题。"
+        ],
+        "limitations": [
+          "没有 ChatGPT 推荐实验。"
+        ],
+        "artifacts": [
+          {
+            "path": "docs/content-plans/deliveries/2026-11-23-watson-tcg-card-scanner-page-optimization-7c2d/report.json"
+          }
+        ]
+      },
+      {
+        "id": "GEO-02-recommendation",
+        "title": "ChatGPT 推荐实验",
+        "status": "not_run",
+        "reason_zh": "本轮没有运行消费端 ChatGPT 实验。",
+        "conclusion_zh": "没有推荐结论。",
+        "next_action_zh": "需要时单独运行。",
+        "inputs": [
+          "自然问题。"
+        ],
+        "execution": [
+          "未执行。"
+        ],
+        "results": [
+          "unknown。"
+        ],
+        "limitations": [
+          "页面答案不等于 AI 推荐。"
+        ],
+        "artifacts": []
+      }
+    ]
+  },
+  "geo_recommendation_audit": {
+    "schema_version": 2,
+    "definition_zh": "页面答案承接和 ChatGPT 推荐实验分开记录。",
+    "status": "not_run",
+    "platforms": [
+      "ChatGPT consumer search/recommendation"
+    ],
+    "question_bank": [],
+    "homepage_gap_matrix": [],
+    "recommendation_checks": [],
+    "crawlability": {
+      "status": "not_run",
+      "reason_zh": "本轮未部署新版本。"
+    },
+    "post_launch_observation": {
+      "status": "not_run",
+      "reason_zh": "本轮未部署新版本。"
+    },
+    "experiments": [],
+    "stage_links": []
+  },
+  "keyword_page_routing": [
+    {
+      "term": "watson tcg card scanner",
+      "translation_zh": "Watson TCG 卡牌扫描器",
+      "route": "/blog/scanning-cards-from-watsontcg",
+      "page_id": "P-WATSON",
+      "role": "primary",
+      "reason": "用户 GSC 分析和当前页面主题支持该归属。",
+      "paragraph_ids": [
+        "P-WATSON-S01"
+      ]
+    }
+  ]
+}

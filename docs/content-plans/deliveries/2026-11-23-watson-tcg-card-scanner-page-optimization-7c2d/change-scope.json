@@ -1,0 +1,16 @@
+{
+  "mode": "local_implementation",
+  "allowed_patches": [
+    {
+      "route": "/blog/scanning-cards-from-watsontcg",
+      "files": [
+        "apps/cardscanfox-web/content/legacy/blog__scanning-cards-from-watsontcg.html",
+        "apps/cardscanfox-web/content/seo-pages.json",
+        "apps/cardscanfox-web/content/legacy/source-baseline.json",
+        "apps/cardscanfox-web/content/legacy/home.html",
+        "apps/cardscanfox-web/content/legacy/card-identifier.html",
+        "apps/cardscanfox-web/content/legacy/pokemon-card-scanner.html"
+      ]
+    }
+  ]
+}

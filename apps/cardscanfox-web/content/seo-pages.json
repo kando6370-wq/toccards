@@ -164,10 +164,10 @@
     "question": "What specific printing, checklist or collecting question does this guide answer?"
   },
   "/blog/scanning-cards-from-watsontcg": {
-    "intent": "购买后如何识别支持的单卡",
-    "title": "Scan Cards Bought at WatsonTCG: Confirm the Printing",
-    "description": "Match a physical card to its set, number and finish before saving it in CardScanFox. A seller listing is not an imported holding or proof of condition.",
-    "question": "How do I identify and record cards bought from WatsonTCG?"
+    "intent": "查 Watson TCG 能否扫描实体卡",
+    "title": "Watson TCG Card Scanner: Can It Scan Your Cards? | CardScanFox",
+    "description": "Can Watson TCG scan your cards? Learn how to scan supported singles, verify the exact printing and handle sealed products or unsupported games.",
+    "question": "Can a Watson TCG card scanner identify the cards I bought?"
   },
   "/blog/pokemon-tcg-30th-celebration-card-prices": {
     "intent": "区分周年套卡、单卡和产品",

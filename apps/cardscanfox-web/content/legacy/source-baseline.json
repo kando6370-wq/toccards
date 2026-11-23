@@ -157,7 +157,7 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "0634978d9d4782a992f16102e5214b3c03499b8e8ebb3619dacaeaeea4759bd6",
+      "htmlSha256": "bd617168db47570df627df2186176b35f456efeaa8240ba74086e2f4ce889cfb",
       "localPublicFile": "apps/marketing-web/public/index.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
@@ -169,8 +169,8 @@
       },
       "previousApprovedHtmlSha256": "e049c476f79f3458d447a8d79f1bf5385d4be01d2970e9d42c0b81d1ecc80d26",
       "originalCapturedHtmlSha256": "c40d6e4a47b8c61b506dd3104357868c2fce4c91aa5687a287d3ea80489503b6",
-      "editorialUpdatedOn": "2026-11-16",
-      "editorialReason": "Approved steps 2/3: functional TCG owner, game-specific guidance, direct buying answers and consolidated internal links; local only."
+      "editorialUpdatedOn": "2026-11-23",
+      "editorialReason": "Align WatsonTCG content with the watson tcg card scanner intent, keep generic scanner terms on their dedicated owners, and add contextual internal links."
     },
     {
       "path": "/basketball-card-scanner",
@@ -549,7 +549,7 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "0a1e093bcb62b3a87132f3c1d0ebc683cc7bcd0db01148863e336b811eec1559",
+      "htmlSha256": "50e57c2f467850f7397d213533558729017f0eb2209ca701cb4828b958167a38",
       "localPublicFile": "apps/marketing-web/public/card-identifier.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
@@ -561,8 +561,8 @@
       },
       "previousApprovedHtmlSha256": "fbe5bce42bd95cebc9ec7713f41cc6987a92a4787c1cd6aad58a4da255607688",
       "originalCapturedHtmlSha256": "a3ace3cd1b32120cf746705317a644cafd3d5a78b2003229ea7a9e43862f4795",
-      "editorialUpdatedOn": "2026-11-16",
-      "editorialReason": "Approved steps 2/3: functional TCG owner, game-specific guidance, direct buying answers and consolidated internal links; local only."
+      "editorialUpdatedOn": "2026-11-23",
+      "editorialReason": "Align WatsonTCG content with the watson tcg card scanner intent, keep generic scanner terms on their dedicated owners, and add contextual internal links."
     },
     {
       "path": "/card-price-checker",
@@ -1409,14 +1409,14 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "314db25d62a1dfff506663ebcbdd7d703b00fefddb7683089d500285bd6dd965",
+      "htmlSha256": "84b85cb9e9b35f18700142b62177e7ddbfa5ccac6bc6108f8b94fac7b2427b61",
       "localPublicFile": "apps/marketing-web/public/pokemon-card-scanner.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
       "previousApprovedHtmlSha256": "e85f4d3bd1ab5167ea5690c72ee742bb07abb202a4e31d37a7197349ed058225",
       "originalCapturedHtmlSha256": "9b3fd8eaf2b905504134c86564805a8230c5d80b70aac12ac5c995ffca2f03f6",
-      "editorialUpdatedOn": "2026-11-15",
-      "editorialReason": "Approved answer-first content, CardScanFox branding and Pokémon intent consolidation; local candidate only."
+      "editorialUpdatedOn": "2026-11-23",
+      "editorialReason": "Align WatsonTCG content with the watson tcg card scanner intent, keep generic scanner terms on their dedicated owners, and add contextual internal links."
     },
     {
       "path": "/soccer-card-scanner",
@@ -2555,7 +2555,7 @@
           "alt": "CardScanFox scan and candidate review screen"
         }
       ],
-      "htmlSha256": "16340ffe3f0a4eaf522de42a785a888b43a3c79a8ce8afe4f1afc0b64ef330d4",
+      "htmlSha256": "a414ffcca40f6fd4d790ede6efba72adb3bee0341d2cf6d0cf5cbf9a682ee0da",
       "localPublicFile": "apps/marketing-web/public/blog/scanning-cards-from-watsontcg.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
@@ -2567,8 +2567,8 @@
       },
       "originalCapturedHtmlSha256": "0b4e0f32c210b350efeabee7c6de0822515e96d0eef613284f46010a5c8b3380",
       "previousApprovedHtmlSha256": "7a0e8ef63ef9a9520d09ce8c169a65039c7eb7ab6d1272a052799a700027ee64",
-      "editorialUpdatedOn": "2026-11-16",
-      "editorialReason": "Approved steps 2/3: functional TCG owner, game-specific guidance, direct buying answers and consolidated internal links; local only."
+      "editorialUpdatedOn": "2026-11-23",
+      "editorialReason": "Align WatsonTCG content with the watson tcg card scanner intent, keep generic scanner terms on their dedicated owners, and add contextual internal links."
     },
     {
       "path": "/blog/pokemon-tcg-30th-celebration-card-prices",
