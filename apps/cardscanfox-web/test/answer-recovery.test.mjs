@@ -30,12 +30,12 @@ test('the anniversary card page contains all 191 linked single-card records with
 test('public pages use CardScanFox in copy, metadata and source attribution',()=>{
  for(const path of [...allStaticPaths,'/cards/714372','/not-a-real-article']){
   const html=render(path);
-  assert.match(html,/<link rel="icon" href="\/assets\/cardscanfox-lime-mark\.svg"/,path);
+  assert.match(html,/<link rel="icon" href="\/assets\/card-ai-icon\.svg"/,path);
   assert.equal((html.match(/<img src="\/assets\/cardscanfox-lime-wordmark\.svg" alt="CardScanFox"/g)??[]).length,2,path);
   assert.match(html,/aria-label="CardScanFox home"/,path);
   assert.match(html,/<meta property="og:site_name" content="CardScanFox">/,path);
   assert.match(html,/>Get CardScanFox /,path);
-  assert.doesNotMatch(html,/\/assets\/(?:card-ai-(?:wordmark|icon)\.svg|legacy\/card-ai-logo\.png)/,path);
+  assert.doesNotMatch(html,/\/assets\/(?:card-ai-wordmark\.svg|legacy\/card-ai-logo\.png)/,path);
   // These pages identify the store app in its listing, approved policies or deletion request.
   if(!['/privacy','/terms','/Account/AccountSetup'].includes(path)){
    const copy=path==='/download'?html.replaceAll('<strong>Card AI: TCG Card Scanner</strong>',''):html;
