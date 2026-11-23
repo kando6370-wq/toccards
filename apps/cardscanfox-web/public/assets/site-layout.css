@@ -24,6 +24,8 @@ html { scrollbar-gutter: stable; scroll-padding-top: calc(var(--site-header-heig
 }
 .header .brand { display: flex; align-items: center; min-height: 44px; width: 148px; flex-shrink: 0; }
 .header .brand img, .footer .brand img { width: 104px; height: auto; }
+.header .brand .brand-icon, .footer .brand .brand-icon { width: 24px; height: 29px; object-fit: contain; flex: 0 0 auto; }
+.header .brand .brand-name, .footer .brand .brand-name { margin-left: 6px; color: var(--ui-text); font-size: 12px; font-weight: 800; letter-spacing: -.04em; white-space: nowrap; }
 .header .nav {
   display: flex;
   flex: 0 1 auto;

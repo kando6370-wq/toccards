@@ -73,7 +73,7 @@ CardScanFox 是本次官网采用的品牌。它服务实体 TCG 和体育卡收
 
 | 项目 | 规则 |
 | --- | --- |
-| 标识 | 页面主标识使用已选 `cardscanfox-lime-mark.svg` 和匹配 wordmark；浏览器标签单独使用旧品牌 `card-ai-icon.svg`。 |
+| 标识 | 页面主标识使用旧品牌 `card-ai-icon.svg` 配 `CardScanFox` 文本；浏览器标签同样使用 `card-ai-icon.svg`，结构化数据的站点 Logo 保留 `cardscanfox-lime-wordmark.svg`。 |
 | 色彩 | 主文字 `#1b231d`；次文字 `#626b64`；背景 `#f8f9f6`；白色内容面；边界 `#dfe4da`；动作色 `#e5f17c`。 |
 | 字体 | Manrope，本地字体、合理字重、数字使用 tabular-nums；无渐变字。 |
 | 层级 | 首页大标题不超过约 62px；正文正式实现优先 14–16px；注释不作为主要信息，保证可读。 |
@@ -941,6 +941,6 @@ H1、导语、真实作者或审核责任、原发表/修改日、目录、卡�
 
 ## 48. 2026-11-23 官网品牌
 
-官网恢复 CardScanFox 名称和几何狐狸标识。页头、页脚及文章发布者使用 `cardscanfox-lime-wordmark.svg`，浏览器标签使用旧品牌 `card-ai-icon.svg`。文章署名、网页标题、搜索摘要和分享信息均使用 CardScanFox。下载页、App 法律正文和账号删除申请以 `Card AI: TCG Card Scanner` 识别对应的移动应用。
+官网恢复 CardScanFox 名称。页头和页脚使用旧品牌 `card-ai-icon.svg` 配 `CardScanFox` 文字，文章发布者和结构化数据使用 `cardscanfox-lime-wordmark.svg`，浏览器标签同样使用 `card-ai-icon.svg`。文章署名、网页标题、搜索摘要和分享信息均使用 CardScanFox。下载页、App 法律正文和账号删除申请以 `Card AI: TCG Card Scanner` 识别对应的移动应用。
 
 本地构建并核对 129 个页面，官网类型检查及 102 项相关测试通过。首页和下载页在 320、390、1440 像素宽度下均能显示狐狸标识和商店按钮。首次全量测试在 `35d860b0` 和品牌恢复后均复现站点地图计数断言失败。测试补齐 11 月 20–21 日获准收录的四篇指南后，按原有 88 个网址、8 篇指南及 7 个单卡网址校验，共 103 个不重复网址。使用仓库指定的 Node 22.23.4 复测，官网 222 项测试全数通过，0 项跳过。

@@ -31,10 +31,12 @@ test('public pages use CardScanFox in copy, metadata and source attribution',()=
  for(const path of [...allStaticPaths,'/cards/714372','/not-a-real-article']){
   const html=render(path);
   assert.match(html,/<link rel="icon" href="\/assets\/card-ai-icon\.svg"/,path);
-  assert.equal((html.match(/<img src="\/assets\/cardscanfox-lime-wordmark\.svg" alt="CardScanFox"/g)??[]).length,2,path);
+  assert.equal((html.match(/<img class="brand-icon" src="\/assets\/card-ai-icon\.svg" alt=""/g)??[]).length,2,path);
+  assert.equal((html.match(/<span class="brand-name">CardScanFox<\/span>/g)??[]).length,2,path);
   assert.match(html,/aria-label="CardScanFox home"/,path);
   assert.match(html,/<meta property="og:site_name" content="CardScanFox">/,path);
   assert.match(html,/>Get CardScanFox /,path);
+  if(path==='/')assert.match(html,/class="fox-final-mark" src="\/assets\/card-ai-icon\.svg"/,path);
   assert.doesNotMatch(html,/\/assets\/(?:card-ai-wordmark\.svg|legacy\/card-ai-logo\.png)/,path);
   // These pages identify the store app in its listing, approved policies or deletion request.
   if(!['/privacy','/terms','/Account/AccountSetup'].includes(path)){
