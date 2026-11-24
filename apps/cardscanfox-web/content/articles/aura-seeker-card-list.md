@@ -1,22 +1,96 @@
-**Aura Seeker** is an English rendering of **Hadou Seeker (ハドウシーカー)**, the Japanese Pokémon TCG expansion with set code **M7**. [Pokémon Japan](https://www.pokemon-card.com/ex/m7/) lists **November 27, 2026** as the scheduled release date in Japan. This preview covers selected official reveals, not the full Japanese checklist or an English set.
+Pokémon Japan's **Aura Seeker** (**Hadou Seeker**, ハドウシーカー) gallery listed **78 Japanese M7 main-set cards**, from **001/078** to **078/078**, plus the **113/078** Special Art Rare. The gallery showed **79 records** on **November 24, 2026**. The Japanese release is scheduled for **November 27, 2026**.
 
-## Which Japanese M7 cards are confirmed?
+## Japanese M7 main-set numbers
 
-We checked the official Japanese gallery on **November 18, 2026**. The collector numbers below identify Japanese printings only.
+Find the full collector number printed on your card. The table gives the rarity for each number and includes the six main-set card names checked against Pokémon Japan's gallery. A dash marks a row where the guide lists the number and rarity only.
 
-| Japanese M7 number | Card |
-| --- | --- |
-| 013/078 | Ninetales (キュウコン) |
-| 018/078 | Quagsire (ヌオー) |
-| 020/078 | Floatzel ex (フローゼルex) |
-| 030/078 | Mega Absol Z ex (メガアブソルZex) |
-| 057/078 | Mega Lucario Z ex (メガルカリオZex) |
-| 067/078 | Mega Garchomp Z ex (メガガブリアスZex) |
+| Japanese M7 number | Rarity | Verified card name |
+| --- | --- | --- |
+| 001/078 | Common | — |
+| 002/078 | Common | — |
+| 003/078 | Uncommon | — |
+| 004/078 | Common | — |
+| 005/078 | Uncommon | — |
+| 006/078 | Common | — |
+| 007/078 | Common | — |
+| 008/078 | Double Rare | — |
+| 009/078 | Common | — |
+| 010/078 | Common | — |
+| 011/078 | Uncommon | — |
+| 012/078 | Common | — |
+| 013/078 | Uncommon | Ninetales (キュウコン) |
+| 014/078 | Common | — |
+| 015/078 | Common | — |
+| 016/078 | Rare | — |
+| 017/078 | Common | — |
+| 018/078 | Uncommon | Quagsire (ヌオー) |
+| 019/078 | Common | — |
+| 020/078 | Double Rare | Floatzel ex (フローゼルex) |
+| 021/078 | Common | — |
+| 022/078 | Common | — |
+| 023/078 | Common | — |
+| 024/078 | Common | — |
+| 025/078 | Rare | — |
+| 026/078 | Common | — |
+| 027/078 | Uncommon | — |
+| 028/078 | Common | — |
+| 029/078 | Uncommon | — |
+| 030/078 | Double Rare | Mega Absol Z ex (メガアブソルZex) |
+| 031/078 | Double Rare | — |
+| 032/078 | Common | — |
+| 033/078 | Rare | — |
+| 034/078 | Common | — |
+| 035/078 | Common | — |
+| 036/078 | Uncommon | — |
+| 037/078 | Common | — |
+| 038/078 | Common | — |
+| 039/078 | Uncommon | — |
+| 040/078 | Common | — |
+| 041/078 | Common | — |
+| 042/078 | Common | — |
+| 043/078 | Uncommon | — |
+| 044/078 | Common | — |
+| 045/078 | Common | — |
+| 046/078 | Uncommon | — |
+| 047/078 | Uncommon | — |
+| 048/078 | Common | — |
+| 049/078 | Rare | — |
+| 050/078 | Rare | — |
+| 051/078 | Common | — |
+| 052/078 | Uncommon | — |
+| 053/078 | Common | — |
+| 054/078 | Double Rare | — |
+| 055/078 | Rare | — |
+| 056/078 | Uncommon | — |
+| 057/078 | Double Rare | Mega Lucario Z ex (メガルカリオZex) |
+| 058/078 | Uncommon | — |
+| 059/078 | Double Rare | — |
+| 060/078 | Common | — |
+| 061/078 | Rare | — |
+| 062/078 | Common | — |
+| 063/078 | Common | — |
+| 064/078 | Uncommon | — |
+| 065/078 | Common | — |
+| 066/078 | Common | — |
+| 067/078 | Double Rare | Mega Garchomp Z ex (メガガブリアスZex) |
+| 068/078 | Uncommon | — |
+| 069/078 | Common | — |
+| 070/078 | Uncommon | — |
+| 071/078 | Uncommon | — |
+| 072/078 | Common | — |
+| 073/078 | Rare | — |
+| 074/078 | Uncommon | — |
+| 075/078 | Uncommon | — |
+| 076/078 | Uncommon | — |
+| 077/078 | Uncommon | — |
+| 078/078 | Uncommon | — |
 
-If your card is not in this table, check the Card List (カードリスト) on the [Japanese product page](https://www.pokemon-card.com/ex/m7/). The preview does not show that a missing card is excluded from the set.
+## Extra numbered card
 
-## Is this the English Flowing Fists checklist?
+| Japanese M7 number | Rarity | Card name and illustrator |
+| --- | --- | --- |
+| 113/078 | Special Art Rare | Japanese name **マキシの熱血** · descriptive English label **Crasher Wake Supporter** · illustrated by **Tetsuo Hara** |
 
-This preview covers the Japanese M7 set. See the [Flowing Fists guide](/blog/flowing-fists-card-list) for English release information and the status of its numbered card list.
+## How does M7 relate to the English checklist?
 
-To match a Japanese card to a later English printing, compare the artwork and card text against an official English card record. Use the collector number shown on that English record; do not copy the number from the Japanese card.
+The table covers the Japanese M7 gallery as checked on November 24. See the [Flowing Fists guide](/blog/flowing-fists-card-list) for English release details and the status of the numbered checklist. When an English record becomes available, match the artwork, set code and collector number to that record.
