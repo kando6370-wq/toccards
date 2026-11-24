@@ -509,3 +509,7 @@ Android／iOS 共用注册与重置密码页的新密码空白字符拒绝已包
 当前源码从干净的 `main@319ea39c2410075e30743b608dcbf31f2cddf7b8` 构建正式 `1.0.8+218` AAB，制品为 `D:/Downloads/CardAI-Packages/com.cardai.tcg/Android/CardAI-Prod-1.0.8-218/CardAI-Prod-1.0.8-218.aab`，111,762,427 字节，SHA-256 `ecf0492d4f5b855a405583d3e118ef4afb59b6afb5bba8b50d1efc51c948d4e1`。Upload 签名、bundletool、minSdk 24、target SDK 36、30 个原生库及 ELF 16 KB 对齐校验通过，Play 预览无错误或警告，设备支持范围相对 215 未减少。
 
 218 已于 2026 年 11 月 24 日 10:15 发布至原 `Card AI Internal 20261110` Internal testing 轨道。轨道状态为“有效”，最新版本为 `1.0.8 (218) - Internal`，测试名单仍为 6 人且未修改。本轮未重新部署生产后台／API、执行数据库迁移或发布 iOS 制品；从 Play 安装后的真实登录、Integrity、扫描、运行时统计与崩溃验收仍待完成。
+
+### Android Internal testing 220 交付（2026-11-24）
+
+`com.cardai.tcg` 的 `1.0.8+220` 已于 14:10（北京时间）发布到原内部测试轨道。该包使用已登记的 Upload 证书，Google Play 发布预览显示新增支持 1 款电视。[构建与设备覆盖记录](../05-delivery/android-play-release-configuration.md#google-play-内部测试-220)
