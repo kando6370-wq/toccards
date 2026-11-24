@@ -91,6 +91,13 @@
 .home-journal { padding: 72px 0; }
 .home-questions { background: #fff; border-block: 1px solid var(--line); }
 .home-questions .fox-questions { padding: 72px 0; }
+.home-reviews { padding-block: 64px; }
+.home-reviews h2 { margin: 0 0 24px; }
+.home-review-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.home-review-list figure { margin: 0; padding-block: 16px 0; border-top: 1px solid var(--line); }
+.home-review-list blockquote { margin: 0; font-size: 19px; color: var(--ui-text); }
+.home-review-list figcaption { margin-top: 12px; font-size: 14px; color: var(--ui-muted); }
+.home-review-list a { text-decoration: underline; text-underline-offset: 3px; }
 .home-download { background: radial-gradient(ellipse at 82% 55%, #e6f4bc99, transparent 52%), #f4f8ee; border-bottom: 1px solid var(--line); }
 .home-download .fox-final { padding: 64px 0; margin: 0 auto; background: transparent; color: var(--ui-text); border: 0; }
 .home-download .fox-final-mark { position: static; width: clamp(84px, 13vw, 190px); height: auto; opacity: 1; }
@@ -121,6 +128,8 @@
   .home-card-preview .card-info { padding: 12px; }
   .home-topic-grid { grid-template-columns: 1fr; gap: 16px; }
   .home-library, .home-topics, .fox-workbench, .home-workflow, .home-journal, .home-boundary .fox-app-boundary, .home-questions .fox-questions, .home-download .fox-final { padding-block: 40px; }
+  .home-reviews { padding-block: 40px; }
+  .home-review-list { grid-template-columns: 1fr; }
   .home-workflow .fox-process { padding: 24px; }
   .home-download .fox-final { gap: 16px; }
 }

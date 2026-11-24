@@ -1,4 +1,6 @@
 export default function homeTemplate({ appStoreUrl, googlePlayUrl, brandDescription, heroCards, printing, priceBadge, catalogCards, topics, stories, icon }) {
+  const appReviewUrl = `${appStoreUrl}?see-all=reviews&amp;platform=iphone`;
+  const chromeReviewUrl = 'https://chromewebstore.google.com/detail/hggmhmclihnigdmgcbggblhmjjlpaemn/reviews/798f2696-7047-4c27-ba0b-723fe090e309?hl=en';
   return `<section id="homeView">
   <section class="home-hero" aria-labelledby="hero-title">
     <div class="hero-canvas">
@@ -72,8 +74,21 @@ export default function homeTemplate({ appStoreUrl, googlePlayUrl, brandDescript
   <section class="home-questions">
     <div class="wrap fox-questions"><div><h2>Frequently Asked Questions</h2><a class="text-link" href="/help">All questions ${icon('arrow')}</a></div><div class="faq-list"><details><summary>What kinds of cards can I look up? ${icon('chevron')}</summary><p>Browse supported TCG and sports-card records. Catalog coverage and published prices vary by game and printing.</p></details><details><summary>Do I need to scan a card to find a price? ${icon('chevron')}</summary><p>No. Search by name, set or card number. Confirm the printing and the copy’s condition or existing grade before using an available price reference.</p></details><details><summary>Why can a card have no price? ${icon('chevron')}</summary><p>A catalog record can exist without a matching published price. Missing coverage does not mean zero value. A different printing’s amount is not substituted.</p></details><details><summary>What does saving a card on this website do? ${icon('chevron')}</summary><p>Saved references stay in this browser. Portfolio, folders and Wishlist are managed in the app.</p></details></div></div>
   </section>
+  <section class="wrap home-reviews" aria-labelledby="home-reviews-title">
+    <h2 id="home-reviews-title">What collectors say</h2>
+    <div class="home-review-list">
+      <figure>
+        <blockquote cite="${appReviewUrl}"><p>“track portfolio value and look up market prices during trades.”</p></blockquote>
+        <figcaption><a href="${appReviewUrl}">iPhone app · App Store review</a> · <time datetime="2026-09-28">Sep 28, 2026</time></figcaption>
+      </figure>
+      <figure>
+        <blockquote cite="${chromeReviewUrl}"><p>“No more saving card pics just to look them up.”</p></blockquote>
+        <figcaption><a href="${chromeReviewUrl}">Chrome extension · Web Store review</a> · <time datetime="2026-10-13">Oct 13, 2026</time></figcaption>
+      </figure>
+    </div>
+  </section>
   <section class="home-download">
-    <div class="wrap fox-final"><div><h2>Download CardScanFox</h2><p>Scan your cards and track what you own.</p><a class="btn btn-primary" href="/download">Choose your download ${icon('arrow')}</a><p><a class="text-link" href="${appStoreUrl}#see-all/reviews">Read reviews on the App Store ${icon('external')}</a></p></div><img class="fox-final-mark" src="/assets/card-ai-icon.svg" alt="" width="96" height="116" loading="lazy"></div>
+    <div class="wrap fox-final"><div><h2>Download CardScanFox</h2><p>Scan your cards and track what you own.</p><a class="btn btn-primary" href="/download">Choose your download ${icon('arrow')}</a></div><img class="fox-final-mark" src="/assets/card-ai-icon.svg" alt="" width="96" height="116" loading="lazy"></div>
   </section>
 </section>`;
 }

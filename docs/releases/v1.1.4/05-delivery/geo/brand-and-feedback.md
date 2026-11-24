@@ -10,7 +10,10 @@
 
 ## 用户反馈
 
-- 用户可在 App 内通过客服入口提交问题。运营在 Admin 的「用户反馈」查看和更新状态。已有 App 评分入口调用平台评分组件。美国区 App Store 可见一条识别错误反馈及开发者答复。将这类反馈作为识别回归的线索。 [App Store 评分与评论](https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224#see-all/reviews) · [Apple 评分规则](https://developer.apple.com/app-store/ratings-and-reviews/) · [Google Play 应用内评价](https://developer.android.com/guide/playcore/in-app-review)
+- 美国区 App Store 的 2026-09-28 评论提到跟踪收藏价值和交易时查价。另一条 2026-10-03 评论报告连续三次识别错误，开发者已邀请用户联系支持以便调查。首页引用第一条的使用场景，识别错误保留为回归线索。 [App Store 评分与评论](https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224?see-all=reviews&platform=iphone)
+- Chrome 网上应用店的 2026-10-13 评论提到浏览网页时可以直接查卡，无需先保存图片。首页引用这句并链接到原评论。2026-11-24 商店核对时，Chrome 为 11 个评分、5.0 分，App Store 美国区为 3 个评分、3.7 分。首页展示点评原话与日期。 [Chrome 原评](https://chromewebstore.google.com/detail/hggmhmclihnigdmgcbggblhmjjlpaemn/reviews/798f2696-7047-4c27-ba0b-723fe090e309?hl=en) · [Chrome 全部评论](https://chromewebstore.google.com/detail/cardscanfox-%E2%80%94-pok%C3%A9mon-tcg/hggmhmclihnigdmgcbggblhmjjlpaemn/reviews?hl=en)
+- Jev `jev-1.14.0` 对 4 条去除昵称的公开评论摘要做了主题分类。Codex 对照商店原文选取摘录，核验日期和链接。
+- 用户可在 App 内通过客服入口提交问题。运营在 Admin 的「用户反馈」查看和更新状态。已有 App 评分入口调用平台评分组件。 [Apple 评分规则](https://developer.apple.com/app-store/ratings-and-reviews/) · [Google Play 应用内评价](https://developer.android.com/guide/playcore/in-app-review)
 - 记录平台、App 版本、游戏、系列、完整卡号、照片条件、候选顺序和是否可以复现。使用支持渠道向用户收集所需信息。用户照片、账号信息和关联信息保持在支持系统。公开案例需得到参与者许可。
 - 识别反馈负责补充实体卡样本，目录反馈负责核对具体印次，价格反馈负责核对来源、指标和观测日。保留问题状态及完成验证的版本。评价请求面向真实用户，按平台流程自愿提交。
 
