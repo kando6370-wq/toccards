@@ -21,6 +21,21 @@ export default function homeTemplate({ appStoreUrl, googlePlayUrl, brandDescript
       dateLabel: 'Oct 15, 2026',
     },
   ];
+  const moreChromeReviews = [
+    ['8902f018-20aa-4001-9da7-9375f1f53c90', '2026-10-15', 'Found unfamiliar cards easy to look up and noted that image quality and lighting can affect results.'],
+    ['cc62d457-c89f-40d4-8e54-4f3de5d9233a', '2026-10-15', 'Checked Pokémon and Magic card prices while shopping online.'],
+    ['b4828936-dbe0-40c8-9c89-5d0cabd9d0d9', '2026-10-14', 'Hovered over a card image and adjusted the crop to see matching cards.'],
+    ['eb281180-efe4-41ea-bc11-838a6cb84e32', '2026-10-13', 'Checked possible matches, confidence scores, and prices while browsing card listings.'],
+    ['767f8f62-4eb4-49c7-b750-dac09b24cccf', '2026-10-15', 'Said the extension saved time looking up cards while organizing a collection.'],
+    ['6106bb53-c515-4984-a64f-d66ee637a949', '2026-10-15', 'Found it useful to see matches and prices without leaving the shopping page.'],
+    ['3062e1c2-8a14-4bff-9182-9c13249d4789', '2026-10-13', 'Liked being able to check what their cards might be worth.'],
+    ['ff8e21fe-b82f-4cb9-8d84-ffba31f6503b', '2026-10-13', 'Said card lookup and price information helped with trades and inventory work.'],
+  ];
+  const chromeReviewUrl = id => `https://chromewebstore.google.com/detail/hggmhmclihnigdmgcbggblhmjjlpaemn/reviews/${id}?hl=en`;
+  const [firstSummary, secondSummary, ...remainingSummaries] = moreChromeReviews;
+  const reviewDate = new Intl.DateTimeFormat('en-US', {month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC'});
+  const renderReviewSummary = ([id, date, feedback]) => `<p>${feedback}</p>
+    <a href="${chromeReviewUrl(id)}">Read original review</a> · <time datetime="${date}">${reviewDate.format(new Date(date))}</time>`;
   return `<section id="homeView">
   <section class="home-hero" aria-labelledby="hero-title">
     <div class="hero-canvas">
@@ -102,12 +117,24 @@ export default function homeTemplate({ appStoreUrl, googlePlayUrl, brandDescript
         <figcaption><a href="${appReviewUrl}">iPhone app · App Store review</a> · <time datetime="2026-09-28">Sep 28, 2026</time></figcaption>
       </figure>
       ${chromeReviews.map(({id, quote, date, dateLabel}) => {
-        const reviewUrl = `https://chromewebstore.google.com/detail/hggmhmclihnigdmgcbggblhmjjlpaemn/reviews/${id}?hl=en`;
+        const reviewUrl = chromeReviewUrl(id);
         return `<figure>
           <blockquote cite="${reviewUrl}"><p>“${quote}”</p></blockquote>
           <figcaption><a href="${reviewUrl}">Chrome extension · Web Store review</a> · <time datetime="${date}">${dateLabel}</time></figcaption>
         </figure>`;
       }).join('')}
+    </div>
+    <div class="home-review-more">
+      <h3>Chrome review summaries</h3>
+      <ul class="home-review-summaries">
+        ${[firstSummary, secondSummary].map(review => `<li>${renderReviewSummary(review)}</li>`).join('')}
+      </ul>
+      <details>
+        <summary>${remainingSummaries.length} more Chrome reviews</summary>
+        <ul class="home-review-summaries">
+          ${remainingSummaries.map(review => `<li>${renderReviewSummary(review)}</li>`).join('')}
+        </ul>
+      </details>
     </div>
     <a class="text-link home-review-source" href="${chromeReviewsUrl}">Read all Chrome Web Store reviews ${icon('arrow')}</a>
   </section>

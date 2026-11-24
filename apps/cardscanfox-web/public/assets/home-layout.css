@@ -98,6 +98,14 @@
 .home-review-list blockquote { margin: 0; font-size: 19px; color: var(--ui-text); }
 .home-review-list figcaption { margin-top: 12px; font-size: 14px; color: var(--ui-muted); }
 .home-review-list a { text-decoration: underline; text-underline-offset: 3px; }
+.home-review-more { margin-top: 28px; }
+.home-review-more h3 { margin: 0 0 12px; }
+.home-review-more details { border-block: 1px solid var(--line); }
+.home-review-more summary { padding-block: 12px; font-weight: 700; cursor: pointer; }
+.home-review-summaries { margin: 0; padding: 0 0 16px 20px; }
+.home-review-summaries li + li { margin-top: 12px; }
+.home-review-summaries p { margin: 0 0 4px; }
+.home-review-summaries a { text-decoration: underline; text-underline-offset: 3px; }
 .home-review-source { margin-top: 24px; }
 .home-download { background: radial-gradient(ellipse at 82% 55%, #e6f4bc99, transparent 52%), #f4f8ee; border-bottom: 1px solid var(--line); }
 .home-download .fox-final { padding: 64px 0; margin: 0 auto; background: transparent; color: var(--ui-text); border: 0; }
