@@ -35,6 +35,17 @@ Use these verified English retail entries to start your search. Open the officia
 | Embracing Power or The Heist deck | The matching starter deck name and edition |
 | Box topper, event or judge distribution | The matching topper or promo set |
 
+### Mantis Blades collector numbers by printing
+
+Mantis Blades appears under four verified printings. Keep the language and release with the number when you identify your copy.
+
+| Printing | Collector number |
+| --- | --- |
+| English Retail | 025 |
+| English Beta | β025 |
+| English Embracing Power Retail Starter Deck | 007 |
+| French Retail | 025 |
+
 Search the full card name, then open the entry and match the set, art, language and complete collector number. Keep suffixes such as the `a` in `005a`. For example, the [official V — Streetkid record](https://cyberpunktcg.com/cards/v-streetkid?printing=3fc63c58-5954-4744-a5af-047bfc5cb159) shows the English retail printing. Use that exact printing when you compare marketplace listings.
 
 ## Check a sealed starter deck against its deck list

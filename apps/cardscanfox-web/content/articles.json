@@ -15,11 +15,16 @@
         "url": "https://cyberpunktcg.com/cards"
       },
       {
+        "label": "Cyberpunk TCG: Mantis Blades printing records",
+        "url": "https://cyberpunktcg.com/cards/mantis-blades?printing=eb57cfca-7635-451c-8d4e-30d0067acbfe"
+      },
+      {
         "label": "WeirdCo: Welcome to Night City starter deck lists",
         "url": "https://cyberpunktcg.com/blog/wnc-starter-decks"
       }
     ],
-    "showDescription": false
+    "showDescription": false,
+    "updatedAt": "2026-11-24"
   },
   {
     "path": "/sports-card-advent-calendar",
@@ -37,6 +42,10 @@
         "url": "https://ripped.topps.com/2026-topps-holiday-baseball-which-box-is-best/"
       },
       {
+        "label": "Topps: 2026 Holiday Baseball Hobby Mega Box configuration",
+        "url": "https://www.topps.com/products/2026-topps-holiday-baseball-mega-box"
+      },
+      {
         "label": "Topps: 2026 Holiday Baseball collection and checklist",
         "url": "https://www.topps.com/pages/topps-holiday-baseball"
       },
@@ -49,13 +58,14 @@
         "url": "https://www.topps.com/pages/topps-baseball-holiday-advent-calendar"
       }
     ],
-    "showDescription": false
+    "showDescription": false,
+    "updatedAt": "2026-11-24"
   },
   {
     "path": "/blog/aura-seeker-card-list",
-    "title": "Aura Seeker Card List: Confirmed Japanese M7 Reveals | CardScanFox",
-    "description": "See officially revealed cards from Japan’s Hadou Seeker (M7), with collector numbers and links to the official card images. This is not a complete checklist.",
-    "h1": "Aura Seeker card list: confirmed Japanese M7 reveals",
+    "title": "Aura Seeker Card List: 78 Japanese M7 Numbers & Reveals | CardScanFox",
+    "description": "Look up all 78 Japanese M7 main-set numbers and the revealed 113/078 special art rare. See verified card names where available.",
+    "h1": "Aura Seeker (M7) collector numbers and revealed cards",
     "author": "CardScanFox",
     "file": "aura-seeker-card-list.md",
     "published": true,
@@ -63,11 +73,20 @@
     "publishedAt": "2026-11-18",
     "sources": [
       {
-        "label": "Pokémon Japan: Hadou Seeker (M7) announcement and official card gallery",
+        "label": "Pokémon Japan: Hadou Seeker (M7) product page and gallery",
         "url": "https://www.pokemon-card.com/ex/m7/"
+      },
+      {
+        "label": "Pokémon Japan: M7 card-list data",
+        "url": "https://www.pokemon-card.com/ex/m7/assets/json/cardlist.json"
+      },
+      {
+        "label": "Pokémon Japan: 113/078 announcement",
+        "url": "https://www.pokemon-card.com/info/005726.html"
       }
     ],
-    "showDescription": false
+    "showDescription": false,
+    "updatedAt": "2026-11-24"
   },
   {
     "path": "/blog/delta-reign-pokemon",
@@ -379,21 +398,25 @@
   {
     "path": "/blog/flowing-fists-card-list",
     "title": "Flowing Fists Card List and Release Dates | CardScanFox",
-    "description": "Check reported Flowing Fists release dates, featured Pokémon and the status of the English card list. Find the separate Japanese M7 gallery.",
+    "description": "Check the official Flowing Fists prerelease, Pokémon TCG Live and retail dates, and see the featured Pokémon confirmed for the English expansion.",
     "h1": "Flowing Fists card list",
     "author": "CardScanFox",
     "file": "flowing-fists-card-list.md",
     "published": true,
     "category": "identity",
     "publishedAt": "2026-11-20",
-    "updatedAt": "2026-11-21",
+    "updatedAt": "2026-11-24",
     "sources": [
+      {
+        "label": "Pokémon Company: Flowing Fists English release announcement",
+        "url": "https://press.pokemon.com/en/releases/MEDIA-ALERT-Z-Mega-Evolution-Pokemon-to-Debut-in-New-Pokemon-Trading-C?ui=en"
+      },
       {
         "label": "Pokémon Japan: M7 product page and card gallery",
         "url": "https://www.pokemon-card.com/ex/m7/"
       },
       {
-        "label": "GamesRadar: Flowing Fists release dates and featured cards",
+        "label": "GamesRadar: early Flowing Fists release coverage",
         "url": "https://www.gamesradar.com/tabletop-gaming/pokemon-cards-come-out-swinging-with-the-next-expansion-flowing-fists/"
       }
     ]
@@ -408,8 +431,12 @@
     "published": true,
     "category": "values",
     "publishedAt": "2026-11-20",
-    "updatedAt": "2026-11-20",
+    "updatedAt": "2026-11-24",
     "sources": [
+      {
+        "label": "Heritage Auctions: 1951 Bowman Mickey Mantle #253 PSA Good 2 sale",
+        "url": "https://sports.ha.com/itm/baseball-cards/singles-1950-1959-/1951-bowman-mickey-mantle-rookie-253-psa-good-2/a/50088-82163.s"
+      },
       {
         "label": "PSA CardFacts: 1952 Topps Mickey Mantle #311",
         "url": "https://www.psacard.com/cardfacts/baseball-cards/1952-topps/mickey-mantle-311/23330"
@@ -427,22 +454,22 @@
   {
     "path": "/blog/one-piece-tcg-ban-list",
     "title": "One Piece TCG Ban List and Restricted Cards | CardScanFox",
-    "description": "Check the One Piece Card Game ban list, effective dates, card numbers, and the official rules source before submitting a tournament deck.",
+    "description": "Check the English One Piece Card Game ban list by card number. See active bans, banned pairs and the changes effective November 27, 2026.",
     "h1": "One Piece TCG ban list and restricted cards",
     "author": "CardScanFox",
     "file": "one-piece-tcg-ban-list.md",
     "published": true,
     "category": "collecting",
     "publishedAt": "2026-11-20",
-    "updatedAt": "2026-11-20",
+    "updatedAt": "2026-11-24",
     "sources": [
       {
         "label": "ONE PIECE CARD GAME: official rules",
         "url": "https://en.onepiece-cardgame.com/rules/"
       },
       {
-        "label": "ONE PIECE CARD GAME: banned/restricted cards effective October 12, 2026",
-        "url": "https://en.onepiece-cardgame.com/news/restriction-261001.html"
+        "label": "ONE PIECE CARD GAME: restriction list effective November 27, 2026",
+        "url": "https://en.onepiece-cardgame.com/news/restriction.html"
       }
     ]
   },
@@ -486,11 +513,19 @@
     "published": true,
     "category": "identity",
     "publishedAt": "2026-11-21",
-    "updatedAt": "2026-11-21",
+    "updatedAt": "2026-11-24",
     "sources": [
       {
         "label": "The Art of Pokémon: Takumi Akabane illustrator catalog",
         "url": "https://www.artofpkm.com/illustrators/takumi-akabane"
+      },
+      {
+        "label": "Pokémon Card-Dex: Platinum — Rising Rivals",
+        "url": "https://assets.pokemon.com/assets/cms/pdf/tcg/carddex/Rising_Rivals.pdf"
+      },
+      {
+        "label": "Pokémon Card-Dex: EX Legend Maker",
+        "url": "https://assets.pokemon.com/assets/cms/pdf/tcg/carddex/EX_Legend_Maker.pdf"
       }
     ]
   },

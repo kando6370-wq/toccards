@@ -13,6 +13,19 @@ Start with these Japanese examples from [The Art of Pokémon’s illustrator cat
 
 Rainbow Energy appears twice in this sample. The expansion card and the Japanese promo have different collector numbers. Each printing needs its own price comparison.
 
+## Verified English Special Energy examples
+
+The official Card-Dex PDFs confirm four English printings with the **Illus. Takumi Akabane** credit. This is an example set, not an exhaustive illustrator index.
+
+| Card | Set or release | Collector number | Language |
+| --- | --- | --- | --- |
+| Darkness Energy | Platinum — Rising Rivals | 99/111 | English |
+| Metal Energy | Platinum — Rising Rivals | 100/111 | English |
+| Rainbow Energy | EX Legend Maker | 81/92 | English |
+| React Energy | EX Legend Maker | 82/92 | English |
+
+Keep the set, number and language together. The same Energy name can have different artwork and numbering across releases.
+
 ## How do I identify and value my card?
 
 1. Read the illustrator credit and copy the full collector number.

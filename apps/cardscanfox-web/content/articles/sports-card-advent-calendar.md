@@ -7,7 +7,7 @@ The **2026 Topps Holiday Baseball Advent Calendar** has **24 packs with five car
 | 2026 format | Configuration | Choose it for |
 | --- | --- | --- |
 | Advent Calendar | 24 packs with five cards each | A daily opening and calendar-exclusive inserts |
-| Hobby Mega Box | 10 packs with 10 base cards each | Glitter Holiday parallels and the oversized ornament box topper |
+| Hobby Mega Box | 10 packs with 10 cards per pack | Glitter Holiday parallels and the oversized ornament box topper |
 | Collector Tin | 59 cards per tin | Holiday Lights parallels |
 
 ## Find the product by year

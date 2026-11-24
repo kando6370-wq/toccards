@@ -1,14 +1,14 @@
-**November 21, 2026 update:** Flowing Fists is an upcoming English Pokémon TCG expansion featuring Mega Lucario Z ex. GamesRadar reports a **February 6, 2027** retail release, **January 23** prerelease events and **February 4** availability in Pokémon TCG Live. The sources cited here cover the release and selected reveals. The full English collector-number checklist remains unverified for this guide.
+**November 24, 2026 update:** The Pokémon Company announced the official Flowing Fists schedule. Prerelease events start **January 23, 2027**, Pokémon TCG Live gets the set on **February 4, 2027**, and retail release is **February 6, 2027**. The announcement names **Mega Lucario Z, Mega Garchomp Z, Mega Absol Z and Mega Glimmora**. The full English collector-number checklist remains unverified for this guide.
 
 ## When does Flowing Fists release?
 
-| Milestone | Reported date | What to check |
+| Milestone | Official date | What to check |
 | --- | --- | --- |
 | Prerelease events | From January 23, 2027 | Check dates and participation with your local event organizer. |
 | Pokémon TCG Live | February 4, 2027 | Check availability in the game. |
 | Retail release | February 6, 2027 | Check the specific product and local stock before ordering. |
 
-The [GamesRadar announcement coverage](https://www.gamesradar.com/tabletop-gaming/pokemon-cards-come-out-swinging-with-the-next-expansion-flowing-fists/) also names Mega Glimmora ex among the featured cards. Use the final English card gallery to confirm names and numbers for individual printings.
+The official announcement also gives the set's announced rarity groups. It names **5 Mega Evolution Pokémon ex**, **4 Pokémon ex**, **11 illustration rare Pokémon**, **17 ultra rare Pokémon, Trainer and Special Energy cards**, and **6 special illustration rare Pokémon and Supporter cards**. Use the final English card gallery to confirm the name and number for each printing.
 
 ## Is the full English Flowing Fists card list available?
 
@@ -18,7 +18,7 @@ The [Aura Seeker card list](/blog/aura-seeker-card-list) shows selected M7 revea
 
 ## What the official Japanese source confirms
 
-Pokémon Japan lists the M7 product page and card gallery. The gallery includes cards such as Ninetales, Quagsire, Floatzel ex, Mega Absol Z ex, Mega Lucario Z ex, and Mega Garchomp Z ex. Use the Japanese card image and collector number as a reference for the Japanese printing.
+Pokémon Japan lists the M7 product page and card gallery. The gallery includes cards such as Ninetales, Quagsire, Floatzel ex, Mega Absol Z ex, Mega Lucario Z ex, and Mega Garchomp Z ex. Use the Japanese card image and collector number as a reference for the Japanese printing. The English announcement remains the source for Flowing Fists release timing and featured Pokémon.
 
 Do not copy a Japanese number into an English collection record. Confirm the later English artwork, card text, set code, and collector number before adding the card to a collection or using a price reference.
 

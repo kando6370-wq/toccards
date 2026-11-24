@@ -18,10 +18,13 @@ function render(path) {
 
 test('Aura Seeker shows the Japanese preview and links to the English guide on site', () => {
   const {url, page} = render(auraPath);
-  assert.match(page.html, /November 27, 2026.*scheduled release date in Japan/);
-  assert.match(page.html, /preview covers selected official reveals, not the full Japanese checklist/);
-  const revealedNumbers = [...page.html.matchAll(/<td>(\d{3})\/078<\/td>\s*<td>[^<]+<\/td>/g)].map(match => match[1]);
-  assert.deepEqual(revealedNumbers, ['013', '018', '020', '030', '057', '067']);
+  assert.match(page.html, /gallery listed <strong>79 records<\/strong>/);
+  assert.match(page.html, /scheduled for <strong>November 27, 2026<\/strong>/);
+  const mainNumbers = [...page.html.matchAll(/<td>(\d{3})\/078<\/td>/g)].map(match => match[1]);
+  assert.equal(new Set(mainNumbers).size, 79);
+  assert.deepEqual(mainNumbers.slice(0, 78), Array.from({length: 78}, (_, index) => String(index + 1).padStart(3, '0')));
+  assert.match(page.html, /113\/078/);
+  assert.match(page.html, /マキシの熱血/);
   assert.match(page.html, /href="\/blog\/flowing-fists-card-list">Flowing Fists guide/);
   assert.ok(page.html.includes(`<link rel="canonical" href="${url.href}">`));
   assert.ok(mayIndex(url, page.status, page));
@@ -39,7 +42,7 @@ test('Aura Seeker shows the Japanese preview and links to the English guide on s
 test('November keyword guides retain price and rules context', () => {
   const checks = [
     ['/blog/mickey-mantle-rookie-card-value', /1951 Bowman #253/, /1952 Topps #311/, /AI card pregrading tool/],
-    ['/blog/one-piece-tcg-ban-list', /OP14-020 Dracule Mihawk/, /October 12, 2026/, /official rules/],
+    ['/blog/one-piece-tcg-ban-list', /OP14-020<\/td>\s*<td>Dracule Mihawk/, /November 27, 2026/, /official rules/],
   ];
   for (const [path, first, second, third] of checks) {
     const {url, page} = render(path);
