@@ -103,7 +103,7 @@ export default function homeTemplate({ appStoreUrl, googlePlayUrl, brandDescript
     </div>
   </section>
   <section class="wrap home-journal" id="journal">
-    <div class="home-section-heading"><h2>Collecting Guides</h2><div><p>Compare printings, understand prices and find the right scanner for your collection.</p><a class="text-link" href="/blog/">Visit the journal ${icon('arrow')}</a></div></div>
+    <div class="home-section-heading"><h2>Collecting Guides</h2><div><p>Compare printings, understand prices and find the right scanner for your collection.</p><a class="text-link" href="/blog/trading-card-questions">Browse 100 card questions</a> · <a class="text-link" href="/blog/">Visit the journal ${icon('arrow')}</a></div></div>
     <div class="blog-posts">${stories}</div>
   </section>
   <section class="home-questions">

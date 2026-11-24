@@ -4,7 +4,7 @@
 
 100 条固定问题包含用户方案指定的 20 条原问和 80 条按用户任务推导的问题。GEO-012 和 GEO-013 含竞品名，属于竞品意图组。其余 98 条属于无品牌任务组。所有原问均可用于观察 CardScanFox 是否自然出现。
 
-当前有 14 条问题缺少合适的本站页面。交易、游戏玩法或保存类问题可用于发现缺口。请按真实产品能力决定是否建设页面。
+全部 100 问已写入官网本地候选。此前缺少承接页的 14 问已补齐。下表保留已有候选页面，之前缺少候选页的原问补入所属主题。逐题查看新的正文位置请使用[官网内容覆盖表](./website-content-coverage.md)。
 
 Jev 通过 TypeSafe Choice 返回了 100 条主要用户意图分类，实际模型为 `jev-1.14.0`。Codex 复核分类、候选路径和优先级，并修订 GEO-073、GEO-094 的意图。每条原始模型判断和置信度保存在 JSON 中。[机器可读问题库](./question-bank.json)
 
@@ -144,11 +144,11 @@ Jev 通过 TypeSafe Choice 返回了 100 条主要用户意图分类，实际模
 | --- | --- | --- | --- | --- |
 | GEO-076 | Where can I sell trading cards? | 在哪里可以出售集换式卡牌？ | 交易决策 | `/blog/organize-a-large-card-collection` |
 | GEO-077 | How do I prepare a trading card collection for sale? | 如何准备集换式卡牌收藏以便出售？ | 交易决策 | `/blog/organize-a-large-card-collection` |
-| GEO-078 | How can I avoid using the wrong printing when listing a card? | 如何避免上架时选错卡牌印刷版本？ | 交易决策 | 暂无 |
-| GEO-079 | What information should a card listing include? | 卡牌商品信息应该包含哪些内容？ | 交易决策 | 暂无 |
+| GEO-078 | How can I avoid using the wrong printing when listing a card? | 如何避免上架时选错卡牌印刷版本？ | 交易决策 | `/blog/trading-card-selling-questions` |
+| GEO-079 | What information should a card listing include? | 卡牌商品信息应该包含哪些内容？ | 交易决策 | `/blog/trading-card-selling-questions` |
 | GEO-080 | How do I compare an asking price with recent market evidence? | 如何用近期市场证据比较挂牌价格？ | 价格查询 | `/blog/organize-a-large-card-collection` |
-| GEO-081 | Where can I sell graded Pokémon cards? | 在哪里可以出售评级 Pokémon 卡牌？ | 交易决策 | 暂无 |
-| GEO-082 | How should I package trading cards for shipping? | 寄送集换式卡牌时应该如何包装？ | 交易决策 | 暂无 |
+| GEO-081 | Where can I sell graded Pokémon cards? | 在哪里可以出售评级 Pokémon 卡牌？ | 交易决策 | `/blog/trading-card-selling-questions` |
+| GEO-082 | How should I package trading cards for shipping? | 寄送集换式卡牌时应该如何包装？ | 交易决策 | `/blog/trading-card-selling-questions` |
 | GEO-083 | What should I check before buying a valuable card online? | 网上购买高价值卡牌前应该检查什么？ | 真伪判断 | `/blog/pokemon-card-authenticity` |
 | GEO-084 | How do I separate a sealed product from a single-card value? | 如何区分密封产品价值和单卡价值？ | 价格查询 | `/blog/pokemon-tcg-30th-celebration-card-prices` |
 | GEO-085 | How can I make a card inventory for an insurance or estate record? | 如何制作卡牌清单用于保险或遗产记录？ | 收藏管理 | `/blog/organize-a-large-card-collection` |
@@ -158,29 +158,29 @@ Jev 通过 TypeSafe Choice 返回了 100 条主要用户意图分类，实际模
 | ID | English question | 中文翻译 | 主要意图 | 候选页面 |
 | --- | --- | --- | --- | --- |
 | GEO-086 | What are the current trading card market trends? | 当前集换式卡牌市场趋势是什么？ | 市场研究 | `/prices/top-gainers` · `/blog/trading-card-price-history` |
-| GEO-087 | Which trading card categories are growing in interest? | 哪些集换式卡牌类别的关注度在增长？ | 市场研究 | 暂无 |
+| GEO-087 | Which trading card categories are growing in interest? | 哪些集换式卡牌类别的关注度在增长？ | 市场研究 | `/blog/trading-card-market-trends-questions` |
 | GEO-088 | How should I read a trading card price trend? | 应该如何阅读卡牌价格趋势？ | 价格查询 | `/prices/top-gainers` · `/blog/trading-card-price-history` |
 | GEO-089 | What makes a card price change over time? | 什么会导致卡牌价格随时间变化？ | 市场研究 | `/prices/top-gainers` · `/blog/trading-card-price-history` |
-| GEO-090 | How can I research a card without treating it as a guaranteed investment? | 如何研究卡牌而不把它当作有保证的投资？ | 市场研究 | 暂无 |
+| GEO-090 | How can I research a card without treating it as a guaranteed investment? | 如何研究卡牌而不把它当作有保证的投资？ | 市场研究 | `/blog/trading-card-market-trends-questions` |
 
 ### 游戏玩法
 
 | ID | English question | 中文翻译 | 主要意图 | 候选页面 |
 | --- | --- | --- | --- | --- |
-| GEO-091 | What trading card games are good for a new player? | 哪些集换式卡牌游戏适合新玩家？ | 玩法研究 | 暂无 |
-| GEO-092 | How do I start building a deck for a trading card game? | 如何开始为集换式卡牌游戏组建牌组？ | 玩法研究 | 暂无 |
+| GEO-091 | What trading card games are good for a new player? | 哪些集换式卡牌游戏适合新玩家？ | 玩法研究 | `/blog/trading-card-game-questions` |
+| GEO-092 | How do I start building a deck for a trading card game? | 如何开始为集换式卡牌游戏组建牌组？ | 玩法研究 | `/blog/trading-card-game-questions` |
 | GEO-093 | How can I identify which game a card belongs to? | 如何识别一张卡属于哪个游戏？ | 卡牌识别 | `/games` · `/card-identifier` |
-| GEO-094 | What is the difference between collecting cards and playing a card game? | 收藏卡牌和玩卡牌游戏有什么区别？ | 玩法研究 | 暂无 |
-| GEO-095 | How should I organize cards for deck building? | 组牌时应该如何整理卡牌？ | 玩法研究 | 暂无 |
+| GEO-094 | What is the difference between collecting cards and playing a card game? | 收藏卡牌和玩卡牌游戏有什么区别？ | 玩法研究 | `/blog/trading-card-game-questions` |
+| GEO-095 | How should I organize cards for deck building? | 组牌时应该如何整理卡牌？ | 玩法研究 | `/blog/trading-card-game-questions` |
 
 ### 卡牌保存
 
 | ID | English question | 中文翻译 | 主要意图 | 候选页面 |
 | --- | --- | --- | --- | --- |
-| GEO-096 | How should I store trading cards long term? | 长期保存集换式卡牌应该怎么做？ | 保存与保护 | 暂无 |
-| GEO-097 | What sleeves and binders help protect cards? | 哪些卡套和卡册有助于保护卡牌？ | 保存与保护 | 暂无 |
-| GEO-098 | How do humidity and heat affect trading cards? | 湿度和高温会如何影响集换式卡牌？ | 保存与保护 | 暂无 |
-| GEO-099 | What is the safest way to store valuable graded cards? | 保存高价值评级卡最安全的方法是什么？ | 保存与保护 | 暂无 |
+| GEO-096 | How should I store trading cards long term? | 长期保存集换式卡牌应该怎么做？ | 保存与保护 | `/blog/trading-card-storage-questions` |
+| GEO-097 | What sleeves and binders help protect cards? | 哪些卡套和卡册有助于保护卡牌？ | 保存与保护 | `/blog/trading-card-storage-questions` |
+| GEO-098 | How do humidity and heat affect trading cards? | 湿度和高温会如何影响集换式卡牌？ | 保存与保护 | `/blog/trading-card-storage-questions` |
+| GEO-099 | What is the safest way to store valuable graded cards? | 保存高价值评级卡最安全的方法是什么？ | 保存与保护 | `/blog/trading-card-storage-questions` |
 | GEO-100 | How can I photograph cards without damaging them? | 如何在不损坏卡牌的情况下拍照？ | 保存与保护 | `/blog/identify-a-trading-card-from-a-photo` |
 
 首次发送及发布后复测使用[监测流程](./geo-monitoring-template.md)。

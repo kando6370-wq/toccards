@@ -954,5 +954,340 @@
         "url": "https://www.ludex.com/scan-and-price/"
       }
     ]
+  },
+  {
+    "path": "/blog/trading-card-identification-questions",
+    "file": "trading-card-identification-questions.md",
+    "published": true,
+    "title": "How to Identify Trading Cards from Photos | CardScanFox",
+    "h1": "How to Identify Trading Cards from Photos",
+    "description": "Match a trading card to its exact set, collector number, language and finish. Get help with sports cards, unclear photos and scan corrections.",
+    "category": "identity",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-24",
+    "sources": [
+      {
+        "label": "Pokémon official card database guide",
+        "url": "https://support.pokemon.com/hc/en-us/articles/360001025274-How-do-I-use-the-Trading-Card-Game-database"
+      },
+      {
+        "label": "Topps official checklists",
+        "url": "https://www.topps.com/pages/checklists"
+      },
+      {
+        "label": "TCGplayer App FAQ",
+        "url": "https://help.tcgplayer.com/hc/en-us/articles/115009506407-TCGplayer-App-FAQ"
+      },
+      {
+        "label": "Ludex scanning workflow",
+        "url": "https://www.ludex.com/scan-and-price/"
+      },
+      {
+        "label": "Collectr portfolio features",
+        "url": "https://www.getcollectr.com/"
+      },
+      {
+        "label": "CardScanFox app and scanning workflow",
+        "url": "https://tcgcard.fun/app"
+      }
+    ]
+  },
+  {
+    "path": "/blog/trading-card-price-questions",
+    "file": "trading-card-price-questions.md",
+    "published": true,
+    "title": "Trading Card Prices and Values | CardScanFox",
+    "h1": "Trading Card Prices and Values",
+    "description": "Find the price for your exact card. Compare condition, grade, currency, dated references and completed sales.",
+    "category": "values",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-24",
+    "sources": [
+      {
+        "label": "TCGplayer price metrics",
+        "url": "https://help.tcgplayer.com/hc/en-us/articles/222376867-What-do-the-different-price-points-on-TCGplayer-com-mean"
+      },
+      {
+        "label": "eBay Product Research",
+        "url": "https://www.ebay.com/help/selling/selling-tools/product-research?id=4853"
+      },
+      {
+        "label": "ECB euro reference exchange rates",
+        "url": "https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/html/index.en.html"
+      },
+      {
+        "label": "CardScanFox price methodology",
+        "url": "https://tcgcard.fun/card-price-data-methodology/"
+      }
+    ]
+  },
+  {
+    "path": "/blog/trading-card-tool-questions",
+    "file": "trading-card-tool-questions.md",
+    "published": true,
+    "title": "Trading Card Scanners and Collection Apps | CardScanFox",
+    "h1": "Trading Card Scanners and Collection Apps",
+    "description": "Choose a scanner or collection app by card coverage, free access, printing confirmation, prices and how you save cards.",
+    "category": "comparisons",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-24",
+    "sources": [
+      {
+        "label": "TCGplayer App FAQ",
+        "url": "https://help.tcgplayer.com/hc/en-us/articles/115009506407-TCGplayer-App-FAQ"
+      },
+      {
+        "label": "Ludex membership",
+        "url": "https://www.ludex.com/membership/"
+      },
+      {
+        "label": "Collectr features",
+        "url": "https://www.getcollectr.com/"
+      },
+      {
+        "label": "PriceCharting methodology",
+        "url": "https://www.pricecharting.com/page/methodology"
+      },
+      {
+        "label": "CardScanFox app and scanning workflow",
+        "url": "https://tcgcard.fun/app"
+      },
+      {
+        "label": "CardScanFox Chrome extension",
+        "url": "https://tcgcard.fun/chrome-extension"
+      }
+    ]
+  },
+  {
+    "path": "/blog/trading-card-authenticity-questions",
+    "file": "trading-card-authenticity-questions.md",
+    "published": true,
+    "title": "How to Check Trading Card Authenticity | CardScanFox",
+    "h1": "How to Check Trading Card Authenticity",
+    "description": "Check suspicious cards against official references and look for inconsistencies before seeking an expert opinion.",
+    "category": "identity",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-24",
+    "sources": [
+      {
+        "label": "Pokémon counterfeit card guidance",
+        "url": "https://support.pokemon.com/hc/en-us/articles/360002068953-Did-I-purchase-fake-or-counterfeit-cards"
+      },
+      {
+        "label": "Pokémon official 151 checklist",
+        "url": "https://assets.pokemon.com/assets/cms2/pdf/trading-card-game/checklist/mew_web_cardlist_en.pdf"
+      },
+      {
+        "label": "PSA certification verification",
+        "url": "https://www.psacard.com/cert"
+      },
+      {
+        "label": "CGC Cards grading process",
+        "url": "https://www.cgccards.com/card-grading/grading-process/"
+      }
+    ]
+  },
+  {
+    "path": "/blog/trading-card-grading-questions",
+    "file": "trading-card-grading-questions.md",
+    "published": true,
+    "title": "Trading Card Grading, Costs and Grades | CardScanFox",
+    "h1": "Trading Card Grading, Costs and Grades",
+    "description": "Decide when to grade a card, check raw and slabbed prices, and understand what a photo estimate can show.",
+    "category": "values",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-24",
+    "sources": [
+      {
+        "label": "PSA grading standards",
+        "url": "https://www.psacard.com/gradingstandards"
+      },
+      {
+        "label": "PSA grading services",
+        "url": "https://www.psacard.com/services/tradingcardgrading"
+      },
+      {
+        "label": "PSA auction prices realized",
+        "url": "https://www.psacard.com/auctionprices"
+      },
+      {
+        "label": "CGC Cards grading scale",
+        "url": "https://www.cgccards.com/card-grading/grading-scale/"
+      },
+      {
+        "label": "eBay Product Research",
+        "url": "https://www.ebay.com/help/selling/selling-tools/product-research?id=4853"
+      }
+    ]
+  },
+  {
+    "path": "/blog/trading-card-collection-questions",
+    "file": "trading-card-collection-questions.md",
+    "published": true,
+    "title": "How to Organize a Trading Card Collection | CardScanFox",
+    "h1": "How to Organize a Trading Card Collection",
+    "description": "Record holdings, separate duplicates by printing and condition, and track portfolio value without treating missing prices as zero.",
+    "category": "collecting",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-24",
+    "sources": [
+      {
+        "label": "CardScanFox collection tracker",
+        "url": "https://tcgcard.fun/card-collection-tracker"
+      },
+      {
+        "label": "PSA certification verification",
+        "url": "https://www.psacard.com/cert"
+      },
+      {
+        "label": "TCGplayer card conditioning",
+        "url": "https://help.tcgplayer.com/hc/en-us/articles/221430307-Card-Conditioning-Overview"
+      }
+    ]
+  },
+  {
+    "path": "/blog/trading-card-selling-questions",
+    "file": "trading-card-selling-questions.md",
+    "published": true,
+    "title": "How to Sell and Ship Trading Cards | CardScanFox",
+    "h1": "How to Sell and Ship Trading Cards",
+    "description": "Prepare a collection for sale, match exact printings, compare sold prices and pack singles or slabs for shipping.",
+    "category": "collecting",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-24",
+    "sources": [
+      {
+        "label": "TCGplayer listings with photos",
+        "url": "https://help.tcgplayer.com/hc/en-us/articles/360000111167-Listings-with-Photos-Policies"
+      },
+      {
+        "label": "eBay Product Research",
+        "url": "https://www.ebay.com/help/selling/selling-tools/product-research?id=4853"
+      },
+      {
+        "label": "Selling with PSA",
+        "url": "https://www.psacard.com/info/sell-with-psa"
+      },
+      {
+        "label": "eBay standard envelope rules",
+        "url": "https://www.ebay.com/help/selling/shipping-items/setting-shipping-options/ebay-standard-envelope?id=5308"
+      },
+      {
+        "label": "NAIC home inventory",
+        "url": "https://content.naic.org/consumer/home-inventory"
+      }
+    ]
+  },
+  {
+    "path": "/blog/trading-card-market-trends-questions",
+    "file": "trading-card-market-trends-questions.md",
+    "published": true,
+    "title": "How to Read Trading Card Market Trends | CardScanFox",
+    "h1": "How to Read Trading Card Market Trends",
+    "description": "Compare trading card interest and prices with a consistent date window, platform and printing.",
+    "category": "values",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-24",
+    "sources": [
+      {
+        "label": "eBay Collected",
+        "url": "https://pages.ebay.com/collected/"
+      },
+      {
+        "label": "Google Trends data FAQ",
+        "url": "https://support.google.com/trends/answer/4365533?hl=en"
+      },
+      {
+        "label": "TCGplayer price metrics",
+        "url": "https://help.tcgplayer.com/hc/en-us/articles/222376867-What-do-the-different-price-points-on-TCGplayer-com-mean"
+      },
+      {
+        "label": "CardScanFox price methodology",
+        "url": "https://tcgcard.fun/card-price-data-methodology/"
+      }
+    ]
+  },
+  {
+    "path": "/blog/trading-card-game-questions",
+    "file": "trading-card-game-questions.md",
+    "published": true,
+    "title": "How to Start Playing Trading Card Games | CardScanFox",
+    "h1": "How to Start Playing Trading Card Games",
+    "description": "Choose a game, learn from official starter resources and check format rules before building a deck.",
+    "category": "collecting",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-24",
+    "sources": [
+      {
+        "label": "Pokémon TCG starter information",
+        "url": "https://parents.pokemon.com/en-us/trading-card-game/"
+      },
+      {
+        "label": "Magic Academy",
+        "url": "https://magic.wizards.com/en/play-events/magic-academy"
+      },
+      {
+        "label": "Magic formats",
+        "url": "https://magic.wizards.com/en/formats"
+      },
+      {
+        "label": "One Piece rules",
+        "url": "https://en.onepiece-cardgame.com/rules/"
+      },
+      {
+        "label": "Disney Lorcana how to play",
+        "url": "https://disneylorcana.com/en/how-to-play/"
+      },
+      {
+        "label": "Yu-Gi-Oh! rulebook",
+        "url": "https://www.yugioh-card.com/en/rulebook/index.html"
+      }
+    ]
+  },
+  {
+    "path": "/blog/trading-card-storage-questions",
+    "file": "trading-card-storage-questions.md",
+    "published": true,
+    "title": "How to Store and Protect Trading Cards | CardScanFox",
+    "h1": "How to Store and Protect Trading Cards",
+    "description": "Choose protective sleeves and storage for raw and graded cards. Reduce damage from handling, humidity, heat and light.",
+    "category": "collecting",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-24",
+    "sources": [
+      {
+        "label": "Canadian Conservation Institute paper objects guidance",
+        "url": "https://www.canada.ca/en/conservation-institute/services/preventive-conservation/guidelines-collections/paper-objects.html"
+      },
+      {
+        "label": "Ultra PRO pages and binders",
+        "url": "https://support.ultrapro.com/en-US/articles/pages-binders-106968"
+      },
+      {
+        "label": "PSA Vault terms",
+        "url": "https://www.psacard.com/vaultterms"
+      }
+    ]
+  },
+  {
+    "path": "/blog/trading-card-questions",
+    "file": "trading-card-questions.md",
+    "published": true,
+    "title": "100 Trading Card Questions and Answers | CardScanFox",
+    "h1": "100 trading card questions and answers",
+    "description": "Find answers about card identification, pricing, scanners, authenticity, grading, collections, selling, trends, gameplay and storage.",
+    "category": "collecting",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-24",
+    "sources": [
+      {
+        "label": "CardScanFox tools and workflows",
+        "url": "https://tcgcard.fun/app"
+      },
+      {
+        "label": "CardScanFox price data methodology",
+        "url": "https://tcgcard.fun/card-price-data-methodology/"
+      }
+    ]
   }
 ]

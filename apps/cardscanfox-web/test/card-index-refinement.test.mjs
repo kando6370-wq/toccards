@@ -226,6 +226,17 @@ test('new positive sets are explicit owners and the seven-card discovery artifac
   '/blog/cardscanfox-vs-tcgplayer',
   '/blog/cardscanfox-vs-pricecharting',
   '/blog/collectr-vs-ludex',
+  '/blog/trading-card-identification-questions',
+  '/blog/trading-card-price-questions',
+  '/blog/trading-card-tool-questions',
+  '/blog/trading-card-authenticity-questions',
+  '/blog/trading-card-grading-questions',
+  '/blog/trading-card-collection-questions',
+  '/blog/trading-card-selling-questions',
+  '/blog/trading-card-market-trends-questions',
+  '/blog/trading-card-game-questions',
+  '/blog/trading-card-storage-questions',
+  '/blog/trading-card-questions',
  ].map(path=>url(path).href);
  for(const guide of addedGuides)assert.ok(siteLocations.includes(guide),guide);
  assert.equal(siteLocations.filter(location=>!addedGuides.includes(location)).length,baselineSiteCount);

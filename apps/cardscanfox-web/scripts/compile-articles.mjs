@@ -8,7 +8,7 @@ import { retainPublicLinks } from './public-content-links.mjs';
 const categories = new Set(['identity', 'values', 'collecting', 'comparisons', 'opinion']);
 const standaloneArticlePaths = new Set(['/cyberpunk-tcg-card-list', '/sports-card-advent-calendar']);
 const tags = new Set(['p', 'h2', 'h3', 'h4', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'em', 'strong', 'del', 'a', 'img', 'hr', 'br', 'table', 'thead', 'tbody', 'tr', 'th', 'td']);
-const attributes = { a: new Set(['href', 'title']), img: new Set(['src', 'alt', 'title']), th: new Set(['align']), td: new Set(['align']), ol: new Set(['start']) };
+const attributes = { a: new Set(['href', 'title']), img: new Set(['src', 'alt', 'title']), th: new Set(['align']), td: new Set(['align']), ol: new Set(['start']), h3: new Set(['id']) };
 const parser = new Marked({ gfm: true, async: false });
 export function safeUrl(value, image = false) {
   if (/[\u0000-\u0020\u007f\\]/.test(value) || value.startsWith('//')) return false;
@@ -19,6 +19,7 @@ export function safeUrl(value, image = false) {
 export function renderMarkdown(markdown) {
   if (markdown.length > 250_000) throw new Error('Article body exceeds the file limit.');
   const fragment = parseFragment(parser.parse(markdown));
+  const questionAnchors = new Set();
   function clean(parent) {
     for (const node of parent.childNodes ?? []) {
       if (node.nodeName === '#text') continue;
@@ -26,6 +27,10 @@ export function renderMarkdown(markdown) {
       for (const attr of node.attrs ?? []) {
         if (!attributes[node.tagName]?.has(attr.name)) throw new Error(`Unsupported article attribute: ${attr.name}`);
         if (['href', 'src'].includes(attr.name) && !safeUrl(attr.value, attr.name === 'src')) throw new Error('Unsafe article URL.');
+        if (attr.name === 'id') {
+          if (!/^geo-(?:00[1-9]|0[1-9]\d|100)$/.test(attr.value) || questionAnchors.has(attr.value)) throw new Error('Invalid or duplicate question anchor.');
+          questionAnchors.add(attr.value);
+        }
       }
       if (node.tagName === 'img') {
         if (!node.attrs.some(a => a.name === 'alt' && a.value.trim())) throw new Error('Article images need alternative text.');
