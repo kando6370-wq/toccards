@@ -1,6 +1,26 @@
 export default function homeTemplate({ appStoreUrl, googlePlayUrl, brandDescription, heroCards, printing, priceBadge, catalogCards, topics, stories, icon }) {
   const appReviewUrl = `${appStoreUrl}?see-all=reviews&amp;platform=iphone`;
-  const chromeReviewUrl = 'https://chromewebstore.google.com/detail/hggmhmclihnigdmgcbggblhmjjlpaemn/reviews/798f2696-7047-4c27-ba0b-723fe090e309?hl=en';
+  const chromeReviewsUrl = 'https://chromewebstore.google.com/detail/cardscanfox-%E2%80%94-pok%C3%A9mon-tcg/hggmhmclihnigdmgcbggblhmjjlpaemn/reviews?hl=en';
+  const chromeReviews = [
+    {
+      id: '798f2696-7047-4c27-ba0b-723fe090e309',
+      quote: 'No more saving card pics just to look them up.',
+      date: '2026-10-13',
+      dateLabel: 'Oct 13, 2026',
+    },
+    {
+      id: '5648af3b-5955-4b96-9948-744ce412e3f6',
+      quote: 'compare possible matches',
+      date: '2026-10-14',
+      dateLabel: 'Oct 14, 2026',
+    },
+    {
+      id: '983378c2-7db4-4366-81e9-89142e954121',
+      quote: 'shows price info clearly.',
+      date: '2026-10-15',
+      dateLabel: 'Oct 15, 2026',
+    },
+  ];
   return `<section id="homeView">
   <section class="home-hero" aria-labelledby="hero-title">
     <div class="hero-canvas">
@@ -81,11 +101,15 @@ export default function homeTemplate({ appStoreUrl, googlePlayUrl, brandDescript
         <blockquote cite="${appReviewUrl}"><p>“track portfolio value and look up market prices during trades.”</p></blockquote>
         <figcaption><a href="${appReviewUrl}">iPhone app · App Store review</a> · <time datetime="2026-09-28">Sep 28, 2026</time></figcaption>
       </figure>
-      <figure>
-        <blockquote cite="${chromeReviewUrl}"><p>“No more saving card pics just to look them up.”</p></blockquote>
-        <figcaption><a href="${chromeReviewUrl}">Chrome extension · Web Store review</a> · <time datetime="2026-10-13">Oct 13, 2026</time></figcaption>
-      </figure>
+      ${chromeReviews.map(({id, quote, date, dateLabel}) => {
+        const reviewUrl = `https://chromewebstore.google.com/detail/hggmhmclihnigdmgcbggblhmjjlpaemn/reviews/${id}?hl=en`;
+        return `<figure>
+          <blockquote cite="${reviewUrl}"><p>“${quote}”</p></blockquote>
+          <figcaption><a href="${reviewUrl}">Chrome extension · Web Store review</a> · <time datetime="${date}">${dateLabel}</time></figcaption>
+        </figure>`;
+      }).join('')}
     </div>
+    <a class="text-link home-review-source" href="${chromeReviewsUrl}">Read all Chrome Web Store reviews ${icon('arrow')}</a>
   </section>
   <section class="home-download">
     <div class="wrap fox-final"><div><h2>Download CardScanFox</h2><p>Scan your cards and track what you own.</p><a class="btn btn-primary" href="/download">Choose your download ${icon('arrow')}</a></div><img class="fox-final-mark" src="/assets/card-ai-icon.svg" alt="" width="96" height="116" loading="lazy"></div>
