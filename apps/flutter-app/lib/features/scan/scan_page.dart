@@ -2898,6 +2898,17 @@ class _ScanCameraView extends StatelessWidget {
               ],
             ),
           ),
+          if (kDebugMode)
+            Positioned.fromRect(
+              rect: sidebar,
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.red, width: 2),
+                  ),
+                ),
+              ),
+            ),
         ] else ...[
           Positioned(
             key: const Key('scan-figma-top-controls'),

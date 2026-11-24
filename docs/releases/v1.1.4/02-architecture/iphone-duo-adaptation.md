@@ -230,6 +230,8 @@ Duo 真机、普通 iPhone／Android 真机、系统完整分屏矩阵、真实�
 
 底部留白版隔离 UI 预览构建成功，安装并启动同一 Duo／1.0.7+213；安装 kernel 与构建一致，SHA-256 为 `2298fd20b58386084e477e8c28628fa4a2f1d1c3265176d47bad9885537a6f7f`。Device Hub 交互中已目视确认展开扫描页两侧红框底边下移、底部空白缩小；Agent 未操作拍照、相册、购买或收藏写入。证据保留 `scan-bottom-gap-focused.log`、`analyze-scan-bottom-gap.log`、`build-scan-bottom-gap.log`、`scan-bottom-gap-installed-identity.json` 和 `scan-bottom-gap-cleanup.json`；后续捕获到其他页面的截图不作为本次布局证据，已清理。确认构建／测试结束后移除四个编译缓存目录，约 0.96 GB 文件，保留最终 Runner.app。未重建 Android APK／运行 Android 真机，隔离包完整扫描／OCR 未验收边界继续保留。
 
+2026-11-24 为定位 Scan 双栏右侧操作区的最外层边界，使用现有 `sidebar` 矩形叠加 2 逻辑像素红框。描边仅在 Debug 双栏绘制，`IgnorePointer` 让原控件继续接收点击。代码自审确认描边复用原矩形，布局约束与业务回调保持原样。iOS／Android 6 项 Duo Scan 专项、`flutter analyze --no-pub` 和 `git diff --check` 通过。arm64 Duo 模拟器已热更新并截图，观察到红框从 TCG／闪光灯一行延伸至 Gallery／快门／Done，原 3 项队列保留。证据目录为本机 `/private/tmp/toccards-duo-scan-border-20261124/`。模拟器重启会加载既有安装包。Android 运行和新安装包本轮未验。
+
 ### 9.10 Scan Review 底部操作区宽度与调试边界（2026-11-18）
 
 用户标注扫描结果小卡片进入的 Review 页面，底部操作区比上方内容少占右侧空间。定位到外层 SafeArea 已避让安全区，而 Footer 为读取键盘状态恢复完整 MediaQuery 后，再次通过内部 SafeArea 应用左右安全区；Duo 951×669、右安全区 84 时，iOS／Android 修改前回归均复现删除按钮右边缘为 773，预期与上方内容对齐为 857，重复避让正好 84。
