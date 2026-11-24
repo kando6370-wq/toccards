@@ -37,14 +37,14 @@ Use these verified English retail entries to start your search. Open the officia
 
 ### Mantis Blades collector numbers by printing
 
-Mantis Blades appears under four verified printings. Keep the language and release with the number when you identify your copy.
+These four Mantis Blades printings show how the collector number can vary by release and language. Keep all three fields when you identify your copy.
 
-| Printing | Collector number |
-| --- | --- |
-| English Retail | 025 |
-| English Beta | β025 |
-| English Embracing Power Retail Starter Deck | 007 |
-| French Retail | 025 |
+| Release | Language | Collector number |
+| --- | --- | --- |
+| Welcome to Night City — Retail | English | 025 |
+| Welcome to Night City — Beta | English | β025 |
+| Embracing Power — Retail Starter Deck | English | 007 |
+| Welcome to Night City — Retail — FR | French | 025 |
 
 Search the full card name, then open the entry and match the set, art, language and complete collector number. Keep suffixes such as the `a` in `005a`. For example, the [official V — Streetkid record](https://cyberpunktcg.com/cards/v-streetkid?printing=3fc63c58-5954-4744-a5af-047bfc5cb159) shows the English retail printing. Use that exact printing when you compare marketplace listings.
 

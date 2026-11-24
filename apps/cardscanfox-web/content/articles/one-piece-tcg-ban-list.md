@@ -1,10 +1,10 @@
-As checked on **November 24, 2026**, the official English One Piece Card Game list has **6 banned cards**, **0 single-card restricted entries** and **3 active banned pairs**. A new update takes effect on **November 27, 2026**. It adds two banned pairs that use **EB05-001 Jewelry Bonney**. Parallel and alternate-art versions are included in those new pairs.
+As checked on **November 24, 2026**, Bandai's English list for **North America, Europe, Oceania, Latin America and the Middle East** shows **6 banned cards**, **3 active banned pairs** and **0 restricted cards**. Two more pairs involving **EB05-001 Jewelry Bonney** take effect on **November 27, 2026**. They include parallel and alternate-art versions. Match the card numbers below to your deck and check your event's format and card pool.
 
 ## How the One Piece TCG ban list works
 
 The list depends on the event, format, region and effective date. Use the latest official announcement for a tournament decision, then check the full card number in your deck list. A card can be legal for one event and unavailable for another event with a different card pool or effective date.
 
-The [official One Piece Card Game rules page](https://en.onepiece-cardgame.com/rules/) explains the game rules. The current English restriction page records the **November 17, 2026** announcement and the **November 27, 2026** effective date.
+Bandai's English restrictions page includes the **November 17, 2026** announcement for the changes effective **November 27, 2026**. The earlier notice, effective **October 12, 2026**, records the addition of **OP14-020 Dracule Mihawk**. For events in other regions, check the rules for that region.
 
 ## Current English banned cards
 
@@ -23,9 +23,9 @@ The current list has no single-card restricted entry. Keep the card number with 
 
 | Card 1 | Card 2 | Status |
 | --- | --- | --- |
-| OP07-115 | EB04-058 | Banned pair |
-| OP11-040 | OP11-067 | Banned pair |
-| OP11-040 | OP08-069 | Banned pair |
+| OP07-115 I Re-Quasar Helllp!! | EB04-058 Borsalino | Banned pair |
+| OP11-040 Monkey.D.Luffy | OP11-067 Charlotte Katakuri | Banned pair |
+| OP11-040 Monkey.D.Luffy | OP08-069 Charlotte Linlin | Banned pair |
 
 ## Banned pairs effective November 27, 2026
 
@@ -34,7 +34,7 @@ The current list has no single-card restricted entry. Keep the card number with 
 | EB05-001 Jewelry Bonney | OP13-001 Monkey.D.Luffy | November 27, 2026 |
 | EB05-001 Jewelry Bonney | OP01-002 Trafalgar Law | November 27, 2026 |
 
-The new pair rule includes parallel and alternate-art versions. Check the official list again before a tournament because a later update can change the status.
+Cards in each pair cannot share a deck from the effective date. Use the [One Piece card scanner](/one-piece-card-scanner) to check the card number against your copy.
 
 ## What to verify before an event
 

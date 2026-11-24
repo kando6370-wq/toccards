@@ -10,6 +10,8 @@ That distinction matters when comparing sales. A listing title that says “rook
 
 Heritage Auctions reported a **1951 Bowman Mickey Mantle #253, PSA Good 2** sale for **USD 18,910** on **October 25, 2026**. Use the set, card number and grade together when you compare this observation with another copy. A single dated sale does not describe every raw or graded condition.
 
+For an ungraded copy, see how to [compare raw and graded card values](/blog/raw-vs-graded-card-values).
+
 ## 1952 Topps Mickey Mantle value
 
 The 1952 Topps #311 has a wide value range because condition and authenticity change the market completely. The [PSA CardFacts page](https://www.psacard.com/cardfacts/baseball-cards/1952-topps/mickey-mantle-311/23330) provides published guide and population information. Treat that information as dated reference data, not as a guaranteed sale price for a card in your possession.
@@ -39,6 +41,5 @@ For catalog identification and published price references, use the [sports card 
 
 ## Related
 
-- [Raw versus graded card values](/blog/raw-vs-graded-card-values)
 - [Card condition guide](/blog/pokemon-card-condition-guide)
 - [AI card pregrading](/ai-card-grading)

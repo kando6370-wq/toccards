@@ -16,10 +16,11 @@ function render(path) {
   return {url, page};
 }
 
-test('Aura Seeker shows the Japanese preview and links to the English guide on site', () => {
+test('Aura Seeker indexes the Japanese gallery and links to the English guide on site', () => {
   const {url, page} = render(auraPath);
-  assert.match(page.html, /gallery listed <strong>79 records<\/strong>/);
+  assert.match(page.html, /gallery showed <strong>79 records<\/strong>/);
   assert.match(page.html, /scheduled for <strong>November 27, 2026<\/strong>/);
+  assert.doesNotMatch(page.html, /official image|m7-001-htfmi/);
   const mainNumbers = [...page.html.matchAll(/<td>(\d{3})\/078<\/td>/g)].map(match => match[1]);
   assert.equal(new Set(mainNumbers).size, 79);
   assert.deepEqual(mainNumbers.slice(0, 78), Array.from({length: 78}, (_, index) => String(index + 1).padStart(3, '0')));
@@ -36,13 +37,15 @@ test('Aura Seeker shows the Japanese preview and links to the English guide on s
   const flowing = render('/blog/flowing-fists-card-list').page;
   assert.match(flowing.html, /Flowing Fists card list/);
   assert.match(flowing.html, /No complete English Flowing Fists checklist is confirmed/);
+  assert.match(flowing.html, /November 19, 2026<\/strong> announcement/);
+  assert.match(flowing.html, /Aura Seeker card list<\/a> indexes the 78 Japanese M7 main-set numbers/);
   assert.ok(publicSitemap(origin).includes(`${origin}/blog/flowing-fists-card-list`));
 });
 
 test('November keyword guides retain price and rules context', () => {
   const checks = [
     ['/blog/mickey-mantle-rookie-card-value', /1951 Bowman #253/, /1952 Topps #311/, /AI card pregrading tool/],
-    ['/blog/one-piece-tcg-ban-list', /OP14-020<\/td>\s*<td>Dracule Mihawk/, /November 27, 2026/, /official rules/],
+    ['/blog/one-piece-tcg-ban-list', /OP14-020<\/td>\s*<td>Dracule Mihawk/, /November 27, 2026/, /North America, Europe, Oceania, Latin America and the Middle East/],
   ];
   for (const [path, first, second, third] of checks) {
     const {url, page} = render(path);

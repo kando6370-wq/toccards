@@ -24,13 +24,13 @@ The official Card-Dex PDFs confirm four English printings with the **Illus. Taku
 | Rainbow Energy | EX Legend Maker | 81/92 | English |
 | React Energy | EX Legend Maker | 82/92 | English |
 
-Keep the set, number and language together. The same Energy name can have different artwork and numbering across releases.
+Keep the set, number and language together when you [search the Pokémon catalog](/games/pokemon). The same Energy name can have different artwork and numbering across releases.
 
 ## How do I identify and value my card?
 
 1. Read the illustrator credit and copy the full collector number.
 2. Check the set, language, finish and any promotion marks against the reference image.
-3. Search the [Pokémon card catalog](/games/pokemon) or use the [Pokémon card scanner](/pokemon-card-scanner) to find candidate records. Confirm the printing before choosing a result.
+3. Use the [Pokémon card scanner](/pokemon-card-scanner) to find candidate records from a photo. Confirm the printing before choosing a result.
 4. Compare dated prices for the exact card in comparable raw condition or the same certified grade. Use the [card condition guide](/blog/pokemon-card-condition-guide) to check common raw condition terms.
 
 For a signed card, check the signature certification and provenance separately. The illustration credit identifies the artist on the printing. Signature authentication requires its own evidence.
