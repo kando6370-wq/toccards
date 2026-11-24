@@ -93,8 +93,10 @@ export function initEtbCalculator(root = document) {
    }
    const packNote = element('p', 'The per-pack figure divides the full ETB bundle cost, including promos and accessories. It does not predict pull value.');
    packNote.className = 'etb-help'; output.append(packNote);
-   if (result.sourceUrl) {
-    const source = element('a', 'View the source listing'); source.href = result.sourceUrl; source.target = '_blank'; source.rel = 'noopener noreferrer'; output.append(source);
+   if (!custom) {
+    const quoteNotes = element('a', 'Read the dated quote notes');
+    quoteNotes.href = '#etb-quote-notes';
+    output.append(quoteNotes);
    }
    if (custom) output.append(element('p', 'Source: your inputs. This result does not carry the saved seller’s date, quantity or stock status.'));
   } catch (cause) {

@@ -16,13 +16,13 @@ function render(path) {
   return {url, page};
 }
 
-test('Aura Seeker provides a source-linked Japanese preview, not an English checklist', () => {
+test('Aura Seeker shows the Japanese preview and links to the English guide on site', () => {
   const {url, page} = render(auraPath);
   assert.match(page.html, /November 27, 2026.*scheduled release date in Japan/);
   assert.match(page.html, /preview covers selected official reveals, not the full Japanese checklist/);
-  const revealedNumbers = [...page.html.matchAll(/<td>(\d{3})\/078<\/td>\s*<td>[^<]+<\/td>\s*<td><a href="https:\/\/www\.pokemon-card\.com\/ex\/m7\/assets\/images\/card\/m7-\1-[a-z0-9]+\.webp">/g)].map(match => match[1]);
+  const revealedNumbers = [...page.html.matchAll(/<td>(\d{3})\/078<\/td>\s*<td>[^<]+<\/td>/g)].map(match => match[1]);
   assert.deepEqual(revealedNumbers, ['013', '018', '020', '030', '057', '067']);
-  assert.match(page.html, /No English entries are confirmed by the sources used for this preview/);
+  assert.match(page.html, /href="\/blog\/flowing-fists-card-list">Flowing Fists guide/);
   assert.ok(page.html.includes(`<link rel="canonical" href="${url.href}">`));
   assert.ok(mayIndex(url, page.status, page));
   assert.match(publishHtml(page.html, url, page.status, page), /content="index,follow"/);
@@ -36,7 +36,7 @@ test('Aura Seeker provides a source-linked Japanese preview, not an English chec
   assert.ok(publicSitemap(origin).includes(`${origin}/blog/flowing-fists-card-list`));
 });
 
-test('November keyword guides keep price and rules claims source-linked', () => {
+test('November keyword guides retain price and rules context', () => {
   const checks = [
     ['/blog/mickey-mantle-rookie-card-value', /1951 Bowman #253/, /1952 Topps #311/, /AI card pregrading tool/],
     ['/blog/one-piece-tcg-ban-list', /OP14-020 Dracule Mihawk/, /October 12, 2026/, /official rules/],

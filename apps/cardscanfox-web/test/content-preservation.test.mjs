@@ -5,6 +5,7 @@ import test from 'node:test';
 import {parse,parseFragment} from 'parse5';
 import {redirectTarget,redirectLocation} from '../src/redirects.mjs';
 import {legacyPages,resolvePage,allStaticPaths} from '../src/render.mjs';
+import {isPublicLinkAllowed} from '../src/public-links.mjs';
 const visit=(n,f)=>{f(n);for(const c of n.childNodes??[])visit(c,f)};
 const find=(n,f)=>{let out;visit(n,x=>{if(!out&&f(x))out=x});return out};
 const text=n=>['script','style','noscript'].includes(n.tagName)?'':n.nodeName==='#text'?n.value:(n.childNodes??[]).map(text).join('');
@@ -26,8 +27,31 @@ test('active protected URLs retain their full approved content; the consolidated
   else if(source.path!=='/')assert.equal(norm(text(find(newMain,n=>n.tagName==='h1'))),norm(text(find(oldMain,n=>n.tagName==='h1'))),source.path);
  }
 });
-test('all protected body links retain their original destinations after same-origin normalization',async()=>{
- for(const page of legacyPages){const source=baseline.pages.find(p=>p.path===page.path);const old=parse(await readFile(new URL(source.file,original),'utf8')),main=find(old,n=>n.tagName==='main');const required=[];visit(main,n=>{if(n.tagName==='a'&&attr(n,'href')&&!attr(n,'href').startsWith('javascript:'))required.push(new URL(attr(n,'href'),'https://tcgcard.fun'+page.path).href)});const imported=parseFragment(page.bodyHtml),actual=[];visit(imported,n=>{if(n.tagName==='a'&&attr(n,'href'))actual.push(new URL(attr(n,'href'),'https://tcgcard.fun'+page.path).href)});for(const target of required)assert.ok(actual.includes(target),page.path+' missing '+target);}
+test('the legacy import preserves supported link destinations',async()=>{
+ for(const page of legacyPages){const source=baseline.pages.find(p=>p.path===page.path);const old=parse(await readFile(new URL(source.file,original),'utf8')),main=find(old,n=>n.tagName==='main');const required=[];visit(main,n=>{const href=attr(n,'href');if(n.tagName==='a'&&href&&isPublicLinkAllowed(href))required.push(new URL(href,'https://tcgcard.fun'+page.path).href)});const imported=parseFragment(page.bodyHtml),actual=[];visit(imported,n=>{if(n.tagName==='a'&&attr(n,'href'))actual.push(new URL(attr(n,'href'),'https://tcgcard.fun'+page.path).href)});for(const target of required)assert.ok(actual.includes(target),page.path+' missing '+target);}
+});
+test('rendered pages link only to CardScanFox and its own app listings',()=>{
+ const storefronts = new Set([
+  'https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224',
+  'https://play.google.com/store/apps/details?id=com.cardai.tcg',
+  'https://chromewebstore.google.com/detail/tcg-card-recognizer-%E2%80%94-tcg/hggmhmclihnigdmgcbggblhmjjlpaemn',
+ ]);
+ const ownOrigins = new Set(['https://tcgcard.fun','https://www.tcgcard.fun','https://api.tcgcard.fun','https://image.tcgcard.fun']);
+ const seenInstallLinks = new Set();
+ for(const path of allStaticPaths){
+  const url = new URL(path, 'https://tcgcard.fun');
+  visit(parse(resolvePage(url).html),node=>{
+   const href = attr(node,'href');
+   if(node.tagName !== 'a' || !href) return;
+   const target = new URL(href,url);
+   if(ownOrigins.has(target.origin) || (target.protocol === 'mailto:' && target.pathname === 'support@tcgcard.fun')) return;
+   if(target.host === 'chromewebstore.google.com') target.search = '';
+   target.hash = '';
+   assert.ok(storefronts.has(target.href), path+' links to '+href);
+   if(path === '/download') seenInstallLinks.add(target.href);
+  });
+ }
+ assert.deepEqual(seenInstallLinks,storefronts);
 });
 test('imported local images exist in the independent app and all visible source text is retained',async()=>{
  for(const page of legacyPages){assert.ok(page.bodyHtml.length>100);assert.doesNotMatch(page.bodyHtml,/<script\b|\son(?:click|error|load)=/i);for(const image of page.images){if(image.src?.startsWith('/'))await access(new URL('../public'+image.src,import.meta.url));}}

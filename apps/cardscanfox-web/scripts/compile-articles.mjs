@@ -3,6 +3,7 @@ import { resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Marked } from 'marked';
 import { parseFragment, serialize } from 'parse5';
+import { retainPublicLinks } from './public-content-links.mjs';
 
 const categories = new Set(['identity', 'values', 'collecting', 'comparisons', 'opinion']);
 const standaloneArticlePaths = new Set(['/cyberpunk-tcg-card-list', '/sports-card-advent-calendar']);
@@ -34,6 +35,7 @@ export function renderMarkdown(markdown) {
     }
   }
   clean(fragment);
+  retainPublicLinks(fragment);
   return serialize(fragment);
 }
 const isDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value ?? '') && new Date(value + 'T00:00:00Z').toISOString().slice(0, 10) === value;

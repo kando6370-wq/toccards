@@ -1,6 +1,7 @@
 import { readFile,writeFile,mkdir } from 'node:fs/promises';
 import { parse,serialize,serializeOuter } from 'parse5';
 import { createHash } from 'node:crypto';
+import { retainPublicLinks } from './public-content-links.mjs';
 const topics=JSON.parse(await readFile(new URL('../content/blog-topics.json',import.meta.url),'utf8'));
 const source=new URL('../content/legacy/',import.meta.url);
 const output=new URL('../../../packages/website-content/data/legacy-pages.json',import.meta.url);
@@ -31,7 +32,7 @@ for(const page of baseline.pages){
  const original=await readFile(new URL(page.file,source),'utf8');if(createHash('sha256').update(original).digest('hex')!==page.htmlSha256)throw new Error(`Source changed: ${page.path}`);
  const doc=parse(original),main=find(doc,n=>n.tagName==='main');if(!main)throw new Error(`No main content: ${page.path}`);
  const sourceText=norm(visibleText(main));const ld=[];walk(doc,n=>{if(n.tagName==='script'&&attr(n,'type')==='application/ld+json'){try{ld.push(JSON.parse(text(n)));}catch{throw new Error(`Invalid source JSON-LD: ${page.path}`);}}});
- clean(main);walk(main,n=>{if((attr(n,'class')??'').split(/\s+/).includes('blog-card')){const a=find(n,x=>x.tagName==='a'&&attr(x,'href'));const topic=topics[attr(a??{},'href')];if(topic)n.attrs.push({name:'data-topic',value:topic});}});const sanitizedText=norm(visibleText(main));if(sanitizedText!==sourceText)throw new Error(`Visible source content changed during import: ${page.path}`);
+ clean(main);retainPublicLinks(main);walk(main,n=>{if((attr(n,'class')??'').split(/\s+/).includes('blog-card')){const a=find(n,x=>x.tagName==='a'&&attr(x,'href'));const topic=topics[attr(a??{},'href')];if(topic)n.attrs.push({name:'data-topic',value:topic});}});const sanitizedText=norm(visibleText(main));if(sanitizedText!==sourceText)throw new Error(`Visible source content changed during import: ${page.path}`);
  // Visible questions are the source for FAQ data, including approved copy edits.
  const questions=[];walk(main,n=>{if(n.tagName!=='details'||!(attr(n,'class')??'').split(/\s+/).includes('faq-item'))return;const summary=find(n,x=>x.tagName==='summary');const answer=norm((n.childNodes??[]).filter(x=>x!==summary).map(visibleText).join(''));if(summary&&answer)questions.push({'@type':'Question',name:norm(visibleText(summary)),acceptedAnswer:{'@type':'Answer',text:answer}});});
  if(questions.length){for(let i=ld.length-1;i>=0;i--)if(ld[i]['@type']==='FAQPage')ld.splice(i,1);ld.push({'@context':'https://schema.org','@type':'FAQPage',mainEntity:questions});}

@@ -14,7 +14,7 @@ The [GamesRadar announcement coverage](https://www.gamesradar.com/tabletop-gamin
 
 No complete English Flowing Fists checklist is confirmed by the sources used for this page. The Japanese **M7** gallery is useful for identifying Japanese printings.
 
-The existing [Aura Seeker card list](/blog/aura-seeker-card-list) records selected M7 reveals and links to the official Japanese card images. Those collector numbers identify Japanese printings only.
+The [Aura Seeker card list](/blog/aura-seeker-card-list) shows selected M7 reveals and credits the Japanese gallery. Those collector numbers identify Japanese printings only.
 
 ## What the official Japanese source confirms
 
