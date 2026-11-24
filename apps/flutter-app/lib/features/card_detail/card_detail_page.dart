@@ -2602,14 +2602,23 @@ Future<void> _openAddCollectionItemSheet(
     backgroundColor: Colors.transparent,
     barrierColor: Colors.black.withValues(alpha: 0.72),
     builder: (sheetContext) {
-      final padding = View.of(sheetContext).padding;
-      final duoSideShift =
+      final view = View.of(sheetContext);
+      final padding = EdgeInsets.fromViewPadding(
+        view.padding,
+        view.devicePixelRatio,
+      );
+      final width = MediaQuery.sizeOf(sheetContext).width;
+      final centerOnInnerDisplay =
           Theme.of(sheetContext).platform == TargetPlatform.iOS &&
-              padding.right >= 84
-          ? padding.right / 2
-          : 0.0;
+          padding.right >= 84 &&
+          width - padding.horizontal >= 800;
       return Transform.translate(
-        offset: Offset(duoSideShift, 0),
+        // The route centers the width-limited sheet inside its SafeArea.
+        // Use logical pixels to center it on the full inner display instead.
+        offset: Offset(
+          centerOnInnerDisplay ? (padding.right - padding.left) / 2 : 0,
+          0,
+        ),
         child: _AddCollectionItemSheet(
           cardId: controller.cardId,
           entrySource: entrySource,
@@ -3668,7 +3677,6 @@ class _AddCollectionItemSheet extends ConsumerWidget {
                       Padding(
                         padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
                         child: _CollectionItemSheetHeader(
-                          useQuickCollectionController: useQuickCollectionController,
                           portfolioAction: InkWell(
                             key: const Key('card-detail-add-item-portfolio'),
                             borderRadius: BorderRadius.circular(8),
@@ -3782,12 +3790,8 @@ class _AddCollectionItemSheet extends ConsumerWidget {
 }
 
 class _CollectionItemSheetHeader extends StatelessWidget {
-  const _CollectionItemSheetHeader({
-    required this.useQuickCollectionController,
-    required this.portfolioAction,
-  });
+  const _CollectionItemSheetHeader({required this.portfolioAction});
 
-  final bool useQuickCollectionController;
   final Widget portfolioAction;
 
   @override
@@ -3831,7 +3835,6 @@ class _CollectionItemSheetHeader extends StatelessWidget {
         Flexible(
           child: Align(
             alignment: Alignment.centerRight,
-            widthFactor: useQuickCollectionController ? null : 1,
             child: portfolioAction,
           ),
         ),

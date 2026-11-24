@@ -345,3 +345,15 @@ Card Detail 新增／编辑卡片弹窗保留 Flutter `showModalBottomSheet(useS
 
 - **验证：**三个目标页面文件 `flutter analyze --no-pub` 通过。新增 Account／Customer Support 宽屏几何回归 2 项通过，确认左侧内容边界保持、右侧表单区和提交按钮保持独立。现有 Profile／Account／Customer Support 移动端定向回归 6 项通过。完整 `auth_profile_test.dart` 共 144 项，其中 140 项通过，4 项为既有订阅/Profile golden 差异，未更新基线。
 - **当前边界：**本轮尚未构建或安装新的 iPhone Duo 包，尚未在 Device Hub 目视核对 Account 与 Customer Support 的宽屏效果。未修改 Android 原生工程、业务 API、数据库、订阅、账号数据或反馈接口。
+
+### 9.19 卡图收藏弹窗按 Duo 展开内屏居中（2026-11-24）
+
+在 iPhone Duo／iOS 27.1 展开内屏上，从 Search 进入 `Quaxly - 127/M-P` 详情，点击卡图右上角 `Add to Portfolio`。修复前，`Collection item` 的右边缘和 `Add this card` 被状态栏区域截断。路由已按安全区居中，旧偏移又把 `FlutterView.padding` 的物理像素直接当作逻辑像素。3× 回归中旧代码向右移动了 126 逻辑像素，按整屏居中应移动 42。
+
+- 新增收藏弹窗在 iOS 宽窗口且右侧有 Duo 安全区时，使用逻辑像素计算左右 inset 差的一半，按整张内屏居中，沿用底部弹窗的限宽和键盘避让。改动限于卡牌详情的新增收藏入口。代码审查核对了路由约束、物理像素转换、普通窗口及 Android 的分支、原表单与保存回调。
+- `flutter test --no-pub test/widget/card_detail_page_test.dart` 中，3× 几何回归在修复前失败，修复后通过，覆盖卡图入口、整屏中心、右侧边界和按钮命中。完整文件 84 项通过，7 项失败与同环境 `HEAD` 基线一致，其中 3 项缺测试字体目录，4 项为既有键盘动画重建次数断言。`flutter analyze --no-pub` 和 `git diff --check` 通过。
+- 通过第 8 节的隔离预览方案重新构建并覆盖安装 `Debug-test` 1.0.7+213。Runner、调试库和 Flutter 引擎均核对为 arm64，已安装的 Runner、调试库与 Dart kernel 和构建产物字节一致。重新从同一张卡的卡图按钮打开弹窗，2853×2007 的内屏截图测得弹窗两侧各留 467 物理像素，表单右缘和底部按钮完整可见。本次验收范围为 iOS 模拟器上的弹窗布局和双平台 Flutter 回归，真机、Android 安装包、收藏写入和 OCR 未验收。
+
+`Adding to Main` 与箭头作为一个点击区域靠右，对齐下方表单面板的右边缘。原 iOS 标题栏的 `Align` 随普通收藏选择器收缩，3× 回归测得点击区域距面板右边缘 34.5 逻辑像素。填满右侧弹性空间后，对齐和命中断言通过。代码审查核对了 Quick Review 的对齐、Android 的双行标题、文件夹名截断和选择回调。
+
+`flutter analyze --no-pub` 与 `git diff --check` 通过。完整卡牌详情测试 84 项通过，7 项失败与前述基线一致。已覆盖安装同一 Duo 的 arm64 预览包，并从 Quaxly 卡图按钮确认弹窗整屏居中、选择器靠右且可打开 `Portfolio` 菜单。证据保存在本机 `/private/tmp/toccards-duo-collection-20261124/portfolio-align*.log` 和 `portfolio-align.png`。本轮运行验证限于 iOS 模拟器的布局和菜单，Android 设备、iOS 真机及收藏写入未验收。

@@ -1135,32 +1135,55 @@ void main() {
     },
   );
 
-  testWidgets('Duo CardDetail add item sheet fills the modal surface', (
-    tester,
-  ) async {
-    tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(951, 669);
-    tester.view.padding = const FakeViewPadding(right: 84, bottom: 34);
-    addTearDown(tester.view.reset);
+  testWidgets(
+    'Duo card image collection button opens a sheet centered on the full inner display',
+    (tester) async {
+      const devicePixelRatio = 3.0;
+      const screenWidth = 951.0;
+      const rightInset = 84.0;
+      tester.view.devicePixelRatio = devicePixelRatio;
+      tester.view.physicalSize = const Size(2853, 2007);
+      tester.view.padding = const FakeViewPadding(right: 252, bottom: 102);
+      tester.view.viewPadding = tester.view.padding;
+      addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(
-      const _CardDetailTestApp(
-        cardId: 'one-piece-luffy',
-        platform: TargetPlatform.iOS,
-        useKandoTheme: true,
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const Key('card-detail-add-to-portfolio-one-piece-luffy')),
-    );
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        const _CardDetailTestApp(
+          cardId: 'one-piece-luffy',
+          platform: TargetPlatform.iOS,
+          useKandoTheme: true,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('card-detail-add-to-portfolio-one-piece-luffy')),
+      );
+      await tester.pumpAndSettle();
 
-    final sheet = tester.getRect(
-      find.byKey(const Key('card-detail-add-item-sheet')),
-    );
-    expect(sheet.center.dx, closeTo(951 / 2, 0.01));
-  });
+      const safeRight = screenWidth - rightInset;
+      final sheet = tester.getRect(
+        find.byKey(const Key('card-detail-add-item-sheet')),
+      );
+      expect(sheet.center.dx, closeTo(screenWidth / 2, 0.01));
+      expect(sheet.left, greaterThanOrEqualTo(0));
+      expect(sheet.right, lessThanOrEqualTo(safeRight));
+
+      final portfolio = find.byKey(const Key('card-detail-add-item-portfolio'));
+      final formScroll = find.byKey(const Key('card-detail-add-item-scroll'));
+      final formPadding = tester
+          .widget<SingleChildScrollView>(formScroll)
+          .padding!;
+      final formRight =
+          tester.getRect(formScroll).right -
+          formPadding.resolve(TextDirection.ltr).right;
+      expect(tester.getRect(portfolio).right, closeTo(formRight, 0.01));
+      expect(portfolio.hitTestable(), findsOneWidget);
+
+      final submit = find.byKey(const Key('card-detail-item-submit'));
+      expect(tester.getRect(submit).right, lessThanOrEqualTo(safeRight));
+      expect(submit.hitTestable(), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'Add this card shows duplicate failures in a top toast because the fixed action must not require scrolling to the form error',
