@@ -6,9 +6,11 @@ import android.graphics.Canvas
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.media.ExifInterface
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Base64
+import androidx.core.view.WindowCompat
 import com.google.android.play.core.integrity.IntegrityManagerFactory
 import com.google.android.play.core.integrity.StandardIntegrityManager
 import io.flutter.embedding.android.FlutterActivity
@@ -33,6 +35,12 @@ class MainActivity : FlutterActivity() {
     }
     private var integrityProvider: StandardIntegrityManager.StandardIntegrityTokenProvider? = null
     private var integrityProjectNumber: Long? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // FlutterActivity sets its system bar defaults while creating the view.
+        WindowCompat.enableEdgeToEdge(window)
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)

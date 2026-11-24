@@ -129,6 +129,7 @@ extensions.configure<ApplicationExtension> {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 24
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -195,6 +196,9 @@ tasks.configureEach {
 }
 
 dependencies {
+    implementation("androidx.core:core:1.18.0")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation("androidx.test:runner:1.7.0")
     implementation(files("libs/onnxruntime-minimal-1.23.0.aar"))
     implementation("com.google.mlkit:text-recognition-japanese:16.0.1")
     implementation("com.google.android.play:integrity:1.5.0")
