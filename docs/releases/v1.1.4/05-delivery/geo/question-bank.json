@@ -1,0 +1,2811 @@
+{
+  "schema_version": "1.0",
+  "site": "https://tcgcard.fun/",
+  "language": "en",
+  "timezone": "Asia/Shanghai",
+  "generated_at": "2026-11-24",
+  "counts": {
+    "total": 100,
+    "human_review": 20,
+    "derived": 80,
+    "status_pending": 100,
+    "no_candidate": 14,
+    "priority": 20,
+    "unbranded": 98,
+    "named_competitor": 2
+  },
+  "jev_usage": {
+    "status": "used",
+    "requested_model": "jev-latest",
+    "observed_model": "jev-1.14.0",
+    "processed_count": 100,
+    "scope": "公开英文原问的主要用户意图分类（Choice）",
+    "codex_review": "Codex 复核全部分类与候选路径，修订 GEO-073、GEO-094 的意图。题目优先级来自用户方案。站点归属、覆盖结论和发布状态由 Codex 核对。"
+  },
+  "questions": [
+    {
+      "question_id": "GEO-001",
+      "category": "卡牌识别",
+      "original_language": "en",
+      "question": "What is the best AI trading card scanner?",
+      "chinese_translation": "什么是最好的 AI 集换式卡牌扫描器？",
+      "requirement_id": "GEO-IDENTIFY",
+      "search_intent": "工具选择",
+      "task_type": "tool_selection",
+      "candidate_pages": [
+        "/blog/choose-a-trading-card-scanner"
+      ],
+      "priority": "P0",
+      "source_type": "human_review",
+      "generation_prompt": null,
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": "用户提供的《CardScanFox GEO 优化与产品调整执行方案》3.1",
+      "priority_batch_rank": 1,
+      "probe_segment": "unbranded_task",
+      "intent_label": "tool_selection",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "tool_selection",
+        "confidence": 0.99
+      }
+    },
+    {
+      "question_id": "GEO-002",
+      "category": "卡牌识别",
+      "original_language": "en",
+      "question": "How can I identify a trading card from a photo?",
+      "chinese_translation": "如何通过照片识别一张集换式卡牌？",
+      "requirement_id": "GEO-IDENTIFY",
+      "search_intent": "卡牌识别",
+      "task_type": "identification",
+      "candidate_pages": [
+        "/blog/identify-a-trading-card-from-a-photo"
+      ],
+      "priority": "P0",
+      "source_type": "human_review",
+      "generation_prompt": null,
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": "用户提供的《CardScanFox GEO 优化与产品调整执行方案》3.1",
+      "priority_batch_rank": 2,
+      "probe_segment": "unbranded_task",
+      "intent_label": "identification",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "identification",
+        "confidence": 1.0
+      }
+    },
+    {
+      "question_id": "GEO-003",
+      "category": "卡牌识别",
+      "original_language": "en",
+      "question": "What is the best Pokémon card scanner app?",
+      "chinese_translation": "最好的 Pokémon 卡牌扫描应用是什么？",
+      "requirement_id": "GEO-IDENTIFY",
+      "search_intent": "工具选择",
+      "task_type": "tool_selection",
+      "candidate_pages": [
+        "/pokemon-card-scanner"
+      ],
+      "priority": "P0",
+      "source_type": "human_review",
+      "generation_prompt": null,
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": "用户提供的《CardScanFox GEO 优化与产品调整执行方案》3.1",
+      "priority_batch_rank": 3,
+      "probe_segment": "unbranded_task",
+      "intent_label": "tool_selection",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "tool_selection",
+        "confidence": 0.99
+      }
+    },
+    {
+      "question_id": "GEO-004",
+      "category": "卡牌识别",
+      "original_language": "en",
+      "question": "How do I identify different versions of Pokémon cards?",
+      "chinese_translation": "如何识别不同版本的 Pokémon 卡牌？",
+      "requirement_id": "GEO-IDENTIFY",
+      "search_intent": "卡牌识别",
+      "task_type": "identification",
+      "candidate_pages": [
+        "/blog/identify-pokemon-card-versions"
+      ],
+      "priority": "P0",
+      "source_type": "human_review",
+      "generation_prompt": null,
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": "用户提供的《CardScanFox GEO 优化与产品调整执行方案》3.1",
+      "priority_batch_rank": 4,
+      "probe_segment": "unbranded_task",
+      "intent_label": "identification",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "identification",
+        "confidence": 1.0
+      }
+    },
+    {
+      "question_id": "GEO-005",
+      "category": "卡牌价格",
+      "original_language": "en",
+      "question": "How much is my Pokémon card worth?",
+      "chinese_translation": "我的 Pokémon 卡牌值多少钱？",
+      "requirement_id": "GEO-VALUES",
+      "search_intent": "价格查询",
+      "task_type": "pricing",
+      "candidate_pages": [
+        "/games/pokemon"
+      ],
+      "priority": "P0",
+      "source_type": "human_review",
+      "generation_prompt": null,
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": "用户提供的《CardScanFox GEO 优化与产品调整执行方案》3.1",
+      "priority_batch_rank": 5,
+      "probe_segment": "unbranded_task",
+      "intent_label": "pricing",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "pricing",
+        "confidence": 1.0
+      }
+    },
+    {
+      "question_id": "GEO-006",
+      "category": "卡牌价格",
+      "original_language": "en",
+      "question": "What is the best free trading card price checker?",
+      "chinese_translation": "最好的免费集换式卡牌价格查询工具是什么？",
+      "requirement_id": "GEO-VALUES",
+      "search_intent": "工具选择",
+      "task_type": "tool_selection",
+      "candidate_pages": [
+        "/card-price-checker"
+      ],
+      "priority": "P0",
+      "source_type": "human_review",
+      "generation_prompt": null,
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": "用户提供的《CardScanFox GEO 优化与产品调整执行方案》3.1",
+      "priority_batch_rank": 6,
+      "probe_segment": "unbranded_task",
+      "intent_label": "tool_selection",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "tool_selection",
+        "confidence": 0.91
+      }
+    },
+    {
+      "question_id": "GEO-007",
+      "category": "卡牌价格",
+      "original_language": "en",
+      "question": "How do I check the current value of a trading card?",
+      "chinese_translation": "如何查询一张集换式卡牌的当前价值？",
+      "requirement_id": "GEO-VALUES",
+      "search_intent": "价格查询",
+      "task_type": "pricing",
+      "candidate_pages": [
+        "/blog/what-is-my-trading-card-worth"
+      ],
+      "priority": "P0",
+      "source_type": "human_review",
+      "generation_prompt": null,
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": "用户提供的《CardScanFox GEO 优化与产品调整执行方案》3.1",
+      "priority_batch_rank": 7,
+      "probe_segment": "unbranded_task",
+      "intent_label": "pricing",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "pricing",
+        "confidence": 0.98
+      }
+    },
+    {
+      "question_id": "GEO-008",
+      "category": "卡牌价格",
+      "original_language": "en",
+      "question": "Where can I find historical trading card prices?",
+      "chinese_translation": "在哪里可以找到历史集换式卡牌价格？",
+      "requirement_id": "GEO-VALUES",
+      "search_intent": "价格查询",
+      "task_type": "pricing",
+      "candidate_pages": [
+        "/blog/trading-card-price-history"
+      ],
+      "priority": "P0",
+      "source_type": "human_review",
+      "generation_prompt": null,
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": "用户提供的《CardScanFox GEO 优化与产品调整执行方案》3.1",
+      "priority_batch_rank": 8,
+      "probe_segment": "unbranded_task",
+      "intent_label": "pricing",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "pricing",
+        "confidence": 0.91
+      }
+    },
+    {
+      "question_id": "GEO-009",
+      "category": "AI 工具推荐",
+      "original_language": "en",
+      "question": "What is the best app to scan trading cards?",
+      "chinese_translation": "扫描集换式卡牌最好的应用是什么？",
+      "requirement_id": "GEO-TOOLS",
+      "search_intent": "工具选择",
+      "task_type": "tool_selection",
+      "candidate_pages": [
+        "/blog/choose-a-trading-card-scanner"
+      ],
+      "priority": "P0",
+      "source_type": "human_review",
+      "generation_prompt": null,
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": "用户提供的《CardScanFox GEO 优化与产品调整执行方案》3.1",
+      "priority_batch_rank": 9,
+      "probe_segment": "unbranded_task",
+      "intent_label": "tool_selection",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "tool_selection",
+        "confidence": 0.98
+      }
+    },
+    {
+      "question_id": "GEO-010",
+      "category": "AI 工具推荐",
+      "original_language": "en",
+      "question": "What is the best free card scanner app?",
+      "chinese_translation": "最好的免费卡牌扫描应用是什么？",
+      "requirement_id": "GEO-TOOLS",
+      "search_intent": "工具选择",
+      "task_type": "tool_selection",
+      "candidate_pages": [
+        "/blog/choose-a-trading-card-scanner"
+      ],
+      "priority": "P0",
+      "source_type": "human_review",
+      "generation_prompt": null,
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": "用户提供的《CardScanFox GEO 优化与产品调整执行方案》3.1",
+      "priority_batch_rank": 10,
+      "probe_segment": "unbranded_task",
+      "intent_label": "tool_selection",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "tool_selection",
+        "confidence": 0.98
+      }
+    },
+    {
+      "question_id": "GEO-011",
+      "category": "AI 工具推荐",
+      "original_language": "en",
+      "question": "Best trading card collection management app.",
+      "chinese_translation": "最好的集换式卡牌收藏管理应用是什么？",
+      "requirement_id": "GEO-TOOLS",
+      "search_intent": "工具选择",
+      "task_type": "tool_selection",
+      "candidate_pages": [
+        "/blog/choose-a-card-collection-app"
+      ],
+      "priority": "P0",
+      "source_type": "human_review",
+      "generation_prompt": null,
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": "用户提供的《CardScanFox GEO 优化与产品调整执行方案》3.1",
+      "priority_batch_rank": 11,
+      "probe_segment": "unbranded_task",
+      "intent_label": "tool_selection",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "tool_selection",
+        "confidence": 0.9
+      }
+    },
+    {
+      "question_id": "GEO-012",
+      "category": "AI 工具推荐",
+      "original_language": "en",
+      "question": "What is the best alternative to Collectr?",
+      "chinese_translation": "Collectr 最合适的替代工具是什么？",
+      "requirement_id": "GEO-TOOLS",
+      "search_intent": "工具选择",
+      "task_type": "tool_selection",
+      "candidate_pages": [
+        "/blog/cardscanfox-vs-collectr"
+      ],
+      "priority": "P0",
+      "source_type": "human_review",
+      "generation_prompt": null,
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": "用户提供的《CardScanFox GEO 优化与产品调整执行方案》3.1",
+      "priority_batch_rank": 12,
+      "probe_segment": "named_competitor",
+      "intent_label": "tool_selection",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "tool_selection",
+        "confidence": 0.99
+      }
+    },
+    {
+      "question_id": "GEO-013",
+      "category": "AI 工具推荐",
+      "original_language": "en",
+      "question": "Collectr vs Ludex: Which is better?",
+      "chinese_translation": "Collectr 和 Ludex 哪个更合适？",
+      "requirement_id": "GEO-TOOLS",
+      "search_intent": "工具选择",
+      "task_type": "tool_selection",
+      "candidate_pages": [
+        "/blog/collectr-vs-ludex"
+      ],
+      "priority": "P0",
+      "source_type": "human_review",
+      "generation_prompt": null,
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": "用户提供的《CardScanFox GEO 优化与产品调整执行方案》3.1",
+      "priority_batch_rank": 13,
+      "probe_segment": "named_competitor",
+      "intent_label": "tool_selection",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "tool_selection",
+        "confidence": 1.0
+      }
+    },
+    {
+      "question_id": "GEO-014",
+      "category": "AI 工具推荐",
+      "original_language": "en",
+      "question": "What app can scan cards and track their value?",
+      "chinese_translation": "哪款应用既能扫描卡牌又能跟踪价值？",
+      "requirement_id": "GEO-TOOLS",
+      "search_intent": "工具选择",
+      "task_type": "tool_selection",
+      "candidate_pages": [
+        "/app"
+      ],
+      "priority": "P0",
+      "source_type": "human_review",
+      "generation_prompt": null,
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": "用户提供的《CardScanFox GEO 优化与产品调整执行方案》3.1",
+      "priority_batch_rank": 14,
+      "probe_segment": "unbranded_task",
+      "intent_label": "tool_selection",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "tool_selection",
+        "confidence": 0.6
+      }
+    },
+    {
+      "question_id": "GEO-015",
+      "category": "真伪鉴定",
+      "original_language": "en",
+      "question": "How can I tell if my Pokémon card is fake?",
+      "chinese_translation": "如何判断我的 Pokémon 卡牌是否为假卡？",
+      "requirement_id": "GEO-AUTHENTICITY",
+      "search_intent": "真伪判断",
+      "task_type": "authenticity",
+      "candidate_pages": [
+        "/blog/pokemon-card-authenticity"
+      ],
+      "priority": "P0",
+      "source_type": "human_review",
+      "generation_prompt": null,
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": "用户提供的《CardScanFox GEO 优化与产品调整执行方案》3.1",
+      "priority_batch_rank": 15,
+      "probe_segment": "unbranded_task",
+      "intent_label": "authenticity",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "authenticity",
+        "confidence": 1.0
+      }
+    },
+    {
+      "question_id": "GEO-016",
+      "category": "真伪鉴定",
+      "original_language": "en",
+      "question": "Can AI detect fake trading cards?",
+      "chinese_translation": "AI 能检测假集换式卡牌吗？",
+      "requirement_id": "GEO-AUTHENTICITY",
+      "search_intent": "真伪判断",
+      "task_type": "authenticity",
+      "candidate_pages": [
+        "/blog/pokemon-card-authenticity"
+      ],
+      "priority": "P0",
+      "source_type": "human_review",
+      "generation_prompt": null,
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": "用户提供的《CardScanFox GEO 优化与产品调整执行方案》3.1",
+      "priority_batch_rank": 16,
+      "probe_segment": "unbranded_task",
+      "intent_label": "authenticity",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "authenticity",
+        "confidence": 1.0
+      }
+    },
+    {
+      "question_id": "GEO-017",
+      "category": "卡牌评级",
+      "original_language": "en",
+      "question": "Can AI estimate Pokémon card grades?",
+      "chinese_translation": "AI 能估算 Pokémon 卡牌的评级吗？",
+      "requirement_id": "GEO-GRADING",
+      "search_intent": "评级决策",
+      "task_type": "grading",
+      "candidate_pages": [
+        "/ai-card-grading"
+      ],
+      "priority": "P0",
+      "source_type": "human_review",
+      "generation_prompt": null,
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": "用户提供的《CardScanFox GEO 优化与产品调整执行方案》3.1",
+      "priority_batch_rank": 17,
+      "probe_segment": "unbranded_task",
+      "intent_label": "grading",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "grading",
+        "confidence": 1.0
+      }
+    },
+    {
+      "question_id": "GEO-018",
+      "category": "卡牌评级",
+      "original_language": "en",
+      "question": "Is PSA grading worth it?",
+      "chinese_translation": "PSA 评级值得吗？",
+      "requirement_id": "GEO-GRADING",
+      "search_intent": "评级决策",
+      "task_type": "grading",
+      "candidate_pages": [
+        "/blog/is-psa-grading-worth-it"
+      ],
+      "priority": "P0",
+      "source_type": "human_review",
+      "generation_prompt": null,
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": "用户提供的《CardScanFox GEO 优化与产品调整执行方案》3.1",
+      "priority_batch_rank": 18,
+      "probe_segment": "unbranded_task",
+      "intent_label": "grading",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "grading",
+        "confidence": 0.98
+      }
+    },
+    {
+      "question_id": "GEO-019",
+      "category": "收藏管理",
+      "original_language": "en",
+      "question": "How can I track the value of my card collection?",
+      "chinese_translation": "如何跟踪我的卡牌收藏价值？",
+      "requirement_id": "GEO-COLLECTION",
+      "search_intent": "收藏管理",
+      "task_type": "collection",
+      "candidate_pages": [
+        "/card-collection-tracker"
+      ],
+      "priority": "P0",
+      "source_type": "human_review",
+      "generation_prompt": null,
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": "用户提供的《CardScanFox GEO 优化与产品调整执行方案》3.1",
+      "priority_batch_rank": 19,
+      "probe_segment": "unbranded_task",
+      "intent_label": "collection",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "collection",
+        "confidence": 0.52
+      }
+    },
+    {
+      "question_id": "GEO-020",
+      "category": "收藏管理",
+      "original_language": "en",
+      "question": "What is the best way to organize thousands of trading cards?",
+      "chinese_translation": "整理数千张集换式卡牌最好的方法是什么？",
+      "requirement_id": "GEO-COLLECTION",
+      "search_intent": "收藏管理",
+      "task_type": "collection",
+      "candidate_pages": [
+        "/blog/organize-a-large-card-collection"
+      ],
+      "priority": "P0",
+      "source_type": "human_review",
+      "generation_prompt": null,
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": "用户提供的《CardScanFox GEO 优化与产品调整执行方案》3.1",
+      "priority_batch_rank": 20,
+      "probe_segment": "unbranded_task",
+      "intent_label": "collection",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "collection",
+        "confidence": 0.86
+      }
+    },
+    {
+      "question_id": "GEO-021",
+      "category": "卡牌识别",
+      "original_language": "en",
+      "question": "How can I identify a sports card from a photo?",
+      "chinese_translation": "如何通过照片识别体育卡牌？",
+      "requirement_id": "GEO-IDENTIFY",
+      "search_intent": "卡牌识别",
+      "task_type": "identification",
+      "candidate_pages": [
+        "/sports-card-scanner"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "identification",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "identification",
+        "confidence": 1.0
+      }
+    },
+    {
+      "question_id": "GEO-022",
+      "category": "卡牌识别",
+      "original_language": "en",
+      "question": "What details should I check after an AI identifies my card?",
+      "chinese_translation": "AI 识别卡牌后我应该检查哪些细节？",
+      "requirement_id": "GEO-IDENTIFY",
+      "search_intent": "卡牌识别",
+      "task_type": "identification",
+      "candidate_pages": [
+        "/card-identifier"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "identification",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "identification",
+        "confidence": 0.8
+      }
+    },
+    {
+      "question_id": "GEO-023",
+      "category": "卡牌识别",
+      "original_language": "en",
+      "question": "Can a card scanner tell me the set and card number?",
+      "chinese_translation": "卡牌扫描器能告诉我系列和卡号吗？",
+      "requirement_id": "GEO-IDENTIFY",
+      "search_intent": "卡牌识别",
+      "task_type": "identification",
+      "candidate_pages": [
+        "/card-identifier"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "identification",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "identification",
+        "confidence": 1.0
+      }
+    },
+    {
+      "question_id": "GEO-024",
+      "category": "卡牌识别",
+      "original_language": "en",
+      "question": "How do I identify a parallel or holographic trading card?",
+      "chinese_translation": "如何识别平行版本或全息集换式卡牌？",
+      "requirement_id": "GEO-IDENTIFY",
+      "search_intent": "卡牌识别",
+      "task_type": "identification",
+      "candidate_pages": [
+        "/card-identifier"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "identification",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "identification",
+        "confidence": 1.0
+      }
+    },
+    {
+      "question_id": "GEO-025",
+      "category": "卡牌识别",
+      "original_language": "en",
+      "question": "What is the fastest way to identify a stack of trading cards?",
+      "chinese_translation": "识别一叠卡牌最快的方法是什么？",
+      "requirement_id": "GEO-IDENTIFY",
+      "search_intent": "卡牌识别",
+      "task_type": "identification",
+      "candidate_pages": [
+        "/bulk-card-scanner"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "identification",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "identification",
+        "confidence": 0.93
+      }
+    },
+    {
+      "question_id": "GEO-026",
+      "category": "卡牌识别",
+      "original_language": "en",
+      "question": "How can I identify a card when the text is hard to read?",
+      "chinese_translation": "卡牌文字很难看清时如何识别？",
+      "requirement_id": "GEO-IDENTIFY",
+      "search_intent": "卡牌识别",
+      "task_type": "identification",
+      "candidate_pages": [
+        "/card-identifier"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "identification",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "identification",
+        "confidence": 1.0
+      }
+    },
+    {
+      "question_id": "GEO-027",
+      "category": "卡牌识别",
+      "original_language": "en",
+      "question": "Can a card scanner distinguish English and Japanese printings?",
+      "chinese_translation": "卡牌扫描器能区分英文和日文印刷吗？",
+      "requirement_id": "GEO-IDENTIFY",
+      "search_intent": "卡牌识别",
+      "task_type": "identification",
+      "candidate_pages": [
+        "/card-identifier"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "identification",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "identification",
+        "confidence": 0.97
+      }
+    },
+    {
+      "question_id": "GEO-028",
+      "category": "卡牌识别",
+      "original_language": "en",
+      "question": "How do I confirm that an AI card match is the exact printing?",
+      "chinese_translation": "如何确认 AI 匹配的是准确的印刷版本？",
+      "requirement_id": "GEO-IDENTIFY",
+      "search_intent": "卡牌识别",
+      "task_type": "identification",
+      "candidate_pages": [
+        "/card-identifier"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "identification",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "identification",
+        "confidence": 0.9
+      }
+    },
+    {
+      "question_id": "GEO-029",
+      "category": "卡牌识别",
+      "original_language": "en",
+      "question": "Which card scanner works for more than one trading card game?",
+      "chinese_translation": "哪个卡牌扫描器支持多个集换式卡牌游戏？",
+      "requirement_id": "GEO-IDENTIFY",
+      "search_intent": "工具选择",
+      "task_type": "tool_selection",
+      "candidate_pages": [
+        "/app",
+        "/games"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "tool_selection",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "tool_selection",
+        "confidence": 0.81
+      }
+    },
+    {
+      "question_id": "GEO-030",
+      "category": "卡牌识别",
+      "original_language": "en",
+      "question": "Can I scan cards from my camera roll instead of taking a new photo?",
+      "chinese_translation": "可以直接扫描相册里的照片吗？",
+      "requirement_id": "GEO-IDENTIFY",
+      "search_intent": "卡牌识别",
+      "task_type": "identification",
+      "candidate_pages": [
+        "/blog/identify-a-trading-card-from-a-photo"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "identification",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "identification",
+        "confidence": 0.92
+      }
+    },
+    {
+      "question_id": "GEO-031",
+      "category": "卡牌识别",
+      "original_language": "en",
+      "question": "What should I do when a card scanner suggests the wrong match?",
+      "chinese_translation": "卡牌扫描器匹配错误时我该怎么办？",
+      "requirement_id": "GEO-IDENTIFY",
+      "search_intent": "卡牌识别",
+      "task_type": "identification",
+      "candidate_pages": [
+        "/card-identifier"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "identification",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "identification",
+        "confidence": 0.82
+      }
+    },
+    {
+      "question_id": "GEO-032",
+      "category": "卡牌价格",
+      "original_language": "en",
+      "question": "How much is a Charizard card worth by set and number?",
+      "chinese_translation": "如何按系列和卡号判断一张喷火龙卡的价值？",
+      "requirement_id": "GEO-VALUES",
+      "search_intent": "价格查询",
+      "task_type": "pricing",
+      "candidate_pages": [
+        "/blog/charizard-151-card-value",
+        "/blog/charizard-gx-card-values"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "pricing",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "pricing",
+        "confidence": 1.0
+      }
+    },
+    {
+      "question_id": "GEO-033",
+      "category": "卡牌价格",
+      "original_language": "en",
+      "question": "How do I compare raw and graded card prices?",
+      "chinese_translation": "如何比较裸卡和评级卡的价格？",
+      "requirement_id": "GEO-VALUES",
+      "search_intent": "价格查询",
+      "task_type": "pricing",
+      "candidate_pages": [
+        "/blog/raw-vs-graded-card-values"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "pricing",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "pricing",
+        "confidence": 0.98
+      }
+    },
+    {
+      "question_id": "GEO-034",
+      "category": "卡牌价格",
+      "original_language": "en",
+      "question": "What is the difference between a listing price and a sold price for a card?",
+      "chinese_translation": "卡牌挂牌价和成交价有什么区别？",
+      "requirement_id": "GEO-VALUES",
+      "search_intent": "价格查询",
+      "task_type": "pricing",
+      "candidate_pages": [
+        "/card-price-data-methodology/"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "pricing",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "pricing",
+        "confidence": 0.97
+      }
+    },
+    {
+      "question_id": "GEO-035",
+      "category": "卡牌价格",
+      "original_language": "en",
+      "question": "How can I price a card when no recent sale is available?",
+      "chinese_translation": "没有近期成交记录时如何给卡牌定价？",
+      "requirement_id": "GEO-VALUES",
+      "search_intent": "价格查询",
+      "task_type": "pricing",
+      "candidate_pages": [
+        "/card-price-data-methodology/"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "pricing",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "pricing",
+        "confidence": 1.0
+      }
+    },
+    {
+      "question_id": "GEO-036",
+      "category": "卡牌价格",
+      "original_language": "en",
+      "question": "How do language and card condition affect a card value?",
+      "chinese_translation": "语言和卡况会如何影响卡牌价值？",
+      "requirement_id": "GEO-VALUES",
+      "search_intent": "价格查询",
+      "task_type": "pricing",
+      "candidate_pages": [
+        "/card-price-checker"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "pricing",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "pricing",
+        "confidence": 0.97
+      }
+    },
+    {
+      "question_id": "GEO-037",
+      "category": "卡牌价格",
+      "original_language": "en",
+      "question": "How do I find the value of a card with a missing or uncertain number?",
+      "chinese_translation": "卡号缺失或不确定时如何查卡牌价值？",
+      "requirement_id": "GEO-VALUES",
+      "search_intent": "价格查询",
+      "task_type": "pricing",
+      "candidate_pages": [
+        "/card-price-checker"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "pricing",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "pricing",
+        "confidence": 0.98
+      }
+    },
+    {
+      "question_id": "GEO-038",
+      "category": "卡牌价格",
+      "original_language": "en",
+      "question": "Can a card app show a price history instead of one estimate?",
+      "chinese_translation": "卡牌应用能显示价格历史而不是单个估值吗？",
+      "requirement_id": "GEO-VALUES",
+      "search_intent": "价格查询",
+      "task_type": "pricing",
+      "candidate_pages": [
+        "/blog/trading-card-price-history"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "pricing",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "pricing",
+        "confidence": 0.97
+      }
+    },
+    {
+      "question_id": "GEO-039",
+      "category": "卡牌价格",
+      "original_language": "en",
+      "question": "How often should I recheck a trading card price?",
+      "chinese_translation": "多久应该重新检查一次集换式卡牌价格？",
+      "requirement_id": "GEO-VALUES",
+      "search_intent": "价格查询",
+      "task_type": "pricing",
+      "candidate_pages": [
+        "/card-price-data-methodology/"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "pricing",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "pricing",
+        "confidence": 0.71
+      }
+    },
+    {
+      "question_id": "GEO-040",
+      "category": "卡牌价格",
+      "original_language": "en",
+      "question": "What is a reasonable way to value a complete card collection?",
+      "chinese_translation": "如何合理估算一整套卡牌收藏的价值？",
+      "requirement_id": "GEO-VALUES",
+      "search_intent": "价格查询",
+      "task_type": "pricing",
+      "candidate_pages": [
+        "/card-price-checker"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "pricing",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "pricing",
+        "confidence": 0.97
+      }
+    },
+    {
+      "question_id": "GEO-041",
+      "category": "卡牌价格",
+      "original_language": "en",
+      "question": "How do I compare prices across currencies?",
+      "chinese_translation": "如何比较不同货币的卡牌价格？",
+      "requirement_id": "GEO-VALUES",
+      "search_intent": "价格查询",
+      "task_type": "pricing",
+      "candidate_pages": [
+        "/card-price-data-methodology/"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "pricing",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "pricing",
+        "confidence": 1.0
+      }
+    },
+    {
+      "question_id": "GEO-042",
+      "category": "卡牌价格",
+      "original_language": "en",
+      "question": "Where can I verify the source and date behind a card price?",
+      "chinese_translation": "在哪里可以核实卡牌价格的来源和日期？",
+      "requirement_id": "GEO-VALUES",
+      "search_intent": "价格查询",
+      "task_type": "pricing",
+      "candidate_pages": [
+        "/card-price-data-methodology/"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "pricing",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "pricing",
+        "confidence": 0.92
+      }
+    },
+    {
+      "question_id": "GEO-043",
+      "category": "AI 工具推荐",
+      "original_language": "en",
+      "question": "Which card scanner lets me review a match before saving it?",
+      "chinese_translation": "哪个扫描器允许我在保存前检查匹配？",
+      "requirement_id": "GEO-TOOLS",
+      "search_intent": "工具选择",
+      "task_type": "tool_selection",
+      "candidate_pages": [
+        "/card-scanner-comparison-2026"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "tool_selection",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "tool_selection",
+        "confidence": 0.91
+      }
+    },
+    {
+      "question_id": "GEO-044",
+      "category": "AI 工具推荐",
+      "original_language": "en",
+      "question": "What card app is good for a beginner with a small collection?",
+      "chinese_translation": "小收藏的新手适合使用哪款卡牌应用？",
+      "requirement_id": "GEO-TOOLS",
+      "search_intent": "工具选择",
+      "task_type": "tool_selection",
+      "candidate_pages": [
+        "/blog/choose-a-card-collection-app"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "tool_selection",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "tool_selection",
+        "confidence": 1.0
+      }
+    },
+    {
+      "question_id": "GEO-045",
+      "category": "AI 工具推荐",
+      "original_language": "en",
+      "question": "What card app is better for scanning a large backlog?",
+      "chinese_translation": "哪个卡牌应用适合处理大量待整理卡牌？",
+      "requirement_id": "GEO-TOOLS",
+      "search_intent": "工具选择",
+      "task_type": "tool_selection",
+      "candidate_pages": [
+        "/bulk-card-scanner",
+        "/blog/organize-a-large-card-collection"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "tool_selection",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "tool_selection",
+        "confidence": 0.99
+      }
+    },
+    {
+      "question_id": "GEO-046",
+      "category": "AI 工具推荐",
+      "original_language": "en",
+      "question": "Which tools can identify cards and keep a collection list?",
+      "chinese_translation": "哪些工具能识别卡牌并保存收藏清单？",
+      "requirement_id": "GEO-TOOLS",
+      "search_intent": "工具选择",
+      "task_type": "tool_selection",
+      "candidate_pages": [
+        "/app",
+        "/card-collection-tracker"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "tool_selection",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "tool_selection",
+        "confidence": 0.6
+      }
+    },
+    {
+      "question_id": "GEO-047",
+      "category": "AI 工具推荐",
+      "original_language": "en",
+      "question": "What is the best card scanner if I need price context too?",
+      "chinese_translation": "如果我还需要价格背景，哪款扫描器更合适？",
+      "requirement_id": "GEO-TOOLS",
+      "search_intent": "工具选择",
+      "task_type": "tool_selection",
+      "candidate_pages": [
+        "/card-scanner-comparison-2026"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "tool_selection",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "tool_selection",
+        "confidence": 0.96
+      }
+    },
+    {
+      "question_id": "GEO-048",
+      "category": "AI 工具推荐",
+      "original_language": "en",
+      "question": "Which card scanner apps have a free allowance?",
+      "chinese_translation": "哪些卡牌扫描应用提供免费额度？",
+      "requirement_id": "GEO-TOOLS",
+      "search_intent": "工具选择",
+      "task_type": "tool_selection",
+      "candidate_pages": [
+        "/card-scanner-comparison-2026"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "tool_selection",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "tool_selection",
+        "confidence": 0.97
+      }
+    },
+    {
+      "question_id": "GEO-049",
+      "category": "AI 工具推荐",
+      "original_language": "en",
+      "question": "What is the best browser tool for recognizing a card?",
+      "chinese_translation": "识别卡牌最好的浏览器工具是什么？",
+      "requirement_id": "GEO-TOOLS",
+      "search_intent": "工具选择",
+      "task_type": "tool_selection",
+      "candidate_pages": [
+        "/chrome-extension"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "tool_selection",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "tool_selection",
+        "confidence": 0.89
+      }
+    },
+    {
+      "question_id": "GEO-050",
+      "category": "AI 工具推荐",
+      "original_language": "en",
+      "question": "Which card scanner works without replacing a wrong match automatically?",
+      "chinese_translation": "哪个扫描器不会自动用错误匹配替换卡牌？",
+      "requirement_id": "GEO-TOOLS",
+      "search_intent": "工具选择",
+      "task_type": "tool_selection",
+      "candidate_pages": [
+        "/card-price-data-methodology/"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "tool_selection",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "tool_selection",
+        "confidence": 0.79
+      }
+    },
+    {
+      "question_id": "GEO-051",
+      "category": "AI 工具推荐",
+      "original_language": "en",
+      "question": "How should I test two card scanner apps fairly?",
+      "chinese_translation": "如何公平测试两款卡牌扫描应用？",
+      "requirement_id": "GEO-TOOLS",
+      "search_intent": "工具选择",
+      "task_type": "tool_selection",
+      "candidate_pages": [
+        "/card-scanner-comparison-2026",
+        "/ai-card-recognition-accuracy/"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "tool_selection",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "tool_selection",
+        "confidence": 0.99
+      }
+    },
+    {
+      "question_id": "GEO-052",
+      "category": "真伪鉴定",
+      "original_language": "en",
+      "question": "What physical checks help identify a counterfeit trading card?",
+      "chinese_translation": "哪些实物检查有助于识别假集换式卡牌？",
+      "requirement_id": "GEO-AUTHENTICITY",
+      "search_intent": "真伪判断",
+      "task_type": "authenticity",
+      "candidate_pages": [
+        "/blog/pokemon-card-authenticity"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "authenticity",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "authenticity",
+        "confidence": 0.99
+      }
+    },
+    {
+      "question_id": "GEO-053",
+      "category": "真伪鉴定",
+      "original_language": "en",
+      "question": "Can a scan prove that a trading card is authentic?",
+      "chinese_translation": "扫描能证明一张集换式卡牌是真的吗？",
+      "requirement_id": "GEO-AUTHENTICITY",
+      "search_intent": "真伪判断",
+      "task_type": "authenticity",
+      "candidate_pages": [
+        "/blog/pokemon-card-authenticity"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "authenticity",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "authenticity",
+        "confidence": 0.99
+      }
+    },
+    {
+      "question_id": "GEO-054",
+      "category": "真伪鉴定",
+      "original_language": "en",
+      "question": "What should I do when a card looks real but the catalog match is uncertain?",
+      "chinese_translation": "卡牌看起来像真的但目录匹配不确定时怎么办？",
+      "requirement_id": "GEO-AUTHENTICITY",
+      "search_intent": "真伪判断",
+      "task_type": "authenticity",
+      "candidate_pages": [
+        "/blog/pokemon-card-authenticity"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "authenticity",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "authenticity",
+        "confidence": 0.86
+      }
+    },
+    {
+      "question_id": "GEO-055",
+      "category": "真伪鉴定",
+      "original_language": "en",
+      "question": "How can I compare a suspicious card with an official checklist?",
+      "chinese_translation": "如何用官方清单对比可疑卡牌？",
+      "requirement_id": "GEO-AUTHENTICITY",
+      "search_intent": "真伪判断",
+      "task_type": "authenticity",
+      "candidate_pages": [
+        "/blog/pokemon-card-authenticity"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "authenticity",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "authenticity",
+        "confidence": 0.8
+      }
+    },
+    {
+      "question_id": "GEO-056",
+      "category": "真伪鉴定",
+      "original_language": "en",
+      "question": "What signs suggest a Pokémon card may be counterfeit?",
+      "chinese_translation": "哪些迹象说明 Pokémon 卡牌可能是伪造的？",
+      "requirement_id": "GEO-AUTHENTICITY",
+      "search_intent": "真伪判断",
+      "task_type": "authenticity",
+      "candidate_pages": [
+        "/blog/pokemon-card-authenticity"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "authenticity",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "authenticity",
+        "confidence": 1.0
+      }
+    },
+    {
+      "question_id": "GEO-057",
+      "category": "真伪鉴定",
+      "original_language": "en",
+      "question": "Can price data tell me whether a card is fake?",
+      "chinese_translation": "价格数据能说明卡牌是假的吗？",
+      "requirement_id": "GEO-AUTHENTICITY",
+      "search_intent": "真伪判断",
+      "task_type": "authenticity",
+      "candidate_pages": [
+        "/blog/pokemon-card-authenticity"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "authenticity",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "authenticity",
+        "confidence": 0.98
+      }
+    },
+    {
+      "question_id": "GEO-058",
+      "category": "真伪鉴定",
+      "original_language": "en",
+      "question": "How should I handle a card with an unusual font or color?",
+      "chinese_translation": "卡牌字体或颜色异常时应该怎么处理？",
+      "requirement_id": "GEO-AUTHENTICITY",
+      "search_intent": "真伪判断",
+      "task_type": "authenticity",
+      "candidate_pages": [
+        "/blog/pokemon-card-authenticity"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "authenticity",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "authenticity",
+        "confidence": 0.94
+      }
+    },
+    {
+      "question_id": "GEO-059",
+      "category": "真伪鉴定",
+      "original_language": "en",
+      "question": "Who should I contact for a professional authenticity opinion?",
+      "chinese_translation": "应该联系谁获取专业的真伪意见？",
+      "requirement_id": "GEO-AUTHENTICITY",
+      "search_intent": "真伪判断",
+      "task_type": "authenticity",
+      "candidate_pages": [
+        "/blog/pokemon-card-authenticity"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "authenticity",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "authenticity",
+        "confidence": 0.87
+      }
+    },
+    {
+      "question_id": "GEO-060",
+      "category": "卡牌评级",
+      "original_language": "en",
+      "question": "What is the difference between a raw card and a graded card?",
+      "chinese_translation": "裸卡和评级卡有什么区别？",
+      "requirement_id": "GEO-GRADING",
+      "search_intent": "评级决策",
+      "task_type": "grading",
+      "candidate_pages": [
+        "/blog/raw-vs-graded-card-values"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "grading",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "grading",
+        "confidence": 0.72
+      }
+    },
+    {
+      "question_id": "GEO-061",
+      "category": "卡牌评级",
+      "original_language": "en",
+      "question": "How do PSA 10 and PSA 9 prices usually differ?",
+      "chinese_translation": "PSA 10 和 PSA 9 的价格通常有什么差异？",
+      "requirement_id": "GEO-GRADING",
+      "search_intent": "价格查询",
+      "task_type": "pricing",
+      "candidate_pages": [
+        "/blog/raw-vs-graded-card-values"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "pricing",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "pricing",
+        "confidence": 0.92
+      }
+    },
+    {
+      "question_id": "GEO-062",
+      "category": "卡牌评级",
+      "original_language": "en",
+      "question": "What should I check before sending a card for grading?",
+      "chinese_translation": "送卡评级前应该检查什么？",
+      "requirement_id": "GEO-GRADING",
+      "search_intent": "评级决策",
+      "task_type": "grading",
+      "candidate_pages": [
+        "/blog/is-psa-grading-worth-it"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "grading",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "grading",
+        "confidence": 0.97
+      }
+    },
+    {
+      "question_id": "GEO-063",
+      "category": "卡牌评级",
+      "original_language": "en",
+      "question": "Can a photo replace an official grading service?",
+      "chinese_translation": "照片能代替官方评级服务吗？",
+      "requirement_id": "GEO-GRADING",
+      "search_intent": "评级决策",
+      "task_type": "grading",
+      "candidate_pages": [
+        "/ai-card-grading"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "grading",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "grading",
+        "confidence": 0.75
+      }
+    },
+    {
+      "question_id": "GEO-064",
+      "category": "卡牌评级",
+      "original_language": "en",
+      "question": "How should I record an existing slab grade in a collection app?",
+      "chinese_translation": "如何在收藏应用中记录已有卡套的评级？",
+      "requirement_id": "GEO-GRADING",
+      "search_intent": "收藏管理",
+      "task_type": "collection",
+      "candidate_pages": [
+        "/graded-card-tracker"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "collection",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "collection",
+        "confidence": 0.99
+      }
+    },
+    {
+      "question_id": "GEO-065",
+      "category": "卡牌评级",
+      "original_language": "en",
+      "question": "Which card conditions matter most before grading?",
+      "chinese_translation": "送评级前哪些卡况最重要？",
+      "requirement_id": "GEO-GRADING",
+      "search_intent": "评级决策",
+      "task_type": "grading",
+      "candidate_pages": [
+        "/blog/is-psa-grading-worth-it"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "grading",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "grading",
+        "confidence": 1.0
+      }
+    },
+    {
+      "question_id": "GEO-066",
+      "category": "卡牌评级",
+      "original_language": "en",
+      "question": "How do grading fees and shipping affect the decision?",
+      "chinese_translation": "评级费和运费会如何影响决定？",
+      "requirement_id": "GEO-GRADING",
+      "search_intent": "评级决策",
+      "task_type": "grading",
+      "candidate_pages": [
+        "/blog/is-psa-grading-worth-it"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "grading",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "grading",
+        "confidence": 0.99
+      }
+    },
+    {
+      "question_id": "GEO-067",
+      "category": "卡牌评级",
+      "original_language": "en",
+      "question": "When is grading a low-value card not worthwhile?",
+      "chinese_translation": "什么时候低价值卡不值得评级？",
+      "requirement_id": "GEO-GRADING",
+      "search_intent": "评级决策",
+      "task_type": "grading",
+      "candidate_pages": [
+        "/blog/is-psa-grading-worth-it"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "grading",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "grading",
+        "confidence": 1.0
+      }
+    },
+    {
+      "question_id": "GEO-068",
+      "category": "收藏管理",
+      "original_language": "en",
+      "question": "How do I keep raw and graded cards separate in my collection?",
+      "chinese_translation": "如何在收藏中区分裸卡和评级卡？",
+      "requirement_id": "GEO-COLLECTION",
+      "search_intent": "收藏管理",
+      "task_type": "collection",
+      "candidate_pages": [
+        "/graded-card-tracker",
+        "/card-collection-tracker"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "collection",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "collection",
+        "confidence": 0.72
+      }
+    },
+    {
+      "question_id": "GEO-069",
+      "category": "收藏管理",
+      "original_language": "en",
+      "question": "What fields should a digital card collection include?",
+      "chinese_translation": "数字化卡牌收藏应该包含哪些字段？",
+      "requirement_id": "GEO-COLLECTION",
+      "search_intent": "收藏管理",
+      "task_type": "collection",
+      "candidate_pages": [
+        "/blog/organize-a-large-card-collection"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "collection",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "collection",
+        "confidence": 1.0
+      }
+    },
+    {
+      "question_id": "GEO-070",
+      "category": "收藏管理",
+      "original_language": "en",
+      "question": "How can I find duplicate cards in a collection?",
+      "chinese_translation": "如何在收藏中找到重复卡牌？",
+      "requirement_id": "GEO-COLLECTION",
+      "search_intent": "收藏管理",
+      "task_type": "collection",
+      "candidate_pages": [
+        "/blog/organize-a-large-card-collection"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "collection",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "collection",
+        "confidence": 1.0
+      }
+    },
+    {
+      "question_id": "GEO-071",
+      "category": "收藏管理",
+      "original_language": "en",
+      "question": "How do I track cards from multiple games in one collection?",
+      "chinese_translation": "如何在一个收藏中管理多个游戏的卡牌？",
+      "requirement_id": "GEO-COLLECTION",
+      "search_intent": "收藏管理",
+      "task_type": "collection",
+      "candidate_pages": [
+        "/card-collection-tracker"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "collection",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "collection",
+        "confidence": 1.0
+      }
+    },
+    {
+      "question_id": "GEO-072",
+      "category": "收藏管理",
+      "original_language": "en",
+      "question": "What is a good workflow for adding a new card to a collection?",
+      "chinese_translation": "将新卡加入收藏的好流程是什么？",
+      "requirement_id": "GEO-COLLECTION",
+      "search_intent": "收藏管理",
+      "task_type": "collection",
+      "candidate_pages": [
+        "/card-collection-tracker"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "collection",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "collection",
+        "confidence": 0.98
+      }
+    },
+    {
+      "question_id": "GEO-073",
+      "category": "收藏管理",
+      "original_language": "en",
+      "question": "How can I monitor collection value over time?",
+      "chinese_translation": "如何持续监测收藏价值？",
+      "requirement_id": "GEO-COLLECTION",
+      "search_intent": "收藏管理",
+      "task_type": "collection",
+      "candidate_pages": [
+        "/card-collection-tracker"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "collection",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "pricing",
+        "confidence": 0.43
+      },
+      "codex_review_reason": "用户要长期跟踪整个收藏的总值，目标是管理自己的收藏。"
+    },
+    {
+      "question_id": "GEO-074",
+      "category": "收藏管理",
+      "original_language": "en",
+      "question": "How should I record cards with missing prices?",
+      "chinese_translation": "卡牌缺少价格时应该如何记录？",
+      "requirement_id": "GEO-COLLECTION",
+      "search_intent": "收藏管理",
+      "task_type": "collection",
+      "candidate_pages": [
+        "/card-collection-tracker"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "collection",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "collection",
+        "confidence": 0.84
+      }
+    },
+    {
+      "question_id": "GEO-075",
+      "category": "收藏管理",
+      "original_language": "en",
+      "question": "How do I prepare a collection list before selling cards?",
+      "chinese_translation": "出售卡牌前如何准备收藏清单？",
+      "requirement_id": "GEO-COLLECTION",
+      "search_intent": "交易决策",
+      "task_type": "trading",
+      "candidate_pages": [
+        "/blog/organize-a-large-card-collection"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "trading",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "trading",
+        "confidence": 0.89
+      }
+    },
+    {
+      "question_id": "GEO-076",
+      "category": "买卖交易",
+      "original_language": "en",
+      "question": "Where can I sell trading cards?",
+      "chinese_translation": "在哪里可以出售集换式卡牌？",
+      "requirement_id": "GEO-TRADING",
+      "search_intent": "交易决策",
+      "task_type": "trading",
+      "candidate_pages": [
+        "/blog/organize-a-large-card-collection"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "trading",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "trading",
+        "confidence": 0.97
+      }
+    },
+    {
+      "question_id": "GEO-077",
+      "category": "买卖交易",
+      "original_language": "en",
+      "question": "How do I prepare a trading card collection for sale?",
+      "chinese_translation": "如何准备集换式卡牌收藏以便出售？",
+      "requirement_id": "GEO-TRADING",
+      "search_intent": "交易决策",
+      "task_type": "trading",
+      "candidate_pages": [
+        "/blog/organize-a-large-card-collection"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "trading",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "trading",
+        "confidence": 0.99
+      }
+    },
+    {
+      "question_id": "GEO-078",
+      "category": "买卖交易",
+      "original_language": "en",
+      "question": "How can I avoid using the wrong printing when listing a card?",
+      "chinese_translation": "如何避免上架时选错卡牌印刷版本？",
+      "requirement_id": "GEO-TRADING",
+      "search_intent": "交易决策",
+      "task_type": "trading",
+      "candidate_pages": [],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "trading",
+      "candidate_coverage": "暂无合适页面",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "trading",
+        "confidence": 0.69
+      }
+    },
+    {
+      "question_id": "GEO-079",
+      "category": "买卖交易",
+      "original_language": "en",
+      "question": "What information should a card listing include?",
+      "chinese_translation": "卡牌商品信息应该包含哪些内容？",
+      "requirement_id": "GEO-TRADING",
+      "search_intent": "交易决策",
+      "task_type": "trading",
+      "candidate_pages": [],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "trading",
+      "candidate_coverage": "暂无合适页面",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "trading",
+        "confidence": 1.0
+      }
+    },
+    {
+      "question_id": "GEO-080",
+      "category": "买卖交易",
+      "original_language": "en",
+      "question": "How do I compare an asking price with recent market evidence?",
+      "chinese_translation": "如何用近期市场证据比较挂牌价格？",
+      "requirement_id": "GEO-TRADING",
+      "search_intent": "价格查询",
+      "task_type": "pricing",
+      "candidate_pages": [
+        "/blog/organize-a-large-card-collection"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "pricing",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "pricing",
+        "confidence": 0.97
+      }
+    },
+    {
+      "question_id": "GEO-081",
+      "category": "买卖交易",
+      "original_language": "en",
+      "question": "Where can I sell graded Pokémon cards?",
+      "chinese_translation": "在哪里可以出售评级 Pokémon 卡牌？",
+      "requirement_id": "GEO-TRADING",
+      "search_intent": "交易决策",
+      "task_type": "trading",
+      "candidate_pages": [],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "trading",
+      "candidate_coverage": "暂无合适页面",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "trading",
+        "confidence": 0.99
+      }
+    },
+    {
+      "question_id": "GEO-082",
+      "category": "买卖交易",
+      "original_language": "en",
+      "question": "How should I package trading cards for shipping?",
+      "chinese_translation": "寄送集换式卡牌时应该如何包装？",
+      "requirement_id": "GEO-TRADING",
+      "search_intent": "交易决策",
+      "task_type": "trading",
+      "candidate_pages": [],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "trading",
+      "candidate_coverage": "暂无合适页面",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "trading",
+        "confidence": 0.98
+      }
+    },
+    {
+      "question_id": "GEO-083",
+      "category": "买卖交易",
+      "original_language": "en",
+      "question": "What should I check before buying a valuable card online?",
+      "chinese_translation": "网上购买高价值卡牌前应该检查什么？",
+      "requirement_id": "GEO-TRADING",
+      "search_intent": "真伪判断",
+      "task_type": "authenticity",
+      "candidate_pages": [
+        "/blog/pokemon-card-authenticity"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "authenticity",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "authenticity",
+        "confidence": 0.66
+      }
+    },
+    {
+      "question_id": "GEO-084",
+      "category": "买卖交易",
+      "original_language": "en",
+      "question": "How do I separate a sealed product from a single-card value?",
+      "chinese_translation": "如何区分密封产品价值和单卡价值？",
+      "requirement_id": "GEO-TRADING",
+      "search_intent": "价格查询",
+      "task_type": "pricing",
+      "candidate_pages": [
+        "/blog/pokemon-tcg-30th-celebration-card-prices"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "pricing",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "pricing",
+        "confidence": 0.71
+      }
+    },
+    {
+      "question_id": "GEO-085",
+      "category": "买卖交易",
+      "original_language": "en",
+      "question": "How can I make a card inventory for an insurance or estate record?",
+      "chinese_translation": "如何制作卡牌清单用于保险或遗产记录？",
+      "requirement_id": "GEO-TRADING",
+      "search_intent": "收藏管理",
+      "task_type": "collection",
+      "candidate_pages": [
+        "/blog/organize-a-large-card-collection"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "collection",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "collection",
+        "confidence": 1.0
+      }
+    },
+    {
+      "question_id": "GEO-086",
+      "category": "投资趋势",
+      "original_language": "en",
+      "question": "What are the current trading card market trends?",
+      "chinese_translation": "当前集换式卡牌市场趋势是什么？",
+      "requirement_id": "GEO-MARKET",
+      "search_intent": "市场研究",
+      "task_type": "market_trends",
+      "candidate_pages": [
+        "/prices/top-gainers",
+        "/blog/trading-card-price-history"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "market_trends",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "market_trends",
+        "confidence": 1.0
+      }
+    },
+    {
+      "question_id": "GEO-087",
+      "category": "投资趋势",
+      "original_language": "en",
+      "question": "Which trading card categories are growing in interest?",
+      "chinese_translation": "哪些集换式卡牌类别的关注度在增长？",
+      "requirement_id": "GEO-MARKET",
+      "search_intent": "市场研究",
+      "task_type": "market_trends",
+      "candidate_pages": [],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "market_trends",
+      "candidate_coverage": "暂无合适页面",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "market_trends",
+        "confidence": 1.0
+      }
+    },
+    {
+      "question_id": "GEO-088",
+      "category": "投资趋势",
+      "original_language": "en",
+      "question": "How should I read a trading card price trend?",
+      "chinese_translation": "应该如何阅读卡牌价格趋势？",
+      "requirement_id": "GEO-MARKET",
+      "search_intent": "价格查询",
+      "task_type": "pricing",
+      "candidate_pages": [
+        "/prices/top-gainers",
+        "/blog/trading-card-price-history"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "pricing",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "pricing",
+        "confidence": 0.53
+      }
+    },
+    {
+      "question_id": "GEO-089",
+      "category": "投资趋势",
+      "original_language": "en",
+      "question": "What makes a card price change over time?",
+      "chinese_translation": "什么会导致卡牌价格随时间变化？",
+      "requirement_id": "GEO-MARKET",
+      "search_intent": "市场研究",
+      "task_type": "market_trends",
+      "candidate_pages": [
+        "/prices/top-gainers",
+        "/blog/trading-card-price-history"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "market_trends",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "market_trends",
+        "confidence": 0.9
+      }
+    },
+    {
+      "question_id": "GEO-090",
+      "category": "投资趋势",
+      "original_language": "en",
+      "question": "How can I research a card without treating it as a guaranteed investment?",
+      "chinese_translation": "如何研究卡牌而不把它当作有保证的投资？",
+      "requirement_id": "GEO-MARKET",
+      "search_intent": "市场研究",
+      "task_type": "market_trends",
+      "candidate_pages": [],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "market_trends",
+      "candidate_coverage": "暂无合适页面",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "market_trends",
+        "confidence": 0.88
+      }
+    },
+    {
+      "question_id": "GEO-091",
+      "category": "游戏玩法",
+      "original_language": "en",
+      "question": "What trading card games are good for a new player?",
+      "chinese_translation": "哪些集换式卡牌游戏适合新玩家？",
+      "requirement_id": "GEO-GAMEPLAY",
+      "search_intent": "玩法研究",
+      "task_type": "gameplay",
+      "candidate_pages": [],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "gameplay",
+      "candidate_coverage": "暂无合适页面",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "gameplay",
+        "confidence": 0.94
+      }
+    },
+    {
+      "question_id": "GEO-092",
+      "category": "游戏玩法",
+      "original_language": "en",
+      "question": "How do I start building a deck for a trading card game?",
+      "chinese_translation": "如何开始为集换式卡牌游戏组建牌组？",
+      "requirement_id": "GEO-GAMEPLAY",
+      "search_intent": "玩法研究",
+      "task_type": "gameplay",
+      "candidate_pages": [],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "gameplay",
+      "candidate_coverage": "暂无合适页面",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "gameplay",
+        "confidence": 1.0
+      }
+    },
+    {
+      "question_id": "GEO-093",
+      "category": "游戏玩法",
+      "original_language": "en",
+      "question": "How can I identify which game a card belongs to?",
+      "chinese_translation": "如何识别一张卡属于哪个游戏？",
+      "requirement_id": "GEO-GAMEPLAY",
+      "search_intent": "卡牌识别",
+      "task_type": "identification",
+      "candidate_pages": [
+        "/games",
+        "/card-identifier"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "identification",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "identification",
+        "confidence": 0.98
+      }
+    },
+    {
+      "question_id": "GEO-094",
+      "category": "游戏玩法",
+      "original_language": "en",
+      "question": "What is the difference between collecting cards and playing a card game?",
+      "chinese_translation": "收藏卡牌和玩卡牌游戏有什么区别？",
+      "requirement_id": "GEO-GAMEPLAY",
+      "search_intent": "玩法研究",
+      "task_type": "gameplay",
+      "candidate_pages": [],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "gameplay",
+      "candidate_coverage": "暂无合适页面",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "other",
+        "confidence": 0.77
+      },
+      "codex_review_reason": "用户要理解以游戏规则为目的的玩牌与收藏之间的差别。"
+    },
+    {
+      "question_id": "GEO-095",
+      "category": "游戏玩法",
+      "original_language": "en",
+      "question": "How should I organize cards for deck building?",
+      "chinese_translation": "组牌时应该如何整理卡牌？",
+      "requirement_id": "GEO-GAMEPLAY",
+      "search_intent": "玩法研究",
+      "task_type": "gameplay",
+      "candidate_pages": [],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "gameplay",
+      "candidate_coverage": "暂无合适页面",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "gameplay",
+        "confidence": 0.94
+      }
+    },
+    {
+      "question_id": "GEO-096",
+      "category": "卡牌保存",
+      "original_language": "en",
+      "question": "How should I store trading cards long term?",
+      "chinese_translation": "长期保存集换式卡牌应该怎么做？",
+      "requirement_id": "GEO-STORAGE",
+      "search_intent": "保存与保护",
+      "task_type": "storage",
+      "candidate_pages": [],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "storage",
+      "candidate_coverage": "暂无合适页面",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "storage",
+        "confidence": 1.0
+      }
+    },
+    {
+      "question_id": "GEO-097",
+      "category": "卡牌保存",
+      "original_language": "en",
+      "question": "What sleeves and binders help protect cards?",
+      "chinese_translation": "哪些卡套和卡册有助于保护卡牌？",
+      "requirement_id": "GEO-STORAGE",
+      "search_intent": "保存与保护",
+      "task_type": "storage",
+      "candidate_pages": [],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "storage",
+      "candidate_coverage": "暂无合适页面",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "storage",
+        "confidence": 0.75
+      }
+    },
+    {
+      "question_id": "GEO-098",
+      "category": "卡牌保存",
+      "original_language": "en",
+      "question": "How do humidity and heat affect trading cards?",
+      "chinese_translation": "湿度和高温会如何影响集换式卡牌？",
+      "requirement_id": "GEO-STORAGE",
+      "search_intent": "保存与保护",
+      "task_type": "storage",
+      "candidate_pages": [],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "storage",
+      "candidate_coverage": "暂无合适页面",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "storage",
+        "confidence": 0.99
+      }
+    },
+    {
+      "question_id": "GEO-099",
+      "category": "卡牌保存",
+      "original_language": "en",
+      "question": "What is the safest way to store valuable graded cards?",
+      "chinese_translation": "保存高价值评级卡最安全的方法是什么？",
+      "requirement_id": "GEO-STORAGE",
+      "search_intent": "保存与保护",
+      "task_type": "storage",
+      "candidate_pages": [],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "storage",
+      "candidate_coverage": "暂无合适页面",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "storage",
+        "confidence": 1.0
+      }
+    },
+    {
+      "question_id": "GEO-100",
+      "category": "卡牌保存",
+      "original_language": "en",
+      "question": "How can I photograph cards without damaging them?",
+      "chinese_translation": "如何在不损坏卡牌的情况下拍照？",
+      "requirement_id": "GEO-STORAGE",
+      "search_intent": "保存与保护",
+      "task_type": "storage",
+      "candidate_pages": [
+        "/blog/identify-a-trading-card-from-a-photo"
+      ],
+      "priority": "P1",
+      "source_type": "derived",
+      "generation_prompt": "Write natural English questions a collector could ask about identifying, pricing, choosing tools for, authenticating, grading, organizing, buying, selling, researching, playing with or storing trading cards. Cover different tasks and constraints without naming CardScanFox or its domain.",
+      "generated_at": "2026-11-24",
+      "status": "待实验",
+      "source_reference": null,
+      "priority_batch_rank": null,
+      "probe_segment": "unbranded_task",
+      "intent_label": "storage",
+      "candidate_coverage": "现有或本轮候选页",
+      "jev": {
+        "model": "jev-1.14.0",
+        "choice": "storage",
+        "confidence": 0.35
+      }
+    }
+  ]
+}

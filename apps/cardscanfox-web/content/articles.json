@@ -615,5 +615,309 @@
         "url": "https://assets.pokemon.com/assets/cms/pdf/tcg/rulebooks/Undaunted_Rulebook.pdf"
       }
     ]
+  },
+  {
+    "path": "/blog/choose-a-trading-card-scanner",
+    "file": "choose-a-trading-card-scanner.md",
+    "published": true,
+    "title": "How to Choose a Trading Card Scanner | CardScanFox",
+    "h1": "How to choose a trading card scanner",
+    "description": "Compare how scanners match printings, handle free access, and carry cards into price research or a collection.",
+    "category": "comparisons",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-24",
+    "sources": [
+      {
+        "label": "CardScanFox browser scanner",
+        "url": "https://tcgcard.fun/card-identifier"
+      },
+      {
+        "label": "Pokémon official 151 checklist",
+        "url": "https://assets.pokemon.com/assets/cms2/pdf/trading-card-game/checklist/mew_web_cardlist_en.pdf"
+      },
+      {
+        "label": "Ludex scan workflow",
+        "url": "https://help.ludex.com/en_us/how-to-scan-a-card-with-ludex-S1jIinqeq"
+      }
+    ]
+  },
+  {
+    "path": "/blog/identify-a-trading-card-from-a-photo",
+    "file": "identify-a-trading-card-from-a-photo.md",
+    "published": true,
+    "title": "How to Identify a Trading Card From a Photo | CardScanFox",
+    "h1": "How to identify a trading card from a photo",
+    "description": "Take a clear photo, verify the exact printing and use a manual search if the match is unclear.",
+    "category": "identity",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-24",
+    "sources": [
+      {
+        "label": "CardScanFox browser scanner",
+        "url": "https://tcgcard.fun/card-identifier"
+      },
+      {
+        "label": "Pokémon official database guide",
+        "url": "https://support.pokemon.com/hc/en-us/articles/360001025274-How-do-I-use-the-Trading-Card-Game-database"
+      },
+      {
+        "label": "Pokémon official 151 checklist",
+        "url": "https://assets.pokemon.com/assets/cms2/pdf/trading-card-game/checklist/mew_web_cardlist_en.pdf"
+      }
+    ]
+  },
+  {
+    "path": "/blog/identify-pokemon-card-versions",
+    "file": "identify-pokemon-card-versions.md",
+    "published": true,
+    "title": "How to Identify Pokémon Card Versions | CardScanFox",
+    "h1": "How to identify Pokémon card versions",
+    "description": "Match the set, full collector number, language and finish, with examples from Scarlet & Violet—151.",
+    "category": "identity",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-24",
+    "sources": [
+      {
+        "label": "Pokémon official 151 checklist",
+        "url": "https://assets.pokemon.com/assets/cms2/pdf/trading-card-game/checklist/mew_web_cardlist_en.pdf"
+      },
+      {
+        "label": "Pokémon official database guide",
+        "url": "https://support.pokemon.com/hc/en-us/articles/360001025274-How-do-I-use-the-Trading-Card-Game-database"
+      }
+    ]
+  },
+  {
+    "path": "/blog/trading-card-price-history",
+    "file": "trading-card-price-history.md",
+    "published": true,
+    "title": "Where to Find Trading Card Price History | CardScanFox",
+    "h1": "Where to find trading card price history",
+    "description": "Find price history for one printing and condition, then tell dated references apart from completed sales and active listings.",
+    "category": "values",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-24",
+    "sources": [
+      {
+        "label": "TCGplayer’s price metrics",
+        "url": "https://help.tcgplayer.com/hc/en-us/articles/222376867-What-do-the-different-price-points-on-TCGplayer-com-mean"
+      },
+      {
+        "label": "PriceCharting’s price methodology",
+        "url": "https://www.pricecharting.com/page/methodology"
+      },
+      {
+        "label": "eBay Product Research",
+        "url": "https://www.ebay.com/help/selling/selling-tools/product-research?id=4853"
+      }
+    ]
+  },
+  {
+    "path": "/blog/choose-a-card-collection-app",
+    "file": "choose-a-card-collection-app.md",
+    "published": true,
+    "title": "How to Choose a Trading Card Collection App | CardScanFox",
+    "h1": "How to choose a trading card collection app",
+    "description": "Test how collection apps handle printings, quantities, grades, missing prices and the way you organize your cards.",
+    "category": "collecting",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-24",
+    "sources": [
+      {
+        "label": "CardScanFox collection tracker",
+        "url": "https://tcgcard.fun/card-collection-tracker"
+      },
+      {
+        "label": "Collectr portfolio",
+        "url": "https://www.getcollectr.com/"
+      },
+      {
+        "label": "Ludex mobile and web features",
+        "url": "https://help.ludex.com/en_us/web-vs-mobile-feature-comparison-HJkqM3vCZl"
+      }
+    ]
+  },
+  {
+    "path": "/blog/pokemon-card-authenticity",
+    "file": "pokemon-card-authenticity.md",
+    "published": true,
+    "title": "How to Check for Fake Pokémon Cards | CardScanFox",
+    "h1": "How to check for fake Pokémon cards",
+    "description": "Compare a suspected copy with the exact Pokémon printing, screen for mismatches, and know when to ask a specialist.",
+    "category": "identity",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-24",
+    "sources": [
+      {
+        "label": "Pokémon Support counterfeit guidance",
+        "url": "https://support.pokemon.com/hc/en-us/articles/360002068953-Did-I-purchase-fake-or-counterfeit-cards"
+      },
+      {
+        "label": "PSA authentication and grading",
+        "url": "https://www.psacard.com/services/tradingcardgrading/grading"
+      }
+    ]
+  },
+  {
+    "path": "/blog/is-psa-grading-worth-it",
+    "file": "is-psa-grading-worth-it.md",
+    "published": true,
+    "title": "Is PSA Grading Worth It? Costs and Outcomes | CardScanFox",
+    "h1": "Is PSA grading worth it?",
+    "description": "Compare the raw value, possible grades and full grading cost before deciding whether to submit a trading card.",
+    "category": "values",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-24",
+    "sources": [
+      {
+        "label": "PSA grading standards",
+        "url": "https://www.psacard.com/gradingstandards"
+      },
+      {
+        "label": "PSA grading services",
+        "url": "https://www.psacard.com/services/tradingcardgrading/grading"
+      },
+      {
+        "label": "CardScanFox photo pregrading",
+        "url": "https://tcgcard.fun/ai-card-grading"
+      }
+    ]
+  },
+  {
+    "path": "/blog/organize-a-large-card-collection",
+    "file": "organize-a-large-card-collection.md",
+    "published": true,
+    "title": "How to Organize a Large Trading Card Collection | CardScanFox",
+    "h1": "How to organize a large trading card collection",
+    "description": "Sort thousands of cards by game, set and number, record quantities and locations, and reconcile each box before moving on.",
+    "category": "collecting",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-24",
+    "sources": [
+      {
+        "label": "Pokémon official database guide",
+        "url": "https://support.pokemon.com/hc/en-us/articles/360001025274-How-do-I-use-the-Trading-Card-Game-database"
+      },
+      {
+        "label": "CardScanFox bulk scanner workflow",
+        "url": "https://tcgcard.fun/bulk-card-scanner"
+      }
+    ]
+  },
+  {
+    "path": "/blog/cardscanfox-vs-collectr",
+    "file": "cardscanfox-vs-collectr.md",
+    "published": true,
+    "title": "CardScanFox vs Collectr: Scanning, Prices and Portfolios | CardScanFox",
+    "h1": "CardScanFox vs Collectr",
+    "description": "Compare phone scanning, card and sealed-product portfolios, price history, free access and paid plans.",
+    "category": "comparisons",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-24",
+    "sources": [
+      {
+        "label": "CardScanFox product overview",
+        "url": "https://tcgcard.fun/app"
+      },
+      {
+        "label": "Collectr scanner",
+        "url": "https://www.getcollectr.com/scan"
+      },
+      {
+        "label": "Collectr prices",
+        "url": "https://www.getcollectr.com/prices"
+      },
+      {
+        "label": "Collectr Pro",
+        "url": "https://www.getcollectr.com/pro.html"
+      }
+    ]
+  },
+  {
+    "path": "/blog/cardscanfox-vs-tcgplayer",
+    "file": "cardscanfox-vs-tcgplayer.md",
+    "published": true,
+    "title": "CardScanFox vs TCGplayer: Scanner and Marketplace | CardScanFox",
+    "h1": "CardScanFox vs TCGplayer",
+    "description": "Compare card scanning, price metrics, collection tracking and TCGplayer seller inventory tools.",
+    "category": "comparisons",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-24",
+    "sources": [
+      {
+        "label": "CardScanFox product overview",
+        "url": "https://tcgcard.fun/app"
+      },
+      {
+        "label": "TCGplayer app FAQ",
+        "url": "https://help.tcgplayer.com/hc/en-us/articles/115009506407-TCGplayer-App-FAQ"
+      },
+      {
+        "label": "TCGplayer Market Price",
+        "url": "https://help.tcgplayer.com/hc/en-us/articles/213588017-TCGplayer-Market-Price"
+      },
+      {
+        "label": "TCGplayer seller tools",
+        "url": "https://seller.tcgplayer.com/mobile-app"
+      }
+    ]
+  },
+  {
+    "path": "/blog/cardscanfox-vs-pricecharting",
+    "file": "cardscanfox-vs-pricecharting.md",
+    "published": true,
+    "title": "CardScanFox vs PriceCharting: Scans and Price Data | CardScanFox",
+    "h1": "CardScanFox vs PriceCharting",
+    "description": "Compare photo scanning, raw and graded prices, sold-listing evidence, collection tools and subscription plans.",
+    "category": "comparisons",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-24",
+    "sources": [
+      {
+        "label": "CardScanFox pricing methodology",
+        "url": "https://tcgcard.fun/data-methodology"
+      },
+      {
+        "label": "PriceCharting methodology",
+        "url": "https://www.pricecharting.com/page/methodology"
+      },
+      {
+        "label": "PriceCharting Multi Scan",
+        "url": "https://www.pricecharting.com/multi-scan"
+      },
+      {
+        "label": "PriceCharting plans",
+        "url": "https://www.pricecharting.com/pricecharting-pro"
+      }
+    ]
+  },
+  {
+    "path": "/blog/collectr-vs-ludex",
+    "file": "collectr-vs-ludex.md",
+    "published": true,
+    "title": "Collectr vs Ludex: Scanning, Pricing and Collections | CardScanFox",
+    "h1": "Collectr vs Ludex",
+    "description": "Compare supported games and sports, portfolio tools, scan limits, price histories and the Ludex eBay workflow.",
+    "category": "comparisons",
+    "author": "CardScanFox Editorial",
+    "publishedAt": "2026-11-24",
+    "sources": [
+      {
+        "label": "Collectr scanner",
+        "url": "https://www.getcollectr.com/scan"
+      },
+      {
+        "label": "Collectr Pro",
+        "url": "https://www.getcollectr.com/pro.html"
+      },
+      {
+        "label": "Ludex supported cards",
+        "url": "https://help.ludex.com/en_us/supported-card-types-S1_q0RWi9"
+      },
+      {
+        "label": "Ludex scan and price",
+        "url": "https://www.ludex.com/scan-and-price/"
+      }
+    ]
   }
 ]

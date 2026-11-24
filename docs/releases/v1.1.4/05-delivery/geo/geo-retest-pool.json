@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "site": "https://tcgcard.fun/",
+  "timezone": "Asia/Shanghai",
+  "entry_fields": {
+    "canonical_url": "正式版自指 URL",
+    "release_version": "经回读确认的生产版本 ID",
+    "published_at": "生产发布时间，含时区偏移",
+    "readback_at": "生产回读时间，含时区偏移",
+    "timezone": "Asia/Shanghai",
+    "question_id": "关联 question-bank.json 的固定 ID",
+    "fixed_question": "与问题库完全相同的英文原问",
+    "due_at": "发布时间的次日同一当地时刻",
+    "status": "待复测、已复测、blocked",
+    "evidence_path": "生产回读或原答受控存档路径"
+  },
+  "entries": []
+}

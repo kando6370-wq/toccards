@@ -1,1 +1,1 @@
-Scan, collect, track value
+TCG Scanner & Price Checker
