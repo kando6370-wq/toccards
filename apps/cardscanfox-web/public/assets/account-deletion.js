@@ -25,12 +25,12 @@ export function buildDeletionRequest(platformValue,emailValue) {
   if(!email)throw new TypeError('Enter a valid account email.');
   const label=PLATFORM_LABELS[platform];
   const other=platform==='android'?'iOS':'Android';
-  const subject=`Card AI account deletion request — ${label}`;
+  const subject=`CardScanFox account deletion request — ${label}`;
   const body=[
-    `I request deletion of my Card AI ${label} account and its associated data.`,
+    `I request deletion of my CardScanFox ${label} account and its associated data.`,
     '',
     `Platform: ${label}`,
-    `Card AI account email: ${email}`,
+    `CardScanFox account email: ${email}`,
     '',
     'I understand that this request applies to the selected platform only.',
     `My ${other} account and its data are not part of this request.`,

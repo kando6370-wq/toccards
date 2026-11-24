@@ -199,7 +199,7 @@ DCC 直接提供发行方 #001–100 卡表、包内容、产品区分、购买�
 
 `/games/pokemon` 是通用 Pokémon 查卡/查价中心；`/pokemon-card-scanner` 是拍照工具页。旧 `/blog/pokemon-card-values` 的角色指南表、编号读法与价格日期说明迁入中心页，其干净 URL 和 `.html` URL 通过 `src/redirects.mjs` 返回 301。查询参数保留。旧源文件留作可复现内容导入；该地址不生成重复 HTML、不进入 sitemap 或索引 allowlist。既有 release:compare 会将这次有意的路径合并和正文更新列为差异，不能宣称无变化通过。
 
-网页品牌、按钮、作者和发布者统一为 CardScanFox。下载页使用 App Store 和 Google Play 商品名 `Card AI: TCG Card Scanner` 标识安装目标。隐私政策、服务条款和删除请求使用同一 App 身份。
+网页品牌、按钮、作者和发布者统一为 CardScanFox。下载页使用 App Store 和 Google Play 商品名 `CardScanFox: TCG Card Scanner` 标识安装目标。隐私政策、服务条款和删除请求使用同一 App 身份。
 
 后续内容先指定唯一页面归属，优先维护卡价、各系列扫描及比较页面；每页给具体答案及来源日期，避免同意图重复建页。外链工作需另按渠道和实际接受结果实施，不把提交记录当作已获得链接。本轮不请求编入索引、不提交 IndexNow。当前只完成本地修改，正式站状态不能据此更新。
 

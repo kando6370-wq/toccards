@@ -33,8 +33,8 @@ function deferred(){let resolve,reject;const promise=new Promise((yes,no)=>{reso
 
 test('request construction keeps platform scope and safely encodes aliases and Unicode',()=>{
  const android=buildDeletionRequest('android','collector+deck@example.com');
- assert.equal(android.subject,'Card AI account deletion request — Android');
- assert.match(decodeURIComponent(android.mailto),/^mailto:support@tcgcard\.fun\?subject=Card AI account deletion request — Android&body=/);
+ assert.equal(android.subject,'CardScanFox account deletion request — Android');
+ assert.match(decodeURIComponent(android.mailto),/^mailto:support@tcgcard\.fun\?subject=CardScanFox account deletion request — Android&body=/);
  assert.match(android.plainText,/Platform: Android/);assert.match(android.plainText,/iOS account and its data are not part/);assert.match(android.plainText,/verify my identity/);
  const ios=buildDeletionRequest('IOS','测试者@example.com');
  assert.match(ios.mailto,/%E6%B5%8B%E8%AF%95%E8%80%85%40example\.com/);assert.match(ios.plainText,/Platform: iOS/);assert.match(ios.plainText,/Android account and its data are not part/);

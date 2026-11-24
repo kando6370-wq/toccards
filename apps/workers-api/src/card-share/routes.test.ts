@@ -4,7 +4,7 @@ import type { Env } from "../env";
 import { createCardShareRoutes } from "./routes";
 
 describe("card share routes", () => {
-  it("serves escaped card metadata and CARD AI branding so shared links identify the app correctly", async () => {
+  it("serves escaped card metadata and CardScanFox branding so shared links identify the app correctly", async () => {
     const app = new Hono<{ Bindings: Env }>();
     app.route(
       "/",
@@ -40,8 +40,8 @@ describe("card share routes", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("text/html");
     expect(response.headers.get("cache-control")).toBe("public, max-age=300");
-    expect(html).toContain('<div class="brand">CARD AI</div>');
-    expect(html).toContain(">Open in CARD AI</button>");
+    expect(html).toContain('<div class="brand">CardScanFox</div>');
+    expect(html).toContain(">Open in CardScanFox</button>");
     expect(html).toContain('<meta property="og:title" content="Switch &lt;Rare&gt; &quot;Card&quot;">');
     expect(html).toContain('<meta property="og:description" content="Deck &amp; Exclusives · Market price: $0.27">');
     expect(html).toContain('<meta property="og:image" content="https://image.tcgcard.fun/cards/560537.jpg">');

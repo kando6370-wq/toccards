@@ -9,10 +9,10 @@ describe("public legal routes", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("text/html");
     expect(response.headers.get("x-frame-options")).toBe("DENY");
-    expect(html).toContain("<title>Terms of Use | Card AI</title>");
-    expect(html).toContain("CARD AI");
+    expect(html).toContain("<title>Terms of Use | CardScanFox</title>");
+    expect(html).toContain("CARDSCANFOX");
     expect(html).toContain("Version date: November 17, 2026");
-    expect(html).toContain("By using Card AI");
+    expect(html).toContain("By using CardScanFox");
     expect(html).toContain("separate platform accounts and personal data spaces");
     expect(html).toContain("We do not use your uploaded images or scan records for model training");
     expect(html).toContain("maximum of 10 cards in a scan batch");
@@ -30,7 +30,7 @@ describe("public legal routes", () => {
     const html = await response.text();
 
     expect(response.status).toBe(200);
-    expect(html).toContain("<title>Privacy Policy | Card AI</title>");
+    expect(html).toContain("<title>Privacy Policy | CardScanFox</title>");
     expect(html).toContain("Version date: November 17, 2026");
     expect(html).toContain("iOS and Android applications");
     expect(html).toContain("the image is uploaded to our server for identification");
@@ -51,7 +51,7 @@ describe("public legal routes", () => {
     const html = await response.text();
 
     expect(response.status).toBe(200);
-    expect(html).toContain("<title>Support | Card AI</title>");
+    expect(html).toContain("<title>Support | CardScanFox</title>");
     expect(html).toContain("Effective date: July 15, 2026");
     expect(html).toContain("Profile &gt; Account &gt; Delete account");
     expect(html).toContain("kando@tcgcard.fun");
