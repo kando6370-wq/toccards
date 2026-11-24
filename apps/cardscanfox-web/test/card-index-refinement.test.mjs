@@ -210,6 +210,22 @@ test('new positive sets are explicit owners and the seven-card discovery artifac
   '/blog/pokemon-valentines-box',
   '/blog/mega-x-mega-parade-card-list',
   '/blog/takumi-akabane-pokemon-card-list',
+  '/about',
+  '/ai-card-recognition-accuracy/',
+  '/card-price-data-methodology/',
+  '/compare/',
+  '/blog/choose-a-trading-card-scanner',
+  '/blog/identify-a-trading-card-from-a-photo',
+  '/blog/identify-pokemon-card-versions',
+  '/blog/trading-card-price-history',
+  '/blog/choose-a-card-collection-app',
+  '/blog/pokemon-card-authenticity',
+  '/blog/is-psa-grading-worth-it',
+  '/blog/organize-a-large-card-collection',
+  '/blog/cardscanfox-vs-collectr',
+  '/blog/cardscanfox-vs-tcgplayer',
+  '/blog/cardscanfox-vs-pricecharting',
+  '/blog/collectr-vs-ludex',
  ].map(path=>url(path).href);
  for(const guide of addedGuides)assert.ok(siteLocations.includes(guide),guide);
  assert.equal(siteLocations.filter(location=>!addedGuides.includes(location)).length,baselineSiteCount);

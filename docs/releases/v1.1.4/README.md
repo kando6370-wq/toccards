@@ -46,6 +46,8 @@ v1.1.3 已原位归档。本版本承接 v1.1.3 之后的新增、变更、移�
 
 - [官网路由与搜索意图](05-delivery/cardscanfox-website-route-seo-spec.md)及[单卡目录与规模化索引](05-delivery/cardscanfox-catalog-indexing.md)：URL、元数据、目录和 sitemap 的设计与实现边界。
 
+- [CardScanFox GEO 发布候选](05-delivery/geo/README.md)记录本轮页面、对比、数据和待发布项。[GEO 问题库](05-delivery/geo/question-bank.md)、[优先问题覆盖](05-delivery/geo/page-coverage.md)和[监测流程](05-delivery/geo/geo-monitoring-template.md)记录固定实验输入、页面答案和发布后复测方法。品牌、商店与用户反馈见 [GEO 运营资料](05-delivery/geo/brand-and-feedback.md)。
+
 - [官网卡牌术语内容补充](05-delivery/cardscanfox-card-term-content-20261108.md)：2026-11-08 内容增量及对应验证记录。
 
 - [官网首页真实卡牌展示](05-delivery/cardscanfox-home-featured-20261108.md)：2026-11-08 首页卡牌与详情链接的实现及验收记录。

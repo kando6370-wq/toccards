@@ -51,3 +51,14 @@ test('publication rejects a valid export that reintroduces a paused card through
  await assert.rejects(copyCatalogSitemaps(output,join(directory,'scope-rejected'),{allowedCardPaths:new Set(['/cards/717605'])}),/approved discovery/);
  const valid=await exportData('scope-protected',[card('717605')]),good=join(directory,'scope-good');await generateCatalogSitemaps(valid,good,{maxUrls:10});const copied=await copyCatalogSitemaps(good,join(directory,'scope-accepted'),{allowedCardPaths:new Set(['/cards/717605'])});assert.equal(copied.discoveryCount,1);
 });
+
+test('card schema identifies the printing without presenting a reference price as an offer', () => {
+ const {html} = createRenderer().resolvePage(new URL('https://tcgcard.fun/cards/714372'));
+ const data = [...html.matchAll(/<script type="application\/ld\+json">([^<]+)<\/script>/g)].map(match => JSON.parse(match[1]));
+ const product = data.find(item => item['@type'] === 'Product');
+ assert.match(product.name, /Charizard.*4\/102/);
+ assert.equal(product.url, 'https://tcgcard.fun/cards/714372');
+ assert.ok(product.additionalProperty.some(field => field.name === 'Finish' && field.value === 'Holofoil'));
+ assert.equal(product.offers, undefined);
+ assert.equal(product.aggregateRating, undefined);
+});

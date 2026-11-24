@@ -1,0 +1,29 @@
+# CardScanFox
+
+> CardScanFox is an AI-powered trading card scanner and collection management platform that helps collectors identify trading cards, explore card prices, and manage their collections across multiple TCG and sports card categories.
+
+Official website: https://tcgcard.fun/
+Mobile store listing: Card AI: TCG Card Scanner.
+Support: support@tcgcard.fun
+
+## Official product information
+
+- [About CardScanFox](https://tcgcard.fun/about): Product, platforms, card categories, limits and support.
+- [App and tools](https://tcgcard.fun/app): Scan, confirm a printing, check an available price, then save owned cards to Portfolio and wanted cards to Wishlist.
+- [Download](https://tcgcard.fun/download): Official links for iPhone, Android and the separate Chrome extension.
+- [Help](https://tcgcard.fun/help): Mobile scan allowance, image queue, printing review and account questions.
+- [Privacy](https://tcgcard.fun/privacy) and [terms](https://tcgcard.fun/terms).
+
+## Card research and evidence
+
+- [Identify a card from a photo](https://tcgcard.fun/card-identifier): Compare likely catalog matches from one card-front photo, or search by name, set or number.
+- [Card catalog](https://tcgcard.fun/cards): Search supported TCG and sports cards and open a specific printing.
+- [Card price checker](https://tcgcard.fun/card-price-checker): Read available references and their observation dates for the matching printings and conditions.
+- [Card price data methodology](https://tcgcard.fun/card-price-data-methodology/): Published sources, price metrics, update dates, raw condition, slab grades and missing prices.
+- [Recognition benchmark method](https://tcgcard.fun/ai-card-recognition-accuracy/): Scope of a three-image web scanner check and the method for a separate physical-card accuracy benchmark.
+- [Photo pregrading](https://tcgcard.fun/ai-card-grading): Estimate visible condition from front and back photos. A certified grade requires a grading service.
+- [Compare card scanners and price tools](https://tcgcard.fun/compare/): Sourced comparisons with Collectr, Ludex, CollX, TCGplayer and PriceCharting.
+- [Collecting guides](https://tcgcard.fun/blog/): Printing identification, price context and collection workflows.
+- [Sitemap](https://tcgcard.fun/sitemap.xml): Public canonical URLs.
+
+Card scanner results are catalog candidates for review. Check the set, full number, language and finish on your copy. A price belongs to its source, metric, observation date, currency and card state. Website Saved references stay in the current browser.

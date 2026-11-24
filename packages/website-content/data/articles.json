@@ -716,5 +716,345 @@
     ],
     "bodyHtml": "<h2>Takumi Akabane is an artist and early TCG figure</h2>\n<p>Takumi Akabane is an early Pokémon Trading Card Game figure whose name appears in artist and historical card records. This page is an artist checklist, not a new expansion page.</p>\n<p>Confirm the printed illustrator credit and language before you add a card to a personal checklist. An artist database can collect related records, but each row still needs its own card identity.</p>\n<h2>Checklist fields</h2>\n<table>\n<thead>\n<tr>\n<th>Field</th>\n<th>Why it matters</th>\n</tr>\n</thead>\n<tbody><tr>\n<td>Card name</td>\n<td>Identifies the printed Pokémon or Trainer</td>\n</tr>\n<tr>\n<td>Language</td>\n<td>Keeps English and Japanese records separate</td>\n</tr>\n<tr>\n<td>Set</td>\n<td>Separates reprints and products</td>\n</tr>\n<tr>\n<td>Collector number</td>\n<td>Confirms the exact card record</td>\n</tr>\n<tr>\n<td>Year</td>\n<td>Helps place early and later records</td>\n</tr>\n<tr>\n<td>Printed illustrator</td>\n<td>Confirms the credit shown on the card</td>\n</tr>\n</tbody></table>\n<p>Do not merge a signed card, a game-design credit or a card featuring a Pokémon character into a printed illustrator credit without source evidence.</p>\n<h2>A checklist is an identity aid</h2>\n<p>An artist checklist helps identify a card record. It does not authenticate a physical card, prove a signature or set a market value. Use the card record and its dated price context only after you confirm the exact printing.</p>\n<p>For a wider card-list workflow, use the <a href=\"/blog/pokemon-tcg-set-card-lists\">Pokémon TCG set card list guide</a>.</p>\n",
     "protected": false
+  },
+  {
+    "id": "/blog/choose-a-trading-card-scanner",
+    "path": "/blog/choose-a-trading-card-scanner",
+    "type": "article",
+    "title": "How to Choose a Trading Card Scanner | CardScanFox",
+    "description": "Compare how scanners match printings, handle free access, and carry cards into price research or a collection.",
+    "h1": "How to choose a trading card scanner",
+    "author": "CardScanFox Editorial",
+    "category": "comparisons",
+    "publishedAt": "2026-11-24",
+    "updatedAt": null,
+    "sources": [
+      {
+        "label": "CardScanFox browser scanner",
+        "url": "https://tcgcard.fun/card-identifier"
+      },
+      {
+        "label": "Pokémon official 151 checklist",
+        "url": "https://assets.pokemon.com/assets/cms2/pdf/trading-card-game/checklist/mew_web_cardlist_en.pdf"
+      },
+      {
+        "label": "Ludex scan workflow",
+        "url": "https://help.ludex.com/en_us/how-to-scan-a-card-with-ludex-S1jIinqeq"
+      }
+    ],
+    "bodyHtml": "<h2>Choose by the job after the scan</h2>\n<p>A good trading card scanner identifies your exact printing and lets you correct the match before you check a price, save a holding, or list a copy. To choose a Pokémon scanner, use cards with known collector numbers and include two cards with the same name but different artwork or finish. A scan that finds the right character and the wrong printing is a miss for price lookup.</p>\n<table>\n<thead>\n<tr>\n<th>Your task</th>\n<th>What to try</th>\n<th>What to check</th>\n</tr>\n</thead>\n<tbody><tr>\n<td>Identify one card for free</td>\n<td>Try the browser scanner or the publisher’s card database</td>\n<td>Can you see and verify the full collector number?</td>\n</tr>\n<tr>\n<td>Scan a stack</td>\n<td>Try the same small stack in each app</td>\n<td>Can you correct each candidate before saving and combine duplicates correctly?</td>\n</tr>\n<tr>\n<td>Track value after a scan</td>\n<td>Save one known printing in each app</td>\n<td>Does the holding keep condition or grade, quantity, source and date?</td>\n</tr>\n<tr>\n<td>Sell a card</td>\n<td>Check a tool’s listing workflow and the marketplace’s sold records</td>\n<td>Does it show comparable sales and keep listings separate from realized prices?</td>\n</tr>\n</tbody></table>\n<h2>Run a small comparison</h2>\n<p>Use the same cards and lighting in each tool. Mark a result as correct only if the set, number, language and variant match. Record candidates you had to correct and cases where the app could not find a match. When free access matters, check whether the limit applies to successful scans, saved cards, price history or batch tools. Check the current plan before paying.</p>\n<p>For example, test English Charizard ex 006/165 and 199/165 from Scarlet &amp; Violet—151. Both cards share a name. They should lead to different records. Add a card from a second game if you collect more than one.</p>\n<h2>Where CardScanFox fits</h2>\n<p>Start with the <a href=\"/card-identifier\">browser card identifier</a> for a single photo. For a stack and an owned collection, review the <a href=\"/bulk-card-scanner\">mobile bulk workflow</a>. The browser identification result stays separate from the mobile Portfolio. Read the <a href=\"/compare/\">scanner comparison center</a> for documented differences among products.</p>\n<h2>Frequently asked questions</h2>\n<h3>What is the best free card scanner?</h3>\n<p>Start with a tool that covers your cards and lets you verify the result without paying. Use its free workflow on cards you already know. Check account requirements, limits and how much price history you can see before choosing.</p>\n<h3>Can a scanner also check prices?</h3>\n<p>Some scanners link to a price reference after you select a catalog match. Use the price for the correct printing and condition or grade, and read its source and date.</p>\n",
+    "protected": false
+  },
+  {
+    "id": "/blog/identify-a-trading-card-from-a-photo",
+    "path": "/blog/identify-a-trading-card-from-a-photo",
+    "type": "article",
+    "title": "How to Identify a Trading Card From a Photo | CardScanFox",
+    "description": "Take a clear photo, verify the exact printing and use a manual search if the match is unclear.",
+    "h1": "How to identify a trading card from a photo",
+    "author": "CardScanFox Editorial",
+    "category": "identity",
+    "publishedAt": "2026-11-24",
+    "updatedAt": null,
+    "sources": [
+      {
+        "label": "CardScanFox browser scanner",
+        "url": "https://tcgcard.fun/card-identifier"
+      },
+      {
+        "label": "Pokémon official database guide",
+        "url": "https://support.pokemon.com/hc/en-us/articles/360001025274-How-do-I-use-the-Trading-Card-Game-database"
+      },
+      {
+        "label": "Pokémon official 151 checklist",
+        "url": "https://assets.pokemon.com/assets/cms2/pdf/trading-card-game/checklist/mew_web_cardlist_en.pdf"
+      }
+    ],
+    "bodyHtml": "<h2>Use a clear photo and confirm the printing</h2>\n<p>Photograph one card from directly above, with the entire front in the frame and the collector number in focus. Use even light and angle the light if foil or a sleeve causes glare. A photo identifier uses the image to find candidates. Match the collector number, set, language, artwork and finish before choosing one.</p>\n<h2>Check the result in this order</h2>\n<ol>\n<li>Read the card name and the full number printed on the card.</li>\n<li>Compare the set code or symbol and the language.</li>\n<li>Check artwork and finish, including any stamp or parallel designation.</li>\n<li>Open the matching record. If none matches, search by name and full number, or check the publisher’s database.</li>\n</ol>\n<p>For example, a photo of Charizard ex 199/165 may produce other Charizard ex candidates. The full number and artwork distinguish the 151 printing from 006/165 and 183/165.</p>\n<h2>Choose a photo or a manual search</h2>\n<p>Use the <a href=\"/card-identifier\">CardScanFox browser identifier</a> when you have one clear front image. Use the <a href=\"/cards\">card catalog</a> or publisher checklist if the image is unclear or your language or finish is missing. A manual lookup also works when you can read the number without taking a photo.</p>\n<h2>Frequently asked questions</h2>\n<h3>What if the first result is wrong?</h3>\n<p>Check other candidates and compare the printed number. Try a new photo in even light or search the number and set together. Leave the match unresolved if the exact printing is missing.</p>\n<h3>Can the result tell me whether the card is genuine?</h3>\n<p>A matching image identifies a possible catalog record. Physical authentication requires separate evidence. See the <a href=\"/blog/pokemon-card-authenticity\">Pokémon card authenticity guide</a>.</p>\n",
+    "protected": false
+  },
+  {
+    "id": "/blog/identify-pokemon-card-versions",
+    "path": "/blog/identify-pokemon-card-versions",
+    "type": "article",
+    "title": "How to Identify Pokémon Card Versions | CardScanFox",
+    "description": "Match the set, full collector number, language and finish, with examples from Scarlet & Violet—151.",
+    "h1": "How to identify Pokémon card versions",
+    "author": "CardScanFox Editorial",
+    "category": "identity",
+    "publishedAt": "2026-11-24",
+    "updatedAt": null,
+    "sources": [
+      {
+        "label": "Pokémon official 151 checklist",
+        "url": "https://assets.pokemon.com/assets/cms2/pdf/trading-card-game/checklist/mew_web_cardlist_en.pdf"
+      },
+      {
+        "label": "Pokémon official database guide",
+        "url": "https://support.pokemon.com/hc/en-us/articles/360001025274-How-do-I-use-the-Trading-Card-Game-database"
+      }
+    ],
+    "bodyHtml": "<h2>Match set, number, language and finish</h2>\n<p>To identify a Pokémon card version, read its set code or symbol and full collector number. Confirm the printed language and artwork. Then check whether your copy has a different foil pattern, stamp or other finish. Keep all of these details when looking up a price.</p>\n<h2>Read the small print first</h2>\n<table>\n<thead>\n<tr>\n<th>What you see</th>\n<th>What to record</th>\n</tr>\n</thead>\n<tbody><tr>\n<td>Set code or an older expansion symbol</td>\n<td>Use the corresponding release or checklist.</td>\n</tr>\n<tr>\n<td>Full number such as 199/165</td>\n<td>Save both parts, including leading zeros when printed.</td>\n</tr>\n<tr>\n<td>Language and artwork</td>\n<td>Compare to a checklist or catalog record for that release.</td>\n</tr>\n<tr>\n<td>Foil, reverse foil or stamp</td>\n<td>Match the physical finish and any release mark before choosing a price.</td>\n</tr>\n</tbody></table>\n<p>Scarlet &amp; Violet—151 includes Charizard ex 006/165, 183/165 and 199/165 in its English checklist. The shared name does not make the copies interchangeable. In other sets, two finishes can share a collector number. In that case, inspect the foil areas or stamp under light and verify the finish through a catalog or checklist.</p>\n<h2>Choose the lookup that fits</h2>\n<p>Use Pokémon’s official checklist to confirm a release and its numbered cards. Use the <a href=\"/pokemon-card-scanner\">Pokémon card scanner</a> to find candidates from a photo, then check its answer against the card in your hand. The <a href=\"/blog/charizard-151-card-value\">151 Charizard guide</a> shows how to compare the three printings without borrowing one version’s price.</p>\n<h2>Frequently asked questions</h2>\n<h3>Is the Pokédex number the card number?</h3>\n<p>Use the collector number printed for that set. A Pokédex number identifies a species and can appear on multiple cards.</p>\n<h3>How do I know whether my card is reverse holo?</h3>\n<p>Tilt the card under even light and locate the foil. Compare that pattern with the exact set and printing. The treatment can vary by release.</p>\n",
+    "protected": false
+  },
+  {
+    "id": "/blog/trading-card-price-history",
+    "path": "/blog/trading-card-price-history",
+    "type": "article",
+    "title": "Where to Find Trading Card Price History | CardScanFox",
+    "description": "Find price history for one printing and condition, then tell dated references apart from completed sales and active listings.",
+    "h1": "Where to find trading card price history",
+    "author": "CardScanFox Editorial",
+    "category": "values",
+    "publishedAt": "2026-11-24",
+    "updatedAt": null,
+    "sources": [
+      {
+        "label": "TCGplayer’s price metrics",
+        "url": "https://help.tcgplayer.com/hc/en-us/articles/222376867-What-do-the-different-price-points-on-TCGplayer-com-mean"
+      },
+      {
+        "label": "PriceCharting’s price methodology",
+        "url": "https://www.pricecharting.com/page/methodology"
+      },
+      {
+        "label": "eBay Product Research",
+        "url": "https://www.ebay.com/help/selling/selling-tools/product-research?id=4853"
+      }
+    ],
+    "bodyHtml": "<h2>Find history for one matching price series</h2>\n<p>Find trading card price history by starting with the set, full collector number, language and variant. Then select the same raw condition or grading company and grade across the dates you compare. Keep the source, currency and metric consistent. A change of source or condition can change the chart even when the card’s market has not moved.</p>\n<table>\n<thead>\n<tr>\n<th>When you need</th>\n<th>Look for</th>\n<th>Avoid combining</th>\n</tr>\n</thead>\n<tbody><tr>\n<td>A daily or weekly trend</td>\n<td>Dated observations from the same reference series</td>\n<td>Raw and slabbed values on one line</td>\n</tr>\n<tr>\n<td>Evidence for a sale</td>\n<td>Comparable completed transactions</td>\n<td>Unsold asking prices, bundles and different grades</td>\n</tr>\n<tr>\n<td>A longer price history</td>\n<td>A provider that covers the exact version and period</td>\n<td>Gaps treated as days with zero change</td>\n</tr>\n</tbody></table>\n<h2>Read the source and dates</h2>\n<p>TCGplayer documents a Market Price based on recent transactions on its marketplace. PriceCharting describes an aggregate derived from sales records. eBay Product Research provides completed sale data to eligible sellers. These measures answer different questions. For a sale comparison, note the matching item's price, shipping and date.</p>\n<p>For example, if the first observation is for a raw English card and the second is for a PSA 10 copy, they cannot measure the same movement. If your selected series has three observations in the month, chart those three with their dates and keep the other days blank.</p>\n<h2>Check the CardScanFox record</h2>\n<p>Open the exact entry from the <a href=\"/prices\">price catalog</a>. A matching series can show dated observations from a 30-day window when available. See the <a href=\"/card-price-data-methodology/\">price data methodology</a> for how the site labels missing observations and identifies their sources.</p>\n<h2>Frequently asked questions</h2>\n<h3>Does an old price still apply today?</h3>\n<p>Treat it as an observation on its date. If the card trades infrequently, report how many examples you found and when they occurred.</p>\n<h3>Can I use the amount on an active listing?</h3>\n<p>An active listing shows a seller’s asking price. Compare completed sales for evidence of what buyers paid.</p>\n",
+    "protected": false
+  },
+  {
+    "id": "/blog/choose-a-card-collection-app",
+    "path": "/blog/choose-a-card-collection-app",
+    "type": "article",
+    "title": "How to Choose a Trading Card Collection App | CardScanFox",
+    "description": "Test how collection apps handle printings, quantities, grades, missing prices and the way you organize your cards.",
+    "h1": "How to choose a trading card collection app",
+    "author": "CardScanFox Editorial",
+    "category": "collecting",
+    "publishedAt": "2026-11-24",
+    "updatedAt": null,
+    "sources": [
+      {
+        "label": "CardScanFox collection tracker",
+        "url": "https://tcgcard.fun/card-collection-tracker"
+      },
+      {
+        "label": "Collectr portfolio",
+        "url": "https://www.getcollectr.com/"
+      },
+      {
+        "label": "Ludex mobile and web features",
+        "url": "https://help.ludex.com/en_us/web-vs-mobile-feature-comparison-HJkqM3vCZl"
+      }
+    ],
+    "bodyHtml": "<h2>Choose by how you record the cards you own</h2>\n<p>A trading card collection app should let you confirm the exact printing, record quantity and condition or slab grade, and find the card again. For a portfolio estimate, check that the app dates prices and keeps unavailable values visible. Choose a tool that supports your real cards and the way you organize them.</p>\n<h2>Try the same five entries</h2>\n<p>Use one duplicate, two variants of the same card, one graded copy and one item missing a price. After adding them, check that quantities are correct, the variants stay separate, the slab keeps its grade, and the missing value stays visible. Try a second device or an export if those are required for your collection.</p>\n<table>\n<thead>\n<tr>\n<th>If you prioritize</th>\n<th>Look for</th>\n</tr>\n</thead>\n<tbody><tr>\n<td>Maintaining a collection after scanning</td>\n<td>Candidate review, duplicate handling and editable quantities</td>\n</tr>\n<tr>\n<td>Binder and box organization</td>\n<td>Folders or lists that match physical locations</td>\n</tr>\n<tr>\n<td>Monitoring collection value</td>\n<td>Price dates, missing coverage and grade-specific values</td>\n</tr>\n<tr>\n<td>Sealed products</td>\n<td>Separate catalog records and sources for sealed boxes</td>\n</tr>\n<tr>\n<td>Selling from an inventory</td>\n<td>The supported marketplace and how you control listings</td>\n</tr>\n</tbody></table>\n<h2>Choose a workflow</h2>\n<p>CardScanFox provides a mobile Portfolio for confirmed holdings and a separate Wishlist. Test it with your own card mix before moving a large collection. Collectr describes a portfolio for cards and sealed products. Ludex documents mobile scanning and web collection management. Compare official features, import needs and plan limits for each. See the <a href=\"/compare/\">documented comparisons</a>.</p>\n<h2>Frequently asked questions</h2>\n<h3>What app lets me scan cards and track their value?</h3>\n<p>Look for a workflow that carries the confirmed printing, quantity and condition into an owned collection. The <a href=\"/card-collection-tracker\">CardScanFox collection tracker</a> explains the mobile workflow and price coverage.</p>\n<h3>Can one collection total tell me what I would make by selling?</h3>\n<p>A total from reference prices is an estimate. For a sale decision, check recent comparable transactions, coverage, fees and shipping.</p>\n",
+    "protected": false
+  },
+  {
+    "id": "/blog/pokemon-card-authenticity",
+    "path": "/blog/pokemon-card-authenticity",
+    "type": "article",
+    "title": "How to Check for Fake Pokémon Cards | CardScanFox",
+    "description": "Compare a suspected copy with the exact Pokémon printing, screen for mismatches, and know when to ask a specialist.",
+    "h1": "How to check for fake Pokémon cards",
+    "author": "CardScanFox Editorial",
+    "category": "identity",
+    "publishedAt": "2026-11-24",
+    "updatedAt": null,
+    "sources": [
+      {
+        "label": "Pokémon Support counterfeit guidance",
+        "url": "https://support.pokemon.com/hc/en-us/articles/360002068953-Did-I-purchase-fake-or-counterfeit-cards"
+      },
+      {
+        "label": "PSA authentication and grading",
+        "url": "https://www.psacard.com/services/tradingcardgrading/grading"
+      }
+    ],
+    "bodyHtml": "<h2>Compare the physical card with a trusted reference</h2>\n<p>To screen a Pokémon card you suspect is fake, identify its set, full number, language and finish. Compare the front and back, lettering and foil placement with a known genuine copy or official reference for the same printing. Photograph anything that looks inconsistent. A checklist records what was issued and can help you spot a mismatch.</p>\n<h2>Check multiple details</h2>\n<table>\n<thead>\n<tr>\n<th>What to check</th>\n<th>Example of a reason to look closer</th>\n</tr>\n</thead>\n<tbody><tr>\n<td>Printing and artwork</td>\n<td>The collector number belongs to a different card on the official checklist.</td>\n</tr>\n<tr>\n<td>Text and layout</td>\n<td>The card’s spelling or layout differs from the same language and release.</td>\n</tr>\n<tr>\n<td>Foil and surface</td>\n<td>The foil appears in a different area from a matching genuine copy.</td>\n</tr>\n<tr>\n<td>Provenance</td>\n<td>The seller cannot explain the source or provide clear, actual photos.</td>\n</tr>\n</tbody></table>\n<p>Pokémon Support suggests checking translucency as one signal and speaking with a specialist card shop when needed. Use low-risk visual checks and avoid damaging the card. Genuine variants can look different, so compare against the same printing.</p>\n<h2>What AI can check</h2>\n<p>An AI photo match can suggest what card a copy resembles. It can help you find the record to compare, even when the copy still needs a physical inspection. CardScanFox’s <a href=\"/card-identifier\">identifier</a> provides possible catalog matches. Its separate <a href=\"/ai-card-grading\">photo pregrading tool</a> estimates visible condition from front and back photos. Use a specialist or a professional authentication service when a purchase depends on authenticity.</p>\n<h2>Frequently asked questions</h2>\n<h3>Can AI reliably detect fake trading cards?</h3>\n<p>A photo can show some inconsistencies. It cannot establish materials or provenance from an image alone. If the card has value or several details look wrong, ask an experienced specialist to inspect it.</p>\n<h3>What if a scan finds a valid official card?</h3>\n<p>Compare the physical copy to that exact edition. A counterfeit can reproduce an existing card’s image and number.</p>\n",
+    "protected": false
+  },
+  {
+    "id": "/blog/is-psa-grading-worth-it",
+    "path": "/blog/is-psa-grading-worth-it",
+    "type": "article",
+    "title": "Is PSA Grading Worth It? Costs and Outcomes | CardScanFox",
+    "description": "Compare the raw value, possible grades and full grading cost before deciding whether to submit a trading card.",
+    "h1": "Is PSA grading worth it?",
+    "author": "CardScanFox Editorial",
+    "category": "values",
+    "publishedAt": "2026-11-24",
+    "updatedAt": null,
+    "sources": [
+      {
+        "label": "PSA grading standards",
+        "url": "https://www.psacard.com/gradingstandards"
+      },
+      {
+        "label": "PSA grading services",
+        "url": "https://www.psacard.com/services/tradingcardgrading/grading"
+      },
+      {
+        "label": "CardScanFox photo pregrading",
+        "url": "https://tcgcard.fun/ai-card-grading"
+      }
+    ],
+    "bodyHtml": "<h2>Compare the likely outcomes with the full cost</h2>\n<p>PSA grading may be worth it if authentication or preservation matters to you, or if the expected sale proceeds after grading exceed the proceeds for the raw card by enough to cover fees and risk. Look at completed sales for the exact printing in several grades, including a lower grade than you expect. Calculate shipping, insurance, grading fees and selling fees before deciding.</p>\n<h2>Work a simple example</h2>\n<p>Suppose a card could return $60 net if sold raw. Assume a lower grade would return $75 net and a higher grade $130 net before grading costs. If grading and shipping total $40, those two versions return $35 and $90 after that cost. The outcome changes with the grade. These amounts illustrate the calculation. Use current fees and sales for your own card.</p>\n<p>Review visible defects on both sides under even light. Use PSA’s official grading standards for the criteria and its service page for current fees. The <a href=\"/ai-card-grading\">CardScanFox pregrading tool</a> can estimate visible condition from two photos. A professional grade requires the grader’s own assessment.</p>\n<h2>Distinguish your options</h2>\n<p>Keep the card raw if the expense outweighs the benefit or if you mainly want to store it safely. Consider grading when authenticity, an existing set registry goal or buyer confidence matters to you. If you already own a slab, compare that company’s grade and exact printing in the <a href=\"/blog/raw-vs-graded-card-values\">raw versus graded values guide</a>.</p>\n<h2>Frequently asked questions</h2>\n<h3>Can AI estimate a Pokémon card’s grade?</h3>\n<p>A clear front and back can support a rough visible-condition range. Glare, blur and hidden surface defects can limit the estimate. PSA defines its own standards and gives the final grade at submission.</p>\n<h3>Should I use PSA 10 prices when deciding?</h3>\n<p>Use several plausible grade outcomes, and include the raw alternative. A PSA 10 sale is relevant only for the same printing and grade.</p>\n",
+    "protected": false
+  },
+  {
+    "id": "/blog/organize-a-large-card-collection",
+    "path": "/blog/organize-a-large-card-collection",
+    "type": "article",
+    "title": "How to Organize a Large Trading Card Collection | CardScanFox",
+    "description": "Sort thousands of cards by game, set and number, record quantities and locations, and reconcile each box before moving on.",
+    "h1": "How to organize a large trading card collection",
+    "author": "CardScanFox Editorial",
+    "category": "collecting",
+    "publishedAt": "2026-11-24",
+    "updatedAt": null,
+    "sources": [
+      {
+        "label": "Pokémon official database guide",
+        "url": "https://support.pokemon.com/hc/en-us/articles/360001025274-How-do-I-use-the-Trading-Card-Game-database"
+      },
+      {
+        "label": "CardScanFox bulk scanner workflow",
+        "url": "https://tcgcard.fun/bulk-card-scanner"
+      }
+    ],
+    "bodyHtml": "<h2>Sort in stages and record each physical location</h2>\n<p>To organize thousands of trading cards, sort by game, set and collector number first. Keep raw cards and slabs in separate storage. Record each distinct printing, condition or grade, quantity and location. Start with one box before moving the whole collection into your system.</p>\n<h2>Give each stack a repeatable route</h2>\n<ol>\n<li>Label a box or binder and assign the stack to a set or a temporary review section.</li>\n<li>Use a checklist to order the cards. Put uncertain languages, foil versions or parallels in the review section.</li>\n<li>Scan or enter one manageable group. Confirm each record, then record the count and condition or slab grade.</li>\n<li>Match the total from the app to the physical count before starting another group.</li>\n<li>Keep wanted cards separate from owned cards. Give any future additions a temporary location until you review them.</li>\n</ol>\n<p>For example, use a location such as Box A / 151 / tray 2. Two copies of the same Charizard ex printing can share a quantity if condition and location match. Another printing or a PSA slab needs a separate entry.</p>\n<h2>Keep the app and the storage in sync</h2>\n<p>A spreadsheet can record locations and quantities if you prefer to maintain every field yourself. An app can speed up identification and pair confirmed holdings with available values. In CardScanFox, use the <a href=\"/bulk-card-scanner\">bulk scan workflow</a> to review images, then use <a href=\"/digital-card-binder\">collection folders</a> and the mobile Portfolio to organize copies. Pokémon’s card database can confirm the set when you need a publisher reference.</p>\n<h2>Frequently asked questions</h2>\n<h3>Do I need to scan every card?</h3>\n<p>Use manual entry for known duplicates and checklists for obvious matches. Save photo scans for cards you need help identifying, and record incomplete entries in your review section.</p>\n<h3>How can I track total collection value?</h3>\n<p>Use the quantity and reference for each exact holding. Keep missing prices visible so you can see which holdings contribute to the displayed estimate.</p>\n",
+    "protected": false
+  },
+  {
+    "id": "/blog/cardscanfox-vs-collectr",
+    "path": "/blog/cardscanfox-vs-collectr",
+    "type": "article",
+    "title": "CardScanFox vs Collectr: Scanning, Prices and Portfolios | CardScanFox",
+    "description": "Compare phone scanning, card and sealed-product portfolios, price history, free access and paid plans.",
+    "h1": "CardScanFox vs Collectr",
+    "author": "CardScanFox Editorial",
+    "category": "comparisons",
+    "publishedAt": "2026-11-24",
+    "updatedAt": null,
+    "sources": [
+      {
+        "label": "CardScanFox product overview",
+        "url": "https://tcgcard.fun/app"
+      },
+      {
+        "label": "Collectr scanner",
+        "url": "https://www.getcollectr.com/scan"
+      },
+      {
+        "label": "Collectr prices",
+        "url": "https://www.getcollectr.com/prices"
+      },
+      {
+        "label": "Collectr Pro",
+        "url": "https://www.getcollectr.com/pro.html"
+      }
+    ],
+    "bodyHtml": "<h2>Choose by what you need to record</h2>\n<p>CardScanFox fits collectors who want to confirm a card match, record the copies they own, and keep a separate Wishlist. Collectr fits collectors who want portfolios spanning multiple trading card games and sealed products, with tools for comparing trades and reviewing longer price histories. Both have mobile card scanning, so start by checking the exact printings you own. <a href=\"/app\">CardScanFox app guide</a> · Collectr product overview</p>\n<table>\n<thead>\n<tr>\n<th>Decision</th>\n<th>CardScanFox</th>\n<th>Collectr</th>\n</tr>\n</thead>\n<tbody><tr>\n<td>Card coverage</td>\n<td>Catalog includes Pokémon, Magic, One Piece, Yu-Gi-Oh! and selected sports cards</td>\n<td>Scanner documentation lists Pokémon, Magic, Yu-Gi-Oh!, One Piece, Lorcana, Flesh and Blood and Digimon among its TCGs</td>\n</tr>\n<tr>\n<td>Scan and review</td>\n<td>Browser scanner accepts one card per photo. The mobile app queues up to 10 separate photos for individual review</td>\n<td>Mobile camera scans a card and suggests the printing. Review the variant and set quantity and condition before adding it. The documentation reviewed gives no multi-card photo limit</td>\n</tr>\n<tr>\n<td>Price research</td>\n<td>Available published price series show source, currency and observation date. The website shows matching observations in a 30-day window</td>\n<td>The price guide shows raw and graded comparisons, population reports and available sold listings. PRO includes longer history</td>\n</tr>\n<tr>\n<td>Collection management</td>\n<td>Mobile Portfolio supports quantities, folders, raw condition and existing slab grades. Website bookmarks stay in the browser</td>\n<td>Portfolios track cards and sealed products. Collectr documents a trade analyzer and offers collection export with PRO</td>\n</tr>\n<tr>\n<td>Free and paid access</td>\n<td>Browser lookup is available. The iPhone app includes 10 successful free scans per account or guest identity with no scheduled reset. Check the current Premium offer in the app</td>\n<td>Free access includes multiple portfolios. The official site lists PRO at $7.99 monthly or $59.99 annually for benefits including unlimited scanning, longer history and export</td>\n</tr>\n</tbody></table>\n<p>Coverage, region and plan terms can change. This comparison uses official documentation reviewed November 24, 2026. Neither product was measured on a shared set of physical cards. <a href=\"/data-methodology\">CardScanFox price methodology</a> · Collectr scan guide · Collectr price guide · Collectr PRO</p>\n<h2>Compare a card, a slab and a sealed product</h2>\n<p>Take a raw Pokémon card, a graded copy of the same printing and a sealed product from the same set. Use the full collector number, language and finish to confirm each single. Keep the raw condition and the slab label separate, then check the date and source for each price. Look up the sealed product by its own name and contents. This shows whether you need a workflow for exact copies, a combined portfolio spanning singles and sealed products, or both.</p>\n<p>If the two tools give different amounts, check whether both refer to the same printing, grade, time period and currency. A recent sold listing, a published market figure and an active asking price answer different questions.</p>\n<h2>Frequently asked questions</h2>\n<h3>Is CardScanFox a Collectr alternative?</h3>\n<p>Yes, for photo identification and tracking confirmed card holdings on iPhone or Android. If your decision depends on a combined sealed-product portfolio, trade analysis or long price histories, check the relevant Collectr features first. <a href=\"/download\">CardScanFox download choices</a> · Collectr product overview</p>\n<h3>Can I try CardScanFox without installing the app?</h3>\n<p>You can identify one card from a clear photo or search by name, set or number on the website. For the mobile review queue, folders and synced collection, use the mobile app. <a href=\"/card-identifier\">Online trading card scanner</a></p>\n<h3>Which scanner is more accurate?</h3>\n<p>A feature list cannot establish a winner. Try the same known normal, foil and alternate-art cards in both products and count exact matches before manual correction.</p>\n",
+    "protected": false
+  },
+  {
+    "id": "/blog/cardscanfox-vs-tcgplayer",
+    "path": "/blog/cardscanfox-vs-tcgplayer",
+    "type": "article",
+    "title": "CardScanFox vs TCGplayer: Scanner and Marketplace | CardScanFox",
+    "description": "Compare card scanning, price metrics, collection tracking and TCGplayer seller inventory tools.",
+    "h1": "CardScanFox vs TCGplayer",
+    "author": "CardScanFox Editorial",
+    "category": "comparisons",
+    "publishedAt": "2026-11-24",
+    "updatedAt": null,
+    "sources": [
+      {
+        "label": "CardScanFox product overview",
+        "url": "https://tcgcard.fun/app"
+      },
+      {
+        "label": "TCGplayer app FAQ",
+        "url": "https://help.tcgplayer.com/hc/en-us/articles/115009506407-TCGplayer-App-FAQ"
+      },
+      {
+        "label": "TCGplayer Market Price",
+        "url": "https://help.tcgplayer.com/hc/en-us/articles/213588017-TCGplayer-Market-Price"
+      },
+      {
+        "label": "TCGplayer seller tools",
+        "url": "https://seller.tcgplayer.com/mobile-app"
+      }
+    ],
+    "bodyHtml": "<h2>Choose between a personal portfolio and a marketplace workflow</h2>\n<p>CardScanFox combines card identification with a personal collection and dated price references. TCGplayer combines a free mobile scanner with its TCG marketplace, pricing metrics and seller tools. Use TCGplayer if buying on its marketplace or moving scanned lists into an eligible seller account is central to your task. Use CardScanFox if you want to confirm printings, arrange owned copies in folders and keep a separate Wishlist. <a href=\"/app\">CardScanFox app guide</a> · TCGplayer app FAQ</p>\n<table>\n<thead>\n<tr>\n<th>Decision</th>\n<th>CardScanFox</th>\n<th>TCGplayer</th>\n</tr>\n</thead>\n<tbody><tr>\n<td>Card coverage</td>\n<td>Pokémon, Magic, Yu-Gi-Oh!, One Piece and selected sports records among its catalog</td>\n<td>The mobile scanner supports games listed on the TCGplayer marketplace</td>\n</tr>\n<tr>\n<td>Scan workflow</td>\n<td>One card per browser photo. Mobile app queues up to 10 separate images for review</td>\n<td>The mobile app FAQ documents scanning one card at a time in quick succession</td>\n</tr>\n<tr>\n<td>Price context</td>\n<td>Available dated references identify the source and series. The site can show a 30-day window of observations for the selected series</td>\n<td>Market Price summarizes recent TCGplayer transactions. The app also offers Listed Median and Most Recent Sale</td>\n</tr>\n<tr>\n<td>After scanning</td>\n<td>Record quantity, raw condition or existing slab grade. Organize holdings and Wishlist in the mobile app</td>\n<td>Save scanned cards to account lists, export lists or shop the marketplace. Level 4 sellers can import lists into their inventory</td>\n</tr>\n<tr>\n<td>Free and paid access</td>\n<td>Browser lookup is available. The iPhone app includes 10 successful free scans per account or guest identity with no scheduled reset. Check Premium in the app</td>\n<td>TCGplayer says its mobile app is free to download and use. Seller eligibility rules still apply to inventory import</td>\n</tr>\n</tbody></table>\n<p>Official product pages were reviewed November 24, 2026. This comparison covers documented workflows. Controlled recognition and speed scores are unavailable. <a href=\"/games\">CardScanFox catalog</a> · TCGplayer mobile app · TCGplayer Market Price definition</p>\n<h2>Compare the same printing and the same price metric</h2>\n<p>Suppose you have a foil copy of a Magic card. In the scanner or catalog, confirm the set and card number, then select the correct language, foil finish and condition. In TCGplayer, read the label before using the amount. Market Price reflects a group of recent sales, Listed Median describes listings, and Most Recent Sale refers to a single sale. On CardScanFox, read the source and observation date alongside the selected price. Compare two figures only when their printing and meaning fit the same question. <a href=\"/data-methodology\">CardScanFox price methodology</a> · TCGplayer app FAQ</p>\n<p>If you sell through TCGplayer, scan a short stack and check the exported list before importing it to your seller inventory. If you want a record of what you own, use a few repeated cards to see how each app handles quantity, condition and separate versions. TCGplayer seller scanning guide · <a href=\"/card-collection-tracker\">CardScanFox collection tracker</a></p>\n<h2>Frequently asked questions</h2>\n<h3>Which app is free for ongoing TCG scanning?</h3>\n<p>TCGplayer describes its mobile app as free to use. CardScanFox can be used for browser card research and has a separate free allowance for successful scans in the iPhone app. Check which tool covers your games and how you want to save the results. TCGplayer app FAQ · <a href=\"/app\">CardScanFox free scans and review</a></p>\n<h3>Can I use CardScanFox to upload inventory to TCGplayer?</h3>\n<p>TCGplayer documents inventory import for eligible Level 4 sellers through its own mobile app. CardScanFox offers a personal Portfolio and browser card research. TCGplayer mobile app</p>\n<h3>How do I compare scan accuracy?</h3>\n<p>Scan the same known cards in the same light. Record whether the first result matches the exact printing and how many corrections each tool requires. Keep that check separate from whether you prefer its price or collection workflow.</p>\n",
+    "protected": false
+  },
+  {
+    "id": "/blog/cardscanfox-vs-pricecharting",
+    "path": "/blog/cardscanfox-vs-pricecharting",
+    "type": "article",
+    "title": "CardScanFox vs PriceCharting: Scans and Price Data | CardScanFox",
+    "description": "Compare photo scanning, raw and graded prices, sold-listing evidence, collection tools and subscription plans.",
+    "h1": "CardScanFox vs PriceCharting",
+    "author": "CardScanFox Editorial",
+    "category": "comparisons",
+    "publishedAt": "2026-11-24",
+    "updatedAt": null,
+    "sources": [
+      {
+        "label": "CardScanFox pricing methodology",
+        "url": "https://tcgcard.fun/data-methodology"
+      },
+      {
+        "label": "PriceCharting methodology",
+        "url": "https://www.pricecharting.com/page/methodology"
+      },
+      {
+        "label": "PriceCharting Multi Scan",
+        "url": "https://www.pricecharting.com/multi-scan"
+      },
+      {
+        "label": "PriceCharting plans",
+        "url": "https://www.pricecharting.com/pricecharting-pro"
+      }
+    ],
+    "bodyHtml": "<h2>Choose by whether you are logging cards or researching comparable sales</h2>\n<p>CardScanFox suits collectors who want to confirm the exact printing, check a dated reference and keep records of their physical cards. PriceCharting suits collectors who want to inspect sold-listing evidence, compare grade-specific values and track several types of collectibles. Both can help identify a card from a photo. <a href=\"/app\">CardScanFox app guide</a> · PriceCharting app</p>\n<table>\n<thead>\n<tr>\n<th>Decision</th>\n<th>CardScanFox</th>\n<th>PriceCharting</th>\n</tr>\n</thead>\n<tbody><tr>\n<td>Catalog coverage</td>\n<td>Physical TCG records including Pokémon, Magic, Yu-Gi-Oh! and One Piece, plus selected sports cards</td>\n<td>Trading cards and sports cards alongside video games, comics and other collectibles</td>\n</tr>\n<tr>\n<td>Photo scanning</td>\n<td>One card per browser photo. The mobile app queues up to 10 separate photos for review</td>\n<td>App photo search for trading cards. The separate browser Multi Scan supports up to nine cards in one photo</td>\n</tr>\n<tr>\n<td>Price evidence</td>\n<td>Dated published references for available series, with source and matching raw condition or existing slab grade. The website shows up to 30 days of available observations</td>\n<td>Uses sold-listing data to calculate guide values and separates ungraded from graded values. Its published guide excludes shipping and other transaction costs</td>\n</tr>\n<tr>\n<td>Collection</td>\n<td>Mobile Portfolio and folders track quantities and conditions. Wishlist records cards you want</td>\n<td>Free collection tracker includes quantity, condition or grade and value history across supported item types</td>\n</tr>\n<tr>\n<td>Free and paid access</td>\n<td>The iPhone app includes 10 successful free scans per account or guest identity with no scheduled reset. Review the current premium offer in the app</td>\n<td>Free accounts can track a collection. The US website lists Collector at $6 per month and Legendary at $49 per month. Multi Scan lists ad-supported free access and unlimited subscriber access</td>\n</tr>\n</tbody></table>\n<p>Official documentation was reviewed November 24, 2026. The two scanners were not run through a shared physical-card test. <a href=\"/data-methodology\">CardScanFox methodology</a> · PriceCharting methodology · PriceCharting Multi Scan · PriceCharting plans</p>\n<h2>Compare one raw card and one grade at a time</h2>\n<p>For a Pokémon Charizard you already own, write down the set, full collector number, language and finish. Look up the exact card in both tools. If it is raw, select an available condition-specific series in CardScanFox and read how PriceCharting labels its ungraded figure. If the card is already graded, compare rows for the same grading company and grade. Open matching sold records where available and check whether they include a different printing, bundle or shipping cost. <a href=\"/card-price-checker\">CardScanFox price checker</a> · PriceCharting price methodology</p>\n<p>For a binder page, the unit of work differs. PriceCharting accepts one image containing multiple cards through its Multi Scan tool. CardScanFox accepts multiple individual photos into a mobile review queue. Try the workflow you would use before committing a full binder. <a href=\"/bulk-card-scanner\">CardScanFox bulk scan guide</a> · PriceCharting Multi Scan</p>\n<h2>Frequently asked questions</h2>\n<h3>Why can the two tools show different prices?</h3>\n<p>They can show different references, date ranges or condition groups. Compare the data source, observation dates and the exact printing first. A PriceCharting guide value aggregates transactions under its own method. CardScanFox displays the price and date for a selected available series. <a href=\"/data-methodology\">CardScanFox methodology</a> · PriceCharting methodology</p>\n<h3>Which is better for a collection that also has games or comics?</h3>\n<p>PriceCharting includes games and comics in its collection tracker. CardScanFox focuses on trading-card identification and card holdings, including raw and existing graded copies. <a href=\"/app\">CardScanFox app guide</a> · PriceCharting collection tracker</p>\n<h3>Does a price lookup assess my card's grade?</h3>\n<p>Price lookups use the grade or condition you select. An existing slab label provides the grade for comparison. CardScanFox also offers a separate photo pregrading workflow for visible condition. <a href=\"/ai-card-grading\">CardScanFox AI pregrading</a></p>\n",
+    "protected": false
+  },
+  {
+    "id": "/blog/collectr-vs-ludex",
+    "path": "/blog/collectr-vs-ludex",
+    "type": "article",
+    "title": "Collectr vs Ludex: Scanning, Pricing and Collections | CardScanFox",
+    "description": "Compare supported games and sports, portfolio tools, scan limits, price histories and the Ludex eBay workflow.",
+    "h1": "Collectr vs Ludex",
+    "author": "CardScanFox Editorial",
+    "category": "comparisons",
+    "publishedAt": "2026-11-24",
+    "updatedAt": null,
+    "sources": [
+      {
+        "label": "Collectr scanner",
+        "url": "https://www.getcollectr.com/scan"
+      },
+      {
+        "label": "Collectr Pro",
+        "url": "https://www.getcollectr.com/pro.html"
+      },
+      {
+        "label": "Ludex supported cards",
+        "url": "https://help.ludex.com/en_us/supported-card-types-S1_q0RWi9"
+      },
+      {
+        "label": "Ludex scan and price",
+        "url": "https://www.ludex.com/scan-and-price/"
+      }
+    ],
+    "bodyHtml": "<h2>Pick the app for the cards you own and what comes after the scan</h2>\n<p>Collectr fits a TCG collector who wants portfolios for cards and sealed products, price history and trade analysis. Ludex fits a sports or supported TCG collector who wants to scan cards, review recent sales and create eBay listings on an eligible plan. Check exact game support before choosing. Collectr product overview · Ludex supported card types · Ludex scan and price guide</p>\n<table>\n<thead>\n<tr>\n<th>Decision</th>\n<th>Collectr</th>\n<th>Ludex</th>\n</tr>\n</thead>\n<tbody><tr>\n<td>Card coverage</td>\n<td>Its scanner page lists Pokémon, Magic, Yu-Gi-Oh!, One Piece, Lorcana and other TCGs</td>\n<td>The app help center lists Pokémon, Magic, VeeFriends and several sports. It lists One Piece as unsupported in the app</td>\n</tr>\n<tr>\n<td>Scan and review</td>\n<td>Points the mobile camera at a card, suggests a match and lets you choose variant, quantity and condition</td>\n<td>Takes a front image in the mobile app, then shows card details and suggestions for available parallels</td>\n</tr>\n<tr>\n<td>Batch use</td>\n<td>Review each card and its variant. PRO removes the scan allowance limit. The source reviewed gives no multi-card photo limit</td>\n<td>The help guide describes one card centered in the frame. The plan limit counts identified scans or available categories</td>\n</tr>\n<tr>\n<td>Price and history</td>\n<td>Shows raw and graded comparisons, sold listings and population reports. PRO offers longer price history</td>\n<td>Shows Ludex Estimate and recent sales, plus a report with available prices over time</td>\n</tr>\n<tr>\n<td>Collection and selling</td>\n<td>Tracks cards and sealed products across portfolios. PRO adds collection export</td>\n<td>Tracks holdings in collections. Ludex lists direct eBay publishing limits for its Standard and Pro plans</td>\n</tr>\n<tr>\n<td>Free and paid access</td>\n<td>Free entry plan with multiple portfolios. PRO is listed at $7.99 monthly or $59.99 annually</td>\n<td>Free plan lists 200 successful identifications per month and up to 60 portfolio cards. Monthly plans are listed at $4.99 Lite, $9.99 Standard and $24.99 Pro</td>\n</tr>\n</tbody></table>\n<p>Official documentation was reviewed November 24, 2026. Confirm plan terms in your region. The comparison uses documented capabilities. It contains no measured recognition or speed scores. Collectr scanning · Collectr price guide · Collectr PRO · Ludex scan guide · Ludex memberships</p>\n<h2>Two collections lead to different choices</h2>\n<p>For Pokémon singles, sealed boxes and One Piece cards, check whether you can track all three in a Collectr portfolio and inspect a sample price history before purchasing PRO. If you collect baseball and basketball parallels and plan to sell on eBay, try Ludex with a base card and a parallel from the same year and set. Check the listing handoff and the plan's publishing limit before subscribing.</p>\n<p>If your collection mixes sports with several TCGs, try each product on the same small sample before entering a whole collection. Record the exact match, whether the price comes from a transaction or an estimate, and the steps needed to fix a wrong variant.</p>\n<h2>Frequently asked questions</h2>\n<h3>Is Ludex better for One Piece?</h3>\n<p>Collectr lists One Piece on its scanner page. Ludex's mobile help page says One Piece is unsupported, even though Ludex's separate marketplace search displays a One Piece category. Check scanner coverage independently of marketplace search categories. Collectr scanner · Ludex supported card types · Ludex Super Search</p>\n<h3>Which free plan will hold a larger TCG collection?</h3>\n<p>Collectr advertises multiple portfolios on free access. Ludex lists a 60-card portfolio limit and 200 identified scans per month on its free plan. Check the scan allowance and the saved-card limit separately. Collectr PRO · Ludex memberships</p>\n<h3>What else can I compare?</h3>\n<p>If you want a browser photo lookup and a short review queue in the mobile app, compare CardScanFox with each option. <a href=\"/blog/cardscanfox-vs-collectr\">CardScanFox vs Collectr</a> · <a href=\"/card-ai-vs-ludex\">CardScanFox vs Ludex</a></p>\n",
+    "protected": false
   }
 ]

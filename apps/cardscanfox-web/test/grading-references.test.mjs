@@ -29,7 +29,7 @@ test('official grade references and guide estimates stay distinct from AI result
 });
 test('the grading owner server-renders real professional references, complete same-company guide prices and the same-page data lookup',()=>{
  const html=resolvePage(new URL('https://tcgcard.fun/ai-card-grading')).html;
- for(const example of certified.examples)assert.ok(html.includes(example.sourceUrl));
+ for(const example of certified.examples)assert.ok(html.includes(`PSA certification ${example.certNumber}`));
  for(const item of guide.examples)assert.ok(html.includes(item.name));
  assert.match(html,/data-grading-price-lookup/);assert.match(html,/data-photo-centering/);assert.match(html,/card-centering\.css/);assert.match(html,/Beckett Standard listed \$34\.95/);
 });

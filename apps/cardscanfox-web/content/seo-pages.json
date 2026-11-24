@@ -1,4 +1,28 @@
 {
+  "/about": {
+    "question": "What is CardScanFox and how do I use it?",
+    "intent": "了解品牌、产品能力和支持渠道",
+    "title": "About CardScanFox | AI Trading Card Scanner",
+    "description": "Learn what CardScanFox does, which card categories and platforms it supports, how to verify a scan and where to get help."
+  },
+  "/ai-card-recognition-accuracy/": {
+    "question": "How does CardScanFox measure recognition accuracy?",
+    "intent": "了解识别测试方法和现有证据",
+    "title": "AI Card Recognition Benchmark Method | CardScanFox",
+    "description": "See the verified three-image web scanner check and the physical-card benchmark method for Top 1, Top 3, exact printing and scan time."
+  },
+  "/card-price-data-methodology/": {
+    "question": "Where do the card prices on CardScanFox come from?",
+    "intent": "了解卡牌价格来源和字段",
+    "title": "Card Price Data Sources & Methodology | CardScanFox",
+    "description": "Understand card price sources, provider metrics, exact printing fields, raw and graded context, observation dates and missing prices."
+  },
+  "/compare/": {
+    "question": "Which card scanner or price tool fits my collection?",
+    "intent": "比较卡牌识别、价格和收藏工具",
+    "title": "Trading Card Scanner Comparisons | CardScanFox",
+    "description": "Compare CardScanFox with Collectr, Ludex, CollX, TCGplayer and PriceCharting for card identification, price research and collection workflows."
+  },
   "/": {
     "intent": "多品类 TCG 与体育卡识别、查价、收藏及下载；重点提供宝可梦查价入口",
     "title": "Card Scanner: Identify Trading Cards Online | CardScanFox",

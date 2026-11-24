@@ -1,0 +1,282 @@
+{
+  "schema_version": "1.0",
+  "site": "https://tcgcard.fun/",
+  "generated_at": "2026-11-24",
+  "timezone": "Asia/Shanghai",
+  "scope": {
+    "priority_questions": 20,
+    "attempted_questions": [
+      "GEO-001",
+      "GEO-003",
+      "GEO-010"
+    ],
+    "observed_responses": 4,
+    "incomplete_responses": 2,
+    "blocked_before_send": 1
+  },
+  "records": [
+    {
+      "experiment_id": "baseline-20261124-chatgpt-001",
+      "question_id": "GEO-001",
+      "platform": "ChatGPT",
+      "model_or_mode": "临时聊天，界面显示“思考”",
+      "executed_at": null,
+      "captured_at": "2026-11-24T14:50:03+08:00",
+      "language": "en",
+      "region": null,
+      "prompt_exact": "What is the best AI trading card scanner?",
+      "clean_session": true,
+      "answer_archive": "/Users/mac/.codex/local-evidence/cardscanfox-geo-20261124/chatgpt-GEO-001.txt",
+      "visible_search_queries": null,
+      "citations": null,
+      "site_result": "mentioned",
+      "brand_mentioned": true,
+      "official_site_cited": null,
+      "competitors": [
+        "Ludex",
+        "TCGplayer",
+        "Collectr",
+        "CollX"
+      ],
+      "recommended_products": [
+        "Ludex",
+        "TCGplayer",
+        "Collectr",
+        "CollX"
+      ],
+      "first_choice": false,
+      "recommendation_reason": "正文列出竞品推荐，并在结尾表示可以在后续答复中评估 CardScanFox。",
+      "evidence_status": "observed",
+      "limitations": [
+        "临时聊天界面提示可以使用记忆和自定义指令。",
+        "没有确认网页搜索模式与完整引用链接。",
+        "发送时间未记录。存档时间依据原文件时间。"
+      ]
+    },
+    {
+      "experiment_id": "baseline-20261124-gemini-001",
+      "question_id": "GEO-001",
+      "platform": "Gemini",
+      "model_or_mode": "临时对话，Neon，网页搜索进行中",
+      "executed_at": null,
+      "captured_at": "2026-11-24T14:51:50+08:00",
+      "language": "en",
+      "region": null,
+      "prompt_exact": "What is the best AI trading card scanner?",
+      "clean_session": true,
+      "answer_archive": "/Users/mac/.codex/local-evidence/cardscanfox-geo-20261124/gemini-GEO-001-incomplete.txt",
+      "visible_search_queries": null,
+      "citations": null,
+      "site_result": "unknown",
+      "brand_mentioned": null,
+      "official_site_cited": null,
+      "competitors": null,
+      "recommended_products": null,
+      "first_choice": null,
+      "recommendation_reason": null,
+      "evidence_status": "incomplete",
+      "limitations": [
+        "只保存到正在生成的部分回复。",
+        "发送时间未记录。存档时间依据原文件时间。"
+      ]
+    },
+    {
+      "experiment_id": "baseline-20261124-perplexity-001",
+      "question_id": "GEO-001",
+      "platform": "Perplexity",
+      "model_or_mode": null,
+      "executed_at": null,
+      "captured_at": null,
+      "language": "en",
+      "region": null,
+      "prompt_exact": "What is the best AI trading card scanner?",
+      "clean_session": null,
+      "answer_archive": null,
+      "visible_search_queries": null,
+      "citations": null,
+      "site_result": null,
+      "brand_mentioned": null,
+      "official_site_cited": null,
+      "competitors": null,
+      "recommended_products": null,
+      "first_choice": null,
+      "recommendation_reason": null,
+      "evidence_status": "blocked",
+      "limitations": [
+        "Cloudflare 真人验证。页面未接收问题。"
+      ]
+    },
+    {
+      "experiment_id": "baseline-20261124-chatgpt-003",
+      "question_id": "GEO-003",
+      "platform": "ChatGPT",
+      "model_or_mode": "临时聊天，已选择“网页搜索”",
+      "executed_at": "2026-11-24T15:17:54+08:00",
+      "captured_at": "2026-11-24T15:19:58+08:00",
+      "language": "en",
+      "region": null,
+      "prompt_exact": "What is the best Pokémon card scanner app?",
+      "clean_session": true,
+      "answer_archive": "/Users/mac/.codex/local-evidence/cardscanfox-geo-20261124/chatgpt-GEO-003.json",
+      "visible_search_queries": null,
+      "citations": null,
+      "site_result": "absent",
+      "brand_mentioned": false,
+      "official_site_cited": null,
+      "competitors": [
+        "TCGplayer",
+        "Dragon Shield",
+        "Collectr",
+        "PokeScope",
+        "Rare Candy",
+        "Dex"
+      ],
+      "recommended_products": [
+        "TCGplayer",
+        "Dragon Shield"
+      ],
+      "first_choice": false,
+      "recommendation_reason": "首段推荐 TCGplayer 用于免费扫描和查价，推荐 Dragon Shield 用于更完整的扫描和收藏管理。另列四个备选。",
+      "evidence_status": "observed",
+      "limitations": [
+        "先遇到 Cloudflare 真人验证，页面恢复后在独立临时聊天发送。",
+        "临时聊天界面提示可以使用记忆和自定义指令。",
+        "保存了回复中可读的出站链接，引用面板覆盖未知。"
+      ],
+      "visible_answer_links": [
+        {
+          "url": "https://www.tcgplayer.com/?utm_source=chatgpt.com",
+          "title": "Official website"
+        },
+        {
+          "url": "https://www.dragonshield.com/?utm_source=chatgpt.com",
+          "title": "Official website"
+        },
+        {
+          "url": "https://www.getcollectr.com/?utm_source=chatgpt.com",
+          "title": "Official website"
+        },
+        {
+          "url": "https://pokescope.app/?utm_source=chatgpt.com",
+          "title": "Official website"
+        },
+        {
+          "url": "https://get.rarecandy.com/?utm_source=chatgpt.com",
+          "title": "Official website"
+        }
+      ]
+    },
+    {
+      "experiment_id": "baseline-20261124-gemini-003",
+      "question_id": "GEO-003",
+      "platform": "Gemini",
+      "model_or_mode": "临时对话，Neon，网页搜索进行中",
+      "executed_at": "2026-11-24T15:13:07+08:00",
+      "captured_at": "2026-11-24T15:20:45+08:00",
+      "language": "en",
+      "region": null,
+      "prompt_exact": "What is the best Pokémon card scanner app?",
+      "clean_session": true,
+      "answer_archive": "/Users/mac/.codex/local-evidence/cardscanfox-geo-20261124/gemini-GEO-003.json",
+      "visible_search_queries": null,
+      "citations": null,
+      "site_result": "unknown",
+      "brand_mentioned": null,
+      "official_site_cited": null,
+      "competitors": null,
+      "recommended_products": null,
+      "first_choice": null,
+      "recommendation_reason": null,
+      "evidence_status": "incomplete",
+      "limitations": [
+        "页面最终仍只显示“正在搜索网络”，未取得完整原答。"
+      ]
+    },
+    {
+      "experiment_id": "baseline-20261124-chatgpt-010",
+      "question_id": "GEO-010",
+      "platform": "ChatGPT",
+      "model_or_mode": "临时聊天，已选择“网页搜索”",
+      "executed_at": "2026-11-24T15:18:16+08:00",
+      "captured_at": "2026-11-24T15:19:58+08:00",
+      "language": "en",
+      "region": null,
+      "prompt_exact": "What is the best free card scanner app?",
+      "clean_session": true,
+      "answer_archive": "/Users/mac/.codex/local-evidence/cardscanfox-geo-20261124/chatgpt-GEO-010.json",
+      "visible_search_queries": null,
+      "citations": null,
+      "site_result": "absent",
+      "brand_mentioned": false,
+      "official_site_cited": null,
+      "competitors": [],
+      "recommended_products": [
+        "Haystack"
+      ],
+      "first_choice": false,
+      "recommendation_reason": "把 card scanner 解为名片扫描，首选 Haystack。",
+      "evidence_status": "observed",
+      "limitations": [
+        "先遇到 Cloudflare 真人验证，页面恢复后在独立临时聊天发送。",
+        "临时聊天界面提示可以使用记忆和自定义指令。",
+        "保存了回复中可读的出站链接，引用面板覆盖未知。"
+      ],
+      "visible_answer_links": [
+        {
+          "url": "https://www.haystack.com/?utm_source=chatgpt.com",
+          "title": "Official website"
+        },
+        {
+          "url": "https://www.camcard.com/?utm_source=chatgpt.com",
+          "title": "Official website"
+        },
+        {
+          "url": "https://www.hubspot.com/?utm_source=chatgpt.com",
+          "title": "Official website"
+        },
+        {
+          "url": "https://www.hihello.com/?utm_source=chatgpt.com",
+          "title": "Official website"
+        },
+        {
+          "url": "https://www.scanbizcards.com/?utm_source=chatgpt.com",
+          "title": "Official website"
+        }
+      ],
+      "query_interpretation": "名片扫描，不涉及集换式卡牌"
+    },
+    {
+      "experiment_id": "baseline-20261124-gemini-010",
+      "question_id": "GEO-010",
+      "platform": "Gemini",
+      "model_or_mode": "临时对话，Neon",
+      "executed_at": "2026-11-24T15:13:22+08:00",
+      "captured_at": "2026-11-24T15:14:37+08:00",
+      "language": "en",
+      "region": null,
+      "prompt_exact": "What is the best free card scanner app?",
+      "clean_session": true,
+      "answer_archive": "/Users/mac/.codex/local-evidence/cardscanfox-geo-20261124/gemini-GEO-010.json",
+      "visible_search_queries": null,
+      "citations": null,
+      "site_result": "absent",
+      "brand_mentioned": false,
+      "official_site_cited": null,
+      "competitors": [
+        "TCGplayer",
+        "CollX"
+      ],
+      "recommended_products": [
+        "TCGplayer",
+        "CollX"
+      ],
+      "first_choice": null,
+      "recommendation_reason": "问题中的 card scanner 同时被解释为名片、集换式卡牌和会员卡扫描。在集换式卡牌部分，回答推荐 TCGplayer 和 CollX。",
+      "evidence_status": "observed",
+      "limitations": [
+        "网页搜索状态和引用 URL 未核实。",
+        "推荐按卡片类别给出。"
+      ]
+    }
+  ]
+}
