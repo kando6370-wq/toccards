@@ -26,6 +26,13 @@ test('the initial price checker is usable without a full-catalog query or review
  }
  assert.equal(calls,0);
 });
+test('price checker answers the free value lookup intent before the legacy guide',()=>{
+ const page=createRenderer({liveSite:true}).resolvePage(url());
+ assert.match(page.html,/Use the free CardScanFox web lookup to find a matching Pokémon card record/);
+ assert.match(page.html,/Can I check a Pokémon card value for free\?/);
+ assert.match(page.html,/without downloading the app/);
+ assert.match(page.html,/A reference price is not an appraisal or a guaranteed sale price/);
+});
 
 test('search stays on the checker and uses a bounded published query with selected filters',async()=>{
  const requests=[];
