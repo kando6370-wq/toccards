@@ -86,6 +86,43 @@ void main() {
     },
   );
 
+  testWidgets('system navigation cannot intercept Android tab or Scan taps', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+
+    for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+      for (final inset in [24.0, 48.0]) {
+        tester.view.padding = FakeViewPadding(bottom: inset);
+        await tester.pumpWidget(
+          ProviderScope(
+            child: MaterialApp(
+              theme: ThemeData(platform: platform),
+              home: const KandoTabScaffold(
+                currentTab: KandoMainTab.home,
+                body: SizedBox.expand(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final bar = tester.getRect(find.byKey(const Key('kando-tab-bar')));
+        if (platform == TargetPlatform.android) {
+          expect(bar.bottom, lessThanOrEqualTo(844 - inset));
+        } else {
+          expect(bar.bottom, inset == 24 ? 822 : 806);
+        }
+        final scan = find.byKey(const Key('kando-tab-scan'));
+        final overflow = find.byKey(
+          const Key('kando-tab-scan-overflow-hit-region'),
+        );
+        expect(tester.getTopLeft(overflow), tester.getTopLeft(scan));
+      }
+    }
+  });
+
   testWidgets('the visible top of the Scan button opens Scan', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(390, 844);

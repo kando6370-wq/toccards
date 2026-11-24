@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES on API 28 and 29. -->
+    <integer name="edge_to_edge_cutout_mode">1</integer>
+</resources>

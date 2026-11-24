@@ -1,8 +1,32 @@
 # Android 无边框画面检查（2026-11-19）
 
-## 结论
+## 2026-11-24 · Google Play 1.0.8（220）复查
 
-当前 Flutter App 已主动使用 `SystemUiMode.edgeToEdge`，Android 构建实际使用 `targetSdkVersion=36`、`compileSdkVersion=36`、`minSdkVersion=24`。Android 原生 `MainActivity` 不需要再重复加入 Kotlin `enableEdgeToEdge()`，否则会把同一窗口策略分散到两个层面。
+正式版发布信息中心为 1.0.8 关联版本代码 220，显示一项用户体验建议「系统可能不会面向所有用户显示无边框画面」。展开后是 Android 15 的通用窗口和边衬区说明。归档 AAB 的 SHA-256 与 220 发布记录一致，包内包含 AndroidX Core 1.18.0。
+
+11 月 19 日的修复覆盖 Flutter 首帧之后的控件安全区。Android 的启动窗口早于 Dart，Flutter 3.47.9 的 `FlutterActivity.onCreate()` 在 API 35 以下会设置半透明黑色状态栏。荣耀 Android 12 上，旧 217 测试包在 Activity 创建完成时实测为 `#40000000`。启动主题和运行主题原来还为所有带挖孔支持的 Android 版本设置 `shortEdges`。
+
+`MainActivity.onCreate()` 现在于父类完成窗口初始化后调用 `WindowCompat.enableEdgeToEdge(window)`。AndroidX 版本与 220 一致，应用继续使用原来的 `FlutterActivity` 和 Flutter 控件安全区。启动与正常主题跟随相同的挖孔策略，API 28–29 使用 `shortEdges`，API 30 起使用 `always`，同时覆盖日间、夜间和 Android 12 启动画面。Android 的竖屏、扫码坐标和 iOS 布局沿用原实现。
+
+Android 15 三键导航还暴露了一处触控问题。720×1600、280 dpi 的模拟器上，系统导航栏从 `y=1516` 开始，首页四个标签的可点击区域延伸到 `y=1527`。底栏原来从底部间距扣除 10dp，标签栏与扫码按钮顶部的点击区域各算了一次。现在它们共用同一个值，Android 至少保留系统底部 inset，iOS 沿用原来的设计间距。
+
+### 修复后的制品验证
+
+使用测试包名 `com.kando.kandoApp.beta` 构建 Release `1.0.8+221`，min SDK 24、target SDK 36。R8 构建和 `bundletool validate` 通过，R8 映射表显示 `WindowCompat.enableEdgeToEdge` 的实现在 `MainActivity.onCreate` 内。以下设备均安装由同一份 AAB 生成的 APK。AAB SHA-256 为 `29631a494b6e4a029897ee87435931b590077b5cce7abd209a13c09358611669`。
+
+| 设备和导航 | 从安装包实测的结果 |
+| --- | --- |
+| Android 15、16 模拟器，三键 | 导航栏从 `y=1516` 开始，四个标签的点击区均止于 `y=1509`。点击 Search、Home 靠下边缘的位置以及 Scan 按钮靠上边缘的位置，均打开对应页面。 |
+| Android 15、16 模拟器，手势 | 导航栏从 `y=1558` 开始，四个标签的点击区均止于 `y=1551`。两种导航下的扫码关闭、相册、拍摄、Done 控件都位于系统栏之间。退出扫码后系统窗口仍为正向竖屏。Android 16 同时开启了高挖孔模拟。 |
+| 荣耀 YOK-AN10，Android 12 真机 | 首页标签和扫码入口可点击，扫码页可打开和关闭，三次窗口回读均为正向竖屏。 |
+
+原生窗口回归另用旧 217 测试 APK 复现了 Android 12 启动状态栏颜色和 Android 15 启动主题挖孔模式两个失败。修复后的原生测试在 Android 12 真机和 Android 15 模拟器的手势、三键设置下通过。锁定工具链的 Flutter 静态分析通过，首页、底栏、引导、扫码、方向、账号等两组测试合计 540 项通过，其中包含 iOS 底栏坐标回归。
+
+2026-11-24 16:31（北京时间）回读 Play 的「最新版本和 app bundle」，最近上传的是 `220`，内部测试已向测试人员发布，正式版 `1.0.8（220）` 显示「可以发布」。这条通用建议位于「正式版 → 发布版本信息中心」，关联 `1.0.8`。对比双方 AAB 内的 `classes.dex`，归档的正式 `220` 继承 Flutter Activity 的 `onCreate`，测试 `221` 的 `MainActivity` 已包含新的 `onCreate` 实现，R8 映射也能定位到 `WindowCompat.enableEdgeToEdge`。正式签名修复包上传后，应按新版本代码查看 Play 的处理结果。正式版信息中心的验收以届时选中的发布版本为准。
+
+## 11 月 19 日的阶段结论
+
+当时 Flutter App 已主动使用 `SystemUiMode.edgeToEdge`，Android 构建实际使用 `targetSdkVersion=36`、`compileSdkVersion=36`、`minSdkVersion=24`。此次仅验证了 Flutter 展示后的安全区。启动窗口的后续复查见上节。
 
 现有 Home、Search、Collection、Profile、详情、订阅、认证和 Scan 页面已经使用 `SafeArea` 或 `MediaQuery` 安全区。Scan 的顶部控件、取景框和底部结果区已有安全区计算。引导页原来只保留固定 48dp 底部间距，未使用系统底部 inset，已补齐这一处边界。
 

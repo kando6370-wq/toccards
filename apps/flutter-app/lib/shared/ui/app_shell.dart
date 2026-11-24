@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -26,8 +27,11 @@ class KandoTabScaffold extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final designPadding = math.max(32.0, bottomInset) - 10;
     final tabBarBottomPadding =
-        (bottomInset > 32 ? bottomInset : 32) - _FigmaTabBarState._bottomOffset;
+        Theme.of(context).platform == TargetPlatform.android
+        ? math.max(designPadding, bottomInset)
+        : designPadding;
     final pendingCount = ref.watch(
       pendingCollectionProvider.select((items) => items.length),
     );
@@ -51,7 +55,7 @@ class KandoTabScaffold extends ConsumerWidget {
               Positioned(
                 left: 20,
                 right: 20,
-                bottom: 96 + MediaQuery.paddingOf(context).bottom,
+                bottom: 96 + bottomInset,
                 child: PendingCollectionNotice(
                   count: pendingCount,
                   onReview: onPendingCollectionReview,
@@ -78,6 +82,7 @@ class KandoTabScaffold extends ConsumerWidget {
           ],
         ),
         bottomNavigationBar: _FigmaTabBar(
+          bottomPadding: tabBarBottomPadding,
           currentTab: currentTab,
           onSelected: selectTab,
         ),
@@ -220,7 +225,13 @@ class PendingCollectionNotice extends StatelessWidget {
 }
 
 class _FigmaTabBar extends StatefulWidget {
-  const _FigmaTabBar({required this.currentTab, required this.onSelected});
+  const _FigmaTabBar({
+    required this.bottomPadding,
+    required this.currentTab,
+    required this.onSelected,
+  });
+
+  final double bottomPadding;
 
   final KandoMainTab currentTab;
   final ValueChanged<KandoMainTab> onSelected;
@@ -235,7 +246,6 @@ class _FigmaTabBarState extends State<_FigmaTabBar> {
   static const double _tabHorizontalInset = 2;
   static const double _scanButtonSize = 64;
   static const double _scanButtonTop = -21;
-  static const double _bottomOffset = 10;
   static const double _highlightHeight = 54;
   static const Duration _highlightDuration = Duration(milliseconds: 220);
 
@@ -271,15 +281,8 @@ class _FigmaTabBarState extends State<_FigmaTabBar> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
-
     return Padding(
-      padding: EdgeInsets.fromLTRB(
-        20,
-        0,
-        20,
-        (bottomInset > 32 ? bottomInset : 32) - _bottomOffset,
-      ),
+      padding: EdgeInsets.fromLTRB(20, 0, 20, widget.bottomPadding),
       child: SizedBox(
         key: const Key('kando-tab-bar'),
         width: _barWidth,
