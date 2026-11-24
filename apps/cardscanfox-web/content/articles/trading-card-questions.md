@@ -33,3 +33,31 @@ Each topic guide keeps one original English question in its own heading. Start w
 | Choose an app | [Scanner and app questions](/blog/trading-card-tool-questions) | Your card categories, free limits and save flow |
 | Check authenticity | [Authenticity questions](/blog/trading-card-authenticity-questions) | Physical copy and specialist evidence |
 | Grade or store a card | [Grading questions](/blog/trading-card-grading-questions) · [Storage questions](/blog/trading-card-storage-questions) | Current service terms and safe handling |
+
+## Choose a path by the decision you need to make
+
+The same card can need several checks. Start with the decision that matters today.
+
+| If you need to… | Use this order | Keep this evidence |
+| --- | --- | --- |
+| Name an unknown card | Identification, then price | Front and back image, set, number, language and finish |
+| Decide whether a card is worth buying | Identification, authenticity, then price | Exact printing, physical inspection notes and dated comparison |
+| Decide whether to grade | Identification, condition, grading and price | Defect photos, grade estimate, service terms and fee estimate |
+| Record a large lot | Identification, collection and storage | Quantity, location, missing-price count and box or binder ID |
+| Prepare a listing | Identification, price and selling | Front and back photos, condition disclosure, fee and shipping estimate |
+
+This order prevents a common mistake. A similar-looking result can help you find a candidate, but it does not settle the exact printing or physical condition. Confirm the full number and finish before adding a price to a collection total. If the decision involves a suspected counterfeit, stop at the evidence check and use a specialist or the relevant certificate lookup. [Review the identification workflow](/blog/trading-card-identification-questions) · [Review authenticity checks](/blog/trading-card-authenticity-questions) · [Review the selling workflow](/blog/trading-card-selling-questions)
+
+## Keep a small evidence record
+
+For every important lookup, save the question, card identity, source, date, currency, condition, language, finish and the action you took. A screenshot alone can lose the context of a price or search result, so keep the source label and the exact card fields beside it. For a scan, keep the original image when possible. For a collection entry, keep the physical location and quantity. For a listing, keep the fee and shipping assumptions. This makes a later correction easy to explain and avoids treating an old reference as a current guarantee.
+
+The 100 answers are written as task guides. They help you choose the next check and show where product workflows fit. They do not replace a grading company’s service terms, a marketplace’s current policy, a local tournament rule set or a physical authenticity examination.
+
+### Quick questions about this guide
+
+**Should I read all 100 questions?** No. Open the topic that matches your task, then follow its internal links when the next decision changes. The full index is useful when you are learning the vocabulary or comparing workflows.
+
+**Why does an answer ask me to record a date?** Prices, plan limits and marketplace rules change. A date lets you tell a current observation from an older reference.
+
+**Why can a card have no price?** The exact printing may be unresolved, the source may not cover the card, or the condition and grade may not match a published record. Keep the card in the inventory and mark the value as unavailable until the identity and source are clear.

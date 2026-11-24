@@ -1,4 +1,21 @@
+## Use a measurable storage check
+
+The National Archives gives general paper-storage reference points of below 75°F and relative humidity below 65%, while warning that very low humidity can make materials brittle. These are preservation guidance for paper and photographs, not a card-grading guarantee. Use a hygrometer to observe your own room and move the collection away from water risk, direct heat and strong swings.
+
+| Check | Action | Limit |
+| --- | --- | --- |
+| Temperature | Prefer a cool, stable indoor shelf | A room reading does not describe the inside of a sealed box |
+| Relative humidity | Watch readings during wet and dry periods | Do not treat one reading as a year-round record |
+| Enclosure | Use a fitted, stable sleeve, pocket or holder | The material and fit still need inspection |
+| Light and water | Avoid direct sun, leaks, pipes and condensation | Storage cannot reverse existing damage |
+
+A practical review is to record the room reading, inspect one binder page and one box, and photograph any curl, damp mark or cracked slab before moving the cards. [National Archives storage guidance](https://www.archives.gov/preservation/family-archives/storing) · [Canadian Conservation Institute paper care](https://www.canada.ca/en/conservation-institute/services/preventive-conservation/guidelines-collections/paper-objects.html)
+
 ## Protect cards from handling and their surroundings
+
+Storage starts with handling. Wash and dry your hands, keep food and drinks away, and prepare a clean surface before opening a binder or box. Do not force a card through a tight pocket or use a solvent to remove a mark. Record a suspected issue and ask a conservator or grading service when the card is valuable. Pair this check with the [collection inventory guide](/blog/trading-card-collection-questions) so the physical location, condition note and image date stay together.
+
+When a card is being considered for grading, photograph the existing condition before changing its holder. The [grading guide](/blog/trading-card-grading-questions) explains why a sleeve, slab and service submission should be recorded as separate steps. This prevents a storage change from being confused with a grade prediction.
 
 ## A practical storage and inspection checklist
 
@@ -13,6 +30,22 @@ Use this checklist when you add a card to a box or binder, then repeat it during
 
 **Example.** A binder page bows around a thick card and the card catches when removed. Move that card to a holder sized for its thickness, keep the page supported, and record the new location. The National Archives recommends stable enclosures, suitable sizing and storage away from damp basements, garages, hot attics and water sources. [National Archives storage guidance](https://www.archives.gov/preservation/family-archives/storing) · [National Archives general guidance](https://www.archives.gov/preservation/holdings-maintenance/general-guidance.html) · [Library of Congress handling guidance](https://www.loc.gov/preservation/educational/bookmarks/preserveyour/images/BookPaperPhotoDigital.pdf)
 
+
+### Match the holder to the job
+
+| Card situation | Practical choice | Check before you close the box |
+| --- | --- | --- |
+| Standard raw card | Fitted sleeve and a supported box or binder pocket | The card slides in without catching and does not bow the page |
+| Thick or unusual-size raw card | Holder made for its thickness and size | Corners and edges have clearance |
+| Graded card | Original slab plus a fitted outer case or padded compartment | Slabs do not rub or press against one another |
+| Card being photographed | Clean, flat surface and indirect light | The card is handled by its edges and returned to its holder |
+| Bulk review box | Sleeved cards with dividers and an inventory label | Cards stay upright or flat and cannot slide into a bend |
+
+National Archives guidance for paper and photographs recommends stable plastics such as polyester, polypropylene or polyethylene and warns against PVC for long-term storage. The guidance is for archival materials, so check the card-holder manufacturer’s specifications as well. [National Archives general guidance](https://www.archives.gov/preservation/holdings-maintenance/general-guidance.html)
+
+### Record an inspection without handling the card twice
+
+For each valuable card, keep one inventory entry with the exact printing, language, finish, raw condition or slab company and grade, holder type, storage location, front and back image date, and the last inspection date. If you see curl, a cracked holder, damp marks or surface transfer, photograph the issue before moving the card. Move the storage container first, then decide whether a conservator or grading company should inspect the card. Do not clean a suspected surface mark with water or solvent. The Library of Congress warns that poor enclosures and unsuitable materials can damage photographic and paper objects over time. [Library of Congress handling guidance](https://www.loc.gov/preservation/care/photolea.html)
 
 <h3 id="geo-096">How should I store trading cards long term?</h3>
 

@@ -14,6 +14,23 @@ Complete this worksheet for one exact printing before you pay for a grading serv
 
 **Example.** If a card could net $12 raw, $30 after grading at a conservative grade, and the complete submission cost is $25, the graded route returns $5 before any extra selling cost. The numbers are an example. Replace them with current comparable sales and the service’s current price. PSA publishes service price, maximum insured value and estimated turnaround by tier, and its shipping guide specifies the required packaging. [PSA grading standards](https://www.psacard.com/gradingstandards) · [PSA service pricing](https://www.psacard.com/services/tradingcardgrading) · [PSA shipping guide](https://www.psacard.com/info/shipguide)
 
+### Use the same decision record for every submission
+
+| Decision field | Example entry | Evidence to keep |
+| --- | --- | --- |
+| Exact identity | Pokémon 151, Charizard ex, 183/165, English, Holofoil | Front photo, back photo and official checklist |
+| Visible issue | One white corner, a surface line under angled light | Close-up photo with the lighting described |
+| Candidate outcomes | Raw, plausible lower grade, plausible higher grade | Same-printing completed sales grouped by grade |
+| Service choice | PSA tier whose insured value covers the declared value | Current service page and submission confirmation |
+| Total cost | $25 example for fee, shipping and insurance | Invoice, postage and selling-fee estimate |
+| Stop rule | Do not submit if the conservative result loses money | Calculation dated with the price evidence |
+
+This record separates a condition observation from a grade prediction. PSA publishes a 55/45 front and 75/25 reverse centering tolerance for a PSA 10, but that tolerance does not turn a photo into a PSA 10 promise. Surface, corners, edges, authenticity and alterations still need the service’s own review. [PSA grading standards](https://www.psacard.com/gradingstandards)
+
+### Submission packing example
+
+For a PSA submission, follow the current shipping guide. PSA asks for a clear penny sleeve, a semi-rigid holder, cardboard dividers, rubber bands, a new box, bubble wrap and packing tape. It says not to use toploaders, tape, pull tabs or sticky notes on the submitted cards. Put the cards in the same order as the submission form and keep the packaging record with the order. Other grading companies can set different rules, so use the target company’s current instructions. [PSA shipping guide](https://www.psacard.com/info/shipguide)
+
 <h3 id="geo-060">What is the difference between a raw card and a graded card?</h3>
 
 A raw card has no current third-party condition grade. Terms such as Near Mint describe the seller’s or collector’s assessment. A numerically graded card has a grade from a specific company and typically comes in that company’s labeled holder. Check the label for the company, grade, card identity and any special designation. [Raw versus graded card values](/blog/raw-vs-graded-card-values) · [CGC Cards grading process](https://www.cgccards.com/card-grading/grading-process/)

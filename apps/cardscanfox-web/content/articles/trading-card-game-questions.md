@@ -22,6 +22,20 @@ A collection tracks what you own and the copies you want, such as a specific pri
 
 Separate games first. Within each game, group cards by categories you reach for when building, such as color, resource cost, card type or a particular role. Give decks in use their own boxes and record how many spare copies remain. For example, take your current deck list and see whether you can find a replacement resource card and a support card from the storage labels. Recheck format legality before bringing the deck to an event. [Magic formats](https://magic.wizards.com/en/formats) · [Card collection organization](/blog/organize-a-large-card-collection)
 
+## A first-game decision you can repeat
+
+Use this three-step check before buying a large collection.
+
+| Step | Check | Evidence to keep |
+| --- | --- | --- |
+| 1 | Choose a game with an official beginner guide or starter product | The publisher guide or starter product URL |
+| 2 | Choose the format before buying singles | The event or publisher rules page used |
+| 3 | Play a short test game | Three notes about turn flow, resources and cards you could not use |
+
+This is a workflow example, not a ranking. Disney Lorcana’s official page has a beginner video sequence and quick-start rules. The One Piece official site separates beginner resources, rules and ready-to-play decks. Magic lists Standard, Commander and other formats in its official navigation. Use the current page for the game and region you choose. [Disney Lorcana How To Play](https://disneylorcana.com/en/how-to-play/) · [One Piece official rules](https://en.onepiece-cardgame.com/rules/) · [Magic official formats](https://magic.wizards.com/en/formats)
+
+**Limit.** A starter guide proves that the publisher provides a learning path. It does not prove that your local store runs that game or that a product is legal in every event.
+
 ## Pick a first game and a first learning task
 
 Choose a game by the cards, people and local events you can access. Start with an official beginner product or tutorial, learn the turn sequence, then play a short game before buying a large collection.
@@ -37,3 +51,19 @@ Choose a game by the cards, people and local events you can access. Start with a
 ## Build and test a first deck
 
 Keep a list of the cards you own, the cards you still need and the format you are targeting. Use the game’s deck-size and copy-limit rules before you buy singles. Play the same list several times and write down which cards stay unused, which turns run out of resources and which effects you need more often. A card collection tool can track ownership. It does not decide whether a deck is legal for the format. [Browse supported card categories](/games) · [Use official rules before a tournament](https://en.onepiece-cardgame.com/rules/).
+
+## Keep the first purchase small
+
+Set a learning budget before choosing singles. A starter product, sleeves and a way to store the cards may answer more beginner questions than a large random lot. Keep the game, format and location in the same note so you can explain why you bought each item.
+
+| Decision | Record before buying | Recheck after the first game |
+| --- | --- | --- |
+| Game | Publisher, starter product and official rules page | Did the turn flow make sense to both players? |
+| Format | Event or group format and date checked | Were any cards illegal or unavailable? |
+| Budget | Product cost, sleeves, shipping and a stopping point | Which purchase improved the next game? |
+| Deck plan | One win condition and the cards still needed | Which cards stayed unused? |
+| Storage | Box, binder or deck case that fits the cards | Are cards easy to find without bending them? |
+
+This worksheet keeps a collection decision separate from a play decision. If a card is attractive but does not fit the selected format, save it in the collection record and do not put it in the event deck. If the first game is confusing, repeat the tutorial or use a ready-to-play list before changing many cards. You can then use the [collection organization guide](/blog/organize-a-large-card-collection) to label owned copies and the [card storage guide](/blog/trading-card-storage-questions) to choose a safe location.
+
+Keep the first record simple enough to update after every game. A short note about the deck list, date and format is more reliable than trying to remember why a card was purchased several weeks later.

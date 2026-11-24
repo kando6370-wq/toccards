@@ -78,6 +78,22 @@ Use this table while testing tools. Fill it with observations from your own card
 
 A tool can be good for one row and poor for another. Keep those observations separate from a general accuracy claim. For current plan terms, check the provider’s own page immediately before a purchase.
 
+## Compare tools with the same card set
+
+Use the same five known cards and record observations before you choose a tool. This table is a test plan, not an accuracy ranking.
+
+| Test card | Required check | Result to record |
+| --- | --- | --- |
+| Common card | Name, set and number | First candidate and correction time |
+| Same-name reprint | Set and full number | Whether you can reject the wrong candidate |
+| Foil or parallel | Finish and variant | Whether the finish stays with the record |
+| Graded copy | Company and grade | Whether raw and graded records stay separate |
+| Missing-price card | No-price behavior | Blank or unavailable state, never an invented zero |
+
+CardScanFox documents a browser identifier, a mobile Portfolio and dated public price references. Its published workflow does not establish comparative recognition accuracy or speed. The CardScanFox comparison center links to product-specific pages, but current plans and supported categories can change. Confirm them on each provider’s own page before moving a collection or paying for a plan. [CardScanFox comparison center](/compare/) · [CardScanFox product overview](/app) · [CardScanFox recognition method](/ai-card-recognition-accuracy/)
+
+**Limit.** A five-card test helps you choose a workflow for your cards. It cannot support a general claim that one app is the most accurate, fastest or best for every collection.
+
 ## Choose the smallest workflow that works
 
 Use a browser tool when you need to identify one image and compare a candidate. Use a mobile app when you need to save owned holdings, quantities or folders. Use a marketplace workflow when you need to prepare listings. A price reference helps with research, while a completed sale is stronger evidence for a specific selling decision. [Read the price methodology](/card-price-data-methodology/) · [Read the selling guide](/blog/trading-card-selling-questions).

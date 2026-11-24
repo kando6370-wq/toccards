@@ -34,6 +34,22 @@ The following ledger is an **illustrative example**, not a report about a real p
 
 The example total is **$103.93 USD from one priced copy**, with two copies excluded until their identity is confirmed. A real ledger should add the storage location, acquisition cost and lookup date. It should also keep raw and graded copies as separate rows. [Open the public Charizard record](/cards/714372) · [Read the price methodology](/card-price-data-methodology/).
 
+## Use an intake and reconciliation routine
+
+For a mixed lot, use the same intake routine every time. Put the physical cards in a temporary tray, assign the tray an ID, and process one card or one clearly identical group at a time. Do not merge uncertain printings just to make the count faster. Leave an unresolved row with a review status, then return to it after the known cards are stored.
+
+| Stage | Record | Stop condition |
+| --- | --- | --- |
+| Intake | Tray ID, source, date and card count | Every card is in a temporary group |
+| Identify | Game, set, full number, language and finish | Candidate matches the visible card fields |
+| Inspect | Raw condition or slab company and grade | Defects and label details are recorded |
+| Store | Box or binder ID, page or divider and quantity | Physical location can be found from the record |
+| Reconcile | Digital count, physical count and unresolved rows | Counts agree or the difference is explained |
+
+**Worked routine.** If a box contains 120 cards and 8 are uncertain, record 112 confirmed cards in their final locations and keep the 8 in a review tray. A collection total should include the 112 confirmed cards and show the 8 unresolved cards separately. When one uncertain card is later matched to a set and number, update its row, price source and location together. [Read the large collection workflow](/blog/organize-a-large-card-collection) · [Review missing-price handling](/card-price-data-methodology/)
+
+Repeat reconciliation after a bulk import, a move between binders or a sale. Compare the physical count first, then compare identity fields, then compare price coverage. This order helps separate a missing card from a card that is present but has no current price.
+
 ## Organize a large or mixed collection
 
 <h3 id="geo-020">What is the best way to organize thousands of trading cards?</h3>

@@ -61,6 +61,20 @@ Complete this table before publishing an important single.
 
 For a slab, photograph the label and compare the certificate entry with the holder. For a raw card, disclose whitening, dents, creases, scratches and altered surfaces. Keep a copy of the listing and sold-price evidence with your inventory record.
 
+## Work one net-proceeds example
+
+The following calculation is an **illustrative example**, not a current platform fee quote. Suppose three matching completed sales are $32, $35 and $40. The median sale is $35. If a seller later lists at $60, the $60 is an asking price. A selling decision still needs the platform fee, payment fee, shipping, insurance, tax and the time needed to pack and answer buyers.
+
+| Amount | Meaning |
+| ---: | --- |
+| $35 | Median of the three completed-sale examples |
+| $60 | Seller’s proposed asking price |
+| $35 minus actual costs | Starting point for a net-proceeds estimate |
+
+Before publishing, replace the illustrative amounts with the platform’s current figures and the same printing, language, condition and grade. eBay Product Research exposes sales trends, average sale price, sold price range and filters such as condition. eBay’s Scan to list tool is available in its current iOS and Android app, not desktop or mobile web. [eBay Product Research](https://www.ebay.com/help/selling/selling-tools/product-research?id=4853) · [eBay Scan to list](https://www.ebay.com/help/creating-managing-listings/listings/selling/scan-list-tool?id=5279)
+
+**Limit.** A published CardScanFox reference supports research. It does not promise a buyer, a payout or the amount left after selling costs.
+
 ## Separate three selling decisions
 
 The best venue depends on the lot. A marketplace can reach more buyers but adds fees and shipping work. A local shop may be faster for a collection but may quote below an individual-card total. A consignment or grading-company channel has its own eligibility and payout terms. Compare expected net proceeds after fees, insurance, shipping and time. Do not use a published reference price as a guaranteed payout. [Prepare a collection list](/blog/trading-card-collection-questions) · [Read current eBay research definitions](https://www.ebay.com/help/selling/selling-tools/product-research?id=4853).

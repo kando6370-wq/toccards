@@ -38,6 +38,34 @@ Use one worksheet for every comparison so search interest and prices do not get 
 
 For example, a search spike for “Charizard” does not prove that Charizard 199/165 increased in sale price. Check the exact card, completed-sale sample and price metric separately. [Use Google Trends’ data notes](https://support.google.com/trends/answer/4365533?hl=en) · [Use eBay Product Research](https://www.ebay.com/help/selling/selling-tools/product-research?id=4853).
 
+## Separate interest from a card price
+
+Use this comparison before writing a trend conclusion.
+
+| Observation | What it measures | What it does not prove |
+| --- | --- | --- |
+| Google Trends index rises for “Pokémon cards” | Relative search interest after Google normalizes the selected time and place | That one printing sold for more |
+| eBay Collected names a popular character | A dated eBay collecting report and its audience | Demand for every card with that character |
+| CardScanFox weekly gainer changes | A matched published raw-card series in its selected window | A complete marketplace or sealed-product trend |
+| Three completed sales move upward | Transactions for a defined card and period | A long-term trend when the sample is small |
+
+**Worked example.** If “Charizard” searches rise in the United States, write the search result as an interest observation. Then select one exact card, such as an English Charizard ex 199/165 record, and record the same currency, condition, finish and sale window before comparing transactions. Do not turn the search observation into a claim about that card. Google says Trends is a normalized sample of search requests, so the selected place and time remain part of the result. [Google Trends data FAQ](https://support.google.com/trends/answer/4365533?hl=en) · [eBay Collected](https://pages.ebay.com/collected/) · [CardScanFox weekly gainers](/prices/top-gainers)
+
+## Keep a monthly evidence log
+
+A trend note becomes easier to audit when every month uses the same fields. Save the date range, region, query wording, exact card identity, source URL and sample count. If a source changes its report or removes a listing, mark the row as unavailable instead of filling the gap with a different metric.
+
+| Monthly row | Example value | Review question |
+| --- | --- | --- |
+| Search source and query | Google Trends, “Pokémon cards”, US | Did the wording or region change? |
+| Card identity | Charizard ex 199/165, English, raw | Did the set, number or finish change? |
+| Transaction window | 30 days ending 2026-11-24 | Is the window equal to last month’s window? |
+| Matching sales | 3 completed sales | Is the sample large enough to describe? |
+| Price statistic | Median sold price in USD | Are currency and condition consistent? |
+| Interpretation | Interest rose, price evidence inconclusive | Did the sentence stay within the data? |
+
+Add one sentence for what the row cannot show. For example, a rise in Pokémon searches can support a statement about relative search interest, while three sales can support a statement about those three sales. It cannot establish demand for every Pokémon card, a complete market share or a reliable investment return. Link the [price history guide](/blog/trading-card-price-history) and [price methodology](/card-price-data-methodology/) beside the log so a reader can reproduce the metric.
+
 ## State what the data cannot answer
 
 A one-day search spike cannot establish a long-term market trend. A small number of sales cannot describe every copy. A CardScanFox weekly gain compares its selected published raw series, so it does not measure sealed products or every market listing. Write the platform, date window, region and sample size beside any conclusion.

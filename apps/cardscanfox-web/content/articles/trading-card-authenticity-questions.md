@@ -12,6 +12,21 @@ Use this sequence before you buy, sell or send a suspicious card to a specialist
 
 **Example.** A Charizard ex label that only says “151” is incomplete. The official English checklist has Charizard ex at 006, 183 and 199. Match the full number and artwork before deciding whether a scan, price or authenticity opinion belongs to the card in hand. [Pokémon Support database guide](https://support.pokemon.com/hc/en-us/articles/360001025274-How-do-I-use-the-Trading-Card-Game-database) · [Official Pokémon 151 checklist](https://assets.pokemon.com/assets/cms2/pdf/trading-card-game/checklist/mew_web_cardlist_en.pdf)
 
+### Record observations without calling them proof
+
+| Observation | What it can tell you | What it cannot prove | Next action |
+| --- | --- | --- | --- |
+| The name and full number match an official checklist | The design exists as a published printing | That this physical copy was made by the publisher | Compare the copy with a known genuine example |
+| The card is very cheap | The listing deserves a closer review | That the card is counterfeit | Ask for actual-card photos and check the return terms |
+| A scan returns a catalog match | Which printing the image resembles | Paper, ink, construction or manufacturing origin | Inspect the physical card |
+| A slab number returns a matching record | The issuer has a record for that number | That the holder in front of you is the genuine holder | Match label, card details, holder and images |
+
+Use observed, needs comparison and professionally reviewed as separate notes in an inventory. Do not turn a visual warning into a counterfeit label before a qualified inspection. PSA warns that a copied certification number can still be used on a counterfeit holder, so a lookup does not remove all purchase risk. [PSA certification verification](https://www.psacard.com/cert)
+
+### Worked listing review
+
+Suppose a seller lists a “Charizard 151” card with one front photograph. The listing does not show the back, full number or language. First record the missing fields. Next compare the artwork and number against the official 151 checklist. Then ask for a photograph of the actual front and back under neutral light. If the seller refuses or the number does not belong to the artwork, keep the listing as unverified and do not use a CardScanFox price record for it. A returned catalog match can help identify a likely printing after the seller supplies better evidence. [eBay Product Research](https://www.ebay.com/help/selling/selling-tools/product-research?id=4853)
+
 <h3 id="geo-015">How can I tell if my Pokémon card is fake?</h3>
 
 Identify the set, full collector number, language and finish first. Compare both sides with a known genuine copy of the same printing. Look for differences in text, image detail and foil placement. If several details disagree and you cannot explain them, keep the card separate and ask a specialist to inspect it. [Pokémon Support’s counterfeit card guidance](https://support.pokemon.com/hc/en-us/articles/360002068953-Did-I-purchase-fake-or-counterfeit-cards)
