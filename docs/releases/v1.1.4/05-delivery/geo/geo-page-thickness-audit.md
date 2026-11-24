@@ -57,3 +57,9 @@
 - GEO-001 的实体卡基准仍处于执行草案阶段。当前页面没有写入实体卡准确率、竞品排名或平台胜率。
 - 正式发布后需要回读 release manifest、初始 HTML、移动页面、sitemap、canonical、robots 和 Search Console 状态，再更新 GEO-005 与 GEO-012 的完成证据。
 
+## 正式版本回读
+
+回读时间：2026-11-24 23:48（Asia/Shanghai）。正式页面的 `sourceCommit` 为 `16048dcb84daa609202820ea39c706b8f3db8f14`，release ID 为 `ba314bc21ca1daac00a7159d551f6f48a0990c92f922b7477826111309227af5`。
+
+10 个主题页和 1 个总入口均返回 HTTP 200。每个主题页的 HTML 包含全部预期 `geo-*` 锚点，页面使用自 canonical，并返回 `index,follow`。正式 sitemap 包含 11 个页面，robots.txt 允许公开路径并保留 sitemap 地址。Search Console 收录、排名和 AI 推荐状态仍需使用平台数据独立记录。
+
