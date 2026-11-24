@@ -13,7 +13,7 @@ test('DCC directly answers the checklist and pack questions with all 100 unique 
  const html=render('/blog/dungeon-crawler-carl-trading-cards'),numbers=[];
  visit(parse(html),node=>{if(node.tagName==='table'&&attr(node,'class')==='dcc-checklist')visit(node,row=>{if(row.tagName==='tr'&&row.childNodes.some(c=>c.tagName==='td'))numbers.push(Number(text(row.childNodes.find(c=>c.tagName==='td'))));});});
  assert.deepEqual(numbers,Array.from({length:100},(_,i)=>i+1));
- for(const answer of ['seven base cards and one chase card','Renegade','Where can you buy','borantcorp.com'])assert.ok(html.includes(answer),answer);
+ for(const answer of ['seven base cards and one chase card','Renegade','Where can you buy',"Borant\'s official card catalog"])assert.ok(html.includes(answer),answer);
  assert.doesNotMatch(html,/we have not verified|none guarantees|do not guarantee/i);
 });
 
