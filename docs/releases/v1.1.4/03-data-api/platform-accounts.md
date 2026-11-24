@@ -546,3 +546,13 @@ Android／iOS 共用注册与重置密码页的新密码空白字符拒绝已包
 - `shared/.env`、`watcher.env` 的发布前后完整哈希不变，未输出凭据或修改私有配置。备份、历史 release 和本地文档保留，没有清理用户数据。
 
 本次仅重发 Linux dev API／Admin；没有执行 prod、官网、Flutter 制品或商店发布，没有进行数据库业务写入验收。真实管理员登录及浏览器闪现回归、Google 登录、真机扫描、购买／Restore、恢复演练和真实流量性能仍未验收，GitHub CI 结果未回查。机器可读验收证据位于忽略目录 `.dart_tool/dev-deploy-20261112/`；上述结果是本次发布回读，不替代后续环境状态核验。
+
+<a id="linux-dev-redeploy-20261124"></a>
+
+## Linux dev API／Admin 重部署（2026-11-24）
+
+kd201 已从 `dev@9acbf220` 发布 `branch-dev-9acbf220aa1d-20261124113420`。首次识别服务预检报 `fetch failed`，旧版继续提供服务。随后在宿主机和 API 容器分别确认向量与 pHash 健康协议，使用原有 watcher 和原版预检重试成功。
+
+- 11:37 从开发机回读，条款、隐私、支持三页与目标提交逐字节一致，卡牌 `560537` 的分享页显示 `CardScanFox` 并保留 `kando://` 唤起地址。健康、App／Admin 未登录拒绝、iOS／Google／Android 公共配置共 6 项检查通过。
+- 11:45 服务器回读确认 `current`、发布清单、watcher 已见和已发布提交一致，失败标记已清除。API 和数据库健康，Web 正常运行，迁移进程以 0 退出。运行的 API、Web 程序及后台 11 个文件均与发布包匹配。内网获取的 10 个 JS／CSS 文件与本地目标构建字节一致，首页与使用 Git 原始 LF 模板重建的 HTML 字节一致。
+- 沿用 `toccards-linux-test_postgres-data` 数据卷。数据库的 19 项迁移与发布包逐项匹配，最新为 `0018_platform_account_isolation.sql`，发布预检返回 `pendingMigrations=[]`。发布前备份 1,232,938,159 字节，`pg_restore --list` 读取到 374 项。

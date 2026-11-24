@@ -2,6 +2,8 @@
 
 当前 `dev` 即本手册的 Linux 环境，`prod` 保持原 Cloudflare 运行与发布方式；已退役的旧 CF dev 不是第三个业务环境或后续发布目标。
 
+2026-11-24 已验收 kd201 的 `dev@9acbf220`。实际运行提交、数据库备份、后台文件和内网业务页面见[本次 API／Admin 重部署记录](../releases/v1.1.4/03-data-api/platform-accounts.md#linux-dev-redeploy-20261124)。
+
 2026-11-18 10:49 已独立验收干净 `dev@340efc7b` 的重部署，release 为 `branch-dev-340efc7bafbf-20261118104450`；API 和数据库健康，后台运行，分享页已显示 `CARD AI`。发布前数据库备份目录可读，现有 19 项迁移记录未变。代理故障、修复及检查结果见[卡牌分享 dev 发布记录](../releases/v1.1.4/01-flows/card-sharing.md#linux-dev-重新部署2026-11-18)。
 
 2026-11-12 14:05 已独立验收本次重部署：干净 `dev@87ba3b4b` 对应 release `branch-dev-87ba3b4b0929-20261112140056`，current／manifest／watcher 状态一致，失败标记为空；API／DB healthy、Web running、migrate exited/0。Node 22.23.4、PostgreSQL 18.6／ledger 19 项／最新 `0018` 保持，无待执行迁移。1,232,817,600 字节发布前备份的目录读取通过，API 运行文件及 Admin 11 个静态文件逐字节匹配，私有配置哈希不变，见[重部署验收](../releases/v1.1.4/03-data-api/platform-accounts.md#linux-dev-redeploy-20261112)。此前 [2026-11-06 完整发布](../releases/v1.1.4/03-data-api/platform-accounts.md#linux-dev-发布与验收2026-11-06)与 [2026-11-09 配置补验](../releases/v1.1.4/03-data-api/platform-accounts.md#android-dev-google-登录配置2026-11-09)继续按原日期保留；历史记录不能替代后续服务器验收。
