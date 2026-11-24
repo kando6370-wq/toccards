@@ -222,3 +222,11 @@ Play 接受同一 `215` AAB，预览为“可以发布了”，对照 `214` 的�
 - 用户确认从 Google Play 安装 `215` 并反馈测试未发现问题。未独立核验 Play 分发 APK 签名，未取得逐项业务验收记录。
 - Play Console 只读回查：Production 发布记录名称为 `1.0.0`，制品为 `215 (1.0.7)`，仅美国区“审核中”，自管式发布已关闭。此检查点未确认审核通过或公众可下载；发布后需用未加入内测的美国区账号核对公开商店安装。
 - 分享落地页的商店跳转修复由生产 API 独立发布，不需要重打此 AAB；双端 HTTP 验收和回退记录见[卡牌分享](../01-flows/card-sharing.md)。
+
+## Google Play 内部测试 218 发布（2026-11-24 10:15）
+
+从干净的 `main@319ea39c2410075e30743b608dcbf31f2cddf7b8` 使用固定 Flutter 3.47.9、Dart 3.13.7 和 JDK 21.0.13+9 构建正式 `1.0.8+218`。AAB 为 `D:/Downloads/CardAI-Packages/com.cardai.tcg/Android/CardAI-Prod-1.0.8-218/CardAI-Prod-1.0.8-218.aab`，111,762,427 字节，SHA-256 `ecf0492d4f5b855a405583d3e118ef4afb59b6afb5bba8b50d1efc51c948d4e1`。脚本归档后推进共享构建号，保留三份原生符号和 R8 mapping。包名、Upload 签名、bundletool、minSdk 24、target SDK 36、30 个原生库及 ELF 16 KB 对齐校验通过，App 分析无问题；真实设备验收未执行。
+
+Play 接受 218 AAB，发布预览显示“可以发布了”。与 215 相比，手机 12,433 台、平板 6,603 台、电视 4 台、车载 1 台、Chromebook 10 台和 Android XR 2 台的支持范围均未减少，穿戴式设备仍为 0 台；新安装应用大小约 39.6 MB，预计下载用时约 21 秒。版本说明为 CardScanFox 品牌更新、Android 稳定性与性能改进及 edge-to-edge 显示行为改进。
+
+Internal testing 轨道发布后独立回读为“有效”，最新版本为 `1.0.8 (218) - Internal`，状态为“已面向内部测试人员发布”，发布时间为 2026 年 11 月 24 日 10:15。`Card AI Internal 20261110` 测试名单仍为 6 人，本轮未修改名单。此次仅发布 Android 内部测试制品，未发布 iOS、API 或 Admin，也未执行数据库迁移。218 从 Play 安装后的真实登录、Play Integrity、扫描、统计与崩溃验收仍待完成。

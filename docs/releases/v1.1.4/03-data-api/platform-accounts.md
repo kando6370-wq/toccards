@@ -503,3 +503,9 @@ Android SDK `apkanalyzer dex code` 确认交付 APK 缺少 `io.flutter.plugins.G
 ### Android Internal testing 214 交付（2026-11-17）
 
 Android／iOS 共用注册与重置密码页的新密码空白字符拒绝已包含在正式 `1.0.7+214` AAB，并于 10:06 发布至原 6 人 Internal testing 轨道；轨道有效、版本尚未审核，设备支持范围相对 213 无增减。本轮只发布 Android 测试制品，没有部署包含同一规则的生产 Workers API，因此不能将新客户端校验扩展为旧客户端或直接 API 请求已由服务端拒绝；从 Play 安装后的真实密码流程、登录、Integrity、扫描、运行时统计及新 iOS 制品仍待验收。制品、验证和控制台边界见[Google Play 内部测试 214 发布记录](../05-delivery/android-play-release-configuration.md#google-play-内部测试-214-发布2026-11-17-1006)。
+
+### Android Internal testing 218 交付（2026-11-24）
+
+当前源码从干净的 `main@319ea39c2410075e30743b608dcbf31f2cddf7b8` 构建正式 `1.0.8+218` AAB，制品为 `D:/Downloads/CardAI-Packages/com.cardai.tcg/Android/CardAI-Prod-1.0.8-218/CardAI-Prod-1.0.8-218.aab`，111,762,427 字节，SHA-256 `ecf0492d4f5b855a405583d3e118ef4afb59b6afb5bba8b50d1efc51c948d4e1`。Upload 签名、bundletool、minSdk 24、target SDK 36、30 个原生库及 ELF 16 KB 对齐校验通过，Play 预览无错误或警告，设备支持范围相对 215 未减少。
+
+218 已于 2026 年 11 月 24 日 10:15 发布至原 `Card AI Internal 20261110` Internal testing 轨道。轨道状态为“有效”，最新版本为 `1.0.8 (218) - Internal`，测试名单仍为 6 人且未修改。本轮未重新部署生产后台／API、执行数据库迁移或发布 iOS 制品；从 Play 安装后的真实登录、Integrity、扫描、运行时统计与崩溃验收仍待完成。
