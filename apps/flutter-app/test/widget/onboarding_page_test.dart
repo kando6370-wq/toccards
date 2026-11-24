@@ -164,6 +164,27 @@ void main() {
     }
   });
 
+  testWidgets('guide controls stay above a large bottom system inset', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      _testPage(
+        InMemoryOnboardingStorage(),
+        padding: const EdgeInsets.only(bottom: 72),
+      ),
+    );
+    await _advanceToFinalGuide(tester);
+
+    expect(
+      tester.getBottomRight(find.byTooltip('Skip and start now')).dy,
+      lessThanOrEqualTo(844 - 72),
+    );
+  });
+
   testWidgets('guide copy and controls match the Figma 390x844 layout', (
     tester,
   ) async {
@@ -453,11 +474,13 @@ Widget _testPage(
   InMemoryOnboardingStorage storage, {
   bool disableAnimations = false,
   TextScaler textScaler = TextScaler.noScaling,
+  EdgeInsets padding = EdgeInsets.zero,
 }) {
   final page = MediaQuery(
     data: MediaQueryData(
       disableAnimations: disableAnimations,
       textScaler: textScaler,
+      padding: padding,
     ),
     child: const OnboardingPage(),
   );

@@ -90,7 +90,7 @@ void _paintPoster(
 
   _paintText(
     canvas,
-    text: 'CARD AI',
+    text: 'CardScanFox',
     offset: const Offset(24, 23),
     width: 312,
     style: const TextStyle(
