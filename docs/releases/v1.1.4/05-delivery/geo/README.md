@@ -35,3 +35,5 @@
 
 - [逐题公开路径](./website-content-coverage.md)
 - 浏览器原答保存在本机受控目录 `/Users/mac/.codex/local-evidence/cardscanfox-geo-20261124/chatgpt-100`。10 个分组的回答中可从正文取得链接的有两组。官网内容的事实来源以各篇登记的官方资料为准。
+
+正式站于北京时间 2026-11-24 18:54:27 回读到 `dcd07dccaaabc57775584a5ed7deb07466915045`。Cloudflare 官网构建于 18:53:32 完成，版本为 `f6ac9a99-398e-4563-b432-0387dd0ed06b`。正式回读核对了 100 条原问及正文锚点、11 个新增页面和 6 个更新入口或分类页。17 个网址在正式站点地图中，分两批收到 IndexNow HTTP 200 回执。首批接收 12 个。工具首次把首页和 4 个分类页判成正文未变化，独立核对后补交这 5 个网址。 [100 问入口](https://tcgcard.fun/blog/trading-card-questions) · [正式发布清单](https://tcgcard.fun/release-manifest.json)

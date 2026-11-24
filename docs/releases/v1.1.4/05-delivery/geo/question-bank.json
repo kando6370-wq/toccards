@@ -54,7 +54,7 @@
         "confidence": 0.99
       },
       "content_path": "/blog/trading-card-identification-questions#geo-001",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-002",
@@ -84,7 +84,7 @@
         "confidence": 1.0
       },
       "content_path": "/blog/trading-card-identification-questions#geo-002",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-003",
@@ -114,7 +114,7 @@
         "confidence": 0.99
       },
       "content_path": "/blog/trading-card-identification-questions#geo-003",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-004",
@@ -144,7 +144,7 @@
         "confidence": 1.0
       },
       "content_path": "/blog/trading-card-identification-questions#geo-004",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-005",
@@ -174,7 +174,7 @@
         "confidence": 1.0
       },
       "content_path": "/blog/trading-card-price-questions#geo-005",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-006",
@@ -204,7 +204,7 @@
         "confidence": 0.91
       },
       "content_path": "/blog/trading-card-price-questions#geo-006",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-007",
@@ -234,7 +234,7 @@
         "confidence": 0.98
       },
       "content_path": "/blog/trading-card-price-questions#geo-007",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-008",
@@ -264,7 +264,7 @@
         "confidence": 0.91
       },
       "content_path": "/blog/trading-card-price-questions#geo-008",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-009",
@@ -294,7 +294,7 @@
         "confidence": 0.98
       },
       "content_path": "/blog/trading-card-tool-questions#geo-009",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-010",
@@ -324,7 +324,7 @@
         "confidence": 0.98
       },
       "content_path": "/blog/trading-card-tool-questions#geo-010",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-011",
@@ -354,7 +354,7 @@
         "confidence": 0.9
       },
       "content_path": "/blog/trading-card-tool-questions#geo-011",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-012",
@@ -384,7 +384,7 @@
         "confidence": 0.99
       },
       "content_path": "/blog/trading-card-tool-questions#geo-012",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-013",
@@ -414,7 +414,7 @@
         "confidence": 1.0
       },
       "content_path": "/blog/trading-card-tool-questions#geo-013",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-014",
@@ -444,7 +444,7 @@
         "confidence": 0.6
       },
       "content_path": "/blog/trading-card-tool-questions#geo-014",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-015",
@@ -474,7 +474,7 @@
         "confidence": 1.0
       },
       "content_path": "/blog/trading-card-authenticity-questions#geo-015",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-016",
@@ -504,7 +504,7 @@
         "confidence": 1.0
       },
       "content_path": "/blog/trading-card-authenticity-questions#geo-016",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-017",
@@ -534,7 +534,7 @@
         "confidence": 1.0
       },
       "content_path": "/blog/trading-card-grading-questions#geo-017",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-018",
@@ -564,7 +564,7 @@
         "confidence": 0.98
       },
       "content_path": "/blog/trading-card-grading-questions#geo-018",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-019",
@@ -594,7 +594,7 @@
         "confidence": 0.52
       },
       "content_path": "/blog/trading-card-collection-questions#geo-019",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-020",
@@ -624,7 +624,7 @@
         "confidence": 0.86
       },
       "content_path": "/blog/trading-card-collection-questions#geo-020",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-021",
@@ -654,7 +654,7 @@
         "confidence": 1.0
       },
       "content_path": "/blog/trading-card-identification-questions#geo-021",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-022",
@@ -684,7 +684,7 @@
         "confidence": 0.8
       },
       "content_path": "/blog/trading-card-identification-questions#geo-022",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-023",
@@ -714,7 +714,7 @@
         "confidence": 1.0
       },
       "content_path": "/blog/trading-card-identification-questions#geo-023",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-024",
@@ -744,7 +744,7 @@
         "confidence": 1.0
       },
       "content_path": "/blog/trading-card-identification-questions#geo-024",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-025",
@@ -774,7 +774,7 @@
         "confidence": 0.93
       },
       "content_path": "/blog/trading-card-identification-questions#geo-025",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-026",
@@ -804,7 +804,7 @@
         "confidence": 1.0
       },
       "content_path": "/blog/trading-card-identification-questions#geo-026",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-027",
@@ -834,7 +834,7 @@
         "confidence": 0.97
       },
       "content_path": "/blog/trading-card-identification-questions#geo-027",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-028",
@@ -864,7 +864,7 @@
         "confidence": 0.9
       },
       "content_path": "/blog/trading-card-identification-questions#geo-028",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-029",
@@ -895,7 +895,7 @@
         "confidence": 0.81
       },
       "content_path": "/blog/trading-card-identification-questions#geo-029",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-030",
@@ -925,7 +925,7 @@
         "confidence": 0.92
       },
       "content_path": "/blog/trading-card-identification-questions#geo-030",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-031",
@@ -955,7 +955,7 @@
         "confidence": 0.82
       },
       "content_path": "/blog/trading-card-identification-questions#geo-031",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-032",
@@ -986,7 +986,7 @@
         "confidence": 1.0
       },
       "content_path": "/blog/trading-card-price-questions#geo-032",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-033",
@@ -1016,7 +1016,7 @@
         "confidence": 0.98
       },
       "content_path": "/blog/trading-card-price-questions#geo-033",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-034",
@@ -1046,7 +1046,7 @@
         "confidence": 0.97
       },
       "content_path": "/blog/trading-card-price-questions#geo-034",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-035",
@@ -1076,7 +1076,7 @@
         "confidence": 1.0
       },
       "content_path": "/blog/trading-card-price-questions#geo-035",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-036",
@@ -1106,7 +1106,7 @@
         "confidence": 0.97
       },
       "content_path": "/blog/trading-card-price-questions#geo-036",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-037",
@@ -1136,7 +1136,7 @@
         "confidence": 0.98
       },
       "content_path": "/blog/trading-card-price-questions#geo-037",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-038",
@@ -1166,7 +1166,7 @@
         "confidence": 0.97
       },
       "content_path": "/blog/trading-card-price-questions#geo-038",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-039",
@@ -1196,7 +1196,7 @@
         "confidence": 0.71
       },
       "content_path": "/blog/trading-card-price-questions#geo-039",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-040",
@@ -1226,7 +1226,7 @@
         "confidence": 0.97
       },
       "content_path": "/blog/trading-card-price-questions#geo-040",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-041",
@@ -1256,7 +1256,7 @@
         "confidence": 1.0
       },
       "content_path": "/blog/trading-card-price-questions#geo-041",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-042",
@@ -1286,7 +1286,7 @@
         "confidence": 0.92
       },
       "content_path": "/blog/trading-card-price-questions#geo-042",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-043",
@@ -1316,7 +1316,7 @@
         "confidence": 0.91
       },
       "content_path": "/blog/trading-card-tool-questions#geo-043",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-044",
@@ -1346,7 +1346,7 @@
         "confidence": 1.0
       },
       "content_path": "/blog/trading-card-tool-questions#geo-044",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-045",
@@ -1377,7 +1377,7 @@
         "confidence": 0.99
       },
       "content_path": "/blog/trading-card-tool-questions#geo-045",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-046",
@@ -1408,7 +1408,7 @@
         "confidence": 0.6
       },
       "content_path": "/blog/trading-card-tool-questions#geo-046",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-047",
@@ -1438,7 +1438,7 @@
         "confidence": 0.96
       },
       "content_path": "/blog/trading-card-tool-questions#geo-047",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-048",
@@ -1468,7 +1468,7 @@
         "confidence": 0.97
       },
       "content_path": "/blog/trading-card-tool-questions#geo-048",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-049",
@@ -1498,7 +1498,7 @@
         "confidence": 0.89
       },
       "content_path": "/blog/trading-card-tool-questions#geo-049",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-050",
@@ -1528,7 +1528,7 @@
         "confidence": 0.79
       },
       "content_path": "/blog/trading-card-tool-questions#geo-050",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-051",
@@ -1559,7 +1559,7 @@
         "confidence": 0.99
       },
       "content_path": "/blog/trading-card-tool-questions#geo-051",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-052",
@@ -1589,7 +1589,7 @@
         "confidence": 0.99
       },
       "content_path": "/blog/trading-card-authenticity-questions#geo-052",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-053",
@@ -1619,7 +1619,7 @@
         "confidence": 0.99
       },
       "content_path": "/blog/trading-card-authenticity-questions#geo-053",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-054",
@@ -1649,7 +1649,7 @@
         "confidence": 0.86
       },
       "content_path": "/blog/trading-card-authenticity-questions#geo-054",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-055",
@@ -1679,7 +1679,7 @@
         "confidence": 0.8
       },
       "content_path": "/blog/trading-card-authenticity-questions#geo-055",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-056",
@@ -1709,7 +1709,7 @@
         "confidence": 1.0
       },
       "content_path": "/blog/trading-card-authenticity-questions#geo-056",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-057",
@@ -1739,7 +1739,7 @@
         "confidence": 0.98
       },
       "content_path": "/blog/trading-card-authenticity-questions#geo-057",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-058",
@@ -1769,7 +1769,7 @@
         "confidence": 0.94
       },
       "content_path": "/blog/trading-card-authenticity-questions#geo-058",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-059",
@@ -1799,7 +1799,7 @@
         "confidence": 0.87
       },
       "content_path": "/blog/trading-card-authenticity-questions#geo-059",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-060",
@@ -1829,7 +1829,7 @@
         "confidence": 0.72
       },
       "content_path": "/blog/trading-card-grading-questions#geo-060",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-061",
@@ -1859,7 +1859,7 @@
         "confidence": 0.92
       },
       "content_path": "/blog/trading-card-grading-questions#geo-061",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-062",
@@ -1889,7 +1889,7 @@
         "confidence": 0.97
       },
       "content_path": "/blog/trading-card-grading-questions#geo-062",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-063",
@@ -1919,7 +1919,7 @@
         "confidence": 0.75
       },
       "content_path": "/blog/trading-card-grading-questions#geo-063",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-064",
@@ -1949,7 +1949,7 @@
         "confidence": 0.99
       },
       "content_path": "/blog/trading-card-grading-questions#geo-064",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-065",
@@ -1979,7 +1979,7 @@
         "confidence": 1.0
       },
       "content_path": "/blog/trading-card-grading-questions#geo-065",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-066",
@@ -2009,7 +2009,7 @@
         "confidence": 0.99
       },
       "content_path": "/blog/trading-card-grading-questions#geo-066",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-067",
@@ -2039,7 +2039,7 @@
         "confidence": 1.0
       },
       "content_path": "/blog/trading-card-grading-questions#geo-067",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-068",
@@ -2070,7 +2070,7 @@
         "confidence": 0.72
       },
       "content_path": "/blog/trading-card-collection-questions#geo-068",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-069",
@@ -2100,7 +2100,7 @@
         "confidence": 1.0
       },
       "content_path": "/blog/trading-card-collection-questions#geo-069",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-070",
@@ -2130,7 +2130,7 @@
         "confidence": 1.0
       },
       "content_path": "/blog/trading-card-collection-questions#geo-070",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-071",
@@ -2160,7 +2160,7 @@
         "confidence": 1.0
       },
       "content_path": "/blog/trading-card-collection-questions#geo-071",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-072",
@@ -2190,7 +2190,7 @@
         "confidence": 0.98
       },
       "content_path": "/blog/trading-card-collection-questions#geo-072",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-073",
@@ -2221,7 +2221,7 @@
       },
       "codex_review_reason": "用户要长期跟踪整个收藏的总值，目标是管理自己的收藏。",
       "content_path": "/blog/trading-card-collection-questions#geo-073",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-074",
@@ -2251,7 +2251,7 @@
         "confidence": 0.84
       },
       "content_path": "/blog/trading-card-collection-questions#geo-074",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-075",
@@ -2281,7 +2281,7 @@
         "confidence": 0.89
       },
       "content_path": "/blog/trading-card-collection-questions#geo-075",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-076",
@@ -2311,7 +2311,7 @@
         "confidence": 0.97
       },
       "content_path": "/blog/trading-card-selling-questions#geo-076",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-077",
@@ -2341,7 +2341,7 @@
         "confidence": 0.99
       },
       "content_path": "/blog/trading-card-selling-questions#geo-077",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-078",
@@ -2371,7 +2371,7 @@
         "confidence": 0.69
       },
       "content_path": "/blog/trading-card-selling-questions#geo-078",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-079",
@@ -2401,7 +2401,7 @@
         "confidence": 1.0
       },
       "content_path": "/blog/trading-card-selling-questions#geo-079",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-080",
@@ -2431,7 +2431,7 @@
         "confidence": 0.97
       },
       "content_path": "/blog/trading-card-selling-questions#geo-080",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-081",
@@ -2461,7 +2461,7 @@
         "confidence": 0.99
       },
       "content_path": "/blog/trading-card-selling-questions#geo-081",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-082",
@@ -2491,7 +2491,7 @@
         "confidence": 0.98
       },
       "content_path": "/blog/trading-card-selling-questions#geo-082",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-083",
@@ -2521,7 +2521,7 @@
         "confidence": 0.66
       },
       "content_path": "/blog/trading-card-selling-questions#geo-083",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-084",
@@ -2551,7 +2551,7 @@
         "confidence": 0.71
       },
       "content_path": "/blog/trading-card-selling-questions#geo-084",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-085",
@@ -2581,7 +2581,7 @@
         "confidence": 1.0
       },
       "content_path": "/blog/trading-card-selling-questions#geo-085",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-086",
@@ -2612,7 +2612,7 @@
         "confidence": 1.0
       },
       "content_path": "/blog/trading-card-market-trends-questions#geo-086",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-087",
@@ -2642,7 +2642,7 @@
         "confidence": 1.0
       },
       "content_path": "/blog/trading-card-market-trends-questions#geo-087",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-088",
@@ -2673,7 +2673,7 @@
         "confidence": 0.53
       },
       "content_path": "/blog/trading-card-market-trends-questions#geo-088",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-089",
@@ -2704,7 +2704,7 @@
         "confidence": 0.9
       },
       "content_path": "/blog/trading-card-market-trends-questions#geo-089",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-090",
@@ -2734,7 +2734,7 @@
         "confidence": 0.88
       },
       "content_path": "/blog/trading-card-market-trends-questions#geo-090",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-091",
@@ -2764,7 +2764,7 @@
         "confidence": 0.94
       },
       "content_path": "/blog/trading-card-game-questions#geo-091",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-092",
@@ -2794,7 +2794,7 @@
         "confidence": 1.0
       },
       "content_path": "/blog/trading-card-game-questions#geo-092",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-093",
@@ -2825,7 +2825,7 @@
         "confidence": 0.98
       },
       "content_path": "/blog/trading-card-game-questions#geo-093",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-094",
@@ -2856,7 +2856,7 @@
       },
       "codex_review_reason": "用户要理解以游戏规则为目的的玩牌与收藏之间的差别。",
       "content_path": "/blog/trading-card-game-questions#geo-094",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-095",
@@ -2886,7 +2886,7 @@
         "confidence": 0.94
       },
       "content_path": "/blog/trading-card-game-questions#geo-095",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-096",
@@ -2916,7 +2916,7 @@
         "confidence": 1.0
       },
       "content_path": "/blog/trading-card-storage-questions#geo-096",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-097",
@@ -2946,7 +2946,7 @@
         "confidence": 0.75
       },
       "content_path": "/blog/trading-card-storage-questions#geo-097",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-098",
@@ -2976,7 +2976,7 @@
         "confidence": 0.99
       },
       "content_path": "/blog/trading-card-storage-questions#geo-098",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-099",
@@ -3006,7 +3006,7 @@
         "confidence": 1.0
       },
       "content_path": "/blog/trading-card-storage-questions#geo-099",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     },
     {
       "question_id": "GEO-100",
@@ -3036,7 +3036,7 @@
         "confidence": 0.35
       },
       "content_path": "/blog/trading-card-storage-questions#geo-100",
-      "content_state": "本地候选"
+      "content_state": "已上线"
     }
   ]
 }
