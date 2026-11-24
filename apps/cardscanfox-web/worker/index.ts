@@ -71,7 +71,12 @@ export function createWebsiteHandler({publicPreview=false}={}) { return {
   const htmlCache=production&&typeof caches!=='undefined'&&'default' in caches?caches.default:null;
   const cacheKey=production?htmlCacheKey(request,env.CF_VERSION_METADATA?.id??'local'):null;
   if(htmlCache&&cacheKey){try{const cached=await htmlCache.match(cacheKey);if(cached){const freshHeaders=new Headers(cached.headers);freshHeaders.set('X-Request-Id',requestId);return conditionalHtml(request,cached.body,freshHeaders,cached.status);}}catch{console.error(JSON.stringify({event:'html_cache_read_failed',requestId}));}}
-  try{const page=(String(env.CATALOG_MODE)==='service'?await resolveServicePage(url,env.SITE_DATA):null)??(String(env.CATALOG_MODE)==='service'?liveContent.resolvePage(url):resolvePage(url));if('retryAfter' in page&&typeof page.retryAfter==='string')headers.set('Retry-After',page.retryAfter);headers.set('Content-Type','text/html; charset=utf-8');if(production){headers.set('X-Robots-Tag',mayIndex(url,page.status,page)?'index, follow':url.pathname==='/saved'?'noindex, nofollow':'noindex, follow');headers.set('Cache-Control',page.status===200&&url.pathname!=='/saved'?'public, max-age=0, s-maxage=60':'no-store');}const html=production?publishHtml(page.html,url,page.status,page):page.html;
+  // Keep attribution on the incoming URL, and use only page parameters to render HTML.
+  const pageUrl = new URL(url);
+  for (const key of url.searchParams.keys()) {
+   if (key.toLowerCase().startsWith('utm_')) pageUrl.searchParams.delete(key);
+  }
+  try{const page=(String(env.CATALOG_MODE)==='service'?await resolveServicePage(pageUrl,env.SITE_DATA):null)??(String(env.CATALOG_MODE)==='service'?liveContent.resolvePage(pageUrl):resolvePage(pageUrl));if('retryAfter' in page&&typeof page.retryAfter==='string')headers.set('Retry-After',page.retryAfter);headers.set('Content-Type','text/html; charset=utf-8');if(production){headers.set('X-Robots-Tag',mayIndex(url,page.status,page)?'index, follow':url.pathname==='/saved'?'noindex, nofollow':'noindex, follow');headers.set('Cache-Control',page.status===200&&url.pathname!=='/saved'?'public, max-age=0, s-maxage=60':'no-store');}const html=production?publishHtml(page.html,url,page.status,page):page.html;
    if(production&&page.status===200){headers.set('ETag',await htmlEtag(html));if(htmlCache&&cacheKey&&context&&request.method==='GET')context.waitUntil(htmlCache.put(cacheKey,new Response(html,{headers})).catch(()=>console.error(JSON.stringify({event:'html_cache_write_failed',requestId}))));return conditionalHtml(request,html,headers,page.status);}
    return new Response(request.method==='HEAD'?null:html,{status:page.status,headers});}
   catch(error){
