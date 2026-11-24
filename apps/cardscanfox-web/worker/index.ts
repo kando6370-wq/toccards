@@ -7,6 +7,7 @@ import { resolveServicePage } from '../src/live-render.mjs';
 import { CatalogResponseError } from '../src/catalog-error.mjs';
 import { publishHtml, publicSitemap, sitemapIndex, mayIndex } from '../src/publication.mjs';
 import { createRenderer, resolvePage, errorPage, legacyByPath } from '../src/render.mjs';
+import { scheduleCrawlerHit, type CrawlerReportingEnv } from './pvuv-crawlers';
 
 type RuntimeVariables = 'DEPLOYMENT_MODE'|'CATALOG_MODE'|'LOCAL_DEVELOPMENT'|'PUBLISH_READY';
 type OptionalBindings = 'PREVIEW_USERNAME'|'PREVIEW_PASSWORD'|'CF_VERSION_METADATA'|'WEB_VECTOR_RECOGNITION'|'WEB_SCANNER_RATE_LIMITER'|'WEB_PREGRADING_AI'|'WEB_PREGRADING_RATE_LIMITER'|'WEB_PREGRADING_GLOBAL_LIMITER';
@@ -36,7 +37,7 @@ export function createWebsiteHandler({publicPreview=false}={}) { return {
   const requestId=crypto.randomUUID();const headers=new Headers({...securityHeaders,'X-Request-Id':requestId,'X-Site-Release':'cardscanfox-independent-review'});
   const production=String(env.DEPLOYMENT_MODE)==='production';
   if(!['preview','production'].includes(String(env.DEPLOYMENT_MODE))||(production&&(String(env.PUBLISH_READY)!=='true'||String(env.CATALOG_MODE)!=='service')))return new Response('This candidate has no approved production cutover configuration.',{status:503,headers});
-  if(!production&&!publicPreview&&!await previewAllowed(request,env)){headers.set('WWW-Authenticate','Basic realm="Card AI review", charset="UTF-8"');return new Response('Authorized review access is required.',{status:401,headers});}
+  if(!production&&!publicPreview&&!await previewAllowed(request,env)){headers.set('WWW-Authenticate','Basic realm="CardScanFox review", charset="UTF-8"');return new Response('Authorized review access is required.',{status:401,headers});}
   if(new URL(request.url).pathname==='/site-api/v1/pregrade'){const response=await handleWebPregrade(request,env);for(const [key,value]of headers)if(!response.headers.has(key))response.headers.set(key,value);return response;}
   if(new URL(request.url).pathname==='/site-api/v1/recognize'){const response=await handleWebRecognition(request,env);for(const [key,value]of headers)if(!response.headers.has(key))response.headers.set(key,value);return response;}
   if(!['GET','HEAD'].includes(request.method)){headers.set('Allow','GET, HEAD');return new Response('Method not allowed',{status:405,headers});}
@@ -86,4 +87,13 @@ export function createWebsiteHandler({publicPreview=false}={}) { return {
   }
  }
 }; }
-export default createWebsiteHandler();
+const website = createWebsiteHandler();
+export default {
+ async fetch(request: Request, env: WebsiteEnv & CrawlerReportingEnv, context?: ExecutionContext): Promise<Response> {
+  const response = await website.fetch(request, env, context);
+  if (context && env.DEPLOYMENT_MODE === 'production' && env.PUBLISH_READY === 'true' && env.CATALOG_MODE === 'service') {
+   scheduleCrawlerHit(request, response.status, env, context);
+  }
+  return response;
+ }
+};

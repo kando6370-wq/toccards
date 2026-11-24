@@ -21,7 +21,7 @@ describe("PostgreSQL email authentication", () => {
     env = {
       DB: db, CACHE_KV: {} as KVNamespace, JWT_SECRET,
       ZEPTOMAIL_TOKEN: "test-token", ZEPTOMAIL_API_URL: "https://mail.test/send",
-      MAIL_FROM_ADDRESS: "support@example.com", MAIL_FROM_NAME: "Card AI",
+      MAIL_FROM_ADDRESS: "support@example.com", MAIL_FROM_NAME: "CardScanFox",
     };
     vi.stubGlobal("fetch", vi.fn(async () => new Response(
       JSON.stringify({ request_id: "mail-request" }),

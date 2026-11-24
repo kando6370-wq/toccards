@@ -46,6 +46,11 @@ void main() {
         final logo = find.byKey(const ValueKey('onboarding-loading-logo'));
         expect(tester.getSize(logo), const Size(76, 92));
         expect(tester.getCenter(logo).dx, closeTo(viewport.width / 2, .01));
+        final title = find.byKey(
+          const ValueKey('onboarding-loading-branding-title'),
+        );
+        expect(tester.getSize(title).width, greaterThan(116));
+        expect(tester.getCenter(title).dx, closeTo(viewport.width / 2, .01));
         expect(
           tester.getCenter(logo).dy,
           closeTo(viewport.height * 311 / 844, .01),
@@ -95,6 +100,11 @@ void main() {
         final logo = find.byKey(const ValueKey('onboarding-loading-logo'));
         expect(tester.getSize(logo), const Size(76, 92));
         expect(tester.getCenter(logo).dx, closeTo(viewport.width / 2, .01));
+        final title = find.byKey(
+          const ValueKey('onboarding-loading-branding-title'),
+        );
+        expect(tester.getSize(title).width, greaterThan(116));
+        expect(tester.getCenter(title).dx, closeTo(viewport.width / 2, .01));
         expect(tester.getCenter(logo).dy, closeTo(viewport.height / 2, .01));
       }
 
@@ -206,7 +216,7 @@ void main() {
       );
 
       expect(find.byKey(const ValueKey('onboarding-loading')), findsOneWidget);
-      expect(find.text('Card AI'), findsOneWidget);
+      expect(find.text('CardScanFox'), findsOneWidget);
       expect(find.text('LOADING YOUR COLLECTION...'), findsOneWidget);
       expect(find.text('Home ready'), findsNothing);
 

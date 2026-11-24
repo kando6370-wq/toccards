@@ -158,21 +158,34 @@ class _StartupPageState extends ConsumerState<_StartupPage>
                       ),
                       SizedBox(height: 8 * scale),
                       SizedBox(
-                        width: 116 * scale,
                         height: 40 * scale,
-                        child: Text(
-                          'Card AI',
-                          maxLines: 1,
-                          softWrap: false,
-                          overflow: TextOverflow.visible,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: KandoColors.accent,
-                            fontFamily: 'Fraunces',
-                            fontSize: 32 * scale,
-                            fontWeight: FontWeight.w400,
-                            height: 40 / 32,
-                          ),
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Positioned(
+                              top: 0,
+                              left: -52 * scale,
+                              width: 220 * scale,
+                              height: 40 * scale,
+                              child: Text(
+                                key: const ValueKey(
+                                  'onboarding-loading-branding-title',
+                                ),
+                                'CardScanFox',
+                                maxLines: 1,
+                                softWrap: false,
+                                overflow: TextOverflow.visible,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: KandoColors.accent,
+                                  fontFamily: 'Fraunces',
+                                  fontSize: 32 * scale,
+                                  fontWeight: FontWeight.w400,
+                                  height: 40 / 32,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],

@@ -40,7 +40,12 @@ test('live navigation, download choices and paging explain the visitor task with
  const real={...env,SITE_DATA:{fetch:async()=>new Response(JSON.stringify({success:true,data:pageData,meta:{datasetMode:'published-read-only',catalogVersion:'live'}}))}};
  const html=await(await pages.fetch(new Request('https://preview.pages.dev/cards?page=2&after=live-899'),real,{})).text();
  assert.doesNotMatch(html,/Independent review site|Total not computed/);assert.match(html,/Top 100/);assert.match(html,/rel="prev"/);assert.match(html,/before=live-900/);assert.match(html,/page=3/);assert.match(html,/Page <strong>2/);assert.match(html,/of about <strong>11/);assert.match(html,/About 241 cards/);assert.match(html,/href="\/download"/);
- const download=await(await pages.fetch(new Request('https://preview.pages.dev/download'),real,{})).text();assert.match(download,/Card AI for iOS/);assert.match(download,/Card AI for Android/);assert.match(download,/Coming soon/);assert.match(download,/chromewebstore\.google\.com/);assert.match(download,/apps\.apple\.com/);assert.doesNotMatch(download,/play\.google\.com/);
+ const download=await(await pages.fetch(new Request('https://preview.pages.dev/download'),real,{})).text();
+ assert.match(download,/CardScanFox for iOS/);assert.match(download,/apps\.apple\.com/);assert.match(download,/chromewebstore\.google\.com/);
+ const android=download.match(/<h2>CardScanFox for Android<\/h2>(.*?)<\/article>/s)?.[1];
+ assert.ok(android,'Android visitors need their own download card');
+ assert.match(android,/<a\b[^>]*href="https:\/\/play\.google\.com\/store\/apps\/details\?id=com\.cardai\.tcg"[^>]*>Get it on Google Play/);
+ assert.doesNotMatch(download,/Coming soon|being prepared for release/i);
 });
 test('ranking rows link to the exact published price series and expose dates and comparison values',async()=>{
  const ranked={...card,rank:1,baseline_7d_price:20,baseline_7d_on:'2026-10-31',price_change_7d_percent:27.5};

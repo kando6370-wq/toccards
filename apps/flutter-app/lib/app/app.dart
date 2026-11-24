@@ -42,7 +42,7 @@ class KandoApp extends ConsumerWidget {
     }
 
     return MaterialApp.router(
-      title: 'Card AI',
+      title: 'CardScanFox',
       debugShowCheckedModeBanner: false,
       theme: buildKandoTheme(),
       routerConfig: router,

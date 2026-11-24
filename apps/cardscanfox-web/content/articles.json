@@ -1,44 +1,62 @@
 [
   {
     "path": "/cyberpunk-tcg-card-list",
-    "title": "Cyberpunk TCG Card List: Retail, Beta & Promos | Card AI",
+    "title": "Cyberpunk TCG Card List: Retail, Beta & Promos | CardScanFox",
     "description": "Find the official Cyberpunk TCG card list and match Welcome to Night City retail, beta, starter-deck, and promo printings.",
     "h1": "Cyberpunk TCG card list",
-    "author": "Card AI",
+    "author": "CardScanFox",
     "file": "cyberpunk-tcg-card-list.md",
     "published": true,
     "category": "identity",
     "publishedAt": "2026-11-19",
     "sources": [
-      { "label": "Cyberpunk TCG official card database", "url": "https://cyberpunktcg.com/cards" },
-      { "label": "WeirdCo: Welcome to Night City starter deck lists", "url": "https://cyberpunktcg.com/blog/wnc-starter-decks" }
+      {
+        "label": "Cyberpunk TCG official card database",
+        "url": "https://cyberpunktcg.com/cards"
+      },
+      {
+        "label": "WeirdCo: Welcome to Night City starter deck lists",
+        "url": "https://cyberpunktcg.com/blog/wnc-starter-decks"
+      }
     ],
     "showDescription": false
   },
   {
     "path": "/sports-card-advent-calendar",
-    "title": "Sports Card Advent Calendar 2026: Topps Holiday Baseball Guide | Card AI",
+    "title": "Sports Card Advent Calendar 2026: Topps Holiday Baseball Guide | CardScanFox",
     "description": "Compare Topps Holiday Baseball advent calendars by year, find the official 2026 checklist, and check box format before ordering.",
     "h1": "Sports card advent calendar guide",
-    "author": "Card AI",
+    "author": "CardScanFox",
     "file": "sports-card-advent-calendar.md",
     "published": true,
     "category": "collecting",
     "publishedAt": "2026-11-19",
     "sources": [
-      { "label": "Topps Ripped: 2026 Holiday Baseball format and pack contents", "url": "https://ripped.topps.com/2026-topps-holiday-baseball-which-box-is-best/" },
-      { "label": "Topps: 2026 Holiday Baseball collection and checklist", "url": "https://www.topps.com/pages/topps-holiday-baseball" },
-      { "label": "Topps: 2025 Holiday Baseball Advent Calendar", "url": "https://www.topps.com/products/2025-topps-holiday-baseball-advent-calendar" },
-      { "label": "Topps: 2024 Holiday Baseball Advent Calendar", "url": "https://www.topps.com/pages/topps-baseball-holiday-advent-calendar" }
+      {
+        "label": "Topps Ripped: 2026 Holiday Baseball format and pack contents",
+        "url": "https://ripped.topps.com/2026-topps-holiday-baseball-which-box-is-best/"
+      },
+      {
+        "label": "Topps: 2026 Holiday Baseball collection and checklist",
+        "url": "https://www.topps.com/pages/topps-holiday-baseball"
+      },
+      {
+        "label": "Topps: 2025 Holiday Baseball Advent Calendar",
+        "url": "https://www.topps.com/products/2025-topps-holiday-baseball-advent-calendar"
+      },
+      {
+        "label": "Topps: 2024 Holiday Baseball Advent Calendar",
+        "url": "https://www.topps.com/pages/topps-baseball-holiday-advent-calendar"
+      }
     ],
     "showDescription": false
   },
   {
     "path": "/blog/aura-seeker-card-list",
-    "title": "Aura Seeker Card List: Confirmed Japanese M7 Reveals | Card AI",
+    "title": "Aura Seeker Card List: Confirmed Japanese M7 Reveals | CardScanFox",
     "description": "See officially revealed cards from Japan’s Hadou Seeker (M7), with collector numbers and links to the official card images. This is not a complete checklist.",
     "h1": "Aura Seeker card list: confirmed Japanese M7 reveals",
-    "author": "Card AI",
+    "author": "CardScanFox",
     "file": "aura-seeker-card-list.md",
     "published": true,
     "category": "identity",
@@ -53,10 +71,10 @@
   },
   {
     "path": "/blog/delta-reign-pokemon",
-    "title": "Delta Reign Card List: All 141 English Cards | Card AI",
+    "title": "Delta Reign Card List: All 141 English Cards | CardScanFox",
     "description": "Browse all 141 numbered English Delta Reign cards, including 38 secret cards. Match the full collector number and see dated price examples.",
     "h1": "Delta Reign card list: all 141 English cards",
-    "author": "Card AI",
+    "author": "CardScanFox",
     "file": "delta-reign-pokemon.md",
     "published": true,
     "category": "identity",
@@ -90,10 +108,10 @@
   },
   {
     "path": "/blog/delta-reign-etb",
-    "title": "Delta Reign Elite Trainer Box: Contents, Kyogre Promos & Prices | Card AI",
+    "title": "Delta Reign Elite Trainer Box: Contents, Kyogre Promos & Prices | CardScanFox",
     "h1": "Delta Reign ETB: Standard vs Pokémon Center",
     "description": "Compare Delta Reign ETB contents, Kyogre promos, Pokémon Center differences and dated US prices. Check box and case units before buying.",
-    "author": "Card AI",
+    "author": "CardScanFox",
     "file": "delta-reign-etb.md",
     "published": true,
     "category": "collecting",
@@ -131,10 +149,10 @@
   },
   {
     "path": "/blog/pokemon-upc-30th-anniversary",
-    "title": "Pokémon 30th Anniversary UPC: Day vs Night & Contents | Card AI",
+    "title": "Pokémon 30th Anniversary UPC: Day vs Night & Contents | CardScanFox",
     "description": "Compare Pokémon 30th Celebration UPC Day and Night promos, all box contents, the November 6 release and dated retailer prices. Find the card checklist separately.",
     "h1": "Pokémon 30th Anniversary UPC: Day and Night Compared",
-    "author": "Card AI",
+    "author": "CardScanFox",
     "file": "pokemon-upc-30th-anniversary.md",
     "published": true,
     "category": "collecting",
@@ -153,10 +171,10 @@
   },
   {
     "path": "/blog/mega-rayquaza-ex-card-values",
-    "title": "Mega Rayquaza ex Cards: Sets, Numbers & Prices | Card AI",
+    "title": "Mega Rayquaza ex Cards: Sets, Numbers & Prices | CardScanFox",
     "description": "Find the right Mega Rayquaza ex printing. Compare Roaring Skies 61, 76 and 105, Ancient Origins 98 and the new Delta Reign release before checking a price.",
     "h1": "Mega Rayquaza ex Cards: Which Printing Do You Have?",
-    "author": "Card AI",
+    "author": "CardScanFox",
     "file": "mega-rayquaza-ex-card-values.md",
     "published": true,
     "category": "values",
@@ -174,61 +192,61 @@
   },
   {
     "path": "/blog/gengar-card-values",
-    "title": "Gengar Card Values: Fossil, VMAX & Full Art | Card AI",
+    "title": "Gengar Card Values: Fossil, VMAX & Full Art | CardScanFox",
     "description": "Find your Gengar card by set and number. Compare Fossil holo 5/62, non-holo 20/62, Fusion Strike VMAX and Lost Origin TG06 before checking prices.",
     "h1": "Gengar Card Values: Fossil Holo, VMAX and Other Printings",
-    "author": "Card AI",
+    "author": "CardScanFox",
     "file": "gengar-card-values.md",
     "published": true,
     "category": "values",
     "publishedAt": "2026-11-08",
     "sources": [
       {
-        "label": "Card AI: published Pokémon card catalog",
+        "label": "CardScanFox: published Pokémon card catalog",
         "url": "https://tcgcard.fun/games/pokemon"
       }
     ]
   },
   {
     "path": "/blog/eevee-card-values",
-    "title": "Eevee Card Values: Full Art, TG11 & 188/167 | Card AI",
+    "title": "Eevee Card Values: Full Art, TG11 & 188/167 | CardScanFox",
     "description": "Which Eevee card do you have? Compare Brilliant Stars TG11/TG30, Twilight Masquerade 188/167 and other printings, then open the matching price record.",
     "h1": "Eevee Card Values: Match the Full-Art Card to Its Number",
-    "author": "Card AI",
+    "author": "CardScanFox",
     "file": "eevee-card-values.md",
     "published": true,
     "category": "values",
     "publishedAt": "2026-11-08",
     "sources": [
       {
-        "label": "Card AI: published Pokémon card catalog",
+        "label": "CardScanFox: published Pokémon card catalog",
         "url": "https://tcgcard.fun/games/pokemon"
       }
     ]
   },
   {
     "path": "/blog/mewtwo-card-values",
-    "title": "Mewtwo Card Values: EX, GX & Team Rocket’s ex | Card AI",
+    "title": "Mewtwo Card Values: EX, GX & Team Rocket’s ex | CardScanFox",
     "description": "Match your Mewtwo card by set and collector number. Compare BREAKthrough EX, Shining Legends GX and Team Rocket’s Mewtwo ex before checking its price.",
     "h1": "Mewtwo Card Values: EX, GX and Team Rocket’s ex Compared",
-    "author": "Card AI",
+    "author": "CardScanFox",
     "file": "mewtwo-card-values.md",
     "published": true,
     "category": "values",
     "publishedAt": "2026-11-08",
     "sources": [
       {
-        "label": "Card AI: published Pokémon card catalog",
+        "label": "CardScanFox: published Pokémon card catalog",
         "url": "https://tcgcard.fun/games/pokemon"
       }
     ]
   },
   {
     "path": "/blog/pokemon-card-condition-guide",
-    "title": "Pokémon Card Condition Guide: NM, LP, MP & Damage | Card AI",
+    "title": "Pokémon Card Condition Guide: NM, LP, MP & Damage | CardScanFox",
     "description": "What do NM, LP and MP mean for Pokémon cards? Learn the raw condition labels, inspect wear and compare the right price context without guessing a PSA grade.",
     "h1": "Pokémon Card Condition Guide: NM, LP, MP, HP and Damaged",
-    "author": "Card AI",
+    "author": "CardScanFox",
     "file": "pokemon-card-condition-guide.md",
     "published": true,
     "category": "values",
@@ -250,21 +268,21 @@
   },
   {
     "path": "/blog/charmander-151-card-value",
-    "title": "Charmander 151 Value: 004/165 vs 168/165 | Card AI",
+    "title": "Charmander 151 Value: 004/165 vs 168/165 | CardScanFox",
     "description": "Find the right Charmander 151 card. Compare 004/165 and 168/165, match the artwork and finish, then check the available price, condition and observation date.",
     "h1": "Charmander 151 Card Value: 004/165 or 168/165?",
-    "author": "Card AI",
+    "author": "CardScanFox",
     "file": "charmander-151-card-value.md",
     "published": true,
     "category": "values",
     "publishedAt": "2026-11-08",
     "sources": [
       {
-        "label": "Card AI: published printing record and dated price context",
+        "label": "CardScanFox: published printing record and dated price context",
         "url": "https://tcgcard.fun/cards/502556"
       },
       {
-        "label": "Card AI: Pokémon catalog lookup",
+        "label": "CardScanFox: Pokémon catalog lookup",
         "url": "https://tcgcard.fun/games/pokemon"
       },
       {
@@ -275,21 +293,21 @@
   },
   {
     "path": "/blog/dragonite-ex-card-values",
-    "title": "Dragonite EX Values: 72/108 vs 106/108 | Card AI",
+    "title": "Dragonite EX Values: 72/108 vs 106/108 | CardScanFox",
     "description": "Which Dragonite card is yours? Compare Evolutions EX 72/108 and 106/108, Evolving Skies V printings and Fossil cards before opening the matching price record.",
     "h1": "Dragonite EX Card Values: Match the Set and Full Number",
-    "author": "Card AI",
+    "author": "CardScanFox",
     "file": "dragonite-ex-card-values.md",
     "published": true,
     "category": "values",
     "publishedAt": "2026-11-08",
     "sources": [
       {
-        "label": "Card AI: published printing record and dated price context",
+        "label": "CardScanFox: published printing record and dated price context",
         "url": "https://tcgcard.fun/cards/124085"
       },
       {
-        "label": "Card AI: Pokémon catalog lookup",
+        "label": "CardScanFox: Pokémon catalog lookup",
         "url": "https://tcgcard.fun/games/pokemon"
       },
       {
@@ -300,21 +318,21 @@
   },
   {
     "path": "/blog/mew-ex-card-values",
-    "title": "Bubble Mew & Mew ex Values: 232/091, 151 & Metal | Card AI",
+    "title": "Bubble Mew & Mew ex Values: 232/091, 151 & Metal | CardScanFox",
     "description": "Identify Bubble Mew 232/091 and compare other Mew ex printings. Match Paldean Fates, Pokémon 151 and the 205/165 metal card before checking prices.",
     "h1": "Bubble Mew and Mew ex: Match the Number, Set and Material",
-    "author": "Card AI",
+    "author": "CardScanFox",
     "file": "mew-ex-card-values.md",
     "published": true,
     "category": "values",
     "publishedAt": "2026-11-08",
     "sources": [
       {
-        "label": "Card AI: published printing record and dated price context",
+        "label": "CardScanFox: published printing record and dated price context",
         "url": "https://tcgcard.fun/cards/534919"
       },
       {
-        "label": "Card AI: Pokémon catalog lookup",
+        "label": "CardScanFox: Pokémon catalog lookup",
         "url": "https://tcgcard.fun/games/pokemon"
       },
       {
@@ -322,7 +340,7 @@
         "url": "https://www.tcgplayer.com/product/534919/pokemon-sv-paldean-fates-mew-ex-232-091"
       },
       {
-        "label": "Card AI: Mew ex 152/128 from 30th Celebration",
+        "label": "CardScanFox: Mew ex 152/128 from 30th Celebration",
         "url": "https://tcgcard.fun/cards/717605"
       }
     ],
@@ -334,7 +352,7 @@
     "description": "Welche Pull Rate hat Pokémon Delta-Herrschaft? Vergleiche frühe SIR- und Mega-Rayquaza-Schätzungen, Stichprobengrößen und Grenzen für deutsche Booster.",
     "h1": "Pokémon Delta-Herrschaft Pull Rate: SIR und Mega-Rayquaza im Vergleich",
     "language": "de",
-    "author": "Card AI",
+    "author": "CardScanFox",
     "file": "pokemon-delta-herrschaft-pull-rate.md",
     "published": true,
     "category": "collecting",
@@ -359,16 +377,86 @@
     ]
   },
   {
+    "path": "/blog/flowing-fists-card-list",
+    "title": "Flowing Fists Card List and Release Dates | CardScanFox",
+    "description": "Check reported Flowing Fists release dates, featured Pokémon and the status of the English card list. Find the separate Japanese M7 gallery.",
+    "h1": "Flowing Fists card list",
+    "author": "CardScanFox",
+    "file": "flowing-fists-card-list.md",
+    "published": true,
+    "category": "identity",
+    "publishedAt": "2026-11-20",
+    "updatedAt": "2026-11-21",
+    "sources": [
+      {
+        "label": "Pokémon Japan: M7 product page and card gallery",
+        "url": "https://www.pokemon-card.com/ex/m7/"
+      },
+      {
+        "label": "GamesRadar: Flowing Fists release dates and featured cards",
+        "url": "https://www.gamesradar.com/tabletop-gaming/pokemon-cards-come-out-swinging-with-the-next-expansion-flowing-fists/"
+      }
+    ]
+  },
+  {
+    "path": "/blog/mickey-mantle-rookie-card-value",
+    "title": "Mickey Mantle Rookie Card Value Guide | CardScanFox",
+    "description": "Identify the 1951 Bowman Mickey Mantle rookie card, separate it from the 1952 Topps #311, and compare value by condition, grade, and dated market evidence.",
+    "h1": "Mickey Mantle rookie card value guide",
+    "author": "CardScanFox",
+    "file": "mickey-mantle-rookie-card-value.md",
+    "published": true,
+    "category": "values",
+    "publishedAt": "2026-11-20",
+    "updatedAt": "2026-11-20",
+    "sources": [
+      {
+        "label": "PSA CardFacts: 1952 Topps Mickey Mantle #311",
+        "url": "https://www.psacard.com/cardfacts/baseball-cards/1952-topps/mickey-mantle-311/23330"
+      },
+      {
+        "label": "PSA: grading standards",
+        "url": "https://www.psacard.com/gradingstandards"
+      },
+      {
+        "label": "CardScanFox: baseball card catalog",
+        "url": "https://tcgcard.fun/games/baseball"
+      }
+    ]
+  },
+  {
+    "path": "/blog/one-piece-tcg-ban-list",
+    "title": "One Piece TCG Ban List and Restricted Cards | CardScanFox",
+    "description": "Check the One Piece Card Game ban list, effective dates, card numbers, and the official rules source before submitting a tournament deck.",
+    "h1": "One Piece TCG ban list and restricted cards",
+    "author": "CardScanFox",
+    "file": "one-piece-tcg-ban-list.md",
+    "published": true,
+    "category": "collecting",
+    "publishedAt": "2026-11-20",
+    "updatedAt": "2026-11-20",
+    "sources": [
+      {
+        "label": "ONE PIECE CARD GAME: official rules",
+        "url": "https://en.onepiece-cardgame.com/rules/"
+      },
+      {
+        "label": "ONE PIECE CARD GAME: banned/restricted cards effective October 12, 2026",
+        "url": "https://en.onepiece-cardgame.com/news/restriction-261001.html"
+      }
+    ]
+  },
+  {
     "path": "/blog/pokemon-mcdonalds-2026",
-    "title": "Pokémon McDonald’s Card List 2026: All 15 US Happy Meal Cards | Card AI",
-    "description": "Check all 15 Pokémon McDonald’s Happy Meal cards for 2026, the US promotion dates, and how the Canadian offer differs.",
-    "h1": "Pokémon McDonald’s card list 2026",
-    "author": "Card AI",
+    "title": "McDonald’s Pokémon Happy Meal 2026: US Card List | CardScanFox",
+    "description": "Check all 15 US McDonald’s Pokémon Happy Meal cards, the 2026 offer dates, the separate toy collection and the Canada and Quebec rules.",
+    "h1": "McDonald’s Pokémon Happy Meal 2026 card list",
+    "author": "CardScanFox",
     "file": "pokemon-mcdonalds-2026.md",
     "published": true,
     "category": "collecting",
     "publishedAt": "2026-11-12",
-    "updatedAt": "2026-11-19",
+    "updatedAt": "2026-11-21",
     "sources": [
       {
         "label": "Pokémon: US Happy Meal announcement, November 10, 2026",
@@ -385,6 +473,146 @@
       {
         "label": "Pokémon: regional rollout schedule",
         "url": "https://www.pokemon.com/us/news/pokemon-happy-meals-are-coming-to-mcdonalds-in-an-exciting-new-way-"
+      }
+    ]
+  },
+  {
+    "path": "/blog/takumi-akabane-pokemon-cards",
+    "title": "Takumi Akabane Pokémon Cards and Illustrator Credits | CardScanFox",
+    "description": "See Pokémon cards credited to Takumi Akabane, including Japanese Special Energy printings, and match each set and collector number before comparing prices.",
+    "h1": "Takumi Akabane Pokémon cards",
+    "author": "CardScanFox",
+    "file": "takumi-akabane-pokemon-cards.md",
+    "published": true,
+    "category": "identity",
+    "publishedAt": "2026-11-21",
+    "updatedAt": "2026-11-21",
+    "sources": [
+      {
+        "label": "The Art of Pokémon: Takumi Akabane illustrator catalog",
+        "url": "https://www.artofpkm.com/illustrators/takumi-akabane"
+      }
+    ]
+  },
+  {
+    "path": "/blog/pokemon-tcg-pocket-dual-fusion-card-list",
+    "title": "Pokémon TCG Pocket Dual Fusion Card List (C1) | CardScanFox",
+    "description": "See the Pokémon TCG Pocket Dual Fusion card list. Browse the public 217-card database count, pack information, collection numbers and new dual-type cards.",
+    "h1": "Pokémon TCG Pocket Dual Fusion Card List",
+    "author": "CardScanFox Editorial",
+    "file": "pokemon-tcg-pocket-dual-fusion-card-list.md",
+    "published": true,
+    "category": "identity",
+    "publishedAt": "2026-11-23",
+    "sources": [
+      {
+        "label": "Pokémon TCG Pocket official dual-type announcement",
+        "url": "https://www.youtube.com/watch?v=0FVBu5glEr8"
+      },
+      {
+        "label": "Dual Fusion public card list",
+        "url": "https://pocket.pokemongohub.net/en/set/c1dualfusion000-dual-fusion"
+      }
+    ]
+  },
+  {
+    "path": "/blog/mega-rayquaza-ex-premium-tournament-collection",
+    "title": "Mega Rayquaza ex Premium Tournament Collection: Contents & Release Date | CardScanFox",
+    "description": "Check the official Mega Rayquaza ex Premium Tournament Collection contents, promo cards, release date and booster packs.",
+    "h1": "Mega Rayquaza ex Premium Tournament Collection",
+    "author": "CardScanFox Editorial",
+    "file": "mega-rayquaza-ex-premium-tournament-collection.md",
+    "published": true,
+    "category": "collecting",
+    "publishedAt": "2026-11-23",
+    "sources": [
+      {
+        "label": "Pokémon official Mega Rayquaza ex Premium Tournament Collection page",
+        "url": "https://www.pokemon.com/uk/pokemon-tcg/product-gallery/mega-rayquaza-ex-premium-tournament-collection"
+      }
+    ]
+  },
+  {
+    "path": "/blog/mcdonalds-pokemon-collab-cards",
+    "title": "McDonald’s Pokémon Collab Cards & Happy Meal Dates | CardScanFox",
+    "description": "Track the 2026 McDonald’s Pokémon collab by region. See confirmed Happy Meal dates, card counts, toys and checklist notes.",
+    "h1": "McDonald’s Pokémon Collab Cards",
+    "author": "CardScanFox Editorial",
+    "file": "mcdonalds-pokemon-collab-cards.md",
+    "published": true,
+    "category": "collecting",
+    "publishedAt": "2026-11-23",
+    "sources": [
+      {
+        "label": "Pokémon official Canada McDonald’s Happy Meal announcement",
+        "url": "https://www.pokemon.com/us/news/pokemon-happy-meals-return-to-mcdonalds-in-canada"
+      },
+      {
+        "label": "CardScanFox McDonald’s promo card record",
+        "url": "https://tcgcard.fun/cards/110407"
+      }
+    ]
+  },
+  {
+    "path": "/blog/pokemon-valentines-box",
+    "title": "Pokémon TCG Valentine’s Box: Reported Date & Contents | CardScanFox",
+    "description": "Track the reported Pokémon TCG Valentine’s Box. See what is reported, what is unknown and which details still need official confirmation.",
+    "h1": "Pokémon TCG Valentine’s Box: What Is Confirmed?",
+    "author": "CardScanFox Editorial",
+    "file": "pokemon-valentines-box.md",
+    "published": true,
+    "category": "collecting",
+    "publishedAt": "2026-11-23",
+    "sources": [
+      {
+        "label": "PokéBeach Valentine’s Box report",
+        "url": "https://www.pokebeach.com/2026/10/pokemon-to-release-first-ever-valentines-day-tcg-set"
+      },
+      {
+        "label": "Tilt Valentine’s Box status guide",
+        "url": "https://www.tilt.app/blog/pokemon-valentines-box"
+      }
+    ]
+  },
+  {
+    "path": "/blog/mega-x-mega-parade-card-list",
+    "title": "MEGA x MEGA Parade Card List: Reported M7a Details | CardScanFox",
+    "description": "Follow reported MEGA x MEGA Parade details. Separate Japanese product reports from unconfirmed English names, dates and card lists.",
+    "h1": "MEGA x MEGA Parade: What Is Reported?",
+    "author": "CardScanFox Editorial",
+    "file": "mega-x-mega-parade-card-list.md",
+    "published": true,
+    "category": "collecting",
+    "publishedAt": "2026-11-23",
+    "sources": [
+      {
+        "label": "MEGA x MEGA Parade reported product analysis",
+        "url": "https://www.samuraiswordtokyo.com/blogs/news/mega-x-mega-parade-card-list-confirmed-vs-reported"
+      },
+      {
+        "label": "Aura Seeker official Japanese product page",
+        "url": "https://www.pokemon-card.com/ex/m7/?ui=en"
+      }
+    ]
+  },
+  {
+    "path": "/blog/takumi-akabane-pokemon-card-list",
+    "title": "Takumi Akabane Pokémon Card List | CardScanFox",
+    "description": "Browse Pokémon cards associated with Takumi Akabane. Separate artist credits, early Pokémon TCG history and card checklist records.",
+    "h1": "Takumi Akabane Pokémon Card List",
+    "author": "CardScanFox Editorial",
+    "file": "takumi-akabane-pokemon-card-list.md",
+    "published": true,
+    "category": "identity",
+    "publishedAt": "2026-11-23",
+    "sources": [
+      {
+        "label": "Takumi Akabane Pokémon card list database",
+        "url": "https://pokecardillustrators.com/illustrators/takumi-akabane-pokemon-card-list/"
+      },
+      {
+        "label": "Official Pokémon TCG rulebook reference",
+        "url": "https://assets.pokemon.com/assets/cms/pdf/tcg/rulebooks/Undaunted_Rulebook.pdf"
       }
     ]
   }

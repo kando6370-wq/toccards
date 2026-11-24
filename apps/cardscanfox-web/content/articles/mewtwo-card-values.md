@@ -40,6 +40,6 @@ If the relevant price or history is missing, the site leaves it missing. It does
 
 ## Identify, check and track your copy
 
-Use the [Pokémon catalog](/games/pokemon) for a name-based lookup. If you have the physical card, the [Card AI scanner](/pokemon-card-scanner) can return candidates to review. Confirm the correct printing before recording a holding in the app.
+Use the [Pokémon catalog](/games/pokemon) for a name-based lookup. If you have the physical card, the [CardScanFox scanner](/pokemon-card-scanner) can return candidates to review. Confirm the correct printing before recording a holding in the app.
 
 To compare other characters, see [Gengar card values](/blog/gengar-card-values), [Eevee card values](/blog/eevee-card-values) and the existing [Rayquaza VMAX guide](/blog/rayquaza-vmax-card-values).

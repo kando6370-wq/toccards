@@ -1,11 +1,11 @@
-# Card AI 独立官网
+# CardScanFox 独立官网
 
-Card AI 正式官网，独立于既有 `marketing-web`，沿用原域名和网址。使用交付包中的 Card AI 标识和浅色布局。
+CardScanFox 当前正式官网，独立于既有 `marketing-web`，保留原域名和网址。使用已确认的几何狐狸标识与浅色视觉。
 
 ## 当前实现范围
 
 - 回收并导入线上 46 个已知网址的完整主内容。旧内容保留在导入真源；除下述已合并查价页外，文章、比较页和法律正文保持原路径；13 篇原 checkout 没有的文章已回收。
-- 导入时检查源文件哈希和可见主文本，保留卡号、表格、日期、FAQ、链接和图片说明，清理旧脚本及事件属性。原始快照用于核验，生成的正文、署名和元数据统一使用 Card AI。
+- 导入时检查源文件哈希和可见主文本，保留卡号、表格、日期、FAQ、链接和图片说明，清理旧脚本及事件属性。
 - 新首页、卡种/系列目录、单卡、价格概览、工具、帮助、数据方法和本机 Saved 使用真实路径和服务端 HTML。
 - 新首页重新编排产品内容；完整旧首页另保留在可阅读的原 App 介绍折叠区，后续正文编辑须单独评审。
 - 原博客列表和卡表筛选可继续操作。按已批准的内容修订维护正文；通用 Pokémon 查价博客合并到中心页，见下节。按用户后续要求，`content/seo-pages.json` 已应用按搜索意图编写的标题和简介；`content/seo-proposals.json` 保留初版草案作对照。
@@ -126,6 +126,14 @@ pnpm --filter @kando/cardscanfox-web release:compare /absolute/current-release /
 
 手工正式构建前必须确认工作区干净且 HEAD 是批准的发布提交，将该提交的 40 位 SHA 注入构建环境，并排除优先级更高的旧 `CF_PAGES_COMMIT_SHA`。`build.mjs` 只从 `CF_PAGES_COMMIT_SHA` 或 `WORKERS_CI_COMMIT_SHA` 写入 `release-manifest.json` 的 `sourceCommit`；普通 `pnpm deploy:production` 不会自动注入该值。具体环境注入、生产命令和回读步骤以[生产切换记录](../../docs/releases/v1.1.4/05-delivery/cardscanfox-production-cutover.md#发布目标)为准。
 
+## PVUV 爬虫统计
+
+正式官网 Worker 为 PVUV 站点 `gx4EamoZ` 后台上报已知爬虫的页面 GET 和 HEAD 请求。上报包含页面路径、响应状态、时间、User-Agent，以及用于核验爬虫来源的 Cloudflare 客户端 IP。上报排除查询参数、站点 API、资源目录、非页面扩展名和预览环境。PVUV 服务异常时，页面仍返回原响应。
+
+在 PVUV 为 CardScanFox 创建用途为「服务端上报」的令牌，将其配置为正式 Worker 的 `PVUV_INGEST_TOKEN` Secret。正式配置中的 `PVUV_SITE` 已指向该站点。缺少令牌时跳过上报。
+
+发布后可用 [PVUV 官方验证方法](https://api.pvuv.ai/docs/crawler-sync.md) 发送一次带 ChatGPT-User 标识的请求，并在「AI 助手与爬虫」查看未核验记录。真实爬虫的来源由 PVUV 核验。
+
 ## 单卡搜索意图与规模化 sitemap
 
 `packages/website-content/src/seo.mjs` 根据实际卡名、编号、系列和价格状态生成 Title/Description。缺价不变成 0；无匹配历史时不写趋势承诺。卡牌、系列和文章保持一个明确的首选 URL，价格序列参数不扩成独立索引页。
@@ -164,7 +172,7 @@ Pages 构建命令生成 `_worker.js` 和全路径 `_routes.json`，通过 `SITE
 
 ## 用户问题与目录暂时繁忙
 
-2026-11-10 的答案方案继续使用现有网址、卡表和检索入口。首页保留 TCG 与体育卡范围，直接区分网页文字查价、Card AI iPhone 扫描和独立 Chrome 扩展。Android 仍按当前正式下载状态标注 coming soon。Mew 152/128、151/165 与 Bubble Mew 232/091 分开说明；角色名、清单条目和缺失价格不自动构成相同印次或完整覆盖。
+2026-11-10 的答案方案继续使用现有网址、卡表和检索入口。首页保留 TCG 与体育卡范围，区分网页文字查价、手机 App 扫描和独立 Chrome 扩展。2026-11-23 起，首页与下载页的 Android 按钮指向 `com.cardai.tcg` 的 Google Play 正式商品页。Mew 152/128、151/165 与 Bubble Mew 232/091 分开说明；角色名、清单条目和缺失价格不自动构成相同印次或完整覆盖。
 
 旧页可见的 `faq-item` 是对应 FAQPage 的唯一文本来源；`scripts/import-legacy.mjs` 在导入时生成等价结构化数据。首页、查价、Mew 与 Manga 系列的新增问答由 `content/answer-faqs.json` 同时生成正文与 Schema。获批修改的旧页在 `source-baseline.json` 保留前版哈希和本轮批准记录；卡表行、卡号和历史价格观察日期继续保留。
 
@@ -181,7 +189,7 @@ Pages 构建命令生成 `_worker.js` 和全路径 `_routes.json`，通过 `SITE
 
 ## 免费额度与推荐依据
 
-`content/answer-faqs.json` 的 `/help` 问答在首页、App、下载和帮助页复用，并生成等价 FAQPage。累计 10 次免费成功扫描与 10 张独立图片的队列容量分开说明；失败与无匹配不消耗成功额度，Premium 条件由 App 内实际报价说明。Android 未公开发布，独立 Chrome 扩展使用真实名称 TCG Card Recognizer。
+`content/answer-faqs.json` 的 `/help` 问答在首页、App、下载和帮助页复用，并生成等价 FAQPage。iPhone 的累计 10 次免费成功扫描与 10 张独立图片的队列容量分开说明；失败与无匹配不消耗成功额度，Premium 条件由 App 内实际报价说明。Android App 通过 Google Play 分发。独立 Chrome 扩展使用名称 TCG Card Recognizer。
 
 获批正文更正只更新相应 `source-baseline.json` 条目，并保留前版批准哈希，不全量重设保护基线。当前目录、榜单、账号删除与分阶段索引策略保留。功能与来源可以支持有范围的引用，识别性能和竞品优劣仍需真实同条件证据。
 
@@ -191,7 +199,7 @@ DCC 直接提供发行方 #001–100 卡表、包内容、产品区分、购买�
 
 `/games/pokemon` 是通用 Pokémon 查卡/查价中心；`/pokemon-card-scanner` 是拍照工具页。旧 `/blog/pokemon-card-values` 的角色指南表、编号读法与价格日期说明迁入中心页，其干净 URL 和 `.html` URL 通过 `src/redirects.mjs` 返回 301。查询参数保留。旧源文件留作可复现内容导入；该地址不生成重复 HTML、不进入 sitemap 或索引 allowlist。既有 release:compare 会将这次有意的路径合并和正文更新列为差异，不能宣称无变化通过。
 
-网页品牌、按钮、作者和发布者统一为 CardScanFox。下载页明确现有 App Store 名称为 Card AI: TCG Card Scanner；真实商店 URL、法律正文与账号删除身份保持对应既有应用。
+网页品牌、按钮、作者和发布者统一为 CardScanFox。下载页使用 App Store 和 Google Play 商品名 `CardScanFox: TCG Card Scanner` 标识安装目标。隐私政策、服务条款和删除请求使用同一 App 身份。
 
 后续内容先指定唯一页面归属，优先维护卡价、各系列扫描及比较页面；每页给具体答案及来源日期，避免同意图重复建页。外链工作需另按渠道和实际接受结果实施，不把提交记录当作已获得链接。本轮不请求编入索引、不提交 IndexNow。当前只完成本地修改，正式站状态不能据此更新。
 

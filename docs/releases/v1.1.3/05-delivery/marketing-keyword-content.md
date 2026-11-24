@@ -2,6 +2,14 @@
 
 2026-10-29 增量。产品能力和旧页面归属继续以 [Card AI 产品定位](../../v1.1.2/00-product/card-ai-product-positioning.md)与 [Marketing GEO and SEO content](../../v1.1.2/05-delivery/marketing-geo-seo-content.md) 为基线。
 
+## 2026-11-20 状态修正与内容增量
+
+- `/ai-card-grading` 已在 `apps/cardscanfox-web/src/render.mjs` 中作为独立 SSR 路由实现，并由 `apps/cardscanfox-web/src/publication.mjs` 纳入公开 sitemap。线上 `https://tcgcard.fun/ai-card-grading` 回读为 HTTP 200，返回 `index,follow` 页面。
+- 新增 `/blog/flowing-fists-card-list`、`/blog/mickey-mantle-rookie-card-value` 和 `/blog/one-piece-tcg-ban-list`。三页通过 `apps/cardscanfox-web/content/articles.json` 注册，由官网实际文章编译链生成。
+- Flowing Fists 页面区分 Pokémon Japan 的 M7 资料、零售商命名和未确认的英文卡表，不把零售页面当成英文发行方公告。
+- Mickey Mantle 页面区分 1951 Bowman #253 与 1952 Topps #311，并把 `/ai-card-grading` 表述为可见状况预估，不表述为认证或专业评级。
+- One Piece 页面记录官方公告中自 2026 年 10 月 12 日生效的 OP14-020 Dracule Mihawk 禁用信息，并链接官方规则与公告。
+
 ## 页面归属
 
 | 搜索意图 | 本次页面 |

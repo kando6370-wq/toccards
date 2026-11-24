@@ -19,12 +19,19 @@ test('the initial price checker is usable without a full-catalog query or review
  for(const query of ['','?q=%20%20&set=all']){
   const page=await resolveServicePage(url(query),binding);
   assert.equal(page.status,200);assert.match(page.html,/<h1>Pokémon card value checker<\/h1>/);
-  assert.match(page.html,/<title>Pokémon Card Value Checker &amp; Trading Card Price Checker \| Card AI<\/title>/);
+  assert.match(page.html,/<title>Pokémon Card Value Checker &amp; Trading Card Price Checker \| CardScanFox<\/title>/);
   assert.match(page.html,/<form method="get" action="\/card-price-checker" role="search"/);
   assert.match(page.html,/name="q" type="search"/);assert.doesNotMatch(page.html,/price-checker-results-title/);
   assert.doesNotMatch(page.html,/Featured in review|145\.78/);
  }
  assert.equal(calls,0);
+});
+test('price checker answers the free value lookup intent before the legacy guide',()=>{
+ const page=createRenderer({liveSite:true}).resolvePage(url());
+ assert.match(page.html,/Use the free CardScanFox web lookup to find a matching Pokémon card record/);
+ assert.match(page.html,/Can I check a Pokémon card value for free\?/);
+ assert.match(page.html,/without downloading the app/);
+ assert.match(page.html,/A reference price is not an appraisal or a guaranteed sale price/);
 });
 
 test('search stays on the checker and uses a bounded published query with selected filters',async()=>{

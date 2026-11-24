@@ -1,13 +1,13 @@
-export default function homeTemplate({ appStoreUrl, heroCards, printing, priceBadge, catalogCards, topics, stories, icon }) {
+export default function homeTemplate({ appStoreUrl, googlePlayUrl, heroCards, printing, priceBadge, catalogCards, topics, stories, icon }) {
   return `<section id="homeView">
   <section class="home-hero" aria-labelledby="hero-title">
     <div class="hero-canvas">
       <div class="hero-copy">
         <h1 id="hero-title">Scan Cards.<br>Track Your Collection.</h1>
-        <p class="hero-lede">Identify TCG and sports cards, check prices, and manage your collection with Card AI.</p>
+        <p class="hero-lede">Identify TCG and sports cards, check prices, and manage your collection with CardScanFox.</p>
         <div class="hero-actions">
           <a class="btn btn-primary" href="${appStoreUrl}" target="_blank" rel="noopener noreferrer">App Store</a>
-          <a class="btn btn-outline" href="/download">Android is coming soon</a>
+          <a class="btn btn-outline" href="${googlePlayUrl}" target="_blank" rel="noopener noreferrer">Google Play</a>
         </div>
         <div class="hero-lookup"><a class="text-link" href="/card-identifier">Scan a photo online ${icon('arrow')}</a><a class="text-link" href="/cards">Browse the catalog ${icon('arrow')}</a></div>
       </div>
@@ -37,7 +37,7 @@ export default function homeTemplate({ appStoreUrl, heroCards, printing, priceBa
   ${topics}
   <section class="fox-workbench" aria-labelledby="workbenchTitle">
     <div class="wrap">
-      <div class="home-section-heading"><h2 id="workbenchTitle">App Features</h2><p>Scan cards, follow prices, and manage what you own in the Card AI app.</p></div>
+      <div class="home-section-heading"><h2 id="workbenchTitle">App Features</h2><p>Scan cards, follow prices, and manage what you own in the CardScanFox app.</p></div>
       <div class="fox-workbench-grid">
         <div class="fox-feature-tabs" role="tablist" aria-label="Explore app features" aria-orientation="vertical">
           <button type="button" class="fox-feature-tab active" id="feature-tab-scan" data-feature-tab="scan" role="tab" aria-selected="true" aria-controls="feature-panel-scan"><span class="feature-tab-title">Scan &amp; confirm ${icon('arrow')}</span><span>Start from a photo or a catalog search.</span></button>
@@ -73,7 +73,7 @@ export default function homeTemplate({ appStoreUrl, heroCards, printing, priceBa
     <div class="wrap fox-questions"><div><h2>Frequently Asked Questions</h2><a class="text-link" href="/help">All questions ${icon('arrow')}</a></div><div class="faq-list"><details><summary>What kinds of cards can I look up? ${icon('chevron')}</summary><p>Browse supported TCG and sports-card records. Catalog coverage and published prices vary by game and printing.</p></details><details><summary>Do I need to scan a card to find a price? ${icon('chevron')}</summary><p>No. Search by name, set or card number. Confirm the printing and the copy’s condition or existing grade before using an available price reference.</p></details><details><summary>Why can a card have no price? ${icon('chevron')}</summary><p>A catalog record can exist without a matching published price. Missing coverage does not mean zero value. A different printing’s amount is not substituted.</p></details><details><summary>What does saving a card on this website do? ${icon('chevron')}</summary><p>Saved references stay in this browser. Portfolio, folders and Wishlist are managed in the app.</p></details></div></div>
   </section>
   <section class="home-download">
-    <div class="wrap fox-final"><div><h2>Start with Card AI</h2><p>Scan your cards and track what you own.</p><a class="btn btn-primary" href="/download">Choose your download ${icon('arrow')}</a></div><img class="fox-final-mark" src="/assets/card-ai-icon.svg" alt="" width="50" height="60" loading="lazy"></div>
+    <div class="wrap fox-final"><div><h2>Download CardScanFox</h2><p>Scan your cards and track what you own.</p><a class="btn btn-primary" href="/download">Choose your download ${icon('arrow')}</a></div><img class="fox-final-mark" src="/assets/card-ai-icon.svg" alt="" width="96" height="116" loading="lazy"></div>
   </section>
 </section>`;
 }

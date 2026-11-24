@@ -29,7 +29,7 @@ Google 官方允许通过客服邮箱或表单提供网页申请路径，并未�
 |---|---|
 | [现有页面](../../../../apps/cardscanfox-web/src/render.mjs) 的 `accountSetup()` 已在 `/Account/AccountSetup` 提供邮件入口 | 保留大小写和完整路径，不另换正式 URL。 |
 | 页面标题偏向 `Account setup and deletion`，内容以长文说明为主 | 改为目的明确的删除标题、结构化申请区和处理步骤。 |
-| CardScanFox 是官网品牌，Google Play 的 App 名为 Card AI: TCG Card Scanner | 标题与说明突出 Card AI，保留 CardScanFox 页头，避免用户误认为删除网站浏览器书签。 |
+| CardScanFox 是官网品牌，Google Play 的 App 名为 Card AI: TCG Card Scanner | 页头展示 CardScanFox，首屏列出商店商品名，避免用户误认为删除网站浏览器书签。 |
 | 现有 shell 页脚没有独立的账号删除链接，Help 没有专门的删号问答 | 拟在 Help、页脚和隐私政策中增加或强化 `Account deletion` 入口，不新增一级主导航。 |
 | [App 确认提示](../../../../apps/flutter-app/lib/features/profile/account_page.dart) 已明确按平台删除 | 保留当前平台隔离和重新注册规则，官网不得另立全局删除语义。 |
 | [Admin API](../../../../apps/workers-api/src/admin/routes.ts) 已有仅限 `super_admin` 的平台账号删除路由，当前 Admin Web 未提供对应删除按钮 | 人工核验后复用受保护 API 或经批准的内部工具；不能把已有 API 写成现成客服界面，客服收件人不自动获得删除权限。 |
@@ -58,7 +58,7 @@ Google 官方允许通过客服邮箱或表单提供网页申请路径，并未�
 |---|---|
 | 全站页头 | 沿用 CardScanFox 标识与现有导航；不把安装 App 当作申请前置条件。 |
 | 面包屑 | `Help / Account deletion`。 |
-| 主标题 | `Delete your Card AI account and data`。 |
+| 主标题 | `Delete your app account and data`。 |
 | 首段 | 明确已卸载 App 也可申请；说明此处通过邮箱处理删除请求；清楚显示商店名称 `Card AI: TCG Card Scanner`。开发者名称或法律主体如展示，须与已核实的商店／隐私信息一致，不能用 CardScanFox 网站品牌自行代替。 |
 | 主要申请区 | 选择 Android 或 iOS，填写 Card AI 账号邮箱；主按钮准备邮件，次操作查看并复制申请内容。 |
 | 辅助入口 | 不记得邮箱／无法使用原邮箱的人工协助，始终可见；无邮件客户端时可查看收件地址和模板。 |
@@ -99,11 +99,11 @@ Google 官方允许通过客服邮箱或表单提供网页申请路径，并未�
 
 ## 6. 拟上线英文文案与邮件模板
 
-主标题：`Delete your Card AI account and data`
+主标题：`Delete your app account and data`
 
 副标题：`Already uninstalled the app? You can still request deletion here.`
 
-申请说明：`Choose the platform and enter the email used for your Card AI account. We’ll help you prepare a deletion request to send to our support team.`
+申请说明：`Choose the platform and enter the email used for your app account. We’ll help you prepare a deletion request to send to our support team.`
 
 按钮：`Open email draft`；备用动作：`Copy request details`。
 
@@ -135,7 +135,7 @@ I cannot access or do not remember the email associated with the account.
 Please explain the minimum information needed to verify my identity and the target platform.
 ```
 
-iOS 条件提示：`Deleting your iOS Card AI account does not cancel an Apple subscription. Manage any active subscription in your Apple ID subscription settings.` 这只是说明独立的订阅管理事项，不将取消订阅作为受理删除请求的条件。
+iOS 条件提示：`Deleting your iOS app account does not cancel an Apple subscription. Manage any active subscription in your Apple ID subscription settings.` 这只是说明独立的订阅管理事项，不将取消订阅作为受理删除请求的条件。
 
 Android 范围提示：`This request applies to your Android Card AI account. Your iOS account and its data will remain available.`
 

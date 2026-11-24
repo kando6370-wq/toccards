@@ -1,11 +1,11 @@
 {
-    "name": "Card AI",
-    "short_name": "Card AI",
+    "name": "CardScanFox",
+    "short_name": "CardScanFox",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#10100B",
     "theme_color": "#10100B",
-    "description": "Card AI trading card scanner and collection tracker.",
+    "description": "CardScanFox trading card scanner and collection tracker.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

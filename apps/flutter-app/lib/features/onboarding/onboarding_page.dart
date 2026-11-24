@@ -269,8 +269,13 @@ class _OnboardingSlideView extends StatelessWidget {
               isActive: isActive,
               videoController: videoController,
             ),
-            Align(
-              alignment: Alignment.bottomCenter,
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: math.max(
+                0.0,
+                MediaQuery.paddingOf(context).bottom - 48.0,
+              ),
               child: RepaintBoundary(
                 child: ClipRect(
                   child: BackdropFilter(

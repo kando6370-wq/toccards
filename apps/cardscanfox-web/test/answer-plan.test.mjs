@@ -11,10 +11,20 @@ const normalized=s=>s.replace(/\s+/g,' ').trim();
 function faqPairs(html){const doc=parse(html),visible=[],structured=[];walk(doc,n=>{if(n.tagName==='details'&&(attr(n,'class')??'').split(/\s+/).includes('faq-item')){const summary=n.childNodes.find(c=>c.tagName==='summary');visible.push({q:normalized(text(summary)),a:normalized(n.childNodes.filter(c=>c!==summary).map(text).join(''))});}if(n.tagName==='script'&&attr(n,'type')==='application/ld+json'){const d=JSON.parse(text(n));if(d['@type']==='FAQPage')structured.push(...d.mainEntity.map(q=>({q:q.name,a:q.acceptedAnswer.text})));}});return {visible,structured};}
 test('website answers separate text lookup, iPhone scanning, Android availability and local bookmarks',()=>{
  const renderer=createRenderer({liveSite:true});const home=renderer.resolvePage(new URL('https://tcgcard.fun/')).html;
- assert.match(home,/Scan Pokémon and sports card photos in your browser/);assert.match(home,/href="\/pokemon-card-scanner"/);assert.match(home,/href="\/sports-card-scanner"/);assert.match(home,/Android is coming soon/);assert.match(home,/Chrome recognizer/);assert.doesNotMatch(home,/Card AI supports Pokemon[^<]*Dragon Ball Super|Card AI covers basketball, football and soccer/);
+ assert.match(home,/Scan Pokémon and sports card photos in your browser/);assert.match(home,/href="\/pokemon-card-scanner"/);assert.match(home,/href="\/sports-card-scanner"/);assert.match(home,/<a\b[^>]*href="https:\/\/play\.google\.com\/store\/apps\/details\?id=com\.cardai\.tcg"[^>]*>Google Play<\/a>/);assert.match(home,/Chrome recognizer/);assert.doesNotMatch(home,/CardScanFox supports Pokemon[^<]*Dragon Ball Super|CardScanFox covers basketball, football and soccer/);
  const tracker=renderer.resolvePage(new URL('https://tcgcard.fun/card-collection-tracker')).html;assert.match(tracker,/Website Saved references are browser bookmarks/);
- const price=renderer.resolvePage(new URL('https://tcgcard.fun/card-price-checker')).html;assert.match(price,/website’s text lookup/);assert.doesNotMatch(price,/To check your own card, use the Card AI app/);
+ const price=renderer.resolvePage(new URL('https://tcgcard.fun/card-price-checker')).html;assert.match(price,/website’s text lookup/);assert.doesNotMatch(price,/To check your own card, use the CardScanFox app/);
  const identifier=renderer.resolvePage(new URL('https://tcgcard.fun/card-identifier')).html;assert.doesNotMatch(identifier,/same identifier covers[^<]*Dragon Ball Super/);
+});
+test('card identifier answers counterfeit, promo number and rarity checks without overclaiming',()=>{
+ const html=createRenderer({liveSite:true}).resolvePage(new URL('https://tcgcard.fun/card-identifier')).html;
+ assert.match(html,/Can a card checker tell if a Pokémon card is fake\?/);
+ assert.match(html,/It cannot authenticate a card by itself/);
+ assert.match(html,/Check VIP and promo card numbers/);
+ assert.match(html,/complete printed number, product stamp, language and finish/);
+ assert.match(html,/Check a Pokémon card's rarity and printing together/);
+ assert.match(html,/Rarity does not prove authenticity or select a price alone/);
+ assert.match(html,/href="\/card-price-checker"/);
 });
 test('category coverage corrections do not promise unsupported languages, releases or whole-box scanning',()=>{
  const renderer=createRenderer();for(const path of ['/football-card-scanner']){const h=renderer.resolvePage(new URL(path,'https://tcgcard.fun')).html;assert.match(h,/Coverage is not confirmed for this category/);assert.match(h,/do not save another printing|does not confirm football coverage/);assert.doesNotMatch(h,/Yes\. You can look up dragon ball super|Bulk scanning lets you work through a stack/);}

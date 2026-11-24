@@ -25,7 +25,7 @@ test('privacy and the retained home legal source share the platform deletion con
  const home=await readFile(new URL('../content/legacy/home.html',import.meta.url),'utf8');
  const sources=[
   legacyPages.find(page=>page.path==='/privacy')?.bodyHtml??'',
-  home.match(/id="privacy-modal"[\s\S]*?<article class="modal-legal-content">([\s\S]*?)<\/article>/)?.[1]?.replaceAll('CardScanFox','Card AI')??'',
+  home.match(/id="privacy-modal"[\s\S]*?<article class="modal-legal-content">([\s\S]*?)<\/article>/)?.[1]??'',
  ];
  const text=node=>node.nodeName==='#text'?node.value:(node.childNodes??[]).map(text).join('');
  const bodies=sources.map(source=>text(nodes(source,node=>node.tagName==='article')[0]??parse(source)).replace(/\s+/g,' ').trim());
@@ -48,8 +48,8 @@ test('the deletion support page remains public but outside search indexing',()=>
 
 test('the request builder is local, starts without a platform, and preserves an email-only fallback without JavaScript',()=>{
  const {html}=resolvePage(new URL(accountPath,'https://tcgcard.fun'));
- assert.match(html,/Delete your Card AI account and data/);
- assert.match(html,/Card AI: TCG Card Scanner/);
+ assert.match(html,/Delete your app account and data/);
+ assert.match(html,/CardScanFox: TCG Card Scanner/);
  assert.match(html,/Already uninstalled the app/);
  assert.equal(nodes(html,node=>node.tagName==='form').length,0,'account email must never become a website form submission');
  const choices=nodes(html,node=>node.tagName==='input'&&attribute(node,'data-deletion-platform')!==undefined);
@@ -64,7 +64,7 @@ test('the request builder is local, starts without a platform, and preserves an 
  const buttons=nodes(html,node=>node.tagName==='button'&&['data-open-deletion-email','data-copy-deletion-request'].some(name=>attribute(node,name)!==undefined));
  assert.equal(buttons.length,2);assert.ok(buttons.every(node=>attribute(node,'type')==='button'&&attribute(node,'disabled')!==undefined));
  assert.equal(nodes(html,node=>node.tagName==='noscript').length,1);
- const assistance=nodes(html,node=>node.tagName==='a'&&(attribute(node,'href')??'').includes('subject=Card%20AI%20account%20deletion%20assistance'))[0];
+ const assistance=nodes(html,node=>node.tagName==='a'&&(attribute(node,'href')??'').includes('subject=CardScanFox%20account%20deletion%20assistance'))[0];
  assert.ok(assistance,'users who cannot provide an account email can request assistance without the builder');
  const href=new URL(attribute(assistance,'href'));
  assert.equal(href.pathname,'support@tcgcard.fun');assert.match(href.searchParams.get('body'),/cannot access or do not remember/);
@@ -95,7 +95,7 @@ test('Help and both footer sections expose the existing deletion URL without add
   assert.ok(links.length>=2,path+' must keep the public deletion entry discoverable');
  }
  const help=resolvePage(new URL('/help','https://tcgcard.fun')).html;
- assert.match(help,/How can I delete my Card AI account after uninstalling/);
+ assert.match(help,/How can I delete my app account after uninstalling/);
  const page=resolvePage(new URL(accountPath,'https://tcgcard.fun')).html;
  const helpLinks=nodes(page,node=>node.tagName==='a'&&attribute(node,'href')==='/help'&&attribute(node,'aria-current')==='page');
  assert.equal(helpLinks.length,1,'the page belongs to the existing Help navigation');

@@ -8,7 +8,7 @@
       "path": "/",
       "file": "home.html",
       "status": 200,
-      "bytes": 103130,
+      "bytes": 103360,
       "title": "CardScanFox: TCG Card Scanner, Price Checker & Collection Tracker",
       "h1": [
         "CardScanFox."
@@ -25,9 +25,9 @@
         "Start Tracking Your Collection Today."
       ],
       "canonical": "https://tcgcard.fun/",
-      "normalizedBodySha256": "97aab5e59bfd67a55b9bb9519567a7430d1047e3dd38d1c4cea81ceb22ead87d",
-      "bodyCharacters": 6705,
-      "wordCount": 1009,
+      "normalizedBodySha256": "02ecd407eb48f83fcf5a6faed83a345d34e27c090938a5d553ca6031c92e6e31",
+      "bodyCharacters": 6728,
+      "wordCount": 1012,
       "tableRows": 0,
       "contentLinks": [
         "/basketball-card-scanner",
@@ -157,7 +157,7 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "0634978d9d4782a992f16102e5214b3c03499b8e8ebb3619dacaeaeea4759bd6",
+      "htmlSha256": "43e6cece7eb473a1a5ad3359d1a148e88fd593a0bb58ed3c8946cc9b5115e46d",
       "localPublicFile": "apps/marketing-web/public/index.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
@@ -169,8 +169,8 @@
       },
       "previousApprovedHtmlSha256": "e049c476f79f3458d447a8d79f1bf5385d4be01d2970e9d42c0b81d1ecc80d26",
       "originalCapturedHtmlSha256": "c40d6e4a47b8c61b506dd3104357868c2fce4c91aa5687a287d3ea80489503b6",
-      "editorialUpdatedOn": "2026-11-16",
-      "editorialReason": "Approved steps 2/3: functional TCG owner, game-specific guidance, direct buying answers and consolidated internal links; local only."
+      "editorialUpdatedOn": "2026-11-23",
+      "editorialReason": "Align WatsonTCG content with the watson tcg card scanner intent, keep generic scanner terms on their dedicated owners, and add contextual internal links."
     },
     {
       "path": "/basketball-card-scanner",
@@ -549,7 +549,7 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "0a1e093bcb62b3a87132f3c1d0ebc683cc7bcd0db01148863e336b811eec1559",
+      "htmlSha256": "50e57c2f467850f7397d213533558729017f0eb2209ca701cb4828b958167a38",
       "localPublicFile": "apps/marketing-web/public/card-identifier.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
@@ -561,8 +561,8 @@
       },
       "previousApprovedHtmlSha256": "fbe5bce42bd95cebc9ec7713f41cc6987a92a4787c1cd6aad58a4da255607688",
       "originalCapturedHtmlSha256": "a3ace3cd1b32120cf746705317a644cafd3d5a78b2003229ea7a9e43862f4795",
-      "editorialUpdatedOn": "2026-11-16",
-      "editorialReason": "Approved steps 2/3: functional TCG owner, game-specific guidance, direct buying answers and consolidated internal links; local only."
+      "editorialUpdatedOn": "2026-11-23",
+      "editorialReason": "Align WatsonTCG content with the watson tcg card scanner intent, keep generic scanner terms on their dedicated owners, and add contextual internal links."
     },
     {
       "path": "/card-price-checker",
@@ -1409,14 +1409,14 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "314db25d62a1dfff506663ebcbdd7d703b00fefddb7683089d500285bd6dd965",
+      "htmlSha256": "84b85cb9e9b35f18700142b62177e7ddbfa5ccac6bc6108f8b94fac7b2427b61",
       "localPublicFile": "apps/marketing-web/public/pokemon-card-scanner.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
       "previousApprovedHtmlSha256": "e85f4d3bd1ab5167ea5690c72ee742bb07abb202a4e31d37a7197349ed058225",
       "originalCapturedHtmlSha256": "9b3fd8eaf2b905504134c86564805a8230c5d80b70aac12ac5c995ffca2f03f6",
-      "editorialUpdatedOn": "2026-11-15",
-      "editorialReason": "Approved answer-first content, CardScanFox branding and Pokémon intent consolidation; local candidate only."
+      "editorialUpdatedOn": "2026-11-23",
+      "editorialReason": "Align WatsonTCG content with the watson tcg card scanner intent, keep generic scanner terms on their dedicated owners, and add contextual internal links."
     },
     {
       "path": "/soccer-card-scanner",
@@ -2410,14 +2410,14 @@
           "alt": "CardScanFox scan and candidate review screen"
         }
       ],
-      "htmlSha256": "e050cd58863385e42d1c88214b9cb8a9236edcdfa38822c2289feb3ff7481d7f",
+      "htmlSha256": "82e453bb8f5317557bdcb4dbabd661a82148897effb79cffc9e4171a5fdc1184",
       "localPublicFile": "apps/marketing-web/public/blog/pokemon-tcg-set-card-lists.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
       "originalCapturedHtmlSha256": "7acc0879018c97bf699f9426a295b5161819254307535b43cb6e30199ea65600",
       "previousApprovedHtmlSha256": "7acc0879018c97bf699f9426a295b5161819254307535b43cb6e30199ea65600",
-      "editorialUpdatedOn": "2026-11-15",
-      "editorialReason": "Approved answer-first content, CardScanFox branding and Pokémon intent consolidation; local candidate only."
+      "editorialUpdatedOn": "2026-11-23",
+      "editorialReason": "Add current Pokémon list routing for Flowing Fists, Aura Seeker, Pokémon TCG Pocket Dual Fusion and reported products while keeping language and game boundaries explicit."
     },
     {
       "path": "/blog/dungeon-crawler-carl-trading-cards",
@@ -2555,7 +2555,7 @@
           "alt": "CardScanFox scan and candidate review screen"
         }
       ],
-      "htmlSha256": "16340ffe3f0a4eaf522de42a785a888b43a3c79a8ce8afe4f1afc0b64ef330d4",
+      "htmlSha256": "a414ffcca40f6fd4d790ede6efba72adb3bee0341d2cf6d0cf5cbf9a682ee0da",
       "localPublicFile": "apps/marketing-web/public/blog/scanning-cards-from-watsontcg.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
@@ -2567,8 +2567,8 @@
       },
       "originalCapturedHtmlSha256": "0b4e0f32c210b350efeabee7c6de0822515e96d0eef613284f46010a5c8b3380",
       "previousApprovedHtmlSha256": "7a0e8ef63ef9a9520d09ce8c169a65039c7eb7ab6d1272a052799a700027ee64",
-      "editorialUpdatedOn": "2026-11-16",
-      "editorialReason": "Approved steps 2/3: functional TCG owner, game-specific guidance, direct buying answers and consolidated internal links; local only."
+      "editorialUpdatedOn": "2026-11-23",
+      "editorialReason": "Align WatsonTCG content with the watson tcg card scanner intent, keep generic scanner terms on their dedicated owners, and add contextual internal links."
     },
     {
       "path": "/blog/pokemon-tcg-30th-celebration-card-prices",
@@ -2916,8 +2916,8 @@
       "path": "/privacy",
       "file": "privacy.html",
       "status": 200,
-      "bytes": 25104,
-      "title": "Privacy Policy | Card AI",
+      "bytes": 25152,
+      "title": "Privacy Policy | CardScanFox",
       "h1": [
         "Privacy Policy"
       ],
@@ -2934,9 +2934,9 @@
         "10. Changes and Contact"
       ],
       "canonical": null,
-      "normalizedBodySha256": "9a1570b20804214c255524e32430b51e4abe9c38e260696774ade02c38204958",
-      "bodyCharacters": 16939,
-      "wordCount": 2435,
+      "normalizedBodySha256": "1bcb07110f068363164c5381810a2f29ea4e956fa9aa2b5230313b94dc1448bc",
+      "bodyCharacters": 16979,
+      "wordCount": 2425,
       "tableRows": 8,
       "contentLinks": [
         "/",
@@ -2953,7 +2953,7 @@
         "/terms"
       ],
       "contentImages": [],
-      "htmlSha256": "411776e2cbe2704bfe2bd72d2db9f540671669f8d3b76ddc857b6e84d34b7a75",
+      "htmlSha256": "627253be6228b842a7c75eeca3761cda2859d1ed61dd7c1bd2d23a0fffaf97df",
       "localPublicFile": "apps/marketing-web/public/privacy.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented"
@@ -2962,8 +2962,8 @@
       "path": "/terms",
       "file": "terms.html",
       "status": 200,
-      "bytes": 40999,
-      "title": "Terms of Use | Card AI",
+      "bytes": 41115,
+      "title": "Terms of Use | CardScanFox",
       "h1": [
         "Terms of Use"
       ],
@@ -2995,9 +2995,9 @@
         "24. Contact Us"
       ],
       "canonical": null,
-      "normalizedBodySha256": "087ca710cdc03e2b7da4954558c897ad1a7de2dec3adbfb4e293fa85f6cdf784",
-      "bodyCharacters": 31518,
-      "wordCount": 4754,
+      "normalizedBodySha256": "77e7ba883ad5475e18cfc1520aa4aa257f113597bc6562ee73019bf8dc6215f8",
+      "bodyCharacters": 31626,
+      "wordCount": 4727,
       "tableRows": 0,
       "contentLinks": [
         "/",
@@ -3009,7 +3009,7 @@
         "/terms"
       ],
       "contentImages": [],
-      "htmlSha256": "cb51c732bbc24ab576e846cc8fc1ed3dfaeb8025c7eead2a63243b1faf6f68d2",
+      "htmlSha256": "239d137eb5406dd44731607fedcabd076c7a6ca6917514d635aec1f7462d8caf",
       "localPublicFile": "apps/marketing-web/public/terms.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented"

@@ -31,7 +31,8 @@
     "LOCAL_DEVELOPMENT": "false",
     "PUBLIC_ORIGIN": "https://tcgcard.fun",
     "CATALOG_MODE": "service",
-    "PUBLISH_READY": "true"
+    "PUBLISH_READY": "true",
+    "PVUV_SITE": "gx4EamoZ"
   },
   "observability": {
     "enabled": true,

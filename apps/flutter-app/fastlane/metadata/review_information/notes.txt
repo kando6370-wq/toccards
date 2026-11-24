@@ -1,4 +1,4 @@
-Card AI can be reviewed without a pre-provisioned demo account.
+CardScanFox can be reviewed without a pre-provisioned demo account.
 
 1. On first launch, choose "Skip and start now" to enter as a guest. Guest sessions are real server-backed accounts and can use Home, Search, Scan, Collection, Profile, and account deletion.
 2. A new guest may have an empty Portfolio. Use Search to inspect the production card catalog, or use the center Scan tab to capture/import a card and review recognition candidates. A card is not added until the reviewer confirms it.

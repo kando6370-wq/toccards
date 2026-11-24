@@ -35,4 +35,4 @@ Charmander and Charizard are different Pokémon and different catalog records. T
 
 [Search the Pokémon catalog for Charmander](/games/pokemon?q=Charmander) to find other printings. Select the exact record before using a price. The name alone can also return promos or cards from other expansions.
 
-With the physical card in hand, use the [Card AI scanner](/pokemon-card-scanner) to review identification candidates. Confirm the printing, language and finish, then record the holding in the app. A website bookmark saves a reference; it does not add that card to your app collection.
+With the physical card in hand, use the [CardScanFox scanner](/pokemon-card-scanner) to review identification candidates. Confirm the printing, language and finish, then record the holding in the app. A website bookmark saves a reference; it does not add that card to your app collection.
