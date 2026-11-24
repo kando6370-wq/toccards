@@ -21,3 +21,15 @@ Use this guide to find answers about trading cards, from identifying an exact pr
 - [Check an unfamiliar card for signs of a counterfeit](/blog/trading-card-authenticity-questions#geo-015)
 - [Decide whether to send a card to PSA](/blog/trading-card-grading-questions#geo-018)
 - [Organize a large card collection](/blog/trading-card-collection-questions#geo-020)
+
+## How to use the 100-question guide
+
+Each topic guide keeps one original English question in its own heading. Start with the task you need today, then use the linked tool or source to verify your exact card. The guide explains product workflows and research steps. It does not turn one reference price into a guaranteed sale value or one scan into an authentication result.
+
+| Task | Start here | Verify before acting |
+| --- | --- | --- |
+| Identify a card | [Identification questions](/blog/trading-card-identification-questions) | Set, full number, language and finish |
+| Check a price | [Price questions](/blog/trading-card-price-questions) | Source, metric, date, condition and grade |
+| Choose an app | [Scanner and app questions](/blog/trading-card-tool-questions) | Your card categories, free limits and save flow |
+| Check authenticity | [Authenticity questions](/blog/trading-card-authenticity-questions) | Physical copy and specialist evidence |
+| Grade or store a card | [Grading questions](/blog/trading-card-grading-questions) · [Storage questions](/blog/trading-card-storage-questions) | Current service terms and safe handling |

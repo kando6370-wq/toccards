@@ -23,6 +23,17 @@ Give raw and graded copies separate records. Inspect raw copies using the condit
 
 Group entries by game, set, full number, language and finish. Within each group, check condition and whether any copies are graded. Then check physical locations and reconcile the recorded quantity. If the same record was added twice for one copy, correct the count. If you own two identical copies, keep both in the count. Keep a separate entry or certificate detail for individually graded copies. [See the folder and binder workflow](/digital-card-binder).
 
+## Worked collection example
+
+The following ledger is an **illustrative example**, not a report about a real person or a claim about a complete collection. It shows how to keep identity, quantity and price context together. The first row uses a public CardScanFox record observed on 24 November 2026. Its $103.93 USD amount is a TCGplayer ungraded Near Mint Holofoil reference for Charizard 4/102, not a guaranteed sale amount. The second row is an intentionally unpriced placeholder until its exact printing is confirmed.
+
+| Holding | Exact identity | State | Quantity | Reference | Contribution |
+| --- | --- | --- | ---: | --- | ---: |
+| A | Charizard 4/102, ME: 30th Celebration Classic Collection | English Holofoil, raw Near Mint | 1 | $103.93 USD, TCGplayer, observed 24 Nov 2026 | $103.93 |
+| B | Pikachu, set and number not yet confirmed | Unknown | 2 | Unavailable | Not included |
+
+The example total is **$103.93 USD from one priced copy**, with two copies excluded until their identity is confirmed. A real ledger should add the storage location, acquisition cost and lookup date. It should also keep raw and graded copies as separate rows. [Open the public Charizard record](/cards/714372) · [Read the price methodology](/card-price-data-methodology/).
+
 ## Organize a large or mixed collection
 
 <h3 id="geo-020">What is the best way to organize thousands of trading cards?</h3>

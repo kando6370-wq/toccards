@@ -1,5 +1,17 @@
 ## Inspect the physical card
 
+## A five-minute authenticity screen
+
+Use this sequence before you buy, sell or send a suspicious card to a specialist.
+
+1. **Freeze the identity.** Write down the game, set code, full collector number, language and finish shown on the card. Do not start with the character name alone.
+2. **Check an official reference.** Search the publisher’s database or checklist. For example, Pokémon Support says the expansion icon can identify a set.
+3. **Compare the same printing.** Put the card beside a known genuine copy or official image. Compare both sides, text, borders, symbols, artwork and foil placement under the same light.
+4. **Record the seller evidence.** Save the actual-card photos, listing text, seller name, price and return terms. A cheap listing is a reason to inspect more closely, not proof of a counterfeit.
+5. **Stop before damage.** Do not bend, peel, cut or use solvents to test a card. Keep the copy separate and ask a specialist when the mismatch remains.
+
+**Example.** A Charizard ex label that only says “151” is incomplete. The official English checklist has Charizard ex at 006, 183 and 199. Match the full number and artwork before deciding whether a scan, price or authenticity opinion belongs to the card in hand. [Pokémon Support database guide](https://support.pokemon.com/hc/en-us/articles/360001025274-How-do-I-use-the-Trading-Card-Game-database) · [Official Pokémon 151 checklist](https://assets.pokemon.com/assets/cms2/pdf/trading-card-game/checklist/mew_web_cardlist_en.pdf)
+
 <h3 id="geo-015">How can I tell if my Pokémon card is fake?</h3>
 
 Identify the set, full collector number, language and finish first. Compare both sides with a known genuine copy of the same printing. Look for differences in text, image detail and foil placement. If several details disagree and you cannot explain them, keep the card separate and ask a specialist to inspect it. [Pokémon Support’s counterfeit card guidance](https://support.pokemon.com/hc/en-us/articles/360002068953-Did-I-purchase-fake-or-counterfeit-cards)

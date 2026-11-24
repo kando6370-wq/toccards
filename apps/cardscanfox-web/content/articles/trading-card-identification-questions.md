@@ -18,6 +18,20 @@ Pick a scanner with catalog coverage for your exact mix. Try one known Pokémon,
 
 Sort the stack by game and separate pieces that need extra care, such as foils or promos. Group copies you can already identify and count them. Batch the uncertain cards, keep them in photo order and verify results before putting them back. To compare workflows, time a small group from the first photo to the last verified record. Include the time you spent fixing matches. [See the mobile bulk scan workflow](/bulk-card-scanner).
 
+## A verified catalog check you can repeat
+
+The public CardScanFox catalog gives a concrete identity check. Its Charizard record is **4/102 from ME: 30th Celebration Classic Collection**, in English with a Holofoil finish. On 24 November 2026, the public record showed five candidates from the Pokémon web scanner. The expected card was the first candidate, while another candidate shared the name and number but belonged to a different set. That is why the set and finish check comes before a price check. The record also says that catalog artwork identifies a printing and does not authenticate a physical card. [Open the Charizard record](/cards/714372) · [Read the recognition check](/ai-card-recognition-accuracy/).
+
+Use this repeatable checklist after any scan.
+
+| Check | What to compare | Keep the result when |
+| --- | --- | --- |
+| Set | Set name or code on the card and candidate | Both identify the same release |
+| Number | Every digit, prefix and denominator | The printed number is complete |
+| Language | Card text and catalog language | They describe the same edition |
+| Finish | Holofoil, normal, reverse or named parallel | The surface and label agree |
+| Physical copy | Artwork, back and visible marks | The photo and card agree |
+
 ## Take and use a card photo
 
 <h3 id="geo-002">How can I identify a trading card from a photo?</h3>

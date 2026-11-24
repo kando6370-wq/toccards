@@ -22,6 +22,23 @@ Different language printings can serve different buyers. Use recent sales of the
 
 Use separate groups. Compare a raw card with the same printing in similar raw condition. For a graded card, match the grading company and grade as printed on the holder. Compare a PSA 9 with PSA 9 sales. A PSA 10 and a raw Near Mint copy have separate market records. Report the groups and dates together if you want to see how their prices differ. [Compare raw and graded card values](/blog/raw-vs-graded-card-values).
 
+## A dated price example with the source beside it
+
+A public record is useful only when the identity and price context stay together. On 24 November 2026, CardScanFox displayed **$103.93 USD** for Charizard **4/102** from ME: 30th Celebration Classic Collection. The page labels the record English, Holofoil and Near Mint, gives TCGplayer as the source and calls the metric ungraded. It is a dated published reference, not a transaction offer or a guaranteed sale price. The amount applies to that card record and series. A different condition, language, finish, grade or sale date needs a different comparison. [Open the dated record](/cards/714372) · [Read the methodology](/card-price-data-methodology/).
+
+Use these fields before you copy any amount into a spreadsheet.
+
+| Field | Example from the public record | Why it stays with the value |
+| --- | --- | --- |
+| Card identity | Charizard 4/102, ME: 30th Celebration Classic Collection | Stops same-name printings being mixed |
+| Language and finish | English, Holofoil | Keeps editions and surfaces separate |
+| Condition | Near Mint, raw | A raw condition is not a slab grade |
+| Amount and currency | $103.93 USD | Prevents a currency or amount mix-up |
+| Source and metric | TCGplayer, ungraded | States what the reference measures |
+| Date | Observed 24 Nov 2026 | Makes an old number visible |
+
+This is a public record example, not a benchmark for every Charizard or a promise of resale proceeds.
+
 ## Find current prices and read the source
 
 <h3 id="geo-006">What is the best free trading card price checker?</h3>

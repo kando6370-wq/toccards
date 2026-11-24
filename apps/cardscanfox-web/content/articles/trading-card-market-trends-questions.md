@@ -21,3 +21,23 @@ Prices can move when copies become easier to find, a reprint appears, players ne
 <h3 id="geo-090">How can I research a card without treating it as a guaranteed investment?</h3>
 
 Set a budget that works for you even if resale takes time or prices fall. Record your purchase cost, tax, shipping and any appraisal or grading fees. Then estimate net resale from matching sales after seller fees, with a lower-price scenario. In a hypothetical example, a $60 total cost and $50 in resale proceeds after fees would leave a $10 shortfall. Historical prices describe past observations, and your future sale depends on finding a buyer. [Trading card price history](/blog/trading-card-price-history) · [eBay sold-price research](https://www.ebay.com/help/selling/selling-tools/product-research?id=4853)
+
+## A repeatable trend worksheet
+
+Use one worksheet for every comparison so search interest and prices do not get mixed.
+
+| Field | Example entry | Why it matters |
+| --- | --- | --- |
+| Question | “Are Pokémon searches rising in the US?” | Defines the task before choosing data |
+| Platform | Google Trends, eBay or a named marketplace | Each platform has its own audience and index |
+| Window | 90 days ending on a stated date | A moving window changes the result |
+| Region | US, UK or another selected market | Interest can vary by country |
+| Card scope | One set, number, language and finish | A character name can combine many printings |
+| Price metric | Market price, most recent sale or median sold price | These metrics answer different questions |
+| Result | Change, count or median with its denominator | Prevents a percentage without a sample |
+
+For example, a search spike for “Charizard” does not prove that Charizard 199/165 increased in sale price. Check the exact card, completed-sale sample and price metric separately. [Use Google Trends’ data notes](https://support.google.com/trends/answer/4365533?hl=en) · [Use eBay Product Research](https://www.ebay.com/help/selling/selling-tools/product-research?id=4853).
+
+## State what the data cannot answer
+
+A one-day search spike cannot establish a long-term market trend. A small number of sales cannot describe every copy. A CardScanFox weekly gain compares its selected published raw series, so it does not measure sealed products or every market listing. Write the platform, date window, region and sample size beside any conclusion.

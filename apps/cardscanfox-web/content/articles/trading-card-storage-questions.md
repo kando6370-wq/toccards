@@ -1,6 +1,18 @@
 ## Protect cards from handling and their surroundings
 
-Keep cards in fitted protective holders in a clean indoor space with stable conditions. Choose holders that fit the size and thickness of the item. Look after the original slab for cards that already have a professional grade.
+## A practical storage and inspection checklist
+
+Use this checklist when you add a card to a box or binder, then repeat it during a seasonal review.
+
+- **Location:** Choose a clean interior shelf off the floor. Keep the collection away from windows, radiators, vents, pipes, damp basements, hot attics and garages.
+- **Enclosure:** Use a correctly sized sleeve, pocket or holder. Check that the card is not forced into a pocket and that a thick card does not bow the page. Avoid PVC for long-term storage.
+- **Support:** Keep cards upright or flat with enough support that they do not lean, bend or shift. Leave room to remove a card without dragging its corners.
+- **Environment:** Put a small hygrometer near the collection. Record the reading during a wet week and after a hot day. Move the box if the area has large swings, condensation or a leak risk.
+- **Inventory:** Record the exact printing, language, condition or slab grade, and the box or binder location. Photograph the front and back for valuable cards.
+- **Review:** Look for curl, whitening, surface transfer, damp marks, pests and cracked slabs. Fix the storage condition before cleaning a card.
+
+**Example.** A binder page bows around a thick card and the card catches when removed. Move that card to a holder sized for its thickness, keep the page supported, and record the new location. The National Archives recommends stable enclosures, suitable sizing and storage away from damp basements, garages, hot attics and water sources. [National Archives storage guidance](https://www.archives.gov/preservation/family-archives/storing) · [National Archives general guidance](https://www.archives.gov/preservation/holdings-maintenance/general-guidance.html) · [Library of Congress handling guidance](https://www.loc.gov/preservation/educational/bookmarks/preserveyour/images/BookPaperPhotoDigital.pdf)
+
 
 <h3 id="geo-096">How should I store trading cards long term?</h3>
 

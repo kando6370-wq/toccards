@@ -21,3 +21,19 @@ A collection tracks what you own and the copies you want, such as a specific pri
 <h3 id="geo-095">How should I organize cards for deck building?</h3>
 
 Separate games first. Within each game, group cards by categories you reach for when building, such as color, resource cost, card type or a particular role. Give decks in use their own boxes and record how many spare copies remain. For example, take your current deck list and see whether you can find a replacement resource card and a support card from the storage labels. Recheck format legality before bringing the deck to an event. [Magic formats](https://magic.wizards.com/en/formats) · [Card collection organization](/blog/organize-a-large-card-collection)
+
+## Pick a first game and a first learning task
+
+Choose a game by the cards, people and local events you can access. Start with an official beginner product or tutorial, learn the turn sequence, then play a short game before buying a large collection.
+
+| If you want | Start by checking | Example official starting point |
+| --- | --- | --- |
+| Pokémon | A beginner product, card types and turn sequence | Pokémon Trading Card Game information for parents and beginners |
+| Magic | A guided lesson and the format you want to play | Magic Academy and the official formats list |
+| One Piece | The current comprehensive rulebook and leader/deck rules | Bandai One Piece rules |
+| Yu-Gi-Oh! | The current rulebook and the format used at your event | Konami rulebook |
+| Disney Lorcana | How turns, ink and challenges work | Disney Lorcana how-to-play guide |
+
+## Build and test a first deck
+
+Keep a list of the cards you own, the cards you still need and the format you are targeting. Use the game’s deck-size and copy-limit rules before you buy singles. Play the same list several times and write down which cards stay unused, which turns run out of resources and which effects you need more often. A card collection tool can track ownership. It does not decide whether a deck is legal for the format. [Browse supported card categories](/games) · [Use official rules before a tournament](https://en.onepiece-cardgame.com/rules/).

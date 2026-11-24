@@ -63,3 +63,21 @@ Look for a workflow that lets you reject a candidate before you save. In CardSca
 <h3 id="geo-051">How should I test two card scanner apps fairly?</h3>
 
 Scan the same labeled set of physical cards in each app using the same device and lighting. Include a foil, a similar reprint and a poor-quality photo in separate groups. Record the first candidate, whether the correct printing appears in later candidates, no-match results and elapsed time. Compare price references separately using the same print, condition and date. See the [recognition test method](/ai-card-recognition-accuracy/).
+
+## A simple comparison worksheet
+
+Use this table while testing tools. Fill it with observations from your own cards.
+
+| Test | Card or situation | Record |
+| --- | --- | --- |
+| Exact identity | One known card with a printed set number | First candidate, corrected candidate, and whether the set and number match |
+| Variant | Foil, parallel, promo or a shared-art reprint | Whether language and finish can be changed before saving |
+| Collection | Two copies plus one graded copy | Quantity, condition, grade and duplicate handling |
+| Price | One record with a dated published reference | Provider, metric, currency and observation date |
+| Backlog | Ten separate images | Time to review, correction count and export or folder result |
+
+A tool can be good for one row and poor for another. Keep those observations separate from a general accuracy claim. For current plan terms, check the provider’s own page immediately before a purchase.
+
+## Choose the smallest workflow that works
+
+Use a browser tool when you need to identify one image and compare a candidate. Use a mobile app when you need to save owned holdings, quantities or folders. Use a marketplace workflow when you need to prepare listings. A price reference helps with research, while a completed sale is stronger evidence for a specific selling decision. [Read the price methodology](/card-price-data-methodology/) · [Read the selling guide](/blog/trading-card-selling-questions).

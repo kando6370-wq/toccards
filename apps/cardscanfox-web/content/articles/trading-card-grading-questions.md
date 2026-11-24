@@ -1,5 +1,19 @@
 ## Understand what a grade describes
 
+## A pre-submission grading worksheet
+
+Complete this worksheet for one exact printing before you pay for a grading service.
+
+| Field | What to write down | Why it matters |
+| --- | --- | --- |
+| Identity | Game, set, full number, language and finish | A grade comparison is meaningful only for the same printing. |
+| Visible condition | Centering, four corners, four edges and surface defects on front and back | These are the areas the published grading standards describe. |
+| Evidence | Straight-on front and back photos plus one angled-light surface photo | Photos let you compare your decision later. They do not replace the grader. |
+| Cost | Grading fee, outbound and return shipping, insurance and selling fees | Use total cost, not the advertised per-card fee alone. |
+| Scenarios | Raw sale, plausible lower grade and plausible higher grade | A submission that works only at the highest grade carries more risk. |
+
+**Example.** If a card could net $12 raw, $30 after grading at a conservative grade, and the complete submission cost is $25, the graded route returns $5 before any extra selling cost. The numbers are an example. Replace them with current comparable sales and the service’s current price. PSA publishes service price, maximum insured value and estimated turnaround by tier, and its shipping guide specifies the required packaging. [PSA grading standards](https://www.psacard.com/gradingstandards) · [PSA service pricing](https://www.psacard.com/services/tradingcardgrading) · [PSA shipping guide](https://www.psacard.com/info/shipguide)
+
 <h3 id="geo-060">What is the difference between a raw card and a graded card?</h3>
 
 A raw card has no current third-party condition grade. Terms such as Near Mint describe the seller’s or collector’s assessment. A numerically graded card has a grade from a specific company and typically comes in that company’s labeled holder. Check the label for the company, grade, card identity and any special designation. [Raw versus graded card values](/blog/raw-vs-graded-card-values) · [CGC Cards grading process](https://www.cgccards.com/card-grading/grading-process/)

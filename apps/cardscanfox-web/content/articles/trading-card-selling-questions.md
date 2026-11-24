@@ -45,3 +45,22 @@ Keep separate rows for the unopened product and for each single. Match a sealed 
 <h3 id="geo-085">How can I make a card inventory for an insurance or estate record?</h3>
 
 Keep a dated inventory with identifying details, quantity, condition, any certification number, acquisition records, photos and storage location. Back it up somewhere separate from the collection. For your ten highest-value cards, check that each pair of photos and receipt can be matched to the correct record. Ask the insurer or estate professional which valuation date and documents they require. Record the source of any estimate and keep app reference prices separate from a formal appraisal. [NAIC home inventory guidance](https://content.naic.org/consumer/home-inventory) · [Collection inventory workflow](/blog/organize-a-large-card-collection)
+
+## A listing preparation table
+
+Complete this table before publishing an important single.
+
+| Listing field | What to verify |
+| --- | --- |
+| Identity | Game, set, full number, language, finish and variant |
+| Item state | Raw condition, or grading company, grade and certificate |
+| Images | Front, back, corners, edges, surface and any damage |
+| Price | Same printing and condition in completed-sale research |
+| Terms | Shipping method, returns, fees, handling time and region |
+| Inventory | Quantity, physical location and whether the copy is still available |
+
+For a slab, photograph the label and compare the certificate entry with the holder. For a raw card, disclose whitening, dents, creases, scratches and altered surfaces. Keep a copy of the listing and sold-price evidence with your inventory record.
+
+## Separate three selling decisions
+
+The best venue depends on the lot. A marketplace can reach more buyers but adds fees and shipping work. A local shop may be faster for a collection but may quote below an individual-card total. A consignment or grading-company channel has its own eligibility and payout terms. Compare expected net proceeds after fees, insurance, shipping and time. Do not use a published reference price as a guaranteed payout. [Prepare a collection list](/blog/trading-card-collection-questions) · [Read current eBay research definitions](https://www.ebay.com/help/selling/selling-tools/product-research?id=4853).
