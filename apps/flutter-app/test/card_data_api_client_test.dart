@@ -9,6 +9,73 @@ import 'package:kando_app/shared/card_data/card_data_api_client.dart';
 
 void main() {
   test(
+    'only scan review requests bundled prices and preserves zero and missing quotes',
+    () async {
+      final requests = <Map<String, String>>[];
+      final api = CardDataApiClient(
+        _dio(
+          _RecordingAdapter((request) {
+            expect(request.path, '/cards/test%3A001');
+            requests.add(request.queryParameters);
+            return _json(200, {
+              'success': true,
+              'data': {
+                ..._cardJson(cardRef: 'test:001'),
+                if (request.queryParameters.containsKey('include'))
+                  'review_prices': [
+                    {
+                      'finish': 'Foil',
+                      'language': 'Japanese',
+                      'grader': 'PSA',
+                      'grade': 9.5,
+                      'condition': null,
+                      'price': 0,
+                    },
+                    {
+                      'finish': null,
+                      'language': null,
+                      'grader': 'Raw',
+                      'condition': 'Near Mint',
+                      'price': null,
+                    },
+                  ],
+              },
+            });
+          }),
+        ),
+      );
+      expect((await api.getCard('test:001')).reviewPrices, isNull);
+      final rows = (await api.getCardForScanReview('test:001')).reviewPrices!;
+      expect(
+        rows.map(
+          (r) =>
+              (r.finish, r.language, r.grader, r.grade, r.condition, r.price),
+        ),
+        [
+          ('Foil', 'Japanese', 'PSA', 9.5, null, 0),
+          (null, null, 'Raw', null, 'Near Mint', null),
+        ],
+      );
+      expect(requests, [
+        <String, String>{},
+        {'include': 'review_prices'},
+      ]);
+    },
+  );
+
+  test(
+    'malformed optional prices leave the matched card available for legacy pricing',
+    () {
+      final card = CardDataCardDto.fromJson({
+        ..._cardJson(cardRef: '001'),
+        'review_prices': [42],
+      });
+      expect(card.cardRef, '001');
+      expect(card.reviewPrices, isNull);
+    },
+  );
+
+  test(
     'trendingCardPage sends unified pagination because View all must load beyond the Home preview',
     () async {
       final adapter = _RecordingAdapter((request) {

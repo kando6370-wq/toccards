@@ -143,3 +143,30 @@ test('a rejected PVUV request leaves the production page response usable', async
   await Promise.all(pending);
   assert.deepEqual(warn.mock.calls[0].arguments, [{ event: 'pvuv_crawler_report_failed' }]);
 });
+
+test('public scanner assets revalidate across visits while preview and failed assets remain private', async () => {
+ const paths=['/assets/scanner/pe_core_t16_image_fp16.onnx','/assets/scanner/ort-wasm-simd-threaded.wasm'];
+ const assetHeaders={'Cache-Control':'public, max-age=900',ETag:'"scanner"'};
+ const binding={fetch:async req=>new Response(null,{status:req.headers.has('If-None-Match')?304:200,headers:assetHeaders})};
+ const production={...env,DEPLOYMENT_MODE:'production',PUBLISH_READY:'true',CATALOG_MODE:'service',ASSETS:binding};
+ for(const path of paths){
+  const url='https://tcgcard.fun'+path;
+  for(const method of ['GET','HEAD']){
+   const fresh=await worker.fetch(new Request(url,{method}),production);
+   assert.equal(fresh.headers.get('Cache-Control'),assetHeaders['Cache-Control']);
+   assert.equal(fresh.headers.get('ETag'),assetHeaders.ETag);
+   const hit=await worker.fetch(new Request(url,{method,headers:{'If-None-Match':assetHeaders.ETag}}),production);
+   assert.equal(hit.status,304);assert.equal(hit.headers.get('Cache-Control'),assetHeaders['Cache-Control']);
+  }
+  const preview=await worker.fetch(new Request(url,{headers:{Authorization:authorization}}),{...env,ASSETS:binding});
+  assert.equal(preview.headers.get('Cache-Control'),'no-store');
+  const missing=await worker.fetch(new Request(url),{...production,ASSETS:{fetch:async()=>new Response(null,{status:404,headers:assetHeaders})}});
+  assert.equal(missing.headers.get('Cache-Control'),'no-store');
+ }
+ const noPolicy={...production,ASSETS:{fetch:async()=>new Response(null,{headers:{ETag:'"site"'}})}};
+ const css=await worker.fetch(new Request('https://tcgcard.fun/site.css'),noPolicy);
+ assert.equal(css.headers.get('Cache-Control'),'public, max-age=0, must-revalidate');
+ assert.equal(css.headers.get('ETag'),'"site"');
+ const manifest=await worker.fetch(new Request('https://tcgcard.fun/release-manifest.json'),production);
+ assert.equal(manifest.headers.get('Cache-Control'),'no-store');
+});

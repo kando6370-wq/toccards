@@ -60,6 +60,8 @@ type AdminRequestInit = Omit<RequestInit, "body"> & {
 };
 
 type InstallationAnalytics = {
+  total: number;
+  page_size: number;
   summary: { total_installations: number; countries: number; platforms: number };
   trend: Array<{ date: string; total: number }>;
   rows: InstallationRow[];
@@ -504,22 +506,30 @@ function AdminShell({ session, onLogout }: { session: AdminSession; onLogout: ()
 }
 
 function InstallationsPage({ session }: { session: AdminSession }) {
+  const [page, setPage] = useState(1);
   const [period, setPeriod] = useState<InstallationPeriod>("7d");
   const [dateRangeKey, setDateRangeKey] = useState(0);
   const [draft, setDraft] = useState<InstallationFilters>({ date_from: "", date_to: "" });
   const [filters, setFilters] = useState<InstallationFilters>(draft);
   const path = useMemo(() => {
-    const params = new URLSearchParams({ page_size: "100" });
+    const params = new URLSearchParams({ page: String(page), page_size: "8" });
     Object.entries(filters).forEach(([key, value]) => value && params.set(key, value));
     return `/analytics/installations?${params.toString()}`;
-  }, [filters]);
+  }, [filters, page]);
+  const scope = filterParams({ date_from: filters.date_from, date_to: filters.date_to, environment: filters.environment ?? "" });
+  const options = useAdminData<{ countries: string[] }>(`/analytics/installations/options?${scope}`, session);
   const { data, loading, reload, error } = useAdminData<InstallationAnalytics>(path, session);
   const rows = data?.rows ?? [];
   const trend = useMemo(
     () => installationTrendForPeriod(data?.trend ?? [], period, filters.date_to),
     [data?.trend, filters.date_to, period],
   );
-  const countryOptions = [...new Set(rows.map((row) => row.country))].map(
+  useEffect(() => {
+    if (!data || loading) return;
+    const lastPage = Math.max(1, Math.ceil(data.total / data.page_size));
+    if (page > lastPage) setPage(lastPage);
+  }, [data, loading, page]);
+  const countryOptions = (options.data?.countries ?? []).map(
     (value) => ({ value, label: countryName(value) }),
   );
   const columns: ColumnsType<InstallationRow> = [
@@ -532,6 +542,7 @@ function InstallationsPage({ session }: { session: AdminSession }) {
   ];
 
   function applyInstallationFilters() {
+    setPage(1);
     setFilters({ ...draft });
     reload();
   }
@@ -540,12 +551,13 @@ function InstallationsPage({ session }: { session: AdminSession }) {
     const empty = { date_from: "", date_to: "" };
     setDraft(empty);
     setFilters(empty);
+    setPage(1);
     setDateRangeKey((value) => value + 1);
     reload();
   }
 
   return (
-    <PagePanel error={error} onRefresh={reload}>
+    <PagePanel error={error ?? options.error} onRefresh={() => { reload(); options.reload(); }}>
       <FilterBar>
         <DatePicker.RangePicker key={dateRangeKey} onChange={(_, values) => setDraft((current) => ({ ...current, date_from: values[0], date_to: values[1] }))} />
         <Select showSearch allowClear value={draft.country || undefined} onChange={(country) => setDraft((current) => ({ ...current, country }))} placeholder="国家" className="filter-control" options={countryOptions} />
@@ -565,8 +577,8 @@ function InstallationsPage({ session }: { session: AdminSession }) {
         </div>
         <LineChart data={trend} />
       </section>
-      <DataPanel title="安装数据" count={rows.length}>
-        <Table rowKey={(row) => `${row.uid}-${row.date}-${row.country}-${row.platform}`} columns={columns} dataSource={rows} loading={loading} pagination={{ pageSize: 8 }} />
+      <DataPanel title="安装数据" count={data?.total ?? 0}>
+        <Table rowKey={(row) => `${row.uid}-${row.date}-${row.country}-${row.platform}`} columns={columns} dataSource={rows} loading={loading} pagination={{ current: page, pageSize: 8, total: data?.total ?? 0, showSizeChanger: false, onChange: setPage }} />
       </DataPanel>
     </PagePanel>
   );

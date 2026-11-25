@@ -361,7 +361,7 @@ export function createDataSourceRoutes(
   routes.get("/cards/:card_ref", async (c) => {
     const cardRef = cardRefParam(c.req.param("card_ref"));
     const adapter = createAdapter(c.env);
-    const card = await resolveCard(c.env.DB, adapter, cardRef);
+    const card = await resolveCard(c.env.DB, adapter, cardRef, c.req.query("include") === "review_prices");
 
     return card
       ? c.json({ success: true, data: withCardImageUrl(card, "detail") })
@@ -523,6 +523,7 @@ export async function resolveCard(
   db: D1Database,
   adapter: DataSourceAdapter,
   cardRef: string,
+  includeReviewPrices = false,
 ): Promise<CardResponse | null> {
   const override = await findCardOverride(db, cardRef);
 
@@ -534,8 +535,16 @@ export async function resolveCard(
     }
   }
 
-  const card = await adapter.getCard(cardRef);
-  return applyCardOverride(card, override, cardRef);
+  const card = includeReviewPrices
+    ? await adapter.getCard(cardRef, true)
+    : await adapter.getCard(cardRef);
+  const result = applyCardOverride(card, override, cardRef);
+  // A corrected fallback selection must use the dimensions shown to the user.
+  if (result?.review_prices && card && (
+    (!card.available_finishes?.length && result.finish !== card.finish) ||
+    (!card.available_languages?.length && result.language !== card.language)
+  )) delete result.review_prices;
+  return result;
 }
 
 export function withCardImageUrl<T extends CardSearchResult>(

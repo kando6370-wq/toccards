@@ -75,6 +75,29 @@ describe("collection paged read model", () => {
       .toEqual(["older"]);
   });
 
+  it("hydrates only the matching newest page while literal text, missing catalog rows and base counts retain their meaning", async () => {
+    await db.exec(`INSERT INTO collection_item (id, owner_type, owner_id, folder_id, card_ref, object_type, grader, quantity, created_at, updated_at)
+      SELECT 'i-' || n, 'user', 'owner-1', 'main', 'other-' || n, 'tcg', 'Raw', 1, '${NOW}', '${NOW}' FROM generate_series(1,238) n;
+      INSERT INTO cards_all (product_id, game_id, game, name, set_name, number)
+      VALUES ('card-a', 1, ' Pokémon ', ' İvY%_ ', ' Base ', E'\t001\t')`);
+    const queries = vi.spyOn(db, "query");
+    const search = async (q: string, page = 1, tab = "portfolio") => (await (await request(
+      `/collection/items?tab=${tab}&page_size=1&page=${page}&q=${encodeURIComponent(q)}`,
+    )).json() as { data: { items: Array<{ id: string }>; total: number; base_count: number } }).data;
+    const match = await search("İVY%_ base #001 pokémon");
+    expect(match).toMatchObject({ items: [{ id: "older" }], total: 1, base_count: 240 });
+    expect(match.items[0]).not.toHaveProperty("base_count");
+    expect(match.items[0]).not.toHaveProperty("total");
+    const priceRefs = queries.mock.calls.filter(([sql]) => sql.includes("series.card_ref IN"))
+      .flatMap(([, values]) => values ?? []);
+    expect(priceRefs).toEqual(["card-a"]);
+    expect(await search("İVY%_", 2)).toMatchObject({ items: [], total: 1, base_count: 240 });
+    expect(await search("card-b Card data unavailable -- Unknown")).toMatchObject({ items: [{ id: "newer" }], total: 1 });
+    expect(await search("%missing_")).toMatchObject({ items: [], total: 0, base_count: 240 });
+    expect(await search("bad\0text")).toMatchObject({ items: [], total: 0, base_count: 240 });
+    expect(await search("card-c Card data unavailable", 1, "wishlist")).toMatchObject({ items: [{ id: "wish-1" }], base_count: 1 });
+  });
+
   it("keeps wishlist paging and rejects missing authentication", async () => {
     const wishlist = await request("/collection/items?tab=wishlist&page_size=1");
     expect(wishlist.status).toBe(200);

@@ -16,6 +16,16 @@ test("installation filters drive the API because search and reset must change th
   assert.match(app, /onClick=\{resetInstallationFilters\}>重置<\/Button>/);
 });
 
+test("installation pagination requests the selected page and filters restart on the first page", () => {
+  const page = app.slice(app.indexOf("function InstallationsPage("), app.indexOf("function ", app.indexOf("<DataPanel title=\"安装数据\"")));
+  assert.match(page, /page: String\(page\), page_size: "8"/);
+  assert.match(page, /total: data\?\.total \?\? 0, showSizeChanger: false, onChange: setPage/);
+  for (const action of ["applyInstallationFilters", "resetInstallationFilters"]) {
+    assert.match(page.split(`function ${action}()`)[1].split("\n  }")[0], /setPage\(1\)/);
+  }
+  assert.match(page, /\/analytics\/installations\/options\?/);
+});
+
 test("installation periods and chart points are interactive because operators must inspect the selected time window", () => {
   assert.match(app, /installationTrendForPeriod\(data\?\.trend \?\? \[\], period, filters\.date_to\)/);
   assert.match(app, /onClick=\{\(\) => setSelectedDate\(item\.date\)\}/);

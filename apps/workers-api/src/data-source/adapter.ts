@@ -31,6 +31,7 @@ export type CardSearchResult = {
   language: string | null;
   available_finishes?: string[];
   available_languages?: string[];
+  review_prices?: ScanReviewPrice[];
   object_type: CardObjectType;
   image_url: string | null;
   rarity: string | null;
@@ -71,6 +72,11 @@ export type MarketPrice = {
   history?: PricePoint[];
 };
 
+export type ScanReviewPrice = Pick<MarketPrice, "grader" | "grade" | "condition" | "price"> & {
+  finish: string | null;
+  language: string | null;
+};
+
 export type SoldListing = {
   date: string | null;
   title: string;
@@ -88,7 +94,7 @@ export interface DataSourceAdapter {
     query: string,
     options?: Pick<CardSearchOptions, "game" | "page" | "page_size">,
   ): Promise<SetSearchResult[]>;
-  getCard(card_ref: string): Promise<CardSearchResult | null>;
+  getCard(card_ref: string, includeReviewPrices?: boolean): Promise<CardSearchResult | null>;
   getPriceSeries(
     card_ref: string,
     grader: string,

@@ -55,6 +55,36 @@ describe("Admin platform account targeting on PostgreSQL", () => {
 
   afterAll(async () => db.close());
 
+  it("lets operators reach installations after the first 100 groups and filter by every country in scope", async () => {
+    await db.exec(`
+      INSERT INTO app_installation (installation_id, uid, country_code, platform, first_seen_at, last_seen_at)
+      SELECT 'install-' || n, lpad(LEAST(n, 105)::text, 3, '0'), CASE WHEN n <= 100 THEN 'US' ELSE 'JP' END,
+        'iOS', '2026-11-05', '2026-11-05' FROM generate_series(1, 106) n;
+      INSERT INTO app_installation (installation_id, uid, country_code, platform, first_seen_at, last_seen_at)
+      VALUES ('other-platform', NULL, 'FR', 'Android', '2026-11-05', '2026-11-05'),
+        ('other-date', NULL, 'CA', 'iOS', '2026-11-06', '2026-11-06');
+    `);
+    const headers = { Authorization: `Bearer ${operatorToken}` };
+    const scope = "environment=development&platform=ios&date_from=2026-11-05&date_to=2026-11-05";
+    async function get(suffix: string) {
+      const response = await app.request(`/admin/analytics/installations${suffix}`, { headers }, env);
+      expect(response.status).toBe(200);
+      return (await response.json() as { data: { total: number; rows: { uid: string }[]; countries?: string[] } }).data;
+    }
+    const first = await get(`?${scope}&page_size=100`);
+    expect(first).toMatchObject({ total: 105, summary: { total_installations: 106, countries: 2 } });
+    expect(first.rows).toHaveLength(100);
+    expect((await get(`?${scope}&page_size=100&page=2`)).rows.map((row) => row.uid))
+      .toEqual(["101", "102", "103", "104", "105"]);
+    expect((await get(`?${scope}&page_size=8&page=14`)).rows).toMatchObject([{ uid: "105", country: "JP", installs: 2 }]);
+    expect(await get(`?${scope}&page_size=8&page=15`)).toMatchObject({ total: 105, rows: [] });
+    expect(await get(`?${scope}&country=JP`)).toMatchObject({ total: 5, summary: { total_installations: 6 } });
+    expect(await get(`/options?${scope}&country=US`)).toEqual({ countries: ["JP", "US"] });
+    expect(await get("/options?environment=production")).toEqual({ countries: [] });
+    expect(await get("?environment=production")).toMatchObject({ total: 0, rows: [] });
+    expect((await app.request("/admin/analytics/installations/options", {}, env)).status).toBe(401);
+  });
+
   it("returns the platform data space and disables only that platform", async () => {
     const headers = { Authorization: `Bearer ${token}` };
     const detail = await app.request("/admin/users/user/ios-space", { headers }, env);

@@ -50,6 +50,7 @@ class CardDataCardDto {
     required this.language,
     this.availableFinishes = const [],
     this.availableLanguages = const [],
+    this.reviewPrices,
     required this.objectType,
     this.game,
     required this.imageUrl,
@@ -74,6 +75,7 @@ class CardDataCardDto {
   final String? language;
   final List<String> availableFinishes;
   final List<String> availableLanguages;
+  final List<CardDataMarketPriceDto>? reviewPrices;
   final String objectType;
   final String? game;
   final String? imageUrl;
@@ -98,6 +100,7 @@ class CardDataCardDto {
       finish: _nullableString(json['finish']),
       language: _nullableString(json['language']),
       availableFinishes: _stringList(json['available_finishes']),
+      reviewPrices: _optionalReviewPrices(json['review_prices']),
       availableLanguages: _stringList(json['available_languages']),
       objectType: _requiredString(json['object_type']),
       game: _nullableString(json['game']),
@@ -171,6 +174,8 @@ abstract interface class SetCatalogApi {
 
 class CardDataMarketPriceDto {
   const CardDataMarketPriceDto({
+    this.finish,
+    this.language,
     required this.grader,
     required this.grade,
     this.gradeLabel,
@@ -188,6 +193,8 @@ class CardDataMarketPriceDto {
   final String? gradeLabel;
   final String? condition;
   final double? price;
+  final String? finish;
+  final String? language;
   final String? pricechartingId;
   final String? productSubType;
   final double? previous7dPriceUsd;
@@ -196,6 +203,8 @@ class CardDataMarketPriceDto {
 
   factory CardDataMarketPriceDto.fromJson(Map<String, Object?> json) {
     return CardDataMarketPriceDto(
+      finish: _nullableString(json['finish']),
+      language: _nullableString(json['language']),
       grader: _requiredString(json['grader']),
       grade: _nullableDouble(json['grade']),
       gradeLabel: _nullableString(json['grade_label']),
@@ -321,6 +330,10 @@ abstract interface class PaginatedTrendingCardDataApi {
   Future<List<CardDataCardDto>> trendingCardPage({required int page});
 }
 
+abstract interface class ScanReviewCardDataApi {
+  Future<CardDataCardDto> getCardForScanReview(String cardRef);
+}
+
 abstract interface class BatchCardDataApi {
   Future<List<List<CardDataPricePointDto>>> getPriceSeriesBatch(
     String cardRef,
@@ -345,6 +358,7 @@ class CardDataApiClient
         PaginatedTrendingCardDataApi,
         SetCatalogApi,
         BatchCardDataApi,
+        ScanReviewCardDataApi,
         PremiumPriceSeriesApi {
   const CardDataApiClient(
     this._dio, {
@@ -466,10 +480,18 @@ class CardDataApiClient
   }
 
   @override
-  Future<CardDataCardDto> getCard(String cardRef) async {
+  Future<CardDataCardDto> getCardForScanReview(String cardRef) =>
+      getCard(cardRef, includeReviewPrices: true);
+
+  @override
+  Future<CardDataCardDto> getCard(
+    String cardRef, {
+    bool includeReviewPrices = false,
+  }) async {
     final data = await _requestData(
       'GET',
       '/cards/${Uri.encodeComponent(cardRef)}',
+      queryParameters: {if (includeReviewPrices) 'include': 'review_prices'},
     );
     return CardDataCardDto.fromJson(data);
   }
@@ -661,6 +683,16 @@ class CardDataApiClient
       'Something went wrong. Please try again.',
       statusCode: statusCode,
     );
+  }
+}
+
+List<CardDataMarketPriceDto>? _optionalReviewPrices(Object? value) {
+  if (value is! List) return null;
+  try {
+    return value.map(_mapItem).map(CardDataMarketPriceDto.fromJson).toList();
+  } on CardDataApiException {
+    // A malformed supplemental quote must not discard a recognized card.
+    return null;
   }
 }
 

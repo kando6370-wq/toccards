@@ -206,6 +206,8 @@ SET sort_order = ?, updated_at = ?
 WHERE owner_type = ? AND owner_id = ? AND id = ?
 `;
 
+const COLLECTION_TRIM_CHARS = "\t\n\v\f\r \u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeff";
+
 const SELECT_COLLECTION_ITEMS_SQL = `
 SELECT id, folder_id, card_ref, object_type, grader, condition, grade, language,
   finish, price_series_id, quantity, purchase_price, purchase_currency,
@@ -466,7 +468,7 @@ export function createPortfolioRoutes(
       return c.json(NOT_FOUND_RESPONSE, 404);
     }
     const offset = (page - 1) * pageSize;
-    const directPage = sort === "newest" && !query && games.size === 0 && languages.size === 0;
+    const directPage = sort === "newest" && games.size === 0 && languages.size === 0;
     if (directPage) {
       const ownerBindings = [auth.owner.owner_type, auth.owner.owner_id];
       const selected = tab === "portfolio"
@@ -474,28 +476,43 @@ export function createPortfolioRoutes(
         : { sql: SELECT_WISHLIST_ITEMS_SQL, bindings: ownerBindings, order: "created_at" };
       const table = tab === "portfolio" ? "collection_item" : "wishlist_item";
       const folderCondition = tab === "portfolio" ? " AND folder_id = ?" : "";
+      // Match the displayed fields, including ECMAScript trim and Unicode lowercase.
+      const matched = query ? `, matched AS (
+        SELECT scoped.* FROM (${selected.sql}) scoped
+        LEFT JOIN cards_all c ON c.product_id = scoped.card_ref
+        CROSS JOIN (VALUES (CAST(? AS text))) AS whitespace(chars)
+        WHERE strpos(lower((btrim(COALESCE(c.name, scoped.card_ref), chars) || ' ' ||
+          btrim(COALESCE(c.set_name, 'Card data unavailable'), chars) || ' ' ||
+          COALESCE('#' || NULLIF(btrim(c.number, chars), ''), '--') || ' ' ||
+          btrim(COALESCE(c.game, 'Unknown'), chars)) COLLATE "pg_unicode_fast"), ?) > 0
+      )` : "";
+      const bindings: (string | null | undefined)[] = [...selected.bindings, ...selected.bindings];
+      if (query) bindings.push(COLLECTION_TRIM_CHARS, query.includes("\0") ? null : query);
       const { results = [] } = await c.env.DB.prepare(`
         WITH total AS (
           SELECT COUNT(*) AS total FROM ${table}
           WHERE owner_type = ? AND owner_id = ?${folderCondition}
-        ), page AS (
-          ${selected.sql}
+        )${matched}, page AS (
+          ${query ? "SELECT * FROM matched" : selected.sql}
           ORDER BY ${tab === "portfolio" ? "COALESCE(folder_joined_at, created_at)" : "created_at"} DESC, id ASC
           LIMIT ? OFFSET ?
         )
-        SELECT total.total, page.* FROM total LEFT JOIN page ON TRUE
+        SELECT total.total, ${query ? "(SELECT COUNT(*) FROM matched) AS match_count," : ""} page.*
+        FROM total LEFT JOIN page ON TRUE
         ORDER BY page.${selected.order} DESC NULLS LAST, page.id ASC
-      `).bind(...selected.bindings, ...selected.bindings, pageSize, offset)
-        .all<(CollectionItemRow | WishlistItemRow) & { total: number }>();
-      const total = Number(results[0]?.total ?? 0);
-      const rows = results.filter((row) => row.id !== null);
+      `).bind(...bindings, pageSize, offset)
+        .all<(CollectionItemRow | WishlistItemRow) & { total: number; match_count?: number }>();
+      const baseCount = Number(results[0]?.total ?? 0);
+      const total = Number(results[0]?.match_count ?? baseCount);
+      const pageRows = results.filter((row) => row.id !== null);
+      const rows = query ? pageRows.map(({ total, match_count, ...item }) => item) : pageRows;
       const enriched = tab === "portfolio"
         ? await enrichCollectionDashboard(c.env.DB, rows as CollectionItemRow[], [])
         : await enrichCollectionDashboard(c.env.DB, [], rows as WishlistItemRow[]);
       return c.json({ success: true, data: {
         folders: folders.map(folderResponse), preference: userPreferenceResponse(preference),
         folder_id: folderId, items: tab === "portfolio" ? enriched.portfolio_items : enriched.wishlist_items,
-        total, base_count: total, page, page_size: pageSize,
+        total, base_count: baseCount, page, page_size: pageSize,
       } });
     }
 
