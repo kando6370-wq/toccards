@@ -6044,6 +6044,10 @@ void main() {
           find.byKey(const Key('scan-free-quota-pill')),
           platform == TargetPlatform.iOS ? findsOneWidget : findsNothing,
         );
+        expect(
+          find.text('Tap to get unlimited scans'),
+          platform == TargetPlatform.iOS ? findsOneWidget : findsNothing,
+        );
         await tester.tap(find.byKey(const Key('scan-figma-flash-button')));
         await tester.pumpAndSettle();
         expect(camera.flashEnabled, isTrue);

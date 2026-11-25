@@ -359,3 +359,36 @@ Card Detail 新增／编辑卡片弹窗保留 Flutter `showModalBottomSheet(useS
 `Adding to Main` 与箭头作为一个点击区域靠右，对齐下方表单面板的右边缘。原 iOS 标题栏的 `Align` 随普通收藏选择器收缩，3× 回归测得点击区域距面板右边缘 34.5 逻辑像素。填满右侧弹性空间后，对齐和命中断言通过。代码审查核对了 Quick Review 的对齐、Android 的双行标题、文件夹名截断和选择回调。
 
 `flutter analyze --no-pub` 与 `git diff --check` 通过。完整卡牌详情测试 84 项通过，7 项失败与前述基线一致。已覆盖安装同一 Duo 的 arm64 预览包，并从 Quaxly 卡图按钮确认弹窗整屏居中、选择器靠右且可打开 `Portfolio` 菜单。证据保存在本机 `/private/tmp/toccards-duo-collection-20261124/portfolio-align*.log` 和 `portfolio-align.png`。本轮运行验证限于 iOS 模拟器的布局和菜单，Android 设备、iOS 真机及收藏写入未验收。
+
+### 9.20 无闪光灯相机的扫描取景（2026-11-24）
+
+Duo 展开内屏使用 iPhone 后摄、Camo Camera 和 RocketSim 时，进入 Scan 后取景为黑屏。LLDB 断点确认，`camera_avfoundation 0.10.1` 对无闪光灯相机执行 `setFlashMode(off)` 返回 `setFlashModeFailed`／`Device does not have flash capabilities`，Flutter 随即释放已经初始化的相机会话。原生插件对此类相机已默认关闭闪光灯。
+
+- iOS 初始化只对这一组错误码和描述保留相机会话。自审核对了同一错误码下的其他失败路径、离开扫描时的资源释放、Android 的正向竖屏锁定和关灯设置。扫描布局、拍照裁剪和识别仍走原有路径。
+- `flutter test --no-pub --reporter expanded test/scan_camera_test.dart` 在原代码上复现会话返回空值。修复后相机与方向定向测试共 5 项通过，退出 0。合并运行相机、方向和 `test/widget/scan_page_test.dart` 后，181 项通过，5 项 390×844 golden 失败，退出 1。同环境用 `HEAD` 相机源码复跑这 5 项，实际渲染图逐字节一致。`flutter analyze --no-pub`、Dart 格式检查和 `git diff --check` 均退出 0。
+- Xcode 27.2 用第 8 节隔离方案构建 `test`／`Debug-test`／arm64 预览包，退出 0。以 `simctl install` 覆盖安装到 iPhone Duo／iOS 27.1，版本 `1.0.7+213`，Bundle ID `com.kando.kandoApp.beta`。安装后回读的 Runner、调试库、Flutter 引擎和 Dart kernel 与构建产物逐字节一致。除隔离副本中的 ML Kit 及其专属依赖，其余 Pod 版本一致。
+- 重新连接 RocketSim 后，从首页进入展开内屏的 Scan，确认 Camo 实时取景随相机移动更新。按快门生成 1280×720 的 JPEG（174,790 字节），队列展示了裁剪后的缩略图。测试环境返回 1 条候选，扫描剩余额度由 9 降至 8，候选准确性未核实。隔离包省略 ML Kit，运行日志确认 OCR 走空值回退。完整 OCR、iOS 真机和 Android 安装包未验收。截图和构建／测试证据位于本机 `/private/tmp/toccards-duo-scan.NGKNuz/`。
+
+### 9.21 Duo 模拟器 USB 扫描取景方向（2026-11-24）
+
+Duo 外屏竖握和展开内屏双栏的 USB 相机预览均偏顺时针 90°。修复前已有一张外屏原始 JPEG 的文字正向，尺寸为 1920×1080，无 EXIF 方向字段。Flutter 通过现有 `device_info_plus` 识别 `iPhone19,4` 且 `isPhysicalDevice=false`，自动为该模拟器的扫描相机选择 `landscapeLeft`，移除旧试验开关。iOS 真机、其他 iOS 模拟器与 Android 的扫描相机继续使用 `portraitUp`。预览和裁剪共用相机方向对应的尺寸与 `BoxFit.cover` 比例，原图继续由原生裁剪器读取方向元数据。
+
+- 隔离工程以 `test`／`Debug-test`／arm64 构建并覆盖安装到 iOS 27.1 Duo，保留应用数据。已安装的 Flutter kernel 与产物 SHA-256 一致（`8b6c3e8fa0f7eb39f8ca00fab5f033d4fe7f39019f057cf9e3e1139909d332a3`）。重新连接 RocketSim 的 USB 相机后，外屏和展开内屏双栏都观察到正向实时文字。折叠切换后曾出现预览黑屏，在展开姿态重启 App 并重新连接 RocketSim 后恢复，当前停在内屏 Scan。
+- 内屏实拍原图为 1920×1080，无 EXIF 方向字段。原生裁剪使用 1920×1080 预览尺寸和左侧面板的局部黄框，输出 606×864 JPEG。目视比对文字、屏幕边缘和线缆，裁图与黄框覆盖范围一致。测试环境返回 1 条候选，额度由 4 降至 3。试拍物体用于核对裁剪范围。源码确认上传的是黄框裁图经卡面矫正或回退后的 JPEG，服务端保存上传字节。后台存图回读及外屏新包实拍仍待验证。内屏对照图、构建和测试日志保留在本机 `/private/tmp/toccards-duo-scan.NGKNuz/`，文件名以 `duo-auto-` 开头。
+- 相机方向、无闪光灯、原生裁剪和几何测试 15 项通过，iOS／Android Duo Scan 布局测试 6 项通过。`flutter analyze --no-pub` 和 `git diff --check` 通过。隔离包省略 ML Kit，完整 OCR、Camo 修复后画面、iOS 真机和 Android 安装包仍待验证。
+
+### 9.22 Duo 真机扫描旋转协调（2026-11-25）
+
+扫描页通过现有设备信息识别物理 `iPhone19,4`，由本地 `camera_avfoundation 0.10.1` 插件在 `if #available(iOS 17.0, *)` 中启用 `AVCaptureDevice.RotationCoordinator`。预览角度应用到 Flutter 纹理的视频输出连接，按下快门时将独立的拍照角度应用到照片连接。裁剪器先读取照片的 EXIF 方向，再按两路角度差对齐到预览坐标，并按取景框裁剪。角度变化后，Flutter 预览尺寸跟上再接受拍照。iOS 16 沿用 `videoOrientation`，普通 iPhone 和 Android 沿用正向竖屏拍照。Duo 模拟器的 Mac／USB 摄像头继续单独使用 `landscapeLeft`，代码中有中文说明。
+
+Xcode 27.2 的 `test`／`Debug-test` 无签名设备构建通过，回读产物为 arm64，`MinimumOSVersion` 为 16.0。扫描相机、方向和裁剪定向测试 14 项通过，覆盖模拟原生角度更新与裁剪参数。iOS／Android 的 Duo Scan 双栏、折叠和局部取景测试 6 项通过。`flutter analyze --no-pub`、Dart 格式、`git diff --check`、`pnpm lint` 与 `pnpm type-check` 通过。Node 校验使用本机 Node 24.22.3／pnpm 11.25.0，命令报告工具链版本不匹配警告。
+
+Duo 真机型号匹配、外屏竖握及内屏横握的实时预览、实拍裁图和后台图片回读待验。iOS 16 运行回归及 Android 安装包构建待验。模拟器的 USB 摄像头实测见第 9.21 节。
+
+### 9.23 Duo 模拟器共用旋转协调试验（2026-11-25）
+
+停用第 9.21 节的模拟器专用 `landscapeLeft`。`iPhone19,4` 的模拟器和真机共用第 9.22 节的原生协调路径。iOS 17 之前或原生协调不可用时，使用 `portraitUp` 兼容路径。
+
+- USB 摄像头经 RocketSim 接入 iOS 27.1 Duo。用 `test`／`Debug-test` 的 arm64 包打开实际 Scan 页。外屏竖握与内屏横握均启用协调器，预览及拍照角度均返回 `0°`。两种姿态收到的首张 1920×1080 帧文字正向，第 20、90 帧均已变黑。外屏与内屏的本地快门分别生成 298×425 和 606×864 的黑色裁图，黄框内容无法目视比对。本地诊断包在裁剪完成后中止扫描，未上传图片。
+- 另用独立 AVFoundation 探针分别跑旧 `landscapeLeft` 与 `RotationCoordinator`，两种配置均出现首帧有内容、后续黑帧和黑色照片。黑帧在 Flutter 绘制前已出现。当前 USB 桥接条件下，稳定预览与实拍裁剪验收未通过。实验记录保留于本机 `/private/tmp/toccards-duo-shared-preview.8NG6k2/`。
+- 扫描相机和页面测试合计 185 项通过，5 项 iOS Figma 截图基线比较失败。单独复跑其余 185 项全部通过，包含 Android 和 iOS 的 Duo 布局测试。`flutter analyze --no-pub` 通过。隔离模拟器包省略 ML Kit。真机、完整 OCR 和后台图片回读仍待验证。

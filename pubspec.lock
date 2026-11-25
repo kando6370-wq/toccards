@@ -146,12 +146,11 @@ packages:
     source: hosted
     version: "0.7.2"
   camera_avfoundation:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: camera_avfoundation
-      sha256: "90e4cc3fde331581a3b2d35d83be41dbb7393af0ab857eb27b732174289cb96d"
-      url: "https://pub.dev"
-    source: hosted
+      path: "apps/flutter-app/ios/ThirdParty/camera_avfoundation"
+      relative: true
+    source: path
     version: "0.10.1"
   camera_platform_interface:
     dependency: transitive

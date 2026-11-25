@@ -41,8 +41,11 @@ class ScanNativeImageProcessor {
     required Rect viewfinder,
     required Size viewport,
     required Size previewSize,
+    int clockwiseQuarterTurns = 0,
   }) async {
-    if (viewfinder.isEmpty ||
+    if (clockwiseQuarterTurns < 0 ||
+        clockwiseQuarterTurns > 3 ||
+        viewfinder.isEmpty ||
         viewport.isEmpty ||
         previewSize.isEmpty ||
         !viewfinder.topLeft.isFinite ||
@@ -77,6 +80,8 @@ class ScanNativeImageProcessor {
         'frame': frame,
         'preview_width': previewSize.width,
         'preview_height': previewSize.height,
+        if (clockwiseQuarterTurns != 0)
+          'clockwise_quarter_turns': clockwiseQuarterTurns,
         'jpeg_quality': 85,
       });
       if (result == null || result.isEmpty) throw const FormatException();

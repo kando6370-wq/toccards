@@ -2898,17 +2898,6 @@ class _ScanCameraView extends StatelessWidget {
               ],
             ),
           ),
-          if (kDebugMode)
-            Positioned.fromRect(
-              rect: sidebar,
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.red, width: 2),
-                  ),
-                ),
-              ),
-            ),
         ] else ...[
           Positioned(
             key: const Key('scan-figma-top-controls'),
@@ -4064,44 +4053,9 @@ class _ScanResults extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (remainingScans != null) ...[
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                key: const Key('scan-free-quota-pill'),
-                onTap: onUpgradePressed,
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Row(
-                    children: [
-                      SvgPicture.asset(
-                        'assets/scan/pro_badge.svg',
-                        width: 20,
-                        height: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text.rich(
-                          TextSpan(
-                            children: [
-                              TextSpan(text: '$remainingScans scans remaining'),
-                              const TextSpan(
-                                text: ' · Upgrade',
-                                style: TextStyle(color: KandoColors.accent),
-                              ),
-                            ],
-                          ),
-                          style: const TextStyle(
-                            color: KandoColors.mutedText,
-                            fontSize: 13,
-                            height: 18 / 13,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            _ScanQuotaPill(
+              remainingScans: remainingScans!,
+              onPressed: onUpgradePressed,
             ),
             const SizedBox(height: 16),
           ],

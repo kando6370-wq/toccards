@@ -286,8 +286,17 @@ private enum ScanNativeImageProcessor {
       previewWidth.isFinite, previewHeight.isFinite,
       previewWidth > 0, previewHeight > 0,
       let jpegQuality = arguments["jpeg_quality"] as? Int,
-      let source = CIImage(data: typedData.data, options: [.applyOrientationProperty: true])
+      let photo = CIImage(data: typedData.data, options: [.applyOrientationProperty: true])
     else { throw ScanNativeImageError.invalidInput }
+    // 先应用拍照 EXIF，再转到快门时的预览坐标，确保裁剪区域对应取景框。
+    let source: CIImage
+    switch arguments["clockwise_quarter_turns"] as? Int ?? 0 {
+    case 0: source = photo
+    case 1: source = photo.oriented(.right)
+    case 2: source = photo.oriented(.down)
+    case 3: source = photo.oriented(.left)
+    default: throw ScanNativeImageError.invalidInput
+    }
     let edges = frame.map { CGFloat($0.doubleValue) }
     guard
       edges.allSatisfy({ $0.isFinite }),

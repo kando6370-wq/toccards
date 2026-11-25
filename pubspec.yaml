@@ -7,6 +7,10 @@ environment:
 workspace:
   - apps/flutter-app
   - dart-packages/subscription-core
+# Duo 扫描的 iOS 方向适配基于锁定的 0.10.1 源码。
+dependency_overrides:
+  camera_avfoundation:
+    path: apps/flutter-app/ios/ThirdParty/camera_avfoundation
 dev_dependencies:
   melos: ^8.0.0
 
