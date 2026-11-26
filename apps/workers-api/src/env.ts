@@ -22,6 +22,7 @@ export interface Env {
   GOOGLE_PLAY_PUSH_EMAIL?: string;
   GOOGLE_PLAY_PUSH_SUBSCRIPTION?: string;
   GOOGLE_PLAY_TOPIC?: string;
+  GOOGLE_PLAY_SINGULAR_SDK_FROM?: string;
   APPLE_CLIENT_ID?: string;
   APPLE_IAP_BUNDLE_ID?: string;
   APPLE_IAP_APP_ID?: string;

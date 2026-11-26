@@ -109,8 +109,8 @@ class _AccountContent extends ConsumerWidget {
         ),
         const SizedBox(height: 32),
         _SectionLabel('Management'),
-        if (activeSession.platform == AppPlatform.android && ref.watch(playPolicyProvider).value?.package != null)
-          TextButton(onPressed: () => managePlaySubscription(ref.read(playPolicyProvider).value), child: const Text('Manage subscription in Google Play')),
+        if (activeSession.platform == AppPlatform.android && ref.watch(playPolicyProvider).current?.package != null)
+          TextButton(onPressed: () => managePlaySubscription(ref.read(playPolicyProvider).current), child: const Text('Manage subscription in Google Play')),
 
         const SizedBox(height: 8),
         Row(

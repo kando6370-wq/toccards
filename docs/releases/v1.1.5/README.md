@@ -15,11 +15,11 @@ v1.1.4 已于 2026-11-26 原位归档。本版本承接自本日期起的新增�
 
 ## 本期方案
 
-- [Android Google Play 订阅与上架方案](01-flows/google-play-subscription.md)（待评审），含 App 与 Admin 离线交互原型、存量免费用户过渡、订单核算和 iOS 回归条件。
+- [Android Google Play 订阅与上架方案](01-flows/google-play-subscription.md)（交易开放参数待产品及运营确认），含 App 与 Admin 离线交互原型、存量免费用户过渡、订单核算和 iOS 回归条件。
 
 - [Google Play 订阅配置内部包 1.0.8+221](05-delivery/google-play-internal-221.md)记录已发布的 Internal 版本、订阅入口及账号权限。
 
-- [Google Play 服务端契约与配置](03-data-api/google-play.md)
+- 客户端、服务端与后台的本地实现、默认开关、双端回归和商业化验收见 [Google Play 订阅与对账](03-data-api/google-play.md)。
 
 ## 文档路由
 

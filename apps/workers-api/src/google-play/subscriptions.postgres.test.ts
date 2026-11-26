@@ -1,8 +1,8 @@
 import { URL } from "node:url";
 import { readFileSync } from "node:fs";
-import { generateKeyPairSync } from "node:crypto";
+import { generateKeyPairSync, sign as rsaSign } from "node:crypto";
 import { hashPassword, signAccessToken } from "@kando/auth-core";
-import { afterAll, beforeAll, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { app } from "../app";
 import type { Env } from "../env";
 import { PGliteDatabase } from "../test-support/pglite-database";
@@ -10,6 +10,8 @@ import { insertPlatformSession } from "./session-build";
 import { accountRef, syncPurchase } from "./purchases";
 import { googlePlayAccess, googlePlayScope } from "./access";
 import { orderFacts, syncOrder } from "./orders";
+import { processPlayInbox } from "./notifications";
+import { reconcileOrderId, scanVoidedPage } from "./reconcile";
 import { playDigest } from "./publisher";
 import { reserveScanQuota, settleScanQuota } from "../scan/quota";
 
@@ -22,9 +24,11 @@ const token = "verified-fixture-token", usd = (units: string, nanos: number) => 
 const order = { orderId: plan.latestSuccessfulOrderId, purchaseToken: token, total: usd("4",990000000), orderHistory: {
   processedEvent: {eventTime: now.toISOString()}, partialRefundEvents: [{state:"PROCESSED_SUCCESSFULLY",processTime:future, refundDetails:{total:usd("1",0)}}],
 } };
+let fixtureResponse: ((url: string) => Response | Promise<Response> | undefined) | undefined;
+beforeEach(() => { fixtureResponse = undefined; });
 beforeAll(async () => {
   db = await PGliteDatabase.create();
-  for (const name of ["0000_business_schema", "0006_mutation_lock", "0018_platform_account_isolation", "0019_google_play_subscriptions"]) {
+  for (const name of ["0000_business_schema", "0006_mutation_lock", "0018_platform_account_isolation", "0019_google_play_subscriptions", "0020_google_play_first_charge"]) {
     await db.exec(readFileSync(new URL(`../db/postgres/migrations/${name}.sql`, import.meta.url), "utf8"));
   }
   const key = generateKeyPairSync("rsa", {modulusLength:2048}).privateKey.export({format:"pem",type:"pkcs8"}).toString();
@@ -44,6 +48,8 @@ beforeAll(async () => {
   await db.query(`INSERT INTO google_play_product(scope,product_id,base_plan_id,revenue_event) VALUES($1,'premium','monthly','android_month')`,[scope]);
   reference = await accountRef(env,scope,owner.owner_id);
   vi.stubGlobal("fetch",vi.fn(async (url: string) => {
+    const override = fixtureResponse?.(url);
+    if (override) return override;
     if (url === "https://oauth2.googleapis.com/token") return Response.json({access_token:"fixture-google-auth",expires_in:3600});
     if (url.includes("/basePlans/monthly/offers?")) return Response.json({subscriptionOffers:[]});
     if (url.includes("/subscriptions?")) return Response.json({subscriptions:[{packageName:env.GOOGLE_PLAY_PACKAGE_NAME, productId:"premium", basePlans:[{basePlanId:"monthly",state:"ACTIVE",autoRenewingBasePlanType:{},regionalConfigs:[{regionCode:"US",newSubscriberAvailability:true}]}]}]});
@@ -129,7 +135,182 @@ it("publishes approved Google placements with scoped role checks, revisions and 
   const legacyGoogle=await app.request('/api/v1/subscription-supported-products?platform=google',{},env);
   expect(await legacyGoogle.json()).toMatchObject({data:{products:[]}});
   const list=await call('orders?store_kind=live',operator);
-  expect(await list.json()).toMatchObject({data:{scope,summary:{order_count:1,gross_usd_micros:4990000,refund_usd_micros:1000000,net_usd_micros:3990000}}});
+  expect(await list.json()).toMatchObject({data:{scope,summary:{order_count:1,active_chains:1,gross_usd_micros:4990000,refund_usd_micros:1000000,net_usd_micros:3990000}}});
   const exported=await call('orders/export?store_kind=live',operator);
   expect(exported.status).toBe(200); expect(new Uint8Array(await exported.arrayBuffer()).slice(0,2)).toEqual(new Uint8Array([80,75]));
+});
+
+it("authenticates the Pub/Sub sender and uses the current store state for duplicate and out-of-order messages", async () => {
+  const keys = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const audience = "https://api.example.invalid/google-play/notifications";
+  const email = "push@fixture.invalid", topic = "projects/fixture/topics/play";
+  const pushEnv = { ...env, GOOGLE_PLAY_PUSH_EMAIL: email, GOOGLE_PLAY_PUSH_AUDIENCE: audience,
+    GOOGLE_PLAY_PUSH_SUBSCRIPTION: "projects/fixture/subscriptions/play", GOOGLE_PLAY_TOPIC: topic };
+  fixtureResponse = url => url.endsWith("/oauth2/v3/certs")
+    ? Response.json({ keys: [{ ...keys.publicKey.export({ format: "jwk" }), kid: "fixture", alg: "RS256" }] }) : undefined;
+  function signed(aud = audience, principal = email) {
+    const iat = Math.floor(Date.now() / 1000);
+    const encode = (part: unknown) => Buffer.from(JSON.stringify(part)).toString("base64url");
+    const data = encode({ alg: "RS256", typ: "JWT", kid: "fixture" }) + "." + encode({ iss: "https://accounts.google.com",
+      aud, email: principal, email_verified: true, iat, exp: iat + 300 });
+    return data + "." + rsaSign("RSA-SHA256", Buffer.from(data), keys.privateKey).toString("base64url");
+  }
+  const push = (id: string, event: object, bearer = signed(), time = now.getTime()) => app.request("/api/v1/google-play/notifications", {
+    method: "POST", headers: { Authorization: `Bearer ${bearer}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ subscription: pushEnv.GOOGLE_PLAY_PUSH_SUBSCRIPTION, message: { messageId: id,
+      data: Buffer.from(JSON.stringify({ packageName: env.GOOGLE_PLAY_PACKAGE_NAME, eventTimeMillis: String(time), ...event })).toString("base64") } }),
+  }, pushEnv);
+  const change = { subscriptionNotification: { notificationType: 3, purchaseToken: token } };
+  expect((await push("bad-audience", change, signed("another-service"))).status).toBe(401);
+  expect((await push("bad-principal", change, signed(audience, "other@fixture.invalid"))).status).toBe(401);
+  expect((await push("probe", { testNotification: {} })).status).toBe(204);
+  expect((await push("review", { pendingRefundReviewNotification: { orderId: order.orderId } })).status).toBe(204);
+  expect((await push("newer", change)).status).toBe(204);
+  expect((await push("newer", change)).status).toBe(204);
+  expect((await push("older", { subscriptionNotification: { notificationType: 13, purchaseToken: token } }, signed(), now.getTime()-60_000)).status).toBe(204);
+  state = "ACTIVE";
+  const later = new Date(Date.now()+1000);
+  await processPlayInbox(pushEnv, scope, later);
+  await processPlayInbox(pushEnv, scope, later);
+  expect((await db.query("SELECT message_id,state,attempts FROM google_play_inbox WHERE topic=$1 ORDER BY message_id", [topic])).rows).toEqual([
+    { message_id:"newer", state:"processed", attempts:1 }, { message_id:"older", state:"processed", attempts:1 },
+    { message_id:"probe", state:"received_test", attempts:0 }, { message_id:"review", state:"quarantined", attempts:0 },
+  ]);
+  expect((await googlePlayAccess(env, owner)).premium).toBe(true);
+});
+
+it("retains the verified owner when a replacement arrives first and an old token is later restored", async () => {
+  const oldToken = "predecessor-fixture", newToken = "replacement-fixture";
+  fixtureResponse = url => {
+    if (!url.endsWith(oldToken) && !url.endsWith(newToken)) return undefined;
+    return Response.json({kind:"androidpublisher#subscriptionPurchaseV2", subscriptionState:"SUBSCRIPTION_STATE_ACTIVE",
+      acknowledgementState:"ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED", externalAccountIdentifiers:{obfuscatedExternalAccountId:reference},
+      ...(url.endsWith(newToken) ? {linkedPurchaseToken:oldToken} : {}), lineItems:[{...plan, latestSuccessfulOrderId:undefined}]});
+  };
+  expect((await syncPurchase(env, scope, newToken, owner.owner_id)).premium).toBe(true);
+  expect((await syncPurchase(env, scope, oldToken, owner.owner_id)).premium).toBe(false);
+  await expect(syncPurchase(env, scope, oldToken, "another-owner")).rejects.toMatchObject({code:"GOOGLE_PLAY_OWNER_CONFLICT"});
+  const oldHash = await playDigest(env,scope,"token",oldToken);
+  expect((await db.query("SELECT owner_id,granted,superseded FROM google_play_purchase WHERE token_hash=$1",[oldHash])).rows)
+    .toEqual([{owner_id:owner.owner_id,granted:false,superseded:true}]);
+});
+
+it("resumes failed voided pages, overlaps completed windows and reconciles an expired token's historical order", async () => {
+  await syncPurchase(env,scope,token,owner.owner_id);
+  const id = "GPA.fixture..historical", windows: URLSearchParams[] = [];
+  const voided = { orderId:id, purchaseToken:token, voidedTimeMillis:String(now.getTime()-120_000) };
+  let page = 0;
+  fixtureResponse = url => {
+    if (url.includes("/purchases/voidedpurchases?")) {
+      windows.push(new URL(url).searchParams);
+      page++;
+      if (page === 2) return new Response(null,{status:503});
+      return Response.json({voidedPurchases:[voided], ...(page === 1 ? {tokenPagination:{nextPageToken:"page2"}} : {})});
+    }
+    if (url.endsWith(`/orders/${id}`)) return Response.json({...order,orderId:id});
+    if (url.endsWith(`/tokens/${token}`)) return new Response(null,{status:410});
+    return undefined;
+  };
+  await scanVoidedPage(env,scope,now);
+  await expect(scanVoidedPage(env,scope,now)).rejects.toMatchObject({code:"GOOGLE_PLAY_UPSTREAM_UNAVAILABLE"});
+  await scanVoidedPage(env,scope,now);
+  expect(windows.map(q=>q.get("token"))).toEqual([null,"page2","page2"]);
+  expect(windows[2].get("startTime")).toBe(windows[0].get("startTime"));
+  expect(windows[2].get("endTime")).toBe(windows[0].get("endTime"));
+  await scanVoidedPage(env,scope,new Date(now.getTime()+7200_000));
+  expect(Number(windows[3].get("startTime"))).toBe(Number(windows[0].get("endTime"))-86400_000);
+  await processPlayInbox(env,scope,new Date(now.getTime()+1000));
+  expect((await db.query("SELECT state,attempts FROM google_play_inbox WHERE topic='voided-purchases'")).rows).toEqual([{state:"processed",attempts:1}]);
+  await reconcileOrderId(env,scope,id);
+  expect((await db.query("SELECT kind,amount_micros::int AS amount FROM google_play_order_event WHERE order_id=$1 ORDER BY kind",[id])).rows)
+    .toEqual([{kind:"charge",amount:4990000},{kind:"refund",amount:1000000}]);
+});
+
+it("keeps the newer refund when an earlier order lookup finishes last", async () => {
+  await syncPurchase(env,scope,token,owner.owner_id);
+  let announce!: () => void, deliver!: (response: Response) => void;
+  const started = new Promise<void>(resolve => { announce = resolve; });
+  const slow = new Promise<Response>(resolve => { deliver = resolve; });
+  let calls = 0;
+  fixtureResponse = url => {
+    if (!url.endsWith(`/orders/${order.orderId}`)) return undefined;
+    if (++calls === 1) { announce(); return slow; }
+    return Response.json({ ...order, orderHistory: { ...order.orderHistory,
+      refundEvent: { eventTime: future, refundDetails: { total: order.total } } } });
+  };
+  const first = syncOrder(env, scope, "live", order.orderId);
+  await started;
+  await syncOrder(env, scope, "live", order.orderId);
+  deliver(Response.json(order));
+  await expect(first).rejects.toMatchObject({ code: "GOOGLE_PLAY_ORDER_CHANGED" });
+  expect((await db.query("SELECT SUM(amount_micros)::int AS amount FROM google_play_order_event WHERE order_id=$1 AND kind='refund'", [order.orderId])).rows)
+    .toEqual([{amount:4990000}]);
+});
+
+it("attributes only the first verified live charge and lets a single installation finish a handoff after interruption", async () => {
+  const revenueToken = "singular-live-fixture", firstId = "GPA.first", renewalId = "GPA.next";
+  const purchaseHash = await playDigest(env, scope, "token", revenueToken);
+  const subscription = {kind:"androidpublisher#subscriptionPurchaseV2", startTime:past, subscriptionState:"SUBSCRIPTION_STATE_ACTIVE",
+    acknowledgementState:"ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED", externalAccountIdentifiers:{obfuscatedExternalAccountId:reference},
+    lineItems:[{...plan,latestSuccessfulOrderId:firstId}]};
+  const period = (start: string, end: string, trial = false) => [{productId:"premium", subscriptionDetails:{basePlanId:"monthly",
+    servicePeriodStartTime:start,servicePeriodEndTime:end,offerPhaseDetails:trial?{freeTrialDetails:{}}:{baseDetails:{}}}}];
+  const paidOrder = (id: string, purchaseToken: string, start: string, end: string) => ({orderId:id, purchaseToken,
+    lineItems:period(start,end),total:usd("4",990000000),orderHistory:{processedEvent:{eventTime:now.toISOString()}}});
+  const purchases: Record<string,unknown> = {[revenueToken]:subscription};
+  const orders: Record<string,object> = {[firstId]:paidOrder(firstId,revenueToken,past,future), [renewalId]:paidOrder(renewalId,revenueToken,future,future)};
+  fixtureResponse = url => {
+    const key = url.split('/').at(-1)!;
+    if (url.includes('/orders/') && key in orders) return Response.json(orders[key]);
+    if (url.includes('/tokens/') && key in purchases) return Response.json(purchases[key]);
+    return undefined;
+  };
+  const install = crypto.randomUUID(), other = crypto.randomUUID();
+  const claim = async (device:string,platform="android",reported?:string) => {
+    const result = await request("entitlements/google/attribution",platform==="ios" ? "apple" : "new-install",platform,
+      {method:"POST",body:JSON.stringify({installation_id:device,handed_off_order:reported})});
+    if (platform === "ios") { expect(result.status).toBe(403); return null; }
+    expect(result.status).toBe(200);
+    return (await result.json() as {data:{receipt?:{order_id:string}}}).data.receipt ?? null;
+  };
+  await db.query("UPDATE google_play_product SET revenue_event='android_first_live' WHERE scope=$1",[scope]);
+  await db.query("INSERT INTO google_play_test_space VALUES($1,$2) ON CONFLICT DO NOTHING",[scope,owner.owner_id]);
+  await syncPurchase(env,scope,revenueToken,owner.owner_id);
+  expect(await claim(install)).toBeNull();
+  env.GOOGLE_PLAY_SINGULAR_SDK_FROM = past;
+  try {
+    await reconcileOrderId(env,scope,renewalId);
+    expect(await claim(install)).toBeNull();
+    await syncOrder(env,scope,"live",firstId);
+    await claim(install,"ios");
+    const receipt = await claim(install);
+    expect(receipt).toMatchObject({scope,order_id:firstId,event_name:"android_first_live",currency:"USD",amount_micros:"4990000"});
+    expect(await claim(other)).toBeNull();
+    expect(await claim(install)).toEqual(receipt);
+    await claim(other,"android",firstId);
+    expect(await claim(install)).toEqual(receipt);
+    await claim(install,"android",firstId);
+    await syncOrder(env,scope,"live",firstId);
+    expect(await claim(install)).toBeNull();
+    expect((await db.query("SELECT COUNT(*)::int AS n FROM google_play_first_charge WHERE chain_id=$1",[purchaseHash])).rows).toEqual([{n:1}]);
+
+    const trialToken = "singular-trial-fixture", trial = "GPA.trial", conversion = "GPA.trial..conversion";
+    const trialEnd = new Date(now.getTime()-86400_000).toISOString();
+    purchases[trialToken] = {...subscription,lineItems:[{...plan,latestSuccessfulOrderId:conversion}]};
+    orders[trial] = {...paidOrder(trial,trialToken,past,trialEnd),total:usd("0",0),lineItems:period(past,trialEnd,true)};
+    orders[conversion] = paidOrder(conversion,trialToken,trialEnd,future);
+    await syncPurchase(env,scope,trialToken,owner.owner_id);
+    await syncOrder(env,scope,"live",conversion);
+    expect(await claim(install)).toBeNull();
+    await reconcileOrderId(env,scope,trial);
+    expect(await claim(install)).toMatchObject({order_id:conversion,amount_micros:"4990000"});
+    await claim(install,"android",conversion);
+
+    const tester = "singular-licensed-tester", testOrder = "GPA.fixture.test";
+    purchases[tester] = {...subscription,testPurchase:{},lineItems:[{...plan,latestSuccessfulOrderId:testOrder}]};
+    orders[testOrder] = paidOrder(testOrder,tester,past,future);
+    await syncPurchase(env,scope,tester,owner.owner_id);
+    await syncOrder(env,scope,"test",testOrder);
+    expect(await claim(install)).toBeNull();
+  } finally { delete env.GOOGLE_PLAY_SINGULAR_SDK_FROM; }
 });

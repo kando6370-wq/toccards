@@ -34,7 +34,7 @@ export function verifiedPurchase(raw: unknown, plans: PlayPlan[], now: Date) {
   const predecessor = value.linkedPurchaseToken ?? previous.expiredPurchaseToken;
   const ack = value.acknowledgementState;
   if (ack !== "ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED" && ack !== "ACKNOWLEDGEMENT_STATE_PENDING") throw new PlayError("GOOGLE_PLAY_UNKNOWN_STATE");
-  return { ...item, state, accountRefs, predecessor: tokenValid(predecessor) ? predecessor : null,
+  return { ...item, state, startedAt: utc(value.startTime), accountRefs, predecessor: tokenValid(predecessor) ? predecessor : null,
     granted: grantingStates.has(state) && item.expires !== null && item.expires > now.toISOString(),
     ack, store: value.testPurchase === undefined ? "live" : "test", country: typeof value.regionCode === "string" ? value.regionCode : null,
     orderIds: [...new Set(items.flatMap(i => i.orderId ? [i.orderId] : []))] };
@@ -89,11 +89,11 @@ export async function syncPurchase(env: Env, scope: string, token: string, expec
     const checkAt = new Date(Math.min(now.getTime() + (purchase.state === "PENDING" ? 60_000 : 6 * 3600_000),
       expiryMs > now.getTime() ? expiryMs : Infinity)).toISOString();
     const needsAck = deliver && purchase.ack === "ACKNOWLEDGEMENT_STATE_PENDING";
-    const updates = [db.prepare(`UPDATE google_play_purchase SET owner_id=?, chain_id=?, previous_hash=?, store_kind=?,state=?,
+    const updates = [db.prepare(`UPDATE google_play_purchase SET owner_id=?, chain_id=?, previous_hash=COALESCE(previous_hash,?), store_kind=?,state=?,
       product_id=?,base_plan_id=?,offer_id=?,expires_at=?,auto_renew=?,granted=(? AND NOT superseded),acknowledgement=?,latest_order_id=?,country=?,
-      checked_at=?,next_check_at=?,last_error=?,attempts=0 WHERE scope=? AND token_hash=? AND lease_id=? AND (owner_id IS NULL OR owner_id=?) RETURNING granted`)
+      started_at=COALESCE(started_at,?),checked_at=?,next_check_at=?,last_error=?,attempts=0 WHERE scope=? AND token_hash=? AND lease_id=? AND (owner_id IS NULL OR owner_id=?) RETURNING granted`)
       .bind(ownerId, predecessor?.chain_id ?? previousHash ?? held.chain_id, previousHash, purchase.store, purchase.state, purchase.product_id, purchase.base_plan_id,
-        purchase.offer_id, purchase.expires, purchase.renew, deliver, purchase.ack, purchase.orderId, purchase.country, stamp,
+        purchase.offer_id, purchase.expires, purchase.renew, deliver, purchase.ack, purchase.orderId, purchase.country, purchase.startedAt, stamp,
         purchase.state === "EXPIRED" || purchase.state === "PENDING_PURCHASE_CANCELED" ? null : needsAck ? stamp : checkAt,
         eligibleTest ? (liveOwner ? null : "OWNER_DELETED") : "TEST_SPACE_NOT_APPROVED", scope, hash, lease, ownerId)];
     // Save all known order IDs before a later renewal changes the latest successful order.

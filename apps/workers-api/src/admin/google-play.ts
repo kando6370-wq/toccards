@@ -37,19 +37,26 @@ async function orders(c: Context<AdminBindings>, exporting: boolean) {
   const source=`FROM google_play_order o LEFT JOIN google_play_order_event e USING(scope,store_kind,order_id)
     JOIN google_play_purchase p ON p.scope=o.scope AND p.token_hash=o.token_hash WHERE ${where.join(" AND ")}`;
   const rows=await db.prepare(`SELECT o.order_id,o.owner_id,o.country,o.product_id,o.base_plan_id,o.store_kind,o.currency,p.state,
-    o.tax_micros,o.fx_snapshot,e.kind,e.event_at,e.amount_micros,e.usd_micros ${source} ORDER BY e.event_at DESC NULLS LAST,o.order_id,e.event_key LIMIT ? OFFSET ?`)
+    o.tax_micros,o.fx_snapshot,e.kind,e.event_at,e.amount_micros,e.usd_micros,
+    (SELECT i.message_id FROM google_play_inbox i WHERE i.scope=o.scope AND i.order_id=o.order_id
+      ORDER BY i.received_at DESC,i.message_id LIMIT 1) AS related_message_id ${source} ORDER BY e.event_at DESC NULLS LAST,o.order_id,e.event_key LIMIT ? OFFSET ?`)
     .bind(...args,exporting ? 10001 : 20,exporting ? 0 : (page(filters.page)-1)*20).all<Record<string,unknown>>();
   if (exporting) {
     if (rows.results.length > 10000) throw new PlayError("NARROW_EXPORT_RANGE",422);
-    const cols=["order_id","owner_id","country","product_id","base_plan_id","store_kind","state","currency","kind","event_at","amount_micros","usd_micros"];
-    return new Response(createXlsx(cols,rows.results.map(r=>cols.map(k=>r[k]))),{headers:{"Content-Type":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","Content-Disposition":"attachment; filename=google-play-orders.xlsx"}});
+    const cols=["order_id","owner_id","country","product_id","base_plan_id","store_kind","state","currency","kind","event_at","amount_micros","usd_micros","tax_micros","fx_snapshot","related_message_id"];
+    return new Response(createXlsx(cols,rows.results.map(r=>cols.map(k=>k === "fx_snapshot" && r[k] ? JSON.stringify(r[k]) : r[k]))),{headers:{"Content-Type":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","Content-Disposition":"attachment; filename=google-play-orders.xlsx"}});
   }
-  const summary=await db.prepare(`SELECT COUNT(*)::int AS total,COUNT(DISTINCT o.order_id) FILTER(WHERE e.kind IS NOT NULL)::int AS order_count,
+  const asOf = new Date().toISOString();
+  const summary=await db.prepare(`SELECT COUNT(*)::int AS total,
+    COUNT(DISTINCT p.chain_id) FILTER (WHERE p.granted AND NOT p.superseded AND p.expires_at>?
+      AND EXISTS (SELECT 1 FROM platform_account a WHERE a.id=p.owner_id AND a.platform='android' AND a.status='active')
+      AND (p.store_kind='live' OR EXISTS (SELECT 1 FROM google_play_test_space t WHERE t.scope=p.scope AND t.owner_id=p.owner_id)))::int AS active_chains,
+    COUNT(DISTINCT o.order_id) FILTER(WHERE e.kind IS NOT NULL)::int AS order_count,
     SUM(e.usd_micros) FILTER(WHERE e.kind='charge') AS gross_usd_micros,SUM(e.usd_micros) FILTER(WHERE e.kind='refund') AS refund_usd_micros,
     SUM(CASE WHEN e.kind='refund' THEN -e.usd_micros ELSE e.usd_micros END) AS net_usd_micros,
     COUNT(*) FILTER(WHERE e.usd_micros IS NULL AND (e.kind='charge' OR e.kind IS NULL))::int AS missing_charges,
-    COUNT(*) FILTER(WHERE e.usd_micros IS NULL AND e.kind='refund')::int AS missing_refunds ${source}`).bind(...args).first();
-  return c.json(ok({scope,summary,rows:rows.results}));
+    COUNT(*) FILTER(WHERE e.usd_micros IS NULL AND e.kind='refund')::int AS missing_refunds ${source}`).bind(asOf,...args).first();
+  return c.json(ok({scope,as_of:asOf,summary,rows:rows.results}));
 }
 playAdmin.get("/orders",c=>orders(c,false));
 playAdmin.get("/orders/export",c=>orders(c,true));
@@ -58,7 +65,7 @@ playAdmin.get("/notifications", async c => {
   for(const [key,col] of Object.entries({message_id:"i.message_id",kind:"i.kind",state:"i.state",order_id:"i.order_id",chain:"left(p.chain_id,12)"})) {
     const value=c.req.query(key); if(value){clauses.push(`${col}=?`);args.push(value);}
   }
-  const rows=await c.env.DB.prepare(`SELECT i.message_id,i.kind,i.state,i.received_at,i.event_at,i.attempts,i.next_check_at,i.last_error,i.order_id,
+  const rows=await c.env.DB.prepare(`SELECT i.message_id,i.topic,i.kind,i.state,i.received_at,i.event_at,i.attempts,i.next_check_at,i.last_error,i.order_id,
     left(p.chain_id,12) AS chain,p.store_kind,p.checked_at,p.acknowledgement,COUNT(*) OVER()::int AS total
     FROM google_play_inbox i LEFT JOIN google_play_purchase p ON p.scope=i.scope AND p.token_hash=i.token_hash WHERE ${clauses.join(' AND ')}
     ORDER BY i.received_at DESC,i.message_id LIMIT 20 OFFSET ?`).bind(...args,(page(c.req.query("page"))-1)*20).all();
@@ -133,7 +140,9 @@ playAdmin.post("/:resource", async c => {
     }
   } else {
     if(typeof body.message_id!=="string") return c.json(error("INVALID_MESSAGE"),422);
-    beforeArgs=[scope,c.env.GOOGLE_PLAY_TOPIC ?? "",body.message_id];
+    const topic = body.topic ?? c.env.GOOGLE_PLAY_TOPIC;
+    if (typeof topic !== "string" || (topic !== c.env.GOOGLE_PLAY_TOPIC && topic !== "voided-purchases")) return c.json(error("INVALID_MESSAGE_TOPIC"),422);
+    beforeArgs=[scope,topic,body.message_id];
     beforeSql="SELECT message_id,state,attempts FROM google_play_inbox WHERE scope=? AND topic=? AND message_id=?";
     mutateSql=`UPDATE google_play_inbox SET state='pending',next_check_at=? WHERE scope=? AND topic=? AND message_id=? AND state='failed' AND attempts=? RETURNING message_id,state,attempts`;
     mutateArgs=[stamp,...beforeArgs,revision];

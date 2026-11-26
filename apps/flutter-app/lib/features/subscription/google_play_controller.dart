@@ -15,6 +15,10 @@ import '../auth/auth_repository.dart';
 import '../auth/auth_session_interceptor.dart';
 import '../../shared/api/app_http_transport.dart';
 import '../auth/auth_models.dart';
+import '../../shared/api/api_environment.dart';
+import '../../shared/attribution/app_attribution.dart';
+import 'subscription_revenue_reporter.dart';
+import 'subscription_singular_events.dart';
 
 class PlayPolicy {
   const PlayPolicy({
@@ -41,6 +45,11 @@ class PlayPolicy {
     expires: data['expires_at'] as String?,
     renews: data['auto_renew'] as bool?,
   );
+}
+
+extension CurrentPlayPolicy on AsyncValue<PlayPolicy> {
+  // Riverpod retains the previous value while it resolves the next signed-in account.
+  PlayPolicy? get current => isLoading || hasError ? null : asData?.value;
 }
 
 class PlayChoice {
@@ -85,7 +94,12 @@ String playPeriod(String iso) {
 // Purchase tokens and account bindings stay out of the in-app network inspector.
 final playDioProvider = Provider<Dio>((ref) {
   final client = createAuthDio(transport: ref.watch(appHttpTransportProvider));
-  client.interceptors.add(AuthSessionInterceptor(dio: client, storage: ref.watch(authStorageProvider)));
+  client.interceptors.add(
+    AuthSessionInterceptor(
+      dio: client,
+      storage: ref.watch(authStorageProvider),
+    ),
+  );
   ref.onDispose(client.close);
   return client;
 });
@@ -94,6 +108,34 @@ final playBillingProvider = Provider<InAppPurchasePlatform>((ref) {
   InAppPurchaseAndroidPlatform.registerPlatform();
   return InAppPurchasePlatform.instance;
 });
+final playOwnedPurchasesProvider =
+    Provider<Future<List<PurchaseDetails>> Function()>((ref) {
+      ref.watch(playBillingProvider);
+      return () async {
+        final addition =
+            InAppPurchasePlatformAddition.instance
+                as InAppPurchaseAndroidPlatformAddition;
+        final owned = await addition.queryPastPurchases();
+        if (owned.error != null) throw StateError('Google Play unavailable');
+        return owned.pastPurchases;
+      };
+    });
+
+final playSingularRevenueProvider = Provider<SubscriptionRevenueReporter>((
+  ref,
+) {
+  final environment = AppConfig.environment;
+  return SubscriptionRevenueReporter(
+    storage: PreferencesSubscriptionRevenueStorage(
+      keyPrefix: 'subscription.google_play.singular.${environment.name}',
+    ),
+    sink: SingularSubscriptionRevenueSink(
+      ref.watch(appAttributionEventReporterProvider),
+      environment,
+    ),
+  );
+});
+
 final playPolicyProvider = AsyncNotifierProvider<PlayController, PlayPolicy>(
   PlayController.new,
 );
@@ -107,6 +149,7 @@ class PlayController extends AsyncNotifier<PlayPolicy> {
   int _generation = 0;
   String? _boundSession;
   Timer? _expiry;
+  int? _reportingGeneration;
   @override
   Future<PlayPolicy> build() async {
     final session = ref.watch(authControllerProvider.select((a) => a.session));
@@ -170,12 +213,24 @@ class PlayController extends AsyncNotifier<PlayPolicy> {
           data: body,
           options: Options(
             method: method,
+            validateStatus: (code) =>
+                code == 401 || (code != null && code >= 200 && code < 300),
             headers: {
               'Authorization': 'Bearer ${session.accessToken}',
               if (requestId != null) 'Idempotency-Key': requestId,
             },
           ),
         );
+    if (result.statusCode == 401) {
+      throw DioException.badResponse(
+        statusCode: 401,
+        requestOptions: result.requestOptions,
+        response: result,
+      );
+    }
+    if (result.data?['success'] != true) {
+      throw const FormatException('Invalid Google Play response');
+    }
     return (result.data?['data'] as Map?)?.cast<String, dynamic>() ?? {};
   }
 
@@ -192,7 +247,9 @@ class PlayController extends AsyncNotifier<PlayPolicy> {
         _boundSession != binding) {
       try {
         final local = await PackageInfo.fromPlatform();
-        if (int.tryParse(local.buildNumber) != data['verified_build']) {
+        final installedBuild = int.tryParse(local.buildNumber);
+        if (installedBuild != null &&
+            installedBuild != data['verified_build']) {
           final device = await ref
               .read(authStorageProvider)
               .readOrCreateDeviceId();
@@ -212,13 +269,20 @@ class PlayController extends AsyncNotifier<PlayPolicy> {
             data = await _call(session, 'GET', '/entitlements/google/play');
           }
         }
-        _boundSession = binding;
+        if (generation == _generation &&
+            installedBuild != null &&
+            installedBuild == data['verified_build']) {
+          _boundSession = binding;
+        }
       } on Exception {
         /* Keep the server's last verified policy and retry on resume. */
       }
     }
     final policy = PlayPolicy.fromJson(data);
     if (generation == _generation) {
+      if (session.isUser && data['singular_delivery'] == true) {
+        unawaited(_reportFirstCharge(session, generation));
+      }
       _expiry?.cancel();
       final expiry = DateTime.tryParse(policy.expires ?? '');
       if (policy.premium && expiry != null) {
@@ -238,6 +302,58 @@ class PlayController extends AsyncNotifier<PlayPolicy> {
       }
     }
     return policy;
+  }
+
+  Future<void> _reportFirstCharge(AuthSession session, int generation) async {
+    if (_reportingGeneration == generation) return;
+    _reportingGeneration = generation;
+    try {
+      final device = await ref.read(authStorageProvider).readOrCreateDeviceId();
+      if (generation != _generation) return;
+      const path = '/entitlements/google/attribution';
+      final result = await _call(
+        session,
+        'POST',
+        path,
+        body: {'installation_id': device},
+      );
+      final data = result['receipt'];
+      if (generation != _generation || data is! Map) return;
+      final order = data['order_id'];
+      final scope = data['scope'];
+      final event = data['event_name'];
+      final amount = int.tryParse('${data['amount_micros']}');
+      if (order is! String ||
+          scope is! String ||
+          event is! String ||
+          amount == null ||
+          amount <= 0) {
+        return;
+      }
+      final record = SubscriptionRevenueRecord.fromJson({
+        'transaction_id': '$scope/$order',
+        'product_id': data['product_id'],
+        'plan_type': 'google_play',
+        'value': amount / 1000000,
+        'currency': data['currency'],
+        'singular_event_name': event,
+      });
+      if (record == null) return;
+      await ref.read(playSingularRevenueProvider).enqueueVerifiedRecord(record);
+      if (generation == _generation) {
+        await _call(
+          session,
+          'POST',
+          path,
+          body: {'installation_id': device, 'handed_off_order': order},
+        );
+      }
+    } catch (_) {
+      // The same installation reclaims the receipt on resume, including an interrupted acknowledgement.
+      debugPrint('Google Play attribution handoff pending');
+    } finally {
+      if (_reportingGeneration == generation) _reportingGeneration = null;
+    }
   }
 
   Future<void> refresh() async {
@@ -384,13 +500,8 @@ class PlayController extends AsyncNotifier<PlayPolicy> {
       return 'Sign in to your Android account to restore purchases';
     }
     try {
-      ref.read(playBillingProvider);
-      final addition =
-          InAppPurchasePlatformAddition.instance
-              as InAppPurchaseAndroidPlatformAddition;
-      final owned = await addition.queryPastPurchases();
-      if (owned.error != null) throw StateError('Google Play unavailable');
-      return await _process(session, owned.pastPurchases, generation) ??
+      final owned = await ref.read(playOwnedPurchasesProvider)();
+      return await _process(session, owned, generation) ??
           'No subscription found. Check your Play and app accounts.';
     } catch (e) {
       if (silent) return 'Sync pending';

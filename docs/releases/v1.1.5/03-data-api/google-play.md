@@ -1,4 +1,4 @@
-## Android Google Play 服务端
+# Android Google Play 订阅与对账
 
 安装证明使用 Play Integrity 已核实的包名、签名、构建号和时间。首次游客会话写入 PostgreSQL，邮箱注册、登录和 Google 登录从当前安装的可信会话承接证明。已有会话可在 `POST /api/v1/entitlements/google/installation` 提交绑定当前会话的新证明。旧版请求仍使用原认证格式。Linux dev 的安装证明豁免仅用于认证，计费构建身份需要真实 Play 证明。
 
@@ -6,8 +6,31 @@
 
 服务端使用独立的 `GOOGLE_PLAY_PUBLISHER_EMAIL` 和 `GOOGLE_PLAY_PUBLISHER_PRIVATE_KEY` 请求 Publisher API。`GOOGLE_PLAY_TOKEN_HASH_KEY` 使用 32 字节随机密钥的无填充 base64url，作为稳定索引密钥保存。`GOOGLE_PLAY_ENCRYPTION_KEYS` 以逗号分隔 `keyId:base64url`，首项用于写入，旧项用于回查历史密文。轮换加密密钥时保留旧项，索引密钥变更需先迁移历史映射。应用和后台均通过服务端访问商店。
 
+## 环境与商店通知
+
+Linux kd201 的 `development` 使用独立 PostgreSQL。Cloudflare 的 `production` 使用生产 PostgreSQL。各自在发布 API 前依次执行 `0019` 和 `0020`。前者提供计费、通知和账务表，后者为 Google 订单增加商店服务周期，并保存首笔扣款归因。两条迁移均保留已有的 Apple 订单和权益。Billing 制品、Play 发布轨道、业务环境、Google 标记的测试交易是不同维度。每个环境按实际安装包配置 package 和自己的密钥。
+
+Pub/Sub 推送到 `POST /api/v1/google-play/notifications`。每个环境配置 `GOOGLE_PLAY_PUSH_AUDIENCE`、`GOOGLE_PLAY_PUSH_EMAIL`、`GOOGLE_PLAY_PUSH_SUBSCRIPTION` 和 `GOOGLE_PLAY_TOPIC`。服务端验证 Google 签名、受众、服务账号、订阅名和 package，以 topic 和消息 ID 去重。测试消息只验通道，退款审核消息单独隔离。订阅和作废通知均回查商店事实。作废回扫按页保存进度，完成时间窗后保留一天重叠范围。已绑定的过期 token 可以凭真实订单号补账。生产回查、测试下单和价格配置需使用对应环境的授权账号。
+
+## 订单与收入
+
+后台的 **Google Play 订单统计** 默认查看正式购买，查询和 XLSX 使用相同筛选。Apple 沿用原报表、统计和导出。Google 收入按完整订单号、扣款及成功退款的 UTC 发生时间核算。汇率快照支持换算，可核实的零金额显示为零，未核实的金额单列待对账。当前有效订阅在匹配到的订单中按购买链去重。一笔订单的多条退款明细只对应一份订阅。
+
+Android 的 Firebase 收入使用 Play 与 Analytics 的自动集成。Flutter 的 Apple 手动收入通道继续只处理 App Store 交易。若选择 **Singular SDK** 作为 Google 首次付费的上报方，财务先核对该应用的现有自动导入，再在对应环境设置 `GOOGLE_PLAY_SINGULAR_SDK_FROM` 为 UTC 切换时间，例如 `2026-12-01T00:00:00Z`。默认关闭。时间只用于划分上报责任，实际启用日由运营确定。
+
+只有 Google 已验证的正式订单、已处理且大于零的金额，以及能由商店服务周期确定的首次付费，才会生成回执。已核实的免费试用转付费也可生成一次回执，即使两个订单倒序到达。商品准入提供事件名，事件键包含业务环境、商店、包名和完整订单号。当前 Android 账号下的一个安装负责交给 Singular，回执确认中断后由同一安装重试，另一台设备恢复购买不会重新发送。SDK 本地接收和供应商后台入账分别验收。续费及退款记录以服务端账本为准。
+
 ## 客户端兼容与本地验证
 
-设备平台决定登录方式、账号空间及商店。登录完成后，Android 客户端按服务器返回的安装资格决定哪些功能可免费使用、何处展示购买入口。首次启动可以在查询 Play 权益之前建立游客会话。Android 账号删除弹窗提示用户在 Google Play 取消续订。Apple 购买、恢复和到期刷新沿用 iOS 原流程。
+设备平台决定登录方式、账号空间及商店。登录完成后，Android 按本次安装的服务器策略展示免费能力和购买入口。首次启动可以先建立游客会话。切换账号时立即撤下上一个账号的权益，购买前重新检查方案、资格和全部价格阶段。Android 删号弹窗提示在 Google Play 取消续订。iOS 继续使用 StoreKit 购买、恢复和到期刷新。
 
-2026-11-26 在本地使用 Flutter 3.47.9 验证了 App 1,482 项、subscription-core 15 项，以及两个包的静态分析。固定 iOS 客户端 1.0.4+161、1.0.5+163 的兼容合同各通过 24 项。该批次的 Workers 118 个文件、969 项，Admin 97 项，官网 234 项，根依赖方向和 TypeScript 类型检查均通过。商店真机交易、开发环境与生产环境部署分别验收。
+2026-11-26 使用仓库工具链完成本地验证。
+
+| 验证 | 结果 |
+| --- | --- |
+| Flutter 3.47.9 / Dart 3.13.7 | 两个包静态分析通过。App 1,486 项、subscription-core 15 项测试通过。覆盖变价、优惠失效、待付款、恢复、换账号和收入回执重试。 |
+| 旧版 iOS 源码合同 | 固定 `1.0.4+161` 和 `1.0.5+163` 各通过 24 项。 |
+| 服务端、后台、官网 | Workers 118 个文件、974 项，Admin 97 项，官网 234 项。PostgreSQL 用例覆盖签名与重放、替换链、历史退款、并发写回、试用转付费与测试交易隔离。根依赖方向和 TypeScript 类型检查通过。 |
+| 本地构建 | Android debug APK 的包名为 `com.kando.kandoApp.beta`，`aapt` 回读到 `com.android.vending.BILLING` 及 Billing Library `9.1.0`。Cloudflare prod 与 Linux dev 的发布包完成 dry-run。 |
+
+商店联调仍需具备商品管理权限的账号、已配置的测试商品及真机。验收范围包括一笔 Play 购买、服务端确认、RTDN、后台导出和归因平台回读，以及 iOS 实机购买与恢复。存量截止时间、首个计费构建号、价格、市场及真实交易开放时间由产品和运营确定。

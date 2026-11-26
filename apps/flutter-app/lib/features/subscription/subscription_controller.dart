@@ -790,7 +790,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
   @override
   SubscriptionState build() {
     if (ref.watch(appCommercialPolicyProvider).isAndroid) {
-      final premium = ref.watch(playPolicyProvider.select((p) => p.value?.premium == true));
+      final premium = ref.watch(playPolicyProvider.select((p) => p.current?.premium == true));
       return SubscriptionState(premiumState: premium ? AppPremiumState.premium : AppPremiumState.free);
     }
     ref.watch(
@@ -1042,7 +1042,7 @@ class SubscriptionController extends Notifier<SubscriptionState> {
   Future<AppPremiumState> refreshEntitlement({bool showFailure = true}) async {
     if (ref.read(appCommercialPolicyProvider).isAndroid) {
       await ref.read(playPolicyProvider.notifier).refresh();
-      return ref.read(playPolicyProvider).value?.premium == true ? AppPremiumState.premium : AppPremiumState.free;
+      return ref.read(playPolicyProvider).current?.premium == true ? AppPremiumState.premium : AppPremiumState.free;
     }
     final result = await _refreshEntitlementResult(showFailure: showFailure);
     return result.state;

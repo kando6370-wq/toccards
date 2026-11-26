@@ -4,7 +4,7 @@ import type { Env } from "../env";
 import { authenticateOwner, type AuthenticatedOwner } from "../owner-auth";
 import { isPageType, isRecord } from "../subscription-config/model";
 import { googlePlayAccess, googlePlayScope } from "./access";
-import { accountRef, syncPurchase, type PlayPlan } from "./purchases";
+import { accountRef, syncPurchase, utc, type PlayPlan } from "./purchases";
 import { playDigest, PlayError, tokenValid } from "./publisher";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -29,6 +29,7 @@ playRoutes.get("/entitlements/google/play", async c => {
   const { cohort: _cohort, ...policy } = await googlePlayAccess(c.env, owner);
   return c.json({ success: true, data: { ...policy, package_name: c.env.GOOGLE_PLAY_PACKAGE_NAME ?? null,
     installation_binding: scope ? owner.session_id : null,
+    singular_delivery: Boolean(scope && owner.owner_type === "user" && utc(c.env.GOOGLE_PLAY_SINGULAR_SDK_FROM)),
     account_ref: policy.can_purchase && scope ? await accountRef(c.env, scope, owner.data_space_id) : null } });
 });
 playRoutes.post("/entitlements/google/installation", async c => {
@@ -79,4 +80,30 @@ playRoutes.post("/entitlements/google/verify", async c => {
     WHERE scope=? AND owner_id=? AND request_id=? RETURNING result`)
     .bind(JSON.stringify(response), scope, owner.data_space_id, id).first<{ result: Record<string, unknown> }>();
   return c.json(saved!.result);
+});
+
+// A retry can return the same receipt to its installation. Another device cannot send it again.
+playRoutes.post("/entitlements/google/attribution", async c => {
+  const owner = c.get("owner"), scope = googlePlayScope(c.env), since = utc(c.env.GOOGLE_PLAY_SINGULAR_SDK_FROM);
+  if (owner.owner_type !== "user") return c.json(failure("GOOGLE_PLAY_LOGIN_REQUIRED"), 403);
+  if (!scope || !since) return c.json({success:true, data:{receipt:null}});
+  const body: unknown = await c.req.json().catch(() => null);
+  if (!isRecord(body) || typeof body.installation_id !== "string" || !uuid.test(body.installation_id)) {
+    return c.json(failure("VALIDATION_ERROR"), 422);
+  }
+  const install = await playDigest(c.env, scope, "attribution-install", body.installation_id);
+  if (body.handed_off_order !== undefined) {
+    if (typeof body.handed_off_order !== "string" || !body.handed_off_order || body.handed_off_order.length > 256) return c.json(failure("VALIDATION_ERROR"), 422);
+    await c.env.DB.prepare(`UPDATE google_play_first_charge SET sdk_handoff_at=COALESCE(sdk_handoff_at,?)
+      WHERE scope=? AND owner_id=? AND install_hash=? AND order_id=?`)
+      .bind(new Date().toISOString(), scope, owner.data_space_id, install, body.handed_off_order).run();
+    return c.json({success:true, data:{}});
+  }
+  const receipt = await c.env.DB.prepare(`UPDATE google_play_first_charge SET install_hash=?
+    WHERE (scope,order_id) IN (SELECT scope,order_id FROM google_play_first_charge
+      WHERE scope=? AND owner_id=? AND sdk_handoff_at IS NULL AND charged_at>=?
+        AND (install_hash IS NULL OR install_hash=?) ORDER BY charged_at,order_id LIMIT 1 FOR UPDATE SKIP LOCKED)
+    RETURNING scope,order_id,product_id,event_name,currency,amount_micros::text`)
+    .bind(install, scope, owner.data_space_id, since, install).first();
+  return c.json({success:true, data:{receipt}});
 });

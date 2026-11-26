@@ -37,7 +37,7 @@ function secretKey(value?: string) {
   return decode(value);
 }
 
-export async function playDigest(env: Env, scope: string, usage: "account" | "token", text: string) {
+export async function playDigest(env: Env, scope: string, usage: "account" | "token" | "attribution-install", text: string) {
   const key = await crypto.subtle.importKey("raw", secretKey(env.GOOGLE_PLAY_TOKEN_HASH_KEY), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   return base64Url(new Uint8Array(await crypto.subtle.sign("HMAC", key, utf8.encode(`${scope}\n${usage}\n${text}`))));
 }

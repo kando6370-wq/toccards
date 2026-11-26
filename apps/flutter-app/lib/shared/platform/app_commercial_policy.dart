@@ -36,7 +36,7 @@ final subscriptionAccessPolicyProvider = Provider<AppCommercialPolicy>((ref) {
   if (!platform.isAndroid) return platform;
   final play = ref.watch(
     playPolicyProvider.select(
-      (state) => (state.value?.metered == true, state.value?.sales == true),
+      (state) => (state.current?.metered == true, state.current?.sales == true),
     ),
   );
   return AppCommercialPolicy(

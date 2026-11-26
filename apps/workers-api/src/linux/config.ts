@@ -61,6 +61,7 @@ export function loadLinuxRuntime(source: NodeJS.ProcessEnv = process.env): Linux
     GOOGLE_PLAY_PUSH_EMAIL: optional(source, "GOOGLE_PLAY_PUSH_EMAIL"),
     GOOGLE_PLAY_PUSH_SUBSCRIPTION: optional(source, "GOOGLE_PLAY_PUSH_SUBSCRIPTION"),
     GOOGLE_PLAY_TOPIC: optional(source, "GOOGLE_PLAY_TOPIC"),
+    GOOGLE_PLAY_SINGULAR_SDK_FROM: optional(source, "GOOGLE_PLAY_SINGULAR_SDK_FROM"),
     APPLE_CLIENT_ID: optional(source, "APPLE_CLIENT_ID"),
     APPLE_IAP_BUNDLE_ID: optional(source, "APPLE_IAP_BUNDLE_ID"),
     APPLE_IAP_APP_ID: optional(source, "APPLE_IAP_APP_ID"),

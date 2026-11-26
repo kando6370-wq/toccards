@@ -47,7 +47,7 @@ class _SubscriptionEntitlementLifecycleObserverState
       if (ref.read(appCommercialPolicyProvider).isAndroid) {
         final play = ref.read(playPolicyProvider.notifier);
         await play.refresh();
-        if (mounted && ref.read(playPolicyProvider).value?.package != null) await play.restore(silent: true);
+        if (mounted && ref.read(playPolicyProvider).current?.package != null) await play.restore(silent: true);
         return;
       }
       await ref

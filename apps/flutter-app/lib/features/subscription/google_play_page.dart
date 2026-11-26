@@ -83,7 +83,7 @@ class _GooglePlayPageState extends ConsumerState<GooglePlayPage> {
 
   @override
   Widget build(BuildContext context) {
-    final policy = ref.watch(playPolicyProvider).value;
+    final policy = ref.watch(playPolicyProvider).current;
     ref.listen(authControllerProvider.select((a) => a.session?.dataSpaceId), (
       old,
       next,
@@ -190,7 +190,7 @@ class _GooglePlayPageState extends ConsumerState<GooglePlayPage> {
                               .read(playPolicyProvider.notifier)
                               .restore();
                           if (!context.mounted) return;
-                          if (ref.read(playPolicyProvider).value?.premium ==
+                          if (ref.read(playPolicyProvider).current?.premium ==
                               true) {
                             Navigator.pop(
                               context,
