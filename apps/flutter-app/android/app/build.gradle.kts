@@ -202,6 +202,9 @@ dependencies {
     implementation(files("libs/onnxruntime-minimal-1.23.0.aar"))
     implementation("com.google.mlkit:text-recognition-japanese:16.0.1")
     implementation("com.google.android.play:integrity:1.5.0")
+    if (isProductionEnvironment) {
+        releaseImplementation("com.android.billingclient:billing:9.1.0")
+    }
 }
 
 flutter {

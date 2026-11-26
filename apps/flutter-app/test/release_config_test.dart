@@ -240,12 +240,22 @@ void main() {
       final androidManifest = File(
         'android/app/src/main/AndroidManifest.xml',
       ).readAsStringSync();
+      // Play reads the library's merged manifest to enable the subscription catalog.
+      expect(
+        androidBuild,
+        contains(
+          RegExp(
+            r'if \(isProductionEnvironment\) \{\s*'
+            r'releaseImplementation\("com\.android\.billingclient:billing:',
+          ),
+        ),
+      );
+      expect(androidManifest, isNot(contains('com.android.vending.BILLING')));
       for (final permission in [
         'android.permission.READ_EXTERNAL_STORAGE',
         'android.permission.WRITE_EXTERNAL_STORAGE',
         'android.permission.READ_MEDIA_IMAGES',
         'android.permission.READ_MEDIA_VIDEO',
-        'com.android.vending.BILLING',
       ]) {
         expect(
           androidManifest,
