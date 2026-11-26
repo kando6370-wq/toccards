@@ -13,6 +13,12 @@ v1.1.4 已于 2026-11-26 原位归档。本版本承接自本日期起的新增�
 - App 向后兼容规则继续引用 v1.1.2 的[人员阅读版](../v1.1.2/05-delivery/app-backward-compatibility-plan.md)和[AI 执行版](../v1.1.2/03-data-api/app-backward-compatibility-ai-guide.md)。
 - Flutter UI 继续遵循 [v1.0.0 UI 设计系统](../v1.0.0/00-product/ui-design-system.md)及已经生效的增量合同。
 
+## 本期方案
+
+- [Android Google Play 订阅与上架方案](01-flows/google-play-subscription.md)（待评审），含 App 与 Admin 离线交互原型、存量免费用户过渡、订单核算和 iOS 回归条件。
+
+- [Google Play 订阅配置内部包 1.0.8+221](05-delivery/google-play-internal-221.md)记录已发布的 Internal 版本、订阅入口及账号权限。
+
 ## 文档路由
 
 | 目录 | 记录范围 |
