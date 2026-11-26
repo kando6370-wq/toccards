@@ -1953,8 +1953,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       if (!mounted) return;
       await _completeSelectedItemAddition(item);
     } on ScanApiException catch (error) {
-      if (error.code == 'CONFLICT' &&
-          error.message == 'Scan is already confirmed.') {
+      if (error.isAlreadyConfirmed) {
         if (mounted) await _completeSelectedItemAddition(item);
       } else if (mounted) {
         showKandoTopToast(
@@ -2028,6 +2027,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
             .addToPortfolio(scanId: item.match!.scanId, item: inputs[item.id]!);
         addedIds.add(item.id);
       } on ScanApiException catch (error) {
+        if (error.isAlreadyConfirmed) {
+          addedIds.add(item.id);
+          continue;
+        }
         duplicate = duplicate || error.code == duplicateCollectionItemErrorCode;
         failed = true;
       } on Exception {

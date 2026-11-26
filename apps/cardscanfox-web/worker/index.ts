@@ -64,7 +64,13 @@ export function createWebsiteHandler({publicPreview=false}={}) { return {
   if(pathname.endsWith('.html')){const canonical=pathname==='/index.html'?'/':pathname==='/blog/index.html'?'/blog/':pathname.slice(0,-5);if(legacyByPath.has(canonical)){headers.set('Location',canonical+url.search);return new Response(null,{status:308,headers});}}
   if(pathname==='/blog'){headers.set('Location','/blog/'+url.search);return new Response(null,{status:308,headers});}
   if(pathname.startsWith('/assets/')||indexNowKeyPaths.has(pathname)||['/site.css','/site.js','/llms.txt','/google406556797e3e830d.html','/release-manifest.json','/route-manifest.json'].includes(pathname)){
-   const response=await env.ASSETS.fetch(request);const result=new Response(request.method==='HEAD'?null:response.body,response);for(const [key,value]of headers)result.headers.set(key,value);
+   const response=await env.ASSETS.fetch(request);
+   const publicAsset=pathname.startsWith('/assets/')||pathname==='/site.css'||pathname==='/site.js';
+   if(production&&publicAsset&&(response.status===200||response.status===304)){
+    headers.set('Cache-Control',response.headers.get('Cache-Control')??'public, max-age=0, must-revalidate');
+   }
+   const result=new Response(request.method==='HEAD'?null:response.body,response);
+   for(const [key,value]of headers)result.headers.set(key,value);
    if(pathname==='/llms.txt'&&response.ok)result.headers.set('Content-Type','text/plain; charset=utf-8');
    if(production&&indexNowKeyPaths.has(pathname)){result.headers.delete('X-Robots-Tag');result.headers.set('Content-Type','text/plain; charset=utf-8');}
    return result;

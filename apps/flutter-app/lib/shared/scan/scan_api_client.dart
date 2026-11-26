@@ -52,6 +52,9 @@ class ScanApiException implements Exception {
   final int? statusCode;
   final ScanQuotaDto? quota;
 
+  bool get isAlreadyConfirmed =>
+      code == 'CONFLICT' && message == 'Scan is already confirmed.';
+
   @override
   String toString() => message;
 }

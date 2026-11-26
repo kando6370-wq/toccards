@@ -26,7 +26,62 @@ void main() {
   );
 
   test(
-    'review bounds concurrent requests while preserving every variant',
+    'ten review details carry their variants without extra price requests',
+    () async {
+      final api = _BundledCardDataApi()
+        ..reviewPrices = [
+          for (final finish in ['Normal', 'Foil'])
+            for (final language in ['English', 'Japanese', 'French'])
+              CardDataMarketPriceDto(
+                finish: finish,
+                language: language,
+                grader: finish == 'Normal' ? 'Raw' : 'PSA',
+                grade: finish == 'Normal' ? null : 9.5,
+                condition: finish == 'Normal' ? 'Near Mint' : null,
+                price: finish == 'Normal' ? 0 : 12.5,
+              ),
+        ];
+      final refs = List.generate(10, (index) => 'card-$index');
+      final cards = await _repository(api).loadCards(refs);
+      expect(cards.keys, refs);
+      expect(api.reviewRequests, 10);
+      expect(api.cardCalls, {for (final ref in refs) ref: 1});
+      expect(api.priceCalls, isEmpty);
+      expect(api.peakRequests, lessThanOrEqualTo(4));
+      for (final card in cards.values) {
+        expect(
+          card.prices.map(
+            (r) =>
+                (r.finish, r.language, r.grader, r.grade, r.condition, r.price),
+          ),
+          api.reviewPrices!.map(
+            (r) =>
+                (r.finish, r.language, r.grader, r.grade, r.condition, r.price),
+          ),
+        );
+      }
+    },
+  );
+
+  test(
+    'empty bundled prices are final while an older server can omit the field',
+    () async {
+      final api = _BundledCardDataApi()..reviewPrices = [];
+      final repository = _repository(api);
+      expect((await repository.loadCards(['card']))['card']!.prices, isEmpty);
+      expect(api.priceCalls, isEmpty);
+      api.reviewPrices = null;
+      expect(
+        (await repository.loadCards(['card']))['card']!.prices,
+        hasLength(6),
+      );
+      expect(api.reviewRequests, 2);
+      expect(api.priceCalls, hasLength(6));
+    },
+  );
+
+  test(
+    'legacy review bounds concurrent requests while preserving every variant',
     () async {
       final api = _MeasuredCardDataApi();
       final repository = _repository(api);
@@ -114,6 +169,7 @@ ApiScanReviewRepository _repository(CardDataApi api) => ApiScanReviewRepository(
 );
 
 class _MeasuredCardDataApi implements CardDataApi {
+  List<CardDataMarketPriceDto>? reviewPrices;
   final cardCalls = <String, int>{};
   final priceCalls = <(String, String?, String?)>[];
   final failedCards = <String>{};
@@ -140,6 +196,7 @@ class _MeasuredCardDataApi implements CardDataApi {
       return CardDataCardDto(
         cardRef: cardRef,
         name: cardRef,
+        reviewPrices: reviewPrices,
         setName: 'Test',
         setCode: 'TEST',
         cardNumber: '001',
@@ -179,6 +236,17 @@ class _MeasuredCardDataApi implements CardDataApi {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _BundledCardDataApi extends _MeasuredCardDataApi
+    implements ScanReviewCardDataApi {
+  var reviewRequests = 0;
+
+  @override
+  Future<CardDataCardDto> getCardForScanReview(String cardRef) {
+    reviewRequests++;
+    return getCard(cardRef);
+  }
 }
 
 class _PartialCardDataApi implements CardDataApi {

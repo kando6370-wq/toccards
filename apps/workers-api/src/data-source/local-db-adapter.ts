@@ -5,6 +5,7 @@ import type {
   MarketPrice,
   PricePoint,
   PriceSeriesRequest,
+  ScanReviewPrice,
   SetSearchResult,
   SoldListing,
 } from "./adapter";
@@ -135,7 +136,7 @@ LIMIT ? OFFSET ?`,
       return results.results ?? [];
     },
 
-    async getCard(cardRef) {
+    async getCard(cardRef, includeReviewPrices) {
       const [row, priceRows] = await Promise.all([
         db.prepare(`${CARD_SELECT}WHERE product_id = ? LIMIT 1`)
           .bind(cardRef).first<CardCatalogRow>(),
@@ -144,7 +145,7 @@ LIMIT ? OFFSET ?`,
       if (!row) return null;
 
       const card = cardWithSearchPricing(row, priceRows);
-      return {
+      const detail: CardSearchResult = {
         ...card,
         available_languages: uniquePriceValues(
           priceRows,
@@ -155,6 +156,8 @@ LIMIT ? OFFSET ?`,
           (price) => price.variant_name,
         ),
       };
+      if (includeReviewPrices) detail.review_prices = scanReviewPrices(detail, priceRows);
+      return detail;
     },
 
     async getPriceSeries(cardRef, grader, grade, condition, days, finish) {
@@ -556,6 +559,29 @@ function preferredGradedMarketPrices(rows: PublishedPriceRow[]): PublishedPriceR
     || (left.grade_min_x10 ?? -1) - (right.grade_min_x10 ?? -1)
     || compareNaturalQualifiers(left, right)
   );
+}
+
+function scanReviewPrices(card: CardSearchResult, rows: PublishedPriceRow[]): ScanReviewPrice[] | undefined {
+  const finishes = card.available_finishes?.length ? card.available_finishes : [card.finish];
+  const languages = card.available_languages?.length ? card.available_languages : [card.language];
+  // Bound work per public request; larger matrices use the existing per-variant endpoint.
+  if (finishes.length * languages.length > 100) return undefined;
+  const prices: ScanReviewPrice[] = [];
+  for (const finish of finishes) {
+    const finishRows = filterPricesByFinish(rows, finish);
+    for (const language of languages) {
+      const selection = filterPricesByLanguage(finishRows, language);
+      for (const row of preferredRawMarketPrices(selection)) {
+        const { grader, grade, condition, price } = rawMarketPrice(row);
+        prices.push({ finish, language, grader, grade, condition, price });
+      }
+      for (const row of preferredGradedMarketPrices(selection)) {
+        const { grader, grade, condition, price } = gradedMarketPrice(row, []);
+        prices.push({ finish, language, grader, grade, condition, price });
+      }
+    }
+  }
+  return prices;
 }
 
 function uniquePriceValues(
