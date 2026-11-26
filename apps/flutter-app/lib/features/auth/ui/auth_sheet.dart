@@ -48,8 +48,8 @@ class _AuthSheetDialog extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final androidFreeLaunch = ref.watch(
-      appCommercialPolicyProvider.select((value) => value.isAndroidFreeLaunch),
+    final isAndroid = ref.watch(
+      appCommercialPolicyProvider.select((value) => value.isAndroid),
     );
     final overlayAnimation = CurvedAnimation(
       parent: animation,
@@ -93,7 +93,7 @@ class _AuthSheetDialog extends ConsumerWidget {
                   end: Offset.zero,
                 ).animate(sheetAnimation),
                 child: _AuthSheetFrame(
-                  androidFreeLaunch: androidFreeLaunch,
+                  isAndroid: isAndroid,
                   beforeEmailLoginDismiss: beforeEmailLoginDismiss,
                 ),
               ),
@@ -107,11 +107,11 @@ class _AuthSheetDialog extends ConsumerWidget {
 
 class _AuthSheetFrame extends StatefulWidget {
   const _AuthSheetFrame({
-    required this.androidFreeLaunch,
+    required this.isAndroid,
     this.beforeEmailLoginDismiss,
   });
 
-  final bool androidFreeLaunch;
+  final bool isAndroid;
   final Future<void> Function()? beforeEmailLoginDismiss;
 
   @override
@@ -123,7 +123,7 @@ class _AuthSheetFrameState extends State<_AuthSheetFrame> {
 
   @override
   Widget build(BuildContext context) {
-    final desiredPanelHeight = widget.androidFreeLaunch
+    final desiredPanelHeight = widget.isAndroid
         ? (_showOAuthWarning ? 579.0 : 515.0)
         : (_showOAuthWarning ? 407.0 : 343.0);
     final frameHeight = math
@@ -145,7 +145,7 @@ class _AuthSheetFrameState extends State<_AuthSheetFrame> {
               key: const Key('auth-sheet-panel'),
               decoration: const BoxDecoration(),
               child: _AuthSheet(
-                androidFreeLaunch: widget.androidFreeLaunch,
+                isAndroid: widget.isAndroid,
                 beforeEmailLoginDismiss: widget.beforeEmailLoginDismiss,
                 onOAuthWarningChanged: (value) {
                   if (_showOAuthWarning != value) {
@@ -489,12 +489,12 @@ class _FigmaOAuthFailureOptions extends StatelessWidget {
 
 class _AuthSheet extends ConsumerStatefulWidget {
   const _AuthSheet({
-    required this.androidFreeLaunch,
+    required this.isAndroid,
     required this.onOAuthWarningChanged,
     this.beforeEmailLoginDismiss,
   });
 
-  final bool androidFreeLaunch;
+  final bool isAndroid;
   final ValueChanged<bool> onOAuthWarningChanged;
   final Future<void> Function()? beforeEmailLoginDismiss;
 
@@ -530,7 +530,7 @@ class _AuthSheetState extends ConsumerState<_AuthSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final showApple = !widget.androidFreeLaunch;
+    final showApple = !widget.isAndroid;
     final agreementText = _AgreementText(
       termsRecognizer: _termsRecognizer,
       privacyRecognizer: _privacyRecognizer,

@@ -10,6 +10,7 @@ import 'package:kando_app/features/subscription/subscription_controller.dart';
 import 'package:kando_app/features/subscription/subscription_entitlement_api.dart';
 import 'package:kando_app/features/subscription/subscription_entitlement_cache.dart';
 import 'package:kando_app/features/subscription/subscription_sync_queue.dart';
+import 'package:kando_app/shared/platform/app_commercial_policy.dart';
 import 'package:subscription_core/subscription_core.dart';
 
 void main() {
@@ -154,7 +155,10 @@ void main() {
       );
       final container = ProviderContainer(
         overrides: [
-          authControllerProvider.overrideWith(_ReadyAuthController.new),
+          appCommercialPolicyProvider.overrideWithValue(
+        const AppCommercialPolicy(isAndroidFreeLaunch: false),
+      ),
+      authControllerProvider.overrideWith(_ReadyAuthController.new),
           appSubscriptionConfigurationProvider.overrideWithValue(
             const AppSubscriptionConfiguration(
               store: SubscriptionStore.appStore,
@@ -199,7 +203,10 @@ void main() {
       final reader = _TrackingEntitlementReader();
       final container = ProviderContainer(
         overrides: [
-          authControllerProvider.overrideWith(_ReadyAuthController.new),
+          appCommercialPolicyProvider.overrideWithValue(
+        const AppCommercialPolicy(isAndroidFreeLaunch: false),
+      ),
+      authControllerProvider.overrideWith(_ReadyAuthController.new),
           appSubscriptionConfigurationProvider.overrideWithValue(
             const AppSubscriptionConfiguration(
               store: SubscriptionStore.appStore,
@@ -254,6 +261,9 @@ ProviderContainer _container({
 }) {
   return ProviderContainer(
     overrides: [
+      appCommercialPolicyProvider.overrideWithValue(
+        const AppCommercialPolicy(isAndroidFreeLaunch: false),
+      ),
       authControllerProvider.overrideWith(_ReadyAuthController.new),
       appSubscriptionConfigurationProvider.overrideWithValue(
         const AppSubscriptionConfiguration(

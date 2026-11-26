@@ -140,7 +140,7 @@ class _CardDetailPageState extends ConsumerState<CardDetailPage> {
       subscriptionControllerProvider.select((value) => value.premiumState),
     );
     final freePremiumFeatures = ref.watch(
-      appCommercialPolicyProvider.select(
+      subscriptionAccessPolicyProvider.select(
         (value) => value.hasFreePremiumFeatures,
       ),
     );
@@ -5545,7 +5545,7 @@ class _PriceOverview extends ConsumerWidget {
 }
 
 Future<AppPremiumState> _resolvePremiumForRestrictedAction(WidgetRef ref) {
-  if (ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
+  if (ref.read(subscriptionAccessPolicyProvider).hasFreePremiumFeatures) {
     return Future.value(AppPremiumState.premium);
   }
   final current = ref.read(subscriptionControllerProvider).premiumState;

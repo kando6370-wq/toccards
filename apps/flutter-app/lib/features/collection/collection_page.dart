@@ -1402,7 +1402,7 @@ Future<void> showPortfolioFolderSheet(BuildContext context, WidgetRef ref) {
                       ),
                       onPressed: () async {
                         if (ref
-                            .read(appCommercialPolicyProvider)
+                            .read(subscriptionAccessPolicyProvider)
                             .hasFreePremiumFeatures) {
                           await _runCreateFolderFlow(context, controller);
                           return;

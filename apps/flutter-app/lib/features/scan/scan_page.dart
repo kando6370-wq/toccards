@@ -537,7 +537,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        if (!ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
+        if (!ref.read(subscriptionAccessPolicyProvider).hasFreePremiumFeatures) {
           unawaited(ref.read(scanQuotaControllerProvider.notifier).refresh());
         }
       }
@@ -550,7 +550,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     if (state == AppLifecycleState.resumed) {
       _appActive = true;
       _freeEntitlementConfirmedForLifecycle = false;
-      if (!ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
+      if (!ref.read(subscriptionAccessPolicyProvider).hasFreePremiumFeatures) {
         unawaited(_refreshQuotaAndResumeWaiting());
       }
       unawaited(_resumeCameraForLifecycle());
@@ -907,7 +907,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   bool _scanQuotaExhausted() {
-    if (ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
+    if (ref.read(subscriptionAccessPolicyProvider).hasFreePremiumFeatures) {
       return false;
     }
     final quota = ref.read(scanQuotaControllerProvider);
@@ -918,7 +918,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   bool _scanQuotaAwaitingSettlement() {
-    if (ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
+    if (ref.read(subscriptionAccessPolicyProvider).hasFreePremiumFeatures) {
       return false;
     }
     final quota = ref.read(scanQuotaControllerProvider);
@@ -959,7 +959,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   Future<bool> _resolvePremiumBeforeScan() async {
-    if (ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
+    if (ref.read(subscriptionAccessPolicyProvider).hasFreePremiumFeatures) {
       return true;
     }
     final current = ref.read(subscriptionControllerProvider).premiumState;
@@ -1591,7 +1591,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       });
       return;
     }
-    if (ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures &&
+    if (ref.read(subscriptionAccessPolicyProvider).hasFreePremiumFeatures &&
         (resolution.kind == ScanResolutionKind.quotaExhausted ||
             resolution.kind == ScanResolutionKind.entitlementSyncRequired)) {
       _pendingScans.remove(itemId)?.revealController?.dispose();
@@ -2499,7 +2499,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       subscriptionControllerProvider.select((value) => value.isPro),
     );
     final freePremiumFeatures = ref.watch(
-      appCommercialPolicyProvider.select(
+      subscriptionAccessPolicyProvider.select(
         (value) => value.hasFreePremiumFeatures,
       ),
     );

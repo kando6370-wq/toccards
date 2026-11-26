@@ -77,7 +77,7 @@ class _HomePageState extends ConsumerState<HomePage>
       subscriptionControllerProvider.select((value) => value.premiumState),
     );
     final freePremiumFeatures = ref.watch(
-      appCommercialPolicyProvider.select(
+      subscriptionAccessPolicyProvider.select(
         (value) => value.hasFreePremiumFeatures,
       ),
     );
@@ -314,7 +314,7 @@ class _HomePageState extends ConsumerState<HomePage>
     required AppPremiumState premiumState,
   }) async {
     if (range == HomeChartRange.oneYear &&
-        !ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
+        !ref.read(subscriptionAccessPolicyProvider).hasFreePremiumFeatures) {
       final resolved = premiumState == AppPremiumState.unknown
           ? await _resolvePremiumForRestrictedAction()
           : premiumState;
@@ -339,7 +339,7 @@ class _HomePageState extends ConsumerState<HomePage>
   }
 
   Future<AppPremiumState> _resolvePremiumForRestrictedAction() async {
-    if (ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
+    if (ref.read(subscriptionAccessPolicyProvider).hasFreePremiumFeatures) {
       return AppPremiumState.premium;
     }
     final current = ref.read(subscriptionControllerProvider).premiumState;

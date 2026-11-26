@@ -26,8 +26,13 @@ class AppCommercialPolicy {
   bool get hasFreePremiumFeatures => isAndroidFreeLaunch;
 }
 
-final appCommercialPolicyProvider = Provider<AppCommercialPolicy>((ref) {
-  final platform = AppCommercialPolicy.currentPlatform();
+// Authentication needs the device platform before a session (and its Play policy) exists.
+final appCommercialPolicyProvider = Provider<AppCommercialPolicy>(
+  (ref) => AppCommercialPolicy.currentPlatform(),
+);
+
+final subscriptionAccessPolicyProvider = Provider<AppCommercialPolicy>((ref) {
+  final platform = ref.watch(appCommercialPolicyProvider);
   if (!platform.isAndroid) return platform;
   final play = ref.watch(
     playPolicyProvider.select(

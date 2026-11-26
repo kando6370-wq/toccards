@@ -162,7 +162,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/subscription',
         redirect: (context, state) =>
-            !ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures
+            !ref.read(subscriptionAccessPolicyProvider).hasFreePremiumFeatures
             ? null
             : '/home',
         pageBuilder: (context, state) {
