@@ -3,16 +3,27 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:in_app_purchase_platform_interface/in_app_purchase_platform_interface.dart';
+import 'package:kando_app/app/router.dart';
+import 'package:kando_app/app/theme.dart';
+import 'package:kando_app/features/profile/profile_page.dart';
+import 'package:kando_app/features/scan/scan_permissions.dart';
+import 'package:kando_app/features/subscription/google_play_page.dart';
+import 'package:kando_app/features/subscription/scan_quota_controller.dart';
 import 'package:kando_app/features/auth/auth_controller.dart';
 import 'package:kando_app/features/auth/auth_models.dart';
 import 'package:kando_app/features/subscription/google_play_controller.dart';
+import 'package:kando_app/features/subscription/subscription_display_config.dart';
+import 'package:kando_app/features/subscription/subscription_navigation.dart';
 import 'package:kando_app/features/subscription/subscription_revenue_reporter.dart';
 import 'package:kando_app/shared/platform/app_commercial_policy.dart';
+import 'package:kando_app/shared/ui/toast.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'support/in_memory_auth_storage.dart';
 
@@ -29,6 +40,8 @@ class _Auth extends AuthController {
   @override
   AuthState build() => AuthState.ready(session: _user('first'));
   void use(String id) => state = AuthState.ready(session: _user(id));
+  @override
+  Future<void> retryStartup() async {} // Refreshing Profile keeps the same signed-in owner.
 }
 
 class _Billing extends InAppPurchasePlatform {
@@ -82,8 +95,12 @@ class _Server implements HttpClientAdapter {
   bool premium = false,
       sales = true,
       metered = true,
+      pagePublished = true,
+      modalPublished = true,
       report = false,
       acknowledgeFailed = false;
+  String? unavailablePlacement;
+  final catalogs = <String>[];
   int verifications = 0, acknowledgements = 0;
   final secondOwner = Completer<void>();
   final firstHandoff = Completer<void>();
@@ -106,19 +123,28 @@ class _Server implements HttpClientAdapter {
         'singular_delivery': report,
       };
     } else if (options.path.startsWith('/google-play/catalog')) {
+      final placement = options.uri.queryParameters['placement']!;
+      catalogs.add(placement);
+      if (placement == unavailablePlacement) {
+        return ResponseBody.fromString('', 503);
+      }
+      final published = placement == 'modal' ? modalPublished : pagePublished;
       data = {
-        'config': {
-          'title': 'Premium',
-          'plans': [
-            {
-              'product_id': 'premium',
-              'base_plan_id': 'monthly',
-              'offer_id': 'welcome',
-              'label': 'Monthly',
-              'is_default': true,
-            },
-          ],
-        },
+        'status': published ? 'configured' : 'unconfigured',
+        'config': !published
+            ? null
+            : {
+                'title': 'Premium',
+                'plans': [
+                  {
+                    'product_id': 'premium',
+                    'base_plan_id': 'monthly',
+                    'offer_id': 'welcome',
+                    'label': 'Monthly',
+                    'is_default': true,
+                  },
+                ],
+              },
       };
     } else if (options.path.endsWith('/verify')) {
       verifications++;
@@ -164,6 +190,23 @@ class _Server implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
+class _ExhaustedQuota extends ScanQuotaController {
+  @override
+  ScanQuotaState build() => const ScanQuotaState(
+    limit: 10,
+    remainingScans: 0,
+    isServerAuthoritative: true,
+  );
+  @override
+  Future<bool> refresh() async => true;
+}
+
+class _CameraPermission extends Fake implements ScanPermissionGateway {
+  @override
+  Future<ScanPermissionResult> requestCamera() async =>
+      ScanPermissionResult.denied;
+}
+
 class _RevenueSink implements SubscriptionRevenueSink {
   final sent = <SubscriptionRevenueRecord>[];
   @override
@@ -180,7 +223,6 @@ void main() {
   late _RevenueSink sink;
   late List<PurchaseDetails> owned;
   setUp(() {
-    debugDefaultTargetPlatformOverride = TargetPlatform.android;
     SharedPreferences.setMockInitialValues({});
     billing = _Billing();
     server = _Server();
@@ -191,6 +233,9 @@ void main() {
     container = ProviderContainer(
       overrides: [
         authControllerProvider.overrideWith(_Auth.new),
+        profileVersionProvider.overrideWith((_) async => '1.0.8'),
+        scanQuotaControllerProvider.overrideWith(_ExhaustedQuota.new),
+        scanPermissionGatewayProvider.overrideWithValue(_CameraPermission()),
         authStorageProvider.overrideWithValue(InMemoryAuthStorage()),
         playDioProvider.overrideWithValue(dio),
         playBillingProvider.overrideWithValue(billing),
@@ -212,6 +257,7 @@ void main() {
     debugDefaultTargetPlatformOverride = null;
   });
   Future<PlayController> controller() async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
     await container.read(playPolicyProvider.future);
     return container.read(playPolicyProvider.notifier);
   }
@@ -227,19 +273,191 @@ void main() {
     ),
   );
 
+  Future<GoRouter> openProfile(WidgetTester tester) async {
+    final router = container.read(appRouterProvider)..go('/profile');
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(
+          theme: buildKandoTheme(),
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    return router;
+  }
+
+  for (final page in [false, true]) {
+    for (final modal in [false, true]) {
+      testWidgets(
+        'Play entries use their own placement: page=$page modal=$modal',
+        (tester) async {
+          server.pagePublished = page;
+          server.modalPublished = modal;
+          final router = await openProfile(tester);
+          final viewPlans = find.text('View Premium plans');
+          expect(viewPlans, page ? findsOneWidget : findsNothing);
+          expect(
+            find.byKey(const Key('profile-premium-top-entry')),
+            page ? findsOneWidget : findsNothing,
+          );
+          expect(find.text('Restore purchases'), findsOneWidget);
+          expect(find.text('Manage in Google Play'), findsOneWidget);
+          if (page) {
+            await tester.ensureVisible(viewPlans);
+            await tester.tap(viewPlans);
+            await tester.pumpAndSettle();
+            expect(
+              tester.widget<GooglePlayPage>(find.byType(GooglePlayPage)).sheet,
+              isFalse,
+            );
+            expect(find.text('Monthly'), findsOneWidget);
+            router.pop();
+            await tester.pumpAndSettle();
+          }
+          router.go('/scan');
+          await tester.pumpAndSettle();
+          expect(find.text('0 scans remaining'), findsOneWidget);
+          expect(
+            find.text('Tap to get unlimited scans'),
+            page ? findsOneWidget : findsNothing,
+          );
+          await tester.tap(find.byTooltip('Take Photo'));
+          await tester.pumpAndSettle();
+          if (modal) {
+            expect(
+              tester.widget<GooglePlayPage>(find.byType(GooglePlayPage)).sheet,
+              isTrue,
+            );
+            expect(find.text('Monthly'), findsOneWidget);
+          } else {
+            expect(find.byType(GooglePlayPage), findsNothing);
+            expect(find.text('0 scans remaining'), findsOneWidget);
+          }
+          if (!page && !modal) {
+            router.go('/profile');
+            await tester.pumpAndSettle();
+            owned = [purchase(PurchaseStatus.restored)];
+            final restore = find.text('Restore purchases');
+            await tester.ensureVisible(restore);
+            await tester.tap(restore);
+            await tester.pumpAndSettle();
+            expect(server.verifications, 1);
+            expect(container.read(playPolicyProvider).current?.premium, isTrue);
+          }
+          await tester.pump(kandoTopToastDuration);
+        },
+        variant: TargetPlatformVariant.only(TargetPlatform.android),
+      );
+    }
+  }
+  testWidgets(
+    'a stale Page link and a failed Modal lookup keep the user in place and can recover',
+    (tester) async {
+      final router = await openProfile(tester);
+      expect(find.text('View Premium plans'), findsOneWidget);
+      server.pagePublished = false;
+      await tester.tap(find.byKey(const Key('profile-premium-top-entry')));
+      await tester.pumpAndSettle();
+      expect(find.byType(ProfilePage), findsOneWidget);
+      expect(find.text('View Premium plans'), findsNothing);
+      expect(find.byType(GooglePlayPage), findsNothing);
+
+      server.pagePublished = true;
+      await tester
+          .widget<RefreshIndicator>(find.byType(RefreshIndicator))
+          .onRefresh();
+      await tester.pumpAndSettle();
+      expect(find.text('View Premium plans'), findsOneWidget);
+      router.go('/subscription');
+      await tester.pumpAndSettle();
+      expect(find.text('Monthly'), findsOneWidget);
+      server.pagePublished = false;
+      final checkout = find.text('Continue with Google Play');
+      await tester.ensureVisible(checkout);
+      await tester.tap(checkout);
+      await tester.pumpAndSettle();
+      expect(billing.launched, isNull);
+      expect(checkout, findsNothing);
+      expect(find.text('Restore purchases'), findsOneWidget);
+      // A direct link cannot reopen a placement once operations stop it.
+      router.go('/profile');
+      await tester.pumpAndSettle();
+      router.go('/subscription');
+      await tester.pumpAndSettle();
+      expect(find.byType(ProfilePage), findsOneWidget);
+
+      server.unavailablePlacement = 'modal';
+      router.go('/scan');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pumpAndSettle();
+      expect(find.text(genericFailureToastText), findsOneWidget);
+      expect(find.text('0 scans remaining'), findsOneWidget);
+      expect(find.byType(GooglePlayPage), findsNothing);
+      server.unavailablePlacement = null;
+      await tester.tap(find.byTooltip('Take Photo'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<GooglePlayPage>(find.byType(GooglePlayPage)).sheet,
+        isTrue,
+      );
+      expect(find.text('Monthly'), findsOneWidget);
+      await tester.pump(kandoTopToastDuration);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.android),
+  );
+
+  testWidgets(
+    'the sales switch blocks both published placements while Profile still offers restore',
+    (tester) async {
+      server.sales = false;
+      final router = await openProfile(tester);
+      expect(find.text('View Premium plans'), findsNothing);
+      expect(find.text('Restore purchases'), findsOneWidget);
+      router.go('/subscription?presentation=sheet');
+      await tester.pumpAndSettle();
+      expect(find.byType(ProfilePage), findsOneWidget);
+      expect(server.catalogs, isEmpty);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.android),
+  );
+
+  test(
+    'a new Android account cannot inherit a published entry while its policy is loading',
+    () async {
+      await controller();
+      container.listen(subscriptionPageEntryVisibleProvider, (_, _) {});
+      final page = playDisplayConfigProvider(SubscriptionPageType.page);
+      await container.read(page.future);
+      expect(container.read(subscriptionPageEntryVisibleProvider), isTrue);
+      server.pagePublished = false;
+      (container.read(authControllerProvider.notifier) as _Auth).use('second');
+      expect(container.read(subscriptionPageEntryVisibleProvider), isFalse);
+      server.secondOwner.complete();
+      await container.read(page.future);
+      expect(container.read(subscriptionPageEntryVisibleProvider), isFalse);
+    },
+  );
+
   test(
     'Play charges only after reconfirming the current account offer and price',
     () async {
       final play = await controller();
-      final displayed = (await play.choices('page')).choices.single;
+      final displayed = (await play.choices(
+        SubscriptionPageType.page,
+      )).choices.single;
       billing.micros = 5990000;
-      expect(await play.buy('page', displayed), isFalse);
+      expect(await play.buy(SubscriptionPageType.page, displayed), isFalse);
       expect(billing.launched, isNull);
-      final fresh = (await play.choices('page')).choices.single;
+      final fresh = (await play.choices(
+        SubscriptionPageType.page,
+      )).choices.single;
       billing.offer = null;
-      expect(await play.buy('page', fresh), isFalse);
+      expect(await play.buy(SubscriptionPageType.page, fresh), isFalse);
       billing.offer = 'welcome';
-      expect(await play.buy('page', fresh), isTrue);
+      expect(await play.buy(SubscriptionPageType.page, fresh), isTrue);
       expect(billing.launched?.offerToken, 'token-5990000');
       expect(billing.launched?.applicationUserName, 'owner-ref');
     },

@@ -19,6 +19,7 @@ import '../features/scan/scan_page.dart';
 import '../features/search/search_page.dart';
 import '../features/search/set_detail_page.dart';
 import '../features/subscription/subscription_controller.dart';
+import '../features/subscription/subscription_navigation.dart';
 import '../features/subscription/subscription_page.dart';
 import '../features/subscription/subscription_route_page.dart';
 import '../features/subscription/startup_subscription_gate.dart';
@@ -162,9 +163,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/subscription',
         redirect: (context, state) =>
-            !ref.read(subscriptionAccessPolicyProvider).hasFreePremiumFeatures
-            ? null
-            : '/home',
+            ref.read(appCommercialPolicyProvider).isAndroid
+            ? googlePlayEntryRedirect(ref, state)
+            : null,
         pageBuilder: (context, state) {
           final sheet = state.uri.queryParameters['presentation'] == 'sheet';
           if (ref.read(appCommercialPolicyProvider).isAndroid) {

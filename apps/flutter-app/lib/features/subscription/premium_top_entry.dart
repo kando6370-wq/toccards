@@ -3,12 +3,11 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 
 import 'subscription_controller.dart';
 import 'subscription_entitlement_cache.dart';
-import '../../shared/platform/app_commercial_policy.dart';
+import 'subscription_navigation.dart';
 
 class PremiumPageHeader extends StatelessWidget {
   const PremiumPageHeader({
@@ -54,8 +53,7 @@ class PremiumTopEntry extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final policy = ref.watch(subscriptionAccessPolicyProvider);
-    if (!policy.usesAppleSubscription && !policy.playSales) {
+    if (!ref.watch(subscriptionPageEntryVisibleProvider)) {
       return const SizedBox.shrink();
     }
     final premiumState = ref.watch(
@@ -66,7 +64,7 @@ class PremiumTopEntry extends ConsumerWidget {
     }
 
     void onPressed() {
-      context.push(
+      context.openSubscriptionPaywall(
         subscriptionPageLocation(
           source: source,
           entrySource: 'top_subscription_entry',

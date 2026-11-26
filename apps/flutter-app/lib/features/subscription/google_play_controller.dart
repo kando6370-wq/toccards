@@ -17,6 +17,7 @@ import '../../shared/api/app_http_transport.dart';
 import '../auth/auth_models.dart';
 import '../../shared/api/api_environment.dart';
 import '../../shared/attribution/app_attribution.dart';
+import 'subscription_display_config.dart';
 import 'subscription_revenue_reporter.dart';
 import 'subscription_singular_events.dart';
 
@@ -51,6 +52,8 @@ extension CurrentPlayPolicy on AsyncValue<PlayPolicy> {
   // Riverpod retains the previous value while it resolves the next signed-in account.
   PlayPolicy? get current => isLoading || hasError ? null : asData?.value;
 }
+
+typedef PlayCatalog = ({String title, List<PlayChoice> choices});
 
 class PlayChoice {
   PlayChoice(this.product, this.offer, this.label, this.isDefault);
@@ -139,6 +142,30 @@ final playSingularRevenueProvider = Provider<SubscriptionRevenueReporter>((
 final playPolicyProvider = AsyncNotifierProvider<PlayController, PlayPolicy>(
   PlayController.new,
 );
+
+// Only display configuration is shared between entry points. Prices and offer
+// eligibility still come from Play, including the final check before purchase.
+final playDisplayConfigProvider =
+    FutureProvider.family<Map<String, dynamic>?, SubscriptionPageType>((
+      ref,
+      placement,
+    ) async {
+      final policy = await ref.watch(playPolicyProvider.future);
+      if (!ref.mounted || !policy.metered || !policy.sales || policy.premium) {
+        return null;
+      }
+      return ref.read(playPolicyProvider.notifier)._displayConfig(placement);
+    }, retry: (_, _) => null);
+
+final playCatalogProvider = FutureProvider.autoDispose
+    .family<PlayCatalog, SubscriptionPageType>((ref, placement) async {
+      final play = ref.watch(playPolicyProvider.notifier);
+      final config = await ref.watch(
+        playDisplayConfigProvider(placement).future,
+      );
+      if (!ref.mounted) return (title: 'Premium', choices: <PlayChoice>[]);
+      return play._choicesForConfig(config);
+    }, retry: (_, _) => null);
 
 class PlayController extends AsyncNotifier<PlayPolicy> {
   AuthSession? _session;
@@ -367,17 +394,34 @@ class PlayController extends AsyncNotifier<PlayPolicy> {
     }
   }
 
-  Future<({String title, List<PlayChoice> choices})> choices(
-    String placement,
+  Future<Map<String, dynamic>?> _displayConfig(
+    SubscriptionPageType placement,
   ) async {
-    final session = _session!;
     final data = await _call(
-      session,
+      _session!,
       'GET',
-      '/google-play/catalog?placement=$placement',
+      '/google-play/catalog?placement=${placement.name}',
     );
+    if (data['status'] == 'unconfigured' ||
+        data['status'] == 'not_applicable') {
+      return null;
+    }
     final config = data['config'];
-    if (config is! Map || config['plans'] is! List) {
+    if (data['status'] != 'configured' ||
+        config is! Map<String, dynamic> ||
+        config['title'] is! String ||
+        config['plans'] is! List ||
+        (config['plans'] as List).isEmpty) {
+      throw const FormatException('Invalid Google Play display configuration');
+    }
+    return config;
+  }
+
+  Future<PlayCatalog> choices(SubscriptionPageType placement) async =>
+      _choicesForConfig(await _displayConfig(placement));
+
+  Future<PlayCatalog> _choicesForConfig(Map<String, dynamic>? config) async {
+    if (config == null) {
       return (title: 'Premium', choices: <PlayChoice>[]);
     }
     final plans = (config['plans'] as List).whereType<Map>().toList();
@@ -416,7 +460,7 @@ class PlayController extends AsyncNotifier<PlayPolicy> {
     return (title: config['title'] as String, choices: choices);
   }
 
-  Future<bool> buy(String placement, PlayChoice selected) async {
+  Future<bool> buy(SubscriptionPageType placement, PlayChoice selected) async {
     final generation = _generation, session = _session!;
     final policy = await _readPolicy(session, generation);
     if (generation != _generation || policy.account == null || !policy.sales) {

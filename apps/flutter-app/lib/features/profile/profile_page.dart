@@ -14,6 +14,8 @@ import '../app_upgrade/app_upgrade_repository.dart';
 import '../subscription/subscription_controller.dart';
 import '../subscription/subscription_entitlement_cache.dart';
 import '../subscription/premium_top_entry.dart';
+import '../subscription/subscription_navigation.dart';
+import '../subscription/subscription_display_config.dart';
 import '../subscription/google_play_controller.dart';
 import '../subscription/google_play_page.dart';
 import '../../shared/analytics/analytics_events.dart';
@@ -91,6 +93,9 @@ class ProfilePage extends ConsumerWidget {
                                     .read(analyticsProvider)
                                     .track(AnalyticsEvent.refreshClick);
                                 ref.invalidate(profileVersionProvider);
+                                if (!usesSubscription) {
+                                  ref.invalidate(playDisplayConfigProvider(SubscriptionPageType.page));
+                                }
                                 await ref
                                     .read(authControllerProvider.notifier)
                                     .retryStartup();
@@ -301,7 +306,12 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
                   (ref.watch(playPolicyProvider).current?.metered == true || ref.watch(playPolicyProvider).current?.premium == true)) ...[
                 _SectionLabel('Google Play'),
                 _MenuCard(children: [
-                  if (ref.watch(playPolicyProvider).current?.sales == true) _MenuRow(icon: Icons.star_outline, label: 'View Premium plans', onTap: () => context.push('/subscription')),
+                  if (ref.watch(subscriptionPageEntryVisibleProvider))
+                    _MenuRow(
+                      icon: Icons.star_outline,
+                      label: 'View Premium plans',
+                      onTap: () => context.openSubscriptionPaywall('/subscription'),
+                    ),
                   if (ref.watch(playPolicyProvider).current case final policy? when policy.premium)
                     _MenuRow(icon: Icons.event, label: '${policy.renews == true ? 'Renews' : 'Active until'} ${policy.expires?.split('T').first ?? ''}', onTap: () => managePlaySubscription(policy)),
                   _MenuRow(icon: Icons.restore, label: 'Restore purchases', onTap: () async {

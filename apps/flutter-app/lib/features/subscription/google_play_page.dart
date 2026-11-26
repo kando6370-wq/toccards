@@ -10,6 +10,7 @@ import '../auth/auth_controller.dart';
 import '../auth/ui/auth_sheet.dart';
 import 'google_play_controller.dart';
 import 'subscription_controller.dart';
+import 'subscription_display_config.dart';
 
 Future<bool> managePlaySubscription(PlayPolicy? policy) => launchUrl(
   Uri.https('play.google.com', '/store/account/subscriptions', {
@@ -29,15 +30,14 @@ class GooglePlayPage extends ConsumerStatefulWidget {
 }
 
 class _GooglePlayPageState extends ConsumerState<GooglePlayPage> {
-  late Future<({String title, List<PlayChoice> choices})> _catalog;
   StreamSubscription<String>? _events;
   String? _selected;
   bool _busy = false;
-  String get _placement => widget.sheet ? 'modal' : 'page';
+  SubscriptionPageType get _placement =>
+      widget.sheet ? SubscriptionPageType.modal : SubscriptionPageType.page;
   @override
   void initState() {
     super.initState();
-    _load();
     _events = ref.read(playPolicyProvider.notifier).events.listen((message) {
       if (!mounted) return;
       if (message == 'Premium is active') {
@@ -49,9 +49,7 @@ class _GooglePlayPageState extends ConsumerState<GooglePlayPage> {
     });
   }
 
-  void _load() {
-    _catalog = ref.read(playPolicyProvider.notifier).choices(_placement);
-  }
+  void _reload() => ref.invalidate(playDisplayConfigProvider(_placement));
 
   void _tell(String message) {
     if (mounted) {
@@ -89,10 +87,7 @@ class _GooglePlayPageState extends ConsumerState<GooglePlayPage> {
       next,
     ) {
       if (old != next && mounted) {
-        setState(() {
-          _selected = null;
-          _load();
-        });
+        setState(() => _selected = null);
       }
     });
     return Scaffold(
@@ -103,7 +98,7 @@ class _GooglePlayPageState extends ConsumerState<GooglePlayPage> {
       ),
       body: SafeArea(
         child: FutureBuilder(
-          future: _catalog,
+          future: ref.watch(playCatalogProvider(_placement).future),
           builder: (context, snapshot) {
             if (snapshot.connectionState != ConnectionState.done) {
               return const Center(child: CircularProgressIndicator());
@@ -143,10 +138,7 @@ class _GooglePlayPageState extends ConsumerState<GooglePlayPage> {
                         ? 'Prices could not be loaded.'
                         : 'No plans are available for this Play account.',
                   ),
-                  TextButton(
-                    onPressed: () => setState(_load),
-                    child: const Text('Retry'),
-                  ),
+                  TextButton(onPressed: _reload, child: const Text('Retry')),
                 ],
                 if (selected != null && policy?.sales == true)
                   FilledButton(
@@ -159,14 +151,14 @@ class _GooglePlayPageState extends ConsumerState<GooglePlayPage> {
                                     ?.isUser !=
                                 true) {
                               await showAuthSheet(context);
-                              if (mounted) setState(_load);
+                              if (mounted) _reload();
                               return;
                             }
                             if (!await ref
                                     .read(playPolicyProvider.notifier)
                                     .buy(_placement, selected) &&
                                 mounted) {
-                              setState(_load);
+                              _reload();
                               _tell(
                                 'Plans changed. Review the current price and try again.',
                               );

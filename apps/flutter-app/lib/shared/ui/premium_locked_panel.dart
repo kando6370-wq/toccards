@@ -23,7 +23,7 @@ class KandoPremiumLockedPanel extends StatelessWidget {
   final String title;
   final String message;
   final String buttonLabel;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final Key? buttonKey;
 
   @override
@@ -134,68 +134,70 @@ class KandoPremiumLockedPanel extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 20),
-                            SizedBox(
-                              width: double.infinity,
-                              height: 36,
-                              child: FilledButton(
-                                key: buttonKey,
-                                onPressed: onPressed,
-                                style: FilledButton.styleFrom(
-                                  minimumSize: Size.zero,
-                                  padding: EdgeInsets.zero,
-                                  tapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                  backgroundColor: KandoColors.accent,
-                                  foregroundColor: KandoColors.primaryOnDefault,
-                                  elevation: 0,
-                                  shape: const StadiumBorder(),
-                                ),
-                                child: Center(
-                                  child: SizedBox(
-                                    width: 173.5,
-                                    child: Row(
-                                      children: [
-                                        SvgPicture.asset(
-                                          _buttonLeadingAsset,
-                                          key: const Key(
-                                            'kando-premium-locked-panel-button-leading',
+                            if (onPressed != null) ...[
+                              const SizedBox(height: 20),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 36,
+                                child: FilledButton(
+                                  key: buttonKey,
+                                  onPressed: onPressed,
+                                  style: FilledButton.styleFrom(
+                                    minimumSize: Size.zero,
+                                    padding: EdgeInsets.zero,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    backgroundColor: KandoColors.accent,
+                                    foregroundColor: KandoColors.primaryOnDefault,
+                                    elevation: 0,
+                                    shape: const StadiumBorder(),
+                                  ),
+                                  child: Center(
+                                    child: SizedBox(
+                                      width: 173.5,
+                                      child: Row(
+                                        children: [
+                                          SvgPicture.asset(
+                                            _buttonLeadingAsset,
+                                            key: const Key(
+                                              'kando-premium-locked-panel-button-leading',
+                                            ),
+                                            width: 16,
+                                            height: 16,
                                           ),
-                                          width: 16,
-                                          height: 16,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            buttonLabel,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.clip,
-                                            textAlign: TextAlign.center,
-                                            style: const TextStyle(
-                                              color:
-                                                  KandoColors.primaryOnDefault,
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w400,
-                                              height: 16 / 13,
-                                              letterSpacing: 0,
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              buttonLabel,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.clip,
+                                              textAlign: TextAlign.center,
+                                              style: const TextStyle(
+                                                color:
+                                                    KandoColors.primaryOnDefault,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w400,
+                                                height: 16 / 13,
+                                                letterSpacing: 0,
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        SvgPicture.asset(
-                                          _buttonArrowAsset,
-                                          key: const Key(
-                                            'kando-premium-locked-panel-button-arrow',
+                                          const SizedBox(width: 8),
+                                          SvgPicture.asset(
+                                            _buttonArrowAsset,
+                                            key: const Key(
+                                              'kando-premium-locked-panel-button-arrow',
+                                            ),
+                                            width: 16,
+                                            height: 16,
                                           ),
-                                          width: 16,
-                                          height: 16,
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                       ),
