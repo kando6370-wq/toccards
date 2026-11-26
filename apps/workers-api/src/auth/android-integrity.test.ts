@@ -40,7 +40,7 @@ function payload() {
     requestDetails: { requestPackageName: packageName, requestHash, timestampMillis: String(now.getTime()) },
     appIntegrity: {
       appRecognitionVerdict: "PLAY_RECOGNIZED", packageName,
-      certificateSha256Digest: [certificate],
+      certificateSha256Digest: [certificate], versionCode: "221",
     },
     deviceIntegrity: { deviceRecognitionVerdict: ["MEETS_DEVICE_INTEGRITY"] },
     accountDetails: { appLicensingVerdict: "LICENSED" },
@@ -66,8 +66,17 @@ function mockGoogle(decoded: unknown) {
 describe("Android session installation proof", () => {
   it("accepts only a recognized Play installation whose proof is bound to this installation request", async () => {
     const fetcher = mockGoogle(payload());
-    expect(await verifyAndroidInstallation(environment(), "installation-proof", binding, now)).toBe("verified");
+    expect(await verifyAndroidInstallation(environment(), "installation-proof", binding, now)).toEqual({ status: "verified", build: {
+      package_name: packageName, certificate_digest: certificate, version_code: 221, verified_at: now.toISOString(),
+    } });
     expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(["", "-5", "3.1", "2147483648"])('keeps a licensed legacy installation free when its build is unknown (%s)', async (version) => {
+    const decoded = payload();
+    decoded.appIntegrity.versionCode = version;
+    mockGoogle(decoded);
+    expect(await verifyAndroidInstallation(environment(), "installation-proof", binding, now)).toEqual({ status: "verified" });
   });
 
   it.each(["production", undefined] as const)("never enables the development bypass in %s", async (appEnvironment) => {
@@ -87,7 +96,7 @@ describe("Android session installation proof", () => {
     expect(await verifyAndroidInstallation(environment({
       APP_ENVIRONMENT: "development", ANDROID_INTEGRITY_ALLOW_DEVELOPMENT: "true",
       ANDROID_PLAY_SERVICE_ACCOUNT_PRIVATE_KEY: undefined,
-    }), undefined, binding, now)).toBe("verified");
+    }), undefined, binding, now)).toEqual({ status: "verified" });
     expect(fetcher).not.toHaveBeenCalled();
   });
 

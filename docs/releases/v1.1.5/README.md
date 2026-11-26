@@ -19,6 +19,8 @@ v1.1.4 已于 2026-11-26 原位归档。本版本承接自本日期起的新增�
 
 - [Google Play 订阅配置内部包 1.0.8+221](05-delivery/google-play-internal-221.md)记录已发布的 Internal 版本、订阅入口及账号权限。
 
+- [Google Play 服务端契约与配置](03-data-api/google-play.md)
+
 ## 文档路由
 
 | 目录 | 记录范围 |

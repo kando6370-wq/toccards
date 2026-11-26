@@ -1,3 +1,4 @@
+import { insertPlatformSession } from "../google-play/session-build";
 import {
   ACCESS_TOKEN_EXPIRES_IN_SECONDS,
   createRefreshToken,
@@ -173,8 +174,7 @@ authRoutes.post("/anonymous", async (c) => {
     const hashedRefreshToken = await hashRefreshToken(refreshToken);
     const expiresAt = refreshTokenExpiresAt(now);
 
-    await c.env.DB.prepare(INSERT_SESSION_SQL)
-      .bind(sessionId, anonymousId, hashedRefreshToken, expiresAt, createdAt, platform)
+    await insertPlatformSession(c.env.DB, platformResult.build, INSERT_SESSION_SQL,sessionId, anonymousId, hashedRefreshToken, expiresAt, createdAt, platform)
       .run();
 
     const accessToken = await signAccessToken(

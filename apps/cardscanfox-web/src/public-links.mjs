@@ -14,6 +14,7 @@ export function isPublicLinkAllowed(href) {
   if (url.protocol === 'mailto:') return url.pathname === 'support@tcgcard.fun';
   if (url.protocol !== 'https:' || url.username || url.password) return false;
   if (firstPartyHosts.has(url.host)) return true;
+  if (url.href === 'https://play.google.com/store/account/subscriptions') return true;
 
   if (url.origin === 'https://chromewebstore.google.com' &&
     /^\/detail\/(?:cardscanfox-%E2%80%94-pok%C3%A9mon-tcg\/)?hggmhmclihnigdmgcbggblhmjjlpaemn\/reviews(?:\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})?$/.test(url.pathname)) {

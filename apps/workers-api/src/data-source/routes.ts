@@ -21,9 +21,8 @@ import { cardImageUrl, type CardImageVariant } from "../card-image-url";
 import { authenticateOwner } from "../owner-auth";
 import {
   LOCAL_PREMIUM_STATE_HEADER,
-  resolvePremiumAccess,
 } from "../entitlements/premium-access";
-import { usesAndroidFreeLaunch } from "../entitlements/platform-commercial-access";
+import { platformAccess } from "../entitlements/platform-commercial-access";
 
 type DataSourceRoutesOptions = {
   createAdapter?: (env: Env) => DataSourceAdapter;
@@ -439,13 +438,8 @@ async function extendedPriceHistoryDenial(
 > {
   const auth = await authenticateOwner(env, authorization);
   if (auth.status !== "ok") return auth.status;
-  if (usesAndroidFreeLaunch(auth.owner)) return "allowed";
-  const access = await resolvePremiumAccess(
-    env,
-    auth.owner.session_id,
-    localPremiumState,
-  );
-  if (access === "premium") return "allowed";
+  const { access, freeLaunch } = await platformAccess(env, auth.owner, localPremiumState);
+  if (freeLaunch || access === "premium") return "allowed";
   return access === "sync_required" ? "sync_required" : "premium_required";
 }
 

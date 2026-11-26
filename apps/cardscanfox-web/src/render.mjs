@@ -234,6 +234,7 @@ function accountSetup(){
     <h2 id="deletion-scope-title" data-deletion-scope-title>Select a platform to see the scope</h2>
     <ul class="account-deletion-scope"><li>Platform account and active sessions</li><li>Collections, Wishlist and folders</li><li>Scan records and stored scan images</li><li>Preferences and related app data</li></ul>
     <p class="account-deletion-notice" data-deletion-scope-notice>Selecting one platform does not delete the other platform account.</p>
+    <p class="account-deletion-subscription" data-android-subscription hidden>Deleting your Android app account does not cancel your Google Play subscription. You can <a href="https://play.google.com/store/account/subscriptions">manage it in Google Play</a> and continue your deletion request.</p>
     <p class="account-deletion-subscription" data-ios-subscription hidden>Deleting your iOS app account does not cancel an Apple subscription. Manage any active subscription in your Apple ID subscription settings. This is separate from your deletion request.</p>
     <p>The other platform account and its business data remain available. Using the app again on the deleted platform requires registering a new platform account. Deleted business data is not restored.</p>
    </section>

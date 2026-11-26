@@ -13,9 +13,8 @@ import { createId } from "../id";
 import { authenticateOwner } from "../owner-auth";
 import {
   LOCAL_PREMIUM_STATE_HEADER,
-  resolvePremiumAccess,
 } from "../entitlements/premium-access";
-import { usesAndroidFreeLaunch } from "../entitlements/platform-commercial-access";
+import { platformAccess } from "../entitlements/platform-commercial-access";
 import {
   loadScanQuota,
   releaseQueuedScanQuota,
@@ -303,17 +302,14 @@ export function createScanRoutes() {
     }
 
     const localPremiumState = c.req.header(LOCAL_PREMIUM_STATE_HEADER);
-    const androidFree = usesAndroidFreeLaunch(auth.owner);
-    const accessPromise = androidFree
-      ? Promise.resolve("free" as const)
-      : resolvePremiumAccess(c.env, auth.owner.session_id, localPremiumState);
-    const [access, quota] = localPremiumState?.toLowerCase() === "verified"
-      ? [await accessPromise, null] as const
-      : await Promise.all([accessPromise, loadScanQuota(c.env.DB, auth.owner)]);
+    const policy = platformAccess(c.env, auth.owner, localPremiumState);
+    const quotaPromise = auth.owner.platform !== "android" && localPremiumState?.toLowerCase() !== "verified"
+      ? loadScanQuota(c.env.DB, auth.owner) : null;
+    const [{ access, freeLaunch: androidFree, cohort }, quota] = await Promise.all([policy, quotaPromise]);
     if (access === "sync_required") {
       return c.json(ENTITLEMENT_SYNC_REQUIRED_RESPONSE, 409);
     }
-    const snapshot = quota ?? await loadScanQuota(c.env.DB, auth.owner);
+    const snapshot = quota ?? await loadScanQuota(c.env.DB, auth.owner, undefined, cohort);
     return c.json({
       success: true,
       data: scanQuotaPayload(snapshot, access, androidFree || access === "premium"),
@@ -332,14 +328,7 @@ export function createScanRoutes() {
     if (!requestId || c.req.header("Idempotency-Key") !== requestId) {
       return c.json(VALIDATION_ERROR_RESPONSE, 422);
     }
-    const androidFree = usesAndroidFreeLaunch(auth.owner);
-    const access = androidFree
-      ? "free" as const
-      : await resolvePremiumAccess(
-          c.env,
-          auth.owner.session_id,
-          c.req.header(LOCAL_PREMIUM_STATE_HEADER),
-        );
+    const { freeLaunch: androidFree, access, cohort } = await platformAccess(c.env, auth.owner, c.req.header(LOCAL_PREMIUM_STATE_HEADER));
     if (access === "sync_required") {
       return c.json(ENTITLEMENT_SYNC_REQUIRED_RESPONSE, 409);
     }
@@ -349,7 +338,7 @@ export function createScanRoutes() {
       requestId,
       access,
       new Date(),
-      { startProcessing: false, unlimited: androidFree },
+      { startProcessing: false, unlimited: androidFree, cohort },
     );
     if (reservation.status === "exhausted") {
       return c.json({
@@ -459,14 +448,7 @@ export function createScanRoutes() {
       return c.json(VECTOR_RECOGNITION_UNAVAILABLE_RESPONSE, 503);
     }
 
-    const androidFree = usesAndroidFreeLaunch(auth.owner);
-    const access = androidFree
-      ? "free" as const
-      : await resolvePremiumAccess(
-          c.env,
-          auth.owner.session_id,
-          c.req.header(LOCAL_PREMIUM_STATE_HEADER),
-        );
+    const { freeLaunch: androidFree, access, cohort } = await platformAccess(c.env, auth.owner, c.req.header(LOCAL_PREMIUM_STATE_HEADER));
     if (access === "sync_required") {
       await releaseQueuedScanQuota(
         c.env.DB,
@@ -482,7 +464,7 @@ export function createScanRoutes() {
       requestId,
       access,
       new Date(),
-      { unlimited: androidFree },
+      { unlimited: androidFree, cohort },
     );
     if (reservation.status === "exhausted") {
       return c.json({
@@ -771,7 +753,7 @@ export function createScanRoutes() {
       requestId,
       quotaOutcome,
       scanId,
-      { body: responseBody, status: 200 },
+      { body: responseBody, status: 200 }, undefined, cohort,
     );
     const currentResponseBody = {
       ...responseBody,

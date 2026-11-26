@@ -14,6 +14,8 @@ import '../app_upgrade/app_upgrade_repository.dart';
 import '../subscription/subscription_controller.dart';
 import '../subscription/subscription_entitlement_cache.dart';
 import '../subscription/premium_top_entry.dart';
+import '../subscription/google_play_controller.dart';
+import '../subscription/google_play_page.dart';
 import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
 import '../../shared/ui/subscription_restore_result.dart';
@@ -293,6 +295,22 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 24),
+              ],
+              if (ref.watch(appCommercialPolicyProvider).isAndroid &&
+                  (ref.watch(playPolicyProvider).value?.metered == true || ref.watch(playPolicyProvider).value?.premium == true)) ...[
+                _SectionLabel('Google Play'),
+                _MenuCard(children: [
+                  if (ref.watch(playPolicyProvider).value?.sales == true) _MenuRow(icon: Icons.star_outline, label: 'View Premium plans', onTap: () => context.push('/subscription')),
+                  if (ref.watch(playPolicyProvider).value case final policy? when policy.premium)
+                    _MenuRow(icon: Icons.event, label: '${policy.renews == true ? 'Renews' : 'Active until'} ${policy.expires?.split('T').first ?? ''}', onTap: () => managePlaySubscription(policy)),
+                  _MenuRow(icon: Icons.restore, label: 'Restore purchases', onTap: () async {
+                    if (!isUser) { await _signIn(); return; }
+                    final message = await ref.read(playPolicyProvider.notifier).restore();
+                    if (context.mounted) showKandoTopToast(context, message: message, type: KandoTopToastType.info);
+                  }),
+                  _MenuRow(icon: Icons.open_in_new, label: 'Manage in Google Play', onTap: () => managePlaySubscription(ref.read(playPolicyProvider).value)),
+                ]),
                 const SizedBox(height: 24),
               ],
               _SectionLabel('Support'),

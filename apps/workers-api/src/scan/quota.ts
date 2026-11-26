@@ -26,6 +26,7 @@ type RequestRow = {
   owner_type: string;
   owner_id: string;
   session_id: string;
+  google_play_cohort?: string | null;
   access_mode: "free" | "premium";
   status: "reserved" | "consumed" | "released";
   processing_expires_at: string | null;
@@ -38,8 +39,9 @@ export async function loadScanQuota(
   db: D1Database,
   owner: Pick<AuthenticatedOwner, "owner_type" | "owner_id">,
   now = new Date(),
+  cohort: string | null = null,
 ): Promise<ScanQuotaSnapshot> {
-  return readQuota(db, owner, now);
+  return readQuota(db, owner, now, cohort);
 }
 
 export async function reserveScanQuota(
@@ -48,11 +50,12 @@ export async function reserveScanQuota(
   requestId: string,
   accessMode: "free" | "premium",
   now = new Date(),
-  options: { startProcessing?: boolean; unlimited?: boolean } = {},
+  options: { startProcessing?: boolean; unlimited?: boolean; cohort?: string | null } = {},
 ): Promise<ScanQuotaReservation> {
+  const cohort = options.cohort ?? null;
   const startProcessing = options.startProcessing ?? true;
   const unlimited = options.unlimited ?? false;
-  const existing = startProcessing ? await findRequest(db, requestId) : null;
+  const existing = startProcessing ? await findRequest(db, requestId, Boolean(cohort)) : null;
   if (existing) {
     if (
       existing.owner_type === owner.owner_type &&
@@ -74,7 +77,7 @@ export async function reserveScanQuota(
             AND (? = 1 OR ? = 'premium' OR processing_expires_at > ? OR (
               SELECT COUNT(*) FROM scan_quota_request
               WHERE owner_type = ? AND owner_id = ? AND access_mode = 'free'
-                AND request_id <> ?
+                AND request_id <> ? ${cohort ? "AND google_play_cohort = ?" : ""}
                 AND (
                   status = 'consumed' OR
                   (status = 'reserved' AND processing_expires_at > ?)
@@ -87,12 +90,13 @@ export async function reserveScanQuota(
           requestId,
           owner.session_id,
           now.toISOString(),
-          unlimited ? 1 : 0,
+          unlimited || (cohort && !existing.google_play_cohort) ? 1 : 0,
           existing.access_mode,
           now.toISOString(),
           owner.owner_type,
           owner.owner_id,
           requestId,
+          ...(cohort ? [existing.google_play_cohort ?? cohort] : []),
           now.toISOString(),
           FREE_SCAN_LIMIT,
         );
@@ -112,7 +116,7 @@ export async function reserveScanQuota(
           accessMode: existing.access_mode,
           requestStatus: "reserved",
           response: null,
-          quota: await readQuota(db, owner, now),
+          quota: await readQuota(db, owner, now, cohort),
         };
       }
       const claimedByPeer = await findRequest(db, requestId);
@@ -120,13 +124,13 @@ export async function reserveScanQuota(
         claimedByPeer?.status === "reserved" &&
         Date.parse(claimedByPeer.processing_expires_at ?? "") > now.getTime()
       ) {
-        return existingReservation(claimedByPeer, owner, db, now);
+        return existingReservation(claimedByPeer, owner, db, now, cohort);
       }
       if (existing.access_mode === "free") {
-        return { status: "exhausted", quota: await readQuota(db, owner, now) };
+        return { status: "exhausted", quota: await readQuota(db, owner, now, cohort) };
       }
     }
-    return existingReservation(existing, owner, db, now);
+    return existingReservation(existing, owner, db, now, cohort);
   }
 
   const timestamp = now.toISOString();
@@ -137,11 +141,11 @@ export async function reserveScanQuota(
     const insertStatement = db.prepare(`
         INSERT INTO scan_quota_request
           (request_id, owner_type, owner_id, session_id, access_mode, status,
-           processing_expires_at, attempts, created_at, updated_at)
-        SELECT ?, ?, ?, ?, ?, 'reserved', ?, ?, ?, ?
+           processing_expires_at, attempts, created_at, updated_at${cohort ? ", google_play_cohort" : ""})
+        SELECT ?, ?, ?, ?, ?, 'reserved', ?, ?, ?, ?${cohort ? ", ?" : ""}
         WHERE ? = 1 OR ? = 'premium' OR (
           SELECT COUNT(*) FROM scan_quota_request
-          WHERE owner_type = ? AND owner_id = ? AND access_mode = 'free'
+          WHERE owner_type = ? AND owner_id = ? AND access_mode = 'free' ${cohort ? "AND google_play_cohort = ?" : ""}
             AND (
               status = 'consumed' OR
               (status = 'reserved' AND processing_expires_at > ?)
@@ -158,10 +162,12 @@ export async function reserveScanQuota(
         startProcessing ? 1 : 0,
         timestamp,
         timestamp,
+        ...(cohort ? [cohort] : []),
         unlimited ? 1 : 0,
         accessMode,
         owner.owner_type,
         owner.owner_id,
+        ...(cohort ? [cohort] : []),
         timestamp,
         FREE_SCAN_LIMIT,
       );
@@ -181,7 +187,7 @@ export async function reserveScanQuota(
         accessMode,
         requestStatus: "reserved",
         response: null,
-        quota: await readQuota(db, owner, now),
+        quota: await readQuota(db, owner, now, cohort),
       };
     }
   } catch (error) {
@@ -189,8 +195,8 @@ export async function reserveScanQuota(
   }
 
   const raced = await findRequest(db, requestId);
-  if (raced) return existingReservation(raced, owner, db, now);
-  return { status: "exhausted", quota: await readQuota(db, owner, now) };
+  if (raced) return existingReservation(raced, owner, db, now, cohort);
+  return { status: "exhausted", quota: await readQuota(db, owner, now, cohort) };
 }
 
 export async function settleScanQuota(
@@ -201,6 +207,7 @@ export async function settleScanQuota(
   scanId: string | null,
   response: { body: unknown; status: number } | null = null,
   now = new Date(),
+  cohort: string | null = null,
 ): Promise<ScanQuotaSnapshot | null> {
   const timestamp = now.toISOString();
   const settled = await db
@@ -226,7 +233,7 @@ export async function settleScanQuota(
     )
     .run();
   if (settled.meta.changes === 1) {
-    return readQuota(db, owner, now);
+    return readQuota(db, owner, now, cohort);
   }
 
   const request = await findRequest(db, requestId);
@@ -238,7 +245,7 @@ export async function settleScanQuota(
   ) {
     return null;
   }
-  return readQuota(db, owner, now);
+  return readQuota(db, owner, now, cohort);
 }
 
 export async function releaseQueuedScanQuota(
@@ -247,6 +254,7 @@ export async function releaseQueuedScanQuota(
   requestId: string,
   response: { body: unknown; status: number },
   now = new Date(),
+  cohort: string | null = null,
 ): Promise<ScanQuotaSnapshot> {
   const timestamp = now.toISOString();
   await db
@@ -268,17 +276,18 @@ export async function releaseQueuedScanQuota(
       owner.session_id,
     )
     .run();
-  return readQuota(db, owner, now);
+  return readQuota(db, owner, now, cohort);
 }
 
 async function findRequest(
   db: D1Database,
   requestId: string,
+  includeCohort = false,
 ): Promise<RequestRow | null> {
   return db
     .prepare(`
       SELECT owner_type, owner_id, session_id, access_mode, status,
-        processing_expires_at, attempts, response_json, http_status
+        processing_expires_at, attempts, response_json, http_status ${includeCohort ? ", google_play_cohort" : ""}
       FROM scan_quota_request WHERE request_id = ? LIMIT 1
     `)
     .bind(requestId)
@@ -289,6 +298,7 @@ async function readQuota(
   db: D1Database,
   owner: Pick<AuthenticatedOwner, "owner_type" | "owner_id">,
   now = new Date(),
+  cohort: string | null = null,
 ): Promise<ScanQuotaSnapshot> {
   const row = await db
     .prepare(`
@@ -300,10 +310,10 @@ async function readQuota(
           AS consumed_count
       FROM scan_quota_request
       WHERE owner_type = ? AND owner_id = ?
-        AND access_mode = 'free'
+        AND access_mode = 'free' ${cohort ? "AND google_play_cohort = ?" : ""}
         AND status IN ('reserved', 'consumed')
     `)
-    .bind(now.toISOString(), owner.owner_type, owner.owner_id)
+    .bind(now.toISOString(), owner.owner_type, owner.owner_id, ...(cohort ? [cohort] : []))
     .first<{ reserved_count: number | null; consumed_count: number | null }>();
   const reserved = row?.reserved_count ?? 0;
   const consumed = row?.consumed_count ?? 0;
@@ -320,6 +330,7 @@ async function existingReservation(
   owner: AuthenticatedOwner,
   db: D1Database,
   now = new Date(),
+  cohort: string | null = null,
 ): Promise<ScanQuotaReservation> {
   if (
     row.owner_type !== owner.owner_type ||
@@ -333,7 +344,7 @@ async function existingReservation(
     accessMode: row.access_mode,
     requestStatus: row.status,
     response: parseResponse(row),
-    quota: await readQuota(db, owner, now),
+    quota: await readQuota(db, owner, now, cohort),
   };
 }
 

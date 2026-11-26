@@ -54,7 +54,8 @@ class PremiumTopEntry extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!ref.watch(appCommercialPolicyProvider).usesAppleSubscription) {
+    final policy = ref.watch(appCommercialPolicyProvider);
+    if (!policy.usesAppleSubscription && !policy.playSales) {
       return const SizedBox.shrink();
     }
     final premiumState = ref.watch(

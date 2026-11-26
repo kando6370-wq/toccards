@@ -13,7 +13,6 @@ import {
   verifyAppleTransaction,
 } from "./apple-signed-data";
 import { PREMIUM_ENTITLEMENT_ID } from "./premium-access";
-import { usesAndroidFreeLaunch } from "./platform-commercial-access";
 import { billingOrderFactStatements, businessStatusForAppleTransaction } from "./billing-order-facts";
 
 const CHALLENGE_TTL_MS = 10 * 60 * 1000;
@@ -69,7 +68,7 @@ export function createAppleRestoreRoutes(dependencies: Dependencies = {}): Hono<
     const auth = await authenticateOwner(c.env, c.req.header("Authorization"));
     if (auth.status === "internal_error") return internalError(c);
     if (auth.status === "unauthorized") return c.json({ success: false, error: { code: "UNAUTHORIZED", message: "Unauthorized." } }, 401);
-    if (usesAndroidFreeLaunch(auth.owner)) return c.json(applePlatformUnavailable, 403);
+    if (auth.owner.platform !== "ios") return c.json(applePlatformUnavailable, 403);
     const body = challengeBody(await readJson(c.req));
     if (!body) return validationError(c);
     const config = appAttestConfig(c.env);
@@ -121,7 +120,7 @@ export function createAppleRestoreRoutes(dependencies: Dependencies = {}): Hono<
     const auth = await authenticateOwner(c.env, c.req.header("Authorization"));
     if (auth.status === "internal_error") return internalError(c);
     if (auth.status === "unauthorized") return c.json({ success: false, error: { code: "UNAUTHORIZED", message: "Unauthorized." } }, 401);
-    if (usesAndroidFreeLaunch(auth.owner)) return c.json(applePlatformUnavailable, 403);
+    if (auth.owner.platform !== "ios") return c.json(applePlatformUnavailable, 403);
     const body = registrationBody(await readJson(c.req));
     if (!body) return validationError(c);
     const config = appAttestConfig(c.env);
@@ -166,7 +165,7 @@ export function createAppleRestoreRoutes(dependencies: Dependencies = {}): Hono<
     const auth = await authenticateOwner(c.env, c.req.header("Authorization"));
     if (auth.status === "internal_error") return internalError(c);
     if (auth.status === "unauthorized") return c.json({ success: false, error: { code: "UNAUTHORIZED", message: "Unauthorized." } }, 401);
-    if (usesAndroidFreeLaunch(auth.owner)) return c.json(applePlatformUnavailable, 403);
+    if (auth.owner.platform !== "ios") return c.json(applePlatformUnavailable, 403);
     const body = restoreBody(await readJson(c.req));
     if (!body || c.req.header("Idempotency-Key") !== body.requestId) return validationError(c);
     const config = appAttestConfig(c.env);

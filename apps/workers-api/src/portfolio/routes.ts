@@ -18,7 +18,7 @@ import {
   resolvePremiumAccess,
   type PremiumAccess,
 } from "../entitlements/premium-access";
-import { usesAndroidFreeLaunch } from "../entitlements/platform-commercial-access";
+import { platformAccess } from "../entitlements/platform-commercial-access";
 import { enrichCollectionDashboard } from "./collection-dashboard";
 import { loadPortfolioPerformance, parsePerformanceRange } from "./performance";
 import { loadValuationHistory } from "./valuation-history";
@@ -640,16 +640,12 @@ export function createPortfolioRoutes(
     }
 
     const days = positiveIntegerOrDefault(c.req.query("days"), 90, 365);
-    if (days > 90 && !usesAndroidFreeLaunch(auth.owner)) {
-      const access = await premiumAccess(
-        c.env,
-        auth.owner.session_id,
-        c.req.header(LOCAL_PREMIUM_STATE_HEADER),
-      );
+    if (days > 90) {
+      const { access, freeLaunch } = await platformAccess(c.env, auth.owner, c.req.header(LOCAL_PREMIUM_STATE_HEADER), premiumAccess);
       if (access === "sync_required") {
         return c.json(ENTITLEMENT_SYNC_REQUIRED_RESPONSE, 409);
       }
-      if (access !== "premium") return c.json(PREMIUM_REQUIRED_RESPONSE, 403);
+      if (!freeLaunch && access !== "premium") return c.json(PREMIUM_REQUIRED_RESPONSE, 403);
     }
     const folderIdValue = c.req.query("folder_id");
     const folderId = folderIdValue === undefined ? null : requiredString(folderIdValue);
@@ -679,16 +675,12 @@ export function createPortfolioRoutes(
 
     const range = parsePerformanceRange(c.req.query("range"));
     if (!range) return c.json(VALIDATION_ERROR_RESPONSE, 422);
-    if (!usesAndroidFreeLaunch(auth.owner)) {
-      const access = await premiumAccess(
-        c.env,
-        auth.owner.session_id,
-        c.req.header(LOCAL_PREMIUM_STATE_HEADER),
-      );
+    {
+      const { access, freeLaunch } = await platformAccess(c.env, auth.owner, c.req.header(LOCAL_PREMIUM_STATE_HEADER), premiumAccess);
       if (access === "sync_required") {
         return c.json(ENTITLEMENT_SYNC_REQUIRED_RESPONSE, 409);
       }
-      if (access !== "premium") return c.json(PREMIUM_REQUIRED_RESPONSE, 403);
+      if (!freeLaunch && access !== "premium") return c.json(PREMIUM_REQUIRED_RESPONSE, 403);
     }
 
     const folderId = requiredString(c.req.query("folder_id"));
@@ -710,16 +702,12 @@ export function createPortfolioRoutes(
 
     const range = parsePerformanceRange(c.req.query("range"));
     if (!range) return c.json(VALIDATION_ERROR_RESPONSE, 422);
-    if (!usesAndroidFreeLaunch(auth.owner)) {
-      const access = await premiumAccess(
-        c.env,
-        auth.owner.session_id,
-        c.req.header(LOCAL_PREMIUM_STATE_HEADER),
-      );
+    {
+      const { access, freeLaunch } = await platformAccess(c.env, auth.owner, c.req.header(LOCAL_PREMIUM_STATE_HEADER), premiumAccess);
       if (access === "sync_required") {
         return c.json(ENTITLEMENT_SYNC_REQUIRED_RESPONSE, 409);
       }
-      if (access !== "premium") return c.json(PREMIUM_REQUIRED_RESPONSE, 403);
+      if (!freeLaunch && access !== "premium") return c.json(PREMIUM_REQUIRED_RESPONSE, 403);
     }
 
     const item = await findCollectionItem(c.env.DB, auth.owner, c.req.param("item_id"));
@@ -1504,14 +1492,9 @@ export function createPortfolioRoutes(
 
     const now = new Date().toISOString();
     const folderId = idempotencyKey ?? createId();
-    const androidFreeLaunch = usesAndroidFreeLaunch(auth.owner);
-    const access = androidFreeLaunch
-      ? null
-      : await premiumAccess(
-          c.env,
-          auth.owner.session_id,
-          c.req.header(LOCAL_PREMIUM_STATE_HEADER),
-        );
+    const { access, freeLaunch: androidFreeLaunch } = await platformAccess(
+      c.env, auth.owner, c.req.header(LOCAL_PREMIUM_STATE_HEADER), premiumAccess,
+    );
     if (access === "sync_required") {
       return c.json(ENTITLEMENT_SYNC_REQUIRED_RESPONSE, 409);
     }

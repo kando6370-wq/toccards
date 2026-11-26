@@ -1,3 +1,4 @@
+import { PlayConfigs, PlayReport } from "./GooglePlay";
 import {
   Alert,
   Badge,
@@ -38,7 +39,7 @@ import {
 } from "./installation-analytics";
 
 type AdminRole = "super_admin" | "operator";
-type MenuKey = "installations" | "billing-orders" | "apple-notifications" | "users" | "feedbacks" | "scans" | "permissions" | "app-versions" | "subscription-configs";
+type MenuKey = "play-orders" | "play-notifications" | "play-configs" | "installations" | "billing-orders" | "apple-notifications" | "users" | "feedbacks" | "scans" | "permissions" | "app-versions" | "subscription-configs";
 type FeedbackStatus = "pending" | "processed" | "ignored";
 type PermissionStatus = "active" | "disabled";
 type AppVersionStatus = "enabled" | "disabled";
@@ -214,6 +215,8 @@ const menuGroups: Array<{ title: string; items: Array<{ key: MenuKey; label: str
     { key: "installations", label: "安装统计" },
     { key: "billing-orders", label: "订单统计" },
     { key: "apple-notifications", label: "苹果通知消息" },
+    { key: "play-orders", label: "Google Play 订单统计" },
+    { key: "play-notifications", label: "Google Play 通知" },
   ] },
   {
     title: "用户管理",
@@ -230,6 +233,9 @@ const menuGroups: Array<{ title: string; items: Array<{ key: MenuKey; label: str
 
 const pageMeta: Record<MenuKey, { title: string; description: string }> = {
   installations: { title: "安装分析", description: "查看各国家与平台安装趋势及明细数据。" },
+  "play-orders": {title:"Google Play 订单统计", description:"按 UTC 扣款和成功退款事件查询 Android 订单。"},
+  "play-notifications": {title:"Google Play 通知",description:"查看通知接收、验单与确认状态。"},
+  "play-configs": {title:"Google Play 订阅配置",description:"审批基础方案和优惠，管理订阅页与弹窗。"},
   "billing-orders": { title: "订单统计", description: "查询并查看用户订阅、续期、试用及 Lifetime 购买记录。" },
   "apple-notifications": { title: "苹果通知消息", description: "查询并查看 Apple App Store Server Notifications V2 订阅通知消息及完整通知内容，用于排查掉单、订单状态异常等问题。" },
   users: { title: "用户列表", description: "查看 App 用户的基础信息、登录身份和首次安装时间。" },
@@ -491,6 +497,9 @@ function AdminShell({ session, onLogout }: { session: AdminSession; onLogout: ()
             <Text>{new Date().toLocaleDateString()}</Text>
           </div>
           {selected === "installations" && <InstallationsPage session={session} />}
+          {(selected === "play-orders" || selected === "play-notifications") && <PlayReport accountKey={`${API_BASE}|${session.adminId}|${session.role}`} key={selected} mode={selected === "play-orders" ? "orders" : "notifications"} request={subscriptionRequest} superAdmin={session.role === "super_admin"} download={path=>downloadAdminFile(path,session,"google-play-orders.xlsx")} />}
+          {(selected === "subscription-configs" || selected === "play-configs") && <Segmented aria-label="订阅配置平台" value={selected} options={[{label:"iOS",value:"subscription-configs"},{label:"Google Play",value:"play-configs"}]} onChange={key=>void selectMenu(key as MenuKey)} />}
+          {selected === "play-configs" && <PlayConfigs accountKey={`${API_BASE}|${session.adminId}|${session.role}`} request={subscriptionRequest} superAdmin={session.role === "super_admin"} />}
           {selected === "billing-orders" && <BillingOrdersPage session={session} />}
           {selected === "apple-notifications" && <AppleNotificationsPage session={session} />}
           {selected === "users" && <UsersPage session={session} />}

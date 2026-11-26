@@ -1,14 +1,15 @@
-import { describe, expect, it } from "vitest";
-import {
-  platformCommercialAccess,
-  usesAndroidFreeLaunch,
-} from "./platform-commercial-access";
+import { describe, expect, it, vi } from "vitest";
+import type { Env } from "../env";
+import type { AuthenticatedOwner } from "../owner-auth";
+import { platformAccess } from "./platform-commercial-access";
 
-describe("platform-scoped free access", () => {
-  it("opens Android capabilities without treating legacy or iOS owners as Android", () => {
-    expect(platformCommercialAccess({ platform: "android" })).toBe("android_free_launch");
-    expect(platformCommercialAccess({ platform: "ios" })).toBe("ios_apple_entitlement");
-    expect(platformCommercialAccess({})).toBe("ios_apple_entitlement");
-    expect(usesAndroidFreeLaunch({ platform: "android" })).toBe(true);
+describe("platform-scoped access", () => {
+  it("keeps the free Android release usable without Apple credentials and delegates iOS to the verified Apple session", async () => {
+    const apple = vi.fn(async () => "sync_required" as const);
+    const owner = { platform: "android", session_id: "installation" } as AuthenticatedOwner;
+    expect(await platformAccess({} as Env, owner, "verified", apple)).toEqual({ access: "free", freeLaunch: true, cohort: null });
+    expect(apple).not.toHaveBeenCalled();
+    expect((await platformAccess({} as Env, { ...owner, platform: "ios" }, "verified", apple)).access).toBe("sync_required");
+    expect(apple).toHaveBeenCalledWith({}, "installation", "verified");
   });
 });

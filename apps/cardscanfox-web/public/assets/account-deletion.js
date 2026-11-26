@@ -63,6 +63,7 @@ export function initAccountDeletion(root,dependencies={}) {
   const emailError=required(root,'[data-deletion-email-error]');
   const scopeTitle=required(root,'[data-deletion-scope-title]');
   const scopeNotice=required(root,'[data-deletion-scope-notice]');
+  const androidSubscription=required(root,'[data-android-subscription]');
   const iosSubscription=required(root,'[data-ios-subscription]');
   const details=required(root,'[data-deletion-details]');
   const detailsTitle=required(root,'[data-deletion-details-title]');
@@ -85,6 +86,7 @@ export function initAccountDeletion(root,dependencies={}) {
   };
   const updateScope=()=>{
     const platform=normalizeDeletionPlatform(selectedPlatform());
+    androidSubscription.hidden=platform!=='android';
     iosSubscription.hidden=platform!=='ios';
     if(platform==='android'){
       scopeTitle.textContent='Your Android platform account and data';

@@ -31,6 +31,10 @@ class MethodChannelAndroidPlayIntegrity implements AndroidPlayIntegrity {
   Future<AndroidIntegrityEvidence?> createEvidence({
     required String deviceId,
   }) async {
+    return boundEvidence(deviceId: deviceId);
+  }
+
+  Future<AndroidIntegrityEvidence?> boundEvidence({required String deviceId, String? sessionId}) async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return null;
     if (_cloudProjectNumber.trim().isEmpty) {
       if (AppConfig.isTestEnvironment) {
@@ -49,7 +53,7 @@ class MethodChannelAndroidPlayIntegrity implements AndroidPlayIntegrity {
     final response = await _channel
         .invokeMapMethod<String, String>('requestStandardIntegrityToken', {
           'cloud_project_number': _cloudProjectNumber,
-          'request_payload': '$deviceId\nandroid\n$requestNonce',
+          'request_payload': [deviceId, 'android', requestNonce, ?sessionId].join('\n'),
         })
         .timeout(
           _requestTimeout,

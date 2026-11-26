@@ -11,12 +11,12 @@ describe("public legal routes", () => {
     expect(response.headers.get("x-frame-options")).toBe("DENY");
     expect(html).toContain("<title>Terms of Use | CardScanFox</title>");
     expect(html).toContain("CARDSCANFOX");
-    expect(html).toContain("Version date: November 17, 2026");
+    expect(html).toContain("Version date: November 26, 2026");
     expect(html).toContain("By using CardScanFox");
     expect(html).toContain("separate platform accounts and personal data spaces");
     expect(html).toContain("We do not use your uploaded images or scan records for model training");
     expect(html).toContain("maximum of 10 cards in a scan batch");
-    expect(html).toContain("current Android release provides its available features without subscriptions");
+    expect(html).toContain("Deleting your Android app account does not cancel your Google Play subscription");
     expect(html).toContain("All billing, refunds, cancellations, and payment issues for App Store purchases are handled by Apple");
     expect(html).toContain("23.OPEN SOURCE AND MODEL LICENSES");
     expect(html).toContain("Apache License");
@@ -31,12 +31,12 @@ describe("public legal routes", () => {
 
     expect(response.status).toBe(200);
     expect(html).toContain("<title>Privacy Policy | CardScanFox</title>");
-    expect(html).toContain("Version date: November 17, 2026");
+    expect(html).toContain("Version date: November 26, 2026");
     expect(html).toContain("iOS and Android applications");
     expect(html).toContain("the image is uploaded to our server for identification");
     expect(html).toContain("do not use your uploaded images or scan records to train machine-learning or AI models");
     expect(html).toContain("do not request or collect precise GPS location");
-    expect(html).toContain("current Android release has no subscriptions or in-app purchases");
+    expect(html).toContain("To verify and restore a purchase we process a pseudonymous Android account identifier");
     expect(html).toContain("separate platform accounts and personal data spaces");
     expect(html).toContain("does not automatically or immediately erase records already held in Firebase");
     expect(html).toContain("must register again");

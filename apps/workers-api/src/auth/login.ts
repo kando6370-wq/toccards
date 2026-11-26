@@ -1,3 +1,4 @@
+import { insertPlatformSession } from "../google-play/session-build";
 import {
   ACCESS_TOKEN_EXPIRES_IN_SECONDS,
   createRefreshToken,
@@ -185,7 +186,7 @@ export function registerEmailLoginRoutes(
       const refreshToken = createRefreshToken();
       const hashedRefreshToken = await hashRefreshToken(refreshToken);
 
-      lockedStatements.push(c.env.DB.prepare(INSERT_LOGIN_USER_SESSION_SQL).bind(
+      lockedStatements.push(insertPlatformSession(c.env.DB, platformResult.build, INSERT_LOGIN_USER_SESSION_SQL,
           sessionId,
           platformAccount.id,
           hashedRefreshToken,

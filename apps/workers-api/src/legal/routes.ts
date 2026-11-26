@@ -20,7 +20,7 @@ export function createLegalRoutes(): Hono<{ Bindings: Env }> {
       legalPage(
         "Terms of Use",
         termsContent(),
-        "November 17, 2026",
+        "November 26, 2026",
         true,
         "support@tcgcard.fun",
       ),
@@ -33,7 +33,7 @@ export function createLegalRoutes(): Hono<{ Bindings: Env }> {
       legalPage(
         "Privacy Policy",
         privacyContent(),
-        "November 17, 2026",
+        "November 26, 2026",
         true,
         "support@tcgcard.fun",
       ),
@@ -163,7 +163,7 @@ function termsContent(): string {
 <p>You should keep your own backup of important records where necessary.</p>
 <h2>8. Platform Access, Subscriptions, and In-App Purchases</h2>
 <h3>Android</h3>
-<p>The current Android release provides its available features without subscriptions or in-app purchases and does not include AI Grade. Free Android access is separate from iOS purchase entitlements. If paid Android features are introduced later, their prices and conditions will be disclosed before purchase; use of the current free release does not authorize a future charge.</p>
+<p>People using the original free Android release keep its free access. Where an Android subscription is offered, Google Play displays the local price, billing period, eligible trial and renewal terms before you confirm. Subscriptions renew automatically until canceled. Manage or cancel yours in <a href="https://play.google.com/store/account/subscriptions">Google Play subscriptions</a>. Deleting your Android app account does not cancel your Google Play subscription. A purchase belongs to the Android app account used at checkout. Sign in to that account and use Restore purchases with the original Play account after changing devices.</p>
 <h3>iOS</h3>
 <p>On iOS, CardScanFox may offer paid subscriptions, free trials, premium features, or other in-app purchases through Apple’s in-app purchase system.</p>
 <p>If you purchase a subscription:</p>
@@ -509,7 +509,7 @@ function privacyContent(): string {
 <p>On iOS, access to the advertising identifier and tracking subject to Apple&#39;s permission requirements depend on the applicable device permission. On Android, the availability of the advertising identifier depends on device settings and applicable platform controls.</p>
 <h3>iOS purchases</h3>
 <p>Apple handles payment for purchases made through the App Store. To determine iOS access to purchased features, the iOS app uses purchase and subscription information supplied by Apple, such as product identifiers, transaction information, and current entitlement status. We do not receive your complete payment-card details from Apple.</p>
-<p>The current Android release has no subscriptions or in-app purchases. Apple purchase rights are not used to restrict access to the free Android release.</p>
+<p>Android subscriptions, where offered, are processed by Google Play. To verify and restore a purchase we process a pseudonymous Android account identifier, purchase token, order ID, plan, payment and refund events, currency, and subscription status. We retain transaction records as needed for delivery, reconciliation, support and applicable recordkeeping. The original free Android release continues to provide its free features.</p>
 <h3>Support communications</h3>
 <p>If you email us or submit a support or deletion request, we process your contact information, message, and any attachments you voluntarily provide to respond and handle the request. We do not access your email inbox or collect unrelated emails from your device.</p>
 <h2>2. How We Use Information</h2>
@@ -521,7 +521,7 @@ function privacyContent(): string {
 </li>
 <li><p>Store and retrieve records within the relevant platform account.</p>
 </li>
-<li><p>Determine iOS purchase access and provide free Android access.</p>
+<li><p>Determine subscription access in the corresponding iOS or Android account and preserve eligible free Android access.</p>
 </li>
 <li><p>Analyze feature usage, diagnose crashes, and improve reliability.</p>
 </li>
@@ -537,7 +537,7 @@ function privacyContent(): string {
 <h2>3. Android and iOS Data Separation</h2>
 <p>Android and iOS have <strong>separate platform accounts and personal data spaces</strong>, even where they use shared databases or authentication infrastructure.</p>
 <p>Signing in with the same email address or identity provider on both platforms does not automatically merge or synchronize collections, Wishlist, folders, scan images or records, preferences, or collection-value records. Public card catalog and price-reference data may be shared between platforms.</p>
-<p>Apple purchase entitlements apply to iOS. Android free access is separate. Deleting one platform account does not delete the separate account or records on the other platform. A shared authentication record needed for the other active platform may remain for that purpose; it does not restore the deleted platform account.</p>
+<p>Apple purchase entitlements apply to iOS. Google Play entitlements apply to the corresponding Android account. Deleting one platform account does not delete the separate account or records on the other platform. A shared authentication record needed for the other active platform may remain for that purpose; it does not restore the deleted platform account.</p>
 <h2>4. Service Providers and Other Recipients</h2>
 <p>Our analytics, attribution, and crash-reporting SDK providers are <strong>Firebase, Mixpanel, and Singular</strong>.</p>
 <table>

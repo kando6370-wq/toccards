@@ -19,7 +19,7 @@ function page({clipboard,openMailto}={}){
  const map=new Map([
   ['[data-deletion-email]',email],['[data-open-deletion-email]',open],['[data-copy-deletion-request]',copy],
   ['[data-deletion-platform-error]',platformError],['[data-deletion-email-error]',emailError],['[data-deletion-scope-title]',scopeTitle],
-  ['[data-deletion-scope-notice]',scopeNotice],['[data-ios-subscription]',iosSubscription],['[data-deletion-details]',details],
+  ['[data-deletion-scope-notice]',scopeNotice],['[data-ios-subscription]',iosSubscription],['[data-android-subscription]',new FakeElement({hidden:true})],['[data-deletion-details]',details],
   ['[data-deletion-details-title]',detailsTitle],['[data-deletion-template]',template],['[data-deletion-status]',status],
  ]);
  const root={querySelector:selector=>map.get(selector)??null,querySelectorAll:selector=>selector==='input[data-deletion-platform]'?[android,ios]:[]};

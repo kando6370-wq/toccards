@@ -158,7 +158,7 @@
           "alt": ""
         }
       ],
-      "htmlSha256": "45c12a039f534ffb63bcc454b59af9f0c12a2b0b93647bbe1ed16fcf15ad97c8",
+      "htmlSha256": "1b1405d57b9af892654287ebd788ec8dfd195814d24fee2a884c65be52a0eaf4",
       "localPublicFile": "apps/marketing-web/public/index.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented",
@@ -2985,7 +2985,7 @@
         "/terms"
       ],
       "contentImages": [],
-      "htmlSha256": "627253be6228b842a7c75eeca3761cda2859d1ed61dd7c1bd2d23a0fffaf97df",
+      "htmlSha256": "fc8ca107f8b9bafc02b71d56da974160744b43d1162f86af1c7c223d15979071",
       "localPublicFile": "apps/marketing-web/public/privacy.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented"
@@ -3041,7 +3041,7 @@
         "/terms"
       ],
       "contentImages": [],
-      "htmlSha256": "239d137eb5406dd44731607fedcabd076c7a6ca6917514d635aec1f7462d8caf",
+      "htmlSha256": "6d9873ef68990b9791b4f6a81cfad8d0dcea373b63d9dcdd62edb39330cae4b8",
       "localPublicFile": "apps/marketing-web/public/terms.html",
       "localBodyMatchesLive": false,
       "newProjectMigrationStatus": "notImplemented"

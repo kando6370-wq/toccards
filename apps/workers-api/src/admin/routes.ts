@@ -1,3 +1,4 @@
+import { playAdmin } from "./google-play";
 import { allowedAppleProductIds } from "../entitlements/apple-product-policy";
 import {
   ACCESS_TOKEN_EXPIRES_IN_SECONDS,
@@ -680,6 +681,7 @@ adminRoutes.post("/auth/refresh", async (c) => {
 });
 
 adminRoutes.use("*", requireAdmin);
+adminRoutes.route("/google-play", playAdmin);
 adminRoutes.route("/", createSubscriptionConfigAdminRoutes());
 
 adminRoutes.post("/auth/logout", async (c) => {
