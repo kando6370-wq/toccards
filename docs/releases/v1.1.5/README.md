@@ -19,6 +19,8 @@ v1.1.4 已于 2026-11-26 原位归档。本版本承接自本日期起的新增�
 
 - [Google Play 订阅配置内部包 1.0.8+221](05-delivery/google-play-internal-221.md)记录已发布的 Internal 版本、订阅入口及账号权限。
 
+- [Linux dev 重新部署验收（2026-11-27）](05-delivery/linux-dev-redeploy-20261127.md)记录 `dev@682c092a` 推送、watcher 发布、运行回读及手工发布的 Node 版本边界。
+
 - 客户端、服务端与后台的本地实现、默认开关、双端回归和商业化验收见 [Google Play 订阅与对账](03-data-api/google-play.md)。
 
 ## 文档路由
