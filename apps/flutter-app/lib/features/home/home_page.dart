@@ -27,6 +27,7 @@ import '../collection/collection_page.dart';
 import '../collection/collection_controller.dart';
 import '../collection/collection_models.dart';
 import '../subscription/subscription_controller.dart';
+import '../subscription/subscription_navigation.dart';
 import '../subscription/subscription_entitlement_cache.dart';
 import '../subscription/premium_top_entry.dart';
 import 'home_controller.dart';
@@ -77,7 +78,7 @@ class _HomePageState extends ConsumerState<HomePage>
       subscriptionControllerProvider.select((value) => value.premiumState),
     );
     final freePremiumFeatures = ref.watch(
-      appCommercialPolicyProvider.select(
+      subscriptionAccessPolicyProvider.select(
         (value) => value.hasFreePremiumFeatures,
       ),
     );
@@ -173,10 +174,9 @@ class _HomePageState extends ConsumerState<HomePage>
                         range,
                         folderId: state.selectedFolderId,
                       ),
-                      onUnlock: () => _unlockPerformance(
-                        context,
-                        folderId: state.selectedFolderId,
-                      ),
+                      onUnlock: !isPro && ref.watch(subscriptionModalEntryVisibleProvider)
+                          ? () => _unlockPerformance(context, folderId: state.selectedFolderId)
+                          : null,
                       onRefresh: () =>
                           _loadPerformance(state.selectedFolderId, force: true),
                       onTopPerformerPressed: (performer) => context.push(
@@ -287,7 +287,7 @@ class _HomePageState extends ConsumerState<HomePage>
       return;
     }
     if (premiumState == AppPremiumState.unknown) return;
-    final result = await context.push<SubscriptionPaywallResult>(
+    final result = await context.openSubscriptionPaywall(
       subscriptionSheetLocation(scene: AnalyticsValue.sceneHomePerformance),
     );
     if (!mounted || !context.mounted || result == null) return;
@@ -314,13 +314,13 @@ class _HomePageState extends ConsumerState<HomePage>
     required AppPremiumState premiumState,
   }) async {
     if (range == HomeChartRange.oneYear &&
-        !ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
+        !ref.read(subscriptionAccessPolicyProvider).hasFreePremiumFeatures) {
       final resolved = premiumState == AppPremiumState.unknown
           ? await _resolvePremiumForRestrictedAction()
           : premiumState;
       if (!context.mounted || resolved == AppPremiumState.unknown) return;
       if (resolved == AppPremiumState.free) {
-        final result = await context.push<SubscriptionPaywallResult>(
+        final result = await context.openSubscriptionPaywall(
           subscriptionSheetLocation(scene: AnalyticsValue.sceneTimeRange),
         );
         if (!context.mounted || result == null) return;
@@ -339,7 +339,7 @@ class _HomePageState extends ConsumerState<HomePage>
   }
 
   Future<AppPremiumState> _resolvePremiumForRestrictedAction() async {
-    if (ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
+    if (ref.read(subscriptionAccessPolicyProvider).hasFreePremiumFeatures) {
       return AppPremiumState.premium;
     }
     final current = ref.read(subscriptionControllerProvider).premiumState;
@@ -812,7 +812,7 @@ class _PerformanceSection extends StatefulWidget {
   final VoidCallback onHidePressed;
   final VoidCallback onFolderPressed;
   final ValueChanged<PerformanceRange> onRangeSelected;
-  final VoidCallback onUnlock;
+  final VoidCallback? onUnlock;
   final VoidCallback onRefresh;
   final ValueChanged<PortfolioTopPerformerDto> onTopPerformerPressed;
   final VoidCallback onViewAllTopPerformers;

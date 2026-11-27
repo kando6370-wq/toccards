@@ -82,6 +82,7 @@ export function registerOAuthRoutes(routes: Hono<{ Bindings: Env }>): void {
         c.req.header("Authorization"),
         new Date(),
         platformResult.platform,
+        platformResult.build,
       );
 
       return c.json({

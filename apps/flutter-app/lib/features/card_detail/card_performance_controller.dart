@@ -89,7 +89,7 @@ class CardPerformanceController extends Notifier<CardPerformanceState> {
       } on PortfolioApiException catch (error) {
         if (error.statusCode != 409 ||
             error.code != 'ENTITLEMENT_SYNC_REQUIRED' ||
-            ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
+            ref.read(subscriptionAccessPolicyProvider).hasFreePremiumFeatures) {
           rethrow;
         }
         final reconciliation = await ref

@@ -14,6 +14,8 @@ import { retryAppleServerApiCorrections } from "./entitlements/apple-server-api-
 import { createAppleRestoreRoutes } from "./entitlements/restore-routes";
 import { createEntitlementRoutes } from "./entitlements/routes";
 import type { Env } from "./env";
+import { notificationRoutes, runGooglePlayTasks } from "./google-play/notifications";
+import { playRoutes } from "./google-play/routes";
 import { createExtensionRoutes } from "./extension/routes";
 import { createFeedbackRoutes } from "./feedback/routes";
 import { createLegalRoutes } from "./legal/routes";
@@ -66,6 +68,8 @@ api.route("/", createFeedbackRoutes());
 api.route("/", createLegalRoutes());
 api.route("/", createPortfolioRoutes());
 api.route("/", createScanRoutes());
+api.route("/", playRoutes);
+api.route("/", notificationRoutes);
 api.route("/", createEntitlementRoutes());
 api.route("/", createAppleRestoreRoutes());
 api.route("/", createAppleNotificationRoutes());
@@ -73,8 +77,10 @@ api.route("/", createAppleNotificationRoutes());
 app.notFound((context) => context.json({ error: "NOT_FOUND" }, 404));
 
 export async function runScheduledTasks(env: Env): Promise<void> {
-  await retryAppleNotificationInbox(env);
-  await retryAppleServerApiCorrections(env);
+  await Promise.all([
+    (async () => { await retryAppleNotificationInbox(env); await retryAppleServerApiCorrections(env); })(),
+    runGooglePlayTasks(env).catch(() => console.error("Google Play scheduled processing failed")),
+  ]);
 }
 
 function allowedOrigins(configuredOrigins: string | undefined): Set<string> {

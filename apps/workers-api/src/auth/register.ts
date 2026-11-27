@@ -1,3 +1,4 @@
+import { insertPlatformSession } from "../google-play/session-build";
 import { hashPassword, verifyPassword } from "@kando/auth-core";
 import type { Hono } from "hono";
 import { reserveAccountUid } from "../account-uid";
@@ -483,7 +484,7 @@ export function registerEmailRegistrationRoutes(
             ),
           );
         }
-        statements.push(c.env.DB.prepare(INSERT_USER_SESSION_SQL).bind(
+        statements.push(insertPlatformSession(c.env.DB, platformResult.build, INSERT_USER_SESSION_SQL,
           session.sessionId, dataSpaceId, session.hashedRefreshToken, session.expiresAt,
           createdAt, platformResult.platform, existingUser.id, verificationCode.id, createdAt,
         ));
@@ -567,7 +568,7 @@ export function registerEmailRegistrationRoutes(
           migrationStatements.userPreference,
           migrationStatements.scanRecords,
           migrationStatements.consumedFreeScanQuota,
-          c.env.DB.prepare(INSERT_MIGRATED_USER_SESSION_SQL).bind(
+          insertPlatformSession(c.env.DB, platformResult.build, INSERT_MIGRATED_USER_SESSION_SQL,
             session.sessionId,
             dataSpaceId,
             session.hashedRefreshToken,
@@ -663,7 +664,7 @@ export function registerEmailRegistrationRoutes(
             verificationCode.id,
             createdAt,
           ),
-          c.env.DB.prepare(INSERT_USER_SESSION_SQL).bind(
+          insertPlatformSession(c.env.DB, platformResult.build, INSERT_USER_SESSION_SQL,
             session.sessionId,
             dataSpaceId,
             session.hashedRefreshToken,

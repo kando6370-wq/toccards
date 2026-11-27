@@ -31,6 +31,8 @@ import 'package:kando_app/shared/analytics/analytics_events.dart';
 import 'package:kando_app/shared/analytics/app_analytics.dart';
 import 'package:kando_app/shared/card_image/kando_card_image.dart';
 import 'package:kando_app/shared/platform/app_commercial_policy.dart';
+import 'package:kando_app/shared/portfolio/portfolio_api_client.dart'
+    show duplicateCollectionItemErrorCode, duplicateCollectionItemMessage;
 import 'package:kando_app/shared/scan/scan_api_client.dart';
 import 'package:kando_app/shared/ui/kando_style.dart';
 import 'package:kando_app/shared/ui/toast.dart';
@@ -3593,6 +3595,95 @@ void main() {
     },
   );
 
+  for (final (platform, duplicate) in [
+    (TargetPlatform.android, false),
+    (TargetPlatform.iOS, false),
+    (TargetPlatform.android, true),
+    (TargetPlatform.iOS, true),
+  ]) {
+    testWidgets(
+      'Bulk review on ${platform.name} with a ${duplicate ? 'duplicate SKU' : 'confirmed scan'}',
+      (tester) async {
+        final repository = _FakeScanReviewRepository(
+          failuresByScanId: {
+            'scan-one': duplicate
+                ? const ScanApiException(
+                    duplicateCollectionItemMessage,
+                    code: duplicateCollectionItemErrorCode,
+                  )
+                : const ScanApiException(
+                    'Scan is already confirmed.',
+                    code: 'CONFLICT',
+                  ),
+          },
+        );
+        final source = _TestScanResultSource(
+          photoResult: Future.value(
+            const ScanResolution.matched(
+              scanId: 'scan-one',
+              cardRef: 'card-mega',
+              matchName: 'Mega Lucario ex',
+              candidates: ['Mega Lucario ex'],
+            ),
+          ),
+          subsequentPhotoResults: [
+            Future.value(
+              const ScanResolution.matched(
+                scanId: 'scan-two',
+                cardRef: 'card-charizard',
+                matchName: 'Charizard ex',
+                candidates: ['Charizard ex'],
+              ),
+            ),
+          ],
+        );
+        await _pumpScanTestApp(
+          tester,
+          platform: platform,
+          commercialPolicy: AppCommercialPolicy(
+            isAndroidFreeLaunch: platform == TargetPlatform.android,
+          ),
+          scanResultSource: source,
+          scanReviewRepository: repository,
+        );
+        for (var i = 0; i < 2; i++) {
+          await tester.tap(find.byTooltip('Take Photo'));
+          await _completeFigmaScan(tester);
+        }
+        await tester.tap(find.text('DONE'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('ADD ALL CARDS'));
+        await tester.pump();
+        await tester.pump();
+        expect(
+          find.text(portfolioCardsAddedToastText(duplicate ? 1 : 2)),
+          findsOneWidget,
+        );
+        if (duplicate) {
+          expect(find.text(duplicateCollectionItemMessage), findsOneWidget);
+        }
+        await tester.pump(kandoCenteredSuccessToastDuration);
+        await tester.pumpAndSettle();
+        expect(repository.confirmedScanIds, ['scan-two']);
+        expect(
+          find.text('Review your matches'),
+          duplicate ? findsOneWidget : findsNothing,
+        );
+        if (duplicate) {
+          expect(
+            find.byKey(const Key('scan-review-form-1-card-mega')),
+            findsOneWidget,
+          );
+          expect(
+            find.byKey(const Key('scan-review-form-2-card-charizard')),
+            findsNothing,
+          );
+          await tester.pump(kandoTopToastDuration);
+        }
+      },
+    );
+  }
+
   testWidgets(
     'Review form dismisses the keyboard when tapping outside fields',
     (tester) async {
@@ -6291,12 +6382,14 @@ class _TestScanQuotaController extends ScanQuotaController {
 class _FakeScanReviewRepository implements ScanReviewRepository {
   _FakeScanReviewRepository({
     this.failure,
+    this.failuresByScanId = const {},
     this.rawPrice = 25,
     this.availableLanguages = const ['English'],
     this.availableFinishes = const ['Holofoil'],
   });
 
   final Exception? failure;
+  final Map<String, Exception> failuresByScanId;
   final double rawPrice;
   final List<String> availableLanguages;
   final List<String> availableFinishes;
@@ -6362,7 +6455,7 @@ class _FakeScanReviewRepository implements ScanReviewRepository {
     required String scanId,
     required ScanCollectionItemInput item,
   }) async {
-    final failure = this.failure;
+    final failure = failuresByScanId[scanId] ?? this.failure;
     if (failure != null) throw failure;
     confirmedScanIds.add(scanId);
     confirmedItems.add(item);

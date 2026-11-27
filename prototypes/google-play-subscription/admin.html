@@ -1,0 +1,1313 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <!-- 离线评审使用仓库内既有资源 apps/flutter-app/assets/branding/card_ai_mark.svg。 -->
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>TCG Admin · Google Play 订阅运营</title>
+    <style>
+      :root {
+        font-family: Inter, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+        background: #f3f6f7;
+        color: #172b34;
+        --nav: #14212f;
+        --teal: #087c85;
+        --line: #dce4e7;
+        --gray: #546976;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+      button,
+      a,
+      select {
+        touch-action: manipulation;
+      }
+      button,
+      a {
+        cursor: pointer;
+      }
+      button:focus-visible,
+      a:focus-visible,
+      input:focus-visible,
+      select:focus-visible {
+        outline: 3px solid #1299a5;
+        outline-offset: 2px;
+      }
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.56;
+      }
+      button {
+        color: inherit;
+      }
+      .app {
+        min-height: 100vh;
+        display: grid;
+        grid-template-columns: 188px minmax(0, 1fr);
+      }
+      aside {
+        background: var(--nav);
+        color: #dce6eb;
+        padding: 24px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 0 4px;
+      }
+      .brand img {
+        width: 30px;
+        height: 30px;
+      }
+      .brand strong,
+      .brand small {
+        display: block;
+      }
+      .brand strong {
+        font-size: 18px;
+        letter-spacing: -0.035em;
+      }
+      .brand small {
+        color: #9cb1c1;
+        font-size: 10px;
+      }
+      .navgroup h2 {
+        font-size: 11px;
+        color: #9fb2c1;
+        margin: 16px 9px 7px;
+        font-weight: 650;
+      }
+      .navgroup button {
+        width: 100%;
+        text-align: left;
+        background: transparent;
+        border: 0;
+        border-radius: 6px;
+        color: #d6e0e6;
+        padding: 9px 10px;
+        font-size: 13px;
+        margin: 2px 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .navgroup button.active {
+        background: #283d4b;
+        color: white;
+        box-shadow: inset 3px 0 #45c6ce;
+      }
+      .navgroup svg {
+        width: 15px;
+        height: 15px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 1.6;
+      }
+      .account {
+        padding: 12px 5px 0;
+        margin-top: auto;
+        border-top: 1px solid #3b4c59;
+      }
+      .account label {
+        display: grid;
+        gap: 7px;
+        font-size: 11px;
+        color: #b9c9d3;
+      }
+      .account select {
+        color: #e1ecee;
+        background: #213340;
+        border-color: #435764;
+      }
+      .content {
+        min-width: 0;
+      }
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px clamp(16px, 3vw, 43px);
+        min-height: 54px;
+        background: white;
+        border-bottom: 1px solid var(--line);
+        font-size: 12px;
+        color: var(--gray);
+      }
+      .topbar a {
+        color: var(--teal);
+        font-size: 13px;
+        font-weight: 650;
+        text-decoration: none;
+      }
+      .main {
+        max-width: 1520px;
+        margin: auto;
+        padding: 25px clamp(15px, 3.1vw, 48px) 40px;
+      }
+      .topline,
+      .split,
+      .opbar,
+      .chips,
+      .toolbar,
+      .tabs,
+      .keyline {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+      .topline,
+      .split,
+      .opbar {
+        justify-content: space-between;
+      }
+      .topline {
+        align-items: flex-end;
+        margin-bottom: 16px;
+      }
+      .lead {
+        margin: 0;
+        color: #657882;
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .scope {
+        margin: 0 0 5px;
+        font:
+          650 11px Consolas,
+          monospace;
+        color: #376773;
+        letter-spacing: 0.035em;
+      }
+      h1 {
+        font-size: clamp(26px, 2.4vw, 36px);
+        letter-spacing: -0.05em;
+        line-height: 1.17;
+        margin: 4px 0 8px;
+      }
+      h2,
+      h3 {
+        margin: 0;
+        letter-spacing: -0.025em;
+      }
+      h2 {
+        font-size: 17px;
+      }
+      h3 {
+        font-size: 15px;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        border-radius: 5px;
+        white-space: nowrap;
+        padding: 3px 7px;
+        font-size: 11px;
+        background: #e8eff2;
+        color: #3e5967;
+      }
+      .badge.good {
+        background: #dbf2e9;
+        color: #116143;
+      }
+      .badge.warn {
+        background: #fff0d7;
+        color: #805415;
+      }
+      .badge.bad {
+        background: #fee5e3;
+        color: #9b332e;
+      }
+      .badge.info {
+        background: #e2f1f6;
+        color: #1b657d;
+      }
+      .btn,
+      .tabs button {
+        border: 1px solid #c9d5da;
+        background: white;
+        border-radius: 6px;
+        padding: 7px 12px;
+        font-size: 13px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .btn.primary {
+        background: #136d76;
+        color: white;
+        border-color: #136d76;
+      }
+      .btn.text {
+        padding: 3px 1px;
+        border: 0;
+        background: none;
+        color: var(--teal);
+        font-weight: 650;
+        text-decoration: none;
+      }
+      .btn.danger {
+        color: #993c31;
+      }
+      .tabs {
+        gap: 4px;
+        display: inline-flex;
+        background: #e4ebee;
+        padding: 4px;
+        border-radius: 8px;
+      }
+      .tabs button {
+        border: 0;
+        background: transparent;
+        color: #516876;
+      }
+      .tabs button[aria-pressed="true"] {
+        color: #143640;
+        background: white;
+        box-shadow: 0 1px 4px #192f3a1a;
+      }
+      .paper {
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        margin: 14px 0;
+        padding: 17px;
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin: 15px 0;
+      }
+      .metric {
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 14px;
+      }
+      .metric > span,
+      .metric small {
+        display: block;
+        font-size: 12px;
+        color: var(--gray);
+      }
+      .metric b {
+        display: block;
+        font-size: clamp(20px, 2.3vw, 32px);
+        font-weight: 650;
+        letter-spacing: -0.055em;
+        margin: 6px 0 2px;
+        font-variant-numeric: tabular-nums;
+      }
+      .metric.net {
+        border-color: #92c8c7;
+        background: #f1f9f7;
+      }
+      .sub {
+        font-size: 12px;
+        color: var(--gray);
+        line-height: 1.6;
+      }
+      .filters,
+      .cfgform {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
+        gap: 12px;
+        align-items: end;
+      }
+      .filters {
+        margin: 0 0 13px;
+      }
+      .field {
+        display: grid;
+        gap: 5px;
+        min-width: 0;
+        font-size: 12px;
+        color: #4c6470;
+        font-weight: 650;
+      }
+      select,
+      input {
+        min-width: 0;
+        width: 100%;
+        border: 1px solid #c6d4da;
+        border-radius: 6px;
+        background: white;
+        padding: 7px 8px;
+        color: #263c47;
+        font-size: 13px;
+      }
+      .toolbar {
+        flex-wrap: wrap;
+      }
+      .tablewrap {
+        max-width: 100%;
+        overflow-x: auto;
+        margin: 11px -2px 0;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 10px 8px;
+        border-bottom: 1px solid #e4ebed;
+      }
+      th {
+        background: #f3f6f7;
+        color: #536a77;
+        font-size: 11px;
+      }
+      td small {
+        display: block;
+        color: #697d88;
+        font-size: 11px;
+      }
+      .num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .mono {
+        font-family: "IBM Plex Mono", Consolas, monospace;
+      }
+      .empty {
+        text-align: center;
+        padding: 28px;
+        color: #687c86;
+      }
+      .hint,
+      .toast {
+        border-left: 3px solid #36a5a6;
+        border-radius: 4px;
+        background: #edf6f5;
+        padding: 9px 12px;
+        font-size: 12px;
+        line-height: 1.55;
+        color: #375f60;
+      }
+      .toast {
+        margin: 10px 0;
+        border-color: #4d9273;
+        background: #eaf6ed;
+        color: #245f41;
+      }
+      .hint.warn {
+        background: #fff5e7;
+        border-color: #c88b37;
+        color: #775322;
+      }
+      .tabspace {
+        margin: 12px 0;
+      }
+      .opbar {
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .opbar .toolbar a {
+        display: inline-block;
+      }
+      .smallgrid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 15px;
+      }
+      .kv {
+        display: grid;
+        grid-template-columns: minmax(85px, 0.6fr) minmax(0, 1.4fr);
+        gap: 9px 12px;
+        font-size: 13px;
+        margin: 12px 0;
+      }
+      .kv dt {
+        color: #5d7380;
+      }
+      .kv dd {
+        margin: 0;
+        overflow-wrap: anywhere;
+      }
+      .cfgform {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        margin: 13px 0;
+      }
+      .cfgform input[type="checkbox"] {
+        width: auto;
+        accent-color: var(--teal);
+      }
+      .check {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        font-size: 13px;
+      }
+      .footnote {
+        font-size: 11px;
+        line-height: 1.5;
+        color: #697c86;
+        margin: 12px 0 0;
+      }
+      dialog {
+        width: min(490px, 94vw);
+        max-height: 88vh;
+        overflow: auto;
+        padding: 0;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        color: #1e3139;
+        box-shadow: 0 24px 90px #10282b35;
+      }
+      dialog::backdrop {
+        background: #0d24355c;
+      }
+      .dhead,
+      .dbody {
+        padding: 17px 20px;
+      }
+      .dhead {
+        position: sticky;
+        top: 0;
+        background: white;
+        border-bottom: 1px solid var(--line);
+        z-index: 1;
+        display: flex;
+        gap: 9px;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .timeline {
+        list-style: none;
+        margin: 12px 0;
+        padding: 0;
+        border-left: 2px solid #b2cdce;
+      }
+      .timeline li {
+        padding: 0 0 12px 12px;
+        font-size: 13px;
+      }
+      .timeline li small {
+        display: block;
+        color: #627983;
+      }
+      .ios {
+        padding: 22px;
+      }
+      .ios p {
+        line-height: 1.65;
+      }
+      .navgroup button:hover,
+      .btn:hover:not(:disabled) {
+        filter: brightness(0.96);
+      }
+      [hidden] {
+        display: none !important;
+      }
+      @media (max-width: 900px) {
+        .app {
+          grid-template-columns: 150px minmax(0, 1fr);
+        }
+        aside {
+          padding: 18px 8px;
+        }
+        .cards {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .topline {
+          align-items: flex-start;
+        }
+        .smallgrid {
+          grid-template-columns: 1fr;
+        }
+      }
+      @media (max-width: 650px) {
+        .app {
+          display: block;
+        }
+        aside {
+          display: grid;
+          grid-template-columns: 1fr auto;
+          gap: 5px;
+          padding: 9px 12px;
+        }
+        .brand small,
+        .navgroup h2 {
+          display: none;
+        }
+        .brand img {
+          width: 23px;
+          height: 23px;
+        }
+        .brand strong {
+          font-size: 15px;
+        }
+        .account {
+          grid-area: 1/2;
+          margin: 0;
+          border: 0;
+          padding: 0;
+        }
+        .account label {
+          display: block;
+          font-size: 0;
+        }
+        .account select {
+          font-size: 11px;
+          padding: 4px;
+        }
+        .navgroup {
+          grid-column: 1/-1;
+          display: flex;
+          overflow: auto;
+          gap: 5px;
+        }
+        .navgroup button {
+          width: auto;
+          white-space: nowrap;
+          font-size: 12px;
+          padding: 7px;
+        }
+        .navgroup button svg {
+          display: none;
+        }
+        .topbar {
+          min-height: 34px;
+          padding: 5px 13px;
+        }
+        .main {
+          padding: 13px 12px 25px;
+        }
+        .topline {
+          display: block;
+        }
+        .topline .tabs {
+          margin-top: 8px;
+        }
+        .cards {
+          margin: 10px 0;
+          gap: 7px;
+        }
+        .metric {
+          padding: 9px;
+        }
+        .paper {
+          padding: 12px;
+          margin: 9px 0;
+        }
+        .filters,
+        .cfgform {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 8px;
+        }
+        .split {
+          flex-wrap: wrap;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside>
+        <div class="brand">
+          <img
+            src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAuMDkxOCIgaGVpZ2h0PSI4MC4xNzI2IiB2aWV3Qm94PSItMSAtMSA4MC4wOTE4IDgwLjE3MjYiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+DQo8ZyBpZD0iR3JvdXAgMTk0MDY5OTM0OSI+DQo8cGF0aCBpZD0iVmVjdG9yIiBkPSJNMjMuNjE2MyAxMS40MDI4QzIzLjY2MSAxMS40MDEyIDIzLjcwNTYgMTEuNCAyMy43NTAzIDExLjM5OTFDMzAuMTEwNSAxMS4zMDM5IDM2Ljk1NjIgMTEuNDI4MiA0My4zNDA1IDExLjQzMjdMNTAuNDg3NiAxMS40MjY4QzUxLjg4MTUgMTEuNDIxOSA1My4yNzA0IDExLjM4NzggNTQuNjY2MyAxMS40NTc2QzU2LjE4MTggMTEuNTMzNCA1Ny4yNzYzIDExLjk0MDYgNTcuNDE2MSAxMy42NDYxQzU3LjU1MjEgMTUuMzA0MyA1Ny41MDA2IDE2Ljk3NiA1Ny40Nzc2IDE4LjYzOTJDNTcuNDI4OCAyMS4wNTUxIDU3LjQxNDUgMjMuNDcxNiA1Ny40MzQ5IDI1Ljg4NzhMNTcuNTAyOCA2My4zOTY4QzU3LjUyOCA2NS43NTIgNTcuMDQwNyA2Ny4xMTM1IDU0LjQ0NTUgNjcuMTQxNkwzMi43OTA4IDY3LjE0NDRDMjkuNDgzNCA2Ny4xMzk3IDI2LjE0ODggNjcuMTcwMiAyMi44NjgxIDY3LjEzNzJDMjAuMTI4NCA2Ny4xMDk3IDIwLjMwNzEgNjQuNzkxOCAyMC4zMTM0IDYyLjc3OTVDMjAuMzE2NSA2MS43ODIzIDIwLjMxNzMgNjAuNzY2NiAyMC4zMTcxIDU5Ljc3MTRMMjAuMzAyMiA1MC4yMTZMMjAuMzA5NCAyNC44Mjg2QzIwLjMxNSAyMS4zMjcyIDIwLjI4OTEgMTcuODIyNyAyMC4zMDI1IDE0LjMyMjFDMjAuMzQzNCAxMy44MTA5IDIwLjI3MDYgMTMuMjA1MiAyMC41MTggMTIuNzRDMjEuMTgzNyAxMS40ODgyIDIyLjM2NTcgMTEuNDMxNiAyMy42MTYzIDExLjQwMjhaTTUzLjcxOTkgNjQuNDU3NEM1NC44Mzk5IDY0LjM4NjcgNTQuNzk1MSA2My40ODY3IDU0LjgzMjkgNjIuNjI4OEM1NC45MyA2MC40MTYgNTQuNzc4MyA1OC4xODU3IDU0Ljc5NiA1NS45Nzk5QzU0Ljg1OTIgNDguNTEzIDU0Ljg3NDcgNDEuMDQ1OCA1NC44NDI2IDMzLjU3ODdMNTQuODMzMSAyMC42MjU0QzU0LjgyMzEgMTkuMjcxNiA1NS4wNTcgMTUuMjkwNiA1NC40OTUgMTQuMzQyN0M1My4zNDMgMTQuMDE4NyA0OS44NDc5IDE0LjE3NDggNDguMzkwNCAxNC4xNTU3QzQwLjU1MDEgMTQuMTExIDMyLjcwOTUgMTQuMTE5NCAyNC44Njk0IDE0LjE4MTFDMjMuMzc5MiAxNC4xOTM4IDIyLjk0OTkgMTQuMDYwMSAyMi45NDQxIDE1Ljc0MzFDMjIuOTMzNSAxOC44NTY5IDIyLjk0MSAyMS45NzA2IDIyLjk0MjcgMjUuMDg0NkwyMi45NDA5IDQyLjg2MzNMMjIuOTQ1IDU1LjM2NDhDMjIuOTQxIDU2LjYxNTMgMjIuNjk3OSA2My42MTU5IDIzLjMwNjcgNjQuMjMxQzI0LjQ2NTkgNjQuNTU0MyAyNy4zNTgxIDY0LjQzOTkgMjguNzM2MiA2NC40NTc2QzM0Ljg3NzUgNjQuNTM2NSA0MS4wNjI2IDY0LjM5NDUgNDcuMjA4NyA2NC40Mzc3QzQ5LjI3MTIgNjQuNDUyMiA1MS43MDQxIDY0LjM3MyA1My43MTk5IDY0LjQ1NzRaIiBmaWxsPSJ2YXIoLS1maWxsLTAsICNGMEZFNkYpIi8+DQo8cGF0aCBpZD0iVmVjdG9yXzIiIGQ9Ik0zMy40NzAxIDE0Ljc4NzdDMzUuNDIyMiAxNC43NzE0IDM3LjQwMiAxNC43ODg3IDM5LjM3NjMgMTQuNzk3OUM0My4zMzEyIDE0LjgxNjQgNDUuMzg4NiAxNC4zIDQ4LjkwNjUgMTYuNDM4M0M1MS4zMDc2IDE3Ljg5NzYgNTMuMjUyNyAyMC41MTYgNTMuOTA0OSAyMy4yMTA2QzU0LjMxNjggMjQuOTEyMiA1NC4xOTk3IDI5LjEyMjEgNTQuMTk4OSAzMS4wMTU5TDU0LjE5MTkgNDMuMjQ3OUw1NC4xOTkzIDUwLjMyOTVDNTQuMjAxIDUzLjYxNjcgNTQuNDE5NSA1NS42Mjg3IDUyLjUwNDggNTguNTM2MUM1MC40ODQyIDYxLjYwNDIgNDguMTgwNyA2Mi45OTUzIDQ0LjU5OTMgNjMuODE1NkM0Mi41NDIgNjMuODcwOSA0MC40OTIyIDYzLjgzNDIgMzguNDI1MiA2My44NTE2QzM0LjI0OTcgNjMuODg2OCAzMS4zNjk1IDY0LjE1NTggMjcuODU2MSA2MS40MjU3QzI1Ljc4MDYgNTkuODEyOSAyMy44ODg1IDU2LjgxOSAyMy42MjM4IDU0LjIwOThDMjMuNDk3NSA1Mi45NjU1IDIzLjU2ODggNTAuNzgwMSAyMy41Njk0IDQ5LjQ1NzNMMjMuNTcyNCA0MC41NDgxTDIzLjU3MiAzMC4yMjIyQzIzLjU3MDMgMjguMzA5OCAyMy4zOTcxIDI1LjAxMiAyMy44MDIzIDIzLjI1MkMyNC44MDg1IDE4Ljg4MDUgMjguOTg0NiAxNS4yNTUyIDMzLjQ3MDEgMTQuNzg3N1pNMjUuMjUzMiAzMC4yMTg1TDI1LjI3MTIgMzAuMjYxMkMyNS42NzQ3IDMxLjIzNDcgMjUuNzU5NCAzMi41NTUgMjYuMDc3MSAzMy41Njg5QzI3LjMxNDcgMzcuNTE4OSAyOC43NTYgMzguODcyNCAzMS43ODU5IDQxLjE1OThDMzEuNzkxIDM5LjYzOTggMzEuNzY5NiAzOS4xOTY4IDMyLjE3NCAzNy43NzI3QzMwLjQzNDUgMzYuMDc3NyAyOS4wOTUzIDMzLjg3MTYgMjguNTkyMSAzMS40ODAzQzMwLjE2NTIgMzEuMDQ4MiAzMS4wODc0IDMwLjg4MDUgMzIuNzA2OCAzMC42ODQ2QzM1LjY5NCAzMC44NTAzIDM3LjkwOCAzMS42OTk5IDM5LjkwNTMgMzMuOTIzNEM0MC41NTA2IDM0LjYzODcgNDEuMDg5NSAzNS40NDMzIDQxLjUwNTEgMzYuMzEyNEM0MS43NDkxIDM2LjgxODQgNDIuMzQ1OSAzOC42NTY5IDQyLjU2MzIgMzguODcwNUM0My4wODIyIDM4Ljg5MSA0NC4zODgxIDM3Ljg0NTQgNDQuNzc4NiAzNy40ODQ3QzQ0Ljg3ODUgMzcuMzkzIDQ0Ljk3NjEgMzcuMjk5IDQ1LjA3MTYgMzcuMjAyN0M0NC41NzEzIDM2LjE3MzMgNDQuMTk4MyAzNS4xNjQgNDMuNjM4MSAzNC4xNjMxQzQyLjEyNDYgMzEuNTA5OSAzOS42ODcxIDI5LjUwNyAzNi43OTA3IDI4LjUzNjdDMzUuNDY4IDI4LjA3ODkgMzMuNTQ3OSAyNy43Njk0IDMyLjE1OTcgMjcuOTU1NEMyOS41ODk2IDI4LjEwNDEgMjcuMzczMSAyOC42NzM3IDI1LjI1MzIgMzAuMjE4NVpNMzguNjM2NSAzNS43MTM3QzM3Ljk4OTIgMzUuODI3MSAzNy40NTQ0IDM2LjI4MjYgMzcuMjM5NSAzNi45MDM2QzM3LjAyNDYgMzcuNTI0NCAzNy4xNjMzIDM4LjIxMzEgMzcuNjAxOSAzOC43MDI0QzM4LjA0MDQgMzkuMTkxNyAzOC43MDk4IDM5LjQwNDcgMzkuMzUwNSAzOS4yNTg3QzQwLjMwNzEgMzkuMDQwOCA0MC45MTU1IDM4LjA5OTggNDAuNzIxOCAzNy4xMzhDNDAuNTI4MSAzNi4xNzYzIDM5LjYwMjkgMzUuNTQ0MyAzOC42MzY1IDM1LjcxMzdaTTM1LjU1MzIgMzguNDc0MkMzNi4xNDAxIDM2LjM4IDM2Ljk1MDggMzQuODA2MyAzOC42MjQ3IDMzLjM0MDNDMzguMDgzMiAzMi45MzQ4IDM2Ljg3MTggMzEuOTMyNyAzNi4yNzQ3IDMxLjg2MzZDMzUuNTQ4OSAzMi4wMzk1IDM0Ljc1MjggMzMuMzA3NCAzNC4zNTQ1IDMzLjkxNDZDMzIuODg2NiAzNi4xNTIgMzIuMzg4OSAzOS4xMDU4IDMyLjU2OSA0MS43Mzc0QzMyLjgyODMgNDUuNTI3MyAzNC45ODUxIDQ5LjI4NDIgMzguMTI0MiA1MS40MjUxQzM4LjM3IDUxLjU5MjcgMzguNjQ4NCA1MS44MDEgMzguODc0NCA1MS45OTQ1QzQxLjg4OSA0OS44MzgyIDQzLjc5NiA0OC45NDEzIDQ0Ljg2OTQgNDQuOTkyM0M0NS4wNjY1IDQ0LjI2NyA0NS4zNjUzIDQyLjUyOTQgNDUuNTg3MyA0MS45NTZDNDMuNzgxOSA0Mi45MTY0IDQyLjUyODYgNDIuNzEwOCA0MS45NCA0NC43OTQyQzQxLjUyNzQgNDYuMjU0OCA0MC4xNTggNDcuODEwNCAzOC44NjUyIDQ4LjYwMjJDMzcuNDgzNiA0Ny4yMDU2IDM2LjI1MiA0NS4xNjM4IDM1LjczMSA0My4yNTMzQzM1Ljc0NTUgNDIuNzMzMiAzNS42NTQ4IDQyLjY0OTIgMzUuOTE1NCA0Mi4zMjJDMzYuMTgxMSA0Mi45MjM5IDM2LjQ2NjMgNDMuMTA4OCAzNy4xMjEgNDMuMTkxMUM0My40MzgzIDQzLjk4NDYgNDkuOTI1MiAzOS42MzUxIDUxLjQ1NjEgMzMuNDI0MUM1MS43NDA4IDMyLjI2OTIgNTEuOTE4IDMxLjI1MDYgNTIuMDYwMiAzMC4wMzEyQzQ5LjgyODkgMjguMTQzMiA0NS4zOTEgMjcuODE5NCA0Mi42Mzc3IDI4LjM1NThDNDIuMTM0OCAyOC40NTM4IDQwLjE5ODUgMjguOTIzNyAzOS44OTAyIDI5LjI1MzJDNDAuMTQwNiAyOS41NTc3IDQxLjcwODEgMzAuODE3NSA0Mi4xMDA4IDMxLjE0MzJDNDMuNjc0MSAzMC43MzQzIDQ4LjAwNDcgMzAuMzc1NCA0OC45NzQ5IDMxLjgzMjhDNDkuMDE2NiAzMi4wNjI1IDQ4Ljk5MTYgMzIuMjYzIDQ4LjkwNjQgMzIuNDc4M0M0Ny45MDEgMzQuOTkxOCA0Ni4yMzM4IDM3LjQxODggNDMuODc3MiAzOC44NDE4QzQxLjU1MTQgNDAuMjQ2MSAzOC4zOTY4IDQwLjU0OTIgMzUuODM0MyAzOS42ODc1QzM1LjY0NDQgMzkuNDMxNCAzNS42MDMzIDM4LjgyMTQgMzUuNTUzMiAzOC40NzQyWiIgZmlsbD0idmFyKC0tZmlsbC0wLCAjRjBGRTZGKSIvPg0KPHBhdGggaWQ9IlZlY3Rvcl8zIiBkPSJNMzUuNTUzMiAzOC40NzM2QzM1LjYwMzMgMzguODIwOSAzNS42NDQ0IDM5LjQzMDggMzUuODM0MyAzOS42ODdDMzUuNjkwNiA0MC40MTggMzUuOTQ4NyA0MS42MDU5IDM1LjkxNTQgNDIuMzIxNEMzNS42NTQ4IDQyLjY0ODYgMzUuNzQ1NSA0Mi43MzI2IDM1LjczMSA0My4yNTI3QzM1LjAzNjYgNDEuNzY2NiAzNS4xODgzIDQwLjAwOTEgMzUuNTUzMiAzOC40NzM2WiIgZmlsbD0idmFyKC0tZmlsbC0wLCAjRkVGRUZFKSIgZmlsbC1vcGFjaXR5PSIwLjkyMTU2OSIvPg0KPHBhdGggaWQ9IlZlY3Rvcl80IiBkPSJNNTQuMDI4IDU3LjA1MjdMNTQuMjM1MSA1Ny4xODY0QzU0LjIyOSA1Ny45NDM0IDU0LjI2NDQgNjMuMzIwNiA1NC4wNjg3IDYzLjUzNDNDNTMuNTMxOCA2NC4xMTk2IDQ5LjA0NzUgNjMuODA2OSA0OC4wMzExIDYzLjg0NjlDNDcuNzE1MyA2My45MTQyIDQ3LjcxNTMgNjMuOTY1IDQ3LjQzMjggNjMuODdDNDcuNTExNSA2My40MTczIDQ4LjcxNTcgNjIuODU3NCA0OS4yMTMgNjIuNTYyOEM1MC43NDcxIDYxLjY1MzYgNTEuOTMyNiA2MC4zMjYxIDUyLjkzODcgNTguODcyNkM1My4zMjIgNTguMzE5MSA1My41MTkgNTcuNTYwNSA1NC4wMjggNTcuMDUyN1oiIGZpbGw9InZhcigtLWZpbGwtMCwgI0YwRkU2RikiLz4NCjxwYXRoIGlkPSJWZWN0b3JfNSIgZD0iTTIzLjYzNzkgNTcuMDQ2OUMyNC4wODM1IDU3LjIwNjUgMjQuMjg1NCA1OC4zMTcgMjQuODgzMSA1OS4wNTg0QzI1Ljc5OTYgNjAuMTk1NCAyNi4zNDQ0IDYwLjk1ODUgMjcuNTE0IDYxLjkxMDdDMjguMTc3MyA2Mi40NTA3IDMwLjAxNyA2My4yNjE3IDMwLjI4NzcgNjMuNzM2TDMwLjIzMDggNjMuOTMyNEMyOC4xMDIzIDYzLjY3MDMgMjUuOTYgNjQuMDU1IDIzLjg4NTMgNjMuNjcxOUMyMy4zNjU3IDYzLjU3NiAyMy41Nzg0IDYxLjE1NzYgMjMuNjExIDYwLjYzNjJDMjMuNjU5NCA1OS44NjEzIDIzLjQwMTIgNTcuNTYzNCAyMy42Mzc5IDU3LjA0NjlaIiBmaWxsPSJ2YXIoLS1maWxsLTAsICNGMEZFNkYpIi8+DQo8cGF0aCBpZD0iVmVjdG9yXzYiIGQ9Ik0yOS43OTU3IDE0LjY5MUMzMC4xMTA3IDE0LjY2MjcgMzAuMDIyMyAxNC42MjI1IDMwLjIyNTUgMTQuNzczNkMzMC4xOTQ4IDE0Ljk0NTggMzAuMTY2NyAxNS4wNzgxIDI5Ljk5MzIgMTUuMTY4OEMyNy4wNjI4IDE2LjcwMDEgMjUuNDE1NSAxOC4zMTMxIDIzLjg2NzUgMjEuMzE5M0wyMy44NiAyMS4zM0wyMy43NDUyIDIxLjMzMzlDMjMuNTAzOCAyMS4wMzMgMjMuNDggMTUuMzczMSAyMy43MDc0IDE0Ljk4MTdDMjQuNDI3IDE0LjY3NTEgMjguMzU0MyAxNC44OTE3IDI5Ljc5NTcgMTQuNjkxWiIgZmlsbD0idmFyKC0tZmlsbC0wLCAjRjBGRTZGKSIvPg0KPHBhdGggaWQ9IlZlY3Rvcl83IiBkPSJNNDcuNTgwOCAxNC43NDg4QzQ3LjY5MjkgMTQuNzQ2NyA0OC44OTExIDE0Ljc4NjkgNDguOTgwMiAxNC44MTMzQzUwLjAwMzQgMTUuMTE1NSA1NC4xMjc0IDE0LjAxOTggNTQuMTk5MiAxNS41MDg5QzU0LjI5MDMgMTcuNDAwOCA1My45NDY4IDE5LjUyOTMgNTQuMjU0OCAyMS4zMzIxQzU0LjE5MyAyMS40NSA1NC4xNjc1IDIxLjQ0ODUgNTQuMDU1OCAyMS41NDA5QzUzLjk5MzQgMjEuNTA4OSA1My45MzEgMjEuNDc3IDUzLjg2ODYgMjEuNDQ1QzUzLjQ4MyAyMC41NDMxIDUzLjEwMzggMTkuODA2MSA1Mi41Mjk5IDE5LjAzNjZDNTEuOTEwNCAxOC4yMDEzIDUxLjE3OTIgMTcuNDU1IDUwLjM1NjggMTYuODE4N0M0OS42NTY1IDE2LjI2NjUgNDcuOTExNyAxNS4zMDc3IDQ3LjU4MDggMTQuNzQ4OFoiIGZpbGw9InZhcigtLWZpbGwtMCwgI0YwRkU2RikiLz4NCjxwYXRoIGlkPSJWZWN0b3JfOCIgZD0iTTU5LjM0MjUgMjAuMDg3OUM2MC4zNjMyIDIwLjQxMjMgNjEuMzgwMyAyMC41MjczIDYyLjQxMjYgMjAuODkyMkM2NS42MzQyIDIyLjAzMTEgNjcuOTU4OSAyNS43OTM2IDY4LjAyODQgMjkuMTY5MkM2OC4wMzg3IDI5LjU4NCA2OC4wMDUxIDI5Ljk5ODggNjcuOTI4IDMwLjQwNjZDNjcuMDcyMyAzNC45OTkxIDY1Ljc2MzcgNDAuMDU5NSA2NC43NjcxIDQ0LjY4MjVMNjMuNDU5IDUwLjczOEM2Mi43NDM0IDU0LjAyMTcgNjIuNjc2IDU0LjY2NjEgNjAuMzIyMiA1Ny4xMzJDNTkuOTkwNyA1Ny40MzQyIDU5LjQ0ODggNTcuODM2NiA1OS4wODQ0IDU4LjEyNTNDNTkuMTIxNSA1NC40NTEzIDU5LjEyNjkgNTAuNzc3MSA1OS4xMDAzIDQ3LjEwM0M1OS4wOTc5IDQ1LjQ0MTYgNTkuMDQ5MSA0My40NzU2IDU5LjEyNzggNDEuODM3N0M1OS40NTU3IDQxLjQ4OSA2MC42ODMyIDQwLjY1MzYgNjEuMTQ5OCA0MC4zMjQ5QzYzLjUxOTIgMzguNjU1NSA2NC40OTY3IDM2Ljg2NzQgNjUuNDM1OCAzNC4xMzY5QzYzLjA4NzYgMzEuOTc1OSA2MS45OTkxIDMyLjA0OTIgNTkuMjM2MiAzMC45OTk1QzU5LjExOTUgMzAuNzMxNiA1OS4wOTYyIDMwLjI2MzYgNTkuMDk3IDI5Ljk1ODlDNTkuMTA2MyAyNi43OTgxIDU5LjA1NDcgMjMuNjI4NyA1OS4xMzIgMjAuNDcwMkM1OS4xMzUgMjAuMzQ3NCA1OS4yNjA3IDIwLjE3NDQgNTkuMzQyNSAyMC4wODc5WiIgZmlsbD0idmFyKC0tZmlsbC0wLCAjRjBGRTZGKSIvPg0KPHBhdGggaWQ9IlZlY3Rvcl85IiBkPSJNMTguMTY2OSAyMC4xMDg0TDE4LjM4NTcgMjAuMTcxNEMxOC42Nzk5IDIwLjQ5NzIgMTguNDc4NCAyMS40MTYyIDE4LjQ2OTkgMjEuODU0M0MxOC40MTYyIDI0LjYyMDIgMTguNTg4OCAyNy4zODggMTguNTUxNiAzMC4xNTU3QzE4LjU2MzggMzAuODAwNyAxOC40MTA3IDMwLjk5NjYgMTcuNzY5MSAzMS4xMzU4QzE1LjQzNzkgMzEuNjQxMyAxMy44Mzc0IDMyLjY3MzcgMTIuMDYwMSAzNC4yNjIyQzEzLjEwMDcgMzYuNzY0NSAxNC4yNTc2IDM4Ljc2OTUgMTYuNDY4NyA0MC4zODY1QzE3LjEwNTkgNDAuODUyNiAxNy45MDYzIDQxLjMzOCAxOC40NzA2IDQxLjc3ODdDMTguNjgzNyA0Ni42OTYxIDE4LjMxNjIgNTEuODU0OCAxOC40OTI5IDU2Ljc5NThDMTguNTAyNiA1Ny4wNjY3IDE4LjUwNTMgNTcuMzY5NiAxOC40NTM4IDU3LjYzNTFMMTguMjM1NSA1Ny43MTM5QzE3LjkyODQgNTcuNjQyMiAxNy42OTM2IDU3LjM1NTUgMTcuNDYzIDU3LjEyNzdDMTUuOTQxMSA1NS45MjY3IDE1LjExMyA1NC4yMjIzIDE0LjcwMTIgNTIuMzg1N0MxMy43MDM2IDQ3LjkzNjMgMTIuNzU1NyA0My40NDI4IDExLjc2NjkgMzguOTk1MUwxMC40NTc3IDMzLjEyNzZDOS42NzM5MSAyOS42Mzg3IDkuMTE1NTcgMjcuODU2OCAxMS4xMTY5IDI0LjUyMzFDMTIuOTMwMiAyMS41MDI0IDE0Ljk5NTggMjAuOTI4MyAxOC4xNjY5IDIwLjEwODRaIiBmaWxsPSJ2YXIoLS1maWxsLTAsICNGMEZFNkYpIi8+DQo8cGF0aCBpZD0iVmVjdG9yXzEwIiBkPSJNNzAuMjEyMyAxOS44MzNDNzAuOTI5NSAxOS44NTI4IDcxLjc4OTcgMjAuMjE2IDcyLjIyMDcgMjAuODA4N0M3Mi42NjQ5IDIxLjQxOTcgNzIuNDcwMiAyMi4wMTI5IDcyLjMzNzIgMjIuNjk1NEM3MS43Njg4IDI1LjYxMDYgNzEuMDcxOCAyOC40OTk5IDcwLjQzOSAzMS40MDA5TDY2LjY0OTggNDguNjM3OEw2NC42NzM4IDU3LjUyOEM2NC4yOTU0IDU5LjI1OCA2My45NiA2MS4wNzA3IDYzLjQ1ODQgNjIuNzYzQzYzLjAxODYgNjQuMjQ2OCA2MS42Nzg0IDY0LjA3MjkgNjAuNTI5MiA2My44MjAzQzU5Ljg0MjUgNjMuNzczNSA1OS4zNTQ4IDYzLjcyNTYgNTkuMTI3MyA2Mi45ODU2QzU4Ljk3NDIgNjIuNDg3NSA1OC45MzMzIDYyLjE1NjkgNTkuMTY3NSA2MS42NzU1QzU5Ljk2NjcgNjEuMDM0NSA2MS4yNDIxIDYyLjQ5MTEgNjEuNzE2MiA2MS4wNTE2QzYxLjk5ODQgNjAuMTk0OSA2Mi4xNTIzIDU5LjE2NCA2Mi4zNTExIDU4LjI2NTJDNjIuODg0NCA1NS43NzAxIDYzLjQzMzggNTMuMjc4MyA2My45OTkzIDUwLjc5MDJDNjYuMDczNyA0MS41NTU4IDY4LjA3ODUgMzIuMzAyOSA3MC4xNDM3IDIzLjA2ODlDNzAuNDU1OCAyMS42NzMxIDY4LjcwMTEgMjIuNjgxOCA3MC4yMTIzIDE5LjgzM1oiIGZpbGw9InZhcigtLWZpbGwtMCwgI0YwRkU2RikiLz4NCjxwYXRoIGlkPSJWZWN0b3JfMTEiIGQ9Ik0xOC4yNTIgMTcuMzQyOEwxOC40MDQ1IDE3LjM4MDRDMTguNTkzMyAxNy42Njg0IDE4LjYxNTEgMTguOTUwNCAxOC42NzI3IDE5LjQ1ODlDMTcuMTA5MiAxOS44MTE5IDguNjI5NjMgMjEuNTQ3NCA3LjgzNjk1IDIyLjA2NDhDNy4zMTE0MiAyMi45NjQ4IDcuODY1NjQgMjQuMzU1MSA4LjEwMTYyIDI1LjM2NjRDOC40Mjk5NCAyNi43MzkyIDguNzM2NTYgMjguMTE3IDkuMDIxMzkgMjkuNDk5NEwxMy4xNTg2IDQ4LjMyNEMxMy43MjE3IDUwLjg4ODYgMTQuNzE4OCA1NC41NzM2IDE1LjAwODEgNTcuMDIyM0wxMy43NDE4IDU2LjE3ODlDMTIuNjE4NiA1NS40NzI4IDEyLjUwNjQgNTQuODI4OCAxMi4yMzA2IDUzLjYwNTdDMTEuOTQ1IDUyLjMzODggMTEuNjc1MyA1MS4wNjIyIDExLjM5IDQ5Ljc5NTFMOC45NjkzNiAzOC44MDAxTDYuNjI4MzYgMjguMTQzNEM2LjE1NjgxIDI2LjA0NDkgNS42MzU1OSAyMy45NTIyIDUuMjQwNzUgMjEuODM4OEM1LjAzNDU4IDIwLjg3NjUgNS44NDg5NSAyMC4yNzMgNi42OTg5IDIwLjAzOThDMTAuNDkyNCAxOC45OTkgMTQuNDc4MSAxOC40NDU5IDE4LjI1MiAxNy4zNDI4WiIgZmlsbD0idmFyKC0tZmlsbC0wLCAjRjBGRTZGKSIvPg0KPHBhdGggaWQ9IlZlY3Rvcl8xMiIgZD0iTTM4Ljc4NDMgMEMzOS4wMjI0IDAuMDA0ODMyNzQgMzkuMTY4IDAuMDc3OTQwMyAzOS4zMzYyIDAuMjQ3OTA5QzQxLjUzMSAyLjQ2NTYyIDQzLjcyMjcgNC42ODY0MiA0NS45MzM2IDYuODg4ODFDNDYuNDY4OSA3LjQyMjA2IDQ3LjEzNDIgOC4wMjgyMSA0Ny41ODM4IDguNjE4MTFMNDcuNDQxNSA4Ljc2ODU0QzQ2LjU0MzYgOS4wNTM1NyA0My44OTM1IDkuMDE2MzUgNDMuMTIwOCA4LjU2Mjk5QzQxLjg0MTIgNy44MTIyOCA0MC4xMjUxIDUuODg1NzYgMzkuMTU5OSA0Ljc0MzQ5QzM5LjA5MjMgNC43Mjc5NiAzOS4wMjQ4IDQuNzEyNDMgMzguOTU3MiA0LjY5NjkxQzM4LjE0NjMgNS4yODIwOCAzNS41OTU3IDguMjA4NDYgMzQuOTUyIDguNTQ5MDFDMzMuODY4IDkuMTIyNDYgMzEuNTQ0OCA4LjgwMzYgMzAuMTI4OSA4Ljk3ODYxQzMwLjc4MjIgNy44ODY5MyAzMi43MTk2IDYuMDc1MzcgMzMuNzI0NiA1LjA2OTY0TDM4Ljc4NDMgMFoiIGZpbGw9InZhcigtLWZpbGwtMCwgI0YwRkU2RikiLz4NCjxwYXRoIGlkPSJWZWN0b3JfMTMiIGQ9Ik0zMC43NDUyIDY5LjY3MTRDMzEuMjQ1NSA2OS42NzI3IDMxLjc0NTkgNjkuNjY4IDMyLjI0NjMgNjkuNjU3M0MzNi40NTEgNjkuNjAyNCAzNi4xOTM4IDcwLjc3OSAzOC45NjExIDczLjQ3NTNDMzkuODk3MiA3Mi40MTMxIDQxLjc2ODcgNzAuMzk5NSA0Mi45MTU2IDY5LjY4NkM0My41NzU2IDY5LjY3NjQgNDYuOTE3OCA2OS4zOTE3IDQ3LjAxMSA2OS45NjEzQzQ2Ljc3NDQgNzAuNDQgNDUuNTI3NyA3MS42MDU3IDQ1LjEwMzkgNzIuMDMzNEM0My4wOTkzIDc0LjA0NTMgNDAuOTk1OCA3Ni4yMjc0IDM4Ljk0NjEgNzguMTcyNkMzNi42MjMzIDc1LjgxNTIgMzMuMTc0OCA3Mi40NjUxIDMwLjgxMDQgNjkuOTU4NEMzMC43ODQ1IDY5Ljg0NDggMzAuNzYyOCA2OS43NDkxIDMwLjc0NTIgNjkuNjcxNFoiIGZpbGw9InZhcigtLWZpbGwtMCwgI0YwRkU2RikiLz4NCjxwYXRoIGlkPSJWZWN0b3JfMTQiIGQ9Ik03MS40Mjk4IDMyLjc4NzFDNzEuNDQ0MiAzMi43ODg4IDcxLjQ1ODcgMzIuNzg5NyA3MS40NzMgMzIuNzkyMUM3MS40OTY2IDMyLjc5NjQgNzEuNTE5NyAzMi44MDI0IDcxLjU0MzEgMzIuODA3MkM3Mi4zMzk1IDMyLjk2NjkgNzcuMTQ4OSAzOC4xMzA2IDc4LjA5MTggMzkuMDkxMkM3Ny4zNTM0IDM5LjYxMzIgNzUuNzg5OSA0MS4yNTU0IDc1LjEwMTQgNDEuOTQ3NEM3My40MzM0IDQzLjYzNCA3MS43NTI5IDQ1LjMwODIgNzAuMDYwMSA0Ni45Njk5QzY5LjYxNjEgNDcuNDE1NSA2OC42MDA4IDQ4LjY1OTIgNjguMDcyNSA0OC43NTAxTDY4LjAxMjggNDguNjA0QzY4LjExMTQgNDcuODk4NCA2OS4wMjM3IDQzLjc0ODkgNjkuMjg1NyA0My4yMjI3QzY5LjcwODUgNDIuMzczOSA3Mi40NjgyIDM5LjgwNDUgNzMuMjk4NyAzOS4wMjkzQzcyLjI2NzEgMzguMDczNSA3MS42NjQ5IDM3LjQ5OSA3MC43NDM0IDM2LjQxOTdDNzAuOTA3NiAzNS4yNDc0IDcxLjIzOTMgMzQuMDIyOSA3MS40Mjk4IDMyLjc4NzFaIiBmaWxsPSJ2YXIoLS1maWxsLTAsICNGMEZFNkYpIi8+DQo8cGF0aCBpZD0iVmVjdG9yXzE1IiBkPSJNNi4xMjkwNCAzMi44MTI1QzYuNDc3NDEgMzMuMzE1MSA2Ljc5NDExIDM1LjUyMDUgNy4xODEzNSAzNi41MTAzQzYuNjgxNTIgMzcuMDg3NiA1LjE5ODc5IDM4LjQ0MTcgNC41ODI0NiAzOS4wNDYzQzUuNzY0NDMgMzkuOTk5IDguNDU2OTggNDIuNTE2NSA4LjcwMDE2IDQzLjkxMTVDOC44MDQyMiA0NC41MDg0IDkuNjg3MTcgNDguMjQ0OCA5LjYxMDc3IDQ4LjQ5NzdMOS40NTg3IDQ4LjUzNjlDOS4wMzIxOCA0OC4yNTQyIDguMjY5MjMgNDcuNDEyMyA3Ljg3OTAxIDQ3LjAwNTJDNS4yNzYyMiA0NC41NjA3IDIuNTY2MzkgNDEuNjk0NCAwIDM5LjE1MTJDMC42NzQ1MjcgMzcuOTQxOCA0LjkwNDMgMzMuOTY3MiA2LjEyOTA0IDMyLjgxMjVaIiBmaWxsPSJ2YXIoLS1maWxsLTAsICNGMEZFNkYpIi8+DQo8cGF0aCBpZD0iVmVjdG9yXzE2IiBkPSJNOC44OTMwNSA1MS44MzNDOS4yOTY3NCA1Mi4wOTMxIDEwLjMxNTMgNTQuOTYzNiAxMS4wMjUyIDU1Ljc0OTVDMTIuMTU0OCA1NyAxMi42MTE3IDU3LjI5MTIgMTMuOTg4NCA1OC4yMjM1QzE0LjAwNCA1OC4yODY3IDE0LjAxOTYgNTguMzQ5OCAxNC4wMzUyIDU4LjQxMjlDMTMuNDY4OCA1OC44MTY0IDEyLjM0MzggNTkuNTE3IDExLjkwOSA1OS45MjhDMTAuMjc5OSA2MS40Njc3IDEwLjAxNzkgNjIuOTM5NSA5LjExODAzIDY0LjY3MTJDOC44MDY2OCA2NC42NCA4LjU0MDQ3IDYzLjgxOTQgOC4zOTc0NCA2My40NjgyQzcuNDk1OTggNjEuMjU0MiA1Ljk3MTkyIDU5LjQ4OTIgMy44MTkxOSA1OC4zODU4QzcuMDUyMjkgNTYuMTA4NiA3LjM3NTg4IDU1LjQ5NDcgOC44OTMwNSA1MS44MzNaIiBmaWxsPSJ2YXIoLS1maWxsLTAsICNGMEZFNkYpIi8+DQo8cGF0aCBpZD0iVmVjdG9yXzE3IiBkPSJNNjcuNzMxMiA4LjQwNjI1QzY4LjAwMzggOC41NjUwMSA2Ny44OTczIDguNDUzOTYgNjcuOTg4MSA4LjcyNzI3QzY4LjkxNDYgMTEuNTE3NiA3MC4zMjcyIDEzLjQ1NDggNzIuOTE0MiAxNC44NzQ5QzcwLjEzMTMgMTYuNTE2NSA2OC43OTQ3IDE4LjM3MjMgNjcuOTA5OCAyMS40Njk5QzY3LjE2MDkgMjAuOTgzIDY2LjkzMyAxNy4xMyA2Mi42MDkgMTQuOTI0OEM2NS41NzMgMTMuMjg2NiA2Ni41OTk5IDExLjQzMTkgNjcuNzMxMiA4LjQwNjI1WiIgZmlsbD0idmFyKC0tZmlsbC0wLCAjRjBGRTZGKSIvPg0KPHBhdGggaWQ9IlZlY3Rvcl8xOCIgZD0iTTU5LjA5MzIgMTcuMzc3QzYwLjA4MjMgMTcuNDAyNSA2NC4wMTc2IDE4LjQ3NzcgNjQuOTc3MSAxOC45NDE5QzY1LjI3OTQgMTkuNTExMSA2NS42NTEzIDIwLjI2MTQgNjUuODcwOSAyMC44NTg3QzY0LjcyNzMgMjAuODk1MSA2MC41NDc1IDE5LjcwNTEgNTkuMDQ4NSAxOS40Njk4QzU5LjA1ODQgMTguNjcxNSA1OS4xNDkxIDE4LjI1MzUgNTkuMDkzMiAxNy4zNzdaIiBmaWxsPSJ2YXIoLS1maWxsLTAsICNGMEZFNkYpIi8+DQo8cGF0aCBpZD0iVmVjdG9yXzE5IiBkPSJNMTUuMjg2NiA1OS40Njg0QzE1LjMwNjkgNTkuNDY3MyAxNS4zMjczIDU5LjQ2NjMgMTUuMzQ3NiA1OS40NjUzQzE1LjM3MTIgNTkuNDM0MiAxNS42ODg5IDU5LjU0OTUgMTUuNjg4NyA1OS41NDg0QzE1Ljg0NjEgNjAuMzAyOSAxNS44NDc2IDYwLjkxODMgMTYuNDEzMiA2MS40OTQ1QzE3LjA1MjIgNjIuMTQ1NSAxNy44MTc5IDYxLjIyNjMgMTguMzE2IDYxLjYxMzZDMTguNjM0NyA2MS44NjE1IDE4LjUzOTggNjMuMDMgMTguNTM0MiA2My40NDE5QzE3Ljg4ODcgNjMuNjk0IDE3LjcwODEgNjMuNzUxNiAxNy4wMTc3IDYzLjg2NDVDMTQuMzI5OSA2NC40ODI2IDE0LjI1OTIgNjIuNTc2MiAxMy42MzU5IDYwLjUwNTVDMTQuMjY0NiA2MC4xNjgyIDE0LjY5NzggNTkuODcxMiAxNS4yODY2IDU5LjQ2ODRaIiBmaWxsPSJ2YXIoLS1maWxsLTAsICNGMEZFNkYpIi8+DQo8cGF0aCBpZD0iVmVjdG9yXzIwIiBkPSJNNTkuMTYwMyAzMy4yODkxQzYwLjAzNDIgMzMuNTUyNiA2MS4zMzAxIDMzLjk3OTcgNjIuMDk5OCAzNC40MzM1QzYzLjI1MzggMzUuMTEzOSA2MS41MDA0IDM2Ljc0OTkgNjAuOTY2MyAzNy4zNTQxQzYwLjQ3NjEgMzcuODc2NiA1OS42OTc4IDM4LjQ1NjkgNTkuMTE5NiAzOC45MTVDNTkuMDUyOSAzOC4yMTU1IDU5LjA5MDggMzMuOTk2NCA1OS4xNjAzIDMzLjI4OTFaIiBmaWxsPSJ2YXIoLS1maWxsLTAsICNGMEZFNkYpIi8+DQo8cGF0aCBpZD0iVmVjdG9yXzIxIiBkPSJNMTIuODkzIDIxLjIyNjZMMTMuMDYxMSAyMS4yNDIzTDEzLjE1ODkgMjEuMzcxMkMxMy4wNzgyIDIxLjcwNjggMTIuNDg0OSAyMi4xNjQxIDEyLjIwNDMgMjIuNDI1NUMxMC43MDE0IDIzLjgyNTUgMTAuMDc0NSAyNS4zOTEgOS40NDM0OCAyNy4yODk3QzkuMTc2MzQgMjcuMTc0MiA5LjIwOTY2IDI3LjExMDMgOS4wNDQyMSAyNi44MTFDOC44NjMzNCAyNS44NzMyIDguMTMxNTUgMjMuMzcwOSA4LjMxNTE5IDIyLjYyNjZDOC4zNzE4NSAyMi41NTM3IDguNDQwNTMgMjIuNDY1NiA4LjUyMTI1IDIyLjM2MTlDOS44NzY5OSAyMS44NzMgMTEuNDg2MyAyMS44NTkzIDEyLjg0NDEgMjEuMjQ5TDEyLjg5MyAyMS4yMjY2WiIgZmlsbD0idmFyKC0tZmlsbC0wLCAjRjBGRTZGKSIvPg0KPHBhdGggaWQ9IlZlY3Rvcl8yMiIgZD0iTTE4LjA2NzEgMzMuMzU4NEMxOC4yOTIxIDMzLjM5NDggMTguMjEzOSAzMy4zNzI3IDE4LjQwNjUgMzMuNTI2NUMxOC41Mzk0IDM0LjAyNDggMTguNTMzOCAzNy45OTM0IDE4LjM4NDkgMzguNTU1MkwxOC4xODExIDM4LjU5MUMxNy43MTI0IDM4LjM4NzEgMTcuMjgxMiAzNy45MTU4IDE2LjkwMjQgMzcuNTU0QzE1LjkwNzkgMzYuNDYxNiAxNS42Mjg4IDM2LjA3MyAxNC45NTU0IDM0Ljc2MDRDMTUuODQyNiAzNC4xNzc5IDE3LjA1OTcgMzMuNzY3NyAxOC4wNjcxIDMzLjM1ODRaIiBmaWxsPSJ2YXIoLS1maWxsLTAsICNGMEZFNkYpIi8+DQo8cGF0aCBpZD0iVmVjdG9yXzIzIiBkPSJNNjQuNjE4MiAyMS4zMjU0QzY1LjAwNTYgMjEuMzE3NiA2NS41OTk0IDIxLjU3NDggNjUuOTg0NyAyMS43MTQ5QzY3Ljk3MDIgMjQuODgyNyA2OC40MTkgMjIuMzgwNSA2OS40NzM3IDIyLjUzMTdDNjkuNjk0MiAyMy4wNDY1IDY5LjA2MiAyNS4yOTE1IDY4Ljg5MDMgMjUuOTM0MkM2OC43NTczIDI2LjI0MDQgNjguOTQ0NSAyNi45MTE4IDY4LjYwMjMgMjcuMjc1NkM2OC4yOTYzIDI3LjIyMDMgNjguMDIzNCAyNi40NDYxIDY3LjkwNDQgMjYuMTM4OUM2Ny4yODI0IDI0LjUzMzQgNjYuNTQ1MSAyMy4xNTc2IDY1LjEzODcgMjIuMDk3NEM2NC45MDc0IDIxLjkyMyA2NC43Mjc0IDIxLjc5NzMgNjQuNTU2MyAyMS41NTVMNjQuNjE4MiAyMS4zMjU0WiIgZmlsbD0idmFyKC0tZmlsbC0wLCAjRjBGRTZGKSIvPg0KPHBhdGggaWQ9IlZlY3Rvcl8yNCIgZD0iTTYxLjk1NjUgNTYuMTYyMUM2Mi4yMjI1IDU2LjE4NzggNjIuMTQxMyA1Ni4xNDAxIDYyLjI4OTIgNTYuMzEyMkM2MS45NjQ1IDU3LjI0MDMgNjEuNDkzNyA2MC4xMzQ0IDYwLjk1MDUgNjEuMDc4OEM2MC44NTQ5IDYxLjI0NDkgNjAuMTU2NSA2MS4xMjM3IDU5Ljg4NjIgNjEuMDI2MUM1OC42OTM1IDYwLjU2OTEgNTkuMDMzOCA1OS43OTM3IDU5LjE1NDYgNTguNjkxNUM2MC42MDkzIDU3LjU3OTQgNjAuNzIxOCA1Ny4zNTc3IDYxLjk1NjUgNTYuMTYyMVoiIGZpbGw9InZhcigtLWZpbGwtMCwgI0YwRkU2RikiLz4NCjxwYXRoIGlkPSJWZWN0b3JfMjUiIGQ9Ik0xNS41NTM5IDU2LjAyMzRDMTUuODQwMiA1Ni4xMjc5IDE4LjEwNzEgNTguMzMyMyAxOC40MTkzIDU4LjY3ODVDMTguNDcyOCA1OS4zMDg0IDE4LjY2NDggNjAuMzg0NyAxOC4yOTA4IDYwLjg0ODhDMTcuNzA0NyA2MC45OTM0IDE3LjI3NDcgNjEuMzI0NCAxNi43MDI3IDYxLjAwMTdDMTYuNDIwMyA2MC4zMTIgMTUuNTcyOSA1Ni43MzgzIDE1LjU1MzkgNTYuMDIzNFoiIGZpbGw9InZhcigtLWZpbGwtMCwgI0YwRkU2RikiLz4NCjwvZz4NCjwvc3ZnPg0K"
+            alt=""
+          />
+          <div><strong>TCG Admin</strong><small>Backend Portal</small></div>
+        </div>
+        <nav class="navgroup" aria-label="管理菜单">
+          <h2>数据统计</h2>
+          <button data-view="orders" class="active">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M3 16h14M5 14V8m5 6V3m5 11V6" /></svg
+            >订单统计</button
+          ><button data-view="apple">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4h14v11H7l-4 3z" /></svg
+            >苹果通知消息</button
+          ><button data-view="notifications">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4h14v11H7l-4 3zM6 8h8" /></svg
+            >Google Play 通知
+          </button>
+          <h2>订阅配置</h2>
+          <button data-view="config">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M3 5h14M3 10h14M3 15h14M7 3v4m6 1v4m-5 1v4" /></svg
+            >订阅配置
+          </button>
+        </nav>
+        <div class="account">
+          <label
+            >演示角色<select id="role">
+              <option value="operator">运营管理员</option>
+              <option value="super_admin">超级管理员</option>
+            </select></label
+          >
+        </div>
+      </aside>
+      <div class="content">
+        <header class="topbar">
+          <span>运营后台 &nbsp;/&nbsp; <b id="crumb">订单统计</b></span
+          ><a href="app.html?entry=page&amp;plan=monthly&amp;offer=off">打开 App 原型 ↗</a>
+        </header>
+        <main id="main" class="main"></main>
+      </div>
+    </div>
+    <dialog id="drawer">
+      <div class="dhead">
+        <h2 id="drawerTitle"></h2>
+        <button class="btn" id="close">关闭</button>
+      </div>
+      <div id="drawerBody" class="dbody"></div>
+    </dialog>
+    <script>
+      (() => {
+        "use strict";
+        const $ = (id) => document.getElementById(id);
+        const esc = (value) =>
+          String(value).replace(
+            /[&<>"']/g,
+            (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+          );
+        const btn = (text, action, options = "") =>
+          `<button type="button" class="btn ${options.includes("primary") ? "primary" : ""}" data-action="${action}" ${options.includes("disabled") ? "disabled" : ""}>${text}</button>`;
+        const badge = (text, kind = "") => `<span class="badge ${kind}">${esc(text)}</span>`;
+        const money = (cents) =>
+          cents === null
+            ? "—"
+            : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
+                cents / 100,
+              );
+        const sampleOrders = [
+          {
+            id: "GPA.DEMO-1001",
+            uid: "AND-1042",
+            zone: "美国",
+            plan: "monthly",
+            kind: "首购",
+            access: "有效",
+            renew: "已开启",
+            env: "live",
+            notice: "M-101",
+            events: [
+              ["2026-11-25", "charge", 499, "USD 4.99"],
+              ["2026-12-01", "refund", 499, "USD 4.99"],
+            ],
+          },
+          {
+            id: "GPA.DEMO-1002",
+            uid: "AND-2031",
+            zone: "美国",
+            plan: "yearly",
+            kind: "续费",
+            access: "有效",
+            renew: "已开启",
+            env: "live",
+            notice: "M-102",
+            events: [
+              ["2026-11-24", "charge", 3999, "USD 39.99"],
+              ["2026-11-26", "refund", 1000, "USD 10.00"],
+            ],
+          },
+          {
+            id: "GPA.DEMO-1003",
+            uid: "AND-3105",
+            zone: "加拿大",
+            plan: "monthly",
+            kind: "首购",
+            access: "有效",
+            renew: "已关闭",
+            env: "live",
+            notice: "M-103",
+            events: [["2026-11-26", "charge", null, "CAD 6.99"]],
+          },
+          {
+            id: "GPA.DEMO-T001",
+            uid: "TEST-17",
+            zone: "美国",
+            plan: "monthly",
+            kind: "试用",
+            access: "有效",
+            renew: "已开启",
+            env: "test",
+            notice: "M-T01",
+            events: [["2026-11-26", "charge", 0, "USD 0.00"]],
+          },
+        ];
+        const messages = [
+          {
+            id: "M-101",
+            type: "SUBSCRIPTION_PURCHASED",
+            date: "11-25 09:12",
+            env: "live",
+            status: "已处理",
+            tries: 1,
+            order: "GPA.DEMO-1001",
+            explain: "已回查有效订阅，初购已确认。",
+          },
+          {
+            id: "M-102",
+            type: "SUBSCRIPTION_RENEWED",
+            date: "11-24 03:15",
+            env: "live",
+            status: "已处理",
+            tries: 1,
+            order: "GPA.DEMO-1002",
+            explain: "已核实续费并关联订单。后续订单对账记录部分退款 USD 10.00，当前订阅仍有效。",
+          },
+          {
+            id: "M-103",
+            type: "SUBSCRIPTION_CANCELED",
+            date: "11-26 04:22",
+            env: "live",
+            status: "已处理",
+            tries: 2,
+            order: "GPA.DEMO-1003",
+            explain: "自动续订已关闭，仍在已付款有效期内。订单原币已核实，USD 汇率待对账。",
+          },
+          {
+            id: "M-104",
+            type: "SUBSCRIPTION_RENEWED",
+            date: "11-26 06:42",
+            env: "unknown",
+            status: "待重试",
+            tries: 2,
+            order: "",
+            explain: "回查 Publisher API 暂时不可用。来源类型和订单关联均待确认。",
+          },
+          {
+            id: "M-T01",
+            type: "SUBSCRIPTION_PURCHASED",
+            date: "11-26 02:11",
+            env: "test",
+            status: "已处理",
+            tries: 1,
+            order: "GPA.DEMO-T001",
+            explain: "已核实 testPurchase，仅进入测试视图。",
+          },
+          {
+            id: "M-P01",
+            type: "TEST_NOTIFICATION",
+            date: "11-26 01:05",
+            env: "probe",
+            status: "连通测试",
+            tries: 1,
+            order: "",
+            explain: "收到 Play Console 的通道测试消息。没有交易金额或用户权益。",
+          },
+        ];
+        const catalog = [
+          { key: "monthly", label: "月付", base: "monthly", offer: "—", approved: true },
+          { key: "yearly", label: "年付", base: "yearly", offer: "—", approved: true },
+          {
+            key: "trial",
+            label: "月付首次试用",
+            base: "monthly",
+            offer: "intro-7d",
+            approved: false,
+          },
+        ];
+        const placements = {
+          page: {
+            name: "标准订阅页",
+            revision: 1,
+            draft: { plan: "monthly", trial: false },
+            active: { plan: "monthly", trial: false, revision: 1 },
+            log: [],
+          },
+          modal: {
+            name: "扫描额度弹窗",
+            revision: 1,
+            draft: { plan: "yearly", trial: false },
+            active: null,
+            log: [],
+          },
+        };
+        const periodDefault = {
+          from: "2026-11-01",
+          to: "2026-11-30",
+          q: "",
+          env: "live",
+          plan: "all",
+          kind: "all",
+        };
+        const envNames = { live: "正式", test: "测试购买", unknown: "待回查", probe: "通道测试" };
+        const viewNames = {
+          orders: "订单统计",
+          notifications: "Google Play 通知",
+          apple: "苹果通知消息",
+          config: "订阅配置",
+        };
+        let view = "orders",
+          store = "google",
+          orderFilter = { ...periodDefault },
+          msgFilter = { q: "", result: "all", env: "all" },
+          place = "page",
+          notice = "",
+          drawerMessage = "";
+        const options = (pairs, value) =>
+          pairs
+            .map(
+              ([id, label]) =>
+                `<option value="${id}" ${id === value ? "selected" : ""}>${esc(label)}</option>`,
+            )
+            .join("");
+        const field = (label, body) => `<label class="field">${label}${body}</label>`;
+        const select = (id, pairs, value) => `<select id="${id}">${options(pairs, value)}</select>`;
+        const title = (text, description, tabs = "") =>
+          `<div class="topline"><div><p class="scope">${store === "ios" ? "APP STORE" : "GOOGLE PLAY"} &nbsp; / &nbsp; com.cardai.tcg</p><h1>${text}</h1><p class="lead">${description}</p></div>${tabs}</div>`;
+        const tabs = () =>
+          `<div class="tabs" aria-label="商店"><button data-action="store-ios" aria-pressed="${store === "ios"}">iOS</button><button data-action="store-google" aria-pressed="${store === "google"}">Google Play</button></div>`;
+        const alertBox = () =>
+          notice ? `<div class="toast" role="status">${esc(notice)}</div>` : "";
+        function eventsFor(order) {
+          return order.events.filter(
+            (e) =>
+              (!orderFilter.from || e[0] >= orderFilter.from) &&
+              (!orderFilter.to || e[0] <= orderFilter.to) &&
+              (orderFilter.kind === "all" || e[1] === orderFilter.kind),
+          );
+        }
+        function rows() {
+          return sampleOrders
+            .filter(
+              (o) =>
+                (orderFilter.env === "all" || o.env === orderFilter.env) &&
+                (orderFilter.plan === "all" || o.plan === orderFilter.plan) &&
+                [o.id, o.uid, o.zone].some((v) =>
+                  v.toLowerCase().includes(orderFilter.q.toLowerCase()),
+                ),
+            )
+            .map((o) => ({ o, events: eventsFor(o) }))
+            .filter((r) => r.events.length);
+        }
+        function summarize(events, kind) {
+          const items = events.filter((e) => e[1] === kind),
+            known = items.filter((e) => e[2] !== null);
+          return {
+            value: known.length || !items.length ? known.reduce((s, e) => s + e[2], 0) : null,
+            missing: items.length - known.length,
+            count: items.length,
+          };
+        }
+        function orders() {
+          const list = rows(),
+            events = list.flatMap((x) => x.events),
+            charges = summarize(events, "charge"),
+            refunds = summarize(events, "refund");
+          const net =
+            charges.value === null || refunds.value === null ? null : charges.value - refunds.value;
+          const metric = (label, val, note, cls = "") =>
+            `<div class="metric ${cls}"><span>${label}</span><b>${val}</b><small>${note}</small></div>`;
+          const filters = `<form id="orderForm"><div class="filters">${field("订单号 / UID / 地区", `<input id="orderQ" value="${esc(orderFilter.q)}" placeholder="订单号、UID 或地区">`)}${field(
+            "交易类型",
+            select(
+              "orderEnv",
+              [
+                ["live", "正式购买"],
+                ["test", "测试购买"],
+              ],
+              orderFilter.env,
+            ),
+          )}${field(
+            "基础方案",
+            select(
+              "orderPlan",
+              [
+                ["all", "全部方案"],
+                ["monthly", "月付"],
+                ["yearly", "年付"],
+              ],
+              orderFilter.plan,
+            ),
+          )}${field(
+            "资金事件",
+            select(
+              "orderKind",
+              [
+                ["all", "全部"],
+                ["charge", "扣款"],
+                ["refund", "退款"],
+              ],
+              orderFilter.kind,
+            ),
+          )}${field("起始日期（UTC）", `<input type="date" id="orderFrom" value="${orderFilter.from}">`)}${field("结束日期（含）", `<input type="date" id="orderTo" value="${orderFilter.to}">`)}</div><div class="toolbar"><button class="btn primary" type="submit">查询</button>${btn("重置", "orders-reset")}</div></form>`;
+          return (
+            title("订单统计", "按资金实际发生时间查看扣款和退款，金额统一折算为美元。", tabs()) +
+            alertBox() +
+            `<div class="cards">${metric("成功扣款 · USD", money(charges.value), `${charges.count} 笔扣款 · ${charges.missing} 笔缺金额`)}${metric("成功退款 · USD", money(refunds.value), `${refunds.count} 笔退款 · ${refunds.missing} 笔缺金额`)}${metric("已知净额 · USD", money(net), "扣款减退款", "net")}${metric("区间订单数", list.length, "完整订单号去重")}</div><section class="paper">${filters}</section><section class="paper"><div class="opbar"><div><h2>订单明细</h2><span class="sub">production · ${envNames[orderFilter.env]} · UTC+0</span></div>${btn("导出示例 CSV", "export", list.length ? "" : "disabled")}</div><div class="tablewrap"><table><thead><tr><th>订单 / UID</th><th>方案</th><th>国家</th><th>订单类型</th><th>权益 / 续订</th><th class="num">区间扣款</th><th class="num">区间退款</th><th>操作</th></tr></thead><tbody>${
+              list
+                .map(({ o, events }) => {
+                  const c = summarize(events, "charge"),
+                    r = summarize(events, "refund");
+                  return `<tr><td class="mono">${o.id}<small>${o.uid}</small></td><td>${o.plan}</td><td>${o.zone}</td><td>${o.kind}</td><td>${badge(o.access, "good")}<small>${o.renew}</small></td><td class="num">${money(c.value)}${c.missing ? "<small>待对账</small>" : ""}</td><td class="num">${money(r.value)}</td><td><button class="btn text" data-action="order-${o.id}">详情</button></td></tr>`;
+                })
+                .join("") || '<tr><td colspan="8" class="empty">没有符合条件的订单</td></tr>'
+            }</tbody></table></div><p class="footnote">金额仅汇总已核实的 USD。正式后台沿用 XLSX，离线原型导出当前筛选的 CSV。图中订单为演示数据。</p></section>`
+          );
+        }
+        function notificationPage() {
+          const list = messages.filter(
+            (m) =>
+              (msgFilter.env === "all" || m.env === msgFilter.env) &&
+              (msgFilter.result === "all" || m.status === msgFilter.result) &&
+              [m.id, m.type, m.order].some((x) =>
+                x.toLowerCase().includes(msgFilter.q.toLowerCase()),
+              ),
+          );
+          return (
+            title("Google Play 通知", "查询商店事件、验单结果、确认进度和需要补查的消息。") +
+            alertBox() +
+            `<section class="paper"><form id="msgForm"><div class="filters">${field("消息 / 类型 / 订单", `<input id="msgQ" value="${esc(msgFilter.q)}" placeholder="messageId 或订单号">`)}${field(
+              "处理状态",
+              select(
+                "msgResult",
+                [
+                  ["all", "全部"],
+                  ["待重试", "待重试"],
+                  ["已处理", "已处理"],
+                  ["连通测试", "连通测试"],
+                ],
+                msgFilter.result,
+              ),
+            )}${field("来源", select("msgEnv", [["all", "全部来源"], ...Object.entries(envNames)], msgFilter.env))}<button type="submit" class="btn primary">查询通知</button></div></form></section><section class="paper"><div class="opbar"><h2>通知消息列表</h2>${badge(`待重试 ${messages.filter((m) => m.status === "待重试").length} 条`, "warn")}</div><div class="tablewrap"><table><thead><tr><th>messageId</th><th>事件类型</th><th>收到（UTC）</th><th>来源</th><th>状态</th><th>尝试</th><th>操作</th></tr></thead><tbody>${list.map((m) => `<tr><td class="mono">${m.id}</td><td class="mono">${m.type}</td><td>${m.date}</td><td>${envNames[m.env]}</td><td>${badge(m.status, m.status === "待重试" ? "warn" : "good")}</td><td>${m.tries}</td><td><button class="btn text" data-action="msg-${m.id}">详情</button></td></tr>`).join("") || '<tr><td class="empty" colspan="7">没有符合条件的消息</td></tr>'}</tbody></table></div></section>`
+          );
+        }
+        function configPage() {
+          const cfg = placements[place],
+            trialItem = catalog.find((p) => p.key === "trial");
+          const url = (state, enabled = true) =>
+            `app.html?entry=${enabled ? place : place + "-off"}&plan=${state.plan}&offer=${state.trial ? "on" : "off"}&page=${(place === "page" ? enabled : placements.page.active) ? "on" : "off"}&modal=${(place === "modal" ? enabled : placements.modal.active) ? "on" : "off"}`;
+          const productRows = catalog
+            .map(
+              (p) =>
+                `<tr><td>${p.label}</td><td class="mono">premium / ${p.base}</td><td class="mono">${p.offer}</td><td>${badge(p.approved ? "已准入" : "待审批", p.approved ? "good" : "warn")}</td><td>${p.approved ? "—" : btn("审批准入", "admit-dialog", $("role").value === "super_admin" ? "" : "disabled")}</td></tr>`,
+            )
+            .join("");
+          const current = cfg.active
+            ? `${cfg.active.plan} · ${cfg.active.trial ? "可展示合资格试用" : "标准方案"} · r${cfg.active.revision}`
+            : "该位置已停用";
+          return (
+            title(
+              "订阅配置",
+              "管理两个订阅入口的展示内容；商店价格与试用资格由 Google Play 提供。",
+              tabs(),
+            ) +
+            alertBox() +
+            `<section class="paper"><div class="opbar"><div><h2>商品目录与准入</h2><span class="sub">production · google_play · com.cardai.tcg</span></div>${badge("演示目录", "info")}</div><div class="tablewrap"><table><thead><tr><th>名称</th><th>商品 / 基础方案</th><th>优惠 ID</th><th>业务准入</th><th>操作</th></tr></thead><tbody>${productRows}</tbody></table></div><p class="footnote">运营管理员可使用已批准的商品。超级管理员可以审批候选商品及收入事件。</p></section>
+ <section class="paper"><div class="opbar"><h2>展示配置</h2><div class="tabs"><button data-action="place-page" aria-pressed="${place === "page"}">订阅页 Page</button><button data-action="place-modal" aria-pressed="${place === "modal"}">弹窗 Modal</button></div></div><div class="smallgrid"><div><h3 style="margin-top:16px">${cfg.name} · 草稿 r${cfg.revision}</h3><form id="cfgForm"><div class="cfgform">${field(
+   "默认方案",
+   select(
+     "cfgPlan",
+     [
+       ["monthly", "月付"],
+       ["yearly", "年付"],
+     ],
+     cfg.draft.plan,
+   ),
+ )}${field("优惠展示", `<span class="check"><input id="cfgTrial" type="checkbox" ${cfg.draft.trial ? "checked" : ""} ${!trialItem.approved ? "disabled" : ""}> 合资格月付试用</span>`)}</div><div class="toolbar"><button type="submit" class="btn primary">保存草稿</button><a class="btn" target="_blank" rel="noopener" href="${url(cfg.draft)}">预览已存草稿 ↗</a></div></form></div><div><h3 style="margin-top:16px">当前生效</h3><p class="sub">${current}</p><div class="toolbar">${btn("启用已存草稿", "activate")}${btn("停用此位置", "deactivate", cfg.active ? "" : "disabled")}<a class="btn text" target="_blank" rel="noopener" href="${url(cfg.active || cfg.draft, !!cfg.active)}">查看用户端 ↗</a></div></div></div><p class="hint">停用一个展示位置后，已购用户仍可从 Profile 恢复和管理订阅。</p></section><section class="paper"><h2>配置操作记录</h2>${cfg.log.length ? `<ul class="timeline">${cfg.log.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : '<p class="sub">该位置尚无本次演示操作。</p>'}</section>`
+          );
+        }
+        function iosPane() {
+          const descriptions = {
+            orders: [
+              "iOS 订单统计",
+              "按原 Apple SKU、交易环境和通知订单口径筛选，按现有 XLSX 字段导出。",
+            ],
+            config: [
+              "iOS 订阅配置",
+              "Apple 商品审批、长期 Restore 注册表、订阅页和订阅大弹窗按现有配置运行。",
+            ],
+            apple: [
+              "苹果通知消息",
+              "查看和筛选 Apple App Store Server Notifications V2，按 Apple 通知 UUID 查询详情。",
+            ],
+          };
+          const [heading, body] = descriptions[view];
+          return (
+            title(
+              heading,
+              "现有业务入口 · 原型中仅展示兼容范围。",
+              view === "apple" ? "" : tabs(),
+            ) +
+            `<section class="paper ios"><h2>${heading}</h2><p>${body}</p><span class="sub">本页没有连接生产数据。</span></section>`
+          );
+        }
+        function render() {
+          $("crumb").textContent = viewNames[view];
+          document.querySelectorAll("[data-view]").forEach((el) => {
+            el.classList.toggle("active", el.dataset.view === view);
+            if (el.dataset.view === view) el.setAttribute("aria-current", "page");
+            else el.removeAttribute("aria-current");
+          });
+          $("main").innerHTML =
+            store === "ios"
+              ? iosPane()
+              : view === "orders"
+                ? orders()
+                : view === "config"
+                  ? configPage()
+                  : notificationPage();
+        }
+        function drawer(title, body) {
+          $("drawerTitle").textContent = title;
+          $("drawerBody").innerHTML = body;
+          if (!$("drawer").open) $("drawer").showModal();
+        }
+        function closeDrawer() {
+          if ($("drawer").open) $("drawer").close();
+        }
+        function facts(data) {
+          return `<dl class="kv">${Object.entries(data)
+            .map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`)
+            .join("")}</dl>`;
+        }
+        function showOrder(id) {
+          const o = sampleOrders.find((x) => x.id === id);
+          if (!o) return;
+          drawer(
+            "订单详情",
+            facts({
+              订单号: o.id,
+              "业务环境 / 商店": "production / Google Play",
+              交易类型: envNames[o.env],
+              "Android UID": o.uid,
+              "商品 / 基础方案": `premium / ${o.plan}`,
+              "权益 / 自动续订": `${o.access} / ${o.renew}`,
+              核算来源: "Google Play Orders API · 模拟回查",
+              汇率来源:
+                o.zone === "加拿大" ? "原币已知，USD 汇率待对账" : "USD / USD = 1，总额含税",
+            }) +
+              `<h3>区间资金明细</h3><ul class="timeline">${(eventsFor(o).length ? eventsFor(o) : []).map((e) => `<li>${e[1] === "charge" ? "成功扣款" : "成功退款"} · ${e[3]}<small>${e[0]} UTC · ${e[2] === null ? "待对账" : money(e[2])}</small></li>`).join("") || "<li>当前筛选范围内没有资金事件</li>"}</ul>${btn("查看关联通知 " + o.notice, "msg-" + o.notice)}`,
+          );
+        }
+        function showMessage(id) {
+          const m = messages.find((x) => x.id === id);
+          if (!m) return;
+          drawerMessage = id;
+          drawer(
+            "Google Play 通知详情",
+            facts({
+              messageId: m.id,
+              package: "com.cardai.tcg",
+              事件类型: m.type,
+              "收到 / UTC": m.date,
+              处理结果: m.status,
+              来源: envNames[m.env],
+              回查尝试: m.tries,
+              购买链: m.env === "probe" ? "—" : "仅显示脱敏关联 ID",
+              后续处理: m.status === "待重试" ? "等待定时重试，超级管理员也可立即补查" : "无待办",
+            }) +
+              `<p class="hint ${m.status === "待重试" ? "warn" : ""}">${esc(m.explain)}</p><div class="toolbar">${m.order ? btn("查看关联订单", "order-" + m.order) : ""}${m.status === "待重试" ? btn("重试回查", "retry", $("role").value === "super_admin" ? "primary" : "disabled") : ""}</div>`,
+          );
+        }
+        function csv() {
+          const list = rows();
+          if (!list.length) return;
+          const header = [
+            "订单号",
+            "Android UID",
+            "国家",
+            "方案",
+            "来源",
+            "UTC 日期",
+            "资金事件",
+            "原币金额",
+            "美元金额",
+            "对账",
+          ];
+          const values = list.flatMap(({ o, events }) =>
+            events.map((e) => [
+              o.id,
+              o.uid,
+              o.zone,
+              o.plan,
+              envNames[o.env],
+              e[0],
+              e[1] === "charge" ? "扣款" : "退款",
+              e[3],
+              e[2] === null ? "" : (e[2] / 100).toFixed(2),
+              e[2] === null ? "待对账" : "已核实",
+            ]),
+          );
+          const contents = [header, ...values]
+            .map((line) => line.map((v) => '"' + String(v).replaceAll('"', '""') + '"').join(","))
+            .join("\r\n");
+          const url = URL.createObjectURL(
+              new Blob(["\ufeff", contents], { type: "text/csv;charset=utf-8" }),
+            ),
+            a = document.createElement("a");
+          a.href = url;
+          a.download = "Google-Play-订单示例.csv";
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(url), 2500);
+          notice = `已导出 ${list.length} 个订单的 ${values.length} 条资金明细。`;
+          render();
+        }
+        function cfgLog(text) {
+          const cfg = placements[place];
+          cfg.log.unshift(`${$("role").selectedOptions[0].text} · ${text}`);
+          notice = text;
+        }
+        function approve() {
+          if ($("role").value !== "super_admin") return;
+          const input = $("eventName");
+          if (!input.reportValidity()) return;
+          const name = input.value;
+          catalog.find((p) => p.key === "trial").approved = true;
+          cfgLog(`已准入 premium / monthly / intro-7d，收入事件 ${name}。`);
+          closeDrawer();
+          render();
+        }
+        function act(a) {
+          if (a.startsWith("order-")) return showOrder(a.slice(6));
+          if (a.startsWith("msg-")) return showMessage(a.slice(4));
+          if (a.startsWith("store-")) {
+            store = a.slice(6);
+            notice = "";
+            return render();
+          }
+          if (a.startsWith("place-")) {
+            place = a.slice(6);
+            notice = "";
+            return render();
+          }
+          switch (a) {
+            case "orders-reset":
+              orderFilter = { ...periodDefault };
+              notice = "";
+              return render();
+            case "export":
+              return csv();
+            case "admit-dialog":
+              if ($("role").value === "super_admin")
+                drawer(
+                  "审批 Google Play 商品",
+                  facts({
+                    目标: "production / google_play / com.cardai.tcg",
+                    "商品 / 基础方案 / 优惠": "premium / monthly / intro-7d",
+                    权益: "performance_pro",
+                  }) +
+                    field(
+                      "Singular 收入事件名",
+                      '<input id="eventName" value="gp_monthly_intro" required pattern="[A-Za-z][A-Za-z0-9_]{0,31}" maxlength="32">',
+                    ) +
+                    '<p class="sub">批准后供运营配置展示，真实交易仍需 Google 验证。</p>' +
+                    btn("确认准入", "approve", "primary"),
+                );
+              return;
+            case "approve":
+              return approve();
+            case "activate": {
+              const c = placements[place];
+              if (c.active?.revision === c.revision) {
+                notice = "该草稿版本已生效。";
+              } else {
+                c.active = { ...c.draft, revision: c.revision };
+                cfgLog(`已将 ${c.name} 草稿 r${c.revision} 设为生效。`);
+              }
+              return render();
+            }
+            case "deactivate": {
+              const c = placements[place];
+              c.active = null;
+              cfgLog(`已停用${c.name}，保留长期商品准入和购买恢复。`);
+              return render();
+            }
+            case "retry": {
+              if ($("role").value !== "super_admin") return;
+              const m = messages.find((x) => x.id === drawerMessage);
+              if (!m || m.status !== "待重试") return;
+              m.tries++;
+              m.status = "已处理";
+              m.env = "live";
+              m.order = "GPA.DEMO-1002";
+              m.explain = "再次按当前商店快照核对，关联已有续费订单。资金明细保持原有一笔。";
+              notice = "回查成功，续费订单已存在。";
+              render();
+              return showMessage(m.id);
+            }
+          }
+        }
+        document.addEventListener("click", (e) => {
+          const n = e.target.closest("[data-view]");
+          if (n) {
+            view = n.dataset.view;
+            store = view === "apple" ? "ios" : "google";
+            notice = "";
+            render();
+            return;
+          }
+          const el = e.target.closest("[data-action]");
+          if (el && !el.disabled) act(el.dataset.action);
+        });
+        document.addEventListener("submit", (e) => {
+          e.preventDefault();
+          notice = "";
+          if (e.target.id === "orderForm") {
+            const from = $("orderFrom").value,
+              to = $("orderTo").value;
+            if (from && to && from > to) {
+              $("orderTo").setCustomValidity("结束日期须晚于或等于起始日期。");
+              $("orderTo").reportValidity();
+              return;
+            }
+            orderFilter = {
+              from,
+              to,
+              q: $("orderQ").value.trim(),
+              env: $("orderEnv").value,
+              plan: $("orderPlan").value,
+              kind: $("orderKind").value,
+            };
+          }
+          if (e.target.id === "msgForm")
+            msgFilter = {
+              q: $("msgQ").value.trim(),
+              env: $("msgEnv").value,
+              result: $("msgResult").value,
+            };
+          if (e.target.id === "cfgForm") {
+            const c = placements[place],
+              next = {
+                plan: $("cfgPlan").value,
+                trial: !$("cfgTrial").disabled && $("cfgTrial").checked,
+              };
+            if (next.plan === c.draft.plan && next.trial === c.draft.trial)
+              notice = "草稿内容与已存版本一致。";
+            else {
+              c.draft = next;
+              c.revision++;
+              cfgLog(`已保存${c.name}草稿 r${c.revision}。`);
+            }
+          }
+          render();
+        });
+        document.addEventListener("input", (e) => {
+          if (e.target.id === "orderFrom" || e.target.id === "orderTo")
+            $("orderTo").setCustomValidity("");
+        });
+        $("close").onclick = closeDrawer;
+        $("role").onchange = () => {
+          closeDrawer();
+          notice = "";
+          render();
+        };
+        render();
+      })();
+    </script>
+  </body>
+</html>

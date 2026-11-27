@@ -1,6 +1,6 @@
 # v1.1.4 开发文档
 
-状态：当前开发版本。启用日期：2026-11-05（Asia/Shanghai）。创建基线为 `main@70bd7cf5`。
+状态：已归档。启用日期：2026-11-05（Asia/Shanghai），归档日期：2026-11-26（Asia/Shanghai）。创建基线为 `main@70bd7cf5`。后续开发入口为 [v1.1.5](../v1.1.5/README.md)。
 
 v1.1.3 已原位归档。本版本承接 v1.1.3 之后的新增、变更、移除和实际验证；未变化的产品、兼容、订阅、部署及历史验收继续引用 v1.1.3、v1.1.2 或更早版本，不复制整套历史文档。
 
@@ -34,6 +34,8 @@ v1.1.3 已原位归档。本版本承接 v1.1.3 之后的新增、变更、移�
 
 - [官网改动同步到 dev](05-delivery/cardscanfox-dev-sync-20261109.md)：2026-11-09 官网提交合并、依赖锁文件修复与影响面验证。
 
+- [扫描复核、收藏搜索、安装明细与官网缓存](05-delivery/scan-collection-and-web-review.md)，含 2026-11-25 本地回归与兼容验证记录。
+
 - [Delta Reign 卡表与 ETB 成本比较](05-delivery/cardscanfox-delta-reign-pages.md)：既有套卡文章、独立ETB答案页、同页成本计算器及内容/索引边界。
 
 - [官网按曝光记录收紧索引](05-delivery/cardscanfox-index-rollout-20261115.md)：保留140个有曝光URL、重点关键词与核心页，暂停清单外批量详情索引。
@@ -49,6 +51,8 @@ v1.1.3 已原位归档。本版本承接 v1.1.3 之后的新增、变更、移�
 - [官网改版规格](00-product/cardscanfox-website-redesign-spec.md)与[独立只读服务规格](02-architecture/cardscanfox-website-service-spec.md)：官网设计、内容真源及服务边界，实际实现和发布按各文档的状态与日期理解。
 
 - [官网路由与搜索意图](05-delivery/cardscanfox-website-route-seo-spec.md)及[单卡目录与规模化索引](05-delivery/cardscanfox-catalog-indexing.md)：URL、元数据、目录和 sitemap 的设计与实现边界。
+
+- [CardScanFox GEO 发布候选](05-delivery/geo/README.md)记录本轮页面、对比、数据和待发布项。[GEO 问题库](05-delivery/geo/question-bank.md)、[优先问题覆盖](05-delivery/geo/page-coverage.md)和[监测流程](05-delivery/geo/geo-monitoring-template.md)记录固定实验输入、页面答案和发布后复测方法。品牌、商店与用户反馈见 [GEO 运营资料](05-delivery/geo/brand-and-feedback.md)。
 
 - [官网卡牌术语内容补充](05-delivery/cardscanfox-card-term-content-20261108.md)：2026-11-08 内容增量及对应验证记录。
 
@@ -73,7 +77,7 @@ v1.1.3 已原位归档。本版本承接 v1.1.3 之后的新增、变更、移�
 
 ## 记录规则
 
-- 后续开发资料默认写入 `docs/releases/v1.1.4/`，不得继续向 v1.1.3 或更早归档版本追加新功能或新日期检查点。
+- 本版本的新增、变更、移除和实际验证已冻结在 `docs/releases/v1.1.4/`；后续开发资料写入 [v1.1.5](../v1.1.5/README.md)，不得继续向 v1.1.4 或更早归档版本追加新功能或新日期检查点。
 - 本地验证、CI、dev、prod、商店发布、用户反馈和 Agent 独立验收必须分别标记，未执行项不得写成通过。
 - 不在正式 docs 中保存执行日志、任务快照、截图、Secret、Token、私钥或原始生产响应。
 - 文档版本、App 版本、API 版本、Git 提交和环境运行版本分别管理；创建 v1.1.4 不代表代码、数据库或环境发生变化。

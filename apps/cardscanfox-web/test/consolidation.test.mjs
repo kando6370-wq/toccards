@@ -47,7 +47,7 @@ test('TCG text lookup scopes a dynamic game before pagination and preserves its 
 
 test('the anniversary answer page adds direct buying choices without removing dated singles or the existing UPC owner',()=>{
  const html=createRenderer().resolvePage(new URL('/blog/pokemon-tcg-30th-celebration-card-prices',origin)).html;
- for(const phrase of ['id="how-to-buy"','Buy a single','Choose booster packs','Choose a Day or Night UPC','where-to-buy/'])assert.ok(html.includes(phrase),phrase);
+ for(const phrase of ['id="how-to-buy"','Buy a single','Choose booster packs','Choose a Day or Night UPC','official Pokémon TCG retailer directory'])assert.ok(html.includes(phrase),phrase);
  assert.match(html,/href="\/blog\/pokemon-upc-30th-anniversary"/);
  const hub=createRenderer().resolvePage(new URL('/games/pokemon',origin)).html;assert.match(hub,/aria-label="Pokémon card value tasks"/);assert.match(hub,/href="\/games\/pokemon\?price=available"/);assert.match(hub,/id="pokemon-value-guide"/);
 });

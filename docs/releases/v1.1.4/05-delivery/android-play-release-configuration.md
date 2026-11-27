@@ -230,3 +230,15 @@ Play 接受同一 `215` AAB，预览为“可以发布了”，对照 `214` 的�
 Play 接受 218 AAB，发布预览显示“可以发布了”。与 215 相比，手机 12,433 台、平板 6,603 台、电视 4 台、车载 1 台、Chromebook 10 台和 Android XR 2 台的支持范围均未减少，穿戴式设备仍为 0 台；新安装应用大小约 39.6 MB，预计下载用时约 21 秒。版本说明为 CardScanFox 品牌更新、Android 稳定性与性能改进及 edge-to-edge 显示行为改进。
 
 Internal testing 轨道发布后独立回读为“有效”，最新版本为 `1.0.8 (218) - Internal`，状态为“已面向内部测试人员发布”，发布时间为 2026 年 11 月 24 日 10:15。`Card AI Internal 20261110` 测试名单仍为 6 人，本轮未修改名单。此次仅发布 Android 内部测试制品，未发布 iOS、API 或 Admin，也未执行数据库迁移。218 从 Play 安装后的真实登录、Play Integrity、扫描、统计与崩溃验收仍待完成。
+
+## Google Play 竖屏设备过滤（2026-11-24）
+
+218 的主 Activity 请求 `portrait`，打包工具据此将 `android.hardware.screen.portrait` 推断为安装必需。Android 主清单现将该硬件能力显式声明为 `android:required="false"`。主 Activity、Scan 取景和退出 Scan 仍按原策略请求正向竖屏，iOS 继续使用原有方向策略。
+
+本地使用测试包名运行 `:app:processReleaseResources`，`aapt2 dump badging` 将竖屏列为 `uses-feature-not-required`，`aapt2 dump xmltree` 确认主 Activity 仍请求 `portrait`。新增回归在修复前失败、修复后通过。Android 发布及归档脚本测试 26／26，Flutter 发布配置和双端扫描方向相关测试 12／12，`flutter analyze --no-pub` 通过。差异审查确认只有 Android 主清单改变分发行为。Google Play 设备目录待下一版 AAB 上传后复核，大屏和 XR 设备上的扫描取景、裁剪待真机验收。
+
+## Google Play 内部测试 220
+
+2026-11-24 14:10（北京时间），Google Play 已将 `1.0.8 (220) - Internal` 发布给现有内部测试人员。刷新内部测试轨道后，状态为「有效」，最新版本为 `220`。发布预览显示「可以发布了」。与 `218` 相比，电视从 4 款增至 5 款，各设备类别减少数均为 0。
+
+正式 AAB 从干净的 `main@51dd17c4e21a7e367173e8079791a08f0c225af5` 构建。共享版本已到 `1.0.8+219`，本次归档使用 `1.0.8+220`。与 `218` 的最终 AAB 清单对比，差异只有 `versionCode` 和新增的 `android.hardware.screen.portrait` 可选声明。主 Activity 继续请求 `portrait`。归档文件 `D:/Downloads/CardAI-Packages/com.cardai.tcg/Android/CardAI-Prod-1.0.8-220/CardAI-Prod-1.0.8-220.aab` 为 111,762,445 字节，SHA-256 为 `683a236047ce0f53ee6b4eba0e0a7801eeef0ed6800cc34723589aa5ea71d774`。Upload 证书、bundletool 及 64 位原生库 16 KB 对齐校验通过，已归档 R8 mapping 与三份 Dart 符号。新增设备上的实际安装与扫描体验待真机验证。

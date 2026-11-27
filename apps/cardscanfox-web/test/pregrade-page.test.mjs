@@ -29,7 +29,7 @@ test('the revised legal pages still explain what happens to pregrading photos an
  const terms=resolvePage(new URL('https://tcgcard.fun/terms'));
  for(const page of [privacy,terms]){
   assert.equal(page.status,200);
-  assert.match(page.html,/Version date: November 17, 2026/);
+  assert.match(page.html,/Version date: November 26, 2026/);
  }
  assert.match(privacy.html,/sent to Cloudflare Workers AI/);
  assert.match(privacy.html,/does not save pregrading photos or results/);

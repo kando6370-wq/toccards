@@ -29,6 +29,7 @@ import '../home/home_controller.dart';
 import '../home/home_performance_controller.dart';
 import '../search/search_controller.dart';
 import '../subscription/subscription_controller.dart';
+import '../subscription/subscription_navigation.dart';
 import '../subscription/subscription_entitlement_cache.dart';
 import 'card_detail_actions.dart';
 import 'card_detail_controller.dart';
@@ -140,7 +141,7 @@ class _CardDetailPageState extends ConsumerState<CardDetailPage> {
       subscriptionControllerProvider.select((value) => value.premiumState),
     );
     final freePremiumFeatures = ref.watch(
-      appCommercialPolicyProvider.select(
+      subscriptionAccessPolicyProvider.select(
         (value) => value.hasFreePremiumFeatures,
       ),
     );
@@ -1428,7 +1429,9 @@ class _OwnedDetailTabsState extends ConsumerState<_OwnedDetailTabs>
                   force: true,
                 ),
             onEditPurchasePrice: _editMissingPurchasePrice,
-            onUnlock: () => _unlockPerformance(itemId),
+            onUnlock: !widget.isPro && ref.watch(subscriptionModalEntryVisibleProvider)
+                ? () => _unlockPerformance(itemId)
+                : null,
           )
         else
           _PriceOverview(
@@ -1450,7 +1453,7 @@ class _OwnedDetailTabsState extends ConsumerState<_OwnedDetailTabs>
       return;
     }
     if (premiumState == AppPremiumState.unknown) return;
-    final result = await context.push<SubscriptionPaywallResult>(
+    final result = await context.openSubscriptionPaywall(
       subscriptionSheetLocation(
         scene: AnalyticsValue.sceneCardDetailPerformance,
       ),
@@ -1490,7 +1493,7 @@ class _CardPerformance extends StatelessWidget {
   final ValueChanged<PerformanceRange> onRangeSelected;
   final VoidCallback onRefresh;
   final VoidCallback onEditPurchasePrice;
-  final VoidCallback onUnlock;
+  final VoidCallback? onUnlock;
 
   @override
   Widget build(BuildContext context) {
@@ -1779,7 +1782,7 @@ String _signedAmount(CurrencyFormatter formatter, double value) {
 class _CardPerformanceLocked extends StatelessWidget {
   const _CardPerformanceLocked({required this.onUnlock});
 
-  final VoidCallback onUnlock;
+  final VoidCallback? onUnlock;
 
   @override
   Widget build(BuildContext context) {
@@ -5526,7 +5529,7 @@ class _PriceOverview extends ConsumerWidget {
         }
         return;
       }
-      final result = await context.push<SubscriptionPaywallResult>(
+      final result = await context.openSubscriptionPaywall(
         subscriptionSheetLocation(scene: AnalyticsValue.sceneTimeRange),
       );
       if (!context.mounted || result == null) return;
@@ -5545,7 +5548,7 @@ class _PriceOverview extends ConsumerWidget {
 }
 
 Future<AppPremiumState> _resolvePremiumForRestrictedAction(WidgetRef ref) {
-  if (ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
+  if (ref.read(subscriptionAccessPolicyProvider).hasFreePremiumFeatures) {
     return Future.value(AppPremiumState.premium);
   }
   final current = ref.read(subscriptionControllerProvider).premiumState;

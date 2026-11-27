@@ -1,3 +1,5 @@
+import type { AndroidPlayBuild } from "./android-integrity";
+import { insertPlatformSession } from "../google-play/session-build";
 import { createId } from "../id";
 import { reserveAccountUid } from "../account-uid";
 import type { Database } from "../db/database";
@@ -147,6 +149,7 @@ export async function completeOAuthAccountFlow(
   authorization: string | undefined,
   now: Date,
   platform: AuthPlatform,
+  build?: AndroidPlayBuild,
 ): Promise<OAuthAccountFlowResult> {
   try {
     return await completeOAuthAccountFlowOnce(
@@ -157,6 +160,7 @@ export async function completeOAuthAccountFlow(
       authorization,
       now,
       platform,
+      build,
     );
   } catch (error) {
     if (!isOAuthUniqueConstraintError(error)) {
@@ -171,6 +175,7 @@ export async function completeOAuthAccountFlow(
       authorization,
       now,
       platform,
+      build,
     );
   }
 }
@@ -183,6 +188,7 @@ async function completeOAuthAccountFlowOnce(
   authorization: string | undefined,
   now: Date,
   platform: AuthPlatform,
+  build?: AndroidPlayBuild,
 ): Promise<OAuthAccountFlowResult> {
   const existingIdentity = await db
     .prepare(SELECT_OAUTH_IDENTITY_SQL)
@@ -208,6 +214,7 @@ async function completeOAuthAccountFlowOnce(
       platform,
       anonymousId,
       authorization,
+      build,
     );
   }
 
@@ -230,6 +237,7 @@ async function completeOAuthAccountFlowOnce(
       platform,
       anonymousId,
       authorization,
+      build,
     );
   }
 
@@ -241,6 +249,7 @@ async function completeOAuthAccountFlowOnce(
     authorization,
     now,
     platform,
+    build,
   );
 }
 
@@ -272,6 +281,7 @@ async function createPlatformSignInOrRegistrationResult(
   platform: AuthPlatform,
   anonymousId: string | null,
   authorization: string | undefined,
+  build?: AndroidPlayBuild,
 ): Promise<OAuthAccountFlowResult> {
   let account = await findLatestPlatformAccount(db, userId, platform);
   const createdAt = now.toISOString();
@@ -312,7 +322,7 @@ async function createPlatformSignInOrRegistrationResult(
     const pendingSession = await createUserSessionValues(
       userId, dataSpaceId, platform, jwtSecret, now,
     );
-    statements.push(db.prepare(INSERT_USER_SESSION_SQL).bind(
+    statements.push(insertPlatformSession(db, build, INSERT_USER_SESSION_SQL,
       pendingSession.sessionId, dataSpaceId, identity.provider,
       pendingSession.hashedRefreshToken, pendingSession.expiresAt, createdAt,
       platform, userId, dataSpaceId, userId, platform,
@@ -343,7 +353,7 @@ async function createPlatformSignInOrRegistrationResult(
   const [sessionResult] = await runWithMutationLockStatements(
     db,
     await mutationLockKey("platform-account-delete", userId),
-    [db.prepare(INSERT_USER_SESSION_SQL).bind(
+    [insertPlatformSession(db, build, INSERT_USER_SESSION_SQL,
       session.sessionId,
       account.id,
       identity.provider,
@@ -373,6 +383,7 @@ async function bindIdentityAndSignIn(
   platform: AuthPlatform,
   anonymousId: string | null,
   authorization: string | undefined,
+  build?: AndroidPlayBuild,
 ): Promise<OAuthAccountFlowResult> {
   const existing = await findLatestPlatformAccount(db, userId, platform);
   const createdAt = now.toISOString();
@@ -403,9 +414,7 @@ async function bindIdentityAndSignIn(
         db.prepare(INSERT_USER_PREFERENCE_SQL).bind(createId(), dataSpaceId, createdAt, createdAt),
       ]),
     ]),
-    db
-      .prepare(INSERT_USER_SESSION_SQL)
-      .bind(
+    insertPlatformSession(db, build, INSERT_USER_SESSION_SQL,
         session.sessionId,
         dataSpaceId,
         identity.provider,
@@ -450,6 +459,7 @@ async function createOAuthUser(
   authorization: string | undefined,
   now: Date,
   platform: AuthPlatform,
+  build?: AndroidPlayBuild,
 ): Promise<OAuthAccountFlowResult> {
   const createdAt = now.toISOString();
   const anonymousAccount = await findVerifiedAnonymousAccount(
@@ -511,9 +521,7 @@ async function createOAuthUser(
       migrationStatements.userPreference,
       migrationStatements.scanRecords,
       migrationStatements.consumedFreeScanQuota,
-      db
-        .prepare(INSERT_USER_SESSION_FOR_UPGRADED_GUEST_SQL)
-        .bind(
+      insertPlatformSession(db, build, INSERT_USER_SESSION_FOR_UPGRADED_GUEST_SQL,
           session.sessionId,
           dataSpaceId,
           identity.provider,
@@ -565,9 +573,7 @@ async function createOAuthUser(
     db
       .prepare(INSERT_USER_PREFERENCE_SQL)
       .bind(createId(), dataSpaceId, createdAt, createdAt),
-    db
-      .prepare(INSERT_USER_SESSION_SQL)
-      .bind(
+    insertPlatformSession(db, build, INSERT_USER_SESSION_SQL,
         session.sessionId,
         dataSpaceId,
         identity.provider,

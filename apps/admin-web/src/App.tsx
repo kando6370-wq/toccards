@@ -1,3 +1,5 @@
+import { PlayConfigs, PlayOrders } from "./GooglePlay";
+import { playEventOptions, playNotificationEvent, playNotificationFamilies, playProcessingStates, playStoreKinds } from "./google-play-notification-status";
 import {
   Alert,
   Badge,
@@ -28,7 +30,7 @@ import SubscriptionConfigPage from "./subscription-config/SubscriptionConfigPage
 import type { SubscriptionRequest } from "./subscription-config/model";
 import "./App.css";
 import { resolveAdminApiBase } from "./api-base";
-import { createAdminRequestHeaders } from "./request-id";
+import { createAdminRequestHeaders, createRequestId } from "./request-id";
 import { appleNotificationStatusName } from "./apple-notification-status";
 import { countryName } from "./country-name";
 import {
@@ -38,7 +40,7 @@ import {
 } from "./installation-analytics";
 
 type AdminRole = "super_admin" | "operator";
-type MenuKey = "installations" | "billing-orders" | "apple-notifications" | "users" | "feedbacks" | "scans" | "permissions" | "app-versions" | "subscription-configs";
+type MenuKey = "play-orders" | "play-notifications" | "play-configs" | "installations" | "billing-orders" | "apple-notifications" | "users" | "feedbacks" | "scans" | "permissions" | "app-versions" | "subscription-configs";
 type FeedbackStatus = "pending" | "processed" | "ignored";
 type PermissionStatus = "active" | "disabled";
 type AppVersionStatus = "enabled" | "disabled";
@@ -60,6 +62,8 @@ type AdminRequestInit = Omit<RequestInit, "body"> & {
 };
 
 type InstallationAnalytics = {
+  total: number;
+  page_size: number;
   summary: { total_installations: number; countries: number; platforms: number };
   trend: Array<{ date: string; total: number }>;
   rows: InstallationRow[];
@@ -212,6 +216,8 @@ const menuGroups: Array<{ title: string; items: Array<{ key: MenuKey; label: str
     { key: "installations", label: "安装统计" },
     { key: "billing-orders", label: "订单统计" },
     { key: "apple-notifications", label: "苹果通知消息" },
+    { key: "play-notifications", label: "Google Play 通知消息" },
+    { key: "play-orders", label: "Google Play 订单统计" },
   ] },
   {
     title: "用户管理",
@@ -228,6 +234,9 @@ const menuGroups: Array<{ title: string; items: Array<{ key: MenuKey; label: str
 
 const pageMeta: Record<MenuKey, { title: string; description: string }> = {
   installations: { title: "安装分析", description: "查看各国家与平台安装趋势及明细数据。" },
+  "play-orders": {title:"Google Play 订单统计", description:"按 UTC 扣款和成功退款事件查询 Android 订单。"},
+  "play-notifications": {title:"Google Play 通知消息",description:"查询 Google Play 商店事件、通知处理结果与脱敏内容。"},
+  "play-configs": {title:"Google Play 订阅配置",description:"审批基础方案和优惠，管理订阅页与弹窗。"},
   "billing-orders": { title: "订单统计", description: "查询并查看用户订阅、续期、试用及 Lifetime 购买记录。" },
   "apple-notifications": { title: "苹果通知消息", description: "查询并查看 Apple App Store Server Notifications V2 订阅通知消息及完整通知内容，用于排查掉单、订单状态异常等问题。" },
   users: { title: "用户列表", description: "查看 App 用户的基础信息、登录身份和首次安装时间。" },
@@ -489,6 +498,10 @@ function AdminShell({ session, onLogout }: { session: AdminSession; onLogout: ()
             <Text>{new Date().toLocaleDateString()}</Text>
           </div>
           {selected === "installations" && <InstallationsPage session={session} />}
+          {selected === "play-notifications" && <PlayNotificationsPage key={session.adminId} session={session} />}
+          {selected === "play-orders" && <PlayOrders accountKey={`${API_BASE}|${session.adminId}|${session.role}`} request={subscriptionRequest} superAdmin={session.role === "super_admin"} download={path=>downloadAdminFile(path,session,"google-play-orders.xlsx")} />}
+          {(selected === "subscription-configs" || selected === "play-configs") && <Segmented aria-label="订阅配置平台" value={selected} options={[{label:"iOS",value:"subscription-configs"},{label:"Google Play",value:"play-configs"}]} onChange={key=>void selectMenu(key as MenuKey)} />}
+          {selected === "play-configs" && <PlayConfigs accountKey={`${API_BASE}|${session.adminId}|${session.role}`} request={subscriptionRequest} superAdmin={session.role === "super_admin"} />}
           {selected === "billing-orders" && <BillingOrdersPage session={session} />}
           {selected === "apple-notifications" && <AppleNotificationsPage session={session} />}
           {selected === "users" && <UsersPage session={session} />}
@@ -504,22 +517,30 @@ function AdminShell({ session, onLogout }: { session: AdminSession; onLogout: ()
 }
 
 function InstallationsPage({ session }: { session: AdminSession }) {
+  const [page, setPage] = useState(1);
   const [period, setPeriod] = useState<InstallationPeriod>("7d");
   const [dateRangeKey, setDateRangeKey] = useState(0);
   const [draft, setDraft] = useState<InstallationFilters>({ date_from: "", date_to: "" });
   const [filters, setFilters] = useState<InstallationFilters>(draft);
   const path = useMemo(() => {
-    const params = new URLSearchParams({ page_size: "100" });
+    const params = new URLSearchParams({ page: String(page), page_size: "8" });
     Object.entries(filters).forEach(([key, value]) => value && params.set(key, value));
     return `/analytics/installations?${params.toString()}`;
-  }, [filters]);
+  }, [filters, page]);
+  const scope = filterParams({ date_from: filters.date_from, date_to: filters.date_to, environment: filters.environment ?? "" });
+  const options = useAdminData<{ countries: string[] }>(`/analytics/installations/options?${scope}`, session);
   const { data, loading, reload, error } = useAdminData<InstallationAnalytics>(path, session);
   const rows = data?.rows ?? [];
   const trend = useMemo(
     () => installationTrendForPeriod(data?.trend ?? [], period, filters.date_to),
     [data?.trend, filters.date_to, period],
   );
-  const countryOptions = [...new Set(rows.map((row) => row.country))].map(
+  useEffect(() => {
+    if (!data || loading) return;
+    const lastPage = Math.max(1, Math.ceil(data.total / data.page_size));
+    if (page > lastPage) setPage(lastPage);
+  }, [data, loading, page]);
+  const countryOptions = (options.data?.countries ?? []).map(
     (value) => ({ value, label: countryName(value) }),
   );
   const columns: ColumnsType<InstallationRow> = [
@@ -532,6 +553,7 @@ function InstallationsPage({ session }: { session: AdminSession }) {
   ];
 
   function applyInstallationFilters() {
+    setPage(1);
     setFilters({ ...draft });
     reload();
   }
@@ -540,12 +562,13 @@ function InstallationsPage({ session }: { session: AdminSession }) {
     const empty = { date_from: "", date_to: "" };
     setDraft(empty);
     setFilters(empty);
+    setPage(1);
     setDateRangeKey((value) => value + 1);
     reload();
   }
 
   return (
-    <PagePanel error={error} onRefresh={reload}>
+    <PagePanel error={error ?? options.error} onRefresh={() => { reload(); options.reload(); }}>
       <FilterBar>
         <DatePicker.RangePicker key={dateRangeKey} onChange={(_, values) => setDraft((current) => ({ ...current, date_from: values[0], date_to: values[1] }))} />
         <Select showSearch allowClear value={draft.country || undefined} onChange={(country) => setDraft((current) => ({ ...current, country }))} placeholder="国家" className="filter-control" options={countryOptions} />
@@ -565,8 +588,8 @@ function InstallationsPage({ session }: { session: AdminSession }) {
         </div>
         <LineChart data={trend} />
       </section>
-      <DataPanel title="安装数据" count={rows.length}>
-        <Table rowKey={(row) => `${row.uid}-${row.date}-${row.country}-${row.platform}`} columns={columns} dataSource={rows} loading={loading} pagination={{ pageSize: 8 }} />
+      <DataPanel title="安装数据" count={data?.total ?? 0}>
+        <Table rowKey={(row) => `${row.uid}-${row.date}-${row.country}-${row.platform}`} columns={columns} dataSource={rows} loading={loading} pagination={{ current: page, pageSize: 8, total: data?.total ?? 0, showSizeChanger: false, onChange: setPage }} />
       </DataPanel>
     </PagePanel>
   );
@@ -793,6 +816,119 @@ function AppleNotificationsPage({ session }: { session: AdminSession }) {
           : <Alert type="error" showIcon message={notificationFailureLabel(detail.processing_status)} description={detail.last_error ?? "无可用的 Decoded Payload"} />}
       </DetailSection>
     </Space>}</Drawer>
+  </PagePanel>;
+}
+
+type PlayNotificationRow = {
+  topic: string; message_id: string; kind: string; state: string; event_at: string; received_at: string;
+  attempts: number; next_check_at: string | null; last_error: string | null; order_id: string | null;
+  chain: string | null; owner_id: string | null; sku: string | null; store_kind: string | null;
+  checked_at: string | null; acknowledgement: string | null;
+};
+type PlayNotificationDetail = PlayNotificationRow & {
+  scope: string; redacted_payload: Record<string, unknown> | null; purchase_state: string | null; latest_order_id: string | null;
+};
+
+function PlayNotificationsPage({ session }: { session: AdminSession }) {
+  const [page, setPage] = useState(1);
+  const [dateKey, setDateKey] = useState(0);
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [filters, setFilters] = useState<Record<string, string>>({});
+  const [selected, setSelected] = useState<Pick<PlayNotificationRow, "topic" | "message_id"> | null>(null);
+  const [reason, setReason] = useState("");
+  const [retrying, setRetrying] = useState(false);
+  const base = "/google-play/notifications";
+  const list = useAdminData<{rows: PlayNotificationRow[]; total: number; scope: string; as_of: string}>(queryPath(base, page, filters), session);
+  const options = useAdminData<{kinds: string[]; skus: string[]}>(base + "/options", session);
+  const detail = useQuery({
+    queryKey: ["play-notification-detail", API_BASE, session.accessToken, selected?.topic, selected?.message_id],
+    enabled: !!selected, retry: false, gcTime: 0,
+    queryFn: ({signal}) => adminRequest<PlayNotificationDetail>(base + "/detail?" + new URLSearchParams(selected!), {token:session.accessToken, signal}),
+  });
+  const data = list.data, record = detail.data, loading = list.loading, total = data?.total ?? 0;
+  useEffect(() => {
+    if (data && !loading && page > Math.max(1, Math.ceil(data.total / 20))) setPage(Math.max(1, Math.ceil(data.total / 20)));
+  }, [data, loading, page]);
+  function updateDraft(key: string, value?: string) {
+    setDraft(previous => ({...previous, [key]:value ?? "", ...(key === "family" ? {event_kind:""} : {})}));
+  }
+  function applyFilters() {
+    setFilters(Object.fromEntries(Object.entries(draft).map(([key, value]) => [key, value.trim()])));
+    setPage(1);
+  }
+  function reset() { setDraft({}); setFilters({}); setPage(1); setDateKey(key => key + 1); }
+  function refresh() { list.reload(); options.reload(); }
+  async function retryNotification() {
+    if (!record || retrying || !reason.trim()) return;
+    setRetrying(true);
+    try {
+      await mutate(session, "/google-play/retry", {method:"POST", body:{topic:record.topic, message_id:record.message_id,
+        expected_revision:record.attempts, reason:reason.trim(), request_id:createRequestId()}});
+      message.success("已重新加入处理队列");
+      setSelected(null); list.reload();
+    } catch (error) { message.error(errorMessage(error)); void detail.refetch(); }
+    finally { setRetrying(false); }
+  }
+  const selectOptions = (values: Record<string, string>) => Object.entries(values).map(([value,label]) => ({value,label}));
+  const eventOptions = playEventOptions(draft.family, options.data?.kinds ?? []);
+  const storeLabel = (row: PlayNotificationRow) => playStoreKinds[row.kind === "test" ? "probe" : row.store_kind ?? "unknown"] ?? "未核实";
+  const columns: ColumnsType<PlayNotificationRow> = [
+    { title: "消息 ID", dataIndex: "message_id", width: 180, ellipsis: true },
+    { title: "Android UID", dataIndex: "owner_id", width: 150, ellipsis: true, render: displayValue },
+    { title: "通知订单号", dataIndex: "order_id", width: 185, ellipsis: true, render: displayValue },
+    { title: "主通知类型", width: 105, render: (_, row) => <Tag color="cyan">{playNotificationEvent(row.kind).family}</Tag> },
+    { title: "子通知类型", width: 245, ellipsis: true, render: (_, row) => playNotificationEvent(row.kind).code },
+    { title: "状态名称", width: 170, render: (_, row) => playNotificationEvent(row.kind).name },
+    { title: "处理状态", dataIndex: "state", width: 125, render: (state: string) => playProcessingStates[state] ?? state },
+    { title: "SKU", dataIndex: "sku", width: 150, ellipsis: true, render: displayValue },
+    { title: "购买类型", width: 100, render: (_, row) => storeLabel(row) },
+    { title: "接收时间（UTC+0）", dataIndex: "received_at", width: 180, render: formatUtcTime },
+    { title: "操作", width: 96, render: (_, row) => <Button type="link" onClick={() => {setReason(""); setSelected({topic:row.topic, message_id:row.message_id});}}>查看详情</Button> },
+  ];
+  const [environment, , packageName] = (data?.scope ?? "").split(":");
+  const event = record && playNotificationEvent(record.kind);
+  const json = record?.redacted_payload ? JSON.stringify(record.redacted_payload, null, 2) : null;
+  const listError = list.error ? "通知消息加载失败，请点击刷新重试" : options.error ? "筛选选项加载失败，请点击刷新重试" : null;
+  return <PagePanel error={listError} onRefresh={refresh} showRefresh={false}>
+    <form className="scans-filter-panel apple-notifications-filter-panel" onSubmit={e => {e.preventDefault(); applyFilters();}}>
+      {[["uid","Android UID"],["message_id","消息 ID"],["chain","购买链（脱敏）"],["order_id","订单号（含关联购买）"]].map(([key,label]) =>
+        <ScanFilterField key={key} label={label}><Input allowClear value={draft[key] ?? ""} onChange={e => updateDraft(key, e.target.value)} /></ScanFilterField>)}
+      <ScanFilterField label="SKU"><Select showSearch allowClear placeholder="全部" value={draft.sku || undefined} options={(options.data?.skus ?? []).map(value => ({value,label:value}))} onChange={v => updateDraft("sku",v)} /></ScanFilterField>
+      <ScanFilterField label="购买类型"><Select allowClear placeholder="全部" value={draft.store_kind || undefined} options={selectOptions(playStoreKinds)} onChange={v => updateDraft("store_kind",v)} /></ScanFilterField>
+      <ScanFilterField label="主通知类型"><Select allowClear placeholder="全部" value={draft.family || undefined} options={selectOptions(playNotificationFamilies)} onChange={v => updateDraft("family",v)} /></ScanFilterField>
+      <ScanFilterField label="子通知类型"><Select showSearch allowClear placeholder="全部" optionFilterProp="label" value={draft.event_kind || undefined} options={eventOptions} onChange={v => updateDraft("event_kind",v)} /></ScanFilterField>
+      <ScanFilterField label="处理状态"><Select allowClear placeholder="全部" value={draft.state || undefined} options={selectOptions(playProcessingStates)} onChange={v => updateDraft("state",v)} /></ScanFilterField>
+      <ScanFilterField className="apple-notification-created-at" label="接收时间（UTC+0）"><DatePicker.RangePicker key={dateKey} format="YYYY-MM-DD" onChange={(_, [from,to]) => setDraft(previous => ({...previous,
+        from: from ? from + "T00:00:00Z" : "", to: to ? new Date(Date.parse(to + "T00:00:00Z") + 86400000).toISOString() : ""}))} /></ScanFilterField>
+      <div className="scans-filter-actions"><Button disabled={loading} onClick={reset}>重置</Button><Button className="cyan-button" htmlType="submit" loading={loading}>查询</Button></div>
+    </form>
+    <section className="scans-table-panel"><div className="billing-table-actions"><Title level={4}>通知消息列表</Title>
+      <Space wrap>{data && <><Tag>{environment === "production" ? "生产环境（prod）" : "开发环境（dev）"}</Tag><Text>{packageName}</Text><Text type="secondary">截至 {formatUtcTime(data.as_of)} UTC</Text></>}<Button onClick={refresh} loading={loading || options.loading}>刷新</Button></Space></div>
+      <Table rowKey={row => JSON.stringify([row.topic,row.message_id])} columns={columns} dataSource={data?.rows ?? []} loading={loading} locale={{emptyText:"暂无符合条件的通知消息"}} pagination={false} scroll={{x:1700}} />
+      <div className="scans-pagination"><Text>{rangeSummaryPage(page, 20, total)}</Text><Pagination disabled={loading} current={page} total={total} pageSize={20} showSizeChanger={false} onChange={setPage} /></div>
+    </section>
+    <Drawer className="notification-detail-drawer" rootClassName="notification-detail-drawer-root" title="Google Play 通知详情" width="55%" open={!!selected} onClose={() => {if (!retrying) setSelected(null);}}>
+      {detail.isError ? <Alert type="error" showIcon message="通知详情加载失败" action={<Button onClick={() => void detail.refetch()}>重试加载</Button>} />
+        : !record || !event ? <div className="notification-detail-state"><Spin /></div> : <Space direction="vertical" size="large" style={{width:"100%"}}>
+        <DetailSection title="基本信息"><InfoGrid items={[
+          {label:"消息 ID",value:record.message_id}, {label:"来源",value:record.topic}, {label:"业务环境与包名",value:record.scope},
+          {label:"主通知类型",value:event.family}, {label:"子通知类型",value:[event.code,event.number].filter(Boolean).join(" · ")}, {label:"状态名称",value:event.name},
+          {label:"Android UID",value:displayValue(record.owner_id)}, {label:"SKU",value:displayValue(record.sku)}, {label:"通知订单号",value:displayValue(record.order_id)},
+          {label:"购买链（脱敏）",value:displayValue(record.chain)}, {label:"事件时间（UTC+0）",value:formatUtcTime(record.event_at)}, {label:"接收时间（UTC+0）",value:formatUtcTime(record.received_at)},
+        ]} /></DetailSection>
+        <DetailSection title="处理与最近回查"><InfoGrid items={[
+          {label:"处理状态",value:playProcessingStates[record.state] ?? record.state}, {label:"尝试次数",value:record.attempts},
+          {label:"下次处理（UTC+0）",value:formatUtcTime(record.next_check_at)}, {label:"最近错误",value:displayValue(record.last_error)},
+          {label:"购买类型",value:storeLabel(record)}, {label:"当前订阅状态",value:displayValue(record.purchase_state)},
+          {label:"商店确认",value:displayValue(record.acknowledgement)}, {label:"最近回查（UTC+0）",value:formatUtcTime(record.checked_at)},
+          {label:"该购买最近订单",value:displayValue(record.latest_order_id)},
+        ]} /></DetailSection>
+        <DetailSection title="通知内容（脱敏 JSON）">{json ? <><div className="notification-detail-actions"><Button onClick={async () => {
+          try { await navigator.clipboard.writeText(json); message.success("已复制脱敏通知内容"); } catch { message.error("复制失败，请手动选择 JSON 复制"); }
+        }}>复制 JSON</Button></div><pre className="json-block">{json}</pre></> : <Text type="secondary">{record.topic === "voided-purchases" ? "此记录来自作废购买回扫。" : "此历史消息未保存通知快照。"}</Text>}</DetailSection>
+        {session.role === "super_admin" && record.state === "failed" && <Space><Input aria-label="重试原因" placeholder="填写重试原因" maxLength={300} value={reason} onChange={e => setReason(e.target.value)} /><Button loading={retrying} disabled={!reason.trim()} onClick={retryNotification}>重新处理</Button></Space>}
+      </Space>}
+    </Drawer>
   </PagePanel>;
 }
 

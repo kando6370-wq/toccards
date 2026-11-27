@@ -1,18 +1,24 @@
+import { base64Url, fetchWithDeadline, googleAccessToken } from "./google-service-account";
 import type { Env } from "../env";
 
 export type AndroidIntegrityBinding = {
   deviceId: string;
   requestNonce: string;
+  sessionId?: string;
 };
 
-export type AndroidIntegrityResult = "verified" | "invalid" | "unavailable";
+export type AndroidPlayBuild = {
+  package_name: string;
+  certificate_digest: string;
+  version_code: number;
+  verified_at: string;
+};
 
-const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
+export type AndroidIntegrityResult = { status: "verified"; build?: AndroidPlayBuild } | "invalid" | "unavailable";
+
 const PLAY_INTEGRITY_SCOPE = "https://www.googleapis.com/auth/playintegrity";
 const MAX_TOKEN_AGE_MS = 120_000;
 const MAX_CLOCK_SKEW_MS = 30_000;
-const REQUEST_TIMEOUT_MS = 8_000;
-const accessTokens = new Map<string, Promise<{ value: string; expiresAt: number }>>();
 
 export async function verifyAndroidInstallation(
   env: Env,
@@ -28,7 +34,7 @@ export async function verifyAndroidInstallation(
   if (
     env.APP_ENVIRONMENT === "development" &&
     env.ANDROID_INTEGRITY_ALLOW_DEVELOPMENT === "true"
-  ) return "verified";
+  ) return { status: "verified" };
 
   const packageName = env.ANDROID_PLAY_PACKAGE_NAME?.trim();
   const certificates = env.ANDROID_PLAY_CERTIFICATE_SHA256_DIGESTS
@@ -43,7 +49,7 @@ export async function verifyAndroidInstallation(
   if (typeof token !== "string" || token.length === 0 || token.length > 32_768) return "invalid";
 
   try {
-    const googleToken = await getAccessToken(serviceAccount, privateKey, now);
+    const googleToken = await googleAccessToken(serviceAccount, privateKey, PLAY_INTEGRITY_SCOPE, now);
     const response = await fetchWithDeadline(
       `https://playintegrity.googleapis.com/v1/${encodeURIComponent(packageName)}:decodeIntegrityToken`,
       {
@@ -61,7 +67,7 @@ export async function verifyAndroidInstallation(
     const timestamp = Number(request?.timestampMillis);
     const expectedHash = base64Url(new Uint8Array(await crypto.subtle.digest(
       "SHA-256",
-      new TextEncoder().encode(`${binding.deviceId}\nandroid\n${binding.requestNonce}`),
+      new TextEncoder().encode([binding.deviceId, "android", binding.requestNonce, ...(binding.sessionId ? [binding.sessionId] : [])].join("\n")),
     )));
     const age = now.getTime() - timestamp;
     if (
@@ -74,90 +80,21 @@ export async function verifyAndroidInstallation(
       !device.deviceRecognitionVerdict.includes("MEETS_DEVICE_INTEGRITY") ||
       account?.appLicensingVerdict !== "LICENSED"
     ) return "invalid";
-    return "verified";
+    const version = typeof app.versionCode === "string" && /^[1-9]\d{0,9}$/.test(app.versionCode)
+      ? Number(app.versionCode) : 0;
+    if (version < 1 || version > 2_100_000_000) return { status: "verified" };
+    return { status: "verified", build: {
+      package_name: packageName,
+      certificate_digest: app.certificateSha256Digest.find((value) => certificates.includes(value)),
+      version_code: version,
+      verified_at: new Date(timestamp).toISOString(),
+    } };
   } catch {
     return "unavailable";
-  }
-}
-
-async function getAccessToken(email: string, privateKey: string, now: Date): Promise<string> {
-  const fingerprint = base64Url(new Uint8Array(await crypto.subtle.digest(
-    "SHA-256", new TextEncoder().encode(privateKey),
-  )));
-  const cacheKey = `${email}:${fingerprint}`;
-  const cached = accessTokens.get(cacheKey);
-  if (cached) {
-    const value = await cached;
-    if (value.expiresAt > now.getTime() + 60_000) return value.value;
-    accessTokens.delete(cacheKey);
-  }
-  const pending = requestAccessToken(email, privateKey, now);
-  if (accessTokens.size >= 8) accessTokens.delete(accessTokens.keys().next().value!);
-  accessTokens.set(cacheKey, pending);
-  try {
-    return (await pending).value;
-  } catch (error) {
-    if (accessTokens.get(cacheKey) === pending) accessTokens.delete(cacheKey);
-    throw error;
-  }
-}
-
-async function requestAccessToken(email: string, pem: string, now: Date) {
-  const issuedAt = Math.floor(now.getTime() / 1000);
-  const header = encodeJson({ alg: "RS256", typ: "JWT" });
-  const claims = encodeJson({
-    iss: email, scope: PLAY_INTEGRITY_SCOPE, aud: GOOGLE_TOKEN_URL,
-    iat: issuedAt, exp: issuedAt + 3600,
-  });
-  const signingInput = `${header}.${claims}`;
-  const encoded = pem.replace(/\\n/g, "\n")
-    .replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\s/g, "");
-  const keyBytes = Uint8Array.from(atob(encoded), (value) => value.charCodeAt(0));
-  const key = await crypto.subtle.importKey("pkcs8", keyBytes, {
-    name: "RSASSA-PKCS1-v1_5", hash: "SHA-256",
-  }, false, ["sign"]);
-  const signature = new Uint8Array(await crypto.subtle.sign(
-    "RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(signingInput),
-  ));
-  const response = await fetchWithDeadline(GOOGLE_TOKEN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-      assertion: `${signingInput}.${base64Url(signature)}`,
-    }),
-  });
-  if (!response.ok) throw new Error("Android installation verification is unavailable.");
-  const data = record(response.body);
-  if (typeof data?.access_token !== "string" || !data.access_token ||
-    typeof data.expires_in !== "number" || data.expires_in <= 0) {
-    throw new Error("Invalid Android verification service credentials.");
-  }
-  return { value: data.access_token, expiresAt: now.getTime() + data.expires_in * 1000 };
-}
-
-async function fetchWithDeadline(url: string, init: RequestInit): Promise<{
-  ok: boolean; status: number; body: unknown;
-}> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    const response = await fetch(url, { ...init, signal: controller.signal });
-    return { ok: response.ok, status: response.status, body: response.ok ? await response.json() : null };
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
 function record(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown> : null;
-}
-
-function encodeJson(value: unknown): string {
-  return base64Url(new TextEncoder().encode(JSON.stringify(value)));
-}
-
-function base64Url(bytes: Uint8Array): string {
-  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }

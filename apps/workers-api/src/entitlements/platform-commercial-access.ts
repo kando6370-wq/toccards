@@ -1,19 +1,15 @@
+import type { Env } from "../env";
+import { googlePlayAccess } from "../google-play/access";
 import type { AuthenticatedOwner } from "../owner-auth";
+import { resolvePremiumAccess, type PremiumAccess } from "./premium-access";
 
-export type PlatformCommercialAccess =
-  | "android_free_launch"
-  | "ios_apple_entitlement";
-
-export function platformCommercialAccess(
-  owner: Pick<AuthenticatedOwner, "platform"> | { platform?: unknown },
-): PlatformCommercialAccess {
-  return owner.platform === "android"
-    ? "android_free_launch"
-    : "ios_apple_entitlement";
-}
-
-export function usesAndroidFreeLaunch(
-  owner: Pick<AuthenticatedOwner, "platform"> | { platform?: unknown },
-): boolean {
-  return platformCommercialAccess(owner) === "android_free_launch";
+export async function platformAccess(
+  env: Env, owner: AuthenticatedOwner, localState: string | undefined,
+  appleAccess: (env: Env, session: string, localState: string | undefined) => Promise<PremiumAccess> = resolvePremiumAccess,
+): Promise<{ access: PremiumAccess; freeLaunch: boolean; cohort: string | null }> {
+  if (owner.platform === "android") {
+    const policy = await googlePlayAccess(env, owner);
+    return { access: policy.premium ? "premium" : "free", freeLaunch: policy.access_policy !== "metered", cohort: policy.cohort };
+  }
+  return { access: await appleAccess(env, owner.session_id, localState), freeLaunch: false, cohort: null };
 }

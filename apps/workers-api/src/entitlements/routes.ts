@@ -14,7 +14,6 @@ import {
   verifyAppleTransaction,
 } from "./apple-signed-data";
 import { PREMIUM_ENTITLEMENT_ID } from "./premium-access";
-import { usesAndroidFreeLaunch } from "./platform-commercial-access";
 import { billingOrderFactStatements, businessStatusForAppleTransaction } from "./billing-order-facts";
 import { loadBillingUsdSnapshot } from "./billing-currency";
 
@@ -107,7 +106,7 @@ export function createEntitlementRoutes(
     const auth = await authenticateOwner(c.env, c.req.header("Authorization"));
     if (auth.status === "internal_error") return internalError(c);
     if (auth.status === "unauthorized") return c.json(UNAUTHORIZED, 401);
-    if (usesAndroidFreeLaunch(auth.owner)) return c.json(APPLE_PLATFORM_UNAVAILABLE, 403);
+    if (auth.owner.platform !== "ios") return c.json(APPLE_PLATFORM_UNAVAILABLE, 403);
 
     const allowedProducts = await allowedAppleProductIds(c.env);
     if (!allowedProducts) return c.json(VERIFICATION_UNAVAILABLE, 503);
@@ -157,7 +156,7 @@ export function createEntitlementRoutes(
       return c.json({ success: false, error: { code: "INTERNAL_ERROR", message: "Something went wrong." } }, 500);
     }
     if (auth.status === "unauthorized") return c.json(UNAUTHORIZED, 401);
-    if (usesAndroidFreeLaunch(auth.owner)) return c.json(APPLE_PLATFORM_UNAVAILABLE, 403);
+    if (auth.owner.platform !== "ios") return c.json(APPLE_PLATFORM_UNAVAILABLE, 403);
 
     const body = await readJson(c.req);
     const productId = productIdFromBody(body);
@@ -210,7 +209,7 @@ export function createEntitlementRoutes(
     const auth = await authenticateOwner(c.env, c.req.header("Authorization"));
     if (auth.status === "internal_error") return internalError(c);
     if (auth.status === "unauthorized") return c.json(UNAUTHORIZED, 401);
-    if (usesAndroidFreeLaunch(auth.owner)) return c.json(APPLE_PLATFORM_UNAVAILABLE, 403);
+    if (auth.owner.platform !== "ios") return c.json(APPLE_PLATFORM_UNAVAILABLE, 403);
 
     const body = verificationBody(await readJson(c.req));
     const idempotencyKey = c.req.header("Idempotency-Key");

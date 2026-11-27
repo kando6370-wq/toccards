@@ -71,7 +71,8 @@ test('the eight card-price examples retain their printing, price type and observ
   const byNumber = new Map(prices.map(cells => [normalized(cells[0]), normalized(cells[2])]));
   assert.equal(byNumber.get('138/103'), '$304.99');
   assert.equal(byNumber.get('141/103'), '$247.06');
-  assert.ok(nodes(body, node => node.tagName === 'a' && attr(node, 'href')?.startsWith('https://www.pricecharting.com/')).length);
+  assert.match(normalized(body), /PriceCharting.*dated ungraded card references/);
+  assert.equal(nodes(body, node => node.tagName === 'a' && attr(node, 'href')?.startsWith('https://www.pricecharting.com/')).length, 0);
 });
 
 test('both page owners keep one H1 and propagate their own metadata and cover into Article and social output', () => {
@@ -146,6 +147,7 @@ test('the ETB article gives a same-page calculator with labels, external assets 
   const body = articleBody(tree);
   const component = nodes(body, node => attr(node, 'id') === 'etb-cost-calculator')[0];
   assert.ok(component);
+  assert.ok(matching(body, 'h2', 'id', 'etb-quote-notes').length);
   assert.equal(matching(body, 'a', 'href', '#etb-cost-calculator').length, 1);
   const form = nodes(component, node => node.tagName === 'form')[0];
   assert.ok(form);

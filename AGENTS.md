@@ -9,7 +9,8 @@
 - Android App 全程固定正向竖屏，启动及离开 Scan 后均不得恢复横屏；iOS 保留原有方向规则。
 - iOS 与 Android 业务开发完成并验证后，必须及时清理确认无用的旧版本源码、构建产物、测试包、缓存及临时资源；保留仍用于兼容、回滚、审计或发布的必要版本，清理前核对无活动依赖，完成后确认相关磁盘、构建目录及运行资源已释放，不得因清理影响另一端或现网版本。
 - Android 免费首版的扫描沿用当前 iOS 业务流程，仅取消 Android 订阅校验及对应的累计免费扫描额度限制；保留现有活动队列，不新增整批处理或跨设备扫描恢复。需求澄清见 `docs/releases/v1.1.4/05-delivery/android-free-first-release-review.md` 第 0.2 节。
-- Android 免费仅为首版商业策略；平台商业策略集中维护，为后续 Android 订阅留扩展点，不提前接入 Google Billing、建立未来付费额度或把 Android 永久标为 Premium。开发使用独立测试包名及 SDK 配置，正式 Android 标识、签名和 SDK 配置由独立打包环境注入，不复用本机既有正式签名。
+- Android 免费仅为首版商业策略；平台商业策略集中维护，为后续 Android 订阅留扩展点，首个 Google Play 订阅配置内部包只在正式包名的 Android release 构建中引入 Billing Library，继续执行免费策略。付费额度、购买入口和权益变更按后续获准方案实施。开发使用独立测试包名及 SDK 配置，正式 Android 标识、签名和 SDK 配置由独立打包环境注入，不复用本机既有正式签名。
+- v1.1.5 起开发新版 Android Google Play 订阅，首版及存量资格继续遵守上一条免费策略。平台身份用于建立会话，服务端按环境、package 和可信构建决定计费与新售，两项开关默认关闭。Android 的订阅页与弹窗按各自已发布的配置展示，停用展示后仍须保留个人中心的恢复和管理入口。Google 通知列表和详情按当前环境及包名查询，运营可查看脱敏快照。Apple 与 Google 的权益、订单和归因口径见 [Google Play 订阅与对账](docs/releases/v1.1.5/03-data-api/google-play.md)。
 - 先读后写：修改前阅读目标文件、直接调用方、相关配置和已有测试。
 - 先明确假设：存在会改变实现或删除范围的歧义时，先停止并询问。
 - 保持简单：只实现当前需求，不增加猜测性功能或一次性抽象。
@@ -144,14 +145,14 @@ GitLab 与 GitHub Flutter CI 统一使用 3.47.9；GitLab 从官方 archive 安�
 - `docs/releases/v1.1.1/README.md`：2026-10-09 起的开发归档入口；`docs/releases/v1.1.1/03-data-api/app-compatibility-contract.md` 和 `docs/releases/v1.1.1/05-delivery/app-compatibility-acceptance.md` 定义从 App 1.0.4 起的服务端兼容目标与待执行门禁，尚非已验证实现。`docs/releases/v1.1.1/01-flows/scan-recognition.md` 记录 2026-09-29 扫描 R2/向量并行的本地实现、失败补偿及批量额度边界，已通过相关本地与 PostgreSQL 多连接验证，2026-09-29 已自动发布 Linux dev，2026-10-08 随 `main@61b5420` 部署 prod；真机批量验收仍未完成。历史契约、故障与发布证据保留原路径及未验收边界。
 - `docs/releases/v1.1.2/README.md`：2026-10-26 原位归档；App 兼容阅读版与 AI 执行版、App 1.0.6 订阅配置、Admin 和生产交付证据按归档内容保留。不得继续向 v1.1.2 追加新开发或新日期检查点；只有明确授权的事实错误修正可以回写，并须从当前版本留下引用。
 - `docs/releases/v1.1.3/README.md`：2026-11-05 原位归档，保留 2026-10-26 至 2026-11-04 的扫描、收藏、账号隔离、Admin、Marketing 及生产 API／双 Admin 证据。不得继续向该目录追加 v1.1.4 新功能或新日期检查点。
-- `docs/releases/v1.1.4/README.md`：当前增量开发入口。2026-11-05 之后的新增、变更、移除和实际验证写入 v1.1.4；未变化的产品、兼容、订阅、Admin 和交付合同继续引用 v1.1.3、v1.1.2 或更早版本，不复制整套文档。
+- `docs/releases/v1.1.4/README.md`：2026-11-26 原位归档，保留 2026-11-05 起上一阶段的产品、架构、业务、API、Admin、官网、测试、构建、部署和验收记录。不得继续向该目录追加新功能或新日期检查点。`docs/releases/v1.1.5/README.md` 是当前增量开发入口，后续新增、变更、移除和实际验证写入 v1.1.5。
 - App 1.0.6 订阅配置的 PRD 1.14、商品接入映射和最小实施草案见 [订阅配置产品输入](docs/releases/v1.1.2/00-product/admin-subscription-config-prd.md)；[离线原型](prototypes/admin-subscription-config-standalone.html)保留在正式 docs 之外。服务端第一阶段源码与环境／接口合同见 [订阅展示配置与商品准入](docs/releases/v1.1.2/03-data-api/subscription-display-config.md)。Admin 页面实现见 [当前后台文档](docs/releases/v1.1.2/04-admin/admin.md)，Flutter 消费源码与兜底／平台边界见 [客户端订阅展示](docs/releases/v1.1.2/01-flows/subscription-display.md)。2026-10-23 已发布生产服务端与双 Admin；2026-10-26 App 1.0.6 已上架，Weekly Trial／Monthly 已完成生产动态准入，用户确认相关实机交易链路目前无问题。Page／Modal 仍未启用，Agent 未独立重放原始交易／平台记录，完整旧包兼容矩阵继续按 AI 执行版保留证据边界。
 - 2026-10-27 订阅本地兜底页的新三卡与年试用 SKU 增量见 [v1.1.3 订阅本地兜底页](docs/releases/v1.1.3/01-flows/subscription-display.md)；本地构建注册不代表新 SKU 已完成测试／正式环境准入或交易验收。
 - 2026-10-28 Admin 扫描记录新增 TCG／SPORTS 类型筛选；新扫描审计保存 `system_result.card_type`，历史缺类型记录仅在“全部”中出现，不推断回填。实现与部署边界见 [v1.1.3 扫描识别链路](docs/releases/v1.1.3/01-flows/scan-recognition.md)。
 
 `docs/releases/v1.0.0` 是已发布冻结基线，后续迭代不得回写；若需修正已经确认的文档错误，必须先说明原因并获得用户明确授权。11 份原始 PRD 包括 `glossary.md`、`overview.md`、`ui-design-system.md` 和 `00-product/modules/` 下的 8 份模块文档，必须保持字节不变，不得因当前实现或后续需求而修订。
 
-实现文档以对应版本代码、迁移和运行配置为准。v1.1.0、v1.1.1、v1.1.2 与 v1.1.3 开发记录已原位归档；后续新增、变更、移除及实现结果按需写入 `docs/releases/v1.1.4/`，未变化部分引用历史版本。旧版本的补充验收在当前版本按新日期补证并链接原检查点，不覆盖历史结论；归档不等于设计实现、外部验收或商店发布通过。不要新增执行日志、任务状态快照、交接文档、生成截图或原始设计素材到 `docs/`。
+实现文档以对应版本代码、迁移和运行配置为准。v1.1.0、v1.1.1、v1.1.2、v1.1.3 与 v1.1.4 开发记录已原位归档；后续新增、变更、移除及实现结果按需写入 `docs/releases/v1.1.5/`，未变化部分引用历史版本。旧版本的补充验收在当前版本按新日期补证并链接原检查点，不覆盖历史结论；归档不等于设计实现、外部验收或商店发布通过。不要新增执行日志、任务状态快照、交接文档、生成截图或原始设计素材到 `docs/`。
 
 Flutter UI 变更前必须阅读 `docs/releases/v1.0.0/00-product/ui-design-system.md`，并优先复用现有组件、颜色、间距和交互模式；若历史基线或 v1.1.3 有明确增量契约，同时读取对应版本文档。
 

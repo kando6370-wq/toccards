@@ -188,47 +188,22 @@ class ApiScanReviewRepository implements ScanReviewRepository {
   Future<MapEntry<String, ScanReviewCard>?> _loadCard(String cardRef) async {
     final CardDataCardDto card;
     try {
-      card = await _withRequestSlot(() => _cardDataApi.getCard(cardRef));
+      final api = _cardDataApi;
+      card = await _withRequestSlot(
+        () => api is ScanReviewCardDataApi
+            ? (api as ScanReviewCardDataApi).getCardForScanReview(cardRef)
+            : api.getCard(cardRef),
+      );
     } on Exception {
       return null;
     }
-    final finishes = card.availableFinishes.isEmpty
-        ? <String?>[card.finish]
-        : card.availableFinishes.cast<String?>();
-    final languages = card.availableLanguages.isEmpty
-        ? <String?>[card.language]
-        : card.availableLanguages.cast<String?>();
-    final prices = await Future.wait(
-      [
-        for (final finish in finishes)
-          for (final language in languages) (finish, language),
-      ].map((selection) async {
-        final (finish, language) = selection;
-        try {
-          final rows = await _withRequestSlot(
-            () => _cardDataApi.getMarketPrices(
-              cardRef,
-              finish: finish,
-              language: language,
-            ),
-          );
-          return rows
-              .map(
-                (price) => ScanReviewPrice(
-                  finish: finish,
-                  language: language,
-                  grader: price.grader,
-                  grade: price.grade,
-                  condition: price.condition,
-                  price: price.price,
-                ),
-              )
-              .toList();
-        } on Exception {
-          return <ScanReviewPrice>[];
-        }
-      }),
-    ).then((groups) => groups.expand((group) => group).toList());
+    final bundle = card.reviewPrices;
+    final prices = bundle == null
+        ? await _legacyPrices(cardRef, card)
+        : [
+            for (final row in bundle)
+              _reviewPrice(row, row.finish, row.language),
+          ];
     return MapEntry(
       cardRef,
       ScanReviewCard(
@@ -245,6 +220,54 @@ class ApiScanReviewRepository implements ScanReviewRepository {
         prices: prices,
       ),
     );
+  }
+
+  ScanReviewPrice _reviewPrice(
+    CardDataMarketPriceDto price,
+    String? finish,
+    String? language,
+  ) => ScanReviewPrice(
+    finish: finish,
+    language: language,
+    grader: price.grader,
+    grade: price.grade,
+    condition: price.condition,
+    price: price.price,
+  );
+
+  // Older API versions return the same detail without review_prices.
+  Future<List<ScanReviewPrice>> _legacyPrices(
+    String cardRef,
+    CardDataCardDto card,
+  ) {
+    final finishes = card.availableFinishes.isEmpty
+        ? <String?>[card.finish]
+        : card.availableFinishes.cast<String?>();
+    final languages = card.availableLanguages.isEmpty
+        ? <String?>[card.language]
+        : card.availableLanguages.cast<String?>();
+    return Future.wait(
+      [
+        for (final finish in finishes)
+          for (final language in languages) (finish, language),
+      ].map((selection) async {
+        final (finish, language) = selection;
+        try {
+          final rows = await _withRequestSlot(
+            () => _cardDataApi.getMarketPrices(
+              cardRef,
+              finish: finish,
+              language: language,
+            ),
+          );
+          return rows
+              .map((price) => _reviewPrice(price, finish, language))
+              .toList();
+        } on Exception {
+          return <ScanReviewPrice>[];
+        }
+      }),
+    ).then((groups) => groups.expand((group) => group).toList());
   }
 
   @override

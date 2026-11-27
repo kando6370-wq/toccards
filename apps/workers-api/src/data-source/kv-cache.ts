@@ -36,8 +36,8 @@ export function createKvCachedDataSourceAdapter(
       return source.searchSets(query, options);
     },
 
-    getCard(card_ref) {
-      return source.getCard(card_ref);
+    getCard(...args) {
+      return source.getCard(...args);
     },
 
     getPriceSeries(card_ref, grader, grade, condition, days, finish) {

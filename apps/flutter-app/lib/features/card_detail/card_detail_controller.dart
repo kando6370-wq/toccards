@@ -1017,7 +1017,7 @@ class CardDetailController extends Notifier<CardDetailState> {
       } on CardDataApiException catch (error) {
         if (error.statusCode != 409 ||
             error.code != 'ENTITLEMENT_SYNC_REQUIRED' ||
-            ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
+            ref.read(subscriptionAccessPolicyProvider).hasFreePremiumFeatures) {
           rethrow;
         }
         final reconciliation = await ref

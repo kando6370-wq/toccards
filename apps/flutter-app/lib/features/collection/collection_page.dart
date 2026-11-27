@@ -15,6 +15,7 @@ import '../../shared/analytics/analytics_events.dart';
 import '../../shared/analytics/app_analytics.dart';
 import '../../shared/platform/app_commercial_policy.dart';
 import '../subscription/subscription_controller.dart';
+import '../subscription/subscription_navigation.dart';
 import '../subscription/subscription_entitlement_cache.dart';
 import '../subscription/premium_top_entry.dart';
 import 'collection_controller.dart';
@@ -1402,7 +1403,7 @@ Future<void> showPortfolioFolderSheet(BuildContext context, WidgetRef ref) {
                       ),
                       onPressed: () async {
                         if (ref
-                            .read(appCommercialPolicyProvider)
+                            .read(subscriptionAccessPolicyProvider)
                             .hasFreePremiumFeatures) {
                           await _runCreateFolderFlow(context, controller);
                           return;
@@ -1422,10 +1423,9 @@ Future<void> showPortfolioFolderSheet(BuildContext context, WidgetRef ref) {
                         }
                         if (premiumState == AppPremiumState.free &&
                             state.dashboard.folders.length >= 2) {
-                          final result = await context
-                              .push<SubscriptionPaywallResult>(
-                                subscriptionSheetLocation(),
-                              );
+                          final result = await context.openSubscriptionPaywall(
+                            subscriptionSheetLocation(),
+                          );
                           if (!context.mounted || result == null) return;
                           if (result ==
                               SubscriptionPaywallResult.premiumRestored) {
@@ -1472,7 +1472,7 @@ Future<void> _runCreateFolderFlow(
     }
 
     initialName = result.name;
-    final paywallResult = await context.push<SubscriptionPaywallResult>(
+    final paywallResult = await context.openSubscriptionPaywall(
       subscriptionSheetLocation(),
     );
     if (!context.mounted || paywallResult == null) return;

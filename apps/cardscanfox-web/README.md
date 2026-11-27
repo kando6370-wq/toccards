@@ -128,6 +128,8 @@ pnpm --filter @kando/cardscanfox-web release:compare /absolute/current-release /
 
 ## PVUV 爬虫统计
 
+官网页面可以通过带 `utm_*` 参数的来源链接打开。参数保留在浏览器地址中，供访问统计读取。渲染页面和查询卡牌目录时只移除 `utm_*` 参数，搜索和筛选条件继续生效。带查询参数的地址仍使用现有索引和缓存规则。
+
 正式官网 Worker 为 PVUV 站点 `gx4EamoZ` 后台上报已知爬虫的页面 GET 和 HEAD 请求。上报包含页面路径、响应状态、时间、User-Agent，以及用于核验爬虫来源的 Cloudflare 客户端 IP。上报排除查询参数、站点 API、资源目录、非页面扩展名和预览环境。PVUV 服务异常时，页面仍返回原响应。
 
 在 PVUV 为 CardScanFox 创建用途为「服务端上报」的令牌，将其配置为正式 Worker 的 `PVUV_INGEST_TOKEN` Secret。正式配置中的 `PVUV_SITE` 已指向该站点。缺少令牌时跳过上报。
@@ -156,7 +158,7 @@ pnpm --filter @kando/cardscanfox-web catalog:sitemaps --input=/absolute/catalog.
 
 ## Git 自动部署
 
-预览发布分支为 `codex/cardscanfox-preview`。只推送此分支不会推进 `main` 或 `dev`。`main` 已连接正式 Worker 自动构建，但只有提交命中 Cloudflare 当前配置的监听路径时才会触发；不得把任意一次 `main` 推送直接写成生产已发布。Cloudflare 目标账号固定为 `dced4adca2f35cff247b39979058b934`。原手工上传项目 `cardscanfox-preview` 保留用于对比。
+预览发布分支为 `codex/cardscanfox-preview`。只推送此分支不会推进 `main` 或 `dev`。`main` 已连接正式 Worker 自动构建，但只有提交命中 Cloudflare 当前配置的监听路径时才会触发；不得把任意一次 `main` 推送直接写成生产已发布。Cloudflare 目标账号固定为 `dced4adca2f35cff247b39979058b934`。原静态对比项目 `cardscanfox-preview` 已于 2026-11-25 删除。
 
 新 Pages Git 项目 `cardscanfox-git-preview` 复用现有仓库连接。根目录 `/`，构建命令 `pnpm --filter @kando/cardscanfox-web --fail-if-no-match build:ci`，输出目录 `apps/cardscanfox-web/dist`。当前仓库要求 Node `^22.23.4`、pnpm `11.28.10`；远端构建环境版本仍须从实际部署回读。构建失败不替换上一成功部署。Pages 发布清单记录 `CF_PAGES_COMMIT_SHA`，用于回读核对实际发布提交。
 

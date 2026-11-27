@@ -1,0 +1,1004 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <!-- 离线评审使用仓库内既有资源 apps/flutter-app/assets/branding/card_ai_mark.svg, apps/flutter-app/assets/subscription/success_trophy_2090_17166.svg。 -->
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>CardScanFox · Android 订阅原型</title>
+    <style>
+      :root {
+        font-family: Inter, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+        color: #20342d;
+        background: #f0f2ed;
+        --lime: #e5ff3b;
+        --ink: #11180f;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+      }
+      button,
+      select {
+        font: inherit;
+      }
+      button,
+      a,
+      select {
+        touch-action: manipulation;
+      }
+      button {
+        cursor: pointer;
+      }
+      button:focus-visible,
+      a:focus-visible,
+      select:focus-visible {
+        outline: 3px solid #28afbb;
+        outline-offset: 3px;
+      }
+      a {
+        color: inherit;
+      }
+      .bar {
+        min-height: 64px;
+        padding: 12px clamp(18px, 5vw, 84px);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid #cbd4cb;
+        background: #f8f9f5;
+      }
+      .brand,
+      .actionline {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .brand img {
+        width: 27px;
+        height: 27px;
+        background: #192016;
+        border-radius: 7px;
+      }
+      .brand strong {
+        letter-spacing: -0.04em;
+      }
+      .bar a {
+        font-size: 13px;
+        font-weight: 650;
+        text-decoration: none;
+        border-bottom: 1px solid #819689;
+      }
+      .workspace {
+        max-width: 1070px;
+        margin: auto;
+        display: grid;
+        grid-template-columns: minmax(255px, 0.87fr) minmax(360px, 1fr);
+        align-items: start;
+        gap: clamp(36px, 7.5vw, 105px);
+        padding: 35px 36px 44px;
+      }
+      .controls {
+        padding-top: 43px;
+      }
+      .eyebrow,
+      .mono {
+        font-family: "IBM Plex Mono", Consolas, monospace;
+        font-size: 11px;
+        font-weight: 650;
+        letter-spacing: 0.09em;
+      }
+      .eyebrow {
+        color: #547261;
+      }
+      .controls h1 {
+        font-size: clamp(30px, 3.5vw, 49px);
+        line-height: 1.14;
+        letter-spacing: -0.06em;
+        margin: 13px 0;
+      }
+      .intro {
+        color: #51665b;
+        font-size: 14px;
+        line-height: 1.7;
+        margin: 0 0 30px;
+      }
+      .controlbox {
+        background: #fafbf7;
+        border: 1px solid #cbd5c9;
+        border-radius: 17px;
+        padding: 18px;
+        display: grid;
+        gap: 14px;
+      }
+      .field {
+        display: grid;
+        gap: 6px;
+      }
+      .field > span {
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .field select {
+        width: 100%;
+        background: white;
+        border: 1px solid #bcc9bf;
+        color: #243a31;
+        border-radius: 8px;
+        padding: 9px;
+      }
+      .reset {
+        justify-self: start;
+        border: 0;
+        background: none;
+        padding: 2px 0;
+        color: #28654b;
+        text-decoration: underline;
+        font-size: 13px;
+      }
+      .legend {
+        margin-top: 18px;
+        padding: 12px 0;
+        border-top: 1px solid #c4cec5;
+        color: #53685c;
+        font-size: 12px;
+        line-height: 1.7;
+      }
+      .legend strong {
+        display: block;
+        color: #253c31;
+      }
+      .phone {
+        position: relative;
+        width: min(100%, 389px);
+        margin: auto;
+        background: #0e120d;
+        border: 7px solid #253029;
+        border-radius: 42px;
+        color: #f2f3e6;
+        box-shadow:
+          0 20px 50px #1f37272b,
+          0 0 0 1px #728076;
+        overflow: hidden;
+      }
+      .status {
+        height: 27px;
+        padding: 5px 23px 0;
+        display: flex;
+        justify-content: space-between;
+        font:
+          600 11px Inter,
+          Arial,
+          sans-serif;
+        color: #e9efdd;
+      }
+      .signals {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+      }
+      .signal {
+        width: 12px;
+        height: 8px;
+        background: linear-gradient(
+          to right,
+          #d8deca 22%,
+          transparent 22% 35%,
+          #d8deca 35% 63%,
+          transparent 63% 76%,
+          #d8deca 76%
+        );
+        clip-path: polygon(0 80%, 100% 0, 100% 100%, 0 100%);
+      }
+      .battery {
+        width: 15px;
+        height: 7px;
+        border: 1px solid #cbcfbf;
+        border-radius: 2px;
+        background: linear-gradient(90deg, #cbcfbf 75%, transparent 75%);
+      }
+      .display {
+        min-height: 609px;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+      }
+      .screen {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 12px 20px 17px;
+      }
+      .notch {
+        margin: 3px auto 7px;
+        width: 96px;
+        height: 3px;
+        border-radius: 9px;
+        background: #b8c0a9;
+      }
+      .top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 32px;
+      }
+      .top span {
+        font-size: 12px;
+        font-weight: 650;
+        color: #d0d6c1;
+      }
+      .x {
+        border: 1px solid #58604b;
+        background: #242b20;
+        color: #edf1e1;
+        border-radius: 50%;
+        height: 30px;
+        width: 30px;
+        font-size: 17px;
+        line-height: 1;
+      }
+      .link {
+        border: 0;
+        background: none;
+        font-size: 12px;
+        font-weight: 650;
+        color: #e3eea7;
+        text-decoration: underline;
+        padding: 4px;
+      }
+      .hero {
+        position: relative;
+        isolation: isolate;
+        min-height: 98px;
+        display: flex;
+        align-items: center;
+        overflow: hidden;
+        margin: 7px -2px 6px;
+        padding: 10px 13px;
+        border: 1px solid #424d30;
+        border-radius: 13px;
+        background:
+          radial-gradient(ellipse at 90% 10%, #5b6635, transparent 56%),
+          linear-gradient(120deg, #23291b, #171e13);
+      }
+      .hero h2 {
+        font-size: 32px;
+        line-height: 1.05;
+        letter-spacing: -0.06em;
+        margin: 4px 0;
+      }
+      .hero small,
+      .subline {
+        font:
+          650 10px Consolas,
+          monospace;
+        letter-spacing: 0.08em;
+        color: #d0dd9e;
+      }
+      .hero img {
+        width: 63px;
+        margin-left: auto;
+        margin-right: 6px;
+        filter: drop-shadow(0 3px 8px #10160c80);
+      }
+      .features {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px 5px;
+        font-size: 12px;
+        margin: 10px 0 16px;
+        color: #e3e8d6;
+      }
+      .features span:before {
+        content: "✓";
+        color: var(--lime);
+        margin-right: 5px;
+        font-weight: 800;
+      }
+      .smallhead {
+        margin: 0 0 9px;
+        font-weight: 700;
+        font-size: 16px;
+      }
+      .plans {
+        display: grid;
+        gap: 7px;
+      }
+      .plan {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: #1c2119;
+        border: 1px solid #48513e;
+        border-radius: 12px;
+        color: #eeefdd;
+        padding: 10px 12px;
+        text-align: left;
+      }
+      .plan[aria-pressed="true"] {
+        border-color: var(--lime);
+        background: #2d3323;
+      }
+      .radio {
+        border: 1px solid #858f74;
+        border-radius: 50%;
+        width: 15px;
+        height: 15px;
+        display: grid;
+        place-items: center;
+        flex: none;
+      }
+      .plan[aria-pressed="true"] .radio {
+        border-color: var(--lime);
+      }
+      .plan[aria-pressed="true"] .radio:after {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--lime);
+      }
+      .plan strong,
+      .plan small {
+        display: block;
+      }
+      .plan strong {
+        font-size: 15px;
+      }
+      .plan small,
+      .muted {
+        color: #bac3a9;
+        font-size: 11px;
+        line-height: 1.5;
+      }
+      .plan b {
+        margin-left: auto;
+        font-size: 17px;
+        white-space: nowrap;
+        color: #f4f6e7;
+        text-align: right;
+      }
+      .plan b small {
+        font-weight: 400;
+      }
+      .offer {
+        display: flex;
+        gap: 7px;
+        align-items: center;
+        color: #d4e29d;
+        margin: 10px 0 0;
+        font-size: 12px;
+      }
+      .offer input {
+        accent-color: var(--lime);
+      }
+      .terms {
+        color: #c3cbb1;
+        font-size: 12px;
+        line-height: 1.5;
+        margin: 12px 0;
+      }
+      .cta,
+      .secondary {
+        width: 100%;
+        display: block;
+        text-align: center;
+        border: 0;
+        border-radius: 10px;
+        padding: 12px;
+        font-size: 14px;
+        font-weight: 750;
+      }
+      .cta {
+        background: var(--lime);
+        color: #1c2312;
+      }
+      .secondary {
+        background: #252e21;
+        border: 1px solid #46533c;
+        color: #e8efd9;
+        margin-top: 8px;
+      }
+      .cta:disabled {
+        background: #555b4b;
+        color: #c8ccbb;
+        cursor: not-allowed;
+      }
+      .foot {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        margin: 8px 0 0;
+      }
+      .foot .link {
+        font-weight: 400;
+        color: #bfc6af;
+        font-size: 11px;
+      }
+      .push {
+        margin-top: auto;
+        padding-top: 11px;
+      }
+      .tile {
+        border-top: 1px solid #373f31;
+        padding: 13px 0;
+      }
+      .tile h3 {
+        margin: 0 0 4px;
+        font-size: 14px;
+      }
+      .tile p,
+      .profileText {
+        margin: 0;
+        color: #c1cbb3;
+        font-size: 13px;
+        line-height: 1.55;
+      }
+      .stateHead {
+        margin: 23px 0 18px;
+      }
+      .stateHead h2 {
+        font-size: 29px;
+        letter-spacing: -0.045em;
+        margin: 6px 0;
+      }
+      .message {
+        display: block;
+        background: #e1ebbe;
+        color: #213516;
+        font-size: 12px;
+        line-height: 1.45;
+        border-radius: 7px;
+        padding: 8px 10px;
+        margin: 4px 0;
+      }
+      .playSheet {
+        background: #f2f4ee;
+        color: #1c3124;
+        border-radius: 19px;
+        padding: 18px;
+        margin-top: 20px;
+        box-shadow: 0 14px 36px #0005;
+      }
+      .playSheet h3 {
+        margin: 6px 0 15px;
+      }
+      .playSheet p {
+        font-size: 13px;
+        line-height: 1.55;
+      }
+      .playSheet .cta {
+        background: #186c42;
+        color: white;
+      }
+      .playSheet .secondary {
+        color: #264c34;
+        background: #e1e8dd;
+        border-color: #c9d4c7;
+      }
+      .dialogText {
+        line-height: 1.55;
+        font-size: 14px;
+      }
+      .sheetScreen {
+        padding-top: 8px;
+      }
+      .backdropLabel {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        border-bottom: 1px solid #393f31;
+        padding: 5px 0 10px;
+        font-size: 12px;
+        color: #bbc5aa;
+      }
+      .sheetCard {
+        background: #20261c;
+        padding: 12px;
+        border: 1px solid #46513b;
+        border-radius: 18px 18px 8px 8px;
+        margin: 10px -8px 0;
+      }
+      .sheetCard .hero {
+        min-height: 78px;
+      }
+      .sheetCard .hero h2 {
+        font-size: 26px;
+      }
+      .sheetCard .features {
+        margin-bottom: 10px;
+      }
+      .sheetCard .hero img {
+        width: 46px;
+      }
+      dialog {
+        border: 1px solid #526348;
+        color: #eaf0de;
+        background: #222c20;
+        border-radius: 18px;
+        width: min(340px, 90vw);
+        padding: 18px;
+      }
+      dialog::backdrop {
+        background: #10180f85;
+      }
+      dialog h3 {
+        margin: 0 0 8px;
+      }
+      .stamp {
+        margin: 0 0 7px;
+        text-align: center;
+        font-size: 11px;
+        color: #647a6b;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      @media (max-width: 740px) {
+        .workspace {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          padding: 14px 15px 24px;
+        }
+        .controls {
+          padding: 0;
+          width: 100%;
+        }
+        .controls h1 {
+          font-size: 24px;
+          margin: 4px 0 8px;
+        }
+        .controls > .eyebrow,
+        .intro,
+        .legend {
+          display: none;
+        }
+        .controlbox {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 8px;
+          padding: 9px;
+          border-radius: 10px;
+        }
+        .field select {
+          padding: 6px;
+          font-size: 12px;
+        }
+        .field > span {
+          font-size: 11px;
+        }
+        .reset {
+          font-size: 11px;
+        }
+        .bar {
+          min-height: 42px;
+          padding: 7px 15px;
+        }
+        .stage {
+          width: 100%;
+        }
+        .phone {
+          width: min(100%, 389px);
+          border-width: 4px;
+          border-radius: 29px;
+        }
+        .display {
+          min-height: 552px;
+        }
+        .screen {
+          padding-left: 15px;
+          padding-right: 15px;
+        }
+        .hero {
+          min-height: 82px;
+        }
+        .phone .features {
+          font-size: 11px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="bar">
+      <div class="brand">
+        <img
+          src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAuMDkxOCIgaGVpZ2h0PSI4MC4xNzI2IiB2aWV3Qm94PSItMSAtMSA4MC4wOTE4IDgwLjE3MjYiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+DQo8ZyBpZD0iR3JvdXAgMTk0MDY5OTM0OSI+DQo8cGF0aCBpZD0iVmVjdG9yIiBkPSJNMjMuNjE2MyAxMS40MDI4QzIzLjY2MSAxMS40MDEyIDIzLjcwNTYgMTEuNCAyMy43NTAzIDExLjM5OTFDMzAuMTEwNSAxMS4zMDM5IDM2Ljk1NjIgMTEuNDI4MiA0My4zNDA1IDExLjQzMjdMNTAuNDg3NiAxMS40MjY4QzUxLjg4MTUgMTEuNDIxOSA1My4yNzA0IDExLjM4NzggNTQuNjY2MyAxMS40NTc2QzU2LjE4MTggMTEuNTMzNCA1Ny4yNzYzIDExLjk0MDYgNTcuNDE2MSAxMy42NDYxQzU3LjU1MjEgMTUuMzA0MyA1Ny41MDA2IDE2Ljk3NiA1Ny40Nzc2IDE4LjYzOTJDNTcuNDI4OCAyMS4wNTUxIDU3LjQxNDUgMjMuNDcxNiA1Ny40MzQ5IDI1Ljg4NzhMNTcuNTAyOCA2My4zOTY4QzU3LjUyOCA2NS43NTIgNTcuMDQwNyA2Ny4xMTM1IDU0LjQ0NTUgNjcuMTQxNkwzMi43OTA4IDY3LjE0NDRDMjkuNDgzNCA2Ny4xMzk3IDI2LjE0ODggNjcuMTcwMiAyMi44NjgxIDY3LjEzNzJDMjAuMTI4NCA2Ny4xMDk3IDIwLjMwNzEgNjQuNzkxOCAyMC4zMTM0IDYyLjc3OTVDMjAuMzE2NSA2MS43ODIzIDIwLjMxNzMgNjAuNzY2NiAyMC4zMTcxIDU5Ljc3MTRMMjAuMzAyMiA1MC4yMTZMMjAuMzA5NCAyNC44Mjg2QzIwLjMxNSAyMS4zMjcyIDIwLjI4OTEgMTcuODIyNyAyMC4zMDI1IDE0LjMyMjFDMjAuMzQzNCAxMy44MTA5IDIwLjI3MDYgMTMuMjA1MiAyMC41MTggMTIuNzRDMjEuMTgzNyAxMS40ODgyIDIyLjM2NTcgMTEuNDMxNiAyMy42MTYzIDExLjQwMjhaTTUzLjcxOTkgNjQuNDU3NEM1NC44Mzk5IDY0LjM4NjcgNTQuNzk1MSA2My40ODY3IDU0LjgzMjkgNjIuNjI4OEM1NC45MyA2MC40MTYgNTQuNzc4MyA1OC4xODU3IDU0Ljc5NiA1NS45Nzk5QzU0Ljg1OTIgNDguNTEzIDU0Ljg3NDcgNDEuMDQ1OCA1NC44NDI2IDMzLjU3ODdMNTQuODMzMSAyMC42MjU0QzU0LjgyMzEgMTkuMjcxNiA1NS4wNTcgMTUuMjkwNiA1NC40OTUgMTQuMzQyN0M1My4zNDMgMTQuMDE4NyA0OS44NDc5IDE0LjE3NDggNDguMzkwNCAxNC4xNTU3QzQwLjU1MDEgMTQuMTExIDMyLjcwOTUgMTQuMTE5NCAyNC44Njk0IDE0LjE4MTFDMjMuMzc5MiAxNC4xOTM4IDIyLjk0OTkgMTQuMDYwMSAyMi45NDQxIDE1Ljc0MzFDMjIuOTMzNSAxOC44NTY5IDIyLjk0MSAyMS45NzA2IDIyLjk0MjcgMjUuMDg0NkwyMi45NDA5IDQyLjg2MzNMMjIuOTQ1IDU1LjM2NDhDMjIuOTQxIDU2LjYxNTMgMjIuNjk3OSA2My42MTU5IDIzLjMwNjcgNjQuMjMxQzI0LjQ2NTkgNjQuNTU0MyAyNy4zNTgxIDY0LjQzOTkgMjguNzM2MiA2NC40NTc2QzM0Ljg3NzUgNjQuNTM2NSA0MS4wNjI2IDY0LjM5NDUgNDcuMjA4NyA2NC40Mzc3QzQ5LjI3MTIgNjQuNDUyMiA1MS43MDQxIDY0LjM3MyA1My43MTk5IDY0LjQ1NzRaIiBmaWxsPSJ2YXIoLS1maWxsLTAsICNGMEZFNkYpIi8+DQo8cGF0aCBpZD0iVmVjdG9yXzIiIGQ9Ik0zMy40NzAxIDE0Ljc4NzdDMzUuNDIyMiAxNC43NzE0IDM3LjQwMiAxNC43ODg3IDM5LjM3NjMgMTQuNzk3OUM0My4zMzEyIDE0LjgxNjQgNDUuMzg4NiAxNC4zIDQ4LjkwNjUgMTYuNDM4M0M1MS4zMDc2IDE3Ljg5NzYgNTMuMjUyNyAyMC41MTYgNTMuOTA0OSAyMy4yMTA2QzU0LjMxNjggMjQuOTEyMiA1NC4xOTk3IDI5LjEyMjEgNTQuMTk4OSAzMS4wMTU5TDU0LjE5MTkgNDMuMjQ3OUw1NC4xOTkzIDUwLjMyOTVDNTQuMjAxIDUzLjYxNjcgNTQuNDE5NSA1NS42Mjg3IDUyLjUwNDggNTguNTM2MUM1MC40ODQyIDYxLjYwNDIgNDguMTgwNyA2Mi45OTUzIDQ0LjU5OTMgNjMuODE1NkM0Mi41NDIgNjMuODcwOSA0MC40OTIyIDYzLjgzNDIgMzguNDI1MiA2My44NTE2QzM0LjI0OTcgNjMuODg2OCAzMS4zNjk1IDY0LjE1NTggMjcuODU2MSA2MS40MjU3QzI1Ljc4MDYgNTkuODEyOSAyMy44ODg1IDU2LjgxOSAyMy42MjM4IDU0LjIwOThDMjMuNDk3NSA1Mi45NjU1IDIzLjU2ODggNTAuNzgwMSAyMy41Njk0IDQ5LjQ1NzNMMjMuNTcyNCA0MC41NDgxTDIzLjU3MiAzMC4yMjIyQzIzLjU3MDMgMjguMzA5OCAyMy4zOTcxIDI1LjAxMiAyMy44MDIzIDIzLjI1MkMyNC44MDg1IDE4Ljg4MDUgMjguOTg0NiAxNS4yNTUyIDMzLjQ3MDEgMTQuNzg3N1pNMjUuMjUzMiAzMC4yMTg1TDI1LjI3MTIgMzAuMjYxMkMyNS42NzQ3IDMxLjIzNDcgMjUuNzU5NCAzMi41NTUgMjYuMDc3MSAzMy41Njg5QzI3LjMxNDcgMzcuNTE4OSAyOC43NTYgMzguODcyNCAzMS43ODU5IDQxLjE1OThDMzEuNzkxIDM5LjYzOTggMzEuNzY5NiAzOS4xOTY4IDMyLjE3NCAzNy43NzI3QzMwLjQzNDUgMzYuMDc3NyAyOS4wOTUzIDMzLjg3MTYgMjguNTkyMSAzMS40ODAzQzMwLjE2NTIgMzEuMDQ4MiAzMS4wODc0IDMwLjg4MDUgMzIuNzA2OCAzMC42ODQ2QzM1LjY5NCAzMC44NTAzIDM3LjkwOCAzMS42OTk5IDM5LjkwNTMgMzMuOTIzNEM0MC41NTA2IDM0LjYzODcgNDEuMDg5NSAzNS40NDMzIDQxLjUwNTEgMzYuMzEyNEM0MS43NDkxIDM2LjgxODQgNDIuMzQ1OSAzOC42NTY5IDQyLjU2MzIgMzguODcwNUM0My4wODIyIDM4Ljg5MSA0NC4zODgxIDM3Ljg0NTQgNDQuNzc4NiAzNy40ODQ3QzQ0Ljg3ODUgMzcuMzkzIDQ0Ljk3NjEgMzcuMjk5IDQ1LjA3MTYgMzcuMjAyN0M0NC41NzEzIDM2LjE3MzMgNDQuMTk4MyAzNS4xNjQgNDMuNjM4MSAzNC4xNjMxQzQyLjEyNDYgMzEuNTA5OSAzOS42ODcxIDI5LjUwNyAzNi43OTA3IDI4LjUzNjdDMzUuNDY4IDI4LjA3ODkgMzMuNTQ3OSAyNy43Njk0IDMyLjE1OTcgMjcuOTU1NEMyOS41ODk2IDI4LjEwNDEgMjcuMzczMSAyOC42NzM3IDI1LjI1MzIgMzAuMjE4NVpNMzguNjM2NSAzNS43MTM3QzM3Ljk4OTIgMzUuODI3MSAzNy40NTQ0IDM2LjI4MjYgMzcuMjM5NSAzNi45MDM2QzM3LjAyNDYgMzcuNTI0NCAzNy4xNjMzIDM4LjIxMzEgMzcuNjAxOSAzOC43MDI0QzM4LjA0MDQgMzkuMTkxNyAzOC43MDk4IDM5LjQwNDcgMzkuMzUwNSAzOS4yNTg3QzQwLjMwNzEgMzkuMDQwOCA0MC45MTU1IDM4LjA5OTggNDAuNzIxOCAzNy4xMzhDNDAuNTI4MSAzNi4xNzYzIDM5LjYwMjkgMzUuNTQ0MyAzOC42MzY1IDM1LjcxMzdaTTM1LjU1MzIgMzguNDc0MkMzNi4xNDAxIDM2LjM4IDM2Ljk1MDggMzQuODA2MyAzOC42MjQ3IDMzLjM0MDNDMzguMDgzMiAzMi45MzQ4IDM2Ljg3MTggMzEuOTMyNyAzNi4yNzQ3IDMxLjg2MzZDMzUuNTQ4OSAzMi4wMzk1IDM0Ljc1MjggMzMuMzA3NCAzNC4zNTQ1IDMzLjkxNDZDMzIuODg2NiAzNi4xNTIgMzIuMzg4OSAzOS4xMDU4IDMyLjU2OSA0MS43Mzc0QzMyLjgyODMgNDUuNTI3MyAzNC45ODUxIDQ5LjI4NDIgMzguMTI0MiA1MS40MjUxQzM4LjM3IDUxLjU5MjcgMzguNjQ4NCA1MS44MDEgMzguODc0NCA1MS45OTQ1QzQxLjg4OSA0OS44MzgyIDQzLjc5NiA0OC45NDEzIDQ0Ljg2OTQgNDQuOTkyM0M0NS4wNjY1IDQ0LjI2NyA0NS4zNjUzIDQyLjUyOTQgNDUuNTg3MyA0MS45NTZDNDMuNzgxOSA0Mi45MTY0IDQyLjUyODYgNDIuNzEwOCA0MS45NCA0NC43OTQyQzQxLjUyNzQgNDYuMjU0OCA0MC4xNTggNDcuODEwNCAzOC44NjUyIDQ4LjYwMjJDMzcuNDgzNiA0Ny4yMDU2IDM2LjI1MiA0NS4xNjM4IDM1LjczMSA0My4yNTMzQzM1Ljc0NTUgNDIuNzMzMiAzNS42NTQ4IDQyLjY0OTIgMzUuOTE1NCA0Mi4zMjJDMzYuMTgxMSA0Mi45MjM5IDM2LjQ2NjMgNDMuMTA4OCAzNy4xMjEgNDMuMTkxMUM0My40MzgzIDQzLjk4NDYgNDkuOTI1MiAzOS42MzUxIDUxLjQ1NjEgMzMuNDI0MUM1MS43NDA4IDMyLjI2OTIgNTEuOTE4IDMxLjI1MDYgNTIuMDYwMiAzMC4wMzEyQzQ5LjgyODkgMjguMTQzMiA0NS4zOTEgMjcuODE5NCA0Mi42Mzc3IDI4LjM1NThDNDIuMTM0OCAyOC40NTM4IDQwLjE5ODUgMjguOTIzNyAzOS44OTAyIDI5LjI1MzJDNDAuMTQwNiAyOS41NTc3IDQxLjcwODEgMzAuODE3NSA0Mi4xMDA4IDMxLjE0MzJDNDMuNjc0MSAzMC43MzQzIDQ4LjAwNDcgMzAuMzc1NCA0OC45NzQ5IDMxLjgzMjhDNDkuMDE2NiAzMi4wNjI1IDQ4Ljk5MTYgMzIuMjYzIDQ4LjkwNjQgMzIuNDc4M0M0Ny45MDEgMzQuOTkxOCA0Ni4yMzM4IDM3LjQxODggNDMuODc3MiAzOC44NDE4QzQxLjU1MTQgNDAuMjQ2MSAzOC4zOTY4IDQwLjU0OTIgMzUuODM0MyAzOS42ODc1QzM1LjY0NDQgMzkuNDMxNCAzNS42MDMzIDM4LjgyMTQgMzUuNTUzMiAzOC40NzQyWiIgZmlsbD0idmFyKC0tZmlsbC0wLCAjRjBGRTZGKSIvPg0KPHBhdGggaWQ9IlZlY3Rvcl8zIiBkPSJNMzUuNTUzMiAzOC40NzM2QzM1LjYwMzMgMzguODIwOSAzNS42NDQ0IDM5LjQzMDggMzUuODM0MyAzOS42ODdDMzUuNjkwNiA0MC40MTggMzUuOTQ4NyA0MS42MDU5IDM1LjkxNTQgNDIuMzIxNEMzNS42NTQ4IDQyLjY0ODYgMzUuNzQ1NSA0Mi43MzI2IDM1LjczMSA0My4yNTI3QzM1LjAzNjYgNDEuNzY2NiAzNS4xODgzIDQwLjAwOTEgMzUuNTUzMiAzOC40NzM2WiIgZmlsbD0idmFyKC0tZmlsbC0wLCAjRkVGRUZFKSIgZmlsbC1vcGFjaXR5PSIwLjkyMTU2OSIvPg0KPHBhdGggaWQ9IlZlY3Rvcl80IiBkPSJNNTQuMDI4IDU3LjA1MjdMNTQuMjM1MSA1Ny4xODY0QzU0LjIyOSA1Ny45NDM0IDU0LjI2NDQgNjMuMzIwNiA1NC4wNjg3IDYzLjUzNDNDNTMuNTMxOCA2NC4xMTk2IDQ5LjA0NzUgNjMuODA2OSA0OC4wMzExIDYzLjg0NjlDNDcuNzE1MyA2My45MTQyIDQ3LjcxNTMgNjMuOTY1IDQ3LjQzMjggNjMuODdDNDcuNTExNSA2My40MTczIDQ4LjcxNTcgNjIuODU3NCA0OS4yMTMgNjIuNTYyOEM1MC43NDcxIDYxLjY1MzYgNTEuOTMyNiA2MC4zMjYxIDUyLjkzODcgNTguODcyNkM1My4zMjIgNTguMzE5MSA1My41MTkgNTcuNTYwNSA1NC4wMjggNTcuMDUyN1oiIGZpbGw9InZhcigtLWZpbGwtMCwgI0YwRkU2RikiLz4NCjxwYXRoIGlkPSJWZWN0b3JfNSIgZD0iTTIzLjYzNzkgNTcuMDQ2OUMyNC4wODM1IDU3LjIwNjUgMjQuMjg1NCA1OC4zMTcgMjQuODgzMSA1OS4wNTg0QzI1Ljc5OTYgNjAuMTk1NCAyNi4zNDQ0IDYwLjk1ODUgMjcuNTE0IDYxLjkxMDdDMjguMTc3MyA2Mi40NTA3IDMwLjAxNyA2My4yNjE3IDMwLjI4NzcgNjMuNzM2TDMwLjIzMDggNjMuOTMyNEMyOC4xMDIzIDYzLjY3MDMgMjUuOTYgNjQuMDU1IDIzLjg4NTMgNjMuNjcxOUMyMy4zNjU3IDYzLjU3NiAyMy41Nzg0IDYxLjE1NzYgMjMuNjExIDYwLjYzNjJDMjMuNjU5NCA1OS44NjEzIDIzLjQwMTIgNTcuNTYzNCAyMy42Mzc5IDU3LjA0NjlaIiBmaWxsPSJ2YXIoLS1maWxsLTAsICNGMEZFNkYpIi8+DQo8cGF0aCBpZD0iVmVjdG9yXzYiIGQ9Ik0yOS43OTU3IDE0LjY5MUMzMC4xMTA3IDE0LjY2MjcgMzAuMDIyMyAxNC42MjI1IDMwLjIyNTUgMTQuNzczNkMzMC4xOTQ4IDE0Ljk0NTggMzAuMTY2NyAxNS4wNzgxIDI5Ljk5MzIgMTUuMTY4OEMyNy4wNjI4IDE2LjcwMDEgMjUuNDE1NSAxOC4zMTMxIDIzLjg2NzUgMjEuMzE5M0wyMy44NiAyMS4zM0wyMy43NDUyIDIxLjMzMzlDMjMuNTAzOCAyMS4wMzMgMjMuNDggMTUuMzczMSAyMy43MDc0IDE0Ljk4MTdDMjQuNDI3IDE0LjY3NTEgMjguMzU0MyAxNC44OTE3IDI5Ljc5NTcgMTQuNjkxWiIgZmlsbD0idmFyKC0tZmlsbC0wLCAjRjBGRTZGKSIvPg0KPHBhdGggaWQ9IlZlY3Rvcl83IiBkPSJNNDcuNTgwOCAxNC43NDg4QzQ3LjY5MjkgMTQuNzQ2NyA0OC44OTExIDE0Ljc4NjkgNDguOTgwMiAxNC44MTMzQzUwLjAwMzQgMTUuMTE1NSA1NC4xMjc0IDE0LjAxOTggNTQuMTk5MiAxNS41MDg5QzU0LjI5MDMgMTcuNDAwOCA1My45NDY4IDE5LjUyOTMgNTQuMjU0OCAyMS4zMzIxQzU0LjE5MyAyMS40NSA1NC4xNjc1IDIxLjQ0ODUgNTQuMDU1OCAyMS41NDA5QzUzLjk5MzQgMjEuNTA4OSA1My45MzEgMjEuNDc3IDUzLjg2ODYgMjEuNDQ1QzUzLjQ4MyAyMC41NDMxIDUzLjEwMzggMTkuODA2MSA1Mi41Mjk5IDE5LjAzNjZDNTEuOTEwNCAxOC4yMDEzIDUxLjE3OTIgMTcuNDU1IDUwLjM1NjggMTYuODE4N0M0OS42NTY1IDE2LjI2NjUgNDcuOTExNyAxNS4zMDc3IDQ3LjU4MDggMTQuNzQ4OFoiIGZpbGw9InZhcigtLWZpbGwtMCwgI0YwRkU2RikiLz4NCjxwYXRoIGlkPSJWZWN0b3JfOCIgZD0iTTU5LjM0MjUgMjAuMDg3OUM2MC4zNjMyIDIwLjQxMjMgNjEuMzgwMyAyMC41MjczIDYyLjQxMjYgMjAuODkyMkM2NS42MzQyIDIyLjAzMTEgNjcuOTU4OSAyNS43OTM2IDY4LjAyODQgMjkuMTY5MkM2OC4wMzg3IDI5LjU4NCA2OC4wMDUxIDI5Ljk5ODggNjcuOTI4IDMwLjQwNjZDNjcuMDcyMyAzNC45OTkxIDY1Ljc2MzcgNDAuMDU5NSA2NC43NjcxIDQ0LjY4MjVMNjMuNDU5IDUwLjczOEM2Mi43NDM0IDU0LjAyMTcgNjIuNjc2IDU0LjY2NjEgNjAuMzIyMiA1Ny4xMzJDNTkuOTkwNyA1Ny40MzQyIDU5LjQ0ODggNTcuODM2NiA1OS4wODQ0IDU4LjEyNTNDNTkuMTIxNSA1NC40NTEzIDU5LjEyNjkgNTAuNzc3MSA1OS4xMDAzIDQ3LjEwM0M1OS4wOTc5IDQ1LjQ0MTYgNTkuMDQ5MSA0My40NzU2IDU5LjEyNzggNDEuODM3N0M1OS40NTU3IDQxLjQ4OSA2MC42ODMyIDQwLjY1MzYgNjEuMTQ5OCA0MC4zMjQ5QzYzLjUxOTIgMzguNjU1NSA2NC40OTY3IDM2Ljg2NzQgNjUuNDM1OCAzNC4xMzY5QzYzLjA4NzYgMzEuOTc1OSA2MS45OTkxIDMyLjA0OTIgNTkuMjM2MiAzMC45OTk1QzU5LjExOTUgMzAuNzMxNiA1OS4wOTYyIDMwLjI2MzYgNTkuMDk3IDI5Ljk1ODlDNTkuMTA2MyAyNi43OTgxIDU5LjA1NDcgMjMuNjI4NyA1OS4xMzIgMjAuNDcwMkM1OS4xMzUgMjAuMzQ3NCA1OS4yNjA3IDIwLjE3NDQgNTkuMzQyNSAyMC4wODc5WiIgZmlsbD0idmFyKC0tZmlsbC0wLCAjRjBGRTZGKSIvPg0KPHBhdGggaWQ9IlZlY3Rvcl85IiBkPSJNMTguMTY2OSAyMC4xMDg0TDE4LjM4NTcgMjAuMTcxNEMxOC42Nzk5IDIwLjQ5NzIgMTguNDc4NCAyMS40MTYyIDE4LjQ2OTkgMjEuODU0M0MxOC40MTYyIDI0LjYyMDIgMTguNTg4OCAyNy4zODggMTguNTUxNiAzMC4xNTU3QzE4LjU2MzggMzAuODAwNyAxOC40MTA3IDMwLjk5NjYgMTcuNzY5MSAzMS4xMzU4QzE1LjQzNzkgMzEuNjQxMyAxMy44Mzc0IDMyLjY3MzcgMTIuMDYwMSAzNC4yNjIyQzEzLjEwMDcgMzYuNzY0NSAxNC4yNTc2IDM4Ljc2OTUgMTYuNDY4NyA0MC4zODY1QzE3LjEwNTkgNDAuODUyNiAxNy45MDYzIDQxLjMzOCAxOC40NzA2IDQxLjc3ODdDMTguNjgzNyA0Ni42OTYxIDE4LjMxNjIgNTEuODU0OCAxOC40OTI5IDU2Ljc5NThDMTguNTAyNiA1Ny4wNjY3IDE4LjUwNTMgNTcuMzY5NiAxOC40NTM4IDU3LjYzNTFMMTguMjM1NSA1Ny43MTM5QzE3LjkyODQgNTcuNjQyMiAxNy42OTM2IDU3LjM1NTUgMTcuNDYzIDU3LjEyNzdDMTUuOTQxMSA1NS45MjY3IDE1LjExMyA1NC4yMjIzIDE0LjcwMTIgNTIuMzg1N0MxMy43MDM2IDQ3LjkzNjMgMTIuNzU1NyA0My40NDI4IDExLjc2NjkgMzguOTk1MUwxMC40NTc3IDMzLjEyNzZDOS42NzM5MSAyOS42Mzg3IDkuMTE1NTcgMjcuODU2OCAxMS4xMTY5IDI0LjUyMzFDMTIuOTMwMiAyMS41MDI0IDE0Ljk5NTggMjAuOTI4MyAxOC4xNjY5IDIwLjEwODRaIiBmaWxsPSJ2YXIoLS1maWxsLTAsICNGMEZFNkYpIi8+DQo8cGF0aCBpZD0iVmVjdG9yXzEwIiBkPSJNNzAuMjEyMyAxOS44MzNDNzAuOTI5NSAxOS44NTI4IDcxLjc4OTcgMjAuMjE2IDcyLjIyMDcgMjAuODA4N0M3Mi42NjQ5IDIxLjQxOTcgNzIuNDcwMiAyMi4wMTI5IDcyLjMzNzIgMjIuNjk1NEM3MS43Njg4IDI1LjYxMDYgNzEuMDcxOCAyOC40OTk5IDcwLjQzOSAzMS40MDA5TDY2LjY0OTggNDguNjM3OEw2NC42NzM4IDU3LjUyOEM2NC4yOTU0IDU5LjI1OCA2My45NiA2MS4wNzA3IDYzLjQ1ODQgNjIuNzYzQzYzLjAxODYgNjQuMjQ2OCA2MS42Nzg0IDY0LjA3MjkgNjAuNTI5MiA2My44MjAzQzU5Ljg0MjUgNjMuNzczNSA1OS4zNTQ4IDYzLjcyNTYgNTkuMTI3MyA2Mi45ODU2QzU4Ljk3NDIgNjIuNDg3NSA1OC45MzMzIDYyLjE1NjkgNTkuMTY3NSA2MS42NzU1QzU5Ljk2NjcgNjEuMDM0NSA2MS4yNDIxIDYyLjQ5MTEgNjEuNzE2MiA2MS4wNTE2QzYxLjk5ODQgNjAuMTk0OSA2Mi4xNTIzIDU5LjE2NCA2Mi4zNTExIDU4LjI2NTJDNjIuODg0NCA1NS43NzAxIDYzLjQzMzggNTMuMjc4MyA2My45OTkzIDUwLjc5MDJDNjYuMDczNyA0MS41NTU4IDY4LjA3ODUgMzIuMzAyOSA3MC4xNDM3IDIzLjA2ODlDNzAuNDU1OCAyMS42NzMxIDY4LjcwMTEgMjIuNjgxOCA3MC4yMTIzIDE5LjgzM1oiIGZpbGw9InZhcigtLWZpbGwtMCwgI0YwRkU2RikiLz4NCjxwYXRoIGlkPSJWZWN0b3JfMTEiIGQ9Ik0xOC4yNTIgMTcuMzQyOEwxOC40MDQ1IDE3LjM4MDRDMTguNTkzMyAxNy42Njg0IDE4LjYxNTEgMTguOTUwNCAxOC42NzI3IDE5LjQ1ODlDMTcuMTA5MiAxOS44MTE5IDguNjI5NjMgMjEuNTQ3NCA3LjgzNjk1IDIyLjA2NDhDNy4zMTE0MiAyMi45NjQ4IDcuODY1NjQgMjQuMzU1MSA4LjEwMTYyIDI1LjM2NjRDOC40Mjk5NCAyNi43MzkyIDguNzM2NTYgMjguMTE3IDkuMDIxMzkgMjkuNDk5NEwxMy4xNTg2IDQ4LjMyNEMxMy43MjE3IDUwLjg4ODYgMTQuNzE4OCA1NC41NzM2IDE1LjAwODEgNTcuMDIyM0wxMy43NDE4IDU2LjE3ODlDMTIuNjE4NiA1NS40NzI4IDEyLjUwNjQgNTQuODI4OCAxMi4yMzA2IDUzLjYwNTdDMTEuOTQ1IDUyLjMzODggMTEuNjc1MyA1MS4wNjIyIDExLjM5IDQ5Ljc5NTFMOC45NjkzNiAzOC44MDAxTDYuNjI4MzYgMjguMTQzNEM2LjE1NjgxIDI2LjA0NDkgNS42MzU1OSAyMy45NTIyIDUuMjQwNzUgMjEuODM4OEM1LjAzNDU4IDIwLjg3NjUgNS44NDg5NSAyMC4yNzMgNi42OTg5IDIwLjAzOThDMTAuNDkyNCAxOC45OTkgMTQuNDc4MSAxOC40NDU5IDE4LjI1MiAxNy4zNDI4WiIgZmlsbD0idmFyKC0tZmlsbC0wLCAjRjBGRTZGKSIvPg0KPHBhdGggaWQ9IlZlY3Rvcl8xMiIgZD0iTTM4Ljc4NDMgMEMzOS4wMjI0IDAuMDA0ODMyNzQgMzkuMTY4IDAuMDc3OTQwMyAzOS4zMzYyIDAuMjQ3OTA5QzQxLjUzMSAyLjQ2NTYyIDQzLjcyMjcgNC42ODY0MiA0NS45MzM2IDYuODg4ODFDNDYuNDY4OSA3LjQyMjA2IDQ3LjEzNDIgOC4wMjgyMSA0Ny41ODM4IDguNjE4MTFMNDcuNDQxNSA4Ljc2ODU0QzQ2LjU0MzYgOS4wNTM1NyA0My44OTM1IDkuMDE2MzUgNDMuMTIwOCA4LjU2Mjk5QzQxLjg0MTIgNy44MTIyOCA0MC4xMjUxIDUuODg1NzYgMzkuMTU5OSA0Ljc0MzQ5QzM5LjA5MjMgNC43Mjc5NiAzOS4wMjQ4IDQuNzEyNDMgMzguOTU3MiA0LjY5NjkxQzM4LjE0NjMgNS4yODIwOCAzNS41OTU3IDguMjA4NDYgMzQuOTUyIDguNTQ5MDFDMzMuODY4IDkuMTIyNDYgMzEuNTQ0OCA4LjgwMzYgMzAuMTI4OSA4Ljk3ODYxQzMwLjc4MjIgNy44ODY5MyAzMi43MTk2IDYuMDc1MzcgMzMuNzI0NiA1LjA2OTY0TDM4Ljc4NDMgMFoiIGZpbGw9InZhcigtLWZpbGwtMCwgI0YwRkU2RikiLz4NCjxwYXRoIGlkPSJWZWN0b3JfMTMiIGQ9Ik0zMC43NDUyIDY5LjY3MTRDMzEuMjQ1NSA2OS42NzI3IDMxLjc0NTkgNjkuNjY4IDMyLjI0NjMgNjkuNjU3M0MzNi40NTEgNjkuNjAyNCAzNi4xOTM4IDcwLjc3OSAzOC45NjExIDczLjQ3NTNDMzkuODk3MiA3Mi40MTMxIDQxLjc2ODcgNzAuMzk5NSA0Mi45MTU2IDY5LjY4NkM0My41NzU2IDY5LjY3NjQgNDYuOTE3OCA2OS4zOTE3IDQ3LjAxMSA2OS45NjEzQzQ2Ljc3NDQgNzAuNDQgNDUuNTI3NyA3MS42MDU3IDQ1LjEwMzkgNzIuMDMzNEM0My4wOTkzIDc0LjA0NTMgNDAuOTk1OCA3Ni4yMjc0IDM4Ljk0NjEgNzguMTcyNkMzNi42MjMzIDc1LjgxNTIgMzMuMTc0OCA3Mi40NjUxIDMwLjgxMDQgNjkuOTU4NEMzMC43ODQ1IDY5Ljg0NDggMzAuNzYyOCA2OS43NDkxIDMwLjc0NTIgNjkuNjcxNFoiIGZpbGw9InZhcigtLWZpbGwtMCwgI0YwRkU2RikiLz4NCjxwYXRoIGlkPSJWZWN0b3JfMTQiIGQ9Ik03MS40Mjk4IDMyLjc4NzFDNzEuNDQ0MiAzMi43ODg4IDcxLjQ1ODcgMzIuNzg5NyA3MS40NzMgMzIuNzkyMUM3MS40OTY2IDMyLjc5NjQgNzEuNTE5NyAzMi44MDI0IDcxLjU0MzEgMzIuODA3MkM3Mi4zMzk1IDMyLjk2NjkgNzcuMTQ4OSAzOC4xMzA2IDc4LjA5MTggMzkuMDkxMkM3Ny4zNTM0IDM5LjYxMzIgNzUuNzg5OSA0MS4yNTU0IDc1LjEwMTQgNDEuOTQ3NEM3My40MzM0IDQzLjYzNCA3MS43NTI5IDQ1LjMwODIgNzAuMDYwMSA0Ni45Njk5QzY5LjYxNjEgNDcuNDE1NSA2OC42MDA4IDQ4LjY1OTIgNjguMDcyNSA0OC43NTAxTDY4LjAxMjggNDguNjA0QzY4LjExMTQgNDcuODk4NCA2OS4wMjM3IDQzLjc0ODkgNjkuMjg1NyA0My4yMjI3QzY5LjcwODUgNDIuMzczOSA3Mi40NjgyIDM5LjgwNDUgNzMuMjk4NyAzOS4wMjkzQzcyLjI2NzEgMzguMDczNSA3MS42NjQ5IDM3LjQ5OSA3MC43NDM0IDM2LjQxOTdDNzAuOTA3NiAzNS4yNDc0IDcxLjIzOTMgMzQuMDIyOSA3MS40Mjk4IDMyLjc4NzFaIiBmaWxsPSJ2YXIoLS1maWxsLTAsICNGMEZFNkYpIi8+DQo8cGF0aCBpZD0iVmVjdG9yXzE1IiBkPSJNNi4xMjkwNCAzMi44MTI1QzYuNDc3NDEgMzMuMzE1MSA2Ljc5NDExIDM1LjUyMDUgNy4xODEzNSAzNi41MTAzQzYuNjgxNTIgMzcuMDg3NiA1LjE5ODc5IDM4LjQ0MTcgNC41ODI0NiAzOS4wNDYzQzUuNzY0NDMgMzkuOTk5IDguNDU2OTggNDIuNTE2NSA4LjcwMDE2IDQzLjkxMTVDOC44MDQyMiA0NC41MDg0IDkuNjg3MTcgNDguMjQ0OCA5LjYxMDc3IDQ4LjQ5NzdMOS40NTg3IDQ4LjUzNjlDOS4wMzIxOCA0OC4yNTQyIDguMjY5MjMgNDcuNDEyMyA3Ljg3OTAxIDQ3LjAwNTJDNS4yNzYyMiA0NC41NjA3IDIuNTY2MzkgNDEuNjk0NCAwIDM5LjE1MTJDMC42NzQ1MjcgMzcuOTQxOCA0LjkwNDMgMzMuOTY3MiA2LjEyOTA0IDMyLjgxMjVaIiBmaWxsPSJ2YXIoLS1maWxsLTAsICNGMEZFNkYpIi8+DQo8cGF0aCBpZD0iVmVjdG9yXzE2IiBkPSJNOC44OTMwNSA1MS44MzNDOS4yOTY3NCA1Mi4wOTMxIDEwLjMxNTMgNTQuOTYzNiAxMS4wMjUyIDU1Ljc0OTVDMTIuMTU0OCA1NyAxMi42MTE3IDU3LjI5MTIgMTMuOTg4NCA1OC4yMjM1QzE0LjAwNCA1OC4yODY3IDE0LjAxOTYgNTguMzQ5OCAxNC4wMzUyIDU4LjQxMjlDMTMuNDY4OCA1OC44MTY0IDEyLjM0MzggNTkuNTE3IDExLjkwOSA1OS45MjhDMTAuMjc5OSA2MS40Njc3IDEwLjAxNzkgNjIuOTM5NSA5LjExODAzIDY0LjY3MTJDOC44MDY2OCA2NC42NCA4LjU0MDQ3IDYzLjgxOTQgOC4zOTc0NCA2My40NjgyQzcuNDk1OTggNjEuMjU0MiA1Ljk3MTkyIDU5LjQ4OTIgMy44MTkxOSA1OC4zODU4QzcuMDUyMjkgNTYuMTA4NiA3LjM3NTg4IDU1LjQ5NDcgOC44OTMwNSA1MS44MzNaIiBmaWxsPSJ2YXIoLS1maWxsLTAsICNGMEZFNkYpIi8+DQo8cGF0aCBpZD0iVmVjdG9yXzE3IiBkPSJNNjcuNzMxMiA4LjQwNjI1QzY4LjAwMzggOC41NjUwMSA2Ny44OTczIDguNDUzOTYgNjcuOTg4MSA4LjcyNzI3QzY4LjkxNDYgMTEuNTE3NiA3MC4zMjcyIDEzLjQ1NDggNzIuOTE0MiAxNC44NzQ5QzcwLjEzMTMgMTYuNTE2NSA2OC43OTQ3IDE4LjM3MjMgNjcuOTA5OCAyMS40Njk5QzY3LjE2MDkgMjAuOTgzIDY2LjkzMyAxNy4xMyA2Mi42MDkgMTQuOTI0OEM2NS41NzMgMTMuMjg2NiA2Ni41OTk5IDExLjQzMTkgNjcuNzMxMiA4LjQwNjI1WiIgZmlsbD0idmFyKC0tZmlsbC0wLCAjRjBGRTZGKSIvPg0KPHBhdGggaWQ9IlZlY3Rvcl8xOCIgZD0iTTU5LjA5MzIgMTcuMzc3QzYwLjA4MjMgMTcuNDAyNSA2NC4wMTc2IDE4LjQ3NzcgNjQuOTc3MSAxOC45NDE5QzY1LjI3OTQgMTkuNTExMSA2NS42NTEzIDIwLjI2MTQgNjUuODcwOSAyMC44NTg3QzY0LjcyNzMgMjAuODk1MSA2MC41NDc1IDE5LjcwNTEgNTkuMDQ4NSAxOS40Njk4QzU5LjA1ODQgMTguNjcxNSA1OS4xNDkxIDE4LjI1MzUgNTkuMDkzMiAxNy4zNzdaIiBmaWxsPSJ2YXIoLS1maWxsLTAsICNGMEZFNkYpIi8+DQo8cGF0aCBpZD0iVmVjdG9yXzE5IiBkPSJNMTUuMjg2NiA1OS40Njg0QzE1LjMwNjkgNTkuNDY3MyAxNS4zMjczIDU5LjQ2NjMgMTUuMzQ3NiA1OS40NjUzQzE1LjM3MTIgNTkuNDM0MiAxNS42ODg5IDU5LjU0OTUgMTUuNjg4NyA1OS41NDg0QzE1Ljg0NjEgNjAuMzAyOSAxNS44NDc2IDYwLjkxODMgMTYuNDEzMiA2MS40OTQ1QzE3LjA1MjIgNjIuMTQ1NSAxNy44MTc5IDYxLjIyNjMgMTguMzE2IDYxLjYxMzZDMTguNjM0NyA2MS44NjE1IDE4LjUzOTggNjMuMDMgMTguNTM0MiA2My40NDE5QzE3Ljg4ODcgNjMuNjk0IDE3LjcwODEgNjMuNzUxNiAxNy4wMTc3IDYzLjg2NDVDMTQuMzI5OSA2NC40ODI2IDE0LjI1OTIgNjIuNTc2MiAxMy42MzU5IDYwLjUwNTVDMTQuMjY0NiA2MC4xNjgyIDE0LjY5NzggNTkuODcxMiAxNS4yODY2IDU5LjQ2ODRaIiBmaWxsPSJ2YXIoLS1maWxsLTAsICNGMEZFNkYpIi8+DQo8cGF0aCBpZD0iVmVjdG9yXzIwIiBkPSJNNTkuMTYwMyAzMy4yODkxQzYwLjAzNDIgMzMuNTUyNiA2MS4zMzAxIDMzLjk3OTcgNjIuMDk5OCAzNC40MzM1QzYzLjI1MzggMzUuMTEzOSA2MS41MDA0IDM2Ljc0OTkgNjAuOTY2MyAzNy4zNTQxQzYwLjQ3NjEgMzcuODc2NiA1OS42OTc4IDM4LjQ1NjkgNTkuMTE5NiAzOC45MTVDNTkuMDUyOSAzOC4yMTU1IDU5LjA5MDggMzMuOTk2NCA1OS4xNjAzIDMzLjI4OTFaIiBmaWxsPSJ2YXIoLS1maWxsLTAsICNGMEZFNkYpIi8+DQo8cGF0aCBpZD0iVmVjdG9yXzIxIiBkPSJNMTIuODkzIDIxLjIyNjZMMTMuMDYxMSAyMS4yNDIzTDEzLjE1ODkgMjEuMzcxMkMxMy4wNzgyIDIxLjcwNjggMTIuNDg0OSAyMi4xNjQxIDEyLjIwNDMgMjIuNDI1NUMxMC43MDE0IDIzLjgyNTUgMTAuMDc0NSAyNS4zOTEgOS40NDM0OCAyNy4yODk3QzkuMTc2MzQgMjcuMTc0MiA5LjIwOTY2IDI3LjExMDMgOS4wNDQyMSAyNi44MTFDOC44NjMzNCAyNS44NzMyIDguMTMxNTUgMjMuMzcwOSA4LjMxNTE5IDIyLjYyNjZDOC4zNzE4NSAyMi41NTM3IDguNDQwNTMgMjIuNDY1NiA4LjUyMTI1IDIyLjM2MTlDOS44NzY5OSAyMS44NzMgMTEuNDg2MyAyMS44NTkzIDEyLjg0NDEgMjEuMjQ5TDEyLjg5MyAyMS4yMjY2WiIgZmlsbD0idmFyKC0tZmlsbC0wLCAjRjBGRTZGKSIvPg0KPHBhdGggaWQ9IlZlY3Rvcl8yMiIgZD0iTTE4LjA2NzEgMzMuMzU4NEMxOC4yOTIxIDMzLjM5NDggMTguMjEzOSAzMy4zNzI3IDE4LjQwNjUgMzMuNTI2NUMxOC41Mzk0IDM0LjAyNDggMTguNTMzOCAzNy45OTM0IDE4LjM4NDkgMzguNTU1MkwxOC4xODExIDM4LjU5MUMxNy43MTI0IDM4LjM4NzEgMTcuMjgxMiAzNy45MTU4IDE2LjkwMjQgMzcuNTU0QzE1LjkwNzkgMzYuNDYxNiAxNS42Mjg4IDM2LjA3MyAxNC45NTU0IDM0Ljc2MDRDMTUuODQyNiAzNC4xNzc5IDE3LjA1OTcgMzMuNzY3NyAxOC4wNjcxIDMzLjM1ODRaIiBmaWxsPSJ2YXIoLS1maWxsLTAsICNGMEZFNkYpIi8+DQo8cGF0aCBpZD0iVmVjdG9yXzIzIiBkPSJNNjQuNjE4MiAyMS4zMjU0QzY1LjAwNTYgMjEuMzE3NiA2NS41OTk0IDIxLjU3NDggNjUuOTg0NyAyMS43MTQ5QzY3Ljk3MDIgMjQuODgyNyA2OC40MTkgMjIuMzgwNSA2OS40NzM3IDIyLjUzMTdDNjkuNjk0MiAyMy4wNDY1IDY5LjA2MiAyNS4yOTE1IDY4Ljg5MDMgMjUuOTM0MkM2OC43NTczIDI2LjI0MDQgNjguOTQ0NSAyNi45MTE4IDY4LjYwMjMgMjcuMjc1NkM2OC4yOTYzIDI3LjIyMDMgNjguMDIzNCAyNi40NDYxIDY3LjkwNDQgMjYuMTM4OUM2Ny4yODI0IDI0LjUzMzQgNjYuNTQ1MSAyMy4xNTc2IDY1LjEzODcgMjIuMDk3NEM2NC45MDc0IDIxLjkyMyA2NC43Mjc0IDIxLjc5NzMgNjQuNTU2MyAyMS41NTVMNjQuNjE4MiAyMS4zMjU0WiIgZmlsbD0idmFyKC0tZmlsbC0wLCAjRjBGRTZGKSIvPg0KPHBhdGggaWQ9IlZlY3Rvcl8yNCIgZD0iTTYxLjk1NjUgNTYuMTYyMUM2Mi4yMjI1IDU2LjE4NzggNjIuMTQxMyA1Ni4xNDAxIDYyLjI4OTIgNTYuMzEyMkM2MS45NjQ1IDU3LjI0MDMgNjEuNDkzNyA2MC4xMzQ0IDYwLjk1MDUgNjEuMDc4OEM2MC44NTQ5IDYxLjI0NDkgNjAuMTU2NSA2MS4xMjM3IDU5Ljg4NjIgNjEuMDI2MUM1OC42OTM1IDYwLjU2OTEgNTkuMDMzOCA1OS43OTM3IDU5LjE1NDYgNTguNjkxNUM2MC42MDkzIDU3LjU3OTQgNjAuNzIxOCA1Ny4zNTc3IDYxLjk1NjUgNTYuMTYyMVoiIGZpbGw9InZhcigtLWZpbGwtMCwgI0YwRkU2RikiLz4NCjxwYXRoIGlkPSJWZWN0b3JfMjUiIGQ9Ik0xNS41NTM5IDU2LjAyMzRDMTUuODQwMiA1Ni4xMjc5IDE4LjEwNzEgNTguMzMyMyAxOC40MTkzIDU4LjY3ODVDMTguNDcyOCA1OS4zMDg0IDE4LjY2NDggNjAuMzg0NyAxOC4yOTA4IDYwLjg0ODhDMTcuNzA0NyA2MC45OTM0IDE3LjI3NDcgNjEuMzI0NCAxNi43MDI3IDYxLjAwMTdDMTYuNDIwMyA2MC4zMTIgMTUuNTcyOSA1Ni43MzgzIDE1LjU1MzkgNTYuMDIzNFoiIGZpbGw9InZhcigtLWZpbGwtMCwgI0YwRkU2RikiLz4NCjwvZz4NCjwvc3ZnPg0K"
+          alt=""
+        /><strong>CardScanFox</strong>
+      </div>
+      <a href="admin.html">管理后台原型 ↗</a>
+    </header>
+    <main class="workspace">
+      <aside class="controls">
+        <span class="eyebrow">ANDROID / GOOGLE PLAY</span>
+        <h1>订阅体验预览</h1>
+        <p class="intro">
+          在右侧体验同一个 Android 账号购买、恢复和管理 Premium
+          的过程。可切换商店结果，观察权益如何变化。
+        </p>
+        <div class="controlbox">
+          <label class="field"
+            ><span>用户场景</span
+            ><select id="scenario">
+              <option value="paywall">新用户 · 订阅页</option>
+              <option value="modal">扫描额度用尽 · 弹窗</option>
+              <option value="guest">游客 · 首购前登录</option>
+              <option value="legacy">免费首版 · 存量用户</option>
+              <option value="profile">已购 · 个人中心</option>
+              <option value="grace">付款失败 · 宽限期</option>
+              <option value="hold">付款失败 · 保留期</option>
+              <option value="expired">已到期</option>
+              <option value="page-off">订阅页停用 · 查看 Profile</option>
+              <option value="modal-off">扫描弹窗停用 · 查看 Scan</option>
+              <option value="off">全局停售 · 已购用户</option>
+              <option value="unavailable">商店目录暂不可用</option>
+            </select></label
+          >
+          <label class="field"
+            ><span>模拟付款结果</span
+            ><select id="payment">
+              <option value="ok">付款完成并验单</option>
+              <option value="pending">等待付款</option>
+              <option value="sync">付款完成 · 验单延迟</option>
+              <option value="cancel">用户取消付款</option>
+            </select></label
+          >
+          <label class="field"
+            ><span>模拟恢复结果</span
+            ><select id="recovery">
+              <option value="found">找到本 Android 账号的有效订阅</option>
+              <option value="empty">当前 Play 账号没有订阅</option>
+              <option value="other">购买属于另一 App 账号</option>
+              <option value="offline">商店暂时不可达</option>
+            </select></label
+          ><button class="reset" id="reset">重置演示</button>
+        </div>
+        <div class="legend">
+          <strong>原型使用说明</strong
+          >模拟商品、价格和日期仅用于评审。手机内保留产品现有的英文界面风格。页面可通过键盘操作。
+        </div>
+      </aside>
+      <section class="stage" aria-label="Android 手机预览">
+        <p class="stamp">Android · 竖屏预览 · 模拟交易</p>
+        <div class="phone" lang="en">
+          <div class="status">
+            <span>9:41</span
+            ><span class="signals" aria-hidden="true"
+              ><i class="signal"></i><i class="battery"></i
+            ></span>
+          </div>
+          <div class="display" id="display"></div>
+          <div class="notch"></div>
+        </div>
+      </section>
+    </main>
+    <dialog id="info" lang="en">
+      <h3 id="infoTitle"></h3>
+      <p id="infoBody" class="dialogText"></p>
+      <button class="secondary" id="dismiss">Close</button>
+    </dialog>
+    <script>
+      (() => {
+        "use strict";
+        const $ = (id) => document.getElementById(id);
+        const params = new URLSearchParams(location.search);
+        const portfolioBenefits = [
+          "Unlimited card scanning",
+          "More portfolio folders",
+          "Track performance",
+          "Extended price history",
+        ];
+        const plans = {
+          monthly: { title: "Monthly", price: "US$4.99", unit: "month" },
+          yearly: { title: "Yearly", price: "US$39.99", unit: "year" },
+        };
+        const profileStatus = {
+          free: ["Free plan", "Basic scanning and collection tools are available."],
+          legacy: [
+            "Free access retained",
+            "Your Android account keeps its original scanning, folders, performance and price history.",
+          ],
+          active: ["Premium is active", "Your Google Play subscription is verified."],
+          canceled: [
+            "Renewal canceled",
+            "Premium is available through the end of your paid period.",
+          ],
+          grace: ["Update your payment method", "You still have Premium during the grace period."],
+          hold: ["Payment on hold", "Premium is paused. Fix your payment method in Google Play."],
+          expired: ["Subscription expired", "Your collection and existing folders are available."],
+          trial: ["Free trial is active", "Your free trial has been verified by Google Play."],
+        };
+        let screen,
+          access,
+          signedIn,
+          trialEligible,
+          trial,
+          plan,
+          sale,
+          catalog,
+          origin,
+          flash,
+          fundedPlan,
+          paidUntil,
+          unpaidStage,
+          pageAvailable,
+          modalAvailable;
+        function restart(value, fromLink = false) {
+          $("scenario").value = value;
+          pageAvailable = value !== "page-off";
+          modalAvailable = value !== "modal-off";
+          origin = value === "modal" || value === "modal-off" ? "scan" : "profile";
+          signedIn = value !== "guest";
+          trialEligible = true;
+          trial = false;
+          plan = "monthly";
+          fundedPlan = "monthly";
+          sale = value !== "off";
+          catalog = value !== "unavailable";
+          unpaidStage = "";
+          paidUntil = value === "grace" ? "Nov 29, 2026" : "Dec 26, 2026";
+          flash = "";
+          access =
+            {
+              legacy: "legacy",
+              profile: "active",
+              off: "active",
+              grace: "grace",
+              hold: "hold",
+              expired: "expired",
+            }[value] || "free";
+          screen = ["paywall", "guest", "modal", "unavailable"].includes(value)
+            ? "paywall"
+            : "profile";
+          if (value === "modal-off") screen = "scan";
+          if (fromLink) {
+            plan = params.get("plan") === "yearly" ? "yearly" : "monthly";
+            trialEligible = params.get("offer") !== "off";
+            if (params.has("page")) pageAvailable = params.get("page") === "on";
+            if (params.has("modal")) modalAvailable = params.get("modal") === "on";
+          }
+          render();
+        }
+        function button(label, action, style = "secondary", extra = "") {
+          return `<button type="button" class="${style}" data-action="${action}" ${extra}>${label}</button>`;
+        }
+        function screenHeader(label, close = "back") {
+          return `<div class="top"><span>${label}</span>${button("×", close, "x", 'aria-label="Close view"')}</div>`;
+        }
+        function notice() {
+          return flash ? `<div class="message" role="status">${flash}</div>` : "";
+        }
+        function copy() {
+          const p = plans[plan];
+          return trial && plan === "monthly"
+            ? "7 days free, then US$4.99 every month until canceled."
+            : `${p.price} every ${p.unit} until canceled.`;
+        }
+        function paywall() {
+          const isModal = origin === "scan";
+          const cards = Object.entries(plans)
+            .map(
+              ([key, v]) =>
+                `<button class="plan" data-action="plan-${key}" aria-pressed="${plan === key}"><i class="radio"></i><span><strong>${v.title}</strong><small>Auto-renewing</small></span><b>${v.price}<small>per ${v.unit}</small></b></button>`,
+            )
+            .join("");
+          return `<section class="screen ${isModal ? "sheetScreen" : ""}">${isModal ? '<div class="backdropLabel">Scan &nbsp; / &nbsp; Free scans used · 10 of 10</div>' : ""}<div class="${isModal ? "sheetCard" : ""}">${screenHeader(isModal ? "Scan limit reached" : "CardScanFox")}${notice()}<div class="hero"><div><small>CARDSCANFOX</small><h2>Premium</h2></div><img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNTIiIHZpZXdCb3g9IjAgMCA2MCA1MiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4NCiAgPHBhdGggZD0iTTE1LjkxNzcgNC45MTYyOUMxNC43MDQzIDQuOTA2MTMgMTIuNDI3NSA0LjgyNjkzIDExLjI2NDQgNC45MjU4OUMxMC44MDk3IDkuMzM3NzkgMTAuODg4NyAxOC42OTQxIDEyLjUyMDQgMjIuNjY3NUwxMi41NDczIDIyLjczMDlDMTEuNzU3NyAyMi4yMzM1IDEwLjkxODggMjEuODA2NCAxMC4xMzkyIDIxLjI5MDhDNy4yNzU4NiAxOS4zOTczIDQuMzc3ODQgMTcuMDMxOSAzLjUyNzI2IDEzLjUzNTVDMy4xMjc4NSAxMS44OTM3IDMuNzMxODggMTAuMDY1OSA1LjQ4MjQxIDkuNTI2MDRDNi40ODE2NSA5LjIxNzg1IDguMTY2MiAxMC4zNjk0IDcuNjY3OTIgMTEuMzM1MUM3LjA5NTkxIDExLjU2NjggNS40NDcyNSAxMC4yMjE3IDUuMDIzNDkgMTEuNDUzN0M0LjIyODMxIDEzLjc2NTQgNi43NzQ5MSAxNC45NjA0IDguNjA4MTEgMTMuOTc5MUM5LjQ1NzU3IDEzLjUyMTkgMTAuMDgyMSAxMi43MzYxIDEwLjMzNTYgMTEuODA1M0MxMC42NDAxIDEwLjcxNDUgMTAuNTA0MSA5LjYzMTY5IDkuOTMxOTggOC42NTQ0QzkuMjkwNzcgNy41Nzc1IDguMjQ5MTEgNi43OTgzNyA3LjAzNDk0IDYuNDg3NDRDNS41OTQwNCA2LjExNTcxIDQuMTU4MjIgNi4zNTU5OCAyLjg5MDY1IDcuMTIwMzVDMS41NjIzNCA3LjkzMDM2IDAuNjA2MDIgOS4yMzAzNiAwLjIyODIzMyAxMC43Mzk2Qy0xLjMxMDY2IDE3LjAwMDkgNS4yNjAyMSAyMi40MTYyIDEwLjE1MjQgMjQuOTJDMTEuMjgzOCAyNS40OTkgMTIuNTM1NiAyNi40NDIzIDExLjY4MjcgMjcuODYyTDExLjU0MDUgMjcuOTQ5MUMxMS4yMTIyIDI3Ljc3NDggMTEuMTU1OCAyNy4xNDA5IDEwLjM4ODggMjYuOTY1OUMxMC4xNjYgMjYuOTE1MSA5LjkzMTk4IDI2Ljk1NyA5Ljc0MDUxIDI3LjA4MkM4LjM2NzUyIDI3Ljk2NTIgOS42NDQ2OSAzMC4yNDEzIDExLjIzNTggMzAuMjY4N0MxMy40MjAyIDMwLjMwNTggMTQuMDgwOSAyOC41MjY2IDEzLjk2NDIgMjYuNzA5NEMxNi40NDI5IDMxLjI5MTQgMTkuNjMwNiAzMy44NzcyIDI0LjUxMDcgMzUuNTc1OEMyNi42ODYxIDM2LjI4NDIgMzIuMDEwNSAzNy4yNTkgMzUuOTA2IDM1LjQ5MTFDNDAuMzQ3NSAzMy43ODY5IDQzLjgyMDggMzAuOTkzIDQ1Ljg3MTkgMjYuNjA4MUM0NS44NTMzIDI3LjEwMTQgNDUuODEzIDI3LjY3ODEgNDUuODcwMyAyOC4xNjI4QzQ2LjAwNjYgMjkuMzIzNCA0Ny4yMTggMzAuMjkzNyA0OC4zNjAxIDMwLjI5MDVDNDguOTMwMyAzMC4yODcyIDQ5LjQ3MzEgMzAuMDQ0NSA0OS44NTU0IDI5LjYyMDJDNTEuMTI0MSAyOC4yMzcgNDkuODcwNyAyNi4yMDMgNDguNDAyIDI3LjM1ODdDNDguMjU1MiAyNy40NzQgNDguMjU4NCAyOC4wMTM2IDQ4LjAwNzYgMjguMTI0MUM0Ny4xNjIzIDI3LjE4NjEgNDcuOTMxIDI1Ljk2NTggNDguNzU2MSAyNS40NzY3QzUzLjU4MDkgMjIuNjE2MiA1OC45OTc2IDE5LjUzNjQgNTkuOTMxNiAxMy40MDJDNjAuNDA0MyAxMC4zMDAyIDU4LjM5MjcgNi43MTgyOCA1NC45OTg4IDYuMzkzODFDNTEuMjg0NiA1Ljg4NDQ3IDQ3Ljg5MDcgOS42NzE5NSA1MC4zMzM3IDEzLjAyMjRDNTEuMzM5NSAxNC40MDEgNTMuMjIxMSAxNC43OTk3IDU0LjUzOTggMTMuNjcxOUM1NS42ODg0IDEyLjc4NjIgNTUuMzk1NiAxMC45NDA3IDUzLjkwMDIgMTAuNzA0NkM1My4yMTcxIDEwLjU5NjcgNTIuOTM2NCAxMS43OTU3IDUyLjM3MzUgMTEuNDM2M0M1Mi4yNTA5IDExLjIxMDMgNTIuMTcxIDEwLjkwOTUgNTIuMjU1NyAxMC42NTg3QzUyLjU0NzcgOS43OTAwMiA1My44NTQzIDkuMjE5NjMgNTQuNjk3MSA5LjU0Mjk4QzU2LjgzOTMgMTAuMzY0NCA1Ni44NjkyIDEyLjcxODEgNTYuMTM5MiAxNC41MjZDNTQuOTMzNCAxNy41MTQ4IDUyLjQ0NTIgMTkuNDE3NiA0OS44OTE3IDIxLjE5NjJDNDkuMDg1MiAyMS43NTQ1IDQ4LjA5NjMgMjIuMjU5NSA0Ny4zMTMyIDIyLjgxNzZDNDguNDAyOCAyMC4xMzA5IDQ4Ljc2NzQgMTMuNTI1NiA0OC44MTU4IDEwLjUxMDRDNDguODM5MiA5LjAyMjI3IDQ4LjYwNTMgNi41NTQ0NyA0OC41NzU0IDQuOTY5MjhMMjMuNTc1MyA0LjkzNDE5TDE1LjkxNzcgNC45MTYyOVoiIGZpbGw9IiNFNEZBNDQiLz4NCiAgPHBhdGggZD0iTTM1LjgyNzcgMzYuMDU1QzM2Ljc0MDIgMzcuODgxIDMyLjcxMDUgMzkuMTEwMiAzMS41Mzk3IDM5LjU2NjdDMzAuMTI2NCA0MC4xMTc2IDI4LjA3MTcgMzkuNTgyNyAyNy43MDkyIDM5LjI0OTdDMjcuNTMzNyAzOS4wODg0IDI3LjA3ODggMzguODIxNCAyNi45MTUzIDM4LjY5ODlDMjYuMjI1NyAzOC4xNzk0IDI0LjQ2MTYgMzcuNzIzNyAyNC41OTMgMzYuNjI2OEMyNC42MTcgMzYuNDI2OCAyNC42NjE1IDM2LjI0MDUgMjQuODEzMSAzNi4wOTQ1QzI1LjQ5NDggMzYuNDAxIDI1LjkyNDcgMzYuNTE4NyAyNi42NzAxIDM2LjYyNjhDMjkuNTIwOCAzNy4xMDI3IDMzLjExMzMgMzcuMTkwNiAzNS44Mjc3IDM2LjA1NVoiIGZpbGw9IiNFNEZBNDQiLz4NCiAgPHBhdGggZD0iTTI5Ljg4OTMgMTAuMDk5QzMwLjAzMjUgMTAuMDk0NSAzMC4yMDAyIDEwLjA4MzIgMzAuMzMzOSAxMC4xNDMxQzMwLjg0NzcgMTAuMzczMiAzMi41MzgzIDE0LjQ4MiAzMi45MjQ0IDE1LjIzODhDMzMuODk5OCAxNS4zOTAyIDM4LjA0ODggMTUuOTM2NyAzOC41NSAxNi4zMTYyQzM4LjY3MTEgMTYuNDA4IDM4Ljc0NjUgMTYuNTMyNyAzOC43NTU4IDE2LjY4NDlDMzguNzY5MyAxNi45MDIxIDM4LjY0NDkgMTcuMTAxMyAzOC41MjEyIDE3LjI2OTdDMzguMTUwMyAxNy43NzUgMzcuNTk4MSAxOC4yMDgyIDM3LjE0MTMgMTguNjM2QzM2LjMzMzkgMTkuMzkyMSAzNS41MjYgMjAuMTQ3NSAzNC43NzQ2IDIwLjk1OTlDMzUuMDMwNSAyMi4zNzk1IDM1LjMwNDYgMjMuODAxNCAzNS41NTQ4IDI1LjIyMjFDMzUuNjUzMiAyNS43ODA4IDM1Ljc2OTYgMjYuMzcwNCAzNS4yOTQ0IDI2Ljc2NDRDMzQuODM1NSAyNi44NzE2IDM0LjQ1NDkgMjYuNzAwNiAzNC4wNTggMjYuNDc0MUMzMi43ODAzIDI1Ljc0NjEgMzEuNTA5NSAyNC45OTk1IDMwLjIzNTEgMjQuMjY2MUMyOS41MTgzIDI0LjE4OTYgMjUuOTA2NSAyNi44MzI5IDI0LjgxNDUgMjYuNzM5M0MyNC4zOTIzIDI2LjcwMzEgMjQuMjc4MyAyNi4xNDk5IDI0LjM1MSAyNS44MDgzQzI0LjcwMTggMjQuMTYyMyAyNS4wMjY4IDIyLjUxMjEgMjUuMzg0NSAyMC44NjU0QzI0LjIxNTMgMTkuNzU2NSAyMi45Nzc0IDE4LjQ3MTggMjEuODQ1MiAxNy4zMTA0QzIxLjYyNTkgMTcuMDg1NSAyMS41MjQ4IDE2Ljc4NTYgMjEuNjE0OCAxNi40NzUzQzIxLjc1OTcgMTYuMjkwOCAyMS45MzA4IDE2LjEyNjggMjIuMTY1IDE2LjA3ODVDMjMuNzY0MiAxNS43NDg4IDI1LjY5MzggMTUuNTIxIDI3LjMxMzQgMTUuMjc1M0MyNy41Njg0IDE0LjQ5NTQgMjkuNDMxMiAxMC42MjQ0IDI5Ljg4OTMgMTAuMDk5WiIgZmlsbD0iIzMzM0ExMyIvPg0KICA8cGF0aCBkPSJNMjAuNzI1NCAwLjAxMDQ3MjNMMzkuNzgzOCAwLjAyMzM3NDlMNDUuNDg1NiAwLjA0ODQ2MTRDNDcuMTg1OCAwLjA1NTcyMDQgNTAuNjU0NyAtMC41MDczMyA1MC4yMzEzIDIuMjcyOTJDNTAuMTI4MSAyLjk1MTYzIDQ5Ljc4NDUgMy4zNTIgNDkuMjQ2NSAzLjczMzM0QzQ4LjM1NjEgMy44OTE3NSA0Ni40ODQ5IDMuODQwNTMgNDUuNTE1NCAzLjgzNzM4TDM5LjQ2NDcgMy44MTQwN0MzMC4zMDY4IDMuODk0IDIxLjE0ODQgMy44ODIxNSAxMS45OTA3IDMuNzc4NDJDMTAuMTQ2MSAzLjc0NTE5IDkuOTI5MiAzLjE5MjM5IDkuOTY5NzYgMS4zNjgzOEMxMC4zMzA5IDAuNjc3NjQ5IDEwLjY0NTEgMC40MzQ0NzYgMTEuMjc3MSAwLjA1OTU5MTlDMTQuMjc3NSAtMC4wNDE4NzIgMTcuNjkzOCAwLjAxOTAyMTggMjAuNzI1NCAwLjAxMDQ3MjNaIiBmaWxsPSIjRTRGQTQ0Ii8+DQogIDxwYXRoIGQ9Ik0zMi42NzU1IDM5Ljg5NTdDMzIuNzcyNSA0MC4wMjcyIDMyLjY5MTIgNDEuOTI1OCAzMi43MTg2IDQyLjMyNDJDMzIuODcxNSA0NC41NDQ2IDMzLjk0NTEgNDYuMjAxMyAzNi4yMDQ4IDQ2LjY2MjZDMzcuNDggNDYuOTIyNCAzOC42OTMzIDQ2LjY1ODYgMzkuNzYzNyA0Ny42NzU3QzQwLjAwMTQgNDcuOTAxNSA0MC4wNDE2IDQ3Ljk2NTIgNDAuMDUxIDQ4LjI0NjdDMzkuNjE5OSA0OC42NDkyIDM2LjgxMzcgNDguNTA4OCAzNi4wMDM3IDQ4LjUxMjFMMjcuNjQ4NyA0OC41MjE3QzI1LjQ5ODIgNDguNTQ3NSAyMi41MDE1IDQ4LjU4NDYgMjAuNDAyMSA0OC40MTI4QzIxLjM3ODggNDYuMzc0NyAyMi4wNzg2IDQ3LjAxODMgMjMuOTE1IDQ2Ljc1N0MyNy4zMDk3IDQ2LjI3NDcgMjguMjM4NCA0My4xMTIyIDI3LjgwMzYgNDAuMDk4MUMyOC4xNDM1IDQwLjIxMjcgMjguNDg1NSA0MC4zMjA4IDI4LjgyOTMgNDAuNDIyNEMzMC4zMDUzIDQwLjg0NTggMzEuMzUxMiA0MC42MjggMzIuNjc1NSAzOS44OTU3WiIgZmlsbD0iI0U0RkE0NCIvPg0KICA8cGF0aCBkPSJNMTkuNTY5MSA0OC45Mjk4TDMzLjQ4NjcgNDkuMDMyM0MzNS4yNDg0IDQ5LjA0NTIgMzcuMDAxNyA0OS4wNzU4IDM4Ljc2NjUgNDkuMDI4MkMzOS4yNzgyIDQ5LjAxMzcgNDAuNTIwMSA0OC45ODQ3IDQwLjk0MTYgNDkuMjUzM0M0MS40MTgyIDQ5LjU1NjUgNDEuNDM2OCA1MC44NzIgNDEuMTc1NSA1MS4zMzI1QzQxLjEyMyA1MS40MjUzIDQwLjkwNTYgNTEuNDA2NyA0MC43OTU2IDUxLjQxNjRDMzUuNjc1OCA1MS4zNjQgMzAuNTU1NyA1MS4zNDcxIDI1LjQzNTcgNTEuMzY1NkMyMy4yMjQzIDUxLjM2NCAyMC45NzUxIDUxLjQzMTcgMTguNzcxOCA1MS4zNTUxQzE4LjcwMDYgNTAuMjM0OCAxOC40OTggNDkuNTYyMiAxOS41NjkxIDQ4LjkyOThaIiBmaWxsPSIjRTRGQTQ0Ii8+DQo8L3N2Zz4NCg==" alt=""></div><div class="features">${portfolioBenefits.map((b) => `<span>${b}</span>`).join("")}</div><h3 class="smallhead">Choose your plan</h3>${catalog ? `<div class="plans">${cards}</div>${trialEligible && plan === "monthly" ? `<label class="offer"><input type="checkbox" id="trial" ${trial ? "checked" : ""}> Use my 7-day free trial</label>` : ""}<p class="terms">${copy()} Manage or cancel anytime in Google Play.</p>${button(!signedIn ? "Sign in to continue" : trial ? "Start free trial" : `Subscribe · ${plans[plan].price}`, "checkout", "cta")}` : `<p class="terms">Plans are unavailable. Check your connection and refresh prices before purchasing.</p>${button("Refresh Google Play plans", "refresh", "cta")}`}<div class="foot">${button("Restore purchases", "restore", "link")}${button("Terms", "terms", "link")}${button("Privacy", "privacy", "link")}</div></div></section>`;
+        }
+        function profile() {
+          const [title, desc] = profileStatus[access];
+          const terms = isPaid()
+            ? `<div class="tile"><h3>${plans[fundedPlan].title} · Google Play</h3><p>${access === "canceled" ? "Access until" : access === "grace" ? "Grace period ends" : access === "trial" ? "Trial ends" : "Next billing date"} · ${paidUntil}</p></div>`
+            : "";
+          return `<section class="screen"><div class="top"><span>Profile</span><span>Android</span></div>${notice()}<div class="stateHead"><div class="subline">MY MEMBERSHIP</div><h2>${title}</h2><p class="profileText">${desc}</p></div><div class="tile"><h3>My collection</h3><p>Cards and folders in this Android account</p></div>${terms}${access === "free" || access === "expired" ? '<div class="tile"><h3>Scan allowance</h3><p>10 free scans per new eligible account</p></div>' : ""}<div class="push">${unpaidStage ? button(unpaidStage === "pending" ? "Check pending payment" : "Retry verification", "resume-payment", "cta") : access === "legacy" ? '<p class="terms">Your retained benefits apply to this Android account.</p>' : isPaid() || access === "hold" ? button("Manage in Google Play", "manage", "cta") : sale && pageAvailable ? button("View Premium plans", "view", "cta") : ""}${access !== "legacy" && !unpaidStage ? button("Restore purchases", "restore") : ""}${!pageAvailable && access === "free" ? '<p class="muted">The subscription page is currently closed. You can still restore purchases in Profile.</p>' : ""}${!sale ? '<p class="muted">New purchases are paused. Your existing subscription can still be restored and managed.</p>' : ""}</div></section>`;
+        }
+        function isPaid() {
+          return ["active", "canceled", "grace", "trial"].includes(access);
+        }
+        function formPage(title, body, actions) {
+          return `<section class="screen">${screenHeader("CardScanFox")}${notice()}<div class="stateHead"><h2>${title}</h2><p class="profileText">${body}</p></div><div class="push">${actions}</div></section>`;
+        }
+        function current() {
+          if (screen === "paywall") return paywall();
+          if (screen === "profile") return profile();
+          if (screen === "confirm")
+            return `<section class="screen">${screenHeader("Return to app", "return-offer")}<div class="playSheet"><div class="mono">GOOGLE PLAY · DEMO</div><h3>Confirm subscription</h3><p><b>CardScanFox Premium · ${plans[plan].title}</b></p><p>${copy()}</p><p>Payment is managed by your Google Play account.</p>${button("Confirm demo purchase", "pay", "cta")}${button("Cancel", "return-offer")}</div></section>`;
+          if (screen === "login")
+            return formPage(
+              "Sign in to CardScanFox",
+              "Link this purchase to your Android CardScanFox account so you can restore it on another device.",
+              button("Continue with demo account", "login", "cta"),
+            );
+          if (screen === "pending")
+            return formPage(
+              "Waiting for payment",
+              "Google Play is still processing your purchase. You can safely return to the app.",
+              button("Simulate payment completed", "settle", "cta") +
+                button("Back to profile", "dismiss-pending"),
+            );
+          if (screen === "sync")
+            return formPage(
+              "Verifying your purchase",
+              "Payment was accepted. We will check Google Play before unlocking Premium.",
+              button("Retry verification", "settle", "cta") +
+                button("Back to profile", "dismiss-pending"),
+            );
+          if (screen === "manage")
+            return `<section class="screen">${screenHeader("Return to profile", "to-profile")}<div class="playSheet"><div class="mono">GOOGLE PLAY · DEMO</div><h3>Manage subscription</h3><p><b>CardScanFox Premium · ${plans[fundedPlan].title}</b></p><p>${access === "canceled" ? "Automatic renewal is off." : access === "hold" || access === "grace" ? "Update your payment method to resume regular billing." : "Automatic renewal is on."}</p>${access === "hold" || access === "grace" ? button("Simulate payment recovery", "fix", "cta") : access === "canceled" ? button("Resume renewal", "fix", "cta") : button("Cancel renewal", "cancel-renewal", "cta")}${button("Return to CardScanFox", "to-profile")}</div></section>`;
+          if (screen === "scan")
+            return formPage(
+              "Free scan limit reached",
+              "Your current Android account has used its 10 free scans. Your previous scans and collection are available.",
+              (!modalAvailable
+                ? '<p class="terms">The scan offer is currently closed.</p>'
+                : button("View scan options", "view", "cta")) +
+                button("Back to profile", "to-profile"),
+            );
+          return "";
+        }
+        function render() {
+          $("display").innerHTML = current();
+        }
+        function info(title, body) {
+          $("infoTitle").textContent = title;
+          $("infoBody").textContent = body;
+          $("info").showModal();
+        }
+        function settle() {
+          unpaidStage = "";
+          access = trial && plan === "monthly" ? "trial" : "active";
+          fundedPlan = plan;
+          paidUntil =
+            access === "trial"
+              ? "Dec 3, 2026"
+              : plan === "yearly"
+                ? "Nov 26, 2027"
+                : "Dec 26, 2026";
+          screen = "profile";
+          flash = "Purchase verified. Premium is ready to use.";
+        }
+        function act(action) {
+          flash = "";
+          if (action.startsWith("plan-")) {
+            plan = action.slice(5);
+            trial = false;
+          } else
+            switch (action) {
+              case "checkout":
+                screen = signedIn ? "confirm" : "login";
+                break;
+              case "login":
+                signedIn = true;
+                screen = "paywall";
+                flash = "Signed in. Review your plan to continue.";
+                break;
+              case "pay": {
+                const state = $("payment").value;
+                if (state === "ok") settle();
+                else if (state === "cancel") {
+                  screen = "paywall";
+                  flash = "Purchase canceled. You were not charged.";
+                } else {
+                  unpaidStage = state;
+                  screen = state;
+                }
+                break;
+              }
+              case "settle":
+                settle();
+                break;
+              case "resume-payment":
+                screen = unpaidStage;
+                break;
+              case "dismiss-pending": {
+                const delay = screen;
+                screen = "profile";
+                flash =
+                  delay === "sync"
+                    ? "Payment received. Retry verification when you are ready."
+                    : "Payment is pending. Check its progress before starting another purchase.";
+                break;
+              }
+              case "restore": {
+                if (!signedIn) {
+                  info(
+                    "Sign in to restore",
+                    "Use the CardScanFox Android account originally linked to your purchase.",
+                  );
+                  return;
+                }
+                const result = $("recovery").value;
+                if (result === "found") {
+                  if (!isPaid() && access !== "hold") access = "active";
+                  screen = "profile";
+                  flash = "Subscription restored for this Android account.";
+                } else
+                  flash = {
+                    empty: "No active subscription found. Check your Google Play account.",
+                    other:
+                      "This purchase belongs to another CardScanFox account. Sign in to the original account or contact Support.",
+                    offline:
+                      "Could not reach Google Play. Check your connection and try Restore again.",
+                  }[result];
+                break;
+              }
+              case "manage":
+                screen = "manage";
+                break;
+              case "cancel-renewal":
+                access = "canceled";
+                screen = "profile";
+                flash = "Renewal canceled in Google Play. You keep access until expiry.";
+                break;
+              case "fix":
+                if (access === "hold" || access === "grace") paidUntil = "Dec 26, 2026";
+                access = "active";
+                screen = "profile";
+                flash = "Subscription status updated from Google Play.";
+                break;
+              case "view":
+                if (!sale) return;
+                screen = "paywall";
+                break;
+              case "back":
+                screen = screen === "paywall" && origin === "scan" ? "scan" : "profile";
+                break;
+              case "to-profile":
+                origin = "profile";
+                screen = "profile";
+                break;
+              case "return-offer":
+                screen = "paywall";
+                break;
+              case "refresh":
+                catalog = true;
+                trialEligible = false;
+                trial = false;
+                flash = "Prices refreshed. Review the available plans again.";
+                break;
+              case "terms":
+                info(
+                  "Subscription terms",
+                  "Prices and dates are examples. Google Play charges the displayed recurring price. Manage or cancel renewal in Google Play.",
+                );
+                return;
+              case "privacy":
+                info(
+                  "Purchase privacy",
+                  "CardScanFox uses purchase and Android account information to verify, restore and support your subscription.",
+                );
+                return;
+            }
+          render();
+        }
+        $("display").addEventListener("click", (e) => {
+          const target = e.target.closest("[data-action]");
+          if (target) act(target.dataset.action);
+        });
+        $("display").addEventListener("change", (e) => {
+          if (e.target.id === "trial") {
+            trial = e.target.checked;
+            render();
+            document.getElementById("trial")?.focus();
+          }
+        });
+        $("scenario").onchange = () => restart($("scenario").value);
+        $("reset").onclick = () => {
+          $("payment").value = "ok";
+          $("recovery").value = "found";
+          restart("paywall");
+        };
+        $("dismiss").onclick = () => $("info").close();
+        const initial = params.get("entry");
+        restart(
+          ["modal", "profile", "page-off", "modal-off", "off", "unavailable"].includes(initial)
+            ? initial
+            : "paywall",
+          true,
+        );
+      })();
+    </script>
+  </body>
+</html>

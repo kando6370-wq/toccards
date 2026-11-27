@@ -57,7 +57,7 @@ test('the server-rendered page includes the real task, explicit photo permission
  const html = renderPregradePage();
  assert.match(html, /<h1>AI card grading/); assert.match(html, /data-photo-side="front"/); assert.match(html, /data-photo-side="back"/);
  assert.match(html, /data-pregrade-consent/); assert.match(html, /Cloudflare AI/); assert.match(html, /data-grading-cost-form/); assert.match(html, /data-centering-form/);
- assert.match(html, /gradingstandards/); assert.match(html, /39\.99/); assert.match(html, /16 November 2026/); assert.match(html, /90–100 business-day/);
+ assert.match(html, /PSA grading standards/); assert.match(html, /39\.99/); assert.match(html, /16 November 2026/); assert.match(html, /90–100 business-day/);
  assert.doesNotMatch(html, /pregrade-examples-title/); assert.match(html, /<noscript>/);
  const front = html.indexOf('data-photo-side="front"'), guide = html.indexOf('id="pregrade-standards-title"'); assert.ok(front > 0 && front < guide);
 });

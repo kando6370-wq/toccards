@@ -63,15 +63,27 @@ export function createWebsiteHandler({publicPreview=false}={}) { return {
   const consolidated=redirectLocation(pathname,url.search);if(consolidated){headers.set('Location',consolidated);headers.set('Cache-Control','public, max-age=3600');return new Response(null,{status:301,headers});}
   if(pathname.endsWith('.html')){const canonical=pathname==='/index.html'?'/':pathname==='/blog/index.html'?'/blog/':pathname.slice(0,-5);if(legacyByPath.has(canonical)){headers.set('Location',canonical+url.search);return new Response(null,{status:308,headers});}}
   if(pathname==='/blog'){headers.set('Location','/blog/'+url.search);return new Response(null,{status:308,headers});}
-  if(pathname.startsWith('/assets/')||indexNowKeyPaths.has(pathname)||['/site.css','/site.js','/google406556797e3e830d.html','/release-manifest.json','/route-manifest.json'].includes(pathname)){
-   const response=await env.ASSETS.fetch(request);const result=new Response(request.method==='HEAD'?null:response.body,response);for(const [key,value]of headers)result.headers.set(key,value);
+  if(pathname.startsWith('/assets/')||indexNowKeyPaths.has(pathname)||['/site.css','/site.js','/llms.txt','/google406556797e3e830d.html','/release-manifest.json','/route-manifest.json'].includes(pathname)){
+   const response=await env.ASSETS.fetch(request);
+   const publicAsset=pathname.startsWith('/assets/')||pathname==='/site.css'||pathname==='/site.js';
+   if(production&&publicAsset&&(response.status===200||response.status===304)){
+    headers.set('Cache-Control',response.headers.get('Cache-Control')??'public, max-age=0, must-revalidate');
+   }
+   const result=new Response(request.method==='HEAD'?null:response.body,response);
+   for(const [key,value]of headers)result.headers.set(key,value);
+   if(pathname==='/llms.txt'&&response.ok)result.headers.set('Content-Type','text/plain; charset=utf-8');
    if(production&&indexNowKeyPaths.has(pathname)){result.headers.delete('X-Robots-Tag');result.headers.set('Content-Type','text/plain; charset=utf-8');}
    return result;
   }
   const htmlCache=production&&typeof caches!=='undefined'&&'default' in caches?caches.default:null;
   const cacheKey=production?htmlCacheKey(request,env.CF_VERSION_METADATA?.id??'local'):null;
   if(htmlCache&&cacheKey){try{const cached=await htmlCache.match(cacheKey);if(cached){const freshHeaders=new Headers(cached.headers);freshHeaders.set('X-Request-Id',requestId);return conditionalHtml(request,cached.body,freshHeaders,cached.status);}}catch{console.error(JSON.stringify({event:'html_cache_read_failed',requestId}));}}
-  try{const page=(String(env.CATALOG_MODE)==='service'?await resolveServicePage(url,env.SITE_DATA):null)??(String(env.CATALOG_MODE)==='service'?liveContent.resolvePage(url):resolvePage(url));if('retryAfter' in page&&typeof page.retryAfter==='string')headers.set('Retry-After',page.retryAfter);headers.set('Content-Type','text/html; charset=utf-8');if(production){headers.set('X-Robots-Tag',mayIndex(url,page.status,page)?'index, follow':url.pathname==='/saved'?'noindex, nofollow':'noindex, follow');headers.set('Cache-Control',page.status===200&&url.pathname!=='/saved'?'public, max-age=0, s-maxage=60':'no-store');}const html=production?publishHtml(page.html,url,page.status,page):page.html;
+  // Keep attribution on the incoming URL, and use only page parameters to render HTML.
+  const pageUrl = new URL(url);
+  for (const key of url.searchParams.keys()) {
+   if (key.toLowerCase().startsWith('utm_')) pageUrl.searchParams.delete(key);
+  }
+  try{const page=(String(env.CATALOG_MODE)==='service'?await resolveServicePage(pageUrl,env.SITE_DATA):null)??(String(env.CATALOG_MODE)==='service'?liveContent.resolvePage(pageUrl):resolvePage(pageUrl));if('retryAfter' in page&&typeof page.retryAfter==='string')headers.set('Retry-After',page.retryAfter);headers.set('Content-Type','text/html; charset=utf-8');if(production){headers.set('X-Robots-Tag',mayIndex(url,page.status,page)?'index, follow':url.pathname==='/saved'?'noindex, nofollow':'noindex, follow');headers.set('Cache-Control',page.status===200&&url.pathname!=='/saved'?'public, max-age=0, s-maxage=60':'no-store');}const html=production?publishHtml(page.html,url,page.status,page):page.html;
    if(production&&page.status===200){headers.set('ETag',await htmlEtag(html));if(htmlCache&&cacheKey&&context&&request.method==='GET')context.waitUntil(htmlCache.put(cacheKey,new Response(html,{headers})).catch(()=>console.error(JSON.stringify({event:'html_cache_write_failed',requestId}))));return conditionalHtml(request,html,headers,page.status);}
    return new Response(request.method==='HEAD'?null:html,{status:page.status,headers});}
   catch(error){

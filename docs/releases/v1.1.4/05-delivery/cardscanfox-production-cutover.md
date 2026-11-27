@@ -101,3 +101,29 @@ API 的 `/api/v1/legal/privacy` 与 `/api/v1/legal/terms` 同步完整正文，�
 `main@28003524b859236c8d25e1a069e6ef5a5792fa94` 推送后触发官网自动部署。北京时间 11:13:11，Cloudflare 部署 `46865f19-3933-4098-a71f-bb4984327ffa` 将 `toccards-website` 的 100% 流量分配给版本 `dffedd4c-ef54-4088-beda-78799be6786b`。上一活动版本 `4a012124-4113-41e4-9f49-0d0c212c8758` 可用于回退。正式域名的发布清单与该 Git 提交的 LF 源码构建在 129 条路由、236 个文件指纹和 57 项输入指纹上逐项一致，release ID 为 `9d376d4dd4848a63b982c89500fd04ceef131928a85372233e112da75a0643dc`。
 
 Node 22.23.4 下官网测试 222/222 通过，0 项跳过。类型检查、依赖方向检查和生产配置 dry-run 通过。公网验收覆盖 16 个地址。浏览器确认首页和下载页显示 CardScanFox 狐狸标识，iOS 和 Android 按钮分别指向 App Store `id6793017224` 与 Google Play `com.cardai.tcg`。站点地图包含 96 个主站网址与 7 个单卡网址，共 103 个不同网址，其中包含 11 月 20–21 日新增的四篇指南。
+
+## www 入口与站点地图（2026-11-25）
+
+`www.tcgcard.fun` 使用代理 CNAME，官网 Worker 的路由仅匹配 `tcgcard.fun/*`。修复前该域名有 0 条单一重定向规则。`www` 的 `/sitemap.xml` 曾返回 `522`。发布前同机对照，`www` 耗时 39.97 秒才返回 `301`，主域名耗时 1.11 秒返回 `200`。
+
+已在 Cloudflare 的 `tcgcard.fun` 区域启用单一重定向 `WWW to apex (GET and HEAD)`（规则 ID `7800945794e640d0942689a233bef4f9`）。重新打开已部署规则，核对匹配条件为 `(http.host eq "www.tcgcard.fun" and http.request.method in {"GET" "HEAD"})`，目标为 `concat("https://tcgcard.fun", raw.http.request.uri.path)`，状态码为 `301`，已勾选保留查询字符串。回退入口是该区域的「规则 → 重定向规则」，可单独停用这条规则。
+
+公网 `curl` 实测同一 `www` 地图的 GET 首跳为 0.83 秒、HEAD 首跳为 1.02 秒，均返回 `301` 并指向 `https://tcgcard.fun/sitemap.xml`。HTTP 入口、首页、robots、子地图、带推广参数的旧链接，以及含 `%2F` 路径和重复参数的请求均跳到预期地址。跟随一次跳转后，主地图返回 `200` 和有效 XML。解析两份子地图得到 129 个站点网址和 7 个单卡网址，共 136 个不同的主域名网址。管理后台返回 `200`。iOS 配置首次抽查遇到 TLS 握手失败，复测返回 `200`，Android 配置也返回 `200`。
+
+Google Search Console 已确认重新提交主域名 `https://tcgcard.fun/sitemap.xml` 成功。北京时间 16:39 的「测试实际网址」从 `https://www.tcgcard.fun/sitemap.xml` 取得有效的 `<sitemapindex>`，源代码列出的两份子地图与公网解析一致。16:41 回读时，正式报告仍显示「无法读取此站点地图」，主域名地图的正式处理结果待 Google 更新。
+
+北京时间 11 月 24 日至 25 日 16:56 的 Cloudflare 流量记录中，`www/sitemap.xml` 分别出现 1 次、5 次 `522`。这些请求的来源 IP 均未匹配到 Google 公布的爬虫或抓取工具网段。同期主域名 `/sitemap.xml` 与 `/sitemaps/site.xml` 的可见响应均为 `200`，两条路径的安全事件中未发现拦截或挑战。11 月 24 日 15:39 的一次 `GET /sitemap.xml` 返回 `200`、内容类型为 XML，来源 IP 与 Google 公布的爬虫网段匹配，Cloudflare 也标记为搜索引擎爬虫。
+
+Google 主机抓取统计显示，11 月 18、19 日主域名的服务器连接失败率分别为 3.23%、5.26%，20–23 日均为 0%。这份统计仅更新到 23 日。三个已提交地址的地图详情只给出上次读取日期和通用错误。`www` 的回源超时已经证实，主域名 25 日正式抓取失败的具体环节尚缺同次请求的时间与错误码。
+
+主地图和两份子地图分别使用 identity、gzip、Brotli 和 Zstandard 下载。12 份解压后的 XML 均通过对应的 sitemap schema 校验，同一文件在四种编码下的正文哈希一致。两个公网 IPv4 地址返回 200，美国和德国探测点分别通过两个 IPv6 地址取得完整主地图。
+
+11 月 25 日 17:36:12（北京时间），Search Console 首次接受单独提交的 `/sitemaps/cards-00001.xml`。17:36:47 列表显示“未知／无法抓取”、发现 0 页。17:52 回读时四条提交仍显示“无法抓取”，上次读取时间列均为空。单卡子地图详情另显示读取日期为 11 月 25 日，只提供通用错误。
+
+17:17 的普通 Googlebot 请求在网址检查抓取记录及 Cloudflare 流量中均可核对，主地图返回 `200` XML。17:44:35 对主地图和单卡子地图的两次「测试实际网址」都显示允许抓取、抓取成功。Google 展示的源代码分别含两条子地图地址和七条单卡地址。两条路径在 Cloudflare 各有两次 `Google-InspectionTool` GET，请求 IP 匹配 Google 公布的普通爬虫网段，均返回 `200` XML。
+
+Cloudflare 的单卡子地图对照窗口为 17:33 至 17:56:34。可见三次 GET，分别为 17:41:45 的唯一标记对照请求（Ray `a5ffb30ee8ab67e8-SJC`）和 17:44:35 的两次实时测试，均为 `200` XML，采样间隔为 1。该窗口的三条防火墙事件均为 `skip`。正式提交后尚未识别到单独的后台下载请求。Search Console 人工处置及安全问题报告均显示“未检测到任何问题”。这些记录能证实公网交付和 Google 实时读取成功，正式处理仍需 Google 的下载记录来定位。
+
+18:00 使用该域资源的只读授权调用 Search Console 官方 `sitemaps.get`。主地图、栏目子地图、单卡子地图及 `www` 地图四条记录均返回 `isPending=true`、`errors="0"`、`warnings="0"`，响应中均未提供 `lastDownloaded` 和 `type`。主地图的 `lastSubmitted` 对应北京时间 11 月 25 日 16:37:13，栏目子地图为 09:19:33，单卡子地图为 17:36:16，`www` 地图为 11 月 24 日 10:48:33。Google 将 `isPending=true` 定义为该地图尚未处理。四条正式提交均处于此状态，主域名地图在独立抓取中可读。Google 未提供待处理的内部原因或这四次提交的具体传输错误。字段含义见 [Search Console API 的站点地图说明](https://developers.google.com/webmaster-tools/v1/sitemaps)。
+
+18:10:20，Google 实时测试也成功读取 `/sitemaps/site.xml`，其源代码中的 129 个网址与同时段公网 XML 的顺序和内容逐一相同。Cloudflare 在 18:10:20 和 18:10:21 各记录一次检查工具的 `GET`，均返回 `200` XML。18:16:11 的正式报告仍显示四条“无法抓取”，18:16:20 前后逐条回读的四份 `sitemaps.get` 响应仍为待处理、零错误、零警告，均未提供正式下载时间。Google 对站点地图抓取或解析失败会在随后数日重试，详见[站点地图报告说明](https://support.google.com/webmasters/answer/7451001?hl=zh-Hans)。

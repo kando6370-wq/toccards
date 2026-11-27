@@ -1,1 +1,1 @@
-trading cards,card scanner,collection,portfolio,wishlist,prices,TCG,market,grading
+trading,cards,collection,portfolio,tracker,pricing,value,identify,graded,binder,wishlist,holo,sports

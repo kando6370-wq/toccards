@@ -13,7 +13,7 @@ test('DCC directly answers the checklist and pack questions with all 100 unique 
  const html=render('/blog/dungeon-crawler-carl-trading-cards'),numbers=[];
  visit(parse(html),node=>{if(node.tagName==='table'&&attr(node,'class')==='dcc-checklist')visit(node,row=>{if(row.tagName==='tr'&&row.childNodes.some(c=>c.tagName==='td'))numbers.push(Number(text(row.childNodes.find(c=>c.tagName==='td'))));});});
  assert.deepEqual(numbers,Array.from({length:100},(_,i)=>i+1));
- for(const answer of ['seven base cards and one chase card','Renegade','Where can you buy','borantcorp.com'])assert.ok(html.includes(answer),answer);
+ for(const answer of ['seven base cards and one chase card','Renegade','Where can you buy',"Borant\'s official card catalog"])assert.ok(html.includes(answer),answer);
  assert.doesNotMatch(html,/we have not verified|none guarantees|do not guarantee/i);
 });
 
@@ -40,13 +40,13 @@ test('public pages use CardScanFox in copy, metadata and source attribution',()=
   assert.doesNotMatch(html,/\/assets\/(?:card-ai-wordmark\.svg|legacy\/card-ai-logo\.png)/,path);
   // These pages identify the store app in its listing, approved policies or deletion request.
   if(!['/privacy','/terms','/Account/AccountSetup'].includes(path)){
-   const copy=path==='/download'?html.replaceAll('<strong>CardScanFox: TCG Card Scanner</strong>',''):html;
-   assert.doesNotMatch(copy,/\bCard\s+AI\b/i,path);
+   const copy = html.replaceAll('Card AI: TCG Card Scanner', '');
+   assert.doesNotMatch(copy, /\bCard\s+AI\b/i, path);
   }
   visit(parse(html),node=>{if(node.tagName!=='script'||attr(node,'type')!=='application/ld+json')return;const json=text(node);const data=JSON.parse(json);if(path==='/blog/delta-reign-pokemon'&&data['@type']==='Article')assert.equal(data.publisher.logo.url,'https://tcgcard.fun/assets/cardscanfox-lime-wordmark.svg');for(const field of ['author','publisher'])if(data[field]){assert.match(data[field].name,/CardScanFox/,path+' '+field);}});
  }
- assert.match(render('/download'),/Listed on the App Store as <strong>CardScanFox: TCG Card Scanner<\/strong>/);
- assert.match(render('/download'),/Listed on Google Play as <strong>CardScanFox: TCG Card Scanner<\/strong>/);
+ assert.match(render('/download'),/Listed on the App Store as <strong>Card AI: TCG Card Scanner<\/strong>/);
+ assert.match(render('/download'),/Listed on Google Play as <strong>Card AI: TCG Card Scanner<\/strong>/);
  assert.match(render('/download'),/id6793017224/);
 });
 

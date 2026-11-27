@@ -495,10 +495,7 @@ h1 { max-width: 660px; margin-bottom: 0; font-size: clamp(56px, 5.15vw, 78px); l
               <img class="store-icon-img" src="/assets/apple-store-icon.png" alt="">
               <span class="store-text"><small>Download</small><strong>App Store</strong></span>
             </a>
-            <span class="store-badge store-badge-disabled" aria-disabled="true">
-              <img class="store-icon-img" src="/assets/google-play-icon.png" alt="">
-              <span class="store-text"><small>Store Link Pending</small><strong>Google Play</strong></span>
-            </span>
+            <a class="store-badge" href="/download" aria-label="Get CardScanFox for Android"><img class="store-icon-img" src="/assets/google-play-icon.png" alt=""><span class="store-text"><small>Download</small><strong>Google Play</strong></span></a>
           </div>
           <div class="trust-row" aria-label="Privacy and security">
             <span>Data Encrypted in Transit</span>
@@ -697,7 +694,7 @@ h1 { max-width: 660px; margin-bottom: 0; font-size: clamp(56px, 5.15vw, 78px); l
         <p>Scan the cards you own, understand their market trends, and stay informed about your collection value.</p>
         <div class="store-buttons" aria-label="Download options">
           <a class="store-badge" href="https://apps.apple.com/us/app/card-ai-tcg-card-scanner/id6793017224" aria-label="Download on the App Store"><img class="store-icon-img" src="/assets/apple-store-icon.png" alt=""><span class="store-text"><small>Download</small><strong>App Store</strong></span></a>
-          <span class="store-badge store-badge-disabled" aria-disabled="true"><img class="store-icon-img" src="/assets/google-play-icon.png" alt=""><span class="store-text"><small>Store Link Pending</small><strong>Google Play</strong></span></span>
+          <a class="store-badge" href="/download" aria-label="Get CardScanFox for Android"><img class="store-icon-img" src="/assets/google-play-icon.png" alt=""><span class="store-text"><small>Download</small><strong>Google Play</strong></span></a>
         </div>
       </section>
     </main>
@@ -722,7 +719,7 @@ h1 { max-width: 660px; margin-bottom: 0; font-size: clamp(56px, 5.15vw, 78px); l
         <div>
           <p class="legal-modal-label">CARDSCANFOX LEGAL</p>
           <h2 class="legal-modal-title" id="privacy-modal-title">Privacy Policy</h2>
-          <p class="legal-modal-version">Version date: November 17, 2026</p>
+          <p class="legal-modal-version">Version date: November 26, 2026</p>
         </div>
         <button class="legal-modal-close" type="button" data-modal-close aria-label="Close Privacy Policy" title="Close">×</button>
       </header>
@@ -756,7 +753,7 @@ h1 { max-width: 660px; margin-bottom: 0; font-size: clamp(56px, 5.15vw, 78px); l
 <p>On iOS, access to the advertising identifier and tracking subject to Apple's permission requirements depend on the applicable device permission. On Android, the availability of the advertising identifier depends on device settings and applicable platform controls.</p>
 <h3 id="privacy-ios-purchases">iOS purchases</h3>
 <p>Apple handles payment for purchases made through the App Store. To determine iOS access to purchased features, the iOS app uses purchase and subscription information supplied by Apple, such as product identifiers, transaction information, and current entitlement status. We do not receive your complete payment-card details from Apple.</p>
-<p>The current Android release has no subscriptions or in-app purchases. Apple purchase rights are not used to restrict access to the free Android release.</p>
+<p>Android subscriptions, where offered, are processed by Google Play. To verify and restore a purchase we process a pseudonymous Android account identifier, purchase token, order ID, plan, payment and refund events, currency, and subscription status. We retain transaction records as needed for delivery, reconciliation, support and applicable recordkeeping. The original free Android release continues to provide its free features.</p>
 <h3 id="privacy-support-communications">Support communications</h3>
 <p>If you email us or submit a support or deletion request, we process your contact information, message, and any attachments you voluntarily provide to respond and handle the request. We do not access your email inbox or collect unrelated emails from your device.</p>
 <h2 id="privacy-2-how-we-use-information">2. How We Use Information</h2>
@@ -768,7 +765,7 @@ h1 { max-width: 660px; margin-bottom: 0; font-size: clamp(56px, 5.15vw, 78px); l
 </li>
 <li><p>Store and retrieve records within the relevant platform account.</p>
 </li>
-<li><p>Determine iOS purchase access and provide free Android access.</p>
+<li><p>Determine subscription access in the corresponding iOS or Android account and preserve eligible free Android access.</p>
 </li>
 <li><p>Analyze feature usage, diagnose crashes, and improve reliability.</p>
 </li>
@@ -784,7 +781,7 @@ h1 { max-width: 660px; margin-bottom: 0; font-size: clamp(56px, 5.15vw, 78px); l
 <h2 id="privacy-3-android-and-ios-data-separation">3. Android and iOS Data Separation</h2>
 <p>Android and iOS have <strong>separate platform accounts and personal data spaces</strong>, even where they use shared databases or authentication infrastructure.</p>
 <p>Signing in with the same email address or identity provider on both platforms does not automatically merge or synchronize collections, Wishlist, folders, scan images or records, preferences, or collection-value records. Public card catalog and price-reference data may be shared between platforms.</p>
-<p>Apple purchase entitlements apply to iOS. Android free access is separate. Deleting one platform account does not delete the separate account or records on the other platform. A shared authentication record needed for the other active platform may remain for that purpose; it does not restore the deleted platform account.</p>
+<p>Apple purchase entitlements apply to iOS. Google Play entitlements apply to the corresponding Android account. Deleting one platform account does not delete the separate account or records on the other platform. A shared authentication record needed for the other active platform may remain for that purpose; it does not restore the deleted platform account.</p>
 <h2 id="privacy-4-service-providers-and-other-recipients">4. Service Providers and Other Recipients</h2>
 <p>Our analytics, attribution, and crash-reporting SDK providers are <strong>Firebase, Mixpanel, and Singular</strong>.</p>
 <table>
@@ -878,7 +875,7 @@ h1 { max-width: 660px; margin-bottom: 0; font-size: clamp(56px, 5.15vw, 78px); l
         <div>
           <p class="legal-modal-label">CARDSCANFOX LEGAL</p>
           <h2 class="legal-modal-title" id="terms-modal-title">Terms of Use</h2>
-          <p class="legal-modal-version">Version date: November 17, 2026</p>
+          <p class="legal-modal-version">Version date: November 26, 2026</p>
         </div>
         <button class="legal-modal-close" type="button" data-modal-close aria-label="Close Terms of Use" title="Close">×</button>
       </header>
@@ -953,7 +950,7 @@ h1 { max-width: 660px; margin-bottom: 0; font-size: clamp(56px, 5.15vw, 78px); l
 <p>You should keep your own backup of important records where necessary.</p>
 <h2 id="terms-8-platform-access-subscriptions-and-in-app-purchases">8. Platform Access, Subscriptions, and In-App Purchases</h2>
 <h3 id="terms-android">Android</h3>
-<p>The current Android release provides its available features without subscriptions or in-app purchases and does not include AI Grade. Free Android access is separate from iOS purchase entitlements. If paid Android features are introduced later, their prices and conditions will be disclosed before purchase; use of the current free release does not authorize a future charge.</p>
+<p>People using the original free Android release keep its free access. Where an Android subscription is offered, Google Play displays the local price, billing period, eligible trial and renewal terms before you confirm. Subscriptions renew automatically until canceled. Manage or cancel yours in <a href="https://play.google.com/store/account/subscriptions">Google Play subscriptions</a>. Deleting your Android app account does not cancel your Google Play subscription. A purchase belongs to the Android app account used at checkout. Sign in to that account and use Restore purchases with the original Play account after changing devices.</p>
 <h3 id="terms-ios">iOS</h3>
 <p>On iOS, CardScanFox may offer paid subscriptions, free trials, premium features, or other in-app purchases through Apple’s in-app purchase system.</p>
 <p>If you purchase a subscription:</p>

@@ -4,7 +4,9 @@ Kando 是 Card AI 的 monorepo，包含 Flutter 客户端、Cloudflare Workers A
 
 当前产品定位基线、用户流程、交易市场数据口径及官网内容边界见 [Card AI 产品定位与内容边界](docs/releases/v1.1.2/00-product/card-ai-product-positioning.md)。
 
-当前增量文档入口为 [v1.1.4](docs/releases/v1.1.4/README.md)；[v1.1.3](docs/releases/v1.1.3/README.md) 已于 2026-11-05 原位归档，[v1.1.2](docs/releases/v1.1.2/README.md) 已于 2026-10-26 原位归档，[v1.1.1](docs/releases/v1.1.1/README.md) 已于 2026-10-09 原位归档，v1.1.0 开发归档与 v1.0.0 冻结基线保持不变。文档版本切换不修改 App 版本、Git tag 或生产环境，原有待验项继续保留。
+当前增量文档入口为 [v1.1.5](docs/releases/v1.1.5/README.md)；[v1.1.4](docs/releases/v1.1.4/README.md) 已于 2026-11-26 原位归档，[v1.1.3](docs/releases/v1.1.3/README.md) 已于 2026-11-05 原位归档，[v1.1.2](docs/releases/v1.1.2/README.md) 已于 2026-10-26 原位归档，[v1.1.1](docs/releases/v1.1.1/README.md) 已于 2026-10-09 原位归档，v1.1.0 开发归档与 v1.0.0 冻结基线保持不变。文档版本切换只更新记录入口，原有待验项继续保留。
+
+当前 Flutter 源码版本以 [pubspec.yaml](apps/flutter-app/pubspec.yaml) 为准，2026-11-26 核对为 `1.0.8+220`。Android `1.0.8+220` 的构建与 Google Play Internal testing 记录见 [Google Play 内部测试 220](docs/releases/v1.1.4/05-delivery/android-play-release-configuration.md#google-play-内部测试-220)。以下旧检查点按其日期保留，不代表这些独立环境仍运行同一提交。
 
 当前 Flutter 源码版本以 [pubspec.yaml](apps/flutter-app/pubspec.yaml) 为准，2026-11-12 核对为 `1.0.7+212`。Android dev 212 的构建与双机安装记录见[平台账号与 App 交付](docs/releases/v1.1.4/03-data-api/platform-accounts.md#quick-review-的-total-value-固定到底部2026-11-12)；Google Play Internal testing 已记录的制品仍为 207，源码构建号前进不代表商店更新。近期独立环境的交付分别见 [2026-11-10 API／双 Admin 版本管理发布](docs/releases/v1.1.4/03-data-api/app-version-management.md#生产后台配套发布2026-11-10)、[Android 207 Internal testing](docs/releases/v1.1.4/05-delivery/android-play-release-configuration.md#google-play-内部测试发布2026-11-10-1333)及 [2026-11-11 正式官网重发](docs/releases/v1.1.4/05-delivery/cardscanfox-production-cutover.md#账号删除申请页正式重发2026-11-11)。以下旧检查点按其日期保留，不代表这些独立环境仍运行同一提交。
 
@@ -146,7 +148,8 @@ dart run melos run test
 - [v1.1.1 开发归档](docs/releases/v1.1.1/README.md)
 - [v1.1.2 开发归档](docs/releases/v1.1.2/README.md)
 - [v1.1.3 开发归档](docs/releases/v1.1.3/README.md)
-- [v1.1.4 当前开发文档入口](docs/releases/v1.1.4/README.md)
+- [v1.1.4 开发归档](docs/releases/v1.1.4/README.md)
+- [v1.1.5 当前开发文档入口](docs/releases/v1.1.5/README.md)
 - [App 1.0.6 订阅配置需求、商品映射与实施草案](docs/releases/v1.1.2/00-product/admin-subscription-config-prd.md)
 - [订阅展示配置与商品准入：第一阶段服务端](docs/releases/v1.1.2/03-data-api/subscription-display-config.md)
 - [v1.1.0 系统架构](docs/releases/v1.1.0/02-architecture/architecture.md)

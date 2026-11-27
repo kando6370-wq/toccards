@@ -77,32 +77,27 @@ void main() {
     expect(find.textContaining('will not merge'), findsNothing);
   });
 
-  testWidgets('Android delete confirmation uses the shared iOS copy', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
+  for (final platform in AppPlatform.values) {
+    testWidgets('$platform account deletion explains only the relevant store', (tester) async {
+      await tester.pumpWidget(MaterialApp(
         theme: buildKandoTheme(),
-        home: Builder(
-          builder: (context) => TextButton(
-            onPressed: () => showDeleteAccountConfirmation(
-              context,
-              platform: AppPlatform.android,
-            ),
-            child: const Text('Open delete'),
-          ),
-        ),
-      ),
-    );
-    await tester.tap(find.text('Open delete'));
-    await tester.pumpAndSettle();
-
-    expect(
-      find.text("This action is permanent and can't be undone."),
-      findsOneWidget,
-    );
-    expect(find.textContaining('permanently deletes your'), findsNothing);
-  });
+        home: Builder(builder: (context) => TextButton(
+          onPressed: () => showDeleteAccountConfirmation(context, platform: platform),
+          child: const Text('Open delete'),
+        )),
+      ));
+      await tester.tap(find.text('Open delete'));
+      await tester.pumpAndSettle();
+      const warning = "This action is permanent and can't be undone.";
+      expect(find.textContaining(warning), findsOneWidget);
+      if (platform == AppPlatform.android) {
+        expect(find.textContaining('keeps renewing until you cancel it in Google Play'), findsOneWidget);
+      } else {
+        expect(find.text(warning), findsOneWidget);
+        expect(find.textContaining('Google Play'), findsNothing);
+      }
+    });
+  }
 
   for (final premiumState in AppPremiumState.values) {
     testWidgets(

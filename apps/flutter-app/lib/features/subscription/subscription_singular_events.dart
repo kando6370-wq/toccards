@@ -65,7 +65,7 @@ class SingularSubscriptionRevenueReporter {
          storage: PreferencesSubscriptionRevenueStorage(
            keyPrefix: 'subscription.singular_revenue.${environment.name}',
          ),
-         sink: _SingularRevenueSink(attribution, environment),
+         sink: SingularSubscriptionRevenueSink(attribution, environment),
        );
 
   final AppEnvironment _environment;
@@ -95,8 +95,8 @@ class SingularSubscriptionRevenueReporter {
   Future<void> flush() => _reporter.flush();
 }
 
-class _SingularRevenueSink implements SubscriptionRevenueSink {
-  const _SingularRevenueSink(this.attribution, this.environment);
+class SingularSubscriptionRevenueSink implements SubscriptionRevenueSink {
+  const SingularSubscriptionRevenueSink(this.attribution, this.environment);
 
   final AppAttributionEventReporter attribution;
   final AppEnvironment environment;

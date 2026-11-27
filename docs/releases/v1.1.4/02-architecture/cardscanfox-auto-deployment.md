@@ -8,6 +8,8 @@
 
 预览分支 `codex/cardscanfox-preview`、Pages 项目 `cardscanfox-git-preview` 和私有 Worker 预览继续保留。当前仓库要求 Node `^22.23.4`、pnpm `11.28.10`，当前本地构建清单为 123 条路由；远端实际工具链、构建提交和路由清单仍以对应 deployment 的回读结果为准。
 
+2026-11-25 17:00（北京时间）已删除旧 Pages 项目 `cardscanfox-preview`。它仅有 2026-11-07 的一次手工静态部署，只使用 `cardscanfox-preview.pages.dev`。删除后，Cloudflare 项目查询返回 404，`tcgcard.fun` 首页返回 200，正式发布清单与删除前一致。
+
 手工正式构建前必须确认工作区干净、HEAD 为批准提交，将该提交的 40 位 SHA 注入构建环境，并排除优先级更高的旧 `CF_PAGES_COMMIT_SHA`；完整示例见[正式发布说明](../05-delivery/cardscanfox-production-cutover.md#发布目标)。构建脚本只从 `CF_PAGES_COMMIT_SHA` 或 `WORKERS_CI_COMMIT_SHA` 写入 `release-manifest.sourceCommit`，`deploy:production` 不会自动注入。提交、自动构建和线上生效应分别核验；正式发布需回读活动 version/deployment，并确认线上发布清单的 `sourceCommit` 与批准提交一致。
 
 ## 2026-11-07 预览初始化配置

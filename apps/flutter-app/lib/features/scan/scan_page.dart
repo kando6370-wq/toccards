@@ -29,6 +29,7 @@ import '../home/home_controller.dart';
 import '../search/search_controller.dart';
 import '../subscription/scan_quota_controller.dart';
 import '../subscription/subscription_controller.dart';
+import '../subscription/subscription_navigation.dart';
 import '../subscription/subscription_entitlement_cache.dart';
 import 'scan_camera.dart';
 import 'scan_orientation.dart';
@@ -537,7 +538,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        if (!ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
+        if (!ref.read(subscriptionAccessPolicyProvider).hasFreePremiumFeatures) {
           unawaited(ref.read(scanQuotaControllerProvider.notifier).refresh());
         }
       }
@@ -550,7 +551,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
     if (state == AppLifecycleState.resumed) {
       _appActive = true;
       _freeEntitlementConfirmedForLifecycle = false;
-      if (!ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
+      if (!ref.read(subscriptionAccessPolicyProvider).hasFreePremiumFeatures) {
         unawaited(_refreshQuotaAndResumeWaiting());
       }
       unawaited(_resumeCameraForLifecycle());
@@ -907,7 +908,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   bool _scanQuotaExhausted() {
-    if (ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
+    if (ref.read(subscriptionAccessPolicyProvider).hasFreePremiumFeatures) {
       return false;
     }
     final quota = ref.read(scanQuotaControllerProvider);
@@ -918,7 +919,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   bool _scanQuotaAwaitingSettlement() {
-    if (ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
+    if (ref.read(subscriptionAccessPolicyProvider).hasFreePremiumFeatures) {
       return false;
     }
     final quota = ref.read(scanQuotaControllerProvider);
@@ -959,7 +960,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
   }
 
   Future<bool> _resolvePremiumBeforeScan() async {
-    if (ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
+    if (ref.read(subscriptionAccessPolicyProvider).hasFreePremiumFeatures) {
       return true;
     }
     final current = ref.read(subscriptionControllerProvider).premiumState;
@@ -1007,13 +1008,28 @@ class _ScanPageState extends ConsumerState<ScanPage>
     }
   }
 
+  Future<void> _openUpgradePage() async {
+    final result = await context.openSubscriptionPaywall(
+      subscriptionPageLocation(source: 'scan', entrySource: 'scan_pro_card'),
+    );
+    if (!mounted || result == null) return;
+    _markWaitingItemsAsEntitlementSync();
+    if (result == SubscriptionPaywallResult.premiumRestored) {
+      showSubscriptionRestoreResult(
+        context,
+        type: SubscriptionRestoreResultType.premiumRestored,
+      );
+    }
+    unawaited(_synchronizePremiumForScan());
+  }
+
   Future<void> _openQuotaPaywall({
     String scene = AnalyticsValue.sceneScanTimes,
   }) async {
     if (!mounted || _quotaPaywallOpen) return;
     _quotaPaywallOpen = true;
     try {
-      final result = await context.push<SubscriptionPaywallResult>(
+      final result = await context.openSubscriptionPaywall(
         subscriptionSheetLocation(scene: scene),
       );
       if (!mounted || result == null) return;
@@ -1591,7 +1607,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       });
       return;
     }
-    if (ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures &&
+    if (ref.read(subscriptionAccessPolicyProvider).hasFreePremiumFeatures &&
         (resolution.kind == ScanResolutionKind.quotaExhausted ||
             resolution.kind == ScanResolutionKind.entitlementSyncRequired)) {
       _pendingScans.remove(itemId)?.revealController?.dispose();
@@ -1953,8 +1969,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
       if (!mounted) return;
       await _completeSelectedItemAddition(item);
     } on ScanApiException catch (error) {
-      if (error.code == 'CONFLICT' &&
-          error.message == 'Scan is already confirmed.') {
+      if (error.isAlreadyConfirmed) {
         if (mounted) await _completeSelectedItemAddition(item);
       } else if (mounted) {
         showKandoTopToast(
@@ -2028,6 +2043,10 @@ class _ScanPageState extends ConsumerState<ScanPage>
             .addToPortfolio(scanId: item.match!.scanId, item: inputs[item.id]!);
         addedIds.add(item.id);
       } on ScanApiException catch (error) {
+        if (error.isAlreadyConfirmed) {
+          addedIds.add(item.id);
+          continue;
+        }
         duplicate = duplicate || error.code == duplicateCollectionItemErrorCode;
         failed = true;
       } on Exception {
@@ -2496,12 +2515,14 @@ class _ScanPageState extends ConsumerState<ScanPage>
       subscriptionControllerProvider.select((value) => value.isPro),
     );
     final freePremiumFeatures = ref.watch(
-      appCommercialPolicyProvider.select(
+      subscriptionAccessPolicyProvider.select(
         (value) => value.hasFreePremiumFeatures,
       ),
     );
     final quota = ref.watch(scanQuotaControllerProvider);
     final hasPremiumAccess = freePremiumFeatures || isPro || quota.unlimited;
+    final showUpgrade =
+        !hasPremiumAccess && ref.watch(subscriptionPageEntryVisibleProvider);
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -2583,26 +2604,7 @@ class _ScanPageState extends ConsumerState<ScanPage>
                     onCardTypeChanged: (cardType) {
                       if (mounted) setState(() => _selectedCardType = cardType);
                     },
-                    onUpgradePressed: () async {
-                      final result = await context
-                          .push<SubscriptionPaywallResult>(
-                            subscriptionPageLocation(
-                              source: 'scan',
-                              entrySource: 'scan_pro_card',
-                            ),
-                          );
-                      if (!mounted || !context.mounted || result == null) {
-                        return;
-                      }
-                      _markWaitingItemsAsEntitlementSync();
-                      if (result == SubscriptionPaywallResult.premiumRestored) {
-                        showSubscriptionRestoreResult(
-                          context,
-                          type: SubscriptionRestoreResultType.premiumRestored,
-                        );
-                      }
-                      unawaited(_synchronizePremiumForScan());
-                    },
+                    onUpgradePressed: showUpgrade ? _openUpgradePage : null,
                     onPhotoPressed: _startPhotoScan,
                     onLibraryPressed: _startLibraryScan,
                     onDismissScanFeedback: _dismissScanFeedback,
@@ -2683,7 +2685,7 @@ class _ScanCameraView extends StatelessWidget {
   final VoidCallback onClosePressed;
   final VoidCallback? onFlashPressed;
   final ValueChanged<ScanCardType> onCardTypeChanged;
-  final VoidCallback onUpgradePressed;
+  final VoidCallback? onUpgradePressed;
   final VoidCallback onPhotoPressed;
   final VoidCallback onLibraryPressed;
   final VoidCallback onDismissScanFeedback;
@@ -3060,7 +3062,7 @@ class _ScanQuotaPill extends StatelessWidget {
   const _ScanQuotaPill({required this.remainingScans, required this.onPressed});
 
   final int remainingScans;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -3099,7 +3101,7 @@ class _ScanQuotaPill extends StatelessWidget {
                   );
                   return Row(
                     children: [
-                      SizedBox.square(
+                      if (onPressed != null) SizedBox.square(
                         key: const Key('scan-free-quota-pro-badge'),
                         dimension: 24,
                         child: Stack(
@@ -3124,7 +3126,7 @@ class _ScanQuotaPill extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      if (onPressed != null) const SizedBox(width: 8),
                       SizedBox(
                         key: const Key('scan-free-quota-copy'),
                         width: copyWidth,
@@ -3146,8 +3148,8 @@ class _ScanQuotaPill extends StatelessWidget {
                                   letterSpacing: 0,
                                 ),
                               ),
-                              const SizedBox(width: 4),
-                              const Text.rich(
+                              if (onPressed != null) const SizedBox(width: 4),
+                              if (onPressed != null) const Text.rich(
                                 TextSpan(
                                   children: [
                                     TextSpan(
@@ -3867,7 +3869,7 @@ class _ScanResults extends StatelessWidget {
   final AppCurrency currency;
   final int? remainingScans;
   final bool showRevealingFeedback;
-  final VoidCallback onUpgradePressed;
+  final VoidCallback? onUpgradePressed;
   final VoidCallback onDismissRevealing;
   final ValueChanged<int?> onReviewItem;
   final ValueChanged<_ScanItem> onRetryItem;

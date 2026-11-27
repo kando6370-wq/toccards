@@ -186,7 +186,10 @@ class SubscriptionRevenueReporter {
     String? singularEventName,
   }) {
     final record = _recordFromEvent(event, singularEventName);
-    if (record == null) return Future.value();
+    return record == null ? Future.value() : enqueueVerifiedRecord(record);
+  }
+
+  Future<void> enqueueVerifiedRecord(SubscriptionRevenueRecord record) {
     return _serial(() async {
       final reported = await _storage.readReportedTransactionIds();
       if (reported.contains(record.transactionId)) return;

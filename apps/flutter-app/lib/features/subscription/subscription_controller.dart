@@ -16,6 +16,7 @@ import '../../shared/platform/app_commercial_policy.dart';
 import '../auth/auth_controller.dart';
 import '../auth/auth_models.dart';
 import 'apple_app_attest.dart';
+import 'google_play_controller.dart';
 import 'apple_current_entitlements.dart';
 import 'subscription_entitlement_api.dart';
 import 'subscription_entitlement_cache.dart';
@@ -788,11 +789,9 @@ class SubscriptionController extends Notifier<SubscriptionState> {
 
   @override
   SubscriptionState build() {
-    final isAndroidFreeLaunch = ref
-        .watch(appCommercialPolicyProvider)
-        .isAndroidFreeLaunch;
-    if (isAndroidFreeLaunch) {
-      return const SubscriptionState(premiumState: AppPremiumState.free);
+    if (ref.watch(appCommercialPolicyProvider).isAndroid) {
+      final premium = ref.watch(playPolicyProvider.select((p) => p.current?.premium == true));
+      return SubscriptionState(premiumState: premium ? AppPremiumState.premium : AppPremiumState.free);
     }
     ref.watch(
       authControllerProvider.select((auth) {
@@ -1041,6 +1040,10 @@ class SubscriptionController extends Notifier<SubscriptionState> {
   }
 
   Future<AppPremiumState> refreshEntitlement({bool showFailure = true}) async {
+    if (ref.read(appCommercialPolicyProvider).isAndroid) {
+      await ref.read(playPolicyProvider.notifier).refresh();
+      return ref.read(playPolicyProvider).current?.premium == true ? AppPremiumState.premium : AppPremiumState.free;
+    }
     final result = await _refreshEntitlementResult(showFailure: showFailure);
     return result.state;
   }

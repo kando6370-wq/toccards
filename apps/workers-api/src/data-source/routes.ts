@@ -21,9 +21,8 @@ import { cardImageUrl, type CardImageVariant } from "../card-image-url";
 import { authenticateOwner } from "../owner-auth";
 import {
   LOCAL_PREMIUM_STATE_HEADER,
-  resolvePremiumAccess,
 } from "../entitlements/premium-access";
-import { usesAndroidFreeLaunch } from "../entitlements/platform-commercial-access";
+import { platformAccess } from "../entitlements/platform-commercial-access";
 
 type DataSourceRoutesOptions = {
   createAdapter?: (env: Env) => DataSourceAdapter;
@@ -361,7 +360,7 @@ export function createDataSourceRoutes(
   routes.get("/cards/:card_ref", async (c) => {
     const cardRef = cardRefParam(c.req.param("card_ref"));
     const adapter = createAdapter(c.env);
-    const card = await resolveCard(c.env.DB, adapter, cardRef);
+    const card = await resolveCard(c.env.DB, adapter, cardRef, c.req.query("include") === "review_prices");
 
     return card
       ? c.json({ success: true, data: withCardImageUrl(card, "detail") })
@@ -439,13 +438,8 @@ async function extendedPriceHistoryDenial(
 > {
   const auth = await authenticateOwner(env, authorization);
   if (auth.status !== "ok") return auth.status;
-  if (usesAndroidFreeLaunch(auth.owner)) return "allowed";
-  const access = await resolvePremiumAccess(
-    env,
-    auth.owner.session_id,
-    localPremiumState,
-  );
-  if (access === "premium") return "allowed";
+  const { access, freeLaunch } = await platformAccess(env, auth.owner, localPremiumState);
+  if (freeLaunch || access === "premium") return "allowed";
   return access === "sync_required" ? "sync_required" : "premium_required";
 }
 
@@ -523,6 +517,7 @@ export async function resolveCard(
   db: D1Database,
   adapter: DataSourceAdapter,
   cardRef: string,
+  includeReviewPrices = false,
 ): Promise<CardResponse | null> {
   const override = await findCardOverride(db, cardRef);
 
@@ -534,8 +529,16 @@ export async function resolveCard(
     }
   }
 
-  const card = await adapter.getCard(cardRef);
-  return applyCardOverride(card, override, cardRef);
+  const card = includeReviewPrices
+    ? await adapter.getCard(cardRef, true)
+    : await adapter.getCard(cardRef);
+  const result = applyCardOverride(card, override, cardRef);
+  // A corrected fallback selection must use the dimensions shown to the user.
+  if (result?.review_prices && card && (
+    (!card.available_finishes?.length && result.finish !== card.finish) ||
+    (!card.available_languages?.length && result.language !== card.language)
+  )) delete result.review_prices;
+  return result;
 }
 
 export function withCardImageUrl<T extends CardSearchResult>(

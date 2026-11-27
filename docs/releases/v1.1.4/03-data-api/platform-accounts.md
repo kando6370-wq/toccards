@@ -556,3 +556,7 @@ kd201 已从 `dev@9acbf220` 发布 `branch-dev-9acbf220aa1d-20261124113420`。�
 - 11:37 从开发机回读，条款、隐私、支持三页与目标提交逐字节一致，卡牌 `560537` 的分享页显示 `CardScanFox` 并保留 `kando://` 唤起地址。健康、App／Admin 未登录拒绝、iOS／Google／Android 公共配置共 6 项检查通过。
 - 11:45 服务器回读确认 `current`、发布清单、watcher 已见和已发布提交一致，失败标记已清除。API 和数据库健康，Web 正常运行，迁移进程以 0 退出。运行的 API、Web 程序及后台 11 个文件均与发布包匹配。内网获取的 10 个 JS／CSS 文件与本地目标构建字节一致，首页与使用 Git 原始 LF 模板重建的 HTML 字节一致。
 - 沿用 `toccards-linux-test_postgres-data` 数据卷。数据库的 19 项迁移与发布包逐项匹配，最新为 `0018_platform_account_isolation.sql`，发布预检返回 `pendingMigrations=[]`。发布前备份 1,232,938,159 字节，`pg_restore --list` 读取到 374 项。
+
+### Android Internal testing 220 交付（2026-11-24）
+
+`com.cardai.tcg` 的 `1.0.8+220` 已于 14:10（北京时间）发布到原内部测试轨道。该包使用已登记的 Upload 证书，Google Play 发布预览显示新增支持 1 款电视。[构建与设备覆盖记录](../05-delivery/android-play-release-configuration.md#google-play-内部测试-220)

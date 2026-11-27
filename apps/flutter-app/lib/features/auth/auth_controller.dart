@@ -305,7 +305,7 @@ class AuthController extends Notifier<AuthState> {
 
   Future<void> _loadInitialSession(int generation) async {
     var storedSession = await _repository.currentSessionFromStorage();
-    if (ref.read(appCommercialPolicyProvider).isAndroidFreeLaunch &&
+    if (ref.read(appCommercialPolicyProvider).isAndroid &&
         storedSession != null &&
         (storedSession.platform != AppPlatform.android ||
             storedSession.dataSpaceId == null)) {
@@ -385,7 +385,7 @@ class AuthController extends Notifier<AuthState> {
     if (previousAnonymous != null) {
       final isAndroid = ref
           .read(appCommercialPolicyProvider)
-          .isAndroidFreeLaunch;
+          .isAndroid;
       final previousPlatformIsCompatible = isAndroid
           ? previousAnonymous.platform == AppPlatform.android &&
                 previousAnonymous.dataSpaceId != null

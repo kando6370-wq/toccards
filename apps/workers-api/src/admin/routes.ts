@@ -1,3 +1,4 @@
+import { playAdmin } from "./google-play";
 import { allowedAppleProductIds } from "../entitlements/apple-product-policy";
 import {
   ACCESS_TOKEN_EXPIRES_IN_SECONDS,
@@ -56,6 +57,7 @@ type AdminUserRow = {
 };
 
 type InstallationSummaryRow = {
+  grouped_rows: number;
   total_installations: number;
   countries: number;
   platforms: number;
@@ -338,6 +340,8 @@ const INSTALLATION_FILTER_SQL = `
 
 const SELECT_INSTALLATION_SUMMARY_SQL = `
   SELECT COUNT(*) AS total_installations,
+    COUNT(DISTINCT (uid, substr(first_seen_at, 1, 10),
+      COALESCE(NULLIF(country_code, ''), 'Unknown'), COALESCE(NULLIF(platform, ''), 'Unknown'))) AS grouped_rows,
     COUNT(DISTINCT COALESCE(NULLIF(country_code, ''), 'Unknown')) AS countries,
     COUNT(DISTINCT COALESCE(NULLIF(platform, ''), 'Unknown')) AS platforms
   ${INSTALLATION_FILTER_SQL}
@@ -677,6 +681,7 @@ adminRoutes.post("/auth/refresh", async (c) => {
 });
 
 adminRoutes.use("*", requireAdmin);
+adminRoutes.route("/google-play", playAdmin);
 adminRoutes.route("/", createSubscriptionConfigAdminRoutes());
 
 adminRoutes.post("/auth/logout", async (c) => {
@@ -705,6 +710,21 @@ adminRoutes.post("/auth/logout", async (c) => {
   return c.json({ success: true, data: {} });
 });
 
+adminRoutes.get("/analytics/installations/options", async (c) => {
+  const environment = normalizeQuery(c.req.query("environment"));
+  if (environment && environment !== (c.env.APP_ENVIRONMENT ?? "production")) {
+    return c.json({ success: true, data: { countries: [] } });
+  }
+  const dateFrom = readDateOnly(c.req.query("date_from"));
+  const dateTo = readDateOnly(c.req.query("date_to"));
+  const platform = normalizeQuery(c.req.query("platform"));
+  const { results } = await c.env.DB.prepare(
+    `SELECT DISTINCT COALESCE(NULLIF(country_code, ''), 'Unknown') AS country
+     ${INSTALLATION_FILTER_SQL} ORDER BY country`,
+  ).bind(dateFrom, dateFrom, dateTo, dateTo, platform, platform, null, null).all<{ country: string }>();
+  return c.json({ success: true, data: { countries: results.map((row) => row.country) } });
+});
+
 adminRoutes.get("/analytics/installations", async (c) => {
   const page = readPositiveInt(c.req.query("page"), 1);
   const pageSize = Math.min(readPositiveInt(c.req.query("page_size"), 20), 100);
@@ -720,6 +740,7 @@ adminRoutes.get("/analytics/installations", async (c) => {
     return c.json({
       success: true,
       data: {
+        total: 0,
         summary: { total_installations: 0, countries: 0, platforms: 0 },
         trend: buildInstallationTrend([], dateFrom, dateTo),
         rows: [],
@@ -751,6 +772,7 @@ adminRoutes.get("/analytics/installations", async (c) => {
   return c.json({
     success: true,
     data: {
+      total: Number(summary?.grouped_rows ?? 0),
       summary: {
         total_installations: Number(summary?.total_installations ?? 0),
         countries: Number(summary?.countries ?? 0),

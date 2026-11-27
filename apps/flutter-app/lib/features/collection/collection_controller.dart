@@ -1168,7 +1168,7 @@ class CollectionController extends Notifier<CollectionState> {
       return applyFolder(folder);
     } on PortfolioApiException catch (error) {
       if (error.code == 'PREMIUM_REQUIRED') {
-        if (ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
+        if (ref.read(subscriptionAccessPolicyProvider).hasFreePremiumFeatures) {
           return const CreateFolderResult(CreateFolderStatus.failed);
         }
         await refreshPreservingContent();
@@ -1176,7 +1176,7 @@ class CollectionController extends Notifier<CollectionState> {
       }
       if (error.statusCode == 409 &&
           error.code == 'ENTITLEMENT_SYNC_REQUIRED') {
-        if (ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) {
+        if (ref.read(subscriptionAccessPolicyProvider).hasFreePremiumFeatures) {
           return const CreateFolderResult(
             CreateFolderStatus.entitlementSyncRequired,
           );

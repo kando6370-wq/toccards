@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../subscription/google_play_page.dart';
+import '../subscription/google_play_controller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kando_app/shared/ui/kando_modal.dart';
@@ -107,6 +109,9 @@ class _AccountContent extends ConsumerWidget {
         ),
         const SizedBox(height: 32),
         _SectionLabel('Management'),
+        if (activeSession.platform == AppPlatform.android && ref.watch(playPolicyProvider).current?.package != null)
+          TextButton(onPressed: () => managePlaySubscription(ref.read(playPolicyProvider).current), child: const Text('Manage subscription in Google Play')),
+
         const SizedBox(height: 8),
         Row(
           children: [
@@ -433,7 +438,9 @@ Future<bool> showDeleteAccountConfirmation(
   return showKandoDangerConfirmModal(
     context,
     title: 'Delete Account?',
-    message: "This action is permanent and can't be undone.",
+    message: platform == AppPlatform.android
+        ? "This action is permanent and can't be undone. Any Google Play subscription keeps renewing until you cancel it in Google Play."
+        : "This action is permanent and can't be undone.",
     confirmLabel: 'Delete',
     cancelLabel: 'Cancel',
   );

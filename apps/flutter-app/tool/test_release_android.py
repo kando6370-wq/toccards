@@ -5,9 +5,12 @@ import struct
 import tempfile
 import unittest
 from unittest.mock import patch
+import xml.etree.ElementTree as ET
 import zipfile
 
 from release_android import (
+    ANDROID_XML,
+    APP_DIR,
     build_release,
     read_version,
     select_build_number,
@@ -176,6 +179,15 @@ class AndroidReleaseTest(unittest.TestCase):
 
 
 class AndroidNativeValidationTest(unittest.TestCase):
+    def test_requesting_portrait_does_not_make_it_required_to_install(self):
+        manifest = ET.parse(APP_DIR / "android/app/src/main/AndroidManifest.xml")
+        feature = manifest.find(f"uses-feature[@{ANDROID_XML}name='android.hardware.screen.portrait']")
+        self.assertIsNotNone(feature, "Play infers a hardware requirement when the portrait feature is absent.")
+        self.assertEqual(feature.get(ANDROID_XML + "required"), "false")
+        activity = manifest.find(f"application/activity[@{ANDROID_XML}name='dev.kando.cardvault.app.MainActivity']")
+        self.assertIsNotNone(activity)
+        self.assertEqual(activity.get(ANDROID_XML + "screenOrientation"), "portrait")
+
     def artifact(self, directory, alignment=16384, address=0):
         data = bytearray(120)
         data[:6] = b"\x7fELF\x02\x01"

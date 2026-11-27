@@ -154,7 +154,7 @@ class HomePerformanceController extends Notifier<HomePerformanceState> {
     try {
       return await request();
     } catch (error) {
-      if (ref.read(appCommercialPolicyProvider).hasFreePremiumFeatures) rethrow;
+      if (ref.read(subscriptionAccessPolicyProvider).hasFreePremiumFeatures) rethrow;
       if (!isEntitlementSyncRequired(error) ||
           !await ref.read(homeEntitlementRepairProvider)()) {
         rethrow;

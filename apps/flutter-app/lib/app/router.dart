@@ -1,3 +1,4 @@
+import '../features/subscription/google_play_page.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,6 +19,7 @@ import '../features/scan/scan_page.dart';
 import '../features/search/search_page.dart';
 import '../features/search/set_detail_page.dart';
 import '../features/subscription/subscription_controller.dart';
+import '../features/subscription/subscription_navigation.dart';
 import '../features/subscription/subscription_page.dart';
 import '../features/subscription/subscription_route_page.dart';
 import '../features/subscription/startup_subscription_gate.dart';
@@ -161,11 +163,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/subscription',
         redirect: (context, state) =>
-            ref.read(appCommercialPolicyProvider).usesAppleSubscription
-            ? null
-            : '/home',
+            ref.read(appCommercialPolicyProvider).isAndroid
+            ? googlePlayEntryRedirect(ref, state)
+            : null,
         pageBuilder: (context, state) {
           final sheet = state.uri.queryParameters['presentation'] == 'sheet';
+          if (ref.read(appCommercialPolicyProvider).isAndroid) {
+            final child = GooglePlayPage(sheet: sheet);
+            if (sheet) {
+              return KandoBottomSheetPage<SubscriptionPaywallResult>(key: state.pageKey,
+              isDismissible: true, enableDrag: true, useSafeArea: true, heightFactor: subscriptionSheetHeightFactor, child: child);
+            }
+            return NoTransitionPage<SubscriptionPaywallResult>(key: state.pageKey, child: child);
+          }
           final source = state.uri.queryParameters['source'];
           final entrySource = state.uri.queryParameters['entry_source'];
           final analyticsScene = state.uri.queryParameters['scene'];
