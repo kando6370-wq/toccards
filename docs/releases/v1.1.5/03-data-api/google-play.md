@@ -26,7 +26,11 @@ Pub/Sub 推送到 `POST /api/v1/google-play/notifications`。每个环境配置 
 
 kd201 上的管理员打开 Google Play 通知或订阅配置时，通知列表、筛选选项、商品和展示配置接口均返回 `503 GOOGLE_PLAY_NOT_CONFIGURED`。运行容器缺少 `GOOGLE_PLAY_PACKAGE_NAME`，独立数据库的迁移已到 `0021`。在 `shared/.env` 补入 Android 测试包名 `com.kando.kandoApp.beta` 后，仅用当前镜像重建 API，health 返回 200。Linux 配置样例已补入相同包名。该设置决定后台读取的环境和包名，新售和计费仍由对应开关控制。
 
-内网 HTTP 下，Google 配置写入和订单补账使用后台已有的 `createRequestId()` 生成幂等键。本地登录回归覆盖通知、筛选选项、商品、配置和订单五个入口，空数据均返回 200，显式刷新商店目录仍要求 `GOOGLE_PLAY_PUBLISHER_EMAIL` 和 `GOOGLE_PLAY_PUBLISHER_PRIVATE_KEY`。测试包的真实通知投递还需要配置该环境的 Pub/Sub。Admin 100 项和服务端专项 88 项通过，代码复核确认请求权限、幂等字段和 Apple 业务路径沿用原实现。kd201 页面修复后的登录态复验待管理员重新登录。
+功能分支提交 `a2af9ab1` 将 Google 配置写入和订单补账改为调用后台已有的 `createRequestId()`，支持内网 HTTP。本地登录回归覆盖通知、筛选选项、商品、配置和订单五个入口，空数据均返回 200，显式刷新商店目录仍要求 `GOOGLE_PLAY_PUBLISHER_EMAIL` 和 `GOOGLE_PLAY_PUBLISHER_PRIVATE_KEY`。测试包的真实通知投递还需要配置该环境的 Pub/Sub。Admin 100 项和服务端专项 88 项通过，代码复核确认请求权限、幂等字段和 Apple 业务路径沿用原实现。
+
+管理员重新登录 kd201 后，Google 通知列表、筛选选项、商品、展示配置和订单五个接口均返回 HTTP 200。通知页显示开发环境和测试包名，列表为空。订阅页和弹窗均显示「未启用 · 版本 0」。订单统计默认显示正式购买，订单数为 0。iOS 订阅配置、苹果通知及原订单统计的读取接口也返回 200。
+
+复验时远端 `dev` 为 `c337da8a`，尚未包含 `a2af9ab1`。kd201 实际加载的 `index-CPmA0NRy.js` 在保存 Google 配置和订单补账时仍直接调用 `crypto.randomUUID()`，内网 HTTP 页面没有此方法。这两项需在修复发布至 dev 后复验。本次仅查询后台，未保存或启用配置、补账或发起商店交易。
 
 ## 订单与收入
 
