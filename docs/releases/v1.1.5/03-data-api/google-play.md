@@ -8,9 +8,19 @@
 
 ## 环境与商店通知
 
-Linux kd201 的 `development` 使用独立 PostgreSQL。Cloudflare 的 `production` 使用生产 PostgreSQL。各自在发布 API 前依次执行 `0019` 和 `0020`。前者提供计费、通知和账务表，后者为 Google 订单增加商店服务周期，并保存首笔扣款归因。两条迁移均保留已有的 Apple 订单和权益。Billing 制品、Play 发布轨道、业务环境、Google 标记的测试交易是不同维度。每个环境按实际安装包配置 package 和自己的密钥。
+Linux kd201 的 `development` 使用独立 PostgreSQL。Cloudflare 的 `production` 使用生产 PostgreSQL。各自在发布 API 前依次执行 `0019`、`0020` 和 `0021`。`0019` 提供计费、通知和账务表，`0020` 为 Google 订单增加商店服务周期和首笔扣款归因，`0021` 为 Google 通知增加可空的脱敏 JSON 字段。旧服务仍可写入收件箱，回退时保留该字段和已有快照。Billing 制品、Play 发布轨道、业务环境、Google 标记的测试交易是不同维度。每个环境按实际安装包配置 package 和自己的密钥。
 
-Pub/Sub 推送到 `POST /api/v1/google-play/notifications`。每个环境配置 `GOOGLE_PLAY_PUSH_AUDIENCE`、`GOOGLE_PLAY_PUSH_EMAIL`、`GOOGLE_PLAY_PUSH_SUBSCRIPTION` 和 `GOOGLE_PLAY_TOPIC`。服务端验证 Google 签名、受众、服务账号、订阅名和 package，以 topic 和消息 ID 去重。测试消息只验通道，退款审核消息单独隔离。订阅和作废通知均回查商店事实。作废回扫按页保存进度，完成时间窗后保留一天重叠范围。已绑定的过期 token 可以凭真实订单号补账。生产回查、测试下单和价格配置需使用对应环境的授权账号。
+Pub/Sub 推送到 `POST /api/v1/google-play/notifications`。每个环境配置 `GOOGLE_PLAY_PUSH_AUDIENCE`、`GOOGLE_PLAY_PUSH_EMAIL`、`GOOGLE_PLAY_PUSH_SUBSCRIPTION` 和 `GOOGLE_PLAY_TOPIC`。服务端验证 Google 签名、受众、服务账号、订阅名和 package，以 topic 和消息 ID 去重。测试消息只验通道，退款审核消息单独隔离。已支持的订阅事件和订阅商品的作废事件触发商店回查。作废回扫按页保存进度，完成时间窗后保留一天重叠范围。已绑定的过期 token 可以凭真实订单号补账。生产回查、测试下单和价格配置需使用对应环境的授权账号。
+
+### 后台查询通知
+
+在「数据统计 → Google Play 通知消息」按 Android UID、消息 ID、脱敏购买链、订单号、SKU、购买类型、主通知类型、子通知类型、处理状态和 UTC 接收日期查询。订单号可匹配通知自带的订单，也可匹配同一购买凭证经商店核实的关联订单。抽屉分别显示通知携带的订单号和该购买最近的订单号。业务环境和包名由当前 API 决定，筛选选项、分页、详情和重试均限定在该范围。
+
+页面按类别解释类型值，覆盖 19 个订阅事件、2 个一次性商品事件、2 种退款类型、退款审核和通道测试。通知事件和处理结果分别展示。一次性商品通知和待审核退款只记录供排查，已核实的交易继续由原账务流程入账。通道测试独立于测试购买。历史作废消息和主动回扫若缺少退款类型，显示「未记录退款类型」。
+
+运营可在详情查看并复制新收到的脱敏 JSON。购买与退款令牌、账号标识和推送认证信息均从快照排除。历史记录及主动回扫显示现有字段和快照缺失原因。只有超级管理员可说明原因后重新处理失败消息。
+
+2026-11-26 本地核对了 25 条通知映射。Admin 99 项测试和服务端 4 个文件的 79 项专项测试通过，覆盖 Google 签名投递、幂等、脱敏、环境隔离、受控重试，以及 Apple 通知和订单汇总。dev 与 prod 的 Admin 构建通过。本机浏览器使用模拟通知验证了查询、重置、刷新和退款详情，真实 Play 推送仍待联调。
 
 ## 订单与收入
 

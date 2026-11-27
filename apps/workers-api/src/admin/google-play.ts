@@ -6,7 +6,7 @@ import { displayConfig, parsePlan, planKey, storeCatalog } from "../google-play/
 import { reconcileOrderId } from "../google-play/reconcile";
 import { PlayError } from "../google-play/publisher";
 import { isPageType, isRecord, payloadHash } from "../subscription-config/model";
-import type { PlayPlan } from "../google-play/purchases";
+import { utc, type PlayPlan } from "../google-play/purchases";
 
 export const playAdmin = new Hono<AdminBindings>();
 const error = (code: string) => ({success:false,error:{code,message:code}});
@@ -60,16 +60,59 @@ async function orders(c: Context<AdminBindings>, exporting: boolean) {
 }
 playAdmin.get("/orders",c=>orders(c,false));
 playAdmin.get("/orders/export",c=>orders(c,true));
+const notificationSource = `FROM google_play_inbox i LEFT JOIN google_play_purchase p
+  ON p.scope=i.scope AND p.token_hash=i.token_hash`;
+const notificationSku = "COALESCE(i.redacted_payload #>> '{oneTimeProductNotification,sku}', i.redacted_payload #>> '{subscriptionNotification,subscriptionId}', p.product_id)";
+const notificationFields = `i.message_id,i.topic,i.kind,i.state,i.received_at,i.event_at,i.attempts,i.next_check_at,
+  i.last_error,i.order_id,left(p.chain_id,12) AS chain,p.owner_id,${notificationSku} AS sku,p.store_kind,p.checked_at,p.acknowledgement`;
+
 playAdmin.get("/notifications", async c => {
-  const scope=scopeOf(c), clauses=["i.scope=?"], args:unknown[]=[scope];
-  for(const [key,col] of Object.entries({message_id:"i.message_id",kind:"i.kind",state:"i.state",order_id:"i.order_id",chain:"left(p.chain_id,12)"})) {
-    const value=c.req.query(key); if(value){clauses.push(`${col}=?`);args.push(value);}
+  const scope = scopeOf(c), filters = c.req.query(), db = c.env.DB;
+  const clauses = ["i.scope=?"], args: unknown[] = [scope];
+  for (const [key, column] of Object.entries({message_id:"i.message_id", family:"split_part(i.kind, ':', 1)",
+    state:"i.state", event_kind:"i.kind", chain:"left(p.chain_id,12)", uid:"p.owner_id", sku:notificationSku, store_kind:"CASE WHEN i.kind='test' THEN 'probe' ELSE COALESCE(p.store_kind,'unknown') END"})) {
+    if (filters[key]) { clauses.push(`${column}=?`); args.push(filters[key]); }
   }
-  const rows=await c.env.DB.prepare(`SELECT i.message_id,i.topic,i.kind,i.state,i.received_at,i.event_at,i.attempts,i.next_check_at,i.last_error,i.order_id,
-    left(p.chain_id,12) AS chain,p.store_kind,p.checked_at,p.acknowledgement,COUNT(*) OVER()::int AS total
-    FROM google_play_inbox i LEFT JOIN google_play_purchase p ON p.scope=i.scope AND p.token_hash=i.token_hash WHERE ${clauses.join(' AND ')}
-    ORDER BY i.received_at DESC,i.message_id LIMIT 20 OFFSET ?`).bind(...args,(page(c.req.query("page"))-1)*20).all();
-  return c.json(ok({scope,rows:rows.results}));
+  if (filters.kind) {
+    // Existing clients use 'voided' for all voids, including entries recorded before refund types were retained.
+    clauses.push(filters.kind === "voided" ? "split_part(i.kind, ':', 1)=?" : "i.kind=?");
+    args.push(filters.kind);
+  }
+  if (filters.order_id) {
+    clauses.push(`(i.order_id=? OR (i.order_id IS NULL AND EXISTS (SELECT 1 FROM google_play_order o
+      WHERE o.scope=i.scope AND o.store_kind=p.store_kind AND o.token_hash=i.token_hash AND o.order_id=?)))`);
+    args.push(filters.order_id, filters.order_id);
+  }
+  const from = utc(filters.from), to = utc(filters.to);
+  if ((filters.from && !from) || (filters.to && !to) || (from && to && from >= to)) throw new PlayError("INVALID_UTC_DATE",422);
+  if (from) { clauses.push("i.received_at>=?"); args.push(from); }
+  if (to) { clauses.push("i.received_at<?"); args.push(to); }
+  const source = `${notificationSource} WHERE ${clauses.join(" AND ")}`;
+  const [rows, count] = await Promise.all([
+    db.prepare(`SELECT ${notificationFields} ${source} ORDER BY i.received_at DESC,i.message_id,i.topic LIMIT 20 OFFSET ?`)
+      .bind(...args,(page(filters.page)-1)*20).all(),
+    db.prepare(`SELECT COUNT(*)::int AS total ${source}`).bind(...args).first<{total:number}>(),
+  ]);
+  const total = count!.total;
+  return c.json(ok({scope, as_of:new Date().toISOString(), total, rows:rows.results.map(row => ({...row,total}))}));
+});
+
+playAdmin.get("/notifications/options", async c => {
+  const scope = scopeOf(c), db = c.env.DB;
+  const [kinds, skus] = await Promise.all([
+    db.prepare("SELECT DISTINCT kind FROM google_play_inbox WHERE scope=? ORDER BY kind").bind(scope).all<{kind:string}>(),
+    db.prepare(`SELECT DISTINCT ${notificationSku} AS sku ${notificationSource} WHERE i.scope=? AND ${notificationSku} IS NOT NULL ORDER BY sku`)
+      .bind(scope).all<{sku:string}>(),
+  ]);
+  return c.json(ok({kinds:kinds.results.map(r => r.kind), skus:skus.results.map(r => r.sku)}));
+});
+
+playAdmin.get("/notifications/detail", async c => {
+  const scope = scopeOf(c), topic = c.req.query("topic"), id = c.req.query("message_id");
+  if (!topic || !id) throw new PlayError("INVALID_MESSAGE",422);
+  const detail = await c.env.DB.prepare(`SELECT ${notificationFields},i.redacted_payload,p.state AS purchase_state,
+    p.latest_order_id ${notificationSource} WHERE i.scope=? AND i.topic=? AND i.message_id=?`).bind(scope,topic,id).first();
+  return detail ? c.json(ok({...detail,scope})) : c.json(error("NOT_FOUND"),404);
 });
 playAdmin.get("/products", async c => {
   const scope=scopeOf(c), approved=await c.env.DB.prepare("SELECT product_id,base_plan_id,offer_id,revenue_event,revision FROM google_play_product WHERE scope=? ORDER BY product_id,base_plan_id,offer_id").bind(scope).all();

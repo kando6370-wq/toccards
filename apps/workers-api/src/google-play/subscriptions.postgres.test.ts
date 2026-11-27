@@ -28,7 +28,7 @@ let fixtureResponse: ((url: string) => Response | Promise<Response> | undefined)
 beforeEach(() => { fixtureResponse = undefined; });
 beforeAll(async () => {
   db = await PGliteDatabase.create();
-  for (const name of ["0000_business_schema", "0006_mutation_lock", "0018_platform_account_isolation", "0019_google_play_subscriptions", "0020_google_play_first_charge"]) {
+  for (const name of ["0000_business_schema", "0006_mutation_lock", "0018_platform_account_isolation", "0019_google_play_subscriptions", "0020_google_play_first_charge", "0021_google_play_notification_details"]) {
     await db.exec(readFileSync(new URL(`../db/postgres/migrations/${name}.sql`, import.meta.url), "utf8"));
   }
   const key = generateKeyPairSync("rsa", {modulusLength:2048}).privateKey.export({format:"pem",type:"pkcs8"}).toString();
@@ -177,6 +177,96 @@ it("authenticates the Pub/Sub sender and uses the current store state for duplic
     { message_id:"probe", state:"received_test", attempts:0 }, { message_id:"review", state:"quarantined", attempts:0 },
   ]);
   expect((await googlePlayAccess(env, owner)).premium).toBe(true);
+
+  // These share numeric types with subscriptions. Persist diagnostics without enqueueing a subscription or exposing credentials.
+  const inboxCount = await db.query("SELECT COUNT(*)::int AS n FROM google_play_order_event");
+  const oneTime = {version:"1.0", notificationType:2, sku:"pack.one", purchaseToken:token, obfuscatedAccountId:"private-account"};
+  expect((await push("product", {oneTimeProductNotification:oneTime})).status).toBe(204);
+  expect((await push("product", {oneTimeProductNotification:{...oneTime, notificationType:1}})).status).toBe(204);
+  expect((await push("mixed", {...change, oneTimeProductNotification:oneTime})).status).toBe(422);
+  for (const refundType of [1,2]) {
+    expect((await push("void-" + refundType, {voidedPurchaseNotification:{productType:2, refundType, orderId:order.orderId, purchaseToken:token}})).status).toBe(204);
+  }
+  expect((await push("chargeback", {pendingRefundReviewNotification:{orderId:order.orderId,refundReason:7,pendingRefundToken:"private-review",obfuscatedProfileId:"private-profile"}})).status).toBe(204);
+  expect((await push("unmapped", {subscriptionNotification:{notificationType:24,purchaseToken:token}})).status).toBe(204);
+  const diagnostics = await db.query<{message_id:string}>("SELECT message_id,kind,state,redacted_payload FROM google_play_inbox WHERE topic=$1 ORDER BY message_id",[topic]);
+  const events = Object.fromEntries(diagnostics.rows.map(row => [row.message_id,row]));
+  expect(events.product).toMatchObject({kind:"one_time:2",state:"quarantined",redacted_payload:{oneTimeProductNotification:{sku:"pack.one",notificationType:2}}});
+  for (const refundType of [1,2]) expect(events["void-"+refundType]).toMatchObject({kind:"voided:"+refundType,state:"quarantined"});
+  expect(events.chargeback).toMatchObject({kind:"refund_review",state:"quarantined",redacted_payload:{pendingRefundReviewNotification:{refundReason:7}}});
+  expect(events.unmapped).toMatchObject({kind:"subscription:24",state:"quarantined"});
+  expect(events.older).toMatchObject({kind:"subscription:13",redacted_payload:{subscriptionNotification:{notificationType:13}}});
+  expect(events.probe).toMatchObject({kind:"test",redacted_payload:{testNotification:{}}});
+  expect(JSON.stringify(events)).not.toMatch(/private-account|private-review|private-profile|purchaseToken|verified-fixture-token|obfuscatedAccountId|pendingRefundToken/i);
+  expect((await db.query("SELECT COUNT(*)::int AS n FROM google_play_order_event")).rows).toEqual(inboxCount.rows);
+});
+
+it("limits operator notification search, options and redacted details to the configured scope and exact topic", async () => {
+  const topic = "projects/fixture/topics/admin-inbox", otherTopic = topic + "-second";
+  const reportEnv = {...env, GOOGLE_PLAY_PACKAGE_NAME:"com.example.fixture.inbox", GOOGLE_PLAY_TOPIC:topic};
+  const reportScope = googlePlayScope(reportEnv)!;
+  const otherScope = googlePlayScope({...reportEnv, APP_ENVIRONMENT:"production"})!;
+  const stamp = "2026-01-06T00:00:00.000Z", end = "2026-01-07T00:00:00.000Z";
+  const hash = await playDigest(reportEnv,reportScope,"token","admin-inbox-purchase");
+  const insert = (scopeValue: string, source: string, id: string, kind: string, received: string, snapshot: object | null) =>
+    db.prepare(`INSERT INTO google_play_inbox(scope,topic,message_id,kind,event_at,received_at,state,token_hash,redacted_payload)
+      VALUES(?,?,?,?,'2025-12-01T00:00:00.000Z',?,'failed',?,?::jsonb)`)
+      .bind(scopeValue,source,id,kind,received,hash,snapshot && JSON.stringify(snapshot)).run();
+  await db.prepare(`INSERT INTO google_play_purchase(scope,token_hash,token_encrypted,chain_id,owner_id,store_kind,product_id,latest_order_id)
+    VALUES(?,?,'secret-ciphertext','abcdef123456789','android','live','notify-monthly','GPA.notify-latest')`).bind(reportScope,hash).run();
+  await db.prepare(`INSERT INTO google_play_order(scope,token_hash,store_kind,order_id) VALUES(?,?,'live','GPA.notify-previous')`).bind(reportScope,hash).run();
+  await insert(reportScope,topic,"lookup","subscription:2",stamp,{subscriptionNotification:{version:"1.0",notificationType:2}});
+  await insert(reportScope,otherTopic,"lookup","voided",stamp,null);
+  await insert(reportScope,topic,"outside","subscription:2",end,null);
+  await insert(otherScope,topic,"lookup","one_time:99",stamp,{oneTimeProductNotification:{sku:"foreign-sku"}});
+  await db.prepare("INSERT INTO google_play_inbox(scope,topic,message_id,kind,event_at,received_at,state) VALUES(?,?,'only-a-probe','test',?,?,'received_test')")
+    .bind(reportScope,topic,stamp,stamp).run();
+  async function adminHeaders(role: "operator" | "super_admin") {
+    const user = "notification-" + role;
+    await db.prepare("INSERT INTO admin_user(id,email,password_hash,role,status,created_at) VALUES(?,?,?,?,'active',?)")
+      .bind(user,user+"@example.invalid",await hashPassword("notification-fixture"),role,past).run();
+    const login = await app.request("/api/v1/admin/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({email:user+"@example.invalid",password:"notification-fixture"})},reportEnv);
+    expect(login.status).toBe(200);
+    const {data:{access_token}} = await login.json() as {data:{access_token:string}};
+    return {Authorization:"Bearer "+access_token,"Content-Type":"application/json"};
+  }
+  const headers = await adminHeaders("operator");
+  const base = "/api/v1/admin/google-play/notifications";
+  const get = async (path: string) => {
+    const res = await app.request(base+path,{headers},reportEnv);
+    expect(res.status).toBe(200);
+    return (await res.json() as {data:Record<string,unknown>}).data;
+  };
+  const filters = new URLSearchParams({message_id:"lookup",family:"subscription",event_kind:"subscription:2",uid:"android",state:"failed",store_kind:"live",
+    sku:"notify-monthly",order_id:"GPA.notify-previous",chain:"abcdef123456",from:stamp,to:end,scope:otherScope});
+  const list = await get("?"+filters);
+  expect(list).toMatchObject({scope:reportScope,total:1,rows:[{topic,kind:"subscription:2",order_id:null,owner_id:"android",total:1}]});
+  expect(JSON.stringify(list)).not.toMatch(/redacted_payload|token_encrypted|token_hash|secret-ciphertext/);
+  expect(await get("?"+filters+"&page=2")).toMatchObject({total:1,rows:[]});
+  expect(await get("?family=subscription&sku=notify-monthly&from="+stamp+"&to="+end)).toMatchObject({total:1});
+  expect((await app.request(base+"?from="+end+"&to="+stamp,{headers},reportEnv)).status).toBe(422);
+  expect(await get("?message_id=only-a-probe&store_kind=unknown")).toMatchObject({total:0});
+  expect(await get("?message_id=only-a-probe&store_kind=probe")).toMatchObject({total:1});
+  const options = await get("/options");
+  expect(options.skus).toContain("notify-monthly");
+  expect(JSON.stringify(options)).not.toMatch(/foreign-sku|one_time:99/);
+  const url = (source: string) => "/detail?"+new URLSearchParams({topic:source,message_id:"lookup"});
+  const detail = await get(url(topic));
+  expect(detail).toMatchObject({scope:reportScope,topic,kind:"subscription:2",redacted_payload:{subscriptionNotification:{notificationType:2}},latest_order_id:"GPA.notify-latest"});
+  expect(JSON.stringify(detail)).not.toMatch(/secret-ciphertext|token_encrypted|token_hash|foreign-sku/);
+  expect(await get(url(otherTopic))).toMatchObject({topic:otherTopic,kind:"voided",redacted_payload:null});
+  expect((await app.request(base+url("missing"),{headers},reportEnv)).status).toBe(404);
+  expect((await app.request(base+url(topic),{},reportEnv)).status).toBe(401);
+  const retryBody = {topic,message_id:"lookup",reason:"商店恢复服务后重试",expected_revision:0,request_id:crypto.randomUUID()};
+  const retry = (authorization: typeof headers) => app.request("/api/v1/admin/google-play/retry",{method:"POST",headers:authorization,body:JSON.stringify(retryBody)},reportEnv);
+  expect((await retry(headers)).status).toBe(403);
+  const superAdmin = await adminHeaders("super_admin");
+  expect((await retry(superAdmin)).status).toBe(200);
+  expect((await retry(superAdmin)).status).toBe(200);
+  expect(await get(url(topic))).toMatchObject({state:"pending"});
+  expect(await get(url(otherTopic))).toMatchObject({state:"failed"});
+  expect((await db.query("SELECT reason FROM google_play_audit WHERE scope=$1 AND action='retry'",[reportScope])).rows).toEqual([{reason:retryBody.reason}]);
 });
 
 it("retains the verified owner when a replacement arrives first and an old token is later restored", async () => {

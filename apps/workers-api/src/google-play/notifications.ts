@@ -9,6 +9,37 @@ import { syncPurchase } from "./purchases";
 import { scanVoidedPage, reconcileOrderId } from "./reconcile";
 import { syncOrder } from "./orders";
 
+// Only these public RTDN fields are kept for support. Tokens and account identifiers stay out of the snapshot.
+const variants = {
+  subscriptionNotification: ["subscription", "notificationType", "subscriptionId"],
+  oneTimeProductNotification: ["one_time", "notificationType", "sku"],
+  voidedPurchaseNotification: ["voided", "refundType", "productType", "orderId"],
+  pendingRefundReviewNotification: ["refund_review", "refundReason", "orderId"],
+  testNotification: ["test"],
+} as const;
+
+function describeNotification(data: Record<string, unknown>) {
+  const present = Object.entries(variants).filter(([key]) => data[key] !== undefined);
+  if (present.length > 1) return null;
+  const payload: Record<string, unknown> = { packageName: data.packageName, eventTimeMillis: data.eventTimeMillis };
+  const version = (value: unknown) => typeof value === "string" && /^\d{1,3}(?:\.\d{1,3}){0,2}$/.test(value) ? value : undefined;
+  payload.version = version(data.version);
+  if (!present.length) return { kind: "unknown", payload };
+  const [key, [family, ...fields]] = present[0];
+  const event = data[key];
+  if (!isRecord(event)) return { kind: "unknown", payload };
+  const safe: Record<string, unknown> = { version: version(event.version) };
+  for (const field of fields) {
+    const value = event[field];
+    if (field === "orderId" || field === "subscriptionId" || field === "sku") {
+      if (typeof value === "string" && value.length < 256) safe[field] = value;
+    } else if (Number.isSafeInteger(value)) safe[field] = value;
+  }
+  payload[key] = safe;
+  const type = safe.notificationType ?? safe.refundType;
+  return { kind: type === undefined ? family : family + ":" + type, payload };
+}
+
 export const notificationRoutes = new Hono<{ Bindings: Env }>();
 notificationRoutes.post("/google-play/notifications", async c => {
   const env = c.env, scope = googlePlayScope(env), topic = env.GOOGLE_PLAY_TOPIC;
@@ -28,22 +59,22 @@ notificationRoutes.post("/google-play/notifications", async c => {
   try { data = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(msg.data), ch => ch.charCodeAt(0)))); } catch { return c.body(null, 422); }
   if (!isRecord(data) || data.packageName !== env.GOOGLE_PLAY_PACKAGE_NAME || typeof data.eventTimeMillis !== "string" || !/^\d{1,13}$/.test(data.eventTimeMillis)) return c.body(null, 422);
   const sub = data.subscriptionNotification, voided = data.voidedPurchaseNotification, review = data.pendingRefundReviewNotification;
-  if ([sub,voided,review,data.testNotification,data.oneTimeProductNotification].filter(v => v !== undefined).length > 1) return c.body(null,422);
+  const description = describeNotification(data);
+  if (!description) return c.body(null,422);
+  const {kind, payload} = description;
   const types = [1,2,3,4,5,6,7,8,9,10,11,12,13,17,18,19,20,21,22];
-  const kind = isRecord(sub) && Number.isSafeInteger(sub.notificationType) ? `subscription:${sub.notificationType}`
-    : isRecord(voided) ? "voided" : isRecord(review) ? "refund_review" : isRecord(data.testNotification) ? "test" : "unknown";
-  const processable = (isRecord(voided) && voided.productType === 1) || (isRecord(sub) && types.includes(Number(sub.notificationType)));
+  const processable = (isRecord(voided) && voided.productType === 1) || (isRecord(sub) && typeof sub.notificationType === "number" && types.includes(sub.notificationType));
   const purchase = isRecord(sub) ? sub.purchaseToken : isRecord(voided) ? voided.purchaseToken : null;
   if (processable && !tokenValid(purchase)) return c.body(null, 422);
   const source = isRecord(voided) ? voided : isRecord(review) ? review : null;
   const order = typeof source?.orderId === "string" && source.orderId.length < 256 ? source.orderId : null;
   const now = new Date().toISOString();
-  await env.DB.prepare(`INSERT INTO google_play_inbox(scope,topic,message_id,kind,event_at,received_at,token_hash,token_encrypted,order_id,state,next_check_at)
-    VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(scope,topic,message_id) DO NOTHING`)
+  await env.DB.prepare(`INSERT INTO google_play_inbox(scope,topic,message_id,kind,event_at,received_at,token_hash,token_encrypted,order_id,state,next_check_at,redacted_payload)
+    VALUES(?,?,?,?,?,?,?,?,?,?,?,?::jsonb) ON CONFLICT(scope,topic,message_id) DO NOTHING`)
     .bind(scope, topic, msg.messageId, kind, new Date(Number(data.eventTimeMillis)).toISOString(), now,
       tokenValid(purchase) ? await playDigest(env, scope, "token", purchase) : null,
       tokenValid(purchase) ? await sealToken(env, scope, purchase) : null, order,
-      kind === "test" ? "received_test" : processable ? "pending" : "quarantined", processable ? now : null).run();
+      kind === "test" ? "received_test" : processable ? "pending" : "quarantined", processable ? now : null, JSON.stringify(payload)).run();
   return c.body(null, 204);
 });
 

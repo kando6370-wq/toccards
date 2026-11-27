@@ -13,30 +13,29 @@ const usd=(v:unknown)=>v == null ? '—' : new Intl.NumberFormat('zh-CN',{style:
 const labels:Record<string,string>={owner_id:'Android UID',order_id:'Google 订单号',country:'国家/地区',base_plan_id:'基础方案',store_kind:'购买类型',kind:'事件',state:'状态',currency:'币种',event_at:'事件时间（UTC）',usd_micros:'金额（USD）',message_id:'消息 ID',received_at:'接收时间（UTC）',next_check_at:'下次处理',attempts:'尝试次数',last_error:'最近错误',acknowledgement:'商店确认',chain:'购买链',product_id:'商品',tax_micros:'税额（micros）',amount_micros:'原币金额（micros）',fx_snapshot:'汇率快照',topic:'消息来源',related_message_id:'关联消息 ID',checked_at:'最近回查'};
 const planText=(p:Plan)=>[p.product_id,p.base_plan_id,p.offer_id || '基础价'].join(' / ');
 
-export function PlayReport({mode,request,download,superAdmin,accountKey}:{mode:'orders'|'notifications';request:SubscriptionRequest;download:(path:string)=>Promise<void>;superAdmin:boolean;accountKey:string}) {
-  const orders=mode==='orders';
+export function PlayOrders({request,download,superAdmin,accountKey}:{request:SubscriptionRequest;download:(path:string)=>Promise<void>;superAdmin:boolean;accountKey:string}) {
   const [draft,setDraft]=useState<Record<string,string>>({}),[filters,setFilters]=useState<Record<string,string>>({}),[page,setPage]=useState(1),[detail,setDetail]=useState<Row|null>(null),[reason,setReason]=useState('');
   const params=new URLSearchParams(Object.entries(filters).filter(([,v])=>v));
   params.set('page',String(page));
-  const path=`/google-play/${mode}?${params}`;
+  const path=`/google-play/orders?${params}`;
   const query=useQuery({queryKey:['play-report',accountKey,path],queryFn:()=>request<{scope:string;as_of?:string;rows:Row[];summary?:Record<string,number|null>}>(path)});
   const {data}=query;
-  const columns=(orders?['order_id','owner_id','country','base_plan_id','kind','currency','usd_micros','state','event_at']:['message_id','kind','state','chain','received_at','attempts','next_check_at']).map(k=>({title:labels[k],dataIndex:k,key:k,render:(v:unknown)=> k==='usd_micros' ? usd(v) : String(v??'—')}));
+  const columns=['order_id','owner_id','country','base_plan_id','kind','currency','usd_micros','state','event_at'].map(k=>({title:labels[k],dataIndex:k,key:k,render:(v:unknown)=> k==='usd_micros' ? usd(v) : String(v??'—')}));
   return <Space direction="vertical" style={{width:'100%'}}>
-    {data && <Space><Tag>{data.scope}</Tag>{orders && <Tag>{(filters.store_kind??'live')==='live'?'正式购买':'测试购买'}</Tag>}{data.as_of && <Typography.Text type="secondary">截至 {data.as_of}</Typography.Text>}</Space>}
-    <Space wrap>{(orders?['owner_id','order_id','country','base_plan_id','state']:['message_id','kind','state','order_id','chain']).map(k=><Input key={k} aria-label={labels[k]} placeholder={labels[k]} style={{width:150}} value={draft[k]??''} onChange={e=>setDraft({...draft,[k]:e.target.value})}/>)}
-      {orders && <><Select aria-label="购买类型" value={draft.store_kind??'live'} options={[{value:'live',label:'正式购买'},{value:'test',label:'测试购买'}]} onChange={v=>setDraft({...draft,store_kind:v})}/>
+    {data && <Space><Tag>{data.scope}</Tag><Tag>{(filters.store_kind??'live')==='live'?'正式购买':'测试购买'}</Tag>{data.as_of && <Typography.Text type="secondary">截至 {data.as_of}</Typography.Text>}</Space>}
+    <Space wrap>{['owner_id','order_id','country','base_plan_id','state'].map(k=><Input key={k} aria-label={labels[k]} placeholder={labels[k]} style={{width:150}} value={draft[k]??''} onChange={e=>setDraft({...draft,[k]:e.target.value})}/>)}
+      <Select aria-label="购买类型" value={draft.store_kind??'live'} options={[{value:'live',label:'正式购买'},{value:'test',label:'测试购买'}]} onChange={v=>setDraft({...draft,store_kind:v})}/>
       <Select aria-label="资金事件" allowClear placeholder="扣款 / 退款" value={draft.kind||undefined} options={[{value:'charge',label:'扣款'},{value:'refund',label:'退款'}]} onChange={v=>setDraft({...draft,kind:v??''})}/>
-      <DatePicker.RangePicker onChange={(_,range)=>setDraft({...draft,from:range[0]?`${range[0]}T00:00:00Z`:'',to:range[1]?new Date(Date.parse(`${range[1]}T00:00:00Z`)+86400000).toISOString():''})}/></>}
+      <DatePicker.RangePicker onChange={(_,range)=>setDraft({...draft,from:range[0]?`${range[0]}T00:00:00Z`:'',to:range[1]?new Date(Date.parse(`${range[1]}T00:00:00Z`)+86400000).toISOString():''})}/>
       <Button type="primary" onClick={()=>{setPage(1);setFilters({...draft});}}>查询</Button>
-      {orders && <Button onClick={()=>void download(`/google-play/orders/export?${params}`).catch(e=>message.error(String(e)))}>导出 XLSX</Button>}
+      <Button onClick={()=>void download(`/google-play/orders/export?${params}`).catch(e=>message.error(String(e)))}>导出 XLSX</Button>
     </Space>
-    {orders && superAdmin && <Space><Input aria-label="补账原因" placeholder="销售报告差异原因" value={reason} onChange={e=>setReason(e.target.value)}/><Button disabled={!reason.trim()||!draft.order_id} onClick={async()=>{try{await request('/google-play/orders/reconcile',{method:'POST',body:{order_id:draft.order_id,reason,request_id:crypto.randomUUID()}});await query.refetch();message.success('已回查 Play 订单');}catch(e){message.error(String(e));}}}>按报告订单号补账</Button></Space>}
+    {superAdmin && <Space><Input aria-label="补账原因" placeholder="销售报告差异原因" value={reason} onChange={e=>setReason(e.target.value)}/><Button disabled={!reason.trim()||!draft.order_id} onClick={async()=>{try{await request('/google-play/orders/reconcile',{method:'POST',body:{order_id:draft.order_id,reason,request_id:crypto.randomUUID()}});await query.refetch();message.success('已回查 Play 订单');}catch(e){message.error(String(e));}}}>按报告订单号补账</Button></Space>}
     {query.error && <Alert type="error" message={query.error.message}/>}
     {data?.summary && <Space wrap>{[['订单数',data.summary.order_count],['筛选订单中的当前有效订阅',data.summary.active_chains],['毛扣款',usd(data.summary.gross_usd_micros)],['成功退款',usd(data.summary.refund_usd_micros)],['净额',usd(data.summary.net_usd_micros)],['待对账扣款',data.summary.missing_charges],['待对账退款',data.summary.missing_refunds]].map(([k,v])=><Card size="small" key={k} title={k}>{v}</Card>)}</Space>}
     <Table loading={query.isFetching} size="small" scroll={{x:'max-content'}} rowKey={(r,index)=>`${r.order_id??r.message_id}/${index}`} dataSource={data?.rows??[]} columns={[...columns,{title:'操作',key:'actions',render:(_,row:Row)=><Button type="link" onClick={()=>{setDetail(row);setReason('');}}>详情</Button>}]} pagination={{current:page,pageSize:20,total:Number(data?.summary?.total ?? data?.rows[0]?.total ?? 0),showSizeChanger:false,onChange:setPage}}/>
-    <Drawer title={orders?'Google Play 订单事实':'Google Play 通知详情'} open={!!detail} onClose={()=>setDetail(null)}>{detail && Object.entries(detail).filter(([k])=>k!=='total').map(([k,v])=><p key={k}><strong>{labels[k]??k}</strong>　{typeof v==='object' && v!==null?JSON.stringify(v):String(v??'—')}</p>)}
-    {detail && !orders && superAdmin && detail.state==='failed' && <Space><Input placeholder="重试原因" value={reason} onChange={e=>setReason(e.target.value)}/><Button disabled={!reason.trim()} onClick={async()=>{try{await request('/google-play/retry',{method:'POST',body:{message_id:detail.message_id,topic:detail.topic,expected_revision:detail.attempts,request_id:crypto.randomUUID(),reason}});setDetail(null);await query.refetch();}catch(e){message.error(String(e));}}}>重试</Button></Space>}</Drawer>
+    <Drawer title="Google Play 订单事实" open={!!detail} onClose={()=>setDetail(null)}>{detail && Object.entries(detail).filter(([k])=>k!=='total').map(([k,v])=><p key={k}><strong>{labels[k]??k}</strong>　{typeof v==='object' && v!==null?JSON.stringify(v):String(v??'—')}</p>)}
+    </Drawer>
   </Space>;
 }
 
