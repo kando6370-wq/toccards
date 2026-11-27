@@ -55,3 +55,11 @@ test("Admin uses getRandomValues when randomUUID is unavailable because dev runs
     }
   }
 });
+
+test("Google order reconciliation and configuration writes carry an idempotency key on the HTTP dev Admin", async () => {
+  const source = await readFile(new URL("../src/GooglePlay.tsx", import.meta.url), "utf8");
+  const [orders, configs] = source.split("export function PlayConfigs(");
+  for (const component of [orders, configs]) {
+    assert.match(component, /request_id:\s*createRequestId\(\)/);
+  }
+});

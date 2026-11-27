@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { availableProducts, changePriceDisplayMode, changeProduct, changeTrialPriceDisplayMode, changeTrialProduct, editorFromRecord, moveSku, newEditor, priceDisplayMode, productMap, removeSku, toDisplayConfig, unlinkTrial, validateEditor } from "../src/subscription-config/model.ts";
+import { availableProducts, changePriceDisplayMode, changeProduct, changeTrialPriceDisplayMode, changeTrialProduct, editorFromRecord, moveSku, newEditor, priceDisplayMode, productMap, removeSku, subscriptionErrorMessage, toDisplayConfig, unlinkTrial, validateEditor } from "../src/subscription-config/model.ts";
 import { catalogFixture, CONFIG_ID, editorFixture } from "./subscription-fixtures.mjs";
 
 test("new configurations start empty and cannot accidentally be enabled or default a demo product", () => {
@@ -269,4 +269,16 @@ test("price modes, default count and safe delays prevent invalid writes without 
   body.skus[1].is_default = true;
   const paths = validateEditor(body, catalogFixture()).map((i) => i.path);
   assert.ok(paths.includes("skus.1.price_mode")); assert.ok(paths.includes("close_delay_seconds")); assert.ok(paths.includes("skus"));
+});
+
+test("Play catalog failures identify which environment credentials or app permissions to fix", () => {
+  const message = code => subscriptionErrorMessage(Object.assign(new Error("service error"), { code }));
+  for (const code of ["GOOGLE_PLAY_PUBLISHER_NOT_CONFIGURED", "GOOGLE_PLAY_UNAVAILABLE"]) {
+    assert.match(message(code), /GOOGLE_PLAY_PUBLISHER_EMAIL/);
+    assert.match(message(code), /GOOGLE_PLAY_PUBLISHER_PRIVATE_KEY/);
+  }
+  assert.match(message("GOOGLE_PLAY_PUBLISHER_PERMISSION"), /Play Console.*权限/);
+  assert.match(message("GOOGLE_PLAY_RECORD_NOT_FOUND"), /包名/);
+  assert.match(message("GOOGLE_PLAY_UPSTREAM_UNAVAILABLE"), /重试/);
+  assert.match(message("CATALOG_NOT_CONFIGURED"), /Apple/);
 });

@@ -19,6 +19,7 @@ export async function publisher(env: Env, path: string, method = "GET"): Promise
     const response = await fetchWithDeadline(`https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${encodeURIComponent(pkg)}/${path}`,
       { method, headers: { Authorization: `Bearer ${auth}`, ...(method === "POST" ? { "Content-Type": "application/json" } : {}) },
         ...(method === "POST" ? { body: "{}" } : {}) });
+    if (response.status === 204) return undefined;
     if (response.ok) return response.body;
     if ([400, 404, 410].includes(response.status)) throw new PlayError("GOOGLE_PLAY_RECORD_NOT_FOUND", 404);
     throw new PlayError([401, 403].includes(response.status) ? "GOOGLE_PLAY_PUBLISHER_PERMISSION" : "GOOGLE_PLAY_UPSTREAM_UNAVAILABLE");

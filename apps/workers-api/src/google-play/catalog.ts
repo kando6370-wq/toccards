@@ -15,6 +15,7 @@ async function list(env: Env, resource: string, field: string) {
   const all: Record<string,unknown>[] = [], seen = new Set<string>();
   do {
     const data = await publisher(env, `${resource}?pageSize=100${token ? `&pageToken=${encodeURIComponent(token)}` : ""}`);
+    if (data === undefined) break; // Play returns HTTP 204 for an empty subscription or offer list.
     if (!isRecord(data) || (data[field] !== undefined && !Array.isArray(data[field]))) throw new PlayError("GOOGLE_PLAY_CATALOG_UNAVAILABLE");
     all.push(...((data[field] ?? []) as unknown[]).filter(isRecord));
     token = typeof data.nextPageToken === "string" ? data.nextPageToken : "";
@@ -24,6 +25,9 @@ async function list(env: Env, resource: string, field: string) {
   return all;
 }
 export async function storeCatalog(env: Env) {
+  if (!env.GOOGLE_PLAY_PUBLISHER_EMAIL?.trim() || !env.GOOGLE_PLAY_PUBLISHER_PRIVATE_KEY?.trim()) {
+    throw new PlayError("GOOGLE_PLAY_PUBLISHER_NOT_CONFIGURED");
+  }
   const catalog: Array<PlayPlan & { countries: string[] }> = [];
   for (const product of await list(env, "subscriptions", "subscriptions")) {
     if (product.packageName !== env.GOOGLE_PLAY_PACKAGE_NAME || typeof product.productId !== "string" || !Array.isArray(product.basePlans) || product.archived) continue;

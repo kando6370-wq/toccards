@@ -1,5 +1,6 @@
 import { URL } from "node:url";
 import { readFileSync } from "node:fs";
+import { parseEnv } from "node:util";
 import { generateKeyPairSync, sign as rsaSign } from "node:crypto";
 import { hashPassword, signAccessToken } from "@kando/auth-core";
 import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
@@ -111,6 +112,62 @@ it("clips a final refund to the unpaid balance and preserves previously processe
   const facts=orderFacts({...order,orderHistory:{...order.orderHistory,refundEvent:{eventTime:future,refundDetails:{total:order.total}}}},order.orderId);
   expect(facts.events.map(item=>item.amount)).toEqual([4990000,1000000,3990000]);
 });
+it("opens the Google admin pages in the Linux dev template before any Play credentials or purchases exist", async () => {
+  const sample = parseEnv(readFileSync(new URL("../../../../deploy/linux/.env.example", import.meta.url), "utf8"));
+  const beta: Env = { ...sample, DB: db, CACHE_KV: env.CACHE_KV, JWT_SECRET: env.JWT_SECRET };
+  const email = "beta-reports@example.invalid", password = "report-fixture";
+  await db.prepare("INSERT INTO admin_user(id,email,password_hash,role,status,created_at) VALUES('beta-reports',?,?,'operator','active',?)")
+    .bind(email, await hashPassword(password), past).run();
+  const login = await app.request("/api/v1/admin/auth/login", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({email, password}) }, beta);
+  expect(login.status).toBe(200);
+  const {data} = await login.json() as { data: { access_token: string } };
+  const headers = { Authorization: `Bearer ${data.access_token}` };
+  const betaScope = "development:google_play:com.kando.kandoApp.beta";
+  const pages = {
+    notifications: { scope: betaScope, total: 0, rows: [] }, "notifications/options": { kinds: [], skus: [] },
+    products: { scope: betaScope, approved: [], catalog: null }, configs: { scope: betaScope, rows: [] },
+    orders: { scope: betaScope, rows: [], summary: { order_count: 0 } },
+  };
+  for (const [path, expected] of Object.entries(pages)) {
+    const response = await app.request(`/api/v1/admin/google-play/${path}`, {headers}, beta);
+    expect(response.status, path).toBe(200);
+    expect(await response.json()).toMatchObject({ success: true, data: expected });
+  }
+  expect(await googlePlayAccess(beta, owner)).toMatchObject({ access_policy: "free_launch", sales_available: false, can_purchase: false });
+  const refresh = (bindings: Env) => app.request("/api/v1/admin/google-play/products?refresh=1", {headers}, bindings);
+  const network = vi.mocked(fetch);
+  network.mockClear();
+  for (const incomplete of [beta, {...beta, GOOGLE_PLAY_PUBLISHER_EMAIL: env.GOOGLE_PLAY_PUBLISHER_EMAIL},
+    {...beta, GOOGLE_PLAY_PUBLISHER_PRIVATE_KEY: env.GOOGLE_PLAY_PUBLISHER_PRIVATE_KEY}]) {
+    const response = await refresh(incomplete);
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({success:false, error:{code:"GOOGLE_PLAY_PUBLISHER_NOT_CONFIGURED"}});
+  }
+  expect(network).not.toHaveBeenCalled();
+
+  const configured = {...beta, GOOGLE_PLAY_PUBLISHER_EMAIL: env.GOOGLE_PLAY_PUBLISHER_EMAIL, GOOGLE_PLAY_PUBLISHER_PRIVATE_KEY: env.GOOGLE_PLAY_PUBLISHER_PRIVATE_KEY};
+  const listUrl = "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/" + beta.GOOGLE_PLAY_PACKAGE_NAME + "/subscriptions?pageSize=100";
+  fixtureResponse = url => url === listUrl ? new Response(null, {status:403}) : undefined;
+  const denied = await refresh(configured);
+  expect(denied.status).toBe(503);
+  expect(await denied.json()).toMatchObject({success:false, error:{code:"GOOGLE_PLAY_PUBLISHER_PERMISSION"}});
+  for (const page of [Response.json({}), new Response(null, {status:204})]) {
+    fixtureResponse = url => url === listUrl ? page : undefined;
+    const empty = await refresh(configured);
+    expect(empty.status).toBe(200);
+    expect(await empty.json()).toMatchObject({success:true, data:{scope:betaScope, catalog:[]}});
+  }
+  fixtureResponse = url => url === listUrl ? Response.json(null) : undefined;
+  const malformed = await refresh(configured);
+  expect(malformed.status).toBe(503);
+  expect(await malformed.json()).toMatchObject({error:{code:"GOOGLE_PLAY_CATALOG_UNAVAILABLE"}});
+  fixtureResponse = url => url.includes("/basePlans/monthly/offers?") ? new Response(null, {status:204}) : undefined;
+  const populated = await refresh(env);
+  expect(populated.status).toBe(200);
+  expect(await populated.json()).toMatchObject({data:{scope, catalog:[{product_id:"premium",base_plan_id:"monthly",offer_id:"",countries:["US"]}]}});
+});
+
 it("publishes approved Google placements with scoped role checks, revisions and an idempotent audit, leaving Apple configuration independent",async()=>{
   for(const role of ["super_admin","operator"]){
     await db.prepare(`INSERT INTO admin_user(id,email,password_hash,role,status,created_at) VALUES(?,?,?,?,'active',?)`)
