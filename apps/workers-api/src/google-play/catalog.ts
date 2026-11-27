@@ -24,6 +24,9 @@ async function list(env: Env, resource: string, field: string) {
   return all;
 }
 export async function storeCatalog(env: Env) {
+  if (!env.GOOGLE_PLAY_PUBLISHER_EMAIL?.trim() || !env.GOOGLE_PLAY_PUBLISHER_PRIVATE_KEY?.trim()) {
+    throw new PlayError("GOOGLE_PLAY_PUBLISHER_NOT_CONFIGURED");
+  }
   const catalog: Array<PlayPlan & { countries: string[] }> = [];
   for (const product of await list(env, "subscriptions", "subscriptions")) {
     if (product.packageName !== env.GOOGLE_PLAY_PACKAGE_NAME || typeof product.productId !== "string" || !Array.isArray(product.basePlans) || product.archived) continue;

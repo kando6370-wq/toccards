@@ -135,9 +135,31 @@ it("opens the Google admin pages in the Linux dev template before any Play crede
     expect(await response.json()).toMatchObject({ success: true, data: expected });
   }
   expect(await googlePlayAccess(beta, owner)).toMatchObject({ access_policy: "free_launch", sales_available: false, can_purchase: false });
-  const refresh = await app.request("/api/v1/admin/google-play/products?refresh=1", {headers}, beta);
-  expect(refresh.status).toBe(503);
-  expect(await refresh.json()).toMatchObject({ success: false, error: { code: "GOOGLE_PLAY_UNAVAILABLE" } });
+  const refresh = (bindings: Env) => app.request("/api/v1/admin/google-play/products?refresh=1", {headers}, bindings);
+  const network = vi.mocked(fetch);
+  network.mockClear();
+  for (const incomplete of [beta, {...beta, GOOGLE_PLAY_PUBLISHER_EMAIL: env.GOOGLE_PLAY_PUBLISHER_EMAIL},
+    {...beta, GOOGLE_PLAY_PUBLISHER_PRIVATE_KEY: env.GOOGLE_PLAY_PUBLISHER_PRIVATE_KEY}]) {
+    const response = await refresh(incomplete);
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({success:false, error:{code:"GOOGLE_PLAY_PUBLISHER_NOT_CONFIGURED"}});
+  }
+  expect(network).not.toHaveBeenCalled();
+
+  const configured = {...beta, GOOGLE_PLAY_PUBLISHER_EMAIL: env.GOOGLE_PLAY_PUBLISHER_EMAIL, GOOGLE_PLAY_PUBLISHER_PRIVATE_KEY: env.GOOGLE_PLAY_PUBLISHER_PRIVATE_KEY};
+  const listUrl = "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/" + beta.GOOGLE_PLAY_PACKAGE_NAME + "/subscriptions?pageSize=100";
+  fixtureResponse = url => url === listUrl ? new Response(null, {status:403}) : undefined;
+  const denied = await refresh(configured);
+  expect(denied.status).toBe(503);
+  expect(await denied.json()).toMatchObject({success:false, error:{code:"GOOGLE_PLAY_PUBLISHER_PERMISSION"}});
+  fixtureResponse = url => url === listUrl ? Response.json({}) : undefined;
+  const empty = await refresh(configured);
+  expect(empty.status).toBe(200);
+  expect(await empty.json()).toMatchObject({success:true, data:{scope:betaScope, catalog:[]}});
+  fixtureResponse = undefined;
+  const populated = await refresh(env);
+  expect(populated.status).toBe(200);
+  expect(await populated.json()).toMatchObject({data:{scope, catalog:[{product_id:"premium",base_plan_id:"monthly",offer_id:"",countries:["US"]}]}});
 });
 
 it("publishes approved Google placements with scoped role checks, revisions and an idempotent audit, leaving Apple configuration independent",async()=>{

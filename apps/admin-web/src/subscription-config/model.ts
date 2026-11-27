@@ -207,6 +207,8 @@ export function admissionMessage(reasons: string[]): string {
   const labels: Record<string, string> = { DISPLAY_APPROVAL_REQUIRED: "展示接入尚未确认", NOT_IN_ENTITLEMENT_ALLOWLIST: "未加入权益白名单", ENTITLEMENT_MAPPING_UNAVAILABLE: "权益映射未就绪" };
   return reasons.map((reason) => labels[reason] ?? "系统准入未完成").join("、");
 }
+const playPublisherSetup = "当前环境缺少 Google Play Publisher 凭据，请联系运维配置 GOOGLE_PLAY_PUBLISHER_EMAIL 和 GOOGLE_PLAY_PUBLISHER_PRIVATE_KEY。";
+
 export function subscriptionErrorMessage(error: unknown): string {
   const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
   const labels: Record<string, string> = {
@@ -216,6 +218,12 @@ export function subscriptionErrorMessage(error: unknown): string {
     PRODUCT_SCOPE_CONFLICT: "该商品已属于同一数据库中的另一环境或 App，不能重复准入。",
     PRODUCT_MAPPING_CONFLICT: "该商品已有冲突的权益映射，请核对后处理；原映射未被覆盖。",
     PRODUCT_NOT_ADMITTED: "商品尚未完成系统准入，不能启用或保存到生效配置。",
+    GOOGLE_PLAY_PUBLISHER_NOT_CONFIGURED: playPublisherSetup,
+    GOOGLE_PLAY_UNAVAILABLE: playPublisherSetup, // 兼容仍返回旧错误码的目录接口。
+    GOOGLE_PLAY_PUBLISHER_PERMISSION: "Google 拒绝读取目录。请检查 Google Play Developer API 是否已启用，以及 Play Console 中服务账号对当前应用的权限。",
+    GOOGLE_PLAY_RECORD_NOT_FOUND: "Google Play 找不到请求的应用或订阅资源，请核对当前环境的包名。",
+    GOOGLE_PLAY_CATALOG_UNAVAILABLE: "Google Play 返回的目录数据不完整，请重新刷新目录。",
+    GOOGLE_PLAY_UPSTREAM_UNAVAILABLE: "无法从 Google Play 读取目录，请检查服务账号凭据和网络后重试。",
     CATALOG_NOT_CONFIGURED: "Apple 商品目录尚未配置，请联系接入负责人。",
     CATALOG_UNAVAILABLE: "Apple 商品读取失败，请稍后重试。",
     CATALOG_INVALID_RESPONSE: "Apple 商品信息不完整，暂时无法校验。",

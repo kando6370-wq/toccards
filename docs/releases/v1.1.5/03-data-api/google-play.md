@@ -32,6 +32,16 @@ kd201 上的管理员打开 Google Play 通知或订阅配置时，通知列表�
 
 复验时远端 `dev` 为 `c337da8a`，尚未包含 `a2af9ab1`。kd201 实际加载的 `index-CPmA0NRy.js` 在保存 Google 配置和订单补账时仍直接调用 `crypto.randomUUID()`，内网 HTTP 页面没有此方法。这两项需在修复发布至 dev 后复验。本次仅查询后台，未保存或启用配置、补账或发起商店交易。
 
+### 从 Play 刷新目录
+
+打开配置页时，后台从当前环境的数据库读取已审批商品和展示配置。点击「从 Play 刷新目录」后，服务端才加载实时目录。审批商品和启用展示配置时，服务端会再次核对在售状态。2026-11-27 在 kd201 的 API 容器和持久配置中分别核对变量是否有值，确认测试包名为 `com.kando.kandoApp.beta`，Publisher 邮箱和私钥均缺失。截图中的 `GOOGLE_PLAY_UNAVAILABLE` 发生在请求 Google 之前。
+
+1. 由管理员在服务账号所属 Google Cloud 项目启用 Google Play Developer API，并在 Play Console「用户和权限」中给该账号授予目标测试应用的目录访问权限。Google 按包名列出订阅。此前发布的 Internal 221 属于 `com.cardai.tcg`，kd201 查询的是 `com.kando.kandoApp.beta`。[内部测试包记录](../05-delivery/google-play-internal-221.md)
+2. 通过私有配置渠道将同一服务账号 JSON 的 `client_email` 和 `private_key` 分别写入 kd201 的 `~/apps/toccards-test/shared/.env` 中的 `GOOGLE_PLAY_PUBLISHER_EMAIL` 和 `GOOGLE_PLAY_PUBLISHER_PRIVATE_KEY`。重建当前 release 的 API 容器，使新配置生效。
+3. 重新进入 Google Play 订阅配置，点击刷新。成功时显示可向新订阅者销售的自动续订方案。返回空目录时核对测试包下基础方案的激活状态和可售地区。缺少凭据时接口返回 `503 GOOGLE_PLAY_PUBLISHER_NOT_CONFIGURED`。Google 拒绝访问时返回 `GOOGLE_PLAY_PUBLISHER_PERMISSION`。后台在商品目录卡片中保留原因供排查和重试。
+
+本地验证通过 Admin 101 项、Workers 6 个相关文件 82 项、Linux 预检 8 项、Admin/API 类型检查及 dev/prod Admin 构建。首次运行 Workers 专项时额外命中了 `.wrangler` 中历史源码副本的 2 个失败用例。上述 82 项为按仓库正式测试范围排除该目录后的结果。Linux dev 发布包 dry-run 通过，包含 3 项 bundle 测试。真实后台构建配合模拟商店响应，在浏览器验证了首次打开只读已审批商品、刷新失败后重试、成功空目录、返回在售方案及再次失败后禁用旧选项。代码复核覆盖目录调用方和 iOS 订阅配置错误处理。kd201 实际页面的本轮浏览器会话已回到登录页。真实测试包的刷新仍待 Publisher 授权和注入后用管理员会话复验。
+
 ## 订单与收入
 
 后台的 **Google Play 订单统计** 默认查看正式购买，查询和 XLSX 使用相同筛选。Apple 沿用原报表、统计和导出。Google 收入按完整订单号、扣款及成功退款的 UTC 发生时间核算。汇率快照支持换算，可核实的零金额显示为零，未核实的金额单列待对账。当前有效订阅在匹配到的订单中按购买链去重。一笔订单的多条退款明细只对应一份订阅。
