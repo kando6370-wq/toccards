@@ -152,11 +152,17 @@ it("opens the Google admin pages in the Linux dev template before any Play crede
   const denied = await refresh(configured);
   expect(denied.status).toBe(503);
   expect(await denied.json()).toMatchObject({success:false, error:{code:"GOOGLE_PLAY_PUBLISHER_PERMISSION"}});
-  fixtureResponse = url => url === listUrl ? Response.json({}) : undefined;
-  const empty = await refresh(configured);
-  expect(empty.status).toBe(200);
-  expect(await empty.json()).toMatchObject({success:true, data:{scope:betaScope, catalog:[]}});
-  fixtureResponse = undefined;
+  for (const page of [Response.json({}), new Response(null, {status:204})]) {
+    fixtureResponse = url => url === listUrl ? page : undefined;
+    const empty = await refresh(configured);
+    expect(empty.status).toBe(200);
+    expect(await empty.json()).toMatchObject({success:true, data:{scope:betaScope, catalog:[]}});
+  }
+  fixtureResponse = url => url === listUrl ? Response.json(null) : undefined;
+  const malformed = await refresh(configured);
+  expect(malformed.status).toBe(503);
+  expect(await malformed.json()).toMatchObject({error:{code:"GOOGLE_PLAY_CATALOG_UNAVAILABLE"}});
+  fixtureResponse = url => url.includes("/basePlans/monthly/offers?") ? new Response(null, {status:204}) : undefined;
   const populated = await refresh(env);
   expect(populated.status).toBe(200);
   expect(await populated.json()).toMatchObject({data:{scope, catalog:[{product_id:"premium",base_plan_id:"monthly",offer_id:"",countries:["US"]}]}});

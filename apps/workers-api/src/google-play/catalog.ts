@@ -15,6 +15,7 @@ async function list(env: Env, resource: string, field: string) {
   const all: Record<string,unknown>[] = [], seen = new Set<string>();
   do {
     const data = await publisher(env, `${resource}?pageSize=100${token ? `&pageToken=${encodeURIComponent(token)}` : ""}`);
+    if (data === undefined) break; // Play returns HTTP 204 for an empty subscription or offer list.
     if (!isRecord(data) || (data[field] !== undefined && !Array.isArray(data[field]))) throw new PlayError("GOOGLE_PLAY_CATALOG_UNAVAILABLE");
     all.push(...((data[field] ?? []) as unknown[]).filter(isRecord));
     token = typeof data.nextPageToken === "string" ? data.nextPageToken : "";
