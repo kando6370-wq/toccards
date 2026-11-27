@@ -48,7 +48,7 @@ kd201 上的管理员打开 Google Play 通知或订阅配置时，通知列表�
 
 服务账号 OAuth 返回 200。测试包没有订阅时，Google 的实时订阅列表返回 HTTP 204，响应体为空。旧版后台把空响应视为无效目录，实测刷新返回 `503 GOOGLE_PLAY_CATALOG_UNAVAILABLE`。现在目录分页遇到 204 时返回已读到的条目，首个订阅列表为空时显示空目录，优惠列表为空时保留在售基础方案。HTTP 200 返回 JSON `null` 仍报目录异常，拒绝访问仍报权限错误。订单、验单和 Apple 路径的校验保持独立。
 
-kd201 的 watcher 已发布 `dev@f5bf69d1`。API 健康，实际预检无待迁移项。在运行容器内执行同提交的目录读取，使用容器自带的 dev 凭据访问 Google，得到 0 条记录。修复前已在登录态后台点刷新复现 503，部署后的页面复验等待重新登录。Google、Apple 订阅及权益服务端回归共 216 项通过，Linux 打包专项 3 项通过。
+kd201 的 watcher 已发布 `dev@f5bf69d1`。API 健康，实际预检无待迁移项。在运行容器内执行同提交的目录读取，使用容器自带的 dev 凭据访问 Google，得到 0 条记录。修复前已在登录态后台点刷新复现 503；部署后重新登录 kd201，在「Google Play 订阅配置」点击「从 Play 刷新目录」，`GET /api/v1/admin/google-play/products?refresh=1` 返回 HTTP 200，页面显示「当前应用没有可向新订阅者销售的自动续订方案」，未显示异常提示。Google、Apple 订阅及权益服务端回归共 216 项通过，Linux 打包专项 3 项通过。
 
 同日已将 `card dev` 的 `1.0.8+222` 发布到内部测试轨道，Play Console 的订阅页已出现可用的「创建订阅内容」。该包使用独立 beta 上传证书和 kd201 API，包含 Billing Library 9.1.0 及 `com.android.vending.BILLING`。包名、签名和 20 个 64 位原生库的 16 KB 对齐均已核对。AAB 来源为 `c84f23e8`，SHA-256 为 `8305f678b303a0c7817f021da39330513193b83a5c0b6b781e0c9b899490fa49`。发布时测试人员列表为空，商品定价、基础方案、真机购买与 RTDN 联调待完成。
 
