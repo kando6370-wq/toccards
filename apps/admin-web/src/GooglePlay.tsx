@@ -1,6 +1,7 @@
 import { Alert, Button, Card, DatePicker, Drawer, Input, Modal, Segmented, Select, Space, Table, Tag, Typography, message } from "antd";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { createRequestId } from "./request-id";
 import type { SubscriptionRequest } from "./subscription-config/model";
 
 type Row = Record<string, string | number | null>;
@@ -30,7 +31,7 @@ export function PlayOrders({request,download,superAdmin,accountKey}:{request:Sub
       <Button type="primary" onClick={()=>{setPage(1);setFilters({...draft});}}>查询</Button>
       <Button onClick={()=>void download(`/google-play/orders/export?${params}`).catch(e=>message.error(String(e)))}>导出 XLSX</Button>
     </Space>
-    {superAdmin && <Space><Input aria-label="补账原因" placeholder="销售报告差异原因" value={reason} onChange={e=>setReason(e.target.value)}/><Button disabled={!reason.trim()||!draft.order_id} onClick={async()=>{try{await request('/google-play/orders/reconcile',{method:'POST',body:{order_id:draft.order_id,reason,request_id:crypto.randomUUID()}});await query.refetch();message.success('已回查 Play 订单');}catch(e){message.error(String(e));}}}>按报告订单号补账</Button></Space>}
+    {superAdmin && <Space><Input aria-label="补账原因" placeholder="销售报告差异原因" value={reason} onChange={e=>setReason(e.target.value)}/><Button disabled={!reason.trim()||!draft.order_id} onClick={async()=>{try{await request('/google-play/orders/reconcile',{method:'POST',body:{order_id:draft.order_id,reason,request_id:createRequestId()}});await query.refetch();message.success('已回查 Play 订单');}catch(e){message.error(String(e));}}}>按报告订单号补账</Button></Space>}
     {query.error && <Alert type="error" message={query.error.message}/>}
     {data?.summary && <Space wrap>{[['订单数',data.summary.order_count],['筛选订单中的当前有效订阅',data.summary.active_chains],['毛扣款',usd(data.summary.gross_usd_micros)],['成功退款',usd(data.summary.refund_usd_micros)],['净额',usd(data.summary.net_usd_micros)],['待对账扣款',data.summary.missing_charges],['待对账退款',data.summary.missing_refunds]].map(([k,v])=><Card size="small" key={k} title={k}>{v}</Card>)}</Space>}
     <Table loading={query.isFetching} size="small" scroll={{x:'max-content'}} rowKey={(r,index)=>`${r.order_id??r.message_id}/${index}`} dataSource={data?.rows??[]} columns={[...columns,{title:'操作',key:'actions',render:(_,row:Row)=><Button type="link" onClick={()=>{setDetail(row);setReason('');}}>详情</Button>}]} pagination={{current:page,pageSize:20,total:Number(data?.summary?.total ?? data?.rows[0]?.total ?? 0),showSizeChanger:false,onChange:setPage}}/>
@@ -48,7 +49,7 @@ export function PlayConfigs({request,superAdmin,accountKey}:{request:Subscriptio
   function edit(value:Config){setEditing({value,revision:editing?.revision??saved?.revision??0});}
   async function write(path:string,body:Record<string,unknown>){
     if(!reason.trim()){message.warning('请填写操作原因');return;}
-    setBusy(true);try{await request(`/google-play/${path}`,{method:'POST',body:{...body,request_id:crypto.randomUUID(),reason}});setEditing(null);await Promise.all([client.invalidateQueries({queryKey:['play-products',accountKey]}),client.invalidateQueries({queryKey:['play-configs',accountKey]})]);message.success('已保存');}catch(e){message.error(String(e));}finally{setBusy(false);}
+    setBusy(true);try{await request(`/google-play/${path}`,{method:'POST',body:{...body,request_id:createRequestId(),reason}});setEditing(null);await Promise.all([client.invalidateQueries({queryKey:['play-products',accountKey]}),client.invalidateQueries({queryKey:['play-configs',accountKey]})]);message.success('已保存');}catch(e){message.error(String(e));}finally{setBusy(false);}
   }
   return <Space direction="vertical" style={{width:'100%'}}>
     {products.data && <Tag>{products.data.scope}</Tag>}

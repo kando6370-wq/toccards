@@ -22,6 +22,12 @@ Pub/Sub 推送到 `POST /api/v1/google-play/notifications`。每个环境配置 
 
 2026-11-26 本地核对了 25 条通知映射。Admin 99 项测试和服务端 4 个文件的 79 项专项测试通过，覆盖 Google 签名投递、幂等、脱敏、环境隔离、受控重试，以及 Apple 通知和订单汇总。dev 与 prod 的 Admin 构建通过。本机浏览器使用模拟通知验证了查询、重置、刷新和退款详情，真实 Play 推送仍待联调。
 
+### Linux dev 后台配置与查询（2026-11-27）
+
+kd201 上的管理员打开 Google Play 通知或订阅配置时，通知列表、筛选选项、商品和展示配置接口均返回 `503 GOOGLE_PLAY_NOT_CONFIGURED`。运行容器缺少 `GOOGLE_PLAY_PACKAGE_NAME`，独立数据库的迁移已到 `0021`。在 `shared/.env` 补入 Android 测试包名 `com.kando.kandoApp.beta` 后，仅用当前镜像重建 API，health 返回 200。Linux 配置样例已补入相同包名。该设置决定后台读取的环境和包名，新售和计费仍由对应开关控制。
+
+内网 HTTP 下，Google 配置写入和订单补账使用后台已有的 `createRequestId()` 生成幂等键。本地登录回归覆盖通知、筛选选项、商品、配置和订单五个入口，空数据均返回 200，显式刷新商店目录仍要求 `GOOGLE_PLAY_PUBLISHER_EMAIL` 和 `GOOGLE_PLAY_PUBLISHER_PRIVATE_KEY`。测试包的真实通知投递还需要配置该环境的 Pub/Sub。Admin 100 项和服务端专项 88 项通过，代码复核确认请求权限、幂等字段和 Apple 业务路径沿用原实现。kd201 页面修复后的登录态复验待管理员重新登录。
+
 ## 订单与收入
 
 后台的 **Google Play 订单统计** 默认查看正式购买，查询和 XLSX 使用相同筛选。Apple 沿用原报表、统计和导出。Google 收入按完整订单号、扣款及成功退款的 UTC 发生时间核算。汇率快照支持换算，可核实的零金额显示为零，未核实的金额单列待对账。当前有效订阅在匹配到的订单中按购买链去重。一笔订单的多条退款明细只对应一份订阅。
